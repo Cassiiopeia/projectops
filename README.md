@@ -246,17 +246,24 @@ Settings → Actions → General
 
 ## 문서
 
+전체 목록은 **[문서 인덱스](docs/README.md)**를 참고하세요.
+
 | 문서 | 설명 |
 |------|------|
+| [📚 문서 인덱스](docs/README.md) | docs 전체를 목적별로 안내 |
 | [Agent Skills 가이드](docs/SKILLS.md) | 24종 Skills 용도, 사용법, 전체 개발 사이클 흐름 |
-| [NPX 마법사 가이드](docs/NPX-WIZARD.md) | npx projectops 통합·배포/publish 2축·레거시 자동 마이그레이션 |
+| [NPX 마법사 가이드](docs/NPX-WIZARD.md) | npx projectops 통합, 프로젝트 성격(intent), 배포/publish 2축, 레거시 자동 마이그레이션 |
 | [통합 스크립트 가이드](docs/TEMPLATE-INTEGRATOR.md) | 구 integrator 지원 종료(EOF) 안내 |
 | [버전 관리](docs/VERSION-CONTROL.md) | version.yml, 자동 버전 증가 |
-| [체인지로그 자동화](docs/CHANGELOG-AUTOMATION.md) | 릴리스 노트 provider 사다리, CodeRabbit 연동 |
+| [체인지로그 자동화](docs/CHANGELOG-AUTOMATION.md) | 릴리스 PR 흐름, 릴리스 노트 provider 사다리, CodeRabbit 연동 |
 | [PR Preview](docs/PR-PREVIEW.md) | 임시 서버 배포 시스템 |
-| [Flutter CI/CD](docs/FLUTTER-CICD-OVERVIEW.md) | iOS/Android 자동 배포 |
+| [Flutter CI/CD](docs/FLUTTER-CICD-OVERVIEW.md) | iOS/Android 자동 배포, GitHub Secrets 전체 목록 |
+| [Flutter 마법사](docs/FLUTTER-TESTFLIGHT-WIZARD.md) | [TestFlight](docs/FLUTTER-TESTFLIGHT-WIZARD.md) / [Play Store](docs/FLUTTER-PLAYSTORE-WIZARD.md) / [Firebase](docs/FLUTTER-FIREBASE-WIZARD.md) 배포 설정 마법사 |
 | [SSH+Docker 배포](docs/SSH-DOCKER-DEPLOYMENT-GUIDE.md) | SSH 접속 서버에 Docker 배포 (Synology·AWS EC2 등) |
 | [이슈 자동화](docs/ISSUE-AUTOMATION.md) | Issue Helper, QA 봇 |
+| [GitHub Projects 동기화](docs/PROJECTS-SYNC.md) | Issue Label ↔ Projects Status 동기화 ([마법사](docs/GITHUB-PROJECTS-SYNC-WIZARD.md)) |
+| [브랜치 네이밍 규칙](docs/BRANCH-CONVENTION.md) | `YYYYMMDD_#번호_제목` 규칙과 의존 소비자 (유지보수자용) |
+| [워크플로우 주석 표준](docs/WORKFLOW-COMMENT-GUIDELINES.md) | 주석 컨벤션, 파일별 적용 현황 (기여자용) |
 | [트러블슈팅](docs/TROUBLESHOOTING.md) | 자주 발생하는 문제 해결 |
 
 ---

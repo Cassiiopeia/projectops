@@ -1,0 +1,491 @@
+/* ===================================================================
+ * projectops Flutter 마법사 공통 스타일 (정본)
+ * ===================================================================
+ *
+ * testflight / playstore / firebase 마법사가 공유한다.
+ * 이 파일 하나만 고치면 3종에 동시에 반영된다.
+ *
+ * ⚠️ 이 파일을 고치기 전에 읽을 것
+ * -------------------------------------------------------------------
+ * 1. 마법사 고유 색상·레이아웃은 각 마법사 HTML의 <style>에 둔다.
+ *    여기에는 3종이 공유하는 "컴포넌트"만 넣는다.
+ * 2. .step-indicator 는 "개별 단계 항목의 래퍼"다. 전체 컨테이너가 아니다.
+ *    (과거 firebase가 컨테이너 의미로 써서 충돌했다 — 재발 금지)
+ * 3. 클래스를 추가/삭제하면 _shared/check-consistency.py 가
+ *    3종 HTML의 사용 현황을 대조해 미사용·미정의를 잡아낸다.
+ *
+ * 로드 방법 (각 마법사 HTML <head>)
+ *   <link rel="stylesheet" href="../_shared/wizard.css">
+ *
+ * 폴더만 따로 떼어가면 이 파일이 없어 컴포넌트 마감이 빠지지만,
+ * 레이아웃은 Tailwind CDN이 담당하므로 페이지는 그대로 읽힌다.
+ * =================================================================== */
+
+/* Tooltip Styles */
+.tooltip-container {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+.tooltip-trigger {
+    cursor: help;
+    margin-left: 6px;
+}
+.tooltip-content {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e293b;
+    border: 1px solid #475569;
+    color: #e2e8f0;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    width: 280px;
+    z-index: 50;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    line-height: 1.5;
+}
+.tooltip-content::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 8px solid transparent;
+    border-top-color: #475569;
+}
+.tooltip-container:hover .tooltip-content {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Code Block */
+.code-block {
+    position: relative;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.code-block pre {
+    padding: 16px;
+    overflow-x: auto;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #e2e8f0;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* File Upload Styles */
+.file-upload {
+    border: 2px dashed #3f3f46;
+    border-radius: 12px;
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 16px;
+    background: #1e293b;
+}
+.file-upload:hover {
+    border-color: #60a5fa;
+    background: rgba(59, 130, 246, 0.05);
+}
+.file-upload.dragover {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.1);
+}
+.file-upload.has-file {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.1);
+}
+.file-upload .icon {
+    font-size: 2.5rem;
+    margin-bottom: 8px;
+}
+.file-upload input {
+    display: none;
+}
+.file-info {
+    margin-top: 12px;
+    padding: 8px;
+    background: rgba(34, 197, 94, 0.2);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #22c55e;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #1e293b;
+}
+::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+/* Animations */
+.fade-in {
+    animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Toast */
+.toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #22c55e;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+.toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Validation */
+.input-error {
+    border-color: #ef4444 !important;
+}
+.error-message {
+    color: #ef4444;
+    font-size: 12px;
+    margin-top: 4px;
+}
+.success-message {
+    color: #22c55e;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+/* Modal */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.modal-content {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+/* Skip Button */
+.skip-btn {
+    color: #94a3b8;
+    font-size: 0.75rem;
+    text-decoration: underline;
+    cursor: pointer;
+    display: inline-block;
+    margin-top: 8px;
+}
+.skip-btn:hover {
+    color: #e2e8f0;
+}
+
+/* Result Item */
+.result-item {
+    background: #18181b;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 12px;
+    border: 1px solid #3f3f46;
+}
+.result-item .key {
+    font-weight: 600;
+    color: #60a5fa;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+}
+.result-item .value {
+    background: #27272a;
+    padding: 8px;
+    border-radius: 6px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.8rem;
+    word-break: break-all;
+    max-height: 80px;
+    overflow-y: auto;
+    color: #cbd5e1;
+}
+.copy-btn-small {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    background: #3f3f46;
+    border: none;
+    border-radius: 4px;
+    color: #e4e4e7;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.copy-btn-small:hover {
+    background: #52525b;
+}
+.copy-btn-small.copied {
+    background: #22c55e;
+}
+
+/* Dependency Flow */
+.dependency-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 16px;
+    background: #0f172a;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+.dependency-item {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+}
+.dependency-arrow {
+    color: #64748b;
+    font-size: 20px;
+}
+
+/* Custom Secrets Section */
+.custom-secrets-section {
+    margin-top: 1.5rem;
+    padding: 1.25rem;
+    background: rgba(30, 41, 59, 0.5);
+    border-radius: 12px;
+    border: 2px dashed #475569;
+}
+.custom-secret-item {
+    background: #1e293b;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid #334155;
+}
+.custom-secret-item:last-child {
+    margin-bottom: 0;
+}
+.secret-key-input {
+    font-family: 'Consolas', 'Monaco', monospace;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #475569;
+    border-radius: 6px;
+    background: #0f172a;
+    color: #e2e8f0;
+    font-size: 0.875rem;
+}
+.secret-key-input:focus {
+    outline: none;
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+}
+.add-secret-btn {
+    width: 100%;
+    padding: 0.875rem;
+    border: 2px dashed #60a5fa;
+    background: transparent;
+    color: #60a5fa;
+    cursor: pointer;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s;
+    margin-top: 1rem;
+}
+.add-secret-btn:hover {
+    background: rgba(96, 165, 250, 0.1);
+    border-color: #93c5fd;
+    color: #93c5fd;
+}
+.type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+.type-badge.text {
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.type-badge.binary {
+    background: rgba(251, 146, 60, 0.2);
+    color: #fb923c;
+    border: 1px solid rgba(251, 146, 60, 0.3);
+}
+.usage-hint {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: #0f172a;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+.custom-file-upload {
+    border: 2px dashed #475569;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #0f172a;
+}
+.custom-file-upload:hover {
+    border-color: #60a5fa;
+    background: rgba(59, 130, 246, 0.05);
+}
+.custom-file-upload.has-file {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.1);
+}
+.custom-file-upload input {
+    display: none;
+}
+.remove-secret-btn {
+    padding: 0.25rem 0.5rem;
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #f87171;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+}
+.remove-secret-btn:hover {
+    background: rgba(239, 68, 68, 0.3);
+}
+
+/* ===================================================================
+ * 단계 인디케이터 (3종 공통 마크업 계약)
+ * ===================================================================
+ * 마크업 구조 — 이 형태를 벗어나지 말 것:
+ *
+ *   <div class="flex items-start justify-between ...">   ← 컨테이너(Tailwind)
+ *     <div class="step-indicator" data-step="1" onclick="goToStep(1)">
+ *       <div class="step-circle">1</div>
+ *       <span class="step-label">시작</span>
+ *     </div>
+ *     ...
+ *   </div>
+ *
+ * .step-indicator = 항목 하나. .step-circle = 원형 번호 배지.
+ * 색상은 각 마법사가 Tailwind 유틸리티로 입힌다 (여기선 동작만 정의).
+ * =================================================================== */
+.step-indicator {
+    cursor: pointer;
+}
+.step-indicator .step-circle {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+/* 어느 단계로든 자유롭게 이동 가능함을 호버로 드러낸다 */
+.step-indicator:hover .step-circle {
+    transform: translateY(-2px);
+}
+.step-label {
+    font-size: 0.625rem;
+    margin-top: 0.375rem;
+    text-align: center;
+    line-height: 1.2;
+}
+
+/* ===================================================================
+ * 첫 사용자 안내 컴포넌트
+ * =================================================================== */
+/* 소요 시간·준비물 등 단계 상단 요약 배너 */
+.wizard-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1rem;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+.wizard-meta strong {
+    color: #e2e8f0;
+    font-weight: 600;
+}
+/* 진행 상황이 자동 저장됨을 알리는 안심 문구 */
+.resume-hint {
+    font-size: 0.7rem;
+    color: #64748b;
+    text-align: center;
+    margin-top: 0.5rem;
+}
+
+/* ===================================================================
+ * JS가 참조하는 동작용 클래스 (스타일은 Tailwind가 담당)
+ * ===================================================================
+ * 여기에 정의를 두는 이유: 순수 Tailwind로만 쓰면 "이 클래스가 무슨 역할인지"가
+ * 코드 어디에도 남지 않아, 리팩터링 때 조용히 사라진다.
+ * =================================================================== */
+
+/* 단계 본문 컨테이너. showStep()이 hidden 토글로 하나만 노출한다. */
+.step-content {
+    display: block;
+}
+.step-content.hidden {
+    display: none;
+}
+
+/* 원형 단계 번호 배지 — 색상은 마법사별 Tailwind 유틸리티가 입힌다 */
+.step-circle {
+    flex-shrink: 0;
+}
+
+/* 일반 복사 버튼 (코드블록 우상단 등) */
+.copy-btn {
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+.copy-btn.copied {
+    background: #22c55e;
+    color: #0f172a;
+}

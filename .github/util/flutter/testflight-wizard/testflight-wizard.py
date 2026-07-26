@@ -92,17 +92,120 @@ PROFILE_NAME = ""
 USES_NON_EXEMPT_ENCRYPTION = "false"
 TEMPLATE_DIR = ""
 
+# ── 쓰기 게이트 (--dry-run 지원) ─────────────────────────────────────
+# 파일을 변경하는 원시 동작은 전부 아래 게이트 함수를 거친다.
+# DRY_RUN이면 디스크를 건드리지 않고 "무엇을 할지"만 출력한다.
+#
+# ⚠️ 오버레이가 필요한 이유
+#   이 스크립트는 "쓰고 → 다시 읽어 검증"하는 단계가 여러 곳이다.
+#   단순히 쓰기만 건너뛰면 뒷 단계가 낡은 내용을 읽어 실제 실행과 다른
+#   경로를 타고 거짓 실패를 낸다. 그래서 dry-run에서는 쓰였을 내용을
+#   메모리에 보관하고 read_text가 그것을 먼저 보게 한다.
+DRY_RUN = False
+NO_BACKUP = False
+_DRY_FS = {}       # path -> content (dry-run 가상 파일 내용)
+_DRY_DELETED = set()  # dry-run에서 삭제된 것으로 간주하는 경로
+
+
+def _dry(msg):
+    print(f"{YELLOW}[dry-run]{NC} {msg}")
+
+
+def copy_file(src, dst):
+    """shutil.copyfile 대체 — dry-run이면 계획만 출력하고 오버레이에 반영한다."""
+    if DRY_RUN:
+        _dry(f"복사: {src} → {dst}")
+        try:
+            _DRY_FS[dst] = read_text(src)
+            _DRY_DELETED.discard(dst)
+        except OSError:
+            pass
+        return
+    shutil.copyfile(src, dst)
+
+
+def backup_file(path, suffix=".bak"):
+    """백업 생성. --no-backup이면 건너뛴다."""
+    if NO_BACKUP:
+        return
+    copy_file(path, f"{path}{suffix}")
+
+
+def remove_file(path):
+    """삭제 — dry-run이면 계획만. 없으면 조용히 통과(구 동작 유지)."""
+    if DRY_RUN:
+        _dry(f"삭제: {path}")
+        _DRY_FS.pop(path, None)
+        _DRY_DELETED.add(path)
+        return
+    if os.path.exists(path):
+        os.remove(path)
+
+
+def move_file(src, dst):
+    """이동(주로 백업 복원) — dry-run이면 계획만."""
+    if DRY_RUN:
+        _dry(f"이동: {src} → {dst}")
+        try:
+            _DRY_FS[dst] = read_text(src)
+            _DRY_DELETED.discard(dst)
+        except OSError:
+            pass
+        _DRY_FS.pop(src, None)
+        _DRY_DELETED.add(src)
+        return
+    shutil.move(src, dst)
+
+
+def path_exists(path):
+    """존재 확인 — dry-run 오버레이를 반영한다."""
+    if DRY_RUN:
+        if path in _DRY_FS:
+            return True
+        if path in _DRY_DELETED:
+            return False
+    return os.path.exists(path)
+
+
+def make_dirs(path):
+    if DRY_RUN:
+        _dry(f"디렉터리 생성: {path}")
+        return
+    os.makedirs(path, exist_ok=True)
+
+
 # 파일 IO: 바이트 보존을 위해 surrogateescape + 개행 무변환(newline="")
 _IO_KWARGS = dict(encoding="utf-8", errors="surrogateescape", newline="")
 
 
 def read_text(path):
+    if DRY_RUN:
+        if path in _DRY_FS:
+            return _DRY_FS[path]
+        if path in _DRY_DELETED:
+            raise FileNotFoundError(path)
     with open(path, "r", **_IO_KWARGS) as f:
         return f.read()
 
 
 def write_text(path, content):
+    if DRY_RUN:
+        _dry(f"쓰기: {path} ({len(content)} bytes)")
+        _DRY_FS[path] = content
+        _DRY_DELETED.discard(path)
+        return
     with open(path, "w", **_IO_KWARGS) as f:
+        f.write(content)
+
+
+def append_text(path, content):
+    if DRY_RUN:
+        _dry(f"추가: {path}")
+        base = read_text(path) if (path in _DRY_FS or path_exists(path)) else ""
+        _DRY_FS[path] = base + content
+        _DRY_DELETED.discard(path)
+        return
+    with open(path, "a", **_IO_KWARGS) as f:
         f.write(content)
 
 
@@ -141,19 +244,32 @@ def show_help():
   3. xcodebuild -exportArchive (IPA 생성)
   4. fastlane upload_testflight (TestFlight 업로드)
 
-{BLUE}사용법:{NC}
+{BLUE}사용법 (권장 — 명명 플래그):{NC}
+  python3 testflight-wizard.py setup \\
+    --project-path /path/to/project \\
+    --bundle-id com.example.myapp \\
+    --team-id ABC1234DEF \\
+    --profile-name "MyApp Distribution"
+
+{BLUE}사용법 (구형 — 위치인자, 계속 지원):{NC}
   python3 testflight-wizard.py setup PROJECT_PATH BUNDLE_ID TEAM_ID PROFILE_NAME [USES_ENCRYPTION]
 
 {BLUE}매개변수:{NC}
-  PROJECT_PATH      Flutter 프로젝트 루트 경로
-  BUNDLE_ID         iOS 앱 Bundle ID (예: com.example.myapp)
-  TEAM_ID           Apple Developer Team ID (10자리)
-  PROFILE_NAME      Provisioning Profile 이름
-  USES_ENCRYPTION   암호화 사용 여부 (true/false, 기본값: false)
+  --project-path      Flutter 프로젝트 루트 경로
+  --bundle-id         iOS 앱 Bundle ID (예: com.example.myapp)
+  --team-id           Apple Developer Team ID (10자리)
+  --profile-name      Provisioning Profile 이름
+  --uses-encryption   암호화 사용 여부 (true/false, 기본값: false)
+
+{BLUE}공통 옵션 (3종 마법사 동일):{NC}
+  --dry-run           무엇을 바꿀지만 출력하고 파일은 건드리지 않음
+  --no-backup         기존 파일 백업(.bak)을 만들지 않음
+  --non-interactive   확인 프롬프트 없이 진행 (CI용)
 
 {BLUE}예시:{NC}
+  python3 testflight-wizard.py setup --project-path . --bundle-id com.example.myapp \\
+    --team-id ABC1234DEF --profile-name "MyApp Distribution" --dry-run
   python3 testflight-wizard.py setup /path/to/project com.example.myapp ABC1234DEF "MyApp Distribution"
-  python3 testflight-wizard.py setup /path/to/project com.example.myapp ABC1234DEF "MyApp Distribution" false
 
 {BLUE}생성/수정되는 파일:{NC}
   - ios/Gemfile                    Fastlane 의존성
@@ -187,7 +303,7 @@ def validate_params(params):
         sys.exit(1)
 
     # pubspec.yaml 확인 (Flutter 프로젝트)
-    if not os.path.isfile(f"{PROJECT_PATH}/pubspec.yaml"):
+    if not path_exists(f"{PROJECT_PATH}/pubspec.yaml"):
         print_error("Flutter 프로젝트가 아닙니다 (pubspec.yaml 없음)")
         sys.exit(1)
 
@@ -235,9 +351,9 @@ def create_gemfile():
     gemfile_path = f"{PROJECT_PATH}/ios/Gemfile"
 
     # 기존 파일 백업
-    if os.path.isfile(gemfile_path):
+    if path_exists(gemfile_path):
         print_warning(f"기존 Gemfile 백업: {gemfile_path}.bak")
-        shutil.copyfile(gemfile_path, f"{gemfile_path}.bak")
+        backup_file(gemfile_path)
 
     write_text(gemfile_path, """# frozen_string_literal: true
 
@@ -267,20 +383,20 @@ def create_fastfile():
     template_fastfile = f"{TEMPLATE_DIR}/Fastfile.ios.template"
 
     # fastlane 디렉토리 생성
-    os.makedirs(fastlane_dir, exist_ok=True)
+    make_dirs(fastlane_dir)
 
     # 기존 파일 백업
-    if os.path.isfile(fastfile_path):
+    if path_exists(fastfile_path):
         print_warning(f"기존 Fastfile 백업: {fastfile_path}.bak")
-        shutil.copyfile(fastfile_path, f"{fastfile_path}.bak")
+        backup_file(fastfile_path)
 
     # 템플릿 파일 존재 확인
-    if not os.path.isfile(template_fastfile):
+    if not path_exists(template_fastfile):
         print_error(f"Fastfile 템플릿을 찾을 수 없습니다: {template_fastfile}")
         sys.exit(1)
 
     # 템플릿에서 복사
-    shutil.copyfile(template_fastfile, fastfile_path)
+    copy_file(template_fastfile, fastfile_path)
 
     print_success(f"Fastfile 생성 완료: {fastfile_path}")
     print_info("  → GitHub Actions 워크플로우에서 이 파일을 직접 사용합니다")
@@ -294,12 +410,12 @@ def create_export_options_plist():
     template_export_options = f"{TEMPLATE_DIR}/ExportOptions.plist"
 
     # 기존 파일 백업
-    if os.path.isfile(export_options_path):
+    if path_exists(export_options_path):
         print_warning(f"기존 ExportOptions.plist 백업: {export_options_path}.bak")
-        shutil.copyfile(export_options_path, f"{export_options_path}.bak")
+        backup_file(export_options_path)
 
     # 템플릿 파일 존재 확인
-    if os.path.isfile(template_export_options):
+    if path_exists(template_export_options):
         # 템플릿에서 복사하고 플레이스홀더 치환
         content = read_text(template_export_options)
         content = content.replace("{{TEAM_ID}}", TEAM_ID)
@@ -349,10 +465,10 @@ def update_gitignore():
     gitignore_path = f"{PROJECT_PATH}/ios/.gitignore"
 
     # Gemfile.lock은 일반적으로 커밋하지 않음
-    if os.path.isfile(gitignore_path):
+    if path_exists(gitignore_path):
         if not re.search("Gemfile.lock", read_text(gitignore_path)):
-            with open(gitignore_path, "a", **_IO_KWARGS) as f:
-                f.write("\n# Fastlane\nGemfile.lock\n")
+            # 게이트 경유 — dry-run이면 실제 추가하지 않는다
+            append_text(gitignore_path, "\n# Fastlane\nGemfile.lock\n")
             print_info("Gemfile.lock을 .gitignore에 추가했습니다")
 
     print_success(".gitignore 확인 완료")
@@ -364,7 +480,7 @@ def update_info_plist_encryption():
 
     info_plist_path = f"{PROJECT_PATH}/ios/Runner/Info.plist"
 
-    if not os.path.isfile(info_plist_path):
+    if not path_exists(info_plist_path):
         print_error(f"Info.plist 파일을 찾을 수 없습니다: {info_plist_path}")
         return 1
 
@@ -391,7 +507,7 @@ def update_info_plist_encryption():
         return 0
 
     # 백업 생성
-    shutil.copyfile(info_plist_path, f"{info_plist_path}.bak")
+    backup_file(info_plist_path)
     print_info(f"백업 생성: {info_plist_path}.bak")
 
     # </dict> 바로 앞에 ITSAppUsesNonExemptEncryption 추가
@@ -406,10 +522,10 @@ def update_info_plist_encryption():
     # 변경 확인
     if "ITSAppUsesNonExemptEncryption" in read_text(info_plist_path):
         print_success(f"ITSAppUsesNonExemptEncryption 추가 완료: <{encryption_value}/>")
-        os.remove(f"{info_plist_path}.bak")
+        remove_file(f"{info_plist_path}.bak")
     else:
         print_error("ITSAppUsesNonExemptEncryption 추가 실패!")
-        shutil.move(f"{info_plist_path}.bak", info_plist_path)
+        move_file(f"{info_plist_path}.bak", info_plist_path)
         return 1
 
     return 0
@@ -421,7 +537,7 @@ def update_bundle_id():
 
     pbxproj_path = f"{PROJECT_PATH}/ios/Runner.xcodeproj/project.pbxproj"
 
-    if not os.path.isfile(pbxproj_path):
+    if not path_exists(pbxproj_path):
         print_error(f"project.pbxproj 파일을 찾을 수 없습니다: {pbxproj_path}")
         return 1
 
@@ -453,7 +569,7 @@ def update_bundle_id():
         print_warning("Bundle ID가 다릅니다. 자동으로 변경합니다...")
 
         # 백업 생성
-        shutil.copyfile(pbxproj_path, f"{pbxproj_path}.bundleid.bak")
+        backup_file(pbxproj_path, ".bundleid.bak")
 
         # Runner 앱의 Bundle ID 변경 (정확히 매칭)
         content = content.replace(
@@ -471,10 +587,10 @@ def update_bundle_id():
         # 변경 확인
         if f"PRODUCT_BUNDLE_IDENTIFIER = {BUNDLE_ID};" in read_text(pbxproj_path):
             print_success(f"Bundle ID 변경 완료: {current_bundle_id} → {BUNDLE_ID}")
-            os.remove(f"{pbxproj_path}.bundleid.bak")
+            remove_file(f"{pbxproj_path}.bundleid.bak")
         else:
             print_error("Bundle ID 변경 실패!")
-            shutil.move(f"{pbxproj_path}.bundleid.bak", pbxproj_path)
+            move_file(f"{pbxproj_path}.bundleid.bak", pbxproj_path)
             return 1
 
     return 0
@@ -495,7 +611,7 @@ def patch_xcode_project():
 
     pbxproj_path = f"{PROJECT_PATH}/ios/Runner.xcodeproj/project.pbxproj"
 
-    if not os.path.isfile(pbxproj_path):
+    if not path_exists(pbxproj_path):
         print_error(f"project.pbxproj 파일을 찾을 수 없습니다: {pbxproj_path}")
         return 1
 
@@ -506,7 +622,7 @@ def patch_xcode_project():
         sys.exit(rc)
 
     # 백업 생성
-    shutil.copyfile(pbxproj_path, f"{pbxproj_path}.bak")
+    backup_file(pbxproj_path)
     print_info(f"백업 생성: {pbxproj_path}.bak")
 
     content = read_text(pbxproj_path)
@@ -534,7 +650,7 @@ def patch_xcode_project():
             print_success("PROVISIONING_PROFILE_SPECIFIER 업데이트 완료")
 
         write_text(pbxproj_path, content)
-        os.remove(f"{pbxproj_path}.bak")
+        remove_file(f"{pbxproj_path}.bak")
         print_success("Xcode 프로젝트 확인 완료")
         return 0
 
@@ -585,7 +701,7 @@ def patch_xcode_project():
             print_success("CODE_SIGN_IDENTITY[sdk=iphoneos*] 업데이트 완료")
 
         write_text(pbxproj_path, content)
-        os.remove(f"{pbxproj_path}.bak")
+        remove_file(f"{pbxproj_path}.bak")
         return 0
 
     # Runner 타겟의 buildSettings에 DEVELOPMENT_TEAM 추가
@@ -616,7 +732,7 @@ def patch_xcode_project():
         print_info("1. 위 목록에서 정확한 Bundle ID를 확인하세요 (대소문자 구분!)")
         print_info("2. 올바른 Bundle ID로 스크립트를 다시 실행하세요")
         print_info(f'   예: python3 testflight-wizard.py setup "{PROJECT_PATH}" "정확한.번들.아이디" "{TEAM_ID}" "{PROFILE_NAME}"')
-        shutil.move(f"{pbxproj_path}.bak", pbxproj_path)
+        move_file(f"{pbxproj_path}.bak", pbxproj_path)
         return 1
 
     # Runner 앱의 Bundle ID 라인 다음에 Manual Signing 관련 설정 모두 추가
@@ -647,7 +763,7 @@ def patch_xcode_project():
     if f"DEVELOPMENT_TEAM = {TEAM_ID}" in content and "CODE_SIGN_STYLE = Manual" in content:
         print_success(f"DEVELOPMENT_TEAM 추가 완료: {TEAM_ID}")
         print_success("CODE_SIGN_STYLE = Manual 설정 완료")
-        os.remove(f"{pbxproj_path}.bak")
+        remove_file(f"{pbxproj_path}.bak")
     else:
         print_error("DEVELOPMENT_TEAM 또는 CODE_SIGN_STYLE 추가 실패!")
         print("")
@@ -662,7 +778,7 @@ def patch_xcode_project():
         print("")
         print_warning("수동 설정 방법:")
         print_info("  Xcode 열기 → Runner 타겟 → Signing & Capabilities → Team 선택")
-        shutil.move(f"{pbxproj_path}.bak", pbxproj_path)
+        move_file(f"{pbxproj_path}.bak", pbxproj_path)
         return 1
 
     print_success("Xcode 프로젝트 설정 완료 (Manual Signing 적용됨)")
@@ -733,6 +849,80 @@ def print_completion():
 # 메인 실행
 # ===================================================================
 
+# ===================================================================
+# 3종 공통 인자 계약 (testflight / playstore / firebase 동일)
+# ===================================================================
+# 정본은 **명명 플래그**다. 위치인자가 10개까지 늘어나면서 순서 실수가
+# 잦았고(특히 비밀번호 자리), 무엇을 넘기는지 명령어만 보고 알 수 없었다.
+#
+# 다만 구 위치인자 호출도 계속 받는다 — 마법사 HTML이 이미 생성해 사용자가
+# 복사해 둔 명령어가 위치인자 형식이기 때문이다. 둘 다 동작한다.
+#
+#   신형:  setup --project-path /p --bundle-id com.x.y --team-id ABC123 ...
+#   구형:  setup /p com.x.y ABC123 "Profile Name"
+#
+# ⚠️ 이 블록은 3종 .py에 동일하게 존재해야 한다.
+#    _shared/check-consistency.py 가 동일성을 검증한다.
+# ===================================================================
+
+COMMON_FLAGS = ("--dry-run", "--non-interactive", "--no-backup")
+
+
+def normalize_params(params, order):
+    """명명 플래그와 위치인자를 함께 받아 (위치인자 리스트, 옵션 dict)로 정규화한다.
+
+    order: 위치인자 순서에 대응하는 플래그 이름 튜플
+           예) ("project-path", "bundle-id", "team-id", "profile-name")
+    지원 형식: --key value / --key=value / 부울 플래그(COMMON_FLAGS)
+    """
+    named, positional = {}, []
+    opts = {"dry_run": False, "non_interactive": False, "backup": True}
+    i = 0
+    while i < len(params):
+        tok = params[i]
+        if tok in COMMON_FLAGS:
+            if tok == "--dry-run":
+                opts["dry_run"] = True
+            elif tok == "--non-interactive":
+                opts["non_interactive"] = True
+            else:
+                opts["backup"] = False
+            i += 1
+            continue
+        if tok.startswith("--"):
+            key, _, inline = tok[2:].partition("=")
+            if inline:
+                named[key] = inline
+                i += 1
+            else:
+                if i + 1 >= len(params):
+                    print_error(f"--{key} 값이 없습니다.")
+                    sys.exit(1)
+                named[key] = params[i + 1]
+                i += 2
+            if key not in order:
+                print_error(f"알 수 없는 옵션입니다: --{key}")
+                print(f"사용 가능: {', '.join('--' + k for k in order)}")
+                sys.exit(1)
+            continue
+        positional.append(tok)
+        i += 1
+
+    if named:
+        # 명명 플래그가 하나라도 있으면 명명 방식으로 간주하고 order대로 재배열한다.
+        # 값이 빠진 자리는 빈 문자열로 채워 기존 검증 로직이 그대로 잡아내게 한다.
+        merged = [named.get(k, "") for k in order]
+        # 위치인자를 섞어 쓴 경우(부분 마이그레이션) 앞에서부터 빈 자리를 메운다
+        for value in positional:
+            for idx in range(len(merged)):
+                if not merged[idx]:
+                    merged[idx] = value
+                    break
+        return merged, opts
+
+    return positional, opts
+
+
 def cmd_setup(params):
     print("")
     print(f"{CYAN}╔════════════════════════════════════════════════════════════════╗{NC}")
@@ -744,6 +934,15 @@ def cmd_setup(params):
     if params and params[0] in ("-h", "--help"):
         show_help()
         sys.exit(0)
+
+    # 명명 플래그 → 위치인자 정규화 (구/신 호출 형식 모두 지원)
+    global DRY_RUN, NO_BACKUP
+    params, cli_opts = normalize_params(params, ("project-path", "bundle-id", "team-id", "profile-name", "uses-encryption"))
+    DRY_RUN = cli_opts["dry_run"]
+    NO_BACKUP = not cli_opts["backup"]
+    if DRY_RUN:
+        print(f"{YELLOW}⚠️  dry-run 모드 — 실제 파일은 만들거나 고치지 않습니다.{NC}")
+        print("")
 
     # 매개변수 검증
     validate_params(params)

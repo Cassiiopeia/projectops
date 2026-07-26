@@ -27,15 +27,22 @@ Issue Label과 GitHub Projects Status를 양방향으로 동기화하는 기능�
 
 ### 1단계: 워크플로우 설정
 
-`.github/workflows/PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml` 파일을 열고:
+`.github/workflows/PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml` 파일을 열면 `PROJECT_URL`이 **주석 처리된 상태**로 배포되어 있습니다. 주석(`#`)을 지우고 실제 URL로 바꿉니다.
 
 ```yaml
 env:
   STATUS_LABELS: '["작업전", "작업중", "담당자확인", "피드백", "작업완료", "보류", "취소"]'
 
-  # PROJECT_URL 주석 해제 후 실제 URL 입력
-  PROJECT_URL: 'https://github.com/orgs/YOUR-ORG/projects/1'
+  # 배포 직후 상태 (비활성)
+  # PROJECT_URL: 'https://github.com/orgs/YOUR-ORG/projects/1'
+
+  # ↓ 주석을 지우고 본인 프로젝트 URL로 교체
+  PROJECT_URL: 'https://github.com/orgs/MY-ORG/projects/3'
 ```
+
+> `PROJECT_URL`이 비어 있으면 워크플로우는 실패하지 않고 안내 로그만 남긴 뒤 조용히 종료합니다. 설정 전까지는 아무 동작도 하지 않으므로 안전합니다.
+
+`_GITHUB_PAT_TOKEN` Secret(권한: `repo`, `project`)도 함께 등록해야 합니다.
 
 ### 2단계: 끝!
 

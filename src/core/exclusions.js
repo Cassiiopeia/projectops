@@ -8,6 +8,9 @@ export const DOCS_TO_REMOVE = [
   "AGENTS.md",
   "GEMINI.md",
   "gemini-extension.json",
+  // 릴리스마다 changelog-deploy 파이프라인이 재생성하는 이 레포 전용 작업 산출물.
+  // 사용자 프로젝트에는 의미가 없으므로 복사하지 않는다.
+  "pr_body.md",
 ];
 
 export const PLUGIN_ITEMS_TO_REMOVE = [

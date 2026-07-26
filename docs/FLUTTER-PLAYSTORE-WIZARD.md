@@ -22,7 +22,7 @@ Play Store 마법사는 웹 UI를 통해 Android 배포에 필요한 설정 파�
 
 **위치:** `.github/util/flutter/playstore-wizard/`
 
-**버전:** 1.0.0
+**버전:** 1.5.0 (정확한 값은 마법사 헤더의 버전 배지 또는 `version.json` 참조)
 
 **호환성:**
 - Flutter >= 3.0.0
@@ -97,6 +97,37 @@ Key Alias: "release-key"
 Key Password: "your-key-password"
 ```
 
+### 로컬 스크립트 직접 실행 (CLI)
+
+```bash
+python3 .github/util/flutter/playstore-wizard/playstore-wizard.py setup \
+  --project-path . \
+  --application-id com.example.app \
+  --key-alias my-release-key \
+  --store-password MyPass123 --key-password MyPass123 \
+  --validity-days 99999 \
+  --cert-cn "My Name" --cert-o "My Company" --cert-l "Seoul" --cert-c "KR"
+```
+
+| 옵션 | 설명 |
+|------|------|
+| `--project-path` | Flutter 프로젝트 루트 경로 |
+| `--application-id` | Android Application ID |
+| `--key-alias` | Keystore alias |
+| `--store-password` / `--key-password` | Keystore / Key 비밀번호 |
+| `--validity-days` | 인증서 유효기간(일) |
+| `--cert-cn` / `--cert-o` / `--cert-l` / `--cert-c` | 인증서 정보 |
+
+#### 공통 옵션 (마법사 3종 동일)
+
+| 옵션 | 설명 |
+|------|------|
+| `--dry-run` | 무엇을 바꿀지만 출력. keystore도 실제로 만들지 않음 |
+| `--no-backup` | 기존 파일 백업(`.bak`)을 만들지 않음 |
+| `--non-interactive` | 확인 프롬프트 없이 진행 (CI용) |
+
+> ⚠️ 구 위치인자 형식(10개)도 계속 동작하지만, **비밀번호가 4·5번째 자리라 순서를 한 칸만 틀려도 잘못된 값이 저장됩니다.** 명명 플래그를 권장합니다.
+
 ---
 
 ## 생성되는 파일
@@ -123,14 +154,23 @@ Play Store 배포 자동화 스크립트입니다.
 
 **위치:** `android/app/build.gradle.kts` (수동 추가 필요)
 
+서명 값은 환경변수가 아니라 **`android/key.properties` 파일**에서 읽습니다. CI에서는 워크플로우가 Secret으로 이 파일과 keystore를 복원합니다.
+
 ```kotlin
+// key.properties 로드
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
 android {
     signingConfigs {
         create("release") {
-            storeFile = file("release-key.jks")
-            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-            keyAlias = System.getenv("ANDROID_KEY_ALIAS")
-            keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            keyAlias = keystoreProperties["keyAlias"] as String? ?: ""
+            keyPassword = keystoreProperties["keyPassword"] as String? ?: ""
+            storeFile = keystoreProperties["storeFile"]?.let { rootProject.file(it) }
+            storePassword = keystoreProperties["storePassword"] as String? ?: ""
         }
     }
     buildTypes {
@@ -141,6 +181,17 @@ android {
 }
 ```
 
+`android/key.properties` 형식 (로컬 빌드용, `.gitignore`에 반드시 추가):
+
+```properties
+storeFile=keystore/key.jks
+storePassword=스토어_비밀번호
+keyAlias=키_별칭
+keyPassword=키_비밀번호
+```
+
+전체 템플릿은 `.github/util/flutter/playstore-wizard/templates/build.gradle.kts.signing.template`을 참고하세요.
+
 ---
 
 ## GitHub Secrets 설정
@@ -149,11 +200,15 @@ android {
 
 | Secret 이름 | 설명 | 값 형식 |
 |------------|------|---------|
-| `ANDROID_KEYSTORE_BASE64` | Release Keystore (.jks) | Base64 인코딩 |
-| `ANDROID_KEYSTORE_PASSWORD` | Keystore 비밀번호 | 문자열 |
-| `ANDROID_KEY_ALIAS` | 키 별칭 | 문자열 |
-| `ANDROID_KEY_PASSWORD` | 키 비밀번호 | 문자열 |
-| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | 서비스 계정 JSON 내용 | JSON 문자열 |
+| `RELEASE_KEYSTORE_BASE64` | Release Keystore (.jks) | Base64 인코딩 |
+| `RELEASE_KEYSTORE_PASSWORD` | Keystore 비밀번호 | 문자열 |
+| `RELEASE_KEY_ALIAS` | 키 별칭 | 문자열 |
+| `RELEASE_KEY_PASSWORD` | 키 비밀번호 | 문자열 |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64` | Play Console 서비스 계정 JSON | Base64 인코딩 |
+| `GOOGLE_SERVICES_JSON` | Firebase `google-services.json` 내용 | JSON 문자열 |
+| `ENV_FILE` 또는 `ENV` (선택) | `.env` 파일 내용 (`ENV_FILE` 우선) | 문자열 |
+
+> ⚠️ Secret 이름은 워크플로우가 참조하는 이름과 **정확히** 일치해야 합니다. 서명 키 계열은 `RELEASE_` 접두사이며, Play Console 서비스 계정은 JSON 원문이 아니라 **base64 인코딩 값**(`..._BASE64`)입니다.
 
 ### Base64 인코딩 방법
 
@@ -161,11 +216,15 @@ android {
 # Keystore 인코딩
 base64 -i release-key.jks | pbcopy   # macOS
 base64 release-key.jks               # Linux
+
+# Play Console 서비스 계정 JSON 인코딩
+base64 -i service-account.json | pbcopy   # macOS
+base64 service-account.json               # Linux
 ```
 
 ### 서비스 계정 JSON 설정
 
-서비스 계정 JSON 파일 전체 내용을 Secret으로 설정합니다:
+아래 형태의 서비스 계정 JSON 파일을 **base64로 인코딩한 값**을 `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64`에 설정합니다:
 
 ```json
 {
@@ -193,10 +252,10 @@ base64 release-key.jks               # Linux
 - **트리거:** `@projectops build app` 또는 `@projectops apk build` 댓글 (repository_dispatch)
 - **용도:** PR/이슈에서 테스트 APK 빌드
 
-### Synology NAS 배포
+### 자체 서버(SMB) 배포
 - **파일:** `PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD.yaml`
 - **트리거:** main 브랜치 push
-- **용도:** 사내 Synology NAS에 APK 배포
+- **용도:** 자체 서버(Synology NAS, 일반 NAS, Linux 등)의 SMB 공유에 APK 배포
 
 ---
 
@@ -209,8 +268,8 @@ base64 release-key.jks               # Linux
 ```
 
 **해결:**
-1. `ANDROID_KEYSTORE_PASSWORD`가 정확한지 확인
-2. Base64 인코딩이 올바르게 되었는지 확인
+1. `RELEASE_KEYSTORE_PASSWORD` / `RELEASE_KEY_PASSWORD`가 정확한지 확인
+2. `RELEASE_KEYSTORE_BASE64`의 Base64 인코딩이 올바르게 되었는지 확인
 3. Keystore 파일이 손상되지 않았는지 확인
 
 ### 서비스 계정 오류
@@ -250,17 +309,24 @@ base64 release-key.jks               # Linux
 ## 파일 구조
 
 ```
-.github/util/flutter/playstore-wizard/
-├── playstore-wizard.html          # 마법사 웹 UI
-├── playstore-wizard.js            # 마법사 로직
-├── playstore-wizard.py            # 설정 스크립트 (setup / apply / detect-app-id 서브커맨드, 전 OS 공용)
-├── version.json                   # 버전 정보
-├── version-sync.sh                # 버전 동기화 스크립트
-├── images/                        # 가이드 이미지
-└── templates/
-    ├── Fastfile.playstore.template         # Fastfile 템플릿
-    └── build.gradle.kts.signing.template   # 서명 설정 템플릿
+.github/util/flutter/
+├── _shared/                            # 마법사 3종 공통 자산
+│   ├── wizard.css                      #   공통 컴포넌트 스타일
+│   ├── wizard-common.js                #   공통 유틸 (이스케이프·클립보드·상태 저장 등)
+│   ├── check-consistency.py            #   3종 정합성 검증
+│   └── test_wizard_cli.py              #   CLI 계약 · dry-run 안전성 테스트
+└── playstore-wizard/
+    ├── playstore-wizard.html           # 마법사 웹 UI
+    ├── playstore-wizard.js             # 마법사 로직
+    ├── playstore-wizard.py             # 설정 스크립트 (setup / apply / detect-app-id, 전 OS 공용)
+    ├── version.json                    # 버전 정보
+    ├── version-sync.sh                 # version.json → HTML 동기화
+    └── templates/
+        ├── Fastfile.playstore.template         # Fastfile 템플릿
+        └── build.gradle.kts.signing.template   # 서명 설정 템플릿
 ```
+
+> `_shared/`는 3종이 함께 쓰는 정본입니다. 마법사를 수정했다면 `check-consistency.py`와 `test_wizard_cli.py`를 통과시킨 뒤 커밋하세요. 상세: [`_shared/README.md`](../.github/util/flutter/_shared/README.md)
 
 ---
 

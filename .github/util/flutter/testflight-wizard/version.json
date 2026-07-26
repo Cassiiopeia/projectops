@@ -1,9 +1,31 @@
 {
   "name": "iOS TestFlight Setup Wizard",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Flutter iOS 앱을 TestFlight에 배포하기 위한 설정 마법사",
-  "lastUpdated": "2026-07-21",
+  "lastUpdated": "2026-07-27",
   "changelog": [
+    {
+      "version": "1.5.0",
+      "date": "2026-07-27",
+      "changes": [
+        "3종 마법사 공통 자산 도입 — ../_shared/wizard.css(컴포넌트 CSS)와 wizard-common.js(공통 유틸)를 함께 로드",
+        "377줄 중복 CSS 제거 — testflight/playstore가 글자 단위로 같던 스타일을 단일 정본으로 통합",
+        "공통 유틸 중복 정의 제거 — escapeHtml/showToast/copyToClipboard 등 셋 중 가장 안전한 구현으로 통일",
+        "escapeHtml을 null 안전 + 따옴표까지 이스케이프하는 구현으로 통일 (속성 보간 시 XSS 여지 제거)",
+        "showToast를 DOM에 #toast가 없어도 동작하도록 통일 (요소 누락 시 예외로 죽던 문제 제거)",
+        "클립보드 복사에 execCommand 폴백 추가 — file://로 열었을 때 복사가 실패하던 문제 해결",
+        "localStorage 저장 실패(용량 초과) 시 마법사가 죽지 않고 안내만 하도록 변경",
+        "구 레포명(SUH-DEVOPS-TEMPLATE) 링크를 projectops로 교정",
+        "존재하지 않는 경로를 가리키던 secrets-converter 링크를 github-secrets-converter로 교정",
+        "version-sync.sh 3종 통일 — python3 미존재 환경 폴백 추가, 죽은 코드 제거, 주입 전 JSON 유효성 검증 추가",
+        "Python CLI를 명명 플래그로 통일 (--project-path 등) — 구 위치인자 호출도 계속 지원",
+        "--dry-run / --no-backup / --non-interactive 3종 공통 지원",
+        "--dry-run에 메모리 오버레이 도입 — 실제 실행과 동일한 경로를 타면서 디스크는 건드리지 않음",
+        "시작 화면에 예상 소요 시간·준비물·완료 산출물·문서 링크·중단 후 재개 안내 추가",
+        "_shared/check-consistency.py 추가 — 3종이 다시 갈라지면 즉시 검출",
+        "_shared/test_wizard_cli.py 추가 — CLI 계약과 dry-run 안전성 회귀 테스트 11종"
+      ]
+    },
     {
       "version": "1.4.0",
       "date": "2026-07-21",

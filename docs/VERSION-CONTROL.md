@@ -205,15 +205,18 @@ version.yml ←→ 프로젝트 파일
 ```yaml
 on:
   push:
-    branches: [main]
+    branches: ["main"]
     paths-ignore:
       - 'CHANGELOG.md'
-      - 'README.md'
+      - 'CHANGELOG.json'
+      - 'version.yml'   # 무한 루프 방지
+  workflow_dispatch:
 ```
 
 **트리거 조건**:
-- main 브랜치 푸시 (**main 직접 푸시 안전망** — 릴리스 PR 머지로 인한 push는 감지해 skip)
-- CHANGELOG, README 변경은 제외
+- main 브랜치 푸시 (**main 직접 푸시 안전망** — 릴리스 PR 머지로 인한 push는 가드로 skip)
+- CHANGELOG 2종과 `version.yml`만 바뀐 push는 제외 (`README.md`는 제외 대상이 **아닙니다**)
+- 릴리스 머지 감지는 `paths-ignore`가 아니라 워크플로우 안의 **release 가드 스텝**이 담당합니다. push에 포함된 커밋이 `version.yml`을 변경했는지 확인해 버전 증가를 건너뜁니다
 
 **실행 내용**:
 1. 현재 버전 확인

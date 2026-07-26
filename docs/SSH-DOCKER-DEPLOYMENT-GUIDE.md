@@ -15,9 +15,14 @@ projectops은 "SSH 접속 → Docker 이미지 pull → 컨테이너 교체" 패
 | `PROJECT-SPRING-NONSTOP-TRAEFIK-CICD` | Spring Boot | 무중단 배포 (Traefik Blue-Green, opt-in) |
 | `PROJECT-SPRING-NONSTOP-NGINX-CICD` | Spring Boot | 무중단 배포 (Nginx Blue-Green, opt-in) |
 | `PROJECT-SPRING-PR-PREVIEW` | Spring Boot | PR별 Preview 환경 자동 생성 |
+| `PROJECT-PYTHON-SIMPLE-CICD` | Python (FastAPI/Django) | Docker 이미지 빌드 및 배포 (단일 컨테이너) |
+| `PROJECT-PYTHON-PR-PREVIEW` | Python (FastAPI/Django) | PR별 Preview 환경 자동 생성 |
 
-> **배포 워크플로우는 기본 포함**됩니다 (별도 옵션 불필요). 라이브러리 publish(`spring/nexus/`)와 Secret 백업(`common/secret-backup/`)만 통합 마법사에서 `--nexus` / `--secret-backup` 옵션(.ps1은 `-Nexus` / `-SecretBackup`)으로 선택합니다.
+> **서버 배포 워크플로우는 `--deploy docker-ssh`(기본값)일 때 포함**됩니다. 각 타입의 `project-types/<type>/server-deploy/` 폴더에 있으며, `--deploy vercel` 또는 `--deploy none`을 고르면 폴더째 제외됩니다.
+> 라이브러리 publish는 `--publish nexus,npm,github-packages`, Secret 백업은 `--secret-backup`으로 선택합니다. (구 `--nexus`/`--npm-publish` 플래그는 deprecated이며 경고와 함께 신 축으로 해석됩니다.)
 > **무중단 배포 옵션**은 기본 `SIMPLE-CICD` 와 함께 배포되며, 사용자가 명시적으로 전환할 때만 활성화됩니다 (트리거 주석 처리 상태).
+>
+> Python 배포 워크플로우는 Spring의 `SIMPLE-CICD` / `PR-PREVIEW`와 **동일한 SSH+Docker 엔진**을 쓰며 Secret과 env 구조도 같습니다. 아래 Spring 절의 설명을 그대로 적용하되, 빌드 단계(Gradle → pip/uv)와 헬스체크 기본값(`/actuator/health` → `/docs`, 로그 패턴 `Uvicorn running on`)만 다릅니다.
 
 ---
 
@@ -34,7 +39,7 @@ projectops은 "SSH 접속 → Docker 이미지 pull → 컨테이너 교체" 패
 | `PROJECT_NAME` | `myapp-back` | `myapp-ai` |
 | `DEPLOY_PORT` | `8096` | `8092` |
 
-> CI 워크플로우(`*-CI.yaml`)가 멀티타입에서 동시에 발화하는 문제는 [TEMPLATE-INTEGRATOR.md](TEMPLATE-INTEGRATOR.md#멀티-프로젝트-타입)의 CI 트리거 주의를 참고하세요.
+> CI 워크플로우(`*-CI.yaml`)는 멀티타입에서 develop 푸시 한 번에 모두 발화합니다. 필요 없는 타입의 CI는 트리거를 주석 처리하거나 파일을 삭제하세요. 타입·경로 설정은 [NPX 마법사 가이드](NPX-WIZARD.md)를 참고하세요.
 
 ---
 

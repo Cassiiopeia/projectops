@@ -263,19 +263,26 @@ TestFlight 앱에서 최신 빌드를 확인하세요.
 ### GitHub Secrets
 
 **Android 빌드용:**
-- `ANDROID_KEYSTORE_BASE64` (선택)
-- `DEBUG_KEYSTORE` (선택)
+- `RELEASE_KEYSTORE_BASE64`
+- `RELEASE_KEYSTORE_PASSWORD`
+- `RELEASE_KEY_ALIAS`
+- `RELEASE_KEY_PASSWORD`
+- `GOOGLE_SERVICES_JSON` (선택) — Firebase `google-services.json`
+- `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64` (선택) — Firebase 업로드를 함께 쓸 때
 - `ENV_FILE` 또는 `ENV` (선택)
 
 **iOS 빌드용:**
-- `IOS_CERTIFICATE_BASE64`
-- `IOS_CERTIFICATE_PASSWORD`
-- `IOS_PROVISIONING_PROFILE_BASE64`
+- `APPLE_CERTIFICATE_BASE64`
+- `APPLE_CERTIFICATE_PASSWORD`
+- `APPLE_PROVISIONING_PROFILE_BASE64`
 - `IOS_PROVISIONING_PROFILE_NAME`
 - `APP_STORE_CONNECT_API_KEY_ID`
-- `APP_STORE_CONNECT_API_ISSUER_ID`
-- `APP_STORE_CONNECT_API_KEY_CONTENT`
+- `APP_STORE_CONNECT_ISSUER_ID`
+- `APP_STORE_CONNECT_API_KEY_BASE64`
+- `SECRETS_XCCONFIG` (선택) — `ios/Flutter/Secrets.xcconfig` 내용
 - `ENV_FILE` 또는 `ENV` (선택)
+
+> ⚠️ Secret 이름이 하나라도 다르면 인증서·키스토어 복원 단계에서 빌드가 실패합니다. 전체 목록은 [Flutter CI/CD 전체 가이드](FLUTTER-CICD-OVERVIEW.md#github-secrets-전체-목록)를 참고하세요.
 
 ### Repository 권한
 

@@ -123,10 +123,24 @@ git commit -m "fix: add execute permission to scripts"
 
 **확인 사항**:
 ```
-1. CodeRabbit이 설치되어 있는지 확인
-2. CodeRabbit이 Summary를 남겼는지 확인
-3. _GITHUB_PAT_TOKEN Secret 설정 확인
+1. 릴리스 PR이 develop → main 으로 열렸는지 확인
+   (head가 develop이 아니면 파이프라인 전체가 스킵됩니다)
+
+2. PR을 "새로 연" 게 맞는지 확인
+   (트리거는 opened 뿐이라 기존 PR에 재푸시해도 재실행되지 않습니다)
+
+3. version.yml의 changelog provider 확인
+   - coderabbit(미설정 시 기본): CodeRabbit 앱 설치 + Summary 작성 여부
+   - github-ai / openai 계열 / commit: 해당 provider 요구사항 충족 여부
+
+4. Secret 설정 확인
+   - _GITHUB_PAT_TOKEN (공통)
+   - MODEL_API_KEY (openai/gemini/claude provider일 때)
+
+5. Actions 로그에서 fallback-summary job이 어느 provider로 완주했는지 확인
 ```
+
+> provider 사다리(선택 provider → github-ai → commit) 덕분에 릴리스 노트가 완전히 비는 일은 없습니다. 상세는 [체인지로그 자동화](CHANGELOG-AUTOMATION.md#릴리스-노트-provider-사다리) 참조.
 
 ---
 
@@ -218,7 +232,9 @@ docker rmi registry/project-pr-123:latest
 
 ---
 
-## Synology 배포 관련
+## SSH + Docker 배포 관련
+
+> 배포 엔진은 특정 벤더 전용이 아닙니다. Synology NAS, AWS EC2, 일반 Linux 등 SSH 접속이 가능한 서버라면 동일하게 동작합니다. 상세는 [SSH+Docker 배포 가이드](SSH-DOCKER-DEPLOYMENT-GUIDE.md) 참조.
 
 ### SSH 연결 실패
 
@@ -226,15 +242,21 @@ docker rmi registry/project-pr-123:latest
 
 **확인 사항**:
 ```
-1. Synology에서 SSH 활성화
-   제어판 → 터미널 및 SNMP → SSH 서비스 활성화
+1. 서버에서 SSH 서비스 활성화
+   (Synology의 경우: 제어판 → 터미널 및 SNMP → SSH 서비스 활성화)
 
-2. Secrets 값 확인
+2. 인증 방식(SSH_AUTH_METHOD)과 Secret이 짝이 맞는지 확인
+   - password → SERVER_PASSWORD
+   - key      → SSH_KEY (.pem 파일 전체 내용)
+
+3. Secrets 값 확인
    - SERVER_HOST: IP 또는 도메인
-   - SERVER_USER: 관리자 계정
-   - SERVER_PASSWORD: 비밀번호
+   - SERVER_USER: 접속 계정
 
-3. 방화벽에서 22번 포트 허용
+4. 워크플로우의 SSH_PORT 값과 서버의 실제 SSH 포트가 일치하는지 확인
+   (템플릿 기본값은 22가 아니라 2022입니다 — 서버에 맞게 수정하세요)
+
+5. 방화벽에서 해당 SSH 포트 허용
 ```
 
 ---
@@ -245,9 +267,11 @@ docker rmi registry/project-pr-123:latest
 
 **해결**:
 ```bash
-# Synology SSH에서 직접 로그인 테스트
+# 배포 서버에 SSH로 접속해 직접 로그인 테스트
 docker login [REGISTRY_URL] -u [USERNAME] -p [PASSWORD]
 ```
+
+DockerHub를 쓰는 워크플로우는 `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` Secret을 확인하세요.
 
 ---
 
@@ -312,12 +336,17 @@ GitHub → Actions 탭 → 실패한 워크플로우 클릭
 ### 버전 파일 상태 진단
 
 ```bash
-# 모든 버전 파일 상태 확인
+# 모든 버전 파일 상태 확인 (읽기만 하며 파일을 바꾸지 않음)
 .github/scripts/version_manager.sh get
 
-# 충돌 감지 (dry-run)
-.github/scripts/version_manager.sh sync --dry-run
+# 버전 형식 검증
+.github/scripts/version_manager.sh validate 1.2.3
+
+# 실제 동기화 (파일을 수정함 — 미리보기 옵션은 없습니다)
+.github/scripts/version_manager.sh sync
 ```
+
+> ⚠️ `version_manager`는 `--dry-run` 같은 옵션을 지원하지 않습니다. `sync`는 항상 실제로 파일을 수정하므로, 상태만 보고 싶으면 `get`을 사용하세요.
 
 ### 수동 워크플로우 실행
 

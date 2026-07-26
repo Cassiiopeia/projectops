@@ -22,7 +22,7 @@ TestFlight 마법사는 웹 UI를 통해 iOS 배포에 필요한 설정 파일�
 
 **위치:** `.github/util/flutter/testflight-wizard/`
 
-**버전:** 1.0.1
+**버전:** 1.5.0 (정확한 값은 마법사 헤더의 버전 배지 또는 `version.json` 참조)
 
 **호환성:**
 - Flutter >= 3.0.0
@@ -96,6 +96,38 @@ API Key ID: "XXXXXXXXXX"        # App Store Connect API Key ID
 Issuer ID: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # Issuer ID (UUID)
 ```
 
+### 로컬 스크립트 직접 실행 (CLI)
+
+웹 마법사 대신 명령어로 바로 설정할 수 있습니다.
+
+```bash
+python3 .github/util/flutter/testflight-wizard/testflight-wizard.py setup \
+  --project-path . \
+  --bundle-id com.example.myapp \
+  --team-id ABC1234DEF \
+  --profile-name "MyApp Distribution"
+```
+
+| 옵션 | 설명 |
+|------|------|
+| `--project-path` | Flutter 프로젝트 루트 경로 |
+| `--bundle-id` | iOS 앱 Bundle ID |
+| `--team-id` | Apple Developer Team ID (10자리) |
+| `--profile-name` | Provisioning Profile 이름 |
+| `--uses-encryption` | 암호화 사용 여부 (`true`/`false`, 기본 `false`) |
+
+#### 공통 옵션 (마법사 3종 동일)
+
+| 옵션 | 설명 |
+|------|------|
+| `--dry-run` | 무엇을 바꿀지만 출력하고 파일은 건드리지 않음 |
+| `--no-backup` | 기존 파일 백업(`.bak`)을 만들지 않음 |
+| `--non-interactive` | 확인 프롬프트 없이 진행 (CI용) |
+
+> `--dry-run`은 실제 실행과 **동일한 판단 경로**를 탑니다. 적용 전 점검용으로 신뢰할 수 있습니다.
+>
+> 구 위치인자 형식(`setup PROJECT_PATH BUNDLE_ID TEAM_ID PROFILE_NAME`)도 계속 동작합니다. 이미 복사해 둔 명령어를 고칠 필요는 없습니다.
+
 ---
 
 ## 생성되는 파일
@@ -138,12 +170,16 @@ Fastlane 배포 자동화 스크립트입니다.
 - `upload_testflight` - CI용 (IPA가 이미 빌드된 상태)
 - `build_and_deploy` - 로컬 개발용 (빌드 + 업로드)
 
-**필요한 환경변수:**
+**필요한 환경변수** (GitHub Secret이 아니라 워크플로우가 fastlane에 넘기는 값):
 - `APP_STORE_CONNECT_API_KEY_ID`
 - `APP_STORE_CONNECT_ISSUER_ID`
-- `API_KEY_PATH`
+- `API_KEY_PATH` — 복원된 `.p8` 키 파일 경로
+- `APP_IDENTIFIER` — 번들 ID
 - `IPA_PATH`
-- `RELEASE_NOTES`
+- `APP_VERSION` / `BUILD_NUMBER`
+- `RELEASE_NOTES` — 비어 있으면 기본 문구 사용
+- `DEPLOY_MODE` — `testflight_only` / 심사 제출 등 배포 모드
+- `DELIVER_LOCALES` — 심사 메타데이터 로케일
 
 ### 3. Gemfile
 
@@ -165,13 +201,18 @@ gem "fastlane"
 
 | Secret 이름 | 설명 | 값 형식 |
 |------------|------|---------|
-| `IOS_CERTIFICATE_BASE64` | Apple Distribution 인증서 (.p12) | Base64 인코딩 |
-| `IOS_CERTIFICATE_PASSWORD` | 인증서 비밀번호 | 문자열 |
-| `IOS_PROVISIONING_PROFILE_BASE64` | Provisioning Profile (.mobileprovision) | Base64 인코딩 |
+| `APPLE_CERTIFICATE_BASE64` | Apple Distribution 인증서 (.p12) | Base64 인코딩 |
+| `APPLE_CERTIFICATE_PASSWORD` | 인증서 비밀번호 | 문자열 |
+| `APPLE_PROVISIONING_PROFILE_BASE64` | Provisioning Profile (.mobileprovision) | Base64 인코딩 |
 | `IOS_PROVISIONING_PROFILE_NAME` | Provisioning Profile 이름 | 문자열 |
-| `APP_STORE_CONNECT_API_KEY_ID` | API Key ID | 문자열 |
-| `APP_STORE_CONNECT_API_ISSUER_ID` | Issuer ID | UUID 형식 |
-| `APP_STORE_CONNECT_API_KEY_CONTENT` | API Key 내용 (.p8 파일 내용) | 문자열 |
+| `APP_STORE_CONNECT_API_KEY_ID` | API Key ID (10자리) | 문자열 |
+| `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID | UUID 형식 |
+| `APP_STORE_CONNECT_API_KEY_BASE64` | AuthKey_XXXXXX.p8 파일 | Base64 인코딩 |
+| `IOS_BUNDLE_ID` (선택) | 번들 ID. 저장소 변수(`vars`)로도 지정 가능 | 문자열 |
+| `ENV_FILE` (선택) | `.env` 파일 내용 | 문자열 |
+| `SECRETS_XCCONFIG` (선택) | `ios/Flutter/Secrets.xcconfig` 내용 | 문자열 |
+
+> ⚠️ Secret 이름은 워크플로우가 참조하는 이름과 **정확히** 일치해야 합니다. 인증서 계열은 `APPLE_` 접두사, App Store Connect API Key 본문은 `..._BASE64` 접미사입니다.
 
 ### Base64 인코딩 방법
 
@@ -181,6 +222,9 @@ base64 -i Certificates.p12 | pbcopy
 
 # Provisioning Profile 인코딩
 base64 -i AppDistribution.mobileprovision | pbcopy
+
+# App Store Connect API Key 인코딩
+base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
 ```
 
 ---
@@ -208,7 +252,7 @@ base64 -i AppDistribution.mobileprovision | pbcopy
 ```
 
 **해결:**
-1. `IOS_CERTIFICATE_BASE64` Secret이 올바르게 설정되었는지 확인
+1. `APPLE_CERTIFICATE_BASE64` Secret이 올바르게 설정되었는지 확인
 2. 인증서가 만료되지 않았는지 확인
 3. 인증서 비밀번호가 맞는지 확인
 
@@ -250,18 +294,25 @@ base64 -i AppDistribution.mobileprovision | pbcopy
 ## 파일 구조
 
 ```
-.github/util/flutter/testflight-wizard/
-├── testflight-wizard.html      # 마법사 웹 UI
-├── testflight-wizard.js        # 마법사 로직
-├── testflight-wizard.py        # 설정 스크립트 (setup 서브커맨드)
-├── version.json                # 버전 정보
-├── version-sync.sh             # 버전 동기화 스크립트
-├── images/                     # 가이드 이미지
-└── templates/
-    ├── ExportOptions.plist     # 템플릿
-    ├── Fastfile                # 템플릿
-    └── Gemfile                 # 템플릿
+.github/util/flutter/
+├── _shared/                        # 마법사 3종 공통 자산
+│   ├── wizard.css                  #   공통 컴포넌트 스타일
+│   ├── wizard-common.js            #   공통 유틸 (이스케이프·클립보드·상태 저장 등)
+│   ├── check-consistency.py        #   3종 정합성 검증
+│   └── test_wizard_cli.py          #   CLI 계약 · dry-run 안전성 테스트
+└── testflight-wizard/
+    ├── testflight-wizard.html      # 마법사 웹 UI
+    ├── testflight-wizard.js        # 마법사 로직
+    ├── testflight-wizard.py        # 설정 스크립트 (setup 서브커맨드)
+    ├── version.json                # 버전 정보
+    ├── version-sync.sh             # version.json → HTML 동기화
+    └── templates/
+        ├── ExportOptions.plist
+        ├── Fastfile.ios.template
+        └── Gemfile
 ```
+
+> `_shared/`는 3종이 함께 쓰는 정본입니다. 마법사를 수정했다면 `check-consistency.py`와 `test_wizard_cli.py`를 통과시킨 뒤 커밋하세요. 상세: [`_shared/README.md`](../.github/util/flutter/_shared/README.md)
 
 ---
 

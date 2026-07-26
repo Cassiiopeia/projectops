@@ -84,15 +84,29 @@ Issue나 PR에 댓글로 다음 명령어를 입력합니다.
 
 워크플로우 파일의 `[영역 1]` 섹션에서 프로젝트에 맞게 설정합니다.
 
-### 필수 설정
+### 프로젝트별 설정 (수정 필요)
 
 ```yaml
 env:
-  PROJECT_NAME: my-project           # 프로젝트 이름
-  INTERNAL_PORT: '8080'              # 컨테이너 내부 포트
-  EXTERNAL_PORT: '8079'              # 외부 노출 포트
-  SUH_LAB_BASE_DOMAIN: 'domain.com'  # 베이스 도메인
+  PROJECT_NAME: my-project                 # 프로젝트 이름 (컨테이너·이미지·도메인에 사용)
+  JAVA_VERSION: '21'                       # Spring 전용
+  APPLICATION_YML_PATH: 'src/main/resources/application-prod.yml'
+  DOCKERFILE_PATH: './Dockerfile'
+  INTERNAL_PORT: '8080'                    # 컨테이너 내부 포트
+  SSH_AUTH_METHOD: 'password'              # password | key
 ```
+
+### 환경 구축 후 수정 금지
+
+```yaml
+env:
+  TRAEFIK_NETWORK: traefik-network
+  PREVIEW_DOMAIN_SUFFIX: pr.suhsaechan.kr  # Preview 도메인 접미사
+  PREVIEW_PORT: '8079'                     # 외부 노출 포트
+  SSH_PORT: '2022'                         # SSH 포트
+```
+
+> ⚠️ 베이스 도메인은 `PREVIEW_DOMAIN_SUFFIX`, 외부 포트는 `PREVIEW_PORT`입니다. 최종 URL은 `{PROJECT_NAME}-pr-{PR번호}.{PREVIEW_DOMAIN_SUFFIX}:{PREVIEW_PORT}` 형태로 조합됩니다.
 
 ### 선택 설정
 
@@ -105,9 +119,9 @@ env:
   # API 문서
   API_DOCS_PATH: '/docs/swagger'                     # Swagger 경로 (빈값: 미표시)
 
-  # 볼륨 마운트
-  PROJECT_TARGET_DIR: '/volume1/data'                # 호스트 디렉토리
-  PROJECT_MNT_DIR: '/mnt/data'                       # 컨테이너 마운트 경로
+  # 볼륨 마운트 (빈값이면 마운트 안 함)
+  PROJECT_TARGET_DIR: ''                             # 서버의 데이터 디렉토리
+  PROJECT_MNT_DIR: ''                                # 컨테이너 마운트 경로
 
   # Issue Helper
   ISSUE_HELPER_MARKER: 'Guide by SUH-LAB'            # 브랜치 추출 마커
@@ -167,7 +181,8 @@ HEALTH_CHECK_LOG_PATTERN: 'Uvicorn running on'
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────┐
-│                   Synology NAS                          │
+│         SSH 접속 가능한 배포 서버                        │
+│         (Synology NAS · AWS EC2 · 일반 Linux 등)         │
 │  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   │
 │  │   Docker    │◀──│   Traefik   │──▶│  Container  │   │
 │  │  Registry   │   │  (Router)   │   │  project-   │   │
@@ -175,6 +190,8 @@ HEALTH_CHECK_LOG_PATTERN: 'Uvicorn running on'
 │                                       └─────────────┘   │
 └─────────────────────────────────────────────────────────┘
 ```
+
+> 배포 엔진은 특정 벤더에 묶여 있지 않습니다. `SSH_AUTH_METHOD`를 `password`(Synology·일반 서버) 또는 `key`(AWS EC2 등 .pem 인증)로 선택합니다. 상세는 [SSH+Docker 배포 가이드](SSH-DOCKER-DEPLOYMENT-GUIDE.md) 참조.
 
 ---
 
@@ -186,8 +203,8 @@ HEALTH_CHECK_LOG_PATTERN: 'Uvicorn running on'
 
 **확인 사항**:
 1. GitHub Actions 로그 확인
-2. Dockerfile 경로 확인 (`./Dockerfile` 기본)
-3. Secrets 설정 확인 (SERVER_HOST, DOCKER_* 등)
+2. Dockerfile 경로 확인 (`DOCKERFILE_PATH`, 기본 `./Dockerfile`)
+3. Secrets 설정 확인 (`SERVER_HOST`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` 등)
 
 ### Health Check 실패
 
@@ -213,7 +230,7 @@ HEALTH_CHECK_LOG_PATTERN: 'Uvicorn running on'
 
 **해결**:
 ```bash
-# 수동 삭제 (Synology SSH)
+# 수동 삭제 (배포 서버에 SSH 접속 후)
 docker stop project-pr-123
 docker rm project-pr-123
 docker rmi registry/project-pr-123:latest
@@ -225,12 +242,15 @@ docker rmi registry/project-pr-123:latest
 
 | Secret | 설명 |
 |--------|------|
-| `SERVER_HOST` | Synology NAS 주소 |
+| `SERVER_HOST` | 배포 서버 주소 |
 | `SERVER_USER` | SSH 사용자명 |
-| `SERVER_PASSWORD` | SSH 비밀번호 |
-| `DOCKER_REGISTRY_URL` | Docker Registry URL |
-| `DOCKER_USERNAME` | Registry 사용자명 |
-| `DOCKER_PASSWORD` | Registry 비밀번호 |
+| `SERVER_PASSWORD` | SSH 비밀번호 (`SSH_AUTH_METHOD: password`일 때) |
+| `SSH_KEY` | `.pem` 개인키 전체 내용 (`SSH_AUTH_METHOD: key`일 때) |
+| `DOCKERHUB_USERNAME` | DockerHub 사용자명 (이미지 push·pull에 사용) |
+| `DOCKERHUB_TOKEN` | DockerHub 액세스 토큰 |
+| `APPLICATION_PROD_YML` (선택) | `application-prod.yml` 내용 |
+
+> `SERVER_PASSWORD`와 `SSH_KEY`는 `SSH_AUTH_METHOD` 값에 따라 **둘 중 하나만** 필요합니다.
 
 ---
 

@@ -7,13 +7,6 @@
 // OS Detection
 // ============================================
 let detectedOS = 'mac';
-function detectOS() {
-    const ua = navigator.userAgent || navigator.appVersion || navigator.platform;
-    if (/Win/i.test(ua)) return 'windows';
-    if (/Mac/i.test(ua)) return 'mac';
-    if (/Linux/i.test(ua)) return 'linux';
-    return 'mac';
-}
 
 // ============================================
 // State
@@ -73,83 +66,6 @@ function clearState() {
 // ============================================
 function $(sel) { return document.querySelector(sel); }
 function $$(sel) { return document.querySelectorAll(sel); }
-function getInputValue(id) { const el = document.getElementById(id); return el ? el.value : ''; }
-
-// HTML escape for innerHTML interpolation (text content)
-function escapeHtml(s) {
-    return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-// Escape for use inside JS string in inline onclick="fn('...')"
-function escapeJsString(s) {
-    return String(s == null ? '' : s)
-        .replace(/\\/g, '\\\\')
-        .replace(/'/g, "\\'")
-        .replace(/"/g, '\\"')
-        .replace(/</g, '\\x3C')
-        .replace(/>/g, '\\x3E')
-        .replace(/&/g, '\\x26')
-        .replace(/\r?\n/g, '\\n');
-}
-
-function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-            const r = reader.result;
-            const b64 = r.includes(',') ? r.split(',')[1] : r;
-            resolve(b64);
-        };
-        reader.onerror = (e) => reject(e);
-        reader.readAsDataURL(file);
-    });
-}
-
-async function fileToText(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = (e) => reject(e);
-        reader.readAsText(file, 'utf-8');
-    });
-}
-
-// ============================================
-// Toast / Copy
-// ============================================
-function showToast(message) {
-    const toast = document.getElementById('toast');
-    toast.textContent = message;
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 2500);
-}
-
-async function copyToClipboard(text) {
-    try {
-        await navigator.clipboard.writeText(text);
-        showToast('✅ 복사되었습니다');
-    } catch (e) {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        showToast('✅ 복사되었습니다');
-    }
-}
-
-function copyCode(button) {
-    const target = button.previousElementSibling;
-    const text = target ? target.textContent : '';
-    if (!text) { showToast('⚠️ 복사할 내용이 없습니다'); return; }
-    copyToClipboard(text);
-}
 
 function copySecret(name) {
     const map = {
@@ -164,19 +80,32 @@ function copySecret(name) {
 // ============================================
 // Navigation
 // ============================================
-function updateStepIndicator() {
-    const dots = $$('.step-dot');
-    dots.forEach(dot => {
-        const step = parseInt(dot.dataset.step);
-        dot.classList.remove('active', 'completed', 'pending');
-        if (step === state.currentStep) dot.classList.add('active');
-        else if (step < state.currentStep) dot.classList.add('completed');
-        else dot.classList.add('pending');
-    });
-    const lines = $$('.step-line');
-    lines.forEach((line, i) => {
-        if (i + 1 < state.currentStep) line.classList.add('completed');
-        else line.classList.remove('completed');
+function updateProgress() {
+    $$('.step-indicator').forEach((indicator, index) => {
+        const stepNum = index + 1;
+        const circle = indicator.querySelector('.step-circle');
+        const label = indicator.querySelector('span');
+
+        if (stepNum < state.currentStep) {
+            // 완료된 스텝
+            circle.className = 'step-circle w-8 h-8 rounded-full bg-green-500 text-slate-900 flex items-center justify-center font-bold text-xs z-10 shadow-lg';
+            circle.innerHTML = '✓';
+            if (label) label.className = 'text-[9px] mt-1 text-green-400 text-center hidden md:block';
+        } else if (stepNum === state.currentStep) {
+            // 현재 스텝
+            circle.className = 'step-circle w-8 h-8 rounded-full bg-firebase-primary text-slate-900 flex items-center justify-center font-bold text-xs z-10 shadow-lg';
+            circle.innerHTML = stepNum;
+            if (label) label.className = 'text-[9px] mt-1 text-firebase-accent text-center hidden md:block';
+        } else {
+            // 아직 안 한 스텝
+            circle.className = 'step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10';
+            circle.innerHTML = stepNum;
+            if (label) label.className = 'text-[9px] mt-1 text-slate-500 text-center hidden md:block';
+        }
+
+        // 어느 단계로든 자유롭게 이동 가능 (3종 공통 동작)
+        indicator.style.cursor = 'pointer';
+        indicator.onclick = () => goToStep(stepNum);
     });
 }
 
@@ -187,7 +116,7 @@ function showStep(step) {
         el.classList.toggle('hidden', parseInt(el.dataset.step) !== step);
         el.classList.add('fade-in');
     });
-    updateStepIndicator();
+    updateProgress();
     saveState();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -220,13 +149,6 @@ function resetWizard() {
     });
     showStep(1);
     showToast('🔄 초기화되었습니다');
-}
-
-// ============================================
-// Step 3: APP_ID / TESTER_GROUP / OS Tab
-// ============================================
-function shellEscape(s) {
-    return (s || '').replace(/"/g, '\\"');
 }
 
 function updateSetupCommands() {
@@ -346,29 +268,6 @@ async function handleGoogleServicesUpload(event) {
     } catch (e) {
         showToast('❌ JSON 파싱 실패: ' + e.message);
     }
-}
-
-function setupDragAndDrop() {
-    const targets = [
-        { drop: 'saUpload', input: 'saInput', handler: handleServiceAccountUpload },
-        { drop: 'gsUpload', input: 'gsInput', handler: handleGoogleServicesUpload }
-    ];
-    targets.forEach(({ drop, input, handler }) => {
-        const el = document.getElementById(drop);
-        if (!el) return;
-        ['dragenter', 'dragover'].forEach(evt => el.addEventListener(evt, e => { e.preventDefault(); el.classList.add('dragover'); }));
-        ['dragleave', 'drop'].forEach(evt => el.addEventListener(evt, e => { e.preventDefault(); el.classList.remove('dragover'); }));
-        el.addEventListener('drop', e => {
-            const file = e.dataTransfer.files[0];
-            if (file) {
-                const inp = document.getElementById(input);
-                const dt = new DataTransfer();
-                dt.items.add(file);
-                inp.files = dt.files;
-                handler({ target: inp });
-            }
-        });
-    });
 }
 
 function onStep4Next() {
@@ -507,14 +406,6 @@ showStep = function (step) {
     }
 };
 
-// ============================================
-// Step 5: Secrets table + Export
-// ============================================
-function getDateString() {
-    const d = new Date();
-    return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-}
-
 function buildSecretsArray() {
     const list = [];
     if (state.serviceAccountBase64) {
@@ -586,26 +477,26 @@ function updateSecretsPageLink() {
     }
 }
 
-function exportJson() {
+function downloadAsJson() {
     const list = buildSecretsArray();
     if (list.length === 0) { showToast('⚠️ 등록할 Secret이 없습니다'); return; }
     const out = {};
     list.forEach(s => { out[s.key] = s.value; });
     const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
-    triggerDownload(blob, `firebase-secrets-${(state.firebaseAppId || 'app').slice(0,12)}-${getDateString()}.json`);
+    triggerDownload(blob, `firebase-secrets-${(state.firebaseAppId || 'app').slice(0,12)}-${getDateStamp()}.json`);
     showToast('✅ JSON 다운로드');
 }
 
-function exportTxt() {
+function downloadAsTxt() {
     const list = buildSecretsArray();
     if (list.length === 0) { showToast('⚠️ 등록할 Secret이 없습니다'); return; }
     const lines = list.map(s => `=== ${s.key} ===\n${s.value}\n`);
     const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
-    triggerDownload(blob, `firebase-secrets-${(state.firebaseAppId || 'app').slice(0,12)}-${getDateString()}.txt`);
+    triggerDownload(blob, `firebase-secrets-${(state.firebaseAppId || 'app').slice(0,12)}-${getDateStamp()}.txt`);
     showToast('✅ TXT 다운로드');
 }
 
-async function exportZip() {
+async function downloadAsZip() {
     const list = buildSecretsArray();
     if (list.length === 0) { showToast('⚠️ 등록할 Secret이 없습니다'); return; }
     if (typeof JSZip === 'undefined') { showToast('❌ JSZip 라이브러리 로드 실패'); return; }
@@ -667,19 +558,8 @@ python firebase-wizard.py setup \`
     zip.file('README.md', readme);
 
     const blob = await zip.generateAsync({ type: 'blob' });
-    triggerDownload(blob, `firebase-setup-${(state.firebaseAppId || 'app').slice(0,12)}-${getDateString()}.zip`);
+    triggerDownload(blob, `firebase-setup-${(state.firebaseAppId || 'app').slice(0,12)}-${getDateStamp()}.zip`);
     showToast('✅ ZIP 다운로드');
-}
-
-function triggerDownload(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
 }
 
 // Step 5 진입 시 렌더 (Task 11 wrap)
@@ -702,4 +582,7 @@ window.addEventListener('DOMContentLoaded', () => {
     detectedOS = state.detectedOS;
     loadState();
     showStep(state.currentStep);
+    // 3종 공통 초기화 (../_shared/wizard-common.js)
+    syncVersionBadge();
+    showSecurityWarning();
 });
