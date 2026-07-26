@@ -8,10 +8,32 @@
     <script type="application/json" id="versionJson">
 {
   "name": "iOS TestFlight Setup Wizard",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Flutter iOS 앱을 TestFlight에 배포하기 위한 설정 마법사",
-  "lastUpdated": "2026-07-21",
+  "lastUpdated": "2026-07-27",
   "changelog": [
+    {
+      "version": "1.5.0",
+      "date": "2026-07-27",
+      "changes": [
+        "3종 마법사 공통 자산 도입 — ../_shared/wizard.css(컴포넌트 CSS)와 wizard-common.js(공통 유틸)를 함께 로드",
+        "377줄 중복 CSS 제거 — testflight/playstore가 글자 단위로 같던 스타일을 단일 정본으로 통합",
+        "공통 유틸 중복 정의 제거 — escapeHtml/showToast/copyToClipboard 등 셋 중 가장 안전한 구현으로 통일",
+        "escapeHtml을 null 안전 + 따옴표까지 이스케이프하는 구현으로 통일 (속성 보간 시 XSS 여지 제거)",
+        "showToast를 DOM에 #toast가 없어도 동작하도록 통일 (요소 누락 시 예외로 죽던 문제 제거)",
+        "클립보드 복사에 execCommand 폴백 추가 — file://로 열었을 때 복사가 실패하던 문제 해결",
+        "localStorage 저장 실패(용량 초과) 시 마법사가 죽지 않고 안내만 하도록 변경",
+        "구 레포명(SUH-DEVOPS-TEMPLATE) 링크를 projectops로 교정",
+        "존재하지 않는 경로를 가리키던 secrets-converter 링크를 github-secrets-converter로 교정",
+        "version-sync.sh 3종 통일 — python3 미존재 환경 폴백 추가, 죽은 코드 제거, 주입 전 JSON 유효성 검증 추가",
+        "Python CLI를 명명 플래그로 통일 (--project-path 등) — 구 위치인자 호출도 계속 지원",
+        "--dry-run / --no-backup / --non-interactive 3종 공통 지원",
+        "--dry-run에 메모리 오버레이 도입 — 실제 실행과 동일한 경로를 타면서 디스크는 건드리지 않음",
+        "시작 화면에 예상 소요 시간·준비물·완료 산출물·문서 링크·중단 후 재개 안내 추가",
+        "_shared/check-consistency.py 추가 — 3종이 다시 갈라지면 즉시 검출",
+        "_shared/test_wizard_cli.py 추가 — CLI 계약과 dry-run 안전성 회귀 테스트 11종"
+      ]
+    },
     {
       "version": "1.4.0",
       "date": "2026-07-21",
@@ -98,11 +120,14 @@
   },
   "repository": "https://github.com/Cassiiopeia/projectops"
 }
+
     </script>
     <!-- JSZip for ZIP export -->
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <!-- Pretendard 폰트 -->
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
+    <!-- 공통 자산 (3종 마법사 공유) — _shared/check-consistency.py가 정합성을 검증한다 -->
+    <link rel="stylesheet" href="../_shared/wizard.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -125,383 +150,6 @@
             }
         }
     </script>
-    <style>
-        /* Tooltip Styles */
-        .tooltip-container {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-        }
-        .tooltip-trigger {
-            cursor: help;
-            margin-left: 6px;
-        }
-        .tooltip-content {
-            position: absolute;
-            bottom: calc(100% + 8px);
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1e293b;
-            border: 1px solid #475569;
-            color: #e2e8f0;
-            padding: 12px 16px;
-            border-radius: 8px;
-            font-size: 13px;
-            width: 280px;
-            z-index: 50;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.2s ease;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            line-height: 1.5;
-        }
-        .tooltip-content::after {
-            content: '';
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            border: 8px solid transparent;
-            border-top-color: #475569;
-        }
-        .tooltip-container:hover .tooltip-content {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        /* Code Block */
-        .code-block {
-            position: relative;
-            background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        .code-block pre {
-            padding: 16px;
-            overflow-x: auto;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 13px;
-            line-height: 1.5;
-            color: #e2e8f0;
-            margin: 0;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-
-        /* File Upload Styles */
-        .file-upload {
-            border: 2px dashed #3f3f46;
-            border-radius: 12px;
-            padding: 30px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-bottom: 16px;
-            background: #1e293b;
-        }
-        .file-upload:hover {
-            border-color: #60a5fa;
-            background: rgba(59, 130, 246, 0.05);
-        }
-        .file-upload.dragover {
-            border-color: #22c55e;
-            background: rgba(34, 197, 94, 0.1);
-        }
-        .file-upload.has-file {
-            border-color: #22c55e;
-            background: rgba(34, 197, 94, 0.1);
-        }
-        .file-upload .icon {
-            font-size: 2.5rem;
-            margin-bottom: 8px;
-        }
-        .file-upload input {
-            display: none;
-        }
-        .file-info {
-            margin-top: 12px;
-            padding: 8px;
-            background: rgba(34, 197, 94, 0.2);
-            border-radius: 6px;
-            font-size: 0.85rem;
-            color: #22c55e;
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #1e293b;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #475569;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #64748b;
-        }
-
-        /* Animations */
-        .fade-in {
-            animation: fadeIn 0.3s ease;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Toast */
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #22c55e;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            z-index: 1000;
-            opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.3s ease;
-            font-weight: 500;
-        }
-        .toast.show {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* Validation */
-        .input-error {
-            border-color: #ef4444 !important;
-        }
-        .error-message {
-            color: #ef4444;
-            font-size: 12px;
-            margin-top: 4px;
-        }
-        .success-message {
-            color: #22c55e;
-            font-size: 12px;
-            margin-top: 4px;
-        }
-
-        /* Modal */
-        .modal-backdrop {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 100;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .modal-content {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 12px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-            padding: 24px;
-        }
-
-        /* Skip Button */
-        .skip-btn {
-            color: #94a3b8;
-            font-size: 0.75rem;
-            text-decoration: underline;
-            cursor: pointer;
-            display: inline-block;
-            margin-top: 8px;
-        }
-        .skip-btn:hover {
-            color: #e2e8f0;
-        }
-
-        /* Result Item */
-        .result-item {
-            background: #18181b;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 12px;
-            border: 1px solid #3f3f46;
-        }
-        .result-item .key {
-            font-weight: 600;
-            color: #60a5fa;
-            margin-bottom: 6px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.9rem;
-        }
-        .result-item .value {
-            background: #27272a;
-            padding: 8px;
-            border-radius: 6px;
-            font-family: 'Monaco', 'Menlo', monospace;
-            font-size: 0.8rem;
-            word-break: break-all;
-            max-height: 80px;
-            overflow-y: auto;
-            color: #cbd5e1;
-        }
-        .copy-btn-small {
-            padding: 4px 10px;
-            font-size: 0.75rem;
-            background: #3f3f46;
-            border: none;
-            border-radius: 4px;
-            color: #e4e4e7;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .copy-btn-small:hover {
-            background: #52525b;
-        }
-        .copy-btn-small.copied {
-            background: #22c55e;
-        }
-
-        /* Dependency Flow */
-        .dependency-flow {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            flex-wrap: wrap;
-            padding: 16px;
-            background: #0f172a;
-            border-radius: 8px;
-            margin-bottom: 16px;
-        }
-        .dependency-item {
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-        .dependency-arrow {
-            color: #64748b;
-            font-size: 20px;
-        }
-
-        /* Custom Secrets Section */
-        .custom-secrets-section {
-            margin-top: 1.5rem;
-            padding: 1.25rem;
-            background: rgba(30, 41, 59, 0.5);
-            border-radius: 12px;
-            border: 2px dashed #475569;
-        }
-        .custom-secret-item {
-            background: #1e293b;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border: 1px solid #334155;
-        }
-        .custom-secret-item:last-child {
-            margin-bottom: 0;
-        }
-        .secret-key-input {
-            font-family: 'Consolas', 'Monaco', monospace;
-            width: 100%;
-            padding: 0.5rem 0.75rem;
-            border: 1px solid #475569;
-            border-radius: 6px;
-            background: #0f172a;
-            color: #e2e8f0;
-            font-size: 0.875rem;
-        }
-        .secret-key-input:focus {
-            outline: none;
-            border-color: #60a5fa;
-            box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
-        }
-        .add-secret-btn {
-            width: 100%;
-            padding: 0.875rem;
-            border: 2px dashed #60a5fa;
-            background: transparent;
-            color: #60a5fa;
-            cursor: pointer;
-            border-radius: 8px;
-            font-weight: 500;
-            transition: all 0.2s;
-            margin-top: 1rem;
-        }
-        .add-secret-btn:hover {
-            background: rgba(96, 165, 250, 0.1);
-            border-color: #93c5fd;
-            color: #93c5fd;
-        }
-        .type-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            font-weight: 600;
-        }
-        .type-badge.text {
-            background: rgba(59, 130, 246, 0.2);
-            color: #60a5fa;
-            border: 1px solid rgba(59, 130, 246, 0.3);
-        }
-        .type-badge.binary {
-            background: rgba(251, 146, 60, 0.2);
-            color: #fb923c;
-            border: 1px solid rgba(251, 146, 60, 0.3);
-        }
-        .usage-hint {
-            font-size: 0.75rem;
-            color: #94a3b8;
-            margin-top: 0.5rem;
-            padding: 0.5rem;
-            background: #0f172a;
-            border-radius: 4px;
-            font-family: 'Consolas', 'Monaco', monospace;
-        }
-        .custom-file-upload {
-            border: 2px dashed #475569;
-            border-radius: 8px;
-            padding: 1rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            background: #0f172a;
-        }
-        .custom-file-upload:hover {
-            border-color: #60a5fa;
-            background: rgba(59, 130, 246, 0.05);
-        }
-        .custom-file-upload.has-file {
-            border-color: #22c55e;
-            background: rgba(34, 197, 94, 0.1);
-        }
-        .custom-file-upload input {
-            display: none;
-        }
-        .remove-secret-btn {
-            padding: 0.25rem 0.5rem;
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: #f87171;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.75rem;
-            transition: all 0.2s;
-        }
-        .remove-secret-btn:hover {
-            background: rgba(239, 68, 68, 0.3);
-        }
-    </style>
 </head>
 <body class="bg-slate-900 text-slate-200 min-h-screen font-sans">
     <!-- 보안 경고 -->
@@ -528,10 +176,10 @@
                 🚀 iOS TestFlight 배포 마법사
             </h1>
             <p class="text-zinc-400 text-base md:text-lg flex items-center justify-center gap-3">
-                <a href="https://github.com/Cassiiopeia/SUH-DEVOPS-TEMPLATE" target="_blank" rel="noopener"
+                <a href="https://github.com/Cassiiopeia/projectops" target="_blank" rel="noopener"
                    class="hover:text-blue-400 transition inline-flex items-center gap-2">
                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-                    SUH-DEVOPS-TEMPLATE
+                    projectops
                 </a>
                 <span class="text-slate-600">|</span>
                 <button onclick="openChangelogModal()" class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-blue-500/20 to-purple-500/20 hover:from-blue-500/30 hover:to-purple-500/30 border border-blue-500/30 rounded-full text-sm text-blue-400 hover:text-blue-300 transition cursor-pointer">
@@ -540,6 +188,21 @@
                 </button>
             </p>
         </header>
+
+        <!-- 첫 사용자 안내 — 시작 전에 규모·준비물·산출물을 먼저 보여준다 -->
+        <div class="wizard-meta">
+            <span>⏱️ 예상 소요 <strong>40~60분</strong></span>
+            <span class="text-slate-600">·</span>
+            <span>📑 <strong>9단계</strong></span>
+            <span class="text-slate-600">·</span>
+            <span>🎒 준비물 <strong>Apple Developer Program($99/년) · Mac · Flutter 프로젝트</strong></span>
+        </div>
+        <div class="wizard-meta" style="margin-top:-0.5rem">
+            <span>🎁 완료하면 <strong>ExportOptions.plist, Fastfile, Gemfile + GitHub Secrets 7종</strong>을 받습니다</span>
+            <span class="text-slate-600">·</span>
+            <a href="../../../../docs/FLUTTER-TESTFLIGHT-WIZARD.md" target="_blank" rel="noopener" class="text-blue-400 hover:underline">📖 문서로 자세히 보기 →</a>
+        </div>
+        <p class="resume-hint">진행 상황은 이 브라우저에 자동 저장됩니다. 창을 닫았다가 다시 열면 이어서 진행할 수 있어요.</p>
 
         <!-- Progress Steps (9단계) -->
         <div class="flex justify-between mb-8 px-2 overflow-x-auto">
@@ -2202,7 +1865,7 @@
             <div class="custom-secrets-section">
                 <h4 class="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
                     <span>➕ 추가 Secrets (선택)</span>
-                    <a href="https://github.com/Cassiiopeia/SUH-DEVOPS-TEMPLATE/tree/main/.github/util/common/secrets-converter"
+                    <a href="https://github.com/Cassiiopeia/projectops/tree/main/.github/util/common/github-secrets-converter"
                        target="_blank"
                        class="text-xs text-blue-400 hover:text-blue-300 font-normal">
                         (별도 도구 열기 →)
@@ -2242,7 +1905,7 @@
             <!-- Star 부탁 -->
             <div class="mt-6 flex items-center justify-center gap-3 text-slate-400 text-sm">
                 <span>도움이 되셨다면 소중한 ⭐️를 눌러주세요!!</span>
-                <a href="https://github.com/Cassiiopeia/SUH-DEVOPS-TEMPLATE" target="_blank" rel="noopener"
+                <a href="https://github.com/Cassiiopeia/projectops" target="_blank" rel="noopener"
                    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 rounded-lg transition">
                     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279-7.416-3.967-7.417 3.967 1.481-8.279-6.064-5.828 8.332-1.151z"/></svg>
                     누르러가기
@@ -2294,11 +1957,12 @@
             </div>
             <div class="mt-6 pt-4 border-t border-slate-700 flex justify-between items-center text-xs text-slate-500">
                 <span id="changelogLastUpdated"></span>
-                <a href="https://github.com/Cassiiopeia/SUH-DEVOPS-TEMPLATE" target="_blank" class="text-blue-400 hover:text-blue-300 transition">View on GitHub →</a>
+                <a href="https://github.com/Cassiiopeia/projectops" target="_blank" class="text-blue-400 hover:text-blue-300 transition">View on GitHub →</a>
             </div>
         </div>
     </div>
 
+    <script src="../_shared/wizard-common.js"></script>
     <script src="testflight-wizard.js"></script>
 </body>
 </html>

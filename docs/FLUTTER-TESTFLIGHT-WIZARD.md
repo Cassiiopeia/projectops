@@ -22,7 +22,7 @@ TestFlight 마법사는 웹 UI를 통해 iOS 배포에 필요한 설정 파일�
 
 **위치:** `.github/util/flutter/testflight-wizard/`
 
-**버전:** 1.0.1
+**버전:** 1.5.0 (정확한 값은 마법사 헤더의 버전 배지 또는 `version.json` 참조)
 
 **호환성:**
 - Flutter >= 3.0.0
@@ -95,6 +95,38 @@ Profile Name: "App Distribution" # Provisioning Profile 이름
 API Key ID: "XXXXXXXXXX"        # App Store Connect API Key ID
 Issuer ID: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # Issuer ID (UUID)
 ```
+
+### 로컬 스크립트 직접 실행 (CLI)
+
+웹 마법사 대신 명령어로 바로 설정할 수 있습니다.
+
+```bash
+python3 .github/util/flutter/testflight-wizard/testflight-wizard.py setup \
+  --project-path . \
+  --bundle-id com.example.myapp \
+  --team-id ABC1234DEF \
+  --profile-name "MyApp Distribution"
+```
+
+| 옵션 | 설명 |
+|------|------|
+| `--project-path` | Flutter 프로젝트 루트 경로 |
+| `--bundle-id` | iOS 앱 Bundle ID |
+| `--team-id` | Apple Developer Team ID (10자리) |
+| `--profile-name` | Provisioning Profile 이름 |
+| `--uses-encryption` | 암호화 사용 여부 (`true`/`false`, 기본 `false`) |
+
+#### 공통 옵션 (마법사 3종 동일)
+
+| 옵션 | 설명 |
+|------|------|
+| `--dry-run` | 무엇을 바꿀지만 출력하고 파일은 건드리지 않음 |
+| `--no-backup` | 기존 파일 백업(`.bak`)을 만들지 않음 |
+| `--non-interactive` | 확인 프롬프트 없이 진행 (CI용) |
+
+> `--dry-run`은 실제 실행과 **동일한 판단 경로**를 탑니다. 적용 전 점검용으로 신뢰할 수 있습니다.
+>
+> 구 위치인자 형식(`setup PROJECT_PATH BUNDLE_ID TEAM_ID PROFILE_NAME`)도 계속 동작합니다. 이미 복사해 둔 명령어를 고칠 필요는 없습니다.
 
 ---
 
@@ -262,18 +294,25 @@ base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
 ## 파일 구조
 
 ```
-.github/util/flutter/testflight-wizard/
-├── testflight-wizard.html      # 마법사 웹 UI
-├── testflight-wizard.js        # 마법사 로직
-├── testflight-wizard.py        # 설정 스크립트 (setup 서브커맨드)
-├── version.json                # 버전 정보
-├── version-sync.sh             # 버전 동기화 스크립트
-├── images/                     # 가이드 이미지
-└── templates/
-    ├── ExportOptions.plist     # 템플릿
-    ├── Fastfile                # 템플릿
-    └── Gemfile                 # 템플릿
+.github/util/flutter/
+├── _shared/                        # 마법사 3종 공통 자산
+│   ├── wizard.css                  #   공통 컴포넌트 스타일
+│   ├── wizard-common.js            #   공통 유틸 (이스케이프·클립보드·상태 저장 등)
+│   ├── check-consistency.py        #   3종 정합성 검증
+│   └── test_wizard_cli.py          #   CLI 계약 · dry-run 안전성 테스트
+└── testflight-wizard/
+    ├── testflight-wizard.html      # 마법사 웹 UI
+    ├── testflight-wizard.js        # 마법사 로직
+    ├── testflight-wizard.py        # 설정 스크립트 (setup 서브커맨드)
+    ├── version.json                # 버전 정보
+    ├── version-sync.sh             # version.json → HTML 동기화
+    └── templates/
+        ├── ExportOptions.plist
+        ├── Fastfile.ios.template
+        └── Gemfile
 ```
+
+> `_shared/`는 3종이 함께 쓰는 정본입니다. 마법사를 수정했다면 `check-consistency.py`와 `test_wizard_cli.py`를 통과시킨 뒤 커밋하세요. 상세: [`_shared/README.md`](../.github/util/flutter/_shared/README.md)
 
 ---
 

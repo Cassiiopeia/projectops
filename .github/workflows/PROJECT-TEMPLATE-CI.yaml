@@ -29,6 +29,7 @@ on:
       - "test/**"
       - "bin/**"
       - "package.json"
+      - ".github/util/flutter/**"
       - ".github/workflows/PROJECT-TEMPLATE-CI.yaml"
   pull_request:
     branches: ["develop", "main"]
@@ -37,6 +38,7 @@ on:
       - "test/**"
       - "bin/**"
       - "package.json"
+      - ".github/util/flutter/**"
       - ".github/workflows/PROJECT-TEMPLATE-CI.yaml"
   workflow_dispatch:
 
@@ -77,3 +79,25 @@ jobs:
 
       - name: CLI 스모크 (--help 종료코드 0)
         run: node bin/projectops.js --help
+
+  wizards:
+    name: Flutter 마법사 정합성 · CLI 계약
+    # 릴리스 버전 확정 커밋([skip ci])에서는 실행하지 않음
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v5
+
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 마법사 3종 정합성 검증
+        # CSS/JS 공통 자산 로드, 공통 유틸 재정의, 필수 기능 균일성,
+        # version.json ↔ HTML 동기화, 낡은 링크, 첫 사용자 안내, CLI 계약을 검사한다
+        run: python3 .github/util/flutter/_shared/check-consistency.py
+
+      - name: 마법사 CLI 계약 · dry-run 안전성 테스트
+        run: python3 .github/util/flutter/_shared/test_wizard_cli.py

@@ -25,6 +25,7 @@ Play Store 심사 없이 테스터에게 바로 APK를 배포하고 싶을 때 �
 |------|-----|
 | **위치** | `.github/util/flutter/firebase-wizard/` |
 | **구성** | `firebase-wizard.html` (웹 UI) / `firebase-wizard.js` / `firebase-wizard.py` (CLI) |
+| **공통 자산** | `.github/util/flutter/_shared/` (3종 공통 CSS·JS·검증 스크립트) |
 | **배포 대상** | Firebase App Distribution |
 | **연동 워크플로우** | `PROJECT-FLUTTER-ANDROID-FIREBASE-CICD.yaml` |
 
@@ -106,11 +107,15 @@ python3 .github/util/flutter/firebase-wizard/firebase-wizard.py setup \
   --tester-group "testers"
 ```
 
+### 공통 옵션 (마법사 3종 동일)
+
 | 옵션 | 설명 |
 |------|------|
-| `--dry-run` | 실제 파일을 수정하지 않고 변경 예정 내용만 출력 |
+| `--dry-run` | 무엇을 바꿀지만 출력하고 파일은 건드리지 않음 |
 | `--non-interactive` | 확인 프롬프트 없이 진행 (CI용) |
-| `--no-backup` | 수정 전 백업 파일을 만들지 않음 |
+| `--no-backup` | 수정 전 백업 파일(`.bak`)을 만들지 않음 |
+
+> `--dry-run`은 실제 실행과 **동일한 판단 경로**를 탑니다. 쓰였을 내용을 메모리에 두고 뒷 단계가 그것을 읽으므로, "실제로 돌리면 성공하는데 dry-run만 실패"하는 일이 없습니다. 적용 전 점검용으로 신뢰할 수 있습니다.
 
 ---
 

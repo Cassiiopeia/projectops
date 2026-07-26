@@ -22,7 +22,7 @@ Play Store 마법사는 웹 UI를 통해 Android 배포에 필요한 설정 파�
 
 **위치:** `.github/util/flutter/playstore-wizard/`
 
-**버전:** 1.0.0
+**버전:** 1.5.0 (정확한 값은 마법사 헤더의 버전 배지 또는 `version.json` 참조)
 
 **호환성:**
 - Flutter >= 3.0.0
@@ -96,6 +96,37 @@ Keystore Password: "your-keystore-password"
 Key Alias: "release-key"
 Key Password: "your-key-password"
 ```
+
+### 로컬 스크립트 직접 실행 (CLI)
+
+```bash
+python3 .github/util/flutter/playstore-wizard/playstore-wizard.py setup \
+  --project-path . \
+  --application-id com.example.app \
+  --key-alias my-release-key \
+  --store-password MyPass123 --key-password MyPass123 \
+  --validity-days 99999 \
+  --cert-cn "My Name" --cert-o "My Company" --cert-l "Seoul" --cert-c "KR"
+```
+
+| 옵션 | 설명 |
+|------|------|
+| `--project-path` | Flutter 프로젝트 루트 경로 |
+| `--application-id` | Android Application ID |
+| `--key-alias` | Keystore alias |
+| `--store-password` / `--key-password` | Keystore / Key 비밀번호 |
+| `--validity-days` | 인증서 유효기간(일) |
+| `--cert-cn` / `--cert-o` / `--cert-l` / `--cert-c` | 인증서 정보 |
+
+#### 공통 옵션 (마법사 3종 동일)
+
+| 옵션 | 설명 |
+|------|------|
+| `--dry-run` | 무엇을 바꿀지만 출력. keystore도 실제로 만들지 않음 |
+| `--no-backup` | 기존 파일 백업(`.bak`)을 만들지 않음 |
+| `--non-interactive` | 확인 프롬프트 없이 진행 (CI용) |
+
+> ⚠️ 구 위치인자 형식(10개)도 계속 동작하지만, **비밀번호가 4·5번째 자리라 순서를 한 칸만 틀려도 잘못된 값이 저장됩니다.** 명명 플래그를 권장합니다.
 
 ---
 
@@ -278,17 +309,24 @@ base64 service-account.json               # Linux
 ## 파일 구조
 
 ```
-.github/util/flutter/playstore-wizard/
-├── playstore-wizard.html          # 마법사 웹 UI
-├── playstore-wizard.js            # 마법사 로직
-├── playstore-wizard.py            # 설정 스크립트 (setup / apply / detect-app-id 서브커맨드, 전 OS 공용)
-├── version.json                   # 버전 정보
-├── version-sync.sh                # 버전 동기화 스크립트
-├── images/                        # 가이드 이미지
-└── templates/
-    ├── Fastfile.playstore.template         # Fastfile 템플릿
-    └── build.gradle.kts.signing.template   # 서명 설정 템플릿
+.github/util/flutter/
+├── _shared/                            # 마법사 3종 공통 자산
+│   ├── wizard.css                      #   공통 컴포넌트 스타일
+│   ├── wizard-common.js                #   공통 유틸 (이스케이프·클립보드·상태 저장 등)
+│   ├── check-consistency.py            #   3종 정합성 검증
+│   └── test_wizard_cli.py              #   CLI 계약 · dry-run 안전성 테스트
+└── playstore-wizard/
+    ├── playstore-wizard.html           # 마법사 웹 UI
+    ├── playstore-wizard.js             # 마법사 로직
+    ├── playstore-wizard.py             # 설정 스크립트 (setup / apply / detect-app-id, 전 OS 공용)
+    ├── version.json                    # 버전 정보
+    ├── version-sync.sh                 # version.json → HTML 동기화
+    └── templates/
+        ├── Fastfile.playstore.template         # Fastfile 템플릿
+        └── build.gradle.kts.signing.template   # 서명 설정 템플릿
 ```
+
+> `_shared/`는 3종이 함께 쓰는 정본입니다. 마법사를 수정했다면 `check-consistency.py`와 `test_wizard_cli.py`를 통과시킨 뒤 커밋하세요. 상세: [`_shared/README.md`](../.github/util/flutter/_shared/README.md)
 
 ---
 

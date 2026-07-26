@@ -122,14 +122,16 @@ def patch_build_gradle(gradle_file_path):
         print(f"❌ 파일 읽기 오류: {e}")
         return False
 
-    # 백업 생성
+    # 백업 생성 (게이트 경유 — dry-run/--no-backup 반영)
     backup_path = f"{gradle_file_path}.bak"
-    try:
-        with open(backup_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-        print(f"✅ 백업 생성: {backup_path}")
-    except Exception as e:
-        print(f"⚠️  백업 생성 실패 (계속 진행): {e}")
+    if NO_BACKUP:
+        print("ℹ️  --no-backup: 백업을 건너뜁니다")
+    else:
+        try:
+            _write_text(backup_path, content)
+            print(f"✅ 백업 생성: {backup_path}")
+        except Exception as e:
+            print(f"⚠️  백업 생성 실패 (계속 진행): {e}")
 
     original_content = content
 
@@ -236,21 +238,17 @@ if (keystorePropertiesFile.exists()) {
     # 6. 파일 저장 (변경사항이 있는 경우에만)
     if content != original_content:
         try:
-            with open(gradle_file_path, 'w', encoding='utf-8') as f:
-                f.write(content)
+            _write_text(gradle_file_path, content)
             print("✅ build.gradle.kts 패치 완료!")
             return True
         except Exception as e:
             print(f"❌ 파일 저장 오류: {e}")
             # 백업에서 복원 시도
-            if os.path.exists(backup_path):
+            if path_exists(backup_path):
                 try:
-                    with open(backup_path, 'r', encoding='utf-8') as f:
-                        original = f.read()
-                    with open(gradle_file_path, 'w', encoding='utf-8') as f:
-                        f.write(original)
+                    _write_text(gradle_file_path, _read_text(backup_path))
                     print("✅ 백업에서 복원 완료")
-                except:
+                except Exception:
                     pass
             return False
     else:
@@ -373,23 +371,40 @@ def show_help():
   1. flutter build appbundle (AAB 생성)
   2. fastlane deploy_internal (Play Store 업로드)
 
-{BLUE}사용법:{NC}
+{BLUE}사용법 (권장 — 명명 플래그):{NC}
+  python playstore-wizard.py setup \\
+    --project-path /path/to/project \\
+    --application-id com.example.app \\
+    --key-alias my-release-key \\
+    --store-password MyPass123 --key-password MyPass123 \\
+    --validity-days 99999 \\
+    --cert-cn "My Name" --cert-o "My Company" --cert-l "Seoul" --cert-c "KR"
+
+{BLUE}사용법 (구형 — 위치인자 10개, 계속 지원):{NC}
   python playstore-wizard.py setup PROJECT_PATH APPLICATION_ID KEY_ALIAS STORE_PASSWORD KEY_PASSWORD VALIDITY_DAYS CERT_CN CERT_O CERT_L CERT_C
+  ⚠️ 순서가 하나만 어긋나도 비밀번호가 잘못 저장됩니다. 명명 플래그를 권장합니다.
 
 {BLUE}매개변수:{NC}
-  PROJECT_PATH      Flutter 프로젝트 루트 경로
-  APPLICATION_ID    Android 앱 Application ID (예: com.example.app)
-  KEY_ALIAS         Keystore alias 이름
-  STORE_PASSWORD    Keystore 비밀번호
-  KEY_PASSWORD      Key 비밀번호
-  VALIDITY_DAYS     유효기간 (일 단위, 예: 99999)
-  CERT_CN           인증서 Common Name (예: "My Name")
-  CERT_O            인증서 Organization (예: "My Company")
-  CERT_L            인증서 Locality (예: "Seoul")
-  CERT_C            인증서 Country Code (예: "KR")
+  --project-path      Flutter 프로젝트 루트 경로
+  --application-id    Android 앱 Application ID (예: com.example.app)
+  --key-alias         Keystore alias 이름
+  --store-password    Keystore 비밀번호
+  --key-password      Key 비밀번호
+  --validity-days     유효기간 (일 단위, 예: 99999)
+  --cert-cn           인증서 Common Name (예: "My Name")
+  --cert-o            인증서 Organization (예: "My Company")
+  --cert-l            인증서 Locality (예: "Seoul")
+  --cert-c            인증서 Country Code (예: "KR")
+
+{BLUE}공통 옵션 (3종 마법사 동일):{NC}
+  --dry-run           무엇을 바꿀지만 출력하고 파일·keystore를 만들지 않음
+  --no-backup         기존 파일 백업(.bak)을 만들지 않음
+  --non-interactive   확인 프롬프트 없이 진행 (CI용)
 
 {BLUE}예시:{NC}
-  python playstore-wizard.py setup /path/to/project com.example.app my-release-key MyPass123 MyPass123 99999 "My Name" "My Company" "Seoul" "KR"
+  python playstore-wizard.py setup --project-path . --application-id com.example.app \\
+    --key-alias my-release-key --store-password MyPass123 --key-password MyPass123 \\
+    --validity-days 99999 --cert-cn "My Name" --cert-o "My Company" --cert-l "Seoul" --cert-c "KR" --dry-run
 
 {BLUE}생성/수정되는 파일:{NC}
   - android/.gitignore                    .gitignore 업데이트 ★ 먼저 실행
@@ -480,17 +495,113 @@ def find_template_dir():
     return template_dir
 
 
+# ── 쓰기 게이트 (--dry-run 지원) ─────────────────────────────────────
+# 파일·keystore를 변경하는 원시 동작은 전부 아래 게이트를 거친다.
+# DRY_RUN이면 디스크를 건드리지 않고 "무엇을 할지"만 출력한다.
+#
+# ⚠️ 오버레이가 필요한 이유
+#   이 스크립트는 "쓰고 → 다시 읽어 검증"하는 단계가 있다. 쓰기만 건너뛰면
+#   뒷 단계가 낡은 내용을 읽어 실제 실행과 다른 경로를 타고 거짓 실패를 낸다.
+#   그래서 dry-run에서는 쓰였을 내용을 메모리에 두고 읽기가 그것을 먼저 본다.
+#
+# ⚠️ 이 블록은 3종 .py의 공통 계약이다 (_shared/check-consistency.py가 검증).
+DRY_RUN = False
+NO_BACKUP = False
+_DRY_FS = {}
+_DRY_DELETED = set()
+
+
+def _dry(msg):
+    print(f"{YELLOW}[dry-run]{NC} {msg}")
+
+
+def copy_file(src, dst):
+    if DRY_RUN:
+        _dry(f"복사: {src} → {dst}")
+        try:
+            _DRY_FS[dst] = _read_text(src)
+            _DRY_DELETED.discard(dst)
+        except OSError:
+            pass
+        return
+    shutil.copyfile(src, dst)
+
+
+def backup_file(path, suffix=".bak"):
+    """백업 생성. --no-backup이면 건너뛴다."""
+    if NO_BACKUP:
+        return
+    copy_file(path, f"{path}{suffix}")
+
+
+def remove_file(path):
+    if DRY_RUN:
+        _dry(f"삭제: {path}")
+        _DRY_FS.pop(path, None)
+        _DRY_DELETED.add(path)
+        return
+    if os.path.exists(path):
+        os.remove(path)
+
+
+def move_file(src, dst):
+    if DRY_RUN:
+        _dry(f"이동: {src} → {dst}")
+        try:
+            _DRY_FS[dst] = _read_text(src)
+            _DRY_DELETED.discard(dst)
+        except OSError:
+            pass
+        _DRY_FS.pop(src, None)
+        _DRY_DELETED.add(src)
+        return
+    shutil.move(src, dst)
+
+
+def make_dirs(path):
+    if DRY_RUN:
+        _dry(f"디렉터리 생성: {path}")
+        return
+    os.makedirs(path, exist_ok=True)
+
+
+def path_exists(path):
+    """존재 확인 — dry-run 오버레이를 반영한다."""
+    if DRY_RUN:
+        if path in _DRY_FS:
+            return True
+        if path in _DRY_DELETED:
+            return False
+    return os.path.exists(path)
+
+
 def _read_text(path):
+    if DRY_RUN:
+        if path in _DRY_FS:
+            return _DRY_FS[path]
+        if path in _DRY_DELETED:
+            raise FileNotFoundError(path)
     with open(path, "r", encoding="utf-8", errors="replace") as f:
         return f.read()
 
 
 def _append_text(path, text):
+    if DRY_RUN:
+        _dry(f"추가: {path}")
+        base = _read_text(path) if (path in _DRY_FS or path_exists(path)) else ""
+        _DRY_FS[path] = base + text
+        _DRY_DELETED.discard(path)
+        return
     with open(path, "a", encoding="utf-8", newline="\n") as f:
         f.write(text)
 
 
 def _write_text(path, text):
+    if DRY_RUN:
+        _dry(f"쓰기: {path} ({len(text)} bytes)")
+        _DRY_FS[path] = text
+        _DRY_DELETED.discard(path)
+        return
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
 
@@ -511,7 +622,7 @@ def update_gitignore(ctx):
 
     # 루트 .gitignore 처리 (파일이 존재할 때만)
     # sh/ps1 분기: ps1은 4개 항목("# Android signing" 포함)이었지만 sh의 7개 항목을 채택.
-    if os.path.isfile(gitignore_path):
+    if path_exists(gitignore_path):
         gitignore_entries = [
             "android/key.properties",
             "android/app/keystore/",
@@ -533,7 +644,7 @@ def update_gitignore(ctx):
     # 루트 .gitignore가 없으면 생성하지 않음 (Git 미사용 프로젝트 가능성)
 
     # android/.gitignore 처리
-    if os.path.isfile(android_gitignore_path):
+    if path_exists(android_gitignore_path):
         # 항목 확인 및 추가
         if "key.properties" not in _read_text(android_gitignore_path):
             _append_text(
@@ -544,7 +655,7 @@ def update_gitignore(ctx):
             gitignore_updated = True
     else:
         # android/.gitignore가 없으면 생성
-        os.makedirs(os.path.join(project_path, "android"), exist_ok=True)
+        make_dirs(os.path.join(project_path, "android"))
         _write_text(android_gitignore_path, """# Play Store CI/CD - 민감한 파일 (자동 생성됨)
 key.properties
 keystore/
@@ -598,11 +709,11 @@ def commit_gitignore(ctx):
     has_changes = False
 
     # .gitignore 변경사항 확인
-    if os.path.isfile(gitignore_path):
+    if path_exists(gitignore_path):
         if _git(project_path, ["diff", "--quiet", gitignore_path]) != 0:
             has_changes = True
 
-    if os.path.isfile(android_gitignore_path):
+    if path_exists(android_gitignore_path):
         if _git(project_path, ["diff", "--quiet", android_gitignore_path]) != 0:
             has_changes = True
 
@@ -622,9 +733,9 @@ def commit_gitignore(ctx):
             _git(project_path, ["rm", "--cached", keystore_jks])
 
         # .gitignore 커밋
-        if os.path.isfile(gitignore_path):
+        if path_exists(gitignore_path):
             _git(project_path, ["add", gitignore_path])
-        if os.path.isfile(android_gitignore_path):
+        if path_exists(android_gitignore_path):
             _git(project_path, ["add", android_gitignore_path])
 
         if _git(project_path, ["diff", "--cached", "--quiet"]) == 0:
@@ -648,10 +759,10 @@ def create_keystore(ctx):
     keystore_path = os.path.join(keystore_dir, "key.jks")
 
     # 디렉토리 생성
-    os.makedirs(keystore_dir, exist_ok=True)
+    make_dirs(keystore_dir)
 
     # 기존 keystore 확인
-    if os.path.isfile(keystore_path):
+    if path_exists(keystore_path):
         print_info(f"기존 keystore가 존재합니다: {keystore_path}")
         print_info("기존 keystore 덮어쓰기 중...")
 
@@ -675,12 +786,12 @@ def create_keystore(ctx):
 
         # 백업 파일이 있으면 삭제
         backup_path = keystore_path + ".bak"
-        if os.path.isfile(backup_path):
-            os.remove(backup_path)
+        if path_exists(backup_path):
+            remove_file(backup_path)
 
         # 파일 백업 시도
         try:
-            shutil.move(keystore_path, backup_path)
+            move_file(keystore_path, backup_path)
             print_info(f"기존 keystore 백업: {backup_path}")
         except OSError:
             # 파일이 잠겨있으면 프로세스 종료 후 재시도
@@ -688,7 +799,7 @@ def create_keystore(ctx):
 
             if stop_processes_using_file(keystore_path):
                 try:
-                    os.remove(keystore_path)
+                    remove_file(keystore_path)
                     print_info("기존 keystore 삭제됨 (프로세스 종료 후)")
                 except OSError:
                     print_error(f"프로세스 종료 후에도 keystore 파일 삭제 실패: {keystore_path}")
@@ -715,6 +826,13 @@ def create_keystore(ctx):
         f"{ctx['STORE_PASSWORD']}\n{ctx['STORE_PASSWORD']}\n"
         f"{ctx['KEY_PASSWORD']}\n{ctx['KEY_PASSWORD']}\n{dname}\ny\n\n"
     )
+    if DRY_RUN:
+        _dry(f"keystore 생성(keytool): {keystore_path} (alias={ctx['KEY_ALIAS']}, {ctx['VALIDITY_DAYS']}일)")
+        _DRY_FS[keystore_path] = "<dry-run keystore>"
+        _DRY_DELETED.discard(keystore_path)
+        print_success("keystore 생성 완료 (dry-run — 실제 파일 없음)")
+        return
+
     try:
         proc = subprocess.run(
             ["keytool", "-genkey", "-v",
@@ -740,7 +858,7 @@ def create_keystore(ctx):
         # sh에서는 셸이 "command not found"를 출력하는 상황 — 오류 원문을 그대로 보여준다
         print(str(e))
 
-    if os.path.isfile(keystore_path):
+    if path_exists(keystore_path):
         print_success(f"Keystore 생성 완료: {keystore_path}")
     else:
         print_error("Keystore 생성 실패!")
@@ -761,18 +879,18 @@ def create_key_properties(ctx):
     key_properties_path = os.path.join(ctx["PROJECT_PATH"], "android", "key.properties")
 
     # 기존 파일 백업 및 삭제
-    if os.path.isfile(key_properties_path):
+    if path_exists(key_properties_path):
         print_info("기존 key.properties 발견. 덮어쓰기 중...")
         backup_path = key_properties_path + ".bak"
 
         # 백업 파일이 있으면 삭제
-        if os.path.isfile(backup_path):
-            os.remove(backup_path)
+        if path_exists(backup_path):
+            remove_file(backup_path)
 
         # 파일 백업 시도
         try:
-            shutil.copyfile(key_properties_path, backup_path)
-            os.remove(key_properties_path)
+            copy_file(key_properties_path, backup_path)
+            remove_file(key_properties_path)
             print_info(f"기존 key.properties 백업: {backup_path}")
         except OSError:
             # 파일이 잠겨있으면 프로세스 종료 후 재시도
@@ -780,7 +898,7 @@ def create_key_properties(ctx):
 
             if stop_processes_using_file(key_properties_path):
                 try:
-                    os.remove(key_properties_path)
+                    remove_file(key_properties_path)
                     print_info("기존 key.properties 삭제됨 (프로세스 종료 후)")
                 except OSError:
                     print_error(f"프로세스 종료 후에도 key.properties 파일 삭제 실패: {key_properties_path}")
@@ -823,7 +941,7 @@ keyPassword={ctx['KEY_PASSWORD']}
             sys.exit(1)
 
     # 파일이 제대로 생성되었는지 확인
-    if not os.path.isfile(key_properties_path):
+    if not path_exists(key_properties_path):
         print_error(f"key.properties 파일이 생성되지 않았습니다: {key_properties_path}")
         sys.exit(1)
 
@@ -843,7 +961,7 @@ def patch_build_gradle_step(ctx):
 
     gradle_file = os.path.join(ctx["PROJECT_PATH"], "android", "app", "build.gradle.kts")
 
-    if not os.path.isfile(gradle_file):
+    if not path_exists(gradle_file):
         print_error(f"build.gradle.kts 파일을 찾을 수 없습니다: {gradle_file}")
         sys.exit(1)
 
@@ -873,15 +991,15 @@ def create_fastfile(ctx, template_dir):
     template_fastfile = os.path.join(template_dir, "Fastfile.playstore.template")
 
     # fastlane 디렉토리 생성
-    os.makedirs(fastlane_dir, exist_ok=True)
+    make_dirs(fastlane_dir)
 
     # 기존 파일 백업
-    if os.path.isfile(fastfile_path):
+    if path_exists(fastfile_path):
         print_warning(f"기존 Fastfile.playstore 백업: {fastfile_path}.bak")
-        shutil.copyfile(fastfile_path, fastfile_path + ".bak")
+        backup_file(fastfile_path)
 
     # 템플릿 파일 존재 확인
-    if os.path.isfile(template_fastfile):
+    if path_exists(template_fastfile):
         # 템플릿에서 복사하고 플레이스홀더 치환
         _write_text(
             fastfile_path,
@@ -956,9 +1074,9 @@ def create_gemfile(ctx):
     gemfile_path = os.path.join(ctx["PROJECT_PATH"], "android", "Gemfile")
 
     # 기존 파일 백업
-    if os.path.isfile(gemfile_path):
+    if path_exists(gemfile_path):
         print_warning(f"기존 Gemfile 백업: {gemfile_path}.bak")
-        shutil.copyfile(gemfile_path, gemfile_path + ".bak")
+        backup_file(gemfile_path)
 
     # sh/ps1 분기: ps1에는 "# frozen_string_literal: true" 줄이 없었다 — sh 내용 채택.
     _write_text(gemfile_path, """# frozen_string_literal: true
@@ -1025,6 +1143,80 @@ def print_completion(ctx):
     print("   워크플로우 수동 실행 시 deploy_mode 입력이 이 변수보다 우선합니다.")
 
 
+# ===================================================================
+# 3종 공통 인자 계약 (testflight / playstore / firebase 동일)
+# ===================================================================
+# 정본은 **명명 플래그**다. 위치인자가 10개까지 늘어나면서 순서 실수가
+# 잦았고(특히 비밀번호 자리), 무엇을 넘기는지 명령어만 보고 알 수 없었다.
+#
+# 다만 구 위치인자 호출도 계속 받는다 — 마법사 HTML이 이미 생성해 사용자가
+# 복사해 둔 명령어가 위치인자 형식이기 때문이다. 둘 다 동작한다.
+#
+#   신형:  setup --project-path /p --bundle-id com.x.y --team-id ABC123 ...
+#   구형:  setup /p com.x.y ABC123 "Profile Name"
+#
+# ⚠️ 이 블록은 3종 .py에 동일하게 존재해야 한다.
+#    _shared/check-consistency.py 가 동일성을 검증한다.
+# ===================================================================
+
+COMMON_FLAGS = ("--dry-run", "--non-interactive", "--no-backup")
+
+
+def normalize_params(params, order):
+    """명명 플래그와 위치인자를 함께 받아 (위치인자 리스트, 옵션 dict)로 정규화한다.
+
+    order: 위치인자 순서에 대응하는 플래그 이름 튜플
+           예) ("project-path", "bundle-id", "team-id", "profile-name")
+    지원 형식: --key value / --key=value / 부울 플래그(COMMON_FLAGS)
+    """
+    named, positional = {}, []
+    opts = {"dry_run": False, "non_interactive": False, "backup": True}
+    i = 0
+    while i < len(params):
+        tok = params[i]
+        if tok in COMMON_FLAGS:
+            if tok == "--dry-run":
+                opts["dry_run"] = True
+            elif tok == "--non-interactive":
+                opts["non_interactive"] = True
+            else:
+                opts["backup"] = False
+            i += 1
+            continue
+        if tok.startswith("--"):
+            key, _, inline = tok[2:].partition("=")
+            if inline:
+                named[key] = inline
+                i += 1
+            else:
+                if i + 1 >= len(params):
+                    print_error(f"--{key} 값이 없습니다.")
+                    sys.exit(1)
+                named[key] = params[i + 1]
+                i += 2
+            if key not in order:
+                print_error(f"알 수 없는 옵션입니다: --{key}")
+                print(f"사용 가능: {', '.join('--' + k for k in order)}")
+                sys.exit(1)
+            continue
+        positional.append(tok)
+        i += 1
+
+    if named:
+        # 명명 플래그가 하나라도 있으면 명명 방식으로 간주하고 order대로 재배열한다.
+        # 값이 빠진 자리는 빈 문자열로 채워 기존 검증 로직이 그대로 잡아내게 한다.
+        merged = [named.get(k, "") for k in order]
+        # 위치인자를 섞어 쓴 경우(부분 마이그레이션) 앞에서부터 빈 자리를 메운다
+        for value in positional:
+            for idx in range(len(merged)):
+                if not merged[idx]:
+                    merged[idx] = value
+                    break
+        return merged, opts
+
+    return positional, opts
+
+
 def cmd_setup(params):
     print("")
     print(f"{CYAN}╔════════════════════════════════════════════════════════════════╗{NC}")
@@ -1036,6 +1228,15 @@ def cmd_setup(params):
     if params and params[0] in ("-h", "--help"):
         show_help()
         sys.exit(0)
+
+    # 명명 플래그 → 위치인자 정규화 (구/신 호출 형식 모두 지원)
+    global DRY_RUN, NO_BACKUP
+    params, cli_opts = normalize_params(params, ("project-path", "application-id", "key-alias", "store-password", "key-password", "validity-days", "cert-cn", "cert-o", "cert-l", "cert-c"))
+    DRY_RUN = cli_opts["dry_run"]
+    NO_BACKUP = not cli_opts["backup"]
+    if DRY_RUN:
+        print(f"{YELLOW}⚠️  dry-run 모드 — 실제 파일은 만들거나 고치지 않습니다.{NC}")
+        print("")
 
     # 매개변수 검증
     ctx = validate_params(params)
@@ -1081,7 +1282,7 @@ def cmd_apply(params):
     print("")
 
     # Check if we're in a Flutter project
-    if not os.path.isfile("pubspec.yaml"):
+    if not path_exists("pubspec.yaml"):
         print(f"{RED}Error: This is not a Flutter project directory{NC}")
         print("Please run this script from your Flutter project root.")
         sys.exit(1)
@@ -1089,20 +1290,20 @@ def cmd_apply(params):
     # Create necessary directories
     # sh/ps1 분기: ps1은 존재 시 "Exists:"를 출력했지만 sh는 항상 Created를 출력 — sh 채택.
     print(f"{YELLOW}[1/5] Creating directories...{NC}")
-    os.makedirs("android/app/keystore", exist_ok=True)
-    os.makedirs("android/fastlane", exist_ok=True)
-    os.makedirs("android/fastlane/metadata/android/ko-KR/changelogs", exist_ok=True)
+    make_dirs("android/app/keystore")
+    make_dirs("android/fastlane")
+    make_dirs("android/fastlane/metadata/android/ko-KR/changelogs")
     print(f"{GREEN}  Created: android/app/keystore/{NC}")
     print(f"{GREEN}  Created: android/fastlane/{NC}")
     print(f"{GREEN}  Created: android/fastlane/metadata/android/ko-KR/changelogs/{NC}")
 
     # Detect gradle type
     print(f"{YELLOW}[2/5] Detecting Gradle configuration...{NC}")
-    if os.path.isfile("android/app/build.gradle.kts"):
+    if path_exists("android/app/build.gradle.kts"):
         gradle_file = "android/app/build.gradle.kts"
         gradle_type = "kts"
         print(f"{GREEN}  Detected: Kotlin DSL (build.gradle.kts){NC}")
-    elif os.path.isfile("android/app/build.gradle"):
+    elif path_exists("android/app/build.gradle"):
         gradle_file = "android/app/build.gradle"
         gradle_type = "groovy"
         print(f"{GREEN}  Detected: Groovy DSL (build.gradle){NC}")
@@ -1112,7 +1313,7 @@ def cmd_apply(params):
 
     # Create Fastfile.playstore if not exists
     print(f"{YELLOW}[3/5] Creating Fastlane configuration...{NC}")
-    if not os.path.isfile("android/fastlane/Fastfile.playstore"):
+    if not path_exists("android/fastlane/Fastfile.playstore"):
         # Get applicationId from build.gradle
         gradle_lines = _read_text(gradle_file).splitlines()
         app_id = ""
@@ -1208,7 +1409,7 @@ end
 
     # Create key.properties template
     print(f"{YELLOW}[4/5] Creating key.properties template...{NC}")
-    if not os.path.isfile("android/key.properties"):
+    if not path_exists("android/key.properties"):
         _write_text("android/key.properties", """# Release Keystore Configuration
 # WARNING: Do not commit this file to version control!
 # Add 'android/key.properties' to your .gitignore
@@ -1232,7 +1433,7 @@ keyPassword=YOUR_KEY_PASSWORD
         "*.keystore",
     ]
 
-    gitignore_content = _read_text(".gitignore") if os.path.isfile(".gitignore") else ""
+    gitignore_content = _read_text(".gitignore") if path_exists(".gitignore") else ""
     for entry in gitignore_entries:
         if entry not in gitignore_content:
             _append_text(".gitignore", entry + "\n")
@@ -1300,11 +1501,11 @@ def _detect_android_env_posix():
     # ~/.zshrc에 ANDROID_HOME 추가 (없으면)
     if android_home and os.path.isdir(android_home):
         shell_rc = ""
-        if os.path.isfile(os.path.join(home, ".zshrc")):
+        if path_exists(os.path.join(home, ".zshrc")):
             shell_rc = os.path.join(home, ".zshrc")
-        elif os.path.isfile(os.path.join(home, ".bashrc")):
+        elif path_exists(os.path.join(home, ".bashrc")):
             shell_rc = os.path.join(home, ".bashrc")
-        elif os.path.isfile(os.path.join(home, ".bash_profile")):
+        elif path_exists(os.path.join(home, ".bash_profile")):
             shell_rc = os.path.join(home, ".bash_profile")
 
         if shell_rc:
@@ -1413,10 +1614,10 @@ def cmd_detect_app_id(project_path):
             keytool_status = "warning"
 
     # 3. Application ID 추출
-    if os.path.isfile(os.path.join(project_path, "android", "app", "build.gradle.kts")):
+    if path_exists(os.path.join(project_path, "android", "app", "build.gradle.kts")):
         gradle_file = os.path.join(project_path, "android", "app", "build.gradle.kts")
         gradle_type = "kts"
-    elif os.path.isfile(os.path.join(project_path, "android", "app", "build.gradle")):
+    elif path_exists(os.path.join(project_path, "android", "app", "build.gradle")):
         gradle_file = os.path.join(project_path, "android", "app", "build.gradle")
         gradle_type = "groovy"
     else:

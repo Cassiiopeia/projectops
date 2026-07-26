@@ -16,9 +16,11 @@ export function copyUtilModules(tempDir, type, { force = false } = {}, targetRoo
   copyDirSync(src, dst);
 
   // 하위 디렉토리 개수 = 모듈 수 (.sh: for dir in "$util_dst"/*/)
+  // `_` 로 시작하는 폴더는 모듈이 아니라 모듈들이 공유하는 자산이다
+  // (예: flutter/_shared — 마법사 3종 공통 CSS/JS). 개수에서 제외한다.
   let moduleCount = 0;
   for (const e of readdirSync(dst, { withFileTypes: true })) {
-    if (e.isDirectory()) moduleCount++;
+    if (e.isDirectory() && !e.name.startsWith("_")) moduleCount++;
   }
   return { copied: true, moduleCount };
 }

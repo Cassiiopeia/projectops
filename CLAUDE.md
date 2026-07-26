@@ -162,6 +162,35 @@ snake_case.sh / snake_case.py
 | `PROJECT-COMMON-TEMPLATE-UTIL-VERSION-SYNC` | version.json 변경 | Util HTML 버전 동기화 (util 모듈 보유 레포에만 복사 — #491) |
 | `PROJECT-COMMON-PROJECTS-SYNC-MANAGER` | 이슈 라벨 변경 | Issue Label → Projects Status 동기화 |
 
+### ⚠️ Flutter 마법사 3종은 공통 자산을 공유한다 (#521 — agent 필독)
+
+`testflight` / `playstore` / `firebase` 마법사는 **`.github/util/flutter/_shared/`의 정본을 함께 쓴다.**
+과거 각자 복사본을 들고 있다가 CSS 377줄 중복·같은 클래스명 반대 의미·iOS에만 개선 축적 같은 드리프트가 생겨 통합했다.
+
+| 파일 | 역할 |
+|------|------|
+| `_shared/wizard.css` | 공통 컴포넌트 스타일 (툴팁·모달·토스트·코드블록·커스텀 Secret 등) |
+| `_shared/wizard-common.js` | 공통 유틸 (이스케이프·클립보드·파일 변환·OS 감지·상태 저장·변경 이력 모달) |
+| `_shared/check-consistency.py` | 3종 정합성 검증 — **CI(`PROJECT-TEMPLATE-CI`)가 실행한다** |
+| `_shared/test_wizard_cli.py` | CLI 계약 · `--dry-run` 안전성 회귀 테스트 |
+
+**마법사를 건드렸으면 반드시 통과시킬 것:**
+
+```bash
+python3 .github/util/flutter/_shared/check-consistency.py
+python3 .github/util/flutter/_shared/test_wizard_cli.py
+```
+
+- **공통 유틸을 마법사 JS에서 재정의하지 않는다** (정본이 무력화된다 — 검증기가 잡는다).
+- **로드 순서 고정**: `wizard.css` → `wizard-common.js` → `<name>-wizard.js`. 공통이 뒤로 가면 마법사 구현을 덮어쓴다.
+- **`.step-indicator`는 "개별 단계 항목"이다** (전체 컨테이너 아님). firebase가 반대로 써서 충돌했던 자리다.
+- **Python CLI 정본은 명명 플래그**(`--project-path` 등)이고, 구 위치인자 호출도 계속 받는다(마법사 HTML이 배포한 명령어가 그 형식).
+- **`--dry-run`은 선언만 하면 안 된다.** 쓰기·복사·이동·삭제·디렉터리 생성·`keytool`이 전부 게이트 함수를 거쳐야 하고, "쓰고 다시 읽어 검증"하는 단계 때문에 메모리 오버레이로 실제 실행과 같은 경로를 타야 한다.
+- `version.json`을 고쳤으면 해당 마법사의 `./version-sync.sh`를 실행해야 화면 변경 이력에 반영된다.
+- `_` 로 시작하는 폴더는 모듈이 아니라 공유 자산이다 (`src/core/copy/util.js`의 모듈 카운트에서 제외됨).
+
+상세: `.github/util/flutter/_shared/README.md`
+
 ### 마이그레이션 기록 3계층 (#493·#494 — agent 필독)
 
 마법사(full/workflows)가 끝나면 **대상 레포**의 `docs/projectops/migration/`에 실행 기록을 남긴다:

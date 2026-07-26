@@ -7,10 +7,37 @@
     <script type="application/json" id="versionJson">
 {
   "name": "Firebase App Distribution Setup Wizard",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Flutter Android 앱을 Firebase App Distribution에 배포하기 위한 설정 마법사",
-  "lastUpdated": "2026-07-21",
+  "lastUpdated": "2026-07-27",
   "changelog": [
+    {
+      "version": "1.3.0",
+      "date": "2026-07-27",
+      "changes": [
+        "3종 마법사 공통 자산 도입 — ../_shared/wizard.css(컴포넌트 CSS)와 wizard-common.js(공통 유틸)를 함께 로드",
+        "377줄 중복 CSS 제거 — testflight/playstore가 글자 단위로 같던 스타일을 단일 정본으로 통합",
+        "공통 유틸 중복 정의 제거 — escapeHtml/showToast/copyToClipboard 등 셋 중 가장 안전한 구현으로 통일",
+        "escapeHtml을 null 안전 + 따옴표까지 이스케이프하는 구현으로 통일 (속성 보간 시 XSS 여지 제거)",
+        "showToast를 DOM에 #toast가 없어도 동작하도록 통일 (요소 누락 시 예외로 죽던 문제 제거)",
+        "클립보드 복사에 execCommand 폴백 추가 — file://로 열었을 때 복사가 실패하던 문제 해결",
+        "localStorage 저장 실패(용량 초과) 시 마법사가 죽지 않고 안내만 하도록 변경",
+        "구 레포명(SUH-DEVOPS-TEMPLATE) 링크를 projectops로 교정",
+        "존재하지 않는 경로를 가리키던 secrets-converter 링크를 github-secrets-converter로 교정",
+        "version-sync.sh 3종 통일 — python3 미존재 환경 폴백 추가, 죽은 코드 제거, 주입 전 JSON 유효성 검증 추가",
+        "Python CLI를 명명 플래그로 통일 (--project-path 등) — 구 위치인자 호출도 계속 지원",
+        "--dry-run / --no-backup / --non-interactive 3종 공통 지원",
+        "--dry-run에 메모리 오버레이 도입 — 실제 실행과 동일한 경로를 타면서 디스크는 건드리지 않음",
+        "시작 화면에 예상 소요 시간·준비물·완료 산출물·문서 링크·중단 후 재개 안내 추가",
+        "_shared/check-consistency.py 추가 — 3종이 다시 갈라지면 즉시 검출",
+        "_shared/test_wizard_cli.py 추가 — CLI 계약과 dry-run 안전성 회귀 테스트 11종",
+        "단계 인디케이터를 3종 공통 마크업으로 교체 — .step-indicator가 다른 마법사와 반대 의미로 쓰이던 충돌 해소",
+        "보안 경고 배너 추가 (입력값이 브라우저에만 남는다는 안내)",
+        "변경 이력 모달 추가 — 버전 배지 클릭으로 열람",
+        "진행률 표시(updateProgress) 추가 — 완료 단계가 체크로 표시됨",
+        "내보내기 함수명을 downloadAsJson/Txt/Zip으로 통일 (다른 마법사와 동일)"
+      ]
+    },
     {
       "version": "1.2.0",
       "date": "2026-07-21",
@@ -53,9 +80,12 @@
   },
   "repository": "https://github.com/Cassiiopeia/projectops"
 }
+
     </script>
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <!-- 공통 자산 (3종 마법사 공유) — _shared/check-consistency.py가 정합성을 검증한다 -->
+    <link rel="stylesheet" href="../_shared/wizard.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -84,30 +114,31 @@
         }
     </script>
     <style>
+        /* Firebase 마법사 고유 스타일 — 공통 컴포넌트는 ../_shared/wizard.css 참조 */
         body { background: #0f172a; color: #e2e8f0; font-family: 'Pretendard Variable', sans-serif; }
-        .file-upload { border: 2px dashed #475569; border-radius: 0.75rem; padding: 1.5rem; text-align: center; cursor: pointer; transition: all 0.2s; }
+        /* 브랜드 색을 입힌 파일 업로드 (공통 .file-upload 위에 덮어쓴다) */
         .file-upload:hover { border-color: #FFA000; background: rgba(255, 160, 0, 0.05); }
         .file-upload.dragover { border-color: #FFA000; background: rgba(255, 160, 0, 0.1); }
-        .file-upload .icon { font-size: 2rem; margin-bottom: 0.5rem; }
-        .step-indicator { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 2rem; }
-        .step-dot { width: 2.25rem; height: 2.25rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-weight: 700; cursor: pointer; transition: all 0.2s; }
-        .step-dot.active { background: #FFA000; color: #0f172a; }
-        .step-dot.completed { background: #22c55e; color: #0f172a; }
-        .step-dot.pending { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
-        /* 어느 단계로든 자유롭게 이동 가능함을 호버로 드러낸다 */
-        .step-dot:hover { border-color: #FFA000; color: #FFCA28; }
-        .step-dot.active:hover { color: #0f172a; }
-        .step-line { width: 2rem; height: 2px; background: #334155; }
-        .step-line.completed { background: #22c55e; }
-        .skip-btn { color: #94a3b8; font-size: 0.875rem; cursor: pointer; padding: 0.5rem 1rem; }
-        .skip-btn:hover { color: #FFA000; }
-        .fade-in { animation: fadeIn 0.3s ease; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid #334155; padding: 0.75rem 1.5rem; border-radius: 0.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.3); z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
-        .toast.show { opacity: 1; }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-8">
+    <!-- 보안 경고 — 입력값이 이 브라우저에만 남는다는 점을 알린다 -->
+    <div id="securityWarning" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-yellow-900/90 border border-yellow-700 text-yellow-200 px-6 py-3 rounded-lg shadow-xl z-50 max-w-2xl hidden">
+        <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            <div class="flex-1">
+                <p class="text-sm font-medium">이 페이지를 닫으면 입력한 데이터가 사라집니다 (localStorage에 임시 저장됨)</p>
+            </div>
+            <button onclick="closeSecurityWarning()" class="text-yellow-400 hover:text-yellow-200">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
     <div class="max-w-4xl mx-auto">
         <!-- 헤더 -->
         <header class="mb-8 text-center">
@@ -115,23 +146,54 @@
                 🔥 <span class="bg-gradient-to-r from-firebase-primary to-firebase-accent bg-clip-text text-transparent">Firebase App Distribution 배포 마법사</span>
             </h1>
             <p class="text-slate-400 mb-3">Flutter Android 테스트 빌드를 Firebase로 자동 배포하는 5단계 설정</p>
-            <a href="https://github.com/Cassiiopeia/SUH-DEVOPS-TEMPLATE" target="_blank" rel="noopener"
-               class="text-xs text-slate-500 hover:text-slate-300">
-               SUH-DEVOPS-TEMPLATE GitHub →
-            </a>
+            <p class="text-zinc-400 text-sm flex items-center justify-center gap-3">
+                <a href="https://github.com/Cassiiopeia/projectops" target="_blank" rel="noopener"
+                   class="text-xs text-slate-500 hover:text-slate-300">projectops GitHub →</a>
+                <span class="text-slate-600">|</span>
+                <button onclick="openChangelogModal()" class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-firebase-primary/20 hover:bg-firebase-primary/30 border border-firebase-primary/30 rounded-full text-xs text-firebase-accent transition cursor-pointer">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                    <span id="versionBadge">v1.2.0</span>
+                </button>
+            </p>
         </header>
 
-        <!-- Step Indicator -->
-        <div class="step-indicator" id="stepIndicator">
-            <div class="step-dot active" data-step="1" onclick="goToStep(1)">1</div>
-            <div class="step-line"></div>
-            <div class="step-dot pending" data-step="2" onclick="goToStep(2)">2</div>
-            <div class="step-line"></div>
-            <div class="step-dot pending" data-step="3" onclick="goToStep(3)">3</div>
-            <div class="step-line"></div>
-            <div class="step-dot pending" data-step="4" onclick="goToStep(4)">4</div>
-            <div class="step-line"></div>
-            <div class="step-dot pending" data-step="5" onclick="goToStep(5)">5</div>
+        <!-- 첫 사용자 안내 — 시작 전에 규모·준비물·산출물을 먼저 보여준다 -->
+        <div class="wizard-meta">
+            <span>⏱️ 예상 소요 <strong>15~25분</strong></span>
+            <span class="text-slate-600">·</span>
+            <span>📑 <strong>5단계</strong></span>
+            <span class="text-slate-600">·</span>
+            <span>🎒 준비물 <strong>Firebase 프로젝트(무료) · Flutter 프로젝트 · 서명 키스토어</strong></span>
+        </div>
+        <div class="wizard-meta" style="margin-top:-0.5rem">
+            <span>🎁 완료하면 <strong>Service Account base64 + GitHub Secrets 2종, 워크플로우 값 치환 명령</strong>을 받습니다</span>
+            <span class="text-slate-600">·</span>
+            <a href="../../../../docs/FLUTTER-FIREBASE-WIZARD.md" target="_blank" rel="noopener" class="text-firebase-accent hover:underline">📖 문서로 자세히 보기 →</a>
+        </div>
+        <p class="resume-hint">진행 상황은 이 브라우저에 자동 저장됩니다. 창을 닫았다가 다시 열면 이어서 진행할 수 있어요.</p>
+
+        <!-- Progress Steps (5단계) — 구조는 3종 공통 계약이다. _shared/wizard.css 참조 -->
+        <div class="flex justify-between mb-8 px-2 overflow-x-auto">
+            <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="1">
+                <div class="step-circle w-8 h-8 rounded-full bg-firebase-primary text-slate-900 flex items-center justify-center font-bold text-xs z-10">1</div>
+                <span class="text-[9px] mt-1 text-firebase-accent text-center hidden md:block">Console</span>
+            </div>
+            <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="2">
+                <div class="step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10">2</div>
+                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block">SA 발급</span>
+            </div>
+            <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="3">
+                <div class="step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10">3</div>
+                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block">앱 정보</span>
+            </div>
+            <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="4">
+                <div class="step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10">4</div>
+                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block">파일 업로드</span>
+            </div>
+            <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="5">
+                <div class="step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10">5</div>
+                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block">Secrets</span>
+            </div>
         </div>
 
         <!-- ========================================== -->
@@ -544,9 +606,9 @@
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-blue-400 mb-3">📥 산출물 다운로드</p>
                 <div class="flex flex-wrap gap-2">
-                    <button class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-xs" onclick="exportJson()">📋 JSON</button>
-                    <button class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-xs" onclick="exportTxt()">📝 TXT</button>
-                    <button class="px-4 py-2 bg-firebase-primary text-slate-900 hover:opacity-90 rounded text-xs font-bold" onclick="exportZip()">📦 ZIP (setup 스크립트 포함, 권장)</button>
+                    <button class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-xs" onclick="downloadAsJson()">📋 JSON</button>
+                    <button class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-xs" onclick="downloadAsTxt()">📝 TXT</button>
+                    <button class="px-4 py-2 bg-firebase-primary text-slate-900 hover:opacity-90 rounded text-xs font-bold" onclick="downloadAsZip()">📦 ZIP (setup 스크립트 포함, 권장)</button>
                 </div>
             </div>
 
@@ -557,14 +619,39 @@
         </div>
 
         <footer class="text-center text-xs text-slate-500 mt-8">
-            Made with 🔥 Firebase | <a href="https://github.com/Cassiiopeia/SUH-DEVOPS-TEMPLATE" target="_blank" class="hover:text-slate-300">View on GitHub →</a>
+            Made with 🔥 Firebase | <a href="https://github.com/Cassiiopeia/projectops" target="_blank" class="hover:text-slate-300">View on GitHub →</a>
         </footer>
     </div>
 
     <!-- Toast -->
-    <div id="toast" class="toast"></div>
 
     <!-- JS -->
+    <!-- 변경 이력 모달 — 껍데기는 여기 소유, 내용은 공통 openChangelogModal()이 채운다 -->
+    <div id="changelogModal" class="modal-backdrop hidden" onclick="closeChangelogModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 500px;">
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-firebase-primary to-firebase-accent flex items-center justify-center text-slate-900 text-lg">🔥</div>
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Changelog</h3>
+                        <p class="text-xs text-slate-400">Firebase App Distribution Setup Wizard</p>
+                    </div>
+                </div>
+                <button class="text-slate-400 hover:text-slate-200 hover:bg-slate-700 p-2 rounded-lg transition" onclick="closeChangelogModal()">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="changelogContent" class="space-y-4"></div>
+            <div class="mt-6 pt-4 border-t border-slate-700 flex justify-between items-center text-xs text-slate-500">
+                <span id="changelogLastUpdated"></span>
+                <a href="https://github.com/Cassiiopeia/projectops" target="_blank" class="text-firebase-accent hover:opacity-80 transition">View on GitHub →</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="../_shared/wizard-common.js"></script>
     <script src="firebase-wizard.js"></script>
 </body>
 </html>
