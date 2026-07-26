@@ -11,9 +11,9 @@ skill별 호출 위치 매핑:
 
 | skill_id | 호출 cwd | cli 파일 |
 |---|---|---|
-| review | `skills/review/scripts/` | `review_cli.py` |
-| troubleshoot | `skills/troubleshoot/scripts/` | `troubleshoot_cli.py` |
-| report | `skills/report/scripts/` | `report_cli.py` |
+| review | `skills/pro-review/scripts/` | `review_cli.py` |
+| troubleshoot | `skills/pro-troubleshoot/scripts/` | `troubleshoot_cli.py` |
+| report | `skills/pro-report/scripts/` | `report_cli.py` |
 | 나머지 (analyze, plan, design-analyze, refactor-analyze, ppt) | (해당 skill 자체 cli 없음 — agent가 직접 경로 계산하거나 report_cli 임시 사용) | — |
 
 예시 (review):
@@ -22,7 +22,7 @@ skill별 호출 위치 매핑:
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/review/scripts 2>/dev/null | sort -V | tail -1); [ -z "$SCRIPTS" ] && SCRIPTS="$PROJECT_ROOT/skills/review/scripts"; cd "$SCRIPTS" || exit 1
+SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-review/scripts 2>/dev/null | sort -V | tail -1); [ -z "$SCRIPTS" ] && SCRIPTS="$PROJECT_ROOT/skills/pro-review/scripts"; cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" review_cli.py get-output-path review
 ```
 

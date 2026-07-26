@@ -242,13 +242,54 @@ staged 파일 목록과 diff를 분석하여 적절한 타입 추천:
 
 **커밋 메시지에 AI 서명/푸터를 절대 추가하지 않는다.** `Co-Authored-By`, `Generated with Claude`, `🤖`, `@claude` 등 GitHub @mention trailer 금지. 아래 명령 외에 `--author` 옵션이나 추가 trailer를 붙이지 않는다 — 사용자 git 설정 그대로 커밋한다.
 
-커밋 직전, 메시지 끝의 `@username` mention trailer를 무조건 자동 제거한다(skill 차원 강제 sanitize). 5단계 검열을 우회한 경우의 마지막 방어선:
+커밋 직전, 메시지 끝의 `@username` mention trailer를 무조건 자동 제거한다(skill 차원 강제 sanitize). 5단계 검열을 우회한 경우의 마지막 방어선이다.
+
+> ⚠️ **셸 `sed`로 하지 않는다 (#523).** 과거 `sed -E ':a;$!N;$!ba;...'` 한 줄로 처리했는데 이 라벨 구문이 **GNU sed 전용**이라 macOS(BSD sed)에서는 **종료 코드 0으로 조용히 통과하며 입력을 그대로 흘려보냈다.** 안전망이 켜져 있다고 믿는 상태에서 실제로는 꺼져 있었다. OS별 도구 차이를 타지 않도록 `commit_cli.py`로 옮겼다.
 
 ```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
+[ -z "$PYTHON" ] && { echo "❌ Python을 찾을 수 없습니다"; exit 1; }
+
 RAW_MSG="{최종 커밋 메시지}"
-CLEAN_MSG=$(printf '%s' "$RAW_MSG" | sed -E ':a;$!N;$!ba;s/[[:space:]]*(@[A-Za-z0-9_-]+([[:space:]]+@[A-Za-z0-9_-]+)*)[[:space:]]*$//')
-git commit -m "$CLEAN_MSG"
+
+# 스크립트 탐색: 이 레포에서 개발 중이면 로컬본이 캐시본보다 최신이므로 로컬 우선.
+# (사용자 프로젝트에는 skills/ 가 없어 자동으로 캐시본이 쓰인다)
+SCRIPTS="$PROJECT_ROOT/skills/pro-commit/scripts"
+[ -f "$SCRIPTS/commit_cli.py" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-commit/scripts 2>/dev/null | sort -V | tail -1)
+
+CLEAN_MSG=$(RAW_MSG="$RAW_MSG" SCRIPTS="$SCRIPTS" PYTHONIOENCODING=utf-8 "$PYTHON" - <<'EOF'
+import json, os, re, subprocess, sys
+
+raw = os.environ["RAW_MSG"]
+script = os.path.join(os.environ.get("SCRIPTS", ""), "commit_cli.py")
+
+# 1순위: 재사용 스크립트의 sanitize-message
+try:
+    out = subprocess.run([sys.executable, script, "sanitize-message", raw],
+                         capture_output=True, text=True, timeout=20)
+    msg = json.loads(out.stdout)["message"]
+except Exception:
+    # 2순위: 구버전 캐시라 서브커맨드가 없을 수 있다 — 동일 규칙을 인라인으로 적용.
+    #        여기서 절대 빈 문자열을 반환하지 않는다 (git commit -m "" 로 깨진다).
+    msg = re.sub(r"\s*(@[A-Za-z0-9_-]+(?:\s+@[A-Za-z0-9_-]+)*)\s*$", "", raw).rstrip()
+
+if not msg.strip():
+    print("❌ 커밋 메시지가 비었습니다 — 원문을 확인하세요", file=sys.stderr)
+    sys.exit(1)
+print(msg, end="")
+EOF
+) || { echo "❌ 커밋 메시지 정리 실패 — 커밋을 중단합니다"; exit 1; }
+
+cd "$PROJECT_ROOT" && git commit -m "$CLEAN_MSG"
 ```
+
+`sanitize-message` 출력 JSON: `{"message": "정리된 메시지", "removed": true|false, "summary": "..."}`.
+`removed`가 `true`면 mention이 실제로 제거된 것이므로, 왜 들어갔는지 5단계를 되짚어본다.
+
+> **실패해도 빈 메시지를 만들지 않는다.** 스크립트를 못 찾거나 구버전이라 서브커맨드가 없어도 동일 규칙을 인라인으로 적용하고, 그래도 결과가 비면 **커밋을 중단**한다. 과거 sed 방식은 실패를 성공으로 보고했지만 이제는 드러난다.
+
+> **본문 중간의 mention은 보존한다.** `@projectops build app 관련 수정`처럼 의미 있게 등장한 mention은 지우지 않고, **끝에 붙은 trailer만** 제거한다.
 
 커밋 성공 후 결과 출력:
 
