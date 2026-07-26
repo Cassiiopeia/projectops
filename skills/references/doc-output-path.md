@@ -7,14 +7,20 @@
 산출물 md 저장 전 반드시 해당 skill의 `_cli.py` 의 `get-output-path` 서브커맨드를 호출해 경로를 받아라.
 표준은 `common-rules.md` §"skill별 py 분산 호출" 참조.
 
-skill별 호출 위치 매핑:
+skill별 호출 위치 매핑 — **8개 스킬 전부 자기 CLI를 갖는다** (#525):
 
 | skill_id | 호출 cwd | cli 파일 |
 |---|---|---|
-| review | `skills/review/scripts/` | `review_cli.py` |
-| troubleshoot | `skills/troubleshoot/scripts/` | `troubleshoot_cli.py` |
-| report | `skills/report/scripts/` | `report_cli.py` |
-| 나머지 (analyze, plan, design-analyze, refactor-analyze, ppt) | (해당 skill 자체 cli 없음 — agent가 직접 경로 계산하거나 report_cli 임시 사용) | — |
+| analyze | `skills/pro-analyze/scripts/` | `analyze_cli.py` |
+| plan | `skills/pro-plan/scripts/` | `plan_cli.py` |
+| design-analyze | `skills/pro-design-analyze/scripts/` | `design_analyze_cli.py` |
+| refactor-analyze | `skills/pro-refactor-analyze/scripts/` | `refactor_analyze_cli.py` |
+| ppt | `skills/pro-ppt/scripts/` | `ppt_cli.py` |
+| review | `skills/pro-review/scripts/` | `review_cli.py` |
+| troubleshoot | `skills/pro-troubleshoot/scripts/` | `troubleshoot_cli.py` |
+| report | `skills/pro-report/scripts/` | `report_cli.py` |
+
+> **agent가 경로를 직접 계산하지 않는다.** 과거에는 5개 스킬에 CLI가 없어 "직접 계산하거나 다른 스킬 것을 빌려 쓰라"는 상태였고, 그래서 스킬마다 파일명 규칙이 갈라져도 아무도 알아채지 못했다. 이제 규칙은 `scripts/common/paths.py`의 `resolve_output_path()` **한 곳**에만 있고 8개 CLI가 모두 그것을 호출한다.
 
 예시 (review):
 
@@ -22,7 +28,7 @@ skill별 호출 위치 매핑:
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/review/scripts 2>/dev/null | sort -V | tail -1); [ -z "$SCRIPTS" ] && SCRIPTS="$PROJECT_ROOT/skills/review/scripts"; cd "$SCRIPTS" || exit 1
+SCRIPTS="$PROJECT_ROOT/skills/pro-review/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-review/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" review_cli.py get-output-path review
 ```
 
@@ -32,15 +38,36 @@ PYTHONIOENCODING=utf-8 "$PYTHON" review_cli.py get-output-path review
 - `docs/projectops/plan/20260418_427_드롭다운_디자인_변경.md`
 - `docs/projectops/analyze/20260418_001_초기_분석.md`
 
-## 산출물 경로 우산 (`docs/projectops/`)
+## 산출물 경로 우산 (기본 `docs/projectops/`)
 
-모든 산출물은 `docs/projectops/` 우산 아래에 둔다. harness(`harness/WORKFLOW.md` §"산출물 경로 단일 규칙")와 skill이 동일한 위치를 공유한다.
+모든 산출물은 하나의 우산 아래에 둔다. harness(`harness/WORKFLOW.md` §"산출물 경로 단일 규칙")와 skill이 동일한 위치를 공유한다.
 
 | 종류 | 경로 | 비고 |
 |------|------|------|
-| skill 최종 산출물 | `docs/projectops/<skill>/` | plan·analyze·report·review·issue 등 |
-| 작업중 지식 그래프 | `docs/projectops/hypercortex/` | harness SDLC의 TODO·REQUIREMENT·DESIGN·QUALITY 등 |
-| 코드 작업 격리 | `docs/projectops/workspace/` | harness Phase 4 코드 산출물 격리 |
+| skill 최종 산출물 | `<우산>/<skill>/` | plan·analyze·report·review·issue 등 |
+| 작업중 지식 그래프 | `<우산>/hypercortex/` | harness SDLC의 TODO·REQUIREMENT·DESIGN·QUALITY 등 |
+| 코드 작업 격리 | `<우산>/workspace/` | harness Phase 4 코드 산출물 격리 |
+
+### 우산 위치는 사용자가 바꿀 수 있다 (#525)
+
+기본값은 `docs/projectops/`이고, **설정을 건드리지 않으면 그대로 유지**된다.
+팀 규약상 다른 위치를 써야 하거나 저장소에 문서를 남기고 싶지 않으면 config로 바꾼다.
+
+```json
+{
+  "output": { "root": "docs/dev" }
+}
+```
+
+| 값 | 결과 |
+|---|---|
+| 미설정 | `<repo>/docs/projectops/` — 기존과 동일 |
+| 상대경로 (`docs/dev`) | `<repo>/docs/dev/` |
+| 절대경로 (`/Users/me/notes`) | 그 경로 그대로 (저장소 밖에 모을 때) |
+
+해석은 `scripts/common/paths.py`의 `resolve_output_root()`가 담당한다.
+**skill이 경로 문자열을 직접 조립하지 않는다** — 반드시 `get-output-path`를 거친다.
+사용자에게 안내할 때는 설정 키 이름이나 파일 경로를 노출하지 말고 자연어로만 말한다.
 
 ## 실패 시 대응
 

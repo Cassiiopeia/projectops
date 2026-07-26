@@ -37,7 +37,7 @@ deploy PR을 만들기 전에 `detect-release-context`로 릴리스 브랜치·p
 
 ```bash
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
-SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-changelog-deploy/scripts 2>/dev/null | sort -V | tail -1); [ -z "$SCRIPTS" ] && SCRIPTS="$(git rev-parse --show-toplevel)/skills/pro-changelog-deploy/scripts"
+SCRIPTS="$(git rev-parse --show-toplevel)/skills/pro-changelog-deploy/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-changelog-deploy/scripts 2>/dev/null | sort -V | tail -1)
 PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-context --project-root "$(git rev-parse --show-toplevel)"
 ```
 
@@ -163,7 +163,7 @@ echo "PROJECT_ROOT=$PROJECT_ROOT"; echo "PYTHON=$PYTHON"; echo "OWNER=$OWNER"; e
 ```bash
 # ⚠️ Bash stateless — PROJECT_ROOT·PYTHON을 [시작 전]에서 구한 실제 값으로 채운다.
 PROJECT_ROOT="..."; PYTHON="..."
-SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-changelog-deploy/scripts 2>/dev/null | sort -V | tail -1); [ -z "$SCRIPTS" ] && SCRIPTS="$PROJECT_ROOT/skills/pro-changelog-deploy/scripts"
+SCRIPTS="$PROJECT_ROOT/skills/pro-changelog-deploy/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-changelog-deploy/scripts 2>/dev/null | sort -V | tail -1)
 PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-context --project-root "$PROJECT_ROOT"
 ```
 
@@ -268,7 +268,7 @@ git log origin/develop..HEAD --oneline 2>/dev/null
 # ⚠️ Bash stateless — PROJECT_ROOT를 [시작 전]에서 구한 실제 값으로 채운다. PAT·OWNER·REPO 불필요.
 PROJECT_ROOT="..."
 
-SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-changelog-deploy/scripts 2>/dev/null | sort -V | tail -1); [ -z "$SCRIPTS" ] && SCRIPTS="$PROJECT_ROOT/skills/pro-changelog-deploy/scripts"; cd "$SCRIPTS" || exit 1
+SCRIPTS="$PROJECT_ROOT/skills/pro-changelog-deploy/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-changelog-deploy/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" changelog_cli.py \
   detect-release-context --project-root "$PROJECT_ROOT"
 cd "$PROJECT_ROOT"
@@ -544,7 +544,7 @@ NOTES_FILE="$HOME/.projectops/tmp/${OWNER}__${REPO}__release_notes.md"
 TODAY=$(date '+%Y%m%d')
 TITLE="🚀 Deploy ${TODAY}"
 
-SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-changelog-deploy/scripts 2>/dev/null | sort -V | tail -1); [ -z "$SCRIPTS" ] && SCRIPTS="$PROJECT_ROOT/skills/pro-changelog-deploy/scripts"; cd "$SCRIPTS" || exit 1
+SCRIPTS="$PROJECT_ROOT/skills/pro-changelog-deploy/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-changelog-deploy/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
 DEPLOY_STATUS=$(GITHUB_PAT="$GITHUB_PAT" PYTHONIOENCODING=utf-8 "$PYTHON" changelog_cli.py \
   deploy-status "$OWNER" "$REPO" --base "$BASE_BRANCH")
 EXISTING_PR=$(DEPLOY_STATUS="$DEPLOY_STATUS" "$PYTHON" -c "import os,json; d=json.loads(os.environ['DEPLOY_STATUS']); print((d.get('pr') or {}).get('number',''))")
@@ -586,7 +586,7 @@ PR 생성 직후, **`/tmp`에 즉석 Python을 만들지 말고** 아래 재사�
 # BASE_BRANCH는 [시작 전 §5]에서 확정한 base 브랜치(폴백 main).
 GITHUB_PAT="..."; OWNER="..."; REPO="..."; PYTHON="..."; PROJECT_ROOT="..."; PR_NUMBER="..."; BASE_BRANCH="..."
 
-SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-changelog-deploy/scripts 2>/dev/null | sort -V | tail -1); [ -z "$SCRIPTS" ] && SCRIPTS="$PROJECT_ROOT/skills/pro-changelog-deploy/scripts"; cd "$SCRIPTS" || exit 1
+SCRIPTS="$PROJECT_ROOT/skills/pro-changelog-deploy/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-changelog-deploy/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
 GITHUB_PAT="$GITHUB_PAT" PYTHONIOENCODING=utf-8 "$PYTHON" changelog_cli.py \
   deploy-status "$OWNER" "$REPO" --pr "$PR_NUMBER" --base "$BASE_BRANCH"
 cd "$PROJECT_ROOT"
@@ -638,7 +638,7 @@ curl 즉석 파싱 대신 deploy-status로 현재 상태를 종합 조회한다.
 # ⚠️ Bash stateless — 변수를 실제 값으로 채운다. BASE_BRANCH는 [시작 전 §5]에서 확정(폴백 main).
 GITHUB_PAT="..."; OWNER="..."; REPO="..."; PYTHON="..."; PROJECT_ROOT="..."; BASE_BRANCH="..."
 
-SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-changelog-deploy/scripts 2>/dev/null | sort -V | tail -1); [ -z "$SCRIPTS" ] && SCRIPTS="$PROJECT_ROOT/skills/pro-changelog-deploy/scripts"; cd "$SCRIPTS" || exit 1
+SCRIPTS="$PROJECT_ROOT/skills/pro-changelog-deploy/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-changelog-deploy/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
 GITHUB_PAT="$GITHUB_PAT" PYTHONIOENCODING=utf-8 "$PYTHON" changelog_cli.py \
   deploy-status "$OWNER" "$REPO" --base "$BASE_BRANCH"
 cd "$PROJECT_ROOT"
@@ -666,7 +666,7 @@ cd "$PROJECT_ROOT"
 # ⚠️ Bash stateless — 변수 + EXISTING_PR(fix 1단계 번호)을 실제 값으로 채운다.
 GITHUB_PAT="..."; OWNER="..."; REPO="..."; PYTHON="..."; PROJECT_ROOT="..."; EXISTING_PR="..."
 
-SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-changelog-deploy/scripts 2>/dev/null | sort -V | tail -1); [ -z "$SCRIPTS" ] && SCRIPTS="$PROJECT_ROOT/skills/pro-changelog-deploy/scripts"; cd "$SCRIPTS" || exit 1
+SCRIPTS="$PROJECT_ROOT/skills/pro-changelog-deploy/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-changelog-deploy/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
 GITHUB_PAT="$GITHUB_PAT" PYTHONIOENCODING=utf-8 "$PYTHON" changelog_cli.py \
   update-pr "$OWNER" "$REPO" "$EXISTING_PR" "-" --state closed
 cd "$PROJECT_ROOT"
@@ -726,7 +726,7 @@ TITLE="🚀 Deploy ${TODAY} (재시도)"
 
 # create-pr의 body_file에 릴리스 노트 파일 절대경로를 넘겨 본문 포함 PR 생성 (deploy 6단계와 동일 패턴).
 # 브랜치는 [시작 전 §5]에서 확정한 HEAD_BRANCH→BASE_BRANCH (하드코딩 금지).
-SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-changelog-deploy/scripts 2>/dev/null | sort -V | tail -1); [ -z "$SCRIPTS" ] && SCRIPTS="$PROJECT_ROOT/skills/pro-changelog-deploy/scripts"; cd "$SCRIPTS" || exit 1
+SCRIPTS="$PROJECT_ROOT/skills/pro-changelog-deploy/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-changelog-deploy/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
 CREATE_OUT=$(GITHUB_PAT="$GITHUB_PAT" PYTHONIOENCODING=utf-8 "$PYTHON" changelog_cli.py \
   create-pr "$OWNER" "$REPO" "$TITLE" "$NOTES_FILE" "$HEAD_BRANCH" "$BASE_BRANCH")
 PR_NUMBER=$(CREATE_OUT="$CREATE_OUT" "$PYTHON" -c "import os,json; print(json.loads(os.environ['CREATE_OUT']).get('number',''))")

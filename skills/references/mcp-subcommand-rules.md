@@ -2,7 +2,7 @@
 
 각 skill의 `<scope>_cli.py`에 외부 시스템(GitHub API, SSH 등)을 다루는 새 서브커맨드를 추가할 때 **반드시 이 표준을 따른다.** CLAUDE.md "Python 행동 스크립트 표준"의 구체적 구현 레퍼런스다.
 
-> **모범 사례**: `actions`, `deploy-status` 서브커맨드 (`skills/changelog-deploy/scripts/changelog_cli.py`). 새 커맨드를 만들기 전에 이 둘을 먼저 읽고 같은 모양으로 만든다.
+> **모범 사례**: `actions`, `deploy-status` 서브커맨드 (`skills/pro-changelog-deploy/scripts/changelog_cli.py`). 새 커맨드를 만들기 전에 이 둘을 먼저 읽고 같은 모양으로 만든다.
 
 ---
 

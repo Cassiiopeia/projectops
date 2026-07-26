@@ -268,6 +268,23 @@ effective_pat = repo.pat if repo.pat else config["github"].global_pat
 | `password` | — | `auth: password`일 때 비밀번호 |
 | `default` | — | 여러 인스턴스 중 기본 선택 여부 |
 
+### `output` 섹션 (#525)
+
+산출물 md를 저장하는 8개 스킬(`analyze`·`plan`·`design-analyze`·`refactor-analyze`·`ppt`·`report`·`review`·`troubleshoot`)이 공유한다.
+
+```json
+{
+  "output": { "root": "docs/projectops" }
+}
+```
+
+| 필드 | 필수 | 설명 |
+|------|------|------|
+| `root` | — | 산출물 저장 루트. **생략하면 `docs/projectops`** (기존 동작 유지). 상대경로는 저장소 루트 기준, 절대경로도 가능 |
+
+해석은 `scripts/common/paths.py`의 `resolve_output_root()`가 단일 담당한다.
+스킬이 경로 문자열을 직접 조립하지 않고 각 스킬 CLI의 `get-output-path`를 거친다 — 상세는 `references/doc-output-path.md`.
+
 ---
 
 ## 8. 새 스킬에 Config 추가하는 방법

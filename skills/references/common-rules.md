@@ -222,14 +222,26 @@ worktree로 격리된 환경에서 작업할까요, 아니면 현재 디렉토�
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/<skill>/scripts 2>/dev/null | sort -V | tail -1); [ -z "$SCRIPTS" ] && SCRIPTS="$PROJECT_ROOT/skills/<skill>/scripts"; cd "$SCRIPTS" || exit 1
+SCRIPTS="$PROJECT_ROOT/skills/<skill>/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/<skill>/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" <scope>_cli.py <subcommand> [args]
 ```
 
-> **⚠️ 스크립트는 플러그인 캐시에 설치된다 — 작업 중인 프로젝트 루트에 있지 않다.**
-> 플러그인으로 설치된 skill의 `_cli.py`는 `~/.claude/plugins/cache/<marketplace>/projectops/<version>/skills/<skill>/scripts/`에 있다.
-> 사용자 프로젝트(템플릿으로 생성·통합된 레포 포함)에는 `skills/` 폴더 자체가 없다(통합 시 제외됨). 따라서 `cd "$PROJECT_ROOT/skills/..."` 고정 경로는 **이 템플릿 레포 안에서만** 동작하고 다른 레포에선 실패한다.
-> 위 `SCRIPTS=...` 라인은 **캐시(설치 위치, 최신 버전) 우선 → 프로젝트 루트 폴백** 순으로 스크립트를 찾으므로 어느 레포에서든 동작한다.
+> **⚠️ 스크립트 탐색 순서: 로컬 → 캐시 폴백 (#524 — 이 순서를 뒤집지 말 것)**
+>
+> 스크립트는 두 곳 중 하나에 있다:
+>
+> | 위치 | 언제 |
+> |---|---|
+> | `$PROJECT_ROOT/skills/<skill>/scripts/` | **projectops 레포 자신** (여기서만 `skills/`가 실재) |
+> | `~/.claude/plugins/cache/<marketplace>/projectops/<version>/skills/<skill>/scripts/` | 사용자 프로젝트 (플러그인 설치 위치) |
+>
+> 위 `SCRIPTS=...` 라인은 **로컬이 있으면 로컬, 없으면 캐시**로 폴백한다. 두 환경 모두에서 옳다:
+>
+> - 사용자 프로젝트에는 `skills/`가 없다(통합 시 제외) → 자동으로 캐시가 쓰인다. **기존과 동일한 동작.**
+> - projectops 레포에는 `skills/`가 있다 → 자기 코드가 쓰인다. **수정 즉시 테스트 가능.**
+>
+> 과거에는 캐시를 먼저 봤는데(#386 해결 과정에서 도입), 그러면 이 레포에서 스킬을 고쳐도 **릴리스로 캐시가 갱신되기 전까지 자기 변경분을 쓸 수 없었다.** 새 서브커맨드를 추가하자마자 "그런 커맨드 없음"으로 실패하는 문제가 실제로 발생했다.
+>
 > `_cli.py`는 `Path(__file__).parents[3]` 기준으로 `scripts/common`을 import하므로(cwd 무관), 스크립트 파일 위치만 맞으면 `cd` 위치와 무관하게 import가 풀린다.
 > config(`~/.projectops/config/config.json`)는 항상 user 홈 기준이라 프로젝트 위치와 무관하다.
 
@@ -266,7 +278,7 @@ GitHub API 작업은 **각 skill의 `<scope>_cli.py` 서브커맨드로 호출**
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/github/scripts 2>/dev/null | sort -V | tail -1); [ -z "$SCRIPTS" ] && SCRIPTS="$PROJECT_ROOT/skills/github/scripts"; cd "$SCRIPTS" || exit 1
+SCRIPTS="$PROJECT_ROOT/skills/pro-github/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-github/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py get-issue {owner} {repo} {number} --with-comments
 ```
 

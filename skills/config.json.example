@@ -2,9 +2,15 @@
   "github": {
     "default_assignee": "{GitHub_사용자명}",
     "global_pat": "{ghp_xxxxxxxxxxxxxxxxxxxx}",
-    "commit":           { "auto_approve": false },
-    "issue":            { "auto_approve": false },
-    "changelog_deploy": { "auto_approve": false },
+    "commit": {
+      "auto_approve": false
+    },
+    "issue": {
+      "auto_approve": false
+    },
+    "changelog_deploy": {
+      "auto_approve": false
+    },
     "repos": [
       {
         "name": "{프로젝트 이름}",
@@ -19,18 +25,35 @@
         "repo": "{저장소명}",
         "pat": "{ghp_별도PAT_있으면_입력}",
         "default": false,
-        "commit":           { "auto_approve": true },
-        "issue":            { "auto_approve": true, "assignee": "{이 레포만 다른 담당자 GitHub 사용자명}" },
-        "changelog_deploy": { "auto_approve": true, "app_release": true, "head_branch": "develop", "base_branch": "main", "provider": "coderabbit" }
+        "commit": {
+          "auto_approve": true
+        },
+        "issue": {
+          "auto_approve": true,
+          "assignee": "{이 레포만 다른 담당자 GitHub 사용자명}"
+        },
+        "changelog_deploy": {
+          "auto_approve": true,
+          "app_release": true,
+          "head_branch": "develop",
+          "base_branch": "main",
+          "provider": "coderabbit"
+        }
       }
     ]
+  },
+  "output": {
+    "_주석": "산출물(md) 저장 루트. 생략하면 docs/projectops 를 쓴다. 상대경로는 저장소 루트 기준, 절대경로도 가능.",
+    "root": "docs/projectops"
   },
   "synology-expose": {
     "instances": [
       {
         "name": "{NAS 식별 이름}",
         "ddns": "{your-nas.synology.me}",
-        "domains": ["{example.com}"],
+        "domains": [
+          "{example.com}"
+        ],
         "email": "{your@email.com}",
         "dns_provider": "{cloudflare|route53|gabia}",
         "default": true

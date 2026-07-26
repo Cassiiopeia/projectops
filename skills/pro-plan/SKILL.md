@@ -15,6 +15,27 @@ description: "Plan Mode (WHAT 전략 수립) - 구현 전 '무엇을, 왜' 만�
 > - Before/After 코드 예시
 > HOW가 필요하면 "→ `/analyze`에서 구체화하겠습니다" 한 줄로 대체.
 
+## 승인 게이트 · 시작 전 질문 (필수)
+
+이 skill은 md 산출물을 만든다. **`references/approval-and-questions.md`를 반드시 따른다** (#526).
+
+요약:
+
+1. **시작 전** — 결과물이 크게 달라지는 항목만 한 번에 하나씩 묻는다. 사용자 입력에 이미 답이 있으면 묻지 않는다.
+2. **저장 전** — 내용을 보여주고 승인을 받는다. 자동 모드로 설정된 저장소는 요약만 안내하고 바로 저장한다.
+3. **첫 실행 시 1회** — "앞으로 확인 없이 진행할지"를 묻고 그 답을 기억한다.
+4. 사용자에게 설정 키 이름이나 파일 경로를 노출하지 않는다.
+
+저장 경로는 직접 조립하지 않고 아래로 받는다 (`references/doc-output-path.md`):
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
+[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
+SCRIPTS="$PROJECT_ROOT/skills/pro-plan/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-plan/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
+PYTHONIOENCODING=utf-8 "$PYTHON" plan_cli.py get-output-path plan --title "{제목}"
+```
+
 ## 시작 전
 
 `references/common-rules.md`의 **작업 시작 프로토콜** + **분석 전용 스킬 규칙** 적용.

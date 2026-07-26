@@ -6,9 +6,7 @@
 """
 from __future__ import annotations
 
-import os
 import sys
-import subprocess
 from datetime import date
 from pathlib import Path
 
@@ -23,44 +21,9 @@ from common.cli_parser import JSONArgumentParser, run_cli  # noqa: E402
 
 
 def cmd_get_output_path(args) -> int:
-    from common.issue_number import (
-        extract_from_path as in_extract_from_path,
-        extract_from_branch, get_current_branch, resolve,
-    )
-    from common.title import normalize, extract_from_path as title_extract_from_path
-    from common.paths import get_next_seq, build_output_path
-
-    cwd = os.getcwd()
-    today = date.today().strftime("%Y%m%d")
-
-    wt_number = in_extract_from_path(cwd)
-    branch = get_current_branch()
-    br_number = extract_from_branch(branch) if branch else None
-    issue_num, mismatch = resolve(wt_number, br_number)
-
-    try:
-        root_str = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, check=True,
-        ).stdout.strip()
-    except subprocess.CalledProcessError:
-        return emit({"ok": False, "code": "git_not_found", "error": "git 저장소 아님"})
-
-    project_root = Path(root_str)
-    output_base = project_root / "docs" / "projectops"
-    skill_dir = output_base / args.skill_id
-
-    number = issue_num if issue_num else get_next_seq(skill_dir, today)
-
-    if args.title:
-        final_title = normalize(args.title)
-    else:
-        raw = title_extract_from_path(cwd)
-        final_title = normalize(raw) if raw else "untitled"
-
-    path = build_output_path(output_base, args.skill_id, today, number, final_title)
-    return emit({"path": str(path), "summary": str(path), "mismatch": mismatch})
-
+    # 경로 규칙은 Layer 1(common/paths.py)이 단일 소유 — 여기서 재구현하지 않는다 (#525)
+    from common.paths import resolve_output_path
+    return emit(resolve_output_path(args.skill_id, args.title))
 
 def build_parser() -> JSONArgumentParser:
     parser = JSONArgumentParser(prog="review_cli", description="review skill CLI")
