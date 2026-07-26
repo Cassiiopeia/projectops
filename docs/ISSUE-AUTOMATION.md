@@ -198,7 +198,8 @@ on:
 ├── bug_report.md
 ├── feature_request.md
 ├── design_request.md
-└── qa_request.md
+├── qa_request.md
+└── config.yml          # 템플릿 선택 화면 설정
 ```
 
 ---
@@ -221,7 +222,7 @@ on:
 ### 라벨 동기화 안됨
 
 **확인 사항**:
-1. `issue-label.yml` 파일 YAML 문법 확인
+1. `.github/config/issue-labels.yml` 파일 YAML 문법 확인
 2. 라벨 이름에 특수문자 없는지 확인
 
 ---

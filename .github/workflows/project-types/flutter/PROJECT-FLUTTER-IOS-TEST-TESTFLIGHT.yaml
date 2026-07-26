@@ -8,7 +8,7 @@
 # ★ 마법사 우선 아키텍처 ★
 # - 빌드에 필요한 설정 파일들은 웹 마법사가 생성합니다
 # - 워크플로우는 마법사가 생성한 파일들을 그대로 사용합니다
-# - 마법사 경로: .github/util/flutter/ios-testflight-setup-wizard/index.html
+# - 마법사 경로: .github/util/flutter/testflight-wizard/testflight-wizard.html
 #
 # 주요 특징:
 # - workflow_dispatch로 수동 실행 또는 repository_dispatch로 트리거
@@ -609,7 +609,7 @@ jobs:
           if [ ! -f "ExportOptions.plist" ]; then
             echo "❌ ios/ExportOptions.plist이 없습니다!"
             echo "웹 마법사를 실행하여 설정 파일을 생성하세요:"
-            echo "  브라우저에서 .github/util/flutter/ios-testflight-setup-wizard/index.html 열기"
+            echo "  브라우저에서 .github/util/flutter/testflight-wizard/testflight-wizard.html 열기"
             exit 1
           fi
           echo "✅ ExportOptions.plist 확인됨"
@@ -835,7 +835,7 @@ jobs:
           if [ ! -f "ios/fastlane/Fastfile" ]; then
             echo "❌ ios/fastlane/Fastfile이 없습니다!"
             echo "웹 마법사를 실행하여 설정 파일을 생성하세요:"
-            echo "  브라우저에서 .github/util/flutter/ios-testflight-setup-wizard/index.html 열기"
+            echo "  브라우저에서 .github/util/flutter/testflight-wizard/testflight-wizard.html 열기"
             exit 1
           fi
           echo "✅ Fastfile 확인됨: ios/fastlane/Fastfile"

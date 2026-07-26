@@ -7,7 +7,7 @@
 # ★ 마법사 우선 아키텍처 ★
 # - 빌드에 필요한 설정 파일들은 웹 마법사가 생성합니다
 # - 워크플로우는 마법사가 생성한 파일들을 그대로 사용합니다
-# - 마법사 경로: .github/util/flutter/ios-testflight-setup-wizard/index.html
+# - 마법사 경로: .github/util/flutter/testflight-wizard/testflight-wizard.html
 #   (브라우저에서 열어서 사용)
 #
 # 빌드 파이프라인:
@@ -40,7 +40,7 @@
 # ===================================================================
 #
 # 1. 웹 마법사 실행:
-#    브라우저에서 .github/util/flutter/ios-testflight-setup-wizard/index.html 열기
+#    브라우저에서 .github/util/flutter/testflight-wizard/testflight-wizard.html 열기
 #    → 필요한 정보 입력 후 설정 파일 다운로드
 #
 # 2. GitHub Secrets 설정 (위 목록 참고)
@@ -441,7 +441,7 @@ jobs:
           if [ ! -f "ios/fastlane/Fastfile" ]; then
             echo "❌ ios/fastlane/Fastfile이 없습니다!"
             echo "웹 마법사를 실행하여 설정 파일을 생성하세요:"
-            echo "  브라우저에서 .github/util/flutter/ios-testflight-setup-wizard/index.html 열기"
+            echo "  브라우저에서 .github/util/flutter/testflight-wizard/testflight-wizard.html 열기"
             exit 1
           fi
           echo "✅ Fastfile 확인됨: ios/fastlane/Fastfile"

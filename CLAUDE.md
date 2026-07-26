@@ -93,8 +93,9 @@ projectops/
 │   │   ├── PROJECT-COMMON-*.yaml
 │   │   └── project-types/
 │   │       ├── common/          # 공통 원본 (+ secret-backup/ opt-in, deploy/vercel/ 배포타겟)
-│   │       ├── flutter/         # Flutter 전용 (배포 워크플로우 루트 포함)
+│   │       ├── flutter/         # Flutter 전용 (스토어 배포 워크플로우 루트 포함)
 │   │       ├── spring/          # Spring 전용 (server-deploy/ + publish/{nexus,github-packages}/)
+│   │       ├── python/          # Python 전용 (CI 루트 + server-deploy/)
 │   │       ├── react/           # React/Next.js 공용 (next 타입은 v4.1.0에서 흡수됨)
 │   │       └── node/            # Node 전용 (publish/npm/)
 │   ├── scripts/
@@ -102,10 +103,15 @@ projectops/
 │   │   ├── changelog_manager.py
 │   │   ├── truncate_release_notes.sh  # + .py (실 로직, #448)
 │   │   └── template_initializer.sh
-│   ├── util/flutter/
-│   │   ├── playstore-wizard/
-│   │   ├── testflight-wizard/
-│   │   └── firebase-wizard/
+│   ├── util/
+│   │   ├── flutter/
+│   │   │   ├── playstore-wizard/
+│   │   │   ├── testflight-wizard/
+│   │   │   └── firebase-wizard/
+│   │   └── common/
+│   │       ├── projects-sync-wizard/
+│   │       ├── github-projects-sync-worker/
+│   │       └── github-secrets-converter/
 │   ├── ISSUE_TEMPLATE/
 │   └── PULL_REQUEST_TEMPLATE.md
 ├── .claude-plugin/              # 플러그인 매니페스트
@@ -144,7 +150,9 @@ snake_case.sh / snake_case.py
 | 파일명 | 트리거 | 기능 |
 |--------|--------|------|
 | `PROJECT-TEMPLATE-INITIALIZER` | 저장소 생성 | 템플릿 초기화 (일회성) |
-| `PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC` | main 푸시 | 플러그인 매니페스트 버전 동기화 |
+| `PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC` | main 푸시 | 플러그인 매니페스트 버전 동기화 (**이 레포 전용**) |
+| `PROJECT-TEMPLATE-CI` | develop 푸시/PR | npx CLI 테스트 (**이 레포 전용**) |
+| `PROJECT-TEMPLATE-NPM-PUBLISH` | main 푸시 | `projectops` npm 패키지 배포 (**이 레포 전용**) |
 | `PROJECT-COMMON-VERSION-CONTROL` | main 직접 푸시(안전망) | 릴리스 머지 외 push 시 patch 증가 |
 | `PROJECT-COMMON-RELEASE-CHANGELOG` | main PR (develop→main) | 버전 확정 + AI 체인지로그 + automerge |
 | `PROJECT-COMMON-README-VERSION-UPDATE` | main 푸시 | README 버전 동기화 |
@@ -236,7 +244,7 @@ deploy/publish 축은 **타입에 따라 적용 자체가 안 될 수 있다.** 
 
 > 서버 배포 워크플로우(SIMPLE/NONSTOP-*/PR-PREVIEW)는 `server-deploy/`로 묶여 **`deploy=docker-ssh`일 때만 포함**된다(`vercel`/`none`이면 폴더째 제외). publish 워크플로우는 `<type>/publish/<target>/`에 있고 **선택된 publish 타겟 집합**으로 복사가 결정된다(타입은 파일 위치일 뿐 게이트 아님).
 >
-> **확장 규칙(agent 필독)**: 새 "서버 배포" 워크플로우는 `spring/server-deploy/`에 파일만 넣는다(deploy≠docker-ssh면 자동 제외). 새 publish 타겟은 `<type>/publish/<target>/`에 넣고 마법사 질문 목록에 값을 추가한다. 타입 비종속 배포 타겟(Vercel 등)은 `common/deploy/<target>/`에 넣는다.
+> **확장 규칙(agent 필독)**: 새 "서버 배포" 워크플로우는 **그 타입의 `<type>/server-deploy/`** 에 파일만 넣는다(deploy≠docker-ssh면 자동 제외). 현재 `server-deploy/`를 가진 타입은 `spring`·`python` 두 개다. **타입 폴더 직하위에 두면 `--deploy none`에서도 복사되므로 절대 그렇게 두지 않는다** (실제로 python이 이 함정에 빠져 #521에서 교정됨). 새 publish 타겟은 `<type>/publish/<target>/`에 넣고 마법사 질문 목록에 값을 추가한다. 타입 비종속 배포 타겟(Vercel 등)은 `common/deploy/<target>/`에 넣는다.
 >
 > **⚠️ 워크플로우를 리네임/삭제할 때 (agent 필독, #470)**: 구 이름을 `src/core/migrations/registry.js`에 반드시 추가한다 — 마법사 업데이트가 기존 통합 레포의 구 파일을 자동 무해화(.bak)하는 유일한 경로다(레거시 마이그레이션은 전부 이 레지스트리 한 곳에서 관리). tier는 `safe`(순수 리네임 — 공존 시 중복 실행 실해) / `confirm`(배포 파이프라인일 수 있음 — 자동 조치 없이 안내만) 중 실해 기준으로 고른다. `test/migrations.test.js`가 레지스트리와 현행 배포 세트의 충돌(살아있는 워크플로우 오살)을 자동 검증한다. 구 파일에 사용자 커스텀 설정이 들어있을 수 있으면 registry 항목에 `settingsExtractor`를 지정해 무해화 직전 version.yml로 자동 이관한다 (`rules/settings-extractors.js`, #478 이슈 헬퍼가 모범 사례).
 > 참고: **타입 선택 해제로 남는 고아 워크플로우**는 registry가 아니라 `src/core/orphan-workflows.js`가 동적 감지한다(#487) — registry는 리네임·폐기 전용, 고아 정리는 템플릿 인벤토리 대조(정확한 파일명 일치) 방식이다. 대화형은 확인 후 .bak 무해화, 비대화형은 안내만 출력한다.
@@ -254,6 +262,15 @@ deploy/publish 축은 **타입에 따라 적용 자체가 안 될 수 있다.** 
 | `PROJECT-COMMON-SECRET-FILE-UPLOAD` | GitHub Secret → 서버(SSH) 업로드 | common/secret-backup/ | `--secret-backup` |
 
 > Vercel은 `VERCEL_TOKEN`·`VERCEL_ORG_ID`·`VERCEL_PROJECT_ID` secret이 필요하다.
+
+#### Python (FastAPI/Django)
+| 파일명 | 용도 | 위치 |
+|--------|------|------|
+| `PROJECT-PYTHON-CI` | 빌드/검증 | 기본 |
+| `PROJECT-PYTHON-SIMPLE-CICD` | SSH+Docker 배포 (단일 컨테이너) | python/server-deploy/ |
+| `PROJECT-PYTHON-PR-PREVIEW` | PR 프리뷰 배포 | python/server-deploy/ |
+
+> Spring과 동일한 SSH+Docker 엔진을 쓴다. 배포 2종은 `server-deploy/`에 있어 `deploy=docker-ssh`일 때만 포함된다 (#521에서 타입 루트 → `server-deploy/`로 이동, 그전엔 `--deploy none`에도 복사되던 버그가 있었다).
 
 #### React (Next.js 포함)
 | 파일명 | 용도 |

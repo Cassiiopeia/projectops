@@ -205,6 +205,8 @@ CLEANUP_TARGETS = [
     ("src", "src 폴더 삭제 (projectops CLI)"),
     ("harness", "harness 폴더 삭제 (pi Persona Harness)"),
     (".suh-template.example", ".suh-template.example 폴더 삭제 (템플릿 전용)"),
+    # 릴리스마다 changelog-deploy가 재생성하는 템플릿 레포 전용 산출물
+    ("pr_body.md", "pr_body.md 삭제 (템플릿 레포 릴리스 작업 산출물)"),
 ]
 
 

@@ -156,8 +156,8 @@ npx wrangler login
 
 ## 관련 문서
 
-- [GITHUB-PROJECTS-SYNC-WIZARD.md](../../../docs/GITHUB-PROJECTS-SYNC-WIZARD.md) - 상세 가이드
-- [PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml](../../workflows/PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml) - Label → Status 동기화
+- [GITHUB-PROJECTS-SYNC-WIZARD.md](../../../../docs/GITHUB-PROJECTS-SYNC-WIZARD.md) - 상세 가이드
+- [PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml](../../../workflows/PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml) - Label → Status 동기화
 
 ## 버전 히스토리
 

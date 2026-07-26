@@ -53,7 +53,7 @@
 | **Type A: 단순** | Secrets 없음, 기능 단순 | SYNC-ISSUE-LABELS, VERSION-CONTROL |
 | **Type B: 기본** | Secrets 있음, 환경변수 단순 | RELEASE-CHANGELOG, NEXUS-CI |
 | **Type C: CI** | 빌드 검증, 설정 옵션 다수 | FLUTTER-CI, REACT-CI |
-| **Type D: CD** | 배포, 환경변수 상세 가이드 | SPRING-CICD, PYTHON-CICD |
+| **Type D: CD** | 배포, 환경변수 상세 가이드 | SPRING-SIMPLE-CICD, PYTHON-SIMPLE-CICD |
 | **Type E: 특수** | 마법사 연동, 복잡한 설명 | IOS-TESTFLIGHT, PLAYSTORE-CICD, FIREBASE-CICD |
 
 ---
@@ -180,11 +180,11 @@ name: PROJECT-Flutter-CI
 
 ```yaml
 # ===================================================================
-# Spring Boot CI/CD 배포 (Synology)
+# Spring Boot CI/CD 배포 (SSH + Docker)
 # ===================================================================
 #
 # main 브랜치 푸시 시 Docker 이미지를 빌드하고
-# Synology NAS에 자동 배포합니다.
+# SSH 접속 가능한 서버(Synology NAS·AWS EC2·일반 Linux 등)에 자동 배포합니다.
 #
 # ===================================================================
 # 🔑 필수 GitHub Secrets
@@ -218,15 +218,18 @@ name: PROJECT-Flutter-CI
 #   FastAPI: "/docs"
 # ===================================================================
 
-name: PROJECT-SPRING-SYNOLOGY-CICD
+name: PROJECT-SPRING-SIMPLE-CICD
 ```
 
 **적용 파일:**
-- SPRING-SYNOLOGY-CICD
-- PYTHON-SYNOLOGY-CICD
-- REACT-CICD
-
-- FLUTTER-SYNOLOGY-CICD
+- PROJECT-SPRING-SIMPLE-CICD
+- PROJECT-SPRING-NONSTOP-TRAEFIK-CICD
+- PROJECT-SPRING-NONSTOP-NGINX-CICD
+- PROJECT-PYTHON-SIMPLE-CICD
+- PROJECT-REACT-CICD
+- PROJECT-COMMON-VERCEL-DEPLOY
+- PROJECT-COMMON-SECRET-FILE-UPLOAD
+- PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD
 
 ---
 
@@ -275,11 +278,11 @@ name: PROJECT-iOS-TestFlight-Deploy
 ```
 
 **적용 파일:**
-- IOS-TESTFLIGHT
-- PLAYSTORE-CICD
-- FIREBASE-CICD
-- PROJECTOPS-APP-BUILD-TRIGGER
-- PR-PREVIEW
+- PROJECT-FLUTTER-IOS-TESTFLIGHT / -IOS-TEST-TESTFLIGHT
+- PROJECT-FLUTTER-ANDROID-PLAYSTORE-CICD / -ANDROID-TEST-APK
+- PROJECT-FLUTTER-ANDROID-FIREBASE-CICD
+- PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER
+- PROJECT-SPRING-PR-PREVIEW / PROJECT-PYTHON-PR-PREVIEW
 
 ---
 
@@ -335,53 +338,89 @@ name: PROJECT-iOS-TestFlight-Deploy
 
 ## 10. 파일별 적용 현황
 
-### 공통 워크플로우 (루트)
+> 이 표는 **현행 워크플로우 전수** 기준입니다. 워크플로우를 추가·리네임·삭제하면 이 표도 함께 갱신하세요.
+
+### 템플릿 레포 전용 (루트에만 존재 — 사용자 프로젝트로 복사되지 않음)
 
 | 파일 | 타입 | 상태 |
 |------|------|------|
-| TEMPLATE-INITIALIZER | A | ✅ |
-| VERSION-CONTROL | A | ✅ |
-| README-VERSION-UPDATE | A | ✅ |
-| QA-ISSUE-CREATION-BOT | A | ✅ |
-| RELEASE-CHANGELOG | B | ✅ |
-| SYNC-ISSUE-LABELS | A | ✅ |
+| PROJECT-TEMPLATE-INITIALIZER | A | ✅ |
+| PROJECT-TEMPLATE-CI | C | ✅ |
+| PROJECT-TEMPLATE-NPM-PUBLISH | B | ✅ |
+| PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC | A | ✅ |
 
-### project-types/common/
+### project-types/common/ (= 루트 `PROJECT-COMMON-*` 사본과 동일 유지)
 
 | 파일 | 타입 | 상태 |
 |------|------|------|
-| SYNC-ISSUE-LABELS | A | ✅ |
-| PROJECTS-SYNC-MANAGER | B | ✅ |
-| SUH-ISSUE-HELPER | B | ✅ |
-| SYNOLOGY-SECRET-FILE-UPLOAD | D | ✅ |
+| PROJECT-COMMON-VERSION-CONTROL | A | ✅ |
+| PROJECT-COMMON-RELEASE-CHANGELOG | B | ✅ |
+| PROJECT-COMMON-README-VERSION-UPDATE | A | ✅ |
+| PROJECT-COMMON-SYNC-ISSUE-LABELS | A | ✅ |
+| PROJECT-COMMON-QA-ISSUE-CREATION-BOT | A | ✅ |
+| PROJECT-COMMON-SUH-ISSUE-HELPER | B | ✅ |
+| PROJECT-COMMON-PROJECTS-SYNC-MANAGER | B | ✅ |
+| PROJECT-COMMON-TEMPLATE-UTIL-VERSION-SYNC | A | ✅ |
+
+#### common/deploy/vercel/ (`--deploy vercel`일 때만 포함)
+
+| 파일 | 타입 | 상태 |
+|------|------|------|
+| PROJECT-COMMON-VERCEL-DEPLOY | D | ✅ |
+
+#### common/secret-backup/ (`--secret-backup` opt-in)
+
+| 파일 | 타입 | 상태 |
+|------|------|------|
+| PROJECT-COMMON-SECRET-FILE-UPLOAD | D | ✅ |
 
 ### project-types/flutter/
 
 | 파일 | 타입 | 상태 |
 |------|------|------|
-| FLUTTER-CI | C | ✅ |
-| PLAYSTORE-CICD | E | ✅ |
-| FIREBASE-CICD | E | ✅ |
-| IOS-TESTFLIGHT | E | ✅ |
-| PROJECTOPS-APP-BUILD-TRIGGER | E | ✅ |
+| PROJECT-FLUTTER-CI | C | ✅ |
+| PROJECT-FLUTTER-IOS-TESTFLIGHT | E | ✅ |
+| PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT | E | ✅ |
+| PROJECT-FLUTTER-ANDROID-PLAYSTORE-CICD | E | ✅ |
+| PROJECT-FLUTTER-ANDROID-FIREBASE-CICD | E | ✅ |
+| PROJECT-FLUTTER-ANDROID-TEST-APK | E | ✅ |
+| PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD | D | ✅ |
+| PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER | E | ✅ |
 
 ### project-types/spring/
 
-| 파일 | 타입 | 상태 |
-|------|------|------|
-| SPRING-SYNOLOGY-SIMPLE-CICD | D | ✅ |
-| SPRING-SYNOLOGY-NONSTOP-TRAEFIK-CICD | D | ✅ |
-| SPRING-SYNOLOGY-NONSTOP-NGINX-CICD | D | ✅ |
-| PR-PREVIEW | E | ✅ |
-| NEXUS-CI | B | ✅ |
-| NEXUS-PUBLISH | B | ✅ |
+| 파일 | 위치 | 타입 | 상태 |
+|------|------|------|------|
+| PROJECT-SPRING-SIMPLE-CICD | server-deploy/ | D | ✅ |
+| PROJECT-SPRING-NONSTOP-TRAEFIK-CICD | server-deploy/ | D | ✅ |
+| PROJECT-SPRING-NONSTOP-NGINX-CICD | server-deploy/ | D | ✅ |
+| PROJECT-SPRING-PR-PREVIEW | server-deploy/ | E | ✅ |
+| PROJECT-SPRING-NEXUS-CI | publish/nexus/ | B | ✅ |
+| PROJECT-SPRING-NEXUS-PUBLISH | publish/nexus/ | B | ✅ |
+| PROJECT-SPRING-GITHUB-PACKAGES-PUBLISH | publish/github-packages/ | B | ✅ |
+
+### project-types/python/
+
+| 파일 | 위치 | 타입 | 상태 |
+|------|------|------|------|
+| PROJECT-PYTHON-CI | 직하위 | C | ✅ |
+| PROJECT-PYTHON-SIMPLE-CICD | server-deploy/ | D | ✅ |
+| PROJECT-PYTHON-PR-PREVIEW | server-deploy/ | E | ✅ |
 
 ### project-types/react/ (Next.js 포함 — next 타입은 v4.1.0에서 흡수)
 
 | 파일 | 타입 | 상태 |
 |------|------|------|
-| REACT-CI | C | ✅ |
-| REACT-CICD | D | ✅ |
+| PROJECT-REACT-CI | C | ✅ |
+| PROJECT-REACT-CICD | D | ✅ |
+
+### project-types/node/
+
+| 파일 | 위치 | 타입 | 상태 |
+|------|------|------|------|
+| PROJECT-NODE-NPM-PUBLISH | publish/npm/ | B | ✅ |
+
+> **위치가 곧 포함 조건입니다.** 타입 폴더 직하위는 그 타입을 선택하면 항상 복사되고, `server-deploy/`는 `--deploy docker-ssh`일 때만, `publish/<target>/`는 해당 publish 타겟을 골랐을 때만 복사됩니다. **서버 배포 워크플로우를 새로 추가하면 반드시 `server-deploy/` 아래에 두세요.**
 
 ---
 

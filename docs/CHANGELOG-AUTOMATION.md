@@ -21,23 +21,31 @@ main 브랜치로 PR(develop→main)이 생성되면 릴리스 노트 provider(�
 ```
 develop 푸시
     │
+    │  (워크플로우는 릴리스 PR을 자동 생성하지 않습니다)
     ▼
-버전 증가 (VERSION-CONTROL)
+develop → main 릴리스 PR 생성  ← 사람 또는 /pro-changelog-deploy 스킬이 만듭니다
     │
     ▼
-develop → main PR 자동 생성
+RELEASE-CHANGELOG 워크플로우 (pull_request_target: opened)
     │
-    ▼
-릴리스 노트 생성 (provider 사다리)
-    │
-    ▼
-RELEASE-CHANGELOG 워크플로우
-    │
-    ├─ Summary 파싱
-    ├─ CHANGELOG.json 업데이트
-    ├─ CHANGELOG.md 생성
+    ├─ head 가드: PR head가 develop이 아니면 전체 스킵
+    ├─ PR 제목을 "🚀 Deploy YYYYMMDD-vX.Y.Z" 형식으로 즉시 변경
+    ├─ 릴리스 노트 확보 (provider 사다리)
+    ├─ CHANGELOG.json 업데이트 / CHANGELOG.md 생성
+    ├─ 버전 확정 커밋
     └─ PR 자동 머지
+         │
+         ▼
+main 푸시 (릴리스 머지)
+    │
+    ├─ README-VERSION-UPDATE
+    ├─ PLUGIN-VERSION-SYNC
+    └─ CICD 배포
 ```
+
+> **주의 — 흔한 오해 2가지**
+> - `VERSION-CONTROL`은 **develop 푸시에 반응하지 않습니다.** main 직접 푸시 시에만 도는 안전망입니다 ([버전 관리](VERSION-CONTROL.md) 참조).
+> - **릴리스 PR을 자동 생성하는 워크플로우는 없습니다.** develop을 푸시했다고 PR이 생기지 않으므로, `/pro-changelog-deploy` 스킬을 쓰거나 직접 PR을 열어야 합니다.
 
 > 구명칭 이력: 이 워크플로우는 `PROJECT-COMMON-AUTO-CHANGELOG-CONTROL`에서 v4.3.0에 `PROJECT-COMMON-RELEASE-CHANGELOG`로 리네임되었습니다. 구 파일이 남아있으면 `npx projectops` 업데이트가 자동 무해화합니다 ([NPX 마법사 가이드](NPX-WIZARD.md) 참조).
 
@@ -133,10 +141,9 @@ python3 .github/scripts/changelog_manager.py generate-md
 
 # 특정 버전 릴리즈 노트 추출
 python3 .github/scripts/changelog_manager.py export --version 1.2.3 --output release_notes.txt
-
-# 유효성 검증
-python3 .github/scripts/changelog_manager.py validate
 ```
+
+> 지원 서브커맨드는 위 3종(`update-from-summary` / `generate-md` / `export`)이 전부입니다.
 
 ---
 
@@ -158,7 +165,7 @@ python3 .github/scripts/changelog_manager.py validate
 
 ## PR 제목 자동 포맷팅
 
-CodeRabbit이 develop → main PR 제목을 자동으로 변경합니다.
+**워크플로우가** develop → main PR 제목을 자동으로 변경합니다 (CodeRabbit이 아니라 워크플로우 스텝이 수행하며, provider 선택과 무관하게 항상 동작합니다).
 
 **Before**:
 ```
@@ -167,8 +174,10 @@ develop에서 main으로 병합
 
 **After**:
 ```
-Deploy 20260112-v1.2.3 : 새로운 로그인 기능 추가
+🚀 Deploy 20260112-v1.2.3
 ```
+
+- 형식: `🚀 Deploy {YYYYMMDD}-v{버전}` — 로켓 이모지가 포함되며 뒤에 요약 문구는 붙지 않습니다.
 
 ---
 
@@ -178,13 +187,16 @@ Deploy 20260112-v1.2.3 : 새로운 로그인 기능 추가
 
 ```yaml
 on:
-  pull_request:
-    types: [opened, synchronize]
-    branches: [main]
+  pull_request_target:
+    types: [opened]
+    branches: ["main"]
 ```
 
 **트리거 조건**:
-- main 브랜치로 PR 생성/업데이트
+- main 브랜치로 PR이 **열릴 때만** 실행됩니다. `synchronize`(PR에 추가 푸시)는 트리거가 아니므로, **PR을 다시 푸시해도 재실행되지 않습니다.**
+- 재실행이 필요하면 PR을 닫고 새로 열거나 `/pro-changelog-deploy`의 재트리거를 사용하세요.
+- `pull_request`가 아니라 `pull_request_target`이므로 base(main) 기준으로 실행되며 secret에 접근할 수 있습니다.
+- **head 가드**: PR head 브랜치가 `develop`이 아니면 전체 파이프라인이 스킵됩니다. main이 default 브랜치라 feature PR의 base가 실수로 main이 되는 경우를 막기 위한 장치입니다.
 
 **실행 내용**:
 1. version.yml에서 changelog provider 판독 (미설정 시 coderabbit)
@@ -303,8 +315,13 @@ git push
   변경이 포함됐는지 감지)로 이 릴리스 커밋을 인식해 **재bump를 건너뛴다**.
 - `README-VERSION-UPDATE`·`PLUGIN-VERSION-SYNC`는 자신이 만드는 후속 커밋에 `[skip ci]`를
   유지하므로 서로 재트리거하지 않는다.
-- develop을 push 트리거로 쓰는 워크플로우가 없어, 릴리스 커밋이 develop에 있을 때 중복 CI가
-  발생하지 않는다.
+- `RELEASE-CHANGELOG`은 `pull_request_target: [opened]` 트리거라 자신이 만드는 커밋으로
+  재실행되지 않는다 (`synchronize`가 트리거가 아니다).
+
+> 참고: develop을 push 트리거로 쓰는 워크플로우는 존재한다 (`PROJECT-TEMPLATE-CI`,
+> `PROJECT-COMMON-TEMPLATE-UTIL-VERSION-SYNC`, `PROJECT-FLUTTER-CI`, `PROJECT-REACT-CI`,
+> `PROJECT-SPRING-NEXUS-CI`). 다만 전부 **CI(검증)일 뿐 버전·CHANGELOG를 건드리지 않으므로**
+> 릴리스 루프와 무관하다.
 
 > 버전 확정 커밋에 `[skip ci]`를 다시 붙이면 릴리스마다 배포·동기화가 전부 멈춘다. 붙이지 않는다.
 

@@ -138,12 +138,16 @@ Fastlane 배포 자동화 스크립트입니다.
 - `upload_testflight` - CI용 (IPA가 이미 빌드된 상태)
 - `build_and_deploy` - 로컬 개발용 (빌드 + 업로드)
 
-**필요한 환경변수:**
+**필요한 환경변수** (GitHub Secret이 아니라 워크플로우가 fastlane에 넘기는 값):
 - `APP_STORE_CONNECT_API_KEY_ID`
 - `APP_STORE_CONNECT_ISSUER_ID`
-- `API_KEY_PATH`
+- `API_KEY_PATH` — 복원된 `.p8` 키 파일 경로
+- `APP_IDENTIFIER` — 번들 ID
 - `IPA_PATH`
-- `RELEASE_NOTES`
+- `APP_VERSION` / `BUILD_NUMBER`
+- `RELEASE_NOTES` — 비어 있으면 기본 문구 사용
+- `DEPLOY_MODE` — `testflight_only` / 심사 제출 등 배포 모드
+- `DELIVER_LOCALES` — 심사 메타데이터 로케일
 
 ### 3. Gemfile
 
@@ -165,13 +169,18 @@ gem "fastlane"
 
 | Secret 이름 | 설명 | 값 형식 |
 |------------|------|---------|
-| `IOS_CERTIFICATE_BASE64` | Apple Distribution 인증서 (.p12) | Base64 인코딩 |
-| `IOS_CERTIFICATE_PASSWORD` | 인증서 비밀번호 | 문자열 |
-| `IOS_PROVISIONING_PROFILE_BASE64` | Provisioning Profile (.mobileprovision) | Base64 인코딩 |
+| `APPLE_CERTIFICATE_BASE64` | Apple Distribution 인증서 (.p12) | Base64 인코딩 |
+| `APPLE_CERTIFICATE_PASSWORD` | 인증서 비밀번호 | 문자열 |
+| `APPLE_PROVISIONING_PROFILE_BASE64` | Provisioning Profile (.mobileprovision) | Base64 인코딩 |
 | `IOS_PROVISIONING_PROFILE_NAME` | Provisioning Profile 이름 | 문자열 |
-| `APP_STORE_CONNECT_API_KEY_ID` | API Key ID | 문자열 |
-| `APP_STORE_CONNECT_API_ISSUER_ID` | Issuer ID | UUID 형식 |
-| `APP_STORE_CONNECT_API_KEY_CONTENT` | API Key 내용 (.p8 파일 내용) | 문자열 |
+| `APP_STORE_CONNECT_API_KEY_ID` | API Key ID (10자리) | 문자열 |
+| `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID | UUID 형식 |
+| `APP_STORE_CONNECT_API_KEY_BASE64` | AuthKey_XXXXXX.p8 파일 | Base64 인코딩 |
+| `IOS_BUNDLE_ID` (선택) | 번들 ID. 저장소 변수(`vars`)로도 지정 가능 | 문자열 |
+| `ENV_FILE` (선택) | `.env` 파일 내용 | 문자열 |
+| `SECRETS_XCCONFIG` (선택) | `ios/Flutter/Secrets.xcconfig` 내용 | 문자열 |
+
+> ⚠️ Secret 이름은 워크플로우가 참조하는 이름과 **정확히** 일치해야 합니다. 인증서 계열은 `APPLE_` 접두사, App Store Connect API Key 본문은 `..._BASE64` 접미사입니다.
 
 ### Base64 인코딩 방법
 
@@ -181,6 +190,9 @@ base64 -i Certificates.p12 | pbcopy
 
 # Provisioning Profile 인코딩
 base64 -i AppDistribution.mobileprovision | pbcopy
+
+# App Store Connect API Key 인코딩
+base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
 ```
 
 ---
@@ -208,7 +220,7 @@ base64 -i AppDistribution.mobileprovision | pbcopy
 ```
 
 **해결:**
-1. `IOS_CERTIFICATE_BASE64` Secret이 올바르게 설정되었는지 확인
+1. `APPLE_CERTIFICATE_BASE64` Secret이 올바르게 설정되었는지 확인
 2. 인증서가 만료되지 않았는지 확인
 3. 인증서 비밀번호가 맞는지 확인
 
