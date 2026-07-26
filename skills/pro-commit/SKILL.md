@@ -102,7 +102,7 @@ REPO=$(echo "$REMOTE_URL" | sed -E 's|.*github\.com[:/][^/]+/([^/.]+)(\.git)?$|\
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-commit/scripts 2>/dev/null | sort -V | tail -1); [ -z "$SCRIPTS" ] && SCRIPTS="$PROJECT_ROOT/skills/pro-commit/scripts"; cd "$SCRIPTS" || exit 1
+SCRIPTS="$PROJECT_ROOT/skills/pro-commit/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-commit/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" commit_cli.py get-issue {owner} {repo} {추출된 이슈번호}
 ```
 

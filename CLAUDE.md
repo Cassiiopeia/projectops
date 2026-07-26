@@ -531,6 +531,7 @@ skills/
     ├── common-rules.md       # 절대 규칙, 커밋 컨벤션, 작업 시작 프로토콜(페르소나 로드 포함)
     ├── personas.md           # 5 전문가 페르소나 + 6 마인드셋 (harness/PERSONA.md single source) — 코드 스킬이 시작 시 로드
     ├── self-review-checklist.md # plan/analyze/implement 산출물 제출 전 자체검토 + Devil's Advocate 게이트
+    ├── approval-and-questions.md # 산출물 skill 8종의 승인 게이트 + 시작 전 핵심 질문 표준 (#526)
     ├── config-rules.md       # config 경로·스키마·읽기/쓰기 표준
     ├── mcp-subcommand-rules.md # suh_command 서브커맨드 MCP-style 설계 표준 (JSON+next, 코드 템플릿)
     ├── doc-output-path.md
@@ -548,6 +549,7 @@ skills/
 3. **GitHub API는 curl 직접 호출** — `gh` CLI, Python CLI 모두 금지
 4. **OS 호환성**: Python 실행 시 `PYTHON=$(command -v python3 2>/dev/null || command -v python 2>/dev/null)` 패턴 사용
 5. **skill 시작 시 필독**: `references/common-rules.md` → (코드 스킬이면) `references/personas.md`에서 자기 페르소나 로드 → (config 필요 시) `references/config-rules.md` → (기술별) `tech-*.md`
+5.5. **산출물(md)을 만드는 skill이면** `references/approval-and-questions.md`를 따른다 — 시작 전 핵심 질문, 저장 전 승인 게이트, 첫 실행 1회 자동화 제안. 저장 경로는 각 skill CLI의 `get-output-path`로 받고 직접 조립하지 않는다 (#525·#526)
 6. **Python 행동 로직은 재사용 스크립트 파일 + MCP-style 표준** — 아래 "Python 행동 스크립트 표준" 절을 따른다. SKILL.md에 긴 Python heredoc 인라인 금지.
 
 ### Python 행동 스크립트 표준 (필수)
@@ -651,6 +653,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | review | `skills/pro-review/scripts/review_cli.py` | get-output-path |
 | troubleshoot | `skills/pro-troubleshoot/scripts/troubleshoot_cli.py` | get-output-path |
 | changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` | actions, deploy-status, list-prs, update-pr, create-pr |
+| analyze / plan / design-analyze / refactor-analyze / ppt | `skills/pro-<skill>/scripts/<scope>_cli.py` | get-output-path (#525에서 신설 — 이전엔 경로 계산 수단이 없었다) |
 
 공유 도메인 로직은 `scripts/common/`에 있다 (gh_client, config, paths, title, issue_number, gh_branch, manifest, emit, bootstrap).
 
