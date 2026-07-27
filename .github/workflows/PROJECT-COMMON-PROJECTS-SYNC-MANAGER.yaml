@@ -12,10 +12,10 @@
 # _GITHUB_PAT_TOKEN: Projects API용 PAT (권한: repo, project)
 # ===================================================================
 #
-# 🚀 빠른 시작:
+# 🚀 빠른 시작 (워크플로우 파일은 수정하지 않습니다):
 # 1. _GITHUB_PAT_TOKEN Secret 설정
-# 2. 아래 env 섹션의 PROJECT_URL 주석 해제
-# 3. GitHub Projects URL 입력
+# 2. Settings → Secrets and variables → Actions → Variables 탭
+# 3. PROJECT_URL 변수에 GitHub Projects URL 등록
 # 4. 끝!
 #
 # 지원 URL 형식:
