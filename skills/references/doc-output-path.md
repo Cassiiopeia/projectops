@@ -1,6 +1,6 @@
 # 산출물 경로 규칙
 
-이 reference는 `analyze`, `plan`, `troubleshoot`, `report`, `review` skill이 md 산출물을 저장할 때 반드시 따르는 규칙이다.
+이 reference는 `analyze`, `plan`, `note`, `report`, `review` skill이 md 산출물을 저장할 때 반드시 따르는 규칙이다.
 
 ## 저장 전 경로 계산
 
@@ -14,7 +14,7 @@ skill별 호출 위치 매핑 — **산출물 스킬 전부 자기 CLI를 갖는
 | analyze | `skills/pro-analyze/scripts/` | `analyze_cli.py` |
 | plan | `skills/pro-plan/scripts/` | `plan_cli.py` |
 | review | `skills/pro-review/scripts/` | `review_cli.py` |
-| troubleshoot | `skills/pro-troubleshoot/scripts/` | `troubleshoot_cli.py` |
+| note | `skills/pro-note/scripts/` | `note_cli.py` |
 | report | `skills/pro-report/scripts/` | `report_cli.py` |
 
 > **agent가 경로를 직접 계산하지 않는다.** 과거에는 일부 스킬에 CLI가 없어 "직접 계산하거나 다른 스킬 것을 빌려 쓰라"는 상태였고, 그래서 스킬마다 파일명 규칙이 갈라져도 아무도 알아채지 못했다. 이제 규칙은 `scripts/common/paths.py`의 `resolve_output_path()` **한 곳**에만 있고 각 CLI가 모두 그것을 호출한다.

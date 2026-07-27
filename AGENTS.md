@@ -24,7 +24,7 @@ Common routing:
 | "계획 세워줘", "plan" | `skills/pro-plan/SKILL.md` |
 | "구현해줘", "수정해줘" | `skills/pro-implement/SKILL.md` |
 | "리뷰해줘" | `skills/pro-review/SKILL.md` |
-| "문제 원인 찾아줘", "디버깅" | `skills/pro-troubleshoot/SKILL.md` |
+| "뭔가 안 돼", "원인 찾아줘", 알아낸 것 기록 | `skills/pro-note/SKILL.md` |
 | "작업 보고서 작성" | `skills/pro-report/SKILL.md` |
 | "스킬 만들기/개선" | `skills/pro-skill-creator/SKILL.md` |
 | "이슈 작성", "issue", "GitHub 이슈 만들어줘", "GitHub 이슈/PR 조회·관리" | `skills/pro-github/SKILL.md` |

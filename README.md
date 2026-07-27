@@ -45,7 +45,7 @@ flowchart TD
     C --> D{"작업 유형"}
 
     D -->|새 기능·설계·리팩토링| E1["superpowers:brainstorming<br/>무엇을 왜 만들지 확정"]
-    D -->|버그| E2["/pro-troubleshoot<br/>원인 분석"]
+    D -->|버그·장애| E2["/pro-note<br/>과거 기록 검색 + 조사"]
 
     E1 --> P["superpowers:writing-plans<br/>구현 계획"]
     P --> F["superpowers:executing-plans<br/>계획 실행"]
@@ -158,7 +158,7 @@ npx projectops --mode skills
 | 스킬 | 용도 |
 |------|------|
 | `/pro-review` | 보안/성능/버그/품질 6관점 리뷰, Critical/Major/Minor 분류 |
-| `/pro-troubleshoot` | 가설-검증 방식 근본 원인 분석, Quick Fix/Root Fix 제시 |
+| `/pro-note` | 막혔을 때 과거 기록 검색, 알아낸 것을 실행 가능한 기록으로 저장 |
 
 ### 🔧 구현형 (실제 코드 작성)
 

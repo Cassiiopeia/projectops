@@ -72,7 +72,7 @@ test("17개 pro- 스킬 폴더가 모두 존재한다", () => {
     "pro-analyze", "pro-build", "pro-changelog-deploy", "pro-commit",
     "pro-figma", "pro-github", "pro-implement", "pro-init-worktree", "pro-plan",
     "pro-report", "pro-review", "pro-skill-creator",
-    "pro-spring-test", "pro-ssh", "pro-synology-expose", "pro-testcase", "pro-troubleshoot",
+    "pro-note", "pro-spring-test", "pro-ssh", "pro-synology-expose", "pro-testcase",
   ];
   for (const s of expected) {
     assert.ok(existsSync(join(ROOT, "skills", s, "SKILL.md")), `누락: skills/${s}/SKILL.md`);
