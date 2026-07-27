@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-07-27T04:48:48Z",
-    "currentVersion": "4.2.38",
+    "lastUpdated": "2026-07-27T04:53:17Z",
+    "currentVersion": "4.2.39",
     "projectType": "basic",
-    "totalReleases": 223,
+    "totalReleases": 224,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.2.39",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-07-27",
+      "pr_number": 533,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **문서**\n  * 프로젝트 보드 연동 설정 안내를 실제 절차에 맞게 정리",
+      "parsed_changes": {
+        "문서": {
+          "title": "문서",
+          "items": [
+            "프로젝트 보드 연동 설정 안내를 실제 절차에 맞게 정리"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.2.38",
       "project_type": "basic",
