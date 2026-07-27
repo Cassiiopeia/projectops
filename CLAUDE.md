@@ -496,18 +496,14 @@ claude plugin install projectops@projectops-marketplace --scope user
 
 | 명령어 | 용도 |
 |--------|------|
-| `analyze` | 코드 분석 |
-| `plan` | 계획 수립 |
-| `implement` | 구현 |
+| `analyze` | 코드 분석 (명시 호출 전용) |
+| `plan` | 계획 수립 (명시 호출 전용) |
+| `implement` | 구현 (명시 호출 전용) |
 | `review` | 코드 리뷰 |
-| `refactor` / `refactor-analyze` | 리팩토링 |
-| `test` / `testcase` | 테스트 |
+| `testcase` | QA 테스트케이스 |
 | `troubleshoot` | 트러블슈팅 |
-| `document` | 문서화 |
-| `design` / `design-analyze` | 설계 |
 | `build` | 빌드 관리 |
 | `figma` | Figma 연동 |
-| `ppt` | 프레젠테이션 |
 | `spring-test` | Spring 테스트 생성 |
 | `init-worktree` | Git worktree 생성 |
 | `commit` | 이슈 기반 커밋 자동화 |
@@ -653,7 +649,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | review | `skills/pro-review/scripts/review_cli.py` | get-output-path |
 | troubleshoot | `skills/pro-troubleshoot/scripts/troubleshoot_cli.py` | get-output-path |
 | changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` | actions, deploy-status, list-prs, update-pr, create-pr |
-| analyze / plan / design-analyze / refactor-analyze / ppt | `skills/pro-<skill>/scripts/<scope>_cli.py` | get-output-path (#525에서 신설 — 이전엔 경로 계산 수단이 없었다) |
+| analyze / plan | `skills/pro-<skill>/scripts/<scope>_cli.py` | get-output-path (#525에서 신설 — 이전엔 경로 계산 수단이 없었다) |
 
 공유 도메인 로직은 `scripts/common/`에 있다 (gh_client, config, paths, title, issue_number, gh_branch, manifest, emit, bootstrap).
 
@@ -702,18 +698,19 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | 요청 유형 | 호출 스킬 |
 |----------|----------|
 | **이슈 만들어줘, 이슈 등록, 버그 리포트, PR 생성, PR 올려줘, PR 머지, 이슈 댓글, 댓글 달아줘/수정/삭제, 이슈 확인, 이슈 닫기, 라벨 추가/제거, 담당자 추가, PR 조회, GitHub API** | **`pro-github` ← 최우선 트리거** |
-| 코드 분석, 현황 파악 | `pro-analyze` |
 | 버그, 오류, 원인 파악 | `pro-troubleshoot` |
-| 새 기능 설계 | `pro-plan` → `pro-implement` |
 | 코드 리뷰 | `pro-review` |
+| QA 테스트케이스 | `pro-testcase` |
 | 이슈 작성 / 이슈 생성 | `pro-github` (이슈 생성 워크플로우 흡수) |
 | 커밋 | `pro-commit` |
 | 배포 / automerge 실패 재트리거 | `pro-changelog-deploy` |
 | 보고서 | `pro-report` |
 | 원격 서버 SSH 접속, 로그/상태 확인 | `pro-ssh` |
-| 브레인스토밍 | `superpowers:brainstorming` |
-| 구현 계획 | `superpowers:writing-plans` |
-| 계획 실행 | `superpowers:executing-plans` |
+| **설계·기획 (무엇을 왜)** | **`superpowers:brainstorming`** |
+| **구현 계획 (어떻게)** | **`superpowers:writing-plans`** |
+| **계획 실행** | **`superpowers:executing-plans`** |
+
+> **`pro-plan`·`pro-analyze`·`pro-implement`는 자동 트리거하지 않는다.** 설계·계획·구현 흐름은 위 superpowers 3종이 담당한다. 세 스킬은 사용자가 `/pro-plan`처럼 명시적으로 호출할 때만 동작한다 (기존 사용자를 위해 남겨둔 경로).
 
 ## 커밋 컨벤션 필수 규칙
 

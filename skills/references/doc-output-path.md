@@ -1,26 +1,23 @@
 # 산출물 경로 규칙
 
-이 reference는 `analyze`, `plan`, `design-analyze`, `refactor-analyze`, `troubleshoot`, `report`, `ppt`, `review` skill이 md 산출물을 저장할 때 반드시 따르는 규칙이다.
+이 reference는 `analyze`, `plan`, `troubleshoot`, `report`, `review` skill이 md 산출물을 저장할 때 반드시 따르는 규칙이다.
 
 ## 저장 전 경로 계산
 
 산출물 md 저장 전 반드시 해당 skill의 `_cli.py` 의 `get-output-path` 서브커맨드를 호출해 경로를 받아라.
 표준은 `common-rules.md` §"skill별 py 분산 호출" 참조.
 
-skill별 호출 위치 매핑 — **8개 스킬 전부 자기 CLI를 갖는다** (#525):
+skill별 호출 위치 매핑 — **산출물 스킬 전부 자기 CLI를 갖는다** (#525):
 
 | skill_id | 호출 cwd | cli 파일 |
 |---|---|---|
 | analyze | `skills/pro-analyze/scripts/` | `analyze_cli.py` |
 | plan | `skills/pro-plan/scripts/` | `plan_cli.py` |
-| design-analyze | `skills/pro-design-analyze/scripts/` | `design_analyze_cli.py` |
-| refactor-analyze | `skills/pro-refactor-analyze/scripts/` | `refactor_analyze_cli.py` |
-| ppt | `skills/pro-ppt/scripts/` | `ppt_cli.py` |
 | review | `skills/pro-review/scripts/` | `review_cli.py` |
 | troubleshoot | `skills/pro-troubleshoot/scripts/` | `troubleshoot_cli.py` |
 | report | `skills/pro-report/scripts/` | `report_cli.py` |
 
-> **agent가 경로를 직접 계산하지 않는다.** 과거에는 5개 스킬에 CLI가 없어 "직접 계산하거나 다른 스킬 것을 빌려 쓰라"는 상태였고, 그래서 스킬마다 파일명 규칙이 갈라져도 아무도 알아채지 못했다. 이제 규칙은 `scripts/common/paths.py`의 `resolve_output_path()` **한 곳**에만 있고 8개 CLI가 모두 그것을 호출한다.
+> **agent가 경로를 직접 계산하지 않는다.** 과거에는 일부 스킬에 CLI가 없어 "직접 계산하거나 다른 스킬 것을 빌려 쓰라"는 상태였고, 그래서 스킬마다 파일명 규칙이 갈라져도 아무도 알아채지 못했다. 이제 규칙은 `scripts/common/paths.py`의 `resolve_output_path()` **한 곳**에만 있고 각 CLI가 모두 그것을 호출한다.
 
 예시 (review):
 

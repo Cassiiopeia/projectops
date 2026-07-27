@@ -1,6 +1,6 @@
 ---
 name: pro-implement
-description: "Implement Mode (DO 실제 구현) - plan/analyze 산출물 또는 사용자 지시를 입력받아 실제 코드를 작성/수정한다. 코드 자체가 결과 — 별도 산출 md를 만들지 않는다. 변경 보고서가 필요하면 Phase 6 Finishing 후 /report 별도 호출. 사용자가 '구현해줘', '코딩해', '바로 구현', '/implement'라고 말하거나 analyze 승인 직후에 트리거. 독립적인 변경 단위는 서브에이전트에 병렬 위임 가능."
+description: "Implement Mode (DO 실제 구현) - 사용자가 '/pro-implement'를 명시적으로 호출했을 때만 사용한다. 자동으로 트리거하지 않는다. plan/analyze 산출물을 입력받아 실제 코드를 작성/수정하며, 코드 자체가 결과라 별도 산출 md를 만들지 않는다. 독립적인 변경 단위는 서브에이전트에 병렬 위임 가능."
 ---
 
 # Implement Mode (DO 실제 구현)
