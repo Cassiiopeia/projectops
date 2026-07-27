@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-07-27T08:01:34Z",
-    "currentVersion": "4.2.42",
+    "lastUpdated": "2026-07-27T08:05:58Z",
+    "currentVersion": "4.2.43",
     "projectType": "basic",
-    "totalReleases": 227,
+    "totalReleases": 228,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.2.43",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-07-27",
+      "pr_number": 539,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **문서**\n  * 최근 추가된 기능의 구현 보고서 추가",
+      "parsed_changes": {
+        "문서": {
+          "title": "문서",
+          "items": [
+            "최근 추가된 기능의 구현 보고서 추가"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.2.42",
       "project_type": "basic",
