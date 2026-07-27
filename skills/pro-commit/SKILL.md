@@ -266,28 +266,10 @@ SKILL=pro-commit; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 
-CLEAN_MSG=$(RAW_MSG="$RAW_MSG" SCRIPTS="$SCRIPTS" PYTHONIOENCODING=utf-8 "$PYTHON" - <<'EOF'
-import json, os, re, subprocess, sys
-
-raw = os.environ["RAW_MSG"]
-script = os.path.join(os.environ.get("SCRIPTS", ""), "commit_cli.py")
-
-# 1순위: 재사용 스크립트의 sanitize-message
-try:
-    out = subprocess.run([sys.executable, script, "sanitize-message", raw],
-                         capture_output=True, text=True, timeout=20)
-    msg = json.loads(out.stdout)["message"]
-except Exception:
-    # 2순위: 구버전 캐시라 서브커맨드가 없을 수 있다 — 동일 규칙을 인라인으로 적용.
-    #        여기서 절대 빈 문자열을 반환하지 않는다 (git commit -m "" 로 깨진다).
-    msg = re.sub(r"\s*(@[A-Za-z0-9_-]+(?:\s+@[A-Za-z0-9_-]+)*)\s*$", "", raw).rstrip()
-
-if not msg.strip():
-    print("❌ 커밋 메시지가 비었습니다 — 원문을 확인하세요", file=sys.stderr)
-    sys.exit(1)
-print(msg, end="")
-EOF
-) || { echo "❌ 커밋 메시지 정리 실패 — 커밋을 중단합니다"; exit 1; }
+SANITIZED=$(PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/commit_cli.py" sanitize-message "$RAW_MSG") \
+  || { echo "❌ 커밋 메시지 정리 실패 — 커밋을 중단합니다"; exit 1; }
+CLEAN_MSG=$(SANITIZED="$SANITIZED" "$PYTHON" -c 'import json,os,sys; m=json.loads(os.environ["SANITIZED"])["message"]; sys.exit(1) if not m.strip() else print(m, end="")') \
+  || { echo "❌ 커밋 메시지가 비었습니다 — 원문을 확인하세요"; exit 1; }
 
 cd "$PROJECT_ROOT" && git commit -m "$CLEAN_MSG"
 ```
@@ -295,7 +277,9 @@ cd "$PROJECT_ROOT" && git commit -m "$CLEAN_MSG"
 `sanitize-message` 출력 JSON: `{"message": "정리된 메시지", "removed": true|false, "summary": "..."}`.
 `removed`가 `true`면 mention이 실제로 제거된 것이므로, 왜 들어갔는지 5단계를 되짚어본다.
 
-> **실패해도 빈 메시지를 만들지 않는다.** 스크립트를 못 찾거나 구버전이라 서브커맨드가 없어도 동일 규칙을 인라인으로 적용하고, 그래도 결과가 비면 **커밋을 중단**한다. 과거 sed 방식은 실패를 성공으로 보고했지만 이제는 드러난다.
+> **실패해도 빈 메시지를 만들지 않는다.** 스크립트 호출이 실패하거나 결과가 비면 **커밋을 중단**한다(`git commit -m ""`로 깨지는 것을 막는다). 과거 sed 방식은 실패를 성공으로 보고했지만 이제는 드러난다.
+>
+> 정제 규칙은 `commit_cli.py`의 `sanitize-message` **한 곳에만** 둔다. SKILL.md에 같은 정규식을 fallback으로 복제하지 않는다 — 규칙이 두 곳에 있으면 한쪽만 고쳐져 어긋난다(sed 시절 사고의 재발 경로).
 
 > **본문 중간의 mention은 보존한다.** `@projectops build app 관련 수정`처럼 의미 있게 등장한 mention은 지우지 않고, **끝에 붙은 trailer만** 제거한다.
 

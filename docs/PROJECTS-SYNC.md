@@ -27,20 +27,26 @@ Issue Label과 GitHub Projects Status를 양방향으로 동기화하는 기능�
 
 ### 1단계: 워크플로우 설정
 
-`.github/workflows/PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml` 파일을 열면 `PROJECT_URL`이 **주석 처리된 상태**로 배포되어 있습니다. 주석(`#`)을 지우고 실제 URL로 바꿉니다.
+**워크플로우 파일은 수정하지 않습니다.** 레포 설정에 변수 하나만 등록하면 됩니다.
+
+`Settings` → `Secrets and variables` → `Actions` → `Variables` 탭 → `New repository variable`
+
+| 항목 | 값 |
+|---|---|
+| Name | `PROJECT_URL` |
+| Value | 본인 Projects 보드 URL (예: `https://github.com/orgs/MY-ORG/projects/3`) |
+
+워크플로우는 이 변수를 자동으로 읽습니다.
 
 ```yaml
 env:
   STATUS_LABELS: '["작업전", "작업중", "담당자확인", "피드백", "작업완료", "보류", "취소"]'
-
-  # 배포 직후 상태 (비활성)
-  # PROJECT_URL: 'https://github.com/orgs/YOUR-ORG/projects/1'
-
-  # ↓ 주석을 지우고 본인 프로젝트 URL로 교체
-  PROJECT_URL: 'https://github.com/orgs/MY-ORG/projects/3'
+  PROJECT_URL: ${{ vars.PROJECT_URL }}   # 레포 변수에서 주입 (파일 수정 불필요)
 ```
 
-> `PROJECT_URL`이 비어 있으면 워크플로우는 실패하지 않고 안내 로그만 남긴 뒤 조용히 종료합니다. 설정 전까지는 아무 동작도 하지 않으므로 안전합니다.
+> 변수를 등록하지 않으면 워크플로우는 실패하지 않고 안내 로그만 남긴 뒤 조용히 종료합니다. 설정 전까지는 아무 동작도 하지 않으므로 안전합니다.
+>
+> ⚠️ **워크플로우 파일에 URL을 직접 적지 마세요.** 파일에 적으면 커밋되어 레포를 포크하거나 템플릿을 갱신할 때 남의 보드 주소가 섞여 들어갑니다.
 
 `_GITHUB_PAT_TOKEN` Secret(권한: `repo`, `project`)도 함께 등록해야 합니다.
 
@@ -141,7 +147,7 @@ Organization 프로젝트를 사용할 때는 **모든 레포에서 동일한 �
 - [ ] 모든 레포에 동일한 `issue-labels.yml` 배포
 - [ ] 각 레포에서 라벨 동기화 워크플로우 실행
 - [ ] GitHub Projects Status 옵션 이름 확인
-- [ ] 각 레포의 `PROJECT_URL` 설정 (동일한 Projects URL)
+- [ ] 각 레포에 `PROJECT_URL` 레포 변수 등록 (동일한 Projects URL)
 
 ---
 
@@ -152,7 +158,7 @@ Organization 프로젝트를 사용할 때는 **모든 레포에서 동일한 �
 | 변수 | 설명 | 예시 |
 |------|------|------|
 | `STATUS_LABELS` | 동기화할 Status Label 목록 (JSON 배열) | `'["작업전", "작업중", ...]'` |
-| `PROJECT_URL` | GitHub Projects URL | `'https://github.com/orgs/ORG/projects/1'` |
+| `PROJECT_URL` | GitHub Projects URL (**레포 변수**로 등록 — 파일에 적지 않음) | `https://github.com/orgs/ORG/projects/1` |
 
 ### GitHub Secrets
 
@@ -173,8 +179,8 @@ Organization 프로젝트를 사용할 때는 **모든 레포에서 동일한 �
 **증상**: `⚠️ PROJECT_URL이 설정되지 않았습니다.`
 
 **해결**:
-1. 워크플로우 파일에서 `PROJECT_URL` 주석 해제
-2. 올바른 URL 형식인지 확인
+1. `Settings` → `Secrets and variables` → `Actions` → `Variables` 탭에 `PROJECT_URL` 변수가 등록되어 있는지 확인
+2. 올바른 URL 형식인지 확인 (`/orgs/{org}/projects/{n}` 또는 `/users/{user}/projects/{n}`)
 
 ---
 
