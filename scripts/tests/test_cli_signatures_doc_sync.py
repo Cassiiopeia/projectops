@@ -14,7 +14,7 @@ CLI_TO_SKILL = {
     "pro-commit/scripts/commit_cli.py": ["pro-commit/SKILL.md"],
     "pro-report/scripts/report_cli.py": ["pro-report/SKILL.md"],
     "pro-review/scripts/review_cli.py": ["pro-review/SKILL.md"],
-    "pro-troubleshoot/scripts/troubleshoot_cli.py": ["pro-troubleshoot/SKILL.md"],
+    "pro-note/scripts/note_cli.py": ["pro-note/SKILL.md"],
     # pro-github는 이슈 생성 워크플로우를 references/issue-creation.md로 분리했으므로 함께 본다.
     "pro-github/scripts/github_cli.py": [
         "pro-github/SKILL.md",

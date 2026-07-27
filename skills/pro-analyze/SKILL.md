@@ -115,7 +115,7 @@ plan.md를 읽고 다음을 정리:
 
 - 이슈번호 없으면 순번(`001`, `002`…) 자동 사용
 - 제목 정규화: 특수문자 제거, 공백→`_`, 50자 이내
-- 3-layer 아키텍처: skill별 `_cli.py`에서 `get-output-path` 호출 (예: `report_cli.py`, `review_cli.py`, `troubleshoot_cli.py`). 참조: `references/common-rules.md` §"skill별 py 분산 호출"
+- 3-layer 아키텍처: skill별 `_cli.py`에서 `get-output-path` 호출 (예: `report_cli.py`, `review_cli.py`, `note_cli.py`). 참조: `references/common-rules.md` §"skill별 py 분산 호출"
 
 ### No Placeholders 규칙
 

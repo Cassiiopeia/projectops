@@ -134,7 +134,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" plan_cli.py get-output-path plan --title "{제�
 
 - 이슈번호 없으면 순번(`001`, `002`…) 자동 사용
 - 제목 정규화: 특수문자 제거, 공백→`_`, 50자 이내
-- 3-layer 아키텍처: skill별 `_cli.py`에서 `get-output-path` · `get-issue-number` · `normalize-title` 호출. `commit_cli.py`가 `get-issue-number`·`normalize-title` 보유, `github_cli.py`가 `normalize-title`·`create-branch-name`·`get-commit-template` 보유(pro-issue 통합으로 흡수). 참조: `references/common-rules.md` §"skill별 py 분산 호출". 다음 시퀀스 번호 계산은 `report_cli`/`review_cli`/`troubleshoot_cli`의 `get-output-path`가 내부에서 처리하므로 agent가 별도 호출하지 않는다.
+- 3-layer 아키텍처: skill별 `_cli.py`에서 `get-output-path` · `get-issue-number` · `normalize-title` 호출. `commit_cli.py`가 `get-issue-number`·`normalize-title` 보유, `github_cli.py`가 `normalize-title`·`create-branch-name`·`get-commit-template` 보유(pro-issue 통합으로 흡수). 참조: `references/common-rules.md` §"skill별 py 분산 호출". 다음 시퀀스 번호 계산은 `report_cli`/`review_cli`/`note_cli`의 `get-output-path`가 내부에서 처리하므로 agent가 별도 호출하지 않는다.
 
 ### 템플릿
 

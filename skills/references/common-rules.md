@@ -213,7 +213,7 @@ worktree로 격리된 환경에서 작업할까요, 아니면 현재 디렉토�
 | commit | `skills/pro-commit/scripts/commit_cli.py` |
 | report | `skills/pro-report/scripts/report_cli.py` |
 | review | `skills/pro-review/scripts/review_cli.py` |
-| troubleshoot | `skills/pro-troubleshoot/scripts/troubleshoot_cli.py` |
+| note | `skills/pro-note/scripts/note_cli.py` |
 | changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` |
 
 ### 표준 호출 패턴 (self-contained 6줄)

@@ -501,7 +501,7 @@ claude plugin install projectops@projectops-marketplace --scope user
 | `implement` | 구현 (명시 호출 전용) |
 | `review` | 코드 리뷰 |
 | `testcase` | QA 테스트케이스 |
-| `troubleshoot` | 트러블슈팅 |
+| `note` | 막혔을 때 과거 기록 검색, 알아낸 것 기록 |
 | `build` | 빌드 관리 |
 | `figma` | Figma 연동 |
 | `spring-test` | Spring 테스트 생성 |
@@ -647,7 +647,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | commit | `skills/pro-commit/scripts/commit_cli.py` | get-issue-number, get-issue, normalize-title, get-commit-template |
 | report | `skills/pro-report/scripts/report_cli.py` | get-output-path, add-comment |
 | review | `skills/pro-review/scripts/review_cli.py` | get-output-path |
-| troubleshoot | `skills/pro-troubleshoot/scripts/troubleshoot_cli.py` | get-output-path |
+| note | `skills/pro-note/scripts/note_cli.py` | search, resolve-scope, get-output-path, list |
 | changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` | actions, deploy-status, list-prs, update-pr, create-pr |
 | analyze / plan | `skills/pro-<skill>/scripts/<scope>_cli.py` | get-output-path (#525에서 신설 — 이전엔 경로 계산 수단이 없었다) |
 
@@ -698,7 +698,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | 요청 유형 | 호출 스킬 |
 |----------|----------|
 | **이슈 만들어줘, 이슈 등록, 버그 리포트, PR 생성, PR 올려줘, PR 머지, 이슈 댓글, 댓글 달아줘/수정/삭제, 이슈 확인, 이슈 닫기, 라벨 추가/제거, 담당자 추가, PR 조회, GitHub API** | **`pro-github` ← 최우선 트리거** |
-| 버그, 오류, 원인 파악 | `pro-troubleshoot` |
+| 뭔가 안 됨, 버그, 장애, 원인 파악 | `pro-note` (과거 기록 먼저 검색) |
 | 코드 리뷰 | `pro-review` |
 | QA 테스트케이스 | `pro-testcase` |
 | 이슈 작성 / 이슈 생성 | `pro-github` (이슈 생성 워크플로우 흡수) |

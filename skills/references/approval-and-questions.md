@@ -2,7 +2,7 @@
 
 산출물(md 파일)을 만들어내는 skill이 **저장 전에 사용자 확인을 받는 방법**과, **시작 전에 물어야 할 것**의 단일 기준이다.
 
-적용 대상: `analyze` · `plan` · `design-analyze` · `refactor-analyze` · `ppt` · `report` · `review` · `troubleshoot`
+적용 대상: `analyze` · `plan` · `report` · `review` · `note` · `testcase`
 
 > 커밋(`commit`)·배포(`changelog-deploy`)·이슈 생성(`github`)은 이미 같은 패턴을 쓰고 있다. 이 문서는 그 검증된 방식을 산출물 skill로 넓힌 것이다 (#526). 새 방식을 만들지 않는다.
 
@@ -44,7 +44,7 @@
 | `test` / `testcase` | 목표 수준, 기존 테스트 프레임워크 | 프레임워크가 저장소에서 명확히 감지됨 |
 | `report` | 읽는 사람 (팀 내부 / 클라이언트) | 입력에 명시 |
 | `ppt` | 발표 대상과 분량 | 입력에 명시 |
-| `troubleshoot` | 재현 환경, 언제부터 발생했는지 | 입력에 이미 포함 |
+| `note` | (묻지 않음 — 막혔을 때 검색은 즉시 수행) | 항상 |
 
 질문은 선택지 형태로 제시하고, 권장안을 1번에 둔다.
 

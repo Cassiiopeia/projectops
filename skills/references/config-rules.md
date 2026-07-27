@@ -270,7 +270,7 @@ effective_pat = repo.pat if repo.pat else config["github"].global_pat
 
 ### `output` 섹션 (#525)
 
-산출물 md를 저장하는 8개 스킬(`analyze`·`plan`·`design-analyze`·`refactor-analyze`·`ppt`·`report`·`review`·`troubleshoot`)이 공유한다.
+산출물 md를 저장하는 스킬(`analyze`·`plan`·`report`·`review`·`note`)이 공유한다.
 
 ```json
 {

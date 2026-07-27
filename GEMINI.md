@@ -24,7 +24,7 @@ Common routing:
 | Create an implementation plan | `skills/pro-plan/SKILL.md` |
 | Implement a planned change | `skills/pro-implement/SKILL.md` |
 | Review code or changes | `skills/pro-review/SKILL.md` |
-| Debug failures | `skills/pro-troubleshoot/SKILL.md` |
+| Investigate failures, record findings | `skills/pro-note/SKILL.md` |
 | Generate implementation reports | `skills/pro-report/SKILL.md` |
 | Create or improve skills | `skills/pro-skill-creator/SKILL.md` |
 | Create or register a GitHub issue, query or manage GitHub issues/PRs | `skills/pro-github/SKILL.md` |
