@@ -1,14 +1,35 @@
 {
   "metadata": {
-    "lastUpdated": "2026-07-26T16:42:54Z",
-    "currentVersion": "4.2.35",
+    "lastUpdated": "2026-07-27T04:31:42Z",
+    "currentVersion": "4.2.36",
     "projectType": "basic",
-    "totalReleases": 220,
+    "totalReleases": 221,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.2.36",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-07-27",
+      "pr_number": 530,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * Claude Code 외 다른 개발 도구에서 기능이 동작하지 않던 문제 해결\n  * 여러 버전이 설치된 경우 최신 버전이 선택되지 않던 문제 해결\n  * 설치가 확인되지 않아도 오류 없이 넘어가던 문제 해결",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "Claude Code 외 다른 개발 도구에서 기능이 동작하지 않던 문제 해결",
+            "여러 버전이 설치된 경우 최신 버전이 선택되지 않던 문제 해결",
+            "설치가 확인되지 않아도 오류 없이 넘어가던 문제 해결"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.2.35",
       "project_type": "basic",

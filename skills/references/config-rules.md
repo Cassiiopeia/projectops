@@ -43,7 +43,7 @@ echo "$HOME"
 
 > ⚠️ **config.json은 절대 탐색하지 않는다.** 경로는 `{HOME}/.projectops/config/config.json` **한 곳으로 고정**이다. Read tool로 이 경로를 **바로** 읽는다. `ls`·`find`·glob으로 찾지 마라.
 >
-> **특히 플러그인 캐시(`~/.claude/plugins/cache/...`)를 뒤지지 마라.** 각 스킬의 SKILL.md는 *스크립트*(`*_cli.py`) 위치를 찾을 때 `ls ~/.claude/plugins/cache/*/projectops/*/skills/.../scripts` 패턴을 쓴다 — 이건 **스크립트 전용**이며 config.json은 그 캐시 안에 **없다.** 그 `ls` 패턴을 config 찾기에 전이시키면 엉뚱한 파일을 잡거나 "config 없음"으로 오판해 이미 등록된 PAT를 사용자에게 다시 묻게 된다 (실제 발생한 사고). **스크립트는 캐시에서 ls로, config는 홈의 고정 경로에서 Read로 — 두 경로를 절대 섞지 않는다.**
+> **특히 하네스 설치 경로(`~/.claude/...`, `~/.codex/...`, `~/.gemini/...`, `~/.pi/...`)를 뒤지지 마라.** 각 스킬의 SKILL.md는 *스크립트*(`*_cli.py`) 위치를 찾을 때 이 경로들을 `ls`로 조회한다 — 이건 **스크립트 전용**이며 config.json은 그 안에 **없다.** 그 `ls` 패턴을 config 찾기에 전이시키면 엉뚱한 파일을 잡거나 "config 없음"으로 오판해 이미 등록된 PAT를 사용자에게 다시 묻게 된다 (실제 발생한 사고). **스크립트는 캐시에서 ls로, config는 홈의 고정 경로에서 Read로 — 두 경로를 절대 섞지 않는다.**
 
 agent는 Read tool로 `{HOME}/.projectops/config/config.json`을 읽는다.
 (Search·find로 탐색하지 않는다 — 경로가 고정이므로 탐색이 필요 없고, 탐색하면 플러그인 캐시 등 엉뚱한 파일을 잡을 수 있다)
