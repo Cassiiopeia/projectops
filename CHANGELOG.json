@@ -1,14 +1,35 @@
 {
   "metadata": {
-    "lastUpdated": "2026-07-27T05:41:08Z",
-    "currentVersion": "4.2.41",
+    "lastUpdated": "2026-07-27T08:01:34Z",
+    "currentVersion": "4.2.42",
     "projectType": "basic",
-    "totalReleases": 226,
+    "totalReleases": 227,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.2.42",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-07-27",
+      "pr_number": 538,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * 문제가 생겼을 때 과거에 같은 일을 겪었는지 자동으로 찾아봅니다\n  * 어렵게 해결한 내용을 나중에 그대로 따라 할 수 있는 형태로 남깁니다\n  * 프로젝트별 기록과 공통 기록을 구분해 저장합니다",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "문제가 생겼을 때 과거에 같은 일을 겪었는지 자동으로 찾아봅니다",
+            "어렵게 해결한 내용을 나중에 그대로 따라 할 수 있는 형태로 남깁니다",
+            "프로젝트별 기록과 공통 기록을 구분해 저장합니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.2.41",
       "project_type": "basic",
