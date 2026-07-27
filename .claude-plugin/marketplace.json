@@ -16,7 +16,7 @@
         "url": "https://github.com/Cassiiopeia/projectops.git"
       },
       "description": "DevOps 자동화 스킬 모음 - 코드 분석, 설계, 구현, 테스트, 리뷰, 리팩토링, 문서화, 트러블슈팅 등 23+ 스킬",
-      "version": "4.2.38",
+      "version": "4.2.39",
       "category": "DevOps",
       "keywords": [
         "devops",
