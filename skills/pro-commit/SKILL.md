@@ -102,7 +102,12 @@ REPO=$(echo "$REMOTE_URL" | sed -E 's|.*github\.com[:/][^/]+/([^/.]+)(\.git)?$|\
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS="$PROJECT_ROOT/skills/pro-commit/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-commit/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
+SKILL=pro-commit; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
+[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" commit_cli.py get-issue {owner} {repo} {추출된 이슈번호}
 ```
 
@@ -254,9 +259,12 @@ PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) ||
 RAW_MSG="{최종 커밋 메시지}"
 
 # 스크립트 탐색: 이 레포에서 개발 중이면 로컬본이 캐시본보다 최신이므로 로컬 우선.
-# (사용자 프로젝트에는 skills/ 가 없어 자동으로 캐시본이 쓰인다)
-SCRIPTS="$PROJECT_ROOT/skills/pro-commit/scripts"
-[ -f "$SCRIPTS/commit_cli.py" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-commit/scripts 2>/dev/null | sort -V | tail -1)
+# (사용자 프로젝트에는 skills/ 가 없어 자동으로 하네스 설치본이 쓰인다)
+SKILL=pro-commit; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
+[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 
 CLEAN_MSG=$(RAW_MSG="$RAW_MSG" SCRIPTS="$SCRIPTS" PYTHONIOENCODING=utf-8 "$PYTHON" - <<'EOF'
 import json, os, re, subprocess, sys

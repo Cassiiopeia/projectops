@@ -17,8 +17,8 @@ description: "GitHub Mode - 독립적인 GitHub 제어 스킬. GitHub로 하는 
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 ```
 
-> **⚠️ 스크립트는 플러그인 캐시에 설치된다 — 작업 중인 프로젝트 루트에 없다.**
-> `github_cli.py`는 `~/.claude/plugins/cache/<marketplace>/projectops/<version>/skills/pro-github/scripts/`에 있다. 사용자 프로젝트(템플릿으로 생성·통합된 레포 포함)에는 `skills/` 폴더 자체가 없으므로(통합 시 제외) `$PROJECT_ROOT/skills/...` 고정 경로는 다른 레포에서 실패한다. 아래 모든 Bash 블록의 `SCRIPTS=$(ls -d ~/.claude/plugins/cache/...)` 라인이 **캐시 우선 → 프로젝트 루트 폴백**으로 스크립트를 찾으므로 어느 레포에서든 동작한다. config(`~/.projectops/config/config.json`)는 항상 user 홈 기준이라 프로젝트 위치와 무관하다.
+> **⚠️ 스크립트는 하네스 설치 경로에 있다 — 작업 중인 프로젝트 루트에 없다.**
+> 사용자 프로젝트(템플릿으로 생성·통합된 레포 포함)에는 `skills/` 폴더 자체가 없으므로(통합 시 제외) 프로젝트 루트 고정 경로는 다른 레포에서 실패한다. 아래 모든 Bash 블록은 **로컬(이 저장소) 우선 → 하네스 설치 경로 폴백** 순으로 플러그인 루트를 찾는다. 탐색 규칙은 `references/common-rules.md` §"스크립트 탐색"에 한 곳으로 정리되어 있다 (#528). config(`~/.projectops/config/config.json`)는 항상 user 홈 기준이라 프로젝트 위치와 무관하다.
 
 **Config / PAT 확인** — `references/config-rules.md` §2~3 절차를 따른다.
 
@@ -62,7 +62,12 @@ $ARGUMENTS
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS="$PROJECT_ROOT/skills/pro-github/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-github/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
+SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
+[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py get-issue {owner} {repo} {이슈번호}
 PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py get-issue {owner} {repo} {이슈번호} --with-comments
 ```
@@ -127,7 +132,12 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py get-commit-template "이슈 제�
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS="$PROJECT_ROOT/skills/pro-github/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-github/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
+SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
+[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py update-issue {owner} {repo} {이슈번호} \
   --title "새 제목" --state closed --labels "작업중" --assignees "Cassiiopeia"
 ```
@@ -140,7 +150,12 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py update-issue {owner} {repo} {이�
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS="$PROJECT_ROOT/skills/pro-github/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-github/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
+SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
+[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py add-comment {owner} {repo} {이슈번호} "{댓글 본문 파일 경로}"
 ```
 
@@ -212,7 +227,12 @@ git ls-remote --heads origin "$HEAD_BRANCH" | grep -q "$HEAD_BRANCH" || echo "�
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS="$PROJECT_ROOT/skills/pro-github/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-github/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
+SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
+[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py create-pr {owner} {repo} "{제목}" "{PR 본문 파일 경로}" "{owner}:{head_branch}" main
 ```
 
@@ -240,7 +260,12 @@ PR 본문에는 반드시 관련 이슈 링크를 포함한다:
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS="$PROJECT_ROOT/skills/pro-github/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-github/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
+SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
+[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py list-prs {owner} {repo} --state open
 # 닫힌 PR 포함: --state closed 또는 --state all
 ```
@@ -298,7 +323,12 @@ git log origin/main..HEAD --pretty=format:"%H %s" | grep -v "\[skip ci\]" | head
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS="$PROJECT_ROOT/skills/pro-github/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-github/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
+SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
+[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py update-pr {owner} {repo} {pr_number} "{릴리스 노트 파일 경로}"
 ```
 
@@ -346,7 +376,12 @@ PAT는 `github_cli`가 config.json에서 자동 로드하므로 `export GITHUB_P
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS="$PROJECT_ROOT/skills/pro-github/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-github/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
+SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
+[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+cd "$SCRIPTS" || exit 1
 
 # run 메타 + job 목록 + 실패 step
 PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py actions show-run {owner} {repo} {run_id}
@@ -399,7 +434,12 @@ GitHub 유저 또는 Organization의 레포 목록과 개별 레포 상세 정�
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS="$PROJECT_ROOT/skills/pro-github/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-github/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
+SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
+[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py explore list-repos {owner} --type auto
 # user/org가 확실하면: --type user 또는 --type org
 ```
@@ -459,7 +499,12 @@ GitHub 레포의 Actions Secret을 조회·생성·업데이트한다.
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS="$PROJECT_ROOT/skills/pro-github/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-github/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
+SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
+[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py secrets list {owner} {repo}
 ```
 
@@ -486,7 +531,12 @@ find "$PROJECT_ROOT" -maxdepth 3 -name ".env" -not -path "*/node_modules/*" -not
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS="$PROJECT_ROOT/skills/pro-github/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-github/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
+SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
+[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+cd "$SCRIPTS" || exit 1
 SECRET_VALUE="{secret_value}" PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py secrets set {owner} {repo} {secret_name}
 ```
 

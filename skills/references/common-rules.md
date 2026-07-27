@@ -222,22 +222,34 @@ worktree로 격리된 환경에서 작업할까요, 아니면 현재 디렉토�
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS="$PROJECT_ROOT/skills/<skill>/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/<skill>/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
+SKILL=<skill>; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
+[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" <scope>_cli.py <subcommand> [args]
 ```
 
-> **⚠️ 스크립트 탐색 순서: 로컬 → 캐시 폴백 (#524 — 이 순서를 뒤집지 말 것)**
+> **⚠️ 스크립트 탐색: 로컬 → 하네스 설치 경로 폴백 (#524·#528 — 이 순서를 뒤집지 말 것)**
 >
-> 스크립트는 두 곳 중 하나에 있다:
+> 위 3줄은 **스킬명이 경로에 박히지 않도록 "플러그인 루트"만 해석**한다. 그래서 어느 스킬에서든 `SKILL=` 값 하나만 다르고 나머지는 문자 그대로 같다. 하네스가 늘어도 고칠 형태는 이 한 곳뿐이다.
 >
-> | 위치 | 언제 |
-> |---|---|
-> | `$PROJECT_ROOT/skills/<skill>/scripts/` | **projectops 레포 자신** (여기서만 `skills/`가 실재) |
-> | `~/.claude/plugins/cache/<marketplace>/projectops/<version>/skills/<skill>/scripts/` | 사용자 프로젝트 (플러그인 설치 위치) |
+> | 위치 | 언제 | 버전 계층 |
+> |---|---|---|
+> | `$ROOT/skills/<skill>/scripts/` | **projectops 레포 자신** (여기서만 `skills/`가 실재) | 해당 없음 |
+> | `~/.claude/plugins/cache/{마켓}/projectops/{버전}/` | Claude Code | 있음 |
+> | `~/.codex/plugins/cache/{마켓}/projectops/{버전}/` | Codex | 있음 |
+> | `~/.gemini/extensions/projectops/` | Gemini | 없음 |
+> | `~/.pi/agent/git/github.com/{owner}/projectops/` | pi | 없음 |
 >
-> 위 `SCRIPTS=...` 라인은 **로컬이 있으면 로컬, 없으면 캐시**로 폴백한다. 두 환경 모두에서 옳다:
+> **버전 계층이 있는 두 하네스를 `sort -V`로 먼저 조회하고, 결과가 없을 때만 무버전 하네스로 넘어간다.** 네 경로를 한 번에 `sort -V`하면 하네스 루트 이름(`.claude` vs `.pi`)이 버전보다 먼저 비교되어 버전과 무관한 항목이 선택된다. 이 2단계를 하나로 합치지 말 것.
 >
-> - 사용자 프로젝트에는 `skills/`가 없다(통합 시 제외) → 자동으로 캐시가 쓰인다. **기존과 동일한 동작.**
+> 마지막 `[ -d "$SCRIPTS" ] || { ...; exit 1; }` 가드도 빼지 말 것. `cd ""`는 실패하지 않고 현재 디렉터리에 머물기 때문에, 가드가 없으면 스크립트를 못 찾아도 조용히 통과해 엉뚱한 위치에서 실행된다.
+>
+> 위 `ROOT=...` 라인은 **로컬이 있으면 로컬, 없으면 하네스 설치본**으로 폴백한다. 두 환경 모두에서 옳다:
+>
+> - 사용자 프로젝트에는 `skills/`가 없다(통합 시 제외) → 자동으로 하네스 설치본이 쓰인다. **기존과 동일한 동작.**
 > - projectops 레포에는 `skills/`가 있다 → 자기 코드가 쓰인다. **수정 즉시 테스트 가능.**
 >
 > 과거에는 캐시를 먼저 봤는데(#386 해결 과정에서 도입), 그러면 이 레포에서 스킬을 고쳐도 **릴리스로 캐시가 갱신되기 전까지 자기 변경분을 쓸 수 없었다.** 새 서브커맨드를 추가하자마자 "그런 커맨드 없음"으로 실패하는 문제가 실제로 발생했다.
@@ -278,7 +290,12 @@ GitHub API 작업은 **각 skill의 `<scope>_cli.py` 서브커맨드로 호출**
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SCRIPTS="$PROJECT_ROOT/skills/pro-github/scripts"; [ -d "$SCRIPTS" ] || SCRIPTS=$(ls -d ~/.claude/plugins/cache/*/projectops/*/skills/pro-github/scripts 2>/dev/null | sort -V | tail -1); cd "$SCRIPTS" || exit 1
+SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
+[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py get-issue {owner} {repo} {number} --with-comments
 ```
 
