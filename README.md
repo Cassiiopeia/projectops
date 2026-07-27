@@ -30,7 +30,7 @@
 | 이슈 매번 형식 맞춰 작성 (5분+) | `/pro-github` 한 번에 표준 템플릿 생성 + 등록 |
 | 커밋 메시지 이슈 URL 수동 복사 | `/pro-commit` 이슈 컨텍스트 기반 자동 완성 |
 | PR 설명/보고서 직접 작성 | `/pro-report` git diff 분석 후 자동 생성 |
-| 코드 리뷰·분석 매번 프롬프트 입력 | 24종 Skills로 일관된 결과, 매번 재입력 불필요 |
+| 코드 리뷰·분석 매번 프롬프트 입력 | 17종 Skills로 일관된 결과, 매번 재입력 불필요 |
 
 ---
 
@@ -40,23 +40,21 @@ Agent Skills가 개발 사이클 전체를 커버합니다.
 
 ```mermaid
 flowchart TD
-    A([작업 시작]) --> B["/pro-github\n이슈 등록 + GitHub 자동 생성"]
-    B --> C["/pro-init-worktree\nworktree + 민감파일 자동 복사"]
-    C --> D{작업 유형}
+    A(["작업 시작"]) --> B["/pro-github<br/>이슈 등록"]
+    B --> C["/pro-init-worktree<br/>worktree + 민감파일 복사"]
+    C --> D{"작업 유형"}
 
-    D -->|새 기능| E1["/pro-plan\n전략 수립"]
-    D -->|버그| E2["/pro-troubleshoot\n원인 분석"]
-    D -->|리팩토링| E3["/pro-refactor-analyze\nSmell 탐지"]
+    D -->|새 기능·설계·리팩토링| E1["superpowers:brainstorming<br/>무엇을 왜 만들지 확정"]
+    D -->|버그| E2["/pro-troubleshoot<br/>원인 분석"]
 
-    E1 --> F["/pro-implement\n구현"]
+    E1 --> P["superpowers:writing-plans<br/>구현 계획"]
+    P --> F["superpowers:executing-plans<br/>계획 실행"]
     E2 --> F
-    E3 --> F
-    F --> G["/pro-test\n테스트"]
-    G --> H["/pro-review\n셀프 리뷰"]
-    H --> I["/pro-commit\n이슈 연동 커밋 자동 완성"]
-    I --> J["/pro-report\n구현 보고서 + GitHub 댓글"]
-    J --> K([PR 등록])
-    K --> L["/pro-changelog-deploy\ndevelop push → main 릴리스 PR + automerge"]
+    F --> H["/pro-review<br/>셀프 리뷰"]
+    H --> I["/pro-commit<br/>이슈 연동 커밋"]
+    I --> J["/pro-report<br/>구현 보고서 + GitHub 댓글"]
+    J --> K(["PR 등록"])
+    K --> L["/pro-changelog-deploy<br/>릴리스 PR + automerge"]
 ```
 
 > Skills 전체 목록 및 상세 사용법: **[docs/SKILLS.md](docs/SKILLS.md)**
@@ -69,9 +67,9 @@ flowchart TD
 flowchart TD
     A([develop 푸시]) --> B[개발 통합]
     B --> C[develop→main 릴리스 PR]
-    C --> D[PR 내 버전 확정\npatch +1 + 태그 + AI 체인지로그]
+    C --> D["PR 내 버전 확정<br/>patch +1 + 태그 + AI 체인지로그"]
     D --> E[자동 머지]
-    E --> F[main push → CI/CD 배포\nFlutter / Spring / React 등]
+    E --> F["main push → CI/CD 배포<br/>Flutter / Spring / React 등"]
     F --> G([완료])
 ```
 
@@ -132,7 +130,7 @@ npx projectops --mode skills
 
 | 기능 | 설명 | 문서 |
 |------|------|------|
-| **Agent Skills** | Claude Code, Cursor, Gemini CLI, Codex CLI에서 쓰는 24종 AI DevOps Skills | [상세](docs/SKILLS.md) |
+| **Agent Skills** | Claude Code, Cursor, Gemini CLI, Codex CLI에서 쓰는 17종 AI DevOps Skills | [상세](docs/SKILLS.md) |
 | **버전 자동화** | 릴리스(develop→main PR) 시 patch 버전 자동 증가 + Git 태그 | [상세](docs/VERSION-CONTROL.md) |
 | **AI 체인지로그** | provider 사다리(CodeRabbit/GitHub Models/OpenAI 계열/commit) 기반 CHANGELOG 자동 생성 | [상세](docs/CHANGELOG-AUTOMATION.md) |
 | **PR Preview** | 댓글 한 줄로 임시 서버 배포, 닫으면 자동 삭제 | [상세](docs/PR-PREVIEW.md) |
@@ -143,7 +141,7 @@ npx projectops --mode skills
 
 ---
 
-## Agent Skills (24종)
+## Agent Skills (17종)
 
 ### 🔄 개발 사이클 자동화
 
@@ -159,10 +157,6 @@ npx projectops --mode skills
 
 | 스킬 | 용도 |
 |------|------|
-| `/pro-analyze` | 구현 전 현재 코드 상태 분석 및 영향 범위 평가 |
-| `/pro-plan` | 요구사항 명확화 + 2가지 이상 접근 방식 비교로 전략 수립 |
-| `/pro-design-analyze` | 아키텍처/API/DB/UI 설계 분석 (구현 X) |
-| `/pro-refactor-analyze` | Code Smell 탐지 + Before/After 기반 리팩토링 계획 |
 | `/pro-review` | 보안/성능/버그/품질 6관점 리뷰, Critical/Major/Minor 분류 |
 | `/pro-troubleshoot` | 가설-검증 방식 근본 원인 분석, Quick Fix/Root Fix 제시 |
 
@@ -170,20 +164,17 @@ npx projectops --mode skills
 
 | 스킬 | 용도 |
 |------|------|
-| `/pro-implement` | 계획/분석 결과 기반 코드 구현 (기존 스타일 100% 준수) |
-| `/pro-design` | 아키텍처/API/DB/UI 설계 + 구현까지 |
-| `/pro-refactor` | Extract Method, DRY 등 리팩토링 기법 단계별 적용 |
-| `/pro-test` | AAA 패턴 단위/통합/E2E 테스트 코드 작성 |
 | `/pro-figma` | Figma CSS → React/RN/Flutter 반응형 코드 변환 |
 | `/pro-build` | 프로젝트 빌드 실행, 에러 분석, 최적화 제안 |
+
+> 설계·계획·구현 흐름은 `superpowers`(brainstorming → writing-plans → executing-plans)가 담당합니다.
+> `/pro-plan` · `/pro-analyze` · `/pro-implement`는 같은 역할의 이전 세대 경로로, 명시적으로 호출할 때만 동작합니다.
 
 ### 📝 문서/산출물 생성형
 
 | 스킬 | 용도 |
 |------|------|
-| `/pro-document` | 코드 주석/README/API 문서 작성 |
 | `/pro-testcase` | 이슈 분석 → QA 체크리스트 생성 |
-| `/pro-ppt` | 트러블슈팅/구현 사례 → 5섹션 발표자료 |
 | `/pro-spring-test` | Spring Boot 테스트 샘플 코드 생성 |
 | `/pro-synology-expose` | Synology NAS 외부 도메인 노출 설정 가이드 |
 | `/pro-ssh` | 원격 서버 SSH 접속·명령 실행 (AWS EC2, 시놀로지 NAS, Linux 등 범용) |
@@ -251,7 +242,7 @@ Settings → Actions → General
 | 문서 | 설명 |
 |------|------|
 | [📚 문서 인덱스](docs/README.md) | docs 전체를 목적별로 안내 |
-| [Agent Skills 가이드](docs/SKILLS.md) | 24종 Skills 용도, 사용법, 전체 개발 사이클 흐름 |
+| [Agent Skills 가이드](docs/SKILLS.md) | 17종 Skills 용도, 사용법, 전체 개발 사이클 흐름 |
 | [NPX 마법사 가이드](docs/NPX-WIZARD.md) | npx projectops 통합, 프로젝트 성격(intent), 배포/publish 2축, 레거시 자동 마이그레이션 |
 | [통합 스크립트 가이드](docs/TEMPLATE-INTEGRATOR.md) | 구 integrator 지원 종료(EOF) 안내 |
 | [버전 관리](docs/VERSION-CONTROL.md) | version.yml, 자동 버전 증가 |

@@ -1,14 +1,34 @@
 {
   "metadata": {
-    "lastUpdated": "2026-07-27T05:17:38Z",
-    "currentVersion": "4.2.40",
+    "lastUpdated": "2026-07-27T05:41:08Z",
+    "currentVersion": "4.2.41",
     "projectType": "basic",
-    "totalReleases": 225,
+    "totalReleases": 226,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.2.41",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-07-27",
+      "pr_number": 536,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **개선**\n  * 잘 쓰이지 않던 기능을 정리해 명령 목록이 간결해졌습니다\n  * 설계와 계획 작업의 안내 흐름을 하나로 정리했습니다",
+      "parsed_changes": {
+        "개선": {
+          "title": "개선",
+          "items": [
+            "잘 쓰이지 않던 기능을 정리해 명령 목록이 간결해졌습니다",
+            "설계와 계획 작업의 안내 흐름을 하나로 정리했습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.2.40",
       "project_type": "basic",

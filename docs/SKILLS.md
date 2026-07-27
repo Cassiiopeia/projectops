@@ -1,7 +1,7 @@
 # Agent Skills 가이드
 
 > **이 레포는 Claude Code, Cursor, Gemini CLI, Codex CLI에서 사용할 수 있는 Agent Skill 패키지입니다.**
-> GitHub Actions 자동화 템플릿과 더불어, 개발/DevOps Skill 24종을 제공합니다.
+> GitHub Actions 자동화 템플릿과 더불어, 개발/DevOps Skill 17종을 제공합니다.
 
 ---
 
@@ -101,18 +101,20 @@ Codex에서는 slash command UI가 아니라 `AGENTS.md`와 설치된 `skills/`�
 
 ---
 
-## Skill 전체 목록 (24종)
+## Skill 전체 목록 (17종)
 
 용도에 따라 네 그룹으로 나뉩니다:
 
-- **분석형** (6종) — 코드를 읽기만 하고 수정하지 않음. 계획/리뷰/진단 결과를 돌려줌.
-- **구현형** (7종) — 실제로 파일을 수정하거나 생성함.
+- **분석형** (4종) — 코드를 읽기만 하고 수정하지 않음. 계획/리뷰/진단 결과를 돌려줌.
+- **구현형** (4종) — 실제로 파일을 수정하거나 생성함.
 - **개발 사이클 자동화형** (3종) — 커밋, 배포, GitHub 작업을 대신 수행함.
-- **문서/산출물 생성형** (8종) — 코드는 건드리지 않고, `.md` 파일이나 보고서를 생성함.
+- **문서/산출물 생성형** (6종) — 코드는 건드리지 않고, `.md` 파일이나 보고서를 생성함.
+
+> 설계·계획·구현 흐름은 `superpowers`(brainstorming → writing-plans → executing-plans)가 담당합니다. `/pro-plan` · `/pro-analyze` · `/pro-implement`는 같은 역할의 이전 세대 경로로, 명시적으로 호출할 때만 동작합니다.
 
 ---
 
-## 📊 분석형 Skill (6종)
+## 📊 분석형 Skill (4종)
 
 코드를 수정하지 않습니다. "먼저 상황을 파악하고 싶을 때" 사용하세요.
 
@@ -141,36 +143,6 @@ Codex에서는 slash command UI가 아니라 `AGENTS.md`와 설치된 `skills/`�
 **언제 쓰나요?**
 - 리팩토링이나 아키텍처 변경처럼 방향성부터 정해야 할 때
 - 바로 코딩에 들어가기 전 의사결정을 남겨두고 싶을 때
-
----
-
-### `/pro-design-analyze`
-
-**무엇을 하나요?**
-아키텍처, API, DB 스키마, UI/UX 같은 **설계 수준의 분석**만 수행합니다. 현재 설계의 강점/약점을 파악하고, 개선 방향을 2개 이상 제안합니다. 코드는 절대 건드리지 않습니다.
-
-**수정되는 것**: 없음
-**돌려주는 것**: 설계 분석 리포트 + 대안 제안 + 위험 요소
-
-**언제 쓰나요?**
-- "API 구조 바꾸기 전에 먼저 검토하고 싶다"
-- "DB 스키마를 어떻게 개선할지 방향만 정하고 싶다"
-- `/pro-design`의 구현 없이 분석만 하는 버전
-
----
-
-### `/pro-refactor-analyze`
-
-**무엇을 하나요?**
-Code Smell(긴 함수, 중복, 깊은 중첩 등)을 탐지해서 **우선순위별 리팩토링 계획**을 세워줍니다. 각 항목마다 Before/After 예시 코드까지 보여주지만 **실제 파일은 수정하지 않습니다**.
-
-**수정되는 것**: 없음
-**돌려주는 것**: Code Smell 목록 + 우선순위 + Before/After 예시
-
-**언제 쓰나요?**
-- 리팩토링할지 말지 판단하고 싶을 때
-- 팀원에게 "여기 이렇게 바꾸면 좋겠다"를 설득할 자료가 필요할 때
-- 실제 작업은 `/pro-refactor`로 진행
 
 ---
 
@@ -204,7 +176,7 @@ Code Smell(긴 함수, 중복, 깊은 중첩 등)을 탐지해서 **우선순위
 
 ---
 
-## 🔧 구현형 Skill (7종)
+## 🔧 구현형 Skill (4종)
 
 실제로 파일을 수정합니다. "작업을 진행해달라"일 때 사용하세요.
 
@@ -219,49 +191,6 @@ Code Smell(긴 함수, 중복, 깊은 중첩 등)을 탐지해서 **우선순위
 **언제 쓰나요?**
 - 계획이 이미 서 있고 바로 구현만 하면 될 때
 - 직접 "이거 구현해줘"라고 요청할 때도 OK
-
----
-
-### `/pro-design`
-
-**무엇을 하나요?**
-아키텍처, API, DB 스키마, UI/UX를 설계하고 **그 자리에서 구현까지** 진행합니다. 이미지/UI 스크린샷을 제공하면 화면 구성을 분석해서 현대적인 UI 트렌드를 적용합니다.
-
-**수정되는 것**: 설계 문서 + 실제 코드
-**돌려주는 것**: 설계 산출물 + 구현된 코드
-
-**언제 쓰나요?**
-- 새 페이지/기능을 설계부터 코드까지 한 번에 만들고 싶을 때
-- 분석만 원한다면 `/pro-design-analyze`를 쓰세요
-
----
-
-### `/pro-refactor`
-
-**무엇을 하나요?**
-Extract Method, DRY, Guard Clauses 등 리팩토링 기법을 **단계별로** 적용합니다. 각 단계마다 테스트가 깨지지 않는지 확인하며 진행하므로 안전합니다.
-
-**수정되는 것**: 리팩토링 대상 파일
-**돌려주는 것**: 리팩토링된 코드 + 단계별 변경 요약
-
-**언제 쓰나요?**
-- 코드는 동작하지만 구조가 지저분할 때
-- 계획만 보고 싶다면 `/pro-refactor-analyze`
-
----
-
-### `/pro-test`
-
-**무엇을 하나요?**
-**AAA(Arrange-Act-Assert) 패턴**으로 단위/통합/E2E 테스트를 작성합니다. 프로젝트에 이미 있는 테스트 스타일을 감지해서 100% 동일하게 맞춥니다.
-
-**수정되는 것**: 테스트 파일 생성/수정
-**돌려주는 것**: 새로 작성된 테스트 코드
-
-**언제 쓰나요?**
-- 특정 함수/클래스의 테스트가 없을 때
-- 커버리지 개선 요청
-- Spring Boot 전용 샘플이 필요하면 `/pro-spring-test`
 
 ---
 
@@ -371,24 +300,9 @@ GitHub 이슈/PR/댓글을 **독립적으로 조회하고 관리**합니다. 다
 
 ---
 
-## 📝 문서/산출물 생성형 Skill (8종)
+## 📝 문서/산출물 생성형 Skill (6종)
 
 코드는 건드리지 않고, 특정 형식의 **문서 파일**을 생성합니다.
-
-### `/pro-document`
-
-**무엇을 하나요?**
-코드 주석(Javadoc/JSDoc/Dart doc), README, API 문서를 작성하거나 업데이트합니다. 기존 문서의 스타일을 그대로 유지합니다.
-
-**수정되는 것**: 주석이 추가된 소스 파일 또는 README/API 문서
-**돌려주는 것**: 작성/수정된 문서
-
-**언제 쓰나요?**
-- "이 함수에 주석 좀 달아줘"
-- README 업데이트
-- API 문서 초안 작성
-
----
 
 ### `/pro-report`
 
@@ -415,21 +329,6 @@ GitHub 이슈를 읽고 관련 코드를 탐색한 뒤, **QA용 테스트 체크
 **언제 쓰나요?**
 - QA에게 넘기기 전 체크리스트가 필요할 때
 - 수동 테스트 시나리오를 정리하고 싶을 때
-
----
-
-### `/pro-ppt`
-
-**무엇을 하나요?**
-개발 과정에서의 문제 해결이나 구현 사례를 **발표자료 형식(5섹션: 배경 / 기술 분석 / 해결 방안 / 결과 효과 / 향후 계획)**으로 정리합니다. 텍스트보다 다이어그램, 테이블, 코드 블록을 우선 사용하는 마크다운으로 작성되어, 실제 PPT 도구에 옮기기 쉽습니다.
-
-**수정되는 것**: 발표자료 `.md` 파일
-**돌려주는 것**: 5섹션 구조의 발표용 마크다운
-
-**언제 쓰나요?**
-- 사내 기술 발표 자료
-- 트러블슈팅 사례 공유
-- 프로젝트 회고 발표
 
 ---
 
@@ -498,40 +397,35 @@ Skill 파일을 **생성(CREATE)·리뷰(REVIEW)·개선(IMPROVE)** 3가지 모�
 ### 표준 개발 흐름 (전체 사이클)
 
 ```mermaid
-flowchart LR
-    A([작업 시작]) --> B["/github\n이슈 등록 + GitHub 자동 생성"]
-    B --> C["/init-worktree\nworktree + 민감파일 자동 복사"]
-    C --> D{작업 유형?}
+flowchart TD
+    A(["작업 시작"]) --> B["/pro-github<br/>이슈 등록"]
+    B --> C["/pro-init-worktree<br/>worktree + 민감파일 복사"]
+    C --> D{"작업 유형?"}
 
-    D -->|새 기능| E1["/plan\n전략 수립"]
-    D -->|버그| E2["/troubleshoot\n원인 분석"]
-    D -->|리팩토링| E3["/refactor-analyze\nSmell 탐지"]
-    D -->|설계 변경| E4["/design-analyze\n설계 분석"]
+    D -->|새 기능·설계·리팩토링| E1["superpowers:brainstorming<br/>무엇을 왜 만들지 확정"]
+    D -->|버그| E2["/pro-troubleshoot<br/>원인 분석"]
 
-    E1 --> F1["/implement\n구현"]
-    E2 --> F1
-    E3 --> F2["/refactor\n리팩토링 적용"]
-    E4 --> F3["/design\n설계 + 구현"]
+    E1 --> F1["superpowers:writing-plans<br/>구현 계획 수립"]
+    F1 --> G1["superpowers:executing-plans<br/>계획 실행"]
+    E2 --> G1
 
-    F1 --> G["/test\n테스트 작성"]
-    F2 --> G
-    F3 --> G
-
-    G --> H["/review\n셀프 리뷰"]
-    H --> I["/commit\n이슈 연동 커밋 자동 완성"]
-    I --> J["/report\n구현 보고서 + GitHub 댓글"]
-    J --> K([PR 등록])
-    K --> L["/changelog-deploy\ndevelop push → main 릴리스 PR(deploy PR) + automerge"]
+    G1 --> H["/pro-review<br/>셀프 리뷰"]
+    H --> I["/pro-commit<br/>이슈 연동 커밋"]
+    I --> J["/pro-report<br/>구현 보고서 + GitHub 댓글"]
+    J --> K(["PR 등록"])
+    K --> L["/pro-changelog-deploy<br/>릴리스 PR + automerge"]
 ```
+
+> 설계·계획·구현은 `superpowers` 3종이 담당합니다. `/pro-plan` · `/pro-analyze` · `/pro-implement`는 같은 역할의 이전 세대 경로로, 명시적으로 호출할 때만 동작합니다.
 
 ### 시나리오별 흐름 정리
 
 | 상황 | 추천 흐름 |
 |------|----------|
-| **새 기능 개발 (표준)** | `issue` → `init-worktree` → `plan` → `implement` → `test` → `review` → `commit` → `report` → `changelog-deploy` |
-| **버그 수정** | `issue` → `init-worktree` → `troubleshoot` → `implement` → `test` → `commit` → `report` → `changelog-deploy` |
-| **리팩토링** | `issue` → `init-worktree` → `refactor-analyze` → `refactor` → `test` → `review` → `commit` → `report` → `changelog-deploy` |
-| **설계부터 시작** | `issue` → `init-worktree` → `design-analyze` → `design` → `test` → `review` → `commit` → `report` → `changelog-deploy` |
+| **새 기능 개발 (표준)** | `pro-github` → `pro-init-worktree` → `brainstorming` → `writing-plans` → `executing-plans` → `pro-review` → `pro-commit` → `pro-report` → `pro-changelog-deploy` |
+| **버그 수정** | `pro-github` → `pro-init-worktree` → `pro-troubleshoot` → `executing-plans` → `pro-commit` → `pro-report` → `pro-changelog-deploy` |
+| **리팩토링·설계 변경** | 새 기능 개발과 동일 (`brainstorming`에서 범위를 좁혀 시작) |
+| **QA 테스트케이스** | `pro-github` → `pro-testcase` |
 
 ### 단건 작업 (사이클 없이 단독 호출)
 

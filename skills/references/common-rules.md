@@ -187,9 +187,11 @@ worktree로 격리된 환경에서 작업할까요, 아니면 현재 디렉토�
 
 ## 워크플로우 체인
 
-**기본**: `/plan` → `/analyze` → `/implement` → `/review` → `/test`
-**설계**: `/design-analyze` → `/design` → `/implement` → `/review` → `/test`
-**리팩토링**: `/refactor-analyze` → `/refactor` → `/review` → `/test`
+설계·계획·구현 흐름은 `superpowers` 3종이 담당한다:
+
+**기본**: `superpowers:brainstorming` → `superpowers:writing-plans` → `superpowers:executing-plans` → `/pro-review`
+
+`/pro-plan` · `/pro-analyze` · `/pro-implement`는 같은 역할의 이전 세대 경로다. 자동 트리거하지 않으며, 사용자가 명시적으로 호출할 때만 동작한다.
 
 각 skill은 이전 단계의 결과를 참조하고, 다음 단계를 안내한다.
 

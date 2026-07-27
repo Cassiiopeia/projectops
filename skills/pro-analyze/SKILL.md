@@ -1,6 +1,6 @@
 ---
 name: pro-analyze
-description: "Analyze Mode (HOW 구체화) - plan 문서(WHAT)를 기반으로 '어떻게 만들 것인가'를 파일·함수·라인 단위로 구체화한다. 실제 파일을 읽고 변경 계획을 작성하며 placeholder를 금지한다. 코드 분석, 영향 범위 평가, 구현 계획서 작성이 필요할 때 또는 plan 승인 직후 트리거. /analyze 호출 시 사용. 코드는 수정하지 않는다."
+description: "Analyze Mode (HOW 구체화) - 사용자가 '/pro-analyze'를 명시적으로 호출했을 때만 사용한다. 자동으로 트리거하지 않는다. plan 문서(WHAT)를 기반으로 '어떻게 만들 것인가'를 파일·함수·라인 단위로 구체화하며 placeholder를 금지한다. 코드 수정 금지."
 ---
 
 # Analyze Mode (HOW 구체화)
