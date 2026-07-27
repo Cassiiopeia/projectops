@@ -30,9 +30,9 @@
 # - basic: version.yml만 사용
 # ===================================================================
 
-version: "4.2.38"
-version_code: 432 # app build number
+version: "4.2.39"
+version_code: 433 # app build number
 project_types: ["basic"] # 멀티타입 배열 — 첫 항목이 primary, 직접 편집 가능
 metadata:
-  last_updated: "2026-07-27 04:48:48"
+  last_updated: "2026-07-27 04:53:16"
   last_updated_by: "Cassiiopeia"
