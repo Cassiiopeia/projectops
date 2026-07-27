@@ -5,7 +5,7 @@
 ## 릴리스 노트
 
 * **문서**
-  * 프로젝트 보드 연동 설정 안내를 실제 절차에 맞게 정리
+  * 최근 수정 내역을 정리한 구현 보고서 추가
 
 <!-- end of auto-generated comment: release notes by coderabbit.ai -->
 
