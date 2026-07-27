@@ -59,7 +59,12 @@ env:
   # GitHub Projects 연동 설정
   # ===================================================================
   #
-  # 사용하려면 아래 주석을 해제하고 URL을 입력하세요.
+  # 사용하려면 레포 설정에 변수를 등록하세요 (파일 수정 불필요):
+  #   Settings → Secrets and variables → Actions → Variables → New repository variable
+  #   Name: PROJECT_URL   /   Value: 아래 형식의 보드 URL
+  #
+  # 변수를 등록하지 않으면 이 워크플로우는 안내 로그만 남기고 조용히 종료됩니다.
+  # (워크플로우 파일에 URL을 직접 적지 마세요 — 커밋되어 레포 간에 섞입니다)
   #
   # 지원 URL 형식:
   # - Organization: https://github.com/orgs/{org}/projects/{number}
@@ -77,7 +82,7 @@ env:
   # - 자세한 내용: docs/PROJECTS-SYNC.md
   # ===================================================================
 
-  # PROJECT_URL: 'https://github.com/orgs/YOUR-ORG/projects/1'
+  PROJECT_URL: ${{ vars.PROJECT_URL }}
 
 jobs:
   sync-label-to-status:
@@ -177,7 +182,8 @@ jobs:
 
             if (!projectUrl) {
               console.log('⚠️ PROJECT_URL이 설정되지 않았습니다.');
-              console.log('   워크플로우 환경 변수에서 PROJECT_URL 주석을 해제하세요.');
+              console.log('   Settings → Secrets and variables → Actions → Variables 에서');
+              console.log('   PROJECT_URL 변수를 등록하세요 (워크플로우 파일 수정 불필요).');
               console.log('');
               console.log('💡 지원 URL 형식:');
               console.log('   - Organization: https://github.com/orgs/{org}/projects/{number}');
