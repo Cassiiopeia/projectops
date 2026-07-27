@@ -1,6 +1,6 @@
 {
   "name": "projectops",
-  "version": "4.2.41",
+  "version": "4.2.42",
   "description": "ProjectOps — 완전 자동화 GitHub 프로젝트 관리 템플릿 통합 CLI",
   "keywords": [
     "devops",
