@@ -91,14 +91,14 @@
 
 모든 코드 관련 skill은 다음 순서로 시작한다:
 
-0. **페르소나 로드** — `references/personas.md`에서 공통 마인드셋 6종 + 본 skill의 페르소나 카드(매핑표 참조)를 명시적으로 장착한다. 페르소나는 장식이 아니라 행동 강제 레이어다.
-1. `references/project-detection.md`에 따라 프로젝트 타입 감지
-2. `references/code-style-detection.md`에 따라 코드 스타일 감지 (기존 코드 3-5개 샘플링)
+0. **페르소나 로드** — `personas.md`에서 공통 마인드셋 6종 + 본 skill의 페르소나 카드(매핑표 참조)를 명시적으로 장착한다. 페르소나는 장식이 아니라 행동 강제 레이어다.
+1. `project-detection.md`에 따라 프로젝트 타입 감지
+2. `code-style-detection.md`에 따라 코드 스타일 감지 (기존 코드 3-5개 샘플링)
 3. 프로젝트 타입에 맞는 기술 가이드 참조:
-   - Spring Boot → `references/tech-spring.md`
-   - React / React Native / Expo → `references/tech-react.md`
-   - Flutter → `references/tech-flutter.md`
-   - Next.js → `references/tech-react.md` (React 기반)
+   - Spring Boot → `tech-spring.md`
+   - React / React Native / Expo → `tech-react.md`
+   - Flutter → `tech-flutter.md`
+   - Next.js → `tech-react.md` (React 기반)
    - Node.js / Python → 기술 가이드 없음, 코드베이스 직접 분석
 4. **Git 컨텍스트 확인** (코드 수정이 수반되는 작업 시 필수) — 아래 §Git 컨텍스트 확인 프로토콜 수행
 5. 본 skill의 작업 수행
@@ -195,9 +195,40 @@ worktree로 격리된 환경에서 작업할까요, 아니면 현재 디렉토�
 
 각 skill은 이전 단계의 결과를 참조하고, 다음 단계를 안내한다.
 
+## 참조 문서 경로 규칙 (#543 — agent 필독)
+
+참조 문서는 **두 종류**이고 경로 표기가 다르다. 섞으면 스킬이 문서를 못 찾고, 규정된 절차 대신 임의 판단으로 진행하게 된다.
+
+| 종류 | 어디에 있나 | SKILL.md에서 쓰는 표기 |
+|------|------------|----------------------|
+| **공용 문서** (이 파일, config-rules, personas 등) | `skills/references/` | `../references/<파일>.md` |
+| **스킬 고유 문서** (그 스킬만 쓰는 체크리스트 등) | `skills/<skill>/references/` | `references/<파일>.md` |
+
+SKILL.md에서 접두사 없이 `references/<파일>` 형태로 쓰면 **자기 스킬 폴더 안**을 가리킨다. 공용 문서는 거기 없으므로 반드시 `../`를 붙인다.
+
+> 이 규칙을 어겨 16개 스킬 50곳이 존재하지 않는 경로를 지시했고, 실제로 이슈 생성 절차 문서를 찾지 못해 중복 검사·승인 게이트를 건너뛴 사고가 있었다 (#543).
+
+**같은 폴더 안(`skills/references/` 문서끼리)에서 서로를 참조할 때는 접두사 없이 파일명만 쓴다** — `config-rules.md`. `references/`를 붙이면 자기 폴더 아래의 없는 하위 폴더를 가리키게 된다.
+
+검증:
+
+```bash
+# SKILL.md·references 문서가 지시한 경로가 실제로 존재하는지 전수 확인
+python3 - <<'EOF'
+import re, os
+from pathlib import Path
+bad = []
+for f in list(Path("skills").glob("pro-*/SKILL.md")) + list(Path("skills/references").glob("*.md")):
+    for m in re.finditer(r'`((?:\.\./)?(?:references/)?[a-z0-9_-]+\.md)`', f.read_text(encoding="utf-8")):
+        if not os.path.exists(os.path.normpath(os.path.join(f.parent, m.group(1)))):
+            bad.append(f"{f}: {m.group(1)}")
+print("깨진 참조:", bad or "없음")
+EOF
+```
+
 ## skill별 py 분산 호출 (3-layer 아키텍처 표준)
 
-`config-get` / `init-config`는 제거되었다 — config는 agent가 Read/Write tool로 직접 처리한다 (`references/config-rules.md` 참조).
+`config-get` / `init-config`는 제거되었다 — config는 agent가 Read/Write tool로 직접 처리한다 (`config-rules.md` 참조).
 
 `scripts/suh_template/` 단일 모듈은 제거되었다. 7개 skill이 각자 `skills/<skill>/scripts/<scope>_cli.py`를 보유하고, 공유 도메인 로직은 `scripts/common/`에서 import한다.
 
@@ -225,17 +256,19 @@ PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
 SKILL=<skill>; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" <scope>_cli.py <subcommand> [args]
 ```
 
-> **⚠️ 스크립트 탐색: 로컬 → 하네스 설치 경로 폴백 (#524·#528 — 이 순서를 뒤집지 말 것)**
+> **⚠️ 스크립트 탐색: 로컬 → 하네스 설치 경로 폴백 (#524·#528·#542 — 이 형태를 바꾸지 말 것)**
 >
-> 위 3줄은 **스킬명이 경로에 박히지 않도록 "플러그인 루트"만 해석**한다. 그래서 어느 스킬에서든 `SKILL=` 값 하나만 다르고 나머지는 문자 그대로 같다. 하네스가 늘어도 고칠 형태는 이 한 곳뿐이다.
+> 위 블록은 **스킬명이 경로에 박히지 않도록 "플러그인 루트"만 해석**한다. 그래서 어느 스킬에서든 `SKILL=` 값 하나만 다르고 나머지는 문자 그대로 같다. 하네스가 늘어도 고칠 형태는 이 한 곳뿐이다.
 >
 > | 위치 | 언제 | 버전 계층 |
 > |---|---|---|
@@ -245,7 +278,10 @@ PYTHONIOENCODING=utf-8 "$PYTHON" <scope>_cli.py <subcommand> [args]
 > | `~/.gemini/extensions/projectops/` | Gemini | 없음 |
 > | `~/.pi/agent/git/github.com/{owner}/projectops/` | pi | 없음 |
 >
-> **버전 계층이 있는 두 하네스를 `sort -V`로 먼저 조회하고, 결과가 없을 때만 무버전 하네스로 넘어간다.** 네 경로를 한 번에 `sort -V`하면 하네스 루트 이름(`.claude` vs `.pi`)이 버전보다 먼저 비교되어 버전과 무관한 항목이 선택된다. 이 2단계를 하나로 합치지 말 것.
+> **하네스를 한 줄에 나열하지 않고 `for`로 하나씩 검사한다 (#542 — 절대 되돌리지 말 것).**
+> 여러 경로 패턴을 한 `ls`에 나열하면, zsh는 그중 하나라도 매치되지 않을 때 `no matches found`로 **명령 전체를 실행하지 않는다.** Claude Code의 실행 셸이 zsh이므로, Codex를 안 쓰는 사용자에게는 나란히 적힌 Claude 경로까지 함께 버려졌다. 실측에서 최신 캐시(4.2.44)가 있는데도 빈 값이 나왔고, 다른 설치본이 있으면 **구버전(4.2.19)이 조용히 실행**됐으며, Claude Code만 설치한 환경에서는 스킬이 아예 죽었다.
+>
+> **`ls` + 나열 대신 `find`를 위치별로 쓴다.** `find`는 없는 경로를 만나도 그 경로만 건너뛴다. 우선순위는 `for` 목록 순서가 정하고, 같은 위치 안의 여러 버전은 `sort -V | tail -1`이 최신을 고른다. 하네스 루트 이름이 버전 비교에 끼어들 여지가 없다.
 >
 > 마지막 `[ -d "$SCRIPTS" ] || { ...; exit 1; }` 가드도 빼지 말 것. `cd ""`는 실패하지 않고 현재 디렉터리에 머물기 때문에, 가드가 없으면 스크립트를 못 찾아도 조용히 통과해 엉뚱한 위치에서 실행된다.
 >
@@ -282,7 +318,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" <scope>_cli.py <subcommand> [args]
 GitHub API 작업은 **각 skill의 `<scope>_cli.py` 서브커맨드로 호출**한다. 스킬 문서에 curl 레시피, Python heredoc, 임시 Python 파일을 새로 넣지 않는다.
 
 - PAT는 cli가 `GITHUB_PAT` 환경변수 → `config.json` 순으로 자동 로드한다 (`scripts/common/config.py:get_github_pat`).
-- 새 GitHub API 동작이 필요하면 먼저 `references/mcp-subcommand-rules.md`를 읽고 `scripts/common/gh_client.py` 헬퍼 + 해당 skill의 `_cli.py` 서브커맨드 + 테스트를 추가한다.
+- 새 GitHub API 동작이 필요하면 먼저 `mcp-subcommand-rules.md`를 읽고 `scripts/common/gh_client.py` 헬퍼 + 해당 skill의 `_cli.py` 서브커맨드 + 테스트를 추가한다.
 - `gh` CLI는 별도 설치 필요 및 Windows/macOS 환경 차이로 사용하지 않는다.
 - curl 직접 호출은 아직 서브커맨드가 없는 긴급 조사에만 임시 허용한다. 반복 사용이 보이면 즉시 `<scope>_cli.py` 서브커맨드로 승격한다.
 
@@ -293,8 +329,10 @@ PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
 SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1

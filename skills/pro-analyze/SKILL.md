@@ -17,7 +17,7 @@ description: "Analyze Mode (HOW 구체화) - 사용자가 '/pro-analyze'를 명�
 
 ## 승인 게이트 · 시작 전 질문 (필수)
 
-이 skill은 md 산출물을 만든다. **`references/approval-and-questions.md`를 반드시 따른다** (#526).
+이 skill은 md 산출물을 만든다. **`../references/approval-and-questions.md`를 반드시 따른다** (#526).
 
 요약:
 
@@ -26,15 +26,17 @@ description: "Analyze Mode (HOW 구체화) - 사용자가 '/pro-analyze'를 명�
 3. **첫 실행 시 1회** — "앞으로 확인 없이 진행할지"를 묻고 그 답을 기억한다.
 4. 사용자에게 설정 키 이름이나 파일 경로를 노출하지 않는다.
 
-저장 경로는 직접 조립하지 않고 아래로 받는다 (`references/doc-output-path.md`):
+저장 경로는 직접 조립하지 않고 아래로 받는다 (`../references/doc-output-path.md`):
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
 SKILL=pro-analyze; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
@@ -43,9 +45,9 @@ PYTHONIOENCODING=utf-8 "$PYTHON" analyze_cli.py get-output-path analyze --title 
 
 ## 시작 전
 
-`references/common-rules.md`의 **작업 시작 프로토콜** + **분석 전용 스킬 규칙** 적용.
+`../references/common-rules.md`의 **작업 시작 프로토콜** + **분석 전용 스킬 규칙** 적용.
 
-**페르소나 로드 (필수, 이중)**: `references/personas.md`에서 공통 마인드셋 6종 + **System Architect**(주) + **Reviewer**(부) 카드를 장착한다. 한 스킬 안에서 context-switching한다 — Architect로 HOW를 설계하고, 그다음 Reviewer로 전환해 그 계획을 '신뢰할 수 없는 외부인의 취약한 코드'로 보고 **적대적으로 깬다**(Red Team Mindset). "정상 동작한다"가 아니라 "어떻게 깨지는가"를 본다.
+**페르소나 로드 (필수, 이중)**: `../references/personas.md`에서 공통 마인드셋 6종 + **System Architect**(주) + **Reviewer**(부) 카드를 장착한다. 한 스킬 안에서 context-switching한다 — Architect로 HOW를 설계하고, 그다음 Reviewer로 전환해 그 계획을 '신뢰할 수 없는 외부인의 취약한 코드'로 보고 **적대적으로 깬다**(Red Team Mindset). "정상 동작한다"가 아니라 "어떻게 깨지는가"를 본다.
 
 ## 절대 규칙
 
@@ -115,7 +117,7 @@ plan.md를 읽고 다음을 정리:
 
 - 이슈번호 없으면 순번(`001`, `002`…) 자동 사용
 - 제목 정규화: 특수문자 제거, 공백→`_`, 50자 이내
-- 3-layer 아키텍처: skill별 `_cli.py`에서 `get-output-path` 호출 (예: `report_cli.py`, `review_cli.py`, `note_cli.py`). 참조: `references/common-rules.md` §"skill별 py 분산 호출"
+- 3-layer 아키텍처: skill별 `_cli.py`에서 `get-output-path` 호출 (예: `report_cli.py`, `review_cli.py`, `note_cli.py`). 참조: `../references/common-rules.md` §"skill별 py 분산 호출"
 
 ### No Placeholders 규칙
 
@@ -211,7 +213,7 @@ public void methodName() {
 > ⚡ Fast-Track: 단순 작업이면 "단일 자명 해법 — Fast-Track" 한 줄로 갈음.
 ````
 
-파일 저장 전 `references/common-rules.md`의 **파일 저장 직전 자체검토 프로토콜** 적용.
+파일 저장 전 `../references/common-rules.md`의 **파일 저장 직전 자체검토 프로토콜** 적용.
 
 ---
 
@@ -219,7 +221,7 @@ public void methodName() {
 
 방금 작성한 analyze 파일을 `Read` 도구로 다시 읽는다.
 
-`references/self-review-checklist.md`의 **analyze 체크리스트** 적용. 문제 발견 시 인라인 수정.
+`../references/self-review-checklist.md`의 **analyze 체크리스트** 적용. 문제 발견 시 인라인 수정.
 
 ---
 

@@ -23,7 +23,7 @@ description: "알아낸 것을 실행 가능한 기록으로 남기고, 막혔�
 
 ## 승인 게이트 · 시작 전 질문
 
-`references/approval-and-questions.md`를 따른다. 다만 이 스킬은 **막혔을 때 검색은 묻지 않고 즉시 수행**한다 — 사용자가 답을 기다리는 상황에서 확인 질문은 방해다.
+`../references/approval-and-questions.md`를 따른다. 다만 이 스킬은 **막혔을 때 검색은 묻지 않고 즉시 수행**한다 — 사용자가 답을 기다리는 상황에서 확인 질문은 방해다.
 
 기록을 저장할 때만 승인 규칙이 적용된다.
 
@@ -40,8 +40,10 @@ PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
 SKILL=pro-note; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
@@ -275,7 +277,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" note_cli.py get-output-path case --title "{제�
 - [ ] 왜 이 문제가 생겼는지 설명돼 있는가
 - [ ] 추측을 사실처럼 쓰지 않았는가
 
-민감 정보는 `references/common-rules.md`의 마스킹 규칙을 따른다. 실제 토큰·비밀번호·내부 IP는 플레이스홀더로 바꾼다.
+민감 정보는 `../references/common-rules.md`의 마스킹 규칙을 따른다. 실제 토큰·비밀번호·내부 IP는 플레이스홀더로 바꾼다.
 
 ## 방법론 개선 제안
 

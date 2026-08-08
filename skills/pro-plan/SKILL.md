@@ -17,7 +17,7 @@ description: "Plan Mode (WHAT 전략 수립) - 사용자가 '/pro-plan'을 명�
 
 ## 승인 게이트 · 시작 전 질문 (필수)
 
-이 skill은 md 산출물을 만든다. **`references/approval-and-questions.md`를 반드시 따른다** (#526).
+이 skill은 md 산출물을 만든다. **`../references/approval-and-questions.md`를 반드시 따른다** (#526).
 
 요약:
 
@@ -26,15 +26,17 @@ description: "Plan Mode (WHAT 전략 수립) - 사용자가 '/pro-plan'을 명�
 3. **첫 실행 시 1회** — "앞으로 확인 없이 진행할지"를 묻고 그 답을 기억한다.
 4. 사용자에게 설정 키 이름이나 파일 경로를 노출하지 않는다.
 
-저장 경로는 직접 조립하지 않고 아래로 받는다 (`references/doc-output-path.md`):
+저장 경로는 직접 조립하지 않고 아래로 받는다 (`../references/doc-output-path.md`):
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
 SKILL=pro-plan; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
@@ -43,9 +45,9 @@ PYTHONIOENCODING=utf-8 "$PYTHON" plan_cli.py get-output-path plan --title "{제�
 
 ## 시작 전
 
-`references/common-rules.md`의 **작업 시작 프로토콜** + **분석 전용 스킬 규칙** 적용.
+`../references/common-rules.md`의 **작업 시작 프로토콜** + **분석 전용 스킬 규칙** 적용.
 
-**페르소나 로드 (필수)**: `references/personas.md`에서 공통 마인드셋 6종 + **System Architect** 카드를 장착한다. 이 스킬에서 너는 Architect다 — 사용자 지시를 액면 그대로 받지 않고(Intentional Doubt), 단일 해법에 안주하지 않으며(Alternative Thinking), 자기 가설을 의심한다(Anti-Confirmation Bias).
+**페르소나 로드 (필수)**: `../references/personas.md`에서 공통 마인드셋 6종 + **System Architect** 카드를 장착한다. 이 스킬에서 너는 Architect다 — 사용자 지시를 액면 그대로 받지 않고(Intentional Doubt), 단일 해법에 안주하지 않으며(Alternative Thinking), 자기 가설을 의심한다(Anti-Confirmation Bias).
 
 ## 절대 규칙
 
@@ -134,7 +136,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" plan_cli.py get-output-path plan --title "{제�
 
 - 이슈번호 없으면 순번(`001`, `002`…) 자동 사용
 - 제목 정규화: 특수문자 제거, 공백→`_`, 50자 이내
-- 3-layer 아키텍처: skill별 `_cli.py`에서 `get-output-path` · `get-issue-number` · `normalize-title` 호출. `commit_cli.py`가 `get-issue-number`·`normalize-title` 보유, `github_cli.py`가 `normalize-title`·`create-branch-name`·`get-commit-template` 보유(pro-issue 통합으로 흡수). 참조: `references/common-rules.md` §"skill별 py 분산 호출". 다음 시퀀스 번호 계산은 `report_cli`/`review_cli`/`note_cli`의 `get-output-path`가 내부에서 처리하므로 agent가 별도 호출하지 않는다.
+- 3-layer 아키텍처: skill별 `_cli.py`에서 `get-output-path` · `get-issue-number` · `normalize-title` 호출. `commit_cli.py`가 `get-issue-number`·`normalize-title` 보유, `github_cli.py`가 `normalize-title`·`create-branch-name`·`get-commit-template` 보유(pro-issue 통합으로 흡수). 참조: `../references/common-rules.md` §"skill별 py 분산 호출". 다음 시퀀스 번호 계산은 `report_cli`/`review_cli`/`note_cli`의 `get-output-path`가 내부에서 처리하므로 agent가 별도 호출하지 않는다.
 
 ### 템플릿
 
@@ -197,7 +199,7 @@ GitHub 이슈: {이슈 번호/링크 또는 "없음"}
 
 > ⛔ **이 템플릿에서 절대 추가 금지**: "변경 계획" 표, 파일 경로 + 함수명 조합, Before/After 코드 (단 `[REVIEW_LOG]`의 아키텍처 방향 대안은 파일/함수 없는 큰 방향 서술이므로 허용)
 
-파일 저장 전 `references/common-rules.md`의 **파일 저장 직전 자체검토 프로토콜**을 따라 민감 정보 발견 시 플레이스홀더로 교체 후 저장.
+파일 저장 전 `../references/common-rules.md`의 **파일 저장 직전 자체검토 프로토콜**을 따라 민감 정보 발견 시 플레이스홀더로 교체 후 저장.
 
 ---
 
@@ -205,7 +207,7 @@ GitHub 이슈: {이슈 번호/링크 또는 "없음"}
 
 방금 작성한 plan 파일을 `Read` 도구로 다시 읽는다.
 
-`references/self-review-checklist.md`의 **plan 체크리스트** 적용. 문제 발견 시 인라인 수정.
+`../references/self-review-checklist.md`의 **plan 체크리스트** 적용. 문제 발견 시 인라인 수정.
 
 ---
 

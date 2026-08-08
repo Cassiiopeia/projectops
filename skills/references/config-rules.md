@@ -283,7 +283,7 @@ effective_pat = repo.pat if repo.pat else config["github"].global_pat
 | `root` | — | 산출물 저장 루트. **생략하면 `docs/projectops`** (기존 동작 유지). 상대경로는 저장소 루트 기준, 절대경로도 가능 |
 
 해석은 `scripts/common/paths.py`의 `resolve_output_root()`가 단일 담당한다.
-스킬이 경로 문자열을 직접 조립하지 않고 각 스킬 CLI의 `get-output-path`를 거친다 — 상세는 `references/doc-output-path.md`.
+스킬이 경로 문자열을 직접 조립하지 않고 각 스킬 CLI의 `get-output-path`를 거친다 — 상세는 `doc-output-path.md`.
 
 ---
 

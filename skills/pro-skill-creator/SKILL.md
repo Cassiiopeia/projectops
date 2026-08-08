@@ -328,7 +328,7 @@ Phase 번호는 선형이지만 **고집스러운 절차는 아니다**. Phase 3
    ```
 3. **prog + 서브커맨드 교체**: 골격의 `<scope>_cli` 부분과 `cmd_example`을 실제 도메인으로 교체.
 4. **공유 로직은 import**: `from common.<module> import ...` 형태. Layer 1 재작성 금지.
-5. **SKILL.md 호출**: 표준 self-contained 5줄 패턴 (`references/common-rules.md` §"skill별 py 분산 호출" 참조).
+5. **SKILL.md 호출**: 표준 self-contained 5줄 패턴 (`../references/common-rules.md` §"skill별 py 분산 호출" 참조).
 6. **공유 로직이 부족하면 Layer 1에 추가**: 단일 skill 전용 로직만 cli에 두고, 2개 이상 skill이 쓸 가능성이 있으면 `scripts/common/<new>.py`로 분리.
 
 ### 골격이 제공하는 것
