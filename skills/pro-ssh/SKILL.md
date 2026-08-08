@@ -22,10 +22,10 @@ AWS EC2, 시놀로지 NAS, 일반 Linux 서버 등 SSH 접근 가능한 모든 �
 
 ## 사용 전 준비
 
-**Python 실행 환경**: `references/common-rules.md` §"PYTHON 변수 설정 (크로스 플랫폼 필수)" 패턴을 사용한다. `python3 -c` 직접 호출 금지 — Windows에서 Store stub이 잡혀 `Exit code 49`로 실패한다. 본 skill의 Phase 1·Phase 2 코드블럭에서 검출된 `$PYTHON` 변수를 재사용한다.
+**Python 실행 환경**: `../references/common-rules.md` §"PYTHON 변수 설정 (크로스 플랫폼 필수)" 패턴을 사용한다. `python3 -c` 직접 호출 금지 — Windows에서 Store stub이 잡혀 `Exit code 49`로 실패한다. 본 skill의 Phase 1·Phase 2 코드블럭에서 검출된 `$PYTHON` 변수를 재사용한다.
 
 Config 파일: `{HOME}/.projectops/config/config.json` — `ssh` 섹션 사용. **이 고정 경로를 Read tool로 바로 읽는다 — `ls`·glob으로 탐색하거나 플러그인 캐시를 뒤지지 마라.**
-스키마 상세: `references/config-rules.md` §7 `ssh` 섹션 참조.
+스키마 상세: `../references/config-rules.md` §7 `ssh` 섹션 참조.
 
 파일이 없으면 아래 "Config 초기 설정" 절차로 대화형 수집 후 생성한다.
 

@@ -9,7 +9,7 @@ description: "Build Mode - 빌드 자동화 전문가. 프로젝트를 컴파일
 
 ## 시작 전
 
-`references/common-rules.md`의 **작업 시작 프로토콜** 수행
+`../references/common-rules.md`의 **작업 시작 프로토콜** 수행
 
 ## 프로세스
 
@@ -65,7 +65,7 @@ flutter build apk --release --split-per-abi  # 크기 최적화
 
 ### 4단계: 빌드 에러 처리
 
-에러 발생 시 스택 트레이스를 분석하고 해결한다. 기술별 상세 가이드가 필요하면 `references/tech-spring.md`, `references/tech-react.md`, `references/tech-flutter.md` 참조.
+에러 발생 시 스택 트레이스를 분석하고 해결한다. 기술별 상세 가이드가 필요하면 `../references/tech-spring.md`, `../references/tech-react.md`, `../references/tech-flutter.md` 참조.
 
 **공통 에러 패턴**:
 - 의존성 누락 → 재설치

@@ -20,8 +20,8 @@ description: "Implement Mode (DO 실제 구현) - 사용자가 '/pro-implement'�
 
 ## 시작 전
 
-1. `references/common-rules.md`의 **작업 시작 프로토콜** 수행
-2. **페르소나 로드 (필수, 이중)**: `references/personas.md`에서 공통 마인드셋 6종 + **Software Developer**(주) + **SDET**(부) 카드를 장착한다. Phase 2 구현은 Developer로(Pre-mortem·Surgical Precision), Phase 3 검증은 SDET로(Destructive Testing — '성공 증명'이 아니라 '실패의 반증') context-switching한다.
+1. `../references/common-rules.md`의 **작업 시작 프로토콜** 수행
+2. **페르소나 로드 (필수, 이중)**: `../references/personas.md`에서 공통 마인드셋 6종 + **Software Developer**(주) + **SDET**(부) 카드를 장착한다. Phase 2 구현은 Developer로(Pre-mortem·Surgical Precision), Phase 3 검증은 SDET로(Destructive Testing — '성공 증명'이 아니라 '실패의 반증') context-switching한다.
 3. `/plan`, `/analyze` 산출물이 있으면 Phase 0에서 자동 로드
 
 ## 절대 규칙
@@ -239,7 +239,7 @@ implement는 별도 산출물 md를 만들지 않는다. 코드 자체가 결과
 
 ## Phase 5 — Self-Review
 
-방금 작성한 변경에 대해 `references/self-review-checklist.md`의 **implement 체크리스트** 적용. 문제 발견 시 인라인 수정 후 Phase 6 진행.
+방금 작성한 변경에 대해 `../references/self-review-checklist.md`의 **implement 체크리스트** 적용. 문제 발견 시 인라인 수정 후 Phase 6 진행.
 
 ---
 

@@ -13,7 +13,7 @@ description: "Report Mode - 구현 보고서 생성 전문가. Git diff와 이�
 
 ## 승인 게이트 · 시작 전 질문 (필수)
 
-이 skill은 md 산출물을 만든다. **`references/approval-and-questions.md`를 반드시 따른다** (#526).
+이 skill은 md 산출물을 만든다. **`../references/approval-and-questions.md`를 반드시 따른다** (#526).
 
 요약:
 
@@ -22,15 +22,17 @@ description: "Report Mode - 구현 보고서 생성 전문가. Git diff와 이�
 3. **첫 실행 시 1회** — "앞으로 확인 없이 진행할지"를 묻고 그 답을 기억한다.
 4. 사용자에게 설정 키 이름이나 파일 경로를 노출하지 않는다.
 
-저장 경로는 직접 조립하지 않고 아래로 받는다 (`references/doc-output-path.md`):
+저장 경로는 직접 조립하지 않고 아래로 받는다 (`../references/doc-output-path.md`):
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
 SKILL=pro-report; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
@@ -39,7 +41,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" report_cli.py get-output-path report --title "{
 
 ## 시작 전
 
-`references/common-rules.md`의 **절대 규칙** 적용 (Git 커밋 금지, 민감 정보 보호)
+`../references/common-rules.md`의 **절대 규칙** 적용 (Git 커밋 금지, 민감 정보 보호)
 
 ## 핵심 원칙
 
@@ -48,7 +50,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" report_cli.py get-output-path report --title "{
 - **Git 최소화**: `git status` 이후 파일을 직접 읽어 분석
 - **간결 명확**: 해결 방식을 쉽게 이해할 수 있게
 - **흐름 시각화**: 다단계 처리·분기·상태 전이가 있으면 mermaid 플로우차트로 그린다 (아래 규칙)
-- **민감 정보**: `references/common-rules.md`의 마스킹 규칙 적용
+- **민감 정보**: `../references/common-rules.md`의 마스킹 규칙 적용
 
 ## 절대 금지
 
@@ -163,11 +165,11 @@ flowchart TD
 
 ## 파일 저장 직전 민감정보 자체검토
 
-파일을 저장하기 전에 `references/common-rules.md`의 **파일 저장 직전 자체검토 프로토콜**을 따라 작성한 보고서 내용 전체를 검토한다. 민감 정보가 발견되면 마스킹 처리 후 저장한다.
+파일을 저장하기 전에 `../references/common-rules.md`의 **파일 저장 직전 자체검토 프로토콜**을 따라 작성한 보고서 내용 전체를 검토한다. 민감 정보가 발견되면 마스킹 처리 후 저장한다.
 
 ## 산출물 저장
 
-`references/doc-output-path.md` 규칙을 따른다.
+`../references/doc-output-path.md` 규칙을 따른다.
 
 agent가 직접 경로를 계산하여 파일을 저장한다:
 - 형식: `{PROJECT_ROOT}/docs/projectops/report/YYYYMMDD_{이슈번호}_{정규화된제목}.md`
@@ -187,7 +189,7 @@ GitHub 댓글은 mermaid 블록을 렌더링하므로 흐름도가 그대로 표
 
 ### 포스팅 플로우
 
-1. **PAT 확인**: `references/config-rules.md` §2~3 절차로 config 읽기. 파일이 없으면 로컬 저장만 하고 종료. 해당 repo의 `pat`(non-null) 또는 `global_pat` 사용.
+1. **PAT 확인**: `../references/config-rules.md` §2~3 절차로 config 읽기. 파일이 없으면 로컬 저장만 하고 종료. 해당 repo의 `pat`(non-null) 또는 `global_pat` 사용.
 
    > ⚠️ **config는 탐색 금지.** config.json은 고정 경로 `{HOME}/.projectops/config/config.json` 한 곳뿐 — Read tool로 바로 읽는다. 스크립트(`report_cli.py`) 탐색용 `ls ~/.claude/plugins/cache/...` 패턴을 config 찾기에 쓰지 마라. config는 그 캐시 안에 없다.
 
@@ -200,8 +202,10 @@ PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
 SKILL=pro-report; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1

@@ -9,7 +9,7 @@ Spring Boot 프로젝트용 샘플 테스트 코드를 생성한다.
 
 ## 시작 전
 
-`references/common-rules.md`의 **절대 규칙** 적용 (Git 커밋 금지)
+`../references/common-rules.md`의 **절대 규칙** 적용 (Git 커밋 금지)
 
 ## 사용법
 

@@ -6,20 +6,20 @@
 
 ## 시작 전
 
-1. `references/common-rules.md`의 **절대 규칙** 적용 (Git 커밋 금지, 민감 정보 보호).
+1. `common-rules.md`의 **절대 규칙** 적용 (Git 커밋 금지, 민감 정보 보호).
 
 2. **프로젝트 루트 확인**: `PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)`
 
-3. **Config 확인** — `references/config-rules.md` §2~5 절차. config.json은 고정 경로 `{HOME}/.projectops/config/config.json` 한 곳뿐이다 (Read tool로 직접 읽는다. `ls`·`find`로 탐색 금지).
+3. **Config 확인** — `config-rules.md` §2~5 절차. config.json은 고정 경로 `{HOME}/.projectops/config/config.json` 한 곳뿐이다 (Read tool로 직접 읽는다. `ls`·`find`로 탐색 금지).
 
    파일이 존재하면 → `global_pat`, `repos` 추출. **레포 선택 우선순위**:
    1. `git remote get-url origin`으로 현재 레포의 `owner/repo` 추출 → `repos` 배열과 매칭
    2. 매칭 실패 시 → `default: true`인 repo
    3. 없거나 여러 개면 → 번호를 매겨 선택하게 한다
 
-   파일이 없으면 → `global_pat`, `default_assignee`, 첫 repo(owner/repo/name)를 수집해 저장. 저장 형식은 `references/config-rules.md` 참조.
+   파일이 없으면 → `global_pat`, `default_assignee`, 첫 repo(owner/repo/name)를 수집해 저장. 저장 형식은 `config-rules.md` 참조.
 
-4. **Python 실행 환경**: `references/common-rules.md` §"PYTHON 변수 설정" 패턴 사용 (Windows Store stub 회피).
+4. **Python 실행 환경**: `common-rules.md` §"PYTHON 변수 설정" 패턴 사용 (Windows Store stub 회피).
 
 5. **자동 승인 모드 판정** — config에서 `issue.auto_approve` 값을 결정한다. (키 이름은 하위 호환을 위해 `issue.*` 그대로 유지한다.)
 
@@ -122,8 +122,10 @@ PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
 SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
@@ -154,12 +156,12 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py search-issues {owner} {repo} "{�
 
 ### 4단계: 로컬 파일 먼저 저장
 
-`references/doc-output-path.md` 규칙을 따른다. 경로를 agent가 직접 계산한다:
+`doc-output-path.md` 규칙을 따른다. 경로를 agent가 직접 계산한다:
 - 형식: `{PROJECT_ROOT}/docs/projectops/issue/YYYYMMDD_{이슈번호}_{정규화된제목}.md`
 - 이슈 번호는 GitHub 등록 전이므로 임시로 `TMP1`, `TMP2`… 사용 (등록 후 실제 번호로 rename)
 - 제목 정규화: `github_cli.py`의 `normalize-title`을 쓰거나 agent가 직접(특수문자 제거, 공백→`_`, 50자 이내)
 
-**저장 직전**: `references/common-rules.md`의 **파일 저장 직전 자체검토 프로토콜**로 본문 전체를 검토. 민감 정보 발견 시 마스킹.
+**저장 직전**: `common-rules.md`의 **파일 저장 직전 자체검토 프로토콜**로 본문 전체를 검토. 민감 정보 발견 시 마스킹.
 
 파일 저장 후 [시작 전 §5]의 `AUTO_APPROVE` / `CONFIG_HAS_KEY`로 분기한다.
 
@@ -243,8 +245,10 @@ GitHub 사용자명을 알려주세요. (담당자 없이 진행하려면 "없�
 
 ```bash
 SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
@@ -264,8 +268,10 @@ PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
 SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
@@ -311,4 +317,4 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py create-issue {owner} {repo} "{제
 
 ## 산출물 저장
 
-`references/doc-output-path.md` 규칙을 따라 `docs/projectops/issue/` 하위에 저장한다 (Step 4에서 처리).
+`doc-output-path.md` 규칙을 따라 `docs/projectops/issue/` 하위에 저장한다 (Step 4에서 처리).

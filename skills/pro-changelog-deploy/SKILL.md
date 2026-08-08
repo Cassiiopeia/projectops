@@ -38,8 +38,10 @@ deploy PR을 만들기 전에 `detect-release-context`로 릴리스 브랜치·p
 ```bash
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 SKILL=pro-changelog-deploy; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-context --project-root "$(git rev-parse --show-toplevel)"
@@ -57,7 +59,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 
 **Config 파일 위치**: `~/.projectops/config/config.json` (글로벌 단일 파일)
 
-상세 경로 규칙: `references/config-rules.md §2~3` 참조.
+상세 경로 규칙: `../references/config-rules.md §2~3` 참조.
 
 > **⚠️ 실행 모델 (반드시 숙지)**: Claude Code의 Bash 도구는 **stateless**다 — 변수·`export`가 호출 간 유지되지 **않는다**.
 > 한 Bash 호출에서 `export GITHUB_PAT=...` 해도 다음 Bash 호출에선 빈값이다.
@@ -168,8 +170,10 @@ echo "PROJECT_ROOT=$PROJECT_ROOT"; echo "PYTHON=$PYTHON"; echo "OWNER=$OWNER"; e
 # ⚠️ Bash stateless — PROJECT_ROOT·PYTHON을 [시작 전]에서 구한 실제 값으로 채운다.
 PROJECT_ROOT="..."; PYTHON="..."
 SKILL=pro-changelog-deploy; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-context --project-root "$PROJECT_ROOT"
@@ -277,8 +281,10 @@ git log origin/develop..HEAD --oneline 2>/dev/null
 PROJECT_ROOT="..."
 
 SKILL=pro-changelog-deploy; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
@@ -317,7 +323,7 @@ cd "$PROJECT_ROOT"
 - **1 선택** → `github.repos[]`의 현 OWNER/REPO 항목 `changelog_deploy` 객체에 `app_release: true` 추가. 이번 배포부터 심사 경고 배너 적용
 - **2 선택** → 같은 위치에 `app_release: false` 추가. 경고 없이 진행, 다음부터 묻지 않음
 
-> **갱신 시 주의**: `references/config-rules.md §4` 규칙대로 전체 파일을 Read로 먼저 읽고 다른 섹션을 보존한 채 `changelog_deploy` 객체에 `app_release` 키만 추가/수정해 Write한다. PAT·`auto_approve`·다른 repos 항목을 절대 날리지 않는다. 항목에 `changelog_deploy` 객체가 없으면 새로 만든다.
+> **갱신 시 주의**: `../references/config-rules.md §4` 규칙대로 전체 파일을 Read로 먼저 읽고 다른 섹션을 보존한 채 `changelog_deploy` 객체에 `app_release` 키만 추가/수정해 Write한다. PAT·`auto_approve`·다른 repos 항목을 절대 날리지 않는다. 항목에 `changelog_deploy` 객체가 없으면 새로 만든다.
 
 이후 2단계로 진행한다.
 
@@ -536,7 +542,7 @@ PR을 생성합니다.
 
 이후 6단계 진행.
 
-> **갱신 시 주의**: `references/config-rules.md §4` 규칙대로 전체 파일을 Read로 먼저 읽고 다른 섹션을 보존한 채 해당 키만 추가/수정해 Write한다. PAT·다른 repos 항목을 절대 날리지 않는다.
+> **갱신 시 주의**: `../references/config-rules.md §4` 규칙대로 전체 파일을 Read로 먼저 읽고 다른 섹션을 보존한 채 해당 키만 추가/수정해 Write한다. PAT·다른 repos 항목을 절대 날리지 않는다.
 
 ### 6단계: deploy PR 생성 (릴리스 노트 본문 포함)
 
@@ -558,8 +564,10 @@ TODAY=$(date '+%Y%m%d')
 TITLE="🚀 Deploy ${TODAY}"
 
 SKILL=pro-changelog-deploy; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
@@ -605,8 +613,10 @@ PR 생성 직후, **`/tmp`에 즉석 Python을 만들지 말고** 아래 재사�
 GITHUB_PAT="..."; OWNER="..."; REPO="..."; PYTHON="..."; PROJECT_ROOT="..."; PR_NUMBER="..."; BASE_BRANCH="..."
 
 SKILL=pro-changelog-deploy; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
@@ -662,8 +672,10 @@ curl 즉석 파싱 대신 deploy-status로 현재 상태를 종합 조회한다.
 GITHUB_PAT="..."; OWNER="..."; REPO="..."; PYTHON="..."; PROJECT_ROOT="..."; BASE_BRANCH="..."
 
 SKILL=pro-changelog-deploy; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
@@ -695,8 +707,10 @@ cd "$PROJECT_ROOT"
 GITHUB_PAT="..."; OWNER="..."; REPO="..."; PYTHON="..."; PROJECT_ROOT="..."; EXISTING_PR="..."
 
 SKILL=pro-changelog-deploy; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
@@ -760,8 +774,10 @@ TITLE="🚀 Deploy ${TODAY} (재시도)"
 # create-pr의 body_file에 릴리스 노트 파일 절대경로를 넘겨 본문 포함 PR 생성 (deploy 6단계와 동일 패턴).
 # 브랜치는 [시작 전 §5]에서 확정한 HEAD_BRANCH→BASE_BRANCH (하드코딩 금지).
 SKILL=pro-changelog-deploy; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
@@ -799,4 +815,4 @@ echo "✅ PR #$PR_NUMBER 생성 완료 (릴리스 노트 본문 포함)"
 - 그래도 워크플로우가 본문을 지워버린 정황이 보이면 fix 모드로 재실행한다.
 - deploy PR이 이미 있으면 닫지 않고 재사용한다 — 새로 열면 워크플로우가 다시 트리거되어 본문이 초기화될 수 있다.
 - 10분이 지나도 automerge가 안 되면 fix 모드로 재실행한다.
-- **Windows 내부망에서 curl exit 35 (SSL 오류) 발생 시**: curl 호출에 `--ssl-no-revoke` 옵션 추가 (`references/common-rules.md` Windows 내부망 환경 섹션 참조).
+- **Windows 내부망에서 curl exit 35 (SSL 오류) 발생 시**: curl 호출에 `--ssl-no-revoke` 옵션 추가 (`../references/common-rules.md` Windows 내부망 환경 섹션 참조).

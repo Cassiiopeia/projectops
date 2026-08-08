@@ -9,7 +9,7 @@ description: "Figma Design Mode - Figma 디자인을 반응형 코드로 지능�
 
 ## 시작 전
 
-1. `references/common-rules.md`의 **작업 시작 프로토콜** 수행
+1. `../references/common-rules.md`의 **작업 시작 프로토콜** 수행
 2. 스타일링 방식 추가 확인:
    - React: `tailwind.config.js` / `styled-components` / CSS Modules / Emotion
    - React Native: `StyleSheet`, `Dimensions` 패턴

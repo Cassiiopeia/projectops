@@ -19,7 +19,7 @@ description: "브랜치명에서 이슈 번호를 자동 추출해 커밋 메시
 
 ## 시작 전
 
-`references/common-rules.md`의 커밋 컨벤션 규칙을 숙지한다.
+`../references/common-rules.md`의 커밋 컨벤션 규칙을 숙지한다.
 
 ### 자동 승인 모드 판정 — Read 도구로 config에서 직접 추출
 
@@ -103,8 +103,10 @@ PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
 SKILL=pro-commit; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
@@ -150,7 +152,7 @@ staged 파일 목록과 diff를 분석하여 적절한 타입 추천:
 
 ### 5단계: 커밋 메시지 제안 후 사용자 확인
 
-`references/common-rules.md` 커밋 컨벤션에 따라 메시지를 구성한 뒤 **제안만** 한다.
+`../references/common-rules.md` 커밋 컨벤션에 따라 메시지를 구성한 뒤 **제안만** 한다.
 
 **형식**: `{clean_title} : {타입} : {변경설명} {html_url}`
 
@@ -239,7 +241,7 @@ staged 파일 목록과 diff를 분석하여 적절한 타입 추천:
 
 이후 6단계 진행.
 
-> **갱신 시 주의**: `references/config-rules.md §4` 규칙대로 전체 파일을 Read로 먼저 읽고 다른 섹션을 보존한 채 해당 키만 추가/수정해 Write한다. PAT·다른 repos 항목을 절대 날리지 않는다.
+> **갱신 시 주의**: `../references/config-rules.md §4` 규칙대로 전체 파일을 Read로 먼저 읽고 다른 섹션을 보존한 채 해당 키만 추가/수정해 Write한다. PAT·다른 repos 항목을 절대 날리지 않는다.
 
 ### 6단계: 커밋 실행
 
@@ -261,8 +263,10 @@ RAW_MSG="{최종 커밋 메시지}"
 # 스크립트 탐색: 이 레포에서 개발 중이면 로컬본이 캐시본보다 최신이므로 로컬 우선.
 # (사용자 프로젝트에는 skills/ 가 없어 자동으로 하네스 설치본이 쓰인다)
 SKILL=pro-commit; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || ROOT=$(ls -d ~/.claude/plugins/cache/*/projectops/* ~/.codex/plugins/cache/*/projectops/* 2>/dev/null | sort -V | tail -1)
-[ -n "$ROOT" ] || ROOT=$(ls -d ~/.gemini/extensions/projectops ~/.pi/agent/git/github.com/*/projectops 2>/dev/null | head -1)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 

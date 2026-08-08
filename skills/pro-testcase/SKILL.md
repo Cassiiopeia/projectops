@@ -12,7 +12,7 @@ QA 체크리스트가 아닌, **기능 동작 검증 위주**의 TC를 작성한
 
 ## 시작 전
 
-`references/common-rules.md`의 **작업 시작 프로토콜** 수행
+`../references/common-rules.md`의 **작업 시작 프로토콜** 수행
 
 ## 핵심 원칙
 

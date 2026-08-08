@@ -11,7 +11,7 @@ description: "시놀로지 NAS에 새 웹 서비스를 외부 도메인으로 �
 
 ## 설정 파일 확인
 
-`references/config-rules.md` §2~5 절차를 따른다 (`skill_id = synology-expose`).
+`../references/config-rules.md` §2~5 절차를 따른다 (`skill_id = synology-expose`).
 
 > ⚠️ **config는 탐색 금지.** config.json은 고정 경로 `{HOME}/.projectops/config/config.json` 한 곳뿐 — Read tool로 바로 읽는다. `ls`·glob으로 찾거나 플러그인 캐시를 뒤지지 마라.
 
