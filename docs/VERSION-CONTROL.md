@@ -153,11 +153,32 @@ VERSION-CONTROL 워크플로우
 
 ## 버전 증가 규칙
 
+승격 폭은 `version.yml`의 `metadata.template.options.semver_auto`가 정합니다.
+
+**`semver_auto: true`** (신규 통합 기본값) — 릴리스 구간 커밋 제목으로 판정합니다.
+
+| 버전 | 발동 조건 | 예시 |
+|------|----------|------|
+| **major** | 커밋 타입 뒤 `!` 마커 (`제목 : feat! : 내용`, `feat!:`) | 1.1.0 → 2.0.0 |
+| **minor** | `feat` 타입 (`제목 : feat : 내용`, `feat:`) | 1.0.1 → 1.1.0 |
+| **patch** | 그 외 (fix·docs·chore·refactor·test·자유형식) | 1.0.0 → 1.0.1 |
+
+한 릴리스 구간에 섞이면 가장 높은 것이 이깁니다 (major > minor > patch).
+`[skip ci]` 포함 커밋과 `Merge`로 시작하는 커밋은 판정에서 제외됩니다.
+
+**키 없음(기존 통합 레포) 또는 `semver_auto: false`** — 항상 `patch +1`입니다.
+
 | 버전 | 변경 방법 | 예시 |
 |------|----------|------|
 | **patch** | 자동 (develop → main 릴리스 PR, 또는 main 직접 푸시 안전망) | 1.0.0 → 1.0.1 |
 | **minor** | 수동 (version.yml 직접 수정) | 1.0.1 → 1.1.0 |
 | **major** | 수동 (version.yml 직접 수정) | 1.1.0 → 2.0.0 |
+
+> **main 직접 푸시 안전망(VERSION-CONTROL)은 `semver_auto`와 무관하게 항상 patch입니다.**
+> 릴리스 PR을 거치지 않은 경로라 커밋의 컨벤션 준수를 신뢰할 수 없기 때문입니다.
+>
+> 워크플로우는 `pull_request_target`으로 돌아 **base 브랜치(main)의 워크플로우 파일**로 실행됩니다.
+> 워크플로우 자체를 고친 릴리스에는 구 로직이 적용되고, 머지된 **다음 릴리스부터** 새 로직이 반영됩니다.
 
 ### 수동 버전 변경
 

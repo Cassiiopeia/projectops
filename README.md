@@ -24,7 +24,7 @@
 
 | 기존 방식 | Projectops |
 |----------|---------------------|
-| 버전 수동 관리, 태그 직접 생성 | 릴리스(develop→main PR) 시 patch 버전 자동 증가 + 태그 생성 |
+| 버전 수동 관리, 태그 직접 생성 | 릴리스 시 커밋 내용에 맞는 버전 자동 증가 + 태그 생성 |
 | 체인지로그 직접 작성 (30분+) | CodeRabbit AI가 PR마다 자동 생성 |
 | CI/CD 처음부터 설정 | 프로젝트 타입별 워크플로우 즉시 구성 |
 | 이슈 매번 형식 맞춰 작성 (5분+) | `/pro-github` 한 번에 표준 템플릿 생성 + 등록 |
@@ -67,7 +67,7 @@ flowchart TD
 flowchart TD
     A([develop 푸시]) --> B[개발 통합]
     B --> C[develop→main 릴리스 PR]
-    C --> D["PR 내 버전 확정<br/>patch +1 + 태그 + AI 체인지로그"]
+    C --> D["PR 내 버전 확정<br/>커밋 기반 승격 + 태그 + AI 체인지로그"]
     D --> E[자동 머지]
     E --> F["main push → CI/CD 배포<br/>Flutter / Spring / React 등"]
     F --> G([완료])
@@ -131,7 +131,7 @@ npx projectops --mode skills
 | 기능 | 설명 | 문서 |
 |------|------|------|
 | **Agent Skills** | Claude Code, Cursor, Gemini CLI, Codex CLI에서 쓰는 17종 AI DevOps Skills | [상세](docs/SKILLS.md) |
-| **버전 자동화** | 릴리스(develop→main PR) 시 patch 버전 자동 증가 + Git 태그 | [상세](docs/VERSION-CONTROL.md) |
+| **버전 자동화** | 릴리스 시 커밋 제목으로 major/minor/patch 판정 + Git 태그 | [상세](docs/VERSION-CONTROL.md) |
 | **AI 체인지로그** | provider 사다리(CodeRabbit/GitHub Models/OpenAI 계열/commit) 기반 CHANGELOG 자동 생성 | [상세](docs/CHANGELOG-AUTOMATION.md) |
 | **PR Preview** | 댓글 한 줄로 임시 서버 배포, 닫으면 자동 삭제 | [상세](docs/PR-PREVIEW.md) |
 | **이슈 자동화** | 브랜치명/커밋 메시지 자동 제안, QA 이슈 생성 | [상세](docs/ISSUE-AUTOMATION.md) |

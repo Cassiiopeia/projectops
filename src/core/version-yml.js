@@ -16,9 +16,14 @@ const HEADER = `# ==============================================================
 # 4. project_paths: 타입별 프로젝트 폴더 (레포 루트 기준 상대경로, 모노레포용)
 #
 # 자동 버전 업데이트:
-# - patch: 자동으로 세 번째 자리 증가 (x.x.x -> x.x.x+1)
-# - version_code: 매 빌드마다 자동으로 1씩 증가
-# - minor/major: 수동으로 직접 수정 필요
+# - version_code: 매 빌드마다 자동으로 1씩 증가 (아래 판정과 무관)
+# - 버전 승격 폭은 metadata.template.options.semver_auto 가 정합니다
+#   semver_auto: true  -> 릴리스 구간 커밋 제목으로 판정
+#                         "제목 : feat! : 내용" 또는 "feat!:" -> major (x+1.0.0)
+#                         "제목 : feat : 내용"  또는 "feat:"  -> minor (x.y+1.0)
+#                         그 외(fix/docs/chore/refactor/test) -> patch (x.y.z+1)
+#   키 없음 / false     -> 항상 patch +1
+# - 위 판정과 무관하게 version 값을 직접 수정해도 됩니다
 #
 # 프로젝트 타입별 동기화 파일:
 # - spring: build.gradle (version = "x.y.z")
