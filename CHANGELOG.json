@@ -1,14 +1,43 @@
 {
   "metadata": {
-    "lastUpdated": "2026-08-08T11:00:20Z",
-    "currentVersion": "4.2.45",
+    "lastUpdated": "2026-09-15T06:15:15Z",
+    "currentVersion": "4.2.46",
     "projectType": "basic",
-    "totalReleases": 230,
+    "totalReleases": 231,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.2.46",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-15",
+      "pr_number": 547,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * 릴리스 버전이 변경 내용에 맞춰 자동으로 올라갑니다\n  * 기능이 추가된 릴리스는 가운데 자리 버전이 오릅니다\n  * 호환성이 깨지는 변경은 앞자리 버전으로 올릴 수 있습니다\n\n* **개선**\n  * 버전 판정 결과가 항상 동일해 릴리스마다 흔들리지 않습니다\n  * 기존 프로젝트는 직접 켜기 전까지 지금 방식 그대로 동작합니다\n  * 빌드 번호는 이전과 같이 릴리스마다 하나씩 올라갑니다",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "릴리스 버전이 변경 내용에 맞춰 자동으로 올라갑니다",
+            "기능이 추가된 릴리스는 가운데 자리 버전이 오릅니다",
+            "호환성이 깨지는 변경은 앞자리 버전으로 올릴 수 있습니다"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "버전 판정 결과가 항상 동일해 릴리스마다 흔들리지 않습니다",
+            "기존 프로젝트는 직접 켜기 전까지 지금 방식 그대로 동작합니다",
+            "빌드 번호는 이전과 같이 릴리스마다 하나씩 올라갑니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.2.45",
       "project_type": "basic",
