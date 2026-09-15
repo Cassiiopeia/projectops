@@ -15,6 +15,7 @@ import {
 import { copyUtilModules } from "../core/copy/util.js";
 import { copyCoderabbit } from "../core/copy/coderabbit.js";
 import { ensureGitignore } from "../core/copy/gitignore.js";
+import { verifyInstall } from "../core/verify.js";
 
 // context: { version, types, paths:Map, branch, versionCode, deployTarget, publishTargets, includeSecretBackup,
 //            force, repoName, resolvers, now, today }
@@ -64,5 +65,14 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
   ensureGitignore(targetRoot);
   copySetupGuide(tempDir, targetRoot);
 
-  return { workflows: wfCounters };
+  // 9. 설치 후 검증 (#549) — 디스크에 쓰인 최종 결과물을 다시 읽는다.
+  //    치환은 파일 단위로 흩어져 일어나고 auto 토큰은 resolver 결과에 의존하므로,
+  //    최종 내용을 보는 것이 실제 배포될 것과 같은 것을 보는 유일한 방법이다.
+  const verification = verifyInstall(targetRoot);
+  hooks.trace?.emit?.("verify", "scan", {
+    unresolved: verification.unresolved.length,
+    secrets: verification.secrets.size,
+  });
+
+  return { workflows: wfCounters, verification };
 }

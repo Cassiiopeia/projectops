@@ -221,6 +221,7 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
   printSummary({
     mode: opts.mode, types, version, deployBranch: context.deployBranch, migrationGuidePath,
     counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },
+    verification: result?.verification,   // #549 설치 후 검증 결과 (full/workflows 모드에서만 존재)
   }, cwd);
   return 0;
 }

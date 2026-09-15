@@ -8,6 +8,7 @@ import { copyWorkflows } from "../core/copy/workflows.js";
 import { copyScripts, copyConfigFolder, copySetupGuide } from "../core/copy/simple.js";
 import { copyUtilModules } from "../core/copy/util.js";
 import { convertLegacySingularType } from "../core/version-yml.js";
+import { verifyInstall } from "../core/verify.js";
 
 export function runWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   const { types = [], force = true } = context;
@@ -31,7 +32,15 @@ export function runWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   copyConfigFolder(tempDir, targetRoot);
   for (const t of types) copyUtilModules(tempDir, t, { force }, targetRoot);
   copySetupGuide(tempDir, targetRoot);
-  return { workflows: wf };
+
+  // 설치 후 검증 (#549) — 워크플로우만 설치하는 모드라 오히려 더 필요하다.
+  const verification = verifyInstall(targetRoot);
+  hooks.trace?.emit?.("verify", "scan", {
+    unresolved: verification.unresolved.length,
+    secrets: verification.secrets.size,
+  });
+
+  return { workflows: wf, verification };
 }
 
 // 기존 version.yml에서 deploy: 블록을 제거하고 새로 append (.sh update_version_yml_deploy 멱등).

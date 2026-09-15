@@ -138,6 +138,44 @@ export function printSummary(ctx, targetRoot = ".") {
   }
   err("");
 
+  // 설치 후 검증 결과 (#549) — 문제가 있을 때만 펼치고, 정상이면 한 줄로 압축한다.
+  const verification = ctx?.verification;
+  if (verification) {
+    const unresolved = verification.unresolved || [];
+    err(SEPARATOR);
+    err("");
+    if (unresolved.length === 0) {
+      err("✅ 설치 검증: 치환되지 않은 값 없음");
+    } else {
+      err(`${YELLOW}⚠️  설치 검증: 치환되지 않은 값 ${unresolved.length}건${NC}`);
+      err("");
+      err("   아래 위치에 템플릿 값이 그대로 남아 있습니다. 그대로 두면 배포 시점에 실패합니다.");
+      err("   (프로젝트 구조를 자동으로 찾지 못한 경우입니다 — 직접 값을 채워주세요)");
+      err("");
+      for (const u of unresolved.slice(0, 10)) {
+        err(`   ${u.filename}:${u.line}  ${u.token}`);
+      }
+      if (unresolved.length > 10) err(`   … 외 ${unresolved.length - 10}건`);
+    }
+    err("");
+
+    // 필요한 Secret 목록 — 설치된 워크플로우 기준이라 "이 레포에 실제로 필요한 것"만 나온다.
+    const secrets = verification.secrets;
+    if (secrets && secrets.size > 0) {
+      err(`${CYAN}🔑 등록이 필요한 GitHub Secret (${secrets.size}개)${NC}`);
+      err("   → Repository Settings > Secrets and variables > Actions");
+      err("");
+      for (const [name, users] of secrets) {
+        const where = users.length > 2 ? `${users.slice(0, 2).join(", ")} 외 ${users.length - 2}개` : users.join(", ");
+        err(`   ${name}`);
+        err(`     └ ${where}`);
+      }
+      err("");
+      err("   💡 등록 전까지 해당 워크플로우는 실패합니다. 쓰지 않는 워크플로우라면 무시해도 됩니다.");
+      err("");
+    }
+  }
+
   // 필수 3가지 작업 안내 (.sh L5605~5625 — 원문 유지)
   err(SEPARATOR);
   err("");
