@@ -1813,8 +1813,8 @@ jobs:
         if: steps.check_branch.outputs.exists == 'true'
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Docker 이미지 빌드 & 푸시
         if: steps.check_branch.outputs.exists == 'true'
@@ -1822,7 +1822,7 @@ jobs:
         run: |
           DOCKER_START=$(date +%s)
           CONTAINER_SUFFIX="${{ steps.extract.outputs.container_suffix }}"
-          IMAGE_TAG="${{ secrets.DOCKER_USERNAME }}/${{ env.PROJECT_NAME }}:${CONTAINER_SUFFIX}"
+          IMAGE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.PROJECT_NAME }}:${CONTAINER_SUFFIX}"
           docker build -t $IMAGE_TAG .
           docker push $IMAGE_TAG
           DOCKER_END=$(date +%s)
