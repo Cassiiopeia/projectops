@@ -51,9 +51,16 @@ GitHub Actions와 연동되어 자동으로 버전을 관리하고 동기화합�
 3. 모든 관련 파일을 동시에 업데이트
 
 ### 버전 증가
-- **Patch 버전**: 자동으로 세 번째 자리 증가 (x.x.Z -> x.x.Z+1)
-- **Minor 버전**: 수동으로 두 번째 자리 수정 (x.Y.z -> x.Y+1.0)
-- **Major 버전**: 수동으로 첫 번째 자리 수정 (X.y.z -> X+1.0.0)
+`increment`는 `--bump`로 승격 폭을 받습니다. 생략하면 `patch`입니다(기존 동작).
+
+- **Patch**: 세 번째 자리 증가 (x.y.Z -> x.y.Z+1) — `--bump patch` 또는 생략
+- **Minor**: 두 번째 자리 증가, patch는 0으로 (x.Y.z -> x.Y+1.0) — `--bump minor`
+- **Major**: 첫 번째 자리 증가, 나머지는 0으로 (X.y.z -> X+1.0.0) — `--bump major`
+- **version_code**: 승격 폭과 무관하게 항상 +1
+
+릴리스 워크플로우는 `version.yml`의 `metadata.template.options.semver_auto`가 `true`일 때
+커밋 제목을 분류해(`changelog_manager.py classify-bump`) 이 값을 결정합니다.
+키가 없거나 `false`면 항상 `patch`입니다. 자세한 규칙은 `docs/VERSION-CONTROL.md` 참조.
 
 ## 사용 명령어
 
@@ -61,8 +68,12 @@ GitHub Actions와 연동되어 자동으로 버전을 관리하고 동기화합�
 # 현재 버전 확인 (동기화 포함)
 ./version_manager.sh get
 
-# Patch 버전 증가
+# 버전 증가 (기본 patch)
 ./version_manager.sh increment
+
+# 승격 폭 지정
+./version_manager.sh increment --bump minor   # 1.2.3 -> 1.3.0
+./version_manager.sh increment --bump major   # 1.2.3 -> 2.0.0
 
 # 특정 버전으로 설정
 ./version_manager.sh set 1.2.3

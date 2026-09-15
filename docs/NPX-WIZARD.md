@@ -33,6 +33,12 @@ npx projectops --help
 
 선택 값은 전부 `version.yml`의 `metadata.template.options.*`에 저장되어, 다음 업데이트 시 재질문 없이 재사용됩니다.
 
+> **마법사가 묻지 않는 옵션**: `semver_auto`(릴리스 버전 승격 폭, #546)는 질문 목록에 없습니다.
+> 신규 통합은 `true`로 기록되고, **이미 통합된 레포는 업데이트를 해도 켜지지 않습니다**
+> (기존 레포의 버전이 예고 없이 minor로 튀지 않게 하는 안전장치). 켜려면 `version.yml`의
+> `metadata.template.options.semver_auto`를 직접 `true`로 바꾸면 됩니다.
+> 판정 규칙은 [VERSION-CONTROL.md](VERSION-CONTROL.md) 참조.
+
 ---
 
 ## 프로젝트 성격(intent) 우선 질문 (#485)

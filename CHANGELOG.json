@@ -1,14 +1,42 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-15T06:15:15Z",
-    "currentVersion": "4.2.46",
+    "lastUpdated": "2026-09-15T06:40:37Z",
+    "currentVersion": "4.2.47",
     "projectType": "basic",
-    "totalReleases": 231,
+    "totalReleases": 232,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.2.47",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-15",
+      "pr_number": 548,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **개선**\n  * 새로 만드는 프로젝트도 커밋 내용에 맞춰 버전이 오릅니다\n  * 버전 관리 안내 문서가 실제 동작과 일치하도록 정리됐습니다\n  * 버전 파일에 적힌 설명이 현재 규칙을 그대로 알려줍니다\n\n* **문서**\n  * 커밋 종류에 따라 버전이 어떻게 오르는지 안내를 추가했습니다\n  * 직접 푸시할 때의 버전 처리 방식과 그 이유를 명시했습니다",
+      "parsed_changes": {
+        "개선": {
+          "title": "개선",
+          "items": [
+            "새로 만드는 프로젝트도 커밋 내용에 맞춰 버전이 오릅니다",
+            "버전 관리 안내 문서가 실제 동작과 일치하도록 정리됐습니다",
+            "버전 파일에 적힌 설명이 현재 규칙을 그대로 알려줍니다"
+          ]
+        },
+        "문서": {
+          "title": "문서",
+          "items": [
+            "커밋 종류에 따라 버전이 어떻게 오르는지 안내를 추가했습니다",
+            "직접 푸시할 때의 버전 처리 방식과 그 이유를 명시했습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.2.46",
       "project_type": "basic",
