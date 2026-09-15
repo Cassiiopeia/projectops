@@ -154,7 +154,7 @@ snake_case.sh / snake_case.py
 | `PROJECT-TEMPLATE-CI` | develop 푸시/PR | npx CLI 테스트 (**이 레포 전용**) |
 | `PROJECT-TEMPLATE-NPM-PUBLISH` | main 푸시 | `projectops` npm 패키지 배포 (**이 레포 전용**) |
 | `PROJECT-COMMON-VERSION-CONTROL` | main 직접 푸시(안전망) | 릴리스 머지 외 push 시 patch 증가 |
-| `PROJECT-COMMON-RELEASE-CHANGELOG` | main PR (develop→main) | 버전 확정 + AI 체인지로그 + automerge |
+| `PROJECT-COMMON-RELEASE-CHANGELOG` | main PR (develop→main) | 버전 확정(semver 승격 — #546) + AI 체인지로그 + automerge |
 | `PROJECT-COMMON-README-VERSION-UPDATE` | main 푸시 | README 버전 동기화 |
 | `PROJECT-COMMON-SUH-ISSUE-HELPER` | 이슈 생성 | 브랜치명/커밋 제안 (내부 py — `issue_helper.py`, #478 내재화) |
 | `PROJECT-COMMON-QA-ISSUE-CREATION-BOT` | @projectops 멘션 | QA 이슈 자동 생성 |
@@ -323,7 +323,9 @@ deploy/publish 축은 **타입에 따라 적용 자체가 안 될 수 있다.** 
 ### version_manager (.py가 실 로직, .sh는 위임 shim — #448)
 ```bash
 .github/scripts/version_manager.sh get            # 또는: python .github/scripts/version_manager.py get
-.github/scripts/version_manager.sh increment       # patch +1
+.github/scripts/version_manager.sh increment       # patch +1 (기본)
+.github/scripts/version_manager.sh increment --bump minor   # 4.2.45 → 4.3.0
+.github/scripts/version_manager.sh increment --bump major   # 4.2.45 → 5.0.0
 .github/scripts/version_manager.sh set 2.0.0
 .github/scripts/version_manager.sh sync
 .github/scripts/version_manager.sh get-code
@@ -331,11 +333,31 @@ deploy/publish 축은 **타입에 따라 적용 자체가 안 될 수 있다.** 
 ```
 > v4.2부터 로직은 `version_manager.py`(stdlib 전용 — yq/jq 불필요)에 있고 `.sh`는 Python 위임 shim이다. Windows에서는 `python .github/scripts/version_manager.py get`을 직접 실행한다. **integrator 복사 목록에 `.sh`+`.py` 한 쌍이 모두 있어야 한다** (`truncate_release_notes.*`도 동일).
 
+#### ⚠️ semver 자동 승격 축 (#546 — agent 필독)
+
+릴리스 시 승격 폭은 `version.yml`의 `metadata.template.options.semver_auto`가 정한다.
+
+| 값 | 동작 |
+|---|---|
+| **키 없음** (기존 통합 레포 전부) | 항상 `patch +1` — 구 동작 그대로 |
+| `true` | 릴리스 구간 커밋 제목으로 major/minor/patch 결정 |
+| `false` | 항상 `patch +1` |
+
+- **신규 통합만 `true`로 기록된다.** 이미 통합된 레포는 마법사 업데이트를 돌려도 `false`로
+  남는다 (`src/index.js`·`src/commands/interactive.js`의 `existing ? false : true`) — 남의 레포
+  버전이 예고 없이 minor로 튀지 않게 하는 안전장치다. **이 기본값을 바꾸지 말 것.**
+- **마법사는 이 축을 묻지 않는다** (#485 질문 부담 축소 방향 유지). 켜려면 `version.yml`을 직접 고친다.
+- 판정 규칙과 커밋 타입 대응은 "커밋 컨벤션 필수 규칙" 절 참조. `version_code`는 이 옵션과
+  무관하게 매 릴리스 +1이다.
+- **안전망 `PROJECT-COMMON-VERSION-CONTROL`은 이 축을 쓰지 않는다** — 릴리스 PR을 거치지 않은
+  main 직접 push 경로라 커밋의 컨벤션 준수를 신뢰할 수 없다. 항상 patch다.
+
 ### changelog_manager.py
 ```bash
 python3 .github/scripts/changelog_manager.py update-from-summary
 python3 .github/scripts/changelog_manager.py generate-md
 python3 .github/scripts/changelog_manager.py export --version 1.2.3 --output release_notes.txt
+python3 .github/scripts/changelog_manager.py classify-bump --commits-file commits.txt  # major|minor|patch
 ```
 
 ### changelog_providers/ (릴리스 노트 생성 사다리 — 전부 .py, #455)
@@ -721,6 +743,24 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 - 잘못된 예: `🚀[기능개선][ChangeLog] RELEASE-CHANGELOG : feat : ...`
 
 report·implement 등 커밋을 직접 실행하는 스킬도 이 규칙을 따른다.
+
+### 커밋 타입이 릴리스 버전을 결정한다 (#546 — agent 필독)
+
+`semver_auto`가 켜진 레포(이 레포 포함)는 **릴리스 구간 커밋 제목으로 버전 승격 폭이 정해진다.**
+커밋 타입을 아무거나 고르면 버전이 잘못 나간다.
+
+| 커밋 타입 | 릴리스 결과 |
+|---|---|
+| `제목 : feat! : 내용` (또는 `feat!:`) | **major** — 4.2.45 → 5.0.0 |
+| `제목 : feat : 내용` | **minor** — 4.2.45 → 4.3.0 |
+| `fix` / `docs` / `chore` / `refactor` / `test` | patch — 4.2.45 → 4.2.46 |
+
+- **`!`는 호환성이 깨질 때만 붙인다** — 기존 사용자의 설정·API·CLI 인자가 더 이상 동작하지
+  않게 되는 변경. 확신이 없으면 붙이지 말고 사용자에게 묻는다.
+- 한 릴리스 구간에 섞이면 가장 높은 것이 이긴다 (major > minor > patch).
+- `[skip ci]` 포함 커밋과 `Merge`로 시작하는 커밋은 판정에서 제외된다.
+- 판정 로직: `.github/scripts/changelog_manager.py` `classify_bump_level()`.
+  테스트: `python3 -m pytest .github/scripts/test/test_classify_bump.py`
 
 ## 기능 구현 워크플로우
 

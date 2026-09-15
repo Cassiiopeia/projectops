@@ -15,6 +15,12 @@
 #   선택 provider → github-ai → commit 순으로 시도, commit은 항상 완주하는 최후 보루.
 # 폴백 발생 시 PR 댓글로 "○○ 실패 → △△ 사용"을 알린다.
 #
+# 버전 승격 폭은 version.yml options.semver_auto로 고른다 (#546):
+#   - 키 없음(기존 통합 레포 전부): 항상 patch +1 — 현행 동작 보존
+#   - true: 릴리스 구간 커밋 제목을 분류해 major/minor/patch 결정 (changelog_manager classify-bump)
+#           `type!` 마커 → major, feat → minor, 그 외 → patch. AI 미사용(결정적).
+# version_code(빌드 번호)는 옵션과 무관하게 매 릴리스 +1이다.
+#
 # ===================================================================
 # 🔑 필수 GitHub Secrets
 # ===================================================================
@@ -367,11 +373,38 @@ jobs:
         with:
           name: pr-content
 
-      - name: 릴리스 버전 확정 (patch +1)
+      # semver 자동 승격 옵션 (이슈 #546)
+      # 키가 없으면 false — 이미 통합된 레포는 예고 없이 버전이 튀지 않고 patch 고정을 유지한다.
+      - name: semver 자동 승격 옵션 확인
+        id: semver_options
+        run: |
+          SEMVER_AUTO=$(python3 -c 'import re; t=open("version.yml",encoding="utf-8").read(); m=re.search(r"metadata:.*?template:.*?options:.*?semver_auto:\s*\"?(true|false)", t, re.S); print(m.group(1) if m else "false")' 2>/dev/null || echo "false")
+          echo "semver_auto=$SEMVER_AUTO" >> $GITHUB_OUTPUT
+          echo "ℹ️ semver 자동 승격: $SEMVER_AUTO"
+
+      # 릴리스 구간 커밋 수집 — 워킹트리가 아닌 RUNNER_TEMP에 둔다.
+      # 아래 "변경사항 커밋 및 푸시" step이 git add -A를 하므로 워킹트리에 두면 릴리스 커밋에 딸려간다.
+      - name: 릴리스 구간 커밋 수집
+        if: steps.semver_options.outputs.semver_auto == 'true'
+        run: |
+          git fetch origin main
+          git log --pretty=%s "origin/main..HEAD" > "$RUNNER_TEMP/commits.txt"
+          echo "ℹ️ 수집된 커밋: $(wc -l < "$RUNNER_TEMP/commits.txt")줄"
+
+      - name: 릴리스 버전 확정
         id: bump_version
         run: |
           chmod +x .github/scripts/version_manager.sh
-          NEW_VERSION=$(./.github/scripts/version_manager.sh increment | tail -n 1)
+
+          if [ "${{ steps.semver_options.outputs.semver_auto }}" = "true" ]; then
+            BUMP=$(python3 .github/scripts/changelog_manager.py classify-bump \
+                     --commits-file "$RUNNER_TEMP/commits.txt" | tail -n 1)
+          else
+            BUMP="patch"
+          fi
+          echo "ℹ️ 승격 폭: $BUMP"
+
+          NEW_VERSION=$(./.github/scripts/version_manager.sh increment --bump "$BUMP" | tail -n 1)
           if [ -z "$NEW_VERSION" ]; then
             echo "❌ 버전 증가 실패"
             exit 1

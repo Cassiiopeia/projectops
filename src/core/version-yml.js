@@ -52,7 +52,7 @@ const HEADER = `# ==============================================================
 export function parseTemplateOptions(content) {
   const out = { deploy: null, publish: null, secretBackup: null,
                 changelogProvider: null, changelogBaseUrl: null, codeReviewCoderabbit: null,
-                deployBranch: null, intent: null };
+                deployBranch: null, intent: null, semverAuto: null };
   // deploy_branch는 metadata 직속(#456) — template.options 밖이라 별도로 스캔한다.
   for (const line of String(content || "").split("\n")) {
     if (line.startsWith("#")) continue;
@@ -116,6 +116,14 @@ export function parseTemplateOptions(content) {
         const v = strip(m[1]);
         if (v === "true") out.secretBackup = true;
         if (v === "false") out.secretBackup = false;
+        continue;
+      }
+      // semver 자동 승격(#546). null(미기재)은 "기존 통합 레포" 신호 — 호출부가 OFF로 해석한다.
+      // 캡처를 true|false로 한정한다(intent와 같은 방식) — 값 뒤 인라인 주석이 값에 딸려오면
+      // strip()은 따옴표·공백만 걷어내므로 "true # ..."가 되어 매칭이 조용히 실패한다.
+      m = line.match(/^\s+semver_auto:\s*["']?(true|false)["']?/);
+      if (m) {
+        out.semverAuto = m[1] === "true";
         continue;
       }
       m = line.match(/^\s+npm_publish:\s*(.+)/);
@@ -294,7 +302,8 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
   // template 옵션 블록 (.sh save_template_options 신규 추가 케이스). templateOptions 지정 시.
   if (templateOptions) {
     const { templateVersion = "unknown", deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, optionsDate = today,
-            changelogProvider = "github-ai", changelogBaseUrl = "", codeReviewCoderabbit = true, intent = null, mode = null } = templateOptions;
+            changelogProvider = "github-ai", changelogBaseUrl = "", codeReviewCoderabbit = true, intent = null, mode = null,
+            semverAuto = true } = templateOptions;
     const publishJson = `[${publishTargets.map((t) => `"${t}"`).join(",")}]`;
     // intent(프로젝트 성격, #485) — 미지정이면 deploy/publish에서 역추론해 기록 (재통합 시 진입 질문 생략용)
     const intentVal = intent || inferIntent(deployTarget, publishTargets) || "manual";
@@ -310,6 +319,8 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
     out += `      deploy: "${deployTarget}"\n`;
     out += `      publish: ${publishJson}\n`;
     out += `      secret_backup: ${includeSecretBackup}\n`;
+    // semver 자동 승격(#546) — 릴리스 시 커밋 제목으로 major/minor/patch 결정. false면 항상 patch.
+    out += `      semver_auto: ${semverAuto}   # 커밋 제목으로 버전 승격 폭 결정 (false면 항상 patch)\n`;
     out += `      code_review:\n`;
     out += `        coderabbit: ${codeReviewCoderabbit}\n`;
     out += `      changelog:\n`;

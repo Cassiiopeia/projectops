@@ -141,6 +141,9 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
     changelogProvider: existing?.options?.changelogProvider ?? "github-ai",
     changelogBaseUrl: existing?.options?.changelogBaseUrl ?? "",
     codeReviewCoderabbit: existing?.options?.codeReviewCoderabbit ?? false,
+    // semver 자동 승격(#546): 저장값 → (기존 통합 레포면 false / 신규면 true).
+    // 이미 통합된 레포의 버전이 업데이트만으로 예고 없이 minor로 튀지 않게 하는 안전장치다.
+    semverAuto: existing?.options?.semverAuto ?? (existing ? false : true),
     repoName,
     // 실 resolver 4종 (.sh resolve_token 등가 — spring-app-yml 스텁 제거)
     resolvers: makeResolvers(cwd, repoName, paths),
@@ -206,7 +209,7 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
     migrationGuidePath = appendGuideEntry(cwd, {
       now, mode: opts.mode, types, repoName,
       templateFrom: existing?.templateVersion || "", templateTo: context.templateVersion,
-      options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent },
+      options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto },
       branches: { defaultBranch: branch, deployBranch: context.deployBranch || "develop", ready: null, created: null },
       breaking: breakingReport, migrations: migrationsResult, orphans: { cleaned: [], pending: orphanPending },
       events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },

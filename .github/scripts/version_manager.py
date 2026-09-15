@@ -182,6 +182,16 @@ def increment_patch(version: str) -> str:
     return f"{major}.{minor}.{int(patch) + 1}"
 
 
+def increment_version(version: str, bump: str = "patch") -> str:
+    """bump: 'major'|'minor'|'patch'. 생략하면 기존과 동일하게 patch 증가(하위호환)."""
+    major, minor, patch = version.split(".")
+    if bump == "major":
+        return f"{int(major) + 1}.0.0"
+    if bump == "minor":
+        return f"{major}.{int(minor) + 1}.0"
+    return f"{major}.{minor}.{int(patch) + 1}"
+
+
 def higher_version(v1: str, v2: str) -> str:
     a = [int(x) for x in v1.split(".")[:3]]
     b = [int(x) for x in v2.split(".")[:3]]
@@ -446,12 +456,28 @@ USAGE = """사용법: version_manager.py {get|get-code|increment|increment-code|
 Commands:
   get            - 현재 버전 가져오기 (동기화 포함)
   get-code       - 현재 VERSION_CODE 가져오기
-  increment      - patch 버전 증가 + VERSION_CODE 증가
+  increment      - 버전 증가 + VERSION_CODE 증가
+                   [--bump major|minor|patch] (기본 patch — 미지정 시 기존 동작)
   increment-code - VERSION_CODE만 증가
   set            - 특정 버전으로 설정
   sync           - 버전 파일 간 동기화
   validate       - 버전 형식 검증
 """
+
+
+def parse_bump_flag(argv) -> str | None:
+    """`increment --bump <level>` 파싱. 플래그가 없으면 'patch'(기존 동작), 값이 잘못되면 None.
+
+    argparse를 쓰지 않는 이유: 이 CLI는 위치인자 기반 계약(`set 1.2.3` 등)을 그대로
+    유지해야 하고, .sh shim이 인자를 그대로 통과시키므로 파싱을 단순하게 둔다.
+    """
+    if "--bump" not in argv:
+        return "patch"
+    idx = argv.index("--bump")
+    if idx + 1 >= len(argv):
+        return None
+    value = argv[idx + 1]
+    return value if value in ("major", "minor", "patch") else None
 
 
 def main(argv):
@@ -474,12 +500,16 @@ def main(argv):
     elif command == "increment-code":
         print(increment_version_code())
     elif command == "increment":
+        bump = parse_bump_flag(argv)
+        if bump is None:
+            log_error("--bump 값은 major|minor|patch 중 하나여야 합니다")
+            return 1
         log_info("버전 동기화 확인")
         current = sync_versions(cfg)
         if not validate_version(current):
             return 1
-        new_version = increment_patch(current)
-        log_info(f"버전 업데이트: {current} → {new_version}")
+        new_version = increment_version(current, bump)
+        log_info(f"버전 업데이트({bump}): {current} → {new_version}")
         update_all_versions(cfg, new_version)
         increment_version_code()
         log_success(f"버전 업데이트 완료: {new_version}")

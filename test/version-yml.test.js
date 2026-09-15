@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseExisting, buildVersionYml, convertLegacySingularType } from "../src/core/version-yml.js";
+import { parseExisting, buildVersionYml, convertLegacySingularType, parseTemplateOptions } from "../src/core/version-yml.js";
 
 test("roundtrip version/types/versionCode", () => {
   const yml = buildVersionYml({
@@ -103,4 +103,34 @@ test("convertLegacySingularType: 변환 불필요(신형/단수 없음)면 null 
   assert.equal(convertLegacySingularType('version: "1.0.0"\n'), null);
   const converted = convertLegacySingularType('project_type: "spring"\n');
   assert.equal(convertLegacySingularType(converted), null, "재실행 시 추가 변환 없음");
+});
+
+// ── semver 자동 승격 (#546) ───────────────────────────────────────────
+// 기록한 값을 다시 읽을 수 있어야 한다. 값 뒤 인라인 주석 때문에 왕복이 조용히
+// 깨진 적이 있다(파서가 "true # ..."를 값으로 잡아 null 반환) — 그 자리를 고정한다.
+test("semver_auto: 기본값(신규 통합)은 true로 기록되고 다시 읽힌다", () => {
+  const yml = buildVersionYml({
+    version: "1.0.0", types: ["spring"], now: "2026-09-15 00:00:00", today: "2026-09-15",
+    templateOptions: { templateVersion: "4.3.0" },
+  });
+  assert.match(yml, /^\s+semver_auto: true/m);
+  assert.equal(parseTemplateOptions(yml).semverAuto, true);
+});
+
+test("semver_auto: false도 왕복한다", () => {
+  const yml = buildVersionYml({
+    version: "1.0.0", types: ["spring"], now: "x", today: "y",
+    templateOptions: { templateVersion: "4.3.0", semverAuto: false },
+  });
+  assert.equal(parseTemplateOptions(yml).semverAuto, false);
+});
+
+test("semver_auto: 값 뒤 인라인 주석이 있어도 파싱된다", () => {
+  const yml = 'version: "1.0.0"\nmetadata:\n  template:\n    options:\n      semver_auto: true   # 사람이 단 주석\n';
+  assert.equal(parseTemplateOptions(yml).semverAuto, true);
+});
+
+test("semver_auto: 키가 없는 구 version.yml은 null (호출부가 OFF로 해석)", () => {
+  const yml = 'version: "1.0.0"\nmetadata:\n  last_updated: "x"\n';
+  assert.equal(parseTemplateOptions(yml).semverAuto, null);
 });

@@ -8,6 +8,7 @@ changelog_manager.py
   - update-from-summary: CodeRabbit Summary Markdown을 파싱하여 CHANGELOG.json 갱신
   - generate-md        : CHANGELOG.json을 기반으로 CHANGELOG.md 재생성
   - export             : 특정 버전의 릴리즈 노트를 생성하여 stdout 또는 파일로 저장
+  - classify-bump      : 커밋 제목 목록으로 semver 승격 폭(major/minor/patch) 판단
 
 사용 예:
   python3 changelog_manager.py update-from-summary
@@ -456,6 +457,75 @@ def cmd_export_release_notes(version: str, output_path: str | None) -> int:
     return 0
 
 
+# --------------------- semver 승격 폭 판정 (이슈 #546) ---------------------
+#
+# 릴리스 노트 렌더링(changelog_providers 사다리)과는 분리된 경로다. 여기서는 버킷을
+# 구성하거나 문구를 다듬지 않고 "major/minor/patch 중 무엇인가"만 판정한다. 두 경로를
+# 합치면 릴리스 노트 생성이 이원화되어 드리프트가 난다.
+#
+# 커밋 제목 한 줄만 본다(수집이 %s라 본문에 접근할 수 없다). Conventional Commits 조항
+# 13이 `!` 마커 단독으로도 breaking 표기를 인정하므로, BREAKING CHANGE 푸터 미지원은
+# 표준이 허용하는 부분집합이다.
+
+# tier-1: projectops 컨벤션 "제목 : type[!] : 내용 [URL]".
+# 타입 앞 콜론에 공백이 선행해야 하므로 제목 안의 맨몸 콜론("v1:2" 등)에서 잘리지 않는다.
+_BUMP_TIER1_RE = re.compile(
+    r'^.+?\s:\s*(feat|fix|chore|docs|refactor|test)(!)?\s*:\s*.+$'
+)
+# tier-2: Conventional Commits "type(scope)[!]: 내용".
+_BUMP_TIER2_RE = re.compile(
+    r'^(feat|fix|chore|docs|refactor|test|perf|style|build|ci)(?:\([^)]*\))?(!)?:\s*.+$'
+)
+
+
+def classify_bump_level(lines: list[str]) -> str:
+    """커밋 제목 목록에서 semver 승격 폭을 규칙 기반으로 판단(결정적 — AI 미사용).
+
+    - 타입 뒤 `!` 마커(두 컨벤션 모두) → major (즉시 확정)
+    - feat 타입 → minor
+    - 그 외(매칭 실패·자유형식 포함) → patch
+    """
+    level = 'patch'
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or '[skip ci]' in line or line.startswith('Merge '):
+            continue
+
+        # tier-1을 먼저 시도한다 — 제목이 앞에 붙는 우리 컨벤션이 우선이다.
+        matched = _BUMP_TIER1_RE.match(line)
+        if matched:
+            commit_type, breaking = matched.group(1), matched.group(2)
+        else:
+            matched = _BUMP_TIER2_RE.match(line)
+            if not matched:
+                continue
+            commit_type, breaking = matched.group(1), matched.group(2)
+
+        if breaking:
+            return 'major'  # 최고 등급 — 더 볼 필요 없다
+        if commit_type == 'feat':
+            level = 'minor'
+
+    return level
+
+
+def cmd_classify_bump(commits_file: str) -> int:
+    """커밋 목록 파일을 읽어 승격 폭을 stdout 마지막 줄에 출력.
+
+    파일을 읽지 못하면 patch로 떨어진다 — 판정 실패가 릴리스를 막지 않게 하기 위함이다.
+    """
+    try:
+        with open(commits_file, 'r', encoding='utf-8') as f:
+            commit_lines = [line.rstrip('\n').rstrip('\r') for line in f]
+    except Exception as e:
+        print(f"[warn] 커밋 목록을 읽지 못했습니다 ({e}) — patch로 처리합니다", file=sys.stderr)
+        commit_lines = []
+
+    print(classify_bump_level(commit_lines))
+    return 0
+
+
 # ------------------------------- CLI -------------------------------
 
 def main(argv: list[str] | None = None) -> int:
@@ -473,6 +543,11 @@ def main(argv: list[str] | None = None) -> int:
     p_export.add_argument('--version', required=True, help='버전 번호')
     p_export.add_argument('--output', help='출력 파일 경로 (없으면 stdout)')
 
+    p_classify_bump = sub.add_parser(
+        'classify-bump', help='커밋 목록으로 semver 승격 폭(major/minor/patch) 판단')
+    p_classify_bump.add_argument(
+        '--commits-file', required=True, help='커밋 제목 목록 파일 (한 줄당 1개)')
+
     args = parser.parse_args(argv)
 
     if args.command == 'update-from-summary':
@@ -481,6 +556,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_generate_md()
     if args.command == 'export':
         return cmd_export_release_notes(args.version, args.output)
+    if args.command == 'classify-bump':
+        return cmd_classify_bump(args.commits_file)
     return 2
 
 

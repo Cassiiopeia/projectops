@@ -156,7 +156,7 @@ export function renderGuideEntry(report) {
   L.push(`template: { from: ${yq(from)}, to: ${yq(to)} }`);
   L.push(`mode: ${r.mode || "full"}`);
   L.push(`types: ${ylist(r.types)}`);
-  L.push(`options: { deploy: ${yq(r.options?.deploy ?? "")}, publish: ${ylist(r.options?.publish)}, secret_backup: ${r.options?.secretBackup === true}, coderabbit: ${r.options?.coderabbit === true}, changelog_provider: ${yq(r.options?.changelogProvider ?? "")}, intent: ${yq(r.options?.intent ?? "")} }`);
+  L.push(`options: { deploy: ${yq(r.options?.deploy ?? "")}, publish: ${ylist(r.options?.publish)}, secret_backup: ${r.options?.secretBackup === true}, coderabbit: ${r.options?.coderabbit === true}, changelog_provider: ${yq(r.options?.changelogProvider ?? "")}, intent: ${yq(r.options?.intent ?? "")}, semver_auto: ${r.options?.semverAuto === true} }`);
   L.push(`branches: { default: ${yq(r.branches?.defaultBranch ?? "main")}, deploy: ${yq(r.branches?.deployBranch ?? "develop")}, deploy_branch_created: ${r.branches?.created === true} }`);
   L.push("workflows:");
   L.push(`  added: ${ylist(wf.added)}`);
