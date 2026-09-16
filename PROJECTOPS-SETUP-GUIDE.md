@@ -1,15 +1,97 @@
 # 🚀 projectops 빠른 시작 가이드
 
-> **3가지만 하면 끝!** 나머지는 모두 자동화됩니다.
+> **지금 당장 해야 하는 것은 하나뿐입니다.** 나머지는 나중에 필요해지면 하세요.
 
-이 템플릿은 GitHub 템플릿 또는 원격 스크립트로 설치하면 **자동으로 초기화**됩니다.  
-사용자는 단 **3가지 설정**만 하면 모든 자동화가 작동합니다.
+설치는 이미 끝났습니다. 아래 표만 보고 필요한 것을 고르세요.
+
+| | 해야 하나? | 안 하면 | 걸리는 시간 |
+|---|---|---|---|
+| **① 개발 브랜치 만들기** | **네, 지금** | 릴리스를 못 합니다 | 10초 |
+| ② AI 요약 키 등록 | 아니오 (선택) | 릴리스 노트가 커밋 목록 정리본으로 나옵니다 | 2분 |
+| ③ PAT 등록 | 아니오 (선택) | 브랜치 보호 규칙이 있으면 자동 머지가 막힐 수 있습니다 | 3분 |
+| ④ CodeRabbit | 통합 때 골랐다면 | PR에 코드 리뷰 댓글이 안 달립니다 | 2분 |
+
+**①만 하면 바로 쓸 수 있습니다.**
+
+> 💰 **기본 구성은 전부 무료이며 한도가 없습니다.** 릴리스 노트는 커밋 내용을 분석해
+> 만들기 때문에 외부 서비스를 쓰지 않습니다. ②·④는 품질을 올리고 싶을 때만 선택하세요.
 
 ---
 
-## 🎯 3가지 필수 작업
+## ① 개발 브랜치 만들기 (필수)
 
-### 1️⃣ GitHub Personal Access Token 설정
+```bash
+git checkout -b develop
+git push -u origin develop
+git checkout main
+```
+
+**왜 필요한가**: 이 템플릿은 `develop`에 개발을 모았다가 `develop → main` PR로 릴리스합니다.
+그 PR이 만들어지는 순간 버전 확정·릴리스 노트 생성·자동 머지가 돌아갑니다.
+`develop`이 없으면 그 흐름이 시작되지 않습니다.
+
+> 다른 이름을 쓰고 싶으면 `version.yml`의 `metadata.deploy_branch`를 바꾸세요.
+
+---
+
+## ② AI 요약 키 등록 (선택)
+
+**등록하지 않아도 릴리스 노트는 나옵니다.** 커밋 메시지를 분석해 이렇게 만듭니다.
+
+```
+**새 기능**
+* 소셜 로그인 버튼 추가
+
+**버그 수정**
+* 카드 중복 청구 문제 해결
+```
+
+AI가 다듬은 문장을 원할 때만 아래를 따르세요.
+
+**1. 키 발급** — [Google AI Studio](https://aistudio.google.com/apikey) (무료, 신용카드 불필요)
+
+> 결제 계정이 **연결되지 않은** 새 프로젝트로 키를 만들면 무료 등급입니다.
+> 일 500회까지 쓸 수 있어 일반적인 릴리스 빈도에는 충분합니다.
+
+**2. 저장소에 등록** — Settings → Secrets and variables → Actions → New repository secret
+
+| Name | Secret |
+|---|---|
+| `GEMINI_API_KEY` | 발급받은 키 (`AIza...` 로 시작) |
+
+**다른 서비스를 쓴다면** 이름만 바꿔 등록하세요. 등록한 것이 자동으로 쓰입니다.
+
+| 서비스 | Secret 이름 | 무료 |
+|---|---|---|
+| Google Gemini | `GEMINI_API_KEY` | ✅ |
+| Groq | `GROQ_API_KEY` | ✅ |
+| Mistral | `MISTRAL_API_KEY` | ✅ |
+| OpenAI | `OPENAI_API_KEY` | ❌ |
+| Anthropic | `ANTHROPIC_API_KEY` | ❌ |
+
+**동작 방식** — 설정은 이것뿐입니다. 나머지는 자동입니다.
+
+```
+릴리스 PR 생성
+  → PR 본문에 릴리스 노트가 이미 있으면 그대로 사용
+  → 없으면 등록한 키로 AI 요약 (키가 없으면 건너뜀)
+  → 그래도 안 되면 커밋 내용으로 정리   ← 항상 성공한다
+```
+
+> **기본 경로에는 요금이 발생하는 요소가 없습니다.** 아무 설정도 하지 않으면
+> 커밋 분석만 돌며, 이는 무제한·무료입니다.
+
+어느 경로로 만들어졌는지는 **Actions 실행 요약**에 매번 기록됩니다.
+AI를 하나도 쓰지 못한 경우에만 PR에 안내 댓글이 **한 번** 달립니다.
+
+> 한도를 넘기거나 키가 잘못돼도 릴리스는 멈추지 않습니다. 커밋 분석으로 내려갈 뿐입니다.
+
+---
+
+## ③ GitHub Personal Access Token (선택)
+
+**없어도 릴리스는 정상 동작합니다.** 브랜치 보호 규칙을 걸어둔 저장소에서
+자동 머지가 막힐 때만 필요합니다.
 
 #### 토큰 생성
 1. **GitHub** → **Settings** → **Developer settings** → **Personal access tokens (Classic)**
@@ -29,49 +111,19 @@
 
 ---
 
-### 2️⃣ develop 브랜치 생성
+## ④ CodeRabbit 활성화 (통합 때 골랐다면)
 
-```bash
-# develop 브랜치 생성 및 푸시
-git checkout -b develop
-git push -u origin develop
+| | 무료 | 유료 |
+|---|---|---|
+| 대상 | **공개 저장소만** | 비공개 포함 |
+| 한도 | **시간당 3회** 리뷰 | 플랜에 따라 상향 |
 
-# main 브랜치로 돌아가기
-git checkout main
-```
+공개 저장소는 영구 무료지만 시간당 3회 제한이 있습니다. PR을 연달아 올리면 리뷰가
+밀릴 수 있습니다. **비공개 저장소는 무료 플랜이 없습니다.**
 
-**설명**: `develop`은 개발 통합 브랜치입니다. feature 브랜치는 `develop`으로 PR을 보내고, 릴리스 준비가 되면 `develop → main` PR(체인지로그 자동 생성 및 배포 워크플로우가 실행되는 릴리스 PR)을 생성합니다.
+> CodeRabbit은 **코드 리뷰**만 담당합니다. 릴리스 노트는 위 ②의 사다리가 만들므로
+> CodeRabbit이 느리거나 한도에 걸려도 릴리스는 기다리지 않고 진행됩니다.
 
----
-
-### 3️⃣ AI 요약 품질 올리기 (선택)
-
-**등록하지 않아도 릴리스 노트와 PR 요약은 나옵니다.** 커밋 내용을 분석해 만들기 때문에
-추가 설정 없이 바로 동작합니다. AI가 다듬은 문장을 원할 때만 아래를 따르세요.
-
-1. [Google AI Studio](https://aistudio.google.com/apikey)에서 API 키 발급 (무료, 신용카드 불필요)
-2. 저장소 **Settings → Secrets and variables → Actions → New repository secret**
-3. **Name**: `MODEL_API_KEY` / **Secret**: 발급받은 키
-
-**동작 방식**: 키를 등록하면 자동으로 쓰입니다. 별도 설정은 필요 없습니다.
-
-```
-릴리스 PR 생성
-  → 본문에 이미 릴리스 노트가 있으면 그대로 사용
-  → 없으면 Copilot CLI 시도 (키 불필요)
-  → 안 되면 MODEL_API_KEY로 외부 AI
-  → 그래도 안 되면 커밋 내용으로 정리
-```
-
-어느 단계에서 만들어졌는지는 Actions 실행 요약에 기록됩니다. AI를 하나도 쓰지 못한
-경우에만 PR에 안내 댓글이 한 번 달립니다.
-
-> 무료 등급 한도는 일 500회 수준이라 일반적인 릴리스 빈도에는 충분합니다.
-> 한도를 넘겨도 커밋 분석으로 자동 폴백하므로 릴리스가 멈추지 않습니다.
-
----
-
-### 4️⃣ CodeRabbit 활성화 (선택)
 
 통합 시 **CodeRabbit 코드 리뷰**를 선택한 경우에만 필요합니다.
 
@@ -107,6 +159,41 @@ claude plugin install projectops@projectops-marketplace --scope user
 ### Cursor
 
 `npx projectops` 실행 시 Cursor 설치를 선택하면 자동으로 `skills/` → `.cursor/skills/`로 복사됩니다.
+
+---
+
+## ✅ 제대로 됐는지 확인하기
+
+언제든 아래 명령으로 현재 상태를 진단할 수 있습니다.
+
+```bash
+npx projectops --mode doctor
+```
+
+저장소 설정까지 보려면 토큰을 함께 넘기세요.
+
+```bash
+GITHUB_TOKEN=ghp_... npx projectops --mode doctor
+```
+
+### 첫 릴리스를 돌려보기
+
+```bash
+git checkout develop
+git commit --allow-empty -m "첫 릴리스 테스트 : feat : 자동화 동작 확인"
+git push origin develop
+```
+
+그다음 GitHub에서 `develop → main` PR을 만들면 자동으로 진행됩니다.
+
+| 순서 | 일어나는 일 |
+|---|---|
+| 1 | 버전이 확정됩니다 (`feat`이 있으면 minor, 아니면 patch) |
+| 2 | 릴리스 노트가 만들어져 PR 본문에 들어갑니다 |
+| 3 | `CHANGELOG.md` · `CHANGELOG.json`이 갱신됩니다 |
+| 4 | PR이 자동 머지됩니다 |
+
+Actions 탭의 실행 요약에서 **릴리스 노트가 어떤 경로로 만들어졌는지** 확인할 수 있습니다.
 
 ---
 

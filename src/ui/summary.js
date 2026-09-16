@@ -13,6 +13,7 @@ export function printSummary(ctx, targetRoot = ".") {
   const err = (s = "") => process.stderr.write(`${s}\n`);
   // 색상은 TTY일 때만 (.sh YELLOW/CYAN/NC 등가)
   const isTty = !!process.stderr.isTTY;
+  const BOLD = isTty ? "\u001b[1m" : "";
   const YELLOW = isTty ? "\x1b[1;33m" : "";
   const CYAN = isTty ? "\x1b[0;36m" : "";
   const NC = isTty ? "\x1b[0m" : "";
@@ -193,12 +194,18 @@ export function printSummary(ctx, targetRoot = ".") {
   // #569 — 선택한 것만 안내한다. 끈 기능의 설정법을 보여주면 무엇을 해야 하는지 흐려진다.
   let step = 3;
   if (ctx?.aiPrSummary !== false) {
-    err(`  ${step}️⃣  (선택) AI 요약 품질 올리기`);
-    err("     → 지금도 커밋 내용으로 릴리스 노트·PR 요약이 만들어집니다. 추가 설정은 필요 없습니다.");
-    err("     → AI가 다듬은 문장을 원하면 무료 키를 등록하세요 (2분, 신용카드 불필요):");
-    err("        1) https://aistudio.google.com/apikey 에서 키 발급");
-    err("        2) Repository Settings > Secrets and variables > Actions > New repository secret");
-    err("        3) Secret Name: MODEL_API_KEY / Secret: 발급받은 키");
+    err(`  ${step}️⃣  (선택) AI가 다듬은 릴리스 노트 받기`);
+    err("     → 지금 상태로도 릴리스 노트는 나옵니다. 커밋 내용을 분석해 만들기 때문에");
+    err("        아무 설정을 하지 않아도 됩니다. 아래는 문장을 더 매끄럽게 하고 싶을 때만 하세요.");
+    err("");
+    err("     ① Google AI Studio에서 키 발급 (무료 · 신용카드 불필요 · 2분)");
+    err("        https://aistudio.google.com/apikey");
+    err("     ② 이 저장소에 등록");
+    err("        Settings > Secrets and variables > Actions > New repository secret");
+    err(`        ${BOLD}Name: GEMINI_API_KEY${NC}   Secret: 발급받은 키(AIza... 로 시작)`);
+    err("");
+    err("     💡 다른 서비스를 쓴다면 이름만 바꿔 등록하면 됩니다 — 등록한 것이 자동으로 쓰입니다.");
+    err("        OPENAI_API_KEY · ANTHROPIC_API_KEY · GROQ_API_KEY · MISTRAL_API_KEY");
     err("");
     step++;
   }

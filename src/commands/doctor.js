@@ -100,6 +100,27 @@ export function localChecks(cwd = ".") {
     ] : null,
   });
 
+  // AI 요약 키 (#569) — "등록했는데 되는 건가?"를 확인할 수단이 없었다.
+  // 로컬에서는 저장소 Secret을 읽을 수 없으므로, 어떤 이름을 쓰면 되는지와
+  // 등록하지 않아도 무방하다는 사실을 알려준다. 실제 등록 여부는 원격 점검이 본다.
+  const AI_KEY_NAMES = ["GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY"];
+  const hasSummaryWf = files.some((f) => /AI-PR-SUMMARY|RELEASE-CHANGELOG/.test(f));
+  if (hasSummaryWf) {
+    add({
+      name: "AI 요약 키", purpose: "릴리스 노트를 AI로 다듬을지 (선택)",
+      status: "INFO", value: "선택 사항",
+      detail: [
+        "등록하지 않아도 릴리스 노트는 나옵니다 — 커밋 내용을 분석해 만듭니다.",
+        "AI가 다듬은 문장을 원하면 아래 중 하나를 저장소 Secret에 등록하세요.",
+        "  GEMINI_API_KEY     무료 · https://aistudio.google.com/apikey",
+        "  GROQ_API_KEY       무료",
+        "  MISTRAL_API_KEY    무료",
+        "  OPENAI_API_KEY / ANTHROPIC_API_KEY   유료",
+        "등록한 것이 자동으로 쓰입니다. 별도 설정은 필요 없습니다.",
+      ],
+    });
+  }
+
   // 워크플로우 파일의 permissions 선언 점검 (#558).
   // 저장소 설정(Settings > Actions)은 "요청할 수 있는 최대 범위"이고, 워크플로우의
   // permissions 블록은 "실제로 요청한 범위"다. 둘은 다른 층이라 저장소 설정이 정상이어도
@@ -190,6 +211,20 @@ export async function remoteChecks(slug, token, requiredSecrets = []) {
             detail: ["토큰에 Secret 조회 권한이 없어 확인하지 못했습니다."] });
     } else {
       const have = new Set((sec.data?.secrets || []).map((s) => s.name));
+
+      // AI 요약 키가 실제로 등록돼 있는지 (#569) — 있으면 어느 서비스인지까지 보여준다.
+      const AI_KEYS = { GEMINI_API_KEY: "Gemini", OPENAI_API_KEY: "OpenAI", ANTHROPIC_API_KEY: "Anthropic",
+                        GROQ_API_KEY: "Groq", MISTRAL_API_KEY: "Mistral", MODEL_API_KEY: "구 이름(서비스 자동 추정)" };
+      const foundAi = Object.entries(AI_KEYS).filter(([n]) => have.has(n));
+      rows.push({
+        name: "AI 요약 키 등록", purpose: "릴리스 노트를 AI로 다듬을지 (선택)",
+        status: "INFO",
+        value: foundAi.length ? foundAi.map(([n, label]) => `${n} (${label})`).join(", ") : "없음 — 커밋 분석으로 동작",
+        detail: foundAi.length ? null : [
+          "등록하지 않아도 릴리스 노트는 정상적으로 나옵니다.",
+          "AI를 쓰려면 GEMINI_API_KEY(무료)를 등록하세요 — https://aistudio.google.com/apikey",
+        ],
+      });
       const missing = requiredSecrets.filter((n) => !have.has(n));
       add({
         name: "Secret 등록 여부", purpose: "배포에 필요한 값",

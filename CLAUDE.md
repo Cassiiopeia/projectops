@@ -391,12 +391,27 @@ python3 .github/scripts/changelog_manager.py classify-bump --commits-file commit
 
 **생성 사다리** (위에서부터 시도, 실패하면 아래로)
 
-| 순서 | 경로 | 조건 | 사용자가 할 일 |
+| 순서 | 경로 | 조건 | 비용 |
 |---|---|---|---|
-| ① | PR 본문에 이미 있으면 그대로 사용 | 배포 스킬·CodeRabbit·사람이 작성 | 없음 |
-| ② | `copilot.py` — Copilot CLI | 항상 시도. `copilot-requests: write` + GITHUB_TOKEN | **없음** |
-| ③ | `openai_compatible.py` | `MODEL_API_KEY`가 있을 때만 | 키 등록(선택) |
-| ④ | `commit.py` — 커밋 분석 | 위가 모두 안 될 때 | 없음 |
+| ① | PR 본문에 이미 있으면 그대로 사용 | 배포 스킬·CodeRabbit·사람이 작성 | — |
+| ② | `openai_compatible.py` | AI 키가 등록됐을 때만 | 무료 등급 가능 |
+| ③ | `commit.py` — 커밋 분석 | 위가 안 될 때 | **무료·무제한** |
+| (별도) | `copilot.py` — Copilot CLI | `provider: copilot`을 **명시**했을 때만 | **Premium Request 소모** |
+
+> **⚠️ 기본 경로에 과금 요소를 두지 말 것 (#569).** Copilot은 요청 수로 과금되므로
+> 기본 사다리에서 제외했다. 남의 저장소에 설치되는 템플릿이라 **설치한 사람이 모르는
+> 사이에 비용이 발생해선 안 된다.** 기본값은 언제나 "돈이 들지 않는 것"이다.
+
+**AI 키는 서비스별 전용 이름으로 등록한다** — `MODEL_API_KEY` 하나로는 무슨 서비스인지
+사람도 코드도 알 수 없었다.
+
+| Secret 이름 | 서비스 | 무료 |
+|---|---|---|
+| `GEMINI_API_KEY` | Google Gemini | ✅ 일 500회 |
+| `GROQ_API_KEY` | Groq | ✅ |
+| `MISTRAL_API_KEY` | Mistral | ✅ |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | OpenAI / Anthropic | ❌ |
+| `MODEL_API_KEY` | 구 이름 — 키 접두사로 서비스 추정 | 하위호환 |
 
 **④는 AI·네트워크 무의존이라 항상 완주한다.** 어느 경로든 마지막이 `commit`이므로 "릴리스 노트가 비는" 상황은 생기지 않는다.
 

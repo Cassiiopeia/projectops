@@ -72,9 +72,10 @@ jobs:
 
           PROVIDER=$(grep -A5 "changelog:" version.yml 2>/dev/null | grep "provider:" | head -1 | sed -E 's/.*provider: *"?([a-z-]+)"?.*/\1/' || true)
           # coderabbit은 이 워크플로우에서 재현할 수 없는 외부 봇이고, github-ai는 서비스가
-          # 종료됐다. 둘 다 copilot으로 대체한다 — 외부 키 없이 도는 유일한 경로다 (#566).
+          # 종료됐다. 둘 다 기본 경로(commit)로 대체한다 — 등록된 AI 키가 있으면 사다리가
+          # 알아서 집어 쓰고, 없으면 커밋 분석으로 간다. 과금 요소는 기본에 두지 않는다 (#569).
           case "$PROVIDER" in
-            ""|coderabbit|github-ai) PROVIDER="copilot" ;;
+            ""|coderabbit|github-ai) PROVIDER="commit" ;;
           esac
           echo "provider=$PROVIDER" >> $GITHUB_OUTPUT
 
@@ -94,7 +95,13 @@ jobs:
         continue-on-error: true
         env:
           CHANGELOG_PROVIDER: ${{ steps.options.outputs.provider }}
-          MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}
+          # 서비스별 전용 이름 — 등록된 것만 값이 들어온다. 사다리가 알아서 고른다 (#569).
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}   # 구 이름 — 하위호환
           GITHUB_TOKEN: ${{ github.token }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |

@@ -94,15 +94,15 @@ test("printSummary: 고른 것만 안내한다 (#569)", () => {
     const base = { mode: "full", types: ["node"], version: "1.0.0", counters: { workflows: 0, workflowFiles: [] } };
 
     const both = captureStderr(() => printSummary({ ...base, aiPrSummary: true, codeReviewCoderabbit: true }, root));
-    assert.match(both, /MODEL_API_KEY/, "AI 요약을 켰으면 키 등록법을 알려준다");
+    assert.match(both, /GEMINI_API_KEY/, "무슨 서비스의 키인지 이름으로 드러나야 한다 (#569)");
     assert.match(both, /coderabbit\.ai/, "CodeRabbit을 켰으면 활성화 방법을 알려준다");
 
     const onlyAi = captureStderr(() => printSummary({ ...base, aiPrSummary: true, codeReviewCoderabbit: false }, root));
-    assert.match(onlyAi, /MODEL_API_KEY/);
+    assert.match(onlyAi, /GEMINI_API_KEY/);
     assert.doesNotMatch(onlyAi, /coderabbit\.ai/, "끈 기능의 설정법은 보이면 안 된다");
 
     const neither = captureStderr(() => printSummary({ ...base, aiPrSummary: false, codeReviewCoderabbit: false }, root));
-    assert.doesNotMatch(neither, /MODEL_API_KEY/);
+    assert.doesNotMatch(neither, /GEMINI_API_KEY/);
     assert.doesNotMatch(neither, /coderabbit\.ai/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
@@ -115,7 +115,7 @@ test("printSummary: 키 안내는 '없어도 된다'를 먼저 말한다 (#569)"
       mode: "full", types: ["node"], version: "1.0.0",
       counters: { workflows: 0, workflowFiles: [] }, aiPrSummary: true,
     }, root));
-    const idx = out.indexOf("MODEL_API_KEY");
+    const idx = out.indexOf("GEMINI_API_KEY");
     const intro = out.slice(Math.max(0, idx - 400), idx);
     assert.match(intro, /선택|추가 설정은 필요 없|지금도/, "선택 사항임이 먼저 드러나야 한다");
   } finally { rmSync(root, { recursive: true, force: true }); }

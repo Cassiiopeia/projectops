@@ -250,7 +250,13 @@ jobs:
           CHANGELOG_PROVIDER: ${{ needs.detect-and-parse.outputs.changelog_provider }}
           CHANGELOG_BASE_URL: ${{ needs.detect-and-parse.outputs.changelog_base_url }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}
+          # 서비스별 전용 이름 — 등록된 것만 값이 들어온다. 사다리가 알아서 고른다 (#569).
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}   # 구 이름 — 하위호환
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
 
