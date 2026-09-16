@@ -274,19 +274,21 @@ jobs:
                -d "{\"body\": $ESCAPED}" \
                "https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}"
 
-          # 폴백 발생 시 PR 댓글로 알림 (#455 — "○○ 실패 → △△ 사용")
-          NOTICE=$(jq -r '.notice // ""' provider_result.json 2>/dev/null || echo "")
-          if [ -n "$NOTICE" ]; then
-            COMMENT=$(printf '⚠️ changelog provider 폴백: %s' "$NOTICE" | jq -Rs .)
-            curl -s -H "Authorization: token ${{ secrets._GITHUB_PAT_TOKEN || secrets.GITHUB_TOKEN }}" \
-                 -H "Content-Type: application/json" \
-                 -X POST -d "{\"body\": $COMMENT}" \
-                 "https://api.github.com/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" > /dev/null
-            echo "📣 폴백 알림 댓글 등록: $NOTICE"
-          fi
-
           echo "✅ 릴리스 노트 생성·PR 본문 업데이트 완료 ($(jq -r '.provider // "?"' provider_result.json 2>/dev/null))"
           echo "summary_found=true" >> $GITHUB_OUTPUT
+
+      # 어떤 경로로 만들어졌는지 Job Summary에 남기고, AI를 하나도 쓰지 못했을 때만
+      # PR에 안내 댓글을 단다 (#566). 댓글은 마커로 갱신하므로 이메일은 처음 한 번만 간다.
+      # 안내가 실패해도 릴리스를 막지 않는다 (스크립트가 항상 0으로 끝난다).
+      - name: 생성 결과 안내
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets._GITHUB_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          python3 .github/scripts/changelog_notice.py \
+            --repo "${{ github.repository }}" \
+            --pr "${{ github.event.pull_request.number }}" \
+            --result provider_result.json
 
       - name: 폴백 Summary 파일 업로드
         if: steps.generate.outputs.summary_found == 'true'

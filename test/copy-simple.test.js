@@ -4,7 +4,7 @@ import { copyScripts, copyConfigFolder, copyIssueTemplates, copyDiscussionTempla
 import { ensureGitignore, normalizeGitignoreEntry } from "../src/core/copy/gitignore.js";
 import { addVersionSectionToReadme } from "../src/core/copy/readme.js";
 import { writeText, exists, readText } from "../src/core/fsutil.js";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -18,6 +18,28 @@ test("copyScripts 2개 복사", () => {
     assert.equal(copyScripts(tmp, tgt), 2);
     assert.ok(exists(join(tgt, ".github/scripts/version_manager.sh")));
   } finally { rmSync(tmp, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
+});
+
+test("copyScripts: 복사 목록이 실제 템플릿 파일과 어긋나지 않는다 (#566)", () => {
+  // 목록에만 있고 실물이 없으면 사용자 프로젝트에 파일이 조용히 빠진다.
+  // 반대로 실물만 있고 목록에 없으면 그 기능이 남의 레포에서 동작하지 않는다.
+  // github_ai.py는 의도적 제외(서비스 종료) — 예외로 둔다.
+  const repoRoot = new URL("..", import.meta.url).pathname;
+  const listed = readText(join(repoRoot, "src/core/copy/simple.js"))
+    .match(/"changelog_providers\/[a-z_]+\.py"|"[a-z_]+\.py"/g)
+    .map((s) => s.replaceAll('"', ""));
+
+  for (const rel of listed) {
+    assert.ok(exists(join(repoRoot, ".github/scripts", rel)), `목록에 있으나 실물 없음: ${rel}`);
+  }
+
+  const INTENTIONALLY_EXCLUDED = new Set(["github_ai.py"]);  // GitHub Models 종료 (#566)
+  const actual = readdirSync(join(repoRoot, ".github/scripts/changelog_providers"))
+    .filter((f) => f.endsWith(".py") && !f.startsWith("test_"));
+  for (const f of actual) {
+    if (INTENTIONALLY_EXCLUDED.has(f)) continue;
+    assert.ok(listed.includes(`changelog_providers/${f}`), `실물은 있으나 복사 목록 누락: ${f}`);
+  }
 });
 
 test("copyScripts changelog provider 사다리(.py) 복사 (#455)", () => {

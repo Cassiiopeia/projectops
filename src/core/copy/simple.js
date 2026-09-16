@@ -20,6 +20,8 @@ export function copyScripts(tempDir, targetRoot = ".") {
     "dispatch_downstream.py",
     // AI PR SUMMARY 워크플로우가 요약 댓글을 작성·갱신할 때 호출 (#553).
     "pr_summary_comment.py",
+    // 릴리스 노트가 어떤 경로로 만들어졌는지 알리고, AI를 못 썼을 때 대안을 안내 (#566).
+    "changelog_notice.py",
     "changelog_providers/_common.py", "changelog_providers/ladder.py",
     "changelog_providers/commit.py", "changelog_providers/copilot.py",
     "changelog_providers/openai_compatible.py",
