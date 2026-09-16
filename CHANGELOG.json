@@ -1,14 +1,49 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-16T01:32:07Z",
-    "currentVersion": "4.6.1",
+    "lastUpdated": "2026-09-16T05:57:24Z",
+    "currentVersion": "4.7.0",
     "projectType": "basic",
-    "totalReleases": 238,
+    "totalReleases": 239,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.7.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-16",
+      "pr_number": 568,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * PR 변경 요약 댓글 기능 추가\n  * 릴리스 노트 생성 결과 안내 추가\n\n* **버그 수정**\n  * 릴리스 노트가 분류되지 않던 문제 해결\n  * 릴리스 시 불필요한 파일이 커밋되던 문제 해결\n  * 설정을 꺼도 일부 기능이 계속 동작하던 문제 해결\n\n* **개선**\n  * 릴리스 소요 시간 단축\n  * 설정 질문을 줄이고 자동 선택으로 전환\n\n---\n\n- https://github.com/Cassiiopeia/projectops/issues/564\n- https://github.com/Cassiiopeia/projectops/issues/565\n- https://github.com/Cassiiopeia/projectops/issues/566\n- https://github.com/Cassiiopeia/projectops/issues/567\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01LsTgVFm86DjKpURkB9yh1Z",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "PR 변경 요약 댓글 기능 추가",
+            "릴리스 노트 생성 결과 안내 추가"
+          ]
+        },
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "릴리스 노트가 분류되지 않던 문제 해결",
+            "릴리스 시 불필요한 파일이 커밋되던 문제 해결",
+            "설정을 꺼도 일부 기능이 계속 동작하던 문제 해결"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "릴리스 소요 시간 단축",
+            "설정 질문을 줄이고 자동 선택으로 전환"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.6.1",
       "project_type": "basic",
