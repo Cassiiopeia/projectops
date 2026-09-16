@@ -213,6 +213,7 @@ export function printSummary(ctx, targetRoot = ".") {
     err(`  ${step}️⃣  CodeRabbit 활성화`);
     err("     → https://coderabbit.ai 로그인 → GitHub 앱 설치 → 이 저장소에 접근 권한(grant access) 부여");
     err("     → 이 단계를 안 하면 워크플로우는 켜져도 PR에 리뷰 댓글이 달리지 않습니다");
+    err("     → 공개 저장소는 무료입니다 (시간당 3회 리뷰 제한)");
     err("");
     step++;
   }

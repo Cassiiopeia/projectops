@@ -332,18 +332,22 @@ export async function askAllOptionalWorkflows({
   // 저장소가 생겼다. 둘은 같은 자리(PR 댓글)를 놓고 경쟁하므로 한 번에 고르게 한다.
   if (ask("code-review") || codeReviewCoderabbit === null || aiPrSummary === null) {
     if (force || !tty || typeof io.select !== "function") {
-      // 비대화형 기본값: CodeRabbit은 외부 앱 설치가 필요하므로 끄고, 자체 요약만 켠다.
+      // 비대화형 기본값: CodeRabbit은 별도 앱 설치가 있어야 실제로 동작하므로
+      // 자동화 환경에서 켜봐야 의미가 없다. 설정 없이 바로 도는 요약만 켠다.
       codeReviewCoderabbit = codeReviewCoderabbit ?? false;
       aiPrSummary = aiPrSummary ?? true;
     } else {
       say("");
-      say("💬 PR에 리뷰·요약 댓글을 어떻게 받으시겠어요?");
+      say("💬 PR에 어떤 댓글을 받으시겠어요?");
+      say("   두 가지는 하는 일이 다르고 한도도 따로라, 같이 켜도 서로 방해하지 않습니다.");
+      say("   · 변경 요약 — 무엇이 바뀌었는지 (추가 설정 없이 바로 동작)");
+      say("   · 코드 리뷰 — 버그·개선점 지적 (CodeRabbit 앱 설치 필요, 공개 저장소 무료)");
       const ans = await io.select({
         message: "PR 댓글 방식을 선택하세요",
         options: [
-          { value: "summary", label: "AI 변경 요약 (추천 · 추가 설정 불필요)" },
-          { value: "coderabbit", label: "CodeRabbit 코드 리뷰 (외부 앱 설치 필요)" },
-          { value: "both", label: "둘 다" },
+          { value: "both", label: "둘 다 (추천 · 무료로 쓸 수 있습니다)" },
+          { value: "summary", label: "변경 요약만 (추가 설정 불필요)" },
+          { value: "coderabbit", label: "코드 리뷰만 (CodeRabbit)" },
           { value: "none", label: "사용 안 함" },
         ],
       });

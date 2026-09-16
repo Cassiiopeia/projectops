@@ -259,3 +259,70 @@ test("E2E ⑪: 대화형에서 '사용 안 함'을 고르면 둘 다 꺼진다",
     assert.equal(r.aiPrSummary, false, "'사용 안 함'이 실제로 꺼져야 한다");
   } finally { rmSync(tpl, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
 });
+
+// ── 시나리오 ⑫ 업데이트 안전성 ──────────────────────────────────────
+// "기존 걸 흐트리지 않으면서, 문제가 생겼을 때 고칠 수 있어야 한다"가 요구사항이다.
+
+test("E2E ⑫: 업데이트해도 사용자가 고른 설정이 전부 살아있다", async () => {
+  const tpl = makeTemplate(); const tgt = makeTarget();
+  try {
+    // 사용자가 이것저것 골라둔 상태
+    await cli(["--mode", "full", "--type", "node", "--force",
+               "--secret-backup", "--no-ai-summary", "--deploy-branch", "release"], tgt, tpl);
+    const before = optionsOf(tgt);
+    const beforeFiles = readdirSync(join(tgt, ".github/workflows")).sort();
+
+    // 아무 인자 없이 업데이트 (템플릿 갱신만 받는 상황)
+    await cli(["--mode", "full", "--force"], tgt, tpl);
+    const after = optionsOf(tgt);
+
+    assert.equal(after.secretBackup, before.secretBackup, "Secret 백업 선택 유지");
+    assert.equal(after.aiPrSummary, before.aiPrSummary, "AI 요약 선택 유지");
+    assert.equal(after.deploy, before.deploy, "배포 방식 유지");
+    assert.deepEqual(readdirSync(join(tgt, ".github/workflows")).sort(), beforeFiles,
+      "껐던 워크플로우가 업데이트로 되살아나면 안 된다");
+  } finally { rmSync(tpl, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
+});
+
+test("E2E ⑬: 진단이 현재 상태를 알려준다", async () => {
+  const { localChecks } = await import("../src/commands/doctor.js");
+  const tpl = makeTemplate(); const tgt = makeTarget();
+  try {
+    await cli(["--mode", "full", "--type", "node", "--force"], tgt, tpl);
+    const rows = localChecks(tgt);
+    const byName = Object.fromEntries(rows.map((r) => [r.name, r]));
+
+    assert.ok(byName["AI 요약 키"], "키를 어떻게 등록하는지 알려줘야 한다");
+    const detail = (byName["AI 요약 키"].detail || []).join("\n");
+    assert.match(detail, /GEMINI_API_KEY/, "무슨 이름으로 등록할지 드러나야 한다");
+    assert.match(detail, /등록하지 않아도/, "선택 사항임이 드러나야 한다");
+  } finally { rmSync(tpl, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
+});
+
+test("E2E ⑭: 설정이 망가져도 진단이 돌고 업데이트로 복구된다", async () => {
+  const { localChecks } = await import("../src/commands/doctor.js");
+  const tpl = makeTemplate(); const tgt = makeTarget();
+  try {
+    await cli(["--mode", "full", "--type", "node", "--force"], tgt, tpl);
+
+    // 사용자가 워크플로우를 실수로 지운 상황
+    rmSync(wf(tgt, "PROJECT-COMMON-CI.yaml"));
+    assert.doesNotThrow(() => localChecks(tgt), "파일이 없어도 진단은 돌아야 한다");
+
+    // 업데이트로 복구된다
+    await cli(["--mode", "full", "--force"], tgt, tpl);
+    assert.ok(existsSync(wf(tgt, "PROJECT-COMMON-CI.yaml")), "지워진 워크플로우가 돌아와야 한다");
+  } finally { rmSync(tpl, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
+});
+
+test("E2E ⑮: 기본 설치에는 요금이 발생하는 경로가 없다", async () => {
+  const tpl = makeTemplate(); const tgt = makeTarget();
+  try {
+    await cli(["--mode", "full", "--type", "node", "--force"], tgt, tpl);
+    const provider = optionsOf(tgt).changelogProvider;
+
+    // 과금 요소(copilot)가 기본값이면 안 된다 — 설치한 사람이 모르는 사이 크레딧이 빠진다.
+    assert.notEqual(provider, "copilot", "요청 수로 과금되는 경로를 기본값으로 두면 안 된다");
+    assert.equal(provider, "commit", "기본은 무료·무제한인 커밋 분석");
+  } finally { rmSync(tpl, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
+});
