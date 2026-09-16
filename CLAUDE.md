@@ -161,6 +161,7 @@ snake_case.sh / snake_case.py
 | `PROJECT-COMMON-SYNC-ISSUE-LABELS` | 라벨 파일 변경 | GitHub 라벨 동기화 |
 | `PROJECT-COMMON-TEMPLATE-UTIL-VERSION-SYNC` | version.json 변경 | Util HTML 버전 동기화 (util 모듈 보유 레포에만 복사 — #491) |
 | `PROJECT-COMMON-PROJECTS-SYNC-MANAGER` | 이슈 라벨 변경 | Issue Label → Projects Status 동기화 |
+| `PROJECT-COMMON-AI-PR-SUMMARY` | 작업 PR 생성·갱신 | 변경 요약 댓글 (선택 — `common/pr-summary/`, #566) |
 
 ### ⚠️ Flutter 마법사 3종은 공통 자산을 공유한다 (#521 — agent 필독)
 
@@ -299,6 +300,8 @@ deploy/publish 축은 **타입에 따라 적용 자체가 안 될 수 있다.** 
 > **⚠️ 워크플로우를 리네임/삭제할 때 (agent 필독, #470)**: 구 이름을 `src/core/migrations/registry.js`에 반드시 추가한다 — 마법사 업데이트가 기존 통합 레포의 구 파일을 자동 무해화(.bak)하는 유일한 경로다(레거시 마이그레이션은 전부 이 레지스트리 한 곳에서 관리). tier는 `safe`(순수 리네임 — 공존 시 중복 실행 실해) / `confirm`(배포 파이프라인일 수 있음 — 자동 조치 없이 안내만) 중 실해 기준으로 고른다. `test/migrations.test.js`가 레지스트리와 현행 배포 세트의 충돌(살아있는 워크플로우 오살)을 자동 검증한다. 구 파일에 사용자 커스텀 설정이 들어있을 수 있으면 registry 항목에 `settingsExtractor`를 지정해 무해화 직전 version.yml로 자동 이관한다 (`rules/settings-extractors.js`, #478 이슈 헬퍼가 모범 사례).
 > 참고: **타입 선택 해제로 남는 고아 워크플로우**는 registry가 아니라 `src/core/orphan-workflows.js`가 동적 감지한다(#487) — registry는 리네임·폐기 전용, 고아 정리는 템플릿 인벤토리 대조(정확한 파일명 일치) 방식이다. 대화형은 확인 후 .bak 무해화, 비대화형은 안내만 출력한다.
 >
+> **⚠️ `common/` 아래에 조건부 폴더를 새로 만들 때 (agent 필독, #567)**: 복사 게이트(`src/core/copy/workflows.js`)와 **고아 감지(`orphan-workflows.js`의 `commonOptionalOrphans`) 두 곳을 함께** 고쳐야 한다. 켜는 쪽만 만들면 **끈 뒤에도 파일이 남아 계속 실행된다** — 사용자에게는 "껐는데 왜 도나"가 된다. 실제로 `secret-backup`·`deploy/<target>`이 오래 그 상태였고 `pr-summary`를 만들면서 드러났다. 회귀 방지: `test/orphan-common.test.js`.
+>
 > **`.github/util/` 모듈 안의 파일을 리네임/폐기할 때도 동일하다 (#500)**: registry에 `category: "util-file"`(tier safe, 정확 경로)로 구 파일을 등록한다 — util 복사(`src/core/copy/util.js`)는 overlay라 구 파일을 지우지 않으므로 registry가 유일한 정리 경로다. `test/migrations.test.js`의 util-file 충돌 테스트가 현행 템플릿 파일 오살을 자동 검증한다.
 >
 > **⚠️ 브랜치 규칙(`YYYYMMDD_#번호_제목`)에 의존하는 워크플로우를 추가할 때 (agent 필독, #478)**:
@@ -310,6 +313,7 @@ deploy/publish 축은 **타입에 따라 적용 자체가 안 될 수 있다.** 
 |--------|------|------|------|
 | `PROJECT-COMMON-VERCEL-DEPLOY` | Vercel 프로덕션 배포 (React/Next 등) | common/deploy/vercel/ | `--deploy vercel` |
 | `PROJECT-COMMON-SECRET-FILE-UPLOAD` | GitHub Secret → 서버(SSH) 업로드 | common/secret-backup/ | `--secret-backup` |
+| `PROJECT-COMMON-AI-PR-SUMMARY` | 작업 PR에 변경 요약 댓글 | common/pr-summary/ | PR 댓글 질문에서 선택 |
 
 > Vercel은 `VERCEL_TOKEN`·`VERCEL_ORG_ID`·`VERCEL_PROJECT_ID` secret이 필요하다.
 
@@ -381,18 +385,36 @@ python3 .github/scripts/changelog_manager.py export --version 1.2.3 --output rel
 python3 .github/scripts/changelog_manager.py classify-bump --commits-file commits.txt  # major|minor|patch
 ```
 
-### changelog_providers/ (릴리스 노트 생성 사다리 — 전부 .py, #455)
-`RELEASE-CHANGELOG` 워크플로우의 fallback-summary job이 `ladder.py`를 호출한다.
-version.yml `options.changelog.provider`에 따라 **선택 provider → `github_ai.py` → `commit.py`(안전망)** 순으로 폴백하며, 폴백 발생 시 PR 댓글로 알린다.
+### changelog_providers/ (릴리스 노트 생성 사다리 — 전부 .py, #455·#566)
 
-| provider | 스크립트 | 비고 |
-|---|---|---|
-| `github-ai` (신규 설치 기본) | `github_ai.py` | GitHub Models API — job `permissions: models: read` + GITHUB_TOKEN만으로 동작 (API 키 불필요) |
-| `openai`/`gemini`/`claude`/`ollama` | `openai_compatible.py` | OpenAI 호환. `MODEL_API_KEY` secret 필요 (ollama는 `changelog.base_url`) |
-| `commit` | `commit.py` | 커밋 분석 — AI·네트워크 무의존 최후 보루 |
-| `coderabbit` (미설정 시 기본 — 기존 동작 보존) | 워크플로우 Job 1 폴링 | 무응답 시 사다리(github-ai → commit)로 폴백 |
+`RELEASE-CHANGELOG`의 fallback-summary job이 `ladder.py`를 호출한다. **마법사는 provider를 묻지 않는다** (#566) — 사용자의 목적은 "릴리스 노트가 잘 나오는 것"이지 생성기 선택이 아니다.
 
-테스트: `python -m pytest .github/scripts/test/test_changelog_providers.py`. npx 복사 엔진(`src/core/copy/simple.js`)이 5종(.py)을 사용자 프로젝트에 복사한다.
+**생성 사다리** (위에서부터 시도, 실패하면 아래로)
+
+| 순서 | 경로 | 조건 | 사용자가 할 일 |
+|---|---|---|---|
+| ① | PR 본문에 이미 있으면 그대로 사용 | 배포 스킬·CodeRabbit·사람이 작성 | 없음 |
+| ② | `copilot.py` — Copilot CLI | 항상 시도. `copilot-requests: write` + GITHUB_TOKEN | **없음** |
+| ③ | `openai_compatible.py` | `MODEL_API_KEY`가 있을 때만 | 키 등록(선택) |
+| ④ | `commit.py` — 커밋 분석 | 위가 모두 안 될 때 | 없음 |
+
+**④는 AI·네트워크 무의존이라 항상 완주한다.** 어느 경로든 마지막이 `commit`이므로 "릴리스 노트가 비는" 상황은 생기지 않는다.
+
+| provider 저장값 | 동작 |
+|---|---|
+| 미설정(기본) | `commit`. 키가 있으면 사다리가 외부 AI를 자동으로 집는다 |
+| `copilot` | Copilot → (키 있으면 Gemini) → commit |
+| `openai`/`gemini`/`claude`/`groq`/`mistral`/`ollama` | 해당 provider → commit (`MODEL_API_KEY` 필요, ollama는 `changelog.base_url`) |
+| `github-ai` | **서비스 종료(2026-07-30)** — 호출하지 않고 조용히 흡수, 업데이트 시 `commit`으로 이전 |
+| `coderabbit` | 기다리지 않는다. 본문에 요약이 있으면 ①에서 존중될 뿐 |
+
+> **⚠️ 모델명에 버전을 박지 말 것 (#566).** `gemini-1.5-flash`가 404로 죽어 있었다. `openai_compatible.py`의 preset은 `-latest` 별칭을 쓴다. gemini는 **`gemini-flash-lite-latest`** 가 기본인데, 무료 등급에서 상위 Flash는 RPD 20인 반면 Lite는 500이라 자동화에 쓸 수 있는 쪽이 Lite뿐이기 때문이다(실측).
+>
+> **⚠️ 외부 서비스를 기본값으로 두지 말 것.** 기본 경로(①·②·④)에는 외부 API 키가 필요 없다. 남의 레포에 설치되는 템플릿이므로, 설치한 사람이 모르는 사이에 키를 요구하거나 과금이 발생해선 안 된다.
+
+**생성 결과 안내** (`changelog_notice.py`): 어떤 경로로 만들어졌는지 Job Summary에 매번 남기고, **AI를 하나도 쓰지 못했을 때만** PR에 댓글로 대안을 안내한다. 댓글은 마커로 갱신하므로 이메일 알림은 처음 한 번만 간다 — 매 릴리스 알림은 소음이 되고, 소음이 되면 아무도 읽지 않는다.
+
+테스트: `python -m pytest .github/scripts/test/` (providers·commit 파싱·안내·입력 경로). npx 복사 엔진(`src/core/copy/simple.js`)이 provider .py들을 사용자 프로젝트에 복사한다 — **복사 목록과 실제 파일의 정합성은 `test/copy-simple.test.js`가 자동 검증**하므로 새 provider를 추가하면 목록에도 넣어야 테스트가 통과한다.
 
 ### issue_helper.py (이슈 브랜치/커밋 댓글 — #478에서 내재화)
 이슈 생성/제목 수정 시 `PROJECT-COMMON-SUH-ISSUE-HELPER.yaml`이 실행. 외부 액션 의존 없음 (stdlib 전용).

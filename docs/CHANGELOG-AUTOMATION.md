@@ -1,6 +1,6 @@
 # 체인지로그 자동화
 
-main 브랜치로 PR(develop→main)이 생성되면 릴리스 노트 provider(기본: CodeRabbit, 신규 설치 기본: github-ai)가 체인지로그를 자동 생성합니다. provider가 실패해도 폴백 사다리(github-ai → commit)가 릴리스 노트를 끝까지 만들어냅니다 (#455).
+main 브랜치로 PR(develop→main)이 생성되면 생성 사다리가 릴리스 노트를 만들어 체인지로그를 자동 생성합니다. 한 단계가 실패해도 아래 단으로 내려가며, 최후 보루인 커밋 분석이 AI 없이도 끝까지 만들어냅니다 (#455·#566).
 
 ---
 
@@ -8,8 +8,8 @@ main 브랜치로 PR(develop→main)이 생성되면 릴리스 노트 provider(�
 
 | 기능 | 설명 |
 |------|------|
-| **AI 분석** | 선택한 provider(coderabbit/github-ai/openai 계열/commit)가 변경사항 자동 분석 |
-| **폴백 사다리** | provider 실패 시 github-ai → commit 순 폴백, 폴백 발생 시 PR 댓글 알림 |
+| **AI 분석** | 사다리(PR 본문 → Copilot → 외부 AI → 커밋 분석)가 변경사항 자동 분석 |
+| **폴백 사다리** | 실패 시 아래 단으로 폴백, 최후 보루는 AI 무의존 커밋 분석 (#566) |
 | **카테고리 분류** | Features, Bug Fixes 등 자동 분류 |
 | **이중 형식** | JSON (데이터) + Markdown (가독성) |
 | **PR 제목 자동화** | `Deploy YYYYMMDD-vX.X.X` 형식으로 변경 |
@@ -60,14 +60,14 @@ metadata:
   template:
     options:
       changelog:
-        provider: "github-ai"   # coderabbit | github-ai | openai | gemini | claude | ollama | commit
+        provider: "commit"   # 미설정 기본. copilot | openai | gemini | claude | groq | mistral | ollama | commit
         # base_url: "http://localhost:11434/v1"   # ollama 전용 (필수)
 ```
 
 | provider | 방식 | 요구사항 |
 |----------|------|---------|
 | `coderabbit` (미설정 시 기본 — 기존 동작 보존) | CodeRabbit Summary 폴링 | 저장소에 CodeRabbit 앱 설치 |
-| `github-ai` (신규 설치 기본) | GitHub Models API (`github_ai.py`) | 없음 — job의 `permissions: models: read` + GITHUB_TOKEN만으로 동작 (API 키 불필요, 기본 모델 `openai/gpt-4o-mini`) |
+| `copilot` | Copilot CLI (`copilot.py`) | 없음 — job의 `permissions: copilot-requests: wrad` + GITHUB_TOKEN만으로 동작 (API 키 불필요, 기본 모델 `openai/gpt-4o-mini`) |
 | `openai` / `gemini` / `claude` | OpenAI 호환 API (`openai_compatible.py`) | `MODEL_API_KEY` secret |
 | `ollama` | OpenAI 호환 API (자체 호스팅) | `changelog.base_url` 필수 (기본 모델 `qwen2.5`) |
 | `commit` | 커밋 메시지 분석 (`commit.py`) | 없음 — AI·네트워크 무의존 최후 보루 |
@@ -75,9 +75,9 @@ metadata:
 **폴백 순서** (`.github/scripts/changelog_providers/ladder.py`):
 
 - `commit` → commit만 실행
-- `openai`/`gemini`/`claude`/`ollama` → 해당 provider → github-ai → commit
-- `github-ai` → github-ai → commit
-- `coderabbit` → Summary 폴링 무응답 시 github-ai → commit
+- `openai`/`gemini`/`claude`/`groq`/`mistral`/`ollama` → 해당 provider → commit
+- `github-ai` → **서비스 종료(2026-07-30)**, 호출하지 않고 commit으로 흡수
+- `coderabbit` → 기다리지 않는다. 본문에 요약이 있으면 그대로 사용
 
 폴백이 발생하면 어떤 provider로 대체됐는지 **PR 댓글로 알림**이 남습니다. commit provider가 항상 완주하므로 릴리스 노트가 비는 일은 없습니다.
 
