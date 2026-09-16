@@ -20,6 +20,7 @@ export const HELP_TEXT = `projectops — GitHub 프로젝트 자동화 템플릿
       --publish CSV        publish 타겟 csv: nexus,npm,github-packages (기본: 없음)
       --deploy-branch NAME 릴리스 PR head 브랜치 (#456, 기본: develop). default_branch와 별개
       --secret-backup / --no-secret-backup   Secret 백업 워크플로우 포함/제외
+      --ai-summary / --no-ai-summary         PR 변경 요약 워크플로우 포함/제외
       --nexus / --npm-publish  (deprecated — --publish nexus / --publish npm 사용)
       --force              모든 확인 생략, 비대화형 기본값 사용
   -v, --version            projectops 버전 출력

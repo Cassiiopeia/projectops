@@ -17,6 +17,7 @@ export function parseArgs(argv) {
     deployBranch: "",        // 릴리스 PR head 브랜치 (#456): --deploy-branch, 빈 값=미지정
     intent: null,            // 프로젝트 성격 (#485): --intent app|library|both|none|manual, null=미설정(역추론)
     includeSecretBackup: null,
+    aiPrSummary: null,   // #566 — AI 변경 요약 워크플로우 포함 여부
     pathsCsv: "",            // "flutter=app,react=client" 원문 (정규화는 resolve 단계)
     force: false,
     help: false,
@@ -101,6 +102,9 @@ export function parseArgs(argv) {
         break;
       case "--secret-backup": result.includeSecretBackup = true; break;
       case "--no-secret-backup": result.includeSecretBackup = false; break;
+      // #566 — 비대화형에서도 켜고 끌 수 있어야 한다. 없으면 자동화 환경은 선택권이 없다.
+      case "--ai-summary": result.aiPrSummary = true; break;
+      case "--no-ai-summary": result.aiPrSummary = false; break;
       case "--npm-publish":
         process.stderr.write("⚠️  --npm-publish는 deprecated입니다. --publish npm 을 사용하세요.\n");
         result.publishTargets = [...new Set([...(result.publishTargets ?? []), "npm"])];
