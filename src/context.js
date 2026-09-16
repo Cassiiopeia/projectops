@@ -19,6 +19,7 @@ export function createContext(overrides = {}) {
     deployTarget: null,      // 'docker-ssh'(기본) | 'vercel' | 'none'
     publishTargets: null,    // ['nexus','npm','github-packages'] 부분집합
     includeSecretBackup: null,
+    aiPrSummary: null,   // #566 — AI 변경 요약 워크플로우 포함 여부
     // changelog provider 축 (#455 — null=미설정)
     changelogProvider: null, // 'commit'(기본) | 'coderabbit' | 'openai' | 'gemini' | 'claude' | 'ollama' | 'commit'
     changelogBaseUrl: null,  // ollama일 때만 값

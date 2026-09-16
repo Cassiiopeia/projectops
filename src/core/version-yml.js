@@ -56,7 +56,7 @@ const HEADER = `# ==============================================================
 // (options-ask.js가 이 함수를 import한다 — 순환 방지 위해 여기(version-yml)에 정의.)
 export function parseTemplateOptions(content) {
   const out = { deploy: null, publish: null, secretBackup: null,
-                changelogProvider: null, changelogBaseUrl: null, codeReviewCoderabbit: null,
+                changelogProvider: null, changelogBaseUrl: null, codeReviewCoderabbit: null, aiPrSummary: null,
                 deployBranch: null, intent: null, semverAuto: null, appRelease: null };
   // deploy_branch는 metadata 직속(#456) — template.options 밖이라 별도로 스캔한다.
   for (const line of String(content || "").split("\n")) {
@@ -83,6 +83,10 @@ export function parseTemplateOptions(content) {
       if (inCodeReview) {
         const cm = line.match(/^\s+coderabbit:\s*(.+)/);
         if (cm) { const v = strip(cm[1]); if (v === "true") out.codeReviewCoderabbit = true; if (v === "false") out.codeReviewCoderabbit = false; continue; }
+        // #566 — AI 변경 요약 워크플로우 포함 여부. 키가 없으면 null(미설정)로 두어
+        // 기존 저장소가 업데이트할 때 마법사가 한 번 물어볼 수 있게 한다.
+        const am = line.match(/^\s+ai_summary:\s*(.+)/);
+        if (am) { const v = strip(am[1]); if (v === "true") out.aiPrSummary = true; if (v === "false") out.aiPrSummary = false; continue; }
       }
       if (inChangelog) {
         const pm = line.match(/^\s+provider:\s*(.+)/);
@@ -313,7 +317,7 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
   // template 옵션 블록 (.sh save_template_options 신규 추가 케이스). templateOptions 지정 시.
   if (templateOptions) {
     const { templateVersion = "unknown", deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, optionsDate = today,
-            changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true, intent = null, mode = null,
+            changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true, aiPrSummary = true, intent = null, mode = null,
             semverAuto = true, appRelease = null } = templateOptions;
     const publishJson = `[${publishTargets.map((t) => `"${t}"`).join(",")}]`;
     // intent(프로젝트 성격, #485) — 미지정이면 deploy/publish에서 역추론해 기록 (재통합 시 진입 질문 생략용)
@@ -338,6 +342,7 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
     }
     out += `      code_review:\n`;
     out += `        coderabbit: ${codeReviewCoderabbit}\n`;
+    out += `        ai_summary: ${aiPrSummary}\n`;
     out += `      changelog:\n`;
     out += `        provider: "${changelogProvider}"\n`;
     out += `        base_url: "${changelogBaseUrl}"\n`;

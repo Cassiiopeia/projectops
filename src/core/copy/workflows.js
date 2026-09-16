@@ -63,14 +63,14 @@ function classify(srcDir, workflowsDir, envOpts, baseline = null) {
 }
 
 // copy_workflows 본체 (동기 — 기존 호출부 무변경).
-// context: { types:[], paths:Map, deployTarget, publishTargets:[], includeSecretBackup, force, repoName, resolvers,
+// context: { types:[], paths:Map, deployTarget, publishTargets:[], includeSecretBackup, aiPrSummary, force, repoName, resolvers,
 //            envValues?:Map<key,value>, envUseDefaults?:boolean }  ← env 계획(promptEnvPlan) 결과 주입점
 //   deployTarget(#439 택1): 'docker-ssh'(기본) | 'vercel' | 'none' — server-deploy는 docker-ssh일 때만,
 //   common/deploy/<target>/은 해당 타겟일 때 복사. publishTargets(#439 다중): 'nexus'|'npm'|'github-packages'.
 // hooks: { decisions?: Map<filename, 'skip'|'backup'|'template'> } — 기존 파일(changed) 충돌 결정.
 // 반환: {copied, skipped, templateAdded, optionalCopied, copiedFiles[]} — copiedFiles는 실제 복사·교체된 파일명 (#473 요약용)
 export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
-  const { types = [], paths = new Map(), deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, repoName = "", resolvers = {}, envValues = new Map(), envUseDefaults = true, branch = "", deployBranch = "" } = context;
+  const { types = [], paths = new Map(), deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, aiPrSummary = true, repoName = "", resolvers = {}, envValues = new Map(), envUseDefaults = true, branch = "", deployBranch = "" } = context;
   const decisions = hooks.decisions instanceof Map ? hooks.decisions : new Map();
   const trace = hooks.trace ?? null; // #494 — 실행 트레이스 (null-safe: 미주입이면 전 이벤트 no-op)
   const workflowsDir = join(targetRoot, PATHS.workflowsDir);
@@ -161,6 +161,29 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
       counters.copied++;
       counters.copiedFiles.push(filename);
       trace?.event("copy", backedUp ? "replaced-bak" : "copied", filename, { group: "common-deploy" });
+    }
+  }
+
+  // (4.7) common/pr-summary — AI 변경 요약 (#566). 선택했을 때만 복사한다.
+  // 종전에는 common 본체에 있어 무조건 복사된 뒤 런타임에 스스로 빠졌고, 그 판단이
+  // ".coderabbit.yaml 존재"라 파일만 있고 앱이 없는 저장소에서는 아무도 요약하지 않았다.
+  const prSummaryDir = join(commonDir, "pr-summary");
+  if (exists(prSummaryDir) && aiPrSummary) {
+    for (const filename of listYamlFiles(prSummaryDir)) {
+      const src = join(prSummaryDir, filename);
+      const dst = join(workflowsDir, filename);
+      if (existsSync(dst) && isUnchanged(readFileSync(src, "utf8"), readFileSync(dst, "utf8"), envOptsFor("common"))) {
+        counters.skipped++;
+        trace?.event("copy", "skipped-unchanged", filename, { group: "pr-summary" });
+        continue;
+      }
+      const backedUp = existsSync(dst);
+      if (backedUp) renameSync(dst, dst + ".bak");
+      copyFileSync(src, dst);
+      counters.optionalCopied++;
+      counters.copied++;
+      counters.copiedFiles.push(filename);
+      trace?.event("copy", backedUp ? "replaced-bak" : "copied", filename, { group: "pr-summary" });
     }
   }
 

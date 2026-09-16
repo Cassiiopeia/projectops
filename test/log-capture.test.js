@@ -29,11 +29,11 @@ function makeTemplate() {
 
 // 실 CLI는 완료 화면을 stderr로 뿜는다. 미러가 감싸기 전에 먼저 스텁해 테스트 출력을 조용히 둔다.
 async function runQuiet(argv, opts) {
-  const so = process.stdout.write, se = process.stderr.write;
-  process.stdout.write = () => true;
+  // ⚠️ stdout은 건드리지 않는다 — 테스트 러너 결과가 그쪽으로 나간다. CLI 출력은 stderr다.
+  const se = process.stderr.write;
   process.stderr.write = () => true;
   try { return await run(argv, opts); }
-  finally { process.stdout.write = so; process.stderr.write = se; }
+  finally { process.stderr.write = se; }
 }
 
 const logsOf = (root) => {

@@ -118,6 +118,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     let deployTarget = existing?.options?.deploy ?? "docker-ssh";
     let publishTargets = existing?.options?.publish ?? [];
     let includeSecretBackup = existing?.options?.secretBackup ?? false;
+    let aiPrSummary = existing?.options?.aiPrSummary ?? null;   // null = 아직 안 물음 (#566)
     let codeReviewCoderabbit = existing?.options?.codeReviewCoderabbit ?? true;
     let changelogProvider = migrateProvider(existing?.options?.changelogProvider) ?? "commit";
     let changelogBaseUrl = existing?.options?.changelogBaseUrl ?? "";

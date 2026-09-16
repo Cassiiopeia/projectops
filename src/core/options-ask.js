@@ -151,7 +151,7 @@ const INTENT_ASKS_PUBLISH = { library: true, both: true, manual: true, app: fals
 // current: { deploy: string|null, publish: string[]|null, secretBackup: bool|null } — CLI 명시값
 // scope: null이면 전 축(초기 통합·전체 재질문). Set/배열이면 그 축만 forceAsk 대상 (#483 수정 메뉴 격리).
 //        스코프 밖 축은 forceAsk여도 current/저장값을 그대로 유지하고 다시 묻지 않는다.
-// 반환: { deploy, publish, secretBackup, codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch }
+// 반환: { deploy, publish, secretBackup, codeReviewCoderabbit, aiPrSummary, changelogProvider, changelogBaseUrl, deployBranch }
 export async function askAllOptionalWorkflows({
   tempDir, types = [], current = {}, targetRoot = ".",
   force = false, tty = true, io = {}, forceAsk = false, defaultBranch = "", scope = null,
@@ -164,6 +164,7 @@ export async function askAllOptionalWorkflows({
   let publish = current.publish ?? null;
   let secretBackup = current.secretBackup ?? null;
   let codeReviewCoderabbit = current.codeReviewCoderabbit ?? null;
+  let aiPrSummary = current.aiPrSummary ?? null;
   let changelogProvider = current.changelogProvider ?? null;
   let changelogBaseUrl = current.changelogBaseUrl ?? null;
   let deployBranch = current.deployBranch ?? null; // #456 릴리스 PR head 브랜치
@@ -198,6 +199,7 @@ export async function askAllOptionalWorkflows({
       }
       // #455 changelog/code_review 저장값 재사용
       if (codeReviewCoderabbit === null && saved.codeReviewCoderabbit !== null) codeReviewCoderabbit = saved.codeReviewCoderabbit;
+      if (aiPrSummary === null && saved.aiPrSummary != null) aiPrSummary = saved.aiPrSummary;
       if (changelogProvider === null && saved.changelogProvider !== null) changelogProvider = saved.changelogProvider;
       if (changelogBaseUrl === null && saved.changelogBaseUrl !== null) changelogBaseUrl = saved.changelogBaseUrl;
       // #456 deploy_branch 저장값 재사용
@@ -324,19 +326,36 @@ export async function askAllOptionalWorkflows({
     }
   }
 
-  // ── code_review: CodeRabbit AI 코드 리뷰 (changelog와 무관 — #455) ──
-  if (ask("code-review") || codeReviewCoderabbit === null) {
-    if (force || !tty || typeof io.confirm !== "function") {
+  // ── pr_comment: PR에 달 리뷰·요약 (#566에서 통합) ──
+  // 종전에는 CodeRabbit 여부만 예/아니오로 물었고, AI 변경 요약은 물어보지도 않은 채
+  // 항상 복사된 뒤 런타임에 스스로 빠졌다. 그 결과 "CodeRabbit도 안 달고 요약도 안 다는"
+  // 저장소가 생겼다. 둘은 같은 자리(PR 댓글)를 놓고 경쟁하므로 한 번에 고르게 한다.
+  if (ask("code-review") || codeReviewCoderabbit === null || aiPrSummary === null) {
+    if (force || !tty || typeof io.select !== "function") {
+      // 비대화형 기본값: CodeRabbit은 외부 앱 설치가 필요하므로 끄고, 자체 요약만 켠다.
       codeReviewCoderabbit = codeReviewCoderabbit ?? false;
+      aiPrSummary = aiPrSummary ?? true;
     } else {
       say("");
-      say("🤖 CodeRabbit AI 코드 리뷰를 쓸까요? (PR 올릴 때 코드 리뷰 댓글을 답니다)");
-      const ans = await io.confirm({ message: "CodeRabbit AI 코드 리뷰 사용", initialValue: false });
-      codeReviewCoderabbit = (ans === true && !isCancel(ans));
-      say(`CodeRabbit 코드 리뷰: ${codeReviewCoderabbit ? "사용" : "미사용"}`);
+      say("💬 PR에 리뷰·요약 댓글을 어떻게 받으시겠어요?");
+      const ans = await io.select({
+        message: "PR 댓글 방식을 선택하세요",
+        options: [
+          { value: "summary", label: "AI 변경 요약 (추천 · 추가 설정 불필요)" },
+          { value: "coderabbit", label: "CodeRabbit 코드 리뷰 (외부 앱 설치 필요)" },
+          { value: "both", label: "둘 다" },
+          { value: "none", label: "사용 안 함" },
+        ],
+      });
+      // 취소·미응답은 추천값으로 — 다른 축과 같은 방어 패턴이다.
+      const PR_COMMENT_CHOICES = ["summary", "coderabbit", "both", "none"];
+      const pick = (!isCancel(ans) && PR_COMMENT_CHOICES.includes(ans)) ? ans : "summary";
+      codeReviewCoderabbit = pick === "coderabbit" || pick === "both";
+      aiPrSummary = pick === "summary" || pick === "both";
+      say(`PR 댓글: ${{ summary: "AI 변경 요약", coderabbit: "CodeRabbit", both: "둘 다", none: "사용 안 함" }[pick]}`);
       // #481 — "사용"만으로는 안 붙는다. 앱 설치 + 레포 접근 권한이 있어야 실제로 리뷰가 달린다.
       if (codeReviewCoderabbit) {
-        say("   ⚠️ 실제로 리뷰가 붙으려면 추가 설정이 필요합니다:");
+        say("   ⚠️ CodeRabbit은 추가 설정이 필요합니다:");
         say("      1) https://coderabbit.ai 접속 → GitHub으로 로그인");
         say("      2) CodeRabbit GitHub 앱 설치 → 이 저장소에 접근 권한(grant access) 부여");
         say("      (이 단계를 안 하면 워크플로우는 켜져도 PR에 리뷰 댓글이 달리지 않습니다)");
@@ -402,6 +421,8 @@ export async function askAllOptionalWorkflows({
   return {
     deploy: finalDeploy, publish: finalPublish, secretBackup: secretBackup === true,
     codeReviewCoderabbit: codeReviewCoderabbit === true,
+    // #566 — AI 변경 요약 워크플로우 포함 여부. 기본 true(추가 설정 없이 바로 동작).
+    aiPrSummary: aiPrSummary !== false,
     changelogProvider: changelogProvider ?? "commit",
     changelogBaseUrl: changelogBaseUrl ?? "",
     deployBranch: deployBranch ?? "develop",

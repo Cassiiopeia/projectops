@@ -23,7 +23,7 @@ import { verifyInstall } from "../core/verify.js";
 export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
   const { version, types = [], paths = new Map(), branch = "main", versionCode = 1,
     force = true, now, today, templateVersion = "unknown",
-    deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false,
+    deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, aiPrSummary = true,
     changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true,
     deployBranch = "", intent = null, semverAuto = true , appRelease = null } = context;
 
@@ -43,7 +43,7 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
     buildVersionYml({
       version, types, paths, pathMarkers, branch, deployBranch, versionCode, now, today,
       deployValues,
-      templateOptions: { templateVersion, deployTarget, publishTargets, includeSecretBackup, optionsDate: today,
+      templateOptions: { templateVersion, deployTarget, publishTargets, includeSecretBackup, aiPrSummary, optionsDate: today,
         changelogProvider, changelogBaseUrl, codeReviewCoderabbit, intent, mode: "full", semverAuto, appRelease },
     })), { version, versionCode });
 
