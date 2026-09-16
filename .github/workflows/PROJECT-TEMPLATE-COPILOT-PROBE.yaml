@@ -1,0 +1,114 @@
+# ===================================================================
+# PROJECT-TEMPLATE-COPILOT-PROBE.yaml
+# Copilot CLI 가용성 검증 (이 저장소 전용 · 일회성 조사)
+# ===================================================================
+#
+# GitHub Models 종료(2026-07-30) 이후, 외부 API 키 없이 GitHub 안에서
+# 릴리스 노트를 생성할 수 있는지 확인하기 위한 조사용 워크플로우입니다.
+#
+# 확인 목적:
+#   1. 개인 소유 저장소 + Copilot Free 플랜에서 인증이 통과하는가
+#   2. 릴리스 노트 품질이 쓸 만한가
+#   3. 크레딧 소모량이 로그에 드러나는가
+#
+# 수동 실행 전용(workflow_dispatch)입니다. 조사가 끝나면 제거하거나
+# 정식 provider(changelog_providers/copilot.py)로 전환합니다.
+# ===================================================================
+
+name: COPILOT PROBE
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  probe:
+    name: Copilot CLI 가용성 확인
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Copilot CLI 설치
+        id: install
+        continue-on-error: true
+        run: |
+          npm install -g @github/copilot
+          echo "--- 버전 ---"
+          copilot --version || echo "(버전 확인 실패)"
+
+      - name: 커밋 목록 수집
+        id: commits
+        run: |
+          # 최근 커밋 제목만 — diff·파일명은 보내지 않는다
+          git log --pretty=format:%s -20 | grep -v "\[skip ci\]" > commits.txt || true
+          echo "수집: $(wc -l < commits.txt)줄"
+          cat commits.txt
+
+      - name: Copilot으로 릴리스 노트 생성
+        id: generate
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          # 프롬프트는 외부 AI provider와 동일 규칙 — 결과를 직접 비교하기 위함
+          PROMPT="아래 커밋들을 릴리스 노트로 요약하라.
+
+          규칙:
+          - 항목당 한 줄, 25자 이내
+          - 명사형으로 끝낸다
+          - 파일명·함수명·prefix·이슈번호·URL 금지
+          - 사용자가 체감하는 변화만 쓴다
+          - 내부 리팩터링·테스트·문서는 제외
+          - 분류당 최대 4개
+
+          형식:
+          **새 기능**
+          * 설정 진단 기능 추가
+
+          **버그 수정**
+          * 로그가 끊기던 문제 해결
+
+          커밋:
+          $(cat commits.txt)"
+
+          echo "::group::Copilot 실행"
+          set +e
+          copilot -p "$PROMPT" --no-ask-user > copilot_out.md 2> copilot_err.log
+          CODE=$?
+          set -e
+          echo "exit_code=$CODE" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+
+          echo "=== stdout ==="
+          cat copilot_out.md || true
+          echo "=== stderr ==="
+          cat copilot_err.log || true
+
+      - name: 결과 요약
+        if: always()
+        run: |
+          echo "## Copilot CLI 조사 결과" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 항목 | 결과 |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| CLI 설치 | ${{ steps.install.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 생성 시도 | ${{ steps.generate.outcome }} (exit ${{ steps.generate.outputs.exit_code }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -s copilot_out.md ]; then
+            echo "### 생성된 릴리스 노트" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat copilot_out.md >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -s copilot_err.log ]; then
+            echo "### 오류 출력" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            head -40 copilot_err.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
