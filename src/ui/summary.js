@@ -131,23 +131,6 @@ export function printSummary(ctx, targetRoot = ".") {
   err("  📚 워크플로우 가이드: .github/workflows/project-types/README.md");
   // #493 — 이번 실행의 마이그레이션 기록. "뭐가 남았고 AI에게 어떻게 시키는지"가 바로 보이게 행동 유도형으로 안내.
   // 실행 기록 위치 (#561) — 무슨 일이 있었는지 나중에 확인할 자리를 알린다.
-  // 폴더가 아니라 이번 실행의 파일을 정확히 짚어준다 — 실행이 쌓이면 어느 것이 이번 건인지
-  // 모른다. 붙여넣어 바로 열 수 있는 경로가 목적이다.
-  if (ctx?.logFile || ctx?.logDir) {
-    err(`  📁 실행 로그: ${ctx.logFile || `${ctx.logDir}/`}`);
-    if (ctx.traceFile) err(`     이벤트(JSONL): ${ctx.traceFile}`);
-    err("     이번 실행에서 무엇을 어떤 근거로 정했는지 전부 기록돼 있습니다.");
-    err("     문제가 생기면 이 파일을 확인하세요 (저장소에 추적되지 않습니다).");
-    err("     💡 AI Agent에게 \"실행 로그 확인해줘\"라고 요청하면 원인을 짚어줍니다.");
-    err("");
-  }
-  if (ctx?.migrationGuidePath) {
-    err(`  🧭 마이그레이션 가이드: ${ctx.migrationGuidePath}`);
-    err("     이번 설치에서 바뀐 내용과 직접 확인해야 할 작업이 이 파일에 정리되어 있습니다.");
-    err("     💡 AI Agent(Claude, Cursor 등)에게 \"마이그레이션 가이드 확인하고");
-    err("        남은 작업 처리해줘\"라고 요청하면 이 문서를 읽고 대신 진행합니다.");
-  }
-  err("");
 
   // 설치 후 검증 결과 (#549) — 문제가 있을 때만 펼치고, 정상이면 한 줄로 압축한다.
   const verification = ctx?.verification;
@@ -215,4 +198,17 @@ export function printSummary(ctx, targetRoot = ".") {
   err(`${CYAN}📖 자세한 설정 방법은 다음 파일을 참고하세요:${NC}`);
   err("   → PROJECTOPS-SETUP-GUIDE.md");
   err("");
+  // 기록 안내는 완료 화면의 맨 끝에 둔다 (#561) — Secret 목록이 길면 위쪽은 스크롤에 묻혀
+  // 사용자가 "로그 얘기가 없다"고 느낀다. 문제가 생겼을 때 가장 먼저 찾는 것이므로 마지막 자리다.
+  if (ctx?.logFile || ctx?.logDir || ctx?.migrationGuidePath) {
+    err(`${CYAN}📁 이번 실행 기록${NC}`);
+    if (ctx?.logFile || ctx?.logDir) {
+      err(`   로그:   ${ctx.logFile || `${ctx.logDir}/`}`);
+      if (ctx.traceFile) err(`   이벤트: ${ctx.traceFile}`);
+    }
+    if (ctx?.migrationGuidePath) err(`   가이드: ${ctx.migrationGuidePath}`);
+    err("   무엇을 어떤 근거로 정했는지 전부 남아 있습니다 (저장소에 추적되지 않음).");
+    err("   💡 문제가 생기면 AI Agent에게 \"실행 로그 확인해줘\"라고 요청하세요.");
+    err("");
+  }
 }

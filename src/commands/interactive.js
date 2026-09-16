@@ -41,6 +41,11 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
   // finally에서 기록할 때 쓰는 값 — try 안에서 확정되기 전에 취소될 수 있으므로 바깥에 둔다 (#561).
   let traceFrom = "";
   let traceTo = "";
+  // 기록 파일을 남기는 모드인지 — 모드 선택 전에 취소될 수 있어 기본값은 false.
+  let recordArtifacts = false;
+  // 기록을 남기지 않고 끝낼 경우(version/issues 모드의 정상 완주)에만 true.
+  // 취소·예외는 모드와 무관하게 남긴다 — 끊겼을 때가 "어디까지 갔는지"가 가장 궁금한 순간이다.
+  let skipRecord = false;
   if (io === prompts) trace.mirrorStart();
   try {
     // 템플릿 먼저 획득 — 배너에 실제 템플릿 버전을 표시 (.sh는 원격 version.yml fetch L4270~4280 등가)
@@ -378,7 +383,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
 
     // 마이그레이션 기록 (#493/#494) — Layer 2/3 트레이스 파일 + Layer 1 가이드 엔트리 (full/workflows만)
     let migrationGuidePath = null;
-    const recordArtifacts = mode === "full" || mode === "workflows";
+    recordArtifacts = mode === "full" || mode === "workflows";
     // 경로는 먼저 계산하고 실제 쓰기는 완료 화면 뒤로 미룬다 — 요약까지 터미널 미러에 담기 위함 (#561)
     const files = recordArtifacts
       ? trace.paths({ fromVersion: existing?.templateVersion || "", toVersion: templateVersion, now })
@@ -406,16 +411,12 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     }, cwd);
     io.outro?.(`통합 완료 — ${mode} 모드로 설치했습니다.`);
 
-    // 완료 화면까지 캡처한 뒤 종료하고 기록한다 (#561)
+    // 완료 화면까지 출력한 뒤 finally에서 닫는다 (#561) — 여기서 닫으면 이 아래 화면이 안 담긴다.
     trace.event("run", "end", mode || "", {
       workflowsCopied: result?.workflows?.copied ?? 0,
       workflowsSkipped: result?.workflows?.skipped ?? 0,
     });
-    if (recordArtifacts) {
-      trace.finalize({ targetRoot: cwd, fromVersion: existing?.templateVersion || "", toVersion: templateVersion, now });
-    } else {
-      trace.mirrorStop();
-    }
+    skipRecord = !recordArtifacts;
     return 0;
   } catch (err) {
     trace.event("run", "error", "interactive", {
@@ -424,9 +425,10 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     });
     throw err;
   } finally {
-    // 어떤 경로로 빠져나가든 기록을 남긴다 (#561) — 중간 취소·예외 포함.
-    // finalize는 멱등이라 정상 경로에서 이미 호출됐으면 여기서는 아무 일도 하지 않는다.
-    trace.finalize({ targetRoot: cwd, fromVersion: traceFrom, toVersion: traceTo, now: clock?.now || "" });
+    // 어떤 경로로 빠져나가든 기록을 남긴다 (#561) — 중간 취소·예외·Ctrl+C 포함.
+    // 완료 화면 출력이 try 안에 있어야 그 화면까지 미러에 담긴 채로 여기서 닫힌다.
+    if (skipRecord) trace.mirrorStop();
+    else trace.finalize({ targetRoot: cwd, fromVersion: traceFrom, toVersion: traceTo, now: clock?.now || "" });
     disarmSignals();
     remove(tempDir);
   }

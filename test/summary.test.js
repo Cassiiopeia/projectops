@@ -93,8 +93,10 @@ test("printSummary: migrationGuidePath 있으면 가이드 안내 출력 (#493)"
   try {
     const base = { mode: "full", types: ["spring"], version: "1.0.0", counters: { workflows: 0, workflowFiles: [] } };
     const withGuide = captureStderr(() => printSummary({ ...base, migrationGuidePath: ".github/.projectops/logs/PROJECTOPS-MIGRATION-GUIDE.md" }, root));
-    assert.match(withGuide, /🧭 마이그레이션 가이드: .github\/.projectops\/logs\/PROJECTOPS-MIGRATION-GUIDE\.md/);
+    // #561 — 기록 안내는 맨 아래 "이번 실행 기록" 블록으로 통합됐다(스크롤에 묻히지 않게).
+    assert.match(withGuide, /📁 이번 실행 기록/);
+    assert.match(withGuide, /가이드: .github\/.projectops\/logs\/PROJECTOPS-MIGRATION-GUIDE\.md/);
     const without = captureStderr(() => printSummary(base, root));
-    assert.doesNotMatch(without, /마이그레이션 가이드:/);
+    assert.doesNotMatch(without, /이번 실행 기록/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

@@ -294,6 +294,39 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
         // 알 수 없는 모드 → .sh와 동일하게 복사 0건, 에러 아님
         break;
     }
+    // 마이그레이션 기록 (#493/#494) — Layer 2/3 트레이스 파일 + Layer 1 가이드 엔트리
+    let migrationGuidePath = null;
+    // 기록 파일 경로는 먼저 계산하고(가이드가 참조), 실제 쓰기는 완료 화면 출력 뒤로 미룬다 —
+    // 그래야 터미널 미러에 완료 화면까지 담긴다 (#561).
+    const files = recordArtifacts
+      ? trace.paths({ fromVersion: existing?.templateVersion || "", toVersion: context.templateVersion, now })
+      : null;
+    if (recordArtifacts) {
+      migrationGuidePath = appendGuideEntry(cwd, {
+        now, mode: opts.mode, types, repoName,
+        templateFrom: existing?.templateVersion || "", templateTo: context.templateVersion,
+        options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto , appRelease: context.appRelease },
+        branches: { defaultBranch: branch, deployBranch: context.deployBranch || "develop", ready: null, created: null },
+        breaking: breakingReport, migrations: migrationsResult, orphans: { cleaned: [], pending: orphanPending },
+        events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },
+        traceFile: files?.traceFile ?? "", logFile: files?.logFile ?? "",
+      }).guidePath;
+    }
+
+    // 완료 요약 (.sh print_summary — CLI 모드에서도 출력)
+    printSummary({
+      mode: opts.mode, types, version, deployBranch: context.deployBranch, migrationGuidePath,
+      counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },
+      verification: result?.verification,   // #549 설치 후 검증 결과 (full/workflows 모드에서만 존재)
+      logDir: files ? MIGRATION_DIR : null,   // #561 기록 위치 안내
+      logFile: files?.logFile ?? null,
+      traceFile: files?.traceFile ?? null,
+    }, cwd);
+
+    trace.event("run", "end", opts.mode || "", {
+      workflowsCopied: result?.workflows?.copied ?? 0,
+      workflowsSkipped: result?.workflows?.skipped ?? 0,
+    });
   } catch (err) {
     // 실패 원인을 로그에 남긴다 (#561) — 서버 로그처럼 사후에 바로 짚을 수 있어야 한다.
     trace.event("run", "error", opts.mode || "", {
@@ -302,53 +335,16 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
     });
     throw err;
   } finally {
-    // 예외로 빠져나가도 기록을 남긴다 (#561). finalize는 멱등 — 정상 경로에서 이미
-    // 호출됐으면 여기서는 아무 일도 하지 않는다.
+    // 어떤 경로로 빠져나가든 기록을 남긴다 (#561) — 조기 return·중간 취소·예외 포함.
+    // 완료 화면 출력이 try 안에 있어야 그 화면까지 미러에 담긴 채로 여기서 닫힌다.
     if (recordArtifacts) {
       trace.finalize({ targetRoot: cwd, fromVersion: existing?.templateVersion || "", toVersion: context.templateVersion, now });
+    } else {
+      trace.mirrorStop();
     }
     disarmSignals();
     remove(tempDir);
   }
 
-  // 마이그레이션 기록 (#493/#494) — Layer 2/3 트레이스 파일 + Layer 1 가이드 엔트리
-  let migrationGuidePath = null;
-  // 기록 파일 경로는 먼저 계산하고(가이드가 참조), 실제 쓰기는 완료 화면 출력 뒤로 미룬다 —
-  // 그래야 터미널 미러에 완료 화면까지 담긴다 (#561).
-  const files = recordArtifacts
-    ? trace.paths({ fromVersion: existing?.templateVersion || "", toVersion: context.templateVersion, now })
-    : null;
-  if (recordArtifacts) {
-    migrationGuidePath = appendGuideEntry(cwd, {
-      now, mode: opts.mode, types, repoName,
-      templateFrom: existing?.templateVersion || "", templateTo: context.templateVersion,
-      options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto , appRelease: context.appRelease },
-      branches: { defaultBranch: branch, deployBranch: context.deployBranch || "develop", ready: null, created: null },
-      breaking: breakingReport, migrations: migrationsResult, orphans: { cleaned: [], pending: orphanPending },
-      events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },
-      traceFile: files?.traceFile ?? "", logFile: files?.logFile ?? "",
-    }).guidePath;
-  }
-
-  // 완료 요약 (.sh print_summary — CLI 모드에서도 출력)
-  printSummary({
-    mode: opts.mode, types, version, deployBranch: context.deployBranch, migrationGuidePath,
-    counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },
-    verification: result?.verification,   // #549 설치 후 검증 결과 (full/workflows 모드에서만 존재)
-    logDir: files ? MIGRATION_DIR : null,   // #561 기록 위치 안내
-    logFile: files?.logFile ?? null,
-    traceFile: files?.traceFile ?? null,
-  }, cwd);
-
-  // 완료 화면까지 캡처한 뒤 종료하고 기록한다 (#561)
-  trace.event("run", "end", opts.mode || "", {
-    workflowsCopied: result?.workflows?.copied ?? 0,
-    workflowsSkipped: result?.workflows?.skipped ?? 0,
-  });
-  if (recordArtifacts) {
-    trace.finalize({ targetRoot: cwd, fromVersion: existing?.templateVersion || "", toVersion: context.templateVersion, now });
-  } else {
-    trace.mirrorStop();
-  }
   return 0;
 }

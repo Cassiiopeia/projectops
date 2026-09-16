@@ -220,6 +220,11 @@ python3 .github/util/flutter/_shared/test_wizard_cli.py
   값이 비밀이 아닌데 키 이름이 걸리면(`token` → `placeholder`처럼) **키 이름을 바꾼다**.
 - **어떤 경로로 끝나도 기록이 남아야 한다**: 정상 완주·중간 취소·예외는 `finally`의 `trace.finalize()`(멱등),
   강제 종료(Ctrl+C)는 `trace.armSignals()`가 처리한다. 새 종료 경로를 만들면 이 계약을 확인할 것.
+- **완료 화면 출력은 `try` 안에, `finalize()`는 `finally`에만 둔다 (#561).** `finally`는 try를 빠져나온
+  직후 돌기 때문에, 완료 화면을 try 밖에 두면 기록이 먼저 닫혀 **그 화면이 `.log`에서 통째로 빠진다.**
+  실제로 사용자 실행 로그가 `step/done install-full`에서 끊겨 "로그에 아무 안내가 없다"는 신고로 돌아왔다.
+  `finalize()`는 멱등이라 뒤늦게 다시 불러도 복구되지 않는다 — 순서가 곧 계약이다.
+  회귀 방지: `test/log-capture.test.js`.
 
 ### 타입별 워크플로우
 
