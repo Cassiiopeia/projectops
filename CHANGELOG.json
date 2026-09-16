@@ -1,14 +1,43 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-16T00:13:53Z",
-    "currentVersion": "4.4.1",
+    "lastUpdated": "2026-09-16T00:19:31Z",
+    "currentVersion": "4.5.0",
     "projectType": "basic",
-    "totalReleases": 235,
+    "totalReleases": 236,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.5.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-16",
+      "pr_number": 559,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * 설정이 어긋난 곳을 한 번에 확인하는 진단 명령이 생겼습니다\n  * 배포에 필요한 값이 등록됐는지 저장소 설정까지 점검합니다\n  * 업데이트할 때 내가 고친 파일과 템플릿 개선을 구분합니다\n\n* **개선**\n  * 손대지 않은 파일의 개선은 묻지 않고 바로 반영됩니다\n  * 내가 수정한 파일은 그대로 보존됩니다\n  * 진단은 토큰 없이도 실행됩니다",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "설정이 어긋난 곳을 한 번에 확인하는 진단 명령이 생겼습니다",
+            "배포에 필요한 값이 등록됐는지 저장소 설정까지 점검합니다",
+            "업데이트할 때 내가 고친 파일과 템플릿 개선을 구분합니다"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "손대지 않은 파일의 개선은 묻지 않고 바로 반영됩니다",
+            "내가 수정한 파일은 그대로 보존됩니다",
+            "진단은 토큰 없이도 실행됩니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.4.1",
       "project_type": "basic",
