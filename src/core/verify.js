@@ -68,8 +68,9 @@ const AUTO_SECRETS = new Set(["GITHUB_TOKEN"]);
 
 // 없어도 워크플로우가 도는 secret — 폴백이 문서화돼 있다. 필수와 섞어 "등록해야 동작합니다"라고
 // 하면 안내 자체를 못 믿게 되므로 분리한다.
-//   MODEL_API_KEY → 없으면 GitHub Models(무료) → commit 규칙 fallback (#455 provider 사다리)
-export const OPTIONAL_SECRETS = new Set(["MODEL_API_KEY"]);
+//   MODEL_API_KEY      → 없으면 GitHub Models(무료) → commit 규칙 fallback (#455 provider 사다리)
+//   _GITHUB_PAT_TOKEN  → 없으면 GITHUB_TOKEN으로 머지하고 후속 워크플로우를 직접 깨운다 (#551)
+export const OPTIONAL_SECRETS = new Set(["MODEL_API_KEY", "_GITHUB_PAT_TOKEN"]);
 
 const SECRET_RE = /secrets\.([A-Z_][A-Z0-9_]*)/g;
 

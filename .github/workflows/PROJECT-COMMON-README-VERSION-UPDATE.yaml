@@ -49,6 +49,8 @@ env:
 on:
   push:
     branches: ["main"]
+  # PAT 없이 릴리스한 경우 push 트리거가 발생하지 않으므로(#551) 릴리스 워크플로우가 직접 깨운다.
+  workflow_dispatch:
 
 permissions:
   contents: write

@@ -105,9 +105,17 @@ test("collectRequiredSecrets: 같은 파일에서 중복 참조해도 파일명�
   assert.deepEqual(collectRequiredSecrets(wfDir).get("SERVER_HOST"), ["A.yaml"]);
 });
 
-test("collectRequiredSecrets: 밑줄로 시작하는 이름도 수집 (_GITHUB_PAT_TOKEN)", () => {
+test("collectRequiredSecrets: 밑줄로 시작하는 이름도 정규식이 잡는다", () => {
+  const { wfDir } = fixture({ "A.yaml": "  t: ${{ secrets._CUSTOM_TOKEN }}\n" });
+  assert.deepEqual([...collectRequiredSecrets(wfDir).keys()], ["_CUSTOM_TOKEN"]);
+});
+
+test("collectRequiredSecrets: _GITHUB_PAT_TOKEN은 선택이라 제외 (#551)", () => {
+  // PAT 없이도 릴리스가 완주한다 — GITHUB_TOKEN으로 머지하고 후속은 dispatch로 깨운다.
+  // 필수로 안내하면 등록하지 않아도 되는 값을 만들게 한다.
   const { wfDir } = fixture({ "A.yaml": "  t: ${{ secrets._GITHUB_PAT_TOKEN }}\n" });
-  assert.deepEqual([...collectRequiredSecrets(wfDir).keys()], ["_GITHUB_PAT_TOKEN"]);
+  assert.ok(OPTIONAL_SECRETS.has("_GITHUB_PAT_TOKEN"));
+  assert.equal(collectRequiredSecrets(wfDir).size, 0);
 });
 
 // ── 통합 진입점 ───────────────────────────────────────────────────────

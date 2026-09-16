@@ -16,6 +16,8 @@ export function copyScripts(tempDir, targetRoot = ".") {
     "changelog_manager.py",
     "truncate_release_notes.sh", "truncate_release_notes.py",
     "issue_helper.py",
+    // 릴리스 워크플로우가 PAT 없이 머지한 뒤 후속 워크플로우를 깨울 때 호출 (#551).
+    "dispatch_downstream.py",
     "changelog_providers/_common.py", "changelog_providers/ladder.py",
     "changelog_providers/commit.py", "changelog_providers/github_ai.py",
     "changelog_providers/openai_compatible.py",

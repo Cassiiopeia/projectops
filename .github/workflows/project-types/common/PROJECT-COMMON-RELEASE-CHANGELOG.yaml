@@ -22,9 +22,12 @@
 # version_code(빌드 번호)는 옵션과 무관하게 매 릴리스 +1이다.
 #
 # ===================================================================
-# 🔑 필수 GitHub Secrets
+# 🔑 GitHub Secrets — 전부 선택 (#551)
 # ===================================================================
-# _GITHUB_PAT_TOKEN: PR 머지용 PAT (권한: repo)
+# _GITHUB_PAT_TOKEN: 없으면 GITHUB_TOKEN으로 동작한다. 등록하면 (1) 브랜치 보호 규칙이
+#   있어도 --admin 머지가 가능하고 (2) 머지 push가 후속 워크플로우를 자동 트리거한다.
+#   없을 때는 머지 후 dispatch_downstream.py가 후속 워크플로우를 직접 깨운다.
+# MODEL_API_KEY: 없으면 GitHub Models(무료) → commit 규칙으로 폴백한다.
 # ===================================================================
 #
 # 작동 방식:
@@ -94,7 +97,7 @@ jobs:
             echo "already_found=true" >> $GITHUB_OUTPUT
           else
             echo "🗑️ PR #$PR_NUMBER 본문 초기화 중..."
-            curl -s -H "Authorization: token ${{ secrets._GITHUB_PAT_TOKEN }}" \
+            curl -s -H "Authorization: token ${{ secrets._GITHUB_PAT_TOKEN || secrets.GITHUB_TOKEN }}" \
                  -H "Content-Type: application/json" \
                  -X PATCH \
                  -d '{"body": ""}' \
@@ -172,7 +175,7 @@ jobs:
           TODAY=$(date '+%Y%m%d')
           NEW_TITLE="🚀 Deploy ${TODAY}-v${VERSION}"
 
-          curl -s -H "Authorization: token ${{ secrets._GITHUB_PAT_TOKEN }}" \
+          curl -s -H "Authorization: token ${{ secrets._GITHUB_PAT_TOKEN || secrets.GITHUB_TOKEN }}" \
                -H "Content-Type: application/json" \
                -X PATCH \
                -d "{\"title\": \"${NEW_TITLE}\"}" \
@@ -186,7 +189,7 @@ jobs:
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
 
-          curl -s -H "Authorization: token ${{ secrets._GITHUB_PAT_TOKEN }}" \
+          curl -s -H "Authorization: token ${{ secrets._GITHUB_PAT_TOKEN || secrets.GITHUB_TOKEN }}" \
                -H "Content-Type: application/json" \
                -X POST \
                -d '{"body": "@coderabbitai summary"}' \
@@ -314,7 +317,7 @@ jobs:
 
           # PR 본문에 업데이트
           ESCAPED=$(cat pr_body.md | jq -Rs .)
-          curl -s -H "Authorization: token ${{ secrets._GITHUB_PAT_TOKEN }}" \
+          curl -s -H "Authorization: token ${{ secrets._GITHUB_PAT_TOKEN || secrets.GITHUB_TOKEN }}" \
                -H "Content-Type: application/json" \
                -X PATCH \
                -d "{\"body\": $ESCAPED}" \
@@ -324,7 +327,7 @@ jobs:
           NOTICE=$(jq -r '.notice // ""' provider_result.json 2>/dev/null || echo "")
           if [ -n "$NOTICE" ]; then
             COMMENT=$(printf '⚠️ changelog provider 폴백: %s' "$NOTICE" | jq -Rs .)
-            curl -s -H "Authorization: token ${{ secrets._GITHUB_PAT_TOKEN }}" \
+            curl -s -H "Authorization: token ${{ secrets._GITHUB_PAT_TOKEN || secrets.GITHUB_TOKEN }}" \
                  -H "Content-Type: application/json" \
                  -X POST -d "{\"body\": $COMMENT}" \
                  "https://api.github.com/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" > /dev/null
@@ -419,7 +422,7 @@ jobs:
           TODAY=$(date '+%Y%m%d')
           NEW_TITLE="🚀 Deploy ${TODAY}-v${VERSION}"
 
-          curl -s -H "Authorization: token ${{ secrets._GITHUB_PAT_TOKEN }}" \
+          curl -s -H "Authorization: token ${{ secrets._GITHUB_PAT_TOKEN || secrets.GITHUB_TOKEN }}" \
                -H "Content-Type: application/json" \
                -X PATCH \
                -d "{\"title\": \"${NEW_TITLE}\"}" \
@@ -527,7 +530,7 @@ jobs:
       - name: 저장소 체크아웃
         uses: actions/checkout@v5
         with:
-          token: ${{ secrets._GITHUB_PAT_TOKEN }}
+          token: ${{ secrets._GITHUB_PAT_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Git 설정
@@ -537,7 +540,7 @@ jobs:
 
       - name: PR 브랜치 최신화
         env:
-          GH_TOKEN: ${{ secrets._GITHUB_PAT_TOKEN }}
+          GH_TOKEN: ${{ secrets._GITHUB_PAT_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           PR_HEAD=$(gh pr view ${{ github.event.pull_request.number }} --json headRefName -q .headRefName)
           PR_BASE=$(gh pr view ${{ github.event.pull_request.number }} --json baseRefName -q .baseRefName)
@@ -608,6 +611,7 @@ jobs:
           fi
 
       - name: 자동 PR Merge
+        id: merge_pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -688,6 +692,8 @@ jobs:
             if [ $MERGE_EXIT_CODE -eq 0 ] && echo "$MERGE_OUTPUT" | grep -q "merged\|Merged"; then
               echo "✅ PAT 토큰으로 PR 병합 성공"
               MERGE_SUCCESS="true"
+              # PAT push는 후속 워크플로우를 정상 트리거한다 → 명시 dispatch 불필요 (#551)
+              echo "merged_with_pat=true" >> $GITHUB_OUTPUT
             else
               echo "❌ PAT 토큰으로도 병합 실패"
               echo "   출력: $MERGE_OUTPUT"
@@ -755,6 +761,19 @@ jobs:
           
           echo ""
           echo "✅ PR 자동 병합 완료"
+
+      - name: 후속 워크플로우 트리거 (PAT 없이 머지한 경우)
+        # GITHUB_TOKEN이 만든 push로는 워크플로우가 재트리거되지 않는다(무한 루프 방지).
+        # workflow_dispatch는 GITHUB_TOKEN으로도 트리거되므로 그 경로로 직접 깨운다 (#551).
+        # PAT로 머지했다면 push가 이미 정상 트리거하므로 건너뛴다.
+        if: steps.merge_pr.outputs.merged_with_pat != 'true'
+        continue-on-error: true   # 릴리스는 이미 끝났다 — 여기서 실패해도 파이프라인을 막지 않는다
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 .github/scripts/dispatch_downstream.py dispatch \
+            --repo "${{ github.repository }}" \
+            --branch "${{ github.event.pull_request.base.ref }}"
 
       - name: 릴리스 태그 생성
         run: |

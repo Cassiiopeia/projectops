@@ -179,12 +179,14 @@ export function printSummary(ctx, targetRoot = ".") {
   // 필수 3가지 작업 안내 (.sh L5605~5625 — 원문 유지)
   err(SEPARATOR);
   err("");
-  err(`${YELLOW}⚠️  다음 3가지 작업을 완료해주세요:${NC}`);
+  err(`${YELLOW}⚠️  다음 작업을 확인해주세요:${NC}`);
   err("");
-  err("  1️⃣  GitHub Personal Access Token 설정");
+  // #551 — PAT는 없어도 릴리스가 완주한다. 있으면 후속 자동화가 더 매끄러워질 뿐이다.
+  err("  1️⃣  (선택) GitHub Personal Access Token 설정");
+  err("     → 없어도 릴리스는 정상 동작합니다. 등록하면 릴리스 후 후속 워크플로우가");
+  err("        더 확실하게 이어지고, 브랜치 보호 규칙이 있어도 자동 머지가 가능합니다.");
   err("     → Repository Settings > Secrets > Actions");
-  err("     → Secret Name: _GITHUB_PAT_TOKEN");
-  err("     → Scopes: repo, workflow");
+  err("     → Secret Name: _GITHUB_PAT_TOKEN / Scopes: repo, workflow");
   err("");
   // #490 — 마법사가 브랜치를 직접 생성(또는 존재 확인)했으면 같은 작업을 재지시하지 않는다
   if (deployBranchReady) {
