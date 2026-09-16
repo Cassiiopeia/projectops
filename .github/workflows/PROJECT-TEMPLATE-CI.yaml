@@ -32,7 +32,9 @@ on:
       - ".github/util/flutter/**"
       - ".github/workflows/PROJECT-TEMPLATE-CI.yaml"
   pull_request:
-    branches: ["develop", "main"]
+    # 릴리스 PR(develop→main)은 제외한다 — 그 내용은 develop push에서 이미 검증됐고,
+    # automerge가 곧바로 머지해 run이 잘리면서 실패로 남았다 (#565).
+    branches: ["develop"]
     paths:
       - "src/**"
       - "test/**"

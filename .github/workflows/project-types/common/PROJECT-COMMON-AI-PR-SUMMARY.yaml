@@ -28,12 +28,18 @@ name: AI PR SUMMARY
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    branches: ["main"]
+    # branches는 **base**(PR이 향하는 곳) 필터다. 일반 작업 PR은 개발 브랜치를 향하므로
+    # 여기에 main을 걸면 작업 PR이 잡히지 않는다. 실제로 base=main + head!=develop 조합은
+    # 존재할 수 없어 이 워크플로우가 한 번도 실행되지 못했다 (#565).
+    # 릴리스 PR(develop→main)은 base가 main이라 자연히 제외되고, 그 덕에 머지 타이밍에
+    # run이 잘려 실패로 남던 문제도 사라진다.
+    branches: ["develop"]
 
 permissions:
   contents: read
   pull-requests: write
-  models: read
+  # Copilot CLI 인증용 — GitHub Models가 종료되어 models:read는 쓸모가 없어졌다 (#566)
+  copilot-requests: write
 
 concurrency:
   # 같은 PR에 커밋이 연달아 올라오면 마지막 것만 요약한다
@@ -58,27 +64,29 @@ jobs:
       - name: 옵션 확인
         id: options
         run: |
-          # CodeRabbit을 쓰는 레포면 그 봇이 이미 PR에 요약을 단다 — 여기서 또 달면 댓글이 둘이 된다.
-          # 설정 파일 존재가 가장 직접적인 신호다(옵션 값보다 실제 사용 여부를 정확히 반영).
-          if [ -f ".coderabbit.yaml" ] || [ -f ".coderabbit.yml" ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-            echo "ℹ️ CodeRabbit 사용 저장소 — 요약이 중복되지 않도록 건너뜁니다"
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
+          # 설정 파일 존재로 CodeRabbit 사용 여부를 추측하지 않는다 (#566).
+          # 파일만 있고 앱이 실제로는 붙어 있지 않으면 CodeRabbit도 요약을 안 달고 여기서도
+          # 스스로 빠져 "아무도 요약하지 않는" 상태가 된다 — 실제로 그런 저장소가 있었다.
+          # 이제 이 워크플로우의 존재 자체가 사용자의 선택이다(마법사가 복사 여부를 결정).
+          echo "skip=false" >> $GITHUB_OUTPUT
 
           PROVIDER=$(grep -A5 "changelog:" version.yml 2>/dev/null | grep "provider:" | head -1 | sed -E 's/.*provider: *"?([a-z-]+)"?.*/\1/' || true)
-          # coderabbit은 이 워크플로우에서 재현할 수 없는 외부 봇이라 사다리 기본값으로 대체한다
-          # (위 skip 가드를 통과했다면 설정 파일이 없다는 뜻 = CodeRabbit이 실제로는 안 도는 상태)
-          if [ -z "$PROVIDER" ] || [ "$PROVIDER" = "coderabbit" ]; then
-            PROVIDER="github-ai"
-          fi
+          # coderabbit은 이 워크플로우에서 재현할 수 없는 외부 봇이고, github-ai는 서비스가
+          # 종료됐다. 둘 다 copilot으로 대체한다 — 외부 키 없이 도는 유일한 경로다 (#566).
+          case "$PROVIDER" in
+            ""|coderabbit|github-ai) PROVIDER="copilot" ;;
+          esac
           echo "provider=$PROVIDER" >> $GITHUB_OUTPUT
 
           # 프로젝트 성격(#553) — 앱 심사로 이어지는 레포면 요약에 안내를 덧붙인다.
           APP_RELEASE=$(python3 -c 'import re; t=open("version.yml",encoding="utf-8").read(); m=re.search(r"metadata:.*?template:.*?options:.*?app_release:\s*\"?(true|false)", t, re.S); print(m.group(1) if m else "false")' 2>/dev/null || echo "false")
           echo "app_release=$APP_RELEASE" >> $GITHUB_OUTPUT
           echo "ℹ️ provider=$PROVIDER / app_release=$APP_RELEASE"
+
+      # copilot provider가 쓰는 CLI. 설치 실패해도 사다리가 다음 단으로 내려가므로 막지 않는다.
+      - name: Copilot CLI 설치
+        continue-on-error: true
+        run: npm install -g @github/copilot
 
       - name: 변경 요약 생성
         id: summary

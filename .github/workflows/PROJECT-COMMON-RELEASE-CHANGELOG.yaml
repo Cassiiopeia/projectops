@@ -7,12 +7,12 @@
 # CHANGELOG.json / CHANGELOG.md를 업데이트하고 자동 머지합니다.
 #
 # 릴리스 노트 생성기(provider)는 version.yml options.changelog.provider로 고른다 (#455):
-#   - coderabbit(미설정 시 기본 — 기존 동작 보존): Summary 요청 후 폴링, 무응답 시 사다리로 폴백
-#   - github-ai(신규 설치 기본): GitHub Models API — permissions: models: read만으로 동작(API 키 불필요)
+#   - copilot: GitHub Copilot CLI — GITHUB_TOKEN만으로 동작(API 키 불필요, copilot-requests: write 필요)
 #   - openai/gemini/claude/ollama: OpenAI 호환 API (MODEL_API_KEY secret 필요)
 #   - commit: 커밋 분석 (AI·네트워크 무의존)
 # 폴백 사다리는 .github/scripts/changelog_providers/ladder.py가 실행:
-#   선택 provider → github-ai → commit 순으로 시도, commit은 항상 완주하는 최후 보루.
+#   선택 provider → (키 있으면 외부 AI) → commit 순으로 시도, commit은 항상 완주하는 최후 보루.
+# CodeRabbit은 기다리지 않는다 (#566) — 본문에 이미 있으면 존중하고, 없으면 곧장 생성한다.
 # 폴백 발생 시 PR 댓글로 "○○ 실패 → △△ 사용"을 알린다.
 #
 # 버전 승격 폭은 version.yml options.semver_auto로 고른다 (#546):
@@ -185,81 +185,24 @@ jobs:
 
           echo "✅ PR 제목 변경 완료: $NEW_TITLE"
 
-      - name: CodeRabbit Summary 요청
-        # 이미 Summary가 있으면 요청 불필요. provider가 coderabbit일 때만 요청(#455 — 아니면 fallback 사다리로).
-        if: steps.clear_body.outputs.already_found != 'true' && steps.get_version.outputs.changelog_provider == 'coderabbit'
-        run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
-
-          curl -s -H "Authorization: token ${{ secrets._GITHUB_PAT_TOKEN || secrets.GITHUB_TOKEN }}" \
-               -H "Content-Type: application/json" \
-               -X POST \
-               -d '{"body": "@coderabbitai summary"}' \
-               "https://api.github.com/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments"
-
-          echo "✅ CodeRabbit Summary 요청 완료"
-
-      - name: CodeRabbit Summary 감지 (폴링)
+      # 기다리지 않는다 (#566). 종전에는 @coderabbitai summary를 보내고 최대 10분을 폴링했다.
+      # 응답이 없으면 그 10분을 통째로 날렸고, 무응답이 rate limit 때문인지 판별할 방법도 없었다.
+      # 이제 "이미 본문에 있으면 존중, 없으면 곧장 생성"만 한다 — 판정할 것이 없으므로 애매함도 없다.
+      # CodeRabbit이 요약을 달아두었다면 아래 already_found 경로에서 그대로 쓰인다.
+      - name: 기존 Summary 확인
         id: detect_summary
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
-          CHANGELOG_PROVIDER="${{ steps.get_version.outputs.changelog_provider }}"
 
-          # provider가 coderabbit이 아니면(commit/github-ai/openai 등) CodeRabbit 폴링을 건너뛰고
-          # summary_found=false로 내려 fallback-summary(provider 사다리)가 릴리스 노트를 만들게 한다 (#455).
-          # 단, changelog-deploy 스킬이 미리 Summary를 넣었으면(already_found) 그건 그대로 존중.
-          if [ "${{ steps.clear_body.outputs.already_found }}" != "true" ] && [ "$CHANGELOG_PROVIDER" != "coderabbit" ]; then
-            echo "ℹ️ changelog provider='$CHANGELOG_PROVIDER' — CodeRabbit 폴링 생략, fallback 사다리로 위임"
-            echo "summary_found=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          # changelog-deploy가 이미 Summary를 작성한 경우 폴링 생략
           if [ "${{ steps.clear_body.outputs.already_found }}" = "true" ]; then
-            echo "✅ 초기화 단계에서 이미 Summary 감지 — 폴링 생략"
-            # clear_body가 만든 pr_body.md는 직후 체크아웃에서 덮어써져 사라지므로,
-            # 체크아웃 이후 시점인 여기서 PR 본문을 다시 받아 파일로 저장해야 업로드 artifact가 비지 않는다
+            echo "✅ 본문에 이미 릴리스 노트가 있습니다 — 그대로 사용합니다"
+            # clear_body가 만든 pr_body.md는 직후 체크아웃에서 사라지므로 여기서 다시 받아 저장한다
             curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                  "https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}" | \
                  jq -r '.body // ""' > pr_body.md
             echo "summary_found=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          MAX_ATTEMPTS=120  # 10분 = 120 * 5초
-          ATTEMPT=0
-
-          echo "🔍 PR #$PR_NUMBER에서 CodeRabbit Summary 감지 시작..."
-          echo "⏰ 최대 대기 시간: 10분 (5초마다 체크)"
-
-          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-            ATTEMPT=$((ATTEMPT + 1))
-            echo "[$ATTEMPT/$MAX_ATTEMPTS] Summary 확인 중... ($(date '+%H:%M:%S'))"
-
-            # JSON API로 PR body 가져오기 (Public/Private 동일하게 동작)
-            PR_BODY=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                           "https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}" | \
-                           jq -r '.body // ""')
-
-            # 본문이 비어있는지 확인
-            if [ -z "$PR_BODY" ] || [ "$PR_BODY" = "null" ]; then
-              echo "⏳ PR 본문이 비어있습니다"
-            elif echo "$PR_BODY" | grep -q "Summary by CodeRabbit"; then
-              echo "✅ CodeRabbit Summary 발견!"
-              echo "$PR_BODY" > pr_body.md
-              echo "summary_found=true" >> $GITHUB_OUTPUT
-              break
-            else
-              echo "⏳ CodeRabbit Summary 아직 없음"
-            fi
-
-            if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
-              sleep 5
-            fi
-          done
-
-          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-            echo "⚠️ 10분 대기 후에도 Summary를 찾을 수 없습니다"
+          else
+            echo "ℹ️ 본문에 릴리스 노트가 없습니다 — 생성 사다리로 위임합니다"
             echo "summary_found=false" >> $GITHUB_OUTPUT
           fi
 
@@ -271,20 +214,21 @@ jobs:
           path: pr_body.md
           retention-days: 1
 
-  # Job 1-B: provider 사다리 — CodeRabbit Summary가 없을 때 릴리스 노트를 만든다 (#455).
-  #   provider=commit/github-ai/openai 계열 모두 이 job으로 위임된다. 사다리 로직은
-  #   .github/scripts/changelog_providers/ladder.py (선택 provider → github-ai → commit 순).
-  #   github-ai는 GitHub Models API — 아래 permissions의 models: read + GITHUB_TOKEN만으로
-  #   동작(API 키 불필요). commit은 AI·네트워크 무의존이라 항상 완주하는 최후 보루.
+  # Job 1-B: provider 사다리 — PR 본문에 릴리스 노트가 없을 때 만든다 (#455, #566에서 재정비).
+  #   사다리: 선택 provider → (MODEL_API_KEY 있으면 외부 AI) → commit.
+  #   copilot은 Copilot CLI — 아래 permissions의 copilot-requests: write + GITHUB_TOKEN만으로
+  #   동작(API 키 불필요). commit은 AI·네트워크 무의존이라 항상 완주하는 최후 보루라
+  #   "릴리스 노트가 비는" 상황이 생기지 않는다.
   fallback-summary:
     name: 릴리스 노트 생성 (provider 사다리)
     runs-on: ubuntu-latest
     needs: detect-and-parse
     if: needs.detect-and-parse.outputs.summary_found == 'false'
-    # job 단위 permissions는 workflow 단위를 대체한다 — github-ai(Models API)용 models: read 포함
+    # job 단위 permissions는 workflow 단위를 대체한다 — Copilot CLI 인증에 필요
     permissions:
       contents: read
-      models: read
+      pull-requests: write
+      copilot-requests: write
     outputs:
       summary_found: ${{ steps.generate.outputs.summary_found }}
     steps:
@@ -294,6 +238,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref }}
+
+      # copilot provider가 쓰는 CLI. 설치에 실패해도 사다리가 다음 단으로 내려가므로 막지 않는다.
+      - name: Copilot CLI 설치
+        continue-on-error: true
+        run: npm install -g @github/copilot
 
       - name: provider 사다리로 릴리스 노트 생성
         id: generate
@@ -373,10 +322,13 @@ jobs:
           git config --local user.name "GitHub Action"
           git pull origin $HEAD_BRANCH
 
+      # 워킹트리 루트에 풀면 아래 "변경사항 커밋 및 푸시"의 git add -A에 딸려가 저장소가
+      # 오염된다 (#564 — v4.4.1부터 매 릴리스마다 pr_body.md가 커밋되고 있었다).
       - name: Summary 파일 다운로드
         uses: actions/download-artifact@v4
         with:
           name: pr-content
+          path: ${{ runner.temp }}/pr-content
 
       # semver 자동 승격 옵션 (이슈 #546)
       # 키가 없으면 false — 이미 통합된 레포는 예고 없이 버전이 튀지 않고 patch 고정을 유지한다.
@@ -459,6 +411,8 @@ jobs:
           export TODAY="$TODAY"
           export PR_NUMBER="$PR_NUMBER"
           export TIMESTAMP="$TIMESTAMP"
+          # 입력 파일은 워킹트리 밖에 있다 (#564 — 커밋에 딸려가지 않게)
+          export PR_BODY_PATH="$RUNNER_TEMP/pr-content/pr_body.md"
 
           python3 .github/scripts/changelog_manager.py update-from-summary
 
@@ -468,7 +422,8 @@ jobs:
       - name: 변경사항 커밋 및 푸시
         run: |
           HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
-          # bump가 version.yml + 프로젝트 버전 파일도 수정하므로 전체 스테이징
+          # bump가 version.yml + 프로젝트 버전 파일(타입마다 다름)도 수정하므로 전체 스테이징.
+          # ⚠️ 워킹트리에 만든 임시 파일은 전부 여기 딸려간다 — 작업 파일은 $RUNNER_TEMP에 둘 것 (#564).
           git add -A
 
           if git diff --staged --quiet; then
@@ -515,20 +470,6 @@ jobs:
             fi
           fi
 
-      - name: 임시 파일 정리
-        run: rm -f pr_body.md
-
-  # Job 3: PR 머지 및 배포 트리거
-  merge-and-deploy:
-    name: PR 머지 및 배포 트리거
-    runs-on: ubuntu-latest
-    needs: [detect-and-parse, fallback-summary, update-changelog]
-    if: |
-      always() &&
-      needs.update-changelog.result == 'success' &&
-      (needs.detect-and-parse.outputs.summary_found == 'true' ||
-       needs.fallback-summary.outputs.summary_found == 'true')
-    steps:
       - name: 저장소 체크아웃
         uses: actions/checkout@v5
         with:

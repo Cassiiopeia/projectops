@@ -244,15 +244,20 @@ def cmd_update_from_summary() -> int:
     except ValueError:
         pr_number = None
 
-    # 입력 파일 찾기 (pr_body.md 우선, 폴백으로 summary_section.html)
-    input_file = None
-    for filename in ['pr_body.md', 'summary_section.html']:
-        if os.path.isfile(filename):
-            input_file = filename
-            break
+    # 입력 파일 찾기.
+    # PR_BODY_PATH가 있으면 그것을 먼저 본다 (#564) — 워크플로우가 임시 파일을 워킹트리 밖
+    # ($RUNNER_TEMP)에 두기 때문이다. 루트에 두면 릴리스 커밋의 git add -A에 딸려가
+    # 저장소가 오염된다. env가 없으면 종전처럼 cwd에서 찾는다(하위호환).
+    candidates = []
+    env_path = os.environ.get('PR_BODY_PATH')
+    if env_path:
+        candidates.append(env_path)
+    candidates += ['pr_body.md', 'summary_section.html']
+
+    input_file = next((f for f in candidates if os.path.isfile(f)), None)
 
     if not input_file:
-        print("❌ 입력 파일을 찾을 수 없습니다 (pr_body.md 또는 summary_section.html)")
+        print(f"❌ 입력 파일을 찾을 수 없습니다 (확인한 경로: {', '.join(candidates)})")
         return 1
 
     try:
