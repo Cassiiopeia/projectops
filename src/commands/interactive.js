@@ -413,6 +413,12 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       trace.mirrorStop();
     }
     return 0;
+  } catch (err) {
+    trace.event("run", "error", "interactive", {
+      message: err?.message || String(err),
+      stack: String(err?.stack || "").split("\n").slice(0, 3).join(" | "),
+    });
+    throw err;
   } finally {
     // 어떤 경로로 빠져나가든 기록을 남긴다 (#561) — 중간 취소·예외 포함.
     // finalize는 멱등이라 정상 경로에서 이미 호출됐으면 여기서는 아무 일도 하지 않는다.

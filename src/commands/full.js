@@ -33,50 +33,49 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
 
   // 3. 워크플로우 복사 (+ env 치환) — deploy 블록에 쓸 ask 값을 수집한다.
   //    hooks.decisions: 대화형 충돌 3지선 결정 Map (미지정=skip — 현행 force 동작)
-  const wfCounters = copyWorkflows(context, tempDir, targetRoot, hooks);
+  const step = (name, fn, d) => (hooks.trace ? hooks.trace.step(name, fn, d) : fn());
+  const wfCounters = step("copy-workflows", () => copyWorkflows(context, tempDir, targetRoot, hooks),
+    { types, deploy: deployTarget, publish: publishTargets });
   const deployValues = wfCounters.deployValues || new Map(); // Map<type, Map<key,value>>
 
   // 1. version.yml 생성 (전체 재생성 — metadata → deploy → template 순, .sh 최종형과 동일)
-  writeText(join(targetRoot, PATHS.versionFile),
+  step("write-version-yml", () => writeText(join(targetRoot, PATHS.versionFile),
     buildVersionYml({
       version, types, paths, pathMarkers, branch, deployBranch, versionCode, now, today,
       deployValues,
       templateOptions: { templateVersion, deployTarget, publishTargets, includeSecretBackup, optionsDate: today,
         changelogProvider, changelogBaseUrl, codeReviewCoderabbit, intent, mode: "full", semverAuto, appRelease },
-    }));
+    })), { version, versionCode });
 
   // 2. README 버전 섹션
-  addVersionSectionToReadme(version, targetRoot);
+  step("update-readme", () => addVersionSectionToReadme(version, targetRoot), { version });
 
   // 5. scripts / config
   //    워크플로우 밖 영역도 기록한다 (#561) — 종전에는 "내 스크립트가 갱신됐나"를
   //    로그만 보고 알 수 없었다.
-  copyScripts(tempDir, targetRoot);
-  hooks.trace?.event("copy", "scripts", "", { group: "scripts" });
-  copyConfigFolder(tempDir, targetRoot);
-  hooks.trace?.event("copy", "config", "", { group: "config" });
+  step("copy-scripts", () => copyScripts(tempDir, targetRoot));
+  step("copy-config", () => copyConfigFolder(tempDir, targetRoot));
 
   // 6. util (타입별)
-  for (const t of types) {
-    copyUtilModules(tempDir, t, { force }, targetRoot);
-    hooks.trace?.event("copy", "util", t, { group: "util" });
-  }
+  for (const t of types) step("copy-util", () => copyUtilModules(tempDir, t, { force }, targetRoot), { type: t });
 
   // 7. issue / discussion 템플릿
-  copyIssueTemplates(tempDir, targetRoot);
-  copyDiscussionTemplates(tempDir, targetRoot);
-  hooks.trace?.event("copy", "templates", "", { group: "issue-discussion" });
+  step("copy-templates", () => {
+    copyIssueTemplates(tempDir, targetRoot);
+    copyDiscussionTemplates(tempDir, targetRoot);
+  });
 
   // 8. coderabbit / gitignore / setup guide
   //    CodeRabbit 코드리뷰 미사용 선택(#457)이면 .coderabbit.yaml을 복사하지 않는다.
-  copyCoderabbit(tempDir, { force, enabled: codeReviewCoderabbit }, targetRoot);
-  ensureGitignore(targetRoot);
-  copySetupGuide(tempDir, targetRoot);
+  step("copy-coderabbit", () => copyCoderabbit(tempDir, { force, enabled: codeReviewCoderabbit }, targetRoot),
+    { enabled: codeReviewCoderabbit });
+  step("ensure-gitignore", () => ensureGitignore(targetRoot));
+  step("copy-setup-guide", () => copySetupGuide(tempDir, targetRoot));
 
   // 9. 설치 후 검증 (#549) — 디스크에 쓰인 최종 결과물을 다시 읽는다.
   //    치환은 파일 단위로 흩어져 일어나고 auto 토큰은 resolver 결과에 의존하므로,
   //    최종 내용을 보는 것이 실제 배포될 것과 같은 것을 보는 유일한 방법이다.
-  const verification = verifyInstall(targetRoot);
+  const verification = step("verify-install", () => verifyInstall(targetRoot));
   // detail 키 이름 주의: run-trace의 민감값 가드가 pat|token|secret|password|credential을
   // 키에서 걸러낸다(#494). 여기서 다루는 값은 비밀이 아니라 "치환 플레이스홀더 이름"과
   // "등록이 필요한 키 이름"이라 가드에 걸리지 않는 이름을 쓴다 — 가드 자체는 우회하지 않는다.

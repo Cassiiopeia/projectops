@@ -31,6 +31,35 @@ export function scrubDetail(detail) {
   return out;
 }
 
+// 단계 소요 시간. 시계를 고정 주입한 경우(테스트)는 생략해 결과가 흔들리지 않게 한다.
+function elapsed(t0, clockIso) {
+  return clockIso ? {} : { ms: Date.now() - t0 };
+}
+
+// 이벤트를 서버 로그 스타일 한 줄로 만든다 (#561).
+//   [시각] 레벨 phase/action  대상  key=value ...
+// 레벨은 action에서 유추한다 — 조치가 필요한 것(미치환·취소·실패)만 눈에 띄어야 한다.
+const WARN_ACTIONS = new Set(["unresolved", "cancelled", "skipped-conflict", "leftover-old-gen", "neutralized"]);
+const ERROR_ACTIONS = new Set(["error", "failed"]);  // step/failed 포함
+export function levelOf(action) {
+  if (ERROR_ACTIONS.has(action)) return "ERROR";
+  if (WARN_ACTIONS.has(action)) return "WARN";
+  return "INFO";
+}
+export function formatLogLine(e) {
+  const time = String(e.ts || "").replace(/^.*T/, "").replace(/Z$/, "");
+  const level = levelOf(e.action).padEnd(5);
+  const tag = `${e.phase}/${e.action}`.padEnd(24);
+  const parts = [`[${time}] ${level} ${tag} ${e.target || ""}`.trimEnd()];
+  if (e.detail && typeof e.detail === "object") {
+    const kv = Object.entries(e.detail)
+      .filter(([, v]) => v !== null && v !== undefined)
+      .map(([k, v]) => `${k}=${Array.isArray(v) ? (v.join("|") || "[]") : v}`);
+    if (kv.length) parts.push(`  ${kv.join(" ")}`);
+  }
+  return parts.join("") + "\n";
+}
+
 // 색상·커서 제어 시퀀스 제거 (#561). 로그 파일은 에디터·Agent가 읽으므로 이스케이프가
 // 그대로 남으면 판독을 방해한다. 터미널 출력 자체는 건드리지 않는다(사본만 정제).
 // eslint-disable-next-line no-control-regex
@@ -60,11 +89,14 @@ export function createRunTrace({ clockIso = null } = {}) {
     lines,
 
     // 이벤트 1건 기록. detail은 민감키 스크럽 후 저장.
+    // 같은 내용을 사람이 읽는 로그 라인으로도 남긴다 (#561) — 터미널에 보이지 않는 내부
+    // 동작까지 .log 한 파일에서 시간순으로 따라갈 수 있어야, 문제가 생겼을 때 바로 대응된다.
     event(phase, action, target = "", detail = null) {
       const e = { ts: nowIso(), phase, action, target };
       const d = scrubDetail(detail);
       if (d != null && (typeof d !== "object" || Object.keys(d).length > 0)) e.detail = d;
       events.push(e);
+      lines.push(formatLogLine(e));
       return e;
     },
 
@@ -87,6 +119,36 @@ export function createRunTrace({ clockIso = null } = {}) {
 
     mirrorStop() {
       if (restore) { restore(); restore = null; }
+    },
+
+    // 단계 실행 래퍼 (#561) — 서버 로그처럼 "어디에 들어갔다 언제 나왔고 얼마 걸렸는지"를
+    // 자동으로 남긴다. 개별 호출부에 start/done을 흩뿌리면 빠뜨리는 자리가 생긴다.
+    // 예외가 나면 failed로 기록하고 그대로 던진다 — 삼키지 않는다.
+    step(name, fn, detail = null) {
+      this.event("step", "start", name, detail);
+      const t0 = Date.now();
+      try {
+        const out = fn();
+        this.event("step", "done", name, elapsed(t0, clockIso));
+        return out;
+      } catch (err) {
+        this.event("step", "failed", name, { ...elapsed(t0, clockIso), message: err?.message || String(err) });
+        throw err;
+      }
+    },
+
+    // async 버전 — 대화형 단계(질문 대기 포함)에 쓴다.
+    async stepAsync(name, fn, detail = null) {
+      this.event("step", "start", name, detail);
+      const t0 = Date.now();
+      try {
+        const out = await fn();
+        this.event("step", "done", name, elapsed(t0, clockIso));
+        return out;
+      } catch (err) {
+        this.event("step", "failed", name, { ...elapsed(t0, clockIso), message: err?.message || String(err) });
+        throw err;
+      }
     },
 
     // 어떤 경로로 끝나든 기록을 남긴다 (#561) — 정상 완주·중간 취소·예외·강제 종료.

@@ -44,7 +44,11 @@ test("write: JSONL 헤더+이벤트 기록, 이벤트 0건이면 null (no-op 오
     assert.equal(lines[0].schema, 1);
     assert.equal(lines[0].kind, "projectops-migration-trace");
     assert.equal(lines[1].target, "A.yaml");
-    assert.equal(files.logFile, null); // 미러 안 켰으면 log 없음
+    // #561 — 이벤트는 사람이 읽는 로그 라인으로도 남는다. 터미널 미러를 안 켜도
+    // .log가 생긴다(서버 로그처럼 내부 동작이 항상 기록되어야 사후 대응이 된다).
+    assert.equal(files.logFile, `${MIGRATION_DIR}/20260714_001604_v2.7.7_to_v4.2.16.log`);
+    const logBody = readFileSync(join(root, files.logFile), "utf8");
+    assert.match(logBody, /INFO\s+copy\/copied\s+A\.yaml/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

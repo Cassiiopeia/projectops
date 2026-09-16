@@ -242,44 +242,59 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
     force: true, deploy: deployTarget, publish: publishTargets, intent,
   });
   try {
-    acquireTemplate({ tempDir, source });
+    trace.step("acquire-template", () => acquireTemplate({ tempDir, source }), { source: source?.type || "git" });
     context.templateVersion = readTemplateVersion(tempDir);
+    trace.event("detect", "template-version", context.templateVersion, { tempDir: PATHS.tempDir });
 
     // 비대화형 축약 배너 (#446 확정 — 1줄, 로그 오염 최소)
     printBannerCompact({ version: context.templateVersion, mode: opts.mode });
 
     // Breaking Changes 게이트 (.sh execute_integration L4415~4420 등가 — 비대화형은 경고 후 진행)
-    const proceed = await runBreakingCheck({
+    const proceed = await trace.stepAsync("breaking-check", () => runBreakingCheck({
       cwd, tempDir, templateVersion: context.templateVersion,
       onItems: (items) => { breakingReport = items; },
-    });
-    if (!proceed) return 0;
+    }));
+    trace.event("breaking", "result", proceed ? "proceed" : "halt", { items: (breakingReport ?? []).length });
+    if (!proceed) {
+      trace.event("run", "cancelled", "breaking-gate", { reason: "호환성 경고로 중단" });
+      return 0;
+    }
 
     // 레거시 마이그레이션 (#470) — 워크플로우를 만지는 모드에서만. 비대화형은 safe 티어 자동 적용.
     if (recordArtifacts) {
-      migrationsResult = await runMigrations({ targetRoot: cwd });
+      migrationsResult = await trace.stepAsync("legacy-migrations", () => runMigrations({ targetRoot: cwd }));
       for (const a of migrationsResult.applied ?? []) trace.event("legacy", a.action === "error" ? "error" : "neutralized", a.from ?? a.id ?? "", { to: a.to ?? "", id: a.id ?? "" });
       for (const e of migrationsResult.confirmPending ?? []) trace.event("legacy", "leftover-old-gen", e.file, { replacement: e.replacedBy ?? "", reason: e.reason ?? "" });
     }
 
     // 고아 타입 워크플로우 안내 (#487) — 비대화형은 자동 무해화 금지(배포 파이프라인일 수 있음), 안내만
     if (recordArtifacts) {
-      const orphans = detectOrphanWorkflows({ tempDir, targetRoot: cwd, selectedTypes: types });
+      const orphans = trace.step("orphan-scan",
+        () => detectOrphanWorkflows({ tempDir, targetRoot: cwd, selectedTypes: types }),
+        { selectedTypes: types });
       orphanPending = orphans.map((o) => o.filename);
+      for (const o of orphans) trace.event("orphan", "detected", o.filename, { type: o.type, action: "안내만(비대화형)" });
       for (const o of orphans) {
         console.error(`⚠️ 선택되지 않은 타입(${o.type})의 워크플로우가 남아있습니다: ${o.filename} — 대화형 마법사(npx projectops)에서 정리할 수 있습니다.`);
       }
     }
 
     switch (opts.mode) {
-      case "full": result = runFull(context, tempDir, cwd, { trace }); break;
-      case "version": result = runVersion(context, tempDir, cwd); break;
-      case "workflows": result = runWorkflows(context, tempDir, cwd, { trace }); break;
-      case "issues": result = runIssues(context, tempDir, cwd); break;
+      case "full": result = trace.step("install-full", () => runFull(context, tempDir, cwd, { trace })); break;
+      case "version": result = trace.step("install-version", () => runVersion(context, tempDir, cwd)); break;
+      case "workflows": result = trace.step("install-workflows", () => runWorkflows(context, tempDir, cwd, { trace })); break;
+      case "issues": result = trace.step("install-issues", () => runIssues(context, tempDir, cwd)); break;
       default:
         // 알 수 없는 모드 → .sh와 동일하게 복사 0건, 에러 아님
         break;
     }
+  } catch (err) {
+    // 실패 원인을 로그에 남긴다 (#561) — 서버 로그처럼 사후에 바로 짚을 수 있어야 한다.
+    trace.event("run", "error", opts.mode || "", {
+      message: err?.message || String(err),
+      stack: String(err?.stack || "").split("\n").slice(0, 3).join(" | "),
+    });
+    throw err;
   } finally {
     // 예외로 빠져나가도 기록을 남긴다 (#561). finalize는 멱등 — 정상 경로에서 이미
     // 호출됐으면 여기서는 아무 일도 하지 않는다.
