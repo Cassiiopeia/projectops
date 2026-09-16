@@ -191,19 +191,35 @@ python3 .github/util/flutter/_shared/test_wizard_cli.py
 
 상세: `.github/util/flutter/_shared/README.md`
 
-### 마이그레이션 기록 3계층 (#493·#494 — agent 필독)
+### 실행 기록 3계층 (#493·#494·#561 — agent 필독)
 
-마법사(full/workflows)가 끝나면 **대상 레포**의 `docs/projectops/migration/`에 실행 기록을 남긴다:
+마법사(full/workflows)가 끝나면 **대상 레포**의 `.github/.projectops/logs/`에 실행 기록을 남긴다.
+`docs/` 아래였던 위치를 #561에서 옮겼다 — 사람이 읽는 문서가 아니라 **Agent가 원인을 짚는 진단 자료**라
+저장소 이력에 남을 이유가 없다.
 
 | 계층 | 파일 | 내용 | 소스 모듈 |
 |------|------|------|----------|
 | 1 | `PROJECTOPS-MIGRATION-GUIDE.md` | 고정 헤더(AI 해석 가이드라인) + 실행 엔트리 append-only: 동적 체크리스트·통과한 breaking 전문·yaml 메타(`schema` 버저닝) | `src/core/migration-guide.js` |
-| 2 | `{stamp}_v{from}_to_v{to}.jsonl` | 파일별 결정·env 치환 전후값 이벤트 (파일명 grep으로 인과 추적) | `src/core/run-trace.js` |
-| 3 | `{stamp}_..._.log` | 터미널 출력 원문 미러 (실 CLI에서만) | 〃 |
+| 2 | `{stamp}_v{from}_to_v{to}.jsonl` | 구조화 이벤트 (파일명 grep으로 인과 추적) | `src/core/run-trace.js` |
+| 3 | `{stamp}_..._.log` | **서버 로그 형식** — 내부 이벤트 + 터미널 출력이 시간순 병합 | 〃 |
+
+**추적 제외는 폴더가 스스로 들고 다닌다.** `logs/.gitignore`(`*` + `!.gitignore`)를 매 실행마다 보장하므로
+루트 `.gitignore`를 건드리지 않는다. 형제인 `.github/.projectops/baseline.json`(#557)은 팀원 공유
+자산이라 **계속 추적된다** — 폴더를 나눈 이유가 이것이다.
+
+**로그 레벨** (`levelOf`): `ERROR`(실패) / `WARN`(두면 실패하거나 판단 필요) / `INFO`(단계 경계·확정된 판단) /
+`DEBUG`(건별 상세). **DEBUG도 파일에는 전부 남긴다** — 문제가 터진 뒤에 "그때 켰더라면"은 소용없다.
 
 - 엔진(copy/env/legacy/orphan)은 `hooks.trace` / `ctx.trace`로 **null-safe emit** — trace 미주입 경로(기존 테스트)는 무영향.
+- **단계는 `trace.step(name, fn)` / `stepAsync`로 감싼다** — 진입·종료·소요 ms·실패가 자동 기록된다.
+  개별 호출부에 start/done을 흩뿌리면 반드시 빠뜨리는 자리가 생긴다.
 - 가이드의 워크플로우 목록·env 값은 trace events에서 **파생**한다 (단일 소스). 새 엔진 동작을 추가하면 이벤트 emit도 함께 추가할 것.
-- 민감값(PAT·token·secret·password 키)은 `scrubDetail`이 이벤트에서 자동 제거 — 우회 금지.
+- **호출은 `trace.event(phase, action, target, detail)`이다.** `emit`은 존재하지 않는다 —
+  optional chaining(`?.`) 때문에 오타가 예외 없이 조용히 무시되어 기록이 통째로 사라진 적이 있다(#561).
+- 민감값(PAT·token·secret·password·credential 키)은 `scrubDetail`이 이벤트에서 자동 제거 — **우회 금지**.
+  값이 비밀이 아닌데 키 이름이 걸리면(`token` → `placeholder`처럼) **키 이름을 바꾼다**.
+- **어떤 경로로 끝나도 기록이 남아야 한다**: 정상 완주·중간 취소·예외는 `finally`의 `trace.finalize()`(멱등),
+  강제 종료(Ctrl+C)는 `trace.armSignals()`가 처리한다. 새 종료 경로를 만들면 이 계약을 확인할 것.
 
 ### 타입별 워크플로우
 
