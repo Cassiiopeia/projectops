@@ -69,10 +69,20 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
   //    치환은 파일 단위로 흩어져 일어나고 auto 토큰은 resolver 결과에 의존하므로,
   //    최종 내용을 보는 것이 실제 배포될 것과 같은 것을 보는 유일한 방법이다.
   const verification = verifyInstall(targetRoot);
-  hooks.trace?.emit?.("verify", "scan", {
+  // detail 키 이름 주의: run-trace의 민감값 가드가 pat|token|secret|password|credential을
+  // 키에서 걸러낸다(#494). 여기서 다루는 값은 비밀이 아니라 "치환 플레이스홀더 이름"과
+  // "등록이 필요한 키 이름"이라 가드에 걸리지 않는 이름을 쓴다 — 가드 자체는 우회하지 않는다.
+  hooks.trace?.event("verify", "scan", "", {
     unresolved: verification.unresolved.length,
-    secrets: verification.secrets.size,
+    requiredKeys: verification.secrets.size,
   });
+  // 미치환 값은 배포 시점에 실패할 자리다 — 어느 파일 몇 번째 줄인지 로그에 남긴다.
+  for (const u of verification.unresolved) {
+    hooks.trace?.event("verify", "unresolved", u.filename, { line: u.line, placeholder: u.token });
+  }
+  for (const [name, users] of verification.secrets) {
+    hooks.trace?.event("verify", "required-key", name, { workflows: users });
+  }
 
   return { workflows: wfCounters, verification };
 }
