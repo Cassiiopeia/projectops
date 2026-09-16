@@ -14,6 +14,8 @@
 # 달지 않는 경우:
 #   - 릴리스 PR(head가 개발 브랜치): 체인지로그가 이미 그 일을 합니다
 #   - fork에서 온 PR: 외부 코드로 이 워크플로우를 돌리지 않습니다
+#   - **CodeRabbit을 쓰는 저장소**(.coderabbit.yaml 존재): 그 봇이 이미 요약을 답니다.
+#     여기서 또 달면 요약 댓글이 둘이 됩니다 — 둘 중 하나만 돌게 합니다.
 #
 # 댓글은 쌓지 않고 갱신합니다. 표식(<!-- PROJECTOPS-AI-SUMMARY -->)으로 기존 댓글을 찾아
 # 내용만 교체하므로, 커밋을 여러 번 올려도 요약 댓글은 하나로 유지됩니다.
@@ -56,8 +58,18 @@ jobs:
       - name: 옵션 확인
         id: options
         run: |
+          # CodeRabbit을 쓰는 레포면 그 봇이 이미 PR에 요약을 단다 — 여기서 또 달면 댓글이 둘이 된다.
+          # 설정 파일 존재가 가장 직접적인 신호다(옵션 값보다 실제 사용 여부를 정확히 반영).
+          if [ -f ".coderabbit.yaml" ] || [ -f ".coderabbit.yml" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "ℹ️ CodeRabbit 사용 저장소 — 요약이 중복되지 않도록 건너뜁니다"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
           PROVIDER=$(grep -A5 "changelog:" version.yml 2>/dev/null | grep "provider:" | head -1 | sed -E 's/.*provider: *"?([a-z-]+)"?.*/\1/' || true)
           # coderabbit은 이 워크플로우에서 재현할 수 없는 외부 봇이라 사다리 기본값으로 대체한다
+          # (위 skip 가드를 통과했다면 설정 파일이 없다는 뜻 = CodeRabbit이 실제로는 안 도는 상태)
           if [ -z "$PROVIDER" ] || [ "$PROVIDER" = "coderabbit" ]; then
             PROVIDER="github-ai"
           fi
@@ -70,6 +82,7 @@ jobs:
 
       - name: 변경 요약 생성
         id: summary
+        if: steps.options.outputs.skip != 'true'
         continue-on-error: true
         env:
           CHANGELOG_PROVIDER: ${{ steps.options.outputs.provider }}
@@ -90,7 +103,7 @@ jobs:
           fi
 
       - name: 요약 댓글 작성 또는 갱신
-        if: steps.summary.outputs.generated == 'true'
+        if: steps.options.outputs.skip != 'true' && steps.summary.outputs.generated == 'true'
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
