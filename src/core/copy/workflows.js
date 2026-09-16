@@ -196,14 +196,14 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   // (7) 기준점 기록 (#557) — 다음 업데이트가 "누가 바꿨는지"를 가릴 근거.
   //     이번에 실제로 쓴 파일만 installed를 갱신한다. 유지(skip)한 파일에 우리가 쓴 것처럼
   //     기록하면 다음 업데이트에서 사용자 수정이 조용히 덮인다.
-  recordBaseline(workflowsDir, targetRoot, counters, baseline, context.templateVersion, context.now);
+  recordBaseline(workflowsDir, targetRoot, counters, baseline, context.templateVersion, context.now, trace);
 
   return counters;
 }
 
 // 설치 직후의 디스크 내용을 기준점으로 남긴다. 실패해도 통합을 막지 않는다 —
 // 기준점이 없으면 다음 업데이트가 종전 2-way 판정으로 폴백할 뿐이다.
-function recordBaseline(workflowsDir, targetRoot, counters, previous, templateVersion, now) {
+function recordBaseline(workflowsDir, targetRoot, counters, previous, templateVersion, now, trace = null) {
   try {
     const entries = new Map();
     for (const f of counters.copiedFiles || []) {
@@ -214,6 +214,7 @@ function recordBaseline(workflowsDir, targetRoot, counters, previous, templateVe
       entries.set(f, { installed: sha256(content), rendered: sha256(content) });
     }
     if (entries.size === 0 && previous) return; // 새로 쓴 게 없으면 기존 기준점을 건드리지 않는다
+    trace?.event("baseline", "recorded", "", { files: entries.size, hadPrevious: !!previous });
     writeBaseline(targetRoot, {
       templateVersion: templateVersion || "unknown",
       installedAt: now || "",
@@ -319,7 +320,7 @@ function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters
     for (const f of unchanged) { counters.skipped++; trace?.event("copy", "skipped-unchanged", f, { group: type }); }
     for (const f of newFiles) { copyFileSync(join(typeDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "copied", f, { group: type }); }
     // upstream(#557): 사용자가 손대지 않았고 템플릿만 바뀐 파일 — 물어볼 것 없이 최신으로 올린다.
-    for (const f of upstream) { copyFileSync(join(typeDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "upstream-updated", f, { group: type }); }
+    for (const f of upstream) { copyFileSync(join(typeDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "upstream-updated", f, { group: type, reason: "baseline-match" }); }
     // changed: 결정 Map에 따라 처리 (미지정=skip → 현행 force 동작과 동일)
     for (const f of changed) applyDecision(decisions.get(f), typeDir, workflowsDir, f, counters, trace);
   }
@@ -330,7 +331,7 @@ function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters
     const { newFiles, unchanged, changed, upstream } = classify(serverDeployDir, workflowsDir, envOpts, baseline);
     for (const f of unchanged) { counters.skipped++; trace?.event("copy", "skipped-unchanged", f, { group: `${type}/server-deploy` }); }
     for (const f of newFiles) { copyFileSync(join(serverDeployDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "copied", f, { group: `${type}/server-deploy` }); }
-    for (const f of upstream) { copyFileSync(join(serverDeployDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "upstream-updated", f, { group: `${type}/server-deploy` }); }
+    for (const f of upstream) { copyFileSync(join(serverDeployDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "upstream-updated", f, { group: `${type}/server-deploy`, reason: "baseline-match" }); }
     for (const f of changed) applyDecision(decisions.get(f), serverDeployDir, workflowsDir, f, counters, trace);
   }
 

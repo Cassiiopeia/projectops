@@ -14,7 +14,7 @@ import { parseExisting } from "./core/version-yml.js";
 import { runBreakingCheck } from "./core/breaking-check.js";
 import { runMigrations } from "./core/migrations/index.js";
 import { detectOrphanWorkflows } from "./core/orphan-workflows.js";
-import { createRunTrace } from "./core/run-trace.js";
+import { createRunTrace, MIGRATION_DIR } from "./core/run-trace.js";
 import { appendGuideEntry } from "./core/migration-guide.js";
 import { resolveProjectPaths } from "./core/paths-resolve.js";
 import { applicableTargets } from "./core/options-ask.js";
@@ -168,6 +168,11 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
   let migrationsResult = null;
   let orphanPending = [];
   if (recordArtifacts) trace.mirrorStart();
+  // 실행 경계(#561) — 로그만 보고 "무엇을 어떤 인자로 돌렸는지"를 알 수 있어야 한다.
+  trace.event("run", "start", opts.mode || "", {
+    cli: "non-interactive", types, version, branch,
+    force: true, deploy: deployTarget, publish: publishTargets, intent,
+  });
   try {
     acquireTemplate({ tempDir, source });
     context.templateVersion = readTemplateVersion(tempDir);
@@ -208,18 +213,21 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
         break;
     }
   } finally {
-    trace.mirrorStop();
-    remove(tempDir);
+    remove(tempDir);   // mirrorStop은 완료 화면 출력 뒤로 미룬다 (#561)
   }
 
   // 마이그레이션 기록 (#493/#494) — Layer 2/3 트레이스 파일 + Layer 1 가이드 엔트리
   let migrationGuidePath = null;
+  // 기록 파일 경로는 먼저 계산하고(가이드가 참조), 실제 쓰기는 완료 화면 출력 뒤로 미룬다 —
+  // 그래야 터미널 미러에 완료 화면까지 담긴다 (#561).
+  const files = recordArtifacts
+    ? trace.paths({ fromVersion: existing?.templateVersion || "", toVersion: context.templateVersion, now })
+    : null;
   if (recordArtifacts) {
-    const files = trace.write({ targetRoot: cwd, fromVersion: existing?.templateVersion || "", toVersion: context.templateVersion, now });
     migrationGuidePath = appendGuideEntry(cwd, {
       now, mode: opts.mode, types, repoName,
       templateFrom: existing?.templateVersion || "", templateTo: context.templateVersion,
-      options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto },
+      options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto , appRelease: context.appRelease },
       branches: { defaultBranch: branch, deployBranch: context.deployBranch || "develop", ready: null, created: null },
       breaking: breakingReport, migrations: migrationsResult, orphans: { cleaned: [], pending: orphanPending },
       events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },
@@ -232,6 +240,17 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
     mode: opts.mode, types, version, deployBranch: context.deployBranch, migrationGuidePath,
     counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },
     verification: result?.verification,   // #549 설치 후 검증 결과 (full/workflows 모드에서만 존재)
+    logDir: files ? MIGRATION_DIR : null,  // #561 기록 위치 안내
   }, cwd);
+
+  // 완료 화면까지 캡처한 뒤 종료하고 기록한다 (#561)
+  trace.event("run", "end", opts.mode || "", {
+    workflowsCopied: result?.workflows?.copied ?? 0,
+    workflowsSkipped: result?.workflows?.skipped ?? 0,
+  });
+  trace.mirrorStop();
+  if (recordArtifacts) {
+    trace.write({ targetRoot: cwd, fromVersion: existing?.templateVersion || "", toVersion: context.templateVersion, now });
+  }
   return 0;
 }

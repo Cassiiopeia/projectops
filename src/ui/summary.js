@@ -130,6 +130,13 @@ export function printSummary(ctx, targetRoot = ".") {
   err("  📖 TEMPLATE REPO: https://github.com/Cassiiopeia/projectops");
   err("  📚 워크플로우 가이드: .github/workflows/project-types/README.md");
   // #493 — 이번 실행의 마이그레이션 기록. "뭐가 남았고 AI에게 어떻게 시키는지"가 바로 보이게 행동 유도형으로 안내.
+  // 실행 기록 위치 (#561) — 무슨 일이 있었는지 나중에 확인할 자리를 알린다.
+  if (ctx?.logDir) {
+    err(`  📁 실행 기록: ${ctx.logDir}/`);
+    err("     이번 실행의 모든 결정·치환·선택이 남아 있습니다 (저장소에 추적되지 않음).");
+    err("     💡 AI Agent에게 \"실행 기록 보고 뭐가 바뀌었는지 정리해줘\"라고 요청할 수 있습니다.");
+    err("");
+  }
   if (ctx?.migrationGuidePath) {
     err(`  🧭 마이그레이션 가이드: ${ctx.migrationGuidePath}`);
     err("     이번 설치에서 바뀐 내용과 직접 확인해야 할 작업이 이 파일에 정리되어 있습니다.");

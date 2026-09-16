@@ -49,15 +49,23 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
   addVersionSectionToReadme(version, targetRoot);
 
   // 5. scripts / config
+  //    워크플로우 밖 영역도 기록한다 (#561) — 종전에는 "내 스크립트가 갱신됐나"를
+  //    로그만 보고 알 수 없었다.
   copyScripts(tempDir, targetRoot);
+  hooks.trace?.event("copy", "scripts", "", { group: "scripts" });
   copyConfigFolder(tempDir, targetRoot);
+  hooks.trace?.event("copy", "config", "", { group: "config" });
 
   // 6. util (타입별)
-  for (const t of types) copyUtilModules(tempDir, t, { force }, targetRoot);
+  for (const t of types) {
+    copyUtilModules(tempDir, t, { force }, targetRoot);
+    hooks.trace?.event("copy", "util", t, { group: "util" });
+  }
 
   // 7. issue / discussion 템플릿
   copyIssueTemplates(tempDir, targetRoot);
   copyDiscussionTemplates(tempDir, targetRoot);
+  hooks.trace?.event("copy", "templates", "", { group: "issue-discussion" });
 
   // 8. coderabbit / gitignore / setup guide
   //    CodeRabbit 코드리뷰 미사용 선택(#457)이면 .coderabbit.yaml을 복사하지 않는다.

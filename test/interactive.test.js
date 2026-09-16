@@ -6,6 +6,7 @@ import { writeText, exists } from "../src/core/fsutil.js";
 import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { GUIDE_FILE } from "../src/core/migration-guide.js";
 
 // 최소 템플릿 소스 (local acquire용)
 function makeSource(dir) {
@@ -177,7 +178,7 @@ test("대화형: full 완료 시 마이그레이션 가이드 + JSONL 트레이�
       io: stubIo({ mode: "full", confirm: "continue" }),
     });
     assert.equal(code, 0);
-    const guide = join(cwd, "docs/projectops/migration/PROJECTOPS-MIGRATION-GUIDE.md");
+    const guide = join(cwd, GUIDE_FILE);
     assert.ok(exists(guide), "가이드 생성");
     const md = readFileSync(guide, "utf8");
     assert.match(md, /# ProjectOps 마이그레이션 가이드/);

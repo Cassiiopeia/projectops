@@ -14,7 +14,7 @@ import { runMigrations } from "../core/migrations/index.js";
 import { detectOrphanWorkflows, applyOrphanCleanup } from "../core/orphan-workflows.js";
 import { resolveProjectPaths, filterExcludedTypes } from "../core/paths-resolve.js";
 import { askAllOptionalWorkflows, OPTION_AXES, applicableTargets } from "../core/options-ask.js";
-import { createRunTrace } from "../core/run-trace.js";
+import { createRunTrace, MIGRATION_DIR } from "../core/run-trace.js";
 import { appendGuideEntry } from "../core/migration-guide.js";
 import { promptEnvPlan } from "../ui/env-plan.js";
 import { listWorkflowConflicts } from "../core/copy/workflows.js";
@@ -56,7 +56,10 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
 
     // 1) 모드 선택 — 기존 통합 레포면 업데이트 항목을 맨 위에 노출 (#502)
     const updateInfo = existing?.templateVersion ? { from: existing.templateVersion, to: templateVersion } : null;
+    // 실행 경계(#561) — 대화형은 사람이 무엇을 골랐는지가 핵심 기록이다.
+    trace.event("run", "start", "interactive", { templateVersion, isUpdate: !!updateInfo });
     const picked = await io.selectMode(updateInfo ? { update: updateInfo } : {});
+    trace.event("prompt", "mode", String(picked ?? ""), { update: !!updateInfo });
     if (picked === CANCEL || picked == null) { io.cancelMessage?.("설치를 취소했습니다."); return 0; }
     // 업데이트 모드(#502): 저장된 통합 범위(templateMode, 없으면 full)를 재실행하고
     // 이하 updateRun 분기가 질문을 최소화한다 ("저장된 설정 그대로 반영"이 계약).
@@ -183,6 +186,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
         if (isCancel(what) || what === "done") { editing = false; break; }
         if (what === "type") {
           const t = await io.selectTypes(types);
+          trace.event("prompt", "types", (Array.isArray(t) ? t : []).join(",") || "", { before: types });
           if (!isCancel(t) && Array.isArray(t) && t.length) {
             // 타입 집합이 실제로 바뀌면 경로 재해석 대상으로 초기화 (.sh L1984~1992 — 정렬 집합 비교)
             const oldSorted = [...types].sort().join(",");
@@ -264,6 +268,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       if (conflicts.length) {
         io.note?.(conflicts.map((c) => `• ${c.filename}`).join("\n"), `♻️ 템플릿이 갱신된 워크플로우 ${conflicts.length}개`);
         const yes = await io.askYesNo(`위 ${conflicts.length}개를 .bak 백업 후 새 버전으로 교체할까요? (기존 설정값은 유지됩니다)`, true);
+        trace.event("prompt", "conflict-bulk", yes ? "backup" : "skip", { count: conflicts.length, files: conflicts.map((c) => c.filename) });
         const decision = yes === true ? "backup" : "skip";
         updateDecisions = new Map();
         for (const { filename } of conflicts) updateDecisions.set(filename, decision);
@@ -336,6 +341,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
           `🧹 선택되지 않은 타입의 워크플로우 ${orphans.length}개 발견`,
         );
         const yes = await io.askYesNo(`위 ${orphans.length}개를 정리할까요? (.bak 무해화 — 복원 가능)`, true);
+        trace.event("prompt", "orphan-cleanup", yes ? "clean" : "keep", { count: orphans.length });
         if (yes === true) {
           const results = applyOrphanCleanup(cwd, orphans);
           const ok = results.filter((r) => r.action === "bak");
@@ -365,12 +371,16 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
 
     // 마이그레이션 기록 (#493/#494) — Layer 2/3 트레이스 파일 + Layer 1 가이드 엔트리 (full/workflows만)
     let migrationGuidePath = null;
-    if (mode === "full" || mode === "workflows") {
-      const files = trace.write({ targetRoot: cwd, fromVersion: existing?.templateVersion || "", toVersion: templateVersion, now });
+    const recordArtifacts = mode === "full" || mode === "workflows";
+    // 경로는 먼저 계산하고 실제 쓰기는 완료 화면 뒤로 미룬다 — 요약까지 터미널 미러에 담기 위함 (#561)
+    const files = recordArtifacts
+      ? trace.paths({ fromVersion: existing?.templateVersion || "", toVersion: templateVersion, now })
+      : null;
+    if (recordArtifacts) {
       migrationGuidePath = appendGuideEntry(cwd, {
         now, mode, types, repoName,
         templateFrom: existing?.templateVersion || "", templateTo: templateVersion,
-        options: { deploy: deployTarget, publish: publishTargets, secretBackup: includeSecretBackup, coderabbit: codeReviewCoderabbit, changelogProvider, intent, semverAuto },
+        options: { deploy: deployTarget, publish: publishTargets, secretBackup: includeSecretBackup, coderabbit: codeReviewCoderabbit, changelogProvider, intent, semverAuto , appRelease },
         branches: { defaultBranch: branch, deployBranch, ready: deployBranchReady, created: deployBranchCreated },
         breaking: breakingReport, migrations: migrationsResult, orphans: orphanReport,
         events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },
@@ -382,11 +392,23 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     io.summary?.({
       mode, types, version, deployBranch, deployBranchReady, migrationGuidePath,
       counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },
+      verification: result?.verification,      // #549 설치 검증 결과
+      logDir: files ? MIGRATION_DIR : null,    // #561 기록 위치 안내
     }, cwd);
     io.outro?.(`통합 완료 — ${mode} 모드로 설치했습니다.`);
+
+    // 완료 화면까지 캡처한 뒤 종료하고 기록한다 (#561)
+    trace.event("run", "end", mode || "", {
+      workflowsCopied: result?.workflows?.copied ?? 0,
+      workflowsSkipped: result?.workflows?.skipped ?? 0,
+    });
+    trace.mirrorStop();
+    if (recordArtifacts) {
+      trace.write({ targetRoot: cwd, fromVersion: existing?.templateVersion || "", toVersion: templateVersion, now });
+    }
     return 0;
   } finally {
-    trace.mirrorStop();
+    trace.mirrorStop();   // 예외로 빠져나간 경우의 안전망 (정상 경로는 위에서 이미 종료)
     remove(tempDir);
   }
 }

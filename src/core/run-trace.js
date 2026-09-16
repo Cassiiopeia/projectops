@@ -5,7 +5,18 @@
 import { join } from "node:path";
 import { writeText } from "./fsutil.js";
 
-export const MIGRATION_DIR = "docs/projectops/migration";
+// 진단 로그 위치 (#561). docs/ 아래(추적 대상)에서 옮겼다 — 이 기록은 사람이 읽는 문서가
+// 아니라 Agent가 "지난 실행에서 무슨 일이 있었나"를 확인하는 자료다.
+// 폴더 안에 .gitignore를 함께 써서 폴더가 자기 규칙을 들고 다닌다(루트 .gitignore 무수정).
+// 형제인 .github/.projectops/baseline.json은 팀원 공유 자산이라 계속 추적된다.
+export const MIGRATION_DIR = ".github/.projectops/logs";
+export const LOGS_GITIGNORE = [
+  "# projectops 실행 진단 로그 — 저장소에 추적하지 않습니다.",
+  "# 이 폴더는 마법사가 실행할 때마다 기록을 남기며, 커밋 대상이 아닙니다.",
+  "*",
+  "!.gitignore",
+  "",
+].join("\n");
 export const TRACE_SCHEMA = 1;
 
 // 민감값 가드 — PAT·토큰·시크릿·비밀번호는 어떤 이벤트에도 남기지 않는다 (#494 안전 규칙).
@@ -18,6 +29,14 @@ export function scrubDetail(detail) {
     out[k] = (v != null && typeof v === "object" && !Array.isArray(v)) ? scrubDetail(v) : v;
   }
   return out;
+}
+
+// 색상·커서 제어 시퀀스 제거 (#561). 로그 파일은 에디터·Agent가 읽으므로 이스케이프가
+// 그대로 남으면 판독을 방해한다. 터미널 출력 자체는 건드리지 않는다(사본만 정제).
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\u001b\[[0-9;]*[A-Za-z]/g;
+export function stripAnsi(text) {
+  return String(text).replace(ANSI_RE, "");
 }
 
 // now("YYYY-MM-DD HH:MM:SS") → 파일명 스탬프 "YYYYMMDD_HHMMSS". 형식이 아니면 "run" 폴백(테스트 주입 clock 안전).
@@ -55,7 +74,10 @@ export function createRunTrace({ clockIso = null } = {}) {
       const so = process.stdout.write; // 원본 참조 보관 — 복원 시 identity 유지
       const se = process.stderr.write;
       const capture = (chunk) => {
-        try { lines.push(typeof chunk === "string" ? chunk : chunk.toString("utf8")); } catch { /* 미러 실패는 실행에 영향 없음 */ }
+        try {
+          const s = typeof chunk === "string" ? chunk : chunk.toString("utf8");
+          lines.push(stripAnsi(s));
+        } catch { /* 미러 실패는 실행에 영향 없음 */ }
       };
       process.stdout.write = function (chunk, ...rest) { capture(chunk); return so.apply(process.stdout, [chunk, ...rest]); };
       process.stderr.write = function (chunk, ...rest) { capture(chunk); return se.apply(process.stderr, [chunk, ...rest]); };
@@ -66,24 +88,34 @@ export function createRunTrace({ clockIso = null } = {}) {
       if (restore) { restore(); restore = null; }
     },
 
-    // Layer 2/3 파일 기록 — docs/projectops/migration/{stamp}_v{from}_to_v{to}.{jsonl,log}
-    // 반환: { traceFile, logFile } (targetRoot 기준 상대 경로 — 가이드 메타 포인터용).
-    // 이벤트가 0건이면 기록하지 않는다(no-op 실행 오염 방지) — null 반환.
-    write({ targetRoot = ".", fromVersion = "", toVersion = "", now = "" } = {}) {
-      if (events.length === 0) return null;
+    // 기록 파일 경로만 계산한다 (쓰지 않음). 완료 화면까지 캡처하려면 write를 화면 출력 뒤로
+    // 미뤄야 하는데, 가이드 엔트리는 그 전에 traceFile 경로를 참조해야 해서 둘을 분리했다.
+    paths({ fromVersion = "", toVersion = "", now = "" } = {}) {
       const stamp = stampFromNow(now);
       const from = String(fromVersion || "new").replace(/[^0-9a-zA-Z.-]/g, "");
       const to = String(toVersion || "unknown").replace(/[^0-9a-zA-Z.-]/g, "");
       const base = `${stamp}_v${from}_to_v${to}`;
-      const traceFile = `${MIGRATION_DIR}/${base}.jsonl`;
+      return { base, traceFile: `${MIGRATION_DIR}/${base}.jsonl`, logFile: `${MIGRATION_DIR}/${base}.log` };
+    },
+
+    // Layer 2/3 파일 기록 — .github/.projectops/logs/{stamp}_v{from}_to_v{to}.{jsonl,log}
+    // 반환: { traceFile, logFile } (targetRoot 기준 상대 경로 — 가이드 메타 포인터용).
+    // 이벤트가 0건이면 기록하지 않는다(no-op 실행 오염 방지) — null 반환.
+    write({ targetRoot = ".", fromVersion = "", toVersion = "", now = "" } = {}) {
+      if (events.length === 0) return null;
+      const from = String(fromVersion || "new").replace(/[^0-9a-zA-Z.-]/g, "");
+      const to = String(toVersion || "unknown").replace(/[^0-9a-zA-Z.-]/g, "");
+      const planned = this.paths({ fromVersion, toVersion, now });
+      // 폴더 규칙을 매번 보장한다 — 사용자가 지웠거나 폴더가 새로 생겨도 추적되지 않게.
+      writeText(join(targetRoot, `${MIGRATION_DIR}/.gitignore`), LOGS_GITIGNORE);
       const header = JSON.stringify({ schema: TRACE_SCHEMA, kind: "projectops-migration-trace", from, to, started: events[0]?.ts ?? "" });
-      writeText(join(targetRoot, traceFile), [header, ...events.map((e) => JSON.stringify(e))].join("\n") + "\n");
+      writeText(join(targetRoot, planned.traceFile), [header, ...events.map((e) => JSON.stringify(e))].join("\n") + "\n");
       let logFile = null;
       if (lines.length > 0) {
-        logFile = `${MIGRATION_DIR}/${base}.log`;
+        logFile = planned.logFile;
         writeText(join(targetRoot, logFile), lines.join(""));
       }
-      return { traceFile, logFile };
+      return { traceFile: planned.traceFile, logFile };
     },
   };
 }

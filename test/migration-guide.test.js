@@ -21,7 +21,7 @@ function baseReport(extra = {}) {
     branches: { defaultBranch: "main", deployBranch: "develop", ready: true, created: true },
     breaking: null, migrations: null, orphans: null,
     events: EV, counters: { skipped: 3 },
-    traceFile: "docs/projectops/migration/x.jsonl", logFile: "",
+    traceFile: ".github/.projectops/logs/x.jsonl", logFile: "",
     ...extra,
   };
 }
@@ -82,7 +82,7 @@ test("renderGuideEntry: yaml 메타 필수 필드", () => {
   assert.match(md, /schema: 1/);
   assert.match(md, /template: \{ from: "2\.7\.7", to: "4\.2\.16" \}/);
   assert.match(md, /deploy_branch_created: true/);
-  assert.match(md, /trace_file: "docs\/projectops\/migration\/x\.jsonl"/);
+  assert.match(md, /trace_file: ".github\/.projectops\/logs\/x\.jsonl"/);
 });
 
 test("appendGuideEntry: 최초 생성=헤더 포함, 재실행=append-only (기존 엔트리 불변)", () => {

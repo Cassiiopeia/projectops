@@ -92,8 +92,8 @@ test("printSummary: migrationGuidePath 있으면 가이드 안내 출력 (#493)"
   const root = mkdtempSync(join(tmpdir(), "summary-mg-"));
   try {
     const base = { mode: "full", types: ["spring"], version: "1.0.0", counters: { workflows: 0, workflowFiles: [] } };
-    const withGuide = captureStderr(() => printSummary({ ...base, migrationGuidePath: "docs/projectops/migration/PROJECTOPS-MIGRATION-GUIDE.md" }, root));
-    assert.match(withGuide, /🧭 마이그레이션 가이드: docs\/projectops\/migration\/PROJECTOPS-MIGRATION-GUIDE\.md/);
+    const withGuide = captureStderr(() => printSummary({ ...base, migrationGuidePath: ".github/.projectops/logs/PROJECTOPS-MIGRATION-GUIDE.md" }, root));
+    assert.match(withGuide, /🧭 마이그레이션 가이드: .github\/.projectops\/logs\/PROJECTOPS-MIGRATION-GUIDE\.md/);
     const without = captureStderr(() => printSummary(base, root));
     assert.doesNotMatch(without, /마이그레이션 가이드:/);
   } finally { rmSync(root, { recursive: true, force: true }); }
