@@ -18,6 +18,12 @@
 name: COPILOT PROBE
 
 on:
+  # workflow_dispatch는 기본 브랜치에 파일이 있어야 등록된다. 조사는 develop에서
+  # 끝내야 하므로 이 파일 자체를 건드릴 때만 도는 push 트리거를 함께 둔다.
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/PROJECT-TEMPLATE-COPILOT-PROBE.yaml'
   workflow_dispatch:
 
 permissions:
