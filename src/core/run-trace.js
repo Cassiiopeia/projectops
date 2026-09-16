@@ -51,6 +51,7 @@ export function createRunTrace({ clockIso = null } = {}) {
   const events = [];
   const lines = [];
   let restore = null;
+  let finalized = false;
 
   const nowIso = () => clockIso ?? new Date().toISOString().replace(/\.\d+Z$/, "Z");
 
@@ -86,6 +87,23 @@ export function createRunTrace({ clockIso = null } = {}) {
 
     mirrorStop() {
       if (restore) { restore(); restore = null; }
+    },
+
+    // 어떤 경로로 끝나든 기록을 남긴다 (#561) — 정상 완주·중간 취소·예외·강제 종료.
+    // 사용자가 중간에 끊었을 때야말로 "어디까지 갔는지"가 가장 궁금한 순간이라,
+    // 완주했을 때만 남기는 기록은 쓸모가 절반이다.
+    //
+    // 두 번 불려도 한 번만 쓴다(정상 경로 + finally 중복 호출 대비). 실패는 삼킨다 —
+    // 기록 실패가 종료를 막아선 안 된다.
+    finalize(opts = {}) {
+      if (finalized) return null;
+      finalized = true;
+      try {
+        this.mirrorStop();
+        return this.write(opts);
+      } catch {
+        return null;
+      }
     },
 
     // 기록 파일 경로만 계산한다 (쓰지 않음). 완료 화면까지 캡처하려면 write를 화면 출력 뒤로

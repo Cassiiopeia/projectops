@@ -36,11 +36,15 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
   const tempDir = join(cwd, PATHS.tempDir);
   // 실행 트레이스 (#494) — 실제 CLI(io=prompts)에서만 터미널 미러를 켠다 (테스트 스텁 io는 이벤트만).
   const trace = createRunTrace();
+  // finally에서 기록할 때 쓰는 값 — try 안에서 확정되기 전에 취소될 수 있으므로 바깥에 둔다 (#561).
+  let traceFrom = "";
+  let traceTo = "";
   if (io === prompts) trace.mirrorStart();
   try {
     // 템플릿 먼저 획득 — 배너에 실제 템플릿 버전을 표시 (.sh는 원격 version.yml fetch L4270~4280 등가)
     acquireTemplate({ tempDir, source });
     const templateVersion = readTemplateVersion(tempDir);
+    traceTo = templateVersion;
 
     // 층1 — 시작 배너 (#446 확정 시안 A). 스텁엔 banner 없음 → intro 폴백.
     if (io.banner) io.banner({ version: templateVersion, modeLabel: "대화형 통합 마법사" });
@@ -49,6 +53,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     // 기존 version.yml — version/version_code/paths/옵션 보존의 단일 진실 (.sh SSoT L2208~2239)
     const vyPath = join(cwd, "version.yml");
     const existing = existsSync(vyPath) ? parseExisting(readFileSync(vyPath, "utf8")) : null;
+    traceFrom = existing?.templateVersion || "";
 
     // 층4 — IDE Skills 현재 상태 · 층5 — 신규/업데이트 판별 (#446)
     io.ideStatus?.();
@@ -60,7 +65,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     trace.event("run", "start", "interactive", { templateVersion, isUpdate: !!updateInfo });
     const picked = await io.selectMode(updateInfo ? { update: updateInfo } : {});
     trace.event("prompt", "mode", String(picked ?? ""), { update: !!updateInfo });
-    if (picked === CANCEL || picked == null) { io.cancelMessage?.("설치를 취소했습니다."); return 0; }
+    if (picked === CANCEL || picked == null) { trace.event("run", "cancelled", "mode-select", { reason: "user-cancel" }); io.cancelMessage?.("설치를 취소했습니다."); return 0; }
     // 업데이트 모드(#502): 저장된 통합 범위(templateMode, 없으면 full)를 재실행하고
     // 이하 updateRun 분기가 질문을 최소화한다 ("저장된 설정 그대로 반영"이 계약).
     const updateRun = picked === "update";
@@ -73,7 +78,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       askYesNo: (msg, def) => io.askYesNo(msg, def),
       onItems: (items) => { breakingReport = items; },
     });
-    if (!proceed) { io.cancelMessage?.("통합을 안전하게 취소했습니다."); return 0; }
+    if (!proceed) { trace.event("run", "cancelled", "breaking-gate", { reason: "user-declined" }); io.cancelMessage?.("통합을 안전하게 취소했습니다."); return 0; }
 
     // skills 모드 — IDE 스킬 설치 (템플릿 통합 없음). 대화형으로 실행.
     if (mode === "skills") {
@@ -175,7 +180,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
         io.note?.(summarize({ mode, types, version, branch, deployTarget, publishTargets, includeSecretBackup, showOptional, changelogProvider, codeReviewCoderabbit }), "프로젝트 분석 결과");
       }
       const choice = await io.confirmProjectMenu();
-      if (choice === "cancel") { io.cancelMessage?.("설치를 취소했습니다."); return 0; }
+      if (choice === "cancel") { trace.event("run", "cancelled", "confirm-loop", { reason: "user-cancel" }); io.cancelMessage?.("설치를 취소했습니다."); return 0; }
       if (isCancel(choice) || choice == null) continue; // ESC = 머무르기 (루프 재출력)
       if (choice === "continue") { confirmed = true; break; }
       // edit 루프
@@ -402,13 +407,16 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       workflowsCopied: result?.workflows?.copied ?? 0,
       workflowsSkipped: result?.workflows?.skipped ?? 0,
     });
-    trace.mirrorStop();
     if (recordArtifacts) {
-      trace.write({ targetRoot: cwd, fromVersion: existing?.templateVersion || "", toVersion: templateVersion, now });
+      trace.finalize({ targetRoot: cwd, fromVersion: existing?.templateVersion || "", toVersion: templateVersion, now });
+    } else {
+      trace.mirrorStop();
     }
     return 0;
   } finally {
-    trace.mirrorStop();   // 예외로 빠져나간 경우의 안전망 (정상 경로는 위에서 이미 종료)
+    // 어떤 경로로 빠져나가든 기록을 남긴다 (#561) — 중간 취소·예외 포함.
+    // finalize는 멱등이라 정상 경로에서 이미 호출됐으면 여기서는 아무 일도 하지 않는다.
+    trace.finalize({ targetRoot: cwd, fromVersion: traceFrom, toVersion: traceTo, now: clock?.now || "" });
     remove(tempDir);
   }
 }
