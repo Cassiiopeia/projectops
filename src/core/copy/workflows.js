@@ -7,6 +7,7 @@ import { existsSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { PATHS } from "../paths.js";
 import { exists, copyFileSync, listYamlFiles } from "../fsutil.js";
 import { isUnchanged, substituteEnv } from "../wizard-env.js";
+import { isUserModified, readBaseline, writeBaseline, sha256 } from "../baseline.js";
 import { substituteBranches } from "../branch-sub.js";
 
 // 한 파일에 env 치환을 적용해 대상 파일을 갱신 (.sh configure_workflow_env 등가).
@@ -34,16 +35,25 @@ function utilSyncApplies(tempDir, targetRoot, types) {
   return types.some((t) => exists(join(tempDir, ".github", "util", t)));
 }
 
-// 3분류 (신규/unchanged/changed) — 대상 워크플로우 디렉토리 기준.
-function classify(srcDir, workflowsDir, envOpts) {
-  const result = { newFiles: [], unchanged: [], changed: [] };
+// 4분류 (신규/unchanged/upstream/changed) — 대상 워크플로우 디렉토리 기준.
+//
+// upstream(#557): 사용자가 손대지 않았는데 템플릿만 바뀐 파일. 질문할 이유가 없으므로
+// 그냥 최신으로 올린다. baseline(설치 시점 해시)이 있어야 판정할 수 있다.
+// baseline이 없거나 그 파일 기록이 없으면 판정 불가 → 종전대로 changed로 떨어뜨린다
+// (기존 통합 레포의 동작이 바뀌지 않는다).
+function classify(srcDir, workflowsDir, envOpts, baseline = null) {
+  const result = { newFiles: [], unchanged: [], changed: [], upstream: [] };
   for (const filename of listYamlFiles(srcDir)) {
     const src = join(srcDir, filename);
     const dst = join(workflowsDir, filename);
     if (existsSync(dst)) {
       const tpl = readFileSync(src, "utf8");
       const inst = readFileSync(dst, "utf8");
-      if (isUnchanged(tpl, inst, envOpts)) result.unchanged.push(filename);
+      if (isUnchanged(tpl, inst, envOpts)) { result.unchanged.push(filename); continue; }
+      // 여기 왔다는 건 "지금 템플릿 렌더 결과 ≠ 설치본" — 사용자 수정이거나 업스트림 변경이다.
+      // baseline이 그 둘을 가른다.
+      const modified = isUserModified(baseline, filename, inst);
+      if (modified === false) result.upstream.push(filename);
       else result.changed.push(filename);
     } else {
       result.newFiles.push(filename);
@@ -64,6 +74,8 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   const decisions = hooks.decisions instanceof Map ? hooks.decisions : new Map();
   const trace = hooks.trace ?? null; // #494 — 실행 트레이스 (null-safe: 미주입이면 전 이벤트 no-op)
   const workflowsDir = join(targetRoot, PATHS.workflowsDir);
+  // 설치 시점 기준점(#557) — 없으면 null이고 classify가 종전 2-way로 폴백한다.
+  const baseline = readBaseline(targetRoot);
   const projectTypesDir = join(tempDir, PATHS.workflowsDir, PATHS.projectTypesDir);
   if (!exists(projectTypesDir)) throw new Error("템플릿 저장소 구조 오류 — project-types 폴더를 찾지 못했습니다.");
 
@@ -101,7 +113,7 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   // (2~4) 타입별
   for (const type of types) {
     const asks = new Map();
-    copyWorkflowsForType(type, projectTypesDir, workflowsDir, { deployTarget, publishTargets, ...context, envOptsFor, collectAsks: asks, decisions, trace }, counters);
+    copyWorkflowsForType(type, projectTypesDir, workflowsDir, { deployTarget, publishTargets, ...context, envOptsFor, collectAsks: asks, decisions, trace, baseline }, counters);
     if (asks.size) deployValues.set(type, asks);
   }
 
@@ -155,7 +167,36 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
     }
   }
 
+  // (7) 기준점 기록 (#557) — 다음 업데이트가 "누가 바꿨는지"를 가릴 근거.
+  //     이번에 실제로 쓴 파일만 installed를 갱신한다. 유지(skip)한 파일에 우리가 쓴 것처럼
+  //     기록하면 다음 업데이트에서 사용자 수정이 조용히 덮인다.
+  recordBaseline(workflowsDir, targetRoot, counters, baseline, context.templateVersion, context.now);
+
   return counters;
+}
+
+// 설치 직후의 디스크 내용을 기준점으로 남긴다. 실패해도 통합을 막지 않는다 —
+// 기준점이 없으면 다음 업데이트가 종전 2-way 판정으로 폴백할 뿐이다.
+function recordBaseline(workflowsDir, targetRoot, counters, previous, templateVersion, now) {
+  try {
+    const entries = new Map();
+    for (const f of counters.copiedFiles || []) {
+      const p = join(workflowsDir, f);
+      if (!existsSync(p)) continue;
+      const content = readFileSync(p, "utf8");
+      // 치환까지 끝난 최종 디스크 내용이 곧 우리가 쓴 것이자, 이 시점의 렌더 결과다.
+      entries.set(f, { installed: sha256(content), rendered: sha256(content) });
+    }
+    if (entries.size === 0 && previous) return; // 새로 쓴 게 없으면 기존 기준점을 건드리지 않는다
+    writeBaseline(targetRoot, {
+      templateVersion: templateVersion || "unknown",
+      installedAt: now || "",
+      entries,
+      previous,
+    });
+  } catch {
+    // 기준점 기록 실패는 통합 실패가 아니다
+  }
 }
 
 // changed(기존에 있고 내용이 바뀐) 파일 1개를 결정에 따라 처리 (.sh 3440~3508 3지선 case 등가).
@@ -189,6 +230,8 @@ function applyDecision(decision, srcDir, workflowsDir, filename, counters, trace
 export function listWorkflowConflicts(context, tempDir, targetRoot = ".") {
   const { types = [], paths = new Map(), deployTarget = "docker-ssh", repoName = "", resolvers = {}, branch = "", deployBranch = "" } = context;
   const workflowsDir = join(targetRoot, PATHS.workflowsDir);
+  // 설치 시점 기준점(#557) — 없으면 null이고 classify가 종전 2-way로 폴백한다.
+  const baseline = readBaseline(targetRoot);
   const projectTypesDir = join(tempDir, PATHS.workflowsDir, PATHS.projectTypesDir);
   const conflicts = []; // [{ filename, type }] — 엔진 처리 순서와 동일 (타입 순회 → 직하위 → server-deploy)
   const branches = { defaultBranch: branch || "main", deployBranch: deployBranch || "develop" }; // #477 — 엔진과 동일 기준
@@ -196,11 +239,11 @@ export function listWorkflowConflicts(context, tempDir, targetRoot = ".") {
     const envOpts = { type, projectPath: paths.get(type) || ".", repoName, resolvers, branches };
     const typeDir = join(projectTypesDir, type);
     if (exists(typeDir)) {
-      for (const f of classify(typeDir, workflowsDir, envOpts).changed) conflicts.push({ filename: f, type });
+      for (const f of classify(typeDir, workflowsDir, envOpts, baseline).changed) conflicts.push({ filename: f, type });
     }
     const serverDeployDir = join(typeDir, "server-deploy");
     if (exists(serverDeployDir) && (deployTarget || "docker-ssh") === "docker-ssh") {
-      for (const f of classify(serverDeployDir, workflowsDir, envOpts).changed) conflicts.push({ filename: f, type });
+      for (const f of classify(serverDeployDir, workflowsDir, envOpts, baseline).changed) conflicts.push({ filename: f, type });
     }
   }
   return conflicts;
@@ -224,17 +267,19 @@ export async function copyWorkflowsInteractive(context, tempDir, targetRoot = ".
 const PUBLISH_TARGETS = ["nexus", "npm", "github-packages"];
 
 function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters) {
-  const { deployTarget = "docker-ssh", publishTargets = [], force = false, paths = new Map(), repoName = "", resolvers = {}, envOptsFor, collectAsks = null, decisions = new Map(), trace = null } = ctx;
+  const { deployTarget = "docker-ssh", publishTargets = [], force = false, paths = new Map(), repoName = "", resolvers = {}, envOptsFor, collectAsks = null, decisions = new Map(), trace = null, baseline = null } = ctx;
   const typeDir = join(projectTypesDir, type);
   const envOpts = envOptsFor(type);
   let unchangedNames = [];
 
   // 타입별 워크플로우 (직하위)
   if (exists(typeDir)) {
-    const { newFiles, unchanged, changed } = classify(typeDir, workflowsDir, envOpts);
+    const { newFiles, unchanged, changed, upstream } = classify(typeDir, workflowsDir, envOpts, baseline);
     unchangedNames = unchanged.slice();
     for (const f of unchanged) { counters.skipped++; trace?.event("copy", "skipped-unchanged", f, { group: type }); }
     for (const f of newFiles) { copyFileSync(join(typeDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "copied", f, { group: type }); }
+    // upstream(#557): 사용자가 손대지 않았고 템플릿만 바뀐 파일 — 물어볼 것 없이 최신으로 올린다.
+    for (const f of upstream) { copyFileSync(join(typeDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "upstream-updated", f, { group: type }); }
     // changed: 결정 Map에 따라 처리 (미지정=skip → 현행 force 동작과 동일)
     for (const f of changed) applyDecision(decisions.get(f), typeDir, workflowsDir, f, counters, trace);
   }
@@ -242,9 +287,10 @@ function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters
   // server-deploy — deploy=docker-ssh일 때만 포함 (#439)
   const serverDeployDir = join(typeDir, "server-deploy");
   if (exists(serverDeployDir) && (deployTarget || "docker-ssh") === "docker-ssh") {
-    const { newFiles, unchanged, changed } = classify(serverDeployDir, workflowsDir, envOpts);
+    const { newFiles, unchanged, changed, upstream } = classify(serverDeployDir, workflowsDir, envOpts, baseline);
     for (const f of unchanged) { counters.skipped++; trace?.event("copy", "skipped-unchanged", f, { group: `${type}/server-deploy` }); }
     for (const f of newFiles) { copyFileSync(join(serverDeployDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "copied", f, { group: `${type}/server-deploy` }); }
+    for (const f of upstream) { copyFileSync(join(serverDeployDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "upstream-updated", f, { group: `${type}/server-deploy` }); }
     for (const f of changed) applyDecision(decisions.get(f), serverDeployDir, workflowsDir, f, counters, trace);
   }
 
