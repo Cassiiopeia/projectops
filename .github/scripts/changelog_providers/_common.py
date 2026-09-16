@@ -21,12 +21,36 @@ SECTION_ORDER = [
     ("docs", "문서"),
     ("etc", "기타"),
 ]
-_PREFIX_RE = re.compile(r"^(feat|fix|refactor|docs|chore|style|test|perf|ci|build|revert)(\([^)]*\))?:")
+# 커밋 제목에서 타입을 뽑는 규칙 — 두 컨벤션을 모두 인식한다 (#566).
+#   tier-1: "제목 : feat : 내용"        ← projectops 표준 (타입이 중간에 온다)
+#   tier-2: "feat: 내용"                ← Conventional Commits
+# tier-1을 먼저 본다. tier-2 정규식은 줄 맨 앞만 보므로 tier-1을 통째로 놓쳤고,
+# 그 결과 자체 컨벤션을 지킨 커밋이 전부 "기타"로 떨어졌다.
+# 판정 규칙은 changelog_manager.classify_bump_level()(#546)과 같은 기준을 쓴다.
+_TYPES = "feat|fix|refactor|docs|chore|style|test|perf|ci|build|revert"
+_TIER1_RE = re.compile(rf"^(?P<title>.+?)\s:\s*(?P<type>{_TYPES})!?\s*:\s*(?P<body>.+)$")
+_TIER2_RE = re.compile(rf"^(?P<type>{_TYPES})(?:\([^)]*\))?!?:\s*(?P<body>.+)$")
 _PREFIX_TO_SECTION = {
     "feat": "feat", "fix": "fix",
     "refactor": "improve", "style": "improve", "perf": "improve",
     "docs": "docs",
 }
+
+
+def parse_commit(line):
+    """커밋 제목 → (섹션key, 사용자에게 보여줄 내용). 매치 실패 시 ("etc", 원문)."""
+    m = _TIER1_RE.match(line) or _TIER2_RE.match(line)
+    if not m:
+        return "etc", _strip_noise(line) or line.strip()
+    section = _PREFIX_TO_SECTION.get(m.group("type"), "etc")
+    return section, (_strip_noise(m.group("body")) or line.strip())
+
+
+def _strip_noise(text):
+    """이슈번호(#123)·URL 제거 후 공백 정리 — 사용자에게 의미 없는 토큰."""
+    s = re.sub(r"https?://\S+", "", text)
+    s = re.sub(r"#[0-9]+", "", s)
+    return re.sub(r" {2,}", " ", s).strip()
 
 
 def collect_commits(range_expr, limit=60, fallback_count=30):
@@ -50,21 +74,16 @@ def collect_commits(range_expr, limit=60, fallback_count=30):
 
 
 def clean_message(line):
-    """prefix·이슈번호(#123)·URL 제거, 공백 정리."""
-    msg = _PREFIX_RE.sub("", line)
-    msg = re.sub(r"#[0-9]+", "", msg)
-    msg = re.sub(r"https?://\S+", "", msg)
-    msg = re.sub(r" {2,}", " ", msg).strip()
-    return msg or line.strip()
+    """커밋 제목에서 타입 prefix·이슈번호·URL을 걷어낸 본문만 반환."""
+    return parse_commit(line)[1]
 
 
 def classify(commits):
     """커밋 제목들을 섹션별로 분류해 {섹션key: [메시지…]} 반환."""
     sections = {key: [] for key, _ in SECTION_ORDER}
     for line in commits:
-        m = _PREFIX_RE.match(line)
-        key = _PREFIX_TO_SECTION.get(m.group(1), "etc") if m else "etc"
-        sections[key].append(clean_message(line))
+        key, message = parse_commit(line)
+        sections[key].append(message)
     return sections
 
 

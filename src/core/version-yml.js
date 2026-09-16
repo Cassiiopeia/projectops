@@ -313,7 +313,7 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
   // template 옵션 블록 (.sh save_template_options 신규 추가 케이스). templateOptions 지정 시.
   if (templateOptions) {
     const { templateVersion = "unknown", deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, optionsDate = today,
-            changelogProvider = "github-ai", changelogBaseUrl = "", codeReviewCoderabbit = true, intent = null, mode = null,
+            changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true, intent = null, mode = null,
             semverAuto = true, appRelease = null } = templateOptions;
     const publishJson = `[${publishTargets.map((t) => `"${t}"`).join(",")}]`;
     // intent(프로젝트 성격, #485) — 미지정이면 deploy/publish에서 역추론해 기록 (재통합 시 진입 질문 생략용)

@@ -13,7 +13,7 @@ import { ensureGitignore } from "../core/copy/gitignore.js";
 export function runVersion(context, tempDir, targetRoot = ".") {
   const { version, types = [], paths = new Map(), branch = "main", versionCode = 1,
     now, today, templateVersion = "unknown", deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false,
-    changelogProvider = "github-ai", changelogBaseUrl = "", codeReviewCoderabbit = true,
+    changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true,
     deployBranch = "", recordMode = "version", semverAuto = true , appRelease = null } = context;
 
   const pathMarkers = new Map();

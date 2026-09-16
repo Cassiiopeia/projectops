@@ -21,7 +21,7 @@ export function copyScripts(tempDir, targetRoot = ".") {
     // AI PR SUMMARY 워크플로우가 요약 댓글을 작성·갱신할 때 호출 (#553).
     "pr_summary_comment.py",
     "changelog_providers/_common.py", "changelog_providers/ladder.py",
-    "changelog_providers/commit.py", "changelog_providers/github_ai.py",
+    "changelog_providers/commit.py", "changelog_providers/copilot.py",
     "changelog_providers/openai_compatible.py",
   ];
   let copied = 0;

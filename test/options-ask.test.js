@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import {
   parseTemplateOptions, askAllOptionalWorkflows,
-  applicableTargets, TYPE_DEPLOY_TARGETS, TYPE_PUBLISH_TARGETS,
+  applicableTargets, TYPE_DEPLOY_TARGETS, TYPE_PUBLISH_TARGETS, migrateProvider,
 } from "../src/core/options-ask.js";
 import { parseExisting, buildVersionYml } from "../src/core/version-yml.js";
 import { VALID_TYPES } from "../src/context.js";
@@ -114,6 +114,7 @@ test("parseTemplateOptions: 신 publish 키가 있으면 구 키 마이그레이
 });
 
 test("parseTemplateOptions: changelog/code_review 파싱 (#455)", () => {
+  // 파서는 저장된 값을 그대로 읽는다. 죽은 값의 이전은 migrateProvider가 맡는다 (#566).
   const r = parseTemplateOptions(VY_CHANGELOG("github-ai", "", "true"));
   assert.equal(r.changelogProvider, "github-ai");
   assert.equal(r.changelogBaseUrl, "");
@@ -137,15 +138,15 @@ test("buildVersionYml: changelog/code_review 블록 생성 + round-trip (#455)",
     now: "2026-07-09 00:00:00", today: "2026-07-09",
     templateOptions: {
       templateVersion: "4.3.0", deployTarget: "none", publishTargets: [], includeSecretBackup: false,
-      changelogProvider: "github-ai", changelogBaseUrl: "", codeReviewCoderabbit: true,
+      changelogProvider: "gemini", changelogBaseUrl: "", codeReviewCoderabbit: true,
     },
   });
   assert.match(yml, /changelog:/);
-  assert.match(yml, /provider: "github-ai"/);
+  assert.match(yml, /provider: "gemini"/);
   assert.match(yml, /coderabbit: true/);
   // round-trip: 생성 → 파싱 동일
   const parsed = parseTemplateOptions(yml);
-  assert.equal(parsed.changelogProvider, "github-ai");
+  assert.equal(parsed.changelogProvider, "gemini");
   assert.equal(parsed.codeReviewCoderabbit, true);
   assert.equal(parsed.changelogBaseUrl, "");
 });
@@ -182,15 +183,15 @@ test("askAllOptionalWorkflows: changelog provider + coderabbit 질문 (#455)", a
   try {
     // basic 단독이라 deploy/publish select 스킵 → select는 changelog provider 하나만
     // confirm: code_review coderabbit / text: deploy_branch(#456)
-    const io = stubIo({ confirms: [true], selects: ["github-ai"], texts: ["develop"] });
+    const io = stubIo({ confirms: [true], selects: [], texts: ["develop"] });
     const r = await askAllOptionalWorkflows({
       tempDir, types: ["basic"], targetRoot: target, tty: true, io,
     });
     assert.equal(r.codeReviewCoderabbit, true);
-    assert.equal(r.changelogProvider, "github-ai");
+    assert.equal(r.changelogProvider, "commit");
     assert.equal(r.changelogBaseUrl, "");
     assert.equal(r.deployBranch, "develop");
-    assert.equal(io.calls.text.length, 1, "github-ai면 base_url 질문은 없고 deploy_branch만 1회");
+    assert.equal(io.calls.text.length, 1, "base_url 질문은 없고 deploy_branch만 1회");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
 
@@ -206,7 +207,7 @@ test("askAllOptionalWorkflows: deploy_branch 기본값 develop (#456)", async ()
   const target = makeTmp();
   try {
     // deploy_branch 질문에 빈 응답이면 기본 develop 유지
-    const io = stubIo({ confirms: [false], selects: ["github-ai"], texts: [""] });
+    const io = stubIo({ confirms: [false], selects: [], texts: [""] });
     const r = await askAllOptionalWorkflows({
       tempDir, types: ["basic"], targetRoot: target, tty: true, io,
     });
@@ -218,10 +219,12 @@ test("askAllOptionalWorkflows: changelog=ollama면 base_url 질문 (#455)", asyn
   const tempDir = makeTemplateFixture({ secretBackup: false });
   const target = makeTmp();
   try {
-    // text 순서: base_url(ollama) → deploy_branch(#456)
-    const io = stubIo({ confirms: [false], selects: ["ollama"], texts: ["https://ai.suhsaechan.kr/v1", "release"] });
+    // provider는 더 이상 묻지 않으므로(#566) 저장값으로 주입한다.
+    // ollama는 base_url이 없으면 그것만 따로 묻는다 — 이 경로는 유지된다.
+    const io = stubIo({ confirms: [false], selects: [], texts: ["https://ai.suhsaechan.kr/v1", "release"] });
     const r = await askAllOptionalWorkflows({
       tempDir, types: ["basic"], targetRoot: target, tty: true, io,
+      current: { changelogProvider: "ollama", changelogBaseUrl: "" },
     });
     assert.equal(r.changelogProvider, "ollama");
     assert.equal(r.changelogBaseUrl, "https://ai.suhsaechan.kr/v1");
@@ -235,7 +238,7 @@ test("askAllOptionalWorkflows: 대화형 — intent=both → deploy=vercel / pub
   const target = makeTmp();
   try {
     // select 순서: intent(both) → deploy(vercel) → changelog(github-ai). confirm: code_review(false) → secret(false)
-    const io = stubIo({ selects: ["both", "vercel", "github-ai"], multiselects: [["npm"]], confirms: [false, false] });
+    const io = stubIo({ selects: ["both", "vercel"], multiselects: [["npm"]], confirms: [false, false] });
     const r = await askAllOptionalWorkflows({
       tempDir, types: ["spring"], targetRoot: target, tty: true, io,
     });
@@ -243,8 +246,8 @@ test("askAllOptionalWorkflows: 대화형 — intent=both → deploy=vercel / pub
     assert.deepEqual(r.publish, ["npm"]);
     assert.equal(r.intent, "both");
     assert.equal(r.secretBackup, false);
-    assert.equal(r.changelogProvider, "github-ai");
-    assert.equal(io.calls.select.length, 3, "intent + deploy + changelog");
+    assert.equal(r.changelogProvider, "commit");
+    assert.equal(io.calls.select.length, 2, "intent + deploy (changelog는 묻지 않음)");
     assert.equal(io.calls.multiselect.length, 1);
     assert.equal(io.calls.confirm.length, 2, "code_review + secret");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
@@ -255,7 +258,7 @@ test("askAllOptionalWorkflows: intent=app → deploy만 물음, publish 스킵([
   const target = makeTmp();
   try {
     // select: intent(app) → deploy(docker-ssh) → changelog(github-ai). multiselect 없음(publish 스킵)
-    const io = stubIo({ selects: ["app", "docker-ssh", "github-ai"], confirms: [false, false] });
+    const io = stubIo({ selects: ["app", "docker-ssh"], confirms: [false, false] });
     const r = await askAllOptionalWorkflows({ tempDir, types: ["spring"], targetRoot: target, tty: true, io });
     assert.equal(r.intent, "app");
     assert.equal(r.deploy, "docker-ssh");
@@ -269,12 +272,12 @@ test("askAllOptionalWorkflows: intent=library → publish만 물음, deploy=none
   const target = makeTmp();
   try {
     // select: intent(library) → changelog(github-ai). deploy select 없음. multiselect: publish
-    const io = stubIo({ selects: ["library", "github-ai"], multiselects: [["nexus"]], confirms: [false, false] });
+    const io = stubIo({ selects: ["library"], multiselects: [["nexus"]], confirms: [false, false] });
     const r = await askAllOptionalWorkflows({ tempDir, types: ["spring"], targetRoot: target, tty: true, io });
     assert.equal(r.intent, "library");
     assert.equal(r.deploy, "none", "deploy 안 물어 none");
     assert.deepEqual(r.publish, ["nexus"]);
-    assert.equal(io.calls.select.length, 2, "intent + changelog (deploy 스킵)");
+    assert.equal(io.calls.select.length, 1, "intent만 (deploy 스킵, changelog 안 물음)");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
 
@@ -282,13 +285,13 @@ test("askAllOptionalWorkflows: intent=none → deploy/publish 둘 다 스킵, no
   const tempDir = makeTemplateFixture();
   const target = makeTmp();
   try {
-    const io = stubIo({ selects: ["none", "github-ai"], confirms: [false, false] });
+    const io = stubIo({ selects: ["none"], confirms: [false, false] });
     const r = await askAllOptionalWorkflows({ tempDir, types: ["spring"], targetRoot: target, tty: true, io });
     assert.equal(r.intent, "none");
     assert.equal(r.deploy, "none");
     assert.deepEqual(r.publish, []);
     assert.equal(io.calls.multiselect.length, 0);
-    assert.equal(io.calls.select.length, 2, "intent + changelog만");
+    assert.equal(io.calls.select.length, 1, "intent만");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
 
@@ -297,7 +300,7 @@ test("askAllOptionalWorkflows: basic 단독 타입은 배포/publish 질문 스�
   const target = makeTmp();
   try {
     // deploy select은 스킵돼야 함. 단 changelog select는 물어봄(github-ai). code_review confirm(false).
-    const io = stubIo({ selects: ["github-ai"], confirms: [false], multiselects: [["npm"]] });
+    const io = stubIo({ selects: [], confirms: [false], multiselects: [["npm"]] });
     const r = await askAllOptionalWorkflows({
       tempDir, types: ["basic"], targetRoot: target, tty: true, io,
     });
@@ -306,7 +309,7 @@ test("askAllOptionalWorkflows: basic 단독 타입은 배포/publish 질문 스�
     assert.equal(r.secretBackup, false);
     assert.equal(io.calls.multiselect.length, 0, "publish 질문 안 함");
     // select은 changelog 하나만(배포 스킵), multiselect의 npm은 소비 안 됨
-    assert.equal(io.calls.select.length, 1, "배포 스킵, changelog만");
+    assert.equal(io.calls.select.length, 0, "배포·changelog 모두 스킵");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
 
@@ -337,7 +340,7 @@ test("askAllOptionalWorkflows: 비대화형 — current 유지, 미설정은 기
       targetRoot: target, force: true, tty: false, io,
     });
     assert.deepEqual(r, { deploy: "vercel", publish: [], secretBackup: false,
-      codeReviewCoderabbit: false, changelogProvider: "github-ai", changelogBaseUrl: "", deployBranch: "develop",
+      codeReviewCoderabbit: false, changelogProvider: "commit", changelogBaseUrl: "", deployBranch: "develop",
       deployBranchReady: null, // #490 — 비대화형은 브랜치 확인 안 함
       deployBranchCreated: null, // #493 — 비대화형은 생성 안 함
       intent: "app" }); // deploy≠none & publish=[] → app 역추론 (#485)
@@ -353,15 +356,15 @@ test("askAllOptionalWorkflows: version.yml 저장값 있으면 재질문 생략"
     touch(target, "version.yml", VY_NEW("vercel", ["nexus"], false));
     // deploy/publish/secret은 저장값 유지 → 질문 없음. changelog는 저장값에 없어 질문 나옴.
     // deploy multiselect가 호출되면 반대값이지만, 저장값 유지로 select은 changelog만.
-    const io = stubIo({ selects: ["github-ai"], confirms: [false] });
+    const io = stubIo({ selects: [], confirms: [false] });
     const r = await askAllOptionalWorkflows({
       tempDir, types: ["spring"], targetRoot: target, tty: true, io,
     });
     assert.equal(r.deploy, "vercel");
     assert.deepEqual(r.publish, ["nexus"]);
     assert.equal(r.secretBackup, false);
-    assert.equal(r.changelogProvider, "github-ai");
-    assert.equal(io.calls.select.length, 1, "deploy 저장값 유지, changelog만 질문");
+    assert.equal(r.changelogProvider, "commit");
+    assert.equal(io.calls.select.length, 0, "저장값 유지 — 물을 것이 없다");
     assert.equal(io.calls.multiselect.length, 0);
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
@@ -372,14 +375,14 @@ test("askAllOptionalWorkflows: 구 키 저장 파일 → 신 축으로 마이그
   try {
     touch(target, "version.yml", VY_LEGACY("true", "false"));
     // deploy/publish는 구 키 마이그레이션으로 채워짐 → 질문 없음. changelog는 없어 질문 나옴.
-    const io = stubIo({ selects: ["github-ai"], confirms: [false] });
+    const io = stubIo({ selects: [], confirms: [false] });
     const r = await askAllOptionalWorkflows({
       tempDir, types: ["spring"], targetRoot: target, tty: true, io,
     });
     assert.equal(r.deploy, "none");
     assert.deepEqual(r.publish, ["nexus"]);
     assert.equal(r.secretBackup, false);
-    assert.equal(io.calls.select.length, 1, "deploy 마이그레이션 유지, changelog만 질문");
+    assert.equal(io.calls.select.length, 0, "마이그레이션 유지 — 물을 것이 없다");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
 
@@ -390,7 +393,7 @@ test("askAllOptionalWorkflows: forceAsk=true(scope=null) — intent 포함 전�
     touch(target, "version.yml", VY_NEW("docker-ssh", [], false));
     // forceAsk → intent부터 재질문. select: intent(both) → deploy(none) → changelog(github-ai).
     // confirm: code_review(false) → secret(true). intent=both라 deploy·publish 둘 다 물음.
-    const io = stubIo({ selects: ["both", "none", "github-ai"], multiselects: [["nexus", "github-packages"]], confirms: [false, true] });
+    const io = stubIo({ selects: ["both", "none"], multiselects: [["nexus", "github-packages"]], confirms: [false, true] });
     const r = await askAllOptionalWorkflows({
       tempDir, types: ["spring"], targetRoot: target, tty: true, io, forceAsk: true,
     });
@@ -398,8 +401,8 @@ test("askAllOptionalWorkflows: forceAsk=true(scope=null) — intent 포함 전�
     assert.equal(r.deploy, "none");
     assert.deepEqual(r.publish, ["nexus", "github-packages"]);
     assert.equal(r.secretBackup, true);
-    assert.equal(r.changelogProvider, "github-ai");
-    assert.equal(io.calls.select.length, 3, "intent + deploy + changelog");
+    assert.equal(r.changelogProvider, "commit");
+    assert.equal(io.calls.select.length, 2, "intent + deploy (changelog는 묻지 않음)");
     assert.equal(io.calls.multiselect.length, 1);
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
@@ -409,7 +412,7 @@ test("askAllOptionalWorkflows: multiselect ESC(cancel) → publish 빈 배열", 
   const target = makeTmp();
   try {
     // select: deploy(docker-ssh) → changelog(github-ai). confirm: code_review(false).
-    const io = stubIo({ selects: ["docker-ssh", "github-ai"], multiselects: [Symbol("cancel")], confirms: [false] });
+    const io = stubIo({ selects: ["docker-ssh"], multiselects: [Symbol("cancel")], confirms: [false] });
     const r = await askAllOptionalWorkflows({
       tempDir, types: ["spring"], targetRoot: target, tty: true, io,
     });
@@ -474,12 +477,12 @@ test("askAllOptionalWorkflows: scope=[code-review]면 CodeRabbit만 재질문", 
       forceAsk: true, scope: ["code-review"],
       current: {
         deploy: "docker-ssh", publish: [], secretBackup: false,
-        codeReviewCoderabbit: false, changelogProvider: "github-ai", changelogBaseUrl: "", deployBranch: "develop",
+        codeReviewCoderabbit: false, changelogProvider: "gemini", changelogBaseUrl: "", deployBranch: "develop",
       },
     });
     assert.equal(r.codeReviewCoderabbit, true, "code-review 새 값");
     assert.equal(r.deploy, "docker-ssh", "deploy 유지");
-    assert.equal(io.calls.select.length, 0, "deploy/changelog 안 물음");
+    assert.equal(io.calls.select.length, 0, "deploy 안 물음");
     assert.equal(io.calls.confirm.length, 1, "code-review confirm 한 번만");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
@@ -489,12 +492,12 @@ test("askAllOptionalWorkflows: scope=null이면 forceAsk 시 intent+전 축 재�
   const target = makeTmp();
   try {
     // intent(both) → deploy(none) → changelog. multiselect: publish. confirm: code_review, secret
-    const io = stubIo({ selects: ["both", "none", "github-ai"], multiselects: [[]], confirms: [false, false] });
+    const io = stubIo({ selects: ["both", "none"], multiselects: [[]], confirms: [false, false] });
     await askAllOptionalWorkflows({
       tempDir, types: ["spring"], targetRoot: target, tty: true, io, forceAsk: true,
-      current: { deploy: "docker-ssh", publish: [], secretBackup: false, codeReviewCoderabbit: false, changelogProvider: "github-ai", changelogBaseUrl: "", deployBranch: "develop", intent: "both" },
+      current: { deploy: "docker-ssh", publish: [], secretBackup: false, codeReviewCoderabbit: false, changelogProvider: "gemini", changelogBaseUrl: "", deployBranch: "develop", intent: "both" },
     });
-    assert.equal(io.calls.select.length, 3, "intent+deploy+changelog 물음(전 축)");
+    assert.equal(io.calls.select.length, 2, "intent+deploy 물음(전 축)");
     assert.equal(io.calls.multiselect.length, 1, "publish도 물음");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
@@ -509,7 +512,7 @@ test("askAllOptionalWorkflows: CodeRabbit '사용' 시 grant access 후속 안�
     await askAllOptionalWorkflows({
       tempDir, types: ["spring"], targetRoot: target, tty: true, io,
       forceAsk: true, scope: ["code-review"],
-      current: { deploy: "docker-ssh", publish: [], secretBackup: false, codeReviewCoderabbit: false, changelogProvider: "github-ai", changelogBaseUrl: "", deployBranch: "develop" },
+      current: { deploy: "docker-ssh", publish: [], secretBackup: false, codeReviewCoderabbit: false, changelogProvider: "gemini", changelogBaseUrl: "", deployBranch: "develop" },
     });
     assert.ok(io.calls.logs.some((l) => l.includes("coderabbit.ai")), "coderabbit.ai 안내 없음");
     assert.ok(io.calls.logs.some((l) => l.includes("grant access") || l.includes("접근 권한")), "grant access 안내 없음");
@@ -524,24 +527,34 @@ test("askAllOptionalWorkflows: CodeRabbit '미사용' 시 후속 안내 없음 (
     await askAllOptionalWorkflows({
       tempDir, types: ["spring"], targetRoot: target, tty: true, io,
       forceAsk: true, scope: ["code-review"],
-      current: { deploy: "docker-ssh", publish: [], secretBackup: false, codeReviewCoderabbit: true, changelogProvider: "github-ai", changelogBaseUrl: "", deployBranch: "develop" },
+      current: { deploy: "docker-ssh", publish: [], secretBackup: false, codeReviewCoderabbit: true, changelogProvider: "gemini", changelogBaseUrl: "", deployBranch: "develop" },
     });
     assert.ok(!io.calls.logs.some((l) => l.includes("grant access") || l.includes("접근 권한")), "미사용인데 안내가 나옴");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
 
-test("askAllOptionalWorkflows: changelog 질문에 자동 폴백 안내 출력 (#481)", async () => {
+test("askAllOptionalWorkflows: changelog provider는 묻지 않는다 (#566)", async () => {
+  // 사용자의 목적은 "릴리스 노트가 잘 나오는 것"이지 provider 선택이 아니다.
+  // 기본값(github-ai)이 서비스 종료된 채 방치됐던 것도 이 질문 뒤에 가려져 있었다.
   const tempDir = makeTemplateFixture();
   const target = makeTmp();
   try {
-    const io = stubIo({ selects: ["openai"] });
-    await askAllOptionalWorkflows({
+    const io = stubIo({ selects: [] });
+    const r = await askAllOptionalWorkflows({
       tempDir, types: ["spring"], targetRoot: target, tty: true, io,
       forceAsk: true, scope: ["changelog"],
-      current: { deploy: "docker-ssh", publish: [], secretBackup: false, codeReviewCoderabbit: false, changelogProvider: "github-ai", changelogBaseUrl: "", deployBranch: "develop" },
+      current: { deploy: "docker-ssh", publish: [], secretBackup: false, codeReviewCoderabbit: false, changelogProvider: "gemini", changelogBaseUrl: "", deployBranch: "develop" },
     });
-    assert.ok(io.calls.logs.some((l) => l.includes("폴백")), "폴백 안내 없음");
+    assert.equal(io.calls.select.length, 0, "provider를 묻는 select가 있으면 안 된다");
+    assert.equal(r.changelogProvider, "gemini", "저장값은 그대로 보존된다");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
+});
+
+test("migrateProvider: 종료된 provider를 살아있는 값으로 옮긴다 (#566)", () => {
+  assert.equal(migrateProvider("github-ai"), "commit", "GitHub Models는 2026-07-30 종료");
+  assert.equal(migrateProvider("gemini"), "gemini", "살아있는 값은 그대로");
+  assert.equal(migrateProvider("coderabbit"), "coderabbit");
+  assert.equal(migrateProvider(null), null, "미설정은 미설정으로 — 상위에서 기본값 결정");
 });
 
 test("askAllOptionalWorkflows: publish 선택 없음 → '배포 안 함' 명시 로그 (#481)", async () => {
@@ -552,7 +565,7 @@ test("askAllOptionalWorkflows: publish 선택 없음 → '배포 안 함' 명시
     const r = await askAllOptionalWorkflows({
       tempDir, types: ["spring"], targetRoot: target, tty: true, io,
       forceAsk: true, scope: ["publish"],
-      current: { deploy: "docker-ssh", publish: null, secretBackup: false, codeReviewCoderabbit: false, changelogProvider: "github-ai", changelogBaseUrl: "", deployBranch: "develop" },
+      current: { deploy: "docker-ssh", publish: null, secretBackup: false, codeReviewCoderabbit: false, changelogProvider: "gemini", changelogBaseUrl: "", deployBranch: "develop" },
     });
     assert.deepEqual(r.publish, []);
     assert.ok(io.calls.logs.some((l) => l.includes("라이브러리 배포") && l.includes("안 함")), "배포 안 함 명시 없음");
@@ -566,7 +579,7 @@ test("askAllOptionalWorkflows: intent=manual → 두 축 큰 그림 안내 + dep
   const target = makeTmp();
   try {
     // intent(manual) → deploy(docker-ssh) → changelog. manual이라 두 축 안내 + 둘 다 물음.
-    const io = stubIo({ selects: ["manual", "docker-ssh", "github-ai"], multiselects: [[]], confirms: [false], texts: ["develop"] });
+    const io = stubIo({ selects: ["manual", "docker-ssh"], multiselects: [[]], confirms: [false], texts: ["develop"] });
     await askAllOptionalWorkflows({ tempDir, types: ["spring"], targetRoot: target, tty: true, io });
     assert.ok(io.calls.logs.some((l) => l.includes("두 가지") && l.includes("독립")), "두 축 안내 없음");
     assert.ok(io.calls.logs.some((l) => l.includes("실행물")), "실행물 표현 없음");
@@ -625,14 +638,14 @@ test("askAllOptionalWorkflows: flutter 단독 — intent/deploy/publish 질문 �
   const target = makeTmp();
   try {
     // basic 단독과 동일하게 배포 질문 없음 — select는 changelog 하나만
-    const io = stubIo({ selects: ["github-ai"], confirms: [false], texts: ["develop"] });
+    const io = stubIo({ selects: [], confirms: [false], texts: ["develop"] });
     const r = await askAllOptionalWorkflows({
       tempDir, types: ["flutter"], targetRoot: target, tty: true, io,
     });
     assert.equal(r.deploy, "none");
     assert.deepEqual(r.publish, []);
     assert.equal(r.intent, "none");
-    assert.equal(io.calls.select.length, 1, "intent/deploy 스킵 — changelog만");
+    assert.equal(io.calls.select.length, 0, "intent/deploy/changelog 모두 스킵");
     assert.equal(io.calls.multiselect.length, 0, "publish 질문 안 함");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
@@ -643,14 +656,14 @@ test("askAllOptionalWorkflows: flutter 단독 + 저장값 docker-ssh — 조용�
   try {
     // 구버전 통합으로 flutter 단독인데 deploy: docker-ssh가 저장된 케이스 (실측: elum)
     touch(target, "version.yml", VY_NEW("docker-ssh", ["nexus"], false).replace('["spring"]', '["flutter"]'));
-    const io = stubIo({ selects: ["github-ai"], confirms: [false], texts: ["develop"] });
+    const io = stubIo({ selects: [], confirms: [false], texts: ["develop"] });
     const r = await askAllOptionalWorkflows({
       tempDir, types: ["flutter"], targetRoot: target, tty: true, io,
     });
     assert.equal(r.deploy, "none", "적용 불가 docker-ssh는 none으로 정리");
     assert.deepEqual(r.publish, [], "적용 불가 nexus는 제거");
     assert.equal(r.intent, "none");
-    assert.equal(io.calls.select.length, 1, "재질문 없음 — changelog만");
+    assert.equal(io.calls.select.length, 0, "재질문 없음");
     // 사용자 방침: 경고/안내 자체가 불필요 — 정리 관련 ⚠ 문구가 없어야 한다
     assert.ok(!io.calls.logs.some((l) => l.includes("⚠") && l.includes("deploy")), "정리에 경고 문구가 나옴");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
@@ -661,13 +674,13 @@ test("askAllOptionalWorkflows: flutter+spring 멀티타입 — 질문 유지 (#4
   const target = makeTmp();
   try {
     // spring이 있으므로 intent 질문부터 정상 진행
-    const io = stubIo({ selects: ["app", "docker-ssh", "github-ai"], confirms: [false], texts: ["develop"] });
+    const io = stubIo({ selects: ["app", "docker-ssh"], confirms: [false], texts: ["develop"] });
     const r = await askAllOptionalWorkflows({
       tempDir, types: ["flutter", "spring"], targetRoot: target, tty: true, io,
     });
     assert.equal(r.intent, "app");
     assert.equal(r.deploy, "docker-ssh");
-    assert.equal(io.calls.select.length, 3, "intent + deploy + changelog");
+    assert.equal(io.calls.select.length, 2, "intent + deploy (changelog는 묻지 않음)");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
 

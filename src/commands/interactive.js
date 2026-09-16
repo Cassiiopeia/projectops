@@ -13,7 +13,7 @@ import { runBreakingCheck } from "../core/breaking-check.js";
 import { runMigrations } from "../core/migrations/index.js";
 import { detectOrphanWorkflows, applyOrphanCleanup } from "../core/orphan-workflows.js";
 import { resolveProjectPaths, filterExcludedTypes } from "../core/paths-resolve.js";
-import { askAllOptionalWorkflows, OPTION_AXES, applicableTargets } from "../core/options-ask.js";
+import { askAllOptionalWorkflows, OPTION_AXES, applicableTargets, migrateProvider } from "../core/options-ask.js";
 import { createRunTrace, MIGRATION_DIR } from "../core/run-trace.js";
 import { appendGuideEntry } from "../core/migration-guide.js";
 import { promptEnvPlan } from "../ui/env-plan.js";
@@ -119,7 +119,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     let publishTargets = existing?.options?.publish ?? [];
     let includeSecretBackup = existing?.options?.secretBackup ?? false;
     let codeReviewCoderabbit = existing?.options?.codeReviewCoderabbit ?? true;
-    let changelogProvider = existing?.options?.changelogProvider ?? "github-ai";
+    let changelogProvider = migrateProvider(existing?.options?.changelogProvider) ?? "commit";
     let changelogBaseUrl = existing?.options?.changelogBaseUrl ?? "";
     let deployBranch = existing?.options?.deployBranch ?? "develop"; // #456
     let deployBranchReady = null; // #490 — 이번 실행에서 개발 브랜치 존재/생성이 확인됐는지
@@ -445,7 +445,7 @@ function summarize({ mode, types, version, branch, deployTarget, publishTargets,
     lines.push(`배포 방식 : ${deployTarget || "docker-ssh"}`);
     lines.push(`Publish : ${(publishTargets ?? []).join(",") || "없음"}`);
     lines.push(`Secret 백업 : ${includeSecretBackup ? "포함" : "제외"}`);
-    lines.push(`Changelog : ${changelogProvider || "github-ai"}`);
+    lines.push(`Changelog : ${changelogProvider || "commit"}`);
     lines.push(`CodeRabbit 리뷰 : ${codeReviewCoderabbit ? "사용" : "미사용"}`);
   }
   return lines.join("\n");

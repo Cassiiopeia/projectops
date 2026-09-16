@@ -17,7 +17,7 @@ import { detectOrphanWorkflows } from "./core/orphan-workflows.js";
 import { createRunTrace, MIGRATION_DIR } from "./core/run-trace.js";
 import { appendGuideEntry } from "./core/migration-guide.js";
 import { resolveProjectPaths, markerForType } from "./core/paths-resolve.js";
-import { applicableTargets } from "./core/options-ask.js";
+import { applicableTargets, migrateProvider } from "./core/options-ask.js";
 import { printBannerCompact } from "./ui/banner.js";
 import { printSummary } from "./ui/summary.js";
 import { runFull } from "./commands/full.js";
@@ -203,7 +203,7 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
     deployBranch: opts.deployBranch || existing?.options?.deployBranch || "",
     intent,
     // changelog/code_review 축(#455): 비대화형은 저장값 → 기본값. null이 흘러 provider:"null"로 기록되던 버그 수정.
-    changelogProvider: existing?.options?.changelogProvider ?? "github-ai",
+    changelogProvider: migrateProvider(existing?.options?.changelogProvider) ?? "commit",
     changelogBaseUrl: existing?.options?.changelogBaseUrl ?? "",
     codeReviewCoderabbit: existing?.options?.codeReviewCoderabbit ?? false,
     // semver 자동 승격(#546): 저장값 → (기존 통합 레포면 false / 신규면 true).

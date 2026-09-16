@@ -127,17 +127,11 @@ def test_ladder_commit_direct(git_repo):
     assert result["failed"] == [] and result["notice"] is None
 
 
-def test_ladder_github_ai_wins(git_repo):
-    r = run_script("ladder.py", git_repo, {
-        "CHANGELOG_PROVIDER": "github-ai",
-        "CHANGELOG_TEST_RESPONSE": "* **새 기능**\n  * 테스트 응답",
-    })
-    assert r.returncode == 0, r.stderr
-    assert read_result(git_repo)["provider"] == "github-ai"
+def test_ladder_retired_github_ai_absorbed(git_repo):
+    """저장값이 github-ai(서비스 종료)면 호출하지 않고 곧장 다음 단으로 간다 (#566).
 
-
-def test_ladder_github_ai_falls_to_commit(git_repo):
-    """github-ai 실패(토큰 없음) → commit 폴백 + notice 기록."""
+    종전에는 사다리 1단이 github-ai라 매 릴리스마다 죽은 API를 한 번씩 때렸다.
+    """
     r = run_script("ladder.py", git_repo, {
         "CHANGELOG_PROVIDER": "github-ai", "GITHUB_TOKEN": "",
         "MODEL_API_KEY": "", "COMMIT_RANGE": "HEAD~4..HEAD",
@@ -145,9 +139,42 @@ def test_ladder_github_ai_falls_to_commit(git_repo):
     assert r.returncode == 0, r.stderr
     result = read_result(git_repo)
     assert result["provider"] == "commit"
-    assert "github-ai" in result["failed"]
-    assert "github-ai" in (result["notice"] or "")
+    assert "github-ai" not in result["attempted"], "종료된 provider를 호출하면 안 된다"
     assert "새 기능" in read_body(git_repo)  # commit 안전망이 실제 본문 생성
+
+
+def test_ladder_default_is_commit(git_repo):
+    """provider 미지정 → commit 단독. 외부 의존이 기본 경로에 없어야 한다."""
+    r = run_script("ladder.py", git_repo, {"COMMIT_RANGE": "HEAD~4..HEAD"})
+    assert r.returncode == 0, r.stderr
+    result = read_result(git_repo)
+    assert result["attempted"] == ["commit"]
+    assert result["failed"] == []
+
+
+def test_ladder_copilot_falls_back(git_repo):
+    """copilot CLI가 없는 환경(설치 전·크레딧 소진)에서도 완주한다."""
+    r = run_script("ladder.py", git_repo, {
+        "CHANGELOG_PROVIDER": "copilot", "MODEL_API_KEY": "",
+        "COMMIT_RANGE": "HEAD~4..HEAD",
+    })
+    assert r.returncode == 0, r.stderr
+    result = read_result(git_repo)
+    assert result["attempted"][0] == "copilot"
+    assert result["provider"] == "commit"
+    assert "copilot" in (result["notice"] or "")
+
+
+def test_ladder_copilot_then_key(git_repo):
+    """copilot 실패 + MODEL_API_KEY 있으면 외부 AI를 거쳐 내려간다."""
+    r = run_script("ladder.py", git_repo, {
+        "CHANGELOG_PROVIDER": "copilot", "MODEL_API_KEY": "dummy",
+        "CHANGELOG_TEST_RESPONSE": "* **개선**\n  * 키 경유 응답",
+        "COMMIT_RANGE": "HEAD~4..HEAD",
+    })
+    assert r.returncode == 0, r.stderr
+    result = read_result(git_repo)
+    assert result["attempted"][:2] == ["copilot", "openai:gemini"]
 
 
 def test_ladder_openai_family_first(git_repo):
@@ -161,7 +188,7 @@ def test_ladder_openai_family_first(git_repo):
 
 
 def test_ladder_coderabbit_skips_repolling(git_repo):
-    """coderabbit은 Job 1 폴링이 담당 — 사다리는 재폴링 없이 github-ai부터."""
+    """coderabbit 저장값도 사다리에서는 재폴링 없이 곧장 폴백한다 (#566에서 폴링 제거)."""
     r = run_script("ladder.py", git_repo, {
         "CHANGELOG_PROVIDER": "coderabbit", "GITHUB_TOKEN": "",
         "COMMIT_RANGE": "HEAD~4..HEAD",

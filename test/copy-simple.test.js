@@ -23,7 +23,8 @@ test("copyScripts 2개 복사", () => {
 test("copyScripts changelog provider 사다리(.py) 복사 (#455)", () => {
   const tmp = fresh("cp-tmp-"); const tgt = fresh("cp-tgt-");
   try {
-    const providers = ["_common.py", "ladder.py", "commit.py", "github_ai.py", "openai_compatible.py"];
+    // github_ai.py는 GitHub Models 종료로 복사 목록에서 빠지고 copilot.py가 들어왔다 (#566)
+    const providers = ["_common.py", "ladder.py", "commit.py", "copilot.py", "openai_compatible.py"];
     for (const p of providers) writeText(join(tmp, ".github/scripts/changelog_providers", p), "# py\n");
     assert.equal(copyScripts(tmp, tgt), providers.length);
     for (const p of providers) assert.ok(exists(join(tgt, ".github/scripts/changelog_providers", p)), `누락: ${p}`);

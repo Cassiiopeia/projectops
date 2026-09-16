@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""github-ai provider — GitHub Models 추론 API로 릴리스 노트 생성 (#455).
+"""github-ai provider — ⚠️ 폐기됨 (#566).
+
+GitHub Models가 2026-07-30 완전 종료되어 이 스크립트는 더 이상 동작하지 않는다.
+API를 호출하면 HTTP 410이 떨어진다. ladder.py의 사다리에서 제외됐고, 신규 설치
+복사 목록에서도 빠졌다. 파일만 남겨둔 이유는 이미 배포된 저장소에 존재하기 때문이며,
+호출되지 않으므로 무해하다.
+
+--- 이하 원본 설명 ---
+
+github-ai provider — GitHub Models 추론 API로 릴리스 노트 생성 (#455).
 
 API 키 불필요: 워크플로우 job에 `permissions: models: read`만 있으면 GITHUB_TOKEN으로 동작.
 "깔면 바로 작동"의 기본 provider. rate limit·토큰 한도 초과 시 exit 1로 다음 사다리 폴백.

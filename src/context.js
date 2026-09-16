@@ -20,7 +20,7 @@ export function createContext(overrides = {}) {
     publishTargets: null,    // ['nexus','npm','github-packages'] 부분집합
     includeSecretBackup: null,
     // changelog provider 축 (#455 — null=미설정)
-    changelogProvider: null, // 'github-ai'(기본) | 'coderabbit' | 'openai' | 'gemini' | 'claude' | 'ollama' | 'commit'
+    changelogProvider: null, // 'commit'(기본) | 'coderabbit' | 'openai' | 'gemini' | 'claude' | 'ollama' | 'commit'
     changelogBaseUrl: null,  // ollama일 때만 값
     codeReviewCoderabbit: null,
     deployBranch: "",        // 릴리스 PR head 브랜치 (#456). 빈 값=metadata.deploy_branch 미출력

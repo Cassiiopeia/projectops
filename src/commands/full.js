@@ -24,7 +24,7 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
   const { version, types = [], paths = new Map(), branch = "main", versionCode = 1,
     force = true, now, today, templateVersion = "unknown",
     deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false,
-    changelogProvider = "github-ai", changelogBaseUrl = "", codeReviewCoderabbit = true,
+    changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true,
     deployBranch = "", intent = null, semverAuto = true , appRelease = null } = context;
 
   // project_paths 마커 계산 (.sh existing_marker_in_dir 등가 — 대표 마커명)

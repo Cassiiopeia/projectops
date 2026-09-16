@@ -15,10 +15,16 @@ import urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _common import collect_commits, write_pr_body, fail  # noqa: E402
 
+# base_url + 기본 모델. 모델명은 **버전을 박지 않고 별칭을 쓴다** — 버전이 박힌 이름은
+# 1~2년이면 퇴역한다(실측: gemini-1.5-flash가 404로 죽어 있었다, #566).
+# gemini는 lite 별칭이 기본이다. 무료 등급에서 상위 Flash는 RPD 20인 반면 Lite는 500이라
+# 자동화에 쓸 수 있는 쪽은 Lite뿐이다(실측).
 PRESETS = {
     "openai": ("https://api.openai.com/v1", "gpt-4o-mini"),
-    "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai", "gemini-1.5-flash"),
+    "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai", "gemini-flash-lite-latest"),
     "claude": ("https://api.anthropic.com/v1", "claude-3-5-haiku-latest"),
+    "groq": ("https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
+    "mistral": ("https://api.mistral.ai/v1", "mistral-small-latest"),
     "ollama": (None, "qwen2.5"),  # base_url은 CHANGELOG_BASE_URL 필수
 }
 

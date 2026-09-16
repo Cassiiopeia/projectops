@@ -5,9 +5,9 @@ version.yml options.changelog.provider 값에 따라 provider를 순서대로 �
 처음 성공한 provider의 pr_body.md를 남긴다. commit은 AI 무의존 최후 보루.
 
   provider=commit                    → commit
-  provider=github-ai                 → github-ai → (openai*) → commit
-  provider=openai|gemini|claude|ollama → 해당 provider → github-ai → commit
-  provider=coderabbit                → github-ai → commit
+  provider=copilot                   → copilot → (openai*) → commit
+  provider=openai|gemini|claude|ollama → 해당 provider → commit
+  provider=commit / 미지정            → commit
     (coderabbit 단계 자체는 워크플로우 Job 1의 요청·폴링이 담당 — 이 사다리에
      도달했다는 것은 이미 CodeRabbit이 무응답이었다는 뜻이라 재시도하지 않는다)
   * openai 단계는 MODEL_API_KEY가 있을 때만 끼운다 (없으면 무의미한 시도)
@@ -22,21 +22,37 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OPENAI_FAMILY = ("openai", "gemini", "claude", "ollama")
+OPENAI_FAMILY = ("openai", "gemini", "claude", "groq", "mistral", "ollama")
 
 
 def build_rungs(provider):
-    """(라벨, 스크립트, 추가 env) 목록 — 시도 순서."""
+    """(라벨, 스크립트, 추가 env) 목록 — 시도 순서.
+
+    어느 경로든 마지막은 commit이다. AI·네트워크에 의존하지 않아 항상 완주하므로
+    "릴리스 노트가 비는" 상황이 생기지 않는다.
+
+    github-ai는 목록에서 빠졌다 — GitHub Models가 2026-07-30 종료되어 호출하면
+    410이 떨어진다(#566). 저장값이 남아 있어도 아래 GONE 처리로 흡수한다.
+    """
     commit = ("commit", "commit.py", {})
-    github_ai = ("github-ai", "github_ai.py", {})
+    copilot = ("copilot", "copilot.py", {})
+    has_key = bool(os.environ.get("MODEL_API_KEY"))
+
     if provider == "commit":
         return [commit]
     if provider in OPENAI_FAMILY:
-        return [(f"openai:{provider}", "openai_compatible.py", {"PROVIDER_NAME": provider}), github_ai, commit]
-    # github-ai(기본)·coderabbit(폴링 실패 후 위임)·미지의 값 → github-ai부터
-    rungs = [github_ai]
-    if provider == "github-ai" and os.environ.get("MODEL_API_KEY"):
-        rungs.append(("openai:openai", "openai_compatible.py", {"PROVIDER_NAME": "openai"}))
+        return [(f"openai:{provider}", "openai_compatible.py", {"PROVIDER_NAME": provider}), commit]
+    if provider == "copilot":
+        rungs = [copilot]
+        # Copilot은 요청 수로 과금돼 한도가 빠듯하다. 키가 있으면 그다음 단으로 둔다.
+        if has_key:
+            rungs.append(("openai:gemini", "openai_compatible.py", {"PROVIDER_NAME": "gemini"}))
+        rungs.append(commit)
+        return rungs
+    # 종료된 provider(github-ai)·coderabbit·미지의 값 → 키가 있으면 외부 AI, 없으면 커밋 분석
+    rungs = []
+    if has_key:
+        rungs.append(("openai:gemini", "openai_compatible.py", {"PROVIDER_NAME": "gemini"}))
     rungs.append(commit)
     return rungs
 
@@ -58,7 +74,11 @@ def run_rung(script, extra_env):
 
 
 def main():
-    provider = os.environ.get("CHANGELOG_PROVIDER") or "github-ai"
+    provider = os.environ.get("CHANGELOG_PROVIDER") or "commit"
+    if provider == "github-ai":
+        # 종료된 서비스 — 저장값이 남은 기존 저장소를 위해 조용히 흡수한다 (#566).
+        print("ℹ️ github-ai는 서비스가 종료되어 건너뜁니다 (GitHub Models, 2026-07-30)", file=sys.stderr)
+        provider = "commit"
     rungs = build_rungs(provider)
     attempted, failed, winner = [], [], None
 

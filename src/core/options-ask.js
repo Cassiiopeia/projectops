@@ -92,8 +92,19 @@ export function applicableTargets(types = []) {
     publish: PUBLISH_TARGETS.filter((t) => types.some((ty) => (TYPE_PUBLISH_TARGETS[ty] ?? PUBLISH_TARGETS).includes(t))),
   };
 }
-// #455 — changelog 생성기 provider. github-ai가 기본(설정 제로). openai/gemini/claude/ollama는 openai 호환 한 갈래.
-export const CHANGELOG_PROVIDERS = ["github-ai", "coderabbit", "openai", "gemini", "claude", "ollama", "commit"];
+// changelog 생성기 provider (#455, #566에서 재정비).
+// 기본값은 commit — 외부 의존이 없어 어떤 환경에서도 결과가 나온다. AI를 쓰려면
+// MODEL_API_KEY를 등록하면 사다리가 자동으로 집어 쓴다(마법사는 묻지 않는다).
+// github-ai는 GitHub Models 종료(2026-07-30)로 제외됐다.
+export const CHANGELOG_PROVIDERS = ["copilot", "coderabbit", "openai", "gemini", "claude", "groq", "mistral", "ollama", "commit"];
+
+// 더 이상 동작하지 않는 저장값을 살아있는 값으로 옮긴다 (#566).
+// 기존 저장소가 업데이트만 돌려도 죽은 설정에서 벗어나게 하는 유일한 경로다.
+const RETIRED_PROVIDERS = { "github-ai": "commit" };
+export function migrateProvider(saved) {
+  if (saved == null) return null;
+  return RETIRED_PROVIDERS[saved] ?? saved;
+}
 
 const isCancel = (v) => typeof v === "symbol";
 
@@ -333,29 +344,12 @@ export async function askAllOptionalWorkflows({
     }
   }
 
-  // ── changelog: 릴리스 노트 생성기 (기본 커서 = github-ai — #455) ──
-  if (ask("changelog") || changelogProvider === null) {
-    if (force || !tty || typeof io.select !== "function") {
-      changelogProvider = changelogProvider ?? "github-ai";
-    } else {
-      say("");
-      say("📝 릴리스 노트(changelog)는 1순위로 뭘로 만들까요?");
-      say("   GitHub AI는 설정 없이 바로 됩니다. 나머지는 나중에 GitHub Secret 등록이 필요할 수 있어요.");
-      // #481 — 하나만 골라야 하는 게 아니다. 고른 게 실패하면 자동 폴백하므로 안심하고 고르라고 안내.
-      say("   ✅ 고른 방식이 실패해도 자동으로 GitHub AI → 커밋 분석 순으로 폴백하니 릴리스 노트는 항상 생성됩니다.");
-      const ans = await io.select({
-        message: "1순위 changelog 생성기를 선택하세요 (실패 시 자동 폴백)",
-        options: [
-          { value: "github-ai", label: "GitHub AI (추천 · 설정 불필요)" },
-          { value: "coderabbit", label: "CodeRabbit" },
-          { value: "openai", label: "OpenAI 호환 API (키 등록 필요)" },
-          { value: "commit", label: "커밋 분석만 (AI 없음 · 최후 안전망)" },
-        ],
-      });
-      changelogProvider = (!isCancel(ans) && CHANGELOG_PROVIDERS.includes(ans)) ? ans : (changelogProvider ?? "github-ai");
-      say(`changelog 생성기: ${changelogProvider}`);
-    }
-  }
+  // ── changelog: 생성기를 묻지 않는다 (#566) ──
+  // 사용자의 목적은 "릴리스 노트가 잘 나오는 것"이지 provider 선택이 아니다. 무엇을 고를지
+  // 알 수 없는 질문이었고 기본값(github-ai)마저 죽어 있었다. 이제 워크플로우가 스스로
+  // 최선을 찾는다 — PR 본문 존중 → Copilot → 외부 AI(키 있으면) → 커밋 분석.
+  // 저장값은 그대로 두되 죽은 값만 살아있는 것으로 옮긴다.
+  changelogProvider = migrateProvider(changelogProvider) ?? "commit";
 
   // ollama 선택 시에만 base_url 질문 (나머지 provider는 preset base_url 자동 — #455)
   if (changelogProvider === "ollama" && (ask("changelog") || changelogBaseUrl === null || changelogBaseUrl === "")) {
@@ -408,7 +402,7 @@ export async function askAllOptionalWorkflows({
   return {
     deploy: finalDeploy, publish: finalPublish, secretBackup: secretBackup === true,
     codeReviewCoderabbit: codeReviewCoderabbit === true,
-    changelogProvider: changelogProvider ?? "github-ai",
+    changelogProvider: changelogProvider ?? "commit",
     changelogBaseUrl: changelogBaseUrl ?? "",
     deployBranch: deployBranch ?? "develop",
     deployBranchReady, // #490 — true=존재/생성 확인됨, false=거절/실패, null=확인 안 함
