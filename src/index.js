@@ -278,7 +278,9 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
     // 고아 타입 워크플로우 안내 (#487) — 비대화형은 자동 무해화 금지(배포 파이프라인일 수 있음), 안내만
     if (recordArtifacts) {
       const orphans = trace.step("orphan-scan",
-        () => detectOrphanWorkflows({ tempDir, targetRoot: cwd, selectedTypes: types }),
+        () => detectOrphanWorkflows({ tempDir, targetRoot: cwd, selectedTypes: types,
+          // 껐는데 남아 계속 도는 워크플로우도 함께 잡는다 (#566)
+          options: { includeSecretBackup: context.includeSecretBackup, aiPrSummary: context.aiPrSummary, deployTarget } }),
         { selectedTypes: types });
       orphanPending = orphans.map((o) => o.filename);
       for (const o of orphans) trace.event("orphan", "detected", o.filename, { type: o.type, action: "안내만(비대화형)" });

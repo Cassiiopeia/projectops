@@ -347,7 +347,9 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     // 고아 타입 워크플로우 정리 (#487) — 타입 변경으로 선택에서 빠진 타입의 잔존 워크플로우
     const orphanReport = { cleaned: [], pending: [] }; // #493 — 가이드 기록용
     if (mode === "full" || mode === "workflows") {
-      const orphans = detectOrphanWorkflows({ tempDir, targetRoot: cwd, selectedTypes: types });
+      const orphans = detectOrphanWorkflows({ tempDir, targetRoot: cwd, selectedTypes: types,
+        // 껐는데 남아 계속 도는 워크플로우도 함께 잡는다 (#566)
+        options: { includeSecretBackup, aiPrSummary: aiPrSummary !== false, deployTarget } });
       if (orphans.length > 0) {
         io.note?.(
           orphans.map((o) => `• ${o.filename} (${o.type} 타입 — 현재 미선택)`).join("\n"),
