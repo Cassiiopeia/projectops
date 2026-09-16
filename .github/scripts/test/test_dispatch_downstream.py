@@ -119,3 +119,37 @@ def test_targets_are_sorted(tmp_path):
     d = write(tmp_path, "B.yaml", PUSH_MAIN_DISPATCH)
     write(tmp_path, "A.yaml", PUSH_MAIN_DISPATCH)
     assert scan("main", d)["targets"] == ["A.yaml", "B.yaml"]
+
+
+# ── 전량 실패 알림 (#555) ─────────────────────────────────────────────
+def test_notify_pr_called_only_when_all_failed(monkeypatch, tmp_path):
+    """하나라도 성공하면 알리지 않는다 — 알림은 '후속이 통째로 누락된' 상황 전용이다."""
+    import dispatch_downstream as dd
+
+    calls = []
+    monkeypatch.setattr(dd, "_notify_pr", lambda *a, **k: calls.append(a))
+    monkeypatch.setattr(dd, "scan", lambda b, *a, **k: {"targets": ["A.yaml", "B.yaml"], "unreachable": []})
+    monkeypatch.setenv("GITHUB_TOKEN", "t")
+    monkeypatch.setenv("PR_NUMBER", "1")
+
+    # 전부 실패 → 알림
+    monkeypatch.setattr(dd, "_dispatch_one", lambda *a: (False, "HTTP 403 Forbidden"))
+    dd.cmd_dispatch(type("A", (), {"repo": "o/r", "branch": "main"})())
+    assert len(calls) == 1
+
+    # 하나라도 성공 → 알리지 않음
+    calls.clear()
+    monkeypatch.setattr(dd, "_dispatch_one", lambda *a: (True, "HTTP 204"))
+    dd.cmd_dispatch(type("A", (), {"repo": "o/r", "branch": "main"})())
+    assert calls == []
+
+
+def test_dispatch_returns_zero_even_on_failure(monkeypatch):
+    """릴리스는 이미 끝났다 — dispatch 실패가 파이프라인을 실패시키면 안 된다."""
+    import dispatch_downstream as dd
+    monkeypatch.setattr(dd, "_notify_pr", lambda *a, **k: None)
+    monkeypatch.setattr(dd, "scan", lambda b, *a, **k: {"targets": ["A.yaml"], "unreachable": []})
+    monkeypatch.setattr(dd, "_dispatch_one", lambda *a: (False, "HTTP 403"))
+    monkeypatch.setenv("GITHUB_TOKEN", "t")
+    rc = dd.cmd_dispatch(type("A", (), {"repo": "o/r", "branch": "main"})())
+    assert rc == 0

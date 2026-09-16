@@ -135,6 +135,48 @@ def _dispatch_one(repo: str, token: str, filename: str, ref: str) -> tuple[bool,
         return False, f"{type(e).__name__}: {e}"
 
 
+def _notify_pr(repo: str, pr: str, token: str, out: dict) -> None:
+    """dispatch가 전량 실패하면 릴리스 PR에 알린다 (#555).
+
+    PAT가 없는 저장소에서 dispatch는 후속 워크플로우를 깨우는 유일한 수단이다. 전부 실패하면
+    배포·동기화가 통째로 누락되는데, 로그만 남기면 아무도 모른 채 지나간다.
+    """
+    if not (repo and pr and token):
+        return
+    lines = [
+        "⚠️ **릴리스 후속 워크플로우를 자동 실행하지 못했습니다**",
+        "",
+        "이 저장소에는 PAT(`_GITHUB_PAT_TOKEN`)가 등록되어 있지 않아, 릴리스 머지 후 후속",
+        "워크플로우를 직접 깨우는 경로를 사용합니다. 그 호출이 전부 실패했습니다.",
+        "",
+        "| 워크플로우 | 사유 |",
+        "|---|---|",
+    ]
+    for item in out.get("failed", []):
+        lines.append(f"| `{item['workflow']}` | {item['detail']} |")
+    lines += [
+        "",
+        "**확인할 것**",
+        "- 저장소 Settings > Actions > General > Workflow permissions가 "
+        "`Read and write permissions`인지",
+        "- 위 워크플로우들을 Actions 탭에서 수동 실행(Run workflow)하면 이번 릴리스분이 반영됩니다",
+    ]
+    payload = json.dumps({"body": "\n".join(lines)}).encode("utf-8")
+    req = urllib.request.Request(
+        f"https://api.github.com/repos/{repo}/issues/{pr}/comments",
+        data=payload, method="POST", headers={
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "User-Agent": "projectops-dispatch-downstream",
+        })
+    try:
+        urllib.request.urlopen(req)
+        sys.stderr.write("  ℹ️ 실패 사실을 릴리스 PR에 알렸습니다\n")
+    except Exception as e:  # 알림 실패가 릴리스를 막아선 안 된다
+        sys.stderr.write(f"  ⚠️ PR 알림 실패: {type(e).__name__}\n")
+
+
 def _log(out: dict) -> None:
     """Actions 로그에서 바로 읽히도록 결과를 사람 말로 풀어 stderr에 쓴다."""
     w = sys.stderr.write
@@ -184,6 +226,9 @@ def cmd_dispatch(args) -> int:
     }
     # 사람이 읽을 로그는 stderr로 — stdout은 JSON 한 줄이라는 계약을 지킨다.
     _log(out)
+    # 하나도 못 깨웠으면 조용히 넘기지 않는다 (#555)
+    if failed and not dispatched:
+        _notify_pr(args.repo, os.environ.get("PR_NUMBER", ""), token, out)
     print(json.dumps(out, ensure_ascii=False))
     return 0
 

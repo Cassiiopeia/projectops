@@ -54,6 +54,8 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # 후속 워크플로우를 workflow_dispatch로 깨우는 데 필요 (#555 — 없으면 HTTP 403)
+  actions: write
 
 jobs:
   # Job 1: CodeRabbit Summary 감지 및 파싱
@@ -623,6 +625,10 @@ jobs:
           else
             PAT_AVAILABLE="true"
           fi
+          # 후속 트리거 판단 기준 (#555): "PAT로 머지했는가"가 아니라 "PAT가 등록돼 있는가".
+          # PAT가 있으면 브랜치 최신화 등 다른 단계의 push가 PAT 신원으로 나가 후속이 이미
+          # 트리거된다 — 거기에 dispatch를 더하면 같은 워크플로우가 두 번 돈다.
+          echo "pat_available=$PAT_AVAILABLE" >> $GITHUB_OUTPUT
           
           # PR 상태 확인
           PR_STATE=$(gh pr view $PR_NUMBER --json state,mergeable -q '.state + "," + (.mergeable | tostring)')
@@ -765,11 +771,12 @@ jobs:
       - name: 후속 워크플로우 트리거 (PAT 없이 머지한 경우)
         # GITHUB_TOKEN이 만든 push로는 워크플로우가 재트리거되지 않는다(무한 루프 방지).
         # workflow_dispatch는 GITHUB_TOKEN으로도 트리거되므로 그 경로로 직접 깨운다 (#551).
-        # PAT로 머지했다면 push가 이미 정상 트리거하므로 건너뛴다.
-        if: steps.merge_pr.outputs.merged_with_pat != 'true'
+        # PAT가 등록된 저장소는 push가 PAT 신원으로 나가 후속이 이미 트리거된다 → 건너뛴다 (#555).
+        if: steps.merge_pr.outputs.pat_available != 'true'
         continue-on-error: true   # 릴리스는 이미 끝났다 — 여기서 실패해도 파이프라인을 막지 않는다
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}   # 전량 실패 시 알림용 (#555)
         run: |
           python3 .github/scripts/dispatch_downstream.py dispatch \
             --repo "${{ github.repository }}" \
