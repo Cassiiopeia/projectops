@@ -39,11 +39,28 @@ function elapsed(t0, clockIso) {
 // 이벤트를 서버 로그 스타일 한 줄로 만든다 (#561).
 //   [시각] 레벨 phase/action  대상  key=value ...
 // 레벨은 action에서 유추한다 — 조치가 필요한 것(미치환·취소·실패)만 눈에 띄어야 한다.
-const WARN_ACTIONS = new Set(["unresolved", "cancelled", "skipped-conflict", "leftover-old-gen", "neutralized"]);
-const ERROR_ACTIONS = new Set(["error", "failed"]);  // step/failed 포함
+// 레벨은 "무엇을 먼저 봐야 하는가"로 나눈다.
+//   ERROR — 실패. 반드시 조치해야 한다.
+//   WARN  — 그대로 두면 나중에 실패할 수 있는 것, 사용자가 판단해야 하는 것.
+//   INFO  — 실행의 큰 줄기. 단계 경계와 확정된 판단.
+//   DEBUG — 건별 상세(파일 하나, 치환 하나). 기본값은 INFO지만 전부 파일에는 남는다.
+//
+// DEBUG가 파일에 남는 이유: 문제가 터진 뒤에 "그때 DEBUG를 켰더라면"은 소용이 없다.
+// 화면은 조용히 두되 파일에는 전부 적는다.
+const ERROR_ACTIONS = new Set(["error", "failed"]);
+const WARN_ACTIONS = new Set([
+  "unresolved", "cancelled", "skipped-conflict", "leftover-old-gen",
+  "neutralized", "detected", "replaced-bak",
+]);
+const DEBUG_ACTIONS = new Set([
+  "copied", "skipped-unchanged", "excluded", "substituted", "branch-substituted",
+  "required-key", "project-path", "upstream-updated", "template-added",
+  "scripts", "config", "util", "templates",
+]);
 export function levelOf(action) {
   if (ERROR_ACTIONS.has(action)) return "ERROR";
   if (WARN_ACTIONS.has(action)) return "WARN";
+  if (DEBUG_ACTIONS.has(action)) return "DEBUG";
   return "INFO";
 }
 export function formatLogLine(e) {
@@ -81,6 +98,7 @@ export function createRunTrace({ clockIso = null } = {}) {
   const lines = [];
   let restore = null;
   let finalized = false;
+  let signalsArmed = false;
 
   const nowIso = () => clockIso ?? new Date().toISOString().replace(/\.\d+Z$/, "Z");
 
@@ -149,6 +167,31 @@ export function createRunTrace({ clockIso = null } = {}) {
         this.event("step", "failed", name, { ...elapsed(t0, clockIso), message: err?.message || String(err) });
         throw err;
       }
+    },
+
+    // 강제 종료(Ctrl+C)에도 기록을 남긴다 (#561).
+    // SIGINT 기본 동작으로 프로세스가 즉사하면 finally가 돌지 않는다 — 사용자가 끊었을 때야말로
+    // "어디까지 갔는지"가 가장 궁금한 순간이라, 여기서 놓치면 로그의 쓸모가 절반이다.
+    // 핸들러는 기록만 하고 원래대로 종료시킨다(동작을 바꾸지 않는다).
+    armSignals(opts = {}) {
+      if (signalsArmed) return () => {};
+      signalsArmed = true;
+      const self = this;
+      const handlers = [];
+      for (const sig of ["SIGINT", "SIGTERM"]) {
+        const h = () => {
+          self.event("run", "cancelled", sig, { reason: "사용자 강제 종료(신호 수신)" });
+          self.finalize(opts);
+          process.removeListener(sig, h);
+          process.kill(process.pid, sig);   // 원래 종료 동작으로 넘긴다
+        };
+        process.on(sig, h);
+        handlers.push([sig, h]);
+      }
+      return () => {
+        for (const [sig, h] of handlers) process.removeListener(sig, h);
+        signalsArmed = false;
+      };
     },
 
     // 어떤 경로로 끝나든 기록을 남긴다 (#561) — 정상 완주·중간 취소·예외·강제 종료.

@@ -36,13 +36,15 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
   const tempDir = join(cwd, PATHS.tempDir);
   // 실행 트레이스 (#494) — 실제 CLI(io=prompts)에서만 터미널 미러를 켠다 (테스트 스텁 io는 이벤트만).
   const trace = createRunTrace();
+  // Ctrl+C로 끊어도 기록이 남는다 (#561) — 대화형은 사람이 중간에 끊는 일이 잦다.
+  const disarmSignals = trace.armSignals({ targetRoot: cwd, now: clock?.now || "" });
   // finally에서 기록할 때 쓰는 값 — try 안에서 확정되기 전에 취소될 수 있으므로 바깥에 둔다 (#561).
   let traceFrom = "";
   let traceTo = "";
   if (io === prompts) trace.mirrorStart();
   try {
     // 템플릿 먼저 획득 — 배너에 실제 템플릿 버전을 표시 (.sh는 원격 version.yml fetch L4270~4280 등가)
-    acquireTemplate({ tempDir, source });
+    trace.step("acquire-template", () => acquireTemplate({ tempDir, source }), { source: source?.type || "git" });
     const templateVersion = readTemplateVersion(tempDir);
     traceTo = templateVersion;
 
@@ -73,11 +75,11 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
 
     // Breaking Changes 게이트 (.sh execute_integration L4415~4420 — 모든 모드 공통, 대화형은 확인 질문)
     let breakingReport = null; // #493 — 통과 구간 항목을 가이드에 조치 방법 전문으로 임베드
-    const proceed = await runBreakingCheck({
+    const proceed = await trace.stepAsync("breaking-check", () => runBreakingCheck({
       cwd, tempDir, templateVersion,
       askYesNo: (msg, def) => io.askYesNo(msg, def),
       onItems: (items) => { breakingReport = items; },
-    });
+    }));
     if (!proceed) { trace.event("run", "cancelled", "breaking-gate", { reason: "user-declined" }); io.cancelMessage?.("통합을 안전하게 취소했습니다."); return 0; }
 
     // skills 모드 — IDE 스킬 설치 (템플릿 통합 없음). 대화형으로 실행.
@@ -361,9 +363,9 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     }
 
     let result = null;
-    if (mode === "full") result = runFull(ctx, tempDir, cwd, { ...hooks, trace });
-    else if (mode === "version") result = runVersion(ctx, tempDir, cwd);
-    else if (mode === "workflows") result = runWorkflows(ctx, tempDir, cwd, { ...hooks, trace });
+    if (mode === "full") result = trace.step("install-full", () => runFull(ctx, tempDir, cwd, { ...hooks, trace }));
+    else if (mode === "version") result = trace.step("install-version", () => runVersion(ctx, tempDir, cwd));
+    else if (mode === "workflows") result = trace.step("install-workflows", () => runWorkflows(ctx, tempDir, cwd, { ...hooks, trace }));
 
     // 통합 후 IDE 스킬 제안 (.sh L4557 offer_ide_tools_install — 사전 질문 게이트, 기본 N)
     // 업데이트 모드(#502): 이미 설치된 IDE 스킬만 질문 없이 최신화 (미설치 IDE는 건드리지 않음)
@@ -399,6 +401,8 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },
       verification: result?.verification,      // #549 설치 검증 결과
       logDir: files ? MIGRATION_DIR : null,    // #561 기록 위치 안내
+      logFile: files?.logFile ?? null,
+      traceFile: files?.traceFile ?? null,
     }, cwd);
     io.outro?.(`통합 완료 — ${mode} 모드로 설치했습니다.`);
 
@@ -423,6 +427,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     // 어떤 경로로 빠져나가든 기록을 남긴다 (#561) — 중간 취소·예외 포함.
     // finalize는 멱등이라 정상 경로에서 이미 호출됐으면 여기서는 아무 일도 하지 않는다.
     trace.finalize({ targetRoot: cwd, fromVersion: traceFrom, toVersion: traceTo, now: clock?.now || "" });
+    disarmSignals();
     remove(tempDir);
   }
 }

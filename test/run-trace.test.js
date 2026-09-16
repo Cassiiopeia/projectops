@@ -48,7 +48,8 @@ test("write: JSONL 헤더+이벤트 기록, 이벤트 0건이면 null (no-op 오
     // .log가 생긴다(서버 로그처럼 내부 동작이 항상 기록되어야 사후 대응이 된다).
     assert.equal(files.logFile, `${MIGRATION_DIR}/20260714_001604_v2.7.7_to_v4.2.16.log`);
     const logBody = readFileSync(join(root, files.logFile), "utf8");
-    assert.match(logBody, /INFO\s+copy\/copied\s+A\.yaml/);
+    // 건별 파일 처리는 DEBUG — 화면은 조용히 두되 파일에는 전부 남긴다 (#561)
+    assert.match(logBody, /DEBUG\s+copy\/copied\s+A\.yaml/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

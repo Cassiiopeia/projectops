@@ -131,10 +131,13 @@ export function printSummary(ctx, targetRoot = ".") {
   err("  📚 워크플로우 가이드: .github/workflows/project-types/README.md");
   // #493 — 이번 실행의 마이그레이션 기록. "뭐가 남았고 AI에게 어떻게 시키는지"가 바로 보이게 행동 유도형으로 안내.
   // 실행 기록 위치 (#561) — 무슨 일이 있었는지 나중에 확인할 자리를 알린다.
-  if (ctx?.logDir) {
-    err(`  📁 실행 로그: ${ctx.logDir}/`);
+  // 폴더가 아니라 이번 실행의 파일을 정확히 짚어준다 — 실행이 쌓이면 어느 것이 이번 건인지
+  // 모른다. 붙여넣어 바로 열 수 있는 경로가 목적이다.
+  if (ctx?.logFile || ctx?.logDir) {
+    err(`  📁 실행 로그: ${ctx.logFile || `${ctx.logDir}/`}`);
+    if (ctx.traceFile) err(`     이벤트(JSONL): ${ctx.traceFile}`);
     err("     이번 실행에서 무엇을 어떤 근거로 정했는지 전부 기록돼 있습니다.");
-    err("     문제가 생기면 이 폴더의 .log 파일을 확인하세요 (저장소에 추적되지 않습니다).");
+    err("     문제가 생기면 이 파일을 확인하세요 (저장소에 추적되지 않습니다).");
     err("     💡 AI Agent에게 \"실행 로그 확인해줘\"라고 요청하면 원인을 짚어줍니다.");
     err("");
   }

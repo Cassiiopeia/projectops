@@ -97,7 +97,13 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
   // 실행 트레이스 (#494/#561) — 감지·판단 단계부터 기록해야 "왜 이렇게 정해졌는지"가 남는다.
   const trace = createRunTrace();
   const recordArtifacts = opts.mode === "full" || opts.mode === "workflows";
-  if (recordArtifacts) trace.mirrorStart();
+  let disarmSignals = () => {};
+  if (recordArtifacts) {
+    trace.mirrorStart();
+    // Ctrl+C로 끊어도 여기까지의 기록이 남는다 (#561). 경로는 아래에서 확정되지만
+    // 신호는 언제든 올 수 있으므로 targetRoot만으로 먼저 무장한다.
+    disarmSignals = trace.armSignals({ targetRoot: cwd, now: "" });
+  }
 
   // 기존 version.yml 로드 — version/version_code/project_paths 보존의 단일 진실 (.sh L2208~2239 SSoT)
   const vyPath = join(cwd, "version.yml");
@@ -301,6 +307,7 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
     if (recordArtifacts) {
       trace.finalize({ targetRoot: cwd, fromVersion: existing?.templateVersion || "", toVersion: context.templateVersion, now });
     }
+    disarmSignals();
     remove(tempDir);
   }
 
@@ -328,7 +335,9 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
     mode: opts.mode, types, version, deployBranch: context.deployBranch, migrationGuidePath,
     counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },
     verification: result?.verification,   // #549 설치 후 검증 결과 (full/workflows 모드에서만 존재)
-    logDir: files ? MIGRATION_DIR : null,  // #561 기록 위치 안내
+    logDir: files ? MIGRATION_DIR : null,   // #561 기록 위치 안내
+    logFile: files?.logFile ?? null,
+    traceFile: files?.traceFile ?? null,
   }, cwd);
 
   // 완료 화면까지 캡처한 뒤 종료하고 기록한다 (#561)
