@@ -42,8 +42,7 @@ test("printSummary: full 모드 스모크 — 워크플로우 분류·타입 안
     assert.match(out, /testflight-wizard \(flutter\)/);                 // util 모듈 트리
     assert.match(out, /Spring 프로젝트 추가 설정/);                       // spring 안내
     assert.match(out, /Flutter 배포 마법사 사용법/);                      // flutter 안내
-    assert.match(out, /_GITHUB_PAT_TOKEN/);                             // 다음 3가지 작업
-    assert.match(out, /coderabbit\.ai/);
+    assert.match(out, /_GITHUB_PAT_TOKEN/);                             // 다음 작업 안내
     assert.match(out, /PROJECTOPS-SETUP-GUIDE\.md/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
@@ -88,6 +87,40 @@ test("printSummary: deployBranchReady=true면 생성 재지시 대신 완료 표
 });
 
 // #493 — 마이그레이션 가이드 포인터
+test("printSummary: 고른 것만 안내한다 (#569)", () => {
+  // 끈 기능의 설정법을 보여주면 무엇을 해야 하는지 흐려진다.
+  const root = mkdtempSync(join(tmpdir(), "sum-pick-"));
+  try {
+    const base = { mode: "full", types: ["node"], version: "1.0.0", counters: { workflows: 0, workflowFiles: [] } };
+
+    const both = captureStderr(() => printSummary({ ...base, aiPrSummary: true, codeReviewCoderabbit: true }, root));
+    assert.match(both, /MODEL_API_KEY/, "AI 요약을 켰으면 키 등록법을 알려준다");
+    assert.match(both, /coderabbit\.ai/, "CodeRabbit을 켰으면 활성화 방법을 알려준다");
+
+    const onlyAi = captureStderr(() => printSummary({ ...base, aiPrSummary: true, codeReviewCoderabbit: false }, root));
+    assert.match(onlyAi, /MODEL_API_KEY/);
+    assert.doesNotMatch(onlyAi, /coderabbit\.ai/, "끈 기능의 설정법은 보이면 안 된다");
+
+    const neither = captureStderr(() => printSummary({ ...base, aiPrSummary: false, codeReviewCoderabbit: false }, root));
+    assert.doesNotMatch(neither, /MODEL_API_KEY/);
+    assert.doesNotMatch(neither, /coderabbit\.ai/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("printSummary: 키 안내는 '없어도 된다'를 먼저 말한다 (#569)", () => {
+  // 필수처럼 보이면 안 된다 — 키가 없어도 릴리스 노트는 나온다.
+  const root = mkdtempSync(join(tmpdir(), "sum-opt-"));
+  try {
+    const out = captureStderr(() => printSummary({
+      mode: "full", types: ["node"], version: "1.0.0",
+      counters: { workflows: 0, workflowFiles: [] }, aiPrSummary: true,
+    }, root));
+    const idx = out.indexOf("MODEL_API_KEY");
+    const intro = out.slice(Math.max(0, idx - 400), idx);
+    assert.match(intro, /선택|추가 설정은 필요 없|지금도/, "선택 사항임이 먼저 드러나야 한다");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test("printSummary: migrationGuidePath 있으면 가이드 안내 출력 (#493)", () => {
   const root = mkdtempSync(join(tmpdir(), "summary-mg-"));
   try {

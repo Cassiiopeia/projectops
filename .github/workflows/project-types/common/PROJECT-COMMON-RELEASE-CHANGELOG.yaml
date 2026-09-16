@@ -8,7 +8,7 @@
 #
 # 릴리스 노트 생성기(provider)는 version.yml options.changelog.provider로 고른다 (#455):
 #   - copilot: GitHub Copilot CLI — GITHUB_TOKEN만으로 동작(API 키 불필요, copilot-requests: write 필요)
-#   - openai/gemini/claude/ollama: OpenAI 호환 API (MODEL_API_KEY secret 필요)
+#   - openai/gemini/claude/groq/mistral/ollama: OpenAI 호환 API (MODEL_API_KEY secret 필요)
 #   - commit: 커밋 분석 (AI·네트워크 무의존)
 # 폴백 사다리는 .github/scripts/changelog_providers/ladder.py가 실행:
 #   선택 provider → (키 있으면 외부 AI) → commit 순으로 시도, commit은 항상 완주하는 최후 보루.
@@ -27,7 +27,7 @@
 # _GITHUB_PAT_TOKEN: 없으면 GITHUB_TOKEN으로 동작한다. 등록하면 (1) 브랜치 보호 규칙이
 #   있어도 --admin 머지가 가능하고 (2) 머지 push가 후속 워크플로우를 자동 트리거한다.
 #   없을 때는 머지 후 dispatch_downstream.py가 후속 워크플로우를 직접 깨운다.
-# MODEL_API_KEY: 없으면 GitHub Models(무료) → commit 규칙으로 폴백한다.
+# MODEL_API_KEY: 등록하면 외부 AI를 쓴다(기본값 commit이어도 자동 적용 — #569). 없으면 커밋 분석.
 # ===================================================================
 #
 # 작동 방식:

@@ -39,7 +39,14 @@ def build_rungs(provider):
     has_key = bool(os.environ.get("MODEL_API_KEY"))
 
     if provider == "commit":
-        return [commit]
+        # 키를 등록하는 행위 자체가 "AI를 쓰겠다"는 의사표시다 (#569).
+        # commit은 "AI를 절대 쓰지 않음"이 아니라 "설정하지 않음"의 기본값이므로,
+        # 키가 있으면 AI를 먼저 시도한다. AI 없이 돌리려면 키를 등록하지 않으면 된다.
+        rungs = []
+        if has_key:
+            rungs.append(("openai:gemini", "openai_compatible.py", {"PROVIDER_NAME": "gemini"}))
+        rungs.append(commit)
+        return rungs
     if provider in OPENAI_FAMILY:
         return [(f"openai:{provider}", "openai_compatible.py", {"PROVIDER_NAME": provider}), commit]
     if provider == "copilot":

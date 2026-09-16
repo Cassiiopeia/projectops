@@ -190,9 +190,25 @@ export function printSummary(ctx, targetRoot = ".") {
     err(`     → git checkout -b ${deployBranchName} && git push -u origin ${deployBranchName}`);
   }
   err("");
-  err("  3️⃣  CodeRabbit 활성화 (코드 리뷰를 켰다면)");
-  err("     → https://coderabbit.ai 로그인 → GitHub 앱 설치 → 이 저장소에 접근 권한(grant access) 부여");
-  err("");
+  // #569 — 선택한 것만 안내한다. 끈 기능의 설정법을 보여주면 무엇을 해야 하는지 흐려진다.
+  let step = 3;
+  if (ctx?.aiPrSummary !== false) {
+    err(`  ${step}️⃣  (선택) AI 요약 품질 올리기`);
+    err("     → 지금도 커밋 내용으로 릴리스 노트·PR 요약이 만들어집니다. 추가 설정은 필요 없습니다.");
+    err("     → AI가 다듬은 문장을 원하면 무료 키를 등록하세요 (2분, 신용카드 불필요):");
+    err("        1) https://aistudio.google.com/apikey 에서 키 발급");
+    err("        2) Repository Settings > Secrets and variables > Actions > New repository secret");
+    err("        3) Secret Name: MODEL_API_KEY / Secret: 발급받은 키");
+    err("");
+    step++;
+  }
+  if (ctx?.codeReviewCoderabbit === true) {
+    err(`  ${step}️⃣  CodeRabbit 활성화`);
+    err("     → https://coderabbit.ai 로그인 → GitHub 앱 설치 → 이 저장소에 접근 권한(grant access) 부여");
+    err("     → 이 단계를 안 하면 워크플로우는 켜져도 PR에 리뷰 댓글이 달리지 않습니다");
+    err("");
+    step++;
+  }
   err(SEPARATOR);
   err("");
   err(`${CYAN}📖 자세한 설정 방법은 다음 파일을 참고하세요:${NC}`);

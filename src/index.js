@@ -322,6 +322,8 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
       mode: opts.mode, types, version, deployBranch: context.deployBranch, migrationGuidePath,
       counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },
       verification: result?.verification,   // #549 설치 후 검증 결과 (full/workflows 모드에서만 존재)
+      // #569 — 고른 것만 안내하려면 선택값이 필요하다
+      aiPrSummary: context.aiPrSummary, codeReviewCoderabbit: context.codeReviewCoderabbit,
       logDir: files ? MIGRATION_DIR : null,   // #561 기록 위치 안내
       logFile: files?.logFile ?? null,
       traceFile: files?.traceFile ?? null,

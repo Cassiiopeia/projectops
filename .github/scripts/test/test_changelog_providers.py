@@ -177,6 +177,44 @@ def test_ladder_copilot_then_key(git_repo):
     assert result["attempted"][:2] == ["copilot", "openai:gemini"]
 
 
+def test_ladder_key_wins_over_commit_default(git_repo):
+    """기본값(commit)이어도 MODEL_API_KEY가 있으면 AI를 먼저 쓴다 (#569).
+
+    실사고: 키를 등록해도 아무 일이 없었다. 안내 댓글은 "키를 등록하세요"라고 말하는데
+    등록해도 소용없어 안내가 거짓이 됐다. 키 등록 자체가 의사표시다.
+    """
+    r = run_script("ladder.py", git_repo, {
+        "CHANGELOG_PROVIDER": "commit", "MODEL_API_KEY": "dummy",
+        "CHANGELOG_TEST_RESPONSE": "* **개선**\n  * AI 응답",
+        "COMMIT_RANGE": "HEAD~4..HEAD",
+    })
+    assert r.returncode == 0, r.stderr
+    result = read_result(git_repo)
+    assert result["provider"] == "openai:gemini", "키가 있으면 AI를 써야 한다"
+
+
+def test_ladder_no_key_stays_commit(git_repo):
+    """키가 없으면 종전대로 커밋 분석만 — 외부 호출을 하지 않는다."""
+    r = run_script("ladder.py", git_repo, {
+        "CHANGELOG_PROVIDER": "commit", "MODEL_API_KEY": "",
+        "COMMIT_RANGE": "HEAD~4..HEAD",
+    })
+    assert r.returncode == 0, r.stderr
+    assert read_result(git_repo)["attempted"] == ["commit"]
+
+
+def test_ladder_key_failure_falls_back(git_repo):
+    """키가 있어도 AI가 실패하면 커밋 분석으로 내려간다 — 릴리스는 멈추지 않는다."""
+    r = run_script("ladder.py", git_repo, {
+        "CHANGELOG_PROVIDER": "commit", "MODEL_API_KEY": "dummy",
+        "COMMIT_RANGE": "HEAD~4..HEAD",
+    })
+    assert r.returncode == 0, r.stderr
+    result = read_result(git_repo)
+    assert result["provider"] == "commit"
+    assert "openai:gemini" in result["failed"]
+
+
 def test_ladder_openai_family_first(git_repo):
     """명시적 openai 계열 선택 시 해당 provider가 1순위."""
     r = run_script("ladder.py", git_repo, {

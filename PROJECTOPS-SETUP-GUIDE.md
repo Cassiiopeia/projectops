@@ -44,14 +44,44 @@ git checkout main
 
 ---
 
-### 3️⃣ CodeRabbit 활성화
+### 3️⃣ AI 요약 품질 올리기 (선택)
+
+**등록하지 않아도 릴리스 노트와 PR 요약은 나옵니다.** 커밋 내용을 분석해 만들기 때문에
+추가 설정 없이 바로 동작합니다. AI가 다듬은 문장을 원할 때만 아래를 따르세요.
+
+1. [Google AI Studio](https://aistudio.google.com/apikey)에서 API 키 발급 (무료, 신용카드 불필요)
+2. 저장소 **Settings → Secrets and variables → Actions → New repository secret**
+3. **Name**: `MODEL_API_KEY` / **Secret**: 발급받은 키
+
+**동작 방식**: 키를 등록하면 자동으로 쓰입니다. 별도 설정은 필요 없습니다.
+
+```
+릴리스 PR 생성
+  → 본문에 이미 릴리스 노트가 있으면 그대로 사용
+  → 없으면 Copilot CLI 시도 (키 불필요)
+  → 안 되면 MODEL_API_KEY로 외부 AI
+  → 그래도 안 되면 커밋 내용으로 정리
+```
+
+어느 단계에서 만들어졌는지는 Actions 실행 요약에 기록됩니다. AI를 하나도 쓰지 못한
+경우에만 PR에 안내 댓글이 한 번 달립니다.
+
+> 무료 등급 한도는 일 500회 수준이라 일반적인 릴리스 빈도에는 충분합니다.
+> 한도를 넘겨도 커밋 분석으로 자동 폴백하므로 릴리스가 멈추지 않습니다.
+
+---
+
+### 4️⃣ CodeRabbit 활성화 (선택)
+
+통합 시 **CodeRabbit 코드 리뷰**를 선택한 경우에만 필요합니다.
 
 1. [CodeRabbit 웹사이트](https://coderabbit.ai) 접속
 2. GitHub 계정으로 로그인
 3. 저장소 목록에서 프로젝트 선택하여 활성화
 4. `.coderabbit.yaml` 파일이 프로젝트에 있으면 자동으로 설정 적용됨
 
-**설명**: CodeRabbit은 AI 기반 코드 리뷰 및 체인지로그 자동 생성을 담당합니다.
+**설명**: CodeRabbit은 AI 기반 코드 리뷰를 담당합니다. 이 단계를 건너뛰면 워크플로우가
+켜져 있어도 PR에 리뷰 댓글이 달리지 않습니다.
 
 ---
 

@@ -8,7 +8,7 @@
 # 재사용합니다 — 별도 생성기를 두면 두 경로가 갈라져 드리프트가 나기 때문입니다.
 #
 # 🔑 GitHub Secrets — 전부 선택
-#   MODEL_API_KEY: 없으면 GitHub Models(무료) → 커밋 분석 순으로 폴백합니다.
+#   MODEL_API_KEY: 등록하면 외부 AI로 요약합니다. 없으면 Copilot → 커밋 분석 순입니다.
 #   (permissions의 models: read + 기본 토큰만으로 GitHub Models가 동작합니다)
 #
 # 달지 않는 경우:
