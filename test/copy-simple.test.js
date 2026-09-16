@@ -7,6 +7,7 @@ import { writeText, exists, readText } from "../src/core/fsutil.js";
 import { mkdtempSync, rmSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 function fresh(prefix) { return mkdtempSync(join(tmpdir(), prefix)); }
 
@@ -24,7 +25,8 @@ test("copyScripts: 복사 목록이 실제 템플릿 파일과 어긋나지 않�
   // 목록에만 있고 실물이 없으면 사용자 프로젝트에 파일이 조용히 빠진다.
   // 반대로 실물만 있고 목록에 없으면 그 기능이 남의 레포에서 동작하지 않는다.
   // github_ai.py는 의도적 제외(서비스 종료) — 예외로 둔다.
-  const repoRoot = new URL("..", import.meta.url).pathname;
+  // ⚠️ pathname은 Windows에서 "/C:/..." 형태라 경로가 깨진다. fileURLToPath를 써야 한다.
+  const repoRoot = fileURLToPath(new URL("..", import.meta.url));
   const listed = readText(join(repoRoot, "src/core/copy/simple.js"))
     .match(/"changelog_providers\/[a-z_]+\.py"|"[a-z_]+\.py"/g)
     .map((s) => s.replaceAll('"', ""));
