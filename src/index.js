@@ -60,6 +60,13 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
   if (opts.showVersion) { console.log(readPkgVersion()); return 0; }
   if (opts.help) { console.log(HELP_TEXT); return 0; }
 
+  // doctor 모드 (#558) — 읽기 전용 진단. 템플릿을 내려받지 않으므로 네트워크 없이도 동작한다.
+  if (opts.mode === "doctor") {
+    const { runDoctor } = await import("./commands/doctor.js");
+    await runDoctor({ cwd });
+    return 0;   // 진단은 실패가 아니다 — 살펴볼 항목이 있어도 0으로 끝낸다
+  }
+
   // skills 모드 — IDE 스킬 설치/업데이트/제거 (템플릿 통합 없음).
   // Cursor 복사용 skills/ 소스가 필요하므로 템플릿을 획득한 뒤 실행한다.
   if (opts.mode === "skills") {

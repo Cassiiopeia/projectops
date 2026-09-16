@@ -5,7 +5,8 @@ export const HELP_TEXT = `projectops — GitHub 프로젝트 자동화 템플릿
   npx projectops [옵션]
 
 옵션:
-  -m, --mode MODE          통합 모드 (full | version | workflows | issues | skills)
+  -m, --mode MODE          통합 모드 (full | version | workflows | issues | skills | doctor)
+                           doctor: 통합 상태·저장소 설정 진단 (읽기 전용)
                            기본: interactive (대화형)
   -t, --type CSV           프로젝트 타입 csv (예: spring,react,python)
                            지원: spring flutter react react-native
@@ -27,4 +28,6 @@ export const HELP_TEXT = `projectops — GitHub 프로젝트 자동화 템플릿
 예시:
   npx projectops --mode full --force --type spring,react
   npx projectops --mode workflows --type flutter --paths "flutter=app"
+  npx projectops --mode doctor                       # 설정 진단
+  GITHUB_TOKEN=ghp_... npx projectops --mode doctor  # 저장소 설정까지 진단
 `;
