@@ -87,26 +87,52 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   // values/useDefaults는 치환 경로에서만 의미 (isUnchanged는 내부에서 useDefaults:true 강제 — 가상 비교 무손상)
   const envOptsFor = (type) => ({ type, projectPath: paths.get(type) || ".", repoName, resolvers, values: envValues, useDefaults: envUseDefaults, branches });
 
-  // (1) common — unchanged면 스킵, 아니면 무조건 덮어쓰기
+  // (1) common — 타입별과 동일한 판정·보호를 받는다 (#560).
+  //
+  // 종전에는 "unchanged면 스킵, 아니면 무조건 덮어쓰기"였다. 그런데 릴리스 파이프라인처럼
+  // 프로젝트마다 뒤에 붙일 일이 다른 워크플로우는 common에 있어도 사용자가 고쳐 쓸 수밖에
+  // 없다. 고치지 않고는 쓸 수 없는 파일을, 고치면 백업도 없이 날아가는 규칙으로 관리하고
+  // 있었다. common/deploy조차 .bak을 남기는데 본체만 아무것도 남기지 않았다.
   const commonDir = join(projectTypesDir, "common");
   if (exists(commonDir)) {
+    const commonEnv = envOptsFor("common");
+    const commonClass = classify(commonDir, workflowsDir, commonEnv, baseline);
     for (const filename of listYamlFiles(commonDir)) {
       // #491 — util 동기화 워크플로우는 util 모듈이 있(게 되)는 레포에만 복사
       if (filename === UTIL_VERSION_SYNC && !utilSyncApplies(tempDir, targetRoot, types)) {
         trace?.event("copy", "excluded", filename, { reason: "util-modules-absent" });
         continue;
       }
-      const src = join(commonDir, filename);
-      const dst = join(workflowsDir, filename);
-      if (existsSync(dst) && isUnchanged(readFileSync(src, "utf8"), readFileSync(dst, "utf8"), envOptsFor("common"))) {
+      if (commonClass.unchanged.includes(filename)) {
         counters.skipped++;
         trace?.event("copy", "skipped-unchanged", filename, { group: "common" });
         continue;
       }
-      copyFileSync(src, dst);
-      counters.copied++;
-      counters.copiedFiles.push(filename);
-      trace?.event("copy", "copied", filename, { group: "common" });
+      // 사용자가 손댄 적 없고 템플릿만 바뀐 파일 — 물어볼 것 없이 최신으로 올린다(종전과 동일).
+      if (commonClass.newFiles.includes(filename) || commonClass.upstream.includes(filename)) {
+        copyFileSync(join(commonDir, filename), join(workflowsDir, filename));
+        counters.copied++;
+        counters.copiedFiles.push(filename);
+        trace?.event("copy", commonClass.upstream.includes(filename) ? "upstream-updated" : "copied",
+                     filename, { group: "common" });
+        continue;
+      }
+      // 여기부터는 changed — "지금 템플릿 렌더 결과 ≠ 설치본"이다. 둘로 갈린다.
+      const dst = join(workflowsDir, filename);
+      const modified = isUserModified(baseline, filename, readFileSync(dst, "utf8"));
+      if (modified === null) {
+        // 판정 불가(기준점 없음 = 기존 통합 레포). common의 종전 계약은 "항상 최신으로 갱신"이라
+        // 여기서 skip하면 기존 레포가 업데이트를 영영 못 받는다. 계약은 지키되 되돌릴 수단을
+        // 남긴다 — 덮어쓰기 전 .bak. (#560: common/deploy조차 .bak을 남기는데 본체만 없었다)
+        renameSync(dst, dst + ".bak");
+        copyFileSync(join(commonDir, filename), dst);
+        counters.copied++;
+        counters.copiedFiles.push(filename);
+        trace?.event("copy", "replaced-bak", filename, { group: "common", reason: "baseline-absent" });
+        continue;
+      }
+      // 사용자가 손댄 것이 확인된 파일 — 결정에 따라 처리(미지정이면 유지).
+      applyDecision(decisions.get(filename), commonDir, workflowsDir, filename, counters, trace);
     }
   }
 
@@ -233,8 +259,22 @@ export function listWorkflowConflicts(context, tempDir, targetRoot = ".") {
   // 설치 시점 기준점(#557) — 없으면 null이고 classify가 종전 2-way로 폴백한다.
   const baseline = readBaseline(targetRoot);
   const projectTypesDir = join(tempDir, PATHS.workflowsDir, PATHS.projectTypesDir);
-  const conflicts = []; // [{ filename, type }] — 엔진 처리 순서와 동일 (타입 순회 → 직하위 → server-deploy)
+  const conflicts = []; // [{ filename, type }] — 엔진 처리 순서와 동일 (common → 타입 순회 → server-deploy)
   const branches = { defaultBranch: branch || "main", deployBranch: deployBranch || "develop" }; // #477 — 엔진과 동일 기준
+
+  // common (#560) — 사용자가 손댄 것이 "확인된" 파일만 질문 대상이다.
+  // 기준점이 없어 판정 불가인 파일은 엔진이 .bak을 남기고 덮어쓰므로 질문하지 않는다.
+  const commonDir = join(projectTypesDir, "common");
+  if (exists(commonDir)) {
+    const commonEnv = { type: "common", projectPath: ".", repoName, resolvers, branches };
+    for (const f of classify(commonDir, workflowsDir, commonEnv, baseline).changed) {
+      const dst = join(workflowsDir, f);
+      if (!existsSync(dst)) continue;
+      if (isUserModified(baseline, f, readFileSync(dst, "utf8")) !== true) continue;
+      conflicts.push({ filename: f, type: "common" });
+    }
+  }
+
   for (const type of types) {
     const envOpts = { type, projectPath: paths.get(type) || ".", repoName, resolvers, branches };
     const typeDir = join(projectTypesDir, type);
