@@ -1,14 +1,40 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-16T01:22:02Z",
-    "currentVersion": "4.6.0",
+    "lastUpdated": "2026-09-16T01:32:07Z",
+    "currentVersion": "4.6.1",
     "projectType": "basic",
-    "totalReleases": 237,
+    "totalReleases": 238,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.6.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-16",
+      "pr_number": 563,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 실행 기록이 중간에 끊겨 완료 안내가 빠지던 문제 해결\n\n* **개선**\n  * 실행이 끝나면 기록 파일 위치를 화면 맨 아래에 안내합니다\n  * 설치 외 모드에서는 불필요한 기록 파일을 만들지 않습니다\n\n---\n\n- https://github.com/Cassiiopeia/projectops/issues/561\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01LsTgVFm86DjKpURkB9yh1Z",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "실행 기록이 중간에 끊겨 완료 안내가 빠지던 문제 해결"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "실행이 끝나면 기록 파일 위치를 화면 맨 아래에 안내합니다",
+            "설치 외 모드에서는 불필요한 기록 파일을 만들지 않습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.6.0",
       "project_type": "basic",
