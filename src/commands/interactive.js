@@ -113,6 +113,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     // semver 자동 승격(#546) — 질문하지 않는다(#485 질문 부담 축소 방향 유지).
     // 저장값이 있으면 보존, 없으면 신규 통합만 ON. 기존 레포는 업데이트만으로 버전이 튀지 않는다.
     const semverAuto = existing?.options?.semverAuto ?? (existing ? false : true);
+    const appRelease = existing?.options?.appRelease ?? null; // #553 저장값 보존 (묻지 않음)
     const showOptional = mode === "full" || mode === "workflows";
     const realTty = process.stdout.isTTY === true;
 
@@ -281,7 +282,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     const { now, today } = clock || utcNow();
     const ctx = createContext({
       mode, force: true, types, version, versionCode, branch, paths, deployTarget, publishTargets, includeSecretBackup,
-      codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto,
+      codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto, appRelease,
       repoName, templateVersion, resolvers, envValues, envUseDefaults, now, today,
       // #502 — version 모드가 기존 full 기록을 강등하지 않도록 (full이 우세)
       recordMode: existing?.templateMode === "full" ? "full" : "version",

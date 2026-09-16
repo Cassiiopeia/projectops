@@ -18,6 +18,8 @@ export function copyScripts(tempDir, targetRoot = ".") {
     "issue_helper.py",
     // 릴리스 워크플로우가 PAT 없이 머지한 뒤 후속 워크플로우를 깨울 때 호출 (#551).
     "dispatch_downstream.py",
+    // AI PR SUMMARY 워크플로우가 요약 댓글을 작성·갱신할 때 호출 (#553).
+    "pr_summary_comment.py",
     "changelog_providers/_common.py", "changelog_providers/ladder.py",
     "changelog_providers/commit.py", "changelog_providers/github_ai.py",
     "changelog_providers/openai_compatible.py",

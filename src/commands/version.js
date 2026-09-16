@@ -14,7 +14,7 @@ export function runVersion(context, tempDir, targetRoot = ".") {
   const { version, types = [], paths = new Map(), branch = "main", versionCode = 1,
     now, today, templateVersion = "unknown", deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false,
     changelogProvider = "github-ai", changelogBaseUrl = "", codeReviewCoderabbit = true,
-    deployBranch = "", recordMode = "version", semverAuto = true } = context;
+    deployBranch = "", recordMode = "version", semverAuto = true , appRelease = null } = context;
 
   const pathMarkers = new Map();
   for (const [t] of paths) pathMarkers.set(t, markerForType(t));
@@ -25,7 +25,7 @@ export function runVersion(context, tempDir, targetRoot = ".") {
       // mode(#502): version 모드가 기존 full 통합 기록을 "version"으로 강등하지 않도록
       // 호출부가 recordMode로 기존 값을 넘긴다 (full이 우세 — 업데이트 재실행 범위 축소 방지).
       templateOptions: { templateVersion, deployTarget, publishTargets, includeSecretBackup, optionsDate: today,
-        changelogProvider, changelogBaseUrl, codeReviewCoderabbit, mode: recordMode, semverAuto },
+        changelogProvider, changelogBaseUrl, codeReviewCoderabbit, mode: recordMode, semverAuto, appRelease },
     }));
   addVersionSectionToReadme(version, targetRoot);
   copyScripts(tempDir, targetRoot);

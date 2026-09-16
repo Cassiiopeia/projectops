@@ -134,3 +134,47 @@ test("semver_auto: 키가 없는 구 version.yml은 null (호출부가 OFF로 �
   const yml = 'version: "1.0.0"\nmetadata:\n  last_updated: "x"\n';
   assert.equal(parseTemplateOptions(yml).semverAuto, null);
 });
+
+// ── 프로젝트 성격 app_release (#553) ──────────────────────────────────
+// 워크플로우와 스킬이 같은 값을 보게 하는 것이 목적이다. 종전에는 스킬 설정 파일(사용자 홈)에만
+// 있어서 워크플로우가 볼 수 없었고, 같은 사실이 두 곳에 따로 존재했다.
+test("app_release: 미지정이면 키 자체를 쓰지 않는다 (기존 레포 무변화)", () => {
+  const yml = buildVersionYml({
+    version: "1.0.0", types: ["flutter"], now: "x", today: "y",
+    templateOptions: { templateVersion: "4.3.0" },
+  });
+  assert.ok(!/app_release:/.test(yml));
+  assert.equal(parseTemplateOptions(yml).appRelease, null);
+});
+
+test("app_release: true를 기록하고 다시 읽는다", () => {
+  const yml = buildVersionYml({
+    version: "1.0.0", types: ["flutter"], now: "x", today: "y",
+    templateOptions: { templateVersion: "4.3.0", appRelease: true },
+  });
+  assert.match(yml, /^\s+app_release: true/m);
+  assert.equal(parseTemplateOptions(yml).appRelease, true);
+});
+
+test("app_release: false도 왕복한다", () => {
+  const yml = buildVersionYml({
+    version: "1.0.0", types: ["spring"], now: "x", today: "y",
+    templateOptions: { templateVersion: "4.3.0", appRelease: false },
+  });
+  assert.equal(parseTemplateOptions(yml).appRelease, false);
+});
+
+test("app_release: 값 뒤 인라인 주석이 있어도 파싱된다", () => {
+  const yml = 'version: "1.0.0"\nmetadata:\n  template:\n    options:\n      app_release: true   # 손으로 단 주석\n';
+  assert.equal(parseTemplateOptions(yml).appRelease, true);
+});
+
+test("app_release와 semver_auto가 서로 간섭하지 않는다", () => {
+  const yml = buildVersionYml({
+    version: "1.0.0", types: ["flutter"], now: "x", today: "y",
+    templateOptions: { templateVersion: "4.3.0", semverAuto: false, appRelease: true },
+  });
+  const o = parseTemplateOptions(yml);
+  assert.equal(o.semverAuto, false);
+  assert.equal(o.appRelease, true);
+});

@@ -57,7 +57,7 @@ const HEADER = `# ==============================================================
 export function parseTemplateOptions(content) {
   const out = { deploy: null, publish: null, secretBackup: null,
                 changelogProvider: null, changelogBaseUrl: null, codeReviewCoderabbit: null,
-                deployBranch: null, intent: null, semverAuto: null };
+                deployBranch: null, intent: null, semverAuto: null, appRelease: null };
   // deploy_branch는 metadata 직속(#456) — template.options 밖이라 별도로 스캔한다.
   for (const line of String(content || "").split("\n")) {
     if (line.startsWith("#")) continue;
@@ -129,6 +129,12 @@ export function parseTemplateOptions(content) {
       m = line.match(/^\s+semver_auto:\s*["']?(true|false)["']?/);
       if (m) {
         out.semverAuto = m[1] === "true";
+        continue;
+      }
+      // 프로젝트 성격(#553) — 앱 심사로 이어지는 레포인가. 워크플로우와 스킬이 같은 값을 본다.
+      m = line.match(/^\s+app_release:\s*["']?(true|false)["']?/);
+      if (m) {
+        out.appRelease = m[1] === "true";
         continue;
       }
       m = line.match(/^\s+npm_publish:\s*(.+)/);
@@ -308,7 +314,7 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
   if (templateOptions) {
     const { templateVersion = "unknown", deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, optionsDate = today,
             changelogProvider = "github-ai", changelogBaseUrl = "", codeReviewCoderabbit = true, intent = null, mode = null,
-            semverAuto = true } = templateOptions;
+            semverAuto = true, appRelease = null } = templateOptions;
     const publishJson = `[${publishTargets.map((t) => `"${t}"`).join(",")}]`;
     // intent(프로젝트 성격, #485) — 미지정이면 deploy/publish에서 역추론해 기록 (재통합 시 진입 질문 생략용)
     const intentVal = intent || inferIntent(deployTarget, publishTargets) || "manual";
@@ -326,6 +332,10 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
     out += `      secret_backup: ${includeSecretBackup}\n`;
     // semver 자동 승격(#546) — 릴리스 시 커밋 제목으로 major/minor/patch 결정. false면 항상 patch.
     out += `      semver_auto: ${semverAuto}   # 커밋 제목으로 버전 승격 폭 결정 (false면 항상 patch)\n`;
+    // 앱 심사 배포 레포 여부(#553) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).
+    if (appRelease !== null) {
+      out += `      app_release: ${appRelease}   # 앱스토어·플레이스토어 심사로 이어지는 배포인가\n`;
+    }
     out += `      code_review:\n`;
     out += `        coderabbit: ${codeReviewCoderabbit}\n`;
     out += `      changelog:\n`;

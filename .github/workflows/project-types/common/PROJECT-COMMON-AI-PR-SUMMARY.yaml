@@ -1,0 +1,105 @@
+# ===================================================================
+# PROJECT-COMMON-AI-PR-SUMMARY.yaml
+# 일반 작업 PR에 변경 요약 댓글 자동 작성 (#553)
+# ===================================================================
+#
+# 기본 브랜치를 향하는 작업 PR이 열리거나 갱신되면 커밋을 요약해 댓글로 답니다.
+# 릴리스 노트와 **같은 provider 사다리**(.github/scripts/changelog_providers/ladder.py)를
+# 재사용합니다 — 별도 생성기를 두면 두 경로가 갈라져 드리프트가 나기 때문입니다.
+#
+# 🔑 GitHub Secrets — 전부 선택
+#   MODEL_API_KEY: 없으면 GitHub Models(무료) → 커밋 분석 순으로 폴백합니다.
+#   (permissions의 models: read + 기본 토큰만으로 GitHub Models가 동작합니다)
+#
+# 달지 않는 경우:
+#   - 릴리스 PR(head가 개발 브랜치): 체인지로그가 이미 그 일을 합니다
+#   - fork에서 온 PR: 외부 코드로 이 워크플로우를 돌리지 않습니다
+#
+# 댓글은 쌓지 않고 갱신합니다. 표식(<!-- PROJECTOPS-AI-SUMMARY -->)으로 기존 댓글을 찾아
+# 내용만 교체하므로, 커밋을 여러 번 올려도 요약 댓글은 하나로 유지됩니다.
+#
+# 이 워크플로우는 어떤 경우에도 PR을 막지 않습니다 (요약 생성 실패 = 조용히 종료).
+# ===================================================================
+
+name: AI PR SUMMARY
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: ["main"]
+
+permissions:
+  contents: read
+  pull-requests: write
+  models: read
+
+concurrency:
+  # 같은 PR에 커밋이 연달아 올라오면 마지막 것만 요약한다
+  group: ai-pr-summary-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ai-pr-summary:
+    name: PR 변경 요약 댓글
+    # fork PR 제외 + 릴리스 PR(head=develop) 제외
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref != 'develop'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: 옵션 확인
+        id: options
+        run: |
+          PROVIDER=$(grep -A5 "changelog:" version.yml 2>/dev/null | grep "provider:" | head -1 | sed -E 's/.*provider: *"?([a-z-]+)"?.*/\1/' || true)
+          # coderabbit은 이 워크플로우에서 재현할 수 없는 외부 봇이라 사다리 기본값으로 대체한다
+          if [ -z "$PROVIDER" ] || [ "$PROVIDER" = "coderabbit" ]; then
+            PROVIDER="github-ai"
+          fi
+          echo "provider=$PROVIDER" >> $GITHUB_OUTPUT
+
+          # 프로젝트 성격(#553) — 앱 심사로 이어지는 레포면 요약에 안내를 덧붙인다.
+          APP_RELEASE=$(python3 -c 'import re; t=open("version.yml",encoding="utf-8").read(); m=re.search(r"metadata:.*?template:.*?options:.*?app_release:\s*\"?(true|false)", t, re.S); print(m.group(1) if m else "false")' 2>/dev/null || echo "false")
+          echo "app_release=$APP_RELEASE" >> $GITHUB_OUTPUT
+          echo "ℹ️ provider=$PROVIDER / app_release=$APP_RELEASE"
+
+      - name: 변경 요약 생성
+        id: summary
+        continue-on-error: true
+        env:
+          CHANGELOG_PROVIDER: ${{ steps.options.outputs.provider }}
+          MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          git fetch origin "$BASE_REF"
+          # 세 점(...)은 공통 조상 기준 — base에 새로 들어온 커밋을 요약에 섞지 않는다
+          export COMMIT_RANGE="origin/${BASE_REF}...HEAD"
+          echo "ℹ️ 요약 범위: $COMMIT_RANGE"
+
+          python3 .github/scripts/changelog_providers/ladder.py
+          if [ -f pr_body.md ]; then
+            echo "generated=true" >> $GITHUB_OUTPUT
+          else
+            echo "generated=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 요약 댓글 작성 또는 갱신
+        if: steps.summary.outputs.generated == 'true'
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          APP_RELEASE: ${{ steps.options.outputs.app_release }}
+        run: |
+          python3 .github/scripts/pr_summary_comment.py \
+            --repo "$REPO" \
+            --pr "$PR_NUMBER" \
+            --body-file pr_body.md \
+            --app-release "$APP_RELEASE"

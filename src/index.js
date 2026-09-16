@@ -144,6 +144,9 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
     // semver 자동 승격(#546): 저장값 → (기존 통합 레포면 false / 신규면 true).
     // 이미 통합된 레포의 버전이 업데이트만으로 예고 없이 minor로 튀지 않게 하는 안전장치다.
     semverAuto: existing?.options?.semverAuto ?? (existing ? false : true),
+    // 앱 심사 배포 레포 여부(#553): 저장값만 보존한다. 마법사가 묻지 않으므로 새로 켜지 않는다
+    // (사용자가 version.yml에 직접 쓰거나 스킬이 기록한 값을 그대로 유지).
+    appRelease: existing?.options?.appRelease ?? null,
     repoName,
     // 실 resolver 4종 (.sh resolve_token 등가 — spring-app-yml 스텁 제거)
     resolvers: makeResolvers(cwd, repoName, paths),

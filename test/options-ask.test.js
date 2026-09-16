@@ -20,7 +20,7 @@ function makeTmp() { return mkdtempSync(join(tmpdir(), "optask-")); }
 // #455에서 추가된 changelog/code_review 필드의 기본값(미기재 → null).
 // #546 semverAuto도 동일하게 미기재 → null (호출부가 "기존 통합 레포"로 해석해 OFF 처리).
 // 기존 deepEqual 기대값에 spread해 필드 추가로 인한 회귀를 막는다.
-const CL_NULL = { changelogProvider: null, changelogBaseUrl: null, codeReviewCoderabbit: null, deployBranch: null, intent: null, semverAuto: null };
+const CL_NULL = { changelogProvider: null, changelogBaseUrl: null, codeReviewCoderabbit: null, deployBranch: null, intent: null, semverAuto: null, appRelease: null };
 
 // 실제 temp 레이아웃({tempDir}/.github/workflows/project-types)으로 픽스처 구성
 function makeTemplateFixture({ secretBackup = true } = {}) {
