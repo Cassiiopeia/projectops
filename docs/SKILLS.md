@@ -364,6 +364,27 @@ Spring Boot 프로젝트용 테스트 샘플 코드를 생성합니다. `build.g
 
 ---
 
+### `/pro-flutter-e2e`
+
+**무엇을 하나요?**
+Flutter 앱을 **실제 에뮬레이터·시뮬레이터에서 직접 조작해** 검증합니다. 화면을 찍어 읽고
+좌표를 눌러 끝까지 밟으며, 단계마다 **기기 저장소와 서버 DB를 대조**합니다. 2단계 인증처럼
+사람이 해야 하는 지점을 만나면 멈추고 무엇을 해달라고 알려줍니다. 상태를 볼 로그가 없으면
+**로깅을 먼저 심고** 진행합니다.
+
+**수정되는 것**: (필요할 때만) 관측용 로깅 코드
+**돌려주는 것**: 단계별 스크린샷 · 기기/서버 대조표 · 발견한 문제
+
+**언제 쓰나요?**
+- 배포 전 주요 흐름(로그인·가입·결제)이 진짜 되는지 확인
+- 사용자가 겪은 버그 재현 — 유닛 테스트로 안 잡히는 것들
+- 릴리스 빌드에서만 나는 문제 (R8·서명·manifest는 debug에서 재현되지 않는다)
+
+> `/pro-testcase`(QA 문서 생성)·`/pro-spring-test`(테스트 코드 생성)와 다릅니다 —
+> 이 skill은 앱을 **실행**합니다.
+
+---
+
 ### `/pro-synology-expose`
 
 **무엇을 하나요?**
@@ -444,6 +465,7 @@ flowchart TD
 | **버그 수정** | `pro-github` → `pro-init-worktree` → `pro-note`(검색) → `executing-plans` → `pro-commit` → `pro-report` → `pro-changelog-deploy` |
 | **리팩토링·설계 변경** | 새 기능 개발과 동일 (`brainstorming`에서 범위를 좁혀 시작) |
 | **QA 테스트케이스** | `pro-github` → `pro-testcase` |
+| **실기기 검증(Flutter)** | `pro-flutter-e2e` → (문제 발견 시) `pro-github` → `pro-commit` |
 
 ### 단건 작업 (사이클 없이 단독 호출)
 
