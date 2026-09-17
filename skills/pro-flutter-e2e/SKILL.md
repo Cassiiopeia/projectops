@@ -28,70 +28,14 @@ version: "1.0"
 
 인자: $ARGUMENTS
 
-## 이 skill의 기본 태도
+## 스크립트 호출 규약 ⚠️
 
-| 원칙 | 왜 |
-| --- | --- |
-| **화면을 보고 나서 누른다** | 좌표는 레이아웃이 바뀌면 빗나간다. 키보드가 올라오거나 안내 문구가 추가되면 이전 좌표는 무효다 |
-| **못 하면 멈추고 말한다** | 2단계 인증·생체인증·결제는 agent가 대신할 수 없다. 추측해서 진행하면 계정이 잠긴다 |
-| **안 보이면 보이게 만든다** | 로그가 없어 상태를 모르면 로깅을 먼저 심는다. 짐작으로 통과 판정하지 않는다 |
-| **화면만으로 판정하지 않는다** | 화면이 맞아도 서버에 안 들어갔을 수 있다. 단계마다 양쪽을 본다 |
-| **틀리면 즉시 정정한다** | 잘못 본 것을 발견하면 앞선 보고를 고친다 (§Phase 5) |
-
----
-
-## 필요한 도구 — 시작 전에 점검한다 ⚠️
-
-사람마다 설치 상태가 다르다. **중간에 멈추지 않으려면 먼저 확인한다** (아래 Phase 0의
-`detect` 대신 `doctor`를 먼저 부르면 된다).
-
-| 도구 | 필수 | 없으면 | 설치 |
-| --- | --- | --- | --- |
-| `adb` | Android면 필수 | 아무것도 못 한다 | Android Studio → SDK Manager → SDK Tools → Platform-Tools |
-| `emulator` | 아니오 | 이미 켜진 기기만 쓸 수 있다 | 같은 곳 → Android Emulator |
-| `xcrun` | iOS면 필수 | iOS 검증 불가 (**macOS에서만 존재**) | Xcode |
-| Pillow · `sips` · `ffmpeg` 중 하나 | 아니오 | 이슈에 붙일 이미지를 줄이지 못한다 | `pip install pillow` (어느 OS든 됨) |
-| `ffmpeg` | 아니오 | 애니메이션을 수치로 검증하지 못한다 | `brew install ffmpeg` / `apt install ffmpeg` / `winget install ffmpeg` |
-| DB 클라이언트 | 서버 대조 시 | 서버 데이터를 못 본다 | 프로젝트가 쓰는 DB에 맞춰 |
+**Bash 도구는 호출마다 상태가 초기화된다.** 한 블록에서 만든 변수는 다음 블록에서 사라진다.
+아래 5줄로 `SCRIPTS`를 한 번 찾은 뒤, **그 실제 경로를 기억해 두고 이후 모든 블록 앞에
+값으로 직접 써넣는다** (이유: 변수 재사용에 기대면 두 번째 명령부터 "파일 없음"으로 실패한다).
 
 ```bash
-# Phase 0의 5줄 패턴과 동일, 마지막 줄만 doctor
-PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py doctor
-```
-
-`ok:false`면 무엇이 없고 어떻게 설치하는지 함께 돌려준다. **필수가 빠졌으면 사용자에게
-설치를 안내하고 멈춘다** (이유: 없는 채로 시작하면 절반쯤 가서 막히고, 그때는 기기 상태가
-이미 더럽혀져 있다).
-
-### 플랫폼별로 다른 것
-
-| | macOS | Linux | Windows |
-| --- | --- | --- | --- |
-| Android 기기 제어 | 된다 | 된다 | 된다 (Git Bash 기준) |
-| iOS 시뮬레이터 | 된다 | **불가** | **불가** |
-| 이미지 축소 | Pillow·sips | Pillow·ffmpeg | Pillow·ffmpeg |
-| SDK 기본 경로 | `~/Library/Android/sdk` | `~/Android/Sdk` | `%LOCALAPPDATA%\Android\Sdk` |
-
-`adb`·`emulator`가 PATH에 없어도 스크립트가 위 표준 경로를 찾는다. 그래도 못 찾으면
-사용자에게 설치 경로를 묻는다 — **추측해서 진행하지 않는다.**
-
-## Phase 0 — 환경 파악 (자동, 질문 없음)
-
-전부 코드에서 읽어낸다. 사용자에게 묻지 않는다 (이유: 물어보면 사용자도 찾아봐야 한다).
-
-```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
-[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SKILL=pro-flutter-e2e; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
-  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
-done
-SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다."; exit 1; }
-cd "$SCRIPTS" || exit 1
-PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py detect --path "$PROJECT_ROOT"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py detect --path {PROJECT_ROOT}
 ```
 
 한 번에 돌려준다: **프로젝트 루트 · Android 패키지명 · iOS 번들ID · API 베이스 URL ·
@@ -141,9 +85,9 @@ PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py detect --path "$PROJECT_ROOT"
 남겨 두면 다음 사람이(그리고 다음 번의 나 자신이) 같은 경로를 그대로 재현할 수 있다.
 
 ```bash
-PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py scenario list --root "$PROJECT_ROOT"
-PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py scenario init --name {이름} --root "$PROJECT_ROOT"
-PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py scenario show --name {이름} --root "$PROJECT_ROOT"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py scenario list --root {PROJECT_ROOT}
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py scenario init --name {이름} --root {PROJECT_ROOT}
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py scenario show --name {이름} --root {PROJECT_ROOT}
 ```
 
 저장 위치는 `docs/testing/e2e/*.json` (이미 `.projectops/e2e/`를 쓰는 레포면 그쪽).
@@ -170,22 +114,40 @@ PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py scenario show --name {이름} --root
 어디서 발을 헛디뎠는지. **그것을 남기지 않으면 다음에 처음부터 다시 알아내야 한다.**
 
 ```bash
-PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py note show --root "$PROJECT_ROOT"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py note show --root {PROJECT_ROOT}
 
 # 화면을 알아보는 단서와 좌표 (해상도를 함께 적는다 — 기기가 바뀌면 다시 재야 한다)
-... note screen --name 로그인 --anchor "이룸을 시작해볼까요?" \
-      --taps "카카오=540,894" "구글=540,1368" --screen-size 1080x2400 --root "$PROJECT_ROOT"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py note screen --name 로그인 --anchor "이룸을 시작해볼까요?" \
+      --taps "카카오=540,894" "구글=540,1368" --screen-size 1080x2400 --root {PROJECT_ROOT}
 
 # 헛디딘 것
-... note pitfall --text "동의 목록은 3~4회 밀어야 끝까지 간다" --root "$PROJECT_ROOT"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py note pitfall --text "동의 목록은 3~4회 밀어야 끝까지 간다" --root {PROJECT_ROOT}
 
 # 이번 실행 결과
-... note run --name social-signup --text "통과 — 버그 2건 발견" --root "$PROJECT_ROOT"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py note run --name social-signup --text "통과 — 버그 2건 발견" --root {PROJECT_ROOT}
 ```
 
 `docs/testing/e2e/learned.json`에 쌓인다. **다음 실행에서는 이 파일을 먼저 읽는다** —
 좌표 힌트가 있으면 스크린샷 판독을 건너뛸 수 있고(그래도 **확인은 한다**), 함정 목록이
 있으면 같은 실수를 반복하지 않는다.
+
+#### 쌓인 것은 skill을 갱신해도 사라지지 않는다
+
+| 무엇 | 어디 | skill 업데이트 영향 |
+| --- | --- | --- |
+| 절차·스크립트 | 하네스 설치 경로 (`~/.claude/plugins/cache/...` 등) | 통째로 교체된다 |
+| **쌓인 기록** | **프로젝트 레포** `docs/testing/e2e/learned.json` | **없다** |
+
+기록은 프로젝트에 있고 skill은 그것을 읽을 뿐이다. 그래서 skill이 몇 번을 갱신돼도,
+어느 하네스(Claude Code·Codex·Gemini·Pi)에서 불려도 같은 파일이 이어진다.
+
+읽고 쓸 때 아래를 지킨다 — **쌓은 것을 잃지 않는 쪽이 항상 우선이다.**
+
+- **모르는 필드는 건드리지 않는다.** 다음 버전이나 다른 하네스가 넣은 값일 수 있다
+- **읽지 못해도 지우지 않는다.** 파일이 깨졌으면 `learned.broken-{시각}.json`으로 옮기고
+  경고를 띄운 뒤 새로 시작한다 (조용히 덮으면 그동안 쌓은 것이 사라진다)
+- **원자적으로 쓴다.** 임시 파일에 쓰고 바꿔치기하므로, 쓰는 도중 멈춰도 기존 파일은 온전하다
+- `schema` 필드로 판을 표시한다. 필드를 **없애는** 변경을 할 때만 올린다
 
 > 좌표는 **힌트지 보증이 아니다.** 해상도가 다르거나 화면이 바뀌면 빗나간다. 기록된
 > 좌표를 쓰더라도 누른 뒤 결과를 확인하는 단계(§Phase 3 ⑤)는 건너뛰지 않는다.
@@ -224,7 +186,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py note show --root "$PROJECT_ROOT"
 한 번도 실행되지 않은 채 배포된다.
 
 ```bash
-PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py edges --path "$PROJECT_ROOT"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py edges --path {PROJECT_ROOT}
 ```
 
 예외 경로·네트워크 실패·빈 목록·권한 거부·폴백·에러 코드·토큰 만료·재시도를 분류해

@@ -27,7 +27,7 @@ mkdir -p "$D" && cp {스크린샷} "$D/01_{장면}.png"
 
 # 이슈용이라 원본 해상도가 필요 없다 — 줄여서 커밋한다.
 # Pillow → sips(macOS) → ffmpeg 중 있는 것을 알아서 쓴다.
-PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py shrink "$D"/*.png --max-side 700
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py shrink "$D"/*.png --max-side 700
 ```
 
 > `sips`는 macOS에만 있다. 직접 부르지 말고 위 스크립트를 쓴다 — 다른 사람의 Linux·

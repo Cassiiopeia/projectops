@@ -451,15 +451,54 @@ def _note_path(root: Path, create: bool = False) -> Path:
     return _scenario_dir(root, create) / _NOTE_FILE
 
 
-def _load_notes(root: Path) -> dict:
+# 이 파일이 담는 구조의 판. 필드를 없애는 변경을 할 때만 올린다.
+_NOTE_SCHEMA = 1
+
+
+def _load_notes(root: Path) -> tuple[dict, str | None]:
+    """쌓인 기록을 읽는다. 읽지 못해도 **지우지 않는다.**
+
+    반환: (내용, 경고). 경고가 있으면 호출부가 사용자에게 알려야 한다.
+
+    깨진 파일을 빈 값으로 덮으면 그동안 쌓은 것이 조용히 사라진다. 편집 중 충돌이나
+    부분 쓰기로 깨질 수 있으므로, 이때는 원본을 따로 보관하고 새로 시작한다.
+    """
     import json
+    from datetime import datetime
+
+    empty = {"schema": _NOTE_SCHEMA, "screens": {}, "pitfalls": [], "runs": []}
     f = _note_path(root)
     if not f.exists():
-        return {"screens": {}, "pitfalls": [], "runs": []}
+        return empty, None
     try:
-        return json.loads(f.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return {"screens": {}, "pitfalls": [], "runs": []}
+        data = json.loads(f.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("최상위가 객체가 아닙니다")
+    except (json.JSONDecodeError, ValueError, OSError) as e:
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        backup = f.with_suffix(f".broken-{stamp}.json")
+        try:
+            backup.write_bytes(f.read_bytes())
+            where = str(backup.name)
+        except OSError:
+            where = "(백업 실패)"
+        return empty, f"{f.name}을 읽지 못했습니다({e}). 원본을 {where}로 옮겼습니다"
+
+    # 모르는 필드는 건드리지 않는다 — 다른 하네스나 다음 버전이 쓴 것일 수 있다
+    for k, v in empty.items():
+        data.setdefault(k, v)
+    return data, None
+
+
+def _save_notes(f: Path, notes: dict) -> None:
+    """원자적으로 쓴다 — 쓰는 도중 멈춰도 기존 파일이 깨지지 않는다."""
+    import json
+    import os
+    f.parent.mkdir(parents=True, exist_ok=True)
+    tmp = f.with_suffix(".tmp")
+    tmp.write_text(json.dumps(notes, ensure_ascii=False, indent=2) + "\n",
+                   encoding="utf-8")
+    os.replace(tmp, f)      # 같은 파일시스템 안에서는 원자적이다
 
 
 def cmd_note(args) -> int:
@@ -472,14 +511,16 @@ def cmd_note(args) -> int:
     from datetime import date
 
     root = Path(args.root).resolve()
-    notes = _load_notes(root)
+    notes, warning = _load_notes(root)
 
     if args.action == "show":
         return emit({
             "file": str(_note_path(root)),
+            "schema": notes.get("schema", _NOTE_SCHEMA),
             "screens": notes.get("screens", {}),
             "pitfalls": notes.get("pitfalls", []),
             "runs": notes.get("runs", [])[-5:],
+            **({"warning": warning} if warning else {}),
             "summary": (f"화면 {len(notes.get('screens', {}))}개 · "
                         f"함정 {len(notes.get('pitfalls', []))}건 · "
                         f"기록된 실행 {len(notes.get('runs', []))}회"),
@@ -514,10 +555,12 @@ def cmd_note(args) -> int:
         })
         notes["runs"] = notes["runs"][-30:]   # 오래된 것은 버린다
 
+    notes["schema"] = notes.get("schema", _NOTE_SCHEMA)
     f = _note_path(root, create=True)
-    f.write_text(json.dumps(notes, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    _save_notes(f, notes)
     return emit({
         "file": str(f),
+        **({"warning": warning} if warning else {}),
         "summary": f"{args.action} 기록 완료 — {f.relative_to(root)}",
         "next": "커밋해야 다음 사람도 씁니다",
     })
