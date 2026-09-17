@@ -7,6 +7,7 @@ Flutter 프로젝트를 실기기에서 밟기 전에 필요한 값들을 한 �
 서브커맨드:
     detect   프로젝트 루트·패키지명·번들ID·API URL·연결된 기기를 한 번에 조사
     devices  연결/부팅된 기기만 조회
+    backend  서버 로그·DB 고아 행 대조 (화면만 봐서는 못 잡는 것)
 
 출력: MCP-style JSON (ok/code/summary/next 4필드 보장).
 """
@@ -991,6 +992,360 @@ def cmd_edges(args) -> int:
     })
 
 
+# =========================================================================
+# 백엔드 대조 — 화면만 봐서는 못 잡는 것들
+# =========================================================================
+#
+# 앱을 밟는 것만으로는 "서버에 무엇이 남았는가"와 "앱이 무엇을 보냈는가"를 알 수 없다.
+# 실제로 이 두 가지를 봐야만 드러난 버그들이 있었다.
+#   - 탈퇴가 서버에서 실패했는데 앱은 성공처럼 굴었다 (DB에 계정이 남아 있어 알았다)
+#   - 화면에 없던 선택 동의가 true로 전송됐다 (요청 본문 로그에서 드러났다)
+#   - 탈퇴 후 참조가 끊긴 행이 남았다 (고아 행을 훑어야 보인다)
+#
+# 매번 psql·curl을 조립하지 않도록 여기에 둔다. 접속 정보는 **파일에서 읽기만** 하고
+# 출력·기록 어디에도 남기지 않는다.
+
+_SECRET_KEYS = ("password", "secret", "token", "key")
+
+
+def _mask(v: str) -> str:
+    return "***" if v else ""
+
+
+def _read_spring_config(yml: Path) -> dict:
+    """Spring application-*.yml 에서 DB 접속 정보와 관리자 계정을 읽는다.
+
+    yaml 모듈에 의존하지 않는다 — 표준 라이브러리만으로 돌아야 어느 환경에서든 뜬다.
+    필요한 건 몇 줄뿐이라 정규식으로 충분하다.
+    """
+    text = yml.read_text(encoding="utf-8", errors="replace")
+    out: dict = {"db": None, "admin": None, "base_url": None}
+
+    m = re.search(r"jdbc:(postgresql|mysql)://([^:/\s]+):(\d+)/(\S+?)\s*$",
+                  text, re.M)
+    if m:
+        ds = re.search(r"datasource:(.{0,400})", text, re.S)
+        blk = ds.group(1) if ds else text
+        user = re.search(r"username:\s*(\S+)", blk)
+        pw = re.search(r"password:\s*(\S+)", blk)
+        out["db"] = {
+            "engine": m.group(1),
+            "host": m.group(2),
+            "port": m.group(3),
+            "name": m.group(4).strip("\"'"),
+            "user": user.group(1).strip("\"'") if user else None,
+            "password": pw.group(1).strip("\"'") if pw else None,
+        }
+
+    am = re.search(r"admin:\s*\n\s*accounts:\s*\n\s*-\s*username:\s*(\S+)\s*\n\s*password:\s*(\S+)",
+                   text)
+    if am:
+        out["admin"] = {"username": am.group(1).strip("\"'"),
+                        "password": am.group(2).strip("\"'")}
+
+    bu = re.search(r"servers:\s*\n\s*-\s*url:\s*(\S+)", text)
+    if bu:
+        out["base_url"] = bu.group(1).strip("\"'")
+    return out
+
+
+def _find_spring_config(root: Path) -> Path | None:
+    """운영 프로필을 먼저 찾는다 — 실제로 대조해야 하는 곳은 거기다."""
+    for pat in ("application-prod.yml", "application-prod.yaml",
+                "application.yml", "application.yaml"):
+        hits = sorted(root.glob(f"**/src/main/resources/{pat}"))
+        if hits:
+            return hits[0]
+    return None
+
+
+def _psql(db: dict, sql: str, timeout: int = 40) -> tuple[bool, str]:
+    exe = shutil.which("psql")
+    if not exe:
+        return False, "psql 이 없습니다 (brew install libpq 또는 postgresql-client)"
+    env = dict(os.environ,
+               PGHOST=db["host"], PGPORT=str(db["port"]), PGDATABASE=db["name"],
+               PGUSER=db["user"] or "", PGPASSWORD=db["password"] or "")
+    try:
+        r = subprocess.run([exe, "-tAF", "\t", "-c", sql],
+                           env=env, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return False, f"psql 응답 없음 ({timeout}초)"
+    if r.returncode != 0:
+        return False, (r.stderr or "").strip()[:300]
+    return True, r.stdout
+
+
+_ORPHAN_SQL_TABLES = """
+select c.table_name, c.column_name
+from information_schema.columns c
+join information_schema.tables t
+  on t.table_name = c.table_name and t.table_schema = c.table_schema
+where c.table_schema = 'public' and t.table_type = 'BASE TABLE'
+  and c.column_name like '%\\_id'
+"""
+
+_ORPHAN_SQL_FK = """
+select kcu.table_name, kcu.column_name, ccu.table_name, rc.delete_rule
+from information_schema.table_constraints tc
+join information_schema.key_column_usage kcu
+  on tc.constraint_name = kcu.constraint_name
+join information_schema.constraint_column_usage ccu
+  on tc.constraint_name = ccu.constraint_name
+join information_schema.referential_constraints rc
+  on tc.constraint_name = rc.constraint_name
+where tc.constraint_type = 'FOREIGN KEY' and tc.table_schema = 'public'
+"""
+
+
+def _orphan_scan(db: dict) -> dict:
+    """참조가 끊긴 행을 찾는다.
+
+    외래키가 **없는** `*_id` 컬럼이 진짜 위험한 곳이다. DB가 대신 지워 주지 않으므로
+    삭제 코드에서 빠뜨리면 조용히 남는다. 실제로 그렇게 남은 표가 있었다.
+    부모 표 이름은 `member_id -> member` 처럼 접미사를 떼어 추측한다.
+    """
+    ok, out = _psql(db, _ORPHAN_SQL_FK)
+    if not ok:
+        return {"error": out}
+    fk = {}
+    for line in out.strip().splitlines():
+        parts = line.split("\t")
+        if len(parts) == 4:
+            fk[(parts[0], parts[1])] = {"refs": parts[2], "delete_rule": parts[3]}
+
+    ok, out = _psql(db, _ORPHAN_SQL_TABLES)
+    if not ok:
+        return {"error": out}
+    cols = [tuple(l.split("\t")) for l in out.strip().splitlines() if "\t" in l]
+
+    ok, out = _psql(db, "select table_name from information_schema.tables "
+                        "where table_schema='public' and table_type='BASE TABLE'")
+    if not ok:
+        return {"error": out}
+    tables = {l.strip() for l in out.strip().splitlines() if l.strip()}
+
+    checked, skipped = [], []
+    for table, col in cols:
+        parent = col[:-3]                       # member_id -> member
+        if parent not in tables:
+            parent_alt = parent + "s"
+            if parent_alt in tables:
+                parent = parent_alt
+            else:
+                skipped.append({"table": table, "column": col,
+                                "why": "부모 표를 이름으로 찾지 못함"})
+                continue
+        rel = fk.get((table, col))
+        sql = (f'select count(*) from "{table}" x '
+               f'where x."{col}" is not null and not exists '
+               f'(select 1 from "{parent}" p where p.id = x."{col}")')
+        ok, out = _psql(db, sql)
+        if not ok:
+            skipped.append({"table": table, "column": col, "why": out[:120]})
+            continue
+        n = int(out.strip() or 0)
+        checked.append({
+            "table": table, "column": col, "parent": parent, "orphans": n,
+            "fk": rel["delete_rule"] if rel else None,
+        })
+    return {"checked": checked, "skipped": skipped}
+
+
+def _admin_log_tail(base: str, admin: dict, paths: dict, lines: int) -> tuple[bool, str]:
+    """관리자 폼 로그인을 거쳐 로그를 받아온다.
+
+    폼 로그인은 CSRF 토큰을 먼저 받아야 한다. 이걸 모르면 403만 보고 "로그를 못 본다"로
+    끝난다 — 실제로 한 번 그렇게 막혔다. 순서를 여기에 고정해 둔다.
+    """
+    import http.cookiejar
+    import json as _json
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+
+    login_url = base.rstrip("/") + paths["login"]
+    try:
+        with opener.open(login_url, timeout=20) as r:
+            html = r.read().decode("utf-8", "replace")
+    except Exception as e:                      # noqa: BLE001
+        return False, f"로그인 화면을 열지 못했습니다: {e}"
+
+    m = re.search(r'name="_csrf"[^>]*value="([^"]+)"', html)
+    data = {"username": admin["username"], "password": admin["password"]}
+    if m:
+        data["_csrf"] = m.group(1)
+    body = urllib.parse.urlencode(data).encode()
+    try:
+        opener.open(urllib.request.Request(login_url, data=body), timeout=20).read()
+    except urllib.error.HTTPError as e:
+        hint = " (CSRF 토큰을 찾지 못했습니다)" if not m else ""
+        return False, f"관리자 로그인 실패 HTTP {e.code}{hint}"
+    except Exception as e:                      # noqa: BLE001
+        return False, f"관리자 로그인 실패: {e}"
+
+    tail_url = f"{base.rstrip('/')}{paths['tail']}?lines={lines}"
+    try:
+        with opener.open(tail_url, timeout=30) as r:
+            raw = r.read().decode("utf-8", "replace")
+    except Exception as e:                      # noqa: BLE001
+        return False, f"로그를 받지 못했습니다: {e}"
+
+    try:
+        return True, _json.loads(raw).get("content", "")
+    except ValueError:
+        # JSON이 아니면 로그인 화면으로 밀린 것이다 — 세션이 안 붙었다는 뜻.
+        return False, "로그 대신 HTML이 왔습니다 — 관리자 세션이 유지되지 않았습니다"
+
+
+_ADMIN_DEFAULTS = {"login": "/admin/login", "tail": "/admin/logs/api/tail"}
+
+
+def _backend_conf(root: Path) -> dict:
+    """app-map.json 의 backend 섹션. 없으면 그 자리에서 찾아 본다."""
+    import json
+    d = _scenario_dir(root, create=False)
+    if d:
+        f = d / _APP_MAP_FILE
+        if f.exists():
+            try:
+                got = json.loads(f.read_text(encoding="utf-8")).get("backend")
+                if got:
+                    return got
+            except ValueError:
+                pass
+    yml = _find_spring_config(root)
+    return {"kind": "spring" if yml else "unknown",
+            "db_config": str(yml.relative_to(root)) if yml else None,
+            "admin": dict(_ADMIN_DEFAULTS)}
+
+
+def cmd_backend(args) -> int:
+    """서버 쪽을 대조한다 — probe / orphans / logs."""
+    import json
+    from datetime import date
+
+    root = Path(args.root).resolve()
+    conf = _backend_conf(root)
+    yml_rel = args.config or conf.get("db_config")
+    yml = (root / yml_rel) if yml_rel else None
+    if yml is None or not yml.exists():
+        return emit({"ok": False, "code": "backend_config_not_found",
+                     "error": "서버 설정 파일을 찾지 못했습니다",
+                     "next": "--config 로 application-*.yml 경로를 주세요"})
+    cfg = _read_spring_config(yml)
+    # 프로필별 파일에는 서버 주소·관리자 계정이 없을 수 있다. 공통 파일에서 채운다 —
+    # 한 파일만 보고 "설정이 없다"고 끝내면 로그를 영영 못 본다.
+    for sibling in ("application.yml", "application.yaml"):
+        f = yml.parent / sibling
+        if f == yml or not f.exists():
+            continue
+        extra = _read_spring_config(f)
+        for key in ("admin", "base_url", "db"):
+            if not cfg.get(key) and extra.get(key):
+                cfg[key] = extra[key]
+
+    if args.action == "probe":
+        admin_paths = dict(conf.get("admin") or _ADMIN_DEFAULTS)
+        # setdefault 로는 못 채운다 — 앞선 probe 가 base: null 을 이미 적어 뒀을 수 있다.
+        if not admin_paths.get("base"):
+            admin_paths["base"] = cfg.get("base_url")
+        backend = {
+            "kind": "spring",
+            "db_config": str(yml.relative_to(root)),
+            "db": {k: cfg["db"][k] for k in ("engine", "host", "port", "name")}
+                  if cfg["db"] else None,
+            "admin": admin_paths,
+            "admin_account_in_config": bool(cfg["admin"]),
+        }
+        d = _scenario_dir(root, create=True)
+        f = d / _APP_MAP_FILE
+        doc = {}
+        if f.exists():
+            try:
+                doc = json.loads(f.read_text(encoding="utf-8"))
+            except ValueError:
+                doc = {}
+        doc["backend"] = backend
+        doc["backend_scanned"] = date.today().isoformat()
+        f.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n",
+                     encoding="utf-8")
+        return emit({
+            "backend": backend,
+            "summary": (f"{backend['kind']} · DB "
+                        f"{backend['db']['name'] if backend['db'] else '미확인'} · "
+                        f"관리자 계정 {'있음' if cfg['admin'] else '없음'}"),
+            "next": "backend orphans / backend logs 를 인자 없이 쓸 수 있습니다",
+        })
+
+    if args.action == "orphans":
+        if not cfg["db"]:
+            return emit({"ok": False, "code": "db_not_configured",
+                         "error": f"{yml_rel} 에서 jdbc URL을 찾지 못했습니다"})
+        res = _orphan_scan(cfg["db"])
+        if "error" in res:
+            return emit({"ok": False, "code": "db_query_failed",
+                         "error": res["error"],
+                         "next": "psql 설치와 DB 접근 권한을 확인하세요"})
+        bad = [c for c in res["checked"] if c["orphans"] > 0]
+        return emit({
+            "database": cfg["db"]["name"],
+            "checked": res["checked"],
+            "orphans": bad,
+            "skipped": res["skipped"],
+            "summary": (f"{len(res['checked'])}개 참조 중 고아 {len(bad)}곳 "
+                        + (", ".join(f"{c['table']}.{c['column']}={c['orphans']}"
+                                     for c in bad) if bad else "(없음)")),
+            "next": ("외래키가 없는(fk=null) 곳부터 보세요 — DB가 대신 지워 주지 않아 "
+                     "삭제 코드에서 빠뜨리기 쉽습니다" if bad else
+                     "삭제 경로는 깨끗합니다"),
+        })
+
+    # logs
+    if not cfg["admin"]:
+        return emit({"ok": False, "code": "admin_account_not_found",
+                     "error": f"{yml_rel} 에서 관리자 계정을 찾지 못했습니다"})
+    admin_paths = dict(_ADMIN_DEFAULTS)
+    admin_paths.update({k: v for k, v in (conf.get("admin") or {}).items() if v})
+    base = args.base or admin_paths.get("base") or cfg.get("base_url")
+    if not base:
+        return emit({"ok": False, "code": "base_url_not_found",
+                     "error": "서버 주소를 찾지 못했습니다",
+                     "next": "--base https://... 로 지정하세요"})
+
+    ok, content = _admin_log_tail(base, cfg["admin"], admin_paths, args.lines)
+    if not ok:
+        return emit({"ok": False, "code": "log_fetch_failed", "error": content})
+
+    rows = content.split("\n")
+    if args.grep:
+        pat = re.compile(args.grep)
+        rows = [r for r in rows if pat.search(r)]
+    shown = rows[-args.tail:] if args.tail else rows
+
+    out_file = None
+    if args.out:
+        out_path = Path(args.out).expanduser()
+        out_path.write_text(content, encoding="utf-8")
+        out_file = str(out_path)
+
+    errs = [r for r in rows if " ERROR " in r or " WARN " in r]
+    return emit({
+        "base": base,
+        "lines_requested": args.lines,
+        "matched": len(rows),
+        "errors_or_warnings": len(errs),
+        "content": "\n".join(shown),
+        "saved": out_file,
+        "summary": f"{len(rows)}줄 · ERROR/WARN {len(errs)}건",
+        "next": ("--grep 으로 요청 경로를 좁혀 앱이 실제로 보낸 본문을 확인하세요"
+                 if not args.grep else None),
+    })
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="e2e_cli",
@@ -1044,6 +1399,17 @@ def build_parser() -> argparse.ArgumentParser:
         help=("pitfall 범위. project=이 앱에서만 / flutter=모든 Flutter 앱 / "
               "platform=기기·OS 차원. project가 아니면 skill로 올리라고 안내한다"))
     p_n.set_defaults(func=cmd_note)
+
+    p_bk = sub.add_parser("backend", help="서버 로그·DB를 대조한다 (화면만으론 못 잡는 것)")
+    p_bk.add_argument("action", choices=["probe", "orphans", "logs"])
+    p_bk.add_argument("--root", default=".", help="프로젝트 루트")
+    p_bk.add_argument("--config", help="application-*.yml 경로 (미지정 시 자동 탐색)")
+    p_bk.add_argument("--base", help="logs: 서버 주소. 미지정 시 설정에서 읽는다")
+    p_bk.add_argument("--lines", type=int, default=2000, help="logs: 받아올 줄 수")
+    p_bk.add_argument("--grep", help="logs: 이 정규식에 맞는 줄만")
+    p_bk.add_argument("--tail", type=int, default=80, help="logs: 결과 끝 N줄만 출력")
+    p_bk.add_argument("--out", help="logs: 전체를 이 파일로 저장")
+    p_bk.set_defaults(func=cmd_backend)
 
     p_s = sub.add_parser("shrink", help="이슈 첨부용으로 이미지 축소")
     p_s.add_argument("paths", nargs="+")
