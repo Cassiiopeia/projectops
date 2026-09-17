@@ -342,6 +342,9 @@ def _scenario_dir(root: Path, create: bool = False) -> Path:
     d = root / _SCENARIO_DIRS[0]
     if create:
         d.mkdir(parents=True, exist_ok=True)
+        gi = d / ".gitignore"
+        if not gi.exists():
+            gi.write_text(_GITIGNORE, encoding="utf-8")
     return d
 
 
@@ -446,6 +449,54 @@ def _safe_name(f: Path) -> str:
 
 _NOTE_FILE = "learned.json"
 
+# 기록에 들어가면 안 되는 것들. 테스트 산출물은 레포에 커밋되므로 한 번 들어가면
+# 지워도 히스토리에 남는다 — 쓰기 전에 막는 편이 유일하게 확실하다.
+_SECRET_PATTERNS = [
+    (r'[\w.+-]+@[\w-]+\.[\w.]{2,}', "이메일 주소"),
+    (r'01[016-9][-\s]?\d{3,4}[-\s]?\d{4}', "전화번호"),
+    (r'eyJ[\w-]{10,}\.[\w-]{10,}', "JWT 토큰"),
+    (r'(?i)\b(password|passwd|비밀번호|비번)\b\s*[:=]?\s*\S{4,}', "비밀번호"),
+    (r'(?i)\b(secret|api[_-]?key|access[_-]?token)\b\s*[:=]\s*\S{8,}', "비밀 값"),
+]
+
+
+def _find_secrets(text: str) -> list[str]:
+    import re as _re
+    found = []
+    for pattern, label in _SECRET_PATTERNS:
+        m = _re.search(pattern, text)
+        if m:
+            sample = m.group(0)
+            masked = sample[:3] + "***" if len(sample) > 3 else "***"
+            found.append(f"{label}({masked})")
+    return found
+
+
+# 시나리오 폴더에 함께 두는 .gitignore.
+# 시나리오·학습 노트는 팀이 공유해야 하므로 추적하고, 밟는 과정에서 나오는
+# 부산물만 제외한다. 로그 한 덩어리에는 토큰이 통째로 들어 있다.
+_GITIGNORE = """# pro-flutter-e2e — 밟는 과정에서 나오는 부산물은 올리지 않는다.
+# 로그 덤프에는 토큰이, 계정 파일에는 자격증명이 그대로 들어 있다.
+
+*.log
+*.logcat
+*.xml
+*.mp4
+*.trace
+accounts*
+credentials*
+*secret*
+*.env
+frames/
+raw/
+learned.broken-*.json
+
+# 아래는 팀이 공유해야 하므로 추적한다
+!learned.json
+!*.json
+!README.md
+"""
+
 
 def _note_path(root: Path, create: bool = False) -> Path:
     return _scenario_dir(root, create) / _NOTE_FILE
@@ -466,7 +517,8 @@ def _load_notes(root: Path) -> tuple[dict, str | None]:
     import json
     from datetime import datetime
 
-    empty = {"schema": _NOTE_SCHEMA, "screens": {}, "pitfalls": [], "runs": []}
+    empty = {"schema": _NOTE_SCHEMA, "constraints": [], "screens": {},
+             "pitfalls": [], "runs": []}
     f = _note_path(root)
     if not f.exists():
         return empty, None
@@ -517,6 +569,7 @@ def cmd_note(args) -> int:
         return emit({
             "file": str(_note_path(root)),
             "schema": notes.get("schema", _NOTE_SCHEMA),
+            "constraints": notes.get("constraints", []),
             "screens": notes.get("screens", {}),
             "pitfalls": notes.get("pitfalls", []),
             "pitfalls_to_promote": [
@@ -525,7 +578,8 @@ def cmd_note(args) -> int:
             ],
             "runs": notes.get("runs", [])[-5:],
             **({"warning": warning} if warning else {}),
-            "summary": (f"화면 {len(notes.get('screens', {}))}개 · "
+            "summary": (f"제약 {len(notes.get('constraints', []))}개 · "
+                        f"화면 {len(notes.get('screens', {}))}개 · "
                         f"함정 {len(notes.get('pitfalls', []))}건 · "
                         f"기록된 실행 {len(notes.get('runs', []))}회"),
         })
@@ -547,6 +601,14 @@ def cmd_note(args) -> int:
     elif args.action == "pitfall":
         if not args.text:
             return emit({"ok": False, "code": "args_required", "error": "--text 가 필요합니다"})
+        secrets = _find_secrets(args.text)
+        if secrets:
+            return emit({
+                "ok": False, "code": "secret_detected",
+                "error": f"기록하려는 내용에 {', '.join(secrets)}이(가) 들어 있습니다",
+                "hint": ("이 파일은 레포에 커밋되므로 한 번 들어가면 히스토리에 남습니다. "
+                         "구체적인 값 대신 '테스트 계정으로'처럼 바꿔 적으세요"),
+            })
         entry = {"text": args.text, "scope": args.scope,
                  "added": date.today().isoformat()}
         notes.setdefault("pitfalls", []).append(entry)
@@ -565,6 +627,20 @@ def cmd_note(args) -> int:
                          "skill의 '자주 묻는 함정' 표에 올려야 다음 프로젝트에서 "
                          "같은 일을 겪지 않습니다"),
             })
+
+    elif args.action == "constraint":
+        if not args.text:
+            return emit({"ok": False, "code": "args_required",
+                         "error": "--text 에 지켜야 할 것을 적으세요"})
+        secrets = _find_secrets(args.text)
+        if secrets:
+            return emit({"ok": False, "code": "secret_detected",
+                         "error": f"{', '.join(secrets)}이(가) 들어 있습니다"})
+        notes.setdefault("constraints", []).append({
+            "text": args.text,
+            "check": args.check,      # 밟으면서 무엇을 보면 위반을 알 수 있나
+            "added": date.today().isoformat(),
+        })
 
     elif args.action == "run":
         notes.setdefault("runs", []).append({
@@ -693,13 +769,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_e.set_defaults(func=cmd_edges)
 
     p_n = sub.add_parser("note", help="이 프로젝트에서 알아낸 것을 쌓는다")
-    p_n.add_argument("action", choices=["show", "screen", "pitfall", "run"])
+    p_n.add_argument("action",
+                     choices=["show", "constraint", "screen", "pitfall", "run"])
     p_n.add_argument("--root", default=".")
     p_n.add_argument("--name", help="screen: 화면 이름 / run: 시나리오 이름")
     p_n.add_argument("--anchor", help="screen: 이 화면임을 알아보는 단서(문구 등)")
     p_n.add_argument("--taps", nargs="*", help="screen: '라벨=x,y' 형태로 여러 개")
     p_n.add_argument("--screen-size", help="screen: 좌표를 잰 해상도. 예 1080x2400")
-    p_n.add_argument("--text", help="pitfall: 함정 내용 / run: 결과 요약")
+    p_n.add_argument("--text",
+                     help="constraint: 지켜야 할 것 / pitfall: 함정 / run: 결과 요약")
+    p_n.add_argument("--check",
+                     help="constraint: 밟으면서 무엇을 보면 위반을 알 수 있는지")
     p_n.add_argument(
         "--scope", choices=["project", "flutter", "platform"], default="project",
         help=("pitfall 범위. project=이 앱에서만 / flutter=모든 Flutter 앱 / "
