@@ -202,10 +202,22 @@ def cmd_doctor(args) -> int:
     else:
         shrink = None
 
+    # 산출물 보호 상태 — 로그·스크린샷이 쌓이는 폴더에 방어가 있는지
+    root = Path(args.root).resolve()
+    guarded, unguarded = [], []
+    for rel in list(_SCENARIO_DIRS) + ["docs/testing/screenshots"]:
+        d = root / rel
+        if not d.is_dir():
+            continue
+        made = _ensure_gitignore(d)
+        (guarded if (d / ".gitignore").exists() else unguarded).append(
+            f"{rel}{' (방금 생성)' if made else ''}")
+
     return emit({
         "ok": not missing_required,
         "code": "ok" if not missing_required else "missing_required_tool",
         "checks": checks,
+        "output_guard": {"protected": guarded, "unprotected": unguarded},
         "image_resize": shrink or "없음 — 원본 크기로 커밋하게 된다",
         "pillow": _has_pillow(),
         "platform": sys.platform,
@@ -333,18 +345,33 @@ _TEMPLATE = {
 _REQUIRED_STEP_KEYS = ("screen", "do")
 
 
+def _ensure_gitignore(d: Path) -> bool:
+    """산출물 폴더에 .gitignore를 보장한다. 새로 만들었으면 True.
+
+    폴더를 처음 만들 때만 넣으면, **이미 폴더가 있는 프로젝트에는 영원히 생기지
+    않는다.** 실제로 그래서 한 프로젝트가 방어 없이 쓰이고 있었다. 폴더를 건드리는
+    모든 경로에서 확인한다 — 파일이 이미 있으면 덮지 않으므로 손으로 고친 내용은 남는다.
+    """
+    if not d.is_dir():
+        return False
+    gi = d / ".gitignore"
+    if gi.exists():
+        return False
+    gi.write_text(_GITIGNORE, encoding="utf-8")
+    return True
+
+
 def _scenario_dir(root: Path, create: bool = False) -> Path:
     """시나리오를 둘 곳. 이미 쓰고 있는 폴더가 있으면 그것을 따른다."""
     for rel in _SCENARIO_DIRS:
         d = root / rel
         if d.is_dir():
+            _ensure_gitignore(d)
             return d
     d = root / _SCENARIO_DIRS[0]
     if create:
         d.mkdir(parents=True, exist_ok=True)
-        gi = d / ".gitignore"
-        if not gi.exists():
-            gi.write_text(_GITIGNORE, encoding="utf-8")
+        _ensure_gitignore(d)
     return d
 
 
@@ -490,6 +517,13 @@ credentials*
 frames/
 raw/
 learned.broken-*.json
+
+# 화면 캡처 원본은 올리지 않는다 — 소셜 로그인 화면에는 계정이 그대로 찍힌다.
+# 문제를 보여주는 것만 골라 번호를 붙여 올린다 (01_*.png 형태).
+screencap*.png
+screen-*.png
+tmp-*.png
+step_*.png
 
 # 아래는 팀이 공유해야 하므로 추적한다
 !learned.json
@@ -753,7 +787,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_v = sub.add_parser("devices", help="연결·부팅된 기기 조회")
     p_v.set_defaults(func=cmd_devices)
 
-    p_doc = sub.add_parser("doctor", help="필요한 도구가 있는지 점검")
+    p_doc = sub.add_parser("doctor", help="도구·산출물 보호 상태 점검")
+    p_doc.add_argument("--root", default=".", help="프로젝트 루트")
     p_doc.set_defaults(func=cmd_doctor)
 
     p_sc = sub.add_parser("scenario", help="프로젝트별 밟기 시나리오 관리")
