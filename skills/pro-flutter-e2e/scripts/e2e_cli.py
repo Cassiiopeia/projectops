@@ -501,6 +501,16 @@ def _ensure_gitignore(d: Path) -> bool:
         return False
     gi = d / ".gitignore"
     if gi.exists():
+        # 예전 판은 `!*.json` 으로 새 파일까지 전부 추적하게 만들었다. 이미 깔린
+        # 프로젝트를 그대로 두면 그 구멍이 영영 남으므로, **이 스킬이 쓴 파일일 때만**
+        # 갈아끼운다. 손으로 쓴 .gitignore 는 건드리지 않는다.
+        try:
+            body = gi.read_text(encoding="utf-8")
+        except OSError:
+            return False
+        if _GITIGNORE_UNSAFE in body and "pro-flutter-e2e" in body:
+            gi.write_text(_GITIGNORE, encoding="utf-8")
+            return True
         return False
     gi.write_text(_GITIGNORE, encoding="utf-8")
     return True
@@ -717,38 +727,31 @@ def _find_secrets(text: str) -> list[str]:
     return found
 
 
-# 시나리오 폴더에 함께 두는 .gitignore.
-# 시나리오·학습 노트는 팀이 공유해야 하므로 추적하고, 밟는 과정에서 나오는
-# 부산물만 제외한다. 로그 한 덩어리에는 토큰이 통째로 들어 있다.
-_GITIGNORE = """# pro-flutter-e2e — 밟는 과정에서 나오는 부산물은 올리지 않는다.
-# 로그 덤프에는 토큰이, 계정 파일에는 자격증명이 그대로 들어 있다.
+# 산출물 폴더에 함께 두는 .gitignore.
+#
+# **기본을 "올리지 않는다"로 둔다.** 예전에는 부산물만 골라 막고 `!*.json` 으로 나머지를
+# 되살렸는데, 그 한 줄이 새로 생기는 파일까지 전부 추적 대상으로 만들었다. 실제로
+# 서버 주소가 적힌 파일이 공개 레포에 올라갈 뻔했다. 무엇이 생길지 미리 다 알 수 없으므로
+# 막는 쪽을 기본값으로 둔다 — 올리고 싶은 것이 생기면 그때 한 줄씩 예외를 적는다.
+_GITIGNORE_MARK = "# pro-flutter-e2e — 산출물 폴더"
 
-*.log
-*.logcat
-*.xml
-*.mp4
-*.trace
-accounts*
-credentials*
-*secret*
-*.env
-frames/
-raw/
-runs/
-learned.broken-*.json
+_GITIGNORE = f"""{_GITIGNORE_MARK}
+#
+# 이 폴더에서 나오는 것들에는 테스트 계정·토큰·서버 주소·로그인 화면 캡처가 섞인다.
+# 그래서 **기본은 올리지 않는다.** 팀과 나눠야 할 파일이 생기면 아래에 한 줄씩 적는다.
+#
+#   !flows/auth/social-signup.json
+#
+# 적기 전에 그 파일을 열어 계정·토큰·주소가 없는지 눈으로 본다.
 
-# 화면 캡처 원본은 올리지 않는다 — 소셜 로그인 화면에는 계정이 그대로 찍힌다.
-# 문제를 보여주는 것만 골라 번호를 붙여 올린다 (01_*.png 형태).
-screencap*.png
-screen-*.png
-tmp-*.png
-step_*.png
+*
 
-# 아래는 팀이 공유해야 하므로 추적한다
-!learned.json
-!*.json
+!.gitignore
 !README.md
 """
+
+# 예전 판(`!*.json` 으로 전부 되살리던 것)을 알아보는 흔적.
+_GITIGNORE_UNSAFE = "!*.json"
 
 
 def _note_path(root: Path, create: bool = False) -> Path:
