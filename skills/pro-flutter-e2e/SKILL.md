@@ -105,9 +105,69 @@ PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py detect --path "$PROJECT_ROOT"
 
 기기가 없으면 `next` 필드가 알려준다. 부팅 명령은 `references/device-control.md`.
 
+## 되는 것 · 안 되는 것 (Android 에뮬레이터 실측)
+
+**추측하지 말고 이 표를 본다.** 안 되는 것을 모르고 계획을 세우면 중간에 멈춘다.
+
+| 조작 | 되나 | 명령 |
+| --- | --- | --- |
+| 탭·스와이프·영문/숫자 입력 | ✅ | `input tap` / `input swipe` / `input text` |
+| **한글 입력** | ❌ | `input text`가 ASCII만 받는다. 클립보드·keyevent 모두 불가 |
+| 다크모드 전환 | ✅ | `cmd uimode night yes` |
+| 네트워크 끊기 | ✅ | `svc wifi disable && svc data disable` |
+| 권한 거부·부여 | ✅ | `pm revoke` / `pm grant` |
+| 폰트 크기 (접근성) | ✅ | `settings put system font_scale 1.3` |
+| 동작 줄이기 | ✅ | `settings put global transition_animation_scale 0` |
+| 화면 회전 | ✅ | `settings put system user_rotation 1` |
+| 딥링크 직접 진입 | ✅ | `am start -a android.intent.action.VIEW -d "{scheme}://..."` |
+| 지문 인증 | ✅ | `adb emu finger touch 1` |
+| 카메라·마이크 실제 입력 | ❌ | 가상 입력만 가능 |
+| 실제 푸시 발송 | ❌ | 서버에서 별도로 쏴야 한다 |
+| 인앱결제 실제 승인 | ❌ | 테스트 계정·스토어 설정이 필요하다 |
+| **iOS 좌표 탭** | ❌ | 공식 명령이 없다 — `references/device-control.md` 참조 |
+
+### 한글을 꼭 넣어야 하면
+
+1. **영문으로 대체하고 보고에 적는다** — 값 자체가 검증 대상이 아니면 이것으로 충분하다
+2. 한글 처리(자소 분리·길이 제한)가 검증 대상이면 **ADBKeyboard 같은 IME를 설치**한다
+3. 그것도 어려우면 **사용자에게 직접 입력을 부탁한다** (Phase 4 형식으로)
+
+`FLAG_SECURE`가 걸린 화면(일부 금융·인증 앱)은 스크린샷이 검은색으로 찍힌다. 그때는
+`dumpsys window`의 `mCurrentFocus`로 어느 화면인지만 확인하고 사용자에게 넘긴다.
+
+## 프로젝트마다 다른 것은 시나리오 파일로 둔다
+
+밟는 절차는 어느 앱이나 같지만 **무엇을 밟을지는 프로젝트마다 다르다.** 그것을 파일로
+남겨 두면 다음 사람이(그리고 다음 번의 나 자신이) 같은 경로를 그대로 재현할 수 있다.
+
+```bash
+PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py scenario list --root "$PROJECT_ROOT"
+PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py scenario init --name {이름} --root "$PROJECT_ROOT"
+PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py scenario show --name {이름} --root "$PROJECT_ROOT"
+```
+
+저장 위치는 `docs/testing/e2e/*.json` (이미 `.projectops/e2e/`를 쓰는 레포면 그쪽).
+
+| 필드 | 무엇 |
+| --- | --- |
+| `reset` | 처음부터 다시 밟기 위해 지워야 할 것 — 기기 데이터·서버 계정 |
+| `steps[].do` | 무엇을 누르는지 |
+| `steps[].expect_screen` | 다음에 보여야 할 화면 |
+| `steps[].expect_device` | 기기 로그에서 확인할 키 |
+| `steps[].expect_server` | 서버에서 확인할 쿼리 |
+| `steps[].human` | 사람이 해야 하는 지점과 무엇을 부탁할지 |
+| `conditions` | 축 3(환경 조건)에서 적용/복구할 명령 쌍 |
+
+`show`는 **실행 전에 걸러낸다.** 기대 결과가 하나도 없는 단계, 템플릿 자리를 안 채운 파일은
+`ok:false`로 막는다 (이유: 기대 결과 없이 밟으면 "화면이 떴으니 통과"로 끝난다).
+
+> 시나리오가 없으면 만들라고 강요하지 않는다. 한 번 밟고 끝날 확인이면 Phase 1의 단계
+> 목록만으로 충분하고, **두 번 이상 밟을 경로일 때 파일로 남긴다.**
+
 ## Phase 1 — 밟을 경로 확정
 
-사용자가 경로를 지정했으면 그대로 간다. 지정하지 않았으면 **한 번만** 묻는다.
+시나리오 파일이 있으면 그것을 따른다. 없고 사용자가 경로를 지정했으면 그대로 간다.
+둘 다 없으면 **한 번만** 묻는다.
 
 ```
 어디까지 밟을까요?
@@ -119,6 +179,42 @@ PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py detect --path "$PROJECT_ROOT"
 경로가 정해지면 **단계 목록**을 먼저 적는다. 각 단계에 "무엇을 누르고 → 무엇이 보여야 하고
 → 기기/서버에 무엇이 남아야 하는가"를 쓴다. 이 목록이 판정 기준이 된다 (이유: 기준 없이
 밟으면 "화면이 떴으니 됐다"로 끝나고, 실제로는 서버에 아무것도 안 들어가 있을 수 있다).
+
+### 해피 패스만 밟지 않는다 ⚠️
+
+정상 경로는 개발자가 이미 수십 번 밟아봤다. **버그는 대개 그 바깥에 있다.**
+아래 세 축에서 밟을 것을 고른다 — 전부 할 필요는 없고, 이 앱에서 말이 되는 것만.
+
+**축 1 — 상태 조합.** 앱은 저장된 상태에 따라 다르게 시작한다.
+
+| 세션 | 온보딩 | 기대 | 확인법 |
+| --- | --- | --- | --- |
+| 없음 | — | 로그인부터 | `pm clear` 후 실행 |
+| 있음 | 미완료 | 이어서 진행 | 온보딩 중간에 앱 강제 종료 후 재실행 |
+| 있음 | 완료 | 홈 직행 | 그냥 재실행 |
+| 만료 | 완료 | 갱신 또는 재로그인 | 서버에서 토큰 폐기 후 실행 |
+
+**축 2 — 실패 주입.** 위 표의 조작으로 실패를 **만들어서** 밟는다.
+
+| 상황 | 만드는 법 | 봐야 할 것 |
+| --- | --- | --- |
+| 네트워크 끊김 | `svc wifi disable && svc data disable` | 무한 로딩·빈 화면이 아니라 재시도 경로가 있는가 |
+| 권한 거부 | `pm revoke {패키지} {권한}` | 앱이 죽지 않고 우회 경로를 주는가 |
+| 서버 오류 | 서버를 잠시 내리거나 잘못된 토큰 주입 | **에러 코드가 화면에 보이는가** (제보받았을 때 추적하려면 필요하다) |
+| 목록 0건 | 데이터를 비운 계정으로 | 로딩과 구분되는 빈 상태 화면이 있는가 |
+
+**축 3 — 환경 조건.** 접근성과 표시 설정을 바꿔 레이아웃이 버티는지 본다.
+
+| 조건 | 명령 | 봐야 할 것 |
+| --- | --- | --- |
+| 큰 글씨 | `settings put system font_scale 1.3` | 글자가 잘리거나 버튼을 밀어내지 않는가 |
+| 다크모드 | `cmd uimode night yes` | 대비가 무너지거나 보이지 않는 글자가 없는가 |
+| 동작 줄이기 | `settings put global transition_animation_scale 0` | 애니메이션에 기대던 화면이 멈추지 않는가 |
+| 가로 회전 | `settings put system user_rotation 1` | 오버플로가 나지 않는가 |
+
+> **되돌리는 것을 잊지 않는다.** 바꾼 설정은 다음 테스트에 그대로 영향을 준다.
+> 각 조건을 끝낸 직후 원래대로 돌린다 (`font_scale 1.0`, `night no`, `user_rotation 0`,
+> `transition_animation_scale 1`, `svc wifi enable`).
 
 ## Phase 2 — 관측 가능성 확보 ⚠️
 

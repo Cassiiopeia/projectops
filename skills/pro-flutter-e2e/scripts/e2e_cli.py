@@ -299,6 +299,147 @@ def cmd_devices(args) -> int:
     })
 
 
+# =========================================================================
+# 시나리오 — 프로젝트마다 다른 "무엇을 어떻게 밟을지"를 파일로 둔다
+# =========================================================================
+
+_SCENARIO_DIRS = ("docs/testing/e2e", ".projectops/e2e")
+
+_TEMPLATE = {
+    "name": "{무엇을 밟는지 한 줄}",
+    "description": "{왜 이 경로가 중요한지}",
+    "reset": {
+        "device": "pm clear",
+        "server": "{테스트 계정을 지우는 명령. 없으면 null}",
+    },
+    "steps": [
+        {
+            "screen": "{화면 이름}",
+            "do": "{무엇을 하는지 — tap '시작하기' / input '값' / back}",
+            "expect_screen": "{다음에 보여야 할 것}",
+            "expect_device": ["{로그에서 확인할 키. 예: elum.refreshToken}"],
+            "expect_server": "{서버에서 확인할 쿼리. 없으면 null}",
+            "human": None,
+        }
+    ],
+    "conditions": [
+        {"name": "큰 글씨", "apply": "settings put system font_scale 1.3",
+         "revert": "settings put system font_scale 1.0"},
+        {"name": "다크모드", "apply": "cmd uimode night yes",
+         "revert": "cmd uimode night no"},
+    ],
+}
+
+_REQUIRED_STEP_KEYS = ("screen", "do")
+
+
+def _scenario_dir(root: Path, create: bool = False) -> Path:
+    """시나리오를 둘 곳. 이미 쓰고 있는 폴더가 있으면 그것을 따른다."""
+    for rel in _SCENARIO_DIRS:
+        d = root / rel
+        if d.is_dir():
+            return d
+    d = root / _SCENARIO_DIRS[0]
+    if create:
+        d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _validate(data: dict) -> list[str]:
+    """시나리오가 실행 가능한 모양인지 본다. 밟기 전에 걸러야 중간에 안 멈춘다."""
+    problems = []
+    if not data.get("name"):
+        problems.append("name이 비었습니다")
+    steps = data.get("steps")
+    if not isinstance(steps, list) or not steps:
+        problems.append("steps가 비었습니다 — 무엇을 밟을지 한 단계라도 있어야 합니다")
+        return problems
+    for i, st in enumerate(steps, 1):
+        if not isinstance(st, dict):
+            problems.append(f"{i}번째 step이 객체가 아닙니다")
+            continue
+        for k in _REQUIRED_STEP_KEYS:
+            if not st.get(k):
+                problems.append(f"{i}번째 step에 {k}가 없습니다")
+        if not any(st.get(k) for k in ("expect_screen", "expect_device", "expect_server")):
+            problems.append(
+                f"{i}번째 step({st.get('screen','?')})에 기대 결과가 없습니다 — "
+                "화면·기기·서버 중 하나는 있어야 통과 판정을 할 수 있습니다")
+    return problems
+
+
+def cmd_scenario(args) -> int:
+    root = Path(args.root).resolve()
+    d = _scenario_dir(root, create=(args.action == "init"))
+
+    if args.action == "list":
+        files = sorted(d.glob("*.json")) if d.is_dir() else []
+        return emit({
+            "dir": str(d),
+            "scenarios": [{"file": f.name, "name": _safe_name(f)} for f in files],
+            "summary": f"{len(files)}개" if files else "시나리오 없음",
+            "next": None if files else f"scenario init --name {{이름}} --root {root}",
+        })
+
+    if args.action == "init":
+        if not args.name:
+            return emit({"ok": False, "code": "name_required",
+                         "error": "--name 으로 파일 이름을 정하세요"})
+        f = d / f"{args.name}.json"
+        if f.exists() and not args.force:
+            return emit({"ok": False, "code": "already_exists",
+                         "error": f"{f} 가 이미 있습니다", "hint": "--force 로 덮어씁니다"})
+        import json
+        f.write_text(json.dumps(_TEMPLATE, ensure_ascii=False, indent=2) + "\n",
+                     encoding="utf-8")
+        return emit({
+            "file": str(f),
+            "summary": f"템플릿 생성: {f.relative_to(root)}",
+            "next": "중괄호로 표시된 자리를 채운 뒤 scenario show 로 검증하세요",
+        })
+
+    # show
+    if not args.name:
+        return emit({"ok": False, "code": "name_required", "error": "--name 을 지정하세요"})
+    f = d / f"{args.name}.json"
+    if not f.exists():
+        return emit({"ok": False, "code": "not_found", "error": f"{f} 없음",
+                     "next": f"scenario list --root {root}"})
+    import json
+    try:
+        data = json.loads(f.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        return emit({"ok": False, "code": "invalid_json", "error": f"{f}: {e}"})
+
+    problems = _validate(data)
+    # 템플릿 자리를 안 채운 채 실행하면 엉뚱한 걸 누른다 — 문제로 잡는다
+    placeholders = [k for k in json.dumps(data, ensure_ascii=False).split('"')
+                    if k.startswith("{") and k.endswith("}")]
+    if placeholders:
+        problems.append(
+            f"채우지 않은 자리가 {len(placeholders)}개 있습니다 — 템플릿 그대로면 실행할 수 없습니다")
+
+    return emit({
+        "ok": not problems,
+        "code": "ok" if not problems else "scenario_invalid",
+        "file": str(f),
+        "scenario": data,
+        "problems": problems,
+        "unfilled_placeholders": placeholders[:10],
+        "summary": (f"{data.get('name','?')} — {len(data.get('steps',[]))}단계"
+                    + (f", 문제 {len(problems)}건" if problems else "")),
+        "next": None if not problems else "problems를 고친 뒤 다시 확인하세요",
+    })
+
+
+def _safe_name(f: Path) -> str:
+    import json
+    try:
+        return json.loads(f.read_text(encoding="utf-8")).get("name", "?")
+    except Exception:
+        return "(읽기 실패)"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="e2e_cli",
@@ -315,6 +456,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_doc = sub.add_parser("doctor", help="필요한 도구가 있는지 점검")
     p_doc.set_defaults(func=cmd_doctor)
+
+    p_sc = sub.add_parser("scenario", help="프로젝트별 밟기 시나리오 관리")
+    p_sc.add_argument("action", choices=["init", "list", "show"])
+    p_sc.add_argument("--name", help="시나리오 파일 이름 (확장자 제외)")
+    p_sc.add_argument("--root", default=".", help="프로젝트 루트")
+    p_sc.add_argument("--force", action="store_true", help="init 시 덮어쓰기")
+    p_sc.set_defaults(func=cmd_scenario)
 
     p_s = sub.add_parser("shrink", help="이슈 첨부용으로 이미지 축소")
     p_s.add_argument("paths", nargs="+")
