@@ -440,6 +440,167 @@ def _safe_name(f: Path) -> str:
         return "(읽기 실패)"
 
 
+# =========================================================================
+# 학습 노트 — 이 프로젝트에서만 통하는 것을 쌓아 간다
+# =========================================================================
+
+_NOTE_FILE = "learned.json"
+
+
+def _note_path(root: Path, create: bool = False) -> Path:
+    return _scenario_dir(root, create) / _NOTE_FILE
+
+
+def _load_notes(root: Path) -> dict:
+    import json
+    f = _note_path(root)
+    if not f.exists():
+        return {"screens": {}, "pitfalls": [], "runs": []}
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {"screens": {}, "pitfalls": [], "runs": []}
+
+
+def cmd_note(args) -> int:
+    """밟으면서 알아낸 것을 프로젝트에 남긴다.
+
+    같은 앱을 다음에 밟을 때 좌표를 처음부터 찾거나 같은 함정에 다시 빠지지 않게
+    한다. skill은 어느 프로젝트에나 같지만, 이 파일은 프로젝트마다 다르게 자란다.
+    """
+    import json
+    from datetime import date
+
+    root = Path(args.root).resolve()
+    notes = _load_notes(root)
+
+    if args.action == "show":
+        return emit({
+            "file": str(_note_path(root)),
+            "screens": notes.get("screens", {}),
+            "pitfalls": notes.get("pitfalls", []),
+            "runs": notes.get("runs", [])[-5:],
+            "summary": (f"화면 {len(notes.get('screens', {}))}개 · "
+                        f"함정 {len(notes.get('pitfalls', []))}건 · "
+                        f"기록된 실행 {len(notes.get('runs', []))}회"),
+        })
+
+    if args.action == "screen":
+        if not (args.name and args.anchor):
+            return emit({"ok": False, "code": "args_required",
+                         "error": "--name 과 --anchor 가 필요합니다"})
+        entry = notes.setdefault("screens", {}).setdefault(args.name, {})
+        entry["anchor"] = args.anchor          # 이 화면임을 알아보는 단서
+        if args.taps:
+            # "라벨=x,y" 형태를 그대로 보관한다. 해상도가 바뀌면 다시 재야 하므로
+            # 절대 좌표가 아니라 기준 해상도와 함께 남긴다.
+            entry["taps"] = dict(t.split("=", 1) for t in args.taps)
+        if args.screen_size:
+            entry["measured_on"] = args.screen_size
+        entry["updated"] = date.today().isoformat()
+
+    elif args.action == "pitfall":
+        if not args.text:
+            return emit({"ok": False, "code": "args_required", "error": "--text 가 필요합니다"})
+        notes.setdefault("pitfalls", []).append({
+            "text": args.text, "added": date.today().isoformat(),
+        })
+
+    elif args.action == "run":
+        notes.setdefault("runs", []).append({
+            "date": date.today().isoformat(),
+            "scenario": args.name or "(지정 안 함)",
+            "result": args.text or "(기록 없음)",
+        })
+        notes["runs"] = notes["runs"][-30:]   # 오래된 것은 버린다
+
+    f = _note_path(root, create=True)
+    f.write_text(json.dumps(notes, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return emit({
+        "file": str(f),
+        "summary": f"{args.action} 기록 완료 — {f.relative_to(root)}",
+        "next": "커밋해야 다음 사람도 씁니다",
+    })
+
+
+# =========================================================================
+# 엣지케이스 — 코드에서 "밟아야 할 실패 경로"를 뽑아낸다
+# =========================================================================
+
+# (정규식, 무엇을 밟아야 하는가, 어떻게 만드는가)
+_EDGE_RULES = [
+    (r'catch\s*\(|on\s+\w*Exception', "예외 경로",
+     "이 예외를 실제로 일으켜 화면이 무엇을 보여주는지 본다"),
+    (r'DioException|SocketException|TimeoutException|HttpException', "네트워크 실패",
+     "svc wifi disable && svc data disable 로 끊고 밟는다"),
+    (r'\.isEmpty|length\s*==\s*0|\bemptyState\b|비어', "빈 목록",
+     "데이터가 0건인 계정으로 들어가 로딩과 구분되는 화면이 있는지 본다"),
+    (r'Permission\.|requestPermission|permission_handler', "권한 거부",
+     "pm revoke 로 권한을 뺏고 앱이 죽지 않는지, 우회 경로를 주는지 본다"),
+    (r'\bnull\b\s*\?\?|\?\?\s|\bfallback\b|폴백', "폴백 값",
+     "폴백이 실제로 쓰이는 상황을 만들어 그 값이 맞는지 본다"),
+    (r'errorCode|error_code|에러\s*코드|E-\d{3,}', "에러 코드 노출",
+     "실패를 일으켜 화면에 식별자가 보이는지 본다 — 제보 추적에 필요하다"),
+    (r'expire|만료|refreshToken|재발급', "토큰 만료",
+     "서버에서 토큰을 폐기하고 앱이 갱신 또는 재로그인으로 가는지 본다"),
+    (r'retry|재시도|다시\s*시도', "재시도",
+     "실패 상태에서 재시도가 실제로 동작하는지 본다"),
+]
+
+
+def cmd_edges(args) -> int:
+    """코드를 훑어 밟아야 할 실패 경로를 제안한다.
+
+    해피 패스는 개발자가 이미 수십 번 밟는다. 버그는 catch 블록과 폴백 안에 있는데,
+    그 코드는 대개 한 번도 실행되지 않은 채 배포된다. 여기서 목록을 뽑아 Phase 1의
+    단계 목록에 넣는다.
+
+    판단은 하지 않는다 — 후보를 모아 줄 뿐이고, 무엇을 밟을지는 사람이 고른다.
+    """
+    root = Path(args.path).resolve()
+    lib = root / "lib"
+    if not lib.is_dir():
+        found = _find_flutter_root(root)
+        lib = (found / "lib") if found else None
+    if not lib or not lib.is_dir():
+        return emit({"ok": False, "code": "lib_not_found",
+                     "error": f"{root} 아래에서 lib/ 를 찾지 못했습니다"})
+
+    hits: dict[str, list[dict]] = {}
+    scanned = 0
+    for f in sorted(lib.rglob("*.dart")):
+        if ".g.dart" in f.name or ".freezed.dart" in f.name:
+            continue        # 생성 파일은 사람이 밟을 경로가 아니다
+        scanned += 1
+        try:
+            lines = f.read_text(encoding="utf-8", errors="ignore").splitlines()
+        except OSError:
+            continue
+        for i, line in enumerate(lines, 1):
+            for pattern, label, how in _EDGE_RULES:
+                if re.search(pattern, line):
+                    hits.setdefault(label, []).append({
+                        "file": str(f.relative_to(lib.parent)),
+                        "line": i,
+                        "code": line.strip()[:100],
+                        "how": how,
+                    })
+                    break
+
+    summary_rows = sorted(((k, len(v)) for k, v in hits.items()),
+                          key=lambda x: -x[1])
+    return emit({
+        "scanned_files": scanned,
+        "categories": [
+            {"edge": k, "count": len(v), "how": v[0]["how"],
+             "samples": v[:args.samples]}
+            for k, v in sorted(hits.items(), key=lambda x: -len(x[1]))
+        ],
+        "summary": f"{scanned}개 파일 · " + ", ".join(f"{k} {n}" for k, n in summary_rows[:5]),
+        "next": "밟을 것을 골라 시나리오의 steps 에 넣으세요 — 전부 밟을 필요는 없습니다",
+    })
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="e2e_cli",
@@ -463,6 +624,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_sc.add_argument("--root", default=".", help="프로젝트 루트")
     p_sc.add_argument("--force", action="store_true", help="init 시 덮어쓰기")
     p_sc.set_defaults(func=cmd_scenario)
+
+    p_e = sub.add_parser("edges", help="코드에서 밟아야 할 실패 경로를 뽑는다")
+    p_e.add_argument("--path", default=".", help="프로젝트 경로")
+    p_e.add_argument("--samples", type=int, default=3, help="분류별로 보여줄 예시 수")
+    p_e.set_defaults(func=cmd_edges)
+
+    p_n = sub.add_parser("note", help="이 프로젝트에서 알아낸 것을 쌓는다")
+    p_n.add_argument("action", choices=["show", "screen", "pitfall", "run"])
+    p_n.add_argument("--root", default=".")
+    p_n.add_argument("--name", help="screen: 화면 이름 / run: 시나리오 이름")
+    p_n.add_argument("--anchor", help="screen: 이 화면임을 알아보는 단서(문구 등)")
+    p_n.add_argument("--taps", nargs="*", help="screen: '라벨=x,y' 형태로 여러 개")
+    p_n.add_argument("--screen-size", help="screen: 좌표를 잰 해상도. 예 1080x2400")
+    p_n.add_argument("--text", help="pitfall: 함정 내용 / run: 결과 요약")
+    p_n.set_defaults(func=cmd_note)
 
     p_s = sub.add_parser("shrink", help="이슈 첨부용으로 이미지 축소")
     p_s.add_argument("paths", nargs="+")
