@@ -113,6 +113,18 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py scenario show --name {이�
 밟다 보면 이 앱에서만 통하는 것들을 알게 된다 — 어느 화면의 버튼이 어디 있는지,
 어디서 발을 헛디뎠는지. **그것을 남기지 않으면 다음에 처음부터 다시 알아내야 한다.**
 
+**무엇을 어디에 남길지 구분한다.** 이 앱에서만 통하는 것은 프로젝트에, 어느 Flutter 앱에나
+통하는 것은 **skill로 올린다** (이유: 범용 지식을 프로젝트에 묻어두면 다음 프로젝트에서
+똑같이 한 번 더 겪는다).
+
+| scope | 무엇 | 어디에 남기나 |
+| --- | --- | --- |
+| `project` | 이 앱의 화면·좌표·구성 | `learned.json` |
+| `flutter` | 모든 Flutter 앱에 해당 | `learned.json`에 남기되 **이 문서의 함정 표로 올린다** |
+| `platform` | 기기·OS 차원 | 위와 같다 |
+
+`project`가 아닌 것을 기록하면 스크립트가 "skill로 올리라"고 알려준다.
+
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py note show --root {PROJECT_ROOT}
 
@@ -121,7 +133,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py note screen --name 로그�
       --taps "카카오=540,894" "구글=540,1368" --screen-size 1080x2400 --root {PROJECT_ROOT}
 
 # 헛디딘 것
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py note pitfall --text "동의 목록은 3~4회 밀어야 끝까지 간다" --root {PROJECT_ROOT}
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py note pitfall --text "동의 목록은 3~4회 밀어야 끝까지 간다" --scope project --root {PROJECT_ROOT}
 
 # 이번 실행 결과
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py note run --name social-signup --text "통과 — 버그 2건 발견" --root {PROJECT_ROOT}
@@ -393,6 +405,8 @@ adb shell pm clear {패키지}     # 앱 로컬 데이터
 | **서명 불일치로 설치 실패** | `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | 기존 앱을 지우고 설치한다. CI 빌드와 로컬 빌드는 서명이 다르다 |
 | **로컬 데이터로 화면이 뜬다** | 서버에서 계정을 지웠는데 홈이 보임 | 앱 데이터도 지워야 초기 상태다 |
 | **세션이 남아 2FA가 안 뜬다** | 어떤 때는 뜨고 어떤 때는 안 뜸 | 브라우저 쿠키가 남아서다. 매번 뜬다고 가정하고 안내 문구를 준비한다 |
+| **한글이 입력되지 않는다** | `input text`에서 `NullPointerException` | ASCII만 받는다. 영문으로 대체하고 보고에 적거나, 한글 자체가 검증 대상이면 IME를 설치한다 |
+| **요소를 텍스트로 못 찾는다** | `uiautomator dump`에 위젯 텍스트가 안 나온다 | Flutter는 캔버스라 그렇다. `ensureSemantics()`를 넣어도 접근성 서비스가 붙어야 해서 에뮬레이터에서는 안 된다 — 좌표로 간다 |
 | **화면 전환을 움직임으로 오인** | 무게중심(밝기로 잰 요소의 평균 위치) 측정값이 계속 튐 | 측정 영역을 요소 크기로 좁힌다. 제목·키보드가 섞이면 값이 무의미하다 |
 
 더 많은 명령과 iOS 대응은 `references/device-control.md`.

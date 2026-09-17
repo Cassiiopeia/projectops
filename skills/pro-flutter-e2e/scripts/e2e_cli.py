@@ -519,6 +519,10 @@ def cmd_note(args) -> int:
             "schema": notes.get("schema", _NOTE_SCHEMA),
             "screens": notes.get("screens", {}),
             "pitfalls": notes.get("pitfalls", []),
+            "pitfalls_to_promote": [
+                x for x in notes.get("pitfalls", [])
+                if x.get("scope", "project") != "project"
+            ],
             "runs": notes.get("runs", [])[-5:],
             **({"warning": warning} if warning else {}),
             "summary": (f"화면 {len(notes.get('screens', {}))}개 · "
@@ -543,9 +547,24 @@ def cmd_note(args) -> int:
     elif args.action == "pitfall":
         if not args.text:
             return emit({"ok": False, "code": "args_required", "error": "--text 가 필요합니다"})
-        notes.setdefault("pitfalls", []).append({
-            "text": args.text, "added": date.today().isoformat(),
-        })
+        entry = {"text": args.text, "scope": args.scope,
+                 "added": date.today().isoformat()}
+        notes.setdefault("pitfalls", []).append(entry)
+
+        # 이 프로젝트 밖에서도 통하는 것은 여기 두면 다음 프로젝트에서 또 겪는다.
+        # 파일에는 남기되(맥락이 사라지지 않게) skill로 올리라고 알린다.
+        if args.scope != "project":
+            f = _note_path(root, create=True)
+            notes["schema"] = notes.get("schema", _NOTE_SCHEMA)
+            _save_notes(f, notes)
+            return emit({
+                "file": str(f),
+                **({"warning": warning} if warning else {}),
+                "summary": f"기록했습니다 — 다만 scope={args.scope} 입니다",
+                "next": ("이 프로젝트 밖에서도 통하는 내용입니다. "
+                         "skill의 '자주 묻는 함정' 표에 올려야 다음 프로젝트에서 "
+                         "같은 일을 겪지 않습니다"),
+            })
 
     elif args.action == "run":
         notes.setdefault("runs", []).append({
@@ -681,6 +700,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_n.add_argument("--taps", nargs="*", help="screen: '라벨=x,y' 형태로 여러 개")
     p_n.add_argument("--screen-size", help="screen: 좌표를 잰 해상도. 예 1080x2400")
     p_n.add_argument("--text", help="pitfall: 함정 내용 / run: 결과 요약")
+    p_n.add_argument(
+        "--scope", choices=["project", "flutter", "platform"], default="project",
+        help=("pitfall 범위. project=이 앱에서만 / flutter=모든 Flutter 앱 / "
+              "platform=기기·OS 차원. project가 아니면 skill로 올리라고 안내한다"))
     p_n.set_defaults(func=cmd_note)
 
     p_s = sub.add_parser("shrink", help="이슈 첨부용으로 이미지 축소")
