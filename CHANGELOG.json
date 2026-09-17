@@ -1,14 +1,41 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-17T11:15:53Z",
-    "currentVersion": "4.9.1",
+    "lastUpdated": "2026-09-17T13:37:31Z",
+    "currentVersion": "4.10.0",
     "projectType": "basic",
-    "totalReleases": 242,
+    "totalReleases": 243,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.10.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-17",
+      "pr_number": 579,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * Flutter E2E 스킬에서 서버 로그를 바로 받아볼 수 있습니다\n  * 삭제·탈퇴 후 참조가 끊긴 데이터를 한 번에 조사합니다\n\n* **개선**\n  * 실기기 테스트에서 겪은 함정들을 스킬 문서에 정리했습니다\n  * 테스트 산출물 폴더가 기본적으로 저장소에 올라가지 않습니다",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "Flutter E2E 스킬에서 서버 로그를 바로 받아볼 수 있습니다",
+            "삭제·탈퇴 후 참조가 끊긴 데이터를 한 번에 조사합니다"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "실기기 테스트에서 겪은 함정들을 스킬 문서에 정리했습니다",
+            "테스트 산출물 폴더가 기본적으로 저장소에 올라가지 않습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.9.1",
       "project_type": "basic",
