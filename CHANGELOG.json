@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-17T13:37:31Z",
-    "currentVersion": "4.10.0",
+    "lastUpdated": "2026-09-17T13:46:51Z",
+    "currentVersion": "4.10.1",
     "projectType": "basic",
-    "totalReleases": 243,
+    "totalReleases": 244,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.10.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-17",
+      "pr_number": 580,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 테스트 산출물 폴더에서 특정 파일만 골라 저장소에 올릴 수 있습니다",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "테스트 산출물 폴더에서 특정 파일만 골라 저장소에 올릴 수 있습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.10.0",
       "project_type": "basic",
