@@ -1,14 +1,34 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-17T10:58:38Z",
-    "currentVersion": "4.9.0",
+    "lastUpdated": "2026-09-17T11:15:53Z",
+    "currentVersion": "4.9.1",
     "projectType": "basic",
-    "totalReleases": 241,
+    "totalReleases": 242,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.9.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-17",
+      "pr_number": 577,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 이슈를 만들기만 해도 앱 빌드가 실행되던 문제 해결\n  * 안내 댓글로 인한 불필요한 실패 알림 제거\n\n---\n\n- https://github.com/Cassiiopeia/projectops/issues/576\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01LsTgVFm86DjKpURkB9yh1Z",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "이슈를 만들기만 해도 앱 빌드가 실행되던 문제 해결",
+            "안내 댓글로 인한 불필요한 실패 알림 제거"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.9.0",
       "project_type": "basic",
