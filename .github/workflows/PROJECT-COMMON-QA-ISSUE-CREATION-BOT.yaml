@@ -54,6 +54,7 @@ jobs:
   create-qa:
     # @projectops과 create, qa 키워드가 모두 포함되어 있으면 실행 (순서 무관)
     if: |
+      !contains(github.event.comment.body, '<!-- SUH-ISSUE-HELPER -->') &&
       contains(github.event.comment.body, '@projectops') && 
       contains(github.event.comment.body, 'create') &&
       contains(github.event.comment.body, 'qa')

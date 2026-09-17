@@ -114,7 +114,8 @@ jobs:
       is_custom_branch: ${{ steps.parse.outputs.is_custom_branch }}
     steps:
       - name: 댓글에 👀 리액션 추가
-        if: contains(github.event.comment.body, '@projectops') && contains(github.event.comment.body, 'server')
+        # 봇 안내 댓글은 제외한다 (#576) — 안내문 문구가 조건을 만족해 오발동한 전례가 있다
+        if: ${{ !contains(github.event.comment.body, '<!-- SUH-ISSUE-HELPER -->') && contains(github.event.comment.body, '@projectops') && contains(github.event.comment.body, 'server') }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -1392,7 +1393,7 @@ jobs:
     if: |
       (github.event_name == 'pull_request' && github.event.action == 'closed') ||
       (github.event_name == 'issues' && github.event.action == 'closed') ||
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@projectops') && contains(github.event.comment.body, 'server destroy'))
+      (github.event_name == 'issue_comment' && !contains(github.event.comment.body, '<!-- SUH-ISSUE-HELPER -->') && contains(github.event.comment.body, '@projectops') && contains(github.event.comment.body, 'server destroy'))
     runs-on: ubuntu-latest
     steps:
       - name: PR/Issue 번호 가져오기
