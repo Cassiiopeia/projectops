@@ -1253,12 +1253,16 @@ def cmd_backend(args) -> int:
         # setdefault 로는 못 채운다 — 앞선 probe 가 base: null 을 이미 적어 뒀을 수 있다.
         if not admin_paths.get("base"):
             admin_paths["base"] = cfg.get("base_url")
+        # 접속 주소·포트·DB 이름은 **적지 않는다.** 이 파일은 레포에 올라가고
+        # 레포가 공개일 수 있다. 설정 파일이 gitignore 되어 있어도 여기로 새면 의미가 없다.
+        # 매 실행에서 설정 파일을 다시 읽으면 되므로 굳이 남길 이유도 없다.
         backend = {
             "kind": "spring",
             "db_config": str(yml.relative_to(root)),
-            "db": {k: cfg["db"][k] for k in ("engine", "host", "port", "name")}
-                  if cfg["db"] else None,
-            "admin": admin_paths,
+            "db_engine": cfg["db"]["engine"] if cfg["db"] else None,
+            "db_reachable": bool(cfg["db"]),
+            "admin": {k: v for k, v in admin_paths.items() if k != "base"},
+            "admin_base_in_config": bool(admin_paths.get("base")),
             "admin_account_in_config": bool(cfg["admin"]),
         }
         d = _scenario_dir(root, create=True)
@@ -1275,9 +1279,9 @@ def cmd_backend(args) -> int:
                      encoding="utf-8")
         return emit({
             "backend": backend,
-            "summary": (f"{backend['kind']} · DB "
-                        f"{backend['db']['name'] if backend['db'] else '미확인'} · "
-                        f"관리자 계정 {'있음' if cfg['admin'] else '없음'}"),
+            "summary": (f"{backend['kind']} · {backend['db_engine'] or 'DB 미확인'} · "
+                        f"관리자 계정 {'있음' if cfg['admin'] else '없음'} · "
+                        f"주소는 기록하지 않음(설정 파일에서 매번 읽음)"),
             "next": "backend orphans / backend logs 를 인자 없이 쓸 수 있습니다",
         })
 
