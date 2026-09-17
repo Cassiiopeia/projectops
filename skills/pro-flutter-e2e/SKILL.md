@@ -79,6 +79,65 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py detect --path {PROJECT_ROOT
 `FLAG_SECURE`가 걸린 화면(일부 금융·인증 앱)은 스크린샷이 검은색으로 찍힌다. 그때는
 `dumpsys window`의 `mCurrentFocus`로 어느 화면인지만 확인하고 사용자에게 넘긴다.
 
+## Phase 0.5 — 이 앱이 어떻게 생겼는지 먼저 읽는다
+
+처음 들어온 프로젝트라면 **코드에서 구조를 한 번 읽어 둔다.** 매번 라우트를 찾아 헤매지
+않기 위해서다.
+
+```bash
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py bootstrap --path {PROJECT_ROOT}
+```
+
+| 읽는 것 | 어디서 |
+| --- | --- |
+| 기능 그룹 | `lib/features/*` |
+| 라우트 | `static const x = '/...'` — 경로 첫 세그먼트를 그룹으로 붙인다 |
+| 화면 | `*_screen.dart` — 어느 기능에 속하는지 함께 |
+| 인증 방식 | `*Provider` enum — 소셜이면 제공자 목록까지 |
+
+결과는 `app-map.json`에 남고, **`flows/` 아래에 기능별 폴더가 함께 만들어진다.**
+코드와 같은 이름이므로 새 기능의 시나리오를 어디에 둘지 고민할 일이 없다.
+
+인증 방식을 보고 어떤 전제부터 만들지 알려준다 — 앱마다 로그인이 다르므로 **만들어 주지는
+않는다.** 무엇을 눌러야 하는지는 밟아 봐야 안다.
+
+## 시나리오는 기능별로 나누고, 전제는 한 곳에 둔다
+
+```
+docs/testing/e2e/
+├── app-map.json          # 위에서 스캔한 앱 구조
+├── learned.json          # 제약·화면 좌표·함정
+├── _shared/
+│   └── login-kakao.json  # 거의 모든 시나리오의 전제
+└── flows/
+    ├── auth/ · onboarding/ · guardian/ · child/
+```
+
+### 전제를 매번 적지 않는다
+
+로그인은 거의 모든 시나리오 앞에 붙는다. 그때마다 다시 적으면 **로그인 방식이 바뀔 때
+전부 고쳐야 한다.** 한 곳에 두고 가리킨다.
+
+```json
+{
+  "name": "일과 만들기",
+  "precondition": "_shared/login-kakao",
+  "steps": [ ...일과 만들기만... ]
+}
+```
+
+`scenario show`가 전제를 **펼쳐서** 전체 단계를 보여준다. `reset`도 전제 것을 물려받는다.
+순환 참조와 없는 전제는 검증에서 막는다.
+
+```bash
+# flows/{그룹}/ 아래에 만들기
+... scenario init --name routine-create --group guardian --root {PROJECT_ROOT}
+# 전제로 만들기
+... scenario init --name login-kakao --group _shared --root {PROJECT_ROOT}
+```
+
+이름만 주면 하위 폴더까지 찾아준다 — `scenario show --name routine-create`.
+
 ## 프로젝트마다 다른 것은 시나리오 파일로 둔다
 
 밟는 절차는 어느 앱이나 같지만 **무엇을 밟을지는 프로젝트마다 다르다.** 그것을 파일로
@@ -86,11 +145,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py detect --path {PROJECT_ROOT
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py scenario list --root {PROJECT_ROOT}
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py scenario init --name {이름} --root {PROJECT_ROOT}
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py scenario show --name {이름} --root {PROJECT_ROOT}
 ```
-
-저장 위치는 `docs/testing/e2e/*.json` (이미 `.projectops/e2e/`를 쓰는 레포면 그쪽).
 
 | 필드 | 무엇 |
 | --- | --- |

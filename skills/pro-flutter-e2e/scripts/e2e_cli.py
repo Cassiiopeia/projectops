@@ -312,6 +312,149 @@ def cmd_devices(args) -> int:
 
 
 # =========================================================================
+# 부트스트랩 — 이 앱이 어떻게 생겼는지 코드에서 읽어낸다
+# =========================================================================
+
+_APP_MAP_FILE = "app-map.json"
+_SHARED_DIR = "_shared"
+_FLOWS_DIR = "flows"
+
+
+def _scan_routes(lib: Path) -> list[dict]:
+    """라우트 상수와 GoRoute 경로를 모은다.
+
+    경로 자체가 기능 계층을 담고 있는 경우가 많다(`/guardian/routine/input`).
+    첫 세그먼트를 그룹 후보로 삼아 어느 폴더에 시나리오를 둘지 정하는 데 쓴다.
+    """
+    routes: list[dict] = []
+    seen = set()
+    for f in lib.rglob("*.dart"):
+        if ".g.dart" in f.name or ".freezed.dart" in f.name:
+            continue
+        try:
+            text = f.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for m in re.finditer(r"static const (\w+)\s*=\s*'(/[^']*)'", text):
+            name, path = m.group(1), m.group(2)
+            if path in seen:
+                continue
+            seen.add(path)
+            seg = [x for x in path.split("/") if x]
+            routes.append({"const": name, "path": path,
+                           "group": seg[0] if seg else "root"})
+    return sorted(routes, key=lambda r: r["path"])
+
+
+def _scan_feature_groups(lib: Path) -> list[str]:
+    d = lib / "features"
+    if not d.is_dir():
+        return []
+    return sorted(x.name for x in d.iterdir()
+                  if x.is_dir() and not x.name.startswith("."))
+
+
+def _scan_screens(lib: Path) -> list[dict]:
+    out = []
+    for f in sorted(lib.rglob("*_screen.dart")):
+        rel = f.relative_to(lib)
+        parts = rel.parts
+        group = parts[1] if len(parts) > 2 and parts[0] == "features" else "core"
+        out.append({"file": str(rel), "group": group,
+                    "name": f.stem.replace("_screen", "")})
+    return out
+
+
+def _scan_auth(lib: Path) -> dict:
+    """로그인 방식을 추정한다. 앱마다 다르므로 단정하지 않고 근거를 함께 남긴다."""
+    providers, evidence = [], []
+    for f in lib.rglob("*.dart"):
+        if ".g.dart" in f.name:
+            continue
+        try:
+            text = f.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        m = re.search(r"enum\s+\w*(?:OAuth|Social|Login)\w*Provider\s*\{([^}]*)\}",
+                      text, re.S)
+        if m:
+            body = m.group(1)
+            providers = [x.strip() for x in re.findall(r"^\s*(\w+)[,;]", body, re.M)]
+            evidence.append(str(f.relative_to(lib)))
+            break
+    kind = "social" if providers else ("unknown" if not evidence else "custom")
+    return {"kind": kind, "providers": providers, "evidence": evidence}
+
+
+def cmd_bootstrap(args) -> int:
+    """앱 구조를 스캔해 app-map.json에 적고 기능별 폴더를 만든다.
+
+    매번 코드를 뒤져 라우트를 찾지 않도록 한 번 읽어 둔다. 폴더를 미리 만들어 두면
+    새 기능의 시나리오를 어디에 넣을지 고민할 일이 없다 — 코드와 같은 이름이다.
+    """
+    import json
+    from datetime import date
+
+    root = Path(args.path).resolve()
+    flutter_root = _find_flutter_root(root)
+    if flutter_root is None:
+        return emit({"ok": False, "code": "flutter_project_not_found",
+                     "error": f"{root} 아래에서 Flutter 프로젝트를 찾지 못했습니다"})
+    lib = flutter_root / "lib"
+
+    groups = _scan_feature_groups(lib)
+    routes = _scan_routes(lib)
+    screens = _scan_screens(lib)
+    auth = _scan_auth(lib)
+
+    d = _scenario_dir(root, create=True)
+    (d / _SHARED_DIR).mkdir(exist_ok=True)
+    flows = d / _FLOWS_DIR
+    flows.mkdir(exist_ok=True)
+    made = []
+    for g in groups:
+        sub = flows / g
+        if not sub.exists():
+            sub.mkdir()
+            made.append(g)
+        keep = sub / ".gitkeep"
+        if not any(sub.iterdir()):
+            keep.touch()
+
+    app_map = {
+        "scanned": date.today().isoformat(),
+        "flutter_root": str(flutter_root.relative_to(root))
+                        if flutter_root != root else ".",
+        "feature_groups": groups,
+        "auth": auth,
+        "routes": routes,
+        "screens": screens,
+    }
+    (d / _APP_MAP_FILE).write_text(
+        json.dumps(app_map, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    # 로그인 전제 템플릿을 제안한다 — 앱마다 방식이 다르므로 만들지는 않는다
+    if auth["kind"] == "social" and auth["providers"]:
+        hint = (f"_shared/login-{auth['providers'][0]}.json 부터 만드세요 "
+                f"(감지된 방식: {', '.join(auth['providers'])})")
+    else:
+        hint = "_shared/login.json 을 만들어 로그인 단계를 한 곳에 두세요"
+
+    return emit({
+        "app_map": str((d / _APP_MAP_FILE).relative_to(root)),
+        "feature_groups": groups,
+        "created_folders": made,
+        "auth": auth,
+        "route_count": len(routes),
+        "screen_count": len(screens),
+        "summary": (f"기능 {len(groups)}개 · 라우트 {len(routes)}개 · "
+                    f"화면 {len(screens)}개 · 인증 {auth['kind']}"
+                    f"({len(auth['providers'])}종)"),
+        "next": hint,
+    })
+
+
+# =========================================================================
 # 시나리오 — 프로젝트마다 다른 "무엇을 어떻게 밟을지"를 파일로 둔다
 # =========================================================================
 
@@ -320,6 +463,7 @@ _SCENARIO_DIRS = ("docs/testing/e2e", ".projectops/e2e")
 _TEMPLATE = {
     "name": "{무엇을 밟는지 한 줄}",
     "description": "{왜 이 경로가 중요한지}",
+    "precondition": None,   # 예: "_shared/login-kakao" — 앞에 붙일 흐름
     "reset": {
         "device": "pm clear",
         "server": "{테스트 계정을 지우는 명령. 없으면 null}",
@@ -398,24 +542,94 @@ def _validate(data: dict) -> list[str]:
     return problems
 
 
+def _scenario_files(d: Path) -> list[Path]:
+    """시나리오 파일 목록. flows/ 하위와 _shared/ 를 함께 본다.
+
+    app-map·learned 는 시나리오가 아니므로 제외한다.
+    """
+    if not d.is_dir():
+        return []
+    skip = {_APP_MAP_FILE, _NOTE_FILE}
+    out = [f for f in d.rglob("*.json")
+           if f.name not in skip and not f.name.startswith("learned.broken-")]
+    return sorted(out)
+
+
+def _resolve_scenario(d: Path, name: str) -> Path | None:
+    """이름으로 파일을 찾는다. `flows/auth/x` 처럼 경로를 줘도, `x` 만 줘도 된다."""
+    direct = d / f"{name}.json"
+    if direct.exists():
+        return direct
+    matches = [f for f in _scenario_files(d) if f.stem == name]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _expand(d: Path, path: Path, seen: list[str] | None = None) -> tuple[dict, list[str]]:
+    """전제를 펼쳐 전체 단계를 만든다.
+
+    로그인처럼 거의 모든 시나리오의 앞에 붙는 흐름을 매번 적지 않게 한다.
+    순환 참조는 여기서 끊는다 — 무한 재귀로 죽는 대신 문제로 보고한다.
+    """
+    import json
+    seen = seen or []
+    key = str(path)
+    if key in seen:
+        return {}, [f"전제가 순환합니다: {' → '.join(seen + [key])}"]
+    data = json.loads(path.read_text(encoding="utf-8"))
+    pre = data.get("precondition")
+    if not pre:
+        return data, []
+
+    target = _resolve_scenario(d, pre)
+    if target is None:
+        return data, [f"전제 '{pre}' 를 찾지 못했습니다"]
+    base, problems = _expand(d, target, seen + [key])
+    merged = dict(data)
+    merged["steps"] = list(base.get("steps", [])) + list(data.get("steps", []))
+    merged["_precondition_steps"] = len(base.get("steps", []))
+    if base.get("reset") and not data.get("reset"):
+        merged["reset"] = base["reset"]
+    return merged, problems
+
+
 def cmd_scenario(args) -> int:
     root = Path(args.root).resolve()
     d = _scenario_dir(root, create=(args.action == "init"))
 
     if args.action == "list":
-        files = sorted(d.glob("*.json")) if d.is_dir() else []
+        files = _scenario_files(d)
+        rows = []
+        for f in files:
+            rel = f.relative_to(d)
+            # flows/{그룹}/x.json → 그룹 / _shared/x.json → _shared
+            # 루트에 그냥 있으면 아직 분류되지 않은 것이다
+            if len(rel.parts) > 2 and rel.parts[0] == _FLOWS_DIR:
+                group = rel.parts[1]
+            elif len(rel.parts) > 1:
+                group = rel.parts[0]
+            else:
+                group = "(미분류)"
+            rows.append({"file": str(rel), "name": _safe_name(f), "group": group})
         return emit({
             "dir": str(d),
-            "scenarios": [{"file": f.name, "name": _safe_name(f)} for f in files],
+            "scenarios": rows,
             "summary": f"{len(files)}개" if files else "시나리오 없음",
-            "next": None if files else f"scenario init --name {{이름}} --root {root}",
+            "next": None if files else f"bootstrap --path {root} 로 폴더부터 만드세요",
         })
 
     if args.action == "init":
         if not args.name:
             return emit({"ok": False, "code": "name_required",
                          "error": "--name 으로 파일 이름을 정하세요"})
-        f = d / f"{args.name}.json"
+        # --group 을 주면 flows/{그룹}/ 아래, _shared 면 전제로 둔다
+        if args.group == _SHARED_DIR:
+            target_dir = d / _SHARED_DIR
+        elif args.group:
+            target_dir = d / _FLOWS_DIR / args.group
+        else:
+            target_dir = d
+        target_dir.mkdir(parents=True, exist_ok=True)
+        f = target_dir / f"{args.name}.json"
         if f.exists() and not args.force:
             return emit({"ok": False, "code": "already_exists",
                          "error": f"{f} 가 이미 있습니다", "hint": "--force 로 덮어씁니다"})
@@ -431,17 +645,18 @@ def cmd_scenario(args) -> int:
     # show
     if not args.name:
         return emit({"ok": False, "code": "name_required", "error": "--name 을 지정하세요"})
-    f = d / f"{args.name}.json"
-    if not f.exists():
-        return emit({"ok": False, "code": "not_found", "error": f"{f} 없음",
+    f = _resolve_scenario(d, args.name)
+    if f is None:
+        return emit({"ok": False, "code": "not_found",
+                     "error": f"'{args.name}' 을 찾지 못했습니다",
                      "next": f"scenario list --root {root}"})
     import json
     try:
-        data = json.loads(f.read_text(encoding="utf-8"))
+        data, pre_problems = _expand(d, f)
     except json.JSONDecodeError as e:
         return emit({"ok": False, "code": "invalid_json", "error": f"{f}: {e}"})
 
-    problems = _validate(data)
+    problems = _validate(data) + pre_problems
     # 템플릿 자리를 안 채운 채 실행하면 엉뚱한 걸 누른다 — 문제로 잡는다
     placeholders = [k for k in json.dumps(data, ensure_ascii=False).split('"')
                     if k.startswith("{") and k.endswith("}")]
@@ -452,8 +667,10 @@ def cmd_scenario(args) -> int:
     return emit({
         "ok": not problems,
         "code": "ok" if not problems else "scenario_invalid",
-        "file": str(f),
+        "file": str(f.relative_to(d)),
         "scenario": data,
+        "precondition": data.get("precondition"),
+        "precondition_steps": data.get("_precondition_steps", 0),
         "problems": problems,
         "unfilled_placeholders": placeholders[:10],
         "summary": (f"{data.get('name','?')} — {len(data.get('steps',[]))}단계"
@@ -516,6 +733,7 @@ credentials*
 *.env
 frames/
 raw/
+runs/
 learned.broken-*.json
 
 # 화면 캡처 원본은 올리지 않는다 — 소셜 로그인 화면에는 계정이 그대로 찍힌다.
@@ -795,8 +1013,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_sc.add_argument("action", choices=["init", "list", "show"])
     p_sc.add_argument("--name", help="시나리오 파일 이름 (확장자 제외)")
     p_sc.add_argument("--root", default=".", help="프로젝트 루트")
+    p_sc.add_argument("--group",
+                      help="init: flows/{그룹}/ 아래에 만든다. _shared 면 전제로 둔다")
     p_sc.add_argument("--force", action="store_true", help="init 시 덮어쓰기")
     p_sc.set_defaults(func=cmd_scenario)
+
+    p_b = sub.add_parser("bootstrap", help="앱 구조를 스캔하고 기능별 폴더를 만든다")
+    p_b.add_argument("--path", default=".", help="프로젝트 경로")
+    p_b.set_defaults(func=cmd_bootstrap)
 
     p_e = sub.add_parser("edges", help="코드에서 밟아야 할 실패 경로를 뽑는다")
     p_e.add_argument("--path", default=".", help="프로젝트 경로")
