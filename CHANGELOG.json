@@ -1,14 +1,43 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-16T07:04:29Z",
-    "currentVersion": "4.8.0",
+    "lastUpdated": "2026-09-17T10:58:38Z",
+    "currentVersion": "4.9.0",
     "projectType": "basic",
-    "totalReleases": 240,
+    "totalReleases": 241,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.9.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-17",
+      "pr_number": 575,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * Flutter 앱을 실제 에뮬레이터에서 직접 조작해 검증하는 pro-flutter-e2e 스킬이 추가되었습니다\n  * 앱 구조를 한 번에 파악하고 기능별 시나리오 폴더를 만들어 줍니다\n  * 로그인처럼 반복되는 흐름을 한 곳에 두고 가져다 쓸 수 있습니다\n  * 코드에서 검증이 필요한 실패 경로를 찾아 제안합니다\n\n* **개선**\n  * 테스트 과정에서 나오는 로그와 화면 캡처가 실수로 저장소에 올라가지 않도록 막습니다\n  * 기록에 계정 정보가 섞이면 저장을 거부하고 이유를 알려줍니다",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "Flutter 앱을 실제 에뮬레이터에서 직접 조작해 검증하는 pro-flutter-e2e 스킬이 추가되었습니다",
+            "앱 구조를 한 번에 파악하고 기능별 시나리오 폴더를 만들어 줍니다",
+            "로그인처럼 반복되는 흐름을 한 곳에 두고 가져다 쓸 수 있습니다",
+            "코드에서 검증이 필요한 실패 경로를 찾아 제안합니다"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "테스트 과정에서 나오는 로그와 화면 캡처가 실수로 저장소에 올라가지 않도록 막습니다",
+            "기록에 계정 정보가 섞이면 저장을 거부하고 이유를 알려줍니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.8.0",
       "project_type": "basic",
