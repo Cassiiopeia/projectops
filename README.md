@@ -175,7 +175,6 @@ npx projectops --mode skills
 | 스킬 | 용도 |
 |------|------|
 | `/pro-testcase` | 이슈 분석 → QA 체크리스트 생성 |
-| `/pro-spring-test` | Spring Boot 테스트 샘플 코드 생성 |
 | `/pro-flutter-e2e` | Flutter 앱을 실제 에뮬레이터·시뮬레이터에서 직접 조작해 검증 |
 | `/pro-synology-expose` | Synology NAS 외부 도메인 노출 설정 가이드 |
 | `/pro-ssh` | 원격 서버 SSH 접속·명령 실행 (AWS EC2, 시놀로지 NAS, Linux 등 범용) |

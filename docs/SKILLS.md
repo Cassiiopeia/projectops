@@ -350,20 +350,6 @@ GitHub 이슈를 읽고 관련 코드를 탐색한 뒤, **QA용 테스트 체크
 
 ---
 
-### `/pro-spring-test`
-
-**무엇을 하나요?**
-Spring Boot 프로젝트용 테스트 샘플 코드를 생성합니다. `build.gradle` / `pom.xml`에서 **`suh-logger` 의존성과 멀티모듈 여부를 자동 감지**해서 적절한 템플릿을 선택하고, 대상 클래스와 동일한 패키지 경로에 테스트 파일을 만듭니다.
-
-**수정되는 것**: 테스트 클래스 파일 생성
-**돌려주는 것**: 바로 실행 가능한 Spring Boot 테스트 샘플
-
-**언제 쓰나요?**
-- Spring Boot 프로젝트에서 테스트 초기 세팅
-- `suh-logger` 기반 로깅 테스트 필요
-
----
-
 ### `/pro-flutter-e2e`
 
 **무엇을 하나요?**
@@ -380,8 +366,7 @@ Flutter 앱을 **실제 에뮬레이터·시뮬레이터에서 직접 조작해*
 - 사용자가 겪은 버그 재현 — 유닛 테스트로 안 잡히는 것들
 - 릴리스 빌드에서만 나는 문제 (R8·서명·manifest는 debug에서 재현되지 않는다)
 
-> `/pro-testcase`(QA 문서 생성)·`/pro-spring-test`(테스트 코드 생성)와 다릅니다 —
-> 이 skill은 앱을 **실행**합니다.
+> `/pro-testcase`(QA 문서 생성)와 다릅니다 — 이 skill은 앱을 **실행**합니다.
 
 ---
 
@@ -475,7 +460,6 @@ flowchart TD
 | 이슈만 빠르게 초안 작성 | `issue` |
 | PR 설명 / 발표 자료 / QA 체크리스트 생성 | `report` / `ppt` / `testcase` |
 | Figma 디자인을 코드로 변환 | `figma` |
-| Spring Boot 테스트 샘플 생성 | `spring-test` |
 | Synology 외부 노출 가이드 | `synology-expose` |
 | 원격 서버 SSH 접속·명령 실행 | `ssh` |
 | 빌드 실행 / 에러 분석 | `build` |

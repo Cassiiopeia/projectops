@@ -584,7 +584,6 @@ claude plugin install projectops@projectops-marketplace --scope user
 | `note` | 막혔을 때 과거 기록 검색, 알아낸 것 기록 |
 | `build` | 빌드 관리 |
 | `figma` | Figma 연동 |
-| `spring-test` | Spring 테스트 생성 |
 | `init-worktree` | Git worktree 생성 |
 | `commit` | 이슈 기반 커밋 자동화 |
 | `github` | GitHub 전반: 이슈 생성/조회/수정/댓글/라벨/담당자, PR 생성/머지/조회, 레포 탐색, Actions 로그, Secret 관리 (이슈 작성+등록 포함) |
