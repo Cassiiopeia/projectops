@@ -40,6 +40,41 @@ version: "1.0"
 
 ---
 
+## 필요한 도구 — 시작 전에 점검한다 ⚠️
+
+사람마다 설치 상태가 다르다. **중간에 멈추지 않으려면 먼저 확인한다** (아래 Phase 0의
+`detect` 대신 `doctor`를 먼저 부르면 된다).
+
+| 도구 | 필수 | 없으면 | 설치 |
+| --- | --- | --- | --- |
+| `adb` | Android면 필수 | 아무것도 못 한다 | Android Studio → SDK Manager → SDK Tools → Platform-Tools |
+| `emulator` | 아니오 | 이미 켜진 기기만 쓸 수 있다 | 같은 곳 → Android Emulator |
+| `xcrun` | iOS면 필수 | iOS 검증 불가 (**macOS에서만 존재**) | Xcode |
+| Pillow · `sips` · `ffmpeg` 중 하나 | 아니오 | 이슈에 붙일 이미지를 줄이지 못한다 | `pip install pillow` (어느 OS든 됨) |
+| `ffmpeg` | 아니오 | 애니메이션을 수치로 검증하지 못한다 | `brew install ffmpeg` / `apt install ffmpeg` / `winget install ffmpeg` |
+| DB 클라이언트 | 서버 대조 시 | 서버 데이터를 못 본다 | 프로젝트가 쓰는 DB에 맞춰 |
+
+```bash
+# Phase 0의 5줄 패턴과 동일, 마지막 줄만 doctor
+PYTHONIOENCODING=utf-8 "$PYTHON" e2e_cli.py doctor
+```
+
+`ok:false`면 무엇이 없고 어떻게 설치하는지 함께 돌려준다. **필수가 빠졌으면 사용자에게
+설치를 안내하고 멈춘다** (이유: 없는 채로 시작하면 절반쯤 가서 막히고, 그때는 기기 상태가
+이미 더럽혀져 있다).
+
+### 플랫폼별로 다른 것
+
+| | macOS | Linux | Windows |
+| --- | --- | --- | --- |
+| Android 기기 제어 | 된다 | 된다 | 된다 (Git Bash 기준) |
+| iOS 시뮬레이터 | 된다 | **불가** | **불가** |
+| 이미지 축소 | Pillow·sips | Pillow·ffmpeg | Pillow·ffmpeg |
+| SDK 기본 경로 | `~/Library/Android/sdk` | `~/Android/Sdk` | `%LOCALAPPDATA%\Android\Sdk` |
+
+`adb`·`emulator`가 PATH에 없어도 스크립트가 위 표준 경로를 찾는다. 그래도 못 찾으면
+사용자에게 설치 경로를 묻는다 — **추측해서 진행하지 않는다.**
+
 ## Phase 0 — 환경 파악 (자동, 질문 없음)
 
 전부 코드에서 읽어낸다. 사용자에게 묻지 않는다 (이유: 물어보면 사용자도 찾아봐야 한다).
