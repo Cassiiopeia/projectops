@@ -668,46 +668,52 @@ jobs:
 
       # 빌드 정보 파일 생성
       - name: Create build info file
+        # ⚠️ heredoc 을 쓰지 않는다 (#597).
+        #    `<< EOF` 의 종료자는 **컬럼 0** 이어야 하는데, if 블록 안에 두면 들여쓰게 된다.
+        #    그러면 셸이 종료자를 못 찾고 스크립트 끝까지 읽어 `syntax error: unexpected
+        #    end of file` 로 죽는다. `<<-` 로 바꿔도 탭만 허용해 해결되지 않는다.
+        #    (딸려 있던 `sed -E 's/^ {10}//'` 도 실은 아무 일도 안 했다 — YAML의 `run: |`
+        #     이 공통 들여쓰기를 이미 걷어내기 때문이다.)
+        env:
+          # 이슈 제목을 셸 소스에 직접 박으면 큰따옴표나 $(...) 가 들어왔을 때
+          # 문자열이 깨지거나 명령이 실행된다. 값으로 넘겨 "$VAR" 로 받는다.
+          BUILD_NUMBER: ${{ needs.prepare-test-build.outputs.build_number }}
+          PR_NUMBER: ${{ needs.prepare-test-build.outputs.pr_number }}
+          COMMIT_SHORT: ${{ needs.prepare-test-build.outputs.commit_hash }}
+          ISSUE_NUMBER: ${{ needs.prepare-test-build.outputs.issue_number }}
+          ISSUE_TITLE: ${{ needs.prepare-test-build.outputs.issue_title }}
+          ISSUE_URL: ${{ needs.prepare-test-build.outputs.issue_url }}
         run: |
-          BUILD_NUMBER="${{ needs.prepare-test-build.outputs.build_number }}"
-          PR_NUMBER="${{ needs.prepare-test-build.outputs.pr_number }}"
           BRANCH_NAME="${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}"
           COMMIT_SHA="${{ github.sha }}"
-          COMMIT_SHORT="${{ needs.prepare-test-build.outputs.commit_hash }}"
           BUILD_DATE=$(date '+%Y-%m-%d %H:%M:%S')
 
-          cat << EOF | sed -E 's/^ {10}//' > build-info.txt
-          테스트 APK 빌드 정보
-
-          빌드 번호: #$BUILD_NUMBER
-          EOF
+          {
+            echo "테스트 APK 빌드 정보"
+            echo ""
+            echo "빌드 번호: #$BUILD_NUMBER"
+          } > build-info.txt
 
           if [ -n "$PR_NUMBER" ]; then
-            cat << EOF | sed -E 's/^ {12}//' >> build-info.txt
-            PR 번호: #$PR_NUMBER
-            EOF
+            echo "PR 번호: #$PR_NUMBER" >> build-info.txt
           fi
 
-          cat << EOF | sed -E 's/^ {10}//' >> build-info.txt
-          브랜치: $BRANCH_NAME
-          커밋: $COMMIT_SHORT
-          전체 커밋 해시: $COMMIT_SHA
-          빌드 날짜: $BUILD_DATE
-
-          EOF
+          {
+            echo "브랜치: $BRANCH_NAME"
+            echo "커밋: $COMMIT_SHORT"
+            echo "전체 커밋 해시: $COMMIT_SHA"
+            echo "빌드 날짜: $BUILD_DATE"
+            echo ""
+          } >> build-info.txt
 
           # 이슈 정보가 있으면 추가
-          if [ -n "${{ needs.prepare-test-build.outputs.issue_number }}" ]; then
-            ISSUE_NUMBER="${{ needs.prepare-test-build.outputs.issue_number }}"
-            ISSUE_TITLE="${{ needs.prepare-test-build.outputs.issue_title }}"
-            ISSUE_URL="${{ needs.prepare-test-build.outputs.issue_url }}"
-
-            cat << EOF | sed -E 's/^ {12}//' >> build-info.txt
-            관련 이슈:
-            - #$ISSUE_NUMBER: $ISSUE_TITLE
-            - URL: $ISSUE_URL
-
-            EOF
+          if [ -n "$ISSUE_NUMBER" ]; then
+            {
+              echo "관련 이슈:"
+              echo "- #$ISSUE_NUMBER: $ISSUE_TITLE"
+              echo "- URL: $ISSUE_URL"
+              echo ""
+            } >> build-info.txt
           fi
 
           echo "📋 빌드 정보 파일 생성 완료:"
