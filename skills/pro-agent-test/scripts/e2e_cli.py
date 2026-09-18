@@ -7,7 +7,9 @@ Flutter 프로젝트를 실기기에서 밟기 전에 필요한 값들을 한 �
 서브커맨드:
     detect   프로젝트 루트·패키지명·번들ID·API URL·연결된 기기를 한 번에 조사
     devices  연결/부팅된 기기만 조회
-    backend  서버 로그·DB 고아 행 대조 (화면만 봐서는 못 잡는 것)
+    db       SQL 실행 (붙는 법은 access 에 적어 둔 대로)
+    logs     서버 로그 (보는 법도 access 에 적어 둔 대로)
+    access   이 프로젝트에 붙는 법을 적어 두고 꺼내 쓴다
 
 출력: MCP-style JSON (ok/code/summary/next 4필드 보장).
 """
@@ -29,20 +31,10 @@ _SCRIPTS_ROOT = _PROJECT_ROOT / "scripts"
 if str(_SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_ROOT))
 
-from common.emit import emit as _emit_raw  # noqa: E402
+from common.emit import emit  # noqa: E402
 
 
-def emit(payload: dict) -> int:
-    """공통 emit에 "지식을 옮겼다"는 알림을 얹는다.
 
-    이전은 어느 명령에서든 일어날 수 있다(note·scenario·bootstrap...). 호출부마다
-    챙기면 반드시 빠뜨리는 자리가 생기므로 출력 길목 한 곳에서 처리한다.
-    한 번 실어 보내면 비운다 — 같은 실행에서 두 번 알릴 이유가 없다.
-    """
-    if _MIGRATION_NOTES:
-        payload = {**payload, "migrated": list(_MIGRATION_NOTES)}
-        _MIGRATION_NOTES.clear()
-    return _emit_raw(payload)
 
 
 def _sdk_tool(name: str) -> str | None:
@@ -323,7 +315,7 @@ def cmd_doctor(args) -> int:
     # 산출물 보호 상태 — 로그·스크린샷이 쌓이는 폴더에 방어가 있는지
     root = Path(args.root).resolve()
     guarded, unguarded = [], []
-    for rel in list(_SCENARIO_DIRS) + ["docs/testing/screenshots"]:
+    for rel in ["docs/testing/e2e", "docs/testing/screenshots"]:
         d = root / rel
         if not d.is_dir():
             continue
@@ -449,13 +441,18 @@ def cmd_detect(args) -> int:
             "playwright": _playwright_state(),
         }
 
-    # ── 서버: API 주소와 DB 접속 경로
+    # ── 서버: 주소 후보와, 붙는 법이 이미 적혀 있는지
+    #
+    # 설정이 어디 있고 어떻게 붙는지는 **여기서 맞히지 않는다.** 프로젝트마다 다르고
+    # (application.yml · .env · settings.py · ormconfig), 붙는 길도 제각각이다
+    # (로컬 · SSH 경유 · 컨테이너 안). agent가 코드를 읽어 판단하고 access 에 적는다 (#589).
     if "server" in targets:
-        conf = _backend_conf(root)
+        saved = _load_access(root)
         payload["server"] = {
-            "config_file": conf.get("file"),
             "base_urls": _api_base_urls(root),
-            "db": {k: v for k, v in (conf.get("db") or {}).items() if k != "password"},
+            "access_recorded": sorted(saved) or None,
+            "next": (None if saved.get("db") else
+                     "코드를 읽어 DB에 붙는 법을 알아낸 뒤 access set --key db --json '{...}'"),
         }
 
     payload["summary"] = (
@@ -533,274 +530,11 @@ def cmd_devices(args) -> int:
 # 부트스트랩 — 이 앱이 어떻게 생겼는지 코드에서 읽어낸다
 # =========================================================================
 
-_APP_MAP_FILE = "app-map.json"
 _SHARED_DIR = "_shared"
 _FLOWS_DIR = "flows"
 
 
-def _scan_routes(lib: Path) -> list[dict]:
-    """라우트 상수와 GoRoute 경로를 모은다.
 
-    경로 자체가 기능 계층을 담고 있는 경우가 많다(`/guardian/routine/input`).
-    첫 세그먼트를 그룹 후보로 삼아 어느 폴더에 시나리오를 둘지 정하는 데 쓴다.
-    """
-    routes: list[dict] = []
-    seen = set()
-    for f in lib.rglob("*.dart"):
-        if ".g.dart" in f.name or ".freezed.dart" in f.name:
-            continue
-        try:
-            text = f.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            continue
-        for m in re.finditer(r"static const (\w+)\s*=\s*'(/[^']*)'", text):
-            name, path = m.group(1), m.group(2)
-            if path in seen:
-                continue
-            seen.add(path)
-            seg = [x for x in path.split("/") if x]
-            routes.append({"const": name, "path": path,
-                           "group": seg[0] if seg else "root"})
-    return sorted(routes, key=lambda r: r["path"])
-
-
-def _scan_feature_groups(lib: Path) -> list[str]:
-    d = lib / "features"
-    if not d.is_dir():
-        return []
-    return sorted(x.name for x in d.iterdir()
-                  if x.is_dir() and not x.name.startswith("."))
-
-
-def _scan_screens(lib: Path) -> list[dict]:
-    out = []
-    for f in sorted(lib.rglob("*_screen.dart")):
-        rel = f.relative_to(lib)
-        parts = rel.parts
-        group = parts[1] if len(parts) > 2 and parts[0] == "features" else "core"
-        out.append({"file": str(rel), "group": group,
-                    "name": f.stem.replace("_screen", "")})
-    return out
-
-
-def _scan_auth(lib: Path) -> dict:
-    """로그인 방식을 추정한다. 앱마다 다르므로 단정하지 않고 근거를 함께 남긴다."""
-    providers, evidence = [], []
-    for f in lib.rglob("*.dart"):
-        if ".g.dart" in f.name:
-            continue
-        try:
-            text = f.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            continue
-        m = re.search(r"enum\s+\w*(?:OAuth|Social|Login)\w*Provider\s*\{([^}]*)\}",
-                      text, re.S)
-        if m:
-            body = m.group(1)
-            providers = [x.strip() for x in re.findall(r"^\s*(\w+)[,;]", body, re.M)]
-            evidence.append(str(f.relative_to(lib)))
-            break
-    kind = "social" if providers else ("unknown" if not evidence else "custom")
-    return {"kind": kind, "providers": providers, "evidence": evidence}
-
-
-def _scan_web(root: Path) -> dict:
-    """웹의 페이지·라우트를 훑는다.
-
-    프레임워크마다 규칙이 달라 완벽할 수 없다. 시나리오를 쓸 때 "어디가 있더라"를
-    줄여 주는 것이 목적이고, 판단은 사람이 한다.
-    """
-    pages, routes = [], []
-    skip = ("node_modules", "build", "dist", ".next", ".git")
-    for d in ("app", "pages", "src"):
-        base = root / d
-        if not base.is_dir():
-            continue
-        for f in sorted(base.rglob("*")):
-            if not f.is_file() or any(x in f.parts for x in skip):
-                continue
-            if f.suffix not in (".tsx", ".jsx", ".ts", ".js", ".vue", ".svelte"):
-                continue
-            rel = str(f.relative_to(root))
-            # Next.js app/pages 규칙: 파일 위치가 곧 경로다
-            if d in ("app", "pages") and f.stem in ("page", "index", "route"):
-                seg = f.parent.relative_to(base)
-                routes.append({"path": "/" + str(seg).replace(".", "").strip("/"), "file": rel})
-            elif "page" in f.stem.lower() or "screen" in f.stem.lower() or "view" in f.stem.lower():
-                pages.append({"name": f.stem, "file": rel})
-            # 라우터 정의에서 경로를 뽑는다
-            try:
-                body = f.read_text(encoding="utf-8", errors="ignore")
-            except OSError:
-                continue
-            for m in re.finditer(r"""path:\s*['"]([^'"]+)['"]""", body):
-                routes.append({"path": m.group(1), "file": rel})
-    # 같은 경로가 여러 번 잡히므로 정리한다
-    seen, uniq = set(), []
-    for r in routes:
-        if r["path"] in seen:
-            continue
-        seen.add(r["path"])
-        uniq.append(r)
-    return {"routes": uniq[:80], "pages": pages[:80]}
-
-
-def _scan_server(root: Path) -> dict:
-    """서버의 엔드포인트를 훑는다. 서버 시나리오는 이 목록에서 시작한다."""
-    eps = []
-    skip = ("node_modules", "build", "dist", ".venv", ".git", "target")
-    rules = [
-        # Spring
-        (r'@(Get|Post|Put|Delete|Patch)Mapping\(\s*(?:value\s*=\s*)?"([^"]*)"', "spring"),
-        (r'@RequestMapping\(\s*(?:value\s*=\s*)?"([^"]*)"', "spring"),
-        # Express·Nest
-        (r"""\b(?:app|router)\.(get|post|put|delete|patch)\(\s*['"]([^'"]+)['"]""", "node"),
-        # FastAPI·Flask
-        (r"""@(?:app|router)\.(get|post|put|delete|patch)\(\s*['"]([^'"]+)['"]""", "python"),
-    ]
-    for d in ("src", "app", "api", "."):
-        base = root / d if d != "." else root
-        if not base.is_dir():
-            continue
-        for f in sorted(base.rglob("*")):
-            if not f.is_file() or any(x in f.parts for x in skip):
-                continue
-            if f.suffix not in (".java", ".kt", ".py", ".ts", ".js"):
-                continue
-            try:
-                body = f.read_text(encoding="utf-8", errors="ignore")
-            except OSError:
-                continue
-            rel = str(f.relative_to(root))
-            for pat, kind in rules:
-                for m in re.finditer(pat, body):
-                    g = m.groups()
-                    method = g[0].upper() if len(g) > 1 else "ANY"
-                    path = g[-1]
-                    eps.append({"method": method, "path": path, "file": rel, "kind": kind})
-            if len(eps) > 300:
-                break
-        if d == ".":
-            break
-    seen, uniq = set(), []
-    for e in eps:
-        key = (e["method"], e["path"])
-        if key in seen:
-            continue
-        seen.add(key)
-        uniq.append(e)
-    return {"endpoints": uniq[:120]}
-
-
-def cmd_bootstrap(args) -> int:
-    """앱 구조를 스캔해 app-map.json에 적고 기능별 폴더를 만든다.
-
-    매번 코드를 뒤져 라우트를 찾지 않도록 한 번 읽어 둔다. 폴더를 미리 만들어 두면
-    새 기능의 시나리오를 어디에 넣을지 고민할 일이 없다 — 코드와 같은 이름이다.
-    """
-    import json
-    from datetime import date
-
-    root = Path(args.path).resolve()
-    target = getattr(args, "target", None) or (detect_targets(root)["targets"] or ["app"])[0]
-
-    groups: list[str] = []
-    extra: dict = {}
-    flutter_root = None
-    if target == "app":
-        flutter_root = _find_flutter_root(root)
-        if flutter_root is None:
-            return emit({"ok": False, "code": "flutter_project_not_found",
-                         "error": f"{root} 아래에서 Flutter 프로젝트를 찾지 못했습니다",
-                         "hint": "--target web|server 로 대상을 알려주세요"})
-        lib = flutter_root / "lib"
-        groups = _scan_feature_groups(lib)
-        extra = {"routes": _scan_routes(lib), "screens": _scan_screens(lib),
-                 "auth": _scan_auth(lib)}
-    elif target == "web":
-        extra = _scan_web(root)
-        # 경로 첫 조각을 기능 그룹으로 삼는다 — 앱의 lib/features 와 같은 역할이다
-        for r in extra.get("routes", []):
-            seg = r["path"].strip("/").split("/")[0]
-            if seg and not seg.startswith((":", "*", "[")) and seg not in groups:
-                groups.append(seg)
-    else:  # server
-        extra = _scan_server(root)
-        for e in extra.get("endpoints", []):
-            parts = [x for x in e["path"].strip("/").split("/") if x and not x.startswith(("{", ":"))]
-            seg = parts[1] if len(parts) > 1 and parts[0] == "api" else (parts[0] if parts else "")
-            if seg and seg not in groups:
-                groups.append(seg)
-    groups = groups[:20]
-
-    d = _scenario_dir(root, create=True)
-    (d / _SHARED_DIR).mkdir(exist_ok=True)
-    flows = d / _FLOWS_DIR
-    flows.mkdir(exist_ok=True)
-    made = []
-    for g in groups:
-        sub = flows / g
-        if not sub.exists():
-            sub.mkdir()
-            made.append(g)
-        keep = sub / ".gitkeep"
-        if not any(sub.iterdir()):
-            keep.touch()
-
-    app_map = {
-        "scanned": date.today().isoformat(),
-        "target": target,
-        "flutter_root": (str(flutter_root.relative_to(root))
-                         if flutter_root and flutter_root != root else
-                         ("." if flutter_root else None)),
-        "feature_groups": groups,
-        # 타겟마다 담기는 것이 다르다 — app은 라우트·화면·인증, web은 라우트·페이지,
-        # server는 엔드포인트. 없는 키를 억지로 만들지 않는다.
-        **extra,
-    }
-    (d / _APP_MAP_FILE).write_text(
-        json.dumps(app_map, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-
-    # 로그인 전제 템플릿을 제안한다 — 방식이 프로젝트마다 다르므로 만들지는 않는다
-    auth = extra.get("auth") or {}
-    if auth.get("kind") == "social" and auth.get("providers"):
-        hint = (f"_shared/login-{auth['providers'][0]}.json 부터 만드세요 "
-                f"(감지된 방식: {', '.join(auth['providers'])})")
-    else:
-        hint = "_shared/login.json 을 만들어 로그인 단계를 한 곳에 두세요"
-
-    # 타겟마다 셀 것이 다르다. 없는 것을 0으로 적으면 "못 찾았다"와 구분되지 않는다.
-    counts = {}
-    for key in ("routes", "screens", "pages", "endpoints"):
-        if key in extra:
-            counts[f"{key}_count"] = len(extra[key])
-    made_summary = " · ".join(f"{k.replace('_count','')} {v}개" for k, v in counts.items())
-
-    return emit({
-        "target": target,
-        "app_map": str((d / _APP_MAP_FILE).relative_to(root))
-                   if str(d).startswith(str(root)) else str(d / _APP_MAP_FILE),
-        "feature_groups": groups,
-        "created_folders": made,
-        **({"auth": auth} if auth else {}),
-        **counts,
-        "summary": (f"[{target}] 기능 {len(groups)}개"
-                    + (f" · {made_summary}" if made_summary else "")
-                    + (f" · 인증 {auth['kind']}({len(auth.get('providers') or [])}종)"
-                       if auth else "")),
-        "next": hint,
-    })
-
-
-# =========================================================================
-# 시나리오 — 프로젝트마다 다른 "무엇을 어떻게 밟을지"를 파일로 둔다
-# =========================================================================
-
-# 예전 위치. 이제 쓰지 않지만, 여기 있던 것을 홈으로 옮겨 오기 위해 남겨 둔다.
-_SCENARIO_DIRS = ("docs/testing/e2e", ".projectops/e2e")
-
-# 이전이 일어났을 때 사용자에게 알릴 말. 명령 결과에 실어 보낸다.
-_MIGRATION_NOTES: list[str] = []
 
 def _template_for(target: str) -> dict:
     """타겟에 맞는 시나리오 본보기. 타겟마다 밟는 단위와 판정 근거가 다르다."""
@@ -808,7 +542,6 @@ def _template_for(target: str) -> dict:
         "name": "{무엇을 밟는지 한 줄}",
         "description": "{왜 이 경로가 중요한지}",
         "target": target,
-        "mode": "e2e",
         "precondition": None,   # 예: "_shared/login-kakao" — 앞에 붙일 흐름
         "steps": [dict(_STEP_TEMPLATES[target])],
     }
@@ -871,17 +604,14 @@ _STEP_TEMPLATES = {
     },
 }
 
-# ── 두 개의 독립 축 (이슈 #586) ──────────────────────────────────────────
+# ── 타겟 = 무엇으로 조작하나 ─────────────────────────────────────────────
 #
-# target = 무엇으로 조작하나. mode = 무슨 종류의 테스트인가.
-# 둘을 한 축으로 묶으면 "웹에서 밟으며 서버 DB를 확인"하는 조합이 표현되지 않는다.
-# target이 정하는 것은 `do`를 누가 실행하느냐뿐이고, expect_*는 타겟과 무관하게 붙는다.
+# **target이 정하는 것은 `do`를 누가 실행하느냐뿐이다.** expect_* 는 타겟과 무관하게 붙는다.
+# 그래서 "웹에서 밟으며 서버 DB를 확인"하는 조합이 자연스럽게 표현된다 —
+# 조작 대상과 판정 근거는 다른 이야기다.
 TARGETS = ("app", "web", "server")
-MODES = ("e2e", "load")
-
 # 값이 없는 예전 시나리오는 여기로 떨어진다 — 기존 파일을 한 글자도 고치지 않기 위해서다.
 DEFAULT_TARGET = "app"
-DEFAULT_MODE = "e2e"
 
 # 타겟별로 인정하는 기대 결과. 하나도 없으면 "화면이 떴으니 통과"로 끝나므로 막는다.
 _EXPECT_KEYS = {
@@ -895,10 +625,6 @@ def scenario_target(data: dict) -> str:
     """시나리오의 조작 대상. 모르는 값이면 기본값으로 떨어뜨리지 않고 그대로 돌려준다
     — _validate가 잡아서 사용자에게 알려야 조용히 엉뚱한 것을 밟지 않는다."""
     return data.get("target") or DEFAULT_TARGET
-
-
-def scenario_mode(data: dict) -> str:
-    return data.get("mode") or DEFAULT_MODE
 
 
 def _ensure_gitignore(d: Path) -> bool:
@@ -919,7 +645,7 @@ def _ensure_gitignore(d: Path) -> bool:
             body = gi.read_text(encoding="utf-8")
         except OSError:
             return False
-        if _GITIGNORE_UNSAFE in body and ("pro-agent-test" in body or "pro-flutter-e2e" in body):
+        if _GITIGNORE_UNSAFE in body and "pro-agent-test" in body:
             gi.write_text(_GITIGNORE, encoding="utf-8")
             return True
         return False
@@ -946,40 +672,6 @@ def _home_dir(root: Path) -> Path:
     return Path.home() / ".projectops" / "agent-test" / _repo_key(root)
 
 
-def _migrate_from_project(root: Path, home: Path) -> str | None:
-    """예전 위치(프로젝트 안)에 있던 것을 홈으로 한 번 옮긴다.
-
-    **복사가 아니라 이동이다.** 두 곳에 남으면 어느 쪽이 최신인지 알 수 없어진다.
-    옮겼다는 사실은 호출부가 사용자에게 알린다 — 프로젝트 폴더에서 파일을 찾다가
-    없어서 당황하지 않게.
-    """
-    for rel in _SCENARIO_DIRS:
-        old_dir = root / rel
-        if not old_dir.is_dir():
-            continue
-        moved = []
-        home.mkdir(parents=True, exist_ok=True)
-        for item in old_dir.iterdir():
-            if item.name == ".gitignore":
-                continue        # 예전 위치를 막던 규칙은 따라갈 이유가 없다
-            dest = home / item.name
-            if dest.exists():
-                continue        # 홈이 이미 갖고 있으면 그쪽이 최신이다
-            shutil.move(str(item), str(dest))
-            moved.append(item.name)
-        if moved:
-            note = f"{old_dir} → {home} ({', '.join(sorted(moved))})"
-            # 남은 것이 우리가 쓴 .gitignore뿐이면 알려준다. **지우지는 않는다** —
-            # 사용자 저장소의 파일을 묻지 않고 없애지 않는다는 규칙이 우선이다.
-            rest = [f.name for f in old_dir.iterdir()]
-            if rest == [".gitignore"]:
-                body = (old_dir / ".gitignore").read_text(encoding="utf-8", errors="replace")
-                if _GITIGNORE_MARK in body or _GITIGNORE_MARK_LEGACY in body:
-                    note += f" · 빈 폴더가 남았습니다: {old_dir} (지워도 됩니다)"
-            return note
-    return None
-
-
 def _scenario_dir(root: Path, create: bool = False) -> Path:
     """시나리오·지식을 둘 곳.
 
@@ -991,13 +683,7 @@ def _scenario_dir(root: Path, create: bool = False) -> Path:
     자동으로 옮겨 온다.
     """
     home = _home_dir(root)
-    if home.is_dir():
-        return home
-    note = _migrate_from_project(root, home)
-    if note:
-        _MIGRATION_NOTES.append(note)
-        return home
-    if create:
+    if create and not home.is_dir():
         home.mkdir(parents=True, exist_ok=True)
     return home
 
@@ -1014,14 +700,6 @@ def _validate(data: dict) -> list[str]:
     if target not in TARGETS:
         problems.append(f"target '{target}' 을 모릅니다 — {'·'.join(TARGETS)} 중 하나여야 합니다")
         target = DEFAULT_TARGET
-    mode = scenario_mode(data)
-    if mode not in MODES:
-        problems.append(f"mode '{mode}' 를 모릅니다 — {'·'.join(MODES)} 중 하나여야 합니다")
-    elif mode == "load":
-        # 축만 예약해 둔 상태다. 밟겠다고 나섰다가 중간에 멈추는 것보다 먼저 말해 준다.
-        problems.append("mode 'load'(부하)는 아직 구현되지 않았습니다 — 다음 작업입니다")
-    if mode == "load" and target != "server":
-        problems.append("부하는 server 타겟에서만 의미가 있습니다 — UI로는 부하를 걸 수 없습니다")
     expect_keys = _EXPECT_KEYS[target]
 
     steps = data.get("steps")
@@ -1050,7 +728,7 @@ def _scenario_files(d: Path) -> list[Path]:
     """
     if not d.is_dir():
         return []
-    skip = {_APP_MAP_FILE, _NOTE_FILE}
+    skip = {"app-map.json", _NOTE_FILE}   # app-map 은 bootstrap 시절 산출물
     out = [f for f in d.rglob("*.json")
            if f.name not in skip and not f.name.startswith("learned.broken-")]
     return sorted(out)
@@ -1204,8 +882,10 @@ _SECRET_PATTERNS = [
     (r'[\w.+-]+@[\w-]+\.[\w.]{2,}', "이메일 주소"),
     (r'01[016-9][-\s]?\d{3,4}[-\s]?\d{4}', "전화번호"),
     (r'eyJ[\w-]{10,}\.[\w-]{10,}', "JWT 토큰"),
-    (r'(?i)\b(password|passwd|비밀번호|비번)\b\s*[:=]?\s*\S{4,}', "비밀번호"),
-    (r'(?i)\b(secret|api[_-]?key|access[_-]?token)\b\s*[:=]\s*\S{8,}', "비밀 값"),
+    # 따옴표를 허용해야 JSON도 잡힌다. 예전 패턴은 yaml(`password: x`)만 보고
+    # `{"password": "x"}` 를 놓쳤다 — 기록에 원문이 그대로 들어갔다 (#589).
+    (r'(?i)["\']?\b(password|passwd|비밀번호|비번)\b["\']?\s*[:=]?\s*["\']?\S{4,}', "비밀번호"),
+    (r'(?i)["\']?\b(secret|api[_-]?key|access[_-]?token)\b["\']?\s*[:=]\s*["\']?\S{8,}', "비밀 값"),
 ]
 
 
@@ -1228,9 +908,6 @@ def _find_secrets(text: str) -> list[str]:
 # 서버 주소가 적힌 파일이 공개 레포에 올라갈 뻔했다. 무엇이 생길지 미리 다 알 수 없으므로
 # 막는 쪽을 기본값으로 둔다 — 올리고 싶은 것이 생기면 그때 한 줄씩 예외를 적는다.
 _GITIGNORE_MARK = "# pro-agent-test — 산출물 폴더"
-# 옛 이름으로 깔린 프로젝트가 이미 있다. 마커를 갈아끼우면 우리가 쓴 파일을 남의 것으로
-# 오해해 손대지 않게 되므로, 알아보기만은 계속 한다 (이슈 #586 개명).
-_GITIGNORE_MARK_LEGACY = "# pro-flutter-e2e — 산출물 폴더"
 
 _GITIGNORE = f"""{_GITIGNORE_MARK}
 #
@@ -1422,336 +1099,7 @@ def cmd_note(args) -> int:
 # =========================================================================
 
 # (정규식, 무엇을 밟아야 하는가, 어떻게 만드는가)
-_EDGE_RULES = [
-    (r'catch\s*\(|on\s+\w*Exception', "예외 경로",
-     "이 예외를 실제로 일으켜 화면이 무엇을 보여주는지 본다"),
-    (r'DioException|SocketException|TimeoutException|HttpException', "네트워크 실패",
-     "svc wifi disable && svc data disable 로 끊고 밟는다"),
-    (r'\.isEmpty|length\s*==\s*0|\bemptyState\b|비어', "빈 목록",
-     "데이터가 0건인 계정으로 들어가 로딩과 구분되는 화면이 있는지 본다"),
-    (r'Permission\.|requestPermission|permission_handler', "권한 거부",
-     "pm revoke 로 권한을 뺏고 앱이 죽지 않는지, 우회 경로를 주는지 본다"),
-    (r'\bnull\b\s*\?\?|\?\?\s|\bfallback\b|폴백', "폴백 값",
-     "폴백이 실제로 쓰이는 상황을 만들어 그 값이 맞는지 본다"),
-    (r'errorCode|error_code|에러\s*코드|E-\d{3,}', "에러 코드 노출",
-     "실패를 일으켜 화면에 식별자가 보이는지 본다 — 제보 추적에 필요하다"),
-    (r'expire|만료|refreshToken|재발급', "토큰 만료",
-     "서버에서 토큰을 폐기하고 앱이 갱신 또는 재로그인으로 가는지 본다"),
-    (r'retry|재시도|다시\s*시도', "재시도",
-     "실패 상태에서 재시도가 실제로 동작하는지 본다"),
-]
-
-
-def cmd_edges(args) -> int:
-    """코드를 훑어 밟아야 할 실패 경로를 제안한다.
-
-    해피 패스는 개발자가 이미 수십 번 밟는다. 버그는 catch 블록과 폴백 안에 있는데,
-    그 코드는 대개 한 번도 실행되지 않은 채 배포된다. 여기서 목록을 뽑아 Phase 1의
-    단계 목록에 넣는다.
-
-    판단은 하지 않는다 — 후보를 모아 줄 뿐이고, 무엇을 밟을지는 사람이 고른다.
-    """
-    root = Path(args.path).resolve()
-    target = getattr(args, "target", None) or (detect_targets(root)["targets"] or ["app"])[0]
-
-    # 타겟마다 코드가 사는 곳과 확장자가 다르다. 앱만 훑으면 웹·서버에서는 아무것도 못 준다.
-    scan_dirs: list[Path] = []
-    exts: tuple[str, ...] = ()
-    if target == "app":
-        lib = root / "lib"
-        if not lib.is_dir():
-            found = _find_flutter_root(root)
-            lib = (found / "lib") if found else None
-        if not lib or not lib.is_dir():
-            return emit({"ok": False, "code": "lib_not_found",
-                         "error": f"{root} 아래에서 lib/ 를 찾지 못했습니다",
-                         "hint": "--target web|server 로 대상을 알려주세요"})
-        scan_dirs, exts = [lib], (".dart",)
-    elif target == "web":
-        for name in ("src", "app", "pages", "components", "lib"):
-            d = root / name
-            if d.is_dir():
-                scan_dirs.append(d)
-        exts = (".ts", ".tsx", ".js", ".jsx", ".vue", ".svelte")
-    else:  # server
-        for name in ("src", "app", "api"):
-            d = root / name
-            if d.is_dir():
-                scan_dirs.append(d)
-        exts = (".java", ".kt", ".py", ".ts", ".js")
-
-    if not scan_dirs:
-        return emit({"ok": False, "code": "source_dir_not_found",
-                     "error": f"{root} 아래에서 훑을 소스 폴더를 찾지 못했습니다",
-                     "hint": "코드가 있는 경로를 --path 로 지정하세요"})
-
-    hits: dict[str, list[dict]] = {}
-    scanned = 0
-    files = [f for d in scan_dirs for f in sorted(d.rglob("*"))
-             if f.is_file() and f.suffix in exts
-             and not any(x in f.parts for x in ("node_modules", "build", ".venv", "dist"))]
-    for f in files[:4000]:      # 큰 저장소에서 끝없이 도는 것을 막는다
-        if ".g.dart" in f.name or ".freezed.dart" in f.name:
-            continue        # 생성 파일은 사람이 밟을 경로가 아니다
-        scanned += 1
-        try:
-            lines = f.read_text(encoding="utf-8", errors="ignore").splitlines()
-        except OSError:
-            continue
-        for i, line in enumerate(lines, 1):
-            for pattern, label, how in _EDGE_RULES:
-                if re.search(pattern, line):
-                    hits.setdefault(label, []).append({
-                        "file": str(f.relative_to(root)),
-                        "line": i,
-                        "code": line.strip()[:100],
-                        "how": how,
-                    })
-                    break
-
-    summary_rows = sorted(((k, len(v)) for k, v in hits.items()),
-                          key=lambda x: -x[1])
-    return emit({
-        "scanned_files": scanned,
-        "categories": [
-            {"edge": k, "count": len(v), "how": v[0]["how"],
-             "samples": v[:args.samples]}
-            for k, v in sorted(hits.items(), key=lambda x: -len(x[1]))
-        ],
-        "summary": f"{scanned}개 파일 · " + ", ".join(f"{k} {n}" for k, n in summary_rows[:5]),
-        "next": "밟을 것을 골라 시나리오의 steps 에 넣으세요 — 전부 밟을 필요는 없습니다",
-    })
-
-
-# =========================================================================
-# 백엔드 대조 — 화면만 봐서는 못 잡는 것들
-# =========================================================================
-#
-# 앱을 밟는 것만으로는 "서버에 무엇이 남았는가"와 "앱이 무엇을 보냈는가"를 알 수 없다.
-# 실제로 이 두 가지를 봐야만 드러난 버그들이 있었다.
-#   - 탈퇴가 서버에서 실패했는데 앱은 성공처럼 굴었다 (DB에 계정이 남아 있어 알았다)
-#   - 화면에 없던 선택 동의가 true로 전송됐다 (요청 본문 로그에서 드러났다)
-#   - 탈퇴 후 참조가 끊긴 행이 남았다 (고아 행을 훑어야 보인다)
-#
-# 매번 psql·curl을 조립하지 않도록 여기에 둔다. 접속 정보는 **파일에서 읽기만** 하고
-# 출력·기록 어디에도 남기지 않는다.
-
 _SECRET_KEYS = ("password", "secret", "token", "key")
-
-
-def _mask(v: str) -> str:
-    return "***" if v else ""
-
-
-def _read_spring_config(yml: Path) -> dict:
-    """Spring application-*.yml 에서 DB 접속 정보와 관리자 계정을 읽는다.
-
-    yaml 모듈에 의존하지 않는다 — 표준 라이브러리만으로 돌아야 어느 환경에서든 뜬다.
-    필요한 건 몇 줄뿐이라 정규식으로 충분하다.
-    """
-    text = yml.read_text(encoding="utf-8", errors="replace")
-    out: dict = {"db": None, "admin": None, "base_url": None}
-
-    m = re.search(r"jdbc:(postgresql|mysql)://([^:/\s]+):(\d+)/(\S+?)\s*$",
-                  text, re.M)
-    if m:
-        ds = re.search(r"datasource:(.{0,400})", text, re.S)
-        blk = ds.group(1) if ds else text
-        user = re.search(r"username:\s*(\S+)", blk)
-        pw = re.search(r"password:\s*(\S+)", blk)
-        out["db"] = {
-            "engine": m.group(1),
-            "host": m.group(2),
-            "port": m.group(3),
-            "name": m.group(4).strip("\"'"),
-            "user": user.group(1).strip("\"'") if user else None,
-            "password": pw.group(1).strip("\"'") if pw else None,
-        }
-
-    am = re.search(r"admin:\s*\n\s*accounts:\s*\n\s*-\s*username:\s*(\S+)\s*\n\s*password:\s*(\S+)",
-                   text)
-    if am:
-        out["admin"] = {"username": am.group(1).strip("\"'"),
-                        "password": am.group(2).strip("\"'")}
-
-    bu = re.search(r"servers:\s*\n\s*-\s*url:\s*(\S+)", text)
-    if bu:
-        out["base_url"] = bu.group(1).strip("\"'")
-    return out
-
-
-def _find_spring_config(root: Path) -> Path | None:
-    """운영 프로필을 먼저 찾는다 — 실제로 대조해야 하는 곳은 거기다."""
-    for pat in ("application-prod.yml", "application-prod.yaml",
-                "application.yml", "application.yaml"):
-        hits = sorted(root.glob(f"**/src/main/resources/{pat}"))
-        if hits:
-            return hits[0]
-    return None
-
-
-def _psql(db: dict, sql: str, timeout: int = 40) -> tuple[bool, str]:
-    exe = shutil.which("psql")
-    if not exe:
-        return False, "psql 이 없습니다 (brew install libpq 또는 postgresql-client)"
-    env = dict(os.environ,
-               PGHOST=db["host"], PGPORT=str(db["port"]), PGDATABASE=db["name"],
-               PGUSER=db["user"] or "", PGPASSWORD=db["password"] or "")
-    try:
-        r = subprocess.run([exe, "-tAF", "\t", "-c", sql],
-                           env=env, capture_output=True, text=True, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        return False, f"psql 응답 없음 ({timeout}초)"
-    if r.returncode != 0:
-        return False, (r.stderr or "").strip()[:300]
-    return True, r.stdout
-
-
-_ORPHAN_SQL_TABLES = """
-select c.table_name, c.column_name
-from information_schema.columns c
-join information_schema.tables t
-  on t.table_name = c.table_name and t.table_schema = c.table_schema
-where c.table_schema = 'public' and t.table_type = 'BASE TABLE'
-  and c.column_name like '%\\_id'
-"""
-
-_ORPHAN_SQL_FK = """
-select kcu.table_name, kcu.column_name, ccu.table_name, rc.delete_rule
-from information_schema.table_constraints tc
-join information_schema.key_column_usage kcu
-  on tc.constraint_name = kcu.constraint_name
-join information_schema.constraint_column_usage ccu
-  on tc.constraint_name = ccu.constraint_name
-join information_schema.referential_constraints rc
-  on tc.constraint_name = rc.constraint_name
-where tc.constraint_type = 'FOREIGN KEY' and tc.table_schema = 'public'
-"""
-
-
-def _orphan_scan(db: dict) -> dict:
-    """참조가 끊긴 행을 찾는다.
-
-    외래키가 **없는** `*_id` 컬럼이 진짜 위험한 곳이다. DB가 대신 지워 주지 않으므로
-    삭제 코드에서 빠뜨리면 조용히 남는다. 실제로 그렇게 남은 표가 있었다.
-    부모 표 이름은 `member_id -> member` 처럼 접미사를 떼어 추측한다.
-    """
-    ok, out = _psql(db, _ORPHAN_SQL_FK)
-    if not ok:
-        return {"error": out}
-    fk = {}
-    for line in out.strip().splitlines():
-        parts = line.split("\t")
-        if len(parts) == 4:
-            fk[(parts[0], parts[1])] = {"refs": parts[2], "delete_rule": parts[3]}
-
-    ok, out = _psql(db, _ORPHAN_SQL_TABLES)
-    if not ok:
-        return {"error": out}
-    cols = [tuple(l.split("\t")) for l in out.strip().splitlines() if "\t" in l]
-
-    ok, out = _psql(db, "select table_name from information_schema.tables "
-                        "where table_schema='public' and table_type='BASE TABLE'")
-    if not ok:
-        return {"error": out}
-    tables = {l.strip() for l in out.strip().splitlines() if l.strip()}
-
-    checked, skipped = [], []
-    for table, col in cols:
-        parent = col[:-3]                       # member_id -> member
-        if parent not in tables:
-            parent_alt = parent + "s"
-            if parent_alt in tables:
-                parent = parent_alt
-            else:
-                skipped.append({"table": table, "column": col,
-                                "why": "부모 표를 이름으로 찾지 못함"})
-                continue
-        rel = fk.get((table, col))
-        sql = (f'select count(*) from "{table}" x '
-               f'where x."{col}" is not null and not exists '
-               f'(select 1 from "{parent}" p where p.id = x."{col}")')
-        ok, out = _psql(db, sql)
-        if not ok:
-            skipped.append({"table": table, "column": col, "why": out[:120]})
-            continue
-        n = int(out.strip() or 0)
-        checked.append({
-            "table": table, "column": col, "parent": parent, "orphans": n,
-            "fk": rel["delete_rule"] if rel else None,
-        })
-    return {"checked": checked, "skipped": skipped}
-
-
-def _admin_log_tail(base: str, admin: dict, paths: dict, lines: int) -> tuple[bool, str]:
-    """관리자 폼 로그인을 거쳐 로그를 받아온다.
-
-    폼 로그인은 CSRF 토큰을 먼저 받아야 한다. 이걸 모르면 403만 보고 "로그를 못 본다"로
-    끝난다 — 실제로 한 번 그렇게 막혔다. 순서를 여기에 고정해 둔다.
-    """
-    import http.cookiejar
-    import json as _json
-    import urllib.error
-    import urllib.parse
-    import urllib.request
-
-    jar = http.cookiejar.CookieJar()
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
-
-    login_url = base.rstrip("/") + paths["login"]
-    try:
-        with opener.open(login_url, timeout=20) as r:
-            html = r.read().decode("utf-8", "replace")
-    except Exception as e:                      # noqa: BLE001
-        return False, f"로그인 화면을 열지 못했습니다: {e}"
-
-    m = re.search(r'name="_csrf"[^>]*value="([^"]+)"', html)
-    data = {"username": admin["username"], "password": admin["password"]}
-    if m:
-        data["_csrf"] = m.group(1)
-    body = urllib.parse.urlencode(data).encode()
-    try:
-        opener.open(urllib.request.Request(login_url, data=body), timeout=20).read()
-    except urllib.error.HTTPError as e:
-        hint = " (CSRF 토큰을 찾지 못했습니다)" if not m else ""
-        return False, f"관리자 로그인 실패 HTTP {e.code}{hint}"
-    except Exception as e:                      # noqa: BLE001
-        return False, f"관리자 로그인 실패: {e}"
-
-    tail_url = f"{base.rstrip('/')}{paths['tail']}?lines={lines}"
-    try:
-        with opener.open(tail_url, timeout=30) as r:
-            raw = r.read().decode("utf-8", "replace")
-    except Exception as e:                      # noqa: BLE001
-        return False, f"로그를 받지 못했습니다: {e}"
-
-    try:
-        return True, _json.loads(raw).get("content", "")
-    except ValueError:
-        # JSON이 아니면 로그인 화면으로 밀린 것이다 — 세션이 안 붙었다는 뜻.
-        return False, "로그 대신 HTML이 왔습니다 — 관리자 세션이 유지되지 않았습니다"
-
-
-_ADMIN_DEFAULTS = {"login": "/admin/login", "tail": "/admin/logs/api/tail"}
-
-
-def _backend_conf(root: Path) -> dict:
-    """app-map.json 의 backend 섹션. 없으면 그 자리에서 찾아 본다."""
-    import json
-    d = _scenario_dir(root, create=False)
-    if d:
-        f = d / _APP_MAP_FILE
-        if f.exists():
-            try:
-                got = json.loads(f.read_text(encoding="utf-8")).get("backend")
-                if got:
-                    return got
-            except ValueError:
-                pass
-    yml = _find_spring_config(root)
-    return {"kind": "spring" if yml else "unknown",
-            "db_config": str(yml.relative_to(root)) if yml else None,
-            "admin": dict(_ADMIN_DEFAULTS)}
 
 
 # ── 서버 타겟: API 시퀀스를 밟는다 (이슈 #586) ───────────────────────────
@@ -2204,7 +1552,7 @@ def cmd_api(args) -> int:
             row["response"] = res["json"]
             checks.append({"expect_json": st["expect_json"], "ok": None})
         if st.get("expect_server"):
-            row["expect_server"] = st["expect_server"]   # DB 대조는 backend 서브커맨드로
+            row["expect_server"] = st["expect_server"]   # 실제 조회는 db 서브커맨드로
 
         for key, expr in (st.get("save") or {}).items():
             val = _jsonpath(res["json"], expr) if res["json"] is not None else None
@@ -2229,141 +1577,319 @@ def cmd_api(args) -> int:
         "summary": (f"{len(results)}단계 전부 통과" if done
                     else f"{failed_at}번째 단계에서 멈춤"),
         "next": (None if done else
-                 "backend  # 서버 로그·DB를 대조해 원인을 좁히세요"),
+                 "logs --root <루트>  # 서버 로그로 원인을 좁히세요. 없으면 access set --key logs"),
     })
 
 
-def cmd_backend(args) -> int:
-    """서버 쪽을 대조한다 — probe / orphans / logs."""
-    import json
-    from datetime import date
+# ── DB 대조 (이슈 #589) ──────────────────────────────────────────────────
+#
+# **접속 방법은 agent가 정한다.** 프로젝트마다 설정이 사는 곳이 다르고(application.yml ·
+# .env · settings.py · ormconfig), 붙는 길도 제각각이다 — 로컬 DB · 열린 포트 · SSH로
+# 들어가야만 닿는 DB · 컨테이너 안에서 실행 · 터널 경유.
+#
+# 예전에는 py가 Spring의 application-prod.yml을 찾아 psql로 붙는 한 가지만 했다.
+# 그 바깥은 전부 못 했고, MySQL은 읽어 놓고 psql로 붙으려다 조용히 실패했다.
+# 이제 py는 **받은 대로 실행만 한다.**
 
+# 엔진별 클라이언트. 없는 엔진은 추측하지 않고 그렇다고 말한다.
+_DB_CLIENTS = {
+    "postgres": "psql",
+    "postgresql": "psql",
+    "mysql": "mysql",
+    "mariadb": "mysql",
+}
+
+
+def _db_argv(engine: str, db: dict, sql: str) -> tuple[list[str], dict]:
+    """엔진에 맞는 명령과 환경변수를 만든다. 비밀번호는 argv가 아니라 env로 넘긴다 —
+    argv는 같은 기기의 다른 프로세스에서 보인다."""
+    exe = _DB_CLIENTS[engine]
+    env = {}
+    if exe == "psql":
+        argv = [exe, "-tAF", "\t", "-c", sql]
+        env = {"PGHOST": db.get("host") or "", "PGPORT": str(db.get("port") or ""),
+               "PGDATABASE": db.get("name") or "", "PGUSER": db.get("user") or "",
+               "PGPASSWORD": db.get("password") or ""}
+    else:
+        argv = [exe, "-N", "-B"]
+        if db.get("host"):
+            argv += ["-h", db["host"]]
+        if db.get("port"):
+            argv += ["-P", str(db["port"])]
+        if db.get("user"):
+            argv += ["-u", db["user"]]
+        if db.get("name"):
+            argv += [db["name"]]
+        argv += ["-e", sql]
+        if db.get("password"):
+            env = {"MYSQL_PWD": db["password"]}
+    return argv, env
+
+
+def _shq(s: str) -> str:
+    """원격 셸에 넘길 값을 감싼다."""
+    return "'" + str(s).replace("'", """'"'"'""") + "'"
+
+
+# ── 접근 방법 기록 (이슈 #589) ───────────────────────────────────────────
+#
+# **어떻게 DB에 붙고 로그를 보는지는 agent가 코드를 읽고 판단한다.**
+# 서버는 Spring·Django·FastAPI·Express·NestJS·Rails… 끝이 없고, 같은 프레임워크라도
+# 설정이 사는 곳과 붙는 길이 제각각이다. 정규식으로 맞히려는 시도는 성립하지 않는다.
+#
+# 그래서 py는 찾지 않는다. agent가 알아낸 것을 여기에 적어 두고, 다음 실행은 그것을 쓴다.
+# learned.json과 같은 자리(프로젝트 밖)에 있어 워크트리를 오가도 남는다.
+
+_ACCESS_FILE = "access.json"
+
+
+def _access_path(root: Path) -> Path:
+    return _home_dir(root) / _ACCESS_FILE
+
+
+def _load_access(root: Path) -> dict:
+    f = _access_path(root)
+    if not f.is_file():
+        return {}
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def cmd_access(args) -> int:
+    """이 프로젝트에 어떻게 붙는지를 적어 두고 꺼내 쓴다.
+
+    agent가 코드를 읽어 알아낸 것을 기록한다 — DB 접속, 로그 보는 법, API 주소.
+    비밀번호는 **값을 적지 않는다.** 어느 환경변수에서 읽을지만 적는다.
+    """
     root = Path(args.root).resolve()
-    conf = _backend_conf(root)
-    yml_rel = args.config or conf.get("db_config")
-    yml = (root / yml_rel) if yml_rel else None
-    if yml is None or not yml.exists():
-        return emit({"ok": False, "code": "backend_config_not_found",
-                     "error": "서버 설정 파일을 찾지 못했습니다",
-                     "next": "--config 로 application-*.yml 경로를 주세요"})
-    cfg = _read_spring_config(yml)
-    # 프로필별 파일에는 서버 주소·관리자 계정이 없을 수 있다. 공통 파일에서 채운다 —
-    # 한 파일만 보고 "설정이 없다"고 끝내면 로그를 영영 못 본다.
-    for sibling in ("application.yml", "application.yaml"):
-        f = yml.parent / sibling
-        if f == yml or not f.exists():
-            continue
-        extra = _read_spring_config(f)
-        for key in ("admin", "base_url", "db"):
-            if not cfg.get(key) and extra.get(key):
-                cfg[key] = extra[key]
+    data = _load_access(root)
 
-    if args.action == "probe":
-        admin_paths = dict(conf.get("admin") or _ADMIN_DEFAULTS)
-        # setdefault 로는 못 채운다 — 앞선 probe 가 base: null 을 이미 적어 뒀을 수 있다.
-        if not admin_paths.get("base"):
-            admin_paths["base"] = cfg.get("base_url")
-        # 접속 주소·포트·DB 이름은 **적지 않는다.** 이 파일은 레포에 올라가고
-        # 레포가 공개일 수 있다. 설정 파일이 gitignore 되어 있어도 여기로 새면 의미가 없다.
-        # 매 실행에서 설정 파일을 다시 읽으면 되므로 굳이 남길 이유도 없다.
-        backend = {
-            "kind": "spring",
-            "db_config": str(yml.relative_to(root)),
-            "db_engine": cfg["db"]["engine"] if cfg["db"] else None,
-            "db_reachable": bool(cfg["db"]),
-            "admin": {k: v for k, v in admin_paths.items() if k != "base"},
-            "admin_base_in_config": bool(admin_paths.get("base")),
-            "admin_account_in_config": bool(cfg["admin"]),
-        }
-        d = _scenario_dir(root, create=True)
-        f = d / _APP_MAP_FILE
-        doc = {}
-        if f.exists():
-            try:
-                doc = json.loads(f.read_text(encoding="utf-8"))
-            except ValueError:
-                doc = {}
-        doc["backend"] = backend
-        doc["backend_scanned"] = date.today().isoformat()
-        f.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n",
-                     encoding="utf-8")
+    if args.action == "show":
         return emit({
-            "backend": backend,
-            "summary": (f"{backend['kind']} · {backend['db_engine'] or 'DB 미확인'} · "
-                        f"관리자 계정 {'있음' if cfg['admin'] else '없음'} · "
-                        f"주소는 기록하지 않음(설정 파일에서 매번 읽음)"),
-            "next": "backend orphans / backend logs 를 인자 없이 쓸 수 있습니다",
+            "file": str(_access_path(root)),
+            "access": data,
+            "summary": (f"{', '.join(data)} 기록됨" if data else "아직 기록이 없습니다"),
+            "next": (None if data else
+                     "코드를 읽어 붙는 법을 알아낸 뒤 access set --key db --json '{...}'"),
         })
 
-    if args.action == "orphans":
-        if not cfg["db"]:
-            return emit({"ok": False, "code": "db_not_configured",
-                         "error": f"{yml_rel} 에서 jdbc URL을 찾지 못했습니다"})
-        res = _orphan_scan(cfg["db"])
-        if "error" in res:
-            return emit({"ok": False, "code": "db_query_failed",
-                         "error": res["error"],
-                         "next": "psql 설치와 DB 접근 권한을 확인하세요"})
-        bad = [c for c in res["checked"] if c["orphans"] > 0]
+    if args.action == "set":
+        if not args.key:
+            return emit({"ok": False, "code": "key_required",
+                         "error": "--key 가 필요합니다 (db · logs · base_url 등)"})
+        try:
+            value = json.loads(args.json_value) if args.json_value else None
+        except json.JSONDecodeError as e:
+            return emit({"ok": False, "code": "bad_json", "error": f"--json 이 올바르지 않습니다: {e}"})
+        if value is None:
+            return emit({"ok": False, "code": "value_required", "error": "--json 이 필요합니다"})
+
+        # 비밀번호 원문이 섞여 들어오면 막는다. 파일은 로컬에만 있지만 공유될 수 있다.
+        leaked = _find_secrets(json.dumps(value, ensure_ascii=False))
+        if leaked and not args.allow_secret:
+            return emit({
+                "ok": False, "code": "secret_in_value",
+                "error": "비밀값으로 보이는 것이 들어 있습니다",
+                "found": leaked[:5],
+                "hint": '값 대신 읽을 곳을 적으세요. 예: {"password_env": "ELUM_DB_PASSWORD"}',
+            })
+
+        data[args.key] = value
+        f = _access_path(root)
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        return emit({"file": str(f), "key": args.key, "access": data,
+                     "summary": f"{args.key} 기록 완료"})
+
+    if args.action == "unset":
+        if args.key in data:
+            del data[args.key]
+            _access_path(root).write_text(
+                json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            return emit({"key": args.key, "access": data, "summary": f"{args.key} 지움"})
+        return emit({"key": args.key, "access": data, "code": "not_found",
+                     "summary": f"{args.key} 가 없습니다"})
+
+    return emit({"ok": False, "code": "unknown_action", "error": args.action})
+
+
+def cmd_db(args) -> int:
+    """SQL 한 줄을 실행한다. **어떻게 붙을지는 호출하는 쪽이 정한다.**
+
+    세 가지 길이 있다.
+      --command  임의 명령 (docker exec 등). 가장 자유롭다
+      --via ssh  원격에 들어가 그 안에서 클라이언트를 실행한다
+      (기본)     여기서 직접 붙는다
+    """
+    sql = args.sql
+    if not sql:
+        return emit({"ok": False, "code": "sql_required", "error": "--sql 이 필요합니다"})
+
+    # 적어 둔 접근 방법을 그대로 쓴다. 기록해 놓고 매번 값을 꺼내 조립해야 하면 소용이 없다.
+    # 인자로 직접 준 값이 언제나 이긴다 — 기록이 낡았을 때 빠져나갈 길을 막지 않는다.
+    if args.profile:
+        saved = _load_access(Path(args.root).resolve()).get(args.profile)
+        if not saved:
+            return emit({"ok": False, "code": "profile_not_found",
+                         "error": f"'{args.profile}' 기록이 없습니다",
+                         "next": f"access show --root {args.root}"})
+        if isinstance(saved, dict):
+            for k in ("engine", "host", "port", "db", "user", "password",
+                      "command", "ssh_host", "ssh_user", "ssh_port"):
+                if getattr(args, k, None) in (None, "") and saved.get(k) is not None:
+                    setattr(args, k, saved[k])
+            if saved.get("how") in ("ssh", "direct") and args.via == "direct":
+                args.via = saved["how"]
+            if saved.get("append_sql"):
+                args.append_sql = True
+            # 비밀번호는 값이 아니라 "어디서 읽을지"로 적어 둔다
+            env_key = saved.get("password_env")
+            if env_key and not args.password:
+                args.password = os.environ.get(env_key)
+                if not args.password:
+                    return emit({"ok": False, "code": "password_env_empty",
+                                 "error": f"환경변수 {env_key} 가 비어 있습니다",
+                                 "hint": f"{env_key}=... 를 주고 다시 부르세요"})
+
+    # ① 임의 명령 — agent가 접속을 통째로 정한 경우
+    if args.command:
+        argv = ["bash", "-lc", f"{args.command} {_shq(sql)}"] if args.append_sql \
+               else ["bash", "-lc", args.command]
+        stdin = None if args.append_sql else sql
+        try:
+            r = subprocess.run(argv, input=stdin, capture_output=True, text=True,
+                               timeout=args.timeout)
+        except subprocess.TimeoutExpired:
+            return emit({"ok": False, "code": "db_timeout",
+                         "error": f"응답 없음 ({args.timeout}초)"})
         return emit({
-            "database": cfg["db"]["name"],
-            "checked": res["checked"],
-            "orphans": bad,
-            "skipped": res["skipped"],
-            "summary": (f"{len(res['checked'])}개 참조 중 고아 {len(bad)}곳 "
-                        + (", ".join(f"{c['table']}.{c['column']}={c['orphans']}"
-                                     for c in bad) if bad else "(없음)")),
-            "next": ("외래키가 없는(fk=null) 곳부터 보세요 — DB가 대신 지워 주지 않아 "
-                     "삭제 코드에서 빠뜨리기 쉽습니다" if bad else
-                     "삭제 경로는 깨끗합니다"),
+            "ok": r.returncode == 0, "via": "command",
+        "code": "ok" if r.returncode == 0 else "db_query_failed",
+            "rows": _db_rows(r.stdout), "raw": r.stdout[:4000],
+            "error": (r.stderr or "").strip()[:500] or None,
+            "summary": "실행 완료" if r.returncode == 0 else "실행 실패",
         })
 
-    # logs
-    if not cfg["admin"]:
-        return emit({"ok": False, "code": "admin_account_not_found",
-                     "error": f"{yml_rel} 에서 관리자 계정을 찾지 못했습니다"})
-    admin_paths = dict(_ADMIN_DEFAULTS)
-    admin_paths.update({k: v for k, v in (conf.get("admin") or {}).items() if v})
-    base = args.base or admin_paths.get("base") or cfg.get("base_url")
-    if not base:
-        return emit({"ok": False, "code": "base_url_not_found",
-                     "error": "서버 주소를 찾지 못했습니다",
-                     "next": "--base https://... 로 지정하세요"})
+    engine = (args.engine or "").lower()
+    if engine not in _DB_CLIENTS:
+        return emit({
+            "ok": False, "code": "unsupported_engine",
+            "error": f"engine '{args.engine}' 은 다루지 않습니다",
+            "supported": sorted(set(_DB_CLIENTS)),
+            "hint": "--command 로 직접 실행할 명령을 주면 어떤 DB든 됩니다",
+        })
 
-    ok, content = _admin_log_tail(base, cfg["admin"], admin_paths, args.lines)
-    if not ok:
-        return emit({"ok": False, "code": "log_fetch_failed", "error": content})
+    db = {"host": args.host, "port": args.port, "name": args.db,
+          "user": args.user, "password": args.password or os.environ.get("DB_PASSWORD")}
+    argv, env = _db_argv(engine, db, sql)
 
-    rows = content.split("\n")
-    if args.grep:
-        pat = re.compile(args.grep)
-        rows = [r for r in rows if pat.search(r)]
-    shown = rows[-args.tail:] if args.tail else rows
+    # ② SSH 경유 — 서버 안에서만 닿는 DB
+    if args.via == "ssh":
+        if not args.ssh_host:
+            return emit({"ok": False, "code": "ssh_host_required",
+                         "error": "--ssh-host 가 필요합니다"})
+        remote = " ".join(f"{k}={_shq(v)}" for k, v in env.items() if v)
+        remote += " " + " ".join(_shq(a) for a in argv)
+        dest = f"{args.ssh_user}@{args.ssh_host}" if args.ssh_user else args.ssh_host
+        ssh = ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new"]
+        if args.ssh_port:
+            ssh += ["-p", str(args.ssh_port)]
+        full = ssh + [dest, remote]
+        try:
+            r = subprocess.run(full, capture_output=True, text=True, timeout=args.timeout)
+        except subprocess.TimeoutExpired:
+            return emit({"ok": False, "code": "db_timeout",
+                         "error": f"응답 없음 ({args.timeout}초)"})
+        return emit({
+            "ok": r.returncode == 0, "via": "ssh",
+        "code": "ok" if r.returncode == 0 else "db_query_failed", "engine": engine,
+            "rows": _db_rows(r.stdout), "raw": r.stdout[:4000],
+            "error": (r.stderr or "").strip()[:500] or None,
+            "summary": "실행 완료" if r.returncode == 0 else "실행 실패",
+            "hint": ("비밀번호 없이 붙는 키가 있어야 합니다(BatchMode)"
+                     if r.returncode != 0 else None),
+        })
 
-    out_file = None
-    if args.out:
-        out_path = Path(args.out).expanduser()
-        out_path.write_text(content, encoding="utf-8")
-        out_file = str(out_path)
-
-    errs = [r for r in rows if " ERROR " in r or " WARN " in r]
+    # ③ 직접 — 여기서 붙는다
+    exe = shutil.which(argv[0])
+    if not exe:
+        return emit({
+            "ok": False, "code": "client_missing",
+            "error": f"{argv[0]} 가 없습니다",
+            "install": ("brew install libpq" if argv[0] == "psql" else "brew install mysql-client"),
+            "hint": "--via ssh 로 서버 안에서 실행하거나 --command 로 직접 명령을 주세요",
+        })
+    try:
+        r = subprocess.run([exe] + argv[1:], env=dict(os.environ, **env),
+                           capture_output=True, text=True, timeout=args.timeout)
+    except subprocess.TimeoutExpired:
+        return emit({"ok": False, "code": "db_timeout",
+                     "error": f"응답 없음 ({args.timeout}초)"})
     return emit({
-        "base": base,
-        "lines_requested": args.lines,
-        "matched": len(rows),
-        "errors_or_warnings": len(errs),
-        "content": "\n".join(shown),
-        "saved": out_file,
-        "summary": f"{len(rows)}줄 · ERROR/WARN {len(errs)}건",
-        "next": ("--grep 으로 요청 경로를 좁혀 앱이 실제로 보낸 본문을 확인하세요"
-                 if not args.grep else None),
+        "ok": r.returncode == 0, "via": "direct",
+        "code": "ok" if r.returncode == 0 else "db_query_failed", "engine": engine,
+        "rows": _db_rows(r.stdout), "raw": r.stdout[:4000],
+        "error": (r.stderr or "").strip()[:500] or None,
+        "summary": "실행 완료" if r.returncode == 0 else "실행 실패",
     })
+
+
+def cmd_logs(args) -> int:
+    """서버 로그를 본다. **보는 방법은 적어 둔 것을 쓴다.**
+
+    로그는 컨테이너 안에 있을 수도, 파일일 수도, 관리자 화면에만 있을 수도 있다.
+    py가 맞히려 들지 않는다 — agent가 알아내 access 에 적고, 여기서는 실행만 한다.
+    """
+    root = Path(args.root).resolve()
+    command = args.command
+    if not command:
+        saved = _load_access(root).get(args.profile or "logs")
+        if isinstance(saved, dict):
+            command = saved.get("command")
+        elif isinstance(saved, str):
+            command = saved
+    if not command:
+        return emit({
+            "ok": False, "code": "no_log_command",
+            "error": "로그를 어떻게 보는지 모릅니다",
+            "hint": ('코드를 읽어 알아낸 뒤 적어 두세요. 예: '
+                     'access set --key logs --json \'{"command":"ssh u@h \\"docker logs --tail 200 app\\""}\''),
+        })
+    if args.tail:
+        command = f"{command} | tail -n {int(args.tail)}"
+    if args.grep:
+        command = f"{command} | grep -i -- {_shq(args.grep)}"
+    try:
+        r = subprocess.run(["bash", "-lc", command], capture_output=True, text=True,
+                           timeout=args.timeout)
+    except subprocess.TimeoutExpired:
+        return emit({"ok": False, "code": "logs_timeout",
+                     "error": f"응답 없음 ({args.timeout}초)"})
+    out = r.stdout or ""
+    return emit({
+        "ok": r.returncode == 0,
+        "code": "ok" if r.returncode == 0 else "logs_failed",
+        "lines": out.splitlines()[-(args.tail or 200):],
+        "error": (r.stderr or "").strip()[:500] or None,
+        "summary": f"{len(out.splitlines())}줄" if r.returncode == 0 else "실행 실패",
+    })
+
+
+def _db_rows(out: str) -> list[list[str]]:
+    """탭으로 나뉜 출력을 행 목록으로. 판정은 agent가 한다."""
+    rows = []
+    for line in (out or "").splitlines():
+        if line.strip():
+            rows.append(line.split("\t"))
+    return rows[:200]
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="e2e_cli",
-        description="Flutter 실기기 E2E 준비 조사",
+        description="agent QA — 앱·웹·서버를 밟아 버그를 찾는다",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -2390,19 +1916,6 @@ def build_parser() -> argparse.ArgumentParser:
                       help="init: flows/{그룹}/ 아래에 만든다. _shared 면 전제로 둔다")
     p_sc.add_argument("--force", action="store_true", help="init 시 덮어쓰기")
     p_sc.set_defaults(func=cmd_scenario)
-
-    p_b = sub.add_parser("bootstrap", help="앱 구조를 스캔하고 기능별 폴더를 만든다")
-    p_b.add_argument("--path", default=".", help="프로젝트 경로")
-    p_b.add_argument("--target", default=None,
-                     help=f"훑을 대상 ({'·'.join(TARGETS)}). 생략하면 감지한다")
-    p_b.set_defaults(func=cmd_bootstrap)
-
-    p_e = sub.add_parser("edges", help="코드에서 밟아야 할 실패 경로를 뽑는다")
-    p_e.add_argument("--path", default=".", help="프로젝트 경로")
-    p_e.add_argument("--samples", type=int, default=3, help="분류별로 보여줄 예시 수")
-    p_e.add_argument("--target", default=None,
-                     help=f"훑을 대상 ({'·'.join(TARGETS)}). 생략하면 감지한다")
-    p_e.set_defaults(func=cmd_edges)
 
     p_n = sub.add_parser("note", help="이 프로젝트에서 알아낸 것을 쌓는다")
     p_n.add_argument("action",
@@ -2449,16 +1962,48 @@ def build_parser() -> argparse.ArgumentParser:
     p_api.add_argument("--timeout", type=int, default=30, help="요청당 제한 시간(초)")
     p_api.set_defaults(func=cmd_api)
 
-    p_bk = sub.add_parser("backend", help="서버 로그·DB를 대조한다 (화면만으론 못 잡는 것)")
-    p_bk.add_argument("action", choices=["probe", "orphans", "logs"])
-    p_bk.add_argument("--root", default=".", help="프로젝트 루트")
-    p_bk.add_argument("--config", help="application-*.yml 경로 (미지정 시 자동 탐색)")
-    p_bk.add_argument("--base", help="logs: 서버 주소. 미지정 시 설정에서 읽는다")
-    p_bk.add_argument("--lines", type=int, default=2000, help="logs: 받아올 줄 수")
-    p_bk.add_argument("--grep", help="logs: 이 정규식에 맞는 줄만")
-    p_bk.add_argument("--tail", type=int, default=80, help="logs: 결과 끝 N줄만 출력")
-    p_bk.add_argument("--out", help="logs: 전체를 이 파일로 저장")
-    p_bk.set_defaults(func=cmd_backend)
+    p_ac = sub.add_parser("access", help="이 프로젝트에 붙는 법을 적어 두고 꺼내 쓴다")
+    p_ac.add_argument("action", choices=["show", "set", "unset"])
+    p_ac.add_argument("--root", default=".", help="프로젝트 루트")
+    p_ac.add_argument("--key", default=None, help="db · logs · base_url 등")
+    p_ac.add_argument("--json", dest="json_value", default=None,
+                      help='적을 내용(JSON). 예: {"how":"ssh","engine":"postgres",...}')
+    p_ac.add_argument("--allow-secret", dest="allow_secret", action="store_true",
+                      help="비밀값 경고를 무시한다 (권장하지 않음)")
+    p_ac.set_defaults(func=cmd_access)
+
+    p_db = sub.add_parser("db", help="SQL을 실행한다 (접속 방법은 호출하는 쪽이 정한다)")
+    p_db.add_argument("--sql", required=True, help="실행할 SQL")
+    p_db.add_argument("--engine", default=None, help="postgres · mysql (--command 면 불필요)")
+    p_db.add_argument("--host", default=None)
+    p_db.add_argument("--port", default=None)
+    p_db.add_argument("--db", default=None, help="데이터베이스 이름")
+    p_db.add_argument("--user", default=None)
+    p_db.add_argument("--password", default=None,
+                      help="생략하면 DB_PASSWORD 환경변수를 본다 (권장)")
+    p_db.add_argument("--via", choices=["direct", "ssh"], default="direct",
+                      help="ssh면 원격에 들어가 그 안에서 실행한다")
+    p_db.add_argument("--ssh-host", dest="ssh_host", default=None)
+    p_db.add_argument("--ssh-user", dest="ssh_user", default=None)
+    p_db.add_argument("--ssh-port", dest="ssh_port", default=None)
+    p_db.add_argument("--command", default=None,
+                      help="접속을 통째로 지정한다. 예: \"docker exec -i pg psql -U root -d elum -c\"")
+    p_db.add_argument("--append-sql", dest="append_sql", action="store_true",
+                      help="--command 뒤에 SQL을 인자로 붙인다 (기본은 표준입력으로 넘김)")
+    p_db.add_argument("--profile", default=None,
+                      help="access 에 적어 둔 기록을 쓴다 (예: db). 인자로 준 값이 우선한다")
+    p_db.add_argument("--root", default=".", help="--profile 을 찾을 프로젝트 루트")
+    p_db.add_argument("--timeout", type=int, default=40)
+    p_db.set_defaults(func=cmd_db)
+
+    p_lg = sub.add_parser("logs", help="서버 로그를 본다 (보는 방법은 access 에 적어 둔다)")
+    p_lg.add_argument("--root", default=".", help="프로젝트 루트")
+    p_lg.add_argument("--profile", default=None, help="access 의 어느 키를 쓸지 (기본 logs)")
+    p_lg.add_argument("--command", default=None, help="즉석으로 실행할 명령")
+    p_lg.add_argument("--tail", type=int, default=200)
+    p_lg.add_argument("--grep", default=None)
+    p_lg.add_argument("--timeout", type=int, default=60)
+    p_lg.set_defaults(func=cmd_logs)
 
     p_s = sub.add_parser("shrink", help="이슈 첨부용으로 이미지 축소")
     p_s.add_argument("paths", nargs="+")

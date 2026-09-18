@@ -152,10 +152,13 @@ def test_find_secrets_quiet_on_clean_text():
     assert e2e_cli._find_secrets("홈 화면에서 버튼을 누른다") == []
 
 
-def test_mask_hides_middle():
-    masked = e2e_cli._mask("supersecretvalue")
-    assert "supersecretvalue" not in masked
-    assert "*" in masked
+def test_find_secrets_masks_what_it_reports():
+    """찾았다고 알릴 때 원문을 그대로 실으면 방어의 의미가 없다."""
+    hits = e2e_cli._find_secrets('password: "hunter2supersecret"')
+    assert hits, "못 찾았다"
+    joined = " ".join(hits)
+    assert "hunter2supersecret" not in joined, joined
+    assert "***" in joined, joined
 
 
 # ── 산출물 폴더 보호 ─────────────────────────────────────────────────────
@@ -186,14 +189,6 @@ def test_ensure_gitignore_keeps_handwritten_file():
 
 
 # ── CLI 계약 ─────────────────────────────────────────────────────────────
-
-def test_help_lists_subcommands():
-    rc, out, err = run_cli("--help")
-    combined = out + err
-    for cmd in ["detect", "devices", "doctor", "scenario", "bootstrap",
-                "edges", "note", "backend", "shrink"]:
-        assert cmd in combined, f"{cmd}가 --help에 없다"
-
 
 def test_unknown_subcommand_does_not_crash():
     rc, out, err = run_cli("존재하지-않는-커맨드")
@@ -241,57 +236,12 @@ def test_home_dir_is_outside_project():
         assert str(r) not in str(home)
 
 
-def test_migrate_moves_old_knowledge_to_home():
-    """예전 위치에 쌓인 것이 홈으로 넘어와야 한다 — 13KB를 잃지 않는 경로다."""
-    with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as home_tmp:
-        r = _git_repo(Path(tmp), "https://github.com/o/r.git")
-        old = r / "docs" / "testing" / "e2e"
-        old.mkdir(parents=True)
-        (old / "learned.json").write_text('{"pitfalls":["x"]}', encoding="utf-8")
-        (old / ".gitignore").write_text("*\n", encoding="utf-8")
-        (old / "flows").mkdir()
+# ── 타겟 축 ─────────────────────────────────────────────────────────────
 
-        home = Path(home_tmp) / "agent-test" / "o__r"
-        note = e2e_cli._migrate_from_project(r, home)
-
-        assert note and "learned.json" in note
-        assert (home / "learned.json").exists(), "지식이 옮겨지지 않았다"
-        assert (home / "flows").exists(), "폴더도 함께 옮겨야 한다"
-        # 이동이지 복사가 아니다 — 두 곳에 남으면 어느 쪽이 최신인지 알 수 없다
-        assert not (old / "learned.json").exists(), "원본이 남았다(복사가 됐다)"
-        # 예전 위치를 막던 규칙은 따라갈 이유가 없다
-        assert not (home / ".gitignore").exists()
-
-
-def test_migrate_does_not_overwrite_newer_home():
-    """홈에 이미 있으면 그쪽이 최신이다 — 덮어쓰면 쌓은 것이 날아간다."""
-    with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as home_tmp:
-        r = _git_repo(Path(tmp), "https://github.com/o/r.git")
-        old = r / "docs" / "testing" / "e2e"
-        old.mkdir(parents=True)
-        (old / "learned.json").write_text('{"old":true}', encoding="utf-8")
-
-        home = Path(home_tmp) / "agent-test" / "o__r"
-        home.mkdir(parents=True)
-        (home / "learned.json").write_text('{"new":true}', encoding="utf-8")
-
-        e2e_cli._migrate_from_project(r, home)
-        assert json.loads((home / "learned.json").read_text(encoding="utf-8")) == {"new": True}
-
-
-def test_migrate_returns_none_when_nothing_to_move():
-    with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as home_tmp:
-        r = _git_repo(Path(tmp), "https://github.com/o/r.git")
-        assert e2e_cli._migrate_from_project(r, Path(home_tmp) / "x") is None
-
-
-# ── 타겟·모드 축 (이슈 #586) ─────────────────────────────────────────────
-
-def test_old_scenario_without_axes_still_works():
-    """기존 파일에는 target·mode가 없다. 한 글자도 안 고치고 돌아야 한다."""
-    data = {"name": "예전 것", "steps": [_step()]}
+def test_scenario_without_target_defaults_to_app():
+    """target 을 안 적으면 app 이다. 대부분의 시나리오가 앱이라 매번 적게 하지 않는다."""
+    data = {"name": "x", "steps": [_step()]}
     assert e2e_cli.scenario_target(data) == "app"
-    assert e2e_cli.scenario_mode(data) == "e2e"
     assert e2e_cli._validate(data) == []
 
 
@@ -324,22 +274,6 @@ def test_server_target_rejects_screen_only_expectation():
         "steps": [{"screen": "-", "do": "POST /api/x", "expect_screen": "홈"}],
     })
     assert any("기대 결과가 없습니다" in p for p in problems), problems
-
-
-def test_load_mode_is_reserved_not_silently_accepted():
-    """축만 예약한 상태다. 밟다가 중간에 멈추는 것보다 먼저 말해 준다."""
-    problems = e2e_cli._validate({
-        "name": "x", "target": "server", "mode": "load",
-        "steps": [{"screen": "-", "do": "POST /api/x", "expect_status": 200}],
-    })
-    assert any("아직 구현되지 않았습니다" in p for p in problems), problems
-
-
-def test_load_mode_only_makes_sense_on_server():
-    """UI로는 부하를 걸 수 없다."""
-    problems = e2e_cli._validate({
-        "name": "x", "target": "app", "mode": "load", "steps": [_step()]})
-    assert any("server 타겟에서만" in p for p in problems), problems
 
 
 # ── 타겟 감지 (이슈 #586) ────────────────────────────────────────────────
@@ -649,72 +583,63 @@ def test_web_walks_real_browser():
 
 # ── bootstrap·edges 타겟 분기 (이슈 #586) ────────────────────────────────
 
-def test_scan_server_finds_endpoints_across_frameworks():
-    """서버 시나리오는 엔드포인트 목록에서 시작한다."""
+def test_access_refuses_raw_secret():
+    """비밀번호 원문을 적으려 하면 막는다 — 값이 아니라 읽을 곳을 적어야 한다."""
     with tempfile.TemporaryDirectory() as tmp:
-        r = Path(tmp)
-        (r / "src").mkdir()
-        (r / "src" / "a.js").write_text(
-            "router.post('/api/auth/login', h);\nrouter.get('/api/routines', h);\n",
-            encoding="utf-8")
-        (r / "src" / "B.java").write_text(
-            '@GetMapping("/api/member/me")\npublic X me() {}\n', encoding="utf-8")
-        eps = e2e_cli._scan_server(r)["endpoints"]
-        paths = {(e["method"], e["path"]) for e in eps}
-        assert ("POST", "/api/auth/login") in paths, eps
-        assert ("GET", "/api/routines") in paths, eps
-        assert ("GET", "/api/member/me") in paths, eps
-
-
-def test_scan_web_finds_routes():
-    with tempfile.TemporaryDirectory() as tmp:
-        r = Path(tmp)
-        (r / "src").mkdir()
-        (r / "src" / "router.ts").write_text(
-            "const routes=[{path:'/login'},{path:'/home'}]", encoding="utf-8")
-        got = {x["path"] for x in e2e_cli._scan_web(r)["routes"]}
-        assert {"/login", "/home"} <= got, got
-
-
-def test_bootstrap_on_server_project_does_not_demand_flutter():
-    """앱이 아니어도 폴더와 지도를 만들어야 한다 — 예전에는 여기서 막혔다."""
-    with tempfile.TemporaryDirectory() as tmp:
-        r = _git_repo(Path(tmp), "https://github.com/o/bsrv.git")
-        (r / "package.json").write_text('{"dependencies":{"express":"4"}}', encoding="utf-8")
-        (r / "src").mkdir()
-        (r / "src" / "a.js").write_text("router.get('/api/items', h);", encoding="utf-8")
+        r = _git_repo(Path(tmp), "https://github.com/o/acc.git")
         home = e2e_cli._home_dir(r)
         try:
-            rc, out, err = run_cli("bootstrap", "--path", str(r))
+            rc, out, _ = run_cli("access", "set", "--root", str(r), "--key", "db",
+                                 "--json", '{"password": "hunter2supersecret"}')
             data = json.loads(out)
-            assert data.get("ok") is not False, data
-            assert data["target"] == "server", data
-            assert "items" in data["feature_groups"], data
+            assert data["ok"] is False and data["code"] == "secret_in_value", data
+            assert "password_env" in data["hint"], data
         finally:
             import shutil as _sh
             _sh.rmtree(home, ignore_errors=True)
 
 
-def test_edges_on_server_project_scans_js():
-    """앱의 lib/*.dart만 훑으면 웹·서버에서는 아무것도 못 준다."""
+def test_access_roundtrip():
+    """적어 두고 꺼내 쓰는 것이 이 기록의 전부다."""
     with tempfile.TemporaryDirectory() as tmp:
-        r = _git_repo(Path(tmp), "https://github.com/o/esrv.git")
-        (r / "package.json").write_text('{"dependencies":{"express":"4"}}', encoding="utf-8")
-        (r / "src").mkdir()
-        (r / "src" / "a.js").write_text(
-            "try { x(); } catch (e) { res.status(500); }\n", encoding="utf-8")
-        rc, out, err = run_cli("edges", "--path", str(r))
-        data = json.loads(out)
-        assert data.get("ok") is not False, data
-        assert data["scanned_files"] >= 1, data
+        r = _git_repo(Path(tmp), "https://github.com/o/acc2.git")
+        home = e2e_cli._home_dir(r)
+        try:
+            rc, out, _ = run_cli("access", "set", "--root", str(r), "--key", "db",
+                                 "--json", '{"how":"direct","engine":"postgres",'
+                                           '"host":"127.0.0.1","password_env":"DB_PASSWORD"}')
+            assert json.loads(out).get("ok") is not False, out
+            rc, out, _ = run_cli("access", "show", "--root", str(r))
+            data = json.loads(out)
+            assert data["access"]["db"]["engine"] == "postgres", data
+        finally:
+            import shutil as _sh
+            _sh.rmtree(home, ignore_errors=True)
 
 
-def test_edges_hints_target_when_flutter_missing():
-    """막혔을 때 무엇을 하면 되는지 알려줘야 한다."""
-    with tempfile.TemporaryDirectory() as tmp:
-        r = _git_repo(Path(tmp), "https://github.com/o/nohint.git")
-        rc, out, err = run_cli("edges", "--path", str(r), "--target", "app")
-        data = json.loads(out)
-        assert data["ok"] is False
-        assert "--target" in (data.get("hint") or ""), data
+def test_find_secrets_catches_json_form():
+    """기록은 JSON으로 들어온다. yaml만 보면 원문이 그대로 저장된다 (#589에서 실제로 뚫렸다)."""
+    assert e2e_cli._find_secrets('{"password": "hunter2supersecret"}')
+
+
+def test_find_secrets_allows_env_var_name():
+    """값이 아니라 '어디서 읽을지'를 적는 것은 막으면 안 된다."""
+    assert e2e_cli._find_secrets('{"password_env": "DB_PASSWORD"}') == []
+
+
+def test_find_secrets_allows_connection_info():
+    """host·user는 비밀이 아니다. 여기서 막으면 기록 자체를 못 한다."""
+    assert e2e_cli._find_secrets('{"host":"127.0.0.1","user":"root","port":5432}') == []
+
+
+# ── 남아 있는 것과 내려간 것 (이슈 #589) ─────────────────────────────────
+
+def test_help_lists_current_subcommands():
+    """실행 수단과 기록만 남는다. 프로젝트를 '맞히는' 것은 내려갔다."""
+    rc, out, err = run_cli("--help")
+    combined = out + err
+    for cmd in ["detect", "devices", "doctor", "scenario", "note",
+                "web", "api", "access", "db", "logs", "shrink"]:
+        assert cmd in combined, f"{cmd} 가 --help 에 없다"
+
 
