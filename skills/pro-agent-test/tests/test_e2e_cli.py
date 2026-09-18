@@ -402,3 +402,119 @@ def test_detect_rejects_unknown_target_option():
         data = json.loads(out)
         assert data["ok"] is False and data["code"] == "unknown_target"
 
+
+# ── 서버 타겟: API 시퀀스 (이슈 #586) ────────────────────────────────────
+
+def test_parse_do_reads_method_path_body():
+    m, path, body = e2e_cli._parse_do('POST /api/login {"id": "a"}')
+    assert (m, path, body) == ("POST", "/api/login", {"id": "a"})
+
+
+def test_parse_do_without_body():
+    assert e2e_cli._parse_do("GET /api/me")[:2] == ("GET", "/api/me")
+
+
+def test_parse_do_rejects_garbage():
+    """읽을 수 없는 단계를 그냥 보내면 무엇이 잘못됐는지 알 수 없다."""
+    try:
+        e2e_cli._parse_do("아무 말")
+        assert False, "거절했어야 한다"
+    except ValueError as e:
+        assert "형식" in str(e)
+
+
+def test_fill_substitutes_saved_values():
+    """토큰 체이닝의 핵심 — 앞 응답의 값이 다음 요청에 들어간다."""
+    out = e2e_cli._fill({"h": "Bearer {token}", "n": [1, "{token}"]}, {"token": "abc"})
+    assert out == {"h": "Bearer abc", "n": [1, "abc"]}
+
+
+def test_fill_reports_missing_key():
+    """없는 값을 조용히 빈 문자열로 채우면 401만 받고 원인을 모른다."""
+    try:
+        e2e_cli._fill("Bearer {nope}", {})
+        assert False, "거절했어야 한다"
+    except ValueError as e:
+        assert "nope" in str(e)
+
+
+def test_jsonpath_reads_nested_and_array():
+    data = {"a": {"b": [{"c": "값"}]}}
+    assert e2e_cli._jsonpath(data, "$.a.b[0].c") == "값"
+    assert e2e_cli._jsonpath(data, "$.a.missing") is None
+
+
+def test_api_walks_scenario_with_token_chaining():
+    """실제 HTTP 서버를 띄워 끝까지 밟는다 — 체이닝이 진짜 되는지는 이걸로만 안다."""
+    import http.server
+    import threading
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):  # 테스트 출력을 더럽히지 않는다
+            pass
+
+        def do_POST(self):
+            body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            if self.path == "/api/login":
+                payload, code = {"accessToken": "TKN-1"}, 200
+            elif self.path == "/api/items":
+                # 토큰이 실제로 실려 왔는지 본다
+                ok = self.headers.get("Authorization") == "Bearer TKN-1"
+                payload, code = ({"id": 7}, 201) if ok else ({"error": "no token"}, 401)
+            else:
+                payload, code = {"error": "not found"}, 404
+            raw = json.dumps(payload).encode()
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            r = _git_repo(Path(tmp), "https://github.com/o/apiprobe.git")
+            home = e2e_cli._home_dir(r)
+            _write(home / "flows", "login-create", {
+                "name": "가입 후 생성", "target": "server", "mode": "e2e",
+                "steps": [
+                    {"screen": "-", "do": 'POST /api/login {"id":"a"}',
+                     "expect_status": 200, "save": {"token": "$.accessToken"}},
+                    {"screen": "-", "do": 'POST /api/items {"n":"x"}',
+                     "auth": "{token}", "expect_status": 201},
+                ],
+            })
+            try:
+                rc, out, err = run_cli("api", "--name", "login-create",
+                                       "--root", str(r), "--base-url", base)
+                data = json.loads(out)
+                assert data["ok"] is True, data
+                assert len(data["steps"]) == 2, data
+                # 두 번째가 201이면 토큰이 실제로 실려 갔다는 뜻이다
+                assert data["steps"][1]["http_status"] == 201, data["steps"][1]
+                assert data["saved_keys"] == ["token"], data
+            finally:
+                import shutil as _sh
+                _sh.rmtree(home, ignore_errors=True)
+    finally:
+        srv.shutdown()
+
+
+def test_api_refuses_non_server_scenario():
+    """앱 시나리오를 api로 밟으면 엉뚱한 것을 보낸다."""
+    with tempfile.TemporaryDirectory() as tmp:
+        r = _git_repo(Path(tmp), "https://github.com/o/apiprobe2.git")
+        home = e2e_cli._home_dir(r)
+        _write(home / "flows", "app-one", {"name": "앱", "steps": [_step()]})
+        try:
+            rc, out, err = run_cli("api", "--name", "app-one", "--root", str(r),
+                                   "--base-url", "http://127.0.0.1:1")
+            data = json.loads(out)
+            assert data["ok"] is False and data["code"] == "wrong_target", data
+        finally:
+            import shutil as _sh
+            _sh.rmtree(home, ignore_errors=True)
+
