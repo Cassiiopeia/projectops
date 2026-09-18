@@ -733,7 +733,11 @@ jobs:
 
       - name: 릴리스 태그 생성
         run: |
-          NEW_VERSION="${{ needs.update-changelog.outputs.new_version }}"
+          # ⚠️ 이 스텝은 update-changelog 잡 **안에** 있다. 자기 잡을 needs 로 읽으면
+          # 언제나 빈 문자열이 되어 태그가 "v" 로 만들어진다 — 실제로 v4.8.0 부터
+          # 11개 릴리스의 태그가 그렇게 조용히 누락됐다 (#545). 같은 잡의 출력은
+          # steps.<id>.outputs 로 읽는다.
+          NEW_VERSION="${{ steps.bump_version.outputs.new_version }}"
 
           # 버전이 비면 TAG_NAME 이 "v" 가 되어 이름이 v 뿐인 태그가 올라가고
           # "릴리스 태그 생성: v" 로 **성공 보고**된다. 릴리스가 조용히 누락되는
@@ -775,7 +779,7 @@ jobs:
           echo "🎉 체인지로그 업데이트 및 배포 트리거 완료!"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "📋 배포 정보:"
-          echo "  • 버전: ${{ needs.update-changelog.outputs.new_version }}"
+          echo "  • 버전: ${{ steps.bump_version.outputs.new_version }}"
           echo "  • 프로젝트: ${{ needs.detect-and-parse.outputs.project_type }}"
           echo "  • PR: #${{ github.event.pull_request.number }}"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

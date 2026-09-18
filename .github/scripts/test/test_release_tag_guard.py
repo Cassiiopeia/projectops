@@ -81,3 +81,41 @@ def test_tag_push_is_verified_on_the_remote():
         "태그를 밀어 넣고 확인하지 않는 단계가 있다. "
         "`git ls-remote --tags origin` 으로 실제로 올라갔는지 보세요:\n"
         + "\n".join(missing))
+
+
+def test_no_job_reads_its_own_outputs_through_needs():
+    """잡이 자기 자신을 `needs` 로 읽으면 **언제나 빈 문자열**이다.
+
+    실사고 (#545): 릴리스 태그를 만드는 스텝이 `update-changelog` 잡 **안에** 있으면서
+    `needs.update-changelog.outputs.new_version` 을 읽었다. 자기 잡은 needs 에 없으므로
+    빈 값이 되고, 태그 이름이 `v` 가 됐다.
+
+        NEW_VERSION=""
+        TAG_NAME="v$NEW_VERSION"        → "v"
+        ⚠️ 태그 v 이미 존재 — 건너뜀      → 성공으로 보고
+
+    이름이 `v` 뿐인 태그가 한 번 올라간 뒤로는 멱등 검사에 걸려 **계속 건너뛰었다.**
+    그래서 v4.8.0 부터 11개 릴리스의 태그가 조용히 누락됐고, 워크플로우는 내내 초록불이었다.
+
+    같은 잡의 출력은 `steps.<id>.outputs.<name>` 으로 읽어야 한다.
+    """
+    import yaml
+
+    offenders = []
+    for path in sorted(WF.rglob("*.y*ml")):
+        try:
+            doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except yaml.YAMLError:
+            continue          # 로컬 파서가 못 읽는 것은 여기서 판단하지 않는다
+        if not isinstance(doc, dict):
+            continue
+        for job_id, job in (doc.get("jobs") or {}).items():
+            if not isinstance(job, dict):
+                continue
+            body = yaml.safe_dump(job, allow_unicode=True)
+            if f"needs.{job_id}." in body:
+                offenders.append(f"{path.relative_to(ROOT).as_posix()}: 잡 '{job_id}'")
+
+    assert offenders == [], (
+        "잡이 자기 자신을 needs 로 읽는다 — 값이 언제나 빈 문자열이 된다. "
+        "같은 잡의 출력은 steps.<id>.outputs 로 읽으세요:\n" + "\n".join(offenders))
