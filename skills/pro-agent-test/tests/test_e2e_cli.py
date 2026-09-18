@@ -977,3 +977,57 @@ def test_other_step_without_any_expectation_is_rejected():
         "steps": [{"screen": "빌드", "do": "make"}],
     })
     assert any("기대 결과" in p for p in problems), problems
+
+
+# ── 소셜 로그인 관문 (이슈 #604) ──────────────────────────────────────────
+#
+# 브라우저가 필요한 테스트가 아니다. 계약을 본다 —
+# 비밀번호가 명령줄에 남지 않을 "수단"이 실제로 있는지, 그리고 문서가
+# 판정 신호를 계속 들고 있는지. 둘 다 없으면 다음 사람이 같은 벽에 다시 부딪힌다.
+
+def test_web_accepts_text_env_so_passwords_stay_out_of_the_transcript():
+    """--text-env 가 없으면 비밀번호를 --text 에 적는 수밖에 없다."""
+    _, out, _ = run_cli("web", "--help")
+    assert "--text-env" in out
+
+
+def test_web_text_env_refuses_when_the_variable_is_missing(sandbox):
+    """값이 비었는데 조용히 빈 문자열을 넣으면, 로그인 실패 원인을 엉뚱한 데서 찾게 된다."""
+    _, out, _ = run_cli("web", "type", "--selector", "#pw", "--text-env", "NO_SUCH_VAR_HERE",
+                        "--root", str(sandbox), home=sandbox)
+    d = json.loads(out)
+    assert d["ok"] is False
+    assert d["code"] == "env_not_set"
+    assert "NO_SUCH_VAR_HERE" in d["error"]
+
+
+def test_web_text_env_is_read_before_any_browser_is_needed(sandbox):
+    """브라우저가 없어도 이 검사는 통과해야 한다 — 없는 변수는 네트워크 전에 걸린다."""
+    _, out, _ = run_cli("web", "type", "--selector", "#pw", "--text-env", "NO_SUCH_VAR_HERE",
+                        "--root", str(sandbox), home=sandbox)
+    d = json.loads(out)
+    # 브라우저 미기동("no_browser") 이 아니라 환경변수 문제로 끝나야 한다
+    assert d["code"] == "env_not_set"
+
+
+def test_skill_keeps_the_login_flow_signal():
+    """flowName 판정 신호가 사라지면 headless 로 시도했다가 매번 거부당한다."""
+    skill = (CLI.parents[1] / "SKILL.md").read_text(encoding="utf-8")
+    assert "WebLiteSignIn" in skill and "GlifWebSignIn" in skill
+    assert "--headed" in skill
+
+
+def test_social_login_reference_exists_and_marks_what_is_unverified():
+    """실측하지 않은 제공자를 실측한 것처럼 적으면 다음 사람이 그대로 믿는다."""
+    doc = CLI.parents[1] / "references" / "social-login.md"
+    assert doc.exists()
+    text = doc.read_text(encoding="utf-8")
+    assert "미확인" in text          # 애플·카카오 등
+    assert "--text-env" in text      # 비밀값 취급 수단을 문서도 안내한다
+    assert "테스트 계정" in text      # 소셜 로그인보다 먼저 볼 것
+
+
+def test_social_login_reference_is_linked_from_the_skill():
+    """참조되지 않는 문서는 읽히지 않는다."""
+    skill = (CLI.parents[1] / "SKILL.md").read_text(encoding="utf-8")
+    assert "references/social-login.md" in skill

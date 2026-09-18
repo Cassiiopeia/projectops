@@ -1332,6 +1332,17 @@ def _web_setup(force: bool = False) -> dict:
 
 def cmd_web(args) -> int:
     """웹 화면을 조작한다. 한 번에 한 동작 — agent가 화면을 보고 다음을 정한다."""
+    # 비밀번호를 --text 에 적으면 세션 기록 파일에 평문으로 남는다(이슈 #604).
+    # --text-env 로 받으면 기록에는 변수 이름만 남고 값은 이 프로세스 안에서만 산다.
+    secret_value = None
+    if getattr(args, "text_env", None):
+        if args.text_env not in os.environ:
+            return emit({"ok": False, "code": "env_not_set",
+                         "error": f"환경변수 {args.text_env} 가 비어 있습니다",
+                         "hint": f'{args.text_env}="..." 를 같은 명령 앞에 붙여 실행하세요'})
+        secret_value = os.environ[args.text_env]
+        args.text = secret_value
+
     if args.action == "setup":
         return emit(_web_setup(force=args.force))
 
@@ -1484,8 +1495,12 @@ def cmd_web(args) -> int:
                      "summary": f"{args.action} 완료 — {page.url}",
                      "next": "web shot  # 결과를 눈으로 확인하세요"})
     except Exception as e:
+        # 예외 문구에 입력값이 섞여 나올 수 있다 — 비밀값이면 가리고 내보낸다
+        msg = str(e)
+        if secret_value:
+            msg = msg.replace(secret_value, "***")
         return emit({"ok": False, "code": "web_action_failed",
-                     "action": args.action, "error": str(e)[:400],
+                     "action": args.action, "error": msg[:400],
                      "url": page.url if page else None,
                      "next": "web shot  # 지금 화면이 무엇인지 먼저 봅니다"})
     finally:
@@ -2226,6 +2241,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_web.add_argument("--selector", default=None,
                        help="대상 (click·type·assert). text=로그인 · #id · button:has-text('x')")
     p_web.add_argument("--text", default=None, help="입력할 값 또는 확인할 문구")
+    p_web.add_argument("--text-env", dest="text_env", default=None,
+                       help="입력값을 환경변수에서 읽는다 — 비밀번호는 반드시 이쪽 (대화 기록에 값이 남지 않는다)")
     p_web.add_argument("--out", default=None, help="스크린샷 저장 경로")
     p_web.add_argument("--full", action="store_true", help="페이지 전체를 찍는다")
     p_web.add_argument("--headed", action="store_true", help="브라우저를 눈에 보이게 연다")
