@@ -108,6 +108,11 @@ jobs:
         # 기기·브라우저·서버 없이 돌도록 만들었다. 진짜 브라우저가 필요한 것만 건너뛴다.
         run: python3 -m pytest skills/ -q
 
+      - name: 공용 레이어 테스트
+        # scripts/common/ 은 모든 스킬이 공유하는 Layer 1 이다. 여기가 깨지면 스킬
+        # 전체가 조용히 어긋나는데, 오래 CI 경로에서 빠져 있어 실패가 쌓여 있었다 (#612).
+        run: python3 -m pytest scripts/tests/ -q
+
       - name: 마법사 3종 정합성 검증
         # CSS/JS 공통 자산 로드, 공통 유틸 재정의, 필수 기능 균일성,
         # version.json ↔ HTML 동기화, 낡은 링크, 첫 사용자 안내, CLI 계약을 검사한다
@@ -183,3 +188,6 @@ jobs:
 
       - name: 스킬 테스트
         run: python3 -m pytest skills/ -q
+
+      - name: 공용 레이어 테스트
+        run: python3 -m pytest scripts/tests/ -q

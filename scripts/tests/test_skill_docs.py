@@ -36,6 +36,33 @@ def test_skill_docs_do_not_teach_inline_python_workarounds():
     assert failures == []
 
 
+def test_skill_doc_reference_paths_exist():
+    """문서가 지시한 참조 경로가 실제로 있는지 전수 확인한다.
+
+    #543: SKILL.md 에서 공용 문서를 `references/x.md` 로 가리키면 자기 스킬 폴더
+    안을 뜻하므로 `../references/x.md` 여야 한다. 이 접두사를 틀려 16개 스킬 50곳이
+    없는 경로를 가리켰고, 이슈 생성 절차 문서를 못 찾아 중복 검사·승인 게이트를
+    건너뛴 사고가 났다.
+
+    common-rules.md 가 이 검사를 heredoc 스니펫으로 적어 뒀지만 손으로 돌려야 해서
+    실제로는 아무도 돌리지 않았다. 여기로 옮겨 CI 가 매번 돌린다 (#612).
+
+    디렉터리 접두사가 붙은 것만 본다 — 맨 파일명(`impl.md`)은 임시 파일명이나 표
+    항목과 구분되지 않아 오탐이 난다.
+    """
+    pattern = re.compile(r"`((?:\.\./)*references/[a-z0-9_-]+\.md)`")
+    broken, checked = [], 0
+    for path in _skill_doc_paths():
+        for m in pattern.finditer(path.read_text(encoding="utf-8")):
+            checked += 1
+            target = (path.parent / m.group(1)).resolve()
+            if not target.exists():
+                broken.append(f"{path.relative_to(ROOT).as_posix()}: {m.group(1)}")
+
+    assert checked > 0, "참조를 하나도 못 찾았다 — 검사가 헛돌고 있다"
+    assert broken == [], "존재하지 않는 문서를 가리킨다:\n" + "\n".join(broken)
+
+
 def test_github_skill_docs_use_suh_command_instead_of_direct_curl_recipes():
     """GitHub-facing skills should not document direct curl API recipes."""
     github_docs = [

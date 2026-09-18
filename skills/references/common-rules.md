@@ -226,21 +226,15 @@ SKILL.md에서 접두사 없이 `references/<파일>` 형태로 쓰면 **자기 
 
 **같은 폴더 안(`skills/references/` 문서끼리)에서 서로를 참조할 때는 접두사 없이 파일명만 쓴다** — `config-rules.md`. `references/`를 붙이면 자기 폴더 아래의 없는 하위 폴더를 가리키게 된다.
 
-검증:
+검증 — **손으로 돌리지 않는다. CI 가 매번 돌린다** (#612):
 
 ```bash
-# SKILL.md·references 문서가 지시한 경로가 실제로 존재하는지 전수 확인
-python3 - <<'EOF'
-import re, os
-from pathlib import Path
-bad = []
-for f in list(Path("skills").glob("pro-*/SKILL.md")) + list(Path("skills/references").glob("*.md")):
-    for m in re.finditer(r'`((?:\.\./)?(?:references/)?[a-z0-9_-]+\.md)`', f.read_text(encoding="utf-8")):
-        if not os.path.exists(os.path.normpath(os.path.join(f.parent, m.group(1)))):
-            bad.append(f"{f}: {m.group(1)}")
-print("깨진 참조:", bad or "없음")
-EOF
+python3 -m pytest scripts/tests/test_skill_docs.py -q -k reference_paths
 ```
+
+`test_skill_doc_reference_paths_exist` 가 `references/` 접두사가 붙은 참조를 전수 확인한다.
+예전에는 이 자리에 붙여넣기용 Python 스니펫이 있었는데, 손으로 돌려야 해서 아무도 돌리지
+않았고 **heredoc 금지 규약을 이 문서 자신이 어기고 있었다.**
 
 ## skill별 py 분산 호출 (3-layer 아키텍처 표준)
 
