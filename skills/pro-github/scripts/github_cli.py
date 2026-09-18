@@ -93,9 +93,8 @@ def cmd_get_issues(args) -> int:
 
 
 def cmd_create_issue(args) -> int:
-    pat = get_github_pat(args.owner, args.repo)
-    if not pat:
-        return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
+    # 입력을 자격증명보다 먼저 본다. 파일명 오타는 PAT 없이도 알려줄 수 있는데,
+    # PAT 를 먼저 보면 "PAT 없음"만 나와 PAT 를 채운 뒤에야 오타를 알게 된다.
     body_path = Path(args.body_file)
     if not body_path.exists():
         return emit({
@@ -104,6 +103,9 @@ def cmd_create_issue(args) -> int:
             "error": f"본문 파일이 존재하지 않습니다: {args.body_file}",
             "path_attempted": str(body_path.resolve()),
         })
+    pat = get_github_pat(args.owner, args.repo)
+    if not pat:
+        return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
     body = body_path.read_text(encoding="utf-8")
     labels = [l.strip() for l in args.labels.split(",") if l.strip()] if args.labels else []
     assignees = [a.strip() for a in args.assignees.split(",") if a.strip()] if args.assignees else []
@@ -138,12 +140,7 @@ def cmd_list_issues(args) -> int:
 
 
 def cmd_update_issue(args) -> int:
-    pat = get_github_pat(args.owner, args.repo)
-    if not pat:
-        return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
-    labels = [l.strip() for l in args.labels.split(",") if l.strip()] if args.labels else None
-    assignees = [a.strip() for a in args.assignees.split(",") if a.strip()] if args.assignees else None
-
+    # 입력 먼저, 자격증명 나중 (cmd_create_issue 와 같은 이유).
     body = None
     if args.body_file:
         body_path = Path(args.body_file)
@@ -155,6 +152,12 @@ def cmd_update_issue(args) -> int:
                 "path_attempted": str(body_path.resolve())
             })
         body = body_path.read_text(encoding="utf-8")
+
+    pat = get_github_pat(args.owner, args.repo)
+    if not pat:
+        return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
+    labels = [l.strip() for l in args.labels.split(",") if l.strip()] if args.labels else None
+    assignees = [a.strip() for a in args.assignees.split(",") if a.strip()] if args.assignees else None
 
     try:
         result = update_issue(
