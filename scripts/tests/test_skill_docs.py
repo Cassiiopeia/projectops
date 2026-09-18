@@ -63,6 +63,34 @@ def test_skill_doc_reference_paths_exist():
     assert broken == [], "존재하지 않는 문서를 가리킨다:\n" + "\n".join(broken)
 
 
+def test_no_reference_doc_is_orphaned():
+    """스킬의 참조 문서는 어디선가 실제로 읽혀야 한다.
+
+    아무도 가리키지 않는 문서는 **쓴 사람만 아는 문서**다. 시간이 지나면 내용이
+    낡는데 아무도 모르고, 고쳐야 할 때 있는 줄도 모른다. 실제로 `pro-agent-test` 의
+    109줄짜리 문서가 오래 그 상태였고 산출물 규칙이 바뀐 뒤에도 옛 내용으로 남아
+    있었다 (#584).
+
+    자기 SKILL.md 나 형제 참조 문서 중 한 곳에서 `references/<파일>` 로 가리키면 된다.
+    """
+    orphans = []
+    for skill in sorted((ROOT / "skills").glob("pro-*")):
+        refs = sorted((skill / "references").glob("*.md"))
+        if not refs:
+            continue
+        corpus = ""
+        main = skill / "SKILL.md"
+        if main.is_file():
+            corpus += main.read_text(encoding="utf-8")
+        corpus += "".join(r.read_text(encoding="utf-8") for r in refs)
+        orphans += [f"{skill.name}/references/{r.name}"
+                    for r in refs if f"references/{r.name}" not in corpus]
+
+    assert orphans == [], (
+        "아무 데서도 읽지 않는 참조 문서가 있다. SKILL.md 에서 가리키거나 지우세요:\n"
+        + "\n".join(orphans))
+
+
 def test_github_skill_docs_use_suh_command_instead_of_direct_curl_recipes():
     """GitHub-facing skills should not document direct curl API recipes."""
     github_docs = [
