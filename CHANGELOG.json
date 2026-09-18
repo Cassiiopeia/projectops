@@ -1,14 +1,47 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-18T06:07:32Z",
-    "currentVersion": "4.13.1",
+    "lastUpdated": "2026-09-18T06:26:44Z",
+    "currentVersion": "4.14.0",
     "projectType": "basic",
-    "totalReleases": 250,
+    "totalReleases": 251,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.14.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-18",
+      "pr_number": 600,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 테스트 앱 빌드가 중간에 멈추던 문제를 해결했습니다\n\n* **새 기능**\n  * 앱·웹·서버가 아닌 대상도 점검할 수 있게 되었습니다\n  * 명령을 실행한 뒤 무엇이 만들어졌는지와 다시 실행해도 같은지를 함께 확인합니다\n\n* **개선**\n  * 나오지 말아야 할 파일이 생겼는지도 점검 기준으로 삼습니다\n  * 내 환경에서만 통과하는 부분과 한 곳을 고쳤을 때 영향받는 범위를 살피는 단계를 더했습니다",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "테스트 앱 빌드가 중간에 멈추던 문제를 해결했습니다"
+          ]
+        },
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "앱·웹·서버가 아닌 대상도 점검할 수 있게 되었습니다",
+            "명령을 실행한 뒤 무엇이 만들어졌는지와 다시 실행해도 같은지를 함께 확인합니다"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "나오지 말아야 할 파일이 생겼는지도 점검 기준으로 삼습니다",
+            "내 환경에서만 통과하는 부분과 한 곳을 고쳤을 때 영향받는 범위를 살피는 단계를 더했습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.13.1",
       "project_type": "basic",
