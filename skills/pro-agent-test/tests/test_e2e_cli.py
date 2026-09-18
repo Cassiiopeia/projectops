@@ -284,3 +284,60 @@ def test_migrate_returns_none_when_nothing_to_move():
         r = _git_repo(Path(tmp), "https://github.com/o/r.git")
         assert e2e_cli._migrate_from_project(r, Path(home_tmp) / "x") is None
 
+
+# ── 타겟·모드 축 (이슈 #586) ─────────────────────────────────────────────
+
+def test_old_scenario_without_axes_still_works():
+    """기존 파일에는 target·mode가 없다. 한 글자도 안 고치고 돌아야 한다."""
+    data = {"name": "예전 것", "steps": [_step()]}
+    assert e2e_cli.scenario_target(data) == "app"
+    assert e2e_cli.scenario_mode(data) == "e2e"
+    assert e2e_cli._validate(data) == []
+
+
+def test_unknown_target_is_rejected_not_defaulted():
+    """오타를 기본값으로 삼키면 웹 시나리오가 adb를 타고 원인을 못 찾는다."""
+    problems = e2e_cli._validate({"name": "x", "target": "wbe", "steps": [_step()]})
+    assert any("target 'wbe'" in p for p in problems), problems
+
+
+def test_web_target_accepts_url_expectation():
+    """웹은 화면 이름 대신 URL·텍스트로 판정하는 경우가 많다."""
+    assert e2e_cli._validate({
+        "name": "x", "target": "web",
+        "steps": [{"screen": "로그인", "do": "click #submit", "expect_url": "/home"}],
+    }) == []
+
+
+def test_server_target_accepts_status_only():
+    """서버는 화면이 없다. 상태 코드만으로도 판정된다."""
+    assert e2e_cli._validate({
+        "name": "x", "target": "server",
+        "steps": [{"screen": "-", "do": "POST /api/login", "expect_status": 200}],
+    }) == []
+
+
+def test_server_target_rejects_screen_only_expectation():
+    """서버 시나리오에 expect_screen만 있으면 판정할 수 없다 — 화면이 없다."""
+    problems = e2e_cli._validate({
+        "name": "x", "target": "server",
+        "steps": [{"screen": "-", "do": "POST /api/x", "expect_screen": "홈"}],
+    })
+    assert any("기대 결과가 없습니다" in p for p in problems), problems
+
+
+def test_load_mode_is_reserved_not_silently_accepted():
+    """축만 예약한 상태다. 밟다가 중간에 멈추는 것보다 먼저 말해 준다."""
+    problems = e2e_cli._validate({
+        "name": "x", "target": "server", "mode": "load",
+        "steps": [{"screen": "-", "do": "POST /api/x", "expect_status": 200}],
+    })
+    assert any("아직 구현되지 않았습니다" in p for p in problems), problems
+
+
+def test_load_mode_only_makes_sense_on_server():
+    """UI로는 부하를 걸 수 없다."""
+    problems = e2e_cli._validate({
+        "name": "x", "target": "app", "mode": "load", "steps": [_step()]})
+    assert any("server 타겟에서만" in p for p in problems), problems
+

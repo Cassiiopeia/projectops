@@ -478,33 +478,103 @@ _SCENARIO_DIRS = ("docs/testing/e2e", ".projectops/e2e")
 # 이전이 일어났을 때 사용자에게 알릴 말. 명령 결과에 실어 보낸다.
 _MIGRATION_NOTES: list[str] = []
 
-_TEMPLATE = {
-    "name": "{무엇을 밟는지 한 줄}",
-    "description": "{왜 이 경로가 중요한지}",
-    "precondition": None,   # 예: "_shared/login-kakao" — 앞에 붙일 흐름
-    "reset": {
-        "device": "pm clear",
-        "server": "{테스트 계정을 지우는 명령. 없으면 null}",
-    },
-    "steps": [
-        {
-            "screen": "{화면 이름}",
-            "do": "{무엇을 하는지 — tap '시작하기' / input '값' / back}",
-            "expect_screen": "{다음에 보여야 할 것}",
-            "expect_device": ["{로그에서 확인할 키. 예: elum.refreshToken}"],
-            "expect_server": "{서버에서 확인할 쿼리. 없으면 null}",
-            "human": None,
+def _template_for(target: str) -> dict:
+    """타겟에 맞는 시나리오 본보기. 타겟마다 밟는 단위와 판정 근거가 다르다."""
+    base = {
+        "name": "{무엇을 밟는지 한 줄}",
+        "description": "{왜 이 경로가 중요한지}",
+        "target": target,
+        "mode": "e2e",
+        "precondition": None,   # 예: "_shared/login-kakao" — 앞에 붙일 흐름
+        "steps": [dict(_STEP_TEMPLATES[target])],
+    }
+    if target == "app":
+        base["reset"] = {
+            "device": "pm clear",
+            "server": "{테스트 계정을 지우는 명령. 없으면 null}",
         }
-    ],
-    "conditions": [
-        {"name": "큰 글씨", "apply": "settings put system font_scale 1.3",
-         "revert": "settings put system font_scale 1.0"},
-        {"name": "다크모드", "apply": "cmd uimode night yes",
-         "revert": "cmd uimode night no"},
-    ],
-}
+        # 환경 조건은 기기에서만 바꿀 수 있다
+        base["conditions"] = [
+            {"name": "큰 글씨", "apply": "settings put system font_scale 1.3",
+             "revert": "settings put system font_scale 1.0"},
+            {"name": "다크모드", "apply": "cmd uimode night yes",
+             "revert": "cmd uimode night no"},
+        ]
+    elif target == "web":
+        base["reset"] = {
+            "browser": "{쿠키·로컬스토리지를 비우는 방법. 보통 새 컨텍스트}",
+            "server": "{테스트 계정을 지우는 명령. 없으면 null}",
+        }
+        base["conditions"] = [
+            {"name": "좁은 화면", "apply": "viewport 390x844", "revert": "viewport 1280x800"},
+            {"name": "다크모드", "apply": "colorScheme dark", "revert": "colorScheme light"},
+        ]
+    else:  # server
+        base["base_url"] = "{API 주소. 비우면 detect가 찾은 값을 쓴다}"
+        base["reset"] = {"server": "{테스트 데이터를 지우는 명령. 없으면 null}"}
+    return base
+
 
 _REQUIRED_STEP_KEYS = ("screen", "do")
+
+# 타겟별 단계 본보기. 같은 틀을 주면 웹·서버 쓰는 사람이 절반을 지우고 다시 써야 한다.
+_STEP_TEMPLATES = {
+    "app": {
+        "screen": "{화면 이름}",
+        "do": "{무엇을 하는지 — tap '시작하기' / input '값' / back}",
+        "expect_screen": "{다음에 보여야 할 것}",
+        "expect_device": ["{로그에서 확인할 키. 예: elum.refreshToken}"],
+        "expect_server": "{서버에서 확인할 쿼리. 없으면 null}",
+        "human": None,
+    },
+    "web": {
+        "screen": "{페이지 이름}",
+        "do": "{click '로그인' / type #email '값' / goto /signup}",
+        "expect_url": "{이동해야 할 경로. 예: /home}",
+        "expect_text": "{화면에 보여야 할 문구}",
+        "expect_server": "{서버에서 확인할 쿼리. 없으면 null}",
+        "human": None,
+    },
+    "server": {
+        "screen": "-",
+        "do": "{POST /api/auth/login {\"id\":\"...\"}}",
+        "auth": "{앞 단계에서 받은 토큰을 쓰려면 {token}. 없으면 null}",
+        "expect_status": 200,
+        "expect_json": "{응답에서 확인할 것. 예: $.accessToken 이 비지 않는다}",
+        "save": {"token": "$.accessToken"},
+        "expect_server": "{DB에서 확인할 쿼리. 없으면 null}",
+        "human": None,
+    },
+}
+
+# ── 두 개의 독립 축 (이슈 #586) ──────────────────────────────────────────
+#
+# target = 무엇으로 조작하나. mode = 무슨 종류의 테스트인가.
+# 둘을 한 축으로 묶으면 "웹에서 밟으며 서버 DB를 확인"하는 조합이 표현되지 않는다.
+# target이 정하는 것은 `do`를 누가 실행하느냐뿐이고, expect_*는 타겟과 무관하게 붙는다.
+TARGETS = ("app", "web", "server")
+MODES = ("e2e", "load")
+
+# 값이 없는 예전 시나리오는 여기로 떨어진다 — 기존 파일을 한 글자도 고치지 않기 위해서다.
+DEFAULT_TARGET = "app"
+DEFAULT_MODE = "e2e"
+
+# 타겟별로 인정하는 기대 결과. 하나도 없으면 "화면이 떴으니 통과"로 끝나므로 막는다.
+_EXPECT_KEYS = {
+    "app": ("expect_screen", "expect_device", "expect_server"),
+    "web": ("expect_screen", "expect_url", "expect_text", "expect_server"),
+    "server": ("expect_status", "expect_json", "expect_server"),
+}
+
+
+def scenario_target(data: dict) -> str:
+    """시나리오의 조작 대상. 모르는 값이면 기본값으로 떨어뜨리지 않고 그대로 돌려준다
+    — _validate가 잡아서 사용자에게 알려야 조용히 엉뚱한 것을 밟지 않는다."""
+    return data.get("target") or DEFAULT_TARGET
+
+
+def scenario_mode(data: dict) -> str:
+    return data.get("mode") or DEFAULT_MODE
 
 
 def _ensure_gitignore(d: Path) -> bool:
@@ -613,6 +683,23 @@ def _validate(data: dict) -> list[str]:
     problems = []
     if not data.get("name"):
         problems.append("name이 비었습니다")
+
+    # 축을 먼저 확정한다. 모르는 값이면 조용히 기본값으로 밟지 않고 여기서 막는다 —
+    # 오타 하나로 웹 시나리오가 adb를 타면 원인을 찾기 어렵다.
+    target = scenario_target(data)
+    if target not in TARGETS:
+        problems.append(f"target '{target}' 을 모릅니다 — {'·'.join(TARGETS)} 중 하나여야 합니다")
+        target = DEFAULT_TARGET
+    mode = scenario_mode(data)
+    if mode not in MODES:
+        problems.append(f"mode '{mode}' 를 모릅니다 — {'·'.join(MODES)} 중 하나여야 합니다")
+    elif mode == "load":
+        # 축만 예약해 둔 상태다. 밟겠다고 나섰다가 중간에 멈추는 것보다 먼저 말해 준다.
+        problems.append("mode 'load'(부하)는 아직 구현되지 않았습니다 — 다음 작업입니다")
+    if mode == "load" and target != "server":
+        problems.append("부하는 server 타겟에서만 의미가 있습니다 — UI로는 부하를 걸 수 없습니다")
+    expect_keys = _EXPECT_KEYS[target]
+
     steps = data.get("steps")
     if not isinstance(steps, list) or not steps:
         problems.append("steps가 비었습니다 — 무엇을 밟을지 한 단계라도 있어야 합니다")
@@ -624,10 +711,11 @@ def _validate(data: dict) -> list[str]:
         for k in _REQUIRED_STEP_KEYS:
             if not st.get(k):
                 problems.append(f"{i}번째 step에 {k}가 없습니다")
-        if not any(st.get(k) for k in ("expect_screen", "expect_device", "expect_server")):
+        if not any(st.get(k) for k in expect_keys):
             problems.append(
                 f"{i}번째 step({st.get('screen','?')})에 기대 결과가 없습니다 — "
-                "화면·기기·서버 중 하나는 있어야 통과 판정을 할 수 있습니다")
+                f"{'·'.join(k.replace('expect_', '') for k in expect_keys)} 중 하나는 "
+                "있어야 통과 판정을 할 수 있습니다")
     return problems
 
 
@@ -710,6 +798,10 @@ def cmd_scenario(args) -> int:
         if not args.name:
             return emit({"ok": False, "code": "name_required",
                          "error": "--name 으로 파일 이름을 정하세요"})
+        if args.target not in TARGETS:
+            return emit({"ok": False, "code": "unknown_target",
+                         "error": f"target '{args.target}' 을 모릅니다",
+                         "hint": f"{'·'.join(TARGETS)} 중 하나"})
         # --group 을 주면 flows/{그룹}/ 아래, _shared 면 전제로 둔다
         if args.group == _SHARED_DIR:
             target_dir = d / _SHARED_DIR
@@ -723,7 +815,7 @@ def cmd_scenario(args) -> int:
             return emit({"ok": False, "code": "already_exists",
                          "error": f"{f} 가 이미 있습니다", "hint": "--force 로 덮어씁니다"})
         import json
-        f.write_text(json.dumps(_TEMPLATE, ensure_ascii=False, indent=2) + "\n",
+        f.write_text(json.dumps(_template_for(args.target), ensure_ascii=False, indent=2) + "\n",
                      encoding="utf-8")
         return emit({
             "file": str(f),
@@ -1457,6 +1549,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_sc = sub.add_parser("scenario", help="프로젝트별 밟기 시나리오 관리")
     p_sc.add_argument("action", choices=["init", "list", "show"])
+    p_sc.add_argument("--target", default=DEFAULT_TARGET,
+                      help=f"무엇으로 조작하나 ({'·'.join(TARGETS)}, 기본 {DEFAULT_TARGET})")
     p_sc.add_argument("--name", help="시나리오 파일 이름 (확장자 제외)")
     p_sc.add_argument("--root", default=".", help="프로젝트 루트")
     p_sc.add_argument("--group",
