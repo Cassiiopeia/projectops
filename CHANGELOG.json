@@ -1,14 +1,42 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-18T06:37:15Z",
-    "currentVersion": "4.14.1",
+    "lastUpdated": "2026-09-18T10:59:53Z",
+    "currentVersion": "4.15.0",
     "projectType": "basic",
-    "totalReleases": 252,
+    "totalReleases": 253,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.15.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-18",
+      "pr_number": 605,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * 테스트 빌드의 개발자 도구 설정이 앱에 실제로 반영됩니다\n  * 배포 빌드에 개발용 설정이 남아 있으면 빌드를 중단합니다\n  * 테스트 도구가 소셜 로그인 화면을 직접 통과합니다\n\n* **개선**\n  * 로그인에 쓰는 비밀번호가 작업 기록에 남지 않습니다\n  * 로그인 가능 여부를 미리 판단해 불필요한 시도를 줄였습니다",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "테스트 빌드의 개발자 도구 설정이 앱에 실제로 반영됩니다",
+            "배포 빌드에 개발용 설정이 남아 있으면 빌드를 중단합니다",
+            "테스트 도구가 소셜 로그인 화면을 직접 통과합니다"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "로그인에 쓰는 비밀번호가 작업 기록에 남지 않습니다",
+            "로그인 가능 여부를 미리 판단해 불필요한 시도를 줄였습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.14.1",
       "project_type": "basic",
