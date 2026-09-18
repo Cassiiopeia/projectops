@@ -506,7 +506,7 @@ def cmd_shrink(args) -> int:
     converted, failed_convert = [], False
     if not args.keep_format:
         for f in [Path(x) for x in done]:
-            got = _to_webp(f)
+            got = _to_webp(f, quality=args.quality)
             if got is None:
                 failed_convert = True
                 converted.append(str(f))
@@ -1614,7 +1614,8 @@ def cmd_web(args) -> int:
                 shot_dir.mkdir(parents=True, exist_ok=True)
                 raw = shot_dir / f"{time.strftime('%Y%m%d-%H%M%S')}.png"
                 page.screenshot(path=str(raw), full_page=args.full)
-                out = _to_webp(raw, max_side=args.max_side or None) or raw
+                out = _to_webp(raw, quality=args.quality,
+                               max_side=args.max_side or None) or raw
             return emit({"action": "shot", "file": str(out), "url": page.url,
                          "title": page.title(),
                          "summary": f"화면을 찍었습니다: {out.name}",
@@ -2412,6 +2413,8 @@ def build_parser() -> argparse.ArgumentParser:
     # 0 을 주면 원본 크기 그대로 둔다.
     p_web.add_argument("--max-side", type=int, default=SHOT_MAX_SIDE,
                        help=f"shot 의 긴 변 상한 (기본 {SHOT_MAX_SIDE}, 0이면 원본)")
+    p_web.add_argument("--quality", type=int, default=WEBP_QUALITY,
+                       help=f"WebP 품질 (기본 {WEBP_QUALITY}). 통신이 비싸면 낮춘다")
     p_web.set_defaults(func=cmd_web)
 
     p_api = sub.add_parser("api", help="서버 시나리오를 밟는다 (target: server)")
@@ -2486,6 +2489,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_s.add_argument("paths", nargs="+")
     p_s.add_argument("--max-side", type=int, default=SHOT_MAX_SIDE,
                      help=f"긴 변 상한 (기본 {SHOT_MAX_SIDE})")
+    p_s.add_argument("--quality", type=int, default=WEBP_QUALITY,
+                     help=f"WebP 품질 (기본 {WEBP_QUALITY})")
     p_s.add_argument("--keep-format", action="store_true",
                      help="WebP 로 바꾸지 않고 원래 형식을 유지한다")
     p_s.set_defaults(func=cmd_shrink)
