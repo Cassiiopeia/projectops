@@ -1,14 +1,40 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-18T10:59:53Z",
-    "currentVersion": "4.15.0",
+    "lastUpdated": "2026-09-18T11:40:48Z",
+    "currentVersion": "4.15.1",
     "projectType": "basic",
-    "totalReleases": 253,
+    "totalReleases": 254,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.15.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-18",
+      "pr_number": 607,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 브라우저 테스트가 이전에 보던 화면을 잡던 문제를 해결했습니다\n  * 브라우저가 닫히지 않았는데 닫혔다고 표시되던 문제를 해결했습니다\n\n* **개선**\n  * 본인 확인 안내가 화면에 실제로 보이는 내용을 그대로 전달합니다",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "브라우저 테스트가 이전에 보던 화면을 잡던 문제를 해결했습니다",
+            "브라우저가 닫히지 않았는데 닫혔다고 표시되던 문제를 해결했습니다"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "본인 확인 안내가 화면에 실제로 보이는 내용을 그대로 전달합니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.15.0",
       "project_type": "basic",
