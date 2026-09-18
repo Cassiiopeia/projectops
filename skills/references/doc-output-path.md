@@ -16,6 +16,18 @@ skill별 호출 위치 매핑 — **산출물 스킬 전부 자기 CLI를 갖는
 | review | `skills/pro-review/scripts/` | `review_cli.py` |
 | note | `skills/pro-note/scripts/` | `note_cli.py` |
 | report | `skills/pro-report/scripts/` | `report_cli.py` |
+| agent-test | `skills/pro-agent-test/scripts/` | `e2e_cli.py` (**md 가 아니라 실행 폴더**를 돌려준다 — 아래 참조) |
+
+> **agent-test 만 산출물이 md 가 아니다 (#611).** 밟은 증거(스크린샷·녹화)가 나오므로
+> `get-output-path` 는 파일이 아니라 **실행 폴더**(`<우산>/agent-test/{날짜}_{번호}_{제목}/`)를
+> 만들어 돌려주고, 그 안에 `screenshots/` 와 하네스 `env.sh` 를 둔다. 파일명 규칙 자체는
+> 같은 `common/paths.py` 를 쓰므로 자리는 갈라지지 않는다.
+>
+> **이 폴더는 추적하지 않는다.** 증거의 정본은 GitHub 이슈에 올라간 이미지이고 로컬본은
+> 중간 산출물이라, 레포에 수 MB 씩 쌓일 이유가 없다 (#561 의 실행 기록과 같은 논리).
+> `<우산>/agent-test/.gitignore`(`*` + `!.gitignore`)를 폴더가 **스스로 들고 다녀** 루트
+> `.gitignore` 를 건드리지 않는다 — 남의 저장소에 설치되는 스킬이므로 공용 파일을 고치면
+> 사용자 변경과 충돌한다.
 
 > **agent가 경로를 직접 계산하지 않는다.** 과거에는 일부 스킬에 CLI가 없어 "직접 계산하거나 다른 스킬 것을 빌려 쓰라"는 상태였고, 그래서 스킬마다 파일명 규칙이 갈라져도 아무도 알아채지 못했다. 이제 규칙은 `scripts/common/paths.py`의 `resolve_output_path()` **한 곳**에만 있고 각 CLI가 모두 그것을 호출한다.
 

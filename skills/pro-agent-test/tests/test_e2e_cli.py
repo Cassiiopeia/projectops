@@ -29,7 +29,7 @@ sys.path.insert(0, str(CLI.parent))
 import e2e_cli  # noqa: E402
 
 
-def run_cli(*args, home: Path | None = None):
+def run_cli(*args, home: Path | None = None, cwd: Path | None = None):
     import os
     env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
     # 기록은 홈에 쌓인다. 테스트가 사용자의 진짜 기록을 건드리면 안 된다.
@@ -37,7 +37,8 @@ def run_cli(*args, home: Path | None = None):
         env["HOME"] = str(home)
         env["USERPROFILE"] = str(home)   # Windows
     r = subprocess.run([sys.executable, str(CLI), *args],
-                       capture_output=True, text=True, encoding="utf-8", env=env)
+                       capture_output=True, text=True, encoding="utf-8", env=env,
+                       cwd=str(cwd) if cwd else None)
     return r.returncode, r.stdout or "", r.stderr or ""
 
 
@@ -1070,3 +1071,121 @@ def test_doctor_tells_when_screens_cannot_be_shrunk(sandbox, monkeypatch):
     assert "image_resize" in d
     # 수단이 있으면 이름이, 없으면 무엇이 손해인지가 적혀야 한다
     assert d["image_resize"]
+
+
+# ── 증거는 정해진 자리에만 쌓인다 (이슈 #611) ────────────────────────────
+#
+# 스킬이 "어디에 두라"를 말한 적이 없어서, 밟을 때마다 에이전트가 자리를 지어냈다.
+# 실제로 대상 레포에 docs/testing/ 이 생겨 8MB 가 .gitignore 밖에 쌓였다.
+# 아래 검사들은 "폴더가 생겼다"가 아니라 **git 이 실제로 무시하는가**를 본다 —
+# 있다는 사실만 확인하면 #591 과 같은 실수(돌지 않는 초록불)를 반복한다.
+
+def _repo(tmp: Path, name: str = "proj") -> Path:
+    proj = tmp / name
+    proj.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init", "-q", str(proj)], check=True)
+    subprocess.run(["git", "-C", str(proj), "remote", "add", "origin",
+                    "https://github.com/acme/thing.git"], check=True)
+    return proj
+
+
+def test_output_path_lands_under_the_umbrella(tmp_path):
+    """산출물은 harness/WORKFLOW.md 가 정한 docs/projectops/ 우산 아래에만 만든다."""
+    proj = _repo(tmp_path)
+    rc, out, err = run_cli("get-output-path", "--title", "로그인 화면 검증", cwd=proj)
+    assert rc == 0, f"{out}{err}"
+    d = json.loads(out)
+
+    umbrella = (proj / "docs" / "projectops" / "agent-test").resolve()
+    run_dir = Path(d["run_dir"]).resolve()
+    assert run_dir.parent == umbrella, f"우산 밖에 만들었다: {run_dir}"
+    assert Path(d["screenshots"]).is_dir(), "screenshots 폴더가 없다"
+    assert Path(d["env_file"]).is_file(), "하네스 env.sh 가 없다"
+
+
+def test_evidence_folder_is_really_untracked(tmp_path):
+    """.gitignore 가 있다가 아니라, git add -A 로도 증거가 안 담기는지 본다."""
+    proj = _repo(tmp_path)
+    _, out, _ = run_cli("get-output-path", "--title", "증거 추적 제외", cwd=proj)
+    d = json.loads(out)
+
+    # 실제 증거물을 넣는다 — 이미지 · 메모 · 하네스
+    (Path(d["screenshots"]) / "01.png").write_bytes(b"\x89PNG" + b"0" * 4096)
+    (Path(d["run_dir"]) / "findings.json").write_text("{}", encoding="utf-8")
+
+    subprocess.run(["git", "-C", str(proj), "add", "-A"], check=True)
+    staged = subprocess.run(["git", "-C", str(proj), "diff", "--cached", "--name-only"],
+                            capture_output=True, text=True, check=True).stdout.split()
+
+    assert staged == ["docs/projectops/agent-test/.gitignore"], (
+        f"증거물이 커밋에 딸려 들어간다: {staged}")
+
+
+def test_output_path_does_not_touch_root_gitignore(tmp_path):
+    """폴더가 추적 제외를 스스로 들고 다닌다 — 공용 파일을 건드리면 사용자 변경과 충돌한다."""
+    proj = _repo(tmp_path)
+    (proj / ".gitignore").write_text("build/\n", encoding="utf-8")
+    run_cli("get-output-path", "--title", "루트 보존", cwd=proj)
+    assert (proj / ".gitignore").read_text(encoding="utf-8") == "build/\n", (
+        "루트 .gitignore 를 고쳤다")
+
+
+def test_env_sh_points_inside_the_run(tmp_path):
+    """하네스는 실행 폴더 안을 가리켜야 한다. 밖을 가리키면 증거가 흩어진다."""
+    proj = _repo(tmp_path)
+    _, out, _ = run_cli("get-output-path", "--title", "하네스", "--package", "com.acme.x",
+                        cwd=proj)
+    d = json.loads(out)
+    body = Path(d["env_file"]).read_text(encoding="utf-8")
+
+    assert 'export SHOT_DIR="' in body and 'export RUN_DIR="' in body
+    assert 'export PKG="com.acme.x"' in body
+    shot = Path(d["screenshots"]).resolve()
+    assert shot.is_relative_to(Path(d["run_dir"]).resolve()), "SHOT_DIR 이 실행 폴더 밖이다"
+    assert str(shot) in body, "env.sh 의 SHOT_DIR 이 실제 폴더와 다르다"
+
+
+def test_output_path_can_run_twice(tmp_path):
+    """같은 실행에서 두 번 불러도 자리가 망가지지 않는다."""
+    proj = _repo(tmp_path)
+    _, o1, _ = run_cli("get-output-path", "--title", "두 번", cwd=proj)
+    _, o2, _ = run_cli("get-output-path", "--title", "두 번", cwd=proj)
+    assert json.loads(o1)["gitignore"] == "written"
+    assert json.loads(o2)["gitignore"] == "present", "두 번째에 .gitignore 를 다시 썼다"
+
+
+# ── 문서가 에이전트를 잘못 이끌지 않는지 전수로 본다 (이슈 #611) ──────────
+#
+# 코드를 고쳐도 문서에 "/tmp 에 찍어라"가 남아 있으면 다음 실행에서 또 흩어진다.
+# 실제 원인이 코드가 아니라 SKILL.md 한 줄이었다.
+
+_FORBIDDEN_PATHS = {
+    "/tmp/": "임시 폴더에 증거를 쌓으면 실행이 끝나고 사라지거나 흩어진다",
+    "docs/testing": "우산(docs/projectops/) 밖이다. 추적 제외도 안 된다",
+}
+
+
+def test_skill_docs_never_name_a_made_up_evidence_path():
+    """증거 경로를 문서에 직접 적지 않는다 — get-output-path 가 주는 값만 쓴다."""
+    skill_dir = CLI.parents[1]
+    docs = [skill_dir / "SKILL.md", *sorted((skill_dir / "references").glob("*.md"))]
+    assert docs, "검사할 문서를 찾지 못했다"
+
+    # 산문은 보지 않는다 — "이렇게 하지 마라"는 경고는 오히려 있어야 한다.
+    # 에이전트가 실제로 복사해 실행하는 것은 코드블록 안이다.
+    bad = []
+    for doc in docs:
+        in_fence = False
+        for i, line in enumerate(doc.read_text(encoding="utf-8").splitlines(), 1):
+            if line.lstrip().startswith("```"):
+                in_fence = not in_fence
+                continue
+            if not in_fence:
+                continue
+            for needle, why in _FORBIDDEN_PATHS.items():
+                if needle in line:
+                    bad.append(f"{doc.name}:{i} `{needle}` — {why}\n    {line.strip()}")
+
+    assert not bad, (
+        "문서가 임의 경로를 지시한다. get-output-path 의 $SHOT_DIR 을 쓰세요:\n"
+        + "\n".join(bad))

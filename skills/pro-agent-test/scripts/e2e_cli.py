@@ -461,6 +461,89 @@ def cmd_doctor(args) -> int:
     })
 
 
+# =========================================================================
+# 산출물 자리 — 경로는 여기서 정해 준다. 에이전트가 지어내지 않는다 (#611)
+# =========================================================================
+
+# 폴더가 스스로 추적 제외를 들고 다닌다. 루트 .gitignore 를 건드리지 않는 것이
+# 요점이다 — 남의 저장소에 설치되는 스킬이라 공용 파일을 고치면 사용자 변경과
+# 충돌한다 (#561 에서 실행 기록에 같은 방식을 썼다).
+_GITIGNORE_BODY = "# agent-test 증거물은 추적하지 않는다 (#611)\n*\n!.gitignore\n"
+
+
+def _ensure_untracked(dir_path: Path) -> str:
+    f = dir_path / ".gitignore"
+    try:
+        if f.is_file() and f.read_text(encoding="utf-8") == _GITIGNORE_BODY:
+            return "present"
+    except OSError:
+        pass
+    f.write_text(_GITIGNORE_BODY, encoding="utf-8")
+    return "written"
+
+
+def _env_sh(run_dir: Path, shots: Path, run_name: str, package: str | None) -> str:
+    """에이전트가 source 만 하면 되는 실행 환경.
+
+    문서에 경로 문자열을 적지 않는 것이 목적이다. 적어 두면 매번 다른 곳에 쌓인다 —
+    실제로 그래서 대상 레포에 docs/testing/ 이 생겼다 (#611).
+    """
+    lines = [
+        "# agent-test 실행 환경 — `source env.sh` 로 불러 쓴다.",
+        "# 경로를 손으로 짓지 않는다. 여기 없는 자리에는 아무것도 만들지 않는다.",
+        'export AGENT_TEST_RUN="%s"' % run_name,
+        'export RUN_DIR="%s"' % run_dir,
+        'export SHOT_DIR="%s"' % shots,
+    ]
+    if package:
+        lines.append('export PKG="%s"' % package)
+    lines.append("")
+    return "\n".join(lines)
+
+
+def cmd_output_path(args) -> int:
+    """이번 실행의 산출물 자리를 만들고 알려준다.
+
+    경로 규칙은 common/paths.py 가 단일 소유한다 (#525). 여기서 재구현하지 않고
+    파일명(날짜_이슈번호_제목)만 빌려 실행 폴더 이름으로 쓴다.
+    """
+    try:
+        from common.paths import resolve_output_path
+    except ImportError:
+        return emit({"ok": False, "code": "common_not_found",
+                     "error": "scripts/common/paths.py 를 찾지 못했습니다",
+                     "hint": "projectops 설치가 온전한지 확인하세요"})
+
+    r = resolve_output_path("agent-test", args.title)
+    if r.get("ok") is False:
+        return emit(r)
+
+    md = Path(r["path"])        # <우산>/agent-test/{날짜}_{번호}_{제목}.md
+    base = md.parent            # <우산>/agent-test
+    run_dir = base / md.stem
+    shots = run_dir / "screenshots"
+    try:
+        shots.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        return emit({"ok": False, "code": "mkdir_failed", "error": str(e)})
+
+    state = _ensure_untracked(base)
+    env = run_dir / "env.sh"
+    env.write_text(_env_sh(run_dir, shots, md.stem, args.package), encoding="utf-8")
+
+    return emit({
+        "run": md.stem,
+        "run_dir": str(run_dir),
+        "screenshots": str(shots),
+        "env_file": str(env),
+        "output_root": r.get("output_root"),
+        "gitignore": state,
+        "mismatch": r.get("mismatch"),
+        "summary": f"산출물 자리 {run_dir} (추적 제외 {state})",
+        "next": f'source "{env}" 로 SHOT_DIR 을 불러 쓰세요. 캡처·증거는 전부 그 아래에 둡니다',
+    })
+
+
 def cmd_shrink(args) -> int:
     """이슈 첨부용으로 이미지 긴 변을 줄인다.
 
@@ -1610,7 +1693,10 @@ def cmd_web(args) -> int:
                 out.parent.mkdir(parents=True, exist_ok=True)
                 page.screenshot(path=str(out), full_page=args.full)
             else:
-                shot_dir = _home_dir(root) / "shots"
+                # 하네스(env.sh)를 source 했으면 그 실행 폴더에 모은다 — 앱·웹 증거가
+                # 두 군데로 갈라지면 이슈에 붙일 때 한쪽을 빠뜨린다 (#611).
+                env_shot = os.environ.get("SHOT_DIR")
+                shot_dir = Path(env_shot) if env_shot else _home_dir(root) / "shots"
                 shot_dir.mkdir(parents=True, exist_ok=True)
                 raw = shot_dir / f"{time.strftime('%Y%m%d-%H%M%S')}.png"
                 page.screenshot(path=str(raw), full_page=args.full)
@@ -2484,6 +2570,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_lg.add_argument("--grep", default=None)
     p_lg.add_argument("--timeout", type=int, default=60)
     p_lg.set_defaults(func=cmd_logs)
+
+    p_op = sub.add_parser("get-output-path",
+                          help="이번 실행의 산출물 자리를 만들고 알려준다")
+    p_op.add_argument("--title", default=None,
+                      help="제목. 없으면 워크트리 경로·브랜치명에서 뽑는다")
+    p_op.add_argument("--package", default=None,
+                      help="앱 패키지명 — env.sh 에 PKG 로 넣는다")
+    p_op.set_defaults(func=cmd_output_path)
 
     p_s = sub.add_parser("shrink", help="이슈 첨부용으로 이미지 축소")
     p_s.add_argument("paths", nargs="+")

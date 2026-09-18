@@ -76,6 +76,27 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py detect --path {PROJECT_ROOT
 
 기기가 없으면 `next` 필드가 알려준다. 부팅 명령은 `references/target-app.md`.
 
+### 산출물 자리 — 먼저 받아 둔다. 경로를 지어내지 않는다 ⚠️
+
+`SCRIPTS`를 찾은 직후 **한 번** 돌린다. 캡처·증거가 갈 자리를 만들어 돌려준다.
+
+```bash
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py get-output-path --title "{무엇을 밟는지}"
+```
+
+돌려준 `env_file` 을 **이후 모든 블록 첫 줄에서 source 한다.** `$SHOT_DIR`·`$RUN_DIR` 이 들어온다.
+
+```bash
+source "{env_file 값}"
+adb exec-out screencap -p > "$SHOT_DIR/01_로그인.png"
+```
+
+> **여기 없는 자리에는 아무것도 만들지 않는다.** `/tmp` 나 `docs/testing` 처럼 임의 경로에
+> 쌓으면 증거가 흩어지고 추적 제외도 안 된다 — 실제로 대상 레포에 **8MB가 쌓인 채
+> `.gitignore` 에도 없던** 적이 있다 (#611). 이 자리는 `docs/projectops/` 우산 아래이고
+> (`harness/WORKFLOW.md` 최우선 규칙), 폴더가 `.gitignore` 를 스스로 들고 있어 커밋에
+> 딸려가지 않는다.
+
 ### 실행 수단 한눈에
 
 판단은 네가 한다. 아래는 **실행**과 **기록**만 한다.
@@ -92,6 +113,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py detect --path {PROJECT_ROOT
 | `api --name` | 서버 시나리오를 밟는다 |
 | `other run` | 명령을 돌리고 **무엇이 만들어졌는지**까지 본다 |
 | `db` · `logs` | 적어 둔 방법 그대로 실행한다 |
+| `get-output-path` | **이번 실행의 산출물 자리**를 만들고 알려준다 (경로를 직접 조립하지 않는다) |
 | `shrink` | 증거 이미지 축소 |
 
 모두 JSON을 돌려준다. `ok`·`code`·`summary`·`next`를 보고 다음 수를 정한다.
@@ -334,11 +356,13 @@ sleep 5 && adb logcat -d | grep -i "flutter"
 ### ① 스크린샷 · ② 판독
 
 ```bash
-adb exec-out screencap -p > /tmp/step_N.png     # Android
-xcrun simctl io booted screenshot /tmp/step_N.png # iOS
+source "{env_file 값}"   # SHOT_DIR — 위 '산출물 자리' 에서 받은 것
+
+adb exec-out screencap -p > "$SHOT_DIR/step_N.png"      # Android
+xcrun simctl io booted screenshot "$SHOT_DIR/step_N.png" # iOS
 
 # 읽기 전에 줄인다 — 원본은 한 장에 1,500 토큰 가까이 먹는다
-{PYTHON} {SCRIPTS}/e2e_cli.py shrink /tmp/step_N.png --root {PROJECT_ROOT}
+{PYTHON} {SCRIPTS}/e2e_cli.py shrink "$SHOT_DIR/step_N.png" --root {PROJECT_ROOT}
 ```
 
 > **줄여야 하는 것이 둘인데 방법이 다르다 (실측).**
