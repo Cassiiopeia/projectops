@@ -64,15 +64,19 @@ test("skills/ 아래 suh- 폴더가 0개다", () => {
   assert.deepEqual(dirs, [], `잔존 suh- 스킬 폴더: ${dirs.join(", ")}`);
 });
 
-test("17개 pro- 스킬 폴더가 모두 존재한다", () => {
+test("핵심 pro- 스킬 폴더가 모두 존재한다", () => {
   // pro-issue는 #467에서 pro-github로 통합·삭제됨 (25종→24종)
   // design·design-analyze·refactor·refactor-analyze·test·ppt·document 7종은 superpowers 및
   // pro-report와 역할이 겹쳐 삭제됨 (24종→17종)
+  // pro-spring-test는 #582에서 삭제됨 — assertion 없는 테스트를 만들어 내는 템플릿이었다 (17종→16종)
+  //
+  // 이 목록은 "있어야 하는 것"만 담는다. 새 스킬이 늘어도 이 테스트는 건드리지 않아도 되지만,
+  // **스킬을 지울 때는 여기서도 빼야 한다** — 실제로 #582가 이걸 빠뜨려 develop이 깨진 채 있었다.
   const expected = [
     "pro-analyze", "pro-build", "pro-changelog-deploy", "pro-commit",
     "pro-figma", "pro-github", "pro-implement", "pro-init-worktree", "pro-plan",
     "pro-report", "pro-review", "pro-skill-creator",
-    "pro-note", "pro-spring-test", "pro-ssh", "pro-synology-expose", "pro-testcase",
+    "pro-note", "pro-ssh", "pro-synology-expose", "pro-testcase",
   ];
   for (const s of expected) {
     assert.ok(existsSync(join(ROOT, "skills", s, "SKILL.md")), `누락: skills/${s}/SKILL.md`);
@@ -100,10 +104,8 @@ test("@suh-lab 트리거 잔재가 없다(외부 봇 서명 Guide by SUH-LAB은 
 
 // ── 보존 대상(치환 금지)이 살아있는지 — 과잉 치환 회귀 방지 ──
 
-test("보존: suh-logger Maven 의존성이 pro-spring-test SKILL에 남아있다", () => {
-  const hits = findFiles("me.suhsaechan:suh-logger", ["skills/pro-spring-test/"]);
-  assert.ok(hits.length > 0, "me.suhsaechan:suh-logger가 사라짐(과잉 치환)");
-});
+// suh-logger 보존 검사는 대상이던 pro-spring-test가 #582에서 삭제되며 함께 내렸다.
+// 과잉 치환 회귀 방지라는 목적은 아래 'Guide by SUH-LAB' 검사가 이어받는다.
 
 test("보존: 외부 봇 서명 'Guide by SUH-LAB' 매칭이 살아있다", () => {
   const hits = findFiles("Guide by SUH-LAB", [".github/"]);
