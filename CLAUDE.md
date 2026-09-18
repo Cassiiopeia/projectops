@@ -592,6 +592,7 @@ claude plugin install projectops@projectops-marketplace --scope user
 | `synology-expose` | 시놀로지 서비스 외부 노출 가이드 |
 | `ssh` | 원격 서버 SSH 접속 및 명령 실행 (AWS EC2, 시놀로지 NAS, Linux 서버 등) |
 | `skill-creator` | skill 생성/리뷰/개선 (CREATE·REVIEW·IMPROVE 3모드) |
+| `agent-test` | **앱·웹·서버를 실제로 실행해 밟는다** (E2E·증적) — 문서만 쓰는 `testcase`와 다르다 |
 
 ---
 
@@ -785,6 +786,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | 배포 / automerge 실패 재트리거 | `pro-changelog-deploy` |
 | 보고서 | `pro-report` |
 | 원격 서버 SSH 접속, 로그/상태 확인 | `pro-ssh` |
+| **실제로 테스트해줘, 에뮬레이터·시뮬레이터·브라우저로 확인, E2E, 끝까지 밟아줘** | `pro-agent-test` |
 | **설계·기획 (무엇을 왜)** | **`superpowers:brainstorming`** |
 | **구현 계획 (어떻게)** | **`superpowers:writing-plans`** |
 | **계획 실행** | **`superpowers:executing-plans`** |
