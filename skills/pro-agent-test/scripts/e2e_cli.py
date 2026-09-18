@@ -304,6 +304,107 @@ def _has_pillow() -> bool:
         return False
 
 
+# 화면 캡처는 쌓이면 무겁다. 줄여야 하는 것이 **둘**인데 방법이 서로 다르다(실측).
+#
+#   파일 크기  →  WebP 로 바꾼다.  495KB → 34KB (-93%)
+#                 원격으로 화면을 주고받을 때, 디스크에 쌓일 때, 이슈에 올릴 때 줄어든다.
+#   세션 토큰  →  **해상도를 줄인다.** 포맷은 토큰에 아무 영향이 없다.
+#                 토큰은 가로x세로에서만 나온다(긴 변 1568px 초과분은 먼저 축소된다).
+#                 1080x2400 그대로면 1,473 토큰, 긴 변 1200 으로 줄이면 864 토큰.
+#
+# 그래서 **둘을 함께** 한다. WebP 만 해서는 세션이 가벼워지지 않고,
+# 축소만 해서는 파일이 그대로 무겁다.
+WEBP_QUALITY = 75
+SHOT_MAX_SIDE = 1200          # 작은 글자까지 읽히는 선. 토큰은 약 41% 줄어든다
+
+
+def _to_webp(src: Path, quality: int = WEBP_QUALITY,
+             max_side: int | None = None) -> Path | None:
+    """이미지를 WebP 로 바꾸고, max_side 가 있으면 긴 변을 거기에 맞춘다.
+
+    Pillow(시스템) → Pillow(전용 venv) → cwebp → ffmpeg 순으로 가진 것을 쓴다.
+    **하나도 없다고 해서 화면을 못 찍게 하지는 않는다** — 원본이 남고 조금 무거울 뿐이다.
+    macOS 의 sips 는 WebP 쓰기를 못 해 사다리에 넣지 않았다(실측).
+    """
+    if src.suffix.lower() == ".webp" and not max_side:
+        return src
+    dst = src.with_suffix(".webp")
+    side = str(max_side or 0)
+    try:
+        if _has_pillow():
+            _pillow_webp(src, dst, quality, max_side)
+        elif (vpy := _venv_python()) and _venv_has_pillow(vpy):
+            # 웹 타겟용 venv 에 Pillow 가 함께 깔린다 — 시스템 파이썬을 건드리지 않는다
+            _run([str(vpy), "-c", _PILLOW_SNIPPET,
+                  str(src), str(dst), str(quality), side], timeout=60)
+        elif shutil.which("cwebp"):
+            cmd = ["cwebp", "-quiet", "-q", str(quality)]
+            if max_side:
+                # 0 은 "비율 유지". 세로가 긴 화면이 많아 긴 변 기준으로 맞춘다
+                cmd += ["-resize", "0", side] if _is_portrait(src) else ["-resize", side, "0"]
+            _run(cmd + [str(src), "-o", str(dst)], timeout=60)
+        elif shutil.which("ffmpeg"):
+            vf = []
+            if max_side:
+                vf = ["-vf", f"scale='if(gt(iw,ih),{side},-2)':'if(gt(iw,ih),-2,{side})'"]
+            _run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(src)]
+                 + vf + ["-quality", str(quality), str(dst)], timeout=60)
+        else:
+            return None
+    except Exception:
+        return None
+    if dst.exists() and dst.stat().st_size > 0:
+        if dst != src:
+            src.unlink(missing_ok=True)
+        return dst
+    dst.unlink(missing_ok=True)
+    return None
+
+
+# venv 파이썬에게 시킬 변환. 인자: src dst quality max_side(0이면 축소 안 함)
+_PILLOW_SNIPPET = (
+    "import sys\n"
+    "from PIL import Image\n"
+    "src, dst, q, side = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])\n"
+    "im = Image.open(src)\n"
+    "if side:\n"
+    "    im.thumbnail((side, side), Image.LANCZOS)\n"
+    "im.save(dst, 'WEBP', quality=q, method=4)\n"
+)
+
+
+def _pillow_webp(src: Path, dst: Path, quality: int, max_side: int | None) -> None:
+    from PIL import Image
+    with Image.open(src) as im:
+        if max_side:
+            im.thumbnail((max_side, max_side), Image.LANCZOS)
+        im.save(dst, "WEBP", quality=quality, method=4)
+
+
+def _venv_has_pillow(vpy: Path) -> bool:
+    try:
+        return subprocess.run([str(vpy), "-c", "import PIL"],
+                              capture_output=True, timeout=20).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _is_portrait(src: Path) -> bool:
+    """cwebp 는 비율 유지를 0 으로 표시하므로 어느 변이 긴지 알아야 한다."""
+    if _has_pillow():
+        from PIL import Image
+        with Image.open(src) as im:
+            return im.height >= im.width
+    out = _run(["sips", "-g", "pixelWidth", "-g", "pixelHeight", str(src)])
+    w = h = 0
+    for line in out.splitlines():
+        if "pixelWidth" in line:
+            w = int(line.split(":")[1])
+        if "pixelHeight" in line:
+            h = int(line.split(":")[1])
+    return h >= w if (w and h) else True
+
+
 def cmd_doctor(args) -> int:
     """실행 전에 무엇이 되고 무엇이 안 되는지 알려준다.
 
@@ -323,11 +424,15 @@ def cmd_doctor(args) -> int:
             **({} if ok else {"install": how}),
         })
 
-    # 이미지 축소 수단 — 이슈에 첨부할 때 원본은 너무 크다
+    # 화면을 줄이는 수단. 없으면 캡처가 원본 크기로 남아 **세션 토큰과 전송량이
+    # 그대로 커진다** — 못 쓰게 되는 것은 아니라 required 가 아니지만 크게 손해다.
+    vpy = _venv_python()
     if _has_pillow():
         shrink = "pillow"
-    elif shutil.which("sips"):
-        shrink = "sips (macOS)"
+    elif vpy and _venv_has_pillow(vpy):
+        shrink = "pillow (전용 venv)"
+    elif shutil.which("cwebp"):
+        shrink = "cwebp"
     elif shutil.which("ffmpeg"):
         shrink = "ffmpeg"
     else:
@@ -343,7 +448,9 @@ def cmd_doctor(args) -> int:
         "checks": checks,
         "knowledge_dir": str(home),
         "knowledge_exists": home.is_dir(),
-        "image_resize": shrink or "없음 — 원본 크기로 올리게 된다",
+        "image_resize": shrink or "없음 — 캡처가 원본 크기로 남아 토큰·전송량이 커진다",
+        "image_hint": None if shrink else
+            "web setup 을 돌리면 전용 venv 에 함께 깔립니다 (시스템은 건드리지 않습니다)",
         "pillow": _has_pillow(),
         "platform": sys.platform,
         "summary": (
@@ -395,8 +502,26 @@ def cmd_shrink(args) -> int:
             "hint": "pip install pillow (권장) 또는 ffmpeg 설치",
         })
 
-    return emit({"files": done, "method": method,
-                 "summary": f"{len(done)}장 축소 ({method}, 긴 변 {args.max_side}px)"})
+    # 축소만으로는 PNG 가 여전히 무겁다. 첨부·전송이 목적이므로 WebP 로 내보낸다.
+    converted, failed_convert = [], False
+    if not args.keep_format:
+        for f in [Path(x) for x in done]:
+            got = _to_webp(f)
+            if got is None:
+                failed_convert = True
+                converted.append(str(f))
+            else:
+                converted.append(str(got))
+        done = converted
+
+    out = {"files": done, "method": method,
+           "summary": f"{len(done)}장 축소 ({method}, 긴 변 {args.max_side}px)"}
+    if not args.keep_format:
+        out["format"] = "png(변환 수단 없음)" if failed_convert else "webp"
+        out["summary"] += " · WebP" if not failed_convert else " · PNG 유지(변환 수단 없음)"
+        if failed_convert:
+            out["hint"] = "pip install pillow 또는 cwebp·ffmpeg 를 설치하면 크게 줄어듭니다"
+    return emit(out)
 
 
 def cmd_detect(args) -> int:
@@ -1260,7 +1385,7 @@ def _require_playwright() -> tuple[object | None, dict | None]:
             "error": "웹을 밟으려면 Playwright가 필요합니다",
             "fix": "web setup  # 전용 환경을 만들고 브라우저까지 받습니다 (약 100MB)",
             "manual": f"{sys.executable} -m venv {_VENV_DIR} && "
-                      f"{_VENV_DIR}/bin/pip install playwright && "
+                      f"{_VENV_DIR}/bin/pip install playwright pillow && "
                       f"{_VENV_DIR}/bin/python -m playwright install chromium",
             "why": ("gstack 같은 별도 설치물에 기대지 않으려고 Playwright를 직접 씁니다. "
                     "시스템 파이썬을 건드리지 않도록 전용 환경에 깝니다"),
@@ -1310,9 +1435,12 @@ def _web_setup(force: bool = False) -> dict:
         return {"ok": False, "code": "venv_missing", "steps": steps,
                 "error": "가상환경 파이썬을 찾지 못했습니다"}
 
-    r = subprocess.run([str(vpy), "-m", "pip", "install", "-q", "playwright"],
+    # Pillow 를 함께 깐다. 화면을 줄이고 WebP 로 바꾸는 수단인데, 시스템 파이썬을
+    # 건드리지 않고 이 venv 안에서만 확보하려는 것이다. 없으면 캡처가 원본 크기로
+    # 남아 세션 토큰과 전송량이 그대로 커진다.
+    r = subprocess.run([str(vpy), "-m", "pip", "install", "-q", "playwright", "pillow"],
                        capture_output=True, text=True, timeout=900)
-    steps.append({"step": "playwright 설치", "ok": r.returncode == 0,
+    steps.append({"step": "playwright · pillow 설치", "ok": r.returncode == 0,
                   "error": (r.stderr or "")[-300:] or None})
     if r.returncode != 0:
         return {"ok": False, "code": "pip_failed", "steps": steps,
@@ -1475,10 +1603,18 @@ def cmd_web(args) -> int:
             page.fill(args.selector, args.text, timeout=args.timeout * 1000)
 
         elif args.action == "shot":
-            out = Path(args.out) if args.out else (_home_dir(root) / "shots" /
-                  f"{time.strftime('%Y%m%d-%H%M%S')}.png")
-            out.parent.mkdir(parents=True, exist_ok=True)
-            page.screenshot(path=str(out), full_page=args.full)
+            # Playwright 는 webp 로 못 찍는다(png·jpeg 만) — png 로 찍고 바꾼다.
+            # --out 을 준 경우엔 그 확장자를 존중한다.
+            if args.out:
+                out = Path(args.out)
+                out.parent.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=str(out), full_page=args.full)
+            else:
+                shot_dir = _home_dir(root) / "shots"
+                shot_dir.mkdir(parents=True, exist_ok=True)
+                raw = shot_dir / f"{time.strftime('%Y%m%d-%H%M%S')}.png"
+                page.screenshot(path=str(raw), full_page=args.full)
+                out = _to_webp(raw, max_side=args.max_side or None) or raw
             return emit({"action": "shot", "file": str(out), "url": page.url,
                          "title": page.title(),
                          "summary": f"화면을 찍었습니다: {out.name}",
@@ -2272,6 +2408,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_web.add_argument("--width", type=int, default=1280)
     p_web.add_argument("--height", type=int, default=800)
     p_web.add_argument("--timeout", type=int, default=10, help="대기 제한(초)")
+    # shot: 긴 변을 이 값에 맞춰 줄인다. 세션 토큰은 해상도에서만 줄어든다.
+    # 0 을 주면 원본 크기 그대로 둔다.
+    p_web.add_argument("--max-side", type=int, default=SHOT_MAX_SIDE,
+                       help=f"shot 의 긴 변 상한 (기본 {SHOT_MAX_SIDE}, 0이면 원본)")
     p_web.set_defaults(func=cmd_web)
 
     p_api = sub.add_parser("api", help="서버 시나리오를 밟는다 (target: server)")
@@ -2344,7 +2484,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_s = sub.add_parser("shrink", help="이슈 첨부용으로 이미지 축소")
     p_s.add_argument("paths", nargs="+")
-    p_s.add_argument("--max-side", type=int, default=700)
+    p_s.add_argument("--max-side", type=int, default=SHOT_MAX_SIDE,
+                     help=f"긴 변 상한 (기본 {SHOT_MAX_SIDE})")
+    p_s.add_argument("--keep-format", action="store_true",
+                     help="WebP 로 바꾸지 않고 원래 형식을 유지한다")
     p_s.set_defaults(func=cmd_shrink)
 
     return parser

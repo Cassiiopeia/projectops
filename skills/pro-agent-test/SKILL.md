@@ -336,7 +336,23 @@ sleep 5 && adb logcat -d | grep -i "flutter"
 ```bash
 adb exec-out screencap -p > /tmp/step_N.png     # Android
 xcrun simctl io booted screenshot /tmp/step_N.png # iOS
+
+# 읽기 전에 줄인다 — 원본은 한 장에 1,500 토큰 가까이 먹는다
+{PYTHON} {SCRIPTS}/e2e_cli.py shrink /tmp/step_N.png --root {PROJECT_ROOT}
 ```
+
+> **줄여야 하는 것이 둘인데 방법이 다르다 (실측).**
+>
+> | 무엇이 | 무엇으로 | 효과 |
+> | --- | --- | --- |
+> | 세션 토큰 | **해상도 축소** | 1080x2400 원본 1,473 토큰 → 긴 변 1200 으로 864 토큰 |
+> | 파일·전송량 | **WebP 변환** | 495KB → 34KB |
+>
+> **포맷은 토큰에 아무 영향이 없다** — 토큰은 가로x세로에서만 나온다. 그래서
+> `shrink` 가 둘을 함께 한다. `web shot` 은 이미 이 처리를 하고 저장하므로
+> 따로 부를 필요가 없다. 앱·iOS 캡처만 이 한 줄이 필요하다.
+>
+> 한 세션에 스크린샷 20장이면 **29,460 → 5,880 토큰**이다. 밟는 길이가 길어질수록 벌어진다.
 
 **매 조작 전에 새로 찍는다.** 이전 화면 기억으로 누르지 않는다 — 키보드가 올라왔거나
 안내 문구가 추가돼 요소가 밀려 있을 수 있다 (실제로 자주 발생한다).

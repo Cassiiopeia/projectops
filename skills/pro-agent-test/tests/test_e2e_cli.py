@@ -1031,3 +1031,42 @@ def test_social_login_reference_is_linked_from_the_skill():
     """참조되지 않는 문서는 읽히지 않는다."""
     skill = (CLI.parents[1] / "SKILL.md").read_text(encoding="utf-8")
     assert "references/social-login.md" in skill
+
+
+# ── 화면 캡처 경량화 (#604 후속) ──────────────────────────────────────
+#
+# 줄여야 하는 것이 둘인데 방법이 다르다. 한쪽만 하면 나머지가 그대로 남는다.
+#   세션 토큰 → 해상도 축소 (포맷은 영향 없음)
+#   전송량    → WebP 변환
+
+def test_shot_and_shrink_share_one_max_side():
+    """기준이 둘이면 어느 쪽이 맞는지 알 수 없다."""
+    _, out, _ = run_cli("shrink", "--help")
+    assert str(e2e_cli.SHOT_MAX_SIDE) in out
+
+
+def test_web_shot_can_keep_the_original_size():
+    """좌표를 정밀하게 봐야 할 때가 있다 — 끌 수 있어야 한다."""
+    _, out, _ = run_cli("web", "--help")
+    assert "--max-side" in out
+
+
+def test_webp_conversion_survives_without_any_tool(tmp_path, monkeypatch):
+    """Pillow·cwebp·ffmpeg 가 하나도 없어도 화면을 못 찍게 되지는 않는다."""
+    png = tmp_path / "x.png"
+    png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 64)
+    monkeypatch.setattr(e2e_cli, "_has_pillow", lambda: False)
+    monkeypatch.setattr(e2e_cli, "_venv_python", lambda: None)
+    monkeypatch.setattr(e2e_cli.shutil, "which", lambda _n: None)
+    assert e2e_cli._to_webp(png) is None
+    assert png.exists(), "변환에 실패했다고 원본을 지우면 안 된다"
+
+
+def test_doctor_tells_when_screens_cannot_be_shrunk(sandbox, monkeypatch):
+    """수단이 없다는 사실이 드러나야 사용자가 조치할 수 있다."""
+    import json as _json
+    _, out, _ = run_cli("doctor", "--root", str(sandbox), home=sandbox)
+    d = _json.loads(out)
+    assert "image_resize" in d
+    # 수단이 있으면 이름이, 없으면 무엇이 손해인지가 적혀야 한다
+    assert d["image_resize"]
