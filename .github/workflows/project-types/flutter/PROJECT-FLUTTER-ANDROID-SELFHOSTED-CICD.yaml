@@ -211,13 +211,24 @@ jobs:
           echo "현재 버전: $CURRENT_VERSION"
           echo "짧은 커밋 해시: $SHORT_COMMIT_HASH"
 
-      # Fastlane을 이용하여 APK 빌드 (릴리스 빌드 유지)
-      - name: Build APK with Fastlane
+      # APK 빌드 (릴리스 빌드 유지)
+      - name: Build APK
         run: |
-          cd android
-          bundle exec fastlane build --verbose
-          ls -la ../build/app/outputs/flutter-apk/ || true
-          echo "APK built with Fastlane"
+          # 마법사가 까는 Fastfile 에는 `build` lane 이 없다 (#601).
+          # 있는 것: build_aab · deploy_internal · promote_internal_to_production · validate
+          # 그래서 무턱대고 부르면 "Could not find lane" 으로 죽는다.
+          # 직접 만든 Fastfile 에 build 가 있으면 그것을 쓰고, 없으면 flutter 로 빌드한다.
+          if [ -f "android/fastlane/Fastfile" ] \
+             && grep -qE '^[[:space:]]*lane[[:space:]]*:build([[:space:]]|$)' android/fastlane/Fastfile; then
+            echo "📦 Fastlane build lane 으로 빌드..."
+            # 서브셸로 감싼다 — cd 가 새어 나가면 뒤 명령이 엉뚱한 곳에서 돈다
+            ( cd android && bundle exec fastlane build --verbose )
+          else
+            echo "📦 Flutter 직접 빌드..."
+            flutter build apk --release
+          fi
+          ls -la ./build/app/outputs/flutter-apk/ || true
+          echo "APK built"
 
       # APK 파일 이름 변경 및 준비
       - name: Rename and Prepare APK

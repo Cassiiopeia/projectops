@@ -238,6 +238,39 @@ python3 .github/util/flutter/_shared/test_wizard_cli.py
 
 상세: `.github/util/flutter/_shared/README.md`
 
+### ⚠️ 워크플로가 부르는 fastlane lane 은 실재해야 한다 (#601 — agent 필독)
+
+**Fastfile 은 마법사가 덮어쓴다.** lane 을 손으로 더하면 다시 깔 때 사라지므로,
+**워크플로를 있는 lane 에 맞춘다.** 반대로 하면 안 된다.
+
+| 템플릿 | 정의하는 lane |
+|---|---|
+| `testflight-wizard/templates/Fastfile.ios.template` | `deploy` |
+| `playstore-wizard/templates/Fastfile.playstore.template` | `build_aab` · `deploy_internal` · `promote_internal_to_production` · `validate` |
+
+실사고: iOS 테스트 빌드가 없는 `upload_testflight` 를 불러 **한 번도 TestFlight 에 올라간
+적이 없었다.** IPA 는 정상 생성되고 **마지막 업로드 한 스텝에서만** 죽어서 오래 안 보였다.
+배포 경로는 맞는 lane 을 불러 멀쩡했고 **테스트 경로만** 틀렸는데, 그 경로를 끝까지
+밟아본 사람이 없었다. 같은 종류를 찾아보니 Android 쪽에도 둘 더 있었다(`fastlane build`).
+
+직접 만든 Fastfile 에만 있는 lane 을 쓰려면 **있는지 확인하고 부른다.**
+
+```bash
+if [ -f "android/fastlane/Fastfile" ] \
+   && grep -qE '^[[:space:]]*lane[[:space:]]*:build([[:space:]]|$)' android/fastlane/Fastfile; then
+  ( cd android && bundle exec fastlane build --verbose )   # 서브셸 — cd 가 새면 뒤가 엉킨다
+else
+  flutter build apk --release
+fi
+```
+
+> **🔴 테스트 빌드는 `DEPLOY_MODE` 를 반드시 못 박는다.** iOS `deploy` lane 은 이 값에 따라
+> **심사 자동 제출(`submit_for_review`)까지** 간다. 기본값에 기대고 있으면 Fastfile 기본값이
+> 바뀌는 순간 테스트 빌드가 앱 심사에 올라간다 — 되돌릴 수 없는 종류의 사고다.
+> 테스트 경로는 `export DEPLOY_MODE="store_only"` 를 명시한다.
+
+회귀 방지: `.github/scripts/test/test_fastlane_lanes.py`
+
 ### ⚠️ 워크플로우는 `permissions:` 를 반드시 선언한다 (#595 — agent 필독)
 
 **선언하지 않으면 레포 기본값을 따르는데, 그 기본값은 레포마다 다르고 나중에 바뀐다.**

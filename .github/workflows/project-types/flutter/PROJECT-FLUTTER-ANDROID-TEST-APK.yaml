@@ -582,11 +582,15 @@ jobs:
       # APK 빌드 (Fastlane 또는 직접 빌드)
       - name: Build APK
         run: |
-          # Fastlane Fastfile이 있으면 사용, 없으면 직접 빌드
-          if [ -f "android/fastlane/Fastfile" ]; then
-            echo "📦 Fastlane을 사용하여 빌드..."
-            cd android
-            bundle exec fastlane build --verbose || flutter build apk --release
+          # 마법사가 까는 Fastfile 에는 `build` lane 이 없다 (#601).
+          # 있는 것: build_aab · deploy_internal · promote_internal_to_production · validate
+          # 그래서 무턱대고 부르면 "Could not find lane" 으로 죽는다.
+          # 직접 만든 Fastfile 에 build 가 있으면 그것을 쓰고, 없으면 flutter 로 빌드한다.
+          if [ -f "android/fastlane/Fastfile" ] \
+             && grep -qE '^[[:space:]]*lane[[:space:]]*:build([[:space:]]|$)' android/fastlane/Fastfile; then
+            echo "📦 Fastlane build lane 으로 빌드..."
+            # 서브셸로 감싼다 — cd 가 새어 나가면 뒤 명령이 엉뚱한 곳에서 돈다
+            ( cd android && bundle exec fastlane build --verbose )
           else
             echo "📦 Flutter 직접 빌드..."
             flutter build apk --release
