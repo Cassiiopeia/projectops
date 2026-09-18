@@ -776,12 +776,31 @@ def cmd_bootstrap(args) -> int:
             counts[f"{key}_count"] = len(extra[key])
     made_summary = " · ".join(f"{k.replace('_count','')} {v}개" for k, v in counts.items())
 
+    # 무엇을 근거로 찾았는지 함께 준다. 이것이 없으면 빈손일 때 "이 프로젝트엔 화면이 없다"로
+    # 오해한다 — 실제로는 구조가 달라서 못 찾은 것이다 (이슈 #589).
+    _LOOKED_FOR = {
+        "app": ["lib/features/ 폴더", "*_screen.dart 파일명",
+                "static const x = '/...' 형태의 라우트"],
+        "web": ["app/·pages/·src/ 폴더", "Next.js 파일 규칙(page·index·route)",
+                "path: '...' 형태의 라우트"],
+        "server": ["@GetMapping 등 Spring 애너테이션", "app/router.get(...) 형태",
+                   "@app.get(...) 형태"],
+    }
+    empty = not groups and not any(extra.get(k) for k in
+                                   ("routes", "screens", "pages", "endpoints"))
+
     return emit({
         "target": target,
         "app_map": str((d / _APP_MAP_FILE).relative_to(root))
                    if str(d).startswith(str(root)) else str(d / _APP_MAP_FILE),
         "feature_groups": groups,
         "created_folders": made,
+        # 정답이 아니라 후보다. 판단은 이것을 받는 쪽이 한다.
+        "looked_for": _LOOKED_FOR.get(target, []),
+        "is_guess": True,
+        **({"empty_hint": (
+            "흔한 규칙으로 찾아봤지만 아무것도 없습니다. 이 프로젝트가 다른 구조를 쓸 수 "
+            "있으니 코드를 직접 읽어 확인하세요 — 화면이 없다는 뜻이 아닙니다")} if empty else {}),
         **({"auth": auth} if auth else {}),
         **counts,
         "summary": (f"[{target}] 기능 {len(groups)}개"
@@ -1487,6 +1506,7 @@ def cmd_edges(args) -> int:
 
     hits: dict[str, list[dict]] = {}
     scanned = 0
+    # 정규식으로 흔한 모양을 찾을 뿐이다. 여기 없다고 없는 것이 아니다.
     files = [f for d in scan_dirs for f in sorted(d.rglob("*"))
              if f.is_file() and f.suffix in exts
              and not any(x in f.parts for x in ("node_modules", "build", ".venv", "dist"))]
@@ -2233,6 +2253,311 @@ def cmd_api(args) -> int:
     })
 
 
+# ── DB 대조 (이슈 #589) ──────────────────────────────────────────────────
+#
+# **접속 방법은 agent가 정한다.** 프로젝트마다 설정이 사는 곳이 다르고(application.yml ·
+# .env · settings.py · ormconfig), 붙는 길도 제각각이다 — 로컬 DB · 열린 포트 · SSH로
+# 들어가야만 닿는 DB · 컨테이너 안에서 실행 · 터널 경유.
+#
+# 예전에는 py가 Spring의 application-prod.yml을 찾아 psql로 붙는 한 가지만 했다.
+# 그 바깥은 전부 못 했고, MySQL은 읽어 놓고 psql로 붙으려다 조용히 실패했다.
+# 이제 py는 **받은 대로 실행만 한다.**
+
+# 엔진별 클라이언트. 없는 엔진은 추측하지 않고 그렇다고 말한다.
+_DB_CLIENTS = {
+    "postgres": "psql",
+    "postgresql": "psql",
+    "mysql": "mysql",
+    "mariadb": "mysql",
+}
+
+
+def _db_argv(engine: str, db: dict, sql: str) -> tuple[list[str], dict]:
+    """엔진에 맞는 명령과 환경변수를 만든다. 비밀번호는 argv가 아니라 env로 넘긴다 —
+    argv는 같은 기기의 다른 프로세스에서 보인다."""
+    exe = _DB_CLIENTS[engine]
+    env = {}
+    if exe == "psql":
+        argv = [exe, "-tAF", "\t", "-c", sql]
+        env = {"PGHOST": db.get("host") or "", "PGPORT": str(db.get("port") or ""),
+               "PGDATABASE": db.get("name") or "", "PGUSER": db.get("user") or "",
+               "PGPASSWORD": db.get("password") or ""}
+    else:
+        argv = [exe, "-N", "-B"]
+        if db.get("host"):
+            argv += ["-h", db["host"]]
+        if db.get("port"):
+            argv += ["-P", str(db["port"])]
+        if db.get("user"):
+            argv += ["-u", db["user"]]
+        if db.get("name"):
+            argv += [db["name"]]
+        argv += ["-e", sql]
+        if db.get("password"):
+            env = {"MYSQL_PWD": db["password"]}
+    return argv, env
+
+
+def _shq(s: str) -> str:
+    """원격 셸에 넘길 값을 감싼다."""
+    return "'" + str(s).replace("'", """'"'"'""") + "'"
+
+
+# ── 접근 방법 기록 (이슈 #589) ───────────────────────────────────────────
+#
+# **어떻게 DB에 붙고 로그를 보는지는 agent가 코드를 읽고 판단한다.**
+# 서버는 Spring·Django·FastAPI·Express·NestJS·Rails… 끝이 없고, 같은 프레임워크라도
+# 설정이 사는 곳과 붙는 길이 제각각이다. 정규식으로 맞히려는 시도는 성립하지 않는다.
+#
+# 그래서 py는 찾지 않는다. agent가 알아낸 것을 여기에 적어 두고, 다음 실행은 그것을 쓴다.
+# learned.json과 같은 자리(프로젝트 밖)에 있어 워크트리를 오가도 남는다.
+
+_ACCESS_FILE = "access.json"
+
+
+def _access_path(root: Path) -> Path:
+    return _home_dir(root) / _ACCESS_FILE
+
+
+def _load_access(root: Path) -> dict:
+    f = _access_path(root)
+    if not f.is_file():
+        return {}
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def cmd_access(args) -> int:
+    """이 프로젝트에 어떻게 붙는지를 적어 두고 꺼내 쓴다.
+
+    agent가 코드를 읽어 알아낸 것을 기록한다 — DB 접속, 로그 보는 법, API 주소.
+    비밀번호는 **값을 적지 않는다.** 어느 환경변수에서 읽을지만 적는다.
+    """
+    root = Path(args.root).resolve()
+    data = _load_access(root)
+
+    if args.action == "show":
+        return emit({
+            "file": str(_access_path(root)),
+            "access": data,
+            "summary": (f"{', '.join(data)} 기록됨" if data else "아직 기록이 없습니다"),
+            "next": (None if data else
+                     "코드를 읽어 붙는 법을 알아낸 뒤 access set --key db --json '{...}'"),
+        })
+
+    if args.action == "set":
+        if not args.key:
+            return emit({"ok": False, "code": "key_required",
+                         "error": "--key 가 필요합니다 (db · logs · base_url 등)"})
+        try:
+            value = json.loads(args.json_value) if args.json_value else None
+        except json.JSONDecodeError as e:
+            return emit({"ok": False, "code": "bad_json", "error": f"--json 이 올바르지 않습니다: {e}"})
+        if value is None:
+            return emit({"ok": False, "code": "value_required", "error": "--json 이 필요합니다"})
+
+        # 비밀번호 원문이 섞여 들어오면 막는다. 파일은 로컬에만 있지만 공유될 수 있다.
+        leaked = _find_secrets(json.dumps(value, ensure_ascii=False))
+        if leaked and not args.allow_secret:
+            return emit({
+                "ok": False, "code": "secret_in_value",
+                "error": "비밀값으로 보이는 것이 들어 있습니다",
+                "found": leaked[:5],
+                "hint": '값 대신 읽을 곳을 적으세요. 예: {"password_env": "ELUM_DB_PASSWORD"}',
+            })
+
+        data[args.key] = value
+        f = _access_path(root)
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        return emit({"file": str(f), "key": args.key, "access": data,
+                     "summary": f"{args.key} 기록 완료"})
+
+    if args.action == "unset":
+        if args.key in data:
+            del data[args.key]
+            _access_path(root).write_text(
+                json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            return emit({"key": args.key, "access": data, "summary": f"{args.key} 지움"})
+        return emit({"key": args.key, "access": data, "code": "not_found",
+                     "summary": f"{args.key} 가 없습니다"})
+
+    return emit({"ok": False, "code": "unknown_action", "error": args.action})
+
+
+def cmd_db(args) -> int:
+    """SQL 한 줄을 실행한다. **어떻게 붙을지는 호출하는 쪽이 정한다.**
+
+    세 가지 길이 있다.
+      --command  임의 명령 (docker exec 등). 가장 자유롭다
+      --via ssh  원격에 들어가 그 안에서 클라이언트를 실행한다
+      (기본)     여기서 직접 붙는다
+    """
+    sql = args.sql
+    if not sql:
+        return emit({"ok": False, "code": "sql_required", "error": "--sql 이 필요합니다"})
+
+    # 적어 둔 접근 방법을 그대로 쓴다. 기록해 놓고 매번 값을 꺼내 조립해야 하면 소용이 없다.
+    # 인자로 직접 준 값이 언제나 이긴다 — 기록이 낡았을 때 빠져나갈 길을 막지 않는다.
+    if args.profile:
+        saved = _load_access(Path(args.root).resolve()).get(args.profile)
+        if not saved:
+            return emit({"ok": False, "code": "profile_not_found",
+                         "error": f"'{args.profile}' 기록이 없습니다",
+                         "next": f"access show --root {args.root}"})
+        if isinstance(saved, dict):
+            for k in ("engine", "host", "port", "db", "user", "password",
+                      "command", "ssh_host", "ssh_user", "ssh_port"):
+                if getattr(args, k, None) in (None, "") and saved.get(k) is not None:
+                    setattr(args, k, saved[k])
+            if saved.get("how") in ("ssh", "direct") and args.via == "direct":
+                args.via = saved["how"]
+            if saved.get("append_sql"):
+                args.append_sql = True
+            # 비밀번호는 값이 아니라 "어디서 읽을지"로 적어 둔다
+            env_key = saved.get("password_env")
+            if env_key and not args.password:
+                args.password = os.environ.get(env_key)
+                if not args.password:
+                    return emit({"ok": False, "code": "password_env_empty",
+                                 "error": f"환경변수 {env_key} 가 비어 있습니다",
+                                 "hint": f"{env_key}=... 를 주고 다시 부르세요"})
+
+    # ① 임의 명령 — agent가 접속을 통째로 정한 경우
+    if args.command:
+        argv = ["bash", "-lc", f"{args.command} {_shq(sql)}"] if args.append_sql \
+               else ["bash", "-lc", args.command]
+        stdin = None if args.append_sql else sql
+        try:
+            r = subprocess.run(argv, input=stdin, capture_output=True, text=True,
+                               timeout=args.timeout)
+        except subprocess.TimeoutExpired:
+            return emit({"ok": False, "code": "db_timeout",
+                         "error": f"응답 없음 ({args.timeout}초)"})
+        return emit({
+            "ok": r.returncode == 0, "via": "command",
+        "code": "ok" if r.returncode == 0 else "db_query_failed",
+            "rows": _db_rows(r.stdout), "raw": r.stdout[:4000],
+            "error": (r.stderr or "").strip()[:500] or None,
+            "summary": "실행 완료" if r.returncode == 0 else "실행 실패",
+        })
+
+    engine = (args.engine or "").lower()
+    if engine not in _DB_CLIENTS:
+        return emit({
+            "ok": False, "code": "unsupported_engine",
+            "error": f"engine '{args.engine}' 은 다루지 않습니다",
+            "supported": sorted(set(_DB_CLIENTS)),
+            "hint": "--command 로 직접 실행할 명령을 주면 어떤 DB든 됩니다",
+        })
+
+    db = {"host": args.host, "port": args.port, "name": args.db,
+          "user": args.user, "password": args.password or os.environ.get("DB_PASSWORD")}
+    argv, env = _db_argv(engine, db, sql)
+
+    # ② SSH 경유 — 서버 안에서만 닿는 DB
+    if args.via == "ssh":
+        if not args.ssh_host:
+            return emit({"ok": False, "code": "ssh_host_required",
+                         "error": "--ssh-host 가 필요합니다"})
+        remote = " ".join(f"{k}={_shq(v)}" for k, v in env.items() if v)
+        remote += " " + " ".join(_shq(a) for a in argv)
+        dest = f"{args.ssh_user}@{args.ssh_host}" if args.ssh_user else args.ssh_host
+        ssh = ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new"]
+        if args.ssh_port:
+            ssh += ["-p", str(args.ssh_port)]
+        full = ssh + [dest, remote]
+        try:
+            r = subprocess.run(full, capture_output=True, text=True, timeout=args.timeout)
+        except subprocess.TimeoutExpired:
+            return emit({"ok": False, "code": "db_timeout",
+                         "error": f"응답 없음 ({args.timeout}초)"})
+        return emit({
+            "ok": r.returncode == 0, "via": "ssh",
+        "code": "ok" if r.returncode == 0 else "db_query_failed", "engine": engine,
+            "rows": _db_rows(r.stdout), "raw": r.stdout[:4000],
+            "error": (r.stderr or "").strip()[:500] or None,
+            "summary": "실행 완료" if r.returncode == 0 else "실행 실패",
+            "hint": ("비밀번호 없이 붙는 키가 있어야 합니다(BatchMode)"
+                     if r.returncode != 0 else None),
+        })
+
+    # ③ 직접 — 여기서 붙는다
+    exe = shutil.which(argv[0])
+    if not exe:
+        return emit({
+            "ok": False, "code": "client_missing",
+            "error": f"{argv[0]} 가 없습니다",
+            "install": ("brew install libpq" if argv[0] == "psql" else "brew install mysql-client"),
+            "hint": "--via ssh 로 서버 안에서 실행하거나 --command 로 직접 명령을 주세요",
+        })
+    try:
+        r = subprocess.run([exe] + argv[1:], env=dict(os.environ, **env),
+                           capture_output=True, text=True, timeout=args.timeout)
+    except subprocess.TimeoutExpired:
+        return emit({"ok": False, "code": "db_timeout",
+                     "error": f"응답 없음 ({args.timeout}초)"})
+    return emit({
+        "ok": r.returncode == 0, "via": "direct",
+        "code": "ok" if r.returncode == 0 else "db_query_failed", "engine": engine,
+        "rows": _db_rows(r.stdout), "raw": r.stdout[:4000],
+        "error": (r.stderr or "").strip()[:500] or None,
+        "summary": "실행 완료" if r.returncode == 0 else "실행 실패",
+    })
+
+
+def cmd_logs(args) -> int:
+    """서버 로그를 본다. **보는 방법은 적어 둔 것을 쓴다.**
+
+    로그는 컨테이너 안에 있을 수도, 파일일 수도, 관리자 화면에만 있을 수도 있다.
+    py가 맞히려 들지 않는다 — agent가 알아내 access 에 적고, 여기서는 실행만 한다.
+    """
+    root = Path(args.root).resolve()
+    command = args.command
+    if not command:
+        saved = _load_access(root).get(args.profile or "logs")
+        if isinstance(saved, dict):
+            command = saved.get("command")
+        elif isinstance(saved, str):
+            command = saved
+    if not command:
+        return emit({
+            "ok": False, "code": "no_log_command",
+            "error": "로그를 어떻게 보는지 모릅니다",
+            "hint": ('코드를 읽어 알아낸 뒤 적어 두세요. 예: '
+                     'access set --key logs --json \'{"command":"ssh u@h \\"docker logs --tail 200 app\\""}\''),
+        })
+    if args.tail:
+        command = f"{command} | tail -n {int(args.tail)}"
+    if args.grep:
+        command = f"{command} | grep -i -- {_shq(args.grep)}"
+    try:
+        r = subprocess.run(["bash", "-lc", command], capture_output=True, text=True,
+                           timeout=args.timeout)
+    except subprocess.TimeoutExpired:
+        return emit({"ok": False, "code": "logs_timeout",
+                     "error": f"응답 없음 ({args.timeout}초)"})
+    out = r.stdout or ""
+    return emit({
+        "ok": r.returncode == 0,
+        "code": "ok" if r.returncode == 0 else "logs_failed",
+        "lines": out.splitlines()[-(args.tail or 200):],
+        "error": (r.stderr or "").strip()[:500] or None,
+        "summary": f"{len(out.splitlines())}줄" if r.returncode == 0 else "실행 실패",
+    })
+
+
+def _db_rows(out: str) -> list[list[str]]:
+    """탭으로 나뉜 출력을 행 목록으로. 판정은 agent가 한다."""
+    rows = []
+    for line in (out or "").splitlines():
+        if line.strip():
+            rows.append(line.split("\t"))
+    return rows[:200]
+
+
 def cmd_backend(args) -> int:
     """서버 쪽을 대조한다 — probe / orphans / logs."""
     import json
@@ -2448,6 +2773,49 @@ def build_parser() -> argparse.ArgumentParser:
                        help="API 주소. 생략하면 시나리오·설정에서 찾는다")
     p_api.add_argument("--timeout", type=int, default=30, help="요청당 제한 시간(초)")
     p_api.set_defaults(func=cmd_api)
+
+    p_ac = sub.add_parser("access", help="이 프로젝트에 붙는 법을 적어 두고 꺼내 쓴다")
+    p_ac.add_argument("action", choices=["show", "set", "unset"])
+    p_ac.add_argument("--root", default=".", help="프로젝트 루트")
+    p_ac.add_argument("--key", default=None, help="db · logs · base_url 등")
+    p_ac.add_argument("--json", dest="json_value", default=None,
+                      help='적을 내용(JSON). 예: {"how":"ssh","engine":"postgres",...}')
+    p_ac.add_argument("--allow-secret", dest="allow_secret", action="store_true",
+                      help="비밀값 경고를 무시한다 (권장하지 않음)")
+    p_ac.set_defaults(func=cmd_access)
+
+    p_db = sub.add_parser("db", help="SQL을 실행한다 (접속 방법은 호출하는 쪽이 정한다)")
+    p_db.add_argument("--sql", required=True, help="실행할 SQL")
+    p_db.add_argument("--engine", default=None, help="postgres · mysql (--command 면 불필요)")
+    p_db.add_argument("--host", default=None)
+    p_db.add_argument("--port", default=None)
+    p_db.add_argument("--db", default=None, help="데이터베이스 이름")
+    p_db.add_argument("--user", default=None)
+    p_db.add_argument("--password", default=None,
+                      help="생략하면 DB_PASSWORD 환경변수를 본다 (권장)")
+    p_db.add_argument("--via", choices=["direct", "ssh"], default="direct",
+                      help="ssh면 원격에 들어가 그 안에서 실행한다")
+    p_db.add_argument("--ssh-host", dest="ssh_host", default=None)
+    p_db.add_argument("--ssh-user", dest="ssh_user", default=None)
+    p_db.add_argument("--ssh-port", dest="ssh_port", default=None)
+    p_db.add_argument("--command", default=None,
+                      help="접속을 통째로 지정한다. 예: \"docker exec -i pg psql -U root -d elum -c\"")
+    p_db.add_argument("--append-sql", dest="append_sql", action="store_true",
+                      help="--command 뒤에 SQL을 인자로 붙인다 (기본은 표준입력으로 넘김)")
+    p_db.add_argument("--profile", default=None,
+                      help="access 에 적어 둔 기록을 쓴다 (예: db). 인자로 준 값이 우선한다")
+    p_db.add_argument("--root", default=".", help="--profile 을 찾을 프로젝트 루트")
+    p_db.add_argument("--timeout", type=int, default=40)
+    p_db.set_defaults(func=cmd_db)
+
+    p_lg = sub.add_parser("logs", help="서버 로그를 본다 (보는 방법은 access 에 적어 둔다)")
+    p_lg.add_argument("--root", default=".", help="프로젝트 루트")
+    p_lg.add_argument("--profile", default=None, help="access 의 어느 키를 쓸지 (기본 logs)")
+    p_lg.add_argument("--command", default=None, help="즉석으로 실행할 명령")
+    p_lg.add_argument("--tail", type=int, default=200)
+    p_lg.add_argument("--grep", default=None)
+    p_lg.add_argument("--timeout", type=int, default=60)
+    p_lg.set_defaults(func=cmd_logs)
 
     p_bk = sub.add_parser("backend", help="서버 로그·DB를 대조한다 (화면만으론 못 잡는 것)")
     p_bk.add_argument("action", choices=["probe", "orphans", "logs"])
