@@ -35,11 +35,11 @@
 # - basic: version.yml만 사용
 # ===================================================================
 
-version: "4.15.2"
-version_code: 464 # app build number
+version: "4.16.0"
+version_code: 465 # app build number
 project_types: ["basic"] # 멀티타입 배열 — 첫 항목이 primary, 직접 편집 가능
 metadata:
-  last_updated: "2026-09-18 11:53:22"
+  last_updated: "2026-09-18 12:02:33"
   last_updated_by: "Cassiiopeia"
   template:
     options:
