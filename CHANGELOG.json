@@ -1,14 +1,41 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-18T02:39:40Z",
-    "currentVersion": "4.12.0",
+    "lastUpdated": "2026-09-18T04:47:30Z",
+    "currentVersion": "4.12.1",
     "projectType": "basic",
-    "totalReleases": 246,
+    "totalReleases": 247,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.12.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-18",
+      "pr_number": 592,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 테스트 도구에서 확인한 내용을 저장하거나 새 테스트 흐름을 만들 때 아무것도 실행되지 않던 문제를 해결했습니다\n\n* **개선**\n  * 서버 주소를 정해진 형태로 짐작하지 않고, 프로젝트마다 지정해 둔 값을 쓰도록 바꿨습니다\n  * 테스트 증거 이미지를 저장소에 담지 않고 올리도록 안내를 통일했습니다\n  * 테스트 흐름을 만들고 미리 검증하는 절차를 사용법 안내에 추가했습니다",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "테스트 도구에서 확인한 내용을 저장하거나 새 테스트 흐름을 만들 때 아무것도 실행되지 않던 문제를 해결했습니다"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "서버 주소를 정해진 형태로 짐작하지 않고, 프로젝트마다 지정해 둔 값을 쓰도록 바꿨습니다",
+            "테스트 증거 이미지를 저장소에 담지 않고 올리도록 안내를 통일했습니다",
+            "테스트 흐름을 만들고 미리 검증하는 절차를 사용법 안내에 추가했습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.12.0",
       "project_type": "basic",
