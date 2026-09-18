@@ -604,6 +604,94 @@ def _scan_auth(lib: Path) -> dict:
     return {"kind": kind, "providers": providers, "evidence": evidence}
 
 
+def _scan_web(root: Path) -> dict:
+    """웹의 페이지·라우트를 훑는다.
+
+    프레임워크마다 규칙이 달라 완벽할 수 없다. 시나리오를 쓸 때 "어디가 있더라"를
+    줄여 주는 것이 목적이고, 판단은 사람이 한다.
+    """
+    pages, routes = [], []
+    skip = ("node_modules", "build", "dist", ".next", ".git")
+    for d in ("app", "pages", "src"):
+        base = root / d
+        if not base.is_dir():
+            continue
+        for f in sorted(base.rglob("*")):
+            if not f.is_file() or any(x in f.parts for x in skip):
+                continue
+            if f.suffix not in (".tsx", ".jsx", ".ts", ".js", ".vue", ".svelte"):
+                continue
+            rel = str(f.relative_to(root))
+            # Next.js app/pages 규칙: 파일 위치가 곧 경로다
+            if d in ("app", "pages") and f.stem in ("page", "index", "route"):
+                seg = f.parent.relative_to(base)
+                routes.append({"path": "/" + str(seg).replace(".", "").strip("/"), "file": rel})
+            elif "page" in f.stem.lower() or "screen" in f.stem.lower() or "view" in f.stem.lower():
+                pages.append({"name": f.stem, "file": rel})
+            # 라우터 정의에서 경로를 뽑는다
+            try:
+                body = f.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            for m in re.finditer(r"""path:\s*['"]([^'"]+)['"]""", body):
+                routes.append({"path": m.group(1), "file": rel})
+    # 같은 경로가 여러 번 잡히므로 정리한다
+    seen, uniq = set(), []
+    for r in routes:
+        if r["path"] in seen:
+            continue
+        seen.add(r["path"])
+        uniq.append(r)
+    return {"routes": uniq[:80], "pages": pages[:80]}
+
+
+def _scan_server(root: Path) -> dict:
+    """서버의 엔드포인트를 훑는다. 서버 시나리오는 이 목록에서 시작한다."""
+    eps = []
+    skip = ("node_modules", "build", "dist", ".venv", ".git", "target")
+    rules = [
+        # Spring
+        (r'@(Get|Post|Put|Delete|Patch)Mapping\(\s*(?:value\s*=\s*)?"([^"]*)"', "spring"),
+        (r'@RequestMapping\(\s*(?:value\s*=\s*)?"([^"]*)"', "spring"),
+        # Express·Nest
+        (r"""\b(?:app|router)\.(get|post|put|delete|patch)\(\s*['"]([^'"]+)['"]""", "node"),
+        # FastAPI·Flask
+        (r"""@(?:app|router)\.(get|post|put|delete|patch)\(\s*['"]([^'"]+)['"]""", "python"),
+    ]
+    for d in ("src", "app", "api", "."):
+        base = root / d if d != "." else root
+        if not base.is_dir():
+            continue
+        for f in sorted(base.rglob("*")):
+            if not f.is_file() or any(x in f.parts for x in skip):
+                continue
+            if f.suffix not in (".java", ".kt", ".py", ".ts", ".js"):
+                continue
+            try:
+                body = f.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            rel = str(f.relative_to(root))
+            for pat, kind in rules:
+                for m in re.finditer(pat, body):
+                    g = m.groups()
+                    method = g[0].upper() if len(g) > 1 else "ANY"
+                    path = g[-1]
+                    eps.append({"method": method, "path": path, "file": rel, "kind": kind})
+            if len(eps) > 300:
+                break
+        if d == ".":
+            break
+    seen, uniq = set(), []
+    for e in eps:
+        key = (e["method"], e["path"])
+        if key in seen:
+            continue
+        seen.add(key)
+        uniq.append(e)
+    return {"endpoints": uniq[:120]}
+
+
 def cmd_bootstrap(args) -> int:
     """앱 구조를 스캔해 app-map.json에 적고 기능별 폴더를 만든다.
 
@@ -614,16 +702,36 @@ def cmd_bootstrap(args) -> int:
     from datetime import date
 
     root = Path(args.path).resolve()
-    flutter_root = _find_flutter_root(root)
-    if flutter_root is None:
-        return emit({"ok": False, "code": "flutter_project_not_found",
-                     "error": f"{root} 아래에서 Flutter 프로젝트를 찾지 못했습니다"})
-    lib = flutter_root / "lib"
+    target = getattr(args, "target", None) or (detect_targets(root)["targets"] or ["app"])[0]
 
-    groups = _scan_feature_groups(lib)
-    routes = _scan_routes(lib)
-    screens = _scan_screens(lib)
-    auth = _scan_auth(lib)
+    groups: list[str] = []
+    extra: dict = {}
+    flutter_root = None
+    if target == "app":
+        flutter_root = _find_flutter_root(root)
+        if flutter_root is None:
+            return emit({"ok": False, "code": "flutter_project_not_found",
+                         "error": f"{root} 아래에서 Flutter 프로젝트를 찾지 못했습니다",
+                         "hint": "--target web|server 로 대상을 알려주세요"})
+        lib = flutter_root / "lib"
+        groups = _scan_feature_groups(lib)
+        extra = {"routes": _scan_routes(lib), "screens": _scan_screens(lib),
+                 "auth": _scan_auth(lib)}
+    elif target == "web":
+        extra = _scan_web(root)
+        # 경로 첫 조각을 기능 그룹으로 삼는다 — 앱의 lib/features 와 같은 역할이다
+        for r in extra.get("routes", []):
+            seg = r["path"].strip("/").split("/")[0]
+            if seg and not seg.startswith((":", "*", "[")) and seg not in groups:
+                groups.append(seg)
+    else:  # server
+        extra = _scan_server(root)
+        for e in extra.get("endpoints", []):
+            parts = [x for x in e["path"].strip("/").split("/") if x and not x.startswith(("{", ":"))]
+            seg = parts[1] if len(parts) > 1 and parts[0] == "api" else (parts[0] if parts else "")
+            if seg and seg not in groups:
+                groups.append(seg)
+    groups = groups[:20]
 
     d = _scenario_dir(root, create=True)
     (d / _SHARED_DIR).mkdir(exist_ok=True)
@@ -641,33 +749,45 @@ def cmd_bootstrap(args) -> int:
 
     app_map = {
         "scanned": date.today().isoformat(),
-        "flutter_root": str(flutter_root.relative_to(root))
-                        if flutter_root != root else ".",
+        "target": target,
+        "flutter_root": (str(flutter_root.relative_to(root))
+                         if flutter_root and flutter_root != root else
+                         ("." if flutter_root else None)),
         "feature_groups": groups,
-        "auth": auth,
-        "routes": routes,
-        "screens": screens,
+        # 타겟마다 담기는 것이 다르다 — app은 라우트·화면·인증, web은 라우트·페이지,
+        # server는 엔드포인트. 없는 키를 억지로 만들지 않는다.
+        **extra,
     }
     (d / _APP_MAP_FILE).write_text(
         json.dumps(app_map, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    # 로그인 전제 템플릿을 제안한다 — 앱마다 방식이 다르므로 만들지는 않는다
-    if auth["kind"] == "social" and auth["providers"]:
+    # 로그인 전제 템플릿을 제안한다 — 방식이 프로젝트마다 다르므로 만들지는 않는다
+    auth = extra.get("auth") or {}
+    if auth.get("kind") == "social" and auth.get("providers"):
         hint = (f"_shared/login-{auth['providers'][0]}.json 부터 만드세요 "
                 f"(감지된 방식: {', '.join(auth['providers'])})")
     else:
         hint = "_shared/login.json 을 만들어 로그인 단계를 한 곳에 두세요"
 
+    # 타겟마다 셀 것이 다르다. 없는 것을 0으로 적으면 "못 찾았다"와 구분되지 않는다.
+    counts = {}
+    for key in ("routes", "screens", "pages", "endpoints"):
+        if key in extra:
+            counts[f"{key}_count"] = len(extra[key])
+    made_summary = " · ".join(f"{k.replace('_count','')} {v}개" for k, v in counts.items())
+
     return emit({
-        "app_map": str((d / _APP_MAP_FILE).relative_to(root)),
+        "target": target,
+        "app_map": str((d / _APP_MAP_FILE).relative_to(root))
+                   if str(d).startswith(str(root)) else str(d / _APP_MAP_FILE),
         "feature_groups": groups,
         "created_folders": made,
-        "auth": auth,
-        "route_count": len(routes),
-        "screen_count": len(screens),
-        "summary": (f"기능 {len(groups)}개 · 라우트 {len(routes)}개 · "
-                    f"화면 {len(screens)}개 · 인증 {auth['kind']}"
-                    f"({len(auth['providers'])}종)"),
+        **({"auth": auth} if auth else {}),
+        **counts,
+        "summary": (f"[{target}] 기능 {len(groups)}개"
+                    + (f" · {made_summary}" if made_summary else "")
+                    + (f" · 인증 {auth['kind']}({len(auth.get('providers') or [])}종)"
+                       if auth else "")),
         "next": hint,
     })
 
@@ -1332,17 +1452,45 @@ def cmd_edges(args) -> int:
     판단은 하지 않는다 — 후보를 모아 줄 뿐이고, 무엇을 밟을지는 사람이 고른다.
     """
     root = Path(args.path).resolve()
-    lib = root / "lib"
-    if not lib.is_dir():
-        found = _find_flutter_root(root)
-        lib = (found / "lib") if found else None
-    if not lib or not lib.is_dir():
-        return emit({"ok": False, "code": "lib_not_found",
-                     "error": f"{root} 아래에서 lib/ 를 찾지 못했습니다"})
+    target = getattr(args, "target", None) or (detect_targets(root)["targets"] or ["app"])[0]
+
+    # 타겟마다 코드가 사는 곳과 확장자가 다르다. 앱만 훑으면 웹·서버에서는 아무것도 못 준다.
+    scan_dirs: list[Path] = []
+    exts: tuple[str, ...] = ()
+    if target == "app":
+        lib = root / "lib"
+        if not lib.is_dir():
+            found = _find_flutter_root(root)
+            lib = (found / "lib") if found else None
+        if not lib or not lib.is_dir():
+            return emit({"ok": False, "code": "lib_not_found",
+                         "error": f"{root} 아래에서 lib/ 를 찾지 못했습니다",
+                         "hint": "--target web|server 로 대상을 알려주세요"})
+        scan_dirs, exts = [lib], (".dart",)
+    elif target == "web":
+        for name in ("src", "app", "pages", "components", "lib"):
+            d = root / name
+            if d.is_dir():
+                scan_dirs.append(d)
+        exts = (".ts", ".tsx", ".js", ".jsx", ".vue", ".svelte")
+    else:  # server
+        for name in ("src", "app", "api"):
+            d = root / name
+            if d.is_dir():
+                scan_dirs.append(d)
+        exts = (".java", ".kt", ".py", ".ts", ".js")
+
+    if not scan_dirs:
+        return emit({"ok": False, "code": "source_dir_not_found",
+                     "error": f"{root} 아래에서 훑을 소스 폴더를 찾지 못했습니다",
+                     "hint": "코드가 있는 경로를 --path 로 지정하세요"})
 
     hits: dict[str, list[dict]] = {}
     scanned = 0
-    for f in sorted(lib.rglob("*.dart")):
+    files = [f for d in scan_dirs for f in sorted(d.rglob("*"))
+             if f.is_file() and f.suffix in exts
+             and not any(x in f.parts for x in ("node_modules", "build", ".venv", "dist"))]
+    for f in files[:4000]:      # 큰 저장소에서 끝없이 도는 것을 막는다
         if ".g.dart" in f.name or ".freezed.dart" in f.name:
             continue        # 생성 파일은 사람이 밟을 경로가 아니다
         scanned += 1
@@ -1354,7 +1502,7 @@ def cmd_edges(args) -> int:
             for pattern, label, how in _EDGE_RULES:
                 if re.search(pattern, line):
                     hits.setdefault(label, []).append({
-                        "file": str(f.relative_to(lib.parent)),
+                        "file": str(f.relative_to(root)),
                         "line": i,
                         "code": line.strip()[:100],
                         "how": how,
@@ -2245,11 +2393,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_b = sub.add_parser("bootstrap", help="앱 구조를 스캔하고 기능별 폴더를 만든다")
     p_b.add_argument("--path", default=".", help="프로젝트 경로")
+    p_b.add_argument("--target", default=None,
+                     help=f"훑을 대상 ({'·'.join(TARGETS)}). 생략하면 감지한다")
     p_b.set_defaults(func=cmd_bootstrap)
 
     p_e = sub.add_parser("edges", help="코드에서 밟아야 할 실패 경로를 뽑는다")
     p_e.add_argument("--path", default=".", help="프로젝트 경로")
     p_e.add_argument("--samples", type=int, default=3, help="분류별로 보여줄 예시 수")
+    p_e.add_argument("--target", default=None,
+                     help=f"훑을 대상 ({'·'.join(TARGETS)}). 생략하면 감지한다")
     p_e.set_defaults(func=cmd_edges)
 
     p_n = sub.add_parser("note", help="이 프로젝트에서 알아낸 것을 쌓는다")

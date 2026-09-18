@@ -643,3 +643,75 @@ def test_web_walks_real_browser():
             import shutil as _sh
             _sh.rmtree(home, ignore_errors=True)
 
+
+# ── bootstrap·edges 타겟 분기 (이슈 #586) ────────────────────────────────
+
+def test_scan_server_finds_endpoints_across_frameworks():
+    """서버 시나리오는 엔드포인트 목록에서 시작한다."""
+    with tempfile.TemporaryDirectory() as tmp:
+        r = Path(tmp)
+        (r / "src").mkdir()
+        (r / "src" / "a.js").write_text(
+            "router.post('/api/auth/login', h);\nrouter.get('/api/routines', h);\n",
+            encoding="utf-8")
+        (r / "src" / "B.java").write_text(
+            '@GetMapping("/api/member/me")\npublic X me() {}\n', encoding="utf-8")
+        eps = e2e_cli._scan_server(r)["endpoints"]
+        paths = {(e["method"], e["path"]) for e in eps}
+        assert ("POST", "/api/auth/login") in paths, eps
+        assert ("GET", "/api/routines") in paths, eps
+        assert ("GET", "/api/member/me") in paths, eps
+
+
+def test_scan_web_finds_routes():
+    with tempfile.TemporaryDirectory() as tmp:
+        r = Path(tmp)
+        (r / "src").mkdir()
+        (r / "src" / "router.ts").write_text(
+            "const routes=[{path:'/login'},{path:'/home'}]", encoding="utf-8")
+        got = {x["path"] for x in e2e_cli._scan_web(r)["routes"]}
+        assert {"/login", "/home"} <= got, got
+
+
+def test_bootstrap_on_server_project_does_not_demand_flutter():
+    """앱이 아니어도 폴더와 지도를 만들어야 한다 — 예전에는 여기서 막혔다."""
+    with tempfile.TemporaryDirectory() as tmp:
+        r = _git_repo(Path(tmp), "https://github.com/o/bsrv.git")
+        (r / "package.json").write_text('{"dependencies":{"express":"4"}}', encoding="utf-8")
+        (r / "src").mkdir()
+        (r / "src" / "a.js").write_text("router.get('/api/items', h);", encoding="utf-8")
+        home = e2e_cli._home_dir(r)
+        try:
+            rc, out, err = run_cli("bootstrap", "--path", str(r))
+            data = json.loads(out)
+            assert data.get("ok") is not False, data
+            assert data["target"] == "server", data
+            assert "items" in data["feature_groups"], data
+        finally:
+            import shutil as _sh
+            _sh.rmtree(home, ignore_errors=True)
+
+
+def test_edges_on_server_project_scans_js():
+    """앱의 lib/*.dart만 훑으면 웹·서버에서는 아무것도 못 준다."""
+    with tempfile.TemporaryDirectory() as tmp:
+        r = _git_repo(Path(tmp), "https://github.com/o/esrv.git")
+        (r / "package.json").write_text('{"dependencies":{"express":"4"}}', encoding="utf-8")
+        (r / "src").mkdir()
+        (r / "src" / "a.js").write_text(
+            "try { x(); } catch (e) { res.status(500); }\n", encoding="utf-8")
+        rc, out, err = run_cli("edges", "--path", str(r))
+        data = json.loads(out)
+        assert data.get("ok") is not False, data
+        assert data["scanned_files"] >= 1, data
+
+
+def test_edges_hints_target_when_flutter_missing():
+    """막혔을 때 무엇을 하면 되는지 알려줘야 한다."""
+    with tempfile.TemporaryDirectory() as tmp:
+        r = _git_repo(Path(tmp), "https://github.com/o/nohint.git")
+        rc, out, err = run_cli("edges", "--path", str(r), "--target", "app")
+        data = json.loads(out)
+        assert data["ok"] is False
+        assert "--target" in (data.get("hint") or ""), data
+
