@@ -1,14 +1,41 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-17T13:46:51Z",
-    "currentVersion": "4.10.1",
+    "lastUpdated": "2026-09-18T01:17:49Z",
+    "currentVersion": "4.11.0",
     "projectType": "basic",
-    "totalReleases": 244,
+    "totalReleases": 245,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.11.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-18",
+      "pr_number": 588,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * 이슈와 PR에 스크린샷을 첨부할 수 있습니다\n  * 앱뿐 아니라 웹·서버도 실제로 실행해 검증할 수 있습니다\n  * 테스트하며 알아낸 것이 작업 공간을 새로 만들어도 남아 있습니다\n\n* **버그 수정**\n  * 파이썬 검사가 자동으로 돌지 않던 문제를 해결했습니다\n\n---\n\n### PR 본문 이미지 렌더링 검증 (이슈 #585)\n\n아래가 보이면 **PR 본문에도 이미지가 들어간다는 뜻입니다.**\n\n![웹 타겟 검증](https://github.com/Cassiiopeia/projectops/releases/download/qa-evidence/report586_20260918-095829_web-target.png)",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "이슈와 PR에 스크린샷을 첨부할 수 있습니다",
+            "앱뿐 아니라 웹·서버도 실제로 실행해 검증할 수 있습니다",
+            "테스트하며 알아낸 것이 작업 공간을 새로 만들어도 남아 있습니다"
+          ]
+        },
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "파이썬 검사가 자동으로 돌지 않던 문제를 해결했습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.10.1",
       "project_type": "basic",
