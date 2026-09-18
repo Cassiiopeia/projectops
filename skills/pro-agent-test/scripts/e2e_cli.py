@@ -222,9 +222,11 @@ def _ios_bundle_id(root: Path) -> str | None:
     return None
 
 
-def _api_base_urls(root: Path) -> list[str]:
-    """.env와 dart 설정에서 http(s) 주소를 모은다. 기기가 어느 서버를 보는지
-    모르면 DB 대조 대상을 못 정한다."""
+def _app_base_urls(root: Path) -> list[str]:
+    """**Flutter 앱 전용.** .env와 dart 설정에서 앱이 바라보는 주소를 모은다.
+
+    기기가 어느 서버를 보는지 모르면 DB 대조 대상을 못 정한다. 서버 타겟에는 쓰지
+    않는다 — 스프링·노드·장고는 설정 자리가 제각각이라 여기서 맞힐 수 없다 (#589)."""
     found: list[str] = []
     candidates = [root / ".env"]
     candidates += list((root / "lib" / "core").rglob("*config*.dart"))
@@ -312,23 +314,17 @@ def cmd_doctor(args) -> int:
     else:
         shrink = None
 
-    # 산출물 보호 상태 — 로그·스크린샷이 쌓이는 폴더에 방어가 있는지
+    # 쌓인 것이 어디 있는지. 프로젝트 안이 아니라 홈이라 워크트리를 만들어도 남는다.
     root = Path(args.root).resolve()
-    guarded, unguarded = [], []
-    for rel in ["docs/testing/e2e", "docs/testing/screenshots"]:
-        d = root / rel
-        if not d.is_dir():
-            continue
-        made = _ensure_gitignore(d)
-        (guarded if (d / ".gitignore").exists() else unguarded).append(
-            f"{rel}{' (방금 생성)' if made else ''}")
+    home = _home_dir(root)
 
     return emit({
         "ok": not missing_required,
         "code": "ok" if not missing_required else "missing_required_tool",
         "checks": checks,
-        "output_guard": {"protected": guarded, "unprotected": unguarded},
-        "image_resize": shrink or "없음 — 원본 크기로 커밋하게 된다",
+        "knowledge_dir": str(home),
+        "knowledge_exists": home.is_dir(),
+        "image_resize": shrink or "없음 — 원본 크기로 올리게 된다",
         "pillow": _has_pillow(),
         "platform": sys.platform,
         "summary": (
@@ -427,12 +423,7 @@ def cmd_detect(args) -> int:
             "ios_bundle_id": _ios_bundle_id(app_root) if app_root else None,
             "devices": dev,
         }
-        payload["api_base_urls"] = _api_base_urls(app_root) if app_root else []
-        # 기존 호출부가 쓰던 자리를 그대로 남긴다 — 문서·스킬이 이 키를 가리킨다
-        payload["flutter_root"] = payload["app"]["flutter_root"]
-        payload["android_package"] = payload["app"]["android_package"]
-        payload["ios_bundle_id"] = payload["app"]["ios_bundle_id"]
-        payload["devices"] = dev
+        payload["app"]["base_urls"] = _app_base_urls(app_root) if app_root else []
 
     # ── 웹: 어디로 들어가는지와 브라우저가 준비됐는지
     if "web" in targets:
@@ -448,11 +439,14 @@ def cmd_detect(args) -> int:
     # (로컬 · SSH 경유 · 컨테이너 안). agent가 코드를 읽어 판단하고 access 에 적는다 (#589).
     if "server" in targets:
         saved = _load_access(root)
+        missing = [k for k in ("base_url", "db") if not saved.get(k)]
         payload["server"] = {
-            "base_urls": _api_base_urls(root),
+            "base_url": (saved.get("base_url") or {}).get("url")
+                        if isinstance(saved.get("base_url"), dict) else saved.get("base_url"),
             "access_recorded": sorted(saved) or None,
-            "next": (None if saved.get("db") else
-                     "코드를 읽어 DB에 붙는 법을 알아낸 뒤 access set --key db --json '{...}'"),
+            "next": (None if not missing else
+                     f"코드를 읽어 {'·'.join(missing)} 를 알아낸 뒤 "
+                     "access set --key <키> --json '{...}' 로 적으세요"),
         }
 
     payload["summary"] = (
@@ -627,32 +621,6 @@ def scenario_target(data: dict) -> str:
     return data.get("target") or DEFAULT_TARGET
 
 
-def _ensure_gitignore(d: Path) -> bool:
-    """산출물 폴더에 .gitignore를 보장한다. 새로 만들었으면 True.
-
-    폴더를 처음 만들 때만 넣으면, **이미 폴더가 있는 프로젝트에는 영원히 생기지
-    않는다.** 실제로 그래서 한 프로젝트가 방어 없이 쓰이고 있었다. 폴더를 건드리는
-    모든 경로에서 확인한다 — 파일이 이미 있으면 덮지 않으므로 손으로 고친 내용은 남는다.
-    """
-    if not d.is_dir():
-        return False
-    gi = d / ".gitignore"
-    if gi.exists():
-        # 예전 판은 `!*.json` 으로 새 파일까지 전부 추적하게 만들었다. 이미 깔린
-        # 프로젝트를 그대로 두면 그 구멍이 영영 남으므로, **이 스킬이 쓴 파일일 때만**
-        # 갈아끼운다. 손으로 쓴 .gitignore 는 건드리지 않는다.
-        try:
-            body = gi.read_text(encoding="utf-8")
-        except OSError:
-            return False
-        if _GITIGNORE_UNSAFE in body and "pro-agent-test" in body:
-            gi.write_text(_GITIGNORE, encoding="utf-8")
-            return True
-        return False
-    gi.write_text(_GITIGNORE, encoding="utf-8")
-    return True
-
-
 def _repo_key(root: Path) -> str:
     """프로젝트를 가리키는 키. git remote의 owner/repo를 쓴다.
 
@@ -679,8 +647,7 @@ def _scenario_dir(root: Path, create: bool = False) -> Path:
     빠져 있어 **새 워크트리에 복사되지 않았다.** 이슈마다 워크트리를 만드는 흐름에서는
     이슈 하나가 끝날 때마다 쌓은 지식이 통째로 사라졌다 (이슈 #586).
 
-    이제 홈에 두고 git remote로 프로젝트를 구분한다. 예전 위치에 있던 것은 처음 한 번
-    자동으로 옮겨 온다.
+    이제 홈에 두고 git remote로 프로젝트를 구분한다.
     """
     home = _home_dir(root)
     if create and not home.is_dir():
@@ -821,7 +788,7 @@ def cmd_scenario(args) -> int:
                      encoding="utf-8")
         return emit({
             "file": str(f),
-            "summary": f"템플릿 생성: {f.relative_to(root)}",
+            "summary": f"템플릿 생성: {f.relative_to(d)}",
             "next": "중괄호로 표시된 자리를 채운 뒤 scenario show 로 검증하세요",
         })
 
@@ -876,8 +843,8 @@ def _safe_name(f: Path) -> str:
 
 _NOTE_FILE = "learned.json"
 
-# 기록에 들어가면 안 되는 것들. 테스트 산출물은 레포에 커밋되므로 한 번 들어가면
-# 지워도 히스토리에 남는다 — 쓰기 전에 막는 편이 유일하게 확실하다.
+# 기록에 들어가면 안 되는 것들. 이 파일은 평문으로 남고 다음 실행마다 다시 읽히므로,
+# 한 번 들어가면 계속 노출된다 — 쓰기 전에 막는 편이 유일하게 확실하다.
 _SECRET_PATTERNS = [
     (r'[\w.+-]+@[\w-]+\.[\w.]{2,}', "이메일 주소"),
     (r'01[016-9][-\s]?\d{3,4}[-\s]?\d{4}', "전화번호"),
@@ -901,34 +868,6 @@ def _find_secrets(text: str) -> list[str]:
     return found
 
 
-# 산출물 폴더에 함께 두는 .gitignore.
-#
-# **기본을 "올리지 않는다"로 둔다.** 예전에는 부산물만 골라 막고 `!*.json` 으로 나머지를
-# 되살렸는데, 그 한 줄이 새로 생기는 파일까지 전부 추적 대상으로 만들었다. 실제로
-# 서버 주소가 적힌 파일이 공개 레포에 올라갈 뻔했다. 무엇이 생길지 미리 다 알 수 없으므로
-# 막는 쪽을 기본값으로 둔다 — 올리고 싶은 것이 생기면 그때 한 줄씩 예외를 적는다.
-_GITIGNORE_MARK = "# pro-agent-test — 산출물 폴더"
-
-_GITIGNORE = f"""{_GITIGNORE_MARK}
-#
-# 이 폴더에서 나오는 것들에는 테스트 계정·토큰·서버 주소·로그인 화면 캡처가 섞인다.
-# 그래서 **기본은 올리지 않는다.** 팀과 나눠야 할 파일이 생기면 아래에 한 줄씩 적는다.
-#
-#   !flows/auth/social-signup.json
-#
-# 적기 전에 그 파일을 열어 계정·토큰·주소가 없는지 눈으로 본다.
-
-*
-# 폴더 자체는 막지 않는다. 이 줄이 없으면 `!하위폴더/파일` 예외가 통하지 않는다 —
-# git은 제외된 폴더 안을 아예 들여다보지 않기 때문이다. (폴더 안 파일은 위 `*`가 계속 막는다)
-!*/
-
-!.gitignore
-!README.md
-"""
-
-# 예전 판(`!*.json` 으로 전부 되살리던 것)을 알아보는 흔적.
-_GITIGNORE_UNSAFE = "!*.json"
 
 
 def _note_path(root: Path, create: bool = False) -> Path:
@@ -1039,7 +978,7 @@ def cmd_note(args) -> int:
             return emit({
                 "ok": False, "code": "secret_detected",
                 "error": f"기록하려는 내용에 {', '.join(secrets)}이(가) 들어 있습니다",
-                "hint": ("이 파일은 레포에 커밋되므로 한 번 들어가면 히스토리에 남습니다. "
+                "hint": ("이 파일은 평문으로 디스크에 남고 다음 실행마다 다시 읽힙니다. "
                          "구체적인 값 대신 '테스트 계정으로'처럼 바꿔 적으세요"),
             })
         entry = {"text": args.text, "scope": args.scope,
@@ -1089,8 +1028,8 @@ def cmd_note(args) -> int:
     return emit({
         "file": str(f),
         **({"warning": warning} if warning else {}),
-        "summary": f"{args.action} 기록 완료 — {f.relative_to(root)}",
-        "next": "커밋해야 다음 사람도 씁니다",
+        "summary": f"{args.action} 기록 완료 — {f.name}",
+        "next": None,
     })
 
 
@@ -1507,11 +1446,14 @@ def cmd_api(args) -> int:
 
     base = args.base_url or data.get("base_url") or ""
     if not base or base.startswith("{"):
-        urls = _api_base_urls(root)
-        base = urls[0] if urls else ""
+        # 시나리오에 없으면 기록해 둔 것을 쓴다. 코드에서 짐작하지 않는다.
+        rec = _load_access(root).get("base_url")
+        base = (rec.get("url") if isinstance(rec, dict) else rec) or ""
     if not base:
         return emit({"ok": False, "code": "base_url_required",
-                     "error": "API 주소를 알 수 없습니다 — --base-url 로 알려주세요"})
+                     "error": "API 주소를 알 수 없습니다",
+                     "next": ("--base-url 로 넘기거나, 코드를 읽어 알아낸 뒤 "
+                              "access set --key base_url --json '{\"url\":\"http://...\"}'")})
 
     saved: dict = {}
     results = []

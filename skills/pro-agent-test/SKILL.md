@@ -63,16 +63,37 @@ version: "2.0"
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py detect --path {PROJECT_ROOT}
 ```
 
-한 번에 돌려준다: **프로젝트 루트 · Android 패키지명 · iOS 번들ID · API 베이스 URL ·
-연결된 기기 · 쓸 수 있는 AVD · adb/emulator 실제 경로**.
+무엇을 밟을 수 있는지(`targets`)와 타겟별 정보를 돌려준다. `app`이면 패키지명·번들ID·
+연결된 기기·AVD·adb 실제 경로, `web`이면 주소 후보와 브라우저 준비 상태, `server`면
+**기록해 둔 접속 정보가 있는지**다.
 
 > `adb`·`emulator`는 SDK를 설치해도 PATH에 없는 경우가 많다. 결과의 `adb_path`를 그대로
 > 쓰면 "기기가 없다"는 오진을 피한다. (AVD = Android Virtual Device, 에뮬레이터 기기 정의)
 
-서버 DB를 대조하려면 접속 정보도 확보한다 (`application-*.yml`의 datasource —
-추출 방법은 `references/target-app.md`).
+> **서버 주소·DB는 detect가 맞히지 않는다.** 스프링·노드·장고·레일즈는 설정이 있는 자리가
+> 제각각이라 정규식으로 맞힐 수 없다. 네가 코드를 읽어 알아낸 뒤 `access`에 적는다
+> (`references/target-server.md`). 한 번 적으면 다음 실행부터 `detect`가 알려준다.
 
 기기가 없으면 `next` 필드가 알려준다. 부팅 명령은 `references/target-app.md`.
+
+### 실행 수단 한눈에
+
+판단은 네가 한다. 아래는 **실행**과 **기록**만 한다.
+
+| 명령 | 하는 일 |
+| --- | --- |
+| `detect --path` | 무엇을 밟을 수 있는지 · 타겟별 정보 |
+| `doctor --root` | 도구가 깔려 있는지 · 기록이 어디 쌓이는지 |
+| `devices` | 붙어 있는 기기·시뮬레이터 (app) |
+| `scenario init\|list\|show` | 시나리오 틀 만들기 · 목록 · **검증** |
+| `note show\|screen\|constraint\|pitfall\|run` | 알아낸 것을 쌓는다 |
+| `access show\|set\|unset` | 붙는 법을 적어 둔다 (DB·로그·주소) |
+| `web setup\|open\|goto\|click\|type\|shot\|assert\|console\|close` | 브라우저 조작 |
+| `api --name` | 서버 시나리오를 밟는다 |
+| `db` · `logs` | 적어 둔 방법 그대로 실행한다 |
+| `shrink` | 증거 이미지 축소 |
+
+모두 JSON을 돌려준다. `ok`·`code`·`summary`·`next`를 보고 다음 수를 정한다.
 
 ## Phase 0 — 무엇을 밟을지부터 정한다 ⚠️
 
@@ -157,12 +178,15 @@ project_types → ③ 마커 파일**이다.
 ... access set --root {ROOT} --key {db|logs|base_url} --json '{...}'
 ```
 
-> 시나리오를 둘 폴더는 `scenario init`이 알아서 만든다. 미리 만들어 둘 필요가 없다.
-
 ## Phase 1 — 밟을 경로 확정
 
-시나리오 파일이 있으면 그것을 따른다. 없고 사용자가 경로를 지정했으면 그대로 간다.
-둘 다 없으면 **한 번만** 묻는다.
+이미 만들어 둔 시나리오가 있으면 그것을 따른다.
+
+```bash
+... scenario list --root {ROOT}
+```
+
+없고 사용자가 경로를 지정했으면 그대로 간다. 둘 다 없으면 **한 번만** 묻는다.
 
 ```
 어디까지 밟을까요?
@@ -174,6 +198,23 @@ project_types → ③ 마커 파일**이다.
 경로가 정해지면 **단계 목록**을 먼저 적는다. 각 단계에 "무엇을 누르고 → 무엇이 보여야 하고
 → 기기/서버에 무엇이 남아야 하는가"를 쓴다. 이 목록이 판정 기준이 된다 (이유: 기준 없이
 밟으면 "화면이 떴으니 됐다"로 끝나고, 실제로는 서버에 아무것도 안 들어가 있을 수 있다).
+
+### 시나리오로 굳힌다
+
+같은 경로를 다시 밟을 것 같으면 파일로 남긴다. `server` 타겟은 `api`가 시나리오를
+요구하므로 **반드시** 만든다.
+
+```bash
+... scenario init --root {ROOT} --name {이름} --target {app|web|server}   # 틀을 만든다
+#   틀의 {중괄호} 자리를 채운다 — 파일 위치는 출력의 file 필드
+... scenario show --root {ROOT} --name {이름}                              # 밟기 전에 검증
+```
+
+**`show`를 건너뛰지 않는다.** 기대 결과가 없는 단계, 안 채운 중괄호, 모르는 타겟을
+여기서 막는다. 이걸 통과시키면 엉뚱한 곳을 누르거나 "화면이 떴으니 통과"로 끝난다.
+
+> 시나리오와 기록은 프로젝트가 아니라 **홈**(`detect`의 `knowledge_dir`)에 쌓인다.
+> 워크트리를 새로 만들어도 살아남는다.
 
 ### 해피 패스만 밟지 않는다 ⚠️
 

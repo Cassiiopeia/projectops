@@ -9,7 +9,6 @@
   - 시나리오 전제 상속 · 순환 참조 거부
   - 기대 결과 없는 단계 거부 (이게 없으면 "화면이 떴으니 통과"로 끝난다)
   - 비밀값 탐지·마스킹 (테스트 계정·토큰이 산출물로 새는 것을 막는 유일한 방어)
-  - 산출물 폴더 .gitignore 보장
 
 기기·브라우저·서버가 없어도 돌아야 한다 — CI에서 실행하려면 네트워크와 SDK에
 기대면 안 된다.
@@ -26,9 +25,13 @@ sys.path.insert(0, str(CLI.parent))
 import e2e_cli  # noqa: E402
 
 
-def run_cli(*args):
+def run_cli(*args, home: Path | None = None):
     import os
     env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+    # 기록은 홈에 쌓인다. 테스트가 사용자의 진짜 기록을 건드리면 안 된다.
+    if home is not None:
+        env["HOME"] = str(home)
+        env["USERPROFILE"] = str(home)   # Windows
     r = subprocess.run([sys.executable, str(CLI), *args],
                        capture_output=True, text=True, encoding="utf-8", env=env)
     return r.returncode, r.stdout or "", r.stderr or ""
@@ -162,33 +165,6 @@ def test_find_secrets_masks_what_it_reports():
 
 
 # ── 산출물 폴더 보호 ─────────────────────────────────────────────────────
-
-def test_ensure_gitignore_creates_excluding_rule():
-    """기본값은 '올리지 않는다' — 무엇이 생길지 미리 다 알 수 없기 때문이다."""
-    with tempfile.TemporaryDirectory() as tmp:
-        d = Path(tmp) / "e2e"
-        d.mkdir()
-        e2e_cli._ensure_gitignore(d)
-        lines = [l.strip() for l in (d / ".gitignore").read_text(encoding="utf-8").splitlines()]
-        # 전부 제외가 기본. 주석이 앞에 오므로 줄 단위로 본다.
-        assert "*" in lines, lines
-        assert "!.gitignore" in lines, lines
-        # 폴더 자체는 막지 않는다 — 막으면 git이 안을 들여다보지 않아
-        # `!하위폴더/파일` 예외가 통하지 않는다 (#578에서 실제로 겪은 함정).
-        assert "!*/" in lines, lines
-
-
-def test_ensure_gitignore_keeps_handwritten_file():
-    """손으로 고친 .gitignore는 덮지 않는다."""
-    with tempfile.TemporaryDirectory() as tmp:
-        d = Path(tmp) / "e2e"
-        d.mkdir()
-        (d / ".gitignore").write_text("# 내가 쓴 것\n*.png\n", encoding="utf-8")
-        e2e_cli._ensure_gitignore(d)
-        assert "내가 쓴 것" in (d / ".gitignore").read_text(encoding="utf-8")
-
-
-# ── CLI 계약 ─────────────────────────────────────────────────────────────
 
 def test_unknown_subcommand_does_not_crash():
     rc, out, err = run_cli("존재하지-않는-커맨드")
@@ -643,3 +619,126 @@ def test_help_lists_current_subcommands():
         assert cmd in combined, f"{cmd} 가 --help 에 없다"
 
 
+
+
+# ── 실제로 실행해 본다 (이슈 #589 후속) ──────────────────────────────────
+#
+# 여기 아래가 없어서 `note` 쓰기 4종과 `scenario init` 이 100% 크래시하는 채로
+# 48개 테스트가 전부 초록이었다. `--help` 에 이름이 있는지만 봤기 때문이다.
+#
+# 기록을 홈으로 옮긴 뒤(#586) 완료 문구가 아직 프로젝트 기준 상대경로를 계산해
+# ValueError 로 죽었는데, 파일은 이미 써진 뒤라 "쓰기는 됐지만 명령은 실패"하는
+# 형태였다. **이름이 있는지가 아니라 실행이 되는지를 본다.**
+
+import os
+import pytest
+
+
+@pytest.fixture
+def sandbox(tmp_path):
+    """프로젝트 하나 + 격리된 홈. 진짜 기록을 건드리지 않는다."""
+    proj = tmp_path / "proj"
+    (proj / ".git").mkdir(parents=True)          # git 루트로 인식시킨다
+    home = tmp_path / "home"
+    home.mkdir()
+    return proj, home
+
+
+def _ok(out: str) -> dict:
+    d = json.loads(out)
+    assert d.get("ok") is True, f"ok=false: {out}"
+    return d
+
+
+# 인자까지 포함한 실제 호출. 하나라도 죽으면 여기서 잡힌다.
+WRITE_CALLS = [
+    ("note constraint", ["note", "constraint", "--text", "탈퇴 후 재가입이 되어야 한다"]),
+    ("note pitfall",    ["note", "pitfall", "--text", "토스트가 2초 뒤 사라진다"]),
+    ("note run",        ["note", "run", "--name", "signup", "--text", "3단계 통과"]),
+    ("note screen",     ["note", "screen", "--name", "로그인", "--anchor", "로그인하기",
+                         "--taps", "버튼=540,1200", "--screen-size", "1080x2400"]),
+    ("scenario init app",    ["scenario", "init", "--name", "s_app", "--target", "app"]),
+    ("scenario init web",    ["scenario", "init", "--name", "s_web", "--target", "web"]),
+    ("scenario init server", ["scenario", "init", "--name", "s_srv", "--target", "server"]),
+    ("access set",      ["access", "set", "--key", "db",
+                         "--json", '{"via":"ssh","host":"db.internal"}']),
+]
+
+
+@pytest.mark.parametrize("label,argv", WRITE_CALLS, ids=[c[0] for c in WRITE_CALLS])
+def test_write_subcommands_actually_run(sandbox, label, argv):
+    """쓰기 명령이 실제로 완주하는가. 예외로 죽으면 stdout이 JSON이 아니라 잡힌다."""
+    proj, home = sandbox
+    rc, out, err = run_cli(*argv, "--root", str(proj), home=home)
+    assert "Traceback" not in err, f"{label} 이 예외로 죽었다:\n{err}"
+    d = _ok(out)
+    written = Path(d["file"])
+    assert written.is_file(), f"{label}: 파일이 생기지 않았다 — {written}"
+    # 기록은 홈 아래에 있어야 한다. 프로젝트 안에 쓰면 워크트리에서 또 사라진다.
+    assert str(written).startswith(str(home)), f"{label}: 홈 밖에 썼다 — {written}"
+
+
+def test_read_subcommands_run_on_empty_project(sandbox):
+    """아무것도 쌓이지 않은 상태에서도 조회가 죽지 않아야 한다.
+
+    처음 쓰는 사람이 가장 먼저 밟는 경로다. 여기서 예외가 나면 시작을 못 한다.
+    """
+    proj, home = sandbox
+    for argv in (["detect", "--path", str(proj)],
+                 ["doctor", "--root", str(proj)],
+                 ["note", "show", "--root", str(proj)],
+                 ["access", "show", "--root", str(proj)],
+                 ["scenario", "list", "--root", str(proj)]):
+        rc, out, err = run_cli(*argv, home=home)
+        assert "Traceback" not in err, f"{argv[0]} 이 예외로 죽었다:\n{err}"
+        json.loads(out)          # JSON 계약이 깨지면 agent가 다음 수를 못 정한다
+
+
+def test_note_accumulates_instead_of_overwriting(sandbox):
+    """두 번 적으면 둘 다 남아야 한다 — 덮어쓰면 쌓이는 의미가 없다."""
+    proj, home = sandbox
+    run_cli("note", "pitfall", "--text", "첫 번째", "--root", str(proj), home=home)
+    rc, out, _ = run_cli("note", "pitfall", "--text", "두 번째",
+                         "--root", str(proj), home=home)
+    saved = json.loads(Path(_ok(out)["file"]).read_text(encoding="utf-8"))
+    texts = [p["text"] for p in saved["pitfalls"]]
+    assert texts == ["첫 번째", "두 번째"], texts
+
+
+def test_scenario_init_then_show_reports_unfilled_template(sandbox):
+    """템플릿을 만든 직후 show 하면 '안 채웠다'고 막아야 한다.
+
+    통과시키면 중괄호가 그대로인 시나리오를 밟아 엉뚱한 곳을 누른다.
+    """
+    proj, home = sandbox
+    run_cli("scenario", "init", "--name", "s", "--target", "app",
+            "--root", str(proj), home=home)
+    rc, out, err = run_cli("scenario", "show", "--name", "s",
+                           "--root", str(proj), home=home)
+    assert "Traceback" not in err
+    d = json.loads(out)
+    assert d["ok"] is False and d["code"] == "scenario_invalid"
+    assert d["unfilled_placeholders"], "안 채운 자리를 짚어주지 않으면 그대로 밟는다"
+
+
+def test_knowledge_survives_a_new_worktree(tmp_path):
+    """같은 remote면 경로가 달라도 같은 기록을 본다 — 워크트리를 만든 상황.
+
+    기록을 홈으로 옮긴 이유가 이것이다. 경로를 키로 쓰면 여기서 갈라진다.
+    """
+    home = tmp_path / "home"
+    home.mkdir()
+    main_wt = tmp_path / "main"
+    side_wt = tmp_path / "wt_20260918_600"
+    for d in (main_wt, side_wt):
+        d.mkdir()
+        subprocess.run(["git", "init", "-q", str(d)], check=True)
+        subprocess.run(["git", "-C", str(d), "remote", "add", "origin",
+                        "https://github.com/acme/thing.git"], check=True)
+
+    run_cli("note", "pitfall", "--text", "워크트리 전에 알아낸 것",
+            "--root", str(main_wt), home=home)
+    rc, out, _ = run_cli("note", "show", "--root", str(side_wt), home=home)
+    d = _ok(out)
+    texts = [p["text"] for p in d.get("notes", d).get("pitfalls", [])]
+    assert "워크트리 전에 알아낸 것" in texts, f"새 워크트리에서 기록이 사라졌다: {out}"

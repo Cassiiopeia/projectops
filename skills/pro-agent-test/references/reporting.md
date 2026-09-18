@@ -19,31 +19,31 @@
 
 ## 스크린샷을 이슈에 넣기
 
-GitHub 이슈는 외부 이미지 링크만 렌더링한다. 파일을 레포에 커밋하고 raw URL로 참조한다.
+GitHub 이슈는 외부 이미지 링크만 렌더링한다. **레포에 커밋하지 않는다** — QA 증적은
+제품 코드가 아니고, 한 번 커밋하면 지워도 히스토리에 남아 레포가 계속 무거워진다.
+`pro-github`의 `upload-image`가 릴리스 자산으로 올려 URL을 돌려준다 (#585).
+
+먼저 줄인다. 이슈용이라 원본 해상도가 필요 없다.
 
 ```bash
-D=docs/testing/screenshots/{날짜}_{주제}
-mkdir -p "$D" && cp {스크린샷} "$D/01_{장면}.png"
-
-# 이슈용이라 원본 해상도가 필요 없다 — 줄여서 커밋한다.
 # Pillow → sips(macOS) → ffmpeg 중 있는 것을 알아서 쓴다.
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py shrink "$D"/*.png --max-side 700
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py shrink {스크린샷...} --max-side 700
 ```
 
 > `sips`는 macOS에만 있다. 직접 부르지 말고 위 스크립트를 쓴다 — 다른 사람의 Linux·
 > Windows에서 그대로 실패한다.
 
-본문에서는 이렇게 참조한다.
+그다음 올려서 URL을 받는다.
 
-```markdown
-![설명](https://raw.githubusercontent.com/{owner}/{repo}/{브랜치}/{경로}/01_장면.png)
+```bash
+... github_cli.py upload-image {owner} {repo} {이미지...} --prefix qa{이슈번호}
 ```
 
-`{브랜치}`는 이미지를 커밋한 브랜치다. **커밋·푸시가 끝난 뒤에 이슈를 올린다** —
-순서가 바뀌면 이미지가 깨진 채로 등록된다.
+출력의 `markdown` 필드를 본문에 그대로 붙여넣는다. **순서를 지킨다** — 이미지를 먼저
+올리고 본문을 나중에 올린다. 반대로 하면 이미지 없는 글이 게시된다.
 
-같은 폴더에 `README.md`를 두고 각 파일이 어느 장면인지 적는다. 파일명만으로는 나중에
-무엇을 찍은 것인지 알 수 없다.
+`web shot`으로 찍은 파일은 프로젝트가 아니라 기록 폴더(`knowledge_dir`/shots)에 쌓인다.
+`detect`의 `knowledge_dir` 값에서 찾는다.
 
 ## 이슈로 올릴 때
 

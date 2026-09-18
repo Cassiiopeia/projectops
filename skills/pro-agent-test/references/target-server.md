@@ -10,7 +10,7 @@
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py api --name {시나리오} --root {ROOT}
-#   --base-url http://localhost:8080   # 시나리오·설정에서 못 찾을 때
+#   --base-url http://localhost:8080   # 시나리오에도 access 에도 없을 때
 #   --timeout 30
 ```
 
