@@ -59,7 +59,7 @@ IS_WINDOWS = platform.system() == 'Windows'
 SPECIAL_CHARS_PATTERN = r'[#/\\:*?"<>|]'
 
 # Worktree 루트 폴더명 (동적으로 설정됨)
-# 예: RomRom-FE → RomRom-FE-Worktree
+# 예: myapp → myapp-Worktree
 WORKTREE_ROOT_NAME = None  # get_worktree_root()에서 동적으로 설정
 
 
@@ -510,14 +510,14 @@ def get_worktree_root() -> Path:
       Path: Worktree 루트 경로
 
   Example:
-      현재: /Users/.../project/RomRom-FE
-      반환: /Users/.../project/RomRom-FE-Worktree
+      현재: /Users/.../project/myapp
+      반환: /Users/.../project/myapp-Worktree
   """
   git_root = get_git_root()
   if not git_root:
     raise RuntimeError("Git 저장소 루트를 찾을 수 없습니다.")
 
-  # 현재 Git 저장소의 이름 추출 (예: RomRom-FE)
+  # 현재 Git 저장소의 이름 추출 (예: myapp)
   project_name = git_root.name
 
   # 부모 디렉토리에 {프로젝트명}-Worktree 폴더 생성
@@ -539,7 +539,7 @@ def get_worktree_path(branch_name: str) -> Path:
 
   Example:
       >>> get_worktree_path("20260120_#163_Github_Projects")
-      Path("/Users/.../project/RomRom-FE-Worktree/20260120_163_Github_Projects")
+      Path("/Users/.../project/myapp-Worktree/20260120_163_Github_Projects")
   """
   worktree_root = get_worktree_root()
   folder_name = normalize_branch_name(branch_name)

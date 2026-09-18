@@ -455,7 +455,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py actions resolve-branch {owner} {r
 {"run_id": 26554093214, "name": "프로젝트 빌드 테스트", "conclusion": "failure",
  "jobs": [{"job_id": 78222159478, "name": "프로젝트 빌드 테스트", "conclusion": "failure", "failed_steps": ["코드 분석 실행"]}],
  "failed_job_ids": [78222159478],
- "ok": true, "next": "actions joblog TEAM-ROMROM RomRom-FE 78222159478"}
+ "ok": true, "next": "actions joblog acme-org acme-app 12345678901"}
 ```
 
 ---
@@ -472,7 +472,7 @@ GitHub 유저 또는 Organization의 레포 목록과 개별 레포 상세 정�
 **Owner 결정 규칙**:
 
 1. "내 레포", owner 미명시 → config의 기본 repo owner 또는 현재 git remote owner를 사용한다. 사용자가 실제 PAT 소유자 레포 목록을 원하면 owner를 명시하게 한다.
-2. owner 명시 ("TEAM-ROMROM", "Cassiiopeia" 등) → 해당 owner 사용. 기본 `--type auto`로 user/org를 자동 판별한다.
+2. owner 명시 ("acme-org", "acme-user" 등) → 해당 owner 사용. 기본 `--type auto`로 user/org를 자동 판별한다.
 
 ### Phase 1 — 레포 목록 조회
 

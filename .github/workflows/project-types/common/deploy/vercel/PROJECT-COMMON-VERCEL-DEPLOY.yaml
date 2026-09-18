@@ -5,8 +5,6 @@
 #
 # 프론트엔드 프로젝트(React/Next.js/Vite 등)를 Vercel 프로덕션으로 배포합니다.
 # 타입 비종속 배포 타겟 — 마법사에서 배포 방식으로 vercel을 선택하면 설치됩니다.
-# (실사용 검증 원본: passQL-Lab/passQL의 PROJECT-COMMON-VERCEL-DEPLOY)
-#
 # 필요 Secrets:
 # - VERCEL_TOKEN      : Vercel Access Token (https://vercel.com/account/tokens)
 # - VERCEL_ORG_ID     : 프로젝트의 .vercel/project.json의 orgId

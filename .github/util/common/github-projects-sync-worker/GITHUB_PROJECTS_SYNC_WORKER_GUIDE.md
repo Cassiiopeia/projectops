@@ -106,7 +106,7 @@ STATUS_FIELD = "Status"
 STATUS_LABELS = '["작업전","작업중","담당자확인","피드백","작업완료","보류","취소"]'
 
 # Organization 이름
-ORG_NAME = "TEAM-ROMROM"
+ORG_NAME = "your-org"
 ```
 
 ### 다른 프로젝트에 적용하기
@@ -229,7 +229,7 @@ Recent Deliveries에서 `200 OK` 응답 확인.
 📌 Event type: projects_v2_item
 📌 Action: edited
 📌 Processing item: PVTI_xxx
-📌 Issue: TEAM-ROMROM/RomRom-FE#123
+📌 Issue: acme-org/acme-app#123
 📌 Current Labels: enhancement, 작업전
 📌 New Status: "작업중"
 🗑️ Labels to remove: 작업전

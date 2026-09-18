@@ -229,7 +229,7 @@ reason: Flutter가 재생성하는 캐시 파일
 
 - `#` 문자: Git 브랜치명에서는 **원본 유지**, 폴더명에서만 `_`로 변환
 - 특수문자: 폴더명 생성 시 `_`로 변환
-- Worktree 위치: `{프로젝트명}-Worktree/` 폴더 (예: `RomRom-FE-Worktree`)
+- Worktree 위치: `{프로젝트명}-Worktree/` 폴더 (예: `myapp-Worktree`)
 
 ## 스크립트 위치
 

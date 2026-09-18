@@ -23,7 +23,7 @@ compatibility_date = "2024-01-01"
 
 # 환경 변수 (비밀이 아닌 설정값)
 [vars]
-# 프로젝트 번호 (TEAM-ROMROM/projects/6)
+# 프로젝트 번호 ({조직}/projects/{번호} 의 번호 — 반드시 자기 값으로 바꾼다)
 PROJECT_NUMBER = "6"
 
 # Status 필드명
@@ -32,5 +32,5 @@ STATUS_FIELD = "Status"
 # 동기화 대상 Status Label 목록 (JSON 배열)
 STATUS_LABELS = '["작업전","작업중","담당자확인","피드백","작업완료","보류","취소"]'
 
-# Organization 이름
-ORG_NAME = "TEAM-ROMROM"
+# Organization 이름 — 반드시 자기 조직명으로 바꾼다
+ORG_NAME = "your-org"

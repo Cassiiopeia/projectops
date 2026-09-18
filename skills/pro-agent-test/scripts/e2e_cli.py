@@ -819,7 +819,7 @@ _STEP_TEMPLATES = {
         "screen": "{화면 이름}",
         "do": "{무엇을 하는지 — tap '시작하기' / input '값' / back}",
         "expect_screen": "{다음에 보여야 할 것}",
-        "expect_device": ["{로그에서 확인할 키. 예: elum.refreshToken}"],
+        "expect_device": ["{로그에서 확인할 키. 예: app.refreshToken}"],
         "expect_server": "{서버에서 확인할 쿼리. 없으면 null}",
         "human": None,
     },
@@ -2231,7 +2231,7 @@ def cmd_access(args) -> int:
                 "ok": False, "code": "secret_in_value",
                 "error": "비밀값으로 보이는 것이 들어 있습니다",
                 "found": leaked[:5],
-                "hint": '값 대신 읽을 곳을 적으세요. 예: {"password_env": "ELUM_DB_PASSWORD"}',
+                "hint": '값 대신 읽을 곳을 적으세요. 예: {"password_env": "APP_DB_PASSWORD"}',
             })
 
         data[args.key] = value
@@ -2553,7 +2553,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_db.add_argument("--ssh-user", dest="ssh_user", default=None)
     p_db.add_argument("--ssh-port", dest="ssh_port", default=None)
     p_db.add_argument("--command", default=None,
-                      help="접속을 통째로 지정한다. 예: \"docker exec -i pg psql -U root -d elum -c\"")
+                      help="접속을 통째로 지정한다. 예: \"docker exec -i pg psql -U root -d appdb -c\"")
     p_db.add_argument("--append-sql", dest="append_sql", action="store_true",
                       help="--command 뒤에 SQL을 인자로 붙인다 (기본은 표준입력으로 넘김)")
     p_db.add_argument("--profile", default=None,
