@@ -518,3 +518,128 @@ def test_api_refuses_non_server_scenario():
             import shutil as _sh
             _sh.rmtree(home, ignore_errors=True)
 
+
+# ── 웹 타겟 (이슈 #586) ──────────────────────────────────────────────────
+#
+# 실제 브라우저 조작은 Playwright가 필요해 여기서 돌리지 않는다. Playwright가 없어도
+# **막힌 이유가 정확히 전달되는지**는 확인할 수 있고, 그게 CI에서 지킬 수 있는 선이다.
+
+def test_web_reports_missing_playwright_with_install_hint():
+    """무엇을 깔아야 하는지 말해주지 않으면 사용자는 여기서 멈춘다."""
+    ok, err = e2e_cli._require_playwright()
+    if ok is not None:
+        import pytest
+        pytest.skip("이 환경에는 Playwright가 설치돼 있다")
+    assert err["code"] == "playwright_missing"
+    assert "pip install playwright" in err["install"]
+
+
+def test_web_action_without_open_browser_is_refused():
+    """브라우저를 열지 않고 클릭하면 무엇을 해야 하는지 알려줘야 한다."""
+    with tempfile.TemporaryDirectory() as tmp:
+        r = _git_repo(Path(tmp), "https://github.com/o/webprobe.git")
+        home = e2e_cli._home_dir(r)
+        home.mkdir(parents=True, exist_ok=True)
+        try:
+            rc, out, err = run_cli("web", "click", "--root", str(r), "--selector", "#x")
+            data = json.loads(out)
+            assert data["ok"] is False
+            # Playwright가 없는 환경이면 그 안내가, 있으면 "브라우저 안 열림"이 나온다
+            assert data["code"] in ("browser_not_open", "playwright_missing"), data
+        finally:
+            import shutil as _sh
+            _sh.rmtree(home, ignore_errors=True)
+
+
+def test_web_state_path_lives_with_knowledge():
+    """브라우저 상태도 홈에 둔다 — 워크트리를 오가도 같은 세션을 본다."""
+    with tempfile.TemporaryDirectory() as tmp:
+        r = _git_repo(Path(tmp), "https://github.com/o/webprobe2.git")
+        sp = e2e_cli._web_state_path(r)
+        assert str(sp).startswith(str(Path.home()))
+        assert sp.parent == e2e_cli._home_dir(r)
+
+
+def test_web_help_lists_all_actions():
+    rc, out, err = run_cli("web", "--help")
+    combined = out + err
+    for a in ["open", "goto", "click", "type", "shot", "assert", "console", "close"]:
+        assert a in combined, f"{a}가 --help에 없다"
+
+
+def test_web_setup_is_listed_as_action():
+    """설치까지가 스킬의 역할이다 — 안내만 하고 세워 두지 않는다."""
+    rc, out, err = run_cli("web", "--help")
+    assert "setup" in (out + err)
+
+
+def test_web_missing_playwright_offers_to_install():
+    """막혔을 때 '무엇을 물어볼지'까지 있어야 agent가 사용자에게 제안할 수 있다."""
+    ok, err = e2e_cli._require_playwright()
+    if ok is not None:
+        import pytest
+        pytest.skip("이 환경에는 Playwright가 있다")
+    assert err["fix"].startswith("web setup")
+    assert "설치할까요" in err["ask_user"]
+
+
+def test_web_walks_real_browser():
+    """실제 브라우저를 열어 끝까지 밟는다.
+
+    **호출이 쪼개져도 같은 브라우저에 붙는지**가 이 설계의 전부다. launch()로 띄우면
+    드라이버가 죽을 때 브라우저도 죽어 두 번째 호출이 붙을 곳이 없다 — 실측으로 겪었고,
+    그래서 브라우저를 독립 프로세스로 띄운다. 그 계약이 깨지면 여기서 잡힌다.
+    """
+    ok, _ = e2e_cli._require_playwright()
+    if ok is None:
+        import pytest
+        pytest.skip("Playwright 없음 — web setup 후 실행된다")
+
+    import http.server
+    import threading
+
+    html = (b'<!doctype html><html lang="ko"><head><meta charset="utf-8">'
+            b'<title>t</title></head><body><input id="v">'
+            b'<button id="go" onclick="document.getElementById(\'out\').textContent='
+            b'document.getElementById(\'v\').value">go</button>'
+            b'<p id="out"></p></body></html>')
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(html)))
+            self.end_headers()
+            self.wfile.write(html)
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{srv.server_address[1]}/"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        r = _git_repo(Path(tmp), "https://github.com/o/webwalk.git")
+        home = e2e_cli._home_dir(r)
+        try:
+            rc, out, _ = run_cli("web", "open", "--root", str(r), "--url", url)
+            assert json.loads(out).get("ok") is not False, out
+
+            rc, out, _ = run_cli("web", "type", "--root", str(r),
+                                 "--selector", "#v", "--text", "남아야 한다")
+            assert json.loads(out).get("ok") is not False, out
+
+            rc, out, _ = run_cli("web", "click", "--root", str(r), "--selector", "#go")
+            assert json.loads(out).get("ok") is not False, out
+
+            # 세 번의 별개 호출을 거쳐도 입력이 살아 있어야 한다
+            rc, out, _ = run_cli("web", "assert", "--root", str(r), "--text", "남아야 한다")
+            data = json.loads(out)
+            assert data["ok"] is True, data
+        finally:
+            run_cli("web", "close", "--root", str(r))
+            srv.shutdown()
+            import shutil as _sh
+            _sh.rmtree(home, ignore_errors=True)
+

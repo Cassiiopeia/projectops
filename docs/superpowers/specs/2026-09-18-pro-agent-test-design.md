@@ -74,7 +74,35 @@ gstack이 상주 데몬을 만든 이유가 이것이다.
 ③ web shot   → 같은 방식. 세션·쿠키·로그인 상태가 유지된다
 ```
 
-프로세스를 우리가 관리하지 않아도 되고, 브라우저가 죽으면 상태파일만 지우면 복구된다.
+#### ⚠️ 실측 정정 — Playwright의 `launch()`로 띄우면 안 된다
+
+처음에는 `pw.chromium.launch(args=["--remote-debugging-port=..."])`로 띄우고 `pw.stop()`은
+"연결만 끊는다"고 적었다. **틀렸다.** `launch()`로 띄운 브라우저는 Playwright 드라이버
+프로세스에 묶여 있어 **드라이버가 끝나면 브라우저도 함께 죽는다.** 실제로 두 번째 명령이
+`connect ECONNREFUSED`로 실패했다.
+
+그래서 **브라우저를 Playwright 밖에서 독립 프로세스로 띄운다.**
+
+```python
+with sync_playwright() as pw:
+    exe = pw.chromium.executable_path      # 설치된 크로미움 경로만 얻는다
+subprocess.Popen([exe, f"--remote-debugging-port={port}",
+                  f"--user-data-dir={profile}", "--headless=new"],
+                 start_new_session=True)   # 우리가 끝나도 살아 있다
+```
+
+`--user-data-dir`을 주면 쿠키·로그인이 다음 실행에도 남는다. 포트가 열릴 때까지 기다린 뒤
+상태파일을 쓴다 — 안 기다리면 바로 다음 명령이 붙지 못한다. 닫을 때는 `browser.close()`만으로는
+독립 프로세스가 안 죽으므로 기록해 둔 pid를 함께 정리한다.
+
+#### 설치도 스킬이 한다
+
+macOS의 Homebrew 파이썬은 **PEP 668로 `pip install`을 막는다**(externally-managed).
+"`pip install playwright` 하세요"라고 안내만 하면 사용자는 거기서 멈춘다.
+
+그래서 `web setup`이 **전용 가상환경(`~/.projectops/agent-test/.venv`)을 만들고 Playwright와
+Chromium까지 받는다.** 시스템 파이썬은 건드리지 않는다. 약 100MB를 받으므로 **agent가 먼저
+사용자에게 물어본다** — 물어보고 설치해 주는 것까지가 스킬의 역할이다.
 
 ### 서버: 단독 E2E까지
 

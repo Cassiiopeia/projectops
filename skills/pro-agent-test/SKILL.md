@@ -45,11 +45,48 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py detect --path {PROJECT_ROOT
 > 쓰면 "기기가 없다"는 오진을 피한다. (AVD = Android Virtual Device, 에뮬레이터 기기 정의)
 
 서버 DB를 대조하려면 접속 정보도 확보한다 (`application-*.yml`의 datasource —
-추출 방법은 `references/device-control.md`).
+추출 방법은 `references/target-app.md`).
 
-기기가 없으면 `next` 필드가 알려준다. 부팅 명령은 `references/device-control.md`.
+기기가 없으면 `next` 필드가 알려준다. 부팅 명령은 `references/target-app.md`.
 
-## 되는 것 · 안 되는 것 (Android 에뮬레이터 실측)
+## Phase 0 — 무엇을 밟을지부터 정한다 ⚠️
+
+**타겟을 정하기 전에는 아무것도 하지 않는다.** 앱·웹·서버는 조작 수단도 판정 근거도 다르다.
+
+```bash
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py detect --path {PROJECT_ROOT}
+```
+
+`targets`가 무엇을 밟을 수 있는지 알려준다. 판정 순서는 **① 사용자 지정 → ② version.yml의
+project_types → ③ 마커 파일**이다.
+
+| 결과 | 무엇을 한다 |
+|---|---|
+| 하나 | 그것으로 간다 |
+| 여럿 (예: `app`·`server`) | **묻는다.** 임의로 고르면 엉뚱한 것을 밟는다 |
+| 없음 | 사용자에게 `--target app\|web\|server` 로 알려 달라고 한다 |
+
+타겟이 정해지면 **그 문서 하나만 읽는다.**
+
+| 타겟 | 문서 | 조작 수단 |
+|---|---|---|
+| `app` | `references/target-app.md` | adb · simctl (셸로 직접) |
+| `web` | `references/target-web.md` | `web` 서브커맨드 (Playwright) |
+| `server` | `references/target-server.md` | `api` 서브커맨드 (HTTP) |
+
+웹 프로젝트에서 adb 함정 표를 읽을 이유가 없다. 아래 앱 관련 절들은 `app` 타겟일 때만 본다.
+
+> **준비물이 없으면 물어보고 깐다.** 웹은 브라우저(약 100MB)가 필요하다 — 안내만 하고
+> 멈추지 않는다. 자세한 절차는 `references/target-web.md`, 공통 원칙은
+> `../references/common-rules.md`의 "필요한 것이 없을 때".
+
+## 밟는 종류 — 지금은 e2e 하나다
+
+시나리오의 `mode`가 정한다. `e2e`(처음부터 끝까지 한 번 밟기)가 기본이고 생략할 수 있다.
+`load`(부하)는 **축만 잡아 두었고 아직 구현되지 않았다** — 쓰려고 하면 그렇다고 알려준다.
+부하는 `server` 타겟에서만 의미가 있다(UI로는 부하를 걸 수 없다).
+
+## 되는 것 · 안 되는 것 (Android 에뮬레이터 실측) — `app` 타겟
 
 **추측하지 말고 이 표를 본다.** 안 되는 것을 모르고 계획을 세우면 중간에 멈춘다.
 
@@ -68,7 +105,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py detect --path {PROJECT_ROOT
 | 카메라·마이크 실제 입력 | ❌ | 가상 입력만 가능 |
 | 실제 푸시 발송 | ❌ | 서버에서 별도로 쏴야 한다 |
 | 인앱결제 실제 승인 | ❌ | 테스트 계정·스토어 설정이 필요하다 |
-| **iOS 좌표 탭** | ❌ | 공식 명령이 없다 — `references/device-control.md` 참조 |
+| **iOS 좌표 탭** | ❌ | 공식 명령이 없다 — `references/target-app.md` 참조 |
 
 ### 한글을 꼭 넣어야 하면
 
@@ -79,7 +116,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py detect --path {PROJECT_ROOT
 `FLAG_SECURE`가 걸린 화면(일부 금융·인증 앱)은 스크린샷이 검은색으로 찍힌다. 그때는
 `dumpsys window`의 `mCurrentFocus`로 어느 화면인지만 확인하고 사용자에게 넘긴다.
 
-## Phase 0.5 — 이 앱이 어떻게 생겼는지 먼저 읽는다
+## Phase 0.5 — 이 프로젝트가 어떻게 생겼는지 먼저 읽는다
 
 처음 들어온 프로젝트라면 **코드에서 구조를 한 번 읽어 둔다.** 매번 라우트를 찾아 헤매지
 않기 위해서다.
@@ -380,7 +417,7 @@ adb logcat -d | grep -E "action:|key:"          # 기기에 무엇이 저장됐�
 | 상황 | 화면에서 알아보는 법 |
 | --- | --- |
 | 2단계 인증 | "인증", "2-Step", "확인 버튼을 눌러주세요", 남은 시간 표시 |
-| 생체 인증 | 지문·Face ID 안내 (시뮬레이터는 메뉴로 대체 가능 — `references/device-control.md`) |
+| 생체 인증 | 지문·Face ID 안내 (시뮬레이터는 메뉴로 대체 가능 — `references/target-app.md`) |
 | 결제 | 카드 입력, 스토어 결제 시트 |
 | 외부 앱 전환 | `mCurrentFocus`가 우리 패키지가 아님 |
 | 캡차 | 이미지 선택·문자 입력 |
@@ -478,4 +515,4 @@ adb shell pm clear {패키지}     # 앱 로컬 데이터
 | **네트워크를 껐다 켰더니 DNS가 안 돌아온다** | 특정 도메인만 `Failed host lookup` | `svc wifi disable` 대신 `cmd connectivity airplane-mode enable/disable`을 쓴다 |
 | **구글 계정 선택창이 비어 보인다** | 기기에 계정을 막 추가했는데 앱에서 안 보임 | 등록은 됐다. 앱을 재시작하면 나타난다 |
 
-더 많은 명령과 iOS 대응은 `references/device-control.md`.
+더 많은 명령과 iOS 대응은 `references/target-app.md`.

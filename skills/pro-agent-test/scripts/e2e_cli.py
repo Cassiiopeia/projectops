@@ -511,18 +511,12 @@ def _web_base_urls(root: Path) -> list[str]:
 
 
 def _playwright_state() -> dict:
-    """웹을 밟을 준비가 됐는지. 없으면 어떻게 깔지까지 알려준다."""
-    try:
-        import playwright  # noqa: F401
-    except ImportError:
-        return {"ready": False, "reason": "python playwright 미설치",
-                "install": "pip install playwright && playwright install chromium"}
-    try:
-        from playwright.sync_api import sync_playwright  # noqa: F401
-    except ImportError:
-        return {"ready": False, "reason": "playwright.sync_api를 불러올 수 없음",
-                "install": "pip install --upgrade playwright"}
-    return {"ready": True}
+    """웹을 밟을 준비가 됐는지. 없으면 무엇을 하면 되는지까지 알려준다."""
+    ok, err = _require_playwright()
+    if err:
+        return {"ready": False, "reason": err["error"], "fix": err["fix"],
+                "ask_user": err["ask_user"]}
+    return {"ready": True, "venv": str(_VENV_DIR) if _venv_python() else "시스템"}
 
 
 def cmd_devices(args) -> int:
@@ -1701,6 +1695,295 @@ def _api_call(base: str, method: str, path: str, body, headers: dict, timeout: i
             "elapsed_ms": int((time.time() - started) * 1000)}
 
 
+# ── 웹 타겟: 브라우저를 직접 몬다 (이슈 #586) ────────────────────────────
+#
+# agent가 스크린샷을 보고 다음 수를 정하므로 조작이 여러 번의 CLI 호출로 쪼개진다.
+# Playwright를 호출마다 새로 띄우면 **매번 브라우저가 새로 뜨고 로그인이 풀린다**(기동 ~3초).
+#
+# 상주 데몬을 직접 만들지 않고 **CDP 재연결**로 푼다:
+#   open  → --remote-debugging-port 로 띄우고 포트를 상태파일에 적는다
+#   이후  → connect_over_cdp 로 그 브라우저에 붙었다 떨어진다 (세션·쿠키 유지)
+# 브라우저가 죽으면 상태파일만 지우면 복구된다.
+
+_WEB_STATE = "browser.json"
+
+
+def _web_state_path(root: Path) -> Path:
+    return _home_dir(root) / _WEB_STATE
+
+
+# 웹용 전용 가상환경. 시스템 파이썬에 깔지 않는 이유:
+# macOS의 Homebrew 파이썬은 PEP 668로 `pip install`을 막는다(externally-managed).
+# 안내만 하고 사용자를 거기에 세워 두면 스킬이 제 역할을 못 한다.
+_VENV_DIR = Path.home() / ".projectops" / "agent-test" / ".venv"
+
+
+def _venv_python() -> Path | None:
+    """전용 가상환경의 파이썬. 없으면 None."""
+    exe = _VENV_DIR / ("Scripts" if os.name == "nt" else "bin") / (
+        "python.exe" if os.name == "nt" else "python")
+    return exe if exe.is_file() else None
+
+
+def _venv_site_packages() -> Path | None:
+    for pat in ("lib/python*/site-packages", "Lib/site-packages"):
+        for d in _VENV_DIR.glob(pat):
+            if d.is_dir():
+                return d
+    return None
+
+
+def _require_playwright() -> tuple[object | None, dict | None]:
+    """Playwright를 불러온다. 전용 가상환경 → 시스템 순으로 본다.
+
+    함수 안에서 import하는 이유: 웹을 안 쓰는 프로젝트에서 이 스크립트가 통째로
+    죽으면 안 된다. 앱·서버 타겟은 Playwright 없이 돌아가야 한다.
+    """
+    sp = _venv_site_packages()
+    if sp and str(sp) not in sys.path:
+        sys.path.insert(0, str(sp))
+    try:
+        from playwright.sync_api import sync_playwright
+        return sync_playwright, None
+    except ImportError:
+        return None, {
+            "ok": False, "code": "playwright_missing",
+            "error": "웹을 밟으려면 Playwright가 필요합니다",
+            "fix": "web setup  # 전용 환경을 만들고 브라우저까지 받습니다 (약 100MB)",
+            "manual": f"{sys.executable} -m venv {_VENV_DIR} && "
+                      f"{_VENV_DIR}/bin/pip install playwright && "
+                      f"{_VENV_DIR}/bin/python -m playwright install chromium",
+            "why": ("gstack 같은 별도 설치물에 기대지 않으려고 Playwright를 직접 씁니다. "
+                    "시스템 파이썬을 건드리지 않도록 전용 환경에 깝니다"),
+            "ask_user": "웹을 밟으려면 브라우저(약 100MB)를 받아야 합니다. 설치할까요?",
+        }
+
+
+def _web_connect(state: dict):
+    """열려 있는 브라우저에 붙는다. 호출부가 with로 감싸 쓴다."""
+    sync_playwright, err = _require_playwright()
+    if err:
+        return None, err
+    pw = sync_playwright().start()
+    try:
+        browser = pw.chromium.connect_over_cdp(state["cdp"])
+    except Exception as e:
+        pw.stop()
+        return None, {"ok": False, "code": "browser_gone",
+                      "error": f"열린 브라우저에 붙지 못했습니다: {e}",
+                      "next": "web open  # 다시 엽니다"}
+    ctx = browser.contexts[0] if browser.contexts else browser.new_context()
+    page = ctx.pages[0] if ctx.pages else ctx.new_page()
+    return (pw, browser, page), None
+
+
+def _web_setup(force: bool = False) -> dict:
+    """웹을 밟을 환경을 만든다 — 전용 가상환경 + Playwright + Chromium.
+
+    안내만 하고 사용자를 세워 두지 않는다. 다만 **약 100MB를 받으므로 부르는 쪽이
+    먼저 물어본다** (SKILL.md의 절차). 시스템 파이썬은 건드리지 않는다 — macOS의
+    Homebrew 파이썬은 PEP 668로 pip를 막아 두어 애초에 깔리지도 않는다.
+    """
+    steps = []
+    if not _venv_python() or force:
+        r = subprocess.run([sys.executable, "-m", "venv", str(_VENV_DIR)],
+                           capture_output=True, text=True)
+        steps.append({"step": "가상환경 생성", "ok": r.returncode == 0,
+                      "error": (r.stderr or "")[-300:] or None})
+        if r.returncode != 0:
+            return {"ok": False, "code": "venv_failed", "steps": steps,
+                    "error": "가상환경을 만들지 못했습니다"}
+
+    vpy = _venv_python()
+    if vpy is None:
+        return {"ok": False, "code": "venv_missing", "steps": steps,
+                "error": "가상환경 파이썬을 찾지 못했습니다"}
+
+    r = subprocess.run([str(vpy), "-m", "pip", "install", "-q", "playwright"],
+                       capture_output=True, text=True, timeout=900)
+    steps.append({"step": "playwright 설치", "ok": r.returncode == 0,
+                  "error": (r.stderr or "")[-300:] or None})
+    if r.returncode != 0:
+        return {"ok": False, "code": "pip_failed", "steps": steps,
+                "error": "playwright를 설치하지 못했습니다"}
+
+    # 브라우저 내려받기가 제일 오래 걸린다(약 100MB). 여기서 끊기면 web open이 실패한다.
+    r = subprocess.run([str(vpy), "-m", "playwright", "install", "chromium"],
+                       capture_output=True, text=True, timeout=1800)
+    steps.append({"step": "chromium 내려받기", "ok": r.returncode == 0,
+                  "error": (r.stderr or "")[-300:] or None})
+    if r.returncode != 0:
+        return {"ok": False, "code": "browser_failed", "steps": steps,
+                "error": "브라우저를 받지 못했습니다"}
+
+    return {"ok": True, "steps": steps, "venv": str(_VENV_DIR),
+            "summary": "웹을 밟을 준비가 됐습니다",
+            "next": "web open --url <주소>"}
+
+
+def cmd_web(args) -> int:
+    """웹 화면을 조작한다. 한 번에 한 동작 — agent가 화면을 보고 다음을 정한다."""
+    if args.action == "setup":
+        return emit(_web_setup(force=args.force))
+
+    root = Path(args.root).resolve()
+    state_f = _web_state_path(root)
+
+    if args.action == "open":
+        sync_playwright, err = _require_playwright()
+        if err:
+            return emit(err)
+        import socket
+        s = socket.socket()
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+        s.close()
+
+        # ⚠️ Playwright의 launch()로 띄우면 **드라이버가 죽을 때 브라우저도 함께 죽는다.**
+        # 이 스킬은 호출이 여러 번으로 쪼개지므로(agent가 화면을 보고 다음 수를 정한다)
+        # 그러면 두 번째 명령이 붙을 곳이 없다. 실측으로 확인한 함정이다.
+        # 그래서 **브라우저를 Playwright 밖에서 독립 프로세스로** 띄우고 CDP로 붙는다.
+        with sync_playwright() as pw:
+            exe = pw.chromium.executable_path
+        profile = _home_dir(root) / ".browser-profile"
+        profile.mkdir(parents=True, exist_ok=True)
+
+        cmd = [exe, f"--remote-debugging-port={port}",
+               f"--user-data-dir={profile}",   # 쿠키·로그인이 다음 실행에도 남는다
+               f"--window-size={args.width},{args.height}",
+               "--no-first-run", "--no-default-browser-check"]
+        if not args.headed:
+            cmd.append("--headless=new")
+        if args.url:
+            cmd.append(args.url)
+        proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                start_new_session=True)   # 우리가 끝나도 살아 있어야 한다
+
+        # 포트가 열릴 때까지 기다린다. 안 기다리면 바로 다음 명령이 붙지 못한다.
+        import socket as _s
+        cdp = f"http://127.0.0.1:{port}"
+        for _ in range(60):
+            with _s.socket() as probe:
+                probe.settimeout(0.3)
+                if probe.connect_ex(("127.0.0.1", port)) == 0:
+                    break
+            time.sleep(0.25)
+        else:
+            proc.terminate()
+            return emit({"ok": False, "code": "browser_start_failed",
+                         "error": "브라우저가 뜨지 않았습니다",
+                         "hint": "web setup 으로 브라우저를 다시 받아 보세요"})
+
+        state_f.parent.mkdir(parents=True, exist_ok=True)
+        state_f.write_text(json.dumps({
+            "cdp": cdp, "pid": proc.pid, "headed": bool(args.headed),
+            "profile": str(profile),
+            "opened_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }, ensure_ascii=False), encoding="utf-8")
+        return emit({
+            "action": "open", "url": args.url, "cdp": cdp, "pid": proc.pid,
+            "state_file": str(state_f),
+            "summary": f"브라우저를 열었습니다 ({args.url or '빈 탭'})",
+            "next": "web shot  # 화면을 먼저 봅니다",
+        })
+
+    if not state_f.is_file():
+        return emit({"ok": False, "code": "browser_not_open",
+                     "error": "열린 브라우저가 없습니다",
+                     "next": f"web open --root {root} --url <주소>"})
+    state = json.loads(state_f.read_text(encoding="utf-8"))
+
+    conn, err = _web_connect(state)
+    if err:
+        if err.get("code") == "browser_gone":
+            state_f.unlink(missing_ok=True)   # 죽은 상태파일을 남기면 계속 헛돈다
+        return emit(err)
+    pw, browser, page = conn
+
+    try:
+        if args.action == "close":
+            browser.close()
+            # CDP로 붙은 브라우저는 close()로 안 죽는 경우가 있다(우리가 띄운 독립 프로세스다)
+            pid = state.get("pid")
+            if pid:
+                try:
+                    os.kill(int(pid), 15)
+                except (ProcessLookupError, PermissionError, ValueError):
+                    pass
+            state_f.unlink(missing_ok=True)
+            return emit({"action": "close", "summary": "브라우저를 닫았습니다"})
+
+        if args.action == "goto":
+            if not args.url:
+                return emit({"ok": False, "code": "url_required", "error": "--url 이 필요합니다"})
+            page.goto(args.url, wait_until="domcontentloaded")
+
+        elif args.action == "click":
+            if not args.selector:
+                return emit({"ok": False, "code": "selector_required",
+                             "error": "--selector 가 필요합니다",
+                             "hint": "text=로그인 · #submit · button:has-text('저장')"})
+            page.click(args.selector, timeout=args.timeout * 1000)
+
+        elif args.action == "type":
+            if not (args.selector and args.text is not None):
+                return emit({"ok": False, "code": "missing_argument",
+                             "error": "--selector 와 --text 가 필요합니다"})
+            page.fill(args.selector, args.text, timeout=args.timeout * 1000)
+
+        elif args.action == "shot":
+            out = Path(args.out) if args.out else (_home_dir(root) / "shots" /
+                  f"{time.strftime('%Y%m%d-%H%M%S')}.png")
+            out.parent.mkdir(parents=True, exist_ok=True)
+            page.screenshot(path=str(out), full_page=args.full)
+            return emit({"action": "shot", "file": str(out), "url": page.url,
+                         "title": page.title(),
+                         "summary": f"화면을 찍었습니다: {out.name}",
+                         "next": "이미지를 읽어 다음 조작을 정하세요"})
+
+        elif args.action == "assert":
+            # 무엇을 확인했는지 남긴다 — 통과했다는 말만으로는 근거가 되지 않는다
+            checks = []
+            if args.url:
+                checks.append({"expect_url": args.url, "got": page.url,
+                               "ok": args.url in page.url})
+            if args.text:
+                found = page.get_by_text(args.text).count() > 0
+                checks.append({"expect_text": args.text, "ok": found})
+            if args.selector:
+                checks.append({"expect_selector": args.selector,
+                               "ok": page.locator(args.selector).count() > 0})
+            if not checks:
+                return emit({"ok": False, "code": "nothing_to_assert",
+                             "error": "--url · --text · --selector 중 하나는 있어야 합니다"})
+            passed = all(c["ok"] for c in checks)
+            return emit({"action": "assert", "checks": checks, "ok": passed,
+                         "url": page.url,
+                         "summary": "확인 통과" if passed else "확인 실패"})
+
+        elif args.action == "console":
+            # 이미 쌓인 것은 못 본다. 지금부터 잠깐 듣는다 — 조작 직후에 부른다.
+            logs = []
+            page.on("console", lambda m: logs.append({"type": m.type, "text": m.text}))
+            page.wait_for_timeout(args.timeout * 1000)
+            errs = [l for l in logs if l["type"] == "error"]
+            return emit({"action": "console", "logs": logs[-50:],
+                         "error_count": len(errs),
+                         "summary": f"콘솔 {len(logs)}줄 (오류 {len(errs)})"})
+
+        return emit({"action": args.action, "url": page.url, "title": page.title(),
+                     "summary": f"{args.action} 완료 — {page.url}",
+                     "next": "web shot  # 결과를 눈으로 확인하세요"})
+    except Exception as e:
+        return emit({"ok": False, "code": "web_action_failed",
+                     "action": args.action, "error": str(e)[:400],
+                     "url": page.url if page else None,
+                     "next": "web shot  # 지금 화면이 무엇인지 먼저 봅니다"})
+    finally:
+        # 연결만 끊는다. browser.close()를 부르면 다음 호출이 붙을 곳이 없어진다.
+        pw.stop()
+
+
 def cmd_api(args) -> int:
     """서버 시나리오를 밟는다.
 
@@ -1986,6 +2269,25 @@ def build_parser() -> argparse.ArgumentParser:
         help=("pitfall 범위. project=이 앱에서만 / flutter=모든 Flutter 앱 / "
               "platform=기기·OS 차원. project가 아니면 skill로 올리라고 안내한다"))
     p_n.set_defaults(func=cmd_note)
+
+    p_web = sub.add_parser("web", help="웹 화면을 조작한다 (target: web)")
+    p_web.add_argument("action",
+                       choices=["setup", "open", "goto", "click", "type", "shot",
+                                "assert", "console", "close"])
+    p_web.add_argument("--force", action="store_true",
+                       help="setup: 이미 있어도 다시 만든다")
+    p_web.add_argument("--root", default=".", help="프로젝트 루트")
+    p_web.add_argument("--url", default=None, help="주소 (open·goto·assert)")
+    p_web.add_argument("--selector", default=None,
+                       help="대상 (click·type·assert). text=로그인 · #id · button:has-text('x')")
+    p_web.add_argument("--text", default=None, help="입력할 값 또는 확인할 문구")
+    p_web.add_argument("--out", default=None, help="스크린샷 저장 경로")
+    p_web.add_argument("--full", action="store_true", help="페이지 전체를 찍는다")
+    p_web.add_argument("--headed", action="store_true", help="브라우저를 눈에 보이게 연다")
+    p_web.add_argument("--width", type=int, default=1280)
+    p_web.add_argument("--height", type=int, default=800)
+    p_web.add_argument("--timeout", type=int, default=10, help="대기 제한(초)")
+    p_web.set_defaults(func=cmd_web)
 
     p_api = sub.add_parser("api", help="서버 시나리오를 밟는다 (target: server)")
     p_api.add_argument("--name", required=True, help="시나리오 이름")
