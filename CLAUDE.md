@@ -151,7 +151,7 @@ snake_case.sh / snake_case.py
 |--------|--------|------|
 | `PROJECT-TEMPLATE-INITIALIZER` | 저장소 생성 | 템플릿 초기화 (일회성) |
 | `PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC` | main 푸시 | 플러그인 매니페스트 버전 동기화 (**이 레포 전용**) |
-| `PROJECT-TEMPLATE-CI` | develop 푸시/PR | npx CLI 테스트 (**이 레포 전용**) |
+| `PROJECT-TEMPLATE-CI` | develop·main 푸시/PR | 테스트 — 빠른 길/넓은 길 2갈래 (**이 레포 전용**, 아래 절) |
 | `PROJECT-TEMPLATE-NPM-PUBLISH` | main 푸시 | `projectops` npm 패키지 배포 (**이 레포 전용**) |
 | `PROJECT-COMMON-VERSION-CONTROL` | main 직접 푸시(안전망) | 릴리스 머지 외 push 시 patch 증가 |
 | `PROJECT-COMMON-RELEASE-CHANGELOG` | main PR (develop→main) | 버전 확정(semver 승격 — #546) + AI 체인지로그 + automerge |
@@ -162,6 +162,52 @@ snake_case.sh / snake_case.py
 | `PROJECT-COMMON-TEMPLATE-UTIL-VERSION-SYNC` | version.json 변경 | Util HTML 버전 동기화 (util 모듈 보유 레포에만 복사 — #491) |
 | `PROJECT-COMMON-PROJECTS-SYNC-MANAGER` | 이슈 라벨 변경 | Issue Label → Projects Status 동기화 |
 | `PROJECT-COMMON-AI-PR-SUMMARY` | 작업 PR 생성·갱신 | 변경 요약 댓글 (선택 — `common/pr-summary/`, #566) |
+
+### ⚠️ CI는 두 갈래다 — 무료 러너 가용량을 매 커밋에 쓰지 않는다 (#591 — agent 필독)
+
+`PROJECT-TEMPLATE-CI`는 **이 저장소 자신의 코드**를 검사한다. 사용자 프로젝트로 복사되지 않으므로,
+남의 레포가 아니라 우리 러너 가용량만 쓴다. 예전에는 **커밋 하나에 러너 9대**(3 OS × 2 Node + pytest 2 OS + 마법사)를 돌렸다.
+
+| 갈래 | 언제 | 무엇을 | 러너 |
+|---|---|---|---|
+| **빠른 길** (`quick`) | develop 푸시·PR **매번** | node --test · pytest 전부 · 마법사 정합성 — **검사 항목은 하나도 안 뺀다** | ubuntu 1대 |
+| **넓은 길** (`matrix-*`) | **main 푸시**·수동 실행 | 위를 3 OS × 2 Node 로 다시 | 8대 |
+
+줄인 것은 "몇 개의 OS에서 돌리나"뿐이다. **OS 매트릭스를 지우지 마라** — 이 저장소는
+macOS bash 3.2·BSD sed/grep(#415·#418)과 Windows `.cmd` 처리로 실제로 여러 번 깨졌다.
+사용자에게 나가는 것은 main이므로 거기서 전부 본다.
+
+### ⚠️ 로컬은 전부 돌리고, CI는 실제 도구가 필요한 것을 건너뛴다 (#591)
+
+`skills/conftest.py`가 `local_only` 마커를 제공한다. 실제 브라우저·기기·서버가 있어야
+의미 있는 테스트에 붙인다.
+
+```python
+@pytest.mark.local_only
+def test_web_walks_real_browser():
+    ...
+```
+
+| 환경 | 동작 |
+|---|---|
+| 로컬 | 도구가 있으면 **돈다**. 없으면 그 테스트만 건너뛴다 |
+| CI (`CI=true`) | `local_only`는 **무조건** 건너뛴다 |
+
+> **환경에 따라 건너뛰어지는 테스트는 "안 돌아간 것"과 구분이 안 된다 (#591).**
+> `test_web_reports_missing_playwright_with_install_hint`가 그랬다 — Playwright가
+> **깔려 있으면 skip**되도록 짜여 있어서 개발 기계에서는 영영 안 돌았고, 옛 키(`install`)를
+> 보는 채로 CI에서만 터졌다. 초록불이 통과가 아니라 실행조차 안 된 것이었다.
+>
+> **도구가 진짜로 필요한 것만** `local_only`로 둔다. 문구·계약처럼 **순수 값 검사**는
+> 없는 상태를 테스트가 직접 만들어(`playwright_hidden()`) 어디서나 항상 돌게 한다.
+
+### ⚠️ 테스트 코드는 사용자에게 나가지 않는다 (#591)
+
+`skills/` 는 Cursor 설치 소스라 **통째로 `~/.cursor/skills/` 로 복사된다**. 그래서
+`skills/*/tests/`·`conftest.py`를 거르지 않으면 우리 테스트 900여 줄이 남의 컴퓨터에 쌓인다.
+`src/core/ide/adapters/cursor.js`의 `SKIP_IN_COPY`·`TEST_PATH`가 막는다.
+**스킬에 새 보조 파일을 추가할 때 "이게 스킬을 쓰는 사람에게 필요한가"를 자문한다.**
+회귀 방지: `test/ide.test.js`의 "테스트 코드는 복사하지 않는다".
 
 ### ⚠️ Flutter 마법사 3종은 공통 자산을 공유한다 (#521 — agent 필독)
 

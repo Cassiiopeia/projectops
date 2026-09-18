@@ -8,6 +8,11 @@ import { migrateConfigRoot, isLegacyVersion } from "../legacy.js";
 const LEGACY_NAMES = ["cassiiopeia", "suh-devops-template"];
 const LEGACY_MAX_VERSION = "4.2.4";
 
+// 스킬을 쓰는 사람에게 필요 없는 것. projectops 자신을 검사하는 테스트다.
+// skills/ 는 통째로 복사되므로 여기서 걸러내지 않으면 사용자 홈에 그대로 쌓인다.
+const SKIP_IN_COPY = new Set(["conftest.py", "pytest.ini"]);
+const TEST_PATH = /(^|[\\/])(tests?|__pycache__)([\\/]|$)/;
+
 function metaPath(io) { return join(io.home(), ".cursor/skills/cursor-skills-meta.json"); }
 
 function detect(io) {
@@ -31,7 +36,12 @@ function apply(io, ctx = {}) {
   try {
     mkdirSync(dest, { recursive: true });
     for (const e of readdirSync(src, { withFileTypes: true })) {
-      cpSync(join(src, e.name), join(dest, e.name), { recursive: true });
+      if (SKIP_IN_COPY.has(e.name)) continue;
+      cpSync(join(src, e.name), join(dest, e.name), {
+        recursive: true,
+        // 이 저장소 자기 코드를 검사하는 테스트는 남의 컴퓨터로 나갈 이유가 없다 (#591).
+        filter: (p) => !TEST_PATH.test(p),
+      });
     }
     writeMeta(io, dest, ctx.templateVersion);
     io.log(`  Cursor Skills 설치 완료 (${dest}/, v${ctx.templateVersion || "unknown"})`);

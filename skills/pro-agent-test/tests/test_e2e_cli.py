@@ -13,11 +13,15 @@
 기기·브라우저·서버가 없어도 돌아야 한다 — CI에서 실행하려면 네트워크와 SDK에
 기대면 안 된다.
 """
+import contextlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+import pytest
 
 CLI = Path(__file__).resolve().parents[1] / "scripts" / "e2e_cli.py"
 sys.path.insert(0, str(CLI.parent))
@@ -434,12 +438,37 @@ def test_api_refuses_non_server_scenario():
 # 실제 브라우저 조작은 Playwright가 필요해 여기서 돌리지 않는다. Playwright가 없어도
 # **막힌 이유가 정확히 전달되는지**는 확인할 수 있고, 그게 CI에서 지킬 수 있는 선이다.
 
+# ── Playwright 없는 상태를 테스트가 직접 만든다 ──────────────────────────
+#
+# 아래 두 테스트가 보는 것은 **"못 찾았을 때 무슨 말을 해주나"** 뿐이다. 브라우저가
+# 필요 없다. 그런데 설치 여부로 skip하게 두면 **깔려 있는 기계에서는 영영 안 돌아간다.**
+# 실제로 그래서 옛 키(`install`)를 보는 테스트가 개발 기계에서는 계속 초록불이었고,
+# Playwright가 없는 CI에서만 터졌다. 초록불이 "통과"가 아니라 "실행조차 안 됨"이었다.
+#
+# sys.modules에 None을 넣으면 import가 ImportError로 끝난다 — 설치 여부와 무관하게
+# 없는 상태가 재현되므로 어디서 돌려도 같은 결과가 나온다.
+
+@contextlib.contextmanager
+def playwright_hidden():
+    names = [k for k in sys.modules if k == "playwright" or k.startswith("playwright.")]
+    saved = {k: sys.modules[k] for k in names}
+    for k in names:
+        del sys.modules[k]
+    sys.modules["playwright"] = None
+    sys.modules["playwright.sync_api"] = None
+    try:
+        yield
+    finally:
+        sys.modules.pop("playwright", None)
+        sys.modules.pop("playwright.sync_api", None)
+        sys.modules.update(saved)
+
+
 def test_web_reports_missing_playwright_with_install_hint():
     """무엇을 깔아야 하는지 말해주지 않으면 사용자는 여기서 멈춘다."""
-    ok, err = e2e_cli._require_playwright()
-    if ok is not None:
-        import pytest
-        pytest.skip("이 환경에는 Playwright가 설치돼 있다")
+    with playwright_hidden():
+        ok, err = e2e_cli._require_playwright()
+    assert ok is None
     assert err["code"] == "playwright_missing"
     # 안내만 하지 않는다 — 스킬이 직접 까는 경로(fix)와 손으로 하는 법(manual)을 함께 준다
     assert err["fix"].startswith("web setup"), err
@@ -488,14 +517,14 @@ def test_web_setup_is_listed_as_action():
 
 def test_web_missing_playwright_offers_to_install():
     """막혔을 때 '무엇을 물어볼지'까지 있어야 agent가 사용자에게 제안할 수 있다."""
-    ok, err = e2e_cli._require_playwright()
-    if ok is not None:
-        import pytest
-        pytest.skip("이 환경에는 Playwright가 있다")
+    with playwright_hidden():
+        ok, err = e2e_cli._require_playwright()
+    assert ok is None
     assert err["fix"].startswith("web setup")
     assert "설치할까요" in err["ask_user"]
 
 
+@pytest.mark.local_only
 def test_web_walks_real_browser():
     """실제 브라우저를 열어 끝까지 밟는다.
 
@@ -505,7 +534,6 @@ def test_web_walks_real_browser():
     """
     ok, _ = e2e_cli._require_playwright()
     if ok is None:
-        import pytest
         pytest.skip("Playwright 없음 — web setup 후 실행된다")
 
     import http.server
@@ -630,8 +658,6 @@ def test_help_lists_current_subcommands():
 # ValueError 로 죽었는데, 파일은 이미 써진 뒤라 "쓰기는 됐지만 명령은 실패"하는
 # 형태였다. **이름이 있는지가 아니라 실행이 되는지를 본다.**
 
-import os
-import pytest
 
 
 @pytest.fixture

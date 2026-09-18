@@ -85,6 +85,33 @@ test("cursor: skills/ 복사 + meta.json 기록", () => {
   } finally { rmSync(home, { recursive: true, force: true }); rmSync(src, { recursive: true, force: true }); }
 });
 
+// projectops 자신을 검사하는 테스트는 사용자 홈으로 나가면 안 된다 (#591).
+// skills/ 를 통째로 복사하므로 여기서 거르지 않으면 그대로 쌓인다.
+test("cursor: 테스트 코드는 복사하지 않는다", () => {
+  const home = mkdtempSync(join(tmpdir(), "cuh-"));
+  const src = mkdtempSync(join(tmpdir(), "cus-"));
+  try {
+    mkdirSync(join(src, "pro-thing/tests"), { recursive: true });
+    mkdirSync(join(src, "pro-thing/scripts"), { recursive: true });
+    writeFileSync(join(src, "pro-thing/SKILL.md"), "x");
+    writeFileSync(join(src, "pro-thing/scripts/thing_cli.py"), "x");
+    writeFileSync(join(src, "pro-thing/tests/test_thing.py"), "x");
+    writeFileSync(join(src, "conftest.py"), "x");
+
+    const io = stubIo({ home });
+    assert.equal(adapterById("cursor").apply(io, { sourceSkillsDir: src, templateVersion: "9.9.9" }), true);
+
+    const at = (r) => join(home, ".cursor/skills", r);
+    // 스킬을 쓰는 데 필요한 것은 그대로 간다
+    assert.ok(existsSync(at("pro-thing/SKILL.md")));
+    assert.ok(existsSync(at("pro-thing/scripts/thing_cli.py")));
+    // 이 저장소 자기 테스트는 나가지 않는다
+    assert.equal(existsSync(at("pro-thing/tests")), false);
+    assert.equal(existsSync(at("pro-thing/tests/test_thing.py")), false);
+    assert.equal(existsSync(at("conftest.py")), false);
+  } finally { rmSync(home, { recursive: true, force: true }); rmSync(src, { recursive: true, force: true }); }
+});
+
 // ── gemini/codex ──
 test("gemini: update 실패 시 install 폴백", () => {
   const io = stubIo({ present: { gemini: 1 }, runs: { "extensions update": { code: 1, stdout: "", stderr: "" } } });
