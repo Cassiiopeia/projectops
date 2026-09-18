@@ -1,14 +1,39 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-18T05:29:56Z",
-    "currentVersion": "4.13.0",
+    "lastUpdated": "2026-09-18T06:07:32Z",
+    "currentVersion": "4.13.1",
     "projectType": "basic",
-    "totalReleases": 249,
+    "totalReleases": 250,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.13.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-18",
+      "pr_number": 596,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 테스트 앱 빌드가 시작되자마자 실패하던 문제를 해결했습니다\n\n* **개선**\n  * 각 자동화가 저장소 권한 설정에 휘둘리지 않고 필요한 만큼만 쓰도록 정리했습니다",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "테스트 앱 빌드가 시작되자마자 실패하던 문제를 해결했습니다"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "각 자동화가 저장소 권한 설정에 휘둘리지 않고 필요한 만큼만 쓰도록 정리했습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.13.0",
       "project_type": "basic",
