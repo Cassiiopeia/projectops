@@ -30,6 +30,10 @@ on:
       - "bin/**"
       - "package.json"
       - ".github/util/flutter/**"
+      # 파이썬 쪽이 빠져 있어 스킬만 고친 커밋은 CI를 아예 안 탔다 (#587)
+      - ".github/scripts/**"
+      - "skills/**"
+      - "scripts/**"
       - ".github/workflows/PROJECT-TEMPLATE-CI.yaml"
   pull_request:
     # 릴리스 PR(develop→main)은 제외한다 — 그 내용은 develop push에서 이미 검증됐고,
@@ -41,6 +45,10 @@ on:
       - "bin/**"
       - "package.json"
       - ".github/util/flutter/**"
+      # 파이썬 쪽이 빠져 있어 스킬만 고친 커밋은 CI를 아예 안 탔다 (#587)
+      - ".github/scripts/**"
+      - "skills/**"
+      - "scripts/**"
       - ".github/workflows/PROJECT-TEMPLATE-CI.yaml"
   workflow_dispatch:
 
@@ -81,6 +89,36 @@ jobs:
 
       - name: CLI 스모크 (--help 종료코드 0)
         run: node bin/projectops.js --help
+
+  pytest:
+    name: pytest (${{ matrix.os }})
+    # 릴리스 버전 확정 커밋([skip ci])에서는 실행하지 않음
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # 이 저장소는 경로·셸 처리에서 OS 차이를 여러 번 겪었다. 양쪽에서 본다.
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v5
+
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: pytest 설치
+        run: python3 -m pip install --quiet pytest
+
+      - name: 스크립트 테스트
+        # changelog provider · version manager · issue helper
+        run: python3 -m pytest .github/scripts/test/ -q
+
+      - name: 스킬 테스트
+        # 기기·브라우저·서버 없이 돌도록 만들었다. 없으면 해당 테스트만 건너뛴다.
+        run: python3 -m pytest skills/ -q
 
   wizards:
     name: Flutter 마법사 정합성 · CLI 계약
