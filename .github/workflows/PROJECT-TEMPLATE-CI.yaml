@@ -109,8 +109,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: pytest 설치
-        run: python3 -m pip install --quiet pytest
+      - name: 테스트 의존성 설치
+        # pyyaml은 워크플로우 YAML 문법 검사(test_comment_trigger_guard)가 쓴다.
+        # 로컬에는 깔려 있어 통과하지만 CI에는 없어 실패했다 — 이런 차이를 잡으려고 CI를 켰다.
+        run: python3 -m pip install --quiet pytest pyyaml
 
       - name: 스크립트 테스트
         # changelog provider · version manager · issue helper
