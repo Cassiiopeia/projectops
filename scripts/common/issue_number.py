@@ -7,7 +7,14 @@ from typing import Optional, Tuple
 
 
 _WORKTREE_PATTERN = re.compile(r"\d{8}_(\d+)_")
-_BRANCH_PATTERN = re.compile(r"(?:^|[/_-])(\d+)(?:[/_-]|$)")
+
+# 브랜치 규칙이 `YYYYMMDD_#번호_제목` 이라 맨 앞 8자리는 **날짜**다. 떼고 나서
+# 번호를 찾지 않으면 날짜가 이슈 번호로 잡힌다 (#613). 위 워크트리 패턴은 처음부터
+# 날짜를 건너뛰게 짜여 있어서, 워크트리로 작업하면 이 버그가 드러나지 않았다.
+_DATE_PREFIX = re.compile(r"^\d{8}(?=[_/-])")
+
+# `#` 도 구분자로 받는다 — 규칙이 번호 앞에 `#` 을 붙이고, 붙지 않은 브랜치도 있다.
+_BRANCH_PATTERN = re.compile(r"(?:^|[/_#-])(\d+)(?:[/_-]|$)")
 
 
 def extract_from_path(cwd: str) -> Optional[str]:
@@ -20,8 +27,13 @@ def extract_from_path(cwd: str) -> Optional[str]:
 
 
 def extract_from_branch(branch: str) -> Optional[str]:
-    """git 브랜치명에서 이슈 번호로 보이는 숫자를 추출한다."""
-    m = _BRANCH_PATTERN.search(branch)
+    """git 브랜치명에서 이슈 번호로 보이는 숫자를 추출한다.
+
+    날짜 접두사를 먼저 떼는 것이 요점이다. 이것이 없어서 `20260918_#77_제목` 에서
+    77 이 아니라 20260918 이 나왔고, 산출물 이름이 `20260918_20260918_…` 이 되고
+    커밋 메시지에도 없는 이슈 번호가 박혔다 (#613).
+    """
+    m = _BRANCH_PATTERN.search(_DATE_PREFIX.sub("", branch))
     return m.group(1) if m else None
 
 
