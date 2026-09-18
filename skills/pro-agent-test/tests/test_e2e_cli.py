@@ -841,3 +841,139 @@ def test_note_target_rejects_unknown_target(sandbox):
     d = json.loads(out)
     assert d["ok"] is False and d["code"] == "bad_targets"
     assert "desktop" in d["error"]
+
+
+# ── other 타겟 — 앱·웹·서버가 아닌 것 (이슈 #597 후속) ──────────────────
+#
+# 이 스킬로 만든 것을 이 스킬로 밟아 보다가 결함 세 건이 나왔다. 전부 여기에 고정한다.
+#
+#   ① 수정시각을 초 단위로 봐서, 같은 초에 같은 크기로 바뀐 파일을 놓쳤다
+#   ② 멱등을 "변화 목록이 같은가"로 봤다 — 1회차 created, 2회차 modified 라 늘 다르다
+#   ③ "무엇을 건드렸나"와 "상태가 같은가"에 같은 기준을 썼다 — 답이 다른 두 질문이다
+
+def _other(sandbox_dirs, *args):
+    proj, home = sandbox_dirs
+    rc, out, err = run_cli("other", "run", "--root", str(proj), *args, home=home)
+    assert "Traceback" not in err, err
+    return json.loads(out)
+
+
+def test_other_sees_files_created(sandbox):
+    """출력만 보면 부작용을 놓친다. 무엇이 생겼는지 기계가 보여줘야 한다."""
+    proj, _ = sandbox
+    d = _other(sandbox, "--command", "mkdir -p out && echo hi > out/a.txt", "--watch", ".")
+    assert d["exit_code"] == 0
+    assert d["files"]["created"] == ["out/a.txt"], d["files"]
+
+
+def test_other_sees_same_size_edit_in_same_second(sandbox):
+    """같은 크기로 같은 초에 바뀐 파일 — 초 단위 mtime 으로는 못 본다."""
+    proj, _ = sandbox
+    (proj / "keep.txt").write_text("old\n", encoding="utf-8")
+    d = _other(sandbox, "--command", "echo new > keep.txt", "--watch", ".")
+    assert d["files"]["modified"] == ["keep.txt"], d["files"]
+
+
+def test_other_sees_deletion(sandbox):
+    proj, _ = sandbox
+    (proj / "gone.txt").write_text("x", encoding="utf-8")
+    d = _other(sandbox, "--command", "rm gone.txt", "--watch", ".")
+    assert d["files"]["deleted"] == ["gone.txt"], d["files"]
+
+
+def test_other_twice_overwrite_with_same_content_is_idempotent(sandbox):
+    """덮어써도 **내용이 같으면** 멱등이다.
+
+    변화 목록으로 판정하면 여기서 오판한다 — 1회차는 만들고(created) 2회차는
+    덮어쓰므로(modified) 목록이 늘 다르다.
+    """
+    d = _other(sandbox, "--command", "mkdir -p out && echo fixed > out/c.txt",
+               "--watch", ".", "--twice")
+    assert d["second_run"]["settled"] is True, d["second_run"]
+    assert d["ok"] is True, d["problems"]
+
+
+def test_other_twice_changing_content_is_not_idempotent(sandbox):
+    """파일명은 같고 내용만 매번 바뀌는 경우 — 놓치면 안 된다."""
+    proj, _ = sandbox
+    (proj / "out").mkdir()
+    d = _other(sandbox, "--command", "echo $RANDOM > out/t.txt", "--watch", ".", "--twice")
+    assert d["second_run"]["settled"] is False
+    assert d["ok"] is False
+    assert any("또 바뀌었습니다" in p for p in d["problems"]), d["problems"]
+
+
+def test_other_expect_absent_catches_what_should_not_be_there(sandbox):
+    """지금까지 스킬은 '있어야 할 것'만 봤다.
+
+    테스트 코드 유출·임시 파일 잔존·지워졌어야 할 구 파일은 전부 이쪽이다.
+    """
+    d = _other(sandbox, "--command", "mkdir -p tests", "--expect-absent", "tests")
+    assert d["ok"] is False and d["code"] == "expectation_failed"
+    assert any("남아 있습니다" in p for p in d["problems"])
+
+
+def test_other_expectations_are_optional(sandbox):
+    """조건을 주지 않으면 판정하지 않고 읽으라고 넘긴다 — 판단은 agent 몫이다."""
+    d = _other(sandbox, "--command", "echo hello")
+    assert d["ok"] is True and d["judged"] is False
+    assert "직접 판단" in (d["next"] or "")
+
+
+def test_other_expect_output_is_substring(sandbox):
+    """전체 일치를 요구하면 문구 한 글자에 시나리오가 깨진다."""
+    assert _other(sandbox, "--command", "echo 'hello world'",
+                  "--expect-output", "hello")["ok"] is True
+    assert _other(sandbox, "--command", "echo 'hello world'",
+                  "--expect-output", "bye")["ok"] is False
+
+
+def test_other_timeout_does_not_hang(sandbox):
+    """제한이 없으면 매달린 명령에 세션이 묶인다."""
+    d = _other(sandbox, "--command", "sleep 10", "--timeout", "2")
+    assert d["ok"] is False and d.get("timed_out") is True
+
+
+def test_other_env_is_injected(sandbox):
+    """'기본값이 다른 환경'을 만들어 보려면 값을 넣을 수 있어야 한다."""
+    d = _other(sandbox, "--command", "echo $MYVAR", "--env", "MYVAR=주입됨",
+               "--expect-output", "주입됨")
+    assert d["ok"] is True, d["problems"]
+
+
+def test_other_requires_command_or_scenario(sandbox):
+    d = _other(sandbox)
+    assert d["ok"] is False and d["code"] == "args_required"
+
+
+def test_other_without_watch_does_not_observe_files(sandbox):
+    """--watch 를 주지 않으면 파일을 보지 않는다 — 레포 전체를 뜨면 느리고 시끄럽다."""
+    d = _other(sandbox, "--command", "echo hi > x.txt")
+    assert "files" not in d
+
+
+def test_other_scenario_requires_other_target(sandbox):
+    """app 시나리오를 other 로 밟으면 조용히 엉뚱한 것을 하지 않고 막는다."""
+    proj, home = sandbox
+    run_cli("scenario", "init", "--root", str(proj), "--name", "s_app",
+            "--target", "app", home=home)
+    d = _other(sandbox, "--name", "s_app")
+    assert d["ok"] is False and d["code"] in ("scenario_invalid", "wrong_target")
+
+
+def test_other_target_is_a_known_target():
+    """시나리오 검증이 other 를 모르는 값으로 거부하면 안 된다."""
+    problems = e2e_cli._validate({
+        "name": "x", "target": "other",
+        "steps": [{"screen": "빌드", "do": "make", "expect_exit": 0}],
+    })
+    assert problems == [], problems
+
+
+def test_other_step_without_any_expectation_is_rejected():
+    """기대 결과가 없으면 '돌았으니 통과'로 끝난다."""
+    problems = e2e_cli._validate({
+        "name": "x", "target": "other",
+        "steps": [{"screen": "빌드", "do": "make"}],
+    })
+    assert any("기대 결과" in p for p in problems), problems
