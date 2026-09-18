@@ -1,14 +1,34 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-18T11:40:48Z",
-    "currentVersion": "4.15.1",
+    "lastUpdated": "2026-09-18T11:53:23Z",
+    "currentVersion": "4.15.2",
     "projectType": "basic",
-    "totalReleases": 254,
+    "totalReleases": 255,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.15.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-18",
+      "pr_number": 608,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 커밋 메시지에 이슈 제목의 이모지와 말머리가 딸려 들어가던 문제를 해결했습니다\n  * 버그 수정 작업이 새 기능으로 기록되어 버전이 실제보다 크게 올라가던 문제를 해결했습니다",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "커밋 메시지에 이슈 제목의 이모지와 말머리가 딸려 들어가던 문제를 해결했습니다",
+            "버그 수정 작업이 새 기능으로 기록되어 버전이 실제보다 크게 올라가던 문제를 해결했습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.15.1",
       "project_type": "basic",
