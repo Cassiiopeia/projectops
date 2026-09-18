@@ -1282,7 +1282,9 @@ def _web_connect(state: dict):
                       "error": f"열린 브라우저에 붙지 못했습니다: {e}",
                       "next": "web open  # 다시 엽니다"}
     ctx = browser.contexts[0] if browser.contexts else browser.new_context()
-    page = ctx.pages[0] if ctx.pages else ctx.new_page()
+    # 마지막 탭을 본다. 프로필이 영속이라 Chromium 이 이전 세션 탭을 되살리는데,
+    # pages[0] 을 잡으면 방금 연 탭이 아니라 그 옛 탭을 몰게 된다(실측).
+    page = ctx.pages[-1] if ctx.pages else ctx.new_page()
     return (pw, browser, page), None
 
 
@@ -1374,8 +1376,7 @@ def cmd_web(args) -> int:
                "--no-first-run", "--no-default-browser-check"]
         if not args.headed:
             cmd.append("--headless=new")
-        if args.url:
-            cmd.append(args.url)
+        cmd.append(args.url or "about:blank")
         proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                 start_new_session=True)   # 우리가 끝나도 살아 있어야 한다
 
@@ -1430,6 +1431,28 @@ def cmd_web(args) -> int:
                     os.kill(int(pid), 15)
                 except (ProcessLookupError, PermissionError, ValueError):
                     pass
+            # 죽지 않았는데 "닫았습니다"라고 하면, 다음 open 이 옛 브라우저에 붙어
+            # 엉뚱한 화면을 몰게 된다. 거짓말하지 않는다.
+            alive = False
+            if pid:
+                for _ in range(10):
+                    try:
+                        os.kill(int(pid), 0)
+                    except (ProcessLookupError, ValueError):
+                        alive = False
+                        break
+                    except PermissionError:
+                        alive = True
+                        break
+                    alive = True
+                    time.sleep(0.2)
+            # ⚠️ 살아 있으면 상태 파일을 남긴다. 지워 버리면 아직 떠 있는 브라우저에
+            # 다시 붙을 길이 사라져 "프로세스는 있는데 없다고 한다"가 된다(실측).
+            if alive:
+                return emit({"ok": False, "code": "browser_still_alive",
+                             "pid": pid,
+                             "error": f"브라우저(pid {pid})가 아직 살아 있습니다",
+                             "next": f"kill -9 {pid}  # 직접 종료한 뒤 다시 여세요"})
             state_f.unlink(missing_ok=True)
             return emit({"action": "close", "summary": "브라우저를 닫았습니다"})
 
