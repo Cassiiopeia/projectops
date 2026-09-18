@@ -179,8 +179,26 @@ def _marker_targets(root: Path) -> dict:
     return found
 
 
+def _recorded_targets(root: Path) -> dict | None:
+    """agent가 코드를 보고 확인해 적어 둔 것. 선언보다 이쪽을 믿는다."""
+    notes, _ = _load_notes(root)
+    rec = notes.get("targets")
+    if not isinstance(rec, dict):
+        return None
+    vals = [t for t in rec.get("value", []) if t in TARGETS]
+    return {"targets": vals, "why": rec.get("why")} if vals else None
+
+
 def detect_targets(root: Path) -> dict:
-    """무엇을 밟을 수 있는지. 앞에서 정해지면 뒤는 보지 않는다."""
+    """무엇을 밟을 수 있는지. 앞에서 정해지면 뒤는 보지 않는다.
+
+    ① 확인해 적어 둔 것 → ② version.yml 선언 → ③ 마커 파일
+    """
+    rec = _recorded_targets(root)
+    if rec:
+        return {"targets": rec["targets"], "source": "recorded",
+                "recorded_why": rec.get("why")}
+
     types = _version_yml_types(root)
     if types:
         targets: list[str] = []
@@ -412,6 +430,9 @@ def cmd_detect(args) -> int:
         payload["project_types"] = det["project_types"]
     if det.get("evidence"):
         payload["evidence"] = det["evidence"]
+    if det.get("recorded_why"):
+        # 왜 그렇게 판단했는지를 함께 보여준다 — 다음에 이 기록이 맞는지 다시 볼 수 있어야 한다
+        payload["recorded_why"] = det["recorded_why"]
 
     # ── 앱: 기기와 패키지 정보가 있어야 밟을 수 있다
     if "app" in targets:
@@ -447,6 +468,21 @@ def cmd_detect(args) -> int:
             "next": (None if not missing else
                      f"코드를 읽어 {'·'.join(missing)} 를 알아낸 뒤 "
                      "access set --key <키> --json '{...}' 로 적으세요"),
+        }
+
+    # version.yml 은 **이 레포가 무엇인가**를 선언할 뿐, 무엇을 밟을 수 있는지가 아니다.
+    # 서버가 화면을 직접 뿌리는 구조(Thymeleaf·Django 템플릿·Rails·JSP)는 전혀 이상하지
+    # 않은데, 선언만 보면 server 하나로 끝나 브라우저를 열 생각을 못 한다 (#591).
+    # 여기서 맞히려 들지 않는다 — 코드를 보고 판단하는 것은 agent 의 일이다.
+    if det["source"] == "version.yml" and not getattr(args, "target", None):
+        payload["confirm"] = {
+            "why": ("이 targets 는 version.yml 선언에서 나왔습니다 — 확인된 것이 아닙니다. "
+                    "서버가 화면을 직접 뿌리면 web 도 밟아야 합니다"),
+            "check": ("코드를 보고 판단하세요: 템플릿 폴더(templates·views·resources/templates)·"
+                      "정적 파일·라우트가 HTML을 돌려주는지. 앱·웹 클라이언트가 한 레포에 "
+                      "같이 있는 경우도 마찬가지입니다"),
+            "record": (f"note target --root {root} --targets {','.join(targets) or 'server'}"
+                       ",web --why \"{판단 근거}\"   # 맞으면 그대로 두면 됩니다"),
         }
 
     payload["summary"] = (
@@ -949,6 +985,7 @@ def cmd_note(args) -> int:
                 if x.get("scope", "project") != "project"
             ],
             "runs": notes.get("runs", [])[-5:],
+            "targets": notes.get("targets"),
             **({"warning": warning} if warning else {}),
             "summary": (f"제약 {len(notes.get('constraints', []))}개 · "
                         f"화면 {len(notes.get('screens', {}))}개 · "
@@ -1013,6 +1050,26 @@ def cmd_note(args) -> int:
             "check": args.check,      # 밟으면서 무엇을 보면 위반을 알 수 있나
             "added": date.today().isoformat(),
         })
+
+    elif args.action == "target":
+        vals = [t.strip() for t in (args.targets or "").split(",") if t.strip()]
+        unknown = [t for t in vals if t not in TARGETS]
+        if not vals or unknown:
+            return emit({
+                "ok": False, "code": "bad_targets",
+                "error": (f"모르는 타겟: {', '.join(unknown)}" if unknown
+                          else "--targets 에 무엇을 밟을 수 있는지 적으세요"),
+                "hint": f"{'·'.join(TARGETS)} 중에서 쉼표로 구분 (예: server,web)",
+            })
+        if not args.why:
+            return emit({
+                "ok": False, "code": "why_required",
+                "error": "--why 에 그렇게 판단한 근거를 적으세요",
+                "hint": ("다음에 이 기록을 보는 사람이 맞는지 다시 볼 수 있어야 합니다. "
+                         "예: \"Thymeleaf 템플릿으로 화면을 직접 뿌린다\""),
+            })
+        notes["targets"] = {"value": vals, "why": args.why,
+                            "added": date.today().isoformat()}
 
     elif args.action == "run":
         notes.setdefault("runs", []).append({
@@ -1861,7 +1918,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_n = sub.add_parser("note", help="이 프로젝트에서 알아낸 것을 쌓는다")
     p_n.add_argument("action",
-                     choices=["show", "constraint", "screen", "pitfall", "run"])
+                     choices=["show", "target", "constraint", "screen", "pitfall", "run"])
     p_n.add_argument("--root", default=".")
     p_n.add_argument("--name", help="screen: 화면 이름 / run: 시나리오 이름")
     p_n.add_argument("--anchor", help="screen: 이 화면임을 알아보는 단서(문구 등)")
@@ -1871,6 +1928,9 @@ def build_parser() -> argparse.ArgumentParser:
                      help="constraint: 지켜야 할 것 / pitfall: 함정 / run: 결과 요약")
     p_n.add_argument("--check",
                      help="constraint: 밟으면서 무엇을 보면 위반을 알 수 있는지")
+    p_n.add_argument("--targets",
+                     help=f"target: 실제로 밟을 수 있는 것 ({'·'.join(TARGETS)}, 쉼표 구분)")
+    p_n.add_argument("--why", help="target: 코드를 보고 그렇게 판단한 근거")
     p_n.add_argument(
         "--scope", choices=["project", "flutter", "platform"], default="project",
         help=("pitfall 범위. project=이 앱에서만 / flutter=모든 Flutter 앱 / "

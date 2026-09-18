@@ -86,7 +86,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py detect --path {PROJECT_ROOT
 | `doctor --root` | 도구가 깔려 있는지 · 기록이 어디 쌓이는지 |
 | `devices` | 붙어 있는 기기·시뮬레이터 (app) |
 | `scenario init\|list\|show` | 시나리오 틀 만들기 · 목록 · **검증** |
-| `note show\|screen\|constraint\|pitfall\|run` | 알아낸 것을 쌓는다 |
+| `note show\|target\|screen\|constraint\|pitfall\|run` | 알아낸 것을 쌓는다 (`target`=무엇을 밟을 수 있는지) |
 | `access show\|set\|unset` | 붙는 법을 적어 둔다 (DB·로그·주소) |
 | `web setup\|open\|goto\|click\|type\|shot\|assert\|console\|close` | 브라우저 조작 |
 | `api --name` | 서버 시나리오를 밟는다 |
@@ -103,14 +103,42 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py detect --path {PROJECT_ROOT
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py detect --path {PROJECT_ROOT}
 ```
 
-`targets`가 무엇을 밟을 수 있는지 알려준다. 판정 순서는 **① 사용자 지정 → ② version.yml의
-project_types → ③ 마커 파일**이다.
+`targets`가 무엇을 밟을 수 있는지 알려준다. 판정 순서는 **① 사용자 지정 → ② 네가 확인해
+적어 둔 것 → ③ version.yml의 project_types → ④ 마커 파일**이다.
 
 | 결과 | 무엇을 한다 |
 |---|---|
 | 하나 | 그것으로 간다 |
 | 여럿 (예: `app`·`server`) | **묻는다.** 임의로 고르면 엉뚱한 것을 밟는다 |
 | 없음 | 사용자에게 `--target app\|web\|server` 로 알려 달라고 한다 |
+
+### `confirm` 이 붙어 있으면 네가 확인한다 ⚠️
+
+`target_source` 가 `version.yml` 이면 그 결과는 **확인된 것이 아니라 선언**이다. "이 레포는
+스프링이다"는 말이지 "화면이 없다"는 말이 아니다.
+
+**서버가 화면을 직접 뿌리는 구조는 전혀 이상하지 않다** — Thymeleaf·JSP·Django 템플릿·
+Rails·Next의 서버 렌더링이 전부 그렇다. 그런데 선언만 보면 `server` 하나로 끝나고, 그러면
+브라우저를 열 생각을 못 해 **화면에서만 보이는 결함을 통째로 놓친다.**
+
+py는 여기서 맞히려 들지 않는다. 프레임워크마다 템플릿 자리가 달라 정규식으로 될 일이
+아니다. **코드를 보고 판단하는 것은 네 일이다.**
+
+| 무엇을 보나 | 어디를 |
+|---|---|
+| 템플릿 폴더가 있나 | `templates/` · `views/` · `src/main/resources/templates` · `app/views` |
+| 라우트가 HTML을 돌려주나 | 컨트롤러가 뷰 이름을 반환하는지, JSON만 내보내는지 |
+| 정적 파일을 서빙하나 | `static/` · `public/` · `assets/` |
+| 클라이언트가 한 레포에 같이 있나 | `client/` · `web/` · `app/` 형제 폴더 |
+
+판단했으면 **적어 둔다.** 다음 실행부터는 묻지 않는다.
+
+```bash
+... note target --root {ROOT} --targets server,web --why "{판단 근거}"
+```
+
+`--why` 는 필수다 — 다음에 이 기록이 맞는지 다시 볼 수 있어야 한다. 선언이 이미 맞으면
+아무것도 하지 않아도 된다.
 
 타겟이 정해지면 **그 문서 하나만 읽는다.**
 

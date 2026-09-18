@@ -768,3 +768,76 @@ def test_knowledge_survives_a_new_worktree(tmp_path):
     d = _ok(out)
     texts = [p["text"] for p in d.get("notes", d).get("pitfalls", [])]
     assert "워크트리 전에 알아낸 것" in texts, f"새 워크트리에서 기록이 사라졌다: {out}"
+
+
+# ── 타겟은 선언이 아니라 확인이다 (이슈 #591) ───────────────────────────
+#
+# version.yml 의 project_types 는 "이 레포가 무엇인가"를 선언할 뿐이다.
+# 서버가 화면을 직접 뿌리는 구조(Thymeleaf·Django 템플릿·Rails·JSP)는 전혀 이상하지
+# 않은데, 선언만 보면 server 하나로 끝나 브라우저를 열 생각을 못 했다.
+# 그렇다고 py 가 템플릿 폴더를 뒤져 맞히면 프레임워크마다 틀린다 — agent 가 코드를
+# 보고 판단하고, py 는 그 판단을 기억한다.
+
+def _declared(tmp: Path, types: str, url="https://github.com/acme/thing.git") -> Path:
+    proj = tmp / "proj"
+    (proj / ".git").mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init", "-q", str(proj)], check=True)
+    subprocess.run(["git", "-C", str(proj), "remote", "add", "origin", url], check=True)
+    (proj / "version.yml").write_text(
+        f"version: 1.0.0\nmetadata:\n  template:\n    project_types: [{types}]\n",
+        encoding="utf-8")
+    return proj
+
+
+def test_declared_targets_ask_agent_to_confirm(sandbox):
+    """선언에서 나온 타겟은 '확인된 것'으로 내놓지 않는다."""
+    _, home = sandbox
+    proj = _declared(home.parent, "spring")
+    rc, out, err = run_cli("detect", "--path", str(proj), home=home)
+    assert "Traceback" not in err
+    d = json.loads(out)
+    assert d["targets"] == ["server"]
+    assert d["target_source"] == "version.yml"
+    # 여기서 멈추면 화면을 뿌리는 서버의 UI 결함을 영영 못 본다
+    assert d.get("confirm"), "선언 기반인데 확인하라는 안내가 없다"
+    assert "note target" in d["confirm"]["record"]
+
+
+def test_recorded_targets_beat_declaration(sandbox):
+    """agent 가 확인해 적어 두면 그쪽을 믿는다."""
+    _, home = sandbox
+    proj = _declared(home.parent, "spring")
+    rc, out, _ = run_cli("note", "target", "--root", str(proj),
+                         "--targets", "server,web",
+                         "--why", "Thymeleaf 템플릿으로 화면을 직접 뿌린다", home=home)
+    assert _ok(out)
+
+    rc, out, err = run_cli("detect", "--path", str(proj), home=home)
+    assert "Traceback" not in err
+    d = json.loads(out)
+    assert d["targets"] == ["server", "web"]
+    assert d["target_source"] == "recorded"
+    assert d["recorded_why"] == "Thymeleaf 템플릿으로 화면을 직접 뿌린다"
+    # 확인이 끝났으므로 다시 묻지 않는다
+    assert "confirm" not in d
+    # web 타겟이 붙었으니 브라우저 준비 상태도 함께 온다
+    assert "web" in d
+
+
+def test_note_target_requires_a_reason(sandbox):
+    """근거 없이 적으면 다음에 이 기록이 맞는지 다시 볼 수 없다."""
+    proj, home = sandbox
+    rc, out, _ = run_cli("note", "target", "--root", str(proj),
+                         "--targets", "web", home=home)
+    d = json.loads(out)
+    assert d["ok"] is False and d["code"] == "why_required"
+
+
+def test_note_target_rejects_unknown_target(sandbox):
+    """오타 하나로 엉뚱한 조작 수단을 타면 원인을 찾기 어렵다."""
+    proj, home = sandbox
+    rc, out, _ = run_cli("note", "target", "--root", str(proj),
+                         "--targets", "server,desktop", "--why", "x", home=home)
+    d = json.loads(out)
+    assert d["ok"] is False and d["code"] == "bad_targets"
+    assert "desktop" in d["error"]
