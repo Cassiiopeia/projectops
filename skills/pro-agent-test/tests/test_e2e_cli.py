@@ -531,7 +531,10 @@ def test_web_reports_missing_playwright_with_install_hint():
         import pytest
         pytest.skip("이 환경에는 Playwright가 설치돼 있다")
     assert err["code"] == "playwright_missing"
-    assert "pip install playwright" in err["install"]
+    # 안내만 하지 않는다 — 스킬이 직접 까는 경로(fix)와 손으로 하는 법(manual)을 함께 준다
+    assert err["fix"].startswith("web setup"), err
+    assert "venv" in err["manual"], err
+    assert "설치할까요" in err["ask_user"], err
 
 
 def test_web_action_without_open_browser_is_refused():
