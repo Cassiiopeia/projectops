@@ -101,6 +101,108 @@ def _find_flutter_root(start: Path) -> Path | None:
     return None
 
 
+# ── 타겟 감지 (이슈 #586) ────────────────────────────────────────────────
+#
+# 예전에는 pubspec.yaml을 못 찾으면 첫 명령부터 실패했다. 웹·서버 레포에서는
+# 아무것도 시작할 수 없었다는 뜻이다. 이제 무엇을 밟을 수 있는지부터 판정한다.
+
+# projectops가 쓰는 프로젝트 타입 → 이 스킬의 타겟.
+# 한 타입이 여러 타겟을 줄 수 있다(node는 웹일 수도 서버일 수도 있다).
+_TYPE_TO_TARGET = {
+    "flutter": ["app"],
+    "react-native": ["app"],
+    "react-native-expo": ["app"],
+    "react": ["web"],
+    "next": ["web"],
+    "node": ["web", "server"],
+    "spring": ["server"],
+    "python": ["server"],
+    "basic": [],
+}
+
+
+def _version_yml_types(root: Path) -> list[str]:
+    """version.yml의 project_types. projectops가 통합된 레포면 이미 있다.
+
+    yaml 파서를 쓰지 않는다 — 이 스크립트는 표준 라이브러리만으로 돌아야 한다.
+    """
+    f = root / "version.yml"
+    if not f.is_file():
+        return []
+    try:
+        body = f.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return []
+    m = re.search(r"project_types:\s*\n((?:\s*-\s*\S+\n?)+)", body)
+    if m:
+        return re.findall(r"-\s*([A-Za-z0-9_-]+)", m.group(1))
+    m = re.search(r"project_types:\s*\[([^\]]*)\]", body)
+    if m:
+        return [x.strip().strip("'\"") for x in m.group(1).split(",") if x.strip()]
+    return []
+
+
+def _marker_targets(root: Path) -> dict:
+    """파일로 추론한다. version.yml이 없는 레포(대부분의 남의 프로젝트)를 위한 길이다."""
+    found: dict[str, list[str]] = {}
+
+    def add(target: str, why: str):
+        found.setdefault(target, []).append(why)
+
+    for pub in list(root.rglob("pubspec.yaml"))[:20]:
+        if "build" in pub.parts or ".dart_tool" in pub.parts:
+            continue
+        add("app", str(pub.relative_to(root)))
+        break
+
+    for pkg in list(root.rglob("package.json"))[:20]:
+        if "node_modules" in pkg.parts:
+            continue
+        try:
+            body = pkg.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        rel = str(pkg.relative_to(root))
+        # 웹 프레임워크가 보이면 화면이 있다는 뜻이다
+        if re.search(r'"(react|next|vue|svelte|@angular/core)"\s*:', body):
+            add("web", rel)
+        # 서버 프레임워크는 화면 없이 API만 있을 수 있다
+        if re.search(r'"(express|fastify|@nestjs/core|koa)"\s*:', body):
+            add("server", rel)
+
+    for marker, why in (("build.gradle", "spring"), ("build.gradle.kts", "spring"),
+                        ("pom.xml", "maven"), ("pyproject.toml", "python"),
+                        ("requirements.txt", "python"), ("manage.py", "django")):
+        for f in list(root.rglob(marker))[:10]:
+            if "build" in f.parts or "node_modules" in f.parts or ".venv" in f.parts:
+                continue
+            # Flutter 앱의 android/build.gradle을 서버로 오해하면 안 된다
+            if marker.startswith("build.gradle") and "android" in f.parts:
+                continue
+            add("server", f"{f.relative_to(root)} ({why})")
+            break
+
+    return found
+
+
+def detect_targets(root: Path) -> dict:
+    """무엇을 밟을 수 있는지. 앞에서 정해지면 뒤는 보지 않는다."""
+    types = _version_yml_types(root)
+    if types:
+        targets: list[str] = []
+        for ty in types:
+            for tg in _TYPE_TO_TARGET.get(ty, []):
+                if tg not in targets:
+                    targets.append(tg)
+        if targets:
+            return {"targets": targets, "source": "version.yml", "project_types": types}
+
+    found = _marker_targets(root)
+    targets = [tg for tg in TARGETS if tg in found]
+    return {"targets": targets, "source": "marker" if targets else "none",
+            "evidence": {k: v for k, v in found.items()}}
+
+
 def _android_package(root: Path) -> str | None:
     for name in ("build.gradle.kts", "build.gradle"):
         f = root / "android" / "app" / name
@@ -289,30 +391,136 @@ def cmd_shrink(args) -> int:
 
 
 def cmd_detect(args) -> int:
-    start = Path(args.path).resolve()
-    root = _find_flutter_root(start)
-    if root is None:
-        return emit({
-            "ok": False,
-            "code": "flutter_project_not_found",
-            "error": f"{start} 아래에서 Flutter 프로젝트를 찾지 못했습니다",
-            "hint": "pubspec.yaml이 있는 경로를 --path로 지정하세요",
-        })
+    """무엇을 밟을 수 있는지부터 판정하고, 타겟에 맞는 정보를 모아 돌려준다.
 
-    dev = _devices()
-    has_device = bool(dev["android"] or dev["ios_booted"])
-    return emit({
-        "flutter_root": str(root),
-        "android_package": _android_package(root),
-        "ios_bundle_id": _ios_bundle_id(root),
-        "api_base_urls": _api_base_urls(root),
-        "devices": dev,
-        "summary": (
-            f"{root.name}: android={_android_package(root) or '없음'} "
-            f"기기={len(dev['android'])}대/시뮬{len(dev['ios_booted'])}대"
-        ),
-        "next": None if has_device else "devices  # 기기가 없습니다. AVD를 부팅하세요",
-    })
+    예전에는 pubspec.yaml을 못 찾으면 여기서 실패해 웹·서버 레포에서는 아무것도
+    시작할 수 없었다 (이슈 #586). 이제 Flutter가 없어도 계속 간다.
+    """
+    start = Path(args.path).resolve()
+    # 레포 전체를 기준으로 본다 — 모노레포는 client/ · server/ 가 형제로 있다
+    git_root = _run(["git", "-C", str(start), "rev-parse", "--show-toplevel"]).strip()
+    root = Path(git_root) if git_root else start
+
+    det = detect_targets(root)
+    targets = det["targets"]
+
+    # 사용자가 지정했으면 그것만 본다
+    if getattr(args, "target", None):
+        if args.target not in TARGETS:
+            return emit({"ok": False, "code": "unknown_target",
+                         "error": f"target '{args.target}' 을 모릅니다",
+                         "hint": f"{'·'.join(TARGETS)} 중 하나"})
+        targets = [args.target]
+
+    payload: dict = {
+        "root": str(root),
+        "targets": targets,
+        "target_source": det["source"],
+        "knowledge_dir": str(_home_dir(root)),
+    }
+    if det.get("project_types"):
+        payload["project_types"] = det["project_types"]
+    if det.get("evidence"):
+        payload["evidence"] = det["evidence"]
+
+    # ── 앱: 기기와 패키지 정보가 있어야 밟을 수 있다
+    if "app" in targets:
+        app_root = _find_flutter_root(root)
+        dev = _devices()
+        payload["app"] = {
+            "flutter_root": str(app_root) if app_root else None,
+            "android_package": _android_package(app_root) if app_root else None,
+            "ios_bundle_id": _ios_bundle_id(app_root) if app_root else None,
+            "devices": dev,
+        }
+        payload["api_base_urls"] = _api_base_urls(app_root) if app_root else []
+        # 기존 호출부가 쓰던 자리를 그대로 남긴다 — 문서·스킬이 이 키를 가리킨다
+        payload["flutter_root"] = payload["app"]["flutter_root"]
+        payload["android_package"] = payload["app"]["android_package"]
+        payload["ios_bundle_id"] = payload["app"]["ios_bundle_id"]
+        payload["devices"] = dev
+
+    # ── 웹: 어디로 들어가는지와 브라우저가 준비됐는지
+    if "web" in targets:
+        payload["web"] = {
+            "base_urls": _web_base_urls(root),
+            "playwright": _playwright_state(),
+        }
+
+    # ── 서버: API 주소와 DB 접속 경로
+    if "server" in targets:
+        conf = _backend_conf(root)
+        payload["server"] = {
+            "config_file": conf.get("file"),
+            "base_urls": _api_base_urls(root),
+            "db": {k: v for k, v in (conf.get("db") or {}).items() if k != "password"},
+        }
+
+    payload["summary"] = (
+        f"{root.name}: 타겟={'·'.join(targets) if targets else '없음'} ({det['source']})")
+    payload["next"] = _detect_next(targets, payload)
+    return emit(payload)
+
+
+def _detect_next(targets: list[str], payload: dict) -> str | None:
+    """다음에 무엇을 해야 하는지. 막힌 곳을 먼저 알려준다."""
+    if not targets:
+        return ("무엇을 밟을지 알 수 없습니다 — --target app|web|server 로 직접 알려주세요")
+    if "app" in targets:
+        dev = payload.get("devices") or {}
+        if not (dev.get("android") or dev.get("ios_booted")):
+            return "devices  # 기기가 없습니다. AVD를 부팅하세요"
+    if "web" in targets and not (payload.get("web", {}).get("playwright", {}).get("ready")):
+        return "web 타겟을 밟으려면 Playwright가 필요합니다 — references/target-web.md 참조"
+    return None
+
+
+def _web_base_urls(root: Path) -> list[str]:
+    """웹이 뜨는 주소 후보. 없으면 사용자에게 묻는 수밖에 없다."""
+    urls: list[str] = []
+    for f in list(root.rglob("package.json"))[:20]:
+        if "node_modules" in f.parts:
+            continue
+        try:
+            body = f.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        # dev 스크립트의 포트 지정에서 끌어온다
+        for m in re.finditer(r"-p\s*(\d{4,5})|--port[= ](\d{4,5})", body):
+            port = m.group(1) or m.group(2)
+            u = f"http://localhost:{port}"
+            if u not in urls:
+                urls.append(u)
+    for env in (".env", ".env.local", ".env.development"):
+        f = root / env
+        if f.is_file():
+            try:
+                for m in re.finditer(r"^[A-Z_]*URL[A-Z_]*=(https?://\S+)", 
+                                     f.read_text(encoding="utf-8", errors="ignore"), re.M):
+                    if m.group(1) not in urls:
+                        urls.append(m.group(1))
+            except OSError:
+                pass
+    # 흔한 기본값을 마지막에 둔다 — 못 찾았을 때의 출발점
+    for u in ("http://localhost:3000", "http://localhost:5173"):
+        if u not in urls:
+            urls.append(u)
+    return urls[:6]
+
+
+def _playwright_state() -> dict:
+    """웹을 밟을 준비가 됐는지. 없으면 어떻게 깔지까지 알려준다."""
+    try:
+        import playwright  # noqa: F401
+    except ImportError:
+        return {"ready": False, "reason": "python playwright 미설치",
+                "install": "pip install playwright && playwright install chromium"}
+    try:
+        from playwright.sync_api import sync_playwright  # noqa: F401
+    except ImportError:
+        return {"ready": False, "reason": "playwright.sync_api를 불러올 수 없음",
+                "install": "pip install --upgrade playwright"}
+    return {"ready": True}
 
 
 def cmd_devices(args) -> int:
@@ -1538,6 +1746,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_d = sub.add_parser("detect", help="프로젝트·패키지·API·기기를 한 번에 조사")
     p_d.add_argument("--path", default=".", help="탐색 시작 경로 (기본: 현재 디렉터리)")
+    p_d.add_argument("--target", default=None,
+                     help=f"밟을 대상을 직접 지정 ({'·'.join(TARGETS)}). 생략하면 감지한다")
     p_d.set_defaults(func=cmd_detect)
 
     p_v = sub.add_parser("devices", help="연결·부팅된 기기 조회")

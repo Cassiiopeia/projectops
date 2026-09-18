@@ -341,3 +341,64 @@ def test_load_mode_only_makes_sense_on_server():
         "name": "x", "target": "app", "mode": "load", "steps": [_step()]})
     assert any("server 타겟에서만" in p for p in problems), problems
 
+
+# ── 타겟 감지 (이슈 #586) ────────────────────────────────────────────────
+
+def test_version_yml_wins_over_markers():
+    """projectops가 통합된 레포는 이미 답을 갖고 있다 — 추론보다 신뢰할 수 있다."""
+    with tempfile.TemporaryDirectory() as tmp:
+        r = Path(tmp)
+        (r / "version.yml").write_text(
+            "metadata:\n  project_types:\n    - flutter\n    - spring\n", encoding="utf-8")
+        (r / "package.json").write_text('{"dependencies":{"react":"18"}}', encoding="utf-8")
+        det = e2e_cli.detect_targets(r)
+        assert det["source"] == "version.yml"
+        assert det["targets"] == ["app", "server"], det
+
+
+def test_markers_used_when_no_version_yml():
+    """남의 프로젝트에는 version.yml이 없다. 파일로 추론해야 한다."""
+    with tempfile.TemporaryDirectory() as tmp:
+        r = Path(tmp)
+        (r / "package.json").write_text('{"dependencies":{"next":"14"}}', encoding="utf-8")
+        det = e2e_cli.detect_targets(r)
+        assert det["source"] == "marker"
+        assert "web" in det["targets"], det
+
+
+def test_flutter_android_gradle_is_not_mistaken_for_server():
+    """Flutter 앱의 android/build.gradle을 서버로 잡으면 엉뚱한 것을 밟는다."""
+    with tempfile.TemporaryDirectory() as tmp:
+        r = Path(tmp)
+        (r / "pubspec.yaml").write_text("name: x\ndependencies:\n  flutter:\n", encoding="utf-8")
+        (r / "android").mkdir()
+        (r / "android" / "build.gradle").write_text("// app", encoding="utf-8")
+        det = e2e_cli.detect_targets(r)
+        assert det["targets"] == ["app"], det
+
+
+def test_unknown_project_reports_none_not_crash():
+    """무엇인지 몰라도 죽지 않는다 — 사용자가 직접 지정할 수 있어야 한다."""
+    with tempfile.TemporaryDirectory() as tmp:
+        det = e2e_cli.detect_targets(Path(tmp))
+        assert det["targets"] == []
+        assert det["source"] == "none"
+
+
+def test_detect_does_not_fail_without_flutter():
+    """예전에는 pubspec이 없으면 첫 명령부터 실패했다 — 웹·서버 레포가 막혔다."""
+    with tempfile.TemporaryDirectory() as tmp:
+        r = _git_repo(Path(tmp), "https://github.com/o/r.git")
+        (r / "package.json").write_text('{"dependencies":{"express":"4"}}', encoding="utf-8")
+        rc, out, err = run_cli("detect", "--path", str(r))
+        data = json.loads(out)
+        assert data.get("ok") is not False, data
+        assert "server" in data["targets"], data
+
+
+def test_detect_rejects_unknown_target_option():
+    with tempfile.TemporaryDirectory() as tmp:
+        rc, out, err = run_cli("detect", "--path", tmp, "--target", "wbe")
+        data = json.loads(out)
+        assert data["ok"] is False and data["code"] == "unknown_target"
+
