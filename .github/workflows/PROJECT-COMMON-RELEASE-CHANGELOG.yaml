@@ -734,6 +734,20 @@ jobs:
       - name: 릴리스 태그 생성
         run: |
           NEW_VERSION="${{ needs.update-changelog.outputs.new_version }}"
+
+          # 버전이 비면 TAG_NAME 이 "v" 가 되어 이름이 v 뿐인 태그가 올라가고
+          # "릴리스 태그 생성: v" 로 **성공 보고**된다. 릴리스가 조용히 누락되는
+          # 경로라 여기서 세운다 (#545 — "누락되면 실패로 표시된다").
+          if [ -z "$NEW_VERSION" ]; then
+            echo "::error::릴리스 버전이 비어 있습니다 — 태그를 만들지 않고 중단합니다."
+            echo "update-changelog 잡의 버전 확정 단계를 확인하세요."
+            exit 1
+          fi
+          if ! printf '%s' "$NEW_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "::error::릴리스 버전이 semver 모양이 아닙니다: '$NEW_VERSION'"
+            exit 1
+          fi
+
           TAG_NAME="v$NEW_VERSION"
           BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
 
@@ -747,6 +761,13 @@ jobs:
             git tag "$TAG_NAME"
             git push origin "$TAG_NAME"
             echo "✅ 릴리스 태그 생성: $TAG_NAME"
+          fi
+
+          # 밀어 넣은 것이 실제로 원격에 있는지 본다. push 가 조용히 실패하면
+          # 여기까지 전부 초록불인데 태그만 없는 상태가 된다.
+          if ! git ls-remote --tags origin "refs/tags/$TAG_NAME" | grep -q "$TAG_NAME"; then
+            echo "::error::태그 $TAG_NAME 가 원격에 없습니다 — 릴리스가 누락됐습니다."
+            exit 1
           fi
 
       - name: 배포 완료 알림

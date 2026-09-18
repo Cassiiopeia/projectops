@@ -192,10 +192,21 @@ jobs:
         if: steps.release_guard.outputs.is_release_merge != 'true'
         run: |
           NEW_VERSION="${{ steps.version.outputs.new_version }}"
+
+          # 버전이 비면 이름이 "v" 뿐인 태그가 올라가고 성공으로 보고된다 (#545).
+          if [ -z "$NEW_VERSION" ]; then
+            echo "::error::릴리스 버전이 비어 있습니다 — 태그를 만들지 않고 중단합니다."
+            exit 1
+          fi
+          if ! printf '%s' "$NEW_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "::error::릴리스 버전이 semver 모양이 아닙니다: '$NEW_VERSION'"
+            exit 1
+          fi
+
           TAG_NAME="v$NEW_VERSION"
-          
+
           echo "🏷️ Git 태그 생성 중: $TAG_NAME"
-          
+
           # 기존 태그 확인
           if git tag -l | grep -q "^$TAG_NAME$"; then
             echo "⚠️ 태그 $TAG_NAME이 이미 존재합니다. 건너뛰기."
@@ -206,6 +217,13 @@ jobs:
               echo "❌ 태그 생성 실패: $TAG_NAME"
               exit 1
             fi
+          fi
+
+          # 실제로 원격에 올라갔는지 본다 — push 가 조용히 실패하면
+          # 전부 초록불인데 태그만 없는 상태가 된다 (#545 의 실사고).
+          if ! git ls-remote --tags origin "refs/tags/$TAG_NAME" | grep -q "$TAG_NAME"; then
+            echo "::error::태그 $TAG_NAME 가 원격에 없습니다 — 릴리스가 누락됐습니다."
+            exit 1
           fi
 
       - name: 버전 업데이트 완료 요약
