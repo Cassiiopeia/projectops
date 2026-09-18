@@ -38,6 +38,7 @@ from common.gh_client import (  # noqa: E402
     get_pull_detail, merge_pull_request,
     search_issues,
     get_user_type, list_repos, get_repo_detail, get_readme, get_languages, list_commits,
+    upload_evidence_image, delete_release_asset, is_repo_private, EVIDENCE_TAG,
     list_secrets, set_secret,
     get_run, get_job_log, list_failed_runs, resolve_pr_runs, resolve_branch_runs,
 )
@@ -557,6 +558,73 @@ def cmd_explore(args) -> int:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
 
 
+def cmd_upload_image(args) -> int:
+    """이미지를 증적 릴리스에 올리고 바로 붙여넣을 마크다운까지 돌려준다.
+
+    GitHub 공식 첨부 업로드는 브라우저 세션이 필요해 PAT로 쓸 수 없다. 릴리스 자산이
+    유일하게 PAT로 가능한 경로이고, 실측으로 이슈 본문·댓글 양쪽에서 <img>로 렌더링되는
+    것을 확인했다 (자세한 근거는 gh_client의 주석).
+    """
+    pat = get_github_pat(args.owner, args.repo)
+    if not pat:
+        return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
+    # 파일 확인이 먼저다. 네트워크를 먼저 치면 "파일이 없다"가 "레포가 없다"(404)로
+    # 둔갑해 원인을 못 짚는다. 올릴 것이 하나도 없으면 API를 부를 이유도 없다.
+    missing = [f for f in args.files if not Path(f).expanduser().is_file()]
+    if len(missing) == len(args.files):
+        return emit({
+            "ok": False, "code": "no_image_uploaded",
+            "error": "올릴 파일이 없습니다",
+            "failed": [{"file": f, "error": "파일이 없습니다"} for f in missing],
+        })
+
+    try:
+        # private이면 익명 접근이 막혀 이미지가 깨진다. 올리기 전에 알린다 —
+        # 올리고 나서 알면 이미 이슈에 깨진 이미지가 박힌 뒤다.
+        warning = None
+        if is_repo_private(args.owner, args.repo, pat):
+            warning = ("private 레포라 이미지가 렌더링되지 않습니다(익명 접근 차단). "
+                       "URL은 발급되지만 이슈에서는 깨져 보입니다.")
+
+        images, failed = [], []
+        for f in args.files:
+            try:
+                images.append(upload_evidence_image(
+                    args.owner, args.repo, f, pat, tag=args.tag, prefix=args.prefix))
+            except FileNotFoundError as e:
+                failed.append({"file": f, "error": str(e)})
+
+        if not images:
+            return emit({"ok": False, "code": "no_image_uploaded",
+                         "error": "올린 이미지가 없습니다", "failed": failed})
+
+        return emit({
+            "count": len(images),
+            "images": images,
+            # 그대로 본문·댓글 파일에 붙여넣을 수 있게 합쳐서 준다
+            "markdown": "\n".join(i["markdown"] for i in images),
+            "failed": failed or None,
+            "private_warning": warning,
+            "summary": f"이미지 {len(images)}개 업로드 완료",
+            "next": f"add-comment {args.owner} {args.repo} <이슈번호> <본문파일>",
+        })
+    except GitHubAPIError as e:
+        return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
+
+
+def cmd_delete_image(args) -> int:
+    """올린 증적을 지운다. 검증용으로 올린 것을 치울 때 쓴다."""
+    pat = get_github_pat(args.owner, args.repo)
+    if not pat:
+        return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
+    try:
+        delete_release_asset(args.owner, args.repo, int(args.asset_id), pat)
+        return emit({"asset_id": int(args.asset_id), "status": "deleted",
+                     "summary": f"증적 {args.asset_id} 삭제 완료"})
+    except GitHubAPIError as e:
+        return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
+
+
 def cmd_secrets(args) -> int:
     pat = get_github_pat(args.owner, args.repo)
     if not pat:
@@ -854,6 +922,20 @@ def build_parser() -> JSONArgumentParser:
     p_ex.add_argument("--type", choices=["user", "org", "auto"], default="auto")
     p_ex.add_argument("--limit", type=int, default=10)
     p_ex.set_defaults(func=cmd_explore)
+
+    p_ui = sub.add_parser("upload-image", help="이미지를 증적 릴리스에 올려 마크다운을 받는다")
+    p_ui.add_argument("owner")
+    p_ui.add_argument("repo")
+    p_ui.add_argument("files", nargs="+", help="이미지 파일 경로 (여러 개 가능)")
+    p_ui.add_argument("--tag", default=EVIDENCE_TAG, help=f"증적 릴리스 태그 (기본 {EVIDENCE_TAG})")
+    p_ui.add_argument("--prefix", default=None, help="자산 이름 앞에 붙일 말 (예: issue585)")
+    p_ui.set_defaults(func=cmd_upload_image)
+
+    p_di = sub.add_parser("delete-image", help="올린 증적 이미지를 지운다")
+    p_di.add_argument("owner")
+    p_di.add_argument("repo")
+    p_di.add_argument("asset_id")
+    p_di.set_defaults(func=cmd_delete_image)
 
     p_sc = sub.add_parser("secrets", help="Actions Secret 관리 (list|set)")
     p_sc.add_argument("sub", choices=["list", "set"])

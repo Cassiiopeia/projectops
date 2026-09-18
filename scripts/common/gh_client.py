@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import base64
+import datetime
 import json
+import mimetypes
+import pathlib
+import re
 import subprocess
 import sys
 import urllib.error
@@ -733,3 +737,132 @@ def resolve_branch_runs(owner: str, repo: str, branch: str, pat: str, limit: int
         None, pat,
     )
     return [_run_summary(r) for r in data.get("workflow_runs", [])]
+
+
+# ── 증적 이미지 업로드 ─────────────────────────────────────────────────────
+#
+# GitHub이 이슈 첨부에 쓰는 업로드 엔드포인트는 **브라우저 세션이 필요해 PAT로 쓸 수 없다.**
+# 그래서 릴리스 자산(Release assets)으로 우회한다. 실측으로 확인한 것:
+#
+#   - 익명 접근 200, Content-Type은 application/octet-stream (image/png가 아니다)
+#   - Content-Disposition: attachment 가 붙지만 <img> 태그에서는 무시된다
+#   - **X-Content-Type-Options(nosniff)가 없다** → 브라우저가 매직넘버로 스니핑해 그린다
+#   - 이슈 본문·댓글 모두 <img>로 렌더링된다 (body_html로 확인)
+#
+# 레포에 커밋하는 방식은 쓰지 않는다 — 이미지가 git 히스토리에 영구히 남는다.
+
+# 증적 전용 릴리스 태그. 버전 릴리스와 섞으면 릴리스 목록이 증적으로 뒤덮인다.
+EVIDENCE_TAG = "qa-evidence"
+
+# <img>로 렌더링되는 형식. 이 밖의 것(mp4 등)은 링크로만 남는다 —
+# GitHub이 video로 그려주는 것은 공식 첨부 경로뿐이라 릴리스 자산은 해당되지 않는다.
+_RENDERABLE = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
+
+
+def _upload_request(url: str, data: bytes, content_type: str, pat: str) -> dict:
+    """바이너리 본문을 올린다.
+
+    _request는 Content-Type이 application/json으로 고정돼 있어 자산 업로드에 쓸 수 없다.
+    """
+    req = urllib.request.Request(
+        url, data=data, method="POST",
+        headers={
+            "Authorization": f"Bearer {pat}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "Content-Type": content_type,
+            "Content-Length": str(len(data)),
+            "User-Agent": "projectops",
+        },
+    )
+    try:
+        with _opener.open(req) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        body = e.fp.read() if e.fp else b""
+        try:
+            msg = json.loads(body).get("message", str(e))
+        except Exception:
+            msg = body.decode("utf-8", "replace")[:200] or str(e)
+        raise GitHubAPIError(e.code, msg) from e
+
+
+def ensure_evidence_release(owner: str, repo: str, pat: str, tag: str = EVIDENCE_TAG) -> dict:
+    """증적 릴리스를 확보한다. 없으면 만든다(멱등).
+
+    prerelease로 만든다 — 최신 릴리스 배지가 증적으로 바뀌면 사용자가 혼란스럽다.
+    """
+    try:
+        return _request("GET", f"{_API_BASE}/repos/{owner}/{repo}/releases/tags/{tag}", None, pat)
+    except GitHubAPIError as e:
+        if e.status_code != 404:
+            raise
+    return _request(
+        "POST", f"{_API_BASE}/repos/{owner}/{repo}/releases",
+        {
+            "tag_name": tag,
+            "name": "QA 증적 저장소",
+            "body": ("테스트·QA 증적 이미지를 담는 전용 릴리스입니다. 코드 릴리스가 아닙니다.\n"
+                     "이슈·PR 본문과 댓글에서 이미지로 참조됩니다."),
+            "draft": False,
+            "prerelease": True,
+        },
+        pat,
+    )
+
+
+def _asset_name(path: str, prefix: str | None = None) -> str:
+    """자산 이름을 만든다. 같은 이름이 있으면 GitHub이 422로 거절하므로 시각을 붙여 고유화한다.
+
+    영문·숫자·일부 기호만 남긴다 — 한글 파일명은 URL에서 인코딩돼 마크다운이 깨진다.
+    """
+    p = pathlib.PurePath(path)
+    # 한글 파일명은 통째로 걸러지므로 "__2" 같은 찌꺼기가 남는다. 양끝 구분자를 걷어내고
+    # 아무것도 안 남으면 image로 둔다 — 고유성은 어차피 시각이 보장한다.
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "-", p.stem)
+    stem = re.sub(r"[-_.]{2,}", "-", stem).strip("-_.") or "image"
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    head = f"{prefix}_" if prefix else ""
+    return f"{head}{stamp}_{stem}{p.suffix.lower()}"
+
+
+def upload_evidence_image(
+    owner: str, repo: str, file_path: str, pat: str,
+    tag: str = EVIDENCE_TAG, prefix: str | None = None,
+) -> dict:
+    """이미지 파일 하나를 증적 릴리스에 올리고 마크다운까지 만들어 돌려준다."""
+    src = pathlib.Path(file_path).expanduser()
+    if not src.is_file():
+        raise FileNotFoundError(f"파일이 없습니다: {src}")
+
+    data = src.read_bytes()
+    ctype = mimetypes.guess_type(src.name)[0] or "application/octet-stream"
+    name = _asset_name(src.name, prefix)
+
+    rel = ensure_evidence_release(owner, repo, pat, tag)
+    upload_url = rel["upload_url"].split("{")[0] + f"?name={urllib.parse.quote(name)}"
+    asset = _upload_request(upload_url, data, ctype, pat)
+
+    url = asset["browser_download_url"]
+    renderable = src.suffix.lower() in _RENDERABLE
+    return {
+        "name": name,
+        "url": url,
+        "size": len(data),
+        "content_type": ctype,
+        # 렌더링되지 않는 형식을 ![]()로 넣으면 깨진 이미지가 뜬다. 링크로 준다.
+        "markdown": f"![{src.stem}]({url})" if renderable else f"[{src.name}]({url})",
+        "renderable": renderable,
+        "asset_id": asset["id"],
+    }
+
+
+def delete_release_asset(owner: str, repo: str, asset_id: int, pat: str) -> None:
+    """올린 증적을 지운다. 검증용으로 올린 것을 치울 때 쓴다."""
+    _request("DELETE", f"{_API_BASE}/repos/{owner}/{repo}/releases/assets/{asset_id}", None, pat)
+
+
+def is_repo_private(owner: str, repo: str, pat: str) -> bool:
+    """private 레포인지. private이면 익명 접근이 막혀 이미지가 렌더링되지 않는다."""
+    return bool(_request("GET", f"{_API_BASE}/repos/{owner}/{repo}", None, pat).get("private"))
+

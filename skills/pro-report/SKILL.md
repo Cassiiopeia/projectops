@@ -175,6 +175,24 @@ agent가 직접 경로를 계산하여 파일을 저장한다:
 - 형식: `{PROJECT_ROOT}/docs/projectops/report/YYYYMMDD_{이슈번호}_{정규화된제목}.md`
 - 이슈 번호: 브랜치명 또는 worktree 경로 `YYYYMMDD_#숫자_제목` 패턴에서 추출
 
+## 스크린샷·증적 이미지 첨부
+
+보고서에 **화면이 필요하면 이미지를 함께 올린다.** 테스트 결과·장애 재현·UI 변경은 글보다
+화면이 증거가 된다.
+
+```bash
+# pro-github의 upload-image로 URL을 먼저 받는다 (본문에 넣기 전에)
+PYTHONIOENCODING=utf-8 "$PYTHON" "{pro-github/scripts}/github_cli.py" \
+  upload-image {owner} {repo} {이미지파일...} --prefix report{이슈번호}
+```
+
+출력 JSON의 `markdown` 필드를 보고서 `.md`에 붙여넣은 뒤 `add-comment`로 올린다.
+**순서를 지킨다** — 보고서를 먼저 올리면 이미지 없는 본문이 게시된다.
+
+상세 규칙(형식 제한·private 레포 제약·되돌리기)은 `pro-github` SKILL.md의 "이미지 첨부" 절.
+
+> 이미지가 없으면 넣지 않는다. 의미 없는 스크린샷은 보고서를 길게만 만든다.
+
 ## GitHub 댓글 포스팅 (선택적)
 
 파일 저장 후, GitHub 이슈에 댓글로 보고서를 포스팅할 수 있다. PAT가 설정된 경우에만 시도한다.
