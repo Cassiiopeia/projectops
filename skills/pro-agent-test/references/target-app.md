@@ -23,7 +23,7 @@ emulator -list-avds               # 쓸 수 있는 AVD 목록
 # 부팅 (백그라운드) — 완료까지 기다린다
 nohup emulator -avd {AVD명} -no-snapshot-load >/dev/null 2>&1 &
 for i in $(seq 1 40); do
-  [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+  [ "$(adb -s "$DEV" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
   sleep 10
 done
 ```
@@ -35,9 +35,9 @@ done
 ### 설치
 
 ```bash
-adb install -r {apk}              # 덮어쓰기 (데이터 유지)
-adb uninstall {패키지} && adb install {apk}   # 서명이 다르면 이 순서
-adb shell pm clear {패키지}        # 데이터만 초기화 (앱은 유지)
+adb -s "$DEV" install -r {apk}              # 덮어쓰기 (데이터 유지)
+adb -s "$DEV" uninstall {패키지} && adb -s "$DEV" install {apk}   # 서명이 다르면 이 순서
+adb -s "$DEV" shell pm clear {패키지}        # 데이터만 초기화 (앱은 유지)
 ```
 
 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`은 서명 불일치다. CI 빌드와 로컬 빌드는 키가 다르다.
@@ -45,14 +45,14 @@ adb shell pm clear {패키지}        # 데이터만 초기화 (앱은 유지)
 ### 조작
 
 ```bash
-adb shell am start -n {패키지}/.MainActivity
-adb shell am force-stop {패키지}
+adb -s "$DEV" shell am start -n {패키지}/.MainActivity
+adb -s "$DEV" shell am force-stop {패키지}
 
-adb shell input tap {x} {y}
-adb shell input swipe {x1} {y1} {x2} {y2} {ms}
-adb shell input text "{문자열}"          # 공백은 %s, 한글은 입력되지 않는 기기가 있다
-adb shell input keyevent KEYCODE_BACK    # 키보드 내리기 / 뒤로
-adb shell input keyevent KEYCODE_ENTER   # 완료 키
+adb -s "$DEV" shell input tap {x} {y}
+adb -s "$DEV" shell input swipe {x1} {y1} {x2} {y2} {ms}
+adb -s "$DEV" shell input text "{문자열}"          # 공백은 %s, 한글은 입력되지 않는 기기가 있다
+adb -s "$DEV" shell input keyevent KEYCODE_BACK    # 키보드 내리기 / 뒤로
+adb -s "$DEV" shell input keyevent KEYCODE_ENTER   # 완료 키
 ```
 
 한글이 입력되지 않으면 영문으로 대체하고 그 사실을 보고에 적는다 (테스트 목적상 값 자체가
@@ -61,15 +61,15 @@ adb shell input keyevent KEYCODE_ENTER   # 완료 키
 ### 관측
 
 ```bash
-adb exec-out screencap -p > {경로}.png
-adb shell dumpsys window | grep mCurrentFocus    # 현재 화면
-adb logcat -c                                     # 버퍼 비우기
-adb logcat -d | grep -i flutter                   # 앱 로그
-adb logcat -d -b crash | tail -40                 # 크래시
+adb -s "$DEV" exec-out screencap -p > "$SHOT_DIR/{이름}.png"
+adb -s "$DEV" shell dumpsys window | grep mCurrentFocus    # 현재 화면
+adb -s "$DEV" logcat -c                                     # 버퍼 비우기
+adb -s "$DEV" logcat -d | grep -i flutter                   # 앱 로그
+adb -s "$DEV" logcat -d -b crash | tail -40                 # 크래시
 
 # 녹화 (애니메이션 확인용)
-adb shell screenrecord --time-limit {초} --bit-rate 12000000 /sdcard/rec.mp4
-adb pull /sdcard/rec.mp4 {경로} && adb shell rm /sdcard/rec.mp4
+adb -s "$DEV" shell screenrecord --time-limit {초} --bit-rate 12000000 /sdcard/rec.mp4
+adb -s "$DEV" pull /sdcard/rec.mp4 "$RUN_DIR/{이름}.mp4" && adb -s "$DEV" shell rm /sdcard/rec.mp4
 ```
 
 ### 움직임을 수치로 확인하기
@@ -118,6 +118,28 @@ AppleScript를 쓰면 창 위치가 달라 엉뚱한 곳을 누른다.
 명령으로는 `xcrun simctl ui booted ...` 계열이 버전마다 달라 신뢰하기 어렵다.
 
 ---
+
+## 앱에서만 나는 함정
+
+### 화면
+
+| 함정 | 대응 |
+|---|---|
+| **큰 글씨로 바꿨는데 글자가 안 커진다** | 앱 전체가 무시한다고 단정하기 전에 **그 화면이 스케일 단위를 쓰는지** 본다 (Flutter 라면 `flutter_screenutil` 의 `.sp` 같은 것). 일부 화면만 고정 크기를 쓰는 경우가 흔하다 — 일반 화면에서 다시 재 본다 |
+| **뒤로가기가 안 되는 화면이 있다** | 라우터가 화면을 **교체**하며 열었는지 **쌓으며** 열었는지 본다 (`go_router` 의 `go` vs `push`). 교체였으면 돌아갈 자리가 없다. 화살표만 고치면 **기기 뒤로가기는 여전히 막힌다** — 둘을 따로 밟는다 |
+
+### 빌드 플래그 ⚠️
+
+개발 스위치가 안 먹을 때 가장 많이 헤매는 자리다.
+
+| 함정 | 대응 |
+|---|---|
+| **빌드 인자로 넘겼는데 안 먹는다** | 그 플래그를 앱이 **어디서 읽는지** 확인한다. 컴파일타임(`String.fromEnvironment` 등)과 런타임 설정 파일(dotenv 등)은 **다른 층**이고, 한 앱이 둘을 섞어 쓴다 |
+| **설정 파일 끝에 덧붙였는데 무시된다** | 같은 키가 두 번 있으면 대개 **앞의 것이 이긴다.** 덧붙이지 말고 그 줄을 직접 바꾼다 |
+| **테스트용 플래그가 그대로 남는다** | 빌드 직후 **바로** 되돌린다. 미루면 그 상태로 커밋되거나 다음 빌드가 어긋난다. 기기가 여러 대면 **켠 기기를 전부** 되돌린다 |
+
+> **한 층만 맞아도 빌드는 통과한다.** 로그가 "적용 완료"라고 해도 실제로는 꺼져 있을 수
+> 있다 — 설치해서 그 기능이 화면에 실제로 있는지 눌러 본다. 파일만 봐서는 알 수 없다.
 
 ## 서버 데이터 대조
 

@@ -16,6 +16,8 @@
 import contextlib
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -1138,8 +1140,10 @@ def test_env_sh_points_inside_the_run(tmp_path):
     d = json.loads(out)
     body = Path(d["env_file"]).read_text(encoding="utf-8")
 
-    assert 'export SHOT_DIR="' in body and 'export RUN_DIR="' in body
-    assert 'export PKG="com.acme.x"' in body
+    # 따옴표 종류가 아니라 값이 맞는지를 본다 — 경로·역할 이름에 $ 나 공백이
+    # 들어올 수 있어 작은따옴표로 감싼다 (#583).
+    assert "export SHOT_DIR=" in body and "export RUN_DIR=" in body
+    assert "com.acme.x" in body and "export PKG=" in body
     shot = Path(d["screenshots"]).resolve()
     assert shot.is_relative_to(Path(d["run_dir"]).resolve()), "SHOT_DIR 이 실행 폴더 밖이다"
     assert str(shot) in body, "env.sh 의 SHOT_DIR 이 실제 폴더와 다르다"
@@ -1189,3 +1193,207 @@ def test_skill_docs_never_name_a_made_up_evidence_path():
     assert not bad, (
         "문서가 임의 경로를 지시한다. get-output-path 의 $SHOT_DIR 을 쓰세요:\n"
         + "\n".join(bad))
+
+
+# ── 참가자가 둘 이상인 검증 (이슈 #583) ──────────────────────────────────
+#
+# 가장 위험한 실패는 "안 되는 것"이 아니라 **조용히 다른 기기로 가는 것**이다.
+# 역할 이름을 셸 변수명에 넣으면 정확히 그렇게 된다:
+#
+#   $ export DEV_만드는쪽=emulator-5554
+#   bash: export: `DEV_만드는쪽=...': not a valid identifier
+#   $ echo "$DEV_만드는쪽"
+#   만드는쪽                    ← 터지지 않고 엉뚱한 값
+#
+# 그래서 번호로 고정하고 이름은 값으로 담는다. 아래 검사가 그 계약을 지킨다.
+
+_SH_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _env_of(proj: Path, *bind_args) -> tuple[Path, str, dict]:
+    """실행 자리를 만들고 역할을 묶은 뒤 env.sh 를 돌려준다.
+
+    바인딩은 홈(`~/.projectops/...`)에 저장되고 키는 git remote 다 — 테스트끼리
+    HOME 을 나눠 갖지 않으면 앞 테스트의 역할이 남아 번호가 밀린다 (실제로 그랬다).
+    """
+    home = proj.parent / f"home-{proj.name}"
+    home.mkdir(exist_ok=True)
+    env = {**os.environ, "HOME": str(home), "USERPROFILE": str(home),
+           "PYTHONIOENCODING": "utf-8"}
+
+    r = subprocess.run([sys.executable, str(CLI), "get-output-path", "--title", "역할",
+                        "--root", str(proj)],
+                       cwd=proj, env=env, capture_output=True, text=True,
+                       encoding="utf-8", check=True)
+    run_dir = Path(json.loads(r.stdout)["run_dir"])
+    env["RUN_DIR"] = str(run_dir)
+    for args in bind_args:
+        subprocess.run([sys.executable, str(CLI), "device", "bind",
+                        "--root", str(proj), *args],
+                       cwd=proj, env=env, capture_output=True, text=True,
+                       encoding="utf-8", check=True)
+    f = run_dir / "env.sh"
+    return f, f.read_text(encoding="utf-8"), env
+
+
+def test_role_names_never_become_shell_variable_names(tmp_path):
+    """역할 이름이 무엇이든 env.sh 의 변수명은 전부 올바른 셸 식별자여야 한다."""
+    proj = _repo(tmp_path)
+    _, body, _ = _env_of(
+        proj,
+        ["--role", "A", "--serial", "emulator-5554", "--note", "만드는 쪽"],
+        ["--role", "받는 쪽", "--serial", "emulator-5556"],
+        ["--role", "it's-a/role", "--serial", "emulator-5558"],
+    )
+    # 한 줄에 export 가 둘이다 (`export ROLE1=...; export DEV1=...`).
+    # 줄 앞만 보면 뒤엣것을 놓친다 — 실제로 놓쳤다.
+    names = re.findall(r"\bexport ([^=\s]+)=", body)
+    assert names, "export 를 하나도 못 찾았다"
+    bad = [n for n in names if not _SH_NAME.match(n)]
+    assert bad == [], f"셸이 거부하는 변수명이 있다: {bad}"
+
+    # 이름은 값으로 담긴다 — 그래야 시나리오의 roles 키와 이어진다.
+    # 아포스트로피는 이스케이프되므로 원문 포함 여부로 보면 안 된다.
+    assert "받는 쪽" in body
+    assert "it" in body and "s-a/role" in body
+
+
+@pytest.mark.skipif(not shutil.which("bash"), reason="bash 가 없는 환경")
+def test_env_sh_actually_sources_in_bash(tmp_path):
+    """값 검사만으로는 부족하다 — 실제로 source 해서 값이 들어오는지 본다."""
+    proj = _repo(tmp_path)
+    env_file, _, _ = _env_of(
+        proj,
+        ["--role", "A", "--serial", "emulator-5554"],
+        ["--role", "받는 쪽", "--serial", "emulator-5556", "--note", "it's B"],
+        ["--role", "it's-a/role", "--serial", "emulator-5558"],
+    )
+    r = subprocess.run(
+        ["bash", "-c",
+         f'source "{env_file}"; echo "$ROLE2|$ROLE3|$DEV2|$DEV_COUNT|$DEV"'],
+        capture_output=True, text=True)
+    assert r.returncode == 0, f"source 가 실패했다: {r.stderr}"
+    assert "not a valid identifier" not in r.stderr, r.stderr
+    # 한글·공백·아포스트로피·슬래시가 든 이름이 그대로 돌아와야 한다
+    assert r.stdout.strip() == "받는 쪽|it's-a/role|emulator-5556|3|emulator-5554", r.stdout
+
+
+def test_binding_survives_and_orders_the_devices(tmp_path):
+    """묶은 순서가 곧 DEV1·DEV2 다. 해제하면 번호가 당겨진다."""
+    proj = _repo(tmp_path)
+    env_file, body, env = _env_of(
+        proj,
+        ["--role", "A", "--serial", "s-a"],
+        ["--role", "B", "--serial", "s-b"],
+    )
+    assert "export ROLE1='A'; export DEV1='s-a'" in body
+    assert "export ROLE2='B'; export DEV2='s-b'" in body
+
+    subprocess.run([sys.executable, str(CLI), "device", "unbind", "--root", str(proj),
+                    "--role", "A"], cwd=proj, env=env, capture_output=True, check=True)
+    after = env_file.read_text(encoding="utf-8")
+    assert "export ROLE1='B'; export DEV1='s-b'" in after, after
+    assert "export DEV2=" not in after, "번호가 당겨지지 않았다"
+    assert "export DEV_COUNT=1" in after
+
+
+def test_package_is_kept_when_bindings_change(tmp_path):
+    """device bind 가 env.sh 를 다시 써도 PKG 가 사라지면 안 된다."""
+    proj = _repo(tmp_path)
+    env_file, _, _ = _env_of(proj, ["--role", "A", "--serial", "s-a",
+                                    "--package", "com.acme.x"])
+    body = env_file.read_text(encoding="utf-8")
+    assert "com.acme.x" in body, f"PKG 가 사라졌다:\n{body}"
+
+
+def test_dev_is_always_defined(tmp_path):
+    """문서가 `adb -s "$DEV"` 로 적혀 있다. DEV 가 없으면 `adb -s ` 가 되어 죽는다."""
+    proj = _repo(tmp_path)
+    _, out, _ = run_cli("get-output-path", "--title", "기본기기", cwd=proj)
+    body = (Path(json.loads(out)["run_dir"]) / "env.sh").read_text(encoding="utf-8")
+    assert re.search(r"^export DEV=", body, re.MULTILINE), body
+
+
+def test_build_mismatch_needs_hashes_not_versions():
+    """버전이 같아도 APK 가 다르면 잡아야 한다 — 플래그만 바꾼 재빌드가 그렇다."""
+    same_ver = [
+        {"role": "A", "build": {"apk": "aaa", "version": "1.2.0+45"}},
+        {"role": "B", "build": {"apk": "bbb", "version": "1.2.0+45"}},
+    ]
+    found = e2e_cli._build_mismatch(same_ver)
+    assert found and "한쪽만 다시 설치" in found[0]["detail"]
+
+    assert e2e_cli._build_mismatch([
+        {"role": "A", "build": {"apk": "aaa", "version": "1.2.0+45"}},
+        {"role": "B", "build": {"apk": "aaa", "version": "1.2.0+45"}},
+    ]) == []
+    # 해시를 못 구한 기기는 판정에서 빠진다 — 모르는 것을 다르다고 하지 않는다
+    assert e2e_cli._build_mismatch([
+        {"role": "A", "build": {"apk": "aaa"}},
+        {"role": "B", "build": {"apk": None}},
+    ]) == []
+
+
+def test_old_screen_records_are_promoted_not_lost(tmp_path):
+    """예전 기록(좌표 한 벌)을 쓰던 프로젝트가 깨지면 안 된다."""
+    legacy = {"anchor": "설정", "taps": {"로그아웃": "540,1200"},
+              "measured_on": "1080x2400"}
+    promoted = e2e_cli._promote_screen(dict(legacy))
+    assert "variants" in promoted
+    key = "default@1080x2400"
+    assert promoted["variants"][key]["taps"] == legacy["taps"]
+    assert promoted["anchor"] == "설정"
+    # 두 번 올려도 그대로 (멱등)
+    assert e2e_cli._promote_screen(dict(promoted)) == promoted
+
+
+def test_screens_keep_one_set_of_taps_per_role(tmp_path):
+    """역할이 다르면 좌표가 따로 쌓여야 한다 — 빌드가 다르면 화면이 다르다."""
+    home = tmp_path / "home"
+    home.mkdir(exist_ok=True)
+    proj = _repo(tmp_path, "p2")
+    for role, xy in (("A", "540,1200"), ("B", "540,1400")):
+        run_cli("note", "screen", "--root", str(proj), "--name", "설정",
+                "--anchor", "설정", "--taps", f"로그아웃={xy}",
+                "--screen-size", "1080x2400", "--role", role, home=home)
+    _, out, _ = run_cli("note", "show", "--root", str(proj), home=home)
+    variants = json.loads(out)["screens"]["설정"]["variants"]
+    assert set(variants) == {"A@1080x2400", "B@1080x2400"}, variants
+    assert variants["A@1080x2400"]["taps"]["로그아웃"] == "540,1200"
+    assert variants["B@1080x2400"]["taps"]["로그아웃"] == "540,1400"
+
+
+# ── 문서가 기기를 지정하지 않는 명령을 가르치면 안 된다 (#583) ────────────
+#
+# 원인은 에이전트가 아니라 문서였다. `adb shell ...` 이 맨몸으로 적혀 있으면
+# 에이전트는 그것을 복사한다. 기기가 한 대일 때는 돌아가서 오래 안 보인다.
+
+_ADB_NEEDS_SERIAL = ("shell", "exec-out", "install", "uninstall", "logcat",
+                     "pull", "push", "emu", "root", "forward", "reverse")
+_ADB_BARE_OK = ("devices", "start-server", "kill-server", "version")
+
+
+def test_skill_docs_always_say_which_device(tmp_path=None):
+    """문서 코드블록의 adb 는 전부 기기를 지정해야 한다."""
+    pattern = re.compile(r"\badb (?!-s )(" + "|".join(_ADB_NEEDS_SERIAL) + r")\b")
+    skill_dir = CLI.parents[1]
+    docs = [skill_dir / "SKILL.md", *sorted((skill_dir / "references").glob("*.md"))]
+
+    bare, checked = [], 0
+    for doc in docs:
+        in_fence = False
+        for i, line in enumerate(doc.read_text(encoding="utf-8").splitlines(), 1):
+            if line.lstrip().startswith("```"):
+                in_fence = not in_fence
+                continue
+            if not in_fence:
+                continue
+            if "adb " in line:
+                checked += 1
+            if pattern.search(line):
+                bare.append(f"{doc.name}:{i}  {line.strip()}")
+
+    assert checked > 0, "검사할 adb 명령을 못 찾았다 — 검사가 헛돌고 있다"
+    assert bare == [], (
+        '기기를 지정하지 않은 adb 가 있다. `adb -s "$DEV" ...` 로 적으세요 '
+        f'({"·".join(_ADB_BARE_OK)} 는 예외):\n' + "\n".join(bare))

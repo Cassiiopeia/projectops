@@ -482,23 +482,78 @@ def _ensure_untracked(dir_path: Path) -> str:
     return "written"
 
 
-def _env_sh(run_dir: Path, shots: Path, run_name: str, package: str | None) -> str:
-    """에이전트가 source 만 하면 되는 실행 환경.
+def _sh_quote(value: str) -> str:
+    """셸에서 값이 그대로 쓰이도록 감싼다.
 
-    문서에 경로 문자열을 적지 않는 것이 목적이다. 적어 두면 매번 다른 곳에 쌓인다 —
-    실제로 그래서 대상 레포에 docs/testing/ 이 생겼다 (#611).
+    경로와 역할 이름은 사용자가 짓는 문자열이라 공백·`$`·따옴표가 들어올 수 있다.
+    큰따옴표로 감싸면 `$` 가 전개되어 **터지지 않고 다른 값**이 된다 — 이 스킬에서
+    가장 위험한 실패 모양이다 (#583).
     """
+    return "'" + value.replace("'", "'\\''") + "'"
+
+
+def _sole_device() -> str | None:
+    """붙어 있는 안드로이드 기기가 정확히 하나면 그 시리얼. 아니면 None."""
+    try:
+        found = _devices()["android"]
+    except Exception:
+        return None
+    return found[0] if len(found) == 1 else None
+
+
+def _write_env_sh(run_dir: Path, package: str | None,
+                  bindings: list[dict] | None = None) -> Path:
+    """실행 환경을 쓴다. **이 파일을 쓰는 곳은 여기 하나뿐이다.**
+
+    get-output-path 와 device 가 각자 쓰면 반드시 어긋난다. 문서에 경로·시리얼을
+    적지 않는 것이 목적이므로, 여기 없는 값은 에이전트가 지어내게 된다.
+
+    역할 이름을 **셸 변수명에 쓰지 않는다.** 변수명은 [A-Za-z_][A-Za-z0-9_]* 뿐이라
+    한글·공백·하이픈이 든 이름은 `export DEV_{이름}=...` 이 not a valid identifier 로
+    거부되고, 쓰는 쪽 `$DEV_{이름}` 은 조용히 엉뚱한 값으로 전개된다. 번호로 고정하고
+    이름은 값으로 담는다.
+    """
+    shots = run_dir / "screenshots"
+    shots.mkdir(parents=True, exist_ok=True)
+
     lines = [
         "# agent-test 실행 환경 — `source env.sh` 로 불러 쓴다.",
         "# 경로를 손으로 짓지 않는다. 여기 없는 자리에는 아무것도 만들지 않는다.",
-        'export AGENT_TEST_RUN="%s"' % run_name,
-        'export RUN_DIR="%s"' % run_dir,
-        'export SHOT_DIR="%s"' % shots,
+        "export AGENT_TEST_RUN=%s" % _sh_quote(run_dir.name),
+        "export RUN_DIR=%s" % _sh_quote(str(run_dir)),
+        "export SHOT_DIR=%s" % _sh_quote(str(shots)),
     ]
     if package:
-        lines.append('export PKG="%s"' % package)
+        lines.append("export PKG=%s" % _sh_quote(package))
+
+    bindings = bindings or []
+    if bindings:
+        lines += ["",
+                  "# 역할 ↔ 기기. ROLE{n} 값은 시나리오 roles 의 키와 같은 문자열이다.",
+                  "# 시나리오가 \"device\": \"B\" 라고 적으면 ROLE2==B 를 보고 $DEV2 를 쓴다.",
+                  "export DEV_COUNT=%d" % len(bindings)]
+        for n, b in enumerate(bindings, 1):
+            note = b.get("note")
+            tail = "   # %s" % note if note else ""
+            lines.append("export ROLE%d=%s; export DEV%d=%s%s"
+                         % (n, _sh_quote(b["role"]), n, _sh_quote(b["serial"]), tail))
+        lines += ["", "# 역할을 쓰지 않는 명령의 기본 기기", 'export DEV="$DEV1"']
+    else:
+        # 역할을 안 잡았어도 DEV 는 **반드시 정의한다.** 문서가 `adb -s "$DEV"` 로
+        # 적혀 있는데 비어 있으면 `adb -s ` 가 되어 사용법 오류로 죽는다 — 기기가
+        # 여러 대인데 안 고른 상황에서는 그렇게 죽는 것이 맞고, 한 대뿐이면 그 한
+        # 대를 넣어 주는 것이 맞다.
+        one = _sole_device()
+        lines += ["", "# 붙어 있는 기기가 한 대뿐이라 그것을 기본으로 둔다"
+                      if one else
+                      "# 기기를 고르지 않았다. device bind 로 역할을 잡으세요 —"
+                      "\n# 비워 두면 adb 가 어느 기기로 갈지 정해지지 않는다",
+                  "export DEV=%s" % _sh_quote(one or "")]
+
     lines.append("")
-    return "\n".join(lines)
+    env = run_dir / "env.sh"
+    env.write_text("\n".join(lines), encoding="utf-8")
+    return env
 
 
 def cmd_output_path(args) -> int:
@@ -521,26 +576,251 @@ def cmd_output_path(args) -> int:
     md = Path(r["path"])        # <우산>/agent-test/{날짜}_{번호}_{제목}.md
     base = md.parent            # <우산>/agent-test
     run_dir = base / md.stem
-    shots = run_dir / "screenshots"
     try:
-        shots.mkdir(parents=True, exist_ok=True)
+        run_dir.mkdir(parents=True, exist_ok=True)
     except OSError as e:
         return emit({"ok": False, "code": "mkdir_failed", "error": str(e)})
 
     state = _ensure_untracked(base)
-    env = run_dir / "env.sh"
-    env.write_text(_env_sh(run_dir, shots, md.stem, args.package), encoding="utf-8")
+    # 이미 잡아 둔 역할이 있으면 함께 싣는다 — 실행을 새로 열 때마다 다시
+    # bind 하게 만들면 결국 아무도 안 한다.
+    root = Path(args.root).resolve()
+    known = _load_devices(root)
+    package = args.package or known["package"]
+    if package and package != known["package"]:
+        _save_devices(root, package, known["bindings"])
+    env = _write_env_sh(run_dir, package, known["bindings"])
 
     return emit({
         "run": md.stem,
         "run_dir": str(run_dir),
-        "screenshots": str(shots),
+        "screenshots": str(run_dir / "screenshots"),
         "env_file": str(env),
         "output_root": r.get("output_root"),
         "gitignore": state,
         "mismatch": r.get("mismatch"),
         "summary": f"산출물 자리 {run_dir} (추적 제외 {state})",
         "next": f'source "{env}" 로 SHOT_DIR 을 불러 쓰세요. 캡처·증거는 전부 그 아래에 둡니다',
+    })
+
+
+# =========================================================================
+# 참가자가 둘 이상인 검증 — 역할을 기기에 묶는다 (#583)
+# =========================================================================
+#
+# 연결·공유·초대는 전부 기기가 둘 필요하다. 스킬에 그 개념이 없어서 `adb` 에 `-s`
+# 를 빠뜨려 엉뚱한 기기로 명령이 가고, 한쪽만 재설치돼도 알 방법이 없었다.
+#
+# 여기서는 **묶고 대조만** 한다. adb 를 감싸지 않는다 — 표면이 너무 넓어(shell·pm·
+# dumpsys·settings·emu·logcat) 감싸면 adb 재구현이 되고, 탈출구를 만들면 거기로
+# `-s` 없는 명령이 다시 샌다. 실행은 셸에 남기고 환경만 만들어 준다.
+
+_DEVICES_FILE = "devices.json"
+_DEVICES_SCHEMA = 1
+
+
+def _devices_path(root: Path) -> Path:
+    return _home_dir(root) / _DEVICES_FILE
+
+
+def _load_devices(root: Path) -> dict:
+    """{package, bindings:[{role, serial, note?}]} — **목록 순서가 곧 DEV1·DEV2 번호다.**
+
+    패키지는 바인딩마다가 아니라 **프로젝트 단위 한 곳**에 둔다. 역할마다 들고 있으면
+    누가 env.sh 를 다시 쓰느냐에 따라 PKG 가 붙었다 없어졌다 한다 (실제로 그랬다).
+    """
+    p = _devices_path(root)
+    if not p.is_file():
+        return {"package": None, "bindings": []}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"package": None, "bindings": []}
+    if not isinstance(data, dict):
+        return {"package": None, "bindings": []}
+    rows = [r for r in (data.get("bindings") or [])
+            if isinstance(r, dict) and r.get("role") and r.get("serial")]
+    return {"package": data.get("package"), "bindings": rows}
+
+
+def _load_bindings(root: Path) -> list[dict]:
+    return _load_devices(root)["bindings"]
+
+
+def _save_devices(root: Path, package: str | None, bindings: list[dict]) -> Path:
+    p = _devices_path(root)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps({"schema": _DEVICES_SCHEMA, "package": package,
+                             "bindings": bindings},
+                            ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return p
+
+
+def _adb_shell(serial: str, *args: str, timeout: int = 20) -> str:
+    adb = _sdk_tool("adb")
+    if not adb:
+        return ""
+    return _run([adb, "-s", serial, "shell", *args], timeout=timeout).replace("\r", "")
+
+
+def _build_info(serial: str, package: str | None) -> dict:
+    """그 기기에 무엇이 깔려 있는지.
+
+    **버전으로 재면 안 된다.** 컴파일타임 플래그만 바꾼 재빌드는 versionName 과
+    versionCode 가 똑같다 (#603 이 그 사고였다 — 로그는 적용 완료인데 설치해 보면
+    개발 도구가 없었다). APK 해시로 재야 한쪽만 재설치된 것을 본다.
+
+    sha1sum → md5sum → lastUpdateTime 으로 내려간다. 셋 중 하나는 어떤 기기에서도
+    답하므로 "모른다"로 끝나지 않는다.
+    """
+    info: dict = {"screen": None, "package": package, "version": None,
+                  "apk": None, "apk_by": None}
+
+    m = re.search(r"Physical size:\s*(\d+x\d+)", _adb_shell(serial, "wm", "size"))
+    if m:
+        info["screen"] = m.group(1)
+    if not package:
+        return info
+
+    dump = _adb_shell(serial, "dumpsys", "package", package, timeout=30)
+    if "Unable to find package" in dump or not dump.strip():
+        info["installed"] = False
+        return info
+    info["installed"] = True
+
+    vn = re.search(r"versionName=(\S+)", dump)
+    vc = re.search(r"versionCode=(\d+)", dump)
+    if vn or vc:
+        info["version"] = "%s+%s" % (vn.group(1) if vn else "?", vc.group(1) if vc else "?")
+
+    apk = None
+    for line in _adb_shell(serial, "pm", "path", package).splitlines():
+        if line.startswith("package:"):
+            apk = line.split(":", 1)[1].strip()
+            break
+    if apk:
+        for tool in ("sha1sum", "md5sum"):
+            head = _adb_shell(serial, tool, apk, timeout=60).split()
+            if head and re.fullmatch(r"[0-9a-f]{32,40}", head[0]):
+                info["apk"], info["apk_by"] = head[0], tool
+                break
+    if not info["apk"]:
+        m2 = re.search(r"lastUpdateTime=(\S+\s+\S+)", dump)
+        if m2:
+            info["apk"], info["apk_by"] = m2.group(1), "lastUpdateTime"
+    return info
+
+
+def _build_mismatch(rows: list[dict]) -> list[dict]:
+    """역할끼리 설치된 빌드가 다른지. 같은 버전인데 해시가 다르면 한쪽만 재설치된 것이다."""
+    seen = [(r["role"], (r.get("build") or {}).get("apk"),
+             (r.get("build") or {}).get("version")) for r in rows if r.get("role")]
+    known = [(role, apk, ver) for role, apk, ver in seen if apk]
+    if len(known) < 2:
+        return []
+    apks = {apk for _, apk, _ in known}
+    if len(apks) == 1:
+        return []
+    vers = {ver for _, _, ver in known}
+    detail = ("버전은 같은데 APK 가 다릅니다 — 한쪽만 다시 설치됐을 수 있습니다"
+              if len(vers) == 1 else "설치된 버전 자체가 다릅니다")
+    return [{"roles": [role for role, _, _ in known], "field": "apk", "detail": detail}]
+
+
+def _resolve_run_dir(args) -> Path | None:
+    """env.sh 를 어디에 쓸지. **추측하지 않는다.**
+
+    "가장 최근 실행 폴더"를 골라 주면 틀렸을 때 조용하다 — 엉뚱한 실행에 환경이
+    쓰이고, 그 다음 캡처가 전부 남의 폴더로 간다.
+    """
+    v = getattr(args, "run_dir", None) or os.environ.get("RUN_DIR")
+    return Path(v).resolve() if v else None
+
+
+def cmd_device(args) -> int:
+    """역할을 기기에 묶고, 무엇이 깔려 있는지 대조한다."""
+    root = Path(args.root).resolve()
+    known = _load_devices(root)
+    bindings = known["bindings"]
+    package = args.package or known["package"]
+
+    if args.action in ("bind", "unbind"):
+        if not args.role:
+            return emit({"ok": False, "code": "args_required",
+                         "error": "--role 이 필요합니다",
+                         "hint": "시나리오 roles 의 키와 같은 값을 쓰세요"})
+        bindings = [b for b in bindings if b["role"] != args.role]
+        if args.action == "bind":
+            if not args.serial:
+                return emit({"ok": False, "code": "args_required",
+                             "error": "--serial 이 필요합니다",
+                             "hint": "device list 로 붙어 있는 기기를 먼저 보세요"})
+            entry = {"role": args.role, "serial": args.serial}
+            if args.note:
+                entry["note"] = args.note
+            bindings.append(entry)
+        _save_devices(root, package, bindings)
+
+        run_dir = _resolve_run_dir(args)
+        env = None
+        if run_dir and run_dir.is_dir():
+            env = _write_env_sh(run_dir, package, bindings)
+        return emit({
+            "bindings": bindings,
+            "file": str(_devices_path(root)),
+            "env_file": str(env) if env else None,
+            "summary": f"역할 {len(bindings)}개" + ("" if env else " (env.sh 는 아직 안 씀)"),
+            "next": (None if env else
+                     "get-output-path 로 실행 자리를 먼저 만들고 $RUN_DIR 을 세운 뒤 "
+                     "다시 부르면 env.sh 에 반영됩니다"),
+        })
+
+    if args.action == "show":
+        return emit({"bindings": bindings, "package": package,
+                     "file": str(_devices_path(root)),
+                     "summary": f"역할 {len(bindings)}개"})
+
+    # list — 붙어 있는 기기 + 역할 + 설치된 빌드
+    dev = _devices()
+    by_role = {b["serial"]: b for b in bindings}
+    pkg = package
+
+    rows = []
+    for serial in dev["android"]:
+        b = by_role.get(serial, {})
+        rows.append({"serial": serial, "role": b.get("role"), "note": b.get("note"),
+                     "build": _build_info(serial, pkg)})
+
+    unbound = [r["serial"] for r in rows if not r["role"]]
+    mismatch = _build_mismatch(rows)
+    stale = [b["serial"] for b in bindings
+             if b["serial"] not in dev["android"] and b["serial"] not in dev["ios_booted"]]
+
+    nxt = None
+    if mismatch:
+        nxt = "양쪽에 같은 빌드를 설치한 뒤 다시 확인하세요 — 한쪽만 재설치되면 밟는 화면이 달라집니다"
+    elif stale:
+        nxt = f"묶어 둔 기기가 붙어 있지 않습니다: {', '.join(stale)}"
+    elif len(rows) > 1 and unbound:
+        nxt = "device bind --role {키} --serial {시리얼} 로 역할을 잡으세요 — 안 잡으면 adb 가 어느 기기로 갈지 정해지지 않습니다"
+
+    # 기기는 get-output-path 뒤에 부팅되기도 한다. 여기서 환경을 새로 고쳐 두지
+    # 않으면 DEV 가 빈 채로 남아 이후 모든 adb 가 죽는다.
+    run_dir = _resolve_run_dir(args)
+    env = _write_env_sh(run_dir, pkg, bindings) if (run_dir and run_dir.is_dir()) else None
+
+    return emit({
+        "devices": rows,
+        "env_file": str(env) if env else None,
+        "ios_booted": dev["ios_booted"],
+        "package": pkg,
+        "build_mismatch": mismatch,
+        "stale_bindings": stale,
+        "summary": (f"기기 {len(rows)}대 · 역할 {len(bindings)}개"
+                    + (f" · 빌드 불일치 {len(mismatch)}건" if mismatch else "")),
+        "next": nxt,
+        "ok": not mismatch,
+        "code": "build_mismatch" if mismatch else "ok",
     })
 
 
@@ -785,6 +1065,9 @@ def _template_for(target: str) -> dict:
         "steps": [dict(_STEP_TEMPLATES[target])],
     }
     if target == "app":
+        # 참가자가 둘 이상일 때만 채운다. 비워 두면 기존처럼 기기 한 대로 밟는다.
+        # 키는 device 서브커맨드의 --role 과 같은 값을 쓴다 (#583).
+        base["roles"] = {}
         base["reset"] = {
             "device": "pm clear",
             "server": "{테스트 계정을 지우는 명령. 없으면 null}",
@@ -946,6 +1229,55 @@ def _validate(data: dict) -> list[str]:
                 f"{i}번째 step({st.get('screen','?')})에 기대 결과가 없습니다 — "
                 f"{'·'.join(k.replace('expect_', '') for k in expect_keys)} 중 하나는 "
                 "있어야 통과 판정을 할 수 있습니다")
+
+    problems += _validate_roles(data, steps, target)
+    return problems
+
+
+# 값 전달은 ${이름} 으로 쓴다. 시나리오 틀이 이미 {중괄호} 를 "여기를 채워라" 표시로
+# 쓰고 있어서, 같은 기호를 쓰면 검증기가 둘을 구분하지 못한다 (#583).
+_CAPTURE_REF = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def _validate_roles(data: dict, steps: list, target: str) -> list[str]:
+    """참가자가 둘 이상인 시나리오가 실제로 실행 가능한 모양인지 본다.
+
+    - `device` 가 선언 안 된 역할을 가리키면 어느 기기로 갈지 정해지지 않는다.
+    - `${이름}` 을 앞선 단계가 만들지 않았으면 빈 값을 입력하게 된다. "A에서 만든
+      값을 B에 넣는다"가 이 검증 없이는 조용히 빈칸으로 밟힌다.
+    """
+    problems: list[str] = []
+    roles = data.get("roles") or {}
+    if roles and not isinstance(roles, dict):
+        return ["roles 는 {역할키: {...}} 모양이어야 합니다"]
+
+    used = {st.get("device") for st in steps
+            if isinstance(st, dict) and st.get("device")}
+    unknown = sorted(d for d in used if d not in roles)
+    if unknown:
+        problems.append(
+            f"step 의 device 가 roles 에 없습니다: {', '.join(unknown)} — "
+            f"roles 에 선언하거나 device 를 지우세요 "
+            f"(선언된 역할: {', '.join(roles) or '없음'})")
+
+    if len(roles) > 1 and target != "app":
+        problems.append(
+            f"roles 가 {len(roles)}개인데 target 이 '{target}' 입니다 — "
+            "기기를 여러 대 쓰는 것은 아직 app 에서만 됩니다")
+
+    produced: set[str] = set()
+    for i, st in enumerate(steps, 1):
+        if not isinstance(st, dict):
+            continue
+        for field in ("do", "text", "expect_screen", "expect_server"):
+            for ref in _CAPTURE_REF.findall(str(st.get(field) or "")):
+                if ref not in produced:
+                    problems.append(
+                        f"{i}번째 step 이 ${{{ref}}} 를 쓰는데 앞선 단계에 "
+                        f"capture: \"{ref}\" 가 없습니다 — 빈 값으로 밟게 됩니다")
+        cap = st.get("capture")
+        if cap:
+            produced.add(cap)
     return problems
 
 
@@ -1136,7 +1468,31 @@ def _note_path(root: Path, create: bool = False) -> Path:
 
 
 # 이 파일이 담는 구조의 판. 필드를 없애는 변경을 할 때만 올린다.
-_NOTE_SCHEMA = 1
+_NOTE_SCHEMA = 2   # 2: screens 에 variants 축 추가 (#583)
+
+
+def _variant_key(role: str | None, screen_size: str | None) -> str:
+    """좌표 한 벌을 구분하는 키.
+
+    해상도가 같아도 **빌드가 다르면 화면이 다르다.** 역할마다 다른 빌드가 깔리는 일이
+    흔해서(한쪽만 재설치되기도 한다) 역할을 키에 넣는다. 역할 이름은 JSON 키로만
+    쓰이므로 한글·공백이 들어와도 안전하다 — 셸 변수명으로는 쓰지 않는다.
+    """
+    return "%s@%s" % (role or "default", screen_size or "?")
+
+
+def _promote_screen(entry: dict) -> dict:
+    """구 포맷(화면당 좌표 한 벌)을 변형 하나로 올린다.
+
+    읽는 순간 올리고 파일은 다음 쓰기에 갱신된다. 기존 프로젝트가 쌓아 둔 기록을
+    깨뜨리지 않는 것이 조건이다 — 지우고 다시 재라고 하면 아무도 안 쓴다.
+    """
+    if "variants" in entry:
+        return entry
+    legacy = {k: entry.pop(k) for k in ("taps", "measured_on") if k in entry}
+    entry["variants"] = ({_variant_key(None, legacy.get("measured_on")): legacy}
+                         if legacy else {})
+    return entry
 
 
 def _load_notes(root: Path) -> tuple[dict, str | None]:
@@ -1203,7 +1559,8 @@ def cmd_note(args) -> int:
             "file": str(_note_path(root)),
             "schema": notes.get("schema", _NOTE_SCHEMA),
             "constraints": notes.get("constraints", []),
-            "screens": notes.get("screens", {}),
+            "screens": {k: _promote_screen(v)
+                        for k, v in (notes.get("screens") or {}).items()},
             "pitfalls": notes.get("pitfalls", []),
             "pitfalls_to_promote": [
                 x for x in notes.get("pitfalls", [])
@@ -1222,15 +1579,21 @@ def cmd_note(args) -> int:
         if not (args.name and args.anchor):
             return emit({"ok": False, "code": "args_required",
                          "error": "--name 과 --anchor 가 필요합니다"})
-        entry = notes.setdefault("screens", {}).setdefault(args.name, {})
+        entry = _promote_screen(notes.setdefault("screens", {}).setdefault(args.name, {}))
         entry["anchor"] = args.anchor          # 이 화면임을 알아보는 단서
+        variant = entry["variants"].setdefault(
+            _variant_key(args.role, args.screen_size), {})
         if args.taps:
             # "라벨=x,y" 형태를 그대로 보관한다. 해상도가 바뀌면 다시 재야 하므로
             # 절대 좌표가 아니라 기준 해상도와 함께 남긴다.
-            entry["taps"] = dict(t.split("=", 1) for t in args.taps)
+            variant["taps"] = dict(t.split("=", 1) for t in args.taps)
         if args.screen_size:
-            entry["measured_on"] = args.screen_size
-        entry["updated"] = date.today().isoformat()
+            variant["measured_on"] = args.screen_size
+        if args.build:
+            # 빌드가 바뀌면 화면도 바뀔 수 있다. 막지 않고 꺼낼 때 알려 준다.
+            variant["build"] = args.build
+        variant["updated"] = date.today().isoformat()
+        entry["updated"] = variant["updated"]
 
     elif args.action == "pitfall":
         if not args.text:
@@ -2463,6 +2826,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_n.add_argument("--anchor", help="screen: 이 화면임을 알아보는 단서(문구 등)")
     p_n.add_argument("--taps", nargs="*", help="screen: '라벨=x,y' 형태로 여러 개")
     p_n.add_argument("--screen-size", help="screen: 좌표를 잰 해상도. 예 1080x2400")
+    p_n.add_argument("--role", default=None,
+                     help="screen: 어느 역할의 기기에서 쟀는지 (device --role 과 같은 키)")
+    p_n.add_argument("--build", default=None,
+                     help="screen: 그때 깔려 있던 빌드 표식 (device list 의 apk 값)")
     p_n.add_argument("--text",
                      help="constraint: 지켜야 할 것 / pitfall: 함정 / run: 결과 요약")
     p_n.add_argument("--check",
@@ -2577,7 +2944,20 @@ def build_parser() -> argparse.ArgumentParser:
                       help="제목. 없으면 워크트리 경로·브랜치명에서 뽑는다")
     p_op.add_argument("--package", default=None,
                       help="앱 패키지명 — env.sh 에 PKG 로 넣는다")
+    p_op.add_argument("--root", default=".", help="프로젝트 루트")
     p_op.set_defaults(func=cmd_output_path)
+
+    p_dv = sub.add_parser("device", help="역할을 기기에 묶는다 (참가자가 둘 이상일 때)")
+    p_dv.add_argument("action", choices=["list", "bind", "unbind", "show"])
+    p_dv.add_argument("--root", default=".", help="프로젝트 루트")
+    p_dv.add_argument("--role", default=None,
+                      help="역할 키. **시나리오 roles 의 키와 같아야 한다**")
+    p_dv.add_argument("--serial", default=None, help="기기 시리얼 (device list 에 나온다)")
+    p_dv.add_argument("--note", default=None, help="사람이 읽을 설명. env.sh 에 주석으로 붙는다")
+    p_dv.add_argument("--package", default=None, help="설치된 빌드를 대조할 패키지명")
+    p_dv.add_argument("--run-dir", default=None,
+                      help="env.sh 를 쓸 실행 폴더. 없으면 $RUN_DIR 을 본다")
+    p_dv.set_defaults(func=cmd_device)
 
     p_s = sub.add_parser("shrink", help="이슈 첨부용으로 이미지 축소")
     p_s.add_argument("paths", nargs="+")

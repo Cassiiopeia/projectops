@@ -88,7 +88,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py get-output-path --title "{�
 
 ```bash
 source "{env_file 값}"
-adb exec-out screencap -p > "$SHOT_DIR/01_로그인.png"
+adb -s "$DEV" exec-out screencap -p > "$SHOT_DIR/01_로그인.png"
 ```
 
 > **여기 없는 자리에는 아무것도 만들지 않는다.** `/tmp` 나 `docs/testing` 처럼 임의 경로에
@@ -106,6 +106,7 @@ adb exec-out screencap -p > "$SHOT_DIR/01_로그인.png"
 | `detect --path` | 무엇을 밟을 수 있는지 · 타겟별 정보 |
 | `doctor --root` | 도구가 깔려 있는지 · 기록이 어디 쌓이는지 |
 | `devices` | 붙어 있는 기기·시뮬레이터 (app) |
+| `device list\|bind\|unbind\|show` | **역할을 기기에 묶는다** — 참가자가 둘 이상일 때 (app) |
 | `scenario init\|list\|show` | 시나리오 틀 만들기 · 목록 · **검증** |
 | `note show\|target\|screen\|constraint\|pitfall\|run` | 알아낸 것을 쌓는다 (`target`=무엇을 밟을 수 있는지) |
 | `access show\|set\|unset` | 붙는 법을 적어 둔다 (DB·로그·주소) |
@@ -176,11 +177,31 @@ py는 여기서 맞히려 들지 않는다. 프레임워크마다 템플릿 자�
 | `server` | `references/target-server.md` | `api` 서브커맨드 (HTTP) |
 | `other` | `references/target-other.md` | `other` 서브커맨드 (명령 실행) |
 
+앱에서 **기기를 두 대 이상** 써야 하면 `references/devices.md` 를 함께 읽는다 — 연결·공유·초대는 한 대로 밟을 수 없다.
+
 웹 프로젝트에서 adb 함정 표를 읽을 이유가 없다. 아래 앱 관련 절들은 `app` 타겟일 때만 본다.
 
 > **준비물이 없으면 물어보고 깐다.** 웹은 브라우저(약 100MB)가 필요하다 — 안내만 하고
 > 멈추지 않는다. 자세한 절차는 `references/target-web.md`, 공통 원칙은
 > `../references/common-rules.md`의 "필요한 것이 없을 때".
+
+### 기기를 확정한다 — `app` 타겟 ⚠️
+
+밟기 전에 **어느 기기로 갈지 정한다.** 정하지 않으면 기기가 여러 대일 때 `adb` 가
+거부하거나 엉뚱한 쪽으로 간다.
+
+```bash
+{PYTHON} {SCRIPTS}/e2e_cli.py device list --root {PROJECT_ROOT}
+```
+
+한 대뿐이면 `$DEV` 가 그 한 대로 채워지고 더 할 일이 없다. **여러 대면 역할을 묶는다** —
+방법은 `references/devices.md`.
+
+> **`build_mismatch` 가 나오면 거기서 멈춘다.** 역할마다 다른 빌드가 깔려 있다는 뜻이고,
+> 그대로 밟으면 "한쪽에서만 재현된다"는 가짜 결함을 만들게 된다. 버전이 같아도 다를 수
+> 있어서 APK 해시로 잰다 — 컴파일타임 플래그만 바꾼 재빌드는 버전이 똑같다.
+
+기기를 나중에 띄웠으면 `device list` 를 한 번 더 돌려 환경을 새로 고친다.
 
 ## 되는 것 · 안 되는 것 (Android 에뮬레이터 실측) — `app` 타겟
 
@@ -197,7 +218,7 @@ py는 여기서 맞히려 들지 않는다. 프레임워크마다 템플릿 자�
 | 동작 줄이기 | ✅ | `settings put global transition_animation_scale 0` |
 | 화면 회전 | ✅ | `settings put system user_rotation 1` |
 | 딥링크 직접 진입 | ✅ | `am start -a android.intent.action.VIEW -d "{scheme}://..."` |
-| 지문 인증 | ✅ | `adb emu finger touch 1` |
+| 지문 인증 | ✅ | `adb -s "$DEV" emu finger touch 1` |
 | 카메라·마이크 실제 입력 | ❌ | 가상 입력만 가능 |
 | 실제 푸시 발송 | ❌ | 서버에서 별도로 쏴야 한다 |
 | 인앱결제 실제 승인 | ❌ | 테스트 계정·스토어 설정이 필요하다 |
@@ -326,8 +347,8 @@ catch · rescue · except · \.catch\( · onError · fallback · ?? · orElse
 밟기 전에 **상태를 볼 수 있는지** 먼저 확인한다.
 
 ```bash
-adb logcat -c && adb shell am start -n {패키지}/.MainActivity
-sleep 5 && adb logcat -d | grep -i "flutter"
+adb -s "$DEV" logcat -c && adb -s "$DEV" shell am start -n {패키지}/.MainActivity
+sleep 5 && adb -s "$DEV" logcat -d | grep -i "flutter"
 ```
 
 로그가 없으면 **그 자체가 결함이다.** "추적 불가"로 적어 두고 밟는다 — 로깅을 대신 넣어
@@ -358,7 +379,7 @@ sleep 5 && adb logcat -d | grep -i "flutter"
 ```bash
 source "{env_file 값}"   # SHOT_DIR — 위 '산출물 자리' 에서 받은 것
 
-adb exec-out screencap -p > "$SHOT_DIR/step_N.png"      # Android
+adb -s "$DEV" exec-out screencap -p > "$SHOT_DIR/step_N.png"      # Android
 xcrun simctl io booted screenshot "$SHOT_DIR/step_N.png" # iOS
 
 # 읽기 전에 줄인다 — 원본은 한 장에 1,500 토큰 가까이 먹는다
@@ -389,10 +410,10 @@ xcrun simctl io booted screenshot "$SHOT_DIR/step_N.png" # iOS
 ### ④ 조작
 
 ```bash
-adb shell input tap {x} {y}
-adb shell input text "{문자열}"        # 공백은 %s
-adb shell input keyevent KEYCODE_BACK  # 키보드 내리기
-adb shell input swipe {x1} {y1} {x2} {y2} {ms}
+adb -s "$DEV" shell input tap {x} {y}
+adb -s "$DEV" shell input text "{문자열}"        # 공백은 %s
+adb -s "$DEV" shell input keyevent KEYCODE_BACK  # 키보드 내리기
+adb -s "$DEV" shell input swipe {x1} {y1} {x2} {y2} {ms}
 ```
 
 목록을 스크롤할 때는 **끝까지 내린다.** 한 번만 밀고 "잘렸다"고 판단하면 오진한다
@@ -403,8 +424,8 @@ adb shell input swipe {x1} {y1} {x2} {y2} {ms}
 화면만 보지 않는다. 크래시·에러를 함께 본다.
 
 ```bash
-adb shell dumpsys window | grep mCurrentFocus   # 지금 어느 화면인가
-adb logcat -d -b crash | tail -40               # 죽지 않았나
+adb -s "$DEV" shell dumpsys window | grep mCurrentFocus   # 지금 어느 화면인가
+adb -s "$DEV" logcat -d -b crash | tail -40               # 죽지 않았나
 ```
 
 `Application Error` 나 `FATAL EXCEPTION` 이 보이면 **거기서 멈추고 원인부터 찾는다.**
@@ -414,7 +435,7 @@ adb logcat -d -b crash | tail -40               # 죽지 않았나
 Phase 1에서 정한 "무엇이 남아야 하는가"를 확인한다.
 
 ```bash
-adb logcat -d | grep -E "action:|key:"          # 기기에 무엇이 저장됐나
+adb -s "$DEV" logcat -d | grep -E "action:|key:"          # 기기에 무엇이 저장됐나
 {프로젝트의 DB 클라이언트} -c "select ..."        # 서버에 무엇이 들어갔나
 ```
 
@@ -748,7 +769,7 @@ Phase 4.5가 **같은 성격의 다른 곳**을 본다면, 여기서는 **같은
 한 번 가입하면 provider 식별자로 계정이 붙어 "첫 로그인" 경로를 다시 탈 수 없다.
 
 ```bash
-adb shell pm clear {패키지}     # 앱 로컬 데이터
+adb -s "$DEV" shell pm clear {패키지}     # 앱 로컬 데이터
 # 서버 계정 삭제는 프로젝트가 제공하는 도구를 쓴다
 ```
 
@@ -808,5 +829,6 @@ adb shell pm clear {패키지}     # 앱 로컬 데이터
 | **화면만 보고 통과시켰다** | 화면은 멀쩡한데 서버에 이상한 값이 들어감 | 앱이 **무엇을 보냈는지** 서버 로그의 요청 본문으로 대조한다 (`logs --grep`) |
 | **네트워크를 껐다 켰더니 DNS가 안 돌아온다** | 특정 도메인만 `Failed host lookup` | `svc wifi disable` 대신 `cmd connectivity airplane-mode enable/disable`을 쓴다 |
 | **구글 계정 선택창이 비어 보인다** | 기기에 계정을 막 추가했는데 앱에서 안 보임 | 등록은 됐다. 앱을 재시작하면 나타난다 |
+| **목록이 바뀐 화면에 옛 좌표를 썼다** | 엉뚱한 항목이 눌려 전혀 다른 화면이 열림 | 항목이 하나만 늘어도 아래가 전부 밀린다. **목록이 바뀐 화면은 좌표를 다시 잰다.** 기기마다 빌드가 다르면 기기별로 따로 잰다 (`references/devices.md`) |
 
 더 많은 명령과 iOS 대응은 `references/target-app.md`.
