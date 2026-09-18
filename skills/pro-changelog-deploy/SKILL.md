@@ -27,7 +27,7 @@ automerge 실패 시 기존 PR 닫고 새 PR 재생성 → 릴리스 노트 재�
 - **사용자 확인 없이 PR을 닫거나 열지 않는다** (fix 모드)
 - **릴리스 노트 본문은 PR 생성 전 사용자에게 보여준다** (deploy 5.5단계 / fix 4.5단계). 자동 모드로 명시 설정된 경우만 표시 후 즉시 진행
 - **사용자에게 config 키 이름·파일 경로를 노출하지 않는다**. 자동/수동 모드 토글은 자연어 응답을 받아 agent가 직접 갱신한다
-- **브랜치를 하드코딩하지 않는다 (#456)**. 릴리스 head/base 브랜치와 changelog provider는 **config(우선) → version.yml(폴백)에서 읽는다** — [시작 전 §5] 참조. `develop`/`main`/`coderabbit`은 값을 못 읽었을 때의 폴백일 뿐, 다른 브랜치·provider 구조를 쓰는 레포에서는 확정값을 따른다.
+- **브랜치를 하드코딩하지 않는다 (#456)**. 릴리스 head/base 브랜치와 changelog provider는 **config(우선) → version.yml(폴백)에서 읽는다** — [시작 전 §5] 참조. `develop`/`main`/`commit`은 값을 못 읽었을 때의 폴백일 뿐, 다른 브랜치·provider 구조를 쓰는 레포에서는 확정값을 따른다.
 - **사용자는 config를 직접 수정하지 않는다**. 브랜치·provider·자동모드 등 모든 설정은 skill이 자연어로 묻고 답을 config에 기록한다. 판정 가능하면 묻지 않고, 애매할 때만 묻는다. 한 번 물어 기록하면 재질문하지 않는다.
 
 ## 브랜치·provider 해석 (#456 — 하드코딩 금지)
@@ -49,7 +49,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 
 - `branches.head` = 릴리스 PR의 head 브랜치(= `metadata.deploy_branch`, 폴백 `develop`). push·PR 생성의 소스.
 - `branches.base` = 릴리스 PR의 base 브랜치(= `metadata.default_branch`, 폴백 `main`). 프로덕션.
-- `branches.provider` = changelog 생성기(`commit`/`github-ai`/`coderabbit` 등, 폴백 `coderabbit`).
+- `branches.provider` = changelog 생성기(`commit`/`coderabbit` 등, **폴백 `commit`** — #566 에서 기본 사다리가 commit 으로 바뀌었다).
   - `provider == "commit"`이면 워크플로우가 커밋 분석으로 릴리스 노트를 즉시 만든다 → 스킬은 예쁜 노트를 선제 작성할지 사용자에게 물어보고, 원치 않으면 워크플로우에 맡긴다.
   - `coderabbit`/`github-ai`/`openai`이면 기존처럼 스킬이 릴리스 노트를 선제 작성해 CodeRabbit/AI 대기를 우회한다.
 

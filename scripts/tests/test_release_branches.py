@@ -2,7 +2,7 @@
 """changelog_cli의 릴리스 브랜치·provider 읽기 테스트 (#456).
 
 head = deploy_branch(폴백 develop), base = default_branch(폴백 main),
-changelog provider = options.changelog.provider(폴백 coderabbit).
+changelog provider = options.changelog.provider(폴백 commit — #566 에서 기본 사다리가 바뀌었다).
 version.yml을 정규식으로만 읽어(폐쇄망·yaml 무의존) SSOT에서 브랜치를 해석함을 검증한다.
 """
 import importlib.util
@@ -54,12 +54,14 @@ def test_reads_changelog_provider(tmp_path):
     assert b["provider"] == "commit"
 
 
-def test_provider_fallback_coderabbit(tmp_path):
+def test_provider_fallback_is_commit(tmp_path):
+    """폴백은 commit 이다. #566 이후 기본 사다리가 commit 이라, coderabbit 으로 두면
+    이 스킬만 'CodeRabbit 을 기다리는 레포'로 잘못 판정한다."""
     _write_vy(tmp_path, 'version: "1.0.0"\nmetadata:\n  default_branch: "main"\n')
     b = _read_branches(tmp_path)
-    assert b["provider"] == "coderabbit"
+    assert b["provider"] == "commit"
 
 
 def test_no_version_yml_all_fallback(tmp_path):
     b = _read_branches(tmp_path)
-    assert b == {"head": "develop", "base": "main", "provider": "coderabbit"}
+    assert b == {"head": "develop", "base": "main", "provider": "commit"}

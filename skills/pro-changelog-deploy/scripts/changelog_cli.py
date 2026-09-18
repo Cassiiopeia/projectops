@@ -330,7 +330,9 @@ def _read_release_branches(project_root: Path) -> dict:
 
     - head = metadata.deploy_branch (릴리스 PR head) — 없으면 'develop' 폴백.
     - base = metadata.default_branch (레포 기본) — 없으면 'main' 폴백.
-    - provider = metadata.template.options.changelog.provider — 없으면 'coderabbit' 폴백.
+    - provider = metadata.template.options.changelog.provider — 없으면 'commit' 폴백.
+      (#566 에서 기본 사다리가 commit 으로 바뀌었다. 예전 폴백은 coderabbit 이었고,
+       그대로 두면 이 스킬만 "CodeRabbit 을 기다리는 레포"로 잘못 판정한다.)
     yaml 의존 없이 정규식으로만 파싱한다 (폐쇄망·표준 라이브러리 우선)."""
     vy = project_root / "version.yml"
     text = ""
@@ -347,7 +349,7 @@ def _read_release_branches(project_root: Path) -> dict:
     return {
         "head": _find(r"^\s*deploy_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)", "develop"),
         "base": _find(r"^\s*default_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)", "main"),
-        "provider": _find(r"^\s*provider\s*:\s*[\"']?([a-z-]+)", "coderabbit"),
+        "provider": _find(r"^\s*provider\s*:\s*[\"']?([a-z-]+)", "commit"),
     }
 
 
