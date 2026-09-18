@@ -1,14 +1,35 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-18T01:17:49Z",
-    "currentVersion": "4.11.0",
+    "lastUpdated": "2026-09-18T02:39:40Z",
+    "currentVersion": "4.12.0",
     "projectType": "basic",
-    "totalReleases": 245,
+    "totalReleases": 246,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.12.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-18",
+      "pr_number": 590,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **개선**\n  * 테스트 도구가 프로젝트 구조를 짐작하지 않고, 확인한 내용을 저장해 두었다가 다음에 그대로 쓰도록 바꿨습니다\n  * 데이터베이스와 로그를 확인하는 방법을 프로젝트마다 자유롭게 지정할 수 있습니다\n  * 한 곳을 고쳤을 때 같은 성격의 다른 곳도 함께 살펴보도록 점검 단계를 더했습니다",
+      "parsed_changes": {
+        "개선": {
+          "title": "개선",
+          "items": [
+            "테스트 도구가 프로젝트 구조를 짐작하지 않고, 확인한 내용을 저장해 두었다가 다음에 그대로 쓰도록 바꿨습니다",
+            "데이터베이스와 로그를 확인하는 방법을 프로젝트마다 자유롭게 지정할 수 있습니다",
+            "한 곳을 고쳤을 때 같은 성격의 다른 곳도 함께 살펴보도록 점검 단계를 더했습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.11.0",
       "project_type": "basic",
