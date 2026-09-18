@@ -22,6 +22,9 @@ export function copyScripts(tempDir, targetRoot = ".") {
     "pr_summary_comment.py",
     // 릴리스 노트가 어떤 경로로 만들어졌는지 알리고, AI를 못 썼을 때 대안을 안내 (#566).
     "changelog_notice.py",
+    // Flutter 빌드 워크플로우가 .env와 dart-define을 한 곳에서 정할 때 호출 (#603).
+    // 설정(.github/config/build-profile.json)이 없는 저장소에서는 아무 일도 하지 않는다.
+    "apply_build_profile.py",
     "changelog_providers/_common.py", "changelog_providers/ladder.py",
     "changelog_providers/commit.py", "changelog_providers/copilot.py",
     "changelog_providers/openai_compatible.py",

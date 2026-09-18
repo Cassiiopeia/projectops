@@ -271,6 +271,47 @@ fi
 
 회귀 방지: `.github/scripts/test/test_fastlane_lanes.py`
 
+### ⚠️ 빌드 플래그는 두 층이 함께 가야 한다 (#603 — agent 필독)
+
+앱의 개발 스위치는 **두 층**에 있고, **한 층만 맞아도 빌드는 통과한다.**
+
+| 층 | 어디에 | 위조 |
+|---|---|:-:|
+| 런타임 | `.env` (dotenv) | 가능 (Secret 주입) |
+| 컴파일타임 | `--dart-define` | **불가** (바이너리에 박힌다) |
+
+실사고: `.env` 에 개발 플래그가 찍히고 로그는 `✅ 적용 완료` 를 냈는데, **설치해 보면
+디버깅 도구가 없었다.** 릴리스 빌드라 컴파일타임 게이트가 닫혀 있었고, 레포 전체에
+`dart-define` 이 한 군데도 없었다 — 즉 **한 번도 켜진 적이 없었다.** 로그만 봐서는 알 수 없다.
+
+**`.github/scripts/apply_build_profile.py` 가 한 곳에서 두 층을 모두 정한다.**
+
+```yaml
+- name: 빌드 프로파일 적용 (test)
+  id: build_profile
+  run: python3 .github/scripts/apply_build_profile.py test .env
+
+- name: Build
+  # 🔴 여기에 dart-define 을 직접 적지 않는다. 적는 순간 다시 두 곳이 된다.
+  run: flutter build apk --release ${{ steps.build_profile.outputs.build_flags }}
+```
+
+- **설정(`.github/config/build-profile.json`)이 없으면 아무 일도 하지 않는다.**
+  남의 저장소에 설치되는 템플릿이므로 이것이 기본값이다. 예시는 `.example` 파일.
+- `release` 라는 이름의 프로파일에는 **검증이 걸린다** — 개발 키가 켜진 채로, QA 토큰이
+  남은 채로, 테스트 전용 dart-define 이 섞인 채로 배포 빌드가 나가면 **빌드를 세운다.**
+- **`.env` 생성과 빌드가 다른 job 이면** 프로파일 결과를 `outputs.build_flags` 로 넘긴다
+  (`IOS-TEST-TESTFLIGHT` · `IOS-TESTFLIGHT` 가 그렇다). 같은 job 이면 `steps.` 로 읽는다.
+- **fastlane lane 으로 빌드하는 경로에는 플래그를 넘길 자리가 없다.** 플래그가 있는데
+  그 경로를 타면 **빌드를 세운다** — 조용히 빠뜨리면 이 스텝이 고치려던 사고가 다시 난다.
+- 플레이버 이름은 **`APP_FLAVOR`** 처럼 앱 이름이 안 들어가는 중립적인 것을 쓴다.
+  Flutter 표준 `FLUTTER_APP_FLAVOR` 는 예약어라 `--dart-define` 으로 못 넣는다
+  (`--flavor` 전용이며, 그건 Gradle productFlavors·Xcode scheme 을 요구한다).
+
+적용된 워크플로우: `ANDROID-TEST-APK`·`IOS-TEST-TESTFLIGHT`(test) ·
+`ANDROID-PLAYSTORE-CICD`·`ANDROID-FIREBASE-CICD`·`ANDROID-SELFHOSTED-CICD`·`IOS-TESTFLIGHT`(release)
+회귀 방지: `.github/scripts/test/test_build_profile.py`
+
 ### ⚠️ 워크플로우는 `permissions:` 를 반드시 선언한다 (#595 — agent 필독)
 
 **선언하지 않으면 레포 기본값을 따르는데, 그 기본값은 레포마다 다르고 나중에 바뀐다.**

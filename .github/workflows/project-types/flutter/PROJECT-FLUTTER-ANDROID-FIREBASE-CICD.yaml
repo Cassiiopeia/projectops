@@ -247,6 +247,19 @@ jobs:
           printf '%s\n' "$ENV_CONTENT" > .env
           echo "✅ .env 파일 생성됨 (크기: $(wc -c < .env) bytes)"
 
+      # 빌드 프로파일 — 런타임(.env)과 컴파일타임(dart-define)을 한 곳에서 정한다 (#603)
+      #
+      # 배포 빌드는 개발 키가 켜진 채로 나가면 안 된다. 이 스텝이 .env 를 정리하고
+      # 양쪽 층이 모두 꺼진 것을 확인한다 — 한쪽이라도 뚫려 있으면 빌드를 세운다.
+      #
+      # 설정(.github/config/build-profile.json)이 없는 저장소에서는 아무 일도 하지 않는다.
+      - name: 빌드 프로파일 적용 (release)
+        id: build_profile
+        run: |
+          python3 "${{ github.workspace }}/.github/scripts/apply_build_profile.py" \
+            release .env \
+            --config "${{ github.workspace }}/.github/config/build-profile.json"
+
       # Release Keystore 설정
       - name: Setup Release Keystore
         run: |
@@ -384,11 +397,13 @@ jobs:
           echo "📋 명령어: flutter build apk --release --build-name=$VERSION_NAME --build-number=$VERSION_CODE --verbose"
           echo "⏱️ 빌드 시작 시간: $(date '+%Y-%m-%d %H:%M:%S')"
 
+          BUILD_FLAGS="${{ steps.build_profile.outputs.build_flags }}"
+          # shellcheck disable=SC2086  # 플래그는 공백으로 갈라져야 한다
           flutter build apk \
             --release \
             --build-name="$VERSION_NAME" \
             --build-number="$VERSION_CODE" \
-            --verbose
+            --verbose $BUILD_FLAGS
 
           BUILD_EXIT_CODE=$?
 

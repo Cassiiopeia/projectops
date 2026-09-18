@@ -225,6 +225,8 @@ jobs:
       branch_name: ${{ steps.issue_info.outputs.branch_name }}
       pr_number: ${{ steps.test_version.outputs.pr_number }}
       commit_hash: ${{ steps.release_notes.outputs.commit_hash }}
+      # 빌드가 다른 job 에서 돌므로 컴파일타임 플래그를 output 으로 넘긴다 (#603)
+      build_flags: ${{ steps.build_profile.outputs.build_flags }}
 
     steps:
       - name: Checkout repository
@@ -245,6 +247,16 @@ jobs:
         run: |
           printf '%s\n' "$ENV_CONTENT" > ${{ env.ENV_FILE_PATH }}
           echo "✅ ${{ env.ENV_FILE_PATH }} file created"
+
+      # 빌드 프로파일 — 런타임(.env)과 컴파일타임(dart-define)을 한 곳에서 정한다 (#603)
+      # 고쳐진 .env 는 project-files 아티팩트로, 플래그는 job output 으로 빌드 job 에 간다.
+      # 설정(.github/config/build-profile.json)이 없는 저장소에서는 아무 일도 하지 않는다.
+      - name: 빌드 프로파일 적용 (test)
+        id: build_profile
+        run: |
+          python3 "${{ github.workspace }}/.github/scripts/apply_build_profile.py" \
+            test "${{ env.ENV_FILE_PATH }}" \
+            --config "${{ github.workspace }}/.github/config/build-profile.json"
 
       - name: Create Secrets.xcconfig file
         env:
@@ -640,9 +652,13 @@ jobs:
           # xcode-select만으로는 서브프로세스에 전파되지 않아 명시적으로 지정
           DEVELOPER_DIR: /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
         run: |
+          BUILD_FLAGS="${{ needs.prepare-test-build.outputs.build_flags }}"
+          echo "📦 Flutter 빌드... ${BUILD_FLAGS:+(플래그: $BUILD_FLAGS)}"
+          # shellcheck disable=SC2086  # 플래그는 공백으로 갈라져야 한다
           flutter build ios --release --no-codesign \
             --build-name="${{ needs.prepare-test-build.outputs.version }}" \
-            --build-number="${{ needs.prepare-test-build.outputs.build_number }}"
+            --build-number="${{ needs.prepare-test-build.outputs.build_number }}" \
+            $BUILD_FLAGS
 
       - name: Create Archive
         env:
