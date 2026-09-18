@@ -1,14 +1,40 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-18T06:26:44Z",
-    "currentVersion": "4.14.0",
+    "lastUpdated": "2026-09-18T06:37:15Z",
+    "currentVersion": "4.14.1",
     "projectType": "basic",
-    "totalReleases": 251,
+    "totalReleases": 252,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.14.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-18",
+      "pr_number": 602,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * iOS 테스트 빌드가 마지막 업로드 단계에서 항상 실패하던 문제를 해결했습니다\n  * 안드로이드 테스트 빌드와 자체 서버 빌드가 실패하던 같은 원인도 함께 고쳤습니다\n\n* **개선**\n  * 테스트 빌드가 실수로 앱 심사에 제출되지 않도록 범위를 고정했습니다",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "iOS 테스트 빌드가 마지막 업로드 단계에서 항상 실패하던 문제를 해결했습니다",
+            "안드로이드 테스트 빌드와 자체 서버 빌드가 실패하던 같은 원인도 함께 고쳤습니다"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "테스트 빌드가 실수로 앱 심사에 제출되지 않도록 범위를 고정했습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.14.0",
       "project_type": "basic",
