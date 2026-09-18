@@ -42,6 +42,11 @@ on:
   issue_comment:
     types: [created]
 
+# ⚠️ repository_dispatch 는 **기본 브랜치(main)의 워크플로 정의**로 실행된다 (#595).
+#    이 파일을 develop 에서 고치고 테스트 빌드를 다시 걸면 **여전히 옛 정의가 돈다** —
+#    고친 게 안 먹은 것처럼 보여 원인을 엉뚱한 데서 찾게 된다.
+#    반드시 기본 브랜치에 반영된 뒤에 확인할 것. (build 대상 브랜치와는 별개다)
+
 permissions:
   contents: write
   pull-requests: write

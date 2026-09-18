@@ -238,6 +238,43 @@ python3 .github/util/flutter/_shared/test_wizard_cli.py
 
 상세: `.github/util/flutter/_shared/README.md`
 
+### ⚠️ 워크플로우는 `permissions:` 를 반드시 선언한다 (#595 — agent 필독)
+
+**선언하지 않으면 레포 기본값을 따르는데, 그 기본값은 레포마다 다르고 나중에 바뀐다.**
+
+| 기본값 | 선언 안 했을 때 |
+|---|---|
+| `read` (GitHub 신규 레포 기본값) | 댓글을 다는 워크플로우가 **그 스텝에서 죽는다** |
+| `write` | 읽기만 하면 되는 배포 워크플로우가 **과한 권한**을 갖는다 |
+
+실사고: `@projectops apk build` 테스트 빌드가 항상 실패했다. 트리거 워크플로우에는 블록이
+있어 **트리거까지는 성공**했고, 정작 빌드가 진행 상황 댓글을 다는 순간 막혔다.
+겉보기에는 "빌드가 도는데 결과가 없다"로 보여 원인을 찾는 데 오래 걸렸다.
+
+```
+RequestError [HttpError]: Resource not accessible by integration
+```
+
+| 하는 일 | 적을 것 |
+|---|---|
+| 이슈·PR에 댓글·라벨 | `contents: read` + `issues: write` + `pull-requests: write` |
+| PR에만 댓글 | `contents: read` + `pull-requests: write` |
+| 체크아웃·빌드·배포만 | `contents: read` |
+| 커밋을 푸시 | `contents: write` |
+| 별도 PAT로만 API 호출 | `contents: read` (GITHUB_TOKEN 은 안 쓴다) |
+
+위치는 최상위 `on:` 블록 **바로 뒤**다 (job 단위로 적어도 된다).
+회귀 방지: `.github/scripts/test/test_workflow_permissions.py` 가 **모든** 워크플로우를 검사한다.
+
+> **⚠️ `.yaml` 만 훑지 말 것.** 이 저장소에는 `.yml` 확장자 워크플로우도 5개 있다
+> (`NEXUS-*` · `GITHUB-PACKAGES-PUBLISH` · `TEMPLATE-UTIL-VERSION-SYNC`).
+> 실제로 `*.yaml` 만 본 첫 점검에서 한 건을 놓쳤고 테스트가 잡았다.
+
+> **⚠️ `repository_dispatch` 는 기본 브랜치의 워크플로 정의로 돈다.** 이 트리거를 쓰는
+> 워크플로우(`ANDROID-TEST-APK` · `IOS-TEST-TESTFLIGHT` · `APP-BUILD-TRIGGER`)를 develop
+> 에서 고치고 테스트 빌드를 다시 걸면 **여전히 옛 정의가 실행된다.** 수정이 안 먹은 것처럼
+> 보여 원인을 엉뚱한 데서 찾게 되므로, 반드시 기본 브랜치에 반영된 뒤에 확인한다.
+
 ### 실행 기록 3계층 (#493·#494·#561 — agent 필독)
 
 마법사(full/workflows)가 끝나면 **대상 레포**의 `.github/.projectops/logs/`에 실행 기록을 남긴다.

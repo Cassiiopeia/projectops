@@ -61,6 +61,19 @@ on:
   repository_dispatch:
     types: [build-ios-app]
 
+# ⚠️ repository_dispatch 는 **기본 브랜치(main)의 워크플로 정의**로 실행된다 (#595).
+#    이 파일을 develop 에서 고치고 테스트 빌드를 다시 걸면 **여전히 옛 정의가 돈다** —
+#    고친 게 안 먹은 것처럼 보여 원인을 엉뚱한 데서 찾게 된다.
+#    반드시 기본 브랜치에 반영된 뒤에 확인할 것. (build 대상 브랜치와는 별개다)
+
+permissions:
+  # 이슈·PR에 진행 상황 댓글을 단다. 명시하지 않으면 레포 기본값을 따르는데,
+  # GitHub 신규 레포 기본값은 read 라서 **댓글 다는 순간 실패**한다 (#595).
+  #   RequestError [HttpError]: Resource not accessible by integration
+  contents: read
+  issues: write
+  pull-requests: write
+
 # ===================================================================
 # 🔧 프로젝트별 설정 (아래 값들을 수정하세요)
 # ===================================================================

@@ -15,6 +15,10 @@ on:
     tags:
       - 'v*.*.*'
 
+permissions:
+  # Nexus 로 올리기만 한다 — 저장소를 읽는 것 외에 GITHUB_TOKEN 권한이 필요 없다 (#595).
+  contents: read
+
 jobs:
   publish:
     runs-on: ubuntu-latest

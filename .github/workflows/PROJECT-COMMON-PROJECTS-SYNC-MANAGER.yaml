@@ -50,6 +50,11 @@ concurrency:
   group: projects-sync-${{ github.event.issue.number || github.event.inputs.issue_number }}
   cancel-in-progress: true
 
+permissions:
+  # GITHUB_TOKEN 으로는 읽기만 한다. 명시해 두면 레포 기본값이 나중에 write 로 바뀌어도
+  # 이 워크플로우가 필요 이상의 권한을 갖지 않는다 (#595).
+  contents: read
+
 env:
   # 동기화할 Status Label 목록 (JSON 배열)
   # projects-sync-wizard에서 설정한 값과 동일해야 합니다

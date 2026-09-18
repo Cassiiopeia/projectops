@@ -25,6 +25,11 @@ on:
     # @wizard paths-anchor (모노레포일 때 integrator가 paths 필터를 여기 주입)
   workflow_dispatch:
 
+permissions:
+  # GITHUB_TOKEN 으로는 읽기만 한다. 명시해 두면 레포 기본값이 나중에 write 로 바뀌어도
+  # 이 워크플로우가 필요 이상의 권한을 갖지 않는다 (#595).
+  contents: read
+
 env:
   PROJECT_NAME: "__PROJECT_NAME__"  # @wizard ask:@repo
   DOCKER_IMAGE_PREFIX: "front-container"
