@@ -58,7 +58,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py note pitfall --text "동의
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py note run --name social-signup --text "통과 — 버그 2건 발견" --root {PROJECT_ROOT}
 ```
 
-`docs/testing/e2e/learned.json`에 쌓인다. **다음 실행에서는 이 파일을 먼저 읽는다** —
+`~/.projectops/agent-test/{owner}__{repo}/learned.json`에 쌓인다. **다음 실행에서는 이 파일을 먼저 읽는다** —
 좌표 힌트가 있으면 스크린샷 판독을 건너뛸 수 있고(그래도 **확인은 한다**), 함정 목록이
 있으면 같은 실수를 반복하지 않는다.
 
@@ -67,7 +67,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py note run --name social-sign
 | 무엇 | 어디 | skill 업데이트 영향 |
 | --- | --- | --- |
 | 절차·스크립트 | 하네스 설치 경로 (`~/.claude/plugins/cache/...` 등) | 통째로 교체된다 |
-| **쌓인 기록** | **프로젝트 레포** `docs/testing/e2e/learned.json` | **없다** |
+| **쌓인 기록** | **홈** `~/.projectops/agent-test/{owner}__{repo}/learned.json` — 워크트리를 만들어도 살아남는다 | **없다** |
 
 기록은 프로젝트에 있고 skill은 그것을 읽을 뿐이다. 그래서 skill이 몇 번을 갱신돼도,
 어느 하네스(Claude Code·Codex·Gemini·Pi)에서 불려도 같은 파일이 이어진다.

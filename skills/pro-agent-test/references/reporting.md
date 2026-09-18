@@ -1,6 +1,6 @@
 # 결과 보고와 이슈 등록
 
-`pro-flutter-e2e` Phase 5에서 쓴다.
+`pro-agent-test` Phase 5에서 쓴다.
 
 ## 보고의 최소 형태
 

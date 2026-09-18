@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""e2e_cli — pro-flutter-e2e 전용 CLI (projectops 3-layer 표준, Layer 2).
+"""e2e_cli — pro-agent-test 전용 CLI (projectops 3-layer 표준, Layer 2).
 
 Flutter 프로젝트를 실기기에서 밟기 전에 필요한 값들을 한 번에 찾아낸다.
 매 호출마다 agent가 grep 조합을 다시 짜지 않도록 여기에 모아 둔다.
@@ -27,7 +27,20 @@ _SCRIPTS_ROOT = _PROJECT_ROOT / "scripts"
 if str(_SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_ROOT))
 
-from common.emit import emit  # noqa: E402
+from common.emit import emit as _emit_raw  # noqa: E402
+
+
+def emit(payload: dict) -> int:
+    """공통 emit에 "지식을 옮겼다"는 알림을 얹는다.
+
+    이전은 어느 명령에서든 일어날 수 있다(note·scenario·bootstrap...). 호출부마다
+    챙기면 반드시 빠뜨리는 자리가 생기므로 출력 길목 한 곳에서 처리한다.
+    한 번 실어 보내면 비운다 — 같은 실행에서 두 번 알릴 이유가 없다.
+    """
+    if _MIGRATION_NOTES:
+        payload = {**payload, "migrated": list(_MIGRATION_NOTES)}
+        _MIGRATION_NOTES.clear()
+    return _emit_raw(payload)
 
 
 def _sdk_tool(name: str) -> str | None:
@@ -459,7 +472,11 @@ def cmd_bootstrap(args) -> int:
 # 시나리오 — 프로젝트마다 다른 "무엇을 어떻게 밟을지"를 파일로 둔다
 # =========================================================================
 
+# 예전 위치. 이제 쓰지 않지만, 여기 있던 것을 홈으로 옮겨 오기 위해 남겨 둔다.
 _SCENARIO_DIRS = ("docs/testing/e2e", ".projectops/e2e")
+
+# 이전이 일어났을 때 사용자에게 알릴 말. 명령 결과에 실어 보낸다.
+_MIGRATION_NOTES: list[str] = []
 
 _TEMPLATE = {
     "name": "{무엇을 밟는지 한 줄}",
@@ -508,7 +525,7 @@ def _ensure_gitignore(d: Path) -> bool:
             body = gi.read_text(encoding="utf-8")
         except OSError:
             return False
-        if _GITIGNORE_UNSAFE in body and "pro-flutter-e2e" in body:
+        if _GITIGNORE_UNSAFE in body and ("pro-agent-test" in body or "pro-flutter-e2e" in body):
             gi.write_text(_GITIGNORE, encoding="utf-8")
             return True
         return False
@@ -516,18 +533,79 @@ def _ensure_gitignore(d: Path) -> bool:
     return True
 
 
-def _scenario_dir(root: Path, create: bool = False) -> Path:
-    """시나리오를 둘 곳. 이미 쓰고 있는 폴더가 있으면 그것을 따른다."""
+def _repo_key(root: Path) -> str:
+    """프로젝트를 가리키는 키. git remote의 owner/repo를 쓴다.
+
+    **경로를 키로 쓰면 안 된다.** 워크트리마다 경로가 달라 같은 프로젝트가 여러 개로
+    갈라지고, 그러면 쌓은 지식이 워크트리 수만큼 쪼개진다 — 옮기려는 이유가 그것이다.
+    remote가 없는(로컬 전용) 저장소는 폴더명으로 떨어진다.
+    """
+    url = _run(["git", "-C", str(root), "remote", "get-url", "origin"]).strip()
+    m = re.search(r"[:/]([^/:]+)/([^/]+?)(?:\.git)?$", url) if url else None
+    if m:
+        return f"{m.group(1)}__{m.group(2)}"
+    return re.sub(r"[^A-Za-z0-9._-]+", "-", root.name).strip("-") or "unknown"
+
+
+def _home_dir(root: Path) -> Path:
+    """쌓은 것을 두는 곳. 프로젝트 밖(홈)이라 워크트리를 만들어도 살아남는다."""
+    return Path.home() / ".projectops" / "agent-test" / _repo_key(root)
+
+
+def _migrate_from_project(root: Path, home: Path) -> str | None:
+    """예전 위치(프로젝트 안)에 있던 것을 홈으로 한 번 옮긴다.
+
+    **복사가 아니라 이동이다.** 두 곳에 남으면 어느 쪽이 최신인지 알 수 없어진다.
+    옮겼다는 사실은 호출부가 사용자에게 알린다 — 프로젝트 폴더에서 파일을 찾다가
+    없어서 당황하지 않게.
+    """
     for rel in _SCENARIO_DIRS:
-        d = root / rel
-        if d.is_dir():
-            _ensure_gitignore(d)
-            return d
-    d = root / _SCENARIO_DIRS[0]
+        old_dir = root / rel
+        if not old_dir.is_dir():
+            continue
+        moved = []
+        home.mkdir(parents=True, exist_ok=True)
+        for item in old_dir.iterdir():
+            if item.name == ".gitignore":
+                continue        # 예전 위치를 막던 규칙은 따라갈 이유가 없다
+            dest = home / item.name
+            if dest.exists():
+                continue        # 홈이 이미 갖고 있으면 그쪽이 최신이다
+            shutil.move(str(item), str(dest))
+            moved.append(item.name)
+        if moved:
+            note = f"{old_dir} → {home} ({', '.join(sorted(moved))})"
+            # 남은 것이 우리가 쓴 .gitignore뿐이면 알려준다. **지우지는 않는다** —
+            # 사용자 저장소의 파일을 묻지 않고 없애지 않는다는 규칙이 우선이다.
+            rest = [f.name for f in old_dir.iterdir()]
+            if rest == [".gitignore"]:
+                body = (old_dir / ".gitignore").read_text(encoding="utf-8", errors="replace")
+                if _GITIGNORE_MARK in body or _GITIGNORE_MARK_LEGACY in body:
+                    note += f" · 빈 폴더가 남았습니다: {old_dir} (지워도 됩니다)"
+            return note
+    return None
+
+
+def _scenario_dir(root: Path, create: bool = False) -> Path:
+    """시나리오·지식을 둘 곳.
+
+    예전에는 프로젝트 안(`docs/testing/e2e`)이었는데, 그 폴더는 .gitignore로 추적에서
+    빠져 있어 **새 워크트리에 복사되지 않았다.** 이슈마다 워크트리를 만드는 흐름에서는
+    이슈 하나가 끝날 때마다 쌓은 지식이 통째로 사라졌다 (이슈 #586).
+
+    이제 홈에 두고 git remote로 프로젝트를 구분한다. 예전 위치에 있던 것은 처음 한 번
+    자동으로 옮겨 온다.
+    """
+    home = _home_dir(root)
+    if home.is_dir():
+        return home
+    note = _migrate_from_project(root, home)
+    if note:
+        _MIGRATION_NOTES.append(note)
+        return home
     if create:
-        d.mkdir(parents=True, exist_ok=True)
-        _ensure_gitignore(d)
-    return d
+        home.mkdir(parents=True, exist_ok=True)
+    return home
 
 
 def _validate(data: dict) -> list[str]:
@@ -733,7 +811,10 @@ def _find_secrets(text: str) -> list[str]:
 # 되살렸는데, 그 한 줄이 새로 생기는 파일까지 전부 추적 대상으로 만들었다. 실제로
 # 서버 주소가 적힌 파일이 공개 레포에 올라갈 뻔했다. 무엇이 생길지 미리 다 알 수 없으므로
 # 막는 쪽을 기본값으로 둔다 — 올리고 싶은 것이 생기면 그때 한 줄씩 예외를 적는다.
-_GITIGNORE_MARK = "# pro-flutter-e2e — 산출물 폴더"
+_GITIGNORE_MARK = "# pro-agent-test — 산출물 폴더"
+# 옛 이름으로 깔린 프로젝트가 이미 있다. 마커를 갈아끼우면 우리가 쓴 파일을 남의 것으로
+# 오해해 손대지 않게 되므로, 알아보기만은 계속 한다 (이슈 #586 개명).
+_GITIGNORE_MARK_LEGACY = "# pro-flutter-e2e — 산출물 폴더"
 
 _GITIGNORE = f"""{_GITIGNORE_MARK}
 #

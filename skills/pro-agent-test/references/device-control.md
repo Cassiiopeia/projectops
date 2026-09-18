@@ -1,6 +1,6 @@
 # 기기 제어 명령 모음
 
-`pro-flutter-e2e` Phase 0·3·4에서 쓰는 명령. 플랫폼별로 나눠 둔다.
+`pro-agent-test` Phase 0·3·4에서 쓰는 명령. 플랫폼별로 나눠 둔다.
 
 ## 공통 — PATH
 
