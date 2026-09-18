@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-18T04:47:30Z",
-    "currentVersion": "4.12.1",
+    "lastUpdated": "2026-09-18T05:19:58Z",
+    "currentVersion": "4.12.2",
     "projectType": "basic",
-    "totalReleases": 247,
+    "totalReleases": 248,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.12.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-18",
+      "pr_number": 593,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **개선**\n  * 스킬을 설치할 때 쓰이지 않는 파일까지 함께 복사되던 것을 정리해 설치가 가벼워졌습니다",
+      "parsed_changes": {
+        "개선": {
+          "title": "개선",
+          "items": [
+            "스킬을 설치할 때 쓰이지 않는 파일까지 함께 복사되던 것을 정리해 설치가 가벼워졌습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.12.1",
       "project_type": "basic",
