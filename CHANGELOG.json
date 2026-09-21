@@ -1,14 +1,40 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-18T13:53:53Z",
-    "currentVersion": "4.18.0",
+    "lastUpdated": "2026-09-21T15:14:49Z",
+    "currentVersion": "4.18.1",
     "projectType": "basic",
-    "totalReleases": 258,
+    "totalReleases": 259,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.18.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-21",
+      "pr_number": 617,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 릴리스가 조용히 누락되던 문제를 고쳤어요\n\n* **개선**\n  * 화면을 밟을 때 시안과 같은지도 함께 보게 했어요\n  * 에셋은 맞는데 다르게 보이는 경우를 짚어 주도록 했어요",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "릴리스가 조용히 누락되던 문제를 고쳤어요"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "화면을 밟을 때 시안과 같은지도 함께 보게 했어요",
+            "에셋은 맞는데 다르게 보이는 경우를 짚어 주도록 했어요"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.18.0",
       "project_type": "basic",
