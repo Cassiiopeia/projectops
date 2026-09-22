@@ -193,3 +193,91 @@ def test_masking_excludes_the_bands_the_app_does_not_draw(tmp_path):
     _, masked, _ = run("diff", "--render", str(render), "--design", str(design),
                        "--mask-top", "40", "--mask-bottom", "40")
     assert out(masked)["compared_pixels"] < out(plain)["compared_pixels"]
+
+
+# ── 통째로 밀린 것과 낱낱이 틀린 것을 가린다 (실사고 기반) ────────────────
+#
+# 시트 윗변이 35px 아래에 뜨자 안의 단계·보상·버튼이 **전부 두 겹**으로 보였다.
+# 덩어리가 열 개 나왔지만 틀린 것은 하나 — 컨테이너 높이였다. 덩어리 수를 결함 수로
+# 읽으면 엉뚱한 데를 고친다.
+
+def _sheet(path, top, wrong_row=False):
+    """시트 안에 줄이 여럿. top 만 다르면 '통째로 밀림'이다."""
+    from PIL import Image, ImageDraw
+    W, H, BG = 300, 480, (247, 242, 239)
+    im = Image.new("RGBA", (W, H), (*BG, 255))
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle((12, top, W - 12, H - 16), radius=20, fill=(255, 255, 255, 255))
+    y = top + 24
+    for i in range(6):
+        color = (220, 90, 90, 255) if (wrong_row and i == 0) else (156, 173, 241, 255)
+        d.rounded_rectangle((32, y, W - 32, y + 28), radius=8, fill=color)
+        y += 44
+    im.save(path)
+    return path
+
+
+def test_whole_block_shift_is_named_as_such(tmp_path):
+    """옮겨서 맞아떨어지면 '컨테이너가 밀렸다'고 말해야 한다."""
+    design = _sheet(tmp_path / "d.png", 90)
+    render = _sheet(tmp_path / "r.png", 125)          # 35px 아래
+    _, o, _ = run("diff", "--render", str(render), "--design", str(design))
+    d = out(o)
+
+    assert len(d["clusters"]) > 1, "줄이 여럿 잡혀야 이 상황이다"
+    sp = d["shift_probe"]
+    assert sp["looks_shifted"] is True, sp
+    assert sp["dy"] == -35, sp
+    assert sp["after"] < sp["before"] / 2
+    assert "통째로 밀린" in d["next"]
+    assert "컨테이너" in d["next"]
+
+
+def test_one_real_difference_is_not_called_a_shift(tmp_path):
+    """한 줄만 틀린 것을 밀림으로 오판하면 엉뚱한 곳을 고치게 된다."""
+    design = _sheet(tmp_path / "d.png", 90)
+    render = _sheet(tmp_path / "r.png", 90, wrong_row=True)
+    _, o, _ = run("diff", "--render", str(render), "--design", str(design))
+    d = out(o)
+    assert d["shift_probe"]["looks_shifted"] is False, d["shift_probe"]
+    assert "통째로 밀린" not in d["next"]
+
+
+def test_shift_probe_can_be_turned_off(tmp_path):
+    design = _sheet(tmp_path / "d.png", 90)
+    render = _sheet(tmp_path / "r.png", 125)
+    _, o, _ = run("diff", "--render", str(render), "--design", str(design),
+                  "--probe-shift", "0")
+    assert out(o)["shift_probe"] is None
+
+
+# ── 꺼 둔 레이어는 세지 않는다 ───────────────────────────────────────────
+#
+# 덤프에는 화면에 안 그려지는 레이어도 섞여 나온다. 그것까지 세면 "분류할 항목 40개"
+# 가 되어 사람이 보다 지쳐 포기한다 — 그러면 세는 의미가 없다.
+
+def test_hidden_layers_are_skipped_with_their_children(tmp_path):
+    dump = {"nodes": [{"id": "1:1", "name": "화면", "layout": {"gap": 16}, "children": [
+        {"id": "1:2", "name": "보임", "fills": [{"color": "#8B5CF6"}],
+         "effects": [{"blur": 20}, {"blur": 10}]},
+        {"id": "1:3", "name": "꺼둠", "visible": False,
+         "effects": [{"blur": 1}, {"blur": 2}, {"blur": 3}]},
+        {"id": "1:4", "name": "투명", "opacity": 0, "strokes": [{"color": "#0F0"}]},
+    ]}]}
+    _, o, _ = run("coverage", "--dump", str(_dump(tmp_path, dump)))
+    d = out(o)
+
+    assert d["total"] == 4, d["items"]          # layout 1 + fills 1 + effects 2
+    assert set(d["hidden_skipped"]) == {"1:3", "1:4"}
+    assert "꺼 둔 레이어 2개 제외" in d["summary"]
+    # 꺼 둔 노드의 항목이 하나도 섞이지 않아야 한다
+    assert not any(i["ref"].startswith(("1:3", "1:4")) for i in d["items"])
+
+
+def test_visible_nodes_are_never_dropped_by_accident(tmp_path):
+    """모르는 표기를 만나면 보이는 것으로 친다 — 잘못 걸러 빠뜨리는 쪽이 더 나쁘다."""
+    dump = {"nodes": [{"id": "1:1", "name": "이상한 표기", "displayMode": "weird",
+                       "effects": [{"blur": 5}]}]}
+    _, o, _ = run("coverage", "--dump", str(_dump(tmp_path, dump)))
+    d = out(o)
+    assert d["total"] == 1 and d["hidden_skipped"] == []

@@ -68,17 +68,42 @@ def _describe(value) -> str:
     return str(value)
 
 
-def _walk(node, path, out, want_id=None, inside=False):
+def _is_hidden(node: dict) -> bool:
+    """화면에 안 그려지는 노드인가.
+
+    덤프에는 **꺼 둔 레이어도 섞여 나온다.** 그것까지 세면 "분류할 항목 40개"
+    같은 숫자가 나와 사람이 보다 지쳐 포기한다 — 그러면 세는 의미가 없다.
+    """
+    if node.get("visible") is False:
+        return True
+    try:
+        if float(node.get("opacity", 1)) == 0:
+            return True
+    except (TypeError, ValueError):
+        pass
+    # 도구마다 이름이 다르다. 모르는 표기는 보이는 것으로 친다 —
+    # 잘못 걸러 빠뜨리는 것보다 한 줄 더 세는 편이 낫다.
+    return node.get("isVisible") is False or node.get("hidden") is True
+
+
+def _walk(node, path, out, want_id=None, inside=False, hidden=None):
     """덤프를 훑어 스타일 항목을 모은다.
 
     덤프 모양이 도구·버전마다 달라서 키 이름을 고정하지 않고 재귀로 찾는다.
     구조를 단정하면 다음 버전에서 **조용히 0건**이 된다.
     """
+    if hidden is None:
+        hidden = []
     if isinstance(node, list):
         for i, child in enumerate(node):
-            _walk(child, f"{path}[{i}]", out, want_id, inside)
+            _walk(child, f"{path}[{i}]", out, want_id, inside, hidden)
         return
     if not isinstance(node, dict):
+        return
+
+    # 꺼 둔 레이어는 자식까지 통째로 건너뛴다. 부모가 안 보이면 자식도 안 보인다.
+    if _is_hidden(node):
+        hidden.append(node.get("id") or node.get("name") or "?")
         return
 
     node_id = node.get("id")
@@ -106,7 +131,7 @@ def _walk(node, path, out, want_id=None, inside=False):
 
     for k, v in node.items():
         if isinstance(v, (dict, list)) and k not in ("fills", "strokes", "effects"):
-            _walk(v, f"{path}.{k}", out, want_id, here)
+            _walk(v, f"{path}.{k}", out, want_id, here, hidden)
 
 
 def cmd_coverage(args) -> int:
@@ -121,7 +146,8 @@ def cmd_coverage(args) -> int:
         return emit({"ok": False, "code": "dump_unreadable", "error": str(e)})
 
     items: list[dict] = []
-    _walk(data, "$", items, args.node)
+    hidden: list[str] = []
+    _walk(data, "$", items, args.node, hidden=hidden)
 
     if not items:
         return emit({
@@ -140,8 +166,10 @@ def cmd_coverage(args) -> int:
         "items": items,
         "counts": counts,
         "total": len(items),
-        "summary": f"분류해야 할 스타일 항목 {len(items)}개 " +
-                   " · ".join(f"{k} {v}" for k, v in sorted(counts.items())),
+        "hidden_skipped": hidden,
+        "summary": (f"분류해야 할 스타일 항목 {len(items)}개 " +
+                    " · ".join(f"{k} {v}" for k, v in sorted(counts.items())) +
+                    (f" (꺼 둔 레이어 {len(hidden)}개 제외)" if hidden else "")),
         "next": ("각 항목을 구현 / 근사(사유) / 생략(사유) 중 하나로 분류하세요. "
                  "근사·생략은 사유를 반드시 적습니다 — 적지 않으면 나중에 "
                  "못 옮긴 것인지 안 옮기기로 한 것인지 구분할 수 없습니다"),
@@ -206,6 +234,42 @@ def _clusters(mask, min_area):
     return [b for b in boxes if (b[2] - b[0] + 1) * (b[3] - b[1] + 1) >= min_area]
 
 
+def _shift_probe(design, render, threshold, span):
+    """렌더를 조금씩 옮겨 보며 **통째로 밀린 것인지** 가린다.
+
+    실사고: 시트 윗변이 35px 아래에 뜨자 안의 단계·보상·버튼이 **전부 두 겹**으로
+    보였다. 덩어리가 열 개 나왔지만 틀린 것은 하나 — 컨테이너 높이였다. 덩어리만
+    세면 "열 군데가 어긋났다"로 읽혀 엉뚱한 데를 고치게 된다.
+
+    세로를 먼저 본다. 화면은 세로로 쌓이므로 밀림도 대개 세로다.
+    """
+    import numpy as np
+
+    def rate(dy, dx):
+        h, w = design.shape[:2]
+        y0, y1 = max(0, dy), min(h, h + dy)
+        x0, x1 = max(0, dx), min(w, w + dx)
+        if y1 - y0 < h // 2 or x1 - x0 < w // 2:
+            return 1.0
+        a_ = design[y0:y1, x0:x1]
+        b_ = render[y0 - dy:y1 - dy, x0 - dx:x1 - dx]
+        return float((np.abs(a_ - b_).max(axis=2) > threshold).mean())
+
+    base = rate(0, 0)
+    best_dy, best = 0, base
+    for dy in range(-span, span + 1):
+        r = rate(dy, 0)
+        if r < best:
+            best_dy, best = dy, r
+    best_dx = 0
+    for dx in range(-span, span + 1):
+        r = rate(best_dy, dx)
+        if r < best:
+            best_dx, best = dx, r
+    return {"dy": best_dy, "dx": best_dx,
+            "before": round(base * 100, 2), "after": round(best * 100, 2)}
+
+
 def cmd_diff(args) -> int:
     missing = _require_imaging()
     if missing is not None:
@@ -251,6 +315,16 @@ def cmd_diff(args) -> int:
         found.append({"x": x0, "y": y0, "w": x1 - x0 + 1, "h": y1 - y0 + 1,
                       "mean_delta": round(float(hot.mean()), 1)})
 
+    # 덩어리가 여럿일 때 "낱낱이 틀림"인지 "하나가 밀림"인지 가린다.
+    shift = None
+    if found and args.probe_shift > 0:
+        shift = _shift_probe(design, render, args.threshold, args.probe_shift)
+        # 옮겨서 절반 아래로 떨어지면 밀림으로 본다. 조금 나아지는 정도는
+        # 안티에일리어싱으로도 생기므로 신호로 치지 않는다.
+        shift["looks_shifted"] = bool(
+            (shift["dy"] or shift["dx"])
+            and shift["after"] <= shift["before"] * 0.5)
+
     out_path = None
     if args.out:
         # 원본을 흐리게 깔고 다른 자리만 붉게 칠한다 — 어디가 틀렸는지 바로 보인다.
@@ -269,12 +343,20 @@ def cmd_diff(args) -> int:
         "different_percent": round(pct, 2),
         "max_delta": int(delta.max()),
         "clusters": found,
+        "shift_probe": shift,
         "diff_image": out_path,
         "summary": (f"다른 픽셀 {pct:.2f}% · 덩어리 {len(found)}개 "
                     f"(최대 채널차 {int(delta.max())})"),
-        "next": ("퍼센트가 아니라 **덩어리 위치**를 보세요. 글자 자리면 래스터라이즈 "
-                 "차이라 대개 무해하고, 도형·여백 자리면 실제로 틀린 것입니다. "
-                 "그림자·발광·1px 테두리는 전체 화면에서 사라지므로 component 로 다시 봅니다"),
+        "next": (
+            (f"덩어리가 {len(found)}개지만 렌더를 "
+             f"({shift['dx']:+d}, {shift['dy']:+d}) 옮기면 "
+             f"{shift['before']}% → {shift['after']}% 로 떨어집니다. "
+             "**낱낱이 어긋난 것이 아니라 통째로 밀린 것**입니다 — 안의 요소가 아니라 "
+             "그것을 담은 컨테이너(높이·여백·안전영역)를 먼저 보세요."
+             if (shift or {}).get("looks_shifted") else
+             "퍼센트가 아니라 **덩어리 위치**를 보세요. 글자 자리면 래스터라이즈 "
+             "차이라 대개 무해하고, 도형·여백 자리면 실제로 틀린 것입니다. "
+             "그림자·발광·1px 테두리는 전체 화면에서 사라지므로 component 로 다시 봅니다")),
     })
 
 
@@ -303,6 +385,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="아래에서 이만큼 제외 (홈 인디케이터)")
     d.add_argument("--min-area", type=int, default=200,
                    help="이 넓이 미만 덩어리는 보고하지 않는다")
+    d.add_argument("--probe-shift", type=int, default=40,
+                   help="렌더를 ±이 픽셀만큼 옮겨 보며 '통째로 밀림'인지 가린다 (0=끄기)")
     d.set_defaults(func=cmd_diff)
     return p
 
