@@ -729,3 +729,162 @@ def test_output_path_gitignore_is_idempotent(tmp_path, monkeypatch):
     Path(out(o2)["run_dir"]).parent.joinpath(".gitignore").write_text("남이 쓴 것\n", encoding="utf-8")
     _, o3, _ = run("get-output-path", "--title", "다", "--root", str(proj))
     assert out(o3)["gitignore"] == "kept"
+
+
+# =========================================================================
+# corners — 속성으로 대조한다 (#626)
+#
+# 픽셀 퍼센트는 **어디가** 다른지만 말한다. 실제 사고에서 각진 모서리를
+# `476~519 / 0~785 / 평균차 77` 로 리포트하고도 아무도 못 읽었다 — 전체 5.5%
+# 다름에 덩어리 22개라 진짜 결함이 잡음에 묻혔다.
+# 속성은 단정적이다: `좌상 r=20 인데 렌더가 각졌다`.
+# =========================================================================
+
+# 순수 값 검사는 모듈을 직접 불러 확인한다 — 하위 프로세스를 띄울 이유가 없다.
+import importlib.util  # noqa: E402
+
+_spec = importlib.util.spec_from_file_location("figma_verify_under_test", CLI)
+_m = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_m)
+
+
+def _imaging():
+    try:
+        import numpy  # noqa: F401
+        from PIL import Image, ImageDraw  # noqa: F401
+    except ImportError:
+        pytest.skip("Pillow·numpy 없음")
+    from PIL import Image, ImageDraw
+    return Image, ImageDraw
+
+
+def _corner_case(tmp_path, scale=1, radius=20, frame=(200, 220)):
+    """시안은 둘 다 r=radius 라고 말하는데, 렌더는 위만 둥글고 아래는 각지다."""
+    Image, ImageDraw = _imaging()
+    dump = {
+        "nodes": [{"id": "1:1", "name": "화면", "type": "FRAME", "layout": "L_s",
+                   "children": [
+                       {"id": "1:10", "name": "둥근 상자", "type": "RECTANGLE",
+                        "layout": "L_a", "borderRadius": f"{radius}px", "fills": "F"},
+                       {"id": "1:20", "name": "각진 상자", "type": "RECTANGLE",
+                        "layout": "L_b", "borderRadius": f"{radius}px", "fills": "F"},
+                   ]}],
+        "globalVars": {"styles": {
+            "L_s": {"dimensions": {"width": frame[0], "height": frame[1]}},
+            "L_a": {"locationRelativeToParent": {"x": 20, "y": 20},
+                    "dimensions": {"width": 160, "height": 80}},
+            "L_b": {"locationRelativeToParent": {"x": 20, "y": 120},
+                    "dimensions": {"width": 160, "height": 80}},
+            "F": ["#3366FF"]}}}
+    dp = tmp_path / "dump.json"
+    dp.write_text(json.dumps(dump, ensure_ascii=False), encoding="utf-8")
+
+    k = scale
+    img = Image.new("RGB", (frame[0] * k, frame[1] * k), (255, 255, 255))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle([20 * k, 20 * k, 180 * k, 100 * k], radius=radius * k,
+                        fill=(51, 102, 255))
+    d.rectangle([20 * k, 120 * k, 180 * k, 200 * k], fill=(51, 102, 255))
+    rp = tmp_path / "render.png"
+    img.save(rp)
+    return dp, rp
+
+
+def test_corner_probe_point_must_fall_outside_the_arc():
+    """탐침 자리를 잘못 잡으면 **둥근 모서리도 각졌다고 나온다**.
+
+    꼭짓점에서 t 만큼 들어간 (t,t) 는 호 중심 (r,r) 까지 (r-t)·√2 다.
+    바깥이려면 그게 r 보다 커야 하므로 t < r(1 - 1/√2) = 0.2929r.
+    도구 없이 도는 순수 값 검사다 — 어디서나 항상 돈다.
+    """
+    m = _m
+    assert m._CORNER_PROBE < m._CORNER_LIMIT, (
+        f"탐침 {m._CORNER_PROBE}r 이 임계값 {m._CORNER_LIMIT:.4f}r 이상이면 "
+        "둥근 모서리에서도 면 색이 나와 언제나 각졌다고 한다")
+    r = 100.0
+    t = m._CORNER_PROBE * r
+    assert (r - t) * (2 ** 0.5) > r, "탐침이 도형 안쪽이다"
+
+
+def test_radius_string_is_parsed_into_four_corners():
+    """실측: `20px` 하나로도, `0px 0px 0px 0px` 넷으로도 온다."""
+    m = _m
+    assert m._parse_radius("20px") == [20.0] * 4
+    assert m._parse_radius("0px 0px 0px 0px") == [0.0] * 4
+    assert m._parse_radius("16px 16px 0px 0px") == [16.0, 16.0, 0.0, 0.0]
+    assert m._parse_radius("4.6px") == [4.6] * 4     # 실덤프에 164개 있던 값
+    assert m._parse_radius(None) == [0.0] * 4
+
+
+def test_square_corner_is_caught_and_round_one_is_not(tmp_path):
+    """오탐이 없어야 쓴다. 둥근 것을 잡으면 아무도 안 믿는다."""
+    dp, rp = _corner_case(tmp_path)
+    _, o, _ = run("corners", "--dump", str(dp), "--render", str(rp), "--node", "1:1")
+    d = out(o)
+    assert d["checked"] == 2, d
+    assert d["scale"] == 1, d["scale_from"]
+    names = {f["says"].split()[0] for f in d["findings"]}
+    assert names == {"각진"}, d["findings"]          # '각진 상자'만
+    assert len(d["findings"]) == 4, d["findings"]    # 네 귀 전부
+    assert "r=20 → 렌더가 각졌다" in d["findings"][0]["says"]
+
+
+def test_scale_comes_from_the_reference_node_not_the_rect_list(tmp_path):
+    """기준 프레임은 대개 둥근 모서리가 없어 사각형 목록에 없다.
+
+    거기서 배율을 뽑으면 어긋나고, 어긋나면 **멀쩡한 모서리를 각졌다고 우긴다**
+    (실측으로 1.0 대신 1.25 가 나왔다).
+    """
+    dp, rp = _corner_case(tmp_path, scale=3)
+    _, o, _ = run("corners", "--dump", str(dp), "--render", str(rp), "--node", "1:1")
+    d = out(o)
+    assert d["scale"] == 3, d["scale_from"]
+    assert "÷ 기준 200" in d["scale_from"]
+    assert len(d["findings"]) == 4, d["findings"]    # 3배에서도 결과가 같다
+
+
+def test_positions_it_cannot_compute_are_skipped_and_counted(tmp_path):
+    """자동배치 자식은 좌표가 없다. 지어내면 엉뚱한 자리를 검사한다."""
+    dump = {
+        "nodes": [{"id": "2:1", "name": "화면", "type": "FRAME", "layout": "L_s",
+                   "children": [{"id": "2:9", "name": "흐름 안의 상자",
+                                 "type": "RECTANGLE", "layout": "L_flow",
+                                 "borderRadius": "12px"}]}],
+        "globalVars": {"styles": {
+            "L_s": {"dimensions": {"width": 100, "height": 100}},
+            "L_flow": {"dimensions": {"width": 50, "height": 50}}}}}   # 위치 없음
+    dp = tmp_path / "d.json"
+    dp.write_text(json.dumps(dump, ensure_ascii=False), encoding="utf-8")
+    Image, _ = _imaging()
+    rp = tmp_path / "r.png"
+    Image.new("RGB", (100, 100), (255, 255, 255)).save(rp)
+
+    _, o, _ = run("corners", "--dump", str(dp), "--render", str(rp), "--node", "2:1")
+    d = out(o)
+    assert d["checked"] == 0
+    assert d["skipped_unknown_position"] == 1
+    assert "건너뜀 1개" in d["summary"], d["summary"]
+
+
+def test_clean_screen_says_so_plainly(tmp_path):
+    """정상 화면에 돌리면 한 줄로 끝나야 한다 — 그게 이 도구의 값이다."""
+    Image, ImageDraw = _imaging()
+    dump = {
+        "nodes": [{"id": "3:1", "name": "화면", "type": "FRAME", "layout": "L_s",
+                   "children": [{"id": "3:9", "name": "상자", "type": "RECTANGLE",
+                                 "layout": "L_a", "borderRadius": "20px"}]}],
+        "globalVars": {"styles": {
+            "L_s": {"dimensions": {"width": 200, "height": 120}},
+            "L_a": {"locationRelativeToParent": {"x": 20, "y": 20},
+                    "dimensions": {"width": 160, "height": 80}}}}}
+    dp = tmp_path / "d.json"
+    dp.write_text(json.dumps(dump, ensure_ascii=False), encoding="utf-8")
+    img = Image.new("RGB", (200, 120), (255, 255, 255))
+    ImageDraw.Draw(img).rounded_rectangle([20, 20, 180, 100], radius=20,
+                                          fill=(51, 102, 255))
+    rp = tmp_path / "r.png"
+    img.save(rp)
+    _, o, _ = run("corners", "--dump", str(dp), "--render", str(rp), "--node", "3:1")
+    d = out(o)
+    assert d["findings"] == [], d["findings"]
+    assert "모서리 이상 없음" in d["summary"]

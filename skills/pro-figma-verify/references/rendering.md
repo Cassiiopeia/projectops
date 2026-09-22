@@ -188,4 +188,4 @@ await captureRef(ref, { format: 'png', quality: 1, result: 'tmpfile' });
 쓰는 것에서 각각을 어떻게 맞추는지 알아내 **여기에 절을 추가한다.**
 
 특히 "컴포넌트 하나만 원하는 배율로 캡처하는 법"은 프레임워크마다 다르고,
-없으면 Phase 5 를 할 수 없다.
+없으면 Phase 6 을 할 수 없다.
