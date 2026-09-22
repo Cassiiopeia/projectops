@@ -1141,6 +1141,17 @@ def print_completion(ctx):
     print("     store_prepare : production draft 승급 (콘솔에서 '출시 시작' 대기)")
     print("     store_submit  : production 심사 자동 등록 (정식 출시 1회 수동 이후부터 가능)")
     print("   워크플로우 수동 실행 시 deploy_mode 입력이 이 변수보다 우선합니다.")
+    print("")
+    print("🛤️  테스트 트랙 승급 (선택 · 배포 모드와 독립):")
+    print("     ANDROID_PROMOTE_TO_CLOSED_TESTING=true  비공개 테스트 트랙에도 올립니다")
+    print("     ANDROID_PROMOTE_TO_OPEN_TESTING=true    공개 테스트 트랙에도 올립니다")
+    print("     ANDROID_CLOSED_TESTING_TRACK            비공개 트랙 이름 (기본 alpha)")
+    print("     ANDROID_OPEN_TESTING_TRACK              공개 트랙 이름 (기본 beta)")
+    print("")
+    print("   ⚠️  2023-11-13 이후에 만든 개인 개발자 계정이라면 비공개 테스트가 사실상 필수입니다.")
+    print("      테스터 12명 이상이 14일 이상 참여한 비공개 테스트를 마쳐야 프로덕션 액세스를 받는데,")
+    print("      기본 배포가 닿는 내부 테스트 트랙은 그 조건에 잡히지 않습니다.")
+    print("      (그 이전에 만든 계정과 조직 계정은 해당하지 않습니다.)")
 
 
 # ===================================================================

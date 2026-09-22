@@ -130,6 +130,48 @@ projectops의 Flutter CI/CD 시스템은 **마법사 도구**와 **GitHub Action
 | `PROJECT-FLUTTER-ANDROID-FIREBASE-CICD.yaml` | Firebase App Distribution 배포 | main push |
 | `PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD.yaml` | 자체 서버(SMB) APK 배포 | main push |
 
+### 배포 범위는 어디까지 가는가 (`DEPLOY_MODE`)
+
+**한 값이 두 플랫폼에서 서로 다른 지점까지 간다.** 같은 이름이라 헷갈리기 쉬워 표로 둔다.
+
+| `DEPLOY_MODE` | iOS | Android |
+|---|---|---|
+| `store_only` (기본) | TestFlight 업로드까지 | 내부 테스트 트랙까지 |
+| `store_prepare` | App Store 버전에 빌드를 붙임 (제출 안 함) | 프로덕션 **draft** 승급 (콘솔에서 "출시 시작"을 사람이 누름) |
+| `store_submit` | App Store **심사 제출** | 프로덕션 **심사 자동 등록** |
+
+> 구 별칭(`testflight_only`·`appstore_prepare`·`appstore_submit`)도 계속 받는다.
+>
+> **기본값은 `store_only` 다** — 워크플로도, Fastfile 내부도 같다. 예전에는 Android
+> Fastfile 만 `store_submit` 이라, 워크플로를 거치지 않고 lane 을 직접 부르면 프로덕션
+> 심사에 올라갔다 (#618 에서 교정).
+
+### Android 트랙 — 내부 테스트만으로는 프로덕션에 못 간다 ⚠️
+
+`DEPLOY_MODE` 는 **프로덕션 단계만** 정한다. 중간 트랙은 독립 스위치가 맡는다.
+
+| 스위치 (레포 변수 / 수동 실행 입력) | 하는 일 | 기본 |
+|---|---|---|
+| `ANDROID_PROMOTE_TO_CLOSED_TESTING` | 비공개 테스트 트랙에도 올린다 | `false` |
+| `ANDROID_PROMOTE_TO_OPEN_TESTING` | 공개 테스트 트랙에도 올린다 | `false` |
+| `ANDROID_CLOSED_TESTING_TRACK` | 비공개 트랙 이름 | `alpha` |
+| `ANDROID_OPEN_TESTING_TRACK` | 공개 트랙 이름 | `beta` |
+
+| 트랙 | 구글 검토 | 반영 | 프로덕션 액세스 조건에 포함 |
+|---|---|---|---|
+| `internal` (내부) | **없음** | 수 분 | ❌ |
+| `alpha` (비공개) | 있음 | 수십 분 ~ 수일 | ✅ |
+| `beta` (공개) | 있음 | 〃 | ✅ |
+| `production` | 있음 | 〃 | — |
+
+> **2023-11-13 이후에 만든 개인 개발자 계정**은 테스터 12명 이상이 14일 이상 참여한
+> **비공개 테스트**를 마쳐야 프로덕션 액세스를 받는다. 내부 테스트는 검토가 없어
+> 편하지만 **그 조건에 잡히지 않는다** — 내부만 돌리면 조건이 영영 차지 않는다.
+> (그 이전에 만든 계정과 조직 계정은 해당하지 않는다.)
+>
+> 트랙 이름은 콘솔에서 바꿀 수 있으므로 값으로 둔다. 박아두면 임의 이름을 쓰는
+> 저장소에서 조용히 안 올라간다.
+
 ### 테스트 빌드 워크플로우
 
 | 워크플로우 | 용도 | 트리거 |

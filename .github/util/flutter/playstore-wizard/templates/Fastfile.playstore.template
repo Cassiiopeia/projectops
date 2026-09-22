@@ -1,3 +1,20 @@
+# 승급 실패를 **눈에 띄게** 알린다.
+#
+# GitHub Actions 에서는 애노테이션으로 올려 실행 목록에 뜨게 한다. 로그 안에만 두면
+# 초록불에 묻혀 아무도 읽지 않는다 — 이 저장소가 여러 번 겪은 모양이다 (#612 · #545).
+# 승급 스위치는 켜야만 도는 것이므로, 켠 사람은 그 승급을 원한 것이다. 안 됐으면 안다.
+def report_promote_failure(track, error)
+  head = "#{track} 트랙 승급 실패 — 내부 테스트 업로드는 정상 완료되었습니다."
+  why  = "사유: #{error.message}"
+  what = "확인할 것: (1) 서비스 계정에 해당 트랙 권한이 있는지 " \
+         "(2) 콘솔에 그 트랙이 만들어져 있는지 (3) 같은 버전 코드가 이미 그 트랙에 있는지"
+  puts "::error title=#{track} 트랙 승급 실패::#{head} / #{why} / #{what}" if ENV["GITHUB_ACTIONS"] == "true"
+  puts ""
+  puts "❌ #{head}"
+  puts "   #{why}"
+  puts "   #{what}"
+end
+
 default_platform(:android)
 
 platform :android do
@@ -21,6 +38,40 @@ platform :android do
   # ============================================================
 
   # ============================================================
+  # 🧭 지금 내 상황에서 무엇을 켜야 하나
+  # ============================================================
+  # DEPLOY_MODE 는 **프로덕션 단계만** 정한다. 중간 트랙(비공개·공개 테스트)은 아래
+  # 스위치가 따로 맡는다 — 서로 독립인 축이라 한 문자열에 눌러 담으면 조합이 터진다.
+  #
+  #  상황                            DEPLOY_MODE     CLOSED  OPEN   결과
+  #  ------------------------------  --------------  ------  -----  --------------------------
+  #  개발 중, 팀 내부만 확인           store_only      false   false  내부 테스트까지. 검토 없음, 수 분
+  #  프로덕션 액세스 준비(아래 ⚠️)     store_only      true    false  내부 + 비공개. 비공개는 매번 검토
+  #  오픈 베타 운영                   store_only      false   true   내부 + 공개 테스트
+  #  심사 직전 준비                   store_prepare   유지     유지   프로덕션 draft 까지 (사람이 출시)
+  #  실배포 자동                      store_submit    유지     유지   프로덕션 심사 자동 등록
+  #
+  # 되돌리기 — 스위치를 끄면 **다음 배포부터** 그 트랙에 안 올라간다. 이미 올라간
+  #            버전은 트랙에 남으므로 콘솔에서 내려야 한다. DEPLOY_MODE 를 낮추는 것도
+  #            같다 — 이미 심사에 들어간 것은 취소되지 않는다.
+  #
+  # ============================================================
+  # 🛤️ 트랙마다 성격이 다르다
+  # ============================================================
+  #  트랙             구글 검토   반영          프로덕션 액세스 조건에 포함
+  #  ---------------  ---------  -----------   --------------------------
+  #  internal(내부)    없음       수 분          ❌
+  #  alpha(비공개)     있음       수십 분~수일    ✅
+  #  beta(공개)        있음       〃             ✅
+  #  production       있음       〃             —
+  #
+  # ⚠️ **내부 테스트는 검토가 없어 편하지만 프로덕션 액세스 조건에 잡히지 않는다.**
+  #    2023-11-13 이후에 만든 개인 개발자 계정은 테스터 12명 이상이 14일 이상 참여한
+  #    **비공개 테스트**를 마쳐야 프로덕션 액세스를 받는다. 내부 테스트만 돌리면 그
+  #    조건이 영영 차지 않는다. (그 이전에 만든 계정·조직 계정은 해당하지 않는다.)
+  # ============================================================
+
+  # ============================================================
   # 배포 모드(DEPLOY_MODE):
   #   store_only    : 내부 테스트(internal) 트랙 업로드까지만
   #   store_prepare : internal 업로드 + production에 draft로 승급(콘솔에서 "출시 시작" 대기)
@@ -41,11 +92,24 @@ platform :android do
     #                   → Play Console에서 사람이 "출시 시작" 눌러야 심사 진행 (제출 직전 상태)
     #   store_submit  : internal 업로드 + production completed 승급(심사 자동 등록) — 완전 자동
     # (구 testflight_only/appstore_prepare/appstore_submit 별칭도 호환)
-    deploy_mode = (ENV["DEPLOY_MODE"] || "store_submit").strip
+    # 기본값은 **가장 안전한 것**으로 둔다. 예전에는 store_submit 이라, 워크플로를
+    # 거치지 않고 이 lane 을 직접 부르면 프로덕션 심사에 자동 등록됐다 — 되돌릴 수
+    # 없는 종류다 (#601 · #618). 워크플로 기본값(store_only)과도 어긋나 있었다.
+    deploy_mode = (ENV["DEPLOY_MODE"] || "store_only").strip
     promote = ["store_prepare", "store_submit", "appstore_prepare", "appstore_submit"].include?(deploy_mode)
     submit = ["store_submit", "appstore_submit"].include?(deploy_mode)
 
+    # 트랙 승급 스위치 — DEPLOY_MODE 와 **독립**이다. 워크플로가 값을 안 넘겨도
+    # 동작이 정해지도록 여기에도 기본값을 둔다.
+    # 트랙 이름을 박지 않는 이유: 콘솔에서 임의 이름의 비공개 트랙을 만들 수 있고,
+    # 박아두면 그런 저장소에서 조용히 안 올라간다.
+    promote_closed = (ENV["PROMOTE_TO_CLOSED_TESTING"] || "false").strip.downcase == "true"
+    promote_open   = (ENV["PROMOTE_TO_OPEN_TESTING"]   || "false").strip.downcase == "true"
+    closed_track   = (ENV["CLOSED_TESTING_TRACK"] || "alpha").strip
+    open_track     = (ENV["OPEN_TESTING_TRACK"]   || "beta").strip
+
     puts "📦 배포 정보: #{version_name} (#{version_code}) / 모드: #{deploy_mode} (프로덕션 승급: #{promote} / 심사 자동등록: #{submit})"
+    puts "🛤️  트랙 승급: 비공개(#{closed_track})=#{promote_closed} / 공개(#{open_track})=#{promote_open}"
 
     # ── Step 1: 내부 테스트 트랙에 업로드 ──────────────────────
     puts ""
@@ -71,19 +135,40 @@ platform :android do
 
     puts "✅ 내부 테스트 업로드 완료!"
 
+    # ── Step 2: 중간 트랙 승급 (켠 것만) ──────────────────────
+    # 프로덕션과 **독립**이다. store_only 여도 여기는 돈다 — 개인 계정이
+    # 프로덕션 액세스 조건을 채우려면 비공개 테스트를 계속 돌려야 하기 때문이다.
+    [[promote_closed, closed_track, "비공개 테스트"],
+     [promote_open,   open_track,   "공개 테스트"]].each do |on, track, label|
+      next unless on
+      puts ""
+      puts "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      puts "🧪 #{label} 트랙(#{track})으로 승급 중..."
+      puts "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      begin
+        promote_internal_to(to: track, status: 'completed')
+        puts "✅ #{label}(#{track}) 승급 완료 — 구글 검토를 거쳐 테스터에게 반영됩니다."
+      rescue StandardError => e
+        # 조용히 넘어가지 않는다. 스위치를 켠 사람은 이 승급을 원한 것이므로
+        # 안 됐다는 사실이 실행 목록에 떠야 한다.
+        report_promote_failure("#{label}(#{track})", e)
+        raise
+      end
+    end
+
     unless promote
       puts ""
-      puts "⏭️  store_only 모드 — 프로덕션 승급 건너뜀 (내부 테스트 업로드만 완료)"
+      puts "⏭️  #{deploy_mode} 모드 — 프로덕션 승급 건너뜀"
       next
     end
 
-    # ── Step 2: 내부 테스트 → 프로덕션 승급 ──
+    # ── Step 3: 내부 테스트 → 프로덕션 승급 ──
     #   store_submit  : completed로 승급 → Google 심사 자동 등록 (완전 자동)
     #   store_prepare : draft로 승급 → Play Console에서 사람이 "출시 시작" 눌러야 심사 진행
     promote_status = submit ? 'completed' : 'draft'
     puts ""
     puts "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    puts "🚀 2단계: 프로덕션 트랙으로 승급 중... (release_status: #{promote_status})"
+    puts "🚀 프로덕션 트랙으로 승급 중... (release_status: #{promote_status})"
     puts "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
     promote_internal_to_production(promote_status: promote_status)
@@ -99,29 +184,48 @@ platform :android do
     puts "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   end
 
-  desc "Promote internal track to production (promote_status: completed=심사자동등록 | draft=출시직전대기)"
-  lane :promote_internal_to_production do |options|
-    # ⚠️ Draft App(미출시)일 때는 이 lane이 동작하지 않습니다.
-    # Play Console에서 최초 1회 수동 프로덕션 출시 후 사용 가능합니다.
-    #   promote_status: 'completed' → 즉시 심사 등록 (store_submit)
-    #   promote_status: 'draft'     → 프로덕션 draft로만 올림, 사람이 콘솔에서 "출시 시작" (store_prepare)
-    status = options[:promote_status] || 'completed'
+  # 내부 테스트 트랙에서 다른 트랙으로 승급하는 공통 동작.
+  # 트랙마다 lane 을 복사하면 skip_ 플래그 열 줄이 갈라져 한쪽만 고쳐지는 일이 생긴다.
+  private_lane :promote_internal_to do |options|
     upload_to_play_store(
       package_name: "{{APPLICATION_ID}}",
       track: 'internal',
-      track_promote_to: 'production',
-      track_promote_release_status: status,        # completed(심사등록) | draft(출시 직전 대기)
+      track_promote_to: options[:to],
+      track_promote_release_status: options[:status] || 'completed',
       json_key: ENV["GOOGLE_PLAY_JSON_KEY"],
       skip_upload_apk: true,
       skip_upload_aab: true,
       skip_upload_metadata: true,
       skip_upload_images: true,
       skip_upload_screenshots: true,
-      skip_upload_changelogs: true,                # 승급 시에는 changelog 업로드 불필요 (이미 Step 1에서 업로드됨)
+      skip_upload_changelogs: true,                # 승급 시에는 changelog 업로드 불필요 (이미 업로드됨)
       rollout: '1.0',                              # 100% 전체 출시 (심사 통과 후 자동 적용)
       changes_not_sent_for_review: false,          # 변경을 Google 심사로 전송 (기본값이지만 의도 명시)
-      rescue_changes_not_sent_for_review: false    # ⚠️ 거짓 성공 차단: 심사 자동제출 실패 시 조용히 넘어가지 않고 워크플로우를 실패시킨다
+      rescue_changes_not_sent_for_review: false    # ⚠️ 거짓 성공 차단: 심사 자동제출 실패를 성공으로 바꾸지 않는다
     )
+  end
+
+  desc "Promote internal track to production (promote_status: completed=심사자동등록 | draft=출시직전대기)"
+  lane :promote_internal_to_production do |options|
+    # ⚠️ Draft App(미출시)일 때는 이 lane이 동작하지 않습니다.
+    # Play Console에서 최초 1회 수동 프로덕션 출시 후 사용 가능합니다.
+    #   promote_status: 'completed' → 즉시 심사 등록 (store_submit)
+    #   promote_status: 'draft'     → 프로덕션 draft로만 올림, 사람이 콘솔에서 "출시 시작" (store_prepare)
+    promote_internal_to(to: 'production', status: options[:promote_status] || 'completed')
+  end
+
+  desc "Promote internal track to closed testing (비공개 테스트 — CLOSED_TESTING_TRACK, 기본 alpha)"
+  lane :promote_internal_to_closed_testing do |options|
+    # 프로덕션 승급과 달리 **Draft App 여부와 무관하게** 동작한다.
+    # 2023-11-13 이후 개인 계정이 프로덕션 액세스를 받으려면 이 트랙이 필요하다.
+    promote_internal_to(to: options[:track] || ENV["CLOSED_TESTING_TRACK"] || 'alpha',
+                        status: 'completed')
+  end
+
+  desc "Promote internal track to open testing (공개 테스트 — OPEN_TESTING_TRACK, 기본 beta)"
+  lane :promote_internal_to_open_testing do |options|
+    promote_internal_to(to: options[:track] || ENV["OPEN_TESTING_TRACK"] || 'beta',
+                        status: 'completed')
   end
 
   desc "Validate Play Store credentials"

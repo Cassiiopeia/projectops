@@ -33,6 +33,16 @@ on:
           - store_only
           - store_prepare
           - store_submit
+      promote_to_closed_testing:
+        description: "비공개 테스트(alpha) 트랙에도 올린다 — 개인 계정 프로덕션 액세스 조건(테스터 12명·14일)에 필요"
+        required: false
+        default: false
+        type: boolean
+      promote_to_open_testing:
+        description: "공개 테스트(beta) 트랙에도 올린다"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   # GITHUB_TOKEN 으로는 읽기만 한다. 명시해 두면 레포 기본값이 나중에 write 로 바뀌어도
@@ -55,6 +65,14 @@ env:
   APP_ROOT: "."  # @wizard auto:flutter-root
   # 배포 모드 (store_only | store_prepare | store_submit)
   DEPLOY_MODE: ${{ github.event.inputs.deploy_mode || vars.ANDROID_DEPLOY_MODE || 'store_only' }}
+  # 트랙 승급 스위치 — DEPLOY_MODE 와 독립이다 (#618).
+  # 비공개 테스트는 2023-11-13 이후 개인 계정이 프로덕션 액세스를 받는 조건이라,
+  # 내부 테스트만 돌리면 그 조건이 영영 차지 않는다.
+  PROMOTE_TO_CLOSED_TESTING: ${{ github.event.inputs.promote_to_closed_testing || vars.ANDROID_PROMOTE_TO_CLOSED_TESTING || 'false' }}
+  PROMOTE_TO_OPEN_TESTING: ${{ github.event.inputs.promote_to_open_testing || vars.ANDROID_PROMOTE_TO_OPEN_TESTING || 'false' }}
+  # 트랙 이름은 콘솔에서 바꿀 수 있으므로 값으로 둔다 (박아두면 조용히 안 올라간다).
+  CLOSED_TESTING_TRACK: ${{ vars.ANDROID_CLOSED_TESTING_TRACK || 'alpha' }}
+  OPEN_TESTING_TRACK: ${{ vars.ANDROID_OPEN_TESTING_TRACK || 'beta' }}
 
 jobs:
   prepare-build:
@@ -604,6 +622,10 @@ jobs:
       - name: Upload to Play Store Internal Testing
         env:
           DEPLOY_MODE: ${{ env.DEPLOY_MODE }}
+          PROMOTE_TO_CLOSED_TESTING: ${{ env.PROMOTE_TO_CLOSED_TESTING }}
+          PROMOTE_TO_OPEN_TESTING: ${{ env.PROMOTE_TO_OPEN_TESTING }}
+          CLOSED_TESTING_TRACK: ${{ env.CLOSED_TESTING_TRACK }}
+          OPEN_TESTING_TRACK: ${{ env.OPEN_TESTING_TRACK }}
         run: |
           echo "=========================================="
           echo "🚀 Play Store 배포 시작"
