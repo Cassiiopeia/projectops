@@ -886,9 +886,31 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | review | `skills/pro-review/scripts/review_cli.py` | get-output-path |
 | note | `skills/pro-note/scripts/note_cli.py` | search, resolve-scope, get-output-path, list |
 | changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` | actions, deploy-status, list-prs, update-pr, create-pr |
-| analyze / plan | `skills/pro-<skill>/scripts/<scope>_cli.py` | get-output-path (#525에서 신설 — 이전엔 경로 계산 수단이 없었다) |
+| analyze / plan / testcase | `skills/pro-<skill>/scripts/<scope>_cli.py` | get-output-path (#525·#623에서 신설 — 이전엔 경로 계산 수단이 없었다) |
+| implement | `skills/pro-implement/scripts/implement_cli.py` | find-inputs (**쓰는 게 아니라 읽는다** — plan·analyze 산출물 자리를 돌려준다, #623) |
+| figma-verify | `skills/pro-figma-verify/scripts/figma_verify_cli.py` | get-output-path, coverage, assets, diff |
+| agent-test | `skills/pro-agent-test/scripts/e2e_cli.py` | get-output-path, device 외 다수 |
 
 공유 도메인 로직은 `scripts/common/`에 있다 (gh_client, config, paths, title, issue_number, gh_branch, manifest, emit, bootstrap).
+
+> **⚠️ 산출물 경로를 SKILL.md에 박아 쓰지 않는다 (#623 — agent 필독).** 산출물 루트는
+> 설정(`output.root`)으로 바뀐다. `docs/projectops/<스킬>/...`를 직접 조립하면 루트를 옮긴
+> 팀에서 **조용히 틀린다** — 실제로 `testcase`는 엉뚱한 곳에 쓰고, `implement`는 빈 폴더를
+> 뒤져 "계획 없음"으로 판단했다. 쓰는 스킬은 `get-output-path`, 읽는 스킬은 `find-inputs`를
+> 부른다. 회귀 방지: `scripts/tests/test_output_tracking.py`가 **산문 언급이 아니라 실제
+> 호출 줄**을 요구하고, 문서가 부르는 서브커맨드가 CLI에 실재하는지까지 본다.
+>
+> **증거물(스크린샷·덤프·렌더)과 문서(보고서·계획)는 다르다 (#621).** 어느 쪽인지는
+> `common/paths.py`의 `EVIDENCE_SKILLS`/`DOCUMENT_SKILLS`가 단독으로 알고, 증거 스킬이면
+> `resolve_output_path`가 폴더에 `.gitignore`를 자동으로 심는다 (루트 `.gitignore`는 건드리지
+> 않는다). **새 산출물 스킬은 두 집합 중 하나에 반드시 넣는다** — 안 넣으면 테스트가 막는다.
+
+> **⚠️ 선택 위치 인자를 여러 개 줄줄이 두지 않는다 (#622 — agent 필독).** argparse는 값을
+> **왼쪽부터** 채우므로, `run_id`/`job_id`/`pr_number`/`branch`처럼 서브커맨드마다 다른 값을
+> 각각의 칸으로 두면 **첫 칸에만 들어간다**. `github_cli.py`의 `actions`가 그랬고
+> `joblog`·`resolve-pr`·`resolve-branch` 셋이 **문서에 적힌 그대로 불러도 깨졌다**
+> (`show-run`·`list-failed`만 우연히 맞아서 오래 안 보였다). 위치 인자는 **하나**로 두고
+> 서브커맨드가 해석한다 (`changelog_cli.py`가 처음부터 그 방식이다).
 
 > GitHub API 호출은 각 skill의 `<scope>_cli.py` 서브커맨드 우선. 새 동작이 필요하면 `skills/references/mcp-subcommand-rules.md` 기준으로 `common/gh_client` 헬퍼 + cli 서브커맨드 + 테스트를 추가한다. 신규 skill에 py 필요하면 `skills/pro-skill-creator/templates/python_cli_script.py` 골격을 복사.
 

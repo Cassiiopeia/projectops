@@ -132,7 +132,8 @@ PYTHONIOENCODING=utf-8 "$PYTHON" plan_cli.py get-output-path plan --title "{제�
 
 ### 산출 위치
 
-`{PROJECT_ROOT}/docs/projectops/plan/YYYYMMDD_{이슈번호}_{정규화된제목}.md`
+`plan_cli.py get-output-path` 가 돌려주는 `path` 를 그대로 쓴다.
+형태(참고): `{output_root}/plan/YYYYMMDD_{이슈번호}_{정규화된제목}.md`
 
 - 이슈번호 없으면 순번(`001`, `002`…) 자동 사용
 - 제목 정규화: 특수문자 제거, 공백→`_`, 50자 이내

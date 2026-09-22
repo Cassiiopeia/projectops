@@ -105,3 +105,75 @@ def test_gitignore_keeps_itself_trackable():
     """`*` 만 쓰면 .gitignore 자신도 무시돼 규칙이 레포에 안 남는다."""
     body = gitignore_body("agent-test").splitlines()
     assert body[-2:] == ["*", "!.gitignore"], body
+
+
+# =========================================================================
+# 경로를 박아 쓰지 않는다 (#623)
+#
+# 산출물 루트는 설정(`output.root`)으로 바뀐다. SKILL.md 가 `docs/projectops/...`
+# 를 직접 조립하면 루트를 옮긴 팀에서 **조용히 틀린다** — testcase 는 엉뚱한
+# 곳에 쓰고, implement 는 빈 폴더를 뒤져 "계획 없음"으로 판단했다.
+# =========================================================================
+
+_PATH_COMMANDS = ("get-output-path", "find-inputs")
+
+
+def _skills_with_artifacts():
+    """분류된 산출물 스킬 중 **실제로 SKILL.md 가 있는 것**만 고른다."""
+    for skill_id in sorted(EVIDENCE_SKILLS | DOCUMENT_SKILLS):
+        md = _ROOT / "skills" / f"pro-{skill_id}" / "SKILL.md"
+        if md.is_file():
+            yield skill_id, md
+
+
+# 산문에 단어만 있는 것은 호출이 아니다. **실행되는 줄**을 찾는다 —
+# `..._cli.py get-output-path` 처럼 스크립트와 서브커맨드가 한 줄에 있어야 한다.
+_INVOCATION = re.compile(r"_cli\.py[\"']?\s+(" + "|".join(_PATH_COMMANDS) + r")\b")
+
+
+def test_artifact_skills_ask_a_cli_for_their_paths():
+    """산출물을 읽거나 쓰는 스킬은 경로를 **CLI 에게 물어야** 한다."""
+    offenders = []
+    for skill_id, md in _skills_with_artifacts():
+        text = md.read_text(encoding="utf-8")
+        if not _INVOCATION.search(text):
+            offenders.append(skill_id)
+    assert offenders == [], (
+        f"경로 계산을 CLI 에 맡기지 않는 스킬: {offenders}. "
+        f"scripts/<scope>_cli.py 에 {' 또는 '.join(_PATH_COMMANDS)} 를 두고 "
+        "SKILL.md 가 그것을 호출하게 하라")
+
+
+def test_artifact_skills_do_not_write_the_default_root_into_docs():
+    """`docs/projectops/<skill>/` 를 SKILL.md 에 적으면 설정이 무시된다.
+
+    산문에서 우산 폴더를 언급하는 것(`docs/projectops/` 로 끝나는 형태)은 괜찮다.
+    막는 것은 **스킬별 하위 경로를 조립해 적은 것**이다.
+    """
+    pattern = re.compile(r"docs/projectops/[a-z][a-z0-9-]*/")
+    offenders = {}
+    for skill_id, md in _skills_with_artifacts():
+        hits = sorted(set(pattern.findall(md.read_text(encoding="utf-8"))))
+        if hits:
+            offenders[skill_id] = hits
+    assert offenders == {}, (
+        f"경로가 박혀 있다: {offenders}. 산출물 루트는 설정으로 바뀌므로 "
+        "CLI 가 돌려준 값을 쓰라")
+
+
+def test_every_declared_path_command_actually_exists():
+    """SKILL.md 가 부르는 서브커맨드가 CLI 에 실재하는지 본다.
+
+    문서에만 있고 구현에 없는 호출은 **밟아 보기 전까지 드러나지 않는다**
+    (#622 에서 Actions 진단 3개가 그랬다).
+    """
+    missing = []
+    for skill_id, md in _skills_with_artifacts():
+        text = md.read_text(encoding="utf-8")
+        scripts = md.parent / "scripts"
+        sources = "\n".join(f.read_text(encoding="utf-8")
+                            for f in scripts.glob("*.py")) if scripts.is_dir() else ""
+        for cmd in _PATH_COMMANDS:
+            if cmd in text and f'"{cmd}"' not in sources:
+                missing.append(f"{skill_id}:{cmd}")
+    assert missing == [], f"SKILL.md 가 부르는데 CLI 에 없는 서브커맨드: {missing}"

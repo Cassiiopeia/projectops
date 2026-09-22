@@ -62,11 +62,12 @@ PYTHONIOENCODING=utf-8 "$PYTHON" analyze_cli.py get-output-path analyze --title 
 
 > **Phase -1 역할**: 파일 존재 여부만 판단. 실제 파일 읽기는 Phase 0에서.
 
-`docs/projectops/` 하위 스캔:
+산출물 우산 폴더 하위를 스캔한다. **경로를 박아 쓰지 않는다** — 루트는 설정으로
+바뀌므로 `analyze_cli.py get-output-path` 가 돌려준 `output_root` 아래를 본다 (#623).
 
 ```
-docs/projectops/plan/     → plan 산출물 (.md)
-docs/projectops/analyze/  → analyze 산출물 (.md)
+{output_root}/plan/     → plan 산출물 (.md)
+{output_root}/analyze/  → analyze 산출물 (.md)
 ```
 
 > implement는 별도 산출물 md를 만들지 않음 — 코드 자체가 결과.
@@ -113,7 +114,8 @@ plan.md를 읽고 다음을 정리:
 
 ### 산출 위치
 
-`{PROJECT_ROOT}/docs/projectops/analyze/YYYYMMDD_{이슈번호}_{정규화된제목}.md`
+`analyze_cli.py get-output-path` 가 돌려주는 `path` 를 그대로 쓴다.
+형태(참고): `{output_root}/analyze/YYYYMMDD_{이슈번호}_{정규화된제목}.md`
 
 - 이슈번호 없으면 순번(`001`, `002`…) 자동 사용
 - 제목 정규화: 특수문자 제거, 공백→`_`, 50자 이내
@@ -135,7 +137,7 @@ plan.md를 읽고 다음을 정리:
 # {제목} — HOW 계획
 
 작성일: {YYYY-MM-DD}
-참조: docs/projectops/plan/{파일명}.md
+참조: {plan 산출물 경로}
 GitHub 이슈: {이슈 번호 또는 없음}
 
 ## 1. 변경 파일 목록

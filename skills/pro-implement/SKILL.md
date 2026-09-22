@@ -6,8 +6,8 @@ description: "Implement Mode (DO 실제 구현) - 사용자가 '/pro-implement'�
 # Implement Mode (DO 실제 구현)
 
 > **책임 분리**:
-> - `plan` = WHAT (`docs/projectops/plan/YYYYMMDD_{이슈번호}_{제목}.md`)
-> - `analyze` = HOW (`docs/projectops/analyze/YYYYMMDD_{이슈번호}_{제목}.md`)
+> - `plan` = WHAT (`{산출물 루트}/plan/YYYYMMDD_{이슈번호}_{제목}.md`)
+> - `analyze` = HOW (`{산출물 루트}/analyze/YYYYMMDD_{이슈번호}_{제목}.md`)
 > - `implement` = DO (실제 코드 편집 + 검증 + Finishing. 별도 산출 md 없음. 보고서 필요하면 Phase 6 후 `/report` 호출)
 
 > ⛔ **HARD-GATE (구현 전 설계 필수)**: 다음 조건 중 하나라도 해당하면 **코드를 쓰기 전에 analyze/plan을 먼저 권장**한다:
@@ -27,7 +27,7 @@ description: "Implement Mode (DO 실제 구현) - 사용자가 '/pro-implement'�
 ## 절대 규칙
 
 1. **추측 금지.** 편집 전 대상 파일을 반드시 Read 한다. 함수가 실제로 존재하는지, 시그니처가 맞는지 확인.
-2. **plan/analyze 산출물이 있으면 무조건 먼저 읽는다.** `{PROJECT_ROOT}/docs/projectops/plan/` · `analyze/`에서 가장 최근의 `.md` 파일 또는 사용자가 지정한 파일을 Read.
+2. **plan/analyze 산출물이 있으면 무조건 먼저 읽는다.** 자리는 `implement_cli.py find-inputs` 가 알려준다 (0-1 단계). 가장 최근의 `.md` 또는 사용자가 지정한 파일을 Read.
 3. **plan을 벗어나는 변경은 사용자에게 먼저 통지한다.** "plan에 없는 부분을 만지려 합니다 — 진행할까요?"
 4. **빌드/타입체크/테스트를 직접 돌린다.** "린트 통과해야 함"이라고 적기만 하면 안 된다. 실제로 실행하고 결과를 본다 (단, 내부망 환경에서 외부 패키지 설치가 필요한 명령은 사용자에게 위임).
 5. **커밋하지 않는다.** 사용자가 명시적으로 요청할 때만. (글로벌 룰에 따라 git commit 자동 실행 금지)
@@ -97,12 +97,25 @@ Phase 0으로 진행.
 
 **흐름**: `plan → analyze → implement`
 
-**먼저** `docs/projectops/` 하위 두 폴더를 스캔한다. 사용자가 `/implement`를 직접 불렀어도 이 스캔을 먼저 한다.
+**먼저** 아래로 읽을 자리를 받는다. 사용자가 `/implement`를 직접 불렀어도 이 단계를 먼저 한다.
+**경로를 박아 쓰지 않는다** (#623 — 산출물 루트를 옮긴 팀에서는 빈 폴더를 뒤지고
+"계획 없음"으로 잘못 판단한다. 틀렸다는 신호가 없어 그대로 구현에 들어간다).
 
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
+[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
+SKILL=pro-implement; ROOT="$PROJECT_ROOT"
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/implement_cli.py" find-inputs
 ```
-docs/projectops/plan/     → plan 산출물 (.md)
-docs/projectops/analyze/  → analyze 산출물 (.md)
-```
+
+돌려주는 `inputs.plan.latest` · `inputs.analyze.latest` 를 Read 한다. 둘 다 비어 있으면
+`next` 안내를 따른다.
 
 현재 요청과 관련된 파일인지 날짜·제목·내용으로 판단. 관련 없으면 무시.
 

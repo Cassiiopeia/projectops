@@ -142,10 +142,24 @@ QA 체크리스트가 아닌, **기능 동작 검증 위주**의 TC를 작성한
 ## 출력
 
 TC 작성 후:
-1. **MD 파일 생성**: agent가 직접 경로를 계산해 저장한다.
-   - 형식: `{PROJECT_ROOT}/docs/projectops/testcase/YYYYMMDD_{이슈번호}_{정규화된제목}.md`
-   - 이슈 번호: 브랜치명 또는 worktree 경로 `YYYYMMDD_#숫자_제목` 패턴에서 추출, 없으면 사용자에게 질문
-   - 저장 전 디렉토리 생성: `mkdir -p "$(dirname "<경로>")"` (Windows는 `New-Item -ItemType Directory -Force`)
+1. **MD 파일 생성**: **경로를 직접 조립하지 않는다.** 아래로 받은 `path` 에 그대로 쓴다
+   (#623 — 산출물 루트는 팀 설정으로 바뀔 수 있어서, 박아 쓰면 엉뚱한 곳에 조용히 쌓인다).
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
+[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
+SKILL=pro-testcase; ROOT="$PROJECT_ROOT"
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/testcase_cli.py" get-output-path --title "{제목}"
+```
+
+   - 이슈 번호·날짜·제목 정규화는 CLI 가 처리한다 (브랜치·worktree 에서 자동 추출)
+   - 돌려준 `path` 의 부모 폴더만 만들고 저장한다
 2. 저장 경로 안내
 3. GitHub 이슈 댓글에 붙여넣기 가능하다는 안내
 
@@ -153,6 +167,6 @@ TC 작성 후:
 
 ```
 테스트케이스 생성 완료
-파일: docs/projectops/testcase/{파일명}.md
+파일: {get-output-path 가 돌려준 경로}
 → GitHub 이슈 댓글에 붙여넣기: 파일 열기 → 전체 복사 → 댓글란 붙여넣기
 ```

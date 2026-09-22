@@ -239,12 +239,12 @@ PYTHONIOENCODING=utf-8 "$PYTHON" report_cli.py add-comment {owner} {repo} {이�
 ### 완료 메시지
 
 ```
-보고서 저장: docs/projectops/report/{파일명}.md
+보고서 저장: {get-output-path 가 돌려준 경로}
 GitHub 댓글: https://github.com/{owner}/{repo}/issues/{번호}#issuecomment-{id}
 ```
 
 PAT 미설정 시:
 ```
-보고서 저장: docs/projectops/report/{파일명}.md
+보고서 저장: {get-output-path 가 돌려준 경로}
 (GitHub PAT 미설정 — 로컬 저장만 완료)
 ```
