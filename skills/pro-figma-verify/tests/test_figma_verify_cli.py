@@ -281,3 +281,39 @@ def test_visible_nodes_are_never_dropped_by_accident(tmp_path):
     _, o, _ = run("coverage", "--dump", str(_dump(tmp_path, dump)))
     d = out(o)
     assert d["total"] == 1 and d["hidden_skipped"] == []
+
+
+# ── 요소가 통째로 빠진 것은 스타일만 세면 안 보인다 ──────────────────────
+#
+# 실사고: "시안에 있는데 화면이 없다" 가 여러 건 있었다. 그건 스타일 문제가 아니라
+# 요소가 아예 없는 것이라, 스타일 항목만 나열해서는 드러나지 않는다.
+
+def test_elements_are_listed_alongside_styles(tmp_path):
+    dump = {"nodes": [{"id": "1:1", "name": "화면", "type": "FRAME",
+                       "layout": {"gap": 8}, "children": [
+        {"id": "1:2", "name": "버튼", "type": "COMPONENT",
+         "fills": [{"color": "#111"}]},
+        {"id": "1:3", "name": "보상 줄", "type": "TEXT", "style": {"fontSize": 14}},
+    ]}]}
+    _, o, _ = run("coverage", "--dump", str(_dump(tmp_path, dump)))
+    d = out(o)
+
+    refs = {e["ref"] for e in d["elements"]}
+    assert refs == {"1:1", "1:2", "1:3"}, refs
+    assert d["element_count"] == 3
+    assert {e["type"] for e in d["elements"]} == {"FRAME", "COMPONENT", "TEXT"}
+    assert "요소 3개" in d["summary"]
+    # 두 층을 다 보라고 말해야 한다
+    assert "요소" in d["next"] and "스타일" in d["next"]
+
+
+def test_hidden_elements_are_not_listed_either(tmp_path):
+    dump = {"nodes": [{"id": "1:1", "name": "화면", "type": "FRAME", "children": [
+        {"id": "1:2", "name": "보임", "type": "TEXT", "style": {"fontSize": 14}},
+        {"id": "1:3", "name": "꺼둠", "type": "TEXT", "visible": False,
+         "style": {"fontSize": 99}},
+    ]}]}
+    _, o, _ = run("coverage", "--dump", str(_dump(tmp_path, dump)))
+    d = out(o)
+    assert {e["ref"] for e in d["elements"]} == {"1:1", "1:2"}
+    assert d["hidden_skipped"] == ["1:3"]

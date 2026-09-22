@@ -86,7 +86,7 @@ def _is_hidden(node: dict) -> bool:
     return node.get("isVisible") is False or node.get("hidden") is True
 
 
-def _walk(node, path, out, want_id=None, inside=False, hidden=None):
+def _walk(node, path, out, want_id=None, inside=False, hidden=None, elements=None):
     """덤프를 훑어 스타일 항목을 모은다.
 
     덤프 모양이 도구·버전마다 달라서 키 이름을 고정하지 않고 재귀로 찾는다.
@@ -94,9 +94,11 @@ def _walk(node, path, out, want_id=None, inside=False, hidden=None):
     """
     if hidden is None:
         hidden = []
+    if elements is None:
+        elements = []
     if isinstance(node, list):
         for i, child in enumerate(node):
-            _walk(child, f"{path}[{i}]", out, want_id, inside, hidden)
+            _walk(child, f"{path}[{i}]", out, want_id, inside, hidden, elements)
         return
     if not isinstance(node, dict):
         return
@@ -112,6 +114,10 @@ def _walk(node, path, out, want_id=None, inside=False, hidden=None):
 
     if here and (node_id or node_name):
         label = node_id or node_name
+        # 스타일만 세면 **요소가 통째로 빠진 것**은 안 보인다. 시안에 있는데
+        # 화면에 아예 없는 경우가 실제로 있었다 — 그건 스타일 문제가 아니다.
+        elements.append({"ref": label, "name": node_name,
+                         "type": node.get("type") or node.get("nodeType")})
         for kind, aliases in _STYLE_KEYS.items():
             for key in aliases:
                 if key not in node:
@@ -131,7 +137,7 @@ def _walk(node, path, out, want_id=None, inside=False, hidden=None):
 
     for k, v in node.items():
         if isinstance(v, (dict, list)) and k not in ("fills", "strokes", "effects"):
-            _walk(v, f"{path}.{k}", out, want_id, here, hidden)
+            _walk(v, f"{path}.{k}", out, want_id, here, hidden, elements)
 
 
 def cmd_coverage(args) -> int:
@@ -147,7 +153,8 @@ def cmd_coverage(args) -> int:
 
     items: list[dict] = []
     hidden: list[str] = []
-    _walk(data, "$", items, args.node, hidden=hidden)
+    elements: list[dict] = []
+    _walk(data, "$", items, args.node, hidden=hidden, elements=elements)
 
     if not items:
         return emit({
@@ -166,13 +173,17 @@ def cmd_coverage(args) -> int:
         "items": items,
         "counts": counts,
         "total": len(items),
+        "elements": elements,
+        "element_count": len(elements),
         "hidden_skipped": hidden,
-        "summary": (f"분류해야 할 스타일 항목 {len(items)}개 " +
+        "summary": (f"요소 {len(elements)}개 · 스타일 항목 {len(items)}개 " +
                     " · ".join(f"{k} {v}" for k, v in sorted(counts.items())) +
                     (f" (꺼 둔 레이어 {len(hidden)}개 제외)" if hidden else "")),
-        "next": ("각 항목을 구현 / 근사(사유) / 생략(사유) 중 하나로 분류하세요. "
-                 "근사·생략은 사유를 반드시 적습니다 — 적지 않으면 나중에 "
-                 "못 옮긴 것인지 안 옮기기로 한 것인지 구분할 수 없습니다"),
+        "next": ("두 층으로 확인하세요. ① **요소**가 화면에 있는가 — 시안에 있는데 "
+                 "화면에 아예 없는 것이 실제로 나옵니다. ② 각 **스타일 항목**을 "
+                 "구현 / 근사(사유) / 생략(사유) 로 분류. 근사·생략은 사유를 반드시 "
+                 "적습니다 — 적지 않으면 못 옮긴 것인지 안 옮기기로 한 것인지 "
+                 "나중에 구분할 수 없습니다"),
     })
 
 
