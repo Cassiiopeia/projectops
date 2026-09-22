@@ -740,7 +740,6 @@ claude plugin install projectops@projectops-marketplace --scope user
 | `testcase` | QA 테스트케이스 |
 | `note` | 막혔을 때 과거 기록 검색, 알아낸 것 기록 |
 | `build` | 빌드 관리 |
-| `figma` | Figma 연동 |
 | `init-worktree` | Git worktree 생성 |
 | `commit` | 이슈 기반 커밋 자동화 |
 | `github` | GitHub 전반: 이슈 생성/조회/수정/댓글/라벨/담당자, PR 생성/머지/조회, 레포 탐색, Actions 로그, Secret 관리, **이미지 첨부**(이슈 본문·댓글·PR) |
@@ -750,7 +749,7 @@ claude plugin install projectops@projectops-marketplace --scope user
 | `ssh` | 원격 서버 SSH 접속 및 명령 실행 (AWS EC2, 시놀로지 NAS, Linux 서버 등) |
 | `skill-creator` | skill 생성/리뷰/개선 (CREATE·REVIEW·IMPROVE 3모드) |
 | `agent-test` | **앱·웹·서버를 실제로 실행해 밟는다** (E2E·증적) — 문서만 쓰는 `testcase`와 다르다 |
-| `figma-verify` | **만든 화면이 시안과 같은지 센다** — 덤프 항목 분류 + 픽셀 대조. 시안을 코드로 옮기는 `figma`와 반대 방향 |
+| `figma-verify` | **시안 → 코드 → 대조** 한 묶음. 덤프 항목을 세어 작업 목록으로 삼고, 옮긴 뒤 픽셀로 맞댄다 (구 `figma` 흡수 — #619) |
 
 ---
 
@@ -945,7 +944,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | 보고서 | `pro-report` |
 | 원격 서버 SSH 접속, 로그/상태 확인 | `pro-ssh` |
 | **실제로 테스트해줘, 에뮬레이터·시뮬레이터·브라우저로 확인, E2E, 끝까지 밟아줘** | `pro-agent-test` |
-| **시안이랑 같은지 확인, 디자인대로 됐는지, figma 대조, 그림자 빠진 거 없나** | `pro-figma-verify` |
+| **figma 디자인 구현, 시안대로 만들어줘, 시안이랑 같은지 확인, 디자인대로 됐는지, 그림자 빠진 거 없나** | `pro-figma-verify` |
 | **설계·기획 (무엇을 왜)** | **`superpowers:brainstorming`** |
 | **구현 계획 (어떻게)** | **`superpowers:writing-plans`** |
 | **계획 실행** | **`superpowers:executing-plans`** |

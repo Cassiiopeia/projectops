@@ -43,6 +43,18 @@ function apply(io, ctx = {}) {
         filter: (p) => !TEST_PATH.test(p),
       });
     }
+    // 소스에서 사라진 우리 스킬을 지운다. 복사는 overlay 라 덮어쓰기만 하면
+    // **폐기한 스킬이 남의 컴퓨터에 영영 남아** 계속 잡힌다 — util 복사가 같은
+    // 함정에 빠졌던 자리다 (#500). 남의 스킬은 접두사로 걸러 건드리지 않는다.
+    const srcNames = new Set(readdirSync(src));
+    for (const name of readdirSync(dest)) {
+      if (srcNames.has(name) || name === "cursor-skills-meta.json") continue;
+      if (!/^(pro|suh)-/.test(name)) continue;
+      try {
+        rmSync(join(dest, name), { recursive: true, force: true });
+        io.log(`  폐기된 스킬 제거: ${name}`);
+      } catch { /* 무시 — 지우지 못해도 설치는 계속한다 */ }
+    }
     writeMeta(io, dest, ctx.templateVersion);
     io.log(`  Cursor Skills 설치 완료 (${dest}/, v${ctx.templateVersion || "unknown"})`);
     return true;
@@ -74,7 +86,9 @@ function ownedEntries(io, ctx) {
   const src = resolveSkillsSrc(ctx);
   if (src && existsSync(src)) srcNames = new Set(readdirSync(src));
   const EXTRA = new Set(["cursor-skills-meta.json"]);
-  return readdirSync(dir).filter((name) => srcNames.has(name) || /^suh-/.test(name) || EXTRA.has(name));
+  // suh- 는 옛 접두사, pro- 는 현행 접두사다. 둘 다 우리 것으로 친다 —
+  // 폐기한 스킬은 소스에 없으므로 srcNames 로는 잡히지 않는다 (#619).
+  return readdirSync(dir).filter((name) => srcNames.has(name) || /^(pro|suh)-/.test(name) || EXTRA.has(name));
 }
 
 // 옛 이름/버전 meta면 projectops 소유 항목만 선별 삭제 → apply가 신규 재설치.

@@ -87,6 +87,39 @@ test("cursor: skills/ 복사 + meta.json 기록", () => {
 
 // projectops 자신을 검사하는 테스트는 사용자 홈으로 나가면 안 된다 (#591).
 // skills/ 를 통째로 복사하므로 여기서 거르지 않으면 그대로 쌓인다.
+// 복사는 overlay 라 덮어쓰기만 하면 **폐기한 스킬이 남의 컴퓨터에 영영 남는다.**
+// util 복사가 같은 함정에 빠졌던 자리다 (#500). 스킬을 합치거나 지울 때마다
+// 기존 설치본에 구 스킬이 남아 계속 잡히면 "지웠는데 왜 뜨나"가 된다 (#619).
+test("cursor: 소스에서 사라진 우리 스킬은 설치본에서도 지운다", () => {
+  const home = mkdtempSync(join(tmpdir(), "cuh-"));
+  const src = mkdtempSync(join(tmpdir(), "cus-"));
+  try {
+    const dest = join(home, ".cursor/skills");
+    // 이미 깔려 있는 상태를 만든다 — 우리 것 둘 + 남의 것 하나
+    mkdirSync(join(dest, "pro-old/scripts"), { recursive: true });
+    writeFileSync(join(dest, "pro-old/SKILL.md"), "x");
+    mkdirSync(join(dest, "suh-ancient"), { recursive: true });
+    writeFileSync(join(dest, "suh-ancient/SKILL.md"), "x");
+    mkdirSync(join(dest, "somansa-tools"), { recursive: true });
+    writeFileSync(join(dest, "somansa-tools/SKILL.md"), "x");
+
+    // 새 소스에는 pro-new 만 있다
+    mkdirSync(join(src, "pro-new"), { recursive: true });
+    writeFileSync(join(src, "pro-new/SKILL.md"), "x");
+
+    const io = stubIo({ home });
+    assert.equal(adapterById("cursor").apply(io, { sourceSkillsDir: src, templateVersion: "9.9.9" }), true);
+
+    const at = (r) => join(dest, r);
+    assert.ok(existsSync(at("pro-new/SKILL.md")), "새 스킬이 깔려야 한다");
+    // 폐기된 우리 스킬은 사라진다 (옛 접두사도 함께)
+    assert.equal(existsSync(at("pro-old")), false, "폐기된 pro- 스킬이 남았다");
+    assert.equal(existsSync(at("suh-ancient")), false, "폐기된 suh- 스킬이 남았다");
+    // 남의 스킬은 건드리지 않는다
+    assert.ok(existsSync(at("somansa-tools/SKILL.md")), "남의 스킬을 지웠다");
+  } finally { rmSync(home, { recursive: true, force: true }); rmSync(src, { recursive: true, force: true }); }
+});
+
 test("cursor: 테스트 코드는 복사하지 않는다", () => {
   const home = mkdtempSync(join(tmpdir(), "cuh-"));
   const src = mkdtempSync(join(tmpdir(), "cus-"));

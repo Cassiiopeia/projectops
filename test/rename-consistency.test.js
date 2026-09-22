@@ -69,12 +69,14 @@ test("핵심 pro- 스킬 폴더가 모두 존재한다", () => {
   // design·design-analyze·refactor·refactor-analyze·test·ppt·document 7종은 superpowers 및
   // pro-report와 역할이 겹쳐 삭제됨 (24종→17종)
   // pro-spring-test는 #582에서 삭제됨 — assertion 없는 테스트를 만들어 내는 템플릿이었다 (17종→16종)
+  // pro-figma는 #619에서 pro-figma-verify로 통합·삭제됨 — 옮기는 일과 세는 일이 나뉘어 있어
+  // 옮기는 쪽이 무엇을 옮겨야 하는지 모른 채 그림만 보고 만들었다
   //
   // 이 목록은 "있어야 하는 것"만 담는다. 새 스킬이 늘어도 이 테스트는 건드리지 않아도 되지만,
   // **스킬을 지울 때는 여기서도 빼야 한다** — 실제로 #582가 이걸 빠뜨려 develop이 깨진 채 있었다.
   const expected = [
     "pro-analyze", "pro-build", "pro-changelog-deploy", "pro-commit",
-    "pro-figma", "pro-github", "pro-implement", "pro-init-worktree", "pro-plan",
+    "pro-figma-verify", "pro-github", "pro-implement", "pro-init-worktree", "pro-plan",
     "pro-report", "pro-review", "pro-skill-creator",
     "pro-note", "pro-ssh", "pro-synology-expose", "pro-testcase",
   ];

@@ -164,7 +164,7 @@ npx projectops --mode skills
 
 | 스킬 | 용도 |
 |------|------|
-| `/pro-figma` | Figma CSS → React/RN/Flutter 반응형 코드 변환 |
+| `/pro-figma-verify` | Figma 시안을 코드로 옮기고, 옮긴 것이 시안과 같은지 픽셀로 센다 |
 | `/pro-build` | 프로젝트 빌드 실행, 에러 분석, 최적화 제안 |
 
 > 설계·계획·구현 흐름은 `superpowers`(brainstorming → writing-plans → executing-plans)가 담당합니다.
