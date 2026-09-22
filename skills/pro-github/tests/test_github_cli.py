@@ -112,3 +112,94 @@ def test_upload_image_requires_files():
     assert data["ok"] is False
     assert data["code"] == "bad_args"
 
+
+
+# =========================================================================
+# actions 진단 흐름 (#622)
+#
+# 예전에는 위치 인자를 run_id·job_id·pr_number·branch 넷으로 쪼개 두어,
+# argparse 가 값을 왼쪽부터 채우는 바람에 **문서에 적힌 그대로 불러도**
+# joblog·resolve-pr·resolve-branch 셋이 깨졌다. show-run 과 list-failed 만
+# 우연히 맞아서 오래 안 보였다.
+#
+# 네트워크를 타지 않고 **인자 해석만** 본다. PAT 가 없어도 돌아야 한다.
+# =========================================================================
+
+import importlib.util  # noqa: E402
+
+_spec = importlib.util.spec_from_file_location("github_cli_under_test", CLI)
+_gh = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_gh)
+
+
+def _parse(*argv):
+    return _gh.build_parser().parse_args(list(argv))
+
+
+def test_every_documented_actions_call_lands_in_one_slot():
+    """SKILL.md 에 적힌 다섯 형태를 그대로 파싱해 값이 제자리에 들어가는지 본다."""
+    cases = [
+        ("show-run", "35700287900"),
+        ("joblog", "106656419974"),
+        ("resolve-pr", "883"),
+        ("resolve-branch", "develop"),
+    ]
+    for sub, value in cases:
+        args = _parse("actions", sub, "acme", "app", value)
+        assert args.sub == sub
+        assert args.arg == value, f"{sub}: 값이 엉뚱한 칸에 들어갔다 — {args.arg!r}"
+
+    no_value = _parse("actions", "list-failed", "acme", "app")
+    assert no_value.arg is None
+
+
+def test_actions_has_exactly_one_positional_value():
+    """칸이 둘 이상이면 argparse 가 왼쪽부터 채워 같은 버그가 되돌아온다."""
+    args = _parse("actions", "joblog", "acme", "app", "123")
+    for stale in ("run_id", "job_id", "pr_number", "branch"):
+        assert not hasattr(args, stale), (
+            f"위치 인자 {stale} 가 되살아났다 — arg 하나만 두어야 한다")
+
+
+def test_branch_name_is_not_forced_to_int():
+    """`type=int` 를 파서에 걸면 브랜치명이 argparse 단계에서 죽는다."""
+    args = _parse("actions", "resolve-branch", "acme", "app", "feature/한글-브랜치")
+    assert args.arg == "feature/한글-브랜치"
+
+
+def test_missing_and_bad_values_are_told_apart(capsys):
+    """**안 준 것**과 **잘못 준 것**은 다른 고침을 부른다 — 코드로 갈라야 한다.
+
+    둘 다 그냥 "에러"로 뭉뚱그리면, 값을 빠뜨린 사람이 형식을 의심하며 헤맨다.
+    """
+    class _Missing:
+        sub, owner, repo, arg = "joblog", "acme", "app", None
+
+    value, err = _gh._actions_int(_Missing(), "job_id")
+    assert value is None and err is not None
+    out = json.loads(capsys.readouterr().out)
+    assert out["code"] == "missing_argument", out
+    assert "job_id" in out["hint"], out      # 어떻게 불러야 하는지까지
+
+    class _Bad(_Missing):
+        arg = "develop"
+
+    value2, err2 = _gh._actions_int(_Bad(), "run_id")
+    assert value2 is None and err2 is not None
+    out2 = json.loads(capsys.readouterr().out)
+    assert out2["code"] == "bad_argument", out2
+    assert "develop" in out2["error"], out2  # 무엇이 문제였는지
+
+    # 제대로 준 값은 숫자로 나온다
+    class _Good(_Missing):
+        arg = "12345"
+    assert _gh._actions_int(_Good(), "run_id") == (12345, None)
+
+
+def test_actions_runs_without_pat_and_reports_it(tmp_path):
+    """PAT 없이도 인자 해석까지는 가야 한다 (진단 도구가 먼저 죽으면 안 된다)."""
+    rc, out, _ = run_cli("actions", "resolve-branch", "acme", "app", "develop",
+                         env_extra={"HOME": str(tmp_path), "USERPROFILE": str(tmp_path),
+                                    "GITHUB_PAT": ""})
+    d = json.loads(out)
+    assert d["code"] == "missing_pat", d      # bad_args 가 아니라 PAT 문제로 보고
