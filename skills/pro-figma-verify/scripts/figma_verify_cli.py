@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -49,6 +50,47 @@ _STYLE_KEYS = {
 }
 
 
+# 그림자는 **한 문자열 안에 여러 줄**이 쉼표로 이어져 온다. 실측:
+#   boxShadow: '0px 4px 20px 0px rgba(...), inset 0px 8px 24px -16px rgba(...),
+#               inset 0px -24px 32px 0px rgba(...), inset 0px 0px 10px 2px rgba(...)'
+# 이걸 한 줄로 세면 네 줄 중 세 줄이 빠져도 드러나지 않는다 — 실제 사고가 그랬다.
+# rgba(...) 안의 쉼표는 건드리면 안 되므로 괄호 깊이를 센다.
+def _split_shadows(css: str) -> list[str]:
+    out, depth, cur = [], 0, ""
+    for ch in css:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        if ch == "," and depth == 0:
+            if cur.strip():
+                out.append(cur.strip())
+            cur = ""
+        else:
+            cur += ch
+    if cur.strip():
+        out.append(cur.strip())
+    return out
+
+
+# 종류를 이름 붙여 준다. **자꾸 빠지는 것이 어떤 종류인지** 알아야 눈에 띈다.
+_NO_OFFSET = re.compile(r"^(inset\s+)?0(px)?\s+0(px)?\s")
+
+
+def _effect_kind(prop: str, value: str) -> str:
+    v = str(value).strip()
+    if prop == "backdropFilter":
+        return "배경 블러"
+    if prop == "filter":
+        return "블러" if "blur" in v else "필터"
+    if v.startswith("inset"):
+        return "안쪽 그림자"
+    if _NO_OFFSET.match(v):
+        # 치우침 없이 번지기만 하는 것 — 흔히 "글로우"라 부른다
+        return "글로우"
+    return "그림자"
+
+
 def _describe(value) -> str:
     """항목 하나를 사람이 읽을 한 줄로. 값을 줄이되 **버리지 않는다.**"""
     if isinstance(value, str):
@@ -66,6 +108,48 @@ def _describe(value) -> str:
                 parts.append(f"{k}={v}")
         return "{" + ", ".join(parts) + "}"
     return str(value)
+
+
+# 에셋은 덤프 안에 **그림이 아니라 노드로만** 들어 있다. 값을 아무리 잘 옮겨도
+# 이 노드들을 따로 내려받지 않으면 화면에 아이콘이 없다.
+_ASSET_TYPES = {"IMAGE-SVG", "IMAGE", "VECTOR"}
+
+# download_figma_images 의 fileName 은 ^[a-zA-Z0-9_.-]+\.(png|svg)$ 만 받는다.
+# 실측: 어느 실제 파일의 에셋 609개 중 281개(46%)가 한글·공백·'/' 를 담은 이름이라
+# 레이어 이름을 그대로 넘기면 거부된다. 게다가 592개가 45종 이름에 몰려 있어
+# 이름으로 저장하면 **서로 덮어쓴다**. 그래서 여기서 안전한 이름을 만들어 준다.
+def _slug(name, node_id: str) -> tuple[str, bool]:
+    raw = re.sub(r"[^A-Za-z0-9]+", "-", str(name or "")).strip("-").lower()
+    if raw:
+        return raw[:48], False
+    # 한글처럼 ASCII 가 하나도 안 남는 이름 — 뜻을 잃었다는 표시를 함께 준다
+    return "asset-" + re.sub(r"[^0-9]+", "-", str(node_id)).strip("-"), True
+
+
+def _image_ref(node: dict, styles: dict):
+    """사진 칠을 찾아 내려받기 인자를 돌려준다.
+
+    **칠도 참조로 온다.** 노드에는 `fills: fill_JJ816G` 만 있고 imageRef 는
+    globalVars 쪽 값 안에 있다 — 참조를 안 풀면 사진 에셋을 통째로 놓친다.
+    덤프가 `imageDownloadArguments` 로 필요한 인자까지 알려주므로 그대로 쓴다.
+    """
+    for key in ("fills", "fill", "background"):
+        blob = node.get(key)
+        if isinstance(blob, str):
+            blob = styles.get(blob)
+        if blob is None:
+            continue
+        for entry in (blob if isinstance(blob, list) else [blob]):
+            if not isinstance(entry, dict) or not entry.get("imageRef"):
+                continue
+            args = entry.get("imageDownloadArguments") or {}
+            return {
+                "imageRef": entry["imageRef"],
+                "needsCropping": bool(args.get("needsCropping")),
+                "requiresImageDimensions": bool(args.get("requiresImageDimensions")),
+                "cropTransform": entry.get("imageTransform") or args.get("cropTransform"),
+            }
+    return None
 
 
 def _is_hidden(node: dict) -> bool:
@@ -87,7 +171,7 @@ def _is_hidden(node: dict) -> bool:
 
 
 def _walk(node, path, out, want_id=None, inside=False, hidden=None, elements=None,
-          styles=None):
+          styles=None, assets=None):
     """덤프를 훑어 스타일 항목을 모은다.
 
     덤프 모양이 도구·버전마다 달라서 키 이름을 고정하지 않고 재귀로 찾는다.
@@ -99,9 +183,12 @@ def _walk(node, path, out, want_id=None, inside=False, hidden=None, elements=Non
         elements = []
     if styles is None:
         styles = {}
+    if assets is None:
+        assets = []
     if isinstance(node, list):
         for i, child in enumerate(node):
-            _walk(child, f"{path}[{i}]", out, want_id, inside, hidden, elements, styles)
+            _walk(child, f"{path}[{i}]", out, want_id, inside, hidden, elements, styles,
+                  assets)
         return
     if not isinstance(node, dict):
         return
@@ -125,6 +212,30 @@ def _walk(node, path, out, want_id=None, inside=False, hidden=None, elements=Non
         node_type = node.get("type") or node.get("nodeType")
         if node_id and node_type != "VARIANT":
             elements.append({"ref": node_id, "name": node_name, "type": node_type})
+            if node_type in _ASSET_TYPES:
+                # 덤프에는 아이콘의 **모양이 없다**. 크기조차 layout 참조 뒤에 있다.
+                # 그래서 신원 근거를 모아 두고, 묶을 때 증거가 있는 것만 묶는다.
+                layout = node.get("layout")
+                box = styles.get(layout) if isinstance(layout, str) else layout
+                dims = (box or {}).get("dimensions") if isinstance(box, dict) else None
+                # 효과가 붙은 에셋은 **받은 그림이 더 크게 온다** — 번짐이
+                # 그림 안에 필터로 박혀 오기 때문이다. 실측: layout 36x34 인
+                # 글로우 도형이 96x94 로 왔다. 미리 알려주지 않으면 레이아웃
+                # 크기로 넣어 도형을 쪼그라뜨리거나 효과를 코드로 또 넣는다.
+                fx = node.get("effects")
+                fx = styles.get(fx) if isinstance(fx, str) else fx
+                assets.append({
+                    "node_id": node_id, "name": node_name, "type": node_type,
+                    "width": (dims or {}).get("width"),
+                    "height": (dims or {}).get("height"),
+                    "baked_effect": _describe(fx) if fx else None,
+                    "image": _image_ref(node, styles),
+                    "component_id": node.get("componentId"),
+                    # 같은 그림이라는 **증거**. 모양 정보가 없으니 이게 최선이다.
+                    "_print": json.dumps(
+                        {k: v for k, v in node.items() if k not in ("id", "children")},
+                        sort_keys=True, ensure_ascii=False),
+                })
         for kind, aliases in _STYLE_KEYS.items():
             for key in aliases:
                 if key not in node:
@@ -143,18 +254,23 @@ def _walk(node, path, out, want_id=None, inside=False, hidden=None, elements=Non
                         out.append({"ref": f"{label}/{key}[{i}]", "kind": kind,
                                     "name": node_name, "value": _describe(item)})
                 elif isinstance(value, dict) and kind == "effects":
-                    # 효과는 키 하나가 곧 하나의 연출이다 (그림자·블러…).
-                    # 묶어 두면 둘 중 하나가 빠져도 안 보인다.
+                    # 효과는 키 하나가 곧 하나의 연출이고(그림자·블러…),
+                    # 그 안에서 **또 쉼표로 여러 줄**이 이어진다. 둘 다 쪼갠다.
                     for k2, v2 in value.items():
-                        out.append({"ref": f"{label}/{key}.{k2}", "kind": kind,
-                                    "name": node_name, "value": _describe(v2)})
+                        lines = _split_shadows(str(v2)) if isinstance(v2, str) else [v2]
+                        many = len(lines) > 1
+                        for n2, line in enumerate(lines):
+                            ref = f"{label}/{key}.{k2}" + (f"[{n2}]" if many else "")
+                            out.append({"ref": ref, "kind": kind, "name": node_name,
+                                        "effect": _effect_kind(k2, line),
+                                        "value": _describe(line)})
                 else:
                     out.append({"ref": f"{label}/{key}", "kind": kind,
                                 "name": node_name, "value": _describe(value)})
 
     for k, v in node.items():
         if isinstance(v, (dict, list)) and k not in ("fills", "strokes", "effects"):
-            _walk(v, f"{path}.{k}", out, want_id, here, hidden, elements, styles)
+            _walk(v, f"{path}.{k}", out, want_id, here, hidden, elements, styles, assets)
 
 
 def _load_dump(path: Path):
@@ -196,6 +312,111 @@ def _style_table(data) -> dict:
     return gv if isinstance(gv, dict) else {}
 
 
+def _download_plan(assets: list[dict]) -> dict:
+    """같은 그림을 여러 번 받지 않도록 묶고, 거부되지 않을 파일명을 붙인다.
+
+    실측: 에셋 노드 609개 중 실제로 서로 다른 그림은 60여 개였다. 순진하게 훑으면
+    609번 내려받고 592개가 같은 파일명으로 **서로 덮어쓴다**.
+    """
+    groups: dict[tuple, dict] = {}
+    for a in assets:
+        # 같은 컴포넌트를 꽂은 것이면 같은 그림이 **확실하다**. 그 외에는 이름이
+        # 같아도 다른 그림일 수 있어(Figma 기본 이름 'Vector' 가 대표적 —
+        # 실측 71개 중 48종이 서로 달랐다) 노드 전체가 똑같을 때만 묶는다.
+        key = (("c", a["component_id"]) if a.get("component_id")
+               else ("p", json.dumps(a.get("image"), sort_keys=True), a["_print"]))
+        hit = groups.get(key)
+        if hit:
+            hit["used"] += 1
+            hit["also"].append(a["node_id"])
+            continue
+        slug, lost_meaning = _slug(a.get("name"), a["node_id"])
+        groups[key] = dict(a, used=1, also=[], slug=slug, rename_me=lost_meaning,
+                           certain=bool(a.get("component_id")))
+
+    taken: dict[str, int] = {}
+    unique = []
+    for item in groups.values():
+        # imageRef 가 붙은 것은 사진이라 png, 나머지 벡터는 svg 로 받는다
+        ext = "png" if item.get("image") else "svg"
+        slug = item["slug"]
+        taken[slug] = taken.get(slug, 0) + 1
+        if taken[slug] > 1:                      # 이름이 겹치면 번호를 붙여 구분
+            slug = f"{slug}-{taken[slug]}"
+        item["file_name"] = f"{slug}.{ext}"
+        item.pop("slug", None)
+        item.pop("_print", None)          # 신원 판정용 내부 값 — 밖으로 내보내지 않는다
+        item["also"] = item["also"][:5]   # 같이 묶인 노드 몇 개만 (점검용)
+        unique.append(item)
+
+    nodes = []
+    for item in unique:
+        entry = {"nodeId": item["node_id"], "fileName": item["file_name"]}
+        img = item.get("image")
+        if img:
+            # 사진은 imageRef 가 없으면 엉뚱한 게 온다. 자르기·크기 인자는
+            # 덤프가 알려준 대로만 넣는다 (기본값이면 넣지 않는다).
+            entry["imageRef"] = img["imageRef"]
+            if img.get("needsCropping"):
+                entry["needsCropping"] = True
+                if img.get("cropTransform"):
+                    entry["cropTransform"] = img["cropTransform"]
+            if img.get("requiresImageDimensions"):
+                entry["requiresImageDimensions"] = True
+        nodes.append(entry)
+    return {"unique": unique, "nodes": nodes}
+
+
+def cmd_assets(args) -> int:
+    path = Path(args.dump)
+    if not path.is_file():
+        return emit({"ok": False, "code": "dump_not_found",
+                     "error": f"덤프 파일이 없습니다: {args.dump}"})
+    data, err = _load_dump(path)
+    if err:
+        code, msg, hint = err
+        out = {"ok": False, "code": code, "error": msg}
+        if hint:
+            out["hint"] = hint
+        return emit(out)
+
+    items, hidden, elements, assets = [], [], [], []
+    _walk(data, "$", items, args.node, hidden=hidden, elements=elements,
+          styles=_style_table(data), assets=assets)
+    if not assets:
+        return emit({"ok": True, "total": 0, "unique": 0, "assets": [], "nodes": [],
+                     "summary": "내려받을 에셋 노드가 없습니다",
+                     "next": "아이콘이 도형(RECTANGLE·ELLIPSE)으로 그려져 있을 수 있습니다. "
+                             "coverage 의 요소 목록에서 직접 확인하세요"})
+
+    plan = _download_plan(assets)
+    renames = [a for a in plan["unique"] if a.get("rename_me")]
+    guessed = [a for a in plan["unique"] if not a.get("certain") and a["used"] > 1]
+    baked = [a for a in plan["unique"] if a.get("baked_effect")]
+    return emit({
+        "total": len(assets), "unique": len(plan["unique"]),
+        "assets": plan["unique"], "nodes": plan["nodes"],
+        "needs_naming": len(renames),
+        "merged_by_guess": len(guessed),
+        "with_baked_effect": len(baked),
+        "summary": (f"에셋 노드 {len(assets)}개 → 실제로 받을 것 {len(plan['unique'])}개"
+                    + (f" (이름이 ASCII 로 안 남아 자동 이름이 붙은 것 {len(renames)}개)"
+                       if renames else "")
+                    + (f" · 효과가 그림에 박혀 오는 것 {len(baked)}개" if baked else "")),
+        "warning": ("덤프에는 아이콘의 **모양 정보가 없습니다**. componentId 가 같은 것은 "
+                    "같은 그림이 확실하지만(certain=true), 나머지는 노드 내용이 같다는 "
+                    "것만 보고 묶었습니다 — 받은 뒤 눈으로 확인하세요. "
+                    "baked_effect 가 있는 것은 그 효과가 **그림 안에 필터로 박혀** 오므로 "
+                    "받은 그림이 width/height 보다 큽니다. 레이아웃 크기로 우겨 넣으면 "
+                    "도형이 쪼그라들고, 효과를 코드로 또 넣으면 두 번 적용됩니다"),
+        "next": ("`nodes` 를 그대로 mcp__figma__download_figma_images 의 nodes 인자로 "
+                 "넘기고 localPath 에 **절대경로**를 줍니다. rename_me 가 true 인 것은 "
+                 "원래 이름이 한글 등이라 뜻을 잃었으니, name 을 보고 의미 있는 영문 "
+                 "이름으로 고쳐서 넘기세요. 받은 뒤 파일 개수와 크기 0 바이트 여부를 "
+                 "반드시 확인합니다 — 받았다고 응답해 놓고 안 받아진 적이 있습니다"),
+    })
+
+
 def cmd_coverage(args) -> int:
     path = Path(args.dump)
     if not path.is_file():
@@ -216,8 +437,10 @@ def cmd_coverage(args) -> int:
     items: list[dict] = []
     hidden: list[str] = []
     elements: list[dict] = []
+    assets: list[dict] = []
     styles = _style_table(data)
-    _walk(data, "$", items, args.node, hidden=hidden, elements=elements, styles=styles)
+    _walk(data, "$", items, args.node, hidden=hidden, elements=elements, styles=styles,
+          assets=assets)
 
     if not items:
         return emit({
@@ -231,6 +454,13 @@ def cmd_coverage(args) -> int:
     for it in items:
         counts[it["kind"]] = counts.get(it["kind"], 0) + 1
 
+    # 효과는 layout 수십 줄 사이에 묻히면 아무도 안 본다. **따로 꺼내 놓는다** —
+    # 실제로 빠뜨리는 것이 늘 이쪽이었다 (안쪽 그림자·글로우·배경 블러).
+    effects = [it for it in items if it["kind"] == "effects"]
+    by_effect: dict[str, int] = {}
+    for it in effects:
+        by_effect[it.get("effect") or "효과"] = by_effect.get(it.get("effect") or "효과", 0) + 1
+
     return emit({
         "node": args.node,
         "items": items,
@@ -238,16 +468,25 @@ def cmd_coverage(args) -> int:
         "total": len(items),
         "elements": elements,
         "element_count": len(elements),
+        "effects": effects,
+        "effect_counts": by_effect,
+        "asset_count": len(assets),
         "styles_resolved": len(styles),
         "hidden_skipped": hidden,
         "summary": (f"요소 {len(elements)}개 · 스타일 항목 {len(items)}개 " +
                     " · ".join(f"{k} {v}" for k, v in sorted(counts.items())) +
-                    (f" (꺼 둔 레이어 {len(hidden)}개 제외)" if hidden else "")),
-        "next": ("두 층으로 확인하세요. ① **요소**가 화면에 있는가 — 시안에 있는데 "
-                 "화면에 아예 없는 것이 실제로 나옵니다. ② 각 **스타일 항목**을 "
-                 "구현 / 근사(사유) / 생략(사유) 로 분류. 근사·생략은 사유를 반드시 "
-                 "적습니다 — 적지 않으면 못 옮긴 것인지 안 옮기기로 한 것인지 "
-                 "나중에 구분할 수 없습니다"),
+                    (f" · 에셋 {len(assets)}개" if assets else "") +
+                    (f" (꺼 둔 레이어 {len(hidden)}개 제외)" if hidden else "") +
+                    (" | 효과 " + " · ".join(f"{k} {v}" for k, v in sorted(by_effect.items()))
+                     if by_effect else "")),
+        "next": ("네 층으로 확인하세요. ① **요소**가 화면에 있는가 — 시안에 있는데 "
+                 "화면에 아예 없는 것이 실제로 나옵니다. ② **effects** 를 한 줄씩 — "
+                 "안쪽 그림자·글로우·배경 블러가 가장 자주 빠지고, 빠져도 눈으로는 "
+                 "거의 안 보입니다. ③ 나머지 **스타일 항목**. ④ 에셋이 있으면 "
+                 "`assets` 서브커맨드로 내려받을 목록을 받으세요. "
+                 "①~③ 은 구현 / 근사(사유) / 생략(사유) 로 분류하고, 근사·생략은 "
+                 "사유를 반드시 적습니다 — 적지 않으면 못 옮긴 것인지 안 옮기기로 "
+                 "한 것인지 나중에 구분할 수 없습니다"),
     })
 
 
@@ -445,6 +684,11 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--node", default=None,
                    help="이 노드 아래만 본다 (생략하면 덤프 전체)")
     c.set_defaults(func=cmd_coverage)
+
+    a_ = sub.add_parser("assets", help="내려받아야 할 에셋을 묶어 목록으로 낸다")
+    a_.add_argument("--dump", required=True, help="Figma MCP 덤프 파일")
+    a_.add_argument("--node", help="이 노드 아래만 (없으면 전체)")
+    a_.set_defaults(func=cmd_assets)
 
     d = sub.add_parser("diff", help="시안 export 와 앱 렌더를 픽셀로 맞댄다")
     d.add_argument("--render", required=True, help="앱이 그린 PNG")

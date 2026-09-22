@@ -89,10 +89,103 @@ MediaQuery(
 
 ---
 
-## 다른 프레임워크
+## React (웹)
+
+Playwright 로 찍는 것을 기준으로 적는다.
+
+### 논리 크기 · 배율
+
+```js
+const ctx = await browser.newContext({
+  viewport: { width: 393, height: 852 },   // 시안 프레임과 같은 논리 크기
+  deviceScaleFactor: 3,                    // 컴포넌트를 3배로 볼 때
+});
+```
+
+`deviceScaleFactor` 는 **컨텍스트를 만들 때만** 정해진다. 만든 뒤에 바꿀 수 없으므로
+배율을 바꾸려면 컨텍스트를 새로 만든다.
+
+### 글꼴이 다 실리기 전에 찍으면 전부 다르게 나온다 ⚠️
+
+가장 자주 틀리는 자리다. 대체 글꼴로 찍히면 **모든 글자 줄이 어긋난 것으로** 잡혀
+정작 봐야 할 어긋남이 묻힌다.
+
+```js
+await page.evaluate(() => document.fonts.ready);
+```
+
+### 움직이는 것을 멈춘다
+
+전환·애니메이션·커서 깜박임이 남아 있으면 찍을 때마다 결과가 달라진다.
+
+```js
+await page.addStyleTag({ content: `
+  *, *::before, *::after {
+    animation: none !important; transition: none !important;
+    caret-color: transparent !important;
+  }` });
+```
+
+### 안전영역
+
+웹에는 상태바가 없다. 시안 프레임이 상태바를 포함해 그려졌다면 렌더에 억지로
+만들지 말고 **`--mask-top` 으로 가린다.** `env(safe-area-inset-*)` 를 쓰는 화면이면
+그 값을 CSS 변수로 고정해 시안과 맞춘다.
+
+### 컴포넌트만 찍기
+
+```js
+await page.locator('[data-testid="cta-button"]').screenshot({ path: 'btn.png' });
+```
+
+Storybook 을 쓰면 스토리 하나를 열어 그 루트를 찍는 것이 가장 깔끔하다.
+
+---
+
+## React Native
+
+웹이 아니므로 **시뮬레이터·에뮬레이터 화면을 그대로 받는다.**
+
+### 논리 크기
+
+시안 프레임과 **논리 크기가 같은 기기**를 고른다 (iPhone 15 = 393×852 논리).
+크기가 다른 기기로 찍으면 맞출 방법이 없다.
+
+```bash
+xcrun simctl io booted screenshot render.png      # iOS
+adb exec-out screencap -p > render.png            # Android
+```
+
+받은 그림은 **물리 해상도**다 (3배 기기면 1179×2556). 시안을 같은 배율로 내보내거나
+받은 그림을 논리 크기로 줄여 맞춘다 — 둘 중 하나를 반드시 한다.
+
+### 안전영역
+
+`react-native-safe-area-context` 의 `initialMetrics` 로 값을 **고정**한다. 기기마다
+달라지면 본문이 뜨고, 그러면 전부 어긋난 것으로 나온다.
+
+```jsx
+<SafeAreaProvider initialMetrics={{
+  frame: { x: 0, y: 0, width: 393, height: 852 },
+  insets: { top: 59, left: 0, right: 0, bottom: 34 },
+}}>
+```
+
+### 컴포넌트만 찍기
+
+```jsx
+import { captureRef } from 'react-native-view-shot';
+await captureRef(ref, { format: 'png', quality: 1, result: 'tmpfile' });
+```
+
+`captureRef` 는 **논리 픽셀로 찍는다.** 3배로 보려면 `pixelRatio: 3` 을 준다.
+
+---
+
+## 그 밖의 프레임워크
 
 위 네 가지(논리 크기 · 안전영역 · 배율 · 내용)는 프레임워크를 가리지 않는다.
-쓰는 프레임워크에서 각각을 어떻게 맞추는지 알아내 **여기에 절을 추가한다.**
+쓰는 것에서 각각을 어떻게 맞추는지 알아내 **여기에 절을 추가한다.**
 
 특히 "컴포넌트 하나만 원하는 배율로 캡처하는 법"은 프레임워크마다 다르고,
-없으면 Phase 3 을 할 수 없다.
+없으면 Phase 5 를 할 수 없다.
