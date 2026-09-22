@@ -498,11 +498,16 @@ def _rects(node, styles: dict, want_id, ox=0.0, oy=0.0, inside=False, out=None,
             known = False
 
         radii = _parse_radius(node.get("borderRadius"))
-        if any(r > 0 for r in radii) and w and h:
+        fills = node.get("fills")
+        fills = styles.get(fills) if isinstance(fills, str) else fills
+        fx = node.get("effects")
+        fx = styles.get(fx) if isinstance(fx, str) else fx
+        interesting = any(r > 0 for r in radii) or fills is not None or fx is not None
+        if interesting and w and h:
             (out if known else skipped).append({
                 "ref": node_id, "name": node.get("name"), "type": node.get("type"),
                 "x": x, "y": y, "width": float(w), "height": float(h),
-                "radii": radii,
+                "radii": radii, "fills": fills, "effects": fx,
             })
 
     for k, v in node.items():
@@ -510,6 +515,60 @@ def _rects(node, styles: dict, want_id, ox=0.0, oy=0.0, inside=False, out=None,
             _rects(v, styles, want_id, x if known else ox, y if known else oy,
                    here, out, skipped)
     return out, skipped
+
+
+_HEX = re.compile(r"^#([0-9a-fA-F]{6})$")
+_RGBA = re.compile(r"rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?\s*\)")
+
+
+def _as_color(entry):
+    """칠 한 겹을 (rgb, alpha) 로 읽는다. 색이 아니면 None."""
+    if not isinstance(entry, str):
+        return None
+    m = _HEX.match(entry.strip())
+    if m:
+        h = m.group(1)
+        return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)), 1.0
+    m = _RGBA.search(entry)
+    if m:
+        a = float(m.group(4)) if m.group(4) is not None else 1.0
+        return (int(float(m.group(1))), int(float(m.group(2))),
+                int(float(m.group(3)))), a
+    return None
+
+
+def _fill_kind(value):
+    """칠을 (종류, 값) 으로 정리한다.
+
+    실측 분포: 단색 hex 72 · rgba 14 · 그라디언트 28 · 이미지 2.
+    **맨 위 겹이 화면에 보이는 것**이라 그것을 기준으로 삼는다.
+    """
+    layers = value if isinstance(value, list) else [value]
+    for entry in layers:                      # 목록의 앞이 위 겹이다
+        if isinstance(entry, dict):
+            if entry.get("imageRef"):
+                return "image", entry
+            if "gradient" in str(entry):
+                return "gradient", entry
+            continue
+        c = _as_color(entry)
+        if c:
+            return ("translucent" if c[1] < 1.0 else "solid"), c
+    return "unknown", None
+
+
+def _shadow_offsets(effects):
+    """바깥 그림자들의 (dx, dy, blur). inset 은 뺀다 — 밖에서 안 보인다."""
+    out = []
+    if not isinstance(effects, dict):
+        return out
+    for line in _split_shadows(str(effects.get("boxShadow") or "")):
+        if not line or line.startswith("inset"):
+            continue
+        nums = re.findall(r"(-?[\d.]+)px", line)
+        if len(nums) >= 3:
+            out.append((float(nums[0]), float(nums[1]), float(nums[2])))
+    return out
 
 
 def _node_width(node, styles: dict, want_id):
@@ -589,7 +648,92 @@ def _probe_corners(img, rect: dict, scale: float, tol: int) -> list[dict]:
     return findings
 
 
-def cmd_corners(args) -> int:
+def _label(rect) -> str:
+    return (f"{rect['name'] or rect['ref']} {rect['width']:.0f}x{rect['height']:.0f} "
+            f"@{rect['x']:.0f},{rect['y']:.0f}")
+
+
+def _check_fills(sample, rect, tol) -> list[dict]:
+    """칠이 시안대로 칠해졌는가.
+
+    잡는 것: 색 자체가 다름 · **투명도가 빠짐**(hex 는 맞는데 그대로 불투명) ·
+    **그라디언트를 단색으로 깔음**. 셋 다 화면에서는 "비슷해" 보인다.
+    """
+    kind, value = _fill_kind(rect.get("fills"))
+    if kind in ("unknown", "image"):
+        return []                       # 사진은 색으로 판정할 수 없다
+    w, h = rect["width"], rect["height"]
+    mid = sample(rect["x"] + w / 2, rect["y"] + h / 2)
+    if mid is None:
+        return []
+    out = []
+
+    if kind in ("solid", "translucent"):
+        want, alpha = value
+        gap = max(abs(a - b) for a, b in zip(mid, want))
+        if kind == "solid" and gap > tol:
+            out.append({"check": "fills", "severity": "high", "ref": rect["ref"],
+                        "says": (f"{_label(rect)} 칠이 다르다 — 시안 "
+                                 f"rgb{want}, 렌더 rgb{tuple(mid)}")})
+        elif kind == "translucent" and gap <= tol:
+            # 반투명인데 원색 그대로 = 투명도를 안 준 것이다
+            out.append({"check": "fills", "severity": "high", "ref": rect["ref"],
+                        "says": (f"{_label(rect)} 투명도가 빠졌다 — 시안 "
+                                 f"alpha={alpha:g} 인데 렌더가 원색 rgb{want} 그대로다")})
+    elif kind == "gradient":
+        # 축을 몰라도 된다 — 세로·가로 양쪽 끝을 재서 **어느 쪽도 안 변하면** 단색이다
+        pad = 0.12
+        pts = [sample(rect["x"] + w / 2, rect["y"] + h * pad),
+               sample(rect["x"] + w / 2, rect["y"] + h * (1 - pad)),
+               sample(rect["x"] + w * pad, rect["y"] + h / 2),
+               sample(rect["x"] + w * (1 - pad), rect["y"] + h / 2)]
+        pts = [q for q in pts if q is not None]
+        if len(pts) >= 2:
+            spread = max(max(abs(a - b) for a, b in zip(p1, p2))
+                         for p1 in pts for p2 in pts)
+            if spread <= tol:
+                out.append({"check": "fills", "severity": "high", "ref": rect["ref"],
+                            "says": (f"{_label(rect)} 그라디언트가 단색으로 깔렸다 — "
+                                     f"면 전체가 rgb{tuple(pts[0])} 한 색이다")})
+    return out
+
+
+def _check_shadows(sample, rect, tol) -> list[dict]:
+    """바깥 그림자가 실제로 그려졌는가.
+
+    시안이 치우친 그림자를 말하면, 그 방향 바깥이 **먼 배경과 달라야** 한다.
+    같으면 그림자가 통째로 빠진 것이다 — 작고 은은해서 눈으로는 안 보인다.
+    """
+    offsets = _shadow_offsets(rect.get("effects"))
+    out = []
+    for dx, dy, blur in offsets:
+        reach = max(abs(dx), abs(dy), blur / 2.0)
+        if reach < 2:
+            continue                     # 너무 얕아 픽셀로 가릴 수 없다
+        w, h = rect["width"], rect["height"]
+        cx, cy = rect["x"] + w / 2, rect["y"] + h / 2
+        # 그림자가 지는 쪽 바로 바깥
+        if abs(dy) >= abs(dx):
+            near = sample(cx, rect["y"] + h + max(dy, 1) if dy >= 0 else rect["y"] + min(dy, -1))
+            far = sample(cx, rect["y"] + h + reach * 6 if dy >= 0 else rect["y"] - reach * 6)
+        else:
+            near = sample(rect["x"] + w + max(dx, 1) if dx >= 0 else rect["x"] + min(dx, -1), cy)
+            far = sample(rect["x"] + w + reach * 6 if dx >= 0 else rect["x"] - reach * 6, cy)
+        if near is None or far is None:
+            continue
+        if max(abs(a - b) for a, b in zip(near, far)) <= tol:
+            out.append({"check": "shadows", "severity": "medium", "ref": rect["ref"],
+                        "says": (f"{_label(rect)} 그림자가 안 보인다 — 시안은 "
+                                 f"{dx:g},{dy:g} blur {blur:g} 인데 가장자리 바깥이 "
+                                 f"먼 배경과 같다")})
+    return out
+
+
+_SEVERITY_ORDER = {"none": 0, "low": 1, "medium": 2, "high": 3}
+_ALL_CHECKS = ("corners", "fills", "shadows")
+
+
+def cmd_conform(args) -> int:
     missing = _require_imaging()
     if missing is not None:
         return missing
@@ -627,24 +771,60 @@ def cmd_corners(args) -> int:
         else:
             scale, scale_from = 1.0, "기준 노드 폭을 못 찾아 1배로 가정"
 
+    W, H = img.size
+
+    def sample(lx, ly):
+        px, py = int(round(lx * scale)), int(round(ly * scale))
+        if not (0 <= px < W and 0 <= py < H):
+            return None
+        return img.getpixel((px, py))[:3]
+
+    checks = [c.strip() for c in args.check.split(",") if c.strip()] if args.check \
+        else list(_ALL_CHECKS)
+    bad = [c for c in checks if c not in _ALL_CHECKS]
+    if bad:
+        return emit({"ok": False, "code": "unknown_check",
+                     "error": f"모르는 검사: {bad}",
+                     "hint": f"쓸 수 있는 것: {', '.join(_ALL_CHECKS)}"})
+
     findings = []
     for r in rects:
-        findings.extend(_probe_corners(img, r, scale, args.tolerance))
+        if "corners" in checks:
+            for f in _probe_corners(img, r, scale, args.tolerance):
+                findings.append({"check": "corners", "severity": "high",
+                                 "ref": r["ref"], **f})
+        if "fills" in checks:
+            findings.extend(_check_fills(sample, r, args.tolerance))
+        if "shadows" in checks:
+            findings.extend(_check_shadows(sample, r, args.tolerance))
+
+    findings.sort(key=lambda f: -_SEVERITY_ORDER.get(f.get("severity"), 0))
+    by_sev = {}
+    for f in findings:
+        by_sev[f["severity"]] = by_sev.get(f["severity"], 0) + 1
+
+    gate = _SEVERITY_ORDER.get(args.fail_on, 0)
+    worst = max((_SEVERITY_ORDER.get(f["severity"], 0) for f in findings), default=0)
+    failed = bool(gate) and worst >= gate
 
     return emit({
+        "ok": not failed,
+        "code": "conformance_failed" if failed else "ok",
+        "checks": checks,
         "checked": len(rects), "skipped_unknown_position": len(skipped),
         "scale": round(scale, 4), "scale_from": scale_from,
         "render_size": list(img.size),
-        "findings": findings,
-        "summary": (f"사각형 {len(rects)}개 검사 (배율 {scale:g}) — "
-                    + (f"⚠️ 각진 모서리 {len(findings)}곳" if findings else "모서리 이상 없음")
+        "findings": findings, "by_severity": by_sev,
+        "summary": (f"사각형 {len(rects)}개 · {'·'.join(checks)} 검사 (배율 {scale:g}) — "
+                    + (" · ".join(f"{k} {v}" for k, v in sorted(by_sev.items()))
+                       if findings else "이상 없음")
                     + (f" · 위치를 몰라 건너뜀 {len(skipped)}개" if skipped else "")),
-        "next": ("각 `says` 가 고칠 자리를 그대로 말해 줍니다. "
+        "next": ("각 `says` 가 고칠 자리를 그대로 말해 줍니다. 모서리가 각졌다면 "
                  "**라운드를 안 준 것이 아니라 준 라운드를 자식이 덮은 경우**가 흔합니다 — "
                  "부모가 배경만 둥글게 칠하고 자식을 자르지 않으면(클리핑 꺼짐) "
                  "자식이 깐 배경색이 둥근 자리를 메웁니다"
                  if findings else
-                 "모서리는 맞습니다. 다른 속성은 coverage 로 대조하세요"),
+                 "기하·색·그림자는 맞습니다. 나머지 속성은 coverage 로 대조하세요"),
     })
 
 
@@ -1004,15 +1184,20 @@ def build_parser() -> argparse.ArgumentParser:
     a_.add_argument("--node", help="이 노드 아래만 (없으면 전체)")
     a_.set_defaults(func=cmd_assets)
 
-    c_ = sub.add_parser("corners", help="둥근 모서리가 실제로 둥근지 속성으로 대조한다")
+    c_ = sub.add_parser("conform", help="시안 값대로 그려졌는지 속성으로 대조한다")
     c_.add_argument("--dump", required=True, help="Figma MCP 덤프 파일")
     c_.add_argument("--render", required=True, help="앱 렌더 png")
     c_.add_argument("--node", help="이 노드를 원점으로 (보통 화면 프레임)")
+    c_.add_argument("--check", default="",
+                    help=f"쉼표로 고른다 (기본 전부): {','.join(_ALL_CHECKS)}")
+    c_.add_argument("--fail-on", dest="fail_on", default="none",
+                    choices=["none", "low", "medium", "high"],
+                    help="이 심각도 이상이면 종료코드 1 — CI 게이트용")
     c_.add_argument("--scale", type=float, default=0,
                     help="렌더 배율 (0이면 렌더 폭 ÷ 기준 노드 폭으로 추정)")
     c_.add_argument("--tolerance", type=int, default=12,
                     help="같은 색으로 볼 채널 차 (안티에일리어싱 여유)")
-    c_.set_defaults(func=cmd_corners)
+    c_.set_defaults(func=cmd_conform)
 
     d = sub.add_parser("diff", help="시안 export 와 앱 렌더를 픽셀로 맞댄다")
     d.add_argument("--render", required=True, help="앱이 그린 PNG")

@@ -819,7 +819,7 @@ def test_radius_string_is_parsed_into_four_corners():
 def test_square_corner_is_caught_and_round_one_is_not(tmp_path):
     """오탐이 없어야 쓴다. 둥근 것을 잡으면 아무도 안 믿는다."""
     dp, rp = _corner_case(tmp_path)
-    _, o, _ = run("corners", "--dump", str(dp), "--render", str(rp), "--node", "1:1")
+    _, o, _ = run("conform", "--dump", str(dp), "--render", str(rp), "--node", "1:1")
     d = out(o)
     assert d["checked"] == 2, d
     assert d["scale"] == 1, d["scale_from"]
@@ -836,7 +836,7 @@ def test_scale_comes_from_the_reference_node_not_the_rect_list(tmp_path):
     (실측으로 1.0 대신 1.25 가 나왔다).
     """
     dp, rp = _corner_case(tmp_path, scale=3)
-    _, o, _ = run("corners", "--dump", str(dp), "--render", str(rp), "--node", "1:1")
+    _, o, _ = run("conform", "--dump", str(dp), "--render", str(rp), "--node", "1:1")
     d = out(o)
     assert d["scale"] == 3, d["scale_from"]
     assert "÷ 기준 200" in d["scale_from"]
@@ -859,7 +859,7 @@ def test_positions_it_cannot_compute_are_skipped_and_counted(tmp_path):
     rp = tmp_path / "r.png"
     Image.new("RGB", (100, 100), (255, 255, 255)).save(rp)
 
-    _, o, _ = run("corners", "--dump", str(dp), "--render", str(rp), "--node", "2:1")
+    _, o, _ = run("conform", "--dump", str(dp), "--render", str(rp), "--node", "2:1")
     d = out(o)
     assert d["checked"] == 0
     assert d["skipped_unknown_position"] == 1
@@ -884,7 +884,152 @@ def test_clean_screen_says_so_plainly(tmp_path):
                                           fill=(51, 102, 255))
     rp = tmp_path / "r.png"
     img.save(rp)
-    _, o, _ = run("corners", "--dump", str(dp), "--render", str(rp), "--node", "3:1")
+    _, o, _ = run("conform", "--dump", str(dp), "--render", str(rp), "--node", "3:1")
     d = out(o)
     assert d["findings"] == [], d["findings"]
-    assert "모서리 이상 없음" in d["summary"]
+    assert "이상 없음" in d["summary"]
+
+
+# =========================================================================
+# conform — 색·그라디언트·그림자까지 (#626 후속)
+#
+# 셋 다 화면에서는 "비슷해" 보인다. 눈으로도 픽셀 퍼센트로도 안 잡히고,
+# 값을 알고 그 자리를 찍어야 잡힌다.
+# =========================================================================
+
+def _six_boxes(tmp_path, broken: bool):
+    """여섯 상자 — 각짐 · 틀린 색 · 투명도 빠짐 · 그라디언트→단색 · 그림자 없음 · 정상."""
+    Image, ImageDraw = _imaging()
+    from PIL import ImageFilter
+    dump = {"nodes": [{"id": "1:1", "name": "화면", "type": "FRAME", "layout": "L",
+                       "children": [
+        {"id": "1:10", "name": "모서리", "type": "RECTANGLE", "layout": "A",
+         "borderRadius": "20px", "fills": "SOLID"},
+        {"id": "1:20", "name": "색", "type": "RECTANGLE", "layout": "B", "fills": "SOLID"},
+        {"id": "1:30", "name": "반투명", "type": "RECTANGLE", "layout": "C", "fills": "TRANS"},
+        {"id": "1:40", "name": "그라디언트", "type": "RECTANGLE", "layout": "D", "fills": "GRAD"},
+        {"id": "1:50", "name": "그림자", "type": "RECTANGLE", "layout": "E",
+         "fills": "SOLID", "effects": "SH"},
+        # 사진은 색으로 판정할 수 없다 — 시안의 imageRef 와 렌더 픽셀은 애초에 다르다
+        {"id": "1:60", "name": "사진", "type": "RECTANGLE", "layout": "F", "fills": "PHOTO"},
+    ]}],
+        "globalVars": {"styles": {
+            "L": {"dimensions": {"width": 400, "height": 300}},
+            "A": {"locationRelativeToParent": {"x": 20, "y": 20},
+                  "dimensions": {"width": 160, "height": 60}},
+            "B": {"locationRelativeToParent": {"x": 220, "y": 20},
+                  "dimensions": {"width": 160, "height": 60}},
+            "C": {"locationRelativeToParent": {"x": 20, "y": 100},
+                  "dimensions": {"width": 160, "height": 60}},
+            "D": {"locationRelativeToParent": {"x": 220, "y": 100},
+                  "dimensions": {"width": 160, "height": 60}},
+            "E": {"locationRelativeToParent": {"x": 20, "y": 190},
+                  "dimensions": {"width": 160, "height": 60}},
+            "F": {"locationRelativeToParent": {"x": 220, "y": 190},
+                  "dimensions": {"width": 160, "height": 60}},
+            "PHOTO": [{"type": "IMAGE", "imageRef": "deadbeef", "scaleMode": "FILL"}],
+            "SOLID": ["#3366FF"], "TRANS": ["rgba(51, 102, 255, 0.4)"],
+            "GRAD": [{"type": "GRADIENT_LINEAR",
+                      "gradient": "linear-gradient(180deg, #3366FF 0%, #FFD629 100%)"},
+                     "#FFD629"],
+            "SH": {"boxShadow": "0px 8px 12px 0px rgba(0, 0, 0, 0.35)"}}}}
+    dp = tmp_path / "dump.json"
+    dp.write_text(json.dumps(dump, ensure_ascii=False), encoding="utf-8")
+
+    BLUE, WHITE = (51, 102, 255), (255, 255, 255)
+    img = Image.new("RGB", (400, 300), WHITE)
+    d = ImageDraw.Draw(img)
+    if broken:
+        d.rectangle([20, 20, 180, 80], fill=BLUE)              # 각짐
+        d.rectangle([220, 20, 380, 80], fill=(255, 0, 0))      # 색 다름
+        d.rectangle([20, 100, 180, 160], fill=BLUE)            # 투명도 빠짐
+        d.rectangle([220, 100, 380, 160], fill=BLUE)           # 그라디언트→단색
+        d.rectangle([20, 190, 180, 250], fill=BLUE)            # 그림자 없음
+        d.rectangle([220, 190, 380, 250], fill=(12, 200, 90))  # 사진 — 어떤 색이든 상관없다
+    else:
+        d.rounded_rectangle([20, 20, 180, 80], radius=20, fill=BLUE)
+        d.rectangle([220, 20, 380, 80], fill=BLUE)
+        d.rectangle([20, 100, 180, 160], fill=(173, 194, 255))  # 0.4 를 흰 위에 합성
+        for i in range(61):
+            t = i / 60
+            d.line([(220, 100 + i), (380, 100 + i)],
+                   fill=(int(51 + 204 * t), int(102 + 112 * t), int(255 - 214 * t)))
+        sh = Image.new("RGB", (400, 300), WHITE)
+        ImageDraw.Draw(sh).rectangle([20, 198, 180, 258], fill=(90, 90, 90))
+        sh = sh.filter(ImageFilter.GaussianBlur(6))
+        sh.paste(img.crop((0, 0, 400, 190)), (0, 0))
+        d2 = ImageDraw.Draw(sh)
+        d2.rectangle([20, 190, 180, 250], fill=BLUE)
+        d2.rectangle([220, 190, 380, 250], fill=(12, 200, 90))
+        img = sh
+    rp = tmp_path / ("broken.png" if broken else "ok.png")
+    img.save(rp)
+    return dp, rp
+
+
+def test_conform_catches_colour_alpha_gradient_and_shadow(tmp_path):
+    """넷 다 화면에서는 비슷해 보인다 — 값을 알아야 잡힌다."""
+    dp, rp = _six_boxes(tmp_path, broken=True)
+    _, o, _ = run("conform", "--dump", str(dp), "--render", str(rp), "--node", "1:1")
+    d = out(o)
+    says = " | ".join(f["says"] for f in d["findings"])
+    assert "렌더가 각졌다" in says, says
+    assert "칠이 다르다" in says, says
+    assert "투명도가 빠졌다" in says, says
+    assert "그라디언트가 단색으로 깔렸다" in says, says
+    assert "그림자가 안 보인다" in says, says
+    # 심각도가 갈려야 CI 가 쓸 수 있다
+    assert d["by_severity"]["high"] >= 4 and d["by_severity"]["medium"] >= 1, d["by_severity"]
+    # 사진 자리는 색이 전혀 다른데도 **건드리면 안 된다** — 시안의 imageRef 와
+    # 렌더 픽셀은 애초에 비교 대상이 아니다. 잡기 시작하면 오탐이 쏟아진다.
+    assert not [f for f in d["findings"] if f["ref"] == "1:60"], (
+        "사진을 색으로 판정했다", d["findings"])
+
+
+def test_conform_is_quiet_when_everything_matches(tmp_path):
+    """오탐이 하나라도 있으면 아무도 안 쓴다."""
+    dp, rp = _six_boxes(tmp_path, broken=False)
+    _, o, _ = run("conform", "--dump", str(dp), "--render", str(rp), "--node", "1:1")
+    d = out(o)
+    assert d["findings"] == [], d["findings"]
+    assert "이상 없음" in d["summary"]
+
+
+def test_fail_on_gives_ci_a_non_zero_exit(tmp_path):
+    """게이트가 없으면 CI 가 못 붙잡는다. 있으면 심각도로 끊는다."""
+    dp, rp = _six_boxes(tmp_path, broken=True)
+    rc_none, _, _ = run("conform", "--dump", str(dp), "--render", str(rp),
+                        "--node", "1:1", "--fail-on", "none")
+    rc_med, o_med, _ = run("conform", "--dump", str(dp), "--render", str(rp),
+                           "--node", "1:1", "--fail-on", "medium")
+    assert rc_none == 0, "게이트를 안 걸었는데 실패로 끊었다"
+    assert rc_med == 1, "결함이 있는데 통과시켰다"
+    assert out(o_med)["code"] == "conformance_failed"
+
+
+def test_checks_can_be_narrowed_and_unknown_ones_are_refused(tmp_path):
+    dp, rp = _six_boxes(tmp_path, broken=True)
+    _, o, _ = run("conform", "--dump", str(dp), "--render", str(rp),
+                  "--node", "1:1", "--check", "corners")
+    d = out(o)
+    assert {f["check"] for f in d["findings"]} == {"corners"}, d["findings"]
+
+    _, o2, _ = run("conform", "--dump", str(dp), "--render", str(rp),
+                   "--node", "1:1", "--check", "colours")
+    assert out(o2)["code"] == "unknown_check"
+
+
+def test_fill_and_shadow_parsing_matches_real_dump_shapes():
+    """실덤프 분포: 단색 72 · rgba 14 · 그라디언트 28 · 이미지 2. 값 검사라 어디서나 돈다."""
+    m = _m
+    assert m._fill_kind(["#3366FF"])[0] == "solid"
+    assert m._fill_kind(["rgba(255, 255, 255, 0.5)"])[0] == "translucent"
+    assert m._fill_kind([{"type": "GRADIENT_LINEAR", "gradient": "linear-gradient(...)"}])[0] == "gradient"
+    assert m._fill_kind([{"type": "IMAGE", "imageRef": "abc"}])[0] == "image"
+    # 사진은 색으로 판정할 수 없다 — 잘못 잡으면 오탐이 쏟아진다
+    assert m._fill_kind([])[0] == "unknown"
+
+    # inset 은 밖에서 안 보이므로 바깥 그림자 검사에서 빠져야 한다
+    got = m._shadow_offsets({"boxShadow":
+        "4px 4px 6px 0px rgba(0,0,0,0.05), inset 0px 8px 24px -16px rgba(255,255,255,0.24)"})
+    assert got == [(4.0, 4.0, 6.0)], got

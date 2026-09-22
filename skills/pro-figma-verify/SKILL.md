@@ -72,7 +72,7 @@ SCRIPTS="$ROOT/skills/$SKILL/scripts"
 | `get-output-path --title {이름}` | 이번 대조의 **산출물 자리**를 만든다 (가장 먼저) |
 | `coverage --dump {파일} [--node {id}]` | 덤프의 요소·효과·스타일을 **빠짐없이 나열** |
 | `assets --dump {파일} [--node {id}]` | 내려받을 에셋을 묶어 **`nodes[]` 를 만들어 준다** |
-| `corners --dump {파일} --render {png} --node {id}` | 둥근 모서리가 **실제로 둥근지** 속성으로 대조 |
+| `conform --dump {파일} --render {png} --node {id}` | 시안 값대로 그려졌는지 **속성으로 대조** (모서리·칠·그림자) |
 | `diff --render {png} --design {png} [--out {png}]` | 픽셀로 맞대 **덩어리로** 보고 (보조) |
 
 셋 다 JSON 을 돌려준다. `ok`·`code`·`summary`·`next` 를 보고 다음 수를 정한다.
@@ -330,16 +330,39 @@ fill="#      fill:#      stroke="#      stroke:#
 속성은 단정적이다. `좌상 r=20 인데 렌더가 각졌다`.
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py corners \
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py conform \
   --dump {덤프} --render {앱 렌더.png} --node {화면 노드 id}
 ```
 
 ```
-사각형 31개 검사 (배율 3) — ⚠️ 각진 모서리 1곳
-   카드 40x68 @16,390 좌상 r=16 → 렌더가 각졌다
+사각형 31개 · corners·fills·shadows 검사 (배율 3) — high 2 · medium 1
+   [high  ] 카드 40x68 @16,390 좌상 r=16 → 렌더가 각졌다
+   [high  ] 배지 24x24 @300,120 투명도가 빠졌다 — 시안 alpha=0.4 인데 렌더가 원색 그대로다
+   [medium] 시트 393x420 @0,432 그림자가 안 보인다 — 시안은 0,8 blur 12 인데 …
 ```
 
-정상 화면에서는 `모서리 이상 없음` 한 줄로 끝난다. **퍼센트 22줄이 못 한 일이다.**
+정상 화면에서는 `이상 없음` 한 줄로 끝난다. **퍼센트 22줄이 못 한 일이다.**
+
+### 무엇을 보나
+
+| 검사 | 잡는 것 | 심각도 |
+|---|---|---|
+| `corners` | 시안이 둥글라 했는데 **각졌다** (기하로 판정) | high |
+| `fills` | 색이 다르다 · **투명도가 빠졌다** · **그라디언트를 단색으로 깔았다** | high |
+| `shadows` | 바깥 그림자가 **통째로 없다** | medium |
+
+셋 다 화면에서는 "비슷해" 보인다 — 눈으로도 픽셀 퍼센트로도 안 잡히고, **값을 알고 그 자리를 찍어야** 잡힌다.
+
+`--check corners,fills` 로 좁힐 수 있다. **사진(`imageRef`) 칠은 건드리지 않는다** — 시안의 이미지 참조와 렌더 픽셀은 애초에 비교 대상이 아니라, 잡기 시작하면 오탐이 쏟아진다.
+
+### CI 게이트
+
+```bash
+... conform --dump {덤프} --render {png} --node {id} --fail-on high
+```
+
+그 심각도 이상이 하나라도 있으면 **종료코드 1**. 기본값은 `none`(끊지 않음)이다 —
+임계를 잘못 잡으면 매번 빨개져 아무도 안 본다.
 
 ### 각졌다고 나오면 먼저 이걸 의심한다 ⚠️
 
@@ -357,15 +380,15 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py corners \
 
 ### 다른 속성도 같은 방식으로 본다
 
-`corners` 는 **기하로 판정할 수 있는 것**을 자동화한 것이다. 나머지는 `coverage` 가
+`conform` 은 **렌더에서 재어 판정할 수 있는 것**을 자동화한 것이다. 나머지는 `coverage` 가
 나열한 값을 코드와 눈으로 대조한다 — 특히 아래가 자주 어긋난다.
 
 | 항목 | 자주 빠지는 것 |
 |---|---|
-| 색 | hex 는 맞는데 **투명도**가 빠진다 |
+| 색 | hex 는 맞는데 **투명도**가 빠진다 (`conform` 이 잡는다) |
 | 선 | `strokeWeight` 는 맞는데 `strokeAlign`(안/가운데/밖)이 다르다 |
 | 타이포 | `lineHeight` · `letterSpacing` 이 기본값으로 남는다 |
-| 그라디언트 | 각도와 **스톱 위치**가 다르다 (색만 맞춰 놓는다) |
+| 그라디언트 | 각도와 **스톱 위치**가 다르다. 단색으로 깔린 것은 `conform` 이 잡는다 |
 | 효과 | `framework-gaps.md` 의 표 — 안쪽 그림자·글로우 |
 | 상태 | 변형(variant)을 하나만 그린다 (Phase 1) |
 
@@ -470,7 +493,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py diff \
 | **링크의 node-id 를 화면이라 믿는다** | SECTION 이면 1MB 가 온다. `depth 2` 로 화면 목록을 먼저 본다 |
 | **받은 에셋을 레이아웃 크기로 넣는다** | 효과가 박혀 크게 온다. 도형이 쪼그라든다 |
 | **에셋에 박힌 효과를 코드로 또 넣는다** | 두 번 적용돼 두 배로 번진다 |
-| **퍼센트만 보고 통과를 판단한다** | 어디가 다른지만 알고 무엇이 틀렸는지는 모른다. `corners` 를 먼저 돌린다 |
+| **퍼센트만 보고 통과를 판단한다** | 어디가 다른지만 알고 무엇이 틀렸는지는 모른다. `conform` 을 먼저 돌린다 |
 | **각졌길래 반지름을 다시 준다** | 값은 이미 있다. **자식이 덮은 것**이라 클리핑을 켜야 한다 |
 | **화면 노드만 읽고 컴포넌트 값을 판단한다** | INSTANCE 17%가 스타일을 아예 안 갖는다. `componentId` 를 따라간다 |
 | **투명도를 빼고 색만 맞춘다** | hex 가 같아도 화면이 다르다 |
