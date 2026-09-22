@@ -86,7 +86,8 @@ def _is_hidden(node: dict) -> bool:
     return node.get("isVisible") is False or node.get("hidden") is True
 
 
-def _walk(node, path, out, want_id=None, inside=False, hidden=None, elements=None):
+def _walk(node, path, out, want_id=None, inside=False, hidden=None, elements=None,
+          styles=None):
     """덤프를 훑어 스타일 항목을 모은다.
 
     덤프 모양이 도구·버전마다 달라서 키 이름을 고정하지 않고 재귀로 찾는다.
@@ -96,9 +97,11 @@ def _walk(node, path, out, want_id=None, inside=False, hidden=None, elements=Non
         hidden = []
     if elements is None:
         elements = []
+    if styles is None:
+        styles = {}
     if isinstance(node, list):
         for i, child in enumerate(node):
-            _walk(child, f"{path}[{i}]", out, want_id, inside, hidden, elements)
+            _walk(child, f"{path}[{i}]", out, want_id, inside, hidden, elements, styles)
         return
     if not isinstance(node, dict):
         return
@@ -116,13 +119,21 @@ def _walk(node, path, out, want_id=None, inside=False, hidden=None, elements=Non
         label = node_id or node_name
         # 스타일만 세면 **요소가 통째로 빠진 것**은 안 보인다. 시안에 있는데
         # 화면에 아예 없는 경우가 실제로 있었다 — 그건 스타일 문제가 아니다.
-        elements.append({"ref": label, "name": node_name,
-                         "type": node.get("type") or node.get("nodeType")})
+        #
+        # id 가 있는 것만 요소로 친다. 컴포넌트 속성 선언(`Dark Mode` 같은 VARIANT)도
+        # name 을 갖고 있어서, name 만 보면 화면 요소가 아닌 것이 목록에 섞인다.
+        node_type = node.get("type") or node.get("nodeType")
+        if node_id and node_type != "VARIANT":
+            elements.append({"ref": node_id, "name": node_name, "type": node_type})
         for kind, aliases in _STYLE_KEYS.items():
             for key in aliases:
                 if key not in node:
                     continue
                 value = node[key]
+                # 참조면 실제 값으로 바꾼다. 안 바꾸면 "fill_B16QZY" 가 값이 되어
+                # 분류할 수 없고, 여러 줄짜리 효과가 한 줄로 뭉개진다.
+                if isinstance(value, str) and value in styles:
+                    value = styles[value]
                 if value in (None, [], {}, ""):
                     continue
                 # 배열은 **원소마다 한 줄**로 쪼갠다. 통째로 한 줄이면
@@ -131,13 +142,58 @@ def _walk(node, path, out, want_id=None, inside=False, hidden=None, elements=Non
                     for i, item in enumerate(value):
                         out.append({"ref": f"{label}/{key}[{i}]", "kind": kind,
                                     "name": node_name, "value": _describe(item)})
+                elif isinstance(value, dict) and kind == "effects":
+                    # 효과는 키 하나가 곧 하나의 연출이다 (그림자·블러…).
+                    # 묶어 두면 둘 중 하나가 빠져도 안 보인다.
+                    for k2, v2 in value.items():
+                        out.append({"ref": f"{label}/{key}.{k2}", "kind": kind,
+                                    "name": node_name, "value": _describe(v2)})
                 else:
                     out.append({"ref": f"{label}/{key}", "kind": kind,
                                 "name": node_name, "value": _describe(value)})
 
     for k, v in node.items():
         if isinstance(v, (dict, list)) and k not in ("fills", "strokes", "effects"):
-            _walk(v, f"{path}.{k}", out, want_id, here, hidden, elements)
+            _walk(v, f"{path}.{k}", out, want_id, here, hidden, elements, styles)
+
+
+def _load_dump(path: Path):
+    """덤프를 읽는다. **실제 MCP 는 YAML 을 돌려준다** — JSON 만 받으면 못 쓴다.
+
+    도구·버전에 따라 JSON 일 수도 있으므로 JSON 을 먼저 시도하고 YAML 로 내려간다.
+    """
+    text = path.read_text(encoding="utf-8")
+    try:
+        return json.loads(text), None
+    except json.JSONDecodeError:
+        pass
+    try:
+        import yaml
+    except ImportError:
+        return None, ("yaml_missing",
+                      "덤프가 JSON 이 아닙니다. YAML 로 읽으려면 PyYAML 이 필요합니다",
+                      "python3 -m pip install pyyaml")
+    try:
+        return yaml.safe_load(text), None
+    except yaml.YAMLError as e:
+        return None, ("dump_unreadable", str(e), None)
+
+
+def _style_table(data) -> dict:
+    """`globalVars.styles` — 노드는 스타일을 **참조로만** 갖는다.
+
+        nodes:  {fills: fill_B16QZY}          ← 이것만 보면 "fill_B16QZY" 가 값이 된다
+        globalVars.styles: {fill_B16QZY: ['#737373']}   ← 진짜 값은 여기
+
+    해소하지 않으면 효과 네 줄이 **참조 문자열 한 줄**로 세어져, 한 줄이 빠져도
+    드러나지 않는다 — 이 도구가 막으려던 바로 그 일이다.
+    """
+    if not isinstance(data, dict):
+        return {}
+    gv = data.get("globalVars")
+    if isinstance(gv, dict) and isinstance(gv.get("styles"), dict):
+        return gv["styles"]
+    return gv if isinstance(gv, dict) else {}
 
 
 def cmd_coverage(args) -> int:
@@ -145,16 +201,23 @@ def cmd_coverage(args) -> int:
     if not path.is_file():
         return emit({"ok": False, "code": "dump_not_found",
                      "error": f"덤프 파일이 없습니다: {args.dump}",
-                     "hint": "Figma MCP 로 받은 덤프를 JSON 파일로 저장한 뒤 넘기세요"})
+                     "hint": "Figma MCP 로 받은 덤프를 파일로 저장한 뒤 넘기세요 (JSON·YAML 모두 받습니다)"})
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as e:
+        data, err = _load_dump(path)
+    except OSError as e:
         return emit({"ok": False, "code": "dump_unreadable", "error": str(e)})
+    if err:
+        code, msg, hint = err
+        out = {"ok": False, "code": code, "error": msg}
+        if hint:
+            out["hint"] = hint
+        return emit(out)
 
     items: list[dict] = []
     hidden: list[str] = []
     elements: list[dict] = []
-    _walk(data, "$", items, args.node, hidden=hidden, elements=elements)
+    styles = _style_table(data)
+    _walk(data, "$", items, args.node, hidden=hidden, elements=elements, styles=styles)
 
     if not items:
         return emit({
@@ -175,6 +238,7 @@ def cmd_coverage(args) -> int:
         "total": len(items),
         "elements": elements,
         "element_count": len(elements),
+        "styles_resolved": len(styles),
         "hidden_skipped": hidden,
         "summary": (f"요소 {len(elements)}개 · 스타일 항목 {len(items)}개 " +
                     " · ".join(f"{k} {v}" for k, v in sorted(counts.items())) +

@@ -317,3 +317,108 @@ def test_hidden_elements_are_not_listed_either(tmp_path):
     d = out(o)
     assert {e["ref"] for e in d["elements"]} == {"1:1", "1:2"}
     assert d["hidden_skipped"] == ["1:3"]
+
+
+# ── 실제 MCP 응답 모양 (이걸 안 보고 만들어서 크게 틀렸다) ────────────────
+#
+# 스킬을 만들 때 **직접 쓴 합성 JSON** 으로만 테스트해서 모든 검사를 통과했다.
+# 진짜 Figma MCP 응답을 받아 보니 두 가지가 달랐다.
+#
+#   1. JSON 이 아니라 **YAML** 이다
+#   2. 노드가 스타일을 **참조로만** 갖는다 — 실제 값은 globalVars.styles 에 따로 있다
+#
+#        nodes: {fills: fill_B16QZY}
+#        globalVars: {styles: {fill_B16QZY: ['#737373']}}
+#
+# 해소하지 않으면 값이 "fill_B16QZY" 로 세어진다. 분류할 수 없고, 무엇보다
+# **여러 줄짜리 효과가 참조 한 줄로 뭉개져** 한 줄이 빠져도 드러나지 않는다 —
+# 이 도구가 막으려던 바로 그 일이다.
+
+_REAL_SHAPE = """
+metadata:
+  name: 어떤 파일
+nodes:
+  - id: '1:100'
+    name: 화면
+    type: FRAME
+    layout: layout_AAA
+    fills: fill_BBB
+    children:
+      - id: '1:200'
+        name: 버튼
+        type: INSTANCE
+        fills: fill_MULTI
+        effects: effect_TWO
+        componentProperties:
+          - name: Dark Mode
+            value: 'False'
+            type: VARIANT
+      - id: '1:300'
+        name: 꺼둔 것
+        type: RECTANGLE
+        visible: false
+        fills: fill_BBB
+globalVars:
+  styles:
+    layout_AAA:
+      mode: none
+      dimensions: {width: 393, height: 852}
+    fill_BBB:
+      - '#F7F2EF'
+    fill_MULTI:
+      - '#939393'
+      - 'rgba(86, 88, 92, 0.87)'
+      - 'rgba(85, 85, 85, 0.9)'
+    effect_TWO:
+      boxShadow: 0px 2px 5px 0px rgba(0, 0, 0, 0.05)
+      backdropFilter: blur(10px)
+"""
+
+
+def _real(tmp_path):
+    p = tmp_path / "dump.yaml"
+    p.write_text(_REAL_SHAPE, encoding="utf-8")
+    return p
+
+
+def test_yaml_dump_is_accepted(tmp_path):
+    """실제 MCP 는 YAML 을 준다. JSON 만 받으면 이 도구는 못 쓴다."""
+    rc, o, _ = run("coverage", "--dump", str(_real(tmp_path)))
+    assert rc == 0, o
+    assert out(o)["styles_resolved"] == 4
+
+
+def test_style_references_are_resolved_to_real_values(tmp_path):
+    """참조가 값으로 바뀌지 않으면 분류 자체를 할 수 없다."""
+    _, o, _ = run("coverage", "--dump", str(_real(tmp_path)))
+    d = out(o)
+    leftover = [i for i in d["items"]
+                if isinstance(i["value"], str)
+                and i["value"].startswith(("fill_", "effect_", "layout_", "stroke_"))]
+    assert leftover == [], f"참조 문자열이 값으로 남았다: {leftover}"
+    assert any("#F7F2EF" in i["value"] for i in d["items"])
+
+
+def test_multi_value_reference_is_split_per_entry(tmp_path):
+    """채움 셋·효과 둘이 각각 한 줄로 세어져야 한 줄 빠진 것이 드러난다."""
+    _, o, _ = run("coverage", "--dump", str(_real(tmp_path)))
+    d = out(o)
+
+    fills = [i for i in d["items"] if i["ref"].startswith("1:200/fills")]
+    assert len(fills) == 3, fills          # 참조 해소 전이라면 1개였다
+    assert {i["ref"] for i in fills} == {f"1:200/fills[{n}]" for n in range(3)}
+
+    fx = [i for i in d["items"] if i["kind"] == "effects"]
+    assert len(fx) == 2, fx                # boxShadow · backdropFilter 각각
+    assert {i["ref"] for i in fx} == {"1:200/effects.boxShadow",
+                                      "1:200/effects.backdropFilter"}
+
+
+def test_component_property_declarations_are_not_elements(tmp_path):
+    """`Dark Mode` 같은 VARIANT 는 컴포넌트 속성이지 화면 요소가 아니다."""
+    _, o, _ = run("coverage", "--dump", str(_real(tmp_path)))
+    d = out(o)
+    assert all(e["type"] != "VARIANT" for e in d["elements"]), d["elements"]
+    # 꺼 둔 것도 빠지고, 남는 것은 화면·버튼 둘
+    assert {e["ref"] for e in d["elements"]} == {"1:100", "1:200"}
+    assert d["hidden_skipped"] == ["1:300"]
