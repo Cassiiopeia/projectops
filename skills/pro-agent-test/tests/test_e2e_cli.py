@@ -1397,3 +1397,129 @@ def test_skill_docs_always_say_which_device(tmp_path=None):
     assert bare == [], (
         '기기를 지정하지 않은 adb 가 있다. `adb -s "$DEV" ...` 로 적으세요 '
         f'({"·".join(_ADB_BARE_OK)} 는 예외):\n' + "\n".join(bare))
+
+
+# =========================================================================
+# 콘솔 오류는 **로드 중에** 난다 (#625)
+#
+# 예전에는 `web console` 이 불린 그 시점에 리스너를 달고 잠깐 들었다. 오류는
+# 대개 페이지가 열리는 동안 나므로 **정작 잡아야 할 것이 안 잡혔다.**
+# 웹에서 가장 흔한 실패가 "화면은 멀쩡한데 자바스크립트가 죽어 버튼이 안 먹는 것"
+# 이라 이걸 놓치면 통과로 적게 된다.
+# =========================================================================
+
+_LOAD_ERROR_HTML = (
+    b'<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>t</title>'
+    b'<script>console.error("CONSOLE_ERROR_MARK");</script>'
+    b'<script>Promise.reject(new Error("REJECTION_MARK"));</script>'
+    b'<script>undefinedFunctionMark();</script>'
+    b'<script>console.warn("WARN_MARK");</script>'
+    b'</head><body><h1>\xeb\xa9\x80\xec\xa9\xa1\xed\x95\xb4 \xeb\xb3\xb4\xec\x9d\xb8\xeb\x8b\xa4</h1></body></html>'
+)
+
+
+def _serve(body: bytes):
+    """테스트용 한 페이지 서버. (포트, 종료함수, 요청수 리스트)를 돌려준다."""
+    import http.server
+    import threading
+
+    hits = []
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            hits.append(self.path)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv.server_port, srv.shutdown, hits
+
+
+def test_console_hook_script_covers_every_way_an_error_shows_up():
+    """훅 자체는 도구 없이도 검사할 수 있다 — 값 검사라 어디서나 돈다.
+
+    `console.error` 만 가로채면 **잡히지 않은 예외와 거부된 프로미스를 놓친다.**
+    실제로 그 둘이 더 심각한 사고인 경우가 많다.
+    """
+    hook = e2e_cli._CONSOLE_HOOK
+    assert "window.__projectops_console" in hook
+    assert '"error"' in hook and '"warn"' in hook
+    # console 을 안 거치는 두 경로
+    assert 'addEventListener("error"' in hook
+    assert 'addEventListener("unhandledrejection"' in hook
+    # 두 번 심어도 기록이 날아가지 않아야 한다 (붙을 때마다 심는다)
+    assert "if (window.__projectops_console) return;" in hook
+
+
+@pytest.mark.local_only
+def test_console_catches_errors_that_happened_while_the_page_loaded(tmp_path):
+    """열기 전에 훅을 심어야 로드 중 오류가 잡힌다. 이 순서가 곧 계약이다."""
+    ok, _ = e2e_cli._require_playwright()
+    if ok is None:
+        pytest.skip("Playwright 없음 — web setup 후 실행된다")
+
+    port, stop, hits = _serve(_LOAD_ERROR_HTML)
+    root = tmp_path / "proj"
+    root.mkdir()
+    try:
+        rc, out, _ = run_cli("web", "open", "--root", str(root),
+                         "--url", f"http://127.0.0.1:{port}/")
+        opened = json.loads(out)
+        assert opened.get("ok") is not False, opened
+        assert opened["console_hook"] is True, "훅을 못 심었다"
+
+        rc, out, _ = run_cli("web", "console", "--root", str(root))
+        d = json.loads(out)
+        assert d.get("ok") is not False, d
+        texts = " | ".join(l["text"] for l in d["logs"])
+
+        # 네 종류가 모두 잡혀야 한다
+        assert "CONSOLE_ERROR_MARK" in texts, texts
+        assert "undefinedFunctionMark" in texts, texts       # 잡히지 않은 예외
+        assert "REJECTION_MARK" in texts, texts              # 거부된 프로미스
+        assert "WARN_MARK" in texts, texts
+        assert d["error_count"] >= 3, d
+        assert "로드 시점부터" in d["summary"]
+
+        # 브라우저를 목적지 URL 로 띄우면 훅 없이 한 번 받고, goto 로 또 받는다.
+        # 같은 주소를 **두 번 요청**하는 셈이라 서버에 두 번 찍힌다 — 목적지가
+        # 무언가를 바꾸는 주소면 그 일이 두 번 일어난다. 빈 탭으로 띄워야 한다.
+        assert [h for h in hits if h == "/"] == ["/"], (
+            f"목적지를 {len(hits)}번 요청했다 — 빈 탭으로 띄운 뒤 이동해야 한다: {hits}")
+    finally:
+        run_cli("web", "close", "--root", str(root))
+        stop()
+
+
+@pytest.mark.local_only
+def test_hook_survives_navigation_driven_by_a_later_call(tmp_path):
+    """훅은 연결이 끊기면 사라진다 — 붙을 때마다 다시 심지 않으면 조용히 빈다.
+
+    실측: 열 때 한 번만 심었더니, 다른 호출이 이동시킨 페이지에서는 기록이
+    통째로 없었다(`console_hook_missing`).
+    """
+    ok, _ = e2e_cli._require_playwright()
+    if ok is None:
+        pytest.skip("Playwright 없음 — web setup 후 실행된다")
+
+    port, stop, hits = _serve(_LOAD_ERROR_HTML)
+    root = tmp_path / "proj"
+    root.mkdir()
+    try:
+        run_cli("web", "open", "--root", str(root), "--url", "about:blank")
+        # 별도 호출로 이동 — 여기서 훅이 다시 심어져야 한다
+        run_cli("web", "goto", "--root", str(root), "--url", f"http://127.0.0.1:{port}/")
+        rc, out, _ = run_cli("web", "console", "--root", str(root))
+        d = json.loads(out)
+        assert d.get("code") != "console_hook_missing", d
+        assert "CONSOLE_ERROR_MARK" in " ".join(l["text"] for l in d["logs"]), d
+    finally:
+        run_cli("web", "close", "--root", str(root))
+        stop()

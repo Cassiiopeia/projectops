@@ -1778,6 +1778,46 @@ def _api_call(base: str, method: str, path: str, body, headers: dict, timeout: i
 _WEB_STATE = "browser.json"
 
 
+# 콘솔 오류는 **페이지가 열리는 동안** 난다. 열린 뒤에 리스너를 달면 이미 늦다 (#625).
+# 그래서 여는 시점에 이 스크립트를 심고, 읽을 때는 쌓인 것을 가져온다.
+# `add_init_script` 는 CDP 로 브라우저에 등록되므로 **우리 프로세스가 끝나도**
+# 이후 이동마다 다시 실행된다 — 호출이 여러 번으로 쪼개지는 이 스킬의 구조에 맞는다.
+_CONSOLE_HOOK = r"""
+(() => {
+  if (window.__projectops_console) return;
+  const buf = [];
+  window.__projectops_console = buf;
+  const push = (type, text) => {
+    try { buf.push({ type, text: String(text).slice(0, 2000), at: Date.now() }); } catch (e) {}
+    if (buf.length > 500) buf.splice(0, buf.length - 500);   // 무한히 쌓이지 않게
+  };
+  for (const level of ["log", "info", "warn", "error"]) {
+    const orig = console[level];
+    console[level] = function (...args) {
+      push(level, args.map((a) => {
+        try { return typeof a === "string" ? a : JSON.stringify(a); }
+        catch (e) { return String(a); }
+      }).join(" "));
+      return orig.apply(console, args);
+    };
+  }
+  // console.error 를 거치지 않는 것들 — 이쪽이 진짜 사고인 경우가 많다
+  window.addEventListener("error", (e) => push("error", e.message || String(e.error || e)));
+  window.addEventListener("unhandledrejection",
+    (e) => push("error", "unhandled rejection: " + String(e.reason)));
+})();
+"""
+
+
+def _install_console_hook(page) -> bool:
+    """훅을 심는다. 실패해도 밟기 자체는 계속되어야 한다."""
+    try:
+        page.add_init_script(_CONSOLE_HOOK)
+        return True
+    except Exception:
+        return False
+
+
 def _web_state_path(root: Path) -> Path:
     return _home_dir(root) / _WEB_STATE
 
@@ -1940,7 +1980,10 @@ def cmd_web(args) -> int:
                "--no-first-run", "--no-default-browser-check"]
         if not args.headed:
             cmd.append("--headless=new")
-        cmd.append(args.url or "about:blank")
+        # ⚠️ 목적지를 여기서 넘기면 **훅을 심기 전에 첫 로드가 끝난다** (#625).
+        # 로드 중에 난 오류가 바로 그 놓치던 것이므로, 빈 탭으로 띄우고
+        # 훅을 심은 뒤 이동한다.
+        cmd.append("about:blank")
         proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                 start_new_session=True)   # 우리가 끝나도 살아 있어야 한다
 
@@ -1965,10 +2008,28 @@ def cmd_web(args) -> int:
             "profile": str(profile),
             "opened_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         }, ensure_ascii=False), encoding="utf-8")
+
+        # 훅을 심고 나서 목적지로 간다. 순서가 곧 계약이다.
+        hooked = False
+        conn, cerr = _web_connect({"cdp": cdp})
+        if not cerr:
+            _pw, _br, _pg = conn
+            hooked = _install_console_hook(_pg)
+            if args.url:
+                try:
+                    _pg.goto(args.url, wait_until="domcontentloaded",
+                             timeout=args.timeout * 1000)
+                except Exception as e:
+                    _br.close(); _pw.stop()
+                    return emit({"ok": False, "code": "goto_failed", "error": str(e),
+                                 "hint": "주소가 맞는지, 서버가 떠 있는지 확인하세요"})
+            _br.close()
+            _pw.stop()
         return emit({
             "action": "open", "url": args.url, "cdp": cdp, "pid": proc.pid,
-            "state_file": str(state_f),
-            "summary": f"브라우저를 열었습니다 ({args.url or '빈 탭'})",
+            "state_file": str(state_f), "console_hook": hooked,
+            "summary": (f"브라우저를 열었습니다 ({args.url or '빈 탭'})"
+                        + ("" if hooked else " — 콘솔 훅 실패, 로드 오류를 놓칠 수 있습니다")),
             "next": "web shot  # 화면을 먼저 봅니다",
         })
 
@@ -1984,6 +2045,13 @@ def cmd_web(args) -> int:
             state_f.unlink(missing_ok=True)   # 죽은 상태파일을 남기면 계속 헛돈다
         return emit(err)
     pw, browser, page = conn
+
+    # ⚠️ 훅은 **연결이 끊기면 사라진다** (실측 #625 — CDP 등록이 Playwright 세션에
+    # 묶여 있다). 이 스킬은 명령마다 붙었다 떨어지므로, 열 때 한 번 심는 것으로는
+    # 다음 이동에 안 따라붙는다. 그래서 **붙을 때마다** 심는다.
+    # 페이지에 쌓인 기록(window.__projectops_console)은 이동 전까지 남으므로,
+    # 다른 프로세스가 나중에 읽어도 그대로 나온다.
+    _install_console_hook(page)
 
     try:
         if args.action == "close":
@@ -2081,14 +2149,27 @@ def cmd_web(args) -> int:
                          "summary": "확인 통과" if passed else "확인 실패"})
 
         elif args.action == "console":
-            # 이미 쌓인 것은 못 본다. 지금부터 잠깐 듣는다 — 조작 직후에 부른다.
-            logs = []
-            page.on("console", lambda m: logs.append({"type": m.type, "text": m.text}))
-            page.wait_for_timeout(args.timeout * 1000)
-            errs = [l for l in logs if l["type"] == "error"]
+            # 듣는 게 아니라 **쌓인 것을 읽는다** (#625). open 이 심어 둔 훅이
+            # 페이지가 열리는 동안부터 모으므로 로드 중 오류가 그대로 나온다.
+            try:
+                logs = page.evaluate("window.__projectops_console || null")
+            except Exception:
+                logs = None
+            if logs is None:
+                # 훅이 없는 페이지(직접 띄운 탭 등) — 지금이라도 심고 새로고침을 권한다
+                _install_console_hook(page)
+                return emit({"ok": False, "code": "console_hook_missing",
+                             "error": "이 페이지에는 콘솔 기록이 없습니다",
+                             "hint": "훅을 지금 심었습니다. `web goto` 로 다시 들어가면 "
+                                     "그때부터 로드 오류까지 모입니다",
+                             "url": page.url})
+            errs = [l for l in logs if l.get("type") == "error"]
             return emit({"action": "console", "logs": logs[-50:],
-                         "error_count": len(errs),
-                         "summary": f"콘솔 {len(logs)}줄 (오류 {len(errs)})"})
+                         "error_count": len(errs), "total": len(logs),
+                         "url": page.url,
+                         "summary": f"콘솔 {len(logs)}줄 (오류 {len(errs)}) — 로드 시점부터",
+                         "next": ("오류가 있으면 화면이 멀쩡해도 통과가 아닙니다. "
+                                  "무엇이 죽었는지 확인하세요" if errs else None)})
 
         return emit({"action": args.action, "url": page.url, "title": page.title(),
                      "summary": f"{args.action} 완료 — {page.url}",
