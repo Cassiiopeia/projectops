@@ -90,7 +90,9 @@ jobs:
         # package-lock.json은 .gitignore 대상(레포에 커밋 안 됨)이라 npm install 사용
         run: |
           npm install --no-audit --no-fund
-          python3 -m pip install --quiet pytest pyyaml
+          # pillow·numpy 는 시안 대조(pro-figma-verify) 테스트가 쓴다. 없으면 그
+          # 테스트가 건너뛰어지는데, 건너뛴 것은 "안 돌아간 것"과 구분되지 않는다 (#591).
+          python3 -m pip install --quiet pytest pyyaml pillow numpy
 
       - name: node --test
         # 인자 없는 node --test 는 cwd 기준 test 파일을 자동 탐색한다(Node 20+ 안정).
@@ -180,8 +182,9 @@ jobs:
           python-version: "3.12"
 
       - name: 테스트 의존성 설치
-        # pyyaml은 워크플로우 YAML 문법 검사(test_comment_trigger_guard)가 쓴다.
-        run: python3 -m pip install --quiet pytest pyyaml
+        # pyyaml은 워크플로우 YAML 문법 검사(test_comment_trigger_guard)가,
+        # pillow·numpy는 시안 대조(pro-figma-verify) 테스트가 쓴다.
+        run: python3 -m pip install --quiet pytest pyyaml pillow numpy
 
       - name: 스크립트 테스트
         run: python3 -m pytest .github/scripts/test/ -q

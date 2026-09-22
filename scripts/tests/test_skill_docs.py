@@ -50,7 +50,9 @@ def test_skill_doc_reference_paths_exist():
     디렉터리 접두사가 붙은 것만 본다 — 맨 파일명(`impl.md`)은 임시 파일명이나 표
     항목과 구분되지 않아 오탐이 난다.
     """
-    pattern = re.compile(r"`((?:\.\./)*references/[a-z0-9_-]+\.md)`")
+    # `../<다른 스킬>/references/x.md` 같은 스킬 간 참조도 본다. 꼬리만 잡으면
+    # 앞의 경로가 날아가 자기 폴더로 해석되고, 그러면 깨진 참조를 놓친다.
+    pattern = re.compile(r"`((?:\.\./)*(?:[a-z0-9_.-]+/)*references/[a-z0-9_-]+\.md)`")
     broken, checked = [], 0
     for path in _skill_doc_paths():
         for m in pattern.finditer(path.read_text(encoding="utf-8")):
