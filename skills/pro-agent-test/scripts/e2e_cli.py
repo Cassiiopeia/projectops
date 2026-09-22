@@ -468,20 +468,10 @@ def cmd_doctor(args) -> int:
 # 폴더가 스스로 추적 제외를 들고 다닌다. 루트 .gitignore 를 건드리지 않는 것이
 # 요점이다 — 남의 저장소에 설치되는 스킬이라 공용 파일을 고치면 사용자 변경과
 # 충돌한다 (#561 에서 실행 기록에 같은 방식을 썼다).
-_GITIGNORE_BODY = "# agent-test 증거물은 추적하지 않는다 (#611)\n*\n!.gitignore\n"
-
-
-def _ensure_untracked(dir_path: Path) -> str:
-    f = dir_path / ".gitignore"
-    try:
-        if f.is_file() and f.read_text(encoding="utf-8") == _GITIGNORE_BODY:
-            return "present"
-    except OSError:
-        pass
-    f.write_text(_GITIGNORE_BODY, encoding="utf-8")
-    return "written"
-
-
+#
+# 그 규칙은 **common/paths.py 한 곳**에 있다 (#621). 스킬마다 복사해 두었더니
+# 같은 일을 하는 코드가 둘이 되었고, 한쪽만 고쳐지면 어긋난다. 어떤 스킬이
+# 증거를 내는지도 거기 EVIDENCE_SKILLS 가 단독으로 안다.
 def _sh_quote(value: str) -> str:
     """셸에서 값이 그대로 쓰이도록 감싼다.
 
@@ -581,7 +571,7 @@ def cmd_output_path(args) -> int:
     except OSError as e:
         return emit({"ok": False, "code": "mkdir_failed", "error": str(e)})
 
-    state = _ensure_untracked(base)
+    state = r.get("gitignore")   # 공통(common/paths)이 폴더에 심는다
     # 이미 잡아 둔 역할이 있으면 함께 싣는다 — 실행을 새로 열 때마다 다시
     # bind 하게 만들면 결국 아무도 안 한다.
     root = Path(args.root).resolve()

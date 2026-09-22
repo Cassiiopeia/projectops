@@ -69,6 +69,7 @@ SCRIPTS="$ROOT/skills/$SKILL/scripts"
 
 | 명령 | 하는 일 |
 |---|---|
+| `get-output-path --title {이름}` | 이번 대조의 **산출물 자리**를 만든다 (가장 먼저) |
 | `coverage --dump {파일} [--node {id}]` | 덤프의 요소·효과·스타일을 **빠짐없이 나열** |
 | `assets --dump {파일} [--node {id}]` | 내려받을 에셋을 묶어 **`nodes[]` 를 만들어 준다** |
 | `diff --render {png} --design {png} [--out {png}]` | 픽셀로 맞대 **덩어리로** 보고 |
@@ -77,6 +78,26 @@ SCRIPTS="$ROOT/skills/$SKILL/scripts"
 **판단은 네가 한다. 스크립트는 세고 나열하고 그릴 뿐이다.**
 
 ## Phase 0 — 무엇을 다룰지 정한다
+
+### 산출물 자리를 먼저 만든다 ⚠️
+
+**어디에 둘지 스스로 정하지 마라.** 정해 주지 않으면 매번 다른 곳에 쌓이고, 실제로
+다른 스킬에서 8MB 스크린샷이 추적되는 채로 엉뚱한 폴더에 쌓인 적이 있다 (#611).
+
+```bash
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py get-output-path \
+  --title "{화면 이름}"
+```
+
+돌려주는 자리는 **두 종류로 갈라져 있고, 섞으면 한쪽이 반드시 틀린다.**
+
+| 무엇 | 어디에 | 추적 |
+|---|---|:-:|
+| 덤프·시안 export·앱 렌더·차이 그림 | `run_dir` 아래 `dump`·`design`·`render`·`diff` | ❌ 폴더가 `.gitignore` 를 스스로 들고 있다 |
+| **실제 에셋** (앱이 쓸 아이콘·이미지) | `asset_dir_candidates` 중 하나 (`assets/images` 등) | ✅ **앱이 쓰는 파일이라 커밋돼야 한다** |
+
+> **에셋을 증거 폴더에 받지 마라.** 추적에서 빠져 있어 커밋되지 않고, 다른 사람이
+> 받았을 때 아이콘이 통째로 없는 앱이 된다. 후보가 비어 있으면 사용자에게 묻는다.
 
 ### 공통 컴포넌트를 화면보다 먼저 본다 ⚠️
 
@@ -234,10 +255,10 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py assets \
 ```
 
 돌려주는 `nodes` 를 **그대로** `mcp__figma__download_figma_images` 의 `nodes` 인자로
-넘기고, `localPath` 에 **프로젝트 안의 절대경로**를 준다.
+넘기고, `localPath` 에 **Phase 0 의 `asset_dir_candidates` 중 고른 절대경로**를 준다.
 
-> 프로젝트 밖은 거부된다 — `Invalid path specified. Directory traversal is not allowed.`
-> 임시로 받아 볼 때도 프로젝트 안에 받는다.
+> - 프로젝트 밖은 거부된다 — `Invalid path specified. Directory traversal is not allowed.`
+> - **증거 폴더(`run_dir`)에 받지 마라.** 추적에서 빠져 커밋되지 않는다.
 
 ### 순진하게 훑으면 이렇게 망가진다
 

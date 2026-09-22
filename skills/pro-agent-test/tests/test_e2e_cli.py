@@ -1154,8 +1154,8 @@ def test_output_path_can_run_twice(tmp_path):
     proj = _repo(tmp_path)
     _, o1, _ = run_cli("get-output-path", "--title", "두 번", cwd=proj)
     _, o2, _ = run_cli("get-output-path", "--title", "두 번", cwd=proj)
-    assert json.loads(o1)["gitignore"] == "written"
-    assert json.loads(o2)["gitignore"] == "present", "두 번째에 .gitignore 를 다시 썼다"
+    assert json.loads(o1)["gitignore"] == "created"
+    assert json.loads(o2)["gitignore"] == "already", "두 번째에 .gitignore 를 다시 썼다"
 
 
 # ── 문서가 에이전트를 잘못 이끌지 않는지 전수로 본다 (이슈 #611) ──────────

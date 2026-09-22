@@ -171,9 +171,11 @@ flowchart TD
 
 `../references/doc-output-path.md` 규칙을 따른다.
 
-agent가 직접 경로를 계산하여 파일을 저장한다:
-- 형식: `{PROJECT_ROOT}/docs/projectops/report/YYYYMMDD_{이슈번호}_{정규화된제목}.md`
-- 이슈 번호: 브랜치명 또는 worktree 경로 `YYYYMMDD_#숫자_제목` 패턴에서 추출
+**경로를 직접 조립하지 않는다.** 위 `get-output-path` 가 돌려준 `path` 를 그대로 쓴다
+(#525 — 규칙이 코드로 강제되지 않으면 스킬마다 파일명이 갈라져도 알아챌 방법이 없다).
+
+- 형식(참고): `{산출물 루트}/report/YYYYMMDD_{이슈번호}_{정규화된제목}.md`
+- 산출물 루트는 팀 설정으로 바뀔 수 있으므로 `docs/projectops` 를 박아 쓰지 않는다
 
 ## 스크린샷·증적 이미지 첨부
 

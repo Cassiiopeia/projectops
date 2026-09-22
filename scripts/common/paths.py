@@ -65,6 +65,56 @@ def resolve_output_root(project_root: Union[str, Path]) -> Path:
     return p if p.is_absolute() else root / p
 
 
+# ===================================================================
+# 추적 제외 (#621) — 증거물은 저장소에 쌓이면 안 된다
+# ===================================================================
+# 스킬 산출물은 두 종류다. 섞으면 한쪽이 반드시 틀린다.
+#
+#   문서  — 사람이 읽고 이슈에서 참조한다. **추적해야 한다.**
+#           보고서·계획·분석·리뷰·이슈·테스트케이스 …
+#   증거  — 스크린샷·화면 덤프·렌더·차이 그림. 재생성되고 무겁다.
+#           **추적하면 안 된다.** 실측으로 한 레포의 agent-test 가 9.3MB였다.
+#
+# 폴더가 스스로 제외 규칙을 들고 다니게 한다 (#561 과 같은 방식) — 레포 루트
+# .gitignore 를 건드리면 다른 세션·다른 도구의 규칙과 충돌한다.
+#
+# **새 산출물 스킬을 만들면 아래 집합에 반드시 넣는다.** 빠뜨리면 증거물이
+# 조용히 커밋되기 시작하고, 알아챌 때쯤엔 이미 이력에 박혀 있다.
+EVIDENCE_SKILLS = frozenset({
+    "agent-test",     # 스크린샷·기기 로그
+    "figma-verify",   # 덤프·시안 export·앱 렌더·차이 그림
+})
+
+DOCUMENT_SKILLS = frozenset({
+    "analyze", "design-analyze", "implement", "issue", "note", "plan", "ppt",
+    "pr", "refactor-analyze", "report", "review", "testcase", "troubleshoot",
+})
+
+
+def gitignore_body(skill_id: str) -> str:
+    return (f"# {skill_id} 증거물은 추적하지 않는다 (#621)\n"
+            "# 이 폴더는 재생성되는 산출물만 담는다 — 저장소에 쌓이면 안 된다.\n"
+            "*\n!.gitignore\n")
+
+
+def ensure_untracked(dir_path: Union[str, Path], skill_id: str) -> str:
+    """폴더가 스스로 추적 제외를 들고 다니게 한다.
+
+    반환: created(새로 씀) / already(우리 것이 이미 있음) / kept(남의 것 보존)
+    **남이 쓴 .gitignore 는 절대 덮지 않는다.**
+    """
+    d = Path(dir_path)
+    d.mkdir(parents=True, exist_ok=True)
+    f = d / ".gitignore"
+    body = gitignore_body(skill_id)
+    if f.exists():
+        if f.is_file() and f.read_text(encoding="utf-8") == body:
+            return "already"
+        return "kept"
+    f.write_text(body, encoding="utf-8")
+    return "created"
+
+
 def resolve_output_path(skill_id: str, forced_title: Optional[str] = None) -> dict:
     """산출물 md 경로를 계산해 dict로 반환한다 (CLI가 그대로 emit한다).
 
@@ -107,9 +157,14 @@ def resolve_output_path(skill_id: str, forced_title: Optional[str] = None) -> di
         final_title = normalize(raw) if raw else "untitled"
 
     path = build_output_path(output_base, skill_id, today, number, final_title)
-    return {
+    out = {
         "path": str(path),
         "summary": str(path),
         "mismatch": mismatch,
         "output_root": str(output_base),
     }
+    # 증거를 내는 스킬이면 폴더를 만들면서 제외 규칙을 함께 심는다.
+    # 각 스킬이 알아서 하게 두면 빠뜨리는 스킬이 반드시 생긴다.
+    if skill_id in EVIDENCE_SKILLS:
+        out["gitignore"] = ensure_untracked(skill_dir, skill_id)
+    return out

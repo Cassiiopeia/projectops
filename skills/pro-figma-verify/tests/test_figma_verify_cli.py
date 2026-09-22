@@ -674,3 +674,58 @@ globalVars:
     assert "#000000" in values, d["items"]
     assert "SF Pro Text" in values, d["items"]
     assert "Label Color/Light/Primary" not in values, "참조가 값으로 남았다"
+
+
+# =========================================================================
+# get-output-path — 어디에 둘지 도구가 정한다
+# =========================================================================
+
+def _git_repo(path: Path) -> Path:
+    """산출물 경로 계산은 저장소 루트를 기준으로 하므로 실제 repo 가 필요하다."""
+    path.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init", "-q"], cwd=path, check=True)
+    return path
+
+
+def test_output_path_separates_evidence_from_real_assets(tmp_path, monkeypatch):
+    """증거와 실제 에셋은 **다른 곳**에 간다.
+
+    증거(덤프·렌더·차이)는 추적하면 안 되고, 실제 에셋은 앱이 쓰는 파일이라
+    반드시 커밋돼야 한다. 한곳에 섞으면 둘 중 하나가 틀린다.
+    """
+    proj = _git_repo(tmp_path / "proj")
+    (proj / "assets" / "images").mkdir(parents=True)
+    (proj / "pubspec.yaml").write_text("name: x\n", encoding="utf-8")
+    monkeypatch.chdir(proj)
+    _, o, _ = run("get-output-path", "--title", "로그인", "--root", str(proj))
+    d = out(o)
+
+    run_dir = Path(d["run_dir"])
+    for key in ("dump", "design", "render", "diff"):
+        assert Path(d[key]).is_dir(), key
+        assert Path(d[key]).parent == run_dir
+
+    # 증거 폴더는 스스로 추적 제외를 들고 다닌다 (루트 .gitignore 를 안 건드린다)
+    assert d["gitignore"] == "created"
+    ignore = run_dir.parent / ".gitignore"
+    body = ignore.read_text(encoding="utf-8")
+    assert body.splitlines()[-2:] == ["*", "!.gitignore"], body
+    assert "figma-verify" in body
+
+    # 실제 에셋 자리는 증거 폴더 **밖**이고, 있는 폴더가 앞에 온다
+    assert d["asset_dir_candidates"][0] == "assets/images"
+    assert all(not c.startswith("docs/") for c in d["asset_dir_candidates"])
+
+
+def test_output_path_gitignore_is_idempotent(tmp_path, monkeypatch):
+    """두 번 불러도 남의 .gitignore 를 덮지 않는다."""
+    proj = _git_repo(tmp_path / "proj")
+    monkeypatch.chdir(proj)
+    _, o1, _ = run("get-output-path", "--title", "가", "--root", str(proj))
+    assert out(o1)["gitignore"] == "created"
+    _, o2, _ = run("get-output-path", "--title", "나", "--root", str(proj))
+    assert out(o2)["gitignore"] == "already"
+
+    Path(out(o2)["run_dir"]).parent.joinpath(".gitignore").write_text("남이 쓴 것\n", encoding="utf-8")
+    _, o3, _ = run("get-output-path", "--title", "다", "--root", str(proj))
+    assert out(o3)["gitignore"] == "kept"
