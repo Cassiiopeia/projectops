@@ -102,7 +102,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py api --name {시나리오} -
 
 ```bash
 ... api --name {시나리오} --root {ROOT}      # 밟는다
-... db --profile db --sql "select ..."       # 진짜 들어갔나 본다
+{PYTHON} {LAUNCH}/launch_cli.py db --profile db --sql "select ..."   # 진짜 들어갔나 본다
 ```
 
 | 어긋나는 자리 | 어떻게 드러나나 |
@@ -131,7 +131,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py api --name {시나리오} -
 ```bash
 ... api --name {시나리오} --root {ROOT}   # 한 번
 ... api --name {시나리오} --root {ROOT}   # 또 한 번
-... db --profile db --sql "select count(*) from ... where ..."
+{PYTHON} {LAUNCH}/launch_cli.py db --profile db --sql "select count(*) from ... where ..."
 ```
 
 두 번째가 409(중복)든 200(같은 결과)든 **설계에 달렸다.** 결함은 **두 개가 생기는 것**이다.
@@ -209,47 +209,22 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py api --name {시나리오} -
 `expect_status`에 실패 코드를 적으면 **그게 통과 기준이 된다.** 401을 기대하는 단계는 401이
 와야 통과다.
 
-## DB에 붙는 법은 네가 정한다
+## DB·로그에 붙는 법은 네가 정한다
 
-**설정이 사는 곳과 붙는 길은 프로젝트마다 다르다.** Spring의 `application.yml`일 수도,
-`.env`·`settings.py`·`ormconfig`일 수도 있고, 로컬 DB일 수도 SSH로 들어가야 닿는 DB일 수도
-컨테이너 안에서 실행해야 할 수도 있다. **skill이 맞히지 않는다 — 코드를 읽고 네가 판단한다.**
-
-알아냈으면 **기록해 둔다.** 다음 실행부터는 그것을 쓴다.
+**설정이 사는 곳과 붙는 길은 프로젝트마다 다르다.** skill 이 맞히지 않는다 — 코드를 읽고 네가
+판단해 pro-launch `access` 에 적는다. 적는 법·붙는 길(`direct`·`ssh`·`command`)·로그 보는 법은
+`../../pro-launch/references/server.md`.
 
 ```bash
-... access set --root {ROOT} --key db --json '{"how":"direct","engine":"postgres",
-      "host":"...","port":5432,"db":"...","user":"...","password_env":"DB_PASSWORD"}'
+{PYTHON} {LAUNCH}/launch_cli.py access set --root {ROOT} --key db --json '{"how":"direct","engine":"postgres","host":"...","port":5432,"db":"...","user":"...","password_env":"DB_PASSWORD"}'
+DB_PASSWORD=... {PYTHON} {LAUNCH}/launch_cli.py db --profile db --root {ROOT} --sql "select count(*) from ..."
+{PYTHON} {LAUNCH}/launch_cli.py logs --root {ROOT} --tail 100 --grep ERROR
 ```
 
-> **비밀번호는 값을 적지 않는다.** `password_env` 로 **어디서 읽을지**만 적는다.
-> 값을 적으면 거절한다.
+> **비밀번호는 값을 적지 않는다.** `password_env` 로 **어디서 읽을지**만 적는다. 값을 적으면 거절한다.
 
-그다음부터는 기록으로 실행한다.
-
-```bash
-DB_PASSWORD=... ... db --profile db --root {ROOT} --sql "select count(*) from ..."
-```
-
-붙는 길이 셋이다. 기록의 `how` 가 정한다.
-
-| how | 언제 | 적을 것 |
-|---|---|---|
-| `direct` | 로컬 DB · 열린 포트 | `engine`·`host`·`port`·`db`·`user` |
-| `ssh` | 서버 안에서만 닿는 DB | 위 + `ssh_host`·`ssh_user` |
-| `command` | 컨테이너 안 실행 등 **무엇이든** | `command` (예: `docker exec -i pg psql -U u -d d -c`) |
-
-`command` 는 어떤 DB든 된다. **다루는 엔진이 아니어도 여기로 하면 된다.**
-
-### 로그도 같은 방식이다
-
-로그가 어디 있는지도 프로젝트마다 다르다 — 컨테이너·파일·관리자 화면·수집 도구.
-알아내서 적어 두고 실행한다.
-
-```bash
-... access set --root {ROOT} --key logs --json '{"command":"ssh u@h \"docker logs --tail 200 app\""}'
-... logs --root {ROOT} --tail 100 --grep ERROR
-```
+`api` 는 시나리오를 끝까지 밟는다. 한 요청만 확인하려면 pro-launch `http` 를 쓴다
+(`--expect-status` 로 판정까지). 요청 헤더 값은 결과에 남지 않는다.
 
 ## 알아둘 것
 

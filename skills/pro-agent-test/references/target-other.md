@@ -112,9 +112,9 @@
 ... github_cli.py add-comment {owner} {repo} {이슈} {본문파일}
 
 # ③ 추적·원인
-... github_cli.py actions resolve-branch {owner} {repo} 0 0 0 {브랜치}
+... github_cli.py actions resolve-branch {owner} {repo} {브랜치}
 ... github_cli.py actions show-run {owner} {repo} {run_id}
-... github_cli.py actions joblog {owner} {repo} {run_id} {job_id} --grep error
+... github_cli.py actions joblog {owner} {repo} {job_id} --grep error
 ```
 
 ### `skipped` 를 통과로 치지 않는다 ⚠️

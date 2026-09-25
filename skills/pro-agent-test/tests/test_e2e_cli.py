@@ -261,47 +261,6 @@ def test_server_target_rejects_screen_only_expectation():
 
 # ── 타겟 감지 (이슈 #586) ────────────────────────────────────────────────
 
-def test_version_yml_wins_over_markers():
-    """projectops가 통합된 레포는 이미 답을 갖고 있다 — 추론보다 신뢰할 수 있다."""
-    with tempfile.TemporaryDirectory() as tmp:
-        r = Path(tmp)
-        (r / "version.yml").write_text(
-            "metadata:\n  project_types:\n    - flutter\n    - spring\n", encoding="utf-8")
-        (r / "package.json").write_text('{"dependencies":{"react":"18"}}', encoding="utf-8")
-        det = e2e_cli.detect_targets(r)
-        assert det["source"] == "version.yml"
-        assert det["targets"] == ["app", "server"], det
-
-
-def test_markers_used_when_no_version_yml():
-    """남의 프로젝트에는 version.yml이 없다. 파일로 추론해야 한다."""
-    with tempfile.TemporaryDirectory() as tmp:
-        r = Path(tmp)
-        (r / "package.json").write_text('{"dependencies":{"next":"14"}}', encoding="utf-8")
-        det = e2e_cli.detect_targets(r)
-        assert det["source"] == "marker"
-        assert "web" in det["targets"], det
-
-
-def test_flutter_android_gradle_is_not_mistaken_for_server():
-    """Flutter 앱의 android/build.gradle을 서버로 잡으면 엉뚱한 것을 밟는다."""
-    with tempfile.TemporaryDirectory() as tmp:
-        r = Path(tmp)
-        (r / "pubspec.yaml").write_text("name: x\ndependencies:\n  flutter:\n", encoding="utf-8")
-        (r / "android").mkdir()
-        (r / "android" / "build.gradle").write_text("// app", encoding="utf-8")
-        det = e2e_cli.detect_targets(r)
-        assert det["targets"] == ["app"], det
-
-
-def test_unknown_project_reports_none_not_crash():
-    """무엇인지 몰라도 죽지 않는다 — 사용자가 직접 지정할 수 있어야 한다."""
-    with tempfile.TemporaryDirectory() as tmp:
-        det = e2e_cli.detect_targets(Path(tmp))
-        assert det["targets"] == []
-        assert det["source"] == "none"
-
-
 def test_detect_does_not_fail_without_flutter():
     """예전에는 pubspec이 없으면 첫 명령부터 실패했다 — 웹·서버 레포가 막혔다."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -467,18 +426,6 @@ def playwright_hidden():
         sys.modules.update(saved)
 
 
-def test_web_reports_missing_playwright_with_install_hint():
-    """무엇을 깔아야 하는지 말해주지 않으면 사용자는 여기서 멈춘다."""
-    with playwright_hidden():
-        ok, err = e2e_cli._require_playwright()
-    assert ok is None
-    assert err["code"] == "playwright_missing"
-    # 안내만 하지 않는다 — 스킬이 직접 까는 경로(fix)와 손으로 하는 법(manual)을 함께 준다
-    assert err["fix"].startswith("web setup"), err
-    assert "venv" in err["manual"], err
-    assert "설치할까요" in err["ask_user"], err
-
-
 def test_web_action_without_open_browser_is_refused():
     """브라우저를 열지 않고 클릭하면 무엇을 해야 하는지 알려줘야 한다."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -496,15 +443,6 @@ def test_web_action_without_open_browser_is_refused():
             _sh.rmtree(home, ignore_errors=True)
 
 
-def test_web_state_path_lives_with_knowledge():
-    """브라우저 상태도 홈에 둔다 — 워크트리를 오가도 같은 세션을 본다."""
-    with tempfile.TemporaryDirectory() as tmp:
-        r = _git_repo(Path(tmp), "https://github.com/o/webprobe2.git")
-        sp = e2e_cli._web_state_path(r)
-        assert str(sp).startswith(str(Path.home()))
-        assert sp.parent == e2e_cli._home_dir(r)
-
-
 def test_web_help_lists_all_actions():
     rc, out, err = run_cli("web", "--help")
     combined = out + err
@@ -516,76 +454,6 @@ def test_web_setup_is_listed_as_action():
     """설치까지가 스킬의 역할이다 — 안내만 하고 세워 두지 않는다."""
     rc, out, err = run_cli("web", "--help")
     assert "setup" in (out + err)
-
-
-def test_web_missing_playwright_offers_to_install():
-    """막혔을 때 '무엇을 물어볼지'까지 있어야 agent가 사용자에게 제안할 수 있다."""
-    with playwright_hidden():
-        ok, err = e2e_cli._require_playwright()
-    assert ok is None
-    assert err["fix"].startswith("web setup")
-    assert "설치할까요" in err["ask_user"]
-
-
-@pytest.mark.local_only
-def test_web_walks_real_browser():
-    """실제 브라우저를 열어 끝까지 밟는다.
-
-    **호출이 쪼개져도 같은 브라우저에 붙는지**가 이 설계의 전부다. launch()로 띄우면
-    드라이버가 죽을 때 브라우저도 죽어 두 번째 호출이 붙을 곳이 없다 — 실측으로 겪었고,
-    그래서 브라우저를 독립 프로세스로 띄운다. 그 계약이 깨지면 여기서 잡힌다.
-    """
-    ok, _ = e2e_cli._require_playwright()
-    if ok is None:
-        pytest.skip("Playwright 없음 — web setup 후 실행된다")
-
-    import http.server
-    import threading
-
-    html = (b'<!doctype html><html lang="ko"><head><meta charset="utf-8">'
-            b'<title>t</title></head><body><input id="v">'
-            b'<button id="go" onclick="document.getElementById(\'out\').textContent='
-            b'document.getElementById(\'v\').value">go</button>'
-            b'<p id="out"></p></body></html>')
-
-    class H(http.server.BaseHTTPRequestHandler):
-        def log_message(self, *a):
-            pass
-
-        def do_GET(self):
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(html)))
-            self.end_headers()
-            self.wfile.write(html)
-
-    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    url = f"http://127.0.0.1:{srv.server_address[1]}/"
-
-    with tempfile.TemporaryDirectory() as tmp:
-        r = _git_repo(Path(tmp), "https://github.com/o/webwalk.git")
-        home = e2e_cli._home_dir(r)
-        try:
-            rc, out, _ = run_cli("web", "open", "--root", str(r), "--url", url)
-            assert json.loads(out).get("ok") is not False, out
-
-            rc, out, _ = run_cli("web", "type", "--root", str(r),
-                                 "--selector", "#v", "--text", "남아야 한다")
-            assert json.loads(out).get("ok") is not False, out
-
-            rc, out, _ = run_cli("web", "click", "--root", str(r), "--selector", "#go")
-            assert json.loads(out).get("ok") is not False, out
-
-            # 세 번의 별개 호출을 거쳐도 입력이 살아 있어야 한다
-            rc, out, _ = run_cli("web", "assert", "--root", str(r), "--text", "남아야 한다")
-            data = json.loads(out)
-            assert data["ok"] is True, data
-        finally:
-            run_cli("web", "close", "--root", str(r))
-            srv.shutdown()
-            import shutil as _sh
-            _sh.rmtree(home, ignore_errors=True)
 
 
 # ── bootstrap·edges 타겟 분기 (이슈 #586) ────────────────────────────────
@@ -1042,27 +910,10 @@ def test_social_login_reference_is_linked_from_the_skill():
 #   세션 토큰 → 해상도 축소 (포맷은 영향 없음)
 #   전송량    → WebP 변환
 
-def test_shot_and_shrink_share_one_max_side():
-    """기준이 둘이면 어느 쪽이 맞는지 알 수 없다."""
-    _, out, _ = run_cli("shrink", "--help")
-    assert str(e2e_cli.SHOT_MAX_SIDE) in out
-
-
 def test_web_shot_can_keep_the_original_size():
     """좌표를 정밀하게 봐야 할 때가 있다 — 끌 수 있어야 한다."""
     _, out, _ = run_cli("web", "--help")
     assert "--max-side" in out
-
-
-def test_webp_conversion_survives_without_any_tool(tmp_path, monkeypatch):
-    """Pillow·cwebp·ffmpeg 가 하나도 없어도 화면을 못 찍게 되지는 않는다."""
-    png = tmp_path / "x.png"
-    png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 64)
-    monkeypatch.setattr(e2e_cli, "_has_pillow", lambda: False)
-    monkeypatch.setattr(e2e_cli, "_venv_python", lambda: None)
-    monkeypatch.setattr(e2e_cli.shutil, "which", lambda _n: None)
-    assert e2e_cli._to_webp(png) is None
-    assert png.exists(), "변환에 실패했다고 원본을 지우면 안 된다"
 
 
 def test_doctor_tells_when_screens_cannot_be_shrunk(sandbox, monkeypatch):
@@ -1314,26 +1165,6 @@ def test_dev_is_always_defined(tmp_path):
     assert re.search(r"^export DEV=", body, re.MULTILINE), body
 
 
-def test_build_mismatch_needs_hashes_not_versions():
-    """버전이 같아도 APK 가 다르면 잡아야 한다 — 플래그만 바꾼 재빌드가 그렇다."""
-    same_ver = [
-        {"role": "A", "build": {"apk": "aaa", "version": "1.2.0+45"}},
-        {"role": "B", "build": {"apk": "bbb", "version": "1.2.0+45"}},
-    ]
-    found = e2e_cli._build_mismatch(same_ver)
-    assert found and "한쪽만 다시 설치" in found[0]["detail"]
-
-    assert e2e_cli._build_mismatch([
-        {"role": "A", "build": {"apk": "aaa", "version": "1.2.0+45"}},
-        {"role": "B", "build": {"apk": "aaa", "version": "1.2.0+45"}},
-    ]) == []
-    # 해시를 못 구한 기기는 판정에서 빠진다 — 모르는 것을 다르다고 하지 않는다
-    assert e2e_cli._build_mismatch([
-        {"role": "A", "build": {"apk": "aaa"}},
-        {"role": "B", "build": {"apk": None}},
-    ]) == []
-
-
 def test_old_screen_records_are_promoted_not_lost(tmp_path):
     """예전 기록(좌표 한 벌)을 쓰던 프로젝트가 깨지면 안 된다."""
     legacy = {"anchor": "설정", "taps": {"로그아웃": "540,1200"},
@@ -1442,84 +1273,48 @@ def _serve(body: bytes):
     return srv.server_port, srv.shutdown, hits
 
 
-def test_console_hook_script_covers_every_way_an_error_shows_up():
-    """훅 자체는 도구 없이도 검사할 수 있다 — 값 검사라 어디서나 돈다.
+# ── pro-launch 로 옮긴 명령 — 넘겨주기 층 (#631) ─────────────────────────
+#
+# 옮긴 명령은 한 마이너 동안 그대로 부를 수 있어야 한다. 결과는 pro-launch 와 같고,
+# 새 자리를 알리는 next 가 붙는다. 깨지면 기존 사용자의 시나리오·문서가 한꺼번에 멈춘다.
 
-    `console.error` 만 가로채면 **잡히지 않은 예외와 거부된 프로미스를 놓친다.**
-    실제로 그 둘이 더 심각한 사고인 경우가 많다.
-    """
-    hook = e2e_cli._CONSOLE_HOOK
-    assert "window.__projectops_console" in hook
-    assert '"error"' in hook and '"warn"' in hook
-    # console 을 안 거치는 두 경로
-    assert 'addEventListener("error"' in hook
-    assert 'addEventListener("unhandledrejection"' in hook
-    # 두 번 심어도 기록이 날아가지 않아야 한다 (붙을 때마다 심는다)
-    assert "if (window.__projectops_console) return;" in hook
-
-
-@pytest.mark.local_only
-def test_console_catches_errors_that_happened_while_the_page_loaded(tmp_path):
-    """열기 전에 훅을 심어야 로드 중 오류가 잡힌다. 이 순서가 곧 계약이다."""
-    ok, _ = e2e_cli._require_playwright()
-    if ok is None:
-        pytest.skip("Playwright 없음 — web setup 후 실행된다")
-
-    port, stop, hits = _serve(_LOAD_ERROR_HTML)
-    root = tmp_path / "proj"
-    root.mkdir()
-    try:
-        rc, out, _ = run_cli("web", "open", "--root", str(root),
-                         "--url", f"http://127.0.0.1:{port}/")
-        opened = json.loads(out)
-        assert opened.get("ok") is not False, opened
-        assert opened["console_hook"] is True, "훅을 못 심었다"
-
-        rc, out, _ = run_cli("web", "console", "--root", str(root))
-        d = json.loads(out)
-        assert d.get("ok") is not False, d
-        texts = " | ".join(l["text"] for l in d["logs"])
-
-        # 네 종류가 모두 잡혀야 한다
-        assert "CONSOLE_ERROR_MARK" in texts, texts
-        assert "undefinedFunctionMark" in texts, texts       # 잡히지 않은 예외
-        assert "REJECTION_MARK" in texts, texts              # 거부된 프로미스
-        assert "WARN_MARK" in texts, texts
-        assert d["error_count"] >= 3, d
-        assert "로드 시점부터" in d["summary"]
-
-        # 브라우저를 목적지 URL 로 띄우면 훅 없이 한 번 받고, goto 로 또 받는다.
-        # 같은 주소를 **두 번 요청**하는 셈이라 서버에 두 번 찍힌다 — 목적지가
-        # 무언가를 바꾸는 주소면 그 일이 두 번 일어난다. 빈 탭으로 띄워야 한다.
-        assert [h for h in hits if h == "/"] == ["/"], (
-            f"목적지를 {len(hits)}번 요청했다 — 빈 탭으로 띄운 뒤 이동해야 한다: {hits}")
-    finally:
-        run_cli("web", "close", "--root", str(root))
-        stop()
+@pytest.mark.parametrize("argv", [
+    ["doctor"], ["devices"], ["access", "show"], ["device", "show"],
+    ["web", "route"], ["shrink", "/no/such.png"],
+], ids=lambda a: " ".join(a))
+def test_moved_commands_still_answer_and_point_to_pro_launch(sandbox, argv):
+    proj, home = sandbox
+    extra = [] if argv[0] in ("devices", "shrink") else ["--root", str(proj)]
+    rc, out, err = run_cli(*argv, *extra, home=home)
+    assert "Traceback" not in err, err
+    d = json.loads(out.strip().splitlines()[-1])
+    assert d.get("moved_to") == f"launch_cli.py {argv[0]}", d
+    assert "pro-launch" in (d.get("next") or ""), d
 
 
-@pytest.mark.local_only
-def test_hook_survives_navigation_driven_by_a_later_call(tmp_path):
-    """훅은 연결이 끊기면 사라진다 — 붙을 때마다 다시 심지 않으면 조용히 빈다.
+def test_moved_output_path_still_lands_in_agent_test(tmp_path):
+    """옛 호출은 산출물을 계속 agent-test 폴더에 받아야 한다 — 문서·습관이 그 자리를 본다."""
+    proj = _repo(tmp_path)
+    rc, out, err = run_cli("get-output-path", "--title", "넘겨주기", cwd=proj, home=tmp_path)
+    d = json.loads(out)
+    assert "/agent-test/" in d["run_dir"].replace("\\", "/"), d
+    body = Path(d["env_file"]).read_text(encoding="utf-8")
+    assert "export AGENT_TEST_RUN=" in body
 
-    실측: 열 때 한 번만 심었더니, 다른 호출이 이동시킨 페이지에서는 기록이
-    통째로 없었다(`console_hook_missing`).
-    """
-    ok, _ = e2e_cli._require_playwright()
-    if ok is None:
-        pytest.skip("Playwright 없음 — web setup 후 실행된다")
 
-    port, stop, hits = _serve(_LOAD_ERROR_HTML)
-    root = tmp_path / "proj"
-    root.mkdir()
-    try:
-        run_cli("web", "open", "--root", str(root), "--url", "about:blank")
-        # 별도 호출로 이동 — 여기서 훅이 다시 심어져야 한다
-        run_cli("web", "goto", "--root", str(root), "--url", f"http://127.0.0.1:{port}/")
-        rc, out, _ = run_cli("web", "console", "--root", str(root))
-        d = json.loads(out)
-        assert d.get("code") != "console_hook_missing", d
-        assert "CONSOLE_ERROR_MARK" in " ".join(l["text"] for l in d["logs"]), d
-    finally:
-        run_cli("web", "close", "--root", str(root))
-        stop()
+def test_moved_help_is_shown_not_reported_as_failure():
+    """--help 는 JSON 이 아니다. 넘겨주기 층이 이것을 '부르지 못했다'로 오판하면 안 된다."""
+    rc, out, _ = run_cli("web", "--help")
+    assert rc == 0 and "viewport" in out and "launch_unavailable" not in out
+
+
+def test_detect_gathers_info_for_recorded_targets(sandbox):
+    """감지와 다르게 적어 둔 타겟이면 그 타겟의 준비 상태까지 모아야 한다."""
+    proj, home = sandbox
+    (proj / "package.json").write_text('{"dependencies":{"express":"4"}}', encoding="utf-8")
+    run_cli("note", "target", "--root", str(proj), "--targets", "server,web",
+            "--why", "서버가 템플릿을 뿌린다", home=home)
+    _, out, _ = run_cli("detect", "--path", str(proj), home=home)
+    d = json.loads(out)
+    assert d["target_source"] == "recorded" and "web" in d, d
+

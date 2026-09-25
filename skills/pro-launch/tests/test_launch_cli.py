@@ -132,6 +132,46 @@ def test_web_text_env_refuses_when_the_variable_is_missing(tmp_path):
     assert _j(out)["code"] == "env_not_set"
 
 
+# ── 무엇을 띄울 수 있나 (#586 에서 옮김) ─────────────────────────────────
+
+def test_version_yml_wins_over_markers(tmp_path):
+    """projectops 가 통합된 레포는 이미 답을 갖고 있다 — 추론보다 신뢰할 수 있다."""
+    (tmp_path / "version.yml").write_text(
+        "metadata:\n  project_types:\n    - flutter\n    - spring\n", encoding="utf-8")
+    (tmp_path / "package.json").write_text('{"dependencies":{"react":"18"}}', encoding="utf-8")
+    det = launch_cli.detect_kinds(tmp_path)
+    assert det["source"] == "version.yml" and det["kinds"] == ["app", "server"], det
+
+
+def test_markers_used_when_no_version_yml(tmp_path):
+    (tmp_path / "package.json").write_text('{"dependencies":{"next":"14"}}', encoding="utf-8")
+    det = launch_cli.detect_kinds(tmp_path)
+    assert det["source"] == "marker" and "web" in det["kinds"], det
+
+
+def test_flutter_android_gradle_is_not_mistaken_for_server(tmp_path):
+    """Flutter 앱의 android/build.gradle 을 서버로 잡으면 엉뚱한 것을 띄운다."""
+    (tmp_path / "pubspec.yaml").write_text("name: x\ndependencies:\n  flutter:\n", encoding="utf-8")
+    (tmp_path / "android").mkdir()
+    (tmp_path / "android" / "build.gradle").write_text("// app", encoding="utf-8")
+    assert launch_cli.detect_kinds(tmp_path)["kinds"] == ["app"]
+
+
+def test_unknown_project_reports_none_not_crash(tmp_path):
+    det = launch_cli.detect_kinds(tmp_path)
+    assert det["kinds"] == [] and det["source"] == "none"
+
+
+def test_detect_can_be_told_which_kinds(tmp_path):
+    """부르는 쪽이 이미 알면(확인해 적어 둔 타겟) 그 종류의 정보를 모은다."""
+    proj = _repo(tmp_path)
+    _, out, _ = run_cli("detect", "--path", str(proj), "--kinds", "web", home=tmp_path)
+    d = _j(out)
+    assert d["kinds"] == ["web"] and d["source"] == "given" and "web" in d
+    _, out, _ = run_cli("detect", "--path", str(proj), "--kinds", "wbe", home=tmp_path)
+    assert _j(out)["code"] == "unknown_kind"
+
+
 # ── 저장 자리 · 이전 ──────────────────────────────────────────────────────
 
 def test_repo_key_uses_remote_not_path(tmp_path):
@@ -677,3 +717,16 @@ def test_route_stages_empty_and_failing_states(tmp_path):
         run_cli("web", "route", "--root", r, "--clear")
         run_cli("web", "goto", "--root", r, "--url", url)
         assert _j(run_cli("web", "assert", "--root", r, "--text", "n=2")[1])["ok"], "규칙을 지웠는데 남아 있다"
+
+
+@pytest.mark.local_only
+def test_hook_survives_navigation_driven_by_a_later_call(tmp_path):
+    """훅은 연결이 끊기면 사라진다 — 붙을 때마다 다시 심지 않으면 조용히 빈다 (#625 실측)."""
+    with _browser_session(tmp_path) as (proj, url):
+        r = str(proj)
+        run_cli("web", "open", "--root", r)                  # 빈 탭으로 연다
+        run_cli("web", "goto", "--root", r, "--url", url)    # 별도 호출로 이동
+        d = _j(run_cli("web", "console", "--root", r)[1])
+        assert d.get("code") != "console_hook_missing", d
+        assert "LOAD_ERROR_MARK" in " ".join(l["text"] for l in d["logs"]), d
+

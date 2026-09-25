@@ -43,10 +43,11 @@ if str(_SCRIPTS_ROOT) not in sys.path:
 
 from common.access import access_path, find_secrets, load_access, save_access  # noqa: E402
 from common.emit import emit  # noqa: E402
+from common.http import request as http_request  # noqa: E402
 from common.image import (SHOT_MAX_SIDE, WEBP_QUALITY, has_pillow,  # noqa: E402
                           resize_tool, shrink, to_webp)
 from common.proc import run, sdk_tool  # noqa: E402
-from common.state import (launch_file, migrate_launch, repo_key,  # noqa: E402
+from common.state import (launch_file, migrate_launch,  # noqa: E402
                           state_dir, venv_dir, venv_python, venv_site_packages)
 
 # 같은 스킬 안의 보조 모듈 — 스크립트로 불리든 테스트가 import 하든 찾게 한다
@@ -359,6 +360,14 @@ def cmd_detect(args) -> int:
     root = Path(git_root) if git_root else start
 
     det = detect_kinds(root)
+    # 부르는 쪽이 이미 안다면(확인해 적어 둔 타겟 등) 그 종류의 정보를 모은다 — 감지를 덮는다
+    if getattr(args, "kinds", None):
+        want = [k.strip() for k in args.kinds.split(",") if k.strip()]
+        bad = [k for k in want if k not in KINDS]
+        if bad:
+            return out({"ok": False, "code": "unknown_kind",
+                        "error": f"모르는 종류: {', '.join(bad)}", "hint": " · ".join(KINDS)})
+        det = {**det, "kinds": want, "source": "given"}
     kinds = det["kinds"]
     payload: dict = {"root": str(root), "kinds": kinds, "source": det["source"],
                      "state_dir": str(_home(root))}
@@ -798,13 +807,14 @@ def _app_shot(args) -> int:
                 for c in _ANDROID_DEMO:
                     _adb_shell(dev_id, *c)
 
-                def restore():
+                def _undo_demo():
                     _adb_shell(dev_id, *_ANDROID_DEMO_EXIT)
                     if prev in ("", "null"):
                         _adb_shell(dev_id, "settings", "delete", "global", "sysui_demo_allowed")
                     else:
                         _adb_shell(dev_id, "settings", "put", "global",
                                    "sysui_demo_allowed", prev)
+                restore = _undo_demo
                 time.sleep(0.6)
             # exec-out 은 바이너리를 그대로 준다. shell 로 받으면 줄바꿈이 바뀌어 PNG 가 깨진다
             r = subprocess.run([adb, "-s", dev_id, "exec-out", "screencap", "-p"],
@@ -1407,34 +1417,6 @@ def cmd_web(args) -> int:
 # http — 단건 요청. 시나리오 판정은 부르는 쪽(agent-test)이 한다
 # =========================================================================
 
-def http_call(method: str, url: str, headers: dict | None = None,
-              data: bytes | None = None, timeout: int = 30) -> dict:
-    """한 요청을 보낸다. 실패 응답(4xx·5xx)도 결과다 — 예외로 끝내지 않는다."""
-    import urllib.error
-    import urllib.request
-
-    req = urllib.request.Request(url, data=data, method=method, headers=headers or {})
-    started = time.time()
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            raw = resp.read()
-            status, rh = resp.status, dict(resp.headers.items())
-    except urllib.error.HTTPError as e:
-        raw = e.fp.read() if e.fp else b""
-        status, rh = e.code, dict(e.headers.items()) if e.headers else {}
-    except Exception as e:  # 네트워크 자체가 안 될 때
-        return {"ok": False, "code": "request_failed", "url": url, "error": str(e),
-                "elapsed_ms": int((time.time() - started) * 1000)}
-    text = raw.decode("utf-8", "replace")
-    try:
-        parsed = json.loads(text) if text.strip() else None
-    except json.JSONDecodeError:
-        parsed = None
-    return {"ok": True, "url": url, "status": status, "headers": rh, "json": parsed,
-            "text": None if parsed is not None else text[:4000], "raw": raw,
-            "elapsed_ms": int((time.time() - started) * 1000)}
-
-
 def cmd_http(args) -> int:
     root = _root(args)
     url = args.url
@@ -1466,7 +1448,7 @@ def cmd_http(args) -> int:
         except json.JSONDecodeError:
             pass
 
-    r = http_call(args.method.upper(), url, headers, data, timeout=args.timeout)
+    r = http_request(args.method.upper(), url, headers, data, timeout=args.timeout)
     raw = r.pop("raw", None)
     if not r["ok"]:
         return out(r)
@@ -1732,6 +1714,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("detect", help="무엇을 띄울 수 있는지 (마커 파일 · 기기 · 브라우저)")
     p.add_argument("--path", default=".", help="탐색 시작 경로")
+    p.add_argument("--kinds", default=None,
+                   help="app,web,server 중 정보를 모을 것 (감지 대신 — 부르는 쪽이 이미 알 때)")
     p.set_defaults(func=cmd_detect)
 
     p = sub.add_parser("devices", help="붙은 기기 · 부팅된 시뮬레이터 · AVD")

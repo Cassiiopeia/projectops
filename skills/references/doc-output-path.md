@@ -16,7 +16,8 @@ skill별 호출 위치 매핑 — **산출물 스킬 전부 자기 CLI를 갖는
 | review | `skills/pro-review/scripts/` | `review_cli.py` |
 | note | `skills/pro-note/scripts/` | `note_cli.py` |
 | report | `skills/pro-report/scripts/` | `report_cli.py` |
-| agent-test | `skills/pro-agent-test/scripts/` | `e2e_cli.py` (**md 가 아니라 실행 폴더**를 돌려준다 — 아래 참조) |
+| agent-test | `skills/pro-launch/scripts/` | `launch_cli.py get-output-path --skill agent-test` (**md 가 아니라 실행 폴더**를 돌려준다 — 아래 참조. 실행·캡처가 pro-launch 로 옮겨 가며 자리를 여는 것도 그쪽이 한다, #631) |
+| launch | `skills/pro-launch/scripts/` | `launch_cli.py get-output-path` (실행 폴더 — 다른 증거 스킬은 `--skill <id>`) |
 
 > **agent-test 만 산출물이 md 가 아니다 (#611).** 밟은 증거(스크린샷·녹화)가 나오므로
 > `get-output-path` 는 파일이 아니라 **실행 폴더**(`<우산>/agent-test/{날짜}_{번호}_{제목}/`)를

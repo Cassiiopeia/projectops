@@ -10,8 +10,8 @@
 역할 이름은 **네가 짓는다.** 시나리오에서 쓸 키와 같은 값을 쓴다.
 
 ```bash
-{PYTHON} {SCRIPTS}/e2e_cli.py device list --root {PROJECT_ROOT}
-{PYTHON} {SCRIPTS}/e2e_cli.py device bind --root {PROJECT_ROOT} \
+{PYTHON} {LAUNCH}/launch_cli.py device list --root {PROJECT_ROOT}
+{PYTHON} {LAUNCH}/launch_cli.py device bind --root {PROJECT_ROOT} \
   --role A --serial {시리얼} --note "{이 역할이 무엇인지}"
 ```
 
@@ -35,7 +35,7 @@ export DEV="$DEV1"
 source "{env_file 값}"
 
 adb -s "$DEV1" shell input tap {x} {y}          # A 가 조작
-adb -s "$DEV2" exec-out screencap -p > "$SHOT_DIR/{이름}.png"   # B 화면을 본다
+{PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV2" --out {이름}   # B 화면을 본다
 ```
 
 **`-s` 를 빠뜨리면 기기가 여러 대일 때 adb 가 거부하거나 엉뚱한 쪽으로 간다.** 문서의

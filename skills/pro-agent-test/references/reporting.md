@@ -26,8 +26,8 @@ GitHub 이슈는 외부 이미지 링크만 렌더링한다. **레포에 커밋�
 먼저 줄인다. 이슈용이라 원본 해상도가 필요 없다.
 
 ```bash
-# Pillow → sips(macOS) → ffmpeg 중 있는 것을 알아서 쓴다.
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py shrink {스크린샷...} --max-side 700
+# Pillow → sips(macOS) → ffmpeg 중 있는 것을 알아서 쓴다 (pro-launch).
+PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py shrink {스크린샷...} --max-side 700
 ```
 
 > `sips`는 macOS에만 있다. 직접 부르지 말고 위 스크립트를 쓴다 — 다른 사람의 Linux·

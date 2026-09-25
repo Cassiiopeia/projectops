@@ -56,8 +56,32 @@ version: "2.0"
 ## 스크립트 호출 규약 ⚠️
 
 **Bash 도구는 호출마다 상태가 초기화된다.** 한 블록에서 만든 변수는 다음 블록에서 사라진다.
-아래 5줄로 `SCRIPTS`를 한 번 찾은 뒤, **그 실제 경로를 기억해 두고 이후 모든 블록 앞에
+아래 블록으로 **두 경로를 한 번에** 찾은 뒤, **그 실제 경로를 기억해 두고 이후 모든 블록 앞에
 값으로 직접 써넣는다** (이유: 변수 재사용에 기대면 두 번째 명령부터 "파일 없음"으로 실패한다).
+
+| 자리표시 | 무엇 |
+|---|---|
+| `{SCRIPTS}` | 이 스킬 — QA 절차 (`e2e_cli.py`: detect · scenario · note · api · other) |
+| `{LAUNCH}` | **pro-launch** — 띄우고 조작하고 찍는다 (`launch_cli.py`: device · app · web · http · access · db · logs · shrink · get-output-path) |
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
+[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
+for SKILL in pro-agent-test pro-launch; do
+  ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  [ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+    H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+    [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+  done
+  [ -d "$ROOT/skills/$SKILL/scripts" ] || { echo "$SKILL 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+  echo "$SKILL=$ROOT/skills/$SKILL/scripts"
+done
+echo "PYTHON=$PYTHON PROJECT_ROOT=$PROJECT_ROOT"
+```
+
+실행·캡처는 **pro-launch 의 일이다.** 이 스킬은 무엇을 어떤 순서로 밟고 무엇을 결함으로
+볼지를 정한다. pro-launch 문서(`../pro-launch/SKILL.md`)에 명령별 호출 예와 함정이 있다.
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py detect --path {PROJECT_ROOT}
@@ -78,17 +102,17 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py detect --path {PROJECT_ROOT
 
 ### 산출물 자리 — 먼저 받아 둔다. 경로를 지어내지 않는다 ⚠️
 
-`SCRIPTS`를 찾은 직후 **한 번** 돌린다. 캡처·증거가 갈 자리를 만들어 돌려준다.
+경로를 찾은 직후 **한 번** 돌린다. 캡처·증거가 갈 자리를 만들어 돌려준다.
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py get-output-path --title "{무엇을 밟는지}"
+PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py get-output-path --skill agent-test --title "{무엇을 밟는지}"
 ```
 
 돌려준 `env_file` 을 **이후 모든 블록 첫 줄에서 source 한다.** `$SHOT_DIR`·`$RUN_DIR` 이 들어온다.
 
 ```bash
 source "{env_file 값}"
-adb -s "$DEV" exec-out screencap -p > "$SHOT_DIR/01_로그인.png"
+{PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV" --out 01_로그인
 ```
 
 > **여기 없는 자리에는 아무것도 만들지 않는다.** `/tmp` 나 `docs/testing` 처럼 임의 경로에
@@ -99,23 +123,34 @@ adb -s "$DEV" exec-out screencap -p > "$SHOT_DIR/01_로그인.png"
 
 ### 실행 수단 한눈에
 
-판단은 네가 한다. 아래는 **실행**과 **기록**만 한다.
+판단은 네가 한다. 아래는 **실행**과 **기록**만 한다. 두 덩어리다.
+
+**QA — 이 스킬 (`{SCRIPTS}/e2e_cli.py`)**
 
 | 명령 | 하는 일 |
 | --- | --- |
-| `detect --path` | 무엇을 밟을 수 있는지 · 타겟별 정보 |
-| `doctor --root` | 도구가 깔려 있는지 · 기록이 어디 쌓이는지 |
-| `devices` | 붙어 있는 기기·시뮬레이터 (app) |
-| `device list\|bind\|unbind\|show` | **역할을 기기에 묶는다** — 참가자가 둘 이상일 때 (app) |
+| `detect --path` | 무엇을 밟을 수 있는지 · 타겟별 정보 (pro-launch 감지 + 적어 둔 타겟) |
 | `scenario init\|list\|show` | 시나리오 틀 만들기 · 목록 · **검증** |
 | `note show\|target\|screen\|constraint\|pitfall\|run` | 알아낸 것을 쌓는다 (`target`=무엇을 밟을 수 있는지) |
-| `access show\|set\|unset` | 붙는 법을 적어 둔다 (DB·로그·주소) |
-| `web setup\|open\|goto\|click\|type\|shot\|assert\|console\|close` | 브라우저 조작 |
-| `api --name` | 서버 시나리오를 밟는다 |
+| `api --name` | 서버 시나리오를 끝까지 밟는다 |
 | `other run` | 명령을 돌리고 **무엇이 만들어졌는지**까지 본다 |
-| `db` · `logs` | 적어 둔 방법 그대로 실행한다 |
-| `get-output-path` | **이번 실행의 산출물 자리**를 만들고 알려준다 (경로를 직접 조립하지 않는다) |
+
+**실행·캡처 — pro-launch (`{LAUNCH}/launch_cli.py`)**
+
+| 명령 | 하는 일 |
+| --- | --- |
+| `get-output-path --skill agent-test` | **이번 실행의 산출물 자리**를 만들고 알려준다 (경로를 직접 조립하지 않는다) |
+| `doctor` · `devices` | 도구 설치 여부 · 붙어 있는 기기·시뮬레이터 |
+| `device list\|bind\|unbind\|show` | **역할을 기기에 묶는다** — 참가자가 둘 이상일 때 (app) |
+| `app shot\|launch` | 앱 화면을 찍는다(`--clean-status` 상태바 고정) · 앱을 띄운다 |
+| `web setup\|open\|goto\|click\|type\|shot\|assert\|console\|close` | 브라우저 조작 |
+| `web viewport` · `web route` | 폭 바꾸기 · **응답 바꿔치기** — 빈 목록·실패·지연을 서버를 건드리지 않고 연출 |
+| `http` | 단건 요청 |
+| `access show\|set\|unset` · `db` · `logs` | 붙는 법을 적어 두고 그대로 실행한다 |
 | `shrink` | 증거 이미지 축소 |
+
+> `e2e_cli.py` 로 옛 이름(`web` · `device` · `access` …)을 불러도 한 마이너 버전 동안은
+> pro-launch 로 넘겨준다. 결과의 `moved_to` · `next` 가 새 자리를 알려 준다. 새로 쓰는 명령은 `{LAUNCH}` 로 쓴다.
 
 모두 JSON을 돌려준다. `ok`·`code`·`summary`·`next`를 보고 다음 수를 정한다.
 
@@ -191,7 +226,7 @@ py는 여기서 맞히려 들지 않는다. 프레임워크마다 템플릿 자�
 거부하거나 엉뚱한 쪽으로 간다.
 
 ```bash
-{PYTHON} {SCRIPTS}/e2e_cli.py device list --root {PROJECT_ROOT}
+{PYTHON} {LAUNCH}/launch_cli.py device list --root {PROJECT_ROOT}
 ```
 
 한 대뿐이면 `$DEV` 가 그 한 대로 채워지고 더 할 일이 없다. **여러 대면 역할을 묶는다** —
@@ -251,8 +286,8 @@ py는 여기서 맞히려 들지 않는다. 프레임워크마다 템플릿 자�
 알아낸 것은 **기록에 남긴다.** 다음 실행은 여기서 시작한다.
 
 ```bash
-... note screen --root {ROOT} --name "{화면}" --anchor "{알아보는 단서}"
-... access set --root {ROOT} --key {db|logs|base_url} --json '{...}'
+{PYTHON} {SCRIPTS}/e2e_cli.py note screen --root {ROOT} --name "{화면}" --anchor "{알아보는 단서}"
+{PYTHON} {LAUNCH}/launch_cli.py access set --root {ROOT} --key {db|logs|base_url} --json '{...}'
 ```
 
 무엇을 어떤 순서로 쌓는지, 자격증명을 어떻게 걸러내는지는 `references/learning.md`.
@@ -328,8 +363,9 @@ catch · rescue · except · \.catch\( · onError · fallback · ?? · orElse
 | --- | --- | --- |
 | 네트워크 끊김 | `svc wifi disable && svc data disable` | 무한 로딩·빈 화면이 아니라 재시도 경로가 있는가 |
 | 권한 거부 | `pm revoke {패키지} {권한}` | 앱이 죽지 않고 우회 경로를 주는가 |
-| 서버 오류 | 서버를 잠시 내리거나 잘못된 토큰 주입 | **에러 코드가 화면에 보이는가** (제보받았을 때 추적하려면 필요하다) |
-| 목록 0건 | 데이터를 비운 계정으로 | 로딩과 구분되는 빈 상태 화면이 있는가 |
+| 서버 오류 | 서버를 잠시 내리거나 잘못된 토큰 주입. **웹이면 `web route --status 500`** — 서버를 건드리지 않는다 | **에러 코드가 화면에 보이는가** (제보받았을 때 추적하려면 필요하다) |
+| 목록 0건 | 데이터를 비운 계정으로. **웹이면 `web route --status 200 --body "[]"`** | 로딩과 구분되는 빈 상태 화면이 있는가 |
+| 느린 응답 | **웹이면 `web route --delay 5000`** | 로딩 표시가 있는가 · 두 번 눌러지지 않는가 |
 
 **축 3 — 환경 조건.** 접근성과 표시 설정을 바꿔 레이아웃이 버티는지 본다.
 
@@ -385,11 +421,9 @@ sleep 5 && adb -s "$DEV" logcat -d | grep -i "flutter"
 ```bash
 source "{env_file 값}"   # SHOT_DIR — 위 '산출물 자리' 에서 받은 것
 
-adb -s "$DEV" exec-out screencap -p > "$SHOT_DIR/step_N.png"      # Android
-xcrun simctl io booted screenshot "$SHOT_DIR/step_N.png" # iOS
-
-# 읽기 전에 줄인다 — 원본은 한 장에 1,500 토큰 가까이 먹는다
-{PYTHON} {SCRIPTS}/e2e_cli.py shrink "$SHOT_DIR/step_N.png" --root {PROJECT_ROOT}
+# Android 시리얼이든 iOS UDID 든 같은 명령이다. 긴 변 1200 WebP 로 줄여 저장한다
+# — 원본은 한 장에 1,500 토큰 가까이 먹는다
+{PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV" --out step_N
 ```
 
 > **줄여야 하는 것이 둘인데 방법이 다르다 (실측).**
@@ -400,8 +434,8 @@ xcrun simctl io booted screenshot "$SHOT_DIR/step_N.png" # iOS
 > | 파일·전송량 | **WebP 변환** | 495KB → 34KB |
 >
 > **포맷은 토큰에 아무 영향이 없다** — 토큰은 가로x세로에서만 나온다. 그래서
-> `shrink` 가 둘을 함께 한다. `web shot` 은 이미 이 처리를 하고 저장하므로
-> 따로 부를 필요가 없다. 앱·iOS 캡처만 이 한 줄이 필요하다.
+> `app shot` · `web shot` 이 둘을 함께 하고 저장한다. 원본이 필요하면 `--keep-format`.
+> 다른 도구로 찍은 이미지는 `{LAUNCH}/launch_cli.py shrink` 로 같은 처리를 한다.
 >
 > 한 세션에 스크린샷 20장이면 **29,460 → 5,880 토큰**이다. 밟는 길이가 길어질수록 벌어진다.
 
@@ -455,12 +489,12 @@ adb -s "$DEV" logcat -d | grep -E "action:|key:"          # 기기에 무엇이 
 **화면만 보고 통과시키지 않는다.** 화면은 멀쩡한데 서버에 이상한 값이 들어가 있을 수 있다.
 
 ```bash
-... db   --profile db --root {ROOT} --sql "select ... where ..."   # 진짜 들어갔나
-... logs --root {ROOT} --tail 100 --grep "{키워드}"                 # 무엇을 보냈나·에러가 났나
+{PYTHON} {LAUNCH}/launch_cli.py db   --profile db --root {ROOT} --sql "select ... where ..."   # 진짜 들어갔나
+{PYTHON} {LAUNCH}/launch_cli.py logs --root {ROOT} --tail 100 --grep "{키워드}"                 # 무엇을 보냈나·에러가 났나
 ```
 
 **붙는 법과 로그 보는 법은 프로젝트마다 다르다.** 코드를 읽어 알아낸 뒤 `access`에 적어 두면
-다음부터는 `--profile`로 바로 쓴다. 자세한 것은 `references/target-server.md`.
+다음부터는 `--profile`로 바로 쓴다. 붙는 법은 `../pro-launch/references/server.md`, 서버를 밟는 QA 는 `references/target-server.md`.
 
 ## Phase 4 — 사람이 해야 하는 지점 ⚠️
 
@@ -506,12 +540,14 @@ adb -s "$DEV" logcat -d | grep -E "action:|key:"          # 기기에 무엇이 
 ("This browser or app may not be secure."). 그래서 **로그인이 필요하면 처음부터 눈에 보이게 연다.**
 
 ```bash
-{PYTHON} {SCRIPTS}/e2e_cli.py web open --headed --root {PROJECT_ROOT}
+{PYTHON} {LAUNCH}/launch_cli.py web open --headed --root {PROJECT_ROOT}
 ```
 
 > **실측(projectops, 2026-09-18)**: 같은 Chromium 으로 같은 주소를 열어도
 > headless 는 `WebLiteSignIn`, `--headed` 는 `GlifWebSignIn` 이었다.
 > 브라우저 종류나 stealth 확장이 아니라 **눈에 보이게 띄웠는지**가 기준이다.
+> pro-launch 는 자동화 표식 가리기(stealth, gstack 에서 옮김)를 기본으로 켜 headless 에서도 덜 막히지만,
+> **로그인이 필요하면 여전히 `--headed` 가 먼저다.**
 
 #### 비밀번호는 `--text` 에 적지 않는다 ⚠️
 
@@ -519,7 +555,7 @@ adb -s "$DEV" logcat -d | grep -E "action:|key:"          # 기기에 무엇이 
 변수 이름만 남는다.
 
 ```bash
-APP_PW="..." {PYTHON} {SCRIPTS}/e2e_cli.py web type \
+APP_PW="..." {PYTHON} {LAUNCH}/launch_cli.py web type \
   --selector 'input[type=password]' --text-env APP_PW --root {PROJECT_ROOT}
 ```
 

@@ -42,8 +42,8 @@
 ### 통과 방법 — 눈에 보이게 띄운다
 
 ```bash
-{PYTHON} {SCRIPTS}/e2e_cli.py web open --headed --root {PROJECT_ROOT}
-{PYTHON} {SCRIPTS}/e2e_cli.py web goto --url "https://accounts.google.com/ServiceLogin" --root {PROJECT_ROOT}
+{PYTHON} {LAUNCH}/launch_cli.py web open --headed --root {PROJECT_ROOT}
+{PYTHON} {LAUNCH}/launch_cli.py web goto --url "https://accounts.google.com/ServiceLogin" --root {PROJECT_ROOT}
 ```
 
 > **실측 (projectops, 2026-09-18)** — 같은 Chromium, 같은 주소, `--headed` 만 다르게:
@@ -91,7 +91,7 @@
 환경변수로 넘기면 기록에는 변수 이름만 남는다.
 
 ```bash
-APP_PW="..." {PYTHON} {SCRIPTS}/e2e_cli.py web type \
+APP_PW="..." {PYTHON} {LAUNCH}/launch_cli.py web type \
   --selector 'input[type=password]' --text-env APP_PW --root {PROJECT_ROOT}
 ```
 
@@ -116,7 +116,7 @@ APP_PW="..." {PYTHON} {SCRIPTS}/e2e_cli.py web type \
 3. 거부되면 그 신호를 `note` 로 남기고 사용자에게 넘긴다
 
 ```bash
-{PYTHON} {SCRIPTS}/e2e_cli.py note trap \
+{PYTHON} {SCRIPTS}/e2e_cli.py note pitfall \
   --text "카카오 로그인: headed 로도 {관측한 신호} 가 떠 거부됨" \
   --scope platform --root {PROJECT_ROOT}
 ```

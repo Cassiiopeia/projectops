@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """e2e_cli — pro-agent-test 전용 CLI (projectops 3-layer 표준, Layer 2).
 
-Flutter 프로젝트를 실기기에서 밟기 전에 필요한 값들을 한 번에 찾아낸다.
-매 호출마다 agent가 grep 조합을 다시 짜지 않도록 여기에 모아 둔다.
+**QA 절차만** 담는다. 앱·웹·서버를 띄우고 조작하고 찍는 능력은 pro-launch 로 옮겼다 (#629·#631).
 
 서브커맨드:
-    detect   프로젝트 루트·패키지명·번들ID·API URL·연결된 기기를 한 번에 조사
-    devices  연결/부팅된 기기만 조회
-    db       SQL 실행 (붙는 법은 access 에 적어 둔 대로)
-    logs     서버 로그 (보는 법도 access 에 적어 둔 대로)
-    access   이 프로젝트에 붙는 법을 적어 두고 꺼내 쓴다
+    detect    무엇을 밟을 수 있는지 — pro-launch detect 결과 + 확인해 적어 둔 타겟(note target)
+    scenario  밟기 시나리오 만들기 · 목록 · 검증
+    note      이 프로젝트에서 알아낸 것을 쌓는다
+    api       서버 시나리오를 끝까지 밟는다 (단건 요청은 pro-launch http)
+    other     앱·웹·서버가 아닌 것을 밟는다
+
+옮긴 명령(doctor · devices · device · web · access · db · logs · shrink · get-output-path)은
+**한 마이너 버전 동안** pro-launch 로 그대로 넘겨주고, 결과에 새 자리를 알리는 next 를 싣는다.
 
 출력: MCP-style JSON (ok/code/summary/next 4필드 보장).
 """
@@ -20,7 +22,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import time
 import sys
@@ -32,153 +33,65 @@ _SCRIPTS_ROOT = _PROJECT_ROOT / "scripts"
 if str(_SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_ROOT))
 
+from common.access import find_secrets as _find_secrets  # noqa: E402
+from common.access import load_access as _load_access  # noqa: E402
 from common.emit import emit  # noqa: E402
+from common.http import request as _http_request  # noqa: E402
+from common.state import repo_key, state_dir  # noqa: E402
 
 
-
-
-
-def _sdk_tool(name: str) -> str | None:
-    """Android SDK 도구 경로. PATH에 없으면 표준 설치 위치를 본다.
-
-    adb·emulator는 SDK를 설치해도 PATH에 자동 등록되지 않는 경우가 많다.
-    여기서 찾아주지 않으면 기기가 있는데도 "없음"으로 보고하게 된다.
-    """
-    found = shutil.which(name)
-    if found:
-        return found
-
-    # Windows 실행 파일은 확장자가 붙는다. Git Bash에서도 마찬가지다.
-    exe = f"{name}.exe" if sys.platform == "win32" else name
-
-    roots = [Path.home() / "Library" / "Android" / "sdk",   # macOS 기본
-             Path.home() / "Android" / "Sdk"]               # Linux 기본
-    for env in ("ANDROID_HOME", "ANDROID_SDK_ROOT", "LOCALAPPDATA"):
-        v = os.environ.get(env)
-        if not v:
-            continue
-        base = Path(v)
-        roots.append(base / "Android" / "Sdk" if env == "LOCALAPPDATA" else base)
-
-    for root in roots:
-        for sub in ("platform-tools", "emulator", "cmdline-tools/latest/bin"):
-            cand = root / sub / exe
-            if cand.exists():
-                return str(cand)
-    return None
-
-
-def _run(cmd: list[str], timeout: int = 15) -> str:
-    """외부 명령 실행. 실패해도 예외를 올리지 않는다 —
-    기기가 없거나 도구가 미설치인 상황이 정상 경로이기 때문이다."""
-    try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-        return r.stdout
-    except (OSError, subprocess.SubprocessError):
-        return ""
-
-
-def _find_flutter_root(start: Path) -> Path | None:
-    """pubspec.yaml에 flutter 의존성이 있는 디렉터리를 찾는다.
-
-    모노레포에서는 앱이 client/ 같은 하위에 있다. build/ 안의 사본은 제외한다.
-    """
-    for p in sorted(start.rglob("pubspec.yaml")):
-        if "build" in p.parts or ".dart_tool" in p.parts:
-            continue
-        if len(p.relative_to(start).parts) > 4:
-            continue
-        try:
-            if "flutter:" in p.read_text(encoding="utf-8", errors="ignore"):
-                return p.parent
-        except OSError:
-            continue
-    return None
-
-
-# ── 타겟 감지 (이슈 #586) ────────────────────────────────────────────────
+# =========================================================================
+# pro-launch 로 옮긴 명령 — 넘겨주기 층 (#631)
+# =========================================================================
 #
-# 예전에는 pubspec.yaml을 못 찾으면 첫 명령부터 실패했다. 웹·서버 레포에서는
-# 아무것도 시작할 수 없었다는 뜻이다. 이제 무엇을 밟을 수 있는지부터 판정한다.
+# 스킬끼리 파이썬 import 는 하지 않는다. 같은 플러그인 안의 launch_cli.py 를
+# 서브프로세스로 부르고, 결과는 그대로 돌려주되 "이제 저쪽을 쓰라"는 next 를 싣는다.
+# 다음 마이너에서 이 층을 지운다.
 
-# projectops가 쓰는 프로젝트 타입 → 이 스킬의 타겟.
-# 한 타입이 여러 타겟을 줄 수 있다(node는 웹일 수도 서버일 수도 있다).
-_TYPE_TO_TARGET = {
-    "flutter": ["app"],
-    "react-native": ["app"],
-    "react-native-expo": ["app"],
-    "react": ["web"],
-    "next": ["web"],
-    "node": ["web", "server"],
-    "spring": ["server"],
-    "python": ["server"],
-    "basic": [],
-}
+MOVED = ("doctor", "devices", "device", "web", "access", "db", "logs", "shrink",
+         "get-output-path")
+
+_LAUNCH_CLI = _HERE.parents[2] / "pro-launch" / "scripts" / "launch_cli.py"
 
 
-def _version_yml_types(root: Path) -> list[str]:
-    """version.yml의 project_types. projectops가 통합된 레포면 이미 있다.
-
-    yaml 파서를 쓰지 않는다 — 이 스크립트는 표준 라이브러리만으로 돌아야 한다.
-    """
-    f = root / "version.yml"
-    if not f.is_file():
-        return []
+def _launch(argv: list[str]) -> tuple[dict | None, str, int]:
+    """launch_cli 를 부르고 (JSON, 원문, 종료코드). 표준입력은 넘기지 않는다."""
+    if not _LAUNCH_CLI.is_file():
+        return None, "", 1
+    r = subprocess.run([sys.executable, str(_LAUNCH_CLI), *argv], capture_output=True,
+                       text=True, encoding="utf-8", stdin=subprocess.DEVNULL,
+                       env={**os.environ, "PYTHONIOENCODING": "utf-8"})
     try:
-        body = f.read_text(encoding="utf-8", errors="ignore")
-    except OSError:
-        return []
-    m = re.search(r"project_types:\s*\n((?:\s*-\s*\S+\n?)+)", body)
-    if m:
-        return re.findall(r"-\s*([A-Za-z0-9_-]+)", m.group(1))
-    m = re.search(r"project_types:\s*\[([^\]]*)\]", body)
-    if m:
-        return [x.strip().strip("'\"") for x in m.group(1).split(",") if x.strip()]
-    return []
+        data = json.loads((r.stdout or "").strip().splitlines()[-1])
+    except (json.JSONDecodeError, IndexError):
+        data = None
+    return data, (r.stdout or "") + (r.stderr or ""), r.returncode
 
 
-def _marker_targets(root: Path) -> dict:
-    """파일로 추론한다. version.yml이 없는 레포(대부분의 남의 프로젝트)를 위한 길이다."""
-    found: dict[str, list[str]] = {}
+def delegate(argv: list[str]) -> int:
+    """옮긴 명령을 pro-launch 로 넘긴다. 산출물은 여전히 agent-test 폴더에 받는다."""
+    cmd = argv[0]
+    if cmd == "get-output-path" and "--skill" not in argv:
+        argv = [*argv, "--skill", "agent-test"]
+    data, raw, rc = _launch(argv)
+    if data is None and rc == 0 and raw.strip():
+        # --help 처럼 JSON 이 아닌 정상 출력 — 그대로 보여준다
+        sys.stdout.write(raw)
+        return 0
+    if data is None:
+        return emit({"ok": False, "code": "launch_unavailable",
+                     "error": f"pro-launch 의 launch_cli.py 를 부르지 못했습니다 ({_LAUNCH_CLI})",
+                     "output": raw[-400:],
+                     "hint": "projectops 설치가 온전한지 확인하세요 — pro-launch 가 함께 깔려 있어야 합니다"})
+    moved = f"pro-launch 의 launch_cli.py {cmd} 를 쓴다 (e2e_cli {cmd} 는 다음 마이너에서 제거)"
+    data["moved_to"] = f"launch_cli.py {cmd}"
+    data["next"] = f"{data['next']} · {moved}" if data.get("next") else moved
+    return emit(data)
 
-    def add(target: str, why: str):
-        found.setdefault(target, []).append(why)
 
-    for pub in list(root.rglob("pubspec.yaml"))[:20]:
-        if "build" in pub.parts or ".dart_tool" in pub.parts:
-            continue
-        add("app", str(pub.relative_to(root)))
-        break
-
-    for pkg in list(root.rglob("package.json"))[:20]:
-        if "node_modules" in pkg.parts:
-            continue
-        try:
-            body = pkg.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            continue
-        rel = str(pkg.relative_to(root))
-        # 웹 프레임워크가 보이면 화면이 있다는 뜻이다
-        if re.search(r'"(react|next|vue|svelte|@angular/core)"\s*:', body):
-            add("web", rel)
-        # 서버 프레임워크는 화면 없이 API만 있을 수 있다
-        if re.search(r'"(express|fastify|@nestjs/core|koa)"\s*:', body):
-            add("server", rel)
-
-    for marker, why in (("build.gradle", "spring"), ("build.gradle.kts", "spring"),
-                        ("pom.xml", "maven"), ("pyproject.toml", "python"),
-                        ("requirements.txt", "python"), ("manage.py", "django")):
-        for f in list(root.rglob(marker))[:10]:
-            if "build" in f.parts or "node_modules" in f.parts or ".venv" in f.parts:
-                continue
-            # Flutter 앱의 android/build.gradle을 서버로 오해하면 안 된다
-            if marker.startswith("build.gradle") and "android" in f.parts:
-                continue
-            add("server", f"{f.relative_to(root)} ({why})")
-            break
-
-    return found
-
+# =========================================================================
+# detect — 띄울 수 있는 것(pro-launch) + 확인해 적어 둔 것(note target)
+# =========================================================================
 
 def _recorded_targets(root: Path) -> dict | None:
     """agent가 코드를 보고 확인해 적어 둔 것. 선언보다 이쪽을 믿는다."""
@@ -190,708 +103,23 @@ def _recorded_targets(root: Path) -> dict | None:
     return {"targets": vals, "why": rec.get("why")} if vals else None
 
 
-def detect_targets(root: Path) -> dict:
-    """무엇을 밟을 수 있는지. 앞에서 정해지면 뒤는 보지 않는다.
-
-    ① 확인해 적어 둔 것 → ② version.yml 선언 → ③ 마커 파일
-    """
-    rec = _recorded_targets(root)
-    if rec:
-        return {"targets": rec["targets"], "source": "recorded",
-                "recorded_why": rec.get("why")}
-
-    types = _version_yml_types(root)
-    if types:
-        targets: list[str] = []
-        for ty in types:
-            for tg in _TYPE_TO_TARGET.get(ty, []):
-                if tg not in targets:
-                    targets.append(tg)
-        if targets:
-            return {"targets": targets, "source": "version.yml", "project_types": types}
-
-    found = _marker_targets(root)
-    targets = [tg for tg in TARGETS if tg in found]
-    return {"targets": targets, "source": "marker" if targets else "none",
-            "evidence": {k: v for k, v in found.items()}}
-
-
-def _android_package(root: Path) -> str | None:
-    for name in ("build.gradle.kts", "build.gradle"):
-        f = root / "android" / "app" / name
-        if not f.exists():
-            continue
-        text = f.read_text(encoding="utf-8", errors="ignore")
-        m = re.search(r'applicationId\s*=?\s*["\']([\w.]+)["\']', text)
-        if m:
-            return m.group(1)
-    return None
-
-
-def _ios_bundle_id(root: Path) -> str | None:
-    f = root / "ios" / "Runner.xcodeproj" / "project.pbxproj"
-    if not f.exists():
-        return None
-    text = f.read_text(encoding="utf-8", errors="ignore")
-    # 변수 참조($(...))가 아닌 실제 값만 고른다
-    for m in re.finditer(r'PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([^;]+);', text):
-        v = m.group(1).strip().strip('"')
-        if "$" not in v and "RunnerTests" not in v:
-            return v
-    return None
-
-
-def _app_base_urls(root: Path) -> list[str]:
-    """**Flutter 앱 전용.** .env와 dart 설정에서 앱이 바라보는 주소를 모은다.
-
-    기기가 어느 서버를 보는지 모르면 DB 대조 대상을 못 정한다. 서버 타겟에는 쓰지
-    않는다 — 스프링·노드·장고는 설정 자리가 제각각이라 여기서 맞힐 수 없다 (#589)."""
-    found: list[str] = []
-    candidates = [root / ".env"]
-    candidates += list((root / "lib" / "core").rglob("*config*.dart"))
-    for f in candidates[:12]:
-        if not f.exists() or not f.is_file():
-            continue
-        text = f.read_text(encoding="utf-8", errors="ignore")
-        for m in re.finditer(r'https?://[\w.\-]+(?::\d+)?[\w./\-]*', text):
-            url = m.group(0).rstrip('/')
-            if url not in found:
-                found.append(url)
-    return found[:8]
-
-
-def _devices() -> dict:
-    android: list[str] = []
-    adb = _sdk_tool("adb")
-    if adb:
-        for line in _run([adb, "devices"]).splitlines()[1:]:
-            parts = line.split()
-            if len(parts) >= 2 and parts[1] == "device":
-                android.append(parts[0])
-    ios: list[str] = []
-    if shutil.which("xcrun"):
-        for line in _run(["xcrun", "simctl", "list", "devices", "booted"]).splitlines():
-            m = re.match(r"\s+(.+?)\s+\(([\w-]{36})\)\s+\(Booted\)", line)
-            if m:
-                ios.append(f"{m.group(1)} [{m.group(2)}]")
-    avds: list[str] = []
-    emu = _sdk_tool("emulator")
-    if emu:
-        avds = [l.strip() for l in _run([emu, "-list-avds"]).splitlines()
-                if l.strip() and not l.startswith("INFO")]
-    return {"android": android, "ios_booted": ios, "android_avds": avds,
-            "adb_path": adb, "emulator_path": emu}
-
-
-# 이 skill이 쓰는 도구들. required=없으면 아무것도 못 한다.
-_TOOLS = [
-    ("adb", True, "Android 기기 제어",
-     "Android Studio → SDK Manager → SDK Tools → Android SDK Platform-Tools"),
-    ("emulator", False, "AVD 부팅 (이미 켜져 있으면 불필요)",
-     "Android Studio → SDK Manager → SDK Tools → Android Emulator"),
-    ("xcrun", False, "iOS 시뮬레이터 (macOS 전용)",
-     "Xcode 설치 후 xcode-select --install"),
-    ("ffmpeg", False, "녹화에서 프레임 추출 — 애니메이션을 수치로 검증할 때만",
-     "brew install ffmpeg / apt install ffmpeg / winget install ffmpeg"),
-]
-
-
-def _has_pillow() -> bool:
-    try:
-        import PIL  # noqa: F401
-        return True
-    except ImportError:
-        return False
-
-
-# 화면 캡처는 쌓이면 무겁다. 줄여야 하는 것이 **둘**인데 방법이 서로 다르다(실측).
-#
-#   파일 크기  →  WebP 로 바꾼다.  495KB → 34KB (-93%)
-#                 원격으로 화면을 주고받을 때, 디스크에 쌓일 때, 이슈에 올릴 때 줄어든다.
-#   세션 토큰  →  **해상도를 줄인다.** 포맷은 토큰에 아무 영향이 없다.
-#                 토큰은 가로x세로에서만 나온다(긴 변 1568px 초과분은 먼저 축소된다).
-#                 1080x2400 그대로면 1,473 토큰, 긴 변 1200 으로 줄이면 864 토큰.
-#
-# 그래서 **둘을 함께** 한다. WebP 만 해서는 세션이 가벼워지지 않고,
-# 축소만 해서는 파일이 그대로 무겁다.
-WEBP_QUALITY = 75
-SHOT_MAX_SIDE = 1200          # 작은 글자까지 읽히는 선. 토큰은 약 41% 줄어든다
-
-
-def _to_webp(src: Path, quality: int = WEBP_QUALITY,
-             max_side: int | None = None) -> Path | None:
-    """이미지를 WebP 로 바꾸고, max_side 가 있으면 긴 변을 거기에 맞춘다.
-
-    Pillow(시스템) → Pillow(전용 venv) → cwebp → ffmpeg 순으로 가진 것을 쓴다.
-    **하나도 없다고 해서 화면을 못 찍게 하지는 않는다** — 원본이 남고 조금 무거울 뿐이다.
-    macOS 의 sips 는 WebP 쓰기를 못 해 사다리에 넣지 않았다(실측).
-    """
-    if src.suffix.lower() == ".webp" and not max_side:
-        return src
-    dst = src.with_suffix(".webp")
-    side = str(max_side or 0)
-    try:
-        if _has_pillow():
-            _pillow_webp(src, dst, quality, max_side)
-        elif (vpy := _venv_python()) and _venv_has_pillow(vpy):
-            # 웹 타겟용 venv 에 Pillow 가 함께 깔린다 — 시스템 파이썬을 건드리지 않는다
-            _run([str(vpy), "-c", _PILLOW_SNIPPET,
-                  str(src), str(dst), str(quality), side], timeout=60)
-        elif shutil.which("cwebp"):
-            cmd = ["cwebp", "-quiet", "-q", str(quality)]
-            if max_side:
-                # 0 은 "비율 유지". 세로가 긴 화면이 많아 긴 변 기준으로 맞춘다
-                cmd += ["-resize", "0", side] if _is_portrait(src) else ["-resize", side, "0"]
-            _run(cmd + [str(src), "-o", str(dst)], timeout=60)
-        elif shutil.which("ffmpeg"):
-            vf = []
-            if max_side:
-                vf = ["-vf", f"scale='if(gt(iw,ih),{side},-2)':'if(gt(iw,ih),-2,{side})'"]
-            _run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(src)]
-                 + vf + ["-quality", str(quality), str(dst)], timeout=60)
-        else:
-            return None
-    except Exception:
-        return None
-    if dst.exists() and dst.stat().st_size > 0:
-        if dst != src:
-            src.unlink(missing_ok=True)
-        return dst
-    dst.unlink(missing_ok=True)
-    return None
-
-
-# venv 파이썬에게 시킬 변환. 인자: src dst quality max_side(0이면 축소 안 함)
-_PILLOW_SNIPPET = (
-    "import sys\n"
-    "from PIL import Image\n"
-    "src, dst, q, side = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])\n"
-    "im = Image.open(src)\n"
-    "if side:\n"
-    "    im.thumbnail((side, side), Image.LANCZOS)\n"
-    "im.save(dst, 'WEBP', quality=q, method=4)\n"
-)
-
-
-def _pillow_webp(src: Path, dst: Path, quality: int, max_side: int | None) -> None:
-    from PIL import Image
-    with Image.open(src) as im:
-        if max_side:
-            im.thumbnail((max_side, max_side), Image.LANCZOS)
-        im.save(dst, "WEBP", quality=quality, method=4)
-
-
-def _venv_has_pillow(vpy: Path) -> bool:
-    try:
-        return subprocess.run([str(vpy), "-c", "import PIL"],
-                              capture_output=True, timeout=20).returncode == 0
-    except (OSError, subprocess.SubprocessError):
-        return False
-
-
-def _is_portrait(src: Path) -> bool:
-    """cwebp 는 비율 유지를 0 으로 표시하므로 어느 변이 긴지 알아야 한다."""
-    if _has_pillow():
-        from PIL import Image
-        with Image.open(src) as im:
-            return im.height >= im.width
-    out = _run(["sips", "-g", "pixelWidth", "-g", "pixelHeight", str(src)])
-    w = h = 0
-    for line in out.splitlines():
-        if "pixelWidth" in line:
-            w = int(line.split(":")[1])
-        if "pixelHeight" in line:
-            h = int(line.split(":")[1])
-    return h >= w if (w and h) else True
-
-
-def cmd_doctor(args) -> int:
-    """실행 전에 무엇이 되고 무엇이 안 되는지 알려준다.
-
-    없는 도구를 모른 채 시작하면 중간에 멈춘다. 특히 이미지 축소·녹화 분석은
-    플랫폼마다 사정이 달라 미리 확인해야 한다.
-    """
-    checks = []
-    missing_required = []
-    for name, required, why, how in _TOOLS:
-        path = _sdk_tool(name) if name in ("adb", "emulator") else shutil.which(name)
-        ok = bool(path)
-        if required and not ok:
-            missing_required.append(name)
-        checks.append({
-            "tool": name, "found": ok, "path": path,
-            "required": required, "why": why,
-            **({} if ok else {"install": how}),
-        })
-
-    # 화면을 줄이는 수단. 없으면 캡처가 원본 크기로 남아 **세션 토큰과 전송량이
-    # 그대로 커진다** — 못 쓰게 되는 것은 아니라 required 가 아니지만 크게 손해다.
-    vpy = _venv_python()
-    if _has_pillow():
-        shrink = "pillow"
-    elif vpy and _venv_has_pillow(vpy):
-        shrink = "pillow (전용 venv)"
-    elif shutil.which("cwebp"):
-        shrink = "cwebp"
-    elif shutil.which("ffmpeg"):
-        shrink = "ffmpeg"
-    else:
-        shrink = None
-
-    # 쌓인 것이 어디 있는지. 프로젝트 안이 아니라 홈이라 워크트리를 만들어도 남는다.
-    root = Path(args.root).resolve()
-    home = _home_dir(root)
-
-    return emit({
-        "ok": not missing_required,
-        "code": "ok" if not missing_required else "missing_required_tool",
-        "checks": checks,
-        "knowledge_dir": str(home),
-        "knowledge_exists": home.is_dir(),
-        "image_resize": shrink or "없음 — 캡처가 원본 크기로 남아 토큰·전송량이 커진다",
-        "image_hint": None if shrink else
-            "web setup 을 돌리면 전용 venv 에 함께 깔립니다 (시스템은 건드리지 않습니다)",
-        "pillow": _has_pillow(),
-        "platform": sys.platform,
-        "summary": (
-            f"{sys.platform}: 필수 {'충족' if not missing_required else '부족(' + ','.join(missing_required) + ')'}"
-            f" · 이미지 축소 {shrink or '불가'}"
-        ),
-        "next": None if not missing_required else "위 install 안내를 따라 설치한 뒤 다시 실행하세요",
-    })
-
-
-# =========================================================================
-# 산출물 자리 — 경로는 여기서 정해 준다. 에이전트가 지어내지 않는다 (#611)
-# =========================================================================
-
-# 폴더가 스스로 추적 제외를 들고 다닌다. 루트 .gitignore 를 건드리지 않는 것이
-# 요점이다 — 남의 저장소에 설치되는 스킬이라 공용 파일을 고치면 사용자 변경과
-# 충돌한다 (#561 에서 실행 기록에 같은 방식을 썼다).
-#
-# 그 규칙은 **common/paths.py 한 곳**에 있다 (#621). 스킬마다 복사해 두었더니
-# 같은 일을 하는 코드가 둘이 되었고, 한쪽만 고쳐지면 어긋난다. 어떤 스킬이
-# 증거를 내는지도 거기 EVIDENCE_SKILLS 가 단독으로 안다.
-def _sh_quote(value: str) -> str:
-    """셸에서 값이 그대로 쓰이도록 감싼다.
-
-    경로와 역할 이름은 사용자가 짓는 문자열이라 공백·`$`·따옴표가 들어올 수 있다.
-    큰따옴표로 감싸면 `$` 가 전개되어 **터지지 않고 다른 값**이 된다 — 이 스킬에서
-    가장 위험한 실패 모양이다 (#583).
-    """
-    return "'" + value.replace("'", "'\\''") + "'"
-
-
-def _sole_device() -> str | None:
-    """붙어 있는 안드로이드 기기가 정확히 하나면 그 시리얼. 아니면 None."""
-    try:
-        found = _devices()["android"]
-    except Exception:
-        return None
-    return found[0] if len(found) == 1 else None
-
-
-def _write_env_sh(run_dir: Path, package: str | None,
-                  bindings: list[dict] | None = None) -> Path:
-    """실행 환경을 쓴다. **이 파일을 쓰는 곳은 여기 하나뿐이다.**
-
-    get-output-path 와 device 가 각자 쓰면 반드시 어긋난다. 문서에 경로·시리얼을
-    적지 않는 것이 목적이므로, 여기 없는 값은 에이전트가 지어내게 된다.
-
-    역할 이름을 **셸 변수명에 쓰지 않는다.** 변수명은 [A-Za-z_][A-Za-z0-9_]* 뿐이라
-    한글·공백·하이픈이 든 이름은 `export DEV_{이름}=...` 이 not a valid identifier 로
-    거부되고, 쓰는 쪽 `$DEV_{이름}` 은 조용히 엉뚱한 값으로 전개된다. 번호로 고정하고
-    이름은 값으로 담는다.
-    """
-    shots = run_dir / "screenshots"
-    shots.mkdir(parents=True, exist_ok=True)
-
-    lines = [
-        "# agent-test 실행 환경 — `source env.sh` 로 불러 쓴다.",
-        "# 경로를 손으로 짓지 않는다. 여기 없는 자리에는 아무것도 만들지 않는다.",
-        "export AGENT_TEST_RUN=%s" % _sh_quote(run_dir.name),
-        "export RUN_DIR=%s" % _sh_quote(str(run_dir)),
-        "export SHOT_DIR=%s" % _sh_quote(str(shots)),
-    ]
-    if package:
-        lines.append("export PKG=%s" % _sh_quote(package))
-
-    bindings = bindings or []
-    if bindings:
-        lines += ["",
-                  "# 역할 ↔ 기기. ROLE{n} 값은 시나리오 roles 의 키와 같은 문자열이다.",
-                  "# 시나리오가 \"device\": \"B\" 라고 적으면 ROLE2==B 를 보고 $DEV2 를 쓴다.",
-                  "export DEV_COUNT=%d" % len(bindings)]
-        for n, b in enumerate(bindings, 1):
-            note = b.get("note")
-            tail = "   # %s" % note if note else ""
-            lines.append("export ROLE%d=%s; export DEV%d=%s%s"
-                         % (n, _sh_quote(b["role"]), n, _sh_quote(b["serial"]), tail))
-        lines += ["", "# 역할을 쓰지 않는 명령의 기본 기기", 'export DEV="$DEV1"']
-    else:
-        # 역할을 안 잡았어도 DEV 는 **반드시 정의한다.** 문서가 `adb -s "$DEV"` 로
-        # 적혀 있는데 비어 있으면 `adb -s ` 가 되어 사용법 오류로 죽는다 — 기기가
-        # 여러 대인데 안 고른 상황에서는 그렇게 죽는 것이 맞고, 한 대뿐이면 그 한
-        # 대를 넣어 주는 것이 맞다.
-        one = _sole_device()
-        lines += ["", "# 붙어 있는 기기가 한 대뿐이라 그것을 기본으로 둔다"
-                      if one else
-                      "# 기기를 고르지 않았다. device bind 로 역할을 잡으세요 —"
-                      "\n# 비워 두면 adb 가 어느 기기로 갈지 정해지지 않는다",
-                  "export DEV=%s" % _sh_quote(one or "")]
-
-    lines.append("")
-    env = run_dir / "env.sh"
-    env.write_text("\n".join(lines), encoding="utf-8")
-    return env
-
-
-def cmd_output_path(args) -> int:
-    """이번 실행의 산출물 자리를 만들고 알려준다.
-
-    경로 규칙은 common/paths.py 가 단일 소유한다 (#525). 여기서 재구현하지 않고
-    파일명(날짜_이슈번호_제목)만 빌려 실행 폴더 이름으로 쓴다.
-    """
-    try:
-        from common.paths import resolve_output_path
-    except ImportError:
-        return emit({"ok": False, "code": "common_not_found",
-                     "error": "scripts/common/paths.py 를 찾지 못했습니다",
-                     "hint": "projectops 설치가 온전한지 확인하세요"})
-
-    r = resolve_output_path("agent-test", args.title)
-    if r.get("ok") is False:
-        return emit(r)
-
-    md = Path(r["path"])        # <우산>/agent-test/{날짜}_{번호}_{제목}.md
-    base = md.parent            # <우산>/agent-test
-    run_dir = base / md.stem
-    try:
-        run_dir.mkdir(parents=True, exist_ok=True)
-    except OSError as e:
-        return emit({"ok": False, "code": "mkdir_failed", "error": str(e)})
-
-    state = r.get("gitignore")   # 공통(common/paths)이 폴더에 심는다
-    # 이미 잡아 둔 역할이 있으면 함께 싣는다 — 실행을 새로 열 때마다 다시
-    # bind 하게 만들면 결국 아무도 안 한다.
-    root = Path(args.root).resolve()
-    known = _load_devices(root)
-    package = args.package or known["package"]
-    if package and package != known["package"]:
-        _save_devices(root, package, known["bindings"])
-    env = _write_env_sh(run_dir, package, known["bindings"])
-
-    return emit({
-        "run": md.stem,
-        "run_dir": str(run_dir),
-        "screenshots": str(run_dir / "screenshots"),
-        "env_file": str(env),
-        "output_root": r.get("output_root"),
-        "gitignore": state,
-        "mismatch": r.get("mismatch"),
-        "summary": f"산출물 자리 {run_dir} (추적 제외 {state})",
-        "next": f'source "{env}" 로 SHOT_DIR 을 불러 쓰세요. 캡처·증거는 전부 그 아래에 둡니다',
-    })
-
-
-# =========================================================================
-# 참가자가 둘 이상인 검증 — 역할을 기기에 묶는다 (#583)
-# =========================================================================
-#
-# 연결·공유·초대는 전부 기기가 둘 필요하다. 스킬에 그 개념이 없어서 `adb` 에 `-s`
-# 를 빠뜨려 엉뚱한 기기로 명령이 가고, 한쪽만 재설치돼도 알 방법이 없었다.
-#
-# 여기서는 **묶고 대조만** 한다. adb 를 감싸지 않는다 — 표면이 너무 넓어(shell·pm·
-# dumpsys·settings·emu·logcat) 감싸면 adb 재구현이 되고, 탈출구를 만들면 거기로
-# `-s` 없는 명령이 다시 샌다. 실행은 셸에 남기고 환경만 만들어 준다.
-
-_DEVICES_FILE = "devices.json"
-_DEVICES_SCHEMA = 1
-
-
-def _devices_path(root: Path) -> Path:
-    return _home_dir(root) / _DEVICES_FILE
-
-
-def _load_devices(root: Path) -> dict:
-    """{package, bindings:[{role, serial, note?}]} — **목록 순서가 곧 DEV1·DEV2 번호다.**
-
-    패키지는 바인딩마다가 아니라 **프로젝트 단위 한 곳**에 둔다. 역할마다 들고 있으면
-    누가 env.sh 를 다시 쓰느냐에 따라 PKG 가 붙었다 없어졌다 한다 (실제로 그랬다).
-    """
-    p = _devices_path(root)
-    if not p.is_file():
-        return {"package": None, "bindings": []}
-    try:
-        data = json.loads(p.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {"package": None, "bindings": []}
-    if not isinstance(data, dict):
-        return {"package": None, "bindings": []}
-    rows = [r for r in (data.get("bindings") or [])
-            if isinstance(r, dict) and r.get("role") and r.get("serial")]
-    return {"package": data.get("package"), "bindings": rows}
-
-
-def _load_bindings(root: Path) -> list[dict]:
-    return _load_devices(root)["bindings"]
-
-
-def _save_devices(root: Path, package: str | None, bindings: list[dict]) -> Path:
-    p = _devices_path(root)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps({"schema": _DEVICES_SCHEMA, "package": package,
-                             "bindings": bindings},
-                            ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return p
-
-
-def _adb_shell(serial: str, *args: str, timeout: int = 20) -> str:
-    adb = _sdk_tool("adb")
-    if not adb:
-        return ""
-    return _run([adb, "-s", serial, "shell", *args], timeout=timeout).replace("\r", "")
-
-
-def _build_info(serial: str, package: str | None) -> dict:
-    """그 기기에 무엇이 깔려 있는지.
-
-    **버전으로 재면 안 된다.** 컴파일타임 플래그만 바꾼 재빌드는 versionName 과
-    versionCode 가 똑같다 (#603 이 그 사고였다 — 로그는 적용 완료인데 설치해 보면
-    개발 도구가 없었다). APK 해시로 재야 한쪽만 재설치된 것을 본다.
-
-    sha1sum → md5sum → lastUpdateTime 으로 내려간다. 셋 중 하나는 어떤 기기에서도
-    답하므로 "모른다"로 끝나지 않는다.
-    """
-    info: dict = {"screen": None, "package": package, "version": None,
-                  "apk": None, "apk_by": None}
-
-    m = re.search(r"Physical size:\s*(\d+x\d+)", _adb_shell(serial, "wm", "size"))
-    if m:
-        info["screen"] = m.group(1)
-    if not package:
-        return info
-
-    dump = _adb_shell(serial, "dumpsys", "package", package, timeout=30)
-    if "Unable to find package" in dump or not dump.strip():
-        info["installed"] = False
-        return info
-    info["installed"] = True
-
-    vn = re.search(r"versionName=(\S+)", dump)
-    vc = re.search(r"versionCode=(\d+)", dump)
-    if vn or vc:
-        info["version"] = "%s+%s" % (vn.group(1) if vn else "?", vc.group(1) if vc else "?")
-
-    apk = None
-    for line in _adb_shell(serial, "pm", "path", package).splitlines():
-        if line.startswith("package:"):
-            apk = line.split(":", 1)[1].strip()
-            break
-    if apk:
-        for tool in ("sha1sum", "md5sum"):
-            head = _adb_shell(serial, tool, apk, timeout=60).split()
-            if head and re.fullmatch(r"[0-9a-f]{32,40}", head[0]):
-                info["apk"], info["apk_by"] = head[0], tool
-                break
-    if not info["apk"]:
-        m2 = re.search(r"lastUpdateTime=(\S+\s+\S+)", dump)
-        if m2:
-            info["apk"], info["apk_by"] = m2.group(1), "lastUpdateTime"
-    return info
-
-
-def _build_mismatch(rows: list[dict]) -> list[dict]:
-    """역할끼리 설치된 빌드가 다른지. 같은 버전인데 해시가 다르면 한쪽만 재설치된 것이다."""
-    seen = [(r["role"], (r.get("build") or {}).get("apk"),
-             (r.get("build") or {}).get("version")) for r in rows if r.get("role")]
-    known = [(role, apk, ver) for role, apk, ver in seen if apk]
-    if len(known) < 2:
-        return []
-    apks = {apk for _, apk, _ in known}
-    if len(apks) == 1:
-        return []
-    vers = {ver for _, _, ver in known}
-    detail = ("버전은 같은데 APK 가 다릅니다 — 한쪽만 다시 설치됐을 수 있습니다"
-              if len(vers) == 1 else "설치된 버전 자체가 다릅니다")
-    return [{"roles": [role for role, _, _ in known], "field": "apk", "detail": detail}]
-
-
-def _resolve_run_dir(args) -> Path | None:
-    """env.sh 를 어디에 쓸지. **추측하지 않는다.**
-
-    "가장 최근 실행 폴더"를 골라 주면 틀렸을 때 조용하다 — 엉뚱한 실행에 환경이
-    쓰이고, 그 다음 캡처가 전부 남의 폴더로 간다.
-    """
-    v = getattr(args, "run_dir", None) or os.environ.get("RUN_DIR")
-    return Path(v).resolve() if v else None
-
-
-def cmd_device(args) -> int:
-    """역할을 기기에 묶고, 무엇이 깔려 있는지 대조한다."""
-    root = Path(args.root).resolve()
-    known = _load_devices(root)
-    bindings = known["bindings"]
-    package = args.package or known["package"]
-
-    if args.action in ("bind", "unbind"):
-        if not args.role:
-            return emit({"ok": False, "code": "args_required",
-                         "error": "--role 이 필요합니다",
-                         "hint": "시나리오 roles 의 키와 같은 값을 쓰세요"})
-        bindings = [b for b in bindings if b["role"] != args.role]
-        if args.action == "bind":
-            if not args.serial:
-                return emit({"ok": False, "code": "args_required",
-                             "error": "--serial 이 필요합니다",
-                             "hint": "device list 로 붙어 있는 기기를 먼저 보세요"})
-            entry = {"role": args.role, "serial": args.serial}
-            if args.note:
-                entry["note"] = args.note
-            bindings.append(entry)
-        _save_devices(root, package, bindings)
-
-        run_dir = _resolve_run_dir(args)
-        env = None
-        if run_dir and run_dir.is_dir():
-            env = _write_env_sh(run_dir, package, bindings)
-        return emit({
-            "bindings": bindings,
-            "file": str(_devices_path(root)),
-            "env_file": str(env) if env else None,
-            "summary": f"역할 {len(bindings)}개" + ("" if env else " (env.sh 는 아직 안 씀)"),
-            "next": (None if env else
-                     "get-output-path 로 실행 자리를 먼저 만들고 $RUN_DIR 을 세운 뒤 "
-                     "다시 부르면 env.sh 에 반영됩니다"),
-        })
-
-    if args.action == "show":
-        return emit({"bindings": bindings, "package": package,
-                     "file": str(_devices_path(root)),
-                     "summary": f"역할 {len(bindings)}개"})
-
-    # list — 붙어 있는 기기 + 역할 + 설치된 빌드
-    dev = _devices()
-    by_role = {b["serial"]: b for b in bindings}
-    pkg = package
-
-    rows = []
-    for serial in dev["android"]:
-        b = by_role.get(serial, {})
-        rows.append({"serial": serial, "role": b.get("role"), "note": b.get("note"),
-                     "build": _build_info(serial, pkg)})
-
-    unbound = [r["serial"] for r in rows if not r["role"]]
-    mismatch = _build_mismatch(rows)
-    stale = [b["serial"] for b in bindings
-             if b["serial"] not in dev["android"] and b["serial"] not in dev["ios_booted"]]
-
-    nxt = None
-    if mismatch:
-        nxt = "양쪽에 같은 빌드를 설치한 뒤 다시 확인하세요 — 한쪽만 재설치되면 밟는 화면이 달라집니다"
-    elif stale:
-        nxt = f"묶어 둔 기기가 붙어 있지 않습니다: {', '.join(stale)}"
-    elif len(rows) > 1 and unbound:
-        nxt = "device bind --role {키} --serial {시리얼} 로 역할을 잡으세요 — 안 잡으면 adb 가 어느 기기로 갈지 정해지지 않습니다"
-
-    # 기기는 get-output-path 뒤에 부팅되기도 한다. 여기서 환경을 새로 고쳐 두지
-    # 않으면 DEV 가 빈 채로 남아 이후 모든 adb 가 죽는다.
-    run_dir = _resolve_run_dir(args)
-    env = _write_env_sh(run_dir, pkg, bindings) if (run_dir and run_dir.is_dir()) else None
-
-    return emit({
-        "devices": rows,
-        "env_file": str(env) if env else None,
-        "ios_booted": dev["ios_booted"],
-        "package": pkg,
-        "build_mismatch": mismatch,
-        "stale_bindings": stale,
-        "summary": (f"기기 {len(rows)}대 · 역할 {len(bindings)}개"
-                    + (f" · 빌드 불일치 {len(mismatch)}건" if mismatch else "")),
-        "next": nxt,
-        "ok": not mismatch,
-        "code": "build_mismatch" if mismatch else "ok",
-    })
-
-
-def cmd_shrink(args) -> int:
-    """이슈 첨부용으로 이미지 긴 변을 줄인다.
-
-    Pillow → sips(macOS) → ffmpeg 순으로 쓸 수 있는 것을 고른다. 세 가지 중
-    하나만 있으면 되므로 특정 OS에 묶이지 않는다.
-    """
-    targets = [Path(p) for p in args.paths]
-    missing = [str(p) for p in targets if not p.exists()]
-    if missing:
-        return emit({"ok": False, "code": "file_not_found", "error": f"없는 파일: {missing}"})
-
-    done, method = [], None
-    if _has_pillow():
-        from PIL import Image
-        method = "pillow"
-        for f in targets:
-            im = Image.open(f)
-            im.thumbnail((args.max_side, args.max_side), Image.LANCZOS)
-            im.save(f)
-            done.append(str(f))
-    elif shutil.which("sips"):
-        method = "sips"
-        for f in targets:
-            _run(["sips", "-Z", str(args.max_side), str(f)])
-            done.append(str(f))
-    elif shutil.which("ffmpeg"):
-        method = "ffmpeg"
-        for f in targets:
-            tmp = f.with_suffix(".shrink.png")
-            _run(["ffmpeg", "-y", "-i", str(f), "-vf",
-                  f"scale='min({args.max_side},iw)':-1", str(tmp)])
-            if tmp.exists():
-                tmp.replace(f)
-                done.append(str(f))
-    else:
-        return emit({
-            "ok": False, "code": "no_resize_tool",
-            "error": "이미지를 줄일 수단이 없습니다",
-            "hint": "pip install pillow (권장) 또는 ffmpeg 설치",
-        })
-
-    # 축소만으로는 PNG 가 여전히 무겁다. 첨부·전송이 목적이므로 WebP 로 내보낸다.
-    converted, failed_convert = [], False
-    if not args.keep_format:
-        for f in [Path(x) for x in done]:
-            got = _to_webp(f, quality=args.quality)
-            if got is None:
-                failed_convert = True
-                converted.append(str(f))
-            else:
-                converted.append(str(got))
-        done = converted
-
-    out = {"files": done, "method": method,
-           "summary": f"{len(done)}장 축소 ({method}, 긴 변 {args.max_side}px)"}
-    if not args.keep_format:
-        out["format"] = "png(변환 수단 없음)" if failed_convert else "webp"
-        out["summary"] += " · WebP" if not failed_convert else " · PNG 유지(변환 수단 없음)"
-        if failed_convert:
-            out["hint"] = "pip install pillow 또는 cwebp·ffmpeg 를 설치하면 크게 줄어듭니다"
-    return emit(out)
-
-
 def cmd_detect(args) -> int:
-    """무엇을 밟을 수 있는지부터 판정하고, 타겟에 맞는 정보를 모아 돌려준다.
+    """무엇을 밟을 수 있는지. 판정 순서: ① --target ② note target ③ version.yml ④ 마커 파일.
 
-    예전에는 pubspec.yaml을 못 찾으면 여기서 실패해 웹·서버 레포에서는 아무것도
-    시작할 수 없었다 (이슈 #586). 이제 Flutter가 없어도 계속 간다.
+    ③④ 와 기기·브라우저 정보는 pro-launch 가 준다. 여기서는 QA 가 확인해 적어 둔 것만 얹는다.
     """
     start = Path(args.path).resolve()
-    # 레포 전체를 기준으로 본다 — 모노레포는 client/ · server/ 가 형제로 있다
-    git_root = _run(["git", "-C", str(start), "rev-parse", "--show-toplevel"]).strip()
-    root = Path(git_root) if git_root else start
+    data, raw, _ = _launch(["detect", "--path", str(start)])
+    if data is None:
+        return emit({"ok": False, "code": "launch_unavailable",
+                     "error": "pro-launch detect 를 부르지 못했습니다", "output": raw[-400:]})
+    root = Path(data.get("root") or start)
 
-    det = detect_targets(root)
-    targets = det["targets"]
-
-    # 사용자가 지정했으면 그것만 본다
+    targets = list(data.get("kinds") or [])
+    source = data.get("source")
+    rec = _recorded_targets(root)
+    if rec:
+        targets, source = rec["targets"], "recorded"
     if getattr(args, "target", None):
         if args.target not in TARGETS:
             return emit({"ok": False, "code": "unknown_target",
@@ -899,61 +127,25 @@ def cmd_detect(args) -> int:
                          "hint": f"{'·'.join(TARGETS)} 중 하나"})
         targets = [args.target]
 
-    payload: dict = {
-        "root": str(root),
-        "targets": targets,
-        "target_source": det["source"],
-        "knowledge_dir": str(_home_dir(root)),
-    }
-    if det.get("project_types"):
-        payload["project_types"] = det["project_types"]
-    if det.get("evidence"):
-        payload["evidence"] = det["evidence"]
-    if det.get("recorded_why"):
+    # 감지와 다른 타겟으로 정해졌으면 그 타겟의 정보(기기·브라우저·접속)를 다시 모은다.
+    # 안 그러면 "web 을 밟는다"고 적어 두고도 브라우저 준비 상태를 못 본다.
+    launchable = [t for t in targets if t in ("app", "web", "server")]
+    if launchable and set(launchable) != set(data.get("kinds") or []):
+        again, _, _ = _launch(["detect", "--path", str(start), "--kinds", ",".join(launchable)])
+        if again is not None:
+            data = again
+
+    payload: dict = {k: v for k, v in data.items()
+                     if k not in ("kinds", "source", "confirm", "summary", "next", "ok", "code")}
+    payload.update({"targets": targets, "target_source": source,
+                    "knowledge_dir": str(_home_dir(root))})
+    if rec:
         # 왜 그렇게 판단했는지를 함께 보여준다 — 다음에 이 기록이 맞는지 다시 볼 수 있어야 한다
-        payload["recorded_why"] = det["recorded_why"]
+        payload["recorded_why"] = rec.get("why")
 
-    # ── 앱: 기기와 패키지 정보가 있어야 밟을 수 있다
-    if "app" in targets:
-        app_root = _find_flutter_root(root)
-        dev = _devices()
-        payload["app"] = {
-            "flutter_root": str(app_root) if app_root else None,
-            "android_package": _android_package(app_root) if app_root else None,
-            "ios_bundle_id": _ios_bundle_id(app_root) if app_root else None,
-            "devices": dev,
-        }
-        payload["app"]["base_urls"] = _app_base_urls(app_root) if app_root else []
-
-    # ── 웹: 어디로 들어가는지와 브라우저가 준비됐는지
-    if "web" in targets:
-        payload["web"] = {
-            "base_urls": _web_base_urls(root),
-            "playwright": _playwright_state(),
-        }
-
-    # ── 서버: 주소 후보와, 붙는 법이 이미 적혀 있는지
-    #
-    # 설정이 어디 있고 어떻게 붙는지는 **여기서 맞히지 않는다.** 프로젝트마다 다르고
-    # (application.yml · .env · settings.py · ormconfig), 붙는 길도 제각각이다
-    # (로컬 · SSH 경유 · 컨테이너 안). agent가 코드를 읽어 판단하고 access 에 적는다 (#589).
-    if "server" in targets:
-        saved = _load_access(root)
-        missing = [k for k in ("base_url", "db") if not saved.get(k)]
-        payload["server"] = {
-            "base_url": (saved.get("base_url") or {}).get("url")
-                        if isinstance(saved.get("base_url"), dict) else saved.get("base_url"),
-            "access_recorded": sorted(saved) or None,
-            "next": (None if not missing else
-                     f"코드를 읽어 {'·'.join(missing)} 를 알아낸 뒤 "
-                     "access set --key <키> --json '{...}' 로 적으세요"),
-        }
-
-    # version.yml 은 **이 레포가 무엇인가**를 선언할 뿐, 무엇을 밟을 수 있는지가 아니다.
-    # 서버가 화면을 직접 뿌리는 구조(Thymeleaf·Django 템플릿·Rails·JSP)는 전혀 이상하지
-    # 않은데, 선언만 보면 server 하나로 끝나 브라우저를 열 생각을 못 한다 (#591).
-    # 여기서 맞히려 들지 않는다 — 코드를 보고 판단하는 것은 agent 의 일이다.
-    if det["source"] == "version.yml" and not getattr(args, "target", None):
+    # version.yml 은 **무엇인가**를 선언할 뿐, 무엇을 밟을 수 있는지가 아니다 (#591).
+    # 서버가 화면을 직접 뿌리는 구조면 web 도 밟아야 한다 — 판단은 agent 의 일이다.
+    if source == "version.yml" and not getattr(args, "target", None):
         payload["confirm"] = {
             "why": ("이 targets 는 version.yml 선언에서 나왔습니다 — 확인된 것이 아닙니다. "
                     "서버가 화면을 직접 뿌리면 web 도 밟아야 합니다"),
@@ -964,75 +156,18 @@ def cmd_detect(args) -> int:
                        ",web --why \"{판단 근거}\"   # 맞으면 그대로 두면 됩니다"),
         }
 
-    payload["summary"] = (
-        f"{root.name}: 타겟={'·'.join(targets) if targets else '없음'} ({det['source']})")
-    payload["next"] = _detect_next(targets, payload)
-    return emit(payload)
-
-
-def _detect_next(targets: list[str], payload: dict) -> str | None:
-    """다음에 무엇을 해야 하는지. 막힌 곳을 먼저 알려준다."""
+    nxt = None
     if not targets:
-        return ("무엇을 밟을지 알 수 없습니다 — --target app|web|server 로 직접 알려주세요")
-    if "app" in targets:
-        dev = payload.get("devices") or {}
+        nxt = "무엇을 밟을지 알 수 없습니다 — --target app|web|server|other 로 직접 알려주세요"
+    elif "app" in targets:
+        dev = (payload.get("app") or {}).get("devices") or {}
         if not (dev.get("android") or dev.get("ios_booted")):
-            return "devices  # 기기가 없습니다. AVD를 부팅하세요"
-    if "web" in targets and not (payload.get("web", {}).get("playwright", {}).get("ready")):
-        return "web 타겟을 밟으려면 Playwright가 필요합니다 — references/target-web.md 참조"
-    return None
-
-
-def _web_base_urls(root: Path) -> list[str]:
-    """웹이 뜨는 주소 후보. 없으면 사용자에게 묻는 수밖에 없다."""
-    urls: list[str] = []
-    for f in list(root.rglob("package.json"))[:20]:
-        if "node_modules" in f.parts:
-            continue
-        try:
-            body = f.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            continue
-        # dev 스크립트의 포트 지정에서 끌어온다
-        for m in re.finditer(r"-p\s*(\d{4,5})|--port[= ](\d{4,5})", body):
-            port = m.group(1) or m.group(2)
-            u = f"http://localhost:{port}"
-            if u not in urls:
-                urls.append(u)
-    for env in (".env", ".env.local", ".env.development"):
-        f = root / env
-        if f.is_file():
-            try:
-                for m in re.finditer(r"^[A-Z_]*URL[A-Z_]*=(https?://\S+)", 
-                                     f.read_text(encoding="utf-8", errors="ignore"), re.M):
-                    if m.group(1) not in urls:
-                        urls.append(m.group(1))
-            except OSError:
-                pass
-    # 흔한 기본값을 마지막에 둔다 — 못 찾았을 때의 출발점
-    for u in ("http://localhost:3000", "http://localhost:5173"):
-        if u not in urls:
-            urls.append(u)
-    return urls[:6]
-
-
-def _playwright_state() -> dict:
-    """웹을 밟을 준비가 됐는지. 없으면 무엇을 하면 되는지까지 알려준다."""
-    ok, err = _require_playwright()
-    if err:
-        return {"ready": False, "reason": err["error"], "fix": err["fix"],
-                "ask_user": err["ask_user"]}
-    return {"ready": True, "venv": str(_VENV_DIR) if _venv_python() else "시스템"}
-
-
-def cmd_devices(args) -> int:
-    dev = _devices()
-    n = len(dev["android"]) + len(dev["ios_booted"])
-    return emit({
-        **dev,
-        "summary": f"사용 가능한 기기 {n}대",
-        "next": None if n else "emulator -avd {AVD명} 으로 부팅하세요",
-    })
+            nxt = "pro-launch devices  # 기기가 없습니다. AVD 나 시뮬레이터를 부팅하세요"
+    if not nxt and "web" in targets and not ((payload.get("web") or {}).get("playwright") or {}).get("ready"):
+        nxt = "pro-launch web setup  # 웹을 밟으려면 브라우저가 필요합니다 (먼저 사용자에게 묻는다)"
+    payload["summary"] = f"{root.name}: 타겟={'·'.join(targets) if targets else '없음'} ({source})"
+    payload["next"] = nxt
+    return emit(payload)
 
 
 # =========================================================================
@@ -1153,22 +288,16 @@ def scenario_target(data: dict) -> str:
 
 
 def _repo_key(root: Path) -> str:
-    """프로젝트를 가리키는 키. git remote의 owner/repo를 쓴다.
-
-    **경로를 키로 쓰면 안 된다.** 워크트리마다 경로가 달라 같은 프로젝트가 여러 개로
-    갈라지고, 그러면 쌓은 지식이 워크트리 수만큼 쪼개진다 — 옮기려는 이유가 그것이다.
-    remote가 없는(로컬 전용) 저장소는 폴더명으로 떨어진다.
-    """
-    url = _run(["git", "-C", str(root), "remote", "get-url", "origin"]).strip()
-    m = re.search(r"[:/]([^/:]+)/([^/]+?)(?:\.git)?$", url) if url else None
-    if m:
-        return f"{m.group(1)}__{m.group(2)}"
-    return re.sub(r"[^A-Za-z0-9._-]+", "-", root.name).strip("-") or "unknown"
+    """프로젝트를 가리키는 키 (common/state.py 가 단독으로 정한다)."""
+    return repo_key(root)
 
 
 def _home_dir(root: Path) -> Path:
-    """쌓은 것을 두는 곳. 프로젝트 밖(홈)이라 워크트리를 만들어도 살아남는다."""
-    return Path.home() / ".projectops" / "agent-test" / _repo_key(root)
+    """쌓은 것(learned.json · 시나리오 · flows)을 두는 곳. 프로젝트 밖(홈)이라 워크트리를 만들어도 살아남는다.
+
+    기기·브라우저·접속 정보는 pro-launch 의 자리(~/.projectops/launch/)로 옮겼다 (#629).
+    """
+    return state_dir("agent-test", root)
 
 
 def _scenario_dir(root: Path, create: bool = False) -> Path:
@@ -1425,33 +554,6 @@ def _safe_name(f: Path) -> str:
 # =========================================================================
 
 _NOTE_FILE = "learned.json"
-
-# 기록에 들어가면 안 되는 것들. 이 파일은 평문으로 남고 다음 실행마다 다시 읽히므로,
-# 한 번 들어가면 계속 노출된다 — 쓰기 전에 막는 편이 유일하게 확실하다.
-_SECRET_PATTERNS = [
-    (r'[\w.+-]+@[\w-]+\.[\w.]{2,}', "이메일 주소"),
-    (r'01[016-9][-\s]?\d{3,4}[-\s]?\d{4}', "전화번호"),
-    (r'eyJ[\w-]{10,}\.[\w-]{10,}', "JWT 토큰"),
-    # 따옴표를 허용해야 JSON도 잡힌다. 예전 패턴은 yaml(`password: x`)만 보고
-    # `{"password": "x"}` 를 놓쳤다 — 기록에 원문이 그대로 들어갔다 (#589).
-    (r'(?i)["\']?\b(password|passwd|비밀번호|비번)\b["\']?\s*[:=]?\s*["\']?\S{4,}', "비밀번호"),
-    (r'(?i)["\']?\b(secret|api[_-]?key|access[_-]?token)\b["\']?\s*[:=]\s*["\']?\S{8,}', "비밀 값"),
-]
-
-
-def _find_secrets(text: str) -> list[str]:
-    import re as _re
-    found = []
-    for pattern, label in _SECRET_PATTERNS:
-        m = _re.search(pattern, text)
-        if m:
-            sample = m.group(0)
-            masked = sample[:3] + "***" if len(sample) > 3 else "***"
-            found.append(f"{label}({masked})")
-    return found
-
-
-
 
 def _note_path(root: Path, create: bool = False) -> Path:
     return _scenario_dir(root, create) / _NOTE_FILE
@@ -1736,456 +838,14 @@ def _jsonpath(data, expr: str):
 
 
 def _api_call(base: str, method: str, path: str, body, headers: dict, timeout: int = 30) -> dict:
-    """한 요청을 보낸다. 실패해도 예외로 끝내지 않고 무슨 일이 있었는지 돌려준다 —
-    실패 응답 자체가 검증 대상인 경우가 많다(권한 없음·토큰 만료 등)."""
-    import urllib.error
-    import urllib.request
-
+    """한 요청을 보낸다. 실패해도 예외로 끝내지 않는다 — 실패 응답 자체가 검증 대상인 경우가 많다."""
     url = path if path.startswith("http") else base.rstrip("/") + "/" + path.lstrip("/")
     data = json.dumps(body).encode() if body is not None else None
     h = {"Content-Type": "application/json", "Accept": "application/json", **headers}
-    req = urllib.request.Request(url, data=data, method=method, headers=h)
-    started = time.time()
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            raw = resp.read().decode("utf-8", "replace")
-            status = resp.status
-    except urllib.error.HTTPError as e:
-        raw = (e.fp.read().decode("utf-8", "replace") if e.fp else "")
-        status = e.code
-    except Exception as e:  # 네트워크 자체가 안 될 때
-        return {"ok": False, "url": url, "error": str(e),
-                "elapsed_ms": int((time.time() - started) * 1000)}
-    try:
-        parsed = json.loads(raw) if raw.strip() else None
-    except json.JSONDecodeError:
-        parsed = None
-    return {"ok": True, "url": url, "status": status, "json": parsed,
-            "text": None if parsed is not None else raw[:2000],
-            "elapsed_ms": int((time.time() - started) * 1000)}
-
-
-# ── 웹 타겟: 브라우저를 직접 몬다 (이슈 #586) ────────────────────────────
-#
-# agent가 스크린샷을 보고 다음 수를 정하므로 조작이 여러 번의 CLI 호출로 쪼개진다.
-# Playwright를 호출마다 새로 띄우면 **매번 브라우저가 새로 뜨고 로그인이 풀린다**(기동 ~3초).
-#
-# 상주 데몬을 직접 만들지 않고 **CDP 재연결**로 푼다:
-#   open  → --remote-debugging-port 로 띄우고 포트를 상태파일에 적는다
-#   이후  → connect_over_cdp 로 그 브라우저에 붙었다 떨어진다 (세션·쿠키 유지)
-# 브라우저가 죽으면 상태파일만 지우면 복구된다.
-
-_WEB_STATE = "browser.json"
-
-
-# 콘솔 오류는 **페이지가 열리는 동안** 난다. 열린 뒤에 리스너를 달면 이미 늦다 (#625).
-# 그래서 여는 시점에 이 스크립트를 심고, 읽을 때는 쌓인 것을 가져온다.
-# `add_init_script` 는 CDP 로 브라우저에 등록되므로 **우리 프로세스가 끝나도**
-# 이후 이동마다 다시 실행된다 — 호출이 여러 번으로 쪼개지는 이 스킬의 구조에 맞는다.
-_CONSOLE_HOOK = r"""
-(() => {
-  if (window.__projectops_console) return;
-  const buf = [];
-  window.__projectops_console = buf;
-  const push = (type, text) => {
-    try { buf.push({ type, text: String(text).slice(0, 2000), at: Date.now() }); } catch (e) {}
-    if (buf.length > 500) buf.splice(0, buf.length - 500);   // 무한히 쌓이지 않게
-  };
-  for (const level of ["log", "info", "warn", "error"]) {
-    const orig = console[level];
-    console[level] = function (...args) {
-      push(level, args.map((a) => {
-        try { return typeof a === "string" ? a : JSON.stringify(a); }
-        catch (e) { return String(a); }
-      }).join(" "));
-      return orig.apply(console, args);
-    };
-  }
-  // console.error 를 거치지 않는 것들 — 이쪽이 진짜 사고인 경우가 많다
-  window.addEventListener("error", (e) => push("error", e.message || String(e.error || e)));
-  window.addEventListener("unhandledrejection",
-    (e) => push("error", "unhandled rejection: " + String(e.reason)));
-})();
-"""
-
-
-def _install_console_hook(page) -> bool:
-    """훅을 심는다. 실패해도 밟기 자체는 계속되어야 한다."""
-    try:
-        page.add_init_script(_CONSOLE_HOOK)
-        return True
-    except Exception:
-        return False
-
-
-def _web_state_path(root: Path) -> Path:
-    return _home_dir(root) / _WEB_STATE
-
-
-# 웹용 전용 가상환경. 시스템 파이썬에 깔지 않는 이유:
-# macOS의 Homebrew 파이썬은 PEP 668로 `pip install`을 막는다(externally-managed).
-# 안내만 하고 사용자를 거기에 세워 두면 스킬이 제 역할을 못 한다.
-_VENV_DIR = Path.home() / ".projectops" / "agent-test" / ".venv"
-
-
-def _venv_python() -> Path | None:
-    """전용 가상환경의 파이썬. 없으면 None."""
-    exe = _VENV_DIR / ("Scripts" if os.name == "nt" else "bin") / (
-        "python.exe" if os.name == "nt" else "python")
-    return exe if exe.is_file() else None
-
-
-def _venv_site_packages() -> Path | None:
-    for pat in ("lib/python*/site-packages", "Lib/site-packages"):
-        for d in _VENV_DIR.glob(pat):
-            if d.is_dir():
-                return d
-    return None
-
-
-def _require_playwright() -> tuple[object | None, dict | None]:
-    """Playwright를 불러온다. 전용 가상환경 → 시스템 순으로 본다.
-
-    함수 안에서 import하는 이유: 웹을 안 쓰는 프로젝트에서 이 스크립트가 통째로
-    죽으면 안 된다. 앱·서버 타겟은 Playwright 없이 돌아가야 한다.
-    """
-    sp = _venv_site_packages()
-    if sp and str(sp) not in sys.path:
-        sys.path.insert(0, str(sp))
-    try:
-        from playwright.sync_api import sync_playwright
-        return sync_playwright, None
-    except ImportError:
-        return None, {
-            "ok": False, "code": "playwright_missing",
-            "error": "웹을 밟으려면 Playwright가 필요합니다",
-            "fix": "web setup  # 전용 환경을 만들고 브라우저까지 받습니다 (약 100MB)",
-            "manual": f"{sys.executable} -m venv {_VENV_DIR} && "
-                      f"{_VENV_DIR}/bin/pip install playwright pillow && "
-                      f"{_VENV_DIR}/bin/python -m playwright install chromium",
-            "why": ("gstack 같은 별도 설치물에 기대지 않으려고 Playwright를 직접 씁니다. "
-                    "시스템 파이썬을 건드리지 않도록 전용 환경에 깝니다"),
-            "ask_user": "웹을 밟으려면 브라우저(약 100MB)를 받아야 합니다. 설치할까요?",
-        }
-
-
-def _web_connect(state: dict):
-    """열려 있는 브라우저에 붙는다. 호출부가 with로 감싸 쓴다."""
-    sync_playwright, err = _require_playwright()
-    if err:
-        return None, err
-    pw = sync_playwright().start()
-    try:
-        browser = pw.chromium.connect_over_cdp(state["cdp"])
-    except Exception as e:
-        pw.stop()
-        return None, {"ok": False, "code": "browser_gone",
-                      "error": f"열린 브라우저에 붙지 못했습니다: {e}",
-                      "next": "web open  # 다시 엽니다"}
-    ctx = browser.contexts[0] if browser.contexts else browser.new_context()
-    # 마지막 탭을 본다. 프로필이 영속이라 Chromium 이 이전 세션 탭을 되살리는데,
-    # pages[0] 을 잡으면 방금 연 탭이 아니라 그 옛 탭을 몰게 된다(실측).
-    page = ctx.pages[-1] if ctx.pages else ctx.new_page()
-    return (pw, browser, page), None
-
-
-def _web_setup(force: bool = False) -> dict:
-    """웹을 밟을 환경을 만든다 — 전용 가상환경 + Playwright + Chromium.
-
-    안내만 하고 사용자를 세워 두지 않는다. 다만 **약 100MB를 받으므로 부르는 쪽이
-    먼저 물어본다** (SKILL.md의 절차). 시스템 파이썬은 건드리지 않는다 — macOS의
-    Homebrew 파이썬은 PEP 668로 pip를 막아 두어 애초에 깔리지도 않는다.
-    """
-    steps = []
-    if not _venv_python() or force:
-        r = subprocess.run([sys.executable, "-m", "venv", str(_VENV_DIR)],
-                           capture_output=True, text=True)
-        steps.append({"step": "가상환경 생성", "ok": r.returncode == 0,
-                      "error": (r.stderr or "")[-300:] or None})
-        if r.returncode != 0:
-            return {"ok": False, "code": "venv_failed", "steps": steps,
-                    "error": "가상환경을 만들지 못했습니다"}
-
-    vpy = _venv_python()
-    if vpy is None:
-        return {"ok": False, "code": "venv_missing", "steps": steps,
-                "error": "가상환경 파이썬을 찾지 못했습니다"}
-
-    # Pillow 를 함께 깐다. 화면을 줄이고 WebP 로 바꾸는 수단인데, 시스템 파이썬을
-    # 건드리지 않고 이 venv 안에서만 확보하려는 것이다. 없으면 캡처가 원본 크기로
-    # 남아 세션 토큰과 전송량이 그대로 커진다.
-    r = subprocess.run([str(vpy), "-m", "pip", "install", "-q", "playwright", "pillow"],
-                       capture_output=True, text=True, timeout=900)
-    steps.append({"step": "playwright · pillow 설치", "ok": r.returncode == 0,
-                  "error": (r.stderr or "")[-300:] or None})
-    if r.returncode != 0:
-        return {"ok": False, "code": "pip_failed", "steps": steps,
-                "error": "playwright를 설치하지 못했습니다"}
-
-    # 브라우저 내려받기가 제일 오래 걸린다(약 100MB). 여기서 끊기면 web open이 실패한다.
-    r = subprocess.run([str(vpy), "-m", "playwright", "install", "chromium"],
-                       capture_output=True, text=True, timeout=1800)
-    steps.append({"step": "chromium 내려받기", "ok": r.returncode == 0,
-                  "error": (r.stderr or "")[-300:] or None})
-    if r.returncode != 0:
-        return {"ok": False, "code": "browser_failed", "steps": steps,
-                "error": "브라우저를 받지 못했습니다"}
-
-    return {"ok": True, "steps": steps, "venv": str(_VENV_DIR),
-            "summary": "웹을 밟을 준비가 됐습니다",
-            "next": "web open --url <주소>"}
-
-
-def cmd_web(args) -> int:
-    """웹 화면을 조작한다. 한 번에 한 동작 — agent가 화면을 보고 다음을 정한다."""
-    # 비밀번호를 --text 에 적으면 세션 기록 파일에 평문으로 남는다(이슈 #604).
-    # --text-env 로 받으면 기록에는 변수 이름만 남고 값은 이 프로세스 안에서만 산다.
-    secret_value = None
-    if getattr(args, "text_env", None):
-        if args.text_env not in os.environ:
-            return emit({"ok": False, "code": "env_not_set",
-                         "error": f"환경변수 {args.text_env} 가 비어 있습니다",
-                         "hint": f'{args.text_env}="..." 를 같은 명령 앞에 붙여 실행하세요'})
-        secret_value = os.environ[args.text_env]
-        args.text = secret_value
-
-    if args.action == "setup":
-        return emit(_web_setup(force=args.force))
-
-    root = Path(args.root).resolve()
-    state_f = _web_state_path(root)
-
-    if args.action == "open":
-        sync_playwright, err = _require_playwright()
-        if err:
-            return emit(err)
-        import socket
-        s = socket.socket()
-        s.bind(("127.0.0.1", 0))
-        port = s.getsockname()[1]
-        s.close()
-
-        # ⚠️ Playwright의 launch()로 띄우면 **드라이버가 죽을 때 브라우저도 함께 죽는다.**
-        # 이 스킬은 호출이 여러 번으로 쪼개지므로(agent가 화면을 보고 다음 수를 정한다)
-        # 그러면 두 번째 명령이 붙을 곳이 없다. 실측으로 확인한 함정이다.
-        # 그래서 **브라우저를 Playwright 밖에서 독립 프로세스로** 띄우고 CDP로 붙는다.
-        with sync_playwright() as pw:
-            exe = pw.chromium.executable_path
-        profile = _home_dir(root) / ".browser-profile"
-        profile.mkdir(parents=True, exist_ok=True)
-
-        cmd = [exe, f"--remote-debugging-port={port}",
-               f"--user-data-dir={profile}",   # 쿠키·로그인이 다음 실행에도 남는다
-               f"--window-size={args.width},{args.height}",
-               "--no-first-run", "--no-default-browser-check"]
-        if not args.headed:
-            cmd.append("--headless=new")
-        # ⚠️ 목적지를 여기서 넘기면 **훅을 심기 전에 첫 로드가 끝난다** (#625).
-        # 로드 중에 난 오류가 바로 그 놓치던 것이므로, 빈 탭으로 띄우고
-        # 훅을 심은 뒤 이동한다.
-        cmd.append("about:blank")
-        proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                start_new_session=True)   # 우리가 끝나도 살아 있어야 한다
-
-        # 포트가 열릴 때까지 기다린다. 안 기다리면 바로 다음 명령이 붙지 못한다.
-        import socket as _s
-        cdp = f"http://127.0.0.1:{port}"
-        for _ in range(60):
-            with _s.socket() as probe:
-                probe.settimeout(0.3)
-                if probe.connect_ex(("127.0.0.1", port)) == 0:
-                    break
-            time.sleep(0.25)
-        else:
-            proc.terminate()
-            return emit({"ok": False, "code": "browser_start_failed",
-                         "error": "브라우저가 뜨지 않았습니다",
-                         "hint": "web setup 으로 브라우저를 다시 받아 보세요"})
-
-        state_f.parent.mkdir(parents=True, exist_ok=True)
-        state_f.write_text(json.dumps({
-            "cdp": cdp, "pid": proc.pid, "headed": bool(args.headed),
-            "profile": str(profile),
-            "opened_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-        }, ensure_ascii=False), encoding="utf-8")
-
-        # 훅을 심고 나서 목적지로 간다. 순서가 곧 계약이다.
-        hooked = False
-        conn, cerr = _web_connect({"cdp": cdp})
-        if not cerr:
-            _pw, _br, _pg = conn
-            hooked = _install_console_hook(_pg)
-            if args.url:
-                try:
-                    _pg.goto(args.url, wait_until="domcontentloaded",
-                             timeout=args.timeout * 1000)
-                except Exception as e:
-                    _br.close(); _pw.stop()
-                    return emit({"ok": False, "code": "goto_failed", "error": str(e),
-                                 "hint": "주소가 맞는지, 서버가 떠 있는지 확인하세요"})
-            _br.close()
-            _pw.stop()
-        return emit({
-            "action": "open", "url": args.url, "cdp": cdp, "pid": proc.pid,
-            "state_file": str(state_f), "console_hook": hooked,
-            "summary": (f"브라우저를 열었습니다 ({args.url or '빈 탭'})"
-                        + ("" if hooked else " — 콘솔 훅 실패, 로드 오류를 놓칠 수 있습니다")),
-            "next": "web shot  # 화면을 먼저 봅니다",
-        })
-
-    if not state_f.is_file():
-        return emit({"ok": False, "code": "browser_not_open",
-                     "error": "열린 브라우저가 없습니다",
-                     "next": f"web open --root {root} --url <주소>"})
-    state = json.loads(state_f.read_text(encoding="utf-8"))
-
-    conn, err = _web_connect(state)
-    if err:
-        if err.get("code") == "browser_gone":
-            state_f.unlink(missing_ok=True)   # 죽은 상태파일을 남기면 계속 헛돈다
-        return emit(err)
-    pw, browser, page = conn
-
-    # ⚠️ 훅은 **연결이 끊기면 사라진다** (실측 #625 — CDP 등록이 Playwright 세션에
-    # 묶여 있다). 이 스킬은 명령마다 붙었다 떨어지므로, 열 때 한 번 심는 것으로는
-    # 다음 이동에 안 따라붙는다. 그래서 **붙을 때마다** 심는다.
-    # 페이지에 쌓인 기록(window.__projectops_console)은 이동 전까지 남으므로,
-    # 다른 프로세스가 나중에 읽어도 그대로 나온다.
-    _install_console_hook(page)
-
-    try:
-        if args.action == "close":
-            browser.close()
-            # CDP로 붙은 브라우저는 close()로 안 죽는 경우가 있다(우리가 띄운 독립 프로세스다)
-            pid = state.get("pid")
-            if pid:
-                try:
-                    os.kill(int(pid), 15)
-                except (ProcessLookupError, PermissionError, ValueError):
-                    pass
-            # 죽지 않았는데 "닫았습니다"라고 하면, 다음 open 이 옛 브라우저에 붙어
-            # 엉뚱한 화면을 몰게 된다. 거짓말하지 않는다.
-            alive = False
-            if pid:
-                for _ in range(10):
-                    try:
-                        os.kill(int(pid), 0)
-                    except (ProcessLookupError, ValueError):
-                        alive = False
-                        break
-                    except PermissionError:
-                        alive = True
-                        break
-                    alive = True
-                    time.sleep(0.2)
-            # ⚠️ 살아 있으면 상태 파일을 남긴다. 지워 버리면 아직 떠 있는 브라우저에
-            # 다시 붙을 길이 사라져 "프로세스는 있는데 없다고 한다"가 된다(실측).
-            if alive:
-                return emit({"ok": False, "code": "browser_still_alive",
-                             "pid": pid,
-                             "error": f"브라우저(pid {pid})가 아직 살아 있습니다",
-                             "next": f"kill -9 {pid}  # 직접 종료한 뒤 다시 여세요"})
-            state_f.unlink(missing_ok=True)
-            return emit({"action": "close", "summary": "브라우저를 닫았습니다"})
-
-        if args.action == "goto":
-            if not args.url:
-                return emit({"ok": False, "code": "url_required", "error": "--url 이 필요합니다"})
-            page.goto(args.url, wait_until="domcontentloaded")
-
-        elif args.action == "click":
-            if not args.selector:
-                return emit({"ok": False, "code": "selector_required",
-                             "error": "--selector 가 필요합니다",
-                             "hint": "text=로그인 · #submit · button:has-text('저장')"})
-            page.click(args.selector, timeout=args.timeout * 1000)
-
-        elif args.action == "type":
-            if not (args.selector and args.text is not None):
-                return emit({"ok": False, "code": "missing_argument",
-                             "error": "--selector 와 --text 가 필요합니다"})
-            page.fill(args.selector, args.text, timeout=args.timeout * 1000)
-
-        elif args.action == "shot":
-            # Playwright 는 webp 로 못 찍는다(png·jpeg 만) — png 로 찍고 바꾼다.
-            # --out 을 준 경우엔 그 확장자를 존중한다.
-            if args.out:
-                out = Path(args.out)
-                out.parent.mkdir(parents=True, exist_ok=True)
-                page.screenshot(path=str(out), full_page=args.full)
-            else:
-                # 하네스(env.sh)를 source 했으면 그 실행 폴더에 모은다 — 앱·웹 증거가
-                # 두 군데로 갈라지면 이슈에 붙일 때 한쪽을 빠뜨린다 (#611).
-                env_shot = os.environ.get("SHOT_DIR")
-                shot_dir = Path(env_shot) if env_shot else _home_dir(root) / "shots"
-                shot_dir.mkdir(parents=True, exist_ok=True)
-                raw = shot_dir / f"{time.strftime('%Y%m%d-%H%M%S')}.png"
-                page.screenshot(path=str(raw), full_page=args.full)
-                out = _to_webp(raw, quality=args.quality,
-                               max_side=args.max_side or None) or raw
-            return emit({"action": "shot", "file": str(out), "url": page.url,
-                         "title": page.title(),
-                         "summary": f"화면을 찍었습니다: {out.name}",
-                         "next": "이미지를 읽어 다음 조작을 정하세요"})
-
-        elif args.action == "assert":
-            # 무엇을 확인했는지 남긴다 — 통과했다는 말만으로는 근거가 되지 않는다
-            checks = []
-            if args.url:
-                checks.append({"expect_url": args.url, "got": page.url,
-                               "ok": args.url in page.url})
-            if args.text:
-                found = page.get_by_text(args.text).count() > 0
-                checks.append({"expect_text": args.text, "ok": found})
-            if args.selector:
-                checks.append({"expect_selector": args.selector,
-                               "ok": page.locator(args.selector).count() > 0})
-            if not checks:
-                return emit({"ok": False, "code": "nothing_to_assert",
-                             "error": "--url · --text · --selector 중 하나는 있어야 합니다"})
-            passed = all(c["ok"] for c in checks)
-            return emit({"action": "assert", "checks": checks, "ok": passed,
-                         "url": page.url,
-                         "summary": "확인 통과" if passed else "확인 실패"})
-
-        elif args.action == "console":
-            # 듣는 게 아니라 **쌓인 것을 읽는다** (#625). open 이 심어 둔 훅이
-            # 페이지가 열리는 동안부터 모으므로 로드 중 오류가 그대로 나온다.
-            try:
-                logs = page.evaluate("window.__projectops_console || null")
-            except Exception:
-                logs = None
-            if logs is None:
-                # 훅이 없는 페이지(직접 띄운 탭 등) — 지금이라도 심고 새로고침을 권한다
-                _install_console_hook(page)
-                return emit({"ok": False, "code": "console_hook_missing",
-                             "error": "이 페이지에는 콘솔 기록이 없습니다",
-                             "hint": "훅을 지금 심었습니다. `web goto` 로 다시 들어가면 "
-                                     "그때부터 로드 오류까지 모입니다",
-                             "url": page.url})
-            errs = [l for l in logs if l.get("type") == "error"]
-            return emit({"action": "console", "logs": logs[-50:],
-                         "error_count": len(errs), "total": len(logs),
-                         "url": page.url,
-                         "summary": f"콘솔 {len(logs)}줄 (오류 {len(errs)}) — 로드 시점부터",
-                         "next": ("오류가 있으면 화면이 멀쩡해도 통과가 아닙니다. "
-                                  "무엇이 죽었는지 확인하세요" if errs else None)})
-
-        return emit({"action": args.action, "url": page.url, "title": page.title(),
-                     "summary": f"{args.action} 완료 — {page.url}",
-                     "next": "web shot  # 결과를 눈으로 확인하세요"})
-    except Exception as e:
-        # 예외 문구에 입력값이 섞여 나올 수 있다 — 비밀값이면 가리고 내보낸다
-        msg = str(e)
-        if secret_value:
-            msg = msg.replace(secret_value, "***")
-        return emit({"ok": False, "code": "web_action_failed",
-                     "action": args.action, "error": msg[:400],
-                     "url": page.url if page else None,
-                     "next": "web shot  # 지금 화면이 무엇인지 먼저 봅니다"})
-    finally:
-        # 연결만 끊는다. browser.close()를 부르면 다음 호출이 붙을 곳이 없어진다.
-        pw.stop()
+    r = _http_request(method, url, h, data, timeout=timeout)
+    r.pop("raw", None)
+    r.pop("headers", None)
+    return r
 
 
 # =========================================================================
@@ -2553,330 +1213,20 @@ def cmd_api(args) -> int:
     })
 
 
-# ── DB 대조 (이슈 #589) ──────────────────────────────────────────────────
-#
-# **접속 방법은 agent가 정한다.** 프로젝트마다 설정이 사는 곳이 다르고(application.yml ·
-# .env · settings.py · ormconfig), 붙는 길도 제각각이다 — 로컬 DB · 열린 포트 · SSH로
-# 들어가야만 닿는 DB · 컨테이너 안에서 실행 · 터널 경유.
-#
-# 예전에는 py가 Spring의 application-prod.yml을 찾아 psql로 붙는 한 가지만 했다.
-# 그 바깥은 전부 못 했고, MySQL은 읽어 놓고 psql로 붙으려다 조용히 실패했다.
-# 이제 py는 **받은 대로 실행만 한다.**
-
-# 엔진별 클라이언트. 없는 엔진은 추측하지 않고 그렇다고 말한다.
-_DB_CLIENTS = {
-    "postgres": "psql",
-    "postgresql": "psql",
-    "mysql": "mysql",
-    "mariadb": "mysql",
-}
-
-
-def _db_argv(engine: str, db: dict, sql: str) -> tuple[list[str], dict]:
-    """엔진에 맞는 명령과 환경변수를 만든다. 비밀번호는 argv가 아니라 env로 넘긴다 —
-    argv는 같은 기기의 다른 프로세스에서 보인다."""
-    exe = _DB_CLIENTS[engine]
-    env = {}
-    if exe == "psql":
-        argv = [exe, "-tAF", "\t", "-c", sql]
-        env = {"PGHOST": db.get("host") or "", "PGPORT": str(db.get("port") or ""),
-               "PGDATABASE": db.get("name") or "", "PGUSER": db.get("user") or "",
-               "PGPASSWORD": db.get("password") or ""}
-    else:
-        argv = [exe, "-N", "-B"]
-        if db.get("host"):
-            argv += ["-h", db["host"]]
-        if db.get("port"):
-            argv += ["-P", str(db["port"])]
-        if db.get("user"):
-            argv += ["-u", db["user"]]
-        if db.get("name"):
-            argv += [db["name"]]
-        argv += ["-e", sql]
-        if db.get("password"):
-            env = {"MYSQL_PWD": db["password"]}
-    return argv, env
-
-
-def _shq(s: str) -> str:
-    """원격 셸에 넘길 값을 감싼다."""
-    return "'" + str(s).replace("'", """'"'"'""") + "'"
-
-
-# ── 접근 방법 기록 (이슈 #589) ───────────────────────────────────────────
-#
-# **어떻게 DB에 붙고 로그를 보는지는 agent가 코드를 읽고 판단한다.**
-# 서버는 Spring·Django·FastAPI·Express·NestJS·Rails… 끝이 없고, 같은 프레임워크라도
-# 설정이 사는 곳과 붙는 길이 제각각이다. 정규식으로 맞히려는 시도는 성립하지 않는다.
-#
-# 그래서 py는 찾지 않는다. agent가 알아낸 것을 여기에 적어 두고, 다음 실행은 그것을 쓴다.
-# learned.json과 같은 자리(프로젝트 밖)에 있어 워크트리를 오가도 남는다.
-
-_ACCESS_FILE = "access.json"
-
-
-def _access_path(root: Path) -> Path:
-    return _home_dir(root) / _ACCESS_FILE
-
-
-def _load_access(root: Path) -> dict:
-    f = _access_path(root)
-    if not f.is_file():
-        return {}
-    try:
-        return json.loads(f.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-
-
-def cmd_access(args) -> int:
-    """이 프로젝트에 어떻게 붙는지를 적어 두고 꺼내 쓴다.
-
-    agent가 코드를 읽어 알아낸 것을 기록한다 — DB 접속, 로그 보는 법, API 주소.
-    비밀번호는 **값을 적지 않는다.** 어느 환경변수에서 읽을지만 적는다.
-    """
-    root = Path(args.root).resolve()
-    data = _load_access(root)
-
-    if args.action == "show":
-        return emit({
-            "file": str(_access_path(root)),
-            "access": data,
-            "summary": (f"{', '.join(data)} 기록됨" if data else "아직 기록이 없습니다"),
-            "next": (None if data else
-                     "코드를 읽어 붙는 법을 알아낸 뒤 access set --key db --json '{...}'"),
-        })
-
-    if args.action == "set":
-        if not args.key:
-            return emit({"ok": False, "code": "key_required",
-                         "error": "--key 가 필요합니다 (db · logs · base_url 등)"})
-        try:
-            value = json.loads(args.json_value) if args.json_value else None
-        except json.JSONDecodeError as e:
-            return emit({"ok": False, "code": "bad_json", "error": f"--json 이 올바르지 않습니다: {e}"})
-        if value is None:
-            return emit({"ok": False, "code": "value_required", "error": "--json 이 필요합니다"})
-
-        # 비밀번호 원문이 섞여 들어오면 막는다. 파일은 로컬에만 있지만 공유될 수 있다.
-        leaked = _find_secrets(json.dumps(value, ensure_ascii=False))
-        if leaked and not args.allow_secret:
-            return emit({
-                "ok": False, "code": "secret_in_value",
-                "error": "비밀값으로 보이는 것이 들어 있습니다",
-                "found": leaked[:5],
-                "hint": '값 대신 읽을 곳을 적으세요. 예: {"password_env": "APP_DB_PASSWORD"}',
-            })
-
-        data[args.key] = value
-        f = _access_path(root)
-        f.parent.mkdir(parents=True, exist_ok=True)
-        f.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        return emit({"file": str(f), "key": args.key, "access": data,
-                     "summary": f"{args.key} 기록 완료"})
-
-    if args.action == "unset":
-        if args.key in data:
-            del data[args.key]
-            _access_path(root).write_text(
-                json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-            return emit({"key": args.key, "access": data, "summary": f"{args.key} 지움"})
-        return emit({"key": args.key, "access": data, "code": "not_found",
-                     "summary": f"{args.key} 가 없습니다"})
-
-    return emit({"ok": False, "code": "unknown_action", "error": args.action})
-
-
-def cmd_db(args) -> int:
-    """SQL 한 줄을 실행한다. **어떻게 붙을지는 호출하는 쪽이 정한다.**
-
-    세 가지 길이 있다.
-      --command  임의 명령 (docker exec 등). 가장 자유롭다
-      --via ssh  원격에 들어가 그 안에서 클라이언트를 실행한다
-      (기본)     여기서 직접 붙는다
-    """
-    sql = args.sql
-    if not sql:
-        return emit({"ok": False, "code": "sql_required", "error": "--sql 이 필요합니다"})
-
-    # 적어 둔 접근 방법을 그대로 쓴다. 기록해 놓고 매번 값을 꺼내 조립해야 하면 소용이 없다.
-    # 인자로 직접 준 값이 언제나 이긴다 — 기록이 낡았을 때 빠져나갈 길을 막지 않는다.
-    if args.profile:
-        saved = _load_access(Path(args.root).resolve()).get(args.profile)
-        if not saved:
-            return emit({"ok": False, "code": "profile_not_found",
-                         "error": f"'{args.profile}' 기록이 없습니다",
-                         "next": f"access show --root {args.root}"})
-        if isinstance(saved, dict):
-            for k in ("engine", "host", "port", "db", "user", "password",
-                      "command", "ssh_host", "ssh_user", "ssh_port"):
-                if getattr(args, k, None) in (None, "") and saved.get(k) is not None:
-                    setattr(args, k, saved[k])
-            if saved.get("how") in ("ssh", "direct") and args.via == "direct":
-                args.via = saved["how"]
-            if saved.get("append_sql"):
-                args.append_sql = True
-            # 비밀번호는 값이 아니라 "어디서 읽을지"로 적어 둔다
-            env_key = saved.get("password_env")
-            if env_key and not args.password:
-                args.password = os.environ.get(env_key)
-                if not args.password:
-                    return emit({"ok": False, "code": "password_env_empty",
-                                 "error": f"환경변수 {env_key} 가 비어 있습니다",
-                                 "hint": f"{env_key}=... 를 주고 다시 부르세요"})
-
-    # ① 임의 명령 — agent가 접속을 통째로 정한 경우
-    if args.command:
-        argv = ["bash", "-lc", f"{args.command} {_shq(sql)}"] if args.append_sql \
-               else ["bash", "-lc", args.command]
-        stdin = None if args.append_sql else sql
-        try:
-            r = subprocess.run(argv, input=stdin, capture_output=True, text=True,
-                               timeout=args.timeout)
-        except subprocess.TimeoutExpired:
-            return emit({"ok": False, "code": "db_timeout",
-                         "error": f"응답 없음 ({args.timeout}초)"})
-        return emit({
-            "ok": r.returncode == 0, "via": "command",
-        "code": "ok" if r.returncode == 0 else "db_query_failed",
-            "rows": _db_rows(r.stdout), "raw": r.stdout[:4000],
-            "error": (r.stderr or "").strip()[:500] or None,
-            "summary": "실행 완료" if r.returncode == 0 else "실행 실패",
-        })
-
-    engine = (args.engine or "").lower()
-    if engine not in _DB_CLIENTS:
-        return emit({
-            "ok": False, "code": "unsupported_engine",
-            "error": f"engine '{args.engine}' 은 다루지 않습니다",
-            "supported": sorted(set(_DB_CLIENTS)),
-            "hint": "--command 로 직접 실행할 명령을 주면 어떤 DB든 됩니다",
-        })
-
-    db = {"host": args.host, "port": args.port, "name": args.db,
-          "user": args.user, "password": args.password or os.environ.get("DB_PASSWORD")}
-    argv, env = _db_argv(engine, db, sql)
-
-    # ② SSH 경유 — 서버 안에서만 닿는 DB
-    if args.via == "ssh":
-        if not args.ssh_host:
-            return emit({"ok": False, "code": "ssh_host_required",
-                         "error": "--ssh-host 가 필요합니다"})
-        remote = " ".join(f"{k}={_shq(v)}" for k, v in env.items() if v)
-        remote += " " + " ".join(_shq(a) for a in argv)
-        dest = f"{args.ssh_user}@{args.ssh_host}" if args.ssh_user else args.ssh_host
-        ssh = ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new"]
-        if args.ssh_port:
-            ssh += ["-p", str(args.ssh_port)]
-        full = ssh + [dest, remote]
-        try:
-            r = subprocess.run(full, capture_output=True, text=True, timeout=args.timeout)
-        except subprocess.TimeoutExpired:
-            return emit({"ok": False, "code": "db_timeout",
-                         "error": f"응답 없음 ({args.timeout}초)"})
-        return emit({
-            "ok": r.returncode == 0, "via": "ssh",
-        "code": "ok" if r.returncode == 0 else "db_query_failed", "engine": engine,
-            "rows": _db_rows(r.stdout), "raw": r.stdout[:4000],
-            "error": (r.stderr or "").strip()[:500] or None,
-            "summary": "실행 완료" if r.returncode == 0 else "실행 실패",
-            "hint": ("비밀번호 없이 붙는 키가 있어야 합니다(BatchMode)"
-                     if r.returncode != 0 else None),
-        })
-
-    # ③ 직접 — 여기서 붙는다
-    exe = shutil.which(argv[0])
-    if not exe:
-        return emit({
-            "ok": False, "code": "client_missing",
-            "error": f"{argv[0]} 가 없습니다",
-            "install": ("brew install libpq" if argv[0] == "psql" else "brew install mysql-client"),
-            "hint": "--via ssh 로 서버 안에서 실행하거나 --command 로 직접 명령을 주세요",
-        })
-    try:
-        r = subprocess.run([exe] + argv[1:], env=dict(os.environ, **env),
-                           capture_output=True, text=True, timeout=args.timeout)
-    except subprocess.TimeoutExpired:
-        return emit({"ok": False, "code": "db_timeout",
-                     "error": f"응답 없음 ({args.timeout}초)"})
-    return emit({
-        "ok": r.returncode == 0, "via": "direct",
-        "code": "ok" if r.returncode == 0 else "db_query_failed", "engine": engine,
-        "rows": _db_rows(r.stdout), "raw": r.stdout[:4000],
-        "error": (r.stderr or "").strip()[:500] or None,
-        "summary": "실행 완료" if r.returncode == 0 else "실행 실패",
-    })
-
-
-def cmd_logs(args) -> int:
-    """서버 로그를 본다. **보는 방법은 적어 둔 것을 쓴다.**
-
-    로그는 컨테이너 안에 있을 수도, 파일일 수도, 관리자 화면에만 있을 수도 있다.
-    py가 맞히려 들지 않는다 — agent가 알아내 access 에 적고, 여기서는 실행만 한다.
-    """
-    root = Path(args.root).resolve()
-    command = args.command
-    if not command:
-        saved = _load_access(root).get(args.profile or "logs")
-        if isinstance(saved, dict):
-            command = saved.get("command")
-        elif isinstance(saved, str):
-            command = saved
-    if not command:
-        return emit({
-            "ok": False, "code": "no_log_command",
-            "error": "로그를 어떻게 보는지 모릅니다",
-            "hint": ('코드를 읽어 알아낸 뒤 적어 두세요. 예: '
-                     'access set --key logs --json \'{"command":"ssh u@h \\"docker logs --tail 200 app\\""}\''),
-        })
-    if args.tail:
-        command = f"{command} | tail -n {int(args.tail)}"
-    if args.grep:
-        command = f"{command} | grep -i -- {_shq(args.grep)}"
-    try:
-        r = subprocess.run(["bash", "-lc", command], capture_output=True, text=True,
-                           timeout=args.timeout)
-    except subprocess.TimeoutExpired:
-        return emit({"ok": False, "code": "logs_timeout",
-                     "error": f"응답 없음 ({args.timeout}초)"})
-    out = r.stdout or ""
-    return emit({
-        "ok": r.returncode == 0,
-        "code": "ok" if r.returncode == 0 else "logs_failed",
-        "lines": out.splitlines()[-(args.tail or 200):],
-        "error": (r.stderr or "").strip()[:500] or None,
-        "summary": f"{len(out.splitlines())}줄" if r.returncode == 0 else "실행 실패",
-    })
-
-
-def _db_rows(out: str) -> list[list[str]]:
-    """탭으로 나뉜 출력을 행 목록으로. 판정은 agent가 한다."""
-    rows = []
-    for line in (out or "").splitlines():
-        if line.strip():
-            rows.append(line.split("\t"))
-    return rows[:200]
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="e2e_cli",
-        description="agent QA — 앱·웹·서버를 밟아 버그를 찾는다",
+        description="agent QA — 앱·웹·서버를 밟아 버그를 찾는다 (실행·캡처는 pro-launch)",
+        epilog=("옮긴 명령: " + " · ".join(MOVED)
+                + " — pro-launch 의 launch_cli.py 로 넘겨준다 (다음 마이너에서 제거)"),
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_d = sub.add_parser("detect", help="프로젝트·패키지·API·기기를 한 번에 조사")
+    p_d = sub.add_parser("detect", help="무엇을 밟을 수 있는지 (pro-launch detect + note target)")
     p_d.add_argument("--path", default=".", help="탐색 시작 경로 (기본: 현재 디렉터리)")
     p_d.add_argument("--target", default=None,
                      help=f"밟을 대상을 직접 지정 ({'·'.join(TARGETS)}). 생략하면 감지한다")
     p_d.set_defaults(func=cmd_detect)
-
-    p_v = sub.add_parser("devices", help="연결·부팅된 기기 조회")
-    p_v.set_defaults(func=cmd_devices)
-
-    p_doc = sub.add_parser("doctor", help="도구·산출물 보호 상태 점검")
-    p_doc.add_argument("--root", default=".", help="프로젝트 루트")
-    p_doc.set_defaults(func=cmd_doctor)
 
     p_sc = sub.add_parser("scenario", help="프로젝트별 밟기 시나리오 관리")
     p_sc.add_argument("action", choices=["init", "list", "show"])
@@ -2914,33 +1264,6 @@ def build_parser() -> argparse.ArgumentParser:
               "platform=기기·OS 차원. project가 아니면 skill로 올리라고 안내한다"))
     p_n.set_defaults(func=cmd_note)
 
-    p_web = sub.add_parser("web", help="웹 화면을 조작한다 (target: web)")
-    p_web.add_argument("action",
-                       choices=["setup", "open", "goto", "click", "type", "shot",
-                                "assert", "console", "close"])
-    p_web.add_argument("--force", action="store_true",
-                       help="setup: 이미 있어도 다시 만든다")
-    p_web.add_argument("--root", default=".", help="프로젝트 루트")
-    p_web.add_argument("--url", default=None, help="주소 (open·goto·assert)")
-    p_web.add_argument("--selector", default=None,
-                       help="대상 (click·type·assert). text=로그인 · #id · button:has-text('x')")
-    p_web.add_argument("--text", default=None, help="입력할 값 또는 확인할 문구")
-    p_web.add_argument("--text-env", dest="text_env", default=None,
-                       help="입력값을 환경변수에서 읽는다 — 비밀번호는 반드시 이쪽 (대화 기록에 값이 남지 않는다)")
-    p_web.add_argument("--out", default=None, help="스크린샷 저장 경로")
-    p_web.add_argument("--full", action="store_true", help="페이지 전체를 찍는다")
-    p_web.add_argument("--headed", action="store_true", help="브라우저를 눈에 보이게 연다")
-    p_web.add_argument("--width", type=int, default=1280)
-    p_web.add_argument("--height", type=int, default=800)
-    p_web.add_argument("--timeout", type=int, default=10, help="대기 제한(초)")
-    # shot: 긴 변을 이 값에 맞춰 줄인다. 세션 토큰은 해상도에서만 줄어든다.
-    # 0 을 주면 원본 크기 그대로 둔다.
-    p_web.add_argument("--max-side", type=int, default=SHOT_MAX_SIDE,
-                       help=f"shot 의 긴 변 상한 (기본 {SHOT_MAX_SIDE}, 0이면 원본)")
-    p_web.add_argument("--quality", type=int, default=WEBP_QUALITY,
-                       help=f"WebP 품질 (기본 {WEBP_QUALITY}). 통신이 비싸면 낮춘다")
-    p_web.set_defaults(func=cmd_web)
-
     p_api = sub.add_parser("api", help="서버 시나리오를 밟는다 (target: server)")
     p_api.add_argument("--name", required=True, help="시나리오 이름")
     p_api.add_argument("--root", default=".", help="프로젝트 루트")
@@ -2966,86 +1289,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_ot.add_argument("--expect-absent", default=None)
     p_ot.set_defaults(func=cmd_other)
 
-    p_ac = sub.add_parser("access", help="이 프로젝트에 붙는 법을 적어 두고 꺼내 쓴다")
-    p_ac.add_argument("action", choices=["show", "set", "unset"])
-    p_ac.add_argument("--root", default=".", help="프로젝트 루트")
-    p_ac.add_argument("--key", default=None, help="db · logs · base_url 등")
-    p_ac.add_argument("--json", dest="json_value", default=None,
-                      help='적을 내용(JSON). 예: {"how":"ssh","engine":"postgres",...}')
-    p_ac.add_argument("--allow-secret", dest="allow_secret", action="store_true",
-                      help="비밀값 경고를 무시한다 (권장하지 않음)")
-    p_ac.set_defaults(func=cmd_access)
-
-    p_db = sub.add_parser("db", help="SQL을 실행한다 (접속 방법은 호출하는 쪽이 정한다)")
-    p_db.add_argument("--sql", required=True, help="실행할 SQL")
-    p_db.add_argument("--engine", default=None, help="postgres · mysql (--command 면 불필요)")
-    p_db.add_argument("--host", default=None)
-    p_db.add_argument("--port", default=None)
-    p_db.add_argument("--db", default=None, help="데이터베이스 이름")
-    p_db.add_argument("--user", default=None)
-    p_db.add_argument("--password", default=None,
-                      help="생략하면 DB_PASSWORD 환경변수를 본다 (권장)")
-    p_db.add_argument("--via", choices=["direct", "ssh"], default="direct",
-                      help="ssh면 원격에 들어가 그 안에서 실행한다")
-    p_db.add_argument("--ssh-host", dest="ssh_host", default=None)
-    p_db.add_argument("--ssh-user", dest="ssh_user", default=None)
-    p_db.add_argument("--ssh-port", dest="ssh_port", default=None)
-    p_db.add_argument("--command", default=None,
-                      help="접속을 통째로 지정한다. 예: \"docker exec -i pg psql -U root -d appdb -c\"")
-    p_db.add_argument("--append-sql", dest="append_sql", action="store_true",
-                      help="--command 뒤에 SQL을 인자로 붙인다 (기본은 표준입력으로 넘김)")
-    p_db.add_argument("--profile", default=None,
-                      help="access 에 적어 둔 기록을 쓴다 (예: db). 인자로 준 값이 우선한다")
-    p_db.add_argument("--root", default=".", help="--profile 을 찾을 프로젝트 루트")
-    p_db.add_argument("--timeout", type=int, default=40)
-    p_db.set_defaults(func=cmd_db)
-
-    p_lg = sub.add_parser("logs", help="서버 로그를 본다 (보는 방법은 access 에 적어 둔다)")
-    p_lg.add_argument("--root", default=".", help="프로젝트 루트")
-    p_lg.add_argument("--profile", default=None, help="access 의 어느 키를 쓸지 (기본 logs)")
-    p_lg.add_argument("--command", default=None, help="즉석으로 실행할 명령")
-    p_lg.add_argument("--tail", type=int, default=200)
-    p_lg.add_argument("--grep", default=None)
-    p_lg.add_argument("--timeout", type=int, default=60)
-    p_lg.set_defaults(func=cmd_logs)
-
-    p_op = sub.add_parser("get-output-path",
-                          help="이번 실행의 산출물 자리를 만들고 알려준다")
-    p_op.add_argument("--title", default=None,
-                      help="제목. 없으면 워크트리 경로·브랜치명에서 뽑는다")
-    p_op.add_argument("--package", default=None,
-                      help="앱 패키지명 — env.sh 에 PKG 로 넣는다")
-    p_op.add_argument("--root", default=".", help="프로젝트 루트")
-    p_op.set_defaults(func=cmd_output_path)
-
-    p_dv = sub.add_parser("device", help="역할을 기기에 묶는다 (참가자가 둘 이상일 때)")
-    p_dv.add_argument("action", choices=["list", "bind", "unbind", "show"])
-    p_dv.add_argument("--root", default=".", help="프로젝트 루트")
-    p_dv.add_argument("--role", default=None,
-                      help="역할 키. **시나리오 roles 의 키와 같아야 한다**")
-    p_dv.add_argument("--serial", default=None, help="기기 시리얼 (device list 에 나온다)")
-    p_dv.add_argument("--note", default=None, help="사람이 읽을 설명. env.sh 에 주석으로 붙는다")
-    p_dv.add_argument("--package", default=None, help="설치된 빌드를 대조할 패키지명")
-    p_dv.add_argument("--run-dir", default=None,
-                      help="env.sh 를 쓸 실행 폴더. 없으면 $RUN_DIR 을 본다")
-    p_dv.set_defaults(func=cmd_device)
-
-    p_s = sub.add_parser("shrink", help="이슈 첨부용으로 이미지 축소")
-    p_s.add_argument("paths", nargs="+")
-    p_s.add_argument("--max-side", type=int, default=SHOT_MAX_SIDE,
-                     help=f"긴 변 상한 (기본 {SHOT_MAX_SIDE})")
-    p_s.add_argument("--quality", type=int, default=WEBP_QUALITY,
-                     help=f"WebP 품질 (기본 {WEBP_QUALITY})")
-    p_s.add_argument("--keep-format", action="store_true",
-                     help="WebP 로 바꾸지 않고 원래 형식을 유지한다")
-    p_s.set_defaults(func=cmd_shrink)
-
     return parser
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    # 옮긴 명령은 파서에 올리지 않고 그대로 넘긴다 — 인자 계약이 pro-launch 쪽에 산다
+    if argv and argv[0] in MOVED:
+        return delegate(argv)
     parser = build_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if not hasattr(args, "func"):
         parser.print_help(sys.stderr)
         return 1
