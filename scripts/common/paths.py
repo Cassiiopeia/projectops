@@ -83,6 +83,7 @@ def resolve_output_root(project_root: Union[str, Path]) -> Path:
 EVIDENCE_SKILLS = frozenset({
     "agent-test",     # 스크린샷·기기 로그
     "figma-verify",   # 덤프·시안 export·앱 렌더·차이 그림
+    "launch",         # 앱·웹 캡처 · http 응답 (#629)
 })
 
 DOCUMENT_SKILLS = frozenset({

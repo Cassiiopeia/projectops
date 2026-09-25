@@ -21,6 +21,8 @@ CLI_TO_SKILL = {
         "references/issue-creation.md",
     ],
     "pro-changelog-deploy/scripts/changelog_cli.py": ["pro-changelog-deploy/SKILL.md"],
+    # 능력 스킬 — 다른 스킬이 스크립트로 부르므로 모든 명령이 SKILL.md 에 호출 예로 있어야 한다 (#629)
+    "pro-launch/scripts/launch_cli.py": ["pro-launch/SKILL.md"],
 }
 
 

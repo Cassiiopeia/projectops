@@ -750,6 +750,7 @@ claude plugin install projectops@projectops-marketplace --scope user
 | `skill-creator` | skill 생성/리뷰/개선 (CREATE·REVIEW·IMPROVE 3모드) |
 | `agent-test` | **앱·웹·서버를 실제로 실행해 밟는다** (E2E·증적) — 문서만 쓰는 `testcase`와 다르다 |
 | `figma-verify` | **시안 → 코드 → 대조** 한 묶음. 덤프 항목을 세어 작업 목록으로 삼고, 옮긴 뒤 픽셀로 맞댄다 (구 `figma` 흡수 — #619) |
+| `launch` | **능력 스킬** — 앱·웹·서버를 띄우고 조작하고 찍는다. 다른 스킬이 `launch_cli.py` 를 스크립트로 부른다 (#629) |
 
 ---
 
@@ -890,6 +891,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | implement | `skills/pro-implement/scripts/implement_cli.py` | find-inputs (**쓰는 게 아니라 읽는다** — plan·analyze 산출물 자리를 돌려준다, #623) |
 | figma-verify | `skills/pro-figma-verify/scripts/figma_verify_cli.py` | get-output-path, coverage, assets, diff |
 | agent-test | `skills/pro-agent-test/scripts/e2e_cli.py` | get-output-path, device 외 다수 |
+| launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, http, access, db, logs, shrink, get-output-path |
 
 공유 도메인 로직은 `scripts/common/`에 있다 (gh_client, config, paths, title, issue_number, gh_branch, manifest, emit, bootstrap).
 
@@ -966,6 +968,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | 보고서 | `pro-report` |
 | 원격 서버 SSH 접속, 로그/상태 확인 | `pro-ssh` |
 | **실제로 테스트해줘, 에뮬레이터·시뮬레이터·브라우저로 확인, E2E, 끝까지 밟아줘** | `pro-agent-test` |
+| **에뮬레이터 띄워서 찍어줘, 시뮬레이터 스크린샷, 브라우저로 캡처, 모바일 폭으로·빈 목록·500 화면 찍어줘** | `pro-launch` |
 | **figma 디자인 구현, 시안대로 만들어줘, 시안이랑 같은지 확인, 디자인대로 됐는지, 그림자 빠진 거 없나** | `pro-figma-verify` |
 | **설계·기획 (무엇을 왜)** | **`superpowers:brainstorming`** |
 | **구현 계획 (어떻게)** | **`superpowers:writing-plans`** |
