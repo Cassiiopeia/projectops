@@ -236,6 +236,25 @@ TOPICS = [
     ("alternatives", "대안 비교"), ("copy", "문구"), ("ui", "UI 요소"), ("impact", "개발 영향"),
 ]
 
+# 캡처가 어디서 왔는지. **렌더는 상태를 연출하는 수단이지 사실의 근거가 아니다** (#636) —
+# 렌더만 보고 쓴 주장 7건이 실기기와 달랐다(모달 가림막 · 오프라인 경로 · 자동 재시도 · 기기 폭 · 픽스처 값).
+SOURCE_TAG = {
+    "render": ("렌더 · 가짜 데이터", "src-render"),
+    "device": ("실기기", "src-device"),
+    "server": ("운영 서버", "src-server"),
+    "design": ("시안", "src-design"),
+    "ascii": ("ASCII", "src-ascii"),
+}
+# 사실 주장의 근거로 인정하는 것. render 는 빠진다.
+FACT_BASIS = {"device": "실기기", "server": "운영 API·설정", "code": "코드", "design": "시안"}
+
+# 상태가 지금 흐름에서 나오는가. 나오지 않는 상태를 요청하면 디자이너가 헛일을 한다 (#636 실측).
+REACHABLE_TAG = {
+    "yes": ("지금 나온다", "done"),
+    "old_data": ("예전 데이터에만", "none"),
+    "unknown": ("확인 못 함", "temp"),
+}
+
 _STATUS_TAG = {"done": ("구현됨", "done"), "temp": ("화면 임시", "temp"),
                "none": ("미구현", "none"), "missing": ("미구현", "none")}
 
@@ -296,8 +315,15 @@ def _ascii_html(text: str) -> str:
     return "".join(out)
 
 
+def _source_tag(source) -> str:
+    if not source:
+        return ""
+    text, cls = SOURCE_TAG.get(source, (str(source), "src-render"))
+    return f'<span class="tag {cls}">{_e(text)}</span> '
+
+
 def _figure(item: dict, base: Path) -> str:
-    label = _e(item.get("label") or item.get("name"))
+    label = _source_tag(item.get("source")) + _e(item.get("label") or item.get("name"))
     zoom = " zoom" if item.get("zoom") else ""
     if item.get("image"):
         body = _img(item["image"], base)
@@ -332,6 +358,16 @@ def build_sections(data: dict, base: Path) -> list[tuple[str, str, str]]:
             f"<tr><td>{_e(m.get('rule') if isinstance(m, dict) else m)}</td>"
             f"<td class='muted'>{_e(m.get('source') if isinstance(m, dict) else '')}</td></tr>"
             for m in s["must_keep"]) + "</table>"
+    if data.get("facts"):
+        rows = []
+        for f in data["facts"]:
+            basis = f.get("basis")
+            label = FACT_BASIS.get(basis) or ("렌더 — 근거 아님" if basis == "render" else "근거 없음")
+            cls = "done" if basis in FACT_BASIS else "none"
+            rows.append(f"<tr><td>{_e(f.get('claim'))}</td><td><span class='tag {cls}'>{_e(label)}</span></td>"
+                        f"<td class='muted'>{_e(f.get('ref'))}</td></tr>")
+        inner += ("<h3>지금 앱에 대한 사실과 근거</h3><table><tr><th>사실</th><th>근거</th><th>어디서</th></tr>"
+                  + "".join(rows) + "</table>")
     out.append(("summary", "요약", inner))
 
     if data.get("current"):
@@ -347,10 +383,13 @@ def build_sections(data: dict, base: Path) -> list[tuple[str, str, str]]:
                            "<td>" + ("✅ 그려짐" if design is True else "❌ 없음" if design is False
                                      else _e(design)) + "</td>")
             shot = _figure({"image": st.get("image"), "ascii": st.get("ascii"),
+                            "source": st.get("source") or ("ascii" if st.get("ascii") and not st.get("image") else None),
                             "label": "렌더 실패 — ASCII" if st.get("render_failed") else ""}, base) \
                 if (st.get("image") or st.get("ascii")) else '<span class="muted">—</span>'
             copy = ('<span class="tag none">문구 필요</span>' if st.get("copy_needed") else _e(st.get("copy")))
-            rows.append(f"<tr><td>{_e(st.get('axis'))}</td><td><b>{_e(st.get('name'))}</b></td>"
+            reach = REACHABLE_TAG.get(st.get("reachable"))
+            reach_html = (f"<br><span class='tag {reach[1]}'>{reach[0]}</span>" if reach else "")
+            rows.append(f"<tr><td>{_e(st.get('axis'))}</td><td><b>{_e(st.get('name'))}</b>{reach_html}</td>"
                         f"<td><span class='tag {cls}'>{label}</span></td>{design_cell}"
                         f"<td>{copy}</td><td>{shot}</td></tr>")
         has_design = any(st.get("design") is not None for st in data["states"])
@@ -362,9 +401,10 @@ def build_sections(data: dict, base: Path) -> list[tuple[str, str, str]]:
         cards = []
         for a in data["alternatives"]:
             rec = ' <span class="tag rec">개발 쪽 추천</span>' if a.get("recommended") else ""
-            pics = "".join(_figure({"image": im, "label": ""}, base) for im in a.get("images") or [])
+            src = a.get("source")
+            pics = "".join(_figure({"image": im, "label": "", "source": src}, base) for im in a.get("images") or [])
             if a.get("image"):
-                pics = _figure({"image": a["image"], "label": ""}, base) + pics
+                pics = _figure({"image": a["image"], "label": "", "source": src}, base) + pics
             if a.get("zoom"):
                 pics += _figure({"image": a["zoom"], "label": "확대", "zoom": True}, base)
             if a.get("ascii"):
@@ -483,12 +523,18 @@ def render_markdown(data: dict, png: list[str], out_dir: Path) -> str:
             rule = m.get("rule") if isinstance(m, dict) else m
             src = m.get("source", "") if isinstance(m, dict) else ""
             lines.append(f"| {_c(rule)} | {_c(src)} |")
+    if data.get("facts"):
+        lines += ["", "## 지금 앱에 대한 사실과 근거", "", "| 사실 | 근거 | 어디서 |", "|---|---|---|"]
+        for f in data["facts"]:
+            basis = FACT_BASIS.get(f.get("basis")) or "**근거 없음**"
+            lines.append(f"| {_c(f.get('claim'))} | {basis} | {_c(f.get('ref'))} |")
     if data.get("states"):
-        lines += ["", "## 상태", "", "| 축 | 상태 | 구현 | 문구 |", "|---|---|---|---|"]
+        lines += ["", "## 상태", "", "| 축 | 상태 | 구현 | 지금 나오나 | 문구 |", "|---|---|---|---|---|"]
         for st in data["states"]:
             label = _STATUS_TAG.get(st.get("status"), (st.get("status") or "?", ""))[0]
             copy = "**문구 필요**" if st.get("copy_needed") else (st.get("copy") or "")
-            lines.append(f"| {_c(st.get('axis'))} | {_c(st.get('name'))} | {label} | {_c(copy)} |")
+            reach = (REACHABLE_TAG.get(st.get("reachable")) or ("—", ""))[0]
+            lines.append(f"| {_c(st.get('axis'))} | {_c(st.get('name'))} | {label} | {reach} | {_c(copy)} |")
     if data.get("copy"):
         lines += ["", "## 문구", "", "| 자리 | 현재 | 후보 | 이유 |", "|---|---|---|---|"]
         for c in data["copy"]:
@@ -501,6 +547,37 @@ def render_markdown(data: dict, png: list[str], out_dir: Path) -> str:
             rel = Path(f).relative_to(out_dir) if Path(f).is_relative_to(out_dir) else Path(f)
             lines.append(f"![{Path(f).stem}]({rel.as_posix()})")
     return "\n".join(lines) + "\n"
+
+
+def preflight(data: dict) -> list[str]:
+    """게시 전에 걸러야 할 것. 판단은 agent 가 하지만, 빠뜨린 표시는 기계가 센다 (#636)."""
+    warns: list[str] = []
+
+    def need_source(where: str, item: dict, key: str = "image"):
+        if item.get(key) and not item.get("source"):
+            warns.append(f"{where}: 캡처 출처가 없다 — source 를 render · device · server · design 중 하나로")
+
+    for i, c in enumerate(data.get("current") or []):
+        need_source(f"현재 구현[{i}] {c.get('label', '')}", c)
+    for st in data.get("states") or []:
+        name = st.get("name", "")
+        need_source(f"상태 '{name}'", st)
+        r = st.get("reachable")
+        if r is None:
+            warns.append(f"상태 '{name}': 지금 흐름에서 나오는지(reachable) 적지 않았다 — 입력 경로를 코드로 확인한다")
+        elif r == "old_data":
+            warns.append(f"상태 '{name}': 예전 데이터에만 나온다 — 요청에 넣을지 다시 본다")
+    for a in data.get("alternatives") or []:
+        if (a.get("image") or a.get("images")) and not a.get("source"):
+            warns.append(f"대안 {a.get('id', '')}: 캡처 출처가 없다")
+    for f in data.get("facts") or []:
+        basis = f.get("basis")
+        if basis not in FACT_BASIS:
+            why = "렌더(가짜 데이터)는 근거가 아니다" if basis == "render" else "근거가 없다"
+            warns.append(f"사실 '{f.get('claim', '')}': {why} — 실기기 · 운영 API · 코드로 확인한다")
+        elif not f.get("ref"):
+            warns.append(f"사실 '{f.get('claim', '')}': 근거 위치(ref)가 없다 — 캡처 파일 · API 경로 · 코드 줄")
+    return warns
 
 
 def cmd_board(args) -> int:
@@ -516,7 +593,8 @@ def cmd_board(args) -> int:
     html_f = out_dir / "board.html"
     html_f.write_text(doc, encoding="utf-8")
 
-    payload = {"html": str(html_f), "topics": topics, "png": []}
+    warns = preflight(data)
+    payload = {"html": str(html_f), "topics": topics, "png": [], "preflight": warns}
     if args.png:
         files, err = shoot_topics(html_f, out_dir, topics, scale=args.scale)
         payload["png"] = files
@@ -538,7 +616,13 @@ def cmd_board(args) -> int:
         payload["md"] = str(md_f)
     payload["summary"] = (f"보드 {len(topics)}주제 · HTML" + (f" · PNG {len(payload['png'])}장" if args.png else "")
                           + (" · md" if args.md else ""))
-    payload["next"] = "Read 로 PNG 를 열어 확인한 뒤 게시 전 승인을 받는다"
+    if warns:
+        payload["next"] = (f"게시 전에 걸릴 것 {len(warns)}건 (preflight) — 고친 뒤 다시 조립한다. "
+                           "렌더 캡처만 근거인 사실은 실기기·운영 API 로 확인한다")
+        if args.strict:
+            payload.update({"ok": False, "code": "preflight_failed"})
+    else:
+        payload["next"] = "Read 로 PNG 를 열어 확인한 뒤 게시 전 승인을 받는다"
     return emit(payload)
 
 
@@ -569,9 +653,28 @@ def lint_text(text: str, banned: list[str]) -> list[str]:
         if w in text:
             found.append(f"과장 '{w}'")
     for w in banned:
-        if w and w in text:
+        if w and _banned_hit(w, text):
             found.append(f"레포에서 쓰지 않기로 한 말 '{w}'")
     return found
+
+
+# 금지어 뒤에 붙어도 같은 말로 보는 조사. 이것 말고 한글이 이어지면 다른 낱말이다
+# ("아이" 금지인데 "아이콘" 을 잡으면 안 된다 — 실측 오탐, #636).
+_JOSA = ("은", "는", "이", "가", "을", "를", "의", "에", "에게", "께", "와", "과", "도", "만",
+         "로", "으로", "랑", "이랑", "들", "한테", "보다", "처럼", "까지", "부터", "라고", "야", "아")
+
+
+def _banned_hit(word: str, text: str) -> bool:
+    for m in re.finditer(re.escape(word), text):
+        before = text[m.start() - 1] if m.start() > 0 else ""
+        # 앞이 한글·영숫자면 다른 낱말의 일부다 ("우리아이" 처럼 붙여 쓴 것은 놓친다 — 오탐보다 낫다)
+        if before and re.match(r"[가-힣A-Za-z0-9]", before):
+            continue
+        tail = re.match(r"[가-힣A-Za-z0-9]*", text[m.end():]).group(0)
+        # 바로 끝나거나, 붙은 것이 조사 그대로거나, 복수·여격으로 시작하면 같은 말이다
+        if not tail or tail in _JOSA or tail.startswith(("들", "에게", "한테")):
+            return True
+    return False
 
 
 def cmd_copy_lint(args) -> int:
@@ -695,6 +798,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--png", action="store_true", help="주제별 PNG 도 만든다 (pro-launch 의 Chromium)")
     p.add_argument("--scale", type=int, default=2, help="PNG 배율 (기본 2 — 폭 약 2900px)")
     p.add_argument("--md", action="store_true", help="markdown 출력용 brief.md 도 만든다 (PNG 링크 포함)")
+    p.add_argument("--strict", action="store_true",
+                   help="preflight 경고가 있으면 ok:false — 게시 직전에 쓴다")
     p.set_defaults(func=cmd_board)
 
     p = sub.add_parser("copy-lint", help="문구 후보의 기계적 검사")

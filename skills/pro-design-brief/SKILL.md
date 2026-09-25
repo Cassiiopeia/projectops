@@ -111,6 +111,12 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py config show --root
 **스크립트가 분기를 스캔하지 않는다 — 네가 코드를 읽고 적는다.**
 
 - 상태마다 **구현됨 / 화면 임시 / 미구현** 을 적는다 (보드 데이터 `status`: `done` · `temp` · `none`).
+- 상태마다 **지금 흐름에서 나오는가**를 적는다 (`reachable`: `yes` · `old_data` · `unknown`). 그 상태를 만드는
+  **입력 경로(고르는 UI, 저장되는 값)가 지금도 있는지 코드로 본다.** 스펙·주석의 "임시", "나중에 교체"는
+  쓴 시점의 이야기다. 예전 데이터에만 나오는 상태는 요청에서 빼거나 "예전 데이터에만"으로 따로 표시한다.
+  > 실제로 고르는 UI 가 이미 없어진 상태를 스펙 문장만 믿고 요청해, 디자이너가 나오지도 않는 화면을 받았다.
+- **서버가 내려주는 문구도 상태다** — 공지 팝업 · 약관 · 서버 오류 문구. 코드 검색에는 안 걸리므로
+  운영 API·관리 화면에서 확인한다. (코드만 보고 "보이는 곳 6군데"라고 썼는데 공지 팝업까지 7군데였다.)
 - **그 화면에 실제로 해당하는 축만** 넣는다. 억지로 채우지 않는다 (버전 표시에 "0건"은 없다).
 - 표시 축(글자 200% · 작은 폰)은 거의 모든 화면에 해당한다. **여기서 깨지는 것이 자주 나온다** —
   요청 대상과 별개 문제면 "별개"라고 적어 섞지 않는다.
@@ -123,7 +129,24 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py config show --root
 source "{env_file 값}"          # $SHOT_DIR · $RUN_DIR
 ```
 
-순서: **코드 렌더 → 실기기·브라우저 → ASCII.**
+**렌더는 상태를 연출하는 수단이고, "지금 앱은 이렇다"의 근거는 실기기다.** ⚠️
+
+위젯 렌더만 보고 쓴 주장이 실기기와 7건 달랐다. 렌더 하네스에는 모달 가림막이 안 그려지고, 가짜
+실패 객체는 실제 실패와 모양이 다르고, 가짜 provider 는 오프라인 우선 경로와 자동 재시도를 건너뛰고,
+렌더 폭은 기기 폭과 다르고, 픽스처 값은 운영 값이 아니다. 반대로 실기기에서만 나오는 결함도 있다.
+
+| 무엇을 보이려는가 | 무엇으로 |
+|---|---|
+| 지금 앱의 모습 · 동작 · 수치 (사실) | **실기기 · 운영 API · 운영 설정** — 렌더로 대신하지 않는다 |
+| 만들기 어려운 상태 (빈 목록 · 실패 · 긴 글자) | 렌더 · 응답 바꿔치기 — 캡처에 **"렌더 · 가짜 데이터"** 표시 |
+| 아직 없는 안 | 실제 컴포넌트 렌더 → 안 되면 ASCII |
+
+- 지급량·한도 같은 **수치는 픽스처가 아니라 운영 API·설정에서** 읽는다.
+- 캡처마다 출처를 적는다 (`source`: `render` · `device` · `server` · `design`). 보드가 표시를 단다.
+- 요청서에 적는 "지금 앱은 이렇다" 문장은 `facts[]` 에 **근거와 함께** 적는다. 렌더만 근거인 문장은
+  게시 전에 실기기로 확인하거나 뺀다 (`board` 의 `preflight` 가 짚는다).
+
+순서: **코드 렌더 → 실기기·브라우저 → ASCII.** 연출한 상태 중 실기기로 재현할 수 있는 것은 실기기로도 한 번 찍는다.
 
 | 무엇으로 | 명령 | 언제 |
 |---|---|---|
@@ -201,12 +224,14 @@ source "{env_file 값}"          # $SHOT_DIR · $RUN_DIR
   "title": "{화면} — 디자인 요청서",
   "summary": {"what": "", "why": "", "status": "", "recommend": "A안 — 근거 한 줄", "note": "",
               "must_keep": [{"rule": "", "source": "파일·이슈·문서"}]},
-  "current": [{"label": "로그인 (iOS)", "image": "screenshots/login_ios.png"},
-              {"label": "버전 4배", "image": "screenshots/zoom.png", "zoom": true}],
-  "states": [{"axis": "데이터", "name": "0건", "status": "done|temp|none", "image": "", "ascii": "",
+  "facts": [{"claim": "주간 지급량은 50개다", "basis": "device|server|code|design", "ref": "GET /api/credit · 캡처 파일"}],
+  "current": [{"label": "로그인 (iOS)", "image": "screenshots/login_ios.png", "source": "device"},
+              {"label": "버전 4배", "image": "screenshots/zoom.png", "zoom": true, "source": "device"}],
+  "states": [{"axis": "데이터", "name": "0건", "status": "done|temp|none", "reachable": "yes|old_data|unknown",
+              "image": "", "source": "render|device|server", "ascii": "",
               "copy": "", "copy_needed": false, "design": true, "render_failed": false}],
-  "alternatives": [{"id": "A", "name": "", "image": "", "zoom": "", "ascii": "", "recommended": true,
-                    "pros": [], "cons": [], "dev_impact": ""}],
+  "alternatives": [{"id": "A", "name": "", "image": "", "source": "render", "zoom": "", "ascii": "",
+                    "recommended": true, "pros": [], "cons": [], "dev_impact": ""}],
   "copy": [{"where": "", "current": "", "candidates": [], "reason": "", "legal": false, "needed": false}],
   "ui": [{"shape": "목록", "candidates": [], "existing": [], "new": []}],
   "impact": [{"choice": "B안", "work": "따로 필요한 개발"}]
@@ -219,6 +244,8 @@ source "{env_file 값}"          # $SHOT_DIR · $RUN_DIR
 - PNG 는 **pro-launch 가 받아 둔 Chromium** 으로 찍는다. 없으면 `browser_missing` — 멈추지 않고
   HTML 또는 원본 캡처 + md 표로 낸다. 브라우저가 필요하면 먼저 사용자에게 묻고 `{LAUNCH} web setup`.
 - **PNG 를 Read 로 열어 본다.** 글자가 잘리거나 겹친 곳이 있으면 데이터를 고쳐 다시 조립한다.
+- 결과의 **`preflight` 가 비어야 게시한다.** 출처 없는 캡처 · 도달 가능성을 안 적은 상태 · 렌더만 근거인
+  사실을 짚는다. 게시 직전에는 `--strict` 로 조립하면 남은 것이 있을 때 `ok:false` 로 멈춘다.
 
 ## 6. 게시 — 디자이너에게는 한 형식만
 
@@ -256,6 +283,10 @@ PYTHONIOENCODING=utf-8 {PYTHON} {GITHUB}/github_cli.py add-comment {owner} {repo
 | 💡 추가 요청 사항 | 고르면 개발이 따로 드는 안 · 질문(원칙과 부딪히는 것, 시안끼리 어긋난 것) |
 | 🙋 담당자 | 디자이너 |
 
+**게시한 뒤 틀린 것을 발견하면** 본문을 고치고 **정정 댓글을 따로 단다.** 디자이너는 알림으로 옛 본문을
+이미 봤을 수 있다 — 본문만 고치면 무엇이 바뀌었는지 모른다. 정정 댓글에는 "처음에 쓴 것 → 실제 → 근거"를
+표로 적고, 실기기 캡처를 붙인다.
+
 **private 레포는 그림이 렌더링되지 않는다** (`upload-image` 의 `private_warning`). 그때는 사용자에게
 알리고 `html` 출력으로 바꿀지 묻는다.
 
@@ -269,6 +300,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {GITHUB}/github_cli.py add-comment {owner} {repo
 | Figma 읽기 실패 | Figma 없이 진행하고 요약에 적는다 |
 | 디자이너 모름 | 담당자 없이 등록하고 알린다 (다음에 묻는다) |
 | 대상 레포에 흔적 | pro-launch `residue` 를 그대로 보고하고 지우지 않는다 |
+| 실기기로 확인할 수 없다 (기기·계정·비용) | 그 사실은 `facts` 에서 빼거나 근거 없음으로 두고, 요약에 "확인 못 함"으로 적는다. 렌더로 대신 단정하지 않는다 |
 
 ## 하지 않는 것
 

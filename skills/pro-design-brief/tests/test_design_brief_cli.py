@@ -238,3 +238,76 @@ def test_ascii_lines_are_the_same_width_with_korean(tmp_path):
 
 def test_text_width_counts_hangul_as_two():
     assert db.text_width("가a") == 3 and db.text_width("ELUM") == 4
+
+
+# ── 근거 검사 (#636) ──────────────────────────────────────────────────────
+#
+# 렌더만 보고 쓴 주장 7건이 실기기와 달랐고, 도달할 수 없는 상태를 요청한 일이 있었다.
+# 판단은 agent 가 하지만, 빠뜨린 표시는 기계가 센다.
+
+def _clean_data(tmp: Path) -> dict:
+    shots = tmp / "screenshots"
+    shots.mkdir(parents=True, exist_ok=True)
+    (shots / "a.png").write_bytes(_PNG)
+    return {
+        "title": "t",
+        "facts": [{"claim": "주간 지급량은 50개다", "basis": "server", "ref": "GET /api/credit"}],
+        "current": [{"label": "지금", "image": "screenshots/a.png", "source": "device"}],
+        "states": [{"axis": "데이터", "name": "0건", "status": "none", "reachable": "yes",
+                    "image": "screenshots/a.png", "source": "render"}],
+        "alternatives": [{"id": "A", "name": "지금", "image": "screenshots/a.png", "source": "device"}],
+    }
+
+
+def test_preflight_is_empty_when_everything_is_labeled(tmp_path):
+    assert db.preflight(_clean_data(tmp_path)) == []
+
+
+def test_preflight_flags_missing_labels_and_render_only_facts(tmp_path):
+    d = _clean_data(tmp_path)
+    d["current"][0].pop("source")
+    d["states"][0].pop("reachable")
+    d["states"].append({"axis": "데이터", "name": "옛 보상 이모지", "reachable": "old_data"})
+    d["alternatives"][0].pop("source")
+    d["facts"] += [{"claim": "시트 뒤 버튼이 비친다", "basis": "render", "ref": "x.png"},
+                   {"claim": "근거 없는 말"},
+                   {"claim": "위치 없는 근거", "basis": "device"}]
+    w = "\n".join(db.preflight(d))
+    assert "현재 구현[0]" in w and "출처" in w
+    assert "reachable" in w and "예전 데이터에만" in w
+    assert "대안 A" in w
+    assert "렌더(가짜 데이터)는 근거가 아니다" in w and "근거가 없다" in w and "ref" in w
+
+
+def test_board_shows_source_reachability_and_facts(tmp_path):
+    doc, _ = db.render_html(_clean_data(tmp_path), tmp_path)
+    assert "렌더 · 가짜 데이터" in doc and "실기기" in doc
+    assert "지금 나온다" in doc
+    assert "지금 앱에 대한 사실과 근거" in doc and "운영 API·설정" in doc
+
+
+def test_board_strict_stops_on_preflight(tmp_path):
+    d = _clean_data(tmp_path)
+    d["facts"][0]["basis"] = "render"
+    f = tmp_path / "data.json"
+    f.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+    loose = run_cli("board", "--data", str(f), "--out", str(tmp_path / "b1"), home=tmp_path)
+    assert loose["ok"] is True and loose["preflight"], "경고는 돌려주되 조립은 한다"
+    strict = run_cli("board", "--data", str(f), "--out", str(tmp_path / "b2"), "--strict", home=tmp_path)
+    assert strict["ok"] is False and strict["code"] == "preflight_failed"
+
+
+def test_markdown_carries_facts_and_reachability(tmp_path):
+    md = db.render_markdown(_clean_data(tmp_path), [], tmp_path)
+    assert "## 지금 앱에 대한 사실과 근거" in md and "| 주간 지급량은 50개다 | 운영 API·설정 |" in md
+    assert "| 지금 나온다 |" in md
+
+
+@pytest.mark.parametrize("text,hit", [
+    ("아이콘을 누르세요", False), ("아이디 입력", False), ("아이콘", False),
+    ("우리 아이 기록", True), ("아이가 좋아해요", True), ("아이들이 써요", True),
+    ("아이에게는", True), ("아이.", True),
+])
+def test_banned_word_is_a_word_not_a_substring(text, hit):
+    """금지어 '아이'가 '아이콘'에 걸리던 오탐 (실측, #636)."""
+    assert db._banned_hit("아이", text) is hit
