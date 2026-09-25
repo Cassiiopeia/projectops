@@ -43,6 +43,11 @@ on:
         required: false
         default: false
         type: boolean
+      whats_new_override:
+        description: "이번 실행만 Play '출시 노트' 문구를 이 값으로 (비우면 env STORE_WHATS_NEW_OVERRIDE 규칙을 따른다)"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   # GITHUB_TOKEN 으로는 읽기만 한다. 명시해 두면 레포 기본값이 나중에 write 로 바뀌어도
@@ -63,8 +68,24 @@ env:
   # 통합 시점에 integrator의 flutter-root resolver가 project_paths.flutter 값으로 1회 치환.
   # FLUTTER_ROOT는 Flutter SDK 경로용 공식 변수라 충돌 — APP_ROOT로 분리
   APP_ROOT: "."  # @wizard auto:flutter-root
-  # 배포 모드 (store_only | store_prepare | store_submit)
+  # 배포 모드 — main 배포 시 Play 프로덕션 단계를 어디까지 갈지
+  #   store_only    : 내부 테스트 업로드까지 (기본)
+  #   store_prepare : + 프로덕션에 draft 로 올림 (Play Console 에서 '출시 시작'은 사람이 누른다)
+  #   store_submit  : + 프로덕션 심사 자동 등록
+  # 값은 레포 변수 ANDROID_DEPLOY_MODE 에서 읽는다 (Settings → Secrets and variables → Actions → Variables).
+  # 코드가 아니라 레포 변수에 두는 이유: 급할 때 배포 없이 자동 제출을 바로 끌 수 있어야 한다 (값을 store_only 로).
+  # 프로덕션 액세스가 없는 동안은 비워 둔다(store_only) — 프로덕션 단계가 매번 실패한다.
+  # 수동 실행(workflow_dispatch)에서 고른 값이 있으면 그것이 우선한다. 중간 트랙은 아래 PROMOTE_* 스위치가 맡는다.
   DEPLOY_MODE: ${{ github.event.inputs.deploy_mode || vars.ANDROID_DEPLOY_MODE || 'store_only' }}
+  # 스토어 '새로운 기능(What's new)' 문구 덮어쓰기 — Play Console 의 '출시 노트' 칸.
+  #   값이 있으면 → 버전과 상관없이 매번 이 문구를 그대로 넣는다.
+  #   ""(빈 문자열)이면 → 덮어쓰지 않고 CHANGELOG.json 의 해당 버전 항목을 넣는다.
+  # 이 칸은 사용자뿐 아니라 심사자도 본다. 변경 내용을 자세히 적고 싶지 않으면 한 줄 고정 문구를 쓴다.
+  # 출시 노트는 내부 테스트에 올릴 때 한 번 정해지고 비공개 테스트·프로덕션으로 승급할 때 그대로 따라간다.
+  # 그래서 이 값은 모든 트랙(내부·비공개·공개·프로덕션)에 같이 적용된다.
+  # 수동 실행 입력 whats_new_override 에 값을 주면 그 실행만 그 문구가 우선한다.
+  # iOS(PROJECT-FLUTTER-IOS-TESTFLIGHT.yaml)에도 같은 이름의 설정이 있다. 두 곳을 함께 바꾼다.
+  STORE_WHATS_NEW_OVERRIDE: ""
   # 트랙 승급 스위치 — DEPLOY_MODE 와 독립이다 (#618).
   # 비공개 테스트는 2023-11-13 이후 개인 계정이 프로덕션 액세스를 받는 조건이라,
   # 내부 테스트만 돌리면 그 조건이 영영 차지 않는다.
@@ -626,6 +647,9 @@ jobs:
           PROMOTE_TO_OPEN_TESTING: ${{ env.PROMOTE_TO_OPEN_TESTING }}
           CLOSED_TESTING_TRACK: ${{ env.CLOSED_TESTING_TRACK }}
           OPEN_TESTING_TRACK: ${{ env.OPEN_TESTING_TRACK }}
+          STORE_WHATS_NEW_OVERRIDE: ${{ env.STORE_WHATS_NEW_OVERRIDE }}
+          # 수동 실행 입력은 step env 로 받아 셸 주입을 막는다
+          INPUT_WHATS_NEW_OVERRIDE: ${{ github.event.inputs.whats_new_override }}
         run: |
           echo "=========================================="
           echo "🚀 Play Store 배포 시작"
@@ -702,6 +726,20 @@ jobs:
           # Release notes 준비
           CHANGELOG_DIR="android/fastlane/metadata/android/ko-KR/changelogs"
           mkdir -p "$CHANGELOG_DIR"
+
+          # >>> whats-new — 출시 노트 출처 결정. 테스트(test_store_whats_new.py)가 이 구간만 떼어 실행한다.
+          # 우선순위: 수동 실행 입력 → env STORE_WHATS_NEW_OVERRIDE → CHANGELOG. 공백만 있는 값은 없는 것으로 본다.
+          WHATS_NEW_OVERRIDE="$INPUT_WHATS_NEW_OVERRIDE"
+          if [ -z "$(printf '%s' "$WHATS_NEW_OVERRIDE" | tr -d '[:space:]')" ]; then
+            WHATS_NEW_OVERRIDE="$STORE_WHATS_NEW_OVERRIDE"
+          fi
+          if [ -n "$(printf '%s' "$WHATS_NEW_OVERRIDE" | tr -d '[:space:]')" ]; then
+            printf '%s\n' "$WHATS_NEW_OVERRIDE" > "$GITHUB_WORKSPACE/final_release_notes.txt"
+            echo "📝 출시 노트 출처: STORE_WHATS_NEW_OVERRIDE 덮어쓰기"
+          else
+            echo "📝 출시 노트 출처: CHANGELOG"
+          fi
+          # <<< whats-new
 
           if [ -f "$GITHUB_WORKSPACE/final_release_notes.txt" ]; then
             # Google Play release notes 한도(500 글자)에 맞춰 절단 (마진 두어 480자)

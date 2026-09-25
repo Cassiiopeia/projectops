@@ -1895,6 +1895,8 @@
                 <li><b>store_submit</b> — App Store 심사 자동 제출</li>
               </ul>
               <p style="margin:8px 0 0;color:#57606a;">⚠️ 신규 앱은 최초 1회 App Store Connect에서 수동 제출이 필요하고, 이후 업데이트부터 store_submit으로 자동화됩니다.</p>
+              <p style="margin:8px 0 0;"><b>'새로운 기능' 문구</b> — 기본은 CHANGELOG 해당 버전 항목입니다. 심사자에게 변경 내용을 자세히 보이고 싶지 않으면 워크플로 파일 <code>env</code>의 <code>STORE_WHATS_NEW_OVERRIDE</code>에 한 줄 문구를 적으세요. TestFlight 'What to Test'에는 영향이 없습니다.</p>
+              <p style="margin:6px 0 0;"><b>심사 메모(Notes)</b> — <code>ios/fastlane/review_notes.txt</code>가 있으면 매번 그 내용을 넣고, 없으면 App Store Connect 기존값을 그대로 둡니다.</p>
             </div>
 
             <div class="flex justify-between mt-8">

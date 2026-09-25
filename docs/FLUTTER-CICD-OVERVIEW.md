@@ -146,6 +146,28 @@ projectops의 Flutter CI/CD 시스템은 **마법사 도구**와 **GitHub Action
 > Fastfile 만 `store_submit` 이라, 워크플로를 거치지 않고 lane 을 직접 부르면 프로덕션
 > 심사에 올라갔다 (#618 에서 교정).
 
+### 스토어 '새로운 기능' 문구 (`STORE_WHATS_NEW_OVERRIDE`)
+
+`store_prepare`/`store_submit` 때 스토어 '새로운 기능(What's New)' 칸(iOS '이 버전의 새로운 기능',
+Android '출시 노트')에 들어갈 문구다. **사용자뿐 아니라 심사자도 본다.** 워크플로 파일 `env`에 둔다
+(iOS·Android 같은 이름 — 두 곳을 함께 바꾼다).
+
+| 값 | 동작 |
+|---|---|
+| `""` (템플릿 기본값) | CHANGELOG 해당 버전 항목을 넣는다 — 이전과 같다 |
+| 문구 | 버전과 상관없이 매번 그 문구를 넣는다 |
+
+- 공백만 있는 값은 빈 값으로 본다. 빌드 로그에 출처(`CHANGELOG` / `STORE_WHATS_NEW_OVERRIDE 덮어쓰기`)가 남는다.
+- 수동 실행 입력 `whats_new_override`에 값을 주면 **그 실행만** 우선한다.
+- iOS TestFlight 'What to Test'(내부 테스터용)는 이 값과 상관없이 항상 CHANGELOG를 쓴다.
+- Android 출시 노트는 내부 테스트 업로드 때 정해져 승급에 그대로 따라가므로 모든 트랙에 같이 적용된다.
+- 레포 변수가 아니라 `env`인 이유: 템플릿은 레포 변수를 미리 넣어 줄 수 없고, 거의 바꾸지 않는 값이라
+  코드에서 보이고 git 이력이 남는 편이 낫다. (배포 모드는 급할 때 바로 꺼야 해서 레포 변수 그대로다.)
+
+**iOS 심사 메모(Notes)** — `ios/fastlane/review_notes.txt`가 있으면 매번 그 내용을 넣고, 없거나 비어 있으면
+App Store Connect 기존값을 그대로 둔다. (예전에는 빈 파일로 '초기화'하려 했지만 빈 값은 전송되지 않아
+기존값이 남았다 — 실측.) 심사용 공용 계정 없이 로그인 안내를 Notes에만 두는 앱은 이 파일로 코드와 함께 관리한다.
+
 ### Android 트랙 — 내부 테스트만으로는 프로덕션에 못 간다 ⚠️
 
 `DEPLOY_MODE` 는 **프로덕션 단계만** 정한다. 중간 트랙은 독립 스위치가 맡는다.

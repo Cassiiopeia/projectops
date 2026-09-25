@@ -12,8 +12,32 @@
 #
 # ⚠️ 신규 앱은 최초 1회 App Store Connect에서 수동 제출이 필요합니다.
 #   그 이후 업데이트부터 store_submit으로 완전 자동 제출됩니다.
+#
+# 스토어 문구 (store_prepare / store_submit 에서만 쓰인다):
+#   '새로운 기능(What's New)' : 워크플로 env STORE_WHATS_NEW_OVERRIDE 가 있으면 그 문구, 없으면 CHANGELOG
+#   심사 메모(Notes)          : ios/fastlane/review_notes.txt 가 있으면 그 내용, 없으면 ASC 기존값 유지
 # ============================================================
 default_platform(:ios)
+
+# >>> store-text — 문구 결정 규칙. 테스트(test_store_whats_new.py)가 이 구간만 떼어 실행한다.
+# '새로운 기능' 문구와 그 출처를 돌려준다. 공백만 있는 값은 없는 것으로 본다.
+def resolve_whats_new(override, changelog)
+  default_notes = "버그를 수정하고 안정성을 개선했습니다."
+  o = (override || "").strip
+  return [o, "STORE_WHATS_NEW_OVERRIDE 덮어쓰기"] unless o.empty?
+  c = (changelog || "").strip
+  return [c, "CHANGELOG"] unless c.empty?
+  [default_notes, "기본 문구"]
+end
+
+# 심사 메모 원본 파일 내용. 없거나 비어 있으면 nil — 이때는 notes.txt 를 만들지 않아야 ASC 기존값이 남는다.
+# (빈 notes.txt 는 deliver 가 전송하지 않아 '초기화'도 되지 않는다 — 실측)
+def resolve_review_notes(path)
+  return nil unless File.file?(path)
+  text = File.read(path).strip
+  text.empty? ? nil : text
+end
+# <<< store-text
 
 platform :ios do
   desc "TestFlight 업로드 (+ DEPLOY_MODE=store_submit이면 App Store 심사 자동 제출)"
@@ -50,8 +74,10 @@ platform :ios do
     # 2) App Store 버전 준비 (+ store_submit이면 심사 자동 제출)
     if prepare_appstore
       app_ver = ENV["APP_VERSION"]
-      release_notes = (ENV["RELEASE_NOTES"] || "버그를 수정하고 안정성을 개선했습니다.").strip
-      release_notes = "버그를 수정하고 안정성을 개선했습니다." if release_notes.empty?
+      # '새로운 기능' 문구: 덮어쓰기 값이 있으면 그것, 없으면 CHANGELOG(RELEASE_NOTES).
+      # 왜 덮어쓰나는 워크플로 env 주석 참고. TestFlight What to Test 는 위 pilot 이 항상 CHANGELOG 를 쓴다.
+      release_notes, notes_source = resolve_whats_new(ENV["STORE_WHATS_NEW_OVERRIDE"], ENV["RELEASE_NOTES"])
+      UI.message("📝 whatsNew 출처: #{notes_source}")
 
       # whatsNew 메타를 절대경로로 생성 (상대경로는 fastlane CWD와 어긋나 공란 → 제출 거부).
       # release_notes.txt만 만들고 다른 메타는 안 만듦 → ASC 기존 메타(설명/키워드 등) 보존.
@@ -67,12 +93,20 @@ platform :ios do
       end
       UI.message("📝 whatsNew 메타 작성: #{release_notes}")
 
-      # 심사 메모(Notes) 초기화: 이전 버전 거절 대응 소명서가 자동 승계되는 문제 방지.
-      # review_information/notes.txt만 공란으로 → 연락처·데모계정 등 다른 심사정보는 ASC 기존값 보존.
+      # 심사 메모(Notes)는 ios/fastlane/review_notes.txt 를 원본으로 삼아 매번 그 내용을 넣는다.
+      # 심사용 공용 계정이 없어 로그인 안내를 Notes 에만 두는 앱은 그 안내가 어긋나면 거절되므로 코드와 함께 관리한다.
+      # 파일이 없거나 비어 있으면 notes.txt 를 만들지 않아 ASC 기존값을 그대로 둔다. 연락처 등 다른 심사정보는 건드리지 않는다.
+      notes_src = File.join(workspace, ENV["APP_ROOT"] || ".", "ios", "fastlane", "review_notes.txt")
       review_dir = File.join(metadata_path, "review_information")
-      FileUtils.mkdir_p(review_dir)
-      File.write(File.join(review_dir, "notes.txt"), "")
-      UI.message("🧹 심사 Notes 초기화 (review_information/notes.txt 공란)")
+      review_notes = resolve_review_notes(notes_src)
+      if review_notes
+        FileUtils.mkdir_p(review_dir)
+        File.write(File.join(review_dir, "notes.txt"), review_notes)
+        UI.message("📝 심사 Notes 작성: #{notes_src}")
+      else
+        FileUtils.rm_f(File.join(review_dir, "notes.txt"))
+        UI.message("⏭️  review_notes.txt 없음 — 심사 Notes는 ASC 기존값 유지")
+      end
 
       UI.message("📂 metadata_path=#{metadata_path}")
 
