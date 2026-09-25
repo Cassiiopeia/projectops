@@ -48,7 +48,7 @@ description: "Figma 시안을 코드로 옮기고, 옮긴 것이 시안과 같�
 | `../references/design-states.md` | 상태를 다 세는 법 — 시안이 그린 상태 · 코드의 5축 상태 · 빈틈 표 |
 | `references/conversion.md` | 값을 코드로 옮길 때 — 단위 환산·토큰 재사용 |
 | `references/framework-gaps.md` | 프레임워크가 시안 값을 **그대로 못 받는** 자리 (React·Flutter·React Native) |
-| `references/rendering.md` | 픽셀로 맞대기 전 — 렌더를 시안과 같은 조건으로 (세 프레임워크별 방법) |
+| `references/rendering.md` | 픽셀로 맞대기 전 — 렌더를 시안과 같은 조건으로 (세 프레임워크별 방법). **찍는 것은 pro-launch**(`app shot`·`web shot`·`render run`)가 하고, 여기엔 대조용으로 바꿀 것만 있다 |
 
 ## 스크립트 호출 규약 ⚠️
 
@@ -357,6 +357,20 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py conform \
 렌더를 시안과 같게 맞추는 방법은 `references/rendering.md` — **안 맞추면 본문이 통째로
 떠서 전부 어긋난 것으로 나온다.**
 
+**찍는 것은 pro-launch 로 한다** (스크립트는 `common-rules.md` 표준 블록을 `SKILL=pro-launch` 로 찾는다 → `{LAUNCH}`).
+대조용이므로 **원본 PNG** 를 받는다 — pro-launch 기본값(긴 변 1200 WebP)으로 줄이면 픽셀이 뭉개진다.
+
+```bash
+# 코드로 그려 찍는다 (Flutter 위젯 테스트 · 3배 Playwright 등) — 흔적 검사까지 한다
+{PYTHON} {LAUNCH}/launch_cli.py render snapshot --root {레포}
+{PYTHON} {LAUNCH}/launch_cli.py render run --root {레포} --cmd "{렌더 명령}" \
+  --collect "{렌더 결과 글롭}" --cleanup {임시 폴더}
+
+# 또는 기기·브라우저에서 그대로 받는다
+{PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV" --keep-format --out render
+{PYTHON} {LAUNCH}/launch_cli.py web shot --keep-format --out render
+```
+
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py diff \
   --render {앱 렌더.png} --design {시안 export.png} --out {차이.png} \
@@ -398,7 +412,9 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py diff \
 똑같이 지나간다.
 
 문제로 지목된 컴포넌트 하나만 시안 export 와 **같은 배율**(보통 3배)로 찍어 다시 맞댄다.
-배율을 맞추는 방법은 `references/rendering.md`.
+배율을 맞추는 방법은 `references/rendering.md` — Flutter 는 `RepaintBoundary` 로 감싼 위젯 테스트를,
+웹은 `deviceScaleFactor: 3` Playwright 스크립트를 임시로 짜 `render run` 으로 돌린다
+(pro-launch 브라우저는 1배로 고정이라 3배를 직접 못 찍는다).
 
 ## Phase 7 — 보고
 
