@@ -25,6 +25,7 @@ CLI_TO_SKILL = {
     "pro-launch/scripts/launch_cli.py": ["pro-launch/SKILL.md"],
     # QA 절차 — 남은 명령(detect·scenario·note·api·other)이 전부 문서에 있어야 한다 (#631)
     "pro-agent-test/scripts/e2e_cli.py": ["pro-agent-test/SKILL.md"],
+    "pro-design-brief/scripts/design_brief_cli.py": ["pro-design-brief/SKILL.md"],
 }
 
 

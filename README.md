@@ -166,7 +166,8 @@ npx projectops --mode skills
 |------|------|
 | `/pro-figma-verify` | Figma 시안을 코드로 옮기고, 옮긴 것이 시안과 같은지 픽셀로 센다 |
 | `/pro-build` | 프로젝트 빌드 실행, 에러 분석, 최적화 제안 |
-| `/pro-launch` | 앱·웹·서버를 띄우고 조작하고 찍는다 — 상태바 고정 캡처, 폭 바꾸기, 응답 바꿔치기(빈 목록·실패 연출) |
+| `/pro-launch` | 앱·웹·서버를 띄우고 조작하고 찍는다 — 상태바 고정 캡처, 폭 바꾸기, 응답 바꿔치기(빈 목록·실패 연출), 코드 렌더 |
+| `/pro-design-brief` | 시안보다 먼저 만든 화면의 디자인 요청서 — 상태별 캡처·대안·문구 후보·꼭 지킬 것을 보드로 만들어 디자이너에게 |
 
 > 설계·계획·구현 흐름은 `superpowers`(brainstorming → writing-plans → executing-plans)가 담당합니다.
 > `/pro-plan` · `/pro-analyze` · `/pro-implement`는 같은 역할의 이전 세대 경로로, 명시적으로 호출할 때만 동작합니다.

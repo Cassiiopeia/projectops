@@ -84,6 +84,7 @@ EVIDENCE_SKILLS = frozenset({
     "agent-test",     # 스크린샷·기기 로그
     "figma-verify",   # 덤프·시안 export·앱 렌더·차이 그림
     "launch",         # 앱·웹 캡처 · http 응답 (#629)
+    "design-brief",   # 요청서 보드 · 상태별 캡처 (#634)
 })
 
 DOCUMENT_SKILLS = frozenset({

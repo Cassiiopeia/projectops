@@ -285,6 +285,33 @@ effective_pat = repo.pat if repo.pat else config["github"].global_pat
 해석은 `scripts/common/paths.py`의 `resolve_output_root()`가 단일 담당한다.
 스킬이 경로 문자열을 직접 조립하지 않고 각 스킬 CLI의 `get-output-path`를 거친다 — 상세는 `doc-output-path.md`.
 
+### `design_brief` 섹션 (#634)
+
+`pro-design-brief` 가 쓴다. **`github` 아래에 두지 않는다** — GitHub 을 쓰지 않는 레포도 요청서를 받는다.
+
+```json
+{
+  "design_brief": {
+    "destination": "issue",
+    "auto_approve": false,
+    "projects": [
+      { "match": "acme-org/myapp", "destination": "issue", "designer": "designer-id", "auto_approve": true },
+      { "match": "/Users/me/work/landing", "destination": "html", "designer": "김디자인" }
+    ]
+  }
+}
+```
+
+| 필드 | 필수 | 설명 |
+|------|------|------|
+| `destination` | — | `issue`(디자인 이슈) · `html`(HTML 한 장) · `markdown`(md + PNG 폴더). 없으면 첫 실행 때 판정 |
+| `designer` | — | 디자이너 GitHub 아이디 또는 이름 (이슈 담당자) |
+| `auto_approve` | — | 게시 전 확인 생략. **기본 `false`** |
+| `projects[].match` | ✅ | GitHub `owner/repo` 또는 레포 **절대경로**(GitHub 이 아닐 때) |
+
+해석 우선순위: `projects[]` 일치 항목 → 섹션 기본값 → 첫 실행 판정. 해석·저장은
+`design_brief_cli.py config show|set` 이 한다 — 전체를 읽고 해당 키만 바꿔 쓴다.
+
 ---
 
 ## 8. 새 스킬에 Config 추가하는 방법

@@ -83,5 +83,22 @@
         "default": false
       }
     ]
+  },
+  "design_brief": {
+    "_주석": "pro-design-brief 요청서를 어디로 넘길지. projects[].match 는 owner/repo 또는 레포 절대경로. 생략하면 첫 실행 때 묻는다.",
+    "destination": "issue",
+    "auto_approve": false,
+    "projects": [
+      {
+        "match": "acme-org/myapp",
+        "destination": "issue",
+        "designer": "designer-id"
+      },
+      {
+        "match": "/Users/me/work/landing",
+        "destination": "html",
+        "designer": "김디자인"
+      }
+    ]
   }
 }
