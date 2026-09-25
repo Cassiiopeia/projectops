@@ -76,6 +76,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
 | `app shot` · `app launch` | 앱 화면을 찍는다 · 앱을 띄운다 |
 | `web setup\|open\|goto\|click\|type\|shot\|assert\|console\|close` | 브라우저 조작 |
 | `web viewport` · `web route` | 폭 바꾸기 · 응답 바꿔치기(빈 목록 · 500 · 지연) |
+| `render snapshot` · `render run` | 코드로 상태를 그려 찍는다 — 실행 · 수집 · 청소 · **흔적 검사** |
 | `http` | 단건 HTTP 요청 |
 | `access show\|set\|unset` · `db` · `logs` | 서버에 붙는 법 기록 · SQL · 로그 |
 | `shrink` | 이슈 첨부용 축소 · WebP |
@@ -132,6 +133,25 @@ source "{env_file 값}"
 - 요소 하나만 찍으려면 `web shot --selector "#card"`.
 - 안전 계약(바꾸는 조작은 로컬만 · 자격증명은 사용자에게)과 함정은 `references/web.md`. **반드시 읽는다.**
 
+## 코드로 상태를 그려 찍는다 — render
+
+실기기로 만들기 어려운 상태(빈 목록 · 실패 · 긴 글자 · 권한 거부)는 **코드로 그려서** 찍는다.
+렌더 코드는 네가 `references/render.md` 의 스택별 레시피를 보고 대상 레포에 **임시로** 짠다.
+스크립트는 실행 · 수집 · 청소 · 흔적 검사만 한다.
+
+```bash
+{PYTHON} {SCRIPTS}/launch_cli.py render snapshot --root {대상 레포}     # ① 임시 파일을 만들기 **전에**
+#   ② 임시 렌더 코드를 전용 폴더에 만든다 (예: client/test/_launch_render/)
+{PYTHON} {SCRIPTS}/launch_cli.py render run --root {대상 레포} --cwd client \
+  --cmd "flutter test test/_launch_render --update-goldens" \
+  --collect "client/test/_launch_render/shots/*.png" --cleanup client/test/_launch_render
+```
+
+- 실패하면 **수집하지 않고 청소만** 한 뒤 `render_failed` 와 출력 끝 40줄을 준다.
+- 끝난 뒤 레포에 처음에 없던 것이 남으면 `residue` 로 알린다. **지우지 않는다** — 다른 세션의
+  변경일 수 있다. 네가 만든 것이면 네가 지운다.
+- 캡처를 위해 AI 생성 API 를 부르지 않는다. 골든 기준 폴더에 쓰지 않는다.
+
 ## 서버 — 요청 · DB · 로그
 
 ```bash
@@ -171,3 +191,4 @@ source "{env_file 값}"
 - 프로젝트 구조 추측 — 무엇을 찍을지는 agent 가 코드를 읽고 정한다
 - 캡처를 위한 AI 생성 API 호출 — 가짜 데이터로 채운다(돈이 든다)
 - 탭·스와이프 추상화 — `adb shell input` 을 직접 쓴다
+- 상태 관리 방식 추측 — render 의 가짜 값 주입은 레시피를 보고 네가 짠다

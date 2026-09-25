@@ -730,3 +730,92 @@ def test_hook_survives_navigation_driven_by_a_later_call(tmp_path):
         assert d.get("code") != "console_hook_missing", d
         assert "LOAD_ERROR_MARK" in " ".join(l["text"] for l in d["logs"]), d
 
+
+# ── render (#632) ────────────────────────────────────────────────────────
+#
+# 임시 git 레포를 픽스처로 쓴다. 렌더 명령은 셸로 PNG 를 만드는 흉내만 낸다 —
+# 스크립트가 하는 일은 실행 · 수집 · 청소 · 흔적 검사뿐이라 그걸로 충분하다.
+
+_PNG = "printf '\\211PNG\\r\\n\\032\\n' > "
+
+
+def _render_repo(tmp_path):
+    proj = _repo(tmp_path, "renderproj", remote=None)
+    (proj / "keep.txt").write_text("x", encoding="utf-8")
+    subprocess.run(["git", "-C", str(proj), "add", "-A"], check=True)
+    subprocess.run(["git", "-C", str(proj), "-c", "user.email=t@t", "-c", "user.name=t",
+                    "commit", "-qm", "init"], check=True)
+    return proj
+
+
+def _render(proj, tmp, *args, shots=None):
+    shots = shots or tmp / "shots"
+    shots.mkdir(exist_ok=True)
+    rc, out, err = run_cli("render", *args, "--root", str(proj), home=tmp,
+                           env_extra={"SHOT_DIR": str(shots)})
+    return _j(out), shots
+
+
+def test_render_collects_cleans_and_finds_no_residue(tmp_path):
+    proj = _render_repo(tmp_path)
+    _render(proj, tmp_path, "snapshot")
+    tmpdir = proj / "_launch_render"
+    tmpdir.mkdir()
+    (tmpdir / "states_test.txt").write_text("임시 렌더 코드", encoding="utf-8")
+    d, shots = _render(proj, tmp_path, "run", "--cmd", f"mkdir -p _launch_render/shots && {_PNG}_launch_render/shots/a.png",
+                       "--collect", "_launch_render/shots/*.png", "--cleanup", "_launch_render")
+    assert d["ok"] is True and d["residue"] == [] and d["baseline"] == "snapshot", d
+    assert (shots / "a.png").is_file() and not tmpdir.exists()
+
+
+def test_render_failure_cleans_but_does_not_collect(tmp_path):
+    proj = _render_repo(tmp_path)
+    (proj / "_launch_render").mkdir()
+    d, shots = _render(proj, tmp_path, "run", "--cmd", f"{_PNG}_launch_render/a.png; echo boom; exit 3",
+                       "--collect", "_launch_render/*.png", "--cleanup", "_launch_render")
+    assert d["code"] == "render_failed" and d["exit_code"] == 3 and "boom" in d["output_tail"]
+    assert d["collected"] == [] and not (proj / "_launch_render").exists(), "실패했는데 청소를 안 했다"
+
+
+def test_render_reports_residue_and_does_not_delete_it(tmp_path):
+    """임시 파일을 만들기 전에 기준을 떴으므로, --cleanup 에서 빠뜨린 파일이 흔적으로 잡힌다."""
+    proj = _render_repo(tmp_path)
+    _render(proj, tmp_path, "snapshot")
+    (proj / "_launch_render").mkdir()
+    (proj / "stray.dart").write_text("// 빠뜨린 임시 파일", encoding="utf-8")
+    d, _ = _render(proj, tmp_path, "run", "--cmd", f"{_PNG}_launch_render/a.png",
+                   "--collect", "_launch_render/*.png", "--cleanup", "_launch_render")
+    assert d["code"] == "residue" and d["residue"] == ["?? stray.dart"], d
+    assert (proj / "stray.dart").exists(), "흔적을 스크립트가 지웠다 — 남의 변경일 수 있어 지우면 안 된다"
+
+
+def test_render_without_snapshot_ignores_what_was_already_changed(tmp_path):
+    """기준을 안 떴으면 실행 직전이 기준이다 — 원래 있던 변경을 흔적으로 몰지 않는다."""
+    proj = _render_repo(tmp_path)
+    (proj / "keep.txt").write_text("사용자가 고치던 중", encoding="utf-8")
+    d, _ = _render(proj, tmp_path, "run", "--cmd", f"{_PNG}a.png", "--collect", "*.png")
+    assert d["ok"] is True and d["baseline"] == "run" and d["residue"] == []
+
+
+def test_render_keeps_both_files_on_name_collision(tmp_path):
+    proj = _render_repo(tmp_path)
+    shots = tmp_path / "shots"
+    shots.mkdir()
+    (shots / "a.png").write_bytes(b"old")
+    d, _ = _render(proj, tmp_path, "run", "--cmd", f"{_PNG}a.png", "--collect", "*.png", shots=shots)
+    assert d["ok"] and (shots / "a.png").read_bytes() == b"old" and (shots / "a-2.png").is_file()
+
+
+def test_render_refuses_to_clean_outside_the_repo(tmp_path):
+    proj = _render_repo(tmp_path)
+    outside = tmp_path / "outside.txt"
+    outside.write_text("남의 파일", encoding="utf-8")
+    d, _ = _render(proj, tmp_path, "run", "--cmd", f"{_PNG}a.png", "--collect", "*.png",
+                   "--cleanup", str(outside), "--cleanup", "..")
+    assert outside.exists() and d["refused_cleanup"] and "warning" in d
+
+
+def test_render_run_needs_a_command(tmp_path):
+    d, _ = _render(_render_repo(tmp_path), tmp_path, "run")
+    assert d["code"] == "cmd_required"
+
