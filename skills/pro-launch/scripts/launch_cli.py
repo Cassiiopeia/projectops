@@ -19,6 +19,7 @@
     db               SQL 실행 (붙는 법은 access 에 적어 둔 대로)
     logs             서버 로그 (보는 법도 access 에 적어 둔 대로)
     shrink           이슈 첨부용 축소 · WebP
+    recall · learn · forget   이 컴퓨터에서 먹힌 조작 방식을 기억한다 (쓸수록 정확해진다)
     get-output-path  이번 실행 자리 + env.sh
 
 출력: MCP-style JSON (ok/code/summary/next 4필드 보장).
@@ -53,6 +54,7 @@ from common.state import (launch_file, migrate_launch,  # noqa: E402
 # 같은 스킬 안의 보조 모듈 — 스크립트로 불리든 테스트가 import 하든 찾게 한다
 if str(_HERE.parent) not in sys.path:
     sys.path.insert(0, str(_HERE.parent))
+import knowledge  # noqa: E402
 import stealth  # noqa: E402
 
 
@@ -1862,6 +1864,47 @@ def _shot_args(p) -> None:
                    help="PNG 원본 그대로 둔다 — 픽셀 대조처럼 원본이 필요할 때")
 
 
+# =========================================================================
+# 컴퓨터별 학습 메모 — recall · learn · forget (설계: docs/superpowers/specs/2026-09-29-...)
+# =========================================================================
+
+def _knowledge_paths(args) -> dict:
+    scope = getattr(args, "scope", "both")
+    root = _root(args)
+    want = ("repo", "machine") if scope == "both" else (scope,)
+    return {sc: knowledge.store_path(sc, root) for sc in want}
+
+
+def cmd_recall(args) -> int:
+    rows = knowledge.recall(_knowledge_paths(args), args.area, args.limit)
+    if not rows:
+        return out({"ok": True, "code": "empty", "entries": [],
+                    "summary": "이 컴퓨터에서 쌓인 방법이 아직 없다",
+                    "next": "작업이 끝나면 launch_cli.py learn 으로 먹힌 방법을 남긴다"})
+    return out({"ok": True, "code": "ok", "entries": rows,
+                "summary": f"{len(rows)}건 (verify:true 는 한 번 확인하고 쓴다)",
+                "next": "먹혔는지 안 먹혔는지 learn --result ok|fail 로 알린다"})
+
+
+def cmd_learn(args) -> int:
+    path = knowledge.store_path(args.scope, _root(args))
+    r = knowledge.learn(path, args.area, args.key, args.how, args.result)
+    if "error" in r:
+        return out({"ok": False, "code": r["error"], "error": r["message"],
+                    "next": "내용을 고쳐 다시 부른다"})
+    e = r["entry"]
+    return out({"ok": True, "code": "ok", "entry": e,
+                "summary": f"{e['key']} ok={e['ok']} fail={e['fail']} ({args.scope})",
+                "next": None})
+
+
+def cmd_forget(args) -> int:
+    path = knowledge.store_path(args.scope, _root(args))
+    n = knowledge.forget(path, args.key, args.area)
+    return out({"ok": True, "code": "ok" if n else "not_found", "removed": n,
+                "summary": f"{n}건 지움" if n else "그런 항목이 없다", "next": None})
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="launch_cli",
                                      description="앱·웹·서버를 띄우고 조작하고 찍는다")
@@ -2005,6 +2048,29 @@ def build_parser() -> argparse.ArgumentParser:
                    help=f"WebP 품질 (기본 {WEBP_QUALITY})")
     p.add_argument("--keep-format", action="store_true", help="WebP 로 바꾸지 않는다")
     p.set_defaults(func=cmd_shrink)
+
+    p = sub.add_parser("recall", help="이 컴퓨터에서 먹힌 조작 방식을 꺼낸다 (작업 시작 때 한 번)")
+    p.add_argument("--area", choices=list(knowledge.AREAS), default=None)
+    p.add_argument("--limit", type=int, default=knowledge.DEFAULT_LIMIT)
+    p.add_argument("--scope", choices=["both", "repo", "machine"], default="both")
+    p.add_argument("--root", default=".")
+    p.set_defaults(func=cmd_recall)
+
+    p = sub.add_parser("learn", help="먹힌·안 먹힌 방식을 남긴다 (쓸수록 정확해진다)")
+    p.add_argument("--area", required=True, choices=list(knowledge.AREAS))
+    p.add_argument("--key", required=True, help="한 줄 이름 (예: ios.tap)")
+    p.add_argument("--how", required=True, help=f"방법 ({knowledge.MAX_HOW}자 이내, 비밀값 금지)")
+    p.add_argument("--result", required=True, choices=["ok", "fail"])
+    p.add_argument("--scope", choices=list(knowledge.SCOPES), default="repo")
+    p.add_argument("--root", default=".")
+    p.set_defaults(func=cmd_learn)
+
+    p = sub.add_parser("forget", help="잘못 배운 방식을 지운다")
+    p.add_argument("--key", required=True)
+    p.add_argument("--area", choices=list(knowledge.AREAS), default=None)
+    p.add_argument("--scope", choices=list(knowledge.SCOPES), default="repo")
+    p.add_argument("--root", default=".")
+    p.set_defaults(func=cmd_forget)
 
     p = sub.add_parser("get-output-path", help="이번 실행의 산출물 자리 + env.sh")
     p.add_argument("--skill", default=None,

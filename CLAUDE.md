@@ -892,7 +892,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | implement | `skills/pro-implement/scripts/implement_cli.py` | find-inputs (**쓰는 게 아니라 읽는다** — plan·analyze 산출물 자리를 돌려준다, #623) |
 | figma-verify | `skills/pro-figma-verify/scripts/figma_verify_cli.py` | get-output-path, coverage, assets, diff |
 | agent-test | `skills/pro-agent-test/scripts/e2e_cli.py` | detect, scenario, note, api, other (실행·캡처 명령은 pro-launch 로 넘겨준다 — #631) |
-| launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, render, http, access, db, logs, shrink, get-output-path |
+| launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, render, http, access, db, logs, shrink, recall, learn, forget, get-output-path |
 | design-brief | `skills/pro-design-brief/scripts/design_brief_cli.py` | config, get-output-path, board, copy-lint, ascii |
 
 공유 도메인 로직은 `scripts/common/`에 있다 (gh_client, config, paths, title, issue_number, gh_branch, manifest, emit, bootstrap).
