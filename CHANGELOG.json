@@ -1,14 +1,45 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-29T13:44:47Z",
-    "currentVersion": "4.23.0",
+    "lastUpdated": "2026-09-29T13:53:52Z",
+    "currentVersion": "4.24.0",
     "projectType": "basic",
-    "totalReleases": 264,
+    "totalReleases": 265,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.24.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-29",
+      "pr_number": 642,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * 이 컴퓨터에서 먹힌 조작 방식을 recall·learn·forget으로 꺼내고 남기고 지우게 하고, 성공·실패 카운터로 쓸수록 순서가 정확해지며 항목 수와 글자 수에 상한을 둬 토큰을 아낌. 비밀값과 호스트 마우스 좌표 방식은 저장도 꺼내기도 막고 손상된 파일은 빈 메모로 계속 진행\n\n* **버그 수정**\n  * iOS 시뮬레이터를 cliclick·AppleScript 같은 호스트 마우스 좌표 클릭으로 조작하지 못하게 막고, 프로젝트의 Maestro·integration_test 같은 위젯 텍스트 기반 E2E를 먼저 찾아 쓰거나 사용자에게 묻도록 절차를 바꿈. simctl로 좌표 없이 되는 실행·딥링크·권한·캡처와 앱 밖 웹 인증 창의 한계도 명시\n\n* **기타**\n  * Merge remote-tracking branch 'origin/main' into develop",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "이 컴퓨터에서 먹힌 조작 방식을 recall·learn·forget으로 꺼내고 남기고 지우게 하고, 성공·실패 카운터로 쓸수록 순서가 정확해지며 항목 수와 글자 수에 상한을 둬 토큰을 아낌. 비밀값과 호스트 마우스 좌표 방식은 저장도 꺼내기도 막고 손상된 파일은 빈 메모로 계속 진행"
+          ]
+        },
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "iOS 시뮬레이터를 cliclick·AppleScript 같은 호스트 마우스 좌표 클릭으로 조작하지 못하게 막고, 프로젝트의 Maestro·integration_test 같은 위젯 텍스트 기반 E2E를 먼저 찾아 쓰거나 사용자에게 묻도록 절차를 바꿈. simctl로 좌표 없이 되는 실행·딥링크·권한·캡처와 앱 밖 웹 인증 창의 한계도 명시"
+          ]
+        },
+        "기타": {
+          "title": "기타",
+          "items": [
+            "Merge remote-tracking branch 'origin/main' into develop"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.23.0",
       "project_type": "basic",
