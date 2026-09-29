@@ -1,14 +1,39 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-25T05:16:06Z",
-    "currentVersion": "4.22.0",
+    "lastUpdated": "2026-09-29T13:44:47Z",
+    "currentVersion": "4.23.0",
     "projectType": "basic",
-    "totalReleases": 263,
+    "totalReleases": 264,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.23.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-29",
+      "pr_number": 639,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * 로그인이 필요하면 거절하지 않고 계정 입력·직접 로그인·건너뛰기를 물어 원격 세션에서도 진행할 수 있게 하고, 값은 --text-env로만 넘기며 자동 재시도 금지·기록 금지·끝난 뒤 변경 권고는 유지하고 pro-agent-test와 규칙을 맞춤\n\n* **기타**\n  * Merge remote-tracking branch 'origin/main' into develop",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "로그인이 필요하면 거절하지 않고 계정 입력·직접 로그인·건너뛰기를 물어 원격 세션에서도 진행할 수 있게 하고, 값은 --text-env로만 넘기며 자동 재시도 금지·기록 금지·끝난 뒤 변경 권고는 유지하고 pro-agent-test와 규칙을 맞춤"
+          ]
+        },
+        "기타": {
+          "title": "기타",
+          "items": [
+            "Merge remote-tracking branch 'origin/main' into develop"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.22.0",
       "project_type": "basic",
