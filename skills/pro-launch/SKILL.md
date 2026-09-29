@@ -103,6 +103,7 @@ source "{env_file 값}"
 - 기본은 긴 변 1200px WebP 다. **픽셀 대조처럼 원본이 필요하면** `--keep-format`
   (또는 `--out` 에 경로를 직접 주면 그대로 저장한다).
 - 탭·스와이프는 감싸지 않는다 — `adb -s "$DEV" shell input tap x y` 를 직접 쓴다.
+  **iOS 시뮬레이터는 좌표로 누르지 않는다** (`cliclick` · AppleScript 금지) — 프로젝트의 E2E(Maestro 등)를 쓴다.
   붙는 법·함정은 `references/app.md`.
 
 ## 웹 — 브라우저를 몬다

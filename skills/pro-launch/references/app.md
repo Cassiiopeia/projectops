@@ -104,17 +104,27 @@ xcrun simctl uninstall {UDID} {번들ID}
 xcrun simctl io {UDID} recordVideo {경로}.mp4   # Ctrl+C로 종료
 ```
 
-### 좌표 조작의 제약 ⚠️
+### iOS 시뮬레이터는 좌표로 누르지 않는다 ⚠️
 
-**시뮬레이터에는 `adb shell input tap` 에 해당하는 공식 명령이 없다.**
+**금지: `cliclick` · AppleScript/`osascript`(System Events) 로 Simulator 창 클릭 · CGEvent 등,
+호스트 마우스를 움직여 화면 좌표를 누르는 모든 방법.**
 
-| 방법 | 쓸 수 있는 때 |
-| --- | --- |
-| `flutter drive` / `integration_test` | 앱에 테스트 하네스를 넣을 수 있을 때 |
-| AppleScript 로 Simulator 창 클릭 | 화면 좌표 → 창 좌표 환산 필요, 창 위치에 의존 |
-| 사용자에게 조작을 부탁 | 몇 단계 안 되는 확인일 때 |
+- 사용자의 **실제 커서를 움직인다.** 사용자가 다른 앱에서 일하는 중이면 방해하고, 엉뚱한 앱을 누른다
+  (실사고: 시뮬레이터가 아닌 다른 앱이 눌렸다).
+- 창 위치·크기, 앞에 뜬 창에 의존해 빗나가고 **무엇이 눌렸는지 알 수 없다.**
 
-iOS 에서 좌표 조작이 필요하면 **먼저 사용자에게 어느 방법을 쓸지 확인한다.**
+조작이 필요하면 이 순서로 한다:
+
+1. **프로젝트에 이미 있는 E2E 방식을 먼저 찾는다.** `e2e/` · `.maestro/` · `tool/*e2e*` ·
+   `integration_test/` 를 본다. 있으면 그것을 쓴다 — 위젯 **텍스트로 찾으므로** 좌표가 필요 없다.
+   원래 쓰던 방식을 확인하지 않고 임의로 고르지 않는다.
+2. 없으면 **사용자에게 어느 방법을 쓸지 묻는다**: Maestro 플로우 작성 / `flutter drive`·`integration_test`
+   작성 / 몇 단계 안 되면 사용자가 직접 조작.
+3. `simctl` 로 **좌표 없이** 되는 것은 그대로 쓴다: 실행 · 종료 · 딥링크(`xcrun simctl openurl {UDID} {URL}`) ·
+   권한(`xcrun simctl privacy`) · 캡처 · 녹화.
+
+**앱 밖 화면은 자동으로 못 누른다.** 네이버·구글 같은 웹 인증 창은 앱 바깥이라 E2E 로 조작할 수 없다.
+앱이 인증 요청을 보내는 데까지만 자동으로 확인하고, 그 안은 사용자에게 부탁한다.
 
 생체 인증은 시뮬레이터 메뉴로 대체할 수 있다: `Features → Face ID → Matching Face`.
 
