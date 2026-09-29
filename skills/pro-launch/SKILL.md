@@ -131,7 +131,7 @@ source "{env_file 값}"
   headed 여부였다). 기본으로 자동화 표식 가리기(stealth)가 켜져 있어 headless 에서도 덜 막힌다.
   사이트가 이상하게 굴면 `--no-stealth` 로 비교한다.
 - 요소 하나만 찍으려면 `web shot --selector "#card"`.
-- 안전 계약(바꾸는 조작은 로컬만 · 자격증명은 사용자에게)과 함정은 `references/web.md`. **반드시 읽는다.**
+- 안전 계약(바꾸는 조작은 로컬만 · 자격증명은 사용자가 원하면 받아서 `--text-env` 로 입력)과 함정은 `references/web.md`. **반드시 읽는다.**
 
 ## 코드로 상태를 그려 찍는다 — render
 
