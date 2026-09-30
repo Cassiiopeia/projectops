@@ -1,14 +1,53 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-30T12:22:01Z",
-    "currentVersion": "4.26.0",
+    "lastUpdated": "2026-09-30T14:57:56Z",
+    "currentVersion": "4.27.0",
     "projectType": "basic",
-    "totalReleases": 268,
+    "totalReleases": 269,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.27.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-30",
+      "pr_number": 659,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * 오픈소스 레포를 점검할 때 로컬 저장소의 코드 변경 범위, 문구 하드코딩, 의존성, 커밋된 비밀 파일을 측정할 수 있습니다\n\n* **버그 수정**\n  * 댓글에 `happy`, `application` 같은 단어가 들어가도 앱 빌드가 잘못 반응하던 문제 해결\n  * GitHub 일시 오류 때문에 PR 댓글이 이슈 댓글로 오인되던 문제 해결\n  * 외부에서 들어온 값이 배포 스크립트에 그대로 들어가던 보안 문제 해결\n\n* **개선**\n  * iOS 배포 준비 단계가 불필요한 설치를 하지 않아 더 빨라졌습니다\n\n* **문서**\n  * iOS 테스트 빌드 번호 개선 작업 보고서 추가",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "오픈소스 레포를 점검할 때 로컬 저장소의 코드 변경 범위, 문구 하드코딩, 의존성, 커밋된 비밀 파일을 측정할 수 있습니다"
+          ]
+        },
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "댓글에 `happy`, `application` 같은 단어가 들어가도 앱 빌드가 잘못 반응하던 문제 해결",
+            "GitHub 일시 오류 때문에 PR 댓글이 이슈 댓글로 오인되던 문제 해결",
+            "외부에서 들어온 값이 배포 스크립트에 그대로 들어가던 보안 문제 해결"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "iOS 배포 준비 단계가 불필요한 설치를 하지 않아 더 빨라졌습니다"
+          ]
+        },
+        "문서": {
+          "title": "문서",
+          "items": [
+            "iOS 테스트 빌드 번호 개선 작업 보고서 추가"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.26.0",
       "project_type": "basic",
