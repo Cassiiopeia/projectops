@@ -103,11 +103,6 @@ env:
   ENV_FILE_PATH: ".env"
 
   # ============================================
-  # 📝 TestFlight Changelog 설정
-  # ============================================
-  SKIP_WAITING_FOR_BUILD_PROCESSING: "false"
-
-  # ============================================
   # 📝 배포 모드 — main 배포 시 App Store 어디까지 올릴지
   # ============================================
   #   store_only    : TestFlight 업로드까지만 (기본)
@@ -141,7 +136,6 @@ jobs:
         shell: bash
         working-directory: ${{ env.APP_ROOT }}
     timeout-minutes: 30
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
 
     outputs:
       version: ${{ steps.current_version.outputs.version }}
@@ -201,39 +195,6 @@ jobs:
             echo "// No secrets provided" > ios/Flutter/Secrets.xcconfig
           fi
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          cache: true
-
-      - name: Cache Flutter dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.pub-cache
-          key: ${{ runner.os }}-flutter-pub-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: ${{ runner.os }}-flutter-pub-
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.1"
-          bundler-cache: true
-
-      - name: Install CocoaPods
-        run: |
-          gem install cocoapods
-          # 플러그인 의존성이 없는 프로젝트는 Flutter가 Podfile을 만들지 않는다.
-          # 이 경우 pod install은 불필요하므로 건너뛴다 (없으면 실패하던 문제).
-          if [ -f ios/Podfile ]; then
-            cd ios && pod install
-          else
-            echo "ℹ️ ios/Podfile 없음 - CocoaPods 의존성이 없는 프로젝트이므로 건너뜁니다"
-          fi
-
       - name: 버전 관리 스크립트 권한 설정
         working-directory: ${{ github.workspace }}   # 레포 루트 자산(.github/scripts)은 APP_ROOT가 아닌 레포 루트 기준
         run: |
@@ -288,14 +249,11 @@ jobs:
             python3 ./.github/scripts/changelog_manager.py generate-md
             python3 ./.github/scripts/changelog_manager.py export --version $VERSION --output final_release_notes.txt
 
-            if [ -s final_release_notes.txt ]; then
-              echo "RELEASE_NOTES_FOUND=true" >> $GITHUB_ENV
-            else
-              echo "RELEASE_NOTES_FOUND=false" >> $GITHUB_ENV
+            # 추출 결과가 비면 기본 문구로 대체
+            if [ ! -s final_release_notes.txt ]; then
               echo "v$VERSION 업데이트" > final_release_notes.txt
             fi
           else
-            echo "RELEASE_NOTES_FOUND=false" >> $GITHUB_ENV
             echo "v$VERSION 업데이트" > final_release_notes.txt
           fi
 
@@ -525,7 +483,6 @@ jobs:
           DEVELOPER_DIR: /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          SKIP_WAITING_FOR_BUILD_PROCESSING: ${{ env.SKIP_WAITING_FOR_BUILD_PROCESSING }}
           APP_ROOT: ${{ env.APP_ROOT }}   # 아래 스크립트가 셸 변수로 참조한다
           STORE_WHATS_NEW_OVERRIDE: ${{ env.STORE_WHATS_NEW_OVERRIDE }}
           INPUT_WHATS_NEW_OVERRIDE: ${{ github.event.inputs.whats_new_override }}
