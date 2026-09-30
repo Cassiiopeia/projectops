@@ -9,10 +9,10 @@
 # 🔑 필수 GitHub Secrets
 # ===================================================================
 # ENV_FILE 또는 ENV: .env 파일 내용 (둘 중 하나, ENV_FILE 우선)
-# RELEASE_KEYSTORE_BASE64: 서명용 keystore (base64)
-# RELEASE_KEYSTORE_PASSWORD: keystore 비밀번호
-# RELEASE_KEY_ALIAS: key alias
-# RELEASE_KEY_PASSWORD: key 비밀번호
+# RELEASE_KEYSTORE_BASE64 / RELEASE_KEYSTORE_PASSWORD / RELEASE_KEY_ALIAS / RELEASE_KEY_PASSWORD (선택, 4개 모두):
+#   저장소 변수 ANDROID_SELFHOSTED_RELEASE_SIGNING=true 일 때만 사용한다 (옵트인).
+#   변수가 없으면 시크릿이 있어도 기존처럼 디버그 키로 서명하고 경고를 남긴다.
+#   옵트인했는데 시크릿이 비어 있으면 빌드가 실패한다.
 # GOOGLE_SERVICES_JSON (선택): Firebase google-services.json
 # SERVER_HOST: 서버 호스트(SMB 접속 주소)
 # SERVER_USER: SMB 사용자명
@@ -43,6 +43,9 @@ env:
   SMB_PORT: "44445" # 기본 445
   SMB_SHARE: "web"
   SMB_PATH_IOS: "/your-project/ios/download" # SMB 경로: /{APP_ARTIFACT_NAME}/ios/download 형식으로 사용
+  # Android 업로드 하위 경로. 빈 값이면 /{APP_ARTIFACT_NAME} 바로 아래에 올린다 (기존 동작).
+  # 필요하면 "/android" 처럼 하위 경로를 넣는다. 값을 바꾸면 업로드 위치가 바뀌니 주의.
+  SMB_PATH_ANDROID: ""
   # Flutter 루트 경로(레포 루트 기준). 단일레포면 ".", 모노레포면 "app" 등.
   # 통합 시점에 integrator의 flutter-root resolver가 project_paths.flutter 값으로 1회 치환.
   # FLUTTER_ROOT는 Flutter SDK 경로용 공식 변수라 충돌 — APP_ROOT로 분리
@@ -98,18 +101,45 @@ jobs:
             --config "${{ github.workspace }}/.github/config/build-profile.json"
 
       # Keystore와 key.properties 설정
+      # 기본은 지금까지와 같이 디버그 키로 서명한다 (경고만 남긴다).
+      # 저장소 변수 ANDROID_SELFHOSTED_RELEASE_SIGNING=true 로 명시해야만 릴리스 키로 서명한다.
+      # RELEASE_* 시크릿은 다른 워크플로(Play Store 등)용으로 이미 있을 수 있어, 있다고 자동 전환하면
+      # 서명 키가 바뀌어 기기에 설치된 이전 APK 위에 업데이트 설치가 안 되는 사고가 난다.
+      # 옵트인했는데 시크릿이 비어 있으면 몰래 폴백하지 않고 실패시킨다.
+      # 시크릿과 변수는 스크립트에 직접 넣지 않고 env 로만 받는다 (값은 출력하지 않는다).
       - name: Setup Keystore and key.properties
+        env:
+          ANDROID_SELFHOSTED_RELEASE_SIGNING: ${{ vars.ANDROID_SELFHOSTED_RELEASE_SIGNING }}
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          DEBUG_KEYSTORE: ${{ secrets.DEBUG_KEYSTORE }}
         run: |
           mkdir -p android/app/keystore
-          echo "${{ secrets.DEBUG_KEYSTORE }}" | base64 -d > android/app/keystore/key.jks || echo "Base64 decoding failed"
-          echo "Keystore created from DEBUG_KEYSTORE"
-          ls -la android/app/keystore
-          echo "storeFile=app/keystore/key.jks" > android/key.properties
-          echo "storePassword=android" >> android/key.properties
-          echo "keyAlias=androiddebugkey" >> android/key.properties
-          echo "keyPassword=android" >> android/key.properties
-          echo "key.properties created"
-          ls -la android/
+          if [ "$ANDROID_SELFHOSTED_RELEASE_SIGNING" = "true" ]; then
+            if [ -z "$RELEASE_KEYSTORE_BASE64" ] || [ -z "$RELEASE_KEYSTORE_PASSWORD" ] \
+               || [ -z "$RELEASE_KEY_ALIAS" ] || [ -z "$RELEASE_KEY_PASSWORD" ]; then
+              echo "::error::ANDROID_SELFHOSTED_RELEASE_SIGNING=true 인데 RELEASE_KEYSTORE_BASE64, RELEASE_KEYSTORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD 중 비어 있는 시크릿이 있습니다. 4개를 모두 등록하거나 변수를 제거하세요."
+              exit 1
+            fi
+            echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > android/app/keystore/key.jks
+            printf 'storeFile=app/keystore/key.jks\n' > android/key.properties
+            printf 'storePassword=%s\n' "$RELEASE_KEYSTORE_PASSWORD" >> android/key.properties
+            printf 'keyAlias=%s\n' "$RELEASE_KEY_ALIAS" >> android/key.properties
+            printf 'keyPassword=%s\n' "$RELEASE_KEY_PASSWORD" >> android/key.properties
+            echo "Release 키로 서명합니다 (key.properties 생성 완료)"
+          else
+            echo "::warning::디버그 키로 서명합니다. 릴리스 키로 바꾸려면 저장소 변수 ANDROID_SELFHOSTED_RELEASE_SIGNING=true 와 RELEASE_* 시크릿을 등록하세요. 서명 키가 바뀌면 이미 설치된 앱 위에 업데이트 설치가 되지 않을 수 있습니다."
+            echo "$DEBUG_KEYSTORE" | base64 -d > android/app/keystore/key.jks || echo "Base64 decoding failed"
+            echo "Keystore created from DEBUG_KEYSTORE"
+            echo "storeFile=app/keystore/key.jks" > android/key.properties
+            echo "storePassword=android" >> android/key.properties
+            echo "keyAlias=androiddebugkey" >> android/key.properties
+            echo "keyPassword=android" >> android/key.properties
+            echo "key.properties created (debug)"
+          fi
+          ls -la android/app/keystore android/
 
       # Google-services.json 생성
       - name: Create Google-services.json
@@ -225,7 +255,7 @@ jobs:
       - name: Build APK
         run: |
           # 마법사가 까는 Fastfile 에는 `build` lane 이 없다 (#601).
-          # 있는 것: build_aab · deploy_internal · promote_internal_to_production · validate
+          # 있는 것: build_aab, deploy_internal, promote_internal_to_production, validate
           # 그래서 무턱대고 부르면 "Could not find lane" 으로 죽는다.
           # 직접 만든 Fastfile 에 build 가 있으면 그것을 쓰고, 없으면 flutter 로 빌드한다.
           BUILD_FLAGS="${{ steps.build_profile.outputs.build_flags }}"
