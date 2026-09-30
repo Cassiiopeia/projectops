@@ -8,10 +8,18 @@
     <script type="application/json" id="versionJson">
 {
   "name": "iOS TestFlight Setup Wizard",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Flutter iOS 앱을 TestFlight에 배포하기 위한 설정 마법사",
-  "lastUpdated": "2026-07-27",
+  "lastUpdated": "2026-09-30",
   "changelog": [
+    {
+      "version": "1.5.1",
+      "date": "2026-09-30",
+      "changes": [
+        "Secret 등록이 끝나면 다운로드한 github-secrets 파일을 삭제하라는 안내 추가 - 완료 화면 등록 방법, 내보내기 버튼 위 경고, 다운로드 완료 토스트, ZIP 안 README",
+        "JSON/TXT/ZIP 내보내기 파일에는 인증서와 API 키가 그대로 들어 있어 다운로드 폴더에 남기면 위험함을 명시"
+      ]
+    },
     {
       "version": "1.5.0",
       "date": "2026-07-27",
@@ -1767,6 +1775,7 @@
                     <li>GitHub 저장소 → Settings → Secrets and variables → Actions</li>
                     <li>"New repository secret" 클릭</li>
                     <li>아래 각 항목의 Name과 Value를 입력</li>
+                    <li class="text-red-300 font-semibold">등록이 끝나면 다운로드한 github-secrets 파일을 반드시 삭제</li>
                 </ol>
             </div>
 
@@ -1776,6 +1785,12 @@
             <!-- 내보내기 / 가져오기 섹션 -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-semibold text-slate-300 mb-4">📦 설정 내보내기 / 가져오기</p>
+
+                <!-- 다운로드 파일 삭제 경고 -->
+                <div class="bg-red-900/30 border border-red-700 rounded-lg p-3 mb-4">
+                    <p class="text-xs text-red-300 font-semibold">🗑️ Secret 등록이 끝나면 다운로드한 github-secrets 파일을 반드시 삭제하세요. 인증서와 키가 그대로 들어 있습니다.</p>
+                    <p class="text-xs text-red-200/80 mt-1">JSON/TXT/ZIP 내보내기 파일이 다운로드 폴더에 남아 있으면 누구나 배포 인증서와 App Store Connect 키를 꺼내 쓸 수 있습니다.</p>
+                </div>
 
                 <!-- 내보내기 버튼들 -->
                 <div class="flex flex-wrap gap-3 mb-4">

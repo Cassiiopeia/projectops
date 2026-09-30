@@ -1,9 +1,17 @@
 {
   "name": "iOS TestFlight Setup Wizard",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Flutter iOS 앱을 TestFlight에 배포하기 위한 설정 마법사",
-  "lastUpdated": "2026-07-27",
+  "lastUpdated": "2026-09-30",
   "changelog": [
+    {
+      "version": "1.5.1",
+      "date": "2026-09-30",
+      "changes": [
+        "Secret 등록이 끝나면 다운로드한 github-secrets 파일을 삭제하라는 안내 추가 - 완료 화면 등록 방법, 내보내기 버튼 위 경고, 다운로드 완료 토스트, ZIP 안 README",
+        "JSON/TXT/ZIP 내보내기 파일에는 인증서와 API 키가 그대로 들어 있어 다운로드 폴더에 남기면 위험함을 명시"
+      ]
+    },
     {
       "version": "1.5.0",
       "date": "2026-07-27",
