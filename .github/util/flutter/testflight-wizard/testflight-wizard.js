@@ -737,7 +737,7 @@ function downloadAsJson() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast('✅ JSON 파일 다운로드 완료!');
+    showToast('✅ JSON 파일 다운로드 완료! Secret 등록 후 이 파일은 반드시 삭제하세요.');
 }
 
 function downloadAsTxt() {
@@ -802,7 +802,7 @@ function downloadAsTxt() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast('✅ TXT 파일 다운로드 완료!');
+    showToast('✅ TXT 파일 다운로드 완료! Secret 등록 후 이 파일은 반드시 삭제하세요.');
 }
 
 // ============================================
@@ -893,10 +893,12 @@ Team ID: ${state.teamId || '(미설정)'}
 1. GitHub 저장소 → Settings → Secrets and variables → Actions
 2. \`github-secrets/\` 폴더 내 각 파일의 내용을 Secret으로 등록
 3. Secret 이름은 파일명에서 .txt를 제외한 이름 사용
+4. Secret 등록이 끝나면 다운로드한 github-secrets 파일과 폴더를 반드시 삭제하세요. 인증서와 키가 그대로 들어 있습니다
 
 ## ⚠️ 주의사항
 
 - 이 파일들에는 민감한 정보가 포함되어 있습니다
+- Secret 등록이 끝나면 github-secrets 파일을 삭제하세요. 인증서와 키가 그대로 들어 있습니다
 - 안전한 장소에 보관하고, Git에 커밋하지 마세요
 - 필요한 경우 암호화하여 보관하세요
 `;
