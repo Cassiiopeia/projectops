@@ -107,7 +107,7 @@ feature/20240101_#123_기능명
 | Android 테스트 (APK, Firebase) | 위 규칙 (App Store Connect 하한과 재시도 없음) |
 | Android 릴리스 (Play Store, Firebase CICD, 자체 서버) | 이 규칙과 무관 ([VERSION-CONTROL.md](VERSION-CONTROL.md#version_code-관리)) |
 
-`version.yml`에는 번호를 다시 쓰지 않습니다. 트리거 워크플로우가 보내는 `build_number` 값은 옛 사용자 레포와의 호환용으로 빈 값만 남아 있고, 빌드 워크플로우는 읽지 않습니다.
+`version.yml`에는 번호를 다시 쓰지 않습니다. 트리거 워크플로우는 옛 방식(PR/이슈 번호 + 댓글 횟수)으로 만든 `build_number`를 payload에 계속 실어 보냅니다. 새 빌드 워크플로우는 이 값을 읽지 않고 스스로 번호를 정합니다. 마법사는 사용자가 수정한 워크플로우를 덮어쓰지 않아 트리거만 새 것이고 빌더는 옛 수정본인 저장소가 생기는데, 옛 빌더는 이 값을 빌드 번호로 그대로 쓰기 때문입니다. 옛 빌더가 사라진 뒤 제거합니다.
 
 > **iOS 번호는 한 번 올라가면 이전 체계로 되돌릴 수 없습니다.** 시각 기반을 계속 쓰는 한 문제는 없습니다.
 
