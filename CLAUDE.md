@@ -919,7 +919,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | agent-test | `skills/pro-agent-test/scripts/e2e_cli.py` | detect, scenario, note, api, other (실행·캡처 명령은 pro-launch 로 넘겨준다 — #631) |
 | launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, render, http, access, db, logs, shrink, recall, learn, forget, get-output-path |
 | design-brief | `skills/pro-design-brief/scripts/design_brief_cli.py` | config, get-output-path, board, copy-lint, ascii |
-| oss-consult | `skills/pro-oss-consult/scripts/oss_cli.py` | collect, local-facts, list-repos, get-output-path (**사실만 모은다 — 판단은 에이전트**, #644) |
+| oss-consult | `skills/pro-oss-consult/scripts/oss_cli.py` | collect, local-facts, list-repos, get-output-path (**사실만 모은다 — 판단은 에이전트**, #644), repo-update, label (레포를 바꾸는 유일한 경로 — `--dry-run`·`before` 기록, **삭제·가시성 변경은 구현하지 않는다**, #660) |
 
 공유 도메인 로직은 `scripts/common/`에 있다 (gh_client, config, paths, title, issue_number, gh_branch, manifest, emit, bootstrap).
 

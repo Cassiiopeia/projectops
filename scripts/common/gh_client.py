@@ -25,6 +25,12 @@ class GitHubAPIError(Exception):
         super().__init__(f"GitHub API {status_code}: {message}")
         self.status_code = status_code
         self.message = message
+        # 응답 헤더(소문자 키). rate limit 판별에 쓴다 — request_json 이 채운다
+        self.headers: dict[str, str] = {}
+
+
+class GitHubNetworkError(Exception):
+    """네트워크 단절·타임아웃 등 HTTP 응답 자체를 받지 못한 경우."""
 
 
 class PyNaClMissingError(Exception):
@@ -84,6 +90,43 @@ def _request(method: str, url: str, data: dict | None, pat: str, raw: bool = Fal
         except Exception:
             msg = body_bytes.decode("utf-8", "replace")[:200] or str(e)
         raise GitHubAPIError(e.code, msg) from e
+
+
+def request_json(method: str, url: str, data: dict | None, pat: str, timeout: float = 20) -> Any:
+    """timeout 을 주고 네트워크 오류를 GitHubNetworkError 로 분리하는 공개 요청 헬퍼.
+
+    `_request` 는 timeout 이 없어 망이 끊기면 무한 대기할 수 있고, 응답 헤더를 버려
+    rate limit 과 권한 오류를 구분할 수 없다. 새 호출부는 이 함수를 쓴다.
+    """
+    body = json.dumps(data).encode() if data is not None else None
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method=method,
+        headers={
+            "Authorization": f"Bearer {pat}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "Content-Type": "application/json",
+            "User-Agent": "projectops",
+        },
+    )
+    try:
+        with _opener.open(req, timeout=timeout) as resp:
+            content = resp.read()
+            return json.loads(content.decode()) if content else {}
+    except urllib.error.HTTPError as e:
+        body_bytes = e.fp.read() if e.fp else b""
+        try:
+            msg = json.loads(body_bytes).get("message", str(e))
+        except Exception:
+            msg = body_bytes.decode("utf-8", "replace")[:200] or str(e)
+        err = GitHubAPIError(e.code, msg)
+        err.headers = {k.lower(): v for k, v in (e.headers or {}).items()}
+        raise err from e
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        # 메시지에 요청 헤더(PAT)는 들어가지 않는다
+        raise GitHubNetworkError(f"{type(e).__name__}: {e}") from e
 
 
 def list_labels(owner: str, repo: str, pat: str) -> list[str]:
