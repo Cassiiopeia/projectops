@@ -1,14 +1,57 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-29T13:53:52Z",
-    "currentVersion": "4.24.0",
+    "lastUpdated": "2026-09-30T11:18:29Z",
+    "currentVersion": "4.25.0",
     "projectType": "basic",
-    "totalReleases": 265,
+    "totalReleases": 266,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.25.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-30",
+      "pr_number": 655,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * iOS 앱 버전 상태와 최근 빌드 번호를 직접 조회하는 실행 작업 추가\n  * 오픈소스 레포를 6가지 관점으로 점검하는 컨설팅 스킬 추가\n  * 빌드 번호가 시각 기준으로 정해져 동시에 빌드해도 겹치지 않음\n\n* **버그 수정**\n  * 출시 후 iOS 테스트 빌드가 TestFlight에서 거부되던 문제 해결\n  * 표시된 커밋과 실제 빌드된 커밋이 다르던 문제 해결\n  * Android 테스트 빌드 번호가 겹치던 문제 해결\n\n* **개선**\n  * 닫힌 버전은 다음 패치 버전으로 자동 전환해 빌드\n  * 번호 때문에 거부되면 새 번호로 자동 재시도\n  * 빌드 실패 시 원인을 한 줄로 바로 확인\n\n* **문서**\n  * 빌드 번호 규칙과 자동 전환 안내 문서 갱신",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "iOS 앱 버전 상태와 최근 빌드 번호를 직접 조회하는 실행 작업 추가",
+            "오픈소스 레포를 6가지 관점으로 점검하는 컨설팅 스킬 추가",
+            "빌드 번호가 시각 기준으로 정해져 동시에 빌드해도 겹치지 않음"
+          ]
+        },
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "출시 후 iOS 테스트 빌드가 TestFlight에서 거부되던 문제 해결",
+            "표시된 커밋과 실제 빌드된 커밋이 다르던 문제 해결",
+            "Android 테스트 빌드 번호가 겹치던 문제 해결"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "닫힌 버전은 다음 패치 버전으로 자동 전환해 빌드",
+            "번호 때문에 거부되면 새 번호로 자동 재시도",
+            "빌드 실패 시 원인을 한 줄로 바로 확인"
+          ]
+        },
+        "문서": {
+          "title": "문서",
+          "items": [
+            "빌드 번호 규칙과 자동 전환 안내 문서 갱신"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.24.0",
       "project_type": "basic",
