@@ -12,8 +12,10 @@
 #
 # 주요 특징:
 # - workflow_dispatch로 수동 실행 또는 repository_dispatch로 트리거
-# - 버전은 version.yml에서 동적으로 읽어 사용 (운영 버전과 동일, 빌드 번호로 구분)
-# - 빌드 번호는 PR번호 + 카운트 또는 GITHUB_RUN_NUMBER 사용
+# - 버전은 version.yml에서 읽되, App Store에서 출시되어 닫힌 버전이면 다음 패치 버전으로 빌드
+#   (닫힌 버전으로 올리면 12~18분 빌드 뒤 Apple이 거부하므로 빌드 전에 미리 피한다)
+# - 빌드 번호는 .github/scripts/build_number.py 규칙(시각 기반, 항상 증가)으로 아카이브 직전에 결정
+# - 번호나 버전이 거부되면 ios_release.py가 원인을 분류해 최대 5회 자동 재시도 (#643)
 # - 브랜치명에서 이슈 번호 자동 추출 (YYYYMMDD_#이슈번호_내용 형식)
 # - GitHub API로 이슈 정보 가져와서 릴리즈 노트에 포함
 #
@@ -24,10 +26,10 @@
 # 상세: docs/BRANCH-CONVENTION.md (템플릿 레포)
 #
 # 빌드 파이프라인:
-#   1. flutter build ios --no-codesign (Flutter 빌드)
-#   2. xcodebuild archive (Xcode 아카이브 생성)
-#   3. xcodebuild -exportArchive (IPA 생성, ExportOptions.plist 사용)
-#   4. fastlane deploy (마법사 생성 Fastfile 사용, DEPLOY_MODE=store_only 고정)
+#   1. flutter build ios --no-codesign (Flutter 빌드, 임시 빌드 번호)
+#   2. ios_release.py archive-upload --phase build (번호 결정, 아카이브, IPA 생성, 번들 번호 검증)
+#   3. ios_release.py archive-upload --phase upload (fastlane deploy 호출, 마법사 생성 Fastfile 사용,
+#      DEPLOY_MODE=store_only 고정, 번호나 버전 거부 시 재시도)
 #
 # ===================================================================
 # 🔑 필수 GitHub Secrets
@@ -166,7 +168,6 @@ jobs:
           script: |
             const prNumber = parseInt('${{ github.event.client_payload.pr_number }}');
             const branchName = '${{ github.event.client_payload.branch_name }}';
-            const buildNumber = '${{ github.event.client_payload.build_number }}';
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
             const startTime = Date.now();
@@ -182,7 +183,7 @@ jobs:
               '',
               '| 항목 | 값 |',
               '|------|-----|',
-              `| **빌드 번호** | \`${buildNumber}\` |`,
+              '| **빌드 번호** | `빌드 시 결정` |',
               `| **브랜치** | \`${branchName}\` |`,
               '',
               `**[📋 실시간 로그 보기](${runUrl})**`,
@@ -210,7 +211,9 @@ jobs:
     runs-on: macos-26
     defaults:
       run:
+        shell: bash
         working-directory: ${{ env.APP_ROOT }}
+    timeout-minutes: 30
     needs: notify-start
     if: |
       always() &&
@@ -218,13 +221,16 @@ jobs:
 
     outputs:
       version: ${{ steps.test_version.outputs.version }}
-      build_number: ${{ steps.test_version.outputs.build_number }}
+      version_changed: ${{ steps.test_version.outputs.changed }}
+      version_reason: ${{ steps.test_version.outputs.reason }}
       issue_url: ${{ steps.issue_info.outputs.issue_url }}
       issue_title: ${{ steps.issue_info.outputs.issue_title }}
       issue_number: ${{ steps.issue_info.outputs.issue_number }}
       branch_name: ${{ steps.issue_info.outputs.branch_name }}
       pr_number: ${{ steps.test_version.outputs.pr_number }}
-      commit_hash: ${{ steps.release_notes.outputs.commit_hash }}
+      # 뒤 job 이 같은 커밋을 체크아웃하도록 SHA 를 넘긴다 (표시와 실제 빌드가 어긋나지 않게)
+      commit_sha: ${{ steps.commit.outputs.commit_sha }}
+      commit_hash: ${{ steps.commit.outputs.commit_hash }}
       # 빌드가 다른 job 에서 돌므로 컴파일타임 플래그를 output 으로 넘긴다 (#603)
       build_flags: ${{ steps.build_profile.outputs.build_flags }}
 
@@ -237,6 +243,15 @@ jobs:
 
       - name: Pull latest changes
         run: git pull origin ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}
+
+      # pull 이후의 HEAD 를 고정한다. 뒤 job 은 브랜치명이 아니라 이 SHA 로 체크아웃한다.
+      - name: HEAD SHA 고정
+        id: commit
+        run: |
+          SHA=$(git rev-parse HEAD)
+          echo "commit_sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "commit_hash=${SHA:0:7}" >> "$GITHUB_OUTPUT"
+          echo "📌 빌드 대상 커밋: $SHA"
 
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
@@ -276,31 +291,51 @@ jobs:
         working-directory: ${{ github.workspace }}   # 레포 루트 자산(.github/scripts)은 APP_ROOT가 아닌 레포 루트 기준
         run: chmod +x ./.github/scripts/version_manager.sh
 
+      # 사전 점검용 App Store Connect 키. 키가 없거나 깨져도 준비 단계를 막지 않는다
+      # (점검이 version.yml 버전으로 폴백하고, 업로드 단계에서 다시 설치한다).
+      - name: Setup App Store Connect API Key
+        env:
+          API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+        run: |
+          if [ -n "$API_KEY_BASE64" ] && [ -n "$API_KEY_ID" ]; then
+            KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${API_KEY_ID}.p8"
+            mkdir -p "$(dirname "$KEY_PATH")"
+            if echo "$API_KEY_BASE64" | base64 --decode > "$KEY_PATH"; then
+              echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+            else
+              echo "::warning::App Store Connect 키를 해석하지 못해 version.yml 버전으로 진행합니다"
+            fi
+          else
+            echo "ℹ️ App Store Connect 키 시크릿이 없어 version.yml 버전으로 진행합니다"
+          fi
+
       - name: 테스트 빌드 버전 설정
         id: test_version
         working-directory: ${{ github.workspace }}   # version_manager.sh가 레포 루트 version.yml을 읽어야 함
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_IDENTIFIER: ${{ secrets.IOS_BUNDLE_ID || vars.IOS_BUNDLE_ID }}
         run: |
           # version_manager.sh로 버전 가져오기 (프로덕션 워크플로우와 동일한 방식)
           VERSION=$(./.github/scripts/version_manager.sh get | tail -n 1)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-          # repository_dispatch 이벤트인 경우 PR 번호를 빌드 번호로 사용
+          # repository_dispatch 이벤트인 경우 진행 댓글을 달 PR 번호를 받는다
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
-            BUILD_NUMBER="${{ github.event.client_payload.build_number }}"
             PR_NUMBER="${{ github.event.client_payload.pr_number }}"
             echo "📋 repository_dispatch 이벤트 감지"
             echo "  PR 번호: #$PR_NUMBER"
-            echo "  빌드 번호: $BUILD_NUMBER (PR 번호 사용)"
           else
-            BUILD_NUMBER="${{ github.run_number }}"
             PR_NUMBER=""
             echo "📋 workflow_dispatch 이벤트 감지"
-            echo "  빌드 번호: $BUILD_NUMBER (기본값)"
           fi
-
-          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-          echo "📋 테스트 빌드: 버전=$VERSION, 빌드번호=$BUILD_NUMBER"
+
+          # 출시되어 닫힌 버전이면 다음 패치 버전으로 바꾼다 (version, changed, reason 을 출력).
+          # 빌드 번호는 여기서 정하지 않고 아카이브 직전에 archive-upload 가 정한다.
+          python3 .github/scripts/ios_release.py precheck-version --mode test \
+            --version "$VERSION" --bundle-id "$APP_IDENTIFIER"
 
       # 브랜치명에서 이슈 번호 추출 및 GitHub API로 이슈 정보 가져오기
       - name: 브랜치명에서 이슈 정보 추출
@@ -364,16 +399,14 @@ jobs:
           ISSUE_TITLE: ${{ steps.issue_info.outputs.issue_title }}
           ISSUE_URL: ${{ steps.issue_info.outputs.issue_url }}
           BRANCH_NAME: ${{ steps.issue_info.outputs.branch_name }}
-          BUILD_NUMBER: ${{ steps.test_version.outputs.build_number }}
         run: |
-          COMMIT_SHA="${{ github.sha }}"
+          COMMIT_SHA="${{ steps.commit.outputs.commit_sha }}"
           COMMIT_SHORT=$(echo "$COMMIT_SHA" | cut -c1-7)
           BUILD_DATE=$(date '+%Y-%m-%d %H:%M:%S')
 
-          echo "commit_hash=$COMMIT_SHORT" >> $GITHUB_OUTPUT
-
+          # 빌드 번호는 아카이브 시점에 정해지므로 여기에 적지 않는다 (TestFlight 가 번호를 자체 표시)
           {
-            echo "테스트 빌드 #$BUILD_NUMBER"
+            echo "테스트 빌드"
             echo ""
             echo "브랜치: $BRANCH_NAME"
             echo "커밋: $COMMIT_SHORT"
@@ -431,7 +464,6 @@ jobs:
             const commentId = parseInt('${{ needs.notify-start.outputs.comment_id }}');
             const startTime = parseInt('${{ needs.notify-start.outputs.start_time }}');
             const branchName = '${{ github.event.client_payload.branch_name }}';
-            const buildNumber = '${{ github.event.client_payload.build_number }}';
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
 
@@ -452,7 +484,6 @@ jobs:
               '',
               '| 항목 | 값 |',
               '|------|-----|',
-              `| **빌드 번호** | \`${buildNumber}\` |`,
               `| **브랜치** | \`${branchName}\` |`,
               '',
               '❌ **환경 준비 중 오류가 발생했습니다.**',
@@ -470,38 +501,41 @@ jobs:
             console.log(`❌ 진행 상황 업데이트 완료: 준비 실패`);
 
   # ===================================================================
-  # iOS 빌드 (xcodebuild 직접 사용)
+  # iOS 빌드 + TestFlight 배포 (한 job)
   # ===================================================================
-  build-ios-test:
-    name: iOS 테스트 빌드
+  # 서명과 업로드를 한 job 에서 하는 이유 (#643):
+  #   번호나 버전이 Apple 에 거부되면 번호를 새로 정해 아카이브부터 다시 해야 하는데,
+  #   job 이 나뉘어 있으면 IPA 를 아티팩트로 넘긴 뒤라 재시도할 수 없다.
+  #   아카이브부터 업로드까지를 ios_release.py 가 맡아 번호 결정, 번들 번호 검증, 재시도를 한다.
+  build-upload-ios-test:
+    name: iOS 테스트 빌드 및 TestFlight 배포
     runs-on: macos-26
     defaults:
       run:
+        shell: bash
         working-directory: ${{ env.APP_ROOT }}
+    timeout-minutes: 120
     needs: [notify-start, prepare-test-build]
     if: |
       !cancelled() &&
       needs.prepare-test-build.result == 'success'
 
-    outputs:
-      step1_elapsed: ${{ steps.progress_step1.outputs.elapsed }}
-      step1_end_time: ${{ steps.progress_step1.outputs.end_time }}
-      step2_elapsed: ${{ steps.progress_step2.outputs.elapsed }}
-      step2_end_time: ${{ steps.progress_step2.outputs.end_time }}
-
     steps:
-      # 진행 상황 업데이트 - 준비 완료 (build job 시작 시점에 업데이트해야 준비 시간이 정확히 표시됨)
+      # 진행 상황 업데이트 - 준비 완료 (job 시작 시점에 업데이트해야 준비 시간이 정확히 표시됨)
       - name: 진행 상황 업데이트 - 준비 완료
         id: progress_step1
         if: github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
         uses: actions/github-script@v7
+        env:
+          # 사유 문구는 따옴표나 백틱이 섞일 수 있어 스크립트 소스에 박지 않고 env 로 읽는다
+          VERSION_CHANGED: ${{ needs.prepare-test-build.outputs.version_changed }}
+          VERSION_REASON: ${{ needs.prepare-test-build.outputs.version_reason }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const commentId = parseInt('${{ needs.notify-start.outputs.comment_id }}');
             const startTime = parseInt('${{ needs.notify-start.outputs.start_time }}');
             const branchName = '${{ github.event.client_payload.branch_name }}';
-            const buildNumber = '${{ github.event.client_payload.build_number }}';
             const version = '${{ needs.prepare-test-build.outputs.version }}';
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
@@ -511,6 +545,11 @@ jobs:
             const minutes = Math.floor(elapsed / 60);
             const seconds = elapsed % 60;
             const elapsedStr = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+
+            // 출시되어 닫힌 버전을 피해 version.yml 과 다른 버전으로 빌드하면 이유를 알린다
+            const versionNote = process.env.VERSION_CHANGED === 'true'
+              ? ['', `ℹ️ 버전 조정: ${process.env.VERSION_REASON}`]
+              : [];
 
             const body = [
               '## 🍎 iOS TestFlight 빌드 진행 중...',
@@ -523,8 +562,10 @@ jobs:
               '',
               '| 항목 | 값 |',
               '|------|-----|',
-              `| **앱 버전** | \`${version}(${buildNumber})\` |`,
+              `| **앱 버전** | \`${version}\` |`,
+              '| **빌드 번호** | `빌드 시 결정` |',
               `| **브랜치** | \`${branchName}\` |`,
+              ...versionNote,
               '',
               `**[📋 실시간 로그 보기](${runUrl})**`,
               '',
@@ -543,14 +584,13 @@ jobs:
             core.setOutput('elapsed', elapsedStr);
             core.setOutput('end_time', now.toString());
 
+      # 준비 job 이 고정한 SHA 로 체크아웃한다. 브랜치명으로 받으면 그 사이 push 된 커밋이 섞여
+      # 댓글에 표시한 커밋과 실제 빌드한 코드가 달라지므로 pull 도 하지 않는다.
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref }}
-
-      - name: Pull latest changes
-        run: git pull origin ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}
+          ref: ${{ needs.prepare-test-build.outputs.commit_sha }}
 
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
@@ -570,7 +610,13 @@ jobs:
           echo "=== Initializing Xcode components ==="
           xcrun simctl list >/dev/null 2>&1 || true
           echo "=== Downloading iOS platform ==="
-          xcodebuild -downloadPlatform iOS
+          # ⚠️ 설치 여부를 미리 판정해 건너뛰면 안 된다 (showsdks가 잡는 SDK와
+          #    기기 빌드용 디바이스 플랫폼은 별개). 조건 없이 항상 다운로드한다.
+          for i in 1 2 3; do
+            xcodebuild -downloadPlatform iOS && break
+            echo "⚠️ 시도 $i 실패 - 재시도"
+            sleep 15
+          done
 
       - name: Download project files
         uses: actions/download-artifact@v4
@@ -654,60 +700,64 @@ jobs:
         run: |
           BUILD_FLAGS="${{ needs.prepare-test-build.outputs.build_flags }}"
           echo "📦 Flutter 빌드... ${BUILD_FLAGS:+(플래그: $BUILD_FLAGS)}"
+          # 빌드 번호 1 은 임시값이다. 최종 번호는 archive-upload 가 아카이브 시점에 정해 주입한다.
           # shellcheck disable=SC2086  # 플래그는 공백으로 갈라져야 한다
           flutter build ios --release --no-codesign \
             --build-name="${{ needs.prepare-test-build.outputs.version }}" \
-            --build-number="${{ needs.prepare-test-build.outputs.build_number }}" \
+            --build-number=1 \
             $BUILD_FLAGS
 
-      - name: Create Archive
+      # 번호 결정 시 최근 빌드 번호 조회와 업로드에 쓰는 App Store Connect 키 (fastlane 도 같은 파일을 쓴다)
+      - name: Setup App Store Connect API Key
         env:
-          IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
-          # xcode-select만으로는 서브프로세스에 전파되지 않아 명시적으로 지정
-          DEVELOPER_DIR: /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
+          API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
         run: |
-          cd ios
-          xcodebuild -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -archivePath build/Runner.xcarchive \
-            -destination 'generic/platform=iOS' \
-            archive \
-            CODE_SIGN_STYLE=Manual \
-            PROVISIONING_PROFILE_SPECIFIER="$IOS_PROVISIONING_PROFILE_NAME" \
-            CODE_SIGN_IDENTITY="Apple Distribution"
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$API_KEY_BASE64" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_${API_KEY_ID}.p8
+          echo "ASC_KEY_PATH=$HOME/.appstoreconnect/private_keys/AuthKey_${API_KEY_ID}.p8" >> "$GITHUB_ENV"
 
-      - name: Export IPA
-        env:
-          # xcode-select만으로는 서브프로세스에 전파되지 않아 명시적으로 지정
-          DEVELOPER_DIR: /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
-        run: |
-          cd ios
-          xcodebuild -exportArchive \
-            -archivePath build/Runner.xcarchive \
-            -exportPath build/ipa \
-            -exportOptionsPlist ExportOptions.plist
-
-      - name: Create build metadata file
-        run: |
-          cat << EOF | sed -E 's/^ {10}//' > build-metadata.json
-          {
-            "pr_number": "${{ needs.prepare-test-build.outputs.pr_number }}",
-            "build_number": "${{ needs.prepare-test-build.outputs.build_number }}",
-            "issue_number": "${{ needs.prepare-test-build.outputs.issue_number }}",
-            "branch_name": "${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}"
-          }
-          EOF
-          cat build-metadata.json
-
-      - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
+      - name: Download release notes
+        uses: actions/download-artifact@v4
         with:
-          name: ios-ipa
-          # 아티팩트 액션은 defaults(working-directory)를 따르지 않고 항상 레포 루트 기준이라 APP_ROOT prefix가 필요하다
-          path: |
-            ${{ env.APP_ROOT }}/ios/build/ipa/*.ipa
-            ${{ env.APP_ROOT }}/build-metadata.json
-          retention-days: 1
+          name: release-notes
+          # ⚠️ 업로드 path가 '단일 파일'이면 upload-artifact가 경로를 평탄화한다.
+          #    레포 루트에 풀면 원위치가 복원되지 않으므로 원래 디렉터리를 명시한다.
+          path: ${{ env.APP_ROOT }}/
+
+      - name: Verify Fastfile exists
+        run: |
+          if [ ! -f "ios/fastlane/Fastfile" ]; then
+            echo "❌ ios/fastlane/Fastfile이 없습니다!"
+            echo "웹 마법사를 실행하여 설정 파일을 생성하세요:"
+            echo "  브라우저에서 .github/util/flutter/testflight-wizard/testflight-wizard.html 열기"
+            exit 1
+          fi
+          echo "✅ Fastfile 확인됨: ios/fastlane/Fastfile"
+
+      - name: Install Fastlane
+        working-directory: ${{ env.APP_ROOT }}/ios
+        run: |
+          # multi_json: google-apis transitive 의존성이 선언 누락한 upstream 버그 회피 (gemspec 미선언 → Gem::LoadError)
+          printf 'source "https://rubygems.org"\ngem "fastlane"\ngem "multi_json"\n' > Gemfile
+          bundle install
+          echo "✅ Fastlane installed (Bundler)"
+
+      # 아카이브, IPA export, 번들 번호 검증까지. 빌드 번호는 여기서 정해진다 (build_number.py 규칙).
+      # APP_ROOT 가 레포 루트 기준 상대 경로라 스크립트는 레포 루트에서 실행한다.
+      - name: IPA 빌드
+        id: build_phase
+        working-directory: ${{ github.workspace }}
+        env:
+          VERSION: ${{ needs.prepare-test-build.outputs.version }}
+          MODE: test
+          IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
+          APP_IDENTIFIER: ${{ secrets.IOS_BUNDLE_ID || vars.IOS_BUNDLE_ID }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          # xcode-select만으로는 서브프로세스에 전파되지 않아 명시적으로 지정
+          DEVELOPER_DIR: /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
+        run: python3 "$GITHUB_WORKSPACE/.github/scripts/ios_release.py" archive-upload --phase build
 
       # 진행 상황 업데이트 - IPA 빌드 완료
       - name: 진행 상황 업데이트 - IPA 빌드 완료
@@ -721,8 +771,8 @@ jobs:
             const step1EndTime = parseInt('${{ steps.progress_step1.outputs.end_time }}');
             const step1Elapsed = '${{ steps.progress_step1.outputs.elapsed }}';
             const branchName = '${{ github.event.client_payload.branch_name }}';
-            const buildNumber = '${{ github.event.client_payload.build_number }}';
-            const version = '${{ needs.prepare-test-build.outputs.version }}';
+            const buildNumber = '${{ steps.build_phase.outputs.build_number }}';
+            const version = '${{ steps.build_phase.outputs.version || needs.prepare-test-build.outputs.version }}';
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
 
@@ -765,10 +815,13 @@ jobs:
             core.setOutput('elapsed', elapsedStr);
             core.setOutput('end_time', now.toString());
 
-      # 빌드 실패 시 progress 댓글 업데이트
+      # IPA 빌드 단계(또는 그 앞)에서 실패했을 때만. 이 스텝은 업로드 스텝보다 앞이라
+      # 아직 실행 전인 upload_phase 대신 이미 결과가 나온 build_phase 로 판단한다.
       - name: 빌드 실패 시 progress 댓글 업데이트
-        if: failure() && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
+        if: failure() && steps.build_phase.outcome != 'success' && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
         uses: actions/github-script@v7
+        env:
+          REASON_LINE: ${{ steps.build_phase.outputs.reason_line }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -777,11 +830,12 @@ jobs:
             const step1EndTime = parseInt('${{ steps.progress_step1.outputs.end_time }}') || 0;
             const step1Elapsed = '${{ steps.progress_step1.outputs.elapsed }}';
             const branchName = '${{ github.event.client_payload.branch_name }}';
-            const buildNumber = '${{ github.event.client_payload.build_number }}';
-            const version = '${{ needs.prepare-test-build.outputs.version }}';
+            const buildNumber = '${{ steps.build_phase.outputs.build_number }}';
+            const version = '${{ steps.build_phase.outputs.version || needs.prepare-test-build.outputs.version }}';
             const commitHash = '${{ needs.prepare-test-build.outputs.commit_hash }}';
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
+            const reason = (process.env.REASON_LINE || '').trim();
 
             const now = Date.now();
 
@@ -794,6 +848,9 @@ jobs:
               step2ElapsedStr = s2Min > 0 ? `${s2Min}분 ${s2Sec}초` : `${s2Sec}초`;
             }
 
+            // 번호는 아카이브 직전에 정해지므로 그 전에 실패하면 아직 없다
+            const appVersion = buildNumber ? `${version}(${buildNumber})` : version;
+
             const body = [
               '## 🍎 ❌ iOS TestFlight 빌드 실패',
               '',
@@ -805,11 +862,12 @@ jobs:
               '',
               '| 항목 | 값 |',
               '|------|-----|',
-              `| **앱 버전** | \`${version}(${buildNumber})\` |`,
+              `| **앱 버전** | \`${appVersion}\` |`,
               `| **브랜치** | \`${branchName}\` |`,
               `| **커밋** | \`${commitHash}\` |`,
               '',
               '❌ **IPA 빌드 중 오류가 발생했습니다.**',
+              ...(reason ? ['', `**사유**: ${reason}`] : []),
               '',
               `🔗 [워크플로우 실행 로그 확인](${runUrl})`
             ].join('\n');
@@ -823,96 +881,34 @@ jobs:
 
             console.log(`❌ 진행 상황 업데이트 완료: IPA 빌드 실패`);
 
-  # ===================================================================
-  # TestFlight 배포 (마법사 생성 Fastfile 사용)
-  # ===================================================================
-  deploy-testflight-test:
-    name: TestFlight 테스트 배포
-    runs-on: macos-26
-    defaults:
-      run:
-        working-directory: ${{ env.APP_ROOT }}
-    needs: [notify-start, prepare-test-build, build-ios-test]
-    if: |
-      !cancelled() &&
-      needs.build-ios-test.result == 'success'
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref }}
-
-      - name: Setup App Store Connect API Key
+      # TestFlight 업로드 (마법사 생성 Fastfile 의 deploy lane). 번호나 버전이 거부되면
+      # ios_release.py 가 원인을 분류해 새 번호로 아카이브부터 다시 한다 (최대 5회).
+      - name: TestFlight 업로드
+        id: upload_phase
+        working-directory: ${{ github.workspace }}
         env:
-          API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
-          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-        run: |
-          mkdir -p ~/.appstoreconnect/private_keys
-          echo "$API_KEY_BASE64" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_${API_KEY_ID}.p8
-
-      - name: Download IPA artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ios-ipa
-          # 업로드 경로에 APP_ROOT prefix가 포함되므로 레포 루트에 풀면 원래 위치로 복원된다
-          path: .
-
-      - name: Download release notes
-        uses: actions/download-artifact@v4
-        with:
-          name: release-notes
-          # ⚠️ 업로드 path가 '단일 파일'이면 upload-artifact가 경로를 평탄화한다.
-          #    레포 루트에 풀면 원위치가 복원되지 않으므로 원래 디렉터리를 명시한다.
-          path: ${{ env.APP_ROOT }}/
-
-      - name: Verify Fastfile exists
-        run: |
-          if [ ! -f "ios/fastlane/Fastfile" ]; then
-            echo "❌ ios/fastlane/Fastfile이 없습니다!"
-            echo "웹 마법사를 실행하여 설정 파일을 생성하세요:"
-            echo "  브라우저에서 .github/util/flutter/testflight-wizard/testflight-wizard.html 열기"
-            exit 1
-          fi
-          echo "✅ Fastfile 확인됨: ios/fastlane/Fastfile"
-
-      - name: Install Fastlane
-        working-directory: ${{ env.APP_ROOT }}/ios
-        run: |
-          # multi_json: google-apis transitive 의존성이 선언 누락한 upstream 버그 회피 (gemspec 미선언 → Gem::LoadError)
-          printf 'source "https://rubygems.org"\ngem "fastlane"\ngem "multi_json"\n' > Gemfile
-          bundle install
-          echo "✅ Fastlane installed (Bundler)"
-
-      - name: Upload to TestFlight
-        env:
+          VERSION: ${{ needs.prepare-test-build.outputs.version }}
+          MODE: test
+          IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          # 재시도 시 다시 아카이브하므로 xcodebuild 에도 필요하다
+          DEVELOPER_DIR: /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
         run: |
-          # IPA 파일 찾기
-          IPA_PATH=$(find $GITHUB_WORKSPACE/ios/build/ipa -name "*.ipa" | head -1)
-          echo "📦 Found IPA at: $IPA_PATH"
-
-          if [ ! -f "$IPA_PATH" ]; then
-            echo "❌ IPA 파일을 찾을 수 없습니다!"
-            ls -la ios/build/ipa/
-            exit 1
-          fi
-
-          # Release notes 준비
-          if [ -f "final_release_notes.txt" ]; then
-            RELEASE_NOTES=$(cat final_release_notes.txt)
+          # Release notes 준비 (APP_ROOT 는 레포 루트 기준 경로)
+          if [ -f "$APP_ROOT/final_release_notes.txt" ]; then
+            RELEASE_NOTES=$(cat "$APP_ROOT/final_release_notes.txt")
             echo "📝 Release Notes:"
             echo "$RELEASE_NOTES"
           else
-            RELEASE_NOTES="테스트 빌드 #${{ needs.prepare-test-build.outputs.build_number }}"
+            RELEASE_NOTES="테스트 빌드"
             echo "📝 기본 Release Notes: $RELEASE_NOTES"
           fi
 
-          # 환경변수 설정 (Fastfile에서 사용)
+          # 환경변수 설정 (Fastfile에서 사용). IPA_PATH, BUILD_NUMBER, APP_VERSION 은 스크립트가 최종값으로 채운다.
           export API_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
-          export IPA_PATH="$IPA_PATH"
           export RELEASE_NOTES="$RELEASE_NOTES"
           # Fastfile 의 deploy lane 이 요구한다. 없으면 lane 안에서 멈춘다.
           export APP_IDENTIFIER="${{ secrets.IOS_BUNDLE_ID || vars.IOS_BUNDLE_ID }}"
@@ -923,7 +919,6 @@ jobs:
           export DEPLOY_MODE="store_only"
 
           echo "🔧 Working directory: $(pwd)"
-          echo "🔧 IPA_PATH: $IPA_PATH"
           echo "🔧 API_KEY_PATH: $API_KEY_PATH"
           echo "🔧 DEPLOY_MODE: $DEPLOY_MODE / APP_IDENTIFIER: $APP_IDENTIFIER"
 
@@ -931,20 +926,20 @@ jobs:
           #    전에는 `upload_testflight` 를 불렀는데 그런 lane 이 없어 **한 번도 성공한
           #    적이 없었다.** Fastfile 은 마법사가 덮어쓰므로 lane 을 손으로 더하면
           #    다시 깔 때 사라진다 — 워크플로를 있는 lane 에 맞춘다.
-          cd ios
-          bundle exec fastlane deploy
+          # `bundle exec fastlane deploy` 는 아래 스크립트가 ios/ 에서 호출한다 (재시도 때마다 다시 부름).
+          python3 "$GITHUB_WORKSPACE/.github/scripts/ios_release.py" archive-upload --phase upload
 
       - name: Notify TestFlight Upload Success
         if: success()
         run: |
           echo "✅ TestFlight 테스트 빌드 업로드 성공!"
-          echo "버전: ${{ needs.prepare-test-build.outputs.version }}"
-          echo "빌드 번호: ${{ needs.prepare-test-build.outputs.build_number }}"
+          echo "버전: ${{ steps.upload_phase.outputs.version || needs.prepare-test-build.outputs.version }}"
+          echo "빌드 번호: ${{ steps.upload_phase.outputs.build_number || steps.build_phase.outputs.build_number }}"
           if [ -n "${{ needs.prepare-test-build.outputs.pr_number }}" ]; then
             echo "PR 번호: ${{ needs.prepare-test-build.outputs.pr_number }}"
           fi
           echo "브랜치: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}"
-          echo "커밋: ${{ github.sha }}"
+          echo "커밋: ${{ needs.prepare-test-build.outputs.commit_sha }}"
           if [ -n "${{ needs.prepare-test-build.outputs.issue_url }}" ]; then
             echo "관련 이슈: ${{ needs.prepare-test-build.outputs.issue_url }}"
           fi
@@ -964,12 +959,12 @@ jobs:
           script: |
             const commentId = parseInt('${{ needs.notify-start.outputs.comment_id }}');
             const startTime = parseInt('${{ needs.notify-start.outputs.start_time }}');
-            const step2EndTime = parseInt('${{ needs.build-ios-test.outputs.step2_end_time }}');
-            const step1Elapsed = '${{ needs.build-ios-test.outputs.step1_elapsed }}';
-            const step2Elapsed = '${{ needs.build-ios-test.outputs.step2_elapsed }}';
+            const step2EndTime = parseInt('${{ steps.progress_step2.outputs.end_time }}');
+            const step1Elapsed = '${{ steps.progress_step1.outputs.elapsed }}';
+            const step2Elapsed = '${{ steps.progress_step2.outputs.elapsed }}';
             const branchName = '${{ github.event.client_payload.branch_name }}';
-            const buildNumber = '${{ github.event.client_payload.build_number }}';
-            const version = '${{ needs.prepare-test-build.outputs.version }}';
+            const buildNumber = '${{ steps.upload_phase.outputs.build_number || steps.build_phase.outputs.build_number }}';
+            const version = '${{ steps.upload_phase.outputs.version || needs.prepare-test-build.outputs.version }}';
             const commitHash = '${{ needs.prepare-test-build.outputs.commit_hash }}';
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
@@ -1018,24 +1013,27 @@ jobs:
 
             console.log(`✅ 진행 상황 최종 업데이트 완료: 전체 성공 (${totalElapsed})`);
 
-      # 진행 상황 최종 업데이트 - 실패
+      # 진행 상황 최종 업데이트 - 실패 (업로드 단계에서 실패한 경우)
       - name: 진행 상황 최종 업데이트 - 실패
-        if: failure() && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
+        if: failure() && steps.upload_phase.outcome == 'failure' && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
         uses: actions/github-script@v7
+        env:
+          REASON_LINE: ${{ steps.upload_phase.outputs.reason_line || steps.build_phase.outputs.reason_line }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const commentId = parseInt('${{ needs.notify-start.outputs.comment_id }}');
             const startTime = parseInt('${{ needs.notify-start.outputs.start_time }}');
-            const step2EndTime = parseInt('${{ needs.build-ios-test.outputs.step2_end_time }}') || 0;
-            const step1Elapsed = '${{ needs.build-ios-test.outputs.step1_elapsed }}';
-            const step2Elapsed = '${{ needs.build-ios-test.outputs.step2_elapsed }}';
+            const step2EndTime = parseInt('${{ steps.progress_step2.outputs.end_time }}') || 0;
+            const step1Elapsed = '${{ steps.progress_step1.outputs.elapsed }}';
+            const step2Elapsed = '${{ steps.progress_step2.outputs.elapsed }}';
             const branchName = '${{ github.event.client_payload.branch_name }}';
-            const buildNumber = '${{ github.event.client_payload.build_number }}';
-            const version = '${{ needs.prepare-test-build.outputs.version }}';
+            const buildNumber = '${{ steps.upload_phase.outputs.build_number || steps.build_phase.outputs.build_number }}';
+            const version = '${{ steps.upload_phase.outputs.version || needs.prepare-test-build.outputs.version }}';
             const commitHash = '${{ needs.prepare-test-build.outputs.commit_hash }}';
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
+            const reason = (process.env.REASON_LINE || '').trim();
 
             const now = Date.now();
 
@@ -1064,6 +1062,7 @@ jobs:
               `| **커밋** | \`${commitHash}\` |`,
               '',
               '❌ **TestFlight 배포 중 오류가 발생했습니다.**',
+              ...(reason ? ['', `**사유**: ${reason}`] : []),
               '',
               `🔗 [워크플로우 실행 로그 확인](${runUrl})`
             ].join('\n');
