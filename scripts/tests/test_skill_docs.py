@@ -256,3 +256,46 @@ def test_plan_skill_does_not_reference_removed_get_next_seq_subcommand():
     text = path.read_text(encoding="utf-8")
     assert "issue_cli.py 가 `get-next-seq`" not in text
     assert "`get-next-seq`·`normalize-title` 보유" not in text
+
+
+# 비ASCII 를 다루지 않아 PYTHONIOENCODING 이 필요 없는 호출 (파일 경로, 사유).
+# 여기 넣으려면 출력·입력이 숫자·영문뿐이라는 근거가 있어야 한다.
+_ASCII_ONLY_PYTHON_CALLS = {
+    # PR 번호(정수)만 출력한다
+    ("skills/pro-changelog-deploy/SKILL.md", "get('number','')"),
+    # 패키지 존재 여부만 종료코드로 본다 (출력 없음)
+    ("skills/pro-ssh/SKILL.md", 'import paramiko'),
+}
+
+
+def _bash_logical_lines(text):
+    """```bash 블록을 백슬래시 이어쓰기까지 합친 논리 명령 단위로 돌려준다."""
+    for block in re.findall(r"```(?:bash|sh)\n(.*?)```", text, re.S):
+        block = re.sub(r"\\\n\s*", " ", block)
+        yield from block.splitlines()
+
+
+def test_python_calls_in_skill_docs_force_utf8_stdio():
+    """#653: 한글이 흐르는 `$PYTHON` 호출은 PYTHONIOENCODING=utf-8 을 달아야 한다.
+
+    기본 인코딩이 UTF-8 이 아닌 Windows 에서는 python 이 stdout 을 cp949 등으로
+    내보내, 명령 치환으로 받은 한글이 깨진 채 커밋됐다. 실제로 pro-commit 6단계의
+    두 번째 호출(`-c`)만 이 지정이 빠져 있었다.
+
+    좁게 잡는다: 변수 대입(`PYTHON=`)·`-z` 검사·`-m pip` 는 대상이 아니고,
+    숫자만 다루는 호출은 위 허용 목록에 사유와 함께 둔다.
+    """
+    call = re.compile(r'"?\$PYTHON"?\s+(?:-c\b|"?[\w$/{}.~-]+\.py\b|"\$\w+(?:_PATH|_SCRIPT)")')
+    failures = []
+    for path in _skill_doc_paths():
+        rel = path.relative_to(ROOT).as_posix()
+        for line in _bash_logical_lines(path.read_text(encoding="utf-8")):
+            stripped = line.strip()
+            if stripped.startswith(("PYTHON=", "[ -z", "if ", "#")):
+                continue
+            if not call.search(line) or "PYTHONIOENCODING=utf-8" in line:
+                continue
+            if any(rel == f and key in line for f, key in _ASCII_ONLY_PYTHON_CALLS):
+                continue
+            failures.append(f"{rel}: {stripped[:100]}")
+    assert failures == []
