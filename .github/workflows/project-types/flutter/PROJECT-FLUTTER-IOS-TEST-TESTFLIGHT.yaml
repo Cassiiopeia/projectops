@@ -207,6 +207,69 @@ jobs:
             core.setOutput('comment_id', comment.id);
             core.setOutput('start_time', startTime);
 
+      # 취소 처리 (#648): 댓글을 만든 job 이 아직 실행 중일 때 취소된 경우. cancelled() 스텝은 그 job 이 취소돼야 돈다.
+      - name: 진행 상황 업데이트 - 취소 (알림 job)
+        if: cancelled() && github.event_name == 'repository_dispatch' && steps.progress.outputs.comment_id != ''
+        continue-on-error: true
+        uses: actions/github-script@v7
+        env:
+          COMMENT_ID: ${{ steps.progress.outputs.comment_id }}
+          START_TIME: ${{ steps.progress.outputs.start_time }}
+          BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
+          RUN_ID: ${{ github.run_id }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const commentId = parseInt(process.env.COMMENT_ID, 10);
+            const startTime = parseInt(process.env.START_TIME, 10);
+            const branchName = process.env.BRANCH_NAME;
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.RUN_ID}`;
+
+            // 성공/실패 스텝이 이미 최종 상태를 쓴 댓글은 덮어쓰지 않는다
+            const { data: current } = await github.rest.issues.getComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: commentId
+            });
+            if (!(current.body || '').startsWith('## 🍎 iOS TestFlight 빌드 진행 중...')) {
+              console.log('이미 최종 상태 댓글이라 취소 갱신을 건너뜀');
+              return;
+            }
+
+            let duration = '-';
+            if (!Number.isNaN(startTime)) {
+              const elapsed = Date.now() - startTime;
+              const minutes = Math.floor(elapsed / 60000);
+              const seconds = Math.floor((elapsed % 60000) / 1000);
+              duration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            }
+
+            const body = [
+              '## 🍎 🚫 iOS TestFlight 빌드 취소됨',
+              '',
+              '| 단계 | 상태 | 소요 시간 |',
+              '|------|------|----------|',
+              '| 🔧 준비 | ⏸️ 취소됨 | - |',
+              '| 🔨 IPA 빌드 | ⏸️ 취소됨 | - |',
+              '| 📤 TestFlight 배포 | ⏸️ 취소됨 | - |',
+              '',
+              `- 브랜치: \`${branchName}\``,
+              `- 총 소요 시간: ${duration}`,
+              '',
+              '🚫 **빌드가 취소되었습니다.** 새 빌드가 시작되었거나 수동으로 취소된 것입니다.',
+              '',
+              `🔗 [워크플로우 실행 로그 확인](${runUrl})`
+            ].join('\n');
+
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: commentId,
+              body: body
+            });
+
+            console.log('🚫 진행 상황 업데이트 완료: 취소됨');
+
   # ===================================================================
   # 테스트 빌드 준비 (macOS 환경 설정)
   # ===================================================================
@@ -512,6 +575,69 @@ jobs:
             });
 
             console.log(`❌ 진행 상황 업데이트 완료: 준비 실패`);
+
+      # 취소 처리 (#648): 준비 job 은 댓글을 만든 job 이 아니라 needs 출력으로 ID 를 받는다. 준비 job 이 취소되면 뒤의 빌드 job 은 시작조차 못 한다.
+      - name: 진행 상황 업데이트 - 취소 (준비 job)
+        if: cancelled() && github.event_name == 'repository_dispatch' && needs.notify-start.outputs.comment_id != ''
+        continue-on-error: true
+        uses: actions/github-script@v7
+        env:
+          COMMENT_ID: ${{ needs.notify-start.outputs.comment_id }}
+          START_TIME: ${{ needs.notify-start.outputs.start_time }}
+          BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
+          RUN_ID: ${{ github.run_id }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const commentId = parseInt(process.env.COMMENT_ID, 10);
+            const startTime = parseInt(process.env.START_TIME, 10);
+            const branchName = process.env.BRANCH_NAME;
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.RUN_ID}`;
+
+            // 성공/실패 스텝이 이미 최종 상태를 쓴 댓글은 덮어쓰지 않는다
+            const { data: current } = await github.rest.issues.getComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: commentId
+            });
+            if (!(current.body || '').startsWith('## 🍎 iOS TestFlight 빌드 진행 중...')) {
+              console.log('이미 최종 상태 댓글이라 취소 갱신을 건너뜀');
+              return;
+            }
+
+            let duration = '-';
+            if (!Number.isNaN(startTime)) {
+              const elapsed = Date.now() - startTime;
+              const minutes = Math.floor(elapsed / 60000);
+              const seconds = Math.floor((elapsed % 60000) / 1000);
+              duration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            }
+
+            const body = [
+              '## 🍎 🚫 iOS TestFlight 빌드 취소됨',
+              '',
+              '| 단계 | 상태 | 소요 시간 |',
+              '|------|------|----------|',
+              '| 🔧 준비 | ⏸️ 취소됨 | - |',
+              '| 🔨 IPA 빌드 | ⏸️ 취소됨 | - |',
+              '| 📤 TestFlight 배포 | ⏸️ 취소됨 | - |',
+              '',
+              `- 브랜치: \`${branchName}\``,
+              `- 총 소요 시간: ${duration}`,
+              '',
+              '🚫 **빌드가 취소되었습니다.** 새 빌드가 시작되었거나 수동으로 취소된 것입니다.',
+              '',
+              `🔗 [워크플로우 실행 로그 확인](${runUrl})`
+            ].join('\n');
+
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: commentId,
+              body: body
+            });
+
+            console.log('🚫 진행 상황 업데이트 완료: 취소됨');
 
   # ===================================================================
   # iOS 빌드 + TestFlight 배포 (한 job)
@@ -1098,3 +1224,67 @@ jobs:
             });
 
             console.log(`❌ 진행 상황 최종 업데이트 완료: TestFlight 배포 실패`);
+
+      # 취소 처리 (#648): 빌드 job 이 실행 중일 때 취소된 경우. success()/failure() 스텝은 취소 시 돌지 않아 이 스텝이 유일한 정리 경로다. 준비 job 은 이미 끝났으므로 준비는 완료로 표시한다.
+      - name: 진행 상황 업데이트 - 취소 (빌드 job)
+        if: cancelled() && github.event_name == 'repository_dispatch' && needs.notify-start.outputs.comment_id != ''
+        continue-on-error: true
+        uses: actions/github-script@v7
+        env:
+          COMMENT_ID: ${{ needs.notify-start.outputs.comment_id }}
+          START_TIME: ${{ needs.notify-start.outputs.start_time }}
+          BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
+          RUN_ID: ${{ github.run_id }}
+          STEP1_ELAPSED: ${{ steps.progress_step1.outputs.elapsed }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const commentId = parseInt(process.env.COMMENT_ID, 10);
+            const startTime = parseInt(process.env.START_TIME, 10);
+            const branchName = process.env.BRANCH_NAME;
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.RUN_ID}`;
+            const step1Elapsed = process.env.STEP1_ELAPSED;
+            // 성공/실패 스텝이 이미 최종 상태를 쓴 댓글은 덮어쓰지 않는다
+            const { data: current } = await github.rest.issues.getComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: commentId
+            });
+            if (!(current.body || '').startsWith('## 🍎 iOS TestFlight 빌드 진행 중...')) {
+              console.log('이미 최종 상태 댓글이라 취소 갱신을 건너뜀');
+              return;
+            }
+
+            let duration = '-';
+            if (!Number.isNaN(startTime)) {
+              const elapsed = Date.now() - startTime;
+              const minutes = Math.floor(elapsed / 60000);
+              const seconds = Math.floor((elapsed % 60000) / 1000);
+              duration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            }
+
+            const body = [
+              '## 🍎 🚫 iOS TestFlight 빌드 취소됨',
+              '',
+              '| 단계 | 상태 | 소요 시간 |',
+              '|------|------|----------|',
+              `| 🔧 준비 | ✅ 완료 | ${step1Elapsed || '-'} |`,
+              '| 🔨 IPA 빌드 | ⏸️ 취소됨 | - |',
+              '| 📤 TestFlight 배포 | ⏸️ 취소됨 | - |',
+              '',
+              `- 브랜치: \`${branchName}\``,
+              `- 총 소요 시간: ${duration}`,
+              '',
+              '🚫 **빌드가 취소되었습니다.** 새 빌드가 시작되었거나 수동으로 취소된 것입니다.',
+              '',
+              `🔗 [워크플로우 실행 로그 확인](${runUrl})`
+            ].join('\n');
+
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: commentId,
+              body: body
+            });
+
+            console.log('🚫 진행 상황 업데이트 완료: 취소됨');
