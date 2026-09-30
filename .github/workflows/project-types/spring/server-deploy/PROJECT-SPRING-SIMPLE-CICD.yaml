@@ -152,14 +152,14 @@ jobs:
       # GitHub Secrets에서 APPLICATION_PROD_YML 값을 읽어와서
       # 리소스 디렉토리에 파일로 생성
       - name: application-prod.yml 생성
+        env:
+          APPLICATION_PROD_YML: ${{ secrets.APPLICATION_PROD_YML }}
         run: |
           # 리소스 디렉토리 생성 (환경변수 사용)
           mkdir -p ${{ env.APPLICATION_YML_DIR }}
 
           # GitHub Secrets의 APPLICATION_PROD_YML 내용을 파일로 저장
-          cat << 'EOF' > ./${{ env.APPLICATION_YML_DIR }}/application-prod.yml
-          ${{ secrets.APPLICATION_PROD_YML }}
-          EOF
+          printf '%s\n' "$APPLICATION_PROD_YML" > ./${{ env.APPLICATION_YML_DIR }}/application-prod.yml
 
           echo "✅ application-prod.yml 파일 생성 완료 (${{ env.APPLICATION_YML_DIR }})"
 

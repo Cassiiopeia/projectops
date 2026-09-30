@@ -290,11 +290,14 @@ jobs:
       - name: 브랜치 정보를 찾을 수 없는 경우 에러 댓글 작성
         if: steps.source_info.outputs.found != 'true'
         uses: actions/github-script@v7
+        env:
+          # 댓글/브랜치명에서 온 문자열이 섞일 수 있어 스크립트 소스에 넣지 않고 env 로 전달 (#646)
+          ERROR_MESSAGE: ${{ steps.source_info.outputs.errorMessage }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const issueNumber = context.payload.issue.number;
-            const errorMessage = '${{ steps.source_info.outputs.errorMessage }}';
+            const errorMessage = process.env.ERROR_MESSAGE;
 
             const body = `❌ **앱 빌드 트리거 실패**
 
@@ -319,10 +322,12 @@ jobs:
         id: check_branch
         if: steps.source_info.outputs.found == 'true'
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ steps.source_info.outputs.branchName }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const branchName = '${{ steps.source_info.outputs.branchName }}';
+            const branchName = process.env.BRANCH_NAME;
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
 
@@ -351,11 +356,13 @@ jobs:
       - name: 브랜치가 존재하지 않는 경우 에러 댓글 작성
         if: steps.source_info.outputs.found == 'true' && steps.check_branch.outputs.exists == 'false'
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ steps.source_info.outputs.branchName }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const issueNumber = context.payload.issue.number;
-            const branchName = '${{ steps.source_info.outputs.branchName }}';
+            const branchName = process.env.BRANCH_NAME;
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
 
@@ -388,12 +395,16 @@ jobs:
         id: build_number_calc
         if: steps.source_info.outputs.found == 'true' && steps.check_branch.outputs.exists == 'true'
         uses: actions/github-script@v7
+        env:
+          SOURCE_NUMBER: ${{ steps.source_info.outputs.sourceNumber }}
+          SOURCE_TYPE: ${{ steps.source_info.outputs.sourceType }}
+          BUILD_TYPE: ${{ steps.build_type.outputs.buildType }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const sourceNumber = parseInt('${{ steps.source_info.outputs.sourceNumber }}');
-            const sourceType = '${{ steps.source_info.outputs.sourceType }}';
-            const buildType = '${{ steps.build_type.outputs.buildType }}';
+            const sourceNumber = parseInt(process.env.SOURCE_NUMBER);
+            const sourceType = process.env.SOURCE_TYPE;
+            const buildType = process.env.BUILD_TYPE;
 
             console.log(`📊 ${sourceType} #${sourceNumber}의 빌드 횟수 조회 중...`);
             console.log(`📱 빌드 타입: ${buildType}`);
@@ -461,14 +472,20 @@ jobs:
           steps.check_branch.outputs.exists == 'true' &&
           steps.build_type.outputs.buildAndroid == 'true'
         uses: actions/github-script@v7
+        env:
+          SOURCE_TYPE: ${{ steps.source_info.outputs.sourceType }}
+          SOURCE_NUMBER: ${{ steps.source_info.outputs.sourceNumber }}
+          BRANCH_NAME: ${{ steps.source_info.outputs.branchName }}
+          RELATED_ISSUE_NUMBER: ${{ steps.source_info.outputs.relatedIssueNumber }}
+          BUILD_NUMBER: ${{ steps.build_number_calc.outputs.buildNumber }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const sourceType = '${{ steps.source_info.outputs.sourceType }}';
-            const sourceNumber = '${{ steps.source_info.outputs.sourceNumber }}';
-            const branchName = '${{ steps.source_info.outputs.branchName }}';
-            const relatedIssueNumber = '${{ steps.source_info.outputs.relatedIssueNumber }}';
-            const buildNumber = '${{ steps.build_number_calc.outputs.buildNumber }}';
+            const sourceType = process.env.SOURCE_TYPE;
+            const sourceNumber = process.env.SOURCE_NUMBER;
+            const branchName = process.env.BRANCH_NAME;
+            const relatedIssueNumber = process.env.RELATED_ISSUE_NUMBER;
+            const buildNumber = process.env.BUILD_NUMBER;
 
             console.log(`🚀 Android 빌드 워크플로우 트리거 시작...`);
             console.log(`   ${sourceType} 번호: #${sourceNumber}`);
@@ -499,14 +516,20 @@ jobs:
           steps.check_branch.outputs.exists == 'true' &&
           steps.build_type.outputs.buildIos == 'true'
         uses: actions/github-script@v7
+        env:
+          SOURCE_TYPE: ${{ steps.source_info.outputs.sourceType }}
+          SOURCE_NUMBER: ${{ steps.source_info.outputs.sourceNumber }}
+          BRANCH_NAME: ${{ steps.source_info.outputs.branchName }}
+          RELATED_ISSUE_NUMBER: ${{ steps.source_info.outputs.relatedIssueNumber }}
+          BUILD_NUMBER: ${{ steps.build_number_calc.outputs.buildNumber }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const sourceType = '${{ steps.source_info.outputs.sourceType }}';
-            const sourceNumber = '${{ steps.source_info.outputs.sourceNumber }}';
-            const branchName = '${{ steps.source_info.outputs.branchName }}';
-            const relatedIssueNumber = '${{ steps.source_info.outputs.relatedIssueNumber }}';
-            const buildNumber = '${{ steps.build_number_calc.outputs.buildNumber }}';
+            const sourceType = process.env.SOURCE_TYPE;
+            const sourceNumber = process.env.SOURCE_NUMBER;
+            const branchName = process.env.BRANCH_NAME;
+            const relatedIssueNumber = process.env.RELATED_ISSUE_NUMBER;
+            const buildNumber = process.env.BUILD_NUMBER;
 
             console.log(`🚀 iOS 빌드 워크플로우 트리거 시작...`);
             console.log(`   ${sourceType} 번호: #${sourceNumber}`);
@@ -534,8 +557,11 @@ jobs:
       # 트리거 완료 댓글은 제거됨 - Android/iOS 각각의 진행상황 댓글이 이 역할을 대체
       - name: 트리거 완료 로그
         if: steps.source_info.outputs.found == 'true' && steps.check_branch.outputs.exists == 'true'
+        env:
+          BUILD_NUMBER: ${{ steps.build_number_calc.outputs.buildNumber }}
+          BRANCH_NAME: ${{ steps.source_info.outputs.branchName }}
         run: |
           echo "✅ Android 및 iOS 빌드 워크플로우 트리거 완료"
-          echo "📦 빌드 번호: ${{ steps.build_number_calc.outputs.buildNumber }}"
-          echo "🌿 브랜치: ${{ steps.source_info.outputs.branchName }}"
+          echo "📦 빌드 번호: $BUILD_NUMBER"
+          echo "🌿 브랜치: $BRANCH_NAME"
           echo "📋 각 플랫폼별 진행상황 댓글이 자동으로 생성됩니다."

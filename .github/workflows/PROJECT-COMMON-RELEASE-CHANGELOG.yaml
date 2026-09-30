@@ -324,8 +324,10 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Git 설정
+        env:
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
+          HEAD_BRANCH="$PR_HEAD_REF"
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git pull origin $HEAD_BRANCH
@@ -428,8 +430,10 @@ jobs:
           python3 .github/scripts/changelog_manager.py generate-md
 
       - name: 변경사항 커밋 및 푸시
+        env:
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
+          HEAD_BRANCH="$PR_HEAD_REF"
           # bump가 version.yml + 프로젝트 버전 파일(타입마다 다름)도 수정하므로 전체 스테이징.
           # ⚠️ 워킹트리에 만든 임시 파일은 전부 여기 딸려간다 — 작업 파일은 $RUNNER_TEMP에 둘 것 (#564).
           git add -A

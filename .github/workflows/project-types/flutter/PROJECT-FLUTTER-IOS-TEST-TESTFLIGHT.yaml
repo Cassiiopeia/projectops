@@ -107,10 +107,12 @@ jobs:
       - name: 브랜치 존재 여부 사전 확인
         id: verify_branch
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const branchName = '${{ github.event.client_payload.branch_name }}';
+            const branchName = process.env.BRANCH_NAME;
             const prNumber = '${{ github.event.client_payload.pr_number }}';
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
@@ -163,11 +165,13 @@ jobs:
         if: github.event.client_payload.pr_number != ''
         continue-on-error: true
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const prNumber = parseInt('${{ github.event.client_payload.pr_number }}');
-            const branchName = '${{ github.event.client_payload.branch_name }}';
+            const branchName = process.env.BRANCH_NAME;
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
             const startTime = Date.now();
@@ -305,7 +309,10 @@ jobs:
           ref: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref }}
 
       - name: Pull latest changes
-        run: git pull origin ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}
+        env:
+          # 외부에서 온 브랜치명은 스크립트 소스가 아니라 env 로 전달 (#646)
+          BRANCH_NAME: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}
+        run: git pull origin "$BRANCH_NAME"
 
       # pull 이후의 HEAD 를 고정한다. 뒤 job 은 브랜치명이 아니라 이 SHA 로 체크아웃한다.
       - name: HEAD SHA 고정
@@ -403,13 +410,17 @@ jobs:
       # 브랜치명에서 이슈 번호 추출 및 GitHub API로 이슈 정보 가져오기
       - name: 브랜치명에서 이슈 정보 추출
         id: issue_info
+        env:
+          # 브랜치명은 스크립트 소스에 직접 넣지 않고 env 로 받는다 (#646)
+          DISPATCH_BRANCH: ${{ github.event.client_payload.branch_name }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           # repository_dispatch인 경우 client_payload에서 브랜치명 가져오기
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
-            BRANCH_NAME="${{ github.event.client_payload.branch_name }}"
+            BRANCH_NAME="$DISPATCH_BRANCH"
             ISSUE_NUMBER="${{ github.event.client_payload.issue_number }}"
           else
-            BRANCH_NAME="${{ github.ref_name }}"
+            BRANCH_NAME="$REF_NAME"
             # 브랜치명에서 이슈 번호 추출 (#387 형식)
             ISSUE_NUMBER=$(echo "$BRANCH_NAME" | sed -n 's/.*#\([0-9]*\).*/\1/p')
           fi
@@ -521,12 +532,14 @@ jobs:
       - name: 진행 상황 업데이트 - 준비 실패
         if: failure() && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const commentId = parseInt('${{ needs.notify-start.outputs.comment_id }}');
             const startTime = parseInt('${{ needs.notify-start.outputs.start_time }}');
-            const branchName = '${{ github.event.client_payload.branch_name }}';
+            const branchName = process.env.BRANCH_NAME;
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
 
@@ -653,6 +666,7 @@ jobs:
         if: github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
         uses: actions/github-script@v7
         env:
+          BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
           # 사유 문구는 따옴표나 백틱이 섞일 수 있어 스크립트 소스에 박지 않고 env 로 읽는다
           VERSION_CHANGED: ${{ needs.prepare-test-build.outputs.version_changed }}
           VERSION_REASON: ${{ needs.prepare-test-build.outputs.version_reason }}
@@ -661,7 +675,7 @@ jobs:
           script: |
             const commentId = parseInt('${{ needs.notify-start.outputs.comment_id }}');
             const startTime = parseInt('${{ needs.notify-start.outputs.start_time }}');
-            const branchName = '${{ github.event.client_payload.branch_name }}';
+            const branchName = process.env.BRANCH_NAME;
             const version = '${{ needs.prepare-test-build.outputs.version }}';
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
@@ -890,13 +904,15 @@ jobs:
         id: progress_step2
         if: success() && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const commentId = parseInt('${{ needs.notify-start.outputs.comment_id }}');
             const step1EndTime = parseInt('${{ steps.progress_step1.outputs.end_time }}');
             const step1Elapsed = '${{ steps.progress_step1.outputs.elapsed }}';
-            const branchName = '${{ github.event.client_payload.branch_name }}';
+            const branchName = process.env.BRANCH_NAME;
             const buildNumber = '${{ steps.build_phase.outputs.build_number }}';
             const version = '${{ steps.build_phase.outputs.version || needs.prepare-test-build.outputs.version }}';
             const runId = '${{ github.run_id }}';
@@ -947,6 +963,7 @@ jobs:
         if: failure() && steps.build_phase.outcome != 'success' && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
         uses: actions/github-script@v7
         env:
+          BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
           REASON_LINE: ${{ steps.build_phase.outputs.reason_line }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -955,7 +972,7 @@ jobs:
             const startTime = parseInt('${{ needs.notify-start.outputs.start_time }}');
             const step1EndTime = parseInt('${{ steps.progress_step1.outputs.end_time }}') || 0;
             const step1Elapsed = '${{ steps.progress_step1.outputs.elapsed }}';
-            const branchName = '${{ github.event.client_payload.branch_name }}';
+            const branchName = process.env.BRANCH_NAME;
             const buildNumber = '${{ steps.build_phase.outputs.build_number }}';
             const version = '${{ steps.build_phase.outputs.version || needs.prepare-test-build.outputs.version }}';
             const commitHash = '${{ needs.prepare-test-build.outputs.commit_hash }}';
@@ -1013,6 +1030,7 @@ jobs:
         id: upload_phase
         working-directory: ${{ github.workspace }}
         env:
+          APP_IDENTIFIER_VALUE: ${{ secrets.IOS_BUNDLE_ID || vars.IOS_BUNDLE_ID }}
           VERSION: ${{ needs.prepare-test-build.outputs.version }}
           MODE: test
           IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
@@ -1037,7 +1055,7 @@ jobs:
           export API_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
           export RELEASE_NOTES="$RELEASE_NOTES"
           # Fastfile 의 deploy lane 이 요구한다. 없으면 lane 안에서 멈춘다.
-          export APP_IDENTIFIER="${{ secrets.IOS_BUNDLE_ID || vars.IOS_BUNDLE_ID }}"
+          export APP_IDENTIFIER="$APP_IDENTIFIER_VALUE"
           # 🔴 테스트 빌드는 **TestFlight 까지만** 간다.
           #    deploy lane 은 DEPLOY_MODE 에 따라 심사 자동 제출(store_submit)까지 가므로,
           #    기본값에 기대지 않고 여기서 못을 박는다. Fastfile 기본값이 바뀌어도
@@ -1057,6 +1075,8 @@ jobs:
 
       - name: Notify TestFlight Upload Success
         if: success()
+        env:
+          BUILD_BRANCH: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}
         run: |
           echo "✅ TestFlight 테스트 빌드 업로드 성공!"
           echo "버전: ${{ steps.upload_phase.outputs.version || needs.prepare-test-build.outputs.version }}"
@@ -1064,7 +1084,7 @@ jobs:
           if [ -n "${{ needs.prepare-test-build.outputs.pr_number }}" ]; then
             echo "PR 번호: ${{ needs.prepare-test-build.outputs.pr_number }}"
           fi
-          echo "브랜치: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}"
+          echo "브랜치: $BUILD_BRANCH"
           echo "커밋: ${{ needs.prepare-test-build.outputs.commit_sha }}"
           if [ -n "${{ needs.prepare-test-build.outputs.issue_url }}" ]; then
             echo "관련 이슈: ${{ needs.prepare-test-build.outputs.issue_url }}"
@@ -1080,6 +1100,8 @@ jobs:
       - name: 진행 상황 최종 업데이트 - 성공
         if: success() && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -1088,7 +1110,7 @@ jobs:
             const step2EndTime = parseInt('${{ steps.progress_step2.outputs.end_time }}');
             const step1Elapsed = '${{ steps.progress_step1.outputs.elapsed }}';
             const step2Elapsed = '${{ steps.progress_step2.outputs.elapsed }}';
-            const branchName = '${{ github.event.client_payload.branch_name }}';
+            const branchName = process.env.BRANCH_NAME;
             const buildNumber = '${{ steps.upload_phase.outputs.build_number || steps.build_phase.outputs.build_number }}';
             const version = '${{ steps.upload_phase.outputs.version || needs.prepare-test-build.outputs.version }}';
             const commitHash = '${{ needs.prepare-test-build.outputs.commit_hash }}';
@@ -1144,6 +1166,7 @@ jobs:
         if: failure() && steps.upload_phase.outcome == 'failure' && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
         uses: actions/github-script@v7
         env:
+          BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
           REASON_LINE: ${{ steps.upload_phase.outputs.reason_line || steps.build_phase.outputs.reason_line }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -1153,7 +1176,7 @@ jobs:
             const step2EndTime = parseInt('${{ steps.progress_step2.outputs.end_time }}') || 0;
             const step1Elapsed = '${{ steps.progress_step1.outputs.elapsed }}';
             const step2Elapsed = '${{ steps.progress_step2.outputs.elapsed }}';
-            const branchName = '${{ github.event.client_payload.branch_name }}';
+            const branchName = process.env.BRANCH_NAME;
             const buildNumber = '${{ steps.upload_phase.outputs.build_number || steps.build_phase.outputs.build_number }}';
             const version = '${{ steps.upload_phase.outputs.version || needs.prepare-test-build.outputs.version }}';
             const commitHash = '${{ needs.prepare-test-build.outputs.commit_hash }}';

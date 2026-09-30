@@ -115,10 +115,13 @@ jobs:
         id: verify_branch
         if: github.event_name == 'repository_dispatch'
         uses: actions/github-script@v7
+        env:
+          # 외부에서 온 브랜치명은 스크립트 소스에 넣지 않고 env 로 전달 (#646)
+          BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const branchName = '${{ github.event.client_payload.branch_name }}';
+            const branchName = process.env.BRANCH_NAME;
             const prNumber = '${{ github.event.client_payload.pr_number }}';
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
@@ -235,21 +238,26 @@ jobs:
           ref: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref }}
 
       - name: Pull latest changes
+        env:
+          BRANCH_NAME: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}
         run: |
-          BRANCH_NAME="${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}"
           echo "🌿 브랜치: $BRANCH_NAME"
           git pull origin "$BRANCH_NAME" || echo "⚠️ Pull 실패 (이미 최신 상태일 수 있음)"
 
       # 브랜치명에서 이슈 번호 추출 및 GitHub API로 이슈 정보 가져오기
       - name: 브랜치명에서 이슈 정보 추출
         id: issue_info
+        env:
+          # 브랜치명은 스크립트 소스에 직접 넣지 않고 env 로 받는다 (#646)
+          DISPATCH_BRANCH: ${{ github.event.client_payload.branch_name }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           # repository_dispatch인 경우 client_payload에서 브랜치명 가져오기
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
-            BRANCH_NAME="${{ github.event.client_payload.branch_name }}"
+            BRANCH_NAME="$DISPATCH_BRANCH"
             ISSUE_NUMBER="${{ github.event.client_payload.issue_number }}"
           else
-            BRANCH_NAME="${{ github.ref_name }}"
+            BRANCH_NAME="$REF_NAME"
             # 브랜치명에서 이슈 번호 추출 (#387 형식)
             ISSUE_NUMBER=$(echo "$BRANCH_NAME" | sed -n 's/.*#\([0-9]*\).*/\1/p')
           fi
@@ -611,12 +619,14 @@ jobs:
 
       - name: Generate APK filename
         id: apk_filename
+        env:
+          # 이슈 제목은 따옴표나 $(...) 가 들어올 수 있어 env 로 전달 (#646)
+          ISSUE_TITLE: ${{ needs.prepare-test-build.outputs.issue_title }}
         run: |
           REPO_NAME="${{ github.event.repository.name }}"
           COMMIT_SHORT="${{ needs.prepare-test-build.outputs.commit_hash }}"
           BUILD_NUMBER="${{ needs.prepare-test-build.outputs.build_number }}"
           ISSUE_NUMBER="${{ needs.prepare-test-build.outputs.issue_number }}"
-          ISSUE_TITLE="${{ needs.prepare-test-build.outputs.issue_title }}"
 
           # 이슈 제목 정제
           CLEAN_TITLE=""
@@ -781,8 +791,9 @@ jobs:
           ISSUE_NUMBER: ${{ needs.prepare-test-build.outputs.issue_number }}
           ISSUE_TITLE: ${{ needs.prepare-test-build.outputs.issue_title }}
           ISSUE_URL: ${{ needs.prepare-test-build.outputs.issue_url }}
+          BUILD_BRANCH: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}
         run: |
-          BRANCH_NAME="${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}"
+          BRANCH_NAME="$BUILD_BRANCH"
           COMMIT_SHA="${{ needs.prepare-test-build.outputs.commit_sha }}"
           BUILD_DATE=$(date '+%Y-%m-%d %H:%M:%S')
 
@@ -819,13 +830,15 @@ jobs:
 
       # 빌드 메타데이터 파일 생성 (댓글 작성 워크플로우용)
       - name: Create build metadata file
+        env:
+          BUILD_BRANCH: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}
         run: |
           cat << EOF | sed -E 's/^ {10}//' > build-metadata.json
           {
             "pr_number": "${{ needs.prepare-test-build.outputs.pr_number }}",
             "build_number": "${{ needs.prepare-test-build.outputs.build_number }}",
             "issue_number": "${{ needs.prepare-test-build.outputs.issue_number }}",
-            "branch_name": "${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}"
+            "branch_name": "$BUILD_BRANCH"
           }
           EOF
           cat build-metadata.json
@@ -921,6 +934,8 @@ jobs:
       - name: 진행 상황 최종 업데이트 - 성공
         if: success() && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.prepare-test-build.outputs.progress_comment_id != ''
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ needs.prepare-test-build.outputs.branch_name }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -932,7 +947,7 @@ jobs:
             const step4Elapsed = '${{ steps.firebase_time.outputs.elapsed }}';
             const prNumber = parseInt('${{ github.event.client_payload.pr_number }}');
             const buildNumber = '${{ needs.prepare-test-build.outputs.build_number }}';
-            const branchName = '${{ needs.prepare-test-build.outputs.branch_name }}';
+            const branchName = process.env.BRANCH_NAME;
             const commitHash = '${{ needs.prepare-test-build.outputs.commit_hash }}';
             const issueNumber = '${{ needs.prepare-test-build.outputs.issue_number }}';
             const runId = '${{ github.run_id }}';
@@ -1034,6 +1049,8 @@ jobs:
       - name: 진행 상황 최종 업데이트 - 실패
         if: failure() && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.prepare-test-build.outputs.progress_comment_id != ''
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ needs.prepare-test-build.outputs.branch_name }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -1044,7 +1061,7 @@ jobs:
             const prNumber = parseInt('${{ github.event.client_payload.pr_number }}');
             const buildNumber = '${{ needs.prepare-test-build.outputs.build_number }}';
             const version = '${{ needs.prepare-test-build.outputs.version }}';
-            const branchName = '${{ needs.prepare-test-build.outputs.branch_name }}';
+            const branchName = process.env.BRANCH_NAME;
             const issueNumber = '${{ needs.prepare-test-build.outputs.issue_number }}';
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
@@ -1123,13 +1140,15 @@ jobs:
       # 콘솔 알림
       - name: Notify Build Success
         if: success()
+        env:
+          BUILD_BRANCH: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}
         run: |
           echo "✅ Android 테스트 APK 빌드 성공!"
           echo "빌드 번호: ${{ needs.prepare-test-build.outputs.build_number }}"
           if [ -n "${{ needs.prepare-test-build.outputs.pr_number }}" ]; then
             echo "PR 번호: ${{ needs.prepare-test-build.outputs.pr_number }}"
           fi
-          echo "브랜치: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}"
+          echo "브랜치: $BUILD_BRANCH"
           echo "커밋: ${{ needs.prepare-test-build.outputs.commit_hash }}"
           if [ -n "${{ needs.prepare-test-build.outputs.issue_url }}" ]; then
             echo "관련 이슈: ${{ needs.prepare-test-build.outputs.issue_url }}"
