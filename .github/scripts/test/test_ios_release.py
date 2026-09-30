@@ -686,3 +686,29 @@ def test_asc_status_recent_build_failure_is_not_fatal(monkeypatch, capsys):
     out = json.loads(capsys.readouterr().out.strip())
     assert rc == 0 and out["recent_max_build"] is None and out["closed_max"] == "2.1.2"
 
+
+# E2E(elum)에서 사유가 "** ARCHIVE FAILED **" 배너만 나와 원인을 알 수 없던 결함 (#643)
+XCODE_FAIL = (
+    "Command line invocation:\n"
+    "/Users/runner/work/elum/elum/client/ios/Runner.xcodeproj: error: No profile for team 'CUK22HY6YC' "
+    "matching 'bad-profile' found: Xcode couldn't find any provisioning profiles matching 'CUK22HY6YC/bad-profile'. "
+    "Install the profile (by dragging and dropping it onto Xcode's dock item) or select a different one.\n"
+    "** ARCHIVE FAILED **\n")
+
+
+def test_last_error_line_prefers_real_error_over_banner():
+    line = ir._last_error_line(XCODE_FAIL)
+    assert line.startswith("No profile for team") and "bad-profile" in line
+    assert "ARCHIVE FAILED" not in line and "/Users/runner" not in line
+
+
+def test_last_error_line_falls_back_to_banner_then_last_line():
+    assert ir._last_error_line("building...\n** ARCHIVE FAILED **\n") == "** ARCHIVE FAILED **"
+    assert ir._last_error_line("just some output\nlast line\n") == "last line"
+    assert ir._last_error_line("") == "출력 없음"
+
+
+def test_last_error_line_uses_latest_error_when_several():
+    out = "a.swift: error: first problem\nb.swift: error: second problem\n** BUILD FAILED **\n"
+    assert ir._last_error_line(out) == "second problem"
+

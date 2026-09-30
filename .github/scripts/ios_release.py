@@ -321,8 +321,14 @@ def verify_ipa(ipa: Path, version: str, build: int) -> list[str]:
 
 
 def _last_error_line(out: str) -> str:
+    """실패 사유로 보일 한 줄. 진짜 원인은 `error: ...` 줄이고 마지막의 `** ARCHIVE FAILED **`
+    배너는 원인이 아니라 결과라, 배너는 error 줄이 없을 때만 쓴다 (E2E에서 배너만 보이던 결함)."""
     lines = [l for l in _ANSI.sub("", out or "").splitlines() if l.strip()]
-    hits = [l for l in lines if re.search(r"error:|\*\* .* FAILED|실행 실패", l)]
+    errors = [l for l in lines if "error:" in l]
+    if errors:
+        # 앞의 파일 경로는 떼고 원인 문장만 남긴다
+        return _clean_line(errors[-1].split("error:", 1)[1])
+    hits = [l for l in lines if re.search(r"\*\* .* FAILED|실행 실패", l)]
     return _clean_line((hits or lines or ["출력 없음"])[-1])
 
 
