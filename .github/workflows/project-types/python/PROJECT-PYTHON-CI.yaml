@@ -52,10 +52,10 @@ jobs:
 
       # 2. .env 파일 생성 (빌드 검증용)
       - name: .env 파일 생성
+        env:
+          ENV_CONTENT: ${{ secrets.ENV_FILE }}
         run: |
-          cat > .env << 'EOF'
-          ${{ secrets.ENV_FILE }}
-          EOF
+          printf '%s\n' "$ENV_CONTENT" > .env
           echo "✅ .env 파일이 생성되었습니다"
 
       # 3. Docker 빌드 환경 설정
@@ -81,6 +81,6 @@ jobs:
           echo ""
           echo "📋 빌드 정보:"
           echo "  🎯 프로젝트: ${{ env.PROJECT_NAME }}"
-          echo "  🌿 브랜치: ${{ github.ref_name }}"
+          echo "  🌿 브랜치: $GITHUB_REF_NAME"
           echo "  📝 커밋: ${{ github.sha }}"
           echo "  ⏰ 검증 시간: $(date '+%Y-%m-%d %H:%M:%S')"

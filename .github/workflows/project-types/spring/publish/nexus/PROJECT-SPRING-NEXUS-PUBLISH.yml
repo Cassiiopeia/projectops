@@ -35,13 +35,15 @@ jobs:
         uses: gradle/gradle-build-action@v2
 
       - name: Create gradle.properties from secret
+        env:
+          GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
         run: |
-          echo -e "${{ secrets.GRADLE_PROPERTIES }}" > gradle.properties
+          echo -e "$GRADLE_PROPERTIES" > gradle.properties
 
       - name: Get version
         id: get_version
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             # 태그에서 버전 추출
             TAG_NAME=${GITHUB_REF#refs/tags/}
             VERSION=${TAG_NAME#v}

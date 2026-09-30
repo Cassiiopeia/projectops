@@ -70,9 +70,11 @@ jobs:
 
       - name: Vercel 프로덕션 배포
         id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         working-directory: ${{ env.PROJECT_PATH }}
         run: |
-          URL=$(vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }} 2>&1 | grep -oE "https://[^[:space:]]*\.vercel\.app" | tail -1)
+          URL=$(vercel deploy --prod --yes --token="$VERCEL_TOKEN" 2>&1 | grep -oE "https://[^[:space:]]*\.vercel\.app" | tail -1)
           echo "deployment_url=${URL}" >> $GITHUB_OUTPUT
 
       - name: 배포 결과 요약
@@ -87,5 +89,5 @@ jobs:
           else
             echo "❌ **빌드 또는 배포 실패**" >> $GITHUB_STEP_SUMMARY
             echo "- 커밋: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- 브랜치: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- 브랜치: \`$GITHUB_REF_NAME\`" >> $GITHUB_STEP_SUMMARY
           fi

@@ -238,7 +238,7 @@ jobs:
           echo "  🆙 새 버전: ${{ steps.version.outputs.new_version }}"
           echo "  🔖 Git 태그: v${{ steps.version.outputs.new_version }}"
           echo "  📝 커밋: ${{ github.sha }}"
-          echo "  🌿 브랜치: ${{ github.ref_name }}"
+          echo "  🌿 브랜치: $GITHUB_REF_NAME"
           echo "  🕐 시간: $(date '+%Y-%m-%d %H:%M:%S UTC')"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
