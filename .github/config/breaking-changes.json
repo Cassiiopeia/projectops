@@ -45,6 +45,12 @@
     "message": "브랜치 전략이 전면 개편되었습니다. 기존: main(개발 통합) → deploy(프로덕션). 신규: develop(개발 통합) → main(default=프로덕션). deploy 브랜치는 폐기되었습니다. 배포·README·플러그인/NPM 동기화 워크플로우는 main push 트리거로, CI·시크릿 백업·Util 동기화는 develop 트리거로 변경되었습니다. 버전은 develop→main 릴리스 PR 안에서 RELEASE-CHANGELOG이 릴리스당 +1로 확정하며(main 직접 push는 VERSION-CONTROL 안전망이 처리), 일상 develop push는 버전을 올리지 않습니다. 기존 프로젝트 전환 절차: 1) git branch develop main && git push origin develop 2) 템플릿 재통합(업데이트 모드) 3) deploy 브랜치 삭제 4) 이후 개발은 develop에서, 릴리스는 develop→main PR로 진행. 전환 전까지는 이 업데이트를 받지 마세요."
   },
 
+  "4.25.0": {
+    "severity": "warning",
+    "title": "Flutter 테스트 빌드와 iOS 릴리스의 빌드 번호가 시각 기반으로 바뀜, 출시 후 iOS 테스트 빌드는 다음 패치 버전으로 자동 전환",
+    "message": "iOS 테스트, iOS 릴리스, Android 테스트(Firebase) 빌드 번호가 2024-01-01 UTC부터 지난 초(약 8,700만)로 바뀝니다. 동시에 여러 이슈에서 빌드해도 번호가 항상 증가하고, 번호 때문에 거부되면 스스로 새 번호로 최대 5회 재시도합니다. iOS 번호는 한 번 올라가면 이전 체계로 되돌릴 수 없습니다. iOS 릴리스 번호는 더 이상 version_code와 같지 않으며, version_code는 Android 릴리스(Play Store, Firebase CICD) 전용입니다. 자체 서버(SMB) 배포는 원래대로 pubspec의 +N을 씁니다. Firebase 테스트 빌드를 설치한 폰은 정식 앱 설치 전에 삭제가 필요합니다. 앱이 App Store에서 출시되어 닫힌 버전으로 iOS 테스트 빌드를 트리거하면 빌드 시작 직후 이유를 알리고 다음 패치 버전으로 빌드합니다. iOS 릴리스는 닫힌 버전이면 빌드 전에 실패하므로 version.yml 버전을 올린 뒤 다시 실행하세요. 이 사전 점검은 App Store Connect API 키로 버전 목록을 읽으며, 키 역할이 App Manager 이상이면 확실히 동작하고 Developer 역할은 읽기 권한을 확인하지 못해 조회가 안 되면 version.yml 버전으로 진행합니다(업로드 거부 시 자동 복구는 동일). 조치: 1) 워크플로를 새로 받으려면 npx projectops(업데이트 모드)로 재통합 2) iOS 릴리스가 닫힌 버전 오류로 멈추면 version.yml 버전 올리기 3) 새로 추가되는 Secret은 없습니다."
+  },
+
   "4.3.0": {
     "severity": "critical",
     "title": "네임스페이스 전면 중립화 — suh-*/cassiiopeia → projectops, config 홈 경로 이주",

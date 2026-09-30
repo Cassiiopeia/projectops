@@ -204,6 +204,18 @@ App Store Connect 기존값을 그대로 둔다. (예전에는 빈 파일로 '�
 
 상세 가이드: [FLUTTER-TEST-BUILD-TRIGGER.md](FLUTTER-TEST-BUILD-TRIGGER.md)
 
+### iOS 빌드 번호와 버전 (#643)
+
+| 항목 | 동작 |
+|------|------|
+| 빌드 번호 | 2024-01-01 UTC부터 지난 초 (약 8,700만), 아카이브 직전에 결정. ASC 최근 번호와 Apple 거부 메시지가 요구한 번호는 하한으로만 쓰임. 규칙은 `build_number.py` 한 곳 |
+| 테스트 빌드 버전 | `version.yml` 버전. 출시되어 닫힌 버전이면 다음 패치로 빌드하고 진행 댓글에 이유를 표시 |
+| 릴리스 버전 | `version.yml` 버전. 닫힌 버전이면 **빌드 전에 실패** (`version.yml` 버전을 올린 뒤 다시 실행) |
+| 업로드 거부 | 번호 중복이나 너무 낮은 번호는 새 번호로 최대 5회 재시도 (Flutter 빌드는 다시 하지 않음). 닫힌 버전 거부는 테스트만 다음 패치로 재시도 |
+| 실패 사유 | 테스트 빌드는 실패 댓글에 `사유` 한 줄, 릴리스는 실행 요약과 `::error::`로 표시 |
+
+`version_code`는 iOS와 테스트 빌드 번호에 쓰이지 않습니다 ([VERSION-CONTROL.md](VERSION-CONTROL.md#version_code-관리)). 자세한 규칙은 [FLUTTER-TEST-BUILD-TRIGGER.md](FLUTTER-TEST-BUILD-TRIGGER.md#빌드-번호-규칙)를 참고하세요.
+
 ---
 
 ## 빠른 시작
@@ -261,6 +273,8 @@ PR 또는 이슈에 댓글 작성:
 | `IOS_BUNDLE_ID` (선택) | 번들 ID. Secret 대신 저장소 변수(`vars`)로도 지정 가능 |
 | `ENV_FILE` (선택) | `.env` 파일 내용 |
 | `SECRETS_XCCONFIG` (선택) | `ios/Flutter/Secrets.xcconfig` 내용 |
+
+> **App Store Connect API 키 역할**: **App Manager 이상을 권장**합니다. 준비 단계가 이 키로 앱의 버전 목록과 최근 빌드 번호를 읽는데, Developer 역할은 읽기 권한이 **확인되지 않았습니다.** 조회가 안 되면 경고만 남기고 `version.yml` 버전으로 진행하며, 업로드가 닫힌 버전으로 거부될 때의 자동 복구는 동일하게 동작합니다. 새로 필요한 Secret은 없습니다.
 
 ### Android — Play Store 배포
 

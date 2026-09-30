@@ -15,6 +15,9 @@
     <string>manual</string>
     <key>signingCertificate</key>
     <string>Apple Distribution</string>
+    <!-- 빌드 번호와 버전은 워크플로가 정한 값 그대로 올린다. Xcode가 export 중 바꾸면 검증한 번호와 어긋난다 (#643) -->
+    <key>manageAppVersionAndBuildNumber</key>
+    <false/>
     <key>stripSwiftSymbols</key>
     <true/>
     <key>uploadBitcode</key>

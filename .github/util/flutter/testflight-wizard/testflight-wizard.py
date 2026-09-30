@@ -442,6 +442,8 @@ def create_export_options_plist():
     <string>manual</string>
     <key>signingCertificate</key>
     <string>Apple Distribution</string>
+    <key>manageAppVersionAndBuildNumber</key>
+    <false/>
     <key>stripSwiftSymbols</key>
     <true/>
     <key>uploadBitcode</key>

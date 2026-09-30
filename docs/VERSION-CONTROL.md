@@ -22,7 +22,7 @@
 
 ```yaml
 version: "2.4.3"              # 버전 (자동 관리)
-version_code: 94              # 빌드 번호 (자동 증가)
+version_code: 94              # Android 릴리스 빌드 번호 (자동 증가)
 project_types: ["spring"]     # 프로젝트 타입 배열 — 첫 항목이 primary
 
 metadata:
@@ -99,6 +99,10 @@ project_paths:
 ```
 
 ### version_code 관리
+
+`version_code`는 **Android 릴리스 전용**입니다. 매 릴리스마다 +1 되며 Play Store CICD와 Firebase CICD가 읽어 `versionCode`로 씁니다. 자체 서버(SMB) 배포는 `pubspec.yaml`의 `+N`을 씁니다.
+
+**iOS와 테스트 빌드(iOS 테스트, Android 테스트 APK)에는 쓰이지 않습니다.** 이들은 `build_number.py`가 정하는 시각 기반 번호(2024-01-01 UTC부터 지난 초)를 씁니다 (#643). iOS 릴리스 번호도 더 이상 `version_code`와 같지 않습니다.
 
 ```bash
 # 현재 빌드 번호 확인

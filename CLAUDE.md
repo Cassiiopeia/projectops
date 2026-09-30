@@ -534,6 +534,19 @@ deploy/publish 축은 **타입에 따라 적용 자체가 안 될 수 있다.** 
 - **안전망 `PROJECT-COMMON-VERSION-CONTROL`은 이 축을 쓰지 않는다** — 릴리스 PR을 거치지 않은
   main 직접 push 경로라 커밋의 컨벤션 준수를 신뢰할 수 없다. 항상 patch다.
 
+### 빌드 번호와 iOS 업로드 판단 (#643, agent 필독)
+
+앱 빌드 번호와 Apple 업로드 오류 해석은 **각각 한 곳에서만** 정한다. 워크플로 yaml에 번호 계산이나 오류 문구 grep을 다시 적지 않는다.
+
+| 무엇 | 어디 | 규칙 |
+|---|---|---|
+| 빌드 번호 | `.github/scripts/build_number.py` | `max(2024-01-01 UTC부터 지난 초, ASC 최근 번호+1, 거부 메시지 요구값+1)`. iOS 테스트, iOS 릴리스, Android 테스트 공통 |
+| Apple 업로드 오류 해석 | `.github/scripts/ios_release.py classify-error` | `duplicate` / `too_low` / `train_closed` / `other`로 분류. 재시도 여부도 이 분류로 정한다 |
+
+- `version_code`는 **Android 릴리스 전용**이다 (Play Store, Firebase CICD). iOS와 테스트 빌드 번호에 쓰지 않는다.
+- **새 Apple 오류 코드(ITMS-...)를 다루려면** `classify_upload_error`에 패턴을 넣고, `.github/scripts/test/test_ios_release.py`에 **실제 오류 문구 샘플**과 함께 케이스를 추가한다. 문구를 지어내지 않는다.
+- iOS 릴리스는 닫힌 버전이면 버전 이름을 바꾸지 않고 실패한다. 테스트 빌드만 다음 패치로 전환한다.
+
 ### changelog_manager.py
 ```bash
 python3 .github/scripts/changelog_manager.py update-from-summary
