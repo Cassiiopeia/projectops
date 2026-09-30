@@ -277,7 +277,7 @@ SCRIPTS="$ROOT/skills/$SKILL/scripts"
 
 SANITIZED=$(PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/commit_cli.py" sanitize-message "$RAW_MSG") \
   || { echo "❌ 커밋 메시지 정리 실패 — 커밋을 중단합니다"; exit 1; }
-CLEAN_MSG=$(SANITIZED="$SANITIZED" "$PYTHON" -c 'import json,os,sys; m=json.loads(os.environ["SANITIZED"])["message"]; sys.exit(1) if not m.strip() else print(m, end="")') \
+CLEAN_MSG=$(SANITIZED="$SANITIZED" PYTHONIOENCODING=utf-8 "$PYTHON" -c 'import json,os,sys; m=json.loads(os.environ["SANITIZED"])["message"]; sys.exit(1) if not m.strip() else print(m, end="")') \
   || { echo "❌ 커밋 메시지가 비었습니다 — 원문을 확인하세요"; exit 1; }
 
 cd "$PROJECT_ROOT" && git commit -m "$CLEAN_MSG"
