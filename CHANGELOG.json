@@ -1,14 +1,39 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-30T11:34:43Z",
-    "currentVersion": "4.25.1",
+    "lastUpdated": "2026-09-30T12:22:01Z",
+    "currentVersion": "4.26.0",
     "projectType": "basic",
-    "totalReleases": 267,
+    "totalReleases": 268,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.26.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-30",
+      "pr_number": 658,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * 수정한 워크플로를 건너뛸 때 새 템플릿과 비교하는 방법을 안내\n\n* **개선**\n  * 빌드가 취소되면 진행 댓글이 취소됨으로 표시",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "수정한 워크플로를 건너뛸 때 새 템플릿과 비교하는 방법을 안내"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "빌드가 취소되면 진행 댓글이 취소됨으로 표시"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.25.1",
       "project_type": "basic",
