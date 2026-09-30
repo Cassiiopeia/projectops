@@ -45,6 +45,12 @@
     "message": "브랜치 전략이 전면 개편되었습니다. 기존: main(개발 통합) → deploy(프로덕션). 신규: develop(개발 통합) → main(default=프로덕션). deploy 브랜치는 폐기되었습니다. 배포·README·플러그인/NPM 동기화 워크플로우는 main push 트리거로, CI·시크릿 백업·Util 동기화는 develop 트리거로 변경되었습니다. 버전은 develop→main 릴리스 PR 안에서 RELEASE-CHANGELOG이 릴리스당 +1로 확정하며(main 직접 push는 VERSION-CONTROL 안전망이 처리), 일상 develop push는 버전을 올리지 않습니다. 기존 프로젝트 전환 절차: 1) git branch develop main && git push origin develop 2) 템플릿 재통합(업데이트 모드) 3) deploy 브랜치 삭제 4) 이후 개발은 develop에서, 릴리스는 develop→main PR로 진행. 전환 전까지는 이 업데이트를 받지 마세요."
   },
 
+  "4.25.1": {
+    "severity": "warning",
+    "title": "앱 빌드 댓글 트리거가 작성자 권한을 검사함, 공개 저장소에서 협업자가 아닌 작성자의 빌드 댓글은 무시됨",
+    "message": "@projectops app build 등 빌드 댓글 트리거가 댓글 작성자의 저장소 권한(author_association)을 확인합니다. 공개 저장소에서는 OWNER, MEMBER, COLLABORATOR 만 빌드를 일으킬 수 있고, 그 외 작성자의 댓글은 아무 알림 없이 무시됩니다. 비공개 저장소는 검사하지 않으므로 동작이 그대로입니다. 조치: 공개 저장소에서 조직 멤버 등 팀원의 빌드 댓글이 막히면 저장소 변수(Settings > Secrets and variables > Actions > Variables) PROJECTOPS_TRIGGER_ASSOCIATIONS 에 허용 목록을 JSON 배열로 넣어 넓히세요. 예: [\"OWNER\",\"MEMBER\",\"COLLABORATOR\",\"CONTRIBUTOR\"]. 값이 올바른 JSON 배열이 아니면 워크플로가 실패하니 주의하세요. 이미 통합된 저장소는 마법사가 수정된 워크플로를 덮어쓰지 않으므로, 커스터마이징한 저장소는 트리거 워크플로의 if 조건을 직접 갱신해야 합니다."
+  },
+
   "4.25.0": {
     "severity": "warning",
     "title": "Flutter 테스트 빌드와 iOS 릴리스의 빌드 번호가 시각 기반으로 바뀜, 출시 후 iOS 테스트 빌드는 다음 패치 버전으로 자동 전환",

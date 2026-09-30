@@ -65,8 +65,26 @@ jobs:
     # 그 문구가 아래 조건을 그대로 만족했다. 이슈를 만들기만 해도 빌드가 발동하고,
     # 브랜치가 아직 없으니 "브랜치를 찾을 수 없습니다" 실패 댓글이 달렸다.
     # 사람이 직접 다는 댓글에는 이 마커가 없으므로 기존 동작에는 영향이 없다.
+    #
+    # ⚠️ 댓글 작성자 권한 검사 (#645).
+    # 공개 저장소에서는 누구나 댓글을 달 수 있고, 이 트리거는 서명 키와 스토어 시크릿이
+    # 들어가는 빌드를 깨운다. 그래서 author_association 이 허용 목록에 있어야 한다.
+    # - 기본 허용: OWNER, MEMBER, COLLABORATOR
+    # - 비공개 저장소는 검사하지 않는다: 댓글을 달 수 있는 사람이 이미 협업자이고,
+    #   비공개 조직 멤버는 MEMBER 가 아닌 값으로 나오는 경우가 있어 기존 사용자가 막힐 수 있다.
+    # - 공개 저장소에서 팀원이 막히면 저장소 변수 PROJECTOPS_TRIGGER_ASSOCIATIONS 로 덮어쓴다.
+    #   예: ["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]
+    #   ⚠️ 값은 반드시 올바른 JSON 배열이어야 한다. 잘못된 JSON 이면 fromJSON 이 실패해
+    #   조건 평가 오류로 이 워크플로가 모든 댓글에서 실패 처리된다. 변수를 지우면 기본값으로 돌아간다.
+    # - 허용되지 않은 작성자의 댓글은 job 이 실행되지 않아 조용히 무시된다.
+    # ⚠️ 위 permissions.contents: write 는 줄이지 않는다. 아래에서 GITHUB_TOKEN 으로
+    #   repos.createDispatchEvent 를 호출하는데 그 API 가 contents: write 를 요구한다.
     if: |
       !contains(github.event.comment.body, '<!-- SUH-ISSUE-HELPER -->') &&
+      (
+        github.event.repository.private == true ||
+        contains(fromJSON(vars.PROJECTOPS_TRIGGER_ASSOCIATIONS || '["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+      ) &&
       contains(github.event.comment.body, '@projectops') &&
       (
         (contains(github.event.comment.body, 'build') && contains(github.event.comment.body, 'app')) ||
