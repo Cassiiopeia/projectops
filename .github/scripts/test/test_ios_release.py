@@ -334,6 +334,7 @@ def test_upload_success_first_try(env, monkeypatch, capsys):
 
 
 def test_upload_duplicate_then_success(env, monkeypatch, capsys):
+    # ASC 조회에 그 번호가 보이지 않는 경우(반영 지연 등)에만 재시도한다. 보이면 아래 test_no_reupload 가 막는다.
     asc(monkeypatch)
     fake = Fake(env, fastlane=[(1, LOG_DUP), (0, "")])
     rc, out = both(capsys, monkeypatch, fake)
@@ -352,9 +353,12 @@ def test_upload_too_low_uses_required_floor(env, monkeypatch, capsys):
 
 
 def test_train_closed_test_mode_bumps_version(env, monkeypatch, capsys):
+    # 시작 버전이 닫힌 버전과 같아야 "바뀌었다"를 검증할 수 있다
+    monkeypatch.setenv("VERSION", "2.1.2")
     asc(monkeypatch)
     fake = Fake(env, fastlane=[(1, LOG_TRAIN), (0, "")])
     rc, out = both(capsys, monkeypatch, fake)
+    assert "FLUTTER_BUILD_NAME=2.1.2" in fake.kinds("archive")[0][1]
     assert rc == 0 and out["version"] == "2.1.3"
     assert "FLUTTER_BUILD_NAME=2.1.3" in fake.kinds("archive")[1][1]
     assert fake.kinds("fastlane")[1][2]["APP_VERSION"] == "2.1.3"
@@ -457,10 +461,40 @@ def test_upload_passes_final_numbers_to_fastlane(env, monkeypatch, capsys):
     assert fake.kinds("fastlane")[0][1] == ["bundle", "exec", "fastlane", "deploy"]
 
 
-def test_test_mode_pins_store_only_but_respects_existing(env, monkeypatch, capsys):
+def test_test_mode_pins_store_only(env, monkeypatch, capsys):
     fake = Fake(env)
     both(capsys, monkeypatch, fake)
     assert fake.kinds("fastlane")[0][2]["DEPLOY_MODE"] == "store_only"
+
+
+@pytest.mark.parametrize("existing", ["store_submit", "", "full"])
+def test_test_mode_overrides_existing_deploy_mode(env, monkeypatch, capsys, existing):
+    # 이미 다른 값이 들어와 있어도 테스트 빌드가 심사 제출까지 가면 안 된다 (#601)
+    monkeypatch.setenv("DEPLOY_MODE", existing)
+    fake = Fake(env)
+    both(capsys, monkeypatch, fake)
+    assert fake.kinds("fastlane")[0][2]["DEPLOY_MODE"] == "store_only"
+
+
+def test_release_mode_does_not_touch_deploy_mode(env, monkeypatch, capsys):
+    monkeypatch.setenv("MODE", "release")
+    monkeypatch.setenv("DEPLOY_MODE", "store_submit")
+    fake = Fake(env)
+    both(capsys, monkeypatch, fake)
+    assert fake.kinds("fastlane")[0][2]["DEPLOY_MODE"] == "store_submit"
+
+
+@pytest.mark.parametrize("log", [
+    "Warning: DUPLICATE localization entry ... timeout",
+    "Build 1-19232 done. ERROR: network",
+])
+def test_duplicate_pattern_does_not_match_unrelated_text(log):
+    assert ir.classify_upload_error(log)["kind"] == "other"
+
+
+def test_duplicate_matches_entity_error_code():
+    assert ir.classify_upload_error("ENTITY_ERROR.ATTRIBUTE.INVALID.DUPLICATE (-19232)")["kind"] == "duplicate"
+    assert ir.classify_upload_error("failed with -19232")["kind"] == "duplicate"
 
 
 def test_github_output_is_single_line_key_value(env, monkeypatch, capsys):

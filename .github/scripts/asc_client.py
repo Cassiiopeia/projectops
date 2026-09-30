@@ -16,6 +16,7 @@ CLI가 없는 라이브러리 모듈이며 ios_release.py 등이 import 해서 �
 from __future__ import annotations
 
 import base64
+import http.client
 import json
 import os
 import subprocess
@@ -112,7 +113,10 @@ def request(url: str, token: str, timeout: int = _HTTP_TIMEOUT) -> dict:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         raise AscError(f"ASC HTTP {e.code}: {url}", status=e.code) from e
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
+    except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError) as e:
+        # 연결 리셋, 읽는 도중 끊김, TLS 오류, 잘못된 응답 본문까지 전부 AscError 로 바꿔야
+        # 호출자가 폴백한다 (AscError 만 잡는 곳에서 트레이스백으로 죽지 않게).
+        # JSONDecodeError 와 UnicodeDecodeError 는 ValueError 의 하위 클래스다.
         raise AscError(f"ASC 호출 실패: {e}") from e
 
 

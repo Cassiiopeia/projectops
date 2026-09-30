@@ -134,7 +134,7 @@ _KIND_PATTERNS: list[tuple[str, list[re.Pattern]]] = [
                       re.compile(_code("90478")), re.compile(r"later version has been closed", re.I)]),
     ("too_low", [re.compile(_code("90061")), *_TOO_LOW_NUMBERS]),
     ("duplicate", [re.compile(_code("90189")), re.compile(r"Redundant Binary Upload", re.I),
-                   re.compile(r"\bDUPLICATE\b"), re.compile(r"-19232")]),
+                   re.compile(r"INVALID\.DUPLICATE"), re.compile(r"(?<!\d)-19232(?!\d)")]),
 ]
 _FALLBACK_LINE = re.compile(r"ITMS-\d+|ERROR|error|실패|\[!\]")
 
@@ -502,8 +502,8 @@ def _phase_upload(cfg: _Cfg, info: dict) -> None:
         env = dict(os.environ)
         env.update(IPA_PATH=str(ipa), BUILD_NUMBER=str(number), APP_VERSION=version)
         if cfg.mode == "test":
-            # 테스트 빌드가 심사 제출까지 가지 않도록 워크플로가 빠뜨려도 막는다 (#601)
-            env.setdefault("DEPLOY_MODE", "store_only")
+            # 테스트 빌드가 심사 제출까지 가지 않도록 이미 다른 값이 들어와 있어도 못 박는다 (#601)
+            env["DEPLOY_MODE"] = "store_only"
         rc, out = run_cmd(["bundle", "exec", "fastlane", "deploy"], str(cfg.ios_dir), env)
         try:
             (cfg.ios_dir / "build" / f"upload_attempt_{attempt}.log").write_text(_scrub(out), encoding="utf-8")

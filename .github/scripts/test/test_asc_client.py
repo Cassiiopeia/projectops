@@ -1,7 +1,9 @@
 """App Store Connect 클라이언트 테스트 (이슈 #643). 네트워크 호출 없음, 모두 monkeypatch."""
 import base64
+import http.client
 import json
 import shutil
+import ssl
 import subprocess
 import sys
 from pathlib import Path
@@ -170,4 +172,20 @@ def test_build_exists_raises_when_any_query_fails_and_not_found(monkeypatch):
     # 다른 쪽에서 찾았다면 확정이므로 실패한 조회는 무시
     monkeypatch.setattr(asc, "request", _router(builds=err, uploads=[{"attributes": {"cfBundleVersion": "80"}}]))
     assert asc.build_exists("A", 80, "tok") is True
+
+
+@pytest.mark.parametrize("exc", [
+    ConnectionResetError("reset"),
+    http.client.RemoteDisconnected("closed"),
+    http.client.IncompleteRead(b"x"),
+    ssl.SSLError("bad"),
+    UnicodeDecodeError("utf-8", b"\xff", 0, 1, "bad"),
+])
+def test_request_wraps_network_errors_as_asc_error(monkeypatch, exc):
+    # AscError 만 잡는 호출자가 폴백하려면 일시적 연결 오류도 AscError 로 나와야 한다
+    def boom(*a, **k):
+        raise exc
+    monkeypatch.setattr(asc.urllib.request, "urlopen", boom)
+    with pytest.raises(asc.AscError):
+        asc.request("https://x.invalid/v1/apps", "tok")
 
