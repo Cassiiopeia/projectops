@@ -88,7 +88,7 @@ EVIDENCE_SKILLS = frozenset({
 })
 
 DOCUMENT_SKILLS = frozenset({
-    "analyze", "design-analyze", "implement", "issue", "note", "plan", "ppt",
+    "analyze", "design-analyze", "implement", "issue", "note", "oss-consult", "plan", "ppt",
     "pr", "refactor-analyze", "report", "review", "testcase", "troubleshoot",
 })
 

@@ -752,6 +752,7 @@ claude plugin install projectops@projectops-marketplace --scope user
 | `figma-verify` | **시안 → 코드 → 대조** 한 묶음. 덤프 항목을 세어 작업 목록으로 삼고, 옮긴 뒤 픽셀로 맞댄다 (구 `figma` 흡수 — #619) |
 | `launch` | **능력 스킬** — 앱·웹·서버를 띄우고 조작하고 찍는다. 다른 스킬이 `launch_cli.py` 를 스크립트로 부른다 (#629) |
 | `design-brief` | **시안보다 먼저 만든 화면의 디자인 요청서** — 상태별 캡처 · 대안 · 문구 · 꼭 지킬 것을 보드로 조립해 이슈·HTML·md 로 넘긴다 (#634) |
+| `oss-consult` | **오픈소스 컨설팅** — 레포 성격을 판별하고 6축(첫인상·가치 증명·커뮤니티·코드 확장성·법적 안전·장기 운영)으로 깐깐하게 채점, 성숙도 단계와 선행 조건을 짚고 승인받은 것을 고친다. 단일 레포·전체 일괄 (#644) |
 
 ---
 
@@ -894,6 +895,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | agent-test | `skills/pro-agent-test/scripts/e2e_cli.py` | detect, scenario, note, api, other (실행·캡처 명령은 pro-launch 로 넘겨준다 — #631) |
 | launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, render, http, access, db, logs, shrink, recall, learn, forget, get-output-path |
 | design-brief | `skills/pro-design-brief/scripts/design_brief_cli.py` | config, get-output-path, board, copy-lint, ascii |
+| oss-consult | `skills/pro-oss-consult/scripts/oss_cli.py` | collect, list-repos, get-output-path (**사실만 모은다 — 판단은 에이전트**, #644) |
 
 공유 도메인 로직은 `scripts/common/`에 있다 (gh_client, config, paths, title, issue_number, gh_branch, manifest, emit, bootstrap).
 
@@ -972,6 +974,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | **실제로 테스트해줘, 에뮬레이터·시뮬레이터·브라우저로 확인, E2E, 끝까지 밟아줘** | `pro-agent-test` |
 | **에뮬레이터 띄워서 찍어줘, 시뮬레이터 스크린샷, 브라우저로 캡처, 모바일 폭으로·빈 목록·500 화면 찍어줘** | `pro-launch` |
 | **디자인 요청해줘, 시안 요청 올려줘, 디자이너한테 보낼 거 만들어줘, 빈 화면·에러 화면도 그려 달라고 해줘** | `pro-design-brief` |
+| **오픈소스 점검, 레포 컨설팅, trending 가려면, 오픈소스답게 만들어줘, 내 레포 전부 점검, README·라벨·라이선스 괜찮아?** | `pro-oss-consult` |
 | **figma 디자인 구현, 시안대로 만들어줘, 시안이랑 같은지 확인, 디자인대로 됐는지, 그림자 빠진 거 없나** | `pro-figma-verify` |
 | **설계·기획 (무엇을 왜)** | **`superpowers:brainstorming`** |
 | **구현 계획 (어떻게)** | **`superpowers:writing-plans`** |
