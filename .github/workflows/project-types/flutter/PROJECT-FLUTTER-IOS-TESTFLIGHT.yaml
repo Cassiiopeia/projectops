@@ -173,10 +173,10 @@ jobs:
         run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
 
       - name: Create .env file
+        env:
+          ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
         run: |
-          cat << 'EOF' > ${{ env.ENV_FILE_PATH }}
-          ${{ secrets.ENV_FILE || secrets.ENV }}
-          EOF
+          printf '%s\n' "$ENV_CONTENT" > ${{ env.ENV_FILE_PATH }}
           echo "✅ ${{ env.ENV_FILE_PATH }} file created"
 
       # 빌드 프로파일 — 런타임(.env)과 컴파일타임(dart-define)을 한 곳에서 정한다 (#603)
@@ -190,10 +190,12 @@ jobs:
             --config "${{ github.workspace }}/.github/config/build-profile.json"
 
       - name: Create Secrets.xcconfig file
+        env:
+          SECRETS_XCCONFIG_CONTENT: ${{ secrets.SECRETS_XCCONFIG }}
         run: |
           mkdir -p ios/Flutter
-          if [ -n "${{ secrets.SECRETS_XCCONFIG }}" ]; then
-            echo "${{ secrets.SECRETS_XCCONFIG }}" > ios/Flutter/Secrets.xcconfig
+          if [ -n "$SECRETS_XCCONFIG_CONTENT" ]; then
+            echo "$SECRETS_XCCONFIG_CONTENT" > ios/Flutter/Secrets.xcconfig
             echo "Secrets.xcconfig created"
           else
             echo "// No secrets provided" > ios/Flutter/Secrets.xcconfig
@@ -378,11 +380,11 @@ jobs:
           path: .
 
       - name: Ensure .env file exists
+        env:
+          ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
         run: |
           if [ ! -f "${{ env.ENV_FILE_PATH }}" ]; then
-            cat << 'EOF' > ${{ env.ENV_FILE_PATH }}
-          ${{ secrets.ENV_FILE || secrets.ENV }}
-          EOF
+            printf '%s\n' "$ENV_CONTENT" > ${{ env.ENV_FILE_PATH }}
             echo "✅ ${{ env.ENV_FILE_PATH }} file created (fallback)"
           fi
 
@@ -426,8 +428,10 @@ jobs:
           p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
 
       - name: Install Provisioning Profile
+        env:
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
         run: |
-          echo "${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}" | base64 --decode > profile.mobileprovision
+          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > profile.mobileprovision
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
           uuid=$(grep -A1 -a "UUID" profile.mobileprovision | grep string | sed -e "s/<string>//" -e "s/<\/string>//" -e "s/[[:space:]]//g")
@@ -511,6 +515,7 @@ jobs:
         id: upload_phase
         working-directory: ${{ github.workspace }}
         env:
+          APP_IDENTIFIER_VALUE: ${{ secrets.IOS_BUNDLE_ID || vars.IOS_BUNDLE_ID }}
           VERSION: ${{ needs.prepare-build.outputs.version }}
           MODE: release
           IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
@@ -538,11 +543,11 @@ jobs:
           fi
 
           # IPA_PATH, BUILD_NUMBER, APP_VERSION 은 스크립트가 최종값으로 채운다.
-          export APP_STORE_CONNECT_API_KEY_ID="${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}"
-          export APP_STORE_CONNECT_ISSUER_ID="${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}"
-          export API_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}.p8"
+          export APP_STORE_CONNECT_API_KEY_ID="$APP_STORE_CONNECT_API_KEY_ID"
+          export APP_STORE_CONNECT_ISSUER_ID="$APP_STORE_CONNECT_ISSUER_ID"
+          export API_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
           export RELEASE_NOTES="$RELEASE_NOTES"
-          export APP_IDENTIFIER="${{ secrets.IOS_BUNDLE_ID || vars.IOS_BUNDLE_ID }}"
+          export APP_IDENTIFIER="$APP_IDENTIFIER_VALUE"
           export DEPLOY_MODE="${{ env.DEPLOY_MODE }}"
           # 수동 실행 입력이 있으면 그 실행만 우선한다. 값은 step env 로 받아 셸 주입을 막는다.
           if [ -n "$(printf '%s' "$INPUT_WHATS_NEW_OVERRIDE" | tr -d '[:space:]')" ]; then

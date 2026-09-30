@@ -254,10 +254,10 @@ jobs:
       # ⚠️ [영역 2] 환경변수 파일 생성
       # =================================================================
       - name: "[필수] .env 파일 생성"
+        env:
+          ENV_CONTENT: ${{ secrets.ENV_FILE }}
         run: |
-          cat << 'EOF' > .env
-          ${{ secrets.ENV_FILE }}
-          EOF
+          printf '%s\n' "$ENV_CONTENT" > .env
       # =================================================================
       # ⚠️ [영역 2 끝] 환경변수 파일 생성 끝
       # =================================================================
@@ -723,9 +723,11 @@ jobs:
       - name: 브랜치 존재 확인
         id: check_branch
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         with:
           script: |
-            const branchName = '${{ needs.get-branch-from-issue.outputs.branch_name }}';
+            const branchName = process.env.BRANCH_NAME;
             const issueNumber = ${{ needs.get-branch-from-issue.outputs.issue_number }};
 
             console.log(`🔍 브랜치 존재 확인: ${branchName}`);
@@ -781,11 +783,13 @@ jobs:
       - name: Issue 정보 설정
         if: steps.check_branch.outputs.exists == 'true'
         id: issue
+        env:
+          BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         run: |
-          echo "ref=${{ needs.get-branch-from-issue.outputs.branch_name }}" >> $GITHUB_OUTPUT
+          echo "ref=$BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "issue_number=${{ needs.get-branch-from-issue.outputs.issue_number }}" >> $GITHUB_OUTPUT
           # 브랜치의 최신 커밋 SHA 가져오기
-          echo "sha=$(git ls-remote https://github.com/${{ github.repository }}.git refs/heads/${{ needs.get-branch-from-issue.outputs.branch_name }} | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "sha=$(git ls-remote https://github.com/${{ github.repository }}.git "refs/heads/$BRANCH_NAME" | cut -c1-7)" >> $GITHUB_OUTPUT
 
       # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       # 진행 상황 댓글 시스템
@@ -794,10 +798,12 @@ jobs:
         if: steps.check_branch.outputs.exists == 'true'
         id: progress
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         with:
           script: |
             const issueNumber = ${{ needs.get-branch-from-issue.outputs.issue_number }};
-            const branchName = '${{ needs.get-branch-from-issue.outputs.branch_name }}';
+            const branchName = process.env.BRANCH_NAME;
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const startTime = Date.now();
 
@@ -839,10 +845,10 @@ jobs:
       # =================================================================
       - name: "[필수] .env 파일 생성"
         if: steps.check_branch.outputs.exists == 'true'
+        env:
+          ENV_CONTENT: ${{ secrets.ENV_FILE }}
         run: |
-          cat << 'EOF' > .env
-          ${{ secrets.ENV_FILE }}
-          EOF
+          printf '%s\n' "$ENV_CONTENT" > .env
       # =================================================================
       # ⚠️ [영역 2 끝] 환경변수 파일 생성 끝
       # =================================================================
@@ -873,10 +879,12 @@ jobs:
         if: steps.check_branch.outputs.exists == 'true'
         id: docker_progress
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         with:
           script: |
             const commentId = ${{ steps.progress.outputs.comment_id }};
-            const branchName = '${{ needs.get-branch-from-issue.outputs.branch_name }}';
+            const branchName = process.env.BRANCH_NAME;
             const dockerStart = ${{ steps.progress.outputs.docker_start }};
             const now = Date.now();
             const dockerElapsed = now - dockerStart;
@@ -1064,10 +1072,12 @@ jobs:
       - name: 배포 완료 코멘트
         if: steps.check_branch.outputs.exists == 'true'
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         with:
           script: |
             const commentId = ${{ steps.progress.outputs.comment_id }};
-            const branchName = '${{ needs.get-branch-from-issue.outputs.branch_name }}';
+            const branchName = process.env.BRANCH_NAME;
             const dockerDuration = '${{ steps.docker_progress.outputs.docker_duration }}';
             const deployStart = ${{ steps.docker_progress.outputs.deploy_start }};
             const now = Date.now();
@@ -1142,12 +1152,14 @@ jobs:
       - name: 빌드/배포 실패 시 에러 코멘트
         if: failure() && steps.check_branch.outputs.exists == 'true'
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         with:
           script: |
             const commentId = ${{ steps.progress.outputs.comment_id || 0 }};
             const projectName = '${{ env.PROJECT_NAME }}';
             const issueNumber = ${{ needs.get-branch-from-issue.outputs.issue_number }};
-            const branchName = '${{ needs.get-branch-from-issue.outputs.branch_name }}';
+            const branchName = process.env.BRANCH_NAME;
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
             const dockerDuration = '${{ steps.docker_progress.outputs.docker_duration }}';
@@ -1444,9 +1456,11 @@ jobs:
       - name: 브랜치 존재 확인 및 정보 추출
         id: branch_info
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
-            const branchName = '${{ needs.check-command.outputs.custom_branch }}';
+            const branchName = process.env.BRANCH_NAME;
             const issueNumber = context.issue.number;
 
             console.log(`🔍 브랜치 확인: ${branchName}`);
@@ -1521,8 +1535,10 @@ jobs:
       - name: 브랜치의 최신 커밋 SHA 가져오기
         if: steps.branch_info.outputs.branch_exists == 'true'
         id: get_sha
+        env:
+          CUSTOM_BRANCH: ${{ needs.check-command.outputs.custom_branch }}
         run: |
-          SHA=$(git ls-remote https://github.com/${{ github.repository }}.git refs/heads/${{ needs.check-command.outputs.custom_branch }} | cut -c1-7)
+          SHA=$(git ls-remote https://github.com/${{ github.repository }}.git "refs/heads/$CUSTOM_BRANCH" | cut -c1-7)
           echo "sha=$SHA" >> $GITHUB_OUTPUT
 
       # 진행 상황 댓글 생성
@@ -1530,10 +1546,12 @@ jobs:
         if: steps.branch_info.outputs.branch_exists == 'true'
         id: progress
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
             const issueNumber = context.issue.number;
-            const branchName = '${{ needs.check-command.outputs.custom_branch }}';
+            const branchName = process.env.BRANCH_NAME;
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const startTime = Date.now();
 
@@ -1573,10 +1591,10 @@ jobs:
       # 환경변수 파일 생성
       - name: "[필수] .env 파일 생성"
         if: steps.branch_info.outputs.branch_exists == 'true'
+        env:
+          ENV_CONTENT: ${{ secrets.ENV_FILE }}
         run: |
-          cat << 'EOF' > .env
-          ${{ secrets.ENV_FILE }}
-          EOF
+          printf '%s\n' "$ENV_CONTENT" > .env
 
       - name: Docker 로그인
         if: steps.branch_info.outputs.branch_exists == 'true'
@@ -1616,10 +1634,12 @@ jobs:
         if: steps.branch_info.outputs.branch_exists == 'true'
         id: docker_progress
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
             const commentId = ${{ steps.progress.outputs.comment_id }};
-            const branchName = '${{ needs.check-command.outputs.custom_branch }}';
+            const branchName = process.env.BRANCH_NAME;
             const dockerStart = ${{ steps.progress.outputs.docker_start }};
             const now = Date.now();
             const dockerElapsed = now - dockerStart;
@@ -1799,10 +1819,12 @@ jobs:
       - name: 배포 완료 코멘트
         if: steps.branch_info.outputs.branch_exists == 'true'
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
             const commentId = ${{ steps.progress.outputs.comment_id }};
-            const branchName = '${{ needs.check-command.outputs.custom_branch }}';
+            const branchName = process.env.BRANCH_NAME;
             const dockerDuration = '${{ steps.docker_progress.outputs.docker_duration }}';
             const deployStart = ${{ steps.docker_progress.outputs.deploy_start }};
             const now = Date.now();
@@ -1877,10 +1899,12 @@ jobs:
       - name: 빌드/배포 실패 시 에러 코멘트
         if: failure() && steps.branch_info.outputs.branch_exists == 'true'
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
             const commentId = ${{ steps.progress.outputs.comment_id || 0 }};
-            const branchName = '${{ needs.check-command.outputs.custom_branch }}';
+            const branchName = process.env.BRANCH_NAME;
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
             const dockerDuration = '${{ steps.docker_progress.outputs.docker_duration }}';
@@ -1957,9 +1981,11 @@ jobs:
       - name: 브랜치명에서 컨테이너 정보 추출
         id: container_info
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
-            const branchName = '${{ needs.check-command.outputs.custom_branch }}';
+            const branchName = process.env.BRANCH_NAME;
             const projectName = '${{ env.PROJECT_NAME }}';
 
             // 브랜치명에서 Issue 번호 추출 (#번호 패턴)
@@ -2036,9 +2062,11 @@ jobs:
 
       - name: 삭제 완료 코멘트
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
-            const branchName = '${{ needs.check-command.outputs.custom_branch }}';
+            const branchName = process.env.BRANCH_NAME;
             const containerName = '${{ steps.container_info.outputs.container_name }}';
 
             const body = [
@@ -2078,9 +2106,11 @@ jobs:
       - name: 브랜치명에서 컨테이너 정보 추출
         id: container_info
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
-            const branchName = '${{ needs.check-command.outputs.custom_branch }}';
+            const branchName = process.env.BRANCH_NAME;
             const projectName = '${{ env.PROJECT_NAME }}';
 
             // 브랜치명에서 Issue 번호 추출 (#번호 패턴)
@@ -2135,9 +2165,11 @@ jobs:
 
       - name: 상태 코멘트 작성
         uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
-            const branchName = '${{ needs.check-command.outputs.custom_branch }}';
+            const branchName = process.env.BRANCH_NAME;
             const containerName = '${{ steps.container_info.outputs.container_name }}';
             const projectName = '${{ env.PROJECT_NAME }}';
             const domainSuffix = '${{ env.PREVIEW_DOMAIN_SUFFIX }}';

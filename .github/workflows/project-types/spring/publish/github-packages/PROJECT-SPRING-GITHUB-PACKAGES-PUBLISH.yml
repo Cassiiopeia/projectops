@@ -62,7 +62,7 @@ jobs:
       - name: Get version
         id: get_version
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             TAG_NAME=${GITHUB_REF#refs/tags/}
             VERSION=${TAG_NAME#v}
             echo "🏷️ 태그에서 버전 추출: $VERSION"
