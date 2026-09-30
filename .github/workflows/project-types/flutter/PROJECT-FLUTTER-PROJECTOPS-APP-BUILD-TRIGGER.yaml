@@ -8,9 +8,9 @@
 # 주요 특징:
 # - PR/이슈 댓글 감지: "@projectops app build / apk build / ios build" 키워드 감지 (어순 무관: build app 도 동작)
 # - repository_dispatch 이벤트로 빌드 워크플로우 트리거
-# - PR/이슈 번호 + 빌드 횟수로 고유한 빌드 번호 생성 (예: 38700, 38701...)
+# - 빌드 번호는 여기서 정하지 않는다. 각 빌드 워크플로가 시각 기반으로 직접 정한다 (#643)
 # - 브랜치명에서 이슈 번호 자동 추출 (YYYYMMDD_#이슈번호_내용 형식)
-# - 테스트 버전은 version.yml에서 동적으로 읽어 사용 (빌드 번호로 운영/테스트 구분)
+# - 테스트 버전은 version.yml에서 동적으로 읽어 사용 (빌드 번호는 빌드 워크플로가 결정)
 #
 # ⚠️ 브랜치 규칙 의존:
 # 이 워크플로우는 브랜치명 `YYYYMMDD_#이슈번호_제목` 형식에서 이슈 번호를 추출합니다.
@@ -362,77 +362,6 @@ jobs:
 
             core.setFailed(`브랜치를 찾을 수 없습니다: ${branchName}`);
 
-      - name: 빌드 횟수 조회 및 빌드 번호 생성
-        id: build_number_calc
-        if: steps.source_info.outputs.found == 'true' && steps.check_branch.outputs.exists == 'true'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const sourceNumber = parseInt('${{ steps.source_info.outputs.sourceNumber }}');
-            const sourceType = '${{ steps.source_info.outputs.sourceType }}';
-            const buildType = '${{ steps.build_type.outputs.buildType }}';
-
-            console.log(`📊 ${sourceType} #${sourceNumber}의 빌드 횟수 조회 중...`);
-            console.log(`📱 빌드 타입: ${buildType}`);
-
-            // PR/이슈의 모든 댓글 조회
-            const comments = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: sourceNumber,
-              per_page: 100
-            });
-
-            // 빌드 타입에 따라 해당 플랫폼의 빌드 횟수 카운트
-            // 어순 무관 카운트: includes('build') && includes('{타입}') 로 "ios build"·"build ios" 모두 잡는다.
-            // iOS:  ios 빌드 + app(공용) 빌드 통합 (App Store Connect는 앱 전체에서 빌드 번호 unique)
-            // Android: apk 빌드 + app(공용) 빌드 통합 (Play Store도 동일)
-            // App: 모든 빌드 명령어 통합 카운트
-            let buildCount = 0;
-
-            if (buildType === 'ios') {
-              // iOS 빌드: ios 빌드 + app 공용 빌드 둘 다 카운트 (어순 무관)
-              buildCount = comments.data.filter(c => {
-                const body = c.body.toLowerCase();
-                return body.includes('@projectops') && body.includes('build') && (
-                  body.includes('ios') || body.includes('app')
-                );
-              }).length;
-              console.log(`📊 iOS 빌드 카운트: ios + app(공용) 통합`);
-
-            } else if (buildType === 'apk') {
-              // Android 빌드: apk 빌드 + app 공용 빌드 둘 다 카운트 (어순 무관)
-              buildCount = comments.data.filter(c => {
-                const body = c.body.toLowerCase();
-                return body.includes('@projectops') && body.includes('build') && (
-                  body.includes('apk') || body.includes('app')
-                );
-              }).length;
-              console.log(`📊 Android 빌드 카운트: apk + app(공용) 통합`);
-
-            } else if (buildType === 'app') {
-              // 전체 앱 빌드: 모든 빌드 명령어 카운트 (어순 무관)
-              buildCount = comments.data.filter(c => {
-                const body = c.body.toLowerCase();
-                return body.includes('@projectops') && body.includes('build') && (
-                  body.includes('ios') ||
-                  body.includes('apk') ||
-                  body.includes('app')
-                );
-              }).length;
-              console.log(`📊 전체 앱 빌드 카운트: 모든 빌드 명령어 통합`);
-            }
-
-            // 빌드 번호: 소스번호 + 2자리 카운트 (38800, 38801, 38802...)
-            const buildNumber = `${sourceNumber}${String(buildCount).padStart(2, '0')}`;
-
-            console.log(`📊 ${sourceType} #${sourceNumber}: ${buildType} ${buildCount}번째 빌드`);
-            console.log(`📦 생성된 빌드 번호: ${buildNumber}`);
-
-            core.setOutput('buildCount', buildCount.toString());
-            core.setOutput('buildNumber', buildNumber);
-
       - name: Android 빌드 워크플로우 트리거
         if: |
           steps.source_info.outputs.found == 'true' &&
@@ -446,11 +375,11 @@ jobs:
             const sourceNumber = '${{ steps.source_info.outputs.sourceNumber }}';
             const branchName = '${{ steps.source_info.outputs.branchName }}';
             const relatedIssueNumber = '${{ steps.source_info.outputs.relatedIssueNumber }}';
-            const buildNumber = '${{ steps.build_number_calc.outputs.buildNumber }}';
+            // 호환용. 빌드 워크플로가 번호를 직접 정한다 (#643). 다음 minor 에서 제거
+            const buildNumber = '';
 
             console.log(`🚀 Android 빌드 워크플로우 트리거 시작...`);
             console.log(`   ${sourceType} 번호: #${sourceNumber}`);
-            console.log(`   빌드 번호: ${buildNumber}`);
             console.log(`   브랜치: ${branchName}`);
             console.log(`   관련 이슈 번호: ${relatedIssueNumber || '없음'}`);
 
@@ -484,11 +413,11 @@ jobs:
             const sourceNumber = '${{ steps.source_info.outputs.sourceNumber }}';
             const branchName = '${{ steps.source_info.outputs.branchName }}';
             const relatedIssueNumber = '${{ steps.source_info.outputs.relatedIssueNumber }}';
-            const buildNumber = '${{ steps.build_number_calc.outputs.buildNumber }}';
+            // 호환용. 빌드 워크플로가 번호를 직접 정한다 (#643). 다음 minor 에서 제거
+            const buildNumber = '';
 
             console.log(`🚀 iOS 빌드 워크플로우 트리거 시작...`);
             console.log(`   ${sourceType} 번호: #${sourceNumber}`);
-            console.log(`   빌드 번호: ${buildNumber}`);
             console.log(`   브랜치: ${branchName}`);
             console.log(`   관련 이슈 번호: ${relatedIssueNumber || '없음'}`);
 
@@ -514,6 +443,5 @@ jobs:
         if: steps.source_info.outputs.found == 'true' && steps.check_branch.outputs.exists == 'true'
         run: |
           echo "✅ Android 및 iOS 빌드 워크플로우 트리거 완료"
-          echo "📦 빌드 번호: ${{ steps.build_number_calc.outputs.buildNumber }}"
           echo "🌿 브랜치: ${{ steps.source_info.outputs.branchName }}"
           echo "📋 각 플랫폼별 진행상황 댓글이 자동으로 생성됩니다."
