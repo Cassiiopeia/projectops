@@ -8,6 +8,7 @@
 # 주요 특징:
 # - workflow_dispatch로 수동 실행 또는 repository_dispatch로 트리거
 # - 버전은 version.yml에서 동적으로 읽어 사용 (운영 버전과 동일, 빌드 번호로 구분)
+# - 빌드 번호는 build_number.py가 정하는 시각 기반 값 (2024-01-01 UTC부터 지난 초)
 # - 브랜치명에서 이슈 번호 자동 추출 (YYYYMMDD_#이슈번호_내용 형식)
 # - GitHub API로 이슈 정보 가져와서 빌드 정보에 포함
 # - APK 파일만 생성 (Play Store 배포 제거)
@@ -99,6 +100,7 @@ jobs:
       issue_number: ${{ steps.issue_info.outputs.issue_number }}
       branch_name: ${{ steps.issue_info.outputs.branch_name }}
       commit_hash: ${{ steps.build_info.outputs.commit_hash }}
+      commit_sha: ${{ steps.build_info.outputs.commit_sha }}
       pr_number: ${{ steps.build_info.outputs.pr_number }}
       build_number: ${{ steps.build_info.outputs.build_number }}
       progress_comment_id: ${{ steps.progress_comment.outputs.comment_id }}
@@ -289,6 +291,12 @@ jobs:
         working-directory: ${{ github.workspace }}   # 레포 루트 자산(.github/scripts·version.yml)은 APP_ROOT가 아닌 레포 루트 기준
         run: chmod +x ./.github/scripts/version_manager.sh
 
+      # 빌드 번호는 build_number.py 한 곳에서만 정한다 (시각 기반, 1초 단위 단조 증가)
+      - name: 빌드 번호 결정
+        id: build_no
+        working-directory: ${{ github.workspace }}   # build_number.py는 레포 루트 자산
+        run: python3 .github/scripts/build_number.py next
+
       # 빌드 정보 생성
       - name: 빌드 정보 생성
         working-directory: ${{ github.workspace }}   # 레포 루트 자산(.github/scripts·version.yml)은 APP_ROOT가 아닌 레포 루트 기준
@@ -298,25 +306,24 @@ jobs:
           VERSION=$(./.github/scripts/version_manager.sh get | tail -n 1)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-          COMMIT_SHA="${{ github.sha }}"
+          # repository_dispatch 컨텍스트 커밋은 기본 브랜치 것이라 실제 빌드한 HEAD를 직접 읽는다
+          COMMIT_SHA=$(git rev-parse HEAD)
           COMMIT_SHORT=$(echo "$COMMIT_SHA" | cut -c1-7)
+          BUILD_NUMBER="${{ steps.build_no.outputs.build_number }}"
           BUILD_DATE=$(date '+%Y-%m-%d %H:%M:%S')
 
-          # repository_dispatch 이벤트인 경우 PR 번호를 빌드 번호로 사용
+          # repository_dispatch 이벤트인 경우 진행 댓글을 달 PR 번호를 받는다 (빌드 번호와 무관)
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
-            BUILD_NUMBER="${{ github.event.client_payload.build_number }}"
             PR_NUMBER="${{ github.event.client_payload.pr_number }}"
             echo "📋 repository_dispatch 이벤트 감지"
             echo "  PR 번호: #$PR_NUMBER"
-            echo "  빌드 번호: $BUILD_NUMBER (PR 번호 사용)"
           else
-            BUILD_NUMBER="${{ github.run_number }}"
             PR_NUMBER=""
             echo "📋 workflow_dispatch 이벤트 감지"
-            echo "  빌드 번호: $BUILD_NUMBER (기본값)"
           fi
 
           echo "commit_hash=$COMMIT_SHORT" >> $GITHUB_OUTPUT
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
           echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
@@ -342,10 +349,9 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref }}
-
-      - name: Pull latest changes
-        run: git pull origin ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}
+          # 준비 job이 고정한 SHA로 받는다. 브랜치명으로 받으면 그 사이 push된 커밋이 섞여
+          # 댓글과 build-info에 표시한 커밋과 실제 빌드한 코드가 달라지므로 pull도 하지 않는다.
+          ref: ${{ needs.prepare-test-build.outputs.commit_sha }}
 
       - name: Create .env file
         env:
@@ -712,7 +718,7 @@ jobs:
           ISSUE_URL: ${{ needs.prepare-test-build.outputs.issue_url }}
         run: |
           BRANCH_NAME="${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}"
-          COMMIT_SHA="${{ github.sha }}"
+          COMMIT_SHA="${{ needs.prepare-test-build.outputs.commit_sha }}"
           BUILD_DATE=$(date '+%Y-%m-%d %H:%M:%S')
 
           {
