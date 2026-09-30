@@ -58,3 +58,54 @@ def test_bad_target_is_json_error(capsys):
     rc = oss_cli.run_cli(oss_cli.build_parser(), ["collect", "not-a-slug"])
     assert rc == 1
     assert '"code": "bad_args"' in capsys.readouterr().out
+
+
+def test_co_change_counts_pairs_and_skips_bulk_commits():
+    commits = [["a.py", "b.py"], ["a.py", "b.py", "c.py"], ["a.py", "b.py"], [f"f{i}.py" for i in range(40)]]
+    r = oss_cli.co_change(commits)
+    assert r["unit"] == "commit"  # PR 단위가 아니라는 한계를 값으로 남긴다
+    assert r["top_pairs"][0] == {"a": "a.py", "b": "b.py", "count": 3}
+    assert r["max_files_per_commit"] == 40
+    assert all(p["a"].startswith("f") is False for p in r["top_pairs"])  # 대량 변경은 쌍에서 제외
+
+
+def test_natural_language_strings_skip_catalogs_and_non_source():
+    files = {
+        "src/a.py": 'msg = "안녕하세요"\nx = "ok"\n',
+        "locales/ko.py": 'M = "카탈로그 안"\n',
+        "README.md": '"한글"',
+    }
+    r = oss_cli.natural_language_strings(files)
+    assert r["total"] == 1 and r["top_files"][0]["path"] == "src/a.py"
+
+
+def test_committed_secret_paths_ignore_examples():
+    tracked = [".env", ".env.example", "config/key.pem", "src/app.py", "android/key.jks", "a/.env.sample"]
+    assert oss_cli.committed_secret_paths(tracked) == [".env", "config/key.pem", "android/key.jks"]
+
+
+def test_dependency_names_from_manifests():
+    r = oss_cli.dependency_names({
+        "package.json": '{"dependencies":{"react":"1"},"devDependencies":{"jest":"1"}}',
+        "requirements.txt": "requests>=2\n# c\n-r other.txt\nflask==1\n",
+        "pubspec.yaml": "name: x\ndependencies:\n  flutter:\n    sdk: flutter\n  http: ^1.0.0\ndev_dependencies:\n  lints: ^2.0.0\n",
+    })
+    assert r["package.json"] == ["react", "jest (devDependencies)"]
+    assert r["requirements.txt"] == ["requests", "flask"]
+    assert r["pubspec.yaml"] == ["http", "lints (dev)"]
+
+
+def test_local_facts_on_real_git_repo(tmp_path):
+    import subprocess, json, argparse, io, contextlib
+    g = lambda *a: subprocess.run(["git", "-C", str(tmp_path), *a], check=True, capture_output=True)
+    g("init", "-q"); g("config", "user.email", "t@t"); g("config", "user.name", "t")
+    (tmp_path / "a.py").write_text('x = "한글 문구"\n', encoding="utf-8")
+    (tmp_path / ".env").write_text("K=v\n")
+    g("add", "-A"); g("commit", "-q", "-m", "init")
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        oss_cli.cmd_local_facts(argparse.Namespace(path=str(tmp_path), commits=50))
+    out = json.loads(buf.getvalue())
+    assert out["data"]["committed_secret_paths"] == [".env"]
+    assert out["data"]["natural_language_strings"]["total"] == 1
+    assert out["data"]["co_change"]["commits"] == 1

@@ -112,7 +112,15 @@ PYTHONIOENCODING=utf-8 "$PYTHON" oss_cli.py list-repos --include-all
 (batch 모드에서는 건너뛰고 "코드 미확인"으로 표시).
 
 `references/contributor.md`의 7단계(발견 → 규칙 파악 → 합의 → 환경 구성 → 변경 → 검증 → 제출)를
-처음 온 기여자처럼 따라가며 **멈추게 되는 지점**을 기록한다. 특히:
+처음 온 기여자처럼 따라가며 **멈추게 되는 지점**을 기록한다. 로컬 clone이 있으면 먼저 측정값을 받는다:
+
+```bash
+PYTHONIOENCODING=utf-8 "$PYTHON" oss_cli.py local-facts /clone/경로   # --commits 200 (기본)
+```
+
+`co_change`(함께 바뀐 파일 쌍, **커밋 단위 근사** — PR 단위는 에이전트가 이슈·PR로 확인), `natural_language_strings`
+(한글·CJK 문자열 리터럴이 많은 파일)·`string_catalog_dirs`, `dependency_manifests`(선언된 의존성 이름),
+`committed_secret_paths`(추적 중인 비밀 후보 경로, 내용은 읽지 않음)를 준다. **판정은 하지 않는다** — 값을 보고 판단한다. 특히:
 
 - 공통 규칙(브랜치·커밋·스타일·테스트·받는 범위)이 한 곳에서 짧게 보이나, 도구로 강제되나
 - 기능 하나 추가에 몇 파일을 건드리나 — **커밋이 아니라 PR·이슈 단위로** 센다. 의도된 사본·생성 파일은 빼고

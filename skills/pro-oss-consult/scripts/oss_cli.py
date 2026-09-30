@@ -10,13 +10,17 @@ README 디코딩과 첫 화면 잘라내기, 파일을 세 위치에서 찾기, 
 **참/거짓 판정이나 분류를 여기서 만들지 않는다.** 정규식으로 "비교 절이 있다"고 단정하는 순간
 에이전트가 원문을 안 읽고 그 값을 믿는다.
 
-서브커맨드: collect, list-repos, get-output-path
+서브커맨드: collect, local-facts, list-repos, get-output-path
 """
 from __future__ import annotations
 
 import base64
+import itertools
+import json
 import re
+import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 
 _HERE = Path(__file__).resolve()
@@ -43,6 +47,94 @@ _MEDIA = re.compile(
     re.I,
 )
 _TRANSLATION = re.compile(r"README[._-]([a-z]{2}(?:[-_][A-Za-z]{2,4})?)\.md", re.I)
+
+# ── 로컬 clone 측정 (2차: 코드 확장성·의존성·비밀 파일) ──────────────────
+# 여기도 사실만 낸다. "확장성이 낮다"·"라이선스가 위험하다"는 에이전트가 성격을 보고 판단한다.
+
+_SOURCE_EXT = {".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".kt", ".dart", ".go", ".rs", ".rb", ".php", ".swift", ".vue"}
+_CATALOG_DIRS = {"i18n", "locales", "locale", "l10n", "lang", "translations", "messages"}
+_SECRET_PATTERNS = (
+    re.compile(r"(^|/)\.env(\.[^/]+)?$"), re.compile(r"\.(pem|p12|pfx|jks|keystore|p8)$"),
+    re.compile(r"(^|/)id_(rsa|ed25519|ecdsa)$"), re.compile(r"(^|/)(google-services\.json|GoogleService-Info\.plist)$"),
+)
+# 예시·템플릿 파일은 비밀이 아니다 — 목록에서 뺀다
+_SECRET_SAFE = re.compile(r"\.(example|sample|template|dist)$|(^|/)\.env\.(example|sample|template)$", re.I)
+# 따옴표 안에 한글·CJK가 들어 있는 문자열 리터럴 (사용자 노출 문구 후보)
+_NL_STRING = re.compile(r"""(["'`])(?:(?!\1)[^\n\\]|\\.)*[가-힣぀-ヿ一-鿿](?:(?!\1)[^\n\\]|\\.)*\1""")
+
+
+def co_change(commits: list[list[str]], top: int = 10) -> dict:
+    """커밋별 변경 파일 목록에서 함께 바뀐 파일 쌍을 센다. 커밋 단위 근사이며 PR 단위가 아니다."""
+    sizes = sorted(len(c) for c in commits if c)
+    pairs: Counter = Counter()
+    for files in commits:
+        # 대량 변경(포맷팅·초기 커밋)은 쌍을 부풀리므로 쌍 계산에서 제외한다
+        if 2 <= len(files) <= 30:
+            pairs.update(itertools.combinations(sorted(set(files)), 2))
+    n = len(sizes)
+    return {
+        "commits": n,
+        "median_files_per_commit": sizes[n // 2] if n else 0,
+        "max_files_per_commit": sizes[-1] if n else 0,
+        "top_pairs": [{"a": a, "b": b, "count": c} for (a, b), c in pairs.most_common(top) if c >= 2],
+        "unit": "commit",
+    }
+
+
+def natural_language_strings(files: dict[str, str], top: int = 10) -> dict:
+    """소스 파일별 한글·CJK 문자열 리터럴 수. 카탈로그 폴더 안의 파일은 세지 않는다."""
+    per_file = {}
+    for path, text in files.items():
+        parts = set(Path(path).parts)
+        if parts & _CATALOG_DIRS or Path(path).suffix not in _SOURCE_EXT:
+            continue
+        n = len(_NL_STRING.findall(text))
+        if n:
+            per_file[path] = n
+    ranked = sorted(per_file.items(), key=lambda kv: kv[1], reverse=True)
+    return {"total": sum(per_file.values()), "files_with_strings": len(per_file),
+            "top_files": [{"path": k, "count": v} for k, v in ranked[:top]]}
+
+
+def committed_secret_paths(tracked: list[str]) -> list[str]:
+    """추적 중인 파일 중 비밀일 수 있는 경로. 예시 파일은 제외. 내용은 읽지 않는다."""
+    return [t for t in tracked if any(p.search(t) for p in _SECRET_PATTERNS) and not _SECRET_SAFE.search(t)]
+
+
+def dependency_names(manifests: dict[str, str]) -> dict:
+    """매니페스트에서 선언된 의존성 이름만 뽑는다 (라이선스 조회는 에이전트가 배포물 기준으로)."""
+    out: dict[str, list[str]] = {}
+    for path, text in manifests.items():
+        name = Path(path).name
+        deps: list[str] = []
+        if name == "package.json":
+            try:
+                data = json.loads(text)
+            except ValueError:
+                data = {}
+            for key in ("dependencies", "devDependencies", "peerDependencies"):
+                deps += [f"{d}" if key == "dependencies" else f"{d} ({key})" for d in (data.get(key) or {})]
+        elif name.startswith("requirements") and name.endswith(".txt"):
+            for line in text.splitlines():
+                line = line.split("#", 1)[0].strip()
+                m = re.match(r"([A-Za-z0-9_.\-]+)", line)
+                if m and not line.startswith("-"):
+                    deps.append(m.group(1))
+        elif name == "pubspec.yaml":
+            section = ""
+            for line in text.splitlines():
+                if re.match(r"^\S", line):
+                    section = line.rstrip(":").strip()
+                elif section in ("dependencies", "dev_dependencies"):
+                    m = re.match(r"^  ([A-Za-z0-9_]+):", line)
+                    if m and m.group(1) != "flutter":
+                        deps.append(m.group(1) if section == "dependencies" else f"{m.group(1)} (dev)")
+        elif name == "go.mod":
+            deps += re.findall(r"^\s*([\w.\-]+/[\w./\-]+)\s+v", text, re.M)
+        if deps:
+            out[path] = deps
+    return out
+
 
 # 첫 화면으로 넘기는 줄 수. 에이전트가 원문을 직접 읽고 판단하되 전문을 싣지는 않는다(토큰).
 TOP_LINES = 40
@@ -270,6 +362,54 @@ def cmd_collect(args) -> int:
                  "next": "references/rubric.md 로 성격 판별과 축별 채점을 한다"})
 
 
+def _git(root: Path, *args: str) -> str:
+    r = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    return r.stdout if r.returncode == 0 else ""
+
+
+def cmd_local_facts(args) -> int:
+    root = Path(args.path).resolve()
+    if not (root / ".git").exists():
+        return emit({"code": "not_a_git_repo", "summary": f"git 저장소가 아닙니다: {root}",
+                     "next": "clone 한 경로를 넘기세요", "ok": False})
+    tracked = [t for t in _git(root, "ls-files", "-z").split("\0") if t]
+    # 커밋별 변경 파일 (최근 N개). 구분자는 NUL 로 파일명 공백에 안전하게
+    raw = _git(root, "log", f"-{args.commits}", "--name-only", "--format=%x01", "--no-merges")
+    commits = [[f for f in chunk.split("\n") if f.strip()] for chunk in raw.split("\x01")[1:]]
+    sources: dict[str, str] = {}
+    for t in tracked:
+        if Path(t).suffix in _SOURCE_EXT:
+            try:
+                fp = root / t
+                if fp.stat().st_size <= 300_000:
+                    sources[t] = fp.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                pass
+    manifest_names = ("package.json", "pubspec.yaml", "go.mod")
+    manifests: dict[str, str] = {}
+    for t in tracked:
+        n = Path(t).name
+        if "node_modules" in t.split("/"):
+            continue
+        if n in manifest_names or (n.startswith("requirements") and n.endswith(".txt")):
+            try:
+                manifests[t] = (root / t).read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                pass
+    catalog = sorted({p for t in tracked for p in Path(t).parts[:-1] if p in _CATALOG_DIRS})
+    data = {
+        "co_change": co_change(commits),
+        "natural_language_strings": natural_language_strings(sources),
+        "string_catalog_dirs": catalog,
+        "dependency_manifests": dependency_names(manifests),
+        "committed_secret_paths": committed_secret_paths(tracked),
+        "tracked_files": len(tracked),
+    }
+    warn = " — 비밀일 수 있는 파일이 추적 중입니다. 다른 항목보다 먼저 알리세요" if data["committed_secret_paths"] else ""
+    return emit({"data": data, "summary": f"추적 파일 {len(tracked)}개, 최근 커밋 {data['co_change']['commits']}개 분석{warn}",
+                 "next": "references/contributor.md 로 변경 증폭·의존성 라이선스를 판단한다 (판정은 에이전트)"})
+
+
 def cmd_list_repos(args) -> int:
     from common.gh_client import GitHubAPIError
     pat = _pat(args.owner, None)
@@ -318,6 +458,11 @@ def build_parser() -> JSONArgumentParser:
     p = sub.add_parser("collect", help="레포 하나의 오픈소스 준비 사실 수집")
     p.add_argument("target", help="OWNER/REPO")
     p.set_defaults(func=cmd_collect)
+
+    p = sub.add_parser("local-facts", help="로컬 clone 의 변경 증폭·문구 하드코딩·의존성·추적 중인 비밀 파일 측정")
+    p.add_argument("path", help="clone 한 저장소 경로")
+    p.add_argument("--commits", type=int, default=200, help="분석할 최근 커밋 수")
+    p.set_defaults(func=cmd_local_facts)
 
     p = sub.add_parser("list-repos", help="계정·조직의 레포 목록 (기본: 공개·비포크·비보관)")
     p.add_argument("owner", nargs="?", default=None, help="비우면 PAT 주인이 접근하는 전체")
