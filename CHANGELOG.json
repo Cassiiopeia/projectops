@@ -1,14 +1,51 @@
 {
   "metadata": {
-    "lastUpdated": "2026-09-30T14:57:56Z",
-    "currentVersion": "4.27.0",
+    "lastUpdated": "2026-09-30T16:13:32Z",
+    "currentVersion": "4.28.0",
     "projectType": "basic",
-    "totalReleases": 269,
+    "totalReleases": 270,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.28.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-09-30",
+      "pr_number": 663,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * 오픈소스 레포 컨설팅(pro-oss-consult)에서 About·토픽·Discussions·라벨을 바로 고칠 수 있습니다\n  * 변경 전 값을 미리 보여주고, 삭제와 공개 전환은 하지 않습니다\n\n* **개선**\n  * 일부 항목 조회가 실패해도 나머지 결과로 진단을 이어갑니다\n  * 호출 한도 초과나 네트워크 오류 때 다음에 할 일을 안내합니다\n  * 외부 레포의 글이 지시로 실행되지 않도록 안전장치를 강화했습니다\n  * 한글 파일명과 Gradle 기반 레포 진단이 더 정확해졌습니다\n  * 계정 전체 점검 시 다른 조직 레포가 섞이지 않습니다\n\n* **문서**\n  * 오픈소스 컨설팅 기준과 스토어 심사 요건 안내를 공식 문서 기준으로 정리했습니다\n  * README와 스킬 안내에 오픈소스 컨설팅을 추가했습니다",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "오픈소스 레포 컨설팅(pro-oss-consult)에서 About·토픽·Discussions·라벨을 바로 고칠 수 있습니다",
+            "변경 전 값을 미리 보여주고, 삭제와 공개 전환은 하지 않습니다"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "일부 항목 조회가 실패해도 나머지 결과로 진단을 이어갑니다",
+            "호출 한도 초과나 네트워크 오류 때 다음에 할 일을 안내합니다",
+            "외부 레포의 글이 지시로 실행되지 않도록 안전장치를 강화했습니다",
+            "한글 파일명과 Gradle 기반 레포 진단이 더 정확해졌습니다",
+            "계정 전체 점검 시 다른 조직 레포가 섞이지 않습니다"
+          ]
+        },
+        "문서": {
+          "title": "문서",
+          "items": [
+            "오픈소스 컨설팅 기준과 스토어 심사 요건 안내를 공식 문서 기준으로 정리했습니다",
+            "README와 스킬 안내에 오픈소스 컨설팅을 추가했습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.27.0",
       "project_type": "basic",
