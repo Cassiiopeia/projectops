@@ -1,0 +1,81 @@
+# ===================================================================
+# Flutter iOS App Store Connect 상태 조회 (수동 실행, 조회 전용)
+# ===================================================================
+#
+# 저장된 App Store Connect 시크릿으로 앱의 버전 목록(상태와 닫힘 여부)과
+# 최근 올라간 빌드 번호를 읽어 실행 요약(Summary)에 표로 보여줍니다.
+#
+# 언제 쓰나:
+# - "이 버전이 이미 출시되어 닫혔나?"를 로컬에서 확인할 방법이 없을 때
+#   (발급자 ID가 GitHub 시크릿에만 있고 브라우저 세션이 만료되는 경우)
+# - iOS 테스트 빌드가 다음 패치 버전으로 바뀐 이유를 확인할 때
+#
+# 하는 일은 조회뿐입니다. 아무것도 올리거나 바꾸지 않고, 시크릿 값은 출력하지 않습니다.
+# 리눅스 러너에서 몇 초면 끝납니다 (macOS 러너를 쓰지 않음).
+#
+# 필요한 Secrets: APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_ISSUER_ID,
+#                 APP_STORE_CONNECT_API_KEY_BASE64, IOS_BUNDLE_ID (또는 Variables)
+# API 키 역할은 App Manager 이상을 권장합니다 (Developer는 읽기 권한이 확인되지 않음).
+#
+# 조회 로직은 .github/scripts/ios_release.py 의 asc-status 서브커맨드 (#651)
+
+name: PROJECT-FLUTTER-IOS-ASC-STATUS
+
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_id:
+        description: "번들 ID (비우면 IOS_BUNDLE_ID 시크릿 또는 변수를 사용)"
+        required: false
+        default: ""
+
+# 조회만 하므로 저장소 읽기 권한이면 충분하다
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  asc-status:
+    name: App Store Connect 상태 조회
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # 키가 없거나 깨지면 조회 스크립트가 원인을 알려 주므로 여기서는 파일만 만든다
+      - name: Setup App Store Connect API Key
+        env:
+          API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+        run: |
+          if [ -n "$API_KEY_BASE64" ] && [ -n "$API_KEY_ID" ]; then
+            KEY_PATH="$RUNNER_TEMP/AuthKey_${API_KEY_ID}.p8"
+            if echo "$API_KEY_BASE64" | base64 --decode > "$KEY_PATH"; then
+              echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+            else
+              echo "::warning::App Store Connect 키를 해석하지 못했습니다"
+            fi
+          fi
+
+      - name: App Store Connect 상태 조회
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          # 입력값과 시크릿은 스크립트 소스에 직접 넣지 않고 env로 받는다
+          INPUT_BUNDLE_ID: ${{ github.event.inputs.bundle_id }}
+          SECRET_BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID || vars.IOS_BUNDLE_ID }}
+        run: |
+          BUNDLE_ID="${INPUT_BUNDLE_ID:-$SECRET_BUNDLE_ID}"
+          if [ -z "$BUNDLE_ID" ]; then
+            echo "::error::번들 ID가 없습니다. 입력하거나 IOS_BUNDLE_ID 시크릿(또는 변수)을 등록하세요"
+            exit 1
+          fi
+          python3 .github/scripts/ios_release.py asc-status --bundle-id "$BUNDLE_ID"

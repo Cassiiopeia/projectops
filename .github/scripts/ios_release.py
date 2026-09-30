@@ -560,6 +560,65 @@ def cmd_archive_upload(args: argparse.Namespace) -> int:
     return 0
 
 
+def _status_fail(reason: str) -> int:
+    print(f"::error::{reason}", file=sys.stderr)
+    _emit({"ok": False, "reason": reason, "summary": reason, "next": None})
+    return 1
+
+
+def _status_markdown(bundle_id: str, versions: list[dict], closed: str | None, recent: int | None) -> str:
+    """실행 요약용 표. 값은 버전 문자열과 상태 이름뿐이라 비밀값이 섞일 수 없다."""
+    lines = [f"## App Store Connect 상태 ({bundle_id})", "",
+             f"- 닫힌 버전 중 최대: `{closed or '없음'}`",
+             f"- 최근 올라간 빌드 번호: `{recent if recent is not None else '조회 안 됨'}`", "",
+             "| 버전 | 상태 | 닫힘 |", "|---|---|---|"]
+    for v in versions:
+        state = v.get("appVersionState") or v.get("appStoreState") or "-"
+        lines.append(f"| {v['version']} | {state} | {'예' if v['closed'] else '아니오'} |")
+    return "\n".join(lines) + "\n"
+
+
+def cmd_asc_status(args: argparse.Namespace) -> int:
+    """앱 버전 상태와 최근 빌드 번호를 조회만 한다 (#651). 무언가를 올리거나 바꾸지 않는다.
+    사전 점검과 달리 조회가 목적이라 조회가 안 되면 폴백하지 않고 실패로 알린다."""
+    token = asc_client.token_from_env()
+    if not token:
+        return _status_fail("ASC 인증 정보 없음 (APP_STORE_CONNECT_API_KEY_ID, ISSUER_ID, API_KEY_BASE64 시크릿 확인)")
+    try:
+        app_id = asc_client.find_app_id(args.bundle_id, token)
+        if not app_id:
+            return _status_fail(f"번들 ID {args.bundle_id} 앱을 찾지 못함")
+        rows = asc_client.list_app_store_versions(app_id, token)
+    except asc_client.AscError as e:
+        return _status_fail(f"ASC 조회 실패: {e}")
+    try:
+        recent = asc_client.recent_max_build(app_id, token)
+    except asc_client.AscError as e:
+        print(f"경고: 최근 빌드 번호 조회 실패: {e}", file=sys.stderr)
+        recent = None
+
+    closed = closed_max(rows)
+    versions = []
+    for r in rows:
+        t = parse_version(r.get("version"))
+        is_closed = (r.get("appVersionState") in CLOSED_VERSION_STATES
+                     or r.get("appStoreState") in CLOSED_STORE_STATES)
+        versions.append({"version": r.get("version"), "appVersionState": r.get("appVersionState"),
+                         "appStoreState": r.get("appStoreState"), "closed": is_closed, "_key": t or (0, 0, 0)})
+    versions.sort(key=lambda v: v["_key"], reverse=True)  # 최신 버전이 위로
+    for v in versions:
+        del v["_key"]
+
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        with open(summary_path, "a", encoding="utf-8") as f:
+            f.write(_status_markdown(args.bundle_id, versions, closed, recent))
+    _write_github_output({"closed_max": closed or "", "recent_max_build": "" if recent is None else recent})
+    _emit({"ok": True, "app_id": app_id, "versions": versions, "closed_max": closed,
+           "recent_max_build": recent, "summary": f"닫힌 버전 최대 {closed or '없음'}, 최근 빌드 번호 {recent}", "next": None})
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="iOS 릴리스 판단 로직")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -569,11 +628,15 @@ def main(argv: list[str] | None = None) -> int:
     pc.add_argument("--bundle-id", required=True)
     ce = sub.add_parser("classify-error", help="업로드 로그 분류")
     ce.add_argument("--log", required=True)
+    st = sub.add_parser("asc-status", help="앱 버전 상태와 최근 빌드 번호 조회 (조회 전용)")
+    st.add_argument("--bundle-id", required=True)
     au = sub.add_parser("archive-upload", help="아카이브, 검증, 업로드와 재시도")
     au.add_argument("--phase", choices=["build", "upload"], required=True)
     args = p.parse_args(argv)
     if args.cmd == "archive-upload":
         return cmd_archive_upload(args)
+    if args.cmd == "asc-status":
+        return cmd_asc_status(args)
     return cmd_precheck(args) if args.cmd == "precheck-version" else cmd_classify(args)
 
 

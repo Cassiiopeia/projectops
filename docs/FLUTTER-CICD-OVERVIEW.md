@@ -126,6 +126,7 @@ projectops의 Flutter CI/CD 시스템은 **마법사 도구**와 **GitHub Action
 | 워크플로우 | 용도 | 트리거 |
 |-----------|------|--------|
 | `PROJECT-FLUTTER-IOS-TESTFLIGHT.yaml` | iOS TestFlight 배포 | main push |
+| `PROJECT-FLUTTER-IOS-ASC-STATUS.yaml` | App Store Connect 버전 상태와 최근 빌드 번호 조회 (조회 전용, 리눅스 러너) | 수동 실행 |
 | `PROJECT-FLUTTER-ANDROID-PLAYSTORE-CICD.yaml` | Android Play Store 내부 테스트 배포 | main push |
 | `PROJECT-FLUTTER-ANDROID-FIREBASE-CICD.yaml` | Firebase App Distribution 배포 | main push |
 | `PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD.yaml` | 자체 서버(SMB) APK 배포 | main push |

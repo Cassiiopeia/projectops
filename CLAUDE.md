@@ -395,6 +395,7 @@ RequestError [HttpError]: Resource not accessible by integration
 | `PROJECT-FLUTTER-ANDROID-TEST-APK` | 테스트 APK 빌드 | 기본 |
 | `PROJECT-FLUTTER-IOS-TESTFLIGHT` | TestFlight 배포 | 기본 |
 | `PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT` | 테스트 빌드 | 기본 |
+| `PROJECT-FLUTTER-IOS-ASC-STATUS` | App Store Connect 버전 상태, 최근 빌드 번호 조회 (수동 실행, 조회 전용, #651) | 기본 |
 | `PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER` | 댓글 트리거 빌드 | 기본 |
 | `PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD` | 자체 서버(SMB) APK 배포 | 기본 |
 

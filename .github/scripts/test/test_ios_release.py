@@ -619,3 +619,70 @@ def test_verify_ipa_bad_zip_and_no_app(tmp_path):
 def test_no_forbidden_typography_in_source():
     src = (Path(ir.__file__)).read_text(encoding="utf-8")
     assert "·" not in src and "—" not in src
+
+
+# ── asc-status (조회 전용 수동 실행 워크플로가 부른다, #651) ─────────────
+def _patch_status(monkeypatch, versions=None, recent=45105):
+    monkeypatch.setattr(ir.asc_client, "token_from_env", lambda: "tok")
+    monkeypatch.setattr(ir.asc_client, "find_app_id", lambda b, t: "APP1")
+    monkeypatch.setattr(ir.asc_client, "list_app_store_versions", lambda a, t: versions if versions is not None else [
+        {"version": "2.1.2", "appVersionState": None, "appStoreState": "READY_FOR_SALE"},
+        {"version": "2.1.3", "appVersionState": "WAITING_FOR_REVIEW", "appStoreState": None},
+        {"version": "2.0.9", "appVersionState": "REPLACED_WITH_NEW_VERSION", "appStoreState": None}])
+    monkeypatch.setattr(ir.asc_client, "recent_max_build", lambda a, t: recent)
+
+
+def test_asc_status_reports_versions_and_closed_max(monkeypatch, capsys):
+    _patch_status(monkeypatch)
+    rc = ir.main(["asc-status", "--bundle-id", "com.a.b"])
+    out = json.loads(capsys.readouterr().out.strip())
+    assert rc == 0 and out["ok"] is True and out["closed_max"] == "2.1.2" and out["recent_max_build"] == 45105
+    # 최신 버전이 먼저, 닫힘 여부가 항목마다 표시된다
+    assert [v["version"] for v in out["versions"]] == ["2.1.3", "2.1.2", "2.0.9"]
+    assert {v["version"]: v["closed"] for v in out["versions"]} == {"2.1.3": False, "2.1.2": True, "2.0.9": True}
+
+
+def test_asc_status_writes_step_summary(monkeypatch, capsys, tmp_path):
+    _patch_status(monkeypatch)
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    assert ir.main(["asc-status", "--bundle-id", "com.a.b"]) == 0
+    text = summary.read_text(encoding="utf-8")
+    assert "2.1.2" in text and "READY_FOR_SALE" in text and "45105" in text
+    # 키 값이나 발급자 ID가 요약에 섞이면 안 된다
+    assert "tok" not in text.replace("token", "")
+
+
+def test_asc_status_without_token_fails_loudly(monkeypatch, capsys):
+    monkeypatch.setattr(ir.asc_client, "token_from_env", lambda: None)
+    rc = ir.main(["asc-status", "--bundle-id", "com.a.b"])
+    out = json.loads(capsys.readouterr().out.strip())
+    # 조회가 목적인 명령이라 사전 점검과 달리 조용히 폴백하지 않는다
+    assert rc == 1 and out["ok"] is False and "인증 정보" in out["reason"]
+
+
+def test_asc_status_app_not_found_and_api_error(monkeypatch, capsys):
+    _patch_status(monkeypatch)
+    monkeypatch.setattr(ir.asc_client, "find_app_id", lambda b, t: None)
+    assert ir.main(["asc-status", "--bundle-id", "com.a.b"]) == 1
+    assert json.loads(capsys.readouterr().out.strip())["ok"] is False
+
+    def boom(*a, **k):
+        raise ir.asc_client.AscError("HTTP 403", status=403)
+    _patch_status(monkeypatch)
+    monkeypatch.setattr(ir.asc_client, "list_app_store_versions", boom)
+    assert ir.main(["asc-status", "--bundle-id", "com.a.b"]) == 1
+    assert "403" in json.loads(capsys.readouterr().out.strip())["reason"]
+
+
+def test_asc_status_recent_build_failure_is_not_fatal(monkeypatch, capsys):
+    # 최근 빌드 조회만 실패해도 버전 표는 보여준다
+    _patch_status(monkeypatch)
+
+    def boom(*a, **k):
+        raise ir.asc_client.AscError("HTTP 403", status=403)
+    monkeypatch.setattr(ir.asc_client, "recent_max_build", boom)
+    rc = ir.main(["asc-status", "--bundle-id", "com.a.b"])
+    out = json.loads(capsys.readouterr().out.strip())
+    assert rc == 0 and out["recent_max_build"] is None and out["closed_max"] == "2.1.2"
+
