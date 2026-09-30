@@ -131,6 +131,8 @@ projectops의 Flutter CI/CD 시스템은 **마법사 도구**와 **GitHub Action
 | `PROJECT-FLUTTER-ANDROID-FIREBASE-CICD.yaml` | Firebase App Distribution 배포 | main push |
 | `PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD.yaml` | 자체 서버(SMB) APK 배포 | main push |
 
+> 셀프호스트 APK 서명: 기본은 디버그 키이며 경고를 남긴다. 저장소 변수 `ANDROID_SELFHOSTED_RELEASE_SIGNING=true` 를 등록해야만 `RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD` 로 릴리스 서명하며, 이때 시크릿이 하나라도 비면 빌드가 실패한다. 서명 키가 바뀌면 이미 설치된 앱 위에 업데이트 설치가 되지 않을 수 있으니 주의한다. 업로드 하위 경로는 워크플로 `env.SMB_PATH_ANDROID`(기본 빈 값)로 지정한다.
+
 ### 배포 범위는 어디까지 가는가 (`DEPLOY_MODE`)
 
 **한 값이 두 플랫폼에서 서로 다른 지점까지 간다.** 같은 이름이라 헷갈리기 쉬워 표로 둔다.
