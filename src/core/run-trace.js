@@ -50,7 +50,7 @@ function elapsed(t0, clockIso) {
 const ERROR_ACTIONS = new Set(["error", "failed"]);
 const WARN_ACTIONS = new Set([
   "unresolved", "cancelled", "skipped-conflict", "leftover-old-gen",
-  "neutralized", "detected", "replaced-bak",
+  "neutralized", "detected", "replaced-bak", "incoming-failed",
 ]);
 const DEBUG_ACTIONS = new Set([
   "copied", "skipped-unchanged", "excluded", "substituted", "branch-substituted",

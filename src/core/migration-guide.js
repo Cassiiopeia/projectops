@@ -52,6 +52,9 @@ export function deriveWorkflowLists(events = []) {
     added: pick("copied"),
     replacedBak: pick("replaced-bak"),
     skippedConflict: pick("skipped-conflict"),
+    // #654 — 건너뛴 파일별 새 템플릿 사본 경로와 diff 줄 수 (이벤트 detail에서 파생)
+    skippedConflictDetails: events.filter((e) => e.phase === "copy" && e.action === "skipped-conflict")
+      .map((e) => ({ file: e.target, incoming: e.detail?.incoming ?? "", added: e.detail?.added ?? null, removed: e.detail?.removed ?? null })),
     templateAdded: pick("template-added"),
     excluded: pick("excluded"),
   };
@@ -112,6 +115,11 @@ export function renderGuideEntry(report) {
   }
   if (wf.skippedConflict.length) {
     checklist.push(`- [ ] **기존 수정본 유지 ${wf.skippedConflict.length}개, 신형과 병합 검토**: ${wf.skippedConflict.map((f) => `\`${f}\``).join(", ")}`);
+    // #654 — 새 템플릿 사본이 있으면 비교 방법까지 적는다
+    for (const d of wf.skippedConflictDetails.filter((x) => x.incoming)) {
+      const cnt = d.added != null && d.removed != null ? ` (추가 ${d.added}줄, 삭제 ${d.removed}줄)` : "";
+      checklist.push(`  - \`${d.file}\`${cnt}: \`diff -u .github/workflows/${d.file} ${d.incoming}\``);
+    }
   }
   if (wf.added.length || wf.replacedBak.length) {
     checklist.push(`- [ ] **새/갱신 CICD가 요구하는 GitHub Secrets 등록 확인** (Settings → Secrets → Actions, \`_GITHUB_PAT_TOKEN\` 포함)`);
@@ -162,6 +170,11 @@ export function renderGuideEntry(report) {
   L.push(`  added: ${ylist(wf.added)}`);
   L.push(`  replaced_bak: ${ylist(wf.replacedBak)}`);
   L.push(`  skipped_conflict: ${ylist(wf.skippedConflict)}`);
+  const inc = wf.skippedConflictDetails.filter((d) => d.incoming);
+  if (inc.length) {
+    L.push("  skipped_conflict_incoming:");
+    for (const d of inc) L.push(`    - { file: ${yq(d.file)}, incoming: ${yq(d.incoming)}, added: ${d.added ?? "null"}, removed: ${d.removed ?? "null"} }`);
+  }
   L.push(`  template_added: ${ylist(wf.templateAdded)}`);
   if (legacyNeutralized.length) {
     L.push("  legacy_neutralized:");

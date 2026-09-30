@@ -9,6 +9,7 @@ import { exists, copyFileSync, listYamlFiles } from "../fsutil.js";
 import { isUnchanged, substituteEnv } from "../wizard-env.js";
 import { isUserModified, readBaseline, writeBaseline, sha256 } from "../baseline.js";
 import { substituteBranches } from "../branch-sub.js";
+import { saveIncoming, lineDiffCounts } from "../incoming.js";
 
 // 한 파일에 env 치환을 적용해 대상 파일을 갱신 (.sh configure_workflow_env 등가).
 // values/useDefaults: env 계획(promptEnvPlan) 결과 — 미지정이면 기본값 경로(현행 force 동작).
@@ -79,13 +80,35 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   const projectTypesDir = join(tempDir, PATHS.workflowsDir, PATHS.projectTypesDir);
   if (!exists(projectTypesDir)) throw new Error("템플릿 저장소 구조 오류 — project-types 폴더를 찾지 못했습니다.");
 
-  const counters = { copied: 0, skipped: 0, templateAdded: 0, optionalCopied: 0, copiedFiles: [] };
+  const counters = { copied: 0, skipped: 0, templateAdded: 0, optionalCopied: 0, copiedFiles: [],
+    skippedConflicts: [] }; // #654 — 유지한 사용자 수정본별 { filename, incoming, added, removed }
   const deployValues = new Map(); // Map<type, Map<key,value>> — deploy 블록용 ask 값
   counters.deployValues = deployValues;
   // 브랜치 전략 (#477) — 표준(main/develop)이면 치환·가상비교 모두 no-op
   const branches = { defaultBranch: branch || "main", deployBranch: deployBranch || "develop" };
   // values/useDefaults는 치환 경로에서만 의미 (isUnchanged는 내부에서 useDefaults:true 강제 — 가상 비교 무손상)
   const envOptsFor = (type) => ({ type, projectPath: paths.get(type) || ".", repoName, resolvers, values: envValues, useDefaults: envUseDefaults, branches });
+
+  // 사용자 수정본을 유지할 때 새 템플릿 사본을 incoming에 남긴다 (#654).
+  // 실패는 경고 한 줄로 흡수한다 — 병합 안내 때문에 복사 전체가 죽으면 안 된다.
+  const onSkip = (srcDir, filename, type) => {
+    const info = { filename, incoming: "", added: null, removed: null };
+    try {
+      // 설치 때와 같은 렌더(기본값 치환 + 브랜치 치환)를 거쳐야 diff가 "진짜 차이"만 보여준다
+      const rendered = substituteBranches(
+        substituteEnv(readFileSync(join(srcDir, filename), "utf8"), { ...envOptsFor(type), useDefaults: true }), branches);
+      info.incoming = saveIncoming(targetRoot, filename, rendered);
+      const d = lineDiffCounts(readFileSync(join(workflowsDir, filename), "utf8"), rendered);
+      info.added = d.added; info.removed = d.removed;
+    } catch (e) {
+      trace?.event("copy", "incoming-failed", filename, { message: e?.message || String(e) });
+      console.error(`⚠️ incoming 저장 실패(${filename}): ${e?.message || e} — 병합 안내 없이 계속합니다.`);
+    }
+    counters.skippedConflicts.push(info);
+    return info;
+  };
+  // 반환 객체의 열거 가능한 필드를 늘리지 않는다 (기존 호출부·테스트가 counters 모양에 기대고 있다)
+  Object.defineProperty(counters, "onSkip", { value: onSkip, enumerable: false });
 
   // (1) common — 타입별과 동일한 판정·보호를 받는다 (#560).
   //
@@ -132,7 +155,7 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
         continue;
       }
       // 사용자가 손댄 것이 확인된 파일 — 결정에 따라 처리(미지정이면 유지).
-      applyDecision(decisions.get(filename), commonDir, workflowsDir, filename, counters, trace);
+      applyDecision(decisions.get(filename), commonDir, workflowsDir, filename, counters, trace, "common");
     }
   }
 
@@ -251,7 +274,7 @@ function recordBaseline(workflowsDir, targetRoot, counters, previous, templateVe
 
 // changed(기존에 있고 내용이 바뀐) 파일 1개를 결정에 따라 처리 (.sh 3440~3508 3지선 case 등가).
 // 'skip'(기본): 기존 유지. 'backup': 기존→.bak 후 교체. 'template': 기존 유지 + 새 버전을 .template.yaml로.
-function applyDecision(decision, srcDir, workflowsDir, filename, counters, trace = null) {
+function applyDecision(decision, srcDir, workflowsDir, filename, counters, trace = null, type = "") {
   const src = join(srcDir, filename);
   const dst = join(workflowsDir, filename);
   if (decision === "backup") {
@@ -272,7 +295,12 @@ function applyDecision(decision, srcDir, workflowsDir, filename, counters, trace
     return;
   }
   counters.skipped++; // 'skip'/미지정/ESC → 기존 유지 (.sh S)·force 기본)
-  trace?.event("copy", "skipped-conflict", filename, { decision: decision ?? "skip", note: "사용자 수정본 유지 — 병합 검토 후보" });
+  // #654 — 새 템플릿을 incoming에 남기고 diff 줄 수를 detail로 함께 기록
+  const inc = counters.onSkip?.(srcDir, filename, type) ?? {};
+  trace?.event("copy", "skipped-conflict", filename, {
+    decision: decision ?? "skip", note: "사용자 수정본 유지 — 병합 검토 후보",
+    incoming: inc.incoming || null, added: inc.added ?? null, removed: inc.removed ?? null,
+  });
 }
 
 // 대상 워크플로우 디렉토리에서 changed(충돌) 파일 목록만 뽑는다 — copyWorkflowsInteractive의 사전 조사용.
@@ -345,7 +373,7 @@ function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters
     // upstream(#557): 사용자가 손대지 않았고 템플릿만 바뀐 파일 — 물어볼 것 없이 최신으로 올린다.
     for (const f of upstream) { copyFileSync(join(typeDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "upstream-updated", f, { group: type, reason: "baseline-match" }); }
     // changed: 결정 Map에 따라 처리 (미지정=skip → 현행 force 동작과 동일)
-    for (const f of changed) applyDecision(decisions.get(f), typeDir, workflowsDir, f, counters, trace);
+    for (const f of changed) applyDecision(decisions.get(f), typeDir, workflowsDir, f, counters, trace, type);
   }
 
   // server-deploy — deploy=docker-ssh일 때만 포함 (#439)
@@ -355,7 +383,7 @@ function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters
     for (const f of unchanged) { counters.skipped++; trace?.event("copy", "skipped-unchanged", f, { group: `${type}/server-deploy` }); }
     for (const f of newFiles) { copyFileSync(join(serverDeployDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "copied", f, { group: `${type}/server-deploy` }); }
     for (const f of upstream) { copyFileSync(join(serverDeployDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "upstream-updated", f, { group: `${type}/server-deploy`, reason: "baseline-match" }); }
-    for (const f of changed) applyDecision(decisions.get(f), serverDeployDir, workflowsDir, f, counters, trace);
+    for (const f of changed) applyDecision(decisions.get(f), serverDeployDir, workflowsDir, f, counters, trace, type);
   }
 
   // publish/<target> (opt-in — #439 publish 축. 타입은 파일 위치일 뿐 게이트가 아니다)
