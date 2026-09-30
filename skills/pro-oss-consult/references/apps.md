@@ -35,6 +35,15 @@
 - **앱 권한 설명 표** — 조사한 9개 중 아무도 안 했다. Flutter 앱이 차별화할 수 있는 빈자리다
 - 상표 안내 (포크가 이름을 못 쓰게)
 
+## 실제 앱 레포로 점검해 보고 보강한 것 (EarLocAlert, 2026-10-01)
+
+- **`collect`의 `files.privacy_policy`** — 개인정보처리방침 파일을 루트·docs·.github에서 찾는다. 없으면 README의
+  "개인정보" 절이 스토어 URL 역할을 하는지 본다 (EarLocAlert는 파일 없이 README 절로 둔다).
+- **fastlane·스토어 메타데이터는 루트에 없을 수 있다.** Flutter 앱은 `android/fastlane`, `ios/fastlane` 아래에 둔다.
+  `files.store_metadata_root`가 `false`여도 없다고 단정하지 말고 `files.mobile_dirs`의 폴더 안을 직접 본다.
+- 앱 레포는 `docs/` 번호 문서(요구사항·릴리스·운영 등)와 `release-notes/` 폴더를 두는 경우가 있다. 릴리스 노트가
+  README·CHANGELOG 어디에 있는지 `root_entries`로 먼저 확인한다.
+
 ## 라이선스 맥락
 
 - 서버가 딸린 앱(immich·rustdesk·AppFlowy·ente)은 AGPL을 많이 쓴다. 수정한 서버를 호스팅하는 회사가

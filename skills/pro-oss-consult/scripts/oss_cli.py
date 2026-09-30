@@ -226,6 +226,20 @@ def detect_files(root: dict, github: dict, docs: dict, templates: list[str]) -> 
     found["docs_dir"] = "docs" in root or "website" in root
     found["examples_dir"] = "examples" in root or "example" in root
     found["skills_dir"] = "skills" in root
+    # 배포형 앱 점검용 (apps.md). 개인정보처리방침 파일은 이름이 제각각이라 소문자로 훑는다.
+    # fastlane 은 Flutter 앱이면 루트가 아니라 android/·ios/ 아래에 있으므로 여기서 단정하지 않고
+    # 모바일 폴더 존재만 알린다 — 하위 확인은 에이전트가 한다.
+    priv = None
+    for where, listing in (("root", root), ("docs", docs), (".github", github)):
+        for n, t in listing.items():
+            if n.lower().startswith(("privacy", "privacy_policy", "개인정보")):
+                priv = {"where": where, "name": n, "type": t}
+                break
+        if priv:
+            break
+    found["privacy_policy"] = priv
+    found["store_metadata_root"] = "fastlane" in root
+    found["mobile_dirs"] = sorted(d for d in ("android", "ios") if d in root)
     return found
 
 

@@ -109,3 +109,12 @@ def test_local_facts_on_real_git_repo(tmp_path):
     assert out["data"]["committed_secret_paths"] == [".env"]
     assert out["data"]["natural_language_strings"]["total"] == 1
     assert out["data"]["co_change"]["commits"] == 1
+
+
+def test_detect_files_reports_app_facts_without_verdict():
+    root = {"README.md": "file", "android": "dir", "ios": "dir", "PRIVACY_POLICY.md": "file"}
+    f = oss_cli.detect_files(root, {}, {}, [])
+    assert f["privacy_policy"]["name"] == "PRIVACY_POLICY.md"
+    assert f["mobile_dirs"] == ["android", "ios"]
+    assert f["store_metadata_root"] is False  # 루트에 없다는 사실만. 하위 fastlane 은 에이전트가 확인한다
+    assert oss_cli.detect_files({"README.md": "file"}, {}, {}, [])["privacy_policy"] is None
