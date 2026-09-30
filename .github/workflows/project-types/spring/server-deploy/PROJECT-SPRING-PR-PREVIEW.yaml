@@ -281,11 +281,11 @@ jobs:
 
       # [필수] Spring Boot 설정 파일
       - name: "[필수] application-prod.yml 생성"
-        env:
-          APPLICATION_PROD_YML: ${{ secrets.APPLICATION_PROD_YML }}
         run: |
           mkdir -p $(dirname ${{ env.APPLICATION_YML_PATH }})
-          printf '%s\n' "$APPLICATION_PROD_YML" > ${{ env.APPLICATION_YML_PATH }}
+          cat << 'EOF' > ${{ env.APPLICATION_YML_PATH }}
+          ${{ secrets.APPLICATION_PROD_YML }}
+          EOF
 
       # [선택] 아래는 예시입니다. 필요 없으면 삭제하세요.
       # - name: "[선택] Vertex AI Service Account Key 생성"
@@ -823,11 +823,9 @@ jobs:
       - name: 브랜치 존재 확인
         id: check_branch
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         with:
           script: |
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ needs.get-branch-from-issue.outputs.branch_name }}';
             const issueNumber = ${{ needs.get-branch-from-issue.outputs.issue_number }};
 
             console.log(`🔍 브랜치 존재 확인: ${branchName}`);
@@ -883,13 +881,11 @@ jobs:
       - name: Issue 정보 설정
         if: steps.check_branch.outputs.exists == 'true'
         id: issue
-        env:
-          BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         run: |
-          echo "ref=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "ref=${{ needs.get-branch-from-issue.outputs.branch_name }}" >> $GITHUB_OUTPUT
           echo "issue_number=${{ needs.get-branch-from-issue.outputs.issue_number }}" >> $GITHUB_OUTPUT
           # 브랜치의 최신 커밋 SHA 가져오기
-          echo "sha=$(git ls-remote https://github.com/${{ github.repository }}.git "refs/heads/$BRANCH_NAME" | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "sha=$(git ls-remote https://github.com/${{ github.repository }}.git refs/heads/${{ needs.get-branch-from-issue.outputs.branch_name }} | cut -c1-7)" >> $GITHUB_OUTPUT
 
       # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       # 진행 상황 댓글 시스템
@@ -898,12 +894,10 @@ jobs:
         if: steps.check_branch.outputs.exists == 'true'
         id: progress
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         with:
           script: |
             const issueNumber = ${{ needs.get-branch-from-issue.outputs.issue_number }};
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ needs.get-branch-from-issue.outputs.branch_name }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const startTime = Date.now();
 
@@ -957,11 +951,11 @@ jobs:
       # =================================================================
       - name: "[필수] application-prod.yml 생성"
         if: steps.check_branch.outputs.exists == 'true'
-        env:
-          APPLICATION_PROD_YML: ${{ secrets.APPLICATION_PROD_YML }}
         run: |
           mkdir -p $(dirname ${{ env.APPLICATION_YML_PATH }})
-          printf '%s\n' "$APPLICATION_PROD_YML" > ${{ env.APPLICATION_YML_PATH }}
+          cat << 'EOF' > ${{ env.APPLICATION_YML_PATH }}
+          ${{ secrets.APPLICATION_PROD_YML }}
+          EOF
       # =================================================================
       # ⚠️ [영역 2 끝] 프로젝트별 Secret 파일 생성 끝
       # =================================================================
@@ -974,12 +968,10 @@ jobs:
         if: steps.check_branch.outputs.exists == 'true'
         id: build_progress
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         with:
           script: |
             const commentId = ${{ steps.progress.outputs.comment_id }};
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ needs.get-branch-from-issue.outputs.branch_name }}';
             const startTime = ${{ steps.progress.outputs.start_time }};
             const now = Date.now();
             const elapsed = now - startTime;
@@ -1041,12 +1033,10 @@ jobs:
         if: steps.check_branch.outputs.exists == 'true'
         id: docker_progress
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         with:
           script: |
             const commentId = ${{ steps.progress.outputs.comment_id }};
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ needs.get-branch-from-issue.outputs.branch_name }}';
             const buildDuration = '${{ steps.build_progress.outputs.build_duration }}';
             const dockerStart = ${{ steps.build_progress.outputs.docker_start }};
             const now = Date.now();
@@ -1236,12 +1226,10 @@ jobs:
       - name: 배포 완료 코멘트
         if: steps.check_branch.outputs.exists == 'true'
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         with:
           script: |
             const commentId = ${{ steps.progress.outputs.comment_id }};
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ needs.get-branch-from-issue.outputs.branch_name }}';
             const buildDuration = '${{ steps.docker_progress.outputs.build_duration }}';
             const dockerDuration = '${{ steps.docker_progress.outputs.docker_duration }}';
             const deployStart = ${{ steps.docker_progress.outputs.deploy_start }};
@@ -1318,14 +1306,12 @@ jobs:
       - name: 빌드/배포 실패 시 에러 코멘트
         if: failure() && steps.check_branch.outputs.exists == 'true'
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         with:
           script: |
             const commentId = ${{ steps.progress.outputs.comment_id || 0 }};
             const projectName = '${{ env.PROJECT_NAME }}';
             const issueNumber = ${{ needs.get-branch-from-issue.outputs.issue_number }};
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ needs.get-branch-from-issue.outputs.branch_name }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
             const buildDuration = '${{ steps.build_progress.outputs.build_duration }}';
@@ -1634,11 +1620,9 @@ jobs:
       - name: 브랜치명에서 Issue 번호 추출
         id: extract
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ needs.check-command.outputs.custom_branch }}';
             const issueMatch = branchName.match(/#(\d+)/);
 
             if (issueMatch) {
@@ -1663,11 +1647,9 @@ jobs:
       - name: 브랜치 존재 여부 확인
         id: check_branch
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ steps.extract.outputs.branch_name }}
         with:
           script: |
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ steps.extract.outputs.branch_name }}';
             try {
               await github.rest.repos.getBranch({
                 owner: context.repo.owner,
@@ -1686,11 +1668,9 @@ jobs:
       - name: 브랜치 없음 에러 코멘트
         if: steps.check_branch.outputs.exists == 'false'
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ steps.extract.outputs.branch_name }}
         with:
           script: |
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ steps.extract.outputs.branch_name }}';
 
             const body = [
               '## ❌ 브랜치를 찾을 수 없습니다',
@@ -1732,13 +1712,11 @@ jobs:
         if: steps.check_branch.outputs.exists == 'true'
         id: progress
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ steps.extract.outputs.branch_name }}
         with:
           script: |
             const projectName = '${{ env.PROJECT_NAME }}';
             const containerSuffix = '${{ steps.extract.outputs.container_suffix }}';
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ steps.extract.outputs.branch_name }}';
             const sha = '${{ steps.commit.outputs.sha }}';
 
             const body = [
@@ -1799,13 +1777,11 @@ jobs:
         if: steps.check_branch.outputs.exists == 'true'
         id: build_progress
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ steps.extract.outputs.branch_name }}
         with:
           script: |
             const commentId = ${{ steps.progress.outputs.comment_id }};
             const projectName = '${{ env.PROJECT_NAME }}';
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ steps.extract.outputs.branch_name }}';
             const sha = '${{ steps.commit.outputs.sha }}';
             const buildDuration = '${{ steps.build.outputs.duration }}';
 
@@ -1844,12 +1820,10 @@ jobs:
       - name: Docker 이미지 빌드 & 푸시
         if: steps.check_branch.outputs.exists == 'true'
         id: docker
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
           DOCKER_START=$(date +%s)
           CONTAINER_SUFFIX="${{ steps.extract.outputs.container_suffix }}"
-          IMAGE_TAG="$DOCKERHUB_USERNAME/${{ env.PROJECT_NAME }}:${CONTAINER_SUFFIX}"
+          IMAGE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.PROJECT_NAME }}:${CONTAINER_SUFFIX}"
           docker build -t $IMAGE_TAG .
           docker push $IMAGE_TAG
           DOCKER_END=$(date +%s)
@@ -1861,13 +1835,11 @@ jobs:
         if: steps.check_branch.outputs.exists == 'true'
         id: docker_progress
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ steps.extract.outputs.branch_name }}
         with:
           script: |
             const commentId = ${{ steps.progress.outputs.comment_id }};
             const projectName = '${{ env.PROJECT_NAME }}';
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ steps.extract.outputs.branch_name }}';
             const sha = '${{ steps.commit.outputs.sha }}';
             const buildDuration = '${{ steps.build_progress.outputs.build_duration }}';
             const dockerDuration = '${{ steps.docker.outputs.duration }}';
@@ -1965,14 +1937,12 @@ jobs:
       - name: 배포 완료 코멘트
         if: steps.check_branch.outputs.exists == 'true'
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ steps.extract.outputs.branch_name }}
         with:
           script: |
             const commentId = ${{ steps.progress.outputs.comment_id }};
             const projectName = '${{ env.PROJECT_NAME }}';
             const containerSuffix = '${{ steps.extract.outputs.container_suffix }}';
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ steps.extract.outputs.branch_name }}';
             const sha = '${{ steps.commit.outputs.sha }}';
             const domainSuffix = '${{ env.PREVIEW_DOMAIN_SUFFIX }}';
             const previewPort = '${{ env.PREVIEW_PORT }}';
@@ -2032,13 +2002,11 @@ jobs:
       - name: 빌드/배포 실패 시 에러 코멘트
         if: failure() && steps.check_branch.outputs.exists == 'true'
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ steps.extract.outputs.branch_name }}
         with:
           script: |
             const commentId = ${{ steps.progress.outputs.comment_id || 0 }};
             const projectName = '${{ env.PROJECT_NAME }}';
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ steps.extract.outputs.branch_name }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
             const buildDuration = '${{ steps.build_progress.outputs.build_duration }}';
@@ -2119,11 +2087,9 @@ jobs:
       - name: 브랜치명에서 컨테이너 suffix 추출
         id: extract
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ needs.check-command.outputs.custom_branch }}';
             const issueMatch = branchName.match(/#(\d+)/);
 
             if (issueMatch) {
@@ -2173,13 +2139,11 @@ jobs:
 
       - name: 삭제 확인 코멘트
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ steps.extract.outputs.branch_name }}
         with:
           script: |
             const projectName = '${{ env.PROJECT_NAME }}';
             const containerSuffix = '${{ steps.extract.outputs.container_suffix }}';
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ steps.extract.outputs.branch_name }}';
             const containerName = `${projectName}-${containerSuffix}`;
 
             const body = [
@@ -2215,11 +2179,9 @@ jobs:
       - name: 브랜치명에서 컨테이너 suffix 추출
         id: extract
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ needs.check-command.outputs.custom_branch }}';
             const issueMatch = branchName.match(/#(\d+)/);
 
             if (issueMatch) {
@@ -2258,13 +2220,11 @@ jobs:
 
       - name: 상태 코멘트 작성
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ steps.extract.outputs.branch_name }}
         with:
           script: |
             const projectName = '${{ env.PROJECT_NAME }}';
             const containerSuffix = '${{ steps.extract.outputs.container_suffix }}';
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ steps.extract.outputs.branch_name }}';
             const domainSuffix = '${{ env.PREVIEW_DOMAIN_SUFFIX }}';
             const previewPort = '${{ env.PREVIEW_PORT }}';
 

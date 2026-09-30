@@ -280,36 +280,30 @@ jobs:
 
       # Release Keystore 설정
       - name: Setup Release Keystore
-        env:
-          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: |
           mkdir -p android/app/keystore
-          echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore/key.jks
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > android/app/keystore/key.jks
           echo "✅ Release Keystore 생성 완료"
           ls -la android/app/keystore/
 
       # key.properties 생성 (Release 서명 정보)
       - name: Create key.properties
-        env:
-          STORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           cat > android/key.properties << EOF
           storeFile=app/keystore/key.jks
-          storePassword=$STORE_PASSWORD
-          keyAlias=$KEY_ALIAS
-          keyPassword=$KEY_PASSWORD
+          storePassword=${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.RELEASE_KEY_ALIAS }}
+          keyPassword=${{ secrets.RELEASE_KEY_PASSWORD }}
           EOF
           echo "✅ key.properties 생성 완료"
           cat android/key.properties
 
       # Google-services.json 생성
       - name: Create Google-services.json
-        env:
-          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          printf '%s\n' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          cat << 'EOF' > android/app/google-services.json
+          ${{ secrets.GOOGLE_SERVICES_JSON }}
+          EOF
           echo "✅ Google-services.json 생성 완료"
 
       - name: Set up Flutter
@@ -597,11 +591,9 @@ jobs:
 
       # Service Account JSON 설정
       - name: Setup Google Play Service Account
-        env:
-          SERVICE_ACCOUNT_BASE64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
         run: |
           mkdir -p ~/.config/gcloud
-          echo "$SERVICE_ACCOUNT_BASE64" | base64 --decode > ~/.config/gcloud/service-account.json
+          echo "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}" | base64 --decode > ~/.config/gcloud/service-account.json
           echo "✅ Service Account JSON 설정 완료"
 
       # AAB 파일 다운로드

@@ -147,11 +147,11 @@ jobs:
         run: chmod +x gradlew
 
       - name: application-prod.yml 생성
-        env:
-          APPLICATION_PROD_YML: ${{ secrets.APPLICATION_PROD_YML }}
         run: |
           mkdir -p ${{ env.APPLICATION_YML_DIR }}
-          printf '%s\n' "$APPLICATION_PROD_YML" > ./${{ env.APPLICATION_YML_DIR }}/application-prod.yml
+          cat << 'EOF' > ./${{ env.APPLICATION_YML_DIR }}/application-prod.yml
+          ${{ secrets.APPLICATION_PROD_YML }}
+          EOF
           echo "✅ application-prod.yml 파일 생성 완료 (${{ env.APPLICATION_YML_DIR }})"
 
       - name: Build with Gradle

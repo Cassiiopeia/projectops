@@ -55,10 +55,10 @@ jobs:
 
       # 3. 환경변수 파일 생성
       - name: 환경변수 파일 생성 (${{ env.ENV_FILE_NAME }})
-        env:
-          ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
         run: |
-          printf '%s\n' "$ENV_CONTENT" > ./${{ env.ENV_FILE_NAME }}
+          cat << 'EOF' > ./${{ env.ENV_FILE_NAME }}
+          ${{ secrets.ENV_FILE || secrets.ENV }}
+          EOF
           echo "✅ ${{ env.ENV_FILE_NAME }} 파일 생성 완료"
 
       # 4. npm 의존성 캐싱

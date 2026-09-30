@@ -74,11 +74,9 @@ jobs:
 
       # Debug Keystore 설정 (디버깅 용도 유지)
       - name: Setup Debug Keystore
-        env:
-          DEBUG_KEYSTORE: ${{ secrets.DEBUG_KEYSTORE }}
         run: |
           mkdir -p ~/.android
-          echo "$DEBUG_KEYSTORE" | base64 -d > ~/.android/debug.keystore || echo "Base64 decoding failed"
+          echo "${{ secrets.DEBUG_KEYSTORE }}" | base64 -d > ~/.android/debug.keystore || echo "Base64 decoding failed"
           echo "Debug Keystore created (for debugging)"
           ls -la ~/.android/
           keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android || echo "Keytool failed"
@@ -145,10 +143,10 @@ jobs:
 
       # Google-services.json 생성
       - name: Create Google-services.json
-        env:
-          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          printf '%s\n' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          cat << 'EOF' > android/app/google-services.json
+          ${{ secrets.GOOGLE_SERVICES_JSON }}
+          EOF
           echo "✅ Google-services.json 생성 완료"
           ls -la android/app/
 
@@ -345,10 +343,10 @@ jobs:
 
       - name: Upload files to server via SMB
         env:
-          SMB_SERVER: ${{ secrets.SERVER_HOST }}
           SMB_USERNAME: ${{ secrets.SERVER_USER }}
           SMB_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
         run: |
+          SMB_SERVER=${{ secrets.SERVER_HOST }}
           SMB_PORT=${{ env.SMB_PORT }}
           SMB_SHARE=${{ env.SMB_SHARE }}
           SMB_PATH="/${{ env.APP_ARTIFACT_NAME }}${{ env.SMB_PATH_ANDROID }}"
@@ -359,7 +357,6 @@ jobs:
 
       - name: Update CICD history JSON
         env:
-          SMB_SERVER: ${{ secrets.SERVER_HOST }}
           SMB_USERNAME: ${{ secrets.SERVER_USER }}
           SMB_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
         run: |
@@ -378,6 +375,7 @@ jobs:
             --arg full_commit_hash "$FULL_COMMIT_HASH" \
             '{apk_name: $apk_name, file_size: $file_size, build_date: $build_date, commit_link: $commit_link, full_commit_hash: $full_commit_hash}')
 
+          SMB_SERVER=${{ secrets.SERVER_HOST }}
           SMB_PORT=${{ env.SMB_PORT }}
           SMB_SHARE=${{ env.SMB_SHARE }}
           SMB_PATH="/${{ env.APP_ARTIFACT_NAME }}${{ env.SMB_PATH_ANDROID }}"

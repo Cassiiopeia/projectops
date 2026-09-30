@@ -138,10 +138,10 @@ jobs:
 
       # 3. .env 파일 생성
       - name: .env 파일 생성
-        env:
-          ENV_CONTENT: ${{ secrets.ENV_FILE }}
         run: |
-          printf '%s\n' "$ENV_CONTENT" > .env
+          cat > .env << 'EOF'
+          ${{ secrets.ENV_FILE }}
+          EOF
           echo "✅ .env 파일이 생성되었습니다"
 
       # 4. Docker 빌드 환경 설정

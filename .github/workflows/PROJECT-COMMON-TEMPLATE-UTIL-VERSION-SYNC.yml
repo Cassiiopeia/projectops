@@ -134,7 +134,7 @@ jobs:
           else
             echo "⚠️ Push 실패, remote 변경사항 동기화 중..."
 
-            if git pull --rebase origin "$GITHUB_REF_NAME"; then
+            if git pull --rebase origin ${{ github.ref_name }}; then
               echo "✅ Rebase 성공, 다시 push 시도..."
             else
               echo "❌ Rebase 실패, 충돌 해결 필요"
@@ -161,7 +161,7 @@ jobs:
         echo "🎉 버전 동기화 워크플로우 완료!"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo "📝 트리거: ${{ github.event_name }}"
-        echo "🌿 브랜치: $GITHUB_REF_NAME"
+        echo "🌿 브랜치: ${{ github.ref_name }}"
         echo "📌 커밋: ${{ github.sha }}"
         echo "🕐 시간: $(date '+%Y-%m-%d %H:%M:%S UTC')"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

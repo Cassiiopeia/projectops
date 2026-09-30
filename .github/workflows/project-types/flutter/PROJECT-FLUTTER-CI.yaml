@@ -139,14 +139,11 @@ jobs:
       # 빌드 정보 수집
       - name: 빌드 정보 수집
         id: info
-        env:
-          REF_NAME: ${{ github.ref_name }}
-          HEAD_REF: ${{ github.head_ref }}
         run: |
           if [ "${{ github.event_name }}" == "pull_request" ]; then
-            BRANCH_NAME="$HEAD_REF"
+            BRANCH_NAME="${{ github.head_ref }}"
           else
-            BRANCH_NAME="$REF_NAME"
+            BRANCH_NAME="${{ github.ref_name }}"
           fi
           COMMIT_HASH=$(echo "${{ github.sha }}" | cut -c1-7)
 
@@ -162,13 +159,11 @@ jobs:
         id: comment
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ steps.info.outputs.branch_name }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const prNumber = context.payload.pull_request.number;
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ steps.info.outputs.branch_name }}';
             const commitHash = '${{ steps.info.outputs.commit_hash }}';
             const analyzeOnly = '${{ steps.config.outputs.analyze_only }}' === 'true';
             const enableAndroid = '${{ steps.config.outputs.enable_android }}' === 'true';
@@ -259,10 +254,10 @@ jobs:
 
       # .env 파일 생성
       - name: Create .env file
-        env:
-          ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
         run: |
-          printf '%s\n' "$ENV_CONTENT" > ${{ env.ENV_FILE_PATH }}
+          cat << 'EOF' > ${{ env.ENV_FILE_PATH }}
+          ${{ secrets.ENV_FILE || secrets.ENV }}
+          EOF
           echo "✅ ${{ env.ENV_FILE_PATH }} file created"
 
       # Flutter 설정
@@ -350,10 +345,10 @@ jobs:
 
       # .env 파일 생성
       - name: Create .env file
-        env:
-          ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
         run: |
-          printf '%s\n' "$ENV_CONTENT" > ${{ env.ENV_FILE_PATH }}
+          cat << 'EOF' > ${{ env.ENV_FILE_PATH }}
+          ${{ secrets.ENV_FILE || secrets.ENV }}
+          EOF
           echo "✅ ${{ env.ENV_FILE_PATH }} file created"
 
       # Flutter 설정
@@ -508,10 +503,10 @@ jobs:
 
       # .env 파일 생성
       - name: Create .env file
-        env:
-          ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
         run: |
-          printf '%s\n' "$ENV_CONTENT" > ${{ env.ENV_FILE_PATH }}
+          cat << 'EOF' > ${{ env.ENV_FILE_PATH }}
+          ${{ secrets.ENV_FILE || secrets.ENV }}
+          EOF
           echo "✅ ${{ env.ENV_FILE_PATH }} file created"
 
       # Flutter 설정
@@ -603,14 +598,12 @@ jobs:
     steps:
       - name: 최종 결과 댓글 업데이트
         uses: actions/github-script@v7
-        env:
-          BRANCH_NAME: ${{ needs.prepare.outputs.branch_name }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const commentId = parseInt('${{ needs.prepare.outputs.comment_id }}');
             const startTime = parseInt('${{ needs.prepare.outputs.start_time }}');
-            const branchName = process.env.BRANCH_NAME;
+            const branchName = '${{ needs.prepare.outputs.branch_name }}';
             const commitHash = '${{ needs.prepare.outputs.commit_hash }}';
             const analyzeOnly = '${{ needs.prepare.outputs.analyze_only }}' === 'true';
             const enableAndroid = '${{ needs.prepare.outputs.enable_android }}' === 'true';

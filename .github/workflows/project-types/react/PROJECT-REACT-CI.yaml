@@ -53,10 +53,8 @@ jobs:
 
       # 2. 환경변수 파일 생성
       - name: 환경변수 파일 생성 (${{ env.ENV_FILE }})
-        env:
-          ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
         run: |
-          echo -e "$ENV_CONTENT" > ${{ env.ENV_FILE }}
+          echo -e "${{ secrets.ENV_FILE || secrets.ENV }}" > ${{ env.ENV_FILE }}
           echo "✅ ${{ env.ENV_FILE }} 파일 생성 완료"
 
       # 3. Node.js 설정
@@ -181,7 +179,7 @@ jobs:
           echo "  📦 프로젝트: ${{ env.PROJECT_NAME }}"
           echo "  📌 Node.js 버전: ${{ env.NODE_VERSION }}"
           echo "  🆙 빌드 상태: ${{ steps.build.outputs.status }}"
-          echo "  🌿 브랜치: $GITHUB_REF_NAME"
+          echo "  🌿 브랜치: ${{ github.ref_name }}"
           echo "  📝 커밋: ${{ github.sha }}"
           echo "  🕐 시간: $(date '+%Y-%m-%d %H:%M:%S UTC')"
           echo ""

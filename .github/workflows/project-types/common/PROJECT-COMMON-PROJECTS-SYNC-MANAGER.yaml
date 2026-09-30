@@ -101,11 +101,9 @@ jobs:
     steps:
       - name: 🔍 Get Issue Info
         id: issue
-        env:
-          INPUT_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "issue_number=$INPUT_ISSUE_NUMBER" >> $GITHUB_OUTPUT
+            echo "issue_number=${{ github.event.inputs.issue_number }}" >> $GITHUB_OUTPUT
           else
             echo "issue_number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
           fi
