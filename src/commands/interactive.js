@@ -407,6 +407,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     io.summary?.({
       mode, types, version, deployBranch, deployBranchReady, migrationGuidePath,
       counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },
+      skippedConflicts: result?.workflows?.skippedConflicts ?? [],   // #654 병합 안내
       verification: result?.verification,      // #549 설치 검증 결과
       aiPrSummary, codeReviewCoderabbit,       // #569 — 고른 것만 안내
       logDir: files ? MIGRATION_DIR : null,    // #561 기록 위치 안내

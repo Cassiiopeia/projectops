@@ -90,6 +90,26 @@ export function printSummary(ctx, targetRoot = ".") {
     err("  📦 새로 설치·갱신된 워크플로우 없음 — 모두 최신 상태");
   }
 
+  // #654 — 사용자 수정본을 유지한 워크플로: 무엇이 얼마나 다른지, 어떻게 병합하는지 안내한다.
+  // 건너뛴 것이 없으면 아무것도 출력하지 않는다 (기존 출력 유지).
+  const kept = ctx?.skippedConflicts ?? [];
+  if (kept.length > 0) {
+    err("");
+    err(`  ${YELLOW}✋ 수정한 워크플로 ${kept.length}개는 덮어쓰지 않고 그대로 두었습니다${NC}`);
+    for (const k of kept) {
+      const cnt = k.added != null && k.removed != null ? ` (새 템플릿 기준 추가 ${k.added}줄, 삭제 ${k.removed}줄)` : "";
+      err(`     📝 ${k.filename}${cnt}`);
+      if (k.incoming) {
+        err(`        diff -u .github/workflows/${k.filename} ${k.incoming}`);
+        err(`        git diff --no-index .github/workflows/${k.filename} ${k.incoming}`);
+      }
+    }
+    if (kept.some((k) => k.incoming)) {
+      err("     💡 새 템플릿 사본은 저장소에 추적되지 않는 .github/.projectops/incoming/ 에 있습니다.");
+      err("        필요한 변경만 워크플로에 직접 옮겨 반영하세요.");
+    }
+  }
+
   err("");
   err("  🔧 .github/scripts/");
   err("     ├─ version_manager.sh");

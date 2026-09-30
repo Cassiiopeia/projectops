@@ -170,6 +170,22 @@ npx projectops --paths "flutter=app,react=client"
 - 가이드의 워크플로우 목록·env 값은 2계층 이벤트에서 **파생**됩니다 (단일 소스).
 - 민감값(PAT·token·secret·password 키)은 이벤트 기록 시 **자동 제거**됩니다.
 
+## 수정한 워크플로는 건너뜁니다 — 병합하려면 incoming과 비교 (#654)
+
+워크플로를 직접 고쳐 쓴 저장소에서 마법사를 다시 돌리면, 고친 파일은 **덮어쓰지 않고 그대로 둡니다**(사용자 보호).
+대신 종료 화면에 건너뛴 파일과 새 템플릿과의 차이 줄 수, 비교 명령을 보여줍니다.
+
+```bash
+diff -u .github/workflows/<파일> .github/.projectops/incoming/<파일>
+# Windows 등 diff가 없으면
+git diff --no-index .github/workflows/<파일> .github/.projectops/incoming/<파일>
+```
+
+- 새 템플릿 사본은 `.github/.projectops/incoming/`에 저장됩니다. 이 폴더는 자체 `.gitignore`로 추적되지 않으며, 실행할 때마다 최신 템플릿으로 덮어씁니다.
+- `.github/workflows/`에는 사본을 만들지 않습니다(그 자리의 파일은 GitHub이 실제 워크플로로 실행하기 때문입니다).
+- 필요한 변경만 워크플로에 직접 옮겨 반영하세요. 사본 저장에 실패해도 마법사는 경고만 남기고 정상 종료합니다.
+- 건너뛴 파일과 diff 줄 수는 실행 기록(로그, `PROJECTOPS-MIGRATION-GUIDE.md` 체크리스트)에도 남습니다.
+
 ### 기여자 가이드라인 — 워크플로우를 리네임/삭제할 때
 
 템플릿에서 워크플로우나 루트 파일, `.github/util/` 안의 파일을 리네임·폐기하면 **반드시 구 이름을 `src/core/migrations/registry.js`에 한 줄 추가**합니다. 이것이 기존 통합 레포의 구 파일을 자동 정리하는 유일한 경로입니다 (레거시 마이그레이션은 전부 이 레지스트리 한 곳에서 관리).

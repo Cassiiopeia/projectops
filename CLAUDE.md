@@ -361,6 +361,16 @@ RequestError [HttpError]: Resource not accessible by integration
 | 2 | `{stamp}_v{from}_to_v{to}.jsonl` | 구조화 이벤트 (파일명 grep으로 인과 추적) | `src/core/run-trace.js` |
 | 3 | `{stamp}_..._.log` | **서버 로그 형식** — 내부 이벤트 + 터미널 출력이 시간순 병합 | 〃 |
 
+**건너뛴 워크플로의 새 템플릿은 `incoming/`에 남긴다 (#654).** 사용자가 수정한 워크플로는 덮어쓰지 않고
+`skipped-conflict`로 유지하는데, 무엇이 다른지 알 방법이 없었다. 그래서 새 템플릿(env·브랜치 치환 적용본)을
+`.github/.projectops/incoming/<파일명>`에 저장하고, 종료 화면·`skipped-conflict` 이벤트 detail(`incoming`,
+`added`, `removed`)·MIGRATION-GUIDE 체크리스트에 비교 명령(`diff -u`, `git diff --no-index`)을 남긴다.
+
+- **`logs/`와 같은 패턴**: 폴더가 자체 `.gitignore`(`*` + `!.gitignore`)를 들고 다니므로 루트 `.gitignore`는 건드리지 않는다.
+- **`.github/workflows/`에는 절대 쓰지 않는다** — 거기 생긴 파일은 GitHub이 실제 워크플로로 실행한다.
+- **실패해도 마법사를 죽이지 않는다** — 저장·diff 실패는 `incoming-failed` 이벤트와 경고 한 줄로 흡수한다. 종료 코드는 그대로다.
+- 코드: `src/core/incoming.js`, 호출은 `copy/workflows.js`의 `applyDecision`. 회귀 방지: `test/incoming-merge-guide.test.js`.
+
 **추적 제외는 폴더가 스스로 들고 다닌다.** `logs/.gitignore`(`*` + `!.gitignore`)를 매 실행마다 보장하므로
 루트 `.gitignore`를 건드리지 않는다. 형제인 `.github/.projectops/baseline.json`(#557)은 팀원 공유
 자산이라 **계속 추적된다** — 폴더를 나눈 이유가 이것이다.
