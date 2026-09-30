@@ -25,6 +25,12 @@ export function copyScripts(tempDir, targetRoot = ".") {
     // Flutter 빌드 워크플로우가 .env와 dart-define을 한 곳에서 정할 때 호출 (#603).
     // 설정(.github/config/build-profile.json)이 없는 저장소에서는 아무 일도 하지 않는다.
     "apply_build_profile.py",
+    // iOS/Android 테스트 빌드와 iOS 릴리스의 빌드 번호 규칙 (#643). 번호 규칙의 유일한 위치.
+    "build_number.py",
+    // App Store Connect 조회 (#643). ios_release.py가 사용하므로 함께 복사해야 한다.
+    "asc_client.py",
+    // iOS 버전 사전 점검, 업로드 거부 분류, 아카이브부터 업로드까지 재시도 (#643).
+    "ios_release.py",
     "changelog_providers/_common.py", "changelog_providers/ladder.py",
     "changelog_providers/commit.py", "changelog_providers/copilot.py",
     "changelog_providers/openai_compatible.py",
