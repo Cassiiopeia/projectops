@@ -94,22 +94,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 댓글에 👀 리액션 추가
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const commentId = context.payload.comment.id;
-
-            await github.rest.reactions.createForIssueComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: commentId,
-              content: 'eyes'
-            });
-
-            console.log('👀 댓글에 확인 리액션 추가 완료');
-
       - name: 빌드 타입 판별
         id: build_type
         uses: actions/github-script@v7
@@ -167,8 +151,28 @@ jobs:
               console.log(`🌿 댓글에서 지정된 브랜치: ${customBranch}`);
             }
 
+      - name: 댓글에 👀 리액션 추가
+        # 명령이 아닌 댓글에는 반응하지 않는다 (#647)
+        if: steps.build_type.outputs.buildType != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const commentId = context.payload.comment.id;
+
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: commentId,
+              content: 'eyes'
+            });
+
+            console.log('👀 댓글에 확인 리액션 추가 완료');
+
       - name: PR/이슈 정보 확인 및 추출
         id: source_info
+        # 부분 문자열만 맞은 댓글(happy, application 등)은 조용히 끝낸다 (#647)
+        if: steps.build_type.outputs.buildType != ''
         uses: actions/github-script@v7
         env:
           CUSTOM_BRANCH: ${{ steps.build_type.outputs.customBranch }}
@@ -184,13 +188,29 @@ jobs:
             let relatedIssueNumber = '';
 
             // 1. 먼저 PR인지 확인
-            try {
-              const pr = await github.rest.pulls.get({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: issueNumber
-              });
+            // 404 만 "PR 아님(이슈)"이다. rate limit·5xx 는 재시도하고, 끝내 실패하면 이슈로 단정하지 않고 실패로 남긴다 (#647)
+            let pr = null;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+              try {
+                pr = await github.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: issueNumber
+                });
+                break;
+              } catch (error) {
+                if (error.status === 404) break;
+                console.log(`⚠️ PR 조회 실패 (${attempt}/3): ${error.status || ''} ${error.message}`);
+                if (attempt === 3) {
+                  core.setOutput('found', 'false');
+                  core.setOutput('errorMessage', `PR 여부를 확인하지 못했습니다(GitHub API 오류). 잠시 후 다시 시도해주세요: ${error.message}`);
+                  return;
+                }
+                await new Promise(r => setTimeout(r, 2000 * attempt));
+              }
+            }
 
+            if (pr) {
               sourceType = 'PR';
               sourceNumber = pr.data.number.toString();
               branchName = customBranch || pr.data.head.ref;
@@ -212,7 +232,7 @@ jobs:
                 console.log(`📌 추출된 이슈 번호: #${relatedIssueNumber}`);
               }
 
-            } catch (error) {
+            } else {
               console.log('ℹ️ PR이 아닙니다. 이슈에서 브랜치 정보를 찾습니다...');
 
               // 2. PR이 아니면 이슈에서 "Guide by SUH-LAB" 댓글 찾기
@@ -288,7 +308,7 @@ jobs:
             core.setOutput('relatedIssueNumber', relatedIssueNumber);
 
       - name: 브랜치 정보를 찾을 수 없는 경우 에러 댓글 작성
-        if: steps.source_info.outputs.found != 'true'
+        if: steps.build_type.outputs.buildType != '' && steps.source_info.outputs.found != 'true'
         uses: actions/github-script@v7
         env:
           # 댓글/브랜치명에서 온 문자열이 섞일 수 있어 스크립트 소스에 넣지 않고 env 로 전달 (#646)
@@ -422,38 +442,26 @@ jobs:
             // iOS:  ios 빌드 + app(공용) 빌드 통합 (App Store Connect는 앱 전체에서 빌드 번호 unique)
             // Android: apk 빌드 + app(공용) 빌드 통합 (Play Store도 동일)
             // App: 모든 빌드 명령어 통합 카운트
+            // 댓글이 어떤 빌드 명령인지 단어 단위로 판별한다 (#647). 어순 무관.
+            // includes 로 세면 "application" 같은 단어가 섞인 댓글까지 세어 번호가 어긋난다.
+            const cmdType = (body) => {
+              const t = String(body || '').toLowerCase();
+              const m = t.match(/@projectops[^\S\r\n]+(apk|ios|app)\b[^\S\r\n]+build\b/)
+                || t.match(/@projectops[^\S\r\n]+build\b[^\S\r\n]+(apk|ios|app)\b/);
+              return m ? m[1] : '';
+            };
+            const types = comments.data.map(c => cmdType(c.body));
+
+            // iOS: ios + app(공용), Android: apk + app(공용) — 스토어는 앱 전체에서 빌드 번호가 unique
             let buildCount = 0;
-
             if (buildType === 'ios') {
-              // iOS 빌드: ios 빌드 + app 공용 빌드 둘 다 카운트 (어순 무관)
-              buildCount = comments.data.filter(c => {
-                const body = c.body.toLowerCase();
-                return body.includes('@projectops') && body.includes('build') && (
-                  body.includes('ios') || body.includes('app')
-                );
-              }).length;
+              buildCount = types.filter(t => t === 'ios' || t === 'app').length;
               console.log(`📊 iOS 빌드 카운트: ios + app(공용) 통합`);
-
             } else if (buildType === 'apk') {
-              // Android 빌드: apk 빌드 + app 공용 빌드 둘 다 카운트 (어순 무관)
-              buildCount = comments.data.filter(c => {
-                const body = c.body.toLowerCase();
-                return body.includes('@projectops') && body.includes('build') && (
-                  body.includes('apk') || body.includes('app')
-                );
-              }).length;
+              buildCount = types.filter(t => t === 'apk' || t === 'app').length;
               console.log(`📊 Android 빌드 카운트: apk + app(공용) 통합`);
-
             } else if (buildType === 'app') {
-              // 전체 앱 빌드: 모든 빌드 명령어 카운트 (어순 무관)
-              buildCount = comments.data.filter(c => {
-                const body = c.body.toLowerCase();
-                return body.includes('@projectops') && body.includes('build') && (
-                  body.includes('ios') ||
-                  body.includes('apk') ||
-                  body.includes('app')
-                );
-              }).length;
+              buildCount = types.filter(t => t !== '').length;
               console.log(`📊 전체 앱 빌드 카운트: 모든 빌드 명령어 통합`);
             }
 
