@@ -37,3 +37,5 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           yaml-file: .github/config/issue-labels.yml
+          # 사용자가 직접 만든 라벨은 지우지 않는다 (기본값은 목록에 없는 라벨 삭제)
+          skip-delete: true
