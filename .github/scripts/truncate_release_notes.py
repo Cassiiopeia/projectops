@@ -18,8 +18,55 @@
 # ===================================================================
 
 import sys
+import unicodedata
 
 ELLIPSIS = "…"
+
+
+def _is_regional(ch):
+    """국기를 이루는 지역 표시 문자(U+1F1E6~1F1FF) 여부."""
+    return 0x1F1E6 <= ord(ch) <= 0x1F1FF
+
+
+def _joins_previous(text, n):
+    """text[n]이 앞 글자에 붙어 한 덩어리를 이루는가(= n에서 자르면 조각이 깨지는가)."""
+    if n <= 0 or n >= len(text):
+        return False
+    cur, prev = text[n], text[n - 1]
+    code = ord(cur)
+    if cur == "\u200d" or prev == "\u200d":  # ZWJ 시퀀스(가족 이모지 등)
+        return True
+    if 0xFE00 <= code <= 0xFE0F or 0x1F3FB <= code <= 0x1F3FF:  # 변형 선택자·피부색
+        return True
+    if unicodedata.category(cur) in ("Mn", "Me"):  # 결합 문자
+        return True
+    if _is_regional(cur) and _is_regional(prev):
+        # 국기는 2개가 한 쌍 — 앞쪽 연속 개수가 홀수면 cur는 쌍의 두 번째다
+        run, i = 0, n - 1
+        while i >= 0 and _is_regional(text[i]):
+            run += 1
+            i -= 1
+        return run % 2 == 1
+    return False
+
+
+def safe_cut(text, n):
+    """n 글자 앞에서 자르되, 이모지 조합 한가운데면 그 앞으로 물려 자른다."""
+    n = min(n, len(text))
+    while n > 0 and _joins_previous(text, n):
+        n -= 1
+    return n
+
+
+def write_out(path, content):
+    """출력 기록. 실패해도 배포를 막지 않도록 경고만 남기고 False."""
+    try:
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            f.write(content)
+        return True
+    except OSError as e:
+        print(f"⚠️ truncate_release_notes: 출력 파일을 쓰지 못함 ({path}): {e}. 건너뜀.")
+        return False
 
 
 def main(argv):
@@ -44,7 +91,8 @@ def main(argv):
         mode = "char"
 
     try:
-        with open(input_file, "r", encoding="utf-8") as f:
+        # UTF-8이 아닌 입력도 죽지 않게 깨진 바이트는 대체 문자로 읽는다
+        with open(input_file, "r", encoding="utf-8", errors="replace") as f:
             text = f.read()
     except OSError:
         print(f"⚠️ truncate_release_notes: 입력 파일 없음 ({input_file}). 건너뜀.")
@@ -63,8 +111,7 @@ def main(argv):
     if orig_len <= max_len:
         # 한도 이내 — 변경 없음
         if output_file != input_file:
-            with open(output_file, "w", encoding="utf-8", newline="") as f:
-                f.write(text)
+            write_out(output_file, text)
         print(f"✅ truncate_release_notes: 한도 이내 ({orig_len}/{max_len} {mode}). 변경 없음.")
         return 0
 
@@ -77,7 +124,7 @@ def main(argv):
         if measure(s) <= limit:
             return s
         if mode == "char":
-            return s[:limit]
+            return s[:safe_cut(s, limit)]
         # byte 모드: 이분 탐색으로 바이트 한도 충족 문자 경계 탐색
         lo, hi = 0, len(s)
         while lo < hi:
@@ -86,7 +133,7 @@ def main(argv):
                 lo = mid
             else:
                 hi = mid - 1
-        return s[:lo]
+        return s[:safe_cut(s, lo)]
 
     # 1차: 유효 한도 이내로 자른 결과를 만든다
     hard_cut = truncate_to(text, effective)
@@ -100,11 +147,11 @@ def main(argv):
 
     # 안전 보정: 혹시 결과가 여전히 한도를 넘으면 한 번 더 강제 절단
     while measure(result) > max_len and len(candidate) > 0:
-        candidate = candidate[:-1]
+        candidate = candidate[:safe_cut(text, len(candidate) - 1)]
         result = candidate.rstrip() + ELLIPSIS
 
-    with open(output_file, "w", encoding="utf-8", newline="") as f:
-        f.write(result)
+    if not write_out(output_file, result):
+        return 0
 
     print(f"✂️ truncate_release_notes: {orig_len} → {measure(result)} {mode} (한도 {max_len}). 절단 완료.")
     return 0

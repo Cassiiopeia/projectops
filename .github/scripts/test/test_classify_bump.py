@@ -92,3 +92,15 @@ def test_empty_input_is_patch():
 
 def test_blank_lines_are_ignored():
     assert classify_bump_level(["", "   ", "로그인 : feat : 소셜"]) == "minor"
+
+
+# ── 대소문자 비구분 (#686) ────────────────────────────────────────────
+def test_uppercase_type_bang_is_major():
+    # Conventional Commits 는 타입을 대소문자 비구분으로 다룬다.
+    assert classify_bump_level(["Feat!: breaking"]) == "major"
+    assert classify_bump_level(["FEAT!: breaking"]) == "major"
+    assert classify_bump_level(["제목 : Feat! : 내용"]) == "major"
+
+def test_uppercase_feat_is_minor():
+    assert classify_bump_level(["Feat: 대문자 타입"]) == "minor"
+    assert classify_bump_level(["제목 : Feat : 내용"]) == "minor"
