@@ -10,6 +10,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -632,18 +633,37 @@ def update_pull_request(
     return {"number": data["number"], "url": data["html_url"]}
 
 
+# push 직후 head 가 GitHub 쪽에 아직 반영되지 않아 나는 일시 오류의 재시도 횟수·간격(초) (#724)
+_PR_HEAD_RETRIES = 3
+_PR_HEAD_WAIT = 3
+_sleep = time.sleep  # 테스트가 실제로 기다리지 않게 주입 가능하도록 분리
+
+
 def create_pull_request(
     owner: str, repo: str, title: str, body: str,
     head: str, base: str, pat: str,
 ) -> dict:
-    """PR을 생성하고 {number, url}을 반환한다."""
-    data = _request(
-        "POST",
-        f"{_API_BASE}/repos/{owner}/{repo}/pulls",
-        {"title": title, "body": body, "head": head, "base": base},
-        pat,
-    )
-    return {"number": data["number"], "url": data["html_url"]}
+    """PR을 생성하고 {number, url}을 반환한다.
+
+    브랜치를 push 한 직후에는 `422 PullRequest/head/invalid` 가 일시적으로 나는 경우가 있어
+    그 오류만 짧게 재시도한다. 이미 PR 이 있는 경우 등 다른 422 는 재시도하지 않는다.
+    """
+    attempt = 0
+    while True:
+        try:
+            data = _request(
+                "POST",
+                f"{_API_BASE}/repos/{owner}/{repo}/pulls",
+                {"title": title, "body": body, "head": head, "base": base},
+                pat,
+            )
+            return {"number": data["number"], "url": data["html_url"]}
+        except GitHubAPIError as e:
+            transient = e.status_code == 422 and "head/invalid" in e.message
+            if not transient or attempt >= _PR_HEAD_RETRIES:
+                raise
+            attempt += 1
+            _sleep(_PR_HEAD_WAIT)
 
 
 def merge_pull_request(
