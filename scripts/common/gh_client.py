@@ -56,6 +56,36 @@ class _StripAuthRedirect(urllib.request.HTTPRedirectHandler):
 _opener = urllib.request.build_opener(_StripAuthRedirect)
 
 
+def _error_message(e: urllib.error.HTTPError, body_bytes: bytes) -> str:
+    """HTTP 오류 본문에서 사람이 읽을 메시지를 만든다.
+
+    422 는 message 가 "Validation Failed" 뿐이고 실제 원인은 `errors` 배열(resource/field/code/message)에
+    있다. 버리면 무엇이 틀렸는지 알 수 없어 함께 이어 붙인다 (#700).
+    """
+    try:
+        payload = json.loads(body_bytes)
+    except Exception:
+        return body_bytes.decode("utf-8", "replace")[:200] or str(e)
+    if not isinstance(payload, dict):
+        return body_bytes.decode("utf-8", "replace")[:200] or str(e)
+    msg = payload.get("message", str(e))
+    details = []
+    for item in payload.get("errors") or []:
+        if isinstance(item, dict):
+            parts = [str(item[k]) for k in ("resource", "field", "code", "message") if item.get(k)]
+            if parts:
+                details.append("/".join(parts))
+        elif item:
+            details.append(str(item))
+    if details:
+        msg = f"{msg} ({'; '.join(details)})"
+    return msg
+
+
+# 요청 timeout(초) — 망이 끊겼을 때 무한 대기하지 않도록 모든 요청에 건다 (#700)
+_DEFAULT_TIMEOUT = 30
+
+
 def _request(method: str, url: str, data: dict | None, pat: str, raw: bool = False) -> Any:
     """GitHub API 요청을 보내고 응답을 반환한다.
 
@@ -76,7 +106,7 @@ def _request(method: str, url: str, data: dict | None, pat: str, raw: bool = Fal
         },
     )
     try:
-        with _opener.open(req) as resp:
+        with _opener.open(req, timeout=_DEFAULT_TIMEOUT) as resp:
             content = resp.read()
             if not content:
                 return {} if not raw else ""
@@ -85,10 +115,7 @@ def _request(method: str, url: str, data: dict | None, pat: str, raw: bool = Fal
             return json.loads(content.decode())
     except urllib.error.HTTPError as e:
         body_bytes = e.fp.read() if e.fp else b""
-        try:
-            msg = json.loads(body_bytes).get("message", str(e))
-        except Exception:
-            msg = body_bytes.decode("utf-8", "replace")[:200] or str(e)
+        msg = _error_message(e, body_bytes)
         raise GitHubAPIError(e.code, msg) from e
 
 
@@ -117,10 +144,7 @@ def request_json(method: str, url: str, data: dict | None, pat: str, timeout: fl
             return json.loads(content.decode()) if content else {}
     except urllib.error.HTTPError as e:
         body_bytes = e.fp.read() if e.fp else b""
-        try:
-            msg = json.loads(body_bytes).get("message", str(e))
-        except Exception:
-            msg = body_bytes.decode("utf-8", "replace")[:200] or str(e)
+        msg = _error_message(e, body_bytes)
         err = GitHubAPIError(e.code, msg)
         err.headers = {k.lower(): v for k, v in (e.headers or {}).items()}
         raise err from e
@@ -846,11 +870,7 @@ def _upload_request(url: str, data: bytes, content_type: str, pat: str) -> dict:
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
         body = e.fp.read() if e.fp else b""
-        try:
-            msg = json.loads(body).get("message", str(e))
-        except Exception:
-            msg = body.decode("utf-8", "replace")[:200] or str(e)
-        raise GitHubAPIError(e.code, msg) from e
+        raise GitHubAPIError(e.code, _error_message(e, body)) from e
 
 
 def ensure_evidence_release(owner: str, repo: str, pat: str, tag: str = EVIDENCE_TAG) -> dict:

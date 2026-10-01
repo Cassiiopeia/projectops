@@ -129,3 +129,55 @@ def test_merge_pull_request_payload(monkeypatch):
     assert c["data"]["commit_title"] == "T"
     assert "commit_message" not in c["data"]  # None은 payload에서 제외
     assert result["merged"] is True
+
+
+# --- #700: 422 errors 배열을 메시지에 포함 + timeout ---
+
+def _http_error(code, payload: bytes):
+    import io
+    import urllib.error
+    return urllib.error.HTTPError("https://api.example.test/x", code, "err", {}, io.BytesIO(payload))
+
+
+class _FakeOpener:
+    def __init__(self, exc):
+        self.exc = exc
+        self.timeouts = []
+
+    def open(self, req, timeout=None):
+        self.timeouts.append(timeout)
+        raise self.exc
+
+
+def test_request_422_includes_errors_detail(monkeypatch):
+    import json
+    import pytest
+    body = json.dumps({
+        "message": "Validation Failed",
+        "errors": [{"resource": "Issue", "field": "title", "code": "missing_field"}],
+    }).encode()
+    opener = _FakeOpener(_http_error(422, body))
+    monkeypatch.setattr(gh_client, "_opener", opener)
+    with pytest.raises(gh_client.GitHubAPIError) as ei:
+        gh_client._request("POST", "https://api.example.test/x", {}, "pat")
+    assert ei.value.status_code == 422
+    assert "Validation Failed" in str(ei.value)
+    assert "Issue/title/missing_field" in str(ei.value)  # 원인이 보인다
+
+
+def test_request_without_errors_keeps_plain_message(monkeypatch):
+    import pytest
+    opener = _FakeOpener(_http_error(404, b'{"message": "Not Found"}'))
+    monkeypatch.setattr(gh_client, "_opener", opener)
+    with pytest.raises(gh_client.GitHubAPIError) as ei:
+        gh_client._request("GET", "https://api.example.test/x", None, "pat")
+    assert str(ei.value) == "GitHub API 404: Not Found"
+
+
+def test_request_has_timeout(monkeypatch):
+    import pytest
+    opener = _FakeOpener(_http_error(500, b"oops"))
+    monkeypatch.setattr(gh_client, "_opener", opener)
+    with pytest.raises(gh_client.GitHubAPIError):
+        gh_client._request("GET", "https://api.example.test/x", None, "pat")
+    assert opener.timeouts and opener.timeouts[0]  # 무한 대기 금지
