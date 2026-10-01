@@ -493,16 +493,25 @@ jobs:
 
             if SUDO docker ps -a --format '{{.Names}}' | grep -Eq "^${OLD_CONTAINER_NAME}\$"; then
               echo "🗑️ old=${OLD_CONTAINER_NAME} 제거"
+              # 이 배포의 이전 이미지 ID — 아래에서 이것만 지운다 (서버 전체 prune 은 다른 프로젝트 이미지를 지운다, #734)
+              OLD_IMAGE_ID=$(SUDO docker inspect --format '{{.Image}}' "${OLD_CONTAINER_NAME}" 2>/dev/null || true)
               SUDO docker rm -f "${OLD_CONTAINER_NAME}" || true
+              if [ -n "${OLD_IMAGE_ID}" ]; then
+                if SUDO docker rmi "${OLD_IMAGE_ID}" >/dev/null 2>&1; then
+                  echo "🧹 이전 이미지 삭제: ${OLD_IMAGE_ID}"
+                else
+                  echo "ℹ️ 이전 이미지는 다른 컨테이너가 쓰고 있어 유지합니다"
+                fi
+              fi
             else
               echo "ℹ️ old=${OLD_CONTAINER_NAME} 없음 — 정리 생략"
             fi
 
             # ============================================================
-            # 12. dangling 이미지 정리 + 백업 보존
+            # 12. 백업 보존
             # ============================================================
-            echo "🧹 dangling(<none>) 이미지 정리..."
-            SUDO docker image prune -af
+            # 서버 전체 prune(docker image prune -af)은 같은 서버의 다른 프로젝트 이미지를 지우므로 하지 않는다 (#734).
+            # 이 배포의 이전 이미지는 위에서 이미 지웠다.
 
             echo "🧹 백업 파일 최신 ${NGINX_BACKUP_KEEP}개 보존"
             KEEP_PLUS_ONE=$((NGINX_BACKUP_KEEP + 1))

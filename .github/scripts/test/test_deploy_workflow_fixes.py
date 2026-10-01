@@ -167,3 +167,84 @@ def test_react_cicd_는_컨테이너가_바로_죽으면_배포를_실패로_처
     sc = _deploy_script("react/PROJECT-REACT-CICD.yaml")
     assert "State.Running" in sc and "State.Restarting" in sc
     assert sc.index("State.Running") < sc.index("DEPLOY_OK=true")
+
+
+# ── #733 NONSTOP-TRAEFIK 무중단 · #734 서버 전역 prune 금지 ───────────────────
+NONSTOP = [
+    "spring/server-deploy/PROJECT-SPRING-NONSTOP-TRAEFIK-CICD.yaml",
+    "spring/server-deploy/PROJECT-SPRING-NONSTOP-NGINX-CICD.yaml",
+]
+TRAEFIK = NONSTOP[0]
+
+
+def _active_lines(script: str):
+    return [l for l in script.split("\n") if l.strip() and not l.strip().startswith("#")]
+
+
+@pytest.mark.parametrize("rel", NONSTOP)
+def test_서버_전체_이미지_prune_을_실행하지_않는다(rel):
+    """같은 서버의 다른 프로젝트 미사용 이미지까지 지운다 (#734). 주석 속 설명은 제외하고 실행 줄만 본다."""
+    active = "\n".join(_active_lines(_deploy_script(rel)))
+    assert "image prune" not in active and "system prune" not in active
+
+
+@pytest.mark.parametrize("rel", NONSTOP)
+def test_이전_이미지만_지우고_다른_컨테이너가_쓰면_유지한다(rel):
+    sc = _deploy_script(rel)
+    assert sc.index("OLD_IMAGE_ID=$(") < sc.rindex('docker rm -f "${OLD_')
+    assert sc.rindex('docker rm -f "${OLD_') < sc.index('docker rmi "${OLD_IMAGE_ID}"')
+
+
+def _health_cmd_runner(tmp_path, port, drain_file):
+    sc = _deploy_script(TRAEFIK)
+    urls = [l for l in sc.split("\n") if l.strip().startswith(("HEALTH_URL=", "HEALTH_CMD="))]
+    assert len(urls) == 2
+    body = "\n".join(urls).replace("/tmp/.pops-drain", str(drain_file))
+    return f'CONTAINER_INTERNAL_PORT={port}; HEALTHCHECK_PATH=/\n{body}\nsh -c "$HEALTH_CMD"'
+
+
+def test_헬스체크는_앱이_응답할_때만_통과하고_멈추면_실패한다(tmp_path):
+    import http.server, threading
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), http.server.SimpleHTTPRequestHandler)
+    port = srv.server_address[1]
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    script = _health_cmd_runner(tmp_path, port, tmp_path / "drain")
+    try:
+        assert subprocess.run(["bash", "-c", script], capture_output=True).returncode == 0
+    finally:
+        srv.shutdown()
+        srv.server_close()
+    # 서버가 내려가면 실패해야 Traefik 이 라우팅에서 뺀다
+    assert subprocess.run(["bash", "-c", script], capture_output=True).returncode != 0
+
+
+def test_배수_표시가_있으면_앱이_살아도_unhealthy_로_만든다(tmp_path):
+    import http.server, threading
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), http.server.SimpleHTTPRequestHandler)
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    drain = tmp_path / "drain"
+    drain.write_text("")
+    try:
+        r = subprocess.run(["bash", "-c", _health_cmd_runner(tmp_path, port, drain)], capture_output=True)
+    finally:
+        srv.shutdown()
+        srv.server_close()
+    assert r.returncode == 1
+
+
+def test_검사_도구가_하나도_없으면_통과시켜_기존_동작을_유지한다(tmp_path):
+    script = _health_cmd_runner(tmp_path, 1, tmp_path / "drain")
+    r = subprocess.run(["/bin/bash", "-c", "PATH=/nonexistent; " + script.replace('sh -c "$HEALTH_CMD"', '/bin/sh -c "$HEALTH_CMD"')],
+                       capture_output=True)
+    assert r.returncode == 0
+
+
+def test_traefik_새_컨테이너에_헬스체크를_주고_이전_컨테이너를_배수한다():
+    sc = _deploy_script(TRAEFIK)
+    run_block = sc[sc.index("docker run -d"):][:900]
+    assert '--health-cmd "${HEALTH_CMD}"' in run_block and "--health-interval" in run_block
+    # 라벨로 헬스체크를 주면 이전 컨테이너와 서비스 설정이 어긋나 Traefik 이 서비스를 버린다(404) — 쓰지 않는다
+    assert "loadbalancer.healthcheck" not in sc
+    assert sc.index("touch /tmp/.pops-drain") < sc.rindex('docker rm -f "${OLD_NAME}"')

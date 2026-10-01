@@ -311,11 +311,23 @@ jobs:
             # ============================================================
             # 5. 새 컨테이너 기동 (Traefik 라벨 포함)
             # ============================================================
+            # Traefik 은 Docker HEALTHCHECK 가 healthy 가 되기 전의 컨테이너를 라우팅에서 뺀다.
+            # 없으면 docker run 직후부터(앱이 기동 중인 수 초 동안) 트래픽이 가 Bad Gateway 가 난다 (#733 실측).
+            # 라벨이 아니라 컨테이너 설정이라 이전 컨테이너와 Traefik 설정이 어긋나지 않는다(업그레이드 첫 배포도 안전).
+            # curl → wget → bash TCP 순으로 쓰고, 도구가 하나도 없으면 통과시킨다(검사 없이 기존 동작).
+            HEALTH_URL="http://127.0.0.1:${CONTAINER_INTERNAL_PORT}${HEALTHCHECK_PATH}"
+            # /tmp/.pops-drain 이 있으면 일부러 unhealthy — 교체 때 이전 컨테이너를 Traefik 이 먼저 라우팅에서 빼게 한다
+            HEALTH_CMD="[ -f /tmp/.pops-drain ] && exit 1; if command -v curl >/dev/null 2>&1; then curl -fsS -o /dev/null ${HEALTH_URL}; elif command -v wget >/dev/null 2>&1; then wget -q -O /dev/null ${HEALTH_URL}; elif command -v bash >/dev/null 2>&1; then bash -c 'exec 3<>/dev/tcp/127.0.0.1/${CONTAINER_INTERNAL_PORT}'; else exit 0; fi"
+
             echo "🐳 새 컨테이너 기동: ${NEW_NAME}"
               # 서버 재부팅·Docker 재시작 뒤에도 서비스가 자동으로 올라오도록 한다 (#727)
             SUDO docker run -d \
               --name "${NEW_NAME}" \
               --restart unless-stopped \
+              --health-cmd "${HEALTH_CMD}" \
+              --health-interval 2s \
+              --health-timeout 3s \
+              --health-retries 3 \
               --network "${TRAEFIK_NETWORK}" \
               --label "traefik.enable=true" \
               --label "traefik.http.routers.${ROUTER_NAME}.rule=Host(\`${SERVICE_DOMAIN}\`)" \
@@ -398,19 +410,28 @@ jobs:
             # 9. in-flight 처리 + old 컨테이너 자동 제거
             # ============================================================
             if SUDO docker ps -a --format '{{.Names}}' | grep -Eq "^${OLD_NAME}$"; then
+              # 이 배포의 이전 이미지 ID — 아래에서 이것만 지운다 (서버 전체 prune 은 다른 프로젝트 이미지를 지운다, #734)
+              OLD_IMAGE_ID=$(SUDO docker inspect --format '{{.Image}}' "${OLD_NAME}" 2>/dev/null || true)
+              # 이전 컨테이너를 unhealthy 로 만들어 Traefik 이 먼저 라우팅에서 빼게 한다 (이 템플릿으로 배포된 컨테이너부터 적용,
+              # 그 전에 배포된 컨테이너에는 헬스체크가 없어 아무 일도 일어나지 않고 기존 동작으로 간다). 삭제 순간의 502 를 줄인다 (#733).
+              SUDO docker exec "${OLD_NAME}" touch /tmp/.pops-drain >/dev/null 2>&1 || true
               echo "⏱️ in-flight 요청 처리 대기 (${IN_FLIGHT_WAIT}초)"
               sleep ${IN_FLIGHT_WAIT}
               echo "🗑️ old=${OLD_NAME} 제거"
               SUDO docker rm -f "${OLD_NAME}"
+              if [ -n "${OLD_IMAGE_ID}" ]; then
+                if SUDO docker rmi "${OLD_IMAGE_ID}" >/dev/null 2>&1; then
+                  echo "🧹 이전 이미지 삭제: ${OLD_IMAGE_ID}"
+                else
+                  echo "ℹ️ 이전 이미지는 다른 컨테이너가 쓰고 있어 유지합니다"
+                fi
+              fi
             else
               echo "ℹ️ old=${OLD_NAME} 없음 — 정리 생략"
             fi
 
-            # ============================================================
-            # 10. dangling 이미지 정리
-            # ============================================================
-            echo "🧹 dangling(<none>) 이미지 정리..."
-            SUDO docker image prune -af
+            # 이미지 정리는 위에서 이 배포의 이전 이미지만 지웠다.
+            # 서버 전체 prune(docker image prune -af)은 같은 서버의 다른 프로젝트 이미지를 지우므로 하지 않는다 (#734).
 
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             echo "✅ 무중단 배포 완료. active=${NEW_NAME}"
