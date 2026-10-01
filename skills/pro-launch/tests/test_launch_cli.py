@@ -848,3 +848,57 @@ def test_logs_tail_and_grep_apply_in_python(tmp_path):
                         "--grep", "err", "--tail", "2", home=tmp_path / "h", cwd=tmp_path)
     d = _j(out)
     assert d["ok"] is True and d["lines"] == ["err 2", "ERR 3"], d
+
+
+# ── 잘못된 입력은 스택 트레이스가 아니라 JSON 오류 (#705) ─────────────────
+
+def _assert_json_error(rc, out, err, code=None):
+    assert rc != 0, (rc, out, err)
+    assert "Traceback" not in err, err
+    d = _j(out)
+    assert d["ok"] is False, d
+    if code:
+        assert d["code"] == code, d
+    return d
+
+
+def test_http_missing_data_file_is_json_error(tmp_path):
+    rc, out, err = run_cli("http", "--url", "http://127.0.0.1:1", "--method", "POST",
+                           "--data", "@nonexistent.json", home=tmp_path / "h", cwd=tmp_path)
+    _assert_json_error(rc, out, err, "data_file_not_found")
+
+
+def test_shrink_non_image_is_json_error(tmp_path):
+    bad = tmp_path / "bad.txt"
+    bad.write_text("not an image")
+    rc, out, err = run_cli("shrink", str(bad), home=tmp_path / "h", cwd=tmp_path)
+    d = _assert_json_error(rc, out, err)
+    assert d["code"] in ("image_unreadable", "no_resize_tool", "handler_error"), d
+
+
+def test_shrink_directory_is_json_error(tmp_path):
+    rc, out, err = run_cli("shrink", str(tmp_path), home=tmp_path / "h", cwd=tmp_path)
+    _assert_json_error(rc, out, err, "not_a_file")
+
+
+def test_shrink_negative_max_side_is_json_error(tmp_path):
+    img = tmp_path / "a.png"
+    img.write_bytes(b"x")
+    rc, out, err = run_cli("shrink", str(img), "--max-side", "-5", home=tmp_path / "h", cwd=tmp_path)
+    _assert_json_error(rc, out, err, "bad_args")
+
+
+def test_render_run_missing_cwd_is_json_error(tmp_path):
+    rc, out, err = run_cli("render", "run", "--cmd", "echo hi", "--cwd", "nonexistent",
+                           "--root", str(tmp_path), home=tmp_path / "h", cwd=tmp_path)
+    _assert_json_error(rc, out, err, "cwd_not_found")
+
+
+def test_unexpected_handler_exception_becomes_json(monkeypatch, capsys):
+    """어떤 핸들러든 예외가 새도 main 이 JSON 으로 감싼다."""
+    def boom(args):
+        raise RuntimeError("boom")
+    monkeypatch.setattr(launch_cli, "cmd_shrink", boom)
+    rc = launch_cli.main(["shrink", "x.png"])
+    d = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert rc == 1 and d["code"] == "handler_error" and "boom" in d["error"]

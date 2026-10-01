@@ -1441,8 +1441,15 @@ def cmd_http(args) -> int:
         headers[k.strip()] = v.strip()
     data = None
     if args.data is not None:
-        text = Path(args.data[1:]).read_text(encoding="utf-8") if args.data.startswith("@") \
-            else args.data
+        if args.data.startswith("@"):
+            data_f = Path(args.data[1:])
+            if not data_f.is_file():
+                return out({"ok": False, "code": "data_file_not_found",
+                            "error": f"--data 파일이 없습니다: {data_f}",
+                            "next": "@ 뒤 경로를 확인한다 (본문 자체가 @ 로 시작하면 파일에 담아 @파일 로 넘긴다)"})
+            text = data_f.read_text(encoding="utf-8")
+        else:
+            text = args.data
         data = text.encode("utf-8")
         try:
             json.loads(text)
@@ -1787,6 +1794,10 @@ def cmd_render(args) -> int:
     if before is None:
         before = _git_status(root)
     cwd = (root / args.cwd) if args.cwd else root
+    if not cwd.is_dir():
+        return out({"ok": False, "code": "cwd_not_found",
+                    "error": f"--cwd 폴더가 없습니다: {cwd}",
+                    "next": "--cwd 는 레포 루트(--root) 기준 상대 경로다"})
     try:
         r = subprocess.run(["bash", "-lc", args.cmd], cwd=str(cwd), capture_output=True,
                            text=True, timeout=args.timeout, stdin=subprocess.DEVNULL)
@@ -2104,7 +2115,12 @@ def main(argv: list[str] | None = None) -> int:
         return emit({"ok": False, "code": "bad_args",
                      "error": "인자가 올바르지 않습니다 (위 사용법 참고)",
                      "next": "launch_cli.py <서브커맨드> --help"})
-    return args.func(args)
+    try:
+        return args.func(args)
+    except Exception as e:   # 예상 못 한 입력이 트레이스백으로 끝나지 않게 — 에이전트는 JSON 만 읽는다 (#705)
+        return emit({"ok": False, "code": "handler_error",
+                     "error": f"{type(e).__name__}: {e}",
+                     "next": "입력(경로·값)을 확인하고 다시 부른다"})
 
 
 if __name__ == "__main__":
