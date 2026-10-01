@@ -1,14 +1,43 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-01T01:08:18Z",
-    "currentVersion": "4.28.1",
+    "lastUpdated": "2026-10-01T03:08:22Z",
+    "currentVersion": "4.28.2",
     "projectType": "basic",
-    "totalReleases": 271,
+    "totalReleases": 272,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.28.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-01",
+      "pr_number": 722,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 구버전 설정 파일의 프로젝트 타입이 복원됩니다\n  * 읽기 전용 폴더에서 정확한 원인을 안내합니다\n  * 브랜치명 생성 규칙이 이슈 안내와 일치합니다\n\n* **개선**\n  * React 배포 전제 누락을 첫 단계에서 안내합니다\n  * 개발 브랜치명에 한글 등 모든 글자를 쓸 수 있습니다\n  * react-native 빌드 번호가 버전과 함께 갱신됩니다",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "구버전 설정 파일의 프로젝트 타입이 복원됩니다",
+            "읽기 전용 폴더에서 정확한 원인을 안내합니다",
+            "브랜치명 생성 규칙이 이슈 안내와 일치합니다"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "React 배포 전제 누락을 첫 단계에서 안내합니다",
+            "개발 브랜치명에 한글 등 모든 글자를 쓸 수 있습니다",
+            "react-native 빌드 번호가 버전과 함께 갱신됩니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.28.1",
       "project_type": "basic",
