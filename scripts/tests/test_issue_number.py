@@ -32,6 +32,10 @@ from common.issue_number import (  # noqa: E402
     ("develop", None),
     ("main", None),
     ("20260918_제목만_있음", None),
+    # `feature/` 등 접두 뒤의 날짜도 뗀다 (#697)
+    ("feature/20261001_#664_x", "664"),
+    ("fix/20261001_664_x", "664"),
+    ("feature/20261001_제목만", None),
 ])
 def test_branch_number_skips_the_date_prefix(branch, expected):
     assert extract_from_branch(branch) == expected, (

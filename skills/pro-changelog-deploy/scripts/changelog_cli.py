@@ -237,6 +237,13 @@ def cmd_update_pr(args) -> int:
     if args.body_file:
         body_path = _resolve_body_file(args.body_file)
         body = body_path.read_text(encoding="utf-8") if body_path else None
+    # 바꿀 값이 없으면 PATCH 하지 않고 알린다 — "수정 완료" 로 오보하지 않는다 (#699)
+    if args.title is None and body is None and args.state is None:
+        return emit({
+            "ok": False,
+            "code": "nothing_to_update",
+            "error": "바꿀 값이 없습니다 (--title/--body-file/--state 중 하나 필요)",
+        })
     try:
         result = update_pull_request(
             args.owner, args.repo, args.number, pat,
@@ -375,6 +382,10 @@ def cmd_detect_release_context(args) -> int:
     판단(앱 심사 레포 확정·사용자 확인·config 갱신)은 agent가 한다. py는 사실(signals)과
     약한 hint만 준다. GitHub API를 쓰지 않으므로 PAT가 필요 없다 (로컬 파일만 스캔)."""
     project_root = Path(args.project_root).resolve() if args.project_root else Path.cwd()
+    if not project_root.is_dir():
+        # 없는 경로를 빈 신호로 성공 처리하면 "앱 심사 레포 아님" 으로 오판한다 (#713)
+        return emit({"ok": False, "code": "not_found",
+                     "error": f"--project-root 경로가 없습니다: {project_root}"})
 
     project_types = _read_project_types(project_root)
     store_workflows = _scan_store_workflows(project_root)

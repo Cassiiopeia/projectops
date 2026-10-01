@@ -67,6 +67,38 @@ def test_set_issue_labels_filters_unknown(monkeypatch):
     assert c["data"] == {"labels": ["작업중"]}  # 없는것 필터됨
 
 
+def test_set_issue_labels_all_unknown_keeps_existing(monkeypatch):
+    """#698: 요청 라벨이 전부 레포에 없으면 PUT 하지 않아 기존 라벨이 보존된다."""
+    monkeypatch.setattr(gh_client, "list_labels", lambda o, r, pat: ["작업전", "긴급"])
+    calls = _capture(monkeypatch, [{"name": "작업전"}])
+    result = gh_client.set_issue_labels("o", "r", 5, ["작업중"], "pat")
+    assert [c["method"] for c in calls] == ["GET"]  # PUT 없음
+    assert result["unchanged"] is True
+    assert result["labels"] == ["작업전"]
+    assert result["skipped"] == ["작업중"]
+
+
+def test_set_issue_labels_explicit_empty_still_clears(monkeypatch):
+    """빈 입력을 명시한 전체 제거는 기존 계약대로 동작한다."""
+    calls = _capture(monkeypatch, [])
+    result = gh_client.set_issue_labels("o", "r", 5, [], "pat")
+    assert calls[0]["method"] == "PUT" and calls[0]["data"] == {"labels": []}
+    assert result["unchanged"] is False
+
+
+def test_add_issue_labels_empty_input_reports_actual_labels(monkeypatch):
+    calls = _capture(monkeypatch, [{"name": "작업전"}, {"name": "긴급"}])
+    assert gh_client.add_issue_labels("o", "r", 5, [], "pat") == ["작업전", "긴급"]
+    assert [c["method"] for c in calls] == ["GET"]
+
+
+def test_create_issue_returns_skipped_labels(monkeypatch):
+    monkeypatch.setattr(gh_client, "list_labels", lambda o, r, pat: ["작업전"])
+    _capture(monkeypatch, {"number": 1, "html_url": "u", "title": "t", "assignees": []})
+    result = gh_client.create_issue("o", "r", "t", "b", ["작업전", "없는것"], "pat")
+    assert result["skipped_labels"] == ["없는것"]
+
+
 def test_add_assignees_returns_applied(monkeypatch):
     calls = _capture(monkeypatch, {"number": 5, "html_url": "u",
                                    "assignees": [{"login": "alice"}]})
@@ -97,3 +129,55 @@ def test_merge_pull_request_payload(monkeypatch):
     assert c["data"]["commit_title"] == "T"
     assert "commit_message" not in c["data"]  # None은 payload에서 제외
     assert result["merged"] is True
+
+
+# --- #700: 422 errors 배열을 메시지에 포함 + timeout ---
+
+def _http_error(code, payload: bytes):
+    import io
+    import urllib.error
+    return urllib.error.HTTPError("https://api.example.test/x", code, "err", {}, io.BytesIO(payload))
+
+
+class _FakeOpener:
+    def __init__(self, exc):
+        self.exc = exc
+        self.timeouts = []
+
+    def open(self, req, timeout=None):
+        self.timeouts.append(timeout)
+        raise self.exc
+
+
+def test_request_422_includes_errors_detail(monkeypatch):
+    import json
+    import pytest
+    body = json.dumps({
+        "message": "Validation Failed",
+        "errors": [{"resource": "Issue", "field": "title", "code": "missing_field"}],
+    }).encode()
+    opener = _FakeOpener(_http_error(422, body))
+    monkeypatch.setattr(gh_client, "_opener", opener)
+    with pytest.raises(gh_client.GitHubAPIError) as ei:
+        gh_client._request("POST", "https://api.example.test/x", {}, "pat")
+    assert ei.value.status_code == 422
+    assert "Validation Failed" in str(ei.value)
+    assert "Issue/title/missing_field" in str(ei.value)  # 원인이 보인다
+
+
+def test_request_without_errors_keeps_plain_message(monkeypatch):
+    import pytest
+    opener = _FakeOpener(_http_error(404, b'{"message": "Not Found"}'))
+    monkeypatch.setattr(gh_client, "_opener", opener)
+    with pytest.raises(gh_client.GitHubAPIError) as ei:
+        gh_client._request("GET", "https://api.example.test/x", None, "pat")
+    assert str(ei.value) == "GitHub API 404: Not Found"
+
+
+def test_request_has_timeout(monkeypatch):
+    import pytest
+    opener = _FakeOpener(_http_error(500, b"oops"))
+    monkeypatch.setattr(gh_client, "_opener", opener)
+    with pytest.raises(gh_client.GitHubAPIError):
+        gh_client._request("GET", "https://api.example.test/x", None, "pat")
+    assert opener.timeouts and opener.timeouts[0]  # 무한 대기 금지

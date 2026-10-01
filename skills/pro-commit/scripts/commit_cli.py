@@ -65,6 +65,11 @@ def cmd_normalize_title(args) -> int:
     return emit({"normalized": result, "summary": result})
 
 
+def _commit_type_arg(value: str) -> str:
+    from common.gh_branch import commit_type_arg
+    return commit_type_arg(value)
+
+
 def cmd_get_commit_template(args) -> int:
     from common.gh_branch import get_commit_template
     template = get_commit_template(args.issue_title, args.issue_url,
@@ -123,7 +128,7 @@ def build_parser() -> JSONArgumentParser:
     p_gct.add_argument("issue_url")
     # 생략하면 제목 태그에서 유도한다. 이슈는 기능인데 실제 작업이 버그 수정인
     # 경우처럼 태그와 내용이 다를 때만 직접 지정한다.
-    p_gct.add_argument("--type", dest="commit_type", default=None,
+    p_gct.add_argument("--type", dest="commit_type", default=None, type=_commit_type_arg,
                        help="커밋 타입 (fix·docs·chore 등). 생략하면 제목 태그에서 유도")
     p_gct.set_defaults(func=cmd_get_commit_template)
 

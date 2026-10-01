@@ -680,6 +680,13 @@ def cmd_output_path(args) -> int:
         return out({"ok": False, "code": "common_not_found",
                     "error": "scripts/common/paths.py 를 찾지 못했습니다",
                     "hint": "projectops 설치가 온전한지 확인하세요"})
+    # --root 가 가리키는 저장소 기준으로 자리를 계산한다. 없는 경로는 조용히 무시하지 않는다 (#713)
+    if args.root and args.root != ".":
+        root_dir = Path(args.root).expanduser()
+        if not root_dir.is_dir():
+            return out({"ok": False, "code": "not_found",
+                        "error": f"--root 경로가 없습니다: {root_dir}"})
+        os.chdir(root_dir)
     skill = args.skill or "launch"
     if skill not in EVIDENCE_SKILLS:
         return out({"ok": False, "code": "not_evidence_skill",
@@ -1552,6 +1559,10 @@ def cmd_access(args) -> int:
                     "summary": f"{args.key} 기록 완료"})
 
     if args.action == "unset":
+        if not args.key:
+            # set 과 같게 --key 를 요구한다. 없으면 "None 가 없습니다" 로 성공 처리돼 오해를 부른다 (#713)
+            return out({"ok": False, "code": "key_required",
+                        "error": "--key 가 필요합니다 (db · logs · base_url 등)"})
         if args.key in data:
             del data[args.key]
             save_access(root, data)

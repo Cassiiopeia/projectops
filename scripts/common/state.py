@@ -10,6 +10,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -34,7 +35,7 @@ def repo_key(root: Path) -> str:
 
     **경로를 키로 쓰면 안 된다.** 워크트리마다 경로가 달라 같은 프로젝트가 여러 개로
     갈라지고, 그러면 쌓은 지식이 워크트리 수만큼 쪼개진다.
-    remote가 없는(로컬 전용) 저장소는 폴더명으로 떨어진다.
+    remote가 없는(로컬 전용) 저장소는 폴더명으로 떨어지고, 비ASCII 이름은 경로 해시가 붙는다.
     """
     try:
         url = subprocess.run(["git", "-C", str(root), "remote", "get-url", "origin"],
@@ -44,7 +45,15 @@ def repo_key(root: Path) -> str:
     m = re.search(r"[:/]([^/:]+)/([^/]+?)(?:\.git)?$", url) if url else None
     if m:
         return f"{m.group(1)}__{m.group(2)}"
-    return re.sub(r"[^A-Za-z0-9._-]+", "-", Path(root).name).strip("-") or "unknown"
+    # 원격이 없는 저장소: 폴더명이 이미 안전한 문자뿐이면 옛 키를 그대로 쓴다 (기존 상태 보존).
+    # 한글 등 비ASCII 이름은 치환하면 글자가 사라져 `unknown`/`repo` 로 뭉개져 서로 다른
+    # 저장소가 상태를 공유한다 — 이때만 절대경로 해시를 덧붙여 구분한다 (#702).
+    name = Path(root).name
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip("-")
+    if slug and slug == name:
+        return slug
+    digest = hashlib.sha1(str(Path(root).resolve()).encode("utf-8")).hexdigest()[:8]
+    return f"{slug or 'local'}-{digest}"
 
 
 def state_dir(kind: str, root: Path) -> Path:

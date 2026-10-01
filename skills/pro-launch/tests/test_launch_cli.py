@@ -819,3 +819,37 @@ def test_render_run_needs_a_command(tmp_path):
     d, _ = _render(_render_repo(tmp_path), tmp_path, "run")
     assert d["code"] == "cmd_required"
 
+
+
+def test_repo_key_distinguishes_non_ascii_local_repos(tmp_path):
+    """#702: 원격 없는 한글 폴더명 저장소가 unknown/repo 로 뭉쳐 상태를 공유하면 안 된다."""
+    a = _repo(tmp_path, "앱 하나", "")
+    b = _repo(tmp_path, "앱 둘", "")
+    c = _repo(tmp_path, "한글 repo", "")
+    d = _repo(tmp_path, "다른 repo", "")
+    keys = {common_state.repo_key(x) for x in (a, b, c, d)}
+    assert len(keys) == 4
+    assert "unknown" not in keys and "repo" not in keys
+    # 같은 경로면 키가 안정적이다
+    assert common_state.repo_key(a) == common_state.repo_key(a)
+
+
+def test_repo_key_keeps_plain_ascii_local_name(tmp_path):
+    """기존 ASCII 폴더명 키는 그대로 — 이미 쌓인 상태가 끊기지 않는다."""
+    assert common_state.repo_key(_repo(tmp_path, "my-app", "")) == "my-app"
+
+
+# ── #713: 없는 경로·빈 key 를 조용히 수용하지 않는다 ───────────────────────
+
+def test_access_unset_requires_key(tmp_path):
+    proj = _repo(tmp_path)
+    rc, out, _ = run_cli("access", "unset", "--root", str(proj), home=tmp_path / "home")
+    d = _j(out)
+    assert rc == 1 and d["ok"] is False and d["code"] == "key_required"
+
+
+def test_get_output_path_rejects_missing_root(tmp_path):
+    rc, out, _ = run_cli("get-output-path", "--root", str(tmp_path / "없는" / "경로"),
+                         home=tmp_path / "home")
+    d = _j(out)
+    assert rc == 1 and d["code"] == "not_found"

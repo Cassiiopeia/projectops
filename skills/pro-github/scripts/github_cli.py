@@ -14,7 +14,9 @@ GitHub API 직접 호출 도구.
 """
 from __future__ import annotations
 
+import argparse
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -85,11 +87,21 @@ def cmd_get_issues(args) -> int:
             issues.append(get_issue(args.owner, args.repo, number, pat))
         except GitHubAPIError as e:
             issues.append({"number": number, "error": str(e), "code": f"github_api_{e.status_code}"})
-    return emit({
-        "count": len(issues),
-        "issues": issues,
-        "summary": f"{len(issues)}개 이슈 조회 완료",
-    })
+    failed = [i for i in issues if "error" in i]
+    if issues and len(failed) == len(issues):
+        # 전부 실패했는데 ok:true 면 호출자가 없는 이슈를 있는 것으로 오인한다 (#699)
+        return emit({
+            "ok": False,
+            "code": "all_failed",
+            "error": f"{len(issues)}개 이슈 조회가 모두 실패했습니다",
+            "count": len(issues),
+            "issues": issues,
+        })
+    summary = f"{len(issues)}개 이슈 조회 완료"
+    if failed:
+        summary = f"{len(issues)}개 중 {len(failed)}개 조회 실패 (성공 {len(issues) - len(failed)}개)"
+    return emit({"count": len(issues), "issues": issues, "summary": summary,
+                 **({"failed_count": len(failed)} if failed else {})})
 
 
 def cmd_create_issue(args) -> int:
@@ -114,6 +126,9 @@ def cmd_create_issue(args) -> int:
         applied = result.get("assignees", [])
         missing = [a for a in assignees if a not in applied]
         out = {**result, "summary": f"이슈 #{result.get('number')} 생성 완료", "body_length": len(body)}
+        skipped_labels = out.pop("skipped_labels", [])
+        if skipped_labels:
+            out["label_warning"] = f"레포에 없어 무시된 라벨: {', '.join(skipped_labels)}"
         if missing:
             out["assignee_warning"] = (
                 f"담당자 지정 일부 실패: {', '.join(missing)} (레포 협업자/권한 확인 필요). 이슈는 정상 생성됨."
@@ -158,6 +173,14 @@ def cmd_update_issue(args) -> int:
         return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
     labels = [l.strip() for l in args.labels.split(",") if l.strip()] if args.labels else None
     assignees = [a.strip() for a in args.assignees.split(",") if a.strip()] if args.assignees else None
+
+    # 바꿀 값이 하나도 없으면 PATCH 하지 않고 알린다 — "수정 완료" 로 오보하지 않는다 (#699)
+    if all(v is None for v in (args.title, body, args.state, labels, assignees)):
+        return emit({
+            "ok": False,
+            "code": "nothing_to_update",
+            "error": "바꿀 값이 없습니다 (--title/--body-file/--state/--labels/--assignees 중 하나 필요)",
+        })
 
     try:
         result = update_issue(
@@ -303,7 +326,22 @@ def cmd_set_labels(args) -> int:
     labels = [l.strip() for l in args.labels.split(",") if l.strip()] if args.labels else []
     try:
         result = set_issue_labels(args.owner, args.repo, args.number, labels, pat)
-        return emit({**result, "summary": f"#{args.number} 라벨 전체 교체 (현재 {len(result['labels'])}개)"})
+        skipped = result.get("skipped", [])
+        if result.get("unchanged"):
+            # 적용할 라벨이 하나도 없어 기존 라벨을 그대로 둔 경우 — 성공으로 보고하면 교체된 줄 안다
+            return emit({
+                "ok": False,
+                "code": "no_valid_labels",
+                "error": f"레포에 없는 라벨뿐이라 교체하지 않았습니다 (기존 라벨 유지): {', '.join(skipped)}",
+                "labels": result["labels"],
+                "label_warning": f"레포에 없어 무시된 라벨: {', '.join(skipped)}",
+                "next": f"list-labels {args.owner} {args.repo}",
+            })
+        out = {"labels": result["labels"],
+               "summary": f"#{args.number} 라벨 전체 교체 (현재 {len(result['labels'])}개)"}
+        if skipped:
+            out["label_warning"] = f"레포에 없어 무시된 라벨: {', '.join(skipped)}"
+        return emit(out)
     except GitHubAPIError as e:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
 
@@ -377,6 +415,20 @@ def cmd_update_pr(args) -> int:
     if args.body_file:
         body_path = Path(args.body_file)
         body = body_path.read_text(encoding="utf-8") if body_path.exists() else None
+        if body is None:
+            return emit({
+                "ok": False,
+                "code": "body_file_not_found",
+                "error": f"수정용 본문 파일이 존재하지 않습니다: {args.body_file}",
+                "path_attempted": str(body_path.resolve()),
+            })
+    # 바꿀 값이 없으면 PATCH 하지 않는다 (#699)
+    if args.title is None and body is None and args.state is None:
+        return emit({
+            "ok": False,
+            "code": "nothing_to_update",
+            "error": "바꿀 값이 없습니다 (--title/--body-file/--state 중 하나 필요)",
+        })
     try:
         result = update_pull_request(
             args.owner, args.repo, args.number, pat,
@@ -508,6 +560,16 @@ def cmd_create_branch_name(args) -> int:
     return emit({"branch": name, "summary": name})
 
 
+def _commit_type_arg(value: str) -> str:
+    from common.gh_branch import commit_type_arg
+    return commit_type_arg(value)
+
+
+def _date_arg(value: str) -> str:
+    from common.gh_branch import date_arg
+    return date_arg(value)
+
+
 def cmd_get_commit_template(args) -> int:
     from common.gh_branch import get_commit_template
     template = get_commit_template(args.issue_title, args.issue_url,
@@ -560,6 +622,17 @@ def cmd_explore(args) -> int:
         return emit({"ok": False, "code": "unknown_subcommand", "error": f"알 수 없음: {args.sub}"})
     except GitHubAPIError as e:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
+
+
+def _release_tag(value: str) -> str:
+    """태그로 쓸 수 없는 값(공백·제어문자·~^:?*[\\ 등)을 인자 단계에서 거절한다 (#701).
+
+    URL 에 그대로 넣으면 InvalidURL 예외가 handler_error 로 새므로, 다른 서브커맨드처럼 bad_args 로 알린다.
+    """
+    if not value or re.search(r"[\s\x00-\x1f\x7f~^:?*\[\\]", value) or value.startswith(("-", "/")):
+        raise argparse.ArgumentTypeError(
+            f"태그 형식이 올바르지 않습니다: {value!r} (공백·제어문자·~^:?*[ 사용 불가)")
+    return value
 
 
 def cmd_upload_image(args) -> int:
@@ -622,8 +695,8 @@ def cmd_delete_image(args) -> int:
     if not pat:
         return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
     try:
-        delete_release_asset(args.owner, args.repo, int(args.asset_id), pat)
-        return emit({"asset_id": int(args.asset_id), "status": "deleted",
+        delete_release_asset(args.owner, args.repo, args.asset_id, pat)
+        return emit({"asset_id": args.asset_id, "status": "deleted",
                      "summary": f"증적 {args.asset_id} 삭제 완료"})
     except GitHubAPIError as e:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
@@ -934,7 +1007,7 @@ def build_parser() -> JSONArgumentParser:
     p_cbn = sub.add_parser("create-branch-name", help="브랜치명 생성")
     p_cbn.add_argument("issue_title")
     p_cbn.add_argument("issue_number", type=int)
-    p_cbn.add_argument("--date", help="YYYYMMDD")
+    p_cbn.add_argument("--date", type=_date_arg, help="YYYYMMDD")
     p_cbn.set_defaults(func=cmd_create_branch_name)
 
     p_gct = sub.add_parser("get-commit-template", help="커밋 메시지 템플릿")
@@ -942,7 +1015,7 @@ def build_parser() -> JSONArgumentParser:
     p_gct.add_argument("issue_url")
     # 생략하면 제목 태그에서 유도한다. 이슈는 기능인데 실제 작업이 버그 수정인
     # 경우처럼 태그와 내용이 다를 때만 직접 지정한다.
-    p_gct.add_argument("--type", dest="commit_type", default=None,
+    p_gct.add_argument("--type", dest="commit_type", default=None, type=_commit_type_arg,
                        help="커밋 타입 (fix·docs·chore 등). 생략하면 제목 태그에서 유도")
     p_gct.set_defaults(func=cmd_get_commit_template)
 
@@ -958,14 +1031,14 @@ def build_parser() -> JSONArgumentParser:
     p_ui.add_argument("owner")
     p_ui.add_argument("repo")
     p_ui.add_argument("files", nargs="+", help="이미지 파일 경로 (여러 개 가능)")
-    p_ui.add_argument("--tag", default=EVIDENCE_TAG, help=f"증적 릴리스 태그 (기본 {EVIDENCE_TAG})")
+    p_ui.add_argument("--tag", type=_release_tag, default=EVIDENCE_TAG, help=f"증적 릴리스 태그 (기본 {EVIDENCE_TAG})")
     p_ui.add_argument("--prefix", default=None, help="자산 이름 앞에 붙일 말 (예: issue585)")
     p_ui.set_defaults(func=cmd_upload_image)
 
     p_di = sub.add_parser("delete-image", help="올린 증적 이미지를 지운다")
     p_di.add_argument("owner")
     p_di.add_argument("repo")
-    p_di.add_argument("asset_id")
+    p_di.add_argument("asset_id", type=int, help="증적 자산 ID (정수)")
     p_di.set_defaults(func=cmd_delete_image)
 
     p_sc = sub.add_parser("secrets", help="Actions Secret 관리 (list|set)")

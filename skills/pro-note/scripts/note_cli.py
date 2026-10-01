@@ -28,7 +28,7 @@ if str(_SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_ROOT))
 
 from common.emit import emit  # noqa: E402
-from common.cli_parser import JSONArgumentParser, run_cli  # noqa: E402
+from common.cli_parser import JSONArgumentParser, positive_int, run_cli  # noqa: E402
 
 # 기록 종류 — case는 사건, fact는 재사용 가능한 사실
 KINDS = ("case", "fact")
@@ -286,7 +286,7 @@ def build_parser() -> JSONArgumentParser:
 
     p = sub.add_parser("search", help="기록 검색 (저장소 + 홈)")
     p.add_argument("query")
-    p.add_argument("--limit", type=int, default=5)
+    p.add_argument("--limit", type=positive_int, default=5)
     p.set_defaults(func=cmd_search)
 
     p = sub.add_parser("resolve-scope", help="저장 위치 판정")
@@ -301,7 +301,7 @@ def build_parser() -> JSONArgumentParser:
 
     p = sub.add_parser("list", help="기록 목록")
     p.add_argument("--scope", choices=["project", "home"])
-    p.add_argument("--limit", type=int, default=50)
+    p.add_argument("--limit", type=positive_int, default=50)
     p.set_defaults(func=cmd_list)
 
     return parser
