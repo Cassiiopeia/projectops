@@ -211,3 +211,58 @@ def test_logs_는_cred_를_환경변수로_받고_출력의_비밀을_가린다(
     line = r["lines"][0]
     assert "host=h.example" in line and "user=u" in line
     assert "pw-LEAKCHECK" not in line and "pass=***" in line
+
+
+# ── 로그인 정보 입력 (web type --cred · app type) ───────────────────────────
+def _fake_adb(tmp_path: Path) -> Path:
+    b = tmp_path / "adbbin"
+    b.mkdir()
+    (b / "adb").write_text(
+        '#!/bin/bash\n'
+        'if [ "$1" = "devices" ]; then printf "List of devices attached\\nEMU1\\tdevice\\n"; exit 0; fi\n'
+        'printf "%s\\n" "$@" >> "$REC.argv"\n'
+        'if [[ "$*" == *"input text"* ]]; then cat > "$REC.stdin"; fi\n'
+        'exit 0\n')
+    (b / "adb").chmod(0o755)
+    return b
+
+
+def test_web_type_cred_는_없는_이름과_없는_필드를_브라우저_없이_알려준다(home):
+    assert run(home, "web", "type", "--selector", "x", "--cred", "nope")["code"] == "cred_not_found"
+    run(home, "cred", "set", "--name", "g", "--json", json.dumps({"kind": "login", "provider": "google", "account": "a@b.c"}))
+    r = run(home, "web", "type", "--selector", "x", "--cred", "g")
+    assert r["code"] == "cred_field_missing" and "account" in r["fields"]
+
+
+def test_app_type_은_값을_인자가_아니라_표준입력으로만_보낸다(home, tmp_path):
+    run(home, "cred", "set", "--name", "naver", "--json",
+        json.dumps({"kind": "login", "provider": "naver", "surface": "android", "account": "me", "password": "Pa ss&w0rd!"}))
+    rec = tmp_path / "rec"
+    env_rec = {"REC": str(rec)}
+    os.environ.update(env_rec)
+    try:
+        r = run(home, "app", "type", "--device", "EMU1", "--cred", "naver", "--submit", path_prepend=_fake_adb(tmp_path))
+    finally:
+        os.environ.pop("REC", None)
+    assert r["ok"] is True, r
+    argv = (tmp_path / "rec.argv").read_text(encoding="utf-8")
+    assert "Pa" not in argv and "w0rd" not in argv                 # 명령줄(ps)에 값이 없다
+    assert (tmp_path / "rec.stdin").read_text(encoding="utf-8") == "Pa%sss&w0rd!\n"   # 공백은 %s
+    assert "keyevent" in argv and "66" in argv                      # --submit
+    assert "Pa ss" not in json.dumps(r) and r["chars"] == len("Pa ss&w0rd!")
+
+
+def test_app_type_은_다른_필드와_비ASCII_를_구분해_처리한다(home, tmp_path):
+    run(home, "cred", "set", "--name", "kr", "--json", json.dumps({"kind": "login", "account": "한글계정", "password": "pw"}))
+    bin_ = _fake_adb(tmp_path)
+    assert run(home, "app", "type", "--device", "EMU1", "--cred", "kr", "--cred-field", "account",
+               path_prepend=bin_)["code"] == "non_ascii_unsupported"
+    os.environ["REC"] = str(tmp_path / "rec")
+    try:
+        assert run(home, "app", "type", "--device", "EMU1", "--cred", "kr", path_prepend=bin_)["ok"] is True
+    finally:
+        os.environ.pop("REC", None)
+
+
+def test_app_type_은_값을_text_로_받지_않는다(home):
+    assert run(home, "app", "type")["code"] == "text_required"

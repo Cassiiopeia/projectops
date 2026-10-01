@@ -888,7 +888,60 @@ def _app_launch(args) -> int:
                         "설치돼 있는지 확인하세요 (device list 의 installed)"})
 
 
+def _app_type(args) -> int:
+    """기기 화면의 포커스된 입력창에 글자를 넣는다. 로그인 정보는 저장된 자격증명에서 꺼내 쓴다.
+
+    값은 명령줄이 아니라 표준입력으로만 기기에 보낸다 (호스트 `ps` 에 남지 않는다).
+    Android 만 된다 — iOS 는 시뮬레이터에 텍스트를 넣는 공식 명령이 없다.
+    """
+    if getattr(args, "cred", None):
+        value, err = _cred_field(args.cred, getattr(args, "cred_field", None))
+        if err:
+            return out(err)
+    elif getattr(args, "text_env", None):
+        if args.text_env not in os.environ:
+            return out({"ok": False, "code": "env_not_set", "error": f"환경변수 {args.text_env} 가 비어 있습니다"})
+        value = os.environ[args.text_env]
+    else:
+        return out({"ok": False, "code": "text_required",
+                    "error": "--cred 또는 --text-env 가 필요합니다 (값을 --text 로 적지 않는다 — 기록에 평문으로 남는다)",
+                    "next": "cred list  # 저장된 로그인 정보"})
+    platform, dev_id, dev = _pick_device(args.device)
+    if not platform:
+        return _no_device(dev, args.device)
+    if platform != "android":
+        return out({"ok": False, "code": "ios_text_unsupported",
+                    "error": "iOS 시뮬레이터에는 텍스트를 넣는 공식 명령이 없다",
+                    "next": "프로젝트의 E2E 도구(Maestro 등)를 쓰거나 사용자에게 직접 입력을 부탁한다"})
+    if not value.isascii():
+        return out({"ok": False, "code": "non_ascii_unsupported",
+                    "error": "adb input text 는 ASCII 만 받는다 (한글 불가)",
+                    "next": "영문·숫자 값으로 대체하거나 ADBKeyboard 같은 IME 를 설치한다"})
+    adb = sdk_tool("adb")
+    if not adb:
+        return out({"ok": False, "code": "adb_missing", "error": "adb 를 찾지 못했습니다"})
+    # 공백은 `%s`. 값은 표준입력으로 읽어 따옴표 안에서만 쓴다 (셸 메타문자가 해석되지 않는다)
+    payload = value.replace(" ", "%s") + "\n"
+    try:
+        r = subprocess.run([adb, "-s", dev_id, "shell", 'IFS= read -r T; input text "$T"'],
+                           input=payload, capture_output=True, text=True, timeout=30)
+        if r.returncode == 0 and getattr(args, "submit", False):
+            subprocess.run([adb, "-s", dev_id, "shell", "input", "keyevent", "66"],
+                           capture_output=True, text=True, timeout=15)
+    except subprocess.TimeoutExpired:
+        return out({"ok": False, "code": "app_type_timeout", "error": "기기 응답 없음 (30초)"})
+    entry = {"password": value, "token": value}
+    ok = r.returncode == 0
+    return out({"ok": ok, "code": "ok" if ok else "app_type_failed", "device": dev_id,
+                "chars": len(value), "submitted": bool(getattr(args, "submit", False)) and ok,
+                "error": credentials.mask((r.stderr or "").strip(), entry)[:300] or None,
+                "summary": f"{len(value)}자 입력" + (" + Enter" if getattr(args, "submit", False) and ok else ""),
+                "next": "app shot  # 입력됐는지 화면으로 확인한다 (비밀번호 칸은 가려져 보인다)"})
+
+
 def cmd_app(args) -> int:
+    if args.action == "type":
+        return _app_type(args)
     return _app_shot(args) if args.action == "shot" else _app_launch(args)
 
 
@@ -1373,6 +1426,13 @@ def cmd_web(args) -> int:
                         "hint": f'{args.text_env}="..." 를 같은 명령 앞에 붙여 실행하세요'})
         secret_value = os.environ[args.text_env]
         args.text = secret_value
+    elif getattr(args, "cred", None):
+        # 저장된 로그인 정보를 입력한다 — 명령줄·기록에 값이 남지 않는다
+        value, err = _cred_field(args.cred, getattr(args, "cred_field", None))
+        if err:
+            return out(err)
+        secret_value = value
+        args.text = value
 
     if args.action == "setup":
         return out(_web_setup(force=args.force))
@@ -1609,6 +1669,21 @@ def _cred_from_profile(args, saved) -> str | None:
     if getattr(args, "cred", None):
         return args.cred
     return saved.get("cred") if isinstance(saved, dict) else None
+
+
+def _cred_field(name: str, field: str | None) -> tuple[str | None, dict | None]:
+    """저장된 자격증명에서 입력할 값 하나를 꺼낸다 (기본 password). (값, None) 또는 (None, 오류)."""
+    cred, err = _load_cred(name)
+    if err:
+        return None, err
+    f = field or "password"
+    v = cred.get(f)
+    if v in (None, ""):
+        keys = sorted(k for k, x in cred.items() if x not in (None, "") and k not in ("name", "kind"))
+        return None, {"ok": False, "code": "cred_field_missing",
+                      "error": f"'{name}' 에 '{f}' 값이 없습니다", "fields": keys,
+                      "next": f"cred set --name {name} --json '{{\"{f}\": \"...\"}}'  # 또는 --cred-field 로 다른 필드를 고른다"}
+    return str(v), None
 
 
 def cmd_cred(args) -> int:
@@ -2222,8 +2297,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--run-dir", default=None, help="env.sh 를 쓸 실행 폴더. 없으면 $RUN_DIR")
     p.set_defaults(func=cmd_device)
 
-    p = sub.add_parser("app", help="앱 화면을 찍고(shot) 띄운다(launch)")
-    p.add_argument("action", choices=["shot", "launch"])
+    p = sub.add_parser("app", help="앱 화면을 찍고(shot) 띄우고(launch) 글자를 넣는다(type, Android)")
+    p.add_argument("action", choices=["shot", "launch", "type"])
+    p.add_argument("--cred", default=None, help="type: 저장된 로그인 정보 이름 (cred list)")
+    p.add_argument("--cred-field", dest="cred_field", default=None, help="type: 넣을 필드 (기본 password, 예: account)")
+    p.add_argument("--text-env", dest="text_env", default=None, help="type: 값을 읽을 환경변수 (일회용)")
+    p.add_argument("--submit", action="store_true", help="type: 입력 뒤 Enter")
     p.add_argument("--root", default=".")
     p.add_argument("--device", default=None,
                    help="Android 시리얼 또는 iOS UDID. 없으면 $DEV → 붙은 기기가 한 대면 그것")
@@ -2244,6 +2323,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--selector", default=None,
                    help="대상 (click·type·assert·shot). text=로그인 · #id · button:has-text('x')")
     p.add_argument("--text", default=None, help="입력할 값 또는 확인할 문구")
+    p.add_argument("--cred", default=None, help="저장된 로그인 정보로 입력한다 (cred list). 값은 명령줄에 남지 않는다")
+    p.add_argument("--cred-field", dest="cred_field", default=None, help="--cred 에서 넣을 필드 (기본 password, 예: account)")
     p.add_argument("--text-env", dest="text_env", default=None,
                    help="입력값을 환경변수에서 읽는다 — 비밀번호는 반드시 이쪽")
     p.add_argument("--out", default=None, help="shot: 이름(→ $SHOT_DIR 아래) 또는 경로")

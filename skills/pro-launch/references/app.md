@@ -60,6 +60,19 @@ adb -s "$DEV" shell input keyevent KEYCODE_ENTER   # 완료 키
 
 한글이 입력되지 않으면 영문으로 대체하고 그 사실을 기록한다.
 
+### 글자 입력 — 로그인 정보는 저장된 것으로 (Android)
+
+```bash
+{PYTHON} {SCRIPTS}/launch_cli.py app type --device "$DEV" --cred naver-test --cred-field account
+{PYTHON} {SCRIPTS}/launch_cli.py app type --device "$DEV" --cred naver-test --submit      # 비밀번호 + Enter
+```
+
+- 값은 **명령줄이 아니라 표준입력**으로만 기기에 간다(호스트 `ps` 에 남지 않는다). `--text` 로 값을 직접 주는 방식은 없다.
+- 포커스된 입력창에 들어간다 — 누르는 것은 지금처럼 좌표로 한다. 입력 뒤에는 `app shot` 으로 확인한다.
+- **`adb input text` 는 ASCII 만 된다**(한글 불가 → `non_ascii_unsupported`). 한글이 필요하면 IME 를 설치한다.
+- iOS 시뮬레이터에는 텍스트를 넣는 공식 명령이 없다(`ios_text_unsupported`) — Maestro 같은 도구나 사용자에게 맡긴다.
+- 저장된 로그인 정보가 없으면 사용자에게 묻고, **허락받은 것만 `cred set`** 한다(`references/web.md` 의 "로그인 정보를 저장할 때").
+
 ### 관측
 
 ```bash

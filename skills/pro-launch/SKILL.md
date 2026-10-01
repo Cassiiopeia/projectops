@@ -73,7 +73,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
 | `detect --path` | 무엇을 띄울 수 있는지(app · web · server) · 패키지명 · 번들 ID · 기기 · 브라우저 준비 |
 | `devices` | 붙은 기기 · 부팅된 시뮬레이터 · AVD |
 | `device list\|bind\|unbind\|show` | 역할을 기기에 묶는다 — 참가자가 둘 이상일 때 |
-| `app shot` · `app launch` | 앱 화면을 찍는다 · 앱을 띄운다 |
+| `app shot` · `app launch` · `app type` | 앱 화면을 찍는다 · 앱을 띄운다 · **글자를 넣는다**(Android, 저장된 로그인 정보) |
 | `web setup\|open\|goto\|click\|type\|shot\|assert\|console\|close` | 브라우저 조작 |
 | `web viewport` · `web route` | 폭 바꾸기 · 응답 바꿔치기(빈 목록 · 500 · 지연) |
 | `render snapshot` · `render run` | 코드로 상태를 그려 찍는다 — 실행 · 수집 · 청소 · **흔적 검사** |
@@ -134,7 +134,7 @@ source "{env_file 값}"
   headed 여부였다). 기본으로 자동화 표식 가리기(stealth)가 켜져 있어 headless 에서도 덜 막힌다.
   사이트가 이상하게 굴면 `--no-stealth` 로 비교한다.
 - 요소 하나만 찍으려면 `web shot --selector "#card"`.
-- 안전 계약(바꾸는 조작은 로컬만 · 자격증명은 사용자가 원하면 받아서 `--text-env` 로 입력)과 함정은 `references/web.md`. **반드시 읽는다.**
+- 안전 계약(바꾸는 조작은 로컬만 · 로그인 정보는 저장된 것을 `--cred` 로, 새로 받으면 **저장해도 되는지 묻고** 저장)과 함정은 `references/web.md`. **반드시 읽는다.**
 
 ## 코드로 상태를 그려 찍는다 — render
 
@@ -192,6 +192,7 @@ source "{env_file 값}"
 | `kind` | `ssh` · `dockerhub` · `db` · `http` · `github-org` · `other` |
 | `ssh_server` | `pro-ssh` 에 등록된 서버 이름. 있으면 host·port·user·password 를 거기서 가져온다 — **비밀번호는 한 곳에만** 둔다 |
 | `use_when` | 이 자격증명을 **언제 써도 되는지**(근거). 사용자가 허용한 범위를 그대로 적는다 |
+| 로그인 계정 | `kind: login` + `provider`(google · apple · naver · kakao · custom) · `surface` · `app` · `account` · `password` · `two_factor` — 소셜·앱 로그인과 개발자 콘솔 로그인. 화면에는 `web type --cred` · `app type --cred` 로 넣는다 |
 | `scope` | `test-only` · `test-ok` · `readonly` … 허용 범위 |
 | `notes` | 지켜야 할 이름 규칙·포트 범위·서버에 있는 운영 서비스 등 알아둘 것 |
 
@@ -199,8 +200,11 @@ source "{env_file 값}"
 - 서버·DB·레지스트리를 만지기 전에 `cred list` 를 보고 **`use_when` 이 지금 하려는 일에 맞는 것만** 쓴다.
   맞는 것이 없으면 추측해서 다른 것을 쓰지 말고 사용자에게 묻는다.
 - `scope` · `notes` 를 읽고 그 안에서만 움직인다(예: 테스트 이름 접두사, 지우는 것은 내가 만든 것만).
-- 사용자가 새 접속 정보를 주면 **바로 `cred set` 으로 저장**하고 `use_when` · `scope` · `notes` 를 사용자 말 그대로 채운다.
-  다음에 다시 묻지 않는 것이 목적이다.
+- 사용자가 새 접속 정보를 주면 **저장해도 되는지 한 번 묻고**, 허락하면 `cred set` 으로 저장해 `use_when` · `scope` · `notes` 를
+  사용자 말 그대로 채운다. 다음에 다시 묻지 않는 것이 목적이다. 거절하면 그 실행에만 쓰고 저장하지 않는다.
+  (사용자가 "알아서 저장해 둬" 처럼 미리 허락한 범위 안에서는 묻지 않고 저장한다.)
+- 저장된 정보가 **틀렸거나 바뀌어 보이면**(로그인 실패·접속 거부) 다시 시도하거나 덮어쓰기 전에 사용자에게 먼저 묻는다. 로그인은 자동 재시도하지 않는다.
+- 접속·로그인이 **통과한 방식**(어느 브라우저 모드, 어느 순서)은 `learn` 으로 남긴다 — 값은 적지 않는다. 다음 `recall` 이 꺼내 준다.
 - 결과·보고·이슈·커밋에 값을 옮기지 않는다. `cred show --reveal` 은 정말 필요할 때만.
 - 명령 문자열에는 비밀을 적지 않고 `$CRED_HOST` · `$CRED_USER` · `$CRED_PASSWORD` · `$CRED_TOKEN` · `$SSHPASS` 환경변수를 쓴다.
   출력에 값이 섞이면 `***` 로 가려진다.
