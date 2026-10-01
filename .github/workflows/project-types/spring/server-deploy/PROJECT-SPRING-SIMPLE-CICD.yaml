@@ -136,6 +136,47 @@ jobs:
       - name: 코드 체크아웃
         uses: actions/checkout@v5
 
+      # 사전 점검 (#666)
+      # 신규 설치 직후에는 Secret, Dockerfile, gradlew 가 없는 것이 정상이다. 그대로 두면 하위 step 에서
+      # 원인을 짚기 어려운 한 줄로 실패하므로, 무엇이 없고 무엇을 해야 하는지 첫 step 에서 알린다.
+      # 전제가 모두 갖춰진 레포는 이 step 을 그대로 통과하며 이후 동작은 달라지지 않는다.
+      - name: 배포 전제 사전 점검
+        env:
+          SSH_AUTH_METHOD: ${{ env.SSH_AUTH_METHOD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          fail=0
+          # Gradle Wrapper 점검: 없으면 chmod 단계에서 exit code 1 로만 알려준다
+          if [ ! -f gradlew ]; then
+            echo "::error title=배포 사전 점검::gradlew 가 프로젝트 루트에 없습니다. 'gradle wrapper' 로 생성해 gradlew, gradle/wrapper/ 를 커밋하세요."
+            fail=1
+          fi
+          # Dockerfile 점검: 없으면 docker build 단계에서 "failed to read dockerfile" 로만 알려준다
+          if [ ! -f "${DOCKERFILE_PATH}" ]; then
+            echo "::error title=배포 사전 점검::Dockerfile(${DOCKERFILE_PATH})이 없습니다. 프로젝트 루트에 Dockerfile 을 추가하고 커밋하세요."
+            fail=1
+          fi
+          # Secret 점검: 빈 값이면 로그인, SSH 접속 단계에서 원인 불명 에러가 난다
+          for name in DOCKERHUB_USERNAME DOCKERHUB_TOKEN SERVER_HOST SERVER_USER; do
+            if [ -z "${!name}" ]; then
+              echo "::error title=배포 사전 점검::Secret ${name} 이(가) 없습니다. Settings > Secrets and variables > Actions > New repository secret 에서 등록하세요"
+              fail=1
+            fi
+          done
+          # SSH 인증 방식에 따라 필요한 Secret 이 다르다 (SSH_AUTH_METHOD: password | key)
+          if [ "${SSH_AUTH_METHOD:-password}" = "key" ]; then
+            [ -n "$SSH_KEY" ] || { echo "::error title=배포 사전 점검::Secret SSH_KEY 가 없습니다 (SSH_AUTH_METHOD=key). .pem 전체 내용을 값으로 Settings > Secrets and variables > Actions > New repository secret 에서 등록하세요"; fail=1; }
+          else
+            [ -n "$SERVER_PASSWORD" ] || { echo "::error title=배포 사전 점검::Secret SERVER_PASSWORD 가 없습니다 (SSH_AUTH_METHOD=password). Settings > Secrets and variables > Actions > New repository secret 에서 등록하세요"; fail=1; }
+          fi
+          [ "$fail" = "0" ] || exit 1
+          echo "✅ 사전 점검 통과"
+
       # 2. Java 개발 환경 설정
       - name: Java 설정
         uses: actions/setup-java@v4

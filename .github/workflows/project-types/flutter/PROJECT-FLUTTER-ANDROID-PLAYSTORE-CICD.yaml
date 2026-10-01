@@ -111,6 +111,25 @@ jobs:
       project_type: ${{ steps.current_version.outputs.project_type }}
 
     steps:
+      # 사전 점검 (#666)
+      # 신규 설치 직후에는 배포용 Secret 이 없는 것이 정상이다. 그대로 두면 빌드를 끝까지 돌린 뒤
+      # 서명, 업로드 단계에서 원인을 짚기 어려운 에러로 실패하므로, 빌드 전에 무엇이 없는지 알린다.
+      # Secret 이 모두 있으면 이 step 은 그대로 통과하며 이후 동작은 달라지지 않는다.
+      - name: 배포 Secret 사전 점검
+        working-directory: ${{ github.workspace }}   # 체크아웃 전이라 APP_ROOT 가 아직 없을 수 있다
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
+        run: |
+          fail=0
+          for name in GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64; do
+            if [ -z "${!name}" ]; then
+              echo "::error title=배포 사전 점검::Secret ${name} 이(가) 없습니다. Google Play 서비스 계정 JSON(base64)입니다. .github/util/flutter/playstore-wizard 의 안내로 만들어 Settings > Secrets and variables > Actions 에 등록하세요."
+              fail=1
+            fi
+          done
+          [ "$fail" = "0" ] || exit 1
+          echo "✅ 사전 점검 통과"
+
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
@@ -119,6 +138,14 @@ jobs:
 
       - name: Pull latest changes
         run: git pull origin main
+
+      # 사전 점검 (#666) — 배포 job 이 복사할 Fastfile 이 저장소에 있는지 미리 확인
+      - name: Fastfile.playstore 사전 점검
+        run: |
+          if [ ! -f android/fastlane/Fastfile.playstore ]; then
+            echo "::error title=배포 사전 점검::android/fastlane/Fastfile.playstore 가 없습니다. .github/util/flutter/playstore-wizard 를 실행해 생성한 뒤 커밋하세요."
+            exit 1
+          fi
 
       - name: Create .env file
         env:

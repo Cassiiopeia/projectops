@@ -50,6 +50,21 @@ jobs:
       - name: 코드 체크아웃
         uses: actions/checkout@v5
 
+      # 사전 점검 (#666)
+      # 신규 설치 직후에는 Secret, Dockerfile, gradlew 가 없는 것이 정상이다. 그대로 두면 하위 step 에서
+      # 원인을 짚기 어려운 한 줄로 실패하므로, 무엇이 없고 무엇을 해야 하는지 첫 step 에서 알린다.
+      # 전제가 모두 갖춰진 레포는 이 step 을 그대로 통과하며 이후 동작은 달라지지 않는다.
+      - name: 배포 전제 사전 점검
+        run: |
+          fail=0
+          # Dockerfile 점검: 없으면 docker build 단계에서 "failed to read dockerfile" 로만 알려준다
+          if [ ! -f "./Dockerfile" ]; then
+            echo "::error title=배포 사전 점검::Dockerfile(./Dockerfile)이 없습니다. 프로젝트 루트에 Dockerfile 을 추가하고 커밋하세요."
+            fail=1
+          fi
+          [ "$fail" = "0" ] || exit 1
+          echo "✅ 사전 점검 통과"
+
       # 2. .env 파일 생성 (빌드 검증용)
       - name: .env 파일 생성
         env:
