@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import io
 import json
 import os
 import re
@@ -235,6 +236,10 @@ def cmd_update_from_summary() -> int:
     project_types = [t.strip() for t in project_types_csv.split(',') if t.strip()]
     if not project_types and project_type:
         project_types = [project_type]
+    # VERSION 없이 기록하면 version: null 릴리스가 남아 이후 모든 판정이 오염된다
+    if not version:
+        print("❌ VERSION 환경변수가 필요합니다", file=sys.stderr)
+        return 1
     today = os.environ.get('TODAY')
     pr_number_raw = os.environ.get('PR_NUMBER')
     timestamp = os.environ.get('TIMESTAMP')
@@ -306,7 +311,11 @@ def cmd_update_from_summary() -> int:
         try:
             with open('CHANGELOG.json', 'r', encoding='utf-8') as f:
                 changelog_data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
+        except json.JSONDecodeError as e:
+            # 깨진 파일을 빈 구조로 덮어쓰면 기존 이력이 사라진다 — 사람이 고치도록 중단
+            print(f"❌ CHANGELOG.json이 손상되어 갱신하지 않습니다 (직접 복구 필요): {e}", file=sys.stderr)
+            return 1
+        except FileNotFoundError:
             changelog_data = {
                 "metadata": {
                     "lastUpdated": timestamp,
@@ -318,12 +327,20 @@ def cmd_update_from_summary() -> int:
                 "releases": [],
             }
 
+        if not isinstance(changelog_data.get("metadata"), dict) or not isinstance(changelog_data.get("releases", []), list):
+            print("❌ CHANGELOG.json 구조가 올바르지 않아 갱신하지 않습니다", file=sys.stderr)
+            return 1
+
         changelog_data["metadata"]["lastUpdated"] = timestamp
         changelog_data["metadata"]["currentVersion"] = version
         changelog_data["metadata"]["projectType"] = project_type
         changelog_data["metadata"]["projectTypes"] = project_types
-        changelog_data["metadata"]["totalReleases"] = len(changelog_data.get("releases", [])) + 1
-        changelog_data.setdefault("releases", []).insert(0, new_release)
+        # 같은 버전은 교체한다 — 워크플로우 재실행·PR 갱신에도 결과가 같아야 한다(멱등)
+        releases = [r for r in changelog_data.get("releases", [])
+                    if not (isinstance(r, dict) and str(r.get("version")) == str(version))]
+        releases.insert(0, new_release)
+        changelog_data["releases"] = releases
+        changelog_data["metadata"]["totalReleases"] = len(releases)
 
         with open('CHANGELOG.json', 'w', encoding='utf-8') as f:
             json.dump(changelog_data, f, indent=2, ensure_ascii=False)
@@ -343,7 +360,8 @@ def cmd_generate_md() -> int:
         with open('CHANGELOG.json', 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        with open('CHANGELOG.md', 'w', encoding='utf-8') as f:
+        # 메모리에서 전부 만든 뒤 한 번에 쓴다 — 중간 예외로 CHANGELOG.md가 잘리지 않게
+        with io.StringIO() as f:
             f.write("# Changelog\n\n")
 
             metadata = data.get('metadata', {})
@@ -396,6 +414,9 @@ def cmd_generate_md() -> int:
 
                 f.write("---\n\n")
 
+            with open('CHANGELOG.md', 'w', encoding='utf-8') as out:
+                out.write(f.getvalue())
+
         print("✅ CHANGELOG.md 재생성 완료!")
         return 0
 
@@ -431,8 +452,9 @@ def cmd_export_release_notes(version: str, output_path: str | None) -> int:
                 else:
                     body = (matched.get('raw_summary') or '').strip()
                 notes_text = (header + (body or "")).strip()
-    except Exception:
-        pass
+    except Exception as e:
+        # 삼키면 폴백 사유를 알 수 없다 — 사유만 stderr에 남기고 다음 경로로 간다
+        print(f"[warn] CHANGELOG.json에서 노트를 만들지 못해 폴백합니다: {e}", file=sys.stderr)
 
     # 2) CHANGELOG.md 폴백
     if not notes_text and os.path.isfile('CHANGELOG.md'):
@@ -443,12 +465,14 @@ def cmd_export_release_notes(version: str, output_path: str | None) -> int:
             m = pattern.search(md)
             if m:
                 start = m.end()
-                next_m = re.search(r"^## \\[", md[start:], re.MULTILINE)
+                next_m = re.search(r"^## \[", md[start:], re.MULTILINE)
                 section = md[start: start + next_m.start()] if next_m else md[start:]
                 body = section.strip()
+                # 섹션 사이 구분선(---)은 스토어 릴리스 노트에 필요 없다
+                body = re.sub(r'\n*-{3,}\s*$', '', body).strip()
                 notes_text = (f"버전 {version} 업데이트\n\n" + body).strip()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[warn] CHANGELOG.md에서 노트를 만들지 못해 폴백합니다: {e}", file=sys.stderr)
 
     # 3) 최종 폴백
     if not notes_text:
