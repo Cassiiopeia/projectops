@@ -150,3 +150,50 @@ def test_get_code_works_without_version_key(tmp_path):
     rc, out, err = run_vm(tmp_path, "get-code")
     assert rc == 0, err
     assert out.strip() == "7"
+
+
+# ── #684: version.yml 블록 리스트·따옴표 변형 경로 ───────────────────────
+def _node_pkg(tmp_path, sub="web", version="1.0.0"):
+    write(tmp_path / sub / "package.json", '{"version": "%s"}\n' % version)
+
+
+def test_block_list_project_types_is_recognized(tmp_path):
+    _node_pkg(tmp_path)
+    write(tmp_path / "version.yml", 'version: "1.0.0"\nproject_types:\n  - node\nproject_paths:\n  node: "web"\n')
+    rc, out, err = run_vm(tmp_path, "increment")
+    assert rc == 0, err
+    assert '"version": "1.0.1"' in (tmp_path / "web" / "package.json").read_text(encoding="utf-8")
+
+
+def test_block_list_with_quotes_and_comments(tmp_path):
+    _node_pkg(tmp_path, sub=".")
+    write(tmp_path / "version.yml", 'version: "1.0.0"\nproject_types:\n  - "node"  # 서버\n  # 주석 줄\n  - \'basic\'\nother: 1\n')
+    rc, out, err = run_vm(tmp_path, "increment")
+    assert rc == 0, err
+    assert '"version": "1.0.1"' in (tmp_path / "package.json").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("path_line", ["  node: 'web'", "  node: web", '  node: "web"  # 웹', "  node: web # 웹"])
+def test_project_paths_quote_variants(tmp_path, path_line):
+    _node_pkg(tmp_path)
+    write(tmp_path / "version.yml", f'version: "1.0.0"\nproject_types: ["node"]\nproject_paths:\n{path_line}\n')
+    rc, out, err = run_vm(tmp_path, "increment")
+    assert rc == 0, err
+    assert '"version": "1.0.1"' in (tmp_path / "web" / "package.json").read_text(encoding="utf-8")
+    assert "건너뜀" not in err
+
+
+def test_unsupported_project_types_form_is_an_error(tmp_path):
+    original = 'version: "1.0.0"\nproject_types: node\n'
+    write(tmp_path / "version.yml", original)
+    rc, out, err = run_vm(tmp_path, "increment")
+    assert rc == 1
+    assert "project_types" in err and "지원하지 않는" in err
+    assert (tmp_path / "version.yml").read_bytes() == original.encode()
+
+
+def test_unsupported_project_paths_form_is_an_error(tmp_path):
+    write(tmp_path / "version.yml", 'version: "1.0.0"\nproject_types: ["node"]\nproject_paths: {node: web}\n')
+    rc, out, err = run_vm(tmp_path, "get")
+    assert rc == 1
+    assert "project_paths" in err and "지원하지 않는" in err

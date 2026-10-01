@@ -56,16 +56,49 @@ def yml_lines():
     return read_text(VERSION_YML).lstrip("\ufeff").split("\n")
 
 
+def _unquote(value: str) -> str:
+    """앞뒤 공백과 한 겹의 따옴표(" 또는 ')를 제거한다."""
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
+
+
 def parse_project_types() -> list:
-    """project_types: ["a","b"] → ["a","b"] (주석 라인 제외). 없으면 []."""
+    """project_types를 읽는다. 지원 형식: 인라인 ["a","b"] 와 블록 리스트(- a). 없으면 [].
+
+    지원하지 않는 표기는 basic으로 조용히 대체하지 않고 오류로 알린다 (#684).
+    """
     if not VERSION_YML.is_file():
         return []
-    for line in yml_lines():
+    lines = yml_lines()
+    for idx, line in enumerate(lines):
         if line.lstrip().startswith("#"):
             continue
-        m = re.match(r"^project_types:\s*(\[[^\]]*\])", line)
-        if m:
-            return [t.strip().strip('"').strip("'") for t in m.group(1)[1:-1].split(",") if t.strip()]
+        m = re.match(r"^project_types:[ \t]*(.*?)[ \t]*$", line)
+        if not m:
+            continue
+        rest = m.group(1)
+        if rest.startswith("["):
+            inline = re.match(r"^\[([^\]]*)\][ \t]*(#.*)?$", rest)
+            if not inline:
+                raise VersionError("version.yml의 project_types는 한 줄 배열([\"a\", \"b\"]) 또는 블록 리스트(- a)만 지원합니다.")
+            return [_unquote(t) for t in inline.group(1).split(",") if t.strip()]
+        if rest and not rest.startswith("#"):
+            raise VersionError(f"version.yml의 project_types 형식은 지원하지 않는 표기입니다: '{rest}' (배열 또는 블록 리스트로 쓰세요)")
+        # 값이 비어 있으면 다음 줄들의 블록 리스트를 읽는다
+        types = []
+        for nxt in lines[idx + 1:]:
+            if not nxt.strip() or nxt.lstrip().startswith("#"):
+                continue
+            item = re.match(r"^\s*-[ \t]+(.*?)[ \t]*$", nxt)
+            if not item:
+                break
+            raw = item.group(1)
+            # 따옴표 값 뒤의 줄 끝 주석("node"  # 설명)과 무따옴표 값 뒤 주석을 모두 제거
+            qm = re.match(r"^(\"[^\"]*\"|'[^']*')[ \t]*(#.*)?$", raw)
+            types.append(_unquote(qm.group(1)) if qm else re.sub(r"[ \t]+#.*$", "", raw).strip())
+        return [t for t in types if t]
     return []
 
 
@@ -81,19 +114,26 @@ def parse_legacy_single_type() -> str:
 
 
 def get_type_path(t: str) -> str:
-    """project_paths.<type> — 키 없으면 '.' (legacy: 루트 기준)."""
+    """project_paths.<type> — 키 없으면 '.' (legacy: 루트 기준). 값은 "큰따옴표"·'작은따옴표'·무따옴표 모두 허용."""
     in_paths = False
     for line in yml_lines():
-        if re.match(r"^project_paths:", line):
+        if line.lstrip().startswith("#") or not line.strip():
+            continue
+        pm = re.match(r"^project_paths:[ \t]*(.*?)[ \t]*$", line)
+        if pm:
+            rest = pm.group(1)
+            if rest and not rest.startswith("#"):
+                raise VersionError(f"version.yml의 project_paths 형식은 지원하지 않는 표기입니다: '{rest}' (블록 맵 '타입: 경로'로 쓰세요)")
             in_paths = True
             continue
         if in_paths:
-            m = re.match(r'^\s+([A-Za-z0-9_-]+):\s*"([^"]*)"', line)
-            if m:
-                if m.group(1) == t:
-                    return m.group(2) or "."
-            elif re.match(r"^\S", line):
+            if re.match(r"^\S", line):
                 break
+            m = re.match(r"^\s+([A-Za-z0-9_-]+):[ \t]*(\"[^\"]*\"|'[^']*'|[^#\s]*)[ \t]*(#.*)?$", line)
+            if not m:
+                raise VersionError(f"version.yml의 project_paths 항목을 읽지 못했습니다: '{line.strip()}' (타입: 경로 형식으로 쓰세요)")
+            if m.group(1) == t:
+                return _unquote(m.group(2)) or "."
     return "."
 
 
