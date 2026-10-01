@@ -112,6 +112,16 @@ export function printSummary(ctx, targetRoot = ".") {
     }
   }
 
+  // #673 — 업데이트 기준점이 없어 수정 여부를 구분하지 못하고 교체한 파일: 원본이 .bak 으로만 남으므로
+  // 사용자가 자기 수정이 사라졌는지 git diff 없이도 알 수 있어야 한다.
+  const replaced = ctx?.replacedBak ?? [];
+  if (replaced.length > 0) {
+    err("");
+    err(`  ${YELLOW}⚠️  수정 여부를 확인할 수 없어 ${replaced.length}개 워크플로를 새 템플릿으로 교체하고 원본을 .bak 으로 백업했습니다${NC}`);
+    for (const f of replaced) err(`     💾 .github/workflows/${f}.bak`);
+    err("     직접 수정한 내용이 있었다면 .bak 에서 옮겨 오세요. (업데이트 기준점은 이번 실행으로 새로 기록됩니다)");
+  }
+
   err("");
   err("  🔧 .github/scripts/");
   err("     ├─ version_manager.sh");

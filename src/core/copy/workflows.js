@@ -81,6 +81,7 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   if (!exists(projectTypesDir)) throw new Error("템플릿 저장소 구조 오류 — project-types 폴더를 찾지 못했습니다.");
 
   const counters = { copied: 0, skipped: 0, templateAdded: 0, optionalCopied: 0, copiedFiles: [],
+    replacedBak: [], // #673 — 기준점이 없어 수정 여부를 모른 채 .bak 백업 후 교체한 파일명
     skippedConflicts: [] }; // #654 — 유지한 사용자 수정본별 { filename, incoming, added, removed }
   const deployValues = new Map(); // Map<type, Map<key,value>> — deploy 블록용 ask 값
   counters.deployValues = deployValues;
@@ -152,6 +153,7 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
         counters.copied++;
         counters.copiedFiles.push(filename);
         trace?.event("copy", "replaced-bak", filename, { group: "common", reason: "baseline-absent" });
+        counters.replacedBak.push(filename);   // #673 — 수정 가능성이 있는 파일을 교체했음을 화면에 알린다
         continue;
       }
       // 사용자가 손댄 것이 확인된 파일 — 결정에 따라 처리(미지정이면 유지).
@@ -184,6 +186,7 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
       counters.copied++;
       counters.copiedFiles.push(filename);
       trace?.event("copy", backedUp ? "replaced-bak" : "copied", filename, { group: "common-deploy" });
+      if (backedUp) counters.replacedBak.push(filename);   // #673
     }
   }
 
@@ -207,6 +210,7 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
       counters.copied++;
       counters.copiedFiles.push(filename);
       trace?.event("copy", backedUp ? "replaced-bak" : "copied", filename, { group: "pr-summary" });
+      if (backedUp) counters.replacedBak.push(filename);   // #673
     }
   }
 
@@ -407,6 +411,7 @@ function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters
       counters.copied++;
       counters.copiedFiles.push(filename);
       trace?.event("copy", backedUp ? "replaced-bak" : "copied", filename, { group: `${type}/publish/${target}` });
+      if (backedUp) counters.replacedBak.push(filename);   // #673
     }
   }
 
