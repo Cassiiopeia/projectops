@@ -70,3 +70,83 @@ def test_set_accepts_valid_version(tmp_path, ok):
     rc, out, err = run_vm(tmp_path, "set", ok)
     assert rc == 0, err
     assert out.strip().splitlines()[-1] == ok
+
+
+# ── #678: version.yml 갱신 실패를 성공으로 출력하지 않는다 ───────────────
+def _yml(version_line, extra='version_code: 5\nproject_types: ["basic"]\n'):
+    return f"{version_line}\n{extra}"
+
+
+def test_set_updates_v_prefixed_version(tmp_path):
+    write(tmp_path / "version.yml", _yml('version: "v1.2.3"'))
+    rc, out, err = run_vm(tmp_path, "set", "2.0.0")
+    assert rc == 0, err
+    assert (tmp_path / "version.yml").read_text(encoding="utf-8").startswith('version: "2.0.0"\n')
+
+
+def test_get_reads_v_prefixed_version(tmp_path):
+    write(tmp_path / "version.yml", _yml('version: "v1.2.3"'))
+    rc, out, err = run_vm(tmp_path, "get")
+    assert rc == 0, err
+    assert out.strip() == "1.2.3"
+
+
+@pytest.mark.parametrize("line", ['version: "1.2.3"   ', 'version: "1.2.3-beta.1"', "version: '1.2.3'", "version: 1.2.3"])
+def test_increment_updates_unusual_version_lines(tmp_path, line):
+    write(tmp_path / "version.yml", _yml(line))
+    rc, out, err = run_vm(tmp_path, "increment")
+    assert rc == 0, err
+    assert out.strip() == "1.2.4"
+    text = (tmp_path / "version.yml").read_text(encoding="utf-8")
+    assert text.startswith('version: "1.2.4"\n'), text
+    assert "version_code: 6" in text
+
+
+def test_increment_fails_when_version_line_not_updatable(tmp_path):
+    # 값 뒤에 주석도 아닌 잡텍스트가 붙어 패턴이 안 맞는 경우: 성공 로그 대신 실패해야 한다.
+    original = _yml('version: "1.2.3" junk')
+    write(tmp_path / "version.yml", original)
+    rc, out, err = run_vm(tmp_path, "increment")
+    assert rc == 1
+    assert out.strip() == ""                      # 새 버전을 stdout으로 내보내면 릴리스가 잘못 나간다
+    assert "갱신하지 못했습니다" in err
+    assert "업데이트 완료" not in err
+    # version_code도 올라가면 안 된다 (버전 파일과 어긋남)
+    assert (tmp_path / "version.yml").read_bytes() == original.encode()
+
+
+def test_set_fails_when_version_line_not_updatable(tmp_path):
+    original = _yml('version: "1.2.3" junk')
+    write(tmp_path / "version.yml", original)
+    rc, out, err = run_vm(tmp_path, "set", "2.0.0")
+    assert rc == 1
+    assert out.strip() == ""
+    assert "설정 완료" not in err
+
+
+@pytest.mark.parametrize("cmd", [("get",), ("increment", "--bump", "major"), ("set", "2.0.0"), ("sync",)])
+def test_missing_version_key_is_an_error(tmp_path, cmd):
+    original = 'project_types: ["basic"]\n'
+    write(tmp_path / "version.yml", original)
+    rc, out, err = run_vm(tmp_path, *cmd)
+    assert rc == 1
+    assert out.strip() == ""
+    assert "version:" in err
+    assert (tmp_path / "version.yml").read_bytes() == original.encode()
+
+
+def test_bom_before_version_key_is_handled_and_preserved(tmp_path):
+    write(tmp_path / "version.yml", b"\xef\xbb\xbf" + _yml('version: "1.2.3"').encode())
+    rc, out, err = run_vm(tmp_path, "increment")
+    assert rc == 0, err
+    assert out.strip() == "1.2.4"
+    raw = (tmp_path / "version.yml").read_bytes()
+    assert raw.startswith(b"\xef\xbb\xbfversion: \"1.2.4\"\n")
+
+
+def test_get_code_works_without_version_key(tmp_path):
+    # version_code만 읽는 명령은 version 키가 없어도 동작해야 한다 (기존 계약)
+    write(tmp_path / "version.yml", 'version_code: 7\nproject_types: ["basic"]\n')
+    rc, out, err = run_vm(tmp_path, "get-code")
+    assert rc == 0, err
+    assert out.strip() == "7"

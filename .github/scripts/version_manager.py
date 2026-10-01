@@ -28,6 +28,10 @@ VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\Z")
 VERSION_YML = Path("version.yml")
 
 
+class VersionError(Exception):
+    """갱신·읽기 실패. 성공 로그 대신 오류 메시지와 exit 1로 끝내기 위해 쓴다 (#678)."""
+
+
 # ── 로그 (stderr — .sh 이모지 동일) ─────────────────────────────────
 def log_info(msg): print(f"ℹ️  {msg}", file=sys.stderr)
 def log_success(msg): print(f"✅ {msg}", file=sys.stderr)
@@ -48,7 +52,8 @@ def write_text(path: Path, content: str):
 
 
 def yml_lines():
-    return read_text(VERSION_YML).split("\n")
+    # 첫 줄 BOM은 읽기에서만 제거 (쓸 때는 set_yml_field가 보존)
+    return read_text(VERSION_YML).lstrip("\ufeff").split("\n")
 
 
 def parse_project_types() -> list:
@@ -92,33 +97,37 @@ def get_type_path(t: str) -> str:
     return "."
 
 
-def get_yml_version() -> str:
+def get_yml_version():
+    """version: 값을 읽는다. v 접두사는 허용(정규화), 읽지 못하면 None (0.0.0으로 대체하지 않는다 — #678)."""
     for line in yml_lines():
         if line.lstrip().startswith("#"):
             continue
-        m = re.match(r"^version:\s*[\"']?([0-9][0-9.]*)[\"']?", line)
+        m = re.match(r"^version:\s*[\"']?[vV]?([0-9][0-9.]*)", line)
         if m:
             return m.group(1)
-    return "0.0.0"
+    return None
 
 
 def set_yml_field(pattern: str, new_line_fn):
     """pattern에 걸리는 첫 라인을 new_line_fn(match)로 교체. 교체 여부 반환."""
-    lines = yml_lines()
+    text = read_text(VERSION_YML)
+    # 첫 줄 BOM은 매칭에서만 빼고 그대로 되돌려 쓴다
+    bom = "\ufeff" if text.startswith("\ufeff") else ""
+    lines = text[len(bom):].split("\n")
     for i, line in enumerate(lines):
         if line.lstrip().startswith("#"):
             continue
         m = re.match(pattern, line)
         if m:
             lines[i] = new_line_fn(m)
-            write_text(VERSION_YML, "\n".join(lines))
+            write_text(VERSION_YML, bom + "\n".join(lines))
             return True
     return False
 
 
 # ── 설정 읽기 (.sh read_version_config 등가, v4.1.0 SSOT) ───────────
 class Config:
-    def __init__(self):
+    def __init__(self, require_version=True):
         if not VERSION_YML.is_file():
             log_error("version.yml 파일을 찾을 수 없습니다!")
             sys.exit(1)
@@ -140,7 +149,13 @@ class Config:
         else:
             self.primary = "basic"
 
-        self.current_version = get_yml_version()
+        current = get_yml_version()
+        if current is None:
+            if require_version:
+                log_error('version.yml에서 version 값을 읽지 못했습니다. `version: "x.y.z"` 줄이 있어야 합니다.')
+                sys.exit(1)
+            current = "0.0.0"  # version_code만 다루는 명령에서는 쓰이지 않는 자리표시값
+        self.current_version = current
         self.version_file = self._resolve_version_file()
 
         log_info("프로젝트 설정:")
@@ -407,10 +422,14 @@ def update_version_yml(cfg: Config, new_version: str):
     user = os.environ.get("GITHUB_ACTOR") or os.environ.get("USER") or os.environ.get("USERNAME") or "unknown"
 
     log_debug(f"version.yml 업데이트: {new_version}")
-    set_yml_field(
-        r"^version:\s*[\"']?[0-9][0-9.]*[\"']?(\s*#.*)?$",
+    # 값은 따옴표 유무·v 접두사·프리릴리스 접미사 무엇이든 통째로 교체하고 줄 끝 주석만 보존한다.
+    replaced = set_yml_field(
+        r"^version:[ \t]*(?:\"[^\"]*\"|'[^']*'|[^#\s]*)([ \t]*#.*)?[ \t]*$",
         lambda m: f'version: "{new_version}"' + (m.group(1) or ""),
     )
+    if not replaced:
+        # 성공 로그와 새 버전을 내보내면 릴리스는 새 번호로 나가는데 version.yml은 그대로 남는다
+        raise VersionError("version.yml의 version 줄을 갱신하지 못했습니다. `version: \"x.y.z\"` 형식으로 고친 뒤 다시 실행하세요.")
     # metadata 필드는 존재할 때만 갱신 (.sh yq -e 가드 등가)
     set_yml_field(r"^(\s+last_updated:\s*).*$", lambda m: f'{m.group(1)}"{timestamp}"')
     set_yml_field(r"^(\s+last_updated_by:\s*).*$", lambda m: f'{m.group(1)}"{user}"')
@@ -485,13 +504,24 @@ def parse_bump_flag(argv) -> str | None:
 
 
 def main(argv):
+    try:
+        return _main(argv)
+    except VersionError as e:
+        log_error(str(e))
+        return 1
+
+
+def _main(argv):
     command = argv[1] if len(argv) > 1 else "get"
 
     if command not in ("get", "get-code", "increment", "increment-code", "set", "sync", "validate"):
         print(USAGE, file=sys.stderr)
         return 1
 
-    cfg = Config()
+    # version_code만 다루는 명령은 version 키가 없어도 동작해야 한다 (기존 계약)
+    # validate는 인자로 버전을 직접 주면 version.yml의 version 값 없이도 검증할 수 있다
+    needs_yml_version = command not in ("get-code", "increment-code") and not (command == "validate" and len(argv) > 2)
+    cfg = Config(require_version=needs_yml_version)
 
     if command == "get":
         version = sync_versions(cfg)
