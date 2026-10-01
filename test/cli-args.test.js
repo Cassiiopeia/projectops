@@ -101,7 +101,8 @@ test("--mode 허용 값 외에는 CliError (#665)", () => {
 
 test("--project-version 은 x.y.z 만 허용 (#676)", () => {
   assert.equal(parseArgs(["--project-version", "1.0.0"]).version, "1.0.0");
-  for (const bad of ["abc", "1.0", "v1.0.0", "1.0.0\"; touch /tmp/pwned; echo \"", ""]) {
+  assert.equal(parseArgs(["--project-version", "v1.0.0"]).version, "1.0.0"); // v 접두사는 제거해 수용
+  for (const bad of ["abc", "1.0", "vv1.0.0", "1.0.0\"; touch /tmp/pwned; echo \"", ""]) {
     assert.throws(() => parseArgs(["--project-version", bad]), CliError, bad);
   }
 });

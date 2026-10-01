@@ -48,7 +48,8 @@ export function parseArgs(argv) {
       case "--project-version":
       {
         // version.yml·셸 스크립트가 그대로 읽는 값이라 x.y.z 외에는 받지 않는다 (#676)
-        const v = (args.shift() ?? "").trim();
+        // 'v1.0.0'은 사용자가 흔히 쓰는 표기라 거부하지 않고 접두사만 떼어 받는다
+        const v = (args.shift() ?? "").trim().replace(/^[vV](?=\d)/, "");
         if (!SEMVER_RE.test(v)) {
           throw new CliError(`--project-version 값은 x.y.z (예: 1.0.0) 형식이어야 합니다: '${v}'`);
         }
