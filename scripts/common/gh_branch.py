@@ -6,8 +6,10 @@ import re
 from datetime import date
 
 
-# 한글(가-힣), 영문, 숫자만 유지. 나머지는 _로 치환
-_KEEP_PATTERN = re.compile(r"[^\uAC00-\uD7A3a-zA-Z0-9]")
+# 유니코드 글자·숫자(한글·가나·한자·악센트 라틴 포함)를 보존하고 나머지는 _로 치환.
+# ⚠️ 정본은 `.github/scripts/issue_helper.py` 의 _KEEP 이다 (#717). 배포 경로가 달라
+# import 할 수 없어 같은 규칙을 복제하며, 일치는 test_branch_name_parity.py 가 강제한다.
+_KEEP_PATTERN = re.compile(r"[^\w]")
 
 # 연속 언더스코어를 단일 언더스코어로 변환
 _MULTI_UNDERSCORE = re.compile(r"_+")
@@ -147,20 +149,12 @@ def create_branch_name(
     if date_yyyymmdd is None:
         date_yyyymmdd = date.today().strftime("%Y%m%d")
 
-    # prefix: "YYYYMMDD_#이슈번호_"
-    prefix = f"{date_yyyymmdd}_#{issue_number}_"
+    # 제목이 이모지·기호뿐이면 정규화 결과가 비므로 번호 기반 대체 문구로 채운다 (issue_helper 와 동일)
+    slug = normalize_title(issue_title) or f"issue-{issue_number}"
+    base = f"{date_yyyymmdd}_#{issue_number}_{slug}"
 
-    # 남은 길이에서 제목 길이 계산
-    max_title_len = _MAX_BRANCH_LEN - len(prefix)
-
-    # prefix만으로도 제한을 초과하면 prefix만 반환 (트레일 언더스코어 제거)
-    if max_title_len <= 0:
-        return prefix.rstrip("_")
-
-    # 제목 정규화 및 길이 제한
-    normalized = normalize_title(issue_title)[:max_title_len].rstrip("_")
-
-    return f"{prefix}{normalized}"
+    # 100자 제한 후 구분자에서 끊겨 `_` 로 끝나면 정리한다
+    return base[:_MAX_BRANCH_LEN].rstrip("_")
 
 
 def get_commit_template(issue_title: str, issue_url: str,
