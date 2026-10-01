@@ -278,3 +278,18 @@ def test_branch_name_trailing_underscore_trimmed_after_truncate():
     assert len(name) <= 100
     assert not name.endswith("_")
 
+
+# ── #691: 따옴표 안의 ` #`는 주석이 아니다 ─────────────────────────────────────
+def test_load_config_keeps_hash_inside_quotes(tmp_path):
+    (tmp_path / "version.yml").write_text(
+        'version: "1.0.0"\n'
+        "issue_helper:\n"
+        '  commit_template: "${issueTitle} #${issueNumber} : ${commitType}"\n'
+        "  branch_prefix: 'feat/ #x' # 줄 끝 주석\n"
+        "  timezone: Asia/Seoul # 따옴표 없는 값의 주석\n",
+        encoding="utf-8",
+    )
+    cfg = load_config(str(tmp_path))
+    assert cfg["commit_template"] == "${issueTitle} #${issueNumber} : ${commitType}"
+    assert cfg["branch_prefix"] == "feat/ #x"
+    assert cfg["timezone"] == "Asia/Seoul"
