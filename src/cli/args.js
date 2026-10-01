@@ -4,6 +4,8 @@ import { VALID_TYPES } from "../context.js";
 export const DEPLOY_TARGETS = ["docker-ssh", "vercel", "none"];
 export const PUBLISH_TARGETS = ["nexus", "npm", "github-packages"];
 export const INTENT_VALUES = ["app", "library", "both", "none", "manual"];
+const SEMVER_RE = /^\d+\.\d+\.\d+$/;
+const BRANCH_RE = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
 // 허용 실행 모드 (#665) — 오타가 조용히 "복사 0건 성공"으로 끝나지 않게 한다.
 export const MODE_VALUES = ["full", "version", "workflows", "issues", "skills", "doctor", "interactive"];
 
@@ -42,7 +44,15 @@ export function parseArgs(argv) {
         // npm 관례: -v/--version 은 패키지 버전 출력. (초기 버전 지정은 --project-version)
         result.showVersion = true; break;
       case "--project-version":
-        result.version = args.shift() ?? ""; break;
+      {
+        // version.yml·셸 스크립트가 그대로 읽는 값이라 x.y.z 외에는 받지 않는다 (#676)
+        const v = (args.shift() ?? "").trim();
+        if (!SEMVER_RE.test(v)) {
+          throw new CliError(`--project-version 값은 x.y.z (예: 1.0.0) 형식이어야 합니다: '${v}'`);
+        }
+        result.version = v;
+        break;
+      }
       case "-t": case "--type": {
         const csv = args.shift() ?? "";
         const seen = new Set();
@@ -88,6 +98,10 @@ export function parseArgs(argv) {
       case "--deploy-branch": {
         // 릴리스 PR head 브랜치 (#456). default_branch와 별개.
         const v = (args.shift() ?? "").trim();
+        // 워크플로우 yaml·셸에 그대로 삽입되므로 안전한 브랜치명만 허용 (#676)
+        if (v && (!BRANCH_RE.test(v) || v.includes("..") || v.endsWith("/") || v.endsWith(".lock"))) {
+          throw new CliError(`--deploy-branch 값은 영문·숫자·. _ - / 로 이루어진 브랜치명이어야 합니다: '${v}'`);
+        }
         if (v) result.deployBranch = v;
         break;
       }
