@@ -49,7 +49,9 @@ DEFAULT_COMMIT_TYPE_MAP = {
 }
 
 _TAG = re.compile(r"\[([^\]]*)\]")
-_KEEP = re.compile(r"[^가-힣a-zA-Z0-9]")   # 한글/영문/숫자 외 → _
+# 유니코드 글자·숫자(가나·한자·악센트 라틴 포함)를 보존하고 그 외(공백·기호)만 _ 로 바꾼다.
+# \w 는 `_` 도 포함하지만 어차피 구분자와 같아 무해하다.
+_KEEP = re.compile(r"[^\w]")
 _MULTI_UNDERSCORE = re.compile(r"_+")
 
 
@@ -99,9 +101,12 @@ def create_branch_name(
     max_branch_length: int = 100,
 ) -> str:
     """불변 계약 1: 코어 `YYYYMMDD_#번호_제목` 고정. 길이 제한은 코어부에만 적용(구 TS 패리티)."""
-    base = f"{date_yyyymmdd}_#{issue_number}_{normalize_title(title)}"
+    # 제목이 이모지·기호뿐이면 정규화 결과가 비므로 번호 기반 대체 문구로 제목 자리를 채운다
+    slug = normalize_title(title) or f"issue-{issue_number}"
+    base = f"{date_yyyymmdd}_#{issue_number}_{slug}"
     if max_branch_length > 0:
-        base = base[:max_branch_length]
+        # 자르다 구분자에서 끊기면 `_` 로 끝나므로 끝의 `_` 를 정리한다
+        base = base[:max_branch_length].rstrip("_")
     return f"{branch_prefix}{base}"
 
 

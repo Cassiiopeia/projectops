@@ -253,3 +253,28 @@ def test_today_is_8_digits():
 
 def test_today_invalid_tz_falls_back():
     assert _re.fullmatch(r"\d{8}", today_yyyymmdd("No/Such_Zone"))
+
+
+# ── #690: 한글·영문 외 글자 보존 / 빈 제목 대체 / 자른 뒤 끝 `_` 정리 ──────────
+def test_branch_name_keeps_japanese_title():
+    name = create_branch_name(extract_issue_title("日本語のタイトル"), 7, "20261001")
+    assert name == "20261001_#7_日本語のタイトル"
+
+
+def test_branch_name_keeps_accented_latin():
+    name = create_branch_name(extract_issue_title("Ünïcödé café"), 7, "20261001")
+    assert name == "20261001_#7_Ünïcödé_café"
+
+
+def test_branch_name_emoji_only_title_gets_fallback():
+    # 제목이 비어도 코어 계약(YYYYMMDD_#번호_제목)의 제목 자리를 채운다
+    name = create_branch_name(extract_issue_title("🚀"), 7, "20261001")
+    assert name == "20261001_#7_issue-7"
+
+
+def test_branch_name_trailing_underscore_trimmed_after_truncate():
+    # 코어부 12자 + 제목 87자 직후가 구분자라 100자에서 `_`로 끝나게 잘린다
+    name = create_branch_name("a" * 87 + " bbb", 7, "20261001")
+    assert len(name) <= 100
+    assert not name.endswith("_")
+
