@@ -95,6 +95,12 @@ jobs:
           RELEASE_DATE="${{ steps.version_info.outputs.release_date }}"
           SHOW_DATE="${{ env.SHOW_DATE }}"
 
+          # README.md 가 없는 프로젝트도 많다 — 없으면 실패시키지 않고 건너뛴다 (#726)
+          if [ ! -f README.md ]; then
+            echo "::notice::README.md 가 없어 버전 표기를 건너뜁니다 (README.md 를 만들면 다음 push 부터 반영됩니다)"
+            exit 0
+          fi
+
           # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           # 에러 메시지 출력 함수
           # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
