@@ -475,11 +475,11 @@ def cmd_export_release_notes(version: str, output_path: str | None) -> int:
 # tier-1: projectops 컨벤션 "제목 : type[!] : 내용 [URL]".
 # 타입 앞 콜론에 공백이 선행해야 하므로 제목 안의 맨몸 콜론("v1:2" 등)에서 잘리지 않는다.
 _BUMP_TIER1_RE = re.compile(
-    r'^.+?\s:\s*(feat|fix|chore|docs|refactor|test)(!)?\s*:\s*.+$'
+    r'^.+?\s:\s*(feat|fix|chore|docs|refactor|test)(!)?\s*:\s*.+$', re.IGNORECASE
 )
 # tier-2: Conventional Commits "type(scope)[!]: 내용".
 _BUMP_TIER2_RE = re.compile(
-    r'^(feat|fix|chore|docs|refactor|test|perf|style|build|ci)(?:\([^)]*\))?(!)?:\s*.+$'
+    r'^(feat|fix|chore|docs|refactor|test|perf|style|build|ci)(?:\([^)]*\))?(!)?:\s*.+$', re.IGNORECASE
 )
 
 
@@ -509,7 +509,7 @@ def classify_bump_level(lines: list[str]) -> str:
 
         if breaking:
             return 'major'  # 최고 등급 — 더 볼 필요 없다
-        if commit_type == 'feat':
+        if commit_type.lower() == 'feat':  # 대소문자 비구분 (#686)
             level = 'minor'
 
     return level

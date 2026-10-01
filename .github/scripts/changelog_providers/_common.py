@@ -28,8 +28,8 @@ SECTION_ORDER = [
 # 그 결과 자체 컨벤션을 지킨 커밋이 전부 "기타"로 떨어졌다.
 # 판정 규칙은 changelog_manager.classify_bump_level()(#546)과 같은 기준을 쓴다.
 _TYPES = "feat|fix|refactor|docs|chore|style|test|perf|ci|build|revert"
-_TIER1_RE = re.compile(rf"^(?P<title>.+?)\s:\s*(?P<type>{_TYPES})!?\s*:\s*(?P<body>.+)$")
-_TIER2_RE = re.compile(rf"^(?P<type>{_TYPES})(?:\([^)]*\))?!?:\s*(?P<body>.+)$")
+_TIER1_RE = re.compile(rf"^(?P<title>.+?)\s:\s*(?P<type>{_TYPES})!?\s*:\s*(?P<body>.+)$", re.IGNORECASE)
+_TIER2_RE = re.compile(rf"^(?P<type>{_TYPES})(?:\([^)]*\))?!?:\s*(?P<body>.+)$", re.IGNORECASE)
 _PREFIX_TO_SECTION = {
     "feat": "feat", "fix": "fix",
     "refactor": "improve", "style": "improve", "perf": "improve",
@@ -42,7 +42,7 @@ def parse_commit(line):
     m = _TIER1_RE.match(line) or _TIER2_RE.match(line)
     if not m:
         return "etc", _strip_noise(line) or line.strip()
-    section = _PREFIX_TO_SECTION.get(m.group("type"), "etc")
+    section = _PREFIX_TO_SECTION.get(m.group("type").lower(), "etc")
     return section, (_strip_noise(m.group("body")) or line.strip())
 
 
@@ -63,7 +63,8 @@ def collect_commits(range_expr, limit=60, fallback_count=30):
             )
             if out.returncode != 0:
                 return []
-            return [s for s in out.stdout.splitlines() if s.strip() and "[skip ci]" not in s]
+            return [s for s in out.stdout.splitlines() if s.strip() and "[skip ci]" not in s
+                    and not s.strip().startswith("Merge ")]  # bump 판정과 동일 기준 (#686)
         except OSError:
             return []
 

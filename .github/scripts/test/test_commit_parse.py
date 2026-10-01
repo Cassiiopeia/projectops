@@ -97,3 +97,33 @@ class TestCleanMessage:
 
     def test_tier2(self):
         assert clean_message("feat: 버튼 추가") == "버튼 추가"
+
+
+class TestCaseInsensitive:
+    """타입은 대소문자 비구분 — bump 판정과 같은 기준 (#686)."""
+
+    def test_tier2_uppercase(self):
+        assert parse_commit("Feat: 대문자 타입") == ("feat", "대문자 타입")
+        assert parse_commit("FIX(core)!: 수정") == ("fix", "수정")
+
+    def test_tier1_uppercase(self):
+        assert parse_commit("제목 : Feat : 내용") == ("feat", "내용")
+
+
+class TestCollectCommitsMerge:
+    """릴리스 노트에서도 Merge 커밋은 제외한다 (#686)."""
+
+    def test_merge_excluded(self, tmp_path, monkeypatch):
+        import subprocess
+        from _common import collect_commits
+
+        def g(*a):
+            subprocess.run(["git", "-c", "user.email=a@b", "-c", "user.name=a", *a],
+                           cwd=tmp_path, check=True, capture_output=True)
+        g("init", "-q", "-b", "main")
+        g("commit", "-q", "--allow-empty", "-m", "base")
+        g("tag", "base")
+        g("commit", "-q", "--allow-empty", "-m", "Feat: 대문자 타입")
+        g("commit", "-q", "--allow-empty", "-m", "Merge pull request #5 from x/y")
+        monkeypatch.chdir(tmp_path)
+        assert collect_commits("base..HEAD") == ["Feat: 대문자 타입"]
