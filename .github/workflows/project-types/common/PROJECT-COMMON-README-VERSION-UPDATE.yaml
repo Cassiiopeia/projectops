@@ -256,7 +256,8 @@ jobs:
       - name: 변경사항 커밋 및 푸시
         run: |
           DEFAULT_BRANCH="${{ github.event.repository.default_branch || 'main' }}"
-          git add README.md
+          # README.md 가 없으면 git add 가 pathspec 오류(128)로 죽는다 (#726)
+          if [ -f README.md ]; then git add README.md; fi
 
           if git diff --staged --quiet; then
             echo "📝 README.md에 변경사항이 없습니다"

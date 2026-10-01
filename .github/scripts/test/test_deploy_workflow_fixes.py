@@ -40,6 +40,19 @@ def test_readme_없으면_안내만_남기고_성공으로_건너뛴다(base, tm
     assert "REACHED_END" not in r.stdout  # 가드에서 exit 0 으로 끝나야 한다
 
 
+@pytest.mark.parametrize("base", [WF, PT / "common"], ids=["root", "common"])
+def test_readme_없어도_커밋_step_이_pathspec_오류로_죽지_않는다(base, tmp_path):
+    """가드 step 이 통과해도 다음 step 의 git add README.md 가 128 로 죽던 실제 사고(#726)."""
+    d = yaml.safe_load((base / "PROJECT-COMMON-README-VERSION-UPDATE.yaml").read_text(encoding="utf-8"))
+    run = [s["run"] for j in d["jobs"].values() for s in j["steps"] if s.get("name") == "변경사항 커밋 및 푸시"][0]
+    head = run.split("if git diff --staged --quiet")[0]
+    head = head.replace("${{ github.event.repository.default_branch || 'main' }}", "main")
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    r = subprocess.run(["bash", "-e", "-c", head + "\necho OK"], cwd=tmp_path, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    assert "OK" in r.stdout
+
+
 @pytest.mark.parametrize("rel", PRODUCTION)
 def test_운영_배포_컨테이너는_재시작_정책을_가진다(rel):
     t = (PT / rel).read_text(encoding="utf-8")
