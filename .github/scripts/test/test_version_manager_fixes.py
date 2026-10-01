@@ -529,3 +529,69 @@ def test_pyproject_single_quoted_version_is_read_by_get(tmp_path):
     rc, out, err = run_vm(tmp_path, "get")
     assert rc == 0, err
     assert out.strip() == "1.5.0"
+
+
+# ── #679: react-native Info.plist 탐색은 Pods·build 등을 제외한다 ──────────
+YML_RN = 'version: "1.2.3"\nversion_code: 5\nproject_types: ["react-native"]\n'
+PLIST_NEXT = "<dict>\n<key>CFBundleShortVersionString</key>\n<string>%s</string>\n</dict>\n"
+PLIST_SAME = "<dict>\n\t<key>CFBundleShortVersionString</key>\t<string>%s</string>\n</dict>\n"
+
+
+def test_rn_get_ignores_pods_plist(tmp_path):
+    write(tmp_path / "version.yml", YML_RN)
+    write(tmp_path / "ios/Sample/Info.plist", PLIST_NEXT % "1.2.3")
+    write(tmp_path / "ios/Pods/Some/Info.plist", PLIST_NEXT % "10.1.0")
+    rc, out, err = run_vm(tmp_path, "get")
+    assert rc == 0, err
+    assert out.strip() == "1.2.3"
+    # 읽기 명령이 version.yml을 Pod 버전으로 덮어쓰면 안 된다
+    assert (tmp_path / "version.yml").read_text(encoding="utf-8") == YML_RN
+
+
+@pytest.mark.parametrize("excluded", ["Pods/X", "build/X", "node_modules/X", "DerivedData/X", "Sample/Pods/X"])
+def test_rn_write_skips_excluded_dirs(tmp_path, excluded):
+    write(tmp_path / "version.yml", YML_RN)
+    write(tmp_path / "ios/Sample/Info.plist", PLIST_NEXT % "1.2.3")
+    write(tmp_path / f"ios/{excluded}/Info.plist", PLIST_NEXT % "7.7.7")
+    rc, out, err = run_vm(tmp_path, "increment")
+    assert rc == 0, err
+    assert (tmp_path / "ios/Sample/Info.plist").read_text(encoding="utf-8") == PLIST_NEXT % "1.2.4"
+    assert (tmp_path / f"ios/{excluded}/Info.plist").read_text(encoding="utf-8") == PLIST_NEXT % "7.7.7"
+
+
+def test_rn_same_line_plist_format_is_updated(tmp_path):
+    write(tmp_path / "version.yml", YML_RN)
+    write(tmp_path / "ios/Sample/Info.plist", PLIST_SAME % "1.2.3")
+    write(tmp_path / "ios/Pods/X/Info.plist", PLIST_SAME % "9.0.0")
+    rc, out, err = run_vm(tmp_path, "increment")
+    assert rc == 0, err
+    assert (tmp_path / "ios/Sample/Info.plist").read_text(encoding="utf-8") == PLIST_SAME % "1.2.4"
+    assert (tmp_path / "ios/Pods/X/Info.plist").read_text(encoding="utf-8") == PLIST_SAME % "9.0.0"
+
+
+def test_rn_primary_plist_is_app_not_tests_target(tmp_path):
+    # 폴더 이름 정렬로 고르면 AppTests가 먼저 잡힌다
+    write(tmp_path / "version.yml", YML_RN)
+    write(tmp_path / "ios/AppTests/Info.plist", PLIST_NEXT % "99.0.0")
+    write(tmp_path / "ios/Sample/Info.plist", PLIST_NEXT % "1.2.3")
+    rc, out, err = run_vm(tmp_path, "get")
+    assert rc == 0, err
+    assert out.strip() == "1.2.3"
+
+
+def test_rn_marketing_version_variable_is_kept_and_warned(tmp_path):
+    original = PLIST_NEXT % "$(MARKETING_VERSION)"
+    write(tmp_path / "version.yml", YML_RN)
+    write(tmp_path / "ios/Sample/Info.plist", original)
+    rc, out, err = run_vm(tmp_path, "set", "2.0.0")
+    assert rc == 0, err
+    assert (tmp_path / "ios/Sample/Info.plist").read_text(encoding="utf-8") == original
+    assert "MARKETING_VERSION" in err
+
+
+def test_rn_no_plist_with_version_key_warns(tmp_path):
+    write(tmp_path / "version.yml", YML_RN)
+    write(tmp_path / "ios/Sample/Info.plist", "<dict>\n</dict>\n")
+    rc, out, err = run_vm(tmp_path, "set", "2.0.0")
+    assert rc == 0
+    assert "CFBundleShortVersionString" in err and "찾지 못했습니다" in err

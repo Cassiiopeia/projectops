@@ -254,7 +254,7 @@ class Config:
         if t == "react-native":
             ios_dir = Path(p) / "ios"
             if ios_dir.is_dir():
-                plists = sorted(ios_dir.rglob("Info.plist"))
+                plists = find_info_plists(ios_dir)
                 if plists:
                     return str(plists[0])
             return f"{p}/android/app/build.gradle"
@@ -481,14 +481,44 @@ def sub_file(path: Path, pattern: str, repl, count=0, flags=re.MULTILINE) -> str
     return CHANGED if write_text(path, new_text) else SAME
 
 
+PLIST_EXCLUDED_DIRS = {"Pods", "build", "node_modules", "DerivedData", "Carthage", ".build"}
+_PLIST_VERSION_RE = re.compile(r"(<key>CFBundleShortVersionString</key>\s*<string>)([^<]*)(</string>)")
+VARIABLE = "variable"
+
+
+def find_info_plists(ios_dir: Path) -> list:
+    """ios/ 아래 앱 Info.plist 후보. Pods·build 같은 서드파티/빌드 산출물은 제외하고,
+    CFBundleShortVersionString이 있는 것만, 얕은 경로·비-Tests 타깃 순으로 정렬한다 (#679).
+    (폴더 이름 정렬로 고르면 ios/Pods/... 나 ios/AppTests/... 가 프로젝트 plist로 잡힌다)
+    """
+    found = []
+    for plist in ios_dir.rglob("Info.plist"):
+        folders = plist.relative_to(ios_dir).parts[:-1]
+        if any(part in PLIST_EXCLUDED_DIRS for part in folders):
+            continue
+        try:
+            has_key = "CFBundleShortVersionString" in read_text(plist)
+        except VersionError:
+            continue
+        if has_key:
+            found.append(plist)
+    return sorted(found, key=lambda f: (len(f.relative_to(ios_dir).parts), "Tests" in f.parent.name, f.as_posix()))
+
+
 def plist_set_version(path: Path, new_version: str) -> str:
-    """CFBundleShortVersionString 키 뒤 <string> 값을 교체 (키와 값이 같은 줄이든 다음 줄이든)."""
-    return sub_file(
-        path,
-        r"(<key>CFBundleShortVersionString</key>\s*<string>)[^<]*(</string>)",
-        lambda m: f"{m.group(1)}{new_version}{m.group(2)}",
-        flags=0,
-    )
+    """CFBundleShortVersionString 키 뒤 <string> 값을 교체 (키와 값이 같은 줄이든 다음 줄이든).
+
+    값이 $(MARKETING_VERSION) 같은 Xcode 변수면 건드리지 않고 VARIABLE을 반환한다 —
+    리터럴로 덮으면 pbxproj의 MARKETING_VERSION과 어긋난다.
+    """
+    text = read_text(path)
+    if not _PLIST_VERSION_RE.search(text):
+        return NO_MATCH
+    new_text = _PLIST_VERSION_RE.sub(
+        lambda m: m.group(0) if m.group(2).startswith("$(") else f"{m.group(1)}{new_version}{m.group(3)}", text)
+    if new_text == text:
+        return VARIABLE if _PLIST_VERSION_RE.search(text).group(2).startswith("$(") else SAME
+    return CHANGED if write_text(path, new_text) else SAME
 
 
 # pyproject.toml: version 키는 [project](PEP 621) 또는 [tool.poetry] 테이블 안의 것만 프로젝트 버전이다.
@@ -559,6 +589,9 @@ def get_project_file_version(cfg: Config) -> str:
             if cfg.version_file.endswith("Info.plist"):
                 m = re.search(r"CFBundleShortVersionString</key>\s*<string>([^<]*)</string>", read_text(vf))
                 v = m.group(1) if m else ""
+                if v.startswith("$("):  # Xcode 변수(MARKETING_VERSION)는 읽을 수 있는 버전이 아니다
+                    log_warning(f"{vf.as_posix()}의 버전이 Xcode 변수({v})라 읽지 못했습니다 — version.yml 값을 사용")
+                    v = ""
             else:
                 m = re.search(r'versionName\s*"([^"]+)"', read_text(vf))
                 v = m.group(1) if m else ""
@@ -638,9 +671,15 @@ def sync_for_type(t: str, new_version: str):
     elif t == "react-native":
         ios_dir = base / "ios"
         if ios_dir.is_dir():
-            for plist in sorted(ios_dir.rglob("Info.plist")):
-                if plist_set_version(plist, new_version) == CHANGED:
+            plists = find_info_plists(ios_dir)
+            if not plists:
+                log_warning(f"react-native: {p}/ios에서 CFBundleShortVersionString이 있는 Info.plist를 찾지 못했습니다 — iOS 버전 동기화 안 됨")
+            for plist in plists:
+                status = plist_set_version(plist, new_version)
+                if status == CHANGED:
                     log_success(f"업데이트: {plist.as_posix()}")
+                elif status == VARIABLE:
+                    log_warning(f"{plist.as_posix()}의 버전이 Xcode 변수(MARKETING_VERSION)라 동기화하지 않았습니다 — Xcode 프로젝트에서 직접 관리하세요")
         else:
             log_warning(f"react-native: {p}/ios 디렉토리 없음 — 건너뜀")
         gradle = base / "android" / "app" / "build.gradle"
