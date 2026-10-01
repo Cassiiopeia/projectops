@@ -14,6 +14,9 @@
 #   - project_paths 맵으로 모노레포 서브폴더 지원
 # ===================================================================
 
+# macOS 기본 python3(3.9)에서도 `str | None` 주석이 평가되지 않고 기동되도록 한다 (#695)
+from __future__ import annotations
+
 import json
 import os
 import re
