@@ -85,6 +85,7 @@ def test_docker_run_이어쓰기_명령_안에_주석_줄이_없다(rel):
 SIMPLE = [
     "spring/server-deploy/PROJECT-SPRING-SIMPLE-CICD.yaml",
     "python/server-deploy/PROJECT-PYTHON-SIMPLE-CICD.yaml",
+    "react/PROJECT-REACT-CICD.yaml",
 ]
 
 
@@ -152,3 +153,17 @@ def test_복구_장치가_교체보다_먼저_정의되고_성공_표시가_성�
     assert sc.index("PREV_IMAGE=$(") < cleanup
     assert sc.index("DEPLOY_OK=true") < sc.index("배포가 성공적으로 완료되었습니다")
     assert sc.index("start_container() {") < sc.index("start_container ${{")
+
+
+@pytest.mark.parametrize("rel", PRODUCTION)
+def test_재시작_정책은_docker_run_마다_한_번만_지정한다(rel):
+    """React CICD 는 이미 정책이 있었는데 중복으로 넣었던 실수(#727)를 막는다."""
+    t = (PT / rel).read_text(encoding="utf-8")
+    runs = t.count("docker run -d")
+    assert t.count("--restart unless-stopped") == runs, (rel, runs)
+
+
+def test_react_cicd_는_컨테이너가_바로_죽으면_배포를_실패로_처리한다():
+    sc = _deploy_script("react/PROJECT-REACT-CICD.yaml")
+    assert "State.Running" in sc and "State.Restarting" in sc
+    assert sc.index("State.Running") < sc.index("DEPLOY_OK=true")

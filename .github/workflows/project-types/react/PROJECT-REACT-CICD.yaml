@@ -229,6 +229,7 @@ jobs:
             echo "🔧 환경변수 설정.."
             export PATH=$PATH:/usr/local/bin
             export PW="${SERVER_PASSWORD}"
+            SUDO() { echo "$PW" | sudo -S "$@"; }
 
             # GitHub에서 전달받은 브랜치명
             BRANCH=${{ github.ref_name }}
@@ -274,12 +275,52 @@ jobs:
             echo "⬇️ Docker 이미지 풀: ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}-${{ env.DOCKER_IMAGE_PREFIX }}:${BRANCH}"
             echo $PW | sudo -S docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}-${{ env.DOCKER_IMAGE_PREFIX }}:${BRANCH}
 
+            # 컨테이너 시작을 함수로 둬서 배포 실패 시 이전 이미지로 같은 옵션으로 복구할 수 있게 한다 (#730)
+            start_container() {
+              # Next.js SSR 컨테이너도 커버 (next 타입 흡수 — NODE_ENV/restart 정책 포함)
+              SUDO docker run -d \
+                -p ${PORT}:3000 \
+                --name $CONTAINER_NAME \
+                -e TZ=Asia/Seoul \
+                -e NODE_ENV=production \
+                -v /etc/localtime:/etc/localtime:ro \
+                --restart unless-stopped \
+                "$1"
+            }
+
+            # 교체 중 실패하면 실패한 컨테이너를 지우고 이전 이미지로 복구한다 (#730)
+            PREV_IMAGE=""
+            REPLACING=false
+            DEPLOY_OK=false
+            rollback_on_failure() {
+              status=$?
+              if [ "$REPLACING" = "true" ] && [ "$DEPLOY_OK" != "true" ]; then
+                echo "⚠️ 배포 실패: 실패한 컨테이너를 정리합니다"
+                SUDO docker rm -f $CONTAINER_NAME >/dev/null 2>&1 || true
+                if [ -n "$PREV_IMAGE" ]; then
+                  echo "↩️ 이전 버전으로 복구합니다: $PREV_IMAGE"
+                  if start_container "$PREV_IMAGE"; then
+                    echo "✅ 이전 버전 복구 완료 (이번 배포는 실패로 처리됩니다)"
+                  else
+                    echo "❌ 이전 버전 복구에 실패했습니다"
+                  fi
+                else
+                  echo "ℹ️ 이전에 실행 중이던 컨테이너가 없어 복구할 버전이 없습니다"
+                fi
+              fi
+              exit $status
+            }
+            trap rollback_on_failure EXIT
+
             # ============================================================
             # 기존 컨테이너 정리
             # ============================================================
             echo "🧹 컨테이너 $CONTAINER_NAME 존재 여부 확인 중..."
 
             # 동일한 이름의 컨테이너가 존재하는지 확인
+            # 이전 이미지 ID 를 기억해 둔다 (태그가 새 이미지로 옮겨가도 ID 로 복구할 수 있다)
+            PREV_IMAGE=$(SUDO docker inspect --format '{{.Image}}' $CONTAINER_NAME 2>/dev/null || true)
+            REPLACING=true
             if sudo docker ps -a --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
               echo "⚠️ 컨테이너 $CONTAINER_NAME 이(가) 존재합니다. 중지 및 삭제 중..."
               echo $PW | sudo -S docker rm -f $CONTAINER_NAME
@@ -293,21 +334,23 @@ jobs:
             # ============================================================
             echo "🚀 새로운 컨테이너 $CONTAINER_NAME 실행 중..."
 
-            # Next.js SSR 컨테이너도 커버 (next 타입 흡수 — NODE_ENV/restart 정책 포함)
-              # 서버 재부팅·Docker 재시작 뒤에도 서비스가 자동으로 올라오도록 한다 (#727)
-            echo $PW | sudo -S docker run -d \
-              -p ${PORT}:3000 \
-              --name $CONTAINER_NAME \
-              --restart unless-stopped \
-              -e TZ=Asia/Seoul \
-              -e NODE_ENV=production \
-              -v /etc/localtime:/etc/localtime:ro \
-              --restart unless-stopped \
-              ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}-${{ env.DOCKER_IMAGE_PREFIX }}:${BRANCH}
+            start_container ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}-${{ env.DOCKER_IMAGE_PREFIX }}:${BRANCH}
+
+            # 기동 확인: 컨테이너가 바로 죽거나 재시작을 반복하면 배포를 실패로 처리하고 복구한다 (#730)
+            echo "⏳ 컨테이너 기동 확인 중... (10초)"
+            sleep 10
+            if [ "$(SUDO docker inspect -f '{{.State.Running}}' $CONTAINER_NAME 2>/dev/null)" != "true" ] \
+               || [ "$(SUDO docker inspect -f '{{.State.Restarting}}' $CONTAINER_NAME 2>/dev/null)" = "true" ]; then
+              echo "❌ 컨테이너 $CONTAINER_NAME 이(가) 정상적으로 실행되지 않았습니다"
+              SUDO docker logs --tail 50 $CONTAINER_NAME || true
+              exit 1
+            fi
+            echo "✅ 컨테이너 실행 확인 완료"
 
             # ============================================================
             # 배포 완료 확인
             # ============================================================
+            DEPLOY_OK=true
             echo "✅ 배포가 성공적으로 완료되었습니다!"
             echo ""
             echo "📋 배포 결과 요약:"
