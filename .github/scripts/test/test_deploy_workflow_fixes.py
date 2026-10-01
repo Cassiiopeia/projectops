@@ -79,3 +79,76 @@ def test_docker_run_이어쓰기_명령_안에_주석_줄이_없다(rel):
             k += 1
             assert not lines[k].strip().startswith("#"), f"{rel}:{k + 1} 이어쓰기 명령 중간에 주석 줄"
         break
+
+
+# ── #730 배포 실패 시 이전 버전 복구 ─────────────────────────────────────
+SIMPLE = [
+    "spring/server-deploy/PROJECT-SPRING-SIMPLE-CICD.yaml",
+    "python/server-deploy/PROJECT-PYTHON-SIMPLE-CICD.yaml",
+]
+
+
+def _deploy_script(rel):
+    d = yaml.safe_load((PT / rel).read_text(encoding="utf-8"))
+    steps = [s for j in d["jobs"].values() for s in j["steps"] if "appleboy/ssh-action" in str(s.get("uses", ""))]
+    return steps[0]["with"]["script"]
+
+
+def _rollback_segment(rel):
+    sc = _deploy_script(rel)
+    seg = sc[sc.index("start_container() {"):sc.index("trap rollback_on_failure EXIT") + len("trap rollback_on_failure EXIT")]
+    import re
+    return re.sub(r"\$\{\{[^}]*\}\}", "8000", seg)
+
+
+def _run_rollback(rel, tmp_path, prev, replacing, deploy_ok, exit_code):
+    harness = f"""
+LOG="{tmp_path}/docker.log"; : > "$LOG"
+SUDO() {{ "$@"; }}
+docker() {{ echo "docker $*" >> "$LOG"; return 0; }}
+CONTAINER_NAME=app; PORT=18877; VOLUME_OPTS=""
+{_rollback_segment(rel)}
+PREV_IMAGE="{prev}"; REPLACING={replacing}; DEPLOY_OK={deploy_ok}
+exit {exit_code}
+"""
+    r = subprocess.run(["bash", "-c", harness], capture_output=True, text=True)
+    return r, (tmp_path / "docker.log").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("rel", SIMPLE)
+def test_교체_중_실패하면_실패한_컨테이너를_지우고_이전_이미지로_복구한다(rel, tmp_path):
+    r, log = _run_rollback(rel, tmp_path, "sha256:OLD", "true", "false", 1)
+    assert r.returncode == 1                       # 배포는 실패로 남는다
+    assert "docker rm -f app" in log
+    assert "docker run -d" in log and "sha256:OLD" in log and "--restart unless-stopped" in log
+    assert "복구 완료" in r.stdout
+
+
+@pytest.mark.parametrize("rel", SIMPLE)
+def test_이전_컨테이너가_없었으면_실패한_컨테이너만_정리한다(rel, tmp_path):
+    r, log = _run_rollback(rel, tmp_path, "", "true", "false", 1)
+    assert r.returncode == 1
+    assert "docker rm -f app" in log and "docker run" not in log
+
+
+@pytest.mark.parametrize("rel", SIMPLE)
+def test_교체_전에_실패하면_실행_중인_서비스를_건드리지_않는다(rel, tmp_path):
+    r, log = _run_rollback(rel, tmp_path, "sha256:OLD", "false", "false", 1)
+    assert r.returncode == 1 and log == ""
+
+
+@pytest.mark.parametrize("rel", SIMPLE)
+def test_배포가_성공하면_복구하지_않는다(rel, tmp_path):
+    r, log = _run_rollback(rel, tmp_path, "sha256:OLD", "true", "true", 0)
+    assert r.returncode == 0 and log == ""
+
+
+@pytest.mark.parametrize("rel", SIMPLE)
+def test_복구_장치가_교체보다_먼저_정의되고_성공_표시가_성공_메시지_앞에_있다(rel):
+    sc = _deploy_script(rel)
+    cleanup = sc.rindex("docker rm -f $CONTAINER_NAME")   # 롤백 함수 안이 아니라 기존 컨테이너 정리 단계
+    assert sc.index("trap rollback_on_failure EXIT") < cleanup
+    assert sc.index("REPLACING=true") < cleanup
+    assert sc.index("PREV_IMAGE=$(") < cleanup
+    assert sc.index("DEPLOY_OK=true") < sc.index("배포가 성공적으로 완료되었습니다")
+    assert sc.index("start_container() {") < sc.index("start_container ${{")
