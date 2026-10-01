@@ -1,14 +1,42 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-01T05:37:20Z",
-    "currentVersion": "4.28.4",
+    "lastUpdated": "2026-10-01T09:38:54Z",
+    "currentVersion": "4.29.0",
     "projectType": "basic",
-    "totalReleases": 274,
+    "totalReleases": 275,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.29.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-01",
+      "pr_number": 736,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * 서버, 레지스트리, 로그인 계정을 이름 붙여 저장하고 다음 실행에서 다시 쓸 수 있습니다\n  * 저장된 서버로 원격 명령을 실행합니다 (비밀번호는 명령줄과 출력에 남지 않습니다)\n  * 저장된 로그인 정보를 웹과 Android 앱 화면에 입력할 수 있습니다\n\n* **버그 수정**\n  * 무중단 배포 중 새 컨테이너 기동과 교체 시점에 발생하던 502 응답이 사라집니다\n  * 무중단 배포가 같은 서버의 다른 프로젝트 이미지를 삭제하지 않습니다",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "서버, 레지스트리, 로그인 계정을 이름 붙여 저장하고 다음 실행에서 다시 쓸 수 있습니다",
+            "저장된 서버로 원격 명령을 실행합니다 (비밀번호는 명령줄과 출력에 남지 않습니다)",
+            "저장된 로그인 정보를 웹과 Android 앱 화면에 입력할 수 있습니다"
+          ]
+        },
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "무중단 배포 중 새 컨테이너 기동과 교체 시점에 발생하던 502 응답이 사라집니다",
+            "무중단 배포가 같은 서버의 다른 프로젝트 이미지를 삭제하지 않습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.28.4",
       "project_type": "basic",
