@@ -59,15 +59,42 @@ jobs:
           echo -e "$ENV_CONTENT" > ${{ env.ENV_FILE }}
           echo "✅ ${{ env.ENV_FILE }} 파일 생성 완료"
 
+      # 패키지 매니저 감지 (#669)
+      # setup-node 의 cache 는 lock 파일이 없거나 pnpm 이면 "Dependencies lock file is not found" 로
+      # 첫 step 부터 실패한다. 기존에 동작하던 npm(package-lock.json) 경로가 최우선이고,
+      # 그 다음 pnpm, yarn 순으로 보며 lock 이 전혀 없으면 캐시 없이 npm install 로 폴백한다.
+      - name: 패키지 매니저 감지
+        id: pm
+        run: |
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            manager=npm; cache=npm
+          elif [ -f pnpm-lock.yaml ]; then
+            manager=pnpm; cache=pnpm
+          elif [ -f yarn.lock ]; then
+            manager=yarn; cache=yarn
+          else
+            manager=none; cache=""
+            echo "::notice::lock 파일(package-lock.json, pnpm-lock.yaml, yarn.lock)이 없어 npm install 로 설치합니다. 재현 가능한 빌드를 위해 lock 파일을 커밋하세요."
+          fi
+          echo "manager=$manager" >> "$GITHUB_OUTPUT"
+          echo "cache=$cache" >> "$GITHUB_OUTPUT"
+          echo "📦 패키지 매니저: $manager"
+
+      # pnpm, yarn 은 setup-node 의 캐시 설정보다 먼저 사용 가능해야 한다 (Node 번들 corepack 사용)
+      - name: Corepack 활성화
+        if: steps.pm.outputs.manager == 'pnpm' || steps.pm.outputs.manager == 'yarn'
+        run: corepack enable
+
       # 3. Node.js 설정
       - name: Node.js 설정
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: ${{ steps.pm.outputs.cache }}
 
       # 4. npm 의존성 캐싱
       - name: npm 의존성 캐싱
+        if: steps.pm.outputs.manager == 'npm' || steps.pm.outputs.manager == 'none'
         uses: actions/cache@v4
         with:
           path: ~/.npm
@@ -82,7 +109,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: "**/node_modules"
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-node-modules-
 
@@ -90,9 +117,18 @@ jobs:
       # 캐시가 없을 때만 실행 (npm ci는 package-lock.json 기준 정확한 버전 설치)
       - name: 의존성 설치
         if: steps.node-modules-cache.outputs.cache-hit != 'true'
+        env:
+          PM: ${{ steps.pm.outputs.manager }}
         run: |
-          echo "📦 의존성 설치 중..."
-          npm ci
+          echo "📦 의존성 설치 중... ($PM)"
+          case "$PM" in
+            npm)  npm ci ;;
+            pnpm) pnpm install --frozen-lockfile ;;
+            yarn)
+              # Yarn Berry(.yarnrc.yml)는 --immutable, Classic 은 --frozen-lockfile
+              if [ -f .yarnrc.yml ]; then yarn install --immutable; else yarn install --frozen-lockfile; fi ;;
+            *)    npm install ;;
+          esac
           echo "✅ 의존성 설치 완료"
 
       # 7. Next.js 빌드 캐싱 (Next.js 프로젝트인 경우)
@@ -101,9 +137,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .next/cache
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}
           restore-keys: |
-            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml') }}-
             ${{ runner.os }}-nextjs-
 
       # 8. 프로젝트 빌드
