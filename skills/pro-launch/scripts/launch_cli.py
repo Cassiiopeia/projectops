@@ -31,6 +31,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -1155,10 +1156,26 @@ def _web_open(args, root: Path, state_f: Path) -> int:
                 break
         time.sleep(0.25)
     else:
+        exit_code = proc.poll()
         proc.terminate()
+        # 원인을 가려 준다 — 남은 프로세스·프로필 잠금이면 브라우저를 다시 받아도 소용없다 (#712)
+        prev = _read_web_state(state_f)
+        stale = prev.get("pid")
+        stale_alive = bool(stale) and _pid_alive(int(stale))
+        locked = any((profile / n).exists() for n in ("SingletonLock", "SingletonSocket"))
+        causes = []
+        if stale_alive:
+            causes.append(f"이전 브라우저(pid {stale})가 아직 살아 있다 → web close 로 정리")
+        if locked:
+            causes.append("프로필 잠금(SingletonLock)이 남아 있다 → 떠 있는 브라우저가 없으면 잠금 파일을 지운다")
+        if exit_code is not None:
+            causes.append(f"브라우저가 바로 종료됐다 (종료코드 {exit_code})")
         return out({"ok": False, "code": "browser_start_failed",
                     "error": "브라우저가 뜨지 않았습니다",
-                    "hint": "web setup 으로 브라우저를 다시 받아 보세요"})
+                    "causes": causes or None, "stale_pid": stale if stale_alive else None,
+                    "profile_locked": locked, "profile": str(profile),
+                    "hint": ("; ".join(causes) if causes else
+                             "남은 브라우저 프로세스·프로필 잠금을 먼저 확인하고, 그래도 안 되면 web setup 으로 브라우저를 다시 받아 보세요")})
 
     # 뷰포트·바꿔치기 규칙은 브라우저를 다시 열어도 이어간다 — 설정한 사람이 끈 적이 없다
     prev = _read_web_state(state_f)
@@ -1190,28 +1207,56 @@ def _web_open(args, root: Path, state_f: Path) -> int:
                 "next": "web shot  # 화면을 먼저 봅니다"})
 
 
-def _web_close(browser, state: dict, state_f: Path) -> int:
-    browser.close()
-    # CDP로 붙은 브라우저는 close()로 안 죽는 경우가 있다(우리가 띄운 독립 프로세스다)
-    pid = state.get("pid")
-    if pid:
+def _pid_alive(pid: int) -> bool:
+    """프로세스가 살아 있나. 우리가 띄운 자식이 좀비로 남은 경우는 거둬들이고 죽은 것으로 본다."""
+    try:
+        done, _ = os.waitpid(pid, os.WNOHANG)   # 자식이면 거둬들인다 (아니면 ChildProcessError)
+        if done:
+            return False
+    except ChildProcessError:
+        pass
+    except OSError:
+        pass
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _kill_browser(pid: int, grace: float = 5.0) -> bool:
+    """브라우저를 직접 정리한다. 정상 종료를 기다리다 안 죽으면 강제 종료한다. 살아 있으면 True.
+
+    CDP 로 붙어 close() 를 부르면 응답 없는 브라우저에서 제한 없이 멈춘다 (#712).
+    독립 프로세스로 띄웠으니 신호로 끝내는 편이 확실하다.
+    """
+    for sig, wait in ((signal.SIGTERM, grace), (signal.SIGKILL, 3.0)):
         try:
-            os.kill(int(pid), 15)
-        except (ProcessLookupError, PermissionError, ValueError):
-            pass
+            # 새 세션으로 띄웠으므로 pid 가 프로세스 그룹 id 이기도 하다 — 자식 렌더러까지 함께 정리
+            os.killpg(pid, sig)
+        except (ProcessLookupError, PermissionError, OSError):
+            try:
+                os.kill(pid, sig)
+            except (ProcessLookupError, PermissionError, OSError):
+                pass
+        end = time.time() + wait
+        while time.time() < end:
+            if not _pid_alive(pid):
+                return False
+            time.sleep(0.1)
+    return _pid_alive(pid)
+
+
+def _web_close(state: dict, state_f: Path) -> int:
+    pid = state.get("pid")
     alive = False
     if pid:
-        for _ in range(10):
-            try:
-                os.kill(int(pid), 0)
-            except (ProcessLookupError, ValueError):
-                alive = False
-                break
-            except PermissionError:
-                alive = True
-                break
-            alive = True
-            time.sleep(0.2)
+        try:
+            alive = _kill_browser(int(pid))
+        except ValueError:
+            pass
     # ⚠️ 살아 있으면 상태 파일을 남긴다. 지우면 떠 있는 브라우저에 다시 붙을 길이 사라진다(실측).
     if alive:
         return out({"ok": False, "code": "browser_still_alive", "pid": pid,
@@ -1245,6 +1290,19 @@ def _web_viewport(args, state: dict, state_f: Path) -> int:
                 "next": "web shot  # 이 폭으로 찍습니다 (필요하면 web goto 로 다시 그리게 하세요)"})
 
 
+def _looks_like_path(text: str) -> bool:
+    """JSON·문장이 아니라 파일 경로처럼 보이나. 공백·따옴표·괄호가 없고 슬래시나 확장자가 있으면 경로로 본다."""
+    t = text.strip()
+    if not t or re.search(r"[\s{}\[\]\"<>]", t):
+        return False
+    try:
+        json.loads(t)    # 1.5 · true 같은 JSON 값은 파일명이 아니라 본문이다
+        return False
+    except json.JSONDecodeError:
+        pass
+    return "/" in t or "\\" in t or bool(re.search(r"\.[A-Za-z0-9]{1,5}$", t))
+
+
 def _web_route(args, state: dict, state_f: Path) -> int:
     """응답 바꿔치기 — 빈 목록·실패·지연을 서버를 건드리지 않고 연출한다."""
     rules = list(state.get("routes") or [])
@@ -1261,13 +1319,26 @@ def _web_route(args, state: dict, state_f: Path) -> int:
     if args.status is None and not args.delay:
         return out({"ok": False, "code": "missing_argument",
                     "error": "--status 나 --delay 중 하나는 있어야 합니다"})
+    if args.status is not None and not 100 <= args.status <= 599:
+        return out({"ok": False, "code": "bad_status",
+                    "error": f"--status 는 100~599 여야 합니다 ({args.status})"})
+    if args.delay is not None and args.delay < 0:
+        return out({"ok": False, "code": "bad_delay", "error": f"--delay 는 0 이상이어야 합니다 ({args.delay})"})
     body, ctype = "", "application/json"
-    if args.body:
+    if args.body_text is not None:
+        body = args.body_text   # 경로 오타와 구분되도록 인라인 본문은 이 옵션으로 명시한다
+    elif args.body:
         bf = Path(args.body)
         if bf.is_file():
             body = bf.read_text(encoding="utf-8")
+        elif _looks_like_path(args.body):
+            # 오타 경로가 조용히 가짜 응답 본문이 되면 연출 결과가 통째로 틀어진다 (#711)
+            return out({"ok": False, "code": "body_not_found",
+                        "error": f"--body 파일이 없습니다: {args.body}",
+                        "next": "경로를 확인한다. 글자 그대로 본문으로 쓰려면 --body-text 를 쓴다"})
         else:
-            body = args.body   # 짧은 본문은 그대로 받는다: --body '[]'
+            body = args.body   # 짧은 JSON 본문은 그대로 받는다: --body '[]'
+    if body:
         try:
             json.loads(body)
         except json.JSONDecodeError:
@@ -1313,6 +1384,9 @@ def cmd_web(args) -> int:
     if not state.get("cdp"):
         return out({"ok": False, "code": "browser_not_open", "error": "열린 브라우저가 없습니다",
                     "next": f"web open --root {root} --url <주소>"})
+    if args.action == "close" and state.get("pid"):
+        # 연결부터 맺지 않는다 — 응답 없는 브라우저에서는 연결·close 가 모두 멈춘다 (#712)
+        return _web_close(state, state_f)
     conn, err = _web_connect(state)
     if err:
         if err.get("code") == "browser_gone":
@@ -1324,13 +1398,18 @@ def cmd_web(args) -> int:
     pw, browser, page = conn
 
     try:
+        nav_status = None
         if args.action == "close":
-            return _web_close(browser, state, state_f)
+            # pid 를 모르는 옛 상태 파일 — 연결해서 닫는 수밖에 없다
+            browser.close()
+            state_f.unlink(missing_ok=True)
+            return out({"action": "close", "summary": "브라우저를 닫았습니다"})
 
         if args.action == "goto":
             if not args.url:
                 return out({"ok": False, "code": "url_required", "error": "--url 이 필요합니다"})
-            page.goto(args.url, wait_until="domcontentloaded")
+            resp = page.goto(args.url, wait_until="domcontentloaded")
+            nav_status = resp.status if resp is not None else None
             _settle(page, state, args.timeout)
 
         elif args.action == "click":
@@ -1399,9 +1478,16 @@ def cmd_web(args) -> int:
                         "next": ("오류가 있으면 화면이 멀쩡해도 통과가 아닙니다"
                                  if errs else None)})
 
-        return out({"action": args.action, "url": page.url, "title": page.title(),
-                    "summary": f"{args.action} 완료 — {page.url}",
-                    "next": "web shot  # 결과를 눈으로 확인하세요"})
+        payload = {"action": args.action, "url": page.url, "title": page.title(),
+                   "summary": f"{args.action} 완료 — {page.url}",
+                   "next": "web shot  # 결과를 눈으로 확인하세요"}
+        if args.action == "goto":
+            # 404·500 페이지로 가도 이동 자체는 성공이다 — 상태코드를 함께 줘서 호출한 쪽이 판단하게 한다 (#711)
+            payload["status"] = nav_status
+            if nav_status is not None and nav_status >= 400:
+                payload["summary"] += f" (HTTP {nav_status} — 오류 응답)"
+                payload["http_error"] = True
+        return out(payload)
     except Exception as e:
         # 예외 문구에 입력값이 섞여 나올 수 있다 — 비밀값이면 가리고 내보낸다
         msg = str(e)
@@ -1994,6 +2080,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--match", default=None, help="route: 바꿔칠 요청 주소 glob. 예 **/api/items*")
     p.add_argument("--status", type=int, default=None, help="route: 돌려줄 상태 코드")
     p.add_argument("--body", default=None, help="route: 돌려줄 본문 (파일 경로 또는 짧은 문자열)")
+    p.add_argument("--body-text", dest="body_text", default=None,
+                   help="route: 글자 그대로 돌려줄 본문 (파일 경로로 읽지 않는다)")
     p.add_argument("--delay", type=int, default=0, help="route: 응답 지연(ms) — 로딩 상태 연출")
     p.add_argument("--clear", action="store_true", help="viewport·route: 지정을 푼다")
     _shot_args(p)
