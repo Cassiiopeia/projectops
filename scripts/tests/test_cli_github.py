@@ -192,3 +192,60 @@ def test_close_issue(monkeypatch):
     rc, out = _run(monkeypatch, ["close-issue", "o", "r", "5"], update_issue=_upd)
     assert rc == 0
     assert captured["state"] == "closed"
+
+
+# --- #699: 전부 실패/바꿀 값 없음을 ok:true 로 보고하지 않는다 ---
+
+def _404(o, r, n, pat):
+    raise GitHubAPIError(404, "Not Found")
+
+
+def test_get_issues_all_failed_is_not_ok(monkeypatch):
+    rc, out = _run(monkeypatch, ["get-issues", "o", "r", "99999"], get_issue=_404)
+    assert rc == 1
+    assert out["ok"] is False and out["code"] == "all_failed"
+
+
+def test_get_issues_partial_failure_reports_count(monkeypatch):
+    def _get(o, r, n, pat):
+        if n == 2:
+            raise GitHubAPIError(404, "Not Found")
+        return {"number": n}
+    rc, out = _run(monkeypatch, ["get-issues", "o", "r", "1", "2"], get_issue=_get)
+    assert rc == 0
+    assert out["failed_count"] == 1
+    assert "1개 조회 실패" in out["summary"]
+
+
+def test_update_issue_nothing_to_update(monkeypatch):
+    called = []
+    rc, out = _run(monkeypatch, ["update-issue", "o", "r", "4"],
+                   update_issue=lambda *a, **k: called.append(1) or {})
+    assert rc == 1 and out["code"] == "nothing_to_update"
+    assert not called  # PATCH 자체를 보내지 않는다
+
+
+def test_update_pr_nothing_to_update(monkeypatch):
+    called = []
+    rc, out = _run(monkeypatch, ["update-pr", "o", "r", "1"],
+                   update_pull_request=lambda *a, **k: called.append(1) or {})
+    assert rc == 1 and out["code"] == "nothing_to_update"
+    assert not called
+
+
+def test_changelog_update_pr_nothing_to_update(monkeypatch):
+    import importlib.util
+    path = ROOT / "skills/pro-changelog-deploy/scripts/changelog_cli.py"
+    spec = importlib.util.spec_from_file_location("changelog_cli_699", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    monkeypatch.setattr(mod, "get_github_pat", lambda o, r: "mock_pat")
+    called = []
+    monkeypatch.setattr(mod, "update_pull_request", lambda *a, **k: called.append(1) or {})
+    import io
+    buf = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", buf)
+    rc = run_cli(mod.build_parser(), ["update-pr", "o", "r", "1"])
+    out = json.loads(buf.getvalue().strip().splitlines()[-1])
+    assert rc == 1 and out["code"] == "nothing_to_update"
+    assert not called

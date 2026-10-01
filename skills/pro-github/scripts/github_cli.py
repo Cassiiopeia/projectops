@@ -85,11 +85,21 @@ def cmd_get_issues(args) -> int:
             issues.append(get_issue(args.owner, args.repo, number, pat))
         except GitHubAPIError as e:
             issues.append({"number": number, "error": str(e), "code": f"github_api_{e.status_code}"})
-    return emit({
-        "count": len(issues),
-        "issues": issues,
-        "summary": f"{len(issues)}개 이슈 조회 완료",
-    })
+    failed = [i for i in issues if "error" in i]
+    if issues and len(failed) == len(issues):
+        # 전부 실패했는데 ok:true 면 호출자가 없는 이슈를 있는 것으로 오인한다 (#699)
+        return emit({
+            "ok": False,
+            "code": "all_failed",
+            "error": f"{len(issues)}개 이슈 조회가 모두 실패했습니다",
+            "count": len(issues),
+            "issues": issues,
+        })
+    summary = f"{len(issues)}개 이슈 조회 완료"
+    if failed:
+        summary = f"{len(issues)}개 중 {len(failed)}개 조회 실패 (성공 {len(issues) - len(failed)}개)"
+    return emit({"count": len(issues), "issues": issues, "summary": summary,
+                 **({"failed_count": len(failed)} if failed else {})})
 
 
 def cmd_create_issue(args) -> int:
@@ -161,6 +171,14 @@ def cmd_update_issue(args) -> int:
         return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
     labels = [l.strip() for l in args.labels.split(",") if l.strip()] if args.labels else None
     assignees = [a.strip() for a in args.assignees.split(",") if a.strip()] if args.assignees else None
+
+    # 바꿀 값이 하나도 없으면 PATCH 하지 않고 알린다 — "수정 완료" 로 오보하지 않는다 (#699)
+    if all(v is None for v in (args.title, body, args.state, labels, assignees)):
+        return emit({
+            "ok": False,
+            "code": "nothing_to_update",
+            "error": "바꿀 값이 없습니다 (--title/--body-file/--state/--labels/--assignees 중 하나 필요)",
+        })
 
     try:
         result = update_issue(
@@ -395,6 +413,20 @@ def cmd_update_pr(args) -> int:
     if args.body_file:
         body_path = Path(args.body_file)
         body = body_path.read_text(encoding="utf-8") if body_path.exists() else None
+        if body is None:
+            return emit({
+                "ok": False,
+                "code": "body_file_not_found",
+                "error": f"수정용 본문 파일이 존재하지 않습니다: {args.body_file}",
+                "path_attempted": str(body_path.resolve()),
+            })
+    # 바꿀 값이 없으면 PATCH 하지 않는다 (#699)
+    if args.title is None and body is None and args.state is None:
+        return emit({
+            "ok": False,
+            "code": "nothing_to_update",
+            "error": "바꿀 값이 없습니다 (--title/--body-file/--state 중 하나 필요)",
+        })
     try:
         result = update_pull_request(
             args.owner, args.repo, args.number, pat,

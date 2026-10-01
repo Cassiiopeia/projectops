@@ -237,6 +237,13 @@ def cmd_update_pr(args) -> int:
     if args.body_file:
         body_path = _resolve_body_file(args.body_file)
         body = body_path.read_text(encoding="utf-8") if body_path else None
+    # 바꿀 값이 없으면 PATCH 하지 않고 알린다 — "수정 완료" 로 오보하지 않는다 (#699)
+    if args.title is None and body is None and args.state is None:
+        return emit({
+            "ok": False,
+            "code": "nothing_to_update",
+            "error": "바꿀 값이 없습니다 (--title/--body-file/--state 중 하나 필요)",
+        })
     try:
         result = update_pull_request(
             args.owner, args.repo, args.number, pat,
