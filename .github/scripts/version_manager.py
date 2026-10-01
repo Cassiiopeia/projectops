@@ -535,6 +535,62 @@ def plist_set_version(path: Path, new_version: str) -> str:
     return CHANGED if write_text(path, new_text) else SAME
 
 
+_PLIST_BUILD_RE = re.compile(r"(<key>CFBundleVersion</key>\s*<string>)([^<]*)(</string>)")
+
+
+def plist_set_build(path: Path, build: int) -> str:
+    """CFBundleVersion(빌드 번호) 값을 교체한다. $(CURRENT_PROJECT_VERSION) 같은 변수면 VARIABLE (#721)."""
+    text = read_text(path)
+    m = _PLIST_BUILD_RE.search(text)
+    if not m:
+        return NO_MATCH
+    new_text = _PLIST_BUILD_RE.sub(
+        lambda mm: mm.group(0) if mm.group(2).startswith("$(") else f"{mm.group(1)}{build}{mm.group(3)}", text)
+    if new_text == text:
+        return VARIABLE if m.group(2).startswith("$(") else SAME
+    return CHANGED if write_text(path, new_text) else SAME
+
+
+# versionCode 뒤가 숫자 리터럴일 때만 매치한다 (`versionCode rootProject.ext.x` 같은 변수는 건드리지 않는다)
+_GRADLE_BUILD_RE = re.compile(r"^([ \t]*versionCode[ \t]*=?[ \t]*)\d+(?=[ \t]*(?://.*)?\r?$)", re.MULTILINE)
+
+
+def sync_build_number(cfg: Config, code: int):
+    """version.yml 의 version_code 를 react-native 의 빌드 번호(versionCode·CFBundleVersion)에 반영한다 (#721).
+
+    스토어는 빌드 번호가 매번 증가해야 해서 version.yml 과 어긋나면 수동 관리가 필요해진다.
+    react-native 타입에만 적용하고(expo 는 범위 밖), 대상 패턴이 없으면 경고만 한다.
+    """
+    if "react-native" not in cfg.types and cfg.primary != "react-native":
+        return
+    p = get_type_path("react-native")
+    base = Path(p)
+    ios_dir = base / "ios"
+    if ios_dir.is_dir():
+        plists = find_info_plists(ios_dir)
+        if not plists:
+            log_warning(f"react-native: {p}/ios에서 Info.plist를 찾지 못했습니다 — iOS 빌드 번호 동기화 안 됨")
+        for plist in plists:
+            status = plist_set_build(plist, code)
+            if status == CHANGED:
+                log_success(f"빌드 번호 업데이트: {plist.as_posix()} (CFBundleVersion {code})")
+            elif status == VARIABLE:
+                log_warning(f"{plist.as_posix()}의 CFBundleVersion이 Xcode 변수라 동기화하지 않았습니다 — Xcode 프로젝트에서 직접 관리하세요")
+            elif status == NO_MATCH:
+                log_warning(f"{plist.as_posix()}에 CFBundleVersion이 없어 빌드 번호를 동기화하지 못했습니다")
+    else:
+        log_warning(f"react-native: {p}/ios 디렉토리 없음 — 빌드 번호 건너뜀")
+    gradle = base / "android" / "app" / "build.gradle"
+    if gradle.is_file():
+        status = sub_file(gradle, _GRADLE_BUILD_RE.pattern, lambda m: f"{m.group(1)}{code}")
+        if status == CHANGED:
+            log_success(f"빌드 번호 업데이트: {gradle.as_posix()} (versionCode {code})")
+        elif status == NO_MATCH:
+            log_warning(f"{gradle.as_posix()}에서 숫자 리터럴 versionCode를 찾지 못했습니다 — 빌드 번호 동기화 안 됨")
+    else:
+        log_warning(f"react-native: {p}/android/app/build.gradle 없음 — 빌드 번호 건너뜀")
+
+
 # pyproject.toml: version 키는 [project](PEP 621) 또는 [tool.poetry] 테이블 안의 것만 프로젝트 버전이다.
 # 테이블 구분 없이 치환하면 [tool.foo] 같은 다른 테이블의 version이 덮어써진다 (#681).
 TOML_VERSION_TABLES = ("project", "tool.poetry")
@@ -860,7 +916,9 @@ def _main(argv):
         log_success(f"현재 VERSION_CODE: {code}")
         print(code)
     elif command == "increment-code":
-        print(increment_version_code())
+        new_code = increment_version_code()
+        sync_build_number(cfg, new_code)
+        print(new_code)
     elif command == "increment":
         bump = parse_bump_flag(argv)
         if bump is None:
@@ -873,7 +931,7 @@ def _main(argv):
         new_version = increment_version(current, bump)
         log_info(f"버전 업데이트({bump}): {current} → {new_version}")
         update_all_versions(cfg, new_version)
-        increment_version_code()
+        sync_build_number(cfg, increment_version_code())
         log_success(f"버전 업데이트 완료: {new_version}")
         print(new_version)
     elif command == "set":
@@ -885,6 +943,7 @@ def _main(argv):
             return 1
         log_info(f"버전 설정: {new_version}")
         update_all_versions(cfg, new_version)
+        sync_build_number(cfg, get_version_code())  # set 은 코드를 올리지 않지만 현재 값과 파일을 맞춘다
         log_success(f"버전 설정 완료: {new_version}")
         print(new_version)
     elif command == "sync":
