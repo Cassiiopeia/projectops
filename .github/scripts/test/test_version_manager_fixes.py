@@ -465,3 +465,67 @@ def test_spring_without_any_gradle_file_warns(tmp_path):
     rc, out, err = run_vm(tmp_path, "set", "2.0.0")
     assert rc == 0
     assert "build.gradle" in err and "건너뜀" in err
+
+
+# ── #681: pyproject.toml은 [project]/[tool.poetry] 테이블의 version만 다룬다 ──
+YML_PY = 'version: "1.2.3"\nversion_code: 5\nproject_types: ["python"]\n'
+
+
+def test_pyproject_only_project_table_is_changed(tmp_path):
+    original = '[project]\nname = "x"\nversion="1.2.3"\n\n[tool.other.deps]\nversion = "2.0"\n\n[tool.foo]\nversion = "9.9"\n'
+    write(tmp_path / "version.yml", YML_PY)
+    write(tmp_path / "pyproject.toml", original)
+    rc, out, err = run_vm(tmp_path, "increment")
+    assert rc == 0, err
+    assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == original.replace('version="1.2.3"', 'version="1.2.4"')
+
+
+@pytest.mark.parametrize("line,expect", [
+    ("version = '1.2.3'", "version = '1.3.0'"),
+    ('  version = "1.2.3"', '  version = "1.3.0"'),
+    ('version="1.2.3"', 'version="1.3.0"'),
+    ('version = "1.2.3"  # 릴리스', 'version = "1.3.0"  # 릴리스'),
+])
+def test_pyproject_quote_and_spacing_variants(tmp_path, line, expect):
+    write(tmp_path / "version.yml", YML_PY)
+    write(tmp_path / "pyproject.toml", f'[project]\nname = "x"\n{line}\n')
+    rc, out, err = run_vm(tmp_path, "set", "1.3.0")
+    assert rc == 0, err
+    assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == f'[project]\nname = "x"\n{expect}\n'
+
+
+def test_pyproject_poetry_table_is_supported(tmp_path):
+    original = '[tool.poetry]\nname = "x"\nversion = "1.2.3"\n\n[tool.poetry.dependencies]\npython = "^3.9"\n[tool.other]\nversion = "5.0"\n'
+    write(tmp_path / "version.yml", YML_PY)
+    write(tmp_path / "pyproject.toml", original)
+    rc, out, err = run_vm(tmp_path, "set", "1.3.0")
+    assert rc == 0, err
+    assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == original.replace('version = "1.2.3"', 'version = "1.3.0"')
+
+
+def test_pyproject_ignores_version_before_project_table(tmp_path):
+    original = '[build-system]\nversion = "7.0"\n\n[project]\nname = "x"\nversion = "1.2.3"\n'
+    write(tmp_path / "version.yml", YML_PY)
+    write(tmp_path / "pyproject.toml", original)
+    rc, out, err = run_vm(tmp_path, "set", "1.3.0")
+    assert rc == 0, err
+    assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == original.replace('version = "1.2.3"', 'version = "1.3.0"')
+
+
+def test_pyproject_without_project_version_warns_and_keeps_file(tmp_path):
+    original = '[project]\nname = "x"\ndynamic = ["version"]\n\n[tool.foo]\nversion = "9.9"\n'
+    write(tmp_path / "version.yml", YML_PY)
+    write(tmp_path / "pyproject.toml", original)
+    rc, out, err = run_vm(tmp_path, "set", "1.3.0")
+    assert rc == 0
+    assert "pyproject.toml" in err and "version을 찾지 못했습니다" in err
+    assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == original
+
+
+def test_pyproject_single_quoted_version_is_read_by_get(tmp_path):
+    # 작은따옴표라는 이유로 pyproject의 더 높은 버전이 무시되면 안 된다
+    write(tmp_path / "version.yml", YML_PY)
+    write(tmp_path / "pyproject.toml", "[project]\nname = 'x'\nversion = '1.5.0'\n")
+    rc, out, err = run_vm(tmp_path, "get")
+    assert rc == 0, err
+    assert out.strip() == "1.5.0"

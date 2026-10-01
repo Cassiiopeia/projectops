@@ -491,6 +491,54 @@ def plist_set_version(path: Path, new_version: str) -> str:
     )
 
 
+# pyproject.toml: version 키는 [project](PEP 621) 또는 [tool.poetry] 테이블 안의 것만 프로젝트 버전이다.
+# 테이블 구분 없이 치환하면 [tool.foo] 같은 다른 테이블의 version이 덮어써진다 (#681).
+TOML_VERSION_TABLES = ("project", "tool.poetry")
+_TOML_HEADER_RE = re.compile(r"^[ \t]*\[([^\[\]]+)\][ \t]*(#.*)?$")
+_TOML_VERSION_RE = re.compile(r"""^([ \t]*version[ \t]*=[ \t]*)("[^"\r\n]*"|'[^'\r\n]*')(.*)$""", re.DOTALL)
+
+
+def _toml_version_lines(pieces: list) -> list:
+    """대상 테이블 안의 version 줄 인덱스 목록 (테이블 순서대로)."""
+    table = None
+    found = []
+    for i, piece in enumerate(pieces):
+        body, _ = split_eol(piece)
+        h = _TOML_HEADER_RE.match(body)
+        if h:
+            table = re.sub(r"\s+", "", h.group(1))
+            continue
+        if body.lstrip().startswith("[["):  # 배열 테이블([[x]])은 대상이 아니다
+            table = None
+            continue
+        if table in TOML_VERSION_TABLES and _TOML_VERSION_RE.match(body):
+            found.append(i)
+    return found
+
+
+def toml_get_version(text: str) -> str:
+    pieces = split_lines(text)
+    for i in _toml_version_lines(pieces):
+        m = re.match(r"^[ \t]*version[ \t]*=[ \t]*[\"'](\d+\.\d+\.\d+)[\"']", split_eol(pieces[i])[0])
+        if m:
+            return m.group(1)
+    return ""
+
+
+def toml_set_version(path: Path, new_version: str) -> str:
+    """대상 테이블의 version 값을 교체한다. 따옴표 종류와 줄 끝 주석은 보존. CHANGED/SAME/NO_MATCH 반환."""
+    pieces = split_lines(read_text(path))
+    targets = _toml_version_lines(pieces)
+    if not targets:
+        return NO_MATCH
+    for i in targets:
+        body, eol = split_eol(pieces[i])
+        m = _TOML_VERSION_RE.match(body)
+        quote = m.group(2)[0]
+        pieces[i] = f"{m.group(1)}{quote}{new_version}{quote}{m.group(3)}{eol}"
+    return CHANGED if write_text(path, "".join(pieces)) else SAME
+
+
 def get_project_file_version(cfg: Config) -> str:
     vf = Path(cfg.version_file)
     if cfg.primary == "basic" or not vf.is_file():
@@ -517,8 +565,7 @@ def get_project_file_version(cfg: Config) -> str:
         elif t == "react-native-expo":
             v = str((read_json(vf).get("expo") or {}).get("version", "") or "")
         elif t == "python":
-            m = re.search(r'^version\s*=\s*"(\d+\.\d+\.\d+)"', read_text(vf), re.MULTILINE)
-            v = m.group(1) if m else ""
+            v = toml_get_version(read_text(vf))
         else:
             v = cfg.current_version
     except (OSError, ValueError, VersionError) as e:
@@ -581,8 +628,11 @@ def sync_for_type(t: str, new_version: str):
     elif t == "python":
         toml = base / "pyproject.toml"
         if toml.is_file():
-            if sub_file(toml, r'^version = "[^"]*"', f'version = "{new_version}"') == CHANGED:
+            status = toml_set_version(toml, new_version)
+            if status == CHANGED:
                 log_success(f"업데이트: {toml.as_posix()}")
+            elif status == NO_MATCH:
+                log_warning(f"python: {toml.as_posix()}의 [project]/[tool.poetry]에서 version을 찾지 못했습니다 — 동기화하지 못함")
         else:
             log_warning(f"python: {p}/pyproject.toml 없음 — 건너뜀")
     elif t == "react-native":
