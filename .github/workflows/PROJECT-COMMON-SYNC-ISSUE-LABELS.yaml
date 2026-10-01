@@ -8,7 +8,7 @@
 #
 # ===================================================================
 # 트리거:
-# - .github/config/issue-labels.yml 파일 변경 시
+# - .github/config/issue-labels.yml 파일 변경 시 (이 워크플로우 파일 자체의 추가·수정 포함)
 # - 수동 실행 (workflow_dispatch)
 # ===================================================================
 
@@ -19,6 +19,9 @@ on:
   push:
     paths:
       - '.github/config/issue-labels.yml'
+      # 설치 직후 첫 push 에서 라벨이 한 번도 안 만들어지는 경우가 실측돼(#668) 이 워크플로우 파일 자체의
+      # 추가·수정에도 실행한다. 기존 동작은 그대로이고 라벨 동기화는 멱등이라 재실행해도 안전하다.
+      - '.github/workflows/PROJECT-COMMON-SYNC-ISSUE-LABELS.yaml'
 
 permissions:
   issues: write

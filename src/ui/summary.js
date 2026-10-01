@@ -237,6 +237,13 @@ export function printSummary(ctx, targetRoot = ".") {
     err("");
     step++;
   }
+  // #668 — 라벨 동기화는 issue-labels.yml 이 바뀐 push 에서만 도는데, 설치 직후 첫 push 에서
+  // 실행 기록이 없는 경우가 실측됐다. 라벨이 없으면 상태 라벨 자동화가 조용히 무시되므로 1회 수동 실행을 안내한다.
+  err(`  ${step}️⃣  (권장) 템플릿 라벨 만들기`);
+  err("     → Actions 탭 > PROJECT-SYNC-GITHUB-LABELS > Run workflow 를 한 번 실행하세요.");
+  err("     → 안 하면 작업전·작업중 같은 상태 라벨이 레포에 없어 라벨 자동화가 무시됩니다.");
+  err("");
+  step++;
   err(SEPARATOR);
   err("");
   err(`${CYAN}📖 자세한 설정 방법은 다음 파일을 참고하세요:${NC}`);
