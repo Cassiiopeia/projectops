@@ -146,6 +146,20 @@ def parse_legacy_single_type() -> str:
     return ""
 
 
+def _ensure_inside_repo(path_str: str, t: str) -> str:
+    """project_paths 값이 저장소 밖을 가리키면 거부한다 — 버전 파일 쓰기가 레포 밖 파일을 건드리면 안 된다 (#673)."""
+    p = Path(path_str)
+    if p.is_absolute() or ".." in p.parts:
+        raise VersionError(f"version.yml의 project_paths.{t} 는 저장소 안의 상대경로여야 합니다: '{path_str}'")
+    root = Path.cwd().resolve()
+    try:
+        # 심볼릭 링크로 레포 밖을 가리키는 경우까지 잡기 위해 resolve 후 비교
+        (root / p).resolve().relative_to(root)
+    except ValueError:
+        raise VersionError(f"version.yml의 project_paths.{t} 가 저장소 밖을 가리킵니다: '{path_str}'")
+    return path_str
+
+
 def get_type_path(t: str) -> str:
     """project_paths.<type> — 키 없으면 '.' (legacy: 루트 기준). 값은 "큰따옴표"·'작은따옴표'·무따옴표 모두 허용."""
     in_paths = False
@@ -166,7 +180,7 @@ def get_type_path(t: str) -> str:
             if not m:
                 raise VersionError(f"version.yml의 project_paths 항목을 읽지 못했습니다: '{line.strip()}' (타입: 경로 형식으로 쓰세요)")
             if m.group(1) == t:
-                return _unquote(m.group(2)) or "."
+                return _ensure_inside_repo(_unquote(m.group(2)) or ".", t)
     return "."
 
 
