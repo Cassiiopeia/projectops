@@ -35,6 +35,7 @@ if str(_SCRIPTS_ROOT) not in sys.path:
 
 from common.access import find_secrets as _find_secrets  # noqa: E402
 from common.access import load_access as _load_access  # noqa: E402
+from common.cli_parser import JSONArgumentParser, run_cli  # noqa: E402
 from common.emit import emit  # noqa: E402
 from common.http import request as _http_request  # noqa: E402
 from common.state import repo_key, state_dir  # noqa: E402
@@ -416,7 +417,8 @@ def _scenario_files(d: Path) -> list[Path]:
 def _resolve_scenario(d: Path, name: str) -> Path | None:
     """이름으로 파일을 찾는다. `flows/auth/x` 처럼 경로를 줘도, `x` 만 줘도 된다."""
     direct = d / f"{name}.json"
-    if direct.exists():
+    # 폴더 밖 파일(../x)은 시나리오가 아니다 (#707)
+    if direct.exists() and d.resolve() in direct.resolve().parents:
         return direct
     matches = [f for f in _scenario_files(d) if f.stem == name]
     return matches[0] if len(matches) == 1 else None
@@ -448,6 +450,10 @@ def _expand(d: Path, path: Path, seen: list[str] | None = None) -> tuple[dict, l
     if base.get("reset") and not data.get("reset"):
         merged["reset"] = base["reset"]
     return merged, problems
+
+
+# 시나리오 이름으로 허용하는 문자. 한글도 \w 에 든다 — 경로 구분자·선행 점은 못 쓴다
+_SAFE_NAME = re.compile(r"\w[\w.\- ]*")
 
 
 def cmd_scenario(args) -> int:
@@ -483,6 +489,16 @@ def cmd_scenario(args) -> int:
             return emit({"ok": False, "code": "unknown_target",
                          "error": f"target '{args.target}' 을 모릅니다",
                          "hint": f"{'·'.join(TARGETS)} 중 하나"})
+        # 이름이 경로가 되면 시나리오 폴더 밖에 파일이 써진다 (#707)
+        if not _SAFE_NAME.fullmatch(args.name) or ".." in args.name:
+            return emit({"ok": False, "code": "bad_name",
+                         "error": f"--name '{args.name}' 에 쓸 수 없는 문자가 있습니다",
+                         "hint": "글자·숫자·밑줄·하이픈·점·공백만 쓰고 '/' '\\' '..' 는 쓸 수 없습니다. "
+                                 "하위 폴더는 --group 으로 정합니다"})
+        if args.group and (args.group.startswith(("/", "\\")) or ".." in Path(args.group).parts
+                           or "\\" in args.group):
+            return emit({"ok": False, "code": "bad_group",
+                         "error": f"--group '{args.group}' 은 폴더 밖을 가리킬 수 없습니다"})
         # --group 을 주면 flows/{그룹}/ 아래, _shared 면 전제로 둔다
         if args.group == _SHARED_DIR:
             target_dir = d / _SHARED_DIR
@@ -490,8 +506,12 @@ def cmd_scenario(args) -> int:
             target_dir = d / _FLOWS_DIR / args.group
         else:
             target_dir = d
-        target_dir.mkdir(parents=True, exist_ok=True)
         f = target_dir / f"{args.name}.json"
+        # 마지막 방어선 — 어떤 경로로든 시나리오 폴더 아래가 아니면 쓰지 않는다
+        if d.resolve() not in f.resolve().parents:
+            return emit({"ok": False, "code": "bad_name",
+                         "error": "시나리오 폴더 밖에는 만들 수 없습니다"})
+        target_dir.mkdir(parents=True, exist_ok=True)
         if f.exists() and not args.force:
             return emit({"ok": False, "code": "already_exists",
                          "error": f"{f} 가 이미 있습니다", "hint": "--force 로 덮어씁니다"})
@@ -671,6 +691,19 @@ def cmd_note(args) -> int:
         if not (args.name and args.anchor):
             return emit({"ok": False, "code": "args_required",
                          "error": "--name 과 --anchor 가 필요합니다"})
+        # 쓰레기 값이 learned.json 에 남으면 다음 실행마다 그대로 읽힌다 — 쓰기 전에 거른다 (#706)
+        if args.screen_size and not re.fullmatch(r"\d{2,5}x\d{2,5}", args.screen_size):
+            return emit({"ok": False, "code": "bad_screen_size",
+                         "error": f"--screen-size '{args.screen_size}' 는 가로x세로 숫자여야 합니다",
+                         "hint": "예: 1080x2400"})
+        taps = {}
+        for t in args.taps or []:
+            label, sep, xy = t.partition("=")
+            if not (sep and label.strip() and re.fullmatch(r"\s*\d+\s*,\s*\d+\s*", xy)):
+                return emit({"ok": False, "code": "bad_taps",
+                             "error": f"--taps '{t}' 는 '라벨=x,y' (숫자) 형식이어야 합니다",
+                             "hint": "예: 로그인=540,1200"})
+            taps[label.strip()] = xy.replace(" ", "")
         entry = _promote_screen(notes.setdefault("screens", {}).setdefault(args.name, {}))
         entry["anchor"] = args.anchor          # 이 화면임을 알아보는 단서
         variant = entry["variants"].setdefault(
@@ -678,7 +711,7 @@ def cmd_note(args) -> int:
         if args.taps:
             # "라벨=x,y" 형태를 그대로 보관한다. 해상도가 바뀌면 다시 재야 하므로
             # 절대 좌표가 아니라 기준 해상도와 함께 남긴다.
-            variant["taps"] = dict(t.split("=", 1) for t in args.taps)
+            variant["taps"] = taps
         if args.screen_size:
             variant["measured_on"] = args.screen_size
         if args.build:
@@ -752,6 +785,10 @@ def cmd_note(args) -> int:
                             "added": date.today().isoformat()}
 
     elif args.action == "run":
+        if not (args.name or args.text):
+            # 인자 없이 부르면 "(지정 안 함)/(기록 없음)" 쓰레기 줄만 쌓인다 (#706)
+            return emit({"ok": False, "code": "args_required",
+                         "error": "--name(시나리오)이나 --text(결과 요약)가 필요합니다"})
         notes.setdefault("runs", []).append({
             "date": date.today().isoformat(),
             "scenario": args.name or "(지정 안 함)",
@@ -1145,6 +1182,11 @@ def cmd_api(args) -> int:
                      "next": ("--base-url 로 넘기거나, 코드를 읽어 알아낸 뒤 "
                               "access set --key base_url --json '{\"url\":\"http://...\"}'")})
 
+    if not re.match(r"https?://[^\s/]+", base):
+        return emit({"ok": False, "code": "bad_base_url",
+                     "error": f"API 주소 '{base}' 는 http(s):// 로 시작해야 합니다",
+                     "next": "--base-url http://127.0.0.1:8080 처럼 전체 주소를 넘긴다"})
+
     saved: dict = {}
     results = []
     failed_at = None
@@ -1213,8 +1255,9 @@ def cmd_api(args) -> int:
     })
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+def build_parser() -> JSONArgumentParser:
+    # 인자 오류도 JSON(bad_args)으로 — 에이전트는 stdout JSON 만 읽는다 (#708)
+    parser = JSONArgumentParser(
         prog="e2e_cli",
         description="agent QA — 앱·웹·서버를 밟아 버그를 찾는다 (실행·캡처는 pro-launch)",
         epilog=("옮긴 명령: " + " · ".join(MOVED)
@@ -1297,12 +1340,7 @@ def main(argv: list[str] | None = None) -> int:
     # 옮긴 명령은 파서에 올리지 않고 그대로 넘긴다 — 인자 계약이 pro-launch 쪽에 산다
     if argv and argv[0] in MOVED:
         return delegate(argv)
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    if not hasattr(args, "func"):
-        parser.print_help(sys.stderr)
-        return 1
-    return args.func(args)
+    return run_cli(build_parser(), argv)
 
 
 if __name__ == "__main__":
