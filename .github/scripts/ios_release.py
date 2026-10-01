@@ -116,8 +116,14 @@ def decide_version(current: str, closed: str | None, mode: str) -> dict:
 
 # ── 업로드 오류 분류 ──────────────────────────────────────────────────
 def _code(n: str) -> str:
-    """오류 코드가 더 긴 숫자의 일부로 오인되지 않게 경계를 둔다."""
-    return rf"(?<!\d){n}(?!\d)"
+    """Apple 오류 코드는 문맥이 있을 때만 일치시킨다 (#694).
+
+    실제 로그에서 코드가 나오는 형태: `ITMS-90189`, altool 의 `(90186)`,
+    `STATE_ERROR.VALIDATION_ERROR.90061` 처럼 대문자 코드 뒤 `.숫자`.
+    숫자만 보면 빌드 번호, 바이트 수, 소요 ms 가 같은 값일 때 오분류되고,
+    그 결과가 재시도와 버전 전환을 정한다.
+    """
+    return rf"(?:ITMS-{n}(?!\d)|(?<=[A-Z]\.){n}(?!\d)|\({n}\))"
 
 
 _TRAIN_VERSION = re.compile(r"train version '(?P<v>[\d.]+)' is closed", re.I)

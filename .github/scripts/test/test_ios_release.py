@@ -712,3 +712,13 @@ def test_last_error_line_uses_latest_error_when_several():
     out = "a.swift: error: first problem\nb.swift: error: second problem\n** BUILD FAILED **\n"
     assert ir._last_error_line(out) == "second problem"
 
+
+
+# ── #694: ITMS- 접두 없는 숫자만으로는 오류 코드로 보지 않는다 ───────────────
+@pytest.mark.parametrize("log", [
+    "Uploading build 90189 done",
+    "network error: took 90186 ms",
+    "elapsed 90062 ms, size 90478 bytes, build 90061",
+])
+def test_bare_numbers_are_not_error_codes(log):
+    assert ir.classify_upload_error(log)["kind"] == "other"

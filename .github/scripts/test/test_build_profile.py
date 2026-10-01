@@ -214,3 +214,117 @@ def test_switching_profiles_does_not_leave_the_old_value(tmp_path, cfg, envf):
     body = envf.read_text(encoding="utf-8")
     assert "APP_SHOW_DEV_TOOLS=false" in body
     assert "APP_SHOW_DEV_TOOLS=true" not in body
+
+
+# ── #692: export·공백 형식 키도 같은 키로 인식한다 ─────────────────────────────
+def _guard_cfg(tmp_path):
+    return write_config(tmp_path / "bp.json", {
+        "dev_keys": ["APP_SHOW_DEV_TOOLS"],
+        "secret_keys": ["APP_DEV_ACCESS_TOKEN"],
+        "profiles": {
+            "test": {"env": {"APP_SHOW_DEV_TOOLS": "true"}, "dart_define": {}},
+            "release": {"env": {}, "dart_define": {}},
+        },
+    })
+
+
+@pytest.mark.parametrize("line", [
+    "APP_SHOW_DEV_TOOLS = true",
+    "export APP_SHOW_DEV_TOOLS=true",
+    'APP_SHOW_DEV_TOOLS="true"',
+    "export   APP_SHOW_DEV_TOOLS = 'true'",
+])
+def test_release_strips_variant_dev_key_forms(tmp_path, line):
+    """변형 형식도 걷어내거나 막아야 한다 — 남은 채로 exit 0 이면 개발 설정이 배포에 샌다."""
+    cfg = _guard_cfg(tmp_path)
+    envf = tmp_path / ".env"
+    envf.write_text(line + "\n", encoding="utf-8")
+    r = run("release", envf, config=cfg)
+    body = envf.read_text(encoding="utf-8")
+    assert r.returncode != 0 or "APP_SHOW_DEV_TOOLS" not in body
+
+
+@pytest.mark.parametrize("line", [
+    "export APP_DEV_ACCESS_TOKEN=abc",
+    "APP_DEV_ACCESS_TOKEN = abc",
+    'APP_DEV_ACCESS_TOKEN = "abc"',
+])
+def test_release_fails_on_variant_secret_forms(tmp_path, line):
+    cfg = _guard_cfg(tmp_path)
+    envf = tmp_path / ".env"
+    envf.write_text(line + "\n", encoding="utf-8")
+    r = run("release", envf, config=cfg)
+    assert r.returncode == 1
+    assert "개발용 비밀값" in r.stderr
+
+
+def test_test_profile_does_not_duplicate_variant_key(tmp_path):
+    cfg = _guard_cfg(tmp_path)
+    envf = tmp_path / ".env"
+    envf.write_text("export APP_SHOW_DEV_TOOLS=false\nAPP_SHOW_DEV_TOOLS = false\n",
+                    encoding="utf-8")
+    assert run("test", envf, config=cfg).returncode == 0
+    body = envf.read_text(encoding="utf-8")
+    assert body.count("APP_SHOW_DEV_TOOLS") == 1
+    assert "APP_SHOW_DEV_TOOLS=true" in body
+
+
+# ── #693: 값 타입·셸 인용·구조 오류·인코딩 ─────────────────────────────────────
+def test_boolean_values_become_lowercase(tmp_path):
+    cfg = write_config(tmp_path / "bp.json", {"profiles": {"test": {
+        "env": {"FLAG": True}, "dart_define": {"F": False}}}})
+    envf = tmp_path / ".env"
+    envf.write_text("", encoding="utf-8")
+    out = tmp_path / "go.txt"
+    assert run("test", envf, config=cfg, github_output=out).returncode == 0
+    assert "FLAG=true" in envf.read_text(encoding="utf-8")
+    assert "--dart-define=F=false" in out.read_text(encoding="utf-8")
+
+
+def test_null_value_is_refused(tmp_path):
+    cfg = write_config(tmp_path / "bp.json", {"profiles": {"test": {
+        "env": {"NIL": None}, "dart_define": {}}}})
+    envf = tmp_path / ".env"
+    envf.write_text("", encoding="utf-8")
+    r = run("test", envf, config=cfg)
+    assert r.returncode == 1
+    assert "::error::" in r.stderr
+
+
+def test_build_flags_are_shell_quoted(tmp_path):
+    import shlex
+    cfg = write_config(tmp_path / "bp.json", {"profiles": {"test": {
+        "env": {}, "dart_define": {"NAME": "My App", "X": "a;b $(id)"}}}})
+    envf = tmp_path / ".env"
+    envf.write_text("", encoding="utf-8")
+    out = tmp_path / "go.txt"
+    assert run("test", envf, config=cfg, github_output=out).returncode == 0
+    flags = out.read_text(encoding="utf-8").strip().split("=", 1)[1]
+    # 셸이 읽으면 값 하나가 인자 하나로 정확히 나뉘어야 한다
+    assert shlex.split(flags) == ["--dart-define=NAME=My App",
+                                  "--dart-define=X=a;b $(id)"]
+
+
+@pytest.mark.parametrize("data", [
+    {"profiles": {"test": []}},
+    {"profiles": {"test": {"env": [1]}}},
+    {"profiles": [1]},
+    {"dev_keys": "A", "profiles": {"test": {}}},
+])
+def test_wrong_structure_gets_error_line_not_traceback(tmp_path, data):
+    cfg = write_config(tmp_path / "bp.json", data)
+    envf = tmp_path / ".env"
+    envf.write_text("", encoding="utf-8")
+    r = run("test", envf, config=cfg)
+    assert r.returncode == 1
+    assert "::error::" in r.stderr
+    assert "Traceback" not in r.stderr
+
+
+def test_non_utf8_env_bytes_survive_roundtrip(tmp_path):
+    cfg = write_config(tmp_path / "bp.json", {"profiles": {"test": {
+        "env": {"A": "1"}, "dart_define": {}}}})
+    envf = tmp_path / ".env"
+    envf.write_bytes(b"KEEP=caf\xe9\n")
+    assert run("test", envf, config=cfg).returncode == 0
+    assert b"KEEP=caf\xe9\n" in envf.read_bytes()
