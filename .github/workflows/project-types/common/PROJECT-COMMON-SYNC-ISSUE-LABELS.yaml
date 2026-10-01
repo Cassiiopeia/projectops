@@ -23,6 +23,11 @@ on:
       # 추가·수정에도 실행한다. 기존 동작은 그대로이고 라벨 동기화는 멱등이라 재실행해도 안전하다.
       - '.github/workflows/PROJECT-COMMON-SYNC-ISSUE-LABELS.yaml'
 
+# main, develop 이 동시에 push 되면 같은 라벨을 동시에 만들려다 한쪽이 실패한다 — 순서대로 실행(대기)한다
+concurrency:
+  group: sync-issue-labels
+  cancel-in-progress: false
+
 permissions:
   issues: write
   contents: read
