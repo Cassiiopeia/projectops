@@ -1,7 +1,7 @@
 // CLI 입력 검증·오류 처리 회귀 테스트 (#674 #672 등) — 실제 run()을 로컬 템플릿으로 끝까지 돌린다.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { run } from "../src/index.js";
@@ -66,4 +66,38 @@ test("--paths: 유효한 하위 폴더는 통과한다 (#674)", async () => {
     const r = await cli(["--mode", "full", "--force", "--type", "node", "--paths", "node=client"], tgt, tpl);
     assert.equal(r.code, 0);
   } finally { rm(tpl, tgt); }
+});
+
+test("템플릿 내려받기 실패는 스택 트레이스 없이 오류 한 줄 + 종료코드 1 (#672)", async () => {
+  const tgt = fresh("hard-tgt-");
+  try {
+    const se = process.stderr.write; let err = "";
+    process.stderr.write = (s) => { err += s; return true; };
+    const sl = console.log; console.log = () => {};
+    let code;
+    try {
+      code = await run(["--mode", "full", "--force", "--type", "basic"], { cwd: tgt, source: { type: "git", repo: join(tgt, "no-such-repo") } });
+    } finally { process.stderr.write = se; console.log = sl; }
+    assert.equal(code, 1);
+    assert.match(err, /템플릿을 내려받지 못했습니다/);
+    assert.doesNotMatch(err, /\bat .*\(.*\.js:\d+/);   // 스택 프레임 없음
+  } finally { rm(tgt); }
+});
+
+test("describeError: git 없음·권한·기타를 구분한다 (#672)", async () => {
+  const { describeError } = await import("../src/cli/errors.js");
+  assert.match(describeError(Object.assign(new Error("spawnSync git ENOENT"), { code: "ENOENT", syscall: "spawnSync git", path: "git" })).message, /git/);
+  assert.match(describeError(Object.assign(new Error("EACCES: permission denied, mkdir x"), { code: "EACCES", path: "/x" })).hint, /권한/);
+  assert.match(describeError(new Error("boom")).message, /boom/);
+});
+
+test("읽기 전용 .github 는 스택 트레이스 없이 권한 안내 + 종료코드 1 (#672)", { skip: process.platform === "win32" || process.getuid?.() === 0 }, async () => {
+  const tpl = makeTemplate(); const tgt = fresh("hard-tgt-");
+  try {
+    mkdirSync(join(tgt, ".github"));
+    chmodSync(join(tgt, ".github"), 0o555);
+    const r = await cli(["--mode", "full", "--force", "--type", "basic"], tgt, tpl);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /권한/);
+  } finally { chmodSync(join(tgt, ".github"), 0o755); rm(tpl, tgt); }
 });

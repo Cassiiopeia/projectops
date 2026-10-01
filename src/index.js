@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { readFileSync, existsSync } from "node:fs";
 import { parseArgs, parsePathsCsv, validatePathsMap, CliError } from "./cli/args.js";
 import { HELP_TEXT } from "./cli/help.js";
+import { reportFatal } from "./cli/errors.js";
 import { createContext } from "./context.js";
 import { PATHS } from "./core/paths.js";
 import { remove } from "./core/fsutil.js";
@@ -49,7 +50,18 @@ function utcNow(date = new Date()) {
 // run(argv, opts) → exitCode. opts: { cwd, source?, clock? }
 //   source: acquireTemplate용 (기본 git clone). 테스트는 {type:'local', path} 주입.
 //   clock: {now, today} 주입 (기본 현재 UTC).
-export async function run(argv, { cwd = process.cwd(), source = { type: "git" }, clock } = {}) {
+export async function run(argv, options = {}) {
+  try {
+    return await runCore(argv, options);
+  } catch (err) {
+    // 네트워크·git·권한 같은 환경 문제는 스택 트레이스 대신 한 줄 원인 + 조치로 알린다 (#672).
+    // 실행 기록(trace)은 runCore 의 finally 에서 이미 닫혔다.
+    reportFatal(err);
+    return 1;
+  }
+}
+
+async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, clock } = {}) {
   let opts;
   try {
     opts = parseArgs(argv);
