@@ -58,6 +58,7 @@
 import argparse
 import json
 import os
+import shlex
 import sys
 from pathlib import Path
 
@@ -68,7 +69,8 @@ GUARDED_PROFILE = "release"
 
 
 def log(msg):
-    print(msg, file=sys.stderr)
+    # 비UTF-8 바이트(surrogateescape)가 값에 섞여도 로그 출력이 죽지 않게 한다
+    print(msg.encode("utf-8", "backslashreplace").decode("utf-8"), file=sys.stderr)
 
 
 def fail(msg):
@@ -94,8 +96,10 @@ def load_config(path: Path):
 def read_env_lines(env_file: Path):
     if not env_file.is_file():
         fail(f".env 파일이 없습니다: {env_file}")
-    # 값에 비ASCII가 섞여도 죽지 않게 — 러너 로캘에 기대지 않는다
-    return env_file.read_text(encoding="utf-8", errors="replace").splitlines()
+    # 값에 비ASCII가 섞여도 죽지 않게 — 러너 로캘에 기대지 않는다.
+    # replace 로 읽고 다시 쓰면 원본 바이트가 U+FFFD 로 영구 치환되므로
+    # surrogateescape 로 읽어 쓸 때 같은 바이트로 되돌린다(#693).
+    return env_file.read_text(encoding="utf-8", errors="surrogateescape").splitlines()
 
 
 def parse_env_line(line):
@@ -155,9 +159,45 @@ def mask(key, value):
     return value
 
 
-def build_flags(dart_define: dict) -> str:
+def to_text(where, key, value):
+    """설정 값을 문자열로 만든다. JSON 불리언은 소문자로 — bool.fromEnvironment 는
+    소문자 `true` 만 참으로 읽으므로 `True` 가 나가면 앱에서 조용히 false 가 된다(#693)."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        if "\n" in value or "\r" in value:
+            fail(f"빌드 프로파일 값에 줄바꿈이 있습니다: {where}.{key}")
+        return value
+    fail(f"빌드 프로파일 값은 문자열·숫자·불리언이어야 합니다: {where}.{key} ({type(value).__name__})")
+
+
+def as_map(where, value):
+    """객체여야 하는 설정 조각을 검증해 복사본을 돌려준다 (구조 오류를 트레이스백 대신 안내로)."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        fail(f"빌드 프로파일 설정 구조 오류: {where} 는 객체여야 합니다")
+    return {str(k): to_text(where, k, v) for k, v in value.items()}
+
+
+def as_key_list(where, value):
+    if value is None:
+        return []
+    if not isinstance(value, list) or not all(isinstance(k, str) for k in value):
+        fail(f"빌드 프로파일 설정 구조 오류: {where} 는 문자열 목록이어야 합니다")
+    return list(value)
+
+
+def define_tokens(dart_define: dict):
     # dict 순서를 그대로 쓴다 — 설정 파일에 적힌 순서가 로그에 그대로 나와야 읽기 쉽다
-    return " ".join(f"--dart-define={k}={v}" for k, v in dart_define.items())
+    return [f"--dart-define={k}={v}" for k, v in dart_define.items()]
+
+
+def build_flags(dart_define: dict) -> str:
+    # 워크플로가 셸 명령줄에 그대로 끼워 넣으므로 공백·메타문자는 인용한다(#693)
+    return " ".join(shlex.quote(t) for t in define_tokens(dart_define))
 
 
 def emit_output(flags: str):
@@ -180,7 +220,7 @@ def verify_release(lines, dev_keys, secret_keys, flags, test_defines):
             fail(f"배포 빌드에 개발용 비밀값이 남아 있습니다: {k}")
     # 컴파일타임 쪽도 본다. 여기가 뚫리면 .env가 아무리 깨끗해도 개발 빌드가 나간다.
     for k, v in test_defines.items():
-        if f"--dart-define={k}={v}" in flags:
+        if f"--dart-define={k}={v}" in shlex.split(flags):
             fail(f"배포 빌드에 테스트 전용 플래그가 들어갔습니다: {k}={v}")
     log("✅ 런타임·컴파일타임 양쪽 모두 꺼진 것을 확인했습니다")
 
@@ -203,15 +243,21 @@ def main(argv=None):
         return 0
 
     profiles = cfg.get("profiles") or {}
+    if not isinstance(profiles, dict):
+        fail("빌드 프로파일 설정 구조 오류: profiles 는 객체여야 합니다")
     if args.profile not in profiles:
         available = ", ".join(sorted(profiles)) or "(없음)"
         fail(f"알 수 없는 프로파일: {args.profile} — 설정에 있는 것: {available}")
 
-    profile = profiles[args.profile] or {}
-    dev_keys = list(cfg.get("dev_keys") or [])
-    secret_keys = list(cfg.get("secret_keys") or [])
-    want_env = dict(profile.get("env") or {})
-    dart_define = dict(profile.get("dart_define") or {})
+    profile = profiles[args.profile]
+    if profile is None:
+        profile = {}
+    if not isinstance(profile, dict):
+        fail(f"빌드 프로파일 설정 구조 오류: profiles.{args.profile} 는 객체여야 합니다")
+    dev_keys = as_key_list("dev_keys", cfg.get("dev_keys"))
+    secret_keys = as_key_list("secret_keys", cfg.get("secret_keys"))
+    want_env = as_map(f"{args.profile}.env", profile.get("env"))
+    dart_define = as_map(f"{args.profile}.dart_define", profile.get("dart_define"))
 
     env_file = Path(args.env_file)
     lines = read_env_lines(env_file)
@@ -223,7 +269,8 @@ def main(argv=None):
     for k, v in want_env.items():
         lines.append(f"{k}={v}")
 
-    env_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    env_file.write_text("\n".join(lines) + "\n", encoding="utf-8",
+                        errors="surrogateescape")
 
     flags = build_flags(dart_define)
     emit_output(flags)
@@ -245,7 +292,10 @@ def main(argv=None):
         test_defines = {}
         for name, p in profiles.items():
             if name != GUARDED_PROFILE:
-                test_defines.update((p or {}).get("dart_define") or {})
+                p = {} if p is None else p
+                if not isinstance(p, dict):
+                    fail(f"빌드 프로파일 설정 구조 오류: profiles.{name} 는 객체여야 합니다")
+                test_defines.update(as_map(f"{name}.dart_define", p.get("dart_define")))
         # 배포 프로파일이 같은 키를 **다른 값으로** 덮어썼다면 위반이 아니다
         # (예: test 는 APP_FLAVOR=dev, release 는 APP_FLAVOR=prod).
         # 값까지 같다면 덮어쓴 것이 아니라 테스트 값이 그대로 나가는 것이므로 막는다.
