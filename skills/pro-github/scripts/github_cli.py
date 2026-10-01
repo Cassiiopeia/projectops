@@ -114,6 +114,9 @@ def cmd_create_issue(args) -> int:
         applied = result.get("assignees", [])
         missing = [a for a in assignees if a not in applied]
         out = {**result, "summary": f"이슈 #{result.get('number')} 생성 완료", "body_length": len(body)}
+        skipped_labels = out.pop("skipped_labels", [])
+        if skipped_labels:
+            out["label_warning"] = f"레포에 없어 무시된 라벨: {', '.join(skipped_labels)}"
         if missing:
             out["assignee_warning"] = (
                 f"담당자 지정 일부 실패: {', '.join(missing)} (레포 협업자/권한 확인 필요). 이슈는 정상 생성됨."
@@ -303,7 +306,22 @@ def cmd_set_labels(args) -> int:
     labels = [l.strip() for l in args.labels.split(",") if l.strip()] if args.labels else []
     try:
         result = set_issue_labels(args.owner, args.repo, args.number, labels, pat)
-        return emit({**result, "summary": f"#{args.number} 라벨 전체 교체 (현재 {len(result['labels'])}개)"})
+        skipped = result.get("skipped", [])
+        if result.get("unchanged"):
+            # 적용할 라벨이 하나도 없어 기존 라벨을 그대로 둔 경우 — 성공으로 보고하면 교체된 줄 안다
+            return emit({
+                "ok": False,
+                "code": "no_valid_labels",
+                "error": f"레포에 없는 라벨뿐이라 교체하지 않았습니다 (기존 라벨 유지): {', '.join(skipped)}",
+                "labels": result["labels"],
+                "label_warning": f"레포에 없어 무시된 라벨: {', '.join(skipped)}",
+                "next": f"list-labels {args.owner} {args.repo}",
+            })
+        out = {"labels": result["labels"],
+               "summary": f"#{args.number} 라벨 전체 교체 (현재 {len(result['labels'])}개)"}
+        if skipped:
+            out["label_warning"] = f"레포에 없어 무시된 라벨: {', '.join(skipped)}"
+        return emit(out)
     except GitHubAPIError as e:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
 

@@ -67,6 +67,38 @@ def test_set_issue_labels_filters_unknown(monkeypatch):
     assert c["data"] == {"labels": ["작업중"]}  # 없는것 필터됨
 
 
+def test_set_issue_labels_all_unknown_keeps_existing(monkeypatch):
+    """#698: 요청 라벨이 전부 레포에 없으면 PUT 하지 않아 기존 라벨이 보존된다."""
+    monkeypatch.setattr(gh_client, "list_labels", lambda o, r, pat: ["작업전", "긴급"])
+    calls = _capture(monkeypatch, [{"name": "작업전"}])
+    result = gh_client.set_issue_labels("o", "r", 5, ["작업중"], "pat")
+    assert [c["method"] for c in calls] == ["GET"]  # PUT 없음
+    assert result["unchanged"] is True
+    assert result["labels"] == ["작업전"]
+    assert result["skipped"] == ["작업중"]
+
+
+def test_set_issue_labels_explicit_empty_still_clears(monkeypatch):
+    """빈 입력을 명시한 전체 제거는 기존 계약대로 동작한다."""
+    calls = _capture(monkeypatch, [])
+    result = gh_client.set_issue_labels("o", "r", 5, [], "pat")
+    assert calls[0]["method"] == "PUT" and calls[0]["data"] == {"labels": []}
+    assert result["unchanged"] is False
+
+
+def test_add_issue_labels_empty_input_reports_actual_labels(monkeypatch):
+    calls = _capture(monkeypatch, [{"name": "작업전"}, {"name": "긴급"}])
+    assert gh_client.add_issue_labels("o", "r", 5, [], "pat") == ["작업전", "긴급"]
+    assert [c["method"] for c in calls] == ["GET"]
+
+
+def test_create_issue_returns_skipped_labels(monkeypatch):
+    monkeypatch.setattr(gh_client, "list_labels", lambda o, r, pat: ["작업전"])
+    _capture(monkeypatch, {"number": 1, "html_url": "u", "title": "t", "assignees": []})
+    result = gh_client.create_issue("o", "r", "t", "b", ["작업전", "없는것"], "pat")
+    assert result["skipped_labels"] == ["없는것"]
+
+
 def test_add_assignees_returns_applied(monkeypatch):
     calls = _capture(monkeypatch, {"number": 5, "html_url": "u",
                                    "assignees": [{"login": "alice"}]})

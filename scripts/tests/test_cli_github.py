@@ -75,6 +75,36 @@ def test_add_labels_warns_unknown(monkeypatch):
     assert "헛것" in out["label_warning"]
 
 
+# --- 라벨 set: 전부 걸러지면 기존 라벨 보존 (#698) ---
+
+def test_set_labels_all_unknown_fails_without_clearing(monkeypatch):
+    rc, out = _run(monkeypatch, ["set-labels", "o", "r", "5", "작업중"],
+                   set_issue_labels=lambda o, r, n, labels, pat: {
+                       "labels": ["작업전"], "skipped": ["작업중"], "unchanged": True})
+    assert rc == 1
+    assert out["ok"] is False and out["code"] == "no_valid_labels"
+    assert out["labels"] == ["작업전"]  # 기존 라벨 그대로
+
+
+def test_set_labels_partial_unknown_warns(monkeypatch):
+    rc, out = _run(monkeypatch, ["set-labels", "o", "r", "5", "작업중,헛것"],
+                   set_issue_labels=lambda o, r, n, labels, pat: {
+                       "labels": ["작업중"], "skipped": ["헛것"], "unchanged": False})
+    assert rc == 0
+    assert "헛것" in out["label_warning"]
+
+
+def test_create_issue_warns_dropped_labels(monkeypatch, tmp_path):
+    body = tmp_path / "b.md"
+    body.write_text("본문", encoding="utf-8")
+    rc, out = _run(monkeypatch, ["create-issue", "o", "r", "제목", str(body), "헛것"],
+                   create_issue=lambda *a, **k: {
+                       "number": 1, "url": "u", "title": "t", "assignees": [],
+                       "skipped_labels": ["헛것"]})
+    assert rc == 0
+    assert "헛것" in out["label_warning"]
+
+
 # --- PR merge: verdict 분기 ---
 
 def test_merge_pr_success(monkeypatch):

@@ -135,19 +135,31 @@ def list_labels(owner: str, repo: str, pat: str) -> list[str]:
     return [item["name"] for item in items]
 
 
+def get_issue_labels(owner: str, repo: str, issue_number: int, pat: str) -> list[str]:
+    """이슈/PR에 현재 붙어 있는 라벨 이름 목록을 반환한다."""
+    items = _request(
+        "GET",
+        f"{_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}/labels?per_page=100",
+        None,
+        pat,
+    )
+    return [item["name"] for item in items]
+
+
 def add_issue_labels(owner: str, repo: str, issue_number: int, labels: list[str], pat: str) -> list[str]:
     """이슈/PR(GitHub API에선 둘 다 issue)에 라벨을 추가한다 (덮어쓰기 아님).
 
     PR도 GitHub API에서는 issue로 다뤄지므로 `/issues/{n}/labels`로 호출 가능.
     레포에 존재하지 않는 라벨은 사전 필터링해 422를 방지한다.
     반환: 이슈/PR에 현재 붙어 있는 모든 라벨 이름 리스트.
+    적용할 라벨이 없으면 POST 없이 현재 라벨을 그대로 돌려준다 (빈 목록으로 오보하지 않는다 — #698).
     """
     if not labels:
-        return []
+        return get_issue_labels(owner, repo, issue_number, pat)
     existing = set(list_labels(owner, repo, pat))
     filtered = [l for l in labels if l in existing]
     if not filtered:
-        return []
+        return get_issue_labels(owner, repo, issue_number, pat)
     items = _request(
         "POST",
         f"{_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}/labels",
@@ -181,19 +193,27 @@ def set_issue_labels(
 ) -> dict:
     """이슈의 라벨을 통째로 교체한다 (기존 라벨 전부 제거 후 새 배열 적용).
 
-    빈 배열이면 모든 라벨을 제거한다. 존재하지 않는 라벨은 사전 필터링해 422를 방지한다.
-    반환: 교체 후 이슈에 붙은 라벨 이름 리스트.
+    빈 배열을 명시하면 모든 라벨을 제거한다. 존재하지 않는 라벨은 사전 필터링해 422를 방지한다.
+    단, 요청한 라벨이 있는데 전부 레포에 없어 걸러졌다면 PUT 하지 않는다 —
+    빈 배열로 PUT 하면 기존 라벨(상태 라벨 등)이 조용히 사라지기 때문이다 (#698).
+    반환: {"labels": 교체 후(또는 변경 없이 유지된) 라벨, "skipped": 걸러진 라벨, "unchanged": 변경 여부}.
     """
+    skipped: list[str] = []
     if labels:
         existing = set(list_labels(owner, repo, pat))
+        skipped = [l for l in labels if l not in existing]
         labels = [l for l in labels if l in existing]
+        if not labels:
+            # 데이터 보존: 적용할 것이 하나도 없으면 기존 라벨을 건드리지 않는다
+            current = get_issue_labels(owner, repo, issue_number, pat)
+            return {"labels": current, "skipped": skipped, "unchanged": True}
     items = _request(
         "PUT",
         f"{_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}/labels",
         {"labels": labels},
         pat,
     )
-    return {"labels": [item["name"] for item in items]}
+    return {"labels": [item["name"] for item in items], "skipped": skipped, "unchanged": False}
 
 
 def create_issue(
@@ -201,9 +221,11 @@ def create_issue(
     labels: list[str], pat: str, assignees: list[str] | None = None,
 ) -> dict:
     """이슈를 생성하고 {number, url, title}을 반환한다."""
-    # 존재하지 않는 라벨은 422를 유발하므로 사전에 필터링
+    # 존재하지 않는 라벨은 422를 유발하므로 사전에 필터링하되, 버린 목록은 호출자가 알리도록 반환한다
+    skipped_labels: list[str] = []
     if labels:
         existing = list_labels(owner, repo, pat)
+        skipped_labels = [l for l in labels if l not in existing]
         labels = [l for l in labels if l in existing]
     payload: dict = {"title": title, "body": body, "labels": labels}
     if assignees:
@@ -216,6 +238,7 @@ def create_issue(
         "url": data["html_url"],
         "title": data["title"],
         "assignees": [u["login"] for u in data.get("assignees", [])],
+        "skipped_labels": skipped_labels,
     }
 
 
