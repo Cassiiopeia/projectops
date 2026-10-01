@@ -4,6 +4,8 @@ import { VALID_TYPES } from "../context.js";
 export const DEPLOY_TARGETS = ["docker-ssh", "vercel", "none"];
 export const PUBLISH_TARGETS = ["nexus", "npm", "github-packages"];
 export const INTENT_VALUES = ["app", "library", "both", "none", "manual"];
+// 허용 실행 모드 (#665) — 오타가 조용히 "복사 0건 성공"으로 끝나지 않게 한다.
+export const MODE_VALUES = ["full", "version", "workflows", "issues", "skills", "doctor", "interactive"];
 
 // argv(process.argv.slice(2)) → 파싱 결과. 오류 시 throw(호출부에서 exit 1).
 export function parseArgs(argv) {
@@ -28,7 +30,14 @@ export function parseArgs(argv) {
     const a = args.shift();
     switch (a) {
       case "-m": case "--mode":
-        result.mode = args.shift() ?? ""; break;
+      {
+        const v = (args.shift() ?? "").trim();
+        if (!MODE_VALUES.includes(v)) {
+          throw new CliError(`--mode 값은 ${MODE_VALUES.join(" | ")} 중 하나여야 합니다: '${v}'`);
+        }
+        result.mode = v;
+        break;
+      }
       case "-v": case "--version":
         // npm 관례: -v/--version 은 패키지 버전 출력. (초기 버전 지정은 --project-version)
         result.showVersion = true; break;

@@ -89,3 +89,12 @@ test("parsePathsCsv → Map, 무효 타입 throw", () => {
   assert.equal(m.get("react"), "client");
   assert.throws(() => parsePathsCsv("bogus=x"), CliError);
 });
+
+test("--mode 허용 값 외에는 CliError (#665)", () => {
+  for (const m of ["full", "version", "workflows", "issues", "skills", "doctor", "interactive"]) {
+    assert.equal(parseArgs(["--mode", m]).mode, m);
+  }
+  assert.throws(() => parseArgs(["--mode", "nope"]), CliError);
+  assert.throws(() => parseArgs(["-m", "ful"]), CliError);
+  assert.throws(() => parseArgs(["--mode"]), CliError);   // 값 누락
+});
