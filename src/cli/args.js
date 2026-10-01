@@ -1,4 +1,6 @@
 // CLI 인자 파싱 (.sh top-level while-case 등가) — template_integrator.sh 842~920.
+import { existsSync, statSync, realpathSync } from "node:fs";
+import { join, relative, isAbsolute } from "node:path";
 import { VALID_TYPES } from "../context.js";
 
 export const DEPLOY_TARGETS = ["docker-ssh", "vercel", "none"];
@@ -153,6 +155,29 @@ export function normalizePath(p) {
   s = s.replace(/\/+$/, "");   // 끝 /
   s = s.replace(/^\.\//, "");  // 앞 ./
   return s === "" ? "." : s;
+}
+
+// --paths 맵 검증 (#674) — 저장소 밖 경로는 version_manager가 그 파일을 실제로 수정하므로 가장 위험하다.
+//   · 절대경로·`..` 세그먼트 거부 (저장소 루트 기준 상대경로만)
+//   · --type 으로 고르지 않은 타입 키 거부
+//   · 존재하지 않는 폴더 거부 (심볼릭 링크로 밖을 가리키는 경우도 realpath 로 막는다)
+export function validatePathsMap(map, { root, types }) {
+  for (const [type, p] of map) {
+    if (!types.includes(type)) {
+      throw new CliError(`--paths 에 선택하지 않은 타입이 있습니다: '${type}' (선택한 타입: ${types.join(",") || "없음"})`);
+    }
+    if (p.startsWith("/") || /^[A-Za-z]:/.test(p) || p.split("/").includes("..")) {
+      throw new CliError(`--paths ${type}=${p} : 저장소 루트 기준 상대 경로여야 합니다 (절대경로, '..' 불가)`);
+    }
+    const abs = join(root, p);
+    if (!existsSync(abs) || !statSync(abs).isDirectory()) {
+      throw new CliError(`--paths ${type}=${p} : 존재하지 않는 폴더입니다`);
+    }
+    const rel = relative(realpathSync(root), realpathSync(abs));
+    if (rel.startsWith("..") || isAbsolute(rel)) {
+      throw new CliError(`--paths ${type}=${p} : 저장소 밖을 가리킵니다`);
+    }
+  }
 }
 
 // "flutter=app,react=client" → Map<type, normalizedPath>. 타입 검증(무효 → throw).

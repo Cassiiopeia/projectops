@@ -3,7 +3,7 @@
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync, existsSync } from "node:fs";
-import { parseArgs, parsePathsCsv, CliError } from "./cli/args.js";
+import { parseArgs, parsePathsCsv, validatePathsMap, CliError } from "./cli/args.js";
 import { HELP_TEXT } from "./cli/help.js";
 import { createContext } from "./context.js";
 import { PATHS } from "./core/paths.js";
@@ -130,8 +130,21 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
   const repoName = detectRepoName(cwd);
   trace.event("detect", "repo", repoName || "(미상)", { defaultBranch: branch, versionCode });
   // 경로 확정 (.sh resolve_project_paths 비대화형 경로 — --paths 우선 → 저장값 → 후보 1개 자동 → 루트 폴백)
+  let cliPaths;
+  try {
+    cliPaths = parsePathsCsv(opts.pathsCsv);
+    validatePathsMap(cliPaths, { root: cwd, types });   // #674 — 파일을 쓰기 전에 거른다
+  } catch (e) {
+    if (e instanceof CliError) {
+      console.error(e.message);
+      trace.mirrorStop();
+      disarmSignals();
+      return 1;
+    }
+    throw e;
+  }
   const paths = await resolveProjectPaths({
-    root: cwd, types, paths: parsePathsCsv(opts.pathsCsv),
+    root: cwd, types, paths: cliPaths,
     existingPaths: existing?.paths ?? new Map(), force: true, tty: false, io: {},
   });
 
