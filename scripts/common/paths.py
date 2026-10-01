@@ -126,6 +126,16 @@ def resolve_output_path(skill_id: str, forced_title: Optional[str] = None) -> di
     import subprocess
     from datetime import date
 
+    # 등록된 스킬만 받는다. `../../escape` 같은 값이 산출물 루트 밖으로 나가는 것을 막는다 (#713)
+    if skill_id not in EVIDENCE_SKILLS and skill_id not in DOCUMENT_SKILLS:
+        return {
+            "ok": False,
+            "code": "unknown_skill_id",
+            "error": f"등록되지 않은 skill_id: {skill_id!r}",
+            "known": sorted(EVIDENCE_SKILLS | DOCUMENT_SKILLS),
+            "hint": "새 산출물 스킬이면 scripts/common/paths.py 의 EVIDENCE_SKILLS/DOCUMENT_SKILLS 에 등록",
+        }
+
     from common.issue_number import (
         extract_from_path as in_extract_from_path,
         extract_from_branch, get_current_branch, resolve,

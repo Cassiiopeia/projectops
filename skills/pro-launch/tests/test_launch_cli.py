@@ -837,3 +837,19 @@ def test_repo_key_distinguishes_non_ascii_local_repos(tmp_path):
 def test_repo_key_keeps_plain_ascii_local_name(tmp_path):
     """기존 ASCII 폴더명 키는 그대로 — 이미 쌓인 상태가 끊기지 않는다."""
     assert common_state.repo_key(_repo(tmp_path, "my-app", "")) == "my-app"
+
+
+# ── #713: 없는 경로·빈 key 를 조용히 수용하지 않는다 ───────────────────────
+
+def test_access_unset_requires_key(tmp_path):
+    proj = _repo(tmp_path)
+    rc, out, _ = run_cli("access", "unset", "--root", str(proj), home=tmp_path / "home")
+    d = _j(out)
+    assert rc == 1 and d["ok"] is False and d["code"] == "key_required"
+
+
+def test_get_output_path_rejects_missing_root(tmp_path):
+    rc, out, _ = run_cli("get-output-path", "--root", str(tmp_path / "없는" / "경로"),
+                         home=tmp_path / "home")
+    d = _j(out)
+    assert rc == 1 and d["code"] == "not_found"

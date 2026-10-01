@@ -64,6 +64,36 @@ def strip_issue_decorations(title: str) -> str:
     return stripped or title.strip()
 
 
+# 직접 지정할 수 있는 커밋 타입. 제목 태그 매핑 값 + 컨벤션에서 쓰는 일반 타입.
+# 끝에 `!` 가 붙으면 호환성 파괴(major) 표시라 함께 허용한다.
+VALID_COMMIT_TYPES = frozenset(set(COMMIT_TYPE_MAP.values()) | {
+    "feat", "fix", "docs", "chore", "refactor", "test", "design", "style", "perf", "build", "ci", "revert",
+})
+
+
+def commit_type_arg(value: str) -> str:
+    """`--type` 값을 검증하는 argparse type. 모르는 타입이 커밋 메시지에 박히는 것을 막는다 (#713)."""
+    import argparse
+    base = value[:-1] if value.endswith("!") else value
+    if base not in VALID_COMMIT_TYPES:
+        raise argparse.ArgumentTypeError(
+            f"알 수 없는 커밋 타입: {value!r} (가능: {', '.join(sorted(VALID_COMMIT_TYPES))})")
+    return value
+
+
+def date_arg(value: str) -> str:
+    """`--date` 값이 실재하는 YYYYMMDD 인지 검증하는 argparse type (#713)."""
+    import argparse
+    from datetime import datetime
+    try:
+        if not re.fullmatch(r"\d{8}", value):
+            raise ValueError
+        datetime.strptime(value, "%Y%m%d")
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"YYYYMMDD 형식의 실제 날짜여야 합니다: {value!r}")
+    return value
+
+
 def infer_commit_type(issue_title: str, type_map: dict | None = None) -> str:
     """제목의 [태그]로 커밋 타입을 정한다 — 버그 이슈면 fix, 기능이면 feat.
 

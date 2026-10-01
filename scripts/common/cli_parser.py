@@ -39,6 +39,17 @@ class JSONArgumentParser(argparse.ArgumentParser):
         raise _BadArgsExit(message or "exit", self)
 
 
+def positive_int(value: str) -> int:
+    """1 이상의 정수만 받는 argparse type. `--limit -1`·`0` 이 조용히 빈 결과를 내지 않게 한다 (#713)."""
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        raise argparse.ArgumentTypeError(f"정수가 필요합니다: {value!r}")
+    if n < 1:
+        raise argparse.ArgumentTypeError(f"1 이상이어야 합니다: {n}")
+    return n
+
+
 def _list_subcommands(parser: argparse.ArgumentParser) -> list:
     subs = []
     for action in parser._actions:
