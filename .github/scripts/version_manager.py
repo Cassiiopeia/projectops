@@ -23,7 +23,8 @@ import re
 import sys
 from pathlib import Path
 
-VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+# \Z: `$`는 끝 개행("1.2.3\n")을 허용하므로 쓰지 않는다. 앞자리 0(01.02.03)도 거부한다 (#685)
+VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\Z")
 VERSION_YML = Path("version.yml")
 
 

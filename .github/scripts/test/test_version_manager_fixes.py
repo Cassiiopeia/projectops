@@ -52,3 +52,21 @@ def test_runs_on_system_python(tmp_path):
     rc, out, err = run_vm(tmp_path, "get", python="/usr/bin/python3")
     assert rc == 0, err
     assert out.strip().splitlines()[-1] == "1.2.3"
+
+
+# ── #685: set 버전 검증 (개행·앞자리 0) ────────────────────────────────
+@pytest.mark.parametrize("bad", ["1.2.3\n", "1.2.3 ", " 1.2.3", "01.02.03", "1.02.3", "1.2", "1.2.3.4", "v1.2.3"])
+def test_set_rejects_malformed_version(tmp_path, bad):
+    write(tmp_path / "version.yml", YML_BASIC)
+    rc, out, err = run_vm(tmp_path, "set", bad)
+    assert rc == 1, (out, err)
+    # 거부했다면 파일은 한 바이트도 바뀌면 안 된다
+    assert (tmp_path / "version.yml").read_bytes() == YML_BASIC.encode()
+
+
+@pytest.mark.parametrize("ok", ["0.0.0", "0.1.0", "10.20.30"])
+def test_set_accepts_valid_version(tmp_path, ok):
+    write(tmp_path / "version.yml", YML_BASIC)
+    rc, out, err = run_vm(tmp_path, "set", ok)
+    assert rc == 0, err
+    assert out.strip().splitlines()[-1] == ok
