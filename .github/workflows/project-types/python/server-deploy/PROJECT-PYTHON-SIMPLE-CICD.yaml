@@ -225,6 +225,7 @@ jobs:
       - name: Deploy
         uses: appleboy/ssh-action@v1.0.3
         env:
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
           SSH_AUTH_METHOD: ${{ env.SSH_AUTH_METHOD }}
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -234,7 +235,7 @@ jobs:
           port: ${{ env.SSH_PORT }}
           command_timeout: ${{ env.SSH_COMMAND_TIMEOUT }}
           timeout: ${{ env.SSH_CONNECTION_TIMEOUT }}
-          envs: SSH_AUTH_METHOD
+          envs: SSH_AUTH_METHOD,SERVER_PASSWORD
           script: |
             set -e
 
@@ -243,7 +244,7 @@ jobs:
             # ============================================================
             echo "🔧 환경변수 설정.."
             export PATH=$PATH:/usr/local/bin
-            export PW=${{ secrets.SERVER_PASSWORD }}
+            export PW="${SERVER_PASSWORD}"
 
             # 🔐 SSH 인증 방식에 따른 sudo 추상화
             #   password 모드: echo $PW | sudo -S  (Synology 등 sudo 비밀번호 필요 서버)

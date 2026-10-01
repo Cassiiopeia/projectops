@@ -322,6 +322,7 @@ jobs:
       - name: 서버에 배포
         uses: appleboy/ssh-action@v1.0.3
         env:
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
           SSH_AUTH_METHOD: ${{ env.SSH_AUTH_METHOD }}
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -329,13 +330,13 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ env.SSH_PORT }}
-          envs: SSH_AUTH_METHOD
+          envs: SSH_AUTH_METHOD,SERVER_PASSWORD
           script: |
             set -e
 
             # 환경 변수 설정 (배포 서버용)
             export PATH=$PATH:/usr/local/bin
-            export PW="${{ secrets.SERVER_PASSWORD }}"
+            export PW="${SERVER_PASSWORD}"
 
             # 🔐 SSH 인증 방식에 따른 sudo 추상화
             SSH_AUTH_METHOD="${SSH_AUTH_METHOD:-password}"
@@ -923,6 +924,7 @@ jobs:
         if: steps.check_branch.outputs.exists == 'true'
         uses: appleboy/ssh-action@v1.0.3
         env:
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
           SSH_AUTH_METHOD: ${{ env.SSH_AUTH_METHOD }}
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -930,13 +932,13 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ env.SSH_PORT }}
-          envs: SSH_AUTH_METHOD
+          envs: SSH_AUTH_METHOD,SERVER_PASSWORD
           script: |
             set -e
 
             # 환경 변수 설정 (배포 서버용)
             export PATH=$PATH:/usr/local/bin
-            export PW="${{ secrets.SERVER_PASSWORD }}"
+            export PW="${SERVER_PASSWORD}"
 
             # 🔐 SSH 인증 방식에 따른 sudo 추상화
             SSH_AUTH_METHOD="${SSH_AUTH_METHOD:-password}"
@@ -1250,6 +1252,7 @@ jobs:
       - name: 컨테이너 & 이미지 삭제
         uses: appleboy/ssh-action@v1.0.3
         env:
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
           SSH_AUTH_METHOD: ${{ env.SSH_AUTH_METHOD }}
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -1257,11 +1260,11 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ env.SSH_PORT }}
-          envs: SSH_AUTH_METHOD
+          envs: SSH_AUTH_METHOD,SERVER_PASSWORD
           script: |
             # 환경 변수 설정 (배포 서버용)
             export PATH=$PATH:/usr/local/bin
-            export PW="${{ secrets.SERVER_PASSWORD }}"
+            export PW="${SERVER_PASSWORD}"
 
             # 🔐 SSH 인증 방식에 따른 sudo 추상화
             SSH_AUTH_METHOD="${SSH_AUTH_METHOD:-password}"
@@ -1678,6 +1681,7 @@ jobs:
         if: steps.branch_info.outputs.branch_exists == 'true'
         uses: appleboy/ssh-action@v1.0.3
         env:
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
           SSH_AUTH_METHOD: ${{ env.SSH_AUTH_METHOD }}
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -1685,13 +1689,13 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ env.SSH_PORT }}
-          envs: SSH_AUTH_METHOD
+          envs: SSH_AUTH_METHOD,SERVER_PASSWORD
           script: |
             set -e
 
             # 환경 변수 설정 (배포 서버용)
             export PATH=$PATH:/usr/local/bin
-            export PW="${{ secrets.SERVER_PASSWORD }}"
+            export PW="${SERVER_PASSWORD}"
 
             # 🔐 SSH 인증 방식에 따른 sudo 추상화
             SSH_AUTH_METHOD="${SSH_AUTH_METHOD:-password}"
@@ -2014,6 +2018,7 @@ jobs:
       - name: 컨테이너 & 이미지 삭제
         uses: appleboy/ssh-action@v1.0.3
         env:
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
           SSH_AUTH_METHOD: ${{ env.SSH_AUTH_METHOD }}
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -2021,11 +2026,11 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ env.SSH_PORT }}
-          envs: SSH_AUTH_METHOD
+          envs: SSH_AUTH_METHOD,SERVER_PASSWORD
           script: |
             # 환경 변수 설정 (배포 서버용)
             export PATH=$PATH:/usr/local/bin
-            export PW="${{ secrets.SERVER_PASSWORD }}"
+            export PW="${SERVER_PASSWORD}"
 
             # 🔐 SSH 인증 방식에 따른 sudo 추상화
             SSH_AUTH_METHOD="${SSH_AUTH_METHOD:-password}"
