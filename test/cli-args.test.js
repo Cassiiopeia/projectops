@@ -113,3 +113,10 @@ test("--deploy-branch 는 안전한 브랜치명만 허용 (#676)", () => {
     assert.throws(() => parseArgs(["--deploy-branch", bad]), CliError, bad);
   }
 });
+
+test("--deploy-branch 는 한글 등 유니코드 글자·숫자를 허용하되 위험 문자는 계속 거부 (#719)", () => {
+  for (const ok of ["개발", "release/개발-1.0", "feat_한글2", "ブランチ"]) assert.equal(parseArgs(["--deploy-branch", ok]).deployBranch, ok);
+  for (const bad of ["개발 브랜치", "개발;rm", "개발..x", "개발/", "개발.lock", "-개발", "개발$(id)", "개발\"x", "개발`x`", "개발\nx"]) {
+    assert.throws(() => parseArgs(["--deploy-branch", bad]), CliError, bad);
+  }
+});
