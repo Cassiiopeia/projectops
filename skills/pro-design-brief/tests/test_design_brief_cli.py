@@ -311,3 +311,53 @@ def test_markdown_carries_facts_and_reachability(tmp_path):
 def test_banned_word_is_a_word_not_a_substring(text, hit):
     """금지어 '아이'가 '아이콘'에 걸리던 오탐 (실측, #636)."""
     assert db._banned_hit("아이", text) is hit
+
+
+# ── ascii · board · copy-lint 입력 검증 (#709) ────────────────────────────
+
+def _raw(*args, home: Path, cwd: Path | None = None, timeout: int = 15):
+    """무한 루프를 잡으려고 제한 시간을 둔다. 트레이스백이 있으면 stderr 로 보인다."""
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8", "HOME": str(home), "USERPROFILE": str(home)}
+    r = subprocess.run([sys.executable, str(CLI), *args], capture_output=True, text=True,
+                       encoding="utf-8", env=env, cwd=str(cwd) if cwd else None, timeout=timeout)
+    return r.returncode, r.stdout, r.stderr
+
+
+@pytest.mark.parametrize("spec", ['{"width":-5,"rows":["x"]}', '{"width":0}', '{"width":"abc"}',
+                                  '{"width":true}', '[]', '{"rows":"x"}'])
+def test_ascii_bad_spec_is_json_error_and_terminates(tmp_path, spec):
+    rc, out, err = _raw("ascii", "--spec", spec, home=tmp_path)
+    d = json.loads(out.strip().splitlines()[-1])
+    assert rc == 1 and d["ok"] is False and d["code"] == "bad_spec", (spec, out, err)
+    assert "Traceback" not in err
+
+
+def test_ascii_fit_terminates_even_with_negative_width():
+    assert db._fit("", -5, "left") == ""
+
+
+def test_ascii_unknown_keys_are_reported(tmp_path):
+    d = run_cli("ascii", "--spec", '{"boxes":["x"],"width":10,"rows":["a"]}', home=tmp_path)
+    assert d["ok"] is True and "boxes" in d["warnings"][0], d
+
+
+def test_ascii_out_creates_missing_parent_folder(tmp_path):
+    target = tmp_path / "없는" / "폴더" / "x.txt"
+    d = run_cli("ascii", "--spec", '{"width":10,"rows":["a"]}', "--out", str(target), home=tmp_path)
+    assert d["ok"] is True and target.is_file(), d
+
+
+def test_board_top_level_must_be_object(tmp_path):
+    f = tmp_path / "list.json"
+    f.write_text("[1,2]")
+    rc, out, err = _raw("board", "--data", str(f), "--out", str(tmp_path / "o4"), home=tmp_path)
+    d = json.loads(out.strip().splitlines()[-1])
+    assert d["code"] == "bad_data" and "Traceback" not in err, (out, err)
+
+
+def test_copy_lint_rejects_non_object_rows(tmp_path):
+    f = tmp_path / "junk.json"
+    f.write_text('["str", 1, null]')
+    rc, out, err = _raw("copy-lint", "--file", str(f), home=tmp_path)
+    d = json.loads(out.strip().splitlines()[-1])
+    assert d["code"] == "bad_data" and "Traceback" not in err, (out, err)

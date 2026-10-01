@@ -586,6 +586,10 @@ def cmd_board(args) -> int:
         data = json.loads(data_f.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
         return emit({"ok": False, "code": "bad_data", "error": f"데이터 JSON 을 읽지 못했습니다: {e}"})
+    if not isinstance(data, dict):
+        return emit({"ok": False, "code": "bad_data",
+                     "error": f"보드 데이터는 JSON 객체여야 합니다 ({type(data).__name__})",
+                     "next": "SKILL.md 의 보드 데이터 형식(summary·screens·alternatives …)을 따른다"})
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     base = data_f.parent   # 데이터 안의 상대 그림 경로는 데이터 파일 기준
@@ -684,6 +688,10 @@ def cmd_copy_lint(args) -> int:
         return emit({"ok": False, "code": "bad_file", "error": str(e)})
     if isinstance(rows, dict):
         rows = rows.get("copy") or []
+    if not isinstance(rows, list) or not all(isinstance(r, dict) for r in rows):
+        return emit({"ok": False, "code": "bad_data",
+                     "error": "문구표는 객체 배열이거나 copy 배열을 가진 객체여야 합니다",
+                     "next": '예: [{"where":"버튼","current":"확인","candidates":["저장"]}]'})
     banned = []
     if args.banned:
         bf = Path(args.banned)
@@ -720,7 +728,8 @@ def text_width(s: str) -> int:
 
 
 def _fit(s: str, width: int, align: str) -> str:
-    while text_width(s) > width:
+    # s 가 비었는데 width 가 음수면 영원히 안 끝난다 — s 가 있을 때만 줄인다 (#709)
+    while s and text_width(s) > width:
         s = s[:-1]
     gap = width - text_width(s)
     if align == "center":
@@ -731,8 +740,25 @@ def _fit(s: str, width: int, align: str) -> str:
     return s + " " * gap
 
 
+_ASCII_KEYS = ("title", "rows", "width", "caption")
+
+
+def _ascii_width(spec: dict) -> int:
+    """width 는 1 이상 정수만 받는다. 없으면 30. 아니면 ValueError (#709)."""
+    raw = spec.get("width")
+    if raw is None or raw == "":
+        return 30
+    if isinstance(raw, bool) or not isinstance(raw, (int, str)) \
+            or (isinstance(raw, str) and not re.fullmatch(r"\s*-?\d+\s*", raw)):
+        raise ValueError(f"width 는 1 이상 정수여야 합니다 ({raw!r})")
+    n = int(raw)
+    if n < 1:
+        raise ValueError(f"width 는 1 이상 정수여야 합니다 ({raw!r})")
+    return n
+
+
 def render_ascii(spec: dict) -> str:
-    width = int(spec.get("width") or 30)
+    width = _ascii_width(spec)
     lines = ["┌" + "─" * width + "┐"]
     if spec.get("title"):
         lines.append("│" + _fit(" " + str(spec["title"]), width, "left") + "│")
@@ -754,17 +780,41 @@ def render_ascii(spec: dict) -> str:
 
 def cmd_ascii(args) -> int:
     try:
-        spec = json.loads(Path(args.spec).read_text(encoding="utf-8")) if Path(args.spec).is_file() \
-            else json.loads(args.spec)
+        spec_f = Path(args.spec)
+        is_file = spec_f.is_file()
+    except OSError:      # 긴 JSON 문자열은 파일 이름으로 쓸 수 없다
+        is_file = False
+    try:
+        spec = json.loads(spec_f.read_text(encoding="utf-8")) if is_file else json.loads(args.spec)
     except (OSError, json.JSONDecodeError) as e:
+        return emit({"ok": False, "code": "bad_spec", "error": str(e),
+                     "next": "SKILL.md 의 ascii 스펙 {title, rows, width, caption} 형식으로 다시 준다"})
+    if not isinstance(spec, dict):
+        return emit({"ok": False, "code": "bad_spec",
+                     "error": f"스펙은 JSON 객체여야 합니다 ({type(spec).__name__})",
+                     "next": '예: {"width":24,"rows":["로그인"]}'})
+    if not isinstance(spec.get("rows") or [], list):
+        return emit({"ok": False, "code": "bad_spec", "error": "rows 는 배열이어야 합니다"})
+    try:
+        width = _ascii_width(spec)
+    except ValueError as e:
         return emit({"ok": False, "code": "bad_spec", "error": str(e)})
     text = render_ascii(spec)
     body = text.split("\n")
     widths = {text_width(l) for l in body[:-1 if spec.get("caption") else None]}
-    out = {"ascii": text, "width": int(spec.get("width") or 30) + 2, "aligned": len(widths) == 1,
+    out = {"ascii": text, "width": width + 2, "aligned": len(widths) == 1,
            "summary": f"{len(body)}줄 와이어"}
+    unknown = sorted(k for k in spec if k not in _ASCII_KEYS)
+    if unknown:
+        # 모르는 키는 조용히 무시되어 빈 박스만 나온다 — 알려 준다
+        out["warnings"] = [f"모르는 키 {unknown} 는 무시했습니다 (쓸 수 있는 키: {', '.join(_ASCII_KEYS)})"]
     if args.out:
-        Path(args.out).write_text(text + "\n", encoding="utf-8")
+        try:
+            out_f = Path(args.out)
+            out_f.parent.mkdir(parents=True, exist_ok=True)
+            out_f.write_text(text + "\n", encoding="utf-8")
+        except OSError as e:
+            return emit({"ok": False, "code": "write_failed", "error": str(e), "ascii": text})
         out["file"] = args.out
     return emit(out)
 
