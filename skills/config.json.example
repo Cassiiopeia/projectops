@@ -100,5 +100,23 @@
         "designer": "김디자인"
       }
     ]
+  },
+  "launch": {
+    "credentials": {
+      "my-server": {
+        "kind": "ssh",
+        "ssh_server": "{ssh 섹션의 서버 name}",
+        "scope": "test-only",
+        "use_when": "{언제 써도 되는지 — 사용자가 허용한 범위 그대로}",
+        "notes": "{지켜야 할 이름 규칙 · 포트 범위 · 서버에 있는 운영 서비스}"
+      },
+      "my-registry": {
+        "kind": "dockerhub",
+        "username": "{username}",
+        "token": "{access token}",
+        "scope": "test-only",
+        "use_when": "{예: 배포 워크플로 테스트에서 Secret 으로 등록할 때}"
+      }
+    }
   }
 }

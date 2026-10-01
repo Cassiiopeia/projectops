@@ -79,6 +79,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
 | `render snapshot` · `render run` | 코드로 상태를 그려 찍는다 — 실행 · 수집 · 청소 · **흔적 검사** |
 | `http` | 단건 HTTP 요청 |
 | `access show\|set\|unset` · `db` · `logs` | 서버에 붙는 법 기록 · SQL · 로그 |
+| `cred list\|show\|set\|unset` · `ssh` | **이름 붙은 자격증명 저장**(다음 실행에서 다시 묻지 않는다) · 저장된 서버로 원격 명령 |
 | `shrink` | 이슈 첨부용 축소 · WebP |
 | `recall` · `learn` · `forget` | **이 컴퓨터에서 먹힌 조작 방식**을 꺼낸다 · 남긴다 · 지운다 |
 | `get-output-path` | 이번 실행 자리 + `env.sh` |
@@ -166,8 +167,43 @@ source "{env_file 값}"
 {PYTHON} {SCRIPTS}/launch_cli.py logs --tail 100 --grep ERROR
 ```
 
-접속 방법은 **네가 코드를 읽어 정하고 `access` 에 적는다.** 비밀번호는 값이 아니라
-`password_env` 로 어디서 읽을지만 적는다(값을 적으면 거절한다). 자세한 것은 `references/server.md`.
+접속 방법은 **네가 코드를 읽어 정하고 `access` 에 적는다.** `access.json` 에는 비밀을 적지 않는다
+(값을 적으면 거절한다). 비밀은 아래 **자격증명 저장소**에 두고 `access` 에는 `{"cred":"이름"}` 만 적는다.
+자세한 것은 `references/server.md`.
+
+### 자격증명 — 한 번 저장하면 다음 실행에서 다시 묻지 않는다
+
+`pro-ssh` · `pro-github` 가 `~/.projectops/config/config.json` 에 서버·PAT 를 두고 쓰는 것과 같은 방식이다.
+`launch.credentials` 에 **이름 붙여** 값까지 저장하고(파일은 600), 목록·조회에서는 값이 `<저장됨>` 으로 가려진다.
+
+```bash
+{PYTHON} {SCRIPTS}/launch_cli.py cred list                     # 작업 시작 때 한 번 — 무엇을 쓸 수 있나
+{PYTHON} {SCRIPTS}/launch_cli.py cred show --name synology     # 값은 가려서 보여 준다
+{PYTHON} {SCRIPTS}/launch_cli.py cred set --name synology --json '{"kind":"ssh","ssh_server":"synology-nas",
+  "use_when":"서버 배포 QA","scope":"test-only","notes":"운영 컨테이너가 있으니 pops-qa- 접두사만"}'
+{PYTHON} {SCRIPTS}/launch_cli.py ssh --cred synology --sudo --command 'SUDO docker ps'   # 비밀번호 sudo 도 된다
+{PYTHON} {SCRIPTS}/launch_cli.py logs --cred synology --command 'sshpass -e ssh -p $CRED_PORT $CRED_USER@$CRED_HOST "docker logs --tail 100 app"'
+{PYTHON} {SCRIPTS}/launch_cli.py db --cred pg --sql "select 1"   # host·user·password 를 채운다
+{PYTHON} {SCRIPTS}/launch_cli.py http --cred api --url /me        # token 이면 Authorization: Bearer
+```
+
+| 항목 | 의미 |
+|---|---|
+| `kind` | `ssh` · `dockerhub` · `db` · `http` · `github-org` · `other` |
+| `ssh_server` | `pro-ssh` 에 등록된 서버 이름. 있으면 host·port·user·password 를 거기서 가져온다 — **비밀번호는 한 곳에만** 둔다 |
+| `use_when` | 이 자격증명을 **언제 써도 되는지**(근거). 사용자가 허용한 범위를 그대로 적는다 |
+| `scope` | `test-only` · `test-ok` · `readonly` … 허용 범위 |
+| `notes` | 지켜야 할 이름 규칙·포트 범위·서버에 있는 운영 서비스 등 알아둘 것 |
+
+**agent 판단 규칙**
+- 서버·DB·레지스트리를 만지기 전에 `cred list` 를 보고 **`use_when` 이 지금 하려는 일에 맞는 것만** 쓴다.
+  맞는 것이 없으면 추측해서 다른 것을 쓰지 말고 사용자에게 묻는다.
+- `scope` · `notes` 를 읽고 그 안에서만 움직인다(예: 테스트 이름 접두사, 지우는 것은 내가 만든 것만).
+- 사용자가 새 접속 정보를 주면 **바로 `cred set` 으로 저장**하고 `use_when` · `scope` · `notes` 를 사용자 말 그대로 채운다.
+  다음에 다시 묻지 않는 것이 목적이다.
+- 결과·보고·이슈·커밋에 값을 옮기지 않는다. `cred show --reveal` 은 정말 필요할 때만.
+- 명령 문자열에는 비밀을 적지 않고 `$CRED_HOST` · `$CRED_USER` · `$CRED_PASSWORD` · `$CRED_TOKEN` · `$SSHPASS` 환경변수를 쓴다.
+  출력에 값이 섞이면 `***` 로 가려진다.
 
 ## 줄이기
 
@@ -210,7 +246,8 @@ source "{env_file 값}"
 
 | 자리 | 담는 것 |
 |---|---|
-| `~/.projectops/launch/<owner__repo>/` | devices.json · browser.json · access.json · knowledge.json · `.browser-profile/` · `shots/` |
+| `~/.projectops/launch/<owner__repo>/` | devices.json · browser.json · access.json(**비밀 없음**) · knowledge.json · `.browser-profile/` · `shots/` |
+| `~/.projectops/config/config.json` → `launch.credentials` | **자격증명**(값 포함, 파일 600). `pro-ssh`·`pro-github` 와 같은 파일 |
 | `~/.projectops/launch/_machine/` | knowledge.json — 이 컴퓨터 전체에 해당하는 방식 |
 | `~/.projectops/launch/.venv` | Playwright · Pillow (옛 `agent-test/.venv` 가 있으면 그것을 쓴다) |
 

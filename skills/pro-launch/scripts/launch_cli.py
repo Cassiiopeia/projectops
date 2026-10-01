@@ -55,6 +55,7 @@ from common.state import (launch_file, migrate_launch,  # noqa: E402
 # 같은 스킬 안의 보조 모듈 — 스크립트로 불리든 테스트가 import 하든 찾게 한다
 if str(_HERE.parent) not in sys.path:
     sys.path.insert(0, str(_HERE.parent))
+import credentials  # noqa: E402
 import knowledge  # noqa: E402
 import stealth  # noqa: E402
 
@@ -1526,6 +1527,17 @@ def cmd_http(args) -> int:
         url = base.rstrip("/") + "/" + url.lstrip("/")
 
     headers = {"Accept": "application/json"}
+    cred, err = _load_cred(getattr(args, "cred", None))
+    if err:
+        return out(err)
+    if cred:
+        # 저장된 토큰·계정으로 Authorization 을 만든다 (직접 준 --header 가 있으면 그것이 이긴다)
+        if cred.get("token"):
+            headers["Authorization"] = f"Bearer {cred['token']}"
+        elif cred.get("username") and cred.get("password"):
+            import base64
+            headers["Authorization"] = "Basic " + base64.b64encode(
+                f"{cred['username']}:{cred['password']}".encode()).decode()
     for h in args.header or []:
         if ":" not in h:
             return out({"ok": False, "code": "bad_header",
@@ -1572,6 +1584,138 @@ def cmd_http(args) -> int:
         "elapsed_ms": r["elapsed_ms"], "saved": saved,
         "summary": f"{args.method.upper()} {url} → {r['status']} ({r['elapsed_ms']}ms)",
     })
+
+
+# =========================================================================
+# cred · ssh — 이름 붙은 자격증명을 저장해 두고 다음 실행에서 다시 쓴다
+# =========================================================================
+#
+# pro-ssh · pro-github 가 config.json 에 서버·PAT 를 두고 쓰는 것과 같은 방식이다.
+# 비밀은 사용자 홈의 config.json(launch.credentials) 한 곳에만 두고, access.json 에는 이름만 적는다.
+
+def _load_cred(name: str | None):
+    """(자격증명, None) 또는 (None, 오류 JSON 을 낼 payload)."""
+    if not name:
+        return None, None
+    try:
+        return credentials.resolve(name), None
+    except credentials.CredError as e:
+        return None, {"ok": False, "code": e.code, "error": e.message,
+                      "next": "cred list  # 저장된 자격증명과 use_when 을 본다"}
+
+
+def _cred_from_profile(args, saved) -> str | None:
+    """--cred 가 없으면 access 기록에 적힌 cred 이름을 쓴다."""
+    if getattr(args, "cred", None):
+        return args.cred
+    return saved.get("cred") if isinstance(saved, dict) else None
+
+
+def cmd_cred(args) -> int:
+    """자격증명을 저장하고 꺼낸다. 값은 config.json 에만 남고 목록·조회에서는 가려진다."""
+    if args.action == "list":
+        allc = credentials.load_all()
+        items = []
+        for n, e in sorted(allc.items()):
+            items.append({"name": n, "kind": e.get("kind"), "scope": e.get("scope"),
+                          "use_when": e.get("use_when"), "has_secret": bool(credentials.secret_values(e))
+                          or bool(e.get("ssh_server"))})
+        return out({"credentials": items, "count": len(items),
+                    "summary": (f"{len(items)}개 저장됨" if items else "저장된 자격증명이 없습니다"),
+                    "next": ("use_when · scope 가 지금 하려는 일에 맞는 것만 쓴다. cred show --name 이름"
+                             if items else "cred set --name 이름 --json '{\"kind\":\"ssh\",...}'")})
+
+    try:
+        if args.action == "show":
+            entry = credentials.resolve(args.name) if args.name else None
+            if not entry:
+                return out({"ok": False, "code": "name_required", "error": "--name 이 필요합니다"})
+            return out({"name": args.name, "credential": credentials.public_view(entry, args.reveal),
+                        "summary": f"{args.name} ({entry.get('kind') or 'kind 없음'})",
+                        "notes": "값은 가려서 보여 준다. 실행에는 --cred 로 넘기면 된다" if not args.reveal else None})
+
+        if args.action == "set":
+            name = credentials.validate_name(args.name)
+            try:
+                fields = json.loads(args.json_value) if args.json_value else None
+            except json.JSONDecodeError as e:
+                return out({"ok": False, "code": "bad_json", "error": f"--json 이 올바르지 않습니다: {e}"})
+            f = credentials.save_credential(name, fields or {}, replace=args.replace)
+            saved = credentials.load_all().get(name, {})
+            missing = [k for k in ("kind", "use_when") if not saved.get(k)]
+            return out({"file": str(f), "name": name, "credential": credentials.public_view(saved),
+                        "summary": f"{name} 저장 완료",
+                        "hint": (f"{'·'.join(missing)} 를 채워 두면 agent 가 언제 써도 되는지 판단할 수 있다"
+                                 if missing else None)})
+
+        if args.action == "unset":
+            ok = credentials.delete_credential(credentials.validate_name(args.name))
+            return out({"name": args.name, "ok": ok, "code": "ok" if ok else "not_found",
+                        "summary": f"{args.name} 지움" if ok else f"{args.name} 가 없습니다"})
+    except credentials.CredError as e:
+        return out({"ok": False, "code": e.code, "error": e.message})
+    return out({"ok": False, "code": "unknown_action", "error": args.action})
+
+
+def cmd_ssh(args) -> int:
+    """저장된 서버 자격증명으로 원격 명령을 실행한다. 비밀번호는 명령줄·출력에 드러나지 않는다.
+
+    --sudo 면 원격에서 `SUDO <명령>` 을 쓸 수 있다 (비밀번호가 필요한 sudo, PATH 에 /usr/local/bin 포함).
+    """
+    cred, err = _load_cred(args.cred)
+    if err:
+        return out(err)
+    if not cred:
+        return out({"ok": False, "code": "cred_required", "error": "--cred 가 필요합니다",
+                    "next": "cred list"})
+    if not args.command:
+        return out({"ok": False, "code": "command_required", "error": "--command 가 필요합니다"})
+    host, user = cred.get("host"), cred.get("user")
+    if not host:
+        return out({"ok": False, "code": "host_missing",
+                    "error": f"'{args.cred}' 에 host 가 없습니다 (ssh_server 참조 또는 host 를 적는다)"})
+    password = cred.get("password")
+    key_path = cred.get("key_path")
+    dest = f"{user}@{host}" if user else host
+    ssh = ["ssh", "-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=20"]
+    if cred.get("port"):
+        ssh += ["-p", str(cred["port"])]
+    env = dict(os.environ)
+    if key_path:
+        ssh += ["-i", os.path.expanduser(str(key_path)), "-o", "BatchMode=yes"]
+        argv_prefix = []
+    elif password:
+        if not shutil.which("sshpass"):
+            return out({"ok": False, "code": "sshpass_missing", "error": "비밀번호 접속에는 sshpass 가 필요합니다",
+                        "install": "brew install hudochenkov/sshpass/sshpass  (또는 key_path 로 키 접속)"})
+        env["SSHPASS"] = str(password)
+        argv_prefix = ["sshpass", "-e"]
+    else:
+        argv_prefix = []                              # 에이전트 키·기본 키에 맡긴다
+
+    remote = args.command
+    stdin = None
+    if args.sudo:
+        if not password:
+            return out({"ok": False, "code": "sudo_password_missing",
+                        "error": "--sudo 에는 저장된 password 가 필요합니다"})
+        # 비밀번호는 표준입력으로만 넘긴다 — 원격 명령줄(ps)에 남지 않는다
+        remote = ('export PATH=$PATH:/usr/local/bin; IFS= read -r PW; '
+                  'SUDO() { echo "$PW" | sudo -S -p "" "$@"; }; ' + args.command)
+        stdin = str(password) + "\n"
+    try:
+        r = subprocess.run(argv_prefix + ssh + [dest, remote], input=stdin, env=env,
+                           capture_output=True, text=True, timeout=args.timeout)
+    except subprocess.TimeoutExpired:
+        return out({"ok": False, "code": "ssh_timeout", "error": f"응답 없음 ({args.timeout}초)"})
+    stdout = credentials.mask(r.stdout, cred)
+    stderr = credentials.mask(r.stderr, cred)
+    ok = r.returncode == 0
+    return out({"ok": ok, "code": "ok" if ok else "ssh_failed", "exit_code": r.returncode,
+                "stdout": stdout[:args.max_output], "stderr": stderr.strip()[:1000] or None,
+                "truncated": len(stdout) > args.max_output,
+                "summary": f"{args.cred}: " + ("실행 완료" if ok else f"실패 (종료코드 {r.returncode})"),
+                "next": None if ok else "stderr 를 보고 명령·접속 정보를 고친다 (cred show --name)"})
 
 
 # =========================================================================
@@ -1645,7 +1789,8 @@ def cmd_access(args) -> int:
         if leaked and not args.allow_secret:
             return out({"ok": False, "code": "secret_in_value",
                         "error": "비밀값으로 보이는 것이 들어 있습니다", "found": leaked[:5],
-                        "hint": '값 대신 읽을 곳을 적으세요. 예: {"password_env": "APP_DB_PASSWORD"}'})
+                        "hint": ('access 에는 비밀을 적지 않는다. 값은 cred set --name 이름 --json \'{...}\' 로 저장하고 '
+                                 'access 에는 {"cred":"이름"} 만 적는다 (환경변수로 받으려면 {"password_env":"APP_DB_PASSWORD"})')})
         data[args.key] = value
         f = save_access(root, data)
         return out({"file": str(f), "key": args.key, "access": data,
@@ -1688,6 +1833,8 @@ def cmd_db(args) -> int:
     if not sql:
         return out({"ok": False, "code": "sql_required", "error": "--sql 이 필요합니다"})
 
+    cred_env: dict = {}
+    cred_entry = None
     # 적어 둔 접근 방법을 쓴다. 인자로 직접 준 값이 언제나 이긴다 — 기록이 낡았을 때의 탈출구.
     if args.profile:
         root = _root(args)
@@ -1706,6 +1853,9 @@ def cmd_db(args) -> int:
                 args.via = saved["how"]
             if saved.get("append_sql"):
                 args.append_sql = True
+            cred_name = _cred_from_profile(args, saved)
+            if cred_name and not getattr(args, "cred", None):
+                args.cred = cred_name
             env_key = saved.get("password_env")
             if env_key and not args.password:
                 args.password = os.environ.get(env_key)
@@ -1714,13 +1864,24 @@ def cmd_db(args) -> int:
                                 "error": f"환경변수 {env_key} 가 비어 있습니다",
                                 "hint": f"{env_key}=... 를 주고 다시 부르세요"})
 
+    if getattr(args, "cred", None):
+        cred_entry, err = _load_cred(args.cred)
+        if err:
+            return out(err)
+        # 저장된 값은 비어 있는 인자만 채운다 — 직접 준 인자가 이긴다
+        for src, dst in (("host", "host"), ("port", "port"), ("db", "db"), ("user", "user"),
+                         ("password", "password"), ("engine", "engine")):
+            if getattr(args, dst, None) in (None, "") and cred_entry.get(src) not in (None, ""):
+                setattr(args, dst, cred_entry[src])
+        cred_env = credentials.env_for(cred_entry)
+
     try:
         if args.command:
             argv = (["bash", "-lc", f"{args.command} {_shq(sql)}"] if args.append_sql
                     else ["bash", "-lc", args.command])
             stdin = None if args.append_sql else sql
             r = subprocess.run(argv, input=stdin, capture_output=True, text=True,
-                               timeout=args.timeout)
+                               timeout=args.timeout, env=dict(os.environ, **cred_env))
             return _proc_result(r, "command")
 
         engine = (args.engine or "").lower()
@@ -1766,9 +1927,14 @@ def cmd_logs(args) -> int:
     root = _root(args)
     _home(root)
     command = args.command
+    saved = None
     if not command:
         saved = load_access(root).get(args.profile or "logs")
         command = saved.get("command") if isinstance(saved, dict) else saved
+    cred, err = _load_cred(_cred_from_profile(args, saved))
+    if err:
+        return out(err)
+    cred_env = credentials.env_for(cred) if cred else {}
     if not command:
         return out({"ok": False, "code": "no_log_command",
                     "error": "로그를 어떻게 보는지 모릅니다",
@@ -1778,9 +1944,12 @@ def cmd_logs(args) -> int:
     # 앞 명령의 실패(없는 명령·ssh 접속 거부)가 가려져 "로그 0줄 성공"으로 보고된다.
     try:
         r = subprocess.run(["bash", "-lc", command], capture_output=True, text=True,
-                           timeout=args.timeout)
+                           timeout=args.timeout, env=dict(os.environ, **cred_env))
     except subprocess.TimeoutExpired:
         return out({"ok": False, "code": "logs_timeout", "error": f"응답 없음 ({args.timeout}초)"})
+    if cred:                                  # 서버가 비밀번호를 되풀이해 찍어도 기록에 남지 않게
+        r.stdout = credentials.mask(r.stdout, cred)
+        r.stderr = credentials.mask(r.stderr, cred)
     err = (r.stderr or "").strip()
     # 저장된 명령 안에 grep 이 있으면 매치 0건이 종료코드 1 이다 — 출력·오류가 모두 비면 성공으로 본다
     failed = r.returncode != 0 and not (r.returncode == 1 and not err and not (r.stdout or "").strip())
@@ -2115,6 +2284,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--method", default="GET")
     p.add_argument("--url", required=True, help="전체 주소 또는 경로(→ access 의 base_url 에 붙인다)")
     p.add_argument("--header", action="append", default=None, help="'이름: 값' — 여러 번")
+    p.add_argument("--cred", default=None, help="저장된 토큰·계정으로 Authorization 을 만든다 (cred list)")
     p.add_argument("--data", default=None, help="본문. @파일 로 파일을 읽는다")
     p.add_argument("--save", default=None, help="응답 본문을 저장 (이름이면 $RUN_DIR/http/ 아래)")
     p.add_argument("--expect-status", type=int, default=None, help="다르면 ok:false")
@@ -2149,6 +2319,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--append-sql", dest="append_sql", action="store_true",
                    help="--command 뒤에 SQL을 인자로 붙인다 (기본은 표준입력)")
     p.add_argument("--profile", default=None, help="access 에 적어 둔 기록을 쓴다 (예: db)")
+    p.add_argument("--cred", default=None, help="저장된 자격증명으로 host·user·password 를 채운다 (cred list)")
     p.add_argument("--root", default=".")
     p.add_argument("--timeout", type=int, default=40)
     p.set_defaults(func=cmd_db)
@@ -2157,10 +2328,29 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--root", default=".")
     p.add_argument("--profile", default=None, help="access 의 어느 키를 쓸지 (기본 logs)")
     p.add_argument("--command", default=None, help="즉석으로 실행할 명령")
+    p.add_argument("--cred", default=None,
+                   help="저장된 자격증명을 CRED_HOST · CRED_USER · SSHPASS 등 환경변수로 넘긴다 (cred list)")
     p.add_argument("--tail", type=int, default=200)
     p.add_argument("--grep", default=None)
     p.add_argument("--timeout", type=int, default=60)
     p.set_defaults(func=cmd_logs)
+
+    p = sub.add_parser("cred", help="이름 붙은 자격증명을 저장하고 꺼낸다 (다음 실행에서 다시 묻지 않는다)")
+    p.add_argument("action", choices=["list", "show", "set", "unset"])
+    p.add_argument("--name", default=None)
+    p.add_argument("--json", dest="json_value", default=None,
+                   help='저장할 내용(JSON). 예: {"kind":"ssh","ssh_server":"synology-nas","use_when":"..."}')
+    p.add_argument("--replace", action="store_true", help="set 때 기존 항목을 합치지 않고 통째로 바꾼다")
+    p.add_argument("--reveal", action="store_true", help="show 때 비밀 값도 그대로 보여 준다 (꼭 필요할 때만)")
+    p.set_defaults(func=cmd_cred)
+
+    p = sub.add_parser("ssh", help="저장된 서버 자격증명으로 원격 명령을 실행한다")
+    p.add_argument("--cred", default=None, help="자격증명 이름 (cred list)")
+    p.add_argument("--command", default=None, help="원격에서 실행할 명령")
+    p.add_argument("--sudo", action="store_true", help="원격에서 SUDO <명령> 을 쓸 수 있게 한다 (비밀번호 sudo)")
+    p.add_argument("--timeout", type=int, default=60)
+    p.add_argument("--max-output", dest="max_output", type=int, default=20000)
+    p.set_defaults(func=cmd_ssh)
 
     p = sub.add_parser("shrink", help="이슈 첨부용으로 이미지 축소 · WebP")
     p.add_argument("paths", nargs="+")

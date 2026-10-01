@@ -35,7 +35,8 @@
 DB_PASSWORD=... ... db --profile db --sql "select count(*) from ..."
 ```
 
-> **비밀번호는 값을 적지 않는다.** `password_env` 로 **어디서 읽을지**만 적는다. 값을 적으면 거절한다.
+> **`access` 에는 비밀 값을 적지 않는다**(적으면 거절한다). 값은 `cred set` 으로 저장하고 `access` 에는
+> `"cred":"이름"` 만 적는다. 환경변수로 받고 싶으면 `password_env` 로 어디서 읽을지만 적는다.
 
 | how | 언제 | 적을 것 |
 |---|---|---|
@@ -59,4 +60,8 @@ DB_PASSWORD=... ... db --profile db --sql "select count(*) from ..."
 
 - 응답이 JSON 이 아니면(HTML 오류 페이지 등) `text` 에 앞부분만 담긴다. 그것만으로 원인이
   안 보이면 서버 로그를 본다.
-- 비밀번호·토큰을 파일에 적지 않는다. 사용자에게 받아 그 실행에만 쓴다.
+- 비밀번호·토큰은 `access.json`·보고·커밋에 적지 않는다. 사용자에게 받으면 **`cred set` 으로 저장**해 다음에 다시 묻지 않는다
+  (`~/.projectops/config/config.json` 의 `launch.credentials`, 파일 권한 600).
+- 저장된 서버에는 `ssh --cred 이름 [--sudo] --command '…'` 로 들어간다. 비밀번호는 명령줄이 아니라 표준입력·환경변수로만 가고,
+  서버가 되풀이해 찍어도 출력에서 `***` 로 가려진다. 비밀번호 접속에는 `sshpass` 가 필요하다.
+- 서버 호출 전에 `cred list` 의 `use_when` · `scope` · `notes` 를 읽고 그 안에서만 쓴다.

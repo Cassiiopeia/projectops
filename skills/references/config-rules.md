@@ -56,6 +56,7 @@ agent는 Read tool로 `{HOME}/.projectops/config/config.json`을 읽는다.
 github 스킬    → config["github"]
 synology-expose → config["synology-expose"]
 ssh 스킬       → config["ssh"]
+launch 스킬    → config["launch"]  (이름 붙은 자격증명 — §7 `launch` 섹션)
 ```
 
 **github 스킬의 레포 자동 매칭 (읽기 후 즉시 수행):**
@@ -267,6 +268,36 @@ effective_pat = repo.pat if repo.pat else config["github"].global_pat
 | `key_path` | — | `auth: key`일 때 PEM 키 경로 |
 | `password` | — | `auth: password`일 때 비밀번호 |
 | `default` | — | 여러 인스턴스 중 기본 선택 여부 |
+
+### `launch` 섹션 (pro-launch 자격증명)
+
+`pro-launch` 가 서버·레지스트리·조직에 **다시 묻지 않고** 붙기 위한 이름 붙은 자격증명이다.
+`pro-ssh` 서버를 `ssh_server` 로 참조하면 비밀번호는 `ssh` 섹션 한 곳에만 둔다.
+저장은 `launch_cli.py cred set` 이 하고(다른 섹션은 건드리지 않는다, 파일 권한 600), 조회에서는 비밀 값이 가려진다.
+
+```json
+{
+  "launch": {
+    "credentials": {
+      "synology": {
+        "kind": "ssh",
+        "ssh_server": "synology-nas",
+        "scope": "test-only",
+        "use_when": "서버 배포 QA 에서만 쓴다",
+        "notes": "운영 컨테이너가 있으니 pops-qa- 접두사만 만들고 지운다"
+      },
+      "dockerhub": { "kind": "dockerhub", "username": "...", "token": "...", "scope": "test-only", "use_when": "..." }
+    }
+  }
+}
+```
+
+| 필드 | 설명 |
+|------|------|
+| `kind` | `ssh` · `dockerhub` · `db` · `http` · `github-org` · `other` |
+| `ssh_server` | `ssh` 섹션의 서버 `name` 참조(host·port·user·password 를 가져온다, 직접 적은 값이 이긴다) |
+| `use_when` · `scope` · `notes` | agent 가 **언제 써도 되는지** 판단하는 근거·허용 범위·주의점 |
+| 그 밖 | `host` · `port` · `user` · `username` · `password` · `token` · `db` … 자유 |
 
 ### `output` 섹션 (#525)
 
