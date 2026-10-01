@@ -109,7 +109,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: "**/node_modules"
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml') }}
+          # lock 파일이 없으면 해시가 빈 값이라 키가 고정되어 package.json 이 바뀌어도 옛 캐시를 쓴다 — 그 경우만 package.json 해시를 쓴다
+          key: ${{ runner.os }}-node-modules-${{ steps.pm.outputs.manager == 'none' && hashFiles('**/package.json') || hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-node-modules-
 
