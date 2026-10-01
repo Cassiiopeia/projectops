@@ -402,3 +402,66 @@ def test_lf_files_stay_lf(tmp_path):
     rc, out, err = run_vm(tmp_path, "increment")
     assert rc == 0, err
     assert b"\r" not in (tmp_path / "version.yml").read_bytes()
+
+
+# ── #680: build.gradle 동기화는 프로젝트 version 대입만 고친다 ─────────────
+YML_SPRING = 'version: "1.2.3"\nversion_code: 5\nproject_types: ["spring"]\n'
+
+GRADLE_MIXED = """plugins { id 'org.springframework.boot' version '3.2.0' }
+ext.kotlin_version = '1.9.0'
+ext { libVersion = "2.0.0" }
+group = 'com.x'
+// version = '0.0.1'
+version = '1.2.3'
+"""
+
+
+def test_gradle_only_project_version_line_is_changed(tmp_path):
+    write(tmp_path / "version.yml", YML_SPRING)
+    write(tmp_path / "build.gradle", GRADLE_MIXED)
+    rc, out, err = run_vm(tmp_path, "increment")
+    assert rc == 0, err
+    got = (tmp_path / "build.gradle").read_text(encoding="utf-8")
+    assert got == GRADLE_MIXED.replace("\nversion = '1.2.3'", "\nversion = '1.2.4'")
+
+
+def test_gradle_double_quote_and_indented_assignment(tmp_path):
+    original = 'ext.kotlin_version = "1.9.0"\nallprojects {\n    version = "1.2.3"\n}\n'
+    write(tmp_path / "version.yml", YML_SPRING)
+    write(tmp_path / "build.gradle", original)
+    rc, out, err = run_vm(tmp_path, "set", "1.3.0")
+    assert rc == 0, err
+    assert (tmp_path / "build.gradle").read_text(encoding="utf-8") == original.replace('    version = "1.2.3"', '    version = "1.3.0"')
+
+
+def test_gradle_kts_is_synced(tmp_path):
+    write(tmp_path / "version.yml", YML_SPRING)
+    write(tmp_path / "build.gradle.kts", 'val kotlinVersion = "1.9.0"\nversion = "1.2.3"\n')
+    rc, out, err = run_vm(tmp_path, "increment")
+    assert rc == 0, err
+    assert (tmp_path / "build.gradle.kts").read_text(encoding="utf-8") == 'val kotlinVersion = "1.9.0"\nversion = "1.2.4"\n'
+
+
+def test_gradle_kts_version_is_read_by_get(tmp_path):
+    # 프로젝트 파일이 더 높으면 그 값을 따라 version.yml이 끌어올려진다 (build.gradle과 동일 동작)
+    write(tmp_path / "version.yml", YML_SPRING)
+    write(tmp_path / "build.gradle.kts", 'version = "1.5.0"\n')
+    rc, out, err = run_vm(tmp_path, "get")
+    assert rc == 0, err
+    assert out.strip() == "1.5.0"
+
+
+def test_gradle_without_version_assignment_warns(tmp_path):
+    write(tmp_path / "version.yml", YML_SPRING)
+    write(tmp_path / "build.gradle", "plugins {}\n")
+    rc, out, err = run_vm(tmp_path, "set", "2.0.0")
+    assert rc == 0
+    assert "build.gradle" in err and "version 대입을 찾지 못했습니다" in err
+    assert (tmp_path / "build.gradle").read_text(encoding="utf-8") == "plugins {}\n"
+
+
+def test_spring_without_any_gradle_file_warns(tmp_path):
+    write(tmp_path / "version.yml", YML_SPRING)
+    rc, out, err = run_vm(tmp_path, "set", "2.0.0")
+    assert rc == 0
+    assert "build.gradle" in err and "건너뜀" in err

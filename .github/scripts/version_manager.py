@@ -243,6 +243,9 @@ class Config:
         p = get_type_path(self.primary)
         t = self.primary
         if t == "spring":
+            # Kotlin DSL(build.gradle.kts)만 있는 프로젝트도 읽는다 (#680)
+            if not Path(f"{p}/build.gradle").is_file() and Path(f"{p}/build.gradle.kts").is_file():
+                return f"{p}/build.gradle.kts"
             return f"{p}/build.gradle"
         if t == "flutter":
             return f"{p}/pubspec.yaml"
@@ -537,14 +540,23 @@ def sync_for_type(t: str, new_version: str):
     if t == "spring":
         if base.is_dir():
             # find -maxdepth 2 -name build.gradle 등가
-            candidates = sorted(set(base.glob("build.gradle")) | set(base.glob("*/build.gradle")))
+            candidates = sorted(
+                set(base.glob("build.gradle")) | set(base.glob("*/build.gradle"))
+                | set(base.glob("build.gradle.kts")) | set(base.glob("*/build.gradle.kts"))
+            )
+            if not candidates:
+                log_warning(f"spring: {p}에 build.gradle(.kts) 없음 — 건너뜀")
             for gradle in candidates:
+                # 줄 시작의 `version = '...'`(프로젝트 버전 대입)만 고친다. 앵커가 없으면
+                # ext.kotlin_version = '1.9.0' 같은 다른 대입이나 주석까지 덮어써 빌드가 깨진다 (#680).
                 results = {
-                    sub_file(gradle, r"version = '[^']*'", f"version = '{new_version}'"),
-                    sub_file(gradle, r'version = "[^"]*"', f'version = "{new_version}"'),
+                    sub_file(gradle, r"^([ \t]*version[ \t]*=[ \t]*)'[^']*'", lambda m: f"{m.group(1)}'{new_version}'"),
+                    sub_file(gradle, r'^([ \t]*version[ \t]*=[ \t]*)"[^"]*"', lambda m: f'{m.group(1)}"{new_version}"'),
                 }
                 if CHANGED in results:
                     log_success(f"업데이트: {gradle.as_posix()}")
+                elif results == {NO_MATCH}:
+                    log_warning(f"spring: {gradle.as_posix()}에서 version 대입을 찾지 못했습니다 — 동기화하지 못함")
         else:
             log_warning(f"spring: {p} 디렉토리 없음 — 건너뜀")
     elif t == "flutter":
