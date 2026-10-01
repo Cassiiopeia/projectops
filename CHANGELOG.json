@@ -1,14 +1,43 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-01T03:40:39Z",
-    "currentVersion": "4.28.3",
+    "lastUpdated": "2026-10-01T05:37:20Z",
+    "currentVersion": "4.28.4",
     "projectType": "basic",
-    "totalReleases": 273,
+    "totalReleases": 274,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.28.4",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-01",
+      "pr_number": 731,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 새 버전 배포가 실패하면 이전 버전으로 자동 복구됩니다\n  * README가 없는 프로젝트에서 버전 워크플로가 실패하지 않습니다\n  * 서버 비밀번호에 특수문자가 있어도 배포가 정상 동작합니다\n  * 프로젝트마다 Secret 백업 서버 경로가 구분됩니다\n\n* **개선**\n  * 서버 재부팅 후에도 배포한 서비스가 자동으로 다시 시작됩니다\n  * React 배포가 컨테이너 기동 실패를 감지합니다",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "새 버전 배포가 실패하면 이전 버전으로 자동 복구됩니다",
+            "README가 없는 프로젝트에서 버전 워크플로가 실패하지 않습니다",
+            "서버 비밀번호에 특수문자가 있어도 배포가 정상 동작합니다",
+            "프로젝트마다 Secret 백업 서버 경로가 구분됩니다"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "서버 재부팅 후에도 배포한 서비스가 자동으로 다시 시작됩니다",
+            "React 배포가 컨테이너 기동 실패를 감지합니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.28.3",
       "project_type": "basic",
