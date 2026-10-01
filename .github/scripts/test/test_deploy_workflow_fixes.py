@@ -64,3 +64,18 @@ def test_운영_배포_컨테이너는_재시작_정책을_가진다(rel):
 def test_pr_프리뷰_컨테이너는_재시작_정책을_넣지_않는다(rel):
     t = (PT / rel).read_text(encoding="utf-8")
     assert "--restart" not in t, rel
+
+
+@pytest.mark.parametrize("rel", PRODUCTION)
+def test_docker_run_이어쓰기_명령_안에_주석_줄이_없다(rel):
+    """역슬래시로 이어지는 명령 중간의 # 줄은 명령을 끊어 'docker run requires at least 1 argument' 가 된다.
+    실제 서버 배포에서 터진 사고라 텍스트가 아니라 구조로 막는다 (#727)."""
+    lines = (PT / rel).read_text(encoding="utf-8").split("\n")
+    for i, l in enumerate(lines):
+        if "docker run -d" not in l:
+            continue
+        k = i
+        while lines[k].rstrip().endswith("\\"):
+            k += 1
+            assert not lines[k].strip().startswith("#"), f"{rel}:{k + 1} 이어쓰기 명령 중간에 주석 줄"
+        break

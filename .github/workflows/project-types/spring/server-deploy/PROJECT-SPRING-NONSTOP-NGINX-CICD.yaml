@@ -364,10 +364,10 @@ jobs:
             # 6. 새 컨테이너 기동
             # ============================================================
             echo "🐳 새 컨테이너 기동: ${NEW_CONTAINER_NAME} (포트 ${NEW_PORT})"
+              # 서버 재부팅·Docker 재시작 뒤에도 서비스가 자동으로 올라오도록 한다 (#727)
             SUDO docker run -d \
               -p ${NEW_PORT}:${CONTAINER_INTERNAL_PORT} \
               --name "${NEW_CONTAINER_NAME}" \
-              # 서버 재부팅·Docker 재시작 뒤에도 서비스가 자동으로 올라오도록 한다 (#727)
               --restart unless-stopped \
               -e TZ=Asia/Seoul \
               -e "SPRING_PROFILES_ACTIVE=${SPRING_PROFILE}" \

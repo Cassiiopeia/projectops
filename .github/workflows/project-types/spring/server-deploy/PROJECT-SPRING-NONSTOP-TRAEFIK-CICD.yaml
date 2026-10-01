@@ -312,9 +312,9 @@ jobs:
             # 5. 새 컨테이너 기동 (Traefik 라벨 포함)
             # ============================================================
             echo "🐳 새 컨테이너 기동: ${NEW_NAME}"
+              # 서버 재부팅·Docker 재시작 뒤에도 서비스가 자동으로 올라오도록 한다 (#727)
             SUDO docker run -d \
               --name "${NEW_NAME}" \
-              # 서버 재부팅·Docker 재시작 뒤에도 서비스가 자동으로 올라오도록 한다 (#727)
               --restart unless-stopped \
               --network "${TRAEFIK_NETWORK}" \
               --label "traefik.enable=true" \

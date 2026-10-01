@@ -364,10 +364,10 @@ jobs:
             # - 시간대: Asia/Seoul
             # - Spring 프로파일: ${{ env.SPRING_PROFILE }}
             # - 볼륨 마운트: ENABLE_VOLUME_MOUNT=true일 때만 활성화
+              # 서버 재부팅·Docker 재시작 뒤에도 서비스가 자동으로 올라오도록 한다 (#727)
             SUDO docker run -d \
               -p ${PORT}:${{ env.CONTAINER_INTERNAL_PORT }} \
               --name $CONTAINER_NAME \
-              # 서버 재부팅·Docker 재시작 뒤에도 서비스가 자동으로 올라오도록 한다 (#727)
               --restart unless-stopped \
               -e TZ=Asia/Seoul \
               -e "SPRING_PROFILES_ACTIVE=${{ env.SPRING_PROFILE }}" \
