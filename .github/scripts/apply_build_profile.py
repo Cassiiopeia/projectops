@@ -98,24 +98,50 @@ def read_env_lines(env_file: Path):
     return env_file.read_text(encoding="utf-8", errors="replace").splitlines()
 
 
+def parse_env_line(line):
+    """`.env` 한 줄을 (키, 값)으로 읽는다. 키 줄이 아니면 None.
+
+    dotenv 계열이 받아들이는 `export KEY=v`, `KEY = v`, `KEY="v"` 를 모두 같은 키로
+    본다. strip 과 verify 가 이 함수 하나를 공유해야 한쪽만 놓치는 우회가 안 생긴다(#692).
+    """
+    s = line.strip()
+    if not s or s.startswith("#") or "=" not in s:
+        return None
+    key, value = s.split("=", 1)
+    key = key.strip()
+    if key.startswith("export") and key[6:7].isspace():
+        key = key[6:].strip()
+    if not key:
+        return None
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        value = value[1:-1]
+    return key, value
+
+
 def strip_keys(lines, keys):
-    """주어진 키로 시작하는 줄을 걷어낸다.
+    """주어진 키를 선언한 줄을 걷어낸다.
 
     sed -i 를 쓰지 않는 이유: GNU(-i)와 BSD(-i '') 문법이 갈려 Linux 러너와
     macOS 러너에서 동작이 달라진다. 조용히 통과하고 아무것도 안 바뀌는
     사고가 실제로 있었다(#523).
     """
-    prefixes = tuple(f"{k}=" for k in keys)
-    return [ln for ln in lines if not ln.lstrip().startswith(prefixes)]
+    keys = set(keys)
+    kept = []
+    for ln in lines:
+        parsed = parse_env_line(ln)
+        if parsed is None or parsed[0] not in keys:
+            kept.append(ln)
+    return kept
 
 
 def env_value(lines, key):
     """마지막에 선언된 값이 이긴다 — dotenv 구현들의 일반적 동작."""
     found = None
     for ln in lines:
-        s = ln.lstrip()
-        if s.startswith(f"{key}="):
-            found = s.split("=", 1)[1]
+        parsed = parse_env_line(ln)
+        if parsed is not None and parsed[0] == key:
+            found = parsed[1]
     return found
 
 

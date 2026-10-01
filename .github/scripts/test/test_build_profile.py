@@ -214,3 +214,56 @@ def test_switching_profiles_does_not_leave_the_old_value(tmp_path, cfg, envf):
     body = envf.read_text(encoding="utf-8")
     assert "APP_SHOW_DEV_TOOLS=false" in body
     assert "APP_SHOW_DEV_TOOLS=true" not in body
+
+
+# ── #692: export·공백 형식 키도 같은 키로 인식한다 ─────────────────────────────
+def _guard_cfg(tmp_path):
+    return write_config(tmp_path / "bp.json", {
+        "dev_keys": ["APP_SHOW_DEV_TOOLS"],
+        "secret_keys": ["APP_DEV_ACCESS_TOKEN"],
+        "profiles": {
+            "test": {"env": {"APP_SHOW_DEV_TOOLS": "true"}, "dart_define": {}},
+            "release": {"env": {}, "dart_define": {}},
+        },
+    })
+
+
+@pytest.mark.parametrize("line", [
+    "APP_SHOW_DEV_TOOLS = true",
+    "export APP_SHOW_DEV_TOOLS=true",
+    'APP_SHOW_DEV_TOOLS="true"',
+    "export   APP_SHOW_DEV_TOOLS = 'true'",
+])
+def test_release_strips_variant_dev_key_forms(tmp_path, line):
+    """변형 형식도 걷어내거나 막아야 한다 — 남은 채로 exit 0 이면 개발 설정이 배포에 샌다."""
+    cfg = _guard_cfg(tmp_path)
+    envf = tmp_path / ".env"
+    envf.write_text(line + "\n", encoding="utf-8")
+    r = run("release", envf, config=cfg)
+    body = envf.read_text(encoding="utf-8")
+    assert r.returncode != 0 or "APP_SHOW_DEV_TOOLS" not in body
+
+
+@pytest.mark.parametrize("line", [
+    "export APP_DEV_ACCESS_TOKEN=abc",
+    "APP_DEV_ACCESS_TOKEN = abc",
+    'APP_DEV_ACCESS_TOKEN = "abc"',
+])
+def test_release_fails_on_variant_secret_forms(tmp_path, line):
+    cfg = _guard_cfg(tmp_path)
+    envf = tmp_path / ".env"
+    envf.write_text(line + "\n", encoding="utf-8")
+    r = run("release", envf, config=cfg)
+    assert r.returncode == 1
+    assert "개발용 비밀값" in r.stderr
+
+
+def test_test_profile_does_not_duplicate_variant_key(tmp_path):
+    cfg = _guard_cfg(tmp_path)
+    envf = tmp_path / ".env"
+    envf.write_text("export APP_SHOW_DEV_TOOLS=false\nAPP_SHOW_DEV_TOOLS = false\n",
+                    encoding="utf-8")
+    assert run("test", envf, config=cfg).returncode == 0
+    body = envf.read_text(encoding="utf-8")
+    assert body.count("APP_SHOW_DEV_TOOLS") == 1
+    assert "APP_SHOW_DEV_TOOLS=true" in body
