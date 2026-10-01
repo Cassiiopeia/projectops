@@ -99,8 +99,27 @@ jobs:
        contains(fromJSON('["작업전", "작업중", "담당자확인", "피드백", "작업완료", "보류", "취소"]'), github.event.label.name))
 
     steps:
+      # Projects 연동은 선택 기능이다. PAT Secret 과 PROJECT_URL 변수가 둘 다 있어야만 동작하고,
+      # 하나라도 없으면 안내만 남기고 성공으로 끝낸다 (미설정 레포에서 라벨마다 실패 메일이 가는 것을 막는다, #667).
+      # secrets 는 job-level if 에서 읽을 수 없어 첫 step 에서 판정해 outputs 로 넘긴다.
+      - name: 🔎 Projects 연동 설정 확인
+        id: config
+        env:
+          HAS_PAT: ${{ secrets._GITHUB_PAT_TOKEN != '' }}
+          HAS_PROJECT_URL: ${{ vars.PROJECT_URL != '' }}
+        run: |
+          if [ "$HAS_PAT" = "true" ] && [ "$HAS_PROJECT_URL" = "true" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Projects 동기화가 설정되지 않아 건너뜁니다 (선택 기능). 사용하려면 Secret _GITHUB_PAT_TOKEN 과 Variable PROJECT_URL 을 모두 등록하세요."
+            [ "$HAS_PAT" = "true" ] || echo "  - 없음: Secret _GITHUB_PAT_TOKEN (권한: repo, project)"
+            [ "$HAS_PROJECT_URL" = "true" ] || echo "  - 없음: Variable PROJECT_URL (Settings > Secrets and variables > Actions > Variables)"
+          fi
+
       - name: 🔍 Get Issue Info
         id: issue
+        if: steps.config.outputs.enabled == 'true'
         env:
           INPUT_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
         run: |
@@ -112,6 +131,7 @@ jobs:
 
       - name: 🏷️ Get Current Labels
         id: labels
+        if: steps.config.outputs.enabled == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets._GITHUB_PAT_TOKEN }}
@@ -139,7 +159,7 @@ jobs:
             }
 
       - name: 📋 Update Projects Status
-        if: steps.labels.outputs.status_label != ''
+        if: steps.config.outputs.enabled == 'true' && steps.labels.outputs.status_label != ''
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets._GITHUB_PAT_TOKEN }}
