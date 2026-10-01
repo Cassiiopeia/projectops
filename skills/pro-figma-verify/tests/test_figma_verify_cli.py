@@ -1033,3 +1033,60 @@ def test_fill_and_shadow_parsing_matches_real_dump_shapes():
     got = m._shadow_offsets({"boxShadow":
         "4px 4px 6px 0px rgba(0,0,0,0.05), inset 0px 8px 24px -16px rgba(255,255,255,0.24)"})
     assert got == [(4.0, 4.0, 6.0)], got
+
+
+# ── 인자 오류는 JSON (#708) ──────────────────────────────────────────────
+
+@pytest.mark.parametrize("argv", [["coverage"], ["diff"], ["bogus"], []])
+def test_bad_args_are_json_not_usage_text(argv):
+    rc, o, e = run(*argv)
+    d = out(o)
+    assert rc == 1 and d["ok"] is False and d["code"] == "bad_args", (rc, o, e)
+    assert d["next"]
+    assert "usage:" not in e
+
+
+# ── conform · diff 는 조용히 통과하지 않는다 (#710) ──────────────────────
+
+def test_conform_unknown_node_fails_instead_of_passing_with_zero(tmp_path):
+    dp = _dump(tmp_path)
+    rp = _pill(tmp_path / "r.png", True)
+    rc, o, _ = run("conform", "--dump", str(dp), "--render", str(rp), "--node", "9:9")
+    d = out(o)
+    assert rc == 1 and d["ok"] is False and d["code"] == "node_not_found", d
+
+
+def test_conform_unknown_check_fails_even_when_nothing_to_check(tmp_path):
+    dp = _dump(tmp_path)
+    rp = _pill(tmp_path / "r.png", True)
+    rc, o, _ = run("conform", "--dump", str(dp), "--render", str(rp), "--node", "1:100",
+                   "--check", "bogus")
+    d = out(o)
+    assert rc == 1 and d["code"] == "unknown_check", d
+
+
+def test_conform_non_image_render_is_json_error(tmp_path):
+    dp = _dump(tmp_path)
+    bad = tmp_path / "bad.txt"
+    bad.write_text("nope")
+    rc, o, e = run("conform", "--dump", str(dp), "--render", str(bad), "--node", "1:100")
+    d = out(o)
+    assert rc == 1 and d["code"] == "image_unreadable" and "Traceback" not in e, (d, e)
+
+
+def test_diff_non_image_is_json_error(tmp_path):
+    ok = _pill(tmp_path / "a.png", True)
+    bad = tmp_path / "bad.txt"
+    bad.write_text("nope")
+    rc, o, e = run("diff", "--render", str(bad), "--design", str(ok))
+    d = out(o)
+    assert rc == 1 and d["code"] == "image_unreadable" and "Traceback" not in e, (d, e)
+
+
+@pytest.mark.parametrize("top,bottom", [("99999", "99999"), ("60", "60"), ("-1", "0")])
+def test_diff_mask_beyond_image_height_is_rejected(tmp_path, top, bottom):
+    p = _pill(tmp_path / "a.png", True)   # 높이 100
+    rc, o, _ = run("diff", "--render", str(p), "--design", str(p),
+                   f"--mask-top={top}", f"--mask-bottom={bottom}")
+    d = out(o)
+    assert rc == 1 and d["code"] == "bad_mask", d
