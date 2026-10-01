@@ -44,11 +44,17 @@ def log_debug(msg):
 
 # ── version.yml 읽기/쓰기 (라인 단위 — 주석·서식 보존) ────────────────
 def read_text(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as e:
+        raise VersionError(f"{path.as_posix()}을(를) 읽지 못했습니다: {e}")
 
 
 def write_text(path: Path, content: str):
-    path.write_text(content, encoding="utf-8", newline="\n")
+    try:
+        path.write_text(content, encoding="utf-8", newline="\n")
+    except OSError as e:
+        raise VersionError(f"{path.as_posix()}을(를) 쓰지 못했습니다: {e} (파일 권한을 확인하세요)")
 
 
 def yml_lines():
@@ -305,12 +311,21 @@ def increment_version_code() -> int:
 
 # ── 파일별 버전 읽기/쓰기 헬퍼 ────────────────────────────────────────
 def read_json(path: Path):
-    return json.loads(read_text(path))
+    """JSON 객체를 읽는다. BOM은 허용하고, 깨진 JSON·객체가 아닌 최상위는 VersionError로 알린다 (#683)."""
+    text = read_text(path)
+    try:
+        obj = json.loads(text.lstrip("\ufeff"))
+    except ValueError as e:
+        raise VersionError(f"{path.as_posix()}을(를) 읽지 못했습니다: {e} (JSON 문법·머지 충돌 마커를 확인하세요)")
+    if not isinstance(obj, dict):
+        raise VersionError(f"{path.as_posix()}을(를) 읽지 못했습니다: 최상위가 JSON 객체가 아닙니다")
+    return obj
 
 
 def write_json(path: Path, obj):
-    # jq 등가: 2-space indent + 마지막 개행
-    write_text(path, json.dumps(obj, indent=2, ensure_ascii=False) + "\n")
+    # jq 등가: 2-space indent + 마지막 개행. 원본에 BOM이 있었다면 유지한다.
+    bom = "\ufeff" if read_text(path).startswith("\ufeff") else ""
+    write_text(path, bom + json.dumps(obj, indent=2, ensure_ascii=False) + "\n")
 
 
 def sub_file(path: Path, pattern: str, repl, count=0, flags=re.MULTILINE) -> bool:
@@ -364,7 +379,7 @@ def get_project_file_version(cfg: Config) -> str:
             v = m.group(1) if m else ""
         else:
             v = cfg.current_version
-    except (OSError, json.JSONDecodeError) as e:
+    except (OSError, ValueError, VersionError) as e:
         log_warning(f"프로젝트 파일 읽기 실패({vf}): {e}")
         v = ""
 
@@ -507,8 +522,20 @@ def sync_versions(cfg: Config) -> str:
     return yml_version
 
 
+def preflight_json_files(cfg: Config):
+    """JSON 버전 파일을 쓰기 전에 먼저 읽어 본다. 일부만 갱신된 채 중단되는 것을 막는다 (#683)."""
+    for t in (cfg.types or [cfg.primary]):
+        name = {"react": "package.json", "node": "package.json", "react-native-expo": "app.json"}.get(t)
+        if not name:
+            continue
+        f = Path(get_type_path(t)) / name
+        if f.is_file():
+            read_json(f)
+
+
 def update_all_versions(cfg: Config, new_version: str):
     log_info(f"모든 버전 파일 업데이트: {new_version}")
+    preflight_json_files(cfg)
     update_version_yml(cfg, new_version)
     sync_all_project_files(cfg, new_version)
     log_success(f"모든 버전 파일 업데이트 완료: {new_version}")

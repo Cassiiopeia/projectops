@@ -197,3 +197,65 @@ def test_unsupported_project_paths_form_is_an_error(tmp_path):
     rc, out, err = run_vm(tmp_path, "get")
     assert rc == 1
     assert "project_paths" in err and "지원하지 않는" in err
+
+
+# ── #683: package.json BOM·깨진 JSON에서 트레이스백 금지 ─────────────────
+YML_NODE = 'version: "1.2.3"\nversion_code: 3\nproject_types: ["node"]\n'
+YML_MULTI = 'version: "1.2.3"\nversion_code: 3\nproject_types: ["basic", "node"]\n'
+
+
+def test_bom_package_json_is_accepted_and_bom_kept(tmp_path):
+    write(tmp_path / "version.yml", YML_MULTI)
+    write(tmp_path / "package.json", b'\xef\xbb\xbf{"name":"x","version":"1.2.3"}\n')
+    rc, out, err = run_vm(tmp_path, "get")
+    assert rc == 0, err
+    assert "Traceback" not in err
+    rc, out, err = run_vm(tmp_path, "set", "1.3.0")
+    assert rc == 0, err
+    raw = (tmp_path / "package.json").read_bytes()
+    assert raw.startswith(b"\xef\xbb\xbf{")
+    assert b'"version": "1.3.0"' in raw or b'"version":"1.3.0"' in raw
+
+
+@pytest.mark.parametrize("cmd", [("get",), ("increment",), ("sync",)])
+def test_broken_json_reports_clean_error(tmp_path, cmd):
+    write(tmp_path / "version.yml", YML_MULTI)
+    write(tmp_path / "package.json", "{bad\n")
+    rc, out, err = run_vm(tmp_path, *cmd)
+    assert rc == 1
+    assert "Traceback" not in err
+    assert "package.json" in err and "읽지 못했습니다" in err
+
+
+def test_broken_json_does_not_leave_half_updated_state(tmp_path):
+    # package.json을 못 읽으면 version.yml도 바꾸면 안 된다 (두 파일이 어긋난 채 끝나는 것 방지)
+    write(tmp_path / "version.yml", YML_MULTI)
+    write(tmp_path / "package.json", "{bad\n")
+    rc, out, err = run_vm(tmp_path, "set", "2.0.0")
+    assert rc == 1
+    assert (tmp_path / "version.yml").read_bytes() == YML_MULTI.encode()
+
+
+def test_non_object_json_reports_clean_error(tmp_path):
+    write(tmp_path / "version.yml", YML_NODE)
+    write(tmp_path / "package.json", "[1, 2]\n")
+    rc, out, err = run_vm(tmp_path, "set", "2.0.0")
+    assert rc == 1
+    assert "Traceback" not in err
+    assert "package.json" in err
+
+
+def test_read_only_package_json_reports_clean_error(tmp_path):
+    import os
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        pytest.skip("root는 읽기 전용 파일에도 쓸 수 있다")
+    write(tmp_path / "version.yml", YML_NODE)
+    write(tmp_path / "package.json", '{"version": "1.2.3"}\n')
+    (tmp_path / "package.json").chmod(0o444)
+    try:
+        rc, out, err = run_vm(tmp_path, "set", "2.0.0")
+    finally:
+        (tmp_path / "package.json").chmod(0o644)
+    assert rc == 1
+    assert "Traceback" not in err
+    assert "package.json" in err
