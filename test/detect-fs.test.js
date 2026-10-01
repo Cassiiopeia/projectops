@@ -61,3 +61,17 @@ test("detectRepoName: git 없으면 폴더명", () => {
     assert.equal(detectRepoName(d), join(d).split(/[/\\]/).pop());
   } finally { rmSync(d, { recursive: true, force: true }); }
 });
+
+test("detectTypes: 마커 없이 구버전 단수 project_type 만 있으면 그 타입으로 복원 (#718)", () => {
+  const d = fresh();
+  try {
+    writeText(join(d, "version.yml"), 'version: "1.0.0"\nproject_type: "spring"\n');
+    assert.deepEqual(detectTypes(d), ["spring"]);
+    // next 는 4.1.0 에서 react 로 흡수됐다
+    writeText(join(d, "version.yml"), 'version: "1.0.0"\nproject_type: next\n');
+    assert.deepEqual(detectTypes(d), ["react"]);
+    // 배열 키가 있으면 단수 키는 무시한다
+    writeText(join(d, "version.yml"), 'version: "1.0.0"\nproject_type: "spring"\nproject_types: ["python"]\n');
+    assert.deepEqual(detectTypes(d), ["python"]);
+  } finally { rmSync(d, { recursive: true, force: true }); }
+});

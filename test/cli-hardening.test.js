@@ -101,3 +101,21 @@ test("읽기 전용 .github 는 스택 트레이스 없이 권한 안내 + 종�
     assert.match(r.err, /권한/);
   } finally { chmodSync(join(tgt, ".github"), 0o755); rm(tpl, tgt); }
 });
+
+test("읽기 전용 프로젝트 폴더는 clone 실패가 아니라 쓰기 불가로 안내한다 (#720)", { skip: process.platform === "win32" || process.getuid?.() === 0 }, async () => {
+  const { acquireTemplate } = await import("../src/core/assets.js");
+  const { describeError } = await import("../src/cli/errors.js");
+  const tgt = fresh("hard-ro-");
+  try {
+    chmodSync(tgt, 0o555);
+    let caught;
+    try {
+      // 존재하지 않는 원격 — 네트워크 없이도 clone 단계까지 가게 한다
+      acquireTemplate({ tempDir: join(tgt, ".template_download_temp"), source: { type: "git", repo: join(tgt, "no-such-repo") } });
+    } catch (e) { caught = e; }
+    assert.ok(caught, "예외가 나야 한다");
+    const d = describeError(caught);
+    assert.match(d.message, /쓸 수 없습니다/);
+    assert.doesNotMatch(d.message, /내려받지/);
+  } finally { chmodSync(tgt, 0o755); rm(tgt); }
+});

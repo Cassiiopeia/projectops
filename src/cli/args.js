@@ -7,7 +7,8 @@ export const DEPLOY_TARGETS = ["docker-ssh", "vercel", "none"];
 export const PUBLISH_TARGETS = ["nexus", "npm", "github-packages"];
 export const INTENT_VALUES = ["app", "library", "both", "none", "manual"];
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
-const BRANCH_RE = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
+// 유니코드 글자·숫자 허용 (#719) — 공백·셸 메타문자는 문자 클래스에 없어 그대로 거부된다.
+const BRANCH_RE = /^[\p{L}\p{N}][\p{L}\p{N}._/-]*$/u;
 // 허용 실행 모드 (#665) — 오타가 조용히 "복사 0건 성공"으로 끝나지 않게 한다.
 export const MODE_VALUES = ["full", "version", "workflows", "issues", "skills", "doctor", "interactive"];
 
@@ -103,7 +104,7 @@ export function parseArgs(argv) {
         const v = (args.shift() ?? "").trim();
         // 워크플로우 yaml·셸에 그대로 삽입되므로 안전한 브랜치명만 허용 (#676)
         if (v && (!BRANCH_RE.test(v) || v.includes("..") || v.endsWith("/") || v.endsWith(".lock"))) {
-          throw new CliError(`--deploy-branch 값은 영문·숫자·. _ - / 로 이루어진 브랜치명이어야 합니다: '${v}'`);
+          throw new CliError(`--deploy-branch 값은 글자·숫자·. _ - / 로 이루어진 브랜치명이어야 합니다: '${v}'`);
         }
         if (v) result.deployBranch = v;
         break;

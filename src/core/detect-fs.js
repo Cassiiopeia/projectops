@@ -4,7 +4,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import { execFileSync } from "node:child_process";
 import { detectTypesFromMarkers, detectVersionFromFiles, suggestTypesByExtScan } from "./detect.js";
-import { parseExisting } from "./version-yml.js";
+import { parseExisting, convertLegacySingularType } from "./version-yml.js";
+import { VALID_TYPES } from "../context.js";
 
 const hasFile = (root) => (rel) => existsSync(join(root, rel));
 const readFile = (root) => (rel) => {
@@ -50,6 +51,10 @@ export function detectTypes(root) {
   if (existsSync(vy)) {
     const { types } = parseExisting(readFileSync(vy, "utf8"));
     if (types.length) return types; // basic 포함, 명시돼 있으면 그대로
+    // v4.1.0 이전 단수 project_type 키 (#718) — 마커가 없어도 명시된 값을 복원한다.
+    // 안 그러면 마커 없는 저장소가 basic 으로 떨어져 기존 타입의 워크플로우가 고아가 된다.
+    const legacy = (convertLegacySingularType(readFileSync(vy, "utf8")) || "").match(/^project_types: \["([a-z-]+)"\]/m);
+    if (legacy && VALID_TYPES.includes(legacy[1])) return [legacy[1]];
   }
   const byMarkers = detectTypesFromMarkers({ has: hasFile(root), read: readFile(root) });
   if (byMarkers.length === 1 && byMarkers[0] === "basic") {
