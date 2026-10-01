@@ -88,3 +88,19 @@ test("listScanFiles: node_modules 등 vendor 폴더 프루닝 (.sh 케이스 6 �
     assert.deepEqual(suggestTypesByExtScan(files), []);
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 });
+
+test("detectTypes: .github 의 스크립트(.py)만으로 python 오탐하지 않는다 (#671)", async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { detectTypes } = await import("../src/core/detect-fs.js");
+  const tmp = mkdtempSync(join(tmpdir(), "scan-gh-"));
+  try {
+    mkdirSync(join(tmp, ".github/scripts"), { recursive: true });
+    for (const n of ["a", "b", "c"]) writeFileSync(join(tmp, `.github/scripts/${n}.py`), "x");
+    assert.deepEqual(detectTypes(tmp), ["basic"]);
+    // 실제 소스가 .github 밖에 있으면 여전히 추천된다
+    for (const n of ["a", "b", "c"]) writeFileSync(join(tmp, `${n}.py`), "x");
+    assert.deepEqual(detectTypes(tmp), ["python"]);
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+});

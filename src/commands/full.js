@@ -2,9 +2,10 @@
 // 복사 순서: version.yml → readme → workflows → (deploy블록) → scripts → config →
 //            util(타입별) → issue → discussion → coderabbit → gitignore → setup_guide → (옵션저장)
 import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
 import { writeText } from "../core/fsutil.js";
 import { PATHS } from "../core/paths.js";
-import { buildVersionYml } from "../core/version-yml.js";
+import { buildVersionYml, mergeDeployValues } from "../core/version-yml.js";
 import { markerForType } from "../core/detect.js";
 import { addVersionSectionToReadme } from "../core/copy/readme.js";
 import { copyWorkflows } from "../core/copy/workflows.js";
@@ -36,7 +37,10 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
   const step = (name, fn, d) => (hooks.trace ? hooks.trace.step(name, fn, d) : fn());
   const wfCounters = step("copy-workflows", () => copyWorkflows(context, tempDir, targetRoot, hooks),
     { types, deploy: deployTarget, publish: publishTargets });
-  const deployValues = wfCounters.deployValues || new Map(); // Map<type, Map<key,value>>
+  // 기존 version.yml 의 deploy 값은 보존한다 (#670) — 전체 재생성이라 읽지 않으면 사용자 수정이 사라진다.
+  const vyFile = join(targetRoot, PATHS.versionFile);
+  const deployValues = mergeDeployValues(existsSync(vyFile) ? readFileSync(vyFile, "utf8") : "",
+    wfCounters.deployValues || new Map()); // Map<type, Map<key,value>
 
   // 1. version.yml 생성 (전체 재생성 — metadata → deploy → template 순, .sh 최종형과 동일)
   step("write-version-yml", () => writeText(join(targetRoot, PATHS.versionFile),

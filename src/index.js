@@ -3,8 +3,9 @@
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync, existsSync } from "node:fs";
-import { parseArgs, parsePathsCsv, CliError } from "./cli/args.js";
+import { parseArgs, parsePathsCsv, validatePathsMap, CliError } from "./cli/args.js";
 import { HELP_TEXT } from "./cli/help.js";
+import { reportFatal } from "./cli/errors.js";
 import { createContext } from "./context.js";
 import { PATHS } from "./core/paths.js";
 import { remove } from "./core/fsutil.js";
@@ -49,7 +50,18 @@ function utcNow(date = new Date()) {
 // run(argv, opts) → exitCode. opts: { cwd, source?, clock? }
 //   source: acquireTemplate용 (기본 git clone). 테스트는 {type:'local', path} 주입.
 //   clock: {now, today} 주입 (기본 현재 UTC).
-export async function run(argv, { cwd = process.cwd(), source = { type: "git" }, clock } = {}) {
+export async function run(argv, options = {}) {
+  try {
+    return await runCore(argv, options);
+  } catch (err) {
+    // 네트워크·git·권한 같은 환경 문제는 스택 트레이스 대신 한 줄 원인 + 조치로 알린다 (#672).
+    // 실행 기록(trace)은 runCore 의 finally 에서 이미 닫혔다.
+    reportFatal(err);
+    return 1;
+  }
+}
+
+async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, clock } = {}) {
   let opts;
   try {
     opts = parseArgs(argv);
@@ -130,8 +142,21 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
   const repoName = detectRepoName(cwd);
   trace.event("detect", "repo", repoName || "(미상)", { defaultBranch: branch, versionCode });
   // 경로 확정 (.sh resolve_project_paths 비대화형 경로 — --paths 우선 → 저장값 → 후보 1개 자동 → 루트 폴백)
+  let cliPaths;
+  try {
+    cliPaths = parsePathsCsv(opts.pathsCsv);
+    validatePathsMap(cliPaths, { root: cwd, types });   // #674 — 파일을 쓰기 전에 거른다
+  } catch (e) {
+    if (e instanceof CliError) {
+      console.error(e.message);
+      trace.mirrorStop();
+      disarmSignals();
+      return 1;
+    }
+    throw e;
+  }
   const paths = await resolveProjectPaths({
-    root: cwd, types, paths: parsePathsCsv(opts.pathsCsv),
+    root: cwd, types, paths: cliPaths,
     existingPaths: existing?.paths ?? new Map(), force: true, tty: false, io: {},
   });
 
@@ -322,6 +347,7 @@ export async function run(argv, { cwd = process.cwd(), source = { type: "git" },
       mode: opts.mode, types, version, deployBranch: context.deployBranch, migrationGuidePath,
       counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },
       skippedConflicts: result?.workflows?.skippedConflicts ?? [],   // #654 병합 안내
+      replacedBak: result?.workflows?.replacedBak ?? [],             // #673 기준점 없이 교체한 파일 안내
       verification: result?.verification,   // #549 설치 후 검증 결과 (full/workflows 모드에서만 존재)
       // #569 — 고른 것만 안내하려면 선택값이 필요하다
       aiPrSummary: context.aiPrSummary, codeReviewCoderabbit: context.codeReviewCoderabbit,

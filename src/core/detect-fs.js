@@ -21,6 +21,8 @@ function gitOut(root, args) {
 const SCAN_PRUNE = new Set([
   "node_modules", ".git", "build", "dist", ".dart_tool",
   "android", "ios", ".gradle", "venv", ".venv", "__pycache__",
+  // 템플릿이 스스로 설치하는 .github/scripts/*.py 가 python 으로 오탐되지 않게 한다 (#671)
+  ".github",
 ]);
 export function listScanFiles(root, maxDepth = 3) {
   const files = [];

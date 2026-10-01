@@ -7,7 +7,7 @@ import { PATHS } from "../core/paths.js";
 import { copyWorkflows } from "../core/copy/workflows.js";
 import { copyScripts, copyConfigFolder, copySetupGuide } from "../core/copy/simple.js";
 import { copyUtilModules } from "../core/copy/util.js";
-import { convertLegacySingularType } from "../core/version-yml.js";
+import { convertLegacySingularType, mergeDeployValues } from "../core/version-yml.js";
 import { verifyInstall } from "../core/verify.js";
 
 export function runWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
@@ -25,7 +25,8 @@ export function runWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
 
   // update_version_yml_deploy: 기존 version.yml이 있고 ask 값이 있을 때만 deploy 블록 갱신
   if (existsSync(vy) && wf.deployValues && wf.deployValues.size) {
-    writeFileSync(vy, upsertDeployBlock(readFileSync(vy, "utf8"), wf.deployValues));
+    const cur = readFileSync(vy, "utf8");
+    writeFileSync(vy, upsertDeployBlock(cur, mergeDeployValues(cur, wf.deployValues)));   // 기존 값 우선 (#670)
   }
 
   copyScripts(tempDir, targetRoot);
@@ -62,8 +63,10 @@ export function upsertDeployBlock(content, deployValues) {
   for (const line of lines) {
     if (/^deploy:/.test(line)) { inDeploy = true; continue; }
     if (inDeploy) {
-      if (/^\s/.test(line) || line === "") continue; // 들여쓰기/빈줄 = deploy 내부
-      inDeploy = false;
+      // 4.28.0 이 만든 깨진 구조: deploy 아래 2칸 `template:` 은 deploy 내용이 아니라 metadata 의 자식이다 (#670)
+      if (/^ {2}template:/.test(line)) inDeploy = false;
+      else if (/^\s/.test(line) || line === "") continue; // 들여쓰기/빈줄 = deploy 내부
+      else inDeploy = false;
     }
     out.push(line);
   }

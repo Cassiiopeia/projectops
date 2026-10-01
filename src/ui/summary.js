@@ -18,6 +18,8 @@ export function printSummary(ctx, targetRoot = ".") {
   const CYAN = isTty ? "\x1b[0;36m" : "";
   const NC = isTty ? "\x1b[0m" : "";
   const utilModulesCopied = counters.utilModules ?? 0;
+  // README.md 가 없으면 버전 섹션 추가를 건너뛰므로 화면에도 추가·자동 갱신으로 표시하지 않는다 (#677)
+  const hasReadme = existsSync(join(targetRoot, "README.md"));
 
   err("");
   err(SEPARATOR);
@@ -32,7 +34,7 @@ export function printSummary(ctx, targetRoot = ".") {
   switch (mode) {
     case "full":
       err("  ✅ 버전 관리 시스템 (version.yml)");
-      err("  ✅ README.md 자동 버전 업데이트");
+      if (hasReadme) err("  ✅ README.md 자동 버전 업데이트");
       err("  ✅ GitHub Actions 워크플로우");
       if (utilModulesCopied > 0) err(`  ✅ 유틸리티 모듈 (${utilModulesCopied} 개)`);
       err("  ✅ 이슈/PR/Discussion 템플릿");
@@ -42,7 +44,7 @@ export function printSummary(ctx, targetRoot = ".") {
       break;
     case "version":
       err("  ✅ 버전 관리 시스템 (version.yml)");
-      err("  ✅ README.md 자동 버전 업데이트");
+      if (hasReadme) err("  ✅ README.md 자동 버전 업데이트");
       err("  ✅ .gitignore 필수 항목");
       err("  ✅ 템플릿 설정 가이드 (SETUP-GUIDE.md)");
       break;
@@ -72,7 +74,7 @@ export function printSummary(ctx, targetRoot = ".") {
   err("");
   err("추가된 파일:");
   err(`  📄 version.yml (버전: ${version}, 타입: ${types.join(",")})`);
-  err("  📝 README.md (버전 섹션 추가)");
+  err(hasReadme ? "  📝 README.md (버전 섹션 추가)" : "  📝 README.md 없음 — 버전 섹션 추가를 건너뜀");
   err("");
   err("추가된 워크플로우:");
 
@@ -108,6 +110,16 @@ export function printSummary(ctx, targetRoot = ".") {
       err("     💡 새 템플릿 사본은 저장소에 추적되지 않는 .github/.projectops/incoming/ 에 있습니다.");
       err("        필요한 변경만 워크플로에 직접 옮겨 반영하세요.");
     }
+  }
+
+  // #673 — 업데이트 기준점이 없어 수정 여부를 구분하지 못하고 교체한 파일: 원본이 .bak 으로만 남으므로
+  // 사용자가 자기 수정이 사라졌는지 git diff 없이도 알 수 있어야 한다.
+  const replaced = ctx?.replacedBak ?? [];
+  if (replaced.length > 0) {
+    err("");
+    err(`  ${YELLOW}⚠️  수정 여부를 확인할 수 없어 ${replaced.length}개 워크플로를 새 템플릿으로 교체하고 원본을 .bak 으로 백업했습니다${NC}`);
+    for (const f of replaced) err(`     💾 .github/workflows/${f}.bak`);
+    err("     직접 수정한 내용이 있었다면 .bak 에서 옮겨 오세요. (업데이트 기준점은 이번 실행으로 새로 기록됩니다)");
   }
 
   err("");

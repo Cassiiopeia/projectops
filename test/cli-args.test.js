@@ -89,3 +89,26 @@ test("parsePathsCsv → Map, 무효 타입 throw", () => {
   assert.equal(m.get("react"), "client");
   assert.throws(() => parsePathsCsv("bogus=x"), CliError);
 });
+
+test("--mode 허용 값 외에는 CliError (#665)", () => {
+  for (const m of ["full", "version", "workflows", "issues", "skills", "doctor", "interactive"]) {
+    assert.equal(parseArgs(["--mode", m]).mode, m);
+  }
+  assert.throws(() => parseArgs(["--mode", "nope"]), CliError);
+  assert.throws(() => parseArgs(["-m", "ful"]), CliError);
+  assert.throws(() => parseArgs(["--mode"]), CliError);   // 값 누락
+});
+
+test("--project-version 은 x.y.z 만 허용 (#676)", () => {
+  assert.equal(parseArgs(["--project-version", "1.0.0"]).version, "1.0.0");
+  for (const bad of ["abc", "1.0", "v1.0.0", "1.0.0\"; touch /tmp/pwned; echo \"", ""]) {
+    assert.throws(() => parseArgs(["--project-version", bad]), CliError, bad);
+  }
+});
+
+test("--deploy-branch 는 안전한 브랜치명만 허용 (#676)", () => {
+  for (const ok of ["develop", "release/1.0", "feat_x-2"]) assert.equal(parseArgs(["--deploy-branch", ok]).deployBranch, ok);
+  for (const bad of ["a b;c", "a..b", "-x", "a/", "x$(id)", "a\"b"]) {
+    assert.throws(() => parseArgs(["--deploy-branch", bad]), CliError, bad);
+  }
+});

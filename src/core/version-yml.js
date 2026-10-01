@@ -267,6 +267,37 @@ export function parseExisting(content) {
   return { version, versionCode, types, paths, templateVersion, templateMode, options, defaultBranch, deployBranch };
 }
 
+// 기존 version.yml 의 deploy 블록 → Map<type, Map<key,value>> (#670 — 재실행 시 사용자 수정값 보존용).
+// 4.28.0 이 만든 깨진 구조(deploy 아래에 2칸 들여쓴 template 이 딸려 있음)도 읽을 수 있게,
+// 2칸 키 `template` 은 타입이 아니라 블록 종료로 본다.
+export function parseDeployBlock(content) {
+  const out = new Map();
+  let inDeploy = false;
+  let type = null;
+  for (const line of String(content || "").split(/\r?\n/)) {
+    if (/^deploy:/.test(line)) { inDeploy = true; type = null; continue; }
+    if (!inDeploy) continue;
+    if (line === "" || /^\s*#/.test(line)) continue;
+    if (/^\S/.test(line) || /^ {2}template:/.test(line)) { inDeploy = false; continue; }
+    const t = line.match(/^ {2}([A-Za-z0-9_-]+):\s*(#.*)?$/);
+    if (t) { type = t[1]; if (!out.has(type)) out.set(type, new Map()); continue; }
+    const kv = line.match(/^ {4}([A-Za-z0-9_.-]+):\s*"([^"]*)"/);
+    if (kv && type) out.get(type).set(kv[1], kv[2]);
+  }
+  return out;
+}
+
+// 재실행 시 기존 deploy 값 우선 병합 (#670) — 사용자가 version.yml 에서 직접 고친 값이 템플릿 기본값에
+// 덮이지 않게 한다. 기존 값이 이기고, 이번에 새로 묻는 키만 추가된다.
+export function mergeDeployValues(existingContent, fresh) {
+  const merged = parseDeployBlock(existingContent);
+  for (const [t, kv] of fresh) {
+    if (!merged.has(t)) merged.set(t, new Map());
+    for (const [k, v] of kv) if (!merged.get(t).has(k)) merged.get(t).set(k, v);
+  }
+  return merged;
+}
+
 // version.yml 전체 생성 (.sh create_version_yml + save_template_options 신규 케이스 등가).
 // opts: { version, types:[], paths:Map, pathMarkers?:Map, branch, versionCode, now, today, templateOptions? }
 // primary 타입은 별도 키 없이 project_types[0]이다 (v4.1.0 SSOT — 단수 project_type 키 제거).
@@ -302,18 +333,6 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
   out += `  integrated_from: "projectops"\n`;
   out += `  integration_date: "${today}"\n`;
 
-  // deploy 블록 (.sh update_version_yml_deploy). deployValues: Map<type, Map<key,value>>.
-  // WF ask 값이 있는 타입만. metadata 뒤, template 앞. (앞에 빈 줄 1개)
-  const deployTypes = [...deployValues.keys()].filter((t) => deployValues.get(t) && deployValues.get(t).size > 0);
-  if (deployTypes.length) {
-    out += `\n`;
-    out += `deploy:                          # 마법사가 기억하는 배포 설정 (비민감 / 직접 수정 가능)\n`;
-    for (const t of deployTypes) {
-      out += `  ${t}:\n`;
-      for (const [k, v] of deployValues.get(t)) out += `    ${k}: "${v}"\n`;
-    }
-  }
-
   // template 옵션 블록 (.sh save_template_options 신규 추가 케이스). templateOptions 지정 시.
   if (templateOptions) {
     const { templateVersion = "unknown", deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, optionsDate = today,
@@ -346,6 +365,19 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
     out += `      changelog:\n`;
     out += `        provider: "${changelogProvider}"\n`;
     out += `        base_url: "${changelogBaseUrl}"\n`;
+  }
+
+  // deploy 블록 (.sh update_version_yml_deploy). deployValues: Map<type, Map<key,value>>.
+  // WF ask 값이 있는 타입만. 반드시 template 뒤의 별도 최상위 키로 둔다 — metadata 와 template
+  // 사이에 끼면 template 이 deploy 의 자식이 되어 metadata.template.options 구조가 깨진다 (#670).
+  const deployTypes = [...deployValues.keys()].filter((t) => deployValues.get(t) && deployValues.get(t).size > 0);
+  if (deployTypes.length) {
+    out += `\n`;
+    out += `deploy:                          # 마법사가 기억하는 배포 설정 (비민감 / 직접 수정 가능)\n`;
+    for (const t of deployTypes) {
+      out += `  ${t}:\n`;
+      for (const [k, v] of deployValues.get(t)) out += `    ${k}: "${v}"\n`;
+    }
   }
   return out;
 }
