@@ -54,3 +54,17 @@ test("full 재실행: 구조 불변 + 사용자가 고친 deploy 값 보존 (#67
     assert.equal((second.match(/^deploy:/gm) || []).length, 1);
   } finally { rmSync(tpl, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
 });
+
+test("version 모드 재실행도 기존 deploy 값을 지우지 않는다 (#670)", async () => {
+  const tpl = makeTemplate(); const tgt = fresh("rr-tgt-");
+  try {
+    writeFileSync(join(tgt, "package.json"), '{"name":"a","version":"1.0.0"}\n');
+    assert.equal(await cli(["--mode", "full", "--force", "--type", "node"], tgt, tpl), 0);
+    const vy = join(tgt, "version.yml");
+    writeFileSync(vy, readFileSync(vy, "utf8").replace(/SERVICE_DOMAIN: "[^"]*"/, 'SERVICE_DOMAIN: "my.real.com"'));
+    assert.equal(await cli(["--mode", "version", "--force", "--type", "node"], tgt, tpl), 0);
+    const after = readFileSync(vy, "utf8");
+    assert.equal(parseDeployBlock(after).get("node")?.get("SERVICE_DOMAIN"), "my.real.com");
+    assert.equal((after.match(/^deploy:/gm) || []).length, 1);
+  } finally { rmSync(tpl, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
+});

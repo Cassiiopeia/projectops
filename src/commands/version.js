@@ -1,10 +1,11 @@
 // version 모드 (.sh execute_integration version case 등가) — template_integrator.sh 4517~4530.
 // 순서: version.yml → readme → scripts → config → gitignore → setup_guide.
 // (워크플로우 미복사 → deploy 블록 없음. util·issue·coderabbit도 없음.)
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { writeText } from "../core/fsutil.js";
 import { PATHS } from "../core/paths.js";
-import { buildVersionYml } from "../core/version-yml.js";
+import { buildVersionYml, mergeDeployValues } from "../core/version-yml.js";
 import { markerForType } from "../core/detect.js";
 import { addVersionSectionToReadme } from "../core/copy/readme.js";
 import { copyScripts, copyConfigFolder, copySetupGuide } from "../core/copy/simple.js";
@@ -19,9 +20,14 @@ export function runVersion(context, tempDir, targetRoot = ".") {
   const pathMarkers = new Map();
   for (const [t] of paths) pathMarkers.set(t, markerForType(t));
 
-  writeText(join(targetRoot, PATHS.versionFile),
+  // version.yml 은 전체 재생성이라, 읽지 않으면 이전 통합이 남긴 deploy 값(사용자 수정 포함)이 사라진다 (#670)
+  const vyFile = join(targetRoot, PATHS.versionFile);
+  const deployValues = mergeDeployValues(existsSync(vyFile) ? readFileSync(vyFile, "utf8") : "", new Map());
+
+  writeText(vyFile,
     buildVersionYml({
       version, types, paths, pathMarkers, branch, deployBranch, versionCode, now, today,
+      deployValues,
       // mode(#502): version 모드가 기존 full 통합 기록을 "version"으로 강등하지 않도록
       // 호출부가 recordMode로 기존 값을 넘긴다 (full이 우세 — 업데이트 재실행 범위 축소 방지).
       templateOptions: { templateVersion, deployTarget, publishTargets, includeSecretBackup, optionsDate: today,
