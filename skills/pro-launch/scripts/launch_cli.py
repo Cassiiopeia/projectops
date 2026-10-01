@@ -1670,20 +1670,32 @@ def cmd_logs(args) -> int:
                     "error": "로그를 어떻게 보는지 모릅니다",
                     "hint": ('코드를 읽어 알아낸 뒤 적어 두세요. 예: '
                              'access set --key logs --json \'{"command":"ssh u@h \\"docker logs --tail 200 app\\""}\'')})
-    if args.tail:
-        command = f"{command} | tail -n {int(args.tail)}"
-    if args.grep:
-        command = f"{command} | grep -i -- {_shq(args.grep)}"
+    # tail·grep 은 파이프로 잇지 않고 파이썬에서 건다 (#704). 파이프 끝 종료코드만 보면
+    # 앞 명령의 실패(없는 명령·ssh 접속 거부)가 가려져 "로그 0줄 성공"으로 보고된다.
     try:
         r = subprocess.run(["bash", "-lc", command], capture_output=True, text=True,
                            timeout=args.timeout)
     except subprocess.TimeoutExpired:
         return out({"ok": False, "code": "logs_timeout", "error": f"응답 없음 ({args.timeout}초)"})
-    text = r.stdout or ""
-    return out({"ok": r.returncode == 0, "code": "ok" if r.returncode == 0 else "logs_failed",
-                "lines": text.splitlines()[-(args.tail or 200):],
-                "error": (r.stderr or "").strip()[:500] or None,
-                "summary": f"{len(text.splitlines())}줄" if r.returncode == 0 else "실행 실패"})
+    err = (r.stderr or "").strip()
+    # 저장된 명령 안에 grep 이 있으면 매치 0건이 종료코드 1 이다 — 출력·오류가 모두 비면 성공으로 본다
+    failed = r.returncode != 0 and not (r.returncode == 1 and not err and not (r.stdout or "").strip())
+    if failed:
+        return out({"ok": False, "code": "logs_failed", "exit_code": r.returncode,
+                    "lines": [], "error": err[:500] or f"종료코드 {r.returncode}",
+                    "summary": f"로그 명령 실패 (종료코드 {r.returncode}) — 로그가 없는 것이 아니다",
+                    "next": "error 를 보고 접속 방법·명령을 고친다 (access show --key logs)"})
+    lines = (r.stdout or "").splitlines()
+    if args.grep:
+        try:
+            pat = re.compile(args.grep, re.IGNORECASE)
+        except re.error:
+            pat = re.compile(re.escape(args.grep), re.IGNORECASE)   # 정규식이 아니면 글자 그대로
+        lines = [l for l in lines if pat.search(l)]
+    if args.tail:
+        lines = lines[-int(args.tail):]
+    return out({"ok": True, "code": "ok", "lines": lines,
+                "error": err[:500] or None, "summary": f"{len(lines)}줄"})
 
 
 # =========================================================================

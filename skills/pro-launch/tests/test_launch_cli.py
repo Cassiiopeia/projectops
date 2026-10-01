@@ -819,3 +819,32 @@ def test_render_run_needs_a_command(tmp_path):
     d, _ = _render(_render_repo(tmp_path), tmp_path, "run")
     assert d["code"] == "cmd_required"
 
+
+
+# ── logs: 실패한 명령을 성공으로 보고하지 않는다 (#704) ───────────────────
+
+def test_logs_reports_command_not_found_as_failure(tmp_path):
+    rc, out, _ = run_cli("logs", "--command", "nonexistent_zzz_cmd", home=tmp_path / "h", cwd=tmp_path)
+    d = _j(out)
+    assert d["ok"] is False and d["code"] == "logs_failed", d
+    assert rc != 0
+
+
+def test_logs_reports_exit_255_as_failure(tmp_path):
+    _, out, _ = run_cli("logs", "--command", "echo oops >&2; exit 255", home=tmp_path / "h", cwd=tmp_path)
+    d = _j(out)
+    assert d["ok"] is False and d["code"] == "logs_failed" and "oops" in d["error"], d
+
+
+def test_logs_grep_no_match_is_still_success(tmp_path):
+    _, out, _ = run_cli("logs", "--command", "printf 'a\\nb\\n'", "--grep", "zzz",
+                        home=tmp_path / "h", cwd=tmp_path)
+    d = _j(out)
+    assert d["ok"] is True and d["lines"] == [], d
+
+
+def test_logs_tail_and_grep_apply_in_python(tmp_path):
+    _, out, _ = run_cli("logs", "--command", "printf 'ERR 1\\nok\\nerr 2\\nERR 3\\n'",
+                        "--grep", "err", "--tail", "2", home=tmp_path / "h", cwd=tmp_path)
+    d = _j(out)
+    assert d["ok"] is True and d["lines"] == ["err 2", "ERR 3"], d
