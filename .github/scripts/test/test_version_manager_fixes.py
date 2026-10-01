@@ -259,3 +259,146 @@ def test_read_only_package_json_reports_clean_error(tmp_path):
     assert rc == 1
     assert "Traceback" not in err
     assert "package.json" in err
+
+
+# ── #675·#682: 줄바꿈·들여쓰기·주석 보존, 멱등 ───────────────────────────
+import os
+
+
+def _crlf(s):
+    return s.replace("\n", "\r\n")
+
+
+def _assert_pure_crlf(raw):
+    """모든 줄바꿈이 CRLF여야 한다 (맨 LF가 하나도 없어야 함)."""
+    assert raw.count(b"\n") == raw.count(b"\r\n"), raw
+
+
+def _freeze_mtime(path):
+    """mtime을 과거로 박아 두고, 이후 파일이 다시 쓰였는지 mtime 변화로 감지한다."""
+    os.utime(path, ns=(1_000_000_000, 1_000_000_000))
+    return os.stat(path).st_mtime_ns
+
+
+def test_version_yml_crlf_preserved_on_increment(tmp_path):
+    yml = _crlf('version: "1.2.3"  # 릴리스\nversion_code: 3 # app build number\nproject_types: ["basic"]\nmetadata:\n  template:\n    last_updated: "x"\n')
+    write(tmp_path / "version.yml", yml)
+    rc, out, err = run_vm(tmp_path, "increment")
+    assert rc == 0, err
+    raw = (tmp_path / "version.yml").read_bytes()
+    _assert_pure_crlf(raw)
+    text = raw.decode("utf-8")
+    assert 'version: "1.2.4"  # 릴리스\r\n' in text
+    assert "version_code: 4 # app build number\r\n" in text
+
+
+def test_version_yml_crlf_missing_version_code_is_added_with_crlf(tmp_path):
+    write(tmp_path / "version.yml", _crlf('version: "1.2.3"\nproject_types: ["basic"]\n'))
+    rc, out, err = run_vm(tmp_path, "get-code")
+    assert rc == 0, err
+    _assert_pure_crlf((tmp_path / "version.yml").read_bytes())
+
+
+def test_missing_version_code_appended_on_its_own_line(tmp_path):
+    # 마지막 줄에 개행이 없어도 version_code가 앞 줄에 붙어 버리면 안 된다
+    write(tmp_path / "version.yml", 'project_types: ["basic"]\nversion: "1.2.3"')
+    rc, out, err = run_vm(tmp_path, "get-code")
+    assert rc == 0, err
+    text = (tmp_path / "version.yml").read_text(encoding="utf-8")
+    assert 'version: "1.2.3"\nversion_code: 1' in text
+
+
+@pytest.mark.parametrize("ptype,fname,content,expect", [
+    ("flutter", "pubspec.yaml", "name: demo\nversion: 1.2.3+7 # rel\n", "version: 2.0.0+3 # rel\r\n"),
+    ("spring", "build.gradle", "plugins {}\nversion = '1.2.3'\n", "version = '2.0.0'\r\n"),
+    ("python", "pyproject.toml", '[project]\nname = "x"\nversion = "1.2.3"\n', 'version = "2.0.0"\r\n'),
+])
+def test_text_files_keep_crlf(tmp_path, ptype, fname, content, expect):
+    write(tmp_path / "version.yml", _crlf(f'version: "1.2.3"\nversion_code: 3\nproject_types: ["{ptype}"]\n'))
+    write(tmp_path / fname, _crlf(content))
+    rc, out, err = run_vm(tmp_path, "set", "2.0.0")
+    assert rc == 0, err
+    raw = (tmp_path / fname).read_bytes()
+    _assert_pure_crlf(raw)
+    assert expect in raw.decode("utf-8"), raw
+
+
+def test_plist_keeps_crlf(tmp_path):
+    write(tmp_path / "version.yml", _crlf('version: "1.2.3"\nproject_types: ["react-native"]\n'))
+    write(tmp_path / "ios/App/Info.plist", _crlf("<dict>\n<key>CFBundleShortVersionString</key>\n<string>1.2.3</string>\n</dict>\n"))
+    rc, out, err = run_vm(tmp_path, "set", "2.0.0")
+    assert rc == 0, err
+    raw = (tmp_path / "ios/App/Info.plist").read_bytes()
+    _assert_pure_crlf(raw)
+    assert b"<string>2.0.0</string>" in raw
+
+
+@pytest.mark.parametrize("original", [
+    '{\n\t"name": "x",\n\t"files": ["a", "b"],\n\t"version": "1.2.3"\n}\n',                 # 탭 + 한 줄 배열
+    '{\n    "name": "x",\n    "files": ["a", "b"],\n    "version": "1.2.3"\n}\n',           # 4칸
+    '{"name":"x","files":["a","b"],"version":"1.2.3"}',                                   # 압축, 끝 개행 없음
+    '{\n  "version" :   "1.2.3" ,\n  "dep": {"version": "9.9.9"}\n}\n',                   # 공백 변형 + 중첩 같은 키
+])
+def test_package_json_format_preserved(tmp_path, original):
+    write(tmp_path / "version.yml", 'version: "1.2.3"\nversion_code: 1\nproject_types: ["node"]\n')
+    write(tmp_path / "package.json", original)
+    rc, out, err = run_vm(tmp_path, "set", "1.2.4")
+    assert rc == 0, err
+    got = (tmp_path / "package.json").read_text(encoding="utf-8")
+    # 값 하나만 바뀌고 나머지 바이트는 동일해야 한다 (중첩 "9.9.9"는 건드리지 않는다)
+    assert got == original.replace('"1.2.3"', '"1.2.4"')
+
+
+def test_package_json_missing_version_key_is_added_keeping_indent(tmp_path):
+    write(tmp_path / "version.yml", 'version: "1.2.3"\nversion_code: 1\nproject_types: ["node"]\n')
+    write(tmp_path / "package.json", '{\n\t"name": "x"\n}\n')
+    rc, out, err = run_vm(tmp_path, "set", "1.2.4")
+    assert rc == 0, err
+    assert (tmp_path / "package.json").read_text(encoding="utf-8") == '{\n\t"name": "x",\n\t"version": "1.2.4"\n}\n'
+
+
+def test_app_json_expo_version_only_changes(tmp_path):
+    original = '{\n\t"expo": {\n\t\t"name": "x",\n\t\t"version": "1.2.3",\n\t\t"tags": ["a", "b"]\n\t}\n}\n'
+    write(tmp_path / "version.yml", 'version: "1.2.3"\nproject_types: ["react-native-expo"]\n')
+    write(tmp_path / "app.json", original)
+    rc, out, err = run_vm(tmp_path, "set", "1.2.4")
+    assert rc == 0, err
+    assert (tmp_path / "app.json").read_text(encoding="utf-8") == original.replace('"1.2.3"', '"1.2.4"')
+
+
+def test_app_json_without_expo_version_is_added(tmp_path):
+    write(tmp_path / "version.yml", 'version: "1.2.3"\nproject_types: ["react-native-expo"]\n')
+    write(tmp_path / "app.json", '{\n  "expo": {\n    "name": "x"\n  }\n}\n')
+    rc, out, err = run_vm(tmp_path, "set", "1.2.4")
+    assert rc == 0, err
+    assert (tmp_path / "app.json").read_text(encoding="utf-8") == '{\n  "expo": {\n    "name": "x",\n    "version": "1.2.4"\n  }\n}\n'
+
+
+def test_get_does_not_rewrite_files_in_multitype(tmp_path):
+    original = '{\n\t"name": "x",\n\t"files": ["a", "b"],\n\t"version": "1.2.3"\n}\n'
+    write(tmp_path / "version.yml", YML_MULTI)
+    write(tmp_path / "package.json", original)
+    before = _freeze_mtime(tmp_path / "package.json")
+    for cmd in ("get", "sync"):
+        rc, out, err = run_vm(tmp_path, cmd)
+        assert rc == 0, err
+    assert (tmp_path / "package.json").read_bytes() == original.encode()
+    assert os.stat(tmp_path / "package.json").st_mtime_ns == before   # 쓰기 자체가 없어야 한다
+
+
+def test_set_same_version_does_not_touch_files(tmp_path):
+    write(tmp_path / "version.yml", YML_NODE)
+    write(tmp_path / "package.json", '{"version": "1.2.3"}\n')
+    b_json = _freeze_mtime(tmp_path / "package.json")
+    b_yml = _freeze_mtime(tmp_path / "version.yml")
+    rc, out, err = run_vm(tmp_path, "set", "1.2.3")
+    assert rc == 0, err
+    assert os.stat(tmp_path / "package.json").st_mtime_ns == b_json
+    assert os.stat(tmp_path / "version.yml").st_mtime_ns == b_yml
+
+
+def test_lf_files_stay_lf(tmp_path):
+    write(tmp_path / "version.yml", 'version: "1.2.3"\nversion_code: 3\nproject_types: ["basic"]\n')
+    rc, out, err = run_vm(tmp_path, "increment")
+    assert rc == 0, err
+    assert b"\r" not in (tmp_path / "version.yml").read_bytes()
