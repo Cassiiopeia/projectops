@@ -14,14 +14,22 @@
 #   - project_paths 맵으로 모노레포 서브폴더 지원
 # ===================================================================
 
+# macOS 기본 python3(3.9)에서도 `str | None` 주석이 평가되지 않고 기동되도록 한다 (#695)
+from __future__ import annotations
+
 import json
 import os
 import re
 import sys
 from pathlib import Path
 
-VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+# \Z: `$`는 끝 개행("1.2.3\n")을 허용하므로 쓰지 않는다. 앞자리 0(01.02.03)도 거부한다 (#685)
+VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\Z")
 VERSION_YML = Path("version.yml")
+
+
+class VersionError(Exception):
+    """갱신·읽기 실패. 성공 로그 대신 오류 메시지와 exit 1로 끝내기 위해 쓴다 (#678)."""
 
 
 # ── 로그 (stderr — .sh 이모지 동일) ─────────────────────────────────
@@ -34,29 +42,96 @@ def log_debug(msg):
         print(f"🔍 DEBUG: {msg}", file=sys.stderr)
 
 
-# ── version.yml 읽기/쓰기 (라인 단위 — 주석·서식 보존) ────────────────
+# ── 파일 읽기/쓰기 (바이트 보존 — 줄바꿈·인코딩을 건드리지 않는다, #675 #682) ──
 def read_text(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
+    """줄바꿈 변환 없이 읽는다 (CRLF 그대로). BOM 문자도 그대로 남는다."""
+    try:
+        return path.read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError) as e:
+        raise VersionError(f"{path.as_posix()}을(를) 읽지 못했습니다: {e}")
 
 
-def write_text(path: Path, content: str):
-    path.write_text(content, encoding="utf-8", newline="\n")
+def write_text(path: Path, content: str) -> bool:
+    """줄바꿈 변환 없이 쓴다. 내용이 이미 같으면 쓰지 않고 False (멱등 — mtime·diff 오염 방지)."""
+    data = content.encode("utf-8")
+    try:
+        if path.is_file() and path.read_bytes() == data:
+            return False
+        path.write_bytes(data)
+    except OSError as e:
+        raise VersionError(f"{path.as_posix()}을(를) 쓰지 못했습니다: {e} (파일 권한을 확인하세요)")
+    return True
+
+
+def detect_eol(text: str) -> str:
+    return "\r\n" if "\r\n" in text else "\n"
+
+
+def split_lines(text: str) -> list:
+    """줄바꿈을 줄 끝에 붙인 채로 나눈다. ''.join(결과) == text 가 항상 성립한다."""
+    return [p for p in re.split(r"(?<=\n)", text) if p != ""]
+
+
+def split_eol(piece: str):
+    """한 줄 조각을 (본문, 줄바꿈)으로 가른다."""
+    if piece.endswith("\r\n"):
+        return piece[:-2], "\r\n"
+    if piece.endswith("\n"):
+        return piece[:-1], "\n"
+    return piece, ""
 
 
 def yml_lines():
-    return read_text(VERSION_YML).split("\n")
+    # 줄바꿈과 첫 줄 BOM은 읽기에서만 제거 (쓸 때는 각 쓰기 함수가 보존)
+    text = read_text(VERSION_YML)
+    if text.startswith("\ufeff"):
+        text = text[1:]
+    return [split_eol(p)[0] for p in split_lines(text)]
+
+
+def _unquote(value: str) -> str:
+    """앞뒤 공백과 한 겹의 따옴표(" 또는 ')를 제거한다."""
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
 
 
 def parse_project_types() -> list:
-    """project_types: ["a","b"] → ["a","b"] (주석 라인 제외). 없으면 []."""
+    """project_types를 읽는다. 지원 형식: 인라인 ["a","b"] 와 블록 리스트(- a). 없으면 [].
+
+    지원하지 않는 표기는 basic으로 조용히 대체하지 않고 오류로 알린다 (#684).
+    """
     if not VERSION_YML.is_file():
         return []
-    for line in yml_lines():
+    lines = yml_lines()
+    for idx, line in enumerate(lines):
         if line.lstrip().startswith("#"):
             continue
-        m = re.match(r"^project_types:\s*(\[[^\]]*\])", line)
-        if m:
-            return [t.strip().strip('"').strip("'") for t in m.group(1)[1:-1].split(",") if t.strip()]
+        m = re.match(r"^project_types:[ \t]*(.*?)[ \t]*$", line)
+        if not m:
+            continue
+        rest = m.group(1)
+        if rest.startswith("["):
+            inline = re.match(r"^\[([^\]]*)\][ \t]*(#.*)?$", rest)
+            if not inline:
+                raise VersionError("version.yml의 project_types는 한 줄 배열([\"a\", \"b\"]) 또는 블록 리스트(- a)만 지원합니다.")
+            return [_unquote(t) for t in inline.group(1).split(",") if t.strip()]
+        if rest and not rest.startswith("#"):
+            raise VersionError(f"version.yml의 project_types 형식은 지원하지 않는 표기입니다: '{rest}' (배열 또는 블록 리스트로 쓰세요)")
+        # 값이 비어 있으면 다음 줄들의 블록 리스트를 읽는다
+        types = []
+        for nxt in lines[idx + 1:]:
+            if not nxt.strip() or nxt.lstrip().startswith("#"):
+                continue
+            item = re.match(r"^\s*-[ \t]+(.*?)[ \t]*$", nxt)
+            if not item:
+                break
+            raw = item.group(1)
+            # 따옴표 값 뒤의 줄 끝 주석("node"  # 설명)과 무따옴표 값 뒤 주석을 모두 제거
+            qm = re.match(r"^(\"[^\"]*\"|'[^']*')[ \t]*(#.*)?$", raw)
+            types.append(_unquote(qm.group(1)) if qm else re.sub(r"[ \t]+#.*$", "", raw).strip())
+        return [t for t in types if t]
     return []
 
 
@@ -72,49 +147,61 @@ def parse_legacy_single_type() -> str:
 
 
 def get_type_path(t: str) -> str:
-    """project_paths.<type> — 키 없으면 '.' (legacy: 루트 기준)."""
+    """project_paths.<type> — 키 없으면 '.' (legacy: 루트 기준). 값은 "큰따옴표"·'작은따옴표'·무따옴표 모두 허용."""
     in_paths = False
     for line in yml_lines():
-        if re.match(r"^project_paths:", line):
+        if line.lstrip().startswith("#") or not line.strip():
+            continue
+        pm = re.match(r"^project_paths:[ \t]*(.*?)[ \t]*$", line)
+        if pm:
+            rest = pm.group(1)
+            if rest and not rest.startswith("#"):
+                raise VersionError(f"version.yml의 project_paths 형식은 지원하지 않는 표기입니다: '{rest}' (블록 맵 '타입: 경로'로 쓰세요)")
             in_paths = True
             continue
         if in_paths:
-            m = re.match(r'^\s+([A-Za-z0-9_-]+):\s*"([^"]*)"', line)
-            if m:
-                if m.group(1) == t:
-                    return m.group(2) or "."
-            elif re.match(r"^\S", line):
+            if re.match(r"^\S", line):
                 break
+            m = re.match(r"^\s+([A-Za-z0-9_-]+):[ \t]*(\"[^\"]*\"|'[^']*'|[^#\s]*)[ \t]*(#.*)?$", line)
+            if not m:
+                raise VersionError(f"version.yml의 project_paths 항목을 읽지 못했습니다: '{line.strip()}' (타입: 경로 형식으로 쓰세요)")
+            if m.group(1) == t:
+                return _unquote(m.group(2)) or "."
     return "."
 
 
-def get_yml_version() -> str:
+def get_yml_version():
+    """version: 값을 읽는다. v 접두사는 허용(정규화), 읽지 못하면 None (0.0.0으로 대체하지 않는다 — #678)."""
     for line in yml_lines():
         if line.lstrip().startswith("#"):
             continue
-        m = re.match(r"^version:\s*[\"']?([0-9][0-9.]*)[\"']?", line)
+        m = re.match(r"^version:\s*[\"']?[vV]?([0-9][0-9.]*)", line)
         if m:
             return m.group(1)
-    return "0.0.0"
+    return None
 
 
 def set_yml_field(pattern: str, new_line_fn):
-    """pattern에 걸리는 첫 라인을 new_line_fn(match)로 교체. 교체 여부 반환."""
-    lines = yml_lines()
-    for i, line in enumerate(lines):
-        if line.lstrip().startswith("#"):
+    """pattern에 걸리는 첫 라인을 new_line_fn(match)로 교체. 매칭 여부 반환. 줄바꿈·BOM은 보존."""
+    text = read_text(VERSION_YML)
+    # 첫 줄 BOM은 매칭에서만 빼고 그대로 되돌려 쓴다
+    bom = "\ufeff" if text.startswith("\ufeff") else ""
+    pieces = split_lines(text[len(bom):])
+    for i, piece in enumerate(pieces):
+        body, eol = split_eol(piece)
+        if body.lstrip().startswith("#"):
             continue
-        m = re.match(pattern, line)
+        m = re.match(pattern, body)
         if m:
-            lines[i] = new_line_fn(m)
-            write_text(VERSION_YML, "\n".join(lines))
+            pieces[i] = new_line_fn(m) + eol
+            write_text(VERSION_YML, bom + "".join(pieces))
             return True
     return False
 
 
 # ── 설정 읽기 (.sh read_version_config 등가, v4.1.0 SSOT) ───────────
 class Config:
-    def __init__(self):
+    def __init__(self, require_version=True):
         if not VERSION_YML.is_file():
             log_error("version.yml 파일을 찾을 수 없습니다!")
             sys.exit(1)
@@ -136,7 +223,13 @@ class Config:
         else:
             self.primary = "basic"
 
-        self.current_version = get_yml_version()
+        current = get_yml_version()
+        if current is None:
+            if require_version:
+                log_error('version.yml에서 version 값을 읽지 못했습니다. `version: "x.y.z"` 줄이 있어야 합니다.')
+                sys.exit(1)
+            current = "0.0.0"  # version_code만 다루는 명령에서는 쓰이지 않는 자리표시값
+        self.current_version = current
         self.version_file = self._resolve_version_file()
 
         log_info("프로젝트 설정:")
@@ -150,6 +243,9 @@ class Config:
         p = get_type_path(self.primary)
         t = self.primary
         if t == "spring":
+            # Kotlin DSL(build.gradle.kts)만 있는 프로젝트도 읽는다 (#680)
+            if not Path(f"{p}/build.gradle").is_file() and Path(f"{p}/build.gradle.kts").is_file():
+                return f"{p}/build.gradle.kts"
             return f"{p}/build.gradle"
         if t == "flutter":
             return f"{p}/pubspec.yaml"
@@ -158,7 +254,7 @@ class Config:
         if t == "react-native":
             ios_dir = Path(p) / "ios"
             if ios_dir.is_dir():
-                plists = sorted(ios_dir.rglob("Info.plist"))
+                plists = find_info_plists(ios_dir)
                 if plists:
                     return str(plists[0])
             return f"{p}/android/app/build.gradle"
@@ -212,15 +308,23 @@ def get_version_code() -> int:
             return int(m.group(1))
     # 필드 없음 → version 라인 다음에 추가 (초기값 1)
     log_warning("version_code 필드가 없습니다. 자동으로 추가합니다 (초기값: 1)")
-    lines = yml_lines()
-    for i, line in enumerate(lines):
-        if not line.lstrip().startswith("#") and re.match(r"^version:", line):
-            lines.insert(i + 1, "version_code: 1 # app build number")
-            write_text(VERSION_YML, "\n".join(lines))
+    text = read_text(VERSION_YML)
+    bom = "\ufeff" if text.startswith("\ufeff") else ""
+    body_text = text[len(bom):]
+    eol = detect_eol(body_text)
+    new_line = "version_code: 1 # app build number" + eol
+    pieces = split_lines(body_text)
+    for i, piece in enumerate(pieces):
+        if not piece.lstrip().startswith("#") and re.match(r"^version:", piece):
+            if not piece.endswith("\n"):  # 마지막 줄에 개행이 없으면 앞 줄에 붙지 않게 먼저 개행
+                pieces[i] = piece + eol
+            pieces.insert(i + 1, new_line)
             break
     else:
-        lines.append("version_code: 1 # app build number")
-        write_text(VERSION_YML, "\n".join(lines))
+        if pieces and not pieces[-1].endswith("\n"):
+            pieces[-1] += eol
+        pieces.append(new_line)
+    write_text(VERSION_YML, bom + "".join(pieces))
     log_success("version_code 필드 추가 완료: 1")
     return 1
 
@@ -246,33 +350,223 @@ def increment_version_code() -> int:
 
 # ── 파일별 버전 읽기/쓰기 헬퍼 ────────────────────────────────────────
 def read_json(path: Path):
-    return json.loads(read_text(path))
+    """JSON 객체를 읽는다. BOM은 허용하고, 깨진 JSON·객체가 아닌 최상위는 VersionError로 알린다 (#683)."""
+    text = read_text(path)
+    try:
+        obj = json.loads(text.lstrip("\ufeff"))
+    except ValueError as e:
+        raise VersionError(f"{path.as_posix()}을(를) 읽지 못했습니다: {e} (JSON 문법·머지 충돌 마커를 확인하세요)")
+    if not isinstance(obj, dict):
+        raise VersionError(f"{path.as_posix()}을(를) 읽지 못했습니다: 최상위가 JSON 객체가 아닙니다")
+    return obj
 
 
-def write_json(path: Path, obj):
-    # jq 등가: 2-space indent + 마지막 개행
-    write_text(path, json.dumps(obj, indent=2, ensure_ascii=False) + "\n")
+# JSON은 json.dumps로 다시 쓰지 않고 version 값의 문자열 구간만 교체한다.
+# 다시 쓰면 탭·4칸 들여쓰기, 한 줄 배열, 끝 개행 유무, CRLF가 모두 바뀐다 (#682).
+def _json_ws(t: str, i: int) -> int:
+    while i < len(t) and t[i] in " \t\r\n":
+        i += 1
+    return i
 
 
-def sub_file(path: Path, pattern: str, repl, count=0, flags=re.MULTILINE) -> bool:
+def _json_string_end(t: str, i: int) -> int:
+    i += 1
+    while t[i] != '"':
+        i += 2 if t[i] == "\\" else 1
+    return i + 1
+
+
+def _json_value_end(t: str, i: int) -> int:
+    """i에서 시작하는 값의 끝 위치. 이미 json.loads로 검증된 텍스트에만 쓴다."""
+    i = _json_ws(t, i)
+    c = t[i]
+    if c == '"':
+        return _json_string_end(t, i)
+    if c in "{[":
+        close = "}" if c == "{" else "]"
+        i += 1
+        while True:
+            i = _json_ws(t, i)
+            if t[i] == close:
+                return i + 1
+            if t[i] == ",":
+                i += 1
+                continue
+            if c == "{":
+                i = _json_ws(t, _json_string_end(t, i)) + 1  # 키와 콜론 건너뜀
+            i = _json_value_end(t, i)
+    j = i
+    while j < len(t) and t[j] not in ",}] \t\r\n":
+        j += 1
+    return j
+
+
+def _json_member_span(t: str, obj_start: int, key: str):
+    """obj_start의 객체에서 key 값의 (시작, 끝). 중복 키는 json.loads처럼 마지막 것을 쓴다."""
+    i = _json_ws(t, obj_start) + 1
+    found = None
+    while True:
+        i = _json_ws(t, i)
+        if t[i] == "}":
+            return found
+        if t[i] == ",":
+            i += 1
+            continue
+        key_end = _json_string_end(t, i)
+        name = json.loads(t[i:key_end])
+        i = _json_ws(t, key_end) + 1
+        vs = _json_ws(t, i)
+        ve = _json_value_end(t, vs)
+        if name == key:
+            found = (vs, ve)
+        i = ve
+
+
+def json_set_string(text: str, keys: list, new_value: str):
+    """keys 경로의 문자열 값을 바꾼 새 텍스트. 경로가 없거나 문자열이 아니면 None."""
+    vs = _json_ws(text, 1 if text.startswith("\ufeff") else 0)
+    ve = vs
+    for key in keys:
+        if text[vs] != "{":
+            return None
+        span = _json_member_span(text, vs, key)
+        if span is None:
+            return None
+        vs, ve = span
+    if text[vs] != '"':
+        return None
+    return text[:vs] + json.dumps(new_value, ensure_ascii=False) + text[ve:]
+
+
+def json_rebuild(text: str, obj) -> str:
+    """키를 새로 넣어야 할 때만 쓰는 대체 경로. 원본의 들여쓰기·줄바꿈·끝 개행·BOM을 최대한 따른다."""
+    bom = "\ufeff" if text.startswith("\ufeff") else ""
+    body = text[len(bom):]
+    indents = re.findall(r"^([ \t]+)\S", body, re.MULTILINE)
+    indent = min(indents, key=len) if indents else "  "
+    eol = detect_eol(body)
+    out = json.dumps(obj, indent=indent, ensure_ascii=False)
+    if eol != "\n":
+        out = out.replace("\n", eol)
+    if body.endswith("\n"):
+        out += eol
+    return bom + out
+
+
+def set_json_version(path: Path, keys: list, new_version: str) -> bool:
+    """JSON 파일의 keys 경로(예: ["version"], ["expo", "version"])를 new_version으로 바꾼다. 변경 여부 반환."""
+    obj = read_json(path)  # 깨진 JSON은 여기서 오류로 끝낸다 (이후 스캔은 유효한 JSON을 전제)
+    text = read_text(path)
+    new_text = json_set_string(text, keys, new_version)
+    if new_text is None:
+        node = obj
+        for key in keys[:-1]:
+            node = node.setdefault(key, {})
+            if not isinstance(node, dict):
+                raise VersionError(f"{path.as_posix()}의 '{key}'가 객체가 아니라 version을 쓸 수 없습니다")
+        node[keys[-1]] = new_version
+        new_text = json_rebuild(text, obj)
+    return write_text(path, new_text)
+
+
+SAME, CHANGED, NO_MATCH = "same", "changed", "nomatch"
+
+
+def sub_file(path: Path, pattern: str, repl, count=0, flags=re.MULTILINE) -> str:
+    """정규식 치환. CHANGED(바뀜) / SAME(매치했지만 이미 같음, 쓰지 않음) / NO_MATCH 반환."""
     text = read_text(path)
     new_text, n = re.subn(pattern, repl, text, count=count, flags=flags)
-    if n:
-        write_text(path, new_text)
-    return n > 0
+    if not n:
+        return NO_MATCH
+    return CHANGED if write_text(path, new_text) else SAME
 
 
-def plist_set_version(path: Path, new_version: str) -> bool:
-    """CFBundleShortVersionString 키 다음 <string> 값을 교체 (.sh sed 등가)."""
-    lines = read_text(path).split("\n")
-    changed = False
-    for i, line in enumerate(lines):
-        if "CFBundleShortVersionString" in line and i + 1 < len(lines):
-            lines[i + 1] = re.sub(r"<string>[^<]*</string>", f"<string>{new_version}</string>", lines[i + 1])
-            changed = True
-    if changed:
-        write_text(path, "\n".join(lines))
-    return changed
+PLIST_EXCLUDED_DIRS = {"Pods", "build", "node_modules", "DerivedData", "Carthage", ".build"}
+_PLIST_VERSION_RE = re.compile(r"(<key>CFBundleShortVersionString</key>\s*<string>)([^<]*)(</string>)")
+VARIABLE = "variable"
+
+
+def find_info_plists(ios_dir: Path) -> list:
+    """ios/ 아래 앱 Info.plist 후보. Pods·build 같은 서드파티/빌드 산출물은 제외하고,
+    CFBundleShortVersionString이 있는 것만, 얕은 경로·비-Tests 타깃 순으로 정렬한다 (#679).
+    (폴더 이름 정렬로 고르면 ios/Pods/... 나 ios/AppTests/... 가 프로젝트 plist로 잡힌다)
+    """
+    found = []
+    for plist in ios_dir.rglob("Info.plist"):
+        folders = plist.relative_to(ios_dir).parts[:-1]
+        if any(part in PLIST_EXCLUDED_DIRS for part in folders):
+            continue
+        try:
+            has_key = "CFBundleShortVersionString" in read_text(plist)
+        except VersionError:
+            continue
+        if has_key:
+            found.append(plist)
+    return sorted(found, key=lambda f: (len(f.relative_to(ios_dir).parts), "Tests" in f.parent.name, f.as_posix()))
+
+
+def plist_set_version(path: Path, new_version: str) -> str:
+    """CFBundleShortVersionString 키 뒤 <string> 값을 교체 (키와 값이 같은 줄이든 다음 줄이든).
+
+    값이 $(MARKETING_VERSION) 같은 Xcode 변수면 건드리지 않고 VARIABLE을 반환한다 —
+    리터럴로 덮으면 pbxproj의 MARKETING_VERSION과 어긋난다.
+    """
+    text = read_text(path)
+    if not _PLIST_VERSION_RE.search(text):
+        return NO_MATCH
+    new_text = _PLIST_VERSION_RE.sub(
+        lambda m: m.group(0) if m.group(2).startswith("$(") else f"{m.group(1)}{new_version}{m.group(3)}", text)
+    if new_text == text:
+        return VARIABLE if _PLIST_VERSION_RE.search(text).group(2).startswith("$(") else SAME
+    return CHANGED if write_text(path, new_text) else SAME
+
+
+# pyproject.toml: version 키는 [project](PEP 621) 또는 [tool.poetry] 테이블 안의 것만 프로젝트 버전이다.
+# 테이블 구분 없이 치환하면 [tool.foo] 같은 다른 테이블의 version이 덮어써진다 (#681).
+TOML_VERSION_TABLES = ("project", "tool.poetry")
+_TOML_HEADER_RE = re.compile(r"^[ \t]*\[([^\[\]]+)\][ \t]*(#.*)?$")
+_TOML_VERSION_RE = re.compile(r"""^([ \t]*version[ \t]*=[ \t]*)("[^"\r\n]*"|'[^'\r\n]*')(.*)$""", re.DOTALL)
+
+
+def _toml_version_lines(pieces: list) -> list:
+    """대상 테이블 안의 version 줄 인덱스 목록 (테이블 순서대로)."""
+    table = None
+    found = []
+    for i, piece in enumerate(pieces):
+        body, _ = split_eol(piece)
+        h = _TOML_HEADER_RE.match(body)
+        if h:
+            table = re.sub(r"\s+", "", h.group(1))
+            continue
+        if body.lstrip().startswith("[["):  # 배열 테이블([[x]])은 대상이 아니다
+            table = None
+            continue
+        if table in TOML_VERSION_TABLES and _TOML_VERSION_RE.match(body):
+            found.append(i)
+    return found
+
+
+def toml_get_version(text: str) -> str:
+    pieces = split_lines(text)
+    for i in _toml_version_lines(pieces):
+        m = re.match(r"^[ \t]*version[ \t]*=[ \t]*[\"'](\d+\.\d+\.\d+)[\"']", split_eol(pieces[i])[0])
+        if m:
+            return m.group(1)
+    return ""
+
+
+def toml_set_version(path: Path, new_version: str) -> str:
+    """대상 테이블의 version 값을 교체한다. 따옴표 종류와 줄 끝 주석은 보존. CHANGED/SAME/NO_MATCH 반환."""
+    pieces = split_lines(read_text(path))
+    targets = _toml_version_lines(pieces)
+    if not targets:
+        return NO_MATCH
+    for i in targets:
+        body, eol = split_eol(pieces[i])
+        m = _TOML_VERSION_RE.match(body)
+        quote = m.group(2)[0]
+        pieces[i] = f"{m.group(1)}{quote}{new_version}{quote}{m.group(3)}{eol}"
+    return CHANGED if write_text(path, "".join(pieces)) else SAME
 
 
 def get_project_file_version(cfg: Config) -> str:
@@ -295,17 +589,19 @@ def get_project_file_version(cfg: Config) -> str:
             if cfg.version_file.endswith("Info.plist"):
                 m = re.search(r"CFBundleShortVersionString</key>\s*<string>([^<]*)</string>", read_text(vf))
                 v = m.group(1) if m else ""
+                if v.startswith("$("):  # Xcode 변수(MARKETING_VERSION)는 읽을 수 있는 버전이 아니다
+                    log_warning(f"{vf.as_posix()}의 버전이 Xcode 변수({v})라 읽지 못했습니다 — version.yml 값을 사용")
+                    v = ""
             else:
                 m = re.search(r'versionName\s*"([^"]+)"', read_text(vf))
                 v = m.group(1) if m else ""
         elif t == "react-native-expo":
             v = str((read_json(vf).get("expo") or {}).get("version", "") or "")
         elif t == "python":
-            m = re.search(r'^version\s*=\s*"(\d+\.\d+\.\d+)"', read_text(vf), re.MULTILINE)
-            v = m.group(1) if m else ""
+            v = toml_get_version(read_text(vf))
         else:
             v = cfg.current_version
-    except (OSError, json.JSONDecodeError) as e:
+    except (OSError, ValueError, VersionError) as e:
         log_warning(f"프로젝트 파일 읽기 실패({vf}): {e}")
         v = ""
 
@@ -324,59 +620,79 @@ def sync_for_type(t: str, new_version: str):
     if t == "spring":
         if base.is_dir():
             # find -maxdepth 2 -name build.gradle 등가
-            candidates = sorted(set(base.glob("build.gradle")) | set(base.glob("*/build.gradle")))
+            candidates = sorted(
+                set(base.glob("build.gradle")) | set(base.glob("*/build.gradle"))
+                | set(base.glob("build.gradle.kts")) | set(base.glob("*/build.gradle.kts"))
+            )
+            if not candidates:
+                log_warning(f"spring: {p}에 build.gradle(.kts) 없음 — 건너뜀")
             for gradle in candidates:
-                changed = sub_file(gradle, r"version = '[^']*'", f"version = '{new_version}'")
-                changed |= sub_file(gradle, r'version = "[^"]*"', f'version = "{new_version}"')
-                if changed:
+                # 줄 시작의 `version = '...'`(프로젝트 버전 대입)만 고친다. 앵커가 없으면
+                # ext.kotlin_version = '1.9.0' 같은 다른 대입이나 주석까지 덮어써 빌드가 깨진다 (#680).
+                results = {
+                    sub_file(gradle, r"^([ \t]*version[ \t]*=[ \t]*)'[^']*'", lambda m: f"{m.group(1)}'{new_version}'"),
+                    sub_file(gradle, r'^([ \t]*version[ \t]*=[ \t]*)"[^"]*"', lambda m: f'{m.group(1)}"{new_version}"'),
+                }
+                if CHANGED in results:
                     log_success(f"업데이트: {gradle.as_posix()}")
+                elif results == {NO_MATCH}:
+                    log_warning(f"spring: {gradle.as_posix()}에서 version 대입을 찾지 못했습니다 — 동기화하지 못함")
         else:
             log_warning(f"spring: {p} 디렉토리 없음 — 건너뜀")
     elif t == "flutter":
         pubspec = base / "pubspec.yaml"
         if pubspec.is_file():
             code = get_version_code()
-            sub_file(pubspec, r"^version:.*$", f"version: {new_version}+{code}", count=1)
-            log_success(f"업데이트: {pubspec.as_posix()}")
+            # 값만 교체하고 줄 끝 주석(version: 1.2.3+7 # rel)은 보존한다
+            status = sub_file(
+                pubspec, r"^(version:[ \t]*)[^\s#]*([ \t]*#[^\r\n]*)?",
+                lambda m: f"{m.group(1)}{new_version}+{code}{m.group(2) or ''}", count=1)
+            if status == CHANGED:
+                log_success(f"업데이트: {pubspec.as_posix()}")
         else:
             log_warning(f"flutter: {p}/pubspec.yaml 없음 — 건너뜀")
     elif t in ("react", "node"):
         pkg = base / "package.json"
         if pkg.is_file():
-            obj = read_json(pkg)
-            obj["version"] = new_version
-            write_json(pkg, obj)
-            log_success(f"업데이트: {pkg.as_posix()}")
+            if set_json_version(pkg, ["version"], new_version):
+                log_success(f"업데이트: {pkg.as_posix()}")
         else:
             log_warning(f"{t}: {p}/package.json 없음 — 건너뜀")
     elif t == "python":
         toml = base / "pyproject.toml"
         if toml.is_file():
-            sub_file(toml, r'^version = "[^"]*"', f'version = "{new_version}"')
-            log_success(f"업데이트: {toml.as_posix()}")
+            status = toml_set_version(toml, new_version)
+            if status == CHANGED:
+                log_success(f"업데이트: {toml.as_posix()}")
+            elif status == NO_MATCH:
+                log_warning(f"python: {toml.as_posix()}의 [project]/[tool.poetry]에서 version을 찾지 못했습니다 — 동기화하지 못함")
         else:
             log_warning(f"python: {p}/pyproject.toml 없음 — 건너뜀")
     elif t == "react-native":
         ios_dir = base / "ios"
         if ios_dir.is_dir():
-            for plist in sorted(ios_dir.rglob("Info.plist")):
-                if plist_set_version(plist, new_version):
+            plists = find_info_plists(ios_dir)
+            if not plists:
+                log_warning(f"react-native: {p}/ios에서 CFBundleShortVersionString이 있는 Info.plist를 찾지 못했습니다 — iOS 버전 동기화 안 됨")
+            for plist in plists:
+                status = plist_set_version(plist, new_version)
+                if status == CHANGED:
                     log_success(f"업데이트: {plist.as_posix()}")
+                elif status == VARIABLE:
+                    log_warning(f"{plist.as_posix()}의 버전이 Xcode 변수(MARKETING_VERSION)라 동기화하지 않았습니다 — Xcode 프로젝트에서 직접 관리하세요")
         else:
             log_warning(f"react-native: {p}/ios 디렉토리 없음 — 건너뜀")
         gradle = base / "android" / "app" / "build.gradle"
         if gradle.is_file():
-            sub_file(gradle, r'versionName "[^"]*"', f'versionName "{new_version}"')
-            log_success(f"업데이트: {gradle.as_posix()}")
+            if sub_file(gradle, r'versionName "[^"]*"', f'versionName "{new_version}"') == CHANGED:
+                log_success(f"업데이트: {gradle.as_posix()}")
         else:
             log_warning(f"react-native: {p}/android/app/build.gradle 없음 — 건너뜀")
     elif t == "react-native-expo":
         app_json = base / "app.json"
         if app_json.is_file():
-            obj = read_json(app_json)
-            obj.setdefault("expo", {})["version"] = new_version
-            write_json(app_json, obj)
-            log_success(f"업데이트: {app_json.as_posix()}")
+            if set_json_version(app_json, ["expo", "version"], new_version):
+                log_success(f"업데이트: {app_json.as_posix()}")
         else:
             log_warning(f"react-native-expo: {p}/app.json 없음 — 건너뜀")
     elif t == "basic":
@@ -402,11 +718,20 @@ def update_version_yml(cfg: Config, new_version: str):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     user = os.environ.get("GITHUB_ACTOR") or os.environ.get("USER") or os.environ.get("USERNAME") or "unknown"
 
+    if get_yml_version() == new_version:
+        # 이미 같은 버전이면 타임스탬프까지 포함해 파일을 건드리지 않는다 (멱등)
+        log_info(f"version.yml은 이미 {new_version} — 변경 없음")
+        cfg.current_version = new_version
+        return
     log_debug(f"version.yml 업데이트: {new_version}")
-    set_yml_field(
-        r"^version:\s*[\"']?[0-9][0-9.]*[\"']?(\s*#.*)?$",
+    # 값은 따옴표 유무·v 접두사·프리릴리스 접미사 무엇이든 통째로 교체하고 줄 끝 주석만 보존한다.
+    replaced = set_yml_field(
+        r"^version:[ \t]*(?:\"[^\"]*\"|'[^']*'|[^#\s]*)([ \t]*#.*)?[ \t]*$",
         lambda m: f'version: "{new_version}"' + (m.group(1) or ""),
     )
+    if not replaced:
+        # 성공 로그와 새 버전을 내보내면 릴리스는 새 번호로 나가는데 version.yml은 그대로 남는다
+        raise VersionError("version.yml의 version 줄을 갱신하지 못했습니다. `version: \"x.y.z\"` 형식으로 고친 뒤 다시 실행하세요.")
     # metadata 필드는 존재할 때만 갱신 (.sh yq -e 가드 등가)
     set_yml_field(r"^(\s+last_updated:\s*).*$", lambda m: f'{m.group(1)}"{timestamp}"')
     set_yml_field(r"^(\s+last_updated_by:\s*).*$", lambda m: f'{m.group(1)}"{user}"')
@@ -444,8 +769,20 @@ def sync_versions(cfg: Config) -> str:
     return yml_version
 
 
+def preflight_json_files(cfg: Config):
+    """JSON 버전 파일을 쓰기 전에 먼저 읽어 본다. 일부만 갱신된 채 중단되는 것을 막는다 (#683)."""
+    for t in (cfg.types or [cfg.primary]):
+        name = {"react": "package.json", "node": "package.json", "react-native-expo": "app.json"}.get(t)
+        if not name:
+            continue
+        f = Path(get_type_path(t)) / name
+        if f.is_file():
+            read_json(f)
+
+
 def update_all_versions(cfg: Config, new_version: str):
     log_info(f"모든 버전 파일 업데이트: {new_version}")
+    preflight_json_files(cfg)
     update_version_yml(cfg, new_version)
     sync_all_project_files(cfg, new_version)
     log_success(f"모든 버전 파일 업데이트 완료: {new_version}")
@@ -481,13 +818,24 @@ def parse_bump_flag(argv) -> str | None:
 
 
 def main(argv):
+    try:
+        return _main(argv)
+    except VersionError as e:
+        log_error(str(e))
+        return 1
+
+
+def _main(argv):
     command = argv[1] if len(argv) > 1 else "get"
 
     if command not in ("get", "get-code", "increment", "increment-code", "set", "sync", "validate"):
         print(USAGE, file=sys.stderr)
         return 1
 
-    cfg = Config()
+    # version_code만 다루는 명령은 version 키가 없어도 동작해야 한다 (기존 계약)
+    # validate는 인자로 버전을 직접 주면 version.yml의 version 값 없이도 검증할 수 있다
+    needs_yml_version = command not in ("get-code", "increment-code") and not (command == "validate" and len(argv) > 2)
+    cfg = Config(require_version=needs_yml_version)
 
     if command == "get":
         version = sync_versions(cfg)
