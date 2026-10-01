@@ -38,6 +38,8 @@ PREFLIGHT = [
      ["gradlew", "DOCKERFILE_PATH", "DOCKERHUB_TOKEN", "SERVER_HOST", "SSH_KEY", "SERVER_PASSWORD"]),
     (PT / "python/server-deploy/PROJECT-PYTHON-SIMPLE-CICD.yaml", "build", "사전 점검",
      ["Dockerfile", "DOCKERHUB_TOKEN", "SERVER_HOST", "SSH_KEY", "SERVER_PASSWORD"]),
+    (PT / "react/PROJECT-REACT-CICD.yaml", "build", "사전 점검",
+     ["Dockerfile", "DOCKERHUB_USERNAME", "DOCKERHUB_TOKEN", "SERVER_HOST", "SERVER_USER", "SERVER_PASSWORD"]),
     (PT / "python/PROJECT-PYTHON-CI.yaml", "build-check", "사전 점검", ["Dockerfile"]),
     (PT / "flutter/PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD.yaml", "build-android", "사전 점검",
      ["SERVER_HOST", "SERVER_USER", "SERVER_PASSWORD"]),
@@ -169,6 +171,22 @@ def test_spring_preflight_reports_missing_and_passes_when_complete(tmp_path):
     r2 = _run_step(st, tmp_path, env2)
     assert r2.returncode == 1 and "SSH_KEY" in r2.stdout
     assert _run_step(st, tmp_path, {**env2, "SSH_KEY": "k"}).returncode == 0
+
+
+def test_react_cicd_preflight_reports_missing_and_passes_when_complete(tmp_path):
+    steps = _jobs(PT / "react/PROJECT-REACT-CICD.yaml")["build"]["steps"]
+    st = next(s for s in steps if "사전 점검" in s.get("name", ""))
+    r = _run_step(st, tmp_path, {})
+    assert r.returncode == 1
+    for needle in ("Dockerfile", "DOCKERHUB_USERNAME", "DOCKERHUB_TOKEN", "SERVER_HOST", "SERVER_USER", "SERVER_PASSWORD"):
+        assert needle in r.stdout
+    env = {"DOCKERHUB_USERNAME": "u", "DOCKERHUB_TOKEN": "t", "SERVER_HOST": "h",
+           "SERVER_USER": "u", "SERVER_PASSWORD": "p"}
+    # Secret 만 있고 Dockerfile 이 없으면 Dockerfile 만 지적한다
+    r2 = _run_step(st, tmp_path, env)
+    assert r2.returncode == 1 and "Dockerfile" in r2.stdout and "Secret" not in r2.stdout
+    (tmp_path / "Dockerfile").write_text("")
+    assert _run_step(st, tmp_path, env).returncode == 0
 
 
 # ── 정본(common/)과 루트 복사본 동일 ────────────────────────────
