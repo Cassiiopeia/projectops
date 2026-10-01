@@ -18,6 +18,8 @@ export function printSummary(ctx, targetRoot = ".") {
   const CYAN = isTty ? "\x1b[0;36m" : "";
   const NC = isTty ? "\x1b[0m" : "";
   const utilModulesCopied = counters.utilModules ?? 0;
+  // README.md 가 없으면 버전 섹션 추가를 건너뛰므로 화면에도 추가·자동 갱신으로 표시하지 않는다 (#677)
+  const hasReadme = existsSync(join(targetRoot, "README.md"));
 
   err("");
   err(SEPARATOR);
@@ -32,7 +34,7 @@ export function printSummary(ctx, targetRoot = ".") {
   switch (mode) {
     case "full":
       err("  ✅ 버전 관리 시스템 (version.yml)");
-      err("  ✅ README.md 자동 버전 업데이트");
+      if (hasReadme) err("  ✅ README.md 자동 버전 업데이트");
       err("  ✅ GitHub Actions 워크플로우");
       if (utilModulesCopied > 0) err(`  ✅ 유틸리티 모듈 (${utilModulesCopied} 개)`);
       err("  ✅ 이슈/PR/Discussion 템플릿");
@@ -42,7 +44,7 @@ export function printSummary(ctx, targetRoot = ".") {
       break;
     case "version":
       err("  ✅ 버전 관리 시스템 (version.yml)");
-      err("  ✅ README.md 자동 버전 업데이트");
+      if (hasReadme) err("  ✅ README.md 자동 버전 업데이트");
       err("  ✅ .gitignore 필수 항목");
       err("  ✅ 템플릿 설정 가이드 (SETUP-GUIDE.md)");
       break;
@@ -72,7 +74,7 @@ export function printSummary(ctx, targetRoot = ".") {
   err("");
   err("추가된 파일:");
   err(`  📄 version.yml (버전: ${version}, 타입: ${types.join(",")})`);
-  err("  📝 README.md (버전 섹션 추가)");
+  err(hasReadme ? "  📝 README.md (버전 섹션 추가)" : "  📝 README.md 없음 — 버전 섹션 추가를 건너뜀");
   err("");
   err("추가된 워크플로우:");
 

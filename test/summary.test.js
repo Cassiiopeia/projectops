@@ -133,3 +133,18 @@ test("printSummary: migrationGuidePath 있으면 가이드 안내 출력 (#493)"
     assert.doesNotMatch(without, /이번 실행 기록/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+test("printSummary: README.md 가 없으면 버전 섹션 추가로 표시하지 않는다 (#677)", () => {
+  const root = mkdtempSync(join(tmpdir(), "summary-readme-"));
+  try {
+    const ctx = { mode: "full", types: ["basic"], version: "1.0.0", counters: { workflowFiles: [] } };
+    const without = captureStderr(() => printSummary(ctx, root));
+    assert.doesNotMatch(without, /README\.md \(버전 섹션 추가\)/);
+    assert.doesNotMatch(without, /README\.md 자동 버전 업데이트/);
+    assert.match(without, /README\.md 없음/);
+    touch(root, "README.md", "# x\n");
+    const withReadme = captureStderr(() => printSummary(ctx, root));
+    assert.match(withReadme, /README\.md \(버전 섹션 추가\)/);
+    assert.match(withReadme, /README\.md 자동 버전 업데이트/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
