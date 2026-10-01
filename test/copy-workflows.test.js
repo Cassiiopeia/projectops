@@ -168,3 +168,29 @@ test("copyWorkflows: hooks.trace에 copy/env 이벤트 기록 (#494)", () => {
     assert.equal(env.detail.after, "myapp");
   } finally { rmSync(tmp, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
 });
+
+test("copyWorkflows: secret-backup 의 PROJECT_NAME 을 레포 이름으로 채운다 (#729)", () => {
+  const tmp = fresh("sb-t-"); const tgt = fresh("sb-g-");
+  try {
+    makeTemplate(tmp);
+    writeText(join(tmp, ".github/workflows/project-types/common/secret-backup/PROJECT-COMMON-SECRET.yaml"),
+      'env:\n  PROJECT_NAME: "__PROJECT_NAME__"\n  ROLE: "backend"\n');
+    const ctx = { types: ["react"], paths: new Map(), deployTarget: "docker-ssh", publishTargets: [], includeSecretBackup: true, force: true, repoName: "my-real-app", resolvers: {} };
+    copyWorkflows(ctx, tmp, tgt);
+    const body = readText(join(tgt, ".github/workflows/PROJECT-COMMON-SECRET.yaml"));
+    assert.match(body, /PROJECT_NAME: "my-real-app"/);
+    assert.doesNotMatch(body, /__PROJECT_NAME__/);
+  } finally { rmSync(tmp, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
+});
+
+test("copyWorkflows: 레포 이름을 모르면 secret-backup 에 빈 이름 대신 기본값을 쓴다 (#729)", () => {
+  const tmp = fresh("sb2-t-"); const tgt = fresh("sb2-g-");
+  try {
+    makeTemplate(tmp);
+    writeText(join(tmp, ".github/workflows/project-types/common/secret-backup/PROJECT-COMMON-SECRET.yaml"),
+      'env:\n  PROJECT_NAME: "__PROJECT_NAME__"\n');
+    const ctx = { types: ["react"], paths: new Map(), deployTarget: "docker-ssh", publishTargets: [], includeSecretBackup: true, force: true, repoName: "", resolvers: {} };
+    copyWorkflows(ctx, tmp, tgt);
+    assert.match(readText(join(tgt, ".github/workflows/PROJECT-COMMON-SECRET.yaml")), /PROJECT_NAME: "my-project"/);
+  } finally { rmSync(tmp, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
+});

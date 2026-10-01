@@ -6,7 +6,7 @@ import { join, basename } from "node:path";
 import { existsSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { PATHS } from "../paths.js";
 import { exists, copyFileSync, listYamlFiles } from "../fsutil.js";
-import { isUnchanged, substituteEnv } from "../wizard-env.js";
+import { isUnchanged, substituteEnv, resolveGlobalTokens } from "../wizard-env.js";
 import { isUserModified, readBaseline, writeBaseline, sha256 } from "../baseline.js";
 import { substituteBranches } from "../branch-sub.js";
 import { saveIncoming, lineDiffCounts } from "../incoming.js";
@@ -221,6 +221,11 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
       const dst = join(workflowsDir, filename);
       if (existsSync(dst)) continue; // 이미 존재하면 스킵
       copyFileSync(join(secretDir, filename), dst);
+      // PROJECT_NAME 이 고정값이면 모든 프로젝트가 서버의 같은 폴더에 Secret 을 덮어쓴다 (#729) —
+      // 다른 배포 워크플로처럼 레포 이름으로 채운다. 이름을 알 수 없으면 기존 기본값을 쓴다.
+      const raw = readFileSync(dst, "utf8");
+      const filled = resolveGlobalTokens(raw, repoName || "my-project");
+      if (filled !== raw) writeFileSync(dst, filled);
       counters.optionalCopied++;
       counters.copied++;
       counters.copiedFiles.push(filename);
