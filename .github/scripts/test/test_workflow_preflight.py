@@ -90,13 +90,18 @@ def test_projects_sync_skips_when_unconfigured():
 
 
 # ── #668 라벨 동기화 트리거 ─────────────────────────────────────
-def test_label_sync_triggers_on_itself():
-    d = yaml.safe_load((WF / "PROJECT-COMMON-SYNC-ISSUE-LABELS.yaml").read_text(encoding="utf-8"))
-    on = d.get("on") or d.get(True)  # PyYAML 은 on 을 True 로 읽는다
-    paths = on["push"]["paths"]
-    assert ".github/config/issue-labels.yml" in paths
-    assert ".github/workflows/PROJECT-COMMON-SYNC-ISSUE-LABELS.yaml" in paths
-    assert "workflow_dispatch" in on
+def test_label_sync_runs_on_main_push_without_paths_filter():
+    """paths 필터는 새 레포의 첫 push 에서 평가되지 않아 라벨이 안 만들어졌다(#668 실측) — 브랜치 조건만 둔다."""
+    for base in (WF, WF / "project-types" / "common"):
+        d = yaml.safe_load((base / "PROJECT-COMMON-SYNC-ISSUE-LABELS.yaml").read_text(encoding="utf-8"))
+        on = d.get("on") or d.get(True)  # PyYAML 은 on 을 True 로 읽는다
+        assert "paths" not in on["push"], base
+        assert on["push"]["branches"] == ["main"], base
+        assert "workflow_dispatch" in on
+        # 동시 실행 충돌 방지와 사용자 라벨 보존은 유지돼야 한다
+        assert d["concurrency"]["cancel-in-progress"] is False
+        text = (base / "PROJECT-COMMON-SYNC-ISSUE-LABELS.yaml").read_text(encoding="utf-8")
+        assert "skip-delete: true" in text
 
 
 def test_setup_guide_and_summary_mention_label_sync():

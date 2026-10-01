@@ -17,11 +17,10 @@ name: "PROJECT-SYNC-GITHUB-LABELS"
 on:
   workflow_dispatch:
   push:
-    paths:
-      - '.github/config/issue-labels.yml'
-      # 설치 직후 첫 push 에서 라벨이 한 번도 안 만들어지는 경우가 실측돼(#668) 이 워크플로우 파일 자체의
-      # 추가·수정에도 실행한다. 기존 동작은 그대로이고 라벨 동기화는 멱등이라 재실행해도 안전하다.
-      - '.github/workflows/PROJECT-COMMON-SYNC-ISSUE-LABELS.yaml'
+    # paths 필터는 새 레포의 첫 push 에서 평가되지 않아(#668 실측: 조직·개인 레포 모두 라벨 미생성)
+    # 설치 직후 라벨이 한 번도 안 만들어진다. 브랜치 조건만 두고 main push 마다 실행한다.
+    # 동기화는 멱등이고(skip-delete) concurrency 로 직렬화되므로 반복 실행해도 안전하다.
+    branches: [main]
 
 # main, develop 이 동시에 push 되면 같은 라벨을 동시에 만들려다 한쪽이 실패한다 — 순서대로 실행(대기)한다
 concurrency:
