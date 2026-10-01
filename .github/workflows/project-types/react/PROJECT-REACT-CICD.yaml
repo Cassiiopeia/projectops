@@ -294,6 +294,8 @@ jobs:
             echo $PW | sudo -S docker run -d \
               -p ${PORT}:3000 \
               --name $CONTAINER_NAME \
+              # 서버 재부팅·Docker 재시작 뒤에도 서비스가 자동으로 올라오도록 한다 (#727)
+              --restart unless-stopped \
               -e TZ=Asia/Seoul \
               -e NODE_ENV=production \
               -v /etc/localtime:/etc/localtime:ro \
