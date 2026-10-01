@@ -30,6 +30,7 @@ _SCRIPTS_ROOT = _PROJECT_ROOT / "scripts"
 if str(_SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_ROOT))
 
+from common.cli_parser import JSONArgumentParser, run_cli  # noqa: E402
 from common.emit import emit  # noqa: E402
 
 
@@ -733,6 +734,20 @@ _SEVERITY_ORDER = {"none": 0, "low": 1, "medium": 2, "high": 3}
 _ALL_CHECKS = ("corners", "fills", "shadows")
 
 
+def _has_node(data, node_id: str) -> bool:
+    """덤프 어딘가에 id 가 node_id 인 노드가 있나 (꺼 둔 레이어도 포함)."""
+    stack = [data]
+    while stack:
+        cur = stack.pop()
+        if isinstance(cur, dict):
+            if cur.get("id") == node_id:
+                return True
+            stack.extend(v for v in cur.values() if isinstance(v, (dict, list)))
+        elif isinstance(cur, list):
+            stack.extend(cur)
+    return False
+
+
 def cmd_conform(args) -> int:
     missing = _require_imaging()
     if missing is not None:
@@ -754,6 +769,25 @@ def cmd_conform(args) -> int:
         return emit({"ok": False, "code": "render_not_found",
                      "error": f"렌더 이미지가 없습니다: {args.render}"})
 
+    try:
+        img = Image.open(render).convert("RGB")
+    except Exception as e:   # 이미지가 아닌 파일 (#710)
+        return emit({"ok": False, "code": "image_unreadable",
+                     "error": f"렌더 이미지를 열 수 없습니다: {render} ({type(e).__name__})",
+                     "next": "png·jpg 같은 이미지 파일인지 확인한다"})
+    # 없는 노드·모르는 검사가 "0건 통과"로 끝나면 대조를 안 한 것과 같다 (#710)
+    checks = [c.strip() for c in args.check.split(",") if c.strip()] if args.check \
+        else list(_ALL_CHECKS)
+    bad = [c for c in checks if c not in _ALL_CHECKS]
+    if bad or (args.check and not checks):
+        return emit({"ok": False, "code": "unknown_check",
+                     "error": f"모르는 검사: {bad or args.check!r}",
+                     "hint": f"쓸 수 있는 것: {', '.join(_ALL_CHECKS)}"})
+    if args.node and not _has_node(data, args.node):
+        return emit({"ok": False, "code": "node_not_found",
+                     "error": f"덤프에 노드 {args.node} 가 없습니다",
+                     "hint": "노드 id 는 덤프의 id 와 정확히 같아야 합니다 (예: 1:100). coverage 로 id 를 먼저 확인하세요"})
+
     styles = _style_table(data)
     rects, skipped = _rects(data, styles, args.node)
     if not rects and not skipped:
@@ -761,7 +795,6 @@ def cmd_conform(args) -> int:
                      "summary": "둥근 모서리를 가진 사각형이 없습니다",
                      "next": "borderRadius 가 있는 노드를 포함하는지 --node 를 확인하세요"})
 
-    img = Image.open(render).convert("RGB")
     scale, scale_from = args.scale, "지정"
     if scale <= 0:
         # 렌더 폭 ÷ 기준 노드 폭. 3배로 찍은 화면을 논리 좌표로 재면 다 어긋난다.
@@ -778,14 +811,6 @@ def cmd_conform(args) -> int:
         if not (0 <= px < W and 0 <= py < H):
             return None
         return img.getpixel((px, py))[:3]
-
-    checks = [c.strip() for c in args.check.split(",") if c.strip()] if args.check \
-        else list(_ALL_CHECKS)
-    bad = [c for c in checks if c not in _ALL_CHECKS]
-    if bad:
-        return emit({"ok": False, "code": "unknown_check",
-                     "error": f"모르는 검사: {bad}",
-                     "hint": f"쓸 수 있는 것: {', '.join(_ALL_CHECKS)}"})
 
     findings = []
     for r in rects:
@@ -1085,7 +1110,19 @@ def cmd_diff(args) -> int:
             return emit({"ok": False, "code": "image_not_found",
                          "error": f"{label} 이미지가 없습니다: {p}"})
 
-    design_img = Image.open(args.design).convert("RGBA")
+    try:
+        design_img = Image.open(args.design).convert("RGBA")
+        render_img = Image.open(args.render).convert("RGBA")
+    except Exception as e:   # 이미지가 아닌 파일은 트레이스백 대신 JSON 으로 (#710)
+        return emit({"ok": False, "code": "image_unreadable",
+                     "error": f"이미지를 열 수 없습니다: {type(e).__name__}: {e}",
+                     "next": "--render · --design 이 png·jpg 같은 이미지 파일인지 확인한다"})
+    if args.mask_top < 0 or args.mask_bottom < 0 \
+            or args.mask_top + args.mask_bottom >= design_img.size[1]:
+        return emit({"ok": False, "code": "bad_mask",
+                     "error": (f"--mask-top({args.mask_top}) + --mask-bottom({args.mask_bottom}) 는 "
+                               f"이미지 높이({design_img.size[1]}px) 보다 작은 0 이상 값이어야 합니다"),
+                     "next": "상태바·홈 인디케이터 높이만큼만 제외한다"})
     try:
         bg, bg_src = _parse_bg(args.bg, design_img)
     except ValueError as e:
@@ -1096,7 +1133,6 @@ def cmd_diff(args) -> int:
         return np.asarray(Image.alpha_composite(base, img).convert("RGB"), dtype=np.int16)
 
     design = flatten(design_img)
-    render_img = Image.open(args.render).convert("RGBA")
     if render_img.size != design_img.size:
         render_img = render_img.resize(design_img.size, Image.LANCZOS)
     render = flatten(render_img)
@@ -1163,9 +1199,10 @@ def cmd_diff(args) -> int:
     })
 
 
-def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="figma_verify_cli",
-                                description="시안과 구현 화면을 대조한다")
+def build_parser() -> JSONArgumentParser:
+    # 인자 오류도 JSON(bad_args)으로 — 에이전트는 stdout JSON 만 읽는다 (#708)
+    p = JSONArgumentParser(prog="figma_verify_cli",
+                           description="시안과 구현 화면을 대조한다")
     sub = p.add_subparsers(dest="command")
 
     c = sub.add_parser("coverage", help="덤프의 스타일 항목을 빠짐없이 나열한다")
@@ -1219,13 +1256,8 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def main() -> int:
-    parser = build_parser()
-    args = parser.parse_args()
-    if not hasattr(args, "func"):
-        parser.print_help(sys.stderr)
-        return 1
-    return args.func(args)
+def main(argv: list[str] | None = None) -> int:
+    return run_cli(build_parser(), argv)
 
 
 if __name__ == "__main__":

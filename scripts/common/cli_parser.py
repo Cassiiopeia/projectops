@@ -81,6 +81,7 @@ def run_cli(parser: JSONArgumentParser, argv: Optional[Sequence[str]] = None) ->
             "error": e.message,
             "hint": _make_hint(e.parser),
             "available_subcommands": _list_subcommands(e.parser),
+            "next": f"`{e.parser.prog} --help` 로 인자를 확인하고 고쳐 다시 실행한다",
         })
     if not hasattr(args, "func"):
         return emit({
@@ -89,6 +90,7 @@ def run_cli(parser: JSONArgumentParser, argv: Optional[Sequence[str]] = None) ->
             "error": "서브커맨드가 지정되지 않았습니다.",
             "hint": _make_hint(parser),
             "available_subcommands": _list_subcommands(parser),
+            "next": f"`{parser.prog} --help` 로 서브커맨드를 확인한다",
         })
     try:
         return args.func(args)
@@ -97,4 +99,5 @@ def run_cli(parser: JSONArgumentParser, argv: Optional[Sequence[str]] = None) ->
             "ok": False,
             "code": "handler_error",
             "error": f"{type(e).__name__}: {e}",
+            "next": "입력(경로·값)을 확인하고 다시 실행한다",
         })

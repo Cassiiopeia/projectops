@@ -853,3 +853,195 @@ def test_get_output_path_rejects_missing_root(tmp_path):
                          home=tmp_path / "home")
     d = _j(out)
     assert rc == 1 and d["code"] == "not_found"
+# ── logs: 실패한 명령을 성공으로 보고하지 않는다 (#704) ───────────────────
+
+def test_logs_reports_command_not_found_as_failure(tmp_path):
+    rc, out, _ = run_cli("logs", "--command", "nonexistent_zzz_cmd", home=tmp_path / "h", cwd=tmp_path)
+    d = _j(out)
+    assert d["ok"] is False and d["code"] == "logs_failed", d
+    assert rc != 0
+
+
+def test_logs_reports_exit_255_as_failure(tmp_path):
+    _, out, _ = run_cli("logs", "--command", "echo oops >&2; exit 255", home=tmp_path / "h", cwd=tmp_path)
+    d = _j(out)
+    assert d["ok"] is False and d["code"] == "logs_failed" and "oops" in d["error"], d
+
+
+def test_logs_grep_no_match_is_still_success(tmp_path):
+    _, out, _ = run_cli("logs", "--command", "printf 'a\\nb\\n'", "--grep", "zzz",
+                        home=tmp_path / "h", cwd=tmp_path)
+    d = _j(out)
+    assert d["ok"] is True and d["lines"] == [], d
+
+
+def test_logs_tail_and_grep_apply_in_python(tmp_path):
+    _, out, _ = run_cli("logs", "--command", "printf 'ERR 1\\nok\\nerr 2\\nERR 3\\n'",
+                        "--grep", "err", "--tail", "2", home=tmp_path / "h", cwd=tmp_path)
+    d = _j(out)
+    assert d["ok"] is True and d["lines"] == ["err 2", "ERR 3"], d
+
+
+# ── 잘못된 입력은 스택 트레이스가 아니라 JSON 오류 (#705) ─────────────────
+
+def _assert_json_error(rc, out, err, code=None):
+    assert rc != 0, (rc, out, err)
+    assert "Traceback" not in err, err
+    d = _j(out)
+    assert d["ok"] is False, d
+    if code:
+        assert d["code"] == code, d
+    return d
+
+
+def test_http_missing_data_file_is_json_error(tmp_path):
+    rc, out, err = run_cli("http", "--url", "http://127.0.0.1:1", "--method", "POST",
+                           "--data", "@nonexistent.json", home=tmp_path / "h", cwd=tmp_path)
+    _assert_json_error(rc, out, err, "data_file_not_found")
+
+
+def test_shrink_non_image_is_json_error(tmp_path):
+    bad = tmp_path / "bad.txt"
+    bad.write_text("not an image")
+    rc, out, err = run_cli("shrink", str(bad), home=tmp_path / "h", cwd=tmp_path)
+    d = _assert_json_error(rc, out, err)
+    assert d["code"] in ("image_unreadable", "no_resize_tool", "handler_error"), d
+
+
+def test_shrink_directory_is_json_error(tmp_path):
+    rc, out, err = run_cli("shrink", str(tmp_path), home=tmp_path / "h", cwd=tmp_path)
+    _assert_json_error(rc, out, err, "not_a_file")
+
+
+def test_shrink_negative_max_side_is_json_error(tmp_path):
+    img = tmp_path / "a.png"
+    img.write_bytes(b"x")
+    rc, out, err = run_cli("shrink", str(img), "--max-side", "-5", home=tmp_path / "h", cwd=tmp_path)
+    _assert_json_error(rc, out, err, "bad_args")
+
+
+def test_render_run_missing_cwd_is_json_error(tmp_path):
+    rc, out, err = run_cli("render", "run", "--cmd", "echo hi", "--cwd", "nonexistent",
+                           "--root", str(tmp_path), home=tmp_path / "h", cwd=tmp_path)
+    _assert_json_error(rc, out, err, "cwd_not_found")
+
+
+def test_unexpected_handler_exception_becomes_json(monkeypatch, capsys):
+    """어떤 핸들러든 예외가 새도 main 이 JSON 으로 감싼다."""
+    def boom(args):
+        raise RuntimeError("boom")
+    monkeypatch.setattr(launch_cli, "cmd_shrink", boom)
+    rc = launch_cli.main(["shrink", "x.png"])
+    d = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert rc == 1 and d["code"] == "handler_error" and "boom" in d["error"]
+
+
+# ── web route · goto 입력 처리 (#711) ─────────────────────────────────────
+
+def test_route_body_typo_path_is_rejected_not_used_as_body(tmp_path):
+    proj = _root_for_web(tmp_path)
+    rc, out, err = run_cli("web", "route", "--root", str(proj), "--match", "**/api/items*",
+                           "--status", "200", "--body", "nonexistent.json", home=tmp_path)
+    d = _j(out)
+    assert d["ok"] is False and d["code"] == "body_not_found", d
+    _, out, _ = run_cli("web", "route", "--root", str(proj), home=tmp_path)
+    assert _j(out)["routes"] == [], "오타 경로가 규칙으로 등록됐다"
+
+
+def test_route_body_text_is_inline_and_json_values_are_not_paths(tmp_path):
+    proj = _root_for_web(tmp_path)
+    for body_args in (["--body-text", "nonexistent.json"], ["--body", "1.5"], ["--body", "[]"]):
+        _, out, _ = run_cli("web", "route", "--root", str(proj), "--match", "**/x",
+                            "--status", "200", *body_args, home=tmp_path)
+        assert _j(out)["ok"] is True, (body_args, out)
+
+
+@pytest.mark.parametrize("status", ["99999", "-1", "99", "600"])
+def test_route_status_must_be_http_range(tmp_path, status):
+    proj = _root_for_web(tmp_path)
+    _, out, _ = run_cli("web", "route", "--root", str(proj), "--match", "**/x",
+                        f"--status={status}", home=tmp_path)
+    d = _j(out)
+    assert d["ok"] is False and d["code"] == "bad_status", d
+
+
+class _FakePage:
+    url = "http://x/nonexistent-page"
+
+    def __init__(self, status):
+        self._status = status
+
+    def goto(self, url, **kw):
+        class R:
+            status = self._status
+        return R()
+
+    def title(self):
+        return "Error response"
+
+    def wait_for_load_state(self, *a, **k):
+        pass
+
+
+class _FakePw:
+    def stop(self):
+        pass
+
+
+@pytest.mark.parametrize("status,http_error", [(404, True), (200, False)])
+def test_goto_reports_http_status(tmp_path, monkeypatch, capsys, status, http_error):
+    monkeypatch.setenv("HOME", str(tmp_path))   # 사용자의 진짜 ~/.projectops 를 건드리지 않는다
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    proj = _root_for_web(tmp_path)
+    state_f = launch_cli._web_state_path(proj)
+    launch_cli._write_web_state(state_f, {"cdp": "http://127.0.0.1:1"})
+    monkeypatch.setattr(launch_cli, "_web_connect",
+                        lambda st: ((_FakePw(), None, _FakePage(status)), None))
+    rc = launch_cli.main(["web", "goto", "--root", str(proj), "--url", "http://x/nonexistent-page"])
+    d = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert d["status"] == status and d.get("http_error", False) is http_error, d
+    assert rc == 0
+
+
+# ── web close: 응답 없는 브라우저에서 멈추지 않는다 (#712) ────────────────
+
+_STUBBORN = ("import signal,time,sys\n"
+             "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+             "print('up', flush=True)\n"
+             "time.sleep(60)\n")
+
+
+def test_kill_browser_escalates_to_sigkill_when_sigterm_is_ignored():
+    proc = subprocess.Popen([sys.executable, "-c", _STUBBORN], stdout=subprocess.PIPE,
+                            start_new_session=True)
+    try:
+        proc.stdout.readline()   # SIGTERM 무시 설정이 끝난 뒤에 시작한다
+        alive = launch_cli._kill_browser(proc.pid, grace=0.5)
+        assert alive is False
+        assert proc.poll() is not None or not launch_cli._pid_alive(proc.pid)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+
+
+def test_web_close_does_not_hang_on_unresponsive_browser(tmp_path, monkeypatch):
+    """CDP 포트는 아무도 안 듣는다 — 연결해서 close() 를 부르던 옛 경로라면 멈춘다."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    proj = _root_for_web(tmp_path)
+    proc = subprocess.Popen([sys.executable, "-c", _STUBBORN], stdout=subprocess.PIPE,
+                            start_new_session=True)
+    # 실제로는 close 를 부르는 CLI 가 부모가 아니다. 테스트에서는 우리가 부모라 죽은 뒤 거둬 줘야 좀비로 안 남는다
+    threading.Thread(target=proc.wait, daemon=True).start()
+    try:
+        proc.stdout.readline()
+        state_f = launch_cli._web_state_path(proj)
+        launch_cli._write_web_state(state_f, {"cdp": "http://127.0.0.1:1", "pid": proc.pid})
+        rc, out, err = run_cli("web", "close", "--root", str(proj), home=tmp_path)
+        d = _j(out)
+        assert d["ok"] is True and d.get("action") == "close", d
+        assert proc.wait(timeout=5) is not None
+        assert not state_f.exists()
+    finally:
+        if proc.poll() is None:
+            proc.kill()

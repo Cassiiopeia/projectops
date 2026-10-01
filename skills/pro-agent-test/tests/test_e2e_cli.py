@@ -1318,3 +1318,98 @@ def test_detect_gathers_info_for_recorded_targets(sandbox):
     d = json.loads(out)
     assert d["target_source"] == "recorded" and "web" in d, d
 
+
+
+# ── 인자 오류는 JSON (#708) ──────────────────────────────────────────────
+
+@pytest.mark.parametrize("argv", [
+    ["api"],
+    ["scenario", "bogus"],
+    ["other", "run", "--command", "x", "--expect-exit", "abc"],
+    [],
+])
+def test_bad_args_are_json_not_usage_text(tmp_path, argv):
+    rc, out, err = run_cli(*argv, home=tmp_path, cwd=tmp_path)
+    d = json.loads(out.strip().splitlines()[-1])
+    assert rc == 1 and d["ok"] is False and d["code"] == "bad_args", (rc, out, err)
+    assert d["next"], d
+    assert "usage:" not in err
+
+
+# ── --name 이 시나리오 폴더 밖에 쓰지 못한다 (#707) ──────────────────────
+
+@pytest.mark.parametrize("name", ["../../escape", "../x", "a/b", "a\\b", "..", ".hidden", "/abs"])
+def test_scenario_init_rejects_path_like_names(tmp_path, name):
+    home = tmp_path / "home"
+    rc, out, _ = run_cli("scenario", "init", "--name", name, "--root", str(tmp_path), home=home, cwd=tmp_path)
+    d = json.loads(out.strip().splitlines()[-1])
+    assert d["ok"] is False and d["code"] == "bad_name", d
+    assert not list(home.rglob("escape*.json")), "폴더 밖에 파일이 만들어졌다"
+
+
+def test_scenario_init_rejects_escaping_group(tmp_path):
+    home = tmp_path / "home"
+    _, out, _ = run_cli("scenario", "init", "--name", "ok", "--group", "../..", "--root", str(tmp_path),
+                        home=home, cwd=tmp_path)
+    assert json.loads(out.strip().splitlines()[-1])["code"] == "bad_group"
+
+
+def test_scenario_init_accepts_korean_and_shared_group(tmp_path):
+    home = tmp_path / "home"
+    _, out, _ = run_cli("scenario", "init", "--name", "로그인 흐름-1.v2", "--group", "_shared",
+                        "--root", str(tmp_path), home=home, cwd=tmp_path)
+    d = json.loads(out.strip().splitlines()[-1])
+    assert d["ok"] is True, d
+    assert Path(d["file"]).is_file()
+
+
+# ── note · api 입력 검증 (#706) ──────────────────────────────────────────
+
+def _learned(home: Path):
+    return list(home.rglob("learned.json"))
+
+
+@pytest.mark.parametrize("extra,code", [
+    (["--taps", "bad"], "bad_taps"),
+    (["--taps", "a=x,y"], "bad_taps"),
+    (["--screen-size", "abc"], "bad_screen_size"),
+])
+def test_note_screen_rejects_garbage_and_writes_nothing(tmp_path, extra, code):
+    home = tmp_path / "home"
+    _, out, err = run_cli("note", "screen", "--name", "s2", "--anchor", "a", *extra,
+                          "--root", str(tmp_path), home=home, cwd=tmp_path)
+    d = json.loads(out.strip().splitlines()[-1])
+    assert d["ok"] is False and d["code"] == code, (d, err)
+    assert _learned(home) == [], "검증 전에 파일이 만들어졌다"
+
+
+def test_note_screen_accepts_valid_taps_and_size(tmp_path):
+    home = tmp_path / "home"
+    _, out, _ = run_cli("note", "screen", "--name", "s2", "--anchor", "a", "--taps", "로그인=540,1200",
+                        "--screen-size", "1080x2400", "--root", str(tmp_path), home=home, cwd=tmp_path)
+    assert json.loads(out.strip().splitlines()[-1])["ok"] is True
+    saved = json.loads(_learned(home)[0].read_text(encoding="utf-8"))
+    variant = next(iter(saved["screens"]["s2"]["variants"].values()))
+    assert variant["taps"] == {"로그인": "540,1200"}
+
+
+def test_note_run_without_name_or_text_is_rejected(tmp_path):
+    home = tmp_path / "home"
+    _, out, _ = run_cli("note", "run", "--root", str(tmp_path), home=home, cwd=tmp_path)
+    assert json.loads(out.strip().splitlines()[-1])["code"] == "args_required"
+    assert _learned(home) == []
+
+
+def test_api_rejects_non_http_base_url(tmp_path):
+    home = tmp_path / "home"
+    run_cli("scenario", "init", "--name", "ok1", "--target", "server", "--root", str(tmp_path),
+            home=home, cwd=tmp_path)
+    # 템플릿 자리표시자가 남아 있으면 먼저 scenario_invalid 가 날 수 있어, 유효한 최소 시나리오로 덮는다
+    f = next(home.rglob("ok1.json"))
+    f.write_text(json.dumps({"name": "ok1", "target": "server",
+                             "steps": [{"screen": "-", "do": "GET /x", "expect_status": 200}]}),
+                 encoding="utf-8")
+    _, out, err = run_cli("api", "--name", "ok1", "--base-url", "not a url", "--root", str(tmp_path),
+                          home=home, cwd=tmp_path)
+    d = json.loads(out.strip().splitlines()[-1])
+    assert d["ok"] is False and d["code"] == "bad_base_url", (d, err)

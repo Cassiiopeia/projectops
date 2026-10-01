@@ -155,6 +155,9 @@ source "{env_file 값}"          # $SHOT_DIR · $RUN_DIR
 | 브라우저 | `web viewport` · `web route` · `web shot` | 웹 — 빈 목록·실패를 서버 없이 연출 |
 | ASCII | `{SCRIPTS}/design_brief_cli.py ascii --spec '{...}'` | 렌더할 수 없는 상태·아직 코드가 없는 안. "렌더 실패" 라고 표시한다 |
 
+- **ascii 스펙** — `{"title": "제목(선택)", "rows": ["글자", {"text": "글자", "align": "left|center|right"}, "---"],
+  "width": 24, "caption": "아래 설명(선택)"}`. `width` 는 1 이상 정수(기본 30), `rows` 의 `"---"` 는 구분선.
+  이 네 키 밖의 키(`boxes` 등)는 무시되고 `warnings` 로 알려 준다. 한글은 두 칸으로 세어 오른쪽 선을 맞춘다.
 - **대안 목업도 실제 컴포넌트로 렌더한다.** HTML 로 다시 그리면 글꼴·간격이 달라 디자이너가 헷갈린다.
   실제 화면 위에 실제 글자 토큰으로 자리만 옮기는 식이 가장 정확하다.
 - **작은 요소는 확대 조각을 만든다** (4배, 가장 가까운 픽셀로). 10px 글자는 전체 화면에서 안 보인다.

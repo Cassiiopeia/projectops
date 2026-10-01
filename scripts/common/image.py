@@ -140,20 +140,36 @@ def shrink(paths: list[Path], max_side: int = SHOT_MAX_SIDE,
     missing = [str(p) for p in paths if not p.exists()]
     if missing:
         return {"ok": False, "code": "file_not_found", "error": f"없는 파일: {missing}"}
+    # 디렉터리·음수 크기는 도구에 넘기기 전에 거절한다 — 트레이스백 대신 JSON 오류 (#705)
+    not_files = [str(p) for p in paths if not p.is_file()]
+    if not_files:
+        return {"ok": False, "code": "not_a_file", "error": f"파일이 아닙니다: {not_files}",
+                "next": "이미지 파일 경로를 직접 넘긴다"}
+    if max_side < 0:
+        return {"ok": False, "code": "bad_args", "error": f"--max-side 는 0 이상이어야 합니다 ({max_side})",
+                "next": "0 이면 원본 크기를 유지한다"}
 
     done, method = [], None
     if has_pillow():
         from PIL import Image
         method = "pillow"
         for f in paths:
-            im = Image.open(f)
-            im.thumbnail((max_side, max_side), Image.LANCZOS)
-            im.save(f)
+            try:
+                with Image.open(f) as im:
+                    im.load()
+                    if max_side:
+                        im.thumbnail((max_side, max_side), Image.LANCZOS)
+                    im.save(f)
+            except Exception as e:   # 이미지가 아닌 파일 (UnidentifiedImageError 등)
+                return {"ok": False, "code": "image_unreadable",
+                        "error": f"이미지를 열 수 없습니다: {f} ({type(e).__name__})",
+                        "files": done, "next": "이미지 파일(png·jpg·webp)인지 확인한다"}
             done.append(str(f))
     elif shutil.which("sips"):
         method = "sips"
         for f in paths:
-            run(["sips", "-Z", str(max_side), str(f)])
+            if max_side:
+                run(["sips", "-Z", str(max_side), str(f)])
             done.append(str(f))
     elif shutil.which("ffmpeg"):
         method = "ffmpeg"
