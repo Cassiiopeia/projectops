@@ -14,7 +14,9 @@ GitHub API 직접 호출 도구.
 """
 from __future__ import annotations
 
+import argparse
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -612,6 +614,17 @@ def cmd_explore(args) -> int:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
 
 
+def _release_tag(value: str) -> str:
+    """태그로 쓸 수 없는 값(공백·제어문자·~^:?*[\\ 등)을 인자 단계에서 거절한다 (#701).
+
+    URL 에 그대로 넣으면 InvalidURL 예외가 handler_error 로 새므로, 다른 서브커맨드처럼 bad_args 로 알린다.
+    """
+    if not value or re.search(r"[\s\x00-\x1f\x7f~^:?*\[\\]", value) or value.startswith(("-", "/")):
+        raise argparse.ArgumentTypeError(
+            f"태그 형식이 올바르지 않습니다: {value!r} (공백·제어문자·~^:?*[ 사용 불가)")
+    return value
+
+
 def cmd_upload_image(args) -> int:
     """이미지를 증적 릴리스에 올리고 바로 붙여넣을 마크다운까지 돌려준다.
 
@@ -672,8 +685,8 @@ def cmd_delete_image(args) -> int:
     if not pat:
         return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
     try:
-        delete_release_asset(args.owner, args.repo, int(args.asset_id), pat)
-        return emit({"asset_id": int(args.asset_id), "status": "deleted",
+        delete_release_asset(args.owner, args.repo, args.asset_id, pat)
+        return emit({"asset_id": args.asset_id, "status": "deleted",
                      "summary": f"증적 {args.asset_id} 삭제 완료"})
     except GitHubAPIError as e:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
@@ -1008,14 +1021,14 @@ def build_parser() -> JSONArgumentParser:
     p_ui.add_argument("owner")
     p_ui.add_argument("repo")
     p_ui.add_argument("files", nargs="+", help="이미지 파일 경로 (여러 개 가능)")
-    p_ui.add_argument("--tag", default=EVIDENCE_TAG, help=f"증적 릴리스 태그 (기본 {EVIDENCE_TAG})")
+    p_ui.add_argument("--tag", type=_release_tag, default=EVIDENCE_TAG, help=f"증적 릴리스 태그 (기본 {EVIDENCE_TAG})")
     p_ui.add_argument("--prefix", default=None, help="자산 이름 앞에 붙일 말 (예: issue585)")
     p_ui.set_defaults(func=cmd_upload_image)
 
     p_di = sub.add_parser("delete-image", help="올린 증적 이미지를 지운다")
     p_di.add_argument("owner")
     p_di.add_argument("repo")
-    p_di.add_argument("asset_id")
+    p_di.add_argument("asset_id", type=int, help="증적 자산 ID (정수)")
     p_di.set_defaults(func=cmd_delete_image)
 
     p_sc = sub.add_parser("secrets", help="Actions Secret 관리 (list|set)")

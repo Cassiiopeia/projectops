@@ -249,3 +249,24 @@ def test_changelog_update_pr_nothing_to_update(monkeypatch):
     out = json.loads(buf.getvalue().strip().splitlines()[-1])
     assert rc == 1 and out["code"] == "nothing_to_update"
     assert not called
+
+
+# --- #701: upload-image 태그 공백 / delete-image 비숫자 입력은 bad_args ---
+
+def test_upload_image_tag_with_space_is_bad_args(monkeypatch):
+    rc, out = _run(monkeypatch, ["upload-image", "o", "r", "a.png", "--tag", "qa sweep tag"])
+    assert rc == 1
+    assert out["code"] == "bad_args"
+
+
+def test_delete_image_non_numeric_is_bad_args(monkeypatch):
+    rc, out = _run(monkeypatch, ["delete-image", "o", "r", "abc"])
+    assert rc == 1
+    assert out["code"] == "bad_args"
+
+
+def test_delete_image_numeric_still_works(monkeypatch):
+    seen = []
+    rc, out = _run(monkeypatch, ["delete-image", "o", "r", "123"],
+                   delete_release_asset=lambda o, r, i, pat: seen.append(i))
+    assert rc == 0 and out["asset_id"] == 123 and seen == [123]

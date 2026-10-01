@@ -879,7 +879,7 @@ def ensure_evidence_release(owner: str, repo: str, pat: str, tag: str = EVIDENCE
     prerelease로 만든다 — 최신 릴리스 배지가 증적으로 바뀌면 사용자가 혼란스럽다.
     """
     try:
-        return _request("GET", f"{_API_BASE}/repos/{owner}/{repo}/releases/tags/{tag}", None, pat)
+        return _request("GET", f"{_API_BASE}/repos/{owner}/{repo}/releases/tags/{urllib.parse.quote(tag, safe='')}", None, pat)
     except GitHubAPIError as e:
         if e.status_code != 404:
             raise
