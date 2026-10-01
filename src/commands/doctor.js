@@ -162,7 +162,16 @@ export function localChecks(cwd = ".") {
 }
 
 // ── 원격 점검 ─────────────────────────────────────────────────────────
-export async function remoteChecks(slug, token, requiredSecrets = []) {
+// permissions 블록을 한 번도 선언하지 않은 워크플로우 — 이때만 저장소 기본 권한(Settings)이 그대로 적용된다.
+// 선언이 있으면 저장소 기본값이 read 여도 선언한 범위로 동작한다 (조직 read 기본값에서 릴리스 automerge 실측, #723).
+export function workflowsWithoutPermissions(cwd = ".") {
+  const wfDir = join(cwd, PATHS.workflowsDir);
+  if (!existsSync(wfDir)) return [];
+  return readdirSync(wfDir).filter((f) => /\.ya?ml$/.test(f))
+    .filter((f) => !/^\s*permissions:/m.test(readFileSync(join(wfDir, f), "utf8")));
+}
+
+export async function remoteChecks(slug, token, requiredSecrets = [], undeclared = []) {
   const rows = [];
   const add = (r) => rows.push(r);
 
@@ -175,15 +184,20 @@ export async function remoteChecks(slug, token, requiredSecrets = []) {
   } else if (perm.data?.default_workflow_permissions === "write") {
     add({ name: "Workflow permissions", purpose: PERM_PURPOSE, status: "OK",
           value: "Read and write permissions" });
+  } else if (undeclared.length === 0) {
+    // 모든 워크플로우가 permissions 를 스스로 선언 → 저장소 기본값(read)은 실제 동작에 영향이 없다
+    add({ name: "Workflow permissions", purpose: PERM_PURPOSE, status: "INFO",
+          value: "읽기 전용 (워크플로우가 권한을 직접 선언해 영향 없음)",
+          detail: ["설치된 워크플로우가 permissions 를 모두 선언하고 있어 기본값이 읽기 전용이어도 정상 동작합니다."] });
   } else {
     add({
       name: "Workflow permissions", purpose: PERM_PURPOSE, status: "WARN",
       value: "Read repository contents permission (읽기 전용)",
       detail: [
-        "워크플로우가 저장소에 쓰거나 다른 워크플로우를 실행할 수 없습니다.",
-        "버전 확정 커밋·릴리스 태그·후속 워크플로우 실행이 전부 실패합니다.",
-        "조치: Settings > Actions > General > Workflow permissions",
-        "      → 'Read and write permissions' 선택",
+        "permissions 선언이 없는 워크플로우는 저장소에 쓰거나 다른 워크플로우를 실행할 수 없습니다.",
+        ...undeclared.map((f) => `  ${f}`),
+        "조치: 해당 파일에 permissions 블록을 추가하거나",
+        "      Settings > Actions > General > Workflow permissions → 'Read and write permissions' 선택",
       ],
     });
   }
@@ -225,7 +239,8 @@ export async function remoteChecks(slug, token, requiredSecrets = []) {
           "AI를 쓰려면 GEMINI_API_KEY(무료)를 등록하세요 — https://aistudio.google.com/apikey",
         ],
       });
-      const missing = requiredSecrets.filter((n) => !have.has(n));
+      // AI 키는 위에서 따로 안내하는 선택 항목이다 — '배포에 필요한 값' 미등록 목록에 섞으면 필수처럼 읽힌다 (#723)
+      const missing = requiredSecrets.filter((n) => !have.has(n) && !(n in AI_KEYS));
       add({
         name: "Secret 등록 여부", purpose: "배포에 필요한 값",
         status: missing.length ? "WARN" : "OK",
@@ -280,7 +295,7 @@ export async function runDoctor({ cwd = ".", token = process.env.GITHUB_TOKEN ||
 
   if (slug && token) {
     const v = verifyInstall(cwd);
-    rows.push(...await remoteChecks(slug, token, [...v.secrets.keys()]));
+    rows.push(...await remoteChecks(slug, token, [...v.secrets.keys()], workflowsWithoutPermissions(cwd)));
   } else if (slug) {
     rows.push({ name: "저장소 설정 점검", purpose: "권한·머지 방식·Secret", status: "INFO",
                 value: "건너뜀 (토큰 없음)",

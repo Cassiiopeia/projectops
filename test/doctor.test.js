@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { localChecks, renderRows } from "../src/commands/doctor.js";
+import { localChecks, renderRows, remoteChecks, workflowsWithoutPermissions } from "../src/commands/doctor.js";
 
 function repo({ versionYml = null, workflows = {} } = {}) {
   const root = mkdtempSync(join(tmpdir(), "doctor-"));
@@ -131,4 +131,62 @@ test("항목 이름 옆에 purpose를 병기한다", () => {
   const out = [];
   renderRows([{ name: "이름", purpose: "무엇을 위한 것", status: "OK", value: "값" }], (s) => out.push(s));
   assert.match(out[0], /이름 — 무엇을 위한 것: 값/);
+});
+
+// ── 조직 읽기 전용 기본 권한 (#723) ─────────────────────────────────────
+// 저장소 기본값이 read 여도 워크플로우가 permissions 를 선언하면 그 범위로 동작한다 (조직에서 릴리스 automerge 실측).
+function fakeGithub(routes) {
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const path = String(url).replace("https://api.github.com", "");
+    const hit = Object.entries(routes).find(([k]) => path.startsWith(k));
+    const body = hit ? hit[1] : {};
+    return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };
+  };
+  return () => { globalThis.fetch = orig; };
+}
+
+test("permissions 미선언 워크플로우만 골라낸다", () => {
+  const root = repo({ workflows: {
+    "A.yaml": "name: A\npermissions:\n  contents: write\njobs: {}\n",
+    "B.yaml": "name: B\njobs:\n  x:\n    permissions:\n      issues: write\n",
+    "C.yaml": "name: C\njobs: {}\n",
+  } });
+  assert.deepEqual(workflowsWithoutPermissions(root), ["C.yaml"]);
+});
+
+test("기본 권한이 읽기 전용이어도 모두 선언했으면 경고하지 않는다", async () => {
+  const restore = fakeGithub({ "/repos/o/r/actions/permissions/workflow": { default_workflow_permissions: "read" },
+                               "/repos/o/r": { allow_merge_commit: true } });
+  try {
+    const rows = await remoteChecks("o/r", "t", [], []);
+    const r = row(rows, "Workflow permissions");
+    assert.equal(r.status, "INFO");
+    assert.match(r.value, /영향 없음/);
+  } finally { restore(); }
+});
+
+test("기본 권한이 읽기 전용이고 미선언 워크플로우가 있으면 그 파일을 알리며 경고한다", async () => {
+  const restore = fakeGithub({ "/repos/o/r/actions/permissions/workflow": { default_workflow_permissions: "read" },
+                               "/repos/o/r": { allow_merge_commit: true } });
+  try {
+    const rows = await remoteChecks("o/r", "t", [], ["C.yaml"]);
+    const r = row(rows, "Workflow permissions");
+    assert.equal(r.status, "WARN");
+    assert.ok(r.detail.some((d) => d.includes("C.yaml")));
+  } finally { restore(); }
+});
+
+test("선택 항목인 AI 키는 배포 Secret 미등록 목록에 넣지 않는다", async () => {
+  const restore = fakeGithub({ "/repos/o/r/actions/permissions/workflow": { default_workflow_permissions: "write" },
+                               "/repos/o/r/actions/secrets": { secrets: [] },
+                               "/repos/o/r": { allow_merge_commit: true } });
+  try {
+    const rows = await remoteChecks("o/r", "t", ["GEMINI_API_KEY", "OPENAI_API_KEY", "SERVER_HOST"], []);
+    const r = row(rows, "Secret 등록 여부");
+    assert.equal(r.status, "WARN");
+    assert.match(r.value, /1개 미등록/);
+    assert.ok(r.detail.some((d) => d.includes("SERVER_HOST")));
+    assert.ok(!r.detail.some((d) => d.includes("GEMINI_API_KEY")));
+  } finally { restore(); }
 });
