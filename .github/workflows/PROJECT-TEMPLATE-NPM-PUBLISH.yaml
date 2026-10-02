@@ -9,7 +9,7 @@
 # 동작:
 # - main 기준으로 version.yml 버전을 읽어 package.json에 주입 후 npm publish
 # - 이미 레지스트리에 있는 버전이면 성공 종료 (멱등)
-# - 배포 후 같은 버전의 GitHub Release를 만든다 (이미 있으면 건너뜀, #738)
+# - 배포 후 같은 버전의 GitHub Release를 만든다 (별도 job, 이미 있으면 건너뜀, #738)
 #   설치 대상 레포로 복사되는 공통 워크플로우가 아니라 이 레포 전용 파일에 둔 이유:
 #   Release 생성을 공통에 넣으면 이 템플릿을 설치한 모든 레포의 동작이 바뀐다.
 #
@@ -33,13 +33,15 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # GitHub Release 생성
+  contents: read
   id-token: write
 
 jobs:
   publish-npm:
     name: npm 패키지 배포
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: 저장소 체크아웃 (main 기준)
@@ -90,18 +92,36 @@ jobs:
         if: steps.check.outputs.skip == 'false'
         run: echo "✅ projectops@${{ steps.version.outputs.version }} npm 배포 완료"
 
+  # npm 배포와 분리한 이유: contents: write 를 이 job 에만 주어,
+  # NPM_TOKEN 을 쓰는 publish 단계가 쓰기 권한 토큰과 같은 job 에 있지 않게 한다.
+  github-release:
+    name: GitHub Release 생성
+    needs: publish-npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 저장소 체크아웃 (main 기준)
+        uses: actions/checkout@v5
+        with:
+          ref: main
+
       # 태그는 RELEASE-CHANGELOG가 만든다. push 시점에 아직 없을 수 있어 잠시 기다린다.
       - name: GitHub Release 생성 (멱등)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ needs.publish-npm.outputs.version }}
         run: |
           TAG="v${VERSION}"
           API="https://api.github.com/repos/${{ github.repository }}"
           AUTH=(-H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json")
 
-          CODE=$(curl -s -o /dev/null -w "%{http_code}" "${AUTH[@]}" "$API/releases/tags/$TAG")
-          if [ "$CODE" = "200" ]; then
+          release_exists() {
+            [ "$(curl -s -o /dev/null -w "%{http_code}" "${AUTH[@]}" "$API/releases/tags/$TAG")" = "200" ]
+          }
+
+          if release_exists; then
             echo "ℹ️ Release $TAG 는 이미 있습니다. 건너뜁니다."
             exit 0
           fi
@@ -123,11 +143,17 @@ jobs:
           jq -n --arg tag "$TAG" --arg name "$TAG" --rawfile body release_notes.txt \
             '{tag_name:$tag, name:$name, body:$body, draft:false, prerelease:false}' > release_payload.json
 
-          CODE=$(curl -s -o release_resp.json -w "%{http_code}" -X POST "${AUTH[@]}" \
-            -d @release_payload.json "$API/releases")
-          if [ "$CODE" != "201" ]; then
-            echo "::error::Release 생성 실패 (HTTP $CODE)"
-            cat release_resp.json
-            exit 1
-          fi
-          echo "✅ GitHub Release 생성: $TAG"
+          # 일시 오류(5xx, 429)는 3회까지 재시도한다. 422는 다른 곳에서 먼저 만들어진 경우라 존재 확인 후 성공 처리한다.
+          for attempt in 1 2 3; do
+            CODE=$(curl -s -o release_resp.json -w "%{http_code}" -X POST "${AUTH[@]}" \
+              -d @release_payload.json "$API/releases")
+            case "$CODE" in
+              201) echo "✅ GitHub Release 생성: $TAG"; exit 0 ;;
+              422) release_exists && { echo "ℹ️ 다른 실행이 먼저 만들었습니다: $TAG"; exit 0; } ;;
+              429|5??) echo "⏳ 일시 오류 (HTTP $CODE), 재시도 $attempt/3"; sleep $((attempt * 10)); continue ;;
+            esac
+            break
+          done
+          echo "::error::Release 생성 실패 (HTTP $CODE)"
+          cat release_resp.json
+          exit 1
