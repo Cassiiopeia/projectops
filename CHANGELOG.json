@@ -1,14 +1,41 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-01T09:38:54Z",
-    "currentVersion": "4.29.0",
+    "lastUpdated": "2026-10-02T00:08:48Z",
+    "currentVersion": "4.29.1",
     "projectType": "basic",
-    "totalReleases": 275,
+    "totalReleases": 276,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.29.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-02",
+      "pr_number": 742,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **문서**\n  * 오픈소스 컨설팅 후속 이슈 본문 보관\n  * pro-flutter-e2e를 pro-agent-test로 교체, 종료된 GitHub Models 서술 제거, 완료 이슈를 닫지 않는 운영 정책 안내와 github-actions·npm 주 1회 갱신 dependabot.yml 추가\n\n* **기타**\n  * 어디에서도 읽지 않는 추적 사본 삭제\n  * NPM-PUBLISH에 version.yml 버전의 GitHub Release를 멱등 생성하는 단계 추가, 태그 대기와 실패 시 명확한 오류 처리",
+      "parsed_changes": {
+        "문서": {
+          "title": "문서",
+          "items": [
+            "오픈소스 컨설팅 후속 이슈 본문 보관",
+            "pro-flutter-e2e를 pro-agent-test로 교체, 종료된 GitHub Models 서술 제거, 완료 이슈를 닫지 않는 운영 정책 안내와 github-actions·npm 주 1회 갱신 dependabot.yml 추가"
+          ]
+        },
+        "기타": {
+          "title": "기타",
+          "items": [
+            "어디에서도 읽지 않는 추적 사본 삭제",
+            "NPM-PUBLISH에 version.yml 버전의 GitHub Release를 멱등 생성하는 단계 추가, 태그 대기와 실패 시 명확한 오류 처리"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.29.0",
       "project_type": "basic",
