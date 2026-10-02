@@ -24,7 +24,9 @@ export const PLUGIN_ITEMS_TO_REMOVE = [
   "harness",
   "bin",
   "src",
+  "site",
   ".github/workflows/PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC.yaml",
   ".github/workflows/PROJECT-TEMPLATE-NPM-PUBLISH.yaml",
+  ".github/workflows/PROJECT-TEMPLATE-DOCS-DEPLOY.yaml",
 ];
 // ⚠️ skills/ 는 제외하지 않는다 (Cursor 설치 소스로 보존)

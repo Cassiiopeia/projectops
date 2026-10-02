@@ -1,20 +1,29 @@
 <div align="center">
 
-# 🚀 Projectops
-
-**GitHub Actions 自动化 + Agent AI Skills：自动化整个开发周期的 DevOps 模板**
-
-> 从创建 Issue 到提交、报告、发布。你只需要写代码。
+<img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/hero-en.webp" alt="Projectops：从 Issue 到发布" width="100%">
 
 [한국어](https://github.com/Cassiiopeia/projectops/blob/main/README.md) | [English](https://github.com/Cassiiopeia/projectops/blob/main/docs/i18n/README.en.md) | **简体中文** | [日本語](https://github.com/Cassiiopeia/projectops/blob/main/docs/i18n/README.ja.md)
 
-[![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
-
-[更新日志](../../CHANGELOG.md)
+[![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/)
 
 </div>
 
-> **说明：** 本文是[韩文 README](https://github.com/Cassiiopeia/projectops/blob/main/README.md) 的译文，以韩文版为准。文中链接的 `docs/` 下的指南目前只有韩文版。
+---
+
+## 30 秒开始
+
+| 我想要… | 执行这个 |
+|---|---|
+| 开始一个新项目 | 在 GitHub 上点击 **Use this template**（约 1 分钟自动完成初始化） |
+| 集成到现有项目 | `npx projectops` |
+| 仅安装 Agent Skills | `npx projectops --mode skills` |
+| 检查安装状态（只读） | `npx projectops --mode doctor` |
+
+> 只需 Node.js 20.12+，无需单独安装即可运行交互式向导。
+
+![npx projectops 交互式向导](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
+
+> 以上是在示例 Spring 项目上的**真实运行画面**（向导界面目前为韩文）。非交互式用法和全部选项请见 [CLI 参考](https://cassiiopeia.github.io/projectops/en/cli)（英文）。
 
 ---
 
@@ -64,112 +73,16 @@
 
 ---
 
-## AI 开发周期
+## 组成部分
 
-Agent Skills 覆盖整个开发周期。
+| 组成 | 作用 | 文档 |
+|---|---|---|
+| **GitHub Actions** | 推送一次 main，版本管理、更新日志、CI/CD 部署全部自动完成 | [版本管理](https://cassiiopeia.github.io/projectops/VERSION-CONTROL)（韩文） |
+| **Agent Skills**（20 个） | 通过 `/pro-github`、`/pro-commit`、`/pro-report` 等命令，由 AI 代你撰写 Issue、提交信息和实现报告 | [Skills 指南](https://cassiiopeia.github.io/projectops/SKILLS)（韩文） |
+| **npx CLI** | 向现有项目安装并更新工作流，并诊断其状态 | [CLI 参考](https://cassiiopeia.github.io/projectops/en/cli)（英文） |
 
-```mermaid
-flowchart TD
-    A(["开始工作"]) --> B["/pro-github<br/>创建 Issue"]
-    B --> C["/pro-init-worktree<br/>worktree + 复制敏感文件"]
-    C --> D{"工作类型"}
-
-    D -->|新功能 / 设计 / 重构| E1["superpowers:brainstorming<br/>确定做什么、为什么做"]
-    D -->|缺陷 / 故障| E2["/pro-note<br/>检索过往记录 + 排查"]
-
-    E1 --> P["superpowers:writing-plans<br/>实现计划"]
-    P --> F["superpowers:executing-plans<br/>执行计划"]
-    E2 --> F
-    F --> H["/pro-review<br/>自我审查"]
-    H --> I["/pro-commit<br/>关联 Issue 的提交"]
-    I --> J["/pro-report<br/>实现报告 + GitHub 评论"]
-    J --> K(["创建 PR"])
-    K --> L["/pro-changelog-deploy<br/>发布 PR + automerge"]
-```
-
-> Skills 完整列表和用法：**[docs/SKILLS.md](../SKILLS.md)**（韩文）
-
----
-
-## GitHub Actions 自动化流水线
-
-```mermaid
-flowchart TD
-    A([推送 develop]) --> B[集成开发]
-    B --> C[develop→main 发布 PR]
-    C --> D["在 PR 中确定版本<br/>基于提交升级 + 标签 + AI 更新日志"]
-    D --> E[自动合并]
-    E --> F["推送 main → CI/CD 部署<br/>Flutter / Spring / React 等"]
-    F --> G([完成])
-```
-
----
-
-## 快速开始
-
-### 新项目
-
-在 GitHub 上点击 **"Use this template"** → 1 分钟内自动完成初始化。
-
-### 集成到现有项目
-
-**推荐：npx（macOS、Linux、Windows 通用）**
-
-```bash
-npx projectops
-```
-
-> 只需 Node.js 20.12+，无需单独安装即可运行交互式向导。非交互式：`npx projectops --mode full --type spring,react --force`
-
-> ⚠️ 旧的 `template_integrator.sh` / `.ps1` 已**停止支持（EOF）**（#458）。运行它们只会输出 `npx projectops` 的提示，并将在下一个 minor 版本中删除。
-
-### 仅安装 Agent Skills
-
-```bash
-# Claude Code
-claude plugin marketplace add Cassiiopeia/projectops
-claude plugin install projectops@projectops-marketplace --scope user
-```
-
-```bash
-# Gemini CLI
-gemini extensions install https://github.com/Cassiiopeia/projectops
-```
-
-```bash
-# Codex CLI (macOS / Linux)
-codex plugin marketplace add Cassiiopeia/projectops
-```
-
-`--mode skills` 向导会注册 Codex marketplace，并自动准备原生 skills 回退方案。`/plugins` 仅用于确认和管理安装。
-
-在无法使用 Codex plugin marketplace 的环境中，请使用 [Skills 指南](../SKILLS.md) 中的回退安装方式。
-
-```bash
-# Cursor / 完整的 Agent Skills 安装菜单（推荐：npx）
-npx projectops --mode skills
-```
-
-> Claude Code 优先使用 `/pro-` 自动补全，Gemini 优先使用 extension，Codex 优先使用 plugin marketplace。详见 [Skills 指南](../SKILLS.md)。
-
----
-
-## 主要功能
-
-| 功能 | 说明 | 文档 |
-|------|------|------|
-| **Agent Skills** | 可在 Claude Code、Cursor、Gemini CLI、Codex CLI 中使用的 20 个 AI DevOps Skills | [详情](../SKILLS.md) |
-| **自动版本管理** | 发布时按提交标题判定 major/minor/patch + Git 标签 | [详情](../VERSION-CONTROL.md) |
-| **AI 更新日志** | 通过生成阶梯（PR 正文 → 兼容 OpenAI 的 AI 密钥（Gemini、Groq 等）→ 提交分析）自动生成 CHANGELOG。没有密钥也能免费完成 | [详情](../CHANGELOG-AUTOMATION.md) |
-| **PR Preview** | 一条评论即可部署临时服务器，关闭 PR 后自动删除 | [详情](../PR-PREVIEW.md) |
-| **Issue 自动化** | 自动建议分支名和提交信息，创建 QA Issue | [详情](../ISSUE-AUTOMATION.md) |
-| **Flutter CI/CD** | 自动部署到 iOS TestFlight 和 Android Play Store | [详情](../FLUTTER-CICD-OVERVIEW.md) |
-| **部署配置向导** | Play Store / TestFlight / Firebase App Distribution 的 5 步 HTML 向导 | `.github/util/flutter/{playstore,testflight,firebase}-wizard/` |
-| **SSH+Docker 部署** | 向 SSH 服务器（Synology、AWS EC2 等）零停机部署 Docker | [详情](../SSH-DOCKER-DEPLOYMENT-GUIDE.md) |
-
----
-
-## Agent Skills（20 个）
+<details>
+<summary>查看全部 20 个 Agent Skills</summary>
 
 ### 🔄 开发周期自动化
 
@@ -210,6 +123,82 @@ npx projectops --mode skills
 | `/pro-synology-expose` | 将 Synology NAS 服务暴露到外部域名的设置指南 |
 | `/pro-ssh` | 通过 SSH 连接远程服务器并执行命令（AWS EC2、Synology NAS、Linux 等通用） |
 | `/pro-skill-creator` | 创建/审查/改进 Skill（CREATE / REVIEW / IMPROVE 三种模式） |
+
+</details>
+
+<details>
+<summary>查看开发周期与流水线流程图</summary>
+
+### AI 开发周期
+
+Agent Skills 覆盖整个开发周期。
+
+```mermaid
+flowchart TD
+    A(["开始工作"]) --> B["/pro-github<br/>创建 Issue"]
+    B --> C["/pro-init-worktree<br/>worktree + 复制敏感文件"]
+    C --> D{"工作类型"}
+
+    D -->|新功能 / 设计 / 重构| E1["superpowers:brainstorming<br/>确定做什么、为什么做"]
+    D -->|缺陷 / 故障| E2["/pro-note<br/>检索过往记录 + 排查"]
+
+    E1 --> P["superpowers:writing-plans<br/>实现计划"]
+    P --> F["superpowers:executing-plans<br/>执行计划"]
+    E2 --> F
+    F --> H["/pro-review<br/>自我审查"]
+    H --> I["/pro-commit<br/>关联 Issue 的提交"]
+    I --> J["/pro-report<br/>实现报告 + GitHub 评论"]
+    J --> K(["创建 PR"])
+    K --> L["/pro-changelog-deploy<br/>发布 PR + automerge"]
+```
+
+> Skills 完整列表和用法：**[docs/SKILLS.md](../SKILLS.md)**（韩文）
+
+### GitHub Actions 自动化流水线
+
+```mermaid
+flowchart TD
+    A([推送 develop]) --> B[集成开发]
+    B --> C[develop→main 发布 PR]
+    C --> D["在 PR 中确定版本<br/>基于提交升级 + 标签 + AI 更新日志"]
+    D --> E[自动合并]
+    E --> F["推送 main → CI/CD 部署<br/>Flutter / Spring / React 等"]
+    F --> G([完成])
+```
+
+</details>
+
+<details>
+<summary>仅安装 Agent Skills（Claude Code、Gemini CLI、Codex CLI、Cursor）</summary>
+
+```bash
+# Claude Code
+claude plugin marketplace add Cassiiopeia/projectops
+claude plugin install projectops@projectops-marketplace --scope user
+```
+
+```bash
+# Gemini CLI
+gemini extensions install https://github.com/Cassiiopeia/projectops
+```
+
+```bash
+# Codex CLI (macOS / Linux)
+codex plugin marketplace add Cassiiopeia/projectops
+```
+
+`--mode skills` 向导会注册 Codex marketplace，并自动准备原生 skills 回退方案。`/plugins` 仅用于确认和管理安装。
+
+在无法使用 Codex plugin marketplace 的环境中，请使用 [Skills 指南](../SKILLS.md) 中的回退安装方式。
+
+```bash
+# Cursor / 完整的 Agent Skills 安装菜单（推荐：npx）
+npx projectops --mode skills
+```
+
+> Claude Code 优先使用 `/pro-` 自动补全，Gemini 优先使用 extension，Codex 优先使用 plugin marketplace。详见 [Skills 指南](../SKILLS.md)。
+
+</details>
 
 ---
 
@@ -266,12 +255,6 @@ Settings → Actions → General
 
 ---
 
-## 文档
-
-完整列表请参阅**[文档索引](../README.md)**。所有指南目前均为韩文。
-
----
-
 ## 需要了解的限制
 
 我们宁愿先告诉你它不适合哪些情况。
@@ -280,6 +263,23 @@ Settings → Actions → General
 - **发布以“开发分支 → 默认分支”的 PR 流程为前提。** 分支名可在 `version.yml` 中修改，但不适合不区分两个分支的仓库。
 - **Issue 和 PR 自动化需要注册个人访问令牌（PAT）。** 请按上面的[配置](#配置)操作。
 - **服务器部署工作流以可通过 SSH 连接的 Docker 服务器为前提。**
+
+---
+
+## 文档
+
+可在**[文档站点](https://cassiiopeia.github.io/projectops/en/)** 中搜索浏览全部内容。大部分指南目前仅有韩文。
+
+- [开始使用（英文）](https://cassiiopeia.github.io/projectops/en/getting-started)
+- [CLI 参考（英文）](https://cassiiopeia.github.io/projectops/en/cli)
+- [Agent Skills 指南（韩文）](https://cassiiopeia.github.io/projectops/SKILLS)
+- [版本管理（韩文）](https://cassiiopeia.github.io/projectops/VERSION-CONTROL)
+- [更新日志自动化（韩文）](https://cassiiopeia.github.io/projectops/CHANGELOG-AUTOMATION)
+- [PR Preview（韩文）](https://cassiiopeia.github.io/projectops/PR-PREVIEW)
+- [Issue 自动化（韩文）](https://cassiiopeia.github.io/projectops/ISSUE-AUTOMATION)
+- [SSH + Docker 部署（韩文）](https://cassiiopeia.github.io/projectops/SSH-DOCKER-DEPLOYMENT-GUIDE)
+- [Flutter CI/CD（韩文）](https://cassiiopeia.github.io/projectops/FLUTTER-CICD-OVERVIEW)
+- [故障排查（韩文）](https://cassiiopeia.github.io/projectops/TROUBLESHOOTING)
 
 ---
 

@@ -1,0 +1,15 @@
+{
+  "name": "projectops-docs-site",
+  "private": true,
+  "version": "0.0.0",
+  "description": "projectops 문서 사이트 (VitePress, GitHub Pages) — 이 저장소 전용, 사용자 프로젝트로 복사되지 않음",
+  "type": "module",
+  "scripts": {
+    "docs:dev": "vitepress dev .",
+    "docs:build": "vitepress build .",
+    "docs:preview": "vitepress preview ."
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
+}

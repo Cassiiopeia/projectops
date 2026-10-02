@@ -1,0 +1,26 @@
+/* 브랜드 색 */
+:root {
+  --vp-c-brand-1: #4f46e5;
+  --vp-c-brand-2: #6366f1;
+  --vp-c-brand-3: #4f46e5;
+  --vp-c-brand-soft: rgba(99, 102, 241, 0.14);
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #4f46e5 20%, #06b6d4);
+}
+
+/* 한국어는 단어 중간에서 줄바꿈하지 않는다 ("자동으/로" 방지) */
+html {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* 코드 블록 안은 글자 단위로 줄바꿈하지 않도록 되돌린다 */
+pre, code {
+  word-break: normal;
+}
+
+/* 본문 GIF 가 카드처럼 보이게 */
+.vp-doc img {
+  border-radius: 10px;
+  border: 1px solid var(--vp-c-divider);
+}

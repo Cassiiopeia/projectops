@@ -43,7 +43,8 @@ function matchScope(path, scopes) {
 }
 
 // scopes 범위의 추적 파일에서 substring을 포함한 파일 경로 목록을 반환 (제외 목록 적용).
-function findFiles(substring, scopes) {
+// allow: 검사 전에 걷어낼 정식 리터럴(예: GitHub Pages 도메인은 소문자 표기가 정식이다).
+function findFiles(substring, scopes, allow = []) {
   const hits = [];
   for (const path of TRACKED) {
     if (isExcluded(path)) continue;
@@ -51,6 +52,7 @@ function findFiles(substring, scopes) {
     let content;
     try { content = readFileSync(join(ROOT, path), "utf-8"); }
     catch { continue; } // 바이너리·읽기 실패는 건너뜀
+    for (const a of allow) content = content.split(a).join("");
     if (content.includes(substring)) hits.push(path);
   }
   return hits;
@@ -92,10 +94,11 @@ test("활성 문서/코드에 cassiiopeia:suh- 커맨드 표기 잔재가 없다
 
 test("소문자 플러그인명 cassiiopeia 잔재가 없다(대문자 조직명은 허용)", () => {
   // 매니페스트·IDE 어댑터·활성 문서 대상. 대문자 Cassiiopeia(조직명)는 대소문자 구분으로 통과.
+  // 단, 문서 사이트 도메인(cassiiopeia.github.io)은 GitHub Pages 의 정식 소문자 호스트라 허용한다.
   const hits = findFiles("cassiiopeia", [
     ".claude-plugin/", ".codex-plugin/", ".agents/", ".cursor/",
     "gemini-extension.json", "src/", "ext:.md",
-  ]);
+  ], ["cassiiopeia.github.io"]);
   assert.deepEqual(hits, [], `소문자 cassiiopeia 잔재:\n${hits.join("\n")}`);
 });
 
