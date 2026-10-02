@@ -23,7 +23,7 @@
 
 ![npx projectops 対話型ウィザード](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
 
-> 上の画面はサンプルの Spring プロジェクトで**実際に実行した画面**です（ウィザードの UI は現在韓国語です）。非対話型の実行と全オプションは [CLI リファレンス](https://cassiiopeia.github.io/projectops/en/cli)（英語）を参照してください。
+> 上の画面はサンプルの Spring プロジェクトで**実際に実行した画面**です（ウィザードの UI は現在韓国語です）。画面のバージョン表記は録画時点のものです。非対話型の実行と全オプションは [CLI リファレンス](https://cassiiopeia.github.io/projectops/en/cli)（英語）を参照してください。
 
 ---
 

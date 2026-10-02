@@ -28,7 +28,7 @@
 
 ![npx projectops 대화형 마법사 실행 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
 
-> 위 화면은 샘플 Spring 프로젝트에서 **실제로 실행한 화면**입니다. 비대화형 실행과 옵션 전체는 [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/CLI)를 보세요.
+> 위 화면은 샘플 Spring 프로젝트에서 **실제로 실행한 화면**입니다. 화면에 보이는 버전 표기는 녹화 시점 기준입니다. 비대화형 실행과 옵션 전체는 [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/CLI)를 보세요.
 
 ---
 

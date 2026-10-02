@@ -23,7 +23,7 @@
 
 ![npx projectops 交互式向导](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
 
-> 以上是在示例 Spring 项目上的**真实运行画面**（向导界面目前为韩文）。非交互式用法和全部选项请见 [CLI 参考](https://cassiiopeia.github.io/projectops/en/cli)（英文）。
+> 以上是在示例 Spring 项目上的**真实运行画面**（向导界面目前为韩文）。画面中的版本号以录制时为准。非交互式用法和全部选项请见 [CLI 参考](https://cassiiopeia.github.io/projectops/en/cli)（英文）。
 
 ---
 

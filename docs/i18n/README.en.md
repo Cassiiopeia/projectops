@@ -23,7 +23,7 @@
 
 ![npx projectops interactive wizard](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
 
-> This is a **real run** on a sample Spring project (the wizard UI itself is currently Korean). For non-interactive use and every option, see the [CLI reference](https://cassiiopeia.github.io/projectops/en/cli).
+> This is a **real run** on a sample Spring project (the wizard UI itself is currently Korean). Version numbers shown were current when it was recorded. For non-interactive use and every option, see the [CLI reference](https://cassiiopeia.github.io/projectops/en/cli).
 
 ---
 
