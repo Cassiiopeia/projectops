@@ -6,6 +6,8 @@
 
 > 이슈 등록부터 커밋, 보고서, 배포까지. 개발자는 코드만 작성하세요.
 
+[![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
 ## 최신 버전 : v4.29.0 (2026-10-01)
 
@@ -25,12 +27,39 @@
 | 기존 방식 | Projectops |
 |----------|---------------------|
 | 버전 수동 관리, 태그 직접 생성 | 릴리스 시 커밋 내용에 맞는 버전 자동 증가 + 태그 생성 |
-| 체인지로그 직접 작성 (30분+) | CodeRabbit AI가 PR마다 자동 생성 |
+| 체인지로그 직접 작성 (30분+) | 릴리스 PR마다 자동 생성 (커밋 분석, AI 키가 있으면 AI 요약) |
 | CI/CD 처음부터 설정 | 프로젝트 타입별 워크플로우 즉시 구성 |
 | 이슈 매번 형식 맞춰 작성 (5분+) | `/pro-github` 한 번에 표준 템플릿 생성 + 등록 |
 | 커밋 메시지 이슈 URL 수동 복사 | `/pro-commit` 이슈 컨텍스트 기반 자동 완성 |
 | PR 설명/보고서 직접 작성 | `/pro-report` git diff 분석 후 자동 생성 |
 | 코드 리뷰·분석 매번 프롬프트 입력 | 17종 Skills로 일관된 결과, 매번 재입력 불필요 |
+
+---
+
+## 실제로 이렇게 동작합니다
+
+이 저장소 자신이 이 도구로 운영됩니다. 아래는 가짜 목업이 아니라 **이 레포의 실제 이슈·PR·릴리스 화면**입니다.
+
+![이슈 등록부터 릴리스까지 실제 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/demo.gif)
+
+| 단계 | 일어나는 일 |
+|------|------------|
+| 1. 이슈 등록 | `/pro-github`가 템플릿에 맞춰 작성·등록하고, 라벨이 바뀌면 Projects 보드 상태가 따라갑니다 |
+| 2. 자동 안내 | 이슈가 열리면 **브랜치명과 커밋 메시지 템플릿**을 댓글로 알려줍니다 |
+| 3. 구현 보고서 | `/pro-report`가 변경 내용과 흐름도를 이슈 댓글로 남깁니다 |
+| 4. 릴리스 PR | develop → main PR에서 버전 확정, 릴리스 노트, 자동 머지가 진행됩니다 |
+| 5. GitHub Release | main에 반영되면 버전 태그와 함께 릴리스가 자동으로 만들어집니다 |
+
+<details>
+<summary>단계별 화면 크게 보기</summary>
+
+![1. 이슈 + Projects 상태 동기화](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/1-issue.webp)
+![2. 브랜치명·커밋 메시지 자동 안내](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/2-issue-helper.webp)
+![3. 구현 보고서 댓글](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/3-report.webp)
+![4. 릴리스 PR 자동 머지](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/4-release-pr.webp)
+![5. GitHub Release 자동 생성](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/5-release.webp)
+
+</details>
 
 ---
 
@@ -262,11 +291,23 @@ Settings → Actions → General
 
 ---
 
+## 알아둘 것
+
+맞지 않는 경우를 먼저 알려 드립니다.
+
+- **GitHub 전용입니다.** GitHub Actions와 GitHub 이슈·PR을 전제로 하므로 GitLab 등은 지원하지 않습니다.
+- **릴리스는 개발 브랜치 → 기본 브랜치 PR 구조를 전제로 합니다.** 브랜치 이름은 `version.yml`에서 바꿀 수 있지만, 두 브랜치를 나눠 쓰지 않는 저장소에는 맞지 않습니다.
+- **이슈·PR 자동화에는 개인 액세스 토큰(PAT) 등록이 필요합니다.** 위 [설정](#설정)을 따라 주세요.
+- **서버 배포 워크플로우는 SSH로 접속하는 Docker 서버를 전제로 합니다.**
+
+---
+
 ## 지원
 
 - [Issues](https://github.com/Cassiiopeia/projectops/issues) — 버그 리포트, 기능 요청
   - 이 레포는 완료된 이슈를 닫지 않고 `작업완료` 라벨로 표시합니다. 열린 이슈 수가 많아 보이는 이유입니다.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — 기여 가이드
+- [SECURITY.md](SECURITY.md) — 보안 취약점은 공개 이슈가 아니라 비공개로 신고해 주세요
 
 ---
 
