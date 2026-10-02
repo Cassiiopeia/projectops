@@ -335,7 +335,7 @@ jobs:
       # 워킹트리 루트에 풀면 아래 "변경사항 커밋 및 푸시"의 git add -A에 딸려가 저장소가
       # 오염된다 (#564 — v4.4.1부터 매 릴리스마다 pr_body.md가 커밋되고 있었다).
       - name: Summary 파일 다운로드
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: pr-content
           path: ${{ runner.temp }}/pr-content
