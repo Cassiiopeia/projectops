@@ -717,19 +717,32 @@ def get_pull_detail(owner: str, repo: str, pr_number: int, pat: str) -> dict:
     }
 
 
-def find_open_pr_by_base(owner: str, repo: str, base: str, pat: str) -> dict | None:
-    """base 브랜치로 들어오는 open PR 중 첫 번째의 상세를 반환한다. 없으면 None.
+# deploy PR 후보에서 제외할 봇 브랜치 접두사. 의존성 봇 PR도 기본 브랜치(main)로 들어오므로
+# base만 보면 deploy PR로 오인해 "기존 PR 재사용"이 그 PR 본문을 덮어쓴다.
+_BOT_HEAD_PREFIXES = ("dependabot/", "renovate/")
+
+
+def find_open_pr_by_base(owner: str, repo: str, base: str, pat: str, head: str | None = None) -> dict | None:
+    """base 브랜치로 들어오는 open PR 중 deploy PR 하나의 상세를 반환한다. 없으면 None.
 
     deploy-status를 --pr 없이 호출할 때 deploy PR을 자동으로 찾기 위함.
+    - head를 주면 그 브랜치에서 온 PR만 고른다 (가장 정확).
+    - head가 없으면 의존성 봇(dependabot/, renovate/) PR을 제외한 첫 번째를 고른다.
     """
     items = _request(
         "GET",
         f"{_API_BASE}/repos/{owner}/{repo}/pulls?state=open&base={base}&per_page=50",
         None, pat,
     )
-    if not items:
-        return None
-    return get_pull_detail(owner, repo, items[0]["number"], pat)
+    for it in items or []:
+        ref = (it.get("head") or {}).get("ref", "")
+        if head:
+            if ref != head:
+                continue
+        elif ref.startswith(_BOT_HEAD_PREFIXES):
+            continue
+        return get_pull_detail(owner, repo, it["number"], pat)
+    return None
 
 
 def get_branch_head(owner: str, repo: str, branch: str, pat: str) -> str | None:

@@ -82,7 +82,7 @@ def cmd_deploy_status(args) -> int:
         if args.pr:
             pr = get_pull_detail(args.owner, args.repo, args.pr, pat)
         else:
-            pr = find_open_pr_by_base(args.owner, args.repo, args.base, pat)
+            pr = find_open_pr_by_base(args.owner, args.repo, args.base, pat, head=args.head)
         branch_head = get_branch_head(args.owner, args.repo, args.base, pat)
         deploy_branch = {"name": args.base, "head_sha": branch_head}
 
@@ -448,6 +448,7 @@ def build_parser() -> JSONArgumentParser:
     p_ds.add_argument("repo")
     p_ds.add_argument("--pr", type=int)
     p_ds.add_argument("--base", default="main")
+    p_ds.add_argument("--head", default=None, help="릴리스 PR의 head 브랜치 (없으면 의존성 봇 PR만 제외)")
     p_ds.set_defaults(func=cmd_deploy_status)
 
     p_lp = sub.add_parser("list-prs", help="PR 목록")

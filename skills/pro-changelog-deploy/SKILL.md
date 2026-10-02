@@ -572,7 +572,7 @@ SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
 DEPLOY_STATUS=$(GITHUB_PAT="$GITHUB_PAT" PYTHONIOENCODING=utf-8 "$PYTHON" changelog_cli.py \
-  deploy-status "$OWNER" "$REPO" --base "$BASE_BRANCH")
+  deploy-status "$OWNER" "$REPO" --base "$BASE_BRANCH" --head "$HEAD_BRANCH")
 EXISTING_PR=$(DEPLOY_STATUS="$DEPLOY_STATUS" "$PYTHON" -c "import os,json; d=json.loads(os.environ['DEPLOY_STATUS']); print((d.get('pr') or {}).get('number',''))")
 
 # 기존 open deploy PR이 있으면 재사용 — 닫지 않는다 (새로 열면 워크플로우 재트리거되어 본문 초기화 위험)

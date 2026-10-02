@@ -1,15 +1,30 @@
 # 의존성 자동 갱신 — 주 1회, 업데이트 PR이 쌓이지 않게 개수 제한
+#
+# ⚠️ 이 레포에서 주의할 점 (#751)
+#  - 기본 브랜치(main)로 PR이 올라가면 머지 즉시 배포가 돈다. 반드시 개발 브랜치(develop)로 받는다.
+#  - 루트 .github/workflows/ 의 공통 워크플로우는 project-types/common/ 원본과 동일해야 한다.
+#    Dependabot 은 루트 사본만 바꾸므로, 액션 버전 PR 을 머지할 때는 원본도 같이 고쳐야 한다
+#    (어긋나면 test_common_workflow_copies.py 가 CI 에서 막는다).
+#  - 메이저 버전 업은 이 템플릿을 설치한 레포의 동작을 바꿀 수 있어 자동 PR 에서 제외한다.
 version: 2
 updates:
   # 워크플로우가 쓰는 액션 버전
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   # npx 패키지(projectops) 의존성
   - package-ecosystem: "npm"
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
