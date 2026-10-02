@@ -1,14 +1,39 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-02T01:23:29Z",
-    "currentVersion": "4.31.1",
+    "lastUpdated": "2026-10-02T04:39:44Z",
+    "currentVersion": "4.31.2",
     "projectType": "basic",
-    "totalReleases": 280,
+    "totalReleases": 281,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.31.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-02",
+      "pr_number": 759,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 릴리스마다 어긋나는 버전 표기를 히어로와 카드 이미지에서 빼고 GIF에 보이는 버전은 녹화 시점 기준이라고 캡션에 명시\n\n* **문서**\n  * 문서 사이트 구축과 README·CLI 재구성 구현 보고서 보관",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "릴리스마다 어긋나는 버전 표기를 히어로와 카드 이미지에서 빼고 GIF에 보이는 버전은 녹화 시점 기준이라고 캡션에 명시"
+          ]
+        },
+        "문서": {
+          "title": "문서",
+          "items": [
+            "문서 사이트 구축과 README·CLI 재구성 구현 보고서 보관"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.31.1",
       "project_type": "basic",
