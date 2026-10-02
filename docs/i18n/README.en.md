@@ -1,20 +1,29 @@
 <div align="center">
 
-# 🚀 Projectops
-
-**GitHub Actions automation + Agent AI Skills: a DevOps template that automates your whole development cycle**
-
-> From filing an issue to commits, reports, and releases. Just write the code.
+<img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/hero-en.webp" alt="Projectops: from issue to release" width="100%">
 
 [한국어](https://github.com/Cassiiopeia/projectops/blob/main/README.md) | **English** | [简体中文](https://github.com/Cassiiopeia/projectops/blob/main/docs/i18n/README.zh-CN.md) | [日本語](https://github.com/Cassiiopeia/projectops/blob/main/docs/i18n/README.ja.md)
 
-[![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
-
-[Changelog](../../CHANGELOG.md)
+[![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/)
 
 </div>
 
-> **Note:** This is a translation of the [Korean README](https://github.com/Cassiiopeia/projectops/blob/main/README.md), which is the source of truth. The linked guides under `docs/` are currently written in Korean only.
+---
+
+## Get started in 30 seconds
+
+| I want to... | Run this |
+|---|---|
+| Start a new project | Click **Use this template** on GitHub (auto-setup in about a minute) |
+| Add it to an existing project | `npx projectops` |
+| Install Agent Skills only | `npx projectops --mode skills` |
+| Check the install state (read-only) | `npx projectops --mode doctor` |
+
+> You only need Node.js 20.12+. An interactive wizard runs with no separate install.
+
+![npx projectops interactive wizard](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
+
+> This is a **real run** on a sample Spring project (the wizard UI itself is currently Korean). For non-interactive use and every option, see the [CLI reference](https://cassiiopeia.github.io/projectops/en/cli).
 
 ---
 
@@ -64,112 +73,16 @@ This repository is run with this tool. The screens below are not mockups. They a
 
 ---
 
-## AI development cycle
+## What is inside
 
-Agent Skills cover the entire development cycle.
+| Part | What it does | Docs |
+|---|---|---|
+| **GitHub Actions** | One push to main handles versioning, changelogs, and CI/CD deployment | [Versioning](https://cassiiopeia.github.io/projectops/VERSION-CONTROL) (Korean) |
+| **Agent Skills** (20) | `/pro-github`, `/pro-commit`, `/pro-report` and more let an AI agent write issues, commit messages, and implementation reports | [Skills guide](https://cassiiopeia.github.io/projectops/SKILLS) (Korean) |
+| **npx CLI** | Installs and updates workflows in an existing project, and diagnoses its state | [CLI reference](https://cassiiopeia.github.io/projectops/en/cli) |
 
-```mermaid
-flowchart TD
-    A(["Start work"]) --> B["/pro-github<br/>File an issue"]
-    B --> C["/pro-init-worktree<br/>worktree + copy sensitive files"]
-    C --> D{"Type of work"}
-
-    D -->|New feature / design / refactor| E1["superpowers:brainstorming<br/>Decide what and why"]
-    D -->|Bug / outage| E2["/pro-note<br/>Search past notes + investigate"]
-
-    E1 --> P["superpowers:writing-plans<br/>Implementation plan"]
-    P --> F["superpowers:executing-plans<br/>Run the plan"]
-    E2 --> F
-    F --> H["/pro-review<br/>Self-review"]
-    H --> I["/pro-commit<br/>Issue-linked commit"]
-    I --> J["/pro-report<br/>Implementation report + GitHub comment"]
-    J --> K(["Open PR"])
-    K --> L["/pro-changelog-deploy<br/>Release PR + automerge"]
-```
-
-> Full list of Skills and usage: **[docs/SKILLS.md](../SKILLS.md)** (Korean)
-
----
-
-## GitHub Actions pipeline
-
-```mermaid
-flowchart TD
-    A([Push to develop]) --> B[Integrate]
-    B --> C[develop→main release PR]
-    C --> D["Finalize version in the PR<br/>commit-based bump + tag + AI changelog"]
-    D --> E[Auto-merge]
-    E --> F["Push to main → CI/CD deploy<br/>Flutter / Spring / React, etc."]
-    F --> G([Done])
-```
-
----
-
-## Quick start
-
-### New project
-
-Click **"Use this template"** on GitHub → automatic setup finishes within a minute.
-
-### Add to an existing project
-
-**Recommended: npx (macOS, Linux, Windows)**
-
-```bash
-npx projectops
-```
-
-> You only need Node.js 20.12+. An interactive wizard runs with no separate install. Non-interactive: `npx projectops --mode full --type spring,react --force`
-
-> ⚠️ The old `template_integrator.sh` / `.ps1` have reached **end of life (EOF)** (#458). They only print a pointer to `npx projectops` and will be removed in the next minor release.
-
-### Install Agent Skills only
-
-```bash
-# Claude Code
-claude plugin marketplace add Cassiiopeia/projectops
-claude plugin install projectops@projectops-marketplace --scope user
-```
-
-```bash
-# Gemini CLI
-gemini extensions install https://github.com/Cassiiopeia/projectops
-```
-
-```bash
-# Codex CLI (macOS / Linux)
-codex plugin marketplace add Cassiiopeia/projectops
-```
-
-The `--mode skills` wizard registers the Codex marketplace and also prepares the native skills fallback. Use `/plugins` only to check or manage the install.
-
-Where the Codex plugin marketplace is unavailable, use the fallback install described in the [Skills guide](../SKILLS.md).
-
-```bash
-# Cursor / the full Agent Skills install menu (recommended: npx)
-npx projectops --mode skills
-```
-
-> Claude Code prefers `/pro-` autocomplete, Gemini prefers its extension, and Codex prefers its plugin marketplace. See the [Skills guide](../SKILLS.md) for details.
-
----
-
-## Key features
-
-| Feature | Description | Docs |
-|------|------|------|
-| **Agent Skills** | 20 AI DevOps Skills for Claude Code, Cursor, Gemini CLI, and Codex CLI | [Details](../SKILLS.md) |
-| **Automatic versioning** | Decides major/minor/patch from commit titles at release time + a Git tag | [Details](../VERSION-CONTROL.md) |
-| **AI changelog** | Generates CHANGELOG through a ladder (PR body → OpenAI-compatible AI key such as Gemini or Groq → commit analysis). It still completes for free without a key | [Details](../CHANGELOG-AUTOMATION.md) |
-| **PR Preview** | Deploy a temporary server with one comment; it is removed when the PR closes | [Details](../PR-PREVIEW.md) |
-| **Issue automation** | Suggests branch names and commit messages, creates QA issues | [Details](../ISSUE-AUTOMATION.md) |
-| **Flutter CI/CD** | Automatic deploy to iOS TestFlight and Android Play Store | [Details](../FLUTTER-CICD-OVERVIEW.md) |
-| **Deployment setup wizards** | 5-step HTML wizards for Play Store / TestFlight / Firebase App Distribution | `.github/util/flutter/{playstore,testflight,firebase}-wizard/` |
-| **SSH + Docker deploy** | Zero-downtime Docker deployment to an SSH server (Synology, AWS EC2, etc.) | [Details](../SSH-DOCKER-DEPLOYMENT-GUIDE.md) |
-
----
-
-## Agent Skills (20)
+<details>
+<summary>See all 20 Agent Skills</summary>
 
 ### 🔄 Development cycle automation
 
@@ -210,6 +123,82 @@ npx projectops --mode skills
 | `/pro-synology-expose` | Guide to exposing a Synology NAS service on an external domain |
 | `/pro-ssh` | Connect to a remote server over SSH and run commands (AWS EC2, Synology NAS, Linux, and more) |
 | `/pro-skill-creator` | Create, review, and improve a Skill (CREATE / REVIEW / IMPROVE modes) |
+
+</details>
+
+<details>
+<summary>See the development cycle and pipeline diagrams</summary>
+
+### AI development cycle
+
+Agent Skills cover the entire development cycle.
+
+```mermaid
+flowchart TD
+    A(["Start work"]) --> B["/pro-github<br/>File an issue"]
+    B --> C["/pro-init-worktree<br/>worktree + copy sensitive files"]
+    C --> D{"Type of work"}
+
+    D -->|New feature / design / refactor| E1["superpowers:brainstorming<br/>Decide what and why"]
+    D -->|Bug / outage| E2["/pro-note<br/>Search past notes + investigate"]
+
+    E1 --> P["superpowers:writing-plans<br/>Implementation plan"]
+    P --> F["superpowers:executing-plans<br/>Run the plan"]
+    E2 --> F
+    F --> H["/pro-review<br/>Self-review"]
+    H --> I["/pro-commit<br/>Issue-linked commit"]
+    I --> J["/pro-report<br/>Implementation report + GitHub comment"]
+    J --> K(["Open PR"])
+    K --> L["/pro-changelog-deploy<br/>Release PR + automerge"]
+```
+
+> Full list of Skills and usage: **[docs/SKILLS.md](../SKILLS.md)** (Korean)
+
+### GitHub Actions pipeline
+
+```mermaid
+flowchart TD
+    A([Push to develop]) --> B[Integrate]
+    B --> C[develop→main release PR]
+    C --> D["Finalize version in the PR<br/>commit-based bump + tag + AI changelog"]
+    D --> E[Auto-merge]
+    E --> F["Push to main → CI/CD deploy<br/>Flutter / Spring / React, etc."]
+    F --> G([Done])
+```
+
+</details>
+
+<details>
+<summary>Install Agent Skills only (Claude Code, Gemini CLI, Codex CLI, Cursor)</summary>
+
+```bash
+# Claude Code
+claude plugin marketplace add Cassiiopeia/projectops
+claude plugin install projectops@projectops-marketplace --scope user
+```
+
+```bash
+# Gemini CLI
+gemini extensions install https://github.com/Cassiiopeia/projectops
+```
+
+```bash
+# Codex CLI (macOS / Linux)
+codex plugin marketplace add Cassiiopeia/projectops
+```
+
+The `--mode skills` wizard registers the Codex marketplace and also prepares the native skills fallback. Use `/plugins` only to check or manage the install.
+
+Where the Codex plugin marketplace is unavailable, use the fallback install described in the [Skills guide](../SKILLS.md).
+
+```bash
+# Cursor / the full Agent Skills install menu (recommended: npx)
+npx projectops --mode skills
+```
+
+> Claude Code prefers `/pro-` autocomplete, Gemini prefers its extension, and Codex prefers its plugin marketplace. See the [Skills guide](../SKILLS.md) for details.
+
+</details>
 
 ---
 
@@ -266,12 +255,6 @@ Settings → Actions → General
 
 ---
 
-## Documentation
-
-See the **[documentation index](../README.md)** for the full list. All guides are currently in Korean.
-
----
-
 ## Things to know
 
 We would rather tell you up front when this is not a fit.
@@ -280,6 +263,23 @@ We would rather tell you up front when this is not a fit.
 - **Releases assume a develop branch → default branch PR flow.** Branch names can be changed in `version.yml`, but it does not suit a repo that does not use two branches.
 - **Issue and PR automation needs a personal access token (PAT).** Follow [Setup](#setup) above.
 - **Server deploy workflows assume a Docker server reachable over SSH.**
+
+---
+
+## Documentation
+
+Browse and search everything on the **[docs site](https://cassiiopeia.github.io/projectops/en/)**. Most guides are currently Korean only.
+
+- [Getting started](https://cassiiopeia.github.io/projectops/en/getting-started)
+- [CLI reference](https://cassiiopeia.github.io/projectops/en/cli)
+- [Agent Skills guide (Korean)](https://cassiiopeia.github.io/projectops/SKILLS)
+- [Versioning (Korean)](https://cassiiopeia.github.io/projectops/VERSION-CONTROL)
+- [Changelog automation (Korean)](https://cassiiopeia.github.io/projectops/CHANGELOG-AUTOMATION)
+- [PR Preview (Korean)](https://cassiiopeia.github.io/projectops/PR-PREVIEW)
+- [Issue automation (Korean)](https://cassiiopeia.github.io/projectops/ISSUE-AUTOMATION)
+- [SSH + Docker deploy (Korean)](https://cassiiopeia.github.io/projectops/SSH-DOCKER-DEPLOYMENT-GUIDE)
+- [Flutter CI/CD (Korean)](https://cassiiopeia.github.io/projectops/FLUTTER-CICD-OVERVIEW)
+- [Troubleshooting (Korean)](https://cassiiopeia.github.io/projectops/TROUBLESHOOTING)
 
 ---
 

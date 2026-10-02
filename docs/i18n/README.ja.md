@@ -1,20 +1,29 @@
 <div align="center">
 
-# 🚀 Projectops
-
-**GitHub Actions の自動化 + Agent AI Skills：開発サイクル全体を自動化する DevOps テンプレート**
-
-> Issue の作成からコミット、レポート、リリースまで。開発者はコードを書くことに集中できます。
+<img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/hero-en.webp" alt="Projectops：Issue からリリースまで" width="100%">
 
 [한국어](https://github.com/Cassiiopeia/projectops/blob/main/README.md) | [English](https://github.com/Cassiiopeia/projectops/blob/main/docs/i18n/README.en.md) | [简体中文](https://github.com/Cassiiopeia/projectops/blob/main/docs/i18n/README.zh-CN.md) | **日本語**
 
-[![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
-
-[変更履歴](../../CHANGELOG.md)
+[![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/)
 
 </div>
 
-> **お知らせ：** このページは[韓国語版 README](https://github.com/Cassiiopeia/projectops/blob/main/README.md) の翻訳で、正本は韓国語版です。リンク先の `docs/` 配下のガイドは現在、韓国語のみです。
+---
+
+## 30 秒ではじめる
+
+| やりたいこと | 実行するもの |
+|---|---|
+| 新しいプロジェクトを始める | GitHub で **Use this template** をクリック（1 分ほどで自動初期化） |
+| 既存プロジェクトに導入する | `npx projectops` |
+| Agent Skills だけをインストールする | `npx projectops --mode skills` |
+| インストール状態を点検する（読み取り専用） | `npx projectops --mode doctor` |
+
+> Node.js 20.12 以上があれば、別途インストールなしで対話型ウィザードが起動します。
+
+![npx projectops 対話型ウィザード](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
+
+> 上の画面はサンプルの Spring プロジェクトで**実際に実行した画面**です（ウィザードの UI は現在韓国語です）。非対話型の実行と全オプションは [CLI リファレンス](https://cassiiopeia.github.io/projectops/en/cli)（英語）を参照してください。
 
 ---
 
@@ -64,112 +73,16 @@
 
 ---
 
-## AI 開発サイクル
+## 構成要素
 
-Agent Skills が開発サイクル全体をカバーします。
+| 構成 | できること | ドキュメント |
+|---|---|---|
+| **GitHub Actions** | main へ一度 push するだけで、バージョン管理、変更履歴、CI/CD デプロイまで自動で処理 | [バージョン管理](https://cassiiopeia.github.io/projectops/VERSION-CONTROL)（韓国語） |
+| **Agent Skills**（20 種） | `/pro-github`、`/pro-commit`、`/pro-report` などで、AI が Issue、コミットメッセージ、実装レポートを代わりに作成 | [Skills ガイド](https://cassiiopeia.github.io/projectops/SKILLS)（韓国語） |
+| **npx CLI** | 既存プロジェクトにワークフローを導入・更新し、状態を診断 | [CLI リファレンス](https://cassiiopeia.github.io/projectops/en/cli)（英語） |
 
-```mermaid
-flowchart TD
-    A(["作業開始"]) --> B["/pro-github<br/>Issue 登録"]
-    B --> C["/pro-init-worktree<br/>worktree + 機密ファイルのコピー"]
-    C --> D{"作業の種類"}
-
-    D -->|新機能・設計・リファクタリング| E1["superpowers:brainstorming<br/>何をなぜ作るかを確定"]
-    D -->|バグ・障害| E2["/pro-note<br/>過去の記録を検索 + 調査"]
-
-    E1 --> P["superpowers:writing-plans<br/>実装計画"]
-    P --> F["superpowers:executing-plans<br/>計画の実行"]
-    E2 --> F
-    F --> H["/pro-review<br/>セルフレビュー"]
-    H --> I["/pro-commit<br/>Issue 連携コミット"]
-    I --> J["/pro-report<br/>実装レポート + GitHub コメント"]
-    J --> K(["PR 作成"])
-    K --> L["/pro-changelog-deploy<br/>リリース PR + automerge"]
-```
-
-> Skills の全一覧と詳しい使い方：**[docs/SKILLS.md](../SKILLS.md)**（韓国語）
-
----
-
-## GitHub Actions 自動化パイプライン
-
-```mermaid
-flowchart TD
-    A([develop へ push]) --> B[開発を統合]
-    B --> C[develop→main リリース PR]
-    C --> D["PR 内でバージョン確定<br/>コミットに基づく昇格 + タグ + AI 変更履歴"]
-    D --> E[自動マージ]
-    E --> F["main push → CI/CD デプロイ<br/>Flutter / Spring / React など"]
-    F --> G([完了])
-```
-
----
-
-## クイックスタート
-
-### 新規プロジェクト
-
-GitHub で **「Use this template」** をクリック → 1 分以内に自動で初期化が完了します。
-
-### 既存プロジェクトへの導入
-
-**推奨：npx（macOS・Linux・Windows 共通）**
-
-```bash
-npx projectops
-```
-
-> Node.js 20.12 以上があれば、別途インストールなしで対話型ウィザードが起動します。非対話型：`npx projectops --mode full --type spring,react --force`
-
-> ⚠️ 旧 `template_integrator.sh` / `.ps1` は**サポート終了（EOF）**です（#458）。実行しても `npx projectops` の案内が表示されるだけで、次の minor リリースでファイルが削除されます。
-
-### Agent Skills だけをインストール
-
-```bash
-# Claude Code
-claude plugin marketplace add Cassiiopeia/projectops
-claude plugin install projectops@projectops-marketplace --scope user
-```
-
-```bash
-# Gemini CLI
-gemini extensions install https://github.com/Cassiiopeia/projectops
-```
-
-```bash
-# Codex CLI (macOS / Linux)
-codex plugin marketplace add Cassiiopeia/projectops
-```
-
-`--mode skills` ウィザードは Codex marketplace を登録したうえで、ネイティブ skills のフォールバックも自動で準備します。`/plugins` はインストールの確認・管理にのみ使ってください。
-
-Codex plugin marketplace が使えない環境では、[Skills ガイド](../SKILLS.md)のフォールバックのインストール方法を使ってください。
-
-```bash
-# Cursor / すべての Agent Skills のインストールメニュー（推奨：npx）
-npx projectops --mode skills
-```
-
-> Claude Code は `/pro-` の自動補完、Gemini は extension、Codex は plugin marketplace を優先して使います。詳しくは [Skills ガイド](../SKILLS.md)を参照してください。
-
----
-
-## 主な機能
-
-| 機能 | 説明 | ドキュメント |
-|------|------|------|
-| **Agent Skills** | Claude Code、Cursor、Gemini CLI、Codex CLI で使える 20 種の AI DevOps Skills | [詳細](../SKILLS.md) |
-| **バージョン自動化** | リリース時にコミットタイトルから major/minor/patch を判定 + Git タグ | [詳細](../VERSION-CONTROL.md) |
-| **AI 変更履歴** | 生成のはしご（PR 本文 → OpenAI 互換の AI キー（Gemini・Groq など）→ コミット分析）で CHANGELOG を自動生成。キーがなくても無料で完了します | [詳細](../CHANGELOG-AUTOMATION.md) |
-| **PR Preview** | コメント 1 行で一時サーバーをデプロイし、PR を閉じると自動で削除 | [詳細](../PR-PREVIEW.md) |
-| **Issue 自動化** | ブランチ名・コミットメッセージの自動提案、QA Issue の作成 | [詳細](../ISSUE-AUTOMATION.md) |
-| **Flutter CI/CD** | iOS TestFlight と Android Play Store への自動デプロイ | [詳細](../FLUTTER-CICD-OVERVIEW.md) |
-| **デプロイ設定ウィザード** | Play Store / TestFlight / Firebase App Distribution 向けの 5 ステップ HTML ウィザード | `.github/util/flutter/{playstore,testflight,firebase}-wizard/` |
-| **SSH+Docker デプロイ** | SSH 接続のサーバー（Synology・AWS EC2 など）へ Docker を無停止でデプロイ | [詳細](../SSH-DOCKER-DEPLOYMENT-GUIDE.md) |
-
----
-
-## Agent Skills（20 種）
+<details>
+<summary>Agent Skills 20 種をすべて見る</summary>
 
 ### 🔄 開発サイクルの自動化
 
@@ -210,6 +123,82 @@ npx projectops --mode skills
 | `/pro-synology-expose` | Synology NAS のサービスを外部ドメインに公開する設定ガイド |
 | `/pro-ssh` | リモートサーバーへ SSH 接続してコマンドを実行（AWS EC2、Synology NAS、Linux など汎用） |
 | `/pro-skill-creator` | Skill の作成・レビュー・改善（CREATE・REVIEW・IMPROVE の 3 モード） |
+
+</details>
+
+<details>
+<summary>開発サイクルとパイプラインの図を見る</summary>
+
+### AI 開発サイクル
+
+Agent Skills が開発サイクル全体をカバーします。
+
+```mermaid
+flowchart TD
+    A(["作業開始"]) --> B["/pro-github<br/>Issue 登録"]
+    B --> C["/pro-init-worktree<br/>worktree + 機密ファイルのコピー"]
+    C --> D{"作業の種類"}
+
+    D -->|新機能・設計・リファクタリング| E1["superpowers:brainstorming<br/>何をなぜ作るかを確定"]
+    D -->|バグ・障害| E2["/pro-note<br/>過去の記録を検索 + 調査"]
+
+    E1 --> P["superpowers:writing-plans<br/>実装計画"]
+    P --> F["superpowers:executing-plans<br/>計画の実行"]
+    E2 --> F
+    F --> H["/pro-review<br/>セルフレビュー"]
+    H --> I["/pro-commit<br/>Issue 連携コミット"]
+    I --> J["/pro-report<br/>実装レポート + GitHub コメント"]
+    J --> K(["PR 作成"])
+    K --> L["/pro-changelog-deploy<br/>リリース PR + automerge"]
+```
+
+> Skills の全一覧と詳しい使い方：**[docs/SKILLS.md](../SKILLS.md)**（韓国語）
+
+### GitHub Actions 自動化パイプライン
+
+```mermaid
+flowchart TD
+    A([develop へ push]) --> B[開発を統合]
+    B --> C[develop→main リリース PR]
+    C --> D["PR 内でバージョン確定<br/>コミットに基づく昇格 + タグ + AI 変更履歴"]
+    D --> E[自動マージ]
+    E --> F["main push → CI/CD デプロイ<br/>Flutter / Spring / React など"]
+    F --> G([完了])
+```
+
+</details>
+
+<details>
+<summary>Agent Skills だけをインストールする（Claude Code、Gemini CLI、Codex CLI、Cursor）</summary>
+
+```bash
+# Claude Code
+claude plugin marketplace add Cassiiopeia/projectops
+claude plugin install projectops@projectops-marketplace --scope user
+```
+
+```bash
+# Gemini CLI
+gemini extensions install https://github.com/Cassiiopeia/projectops
+```
+
+```bash
+# Codex CLI (macOS / Linux)
+codex plugin marketplace add Cassiiopeia/projectops
+```
+
+`--mode skills` ウィザードは Codex marketplace を登録したうえで、ネイティブ skills のフォールバックも自動で準備します。`/plugins` はインストールの確認・管理にのみ使ってください。
+
+Codex plugin marketplace が使えない環境では、[Skills ガイド](../SKILLS.md)のフォールバックのインストール方法を使ってください。
+
+```bash
+# Cursor / すべての Agent Skills のインストールメニュー（推奨：npx）
+npx projectops --mode skills
+```
+
+> Claude Code は `/pro-` の自動補完、Gemini は extension、Codex は plugin marketplace を優先して使います。詳しくは [Skills ガイド](../SKILLS.md)を参照してください。
+
+</details>
 
 ---
 
@@ -266,12 +255,6 @@ Settings → Actions → General
 
 ---
 
-## ドキュメント
-
-すべての一覧は **[ドキュメントインデックス](../README.md)** を参照してください。ガイドは現在すべて韓国語です。
-
----
-
 ## 知っておいてほしいこと
 
 合わない場合は、先にお伝えしておきます。
@@ -280,6 +263,23 @@ Settings → Actions → General
 - **リリースは「開発ブランチ → デフォルトブランチ」の PR 構成を前提にしています。** ブランチ名は `version.yml` で変更できますが、2 つのブランチを分けて使わないリポジトリには合いません。
 - **Issue・PR の自動化には、個人アクセストークン（PAT）の登録が必要です。** 上の[設定](#設定)に従ってください。
 - **サーバーデプロイのワークフローは、SSH で接続できる Docker サーバーを前提にしています。**
+
+---
+
+## ドキュメント
+
+すべての内容を**[ドキュメントサイト](https://cassiiopeia.github.io/projectops/en/)** で検索しながら見られます。ガイドの多くは現在韓国語のみです。
+
+- [はじめに（英語）](https://cassiiopeia.github.io/projectops/en/getting-started)
+- [CLI リファレンス（英語）](https://cassiiopeia.github.io/projectops/en/cli)
+- [Agent Skills ガイド（韓国語）](https://cassiiopeia.github.io/projectops/SKILLS)
+- [バージョン管理（韓国語）](https://cassiiopeia.github.io/projectops/VERSION-CONTROL)
+- [変更履歴の自動化（韓国語）](https://cassiiopeia.github.io/projectops/CHANGELOG-AUTOMATION)
+- [PR Preview（韓国語）](https://cassiiopeia.github.io/projectops/PR-PREVIEW)
+- [Issue 自動化（韓国語）](https://cassiiopeia.github.io/projectops/ISSUE-AUTOMATION)
+- [SSH + Docker デプロイ（韓国語）](https://cassiiopeia.github.io/projectops/SSH-DOCKER-DEPLOYMENT-GUIDE)
+- [Flutter CI/CD（韓国語）](https://cassiiopeia.github.io/projectops/FLUTTER-CICD-OVERVIEW)
+- [トラブルシューティング（韓国語）](https://cassiiopeia.github.io/projectops/TROUBLESHOOTING)
 
 ---
 
