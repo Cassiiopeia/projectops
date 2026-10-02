@@ -11,7 +11,7 @@
 [![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
-## 최신 버전 : v4.29.0 (2026-10-01)
+## 최신 버전 : v4.29.1 (2026-10-02)
 
 [전체 버전 기록 보기](CHANGELOG.md)
 
