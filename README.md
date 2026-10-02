@@ -6,6 +6,8 @@
 
 > 이슈 등록부터 커밋, 보고서, 배포까지. 개발자는 코드만 작성하세요.
 
+**한국어** | [English](https://github.com/Cassiiopeia/projectops/blob/main/docs/i18n/README.en.md) | [简体中文](https://github.com/Cassiiopeia/projectops/blob/main/docs/i18n/README.zh-CN.md) | [日本語](https://github.com/Cassiiopeia/projectops/blob/main/docs/i18n/README.ja.md)
+
 [![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
@@ -32,7 +34,7 @@
 | 이슈 매번 형식 맞춰 작성 (5분+) | `/pro-github` 한 번에 표준 템플릿 생성 + 등록 |
 | 커밋 메시지 이슈 URL 수동 복사 | `/pro-commit` 이슈 컨텍스트 기반 자동 완성 |
 | PR 설명/보고서 직접 작성 | `/pro-report` git diff 분석 후 자동 생성 |
-| 코드 리뷰·분석 매번 프롬프트 입력 | 17종 Skills로 일관된 결과, 매번 재입력 불필요 |
+| 코드 리뷰·분석 매번 프롬프트 입력 | 20종 Skills로 일관된 결과, 매번 재입력 불필요 |
 
 ---
 
@@ -159,7 +161,7 @@ npx projectops --mode skills
 
 | 기능 | 설명 | 문서 |
 |------|------|------|
-| **Agent Skills** | Claude Code, Cursor, Gemini CLI, Codex CLI에서 쓰는 17종 AI DevOps Skills | [상세](docs/SKILLS.md) |
+| **Agent Skills** | Claude Code, Cursor, Gemini CLI, Codex CLI에서 쓰는 20종 AI DevOps Skills | [상세](docs/SKILLS.md) |
 | **버전 자동화** | 릴리스 시 커밋 제목으로 major/minor/patch 판정 + Git 태그 | [상세](docs/VERSION-CONTROL.md) |
 | **AI 체인지로그** | 생성 사다리(PR 본문 → OpenAI 호환 AI 키(Gemini·Groq 등) → 커밋 분석) 기반 CHANGELOG 자동 생성 — 키가 없어도 무료로 완주 | [상세](docs/CHANGELOG-AUTOMATION.md) |
 | **PR Preview** | 댓글 한 줄로 임시 서버 배포, 닫으면 자동 삭제 | [상세](docs/PR-PREVIEW.md) |
@@ -170,7 +172,7 @@ npx projectops --mode skills
 
 ---
 
-## Agent Skills (17종)
+## Agent Skills (20종)
 
 ### 🔄 개발 사이클 자동화
 
@@ -201,6 +203,7 @@ npx projectops --mode skills
 
 > 설계·계획·구현 흐름은 `superpowers`(brainstorming → writing-plans → executing-plans)가 담당합니다.
 > `/pro-plan` · `/pro-analyze` · `/pro-implement`는 같은 역할의 이전 세대 경로로, 명시적으로 호출할 때만 동작합니다.
+> 위 표의 17종과 이 3종을 합쳐 총 20종입니다.
 
 ### 📝 문서/산출물 생성형
 
@@ -274,7 +277,7 @@ Settings → Actions → General
 | 문서 | 설명 |
 |------|------|
 | [📚 문서 인덱스](docs/README.md) | docs 전체를 목적별로 안내 |
-| [Agent Skills 가이드](docs/SKILLS.md) | 17종 Skills 용도, 사용법, 전체 개발 사이클 흐름 |
+| [Agent Skills 가이드](docs/SKILLS.md) | 20종 Skills 용도, 사용법, 전체 개발 사이클 흐름 |
 | [NPX 마법사 가이드](docs/NPX-WIZARD.md) | npx projectops 통합, 프로젝트 성격(intent), 배포/publish 2축, 레거시 자동 마이그레이션 |
 | [통합 스크립트 가이드](docs/TEMPLATE-INTEGRATOR.md) | 구 integrator 지원 종료(EOF) 안내 |
 | [버전 관리](docs/VERSION-CONTROL.md) | version.yml, 자동 버전 증가 |
