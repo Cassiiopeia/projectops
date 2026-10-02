@@ -77,7 +77,7 @@ jobs:
 
       - name: Node.js 설정
         # engines의 하한(20.12)에 맞춘다 — 가장 깨지기 쉬운 쪽에서 본다
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 20
 
@@ -147,7 +147,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Node.js ${{ matrix.node }} 설정
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
 
