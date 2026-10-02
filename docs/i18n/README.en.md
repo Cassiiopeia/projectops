@@ -48,29 +48,27 @@ This project automates your development workflow on two axes.
 
 ## What it actually looks like
 
-This repository is run with this tool. The screens below are not mockups. They are **this repo's real issue, PR, and release pages**.
+Below is a **real run, recorded** after installing projectops in a sample repo in a test organization. The timer in the top right is real elapsed time; only the waiting parts are played back fast.
 
-![Real screens from issue to release](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/demo.gif)
+### 1. Open an issue and a branch name and commit message arrive automatically
 
-| Step | What happens |
-|------|------------|
-| 1. File an issue | `/pro-github` writes and files it from the template; when the label changes, the Projects board status follows |
-| 2. Automatic guide | When an issue opens, a comment tells you the **branch name and a commit message template** |
-| 3. Implementation report | `/pro-report` leaves the changes and a flow chart as an issue comment |
-| 4. Release PR | On the develop → main PR, the version is finalized, release notes are written, and the PR auto-merges |
-| 5. GitHub Release | Once it lands on main, a release is created automatically with the version tag |
+![Automatic guide comment after opening an issue](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-issue.gif)
 
-<details>
-<summary>See each step full size</summary>
+When an issue is opened, GitHub Actions runs on its own and comments a **branch name and a commit message template**. Work on that branch name and the issue number links into your commits and reports automatically.
 
-![1. Issue + Projects status sync](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/1-issue.webp)
-![2. Automatic branch name and commit message guide](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/2-issue-helper.webp)
-![3. Implementation report comment](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/3-report.webp)
-![4. Release PR auto-merge](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/4-release-pr.webp)
-![5. GitHub Release created automatically](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/5-release.webp)
+### 2. Open a PR and a change summary arrives automatically
 
-</details>
+![Change summary comment after opening a PR](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-pr-summary.gif)
 
+Open a PR from a work branch and a **change summary** built from the commits is posted as a comment. Push more commits and the same comment is updated instead of piling up new ones.
+
+### 3. Open a release PR and everything from versioning to merge and tag is automatic
+
+![Release PR merging automatically and a tag appearing](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-release.gif)
+
+Open a PR from the development branch to `main` and it writes the release notes, decides the version from commit titles (`feat`, `fix`, ...) and puts it in the PR title, merges automatically, and creates the **version tag**. This example had `feat` commits, so the minor version went up.
+
+> The warning banner GitHub shows for Korean branch names is hidden in the recording. Everything else is the unedited screen.
 ---
 
 ## What is inside

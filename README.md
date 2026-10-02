@@ -53,29 +53,27 @@
 
 ## 실제로 이렇게 동작합니다
 
-이 저장소 자신이 이 도구로 운영됩니다. 아래는 가짜 목업이 아니라 **이 레포의 실제 이슈·PR·릴리스 화면**입니다.
+아래는 테스트 조직의 샘플 레포에 projectops를 설치하고 **실제로 실행하며 녹화한 화면**입니다. 우측 상단 타이머는 실제 경과 시간이고, 기다리는 구간만 빠르게 재생합니다.
 
-![이슈 등록부터 릴리스까지 실제 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/demo.gif)
+### ① 이슈를 열면 브랜치명과 커밋 메시지가 자동으로 달립니다
 
-| 단계 | 일어나는 일 |
-|------|------------|
-| 1. 이슈 등록 | `/pro-github`가 템플릿에 맞춰 작성·등록하고, 라벨이 바뀌면 Projects 보드 상태가 따라갑니다 |
-| 2. 자동 안내 | 이슈가 열리면 **브랜치명과 커밋 메시지 템플릿**을 댓글로 알려줍니다 |
-| 3. 구현 보고서 | `/pro-report`가 변경 내용과 흐름도를 이슈 댓글로 남깁니다 |
-| 4. 릴리스 PR | develop → main PR에서 버전 확정, 릴리스 노트, 자동 머지가 진행됩니다 |
-| 5. GitHub Release | main에 반영되면 버전 태그와 함께 릴리스가 자동으로 만들어집니다 |
+![이슈를 열면 자동 안내 댓글이 달리는 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-issue.gif)
 
-<details>
-<summary>단계별 화면 크게 보기</summary>
+이슈를 열면 GitHub Actions가 스스로 실행되어 **브랜치명과 커밋 메시지 템플릿**을 댓글로 알려 줍니다. 이 브랜치명으로 작업하면 이슈 번호가 커밋·보고서에 자동으로 연동됩니다.
 
-![1. 이슈 + Projects 상태 동기화](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/1-issue.webp)
-![2. 브랜치명·커밋 메시지 자동 안내](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/2-issue-helper.webp)
-![3. 구현 보고서 댓글](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/3-report.webp)
-![4. 릴리스 PR 자동 머지](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/4-release-pr.webp)
-![5. GitHub Release 자동 생성](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/5-release.webp)
+### ② PR을 열면 변경 요약이 자동으로 달립니다
 
-</details>
+![PR을 열면 변경 요약 댓글이 달리는 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-pr-summary.gif)
 
+작업 브랜치로 PR을 열면 커밋을 분석한 **변경 요약**이 댓글로 달립니다. 커밋을 더 올리면 새 댓글을 쌓지 않고 같은 댓글을 갱신합니다.
+
+### ③ 릴리스 PR을 열면 버전 확정부터 머지, 태그까지 자동입니다
+
+![릴리스 PR이 자동으로 머지되고 태그가 생기는 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-release.gif)
+
+개발 브랜치에서 `main`으로 PR을 열면 릴리스 노트를 쓰고, 커밋 제목(`feat`, `fix` 등)으로 버전을 정해 PR 제목에 반영한 뒤, 자동으로 머지하고 **버전 태그**까지 만듭니다. 위 예시는 `feat` 커밋이라 minor 버전이 올랐습니다.
+
+> 한글 브랜치명에 GitHub이 띄우는 경고 배너는 화면에서 가렸습니다. 그 외에는 가공하지 않은 실제 화면입니다.
 ---
 
 ## 구성 요소

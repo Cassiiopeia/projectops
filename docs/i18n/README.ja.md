@@ -48,29 +48,27 @@
 
 ## 実際の動作画面
 
-このリポジトリ自体がこのツールで運用されています。以下はモックアップではなく、**このリポジトリの実際の Issue、PR、リリース画面**です。
+以下は、テスト用の組織にあるサンプルリポジトリに projectops を導入し、**実際に実行して録画した画面**です。右上のタイマーは実際の経過時間で、待ち時間の部分だけを早送りで再生しています。
 
-![Issue 登録からリリースまでの実際の画面](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/demo.gif)
+### ① Issue を開くと、ブランチ名とコミットメッセージが自動で付く
 
-| ステップ | 起きること |
-|------|------------|
-| 1. Issue 登録 | `/pro-github` がテンプレートに沿って作成・登録し、ラベルが変わると Projects ボードの状態も連動します |
-| 2. 自動ガイド | Issue が開かれると、**ブランチ名とコミットメッセージのテンプレート**をコメントで知らせます |
-| 3. 実装レポート | `/pro-report` が変更内容とフローチャートを Issue のコメントに残します |
-| 4. リリース PR | develop → main の PR でバージョン確定、リリースノート作成、自動マージが進みます |
-| 5. GitHub Release | main に反映されると、バージョンタグ付きのリリースが自動で作成されます |
+![Issue を開くと案内コメントが自動で付く画面](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-issue.gif)
 
-<details>
-<summary>ステップごとの画面を大きく見る</summary>
+Issue を開くと GitHub Actions が自動で動き、**ブランチ名とコミットメッセージのテンプレート**をコメントで知らせます。このブランチ名で作業すると、Issue 番号がコミットやレポートに自動で連動します。
 
-![1. Issue + Projects ステータス連動](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/1-issue.webp)
-![2. ブランチ名・コミットメッセージの自動案内](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/2-issue-helper.webp)
-![3. 実装レポートのコメント](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/3-report.webp)
-![4. リリース PR の自動マージ](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/4-release-pr.webp)
-![5. GitHub Release の自動作成](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/5-release.webp)
+### ② PR を開くと、変更の要約が自動で付く
 
-</details>
+![PR を開くと変更の要約コメントが付く画面](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-pr-summary.gif)
 
+作業ブランチから PR を開くと、コミットを分析した**変更の要約**がコメントで付きます。コミットを追加しても新しいコメントを積み重ねず、同じコメントを更新します。
+
+### ③ リリース PR を開くと、バージョン確定からマージ、タグまで自動
+
+![リリース PR が自動でマージされタグができる画面](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-release.gif)
+
+開発ブランチから `main` へ PR を開くと、リリースノートを書き、コミットタイトル（`feat`、`fix` など）でバージョンを決めて PR タイトルに反映し、自動でマージして**バージョンタグ**まで作ります。この例は `feat` コミットなので minor が上がりました。
+
+> 韓国語のブランチ名に GitHub が表示する警告バナーは、画面上では隠しています。それ以外は加工していない実際の画面です。
 ---
 
 ## 構成要素

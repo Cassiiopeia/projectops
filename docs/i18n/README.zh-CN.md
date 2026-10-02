@@ -48,29 +48,27 @@
 
 ## 实际运行效果
 
-本仓库自身就是用这个工具运营的。下面不是模拟图，而是**本仓库真实的 Issue、PR 和发布页面**。
+以下是在测试组织的示例仓库中安装 projectops 后**实际运行并录制的画面**。右上角的计时器是真实经过的时间，只有等待的部分被加速播放。
 
-![从 Issue 到发布的真实画面](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/demo.gif)
+### ① 创建 Issue，分支名和提交信息自动出现
 
-| 步骤 | 发生的事 |
-|------|------------|
-| 1. 创建 Issue | `/pro-github` 按模板撰写并提交；标签变化后，Projects 看板状态随之同步 |
-| 2. 自动指引 | Issue 创建后，评论会告诉你**分支名和提交信息模板** |
-| 3. 实现报告 | `/pro-report` 把变更内容和流程图留在 Issue 评论中 |
-| 4. 发布 PR | 在 develop → main 的 PR 中确定版本、撰写发布说明并自动合并 |
-| 5. GitHub Release | 合并到 main 后，会自动创建带版本标签的 Release |
+![创建 Issue 后自动出现指引评论](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-issue.gif)
 
-<details>
-<summary>查看每一步的大图</summary>
+创建 Issue 后，GitHub Actions 会自动运行，并在评论中给出**分支名和提交信息模板**。使用这个分支名工作，Issue 编号会自动关联到提交和报告中。
 
-![1. Issue + Projects 状态同步](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/1-issue.webp)
-![2. 自动给出分支名和提交信息](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/2-issue-helper.webp)
-![3. 实现报告评论](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/3-report.webp)
-![4. 发布 PR 自动合并](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/4-release-pr.webp)
-![5. 自动创建 GitHub Release](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/demo/5-release.webp)
+### ② 创建 PR，变更摘要自动出现
 
-</details>
+![创建 PR 后出现变更摘要评论](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-pr-summary.gif)
 
+从工作分支创建 PR 后，会以评论形式发布根据提交分析得出的**变更摘要**。继续推送提交时，不会堆叠新评论，而是更新同一条评论。
+
+### ③ 创建发布 PR，从确定版本到合并、打标签全部自动完成
+
+![发布 PR 自动合并并生成标签](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-release.gif)
+
+从开发分支向 `main` 创建 PR 后，会撰写发布说明，根据提交标题（`feat`、`fix` 等）确定版本并写入 PR 标题，随后自动合并并创建**版本标签**。此示例是 `feat` 提交，所以升级了次版本号。
+
+> GitHub 对韩文分支名显示的警告横幅在画面中已被隐藏，其余均为未经加工的真实画面。
 ---
 
 ## 组成部分
