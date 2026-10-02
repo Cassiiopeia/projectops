@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-02T01:10:15Z",
-    "currentVersion": "4.31.0",
+    "lastUpdated": "2026-10-02T01:23:29Z",
+    "currentVersion": "4.31.1",
     "projectType": "basic",
-    "totalReleases": 279,
+    "totalReleases": 280,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.31.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-02",
+      "pr_number": 757,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 루트 gitignore가 package-lock.json을 무시해 사이트 락 파일이 커밋에서 빠져 CI의 npm ci가 실패하던 것을 사이트 락 파일만 예외로 추적하고 재발 방지 테스트 추가",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "루트 gitignore가 package-lock.json을 무시해 사이트 락 파일이 커밋에서 빠져 CI의 npm ci가 실패하던 것을 사이트 락 파일만 예외로 추적하고 재발 방지 테스트 추가"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.31.0",
       "project_type": "basic",
