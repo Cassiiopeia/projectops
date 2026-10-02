@@ -175,6 +175,10 @@ def test_comment_keeps_legacy_signature_hidden():
     visible = _re.sub(r"<!--.*?-->", "", body, flags=_re.S)
     assert "Guide by SUH-LAB" not in visible
 
+def test_comment_signature_stays_a_heading():
+    """서명 바로 아래 줄이 `---` 여야 마크다운이 제목으로 렌더링한다 (주석이 사이에 끼면 안 된다)."""
+    assert "Guide by ProjectOps\n---" in _body()
+
 def test_comment_signature_is_configurable():
     cfg = dict(DEFAULT_CONFIG, guide_signature="Guide by MyTeam")
     body = build_comment_body(cfg, "20260712_#9_제목", "m", "")

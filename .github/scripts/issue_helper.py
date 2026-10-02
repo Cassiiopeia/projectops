@@ -237,11 +237,12 @@ def build_comment_body(cfg: dict, branch_name: str, commit_message: str, guide: 
     signature = cfg.get("guide_signature") or DEFAULT_CONFIG["guide_signature"]
     guide_block = f"\n{guide}\n" if (cfg.get("show_guide", True) and guide) else ""
     # 서명을 바꿨어도 구버전 소비자가 찾는 옛 문구는 보이지 않게 한 줄 남긴다
-    legacy = "" if LEGACY_SIGNATURE in signature else f"<!-- {LEGACY_SIGNATURE} (구버전 워크플로우 호환용 표식) -->\n"
+    # ⚠️ 서명 바로 아래 줄에 주석을 끼우면 `서명\n---`(제목 렌더링)이 깨지므로 서명 위에 둔다
+    legacy = "" if LEGACY_SIGNATURE in signature else f"<!-- {LEGACY_SIGNATURE} (구버전 워크플로우 호환용 표식) -->\n\n"
     return (
         f"{marker}\n\n"
-        f"{signature}\n"
         f"{legacy}"
+        f"{signature}\n"
         "---\n\n"
         "### 브랜치\n"
         f"```\n{branch_name}\n```\n\n"

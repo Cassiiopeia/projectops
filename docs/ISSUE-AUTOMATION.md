@@ -30,7 +30,10 @@
 ### 자동 생성 댓글 예시
 
 ```markdown
+<!-- Guide by SUH-LAB (구버전 워크플로우 호환용 표식, 화면에는 보이지 않음) -->
+
 Guide by ProjectOps
+---
 
 ### 브랜치
 ```
