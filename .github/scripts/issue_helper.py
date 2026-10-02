@@ -9,9 +9,12 @@
      - PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT.yaml   : 동일
      - PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml : /#(\\d+)/
      - scripts/common/issue_number.py             : \\d{8}_(\\d+)_ (worktree)
-  2. 댓글 본문의 `Guide by SUH-LAB` 문구 + `### 브랜치` 제목 + 코드블록
+  2. 댓글 본문의 `### 브랜치` 제목 + 코드블록, 그리고 서명 문구
      - PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml
        : /### 브랜치\\s*```\\s*([\\s\\S]*?)\\s*```/ (구버전이 사용자 레포에서 계속 실행됨)
+     - 서명 문구는 설정(guide_signature, 기본 `Guide by ProjectOps`)으로 바뀐다.
+       구버전 소비자가 옛 문구 `Guide by SUH-LAB`를 includes로 찾으므로,
+       눈에 보이지 않는 HTML 주석으로 옛 표식을 항상 한 줄 남긴다 (LEGACY_SIGNATURE).
 
 설정: version.yml metadata.template.options.issue_helper (없으면 전부 기본값).
 """
@@ -34,8 +37,13 @@ DEFAULT_CONFIG = {
     "commit_template": "${issueTitle} : ${commitType} : {변경 사항에 대한 설명} ${issueUrl}",
     "commit_type_map": {},
     "comment_marker": "<!-- SUH-ISSUE-HELPER -->",
+    "guide_signature": "Guide by ProjectOps",
     "show_guide": True,
 }
+
+# 옛 서명. 구버전 소비자 워크플로우(앱 빌드 트리거, PR 프리뷰)가 댓글에서 이 문구를 찾는다.
+# 화면에는 보이지 않게 HTML 주석으로만 남겨 브랜딩과 호환을 함께 지킨다.
+LEGACY_SIGNATURE = "Guide by SUH-LAB"
 
 # 제목 태그 → 커밋 타입 (이슈 템플릿 4종의 제목 태그 기준). 설정 commit_type_map이 병합됨.
 DEFAULT_COMMIT_TYPE_MAP = {
@@ -187,7 +195,7 @@ def load_config(repo_root: str = ".") -> dict:
                 pass  # 잘못된 값은 기본값 유지
         elif key == "show_guide":
             cfg[key] = _unquote(raw).lower() != "false"
-        elif key in ("branch_prefix", "timezone", "commit_template", "comment_marker"):
+        elif key in ("branch_prefix", "timezone", "commit_template", "comment_marker", "guide_signature"):
             cfg[key] = _unquote(raw)
     return cfg
 
@@ -224,12 +232,16 @@ def build_guide(workflows_dir: Path) -> str:
 
 
 def build_comment_body(cfg: dict, branch_name: str, commit_message: str, guide: str) -> str:
-    """불변 계약 2: Guide by SUH-LAB + ### 브랜치 코드블록 구조 유지 (구 파서 하위호환)."""
+    """불변 계약 2: ### 브랜치 코드블록 구조 유지 + 서명 문구(설정 가능, 옛 서명은 숨김 주석으로 보존)."""
     marker = cfg["comment_marker"]
+    signature = cfg.get("guide_signature") or DEFAULT_CONFIG["guide_signature"]
     guide_block = f"\n{guide}\n" if (cfg.get("show_guide", True) and guide) else ""
+    # 서명을 바꿨어도 구버전 소비자가 찾는 옛 문구는 보이지 않게 한 줄 남긴다
+    legacy = "" if LEGACY_SIGNATURE in signature else f"<!-- {LEGACY_SIGNATURE} (구버전 워크플로우 호환용 표식) -->\n"
     return (
         f"{marker}\n\n"
-        "Guide by SUH-LAB\n"
+        f"{signature}\n"
+        f"{legacy}"
         "---\n\n"
         "### 브랜치\n"
         f"```\n{branch_name}\n```\n\n"

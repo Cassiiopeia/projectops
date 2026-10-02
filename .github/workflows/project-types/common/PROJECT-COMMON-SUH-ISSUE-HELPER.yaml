@@ -15,7 +15,7 @@
 #
 # ⚠️ 이 댓글을 기계 파싱하는 소비자가 있습니다 (형식 변경 금지):
 #   - PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml
-#     : "Guide by SUH-LAB" 댓글에서 "### 브랜치" 코드블록을 추출해 빌드 대상 결정
+#     : "Guide by ProjectOps" 댓글에서 "### 브랜치" 코드블록을 추출해 빌드 대상 결정
 #   상세: docs/BRANCH-CONVENTION.md (템플릿 레포)
 #
 # ===================================================

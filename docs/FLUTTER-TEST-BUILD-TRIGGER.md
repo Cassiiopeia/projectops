@@ -50,9 +50,9 @@ PR에 다음 댓글 중 하나를 작성합니다:
 
 ### 이슈에서 빌드 트리거
 
-이슈에서 빌드하려면 **"Guide by SUH-LAB"** 댓글이 먼저 있어야 합니다.
+이슈에서 빌드하려면 **"Guide by ProjectOps"** 댓글이 먼저 있어야 합니다.
 
-1. 이슈에 "Guide by SUH-LAB" 형식의 댓글이 존재해야 함
+1. 이슈에 "Guide by ProjectOps" 형식의 댓글이 존재해야 함
 2. 해당 댓글에 브랜치 정보가 포함되어 있어야 함
 
 ```markdown
@@ -332,24 +332,24 @@ permissions:
 
 ## 트러블슈팅
 
-### "Guide by SUH-LAB" 댓글을 찾을 수 없음
+### "Guide by ProjectOps" 댓글을 찾을 수 없음
 
 ```
-❌ 이슈에서 "Guide by SUH-LAB" 댓글을 찾을 수 없습니다.
+❌ 이슈에서 "Guide by ProjectOps" 댓글을 찾을 수 없습니다.
 ```
 
 **해결:**
-- 이슈에 "Guide by SUH-LAB" 형식의 댓글이 있어야 합니다
+- 이슈에 "Guide by ProjectOps" 형식의 댓글이 있어야 합니다
 - 또는 PR에서 빌드를 트리거하세요
 
 ### 브랜치 정보를 파싱할 수 없음
 
 ```
-❌ "Guide by SUH-LAB" 댓글에서 브랜치 정보를 파싱할 수 없습니다.
+❌ "Guide by ProjectOps" 댓글에서 브랜치 정보를 파싱할 수 없습니다.
 ```
 
 **해결:**
-- "Guide by SUH-LAB" 댓글에 `### 브랜치` 섹션이 있어야 합니다
+- "Guide by ProjectOps" 댓글에 `### 브랜치` 섹션이 있어야 합니다
 - 브랜치명이 코드 블록(```)으로 감싸져 있어야 합니다
 
 ### 빌드 워크플로우가 실행되지 않음

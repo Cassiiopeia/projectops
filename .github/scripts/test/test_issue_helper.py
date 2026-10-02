@@ -163,8 +163,28 @@ def _body(show_guide=True):
     cfg = dict(DEFAULT_CONFIG, show_guide=show_guide)
     return build_comment_body(cfg, "20260712_#9_제목", "제목 : fix : {설명} url", "가이드텍스트")
 
-def test_comment_contract_guide_by_suh_lab():
-    assert "Guide by SUH-LAB" in _body()
+def test_comment_default_signature_is_projectops():
+    """화면에 보이는 서명은 기본값 Guide by ProjectOps 다 (#749)."""
+    assert "Guide by ProjectOps" in _body()
+
+def test_comment_keeps_legacy_signature_hidden():
+    """구버전 소비자가 includes('Guide by SUH-LAB')로 찾으므로 HTML 주석으로 남긴다."""
+    body = _body()
+    assert "Guide by SUH-LAB" in body
+    # 화면에 보이는 줄(주석 제외)에는 옛 서명이 없어야 한다
+    visible = _re.sub(r"<!--.*?-->", "", body, flags=_re.S)
+    assert "Guide by SUH-LAB" not in visible
+
+def test_comment_signature_is_configurable():
+    cfg = dict(DEFAULT_CONFIG, guide_signature="Guide by MyTeam")
+    body = build_comment_body(cfg, "20260712_#9_제목", "m", "")
+    assert "Guide by MyTeam" in body
+    assert "Guide by SUH-LAB" in body  # 호환 표식은 서명 설정과 무관하게 유지
+
+def test_comment_legacy_signature_not_duplicated():
+    """서명을 옛 문구로 되돌려도 표식이 두 번 들어가지 않는다."""
+    cfg = dict(DEFAULT_CONFIG, guide_signature="Guide by SUH-LAB")
+    assert build_comment_body(cfg, "b", "m", "").count("Guide by SUH-LAB") == 1
 
 def test_comment_contract_branch_block_parseable():
     # BUILD-TRIGGER.yaml:220 의 JS 정규식과 동일 패턴으로 파싱 가능해야 한다

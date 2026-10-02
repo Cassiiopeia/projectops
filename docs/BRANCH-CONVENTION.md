@@ -20,13 +20,16 @@
 |---|---|---|
 | `PROJECT-FLUTTER-ANDROID-TEST-APK.yaml` | `sed 's/.*#\([0-9]*\).*/\1/p'` | 빌드 노트에 이슈 정보 누락 |
 | `PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT.yaml` | 동일 | 동일 |
-| `PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml` | `/#(\d+)/` + `Guide by SUH-LAB` 댓글의 `### 브랜치` 코드블록 | 이슈 댓글 빌드가 브랜치를 못 찾음 |
+| `PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml` | `/#(\d+)/` + 안내 댓글(`Guide by ProjectOps` 또는 옛 `Guide by SUH-LAB`)의 `### 브랜치` 코드블록 | 이슈 댓글 빌드가 브랜치를 못 찾음 |
 | `scripts/common/issue_number.py` (pro-commit/report/review) | worktree `\d{8}_(\d+)_` / 브랜치 숫자 패턴 | 커밋 메시지·보고서에서 이슈 번호 미인식 |
 
 ## 댓글 계약 (이슈 헬퍼가 생성하는 댓글)
 
-`Guide by SUH-LAB` 문구와 `### 브랜치` 제목 + 코드블록 구조는 불변이다.
+`### 브랜치` 제목 + 코드블록 구조는 불변이다.
 구버전 BUILD-TRIGGER가 사용자 레포에서 계속 실행되므로 하위호환이 필수다.
+
+서명 문구(기본 `Guide by ProjectOps`)는 `issue_helper.guide_signature` 설정으로 바꿀 수 있다. 구버전 소비자가 옛 문구 `Guide by SUH-LAB`를 찾기 때문에
+댓글에는 눈에 보이지 않는 HTML 주석으로 옛 표식을 항상 한 줄 남긴다. 소비자를 새로 만들 때는 두 문구를 모두 허용한다.
 
 ## 확장 규칙 (agent 필독)
 

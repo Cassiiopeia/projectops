@@ -615,7 +615,8 @@ python3 .github/scripts/changelog_manager.py classify-bump --commits-file commit
 ### issue_helper.py (이슈 브랜치/커밋 댓글 — #478에서 내재화)
 이슈 생성/제목 수정 시 `PROJECT-COMMON-SUH-ISSUE-HELPER.yaml`이 실행. 외부 액션 의존 없음 (stdlib 전용).
 설정: `version.yml` `metadata.template.options.issue_helper` (branch_prefix/commit_template/commit_type_map/timezone/show_guide 등 — 없으면 기본값).
-브랜치 코어(`YYYYMMDD_#번호_제목`)와 댓글의 `Guide by SUH-LAB`·`### 브랜치` 코드블록은 불변 계약 — 소비자 목록은 `docs/BRANCH-CONVENTION.md`.
+브랜치 코어(`YYYYMMDD_#번호_제목`)와 댓글의 `### 브랜치` 코드블록은 불변 계약 — 소비자 목록은 `docs/BRANCH-CONVENTION.md`.
+서명 문구는 `guide_signature` 설정(기본 `Guide by ProjectOps`)이고, 구버전 소비자가 찾는 옛 문구 `Guide by SUH-LAB`는 숨김 주석으로 항상 남긴다 (#749).
 구 MODULE 워크플로우의 커스텀 설정은 마이그레이션이 자동 이관한다 (`rules/settings-extractors.js`).
 테스트: `python3 -m pytest .github/scripts/test/test_issue_helper.py`
 

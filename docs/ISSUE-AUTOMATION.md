@@ -30,7 +30,7 @@
 ### 자동 생성 댓글 예시
 
 ```markdown
-## Guide by SUH-LAB
+Guide by ProjectOps
 
 ### 브랜치
 ```
@@ -69,7 +69,7 @@ on:
 ```
 
 **커스터마이징**: `version.yml` → `metadata.template.options.issue_helper`
-(branch_prefix / max_branch_length / timezone / commit_template / commit_type_map / comment_marker / show_guide — 섹션 없으면 기본값)
+(branch_prefix / max_branch_length / timezone / commit_template / commit_type_map / comment_marker / guide_signature / show_guide — 섹션 없으면 기본값. `guide_signature` 기본값은 `Guide by ProjectOps`)
 
 ---
 
