@@ -1,0 +1,74 @@
+# ===================================================================
+# PROJECT-TEMPLATE-DOCS-DEPLOY.yaml
+# projectops 문서 사이트(VitePress) GitHub Pages 배포 워크플로우 v1.0
+# ===================================================================
+#
+# 이 워크플로우는 projectops 저장소 전용입니다.
+# template_integrator로 복사되지 않으며, template_initializer가 삭제합니다.
+#
+# 동작:
+# - site/ (VitePress 설정)로 docs/ 를 빌드해 GitHub Pages 에 배포
+# - 문서 원본은 docs/ 하나뿐이며 site/ 는 빌드 설정만 가진다
+#
+# 트리거: main 브랜치 push 시 docs/**, site/** 변경 (+ 수동 실행)
+#
+# 사전 설정: Settings → Pages → Source 를 "GitHub Actions" 로 지정
+# ===================================================================
+
+name: PROJECT-TEMPLATE-DOCS-DEPLOY
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "docs/**"
+      - "site/**"
+      - ".github/workflows/PROJECT-TEMPLATE-DOCS-DEPLOY.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Pages 배포는 한 번에 하나만. 진행 중인 배포를 끊지 않는다.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v5
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 문서 빌드
+        run: |
+          cd site
+          npm ci
+          npm run docs:build
+
+      - name: Pages 설정
+        uses: actions/configure-pages@v5
+
+      - name: 아티팩트 업로드
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/.vitepress/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Pages 배포
+        id: deployment
+        uses: actions/deploy-pages@v4

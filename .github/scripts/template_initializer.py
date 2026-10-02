@@ -202,6 +202,8 @@ CLEANUP_TARGETS = [
     (".github/workflows/test", ".github/workflows/test 폴더 삭제"),
     (".github/workflows/PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC.yaml", "PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC.yaml 삭제 (마켓플레이스 전용)"),
     (".github/workflows/PROJECT-TEMPLATE-NPM-PUBLISH.yaml", "PROJECT-TEMPLATE-NPM-PUBLISH.yaml 삭제 (마켓플레이스 전용)"),
+    (".github/workflows/PROJECT-TEMPLATE-DOCS-DEPLOY.yaml", "PROJECT-TEMPLATE-DOCS-DEPLOY.yaml 삭제 (마켓플레이스 전용)"),
+    ("site", "site 폴더 삭제 (문서 사이트 설정 — 이 저장소 전용)"),
     (".github/workflows/PROJECT-TEMPLATE-CI.yaml", "PROJECT-TEMPLATE-CI.yaml 삭제 (마켓플레이스 전용)"),
     ("docs", "docs 폴더 삭제"),
     (".claude-plugin", ".claude-plugin 폴더 삭제 (플러그인 매니페스트)"),
