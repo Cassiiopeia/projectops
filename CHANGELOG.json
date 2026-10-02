@@ -1,14 +1,39 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-02T00:44:00Z",
-    "currentVersion": "4.30.1",
+    "lastUpdated": "2026-10-02T01:10:15Z",
+    "currentVersion": "4.31.0",
     "projectType": "basic",
-    "totalReleases": 278,
+    "totalReleases": 279,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.31.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-02",
+      "pr_number": 756,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * VitePress 문서 사이트(site/)를 만들어 docs를 단일 원본으로 배포하고 한국어와 영어 랜딩, 시작하기, 검색을 제공하며 사이트와 배포 워크플로우는 사용자 프로젝트로 복사되지 않게 제외 목록에 등록하고 리브랜딩 가드 테스트는 정식 Pages 도메인만 허용\n\n* **문서**\n  * 히어로 이미지와 실제 CLI 실행 GIF를 넣고 30초 시작 표로 첫 화면을 재구성하며 CLI 레퍼런스 문서를 분리하고 긴 스킬 표는 접고 번역본 세 개도 같은 구성으로 맞춤",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "VitePress 문서 사이트(site/)를 만들어 docs를 단일 원본으로 배포하고 한국어와 영어 랜딩, 시작하기, 검색을 제공하며 사이트와 배포 워크플로우는 사용자 프로젝트로 복사되지 않게 제외 목록에 등록하고 리브랜딩 가드 테스트는 정식 Pages 도메인만 허용"
+          ]
+        },
+        "문서": {
+          "title": "문서",
+          "items": [
+            "히어로 이미지와 실제 CLI 실행 GIF를 넣고 30초 시작 표로 첫 화면을 재구성하며 CLI 레퍼런스 문서를 분리하고 긴 스킬 표는 접고 번역본 세 개도 같은 구성으로 맞춤"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.30.1",
       "project_type": "basic",
