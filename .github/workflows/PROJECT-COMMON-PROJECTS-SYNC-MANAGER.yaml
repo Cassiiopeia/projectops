@@ -132,7 +132,7 @@ jobs:
       - name: 🏷️ Get Current Labels
         id: labels
         if: steps.config.outputs.enabled == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets._GITHUB_PAT_TOKEN }}
           script: |
@@ -160,7 +160,7 @@ jobs:
 
       - name: 📋 Update Projects Status
         if: steps.config.outputs.enabled == 'true' && steps.labels.outputs.status_label != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets._GITHUB_PAT_TOKEN }}
           script: |

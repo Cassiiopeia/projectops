@@ -60,7 +60,7 @@ jobs:
 
       - name: 초기화 필요성 확인 (이슈 개수 + 저장소 생성일)
         id: check
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
