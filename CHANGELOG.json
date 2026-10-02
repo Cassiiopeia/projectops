@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-02T04:39:44Z",
-    "currentVersion": "4.31.2",
+    "lastUpdated": "2026-10-02T05:09:52Z",
+    "currentVersion": "4.31.3",
     "projectType": "basic",
-    "totalReleases": 281,
+    "totalReleases": 282,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.31.3",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-02",
+      "pr_number": 761,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **문서**\n  * GitHub 캡처 슬라이드쇼를 테스트 조직에서 실제로 실행하며 녹화한 기능별 GIF 3개(이슈 안내 댓글, PR 변경 요약, 릴리스 PR 자동 머지와 태그)로 교체하고 README 4개 언어와 사이트 랜딩에 반영",
+      "parsed_changes": {
+        "문서": {
+          "title": "문서",
+          "items": [
+            "GitHub 캡처 슬라이드쇼를 테스트 조직에서 실제로 실행하며 녹화한 기능별 GIF 3개(이슈 안내 댓글, PR 변경 요약, 릴리스 PR 자동 머지와 태그)로 교체하고 README 4개 언어와 사이트 랜딩에 반영"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.31.2",
       "project_type": "basic",
