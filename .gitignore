@@ -5,6 +5,8 @@
 node_modules/
 *.tgz
 package-lock.json
+# 문서 사이트(site/)는 CI 에서 npm ci 로 설치하므로 락 파일을 추적한다 (#755)
+!site/package-lock.json
 
 # Python
 __pycache__/
