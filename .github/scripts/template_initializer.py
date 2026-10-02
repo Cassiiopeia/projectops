@@ -193,6 +193,7 @@ CLEANUP_TARGETS = [
     ("template_integrator.ps1", "template_integrator.ps1 삭제 (원격 실행 전용)"),
     ("LICENSE", "LICENSE 삭제"),
     ("CONTRIBUTING.md", "CONTRIBUTING.md 삭제"),
+    ("SECURITY.md", "SECURITY.md 삭제"),
     ("CLAUDE.md", "CLAUDE.md 삭제"),
     ("AGENTS.md", "AGENTS.md 삭제"),
     ("GEMINI.md", "GEMINI.md 삭제"),

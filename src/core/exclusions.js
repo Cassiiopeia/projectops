@@ -4,6 +4,7 @@
 //    (구 template_integrator.sh/.ps1의 배열은 #458 EOF로 소멸 — 여기가 유일한 복사 제외 지점)
 export const DOCS_TO_REMOVE = [
   "CONTRIBUTING.md",
+  "SECURITY.md",
   "CLAUDE.md",
   "AGENTS.md",
   "GEMINI.md",
