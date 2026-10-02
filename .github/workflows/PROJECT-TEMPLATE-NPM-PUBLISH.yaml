@@ -9,6 +9,9 @@
 # 동작:
 # - main 기준으로 version.yml 버전을 읽어 package.json에 주입 후 npm publish
 # - 이미 레지스트리에 있는 버전이면 성공 종료 (멱등)
+# - 배포 후 같은 버전의 GitHub Release를 만든다 (이미 있으면 건너뜀, #738)
+#   설치 대상 레포로 복사되는 공통 워크플로우가 아니라 이 레포 전용 파일에 둔 이유:
+#   Release 생성을 공통에 넣으면 이 템플릿을 설치한 모든 레포의 동작이 바뀐다.
 #
 # 트리거: main 브랜치 push 시 (+ 수동 실행)
 # (VERSION-CONTROL이 GITHUB_TOKEN으로 version.yml을 변경하면
@@ -30,7 +33,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # GitHub Release 생성
   id-token: write
 
 jobs:
@@ -86,3 +89,45 @@ jobs:
       - name: 배포 결과 요약
         if: steps.check.outputs.skip == 'false'
         run: echo "✅ projectops@${{ steps.version.outputs.version }} npm 배포 완료"
+
+      # 태그는 RELEASE-CHANGELOG가 만든다. push 시점에 아직 없을 수 있어 잠시 기다린다.
+      - name: GitHub Release 생성 (멱등)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          TAG="v${VERSION}"
+          API="https://api.github.com/repos/${{ github.repository }}"
+          AUTH=(-H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json")
+
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" "${AUTH[@]}" "$API/releases/tags/$TAG")
+          if [ "$CODE" = "200" ]; then
+            echo "ℹ️ Release $TAG 는 이미 있습니다. 건너뜁니다."
+            exit 0
+          fi
+
+          # 태그가 원격에 생길 때까지 최대 5분 대기 (조용히 넘기면 Release가 영영 누락된다)
+          for i in $(seq 1 20); do
+            git ls-remote --tags origin "refs/tags/$TAG" | grep -q "$TAG" && FOUND=1 && break
+            echo "⏳ 태그 $TAG 대기 중 ($i/20)"
+            sleep 15
+          done
+          if [ -z "$FOUND" ]; then
+            echo "::error::태그 $TAG 가 원격에 없어 Release를 만들지 못했습니다."
+            exit 1
+          fi
+
+          python3 .github/scripts/changelog_manager.py export --version "$VERSION" --output release_notes.txt || true
+          [ -s release_notes.txt ] || echo "릴리스 $VERSION 변경 내용은 CHANGELOG.md를 참고하세요." > release_notes.txt
+
+          jq -n --arg tag "$TAG" --arg name "$TAG" --rawfile body release_notes.txt \
+            '{tag_name:$tag, name:$name, body:$body, draft:false, prerelease:false}' > release_payload.json
+
+          CODE=$(curl -s -o release_resp.json -w "%{http_code}" -X POST "${AUTH[@]}" \
+            -d @release_payload.json "$API/releases")
+          if [ "$CODE" != "201" ]; then
+            echo "::error::Release 생성 실패 (HTTP $CODE)"
+            cat release_resp.json
+            exit 1
+          fi
+          echo "✅ GitHub Release 생성: $TAG"
