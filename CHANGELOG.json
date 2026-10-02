@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-02T05:09:52Z",
-    "currentVersion": "4.31.3",
+    "lastUpdated": "2026-10-02T05:14:53Z",
+    "currentVersion": "4.31.4",
     "projectType": "basic",
-    "totalReleases": 282,
+    "totalReleases": 283,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.31.4",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-02",
+      "pr_number": 762,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * GIF 첫 프레임이 설명 바가 빈 이슈·PR 목록 화면이던 것을 설명 바와 함께 시작하는 이슈·PR 화면으로 바꿔 다시 녹화",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "GIF 첫 프레임이 설명 바가 빈 이슈·PR 목록 화면이던 것을 설명 바와 함께 시작하는 이슈·PR 화면으로 바꿔 다시 녹화"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.31.3",
       "project_type": "basic",
