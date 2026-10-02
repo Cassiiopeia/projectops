@@ -109,7 +109,7 @@ jobs:
           fi
 
       - name: 저장소 체크아웃
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -233,7 +233,7 @@ jobs:
       summary_found: ${{ steps.generate.outputs.summary_found }}
     steps:
       - name: 저장소 체크아웃
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -317,7 +317,7 @@ jobs:
        needs.fallback-summary.outputs.summary_found == 'true')
     steps:
       - name: 저장소 체크아웃
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -483,7 +483,7 @@ jobs:
           fi
 
       - name: 저장소 체크아웃
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           token: ${{ secrets._GITHUB_PAT_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0

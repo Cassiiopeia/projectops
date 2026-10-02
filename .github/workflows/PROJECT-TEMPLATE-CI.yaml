@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 저장소 체크아웃
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Node.js 설정
         # engines의 하한(20.12)에 맞춘다 — 가장 깨지기 쉬운 쪽에서 본다
@@ -144,7 +144,7 @@ jobs:
         node: [20, 22]
     steps:
       - name: 저장소 체크아웃
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Node.js ${{ matrix.node }} 설정
         uses: actions/setup-node@v4
@@ -174,7 +174,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - name: 저장소 체크아웃
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Python 설정
         uses: actions/setup-python@v5

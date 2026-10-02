@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: 저장소 체크아웃 (main 기준)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: main
 
