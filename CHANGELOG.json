@@ -1,14 +1,34 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-02T00:39:35Z",
-    "currentVersion": "4.30.0",
+    "lastUpdated": "2026-10-02T00:44:00Z",
+    "currentVersion": "4.30.1",
     "projectType": "basic",
-    "totalReleases": 277,
+    "totalReleases": 278,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.30.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-02",
+      "pr_number": 753,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **문서**\n  * 2차 구현 보고서 보관\n  * 이슈 헬퍼 안내 프레임을 새 서명(Guide by ProjectOps)이 적용된 실제 화면으로 교체하고 GIF를 다시 생성",
+      "parsed_changes": {
+        "문서": {
+          "title": "문서",
+          "items": [
+            "2차 구현 보고서 보관",
+            "이슈 헬퍼 안내 프레임을 새 서명(Guide by ProjectOps)이 적용된 실제 화면으로 교체하고 GIF를 다시 생성"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.30.0",
       "project_type": "basic",
