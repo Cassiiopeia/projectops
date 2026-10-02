@@ -1,14 +1,50 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-02T00:08:48Z",
-    "currentVersion": "4.29.1",
+    "lastUpdated": "2026-10-02T00:39:35Z",
+    "currentVersion": "4.30.0",
     "projectType": "basic",
-    "totalReleases": 276,
+    "totalReleases": 277,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.30.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-02",
+      "pr_number": 752,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * 이슈 헬퍼 안내 댓글 머리말 기본값을 Guide by ProjectOps로 바꾸고 guide_signature 설정으로 변경 가능하게 하며 구버전 소비자 호환을 위해 옛 서명을 숨김 주석으로 보존, 앱 빌드 트리거는 두 문구를 모두 인식\n\n* **버그 수정**\n  * deploy PR 탐색에 head 필터를 추가하고 head가 없으면 dependabot, renovate 브랜치를 제외하며 dependabot 대상 브랜치를 develop으로 지정하고 메이저 업데이트는 제외, 공통 워크플로우 루트 사본과 원본의 동일성 검증 테스트 추가\n  * Release 생성을 별도 job으로 분리해 쓰기 권한을 그 job에만 주고 일시 오류와 중복 생성 응답은 재시도, 존재 확인으로 처리\n  * 숨김 호환 주석이 서명 바로 아래 줄에 끼어 제목 렌더링이 깨지던 것을 서명 위로 옮겨 유지하고 문서 예시를 실제 출력에 맞춤\n\n* **문서**\n  * docs/i18n에 영어, 간체 중국어, 일본어 번역본을 추가하고 README 상단에 언어 전환 링크를 두며 스킬 개수를 20종으로 바로잡고 SKILLS.md에 빠진 pro-launch, pro-design-brief 항목 추가\n  * 이 레포의 실제 이슈, 자동 안내 댓글, 구현 보고서, 릴리스 PR, Release 화면을 캡처한 데모 GIF와 단계별 이미지를 넣고 배지, 알아둘 것, 보안 신고 안내와 낡은 체인지로그 설명 교정\n  * GitHub 비공개 취약점 신고 링크와 지원 버전, 신고 범위를 안내하는 SECURITY.md 추가하고 사용자 프로젝트로 복사되지 않도록 제외 목록 두 곳에 등록\n  * 오픈소스 컨설팅 후속 구현 보고서 보관",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "이슈 헬퍼 안내 댓글 머리말 기본값을 Guide by ProjectOps로 바꾸고 guide_signature 설정으로 변경 가능하게 하며 구버전 소비자 호환을 위해 옛 서명을 숨김 주석으로 보존, 앱 빌드 트리거는 두 문구를 모두 인식"
+          ]
+        },
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "deploy PR 탐색에 head 필터를 추가하고 head가 없으면 dependabot, renovate 브랜치를 제외하며 dependabot 대상 브랜치를 develop으로 지정하고 메이저 업데이트는 제외, 공통 워크플로우 루트 사본과 원본의 동일성 검증 테스트 추가",
+            "Release 생성을 별도 job으로 분리해 쓰기 권한을 그 job에만 주고 일시 오류와 중복 생성 응답은 재시도, 존재 확인으로 처리",
+            "숨김 호환 주석이 서명 바로 아래 줄에 끼어 제목 렌더링이 깨지던 것을 서명 위로 옮겨 유지하고 문서 예시를 실제 출력에 맞춤"
+          ]
+        },
+        "문서": {
+          "title": "문서",
+          "items": [
+            "docs/i18n에 영어, 간체 중국어, 일본어 번역본을 추가하고 README 상단에 언어 전환 링크를 두며 스킬 개수를 20종으로 바로잡고 SKILLS.md에 빠진 pro-launch, pro-design-brief 항목 추가",
+            "이 레포의 실제 이슈, 자동 안내 댓글, 구현 보고서, 릴리스 PR, Release 화면을 캡처한 데모 GIF와 단계별 이미지를 넣고 배지, 알아둘 것, 보안 신고 안내와 낡은 체인지로그 설명 교정",
+            "GitHub 비공개 취약점 신고 링크와 지원 버전, 신고 범위를 안내하는 SECURITY.md 추가하고 사용자 프로젝트로 복사되지 않도록 제외 목록 두 곳에 등록",
+            "오픈소스 컨설팅 후속 구현 보고서 보관"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.29.1",
       "project_type": "basic",
