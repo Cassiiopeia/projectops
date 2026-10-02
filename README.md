@@ -132,7 +132,7 @@ npx projectops --mode skills
 |------|------|------|
 | **Agent Skills** | Claude Code, Cursor, Gemini CLI, Codex CLI에서 쓰는 17종 AI DevOps Skills | [상세](docs/SKILLS.md) |
 | **버전 자동화** | 릴리스 시 커밋 제목으로 major/minor/patch 판정 + Git 태그 | [상세](docs/VERSION-CONTROL.md) |
-| **AI 체인지로그** | provider 사다리(CodeRabbit/GitHub Models/OpenAI 계열/commit) 기반 CHANGELOG 자동 생성 | [상세](docs/CHANGELOG-AUTOMATION.md) |
+| **AI 체인지로그** | 생성 사다리(PR 본문 → OpenAI 호환 AI 키(Gemini·Groq 등) → 커밋 분석) 기반 CHANGELOG 자동 생성 — 키가 없어도 무료로 완주 | [상세](docs/CHANGELOG-AUTOMATION.md) |
 | **PR Preview** | 댓글 한 줄로 임시 서버 배포, 닫으면 자동 삭제 | [상세](docs/PR-PREVIEW.md) |
 | **이슈 자동화** | 브랜치명/커밋 메시지 자동 제안, QA 이슈 생성 | [상세](docs/ISSUE-AUTOMATION.md) |
 | **Flutter CI/CD** | iOS TestFlight + Android Play Store 자동 배포 | [상세](docs/FLUTTER-CICD-OVERVIEW.md) |
@@ -178,7 +178,7 @@ npx projectops --mode skills
 | 스킬 | 용도 |
 |------|------|
 | `/pro-testcase` | 이슈 분석 → QA 체크리스트 생성 |
-| `/pro-flutter-e2e` | Flutter 앱을 실제 에뮬레이터·시뮬레이터에서 직접 조작해 검증 |
+| `/pro-agent-test` | 앱·웹·서버를 실제로 실행해 밟으며 버그를 찾는 QA — 재현 절차·근거·심각도와 함께 보고 (코드는 고치지 않음) |
 | `/pro-synology-expose` | Synology NAS 외부 도메인 노출 설정 가이드 |
 | `/pro-ssh` | 원격 서버 SSH 접속·명령 실행 (AWS EC2, 시놀로지 NAS, Linux 등 범용) |
 | `/pro-skill-creator` | Skill 생성/리뷰/개선 (CREATE·REVIEW·IMPROVE 3모드) |
@@ -265,6 +265,7 @@ Settings → Actions → General
 ## 지원
 
 - [Issues](https://github.com/Cassiiopeia/projectops/issues) — 버그 리포트, 기능 요청
+  - 이 레포는 완료된 이슈를 닫지 않고 `작업완료` 라벨로 표시합니다. 열린 이슈 수가 많아 보이는 이유입니다.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — 기여 가이드
 
 ---

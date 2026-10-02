@@ -1,0 +1,15 @@
+# 의존성 자동 갱신 — 주 1회, 업데이트 PR이 쌓이지 않게 개수 제한
+version: 2
+updates:
+  # 워크플로우가 쓰는 액션 버전
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  # npx 패키지(projectops) 의존성
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
