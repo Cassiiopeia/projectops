@@ -1,7 +1,7 @@
 ---
 name: 🚀 기능 요청 | 추가 | 개선
 about: 기능요청, 기능추가, 기능개선 템플릿
-labels: [작업전]
+labels: ["status: todo"]
 assignees: [Cassiiopeia]
 ---
 

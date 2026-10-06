@@ -201,7 +201,7 @@ jobs:
                 repo: context.repo.repo,
                 title: qaTitle,
                 body: qaBody,
-                labels: ['작업전'],
+                labels: ['status: todo'],
                 assignees: [assignee]
               });
             

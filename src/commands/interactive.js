@@ -27,6 +27,7 @@ import { runIssues } from "./issues.js";
 import { runSkills } from "./skills.js";
 import * as prompts from "../ui/prompts.js";
 import { t, getLang, withLang } from "../i18n/index.js";
+import { resolveLabelStyle } from "../core/label-style.js";
 import { printSummary } from "../ui/summary.js";
 
 const CANCEL = prompts.CANCEL;
@@ -132,8 +133,16 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     // 저장값이 있으면 보존, 없으면 신규 통합만 ON. 기존 레포는 업데이트만으로 버전이 튀지 않는다.
     const semverAuto = existing?.options?.semverAuto ?? (existing ? false : true);
     const appRelease = existing?.options?.appRelease ?? null; // #553 저장값 보존 (묻지 않음)
+    // 상태 라벨 표기(#776): 저장값 > (신규 en / 기존 ko). 기존 한글 레포에는 영문 전환을 한 번 제안한다(아래).
+    let labelStyle = resolveLabelStyle({ flag: null, stored: existing?.options?.labelStyle, existing: !!existing });
     const showOptional = mode === "full" || mode === "workflows";
     const realTty = process.stdout.isTTY === true;
+    // 기존 한글 라벨 레포에는 영문 표준 전환을 한 번만 제안한다(#776). 거절하면 한글을 저장해 다시 묻지 않는다.
+    // 라벨 정의의 from_name 이 이슈에 붙은 라벨을 그대로 옮기므로 이슈 이력은 보존된다.
+    if (existing && !existing.options?.labelStyle && realTty && showOptional && io.askYesNo) {
+      const adopt = await io.askYesNo(t("labelStyle.propose"), false);
+      labelStyle = adopt ? "en" : "ko";
+    }
 
     // 층2 — 감지 로그 (#446)
     io.detectionLog?.({ types, version, branch });
@@ -302,7 +311,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     const { now, today } = clock || utcNow();
     const ctx = createContext({
       mode, force: true, types, version, versionCode, branch, paths, deployTarget, publishTargets, includeSecretBackup,
-      codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto, appRelease,
+      codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto, appRelease, labelStyle,
       repoName, templateVersion, resolvers, envValues, envUseDefaults, now, today,
       // #502 — version 모드가 기존 full 기록을 강등하지 않도록 (full이 우세)
       recordMode: existing?.templateMode === "full" ? "full" : "version",
@@ -397,7 +406,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       migrationGuidePath = appendGuideEntry(cwd, {
         now, mode, types, repoName,
         templateFrom: existing?.templateVersion || "", templateTo: templateVersion,
-        options: { deploy: deployTarget, publish: publishTargets, secretBackup: includeSecretBackup, coderabbit: codeReviewCoderabbit, changelogProvider, intent, semverAuto , appRelease },
+        options: { deploy: deployTarget, publish: publishTargets, secretBackup: includeSecretBackup, coderabbit: codeReviewCoderabbit, changelogProvider, intent, semverAuto , appRelease, labelStyle },
         branches: { defaultBranch: branch, deployBranch, ready: deployBranchReady, created: deployBranchCreated },
         breaking: breakingReport, migrations: migrationsResult, orphans: orphanReport,
         events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },

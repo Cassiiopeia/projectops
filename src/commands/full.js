@@ -16,6 +16,7 @@ import {
 import { copyUtilModules } from "../core/copy/util.js";
 import { copyCoderabbit } from "../core/copy/coderabbit.js";
 import { ensureGitignore } from "../core/copy/gitignore.js";
+import { applyLabelStyle } from "../core/label-style.js";
 import { verifyInstall } from "../core/verify.js";
 
 // context: { version, types, paths:Map, branch, versionCode, deployTarget, publishTargets, includeSecretBackup,
@@ -26,7 +27,7 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
     force = true, now, today, templateVersion = "unknown",
     deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, aiPrSummary = true,
     changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true,
-    deployBranch = "", intent = null, semverAuto = true , appRelease = null } = context;
+    deployBranch = "", intent = null, semverAuto = true , appRelease = null, labelStyle = "en" } = context;
 
   // project_paths 마커 계산 (.sh existing_marker_in_dir 등가 — 대표 마커명)
   const pathMarkers = new Map();
@@ -48,7 +49,7 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
       version, types, paths, pathMarkers, branch, deployBranch, versionCode, now, today,
       deployValues,
       templateOptions: { templateVersion, deployTarget, publishTargets, includeSecretBackup, aiPrSummary, optionsDate: today,
-        changelogProvider, changelogBaseUrl, codeReviewCoderabbit, intent, mode: "full", semverAuto, appRelease },
+        changelogProvider, changelogBaseUrl, codeReviewCoderabbit, intent, mode: "full", semverAuto, appRelease, labelStyle },
     })), { version, versionCode });
 
   // 2. README 버전 섹션
@@ -75,6 +76,9 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
     { enabled: codeReviewCoderabbit });
   step("ensure-gitignore", () => ensureGitignore(targetRoot));
   step("copy-setup-guide", () => copySetupGuide(tempDir, targetRoot));
+
+  // 상태 라벨 표기(#776) — 템플릿 원본은 영문이라, 한글 레포는 복사가 끝난 뒤 이름만 되돌린다.
+  step("apply-label-style", () => applyLabelStyle(targetRoot, labelStyle), { labelStyle });
 
   // 9. 설치 후 검증 (#549) — 디스크에 쓰인 최종 결과물을 다시 읽는다.
   //    치환은 파일 단위로 흩어져 일어나고 auto 토큰은 resolver 결과에 의존하므로,

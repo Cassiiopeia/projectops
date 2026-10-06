@@ -26,6 +26,7 @@ import { runFull } from "./commands/full.js";
 import { runVersion } from "./commands/version.js";
 import { runWorkflows } from "./commands/workflows.js";
 import { runIssues } from "./commands/issues.js";
+import { resolveLabelStyle } from "./core/label-style.js";
 import { runInteractive } from "./commands/interactive.js";
 import { runSkills } from "./commands/skills.js";
 
@@ -244,6 +245,8 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     // 앱 심사 배포 레포 여부(#553): 저장값만 보존한다. 마법사가 묻지 않으므로 새로 켜지 않는다
     // (사용자가 version.yml에 직접 쓰거나 스킬이 기록한 값을 그대로 유지).
     appRelease: existing?.options?.appRelease ?? null,
+    // 상태 라벨 표기(#776): 플래그 > 저장값 > (신규 en / 기존 ko). 기존 레포의 라벨 이름은 업데이트만으로 바뀌지 않는다.
+    labelStyle: resolveLabelStyle({ flag: opts.labelStyle, stored: existing?.options?.labelStyle, existing: !!existing }),
     repoName,
     // 실 resolver 4종 (.sh resolve_token 등가 — spring-app-yml 스텁 제거)
     resolvers: makeResolvers(cwd, repoName, paths),
@@ -339,7 +342,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       migrationGuidePath = appendGuideEntry(cwd, {
         now, mode: opts.mode, types, repoName,
         templateFrom: existing?.templateVersion || "", templateTo: context.templateVersion,
-        options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto , appRelease: context.appRelease },
+        options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto , appRelease: context.appRelease, labelStyle: context.labelStyle },
         branches: { defaultBranch: branch, deployBranch: context.deployBranch || "develop", ready: null, created: null },
         breaking: breakingReport, migrations: migrationsResult, orphans: { cleaned: [], pending: orphanPending },
         events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },

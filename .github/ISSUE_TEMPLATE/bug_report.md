@@ -1,7 +1,7 @@
 ---
 name: ❗ 버그 이슈
 about: 버그 이슈 보고 작성
-labels: [작업전]
+labels: ["status: todo"]
 assignees: [Cassiiopeia]
 ---
 

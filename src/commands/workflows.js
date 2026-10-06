@@ -5,13 +5,14 @@ import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { PATHS } from "../core/paths.js";
 import { copyWorkflows } from "../core/copy/workflows.js";
+import { applyLabelStyle } from "../core/label-style.js";
 import { copyScripts, copyConfigFolder, copySetupGuide } from "../core/copy/simple.js";
 import { copyUtilModules } from "../core/copy/util.js";
 import { convertLegacySingularType, mergeDeployValues } from "../core/version-yml.js";
 import { verifyInstall } from "../core/verify.js";
 
 export function runWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
-  const { types = [], force = true } = context;
+  const { types = [], force = true, labelStyle = "en" } = context;
   const wf = copyWorkflows(context, tempDir, targetRoot, hooks);
 
   const vy = join(targetRoot, PATHS.versionFile);
@@ -31,6 +32,7 @@ export function runWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
 
   copyScripts(tempDir, targetRoot);
   copyConfigFolder(tempDir, targetRoot);
+  applyLabelStyle(targetRoot, labelStyle); // #776 — 워크플로우(QA 봇)와 라벨 정의를 같은 표기로 맞춘다
   for (const t of types) copyUtilModules(tempDir, t, { force }, targetRoot);
   copySetupGuide(tempDir, targetRoot);
 

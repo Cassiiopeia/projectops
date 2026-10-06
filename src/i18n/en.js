@@ -32,6 +32,7 @@ export default {
   "edit.type": "Project type",
   "edit.version": "Version",
   "edit.branch": "Default branch",
+  "labelStyle.propose": "Rename Korean status labels (작업전, 작업중, ...) to English (status: todo, ...)? Issues keep their labels; Projects sync accepts both.",
   "edit.intent": "Project kind (deployment style)",
   "edit.deploy": "Deployment (server artifact)",
   "edit.publish": "Library publish targets",

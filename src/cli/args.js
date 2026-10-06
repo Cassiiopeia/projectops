@@ -6,6 +6,7 @@ import { SUPPORTED_LANGS, t } from "../i18n/index.js";
 
 export const DEPLOY_TARGETS = ["docker-ssh", "vercel", "none"];
 export const PUBLISH_TARGETS = ["nexus", "npm", "github-packages"];
+export const LABEL_STYLE_VALUES = ["en", "ko"];
 export const INTENT_VALUES = ["app", "library", "both", "none", "manual"];
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 // 유니코드 글자·숫자 허용 (#719) — 공백·셸 메타문자는 문자 클래스에 없어 그대로 거부된다.
@@ -23,6 +24,7 @@ export function parseArgs(argv) {
     deployTarget: null,      // 배포 축 (#439): docker-ssh|vercel|none, null=미설정
     publishTargets: null,    // publish 축 (#439): 타겟 배열, null=미설정
     deployBranch: "",        // 릴리스 PR head 브랜치 (#456): --deploy-branch, 빈 값=미지정
+    labelStyle: null,        // 상태 라벨 표기 (#776): --label-style en|ko
     intent: null,            // 프로젝트 성격 (#485): --intent app|library|both|none|manual, null=미설정(역추론)
     includeSecretBackup: null,
     aiPrSummary: null,   // #566 — AI 변경 요약 워크플로우 포함 여부
@@ -126,6 +128,15 @@ export function parseArgs(argv) {
           throw new CliError(`--intent 값은 ${INTENT_VALUES.join(" | ")} 중 하나여야 합니다: '${v}'`);
         }
         result.intent = v;
+        break;
+      }
+      case "--label-style": {
+        // 상태 라벨 표기 (#776). 미지정이면 version.yml 저장값 → (신규 en / 기존 ko).
+        const v = (args.shift() ?? "").trim();
+        if (!LABEL_STYLE_VALUES.includes(v)) {
+          throw new CliError(`--label-style must be one of ${LABEL_STYLE_VALUES.join(" | ")}: '${v}'`);
+        }
+        result.labelStyle = v;
         break;
       }
       // ── deprecated alias (1 minor 유지 — #439) ──

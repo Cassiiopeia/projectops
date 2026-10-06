@@ -1,35 +1,49 @@
-- name: 긴급
+# Workflow labels (layer A). Shipped to user repositories.
+# `from_name` renames the legacy Korean label in place, so issues keep their label (#776).
+# Repositories on the legacy Korean style (version.yml label_style: ko) get this file
+# rewritten to the Korean names by the installer.
+
+- name: "priority: urgent"
+  from_name: 긴급
   color: d73a4a
-  description: 긴급한 작업
+  description: Urgent work
 
-- name: 문서
+- name: documentation
+  from_name: 문서
   color: "000000"
-  description: 문서 작업 관련
+  description: Documentation work
 
-- name: 작업전
+- name: "status: todo"
+  from_name: 작업전
   color: E3F2FD
-  description: 작업 시작 전 준비 상태
+  description: Not started yet
 
-- name: 작업중
+- name: "status: in progress"
+  from_name: 작업중
   color: 74D7CB
-  description: 작업이 진행 중인 상태
+  description: Work in progress
 
-- name: 담당자확인
+- name: "status: needs review"
+  from_name: 담당자확인
   color: FBC61E
-  description: 담당자 확인 필요, 대기중 상태 (확인 후 '작업완료' or '피드백')
+  description: Waiting for the assignee to confirm (then done or feedback)
 
-- name: 피드백
+- name: "status: feedback"
+  from_name: 피드백
   color: A439D6
-  description: 담당자 확인 후 수정 필요
+  description: Needs changes after review
 
-- name: 작업완료
+- name: "status: done"
+  from_name: 작업완료
   color: 0A4ABB
-  description: 작업 완료 상태인 경우 (이슈 폐쇄)
+  description: Work is done
 
-- name: 보류
+- name: "status: on hold"
+  from_name: 보류
   color: 9E9E9E
-  description: 작업 일시 중단 상태
+  description: Work is paused
 
-- name: 취소
+- name: "status: cancelled"
+  from_name: 취소
   color: f28b25
-  description: 작업 취소됨
+  description: Work was cancelled

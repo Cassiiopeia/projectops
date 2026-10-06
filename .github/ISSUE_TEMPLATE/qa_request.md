@@ -1,7 +1,7 @@
 ---
 name: 🔍 시험일감
 about: 기능 개발/버그 수정 완료 후 시험 요청 템플릿
-labels: [작업전]
+labels: ["status: todo"]
 assignees: [Cassiiopeia]
 ---
 
