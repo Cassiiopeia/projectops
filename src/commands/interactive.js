@@ -134,6 +134,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     const semverAuto = existing?.options?.semverAuto ?? (existing ? false : true);
     const appRelease = existing?.options?.appRelease ?? null; // #553 저장값 보존 (묻지 않음)
     // 상태 라벨 표기(#776): 저장값 > (신규 en / 기존 ko). 기존 한글 레포에는 영문 전환을 한 번 제안한다(아래).
+    const closeOnRelease = existing?.options?.closeOnRelease ?? (existing ? null : true); // #771 묻지 않는다
     let labelStyle = resolveLabelStyle({ flag: null, stored: existing?.options?.labelStyle, existing: !!existing });
     const showOptional = mode === "full" || mode === "workflows";
     const realTty = process.stdout.isTTY === true;
@@ -311,7 +312,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     const { now, today } = clock || utcNow();
     const ctx = createContext({
       mode, force: true, types, version, versionCode, branch, paths, deployTarget, publishTargets, includeSecretBackup,
-      codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto, appRelease, labelStyle,
+      codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto, appRelease, labelStyle, closeOnRelease,
       repoName, templateVersion, resolvers, envValues, envUseDefaults, now, today,
       // #502 — version 모드가 기존 full 기록을 강등하지 않도록 (full이 우세)
       recordMode: existing?.templateMode === "full" ? "full" : "version",
@@ -406,7 +407,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       migrationGuidePath = appendGuideEntry(cwd, {
         now, mode, types, repoName,
         templateFrom: existing?.templateVersion || "", templateTo: templateVersion,
-        options: { deploy: deployTarget, publish: publishTargets, secretBackup: includeSecretBackup, coderabbit: codeReviewCoderabbit, changelogProvider, intent, semverAuto , appRelease, labelStyle },
+        options: { deploy: deployTarget, publish: publishTargets, secretBackup: includeSecretBackup, coderabbit: codeReviewCoderabbit, changelogProvider, intent, semverAuto , appRelease, labelStyle, closeOnRelease },
         branches: { defaultBranch: branch, deployBranch, ready: deployBranchReady, created: deployBranchCreated },
         breaking: breakingReport, migrations: migrationsResult, orphans: orphanReport,
         events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },

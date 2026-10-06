@@ -1,0 +1,54 @@
+# ===================================================================
+# PROJECT-COMMON-CLOSE-ISSUES-ON-RELEASE.yaml
+# 릴리스가 나가면 완료된 이슈를 닫는다 (#771)
+# ===================================================================
+#
+# "완료해도 닫지 않고 라벨로만 표시한다"는 정책은 Projects 동기화가 라벨 기반이라 생겼지만,
+# 그 결과 열린 이슈가 쌓여 방문자에게 방치된 프로젝트로 보인다. 그래서 사람이 닫는 대신
+# 릴리스가 main 에 머지될 때 이 워크플로우가 닫는다. 완료 표시는 라벨이 그대로 맡는다.
+#
+# 닫는 조건 (모두 만족해야 한다)
+#   1. version.yml 의 metadata.template.options.close_on_release 가 true
+#      (키가 없으면 아무것도 하지 않는다 — 기존 설치는 현행 동작을 유지한다)
+#   2. 릴리스 구간 커밋 메시지가 그 이슈의 URL 을 참조
+#   3. 이슈에 완료 라벨(status: done 또는 작업완료)이 붙어 있음
+#
+# Projects 동기화는 라벨의 labeled 이벤트로 도므로 이슈 닫기와 충돌하지 않는다.
+# 릴리스를 PAT 없이 머지한 경우 push 트리거가 생기지 않으므로 dispatch_downstream.py 가
+# workflow_dispatch 로 이 워크플로우를 깨운다(#551) — 그때는 직전 릴리스 태그부터 현재까지를 구간으로 본다.
+# ===================================================================
+
+name: CLOSE ISSUES ON RELEASE
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: close-issues-on-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  close-done-issues:
+    runs-on: ubuntu-latest
+    # 버전 자동 커밋([skip ci])이 만든 push 로는 돌 필요가 없다
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: 완료된 이슈 닫기
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 .github/scripts/close_issues_on_release.py \
+            --repo "${{ github.repository }}" \
+            --before "${{ github.event.before }}" \
+            --after "${{ github.sha }}"

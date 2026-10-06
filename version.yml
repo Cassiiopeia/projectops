@@ -46,3 +46,4 @@ metadata:
       # semver 자동 승격(#546) — 릴리스 구간 커밋 제목으로 major/minor/patch를 결정한다.
       # `type!` 마커 → major, feat → minor, 그 외 → patch. false면 항상 patch(구 동작).
       semver_auto: true
+      close_on_release: true   # 릴리스 머지 때 완료 라벨 이슈를 닫는다 (#771)

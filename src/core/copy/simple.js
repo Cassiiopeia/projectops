@@ -31,6 +31,8 @@ export function copyScripts(tempDir, targetRoot = ".") {
     "asc_client.py",
     // iOS 버전 사전 점검, 업로드 거부 분류, 아카이브부터 업로드까지 재시도 (#643).
     "ios_release.py",
+    // 릴리스 머지 때 완료 라벨이 붙은 이슈를 닫는다 (#771). close_on_release 옵션이 켜진 레포에서만 동작한다.
+    "close_issues_on_release.py",
     "changelog_providers/_common.py", "changelog_providers/ladder.py",
     "changelog_providers/commit.py", "changelog_providers/copilot.py",
     "changelog_providers/openai_compatible.py",
