@@ -1,14 +1,40 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-06T14:57:33Z",
-    "currentVersion": "4.35.0",
+    "lastUpdated": "2026-10-06T15:41:08Z",
+    "currentVersion": "4.36.0",
     "projectType": "basic",
-    "totalReleases": 289,
+    "totalReleases": 290,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.36.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-06",
+      "pr_number": 789,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * 이슈 안내 댓글, QA 이슈 생성 봇, 릴리스 안내와 PR 요약 댓글, CHANGELOG 머리말, 자동 커밋 메시지가 저장소의 언어 설정(영문 또는 한국어)을 따릅니다. 새 저장소는 영문이 기본이고, 이미 쓰던 저장소는 한국어 그대로 유지됩니다.\n  * 번역가는 코드를 고치지 않고 언어 파일 하나만 추가하면 새 언어를 지원할 수 있습니다. 번역이 덜 된 언어는 빠진 문구만 영문으로 보입니다. 번역 방법은 docs/TRANSLATING.md에 있습니다.\n\n* **개선**\n  * 이미 설치된 구버전 자동화가 읽는 문구(브랜치 코드블록, 서명 등)는 어떤 언어에서도 바뀌지 않습니다.",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "이슈 안내 댓글, QA 이슈 생성 봇, 릴리스 안내와 PR 요약 댓글, CHANGELOG 머리말, 자동 커밋 메시지가 저장소의 언어 설정(영문 또는 한국어)을 따릅니다. 새 저장소는 영문이 기본이고, 이미 쓰던 저장소는 한국어 그대로 유지됩니다.",
+            "번역가는 코드를 고치지 않고 언어 파일 하나만 추가하면 새 언어를 지원할 수 있습니다. 번역이 덜 된 언어는 빠진 문구만 영문으로 보입니다. 번역 방법은 docs/TRANSLATING.md에 있습니다."
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "이미 설치된 구버전 자동화가 읽는 문구(브랜치 코드블록, 서명 등)는 어떤 언어에서도 바뀌지 않습니다."
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.35.0",
       "project_type": "basic",
