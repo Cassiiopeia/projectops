@@ -38,12 +38,12 @@ test("deriveWorkflowLists/deriveEnvApplied: 이벤트에서 목록 파생", () =
 test("renderGuideEntry: 동적 체크리스트 — 발생한 항목만 출력", () => {
   const md = renderGuideEntry(baseReport());
   assert.match(md, /v2\.7\.7 → v4\.2\.16 \(full\)/);
-  assert.match(md, /\.bak 백업 파일 확인 후 정리/);           // replaced-bak 있음
-  assert.match(md, /신형과 병합 검토/);                        // skipped-conflict 있음
+  assert.match(md, /Review the \.bak backup files, then clean them up/);           // replaced-bak 있음
+  assert.match(md, /review a merge with the new template/);                        // skipped-conflict 있음
   assert.match(md, /`JAVA_VERSION` = `17`/);                  // env 검증 항목
-  assert.match(md, /- \[x\] 개발\(릴리스 소스\) 브랜치 `develop`: 마법사가 생성 및 확인 완료/);
-  assert.doesNotMatch(md, /구세대 배포 워크플로우/);           // leftover 없음 → 항목 자체가 없음
-  assert.doesNotMatch(md, /통과한 호환성 변경/);               // breaking 없음 → 섹션 없음
+  assert.match(md, /- \[x\] Development \(release source\) branch `develop`: created and verified by the wizard/);
+  assert.doesNotMatch(md, /old-generation deploy workflow/);           // leftover 없음 → 항목 자체가 없음
+  assert.doesNotMatch(md, /Breaking changes passed through/);               // breaking 없음 → 섹션 없음
 });
 
 test("renderGuideEntry: breaking 임베드 — 조치 방법 전문 + 메타 action_required", () => {
@@ -54,7 +54,7 @@ test("renderGuideEntry: breaking 임베드 — 조치 방법 전문 + 메타 act
       warnings: [{ version: "4.2.0", title: "배포/publish 축 재설계", message: "구 옵션은 deprecated." }],
     },
   }));
-  assert.match(md, /### 통과한 호환성 변경 \(v2\.7\.7 → v4\.2\.16\)/);
+  assert.match(md, /### Breaking changes passed through \(v2\.7\.7 → v4\.2\.16\)/);
   assert.match(md, /❗ \[CRITICAL\] 3\.0\.186 - 브랜치 전략 전면 전환/);
   assert.match(md, /deploy 브랜치를 폐기하고 develop\/main 구조로 전환하세요\./); // 전문 임베드
   assert.match(md, /\{ version: "3\.0\.186", severity: critical, title: "브랜치 전략 전면 전환", action_required: true \}/);
@@ -69,7 +69,7 @@ test("renderGuideEntry: leftover_old_gen — 체크리스트 + 메타 + manual_a
       askPending: [],
     },
   }));
-  assert.match(md, /구세대 배포 워크플로우 1개 전환 후 삭제/);
+  assert.match(md, /Switch to the new workflow, then delete 1 old-generation deploy workflow/);
   assert.match(md, /PROJECT-SPRING-SYNOLOGY-PR-PREVIEW\.yaml/);
   assert.match(md, /legacy_neutralized:/);
   assert.match(md, /leftover_old_gen:/);
@@ -92,8 +92,8 @@ test("appendGuideEntry: 최초 생성=헤더 포함, 재실행=append-only (기�
     assert.equal(r1.created, true);
     assert.equal(r1.guidePath, GUIDE_FILE);
     const first = readFileSync(join(root, GUIDE_FILE), "utf8");
-    assert.match(first, /# ProjectOps 마이그레이션 가이드/);      // 고정 헤더
-    assert.match(first, /AI Agent 해석 가이드라인/);
+    assert.match(first, /# ProjectOps Migration Guide/);      // 고정 헤더
+    assert.match(first, /Guidelines for AI agents/);
 
     const r2 = appendGuideEntry(root, baseReport({ now: "2026-07-15 09:00:00", templateFrom: "4.2.16", templateTo: "4.3.0" }));
     assert.equal(r2.created, false);
@@ -101,6 +101,6 @@ test("appendGuideEntry: 최초 생성=헤더 포함, 재실행=append-only (기�
     assert.ok(second.startsWith(first.trimEnd().slice(0, 200)), "기존 내용 앞부분 불변");
     assert.match(second, /v2\.7\.7 → v4\.2\.16/);                 // 1번째 엔트리 보존
     assert.match(second, /v4\.2\.16 → v4\.3\.0/);                 // 2번째 엔트리 추가
-    assert.equal((second.match(/# ProjectOps 마이그레이션 가이드/g) || []).length, 1, "헤더는 1회만");
+    assert.equal((second.match(/# ProjectOps Migration Guide/g) || []).length, 1, "헤더는 1회만");
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

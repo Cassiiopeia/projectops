@@ -54,12 +54,12 @@ test("runBreakingCheck: 비대화형 — 제목 요약만 출력, 전문 미출�
     const { out, r } = await captureStderr(() =>
       runBreakingCheck({ cwd, tempDir: cwd, templateVersion: "9.9.9", loader: async () => BC_JSON }));
     assert.equal(r, true);
-    assert.match(out, /CRITICAL 1건, WARNING 1건/);
+    assert.match(out, /CRITICAL 1, WARNING 1/);
     assert.match(out, /\[CRITICAL\] 9\.0\.0 - 큰 변경/);
     assert.match(out, /\[WARNING\]\s+9\.1\.0 - 작은 변경/);
     assert.doesNotMatch(out, /아주 긴 조치 방법 본문/);   // 전문 통덤프 제거
     assert.doesNotMatch(out, /╔/);                        // 박스 경계 제거 (래핑 붕괴 방지)
-    assert.match(out, /breaking-changes\.json 참고/);      // 상세 참조 안내
+    assert.match(out, /see \.github\/config\/breaking-changes\.json/);      // 상세 참조 안내
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
 

@@ -10,6 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { listYamlFiles } from "./fsutil.js";
 import { PATHS } from "./paths.js";
+import { t as msg } from "../i18n/index.js";
 import { parseTemplateOptions, inferIntent } from "./version-yml.js";
 import { branchStatus, createBranch, pushBranch } from "./git-branch.js";
 
@@ -26,28 +27,28 @@ export async function ensureDeployBranch({ targetRoot = ".", deployBranch = "", 
   if (!st.isRepo) return { created: false, pushed: false, ready: null };
   if (st.local) return { created: false, pushed: false, ready: true };
   if (st.remote === true) {
-    say(`ℹ️ '${deployBranch}' 브랜치가 원격에는 있고 로컬에 없습니다 — 필요 시 'git switch ${deployBranch}'로 가져오세요.`);
+    say(msg("options.branch.remoteOnly", { branch: deployBranch }));
     return { created: false, pushed: false, ready: true };
   }
-  say(`⚠️ 개발(릴리스 소스) 브랜치 '${deployBranch}'가 없습니다 — 릴리스(${deployBranch}→${defaultBranch || "기본 브랜치"} PR)가 동작하려면 필요합니다.`);
-  const mk = await io.confirm({ message: `${defaultBranch || "현재"} 브랜치에서 '${deployBranch}' 브랜치를 만들까요?`, initialValue: true });
+  say(msg("options.branch.missing", { branch: deployBranch, base: defaultBranch || msg("options.branch.baseFallback") }));
+  const mk = await io.confirm({ message: msg("options.branch.createPrompt", { base: defaultBranch || msg("options.branch.currentFallback"), branch: deployBranch }), initialValue: true });
   if (mk !== true) {
-    say(`→ 건너뜁니다. 나중에 직접: git checkout -b ${deployBranch} && git push -u origin ${deployBranch}`);
+    say(msg("options.branch.skipped", { branch: deployBranch }));
     return { created: false, pushed: false, ready: false };
   }
   if (!createBranch(targetRoot, deployBranch, defaultBranch)) {
-    say(`⚠️ 브랜치 생성 실패 — 직접 실행해주세요: git branch ${deployBranch}${defaultBranch ? ` ${defaultBranch}` : ""}`);
+    say(msg("options.branch.createFailed", { branch: deployBranch, from: defaultBranch ? ` ${defaultBranch}` : "" }));
     return { created: false, pushed: false, ready: false };
   }
-  say(`✅ 로컬 브랜치 '${deployBranch}' 생성 완료 (checkout은 하지 않았습니다)`);
+  say(msg("options.branch.created", { branch: deployBranch }));
   // #481 — push 질문에 브랜치명 명시 ("어느 브랜치를 push하는지" 불명확 방지)
-  const up = await io.confirm({ message: `원격(origin)에 '${deployBranch}' 브랜치도 push할까요?`, initialValue: true });
+  const up = await io.confirm({ message: msg("options.branch.pushPrompt", { branch: deployBranch }), initialValue: true });
   if (up !== true) return { created: true, pushed: false, ready: true };
   if (pushBranch(targetRoot, deployBranch)) {
-    say(`✅ origin/${deployBranch} push 완료`);
+    say(msg("options.branch.pushed", { branch: deployBranch }));
     return { created: true, pushed: true, ready: true };
   }
-  say(`⚠️ push 실패(자격/네트워크) — 직접 실행해주세요: git push -u origin ${deployBranch}`);
+  say(msg("options.branch.pushFailed", { branch: deployBranch }));
   return { created: true, pushed: false, ready: true };
 }
 
@@ -123,18 +124,18 @@ async function askOptionalWorkflow({ dir, icon, short, desc, current, force, tty
   if (force || !tty) return false;
 
   say("");
-  say(`${icon} ${short} 워크플로우를 발견했습니다. (${files.length}개 파일)`);
+  say(msg("options.optional.found", { icon, name: short, count: files.length }));
   say(`   ${desc}`);
   say("");
-  say("   포함되는 워크플로우:");
+  say(msg("options.optional.included"));
   for (const f of files) say(`     • ${f}`);
   say("");
 
-  const ans = await io.confirm({ message: `${short} 워크플로우를 포함할까요?`, initialValue: false });
+  const ans = await io.confirm({ message: msg("options.optional.prompt", { name: short }), initialValue: false });
   const include = ans === true && !isCancel(ans);
   say(include
-    ? `${short} 워크플로우를 포함합니다 — GitHub Actions에 추가됩니다`
-    : `${short} 워크플로우를 제외합니다 (나중에 옵션으로 추가 가능)`);
+    ? msg("options.optional.yes", { name: short })
+    : msg("options.optional.no", { name: short }));
   return include;
 }
 
@@ -187,15 +188,15 @@ export async function askAllOptionalWorkflows({
       const saved = parseTemplateOptions(readFileSync(vy, "utf8"));
       if (deploy === null && saved.deploy !== null) {
         deploy = saved.deploy;
-        say(`배포 방식: version.yml 저장값(${deploy}) 유지 — 재질문 생략`);
+        say(msg("options.saved.deploy", { value: deploy }));
       }
       if (publish === null && saved.publish !== null) {
         publish = saved.publish;
-        say(`Publish 타겟: version.yml 저장값(${publish.join(",") || "없음"}) 유지 — 재질문 생략`);
+        say(msg("options.saved.publish", { value: publish.join(",") || msg("options.saved.none") }));
       }
       if (secretBackup === null && saved.secretBackup !== null) {
         secretBackup = saved.secretBackup;
-        say(`Secret 백업 옵션: version.yml 저장값(${secretBackup}) 유지 — 재질문 생략`);
+        say(msg("options.saved.secret", { value: secretBackup }));
       }
       // #455 changelog/code_review 저장값 재사용
       if (codeReviewCoderabbit === null && saved.codeReviewCoderabbit !== null) codeReviewCoderabbit = saved.codeReviewCoderabbit;
@@ -235,19 +236,19 @@ export async function askAllOptionalWorkflows({
           intent = intent ?? inferIntent(deploy, publish) ?? "manual";
         } else {
           say("");
-          say("🧭 이 프로젝트는 어떤 성격인가요? (배포 관련 질문을 여기에 맞춰 좁혀드립니다)");
+          say(msg("options.intent.intro"));
           const ans = await io.select({
-            message: "프로젝트 성격을 선택하세요",
+            message: msg("options.intent.prompt"),
             options: [
-              { value: "app", label: "서버/호스팅에 올려 돌리는 앱·서비스 (배포만)" },
-              { value: "library", label: "남이 가져다 쓰는 라이브러리/패키지 (publish만)" },
-              { value: "both", label: "둘 다 (서버로도 돌리고 라이브러리로도 냄)" },
-              { value: "none", label: "배포 안 함 (CI·빌드 검증만)" },
-              { value: "manual", label: "직접 하나씩 고를게요 (모든 옵션 개별 질문)" },
+              { value: "app", label: msg("options.intent.app") },
+              { value: "library", label: msg("options.intent.library") },
+              { value: "both", label: msg("options.intent.both") },
+              { value: "none", label: msg("options.intent.none") },
+              { value: "manual", label: msg("options.intent.manual") },
             ],
           });
           intent = (!isCancel(ans) && INTENT_ASKS_DEPLOY[ans] !== undefined) ? ans : (intent ?? "manual");
-          say(`프로젝트 성격: ${intent}`);
+          say(msg("options.intent.chosen", { value: intent }));
         }
         // intent 확정 후 유도: 안 묻는 축은 값 확정, 묻는 축은 재질문 대상으로 되돌린다.
         if (!INTENT_ASKS_DEPLOY[intent]) deploy = "none";
@@ -268,9 +269,9 @@ export async function askAllOptionalWorkflows({
     // manual(직접 고르기)에서 둘 다 물을 땐 두 축이 별개임을 한 번 안내 (#480 계승).
     if (intent === "manual" && willAskDeploy && willAskPublish && tty && typeof io.select === "function") {
       say("");
-      say("🧭 배포는 두 가지가 따로 있습니다 — 서로 독립이라 각각 답하시면 됩니다:");
-      say("   1) 실행물 배포 — 서버/호스팅에 올려 돌리는 것 (Docker, Vercel …)");
-      say("   2) 라이브러리 배포(publish) — 남이 가져다 쓰게 레지스트리에 내는 것 (Nexus, npm …)");
+      say(msg("options.axes.intro"));
+      say(msg("options.axes.one"));
+      say(msg("options.axes.two"));
     }
     // 비대화형/폴백 기본값 (#498) — docker-ssh가 적용 가능할 때만 기본, 아니면 none.
     const deployDefault = applicable.deploy.includes("docker-ssh") ? "docker-ssh" : "none";
@@ -279,22 +280,22 @@ export async function askAllOptionalWorkflows({
         deploy = deploy ?? deployDefault;
       } else {
         say("");
-        say("🚀 (1) 실행물(서버/앱)을 어디에 올리나요?");
-        say("   서버·호스팅에 올릴 계획이 있으면 고르고, 없으면 '서버에 올리지 않음'으로 두세요.");
+        say(msg("options.deploy.intro"));
+        say(msg("options.deploy.hint"));
         // 선택지는 적용 가능 타겟으로 필터링 (#498) — 'none'은 항상 노출.
         const deployLabels = [
-          { value: "docker-ssh", label: "Docker + SSH 서버 배포 (기본)" },
+          { value: "docker-ssh", label: msg("options.deploy.dockerSsh") },
           { value: "vercel", label: "Vercel" },
         ];
         const ans = await io.select({
-          message: "실행물 배포 방식을 선택하세요",
+          message: msg("options.deploy.prompt"),
           options: [
             ...deployLabels.filter((o) => applicable.deploy.includes(o.value)),
-            { value: "none", label: "서버에 올리지 않음 (빌드 검증만 · 라이브러리는 다음에서 선택)" },
+            { value: "none", label: msg("options.deploy.none") },
           ],
         });
         deploy = (!isCancel(ans) && (ans === "none" || applicable.deploy.includes(ans))) ? ans : (deploy ?? deployDefault);
-        say(`실행물 배포: ${deploy}`);
+        say(msg("options.deploy.chosen", { value: deploy }));
       }
     }
 
@@ -304,16 +305,16 @@ export async function askAllOptionalWorkflows({
         publish = publish ?? [];
       } else {
         say("");
-        say("📦 (2) 이 프로젝트를 남이 가져다 쓰는 라이브러리로도 배포(publish)하나요?");
-        say("   (1) 실행물 배포와 별개입니다. 해당되는 걸 고르고, 라이브러리 배포를 안 하면 아무것도 고르지 말고 Enter.");
+        say(msg("options.publish.intro"));
+        say(msg("options.publish.hint"));
         // 선택지는 적용 가능 타겟으로 필터링 (#498)
         const publishLabels = [
-          { value: "nexus", label: "사내 Maven(Nexus) 라이브러리 배포" },
-          { value: "npm", label: "공개 npmjs 패키지 배포 (NPM_TOKEN)" },
-          { value: "github-packages", label: "GitHub Packages 라이브러리 배포" },
+          { value: "nexus", label: msg("options.publish.nexus") },
+          { value: "npm", label: msg("options.publish.npm") },
+          { value: "github-packages", label: msg("options.publish.githubPackages") },
         ];
         const ans = await io.multiselect({
-          message: "라이브러리 배포 타겟 (없으면 선택 없이 Enter = 배포 안 함)",
+          message: msg("options.publish.prompt"),
           options: publishLabels.filter((o) => applicable.publish.includes(o.value)),
           initialValues: publish ?? [],
           required: false,
@@ -321,7 +322,7 @@ export async function askAllOptionalWorkflows({
         publish = (!isCancel(ans) && Array.isArray(ans))
           ? ans.filter((t) => applicable.publish.includes(t))
           : (publish ?? []);
-        say(publish.length ? `라이브러리 배포: ${publish.join(", ")}` : "라이브러리 배포: 안 함");
+        say(publish.length ? msg("options.publish.chosen", { value: publish.join(", ") }) : msg("options.publish.chosenNone"));
       }
     }
   }
@@ -338,17 +339,17 @@ export async function askAllOptionalWorkflows({
       aiPrSummary = aiPrSummary ?? true;
     } else {
       say("");
-      say("💬 PR에 어떤 댓글을 받으시겠어요?");
-      say("   두 가지는 하는 일이 다르고 한도도 따로라, 같이 켜도 서로 방해하지 않습니다.");
-      say("   · 변경 요약 — 무엇이 바뀌었는지 (추가 설정 없이 바로 동작)");
-      say("   · 코드 리뷰 — 버그·개선점 지적 (CodeRabbit 앱 설치 필요, 공개 저장소 무료)");
+      say(msg("options.pr.intro"));
+      say(msg("options.pr.hint1"));
+      say(msg("options.pr.hint2"));
+      say(msg("options.pr.hint3"));
       const ans = await io.select({
-        message: "PR 댓글 방식을 선택하세요",
+        message: msg("options.pr.prompt"),
         options: [
-          { value: "both", label: "둘 다 (추천 · 무료로 쓸 수 있습니다)" },
-          { value: "summary", label: "변경 요약만 (추가 설정 불필요)" },
-          { value: "coderabbit", label: "코드 리뷰만 (CodeRabbit)" },
-          { value: "none", label: "사용 안 함" },
+          { value: "both", label: msg("options.pr.both") },
+          { value: "summary", label: msg("options.pr.summary") },
+          { value: "coderabbit", label: msg("options.pr.coderabbit") },
+          { value: "none", label: msg("options.pr.none") },
         ],
       });
       // 취소·미응답은 추천값으로 — 다른 축과 같은 방어 패턴이다.
@@ -356,13 +357,13 @@ export async function askAllOptionalWorkflows({
       const pick = (!isCancel(ans) && PR_COMMENT_CHOICES.includes(ans)) ? ans : "summary";
       codeReviewCoderabbit = pick === "coderabbit" || pick === "both";
       aiPrSummary = pick === "summary" || pick === "both";
-      say(`PR 댓글: ${{ summary: "AI 변경 요약", coderabbit: "CodeRabbit", both: "둘 다", none: "사용 안 함" }[pick]}`);
+      say(msg("options.pr.chosen", { value: msg(`options.pr.label.${pick}`) }));
       // #481 — "사용"만으로는 안 붙는다. 앱 설치 + 레포 접근 권한이 있어야 실제로 리뷰가 달린다.
       if (codeReviewCoderabbit) {
-        say("   ⚠️ CodeRabbit은 추가 설정이 필요합니다:");
-        say("      1) https://coderabbit.ai 접속 → GitHub으로 로그인");
-        say("      2) CodeRabbit GitHub 앱 설치 → 이 저장소에 접근 권한(grant access) 부여");
-        say("      (이 단계를 안 하면 워크플로우는 켜져도 PR에 리뷰 댓글이 달리지 않습니다)");
+        say(msg("options.pr.crWarn"));
+        say(msg("options.pr.crStep1"));
+        say(msg("options.pr.crStep2"));
+        say(msg("options.pr.crStep3"));
       }
     }
   }
@@ -379,9 +380,9 @@ export async function askAllOptionalWorkflows({
     if (force || !tty || typeof io.text !== "function") {
       changelogBaseUrl = changelogBaseUrl ?? "";
     } else {
-      const ans = await io.text({ message: "Ollama 서버 base_url (예: https://ai.suhsaechan.kr/v1)" });
+      const ans = await io.text({ message: msg("options.ollama.prompt") });
       changelogBaseUrl = (typeof ans === "string" && !isCancel(ans)) ? ans.trim() : "";
-      say(`Ollama base_url: ${changelogBaseUrl || "(미지정)"}`);
+      say(msg("options.ollama.chosen", { value: changelogBaseUrl || msg("options.ollama.unset") }));
     }
   } else if (changelogBaseUrl === null) {
     changelogBaseUrl = "";
@@ -396,12 +397,12 @@ export async function askAllOptionalWorkflows({
     } else {
       const base = defaultBranch || "main"; // git으로 감지된 기본 브랜치 (#481 동적 안내)
       say("");
-      say("🌿 개발한 코드를 모아서 배포로 올리는 '개발 브랜치'는 무엇인가요?");
-      say(`   감지된 기본(배포) 브랜치는 '${base}'입니다. 개발은 보통 그 앞단 브랜치(예: develop)에서 모아 올립니다.`);
-      say("   특별한 이유가 없으면 develop 그대로 두세요.");
-      const ans = await io.text({ message: "개발(릴리스 소스) 브랜치", initialValue: deployBranch ?? "develop" });
+      say(msg("options.devBranch.intro"));
+      say(msg("options.devBranch.detected", { base }));
+      say(msg("options.devBranch.hint"));
+      const ans = await io.text({ message: msg("options.devBranch.prompt"), initialValue: deployBranch ?? "develop" });
       deployBranch = (typeof ans === "string" && !isCancel(ans) && ans.trim()) ? ans.trim() : (deployBranch ?? "develop");
-      say(`개발(릴리스 소스) 브랜치: ${deployBranch}`);
+      say(msg("options.devBranch.chosen", { value: deployBranch }));
       // 브랜치 존재 확인 + 생성 제안 (#477) — 없으면 릴리스 파이프라인이 조용히 놀게 된다
       // #490 — 결과(ready)를 완료 요약에 전달해 이미 생성/확인한 브랜치를 재지시하지 않는다
       const br = await ensureDeployBranch({ targetRoot, deployBranch, defaultBranch, io, say });
@@ -414,8 +415,8 @@ export async function askAllOptionalWorkflows({
   const real = join(tempDir, PATHS.workflowsDir, PATHS.projectTypesDir);
   const ptDir = existsSync(real) ? real : join(tempDir, PATHS.projectTypesDir);
   secretBackup = await askOptionalWorkflow({
-    dir: join(ptDir, "common", "secret-backup"), icon: "🔐", short: "Secret 서버 백업",
-    desc: "GitHub Secret에 저장한 설정 파일을 SSH로 서버에 업로드·이력관리하는 워크플로우입니다.",
+    dir: join(ptDir, "common", "secret-backup"), icon: "🔐", short: msg("options.secret.short"),
+    desc: msg("options.secret.desc"),
     current: secretBackup, force, tty, io, forceAsk: ask("secret"), say,
   });
 

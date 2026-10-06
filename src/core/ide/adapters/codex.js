@@ -4,6 +4,7 @@
 import { join } from "node:path";
 import { existsSync, lstatSync, rmSync } from "node:fs";
 import { migrateConfigRoot } from "../legacy.js";
+import { t } from "../../../i18n/index.js";
 
 const MARKETPLACE = "Cassiiopeia/projectops";
 const PLUGIN = "projectops";
@@ -16,20 +17,20 @@ function detect(io) {
   const tgt = nativeTarget(io);
   const nativeInstalled = existsSync(tgt);
   if (nativeInstalled) return { installed: true, version: null, cliMissing: false, note: "native skills" };
-  if (!io.which("codex")) return { installed: false, version: null, cliMissing: true, note: "CLI 없음" };
-  return { installed: false, version: null, cliMissing: false, note: "설치 가능 (CLI 감지됨)" };
+  if (!io.which("codex")) return { installed: false, version: null, cliMissing: true, note: t("ide.cliMissing") };
+  return { installed: false, version: null, cliMissing: false, note: t("ide.installable") };
 }
 
 function apply(io) {
   if (!io.which("codex")) { io.log(manualHint()); return false; }
   migrateLegacy(io);
   migrateConfigRoot(io);
-  io.log("Codex plugin marketplace 등록 중...");
+  io.log(t("ide.codex.marketAdding"));
   const add = io.run("codex", ["plugin", "marketplace", "add", MARKETPLACE]);
-  io.log(add.code === 0 ? "  Codex marketplace 등록 완료" : "  Codex marketplace 이미 등록되어 있거나 등록 생략");
-  io.log("Codex plugin marketplace 업데이트 중...");
-  if (io.run("codex", ["plugin", "marketplace", "upgrade", PLUGIN]).code === 0) { io.log("  Codex marketplace 등록 완료 (/plugins 확인)"); return true; }
-  io.log(`  Codex marketplace 관리 오류 — 수동: codex plugin marketplace add ${MARKETPLACE}`);
+  io.log(t(add.code === 0 ? "ide.codex.marketAdded" : "ide.codex.marketSkipped"));
+  io.log(t("ide.codex.marketUpgrading"));
+  if (io.run("codex", ["plugin", "marketplace", "upgrade", PLUGIN]).code === 0) { io.log(t("ide.codex.marketDone")); return true; }
+  io.log(t("ide.codex.marketError", { market: MARKETPLACE }));
   return false;
 }
 
@@ -37,10 +38,10 @@ function remove(io) {
   const tgt = nativeTarget(io);
   let removed = false;
   if (existsSync(tgt) || isSymlink(tgt)) {
-    try { rmSync(tgt, { recursive: true, force: true }); io.log(`  Codex native skills 제거 완료 (${tgt})`); removed = true; } catch { /* 무해 */ }
+    try { rmSync(tgt, { recursive: true, force: true }); io.log(t("ide.codex.skillsRemoved", { path: tgt })); removed = true; } catch { /* 무해 */ }
   }
-  if (!removed) io.log("  제거할 Codex skills가 없어 건너뜁니다");
-  if (io.which("codex")) io.log(`  marketplace 등록 해제는 수동: codex plugin marketplace remove ${PLUGIN}`);
+  if (!removed) io.log(t("ide.codex.removeNone"));
+  if (io.which("codex")) io.log(t("ide.codex.unregisterManual", { plugin: PLUGIN }));
   return true;
 }
 
@@ -51,7 +52,7 @@ function migrateLegacy(io) {
   for (const name of LEGACY_NATIVES) {
     const old = join(io.home(), ".agents/skills", name);
     if (existsSync(old) || isSymlink(old)) {
-      try { rmSync(old, { recursive: true, force: true }); io.log(`  레거시 Codex skills 정리: ${name}`); } catch { /* 무시 */ }
+      try { rmSync(old, { recursive: true, force: true }); io.log(t("ide.codex.legacy", { name })); } catch { /* 무시 */ }
     }
   }
   if (io.which("codex")) for (const mp of LEGACY_MARKETPLACES) io.run("codex", ["plugin", "marketplace", "remove", mp]);

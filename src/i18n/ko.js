@@ -1,8 +1,18 @@
 // 한국어 메시지. 키는 en.js와 동일하게 유지하고, 빠진 키는 영문으로 대체된다.
 import summary from "./summary.ko.js";
+import doctor from "./doctor.ko.js";
+import options from "./options.ko.js";
+import migrate from "./migrate.ko.js";
+import core from "./core.ko.js";
+import ide from "./ide.ko.js";
 
 export default {
   ...summary,
+  ...doctor,
+  ...options,
+  ...migrate,
+  ...core,
+  ...ide,
   "engine.hint.select": "↑/↓ 이동, Enter 확정, ESC 취소",
   "engine.hint.multiselect": "↑/↓ 이동, Space 토글, a 전체, Enter 확정, ESC 취소",
   "engine.hint.confirm": "←/→ 또는 y/n, Enter 확정, ESC 취소",

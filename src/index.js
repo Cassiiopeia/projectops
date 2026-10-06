@@ -134,19 +134,19 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
 
   // 감지 (CLI 인자 우선, 없으면 자동 감지 — version.yml 우선 규칙은 detectTypes/detectVersion 내부)
   const types = opts.types.length ? opts.types : detectTypes(cwd);
-  trace.event("detect", "types", types.join(",") || "(없음)", {
-    source: opts.types.length ? "cli-flag(--type)" : "auto-detect(마커 파일 스캔)",
+  trace.event("detect", "types", types.join(",") || "(none)", {
+    source: opts.types.length ? "cli-flag(--type)" : "auto-detect(marker file scan)",
   });
   // version: 기존 version.yml 최우선(SSoT — 재실행 시 덮어쓰기 방지) → CLI 지정 → 파일 감지
   const version = (existing?.version) || opts.version || detectVersion(cwd);
   trace.event("detect", "version", version, {
-    source: existing?.version ? "version.yml(기존값 보존)"
-      : (opts.version ? "cli-flag(--project-version)" : "프로젝트 파일 감지"),
+    source: existing?.version ? "version.yml(existing value kept)"
+      : (opts.version ? "cli-flag(--project-version)" : "project file detection"),
   });
   const versionCode = existing?.versionCode ?? 1; // 기존 빌드번호 보존 (.sh L2208~2221)
   const branch = detectDefaultBranch(cwd);
   const repoName = detectRepoName(cwd);
-  trace.event("detect", "repo", repoName || "(미상)", { defaultBranch: branch, versionCode });
+  trace.event("detect", "repo", repoName || "(unknown)", { defaultBranch: branch, versionCode });
   // 경로 확정 (.sh resolve_project_paths 비대화형 경로 — --paths 우선 → 저장값 → 후보 1개 자동 → 루트 폴백)
   let cliPaths;
   try {
@@ -172,9 +172,9 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     const at = pth === "." ? marker : `${pth}/${marker}`;
     trace.event("detect", "project-path", ty, {
       path: pth,
-      marker: existsSync(join(cwd, at)) ? at : `${at} (없음)`,
+      marker: existsSync(join(cwd, at)) ? at : `${at} (missing)`,
       source: parsePathsCsv(opts.pathsCsv).has(ty) ? "cli-flag(--paths)"
-        : (existing?.paths?.has(ty) ? "version.yml(저장값)" : "마커 파일 탐색"),
+        : (existing?.paths?.has(ty) ? "version.yml(stored value)" : "marker file search"),
     });
   }
 
@@ -203,23 +203,23 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
 
   // 축 확정 근거 (#561) — "왜 이 값인가"가 가장 헷갈리는 자리다.
   // CLI 플래그 / 저장값 / intent 유도 / 타입 적용성 정리 중 무엇이 이겼는지 남긴다.
-  trace.event("resolve", "intent", String(intent ?? "(미설정)"), {
+  trace.event("resolve", "intent", String(intent ?? "(unset)"), {
     source: opts.intent != null ? "cli-flag(--intent)"
-      : (existing?.options?.intent ? "version.yml(저장값)" : "미지정 → deploy/publish에서 역추론"),
+      : (existing?.options?.intent ? "version.yml(stored value)" : "not given, inferred from deploy/publish"),
   });
   trace.event("resolve", "deploy", deployTarget, {
     source: opts.deployTarget != null ? "cli-flag(--deploy)"
-      : (existing?.options?.deploy ? "version.yml(저장값)" : "기본값"),
+      : (existing?.options?.deploy ? "version.yml(stored value)" : "default"),
     applicableForTypes: applicable.deploy,
     adjusted: beforeCleanup.deploy !== deployTarget
-      ? `${beforeCleanup.deploy} → ${deployTarget} (선택 타입에 적용 불가)` : null,
+      ? `${beforeCleanup.deploy} → ${deployTarget} (not applicable to the selected types)` : null,
   });
-  trace.event("resolve", "publish", publishTargets.join(",") || "(없음)", {
+  trace.event("resolve", "publish", publishTargets.join(",") || "(none)", {
     source: opts.publishTargets != null ? "cli-flag(--publish)"
-      : (existing?.options?.publish ? "version.yml(저장값)" : "기본값"),
+      : (existing?.options?.publish ? "version.yml(stored value)" : "default"),
     applicableForTypes: applicable.publish,
     adjusted: beforeCleanup.publish.join(",") !== publishTargets.join(",")
-      ? `${beforeCleanup.publish.join(",") || "(없음)"} → ${publishTargets.join(",") || "(없음)"} (적용 불가 정리)` : null,
+      ? `${beforeCleanup.publish.join(",") || "(none)"} → ${publishTargets.join(",") || "(none)"} (cleaned up, not applicable)` : null,
   });
 
   const context = createContext({
@@ -262,16 +262,16 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     secretBackup: context.includeSecretBackup,
     changelogProvider: context.changelogProvider,
     coderabbit: context.codeReviewCoderabbit,
-    deployBranch: context.deployBranch || "(미지정 → develop 폴백)",
+    deployBranch: context.deployBranch || "(not given, falls back to develop)",
     recordMode: context.recordMode,
   });
   trace.event("resolve", "semver-auto", String(context.semverAuto), {
-    reason: existing?.options?.semverAuto != null ? "version.yml 저장값 보존"
-      : (existing ? "기존 통합 레포 → 예고 없는 버전 상승 방지를 위해 false"
-                  : "신규 통합 → true"),
+    reason: existing?.options?.semverAuto != null ? "stored value in version.yml kept"
+      : (existing ? "existing integrated repo, false to avoid unannounced version jumps"
+                  : "new integration, true"),
   });
   trace.event("resolve", "app-release", String(context.appRelease), {
-    reason: existing?.options?.appRelease != null ? "version.yml 저장값 보존" : "미설정(키를 쓰지 않음)",
+    reason: existing?.options?.appRelease != null ? "stored value in version.yml kept" : "unset (key not written)",
   });
 
   let result = null;
@@ -299,7 +299,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     }));
     trace.event("breaking", "result", proceed ? "proceed" : "halt", { items: (breakingReport ?? []).length });
     if (!proceed) {
-      trace.event("run", "cancelled", "breaking-gate", { reason: "호환성 경고로 중단" });
+      trace.event("run", "cancelled", "breaking-gate", { reason: "stopped by breaking-change warning" });
       return 0;
     }
 
@@ -318,9 +318,9 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
           options: { includeSecretBackup: context.includeSecretBackup, aiPrSummary: context.aiPrSummary, deployTarget } }),
         { selectedTypes: types });
       orphanPending = orphans.map((o) => o.filename);
-      for (const o of orphans) trace.event("orphan", "detected", o.filename, { type: o.type, action: "안내만(비대화형)" });
+      for (const o of orphans) trace.event("orphan", "detected", o.filename, { type: o.type, action: "notice only (non-interactive)" });
       for (const o of orphans) {
-        console.error(`⚠️ 선택되지 않은 타입(${o.type})의 워크플로우가 남아있습니다: ${o.filename} — 대화형 마법사(npx projectops)에서 정리할 수 있습니다.`);
+        console.error(t("run.orphanNotice", { type: o.type, file: o.filename }));
       }
     }
 

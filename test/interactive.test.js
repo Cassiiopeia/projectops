@@ -181,7 +181,7 @@ test("대화형: full 완료 시 마이그레이션 가이드 + JSONL 트레이�
     const guide = join(cwd, GUIDE_FILE);
     assert.ok(exists(guide), "가이드 생성");
     const md = readFileSync(guide, "utf8");
-    assert.match(md, /# ProjectOps 마이그레이션 가이드/);
+    assert.match(md, /# ProjectOps Migration Guide/);
     assert.match(md, /schema: 1/);
     assert.match(md, /PROJECT-REACT-CICD\.yaml/); // 복사된 워크플로우가 메타에 반영
     // JSONL 트레이스 — 가이드 메타의 trace_file 경로가 실제로 존재

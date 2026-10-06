@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { collectBreaking } from "./breaking.js";
 import { parseExisting } from "./version-yml.js";
+import { t } from "../i18n/index.js";
 
 const BC_URL = "https://raw.githubusercontent.com/Cassiiopeia/projectops/main/.github/config/breaking-changes.json";
 
@@ -46,7 +47,7 @@ export async function runBreakingCheck({ cwd, tempDir, templateVersion, askYesNo
   // 긴 본문 래핑이 ║ 박스 경계를 붕괴시켰다. 버전·제목만 한 줄씩, 전문은 선택 열람.)
   const e = (s = "") => process.stderr.write(s + "\n");
   e("");
-  e(`⚠️  BREAKING CHANGES (v${current} -> v${templateVersion}) - CRITICAL ${critical.length}건, WARNING ${warnings.length}건`);
+  e(t("breaking.title", { current, target: templateVersion, critical: critical.length, warnings: warnings.length }));
   e("");
   for (const c of critical) e(`  ❗ [CRITICAL] ${c.version} - ${c.title || ""}`);
   for (const w of warnings) e(`  ⚠️ [WARNING]  ${w.version} - ${w.title || ""}`);
@@ -54,7 +55,7 @@ export async function runBreakingCheck({ cwd, tempDir, templateVersion, askYesNo
 
   if (askYesNo) {
     // 대화형: 전문(조치 방법)은 원할 때만 펼친다
-    const detail = await askYesNo("각 항목의 상세 내용(조치 방법)을 볼까요?", false);
+    const detail = await askYesNo(t("breaking.askDetail"), false);
     if (detail === true) {
       for (const it of [...critical, ...warnings]) {
         e("");
@@ -64,7 +65,7 @@ export async function runBreakingCheck({ cwd, tempDir, templateVersion, askYesNo
       e("");
     }
   } else {
-    e("  상세 내용, 조치 방법: .github/config/breaking-changes.json 참고");
+    e(t("breaking.seeJson"));
     e(`  (${BC_URL})`);
     e("");
   }
@@ -72,11 +73,11 @@ export async function runBreakingCheck({ cwd, tempDir, templateVersion, askYesNo
   if (critical.length > 0) {
     if (askYesNo) {
       // 대화형: 명시 확인 없으면 중단 (기본 N — .sh 등가)
-      const ok = await askYesNo("위 호환성 변경을 확인했고 계속 진행할까요?", false);
+      const ok = await askYesNo(t("breaking.askContinue"), false);
       if (ok !== true) return false;
     } else {
       // 비대화형(--force): 게이트로 CI를 죽이지 않고 경고 후 진행 (.sh와 의도적 차이 — CI 친화)
-      e("⚠️  CRITICAL 호환성 변경이 있습니다 — 비대화형 실행이라 계속 진행합니다. 위 내용을 꼭 확인하세요.");
+      e(t("breaking.nonInteractive"));
     }
   }
   return true;

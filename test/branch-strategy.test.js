@@ -113,7 +113,7 @@ test("ensureDeployBranch: 없으면 확인 후 생성 (push 거절 경로) + pus
     // #481 — push 질문이 어느 브랜치인지 명시
     assert.ok(prompts.some((p) => p.includes("'develop'") && p.includes("push")), `push 질문에 브랜치명 없음: ${JSON.stringify(prompts)}`);
     // #482 — 안내에서 "배포 브랜치" 대신 "개발" 표현 사용
-    assert.ok(logs.some((l) => l.includes("개발") && l.includes("develop")), "개발 브랜치 표현 없음");
+    assert.ok(logs.some((l) => l.includes("Development") && l.includes("develop")), "개발 브랜치 표현 없음");
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

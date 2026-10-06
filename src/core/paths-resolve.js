@@ -9,6 +9,7 @@
 //   io.log(line)                                   → 안내 출력 (없으면 stderr)
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { t as msg } from "../i18n/index.js";
 import { markerForType as baseMarkerForType, extraMarkers } from "./detect.js";
 import { normalizePath } from "../cli/args.js";
 
@@ -132,11 +133,11 @@ export async function resolveProjectPaths({
   const total = targets.length;
   // ── 도입부 안내 (.sh L1407~1434 — 감지 결과 + 무엇을 할지 설명) ──
   say("");
-  if (total > 1) say(`🔍 멀티타입 프로젝트가 감지되었습니다 — 총 ${total}개 타입`);
-  else say(`🔍 ${targets[0]} 프로젝트가 감지되었습니다 — 총 1개 타입`);
+  if (total > 1) say(msg("paths.multi", { total }));
+  else say(msg("paths.single", { type: targets[0] }));
   for (const t of targets) say(`   • ${t.padEnd(8)} → ${existingMarkerInDir(t, root)}`);
   say("");
-  say("💡 '프로젝트 루트' = 그 타입의 버전 파일이 있는 폴더 (레포 루트 기준 상대경로)");
+  say(msg("paths.rootDef"));
   say("");
 
   let idx = 0;
@@ -146,7 +147,7 @@ export async function resolveProjectPaths({
 
     // ① --paths 등으로 이미 지정됨 → 최우선 (.sh L1441~1446)
     if (result.get(t)) {
-      say(`  ${t} → ${result.get(t)} (--paths 지정)`);
+      say(msg("paths.byFlag", { type: t, path: result.get(t) }));
       continue;
     }
 
@@ -154,7 +155,7 @@ export async function resolveProjectPaths({
     const rootMarker = existingMarkerInDir(t, root);
     if (rootMarker && existsSync(join(root, rootMarker))) {
       result.set(t, ".");
-      say(`  ${t} → . (루트의 ${rootMarker})`);
+      say(msg("paths.atRoot", { type: t, marker: rootMarker }));
       continue;
     }
 
@@ -169,13 +170,13 @@ export async function resolveProjectPaths({
     if (force || !tty) {
       if (existing) {
         chosen = existing;
-        say(`  ${t} → ${chosen} (기존 project_paths 유지)`);
+        say(msg("paths.keptSaved", { type: t, path: chosen }));
       } else if (candidates.length === 1) {
         chosen = candidates[0];
-        say(`  ${t} → ${chosen} (자동 감지)`);
+        say(msg("paths.autoDetected", { type: t, path: chosen }));
       } else {
         chosen = ".";
-        say(`  ⚠️ ${t} → 후보 ${candidates.length}개로 자동 확정 불가, 루트(.)로 기록 (--paths "${t}=경로"로 지정 가능)`);
+        say(msg("paths.ambiguous", { type: t, count: candidates.length }));
       }
       result.set(t, chosen);
       continue;
@@ -189,14 +190,14 @@ export async function resolveProjectPaths({
       const candMarker = existingMarkerInDir(t, cand === "." ? root : join(root, cand));
       const candFull = cand === "." ? candMarker : `${cand}/${candMarker}`;
       say("");
-      say(`  ${prog} 🔍 ${t} — ${candMarker} 발견`);
-      say(`      위치: <레포루트>/${candFull}`);
+      say(msg("paths.found", { prog, type: t, marker: candMarker }));
+      say(msg("paths.location", { file: candFull }));
       const sel = await io.select({
-        message: `  ${t} 프로젝트 루트를 '${cand}'(으)로 설정할까요?`,
+        message: msg("paths.confirmPrompt", { type: t, cand }),
         options: [
-          { value: cand, label: `예 — '${cand}' 사용 (${candFull} 기준)` },
-          { value: "직접 입력", label: "아니오 — 경로 직접 입력" },
-          { value: EXCLUDE, label: `이 타입 아님 — ${t} 설치 대상에서 제외` },
+          { value: cand, label: msg("paths.confirmYes", { cand, file: candFull }) },
+          { value: "직접 입력", label: msg("paths.confirmManual") },
+          { value: EXCLUDE, label: msg("paths.exclude", { type: t }) },
         ],
       });
       if (sel === EXCLUDE) excluded = true;
@@ -204,28 +205,28 @@ export async function resolveProjectPaths({
       // ESC/직접 입력 → 아래 직접입력 루프로
     } else if (candidates.length > 1) {
       say("");
-      say(`  ${prog} 🔍 ${t}: 경로 후보 ${candidates.length}개 발견`);
+      say(msg("paths.multiFound", { prog, type: t, count: candidates.length }));
       // 후보들 + '직접 입력'/'이 타입 제외' 메뉴 — value 자체를 한국어로 (센티넬 노출 방지, .sh L1508~1521)
       const options = candidates.map((c) => ({
         value: c,
         label: `${c} (${existingMarkerInDir(t, c === "." ? root : join(root, c))})`,
       }));
-      options.push({ value: "직접 입력", label: "직접 입력" });
-      options.push({ value: EXCLUDE, label: `이 타입 아님 — ${t} 설치 대상에서 제외` });
-      const sel = await io.select({ message: `  ${t} 프로젝트 루트를 선택하세요`, options });
+      options.push({ value: "직접 입력", label: msg("paths.manual") });
+      options.push({ value: EXCLUDE, label: msg("paths.exclude", { type: t }) });
+      const sel = await io.select({ message: msg("paths.selectPrompt", { type: t }), options });
       // ESC(취소)도 직접 입력으로 폴백 (.sh `|| _sel="직접 입력"`)
       if (sel === EXCLUDE) excluded = true;
       else if (!isCancel(sel) && sel != null && sel !== "직접 입력") chosen = sel;
     } else {
       say("");
-      say(`  ⚠️ ${prog} ${t}: 프로젝트를 찾지 못했습니다 (maxdepth 3).`);
+      say(msg("paths.notFound", { prog, type: t }));
     }
 
     // ── 직접 입력 루프 (위에서 미확정 시, .sh L1528~1553) — 제외 탈출구 포함 (#487) ──
     while (!chosen && !excluded) {
       const hintMarker = existingMarkerInDir(t, root);
-      let prompt = `  ${t} 프로젝트 루트 경로 입력 (${hintMarker} 이 있는 폴더, 예: server, app — 루트면 그냥 Enter`;
-      if (existing) prompt += `, 현재값: ${existing}`;
+      let prompt = msg("paths.inputPrompt", { type: t, marker: hintMarker });
+      if (existing) prompt += msg("paths.inputCurrent", { value: existing });
       prompt += "): ";
       let input = await io.text({ message: prompt, defaultValue: "" });
       if (isCancel(input) || input == null) input = ""; // ESC → 빈값 (아래 폴백)
@@ -237,13 +238,13 @@ export async function resolveProjectPaths({
       if (m && existsSync(join(root, input === "." ? "" : input, m))) {
         chosen = input;
       } else {
-        say(`  ⚠️ ${input}/${m} 파일이 없습니다.`);
+        say(msg("paths.missingFile", { path: input, marker: m }));
         const act = await io.select({
-          message: "  어떻게 할까요?",
+          message: msg("paths.actionPrompt"),
           options: [
-            { value: "retry", label: "다시 입력" },
-            { value: "force", label: `그래도 '${input}' 경로 사용` },
-            { value: EXCLUDE, label: `이 타입 아님 — ${t} 설치 대상에서 제외` },
+            { value: "retry", label: msg("paths.retry") },
+            { value: "force", label: msg("paths.force", { path: input }) },
+            { value: EXCLUDE, label: msg("paths.exclude", { type: t }) },
           ],
         });
         if (act === "force") chosen = input;
@@ -253,7 +254,7 @@ export async function resolveProjectPaths({
     }
 
     if (excluded) {
-      say(`  ➖ ${t} 제외 — 이 타입은 버전 동기화·워크플로우 설치 대상에서 빠집니다`);
+      say(msg("paths.excluded", { type: t }));
       continue;
     }
 
@@ -263,7 +264,7 @@ export async function resolveProjectPaths({
 
   // ── 요약 + 같은 마커 파일 중복 경고 (.sh L1559~1587) ──
   say("");
-  say("📂 타입별 버전 파일 경로 확정:");
+  say(msg("paths.summary"));
   const fileToTypes = new Map(); // 마커 파일 상대경로 → 그 파일을 쓰는 타입들
   for (const [pt, pp] of result) {
     const m = existingMarkerInDir(pt, pp === "." ? root : join(root, pp));
@@ -275,8 +276,8 @@ export async function resolveProjectPaths({
   for (const [file, ts] of fileToTypes) {
     if (ts.length > 1) {
       // 멱등 동작이라 막지는 않고 경고만 (.sh L1577~1586)
-      say(`  ⚠️ 같은 파일(${file})을 여러 타입(${ts.join(" ")})이 바라봅니다.`);
-      say("     → sync 때 모두 같은 버전이 기록됩니다. 동작에는 문제없지만 의도한 구성인지 확인하세요.");
+      say(msg("paths.duplicate", { types: ts.join(" "), file }));
+      say(msg("paths.duplicateNote"));
     }
   }
   say("");

@@ -42,7 +42,7 @@ export function parseArgs(argv) {
       {
         const v = (args.shift() ?? "").trim();
         if (!MODE_VALUES.includes(v)) {
-          throw new CliError(`--mode 값은 ${MODE_VALUES.join(" | ")} 중 하나여야 합니다: '${v}'`);
+          throw new CliError(t("args.mode", { values: MODE_VALUES.join(" | "), v }));
         }
         result.mode = v;
         break;
@@ -56,7 +56,7 @@ export function parseArgs(argv) {
         // 'v1.0.0'은 사용자가 흔히 쓰는 표기라 거부하지 않고 접두사만 떼어 받는다
         const v = (args.shift() ?? "").trim().replace(/^[vV](?=\d)/, "");
         if (!SEMVER_RE.test(v)) {
-          throw new CliError(`--project-version 값은 x.y.z (예: 1.0.0) 형식이어야 합니다: '${v}'`);
+          throw new CliError(t("args.projectVersion", { v }));
         }
         result.version = v;
         break;
@@ -65,17 +65,17 @@ export function parseArgs(argv) {
         const csv = args.shift() ?? "";
         const seen = new Set();
         const types = [];
-        for (let t of csv.split(",")) {
-          t = t.replace(/\s/g, "");
-          if (t === "") continue;
-          if (seen.has(t)) continue;         // dedup
-          if (!VALID_TYPES.includes(t)) {
-            throw new CliError(`지원하지 않는 타입: '${t}'\n지원 타입: ${VALID_TYPES.join(" ")}`);
+        for (let ty of csv.split(",")) {
+          ty = ty.replace(/\s/g, "");
+          if (ty === "") continue;
+          if (seen.has(ty)) continue;         // dedup
+          if (!VALID_TYPES.includes(ty)) {
+            throw new CliError(t("args.unsupportedType", { type: ty, valid: VALID_TYPES.join(" ") }));
           }
-          seen.add(t);
-          types.push(t);
+          seen.add(ty);
+          types.push(ty);
         }
-        if (types.length === 0) throw new CliError("--type 인자가 비어 있습니다");
+        if (types.length === 0) throw new CliError(t("args.typeEmpty"));
         result.types = types;
         result.primaryType = types[0];
         break;
@@ -92,7 +92,7 @@ export function parseArgs(argv) {
       case "--deploy": {
         const v = args.shift() ?? "";
         if (!DEPLOY_TARGETS.includes(v)) {
-          throw new CliError(`--deploy 값은 ${DEPLOY_TARGETS.join(" | ")} 중 하나여야 합니다: '${v}'`);
+          throw new CliError(t("args.deploy", { values: DEPLOY_TARGETS.join(" | "), v }));
         }
         result.deployTarget = v;
         break;
@@ -100,13 +100,13 @@ export function parseArgs(argv) {
       case "--publish": {
         const csv = args.shift() ?? "";
         const targets = [];
-        for (let t of csv.split(",")) {
-          t = t.replace(/\s/g, "");
-          if (t === "") continue;
-          if (!PUBLISH_TARGETS.includes(t)) {
-            throw new CliError(`--publish 값은 ${PUBLISH_TARGETS.join(" | ")} csv여야 합니다: '${t}'`);
+        for (let pt of csv.split(",")) {
+          pt = pt.replace(/\s/g, "");
+          if (pt === "") continue;
+          if (!PUBLISH_TARGETS.includes(pt)) {
+            throw new CliError(t("args.publish", { values: PUBLISH_TARGETS.join(" | "), v: pt }));
           }
-          if (!targets.includes(t)) targets.push(t);
+          if (!targets.includes(pt)) targets.push(pt);
         }
         result.publishTargets = targets;
         break;
@@ -116,7 +116,7 @@ export function parseArgs(argv) {
         const v = (args.shift() ?? "").trim();
         // 워크플로우 yaml·셸에 그대로 삽입되므로 안전한 브랜치명만 허용 (#676)
         if (v && (!BRANCH_RE.test(v) || v.includes("..") || v.endsWith("/") || v.endsWith(".lock"))) {
-          throw new CliError(`--deploy-branch 값은 글자·숫자·. _ - / 로 이루어진 브랜치명이어야 합니다: '${v}'`);
+          throw new CliError(t("args.deployBranch", { v }));
         }
         if (v) result.deployBranch = v;
         break;
@@ -125,7 +125,7 @@ export function parseArgs(argv) {
         // 프로젝트 성격 (#485). 미지정이면 --deploy/--publish에서 역추론.
         const v = (args.shift() ?? "").trim();
         if (!INTENT_VALUES.includes(v)) {
-          throw new CliError(`--intent 값은 ${INTENT_VALUES.join(" | ")} 중 하나여야 합니다: '${v}'`);
+          throw new CliError(t("args.intent", { values: INTENT_VALUES.join(" | "), v }));
         }
         result.intent = v;
         break;
@@ -141,7 +141,7 @@ export function parseArgs(argv) {
       }
       // ── deprecated alias (1 minor 유지 — #439) ──
       case "--nexus":
-        process.stderr.write("⚠️  --nexus는 deprecated입니다. --publish nexus --deploy none 을 사용하세요.\n");
+        process.stderr.write(t("args.nexusDeprecated") + "\n");
         result.publishTargets = [...new Set([...(result.publishTargets ?? []), "nexus"])];
         if (result.deployTarget === null) result.deployTarget = "none";
         break;
@@ -154,7 +154,7 @@ export function parseArgs(argv) {
       case "--ai-summary": result.aiPrSummary = true; break;
       case "--no-ai-summary": result.aiPrSummary = false; break;
       case "--npm-publish":
-        process.stderr.write("⚠️  --npm-publish는 deprecated입니다. --publish npm 을 사용하세요.\n");
+        process.stderr.write(t("args.npmPublishDeprecated") + "\n");
         result.publishTargets = [...new Set([...(result.publishTargets ?? []), "npm"])];
         break;
       case "--no-npm-publish":
@@ -163,7 +163,7 @@ export function parseArgs(argv) {
       case "--paths": result.pathsCsv = args.shift() ?? ""; break;
       case "-h": case "--help": result.help = true; break;
       default:
-        throw new CliError(`알 수 없는 옵션: ${a}`);
+        throw new CliError(t("args.unknownOption", { opt: a }));
     }
   }
   return result;
@@ -187,18 +187,18 @@ export function normalizePath(p) {
 export function validatePathsMap(map, { root, types }) {
   for (const [type, p] of map) {
     if (!types.includes(type)) {
-      throw new CliError(`--paths 에 선택하지 않은 타입이 있습니다: '${type}' (선택한 타입: ${types.join(",") || "없음"})`);
+      throw new CliError(t("args.paths.unselected", { type, types: types.join(",") || t("args.paths.none") }));
     }
     if (p.startsWith("/") || /^[A-Za-z]:/.test(p) || p.split("/").includes("..")) {
-      throw new CliError(`--paths ${type}=${p} : 저장소 루트 기준 상대 경로여야 합니다 (절대경로, '..' 불가)`);
+      throw new CliError(t("args.paths.relative", { type, path: p }));
     }
     const abs = join(root, p);
     if (!existsSync(abs) || !statSync(abs).isDirectory()) {
-      throw new CliError(`--paths ${type}=${p} : 존재하지 않는 폴더입니다`);
+      throw new CliError(t("args.paths.missing", { type, path: p }));
     }
     const rel = relative(realpathSync(root), realpathSync(abs));
     if (rel.startsWith("..") || isAbsolute(rel)) {
-      throw new CliError(`--paths ${type}=${p} : 저장소 밖을 가리킵니다`);
+      throw new CliError(t("args.paths.outside", { type, path: p }));
     }
   }
 }
@@ -213,7 +213,7 @@ export function parsePathsCsv(csv) {
     const type = (eq >= 0 ? pair.slice(0, eq) : pair).trim();
     const rawPath = eq >= 0 ? pair.slice(eq + 1) : "";
     if (!VALID_TYPES.includes(type)) {
-      throw new CliError(`--paths에 지원하지 않는 타입: '${type}'`);
+      throw new CliError(t("args.paths.badType", { type }));
     }
     map.set(type, normalizePath(rawPath));
   }

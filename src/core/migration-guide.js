@@ -11,34 +11,34 @@ export const GUIDE_FILE = `${MIGRATION_DIR}/PROJECTOPS-MIGRATION-GUIDE.md`;
 export const GUIDE_SCHEMA = 1;
 
 // 고정 헤더 — 문서 목적 + AI Agent 해석 가이드라인. 최초 생성 시 1회만 쓴다 (엔트리와 분리).
-const HEADER = `# ProjectOps 마이그레이션 가이드
+const HEADER = `# ProjectOps Migration Guide
 
-이 문서는 projectops 마법사(\`npx projectops\`)가 **실행을 마칠 때마다 자동으로 기록**하는
-마이그레이션 이력입니다. 실행 엔트리는 아래에 시간순으로 append되며, 기존 엔트리는 수정되지 않습니다.
+This document is **written automatically every time a run finishes** by the projectops wizard (\`npx projectops\`).
+Run entries are appended below in chronological order, and existing entries are never modified.
 
-## 사람이 읽는 법
+## How humans read it
 
-- 각 엔트리의 **확인 체크리스트**가 그 실행 이후 사람이 마무리해야 하는 수동 작업입니다.
-- 체크리스트는 실행에서 실제 발생한 것만 나옵니다. 항목이 없으면 할 일이 없다는 뜻입니다.
-- 상세 실행 기록(파일별 결정과 치환 전후값)은 엔트리 메타의 \`trace_file\`(JSONL)과 \`log_file\`(터미널 원문)에 있습니다.
+- The **checklist** in each entry lists the manual work a person still has to finish after that run.
+- The checklist only contains things that actually happened in the run. No items means nothing to do.
+- Detailed run records (per-file decisions and before/after values) are in the entry metadata: \`trace_file\` (JSONL) and \`log_file\` (raw terminal output).
 
-## AI Agent 해석 가이드라인
+## Guidelines for AI agents
 
-각 엔트리의 \`\`\`yaml 메타 블록(\`# projectops-migration\`)을 파싱해 아래 규칙으로 판단하고 조치한다.
+Parse the \`\`\`yaml metadata block (\`# projectops-migration\`) of each entry and decide and act with the rules below.
 
-| 필드 | 의미 | 권장 조치 |
-|------|------|----------|
-| \`workflows.leftover_old_gen\` | 구세대 워크플로우가 현역 가능성으로 보존됨 | 신형과 트리거 중복 여부 검사 → 전환 확인 후 구 파일 삭제 제안 |
-| \`workflows.skipped_conflict\` | 사용자 수정본이 유지됨 (신형 미적용) | 사용자본과 신형 템플릿 diff → 병합 제안 |
-| \`workflows.replaced_bak\` | .bak 백업 후 신형으로 교체됨 | .bak과 신형 비교 → 사용자 커스텀 유실분 복원 검토 후 .bak 정리 |
-| \`env_applied\` | 워크플로우에 적용된 환경값 | 실제 워크플로우 env와 대조 → 드리프트 발견 시 경고 |
-| \`breaking_traversed\` | 이 실행이 통과한 호환성 변경 (조치 방법 전문은 사람용 섹션) | \`action_required: true\` 항목의 조치 완료 여부 확인 |
-| \`manual_actions_pending\` | 남은 수동 작업 코드 목록 | 비어 있지 않으면 사용자에게 상기 |
-| \`trace_file\` | 파일별 결정과 치환 전후값 JSONL (Layer 2) | "왜 이 파일이 이렇게 됐나"는 파일명으로 grep |
-| \`log_file\` | 터미널 출력 원문 (Layer 3) | 실행 재현, 포렌식 디버깅용 |
+| Field | Meaning | Recommended action |
+|-------|---------|--------------------|
+| \`workflows.leftover_old_gen\` | Old-generation workflows kept because they may be live | Check for trigger overlap with the new ones, then suggest deleting the old file once the switch is confirmed |
+| \`workflows.skipped_conflict\` | The user's modified file was kept (new template not applied) | Diff the user's file against the new template and suggest a merge |
+| \`workflows.replaced_bak\` | Replaced by the new one after a .bak backup | Compare .bak with the new file, review any lost customizations, then clean up the .bak |
+| \`env_applied\` | Environment values applied to workflows | Compare with the real workflow env and warn on drift |
+| \`breaking_traversed\` | Breaking changes this run passed through (full action steps are in the human section) | Check that items with \`action_required: true\` were handled |
+| \`manual_actions_pending\` | Codes of the remaining manual work | If not empty, remind the user |
+| \`trace_file\` | JSONL of per-file decisions and before/after values (Layer 2) | To learn why a file ended up this way, grep by file name |
+| \`log_file\` | Raw terminal output (Layer 3) | For reproducing the run and forensic debugging |
 
-- 스키마는 \`schema\` 필드로 버저닝된다. 모르는 필드는 무시하고, 아는 필드만 사용한다.
-- 여러 엔트리가 있으면 **가장 최근 엔트리**가 현재 상태의 기준이다. 과거 엔트리는 이력 참고용.
+- The schema is versioned by the \`schema\` field. Ignore unknown fields and use only the ones you know.
+- When there are several entries, the **latest entry** is the reference for the current state. Older entries are history.
 `;
 
 // ── yaml 렌더 헬퍼 (외부 의존성 없이 수동 직렬화 — version-yml.js와 동일 원칙) ──
@@ -98,45 +98,45 @@ export function renderGuideEntry(report) {
   L.push("");
   L.push(`## ${r.now || ""} - v${from} → v${to} (${r.mode || "full"})`);
   L.push("");
-  L.push(`- 타입: ${(r.types ?? []).join(", ") || "-"} / 배포: ${r.options?.deploy ?? "-"} / publish: ${(r.options?.publish ?? []).join(",") || "없음"}`);
-  L.push(`- 워크플로우: 신규/갱신 ${wf.added.length + wf.replacedBak.length}개, 유지(unchanged/충돌스킵) ${(r.counters?.skipped ?? 0)}개`);
+  L.push(`- Types: ${(r.types ?? []).join(", ") || "-"} / deploy: ${r.options?.deploy ?? "-"} / publish: ${(r.options?.publish ?? []).join(",") || "none"}`);
+  L.push(`- Workflows: ${wf.added.length + wf.replacedBak.length} new/updated, ${(r.counters?.skipped ?? 0)} kept (unchanged or skipped on conflict)`);
   L.push("");
 
   // ── 확인 체크리스트 (동적 — 실제 발생분만) ──
   const checklist = [];
   if (leftoverOldGen.length) {
-    checklist.push(`- [ ] **구세대 배포 워크플로우 ${leftoverOldGen.length}개 전환 후 삭제** (현역 배포일 수 있어 마법사가 건드리지 않았습니다):`);
-    for (const o of leftoverOldGen) checklist.push(`  - \`${o.file}\`${o.replacement ? ` → 신형 \`${o.replacement}\`` : ""}`);
+    checklist.push(`- [ ] **Switch to the new workflow, then delete ${leftoverOldGen.length} old-generation deploy workflow(s)** (they may be live deployments, so the wizard left them alone):`);
+    for (const o of leftoverOldGen) checklist.push(`  - \`${o.file}\`${o.replacement ? ` → new \`${o.replacement}\`` : ""}`);
   }
   if (wf.replacedBak.length || legacyNeutralized.length) {
-    checklist.push(`- [ ] **.bak 백업 파일 확인 후 정리** (커스텀 유실분이 없는지 신형과 비교하세요):`);
-    for (const f of wf.replacedBak) checklist.push(`  - \`${f}.bak\` (충돌 교체 백업)`);
-    for (const a of legacyNeutralized) if (a.to && String(a.to).endsWith(".bak")) checklist.push(`  - \`${a.to}\` (레거시 무해화)`);
+    checklist.push(`- [ ] **Review the .bak backup files, then clean them up** (compare with the new file to be sure no customization was lost):`);
+    for (const f of wf.replacedBak) checklist.push(`  - \`${f}.bak\` (backup from conflict replacement)`);
+    for (const a of legacyNeutralized) if (a.to && String(a.to).endsWith(".bak")) checklist.push(`  - \`${a.to}\` (legacy neutralized)`);
   }
   if (wf.skippedConflict.length) {
-    checklist.push(`- [ ] **기존 수정본 유지 ${wf.skippedConflict.length}개, 신형과 병합 검토**: ${wf.skippedConflict.map((f) => `\`${f}\``).join(", ")}`);
+    checklist.push(`- [ ] **Kept ${wf.skippedConflict.length} modified file(s), review a merge with the new template**: ${wf.skippedConflict.map((f) => `\`${f}\``).join(", ")}`);
     // #654 — 새 템플릿 사본이 있으면 비교 방법까지 적는다
     for (const d of wf.skippedConflictDetails.filter((x) => x.incoming)) {
-      const cnt = d.added != null && d.removed != null ? ` (추가 ${d.added}줄, 삭제 ${d.removed}줄)` : "";
+      const cnt = d.added != null && d.removed != null ? ` (+${d.added} / -${d.removed} lines)` : "";
       checklist.push(`  - \`${d.file}\`${cnt}: \`diff -u .github/workflows/${d.file} ${d.incoming}\``);
     }
   }
   if (wf.added.length || wf.replacedBak.length) {
-    checklist.push(`- [ ] **새/갱신 CICD가 요구하는 GitHub Secrets 등록 확인** (Settings → Secrets → Actions, \`_GITHUB_PAT_TOKEN\` 포함)`);
+    checklist.push(`- [ ] **Check that the GitHub Secrets required by the new/updated CICD are registered** (Settings → Secrets → Actions, including \`_GITHUB_PAT_TOKEN\`)`);
   }
   if (envByType.size) {
-    checklist.push(`- [ ] **적용된 배포 환경값 검증** (실제 환경과 다르면 워크플로우 env를 직접 수정):`);
+    checklist.push(`- [ ] **Verify the applied deploy environment values** (edit the workflow env directly if they differ from your real environment):`);
     for (const [t, kv] of envByType) {
       for (const [k, v] of kv) checklist.push(`  - ${t} \`${k}\` = \`${v}\``);
     }
   }
   if (r.branches?.created === true) {
-    checklist.push(`- [x] 개발(릴리스 소스) 브랜치 \`${r.branches?.deployBranch ?? "develop"}\`: 마법사가 생성 및 확인 완료`);
+    checklist.push(`- [x] Development (release source) branch \`${r.branches?.deployBranch ?? "develop"}\`: created and verified by the wizard`);
   } else if (r.branches?.ready === false) {
-    checklist.push(`- [ ] 개발(릴리스 소스) 브랜치 \`${r.branches?.deployBranch ?? "develop"}\` 생성 (릴리스 PR이 동작하려면 필요합니다)`);
+    checklist.push(`- [ ] Create the development (release source) branch \`${r.branches?.deployBranch ?? "develop"}\` (required for the release PR to work)`);
   }
   if (checklist.length) {
-    L.push("### 확인 체크리스트");
+    L.push("### Checklist");
     L.push("");
     L.push(...checklist);
     L.push("");
@@ -144,7 +144,7 @@ export function renderGuideEntry(report) {
 
   // ── 버전 점프에서 통과한 호환성 변경 (조치 방법 전문 — 터미널에서 스킵해도 여기 남는다) ──
   if (breakingAll.length) {
-    L.push(`### 통과한 호환성 변경 (v${breaking.current} → v${breaking.target})`);
+    L.push(`### Breaking changes passed through (v${breaking.current} → v${breaking.target})`);
     L.push("");
     for (const it of breakingAll) {
       const sev = (breaking.critical ?? []).includes(it) ? "CRITICAL" : "WARNING";
@@ -155,7 +155,7 @@ export function renderGuideEntry(report) {
   }
 
   // ── AI 메타데이터 ──
-  L.push("### AI 메타데이터");
+  L.push("### AI metadata");
   L.push("");
   L.push("```yaml");
   L.push("# projectops-migration (machine-readable)");

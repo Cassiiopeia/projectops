@@ -1,8 +1,18 @@
 // English messages (source of truth). Keys are grouped by area: <area>.<name>.
 import summary from "./summary.en.js";
+import doctor from "./doctor.en.js";
+import options from "./options.en.js";
+import migrate from "./migrate.en.js";
+import core from "./core.en.js";
+import ide from "./ide.en.js";
 
 export default {
   ...summary,
+  ...doctor,
+  ...options,
+  ...migrate,
+  ...core,
+  ...ide,
   // prompt engine hints
   "engine.hint.select": "↑/↓ move, Enter confirm, ESC cancel",
   "engine.hint.multiselect": "↑/↓ move, Space toggle, a all, Enter confirm, ESC cancel",

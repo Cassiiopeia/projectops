@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { existsSync, readdirSync, mkdirSync, cpSync, rmSync } from "node:fs";
 import { compareCacheName } from "../util.js";
 import { migrateConfigRoot } from "../legacy.js";
+import { t } from "../../../i18n/index.js";
 
 const MARKETPLACE = "Cassiiopeia/projectops";
 const PLUGIN = "projectops@projectops-marketplace";
@@ -12,7 +13,7 @@ const LEGACY_PLUGINS = ["cassiiopeia@cassiiopeia-marketplace", "cassiiopeia"];
 const LEGACY_MARKETPLACES = ["cassiiopeia-marketplace"];
 
 function detect(io) {
-  if (!io.which("claude")) return { installed: false, version: null, cliMissing: true, note: "CLI 없음" };
+  if (!io.which("claude")) return { installed: false, version: null, cliMissing: true, note: t("ide.cliMissing") };
   const r = io.run("claude", ["plugin", "list", "--json"]);
   let scope = "", version = null;
   try {
@@ -48,7 +49,7 @@ function migrateLegacy(io) {
     });
     if (hit) {
       const scope = hit.scope || "user";
-      io.log(`  레거시 플러그인 정리: ${legacy} (scope: ${scope})`);
+      io.log(t("ide.claude.legacy", { name: legacy, scope }));
       io.run("claude", ["plugin", "uninstall", legacy, "--scope", scope]);
     }
   }
@@ -58,39 +59,39 @@ function migrateLegacy(io) {
 }
 
 function install(io, scope = "user") {
-  io.log("Claude Code 마켓플레이스 등록 중...");
+  io.log(t("ide.claude.marketAdding"));
   const add = io.run("claude", ["plugin", "marketplace", "add", MARKETPLACE]);
-  io.log(add.code === 0 ? "  마켓플레이스 등록 완료" : "  마켓플레이스 이미 등록되어 있거나 등록 생략");
-  io.log(`Claude Code 플러그인 설치 중 (scope: ${scope})...`);
+  io.log(t(add.code === 0 ? "ide.claude.marketAdded" : "ide.claude.marketSkipped"));
+  io.log(t("ide.claude.installing", { scope }));
   const ins = io.run("claude", ["plugin", "install", PLUGIN, "--scope", scope]);
-  if (ins.code === 0) { io.log(`  Claude Code 플러그인 설치 완료 (scope: ${scope})`); return true; }
-  io.log(`  플러그인 설치 실패. 수동: claude plugin install ${PLUGIN} --scope ${scope}`);
+  if (ins.code === 0) { io.log(t("ide.claude.installed", { scope })); return true; }
+  io.log(t("ide.claude.installFailed", { plugin: PLUGIN, scope }));
   return false;
 }
 
 function update(io, scope) {
   const cacheRoot = join(io.home(), ".claude/plugins/cache/projectops-marketplace/projectops");
   const oldCache = latestCacheDir(cacheRoot);
-  io.log("플러그인 업데이트 중...");
+  io.log(t("ide.claude.updating"));
   const up = io.run("claude", ["plugin", "update", PLUGIN, "--scope", scope]);
-  if (up.code !== 0) { io.log(`  업데이트 실패. 수동: claude plugin update ${PLUGIN} --scope ${scope}`); return false; }
-  io.log(`  업데이트 완료 (scope: ${scope})`);
+  if (up.code !== 0) { io.log(t("ide.claude.updateFailed", { plugin: PLUGIN, scope })); return false; }
+  io.log(t("ide.claude.updated", { scope }));
   migrateConfig(io, oldCache, latestCacheDir(cacheRoot));
   return true;
 }
 
 function remove(io) {
   const st = detect(io);
-  if (st.cliMissing || !st.installed) { io.log("  설치된 Claude Code 플러그인이 없어 건너뜁니다"); return true; }
-  io.log(`  제거할 대상: ${PLUGIN} (scope: ${st.scope})`);
+  if (st.cliMissing || !st.installed) { io.log(t("ide.claude.removeNone")); return true; }
+  io.log(t("ide.claude.removeTarget", { plugin: PLUGIN, scope: st.scope }));
   const un = io.run("claude", ["plugin", "uninstall", PLUGIN, "--scope", st.scope]);
-  if (un.code === 0) { io.log("  플러그인 uninstall 완료"); removePluginData(io); return true; }
-  io.log(`  삭제 실패. 수동: claude plugin uninstall ${PLUGIN} --scope ${st.scope}`);
+  if (un.code === 0) { io.log(t("ide.claude.removed")); removePluginData(io); return true; }
+  io.log(t("ide.claude.removeFailed", { plugin: PLUGIN, scope: st.scope }));
   return false;
 }
 
 function manualHint() {
-  return `  💡 Claude Code 사용자: claude plugin marketplace add ${MARKETPLACE}\n     claude plugin install ${PLUGIN} --scope user`;
+  return t("ide.claude.manual", { market: MARKETPLACE, plugin: PLUGIN });
 }
 
 // ── 내부 헬퍼 ──
@@ -107,12 +108,12 @@ function migrateConfig(io, oldCache, newCache) {
     mkdirSync(newCfg, { recursive: true });
     let copied = 0;
     for (const f of readdirSync(oldCfg)) if (f.endsWith(".json")) { cpSync(join(oldCfg, f), join(newCfg, f)); copied++; }
-    if (copied) io.log("  config.json 마이그레이션 완료 (이전 버전 설정 유지)");
+    if (copied) io.log(t("ide.claude.configMigrated"));
   } catch { /* 무해 */ }
 }
 function removePluginData(io) {
   const dataDir = join(io.home(), ".claude/plugins/data", PLUGIN);
-  if (existsSync(dataDir)) { try { rmSync(dataDir, { recursive: true, force: true }); io.log("  플러그인 데이터(config) 삭제 완료"); } catch { /* 무해 */ } }
+  if (existsSync(dataDir)) { try { rmSync(dataDir, { recursive: true, force: true }); io.log(t("ide.claude.dataRemoved")); } catch { /* 무해 */ } }
 }
 
 export const claudeAdapter = {

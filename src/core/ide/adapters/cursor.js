@@ -4,6 +4,7 @@
 import { join } from "node:path";
 import { existsSync, readFileSync, mkdirSync, cpSync, rmSync, writeFileSync, readdirSync } from "node:fs";
 import { migrateConfigRoot, isLegacyVersion } from "../legacy.js";
+import { t } from "../../../i18n/index.js";
 
 const LEGACY_NAMES = ["cassiiopeia", "suh-devops-template"];
 const LEGACY_MAX_VERSION = "4.2.4";
@@ -30,9 +31,9 @@ function apply(io, ctx = {}) {
   migrateLegacy(io, ctx);   // 옛 이름/버전 감지 시 projectops 소유 항목 선별 삭제
   migrateConfigRoot(io);    // 공용 config 루트 이관
   const src = resolveSkillsSrc(ctx);
-  if (!src) { io.log("  설치할 스킬 소스를 찾지 못했습니다 (skills/ 폴더 필요)."); return false; }
+  if (!src) { io.log(t("ide.cursor.noSource")); return false; }
   const dest = join(io.home(), ".cursor/skills");
-  io.log("Cursor Skills 복사 중...");
+  io.log(t("ide.cursor.copying"));
   try {
     mkdirSync(dest, { recursive: true });
     for (const e of readdirSync(src, { withFileTypes: true })) {
@@ -52,28 +53,28 @@ function apply(io, ctx = {}) {
       if (!/^(pro|suh)-/.test(name)) continue;
       try {
         rmSync(join(dest, name), { recursive: true, force: true });
-        io.log(`  폐기된 스킬 제거: ${name}`);
+        io.log(t("ide.cursor.obsolete", { name }));
       } catch { /* 무시 — 지우지 못해도 설치는 계속한다 */ }
     }
     writeMeta(io, dest, ctx.templateVersion);
-    io.log(`  Cursor Skills 설치 완료 (${dest}/, v${ctx.templateVersion || "unknown"})`);
+    io.log(t("ide.cursor.installed", { dest, version: ctx.templateVersion || "unknown" }));
     return true;
   } catch {
-    io.log("  Cursor Skills 복사 실패 — skills/ 폴더를 확인하세요.");
+    io.log(t("ide.cursor.copyFailed"));
     return false;
   }
 }
 
 function remove(io, ctx = {}) {
   const dir = join(io.home(), ".cursor/skills");
-  if (!existsSync(join(dir, "cursor-skills-meta.json"))) { io.log("  설치된 Cursor Skills가 없어 건너뜁니다"); return true; }
+  if (!existsSync(join(dir, "cursor-skills-meta.json"))) { io.log(t("ide.cursor.removeNone")); return true; }
   try {
     for (const name of ownedEntries(io, ctx)) rmSync(join(dir, name), { recursive: true, force: true });
     // 폴더가 비면 폴더 자체 제거, 타 스킬(somansa-tools 등) 남으면 유지
     if (existsSync(dir) && readdirSync(dir).length === 0) rmSync(dir, { recursive: true, force: true });
-    io.log(`  Cursor Skills 제거 완료 (projectops 소유만, ${dir}/)`);
+    io.log(t("ide.cursor.removed", { dir }));
     return true;
-  } catch { io.log(`  Cursor Skills 제거 실패 — 수동 확인: ${dir}`); return false; }
+  } catch { io.log(t("ide.cursor.removeFailed", { dir })); return false; }
 }
 
 // projectops가 이 폴더에 설치했다고 볼 항목만 골라낸다.
@@ -103,11 +104,11 @@ function migrateLegacy(io, ctx) {
   for (const name of ownedEntries(io, ctx)) {
     try { rmSync(join(io.home(), ".cursor/skills", name), { recursive: true, force: true }); } catch { /* 무시 */ }
   }
-  io.log(`  레거시 Cursor Skills 정리(선별): name=${meta.name}, v=${meta.version} → 재설치`);
+  io.log(t("ide.cursor.legacy", { name: meta.name, version: meta.version }));
 }
 
 function manualHint() {
-  return "  💡 Cursor: skills/ 폴더를 ~/.cursor/skills/ 로 복사하면 됩니다.";
+  return t("ide.cursor.manual");
 }
 
 // ── 헬퍼 ──

@@ -151,7 +151,7 @@ test("printFieldCard: 라벨·사용처·기본값 라인 출력 (log 주입)", 
     usages: [{ type: "spring", workflowName: "단일 서버 배포" }],
   }, 1, 4, (s) => lines.push(s));
   assert.match(lines[0], /\(1\/4\) JAVA_VERSION\s+\[spring 단일 서버 배포\]/);
-  assert.ok(lines.some((l) => l.includes("기본값: 21")));
+  assert.ok(lines.some((l) => l.includes("Default: 21")));
 });
 
 // #489 — 카드에 노출되는 기본값도 설치본과 동일하게 전역 토큰을 해석해 보여준다

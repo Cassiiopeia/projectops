@@ -79,7 +79,7 @@ test("템플릿 내려받기 실패는 스택 트레이스 없이 오류 한 줄
       code = await run(["--mode", "full", "--force", "--type", "basic"], { cwd: tgt, source: { type: "git", repo: join(tgt, "no-such-repo") } });
     } finally { process.stderr.write = se; console.log = sl; }
     assert.equal(code, 1);
-    assert.match(err, /템플릿을 내려받지 못했습니다/);
+    assert.match(err, /Could not download the template/);
     assert.doesNotMatch(err, /\bat .*\(.*\.js:\d+/);   // 스택 프레임 없음
   } finally { rm(tgt); }
 });
@@ -87,7 +87,7 @@ test("템플릿 내려받기 실패는 스택 트레이스 없이 오류 한 줄
 test("describeError: git 없음·권한·기타를 구분한다 (#672)", async () => {
   const { describeError } = await import("../src/cli/errors.js");
   assert.match(describeError(Object.assign(new Error("spawnSync git ENOENT"), { code: "ENOENT", syscall: "spawnSync git", path: "git" })).message, /git/);
-  assert.match(describeError(Object.assign(new Error("EACCES: permission denied, mkdir x"), { code: "EACCES", path: "/x" })).hint, /권한/);
+  assert.match(describeError(Object.assign(new Error("EACCES: permission denied, mkdir x"), { code: "EACCES", path: "/x" })).hint, /write permission/);
   assert.match(describeError(new Error("boom")).message, /boom/);
 });
 
@@ -98,7 +98,7 @@ test("읽기 전용 .github 는 스택 트레이스 없이 권한 안내 + 종�
     chmodSync(join(tgt, ".github"), 0o555);
     const r = await cli(["--mode", "full", "--force", "--type", "basic"], tgt, tpl);
     assert.equal(r.code, 1);
-    assert.match(r.err, /권한/);
+    assert.match(r.err, /write permission/);
   } finally { chmodSync(join(tgt, ".github"), 0o755); rm(tpl, tgt); }
 });
 
@@ -115,7 +115,7 @@ test("읽기 전용 프로젝트 폴더는 clone 실패가 아니라 쓰기 불�
     } catch (e) { caught = e; }
     assert.ok(caught, "예외가 나야 한다");
     const d = describeError(caught);
-    assert.match(d.message, /쓸 수 없습니다/);
-    assert.doesNotMatch(d.message, /내려받지/);
+    assert.match(d.message, /Cannot write the file/);
+    assert.doesNotMatch(d.message, /Could not download/);
   } finally { chmodSync(tgt, 0o755); rm(tgt); }
 });

@@ -151,7 +151,7 @@ test("runMigrations: 비대화형(askYesNo 없음)은 safe 자동 적용, confir
     assert.ok(!existsSync(join(d, "PROJECT-README-VERSION-UPDATE.yaml")));
     assert.ok(existsSync(join(d, "PROJECT-SPRING-CICD.yaml")), "confirm 티어를 건드림!");
     assert.equal(confirmPending.length, 1);
-    assert.ok(logs.some((l) => l.includes("자동으로 건드리지 않습니다")));
+    assert.ok(logs.some((l) => l.includes("left untouched")));
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -219,7 +219,7 @@ test("legacy-dir: 비대화형(--force)은 자동 이동하지 않고 askPending
     const r = await runMigrations({ targetRoot: root, log: (s) => logs.push(s) }); // askYesNo=null
     assert.equal(existsSync(join(root, "docs", "suh-template", "issue", "a.md")), true, "이동 안 함");
     assert.equal(r.askPending.length, 1);
-    assert.ok(logs.some((l) => l.includes("자동으로 이동하지 않습니다")));
+    assert.ok(logs.some((l) => l.includes("Not moved automatically")));
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

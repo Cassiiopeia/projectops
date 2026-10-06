@@ -22,12 +22,12 @@ test("통합 전이면 그 사실만 알리고 나머지 점검을 건너뛴다"
   const rows = localChecks(repo());
   assert.equal(rows.length, 1);
   assert.equal(rows[0].status, "INFO");
-  assert.match(rows[0].value, /version\.yml 없음/);
+  assert.match(rows[0].value, /version\.yml not found/);
 });
 
 test("통합된 레포는 템플릿·프로젝트 버전을 함께 보여준다", () => {
   const rows = localChecks(repo({ versionYml: VY, workflows: { "A.yaml": "name: A\n" } }));
-  const r = row(rows, "통합 상태");
+  const r = row(rows, "Integration status");
   assert.equal(r.status, "OK");
   assert.match(r.value, /4\.4\.1/);
   assert.match(r.value, /1\.0\.0/);
@@ -35,7 +35,7 @@ test("통합된 레포는 템플릿·프로젝트 버전을 함께 보여준다"
 
 test("워크플로우가 하나도 없으면 경고", () => {
   const rows = localChecks(repo({ versionYml: VY }));
-  assert.equal(row(rows, "설치된 워크플로우").status, "WARN");
+  assert.equal(row(rows, "Installed workflows").status, "WARN");
 });
 
 // ── 치환·Secret (설치 후 검증 재사용) ─────────────────────────────────
@@ -43,7 +43,7 @@ test("치환되지 않은 값을 위치와 함께 보고", () => {
   const rows = localChecks(repo({
     versionYml: VY, workflows: { "A.yaml": "run: echo __DEPLOY_PORT__\n" },
   }));
-  const r = row(rows, "치환되지 않은 값");
+  const r = row(rows, "Unresolved values");
   assert.equal(r.status, "WARN");
   assert.ok(r.detail.some((l) => l.includes("__DEPLOY_PORT__")));
 });
@@ -53,7 +53,7 @@ test("필요한 Secret은 INFO — 도구가 '등록하라'고 판정하지 않�
   const rows = localChecks(repo({
     versionYml: VY, workflows: { "A.yaml": "  host: ${{ secrets.SERVER_HOST }}\n" },
   }));
-  const r = row(rows, "필요한 Secret");
+  const r = row(rows, "Required secrets");
   assert.equal(r.status, "INFO");
   assert.ok(r.detail.some((l) => l.includes("SERVER_HOST")));
 });
@@ -77,7 +77,7 @@ test("다른 워크플로우를 깨우는데 actions: write가 없으면 경고 
     versionYml: VY,
     workflows: { "R.yaml": DISPATCHER("  contents: write\n  pull-requests: write") },
   }));
-  const r = row(rows, "워크플로우 권한 선언");
+  const r = row(rows, "Workflow permission declarations");
   assert.equal(r.status, "WARN");
   assert.ok(r.detail.some((l) => l.includes("R.yaml")));
 });
@@ -87,22 +87,22 @@ test("actions: write가 있으면 정상", () => {
     versionYml: VY,
     workflows: { "R.yaml": DISPATCHER("  contents: write\n  actions: write") },
   }));
-  assert.equal(row(rows, "워크플로우 권한 선언").status, "OK");
+  assert.equal(row(rows, "Workflow permission declarations").status, "OK");
 });
 
 test("다른 워크플로우를 깨우지 않는 파일은 권한 선언을 요구하지 않는다", () => {
   const rows = localChecks(repo({
     versionYml: VY, workflows: { "A.yaml": "name: A\npermissions:\n  contents: read\n" },
   }));
-  assert.equal(row(rows, "워크플로우 권한 선언").status, "OK");
+  assert.equal(row(rows, "Workflow permission declarations").status, "OK");
 });
 
 // ── 기준점 ────────────────────────────────────────────────────────────
 test("기준점이 없으면 다음 업데이트 동작을 알린다", () => {
   const rows = localChecks(repo({ versionYml: VY, workflows: { "A.yaml": "name: A\n" } }));
-  const r = row(rows, "업데이트 기준점");
+  const r = row(rows, "Update baseline");
   assert.equal(r.status, "INFO");
-  assert.ok(r.detail.some((l) => l.includes("모두 물어봅니다")));
+  assert.ok(r.detail.some((l) => l.includes("asks about every changed file")));
 });
 
 // ── 렌더 ──────────────────────────────────────────────────────────────
@@ -130,7 +130,7 @@ test("renderRows는 살펴볼 항목 수를 반환한다", () => {
 test("항목 이름 옆에 purpose를 병기한다", () => {
   const out = [];
   renderRows([{ name: "이름", purpose: "무엇을 위한 것", status: "OK", value: "값" }], (s) => out.push(s));
-  assert.match(out[0], /이름 — 무엇을 위한 것: 값/);
+  assert.match(out[0], /이름 - 무엇을 위한 것: 값/);
 });
 
 // ── 조직 읽기 전용 기본 권한 (#723) ─────────────────────────────────────
@@ -162,7 +162,7 @@ test("기본 권한이 읽기 전용이어도 모두 선언했으면 경고하�
     const rows = await remoteChecks("o/r", "t", [], []);
     const r = row(rows, "Workflow permissions");
     assert.equal(r.status, "INFO");
-    assert.match(r.value, /영향 없음/);
+    assert.match(r.value, /no effect/);
   } finally { restore(); }
 });
 
@@ -183,9 +183,9 @@ test("선택 항목인 AI 키는 배포 Secret 미등록 목록에 넣지 않는
                                "/repos/o/r": { allow_merge_commit: true } });
   try {
     const rows = await remoteChecks("o/r", "t", ["GEMINI_API_KEY", "OPENAI_API_KEY", "SERVER_HOST"], []);
-    const r = row(rows, "Secret 등록 여부");
+    const r = row(rows, "Secret registration");
     assert.equal(r.status, "WARN");
-    assert.match(r.value, /1개 미등록/);
+    assert.match(r.value, /1 not registered/);
     assert.ok(r.detail.some((d) => d.includes("SERVER_HOST")));
     assert.ok(!r.detail.some((d) => d.includes("GEMINI_API_KEY")));
   } finally { restore(); }

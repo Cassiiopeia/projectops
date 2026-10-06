@@ -3,6 +3,7 @@
 //      _pi_settings_path / _pi_harness_enabled 등가.
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { t } from "../../../i18n/index.js";
 
 export const PI_PACKAGE_URL = "https://github.com/Cassiiopeia/projectops";
 
@@ -80,5 +81,5 @@ export function migratePiLegacy(io) {
       }
     } catch { /* 무시 */ }
   }
-  try { rmSync(oldDir, { recursive: true, force: true }); io.log("  레거시 PI clone 정리: SUH-DEVOPS-TEMPLATE"); } catch { /* 무시 */ }
+  try { rmSync(oldDir, { recursive: true, force: true }); io.log(t("ide.pi.legacyClone")); } catch { /* 무시 */ }
 }

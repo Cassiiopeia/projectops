@@ -516,7 +516,7 @@ test("askAllOptionalWorkflows: CodeRabbit '사용' 시 grant access 후속 안�
       current: { deploy: "docker-ssh", publish: [], secretBackup: false, codeReviewCoderabbit: false, changelogProvider: "gemini", changelogBaseUrl: "", deployBranch: "develop" },
     });
     assert.ok(io.calls.logs.some((l) => l.includes("coderabbit.ai")), "coderabbit.ai 안내 없음");
-    assert.ok(io.calls.logs.some((l) => l.includes("grant access") || l.includes("접근 권한")), "grant access 안내 없음");
+    assert.ok(io.calls.logs.some((l) => l.includes("grant access") || l.includes("access")), "grant access 안내 없음");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
 
@@ -530,7 +530,7 @@ test("askAllOptionalWorkflows: CodeRabbit '미사용' 시 후속 안내 없음 (
       forceAsk: true, scope: ["code-review"],
       current: { deploy: "docker-ssh", publish: [], secretBackup: false, codeReviewCoderabbit: true, changelogProvider: "gemini", changelogBaseUrl: "", deployBranch: "develop" },
     });
-    assert.ok(!io.calls.logs.some((l) => l.includes("grant access") || l.includes("접근 권한")), "미사용인데 안내가 나옴");
+    assert.ok(!io.calls.logs.some((l) => l.includes("grant access") || l.includes("access")), "미사용인데 안내가 나옴");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
 
@@ -569,7 +569,7 @@ test("askAllOptionalWorkflows: publish 선택 없음 → '배포 안 함' 명시
       current: { deploy: "docker-ssh", publish: null, secretBackup: false, codeReviewCoderabbit: false, changelogProvider: "gemini", changelogBaseUrl: "", deployBranch: "develop" },
     });
     assert.deepEqual(r.publish, []);
-    assert.ok(io.calls.logs.some((l) => l.includes("라이브러리 배포") && l.includes("안 함")), "배포 안 함 명시 없음");
+    assert.ok(io.calls.logs.some((l) => l.includes("Library publish") && l.includes("none")), "배포 안 함 명시 없음");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
 
@@ -582,9 +582,9 @@ test("askAllOptionalWorkflows: intent=manual → 두 축 큰 그림 안내 + dep
     // intent(manual) → deploy(docker-ssh) → changelog. manual이라 두 축 안내 + 둘 다 물음.
     const io = stubIo({ selects: ["manual", "docker-ssh"], multiselects: [[]], confirms: [false], texts: ["develop"] });
     await askAllOptionalWorkflows({ tempDir, types: ["spring"], targetRoot: target, tty: true, io });
-    assert.ok(io.calls.logs.some((l) => l.includes("두 가지") && l.includes("독립")), "두 축 안내 없음");
-    assert.ok(io.calls.logs.some((l) => l.includes("실행물")), "실행물 표현 없음");
-    assert.ok(io.calls.select.some((m) => m.includes("실행물 배포 방식")), "deploy 질문 문구 미갱신");
+    assert.ok(io.calls.logs.some((l) => l.includes("two separate kinds") && l.includes("independent")), "두 축 안내 없음");
+    assert.ok(io.calls.logs.some((l) => l.includes("runnable")), "실행물 표현 없음");
+    assert.ok(io.calls.select.some((m) => m.includes("how to deploy the runnable")), "deploy 질문 문구 미갱신");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
 
@@ -598,7 +598,7 @@ test("askAllOptionalWorkflows: 한 축만 수정(scope)이면 큰 그림 안내 
       forceAsk: true, scope: ["deploy"],
       current: { deploy: "docker-ssh", publish: ["nexus"], secretBackup: true, codeReviewCoderabbit: true, changelogProvider: "commit", changelogBaseUrl: "", deployBranch: "develop" },
     });
-    assert.ok(!io.calls.logs.some((l) => l.includes("두 가지") && l.includes("독립")), "한 축 수정인데 큰 그림 안내가 나옴");
+    assert.ok(!io.calls.logs.some((l) => l.includes("two separate kinds") && l.includes("independent")), "한 축 수정인데 큰 그림 안내가 나옴");
   } finally { rmSync(tempDir, { recursive: true, force: true }); rmSync(target, { recursive: true, force: true }); }
 });
 

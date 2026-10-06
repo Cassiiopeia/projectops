@@ -11,6 +11,7 @@ import { exists, listYamlFiles } from "../core/fsutil.js";
 import { parseWizardLine, resolveToken, resolveGlobalTokens } from "../core/wizard-env.js";
 import { loadWizardPrompts, wfField, workflowDisplayName } from "../core/wizard-labels.js";
 import * as engine from "./readline-engine.js";
+import { t } from "../i18n/index.js";
 
 const CANCEL = engine.CANCEL;
 
@@ -52,7 +53,7 @@ export function collectAsks(tempDir, types = [], opts = {}) {
     // 복사 엔진과 동일한 폴더 구성: 타입 직하위 + (docker-ssh면) server-deploy + 선택된 publish/<target>
     const dirs = [typeDir];
     if ((deployTarget || "docker-ssh") === "docker-ssh") dirs.push(join(typeDir, "server-deploy"));
-    for (const t of publishTargets) dirs.push(join(typeDir, "publish", t));
+    for (const pt of publishTargets) dirs.push(join(typeDir, "publish", pt));
 
     for (const dir of dirs) {
       if (!exists(dir)) continue;
@@ -91,18 +92,18 @@ function firstTypeFor(usages, key) {
 // KEY 1개를 'label·사용처·설명·예시·기본값' 카드로 출력 (.sh _wf_print_field_card 등가).
 // info: { default, usages } — idx/tot 있으면 "(i/t)" 진행 표시. log 주입 가능(테스트 무음화).
 export function printFieldCard(prompts, key, info, idx = null, tot = null, log = defaultLog) {
-  const t = info.usages?.[0]?.type ?? "";
-  const label = wfField(prompts, t, key, "label");
-  const help = wfField(prompts, t, key, "help");
-  const ex = wfField(prompts, t, key, "example");
+  const ty = info.usages?.[0]?.type ?? "";
+  const label = wfField(prompts, ty, key, "label");
+  const help = wfField(prompts, ty, key, "help");
+  const ex = wfField(prompts, ty, key, "example");
   const scope = scopeString(info.usages || []);
   const head = idx != null && tot != null
     ? `   ▸ (${idx}/${tot}) ${label}  [${scope}]`
     : `   ▸ ${label}  [${scope}]`;
   log(head);
   if (help) log(`       ${help}`);
-  if (ex) log(`       예) ${ex}`);
-  log(`       기본값: ${info.default ?? ""}`);
+  if (ex) log(t("envPlan.example", { ex }));
+  log(t("envPlan.default", { value: info.default ?? "" }));
   log("");
 }
 
@@ -112,14 +113,14 @@ async function promptEach(io, prompts, asks, todoKeys, values, log) {
   const tot = todoKeys.length;
   if (tot === 0) return;
   log("");
-  log("   값을 입력하세요. 그대로 두려면 아무것도 입력하지 말고 Enter를 누르면 기본값이 적용됩니다.");
+  log(t("envPlan.enterValues"));
   log("");
   let i = 0;
   for (const key of todoKeys) {
     i++;
     const def = asks.defaults.get(key) ?? "";
     printFieldCard(prompts, key, { default: def, usages: asks.usages.get(key) || [] }, i, tot, log);
-    let input = await io.text({ message: `↳ 값 입력 (Enter=기본값 «${def}» 유지):`, defaultValue: def });
+    let input = await io.text({ message: t("envPlan.valuePrompt", { def }), defaultValue: def });
     if (input === CANCEL || input == null || input === "") input = def;
     values.set(key, input);
     const label = wfField(prompts, firstTypeFor(asks.usages, key), key, "label");
@@ -159,10 +160,10 @@ export async function promptEnvPlan({
 
   // 기본값 미리보기 카드 전체 출력 (.sh 3237~3251)
   log("");
-  log("▶ 배포 워크플로우 환경설정을 채웁니다");
+  log(t("envPlan.title"));
   log("");
-  log("   설치되는 배포 워크플로우가 사용할 값입니다. 항목마다 '무엇에 쓰이는지·설명·예시'와");
-  log("   기본값을 함께 보여드립니다. 그대로 둬도 되고, 원하는 것만 바꿀 수 있습니다.");
+  log(t("envPlan.intro1"));
+  log(t("envPlan.intro2"));
   log("");
   const tot = asks.keys.length;
   asks.keys.forEach((key, i) => {
@@ -171,11 +172,11 @@ export async function promptEnvPlan({
   log("   ─────────────────────────────────────────────");
 
   const choice = await ui.select({
-    message: "어떻게 채울까요?",
+    message: t("envPlan.how"),
     options: [
-      { value: "all", label: "① 위 기본값 그대로 전부 설치 (입력 없이 바로 진행)" },
-      { value: "each", label: "② 하나씩 직접 입력 (모든 항목을 순서대로)" },
-      { value: "some", label: "③ 몇 개만 골라서 바꾸기 (고른 것만 입력 · 나머지는 기본값)" },
+      { value: "all", label: t("envPlan.optAll") },
+      { value: "each", label: t("envPlan.optEach") },
+      { value: "some", label: t("envPlan.optSome") },
     ],
   });
   // ESC/취소 → 전부 기본값 (.sh `if [ "$_rc" -ne 0 ]` 등가)
@@ -194,10 +195,10 @@ export async function promptEnvPlan({
   // some: 바꿀 항목만 멀티선택 → 고른 것만 입력 (.sh 3266~3277)
   const options = asks.keys.map((key) => ({
     value: key,
-    label: `${wfField(prompts, firstTypeFor(asks.usages, key), key, "label")}  (기본: ${defaults.get(key)})`,
+    label: `${wfField(prompts, firstTypeFor(asks.usages, key), key, "label")}  ${t("envPlan.defaultTag", { value: defaults.get(key) })}`,
   }));
   const selected = await ui.multiselect({
-    message: "바꿀 항목을 고르세요 (Space로 선택 · Enter로 확정)",
+    message: t("envPlan.pickPrompt"),
     options,
     initialValues: [],
   });

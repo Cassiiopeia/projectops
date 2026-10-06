@@ -5,6 +5,7 @@ import { ADAPTERS } from "../core/ide/registry.js";
 import { versionTag } from "../core/ide/util.js";
 import { defaultIo } from "../core/ide/runner.js";
 import * as skillsPrompts from "../ui/skills-prompts.js";
+import { t } from "../i18n/index.js";
 
 // 상태 수집 → [{adapter, status}]. optional 어댑터는 감지 불가(cliMissing)면 목록에서 제외.
 export function collectStatuses(io) {
@@ -21,12 +22,12 @@ export function collectStatuses(io) {
 export function formatStatuses(rows, templateVersion) {
   return rows.map(({ adapter, status }) => {
     const label = adapter.label.padEnd(12);
-    if (status.cliMissing) return `${label}: ${status.note || "skill 미설치 (CLI 없음)"}`;
+    if (status.cliMissing) return `${label}: ${status.note || t("skills.status.noCli")}`;
     if (status.installed) {
       const v = status.version ? ` (v${status.version})` : "";
-      return `${label}: skill 설치됨${v}${versionTag(status.version, templateVersion)}`;
+      return `${label}: ${t("skills.status.installed")}${v}${versionTag(status.version, templateVersion)}`;
     }
-    return `${label}: ${status.note || "skill 미설치"}`;
+    return `${label}: ${status.note || t("skills.status.notInstalled")}`;
   });
 }
 
@@ -40,7 +41,7 @@ export async function runSkills(opts = {}) {
 
   const rows = collectStatuses(io);
   io.log("");
-  io.log("── IDE Skills 현재 상태 ──");
+  io.log(t("skills.statusTitle"));
   for (const line of formatStatuses(rows, ctx.templateVersion)) io.log(line);
   io.log("");
 
@@ -57,7 +58,7 @@ export async function runSkills(opts = {}) {
   // 대화형: 동작 선택 → IDE 멀티셀렉트 → 실행.
   const action = await ui.selectAction();
   if (action == null || action === skillsPrompts.CANCEL || action === "skip") {
-    io.log("IDE Skills는 변경하지 않고 넘어갑니다.");
+    io.log(t("skills.unchanged"));
     return 0;
   }
 
@@ -71,7 +72,7 @@ export async function runSkills(opts = {}) {
 
   const targets = await ui.selectTargets(choices, preselect, action);
   if (targets == null || targets === skillsPrompts.CANCEL || !targets.length) {
-    io.log("선택한 IDE가 없어 건너뜁니다 (원할 때 다시 실행하세요).");
+    io.log(t("skills.noneSelected"));
     return 0;
   }
 
@@ -79,7 +80,7 @@ export async function runSkills(opts = {}) {
   for (const { adapter } of rows) {
     if (!selected.has(adapter.id)) continue;
     io.log("");
-    io.log(`[ ${adapter.label} ${action === "apply" ? "설치/업데이트" : "제거"} ]`);
+    io.log(t(action === "apply" ? "skills.header.apply" : "skills.header.remove", { label: adapter.label }));
     safe(() => (action === "apply" ? adapter.apply(io, ctx) : adapter.remove(io, ctx)), false);
   }
   return 0;

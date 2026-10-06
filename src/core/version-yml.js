@@ -3,45 +3,45 @@
 // 실측 기준: template_integrator.sh 2184~2354.
 
 const HEADER = `# ===================================================================
-# 프로젝트 버전 관리 파일
+# Project version management file
 # ===================================================================
 #
-# 이 파일은 다양한 프로젝트 타입에서 버전 정보를 중앙 관리하기 위한 파일입니다.
-# GitHub Actions 워크플로우가 이 파일을 읽어 자동으로 버전을 관리합니다.
+# This file keeps version information in one place for every project type.
+# GitHub Actions workflows read this file and manage the version automatically.
 #
-# 사용법:
-# 1. version: "1.0.0" - 사용자에게 표시되는 버전
-# 2. version_code: 1 - Play Store/App Store 빌드 번호 (1부터 자동 증가)
-# 3. project_types: 프로젝트 타입 배열 — 첫 항목이 primary
-# 4. project_paths: 타입별 프로젝트 폴더 (레포 루트 기준 상대경로, 모노레포용)
+# Usage:
+# 1. version: "1.0.0" - the version shown to users
+# 2. version_code: 1 - Play Store/App Store build number (auto-incremented from 1)
+# 3. project_types: array of project types, the first entry is the primary one
+# 4. project_paths: project folder per type (relative to the repo root, for monorepos)
 #
-# 자동 버전 업데이트:
-# - version_code: 매 빌드마다 자동으로 1씩 증가 (아래 판정과 무관)
-# - 버전 승격 폭은 metadata.template.options.semver_auto 가 정합니다
-#   semver_auto: true  -> 릴리스 구간 커밋 제목으로 판정
-#                         "제목 : feat! : 내용" 또는 "feat!:" -> major (x+1.0.0)
-#                         "제목 : feat : 내용"  또는 "feat:"  -> minor (x.y+1.0)
-#                         그 외(fix/docs/chore/refactor/test) -> patch (x.y.z+1)
-#   키 없음 / false     -> 항상 patch +1
-# - 위 판정과 무관하게 version 값을 직접 수정해도 됩니다
+# Automatic version updates:
+# - version_code: incremented by 1 on every build (independent of the rules below)
+# - How far the version is bumped is decided by metadata.template.options.semver_auto
+#   semver_auto: true  -> decided by the commit titles in the release range
+#                         "title : feat! : body" or "feat!:" -> major (x+1.0.0)
+#                         "title : feat : body"  or "feat:"  -> minor (x.y+1.0)
+#                         anything else (fix/docs/chore/refactor/test) -> patch (x.y.z+1)
+#   key missing / false -> always patch +1
+# - You may edit the version value by hand regardless of the rules above
 #
-# 프로젝트 타입별 동기화 파일:
+# Files synced per project type:
 # - spring: build.gradle (version = "x.y.z")
-# - flutter: pubspec.yaml (version: x.y.z+i, buildNumber 포함)
+# - flutter: pubspec.yaml (version: x.y.z+i, includes buildNumber)
 # - react/node: package.json ("version": "x.y.z")
-# - react-native: iOS Info.plist 또는 Android build.gradle
+# - react-native: iOS Info.plist or Android build.gradle
 # - react-native-expo: app.json (expo.version)
 # - python: pyproject.toml (version = "x.y.z")
-# - basic/기타: version.yml 파일만 사용
+# - basic/other: only this version.yml file is used
 #
-# 연관된 워크플로우:
+# Related workflows:
 # - .github/workflows/PROJECT-VERSION-CONTROL.yaml
 # - .github/workflows/PROJECT-README-VERSION-UPDATE.yaml
 # - .github/workflows/PROJECT-RELEASE-CHANGELOG.yaml
 #
-# 주의사항:
-# - project_types는 최초 설정 후 변경하지 마세요
-# - 버전은 항상 높은 버전으로 자동 동기화됩니다
+# Notes:
+# - Do not change project_types after the initial setup
+# - The version is always synced automatically to the highest one
 # ===================================================================
 `;
 
@@ -222,7 +222,7 @@ export function convertLegacySingularType(content) {
     return lines.join("\n");
   }
   const type = value === "next" ? "react" : value; // next 타입은 4.1.0에서 react로 흡수
-  lines[idx] = `project_types: ["${type}"]   # 멀티타입 배열 — 첫 항목이 primary, 직접 편집 가능`;
+  lines[idx] = `project_types: ["${type}"]   # array of types, first entry is primary, safe to edit by hand`;
   return lines.join("\n");
 }
 
@@ -323,11 +323,11 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
   let out = HEADER + "\n";
   out += `version: "${version}"\n`;
   out += `version_code: ${versionCode}  # app build number\n`;
-  out += `project_types: ${typesJson}   # 멀티타입 배열 — 첫 항목이 primary, 직접 편집 가능\n`;
+  out += `project_types: ${typesJson}   # array of types, first entry is primary, safe to edit by hand\n`;
 
   // project_paths 블록. pathMarkers: Map<type, markerFilename> (있으면 "  type: "path"   # path/marker" 주석).
   if (paths.size) {
-    out += `project_paths:                # 타입별 프로젝트 폴더 (레포 루트 기준 상대경로)\n`;
+    out += `project_paths:                # project folder per type (relative to the repo root)\n`;
     for (const [t, p] of paths) {
       const marker = pathMarkers.get(t) || "";
       const pf = p === "." ? marker : (marker ? `${p}/${marker}` : p);
@@ -357,23 +357,23 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
     out += `    source: "projectops"\n`;
     out += `    version: "${templateVersion}"\n`;
     // mode(#502) — 이 레포에 통합된 범위. 업데이트 모드가 같은 범위를 재실행하는 기준.
-    if (mode) out += `    mode: "${mode}"   # 통합 범위(full/version/workflows) — 업데이트 모드 재실행 기준\n`;
+    if (mode) out += `    mode: "${mode}"   # install scope (full/version/workflows), used when re-running update mode\n`;
     out += `    integrated_date: "${optionsDate}"\n`;
     out += `    last_update_date: "${optionsDate}"\n`;
     out += `    options:\n`;
-    out += `      intent: "${intentVal}"   # 프로젝트 성격(app/library/both/none/manual) — 배포 질문 유도 기준\n`;
+    out += `      intent: "${intentVal}"   # project kind (app/library/both/none/manual), drives the deploy questions\n`;
     out += `      deploy: "${deployTarget}"\n`;
     out += `      publish: ${publishJson}\n`;
     out += `      secret_backup: ${includeSecretBackup}\n`;
     // semver 자동 승격(#546) — 릴리스 시 커밋 제목으로 major/minor/patch 결정. false면 항상 patch.
-    out += `      semver_auto: ${semverAuto}   # 커밋 제목으로 버전 승격 폭 결정 (false면 항상 patch)\n`;
+    out += `      semver_auto: ${semverAuto}   # decide the version bump from commit titles (false means always patch)\n`;
     // 릴리스 시 완료 이슈 닫기(#771) — 미지정이면 키를 쓰지 않는다(기존 레포는 현행 유지).
-    if (closeOnRelease !== null) out += `      close_on_release: ${closeOnRelease}   # 릴리스 머지 때 완료 라벨 이슈를 닫는다 (false/미기재면 닫지 않음)\n`;
+    if (closeOnRelease !== null) out += `      close_on_release: ${closeOnRelease}   # close issues labelled done when a release is merged (false or missing means do not close)\n`;
     // 상태 라벨 표기(#776) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).
-    if (labelStyle) out += `      label_style: ${labelStyle}   # 상태 라벨 표기 (en: status: todo / ko: 작업전)\n`;
+    if (labelStyle) out += `      label_style: ${labelStyle}   # status label style (en: status: todo / ko: Korean names)\n`;
     // 앱 심사 배포 레포 여부(#553) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).
     if (appRelease !== null) {
-      out += `      app_release: ${appRelease}   # 앱스토어·플레이스토어 심사로 이어지는 배포인가\n`;
+      out += `      app_release: ${appRelease}   # whether releases go through App Store / Play Store review\n`;
     }
     out += `      code_review:\n`;
     out += `        coderabbit: ${codeReviewCoderabbit}\n`;
@@ -389,7 +389,7 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
   const deployTypes = [...deployValues.keys()].filter((t) => deployValues.get(t) && deployValues.get(t).size > 0);
   if (deployTypes.length) {
     out += `\n`;
-    out += `deploy:                          # 마법사가 기억하는 배포 설정 (비민감 / 직접 수정 가능)\n`;
+    out += `deploy:                          # deploy settings remembered by the wizard (non-sensitive, safe to edit by hand)\n`;
     for (const t of deployTypes) {
       out += `  ${t}:\n`;
       for (const [k, v] of deployValues.get(t)) out += `    ${k}: "${v}"\n`;

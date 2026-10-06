@@ -19,8 +19,10 @@ import { parseExisting } from "../core/version-yml.js";
 import { verifyInstall } from "../core/verify.js";
 import { readBaseline } from "../core/baseline.js";
 import { detectRepoName } from "../core/detect-fs.js";
+import { t } from "../i18n/index.js";
 
-const PERM_PURPOSE = "자동 커밋·태그·후속 워크플로우 실행";
+// 언어 전환(withLang 등) 시점에 평가되도록 함수로 둔다
+const permPurpose = () => t("doctor.perm.purpose");
 
 // GitHub REST 호출. 실패는 예외가 아니라 {ok:false}로 돌려 진단이 중단되지 않게 한다.
 async function gh(path, token) {
@@ -57,46 +59,46 @@ export function localChecks(cwd = ".") {
   const existing = existsSync(vyPath) ? parseExisting(readFileSync(vyPath, "utf8")) : null;
 
   if (!existing) {
-    add({ name: "통합 상태", purpose: "이 폴더의 템플릿 설치 여부", status: "INFO",
-          value: "version.yml 없음",
-          detail: ["이 폴더에는 템플릿이 통합되어 있지 않습니다.",
-                   "통합하려면: npx projectops"] });
+    add({ name: t("doctor.integ.name"), purpose: t("doctor.integ.purpose"), status: "INFO",
+          value: t("doctor.integ.noVersionYml"),
+          detail: [t("doctor.integ.notIntegrated"),
+                   t("doctor.integ.howTo")] });
     return rows; // 통합 전이면 나머지 점검이 의미 없다
   }
 
-  add({ name: "통합 상태", purpose: "이 폴더의 템플릿 설치 여부", status: "OK",
-        value: `템플릿 v${existing.templateVersion || "unknown"} / 프로젝트 v${existing.version}` });
+  add({ name: t("doctor.integ.name"), purpose: t("doctor.integ.purpose"), status: "OK",
+        value: t("doctor.integ.versions", { tpl: existing.templateVersion || "unknown", proj: existing.version }) });
 
   const wfDir = join(cwd, PATHS.workflowsDir);
   const files = existsSync(wfDir)
     ? readdirSync(wfDir).filter((f) => /\.ya?ml$/.test(f))
     : [];
-  add({ name: "설치된 워크플로우", purpose: "이 저장소에서 도는 자동화", status: files.length ? "OK" : "WARN",
-        value: `${files.length}개`,
-        detail: files.length ? null : ["워크플로우가 하나도 없습니다.",
-                                       "통합 모드를 workflows 또는 full로 다시 실행해 보세요."] });
+  add({ name: t("doctor.wf.name"), purpose: t("doctor.wf.purpose"), status: files.length ? "OK" : "WARN",
+        value: t("doctor.count", { n: files.length }),
+        detail: files.length ? null : [t("doctor.wf.none"),
+                                       t("doctor.wf.noneHint")] });
 
   // 치환·Secret 판정은 설치 후 검증(#549)과 같은 모듈을 쓴다 — 두 곳에 두면 기준이 갈라진다.
   const v = verifyInstall(cwd);
   add({
-    name: "치환되지 않은 값", purpose: "배포 시점에 실패할 자리",
+    name: t("doctor.unres.name"), purpose: t("doctor.unres.purpose"),
     status: v.unresolved.length === 0 ? "OK" : "WARN",
-    value: v.unresolved.length === 0 ? "없음" : `${v.unresolved.length}건`,
+    value: v.unresolved.length === 0 ? t("doctor.none") : t("doctor.cases", { n: v.unresolved.length }),
     detail: v.unresolved.length === 0 ? null : [
-      "아래 위치에 템플릿 값이 그대로 남아 있습니다.",
+      t("doctor.unres.intro"),
       ...v.unresolved.slice(0, 8).map((u) => `  ${u.filename}:${u.line}  ${u.token}`),
-      ...(v.unresolved.length > 8 ? [`  … 외 ${v.unresolved.length - 8}건`] : []),
-      "그대로 두면 해당 워크플로우가 배포 단계에서 실패합니다. 직접 값을 채워주세요.",
+      ...(v.unresolved.length > 8 ? [t("doctor.unres.more", { n: v.unresolved.length - 8 })] : []),
+      t("doctor.unres.outro"),
     ],
   });
 
   const secretNames = [...v.secrets.keys()];
   add({
-    name: "필요한 Secret", purpose: "설치된 워크플로우가 요구하는 값",
-    status: "INFO", value: secretNames.length ? `${secretNames.length}개` : "없음",
+    name: t("doctor.sec.name"), purpose: t("doctor.sec.purpose"),
+    status: "INFO", value: secretNames.length ? t("doctor.count", { n: secretNames.length }) : t("doctor.none"),
     detail: secretNames.length ? [
-      ...secretNames.map((n) => `  ${n}  ← ${v.secrets.get(n).length}개 워크플로우`),
-      "쓰지 않는 워크플로우의 값은 등록하지 않아도 됩니다.",
+      ...secretNames.map((n) => t("doctor.sec.line", { name: n, n: v.secrets.get(n).length })),
+      t("doctor.sec.skipUnused"),
     ] : null,
   });
 
@@ -107,16 +109,16 @@ export function localChecks(cwd = ".") {
   const hasSummaryWf = files.some((f) => /AI-PR-SUMMARY|RELEASE-CHANGELOG/.test(f));
   if (hasSummaryWf) {
     add({
-      name: "AI 요약 키", purpose: "릴리스 노트를 AI로 다듬을지 (선택)",
-      status: "INFO", value: "선택 사항",
+      name: t("doctor.ai.name"), purpose: t("doctor.ai.purpose"),
+      status: "INFO", value: t("doctor.ai.optional"),
       detail: [
-        "등록하지 않아도 릴리스 노트는 나옵니다 — 커밋 내용을 분석해 만듭니다.",
-        "AI가 다듬은 문장을 원하면 아래 중 하나를 저장소 Secret에 등록하세요.",
-        "  GEMINI_API_KEY     무료 · https://aistudio.google.com/apikey",
-        "  GROQ_API_KEY       무료",
-        "  MISTRAL_API_KEY    무료",
-        "  OPENAI_API_KEY / ANTHROPIC_API_KEY   유료",
-        "등록한 것이 자동으로 쓰입니다. 별도 설정은 필요 없습니다.",
+        t("doctor.ai.l1"),
+        t("doctor.ai.l2"),
+        t("doctor.ai.gemini"),
+        t("doctor.ai.groq"),
+        t("doctor.ai.mistral"),
+        t("doctor.ai.paid"),
+        t("doctor.ai.l3"),
       ],
     });
   }
@@ -135,26 +137,26 @@ export function localChecks(cwd = ".") {
   }
   if (files.length) {
     add({
-      name: "워크플로우 권한 선언", purpose: "다른 워크플로우를 실행할 권한",
+      name: t("doctor.pd.name"), purpose: t("doctor.pd.purpose"),
       status: needsActionsWrite.length ? "WARN" : "OK",
-      value: needsActionsWrite.length ? `${needsActionsWrite.length}건 누락` : "정상",
+      value: needsActionsWrite.length ? t("doctor.pd.missing", { n: needsActionsWrite.length }) : t("doctor.ok"),
       detail: needsActionsWrite.length ? [
         ...needsActionsWrite.map((f) => `  ${f}`),
-        "다른 워크플로우를 실행하는데 permissions에 'actions: write'가 없습니다.",
-        "저장소 설정이 Read and write여도 이 선언이 없으면 API가 403을 반환합니다.",
-        "조치: 해당 파일의 permissions 블록에 'actions: write' 추가",
+        t("doctor.pd.l1"),
+        t("doctor.pd.l2"),
+        t("doctor.pd.l3"),
       ] : null,
     });
   }
 
   const baseline = readBaseline(cwd);
   add({
-    name: "업데이트 기준점", purpose: "다음 업데이트가 내 수정을 구분할 근거",
+    name: t("doctor.bl.name"), purpose: t("doctor.bl.purpose"),
     status: baseline ? "OK" : "INFO",
-    value: baseline ? `${Object.keys(baseline.files).length}개 파일 기록됨` : "없음",
+    value: baseline ? t("doctor.bl.recorded", { n: Object.keys(baseline.files).length }) : t("doctor.none"),
     detail: baseline ? null : [
-      "기준점이 없어 다음 업데이트는 변경된 파일을 모두 물어봅니다.",
-      "통합을 한 번 실행하면 기록되고, 그 다음 업데이트부터 내 수정과 템플릿 개선을 구분합니다.",
+      t("doctor.bl.l1"),
+      t("doctor.bl.l2"),
     ],
   });
 
@@ -177,27 +179,27 @@ export async function remoteChecks(slug, token, requiredSecrets = [], undeclared
 
   const perm = await gh(`/repos/${slug}/actions/permissions/workflow`, token);
   if (!perm.ok) {
-    add({ name: "Workflow permissions", purpose: PERM_PURPOSE, status: "INFO",
-          value: perm.status === 403 ? "조회 권한 없음" : "조회 실패",
-          detail: ["토큰에 저장소 관리 권한이 없어 확인하지 못했습니다.",
-                   "Settings > Actions > General > Workflow permissions 에서 직접 확인하세요."] });
+    add({ name: "Workflow permissions", purpose: permPurpose(), status: "INFO",
+          value: perm.status === 403 ? t("doctor.rm.noAccess") : t("doctor.rm.failed"),
+          detail: [t("doctor.rm.permNoAdmin"),
+                   t("doctor.rm.permCheck")] });
   } else if (perm.data?.default_workflow_permissions === "write") {
-    add({ name: "Workflow permissions", purpose: PERM_PURPOSE, status: "OK",
+    add({ name: "Workflow permissions", purpose: permPurpose(), status: "OK",
           value: "Read and write permissions" });
   } else if (undeclared.length === 0) {
     // 모든 워크플로우가 permissions 를 스스로 선언 → 저장소 기본값(read)은 실제 동작에 영향이 없다
-    add({ name: "Workflow permissions", purpose: PERM_PURPOSE, status: "INFO",
-          value: "읽기 전용 (워크플로우가 권한을 직접 선언해 영향 없음)",
-          detail: ["설치된 워크플로우가 permissions 를 모두 선언하고 있어 기본값이 읽기 전용이어도 정상 동작합니다."] });
+    add({ name: "Workflow permissions", purpose: permPurpose(), status: "INFO",
+          value: t("doctor.rm.roOk"),
+          detail: [t("doctor.rm.roOkDetail")] });
   } else {
     add({
-      name: "Workflow permissions", purpose: PERM_PURPOSE, status: "WARN",
-      value: "Read repository contents permission (읽기 전용)",
+      name: "Workflow permissions", purpose: permPurpose(), status: "WARN",
+      value: t("doctor.rm.roWarn"),
       detail: [
-        "permissions 선언이 없는 워크플로우는 저장소에 쓰거나 다른 워크플로우를 실행할 수 없습니다.",
+        t("doctor.rm.l1"),
         ...undeclared.map((f) => `  ${f}`),
-        "조치: 해당 파일에 permissions 블록을 추가하거나",
-        "      Settings > Actions > General > Workflow permissions → 'Read and write permissions' 선택",
+        t("doctor.rm.fix1"),
+        t("doctor.rm.fix2"),
       ],
     });
   }
@@ -206,13 +208,13 @@ export async function remoteChecks(slug, token, requiredSecrets = [], undeclared
   if (repo.ok) {
     const allowed = repo.data?.allow_merge_commit === true;
     add({
-      name: "merge commit 허용", purpose: "릴리스 PR 자동 머지 조건",
+      name: t("doctor.mc.name"), purpose: t("doctor.mc.purpose"),
       status: allowed ? "OK" : "WARN",
-      value: allowed ? "허용됨" : "꺼져 있음",
+      value: allowed ? t("doctor.mc.on") : t("doctor.mc.off"),
       detail: allowed ? null : [
-        "릴리스 PR 자동 머지는 merge commit 방식을 사용합니다.",
-        "꺼져 있으면 자동 머지가 실패하고 PR이 열린 채 남습니다.",
-        "조치: Settings > General > Pull Requests → 'Allow merge commits' 체크",
+        t("doctor.mc.l1"),
+        t("doctor.mc.l2"),
+        t("doctor.mc.fix"),
       ],
     });
   }
@@ -220,35 +222,35 @@ export async function remoteChecks(slug, token, requiredSecrets = [], undeclared
   if (requiredSecrets.length) {
     const sec = await gh(`/repos/${slug}/actions/secrets?per_page=100`, token);
     if (!sec.ok) {
-      add({ name: "Secret 등록 여부", purpose: "배포에 필요한 값", status: "INFO",
-            value: "조회 권한 없음",
-            detail: ["토큰에 Secret 조회 권한이 없어 확인하지 못했습니다."] });
+      add({ name: t("doctor.sr.name"), purpose: t("doctor.sr.purpose"), status: "INFO",
+            value: t("doctor.rm.noAccess"),
+            detail: [t("doctor.sr.noAccess")] });
     } else {
       const have = new Set((sec.data?.secrets || []).map((s) => s.name));
 
       // AI 요약 키가 실제로 등록돼 있는지 (#569) — 있으면 어느 서비스인지까지 보여준다.
       const AI_KEYS = { GEMINI_API_KEY: "Gemini", OPENAI_API_KEY: "OpenAI", ANTHROPIC_API_KEY: "Anthropic",
-                        GROQ_API_KEY: "Groq", MISTRAL_API_KEY: "Mistral", MODEL_API_KEY: "구 이름(서비스 자동 추정)" };
+                        GROQ_API_KEY: "Groq", MISTRAL_API_KEY: "Mistral", MODEL_API_KEY: t("doctor.air.legacy") };
       const foundAi = Object.entries(AI_KEYS).filter(([n]) => have.has(n));
       rows.push({
-        name: "AI 요약 키 등록", purpose: "릴리스 노트를 AI로 다듬을지 (선택)",
+        name: t("doctor.air.name"), purpose: t("doctor.ai.purpose"),
         status: "INFO",
-        value: foundAi.length ? foundAi.map(([n, label]) => `${n} (${label})`).join(", ") : "없음 — 커밋 분석으로 동작",
+        value: foundAi.length ? foundAi.map(([n, label]) => `${n} (${label})`).join(", ") : t("doctor.air.none"),
         detail: foundAi.length ? null : [
-          "등록하지 않아도 릴리스 노트는 정상적으로 나옵니다.",
-          "AI를 쓰려면 GEMINI_API_KEY(무료)를 등록하세요 — https://aistudio.google.com/apikey",
+          t("doctor.air.l1"),
+          t("doctor.air.l2"),
         ],
       });
       // AI 키는 위에서 따로 안내하는 선택 항목이다 — '배포에 필요한 값' 미등록 목록에 섞으면 필수처럼 읽힌다 (#723)
       const missing = requiredSecrets.filter((n) => !have.has(n) && !(n in AI_KEYS));
       add({
-        name: "Secret 등록 여부", purpose: "배포에 필요한 값",
+        name: t("doctor.sr.name"), purpose: t("doctor.sr.purpose"),
         status: missing.length ? "WARN" : "OK",
-        value: missing.length ? `${missing.length}개 미등록` : "전부 등록됨",
+        value: missing.length ? t("doctor.sr.missing", { n: missing.length }) : t("doctor.sr.all"),
         detail: missing.length ? [
           ...missing.map((n) => `  ${n}`),
-          "해당 워크플로우를 쓰지 않는다면 등록하지 않아도 됩니다.",
-          "조치: Settings > Secrets and variables > Actions > New repository secret",
+          t("doctor.sr.l1"),
+          t("doctor.sr.fix"),
         ] : null,
       });
     }
@@ -261,7 +263,7 @@ export async function remoteChecks(slug, token, requiredSecrets = [], undeclared
 const ICON = { OK: "✅", WARN: "⚠️", FAIL: "❌", INFO: "ℹ️" };
 
 export function renderRows(rows, write = (s) => process.stderr.write(s + "\n")) {
-  const head = (r) => `${r.name}${r.purpose ? ` — ${r.purpose}` : ""}`;
+  const head = (r) => `${r.name}${r.purpose ? ` - ${r.purpose}` : ""}`;
   for (const r of rows) {
     write(`${ICON[r.status] || "·"} ${head(r)}: ${r.value}`);
     // 정상 항목은 한 줄로 압축한다. 펼치는 것은 사용자가 무언가 해야 할 때뿐이다.
@@ -273,8 +275,8 @@ export function renderRows(rows, write = (s) => process.stderr.write(s + "\n")) 
   const warn = rows.filter((r) => r.status === "WARN" || r.status === "FAIL").length;
   write("");
   write(warn === 0
-    ? "확인된 문제 없음."
-    : `살펴볼 항목 ${warn}건. 위 조치를 참고하세요 (쓰지 않는 기능이라면 넘어가도 됩니다).`);
+    ? t("doctor.render.clean")
+    : t("doctor.render.warn", { n: warn }));
   return warn;
 }
 
@@ -282,24 +284,24 @@ export function renderRows(rows, write = (s) => process.stderr.write(s + "\n")) 
 export async function runDoctor({ cwd = ".", token = process.env.GITHUB_TOKEN || "" } = {}) {
   const write = (s) => process.stderr.write(s + "\n");
   write("");
-  write("projectops doctor — 통합 상태 및 저장소 설정 진단");
+  write(t("doctor.title"));
   write("────────────────────────────────────────");
   write("");
 
   const rows = localChecks(cwd);
   const slug = detectSlug(cwd);
   const repoName = detectRepoName(cwd);
-  rows.push({ name: "GitHub 원격", purpose: "점검 대상 저장소", status: slug ? "OK" : "INFO",
-              value: slug || `origin 없음${repoName ? ` (폴더명: ${repoName})` : ""}`,
-              detail: slug ? null : ["원격 저장소를 찾지 못해 저장소 설정은 점검하지 않습니다."] });
+  rows.push({ name: t("doctor.gh.name"), purpose: t("doctor.gh.purpose"), status: slug ? "OK" : "INFO",
+              value: slug || t("doctor.gh.noOrigin", { folder: repoName ? t("doctor.gh.folder", { name: repoName }) : "" }),
+              detail: slug ? null : [t("doctor.gh.noRemote")] });
 
   if (slug && token) {
     const v = verifyInstall(cwd);
     rows.push(...await remoteChecks(slug, token, [...v.secrets.keys()], workflowsWithoutPermissions(cwd)));
   } else if (slug) {
-    rows.push({ name: "저장소 설정 점검", purpose: "권한·머지 방식·Secret", status: "INFO",
-                value: "건너뜀 (토큰 없음)",
-                detail: ["GITHUB_TOKEN 환경변수를 주면 저장소 설정까지 점검합니다.",
+    rows.push({ name: t("doctor.skip.name"), purpose: t("doctor.skip.purpose"), status: "INFO",
+                value: t("doctor.skip.value"),
+                detail: [t("doctor.skip.l1"),
                          "  GITHUB_TOKEN=ghp_... npx projectops --mode doctor"] });
   }
 

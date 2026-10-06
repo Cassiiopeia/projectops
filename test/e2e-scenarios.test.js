@@ -292,10 +292,10 @@ test("E2E ⑬: 진단이 현재 상태를 알려준다", async () => {
     const rows = localChecks(tgt);
     const byName = Object.fromEntries(rows.map((r) => [r.name, r]));
 
-    assert.ok(byName["AI 요약 키"], "키를 어떻게 등록하는지 알려줘야 한다");
-    const detail = (byName["AI 요약 키"].detail || []).join("\n");
+    assert.ok(byName["AI summary key"], "키를 어떻게 등록하는지 알려줘야 한다");
+    const detail = (byName["AI summary key"].detail || []).join("\n");
     assert.match(detail, /GEMINI_API_KEY/, "무슨 이름으로 등록할지 드러나야 한다");
-    assert.match(detail, /등록하지 않아도/, "선택 사항임이 드러나야 한다");
+    assert.match(detail, /even without it/, "선택 사항임이 드러나야 한다");
   } finally { rmSync(tpl, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
 });
 
