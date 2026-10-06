@@ -93,6 +93,46 @@ def commit_messages(before: str, after: str) -> list[str]:
     return [m for m in out.split("\x00") if m.strip()]
 
 
+def release_pr_messages(repo: str, after: str, token: str, lookback: int = 15) -> list[str] | None:
+    """머지된 릴리스 PR 의 커밋 메시지. 찾지 못하면 None.
+
+    dispatch 로 깨워질 때(#551)는 before 가 없다. 이때 태그로 구간을 추측하면 틀린다: 릴리스 워크플로우가
+    **이번 릴리스의 태그를 먼저 만든 뒤** 깨우므로 이번 태그가 "직전 릴리스"로 잡혀 구간이 릴리스 뒤에 붙는
+    README 커밋 하나가 된다 (#791, 실제 Actions e2e 에서 발견). 그래서 HEAD 에서 거슬러 올라가며 최근 커밋에
+    연결된 머지된 PR(base 가 기본 브랜치)을 찾고 그 PR 의 커밋을 쓴다. 태그와 머지 방식(merge, squash,
+    rebase)에 의존하지 않는다. 릴리스 뒤에 붙는 봇 커밋은 PR 과 연결되지 않아 건너뛴다.
+    """
+    for sha in _git("rev-list", f"--max-count={lookback}", after).splitlines():
+        prs = _request("GET", f"{API}/repos/{repo}/commits/{sha}/pulls", token) or []
+        for pr in prs:
+            base = pr.get("base") or {}
+            if not pr.get("merged_at") or base.get("ref") != (base.get("repo") or {}).get("default_branch", base.get("ref")):
+                continue
+            if (pr.get("head") or {}).get("ref") == base.get("ref"):
+                continue
+            messages: list[str] = []
+            for page in (1, 2, 3):  # PR 당 커밋 300개까지
+                chunk = _request("GET", f"{API}/repos/{repo}/pulls/{pr['number']}/commits?per_page=100&page={page}", token) or []
+                messages += [c["commit"]["message"] for c in chunk]
+                if len(chunk) < 100:
+                    break
+            return messages
+    return None
+
+
+def release_messages(repo: str, before: str, after: str, token: str) -> list[str]:
+    """릴리스 구간의 커밋 메시지. push 는 before..after, dispatch 는 릴리스 PR, 그것도 안 되면 태그 구간."""
+    if before and set(before) != {"0"}:
+        return commit_messages(before, after)
+    try:
+        found = release_pr_messages(repo, after, token)
+        if found is not None:
+            return found
+    except Exception as e:  # 조회 실패가 릴리스를 막으면 안 된다
+        print(f"릴리스 PR 조회 실패({type(e).__name__}) — 태그 구간으로 대체합니다")
+    return commit_messages(before, after)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", required=True)
@@ -115,7 +155,7 @@ def main(argv=None) -> int:
         print("GITHUB_TOKEN 이 없어 건너뜁니다.")
         return 0
 
-    numbers = issue_numbers_from_commits(commit_messages(a.before, a.after), a.repo)
+    numbers = issue_numbers_from_commits(release_messages(a.repo, a.before, a.after, token), a.repo)
     print(f"릴리스 구간이 참조한 이슈: {numbers}")
     closed = []
     for n in numbers:

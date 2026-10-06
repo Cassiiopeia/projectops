@@ -15,7 +15,8 @@
 #
 # Projects 동기화는 라벨의 labeled 이벤트로 도므로 이슈 닫기와 충돌하지 않는다.
 # 릴리스를 PAT 없이 머지한 경우 push 트리거가 생기지 않으므로 dispatch_downstream.py 가
-# workflow_dispatch 로 이 워크플로우를 깨운다(#551) — 그때는 직전 릴리스 태그부터 현재까지를 구간으로 본다.
+# workflow_dispatch 로 이 워크플로우를 깨운다(#551) — 그때는 머지된 릴리스 PR 의 커밋을 구간으로 본다(#791).
+# 태그로 추측하지 않는다: 릴리스 워크플로우가 이번 릴리스의 태그를 먼저 만든 뒤 깨우기 때문이다.
 # ===================================================================
 
 name: CLOSE ISSUES ON RELEASE
@@ -32,6 +33,7 @@ concurrency:
 permissions:
   contents: read
   issues: write
+  pull-requests: read   # 릴리스 PR 의 커밋 목록 조회 (#791)
 
 jobs:
   close-done-issues:

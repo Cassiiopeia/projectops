@@ -67,3 +67,65 @@ def test_before가_있으면_그_구간을_그대로_쓴다(tmp_path, monkeypatc
     monkeypatch.chdir(tmp_path)
     assert c.release_range(before, after) == f"{before}..{after}"
     assert c.issue_numbers_from_commits(c.commit_messages(before, after), "o/r") == [5]
+
+
+# ── #791: dispatch 경로는 태그가 아니라 머지된 릴리스 PR 의 커밋을 쓴다 ─────────
+
+def _release_repo(tmp_path, monkeypatch):
+    """실제 릴리스 워크플로우의 모양: 릴리스 커밋들 → 이번 릴리스 태그 → 그 뒤에 붙는 README 커밋."""
+    git = _repo(tmp_path)
+    git("commit", "-q", "--allow-empty", "-m", "old release https://github.com/o/r/issues/1")
+    git("tag", "v1.0.0")
+    git("commit", "-q", "--allow-empty", "-m", "fix : x https://github.com/o/r/issues/2")
+    git("commit", "-q", "--allow-empty", "-m", "finalize release v1.1.0")
+    git("tag", "v1.1.0")                      # 이번 릴리스의 태그가 이미 있다 (태그를 먼저 만든 뒤 후속 워크플로우를 깨운다)
+    git("commit", "-q", "--allow-empty", "-m", "readme version bump [skip ci]")
+    monkeypatch.chdir(tmp_path)
+    return git, git("rev-parse", "HEAD")
+
+
+def test_태그가_이미_있어도_머지된_릴리스_PR의_커밋_메시지를_쓴다(tmp_path, monkeypatch):
+    git, head = _release_repo(tmp_path, monkeypatch)
+    release_shas = git("rev-list", "--max-count=3", "HEAD~1").splitlines()   # 릴리스 커밋들 (README 커밋 제외)
+
+    def fake_request(method, url, token, payload=None):
+        if "/commits/" in url and url.endswith("/pulls"):
+            sha = url.split("/commits/")[1].split("/")[0]
+            return ([{"number": 6, "merged_at": "2026-10-07T00:00:00Z", "base": {"ref": "main", "repo": {"default_branch": "main"}},
+                      "head": {"ref": "develop"}}] if sha in release_shas else [])
+        if "/pulls/6/commits" in url:
+            return [{"commit": {"message": "fix : x https://github.com/o/r/issues/2"}},
+                    {"commit": {"message": "finalize release v1.1.0"}}]
+        raise AssertionError(url)
+
+    monkeypatch.setattr(c, "_request", fake_request)
+    msgs = c.release_messages("o/r", "", head, "tok")
+    assert c.issue_numbers_from_commits(msgs, "o/r") == [2]      # 이전 릴리스(#1)도, 빈 구간도 아니다
+
+
+def test_PR을_찾지_못하면_태그_구간으로_대체한다(tmp_path, monkeypatch):
+    git, head = _release_repo(tmp_path, monkeypatch)
+    monkeypatch.setattr(c, "_request", lambda *a, **k: [])          # 연결된 PR 없음
+    msgs = c.release_messages("o/r", "", head, "tok")
+    assert msgs                                                       # 죽지 않고 기존 방식으로 이어간다
+
+
+def test_API가_실패해도_릴리스를_막지_않는다(tmp_path, monkeypatch):
+    git, head = _release_repo(tmp_path, monkeypatch)
+
+    def boom(*a, **k):
+        raise OSError("network")
+
+    monkeypatch.setattr(c, "_request", boom)
+    assert c.release_messages("o/r", "", head, "tok")
+
+
+def test_push_경로는_before_after_구간을_그대로_쓴다(tmp_path, monkeypatch):
+    git = _repo(tmp_path)
+    git("commit", "-q", "--allow-empty", "-m", "a")
+    before = git("rev-parse", "HEAD")
+    git("commit", "-q", "--allow-empty", "-m", "b https://github.com/o/r/issues/5")
+    after = git("rev-parse", "HEAD")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(c, "_request", lambda *a, **k: (_ for _ in ()).throw(AssertionError("push 경로는 API 를 부르지 않는다")))
+    assert c.issue_numbers_from_commits(c.release_messages("o/r", before, after, "tok"), "o/r") == [5]
