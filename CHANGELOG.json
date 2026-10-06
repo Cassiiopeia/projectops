@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-06T22:35:48Z",
-    "currentVersion": "4.36.1",
+    "lastUpdated": "2026-10-06T22:54:44Z",
+    "currentVersion": "4.36.2",
     "projectType": "basic",
-    "totalReleases": 291,
+    "totalReleases": 292,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.36.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-06",
+      "pr_number": 794,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * 카테고리명·제목·대체 문구·AI 프롬프트를 메시지 카탈로그로 옮기고 PR 요약 추출은 언어별 제목을 모두 받도록 변경, 한국어 출력은 골든으로 기존과 동일하게 고정",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "카테고리명·제목·대체 문구·AI 프롬프트를 메시지 카탈로그로 옮기고 PR 요약 추출은 언어별 제목을 모두 받도록 변경, 한국어 출력은 골든으로 기존과 동일하게 고정"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.36.1",
       "project_type": "basic",
