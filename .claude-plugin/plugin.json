@@ -1,6 +1,6 @@
 {
   "name": "projectops",
-  "description": "DevOps 자동화 스킬 모음 - 코드 분석, 설계, 구현, 테스트, 리뷰, 리팩토링, 문서화, 트러블슈팅 등 23+ 스킬",
+  "description": "Agent skills for the whole development cycle: issues, commits, reports, reviews, builds, QA and release deployment (20 skills)",
   "version": "4.31.4",
   "author": {
     "name": "Cassiiopeia",

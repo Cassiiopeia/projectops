@@ -1,7 +1,7 @@
 {
   "name": "projectops",
   "version": "4.31.4",
-  "description": "ProjectOps — 완전 자동화 GitHub 프로젝트 관리 템플릿 통합 CLI",
+  "description": "ProjectOps: installer CLI for a fully automated GitHub project management template (versioning, CI/CD, release notes, agent skills)",
   "keywords": [
     "devops",
     "automation",
