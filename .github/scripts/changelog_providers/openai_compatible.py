@@ -13,7 +13,7 @@ import sys
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import collect_commits, write_pr_body, fail  # noqa: E402
+from _common import collect_commits, write_pr_body, fail, resolve_language, t  # noqa: E402
 
 # base_url + 기본 모델. 모델명은 **버전을 박지 않고 별칭을 쓴다** — 버전이 박힌 이름은
 # 1~2년이면 퇴역한다(실측: gemini-1.5-flash가 404로 죽어 있었다, #566).
@@ -28,10 +28,9 @@ PRESETS = {
     "ollama": (None, "qwen2.5"),  # base_url은 CHANGELOG_BASE_URL 필수
 }
 
-PROMPT_TEMPLATE = (
-    "다음 커밋들을 사용자용 릴리스 노트로 만들어라. 파일명·prefix·이슈번호·URL 금지. "
-    "'새 기능'/'버그 수정'/'개선'으로 분류:\n{commits}"
-)
+def build_prompt(commits, lang=None):
+    """프롬프트 본문은 카탈로그에 있다 — 출력 언어와 분류 이름이 레포 언어를 따라야 한다 (#793)."""
+    return t("release_notes.prompt.openai", lang or resolve_language(), commits=commits)
 
 
 def request_completion(base_url, model, api_key, prompt):
@@ -69,7 +68,7 @@ def main():
         if not base_url:
             fail("openai-compatible: base_url 없음 (ollama는 CHANGELOG_BASE_URL 필요) — 폴백")
         commits = collect_commits(os.environ.get("COMMIT_RANGE", "origin/main..HEAD"), limit=40)
-        prompt = PROMPT_TEMPLATE.format(commits="\n".join(commits))
+        prompt = build_prompt("\n".join(commits))
         try:
             content = request_completion(base_url, model, os.environ.get("MODEL_API_KEY", ""), prompt)
         except Exception as e:  # 네트워크·인증·파싱 실패 전부 폴백 사유

@@ -23,15 +23,14 @@ import sys
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import collect_commits, write_pr_body, fail  # noqa: E402
+from _common import collect_commits, write_pr_body, fail, resolve_language, t  # noqa: E402
 
 ENDPOINT = "https://models.github.ai/inference/chat/completions"
 DEFAULT_MODEL = "openai/gpt-4o-mini"
 
-PROMPT_TEMPLATE = (
-    "다음 커밋들을 사용자용 릴리스 노트로 만들어라. 파일명·prefix·이슈번호·URL 금지. "
-    "'새 기능'/'버그 수정'/'개선'으로 분류:\n{commits}"
-)
+def build_prompt(commits, lang=None):
+    """프롬프트 본문은 카탈로그에 있다 — 출력 언어와 분류 이름이 레포 언어를 따라야 한다 (#793)."""
+    return t("release_notes.prompt.openai", lang or resolve_language(), commits=commits)
 
 
 def request_completion(token, model, prompt):
@@ -64,7 +63,7 @@ def main():
         # 입력 토큰 한도(8K) 대응 — 커밋 40개로 제한 (mini 모델 + prefix 필터)
         commits = collect_commits(os.environ.get("COMMIT_RANGE", "origin/main..HEAD"), limit=40)
         model = os.environ.get("CHANGELOG_MODEL") or DEFAULT_MODEL
-        prompt = PROMPT_TEMPLATE.format(commits="\n".join(commits))
+        prompt = build_prompt("\n".join(commits))
         try:
             content = request_completion(token, model, prompt)
         except Exception as e:  # rate limit·권한·네트워크 실패 전부 폴백 사유

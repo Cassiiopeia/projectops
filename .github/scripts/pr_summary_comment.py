@@ -40,10 +40,12 @@ MARKER = "<!-- PROJECTOPS-AI-SUMMARY -->"
 def extract_body(raw: str) -> str:
     """릴리스 노트 껍데기에서 항목 본문만 꺼낸다.
 
-    provider 사다리는 `## 릴리스 노트` 아래에 항목을 쓰고 HTML 주석으로 감싼다.
+    provider 사다리는 `## Summary by CodeRabbit` 다음 제목(언어별: `릴리스 노트`, `Release notes` …)
+    아래에 항목을 쓰고 HTML 주석으로 감싼다. 제목 문구에 의존하면 언어가 늘 때마다 깨지므로
+    `Summary by CodeRabbit`이 아닌 첫 `##` 제목을 본문 시작으로 본다.
     구조가 달라지면(다른 provider 등) 원문을 그대로 쓴다 — 요약이 없는 것보다는 낫다.
     """
-    m = re.search(r"##\s*릴리스 노트\s*\n(.*?)(?:\n<!--|\Z)", raw, re.S)
+    m = re.search(r"^##[ \t]+(?!Summary by CodeRabbit)[^\n]+\n(.*?)(?:\n<!--|\Z)", raw, re.S | re.M)
     body = m.group(1) if m else raw
     # 주변 HTML 주석 줄 제거 (남아 있으면 댓글에 빈 줄만 생긴다)
     body = "\n".join(l for l in body.split("\n") if not l.strip().startswith("<!--"))

@@ -42,5 +42,14 @@
   "release.commit.readme": "{repo} 버전 관리 : docs : v{version} README 버전 정보 업데이트",
   "release.commit.version_control": "{repo} 버전 정보 관리: chore: 버전 {version}",
   "release.commit.finalize": "{repo} 버전 관리 : chore : v{version} 릴리즈 버전 확정 및 릴리즈 문서 업데이트 (PR #{pr})",
-  "issue_helper.commit_template": "${issueTitle} : ${commitType} : {변경 사항에 대한 설명} ${issueUrl}"
+  "issue_helper.commit_template": "${issueTitle} : ${commitType} : {변경 사항에 대한 설명} ${issueUrl}",
+  "release_notes.section.feat": "새 기능",
+  "release_notes.section.fix": "버그 수정",
+  "release_notes.section.improve": "개선",
+  "release_notes.section.docs": "문서",
+  "release_notes.section.etc": "기타",
+  "release_notes.heading": "릴리스 노트",
+  "release_notes.empty": "변경 사항 요약을 생성하지 못했습니다",
+  "release_notes.prompt.copilot": "아래 커밋들을 릴리스 노트로 요약하라.\n\n규칙:\n- 항목당 한 줄, 25자 이내\n- 명사형으로 끝낸다\n- 파일명·함수명·prefix·이슈번호·URL 금지\n- 사용자가 체감하는 변화만 쓴다\n- 내부 리팩터링·테스트·문서는 제외\n- 비슷한 항목은 하나로 합친다\n- 분류당 최대 4개\n- 설명·머리말 없이 아래 형식만 출력한다\n\n형식:\n**새 기능**\n* 설정 진단 기능 추가\n\n**버그 수정**\n* 로그가 끊기던 문제 해결\n\n**개선**\n* 실행 기록 위치 안내 추가\n\n커밋:\n{commits}",
+  "release_notes.prompt.openai": "다음 커밋들을 사용자용 릴리스 노트로 만들어라. 파일명·prefix·이슈번호·URL 금지. '새 기능'/'버그 수정'/'개선'으로 분류:\n{commits}"
 }

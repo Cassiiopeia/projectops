@@ -8,13 +8,13 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import collect_commits, classify, sections_to_markdown, write_pr_body  # noqa: E402
+from _common import collect_commits, classify, empty_notes, sections_to_markdown, write_pr_body  # noqa: E402
 
 
 def main():
     range_expr = os.environ.get("COMMIT_RANGE", "origin/main..HEAD")
     commits = collect_commits(range_expr)
-    content = sections_to_markdown(classify(commits)) if commits else "* **기타**\n  * 변경 사항 요약을 생성하지 못했습니다"
+    content = sections_to_markdown(classify(commits)) if commits else empty_notes()
     write_pr_body(content)
     print("PROVIDER=commit")
 

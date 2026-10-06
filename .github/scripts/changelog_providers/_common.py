@@ -6,21 +6,20 @@
   출력: 성공 시 cwd에 pr_body.md(Summary by CodeRabbit 고정 구조) + stdout `PROVIDER=<name>` + exit 0
         실패 시 stderr 사유 + exit 1 (ladder가 다음 단계로 폴백)
 """
+import os
 import re
 import subprocess
 import sys
 
+# 카탈로그(#787)는 스크립트 폴더 한 단계 위에 있다 — provider 가 직접 실행돼도 import 되도록 경로를 잡는다
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from i18n.messages import resolve_language, t  # noqa: E402
+
 HEADER = "<!-- This is an auto-generated comment: release notes by coderabbit.ai -->"
 FOOTER = "<!-- end of auto-generated comment: release notes by coderabbit.ai -->"
 
-# 커밋 제목 prefix → 릴리스 노트 섹션
-SECTION_ORDER = [
-    ("feat", "새 기능"),
-    ("fix", "버그 수정"),
-    ("improve", "개선"),
-    ("docs", "문서"),
-    ("etc", "기타"),
-]
+# 릴리스 노트 섹션 순서. 표시 이름은 레포 언어의 카탈로그에서 가져온다 (#793)
+SECTION_ORDER = ["feat", "fix", "improve", "docs", "etc"]
 # 커밋 제목에서 타입을 뽑는 규칙 — 두 컨벤션을 모두 인식한다 (#566).
 #   tier-1: "제목 : feat : 내용"        ← projectops 표준 (타입이 중간에 온다)
 #   tier-2: "feat: 내용"                ← Conventional Commits
@@ -81,16 +80,18 @@ def clean_message(line):
 
 def classify(commits):
     """커밋 제목들을 섹션별로 분류해 {섹션key: [메시지…]} 반환."""
-    sections = {key: [] for key, _ in SECTION_ORDER}
+    sections = {key: [] for key in SECTION_ORDER}
     for line in commits:
         key, message = parse_commit(line)
         sections[key].append(message)
     return sections
 
 
-def sections_to_markdown(sections):
+def sections_to_markdown(sections, lang=None):
+    lang = lang or resolve_language()
     parts = []
-    for key, title in SECTION_ORDER:
+    for key in SECTION_ORDER:
+        title = t(f"release_notes.section.{key}", lang)
         items = sections.get(key) or []
         if not items:
             continue
@@ -100,12 +101,22 @@ def sections_to_markdown(sections):
     return "\n".join(parts).rstrip("\n")
 
 
-def write_pr_body(content, path="pr_body.md"):
-    """Summary by CodeRabbit 고정 구조로 감싸 pr_body.md 저장 — changelog_manager.py 파싱 계약."""
+def empty_notes(lang=None):
+    """커밋을 하나도 못 모았을 때의 대체 본문."""
+    lang = lang or resolve_language()
+    return f"* **{t('release_notes.section.etc', lang)}**\n  * {t('release_notes.empty', lang)}"
+
+
+def write_pr_body(content, path="pr_body.md", lang=None):
+    """Summary by CodeRabbit 고정 구조로 감싸 pr_body.md 저장 — changelog_manager.py 파싱 계약.
+
+    `Summary by CodeRabbit` 줄은 워크플로우가 읽는 계약이라 번역하지 않는다. 그 아래 제목만 언어를 따른다.
+    """
+    lang = lang or resolve_language()
     body = "\n".join([
         HEADER, "",
         "## Summary by CodeRabbit", "",
-        "## 릴리스 노트", "",
+        f"## {t('release_notes.heading', lang)}", "",
         content, "",
         FOOTER, "",
     ])

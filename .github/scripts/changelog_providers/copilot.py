@@ -23,32 +23,11 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import collect_commits, write_pr_body, fail  # noqa: E402
+from _common import collect_commits, write_pr_body, fail, resolve_language, t  # noqa: E402
 
-PROMPT = """아래 커밋들을 릴리스 노트로 요약하라.
-
-규칙:
-- 항목당 한 줄, 25자 이내
-- 명사형으로 끝낸다
-- 파일명·함수명·prefix·이슈번호·URL 금지
-- 사용자가 체감하는 변화만 쓴다
-- 내부 리팩터링·테스트·문서는 제외
-- 비슷한 항목은 하나로 합친다
-- 분류당 최대 4개
-- 설명·머리말 없이 아래 형식만 출력한다
-
-형식:
-**새 기능**
-* 설정 진단 기능 추가
-
-**버그 수정**
-* 로그가 끊기던 문제 해결
-
-**개선**
-* 실행 기록 위치 안내 추가
-
-커밋:
-{commits}"""
+def build_prompt(commits, lang=None):
+    """프롬프트 본문은 카탈로그에 있다 — 출력 언어와 분류 이름이 레포 언어를 따라야 한다 (#793)."""
+    return t("release_notes.prompt.copilot", lang or resolve_language(), commits=commits)
 
 
 def main():
@@ -64,7 +43,7 @@ def main():
     # --no-ask-user: 자동화에는 되묻는 사람이 없다. 이것이 없으면 입력 대기로 멈춘다.
     try:
         proc = subprocess.run(
-            ["copilot", "-p", PROMPT.format(commits="\n".join(commits)), "--no-ask-user"],
+            ["copilot", "-p", build_prompt("\n".join(commits)), "--no-ask-user"],
             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180,
         )
     except subprocess.TimeoutExpired:
