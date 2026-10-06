@@ -151,10 +151,17 @@ Play Store 배포 자동화 스크립트입니다.
 **위치:** `android/fastlane/Fastfile.playstore`
 
 **제공하는 lane:**
-- `deploy_internal` - Internal Testing 트랙 배포
+- `build_aab` - AAB 빌드
+- `deploy_internal` - Internal Testing 업로드 + `DEPLOY_MODE`에 따른 승급 (비공개/공개 테스트, 프로덕션)
+- `promote_internal_to_closed_testing` / `promote_internal_to_open_testing` - 중간 트랙 승급
+- `promote_internal_to_production` - 프로덕션 승급 (`PRODUCTION_ROLLOUT`, 기본 1.0 = 전체 출시)
 - `validate` - 서비스 계정 검증
-- `promote_to_beta` - Internal → Beta 승급
-- `promote_to_production` - Beta → Production 승급 (10% rollout)
+
+**프로덕션 출시 비율:** 레포 변수 `ANDROID_PRODUCTION_ROLLOUT`(0 초과 1.0 이하, 기본 1.0)로 정한다. 1.0은 심사 통과 즉시 전체 사용자에게 나가며 되돌릴 수 없다. 1.0 미만(예: 0.1)은 그 비율만 단계적으로 내보내고, **비율을 올리는 일은 자동화되지 않아** Play Console 프로덕션 > 출시 관리에서 사람이 올린다. 문제가 생기면 같은 화면에서 출시를 중단한다.
+
+**최초 1회는 수동 출시:** 한 번도 프로덕션에 출시된 적 없는 앱은 API로 프로덕션 승급이 되지 않는다. 콘솔에서 최초 1회 출시해야 하며, 이미 비공개 테스트에 올라간 빌드는 프로덕션 > 새 출시 > "라이브러리에서 추가"로 새로 빌드하지 않고 붙일 수 있다.
+
+**Fastfile을 직접 고쳤다면:** 워크플로가 넘기는 값(`DEPLOY_MODE`, `PROMOTE_*`, `PRODUCTION_ROLLOUT`)을 Fastfile이 읽지 않으면 조용히 무시된다. 워크플로가 이를 감지해 CI 로그에 경고를 남기지만 막지는 않는다. 마법사를 다시 실행하면 이 파일은 템플릿으로 다시 쓰이므로 직접 고친 내용은 사라진다. 실행 전에 diff로 확인한다.
 
 **필요한 환경변수:**
 - `AAB_PATH` - AAB 파일 경로

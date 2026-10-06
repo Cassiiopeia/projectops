@@ -94,6 +94,10 @@ env:
   # 트랙 이름은 콘솔에서 바꿀 수 있으므로 값으로 둔다 (박아두면 조용히 안 올라간다).
   CLOSED_TESTING_TRACK: ${{ vars.ANDROID_CLOSED_TESTING_TRACK || 'alpha' }}
   OPEN_TESTING_TRACK: ${{ vars.ANDROID_OPEN_TESTING_TRACK || 'beta' }}
+  # 프로덕션 출시 비율 (0 초과 1.0 이하). 1.0 = 심사 통과 즉시 전체 출시(되돌릴 수 없음), 0.1 = 10% 단계적 출시.
+  # 단계적 출시 후 비율을 올리는 일은 자동화되지 않는다 — Play Console 프로덕션 > 출시 관리에서 사람이 올리고,
+  # 문제가 생기면 같은 화면에서 출시를 중단한다. 레포 변수 ANDROID_PRODUCTION_ROLLOUT 로 바꾼다.
+  PRODUCTION_ROLLOUT: ${{ vars.ANDROID_PRODUCTION_ROLLOUT || '1.0' }}
 
 jobs:
   prepare-build:
@@ -671,6 +675,17 @@ jobs:
           mkdir -p android/fastlane
           cp android/fastlane/Fastfile.playstore android/fastlane/Fastfile
           echo "✅ Fastfile 복사 완료 (Fastfile.playstore → Fastfile)"
+
+          # 워크플로가 넘기는 값을 Fastfile 이 읽지 않으면 설정이 조용히 무시된다 (#766).
+          # 직접 고친 Fastfile 에서 실제로 일어난 일이라, 기본값과 다른 값을 넘기는데
+          # Fastfile 에 그 이름이 없으면 경고로 알린다. 막지는 않는다.
+          for pair in "DEPLOY_MODE:store_only" "PROMOTE_TO_CLOSED_TESTING:false" "PROMOTE_TO_OPEN_TESTING:false" "PRODUCTION_ROLLOUT:1.0"; do
+            name="${pair%%:*}"; default="${pair#*:}"
+            eval "value=\"\${$name:-}\""
+            if [ -n "$value" ] && [ "$value" != "$default" ] && ! grep -q "$name" android/fastlane/Fastfile.playstore; then
+              echo "::warning title=Fastfile 이 $name 을 읽지 않습니다::워크플로가 $name=$value 를 넘기지만 android/fastlane/Fastfile.playstore 에는 이 이름이 없어 값이 무시됩니다. 직접 고친 Fastfile 이라면 값을 읽도록 반영하세요."
+            fi
+          done
           echo "📋 Fastfile 내용:"
           cat android/fastlane/Fastfile
 
@@ -682,6 +697,7 @@ jobs:
           PROMOTE_TO_OPEN_TESTING: ${{ env.PROMOTE_TO_OPEN_TESTING }}
           CLOSED_TESTING_TRACK: ${{ env.CLOSED_TESTING_TRACK }}
           OPEN_TESTING_TRACK: ${{ env.OPEN_TESTING_TRACK }}
+          PRODUCTION_ROLLOUT: ${{ env.PRODUCTION_ROLLOUT }}
           STORE_WHATS_NEW_OVERRIDE: ${{ env.STORE_WHATS_NEW_OVERRIDE }}
           # 수동 실행 입력은 step env 로 받아 셸 주입을 막는다
           INPUT_WHATS_NEW_OVERRIDE: ${{ github.event.inputs.whats_new_override }}

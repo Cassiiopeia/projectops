@@ -3,11 +3,17 @@
 # GitHub Actions 에서는 애노테이션으로 올려 실행 목록에 뜨게 한다. 로그 안에만 두면
 # 초록불에 묻혀 아무도 읽지 않는다 — 이 저장소가 여러 번 겪은 모양이다 (#612 · #545).
 # 승급 스위치는 켜야만 도는 것이므로, 켠 사람은 그 승급을 원한 것이다. 안 됐으면 안다.
-def report_promote_failure(track, error)
+def report_promote_failure(track, error, production: false)
   head = "#{track} 트랙 승급 실패 — 내부 테스트 업로드는 정상 완료되었습니다."
   why  = "사유: #{error.message}"
   what = "확인할 것: (1) 서비스 계정에 해당 트랙 권한이 있는지 " \
          "(2) 콘솔에 그 트랙이 만들어져 있는지 (3) 같은 버전 코드가 이미 그 트랙에 있는지"
+  if production
+    # Google API 메시지만으로는 이 요건이 원인인지 짐작하기 어렵다 (#765).
+    what += " (4) 이 앱이 프로덕션에 **한 번도 출시된 적이 없다면** API 로는 승급할 수 없다 — " \
+            "Play Console 에서 최초 1회는 사람이 출시해야 한다. 이미 비공개 테스트에 올라간 빌드는 " \
+            "콘솔 프로덕션 > 새 출시 > '라이브러리에서 추가'로 새로 빌드하지 않고 붙일 수 있다"
+  end
   puts "::error title=#{track} 트랙 승급 실패::#{head} / #{why} / #{what}" if ENV["GITHUB_ACTIONS"] == "true"
   puts ""
   puts "❌ #{head}"
@@ -35,6 +41,32 @@ platform :android do
   # 최초 1회는 Play Console에서 수동으로 프로덕션 출시를 완료해야 합니다.
   # 그 이후부터 아래 자동화 흐름이 정상 동작합니다:
   #   internal(completed) → promote_internal_to_production → Google 심사 요청 자동화
+  # ============================================================
+
+  # ============================================================
+  # 🔧 이 파일을 직접 고치기 전에 — 환경변수로 바꿀 수 있는 것
+  # ============================================================
+  # 워크플로(PROJECT-FLUTTER-ANDROID-PLAYSTORE-CICD)가 아래 값을 넘긴다. 파일을 통째로
+  # 고치지 말고 값으로 바꾸면 템플릿이 갱신될 때 덮어써져도 설정이 남는다.
+  #
+  #  환경변수                        기본값       뜻
+  #  ------------------------------  -----------  ------------------------------------------
+  #  DEPLOY_MODE                     store_only   프로덕션 단계를 어디까지 갈지 (아래 표)
+  #  PROMOTE_TO_CLOSED_TESTING       false        비공개 테스트 트랙 승급 여부
+  #  PROMOTE_TO_OPEN_TESTING         false        공개 테스트 트랙 승급 여부
+  #  CLOSED_TESTING_TRACK            alpha        비공개 트랙 이름 (콘솔에서 바꿨다면 그 이름)
+  #  OPEN_TESTING_TRACK              beta         공개 트랙 이름
+  #  PRODUCTION_ROLLOUT              1.0          프로덕션 출시 비율 (0 초과 1.0 이하, 아래 설명)
+  #
+  # 이 파일을 직접 고쳐 위 값을 읽지 않게 만들면, 워크플로가 값을 넘겨도 **조용히 무시된다.**
+  # 워크플로가 이를 감지해 CI 로그에 경고를 남기지만(Copy Fastfile 단계), 막지는 않는다.
+  #
+  # 확장 지점 — 직접 고쳐야 한다면 아래 자리를 고친다.
+  #   · 승급 전후에 할 일 : deploy_internal 의 "Step 2/3" 앞뒤
+  #   · 트랙 승급 공통 동작: private_lane :promote_internal_to (여기 하나만 고치면 모든 트랙에 적용)
+  #
+  # 템플릿 갱신 시: 마법사는 이 파일을 다시 쓴다. 직접 고친 내용은 덮어써지므로,
+  # 고쳤다면 마법사 실행 전에 diff 로 확인하고 필요한 부분만 다시 반영한다.
   # ============================================================
 
   # ============================================================
@@ -108,6 +140,16 @@ platform :android do
     closed_track   = (ENV["CLOSED_TESTING_TRACK"] || "alpha").strip
     open_track     = (ENV["OPEN_TESTING_TRACK"]   || "beta").strip
 
+    # 프로덕션 출시 비율 — 1.0 이면 심사 통과 즉시 전체 사용자에게 나간다(되돌릴 수 없다).
+    # 1.0 미만이면 그 비율의 사용자에게만 단계적으로 내보낸다. 다만 **비율을 올리는 일은
+    # 자동화되지 않는다** — Play Console 의 프로덕션 > 출시 관리에서 사람이 올린다.
+    # 문제가 생기면 같은 화면에서 '출시 중단'으로 멈출 수 있다.
+    production_rollout = (ENV["PRODUCTION_ROLLOUT"] || "1.0").strip
+    rollout_value = Float(production_rollout, exception: false)
+    unless rollout_value && rollout_value > 0 && rollout_value <= 1
+      UI.user_error!("PRODUCTION_ROLLOUT 은 0 초과 1.0 이하의 숫자여야 합니다 (받은 값: '#{production_rollout}'). 예: 1.0(전체), 0.1(10%)")
+    end
+
     puts "📦 배포 정보: #{version_name} (#{version_code}) / 모드: #{deploy_mode} (프로덕션 승급: #{promote} / 심사 자동등록: #{submit})"
     puts "🛤️  트랙 승급: 비공개(#{closed_track})=#{promote_closed} / 공개(#{open_track})=#{promote_open}"
 
@@ -168,10 +210,15 @@ platform :android do
     promote_status = submit ? 'completed' : 'draft'
     puts ""
     puts "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    puts "🚀 프로덕션 트랙으로 승급 중... (release_status: #{promote_status})"
+    puts "🚀 프로덕션 트랙으로 승급 중... (release_status: #{promote_status}, 출시 비율: #{production_rollout})"
     puts "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-    promote_internal_to_production(promote_status: promote_status)
+    begin
+      promote_internal_to_production(promote_status: promote_status, rollout: production_rollout)
+    rescue StandardError => e
+      report_promote_failure("프로덕션", e, production: true)
+      raise
+    end
 
     puts ""
     puts "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -187,11 +234,16 @@ platform :android do
   # 내부 테스트 트랙에서 다른 트랙으로 승급하는 공통 동작.
   # 트랙마다 lane 을 복사하면 skip_ 플래그 열 줄이 갈라져 한쪽만 고쳐지는 일이 생긴다.
   private_lane :promote_internal_to do |options|
+    rollout = (options[:rollout] || '1.0').to_s
+    status = options[:status] || 'completed'
+    # 단계적 출시(1.0 미만)는 Play API 에서 inProgress + 사용자 비율로 표현된다.
+    # completed 로 두면 비율이 의미가 없으므로 맞춰 준다. draft 는 사람이 콘솔에서 출시하므로 그대로 둔다.
+    status = 'inProgress' if status == 'completed' && rollout.to_f < 1.0
     upload_to_play_store(
       package_name: "{{APPLICATION_ID}}",
       track: 'internal',
       track_promote_to: options[:to],
-      track_promote_release_status: options[:status] || 'completed',
+      track_promote_release_status: status,
       json_key: ENV["GOOGLE_PLAY_JSON_KEY"],
       skip_upload_apk: true,
       skip_upload_aab: true,
@@ -199,7 +251,7 @@ platform :android do
       skip_upload_images: true,
       skip_upload_screenshots: true,
       skip_upload_changelogs: true,                # 승급 시에는 changelog 업로드 불필요 (이미 업로드됨)
-      rollout: '1.0',                              # 100% 전체 출시 (심사 통과 후 자동 적용)
+      rollout: rollout,                            # 출시 비율. 1.0 = 전체 출시, 그 미만 = 단계적 출시 (비율 상향은 콘솔에서 수동)
       changes_not_sent_for_review: false,          # 변경을 Google 심사로 전송 (기본값이지만 의도 명시)
       rescue_changes_not_sent_for_review: false    # ⚠️ 거짓 성공 차단: 심사 자동제출 실패를 성공으로 바꾸지 않는다
     )
@@ -211,7 +263,8 @@ platform :android do
     # Play Console에서 최초 1회 수동 프로덕션 출시 후 사용 가능합니다.
     #   promote_status: 'completed' → 즉시 심사 등록 (store_submit)
     #   promote_status: 'draft'     → 프로덕션 draft로만 올림, 사람이 콘솔에서 "출시 시작" (store_prepare)
-    promote_internal_to(to: 'production', status: options[:promote_status] || 'completed')
+    promote_internal_to(to: 'production', status: options[:promote_status] || 'completed',
+                        rollout: options[:rollout] || ENV["PRODUCTION_ROLLOUT"] || '1.0')
   end
 
   desc "Promote internal track to closed testing (비공개 테스트 — CLOSED_TESTING_TRACK, 기본 alpha)"
