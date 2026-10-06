@@ -1,14 +1,34 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-06T15:41:08Z",
-    "currentVersion": "4.36.0",
+    "lastUpdated": "2026-10-06T22:35:48Z",
+    "currentVersion": "4.36.1",
     "projectType": "basic",
-    "totalReleases": 290,
+    "totalReleases": 291,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.36.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-06",
+      "pr_number": 792,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 릴리스가 나간 뒤 완료된 이슈가 자동으로 닫히지 않던 문제를 해결했습니다.\n  * 영문 이슈 안내 댓글의 커밋 메시지 예시에 한국어 문구가 섞이던 문제를 해결했습니다.",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "릴리스가 나간 뒤 완료된 이슈가 자동으로 닫히지 않던 문제를 해결했습니다.",
+            "영문 이슈 안내 댓글의 커밋 메시지 예시에 한국어 문구가 섞이던 문제를 해결했습니다."
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.36.0",
       "project_type": "basic",
