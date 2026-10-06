@@ -1,0 +1,10 @@
+{
+  "issue_helper.heading.commit": "커밋 메시지",
+  "issue_helper.guide.summary": "💡 왜 이 브랜치명을 써야 하나요?",
+  "issue_helper.guide.intro": "이 브랜치명 형식(`YYYYMMDD_#이슈번호_제목`)을 쓰면 아래 기능이 자동으로 연동됩니다:",
+  "issue_helper.guide.outro": "다른 형식의 브랜치명을 쓰면 위 자동화가 동작하지 않습니다.",
+  "issue_helper.guide.app_build": "`@projectops app build` 댓글 빌드 — 이 댓글의 브랜치를 자동 인식해서 빌드",
+  "issue_helper.guide.test_apk": "테스트 APK 빌드 — 브랜치의 `#이슈번호`로 이슈 정보를 빌드 노트에 자동 포함",
+  "issue_helper.guide.test_testflight": "테스트 TestFlight 빌드 — 브랜치의 `#이슈번호`로 이슈 정보를 자동 연동",
+  "issue_helper.guide.skills": "커밋/보고서/리뷰 스킬 — 브랜치·worktree 폴더명에서 이슈 번호를 자동 추출해 커밋 메시지·보고서 완성"
+}

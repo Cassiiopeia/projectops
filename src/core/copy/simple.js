@@ -49,6 +49,16 @@ export function copyScripts(tempDir, targetRoot = ".") {
       copied++;
     }
   }
+  // 메시지 카탈로그(#787): 런타임에 스크립트가 읽는다. 목록 대신 폴더 단위로 복사해야
+  // 번역가가 json 한 파일만 추가해도 다른 곳을 고치지 않고 따라간다.
+  const i18nSrc = join(tempDir, PATHS.scriptsDir, "i18n");
+  if (exists(i18nSrc)) {
+    for (const f of readdirSync(i18nSrc)) {
+      if (!/\.(py|json)$/.test(f)) continue; // __pycache__ 등은 제외
+      copyFileSync(join(i18nSrc, f), join(targetRoot, PATHS.scriptsDir, "i18n", f));
+      copied++;
+    }
+  }
   return copied;
 }
 

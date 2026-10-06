@@ -29,6 +29,9 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+from i18n.contracts import BRANCH_HEADING, LEGACY_COMMENT, LEGACY_SIGNATURE  # 번역하지 않는 계약 문자열 (#787)
+from i18n.messages import resolve_language, t
+
 # ── 기본 설정 (version.yml에 issue_helper 섹션이 없을 때) ─────────────────
 DEFAULT_CONFIG = {
     "branch_prefix": "",
@@ -41,9 +44,8 @@ DEFAULT_CONFIG = {
     "show_guide": True,
 }
 
-# 옛 서명. 구버전 소비자 워크플로우(앱 빌드 트리거, PR 프리뷰)가 댓글에서 이 문구를 찾는다.
-# 화면에는 보이지 않게 HTML 주석으로만 남겨 브랜딩과 호환을 함께 지킨다.
-LEGACY_SIGNATURE = "Guide by SUH-LAB"
+# 옛 서명(LEGACY_SIGNATURE)은 i18n/contracts.py 가 정본이다. 구버전 소비자 워크플로우(앱 빌드 트리거,
+# PR 프리뷰)가 댓글에서 이 문구를 찾으므로 화면에는 보이지 않게 HTML 주석으로만 남긴다.
 
 # 제목 태그 → 커밋 타입 (이슈 템플릿 4종의 제목 태그 기준). 설정 commit_type_map이 병합됨.
 # 한글과 영문을 항상 둘 다 안다: 템플릿 언어(options.language)와 무관하게 동작해야 하고,
@@ -214,50 +216,48 @@ def load_config(repo_root: str = ".") -> dict:
 # ── 동적 가이드 — 레포에 실존하는 워크플로우만 안내 (거짓 안내 원천 차단) ────
 # ⚠️ 확장 규칙: 새 워크플로우가 브랜치 규칙(YYYYMMDD_#번호_)에 의존하게 되면 여기 한 줄 추가.
 #    파일 실존 기반이므로 마법사 setting에서 타입 변경 시 자동 추종된다.
+# 값은 문구 자체가 아니라 메시지 카탈로그 키다 (i18n/en.json, #787). 언어는 version.yml 이 정한다.
 GUIDE_LINES = [
-    ("PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml",
-     "`@projectops app build` 댓글 빌드 — 이 댓글의 브랜치를 자동 인식해서 빌드"),
-    ("PROJECT-FLUTTER-ANDROID-TEST-APK.yaml",
-     "테스트 APK 빌드 — 브랜치의 `#이슈번호`로 이슈 정보를 빌드 노트에 자동 포함"),
-    ("PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT.yaml",
-     "테스트 TestFlight 빌드 — 브랜치의 `#이슈번호`로 이슈 정보를 자동 연동"),
+    ("PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml", "issue_helper.guide.app_build"),
+    ("PROJECT-FLUTTER-ANDROID-TEST-APK.yaml", "issue_helper.guide.test_apk"),
+    ("PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT.yaml", "issue_helper.guide.test_testflight"),
 ]
 
-_GUIDE_ALWAYS = [
-    "커밋/보고서/리뷰 스킬 — 브랜치·worktree 폴더명에서 이슈 번호를 자동 추출해 커밋 메시지·보고서 완성",
-]
+_GUIDE_ALWAYS = ["issue_helper.guide.skills"]
 
 
-def build_guide(workflows_dir: Path) -> str:
+def build_guide(workflows_dir: Path, lang: str | None = None) -> str:
     """접이식(details) 안내 본문. 레포에 의존 기능이 있으면 그 목록을, 없으면 권장 한 줄만."""
-    active = [text for fname, text in GUIDE_LINES if (workflows_dir / fname).exists()]
-    items = "\n".join(f"- {t}" for t in active + _GUIDE_ALWAYS)
+    lang = lang or resolve_language()
+    active = [key for fname, key in GUIDE_LINES if (workflows_dir / fname).exists()]
+    items = "\n".join(f"- {t(key, lang)}" for key in active + _GUIDE_ALWAYS)
     return (
         "<details>\n"
-        "<summary>💡 왜 이 브랜치명을 써야 하나요?</summary>\n\n"
-        "이 브랜치명 형식(`YYYYMMDD_#이슈번호_제목`)을 쓰면 아래 기능이 자동으로 연동됩니다:\n"
+        f"<summary>{t('issue_helper.guide.summary', lang)}</summary>\n\n"
+        f"{t('issue_helper.guide.intro', lang)}\n"
         f"{items}\n\n"
-        "다른 형식의 브랜치명을 쓰면 위 자동화가 동작하지 않습니다.\n"
+        f"{t('issue_helper.guide.outro', lang)}\n"
         "</details>"
     )
 
 
-def build_comment_body(cfg: dict, branch_name: str, commit_message: str, guide: str) -> str:
+def build_comment_body(cfg: dict, branch_name: str, commit_message: str, guide: str, lang: str | None = None) -> str:
     """불변 계약 2: ### 브랜치 코드블록 구조 유지 + 서명 문구(설정 가능, 옛 서명은 숨김 주석으로 보존)."""
     marker = cfg["comment_marker"]
     signature = cfg.get("guide_signature") or DEFAULT_CONFIG["guide_signature"]
     guide_block = f"\n{guide}\n" if (cfg.get("show_guide", True) and guide) else ""
     # 서명을 바꿨어도 구버전 소비자가 찾는 옛 문구는 보이지 않게 한 줄 남긴다
     # ⚠️ 서명 바로 아래 줄에 주석을 끼우면 `서명\n---`(제목 렌더링)이 깨지므로 서명 위에 둔다
-    legacy = "" if LEGACY_SIGNATURE in signature else f"<!-- {LEGACY_SIGNATURE} (구버전 워크플로우 호환용 표식) -->\n\n"
+    legacy = "" if LEGACY_SIGNATURE in signature else f"{LEGACY_COMMENT}\n\n"
+    lang = lang or resolve_language()
     return (
         f"{marker}\n\n"
         f"{legacy}"
         f"{signature}\n"
         "---\n\n"
-        "### 브랜치\n"
+        f"{BRANCH_HEADING}\n"
         f"```\n{branch_name}\n```\n\n"
-        "### 커밋 메시지\n"
+        f"### {t('issue_helper.heading.commit', lang)}\n"
         f"```\n{commit_message}\n```\n"
         f"{guide_block}\n"
         f"{marker}"
@@ -304,7 +304,8 @@ def prepare_comment(payload: dict, cfg: dict, workflows_dir: Path, date_yyyymmdd
         "assignees": ", ".join(a["login"] for a in issue.get("assignees", [])),
     }
     commit_message = render_commit_message(cfg["commit_template"], ctx)
-    body = build_comment_body(cfg, branch, commit_message, build_guide(workflows_dir))
+    lang = resolve_language()  # 한 번 정해 댓글 전체에 같은 언어를 쓴다
+    body = build_comment_body(cfg, branch, commit_message, build_guide(workflows_dir, lang), lang)
     return branch, commit_message, body
 
 

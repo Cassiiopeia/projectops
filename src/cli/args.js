@@ -3,11 +3,13 @@ import { existsSync, statSync, realpathSync } from "node:fs";
 import { join, relative, isAbsolute } from "node:path";
 import { VALID_TYPES } from "../context.js";
 import { SUPPORTED_LANGS, t } from "../i18n/index.js";
+import { REPO_LANGUAGES } from "../core/repo-language.js";
 
 export const DEPLOY_TARGETS = ["docker-ssh", "vercel", "none"];
 export const PUBLISH_TARGETS = ["nexus", "npm", "github-packages"];
 export const LABEL_STYLE_VALUES = ["en", "ko"];
-export const LANGUAGE_VALUES = ["en", "ko"];
+// 지원 언어의 단일 목록은 repo-language.js 다 (#787). 여기서 따로 들고 있으면 두 벌이 어긋난다.
+export const LANGUAGE_VALUES = REPO_LANGUAGES;
 export const INTENT_VALUES = ["app", "library", "both", "none", "manual"];
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 // 유니코드 글자·숫자 허용 (#719) — 공백·셸 메타문자는 문자 클래스에 없어 그대로 거부된다.

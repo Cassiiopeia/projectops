@@ -1,0 +1,10 @@
+{
+  "issue_helper.heading.commit": "Commit message",
+  "issue_helper.guide.summary": "💡 Why use this branch name?",
+  "issue_helper.guide.intro": "Using this branch name format (`YYYYMMDD_#issue-number_title`) enables the following automatically:",
+  "issue_helper.guide.outro": "Other branch name formats will not trigger the automation above.",
+  "issue_helper.guide.app_build": "`@projectops app build` comment build: detects this comment's branch and builds it",
+  "issue_helper.guide.test_apk": "Test APK build: adds the issue details to the build notes from the branch's `#issue-number`",
+  "issue_helper.guide.test_testflight": "Test TestFlight build: links the issue details automatically from the branch's `#issue-number`",
+  "issue_helper.guide.skills": "Commit, report and review skills: extract the issue number from the branch or worktree folder name and complete the commit message and report"
+}

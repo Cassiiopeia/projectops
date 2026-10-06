@@ -55,6 +55,21 @@ test("copyScripts changelog provider 사다리(.py) 복사 (#455)", () => {
   } finally { rmSync(tmp, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
 });
 
+test("copyScripts: i18n 카탈로그 폴더를 통째로 복사하고, 새 언어 파일도 따라간다 (#787)", () => {
+  const tmp = fresh("i18n-tmp-"); const tgt = fresh("i18n-tgt-");
+  try {
+    for (const f of ["__init__.py", "messages.py", "contracts.py", "en.json", "ko.json", "ja.json"]) {
+      writeText(join(tmp, ".github/scripts/i18n", f), "x\n");
+    }
+    writeText(join(tmp, ".github/scripts/i18n/__pycache__/messages.cpython-312.pyc"), "bin");
+    assert.equal(copyScripts(tmp, tgt), 6);
+    for (const f of ["__init__.py", "messages.py", "contracts.py", "en.json", "ko.json", "ja.json"]) {
+      assert.ok(exists(join(tgt, ".github/scripts/i18n", f)), `누락: ${f}`);
+    }
+    assert.ok(!exists(join(tgt, ".github/scripts/i18n/__pycache__")), "캐시는 복사하지 않는다");
+  } finally { rmSync(tmp, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
+});
+
 test("copyIssueTemplates + PR", () => {
   const tmp = fresh("ci-tmp-"); const tgt = fresh("ci-tgt-");
   try {
