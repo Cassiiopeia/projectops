@@ -157,6 +157,8 @@ Play Store 배포 자동화 스크립트입니다.
 - `promote_internal_to_production` - 프로덕션 승급 (`PRODUCTION_ROLLOUT`, 기본 1.0 = 전체 출시)
 - `validate` - 서비스 계정 검증
 
+**배포 모드를 코드로 관리:** `.github/config/store-deploy.json`(예시는 `store-deploy.json.example`)에 `android.deploy_mode`와 `android.production_rollout`을 적으면 git에 남고 리뷰할 수 있다. 결정 순서는 **수동 실행 입력 > 설정 파일 > 레포 변수(`ANDROID_DEPLOY_MODE`) > `store_only`** 이고, 파일이 없으면 기존 레포 변수 방식 그대로 동작한다. 이 파일은 템플릿이 싣지 않으므로 업데이트 때 덮어써지지 않으며, 잘못된 값은 조용히 무시하지 않고 배포 전에 실패한다. iOS(TestFlight)도 같은 파일의 `ios.deploy_mode`를 같은 방식으로 읽는다.
+
 **프로덕션 출시 비율:** 레포 변수 `ANDROID_PRODUCTION_ROLLOUT`(0 초과 1.0 이하, 기본 1.0)로 정한다. 1.0은 심사 통과 즉시 전체 사용자에게 나가며 되돌릴 수 없다. 1.0 미만(예: 0.1)은 그 비율만 단계적으로 내보내고, **비율을 올리는 일은 자동화되지 않아** Play Console 프로덕션 > 출시 관리에서 사람이 올린다. 문제가 생기면 같은 화면에서 출시를 중단한다.
 
 **최초 1회는 수동 출시:** 한 번도 프로덕션에 출시된 적 없는 앱은 API로 프로덕션 승급이 되지 않는다. 콘솔에서 최초 1회 출시해야 하며, 이미 비공개 테스트에 올라간 빌드는 프로덕션 > 새 출시 > "라이브러리에서 추가"로 새로 빌드하지 않고 붙일 수 있다.
