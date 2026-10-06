@@ -28,5 +28,7 @@ export const PLUGIN_ITEMS_TO_REMOVE = [
   ".github/workflows/PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC.yaml",
   ".github/workflows/PROJECT-TEMPLATE-NPM-PUBLISH.yaml",
   ".github/workflows/PROJECT-TEMPLATE-DOCS-DEPLOY.yaml",
+  ".github/workflows/PROJECT-TEMPLATE-SYNC-COMMUNITY-LABELS.yaml",
+  ".github/config/community-labels.yml",
 ];
 // ⚠️ skills/ 는 제외하지 않는다 (Cursor 설치 소스로 보존)

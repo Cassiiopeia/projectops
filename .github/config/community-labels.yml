@@ -1,0 +1,47 @@
+# Community labels for this repository only (not copied to projects that install projectops).
+# Workflow labels (status:*, priority:*) live in issue-labels.yml; see issue #777 for the two-layer design.
+
+# Kind of issue
+- name: "type: bug"
+  color: "5319e7"
+  description: Something is not working as documented
+- name: "type: feature"
+  color: "5319e7"
+  description: New capability or improvement
+- name: "type: docs"
+  color: "5319e7"
+  description: Documentation only
+- name: "type: question"
+  color: "5319e7"
+  description: Usage question (Discussions is preferred)
+
+# Area of the codebase
+- name: "area: cli"
+  color: "006b75"
+  description: npx wizard and command line options
+- name: "area: workflows"
+  color: "006b75"
+  description: GitHub Actions workflows shipped to projects
+- name: "area: skills"
+  color: "006b75"
+  description: Agent skills and their scripts
+- name: "area: wizard"
+  color: "006b75"
+  description: Flutter and other HTML setup wizards
+- name: "area: docs"
+  color: "006b75"
+  description: README, guides and the documentation site
+
+# Community conventions
+- name: good first issue
+  color: "7057ff"
+  description: Good for newcomers
+- name: help wanted
+  color: "008672"
+  description: Extra attention is needed
+- name: needs triage
+  color: "fbca04"
+  description: Not yet reviewed by a maintainer
+- name: breaking change
+  color: "b60205"
+  description: Changes behavior for existing installs

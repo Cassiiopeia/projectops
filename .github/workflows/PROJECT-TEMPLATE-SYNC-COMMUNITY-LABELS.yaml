@@ -1,0 +1,47 @@
+# ===================================================================
+# PROJECT-TEMPLATE-SYNC-COMMUNITY-LABELS.yaml
+# Community label sync (this repository only)
+# ===================================================================
+#
+# Keeps the community labels in .github/config/community-labels.yml in sync
+# with the repository. These labels (type:*, area:*, good first issue, ...) are
+# for triage in this open source project and are NOT copied to projects that
+# install projectops. The workflow labels (status:*, priority:*) are synced by
+# PROJECT-COMMON-SYNC-ISSUE-LABELS.
+#
+# Triggers:
+# - Changes to the label file or this workflow on main
+# - Manual run (workflow_dispatch)
+# ===================================================================
+
+name: "PROJECT-TEMPLATE-SYNC-COMMUNITY-LABELS"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/config/community-labels.yml"
+      - ".github/workflows/PROJECT-TEMPLATE-SYNC-COMMUNITY-LABELS.yaml"
+
+permissions:
+  issues: write
+  contents: read
+
+# Two runs creating the same label at once would make one of them fail.
+concurrency:
+  group: sync-community-labels
+  cancel-in-progress: false
+
+jobs:
+  label-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Sync community labels
+        uses: crazy-max/ghaction-github-labeler@v5
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          yaml-file: .github/config/community-labels.yml
+          # Never delete labels that are not listed (status labels, dependabot labels, user labels).
+          skip-delete: true
