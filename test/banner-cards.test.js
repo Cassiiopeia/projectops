@@ -1,11 +1,16 @@
 // #446 배너·상태 카드 검증 — writer 주입으로 출력 캡처
-import { test } from "node:test";
+import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { printBanner, printBannerCompact } from "../src/ui/banner.js";
 import {
   printDetectionLog, printAnalysisCard, printIdeStatus, printInstallKind, collectIdeStatuses,
 } from "../src/ui/status-cards.js";
 import { visualWidth } from "../src/ui/ansi.js";
+import { setLang } from "../src/i18n/index.js";
+
+// These tests assert the Korean catalog; English output has its own tests at the bottom.
+beforeEach(() => setLang("ko", "flag"));
+afterEach(() => setLang("en", "default"));
 
 const capture = () => {
   const buf = [];
@@ -36,20 +41,20 @@ test("printBannerCompact: 비대화형 1줄", () => {
   printBannerCompact({ version: "4.0.3", mode: "full" }, out);
   const t = strip(out.text());
   assert.equal(t.trim().split("\n").length, 1);
-  assert.match(t, /projectops v4\.0\.3 — full 모드 \(--force\)/);
+  assert.match(t, /projectops v4\.0\.3 \(full 모드, --force\)/);
 });
 
 test("printDetectionLog: 타입별 마커 + 버전/브랜치, basic 폴백", () => {
   const out = capture();
   printDetectionLog({ types: ["spring", "react"], version: "1.2.3", branch: "main" }, out);
   const t = strip(out.text());
-  assert.match(t, /build\.gradle 발견 → spring 감지/);
-  assert.match(t, /package\.json 발견 → react 감지/);
-  assert.match(t, /버전: v1\.2\.3 - 브랜치: main/);
+  assert.match(t, /build\.gradle 발견, spring 감지/);
+  assert.match(t, /package\.json 발견, react 감지/);
+  assert.match(t, /버전: v1\.2\.3, 브랜치: main/);
 
   const out2 = capture();
   printDetectionLog({ types: ["basic"], version: "0.0.1", branch: "main" }, out2);
-  assert.match(strip(out2.text()), /마커 파일 없음 → basic/);
+  assert.match(strip(out2.text()), /마커 파일 없음, basic/);
 });
 
 test("printAnalysisCard: 멀티타입·옵션·모노레포 경로 표시", () => {
@@ -63,7 +68,7 @@ test("printAnalysisCard: 멀티타입·옵션·모노레포 경로 표시", () =
   assert.match(t, /타입\(멀티\).*spring, react/);
   assert.match(t, /배포.*docker-ssh/);
   assert.match(t, /Publish.*nexus/);
-  assert.match(t, /Secret백업.*제외/);
+  assert.match(t, /Secret 백업.*제외/);
   assert.match(t, /spring→server, react→client/);
 });
 
@@ -74,15 +79,11 @@ test("printAnalysisCard: 한글·영문 혼합 라벨이 시각 폭으로 정렬
     deployTarget: "none", publishTargets: [], includeSecretBackup: false, showOptional: true,
     paths: new Map(),
   }, out);
-  // 각 데이터 행: "│  {icon} {padEndVisual(label,12)} {value}"
-  // 값(color 제거 후 첫 비공백)이 시작하는 시각 컬럼이 모든 행에서 동일해야 정렬이 맞다.
-  const lines = strip(out.text()).split("\n").filter((l) => /[📂🌙🌿💫🚀📦🔐]/u.test(l));
-  assert.ok(lines.length >= 6, `데이터 행 6개 이상 (실제 ${lines.length})`);
-  // 라벨 뒤 마지막 "2칸+ 공백"이 라벨↔값 구분자. 그 구분자 끝까지의 시각 폭 = 값 시작 컬럼.
+  // Each data row is "|  {label padded to 14 columns} {value}", so the value starts at the same column everywhere.
+  const lines = strip(out.text()).split("\n").filter((l) => /^│ {2}\S/u.test(l));
+  assert.ok(lines.length >= 6, `at least 6 data rows (got ${lines.length})`);
   const valueStartCols = lines.map((l) => {
-    const idx = l.search(/[📂🌙🌿💫🚀📦🔐]/u);
-    const afterIcon = l.slice(idx);
-    const m = afterIcon.match(/^(.*?\s{2,})\S/u); // 최소 매칭: 아이콘~라벨~구분공백 뒤 첫 값 글자
+    const m = l.match(/^(│ {2}.*?\s{2,})\S/u); // labels may contain one space, label and value are separated by 2+
     return m ? visualWidth(m[1]) : -1;
   });
   const first = valueStartCols[0];
@@ -112,7 +113,7 @@ test("printInstallKind: 신규 vs 업데이트 + 판정 근거 라인", () => {
   const out2 = capture();
   printInstallKind({ currentTemplateVersion: "3.0.188", templateVersion: "4.0.3" }, out2);
   const t2 = strip(out2.text());
-  assert.match(t2, /업데이트 - 템플릿 v3\.0\.188 → v4\.0\.3/);
+  assert.match(t2, /업데이트: 템플릿 v3\.0\.188 → v4\.0\.3/);
   assert.match(t2, /이전 통합 기록이 있/, "왜 업데이트인지 근거를 밝힌다");
 });
 
@@ -125,4 +126,42 @@ test("collectIdeStatuses: 어댑터 전체 순회 (예외 없음)", () => {
     assert.ok(typeof s.label === "string" && s.label.length > 0);
     assert.ok(typeof s.installed === "boolean");
   }
+});
+
+// ---- English output (the default language) ----
+
+test("English: banner shows the language line, cards and install kind use English labels", () => {
+  setLang("en", "system");
+  const out = capture();
+  printBanner({ version: "4.0.3", modeLabel: "Interactive installer" }, out);
+  const t = strip(out.text());
+  assert.match(t, /Mode {4}: Interactive installer/);
+  assert.match(t, /Language: en \(system\)/);
+
+  const out2 = capture();
+  printAnalysisCard({
+    mode: "full", modeLabel: "Full install", types: ["spring"], version: "1.2.3", branch: "main",
+    deployTarget: "docker-ssh", publishTargets: [], includeSecretBackup: false, showOptional: true, paths: new Map(),
+  }, out2);
+  const card = strip(out2.text());
+  assert.match(card, /Summary/);
+  assert.match(card, /Type\s+spring/);
+  assert.match(card, /Secret backup\s+excluded/);
+  assert.match(card, /Publish\s+none/);
+
+  const out3 = capture();
+  printInstallKind({ currentTemplateVersion: "3.0.188", templateVersion: "4.0.3" }, out3);
+  assert.match(strip(out3.text()), /Update: template v3\.0\.188 to v4\.0\.3/);
+  const out4 = capture();
+  printInstallKind({ currentTemplateVersion: "", templateVersion: "4.0.3" }, out4);
+  assert.match(strip(out4.text()), /New install: first install in this project/);
+
+  const out5 = capture();
+  printBannerCompact({ version: "4.0.3", mode: "full" }, out5);
+  assert.match(strip(out5.text()), /projectops v4\.0\.3 \(full mode, --force\)/);
+
+  const out6 = capture();
+  printDetectionLog({ types: ["spring"], version: "1.2.3", branch: "main" }, out6);
+  assert.match(strip(out6.text()), /build\.gradle found, spring detected/);
+  assert.match(strip(out6.text()), /version: v1\.2\.3, branch: main/);
 });

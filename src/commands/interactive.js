@@ -26,6 +26,7 @@ import { runWorkflows } from "./workflows.js";
 import { runIssues } from "./issues.js";
 import { runSkills } from "./skills.js";
 import * as prompts from "../ui/prompts.js";
+import { t } from "../i18n/index.js";
 
 const CANCEL = prompts.CANCEL;
 const isCancel = (v) => v === CANCEL || typeof v === "symbol";
@@ -54,8 +55,8 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     traceTo = templateVersion;
 
     // 층1 — 시작 배너 (#446 확정 시안 A). 스텁엔 banner 없음 → intro 폴백.
-    if (io.banner) io.banner({ version: templateVersion, modeLabel: "대화형 통합 마법사" });
-    else io.intro?.("projectops — 대화형 통합 마법사");
+    if (io.banner) io.banner({ version: templateVersion, modeLabel: t("banner.interactive") });
+    else io.intro?.(`projectops, ${t("banner.interactive")}`);
 
     // 기존 version.yml — version/version_code/paths/옵션 보존의 단일 진실 (.sh SSoT L2208~2239)
     const vyPath = join(cwd, "version.yml");
@@ -63,7 +64,6 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     traceFrom = existing?.templateVersion || "";
 
     // 층4 — IDE Skills 현재 상태 · 층5 — 신규/업데이트 판별 (#446)
-    io.ideStatus?.();
     io.installKind?.({ currentTemplateVersion: existing?.templateVersion || "", templateVersion });
 
     // 1) 모드 선택 — 기존 통합 레포면 업데이트 항목을 맨 위에 노출 (#502)
@@ -72,7 +72,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     trace.event("run", "start", "interactive", { templateVersion, isUpdate: !!updateInfo });
     const picked = await io.selectMode(updateInfo ? { update: updateInfo } : {});
     trace.event("prompt", "mode", String(picked ?? ""), { update: !!updateInfo });
-    if (picked === CANCEL || picked == null) { trace.event("run", "cancelled", "mode-select", { reason: "user-cancel" }); io.cancelMessage?.("설치를 취소했습니다."); return 0; }
+    if (picked === CANCEL || picked == null) { trace.event("run", "cancelled", "mode-select", { reason: "user-cancel" }); io.cancelMessage?.(t("flow.cancelInstall")); return 0; }
     // 업데이트 모드(#502): 저장된 통합 범위(templateMode, 없으면 full)를 재실행하고
     // 이하 updateRun 분기가 질문을 최소화한다 ("저장된 설정 그대로 반영"이 계약).
     const updateRun = picked === "update";
@@ -85,12 +85,13 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       askYesNo: (msg, def) => io.askYesNo(msg, def),
       onItems: (items) => { breakingReport = items; },
     }));
-    if (!proceed) { trace.event("run", "cancelled", "breaking-gate", { reason: "user-declined" }); io.cancelMessage?.("통합을 안전하게 취소했습니다."); return 0; }
+    if (!proceed) { trace.event("run", "cancelled", "breaking-gate", { reason: "user-declined" }); io.cancelMessage?.(t("flow.cancelBreaking")); return 0; }
 
     // skills 모드 — IDE 스킬 설치 (템플릿 통합 없음). 대화형으로 실행.
     if (mode === "skills") {
+      io.ideStatus?.();
       await skills({ templateVersion, tempDir, interactive: true });
-      io.outro?.("AI 스킬 설치를 마쳤습니다.");
+      io.outro?.(t("flow.doneSkills"));
       return 0;
     }
 
@@ -99,7 +100,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       const ctx = createContext({ ...baseCtx, mode, force: true });
       runIssues(ctx, tempDir, cwd);
       io.summary?.({ mode, types: [], version: "", counters: {} }, cwd);
-      io.outro?.("이슈·PR 템플릿을 설치했습니다.");
+      io.outro?.(t("flow.doneIssues"));
       return 0;
     }
 
@@ -174,9 +175,9 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     // 업데이트 모드 — 카드는 보여주되 확인 루프 생략 (#502: 설정 변경은 기존 모드의 몫)
     if (updateRun) {
       if (io.analysisCard) {
-        io.analysisCard({ mode, modeLabel: `업데이트 (${modeLabel(mode)} 범위)`, types, version, branch, deployTarget, publishTargets, includeSecretBackup, showOptional, paths });
+        io.analysisCard({ mode, modeLabel: t("flow.updateScope", { scope: modeLabel(mode) }), types, version, branch, deployTarget, publishTargets, includeSecretBackup, showOptional, paths });
       } else {
-        io.note?.(summarize({ mode, types, version, branch, deployTarget, publishTargets, includeSecretBackup, showOptional, changelogProvider, codeReviewCoderabbit }), "업데이트 — 저장된 설정으로 진행");
+        io.note?.(summarize({ mode, types, version, branch, deployTarget, publishTargets, includeSecretBackup, showOptional, changelogProvider, codeReviewCoderabbit }), t("flow.title.update"));
       }
       confirmed = true;
     }
@@ -185,10 +186,10 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       if (io.analysisCard) {
         io.analysisCard({ mode, modeLabel: modeLabel(mode), types, version, branch, deployTarget, publishTargets, includeSecretBackup, showOptional, paths });
       } else {
-        io.note?.(summarize({ mode, types, version, branch, deployTarget, publishTargets, includeSecretBackup, showOptional, changelogProvider, codeReviewCoderabbit }), "프로젝트 분석 결과");
+        io.note?.(summarize({ mode, types, version, branch, deployTarget, publishTargets, includeSecretBackup, showOptional, changelogProvider, codeReviewCoderabbit }), t("card.title"));
       }
       const choice = await io.confirmProjectMenu();
-      if (choice === "cancel") { trace.event("run", "cancelled", "confirm-loop", { reason: "user-cancel" }); io.cancelMessage?.("설치를 취소했습니다."); return 0; }
+      if (choice === "cancel") { trace.event("run", "cancelled", "confirm-loop", { reason: "user-cancel" }); io.cancelMessage?.(t("flow.cancelInstall")); return 0; }
       if (isCancel(choice) || choice == null) continue; // ESC = 머무르기 (루프 재출력)
       if (choice === "continue") { confirmed = true; break; }
       // edit 루프
@@ -207,14 +208,14 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
             if ([...types].sort().join(",") !== oldSorted) paths = new Map();
           }
         } else if (what === "version") {
-          const v = await io.askText("새 버전 (예: 1.0.0)", version);
+          const v = await io.askText(t("flow.askVersion"), version);
           if (!isCancel(v) && v !== version) {
             // semver 형식 검증 (.sh L2010~2015)
             if (/^\d+\.\d+\.\d+$/.test(v)) version = v;
-            else io.note?.("버전 형식이 올바르지 않습니다 (x.y.z 형태) — 기존 값을 유지합니다.", "⚠ 버전");
+            else io.note?.(t("flow.badVersion"), t("flow.badVersionTitle"));
           }
         } else if (what === "branch") {
-          const b = await io.askText("기본 브랜치", branch);
+          const b = await io.askText(t("flow.askBranch"), branch);
           if (!isCancel(b) && b) branch = b;
         } else if (OPTION_AXES.includes(what)) {
           // #483 — 선택한 축 하나만 재질문 (scope). 나머지 옵션은 현재값 그대로 유지.
@@ -279,8 +280,8 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       const liteCtx = { types, paths, deployTarget, publishTargets, repoName, resolvers, branch, deployBranch };
       const conflicts = listWorkflowConflicts(liteCtx, tempDir, cwd);
       if (conflicts.length) {
-        io.note?.(conflicts.map((c) => `• ${c.filename}`).join("\n"), `♻️ 템플릿이 갱신된 워크플로우 ${conflicts.length}개`);
-        const yes = await io.askYesNo(`위 ${conflicts.length}개를 .bak 백업 후 새 버전으로 교체할까요? (기존 설정값은 유지됩니다)`, true);
+        io.note?.(conflicts.map((c) => `• ${c.filename}`).join("\n"), t("flow.conflictsTitle", { count: conflicts.length }));
+        const yes = await io.askYesNo(t("flow.conflictsAsk", { count: conflicts.length }), true);
         trace.event("prompt", "conflict-bulk", yes ? "backup" : "skip", { count: conflicts.length, files: conflicts.map((c) => c.filename) });
         const decision = yes === true ? "backup" : "skip";
         updateDecisions = new Map();
@@ -318,11 +319,11 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
         for (const { filename, type } of conflicts) {
           if (!perType.has(type)) {
             const sel = await io.engineIo.select({
-              message: `기존 워크플로우와 내용이 다른 파일이 있습니다 (${type}) — 어떻게 할까요?`,
+              message: t("flow.conflictType", { type }),
               options: [
-                { value: "skip", label: "건너뛰기 — 기존 파일 유지 (기본)" },
-                { value: "backup", label: ".bak 백업 후 새 버전으로 교체" },
-                { value: "template", label: "기존 유지 + 새 버전을 .template.yaml로 참고 추가" },
+                { value: "skip", label: t("flow.opt.skip") },
+                { value: "backup", label: t("flow.opt.backup") },
+                { value: "template", label: t("flow.opt.template") },
               ],
             });
             perType.set(type, isCancel(sel) || sel == null ? "skip" : sel); // ESC = 건너뛰기 (.sh L3463)
@@ -352,10 +353,10 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
         options: { includeSecretBackup, aiPrSummary: aiPrSummary !== false, deployTarget } });
       if (orphans.length > 0) {
         io.note?.(
-          orphans.map((o) => `• ${o.filename} (${o.type} 타입 — 현재 미선택)`).join("\n"),
-          `🧹 선택되지 않은 타입의 워크플로우 ${orphans.length}개 발견`,
+          orphans.map((o) => `• ${t("flow.orphanLine", { file: o.filename, type: o.type })}`).join("\n"),
+          t("flow.orphanTitle", { count: orphans.length }),
         );
-        const yes = await io.askYesNo(`위 ${orphans.length}개를 정리할까요? (.bak 무해화 — 복원 가능)`, true);
+        const yes = await io.askYesNo(t("flow.orphanAsk", { count: orphans.length }), true);
         trace.event("prompt", "orphan-cleanup", yes ? "clean" : "keep", { count: orphans.length });
         if (yes === true) {
           const results = applyOrphanCleanup(cwd, orphans);
@@ -363,7 +364,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
           const failed = results.filter((r) => r.action === "error");
           orphanReport.cleaned = ok.map((r) => r.filename);
           for (const r of ok) trace.event("orphan", "neutralized", r.filename);
-          io.note?.(`✅ 고아 워크플로우 정리: ${ok.length}개${failed.length ? ` (실패 ${failed.length}개)` : ""}`, "정리 완료");
+          io.note?.(t("flow.orphanDone", { ok: ok.length, failed: failed.length ? t("flow.orphanFailed", { count: failed.length }) : "" }), t("flow.orphanDoneTitle"));
         } else {
           orphanReport.pending = orphans.map((o) => o.filename);
         }
@@ -380,8 +381,8 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     if (updateRun) {
       await skills({ templateVersion, tempDir, interactive: false, installedOnly: true });
     } else {
-      const wantSkills = await io.askYesNo("AI 에이전트 스킬(Claude·Cursor·Gemini·Codex·PI)도 설치/업데이트할까요?", false);
-      if (wantSkills === true) await skills({ templateVersion, tempDir, interactive: true });
+      const wantSkills = await io.askYesNo(t("flow.askSkills"), false);
+      if (wantSkills === true) { io.ideStatus?.(); await skills({ templateVersion, tempDir, interactive: true }); }
     }
 
     // 마이그레이션 기록 (#493/#494) — Layer 2/3 트레이스 파일 + Layer 1 가이드 엔트리 (full/workflows만)
@@ -415,7 +416,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       logFile: files?.logFile ?? null,
       traceFile: files?.traceFile ?? null,
     }, cwd);
-    io.outro?.(`통합 완료 — ${mode} 모드로 설치했습니다.`);
+    io.outro?.(t("flow.done", { mode }));
 
     // 완료 화면까지 출력한 뒤 finally에서 닫는다 (#561) — 여기서 닫으면 이 아래 화면이 안 담긴다.
     trace.event("run", "end", mode || "", {
@@ -442,30 +443,23 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
 
 function summarize({ mode, types, version, branch, deployTarget, publishTargets, includeSecretBackup, showOptional, changelogProvider, codeReviewCoderabbit }) {
   const lines = [
-    `통합 모드 : ${modeLabel(mode)}`,
-    `프로젝트 타입 : ${types.join(", ")}${types.length > 1 ? " (멀티)" : ""}`,
-    `버전 : ${version}`,
-    `기본 브랜치 : ${branch}`,
+    `${t("sum.mode")}: ${modeLabel(mode)}`,
+    `${t("sum.types")}: ${types.join(", ")}${types.length > 1 ? t("sum.multi") : ""}`,
+    `${t("card.version")}: ${version}`,
+    `${t("edit.branch")}: ${branch}`,
   ];
   if (showOptional) {
-    lines.push(`배포 방식 : ${deployTarget || "docker-ssh"}`);
-    lines.push(`Publish : ${(publishTargets ?? []).join(",") || "없음"}`);
-    lines.push(`Secret 백업 : ${includeSecretBackup ? "포함" : "제외"}`);
-    lines.push(`Changelog : ${changelogProvider || "commit"}`);
-    lines.push(`CodeRabbit 리뷰 : ${codeReviewCoderabbit ? "사용" : "미사용"}`);
+    lines.push(`${t("sum.deploy")}: ${deployTarget || "docker-ssh"}`);
+    lines.push(`${t("sum.publish")}: ${(publishTargets ?? []).join(",") || t("card.none")}`);
+    lines.push(`${t("sum.secret")}: ${includeSecretBackup ? t("card.included") : t("card.excluded")}`);
+    lines.push(`${t("sum.changelog")}: ${changelogProvider || "commit"}`);
+    lines.push(`${t("sum.coderabbit")}: ${codeReviewCoderabbit ? t("sum.on") : t("sum.off")}`);
   }
   return lines.join("\n");
 }
 
 function modeLabel(m) {
-  return {
-    full: "전체 설치 (버전관리 + 워크플로우 + 템플릿)",
-    version: "버전 관리 전용 (자동화 시스템)",
-    workflows: "워크플로우 전용 (GitHub Actions 빌드, 배포)",
-    issues: "이슈/PR 템플릿 전용",
-    skills: "AI 스킬 전용 (Claude, Cursor, Gemini, Codex, PI)",
-    update: "업데이트"
-  }[m] || m;
+  return m === "update" ? t("mode.update.short") : (t(`mode.${m}`) === `mode.${m}` ? m : t(`mode.${m}`));
 }
 
 function utcNow(date = new Date()) {
