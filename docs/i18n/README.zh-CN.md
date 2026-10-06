@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/hero-en.webp" alt="Projectops：从 Issue 到发布" width="100%">
 
-[한국어](https://github.com/Cassiiopeia/projectops/blob/main/README.md) | [English](https://github.com/Cassiiopeia/projectops/blob/main/docs/i18n/README.en.md) | **简体中文** | [日本語](https://github.com/Cassiiopeia/projectops/blob/main/docs/i18n/README.ja.md)
+[한국어](README.ko.md) | [English](../../README.md) | **简体中文** | [日本語](README.ja.md)
 
 [![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/)
 
