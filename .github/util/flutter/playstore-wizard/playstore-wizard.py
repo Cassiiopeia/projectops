@@ -27,6 +27,7 @@
 # ===================================================================
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -604,6 +605,60 @@ def _write_text(path, text):
         return
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
+
+
+# 워크플로의 store_deploy_config.py 와 같은 값만 받는다. 오타를 조용히 넘기면
+# 설정이 먹었다고 믿은 채 다른 모드로 배포된다 — 이 설정은 프로덕션 심사 자동 등록까지 정한다.
+DEPLOY_MODES = ("store_only", "store_prepare", "store_submit")
+
+
+def validate_deploy_config(ctx):
+    mode, rollout = ctx.get("DEPLOY_MODE", ""), ctx.get("PRODUCTION_ROLLOUT", "")
+    if mode and mode not in DEPLOY_MODES:
+        print_error(f"--deploy-mode 값 '{mode}' 이 올바르지 않습니다. {' | '.join(DEPLOY_MODES)} 중 하나여야 합니다.")
+        sys.exit(1)
+    if rollout:
+        try:
+            ok = 0 < float(rollout) <= 1
+        except ValueError:
+            ok = False
+        if not ok:
+            print_error(f"--production-rollout 값 '{rollout}' 은 0 초과 1.0 이하의 숫자여야 합니다 (예: 1.0, 0.1).")
+            sys.exit(1)
+
+
+def create_store_deploy_config(ctx):
+    """.github/config/store-deploy.json 의 android 섹션에 배포 모드와 출시 비율을 기록한다 (#767).
+
+    플래그를 주지 않았으면 아무것도 하지 않는다. 이미 있는 파일은 지우지 않고 android 섹션만 합친다 —
+    ios 섹션이나 사용자가 적은 키를 날리면 안 된다. 이 파일은 템플릿이 싣지 않아 업데이트 때 덮어써지지 않는다.
+    """
+    mode, rollout = ctx.get("DEPLOY_MODE", ""), ctx.get("PRODUCTION_ROLLOUT", "")
+    if not mode and not rollout:
+        return
+    print_step("store-deploy.json 기록 중...")
+    cfg_dir = os.path.join(ctx["PROJECT_PATH"], ".github", "config")
+    cfg_path = os.path.join(cfg_dir, "store-deploy.json")
+    data = {}
+    if path_exists(cfg_path):
+        try:
+            data = json.loads(_read_text(cfg_path))
+        except ValueError:
+            print_error(f"{cfg_path} 가 올바른 JSON 이 아닙니다. 직접 고친 뒤 다시 실행하세요.")
+            sys.exit(1)
+        if not isinstance(data, dict):
+            print_error(f"{cfg_path} 의 최상위는 객체여야 합니다.")
+            sys.exit(1)
+        backup_file(cfg_path)
+    android = data.get("android") if isinstance(data.get("android"), dict) else {}
+    if mode:
+        android["deploy_mode"] = mode
+    if rollout:
+        android["production_rollout"] = rollout
+    data["android"] = android
+    make_dirs(cfg_dir)
+    _write_text(cfg_path, json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+    print_success(f"store-deploy.json 기록 완료 (android: {', '.join(f'{k}={v}' for k, v in android.items())})")
 
 
 def update_gitignore(ctx):
@@ -1242,7 +1297,7 @@ def cmd_setup(params):
 
     # 명명 플래그 → 위치인자 정규화 (구/신 호출 형식 모두 지원)
     global DRY_RUN, NO_BACKUP
-    params, cli_opts = normalize_params(params, ("project-path", "application-id", "key-alias", "store-password", "key-password", "validity-days", "cert-cn", "cert-o", "cert-l", "cert-c"))
+    params, cli_opts = normalize_params(params, ("project-path", "application-id", "key-alias", "store-password", "key-password", "validity-days", "cert-cn", "cert-o", "cert-l", "cert-c", "deploy-mode", "production-rollout"))
     DRY_RUN = cli_opts["dry_run"]
     NO_BACKUP = not cli_opts["backup"]
     if DRY_RUN:
@@ -1251,6 +1306,11 @@ def cmd_setup(params):
 
     # 매개변수 검증
     ctx = validate_params(params)
+    # 선택 플래그(#767): 배포 모드와 출시 비율을 코드 설정(store-deploy.json)에 기록한다.
+    # 구 위치인자 호출은 10개뿐이라 없으면 빈 값이고, 그러면 아무것도 쓰지 않는다.
+    ctx["DEPLOY_MODE"] = (params[10] if len(params) > 10 else "").strip()
+    ctx["PRODUCTION_ROLLOUT"] = (params[11] if len(params) > 11 else "").strip()
+    validate_deploy_config(ctx)   # 부수효과(키스토어 생성 등)보다 먼저 — 오타는 여기서 멈춘다
 
     print(f"{BLUE}프로젝트 경로:{NC} {ctx['PROJECT_PATH']}")
     print(f"{BLUE}Application ID:{NC} {ctx['APPLICATION_ID']}")
@@ -1269,6 +1329,7 @@ def cmd_setup(params):
     patch_build_gradle_step(ctx)
     create_fastfile(ctx, template_dir)
     create_gemfile(ctx)
+    create_store_deploy_config(ctx)
 
     # 완료
     print_completion(ctx)

@@ -185,6 +185,79 @@ def test_testflight_no_backup_skips_bak_files():
         assert not baks, f"--no-backup인데 백업이 생겼습니다: {baks}"
 
 
+# ── 3.5 store-deploy.json 기록 (#767) ─────────────────────────────
+
+import json  # noqa: E402
+
+PS_BASE = ["--application-id", "com.demo.app", "--key-alias", "k",
+           "--store-password", "pw123456", "--key-password", "pw123456",
+           "--validity-days", "10000", "--cert-cn", "D", "--cert-o", "O",
+           "--cert-l", "S", "--cert-c", "KR"]
+
+
+def _run_out(script: Path, args: list[str]):
+    r = subprocess.run([sys.executable, str(script), "setup", *args], capture_output=True, text=True)
+    return r.returncode, r.stdout + r.stderr
+
+
+def test_playstore_records_deploy_mode_in_store_deploy_json():
+    with tempfile.TemporaryDirectory() as a:
+        pa = Path(a)
+        _flutter_android_project(pa)
+        rc, _ = _run_out(PS, ["--project-path", str(pa), *PS_BASE,
+                              "--deploy-mode", "store_prepare", "--production-rollout", "0.1"])
+        assert rc == 0
+        data = json.loads((pa / ".github" / "config" / "store-deploy.json").read_text(encoding="utf-8"))
+        assert data["android"] == {"deploy_mode": "store_prepare", "production_rollout": "0.1"}
+
+
+def test_playstore_deploy_config_keeps_other_sections():
+    """이미 있는 ios 섹션과 사용자 키를 지우지 않고 android 만 갱신한다"""
+    with tempfile.TemporaryDirectory() as a:
+        pa = Path(a)
+        _flutter_android_project(pa)
+        cfg = pa / ".github" / "config"
+        cfg.mkdir(parents=True)
+        (cfg / "store-deploy.json").write_text(
+            json.dumps({"_comment": "mine", "ios": {"deploy_mode": "store_only"}}), encoding="utf-8")
+        rc, _ = _run_out(PS, ["--project-path", str(pa), *PS_BASE, "--deploy-mode", "store_submit"])
+        assert rc == 0
+        data = json.loads((cfg / "store-deploy.json").read_text(encoding="utf-8"))
+        assert data["_comment"] == "mine" and data["ios"] == {"deploy_mode": "store_only"}
+        assert data["android"] == {"deploy_mode": "store_submit"}
+
+
+def test_playstore_without_deploy_flags_creates_no_config():
+    with tempfile.TemporaryDirectory() as a:
+        pa = Path(a)
+        _flutter_android_project(pa)
+        rc, _ = _run_out(PS, ["--project-path", str(pa), *PS_BASE])
+        assert rc == 0
+        assert not (pa / ".github" / "config" / "store-deploy.json").exists()
+
+
+def test_playstore_deploy_config_dry_run_writes_nothing():
+    with tempfile.TemporaryDirectory() as a:
+        pa = Path(a)
+        _flutter_android_project(pa)
+        before = _snapshot(pa)
+        rc, _ = _run_out(PS, ["--project-path", str(pa), *PS_BASE, "--deploy-mode", "store_prepare", "--dry-run"])
+        assert rc == 0
+        assert _snapshot(pa) == before, "dry-run 이 store-deploy.json 이나 다른 파일을 만들었다"
+
+
+def test_playstore_invalid_deploy_values_fail_before_any_side_effect():
+    """오타를 조용히 넘기면 설정이 먹었다고 믿은 채 다른 모드로 배포된다 — 키스토어를 만들기 전에 멈춘다"""
+    for bad in (["--deploy-mode", "store_submt"], ["--production-rollout", "1.5"],
+                ["--production-rollout", "0"], ["--production-rollout", "abc"]):
+        with tempfile.TemporaryDirectory() as a:
+            pa = Path(a)
+            _flutter_android_project(pa)
+            before = _snapshot(pa)
+            rc, out = _run_out(PS, ["--project-path", str(pa), *PS_BASE, *bad])
+            assert rc != 0, f"{bad} 가 통과했다"
+            assert _snapshot(pa) == before, f"{bad}: 실패했는데 파일이 만들어졌다"
+
 # ── 4. 3종 CLI 표면 동일성 ────────────────────────────────────────
 
 def test_all_three_accept_common_flags():
