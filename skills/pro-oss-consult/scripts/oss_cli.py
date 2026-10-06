@@ -1004,7 +1004,10 @@ MAX_TOPICS = 20
 MAX_DESCRIPTION = 350
 MAX_LABEL_DESCRIPTION = 100
 # projectops 한글 상태 라벨은 Projects 보드 동기화가 이름에 묶여 있다 — 코드 차원에서 건드리지 않는다
-PROTECTED_LABELS = {"작업전", "작업중", "담당자확인", "피드백", "작업완료", "보류", "취소", "긴급", "문서"}
+PROTECTED_LABELS = {"작업전", "작업중", "담당자확인", "피드백", "작업완료", "보류", "취소", "긴급", "문서",
+                    # 영문 표준(#776) — 전환 기간에는 한글과 영문을 둘 다 보호한다
+                    "status: todo", "status: in progress", "status: needs review", "status: feedback",
+                    "status: done", "status: on hold", "status: cancelled", "priority: urgent", "documentation"}
 _COLOR_RE = re.compile(r"^[0-9a-f]{6}$")
 
 

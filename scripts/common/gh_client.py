@@ -154,6 +154,40 @@ def request_json(method: str, url: str, data: dict | None, pat: str, timeout: fl
         raise GitHubNetworkError(f"{type(e).__name__}: {e}") from e
 
 
+# 한글 상태 라벨과 영문 표준 라벨(#776)은 같은 라벨이다. 전환 기간에는 레포에 있는 쪽 이름으로 치환한다.
+LABEL_ALIAS_GROUPS = [
+    ("작업전", "status: todo"),
+    ("작업중", "status: in progress"),
+    ("담당자확인", "status: needs review"),
+    ("피드백", "status: feedback"),
+    ("작업완료", "status: done"),
+    ("보류", "status: on hold"),
+    ("취소", "status: cancelled"),
+    ("긴급", "priority: urgent"),
+    ("문서", "documentation"),
+]
+
+
+def resolve_label_aliases(requested: list[str], existing) -> list[str]:
+    """요청한 라벨 중 레포에 없는 것은 별칭(한글/영문) 중 레포에 있는 이름으로 바꿔 돌려준다.
+
+    레포에 이미 있는 이름은 그대로 둔다(정확히 같은 이름 우선). 별칭도 없으면 원문을 유지해
+    호출자의 기존 '없는 라벨 걸러내기' 경로가 그대로 동작한다. 중복은 제거한다.
+    """
+    existing = set(existing)
+    out: list[str] = []
+    for name in requested:
+        resolved = name
+        if name not in existing:
+            for group in LABEL_ALIAS_GROUPS:
+                if name in group:
+                    resolved = next((a for a in group if a in existing), name)
+                    break
+        if resolved not in out:
+            out.append(resolved)
+    return out
+
+
 def list_labels(owner: str, repo: str, pat: str) -> list[str]:
     """레포의 라벨 이름 목록을 반환한다."""
     items = _request("GET", f"{_API_BASE}/repos/{owner}/{repo}/labels?per_page=100", None, pat)
@@ -182,6 +216,7 @@ def add_issue_labels(owner: str, repo: str, issue_number: int, labels: list[str]
     if not labels:
         return get_issue_labels(owner, repo, issue_number, pat)
     existing = set(list_labels(owner, repo, pat))
+    labels = resolve_label_aliases(labels, existing)
     filtered = [l for l in labels if l in existing]
     if not filtered:
         return get_issue_labels(owner, repo, issue_number, pat)
@@ -203,6 +238,13 @@ def remove_issue_label(
     이슈에 그 라벨이 없으면 404가 나므로 호출자가 멱등 처리한다.
     반환: 제거 후 이슈에 남은 라벨 이름 리스트.
     """
+    # 한글/영문 별칭: 이슈에 실제로 붙어 있는 쪽 이름으로 제거한다 (#776)
+    for group in LABEL_ALIAS_GROUPS:
+        if name in group:
+            on_issue = get_issue_labels(owner, repo, issue_number, pat)
+            if name not in on_issue:
+                name = next((a for a in group if a in on_issue), name)
+            break
     enc = urllib.parse.quote(name, safe="")
     items = _request(
         "DELETE",
@@ -226,6 +268,7 @@ def set_issue_labels(
     skipped: list[str] = []
     if labels:
         existing = set(list_labels(owner, repo, pat))
+        labels = resolve_label_aliases(labels, existing)
         skipped = [l for l in labels if l not in existing]
         labels = [l for l in labels if l in existing]
         if not labels:
@@ -250,6 +293,7 @@ def create_issue(
     skipped_labels: list[str] = []
     if labels:
         existing = list_labels(owner, repo, pat)
+        labels = resolve_label_aliases(labels, existing)
         skipped_labels = [l for l in labels if l not in existing]
         labels = [l for l in labels if l in existing]
     payload: dict = {"title": title, "body": body, "labels": labels}
@@ -282,6 +326,8 @@ def update_issue(
     if state is not None:
         payload["state"] = state
     if labels is not None:
+        # 없는 라벨은 PATCH가 새로 만들어 버리므로, 별칭 중 레포에 있는 이름으로 먼저 치환한다 (#776)
+        labels = resolve_label_aliases(labels, list_labels(owner, repo, pat))
         payload["labels"] = labels
     if assignees is not None:
         payload["assignees"] = assignees
