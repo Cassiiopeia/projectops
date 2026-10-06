@@ -26,6 +26,7 @@ export const PLUGIN_ITEMS_TO_REMOVE = [
   "bin",
   "src",
   "site",
+  ".github/CODEOWNERS",
   ".github/workflows/PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC.yaml",
   ".github/workflows/PROJECT-TEMPLATE-NPM-PUBLISH.yaml",
   ".github/workflows/PROJECT-TEMPLATE-DOCS-DEPLOY.yaml",

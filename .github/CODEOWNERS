@@ -1,0 +1,3 @@
+# Reviewers requested automatically on every pull request.
+# This file is repo-only: the template initializer and the installer do not copy it to user projects.
+* @Cassiiopeia

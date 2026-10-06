@@ -195,6 +195,7 @@ CLEANUP_TARGETS = [
     ("CONTRIBUTING.md", "CONTRIBUTING.md 삭제"),
     ("SECURITY.md", "SECURITY.md 삭제"),
     ("ARCHITECTURE.md", "ARCHITECTURE.md 삭제"),
+    (".github/CODEOWNERS", "CODEOWNERS 삭제 (이 저장소 소유자 지정)"),
     ("CLAUDE.md", "CLAUDE.md 삭제"),
     ("AGENTS.md", "AGENTS.md 삭제"),
     ("GEMINI.md", "GEMINI.md 삭제"),

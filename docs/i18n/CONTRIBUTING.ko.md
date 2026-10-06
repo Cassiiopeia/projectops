@@ -48,6 +48,12 @@ CI는 Linux, macOS, Windows에서 같은 명령을 돌립니다. 설치기는 ma
   - `type`은 `feat`, `fix`, `docs`, `chore`, `refactor`, `test` 중 하나입니다.
   - `feat`는 다음 릴리스를 minor, `feat!`는 major, 나머지는 patch로 올립니다. `!`는 기존 사용자의 설정이나 CLI 인자가 더 이상 동작하지 않을 때만 붙입니다.
 
+## 릴리스
+
+- 릴리스는 묶어서 냅니다. 릴리스 PR(`develop` → `main`)은 하루 한 번까지만 만들고, 사용자가 기다리는 수정이 있을 때만 추가로 냅니다.
+- 릴리스 PR의 제목은 `🚀 Deploy <날짜>-v<버전>`입니다. PR 목록에서 숨기려면 `is:pr -head:develop`로 거르세요.
+- 이 프로젝트는 활발히 유지보수됩니다. PR은 `.github/CODEOWNERS`에 적힌 코드 오너가 리뷰합니다.
+
 ## PR 체크리스트
 
 - [ ] 변경을 설명하는 이슈가 있고 PR이 연결돼 있다

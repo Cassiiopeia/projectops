@@ -6,6 +6,8 @@
 
 [![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/)
 
+**상태: 활발히 유지보수 중.** 릴리스는 하루 한 번 정도로 묶어서 냅니다. [CONTRIBUTING](CONTRIBUTING.ko.md#릴리스)을 참고하세요.
+
 </div>
 
 ---

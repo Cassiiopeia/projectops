@@ -61,6 +61,12 @@ node /path/to/projectops/bin/projectops.js --lang en
   - `feat` makes the next release a minor version, `feat!` a major one, everything else a patch.
     Use `!` only when existing users' settings or CLI arguments stop working.
 
+## Releases
+
+- Releases are batched: at most one release PR (`develop` to `main`) per day, plus an extra one only for a fix users are waiting on.
+- Release PRs are titled `🚀 Deploy <date>-v<version>`. To hide them in the PR list, filter with `is:pr -head:develop`.
+- This project is actively maintained. Pull requests are reviewed by the code owners listed in `.github/CODEOWNERS`.
+
 ## Pull requests
 
 Before you open a PR:

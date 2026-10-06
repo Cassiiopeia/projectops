@@ -6,6 +6,8 @@
 
 [![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/)
 
+**Status: actively maintained.** Releases are batched about once a day; see [CONTRIBUTING](CONTRIBUTING.md#releases).
+
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
 ## Latest version : v4.31.5 (2026-10-02)
 
