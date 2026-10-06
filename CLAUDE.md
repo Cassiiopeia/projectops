@@ -60,6 +60,8 @@
 - **이슈를 `close` 처리하지 않는다** — 라벨(`PROJECT-COMMON-PROJECTS-SYNC-MANAGER`가 Projects 보드 상태와 동기화)이 완료를 나타내며, close는 이 흐름을 깨뜨린다.
 - 사용자가 **명시적으로 "이슈 닫아줘"라고 요청한 경우에만** close한다. 구현·보고서 작성이 끝났다는 이유만으로 임의로 닫지 않는다.
 - 라벨 변경은 `/pro-github`(또는 `github_cli.py set-labels`/`add-labels`/`remove-label`)로 처리한다.
+- **이슈는 릴리스가 나갈 때 워크플로우가 닫는다 (#771, `close_on_release`).** 완료 라벨(`status: done`/`작업완료`)이 붙은 이슈 중 릴리스 구간 커밋이 URL로 참조한 것만 닫힌다. 에이전트가 직접 닫지 않는 원칙은 그대로다. 이 저장소는 `version.yml`에서 켜져 있다.
+- **상태 라벨은 영문 표준(`status: todo` 등)과 기존 한글(`작업전` 등)을 둘 다 쓴다 (#776).** `label_style`이 표기를 정하고(신규 `en`, 기존 `ko` 유지), 스킬 공통 라벨 함수와 Projects 동기화는 두 표기를 서로 바꿔 인식한다.
 
 ---
 
@@ -743,7 +745,7 @@ EOF
 
 **이슈 템플릿**: `bug_report.md` / `feature_request.md` / `design_request.md` / `qa_request.md`
 
-**이슈 라벨**: `긴급, 문서, 작업전, 작업중, 담당자확인, 피드백, 작업완료, 보류, 취소`
+**이슈 라벨**: 영문 표준 `priority: urgent, documentation, status: todo, status: in progress, status: needs review, status: feedback, status: done, status: on hold, status: cancelled` (기존 한글: `긴급, 문서, 작업전, 작업중, 담당자확인, 피드백, 작업완료, 보류, 취소`)
 
 ---
 

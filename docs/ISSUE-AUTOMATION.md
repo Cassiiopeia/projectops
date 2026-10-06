@@ -143,32 +143,45 @@ on:
 ### 라벨 파일 형식
 
 ```yaml
-- name: "긴급"
+- name: "priority: urgent"
+  from_name: 긴급          # 기존 한글 라벨을 이름만 바꿔 이슈에 붙은 상태를 보존한다
   color: "d73a4a"
-  description: "긴급 처리 필요"
+  description: "Urgent work"
 
-- name: "작업중"
+- name: "status: in progress"
+  from_name: 작업중
   color: "74D7CB"
-  description: "작업이 진행 중인 상태"
-
-- name: "담당자확인"
-  color: "FBC61E"
-  description: "담당자 확인 필요, 대기중 상태"
+  description: "Work in progress"
 ```
+
+### 라벨 표기: 영문 표준과 한글 (`label_style`)
+
+`version.yml`의 `metadata.template.options.label_style`이 라벨 이름의 표기를 정한다.
+
+| 값 | 의미 | 언제 |
+|---|---|---|
+| `en` | 영문 표준 (`status: todo` 등) | **신규 설치 기본값** |
+| `ko` | 기존 한글 (`작업전` 등) | 이미 설치된 레포는 키가 없으면 유지된다 |
+
+영문으로 바꾸려면 `npx projectops --label-style en`을 실행한다(대화형 업데이트에서는 한 번 제안한다). 라벨 동기화 워크플로우가 `from_name`으로 한글 라벨의 **이름만** 바꾸므로 이슈에 붙은 라벨은 그대로 옮겨진다. Projects 동기화와 스킬은 두 표기를 모두 인식한다.
 
 ### 기본 제공 라벨
 
-| 라벨 | 용도 |
-|------|------|
-| 긴급 | 긴급 처리 필요 |
-| 문서 | 문서 관련 |
-| 작업전 | 작업 시작 전 준비 상태 |
-| 작업중 | 작업이 진행 중인 상태 |
-| 담당자확인 | 담당자 확인 필요, 대기중 상태 |
-| 피드백 | 담당자 확인 후 수정 필요 |
-| 작업완료 | 작업 완료 상태 (이슈 폐쇄) |
-| 보류 | 작업 일시 중단 상태 |
-| 취소 | 작업 취소됨 |
+| 영문 표준 | 기존 한글 | 용도 |
+|------|------|------|
+| `priority: urgent` | 긴급 | 긴급 처리 필요 |
+| `documentation` | 문서 | 문서 관련 |
+| `status: todo` | 작업전 | 작업 시작 전 준비 상태 |
+| `status: in progress` | 작업중 | 작업이 진행 중인 상태 |
+| `status: needs review` | 담당자확인 | 담당자 확인 필요, 대기중 상태 |
+| `status: feedback` | 피드백 | 담당자 확인 후 수정 필요 |
+| `status: done` | 작업완료 | 작업 완료 상태 |
+| `status: on hold` | 보류 | 작업 일시 중단 상태 |
+| `status: cancelled` | 취소 | 작업 취소됨 |
+
+### 완료한 이슈는 릴리스가 나갈 때 닫힌다 (`close_on_release`)
+
+완료 표시는 라벨(`status: done` 또는 `작업완료`)이 맡고, 닫는 일은 `PROJECT-COMMON-CLOSE-ISSUES-ON-RELEASE` 워크플로우가 릴리스 머지 때 한다. 릴리스 구간 커밋이 이슈 URL을 참조하고 완료 라벨이 있는 이슈만 닫는다. `version.yml`에 `close_on_release: true`가 있을 때만 동작하며, **신규 설치만 켜진다. 기존 설치는 키가 없어 꺼진 채 유지된다.**
 
 ### 워크플로우
 

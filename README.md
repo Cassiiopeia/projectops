@@ -291,7 +291,7 @@ Browse and search everything on the **[docs site](https://cassiiopeia.github.io/
 ## Support
 
 - [Issues](https://github.com/Cassiiopeia/projectops/issues): bug reports and feature requests
-  - This repo does not close finished issues; it marks them with the `작업완료` (done) label. That is why the open-issue count looks high.
+  - Finished issues are marked with the `status: done` label and closed automatically when a release is merged (`close_on_release`).
 - [CONTRIBUTING.md](CONTRIBUTING.md): contribution guide
 - [SECURITY.md](SECURITY.md): please report security vulnerabilities privately, not in a public issue
 
