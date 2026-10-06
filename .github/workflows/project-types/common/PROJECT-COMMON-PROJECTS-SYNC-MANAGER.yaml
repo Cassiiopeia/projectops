@@ -58,7 +58,8 @@ permissions:
 env:
   # 동기화할 Status Label 목록 (JSON 배열)
   # projects-sync-wizard에서 설정한 값과 동일해야 합니다
-  STATUS_LABELS: '["작업전", "작업중", "담당자확인", "피드백", "작업완료", "보류", "취소"]'
+  # 한글(기존)과 영문(#776 표준) 라벨을 둘 다 인식한다 — 이름 변경 전환 기간 동안 자동화가 멈추지 않게 한다
+  STATUS_LABELS: '["작업전", "작업중", "담당자확인", "피드백", "작업완료", "보류", "취소", "status: todo", "status: in progress", "status: needs review", "status: feedback", "status: done", "status: on hold", "status: cancelled"]'
 
   # ===================================================================
   # GitHub Projects 연동 설정
@@ -96,7 +97,7 @@ jobs:
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issues' &&
-       contains(fromJSON('["작업전", "작업중", "담당자확인", "피드백", "작업완료", "보류", "취소"]'), github.event.label.name))
+       contains(fromJSON('["작업전", "작업중", "담당자확인", "피드백", "작업완료", "보류", "취소", "status: todo", "status: in progress", "status: needs review", "status: feedback", "status: done", "status: on hold", "status: cancelled"]'), github.event.label.name))
 
     steps:
       # Projects 연동은 선택 기능이다. PAT Secret 과 PROJECT_URL 변수가 둘 다 있어야만 동작하고,
@@ -361,7 +362,21 @@ jobs:
               return;
             }
 
-            const targetOption = statusField.options.find(opt => opt.name === statusLabel);
+            // 한글/영문 라벨은 같은 상태다. 보드의 열 이름이 어느 쪽이든 찾을 수 있게 별칭 그룹으로 매칭한다 (#776).
+            const STATUS_ALIASES = [
+              ['작업전', 'status: todo'],
+              ['작업중', 'status: in progress'],
+              ['담당자확인', 'status: needs review'],
+              ['피드백', 'status: feedback'],
+              ['작업완료', 'status: done'],
+              ['보류', 'status: on hold'],
+              ['취소', 'status: cancelled'],
+            ];
+            const aliasGroup = STATUS_ALIASES.find(g => g.includes(statusLabel)) || [statusLabel];
+            // 라벨 이름과 정확히 같은 열을 우선하고, 없을 때만 별칭 열을 쓴다
+            const targetOption =
+              statusField.options.find(opt => opt.name === statusLabel) ||
+              statusField.options.find(opt => aliasGroup.includes(opt.name));
             if (!targetOption) {
               console.log(`❌ 프로젝트에 "${statusLabel}" Status 옵션이 없습니다.`);
               console.log('');
