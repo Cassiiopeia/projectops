@@ -28,5 +28,13 @@
   "changelog_notice.comment.footer": "<sub>이 안내는 같은 댓글을 갱신하므로 릴리스마다 새로 쌓이지 않습니다.</sub>",
   "pr_summary.heading": "🤖 변경 요약",
   "pr_summary.app_release": "> 📱 이 저장소는 앱스토어·플레이스토어 심사로 이어집니다. 이 변경은 다음 릴리스에 포함되어 심사에 들어갑니다.",
-  "pr_summary.footer": "<sub>커밋 내역을 자동 요약한 내용입니다. 새 커밋이 올라오면 이 댓글이 갱신됩니다.</sub>"
+  "pr_summary.footer": "<sub>커밋 내역을 자동 요약한 내용입니다. 새 커밋이 올라오면 이 댓글이 갱신됩니다.</sub>",
+  "qa_bot.title": "🔍 [시험요청]{title}",
+  "qa_bot.body": "🔗 ISSUE 정보\n---\n- #{issue_number}\n{pr_issue_line}\n\n🔗 PR 정보\n---\n{pr_info}\n\n🧩 시험 대상\n---\n\n{target}에 대한 기능 시험\n\n📋 테스트 시나리오\n---\n\n1. 기본 기능 동작 확인\n2. 엣지 케이스 테스트\n3. UI/UX 확인\n4. 에러 처리 확인\n\n⚙️ 테스트 환경\n---\n- **프로젝트 Version**: \n- **OS**: \n- **브라우저**: \n- **기기**: \n\n🙋‍♂️ 담당자\n---\n\n- **시험담당**: 이름\n- **요청자**: @{requester}\n\n---\n*🤖 이 이슈는 @projectops 봇에 의해 자동 생성되었습니다.*",
+  "qa_bot.pr_placeholder": "<!-- PR 번호나 URL을 작성해주세요 -->",
+  "qa_bot.comment.created": "✅ **시험(QA) 요청 이슈가 생성되었습니다!**",
+  "qa_bot.comment.qa_heading": "📋 **시험(QA) 요청**",
+  "qa_bot.comment.issue_heading": "🔗 **이슈정보**",
+  "qa_bot.comment.done": "시험 완료 후 결과를 QA 이슈에 기록해주세요.",
+  "qa_bot.error": "❌ QA 이슈 생성 중 오류가 발생했습니다."
 }

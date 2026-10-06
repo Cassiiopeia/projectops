@@ -28,5 +28,13 @@
   "changelog_notice.comment.footer": "<sub>This notice updates the same comment, so it does not pile up with every release.</sub>",
   "pr_summary.heading": "🤖 Change summary",
   "pr_summary.app_release": "> 📱 This repository leads to App Store and Play Store review. This change is included in the next release and goes into review.",
-  "pr_summary.footer": "<sub>This is an automatic summary of the commit history. This comment is updated when new commits are pushed.</sub>"
+  "pr_summary.footer": "<sub>This is an automatic summary of the commit history. This comment is updated when new commits are pushed.</sub>",
+  "qa_bot.title": "🔍 [QA]{title}",
+  "qa_bot.body": "🔗 Issue info\n---\n- #{issue_number}\n{pr_issue_line}\n\n🔗 PR info\n---\n{pr_info}\n\n🧩 What to test\n---\n\nA feature test for {target}\n\n📋 Test scenarios\n---\n\n1. Check the basic behavior\n2. Test edge cases\n3. Check the UI/UX\n4. Check error handling\n\n⚙️ Test environment\n---\n- **Project version**: \n- **OS**: \n- **Browser**: \n- **Device**: \n\n🙋‍♂️ Assignees\n---\n\n- **Tester**: name\n- **Requester**: @{requester}\n\n---\n*🤖 This issue was created automatically by the @projectops bot.*",
+  "qa_bot.pr_placeholder": "<!-- Write the PR number or URL -->",
+  "qa_bot.comment.created": "✅ **A test (QA) request issue was created!**",
+  "qa_bot.comment.qa_heading": "📋 **Test (QA) request**",
+  "qa_bot.comment.issue_heading": "🔗 **Issue info**",
+  "qa_bot.comment.done": "When testing is done, please record the result in the QA issue.",
+  "qa_bot.error": "❌ An error occurred while creating the QA issue."
 }

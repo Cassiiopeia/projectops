@@ -81,6 +81,16 @@ jobs:
             
             console.log('👀 댓글에 확인 리액션 추가 완료');
 
+      # 게시 문구는 .github/scripts/qa_bot_messages.py 가 version.yml 의 언어(options.language)로 만든다 (#787).
+      # 필요한 파일만 받는다. 기본 브랜치의 설정을 읽으므로 PR 이 언어를 바꿔 끼울 수 없다.
+      - name: 메시지 모듈 체크아웃
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/scripts
+            version.yml
+          sparse-checkout-cone-mode: false
+
       - name: QA 이슈 생성
         uses: actions/github-script@v7
         env:
@@ -151,48 +161,16 @@ jobs:
             title = title.replace(/^\s+/, '').trim();
             console.log('✨ 정제된 제목:', title);
             
-            // 4. QA 이슈 제목 생성
-            const qaTitle = `🔍 [시험요청]${title}`;
+            // 4. QA 이슈 제목과 본문 — 언어에 맞는 문구는 파이썬 모듈이 만든다 (#787)
+            const { execFileSync } = require('child_process');
+            const messages = (...args) => JSON.parse(execFileSync(
+              'python3', ['.github/scripts/qa_bot_messages.py', ...args], { encoding: 'utf8' }));
+
+            const issueMsg = messages('issue', '--title', title, '--original', String(originalIssueNumber),
+              ...(isPullRequest ? ['--pr', String(issueOrPrNumber)] : []), '--requester', issue.user.login);
+            const qaTitle = issueMsg.title;
+            const qaBody = issueMsg.body;
             console.log('🎯 QA 이슈 제목:', qaTitle);
-            
-            // QA 이슈 본문 생성
-            const qaBody = `🔗 ISSUE 정보
-            ---
-            - #${originalIssueNumber}
-            ${isPullRequest ? `- PR: #${issueOrPrNumber}` : ''}
-
-            🔗 PR 정보
-            ---
-            ${isPullRequest ? `- #${issueOrPrNumber}` : '<!-- PR 번호나 URL을 작성해주세요 -->'}
-
-            🧩 시험 대상
-            ---
-
-            ${title.replace(/^\[.*?\]\s*/, '')}에 대한 기능 시험
-
-            📋 테스트 시나리오
-            ---
-
-            1. 기본 기능 동작 확인
-            2. 엣지 케이스 테스트
-            3. UI/UX 확인
-            4. 에러 처리 확인
-
-            ⚙️ 테스트 환경
-            ---
-            - **프로젝트 Version**: 
-            - **OS**: 
-            - **브라우저**: 
-            - **기기**: 
-
-            🙋‍♂️ 담당자
-            ---
-
-            - **시험담당**: 이름
-            - **요청자**: @${issue.user.login}
-
-            ---
-            *🤖 이 이슈는 @projectops 봇에 의해 자동 생성되었습니다.*`;
 
             try {
               // QA 이슈 생성
@@ -208,27 +186,9 @@ jobs:
               console.log(`✅ QA 이슈 생성 완료: #${qaIssue.number}`);
             
               // 원본 이슈/PR에 댓글
-              const commentBody = isPullRequest
-                ? [
-                    '✅ **시험(QA) 요청 이슈가 생성되었습니다!**',
-                    '',
-                    '📋 **시험(QA) 요청**',
-                    `- #${qaIssue.number}`,
-                    '',
-                    '🔗 **이슈정보**',
-                    `- #${originalIssueNumber}`,
-                    '',
-                    '시험 완료 후 결과를 QA 이슈에 기록해주세요.'
-                  ].join('\n')
-                : [
-                    '✅ **시험(QA) 요청 이슈가 생성되었습니다!**',
-                    '',
-                    '📋 **시험(QA) 요청**',
-                    `- #${qaIssue.number}`,
-                    '',
-                    '시험 완료 후 결과를 QA 이슈에 기록해주세요.'
-                  ].join('\n');
-            
+              const commentBody = messages('comment', '--qa', String(qaIssue.number),
+                ...(isPullRequest ? ['--original', String(originalIssueNumber)] : [])).comment;
+
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -253,6 +213,6 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueOrPrNumber,
-                body: `❌ QA 이슈 생성 중 오류가 발생했습니다.\n\n\`\`\`\n${error.message}\n\`\`\``
+                body: messages('error', '--message', String(error.message)).error
               });
             }
