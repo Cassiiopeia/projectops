@@ -107,8 +107,10 @@ def test_label_sync_runs_on_main_push_without_paths_filter():
 def test_setup_guide_and_summary_mention_label_sync():
     guide = (ROOT / "PROJECTOPS-SETUP-GUIDE.md").read_text(encoding="utf-8")
     assert "PROJECT-SYNC-GITHUB-LABELS" in guide and "Run workflow" in guide
-    summary = (ROOT / "src/ui/summary.js").read_text(encoding="utf-8")
-    assert "PROJECT-SYNC-GITHUB-LABELS" in summary
+    # 완료 요약 문구는 i18n 카탈로그로 옮겨졌다(#768). 두 언어 모두에 안내가 있어야 한다.
+    for lang in ("en", "ko"):
+        catalog = (ROOT / f"src/i18n/summary.{lang}.js").read_text(encoding="utf-8")
+        assert "PROJECT-SYNC-GITHUB-LABELS" in catalog, lang
 
 
 # ── #669 React 패키지 매니저 ────────────────────────────────────
