@@ -189,12 +189,32 @@ source "{env_file 값}"
 
 | 항목 | 의미 |
 |---|---|
-| `kind` | `ssh` · `dockerhub` · `db` · `http` · `github-org` · `other` |
+| `kind` | `ssh` · `dockerhub` · `db` · `http` · `github-org` · `local` · `other` |
 | `ssh_server` | `pro-ssh` 에 등록된 서버 이름. 있으면 host·port·user·password 를 거기서 가져온다 — **비밀번호는 한 곳에만** 둔다 |
 | `use_when` | 이 자격증명을 **언제 써도 되는지**(근거). 사용자가 허용한 범위를 그대로 적는다 |
 | 로그인 계정 | `kind: login` + `provider`(google · apple · naver · kakao · custom) · `surface` · `app` · `account` · `password` · `two_factor` — 소셜·앱 로그인과 개발자 콘솔 로그인. 화면에는 `web type --cred` · `app type --cred` 로 넣는다 |
+| 이 맥 sudo | `kind: local` + `sudo_password` — **이 맥**에서 관리자 권한(`sudo installer -pkg …` 등)이 필요할 때. `local sudo --cred 이름 -- <명령>` 으로 쓴다 (아래) |
 | `scope` | `test-only` · `test-ok` · `readonly` … 허용 범위 |
 | `notes` | 지켜야 할 이름 규칙·포트 범위·서버에 있는 운영 서비스 등 알아둘 것 |
+
+#### 이 맥의 sudo 비밀번호 (#784)
+
+로컬 맥에서 관리자 권한이 필요한 작업(예: `sudo installer -pkg … -target /`)을 만나면, **"비밀번호는 못 넣는다"며 멈추지 말고** 저장된 자격증명부터 찾는다.
+
+```bash
+{PYTHON} {SCRIPTS}/launch_cli.py cred list                      # kind 가 local 인 것이 있나
+{PYTHON} {SCRIPTS}/launch_cli.py local sudo --cred mac -- installer -pkg /path/x.pkg -target /
+```
+
+- **첫 등록은 사용자가 터미널에서 직접 한다.** 입력은 화면에 보이지 않고, 비밀번호가 채팅·세션 기록에 들어가지 않는다.
+  `! {PYTHON} {SCRIPTS}/launch_cli.py cred set --name mac --prompt` (Claude Code 에서는 `!` 접두사). `!` 로 TTY 를 못 받으면
+  별도 터미널 창에서 같은 명령을 친다. 파이프·채팅으로는 받지 않는다(`no_tty` 로 거절).
+- 비밀번호는 `sudo -S` 표준입력으로만 넘긴다. 명령줄·응답·로그에는 남지 않고 출력의 같은 문자열은 `***` 로 가려진다.
+- `kind: local` 만 쓴다. 서버 ssh 비밀번호로 이 맥에 sudo 를 시도하지 않는다(`cred_not_local`).
+- **시스템을 바꾸는 명령이다.** 실행 전에 무슨 명령인지 한 줄로 말한다. 한 번 저장했다고 아무 명령이나 돌리지 않고, `use_when` 범위 안에서 쓴다.
+- 저장은 로컬 파일(`config.json`, 권한 600) 평문이다. 로컬 전용이라는 사용자 방침을 따랐고, 맥 로그인 비밀번호라는 점이 서버 키보다 민감하다는 것은 사용자가 알고 있다.
+- ⚠️ **Claude Code 의 권한 분류기가 "저장된 비밀번호로 sudo" 호출을 거부할 수 있다.** 이 스킬로 우회할 수 없고 권한 설정을 바꾸지도 않는다.
+  거부되면 그 사실과 사용자가 직접 칠 명령 한 줄을 알려 준다.
 
 **agent 판단 규칙**
 - 서버·DB·레지스트리를 만지기 전에 `cred list` 를 보고 **`use_when` 이 지금 하려는 일에 맞는 것만** 쓴다.

@@ -1715,6 +1715,19 @@ def cmd_cred(args) -> int:
                 fields = json.loads(args.json_value) if args.json_value else None
             except json.JSONDecodeError as e:
                 return out({"ok": False, "code": "bad_json", "error": f"--json 이 올바르지 않습니다: {e}"})
+            if args.prompt:
+                # 이 맥의 sudo 비밀번호(#784). 채팅이나 파이프로 받지 않는다 — 세션 기록에 평문이 남기 때문이다.
+                # 사용자가 터미널에서 직접 치게 하고(입력은 화면에 보이지 않는다) 그 값만 저장한다.
+                if not sys.stdin.isatty():
+                    return out({"ok": False, "code": "no_tty",
+                                "error": "비밀번호는 터미널에서 직접 입력해야 합니다 (채팅·파이프로는 받지 않습니다)",
+                                "next": f"사용자가 터미널에서: launch_cli.py cred set --name {name} --prompt"})
+                import getpass
+                pw = getpass.getpass("이 맥의 sudo 비밀번호: ")
+                if not pw:
+                    return out({"ok": False, "code": "empty_password", "error": "비밀번호가 비었습니다"})
+                fields = {"kind": "local", "use_when": "이 맥에서 관리자 권한(sudo)이 필요할 때",
+                          **(fields or {}), "sudo_password": pw}
             f = credentials.save_credential(name, fields or {}, replace=args.replace)
             saved = credentials.load_all().get(name, {})
             missing = [k for k in ("kind", "use_when") if not saved.get(k)]
@@ -1730,6 +1743,46 @@ def cmd_cred(args) -> int:
     except credentials.CredError as e:
         return out({"ok": False, "code": e.code, "error": e.message})
     return out({"ok": False, "code": "unknown_action", "error": args.action})
+
+
+def cmd_local(args) -> int:
+    """저장된 자격증명으로 이 맥에서 sudo 명령을 실행한다 (#784).
+
+    비밀번호는 `sudo -S` 의 표준입력으로만 넘긴다 — 명령줄(ps)·응답·로그에 남지 않는다.
+    kind 가 local 인 자격증명만 쓴다: 서버 ssh 비밀번호로 이 맥에 sudo 를 시도하면 안 된다.
+    """
+    if not args.cred:
+        return out({"ok": False, "code": "cred_required", "error": "--cred 가 필요합니다",
+                    "next": "cred list  # kind 가 local 인 것을 고른다. 없으면 사용자가 터미널에서 cred set --name 이름 --prompt"})
+    cred, err = _load_cred(args.cred)
+    if err:
+        return out(err)
+    if cred.get("kind") != "local":
+        return out({"ok": False, "code": "cred_not_local",
+                    "error": f"'{args.cred}' 는 이 맥용(kind: local)이 아닙니다 — 서버 비밀번호로 이 맥에 sudo 를 쓰지 않습니다"})
+    password = cred.get("sudo_password")
+    if not password:
+        return out({"ok": False, "code": "sudo_password_missing", "error": f"'{args.cred}' 에 sudo_password 가 없습니다",
+                    "next": f"사용자가 터미널에서: launch_cli.py cred set --name {args.cred} --prompt"})
+    command = list(args.command or [])
+    if not command:
+        return out({"ok": False, "code": "command_required", "error": "실행할 명령이 없습니다",
+                    "next": f"local sudo --cred {args.cred} -- <명령> [인자...]"})
+    if not shutil.which("sudo"):
+        return out({"ok": False, "code": "sudo_missing", "error": "sudo 를 찾을 수 없습니다"})
+    try:
+        r = subprocess.run(["sudo", "-S", "-p", "", *command], input=str(password) + "\n",
+                           capture_output=True, text=True, timeout=args.timeout)
+    except subprocess.TimeoutExpired:
+        return out({"ok": False, "code": "sudo_timeout", "error": f"응답 없음 ({args.timeout}초)"})
+    stdout = credentials.mask(r.stdout, cred)
+    stderr = credentials.mask(r.stderr, cred)
+    ok = r.returncode == 0
+    return out({"ok": ok, "code": "ok" if ok else "sudo_failed", "exit_code": r.returncode,
+                "stdout": stdout[:args.max_output], "stderr": stderr.strip()[:1000] or None,
+                "truncated": len(stdout) > args.max_output,
+                "summary": f"{args.cred}: sudo {command[0]} " + ("완료" if ok else f"실패 (종료코드 {r.returncode})"),
+                "next": None if ok else "stderr 를 보고 명령을 고친다. 비밀번호가 틀렸으면 사용자가 cred set --name 이름 --prompt 로 다시 저장"})
 
 
 def cmd_ssh(args) -> int:
@@ -2423,7 +2476,17 @@ def build_parser() -> argparse.ArgumentParser:
                    help='저장할 내용(JSON). 예: {"kind":"ssh","ssh_server":"synology-nas","use_when":"..."}')
     p.add_argument("--replace", action="store_true", help="set 때 기존 항목을 합치지 않고 통째로 바꾼다")
     p.add_argument("--reveal", action="store_true", help="show 때 비밀 값도 그대로 보여 준다 (꼭 필요할 때만)")
+    p.add_argument("--prompt", action="store_true",
+                   help="set 때 이 맥의 sudo 비밀번호를 터미널에서 직접 입력받아 저장한다 (화면에 안 보임, TTY 필요)")
     p.set_defaults(func=cmd_cred)
+
+    p = sub.add_parser("local", help="저장된 자격증명으로 이 맥에서 sudo 명령을 실행한다")
+    p.add_argument("action", choices=["sudo"])
+    p.add_argument("--cred", default=None, help="kind 가 local 인 자격증명 이름 (cred list)")
+    p.add_argument("--timeout", type=int, default=300)
+    p.add_argument("--max-output", dest="max_output", type=int, default=20000)
+    # 실행할 명령은 `--` 뒤에 둔다. main() 이 파서 전에 잘라 args.command 로 넣는다.
+    p.set_defaults(func=cmd_local, command=[])
 
     p = sub.add_parser("ssh", help="저장된 서버 자격증명으로 원격 명령을 실행한다")
     p.add_argument("--cred", default=None, help="자격증명 이름 (cred list)")
@@ -2477,8 +2540,17 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
+    raw = list(sys.argv[1:] if argv is None else argv)
+    # local sudo: `--` 뒤는 실행할 명령이라 파서에 넘기지 않는다. argparse 의 REMAINDER 는 앞의
+    # --cred 같은 옵션까지 삼키므로, 미리 잘라 두었다가 args.command 로 되돌려 준다 (#784).
+    tail: list[str] = []
+    if raw[:1] == ["local"] and "--" in raw:
+        i = raw.index("--")
+        raw, tail = raw[:i], raw[i + 1:]
     try:
-        args = parser.parse_args(argv)
+        args = parser.parse_args(raw)
+        if getattr(args, "func", None) is cmd_local:
+            args.command = tail
     except SystemExit as e:
         if e.code in (0, None):
             raise

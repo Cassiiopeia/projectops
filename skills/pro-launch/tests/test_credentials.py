@@ -266,3 +266,67 @@ def test_app_type_은_다른_필드와_비ASCII_를_구분해_처리한다(home,
 
 def test_app_type_은_값을_text_로_받지_않는다(home):
     assert run(home, "app", "type")["code"] == "text_required"
+
+
+# ── 로컬 맥 sudo (#784) ─────────────────────────────────────────────
+
+def _fake_sudo(tmp_path: Path) -> Path:
+    b = tmp_path / "fakebin_sudo"
+    b.mkdir(exist_ok=True)
+    # 받은 인자와 표준입력을 기록한다. 실제 sudo 처럼 첫 줄을 비밀번호로 읽고, 틀리면 실패한다.
+    (b / "sudo").write_text(
+        '#!/bin/bash\nprintf "%s\\n" "$@" > "$REC.argv"\nIFS= read -r PW\nprintf "%s" "$PW" > "$REC.pw"\n'
+        'if [ "$PW" != "right-PW-123" ]; then echo "Sorry, try again." >&2; exit 1; fi\n'
+        'echo "ran as root: $*"\n')
+    (b / "sudo").chmod(0o755)
+    return b
+
+
+def _run_sudo(home, tmp_path, *args):
+    rec = tmp_path / "rec"
+    os.environ["REC"] = str(rec)
+    try:
+        return run(home, *args, path_prepend=_fake_sudo(tmp_path))
+    finally:
+        os.environ.pop("REC", None)
+
+
+def test_local_sudo_는_비밀번호를_명령줄이_아니라_표준입력으로만_넘긴다(home, tmp_path):
+    run(home, "cred", "set", "--name", "mac", "--json",
+        json.dumps({"kind": "local", "use_when": "이 맥에서 관리자 권한이 필요할 때", "sudo_password": "right-PW-123"}))
+    r = _run_sudo(home, tmp_path, "local", "sudo", "--cred", "mac", "--", "installer", "-pkg", "/x.pkg", "-target", "/")
+    assert r["ok"] is True, r
+    argv = (tmp_path / "rec.argv").read_text(encoding="utf-8")
+    assert "right-PW-123" not in argv                       # ps 에 보이는 인자에 없다
+    assert "installer" in argv and "/x.pkg" in argv
+    assert (tmp_path / "rec.pw").read_text(encoding="utf-8") == "right-PW-123"
+    assert "right-PW-123" not in json.dumps(r)              # 응답에도 없다
+    assert "ran as root" in r["stdout"]
+
+
+def test_local_sudo_는_틀린_비밀번호면_실패로_알리고_비밀번호를_드러내지_않는다(home, tmp_path):
+    run(home, "cred", "set", "--name", "mac", "--json", json.dumps({"kind": "local", "sudo_password": "wrong-PW-999"}))
+    r = _run_sudo(home, tmp_path, "local", "sudo", "--cred", "mac", "--", "whoami")
+    assert r["ok"] is False and r["code"] == "sudo_failed"
+    assert "wrong-PW-999" not in json.dumps(r)
+
+
+def test_local_sudo_는_저장된_비밀번호도_명령도_없으면_알려준다(home, tmp_path):
+    assert run(home, "local", "sudo", "--cred", "없음", "--", "whoami")["code"] in ("cred_not_found", "not_found")
+    run(home, "cred", "set", "--name", "mac", "--json", json.dumps({"kind": "local"}))
+    assert run(home, "local", "sudo", "--cred", "mac", "--", "whoami")["code"] == "sudo_password_missing"
+    run(home, "cred", "set", "--name", "mac", "--json", json.dumps({"sudo_password": "x"}))
+    assert run(home, "local", "sudo", "--cred", "mac")["code"] == "command_required"
+
+
+def test_local_sudo_는_local_이_아닌_자격증명을_거절한다(home, tmp_path):
+    # 서버 ssh 비밀번호로 이 맥에 sudo 를 시도하면 안 된다
+    run(home, "cred", "set", "--name", "srv", "--json", json.dumps({"kind": "ssh", "password": "pw"}))
+    assert run(home, "local", "sudo", "--cred", "srv", "--", "whoami")["code"] == "cred_not_local"
+
+
+def test_cred_set_prompt_는_tty_가_없으면_값을_받지_않고_거절한다(home):
+    # 채팅이나 파이프로 비밀번호를 받지 않는다 — 사용자가 터미널에서 직접 입력해야 한다
+    r = run(home, "cred", "set", "--name", "mac", "--prompt", stdin="should-not-be-read\n")
+    assert r["ok"] is False and r["code"] == "no_tty"
+    assert "should-not-be-read" not in cfg_path(home).read_text(encoding="utf-8") if cfg_path(home).exists() else True
