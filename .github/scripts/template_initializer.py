@@ -149,6 +149,10 @@ metadata:
       # semver 자동 승격 (#546) — 릴리스 구간 커밋 제목으로 major/minor/patch 결정.
       # npx projectops로 신규 통합할 때와 동일한 기본값이다 (생성 경로에 따라 갈리지 않게).
       semver_auto: true
+      # 이슈/PR 템플릿 언어와 상태 라벨 표기 (#769, #776) — 이 레포는 영문 원본으로 만들어졌다.
+      # 키를 비워 두면 npx projectops 가 "기존 통합 레포"로 보고 한국어로 되돌린다.
+      language: en
+      label_style: en
 """
     Path("version.yml").write_text(content, encoding="utf-8", newline="\n")
     print_success("version.yml 파일이 생성되었습니다.")

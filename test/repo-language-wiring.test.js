@@ -52,3 +52,26 @@ test("기존 ko 레포를 --language en 으로 전환", async () => {
   assert.match(readFileSync(join(dir, "version.yml"), "utf8"), /language: en/);
   assert.match(bug(dir), /\[Bug\]/);
 });
+
+// 최종 리뷰 Critical: 대화형 issues 모드가 baseCtx 로 ctx 를 만들어 language/labelStyle 이 null 이 되고,
+// runIssues 의 ?? "en" 때문에 키 없는 기존 한국어 레포가 질문 없이 영문 템플릿을 받았다.
+import { runInteractive } from "../src/commands/interactive.js";
+const noop = () => {};
+const issuesIo = { intro: noop, outro: noop, note: noop, cancelMessage: noop, summary: noop,
+  selectMode: async () => "issues", askYesNo: async () => true, askText: async (_m, d) => d };
+
+test("대화형 issues 모드: 키 없는 기존 한국어 레포는 한국어 템플릿을 유지한다", async () => {
+  const dir = project(EXISTING);
+  const code = await runInteractive({}, { cwd: dir, source: { type: "local", path: REPO }, io: issuesIo });
+  assert.equal(code, 0);
+  assert.match(bug(dir), /\[버그\]/);
+  assert.match(bug(dir), /^labels: \[작업전\]$/m);
+});
+
+test("대화형 issues 모드: 신규 레포는 영문 템플릿", async () => {
+  const dir = project();
+  const code = await runInteractive({}, { cwd: dir, source: { type: "local", path: REPO }, io: issuesIo });
+  assert.equal(code, 0);
+  assert.match(bug(dir), /\[Bug\]/);
+  assert.match(bug(dir), /^labels: \["status: todo"\]$/m);
+});

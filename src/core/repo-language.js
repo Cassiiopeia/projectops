@@ -25,23 +25,33 @@ function walk(dir) {
 }
 
 // 한국어 모드: 오버레이의 모든 파일을 targetRoot/.github/ 아래 같은 상대경로로 복사한다.
-// 반환: 복사한 파일의 레포 루트 기준 상대경로(.github/...). en 이거나 오버레이가 없으면 [].
-// 실패해도 예외를 던지지 않는다 — 영문 템플릿이 남을 뿐 설치를 죽일 이유가 아니다.
+// 반환: { changed, failed }. changed 는 복사한 파일의 레포 루트 기준 상대경로(.github/...),
+// failed 는 복사하지 못한 { file, error }. en 이거나 오버레이가 없으면 둘 다 빈 배열이다.
+// 파일 하나가 실패해도 나머지는 계속 복사한다 — 첫 실패에서 멈추면 영문과 한글이 섞이거나 전부 영문으로 남는다.
+// 예외는 던지지 않는다: 영문 템플릿이 남을 뿐 설치를 죽일 이유가 아니다. 대신 호출부가 failed 를 알린다.
 export function applyRepoLanguage(tempDir, targetRoot, language) {
-  if (language !== "ko") return [];
-  const overlay = join(tempDir, ".github", "i18n", "ko");
-  if (!existsSync(overlay)) return [];
   const changed = [];
+  const failed = [];
+  if (language !== "ko") return { changed, failed };
+  const overlay = join(tempDir, ".github", "i18n", "ko");
+  if (!existsSync(overlay)) return { changed, failed };
+  let files = [];
   try {
-    for (const file of walk(overlay)) {
-      const rel = relative(overlay, file).split("\\").join("/");
+    files = walk(overlay);
+  } catch (e) {
+    failed.push({ file: ".github/i18n/ko", error: String(e?.message ?? e) });
+    return { changed, failed };
+  }
+  for (const file of files) {
+    const rel = relative(overlay, file).split("\\").join("/");
+    try {
       const dst = join(targetRoot, ".github", rel);
       mkdirSync(dirname(dst), { recursive: true });
       copyFileSync(file, dst);
       changed.push(`.github/${rel}`);
+    } catch (e) {
+      failed.push({ file: `.github/${rel}`, error: String(e?.message ?? e) });
     }
-  } catch {
-    return changed;
   }
-  return changed;
+  return { changed, failed };
 }

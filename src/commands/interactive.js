@@ -100,7 +100,13 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
 
     // issues 모드는 정보 수집 없이 바로 실행
     if (mode === "issues") {
-      const ctx = createContext({ ...baseCtx, mode, force: true });
+      // 기존 레포의 템플릿 언어와 라벨 표기는 저장값을 따른다. 빈 baseCtx 로 만들면 둘 다 null 이 되어
+      // runIssues 의 기본값(en)이 적용돼, 키 없는 기존 한국어 레포가 질문 없이 영문으로 바뀐다 (#769).
+      const ctx = createContext({
+        ...baseCtx, mode, force: true,
+        language: resolveRepoLanguage({ flag: null, stored: existing?.options?.language, existing: !!existing }),
+        labelStyle: resolveLabelStyle({ flag: null, stored: existing?.options?.labelStyle, existing: !!existing }),
+      });
       runIssues(ctx, tempDir, cwd);
       io.summary?.({ mode, types: [], version: "", counters: {} }, cwd);
       io.outro?.(t("flow.doneIssues"));

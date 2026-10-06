@@ -18,6 +18,7 @@ import { copyCoderabbit } from "../core/copy/coderabbit.js";
 import { ensureGitignore } from "../core/copy/gitignore.js";
 import { applyLabelStyle } from "../core/label-style.js";
 import { applyRepoLanguage } from "../core/repo-language.js";
+import { t } from "../i18n/index.js";
 import { verifyInstall } from "../core/verify.js";
 
 // context: { version, types, paths:Map, branch, versionCode, deployTarget, publishTargets, includeSecretBackup,
@@ -70,8 +71,10 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
     copyIssueTemplates(tempDir, targetRoot);
     // 템플릿 언어(#769) — 원본은 영문이라 한국어 레포는 복사 직후 오버레이로 덮는다.
     // 라벨 표기 변환(apply-label-style)보다 반드시 먼저여야 한다.
-    const overlaid = applyRepoLanguage(tempDir, targetRoot, language);
-    hooks.trace?.event("copy", "repo-language", language, { overlaid: overlaid.length });
+    const { changed: overlaid, failed: overlayFailed } = applyRepoLanguage(tempDir, targetRoot, language);
+    hooks.trace?.event("copy", "repo-language", language, { overlaid: overlaid.length, failed: overlayFailed.length });
+    for (const f of overlayFailed) hooks.trace?.event("copy", "overlay-failed", f.file, { reason: f.error });
+    if (overlayFailed.length) console.error(t("language.overlayFailed", { n: overlayFailed.length, files: overlayFailed.map((f) => f.file).join(", ") }));
     copyDiscussionTemplates(tempDir, targetRoot);
   });
 
