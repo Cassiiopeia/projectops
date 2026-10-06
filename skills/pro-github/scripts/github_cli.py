@@ -143,7 +143,7 @@ def cmd_list_issues(args) -> int:
     if not pat:
         return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
     try:
-        issues = list_issues(args.owner, args.repo, pat, state=args.state)
+        issues = list_issues(args.owner, args.repo, pat, state=args.state, labels=args.labels, limit=args.limit)
         # label/assignee 필터는 API 재호출 없이 여기서 후처리 (list_issues에 필드 있음)
         return emit({
             "count": len(issues),
@@ -845,6 +845,8 @@ def build_parser() -> JSONArgumentParser:
     p_lis.add_argument("owner")
     p_lis.add_argument("repo")
     p_lis.add_argument("--state", choices=["open", "closed", "all"], default="open")
+    p_lis.add_argument("--labels", default="", help="csv, 모두 가진 이슈만")
+    p_lis.add_argument("--limit", type=int, default=50, help="최대 개수 (0이면 전부)")
     p_lis.set_defaults(func=cmd_list_issues)
 
     p_ui = sub.add_parser("update-issue", help="이슈 수정")

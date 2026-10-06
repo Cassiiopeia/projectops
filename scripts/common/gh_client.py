@@ -417,18 +417,32 @@ def get_issue_comments(owner: str, repo: str, issue_number: int, pat: str) -> li
 
 def list_issues(
     owner: str, repo: str, pat: str, state: str = "open",
+    labels: str = "", limit: int = 50,
 ) -> list[dict]:
-    """이슈 목록을 조회한다."""
-    items = _request(
-        "GET",
-        f"{_API_BASE}/repos/{owner}/{repo}/issues?state={state}&per_page=50",
-        None,
-        pat,
-    )
-    return [
-        {"number": i["number"], "title": i["title"], "url": i["html_url"], "state": i["state"]}
-        for i in items
-    ]
+    """List issues (pull requests are excluded).
+
+    labels: comma-separated, an issue must carry all of them.
+    limit: maximum number of issues, 0 means all (follows pagination).
+    """
+    per_page = 100 if limit == 0 or limit > 50 else max(limit, 1)
+    query = f"state={state}&per_page={per_page}"
+    if labels:
+        query += "&labels=" + urllib.parse.quote(labels, safe=",")
+    found: list[dict] = []
+    page = 1
+    while True:
+        items = _request("GET", f"{_API_BASE}/repos/{owner}/{repo}/issues?{query}&page={page}", None, pat)
+        for i in items:
+            if "pull_request" in i:
+                continue
+            found.append({
+                "number": i["number"], "title": i["title"], "url": i["html_url"], "state": i["state"],
+                "labels": [lb["name"] for lb in i.get("labels", [])],
+            })
+        if len(items) < per_page or (limit and len(found) >= limit):
+            break
+        page += 1
+    return found[:limit] if limit else found
 
 
 # --- Repository exploration ---

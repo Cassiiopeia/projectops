@@ -91,7 +91,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py list-issues {owner} {repo} --stat
 # --state open|closed|all (기본 open)
 ```
 
-출력 JSON: `{"count":N,"issues":[{number,title,url,state}]}`. label/assignee로 좁히려면 결과에서 agent가 직접 필터링한다.
+출력 JSON: `{"count":N,"issues":[{number,title,url,state,labels}]}`. PR은 제외된다. 라벨로 좁히려면 `--labels "a,b"`(모두 가진 이슈만), 전부 보려면 `--limit 0`(기본 50개). 담당자로 좁히려면 결과에서 agent가 직접 필터링한다.
 
 ### 이슈 생성
 
