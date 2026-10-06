@@ -47,3 +47,4 @@ metadata:
       # `type!` 마커 → major, feat → minor, 그 외 → patch. false면 항상 patch(구 동작).
       semver_auto: true
       close_on_release: true   # 릴리스 머지 때 완료 라벨 이슈를 닫는다 (#771)
+      language: en   # 이 저장소의 이슈/PR 템플릿과 봇 문구 언어 (#769, #787)
