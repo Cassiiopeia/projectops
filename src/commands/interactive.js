@@ -26,7 +26,8 @@ import { runWorkflows } from "./workflows.js";
 import { runIssues } from "./issues.js";
 import { runSkills } from "./skills.js";
 import * as prompts from "../ui/prompts.js";
-import { t } from "../i18n/index.js";
+import { t, getLang, withLang } from "../i18n/index.js";
+import { printSummary } from "../ui/summary.js";
 
 const CANCEL = prompts.CANCEL;
 const isCancel = (v) => v === CANCEL || typeof v === "symbol";
@@ -405,7 +406,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     }
 
     // 완료 요약 (.sh print_summary L5438)
-    io.summary?.({
+    const summaryCtx = {
       mode, types, version, deployBranch, deployBranchReady, migrationGuidePath,
       counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },
       skippedConflicts: result?.workflows?.skippedConflicts ?? [],   // #654 병합 안내
@@ -415,7 +416,14 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       logDir: files ? MIGRATION_DIR : null,    // #561 기록 위치 안내
       logFile: files?.logFile ?? null,
       traceFile: files?.traceFile ?? null,
-    }, cwd);
+    };
+    io.summary?.(summaryCtx, cwd);
+    // The run log is English only: when the screen is in another language, add an English copy of this screen.
+    if (getLang() !== "en") {
+      const buf = [];
+      withLang("en", () => printSummary(summaryCtx, cwd, (x) => buf.push(x)));
+      trace.appendText(buf.join(""));
+    }
     io.outro?.(t("flow.done", { mode }));
 
     // 완료 화면까지 출력한 뒤 finally에서 닫는다 (#561) — 여기서 닫으면 이 아래 화면이 안 담긴다.

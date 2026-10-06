@@ -73,3 +73,24 @@ test("mirror: stdout/stderr 사본 수집 + write 시 .log 기록, stop 후 복�
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("log mirror: terminal text is copied only in English, appendText adds an English copy otherwise", async () => {
+  const { getLang, setLang } = await import("../src/i18n/index.js");
+  const trace = createRunTrace();
+  trace.mirrorStart();
+  try {
+    setLang("en", "flag");
+    process.stderr.write("shown-in-english\n");
+    setLang("ko", "flag");
+    process.stderr.write("한국어-화면\n");
+    trace.appendText("english-copy\n");
+  } finally {
+    trace.mirrorStop();
+    setLang("en", "default");
+  }
+  const text = trace.lines.join("");
+  assert.match(text, /shown-in-english/);
+  assert.match(text, /english-copy/);
+  assert.doesNotMatch(text, /한국어-화면/);
+  assert.equal(getLang(), "en");
+});

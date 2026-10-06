@@ -8,13 +8,13 @@ import { t } from "../i18n/index.js";
 
 const SEPARATOR = "────────────────────────────────────────";
 
-export function printSummary(ctx, targetRoot = ".") {
+export function printSummary(ctx, targetRoot = ".", write = null) {
   const { mode, types = [], version = "", counters = {} } = ctx || {};
   const deployBranchName = ctx?.deployBranch || "develop";
   const deployBranchReady = ctx?.deployBranchReady === true; // the wizard confirmed or created it in this run
-  const err = (s = "") => process.stderr.write(`${s}\n`);
+  const err = (s = "") => (write ? write(`${s}\n`) : process.stderr.write(`${s}\n`));
   // Colors only on a TTY.
-  const isTty = !!process.stderr.isTTY;
+  const isTty = write ? false : !!process.stderr.isTTY;
   const BOLD = isTty ? "\u001b[1m" : "";
   const YELLOW = isTty ? "\x1b[1;33m" : "";
   const CYAN = isTty ? "\x1b[0;36m" : "";

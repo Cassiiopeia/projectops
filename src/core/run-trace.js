@@ -4,6 +4,7 @@
 // Layer 1(큐레이션 가이드)은 migration-guide.js — 이 모듈의 events를 단일 소스로 소비한다.
 import { join } from "node:path";
 import { writeText } from "./fsutil.js";
+import { getLang } from "../i18n/index.js";
 
 // 진단 로그 위치 (#561). docs/ 아래(추적 대상)에서 옮겼다 — 이 기록은 사람이 읽는 문서가
 // 아니라 Agent가 "지난 실행에서 무슨 일이 있었나"를 확인하는 자료다.
@@ -124,7 +125,11 @@ export function createRunTrace({ clockIso = null } = {}) {
       if (restore) return;
       const so = process.stdout.write; // 원본 참조 보관 — 복원 시 identity 유지
       const se = process.stderr.write;
+      // The run log is always English (agents read it later, and it must not change with the user's locale).
+      // When the screen is in another language the raw terminal text is not copied; the caller appends an
+      // English rendering of the completion screen with appendText() instead.
       const capture = (chunk) => {
+        if (getLang() !== "en") return;
         try {
           const s = typeof chunk === "string" ? chunk : chunk.toString("utf8");
           lines.push(stripAnsi(s));
@@ -133,6 +138,11 @@ export function createRunTrace({ clockIso = null } = {}) {
       process.stdout.write = function (chunk, ...rest) { capture(chunk); return so.apply(process.stdout, [chunk, ...rest]); };
       process.stderr.write = function (chunk, ...rest) { capture(chunk); return se.apply(process.stderr, [chunk, ...rest]); };
       restore = () => { process.stdout.write = so; process.stderr.write = se; };
+    },
+
+    // Add already-rendered text (e.g. the English completion screen) to the log.
+    appendText(text) {
+      lines.push(stripAnsi(String(text)));
     },
 
     mirrorStop() {

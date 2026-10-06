@@ -62,3 +62,12 @@ export function tEn(key, vars) {
   if (!vars) return raw;
   return raw.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
 }
+
+// Run fn with another language and restore the previous one afterwards.
+// Used to render the run log in English while the screen is in the user's language.
+export function withLang(lang, fn) {
+  const prev = current;
+  const prevSource = source;
+  current = SUPPORTED_LANGS.includes(lang) ? lang : "en";
+  try { return fn(); } finally { current = prev; source = prevSource; }
+}
