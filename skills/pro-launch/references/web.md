@@ -179,6 +179,18 @@ web click → 그 브라우저에 붙었다 떨어진다 (세션·쿠키 유지)
 > stealth 는 봇 판정을 **줄일** 뿐 우회를 보장하지 않는다. 로그인 통과를 보장하는 용도가 아니다 —
 > 위 안전 계약이 그대로 적용된다.
 
+### `--headed` 로도 안 되고 하네스가 "auto mode classifier"로 거부할 때
+
+`web type` 명령 자체가 Claude Code 하네스의 **서버사이드 auto-mode classifier**에
+거부될 수 있다("Denied by auto mode classifier"). 이건 `settings.json`의
+`permissions.allow` 와 다른 층이다 — allow 목록은 "승인 묻지 않고 바로 실행"만
+로컬에서 제어하고, classifier 는 자격증명 자동 입력 같은 동작을 별도로 안전상
+거부할 수 있는 상위 안전장치다. **allow 규칙을 추가해도 이 거부는 풀리지 않는다.**
+
+이 경우 재시도하지 말고 사용자에게 직접 로그인을 요청한다 — 위 "그래도 막히면
+순서대로"의 2번(사용자가 그 창에서 직접 로그인)으로 바로 넘어간다. `permissions.allow`
+추가를 해결책으로 안내하지 않는다.
+
 ## 셀렉터
 
 | 방식 | 예 | 언제 |
