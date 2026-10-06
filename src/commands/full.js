@@ -10,7 +10,7 @@ import { markerForType } from "../core/detect.js";
 import { addVersionSectionToReadme } from "../core/copy/readme.js";
 import { copyWorkflows } from "../core/copy/workflows.js";
 import {
-  copyScripts, copyConfigFolder, copyIssueTemplates,
+  copyScripts, copyConfigFolder, copyIssueTemplates, stripIssueTemplateAssignees,
   copyDiscussionTemplates, copySetupGuide,
 } from "../core/copy/simple.js";
 import { copyUtilModules } from "../core/copy/util.js";
@@ -74,6 +74,8 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
     const { changed: overlaid, failed: overlayFailed } = applyRepoLanguage(tempDir, targetRoot, language);
     hooks.trace?.event("copy", "repo-language", language, { overlaid: overlaid.length, failed: overlayFailed.length });
     for (const f of overlayFailed) hooks.trace?.event("copy", "overlay-failed", f.file, { reason: f.error });
+    // 담당자 고정값 제거(#782) — 오버레이가 다시 넣으므로 그 뒤에 한다.
+    hooks.trace?.event("copy", "strip-assignees", "", { files: stripIssueTemplateAssignees(targetRoot).length });
     if (overlayFailed.length) console.error(t("language.overlayFailed", { n: overlayFailed.length, files: overlayFailed.map((f) => f.file).join(", ") }));
     copyDiscussionTemplates(tempDir, targetRoot);
   });
