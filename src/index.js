@@ -4,7 +4,8 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync, existsSync } from "node:fs";
 import { parseArgs, parsePathsCsv, validatePathsMap, CliError } from "./cli/args.js";
-import { HELP_TEXT } from "./cli/help.js";
+import { helpText } from "./cli/help.js";
+import { resolveLang, setLang, t } from "./i18n/index.js";
 import { reportFatal } from "./cli/errors.js";
 import { createContext } from "./context.js";
 import { PATHS } from "./core/paths.js";
@@ -69,8 +70,12 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     if (e instanceof CliError) { console.error(e.message); return 1; }
     throw e;
   }
+  // Language: --lang > PROJECTOPS_LANG > system. Non-interactive runs are pinned to English
+  // so logs do not depend on the runner's locale.
+  const langInfo = resolveLang({ flag: opts.lang, pinEnglish: opts.force || !process.stdout.isTTY });
+  setLang(langInfo.lang, langInfo.source);
   if (opts.showVersion) { console.log(readPkgVersion()); return 0; }
-  if (opts.help) { console.log(HELP_TEXT); return 0; }
+  if (opts.help) { console.log(helpText()); return 0; }
 
   // doctor 모드 (#558) — 읽기 전용 진단. 템플릿을 내려받지 않으므로 네트워크 없이도 동작한다.
   if (opts.mode === "doctor") {
@@ -95,14 +100,14 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
   // 대화형 모드 — 인자 없이 실행 or --mode interactive
   if (opts.mode === "interactive") {
     if (!process.stdout.isTTY) {
-      console.error("대화형 입력이 불가능한 환경입니다. --mode <full|version|workflows|issues> 와 --force 를 지정하세요.");
+      console.error(t("cli.nonTty"));
       return 1;
     }
     return await runInteractive({}, { cwd, source, clock });
   }
   // 명시 모드인데 --force 없으면 (비대화형 CLI는 --force 필요)
   if (!opts.force && !process.stdout.isTTY) {
-    console.error("비대화형 환경에서는 --force 옵션이 필요합니다.");
+    console.error(t("cli.needForce"));
     return 1;
   }
 

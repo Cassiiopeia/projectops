@@ -7,6 +7,7 @@
 import { emitKeypressEvents } from "node:readline";
 import { stdin, stdout } from "node:process";
 import { visualWidth } from "./ansi.js";
+import { t } from "../i18n/index.js";
 
 export const CANCEL = Symbol("cancel");
 
@@ -114,7 +115,7 @@ export async function select({ message, options, initialIndex = 0 }) {
       const hint = o.hint && sel ? paint(`  (${o.hint})`, c.dim) : "";
       lines.push(`${S_BAR}  ${marker} ${label}${hint}`);
     });
-    lines.push(paint(`└  ↑/↓ 이동 · Enter 확정 · ESC 취소`, c.gray));
+    lines.push(paint(`└  ${t("engine.hint.select")}`, c.gray));
     r.render(lines);
   };
 
@@ -161,7 +162,7 @@ export async function multiselect({ message, options, initialValues = [], requir
       lines.push(`${S_BAR} ${pointer} ${box} ${label}${hint}`);
     });
     if (warn) lines.push(paint(`   ${warn}`, c.yellow));
-    lines.push(paint(`└  ↑/↓ 이동 · Space 토글 · Enter 확정 · ESC 취소`, c.gray));
+    lines.push(paint(`└  ${t("engine.hint.multiselect")}`, c.gray));
     r.render(lines);
   };
 
@@ -171,19 +172,26 @@ export async function multiselect({ message, options, initialValues = [], requir
     if (key.name === "down" || key.name === "j") { idx = (idx + 1) % options.length; return; }
     if (key.name === "space" || str === " ") {
       const o = options[idx];
-      if (o.disabled) { warn = "선택할 수 없는 항목입니다."; return; }
+      if (o.disabled) { warn = t("engine.disabled"); return; }
       if (chosen.has(o.value)) chosen.delete(o.value); else chosen.add(o.value);
       return;
     }
+    if (str === "a") {
+      // Select all; if everything is already selected, clear instead (like a toggle).
+      const selectable = options.filter((o) => !o.disabled).map((o) => o.value);
+      const allOn = selectable.every((v) => chosen.has(v));
+      for (const v of selectable) { if (allOn) chosen.delete(v); else chosen.add(v); }
+      return;
+    }
     if (key.name === "return" || key.name === "enter") {
-      if (required && chosen.size === 0) { warn = "최소 1개 이상 선택하세요."; return; }
+      if (required && chosen.size === 0) { warn = t("engine.required"); return; }
       return [...chosen];
     }
     return;
   });
 
   if (result !== CANCEL) {
-    const labels = options.filter((o) => chosen.has(o.value)).map((o) => o.label).join(", ") || "(없음)";
+    const labels = options.filter((o) => chosen.has(o.value)).map((o) => o.label).join(", ") || t("engine.none");
     r.render([S_BAR, `${S_DONE}  ${paint(message, c.dim)}`, `${S_BAR}  ${paint(labels, c.dim)}`]);
   }
   return result;
@@ -238,10 +246,10 @@ export async function confirm({ message, initialValue = true }) {
   let val = initialValue;
 
   const draw = () => {
-    const yes = val ? paint("● 예", c.green) : paint("○ 예", c.dim);
-    const no = !val ? paint("● 아니오", c.green) : paint("○ 아니오", c.dim);
+    const yes = val ? paint(`● ${t("engine.yes")}`, c.green) : paint(`○ ${t("engine.yes")}`, c.dim);
+    const no = !val ? paint(`● ${t("engine.no")}`, c.green) : paint(`○ ${t("engine.no")}`, c.dim);
     r.render([S_BAR, `${S_Q}  ${paint(message, c.bold)}`, `${S_BAR}  ${yes}   ${no}`,
-      paint(`└  ←/→ 또는 y/n · Enter 확정 · ESC 취소`, c.gray)]);
+      paint(`└  ${t("engine.hint.confirm")}`, c.gray)]);
   };
 
   const result = await keySession(draw, (str, key) => {
@@ -253,7 +261,7 @@ export async function confirm({ message, initialValue = true }) {
   });
 
   if (result !== CANCEL) {
-    r.render([S_BAR, `${S_DONE}  ${paint(message, c.dim)}`, `${S_BAR}  ${paint(result ? "예" : "아니오", c.dim)}`]);
+    r.render([S_BAR, `${S_DONE}  ${paint(message, c.dim)}`, `${S_BAR}  ${paint(result ? t("engine.yes") : t("engine.no"), c.dim)}`]);
   }
   return result;
 }
@@ -261,7 +269,7 @@ export async function confirm({ message, initialValue = true }) {
 // ── 출력 헬퍼 (clack intro/outro/note/cancel 대체) ──────────────────
 export function intro(text) { stdout.write(`\n${paint("┌", c.gray)}  ${paint(text, c.bold)}\n`); }
 export function outro(text) { stdout.write(`${paint("└", c.gray)}  ${paint(text, c.green)}\n\n`); }
-export function cancelMessage(text = "취소했습니다.") { stdout.write(`${paint("■", c.yellow)}  ${paint(text, c.yellow)}\n`); }
+export function cancelMessage(text = t("engine.cancelled")) { stdout.write(`${paint("■", c.yellow)}  ${paint(text, c.yellow)}\n`); }
 export function note(text, title = "") {
   const lines = String(text).split("\n");
   stdout.write(`${paint("○", c.cyan)} ${paint(title, c.bold)}\n`);

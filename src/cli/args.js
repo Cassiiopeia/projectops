@@ -2,6 +2,7 @@
 import { existsSync, statSync, realpathSync } from "node:fs";
 import { join, relative, isAbsolute } from "node:path";
 import { VALID_TYPES } from "../context.js";
+import { SUPPORTED_LANGS, t } from "../i18n/index.js";
 
 export const DEPLOY_TARGETS = ["docker-ssh", "vercel", "none"];
 export const PUBLISH_TARGETS = ["nexus", "npm", "github-packages"];
@@ -27,6 +28,7 @@ export function parseArgs(argv) {
     aiPrSummary: null,   // #566 — AI 변경 요약 워크플로우 포함 여부
     pathsCsv: "",            // "flutter=app,react=client" 원문 (정규화는 resolve 단계)
     force: false,
+    lang: null,              // --lang en|ko (null = decided by src/i18n resolveLang)
     help: false,
     showVersion: false,      // -v/--version → projectops 패키지 버전 출력 (npm 관례)
   };
@@ -76,7 +78,15 @@ export function parseArgs(argv) {
         result.primaryType = types[0];
         break;
       }
-      case "--force": result.force = true; break;
+      case "--force": case "-y": case "--yes": result.force = true; break;
+      case "--lang": {
+        const v = (args.shift() ?? "").trim().toLowerCase();
+        if (!SUPPORTED_LANGS.includes(v)) {
+          throw new CliError(t("cli.langInvalid", { values: SUPPORTED_LANGS.join(" | "), value: v }));
+        }
+        result.lang = v;
+        break;
+      }
       case "--deploy": {
         const v = args.shift() ?? "";
         if (!DEPLOY_TARGETS.includes(v)) {

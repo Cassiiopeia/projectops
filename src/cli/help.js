@@ -1,5 +1,42 @@
-// --help 텍스트 (.sh show_help 요약 이식).
-export const HELP_TEXT = `projectops — GitHub 프로젝트 자동화 템플릿 통합 CLI
+// --help text in each supported language. English is the default (see src/i18n).
+import { getLang } from "../i18n/index.js";
+
+const HELP_EN = `projectops — GitHub project automation template installer
+
+Usage:
+  npx projectops [options]
+
+Options:
+  -m, --mode MODE          Mode (full | version | workflows | issues | skills | doctor)
+                           doctor: diagnose the installation and repository settings (read-only)
+                           default: interactive
+  -t, --type CSV           Project types, comma separated (e.g. spring,react,python)
+                           supported: spring flutter react react-native
+                                      react-native-expo node python basic
+                           (next was merged into react: use react for Next.js)
+      --project-version V  Initial version of the target project (e.g. 1.0.0). Detected if omitted
+      --paths "t=p,..."    Per-type project paths for monorepos. e.g. flutter=app,react=client
+      --intent KIND        Project kind: app | library | both | none | manual
+                           (inferred from --deploy/--publish if omitted)
+      --deploy TARGET      Deployment, pick one: docker-ssh (default) | vercel | none
+      --publish CSV        Publish targets: nexus,npm,github-packages (default: none)
+      --deploy-branch NAME Head branch of the release PR (default: develop). Not the default branch
+      --secret-backup / --no-secret-backup   Include / exclude the secret backup workflow
+      --ai-summary / --no-ai-summary         Include / exclude the PR summary workflow
+      --nexus / --npm-publish  (deprecated: use --publish nexus / --publish npm)
+      --force, -y, --yes   Skip every confirmation and use non-interactive defaults
+      --lang en|ko         Display language (default: system language, pinned to en in CI and with --force)
+  -v, --version            Print the projectops version
+  -h, --help               Show this help
+
+Examples:
+  npx projectops --mode full --force --type spring,react
+  npx projectops --mode workflows --type flutter --paths "flutter=app"
+  npx projectops --mode doctor                       # diagnose settings
+  GITHUB_TOKEN=ghp_... npx projectops --mode doctor  # include repository settings
+`;
+
+const HELP_KO = `projectops — GitHub 프로젝트 자동화 템플릿 통합 CLI
 
 사용법:
   npx projectops [옵션]
@@ -22,7 +59,8 @@ export const HELP_TEXT = `projectops — GitHub 프로젝트 자동화 템플릿
       --secret-backup / --no-secret-backup   Secret 백업 워크플로우 포함/제외
       --ai-summary / --no-ai-summary         PR 변경 요약 워크플로우 포함/제외
       --nexus / --npm-publish  (deprecated — --publish nexus / --publish npm 사용)
-      --force              모든 확인 생략, 비대화형 기본값 사용
+      --force, -y, --yes   모든 확인 생략, 비대화형 기본값 사용
+      --lang en|ko         화면 언어 (기본: 시스템 언어, CI/--force 는 en 고정)
   -v, --version            projectops 버전 출력
   -h, --help               이 도움말 표시
 
@@ -32,3 +70,7 @@ export const HELP_TEXT = `projectops — GitHub 프로젝트 자동화 템플릿
   npx projectops --mode doctor                       # 설정 진단
   GITHUB_TOKEN=ghp_... npx projectops --mode doctor  # 저장소 설정까지 진단
 `;
+
+export function helpText(lang = getLang()) {
+  return lang === "ko" ? HELP_KO : HELP_EN;
+}

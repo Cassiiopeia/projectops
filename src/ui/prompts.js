@@ -2,6 +2,7 @@
 // node:readline 기반 자체 엔진 사용 (@clack/prompts 는 Windows TTY에서 Enter가 멈추는 버그로 제거).
 // 취소(ESC/Ctrl+C)는 각 함수가 CANCEL 심볼을 반환 → 호출부가 정상 종료(exit 0) 처리.
 import * as engine from "./readline-engine.js";
+import { t } from "../i18n/index.js";
 
 export const CANCEL = engine.CANCEL;
 
@@ -12,26 +13,26 @@ export async function selectMode({ update = null } = {}) {
   const options = [];
   if (update) {
     const range = update.from ? `v${update.from} → v${update.to}` : `v${update.to}`;
-    options.push({ value: "update", label: `업데이트 (v${range})` });
+    options.push({ value: "update", label: t("mode.update", { range: `v${range}` }) });
   }
   options.push(
-    { value: "full", label: "전체 설치 (버전관리 + 워크플로우 + 템플릿)" },
-    { value: "version", label: "버전 관리 전용 (자동화 시스템)" },
-    { value: "workflows", label: "워크플로우 전용 (GitHub Actions 빌드, 배포)" },
-    { value: "issues", label: "이슈/PR 템플릿 전용" },
-    { value: "skills", label: "AI 스킬 전용 (Claude, Cursor, Gemini, Codex, PI)" },
+    { value: "full", label: t("mode.full") },
+    { value: "version", label: t("mode.version") },
+    { value: "workflows", label: t("mode.workflows") },
+    { value: "issues", label: t("mode.issues") },
+    { value: "skills", label: t("mode.skills") },
   );
-  return engine.select({ message: "무엇을 설치할까요?", options });
+  return engine.select({ message: t("mode.prompt"), options });
 }
 
 // 프로젝트 확인 화면 메뉴 (계속/수정/취소).
 export async function confirmProjectMenu() {
   return engine.select({
-    message: "이 정보로 진행할까요?",
+    message: t("confirm.prompt"),
     options: [
-      { value: "continue", label: "예, 계속 진행" },
-      { value: "edit", label: "수정하기" },
-      { value: "cancel", label: "아니오, 취소" },
+      { value: "continue", label: t("confirm.continue") },
+      { value: "edit", label: t("confirm.edit") },
+      { value: "cancel", label: t("confirm.cancel") },
     ],
   });
 }
@@ -41,32 +42,32 @@ export async function confirmProjectMenu() {
 // null이면 기존처럼 전부 노출 (테스트 스텁 하위호환).
 export async function editMenu({ showOptional = false, axes = null } = {}) {
   const options = [
-    { value: "type", label: "프로젝트 타입" },
-    { value: "version", label: "버전" },
-    { value: "branch", label: "기본 브랜치" },
+    { value: "type", label: t("edit.type") },
+    { value: "version", label: t("edit.version") },
+    { value: "branch", label: t("edit.branch") },
   ];
   if (showOptional) {
     const hasDeploy = axes == null || axes.deploy.length > 0;
     const hasPublish = axes == null || axes.publish.length > 0;
     // #485 — 프로젝트 성격(intent): 재선택 시 배포/publish 축을 재유도한다. 축이 하나도 없으면 무의미 → 숨김.
-    if (hasDeploy || hasPublish) options.push({ value: "intent", label: "프로젝트 성격 (배포 유형)" });
+    if (hasDeploy || hasPublish) options.push({ value: "intent", label: t("edit.intent") });
     // #483 — 항목별 격리: 한 축만 골라 그 축만 재질문한다 (통짜 "배포/Publish 방식" 분해)
-    if (hasDeploy) options.push({ value: "deploy", label: "배포 방식 (서버 실행물)" });
-    if (hasPublish) options.push({ value: "publish", label: "라이브러리 배포(publish) 타겟" });
-    options.push({ value: "code-review", label: "CodeRabbit 코드 리뷰" });
-    options.push({ value: "changelog", label: "릴리스 노트(changelog) 생성기" });
-    options.push({ value: "release-branch", label: "릴리스 소스(개발) 브랜치" });
-    options.push({ value: "secret", label: "Secret 백업 포함 여부" });
+    if (hasDeploy) options.push({ value: "deploy", label: t("edit.deploy") });
+    if (hasPublish) options.push({ value: "publish", label: t("edit.publish") });
+    options.push({ value: "code-review", label: t("edit.codeReview") });
+    options.push({ value: "changelog", label: t("edit.changelog") });
+    options.push({ value: "release-branch", label: t("edit.releaseBranch") });
+    options.push({ value: "secret", label: t("edit.secret") });
   }
-  options.push({ value: "done", label: "모두 맞음, 계속" });
-  return engine.select({ message: "어떤 항목을 수정할까요?", options });
+  options.push({ value: "done", label: t("edit.done") });
+  return engine.select({ message: t("edit.prompt"), options });
 }
 
 // 타입 멀티선택.
 export async function selectTypes(current = []) {
   const all = ["spring", "flutter", "react", "react-native", "react-native-expo", "node", "python", "basic"];
   return engine.multiselect({
-    message: "프로젝트 타입을 선택하세요 (Space 토글, Enter 확정)",
+    message: t("types.prompt"),
     options: all.map((t) => ({ value: t, label: t })),
     initialValues: current.length ? current : ["basic"],
     required: true,
