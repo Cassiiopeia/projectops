@@ -5,6 +5,7 @@
 export const DOCS_TO_REMOVE = [
   "CONTRIBUTING.md",
   "SECURITY.md",
+  "ARCHITECTURE.md",
   "CLAUDE.md",
   "AGENTS.md",
   "GEMINI.md",

@@ -194,6 +194,7 @@ CLEANUP_TARGETS = [
     ("LICENSE", "LICENSE 삭제"),
     ("CONTRIBUTING.md", "CONTRIBUTING.md 삭제"),
     ("SECURITY.md", "SECURITY.md 삭제"),
+    ("ARCHITECTURE.md", "ARCHITECTURE.md 삭제"),
     ("CLAUDE.md", "CLAUDE.md 삭제"),
     ("AGENTS.md", "AGENTS.md 삭제"),
     ("GEMINI.md", "GEMINI.md 삭제"),
