@@ -1,6 +1,6 @@
 {
   "name": "projectops",
-  "version": "4.31.4",
+  "version": "4.31.5",
   "description": "ProjectOps: installer CLI for a fully automated GitHub project management template (versioning, CI/CD, release notes, agent skills)",
   "keywords": [
     "devops",
