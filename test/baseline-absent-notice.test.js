@@ -31,7 +31,7 @@ test("기준점 없이 달라진 common 워크플로: .bak 교체 + replacedBak 
       mode: "full", types: ["basic"], version: "1.0.0",
       counters: { workflowFiles: c.copiedFiles }, replacedBak: c.replacedBak,
     }, tgt));
-    assert.match(out, /\.bak 으로 백업/);
+    assert.match(out, /saved as \.bak/);
     assert.match(out, /PROJECT-COMMON-X\.yaml\.bak/);
   } finally { rmSync(tpl, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
 });
@@ -40,5 +40,5 @@ test("교체한 파일이 없으면 안내를 출력하지 않는다 (#673)", ()
   const out = captureStderr(() => printSummary({
     mode: "full", types: ["basic"], version: "1.0.0", counters: { workflowFiles: [] }, replacedBak: [],
   }, "."));
-  assert.doesNotMatch(out, /\.bak 으로 백업/);
+  assert.doesNotMatch(out, /saved as \.bak/);
 });

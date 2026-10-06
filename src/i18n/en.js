@@ -1,5 +1,8 @@
 // English messages (source of truth). Keys are grouped by area: <area>.<name>.
+import summary from "./summary.en.js";
+
 export default {
+  ...summary,
   // prompt engine hints
   "engine.hint.select": "↑/↓ move, Enter confirm, ESC cancel",
   "engine.hint.multiselect": "↑/↓ move, Space toggle, a all, Enter confirm, ESC cancel",

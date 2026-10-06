@@ -1,9 +1,14 @@
-import { test } from "node:test";
+import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { printSummary } from "../src/ui/summary.js";
+import { setLang } from "../src/i18n/index.js";
+
+// Korean catalog assertions; English output is covered by the "English" test at the bottom.
+beforeEach(() => setLang("ko", "flag"));
+afterEach(() => setLang("en", "default"));
 
 function touch(root, rel, content = "") {
   const p = join(root, rel);
@@ -146,5 +151,21 @@ test("printSummary: README.md 가 없으면 버전 섹션 추가로 표시하지
     const withReadme = captureStderr(() => printSummary(ctx, root));
     assert.match(withReadme, /README\.md \(버전 섹션 추가\)/);
     assert.match(withReadme, /README\.md 자동 버전 업데이트/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("English: the completion screen is readable without Korean and has no middle dots or em dashes", () => {
+  setLang("en", "flag");
+  const root = mkdtempSync(join(tmpdir(), "summaryen-"));
+  try {
+    const out = captureStderr(() => printSummary({
+      mode: "full", types: ["spring"], version: "1.2.3", counters: { workflowFiles: ["PROJECT-COMMON-VERSION-CONTROL.yaml"] },
+    }, root));
+    assert.match(out, /Setup Complete/);
+    assert.match(out, /Installed:/);
+    assert.match(out, /Please check the following/);
+    assert.match(out, /_GITHUB_PAT_TOKEN/);
+    assert.doesNotMatch(out, /[가-힣]/, "no Korean in the English screen");
+    assert.doesNotMatch(out, /[·—]/, "no middle dot or em dash in user-facing text");
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

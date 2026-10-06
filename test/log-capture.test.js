@@ -59,12 +59,12 @@ test("run(--mode full): .log에 완료 화면과 run/end가 모두 담긴다", a
     // 종료 이벤트 — 여기가 없으면 기록이 조기에 닫힌 것이다.
     assert.match(log, /run\/end/, "run/end가 기록돼야 함");
     // 완료 화면 본문 — finalize가 화면 출력보다 앞서면 통째로 빠진다.
-    assert.match(log, /이번 실행 기록/, "완료 화면의 기록 안내가 담겨야 함");
+    assert.match(log, /Run record/, "완료 화면의 기록 안내가 담겨야 함");
     assert.match(log, /PROJECTOPS-SETUP-GUIDE\.md/, "완료 화면의 설정 안내가 담겨야 함");
     // 화면에 찍힌 로그 경로가 실제 파일명과 일치해야 한다 (#561 — 폴더만 알려주면 못 찾는다).
     assert.ok(log.includes(logName), "화면 안내가 이번 실행의 로그 파일명을 정확히 가리켜야 함");
     // 기록 안내가 마지막 자리 — Secret 목록이 길어도 tail에 남는다.
-    const tailIdx = log.lastIndexOf("이번 실행 기록");
+    const tailIdx = log.lastIndexOf("Run record");
     assert.ok(tailIdx > log.lastIndexOf("PROJECTOPS-SETUP-GUIDE.md"), "기록 안내가 완료 화면 맨 끝이어야 함");
   } finally {
     rmSync(tpl, { recursive: true, force: true });

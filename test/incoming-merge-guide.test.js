@@ -70,12 +70,12 @@ test("건너뛴 파일: 사용자 수정본 유지 + incoming에 새 템플릿 �
     assert.match(readFileSync(join(tgt, INCOMING_DIR, ".gitignore"), "utf8"), /^!\.gitignore$/m);
     assert.equal(existsSync(join(tgt, ".gitignore")), false, "루트 .gitignore 무접촉");
 
-    assert.match(out, /수정한 워크플로 1개/);
+    assert.match(out, /1 workflows you modified were kept/);
     assert.ok(out.includes(NODE_WF));
-    assert.match(out, /추가 1줄, 삭제 2줄/);
+    assert.match(out, /1 lines added, 2 removed/);
     assert.ok(out.includes(`diff -u .github/workflows/${NODE_WF} ${INCOMING_DIR}/${NODE_WF}`));
     assert.ok(out.includes("git diff --no-index"));
-    assert.ok(!/[·—]/.test((out.split("수정한 워크플로")[1] ?? "").split("🔧")[0]), "가운뎃점/em dash 금지");
+    assert.ok(!/[·—]/.test((out.split("you modified were kept")[1] ?? "").split("🔧")[0]), "가운뎃점/em dash 금지");
 
     // 로그·가이드에도 남는다
     const logs = readdirSync(join(tgt, MIGRATION_DIR));
@@ -93,7 +93,7 @@ test("건너뛴 파일이 없으면 종료 화면에 병합 안내가 없고 inc
   try {
     const { code, out } = await cli(ARGV, tgt, tpl);
     assert.equal(code, 0);
-    assert.ok(!out.includes("수정한 워크플로"));
+    assert.ok(!out.includes("you modified were kept"));
     assert.ok(!out.includes("incoming"));
     assert.equal(existsSync(join(tgt, INCOMING_DIR)), false);
   } finally { cleanup(tpl, tgt); }
