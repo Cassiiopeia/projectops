@@ -19,6 +19,7 @@ Options:
       --intent KIND        Project kind: app | library | both | none | manual
                            (inferred from --deploy/--publish if omitted)
       --label-style STYLE  Status label names: en (status: todo) | ko (legacy 작업전)
+      --language LANG      Language of the issue and PR templates written into your repo: en | ko
       --deploy TARGET      Deployment, pick one: docker-ssh (default) | vercel | none
       --publish CSV        Publish targets: nexus,npm,github-packages (default: none)
       --deploy-branch NAME Head branch of the release PR (default: develop). Not the default branch
@@ -56,6 +57,7 @@ const HELP_KO = `projectops — GitHub 프로젝트 자동화 템플릿 통합 C
       --intent KIND        프로젝트 성격(#485): app | library | both | none | manual
                            (미지정 시 --deploy/--publish에서 역추론. library/none→deploy 제외, app/none→publish 제외)
       --label-style STYLE  상태 라벨 표기: en (status: todo) | ko (기존 작업전)
+      --language LANG      레포에 쓰이는 이슈/PR 템플릿 언어: en | ko
       --deploy TARGET      배포 방식 택1: docker-ssh(기본) | vercel | none
       --publish CSV        publish 타겟 csv: nexus,npm,github-packages (기본: 없음)
       --deploy-branch NAME 릴리스 PR head 브랜치 (#456, 기본: develop). default_branch와 별개

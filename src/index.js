@@ -27,6 +27,7 @@ import { runVersion } from "./commands/version.js";
 import { runWorkflows } from "./commands/workflows.js";
 import { runIssues } from "./commands/issues.js";
 import { resolveLabelStyle } from "./core/label-style.js";
+import { resolveRepoLanguage } from "./core/repo-language.js";
 import { runInteractive } from "./commands/interactive.js";
 import { runSkills } from "./commands/skills.js";
 
@@ -253,6 +254,8 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     // 상태 라벨 표기(#776): 플래그 > 저장값 > (신규 en / 기존 ko). 기존 레포의 라벨 이름은 업데이트만으로 바뀌지 않는다.
     // 릴리스 시 완료 이슈 닫기(#771): 저장값 보존, 없으면 신규만 true. 기존 레포는 키를 만들지 않아 현행 유지.
     closeOnRelease: existing?.options?.closeOnRelease ?? (existing ? null : true),
+    // 레포 문구 언어(#769): 플래그 > 저장값 > (신규 en / 기존 ko). 기존 레포의 템플릿 언어는 업데이트만으로 바뀌지 않는다.
+    language: resolveRepoLanguage({ flag: opts.language, stored: existing?.options?.language, existing: !!existing }),
     labelStyle: resolveLabelStyle({ flag: opts.labelStyle, stored: existing?.options?.labelStyle, existing: !!existing }),
     repoName,
     // 실 resolver 4종 (.sh resolve_token 등가 — spring-app-yml 스텁 제거)
@@ -349,7 +352,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       migrationGuidePath = appendGuideEntry(cwd, {
         now, mode: opts.mode, types, repoName,
         templateFrom: existing?.templateVersion || "", templateTo: context.templateVersion,
-        options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto , appRelease: context.appRelease, labelStyle: context.labelStyle, closeOnRelease: context.closeOnRelease, projectsSync: context.projectsSync },
+        options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto , appRelease: context.appRelease, language: context.language, labelStyle: context.labelStyle, closeOnRelease: context.closeOnRelease, projectsSync: context.projectsSync },
         branches: { defaultBranch: branch, deployBranch: context.deployBranch || "develop", ready: null, created: null },
         breaking: breakingReport, migrations: migrationsResult, orphans: { cleaned: [], pending: orphanPending },
         events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },

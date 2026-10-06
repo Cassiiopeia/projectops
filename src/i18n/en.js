@@ -42,6 +42,7 @@ export default {
   "edit.type": "Project type",
   "edit.version": "Version",
   "edit.branch": "Default branch",
+  "language.propose": "Switch the issue and PR templates in this repo to English? They are Korean now. Answer no to keep them as they are.",
   "labelStyle.propose": "Rename Korean status labels (작업전, 작업중, ...) to English (status: todo, ...)? Issues keep their labels; Projects sync accepts both.",
   "edit.intent": "Project kind (deployment style)",
   "edit.deploy": "Deployment (server artifact)",

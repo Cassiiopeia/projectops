@@ -28,6 +28,7 @@ import { runSkills } from "./skills.js";
 import * as prompts from "../ui/prompts.js";
 import { t, getLang, withLang } from "../i18n/index.js";
 import { resolveLabelStyle } from "../core/label-style.js";
+import { resolveRepoLanguage } from "../core/repo-language.js";
 import { printSummary } from "../ui/summary.js";
 
 const CANCEL = prompts.CANCEL;
@@ -138,6 +139,8 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     // Projects 보드 동기화(#716): 묻지 않는다. 저장값 > 이미 설치돼 있으면 유지 > 신규는 제외 (index.js 와 같은 규칙).
     const projectsSync = existing?.options?.projectsSync
       ?? existsSync(join(cwd, ".github/workflows/PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml"));
+    // 레포 문구 언어(#769): 저장값 > (신규 en / 기존 ko). 기존 레포에는 영문 전환을 한 번만 제안한다.
+    let language = resolveRepoLanguage({ flag: null, stored: existing?.options?.language, existing: !!existing });
     let labelStyle = resolveLabelStyle({ flag: null, stored: existing?.options?.labelStyle, existing: !!existing });
     const showOptional = mode === "full" || mode === "workflows";
     const realTty = process.stdout.isTTY === true;
@@ -146,6 +149,10 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     if (existing && !existing.options?.labelStyle && realTty && showOptional && io.askYesNo) {
       const adopt = await io.askYesNo(t("labelStyle.propose"), false);
       labelStyle = adopt ? "en" : "ko";
+    }
+    if (existing && !existing.options?.language && realTty && showOptional && io.askYesNo) {
+      const adopt = await io.askYesNo(t("language.propose"), false);
+      language = adopt ? "en" : "ko";
     }
 
     // 층2 — 감지 로그 (#446)
@@ -315,7 +322,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     const { now, today } = clock || utcNow();
     const ctx = createContext({
       mode, force: true, types, version, versionCode, branch, paths, deployTarget, publishTargets, includeSecretBackup,
-      codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync,
+      codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync, language,
       repoName, templateVersion, resolvers, envValues, envUseDefaults, now, today,
       // #502 — version 모드가 기존 full 기록을 강등하지 않도록 (full이 우세)
       recordMode: existing?.templateMode === "full" ? "full" : "version",
@@ -410,7 +417,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       migrationGuidePath = appendGuideEntry(cwd, {
         now, mode, types, repoName,
         templateFrom: existing?.templateVersion || "", templateTo: templateVersion,
-        options: { deploy: deployTarget, publish: publishTargets, secretBackup: includeSecretBackup, coderabbit: codeReviewCoderabbit, changelogProvider, intent, semverAuto , appRelease, labelStyle, closeOnRelease, projectsSync },
+        options: { deploy: deployTarget, publish: publishTargets, secretBackup: includeSecretBackup, coderabbit: codeReviewCoderabbit, changelogProvider, intent, semverAuto , appRelease, labelStyle, closeOnRelease, projectsSync, language },
         branches: { defaultBranch: branch, deployBranch, ready: deployBranchReady, created: deployBranchCreated },
         breaking: breakingReport, migrations: migrationsResult, orphans: orphanReport,
         events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },

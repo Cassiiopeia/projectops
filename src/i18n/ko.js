@@ -39,6 +39,7 @@ export default {
   "edit.type": "프로젝트 타입",
   "edit.version": "버전",
   "edit.branch": "기본 브랜치",
+  "language.propose": "이 레포의 이슈/PR 템플릿을 영문으로 바꿀까요? 지금은 한국어입니다. 아니오를 고르면 그대로 둡니다.",
   "labelStyle.propose": "한글 상태 라벨(작업전, 작업중 ...)을 영문(status: todo ...)으로 바꿀까요? 이슈에 붙은 라벨은 그대로 옮겨지고 Projects 동기화는 둘 다 인식합니다.",
   "edit.intent": "프로젝트 성격 (배포 유형)",
   "edit.deploy": "배포 방식 (서버 실행물)",

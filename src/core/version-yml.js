@@ -57,7 +57,7 @@ const HEADER = `# ==============================================================
 export function parseTemplateOptions(content) {
   const out = { deploy: null, publish: null, secretBackup: null,
                 changelogProvider: null, changelogBaseUrl: null, codeReviewCoderabbit: null, aiPrSummary: null, projectsSync: null,
-                deployBranch: null, intent: null, semverAuto: null, appRelease: null, labelStyle: null, closeOnRelease: null };
+                deployBranch: null, intent: null, semverAuto: null, appRelease: null, labelStyle: null, closeOnRelease: null, language: null };
   // deploy_branch는 metadata 직속(#456) — template.options 밖이라 별도로 스캔한다.
   for (const line of String(content || "").split("\n")) {
     if (line.startsWith("#")) continue;
@@ -133,6 +133,12 @@ export function parseTemplateOptions(content) {
       m = line.match(/^\s+semver_auto:\s*["']?(true|false)["']?/);
       if (m) {
         out.semverAuto = m[1] === "true";
+        continue;
+      }
+      // 레포 문구 언어(#769) — en | ko. 미기재는 "기존 통합 레포" 신호라 호출부가 ko 로 해석한다.
+      m = line.match(/^\s+language:\s*["']?(en|ko)["']?/);
+      if (m) {
+        out.language = m[1];
         continue;
       }
       // 상태 라벨 표기(#776) — en(영문 표준) | ko(기존 한글). 미기재는 "기존 통합 레포" 신호라 호출부가 ko로 해석한다.
@@ -355,7 +361,7 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
   if (templateOptions) {
     const { templateVersion = "unknown", deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, optionsDate = today,
             changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true, aiPrSummary = true, intent = null, mode = null,
-            semverAuto = true, appRelease = null, labelStyle = null, closeOnRelease = null, projectsSync = null } = templateOptions;
+            semverAuto = true, appRelease = null, labelStyle = null, closeOnRelease = null, projectsSync = null, language = null } = templateOptions;
     const publishJson = `[${publishTargets.map((t) => `"${t}"`).join(",")}]`;
     // intent(프로젝트 성격, #485) — 미지정이면 deploy/publish에서 역추론해 기록 (재통합 시 진입 질문 생략용)
     const intentVal = intent || inferIntent(deployTarget, publishTargets) || "manual";
@@ -378,6 +384,8 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
     // 릴리스 시 완료 이슈 닫기(#771) — 미지정이면 키를 쓰지 않는다(기존 레포는 현행 유지).
     if (closeOnRelease !== null) out += `      close_on_release: ${closeOnRelease}   # close issues labelled done when a release is merged (false or missing means do not close)\n`;
     // 상태 라벨 표기(#776) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).
+    // 레포 문구 언어(#769) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).
+    if (language) out += `      language: ${language}   # issue/PR template language (en | ko)\n`;
     if (labelStyle) out += `      label_style: ${labelStyle}   # status label style (en: status: todo / ko: Korean names)\n`;
     // 앱 심사 배포 레포 여부(#553) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).
     if (appRelease !== null) {

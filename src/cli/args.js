@@ -7,6 +7,7 @@ import { SUPPORTED_LANGS, t } from "../i18n/index.js";
 export const DEPLOY_TARGETS = ["docker-ssh", "vercel", "none"];
 export const PUBLISH_TARGETS = ["nexus", "npm", "github-packages"];
 export const LABEL_STYLE_VALUES = ["en", "ko"];
+export const LANGUAGE_VALUES = ["en", "ko"];
 export const INTENT_VALUES = ["app", "library", "both", "none", "manual"];
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 // 유니코드 글자·숫자 허용 (#719) — 공백·셸 메타문자는 문자 클래스에 없어 그대로 거부된다.
@@ -24,6 +25,7 @@ export function parseArgs(argv) {
     deployTarget: null,      // 배포 축 (#439): docker-ssh|vercel|none, null=미설정
     publishTargets: null,    // publish 축 (#439): 타겟 배열, null=미설정
     deployBranch: "",        // 릴리스 PR head 브랜치 (#456): --deploy-branch, 빈 값=미지정
+    language: null,          // 레포 문구 언어 (#769): --language en|ko (화면 언어 --lang 과 다르다)
     labelStyle: null,        // 상태 라벨 표기 (#776): --label-style en|ko
     intent: null,            // 프로젝트 성격 (#485): --intent app|library|both|none|manual, null=미설정(역추론)
     includeSecretBackup: null,
@@ -129,6 +131,16 @@ export function parseArgs(argv) {
           throw new CliError(t("args.intent", { values: INTENT_VALUES.join(" | "), v }));
         }
         result.intent = v;
+        break;
+      }
+      case "--language": {
+        // 레포 문구 언어 (#769). 미지정이면 version.yml 저장값 → (신규 en / 기존 ko).
+        // 화면 언어(--lang)와 다르다: 이쪽은 사용자 레포에 쓰이는 템플릿의 언어다.
+        const v = (args.shift() ?? "").trim();
+        if (!LANGUAGE_VALUES.includes(v)) {
+          throw new CliError(`--language must be one of ${LANGUAGE_VALUES.join(" | ")}: '${v}'`);
+        }
+        result.language = v;
         break;
       }
       case "--label-style": {

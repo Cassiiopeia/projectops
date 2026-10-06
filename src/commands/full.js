@@ -17,6 +17,7 @@ import { copyUtilModules } from "../core/copy/util.js";
 import { copyCoderabbit } from "../core/copy/coderabbit.js";
 import { ensureGitignore } from "../core/copy/gitignore.js";
 import { applyLabelStyle } from "../core/label-style.js";
+import { applyRepoLanguage } from "../core/repo-language.js";
 import { verifyInstall } from "../core/verify.js";
 
 // context: { version, types, paths:Map, branch, versionCode, deployTarget, publishTargets, includeSecretBackup,
@@ -27,7 +28,7 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
     force = true, now, today, templateVersion = "unknown",
     deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, aiPrSummary = true,
     changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true,
-    deployBranch = "", intent = null, semverAuto = true , appRelease = null, labelStyle = "en", closeOnRelease = null, projectsSync = null } = context;
+    deployBranch = "", intent = null, semverAuto = true , appRelease = null, labelStyle = "en", closeOnRelease = null, projectsSync = null, language = "en" } = context;
 
   // project_paths 마커 계산 (.sh existing_marker_in_dir 등가 — 대표 마커명)
   const pathMarkers = new Map();
@@ -49,7 +50,7 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
       version, types, paths, pathMarkers, branch, deployBranch, versionCode, now, today,
       deployValues,
       templateOptions: { templateVersion, deployTarget, publishTargets, includeSecretBackup, aiPrSummary, optionsDate: today,
-        changelogProvider, changelogBaseUrl, codeReviewCoderabbit, intent, mode: "full", semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync },
+        changelogProvider, changelogBaseUrl, codeReviewCoderabbit, intent, mode: "full", semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync, language },
     })), { version, versionCode });
 
   // 2. README 버전 섹션
@@ -67,6 +68,10 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
   // 7. issue / discussion 템플릿
   step("copy-templates", () => {
     copyIssueTemplates(tempDir, targetRoot);
+    // 템플릿 언어(#769) — 원본은 영문이라 한국어 레포는 복사 직후 오버레이로 덮는다.
+    // 라벨 표기 변환(apply-label-style)보다 반드시 먼저여야 한다.
+    const overlaid = applyRepoLanguage(tempDir, targetRoot, language);
+    hooks.trace?.event("copy", "repo-language", language, { overlaid: overlaid.length });
     copyDiscussionTemplates(tempDir, targetRoot);
   });
 
