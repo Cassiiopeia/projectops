@@ -60,3 +60,21 @@ def test_Fastfile_무시_감지가_복사_단계에_있다():
 def test_템플릿이_ruby_문법을_통과한다():
     r = subprocess.run(["ruby", "-c", str(TPL)], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
+
+
+# ── #765 프로덕션 출시 이력 사전 확인 ────────────────────────────────
+
+def test_프로덕션_승급_전에_출시_이력을_미리_확인한다():
+    t = TPL.read_text(encoding="utf-8")
+    assert "google_play_track_version_codes" in t, "프로덕션 트랙 이력 조회가 없다"
+    # 승급(Step 3)보다 앞에서 확인해야 실패하기 전에 알릴 수 있다
+    assert t.index("google_play_track_version_codes") < t.index("promote_internal_to_production(promote_status")
+
+
+def test_이력_조회_실패는_배포를_막지_않고_경고만_한다():
+    t = TPL.read_text(encoding="utf-8")
+    block = t[t.index("def warn_if_never_released"):]
+    block = block[:block.index("\nend\n")]
+    assert "rescue StandardError" in block, "조회 실패가 배포를 죽이면 안 된다 (권한 없음 등)"
+    assert "::warning" in block, "경고는 CI 실행 목록에 떠야 한다"
+    assert "raise" not in block, "사전 확인은 막지 않는다 (실제로 승급이 안 되는지는 콘솔만 안다)"

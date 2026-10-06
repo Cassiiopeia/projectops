@@ -1,9 +1,16 @@
 {
   "name": "Android Play Store Setup Wizard",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Flutter Android 앱을 Play Store에 배포하기 위한 설정 마법사",
   "lastUpdated": "2026-10-06",
   "changelog": [
+    {
+      "version": "1.6.1",
+      "date": "2026-10-06",
+      "changes": [
+        "프로덕션 승급 직전에 그 트랙의 출시 이력을 조회해, 한 번도 출시된 적이 없으면 승급이 실패하기 전에 CI 경고와 안내를 남김 (막지 않음 — 조회 실패나 초안 출시가 있는 앱은 그대로 진행)"
+      ]
+    },
     {
       "version": "1.6.0",
       "date": "2026-10-06",
