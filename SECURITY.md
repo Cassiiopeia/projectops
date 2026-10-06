@@ -1,25 +1,27 @@
-# 보안 정책
+# Security Policy
 
-## 취약점 신고
+A Korean version is in [docs/i18n/SECURITY.ko.md](docs/i18n/SECURITY.ko.md).
 
-보안 취약점은 **공개 이슈로 올리지 말고** GitHub의 비공개 신고로 알려주세요.
+## Reporting a vulnerability
 
-- [비공개로 취약점 신고하기](https://github.com/Cassiiopeia/projectops/security/advisories/new)
+Please **do not open a public issue** for security vulnerabilities. Report them privately through GitHub:
 
-신고에는 다음을 포함해 주시면 확인이 빨라집니다.
+- [Report a vulnerability privately](https://github.com/Cassiiopeia/projectops/security/advisories/new)
 
-- 영향받는 파일 또는 워크플로우 이름과 버전
-- 재현 절차
-- 예상되는 영향 (예: 비밀 값 노출, 임의 명령 실행)
+Including the following helps us confirm the report faster:
 
-## 지원 버전
+- The affected file or workflow name, and the projectops version
+- Steps to reproduce
+- The expected impact (for example, exposure of a secret or arbitrary command execution)
 
-가장 최근에 배포된 버전만 보안 수정 대상입니다. 이전 버전을 쓰고 있다면 `npx projectops`로 최신으로 업데이트해 주세요.
+## Supported versions
 
-## 범위
+Only the most recently released version receives security fixes. If you use an older version, update with `npx projectops`.
 
-이 프로젝트는 다른 저장소에 GitHub Actions 워크플로우와 스크립트를 설치합니다. 특히 아래 영역의 신고를 환영합니다.
+## Scope
 
-- SSH 접속 정보, PAT, 키스토어 같은 비밀 값을 다루는 워크플로우와 스크립트
-- 워크플로우의 `permissions` 과다 부여, 외부 입력의 셸 명령 삽입
-- `npx projectops` 마법사가 대상 저장소에 쓰는 파일과 설정
+projectops installs GitHub Actions workflows and scripts into other repositories. Reports in these areas are especially welcome:
+
+- Workflows and scripts that handle secrets such as SSH credentials, personal access tokens and keystores
+- Workflows that grant too many `permissions`, or that pass external input into shell commands
+- Files and settings that the `npx projectops` wizard writes into the target repository
