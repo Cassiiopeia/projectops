@@ -1,7 +1,7 @@
 {
   "name": "projectops",
   "description": "Agent skills for the whole development cycle: issues, commits, reports, reviews, builds, QA and release deployment (20 skills)",
-  "version": "4.34.0",
+  "version": "4.35.0",
   "author": {
     "name": "Cassiiopeia",
     "url": "https://github.com/Cassiiopeia"
