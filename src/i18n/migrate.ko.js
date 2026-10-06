@@ -1,6 +1,7 @@
 // migrate 영역 메시지 (ko). 키는 <영역>.<의미> 형식.
 export default {
   "migrate.reason.gen1VersionControl": "1세대 리네임 — 공존 시 버전 이중 증가",
+  "migrate.reason.releasePublish1": "템플릿에서 사라진 릴리스 워크플로우: trunk-based 분기가 지금은 없는 명령(changelog_manager.py ai-summary)을 불러 릴리스 때 실패합니다",
   "migrate.reason.gen1Readme": "1세대 리네임 — 공존 시 README 이중 커밋",
   "migrate.reason.gen1Labels": "1세대 리네임 — 공존 시 라벨 동기화 중복",
   "migrate.reason.gen0Labels": "0세대 리네임 — 공존 시 라벨 동기화 중복",

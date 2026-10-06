@@ -1,6 +1,7 @@
 // migrate 영역 메시지 (en). 키는 <영역>.<의미> 형식.
 export default {
   "migrate.reason.gen1VersionControl": "1st-gen rename: running both bumps the version twice",
+  "migrate.reason.releasePublish1": "removed from the template; its trunk-based branch calls a command that no longer exists (changelog_manager.py ai-summary) and fails at release time",
   "migrate.reason.gen1Readme": "1st-gen rename: running both commits README twice",
   "migrate.reason.gen1Labels": "1st-gen rename: running both duplicates label sync",
   "migrate.reason.gen0Labels": "0th-gen rename: running both duplicates label sync",

@@ -158,6 +158,16 @@ git commit -m "fix: add execute permission to scripts"
 
 ---
 
+### 옛 버전에서 올린 뒤 첫 릴리스 PR이 `invalid choice: 'ai-summary'`로 실패해요 (#661)
+
+**증상**: 구세대(v0.x~2.x)로 통합된 저장소를 최신으로 재통합하고 첫 릴리스 PR(develop → main)을 열었더니, 옛 워크플로우(`PROJECT-AUTO-CHANGELOG-CONTROL` 또는 `PROJECT-COMMON-RELEASE-PUBLISH`)가 `changelog_manager.py`의 `ai-summary` 서브커맨드를 부르다 실패한다.
+
+**원인**: 새 `RELEASE-CHANGELOG`는 `pull_request_target`이라 **base(main)에 있는 정의**로 돈다. 재통합 직후 첫 PR에는 main에 아직 없어 실행되지 않고, develop에 남은 옛 워크플로우만 돈다. 그런데 재통합이 `changelog_manager.py`를 새 것으로 교체해서 옛 워크플로우가 부르던 `ai-summary`가 사라졌다.
+
+**조치 (2단계 전환)**
+1. 이 전환 배포 1회는 옛 워크플로우를 지우지 말고 **옛 스크립트(`changelog_manager.py`, `version_manager.py`, `truncate_release_notes.sh`)와 짝으로** 처리한다. 옛 워크플로우만 지우면 이번엔 아무 워크플로우도 돌지 않아 버전 확정과 changelog 갱신이 통째로 빠진다.
+2. 새 워크플로우가 main에 올라간 **다음 배포부터** 옛 워크플로우를 지운다. 마법사는 `RELEASE-PUBLISH`처럼 옛 파일을 발견하면 자동으로 건드리지 않고 안내만 한다.
+
 ## PR Preview 관련
 
 ### 빌드 실패

@@ -106,6 +106,13 @@ export const MIGRATIONS = [
   { id: "wf-syn-secret-upload", category: "workflow", tier: "confirm",
     file: "PROJECT-COMMON-SYNOLOGY-SECRET-FILE-UPLOAD.yaml", replacedBy: "PROJECT-COMMON-SECRET-FILE-UPLOAD.yaml",
     since: "3.0.137", reasonKey: "migrate.reason.synSecret" },
+  // #661 — 템플릿에서 사라졌는데 레거시로 잡히지 않던 릴리스 워크플로우. 이 파일의 trunk-based 분기는
+  // 지금은 없는 `changelog_manager.py ai-summary` 를 불러 릴리스 때 실패한다. 그 레포의 유일한
+  // 릴리스 경로일 수 있어 자동으로 건드리지 않고 안내만 한다. 같은 파일명을 쓰는 사용자 파일을
+  // 오탐하지 않도록 내용 마커로 한 번 더 확인한다.
+  { id: "wf-release-publish-v1", category: "workflow", tier: "confirm",
+    file: "PROJECT-COMMON-RELEASE-PUBLISH.yaml", replacedBy: "PROJECT-COMMON-RELEASE-CHANGELOG.yaml",
+    since: "2.x", reasonKey: "migrate.reason.releasePublish1", contentMarker: "ai-summary" },
   { id: "wf-spring-ci-v1", category: "workflow", tier: "confirm",
     file: "PROJECT-SPRING-CI.yaml", replacedBy: null,
     since: "2.x", reasonKey: "migrate.reason.springCi1" },

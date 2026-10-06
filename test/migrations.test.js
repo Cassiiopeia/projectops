@@ -323,3 +323,12 @@ test("registry: 이슈 헬퍼 구 파일 2종이 safe로 등록되어 있다", (
   assert.equal(api?.replacedBy, "PROJECT-COMMON-SUH-ISSUE-HELPER.yaml");
   assert.equal(mod?.replacedBy, "PROJECT-COMMON-SUH-ISSUE-HELPER.yaml");
 });
+
+// #661 — 템플릿에서 사라진 RELEASE-PUBLISH 가 레거시로 잡히지 않아 없어진 ai-summary 를 호출하던 문제.
+test("registry: PROJECT-COMMON-RELEASE-PUBLISH 는 confirm 단계 레거시로 등록돼 있다 (#661)", async () => {
+  const { MIGRATIONS } = await import("../src/core/migrations/registry.js");
+  const m = MIGRATIONS.find((e) => e.file === "PROJECT-COMMON-RELEASE-PUBLISH.yaml");
+  assert.ok(m, "등록되지 않았다");
+  assert.equal(m.tier, "confirm", "유일한 릴리스 경로일 수 있어 자동 무해화하지 않는다");
+  assert.equal(m.contentMarker, "ai-summary", "같은 이름의 사용자 파일을 오탐하지 않게 내용으로 확인한다");
+});
