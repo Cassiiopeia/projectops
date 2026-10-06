@@ -9,7 +9,7 @@
 **Status: actively maintained.** Releases are batched about once a day; see [CONTRIBUTING](CONTRIBUTING.md#releases).
 
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
-## Latest version : v4.34.0 (2026-10-06)
+## Latest version : v4.35.0 (2026-10-06)
 
 [View full version history](CHANGELOG.md)
 
