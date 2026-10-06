@@ -148,7 +148,11 @@ jobs:
           else
             echo "📤 변경사항 커밋 중..."
             REPO_NAME=$(basename "${{ github.repository }}")
-            COMMIT_MSG="$REPO_NAME 버전 정보 관리: chore: 버전 ${{ steps.version.outputs.new_version }} [skip ci]"
+            NEW_VERSION="${{ steps.version.outputs.new_version }}"
+            # 커밋 메시지는 version.yml 의 언어로 만든다 (#787). 카탈로그가 없으면 기존 한국어 문구.
+            COMMIT_TITLE=$(python3 .github/scripts/i18n/messages.py get release.commit.version_control --var repo="$REPO_NAME" --var version="$NEW_VERSION" 2>/dev/null) \
+              || COMMIT_TITLE="$REPO_NAME 버전 정보 관리: chore: 버전 $NEW_VERSION"
+            COMMIT_MSG="$COMMIT_TITLE [skip ci]"
 
             if git commit -m "$COMMIT_MSG"; then
               # Race Condition 방지: pull-rebase 후 push (최대 3회 재시도)

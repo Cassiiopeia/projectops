@@ -30,6 +30,17 @@ import re
 import sys
 import traceback
 
+# 릴리스 스텝에서 쓰이는 스크립트라, i18n 폴더가 없는 오래된 설치에서도 죽으면 안 된다 (#787).
+# 그 경우 기존 한국어 머리말 그대로 동작한다.
+try:
+    from i18n.messages import resolve_language, t
+except ImportError:  # pragma: no cover
+    def resolve_language():
+        return "ko"
+
+    def t(key, lang=None, **values):
+        return {"changelog.current_version": "현재 버전", "changelog.last_updated": "마지막 업데이트"}.get(key, key)
+
 
 # ----------------------------- 공통 유틸 -----------------------------
 
@@ -368,8 +379,9 @@ def cmd_generate_md() -> int:
             current_version = metadata.get('currentVersion', 'Unknown')
             last_updated = metadata.get('lastUpdated', 'Unknown')
 
-            f.write(f"**현재 버전:** {current_version}  \n")
-            f.write(f"**마지막 업데이트:** {last_updated}  \n\n")
+            lang = resolve_language()
+            f.write(f"**{t('changelog.current_version', lang)}:** {current_version}  \n")
+            f.write(f"**{t('changelog.last_updated', lang)}:** {last_updated}  \n\n")
             f.write("---\n\n")
 
             for release in data.get('releases', []):

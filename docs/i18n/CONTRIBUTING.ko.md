@@ -58,7 +58,7 @@ CI는 Linux, macOS, Windows에서 같은 명령을 돌립니다. 설치기는 ma
 
 - [ ] 변경을 설명하는 이슈가 있고 PR이 연결돼 있다
 - [ ] 로컬에서 테스트가 통과하고, 새 동작이나 고친 버그에 테스트를 추가했다
-- [ ] 사용자에게 보이는 문구는 영문으로 쓰고 `src/i18n/`을 거친다. 한국어는 `ko` 카탈로그에 둔다
+- [ ] 사용자에게 보이는 문구는 영문으로 쓰고 `src/i18n/`을 거친다. 한국어는 `ko` 카탈로그에 둔다. 워크플로우와 스크립트가 사용자 레포에 게시하는 문구는 `.github/scripts/i18n/`을 거친다 ([docs/TRANSLATING.md](../TRANSLATING.md) 참고)
 - [ ] 공통 워크플로우를 고쳤다면 `.github/workflows/`와 `.github/workflows/project-types/common/` 두 사본을 모두 고쳤다
 - [ ] 워크플로우에 `permissions:`가 있고, 새 워크플로우에는 `workflow_dispatch`와 `concurrency`가 있다
 

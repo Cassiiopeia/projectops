@@ -51,6 +51,10 @@ mkdir /tmp/try && cd /tmp/try && git init
 node /path/to/projectops/bin/projectops.js --lang en
 ```
 
+## Translations
+
+New languages are added by adding files, not code. See [docs/TRANSLATING.md](docs/TRANSLATING.md).
+
 ## Branches and commits
 
 - Work on a branch named `YYYYMMDD_#<issue number>_<short title>` (the issue helper bot posts the exact name in your issue).
@@ -73,7 +77,7 @@ Before you open a PR:
 
 - [ ] There is an issue that describes the change, and the PR links to it.
 - [ ] Tests pass locally, and you added a test for new behavior or a fixed bug.
-- [ ] User-facing text is in English and goes through `src/i18n/` (CLI) or the English-first docs. Korean goes in the `ko` catalog.
+- [ ] User-facing text is in English and goes through `src/i18n/` (CLI) or the English-first docs. Korean goes in the `ko` catalog. Messages that workflows and scripts post into users' repositories go through `.github/scripts/i18n/` (see [docs/TRANSLATING.md](docs/TRANSLATING.md)).
 - [ ] If you changed a shared workflow, you changed both copies: `.github/workflows/` and `.github/workflows/project-types/common/`.
 - [ ] Workflows declare `permissions:`, and new ones have `workflow_dispatch` and `concurrency`.
 

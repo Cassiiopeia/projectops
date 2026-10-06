@@ -113,3 +113,26 @@ def test_언어_결정_순서(tmp_path, monkeypatch):
 
 def test_번들은_접두사로_모은_키를_돌려준다(partial):
     assert messages.bundle("a.", "en") == {"a.one": "One {n}", "a.two": "Two"}
+
+
+# ── CLI: bash 단계가 조회 실패를 감지해 대체 문구를 쓸 수 있어야 한다 (#787) ──
+import subprocess  # noqa: E402
+
+
+def _cli(*args, env_extra=None):
+    import os
+    env = {**os.environ, **(env_extra or {})}
+    return subprocess.run([sys.executable, str(SCRIPTS / "i18n" / "messages.py"), *args],
+                          capture_output=True, text=True, env=env)
+
+
+def test_CLI_get_은_없는_키에_비정상_종료하고_아무것도_출력하지_않는다():
+    r = _cli("get", "no.such.key")
+    assert r.returncode != 0 and r.stdout == ""   # 키 문자열이 커밋 메시지로 새면 안 된다
+
+
+def test_CLI_get_은_언어에_맞는_문구를_치환해_돌려준다():
+    assert _cli("get", "release.commit.readme", "--var", "repo=r", "--var", "version=1.2.3",
+                env_extra={"REPO_LANG": "ko"}).stdout == "r 버전 관리 : docs : v1.2.3 README 버전 정보 업데이트"
+    assert _cli("get", "release.commit.readme", "--var", "repo=r", "--var", "version=1.2.3",
+                env_extra={"REPO_LANG": "en"}).stdout == "r version management : docs : update README version info to v1.2.3"

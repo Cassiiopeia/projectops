@@ -36,5 +36,10 @@
   "qa_bot.comment.qa_heading": "📋 **Test (QA) request**",
   "qa_bot.comment.issue_heading": "🔗 **Issue info**",
   "qa_bot.comment.done": "When testing is done, please record the result in the QA issue.",
-  "qa_bot.error": "❌ An error occurred while creating the QA issue."
+  "qa_bot.error": "❌ An error occurred while creating the QA issue.",
+  "changelog.current_version": "Current version",
+  "changelog.last_updated": "Last updated",
+  "release.commit.readme": "{repo} version management : docs : update README version info to v{version}",
+  "release.commit.version_control": "{repo} version info management: chore: version {version}",
+  "release.commit.finalize": "{repo} version management : chore : finalize release v{version} and update release docs (PR #{pr})"
 }

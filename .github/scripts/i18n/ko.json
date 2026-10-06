@@ -36,5 +36,10 @@
   "qa_bot.comment.qa_heading": "📋 **시험(QA) 요청**",
   "qa_bot.comment.issue_heading": "🔗 **이슈정보**",
   "qa_bot.comment.done": "시험 완료 후 결과를 QA 이슈에 기록해주세요.",
-  "qa_bot.error": "❌ QA 이슈 생성 중 오류가 발생했습니다."
+  "qa_bot.error": "❌ QA 이슈 생성 중 오류가 발생했습니다.",
+  "changelog.current_version": "현재 버전",
+  "changelog.last_updated": "마지막 업데이트",
+  "release.commit.readme": "{repo} 버전 관리 : docs : v{version} README 버전 정보 업데이트",
+  "release.commit.version_control": "{repo} 버전 정보 관리: chore: 버전 {version}",
+  "release.commit.finalize": "{repo} 버전 관리 : chore : v{version} 릴리즈 버전 확정 및 릴리즈 문서 업데이트 (PR #{pr})"
 }

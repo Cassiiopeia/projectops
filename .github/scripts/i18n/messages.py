@@ -86,6 +86,11 @@ def t(key: str, lang: str | None = None, **values) -> str:
     return _format(text, values)
 
 
+def has(key: str) -> bool:
+    """어느 카탈로그(영문 포함)에도 키가 있는가. CLI 가 없는 키를 구분하는 데 쓴다."""
+    return key in load_catalog(FALLBACK)
+
+
 def bundle(prefix: str, lang: str | None = None) -> dict:
     lang = lang or resolve_language()
     base = {k: v for k, v in load_catalog(FALLBACK).items() if k.startswith(prefix)}
@@ -108,6 +113,11 @@ def main(argv=None) -> int:
     if a.cmd == "lang":
         print(resolve_language())
     elif a.cmd == "get":
+        # 없는 키는 아무것도 쓰지 않고 비정상 종료한다. t() 처럼 키 문자열을 돌려주면 bash 단계가
+        # 그것을 커밋 메시지로 쓰게 된다 — 호출자가 `|| 대체 문구`로 이어 갈 수 있어야 한다.
+        if not has(a.key):
+            print(f"unknown message key: {a.key}", file=sys.stderr)
+            return 3
         values = dict(v.split("=", 1) for v in a.var if "=" in v)
         sys.stdout.write(t(a.key, a.lang, **values))
     else:

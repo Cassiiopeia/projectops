@@ -265,7 +265,11 @@ jobs:
             REPO_NAME=$(basename "${{ github.repository }}")
             VERSION="${{ steps.version_info.outputs.latest_version }}"
 
-            git commit -m "$REPO_NAME 버전 관리 : docs : v$VERSION README 버전 정보 업데이트 [skip ci]"
+            # 커밋 메시지는 version.yml 의 언어(options.language)로 만든다 (#787).
+            # 카탈로그가 없는 오래된 설치는 기존 한국어 문구로 대체한다 — 메시지 때문에 릴리스가 막히면 안 된다.
+            COMMIT_TITLE=$(python3 .github/scripts/i18n/messages.py get release.commit.readme --var repo="$REPO_NAME" --var version="$VERSION" 2>/dev/null) \
+              || COMMIT_TITLE="$REPO_NAME 버전 관리 : docs : v$VERSION README 버전 정보 업데이트"
+            git commit -m "$COMMIT_TITLE [skip ci]"
 
             # Race Condition 방지: pull-rebase 후 push (최대 3회 재시도)
             MAX_RETRIES=3
