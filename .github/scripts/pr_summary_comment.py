@@ -30,13 +30,11 @@ import sys
 import urllib.error
 import urllib.request
 
+from i18n.messages import resolve_language, t
+
 MARKER = "<!-- PROJECTOPS-AI-SUMMARY -->"
 
-# 앱 심사로 이어지는 레포에서만 붙는 안내. 리뷰어가 무게를 다르게 잡도록 한다.
-APP_RELEASE_NOTICE = (
-    "> 📱 이 저장소는 앱스토어·플레이스토어 심사로 이어집니다. "
-    "이 변경은 다음 릴리스에 포함되어 심사에 들어갑니다."
-)
+# 앱 심사로 이어지는 레포에서만 붙는 안내(pr_summary.app_release). 리뷰어가 무게를 다르게 잡도록 한다.
 
 
 def extract_body(raw: str) -> str:
@@ -52,12 +50,12 @@ def extract_body(raw: str) -> str:
     return body.strip()
 
 
-def build_comment(raw: str, app_release: bool) -> str:
-    parts = [MARKER, "", "## 🤖 변경 요약", ""]
+def build_comment(raw: str, app_release: bool, lang: str | None = None) -> str:
+    lang = lang or resolve_language()
+    parts = [MARKER, "", f"## {t('pr_summary.heading', lang)}", ""]
     if app_release:
-        parts += [APP_RELEASE_NOTICE, ""]
-    parts += [extract_body(raw), "", "---",
-              "<sub>커밋 내역을 자동 요약한 내용입니다. 새 커밋이 올라오면 이 댓글이 갱신됩니다.</sub>"]
+        parts += [t("pr_summary.app_release", lang), ""]
+    parts += [extract_body(raw), "", "---", t("pr_summary.footer", lang)]
     return "\n".join(parts)
 
 

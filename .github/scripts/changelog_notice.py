@@ -23,13 +23,14 @@ import sys
 import urllib.error
 import urllib.request
 
+from i18n.messages import resolve_language, t
+
 MARKER = "<!-- PROJECTOPS-CHANGELOG-NOTICE -->"
 API = "https://api.github.com"
 
 # 사람이 읽는 이름 — 내부 라벨을 그대로 보여주지 않는다
 LABELS = {
     "copilot": "Copilot",
-    "commit": "커밋 내용 분석",
     "openai:gemini": "Gemini",
     "openai:openai": "OpenAI",
     "openai:claude": "Claude",
@@ -39,27 +40,33 @@ LABELS = {
 }
 
 
-def label(name):
+def label(name, lang=None):
+    if name == "commit":
+        return t("changelog_notice.label.commit", lang)
     return LABELS.get(name, name)
 
 
-def build_summary(result):
+def build_summary(result, lang=None):
     """Job Summary용 마크다운 — 어떤 경로를 거쳤는지 한눈에."""
+    lang = lang or resolve_language()
     winner = result.get("provider")
     attempted = result.get("attempted") or []
     failed = set(result.get("failed") or [])
 
-    lines = ["## 릴리스 노트 생성 결과", "", "| 단계 | 결과 |", "|---|---|"]
+    lines = [f"## {t('changelog_notice.summary.title', lang)}", "",
+             f"| {t('changelog_notice.summary.col_step', lang)} | {t('changelog_notice.summary.col_result', lang)} |", "|---|---|"]
     for name in attempted:
-        mark = "✅ 사용됨" if name == winner else ("❌ 실패" if name in failed else "—")
-        lines.append(f"| {label(name)} | {mark} |")
+        mark = (t("changelog_notice.summary.used", lang) if name == winner
+                else (t("changelog_notice.summary.failed", lang) if name in failed else "—"))
+        lines.append(f"| {label(name, lang)} | {mark} |")
     if not attempted:
-        lines.append("| — | 생성 단계가 실행되지 않음 |")
-    lines += ["", f"**최종: {label(winner) if winner else '생성 실패'}**", ""]
+        lines.append(f"| — | {t('changelog_notice.summary.not_run', lang)} |")
+    final = label(winner, lang) if winner else t("changelog_notice.summary.final_failed", lang)
+    lines += ["", t("changelog_notice.summary.final", lang, label=final), ""]
     return "\n".join(lines)
 
 
-def build_comment(result):
+def build_comment(result, lang=None):
     """PR 댓글용 — AI를 하나도 못 썼을 때만. 없으면 None."""
     if result.get("provider") != "commit":
         return None
@@ -68,28 +75,29 @@ def build_comment(result):
         # 처음부터 commit만 시도한 경우(설정대로 동작) — 알릴 것이 없다
         return None
 
-    tried = ", ".join(label(f) for f in failed)
+    lang = lang or resolve_language()
+    tried = ", ".join(label(f, lang) for f in failed)
     return "\n".join([
         MARKER,
         "",
-        "### 릴리스 노트를 커밋 내용으로 정리했습니다",
+        f"### {t('changelog_notice.comment.title', lang)}",
         "",
-        f"AI 요약을 시도했으나 사용하지 못했습니다 (시도: {tried}).",
-        "릴리스는 정상 진행되며, 아래 중 하나로 품질을 올릴 수 있습니다.",
+        t("changelog_notice.comment.tried", lang, tried=tried),
+        t("changelog_notice.comment.proceeding", lang),
         "",
-        "**① 무료 AI 키 등록** (2분, 신용카드 불필요)",
+        t("changelog_notice.comment.option_key", lang),
         "",
-        "1. https://aistudio.google.com/apikey 에서 키 발급",
-        "2. Settings → Secrets and variables → Actions → New repository secret",
-        "3. 이름 `MODEL_API_KEY`, 값은 발급받은 키",
+        t("changelog_notice.comment.step_get_key", lang),
+        t("changelog_notice.comment.step_secret", lang),
+        t("changelog_notice.comment.step_name", lang),
         "",
-        "**② 직접 작성**",
+        t("changelog_notice.comment.option_manual", lang),
         "",
-        "이 PR 본문에 릴리스 노트를 쓰면 그대로 사용됩니다. 자동 생성은 건너뜁니다.",
+        t("changelog_notice.comment.manual_body", lang),
         "",
         "---",
         "",
-        "<sub>이 안내는 같은 댓글을 갱신하므로 릴리스마다 새로 쌓이지 않습니다.</sub>",
+        t("changelog_notice.comment.footer", lang),
     ])
 
 
