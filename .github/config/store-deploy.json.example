@@ -1,0 +1,10 @@
+{
+  "_comment": "복사해 store-deploy.json 으로 이름을 바꾸면 적용된다. 수동 실행 입력 > 이 파일 > 레포 변수(ANDROID_/IOS_DEPLOY_MODE) > store_only 순이다. deploy_mode: store_only(내부 테스트까지) | store_prepare(프로덕션 draft) | store_submit(심사 자동 등록, 되돌릴 수 없음). production_rollout 은 android 전용(0 초과 1.0 이하, 1.0=전체 출시).",
+  "android": {
+    "deploy_mode": "store_only",
+    "production_rollout": "1.0"
+  },
+  "ios": {
+    "deploy_mode": "store_only"
+  }
+}

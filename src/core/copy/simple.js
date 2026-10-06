@@ -33,6 +33,8 @@ export function copyScripts(tempDir, targetRoot = ".") {
     "ios_release.py",
     // 릴리스 머지 때 완료 라벨이 붙은 이슈를 닫는다 (#771). close_on_release 옵션이 켜진 레포에서만 동작한다.
     "close_issues_on_release.py",
+    // Play Store/TestFlight 배포 모드를 코드 설정(.github/config/store-deploy.json)에서 읽는다 (#767).
+    "store_deploy_config.py",
     "changelog_providers/_common.py", "changelog_providers/ladder.py",
     "changelog_providers/commit.py", "changelog_providers/copilot.py",
     "changelog_providers/openai_compatible.py",

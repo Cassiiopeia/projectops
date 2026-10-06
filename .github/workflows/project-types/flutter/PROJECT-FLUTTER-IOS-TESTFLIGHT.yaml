@@ -108,7 +108,9 @@ env:
   #   store_only    : TestFlight 업로드까지만 (기본)
   #   store_prepare : + App Store Connect 버전 생성·빌드 연결·문구 입력 (제출 버튼은 사람이 누른다)
   #   store_submit  : + 심사 자동 제출, 승인되면 자동 출시
-  # 값은 레포 변수 IOS_DEPLOY_MODE 에서 읽는다 (Settings → Secrets and variables → Actions → Variables).
+  # 값은 .github/config/store-deploy.json(코드, git 에 남는다) → 레포 변수 IOS_DEPLOY_MODE 순으로 읽는다 (#767).
+  # 아래 식은 파일이 없을 때의 값이고, 파일이 있으면 Resolve store deploy config 단계가 덮어쓴다.
+  # 레포 변수는 Settings → Secrets and variables → Actions → Variables 에서 바꾼다.
   # 코드가 아니라 레포 변수에 두는 이유: 급할 때 배포 없이 자동 제출을 바로 끌 수 있어야 한다 (값을 store_only 로).
   # 수동 실행(workflow_dispatch)에서 고른 값이 있으면 그것이 우선한다.
   DEPLOY_MODE: ${{ github.event.inputs.deploy_mode || vars.IOS_DEPLOY_MODE || 'store_only' }}
@@ -491,6 +493,14 @@ jobs:
           DEVELOPER_DIR: /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
         run: python3 "$GITHUB_WORKSPACE/.github/scripts/ios_release.py" archive-upload --phase build
 
+      # 배포 설정을 코드(.github/config/store-deploy.json)에서 읽는다 (#767).
+      # 우선순위: 수동 실행 입력 > 설정 파일 > 레포 변수 IOS_DEPLOY_MODE > store_only.
+      - name: Resolve store deploy config
+        working-directory: ${{ github.workspace }}
+        env:
+          INPUT_DEPLOY_MODE: ${{ github.event.inputs.deploy_mode }}
+        run: python3 .github/scripts/store_deploy_config.py resolve --platform ios
+
       # TestFlight 업로드 (마법사 생성 Fastfile 의 deploy lane, DEPLOY_MODE 에 따라 심사 제출까지).
       # 번호가 거부되면 ios_release.py 가 새 번호로 아카이브부터 다시 한다 (최대 5회).
       - name: Upload to TestFlight (+ App Store Submit if store_submit)
@@ -529,7 +539,8 @@ jobs:
           export API_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
           export RELEASE_NOTES="$RELEASE_NOTES"
           export APP_IDENTIFIER="$APP_IDENTIFIER_VALUE"
-          export DEPLOY_MODE="${{ env.DEPLOY_MODE }}"
+          # 설정 파일이 정한 값(GITHUB_ENV)이 셸 환경변수로 들어온다. ${{ env }} 식은 쓰지 않는다 — 갱신 시점에 기대지 않는다.
+          export DEPLOY_MODE="${DEPLOY_MODE}"
           # 수동 실행 입력이 있으면 그 실행만 우선한다. 값은 step env 로 받아 셸 주입을 막는다.
           if [ -n "$(printf '%s' "$INPUT_WHATS_NEW_OVERRIDE" | tr -d '[:space:]')" ]; then
             export STORE_WHATS_NEW_OVERRIDE="$INPUT_WHATS_NEW_OVERRIDE"

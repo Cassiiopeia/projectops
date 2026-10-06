@@ -72,7 +72,9 @@ env:
   #   store_only    : 내부 테스트 업로드까지 (기본)
   #   store_prepare : + 프로덕션에 draft 로 올림 (Play Console 에서 '출시 시작'은 사람이 누른다)
   #   store_submit  : + 프로덕션 심사 자동 등록
-  # 값은 레포 변수 ANDROID_DEPLOY_MODE 에서 읽는다 (Settings → Secrets and variables → Actions → Variables).
+  # 값은 .github/config/store-deploy.json(코드, git 에 남는다) → 레포 변수 ANDROID_DEPLOY_MODE 순으로 읽는다 (#767).
+  # 아래 식은 파일이 없을 때의 값이고, 파일이 있으면 Resolve store deploy config 단계가 덮어쓴다.
+  # 레포 변수는 Settings → Secrets and variables → Actions → Variables 에서 바꾼다.
   # 코드가 아니라 레포 변수에 두는 이유: 급할 때 배포 없이 자동 제출을 바로 끌 수 있어야 한다 (값을 store_only 로).
   # 프로덕션 액세스가 없는 동안은 비워 둔다(store_only) — 프로덕션 단계가 매번 실패한다.
   # 수동 실행(workflow_dispatch)에서 고른 값이 있으면 그것이 우선한다. 중간 트랙은 아래 PROMOTE_* 스위치가 맡는다.
@@ -668,6 +670,14 @@ jobs:
           echo "✅ Fastlane 설치 완료 (Bundler)"
           bundle exec fastlane --version
 
+      # 배포 설정을 코드(.github/config/store-deploy.json)에서 읽는다 (#767).
+      # 우선순위: 수동 실행 입력 > 설정 파일 > 레포 변수 ANDROID_DEPLOY_MODE > store_only.
+      # 파일이 없으면 아무것도 하지 않아 기존 동작 그대로다. 값이 잘못 적혀 있으면 여기서 실패한다.
+      - name: Resolve store deploy config
+        env:
+          INPUT_DEPLOY_MODE: ${{ github.event.inputs.deploy_mode }}
+        run: python3 .github/scripts/store_deploy_config.py resolve --platform android
+
       # Fastfile 복사 (Play Store 배포용)
       # android/fastlane/Fastfile.playstore를 사용하여 일관성 유지
       - name: Copy Fastfile for Play Store
@@ -692,12 +702,10 @@ jobs:
       # Play Store에 업로드
       - name: Upload to Play Store Internal Testing
         env:
-          DEPLOY_MODE: ${{ env.DEPLOY_MODE }}
           PROMOTE_TO_CLOSED_TESTING: ${{ env.PROMOTE_TO_CLOSED_TESTING }}
           PROMOTE_TO_OPEN_TESTING: ${{ env.PROMOTE_TO_OPEN_TESTING }}
           CLOSED_TESTING_TRACK: ${{ env.CLOSED_TESTING_TRACK }}
           OPEN_TESTING_TRACK: ${{ env.OPEN_TESTING_TRACK }}
-          PRODUCTION_ROLLOUT: ${{ env.PRODUCTION_ROLLOUT }}
           STORE_WHATS_NEW_OVERRIDE: ${{ env.STORE_WHATS_NEW_OVERRIDE }}
           # 수동 실행 입력은 step env 로 받아 셸 주입을 막는다
           INPUT_WHATS_NEW_OVERRIDE: ${{ github.event.inputs.whats_new_override }}

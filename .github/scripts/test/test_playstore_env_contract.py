@@ -29,7 +29,10 @@ def _upload_step_env() -> str:
 
 @pytest.mark.parametrize("name", _PASSED)
 def test_워크플로가_넘기는_값을_템플릿이_읽는다(name):
-    assert f"{name}: ${{{{ env.{name} }}}}" in _upload_step_env(), f"워크플로가 {name} 을 넘기지 않는다"
+    # DEPLOY_MODE, PRODUCTION_ROLLOUT 은 설정 파일 단계가 GITHUB_ENV 로 덮어쓸 수 있어 step env 로 다시
+    # 지정하지 않고 환경변수를 그대로 물려받는다. 그래서 워크플로 최상위 env 에 정의돼 있는지 본다.
+    top = WF.read_text(encoding="utf-8").split("\njobs:")[0]
+    assert re.search(rf"^  {name}:", top, re.M), f"워크플로가 {name} 을 정의하지 않는다"
     assert re.search(rf'ENV\["{name}"\]', TPL.read_text(encoding="utf-8")), \
         f"템플릿이 {name} 을 읽지 않는다 — 워크플로 설정이 조용히 무시된다"
 
