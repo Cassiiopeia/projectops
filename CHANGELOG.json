@@ -1,14 +1,40 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-06T14:31:52Z",
-    "currentVersion": "4.34.0",
+    "lastUpdated": "2026-10-06T14:57:33Z",
+    "currentVersion": "4.35.0",
     "projectType": "basic",
-    "totalReleases": 288,
+    "totalReleases": 289,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.35.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-06",
+      "pr_number": 788,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * Play Store 배포 시, 프로덕션에 한 번도 출시된 적 없는 앱이면 승급이 실패하기 전에 미리 경고합니다.\n  * Play Store 마법사가 선택한 배포 모드와 출시 비율을 코드 설정 파일에 바로 기록할 수 있습니다. 이미 있는 설정은 그대로 보존됩니다.\n\n* **문서**\n  * 라벨 표기(영문 표준과 기존 한글)와 릴리스 때 완료된 이슈가 자동으로 닫히는 방식을 설명하는 문서를 갱신했습니다.",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "Play Store 배포 시, 프로덕션에 한 번도 출시된 적 없는 앱이면 승급이 실패하기 전에 미리 경고합니다.",
+            "Play Store 마법사가 선택한 배포 모드와 출시 비율을 코드 설정 파일에 바로 기록할 수 있습니다. 이미 있는 설정은 그대로 보존됩니다."
+          ]
+        },
+        "문서": {
+          "title": "문서",
+          "items": [
+            "라벨 표기(영문 표준과 기존 한글)와 릴리스 때 완료된 이슈가 자동으로 닫히는 방식을 설명하는 문서를 갱신했습니다."
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.34.0",
       "project_type": "basic",
