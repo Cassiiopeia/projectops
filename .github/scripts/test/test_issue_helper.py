@@ -317,3 +317,18 @@ def test_load_config_keeps_hash_inside_quotes(tmp_path):
     assert cfg["commit_template"] == "${issueTitle} #${issueNumber} : ${commitType}"
     assert cfg["branch_prefix"] == "feat/ #x"
     assert cfg["timezone"] == "Asia/Seoul"
+
+
+def test_영문_태그도_커밋_타입으로_매핑된다():
+    assert infer_commit_type("❗ [Bug][Login] fails") == "fix"
+    assert infer_commit_type("🔧 [Feature Request][API] add") == "feat"
+    assert infer_commit_type("⚙️ [Feature][API] add") == "feat"
+    assert infer_commit_type("🚀 [Improvement][CLI] faster") == "feat"
+    assert infer_commit_type("📄 [Docs] readme") == "docs"
+    assert infer_commit_type("🎨 [Design][UI] new") == "design"
+    assert infer_commit_type("🔍 [QA][API] verify") == "test"
+
+
+def test_영문_태그는_대소문자를_가리지_않는다():
+    assert infer_commit_type("[bug] x") == "fix"
+    assert infer_commit_type("[FEATURE REQUEST] x") == "feat"

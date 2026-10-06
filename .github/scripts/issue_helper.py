@@ -46,6 +46,8 @@ DEFAULT_CONFIG = {
 LEGACY_SIGNATURE = "Guide by SUH-LAB"
 
 # 제목 태그 → 커밋 타입 (이슈 템플릿 4종의 제목 태그 기준). 설정 commit_type_map이 병합됨.
+# 한글과 영문을 항상 둘 다 안다: 템플릿 언어(options.language)와 무관하게 동작해야 하고,
+# 추가만 하므로 기존 레포에 영향이 없다 (#769).
 DEFAULT_COMMIT_TYPE_MAP = {
     "버그": "fix",
     "기능요청": "feat",
@@ -54,6 +56,13 @@ DEFAULT_COMMIT_TYPE_MAP = {
     "문서": "docs",
     "디자인": "design",
     "시험요청": "test",
+    "Bug": "fix",
+    "Feature Request": "feat",
+    "Feature": "feat",
+    "Improvement": "feat",
+    "Docs": "docs",
+    "Design": "design",
+    "QA": "test",
 }
 
 _TAG = re.compile(r"\[([^\]]*)\]")
@@ -94,8 +103,10 @@ def infer_commit_type(raw_title: str, type_map: dict | None = None) -> str:
     merged = dict(DEFAULT_COMMIT_TYPE_MAP)
     if type_map:
         merged.update(type_map)
+    lowered = {k.lower(): v for k, v in merged.items()}  # 영문 태그는 대소문자를 무시한다
     for tag in _TAG.findall(raw_title):
-        commit_type = merged.get(tag.strip())
+        key = tag.strip()
+        commit_type = merged.get(key) or lowered.get(key.lower())
         if commit_type:
             return commit_type
     return "feat"

@@ -144,7 +144,7 @@ jobs:
                         .replace(/[\u{2700}-\u{27BF}]/gu, '');
             
             // 2. 특정 키워드 앞부분까지 제거
-            const keywordPattern = /^.*?\[(버그|디자인|기능요청|기능추가|기능개선)\]/;
+            const keywordPattern = /^.*?\[(버그|디자인|기능요청|기능추가|기능개선|Bug|Design|Feature Request|Feature|Improvement)\]/i;
             title = title.replace(keywordPattern, '');
             
             // 3. 공백 정리

@@ -31,6 +31,13 @@ COMMIT_TYPE_MAP = {
     "문서": "docs",
     "디자인": "design",
     "시험요청": "test",
+    "Bug": "fix",
+    "Feature Request": "feat",
+    "Feature": "feat",
+    "Improvement": "feat",
+    "Docs": "docs",
+    "Design": "design",
+    "QA": "test",
 }
 
 # 제목 앞에 붙는 이모지. 변이 선택자(U+FE0F)·ZWJ 결합까지 함께 걷는다.
@@ -105,8 +112,10 @@ def infer_commit_type(issue_title: str, type_map: dict | None = None) -> str:
     merged = dict(COMMIT_TYPE_MAP)
     if type_map:
         merged.update(type_map)
+    lowered = {k.lower(): v for k, v in merged.items()}  # 영문 태그는 대소문자를 무시한다 (#769)
     for tag in _TAG_PATTERN.findall(issue_title):
-        commit_type = merged.get(tag.strip())
+        key = tag.strip()
+        commit_type = merged.get(key) or lowered.get(key.lower())
         if commit_type:
             return commit_type
     return _FALLBACK_COMMIT_TYPE
