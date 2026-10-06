@@ -41,5 +41,6 @@
   "changelog.last_updated": "Last updated",
   "release.commit.readme": "{repo} version management : docs : update README version info to v{version}",
   "release.commit.version_control": "{repo} version info management: chore: version {version}",
-  "release.commit.finalize": "{repo} version management : chore : finalize release v{version} and update release docs (PR #{pr})"
+  "release.commit.finalize": "{repo} version management : chore : finalize release v{version} and update release docs (PR #{pr})",
+  "issue_helper.commit_template": "${issueTitle} : ${commitType} : {description of the change} ${issueUrl}"
 }

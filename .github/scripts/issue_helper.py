@@ -226,6 +226,18 @@ GUIDE_LINES = [
 _GUIDE_ALWAYS = ["issue_helper.guide.skills"]
 
 
+def effective_commit_template(cfg: dict, lang: str) -> str:
+    """커밋 템플릿. 사용자가 정하지 않은 기본값일 때만 언어에 맞는 자리표시자 문구를 쓴다 (#790).
+
+    기본값 문자열에 한국어 자리표시자 `{변경 사항에 대한 설명}` 이 박혀 있어 영문 댓글에도 그대로 나왔다.
+    version.yml 의 commit_template 을 직접 정한 레포는 그 값을 언어와 무관하게 그대로 쓴다.
+    """
+    template = cfg["commit_template"]
+    if template == DEFAULT_CONFIG["commit_template"]:
+        return t("issue_helper.commit_template", lang)
+    return template
+
+
 def build_guide(workflows_dir: Path, lang: str | None = None) -> str:
     """접이식(details) 안내 본문. 레포에 의존 기능이 있으면 그 목록을, 없으면 권장 한 줄만."""
     lang = lang or resolve_language()
@@ -303,8 +315,8 @@ def prepare_comment(payload: dict, cfg: dict, workflows_dir: Path, date_yyyymmdd
         "labels": ", ".join(l["name"] for l in issue.get("labels", [])),
         "assignees": ", ".join(a["login"] for a in issue.get("assignees", [])),
     }
-    commit_message = render_commit_message(cfg["commit_template"], ctx)
     lang = resolve_language()  # 한 번 정해 댓글 전체에 같은 언어를 쓴다
+    commit_message = render_commit_message(effective_commit_template(cfg, lang), ctx)
     body = build_comment_body(cfg, branch, commit_message, build_guide(workflows_dir, lang), lang)
     return branch, commit_message, body
 

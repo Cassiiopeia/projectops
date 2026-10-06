@@ -71,3 +71,34 @@ def test_지원하는_모든_언어에서_계약_정규식에_걸린다(workflow
 
 def test_모르는_언어는_영문으로_대체된다(workflows):
     assert _body("xx", workflows) == _body("en", workflows)
+
+
+# ── #790: 기본 커밋 템플릿의 자리표시자도 언어를 따른다 ───────────────────
+
+PAYLOAD = {"action": "opened", "issue": {"number": 5, "title": "❗ [Bug][Login] fails", "html_url": "https://x/5",
+                                          "labels": [], "assignees": []}}
+
+
+def _prepare(lang, cfg_override=None, monkeypatch=None):
+    cfg = dict(ih.DEFAULT_CONFIG)
+    cfg.update(cfg_override or {})
+    monkeypatch.setenv("REPO_LANG", lang)
+    return ih.prepare_comment(PAYLOAD, cfg, Path("/nonexistent"), "20261007")
+
+
+def test_영문_기본_커밋_메시지에는_한글_자리표시자가_없다(monkeypatch):
+    _, commit, body = _prepare("en", monkeypatch=monkeypatch)
+    assert commit == "fails : fix : {description of the change} https://x/5"
+    assert not HANGUL.search(commit)
+
+
+def test_한국어_기본_커밋_메시지는_이관_전과_같다(monkeypatch):
+    _, commit, _ = _prepare("ko", monkeypatch=monkeypatch)
+    assert commit == "fails : fix : {변경 사항에 대한 설명} https://x/5"
+
+
+def test_사용자가_정한_커밋_템플릿은_언어와_무관하게_그대로_쓴다(monkeypatch):
+    custom = "${commitType}(${issueNumber}): ${issueTitle}"
+    for lang in ("en", "ko"):
+        _, commit, _ = _prepare(lang, {"commit_template": custom}, monkeypatch)
+        assert commit == "fix(5): fails"

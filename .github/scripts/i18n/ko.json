@@ -41,5 +41,6 @@
   "changelog.last_updated": "마지막 업데이트",
   "release.commit.readme": "{repo} 버전 관리 : docs : v{version} README 버전 정보 업데이트",
   "release.commit.version_control": "{repo} 버전 정보 관리: chore: 버전 {version}",
-  "release.commit.finalize": "{repo} 버전 관리 : chore : v{version} 릴리즈 버전 확정 및 릴리즈 문서 업데이트 (PR #{pr})"
+  "release.commit.finalize": "{repo} 버전 관리 : chore : v{version} 릴리즈 버전 확정 및 릴리즈 문서 업데이트 (PR #{pr})",
+  "issue_helper.commit_template": "${issueTitle} : ${commitType} : {변경 사항에 대한 설명} ${issueUrl}"
 }
