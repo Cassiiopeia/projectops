@@ -230,6 +230,11 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     includeSecretBackup: opts.includeSecretBackup ?? existing?.options?.secretBackup ?? false,
     // #566 — CLI 값 우선, 없으면 저장값 보존, 그것도 없으면 true(설정 없이 바로 동작).
     aiPrSummary: opts.aiPrSummary ?? existing?.options?.aiPrSummary ?? true,
+    // Projects 보드 동기화(#716): CLI > 저장값 > 이미 설치돼 있으면 유지 > 신규는 제외.
+    // 설정(Secret, PROJECT_URL)이 없는 레포에 설치되면 라벨이 바뀔 때마다 알림만 쌓이기 때문이다.
+    // 이미 설치된 레포가 갱신만으로 연동을 잃지 않도록 파일이 있으면 켜진 것으로 본다.
+    projectsSync: opts.projectsSync ?? existing?.options?.projectsSync
+      ?? existsSync(join(cwd, ".github/workflows/PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml")),
     // #502 — version 모드가 기존 full 통합 기록(mode)을 강등하지 않도록 (full이 우세)
     recordMode: existing?.templateMode === "full" ? "full" : "version",
     // 릴리스 배포 브랜치(#456): CLI 플래그 → version.yml 저장값 → 빈 값(미출력, 스킬이 develop 폴백)
@@ -315,7 +320,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       const orphans = trace.step("orphan-scan",
         () => detectOrphanWorkflows({ tempDir, targetRoot: cwd, selectedTypes: types,
           // 껐는데 남아 계속 도는 워크플로우도 함께 잡는다 (#566)
-          options: { includeSecretBackup: context.includeSecretBackup, aiPrSummary: context.aiPrSummary, deployTarget } }),
+          options: { includeSecretBackup: context.includeSecretBackup, aiPrSummary: context.aiPrSummary, projectsSync: context.projectsSync, deployTarget } }),
         { selectedTypes: types });
       orphanPending = orphans.map((o) => o.filename);
       for (const o of orphans) trace.event("orphan", "detected", o.filename, { type: o.type, action: "notice only (non-interactive)" });
@@ -344,7 +349,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       migrationGuidePath = appendGuideEntry(cwd, {
         now, mode: opts.mode, types, repoName,
         templateFrom: existing?.templateVersion || "", templateTo: context.templateVersion,
-        options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto , appRelease: context.appRelease, labelStyle: context.labelStyle, closeOnRelease: context.closeOnRelease },
+        options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto , appRelease: context.appRelease, labelStyle: context.labelStyle, closeOnRelease: context.closeOnRelease, projectsSync: context.projectsSync },
         branches: { defaultBranch: branch, deployBranch: context.deployBranch || "develop", ready: null, created: null },
         breaking: breakingReport, migrations: migrationsResult, orphans: { cleaned: [], pending: orphanPending },
         events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },

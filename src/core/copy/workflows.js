@@ -71,7 +71,7 @@ function classify(srcDir, workflowsDir, envOpts, baseline = null) {
 // hooks: { decisions?: Map<filename, 'skip'|'backup'|'template'> } — 기존 파일(changed) 충돌 결정.
 // 반환: {copied, skipped, templateAdded, optionalCopied, copiedFiles[]} — copiedFiles는 실제 복사·교체된 파일명 (#473 요약용)
 export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
-  const { types = [], paths = new Map(), deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, aiPrSummary = true, repoName = "", resolvers = {}, envValues = new Map(), envUseDefaults = true, branch = "", deployBranch = "" } = context;
+  const { types = [], paths = new Map(), deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, aiPrSummary = true, projectsSync = true, repoName = "", resolvers = {}, envValues = new Map(), envUseDefaults = true, branch = "", deployBranch = "" } = context;
   const decisions = hooks.decisions instanceof Map ? hooks.decisions : new Map();
   const trace = hooks.trace ?? null; // #494 — 실행 트레이스 (null-safe: 미주입이면 전 이벤트 no-op)
   const workflowsDir = join(targetRoot, PATHS.workflowsDir);
@@ -193,14 +193,18 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   // (4.7) common/pr-summary — AI 변경 요약 (#566). 선택했을 때만 복사한다.
   // 종전에는 common 본체에 있어 무조건 복사된 뒤 런타임에 스스로 빠졌고, 그 판단이
   // ".coderabbit.yaml 존재"라 파일만 있고 앱이 없는 저장소에서는 아무도 요약하지 않았다.
-  const prSummaryDir = join(commonDir, "pr-summary");
-  if (exists(prSummaryDir) && aiPrSummary) {
+  // (4.8) common/projects-sync — Projects 보드 동기화 (#716). 이것도 선택했을 때만 복사한다.
+  //   Secret(_GITHUB_PAT_TOKEN)과 PROJECT_URL 변수를 등록해야 동작하는데, Projects 를 안 쓰는 레포가
+  //   많아 설치만 되고 설정되지 않은 채 남았다. 같은 폴더 방식이라 게이트와 고아 감지(orphan-workflows.js)를 함께 둔다.
+  for (const [groupName, groupEnabled] of [["pr-summary", aiPrSummary], ["projects-sync", projectsSync]]) {
+  const prSummaryDir = join(commonDir, groupName);
+  if (exists(prSummaryDir) && groupEnabled) {
     for (const filename of listYamlFiles(prSummaryDir)) {
       const src = join(prSummaryDir, filename);
       const dst = join(workflowsDir, filename);
       if (existsSync(dst) && isUnchanged(readFileSync(src, "utf8"), readFileSync(dst, "utf8"), envOptsFor("common"))) {
         counters.skipped++;
-        trace?.event("copy", "skipped-unchanged", filename, { group: "pr-summary" });
+        trace?.event("copy", "skipped-unchanged", filename, { group: groupName });
         continue;
       }
       const backedUp = existsSync(dst);
@@ -209,9 +213,10 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
       counters.optionalCopied++;
       counters.copied++;
       counters.copiedFiles.push(filename);
-      trace?.event("copy", backedUp ? "replaced-bak" : "copied", filename, { group: "pr-summary" });
+      trace?.event("copy", backedUp ? "replaced-bak" : "copied", filename, { group: groupName });
       if (backedUp) counters.replacedBak.push(filename);   // #673
     }
+  }
   }
 
   // (5) common/secret-backup — 있으면 무조건 스킵/신규만 복사

@@ -2,6 +2,11 @@
 
 Issue Label과 GitHub Projects Status를 양방향으로 동기화하는 기능입니다.
 
+> **선택 설치입니다 (#716).** 새로 설치하면 이 워크플로우는 들어가지 않습니다. Secret `_GITHUB_PAT_TOKEN`과 변수 `PROJECT_URL`을 등록해야 동작하는데, Projects를 쓰지 않는 레포에서는 라벨이 바뀔 때마다 알림만 쌓이기 때문입니다.
+> - 설치: `npx projectops --projects-sync` (마법사를 다시 실행해도 됩니다). 선택은 `version.yml`의 `projects_sync`에 저장됩니다.
+> - 이미 설치된 레포는 갱신해도 지워지거나 꺼지지 않습니다.
+> - 끄려면 `--no-projects-sync`로 실행합니다. 남은 파일은 자동 삭제하지 않고 정리 대상으로 안내합니다.
+
 ---
 
 ## 📌 개요

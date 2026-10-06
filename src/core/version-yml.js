@@ -56,7 +56,7 @@ const HEADER = `# ==============================================================
 // (options-ask.js가 이 함수를 import한다 — 순환 방지 위해 여기(version-yml)에 정의.)
 export function parseTemplateOptions(content) {
   const out = { deploy: null, publish: null, secretBackup: null,
-                changelogProvider: null, changelogBaseUrl: null, codeReviewCoderabbit: null, aiPrSummary: null,
+                changelogProvider: null, changelogBaseUrl: null, codeReviewCoderabbit: null, aiPrSummary: null, projectsSync: null,
                 deployBranch: null, intent: null, semverAuto: null, appRelease: null, labelStyle: null, closeOnRelease: null };
   // deploy_branch는 metadata 직속(#456) — template.options 밖이라 별도로 스캔한다.
   for (const line of String(content || "").split("\n")) {
@@ -139,6 +139,12 @@ export function parseTemplateOptions(content) {
       m = line.match(/^\s+label_style:\s*["']?(en|ko)["']?/);
       if (m) {
         out.labelStyle = m[1];
+        continue;
+      }
+      // Projects 보드 동기화(#716). null(미기재)이면 호출부가 "이미 설치돼 있으면 유지, 아니면 제외"로 해석한다.
+      m = line.match(/^\s+projects_sync:\s*["']?(true|false)["']?/);
+      if (m) {
+        out.projectsSync = m[1] === "true";
         continue;
       }
       // 릴리스 시 완료 이슈 닫기(#771). null(미기재)은 "기존 통합 레포" 신호 — 워크플로우가 아무것도 하지 않는다.
@@ -349,7 +355,7 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
   if (templateOptions) {
     const { templateVersion = "unknown", deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, optionsDate = today,
             changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true, aiPrSummary = true, intent = null, mode = null,
-            semverAuto = true, appRelease = null, labelStyle = null, closeOnRelease = null } = templateOptions;
+            semverAuto = true, appRelease = null, labelStyle = null, closeOnRelease = null, projectsSync = null } = templateOptions;
     const publishJson = `[${publishTargets.map((t) => `"${t}"`).join(",")}]`;
     // intent(프로젝트 성격, #485) — 미지정이면 deploy/publish에서 역추론해 기록 (재통합 시 진입 질문 생략용)
     const intentVal = intent || inferIntent(deployTarget, publishTargets) || "manual";
@@ -367,6 +373,8 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
     out += `      secret_backup: ${includeSecretBackup}\n`;
     // semver 자동 승격(#546) — 릴리스 시 커밋 제목으로 major/minor/patch 결정. false면 항상 patch.
     out += `      semver_auto: ${semverAuto}   # decide the version bump from commit titles (false means always patch)\n`;
+    // Projects 보드 동기화(#716) — 미지정이면 키를 쓰지 않는다.
+    if (projectsSync !== null) out += `      projects_sync: ${projectsSync}   # GitHub Projects 상태 동기화 워크플로우 포함 여부\n`;
     // 릴리스 시 완료 이슈 닫기(#771) — 미지정이면 키를 쓰지 않는다(기존 레포는 현행 유지).
     if (closeOnRelease !== null) out += `      close_on_release: ${closeOnRelease}   # close issues labelled done when a release is merged (false or missing means do not close)\n`;
     // 상태 라벨 표기(#776) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).

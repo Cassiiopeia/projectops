@@ -28,6 +28,7 @@ export function parseArgs(argv) {
     intent: null,            // 프로젝트 성격 (#485): --intent app|library|both|none|manual, null=미설정(역추론)
     includeSecretBackup: null,
     aiPrSummary: null,   // #566 — AI 변경 요약 워크플로우 포함 여부
+    projectsSync: null,  // #716 — Projects 보드 동기화 워크플로우 포함 여부 (null=미지정)
     pathsCsv: "",            // "flutter=app,react=client" 원문 (정규화는 resolve 단계)
     force: false,
     lang: null,              // --lang en|ko (null = decided by src/i18n resolveLang)
@@ -153,6 +154,8 @@ export function parseArgs(argv) {
       // #566 — 비대화형에서도 켜고 끌 수 있어야 한다. 없으면 자동화 환경은 선택권이 없다.
       case "--ai-summary": result.aiPrSummary = true; break;
       case "--no-ai-summary": result.aiPrSummary = false; break;
+      case "--projects-sync": result.projectsSync = true; break;
+      case "--no-projects-sync": result.projectsSync = false; break;
       case "--npm-publish":
         process.stderr.write(t("args.npmPublishDeprecated") + "\n");
         result.publishTargets = [...new Set([...(result.publishTargets ?? []), "npm"])];

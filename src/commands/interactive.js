@@ -135,6 +135,9 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     const appRelease = existing?.options?.appRelease ?? null; // #553 저장값 보존 (묻지 않음)
     // 상태 라벨 표기(#776): 저장값 > (신규 en / 기존 ko). 기존 한글 레포에는 영문 전환을 한 번 제안한다(아래).
     const closeOnRelease = existing?.options?.closeOnRelease ?? (existing ? null : true); // #771 묻지 않는다
+    // Projects 보드 동기화(#716): 묻지 않는다. 저장값 > 이미 설치돼 있으면 유지 > 신규는 제외 (index.js 와 같은 규칙).
+    const projectsSync = existing?.options?.projectsSync
+      ?? existsSync(join(cwd, ".github/workflows/PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml"));
     let labelStyle = resolveLabelStyle({ flag: null, stored: existing?.options?.labelStyle, existing: !!existing });
     const showOptional = mode === "full" || mode === "workflows";
     const realTty = process.stdout.isTTY === true;
@@ -312,7 +315,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     const { now, today } = clock || utcNow();
     const ctx = createContext({
       mode, force: true, types, version, versionCode, branch, paths, deployTarget, publishTargets, includeSecretBackup,
-      codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto, appRelease, labelStyle, closeOnRelease,
+      codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync,
       repoName, templateVersion, resolvers, envValues, envUseDefaults, now, today,
       // #502 — version 모드가 기존 full 기록을 강등하지 않도록 (full이 우세)
       recordMode: existing?.templateMode === "full" ? "full" : "version",
@@ -361,7 +364,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     if (mode === "full" || mode === "workflows") {
       const orphans = detectOrphanWorkflows({ tempDir, targetRoot: cwd, selectedTypes: types,
         // 껐는데 남아 계속 도는 워크플로우도 함께 잡는다 (#566)
-        options: { includeSecretBackup, aiPrSummary: aiPrSummary !== false, deployTarget } });
+        options: { includeSecretBackup, aiPrSummary: aiPrSummary !== false, projectsSync, deployTarget } });
       if (orphans.length > 0) {
         io.note?.(
           orphans.map((o) => `• ${t("flow.orphanLine", { file: o.filename, type: o.type })}`).join("\n"),
@@ -407,7 +410,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       migrationGuidePath = appendGuideEntry(cwd, {
         now, mode, types, repoName,
         templateFrom: existing?.templateVersion || "", templateTo: templateVersion,
-        options: { deploy: deployTarget, publish: publishTargets, secretBackup: includeSecretBackup, coderabbit: codeReviewCoderabbit, changelogProvider, intent, semverAuto , appRelease, labelStyle, closeOnRelease },
+        options: { deploy: deployTarget, publish: publishTargets, secretBackup: includeSecretBackup, coderabbit: codeReviewCoderabbit, changelogProvider, intent, semverAuto , appRelease, labelStyle, closeOnRelease, projectsSync },
         branches: { defaultBranch: branch, deployBranch, ready: deployBranchReady, created: deployBranchCreated },
         breaking: breakingReport, migrations: migrationsResult, orphans: orphanReport,
         events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },

@@ -24,6 +24,7 @@ Options:
       --deploy-branch NAME Head branch of the release PR (default: develop). Not the default branch
       --secret-backup / --no-secret-backup   Include / exclude the secret backup workflow
       --ai-summary / --no-ai-summary         Include / exclude the PR summary workflow
+      --projects-sync / --no-projects-sync   Include / exclude the GitHub Projects status sync workflow (default: off for new installs)
       --nexus / --npm-publish  (deprecated: use --publish nexus / --publish npm)
       --force, -y, --yes   Skip every confirmation and use non-interactive defaults
       --lang en|ko         Display language (default: system language, pinned to en in CI and with --force)
@@ -60,6 +61,7 @@ const HELP_KO = `projectops — GitHub 프로젝트 자동화 템플릿 통합 C
       --deploy-branch NAME 릴리스 PR head 브랜치 (#456, 기본: develop). default_branch와 별개
       --secret-backup / --no-secret-backup   Secret 백업 워크플로우 포함/제외
       --ai-summary / --no-ai-summary         PR 변경 요약 워크플로우 포함/제외
+      --projects-sync / --no-projects-sync   GitHub Projects 상태 동기화 워크플로우 포함/제외 (신규 설치 기본 제외)
       --nexus / --npm-publish  (deprecated — --publish nexus / --publish npm 사용)
       --force, -y, --yes   모든 확인 생략, 비대화형 기본값 사용
       --lang en|ko         화면 언어 (기본: 시스템 언어, CI/--force 는 en 고정)

@@ -27,7 +27,7 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
     force = true, now, today, templateVersion = "unknown",
     deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, aiPrSummary = true,
     changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true,
-    deployBranch = "", intent = null, semverAuto = true , appRelease = null, labelStyle = "en", closeOnRelease = null } = context;
+    deployBranch = "", intent = null, semverAuto = true , appRelease = null, labelStyle = "en", closeOnRelease = null, projectsSync = null } = context;
 
   // project_paths 마커 계산 (.sh existing_marker_in_dir 등가 — 대표 마커명)
   const pathMarkers = new Map();
@@ -49,7 +49,7 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
       version, types, paths, pathMarkers, branch, deployBranch, versionCode, now, today,
       deployValues,
       templateOptions: { templateVersion, deployTarget, publishTargets, includeSecretBackup, aiPrSummary, optionsDate: today,
-        changelogProvider, changelogBaseUrl, codeReviewCoderabbit, intent, mode: "full", semverAuto, appRelease, labelStyle, closeOnRelease },
+        changelogProvider, changelogBaseUrl, codeReviewCoderabbit, intent, mode: "full", semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync },
     })), { version, versionCode });
 
   // 2. README 버전 섹션

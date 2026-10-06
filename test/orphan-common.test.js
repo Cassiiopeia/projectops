@@ -127,3 +127,27 @@ test("정리하면 .bak으로 무해화된다", () => {
     }
   } finally { rmSync(tpl, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
 });
+
+// #716 — Projects 동기화는 선택 설치다. 껐는데 남은 파일은 고아로 잡혀야 하고, 켰으면 잡히지 않는다.
+import { detectOrphanWorkflows as __detectProjectsSyncOrphans } from "../src/core/orphan-workflows.js";
+import { mkdtempSync as __mk, mkdirSync as __mkd, writeFileSync as __wf } from "node:fs";
+import { tmpdir as __tmp } from "node:os";
+import { join as __join } from "node:path";
+
+function __projectsSyncFixture() {
+  const tpl = __mk(__join(__tmp(), "ps-tpl-"));
+  const tgt = __mk(__join(__tmp(), "ps-tgt-"));
+  __mkd(__join(tpl, ".github/workflows/project-types/common/projects-sync"), { recursive: true });
+  __wf(__join(tpl, ".github/workflows/project-types/common/projects-sync/PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml"), "name: x\n");
+  __mkd(__join(tgt, ".github/workflows"), { recursive: true });
+  __wf(__join(tgt, ".github/workflows/PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml"), "name: x\n");
+  return { tpl, tgt };
+}
+
+test("projects-sync: 끄면 남은 파일이 고아로 잡힌다, 켜면 잡히지 않는다 (#716)", () => {
+  const { tpl, tgt } = __projectsSyncFixture();
+  const off = __detectProjectsSyncOrphans({ tempDir: tpl, targetRoot: tgt, selectedTypes: [], options: { projectsSync: false } });
+  assert.ok(off.some((o) => o.filename === "PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml"));
+  const on = __detectProjectsSyncOrphans({ tempDir: tpl, targetRoot: tgt, selectedTypes: [], options: { projectsSync: true } });
+  assert.ok(!on.some((o) => o.filename === "PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml"));
+});

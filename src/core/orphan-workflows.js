@@ -30,12 +30,13 @@ function typeInventory(projectTypesDir, type) {
 // 축을 끈 사용자에게는 그게 곧 "껐는데 왜 도나"가 된다 — 여기서 고아로 잡는다.
 // deploy는 타겟별 폴더라 선택된 타겟만 살리고 나머지를 대상으로 삼는다.
 function commonOptionalOrphans(commonDir, opts) {
-  const { includeSecretBackup = false, aiPrSummary = true, deployTarget = "docker-ssh" } = opts;
+  const { includeSecretBackup = false, aiPrSummary = true, projectsSync = true, deployTarget = "docker-ssh" } = opts;
   const out = [];
 
   const gated = [
     ["secret-backup", includeSecretBackup, "secret-backup"],
     ["pr-summary", aiPrSummary, "pr-summary"],
+    ["projects-sync", projectsSync, "projects-sync"],
   ];
   for (const [dir, enabled, label] of gated) {
     if (enabled) continue;

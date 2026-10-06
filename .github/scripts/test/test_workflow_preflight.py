@@ -197,6 +197,8 @@ def test_react_cicd_preflight_reports_missing_and_passes_when_complete(tmp_path)
 
 
 # ── 정본(common/)과 루트 복사본 동일 ────────────────────────────
-@pytest.mark.parametrize("name", ["PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml", "PROJECT-COMMON-SYNC-ISSUE-LABELS.yaml"])
-def test_common_copy_identical(name):
-    assert (WF / name).read_text(encoding="utf-8") == (PT / "common" / name).read_text(encoding="utf-8")
+# Projects 동기화는 선택 설치라 common/projects-sync/ 폴더에 있다 (#716).
+@pytest.mark.parametrize("name,sub", [("PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml", "projects-sync"),
+                                      ("PROJECT-COMMON-SYNC-ISSUE-LABELS.yaml", "")])
+def test_common_copy_identical(name, sub):
+    assert (WF / name).read_text(encoding="utf-8") == (PT / "common" / sub / name).read_text(encoding="utf-8")
