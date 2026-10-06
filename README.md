@@ -155,7 +155,7 @@ flowchart TD
     K --> L["/pro-changelog-deploy<br/>Release PR + automerge"]
 ```
 
-> Full list of Skills and usage: **[docs/SKILLS.md](../SKILLS.md)** (Korean)
+> Full list of Skills and usage: **[docs/SKILLS.md](docs/SKILLS.md)** (Korean)
 
 ### GitHub Actions pipeline
 
@@ -192,14 +192,14 @@ codex plugin marketplace add Cassiiopeia/projectops
 
 The `--mode skills` wizard registers the Codex marketplace and also prepares the native skills fallback. Use `/plugins` only to check or manage the install.
 
-Where the Codex plugin marketplace is unavailable, use the fallback install described in the [Skills guide](../SKILLS.md).
+Where the Codex plugin marketplace is unavailable, use the fallback install described in the [Skills guide](docs/SKILLS.md).
 
 ```bash
 # Cursor / the full Agent Skills install menu (recommended: npx)
 npx projectops --mode skills
 ```
 
-> Claude Code prefers `/pro-` autocomplete, Gemini prefers its extension, and Codex prefers its plugin marketplace. See the [Skills guide](../SKILLS.md) for details.
+> Claude Code prefers `/pro-` autocomplete, Gemini prefers its extension, and Codex prefers its plugin marketplace. See the [Skills guide](docs/SKILLS.md) for details.
 
 </details>
 
@@ -234,7 +234,7 @@ Run automation by commenting on an issue or PR.
 | `@projectops ios build` | Build iOS only | Flutter |
 | `@projectops create qa` | Create a QA issue automatically | All projects |
 
-> Details: [PR Preview](../PR-PREVIEW.md) | [Flutter builds](../FLUTTER-TEST-BUILD-TRIGGER.md) | [Issue automation](../ISSUE-AUTOMATION.md)
+> Details: [PR Preview](docs/PR-PREVIEW.md) | [Flutter builds](docs/FLUTTER-TEST-BUILD-TRIGGER.md) | [Issue automation](docs/ISSUE-AUTOMATION.md)
 
 ---
 
@@ -290,8 +290,8 @@ Browse and search everything on the **[docs site](https://cassiiopeia.github.io/
 
 - [Issues](https://github.com/Cassiiopeia/projectops/issues): bug reports and feature requests
   - This repo does not close finished issues; it marks them with the `작업완료` (done) label. That is why the open-issue count looks high.
-- [CONTRIBUTING.md](../../CONTRIBUTING.md): contribution guide (Korean)
-- [SECURITY.md](../../SECURITY.md): please report security vulnerabilities privately, not in a public issue
+- [CONTRIBUTING.md](CONTRIBUTING.md): contribution guide
+- [SECURITY.md](SECURITY.md): please report security vulnerabilities privately, not in a public issue
 
 ---
 
