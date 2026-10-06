@@ -24,3 +24,7 @@ nul
 
 # CodeGraph 로컬 인덱스 (SQLite 지식 그래프)
 .codegraph/
+
+# Agent work records (issues, reports, plans, specs). Kept locally, not published (#770)
+docs/projectops/
+docs/superpowers/
