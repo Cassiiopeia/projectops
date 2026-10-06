@@ -15,6 +15,10 @@ export const DOCS_TO_REMOVE = [
   "pr_body.md",
 ];
 
+// ⚠️ `.github/i18n`(한국어 템플릿 오버레이, #769)은 여기에 넣지 않는다. 이 목록은 내려받은 템플릿 폴더에서
+// 항목을 지우는데, 오버레이는 language: ko 설치 때 그 폴더에서 읽어 와야 한다. 사용자 레포로는
+// copyIssueTemplates 가 ISSUE_TEMPLATE/PULL_REQUEST_TEMPLATE 만 골라 복사하므로 새지 않는다.
+// ("Use this template" 경로는 template_initializer.py 가 지운다.)
 export const PLUGIN_ITEMS_TO_REMOVE = [
   ".claude-plugin",
   ".codex-plugin",

@@ -1,49 +1,49 @@
 ---
-name: 🔍 시험일감
-about: 기능 개발/버그 수정 완료 후 시험 요청 템플릿
+name: 🔍 QA request
+about: Template to request testing after a feature or bug fix is done
 labels: ["status: todo"]
 assignees: [Cassiiopeia]
 ---
 
-<!--📚 GitHub 이슈 작성 템플릿 -->
-<!-- 필요한 제목을 복사 붙여넣기하여 사용해주세요!
-🔍 [시험요청][카테고리] 무슨 부분 시험
-🔥 [긴급]
-⌛ [~월/일]
+<!--📚 GitHub issue template -->
+<!-- Copy and paste the title you need!
+🔍 [QA][Category] Which part to test
+🔥 [Urgent]
+⌛ [~month/day]
 -->
 
-🔗 ISSUE 정보
+🔗 Issue info
 ---
-<!-- 관련된 기능 개발, 버그 이슈 번호, PR에 대한 작성해주세요. -->
-<!-- "- #123, "- https://...ISSUE_URL" 형식으로 작성하여야 이쁘게 보입니다-->
+<!-- Write the related feature or bug issue numbers and PRs. -->
+<!-- Use the "- #123, "- https://...ISSUE_URL" format so it renders nicely-->
 
-🔗 PR 정보
+🔗 PR info
 ---
-<!-- PR에 대한 번호나 URL을 작성해주세요. -->
-<!-- "- #123", "- https://...PR_URL" 형식으로 작성하여야 이쁘게 보입니다-->
+<!-- Write the PR number or URL. -->
+<!-- Use the "- #123", "- https://...PR_URL" format so it renders nicely-->
 
-🧩 시험 대상
----
-
-- 어떤 기능 또는 버그 수정 사항을 테스트하는지 작성해주세요.
-
-📋 테스트 시나리오
+🧩 What to test
 ---
 
-<!-- 주요 테스트 케이스를 간단히 작성해주세요 -->
+- Describe which feature or bug fix is being tested.
+
+📋 Test scenarios
+---
+
+<!-- Briefly list the main test cases -->
 
 1.
 2.
 3.
 
-⚙️ 테스트 환경
+⚙️ Test environment
 ---
-- **프로젝트 Version**:
+- **Project version**:
 - **OS**:
-- **브라우저**:
-- **기기**:
+- **Browser**:
+- **Device**:
 
-🙋‍♂️ 담당자
+🙋‍♂️ Assignees
 ---
 
-- **시험담당**: 이름
+- **Tester**: name

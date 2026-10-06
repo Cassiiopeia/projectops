@@ -1,55 +1,55 @@
 ---
-name: ❗ 버그 이슈
-about: 버그 이슈 보고 작성
+name: ❗ Bug report
+about: Report a bug
 labels: ["status: todo"]
 assignees: [Cassiiopeia]
 ---
 
-<!--📚 GitHub 이슈 작성 템플릿 -->
-<!-- 필요한 제목을 복사 붙여넣기하여 사용해주세요!
-❗ [버그][카테고리] 무슨 버그 수정 필요
-🔥 [긴급]
-⌛ [~월/일]
+<!--📚 GitHub issue template -->
+<!-- Copy and paste the title you need!
+❗ [Bug][Category] What needs fixing
+🔥 [Urgent]
+⌛ [~month/day]
 -->
 
-🗒️ 설명
+🗒️ Description
 ---
-<!-- 버그에 대한 간단하고 명확한 설명 -->
+<!-- A short, clear description of the bug -->
 
-- 어떤 부분에서 버그가 발생했는지, 어떤 현상이 나타나는지 작성해주세요.
+- Describe where the bug happens and what you see.
 
-🔄 재현 방법
+🔄 How to reproduce
 ---
-<!-- 버그를 재현하는 단계에 대한 자세한 설명 -->
+<!-- Detailed steps to reproduce the bug -->
 
-1. 문제 발생 위치로 이동 (예: 특정 페이지 또는 기능)
-2. 특정 동작 수행 (예: 버튼 클릭, 데이터 입력 등)
-3. 버그가 발생한 결과 확인
+1. Go to where the problem happens (for example a page or a feature)
+2. Do something specific (for example click a button or enter data)
+3. Check the result where the bug appears
 
-📸 참고 자료
+📸 References
 ---
-<!-- 스크린샷(버그이미지, 코드이미지), 에러로그 -->
+<!-- Screenshots (of the bug or the code), error logs -->
 
-✅ 예상 동작
+✅ Expected behavior
 ---
-<!-- 정상적으로 동작해야 하는 모습을 설명 -->
+<!-- Describe how it should work when it is correct -->
 
-- 예: 버튼을 클릭하면 새로운 페이지로 이동해야 함
-- 예: 입력한 데이터가 저장되고 정상적으로 화면에 표시되어야 함
+- Example: clicking the button should open the new page
+- Example: the entered data should be saved and shown on the screen
 
-⚙️ 환경 정보
+⚙️ Environment
 ---
 <!-- Windows 10, macOS 12 -->
 <!-- Chrome 109, Safari 16 -->
-<!-- 갤럭시 S24, 아이폰 15 -->
+<!-- Galaxy S24, iPhone 15 -->
 
 - **OS**:
-- **브라우저**:
-- **기기**:
+- **Browser**:
+- **Device**:
 
-🙋‍♂️ 담당자
+🙋‍♂️ Assignees
 ---
 
-- **백엔드**: 이름
-- **프론트엔드**: 이름
-- **디자인**: 이름
+- **Backend**: name
+- **Frontend**: name
+- **Design**: name

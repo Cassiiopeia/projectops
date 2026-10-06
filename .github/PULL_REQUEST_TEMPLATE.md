@@ -1,10 +1,10 @@
-## ✨ 변경 사항
+## ✨ Changes
 --- 
-<!-- 핵심적으로 변경된 사항들을 간략하게 서술해주세요. -> 예시: S3 업로드 기능 추가 -->
+<!-- Briefly describe the main changes. Example: add S3 upload -->
 
 
-## ✅ 테스트
+## ✅ Testing
 ---
 
-- [ ] 수동 테스트 완료
-- [ ] 테스트 코드 완료
+- [ ] Tested manually
+- [ ] Added or updated tests
