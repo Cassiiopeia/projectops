@@ -12,6 +12,10 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
+# issue_helper.py 는 자기 폴더의 i18n 패키지를 import 한다. 스크립트로 실행할 때는 그 폴더가
+# 자동으로 경로에 들어가지만, 파일 경로로 로드하면 들어가지 않는다. 다른 테스트 폴더와 함께
+# 돌릴 때만 우연히 통과하고 CI 의 단독 실행(scripts/tests/)에서 깨졌다.
+sys.path.insert(0, str(ROOT / ".github" / "scripts"))
 
 from common import gh_branch  # noqa: E402
 
