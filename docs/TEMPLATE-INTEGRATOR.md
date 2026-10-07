@@ -1,7 +1,7 @@
 # Template Integrator — ⚠️ 지원 종료 (EOF)
 
-> **`template_integrator.sh` / `.ps1`은 v4.3.0에서 지원이 종료되었습니다 (#458).**
-> 두 스크립트는 `npx projectops` 안내만 출력하는 shim으로 교체되었고, 다음 minor 버전에서 파일 자체가 제거됩니다.
+> **`template_integrator.sh` / `.ps1`은 v4.3.0에서 지원이 종료되었고 (#458), 안내용 shim도 저장소에서 제거되었습니다 (#800).**
+> 예전 `curl .../template_integrator.sh | bash` 명령은 이제 404를 받습니다. 아래 `npx projectops`를 쓰세요.
 
 ## 대체 경로 — npx projectops
 

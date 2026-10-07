@@ -10,7 +10,7 @@
 |------|------|
 | [NPX 마법사 가이드](NPX-WIZARD.md) | `npx projectops`로 기존 프로젝트에 템플릿 통합·업데이트. 프로젝트 성격(intent), 배포/publish 2축, 레거시 자동 마이그레이션 |
 | [Agent Skills 가이드](SKILLS.md) | Claude Code / Cursor / Gemini CLI / Codex CLI에서 쓰는 20종 Skill |
-| [통합 스크립트 가이드](TEMPLATE-INTEGRATOR.md) | 구 `template_integrator.sh`/`.ps1` 지원 종료(EOF) 안내 |
+| [통합 스크립트 가이드](TEMPLATE-INTEGRATOR.md) | 구 `template_integrator.sh`/`.ps1` 지원 종료 및 제거 안내 |
 
 ---
 

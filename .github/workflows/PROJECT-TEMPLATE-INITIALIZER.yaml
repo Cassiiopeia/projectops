@@ -188,7 +188,6 @@ jobs:
           자동으로 수행된 초기화 작업:
           - version.yml → 0.0.0, basic 타입으로 초기화
           - CHANGELOG.md, CHANGELOG.json → 삭제
-          - template_integrator.sh, template_integrator.ps1 → 삭제 (원격 실행 전용 스크립트)
           - LICENSE, CONTRIBUTING.md → 삭제
           - 테스트 폴더들 (.github/scripts/test, .github/workflows/test) → 삭제
           - README.md → 기본 템플릿으로 초기화  

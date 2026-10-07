@@ -122,9 +122,7 @@ projectops/
 ├── .cursor/skills/
 ├── docs/                        # 상세 문서
 ├── version.yml
-├── CHANGELOG.md / CHANGELOG.json
-├── template_integrator.sh   # EOF shim (#458 — npx 안내만)
-└── template_integrator.ps1  # EOF shim (#458 — npx 안내만)
+└── CHANGELOG.md / CHANGELOG.json
 ```
 
 ---
@@ -622,15 +620,14 @@ python3 .github/scripts/changelog_manager.py classify-bump --commits-file commit
 구 MODULE 워크플로우의 커스텀 설정은 마이그레이션이 자동 이관한다 (`rules/settings-extractors.js`).
 테스트: `python3 -m pytest .github/scripts/test/test_issue_helper.py`
 
-### template_integrator.sh / .ps1 — ⚠️ 지원 종료 (EOF, #458)
-**두 스크립트는 v4.3.0에서 안내용 shim으로 교체되었다.** 실행하면 `npx projectops` 안내만 출력하고 종료한다(파일 직접 실행 시 exit 1). 다음 minor에서 파일 자체를 제거할 예정.
+### template_integrator.sh / .ps1 — 제거됨 (EOF #458 → 삭제 #800)
+**두 스크립트는 v4.3.0에서 안내용 shim으로 바뀌었고, #800에서 파일 자체를 지웠다.** 옛 `curl .../template_integrator.sh | bash`는 이제 404다. `src/` 주석의 `template_integrator.sh 줄번호` 표기는 포팅 원본을 가리키는 이력이라 그대로 둔다.
 통합/업데이트/스킬 설치는 전부 **`npx projectops`** 한 경로다. 배포/publish 축·secret 백업 등 모든 옵션은 npx 마법사가 질문하며, 선택 값은 `version.yml`의 `metadata.template.options.*`에 동일하게 저장된다.
 
 **초기화/통합 시 복사되지 않는 템플릿 전용 파일**:
 ```
 CLAUDE.md, CONTRIBUTING.md, LICENSE
 CHANGELOG.md, CHANGELOG.json
-template_integrator.sh / .ps1
 docs/, .github/scripts/test/, .github/workflows/test/
 .claude-plugin/, .codex-plugin/, .agents/, .cursor/, skills/, scripts/
 package.json, harness/         # pi 패키지 매니페스트 + Persona Harness
@@ -647,7 +644,7 @@ package.json, harness/         # pi 패키지 매니페스트 + Persona Harness
 
 | # | 파일 | 수정할 위치 | 동작 |
 |---|------|------------|------|
-| 1 | `.github/scripts/template_initializer.py` | 삭제 목록 튜플 배열 (`template_integrator.sh` 항목 근처) | `("파일명", "설명")` 항목 추가 (**삭제**) |
+| 1 | `.github/scripts/template_initializer.py` | 삭제 목록 `CLEANUP_TARGETS` (`CHANGELOG.json` 항목 근처) | `("파일명", "설명")` 항목 추가 (**삭제**) |
 | 2 | `src/core/exclusions.js` | `DOCS_TO_REMOVE` 등 제외 배열 | 파일/폴더명 추가 (**복사 제외**) |
 | 3 | `.github/workflows/PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC.yaml` | 버전 동기화 step + `git add` | 버전 필드가 있는 매니페스트(`package.json` 등)면 동기화 step 추가 |
 

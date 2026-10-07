@@ -104,4 +104,4 @@ GITHUB_TOKEN=ghp_... npx projectops --mode doctor
 - **실행 기록이 남습니다.** `.github/.projectops/logs/`에 로그와 이벤트, 마이그레이션 가이드가 쌓이고 이 폴더는 git 추적에서 자동으로 제외됩니다. 문제가 생기면 AI 에이전트에게 "실행 로그 확인해줘"라고 요청하면 됩니다.
 - 이름이 바뀐 옛 워크플로우는 자동으로 정리됩니다. 자세한 정책은 [NPX 마법사 가이드](/NPX-WIZARD)의 마이그레이션 절을 보세요.
 
-> 구 `template_integrator.sh` / `.ps1`은 지원이 종료됐습니다. 실행해도 `npx projectops` 안내만 출력합니다. ([상세](/TEMPLATE-INTEGRATOR))
+> 구 `template_integrator.sh` / `.ps1`은 지원이 종료되어 저장소에서 제거됐습니다. `npx projectops`를 쓰세요. ([상세](/TEMPLATE-INTEGRATOR))

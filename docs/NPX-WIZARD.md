@@ -1,6 +1,6 @@
 # NPX 마법사 가이드 (npx projectops)
 
-기존 프로젝트에 템플릿을 통합·업데이트하는 유일한 공식 경로입니다. 구 `template_integrator.sh`/`.ps1`은 v4.3.0에서 지원 종료(EOF)되었습니다 ([상세](TEMPLATE-INTEGRATOR.md)).
+기존 프로젝트에 템플릿을 통합·업데이트하는 유일한 공식 경로입니다. 구 `template_integrator.sh`/`.ps1`은 v4.3.0에서 지원 종료(EOF)되었고 파일도 제거되었습니다 ([상세](TEMPLATE-INTEGRATOR.md)).
 
 - **요구사항**: Node.js 20.12 이상
 - macOS / Linux / Windows 공통 단일 경로

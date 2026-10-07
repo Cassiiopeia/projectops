@@ -36,8 +36,6 @@ This repository also initializes other projects. Be careful when editing:
 
 - `.github/scripts/template_initializer.sh`
 - `.github/workflows/`
-- `template_integrator.sh`
-- `template_integrator.ps1`
 - `skills/`
 
 Keep agent package files in this repository, but make sure generated projects do

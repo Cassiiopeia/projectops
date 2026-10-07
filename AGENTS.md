@@ -67,6 +67,6 @@ belong here, but should be removed from generated projects by the initializer:
 - `.cursor/`
 - `skills/`
 
-Be especially careful when editing `.github/scripts/template_initializer.sh`,
-`.github/workflows/`, `template_integrator.sh`, and `template_integrator.ps1`.
+Be especially careful when editing `.github/scripts/template_initializer.py` and
+`.github/workflows/`.
 Do not push unless the user explicitly asks for it.

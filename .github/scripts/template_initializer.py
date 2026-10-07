@@ -193,8 +193,6 @@ def update_workflow_triggers(branch):
 CLEANUP_TARGETS = [
     ("CHANGELOG.md", "CHANGELOG.md 삭제"),
     ("CHANGELOG.json", "CHANGELOG.json 삭제"),
-    ("template_integrator.sh", "template_integrator.sh 삭제 (원격 실행 전용)"),
-    ("template_integrator.ps1", "template_integrator.ps1 삭제 (원격 실행 전용)"),
     ("LICENSE", "LICENSE 삭제"),
     ("CONTRIBUTING.md", "CONTRIBUTING.md 삭제"),
     ("SECURITY.md", "SECURITY.md 삭제"),
