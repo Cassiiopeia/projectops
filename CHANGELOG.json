@@ -1,14 +1,50 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-06T22:54:44Z",
-    "currentVersion": "4.36.2",
+    "lastUpdated": "2026-10-07T16:04:22Z",
+    "currentVersion": "4.36.3",
     "projectType": "basic",
-    "totalReleases": 292,
+    "totalReleases": 293,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.36.3",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-07",
+      "pr_number": 802,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 오픈소스 점검이 태그 수를 0으로 잘못 보고하던 문제 해결\n  * 개발 브랜치 자동 검사가 매번 실패하던 문제 해결\n\n* **문서**\n  * 개인 액세스 토큰이 선택 사항임을 정확히 안내\n  * 토큰이 필요한 기능과 권한을 표로 정리\n  * 릴리스 주기와 버전 고정 방법을 실제에 맞게 안내\n  * 다른 릴리스 도구와 비교하는 절과 설치 규모 실측 추가\n  * 포크에서 기여하는 방법 안내 추가\n\n* **기타**\n  * 지원이 끝난 옛 통합 스크립트 파일 제거",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "오픈소스 점검이 태그 수를 0으로 잘못 보고하던 문제 해결",
+            "개발 브랜치 자동 검사가 매번 실패하던 문제 해결"
+          ]
+        },
+        "문서": {
+          "title": "문서",
+          "items": [
+            "개인 액세스 토큰이 선택 사항임을 정확히 안내",
+            "토큰이 필요한 기능과 권한을 표로 정리",
+            "릴리스 주기와 버전 고정 방법을 실제에 맞게 안내",
+            "다른 릴리스 도구와 비교하는 절과 설치 규모 실측 추가",
+            "포크에서 기여하는 방법 안내 추가"
+          ]
+        },
+        "기타": {
+          "title": "기타",
+          "items": [
+            "지원이 끝난 옛 통합 스크립트 파일 제거"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.36.2",
       "project_type": "basic",
