@@ -15,12 +15,21 @@ Node.js 20.12 이상이 필요합니다. 비대화형 실행 예: `npx projectop
 
 ## 최소 설정
 
-워크플로우가 동작하려면 저장소에 Secret 하나가 필요합니다.
+워크플로우는 기본 제공 `GITHUB_TOKEN`으로 동작합니다. **개인 액세스 토큰(PAT)은 선택입니다.** 아래 기능이 필요할 때만 저장소 Secret `_GITHUB_PAT_TOKEN`으로 등록합니다.
+
+| 필요한 기능 | 기본 토큰으로 안 되는 이유 | Classic 토큰 권한 |
+|---|---|---|
+| 브랜치 보호 규칙이 Actions 봇을 막아도 릴리스 PR이 머지되게 | 릴리스 워크플로우가 `--admin`으로 다시 머지하며, 관리자 토큰이 필요하다 | `repo`, `workflow` |
+| 이슈 라벨을 GitHub Projects 보드와 동기화 | `GITHUB_TOKEN`은 Projects API를 쓸 수 없다 | `repo`, `project` |
+| 비공개 저장소에서 이슈 헬퍼 댓글로 다른 워크플로우를 이어 실행 | `GITHUB_TOKEN`이 만든 이벤트는 다른 워크플로우를 깨우지 않는다 | `repo` |
+
+토큰이 없어도 릴리스 머지 뒤에 돌아야 할 워크플로우는 명시적 dispatch로 실행되므로, 그 용도로는 토큰이 필요 없습니다.
+
+Fine-grained 토큰이라면 **Contents**, **Pull requests**, **Issues**, **Workflows**를 *Read and write*로 주면 첫 번째 기능에 충분할 것으로 봅니다. 다만 아직 끝까지 검증하지 않았고, Projects 동기화는 Classic 토큰으로만 확인했습니다. 실패하면 이슈로 알려 주세요.
 
 ```
 Repository Settings → Secrets → Actions → New repository secret
 Name: _GITHUB_PAT_TOKEN
-Value: Personal Access Token (repo, workflow 권한)
 ```
 
 Organization 저장소라면 다음도 확인합니다.

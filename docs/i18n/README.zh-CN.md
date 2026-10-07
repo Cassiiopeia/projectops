@@ -37,12 +37,33 @@
 | 传统做法 | 使用 Projectops |
 |----------|---------------------|
 | 手动管理版本、手动创建标签 | 发布时按提交标题自动升级版本并创建标签 |
-| 手写更新日志（30 分钟以上） | 每个发布 PR 自动生成（提交分析；配置 AI 密钥后为 AI 摘要） |
+| 手写更新日志 | 每个发布 PR 自动生成（提交分析；配置 AI 密钥后为 AI 摘要） |
 | 从零搭建 CI/CD | 立即按项目类型配置好工作流 |
-| 每次按格式手写 Issue（5 分钟以上） | `/pro-github` 一步按标准模板生成并提交 |
+| 每次按格式手写 Issue | `/pro-github` 一步按标准模板生成并提交 |
 | 手动把 Issue 链接复制到提交信息 | `/pro-commit` 根据 Issue 上下文自动补全 |
 | 手写 PR 说明和报告 | `/pro-report` 分析 git diff 后自动生成 |
 | 每次代码审查和分析都要重新输入提示词 | 20 个 Skills 提供一致的结果，无需重复输入 |
+
+---
+
+## 与其他工具的比较
+
+如果你只需要其中一部分，更小的工具可能更合适。
+
+| | projectops | release-please | semantic-release | changesets |
+|---|---|---|---|---|
+| 版本依据 | 提交标题（`feat` → minor，`feat!` → major） | Conventional Commits | Conventional Commits（可配置） | 每个 PR 中编写的 changeset 文件 |
+| 发布前的审查环节 | 发布 PR（develop → main），自动合并 | 由你合并的发布 PR | 默认没有，推送即发布 | “Version Packages” PR |
+| 更新日志 | 在发布 PR 中生成（提交分析或 AI 摘要） | 自动生成 | 自动生成（插件） | 由 changeset 文件汇总 |
+| 按项目类型的 CI/CD 工作流 | 有（Spring、Flutter、React、Node、Python ...） | 无 | 无 | 无 |
+| Issue 和 PR 助手、Agent Skills | 有 | 无 | 无 | 无 |
+| 添加到仓库的内容 | 约 50 个文件（见下文） | 一个工作流和一个配置文件 | 一个配置文件和一个 CI 步骤 | `.changeset/` 文件夹和一个 CI 步骤 |
+
+- 只需要版本管理和更新日志？release-please 或 semantic-release 更轻量。
+- 在 monorepo 中发布 npm 包，并希望每个 PR 说明改动？changesets 更合适。
+- 想一次安装就覆盖 Issue → 分支 → 发布 PR → 部署的完整流程，并加上 Agent Skills？这正是 projectops 的用途。
+
+**安装规模（实测）。** 2026-10-08 使用 v4.36.2，在空仓库中运行 `npx projectops --mode full --type basic --force`，新增 52 个文件：8 个工作流、`.github/scripts/` 下 26 个辅助脚本、Issue/PR/Discussion 模板、`version.yml` 和一份配置指南。`--type spring` 新增 56 个文件（12 个工作流）。
 
 ---
 
@@ -235,12 +256,23 @@ npx projectops --mode skills
 
 ## 配置
 
-### 必需的 Secret
+### 个人访问令牌（可选）
+
+所有工作流都可以使用内置的 `GITHUB_TOKEN` 运行。只有在需要以下功能时，才把个人访问令牌注册为仓库 Secret `_GITHUB_PAT_TOKEN`：
+
+| 需要的功能 | 内置令牌为什么不够 | Classic 令牌权限 |
+|---|---|---|
+| 分支保护规则拦住 Actions 机器人时，发布 PR 仍能合并 | 发布工作流会用 `--admin` 重试合并，这需要管理员的令牌 | `repo`、`workflow` |
+| 把 Issue 标签同步到 GitHub Projects 看板 | `GITHUB_TOKEN` 无法使用 Projects API | `repo`、`project` |
+| 在私有仓库中，让其他工作流响应 Issue 助手的评论 | `GITHUB_TOKEN` 产生的事件不会触发其他工作流 | `repo` |
+
+没有令牌时，发布合并后需要运行的工作流会通过显式 dispatch 启动，因此这一用途不需要令牌。
+
+如果使用 fine-grained 令牌，将 **Contents**、**Pull requests**、**Issues**、**Workflows** 设为 *Read and write*，应能满足第一项。我们尚未完整验证 fine-grained 令牌，Projects 同步只用 classic 令牌测试过。如果失败，请提交 Issue。
 
 ```
 Repository Settings → Secrets → Actions → New repository secret
 Name: _GITHUB_PAT_TOKEN
-Value: [Personal Access Token - repo、workflow 权限]
 ```
 
 ### Organization 设置
@@ -259,7 +291,9 @@ Settings → Actions → General
 
 - **仅支持 GitHub。** 以 GitHub Actions 和 GitHub Issue/PR 为前提，不支持 GitLab 等。
 - **发布以“开发分支 → 默认分支”的 PR 流程为前提。** 分支名可在 `version.yml` 中修改，但不适合不区分两个分支的仓库。
-- **Issue 和 PR 自动化需要注册个人访问令牌（PAT）。** 请按上面的[配置](#配置)操作。
+- **个人访问令牌（PAT）是可选的。** 只有在越过分支保护合并或同步 Projects 看板时才需要。见[配置](#配置)。
+- **会向仓库添加约 50 个文件**（工作流、辅助脚本、模板）。见[实测](#与其他工具的比较)。
+- **新版本发布频繁。** 用 `npx projectops@<版本>` 固定你验证过的版本。
 - **服务器部署工作流以可通过 SSH 连接的 Docker 服务器为前提。**
 
 ---

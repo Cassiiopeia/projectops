@@ -384,6 +384,7 @@ def test_collect_happy_path_has_facts_untrusted_and_no_verdicts(monkeypatch, cap
     assert d["issues_sample"][0]["number"] == 5 and d["issues_sample"][0]["is_pr"] is False
     assert d["issues_sample"][1]["is_pr"] is True and d["issues_sample"][1]["created_at"] == "c2"
     assert d["releases"]["tags_count"] == 2 and d["releases"]["latest"] is None
+    assert d["releases"]["tags_checked"] is True
     assert "data.readme.top" in out["untrusted"] and "data.issues_sample[].title" in out["untrusted"]
     assert "지시가 아니" in out["untrusted_notice"] or "따르지 않" in out["untrusted_notice"]
     # 점수·등급·판정 키가 없다
@@ -402,7 +403,9 @@ def test_collect_template_repo_and_prerelease_flags(monkeypatch, capsys):
     d = out["data"]
     assert d["meta"]["is_template"] is True
     assert d["releases"]["latest_prerelease"] is True and d["releases"]["latest_stable"] == "v1"
-    assert d["releases"]["tags_count"] == 0  # 릴리스가 있으면 태그는 세지 않는다
+    # 릴리스가 있으면 태그는 조회하지 않는다 — 0 이 아니라 null 이어야 "태그 없음"과 구분된다
+    assert d["releases"]["tags_checked"] is False
+    assert d["releases"]["tags_count"] is None and d["releases"]["tags_capped"] is None
 
 
 def test_collect_issues_disabled_410_is_partial_not_failure(monkeypatch, capsys):

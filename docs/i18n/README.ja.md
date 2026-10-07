@@ -37,12 +37,33 @@
 | 従来の方法 | Projectops |
 |----------|---------------------|
 | バージョンを手動で管理し、タグも手作業で作成 | リリース時にコミットタイトルに応じてバージョンを自動で上げ、タグを作成 |
-| 変更履歴を手書き（30 分以上） | リリース PR ごとに自動生成（コミット分析。AI キーがあれば AI 要約） |
+| 変更履歴を手書き | リリース PR ごとに自動生成（コミット分析。AI キーがあれば AI 要約） |
 | CI/CD を一から設定 | プロジェクトタイプ別のワークフローをすぐに構成 |
-| Issue を毎回書式に合わせて作成（5 分以上） | `/pro-github` が標準テンプレートで作成から登録まで一度で実行 |
+| Issue を毎回書式に合わせて作成 | `/pro-github` が標準テンプレートで作成から登録まで一度で実行 |
 | コミットメッセージに Issue の URL を手作業でコピー | `/pro-commit` が Issue の文脈から自動で補完 |
 | PR の説明やレポートを手書き | `/pro-report` が git diff を分析して自動生成 |
 | コードレビューや分析のたびにプロンプトを入力 | 20 種の Skills で一貫した結果。毎回の再入力は不要 |
+
+---
+
+## 他のツールとの比較
+
+この中の一部だけが必要なら、もっと小さなツールのほうが合うかもしれません。
+
+| | projectops | release-please | semantic-release | changesets |
+|---|---|---|---|---|
+| バージョンの決め方 | コミットタイトル（`feat` → minor、`feat!` → major） | Conventional Commits | Conventional Commits（設定可能） | PR ごとに書く changeset ファイル |
+| リリース前の確認段階 | リリース PR（develop → main）、自動マージ | 自分でマージするリリース PR | 既定ではなし、push で即リリース | 「Version Packages」PR |
+| 変更履歴 | リリース PR で作成（コミット分析または AI 要約） | 自動生成 | 自動生成（プラグイン） | changeset ファイルから組み立て |
+| プロジェクトタイプ別の CI/CD ワークフロー | あり（Spring、Flutter、React、Node、Python ...） | なし | なし | なし |
+| Issue・PR の補助、Agent Skills | あり | なし | なし | なし |
+| リポジトリに追加されるもの | 約 50 ファイル（下記） | ワークフロー 1 つと設定ファイル | 設定ファイルと CI ステップ | `.changeset/` フォルダーと CI ステップ |
+
+- バージョンと変更履歴だけが必要なら、release-please か semantic-release のほうが軽量です。
+- モノレポから npm パッケージを公開し、PR ごとに変更内容を書かせたいなら changesets が合います。
+- Issue → ブランチ → リリース PR → デプロイまでを一度に導入し、その上で Agent Skills も使いたいなら projectops です。
+
+**導入規模（実測）。** 2026-10-08 に v4.36.2 で、空のリポジトリに `npx projectops --mode full --type basic --force` を実行すると 52 ファイルが追加されました：ワークフロー 8 個、`.github/scripts/` 配下の補助スクリプト 26 個、Issue・PR・Discussion テンプレート、`version.yml`、設定ガイド。`--type spring` では 56 ファイル（ワークフロー 12 個）でした。
 
 ---
 
@@ -235,12 +256,23 @@ Issue や PR へのコメントで自動化を実行します。
 
 ## 設定
 
-### 必須の Secret
+### 個人アクセストークン（任意）
+
+すべてのワークフローは組み込みの `GITHUB_TOKEN` で動きます。次の機能が必要なときだけ、個人アクセストークンをリポジトリの Secret `_GITHUB_PAT_TOKEN` として登録してください。
+
+| 必要な機能 | 組み込みトークンでは足りない理由 | Classic トークンの権限 |
+|---|---|---|
+| ブランチ保護ルールが Actions ボットを止めても、リリース PR をマージしたい | リリースワークフローが `--admin` でマージを再試行し、管理者のトークンが必要になる | `repo`、`workflow` |
+| Issue のラベルを GitHub Projects ボードと同期したい | `GITHUB_TOKEN` は Projects API を使えない | `repo`、`project` |
+| 非公開リポジトリで、Issue ヘルパーのコメントに他のワークフローを反応させたい | `GITHUB_TOKEN` が作ったイベントは他のワークフローを起動しない | `repo` |
+
+トークンがなくても、リリースのマージ後に動くべきワークフローは明示的な dispatch で起動するので、その用途にはトークンは不要です。
+
+fine-grained トークンなら **Contents**、**Pull requests**、**Issues**、**Workflows** を *Read and write* にすれば 1 つ目の機能には足りるはずです。fine-grained トークンはまだ最後まで検証しておらず、Projects 同期は classic トークンでしか確認していません。失敗したら Issue で知らせてください。
 
 ```
 Repository Settings → Secrets → Actions → New repository secret
 Name: _GITHUB_PAT_TOKEN
-Value: [Personal Access Token - repo、workflow 権限]
 ```
 
 ### Organization の設定
@@ -259,7 +291,9 @@ Settings → Actions → General
 
 - **GitHub 専用です。** GitHub Actions と GitHub の Issue・PR を前提にしているため、GitLab などには対応していません。
 - **リリースは「開発ブランチ → デフォルトブランチ」の PR 構成を前提にしています。** ブランチ名は `version.yml` で変更できますが、2 つのブランチを分けて使わないリポジトリには合いません。
-- **Issue・PR の自動化には、個人アクセストークン（PAT）の登録が必要です。** 上の[設定](#設定)に従ってください。
+- **個人アクセストークン（PAT）は任意です。** ブランチ保護を越えてマージするときと、Projects ボードを同期するときだけ必要です。[設定](#設定)を見てください。
+- **リポジトリに約 50 ファイルが追加されます**（ワークフロー、補助スクリプト、テンプレート）。[実測](#他のツールとの比較)を見てください。
+- **新しいバージョンが頻繁に出ます。** 検証したバージョンは `npx projectops@<バージョン>` で固定してください。
 - **サーバーデプロイのワークフローは、SSH で接続できる Docker サーバーを前提にしています。**
 
 ---

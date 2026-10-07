@@ -40,7 +40,18 @@ python3 .github/util/flutter/_shared/check-consistency.py   # Flutter 마법사�
 CI는 Linux, macOS, Windows에서 같은 명령을 돌립니다. 설치기는 macOS(bash 3.2, BSD 도구)와 Windows에서도 동작해야 하므로
 `.sh` 파일에 Linux 전용 문법을 쓰지 마세요.
 
-## 브랜치와 커밋
+## 포크에서 기여한다면
+
+다음 절의 브랜치 이름과 커밋 형식은 지키지 않아도 됩니다. 이 규칙은 메인테이너의 자동화(이슈 헬퍼, 버전 승격)를 위한
+것이지 여러분의 PR을 위한 것이 아닙니다.
+
+- 브랜치 이름은 자유입니다.
+- 커밋 메시지는 [Conventional Commits](https://www.conventionalcommits.org/ko/) 형식으로 써 주세요 (`fix: 빈 version.yml 처리`).
+- PR 제목도 같은 타입으로 시작해 주세요 (`fix:`, `feat:`, `docs:`). 메인테이너가 squash로 머지하면서 제목을 이 프로젝트
+  형식으로 바꿉니다. 이 제목이 다음 버전을 정하므로, `feat!:`는 기존 사용자의 설정이나 CLI 인자가 더 이상 동작하지 않을 때만 씁니다.
+
+## 브랜치와 커밋 (메인테이너)
+
 
 - 브랜치 이름은 `YYYYMMDD_#<이슈번호>_<짧은 제목>`입니다. 이슈 헬퍼 봇이 이슈에 정확한 이름을 댓글로 알려 줍니다.
 - `develop`에 완료된 작업이 모이고, `main`은 릴리스 PR로만 갱신됩니다. PR은 `develop`으로 열어 주세요.
@@ -50,7 +61,7 @@ CI는 Linux, macOS, Windows에서 같은 명령을 돌립니다. 설치기는 ma
 
 ## 릴리스
 
-- 릴리스는 묶어서 냅니다. 릴리스 PR(`develop` → `main`)은 하루 한 번까지만 만들고, 사용자가 기다리는 수정이 있을 때만 추가로 냅니다.
+- 릴리스는 `develop`에 완료된 작업이 모이는 대로 나갑니다. 하루에 여러 번 나가는 날도 많습니다. 업데이트를 덜 받고 싶은 사용자를 위한 안정 채널은 [#796](https://github.com/Cassiiopeia/projectops/issues/796)에서 다룹니다.
 - 릴리스 PR의 제목은 `🚀 Deploy <날짜>-v<버전>`입니다. PR 목록에서 숨기려면 `is:pr -head:develop`로 거르세요.
 - 이 프로젝트는 활발히 유지보수됩니다. PR은 `.github/CODEOWNERS`에 적힌 코드 오너가 리뷰합니다.
 

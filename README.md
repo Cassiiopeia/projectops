@@ -6,7 +6,7 @@
 
 [![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/)
 
-**Status: actively maintained.** Releases are batched about once a day; see [CONTRIBUTING](CONTRIBUTING.md#releases).
+**Status: actively maintained.** New versions ship often, sometimes several a day. To stay on a version you have tested, run `npx projectops@<version>` ([releases](https://github.com/Cassiiopeia/projectops/releases)).
 
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
 ## Latest version : v4.36.1 (2026-10-06)
@@ -44,12 +44,33 @@ This project automates your development workflow on two axes.
 | The usual way | With Projectops |
 |----------|---------------------|
 | Bump versions and create tags by hand | At release time the version is bumped from your commit titles and a tag is created |
-| Write the changelog yourself (30+ min) | Generated for every release PR (commit analysis, or an AI summary if you add an AI key) |
+| Write the changelog yourself | Generated for every release PR (commit analysis, or an AI summary if you add an AI key) |
 | Set up CI/CD from scratch | Workflows for your project type, ready immediately |
-| Format every issue by hand (5+ min) | `/pro-github` writes and files an issue from the standard template in one step |
+| Format every issue by hand | `/pro-github` writes and files an issue from the standard template in one step |
 | Copy the issue URL into commit messages | `/pro-commit` completes the message from the issue context |
 | Write PR descriptions and reports by hand | `/pro-report` analyzes the git diff and generates one |
 | Re-type prompts for every code review or analysis | 20 Skills give consistent results without re-typing |
+
+---
+
+## Compared with other tools
+
+If you only need one piece of this, a smaller tool may suit you better.
+
+| | projectops | release-please | semantic-release | changesets |
+|---|---|---|---|---|
+| Version decided from | Commit titles (`feat` → minor, `feat!` → major) | Conventional Commits | Conventional Commits (configurable) | Changeset files written in each PR |
+| Review step before a release | A release PR (develop → main), merged automatically | A release PR you merge | None by default, releases on push | A "Version Packages" PR |
+| Changelog | Written in the release PR (commit analysis, or an AI summary) | Generated | Generated (plugin) | Assembled from changeset files |
+| CI/CD workflows for your project type | Yes (Spring, Flutter, React, Node, Python ...) | No | No | No |
+| Issue and PR helpers, Agent Skills | Yes | No | No | No |
+| What it adds to your repo | About 50 files (below) | A workflow and a config file | A config file and a CI step | A `.changeset/` folder and a CI step |
+
+- Want only versioning and a changelog? release-please or semantic-release is smaller.
+- Publishing npm packages from a monorepo where each PR should say what changed? changesets fits better.
+- Want the whole cycle (issue → branch → release PR → deploy) in one install, with agent skills on top? That is what projectops is for.
+
+**Footprint, measured.** With v4.36.2 on 2026-10-08, `npx projectops --mode full --type basic --force` in an empty repository added 52 files: 8 workflows, 26 helper scripts under `.github/scripts/`, issue, PR and discussion templates, `version.yml` and a setup guide. `--type spring` added 56 files (12 workflows).
 
 ---
 
@@ -242,12 +263,23 @@ Run automation by commenting on an issue or PR.
 
 ## Setup
 
-### Required secret
+### Personal access token (optional)
+
+Everything runs with the built-in `GITHUB_TOKEN`. Add a personal access token as the repository secret `_GITHUB_PAT_TOKEN` only if you need one of these:
+
+| You want | Why the built-in token is not enough | Classic token scopes |
+|---|---|---|
+| Release PRs to merge even when branch protection blocks the Actions bot | The release workflow retries the merge with `--admin`, which needs an admin's token | `repo`, `workflow` |
+| Issue labels synced to a GitHub Projects board | `GITHUB_TOKEN` cannot use the Projects API | `repo`, `project` |
+| Other workflows to react to the issue helper's comment in a private repository | Events created with `GITHUB_TOKEN` do not start other workflows | `repo` |
+
+Without a token, workflows that should run after a release merge are started with an explicit dispatch, so you do not need a token for that.
+
+A fine-grained token with **Contents**, **Pull requests**, **Issues** and **Workflows** set to *Read and write* should cover the first row. We have not verified fine-grained tokens end to end yet; for Projects sync we have only tested a classic token. If a fine-grained token fails, please open an issue.
 
 ```
 Repository Settings → Secrets → Actions → New repository secret
 Name: _GITHUB_PAT_TOKEN
-Value: [Personal Access Token - repo and workflow scopes]
 ```
 
 ### Organization settings
@@ -266,7 +298,9 @@ We would rather tell you up front when this is not a fit.
 
 - **GitHub only.** It assumes GitHub Actions and GitHub issues/PRs, so GitLab and others are not supported.
 - **Releases assume a develop branch → default branch PR flow.** Branch names can be changed in `version.yml`, but it does not suit a repo that does not use two branches.
-- **Issue and PR automation needs a personal access token (PAT).** Follow [Setup](#setup) above.
+- **A personal access token is optional.** You need one only to merge past branch protection or to sync a Projects board. See [Setup](#setup).
+- **It adds about 50 files to your repository** (workflows, helper scripts, templates). See [the measurement](#compared-with-other-tools).
+- **New versions ship often.** Pin a version you have tested with `npx projectops@<version>`.
 - **Server deploy workflows assume a Docker server reachable over SSH.**
 
 ---

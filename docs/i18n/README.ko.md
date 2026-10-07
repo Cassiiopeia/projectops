@@ -6,7 +6,7 @@
 
 [![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/)
 
-**상태: 활발히 유지보수 중.** 릴리스는 하루 한 번 정도로 묶어서 냅니다. [CONTRIBUTING](CONTRIBUTING.ko.md#릴리스)을 참고하세요.
+**상태: 활발히 유지보수 중.** 새 버전이 자주, 하루에 여러 번 나가기도 합니다. 검증한 버전에 머물려면 `npx projectops@<버전>`으로 실행하세요 ([릴리스 목록](https://github.com/Cassiiopeia/projectops/releases)).
 
 </div>
 
@@ -39,12 +39,33 @@
 | 기존 방식 | Projectops |
 |----------|---------------------|
 | 버전 수동 관리, 태그 직접 생성 | 릴리스 시 커밋 내용에 맞는 버전 자동 증가 + 태그 생성 |
-| 체인지로그 직접 작성 (30분+) | 릴리스 PR마다 자동 생성 (커밋 분석, AI 키가 있으면 AI 요약) |
+| 체인지로그 직접 작성 | 릴리스 PR마다 자동 생성 (커밋 분석, AI 키가 있으면 AI 요약) |
 | CI/CD 처음부터 설정 | 프로젝트 타입별 워크플로우 즉시 구성 |
-| 이슈 매번 형식 맞춰 작성 (5분+) | `/pro-github` 한 번에 표준 템플릿 생성 + 등록 |
+| 이슈 매번 형식 맞춰 작성 | `/pro-github` 한 번에 표준 템플릿 생성 + 등록 |
 | 커밋 메시지 이슈 URL 수동 복사 | `/pro-commit` 이슈 컨텍스트 기반 자동 완성 |
 | PR 설명/보고서 직접 작성 | `/pro-report` git diff 분석 후 자동 생성 |
 | 코드 리뷰·분석 매번 프롬프트 입력 | 20종 Skills로 일관된 결과, 매번 재입력 불필요 |
+
+---
+
+## 다른 도구와 비교
+
+이 중 한 가지만 필요하다면 더 작은 도구가 나을 수 있습니다.
+
+| | projectops | release-please | semantic-release | changesets |
+|---|---|---|---|---|
+| 버전 결정 근거 | 커밋 제목 (`feat` → minor, `feat!` → major) | Conventional Commits | Conventional Commits (설정 가능) | PR마다 쓰는 changeset 파일 |
+| 릴리스 전 검토 단계 | 릴리스 PR(develop → main), 자동 머지 | 직접 머지하는 릴리스 PR | 기본은 없음, push 시 바로 릴리스 | "Version Packages" PR |
+| 체인지로그 | 릴리스 PR에서 작성 (커밋 분석 또는 AI 요약) | 자동 생성 | 자동 생성 (플러그인) | changeset 파일을 모아 작성 |
+| 프로젝트 타입별 CI/CD 워크플로우 | 있음 (Spring, Flutter, React, Node, Python ...) | 없음 | 없음 | 없음 |
+| 이슈·PR 도우미, Agent Skills | 있음 | 없음 | 없음 | 없음 |
+| 저장소에 추가되는 것 | 약 50개 파일 (아래) | 워크플로우 1개와 설정 파일 | 설정 파일과 CI 단계 | `.changeset/` 폴더와 CI 단계 |
+
+- 버전과 체인지로그만 필요하다면 release-please나 semantic-release가 더 가볍습니다.
+- 모노레포에서 npm 패키지를 내고 PR마다 변경 내용을 적게 하고 싶다면 changesets가 맞습니다.
+- 이슈 → 브랜치 → 릴리스 PR → 배포까지 한 번에 설치하고 그 위에 에이전트 스킬까지 쓰고 싶다면 projectops입니다.
+
+**설치 규모 (실측).** v4.36.2로 2026-10-08에 빈 저장소에서 `npx projectops --mode full --type basic --force`를 실행하면 52개 파일이 추가됐습니다: 워크플로우 8개, `.github/scripts/` 아래 보조 스크립트 26개, 이슈·PR·Discussion 템플릿, `version.yml`, 설정 안내 문서. `--type spring`은 56개(워크플로우 12개)였습니다.
 
 ---
 
@@ -240,12 +261,23 @@ Issue나 PR에 댓글로 자동화를 실행합니다.
 
 ## 설정
 
-### 필수 Secret
+### 개인 액세스 토큰 (선택)
+
+모든 워크플로우는 기본 제공 `GITHUB_TOKEN`으로 동작합니다. 아래 기능이 필요할 때만 개인 액세스 토큰을 저장소 Secret `_GITHUB_PAT_TOKEN`으로 등록하세요.
+
+| 필요한 기능 | 기본 토큰으로 안 되는 이유 | Classic 토큰 권한 |
+|---|---|---|
+| 브랜치 보호 규칙이 Actions 봇을 막아도 릴리스 PR이 머지되게 | 릴리스 워크플로우가 `--admin`으로 다시 머지하며, 관리자 토큰이 필요하다 | `repo`, `workflow` |
+| 이슈 라벨을 GitHub Projects 보드와 동기화 | `GITHUB_TOKEN`은 Projects API를 쓸 수 없다 | `repo`, `project` |
+| 비공개 저장소에서 이슈 헬퍼 댓글로 다른 워크플로우를 이어 실행 | `GITHUB_TOKEN`이 만든 이벤트는 다른 워크플로우를 깨우지 않는다 | `repo` |
+
+토큰이 없어도 릴리스 머지 뒤에 돌아야 할 워크플로우는 명시적 dispatch로 실행되므로, 그 용도로는 토큰이 필요 없습니다.
+
+Fine-grained 토큰이라면 **Contents**, **Pull requests**, **Issues**, **Workflows**를 *Read and write*로 주면 첫 번째 기능에 충분할 것으로 봅니다. 아직 끝까지 검증하지 않았고 Projects 동기화는 Classic 토큰으로만 확인했습니다. 실패하면 이슈로 알려 주세요.
 
 ```
 Repository Settings → Secrets → Actions → New repository secret
 Name: _GITHUB_PAT_TOKEN
-Value: [Personal Access Token - repo, workflow 권한]
 ```
 
 ### Organization 설정
@@ -264,7 +296,9 @@ Settings → Actions → General
 
 - **GitHub 전용입니다.** GitHub Actions와 GitHub 이슈·PR을 전제로 하므로 GitLab 등은 지원하지 않습니다.
 - **릴리스는 개발 브랜치 → 기본 브랜치 PR 구조를 전제로 합니다.** 브랜치 이름은 `version.yml`에서 바꿀 수 있지만, 두 브랜치를 나눠 쓰지 않는 저장소에는 맞지 않습니다.
-- **이슈·PR 자동화에는 개인 액세스 토큰(PAT) 등록이 필요합니다.** 위 [설정](#설정)을 따라 주세요.
+- **개인 액세스 토큰(PAT)은 선택입니다.** 브랜치 보호를 넘어 머지하거나 Projects 보드를 동기화할 때만 필요합니다. [설정](#설정)을 보세요.
+- **저장소에 약 50개 파일이 추가됩니다** (워크플로우, 보조 스크립트, 템플릿). [실측](#다른-도구와-비교)을 보세요.
+- **새 버전이 자주 나옵니다.** 검증한 버전은 `npx projectops@<버전>`으로 고정하세요.
 - **서버 배포 워크플로우는 SSH로 접속하는 Docker 서버를 전제로 합니다.**
 
 ---

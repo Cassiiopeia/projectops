@@ -55,7 +55,19 @@ node /path/to/projectops/bin/projectops.js --lang en
 
 New languages are added by adding files, not code. See [docs/TRANSLATING.md](docs/TRANSLATING.md).
 
-## Branches and commits
+## Contributing from a fork
+
+You do not need the branch name and commit format described in the next section. They feed the maintainer's
+automation (issue helper, version bump), not your pull request.
+
+- Use any branch name.
+- Write commit messages as [Conventional Commits](https://www.conventionalcommits.org/) (`fix: handle an empty version.yml`).
+- Start the PR title with the same type (`fix:`, `feat:`, `docs:`). The maintainer squashes the PR when merging and
+  rewrites the title into the project format. That title decides the next version, so say `feat!:` only if existing
+  users' settings or CLI arguments stop working.
+
+## Branches and commits (maintainers)
+
 
 - Work on a branch named `YYYYMMDD_#<issue number>_<short title>` (the issue helper bot posts the exact name in your issue).
 - `develop` collects finished work. `main` is the release branch and is only updated by release PRs.
@@ -67,7 +79,7 @@ New languages are added by adding files, not code. See [docs/TRANSLATING.md](doc
 
 ## Releases
 
-- Releases are batched: at most one release PR (`develop` to `main`) per day, plus an extra one only for a fix users are waiting on.
+- Releases go out whenever finished work is on `develop`, often several times a day. A stable channel for users who want fewer updates is tracked in [#796](https://github.com/Cassiiopeia/projectops/issues/796).
 - Release PRs are titled `🚀 Deploy <date>-v<version>`. To hide them in the PR list, filter with `is:pr -head:develop`.
 - This project is actively maintained. Pull requests are reviewed by the code owners listed in `.github/CODEOWNERS`.
 
