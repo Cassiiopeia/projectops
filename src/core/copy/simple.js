@@ -1,6 +1,6 @@
 // 단순 복사 함수 (무조건 덮어쓰기류) — .sh copy_scripts/config/issue/discussion/setup_guide 등가.
 // 실측: template_integrator.sh 3818, 3845, 3872, 3895, 4114.
-import { join } from "node:path";
+import { join, basename } from "node:path";
 import { chmodSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { PATHS } from "../paths.js";
 import { exists, copyFileSync, copyDirSync } from "../fsutil.js";
@@ -97,7 +97,8 @@ export function stripIssueTemplateAssignees(targetRoot = ".") {
 // .github/ISSUE_TEMPLATE/ 전체 + PULL_REQUEST_TEMPLATE.md 덮어쓰기.
 export function copyIssueTemplates(tempDir, targetRoot = ".") {
   const srcIssue = join(tempDir, ".github", "ISSUE_TEMPLATE");
-  if (exists(srcIssue)) copyDirSync(srcIssue, join(targetRoot, ".github", "ISSUE_TEMPLATE"));
+  // `projectops-` 로 시작하는 파일은 이 저장소(projectops 자체)의 이슈 양식이라 사용자 레포로 복사하지 않는다 (#797).
+  if (exists(srcIssue)) copyDirSync(srcIssue, join(targetRoot, ".github", "ISSUE_TEMPLATE"), { filter: (src) => !basename(src).startsWith("projectops-") });
   const srcPr = join(tempDir, ".github", "PULL_REQUEST_TEMPLATE.md");
   if (exists(srcPr)) copyFileSync(srcPr, join(targetRoot, ".github", "PULL_REQUEST_TEMPLATE.md"));
 }

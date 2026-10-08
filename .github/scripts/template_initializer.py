@@ -199,6 +199,7 @@ CLEANUP_TARGETS = [
     ("ARCHITECTURE.md", "ARCHITECTURE.md 삭제"),
     (".github/CODEOWNERS", "CODEOWNERS 삭제 (이 저장소 소유자 지정)"),
     (".github/i18n", "i18n 오버레이 폴더 삭제 (한국어 템플릿, 이 저장소 전용)"),
+    (".github/ISSUE_TEMPLATE/projectops-installer-bug.yml", "projectops 설치기 버그 양식 삭제 (이 저장소 전용)"),
     ("CLAUDE.md", "CLAUDE.md 삭제"),
     ("AGENTS.md", "AGENTS.md 삭제"),
     ("GEMINI.md", "GEMINI.md 삭제"),

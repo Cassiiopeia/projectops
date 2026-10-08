@@ -1,0 +1,72 @@
+name: 🐛 Installer / CLI bug (projectops)
+description: Something went wrong while installing, updating or running projectops itself
+labels: ["status: todo", "type: bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. The fields below are required because most installer bugs cannot be reproduced without them.
+        For a bug in a workflow that is already installed in your repo, use the regular **Bug report** instead.
+  - type: input
+    id: version
+    attributes:
+      label: projectops version
+      description: Output of `npx projectops --version`, or the `template.version` in your `version.yml`.
+      placeholder: "4.36.4"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - GitHub Actions runner
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: how
+    attributes:
+      label: How did you run it?
+      options:
+        - "Interactive wizard: npx projectops"
+        - "Non-interactive: npx projectops --mode ... --force"
+        - "Use this template (repository template button)"
+        - "Agent skills (pro-* skills)"
+        - "A workflow that is already installed"
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command or steps
+      description: The exact command line, or the steps you took.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Run log
+      description: |
+        Paste the latest file from `.github/.projectops/logs/` (a `.log` file). It lists every decision the installer made.
+        Remove tokens or secrets first. If there is no such folder, paste the terminal output.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Your `version.yml` options block, screenshots, or what you already tried.
+    validations:
+      required: false

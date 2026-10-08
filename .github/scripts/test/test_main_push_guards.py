@@ -185,3 +185,16 @@ def test_missing_semver_key_defaults_to_on_in_both_workflows():
             text = (base / name).read_text(encoding="utf-8")
             assert 'print(m.group(1) if m else "true")' in text, f"{base.name}/{name}"
             assert 'print(m.group(1) if m else "false")' not in text, f"{base.name}/{name}"
+
+
+# ── #797: projectops 설치기 버그 YAML 양식 ───────────────────────────────
+def test_installer_bug_form_requires_the_fields_that_make_it_reproducible():
+    form = yaml.safe_load((ROOT / ".github" / "ISSUE_TEMPLATE" / "projectops-installer-bug.yml").read_text(encoding="utf-8"))
+    required = {b["id"] for b in form["body"] if b.get("type") != "markdown" and b.get("validations", {}).get("required")}
+    assert {"version", "os", "how", "command", "expected", "log"} <= required
+    assert "assignees" not in form, "이 저장소 소유자를 담당자로 고정하면 안 된다 (#782)"
+    ids = [b["id"] for b in form["body"] if "id" in b]
+    assert len(ids) == len(set(ids))
+    # 이 저장소 전용이라 새 프로젝트로 복사·남겨지면 안 된다
+    init = (ROOT / ".github" / "scripts" / "template_initializer.py").read_text(encoding="utf-8")
+    assert "projectops-installer-bug.yml" in init

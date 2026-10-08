@@ -20,9 +20,9 @@ export function copyFileSync(src, dst) {
 }
 
 // 디렉토리 재귀 복사 (내용을 dst 하위로)
-export function copyDirSync(src, dst) {
+export function copyDirSync(src, dst, { filter } = {}) {
   mkdirSync(dst, { recursive: true });
-  cpSync(src, dst, { recursive: true });
+  cpSync(src, dst, { recursive: true, ...(filter ? { filter } : {}) });
 }
 
 // 파일/폴더 삭제 (없어도 무해)

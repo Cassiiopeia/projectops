@@ -132,3 +132,14 @@ test("addVersionSectionToReadme 없으면 append", () => {
     assert.ok(c.includes("## 최신 버전 : v1.2.3"));
   } finally { rmSync(tgt, { recursive: true, force: true }); }
 });
+
+test("copyIssueTemplates: projectops- 로 시작하는 이 저장소 전용 양식은 사용자 레포로 복사하지 않는다 (#797)", () => {
+  const tmp = fresh("ci-tmp-"); const tgt = fresh("ci-tgt-");
+  try {
+    writeText(join(tmp, ".github/ISSUE_TEMPLATE/bug_report.md"), "bug\n");
+    writeText(join(tmp, ".github/ISSUE_TEMPLATE/projectops-installer-bug.yml"), "name: x\n");
+    copyIssueTemplates(tmp, tgt);
+    assert.ok(exists(join(tgt, ".github/ISSUE_TEMPLATE/bug_report.md")));
+    assert.ok(!exists(join(tgt, ".github/ISSUE_TEMPLATE/projectops-installer-bug.yml")));
+  } finally { rmSync(tmp, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
+});
