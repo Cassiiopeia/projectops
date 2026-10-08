@@ -169,9 +169,12 @@ def test_main_direct_repo_major(tmp_path):
     assert _run_bump(tmp_path, "true", False, ["제목 : feat! : 깨짐 https://x/1"]) == "major"
 
 
-def test_repo_with_develop_stays_patch(tmp_path):
-    """develop 이 있으면 릴리스 PR을 건너뛴 예외 push — 커밋을 믿지 않고 patch."""
-    assert _run_bump(tmp_path, "true", True, FEAT) == "patch"
+def test_repo_with_develop_also_uses_semver_auto(tmp_path):
+    """develop 이 있어도 main 직접 push 는 semver_auto 를 따른다 (#815)."""
+    assert _run_bump(tmp_path, "true", True, FEAT) == "minor"
+    second = tmp_path / "second"
+    second.mkdir()
+    assert _run_bump(second, "true", True, ["제목 : feat! : 깨짐 https://x/1"]) == "major"
 
 
 def test_semver_auto_off_stays_patch(tmp_path):

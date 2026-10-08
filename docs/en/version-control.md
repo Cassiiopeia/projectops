@@ -145,7 +145,7 @@ Direct push to main (not a release PR)
 VERSION-CONTROL workflow
     │
     ├─ Read the version from version.yml
-    ├─ Bump the version (patch; minor/major only in repos without a development branch when semver_auto is on)
+    ├─ Bump the version (major/minor/patch from commit titles when semver_auto is on, patch when it is off)
     ├─ Sync project files
     ├─ Create the Git tag (v1.0.1)
     └─ Commit & push
@@ -178,10 +178,8 @@ Commits that contain `[skip ci]` and commits that start with `Merge` are exclude
 | **minor** | Manual (edit version.yml directly) | 1.0.1 → 1.1.0 |
 | **major** | Manual (edit version.yml directly) | 1.1.0 → 2.0.0 |
 
-> **For a direct push to main (VERSION-CONTROL), the size of the bump depends on whether a development branch exists.**
-> - If a development branch exists (`deploy_branch`, default `develop`): this is an exception path that skips the release PR, so it is **always patch**.
-> - For a repo that pushes straight to main with no development branch: this workflow is the only release path, so with `semver_auto: true`
->   it decides major/minor/patch from the commit titles in the push range.
+> **A direct push to main (VERSION-CONTROL) follows `semver_auto` too.** When it is on (a missing key counts as on), the workflow decides
+> major/minor/patch from the commit titles in the push range, whether or not a development branch exists. Only an explicit `semver_auto: false` keeps it at patch.
 > - A push that only changes settings in `version.yml` is not treated as a release. It is skipped only when the `version:` value changed.
 >
 > The workflow runs on `pull_request_target`, so it runs from the **workflow file on the base branch (main)**.

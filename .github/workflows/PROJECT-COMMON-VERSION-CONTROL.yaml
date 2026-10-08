@@ -8,11 +8,9 @@
 # 정상 릴리스(develop→main PR)의 버전 증가는 RELEASE-CHANGELOG이 머지 전에 수행하며,
 # 그 머지 push는 version.yml 변경을 포함하므로 이 워크플로우는 가드에 의해 건너뜁니다.
 #
-# [semver] 승격 폭은 개발 브랜치(deploy_branch, 기본 develop)가 원격에 있는지로 갈린다 (#805):
-#   - 개발 브랜치 있음: 이 push 는 릴리스 PR을 건너뛴 예외 경로다 → 항상 patch.
-#     커밋 기반 major/minor 승격은 RELEASE-CHANGELOG(정상 릴리스 경로)에서만 일어난다.
-#   - 개발 브랜치 없음(main 직행 레포): 이 워크플로우가 유일한 릴리스 경로다
-#     → options.semver_auto: true 면 push 구간 커밋 제목으로 major/minor/patch 결정.
+# [semver] options.semver_auto 가 켜져 있으면(키가 없으면 켜진 것으로 본다) 개발 브랜치 유무와 상관없이
+# push 구간 커밋 제목으로 major/minor/patch 를 정한다 — 릴리스 PR 경로(RELEASE-CHANGELOG)와 같은 규칙이다 (#805, #815).
+# semver_auto: false 로 명시했을 때만 항상 patch.
 #
 # ===================================================================
 # 주요 개선사항:
@@ -125,18 +123,13 @@ jobs:
         run: |
           BUMP=patch
           SEMVER_AUTO=$(python3 -c 'import re; t=open("version.yml",encoding="utf-8").read(); m=re.search(r"metadata:.*?template:.*?options:.*?semver_auto:\s*\"?(true|false)", t, re.S); print(m.group(1) if m else "true")' 2>/dev/null || echo "true")
-          # 개발 브랜치 = version.yml metadata.deploy_branch, 없으면 develop (스킬·마법사와 같은 폴백)
-          DEV_BRANCH=$(grep -m1 -E '^[[:space:]]+deploy_branch:' version.yml 2>/dev/null | sed -E 's/.*deploy_branch:[[:space:]]*"?([^"]*)"?.*/\1/' || true)
-          DEV_BRANCH="${DEV_BRANCH:-develop}"
-          DEFAULT_BRANCH="${{ github.event.repository.default_branch || 'main' }}"
           if [ "$SEMVER_AUTO" != "true" ]; then
             echo "ℹ️ semver_auto 꺼짐 — patch"
-          elif [ "$DEV_BRANCH" != "$DEFAULT_BRANCH" ] && git ls-remote --exit-code --heads origin "$DEV_BRANCH" >/dev/null 2>&1; then
-            echo "ℹ️ 개발 브랜치($DEV_BRANCH)가 있는 레포 — 릴리스 PR을 건너뛴 push 라 patch"
           else
+            # 개발 브랜치 유무와 상관없이 push 구간 커밋 제목으로 판정한다 (RELEASE-CHANGELOG 와 같은 규칙).
             git log --pretty=%s $RANGE > "$RUNNER_TEMP/commits.txt"
             BUMP=$(python3 .github/scripts/changelog_manager.py classify-bump --commits-file "$RUNNER_TEMP/commits.txt" | tail -n 1)
-            echo "ℹ️ main 직행 레포 + semver_auto — push 구간 커밋 $(wc -l < "$RUNNER_TEMP/commits.txt")줄로 판정"
+            echo "ℹ️ semver_auto — push 구간 커밋 $(wc -l < "$RUNNER_TEMP/commits.txt")줄로 판정"
           fi
           case "$BUMP" in major|minor|patch) ;; *) echo "⚠️ 판정값 '$BUMP' 이상 — patch로 대체"; BUMP=patch ;; esac
           echo "bump=$BUMP" >> $GITHUB_OUTPUT

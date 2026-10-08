@@ -88,7 +88,7 @@ export const VERSION_YML = [
     description: "Secret-to-server upload workflow installed.", edit: "wizard (--secret-backup)" },
   { path: "metadata.template.options.semver_auto", parserKey: "semverAuto", type: "boolean",
     default: true,
-    description: "Decide the release bump from commit titles: 'type!:' = major, 'feat:' = minor, anything else = patch. Applies to the release PR; in repos without a development branch it also applies to pushes to main.",
+    description: "Decide the release bump from commit titles: 'type!:' = major, 'feat:' = minor, anything else = patch. Applies both to the release PR and to direct pushes to the default branch.",
     edit: "by hand" },
   { path: "metadata.template.options.close_on_release", parserKey: "closeOnRelease", type: "boolean", default: "true for new installs; missing for existing installs",
     description: "A release merge closes issues that carry the done label and are referenced by a release commit.", edit: "by hand" },
