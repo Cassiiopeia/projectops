@@ -1430,7 +1430,51 @@ jobs:
             echo "type=issue_closed" >> $GITHUB_OUTPUT
           fi
 
+      # 닫힘 이벤트마다 무조건 SSH·댓글을 돌리면 프리뷰를 쓴 적 없는 레포에서
+      # secret 없음 실패와 댓글 폭주(secondary rate limit)가 난다 (#808).
+      # 배포 완료 댓글이 남아 있을 때만 지우고, secret 이 없으면 조용히 건너뛴다.
+      - name: 삭제 대상 확인
+        id: target
+        uses: actions/github-script@v7
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          PROJECT_NAME: ${{ env.PROJECT_NAME }}
+          NUMBER: ${{ steps.pr_number.outputs.number }}
+          TRIGGER_TYPE: ${{ steps.pr_number.outputs.type }}
+        with:
+          script: |
+            const number = Number(process.env.NUMBER);
+            if (!process.env.SERVER_HOST) {
+              core.notice('SERVER_HOST secret 이 없어 Preview 삭제를 건너뜁니다.');
+              core.setOutput('should_destroy', 'false');
+              return;
+            }
+            // 사용자가 직접 destroy 를 요청했으면 흔적이 없어도 그대로 지운다.
+            if (process.env.TRIGGER_TYPE === 'comment') {
+              core.setOutput('should_destroy', 'true');
+              return;
+            }
+            const container = `${process.env.PROJECT_NAME}-pr-${number}`;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+              per_page: 100,
+            });
+            // 마지막 배포 완료 댓글이 마지막 삭제 완료 댓글보다 뒤에 있어야 살아 있는 Preview 다.
+            let lastDeploy = -1, lastDestroy = -1;
+            comments.forEach((c, i) => {
+              const body = c.body || '';
+              if (!body.includes(`\`${container}\``)) return;
+              if (body.includes('Preview 배포 완료')) lastDeploy = i;
+              if (body.includes('Preview 환경 삭제 완료')) lastDestroy = i;
+            });
+            const alive = lastDeploy > lastDestroy;
+            if (!alive) core.notice(`#${number} 에 배포된 Preview 가 없어 삭제를 건너뜁니다.`);
+            core.setOutput('should_destroy', alive ? 'true' : 'false');
+
       - name: 컨테이너 & 이미지 삭제
+        if: steps.target.outputs.should_destroy == 'true'
         uses: appleboy/ssh-action@v1.0.3
         env:
           SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
@@ -1479,10 +1523,8 @@ jobs:
             echo "✅ 삭제 완료!"
 
       - name: 삭제 완료 코멘트
-        if: |
-          github.event_name == 'issue_comment' ||
-          (github.event_name == 'pull_request' && github.event.action == 'closed') ||
-          (github.event_name == 'issues' && github.event.action == 'closed')
+        # 실제로 지웠을 때만 남긴다 — 지운 게 없는데 '삭제 완료'를 다는 것이 댓글 폭주의 원인이었다 (#808)
+        if: steps.target.outputs.should_destroy == 'true'
         uses: actions/github-script@v7
         with:
           script: |
