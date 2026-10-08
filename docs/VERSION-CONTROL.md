@@ -178,8 +178,11 @@ VERSION-CONTROL 워크플로우
 | **minor** | 수동 (version.yml 직접 수정) | 1.0.1 → 1.1.0 |
 | **major** | 수동 (version.yml 직접 수정) | 1.1.0 → 2.0.0 |
 
-> **main 직접 푸시 안전망(VERSION-CONTROL)은 `semver_auto`와 무관하게 항상 patch입니다.**
-> 릴리스 PR을 거치지 않은 경로라 커밋의 컨벤션 준수를 신뢰할 수 없기 때문입니다.
+> **main 직접 푸시(VERSION-CONTROL)의 승격 폭은 개발 브랜치 유무로 갈립니다.**
+> - 개발 브랜치(`deploy_branch`, 기본 `develop`)가 있으면: 릴리스 PR을 건너뛴 예외 경로라 **항상 patch**입니다.
+> - 개발 브랜치가 없는 main 직행 레포: 이 워크플로우가 유일한 릴리스 경로라 `semver_auto: true`면
+>   push 구간 커밋 제목으로 major/minor/patch를 정합니다.
+> - `version.yml`의 설정만 바꾼 push는 릴리스로 보지 않습니다 — `version:` 값이 바뀐 경우만 건너뜁니다.
 >
 > 워크플로우는 `pull_request_target`으로 돌아 **base 브랜치(main)의 워크플로우 파일**로 실행됩니다.
 > 워크플로우 자체를 고친 릴리스에는 구 로직이 적용되고, 머지된 **다음 릴리스부터** 새 로직이 반영됩니다.

@@ -4,13 +4,15 @@
 # ===================================================================
 #
 # [안전망] main(프로덕션)에 릴리스 PR을 거치지 않은 직접 push가 발생했을 때만
-# patch 버전을 자동으로 증가시키고 모든 관련 파일을 동기화합니다.
+# 버전을 자동으로 증가시키고 모든 관련 파일을 동기화합니다.
 # 정상 릴리스(develop→main PR)의 버전 증가는 RELEASE-CHANGELOG이 머지 전에 수행하며,
 # 그 머지 push는 version.yml 변경을 포함하므로 이 워크플로우는 가드에 의해 건너뜁니다.
 #
-# [의도적] 이 안전망은 semver 자동 승격(options.semver_auto, #546)을 적용하지 않고 항상 patch입니다.
-# 릴리스 PR을 거치지 않은 비권장 경로라 커밋 제목의 컨벤션 준수를 신뢰할 수 없기 때문입니다.
-# 커밋 기반 major/minor 승격은 RELEASE-CHANGELOG(정상 릴리스 경로)에서만 일어납니다.
+# [semver] 승격 폭은 개발 브랜치(deploy_branch, 기본 develop)가 원격에 있는지로 갈린다 (#805):
+#   - 개발 브랜치 있음: 이 push 는 릴리스 PR을 건너뛴 예외 경로다 → 항상 patch.
+#     커밋 기반 major/minor 승격은 RELEASE-CHANGELOG(정상 릴리스 경로)에서만 일어난다.
+#   - 개발 브랜치 없음(main 직행 레포): 이 워크플로우가 유일한 릴리스 경로다
+#     → options.semver_auto: true 면 push 구간 커밋 제목으로 major/minor/patch 결정.
 #
 # ===================================================================
 # 주요 개선사항:
@@ -72,9 +74,25 @@ jobs:
           else
             RANGE="$BEFORE..HEAD"
           fi
+          # 파일 이름이 아니라 `version:` 값으로 판단한다 (#806).
+          # version.yml 에는 설정(options.*, metadata.template.*)도 있어서, 설정만 바꾼 push 나
+          # projectops 업데이트 PR 까지 릴리스로 오인해 버전·태그가 빠졌다.
+          RELEASE_MERGE=false
           if git diff --name-only $RANGE 2>/dev/null | grep -qx "version.yml"; then
+            BASE="${RANGE%%..*}"
+            OLD_V=$(git show "$BASE:version.yml" 2>/dev/null | grep -m1 -E '^version:' || true)
+            NEW_V=$(grep -m1 -E '^version:' version.yml 2>/dev/null || true)
+            # 이전에 version.yml 이 없었다면(최초 통합) 기존처럼 건너뛴다 — 처음 정한 버전을 바로 올리지 않는다.
+            if [ -z "$OLD_V" ] || [ "$OLD_V" != "$NEW_V" ]; then
+              RELEASE_MERGE=true
+            else
+              echo "ℹ️ version.yml 이 바뀌었지만 version 값은 그대로 (${NEW_V}) — 설정 변경으로 보고 버전을 올립니다"
+            fi
+          fi
+          echo "range=$RANGE" >> $GITHUB_OUTPUT
+          if [ "$RELEASE_MERGE" = "true" ]; then
             echo "is_release_merge=true" >> $GITHUB_OUTPUT
-            echo "✅ 릴리스 머지 감지 (push에 version.yml 변경 포함) — 버전 증가 건너뜀"
+            echo "✅ 릴리스 머지 감지 (version 값 변경 포함) — 버전 증가 건너뜀"
           else
             echo "is_release_merge=false" >> $GITHUB_OUTPUT
             echo "⚠️ main 직접 push 감지 — 안전망 버전 증가 실행"
@@ -99,12 +117,38 @@ jobs:
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "✅ 현재 버전: $CURRENT_VERSION"
 
+      - name: 승격 폭 결정
+        id: bump
+        if: steps.release_guard.outputs.is_release_merge != 'true'
+        env:
+          RANGE: ${{ steps.release_guard.outputs.range }}
+        run: |
+          BUMP=patch
+          SEMVER_AUTO=$(python3 -c 'import re; t=open("version.yml",encoding="utf-8").read(); m=re.search(r"metadata:.*?template:.*?options:.*?semver_auto:\s*\"?(true|false)", t, re.S); print(m.group(1) if m else "false")' 2>/dev/null || echo "false")
+          # 개발 브랜치 = version.yml metadata.deploy_branch, 없으면 develop (스킬·마법사와 같은 폴백)
+          DEV_BRANCH=$(grep -m1 -E '^[[:space:]]+deploy_branch:' version.yml 2>/dev/null | sed -E 's/.*deploy_branch:[[:space:]]*"?([^"]*)"?.*/\1/' || true)
+          DEV_BRANCH="${DEV_BRANCH:-develop}"
+          DEFAULT_BRANCH="${{ github.event.repository.default_branch || 'main' }}"
+          if [ "$SEMVER_AUTO" != "true" ]; then
+            echo "ℹ️ semver_auto 꺼짐 — patch"
+          elif [ "$DEV_BRANCH" != "$DEFAULT_BRANCH" ] && git ls-remote --exit-code --heads origin "$DEV_BRANCH" >/dev/null 2>&1; then
+            echo "ℹ️ 개발 브랜치($DEV_BRANCH)가 있는 레포 — 릴리스 PR을 건너뛴 push 라 patch"
+          else
+            git log --pretty=%s $RANGE > "$RUNNER_TEMP/commits.txt"
+            BUMP=$(python3 .github/scripts/changelog_manager.py classify-bump --commits-file "$RUNNER_TEMP/commits.txt" | tail -n 1)
+            echo "ℹ️ main 직행 레포 + semver_auto — push 구간 커밋 $(wc -l < "$RUNNER_TEMP/commits.txt")줄로 판정"
+          fi
+          case "$BUMP" in major|minor|patch) ;; *) echo "⚠️ 판정값 '$BUMP' 이상 — patch로 대체"; BUMP=patch ;; esac
+          echo "bump=$BUMP" >> $GITHUB_OUTPUT
+          echo "✅ 승격 폭: $BUMP"
+
       - name: 새 버전 계산 및 업데이트
         id: version
         if: steps.release_guard.outputs.is_release_merge != 'true'
         run: |
-          echo "⬆️ 패치 버전 증가 중..."
-          NEW_VERSION=$(./.github/scripts/version_manager.sh increment | tail -n 1)
+          BUMP="${{ steps.bump.outputs.bump }}"
+          echo "⬆️ 버전 증가 중 ($BUMP)..."
+          NEW_VERSION=$(./.github/scripts/version_manager.sh increment --bump "${BUMP:-patch}" | tail -n 1)
           if [ -z "$NEW_VERSION" ]; then
             echo "❌ 버전 업데이트 실패"
             exit 1

@@ -542,8 +542,12 @@ deploy/publish 축은 **타입에 따라 적용 자체가 안 될 수 있다.** 
 - **마법사는 이 축을 묻지 않는다** (#485 질문 부담 축소 방향 유지). 켜려면 `version.yml`을 직접 고친다.
 - 판정 규칙과 커밋 타입 대응은 "커밋 컨벤션 필수 규칙" 절 참조. `version_code`는 이 옵션과
   무관하게 매 릴리스 +1이다.
-- **안전망 `PROJECT-COMMON-VERSION-CONTROL`은 이 축을 쓰지 않는다** — 릴리스 PR을 거치지 않은
-  main 직접 push 경로라 커밋의 컨벤션 준수를 신뢰할 수 없다. 항상 patch다.
+- **`PROJECT-COMMON-VERSION-CONTROL`은 개발 브랜치 유무로 갈린다 (#805).** 개발 브랜치
+  (`deploy_branch`, 기본 `develop`)가 원격에 있으면 main 직접 push는 릴리스 PR을 건너뛴 예외라
+  **항상 patch**다. 개발 브랜치가 **없는** main 직행 레포는 이 워크플로우가 유일한 릴리스 경로라
+  `semver_auto: true`면 push 구간 커밋 제목으로 승격한다 (예전엔 여기서도 patch 고정이라 옵션이 조용히 무시됐다).
+- VERSION-CONTROL 가드는 `version.yml` **파일 이름이 아니라 `version:` 값 변경**으로 릴리스 머지를 판정한다 (#806).
+  설정만 바꾼 push는 릴리스가 아니므로 버전이 올라간다. 회귀 방지: `.github/scripts/test/test_main_push_guards.py`
 
 ### 빌드 번호와 iOS 업로드 판단 (#643, agent 필독)
 
