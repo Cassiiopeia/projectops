@@ -257,7 +257,7 @@ Run automation by commenting on an issue or PR.
 | `@projectops ios build` | Build iOS only | Flutter |
 | `@projectops create qa` | Create a QA issue automatically | All projects |
 
-> Details: [PR Preview](docs/PR-PREVIEW.md) | [Flutter builds](docs/FLUTTER-TEST-BUILD-TRIGGER.md) | [Issue automation](docs/ISSUE-AUTOMATION.md)
+> Details: [PR Preview](docs/PR-PREVIEW.md) | [Flutter builds](docs/FLUTTER-TEST-BUILD-TRIGGER.md) | [Issue automation](docs/en/issue-automation.md)
 
 ---
 
@@ -307,18 +307,18 @@ We would rather tell you up front when this is not a fit.
 
 ## Documentation
 
-Browse and search everything on the **[docs site](https://cassiiopeia.github.io/projectops/en/)**. Most guides are currently Korean only.
+Browse and search everything on the **[docs site](https://cassiiopeia.github.io/projectops/en/)**. Four guides are in English; the rest are still Korean only (translations are welcome, see [#799](https://github.com/Cassiiopeia/projectops/issues/799)).
 
 - [Getting started](https://cassiiopeia.github.io/projectops/en/getting-started)
 - [CLI reference](https://cassiiopeia.github.io/projectops/en/cli)
 - [Agent Skills guide (Korean)](https://cassiiopeia.github.io/projectops/SKILLS)
-- [Versioning (Korean)](https://cassiiopeia.github.io/projectops/VERSION-CONTROL)
-- [Changelog automation (Korean)](https://cassiiopeia.github.io/projectops/CHANGELOG-AUTOMATION)
+- [Versioning](https://cassiiopeia.github.io/projectops/en/version-control)
+- [Changelog automation](https://cassiiopeia.github.io/projectops/en/changelog-automation)
 - [PR Preview (Korean)](https://cassiiopeia.github.io/projectops/PR-PREVIEW)
-- [Issue automation (Korean)](https://cassiiopeia.github.io/projectops/ISSUE-AUTOMATION)
+- [Issue automation](https://cassiiopeia.github.io/projectops/en/issue-automation)
 - [SSH + Docker deploy (Korean)](https://cassiiopeia.github.io/projectops/SSH-DOCKER-DEPLOYMENT-GUIDE)
 - [Flutter CI/CD (Korean)](https://cassiiopeia.github.io/projectops/FLUTTER-CICD-OVERVIEW)
-- [Troubleshooting (Korean)](https://cassiiopeia.github.io/projectops/TROUBLESHOOTING)
+- [Troubleshooting](https://cassiiopeia.github.io/projectops/en/troubleshooting)
 
 ---
 

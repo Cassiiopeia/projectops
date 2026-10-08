@@ -71,6 +71,18 @@ const enSidebar = [
       { text: 'CLI summary', link: '/en/cli' },
     ],
   },
+  {
+    text: 'Workflows',
+    items: [
+      { text: 'Versioning', link: '/en/version-control' },
+      { text: 'Changelog automation', link: '/en/changelog-automation' },
+      { text: 'Issue automation', link: '/en/issue-automation' },
+    ],
+  },
+  {
+    text: 'Help',
+    items: [{ text: 'Troubleshooting', link: '/en/troubleshooting' }],
+  },
 ]
 
 export default defineConfig({

@@ -145,7 +145,7 @@ main 직접 푸시 (릴리스 PR이 아닌 경우)
 VERSION-CONTROL 워크플로우
     │
     ├─ version.yml 버전 읽기
-    ├─ patch 버전 +1
+    ├─ 버전 +1 (patch. 개발 브랜치가 없는 레포는 semver_auto에 따라 minor/major)
     ├─ 프로젝트 파일 동기화
     ├─ Git 태그 생성 (v1.0.1)
     └─ 커밋 & 푸시
