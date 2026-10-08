@@ -287,7 +287,9 @@ jobs:
               else
                 echo "⚠️ Push 실패, remote 변경사항 동기화 중..."
 
-                if git pull --rebase origin $DEFAULT_BRANCH; then
+                # --autostash: 앞 단계의 chmod +x 같은 스테이징 안 된 변경이 있으면
+                # 일반 rebase 는 "You have unstaged changes" 로 거부해 재시도가 한 번도 못 돈다 (#807).
+                if git pull --rebase --autostash origin $DEFAULT_BRANCH; then
                   echo "✅ Rebase 성공, 다시 push 시도..."
                 else
                   echo "❌ Rebase 실패, 충돌 해결 필요"
