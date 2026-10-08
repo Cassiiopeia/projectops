@@ -251,6 +251,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     // 앱 심사 배포 레포 여부(#553): 저장값만 보존한다. 마법사가 묻지 않으므로 새로 켜지 않는다
     // (사용자가 version.yml에 직접 쓰거나 스킬이 기록한 값을 그대로 유지).
     appRelease: existing?.options?.appRelease ?? null,
+    excludedWorkflows: existing?.options?.excludedWorkflows ?? null, // #810 저장값 보존
     // 상태 라벨 표기(#776): 플래그 > 저장값 > (신규 en / 기존 ko). 기존 레포의 라벨 이름은 업데이트만으로 바뀌지 않는다.
     // 릴리스 시 완료 이슈 닫기(#771): 저장값 보존, 없으면 신규만 true. 기존 레포는 키를 만들지 않아 현행 유지.
     closeOnRelease: existing?.options?.closeOnRelease ?? (existing ? null : true),
@@ -352,7 +353,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       migrationGuidePath = appendGuideEntry(cwd, {
         now, mode: opts.mode, types, repoName,
         templateFrom: existing?.templateVersion || "", templateTo: context.templateVersion,
-        options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto , appRelease: context.appRelease, language: context.language, labelStyle: context.labelStyle, closeOnRelease: context.closeOnRelease, projectsSync: context.projectsSync },
+        options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto , appRelease: context.appRelease, language: context.language, labelStyle: context.labelStyle, closeOnRelease: context.closeOnRelease, projectsSync: context.projectsSync, excludedWorkflows: context.excludedWorkflows },
         branches: { defaultBranch: branch, deployBranch: context.deployBranch || "develop", ready: null, created: null },
         breaking: breakingReport, migrations: migrationsResult, orphans: { cleaned: [], pending: orphanPending },
         events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },
@@ -367,6 +368,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       skippedConflicts: result?.workflows?.skippedConflicts ?? [],   // #654 병합 안내
       replacedBak: result?.workflows?.replacedBak ?? [],             // #673 기준점 없이 교체한 파일 안내
       legacyLeftover: migrationsResult?.confirmPending ?? [],         // #809 신·구 세대 동시 실행 안내
+      notInstalled: result?.workflows?.notInstalled ?? [],            // #810 깔지 않은 워크플로우 안내
       verification: result?.verification,   // #549 설치 후 검증 결과 (full/workflows 모드에서만 존재)
       // #569 — 고른 것만 안내하려면 선택값이 필요하다
       aiPrSummary: context.aiPrSummary, codeReviewCoderabbit: context.codeReviewCoderabbit,

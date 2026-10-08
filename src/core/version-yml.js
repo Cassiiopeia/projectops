@@ -106,6 +106,7 @@ const COMMENTS = {
     labelStyle: "status label style (en: status: todo / ko: Korean names)",
     appRelease: "whether releases go through App Store / Play Store review",
     deploy: "deploy settings remembered by the wizard (non-sensitive, safe to edit by hand)",
+    excluded: "workflow files the update must never install (safe to edit by hand)",
   },
   ko: {
     versionCode: "app build number",
@@ -120,6 +121,7 @@ const COMMENTS = {
     labelStyle: "상태 라벨 표기 (en: status: todo / ko: 작업전)",
     appRelease: "앱스토어·플레이스토어 심사로 이어지는 배포인가",
     deploy: "마법사가 기억하는 배포 설정 (비민감 / 직접 수정 가능)",
+    excluded: "업데이트가 절대 설치하지 않을 워크플로우 파일 (직접 수정 가능)",
   },
 };
 const commentsFor = (lang) => COMMENTS[lang === "ko" ? "ko" : "en"];
@@ -148,7 +150,7 @@ export function resolveUpdatedBy(existingContent = "", cwd = ".") {
 export function parseTemplateOptions(content) {
   const out = { deploy: null, publish: null, secretBackup: null,
                 changelogProvider: null, changelogBaseUrl: null, codeReviewCoderabbit: null, aiPrSummary: null, projectsSync: null,
-                deployBranch: null, intent: null, semverAuto: null, appRelease: null, labelStyle: null, closeOnRelease: null, language: null };
+                deployBranch: null, intent: null, semverAuto: null, appRelease: null, labelStyle: null, closeOnRelease: null, language: null, excludedWorkflows: null };
   // deploy_branch는 metadata 직속(#456) — template.options 밖이라 별도로 스캔한다.
   for (const line of String(content || "").split("\n")) {
     if (line.startsWith("#")) continue;
@@ -248,6 +250,12 @@ export function parseTemplateOptions(content) {
       m = line.match(/^\s+close_on_release:\s*["']?(true|false)["']?/);
       if (m) {
         out.closeOnRelease = m[1] === "true";
+        continue;
+      }
+      // 설치하지 않을 워크플로우 (#810) — 인라인 배열. 업데이트가 지운 파일을 되살리지 않게 하는 명시 수단이다.
+      m = line.match(/^\s+excluded_workflows:\s*\[([^\]]*)\]/);
+      if (m) {
+        out.excludedWorkflows = m[1].split(",").map((s) => s.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
         continue;
       }
       // 프로젝트 성격(#553) — 앱 심사로 이어지는 레포인가. 워크플로우와 스킬이 같은 값을 본다.
@@ -454,7 +462,7 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
   if (templateOptions) {
     const { templateVersion = "unknown", deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, optionsDate = today,
             changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true, aiPrSummary = true, intent = null, mode = null,
-            semverAuto = true, appRelease = null, labelStyle = null, closeOnRelease = null, projectsSync = null, language = null } = templateOptions;
+            semverAuto = true, appRelease = null, labelStyle = null, closeOnRelease = null, projectsSync = null, language = null, excludedWorkflows = null } = templateOptions;
     const publishJson = `[${publishTargets.map((t) => `"${t}"`).join(",")}]`;
     // intent(프로젝트 성격, #485) — 미지정이면 deploy/publish에서 역추론해 기록 (재통합 시 진입 질문 생략용)
     const intentVal = intent || inferIntent(deployTarget, publishTargets) || "manual";
@@ -478,6 +486,8 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
     if (closeOnRelease !== null) out += `      close_on_release: ${closeOnRelease}   # ${C.closeOnRelease}\n`;
     // 상태 라벨 표기(#776) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).
     // 레포 문구 언어(#769) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).
+    // 설치 제외 목록(#810) — 전체 재생성이라 다시 쓰지 않으면 사용자가 적은 목록이 사라진다.
+    if (excludedWorkflows && excludedWorkflows.length) out += `      excluded_workflows: [${excludedWorkflows.map((f) => `"${f}"`).join(", ")}]   # ${C.excluded}\n`;
     if (language) out += `      language: ${language}   # ${C.language}\n`;
     if (labelStyle) out += `      label_style: ${labelStyle}   # ${C.labelStyle}\n`;
     // 앱 심사 배포 레포 여부(#553) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).

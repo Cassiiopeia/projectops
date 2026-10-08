@@ -31,6 +31,7 @@ export function createContext(overrides = {}) {
     closeOnRelease: null,    // 릴리스 시 완료 이슈 닫기 (#771). null=미설정(신규 true / 기존 레포 키 없음)
     language: null,          // 레포 문구 언어 (#769). null=미설정(신규 en / 기존 레포 ko)
     labelStyle: null,        // 상태 라벨 표기 (#776). null=미설정(신규 en / 기존 레포 ko)
+    excludedWorkflows: null, // 설치하지 않을 워크플로우 파일명 (#810). null=없음
     appRelease: null,        // 앱 심사 배포 레포인가 (#553). null=미설정(키 기록 안 함)
     templateVersion: "",
     tempDir: "",

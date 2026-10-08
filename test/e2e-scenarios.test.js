@@ -299,7 +299,7 @@ test("E2E ⑬: 진단이 현재 상태를 알려준다", async () => {
   } finally { rmSync(tpl, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
 });
 
-test("E2E ⑭: 설정이 망가져도 진단이 돌고 업데이트로 복구된다", async () => {
+test("E2E ⑭: 파일을 지워도 진단이 돌고, 업데이트는 지운 파일을 되살리지 않는다", async () => {
   const { localChecks } = await import("../src/commands/doctor.js");
   const tpl = makeTemplate(); const tgt = makeTarget();
   try {
@@ -309,9 +309,11 @@ test("E2E ⑭: 설정이 망가져도 진단이 돌고 업데이트로 복구된
     rmSync(wf(tgt, "PROJECT-COMMON-CI.yaml"));
     assert.doesNotThrow(() => localChecks(tgt), "파일이 없어도 진단은 돌아야 한다");
 
-    // 업데이트로 복구된다
+    // 사용자가 지운 워크플로우는 업데이트가 되살리지 않는다 (#810) — 되살릴 사본만 incoming 에 남는다
     await cli(["--mode", "full", "--force"], tgt, tpl);
-    assert.ok(existsSync(wf(tgt, "PROJECT-COMMON-CI.yaml")), "지워진 워크플로우가 돌아와야 한다");
+    assert.ok(!existsSync(wf(tgt, "PROJECT-COMMON-CI.yaml")), "지운 워크플로우가 다시 깔리면 안 된다");
+    assert.ok(existsSync(join(tgt, ".github/.projectops/incoming/PROJECT-COMMON-CI.yaml")), "되살릴 수 있는 사본이 남아야 한다");
+    assert.doesNotThrow(() => localChecks(tgt));
   } finally { rmSync(tpl, { recursive: true, force: true }); rmSync(tgt, { recursive: true, force: true }); }
 });
 

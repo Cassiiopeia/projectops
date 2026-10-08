@@ -6,10 +6,29 @@ import { join, basename } from "node:path";
 import { existsSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { PATHS } from "../paths.js";
 import { exists, copyFileSync, listYamlFiles } from "../fsutil.js";
-import { isUnchanged, substituteEnv, resolveGlobalTokens } from "../wizard-env.js";
+import { isUnchanged, substituteEnv, resolveGlobalTokens, extractEnvValues } from "../wizard-env.js";
 import { isUserModified, readBaseline, writeBaseline, sha256 } from "../baseline.js";
 import { substituteBranches } from "../branch-sub.js";
 import { saveIncoming, lineDiffCounts } from "../incoming.js";
+import { branchStatus } from "../git-branch.js";
+
+// on: 블록의 브랜치 필터가 전부 develop 뿐인가 (#810).
+// 개발 브랜치가 없는 레포에 깔면 영영 실행되지 않는 워크플로우를 가린다.
+// workflow_dispatch 외의 다른 이벤트(schedule·issues 등)가 있으면 그것만으로도 돌 수 있으니 false.
+export function onlyTriggersOnDevelop(content) {
+  const m = String(content).match(/^on:\s*\n((?:[ \t]+.*\n|\s*\n)+)/m);
+  if (!m) return false;
+  const block = m[1];
+  const events = [...block.matchAll(/^ {2}([a-z_]+):/gm)].map((x) => x[1]);
+  if (!events.length || events.some((e) => !["push", "pull_request", "workflow_dispatch"].includes(e))) return false;
+  const branches = [];
+  for (const b of block.matchAll(/^\s+branches:\s*\[([^\]]*)\]/gm)) branches.push(...b[1].split(",").map((s) => s.trim().replace(/["']/g, "")).filter(Boolean));
+  for (const b of block.matchAll(/^\s+branches:\s*\n((?:\s+-\s*.*\n)+)/gm)) branches.push(...[...b[1].matchAll(/-\s*["']?([^"'\s#]+)/g)].map((x) => x[1]));
+  // push/pull_request 마다 branches 필터가 있어야 한다 — 필터 없는 push 는 모든 브랜치에서 돈다
+  const filtered = (block.match(/^\s+branches:/gm) || []).length;
+  const needFilter = events.filter((e) => e !== "workflow_dispatch").length;
+  return branches.length > 0 && filtered >= needFilter && branches.every((b) => b === "develop");
+}
 
 // 한 파일에 env 치환을 적용해 대상 파일을 갱신 (.sh configure_workflow_env 등가).
 // values/useDefaults: env 계획(promptEnvPlan) 결과 — 미지정이면 기본값 경로(현행 force 동작).
@@ -90,6 +109,43 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   // values/useDefaults는 치환 경로에서만 의미 (isUnchanged는 내부에서 useDefaults:true 강제 — 가상 비교 무손상)
   const envOptsFor = (type) => ({ type, projectPath: paths.get(type) || ".", repoName, resolvers, values: envValues, useDefaults: envUseDefaults, branches });
 
+  // 설치하지 않을 새 파일 (#810) — 깔 때마다 다시 생기던 것들.
+  //   excluded        : version.yml options.excluded_workflows 에 사용자가 적은 파일
+  //   deleted-by-user : 우리가 깐 기록(baseline)이 있는데 지금 없다 = 사용자가 지웠다 (.bak 은 우리가 치운 것이라 제외)
+  //   no-dev-branch   : 개발 브랜치가 원격에 확실히 없는데 그 브랜치에서만 도는 워크플로우
+  const notInstalled = [];
+  Object.defineProperty(counters, "notInstalled", { value: notInstalled, enumerable: false });
+  const excludedSet = new Set(context.excludedWorkflows || []);
+  const devName = branches.deployBranch;
+  let devMissing = null; // 필요할 때 한 번만 원격을 조회한다
+  const isDevMissing = () => {
+    if (devMissing === null) {
+      const st = devName === branches.defaultBranch ? null : branchStatus(targetRoot, devName);
+      devMissing = !!(st && st.isRepo && !st.local && st.remote === false);
+    }
+    return devMissing;
+  };
+  const skipNew = (srcDir, filename, group) => {
+    const dst = join(workflowsDir, filename);
+    if (existsSync(dst)) return false;
+    let reason = null;
+    if (excludedSet.has(filename)) reason = "excluded";
+    else if (baseline?.files?.[filename] && !existsSync(dst + ".bak")) reason = "deleted-by-user";
+    else if (onlyTriggersOnDevelop(readFileSync(join(srcDir, filename), "utf8")) && isDevMissing()) reason = "no-dev-branch";
+    if (!reason) return false;
+    const info = { filename, reason, incoming: "" };
+    try {
+      // 마음이 바뀌면 cp 한 번으로 되살릴 수 있게 렌더본을 incoming 에 남긴다
+      const rendered = substituteBranches(substituteEnv(readFileSync(join(srcDir, filename), "utf8"),
+        { ...envOptsFor(group.split("/")[0]), useDefaults: true }), branches);
+      info.incoming = saveIncoming(targetRoot, filename, rendered);
+    } catch { /* 안내만 빠진다 */ }
+    notInstalled.push(info);
+    trace?.event("copy", "not-installed", filename, { group, reason });
+    return true;
+  };
+  Object.defineProperty(counters, "skipNew", { value: skipNew, enumerable: false });
+
   // 사용자 수정본을 유지할 때 새 템플릿 사본을 incoming에 남긴다 (#654).
   // 실패는 경고 한 줄로 흡수한다 — 병합 안내 때문에 복사 전체가 죽으면 안 된다.
   const onSkip = (srcDir, filename, type) => {
@@ -133,6 +189,7 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
         continue;
       }
       // 사용자가 손댄 적 없고 템플릿만 바뀐 파일 — 물어볼 것 없이 최신으로 올린다(종전과 동일).
+      if (commonClass.newFiles.includes(filename) && skipNew(commonDir, filename, "common")) continue;
       if (commonClass.newFiles.includes(filename) || commonClass.upstream.includes(filename)) {
         copyFileSync(join(commonDir, filename), join(workflowsDir, filename));
         counters.copied++;
@@ -179,6 +236,7 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
         trace?.event("copy", "skipped-unchanged", filename, { group: "common-deploy" });
         continue;
       }
+      if (skipNew(commonDeployDir, filename, "common-deploy")) continue;
       const backedUp = existsSync(dst);
       if (backedUp) renameSync(dst, dst + ".bak");
       copyFileSync(src, dst);
@@ -207,6 +265,7 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
         trace?.event("copy", "skipped-unchanged", filename, { group: groupName });
         continue;
       }
+      if (skipNew(prSummaryDir, filename, groupName)) continue;
       const backedUp = existsSync(dst);
       if (backedUp) renameSync(dst, dst + ".bak");
       copyFileSync(src, dst);
@@ -225,6 +284,7 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
     for (const filename of listYamlFiles(secretDir)) {
       const dst = join(workflowsDir, filename);
       if (existsSync(dst)) continue; // 이미 존재하면 스킵
+      if (skipNew(secretDir, filename, "secret-backup")) continue;
       copyFileSync(join(secretDir, filename), dst);
       // PROJECT_NAME 이 고정값이면 모든 프로젝트가 서버의 같은 폴더에 Secret 을 덮어쓴다 (#729) —
       // 다른 배포 워크플로처럼 레포 이름으로 채운다. 이름을 알 수 없으면 기존 기본값을 쓴다.
@@ -377,15 +437,25 @@ function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters
   const typeDir = join(projectTypesDir, type);
   const envOpts = envOptsFor(type);
   let unchangedNames = [];
+  // upstream 갱신 전 설치본의 env 실값 (#810 조사 중 발견). 템플릿만 바뀐 파일을 새로 깔 때
+  // 기본값으로 다시 치환해, 사용자가 고른 값(JAVA_VERSION 17 등)이 조용히 21로 돌아갔다.
+  const carried = new Map(); // Map<filename, Map<key,value>>
+  const upstreamCopy = (srcDir, f, group) => {
+    const dst = join(workflowsDir, f);
+    try { carried.set(f, extractEnvValues(readFileSync(dst, "utf8"))); } catch { /* 읽기 실패 — 기본값으로 */ }
+    copyFileSync(join(srcDir, f), dst);
+    counters.copied++; counters.copiedFiles.push(f);
+    trace?.event("copy", "upstream-updated", f, { group, reason: "baseline-match", carried: carried.get(f)?.size ?? 0 });
+  };
 
   // 타입별 워크플로우 (직하위)
   if (exists(typeDir)) {
     const { newFiles, unchanged, changed, upstream } = classify(typeDir, workflowsDir, envOpts, baseline);
     unchangedNames = unchanged.slice();
     for (const f of unchanged) { counters.skipped++; trace?.event("copy", "skipped-unchanged", f, { group: type }); }
-    for (const f of newFiles) { copyFileSync(join(typeDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "copied", f, { group: type }); }
+    for (const f of newFiles) { if (counters.skipNew(typeDir, f, type)) continue; copyFileSync(join(typeDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "copied", f, { group: type }); }
     // upstream(#557): 사용자가 손대지 않았고 템플릿만 바뀐 파일 — 물어볼 것 없이 최신으로 올린다.
-    for (const f of upstream) { copyFileSync(join(typeDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "upstream-updated", f, { group: type, reason: "baseline-match" }); }
+    for (const f of upstream) upstreamCopy(typeDir, f, type);
     // changed: 결정 Map에 따라 처리 (미지정=skip → 현행 force 동작과 동일)
     for (const f of changed) applyDecision(decisions.get(f), typeDir, workflowsDir, f, counters, trace, type);
   }
@@ -395,8 +465,8 @@ function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters
   if (exists(serverDeployDir) && (deployTarget || "docker-ssh") === "docker-ssh") {
     const { newFiles, unchanged, changed, upstream } = classify(serverDeployDir, workflowsDir, envOpts, baseline);
     for (const f of unchanged) { counters.skipped++; trace?.event("copy", "skipped-unchanged", f, { group: `${type}/server-deploy` }); }
-    for (const f of newFiles) { copyFileSync(join(serverDeployDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "copied", f, { group: `${type}/server-deploy` }); }
-    for (const f of upstream) { copyFileSync(join(serverDeployDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "upstream-updated", f, { group: `${type}/server-deploy`, reason: "baseline-match" }); }
+    for (const f of newFiles) { if (counters.skipNew(serverDeployDir, f, `${type}/server-deploy`)) continue; copyFileSync(join(serverDeployDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "copied", f, { group: `${type}/server-deploy` }); }
+    for (const f of upstream) upstreamCopy(serverDeployDir, f, `${type}/server-deploy`);
     for (const f of changed) applyDecision(decisions.get(f), serverDeployDir, workflowsDir, f, counters, trace, type);
   }
 
@@ -414,6 +484,7 @@ function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters
         trace?.event("copy", "skipped-unchanged", filename, { group: `${type}/publish/${target}` });
         continue;
       }
+      if (counters.skipNew(pubDir, filename, `${type}/publish/${target}`)) continue;
       const backedUp = existsSync(dst);
       if (backedUp) renameSync(dst, dst + ".bak");
       copyFileSync(src, dst);
@@ -432,7 +503,14 @@ function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters
       const target = join(workflowsDir, filename);
       if (!existsSync(target)) continue;            // 건너뛴 파일 제외
       if (unchangedNames.includes(filename)) continue; // unchanged 제외
-      configureEnv(target, filename, { ...envOpts, collectAsks, trace }); // env 계획 values/useDefaults 포함
+      const prev = carried.get(filename);
+      if (prev && prev.size) {
+        // 이월값 위에 이번 실행에서 명시로 고른 값을 덮는다 (명시 선택이 이긴다)
+        const values = new Map([...prev, ...(envOpts.useDefaults ? [] : envOpts.values)]);
+        configureEnv(target, filename, { ...envOpts, values, useDefaults: false, collectAsks, trace });
+      } else {
+        configureEnv(target, filename, { ...envOpts, collectAsks, trace }); // env 계획 values/useDefaults 포함
+      }
     }
   }
 }

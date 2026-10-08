@@ -47,6 +47,13 @@ export function extractEnvValues(installedContent) {
   return values;
 }
 
+// 예시용 기본값 (#810) — 그대로 배포되면 남의 도메인으로 요청이 간다.
+// 사용자가 값을 고르지 않은 경로(--force·기본값 사용)에서는 채우지 않고 __KEY__ 를 남긴다.
+// 그러면 설치 후 검증(verify.js)이 미치환으로 잡아 완료 화면에 "직접 채울 것"으로 보여준다.
+export function isPlaceholderDefault(value) {
+  return /(^|\.)example\.(com|org|net)$/i.test(String(value || "").trim());
+}
+
 // resolver — .sh resolve_token 등가. 값 계산은 주입된 resolvers로 위임(순수성 유지).
 // resolvers: { repo, "spring-app-yml-dir"(type), "spring-app-yml-path"(type), "flutter-root" }
 export function resolveToken(name, type, resolvers = {}) {
@@ -89,6 +96,7 @@ export function substituteEnv(content, opts = {}) {
       let def = p.arg.startsWith("@") ? resolveToken(p.arg.slice(1), type, resolvers) : p.arg;
       const chosen = values.get(p.key);
       if (chosen != null && chosen !== "" && !useDefaults) val = chosen;
+      else if (isPlaceholderDefault(def)) continue; // 예시값은 쓰지 않는다 — 토큰·마커 그대로 (#810)
       else val = def;
       // ask 키만 수집 (.sh wf_deploy_set — auto는 저장 안 함). deploy 블록용.
       // #489 — 파일 본문은 아래 전역 토큰 치환을 거치므로 수집값도 동일 치환해

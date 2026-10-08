@@ -203,3 +203,21 @@ git diff --no-index .github/workflows/<파일> .github/.projectops/incoming/<파
 - [Template Integrator EOF 안내](TEMPLATE-INTEGRATOR.md) — 구 스크립트 → npx 플래그 대응표
 - [버전 관리](VERSION-CONTROL.md) — version.yml·모노레포 project_paths
 - [체인지로그 자동화](CHANGELOG-AUTOMATION.md#릴리스-노트-provider-사다리) — 릴리스 노트 provider 사다리
+
+## 업데이트가 설치하지 않는 워크플로우 (#810)
+
+업데이트는 템플릿에 있는 파일을 전부 다시 깔지 않습니다. 아래 경우에는 건너뛰고 완료 화면에 이유를 보여 줍니다. 되살릴 수 있게 렌더된 사본을 `.github/.projectops/incoming/`에 남깁니다.
+
+| 이유 | 조건 |
+|---|---|
+| `deleted-by-user` | 예전에 마법사가 깔았는데(baseline 기록 있음) 지금 없다 = 직접 지웠다 |
+| `excluded` | `version.yml`의 `metadata.template.options.excluded_workflows`에 파일명을 적었다 |
+| `no-dev-branch` | `develop`에서만 도는 워크플로우인데 원격에 개발 브랜치가 확실히 없다 (원격을 확인할 수 없으면 설치한다) |
+
+```yaml
+options:
+  excluded_workflows: ["PROJECT-COMMON-TEMPLATE-UTIL-VERSION-SYNC.yml", "PROJECT-SPRING-NONSTOP-NGINX-CICD.yaml"]
+```
+
+- `--force`에서 `example.com` 같은 예시 기본값은 채우지 않고 `__SERVICE_DOMAIN__` 토큰을 남깁니다. 완료 화면의 "미치환" 안내에 나오면 직접 채우세요.
+- 템플릿만 바뀐 파일을 갱신할 때 사용자가 고른 env 값(예: `JAVA_VERSION: "17"`)은 유지합니다.

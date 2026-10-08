@@ -142,6 +142,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     const appRelease = existing?.options?.appRelease ?? null; // #553 저장값 보존 (묻지 않음)
     // 상태 라벨 표기(#776): 저장값 > (신규 en / 기존 ko). 기존 한글 레포에는 영문 전환을 한 번 제안한다(아래).
     const closeOnRelease = existing?.options?.closeOnRelease ?? (existing ? null : true); // #771 묻지 않는다
+    const excludedWorkflows = existing?.options?.excludedWorkflows ?? null; // #810 저장값 보존
     // Projects 보드 동기화(#716): 묻지 않는다. 저장값 > 이미 설치돼 있으면 유지 > 신규는 제외 (index.js 와 같은 규칙).
     const projectsSync = existing?.options?.projectsSync
       ?? existsSync(join(cwd, ".github/workflows/PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml"));
@@ -328,7 +329,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     const { now, today } = clock || utcNow();
     const ctx = createContext({
       mode, force: true, types, version, versionCode, branch, paths, deployTarget, publishTargets, includeSecretBackup,
-      codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync, language,
+      codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync, language, excludedWorkflows,
       repoName, templateVersion, resolvers, envValues, envUseDefaults, now, today,
       // #502 — version 모드가 기존 full 기록을 강등하지 않도록 (full이 우세)
       recordMode: existing?.templateMode === "full" ? "full" : "version",
@@ -423,7 +424,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       migrationGuidePath = appendGuideEntry(cwd, {
         now, mode, types, repoName,
         templateFrom: existing?.templateVersion || "", templateTo: templateVersion,
-        options: { deploy: deployTarget, publish: publishTargets, secretBackup: includeSecretBackup, coderabbit: codeReviewCoderabbit, changelogProvider, intent, semverAuto , appRelease, labelStyle, closeOnRelease, projectsSync, language },
+        options: { deploy: deployTarget, publish: publishTargets, secretBackup: includeSecretBackup, coderabbit: codeReviewCoderabbit, changelogProvider, intent, semverAuto , appRelease, labelStyle, closeOnRelease, projectsSync, language, excludedWorkflows },
         branches: { defaultBranch: branch, deployBranch, ready: deployBranchReady, created: deployBranchCreated },
         breaking: breakingReport, migrations: migrationsResult, orphans: orphanReport,
         events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },
@@ -438,6 +439,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       skippedConflicts: result?.workflows?.skippedConflicts ?? [],   // #654 병합 안내
       replacedBak: result?.workflows?.replacedBak ?? [],             // #673 기준점 없이 교체한 파일 안내
       legacyLeftover: migrationsResult?.confirmPending ?? [],         // #809 신·구 세대 동시 실행 안내
+      notInstalled: result?.workflows?.notInstalled ?? [],            // #810 깔지 않은 워크플로우 안내
       verification: result?.verification,      // #549 설치 검증 결과
       aiPrSummary, codeReviewCoderabbit,       // #569 — 고른 것만 안내
       logDir: files ? MIGRATION_DIR : null,    // #561 기록 위치 안내

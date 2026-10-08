@@ -120,6 +120,18 @@ export function printSummary(ctx, targetRoot = ".", write = null) {
     err(`     ${t("done.replacedHint")}`);
   }
 
+  // Workflows left out on purpose (#810): deleted by the user, listed in excluded_workflows, or needing a branch this repo lacks.
+  const skippedNew = ctx?.notInstalled ?? [];
+  if (skippedNew.length > 0) {
+    err("");
+    err(`  ${CYAN}ℹ️  ${t("done.notInstalledTitle", { count: skippedNew.length })}${NC}`);
+    for (const s of skippedNew) {
+      err(`     ⏭️  ${s.filename}  (${t(`done.notInstalled.${s.reason}`, { branch: ctx?.deployBranch || "develop" })})`);
+      if (s.incoming) err(`        cp ${s.incoming} .github/workflows/${s.filename}`);
+    }
+    err(`     ${t("done.notInstalledHint")}`);
+  }
+
   // Retired old-generation workflows still installed: they run next to their replacements (#809).
   const legacy = ctx?.legacyLeftover ?? [];
   if (legacy.length > 0) {

@@ -18,7 +18,7 @@ function makeTemplate() {
   const dir = join(tpl, ".github/workflows/project-types/node");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "PROJECT-NODE-CI.yaml"),
-    'name: n\non:\n  push:\nenv:\n  SERVICE_DOMAIN: "x"   # @wizard ask:example.com\n');
+    'name: n\non:\n  push:\nenv:\n  SERVICE_DOMAIN: "x"   # @wizard ask:api.myapp.dev\n');
   writeFileSync(join(tpl, "version.yml"), 'version: "4.7.0"\n');
   return tpl;
 }
