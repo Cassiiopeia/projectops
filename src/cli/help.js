@@ -7,8 +7,9 @@ Usage:
   npx projectops [options]
 
 Options:
-  -m, --mode MODE          Mode (full | version | workflows | issues | skills | doctor)
+  -m, --mode MODE          Mode (full | version | workflows | issues | skills | doctor | options)
                            doctor: diagnose the installation and repository settings (read-only)
+                           options: print every flag and version.yml key; add --json for agents
                            default: interactive
   -t, --type CSV           Project types, comma separated (e.g. spring,react,python)
                            supported: spring flutter react react-native
@@ -28,6 +29,7 @@ Options:
       --projects-sync / --no-projects-sync   Include / exclude the GitHub Projects status sync workflow (default: off for new installs)
       --remove-legacy      Rename retired old-generation workflows to .bak (otherwise only listed)
       --nexus / --npm-publish  (deprecated: use --publish nexus / --publish npm)
+      --json               With --mode options: machine-readable output
       --force, -y, --yes   Skip every confirmation and use non-interactive defaults
       --lang en|ko         Display language (default: system language, pinned to en in CI and with --force)
   -v, --version            Print the projectops version
@@ -46,8 +48,9 @@ const HELP_KO = `projectops — GitHub 프로젝트 자동화 템플릿 통합 C
   npx projectops [옵션]
 
 옵션:
-  -m, --mode MODE          통합 모드 (full | version | workflows | issues | skills | doctor)
+  -m, --mode MODE          통합 모드 (full | version | workflows | issues | skills | doctor | options)
                            doctor: 통합 상태·저장소 설정 진단 (읽기 전용)
+                           options: 모든 플래그·version.yml 키 출력 (--json 이면 agent용 JSON)
                            기본: interactive (대화형)
   -t, --type CSV           프로젝트 타입 csv (예: spring,react,python)
                            지원: spring flutter react react-native
@@ -67,6 +70,7 @@ const HELP_KO = `projectops — GitHub 프로젝트 자동화 템플릿 통합 C
       --projects-sync / --no-projects-sync   GitHub Projects 상태 동기화 워크플로우 포함/제외 (신규 설치 기본 제외)
       --remove-legacy      은퇴한 구세대 워크플로우를 .bak 으로 치움 (없으면 목록만 안내)
       --nexus / --npm-publish  (deprecated — --publish nexus / --publish npm 사용)
+      --json               --mode options 와 함께: 기계가 읽는 JSON 출력
       --force, -y, --yes   모든 확인 생략, 비대화형 기본값 사용
       --lang en|ko         화면 언어 (기본: 시스템 언어, CI/--force 는 en 고정)
   -v, --version            projectops 버전 출력

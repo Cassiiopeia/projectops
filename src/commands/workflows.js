@@ -9,6 +9,7 @@ import { applyLabelStyle } from "../core/label-style.js";
 import { copyScripts, copyConfigFolder, copySetupGuide } from "../core/copy/simple.js";
 import { copyUtilModules } from "../core/copy/util.js";
 import { convertLegacySingularType, mergeDeployValues } from "../core/version-yml.js";
+import { installAgentGuide } from "../core/agent-guide.js";
 import { verifyInstall } from "../core/verify.js";
 
 export function runWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
@@ -35,6 +36,7 @@ export function runWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   applyLabelStyle(targetRoot, labelStyle); // #776 — 워크플로우(QA 봇)와 라벨 정의를 같은 표기로 맞춘다
   for (const t of types) copyUtilModules(tempDir, t, { force }, targetRoot);
   copySetupGuide(tempDir, targetRoot);
+  installAgentGuide(targetRoot, context.templateVersion);
 
   // 설치 후 검증 (#549) — 워크플로우만 설치하는 모드라 오히려 더 필요하다.
   const verification = verifyInstall(targetRoot);

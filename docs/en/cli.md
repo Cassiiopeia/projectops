@@ -12,6 +12,7 @@
 | `issues` | Issue/PR templates only |
 | `skills` | Agent Skills only |
 | `doctor` | Diagnose integration state and repository settings (read-only) |
+| `options` | Print every flag and every `version.yml` key with allowed values and defaults. Add `--json` for AI agents (read-only, no network) |
 
 Default is interactive.
 
@@ -38,6 +39,8 @@ One-shot install followed by a read-only `doctor` check:
 | `--deploy-branch NAME` | Release PR head branch (default: develop) |
 | `--secret-backup` / `--no-secret-backup` | Include or exclude the secret backup workflow |
 | `--ai-summary` / `--no-ai-summary` | Include or exclude the PR summary workflow |
+| `--json` | With `--mode options`: machine-readable JSON |
+| `--remove-legacy` | Rename retired old-generation workflows to `.bak` (default: only list them) |
 | `--force` | Skip all confirmations, use non-interactive defaults |
 | `-v, --version` | Print the projectops version |
 | `-h, --help` | Show help |

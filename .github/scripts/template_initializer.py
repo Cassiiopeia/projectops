@@ -202,6 +202,7 @@ CLEANUP_TARGETS = [
     ("CLAUDE.md", "CLAUDE.md 삭제"),
     ("AGENTS.md", "AGENTS.md 삭제"),
     ("GEMINI.md", "GEMINI.md 삭제"),
+    ("llms.txt", "llms.txt 삭제 (이 저장소 전용)"),
     ("gemini-extension.json", "gemini-extension.json 삭제"),
     (".github/scripts/test", ".github/scripts/test 폴더 삭제"),
     (".github/workflows/test", ".github/workflows/test 폴더 삭제"),

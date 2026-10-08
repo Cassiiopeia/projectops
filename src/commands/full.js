@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { writeText } from "../core/fsutil.js";
 import { PATHS } from "../core/paths.js";
+import { installAgentGuide } from "../core/agent-guide.js";
 import { buildVersionYml, mergeDeployValues, resolveUpdatedBy } from "../core/version-yml.js";
 import { markerForType } from "../core/detect.js";
 import { addVersionSectionToReadme } from "../core/copy/readme.js";
@@ -87,6 +88,7 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
     { enabled: codeReviewCoderabbit });
   step("ensure-gitignore", () => ensureGitignore(targetRoot));
   step("copy-setup-guide", () => copySetupGuide(tempDir, targetRoot));
+  step("install-agent-guide", () => installAgentGuide(targetRoot, templateVersion)); // agent 가 옵션을 확인하는 법 안내
 
   // 상태 라벨 표기(#776) — 템플릿 원본은 영문이라, 한글 레포는 복사가 끝난 뒤 이름만 되돌린다.
   step("apply-label-style", () => applyLabelStyle(targetRoot, labelStyle), { labelStyle });

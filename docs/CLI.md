@@ -10,6 +10,7 @@
 | 질문 없이 한 줄로 설치한다 | `npx projectops --mode full --type spring --force` |
 | Agent Skills만 설치한다 | `npx projectops --mode skills` |
 | 설치 상태를 점검한다 (읽기 전용) | `npx projectops --mode doctor` |
+| 모든 옵션을 한 번에 본다 (AI agent용 JSON) | `npx projectops --mode options --json` |
 
 ## 대화형 마법사
 
@@ -74,6 +75,7 @@ npx projectops --intent library
 | `--secret-backup` / `--no-secret-backup` | Secret 백업 워크플로우 포함 / 제외 |
 | `--ai-summary` / `--no-ai-summary` | PR 변경 요약 워크플로우 포함 / 제외 |
 | `--remove-legacy` | 은퇴한 구세대 배포 워크플로우를 `.bak`으로 치움 (기본은 목록·삭제 명령만 안내) |
+| `--json` | `--mode options`와 함께 — 사람이 아닌 기계가 읽는 JSON 출력 |
 | `--force` | 모든 확인을 생략하고 비대화형 기본값 사용 |
 | `-v, --version` | projectops 버전 출력 |
 | `-h, --help` | 도움말 |

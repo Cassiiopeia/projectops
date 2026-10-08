@@ -79,6 +79,14 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
   if (opts.showVersion) { console.log(readPkgVersion()); return 0; }
   if (opts.help) { console.log(helpText()); return 0; }
 
+  // options 모드 — 옵션 정본 출력. AI agent 가 문서를 뒤지지 않고 한 번에 읽는다. 읽기 전용·네트워크 없음.
+  if (opts.mode === "options") {
+    const { buildSchema, renderText } = await import("./core/options-schema.js");
+    const schema = buildSchema(readPkgVersion());
+    console.log(opts.json ? JSON.stringify(schema, null, 2) : renderText(schema));
+    return 0;
+  }
+
   // doctor 모드 (#558) — 읽기 전용 진단. 템플릿을 내려받지 않으므로 네트워크 없이도 동작한다.
   if (opts.mode === "doctor") {
     const { runDoctor } = await import("./commands/doctor.js");

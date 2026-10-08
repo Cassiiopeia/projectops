@@ -15,7 +15,7 @@ const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 // 유니코드 글자·숫자 허용 (#719) — 공백·셸 메타문자는 문자 클래스에 없어 그대로 거부된다.
 const BRANCH_RE = /^[\p{L}\p{N}][\p{L}\p{N}._/-]*$/u;
 // 허용 실행 모드 (#665) — 오타가 조용히 "복사 0건 성공"으로 끝나지 않게 한다.
-export const MODE_VALUES = ["full", "version", "workflows", "issues", "skills", "doctor", "interactive"];
+export const MODE_VALUES = ["full", "version", "workflows", "issues", "skills", "doctor", "options", "interactive"];
 
 // argv(process.argv.slice(2)) → 파싱 결과. 오류 시 throw(호출부에서 exit 1).
 export function parseArgs(argv) {
@@ -33,6 +33,7 @@ export function parseArgs(argv) {
     includeSecretBackup: null,
     aiPrSummary: null,   // #566 — AI 변경 요약 워크플로우 포함 여부
     projectsSync: null,  // #716 — Projects 보드 동기화 워크플로우 포함 여부 (null=미지정)
+    json: false,         // --json: 기계가 읽는 출력 (--mode options)
     removeLegacy: false, // #809 — 구세대 배포 워크플로우(confirm 티어)도 .bak 으로 치운다
     pathsCsv: "",            // "flutter=app,react=client" 원문 (정규화는 resolve 단계)
     force: false,
@@ -172,6 +173,7 @@ export function parseArgs(argv) {
       case "--projects-sync": result.projectsSync = true; break;
       case "--no-projects-sync": result.projectsSync = false; break;
       case "--remove-legacy": result.removeLegacy = true; break;
+      case "--json": result.json = true; break;
       case "--npm-publish":
         process.stderr.write(t("args.npmPublishDeprecated") + "\n");
         result.publishTargets = [...new Set([...(result.publishTargets ?? []), "npm"])];

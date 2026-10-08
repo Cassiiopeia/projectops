@@ -350,6 +350,17 @@ RequestError [HttpError]: Resource not accessible by integration
 > 에서 고치고 테스트 빌드를 다시 걸면 **여전히 옛 정의가 실행된다.** 수정이 안 먹은 것처럼
 > 보여 원인을 엉뚱한 데서 찾게 되므로, 반드시 기본 브랜치에 반영된 뒤에 확인한다.
 
+### 옵션 정본은 한 곳이다 (agent 필독)
+
+CLI 플래그와 `version.yml` 옵션의 이름·값·기본값은 **`src/core/options-schema.js`** 한 곳에 있고,
+`npx projectops --mode options --json`이 그대로 출력한다. AI agent는 문서를 뒤지지 않고 이 명령으로 확인한다.
+
+- 새 플래그(`src/cli/args.js`)나 `version.yml` 옵션(`parseTemplateOptions`)을 추가하면 **정본에도 반드시 추가한다.**
+  `test/options-schema.test.js`가 코드와 정본을 대조해 어긋나면 실패한다.
+- 문서에 옵션 표를 새로 복제하지 않는다 — 복제본은 낡는다. 문서는 정본을 가리킨다.
+- 사용자 레포에는 `.github/.projectops/AGENT-GUIDE.md`가 설치된다(`src/core/agent-guide.js`). 옵션 값은 박지 않고 명령만 안내한다.
+- 이 레포의 `AGENTS.md`·`GEMINI.md`·`llms.txt`는 템플릿 전용이라 `exclusions.js`와 `template_initializer.py` 양쪽에서 제외된다.
+
 ### 실행 기록 3계층 (#493·#494·#561 — agent 필독)
 
 마법사(full/workflows)가 끝나면 **대상 레포**의 `.github/.projectops/logs/`에 실행 기록을 남긴다.

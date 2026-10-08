@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { writeText } from "../core/fsutil.js";
 import { PATHS } from "../core/paths.js";
+import { installAgentGuide } from "../core/agent-guide.js";
 import { buildVersionYml, mergeDeployValues, resolveUpdatedBy } from "../core/version-yml.js";
 import { markerForType } from "../core/detect.js";
 import { addVersionSectionToReadme } from "../core/copy/readme.js";
@@ -41,4 +42,5 @@ export function runVersion(context, tempDir, targetRoot = ".") {
   applyLabelStyle(targetRoot, labelStyle); // #776
   ensureGitignore(targetRoot);
   copySetupGuide(tempDir, targetRoot);
+  installAgentGuide(targetRoot, templateVersion);
 }

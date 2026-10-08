@@ -1,72 +1,88 @@
-# SUH DevOps Skills Agent Instructions
+# projectops — Agent Instructions
 
-This repository is both a GitHub project template and an agent skill package.
-For Codex and other agents, `skills/` is the shared local skill library.
+projectops is three things in one repository:
 
-## Required Skill Flow
+1. A **GitHub project automation template**: versioning, release notes, CI/CD, issue automation (`.github/`).
+2. An **installer CLI**: `npx projectops` copies the template into an existing repo (`src/`, `bin/`).
+3. An **agent skill package**: `skills/pro-*` (Claude Code, Codex, Gemini CLI, Cursor, pi).
 
-Before responding with an implementation, issue, commit, review, or debugging
-result, check whether a local skill applies. Skill bodies live at:
+## If you are an AI agent using projectops in a repo
 
-```text
-skills/{skill-name}/SKILL.md
-```
-
-If a skill applies, read the relevant `SKILL.md` and follow it. Codex does not
-need a slash-command skill UI for this repository; use the local files directly.
-
-Common routing:
-
-| Request | Use |
-|---------|-----|
-| "커밋해줘", "commit" | `skills/pro-commit/SKILL.md` |
-| "분석해줘", "영향 범위 봐줘" | `skills/pro-analyze/SKILL.md` |
-| "계획 세워줘", "plan" | `skills/pro-plan/SKILL.md` |
-| "구현해줘", "수정해줘" | `skills/pro-implement/SKILL.md` |
-| "리뷰해줘" | `skills/pro-review/SKILL.md` |
-| "뭔가 안 돼", "원인 찾아줘", 알아낸 것 기록 | `skills/pro-note/SKILL.md` |
-| "작업 보고서 작성" | `skills/pro-report/SKILL.md` |
-| "스킬 만들기/개선" | `skills/pro-skill-creator/SKILL.md` |
-| "이슈 작성", "issue", "GitHub 이슈 만들어줘", "GitHub 이슈/PR 조회·관리" | `skills/pro-github/SKILL.md` |
-| "배포", "deploy PR" | `skills/pro-changelog-deploy/SKILL.md` |
-| "원격 서버 접속", "SSH" | `skills/pro-ssh/SKILL.md` |
-
-## Codex Installation Model
-
-**Method 1 (recommended):** Plugin marketplace source registration:
+Do not read documentation to find options. Ask the CLI:
 
 ```bash
-codex plugin marketplace add Cassiiopeia/projectops
+npx projectops --mode options --json   # every flag and every version.yml key, with values and defaults
+npx projectops --mode doctor           # read-only diagnosis of an existing install
 ```
 
-After registering, open `/plugins` in Codex and verify the `projectops` entry.
+Rules for running it non-interactively:
 
-**Method 2 (fallback):** Direct clone + symlink for immediate activation without
-marketplace:
+- Always pass an explicit `--mode` and `--force`. Without them the CLI asks questions and blocks.
+- `--mode doctor` and `--mode options` never change files. Run them first.
+- Settings live in `version.yml` under `metadata.template.options`. The option table above says which keys are safe to edit by hand.
+- Do not edit files under `.github/.projectops/` (run logs, baseline, incoming copies). They are diagnostics.
+
+## If you are an AI agent working on this repository
+
+Read `CONTRIBUTING.md` first. The detailed maintainer rules are in `CLAUDE.md` (Korean); the ones that bite most:
+
+- Work on `develop`. `main` deploys; never commit to it directly.
+- Several agents may work in the same tree. Stage only your own paths, never use `git add -A`, and never use `git reset --hard`, `git checkout .`, `git stash` (whole tree) or force push.
+- Commit through the `pro-commit` skill. The commit type decides the release version (`feat:` = minor, `feat!:` = major).
+- Common workflows exist twice: `.github/workflows/` and `.github/workflows/project-types/common/`. Keep them identical.
+- A new CLI flag or `version.yml` option must also be added to `src/core/options-schema.js`; `test/options-schema.test.js` fails otherwise.
+- Run `npm test` and `python3 -m pytest .github/scripts/test/` before you say it works.
+
+## Skills
+
+Skill bodies live at `skills/{name}/SKILL.md`. If one applies, read it and follow it before you act.
+No slash-command UI is needed; read the file directly.
+
+| Intent | Skill |
+|--------|-------|
+| Commit with the issue number filled in | `pro-commit` |
+| Create or manage GitHub issues, PRs, comments, labels, secrets, Actions logs | `pro-github` |
+| Open the release PR from develop to main, retrigger automerge | `pro-changelog-deploy` |
+| Write the implementation report for an issue or PR | `pro-report` |
+| Review code | `pro-review` |
+| Something is broken, or you learned something worth recording | `pro-note` |
+| Run the app / server / browser and look for bugs end to end | `pro-agent-test` |
+| Launch an emulator, simulator, browser or server and capture it | `pro-launch` |
+| Compare an implementation with a Figma design | `pro-figma-verify` |
+| Hand an already-built screen to a designer | `pro-design-brief` |
+| Diagnose a repository as an open source project | `pro-oss-consult` |
+| Generate QA test cases | `pro-testcase` |
+| Build or package the project | `pro-build` |
+| Create a git worktree for an issue | `pro-init-worktree` |
+| Run commands on a remote server over SSH | `pro-ssh` |
+| Expose a Synology service on a domain | `pro-synology-expose` |
+| Create, review or improve a skill | `pro-skill-creator` |
+| Plan / analyze / implement (explicit call only) | `pro-plan`, `pro-analyze`, `pro-implement` |
+
+## Installing the skills
+
+Claude Code:
+
+```bash
+claude plugin marketplace add Cassiiopeia/projectops
+claude plugin install projectops@projectops-marketplace --scope user
+```
+
+Codex: `codex plugin marketplace add Cassiiopeia/projectops`, then open `/plugins` and check the `projectops` entry.
+Fallback without the marketplace:
 
 ```bash
 git clone https://github.com/Cassiiopeia/projectops.git ~/.codex/projectops
-mkdir -p ~/.agents/skills
-ln -s ~/.codex/projectops/skills ~/.agents/skills/projectops
+mkdir -p ~/.agents/skills && ln -s ~/.codex/projectops/skills ~/.agents/skills/projectops
 ```
 
-Codex reads `.agents/plugins/marketplace.json` to discover the marketplace entry
-and `.codex-plugin/plugin.json` to load the plugin metadata.
+Other IDEs: `npx projectops --mode skills`.
 
-## Repository Safety
+## Repository safety
 
-This repository is also used as a template for new projects. Agent package files
-belong here, but should be removed from generated projects by the initializer:
-
-- `AGENTS.md`
-- `GEMINI.md`
-- `gemini-extension.json`
-- `.agents/`
-- `.claude-plugin/`
-- `.codex-plugin/`
-- `.cursor/`
-- `skills/`
-
-Be especially careful when editing `.github/scripts/template_initializer.py` and
-`.github/workflows/`.
+This repository is also the source that initializes other projects. Agent package files belong here
+but must not reach generated projects: `AGENTS.md`, `GEMINI.md`, `llms.txt`, `gemini-extension.json`,
+`.agents/`, `.claude-plugin/`, `.codex-plugin/`, `.cursor/`, `skills/`.
+They are removed by `.github/scripts/template_initializer.py` and skipped by `src/core/exclusions.js`.
+Be careful when editing those two files and `.github/workflows/`.
 Do not push unless the user explicitly asks for it.

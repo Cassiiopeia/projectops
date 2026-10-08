@@ -1,0 +1,22 @@
+# projectops
+
+> GitHub project automation template and installer CLI: versioning, release notes, CI/CD, issue automation and agent skills. Install into an existing repo with `npx projectops`.
+
+Ask the tool instead of reading docs: `npx projectops --mode options --json` prints every CLI flag and every version.yml option with allowed values and defaults. `npx projectops --mode doctor` diagnoses an existing install (read-only).
+
+## Start here
+- [README](https://github.com/Cassiiopeia/projectops/blob/main/README.md): what it does and the 30-second start
+- [Agent instructions](https://github.com/Cassiiopeia/projectops/blob/main/AGENTS.md): rules for agents using or changing this repo, skill routing
+- [CLI reference](https://github.com/Cassiiopeia/projectops/blob/main/docs/en/cli.md): flags, modes and examples (English)
+- [Getting started](https://github.com/Cassiiopeia/projectops/blob/main/docs/en/getting-started.md)
+
+## Reference (Korean, being translated)
+- [Version control and semver_auto](https://github.com/Cassiiopeia/projectops/blob/main/docs/VERSION-CONTROL.md)
+- [Wizard modes, legacy migration, workflows the update will not install](https://github.com/Cassiiopeia/projectops/blob/main/docs/NPX-WIZARD.md)
+- [Issue automation and labels](https://github.com/Cassiiopeia/projectops/blob/main/docs/ISSUE-AUTOMATION.md)
+- [Troubleshooting](https://github.com/Cassiiopeia/projectops/blob/main/docs/TROUBLESHOOTING.md)
+
+## Optional
+- [Contributing](https://github.com/Cassiiopeia/projectops/blob/main/CONTRIBUTING.md)
+- [Changelog](https://github.com/Cassiiopeia/projectops/blob/main/CHANGELOG.md)
+- [Security policy](https://github.com/Cassiiopeia/projectops/blob/main/SECURITY.md)
