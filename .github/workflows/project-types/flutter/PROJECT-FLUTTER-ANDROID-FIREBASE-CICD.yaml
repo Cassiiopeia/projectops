@@ -129,7 +129,7 @@ jobs:
           echo ".env file created"
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
@@ -314,7 +314,7 @@ jobs:
           echo "✅ Google-services.json 생성 완료"
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
@@ -615,7 +615,7 @@ jobs:
       # Firebase App Distribution에 APK 업로드
       - name: Upload to Firebase App Distribution
         id: firebase_upload
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        uses: wzieba/Firebase-Distribution-Github-Action@bd494989dd4bec0343f78adee87fe66e48279ad6 # v1
         with:
           appId: ${{ env.FIREBASE_APP_ID }}
           # ⚠️ uses: 액션은 job의 defaults.working-directory를 따르지 않고

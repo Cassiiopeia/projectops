@@ -263,16 +263,16 @@ jobs:
       # =================================================================
 
       - name: Docker 로그인
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Docker Buildx 설정
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Docker 이미지 빌드 & Push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: .
           file: ${{ env.DOCKERFILE_PATH }}
@@ -320,7 +320,7 @@ jobs:
             core.setOutput('deploy_start', now);
 
       - name: 서버에 배포
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         env:
           SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
           SSH_AUTH_METHOD: ${{ env.SSH_AUTH_METHOD }}
@@ -856,18 +856,18 @@ jobs:
 
       - name: Docker 로그인
         if: steps.check_branch.outputs.exists == 'true'
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Docker Buildx 설정
         if: steps.check_branch.outputs.exists == 'true'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Docker 이미지 빌드 & Push
         if: steps.check_branch.outputs.exists == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: .
           file: ${{ env.DOCKERFILE_PATH }}
@@ -922,7 +922,7 @@ jobs:
 
       - name: 서버에 배포
         if: steps.check_branch.outputs.exists == 'true'
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         env:
           SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
           SSH_AUTH_METHOD: ${{ env.SSH_AUTH_METHOD }}
@@ -1294,7 +1294,7 @@ jobs:
 
       - name: 컨테이너 & 이미지 삭제
         if: steps.target.outputs.should_destroy == 'true'
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         env:
           SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
           SSH_AUTH_METHOD: ${{ env.SSH_AUTH_METHOD }}
@@ -1382,7 +1382,7 @@ jobs:
     steps:
       - name: 컨테이너 상태 확인
         id: status
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
@@ -1411,7 +1411,7 @@ jobs:
             fi
 
       - name: 상태 코멘트 (실행 중)
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         id: check_running
         continue-on-error: true
         with:
@@ -1643,14 +1643,14 @@ jobs:
 
       - name: Docker 로그인
         if: steps.branch_info.outputs.branch_exists == 'true'
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Docker Buildx 설정
         if: steps.branch_info.outputs.branch_exists == 'true'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: 컨테이너 이름 결정
         if: steps.branch_info.outputs.branch_exists == 'true'
@@ -1666,7 +1666,7 @@ jobs:
 
       - name: Docker 이미지 빌드 & Push
         if: steps.branch_info.outputs.branch_exists == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: .
           file: ${{ env.DOCKERFILE_PATH }}
@@ -1721,7 +1721,7 @@ jobs:
 
       - name: 서버에 배포
         if: steps.branch_info.outputs.branch_exists == 'true'
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         env:
           SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
           SSH_AUTH_METHOD: ${{ env.SSH_AUTH_METHOD }}
@@ -2058,7 +2058,7 @@ jobs:
             core.setOutput('branch_name', branchName);
 
       - name: 컨테이너 & 이미지 삭제
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         env:
           SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
           SSH_AUTH_METHOD: ${{ env.SSH_AUTH_METHOD }}
@@ -2182,7 +2182,7 @@ jobs:
             core.setOutput('branch_name', branchName);
 
       - name: 컨테이너 상태 확인
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         id: check_running
         continue-on-error: true
         with:

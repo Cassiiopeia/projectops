@@ -41,7 +41,7 @@ jobs:
         distribution: 'temurin'
 
     - name: Validate Gradle Wrapper
-      uses: gradle/wrapper-validation-action@v2
+      uses: gradle/wrapper-validation-action@b5418f5a58f5fd2eb486dd7efb368fe7be7eae45 # v2
       continue-on-error: true
 
     - name: Create gradle.properties from secret
@@ -51,7 +51,7 @@ jobs:
         echo -e "$GRADLE_PROPERTIES" > gradle.properties
 
     - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v4
+      uses: gradle/actions/setup-gradle@48b5f213c81028ace310571dc5ec0fbbca0b2947 # v4
       with:
         gradle-version: wrapper
 
