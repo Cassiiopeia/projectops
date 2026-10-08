@@ -77,7 +77,14 @@ const enSidebar = [
       { text: 'Versioning', link: '/en/version-control' },
       { text: 'Changelog automation', link: '/en/changelog-automation' },
       { text: 'Issue automation', link: '/en/issue-automation' },
+      { text: 'PR Preview', link: '/en/pr-preview' },
+      { text: 'SSH + Docker deploy', link: '/en/ssh-docker-deployment-guide' },
+      { text: 'Flutter CI/CD', link: '/en/flutter-cicd-overview' },
     ],
+  },
+  {
+    text: 'Agent Skills',
+    items: [{ text: 'Skills guide', link: '/en/skills' }],
   },
   {
     text: 'Help',

@@ -178,7 +178,7 @@ flowchart TD
     K --> L["/pro-changelog-deploy<br/>Release PR + automerge"]
 ```
 
-> Full list of Skills and usage: **[docs/SKILLS.md](docs/SKILLS.md)** (Korean)
+> Full list of Skills and usage: **[docs/en/skills.md](docs/en/skills.md)**
 
 ### GitHub Actions pipeline
 
@@ -215,14 +215,14 @@ codex plugin marketplace add Cassiiopeia/projectops
 
 The `--mode skills` wizard registers the Codex marketplace and also prepares the native skills fallback. Use `/plugins` only to check or manage the install.
 
-Where the Codex plugin marketplace is unavailable, use the fallback install described in the [Skills guide](docs/SKILLS.md).
+Where the Codex plugin marketplace is unavailable, use the fallback install described in the [Skills guide](docs/en/skills.md).
 
 ```bash
 # Cursor / the full Agent Skills install menu (recommended: npx)
 npx projectops --mode skills
 ```
 
-> Claude Code prefers `/pro-` autocomplete, Gemini prefers its extension, and Codex prefers its plugin marketplace. See the [Skills guide](docs/SKILLS.md) for details.
+> Claude Code prefers `/pro-` autocomplete, Gemini prefers its extension, and Codex prefers its plugin marketplace. See the [Skills guide](docs/en/skills.md) for details.
 
 </details>
 
@@ -257,7 +257,7 @@ Run automation by commenting on an issue or PR.
 | `@projectops ios build` | Build iOS only | Flutter |
 | `@projectops create qa` | Create a QA issue automatically | All projects |
 
-> Details: [PR Preview](docs/PR-PREVIEW.md) | [Flutter builds](docs/FLUTTER-TEST-BUILD-TRIGGER.md) | [Issue automation](docs/en/issue-automation.md)
+> Details: [PR Preview](docs/en/pr-preview.md) | [Flutter builds](docs/FLUTTER-TEST-BUILD-TRIGGER.md) | [Issue automation](docs/en/issue-automation.md)
 
 ---
 
@@ -307,17 +307,17 @@ We would rather tell you up front when this is not a fit.
 
 ## Documentation
 
-Browse and search everything on the **[docs site](https://cassiiopeia.github.io/projectops/en/)**. Four guides are in English; the rest are still Korean only (translations are welcome, see [#799](https://github.com/Cassiiopeia/projectops/issues/799)).
+Browse and search everything on the **[docs site](https://cassiiopeia.github.io/projectops/en/)**. The main guides are in English. A few wizard pages are still Korean only (translations are welcome, see [#799](https://github.com/Cassiiopeia/projectops/issues/799)).
 
 - [Getting started](https://cassiiopeia.github.io/projectops/en/getting-started)
 - [CLI reference](https://cassiiopeia.github.io/projectops/en/cli)
-- [Agent Skills guide (Korean)](https://cassiiopeia.github.io/projectops/SKILLS)
+- [Agent Skills guide](https://cassiiopeia.github.io/projectops/en/skills)
 - [Versioning](https://cassiiopeia.github.io/projectops/en/version-control)
 - [Changelog automation](https://cassiiopeia.github.io/projectops/en/changelog-automation)
-- [PR Preview (Korean)](https://cassiiopeia.github.io/projectops/PR-PREVIEW)
+- [PR Preview](https://cassiiopeia.github.io/projectops/en/pr-preview)
 - [Issue automation](https://cassiiopeia.github.io/projectops/en/issue-automation)
-- [SSH + Docker deploy (Korean)](https://cassiiopeia.github.io/projectops/SSH-DOCKER-DEPLOYMENT-GUIDE)
-- [Flutter CI/CD (Korean)](https://cassiiopeia.github.io/projectops/FLUTTER-CICD-OVERVIEW)
+- [SSH + Docker deploy](https://cassiiopeia.github.io/projectops/en/ssh-docker-deployment-guide)
+- [Flutter CI/CD](https://cassiiopeia.github.io/projectops/en/flutter-cicd-overview)
 - [Troubleshooting](https://cassiiopeia.github.io/projectops/en/troubleshooting)
 
 ---
