@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { writeText } from "../core/fsutil.js";
 import { PATHS } from "../core/paths.js";
-import { buildVersionYml, mergeDeployValues } from "../core/version-yml.js";
+import { buildVersionYml, mergeDeployValues, resolveUpdatedBy } from "../core/version-yml.js";
 import { markerForType } from "../core/detect.js";
 import { addVersionSectionToReadme } from "../core/copy/readme.js";
 import { copyWorkflows } from "../core/copy/workflows.js";
@@ -50,6 +50,7 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
     buildVersionYml({
       version, types, paths, pathMarkers, branch, deployBranch, versionCode, now, today,
       deployValues,
+      updatedBy: resolveUpdatedBy(existsSync(vyFile) ? readFileSync(vyFile, "utf8") : "", targetRoot), // #811
       templateOptions: { templateVersion, deployTarget, publishTargets, includeSecretBackup, aiPrSummary, optionsDate: today,
         changelogProvider, changelogBaseUrl, codeReviewCoderabbit, intent, mode: "full", semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync, language },
     })), { version, versionCode });

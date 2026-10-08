@@ -1,8 +1,9 @@
 // version.yml 파싱·생성 (.sh create_version_yml 등가, 전체 재생성 전략 D4).
 // ⚠️ YAML 재직렬화 금지 — 주석이 데이터. .sh heredoc과 바이트 동일한 템플릿 문자열.
 // 실측 기준: template_integrator.sh 2184~2354.
+import { execFileSync } from "node:child_process";
 
-const HEADER = `# ===================================================================
+const HEADER_EN = `# ===================================================================
 # Project version management file
 # ===================================================================
 #
@@ -44,6 +45,96 @@ const HEADER = `# ==============================================================
 # - The version is always synced automatically to the highest one
 # ===================================================================
 `;
+
+// 한국어 레포(options.language: ko)는 주석도 한국어로 쓴다 (#811).
+// 업데이트(--force 는 화면이 en 고정)마다 한국어 주석이 영문으로 바뀌어 version.yml diff 가 86줄이 됐다.
+const HEADER_KO = `# ===================================================================
+# 프로젝트 버전 관리 파일
+# ===================================================================
+#
+# 이 파일은 다양한 프로젝트 타입에서 버전 정보를 중앙 관리하기 위한 파일입니다.
+# GitHub Actions 워크플로우가 이 파일을 읽어 자동으로 버전을 관리합니다.
+#
+# 사용법:
+# 1. version: "1.0.0" - 사용자에게 표시되는 버전
+# 2. version_code: 1 - Play Store/App Store 빌드 번호 (1부터 자동 증가)
+# 3. project_types: 프로젝트 타입 배열 — 첫 항목이 primary
+# 4. project_paths: 타입별 프로젝트 폴더 (레포 루트 기준 상대경로, 모노레포용)
+#
+# 자동 버전 업데이트:
+# - version_code: 매 빌드마다 자동으로 1씩 증가 (아래 판정과 무관)
+# - 버전 승격 폭은 metadata.template.options.semver_auto 가 정합니다
+#   semver_auto: true  -> 릴리스 구간 커밋 제목으로 판정
+#                         "제목 : feat! : 내용" 또는 "feat!:" -> major (x+1.0.0)
+#                         "제목 : feat : 내용"  또는 "feat:"  -> minor (x.y+1.0)
+#                         그 외(fix/docs/chore/refactor/test) -> patch (x.y.z+1)
+#   키 없음 / false     -> 항상 patch +1
+# - 위 판정과 무관하게 version 값을 직접 수정해도 됩니다
+#
+# 프로젝트 타입별 동기화 파일:
+# - spring: build.gradle (version = "x.y.z")
+# - flutter: pubspec.yaml (version: x.y.z+i, buildNumber 포함)
+# - react/node: package.json ("version": "x.y.z")
+# - react-native: iOS Info.plist 또는 Android build.gradle
+# - react-native-expo: app.json (expo.version)
+# - python: pyproject.toml (version = "x.y.z")
+# - basic/기타: version.yml 파일만 사용
+#
+# 연관된 워크플로우:
+# - .github/workflows/PROJECT-VERSION-CONTROL.yaml
+# - .github/workflows/PROJECT-README-VERSION-UPDATE.yaml
+# - .github/workflows/PROJECT-RELEASE-CHANGELOG.yaml
+#
+# 주의사항:
+# - project_types는 최초 설정 후 변경하지 마세요
+# - 버전은 항상 높은 버전으로 자동 동기화됩니다
+# ===================================================================
+`;
+
+// 키 옆 한 줄 주석. 언어는 화면 언어가 아니라 레포 문구 언어(options.language)를 따른다.
+const COMMENTS = {
+  en: {
+    versionCode: "app build number",
+    projectTypes: "array of types, first entry is primary, safe to edit by hand",
+    projectPaths: "project folder per type (relative to the repo root)",
+    mode: "install scope (full/version/workflows), used when re-running update mode",
+    intent: "project kind (app/library/both/none/manual), drives the deploy questions",
+    semverAuto: "decide the version bump from commit titles (false means always patch)",
+    projectsSync: "include the GitHub Projects status sync workflow",
+    closeOnRelease: "close issues labelled done when a release is merged (false or missing means do not close)",
+    language: "issue/PR template language (en | ko)",
+    labelStyle: "status label style (en: status: todo / ko: Korean names)",
+    appRelease: "whether releases go through App Store / Play Store review",
+    deploy: "deploy settings remembered by the wizard (non-sensitive, safe to edit by hand)",
+  },
+  ko: {
+    versionCode: "app build number",
+    projectTypes: "멀티타입 배열 — 첫 항목이 primary, 직접 편집 가능",
+    projectPaths: "타입별 프로젝트 폴더 (레포 루트 기준 상대경로)",
+    mode: "통합 범위(full/version/workflows) — 업데이트 모드 재실행 기준",
+    intent: "프로젝트 성격(app/library/both/none/manual) — 배포 질문 유도 기준",
+    semverAuto: "커밋 제목으로 버전 승격 폭 결정 (false면 항상 patch)",
+    projectsSync: "GitHub Projects 상태 동기화 워크플로우 포함 여부",
+    closeOnRelease: "릴리스 머지 때 완료 라벨 이슈를 닫는다 (false/미기재면 닫지 않음)",
+    language: "이슈/PR 템플릿 언어 (en | ko)",
+    labelStyle: "상태 라벨 표기 (en: status: todo / ko: 작업전)",
+    appRelease: "앱스토어·플레이스토어 심사로 이어지는 배포인가",
+    deploy: "마법사가 기억하는 배포 설정 (비민감 / 직접 수정 가능)",
+  },
+};
+const commentsFor = (lang) => COMMENTS[lang === "ko" ? "ko" : "en"];
+
+// last_updated_by 결정 (#811): 실행한 git 사용자 → 기존 값 → template_integrator.
+// 예전엔 업데이트마다 "template_integrator"로 덮어써 누가 바꿨는지가 사라졌다.
+export function resolveUpdatedBy(existingContent = "", cwd = ".") {
+  try {
+    const name = execFileSync("git", ["config", "user.name"],
+      { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    if (name) return name;
+  } catch { /* git 없음·설정 없음(CI) — 기존 값으로 */ }
+  const m = String(existingContent || "").match(/^\s+last_updated_by:\s*"([^"]*)"/m);
+  return m && m[1] ? m[1] : "template_integrator";
+}
 
 // metadata.template.options 상태머신 파싱 (.sh read_template_options L2361~2416 등가).
 // 반환(#439 배포/publish 축): { deploy: string|null, publish: string[]|null, secretBackup: bool|null }
@@ -329,17 +420,19 @@ export function mergeDeployValues(existingContent, fresh) {
 //   today = "YYYY-MM-DD" (UTC)
 //   pathMarkers = Map<type, markerFilename> (project_paths 주석용)
 //   templateOptions = { templateVersion, deployTarget, publishTargets, includeSecretBackup, optionsDate } (template 블록)
-export function buildVersionYml({ version, types = [], paths = new Map(), pathMarkers = new Map(), branch = "main", deployBranch = "", versionCode = 1, now, today, templateOptions = null, deployValues = new Map() }) {
+export function buildVersionYml({ version, types = [], paths = new Map(), pathMarkers = new Map(), branch = "main", deployBranch = "", versionCode = 1, now, today, templateOptions = null, deployValues = new Map(), updatedBy = "template_integrator" }) {
+  const lang = templateOptions?.language === "ko" ? "ko" : "en";
+  const C = commentsFor(lang);
   const typesJson = types.length ? `[${types.map((t) => `"${t}"`).join(",")}]` : `["basic"]`;
 
-  let out = HEADER + "\n";
+  let out = (lang === "ko" ? HEADER_KO : HEADER_EN) + "\n";
   out += `version: "${version}"\n`;
-  out += `version_code: ${versionCode}  # app build number\n`;
-  out += `project_types: ${typesJson}   # array of types, first entry is primary, safe to edit by hand\n`;
+  out += `version_code: ${versionCode}  # ${C.versionCode}\n`;
+  out += `project_types: ${typesJson}   # ${C.projectTypes}\n`;
 
   // project_paths 블록. pathMarkers: Map<type, markerFilename> (있으면 "  type: "path"   # path/marker" 주석).
   if (paths.size) {
-    out += `project_paths:                # project folder per type (relative to the repo root)\n`;
+    out += `project_paths:                # ${C.projectPaths}\n`;
     for (const [t, p] of paths) {
       const marker = pathMarkers.get(t) || "";
       const pf = p === "." ? marker : (marker ? `${p}/${marker}` : p);
@@ -349,7 +442,7 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
 
   out += `metadata:\n`;
   out += `  last_updated: "${now}"\n`;
-  out += `  last_updated_by: "template_integrator"\n`;
+  out += `  last_updated_by: "${String(updatedBy || "template_integrator").replace(/"/g, "")}"\n`;
   out += `  default_branch: "${branch}"\n`;
   // deploy_branch: 릴리스 PR의 head 브랜치(#456). default_branch(레포 기본)와 별개 개념.
   // 지정된 경우에만 출력 — 미지정이면 스킬이 develop로 폴백(하위호환).
@@ -369,27 +462,27 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
     out += `    source: "projectops"\n`;
     out += `    version: "${templateVersion}"\n`;
     // mode(#502) — 이 레포에 통합된 범위. 업데이트 모드가 같은 범위를 재실행하는 기준.
-    if (mode) out += `    mode: "${mode}"   # install scope (full/version/workflows), used when re-running update mode\n`;
+    if (mode) out += `    mode: "${mode}"   # ${C.mode}\n`;
     out += `    integrated_date: "${optionsDate}"\n`;
     out += `    last_update_date: "${optionsDate}"\n`;
     out += `    options:\n`;
-    out += `      intent: "${intentVal}"   # project kind (app/library/both/none/manual), drives the deploy questions\n`;
+    out += `      intent: "${intentVal}"   # ${C.intent}\n`;
     out += `      deploy: "${deployTarget}"\n`;
     out += `      publish: ${publishJson}\n`;
     out += `      secret_backup: ${includeSecretBackup}\n`;
     // semver 자동 승격(#546) — 릴리스 시 커밋 제목으로 major/minor/patch 결정. false면 항상 patch.
-    out += `      semver_auto: ${semverAuto}   # decide the version bump from commit titles (false means always patch)\n`;
+    out += `      semver_auto: ${semverAuto}   # ${C.semverAuto}\n`;
     // Projects 보드 동기화(#716) — 미지정이면 키를 쓰지 않는다.
-    if (projectsSync !== null) out += `      projects_sync: ${projectsSync}   # GitHub Projects 상태 동기화 워크플로우 포함 여부\n`;
+    if (projectsSync !== null) out += `      projects_sync: ${projectsSync}   # ${C.projectsSync}\n`;
     // 릴리스 시 완료 이슈 닫기(#771) — 미지정이면 키를 쓰지 않는다(기존 레포는 현행 유지).
-    if (closeOnRelease !== null) out += `      close_on_release: ${closeOnRelease}   # close issues labelled done when a release is merged (false or missing means do not close)\n`;
+    if (closeOnRelease !== null) out += `      close_on_release: ${closeOnRelease}   # ${C.closeOnRelease}\n`;
     // 상태 라벨 표기(#776) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).
     // 레포 문구 언어(#769) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).
-    if (language) out += `      language: ${language}   # issue/PR template language (en | ko)\n`;
-    if (labelStyle) out += `      label_style: ${labelStyle}   # status label style (en: status: todo / ko: Korean names)\n`;
+    if (language) out += `      language: ${language}   # ${C.language}\n`;
+    if (labelStyle) out += `      label_style: ${labelStyle}   # ${C.labelStyle}\n`;
     // 앱 심사 배포 레포 여부(#553) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).
     if (appRelease !== null) {
-      out += `      app_release: ${appRelease}   # whether releases go through App Store / Play Store review\n`;
+      out += `      app_release: ${appRelease}   # ${C.appRelease}\n`;
     }
     out += `      code_review:\n`;
     out += `        coderabbit: ${codeReviewCoderabbit}\n`;
@@ -405,7 +498,7 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
   const deployTypes = [...deployValues.keys()].filter((t) => deployValues.get(t) && deployValues.get(t).size > 0);
   if (deployTypes.length) {
     out += `\n`;
-    out += `deploy:                          # deploy settings remembered by the wizard (non-sensitive, safe to edit by hand)\n`;
+    out += `deploy:                          # ${C.deploy}\n`;
     for (const t of deployTypes) {
       out += `  ${t}:\n`;
       for (const [k, v] of deployValues.get(t)) out += `    ${k}: "${v}"\n`;
