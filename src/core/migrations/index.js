@@ -48,8 +48,9 @@ export function applySafeMigrations(targetRoot, entries) {
 // 마법사 배선 진입점.
 //   askYesNo - async(msg, defaultYes)→bool. null이면 비대화형(--force): safe 자동 적용
 //   log      - 한 줄 출력 함수 (기본 console.log)
+//   removeLegacy - true면 confirm 티어(구세대 배포 워크플로우)도 .bak 무해화 (--remove-legacy, #809)
 // 반환: { applied: [결과], confirmPending: [entry], askPending: [entry] }
-export async function runMigrations({ targetRoot = ".", askYesNo = null, log = console.log } = {}) {
+export async function runMigrations({ targetRoot = ".", askYesNo = null, log = console.log, removeLegacy = false } = {}) {
   const { safe, confirm, ask } = detectMigrations(targetRoot);
   if (safe.length === 0 && confirm.length === 0 && ask.length === 0) {
     return { applied: [], confirmPending: [], askPending: [] };
@@ -110,7 +111,21 @@ export async function runMigrations({ targetRoot = ".", askYesNo = null, log = c
       const arrow = e.replacedBy ? t("migrate.confirm.newer", { name: e.replacedBy }) : "";
       log(`   • ${e.file}${arrow}: ${reasonOf(e)}`);
     }
-    log(t("migrate.confirm.hint"));
+    // 신·구 세대가 함께 돌면 같은 이벤트에 두 번 반응한다 (#809 — PR 닫힘마다 PREVIEW 두 벌).
+    // 현역 배포일 수 있어 기본은 손대지 않되, 명시 플래그나 대화형 확인이 있으면 .bak 으로 치운다(복원 가능).
+    const yes = removeLegacy
+      ? true
+      : askYesNo ? await askYesNo(t("migrate.confirm.ask", { n: confirm.length }), false) : false;
+    if (yes === true) {
+      const results = applySafeMigrations(targetRoot, confirm);
+      applied = applied.concat(results);
+      const failed = results.filter((r) => r.action === "error");
+      log(t("migrate.confirm.done", { n: results.length - failed.length }));
+      for (const f of failed) log(`   ⚠️ ${f.from}: ${f.error}`);
+      const failedIds = new Set(failed.map((f) => f.id));
+      return { applied, confirmPending: confirm.filter((e) => failedIds.has(e.id)), askPending };
+    }
+    log(t(askYesNo ? "migrate.confirm.hint" : "migrate.confirm.hintForce"));
   }
 
   return { applied, confirmPending: confirm, askPending };

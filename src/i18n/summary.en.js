@@ -23,6 +23,8 @@ export default {
   "done.keptHint1": "Copies of the new templates are in .github/.projectops/incoming/ (not tracked by git).",
   "done.keptHint2": "Move only the changes you want into your workflows.",
   "done.replacedTitle": "Could not tell whether {count} workflows were modified, so they were replaced with the new template and the originals saved as .bak",
+  "done.legacyTitle": "{count} retired workflow(s) are still installed and run alongside their replacements",
+  "done.legacyHint": "Delete them once the new workflow works, or rerun with --remove-legacy to rename them to .bak.",
   "done.replacedHint": "If you had edits, copy them over from the .bak files. (The update baseline is recorded by this run.)",
   "done.utilTitle": "Utility modules:",
   "done.spring.title": "Extra setup for Spring projects:",

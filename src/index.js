@@ -313,7 +313,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
 
     // 레거시 마이그레이션 (#470) — 워크플로우를 만지는 모드에서만. 비대화형은 safe 티어 자동 적용.
     if (recordArtifacts) {
-      migrationsResult = await trace.stepAsync("legacy-migrations", () => runMigrations({ targetRoot: cwd }));
+      migrationsResult = await trace.stepAsync("legacy-migrations", () => runMigrations({ targetRoot: cwd, removeLegacy: opts.removeLegacy === true }));
       for (const a of migrationsResult.applied ?? []) trace.event("legacy", a.action === "error" ? "error" : "neutralized", a.from ?? a.id ?? "", { to: a.to ?? "", id: a.id ?? "" });
       for (const e of migrationsResult.confirmPending ?? []) trace.event("legacy", "leftover-old-gen", e.file, { replacement: e.replacedBy ?? "", reason: e.reason ?? "" });
     }
@@ -366,6 +366,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },
       skippedConflicts: result?.workflows?.skippedConflicts ?? [],   // #654 병합 안내
       replacedBak: result?.workflows?.replacedBak ?? [],             // #673 기준점 없이 교체한 파일 안내
+      legacyLeftover: migrationsResult?.confirmPending ?? [],         // #809 신·구 세대 동시 실행 안내
       verification: result?.verification,   // #549 설치 후 검증 결과 (full/workflows 모드에서만 존재)
       // #569 — 고른 것만 안내하려면 선택값이 필요하다
       aiPrSummary: context.aiPrSummary, codeReviewCoderabbit: context.codeReviewCoderabbit,

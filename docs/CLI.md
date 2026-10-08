@@ -73,6 +73,7 @@ npx projectops --intent library
 | `--deploy-branch NAME` | 릴리스 PR의 head 브랜치(기본 `develop`). 기본(배포) 브랜치와는 별개입니다 |
 | `--secret-backup` / `--no-secret-backup` | Secret 백업 워크플로우 포함 / 제외 |
 | `--ai-summary` / `--no-ai-summary` | PR 변경 요약 워크플로우 포함 / 제외 |
+| `--remove-legacy` | 은퇴한 구세대 배포 워크플로우를 `.bak`으로 치움 (기본은 목록·삭제 명령만 안내) |
 | `--force` | 모든 확인을 생략하고 비대화형 기본값 사용 |
 | `-v, --version` | projectops 버전 출력 |
 | `-h, --help` | 도움말 |

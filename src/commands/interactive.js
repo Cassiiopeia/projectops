@@ -437,6 +437,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },
       skippedConflicts: result?.workflows?.skippedConflicts ?? [],   // #654 병합 안내
       replacedBak: result?.workflows?.replacedBak ?? [],             // #673 기준점 없이 교체한 파일 안내
+      legacyLeftover: migrationsResult?.confirmPending ?? [],         // #809 신·구 세대 동시 실행 안내
       verification: result?.verification,      // #549 설치 검증 결과
       aiPrSummary, codeReviewCoderabbit,       // #569 — 고른 것만 안내
       logDir: files ? MIGRATION_DIR : null,    // #561 기록 위치 안내

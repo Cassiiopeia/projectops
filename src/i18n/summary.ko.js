@@ -23,6 +23,8 @@ export default {
   "done.keptHint1": "새 템플릿 사본은 저장소에 추적되지 않는 .github/.projectops/incoming/ 에 있습니다.",
   "done.keptHint2": "필요한 변경만 워크플로에 직접 옮겨 반영하세요.",
   "done.replacedTitle": "수정 여부를 확인할 수 없어 {count}개 워크플로를 새 템플릿으로 교체하고 원본을 .bak 으로 백업했습니다",
+  "done.legacyTitle": "은퇴한 구세대 워크플로우 {count}개가 남아 신형과 함께 실행됩니다",
+  "done.legacyHint": "신형이 동작하는 걸 확인한 뒤 지우거나, --remove-legacy 로 다시 실행하면 .bak 으로 치웁니다.",
   "done.replacedHint": "직접 수정한 내용이 있었다면 .bak 에서 옮겨 오세요. (업데이트 기준점은 이번 실행으로 새로 기록됩니다)",
   "done.utilTitle": "유틸리티 모듈:",
   "done.spring.title": "Spring 프로젝트 추가 설정:",

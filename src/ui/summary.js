@@ -120,6 +120,18 @@ export function printSummary(ctx, targetRoot = ".", write = null) {
     err(`     ${t("done.replacedHint")}`);
   }
 
+  // Retired old-generation workflows still installed: they run next to their replacements (#809).
+  const legacy = ctx?.legacyLeftover ?? [];
+  if (legacy.length > 0) {
+    err("");
+    err(`  ${YELLOW}⚠️  ${t("done.legacyTitle", { count: legacy.length })}${NC}`);
+    for (const e of legacy) {
+      err(`     🗑️  ${e.file}${e.replacedBy ? `  →  ${e.replacedBy}` : ""}`);
+      err(`        git rm .github/workflows/${e.file}`);
+    }
+    err(`     ${t("done.legacyHint")}`);
+  }
+
   err("");
   err("  🔧 .github/scripts/");
   err("     ├─ version_manager.sh");

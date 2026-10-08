@@ -19,6 +19,7 @@ import { parseExisting } from "../core/version-yml.js";
 import { verifyInstall } from "../core/verify.js";
 import { readBaseline } from "../core/baseline.js";
 import { detectRepoName } from "../core/detect-fs.js";
+import { detectMigrations } from "../core/migrations/index.js";
 import { t } from "../i18n/index.js";
 
 // 언어 전환(withLang 등) 시점에 평가되도록 함수로 둔다
@@ -148,6 +149,21 @@ export function localChecks(cwd = ".") {
       ] : null,
     });
   }
+
+  // 은퇴한 구세대 워크플로우 (#809) — 업데이트는 감지만 하고 남겨 두므로 신형과 함께 돈다.
+  // 예전엔 로그에만 남아 doctor 가 "문제 없음"이라 했다.
+  const legacy = detectMigrations(cwd).confirm;
+  add({
+    name: t("doctor.legacy.name"), purpose: t("doctor.legacy.purpose"),
+    status: legacy.length ? "WARN" : "OK",
+    value: legacy.length ? t("doctor.count", { n: legacy.length }) : t("doctor.none"),
+    detail: legacy.length ? [
+      ...legacy.map((e) => `  ${e.file}${e.replacedBy ? `  →  ${e.replacedBy}` : ""}`),
+      t("doctor.legacy.l1"),
+      ...legacy.map((e) => `  git rm .github/workflows/${e.file}`),
+      t("doctor.legacy.l2"),
+    ] : null,
+  });
 
   const baseline = readBaseline(cwd);
   add({

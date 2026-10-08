@@ -33,6 +33,7 @@ export function parseArgs(argv) {
     includeSecretBackup: null,
     aiPrSummary: null,   // #566 — AI 변경 요약 워크플로우 포함 여부
     projectsSync: null,  // #716 — Projects 보드 동기화 워크플로우 포함 여부 (null=미지정)
+    removeLegacy: false, // #809 — 구세대 배포 워크플로우(confirm 티어)도 .bak 으로 치운다
     pathsCsv: "",            // "flutter=app,react=client" 원문 (정규화는 resolve 단계)
     force: false,
     lang: null,              // --lang en|ko (null = decided by src/i18n resolveLang)
@@ -170,6 +171,7 @@ export function parseArgs(argv) {
       case "--no-ai-summary": result.aiPrSummary = false; break;
       case "--projects-sync": result.projectsSync = true; break;
       case "--no-projects-sync": result.projectsSync = false; break;
+      case "--remove-legacy": result.removeLegacy = true; break;
       case "--npm-publish":
         process.stderr.write(t("args.npmPublishDeprecated") + "\n");
         result.publishTargets = [...new Set([...(result.publishTargets ?? []), "npm"])];
