@@ -120,6 +120,14 @@ export function printSummary(ctx, targetRoot = ".", write = null) {
     err(`     ${t("done.replacedHint")}`);
   }
 
+  // The update turned on automatic semver for a repo that did not have the key: tell them, because the next release can jump.
+  if (ctx?.semverAutoNewlyOn) {
+    err("");
+    err(`  ${YELLOW}⚠️  ${t("done.semverTitle")}${NC}`);
+    err(`     ${t("done.semverBody")}`);
+    err(`     ${t("done.semverOff")}`);
+  }
+
   // Workflows left out on purpose (#810): deleted by the user, listed in excluded_workflows, or needing a branch this repo lacks.
   const skippedNew = ctx?.notInstalled ?? [];
   if (skippedNew.length > 0) {

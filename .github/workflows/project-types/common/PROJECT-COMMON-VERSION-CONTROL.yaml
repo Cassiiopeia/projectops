@@ -124,7 +124,7 @@ jobs:
           RANGE: ${{ steps.release_guard.outputs.range }}
         run: |
           BUMP=patch
-          SEMVER_AUTO=$(python3 -c 'import re; t=open("version.yml",encoding="utf-8").read(); m=re.search(r"metadata:.*?template:.*?options:.*?semver_auto:\s*\"?(true|false)", t, re.S); print(m.group(1) if m else "false")' 2>/dev/null || echo "false")
+          SEMVER_AUTO=$(python3 -c 'import re; t=open("version.yml",encoding="utf-8").read(); m=re.search(r"metadata:.*?template:.*?options:.*?semver_auto:\s*\"?(true|false)", t, re.S); print(m.group(1) if m else "true")' 2>/dev/null || echo "true")
           # 개발 브랜치 = version.yml metadata.deploy_branch, 없으면 develop (스킬·마법사와 같은 폴백)
           DEV_BRANCH=$(grep -m1 -E '^[[:space:]]+deploy_branch:' version.yml 2>/dev/null | sed -E 's/.*deploy_branch:[[:space:]]*"?([^"]*)"?.*/\1/' || true)
           DEV_BRANCH="${DEV_BRANCH:-develop}"

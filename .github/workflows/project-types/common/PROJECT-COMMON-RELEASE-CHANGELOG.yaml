@@ -341,11 +341,11 @@ jobs:
           path: ${{ runner.temp }}/pr-content
 
       # semver 자동 승격 옵션 (이슈 #546)
-      # 키가 없으면 false — 이미 통합된 레포는 예고 없이 버전이 튀지 않고 patch 고정을 유지한다.
+      # 키가 없으면 true — 신규·기존 레포 모두 커밋 제목으로 승격한다. 끄려면 semver_auto: false 를 명시한다.
       - name: semver 자동 승격 옵션 확인
         id: semver_options
         run: |
-          SEMVER_AUTO=$(python3 -c 'import re; t=open("version.yml",encoding="utf-8").read(); m=re.search(r"metadata:.*?template:.*?options:.*?semver_auto:\s*\"?(true|false)", t, re.S); print(m.group(1) if m else "false")' 2>/dev/null || echo "false")
+          SEMVER_AUTO=$(python3 -c 'import re; t=open("version.yml",encoding="utf-8").read(); m=re.search(r"metadata:.*?template:.*?options:.*?semver_auto:\s*\"?(true|false)", t, re.S); print(m.group(1) if m else "true")' 2>/dev/null || echo "true")
           echo "semver_auto=$SEMVER_AUTO" >> $GITHUB_OUTPUT
           echo "ℹ️ semver 자동 승격: $SEMVER_AUTO"
 

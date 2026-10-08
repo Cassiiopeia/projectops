@@ -137,8 +137,9 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     let deployBranchCreated = null; // #493 — 마법사가 직접 생성했는지 (가이드 기록용)
     let intent = existing?.options?.intent ?? null; // #485 프로젝트 성격
     // semver 자동 승격(#546) — 질문하지 않는다(#485 질문 부담 축소 방향 유지).
-    // 저장값이 있으면 보존, 없으면 신규 통합만 ON. 기존 레포는 업데이트만으로 버전이 튀지 않는다.
-    const semverAuto = existing?.options?.semverAuto ?? (existing ? false : true);
+    // 저장값(명시적 false 포함)은 보존하고, 키가 없으면 기존 레포도 ON. 켜진 사실은 완료 화면이 알린다.
+    const semverAuto = existing?.options?.semverAuto ?? true;
+    const semverAutoNewlyOn = !!existing && existing?.options?.semverAuto == null;
     const appRelease = existing?.options?.appRelease ?? null; // #553 저장값 보존 (묻지 않음)
     // 상태 라벨 표기(#776): 저장값 > (신규 en / 기존 ko). 기존 한글 레포에는 영문 전환을 한 번 제안한다(아래).
     const closeOnRelease = existing?.options?.closeOnRelease ?? (existing ? null : true); // #771 묻지 않는다
@@ -440,6 +441,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       replacedBak: result?.workflows?.replacedBak ?? [],             // #673 기준점 없이 교체한 파일 안내
       legacyLeftover: migrationsResult?.confirmPending ?? [],         // #809 신·구 세대 동시 실행 안내
       notInstalled: result?.workflows?.notInstalled ?? [],            // #810 깔지 않은 워크플로우 안내
+      semverAutoNewlyOn,
       verification: result?.verification,      // #549 설치 검증 결과
       aiPrSummary, codeReviewCoderabbit,       // #569 — 고른 것만 안내
       logDir: files ? MIGRATION_DIR : null,    // #561 기록 위치 안내

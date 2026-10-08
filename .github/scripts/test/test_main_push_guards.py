@@ -176,3 +176,12 @@ def test_repo_with_develop_stays_patch(tmp_path):
 
 def test_semver_auto_off_stays_patch(tmp_path):
     assert _run_bump(tmp_path, "false", False, FEAT) == "patch"
+
+
+def test_missing_semver_key_defaults_to_on_in_both_workflows():
+    """키가 없으면 켜진 것으로 본다 — 신규·기존 레포 동일 (소유자 결정). 끄려면 false 를 명시한다."""
+    for name in ("PROJECT-COMMON-RELEASE-CHANGELOG.yaml", "PROJECT-COMMON-VERSION-CONTROL.yaml"):
+        for base in (WF, COMMON):
+            text = (base / name).read_text(encoding="utf-8")
+            assert 'print(m.group(1) if m else "true")' in text, f"{base.name}/{name}"
+            assert 'print(m.group(1) if m else "false")' not in text, f"{base.name}/{name}"

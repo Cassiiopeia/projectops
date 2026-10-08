@@ -255,7 +255,8 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     codeReviewCoderabbit: existing?.options?.codeReviewCoderabbit ?? false,
     // semver 자동 승격(#546): 저장값 → (기존 통합 레포면 false / 신규면 true).
     // 이미 통합된 레포의 버전이 업데이트만으로 예고 없이 minor로 튀지 않게 하는 안전장치다.
-    semverAuto: existing?.options?.semverAuto ?? (existing ? false : true),
+    // 저장값(명시적 false 포함)은 존중하고, 키가 없으면 기존 레포도 켠다. 켜진 사실은 완료 화면이 알린다.
+    semverAuto: existing?.options?.semverAuto ?? true,
     // 앱 심사 배포 레포 여부(#553): 저장값만 보존한다. 마법사가 묻지 않으므로 새로 켜지 않는다
     // (사용자가 version.yml에 직접 쓰거나 스킬이 기록한 값을 그대로 유지).
     appRelease: existing?.options?.appRelease ?? null,
@@ -284,7 +285,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
   });
   trace.event("resolve", "semver-auto", String(context.semverAuto), {
     reason: existing?.options?.semverAuto != null ? "stored value in version.yml kept"
-      : (existing ? "existing integrated repo, false to avoid unannounced version jumps"
+      : (existing ? "existing integrated repo without the key, turned on by default (announced in the summary)"
                   : "new integration, true"),
   });
   trace.event("resolve", "app-release", String(context.appRelease), {
@@ -377,6 +378,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       replacedBak: result?.workflows?.replacedBak ?? [],             // #673 기준점 없이 교체한 파일 안내
       legacyLeftover: migrationsResult?.confirmPending ?? [],         // #809 신·구 세대 동시 실행 안내
       notInstalled: result?.workflows?.notInstalled ?? [],            // #810 깔지 않은 워크플로우 안내
+      semverAutoNewlyOn: !!existing && existing?.options?.semverAuto == null && context.semverAuto === true, // 업데이트가 켠 사실 안내
       verification: result?.verification,   // #549 설치 후 검증 결과 (full/workflows 모드에서만 존재)
       // #569 — 고른 것만 안내하려면 선택값이 필요하다
       aiPrSummary: context.aiPrSummary, codeReviewCoderabbit: context.codeReviewCoderabbit,
