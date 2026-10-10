@@ -13,6 +13,7 @@ import { PATHS } from "./paths.js";
 import { t as msg } from "../i18n/index.js";
 import { parseTemplateOptions, inferIntent } from "./version-yml.js";
 import { branchStatus, createBranch, pushBranch } from "./git-branch.js";
+import { DEPLOY_TARGETS, PUBLISH_TARGETS, CHANGELOG_PROVIDERS } from "./constants.js";
 
 // 개발(배포) 브랜치 존재 확인 + 생성 제안 (#477) — 대화형 전용.
 // 로컬에 없고 원격에도 없(거나 불명이)면 기본 브랜치에서 생성을 제안하고, 생성 후 push 여부도 묻는다.
@@ -55,8 +56,8 @@ export async function ensureDeployBranch({ targetRoot = ".", deployBranch = "", 
 // 재노출 — 파서 본체는 version-yml.js에 있다 (순환 import 방지: options-ask → version-yml 방향만 허용)
 export { parseTemplateOptions };
 
-export const DEPLOY_TARGETS = ["docker-ssh", "vercel", "none"];
-export const PUBLISH_TARGETS = ["nexus", "npm", "github-packages"];
+// 값 목록은 core/constants.js 가 정본이다. 기존 import 경로를 깨지 않도록 다시 내보낸다.
+export { DEPLOY_TARGETS, PUBLISH_TARGETS, CHANGELOG_PROVIDERS };
 
 // #498 — 타입별 적용 가능 deploy/publish 타겟 선언.
 // 빈 배열 = 그 축이 개념상 성립하지 않는 타입. 모바일 앱(flutter/react-native/expo)은 스토어 배포
@@ -95,9 +96,9 @@ export function applicableTargets(types = []) {
 }
 // changelog 생성기 provider (#455, #566에서 재정비).
 // 기본값은 commit — 외부 의존이 없어 어떤 환경에서도 결과가 나온다. AI를 쓰려면
-// MODEL_API_KEY를 등록하면 사다리가 자동으로 집어 쓴다(마법사는 묻지 않는다).
+// 서비스별 키(GEMINI_API_KEY 등)를 등록하면 사다리가 자동으로 집어 쓴다(마법사는 묻지 않는다).
+// MODEL_API_KEY 는 구 이름이라 하위호환으로만 읽는다.
 // github-ai는 GitHub Models 종료(2026-07-30)로 제외됐다.
-export const CHANGELOG_PROVIDERS = ["copilot", "coderabbit", "openai", "gemini", "claude", "groq", "mistral", "ollama", "commit"];
 
 // 더 이상 동작하지 않는 저장값을 살아있는 값으로 옮긴다 (#566).
 // 기존 저장소가 업데이트만 돌려도 죽은 설정에서 벗어나게 하는 유일한 경로다.

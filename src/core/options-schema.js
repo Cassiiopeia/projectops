@@ -11,6 +11,11 @@
 //
 // 설명은 영문이다 — 기계가 읽는 표이고, 화면 언어(i18n)와 무관하게 같아야 한다.
 
+import { DEPLOY_TARGETS, PUBLISH_TARGETS, INTENT_VALUES, LABEL_STYLES, CHANGELOG_PROVIDERS } from "./constants.js";
+import { REPO_LANGUAGES } from "./repo-language.js";
+import { VALID_TYPES } from "../context.js";
+import { SUPPORTED_LANGS } from "../i18n/index.js";
+
 export const SCHEMA_VERSION = 1;
 
 export const MODES = [
@@ -30,22 +35,22 @@ export const FLAGS = [
     description: "What to do. Agents and CI should always pass an explicit non-interactive mode together with --force." },
   { flag: "--type", alias: "-t", value: "CSV", default: "auto-detected",
     description: "Project types, comma separated. The first one is the primary type.",
-    values: ["spring", "flutter", "react", "react-native", "react-native-expo", "node", "python", "basic"] },
+    values: [...VALID_TYPES] },
   { flag: "--project-version", value: "VERSION", default: "auto-detected",
     description: "Initial version of the target project (x.y.z)." },
   { flag: "--paths", value: "type=path,...", default: "repo root",
     description: "Per-type project folders for monorepos, e.g. flutter=app,react=client.", versionYml: "project_paths" },
-  { flag: "--intent", value: "KIND", values: ["app", "library", "both", "none", "manual"], default: "inferred from --deploy/--publish",
+  { flag: "--intent", value: "KIND", values: [...INTENT_VALUES], default: "inferred from --deploy/--publish",
     description: "Project kind. Decides whether deploy and publish questions are asked.", versionYml: "metadata.template.options.intent" },
-  { flag: "--deploy", value: "TARGET", values: ["docker-ssh", "vercel", "none"], default: "docker-ssh",
+  { flag: "--deploy", value: "TARGET", values: [...DEPLOY_TARGETS], default: "docker-ssh",
     description: "Where the app is deployed. Pick one.", versionYml: "metadata.template.options.deploy" },
-  { flag: "--publish", value: "CSV", values: ["nexus", "npm", "github-packages"], default: "none",
+  { flag: "--publish", value: "CSV", values: [...PUBLISH_TARGETS], default: "none",
     description: "Registries a library is published to. Several allowed.", versionYml: "metadata.template.options.publish" },
   { flag: "--deploy-branch", value: "NAME", default: "develop",
     description: "Development branch: the head of the release PR. Not the repository default branch.", versionYml: "metadata.deploy_branch" },
-  { flag: "--language", value: "LANG", values: ["en", "ko"], default: "en for new installs, ko for existing installs",
+  { flag: "--language", value: "LANG", values: [...REPO_LANGUAGES], default: "en for new installs, ko for existing installs",
     description: "Language of issue/PR templates and bot messages written into the repo.", versionYml: "metadata.template.options.language" },
-  { flag: "--label-style", value: "STYLE", values: ["en", "ko"], default: "en for new installs, ko for existing installs",
+  { flag: "--label-style", value: "STYLE", values: [...LABEL_STYLES], default: "en for new installs, ko for existing installs",
     description: "Status label names: en = 'status: todo', ko = legacy Korean names.", versionYml: "metadata.template.options.label_style" },
   { flag: "--secret-backup", negation: "--no-secret-backup",
     description: "Include / exclude the workflow that uploads GitHub Secrets to a server over SSH.", default: "excluded",
@@ -59,7 +64,7 @@ export const FLAGS = [
   { flag: "--remove-legacy",
     description: "Rename retired old-generation workflows to .bak. Without it they are only listed in the summary and in doctor.", default: "off" },
   { flag: "--force", alias: "-y", aliases: ["-y", "--yes"], description: "Skip every confirmation and use non-interactive defaults. Required for agents and CI.", default: "off" },
-  { flag: "--lang", value: "LANG", values: ["en", "ko"], default: "system language; pinned to en in CI and with --force",
+  { flag: "--lang", value: "LANG", values: [...SUPPORTED_LANGS], default: "system language; pinned to en in CI and with --force",
     description: "Language of the CLI screen. Not the language written into the repo (that is --language)." },
   { flag: "--json", description: "With --mode options: print machine-readable JSON instead of a table.", default: "off" },
   { flag: "--version", alias: "-v", description: "Print the projectops package version and exit." },
@@ -78,11 +83,11 @@ export const VERSION_YML = [
   { path: "metadata.default_branch", type: "string", default: "main", description: "Repository default (production) branch. Pushes here deploy.", edit: "wizard" },
   { path: "metadata.deploy_branch", parserKey: "deployBranch", type: "string", default: "develop",
     description: "Development branch: head of the release PR. Despite the name it is NOT where deploys run.", edit: "wizard (--deploy-branch)" },
-  { path: "metadata.template.options.intent", parserKey: "intent", type: "enum", values: ["app", "library", "both", "none", "manual"],
+  { path: "metadata.template.options.intent", parserKey: "intent", type: "enum", values: [...INTENT_VALUES],
     description: "Project kind; derives the deploy and publish questions.", edit: "wizard (--intent)" },
-  { path: "metadata.template.options.deploy", parserKey: "deploy", type: "enum", values: ["docker-ssh", "vercel", "none"], default: "docker-ssh",
+  { path: "metadata.template.options.deploy", parserKey: "deploy", type: "enum", values: [...DEPLOY_TARGETS], default: "docker-ssh",
     description: "Where the app is deployed.", edit: "wizard (--deploy)" },
-  { path: "metadata.template.options.publish", parserKey: "publish", type: "enum[]", values: ["nexus", "npm", "github-packages"], default: [],
+  { path: "metadata.template.options.publish", parserKey: "publish", type: "enum[]", values: [...PUBLISH_TARGETS], default: [],
     description: "Library registries.", edit: "wizard (--publish)" },
   { path: "metadata.template.options.secret_backup", parserKey: "secretBackup", type: "boolean", default: false,
     description: "Secret-to-server upload workflow installed.", edit: "wizard (--secret-backup)" },
@@ -92,8 +97,8 @@ export const VERSION_YML = [
     edit: "by hand" },
   { path: "metadata.template.options.close_on_release", parserKey: "closeOnRelease", type: "boolean", default: "true for new installs; missing for existing installs",
     description: "A release merge closes issues that carry the done label and are referenced by a release commit.", edit: "by hand" },
-  { path: "metadata.template.options.language", parserKey: "language", type: "enum", values: ["en", "ko"], description: "Issue/PR template and bot message language.", edit: "wizard (--language)" },
-  { path: "metadata.template.options.label_style", parserKey: "labelStyle", type: "enum", values: ["en", "ko"], description: "Status label names.", edit: "wizard (--label-style)" },
+  { path: "metadata.template.options.language", parserKey: "language", type: "enum", values: [...REPO_LANGUAGES], description: "Issue/PR template and bot message language.", edit: "wizard (--language)" },
+  { path: "metadata.template.options.label_style", parserKey: "labelStyle", type: "enum", values: [...LABEL_STYLES], description: "Status label names.", edit: "wizard (--label-style)" },
   { path: "metadata.template.options.projects_sync", parserKey: "projectsSync", type: "boolean", description: "Projects status sync workflow installed.", edit: "wizard (--projects-sync)" },
   { path: "metadata.template.options.app_release", parserKey: "appRelease", type: "boolean",
     description: "Releases go through App Store / Play Store review. Release notes get a review warning banner. Never auto-enabled.", edit: "by hand" },
@@ -103,7 +108,7 @@ export const VERSION_YML = [
   { path: "metadata.template.options.code_review.coderabbit", parserKey: "codeReviewCoderabbit", type: "boolean", description: "CodeRabbit config installed.", edit: "wizard" },
   { path: "metadata.template.options.code_review.ai_summary", parserKey: "aiPrSummary", type: "boolean", default: true, description: "AI PR summary workflow installed.", edit: "wizard (--ai-summary)" },
   { path: "metadata.template.options.changelog.provider", parserKey: "changelogProvider", type: "enum",
-    values: ["commit", "openai", "gemini", "claude", "groq", "mistral", "ollama", "copilot", "coderabbit"], default: "commit",
+    values: [...CHANGELOG_PROVIDERS], default: "commit",
     description: "Release note generator. 'commit' is free and always works; AI keys are picked up automatically when registered as secrets.", edit: "by hand" },
   { path: "metadata.template.options.changelog.base_url", parserKey: "changelogBaseUrl", type: "string", description: "Only for provider ollama.", edit: "by hand" },
 ];

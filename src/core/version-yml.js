@@ -2,6 +2,14 @@
 // ⚠️ YAML 재직렬화 금지 — 주석이 데이터. .sh heredoc과 바이트 동일한 템플릿 문자열.
 // 실측 기준: template_integrator.sh 2184~2354.
 import { execFileSync } from "node:child_process";
+import { DEPLOY_TARGETS, LABEL_STYLES } from "./constants.js";
+import { REPO_LANGUAGES } from "./repo-language.js";
+
+// 값 목록으로 만든 매칭 패턴 — 목록에 언어·표기를 추가하면 파서가 저절로 읽는다.
+// (예전엔 `(en|ko)` 가 박혀 있어 세 번째 언어를 저장하면 다음 업데이트에서 못 읽고 ko 로 되돌아갔다.)
+const alt = (values) => values.map((v) => v.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&")).join("|");
+const LANGUAGE_RE = new RegExp(`^\\s+language:\\s*["']?(${alt(REPO_LANGUAGES)})["']?`);
+const LABEL_STYLE_RE = new RegExp(`^\\s+label_style:\\s*["']?(${alt(LABEL_STYLES)})["']?`);
 
 const HEADER_EN = `# ===================================================================
 # Project version management file
@@ -198,7 +206,7 @@ export function parseTemplateOptions(content) {
       let m = line.match(/^\s+deploy:\s*(.+)/);
       if (m) {
         const v = strip(m[1]);
-        if (["docker-ssh", "vercel", "none"].includes(v)) out.deploy = v;
+        if (DEPLOY_TARGETS.includes(v)) out.deploy = v;
         continue;
       }
       m = line.match(/^\s+publish:\s*\[([^\]]*)\]/);
@@ -229,13 +237,13 @@ export function parseTemplateOptions(content) {
         continue;
       }
       // 레포 문구 언어(#769) — en | ko. 미기재는 "기존 통합 레포" 신호라 호출부가 ko 로 해석한다.
-      m = line.match(/^\s+language:\s*["']?(en|ko)["']?/);
+      m = line.match(LANGUAGE_RE);
       if (m) {
         out.language = m[1];
         continue;
       }
       // 상태 라벨 표기(#776) — en(영문 표준) | ko(기존 한글). 미기재는 "기존 통합 레포" 신호라 호출부가 ko로 해석한다.
-      m = line.match(/^\s+label_style:\s*["']?(en|ko)["']?/);
+      m = line.match(LABEL_STYLE_RE);
       if (m) {
         out.labelStyle = m[1];
         continue;

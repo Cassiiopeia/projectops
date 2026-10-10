@@ -11,6 +11,7 @@ import { isUserModified, readBaseline, writeBaseline, sha256 } from "../baseline
 import { substituteBranches } from "../branch-sub.js";
 import { saveIncoming, lineDiffCounts } from "../incoming.js";
 import { branchStatus } from "../git-branch.js";
+import { PUBLISH_TARGETS } from "../constants.js";
 
 // on: 블록의 브랜치 필터가 전부 develop 뿐인가 (#810).
 // 개발 브랜치가 없는 레포에 깔면 영영 실행되지 않는 워크플로우를 가린다.
@@ -430,7 +431,6 @@ export async function copyWorkflowsInteractive(context, tempDir, targetRoot = ".
   return copyWorkflows(context, tempDir, targetRoot, { decisions });
 }
 
-const PUBLISH_TARGETS = ["nexus", "npm", "github-packages"];
 
 function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters) {
   const { deployTarget = "docker-ssh", publishTargets = [], force = false, paths = new Map(), repoName = "", resolvers = {}, envOptsFor, collectAsks = null, decisions = new Map(), trace = null, baseline = null } = ctx;
