@@ -1,7 +1,22 @@
 # Changelog
 
-**Current version:** 4.42.0  
-**Last updated:** 2026-10-10T03:20:23Z  
+**Current version:** 4.43.0  
+**Last updated:** 2026-10-10T03:32:17Z  
+
+---
+
+## [4.43.0] - 2026-10-10
+
+**PR:** #845  
+
+**New features**
+- agent-test 기억에 유사도 공통 모듈, 쓰기 전 중복 합치기, 성적과 낡음 표시, detect와 scenario 응답에 자동 싣기, note show 요약, note tidy를 추가하고 화면 탭을 픽셀 대신 요소와 비율 targets로 저장하며 옛 픽셀은 읽을 때 변환
+
+**Bug fixes**
+- 레포를 알 수 없는 스킬·플러그인 캐시 폴더 판정을 state.py 한 곳으로 일반화해 상태를 _machine에 두고 root_unknown을 알리며, base_dir가 PROJECTOPS_HOME을 우선해 테스트가 실제 홈을 건드리지 않게 하고, docstring 위치 복구, 접속 방법 성적을 access_status.json에 기록
+
+**Improvements**
+- version_manager get-option을 추가해 워크플로에 흩어진 semver_auto 정규식 읽기를 한 곳으로 모으고 중첩 키·주석·CRLF를 처리하며 테스트로 고정
 
 ---
 

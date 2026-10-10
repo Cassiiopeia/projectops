@@ -1,14 +1,45 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-10T03:20:23Z",
-    "currentVersion": "4.42.0",
+    "lastUpdated": "2026-10-10T03:32:17Z",
+    "currentVersion": "4.43.0",
     "projectType": "basic",
-    "totalReleases": 300,
+    "totalReleases": 301,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.43.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-10",
+      "pr_number": 845,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * agent-test 기억에 유사도 공통 모듈, 쓰기 전 중복 합치기, 성적과 낡음 표시, detect와 scenario 응답에 자동 싣기, note show 요약, note tidy를 추가하고 화면 탭을 픽셀 대신 요소와 비율 targets로 저장하며 옛 픽셀은 읽을 때 변환\n\n* **Bug fixes**\n  * 레포를 알 수 없는 스킬·플러그인 캐시 폴더 판정을 state.py 한 곳으로 일반화해 상태를 _machine에 두고 root_unknown을 알리며, base_dir가 PROJECTOPS_HOME을 우선해 테스트가 실제 홈을 건드리지 않게 하고, docstring 위치 복구, 접속 방법 성적을 access_status.json에 기록\n\n* **Improvements**\n  * version_manager get-option을 추가해 워크플로에 흩어진 semver_auto 정규식 읽기를 한 곳으로 모으고 중첩 키·주석·CRLF를 처리하며 테스트로 고정",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "agent-test 기억에 유사도 공통 모듈, 쓰기 전 중복 합치기, 성적과 낡음 표시, detect와 scenario 응답에 자동 싣기, note show 요약, note tidy를 추가하고 화면 탭을 픽셀 대신 요소와 비율 targets로 저장하며 옛 픽셀은 읽을 때 변환"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "레포를 알 수 없는 스킬·플러그인 캐시 폴더 판정을 state.py 한 곳으로 일반화해 상태를 _machine에 두고 root_unknown을 알리며, base_dir가 PROJECTOPS_HOME을 우선해 테스트가 실제 홈을 건드리지 않게 하고, docstring 위치 복구, 접속 방법 성적을 access_status.json에 기록"
+          ]
+        },
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "version_manager get-option을 추가해 워크플로에 흩어진 semver_auto 정규식 읽기를 한 곳으로 모으고 중첩 키·주석·CRLF를 처리하며 테스트로 고정"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.42.0",
       "project_type": "basic",
