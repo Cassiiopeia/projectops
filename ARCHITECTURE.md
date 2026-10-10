@@ -61,6 +61,35 @@ These are parsed by other code. Changing them silently breaks installed projects
 4. Teach `version_manager` how to sync the version file for the type.
 5. Add tests under `test/` and run `npm test`.
 
+## How to add a CLI flag
+
+1. Parse it in `src/cli/args.js` (`parseArgs`) and validate the value there. Value lists that other files also need (deploy, publish, intent, label style, providers) live in `src/core/constants.js` — add to that list, not to a local array.
+2. Describe it in **`src/core/options-schema.js`** (`FLAGS`). `npx projectops --mode options --json` prints this table for AI agents, and `test/options-schema.test.js` fails if a flag exists in `args.js` but not here.
+3. Add it to `--help` in `src/cli/help.js` (English and Korean) and to the option tables in `docs/CLI.md` and `docs/en/cli.md`. `test/cli-docs-sync.test.js` fails if one of them forgets it.
+4. Wire the value into `src/index.js` (non-interactive) **and** `src/commands/interactive.js`. The two paths pick defaults separately — keep them the same.
+
+## How to add a `version.yml` option
+
+1. Read it in `parseTemplateOptions` and write it in `buildVersionYml` (`src/core/version-yml.js`). `version.yml` is regenerated on every update, so a key that is only read, never written back, disappears on the next update. Add the comment text to both languages in `COMMENTS`.
+2. Add it to `VERSION_YML` in `src/core/options-schema.js` with its default.
+3. Carry it through `src/context.js`, `src/index.js` and `src/commands/interactive.js`, then `full.js` / `version.js`.
+4. If a workflow reads it, say what a **missing** key means and make the workflow and the wizard agree (`semver_auto` shipped with them disagreeing).
+
+## How to add a release-note provider
+
+1. Implement it in `.github/scripts/changelog_providers/` and register it in `ladder.py` and `openai_compatible.py` (`PRESETS`) if it speaks the OpenAI API. Never put a version in the model name; use a `-latest` alias.
+2. Add the name to `CHANGELOG_PROVIDERS` in `src/core/constants.js`.
+3. Add the secret name to the AI key lists (`ladder.py`, `src/commands/doctor.js`, `src/ui/summary.js`, the workflow `env:` blocks). `test_ai_key_lists_agree` fails if they drift.
+4. List the new file in `src/core/copy/simple.js`; `test/copy-simple.test.js` checks the list against the folder.
+
+## How to add a language
+
+See [`docs/TRANSLATING.md`](docs/TRANSLATING.md). Three places hold the language list and must agree: `REPO_LANGUAGES` (`src/core/repo-language.js`), `SUPPORTED_LANGS` for the CLI screen (`src/i18n/index.js`), and the message catalog `.github/scripts/i18n/<code>.json`. The `version.yml` parser builds its pattern from `REPO_LANGUAGES`, so a new language is read back correctly.
+
+## How to add a skill
+
+Use the `pro-skill-creator` skill. Add the skill to the routing table in `AGENTS.md`; `test/options-schema.test.js` fails if a tracked skill is missing there.
+
 ## How to add a new workflow
 
 1. Shared by every project → put it in `project-types/common/` **and** copy it to `.github/workflows/`. Type specific → only `project-types/<type>/`.

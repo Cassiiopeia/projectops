@@ -327,6 +327,7 @@ Browse and search everything on the **[docs site](https://cassiiopeia.github.io/
 - [Issues](https://github.com/Cassiiopeia/projectops/issues): bug reports and feature requests
   - Finished issues are marked with the `status: done` label and closed automatically when a release is merged (`close_on_release`).
 - [CONTRIBUTING.md](CONTRIBUTING.md): contribution guide
+- [ARCHITECTURE.md](ARCHITECTURE.md): how the code fits together and how to add a flag, option, provider, language or skill
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): how we expect everyone to behave, and where to report problems
 - [SECURITY.md](SECURITY.md): please report security vulnerabilities privately, not in a public issue
 

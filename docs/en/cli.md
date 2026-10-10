@@ -39,13 +39,17 @@ One-shot install followed by a read-only `doctor` check:
 | `--deploy-branch NAME` | Release PR head branch (default: develop) |
 | `--secret-backup` / `--no-secret-backup` | Include or exclude the secret backup workflow |
 | `--ai-summary` / `--no-ai-summary` | Include or exclude the PR summary workflow |
+| `--projects-sync` / `--no-projects-sync` | Include or exclude the GitHub Projects status sync workflow (excluded for new installs, kept if already installed) |
+| `--language LANG` | Language of the issue/PR templates and bot messages written into your repo: `en`, `ko`. New installs `en`; existing installs keep the stored value (`ko` if none) |
+| `--label-style STYLE` | Status label names: `en` (`status: todo`) or `ko` (legacy `작업전`). New installs `en` |
+| `--lang LANG` | Language of the **CLI screen**: `en`, `ko`. Not the repo language (`--language`). Defaults to the system language, `en` in CI and with `--force` |
 | `--json` | With `--mode options`: machine-readable JSON |
 | `--remove-legacy` | Rename retired old-generation workflows to `.bak` (default: only list them) |
-| `--force` | Skip all confirmations, use non-interactive defaults |
+| `--force`, `-y`, `--yes` | Skip all confirmations, use non-interactive defaults |
 | `-v, --version` | Print the projectops version |
 | `-h, --help` | Show help |
 
-`--nexus` and `--npm-publish` are deprecated; use `--publish nexus` / `--publish npm`.
+`--nexus` and `--npm-publish` (and their `--no-` forms) are deprecated; use `--publish nexus` / `--publish npm`.
 
 ## Examples
 

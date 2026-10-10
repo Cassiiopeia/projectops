@@ -10,6 +10,8 @@ This project follows the [Code of Conduct](CODE_OF_CONDUCT.md). By taking part y
 projectops is a template and installer (`npx projectops`) that adds GitHub Actions workflows, version management,
 issue/PR templates and agent skills to a repository. If you want to understand how it fits together, start with
 [docs/NPX-WIZARD.md](docs/NPX-WIZARD.md) and [docs/SKILLS.md](docs/SKILLS.md).
+For the map of the code and step-by-step guides (add a project type, a CLI flag, a `version.yml` option, a workflow,
+a release-note provider, a language, a skill), read [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Ways to contribute
 

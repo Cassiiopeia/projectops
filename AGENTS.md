@@ -24,7 +24,7 @@ Rules for running it non-interactively:
 
 ## If you are an AI agent working on this repository
 
-Read `CONTRIBUTING.md` first. The detailed maintainer rules are in `CLAUDE.md` (Korean); the ones that bite most:
+Read `CONTRIBUTING.md` and `ARCHITECTURE.md` (code map and "how to add a flag / option / provider / language / skill") first. The detailed maintainer rules are in `CLAUDE.md` (Korean); the ones that bite most:
 
 - Work on `develop`. `main` deploys; never commit to it directly.
 - Several agents may work in the same tree. Stage only your own paths, never use `git add -A`, and never use `git reset --hard`, `git checkout .`, `git stash` (whole tree) or force push.

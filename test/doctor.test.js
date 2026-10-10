@@ -190,3 +190,12 @@ test("선택 항목인 AI 키는 배포 Secret 미등록 목록에 넣지 않는
     assert.ok(!r.detail.some((d) => d.includes("GEMINI_API_KEY")));
   } finally { restore(); }
 });
+
+test("템플릿 버전 기록이 없으면 vunknown 이 아니라 읽을 수 있는 문구를 보여 준다", () => {
+  const rows = localChecks(repo({ versionYml: 'version: "1.0.0"\nproject_types: ["spring"]\n' }));
+  const integ = rows.find((r) => r.name === "Integration status");
+  assert.ok(integ, "통합 상태 행이 있어야 한다");
+  assert.doesNotMatch(integ.value, /vunknown|unknown/i);
+  assert.match(integ.value, /not recorded/);
+  assert.match(integ.value, /Project v1\.0\.0/);
+});

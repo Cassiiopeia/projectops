@@ -8,7 +8,7 @@
 #
 # 릴리스 노트 생성기(provider)는 version.yml options.changelog.provider로 고른다 (#455):
 #   - copilot: GitHub Copilot CLI — GITHUB_TOKEN만으로 동작(API 키 불필요, copilot-requests: write 필요)
-#   - openai/gemini/claude/groq/mistral/ollama: OpenAI 호환 API (MODEL_API_KEY secret 필요)
+#   - openai/gemini/claude/groq/mistral/ollama: OpenAI 호환 API (서비스별 키: GEMINI_API_KEY 등. 구 이름 MODEL_API_KEY 도 읽는다)
 #   - commit: 커밋 분석 (AI·네트워크 무의존) — 미설정 시 기본값 (#821)
 #   - coderabbit: 본문의 CodeRabbit 요약을 존중(대기 없음). 미설정이어도 .coderabbit.yaml이 있으면 이 값
 #   - github-ai: 서비스 종료(2026-07-30) — 저장값이 남아 있으면 commit으로 흡수
@@ -18,8 +18,8 @@
 # 폴백 발생 시 PR 댓글로 "○○ 실패 → △△ 사용"을 알린다.
 #
 # 버전 승격 폭은 version.yml options.semver_auto로 고른다 (#546):
-#   - 키 없음(기존 통합 레포 전부): 항상 patch +1 — 현행 동작 보존
-#   - true: 릴리스 구간 커밋 제목을 분류해 major/minor/patch 결정 (changelog_manager classify-bump)
+#   - 키 없음 또는 true: 릴리스 구간 커밋 제목을 분류해 major/minor/patch 결정 (changelog_manager classify-bump) (#814)
+#   - false: 항상 patch +1 — 명시적으로 끈 레포만
 #           `type!` 마커 → major, feat → minor, 그 외 → patch. AI 미사용(결정적).
 # version_code(빌드 번호)는 옵션과 무관하게 매 릴리스 +1이다.
 #
@@ -29,7 +29,8 @@
 # _GITHUB_PAT_TOKEN: 없으면 GITHUB_TOKEN으로 동작한다. 등록하면 (1) 브랜치 보호 규칙이
 #   있어도 --admin 머지가 가능하고 (2) 머지 push가 후속 워크플로우를 자동 트리거한다.
 #   없을 때는 머지 후 dispatch_downstream.py가 후속 워크플로우를 직접 깨운다.
-# MODEL_API_KEY: 등록하면 외부 AI를 쓴다(기본값 commit이어도 자동 적용 — #569). 없으면 커밋 분석.
+# GEMINI_API_KEY · GROQ_API_KEY · MISTRAL_API_KEY · OPENAI_API_KEY · ANTHROPIC_API_KEY: 등록한 것을 쓴다
+#   (기본값 commit이어도 자동 적용 — #569, #566). 없으면 커밋 분석. MODEL_API_KEY 는 구 이름이라 하위호환으로만 읽는다.
 # ===================================================================
 #
 # 작동 방식:
@@ -222,7 +223,7 @@ jobs:
           retention-days: 1
 
   # Job 1-B: provider 사다리 — PR 본문에 릴리스 노트가 없을 때 만든다 (#455, #566에서 재정비).
-  #   사다리: 선택 provider → (MODEL_API_KEY 있으면 외부 AI) → commit.
+  #   사다리: 선택 provider → (서비스별 AI 키가 있으면 외부 AI) → commit.
   #   copilot은 Copilot CLI — 아래 permissions의 copilot-requests: write + GITHUB_TOKEN만으로
   #   동작(API 키 불필요). commit은 AI·네트워크 무의존이라 항상 완주하는 최후 보루라
   #   "릴리스 노트가 비는" 상황이 생기지 않는다.

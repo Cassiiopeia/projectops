@@ -7,6 +7,7 @@ export default {
   "doctor.integ.notIntegrated": "이 폴더에는 템플릿이 통합되어 있지 않습니다.",
   "doctor.integ.howTo": "통합하려면: npx projectops",
   "doctor.integ.versions": "템플릿 v{tpl} / 프로젝트 v{proj}",
+  "doctor.integ.versionsNoTemplate": "템플릿 버전 기록 없음 / 프로젝트 v{proj}",
   "doctor.wf.name": "설치된 워크플로우",
   "doctor.wf.purpose": "이 저장소에서 도는 자동화",
   "doctor.count": "{n}개",

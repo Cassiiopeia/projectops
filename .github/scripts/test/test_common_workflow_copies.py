@@ -32,3 +32,26 @@ def test_root_copy_matches_common_original(src, root_copy):
     assert root_copy.read_text(encoding="utf-8") == src.read_text(encoding="utf-8"), (
         f"{src.name}: 루트 사본과 project-types/common 원본이 다르다. 두 곳을 같이 고쳐야 한다."
     )
+
+
+# ── 하위 폴더 사본까지 (#832) ─────────────────────────────────────────────────
+# 위 검사는 common/ 최상위만 본다. pr-summary/ · projects-sync/ 는 루트에도 복사되는 짝인데 비교되지 않아,
+# 한쪽만 고쳐도 아무도 몰랐다 (지금은 우연히 같다). 루트에 사본이 있는 하위 폴더 파일은 모두 같아야 한다.
+def _nested_pairs():
+    out = []
+    for src in sorted(COMMON.glob("*/PROJECT-COMMON-*.y*ml")) + sorted(COMMON.glob("*/*/PROJECT-COMMON-*.y*ml")):
+        root_copy = WORKFLOWS / src.name
+        if root_copy.exists():
+            out.append((src, root_copy))
+    return out
+
+
+def test_nested_pairs_are_found():
+    assert len(_nested_pairs()) >= 2, "pr-summary/ · projects-sync/ 사본 쌍을 찾지 못했다"
+
+
+@pytest.mark.parametrize("src,root_copy", _nested_pairs(), ids=lambda p: p.name if hasattr(p, "name") else str(p))
+def test_nested_root_copy_matches_original(src, root_copy):
+    assert root_copy.read_text(encoding="utf-8") == src.read_text(encoding="utf-8"), (
+        f"{src.relative_to(COMMON)}: 루트 사본과 원본이 다르다. 두 곳을 같이 고쳐야 한다."
+    )

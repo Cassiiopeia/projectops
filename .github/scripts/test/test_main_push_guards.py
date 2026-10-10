@@ -228,3 +228,18 @@ def test_workflows_have_no_duplicate_top_level_keys():
         if dup:
             bad.append(f"{path.relative_to(WF)}: {dup}")
     assert not bad, "최상위 키가 중복된 워크플로 (GitHub 이 거부한다):\n" + "\n".join(bad)
+
+
+# ── #832-6: 브랜치에서 이슈 번호를 뽑는 sed 는 첫 #번호를 쓴다 ─────────────────
+def test_test_build_workflows_take_the_first_issue_number_from_a_branch(tmp_path):
+    """제목에 `#` 이 또 있는 브랜치에서 탐욕 sed 가 마지막 번호를 잡던 문제. 워크플로의 sed 를 그대로 꺼내 실행한다."""
+    import subprocess
+    for name in ("PROJECT-FLUTTER-ANDROID-TEST-APK.yaml", "PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT.yaml"):
+        text = (WF / "project-types" / "flutter" / name).read_text(encoding="utf-8")
+        line = next(l for l in text.splitlines() if l.strip().startswith("ISSUE_NUMBER=$(echo \"$BRANCH_NAME\" | sed"))
+        script = line.strip()
+        for branch, want in (("20261010_#825_title_#3_extra", "825"), ("20261010_#825_title", "825"),
+                             ("feature/20261010_#12_x", "12"), ("main", ""), ("20261010_#7", "7")):
+            r = subprocess.run(["bash", "-c", f'BRANCH_NAME="{branch}"; {script}; printf "%s" "$ISSUE_NUMBER"'],
+                               capture_output=True, text=True)
+            assert r.stdout == want, f"{name}: {branch!r} → {r.stdout!r} (기대 {want!r})"

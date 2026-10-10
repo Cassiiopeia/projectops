@@ -422,7 +422,8 @@ jobs:
           else
             BRANCH_NAME="$REF_NAME"
             # 브랜치명에서 이슈 번호 추출 (#387 형식)
-            ISSUE_NUMBER=$(echo "$BRANCH_NAME" | sed -n 's/.*#\([0-9]*\).*/\1/p')
+            # 브랜치 이름의 **첫** `#번호` 를 쓴다. 탐욕 매칭(`.*#`)은 제목에 `#` 이 또 있으면 마지막 번호를 잡았다.
+            ISSUE_NUMBER=$(echo "$BRANCH_NAME" | sed -n 's/^[^#]*#\([0-9][0-9]*\).*/\1/p')
           fi
 
           echo "🌿 브랜치명: $BRANCH_NAME"

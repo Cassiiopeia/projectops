@@ -7,6 +7,7 @@ export default {
   "doctor.integ.notIntegrated": "The template is not integrated in this folder.",
   "doctor.integ.howTo": "To integrate: npx projectops",
   "doctor.integ.versions": "Template v{tpl} / Project v{proj}",
+  "doctor.integ.versionsNoTemplate": "Template version not recorded / Project v{proj}",
   "doctor.wf.name": "Installed workflows",
   "doctor.wf.purpose": "Automation running in this repository",
   "doctor.count": "{n}",

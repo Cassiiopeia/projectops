@@ -68,7 +68,10 @@ export function localChecks(cwd = ".") {
   }
 
   add({ name: t("doctor.integ.name"), purpose: t("doctor.integ.purpose"), status: "OK",
-        value: t("doctor.integ.versions", { tpl: existing.templateVersion || "unknown", proj: existing.version }) });
+        // 템플릿 버전이 기록돼 있지 않으면 "vunknown" 이 아니라 사람이 읽는 문구로 — 옛 설치는 version.yml 에 이 값이 없다
+        value: existing.templateVersion
+          ? t("doctor.integ.versions", { tpl: existing.templateVersion, proj: existing.version })
+          : t("doctor.integ.versionsNoTemplate", { proj: existing.version }) });
 
   const wfDir = join(cwd, PATHS.workflowsDir);
   const files = existsSync(wfDir)

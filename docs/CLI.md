@@ -74,13 +74,17 @@ npx projectops --intent library
 | `--deploy-branch NAME` | 릴리스 PR의 head 브랜치(기본 `develop`). 기본(배포) 브랜치와는 별개입니다 |
 | `--secret-backup` / `--no-secret-backup` | Secret 백업 워크플로우 포함 / 제외 |
 | `--ai-summary` / `--no-ai-summary` | PR 변경 요약 워크플로우 포함 / 제외 |
+| `--projects-sync` / `--no-projects-sync` | GitHub Projects 상태 동기화 워크플로우 포함 / 제외 (신규 설치 기본 제외, 이미 설치돼 있으면 유지) |
+| `--language LANG` | 레포에 쓰이는 이슈/PR 템플릿·봇 문구 언어: `en` `ko`. 신규 설치 기본 `en`, 기존 설치는 저장값(없으면 `ko`) |
+| `--label-style STYLE` | 상태 라벨 표기: `en`(`status: todo`) `ko`(기존 `작업전`). 신규 설치 기본 `en` |
+| `--lang LANG` | **CLI 화면** 언어: `en` `ko`. 레포에 쓰이는 문구(`--language`)와 다르다. 기본은 시스템 언어, CI·`--force` 에서는 `en` |
 | `--remove-legacy` | 은퇴한 구세대 배포 워크플로우를 `.bak`으로 치움 (기본은 목록·삭제 명령만 안내) |
 | `--json` | `--mode options`와 함께 — 사람이 아닌 기계가 읽는 JSON 출력 |
-| `--force` | 모든 확인을 생략하고 비대화형 기본값 사용 |
+| `--force`, `-y`, `--yes` | 모든 확인을 생략하고 비대화형 기본값 사용 |
 | `-v, --version` | projectops 버전 출력 |
 | `-h, --help` | 도움말 |
 
-`--nexus`, `--npm-publish`는 더 이상 쓰지 않는 옵션입니다. 각각 `--publish nexus`, `--publish npm`을 쓰세요.
+`--nexus`, `--npm-publish`(와 `--no-nexus`, `--no-npm-publish`)는 더 이상 쓰지 않는 옵션입니다. 각각 `--publish nexus`, `--publish npm`을 쓰세요.
 
 > 모바일 앱 타입(`flutter`, `react-native`, `react-native-expo`)은 스토어 배포 워크플로우가 타입에 이미 포함돼 있어서 배포·publish 질문 자체를 건너뜁니다. 자세한 규칙은 [NPX 마법사 가이드](/NPX-WIZARD)를 보세요.
 

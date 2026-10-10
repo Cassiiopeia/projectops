@@ -2,7 +2,7 @@
 
 projectops writes a few messages into **your** repository: issue and PR templates, bot comments,
 release-notes notices, the `CHANGELOG.md` header and workflow commit messages. English is the source
-language. Any other language is added by adding files, with no code changes.
+language. Any other language is added by adding files plus one line in a list (step 3 below).
 
 The language of a repository is `options.language` in `version.yml`:
 
@@ -29,7 +29,10 @@ Pick the language code (`ja`, `zh-CN`, `de`, ...). Three things:
    translate the issue and PR templates. Keep the structure identical (sections, `labels`, `assignees`,
    the `[Tag]` in the title examples). A test compares the structure with the English templates.
 3. **One line in the language list.** Add the code to `REPO_LANGUAGES` in `src/core/repo-language.js`.
-   The list must match the files; a test fails if they disagree.
+   The list must match the files; a test fails if they disagree. The `version.yml` parser, `--language`
+   validation and `npx projectops --mode options` all read this list, so nothing else needs the code.
+   The comments written into `version.yml` fall back to English until you add a block for your language
+   to `COMMENTS` (and a header) in `src/core/version-yml.js` — optional, and it never breaks anything.
 
 Run the checks:
 
