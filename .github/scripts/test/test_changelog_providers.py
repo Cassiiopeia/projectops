@@ -5,6 +5,7 @@ test_provider_contract .sh 3종을 pytest로 통합·확장 (ladder 폴백 순�
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -255,16 +256,25 @@ def _provider_lines(path):
     lines = run.splitlines()
     # 추출 줄부터 base_url 읽기 직전까지가 provider 판정 블록이다 (if 블록 포함)
     start = next(i for i, ln in enumerate(lines) if ln.strip().startswith("CHANGELOG_PROVIDER=$("))
+    # #851 — 추출이 `if [ -f version_manager.py ]` 분기 안에 있으면 그 if 줄부터 잘라야 bash 가 읽힌다
+    if start > 0 and lines[start - 1].strip().startswith("if [ -f"):
+        start -= 1
     end = next(i for i, ln in enumerate(lines) if "CHANGELOG_BASE_URL=" in ln)
+    if lines[end - 1].strip().startswith("if [ -f"):
+        end -= 1
     block = [ln for ln in lines[start:end] if not ln.strip().startswith("#")]
     assert block, f"{path.name}: provider 판정 블록을 못 찾았다"
     return "\n".join(block)
 
 
-def _resolve_provider(path, tmp_path, version_yml, coderabbit_yaml=False):
+def _resolve_provider(path, tmp_path, version_yml, coderabbit_yaml=False, with_script=True):
     (tmp_path / "version.yml").write_text(version_yml, encoding="utf-8")
     if coderabbit_yaml:
         (tmp_path / ".coderabbit.yaml").write_text("reviews: {}\n", encoding="utf-8")
+    if with_script:
+        # 설치된 레포처럼 스크립트를 둔다 — 워크플로가 version_manager get-option 경로를 탄다 (#851)
+        (tmp_path / ".github" / "scripts").mkdir(parents=True, exist_ok=True)
+        shutil.copy(ROOT / ".github" / "scripts" / "version_manager.py", tmp_path / ".github" / "scripts" / "version_manager.py")
     script = _provider_lines(path) + '\nprintf "%s" "$CHANGELOG_PROVIDER"\n'
     r = subprocess.run(["bash", "-c", script], cwd=tmp_path, capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
@@ -295,6 +305,14 @@ def test_workflow_keeps_explicit_provider(wf, tmp_path):
     """명시한 저장값(coderabbit 포함)은 그대로 넘긴다 — 해석은 사다리 몫."""
     yml = 'version: "1.0.0"\nmetadata:\n  template:\n    options:\n      changelog:\n        provider: "coderabbit"\n'
     assert _resolve_provider(wf, tmp_path, yml) == "coderabbit"
+
+
+@pytest.mark.parametrize("wf", WORKFLOW_COPIES, ids=["root", "common"])
+def test_workflow_falls_back_to_grep_without_script(wf, tmp_path):
+    """스크립트가 없는 옛 설치(수동 복사)도 명시값을 읽는다 (#851 대체 경로)."""
+    yml = 'version: "1.0.0"\nmetadata:\n  template:\n    options:\n      changelog:\n        provider: "gemini"\n'
+    assert _resolve_provider(wf, tmp_path, yml, with_script=False) == "gemini"
+    assert _resolve_provider(wf, tmp_path, 'version: "1.0.0"\n', with_script=False) == "commit"
 
 
 def test_workflow_copies_identical():

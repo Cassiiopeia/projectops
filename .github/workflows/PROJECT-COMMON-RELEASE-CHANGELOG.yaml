@@ -152,7 +152,12 @@ jobs:
           fi
 
           # 멀티타입 — project_types 배열을 csv로 추출 (v4.1.0 SSOT: 단수 project_type 키는 읽지 않음)
-          PROJECT_TYPES=$(grep "^project_types:" version.yml 2>/dev/null | sed -E 's/.*\[([^]]*)\].*/\1/' | tr -d '" ' || echo "")
+          if [ -f ".github/scripts/version_manager.py" ]; then
+            PROJECT_TYPES=$(python3 .github/scripts/version_manager.py get-types 2>/dev/null || true)
+            # #851 — 블록 리스트·중첩 키·주석을 version_manager 가 한 곳에서 해석한다
+          else
+            PROJECT_TYPES=$(grep "^project_types:" version.yml 2>/dev/null | sed -E 's/.*\[([^]]*)\].*/\1/' | tr -d '" ' || echo "")
+          fi
           # primary 타입 = 배열 첫 항목 (배열이 없으면 위 폴백에서 감지한 값 유지)
           if [ -n "$PROJECT_TYPES" ]; then
             PROJECT_TYPE=$(echo "$PROJECT_TYPES" | cut -d',' -f1)
@@ -164,12 +169,22 @@ jobs:
           #   명시값 → (.coderabbit.yaml 있으면) coderabbit → commit.
           # CodeRabbit 사용 레포의 기존 동작은 보존하고, 그 외에는 정본 기본값(commit)과 맞춘다.
           # 폴링은 #566에서 없어졌으므로 coderabbit도 사다리에서는 "본문 존중 → AI/commit"으로 흐른다.
-          CHANGELOG_PROVIDER=$(grep -A5 "changelog:" version.yml 2>/dev/null | grep "provider:" | head -1 | sed -E 's/.*provider: *"?([a-z-]+)"?.*/\1/' || true)
+          if [ -f ".github/scripts/version_manager.py" ]; then
+            CHANGELOG_PROVIDER=$(python3 .github/scripts/version_manager.py get-option changelog.provider 2>/dev/null || true)
+            # #851 — 블록 리스트·중첩 키·주석을 version_manager 가 한 곳에서 해석한다
+          else
+            CHANGELOG_PROVIDER=$(grep -A5 "changelog:" version.yml 2>/dev/null | grep "provider:" | head -1 | sed -E 's/.*provider: *"?([a-z-]+)"?.*/\1/' || true)
+          fi
           if [ -z "$CHANGELOG_PROVIDER" ]; then
             if [ -f ".coderabbit.yaml" ]; then CHANGELOG_PROVIDER="coderabbit"; else CHANGELOG_PROVIDER="commit"; fi
           fi
           # ollama 등 자체 호스팅 provider의 base_url (#455) — 없으면 빈 값
-          CHANGELOG_BASE_URL=$(grep -A5 "changelog:" version.yml 2>/dev/null | grep "base_url:" | head -1 | sed -E 's/.*base_url: *"?([^" ]*)"?.*/\1/' || true)
+          if [ -f ".github/scripts/version_manager.py" ]; then
+            CHANGELOG_BASE_URL=$(python3 .github/scripts/version_manager.py get-option changelog.base_url 2>/dev/null || true)
+            # #851 — 블록 리스트·중첩 키·주석을 version_manager 가 한 곳에서 해석한다
+          else
+            CHANGELOG_BASE_URL=$(grep -A5 "changelog:" version.yml 2>/dev/null | grep "base_url:" | head -1 | sed -E 's/.*base_url: *"?([^" ]*)"?.*/\1/' || true)
+          fi
 
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "project_type=$PROJECT_TYPE" >> $GITHUB_OUTPUT

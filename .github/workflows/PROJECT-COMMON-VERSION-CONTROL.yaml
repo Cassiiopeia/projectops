@@ -155,7 +155,7 @@ jobs:
         run: |
           if [ -f "version.yml" ]; then
             # 멀티타입 — project_types 배열을 csv로 추출 (v4.1.0 SSOT: 단수 project_type 키는 읽지 않음)
-            PROJECT_TYPES=$(grep "^project_types:" version.yml 2>/dev/null | sed -E 's/.*\[([^]]*)\].*/\1/' | tr -d '" ' || echo "")
+            PROJECT_TYPES=$(python3 .github/scripts/version_manager.py get-types 2>/dev/null || true)  # #851 블록 리스트도 읽는다
             # primary 타입 = 배열 첫 항목
             PROJECT_TYPE=$(echo "$PROJECT_TYPES" | cut -d',' -f1)
             [ -z "$PROJECT_TYPE" ] && PROJECT_TYPE="unknown"

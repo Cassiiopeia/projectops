@@ -858,7 +858,7 @@ def update_all_versions(cfg: Config, new_version: str):
     log_success(f"모든 버전 파일 업데이트 완료: {new_version}")
 
 
-USAGE = """사용법: version_manager.py {get|get-code|get-option|increment|increment-code|set|sync|validate} [version]
+USAGE = """사용법: version_manager.py {get|get-code|get-option|get-types|increment|increment-code|set|sync|validate} [version]
 
 Commands:
   get            - 현재 버전 가져오기 (동기화 포함)
@@ -872,35 +872,48 @@ Commands:
 """
 
 
+def _strip_yaml_comment(line: str) -> str:
+    """따옴표 밖의 ` #` 뒤를 주석으로 보고 지운다. 따옴표 안의 #(URL 조각 등)은 남긴다."""
+    quote = None
+    for i, ch in enumerate(line):
+        if quote:
+            if ch == quote:
+                quote = None
+        elif ch in "\"'":
+            quote = ch
+        elif ch == "#" and (i == 0 or line[i - 1] in " \t"):
+            return line[:i]
+    return line
+
+
 def get_option(key: str):
     """metadata.template.options.<key> 의 스칼라 값을 돌려준다. 없으면 None.
 
-    워크플로가 정규식으로 version.yml을 직접 읽으면 들여쓰기·따옴표·주석에 따라
-    조용히 틀린 값을 얻는다. 경로(metadata > template > options)를 들여쓰기로 따라가
-    한 곳에서만 해석한다 (#832).
+    key 는 점 경로를 받는다 (예: changelog.provider → options 아래 changelog 블록의 provider).
+    워크플로가 grep·정규식으로 version.yml 을 직접 읽으면 들여쓰기·따옴표·주석·중첩된 같은
+    이름 키에 따라 조용히 틀린 값을 얻는다. 열린 블록을 스택으로 따라가 정확히 그 경로의
+    직계 키만 읽는다 (#832, #851).
     """
-    path = ["metadata", "template", "options"]
-    depth, indents = 0, []  # 지금까지 내려온 경로의 들여쓰기
+    parts = key.split(".")
+    prefix, leaf = ["metadata", "template", "options"] + parts[:-1], parts[-1]
+    stack = []  # [(블록 이름, 들여쓰기)] — 지금 줄을 감싸는 블록들
     for raw in yml_lines():
-        line = raw.split(" #", 1)[0].rstrip()
-        if not line.strip() or line.lstrip().startswith("#"):
+        line = _strip_yaml_comment(raw).rstrip()
+        if not line.strip():
             continue
         indent = len(line) - len(line.lstrip())
-        # 현재 깊이보다 얕거나 같은 들여쓰기가 나오면 그 블록을 벗어난 것
-        while depth and indent <= indents[depth - 1]:
-            depth -= 1
-            indents.pop()
+        # 같거나 얕은 들여쓰기가 나오면 그 블록을 벗어난 것
+        while stack and indent <= stack[-1][1]:
+            stack.pop()
         m = re.match(r"^([A-Za-z0-9_]+):\s*(.*)$", line.strip())
         if not m:
             continue
         name, rest = m.group(1), m.group(2)
-        if depth < len(path):
-            if name == path[depth] and rest == "":
-                indents.append(indent)
-                depth += 1
+        if rest == "" or rest[:1] in "|>":
+            # 하위 블록 또는 여러 줄 문자열 — 여러 줄 문자열 안의 "a: b" 를 키로 읽지 않게 이름을 막아 둔다
+            stack.append((name if rest == "" else "\0scalar", indent))
             continue
-        # options 블록 안: 직계 자식만 본다
-        if name == key and (len(indents) == len(path)) and rest != "":
+        if name == leaf and [n for n, _ in stack] == prefix:
             return _unquote(rest)
     return None
 
@@ -931,13 +944,13 @@ def main(argv):
 def _main(argv):
     command = argv[1] if len(argv) > 1 else "get"
 
-    if command not in ("get", "get-code", "get-option", "increment", "increment-code", "set", "sync", "validate"):
+    if command not in ("get", "get-code", "get-option", "get-types", "increment", "increment-code", "set", "sync", "validate"):
         print(USAGE, file=sys.stderr)
         return 1
 
     # version_code만 다루는 명령은 version 키가 없어도 동작해야 한다 (기존 계약)
     # validate는 인자로 버전을 직접 주면 version.yml의 version 값 없이도 검증할 수 있다
-    needs_yml_version = command not in ("get-code", "increment-code", "get-option") and not (command == "validate" and len(argv) > 2)
+    needs_yml_version = command not in ("get-code", "increment-code", "get-option", "get-types") and not (command == "validate" and len(argv) > 2)
     cfg = Config(require_version=needs_yml_version)
 
     if command == "get-option":
@@ -947,6 +960,10 @@ def _main(argv):
             return 1
         value = get_option(argv[2])
         print(value if value is not None else (argv[3] if len(argv) > 3 else ""))
+        return 0
+    if command == "get-types":
+        # project_types 를 csv 로 출력한다 — 워크플로가 한 줄 배열만 grep 해 블록 리스트를 놓치던 것을 대신한다 (#851)
+        print(",".join(parse_project_types()))
         return 0
     if command == "get":
         version = sync_versions(cfg)

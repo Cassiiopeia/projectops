@@ -70,7 +70,12 @@ jobs:
           # 이제 이 워크플로우의 존재 자체가 사용자의 선택이다(마법사가 복사 여부를 결정).
           echo "skip=false" >> $GITHUB_OUTPUT
 
-          PROVIDER=$(grep -A5 "changelog:" version.yml 2>/dev/null | grep "provider:" | head -1 | sed -E 's/.*provider: *"?([a-z-]+)"?.*/\1/' || true)
+          if [ -f ".github/scripts/version_manager.py" ]; then
+            PROVIDER=$(python3 .github/scripts/version_manager.py get-option changelog.provider 2>/dev/null || true)
+            # #851 — 블록 리스트·중첩 키·주석을 version_manager 가 한 곳에서 해석한다
+          else
+            PROVIDER=$(grep -A5 "changelog:" version.yml 2>/dev/null | grep "provider:" | head -1 | sed -E 's/.*provider: *"?([a-z-]+)"?.*/\1/' || true)
+          fi
           # coderabbit은 이 워크플로우에서 재현할 수 없는 외부 봇이고, github-ai는 서비스가
           # 종료됐다. 둘 다 기본 경로(commit)로 대체한다 — 등록된 AI 키가 있으면 사다리가
           # 알아서 집어 쓰고, 없으면 커밋 분석으로 간다. 과금 요소는 기본에 두지 않는다 (#569).

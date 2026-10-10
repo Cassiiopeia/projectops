@@ -63,3 +63,60 @@ def test_trailing_comment_and_crlf(tmp_path):
 
 def test_requires_key(tmp_path):
     assert run(tmp_path, BASE)[0] == 1
+
+
+# ── #851: 점 경로, 순서와 무관한 직계 판정, get-types ─────────────────────
+def test_nested_key_before_direct_key_is_not_picked(tmp_path):
+    yml = """\
+    version: "1.0.0"
+    metadata:
+      template:
+        options:
+          issue_helper:
+            semver_auto: true
+          semver_auto: false
+    """
+    assert run(tmp_path, yml, "semver_auto", "true")[1] == "false"
+
+
+def test_dotted_path_reads_nested_block(tmp_path):
+    yml = """\
+    version: "1.0.0"
+    metadata:
+      template:
+        options:
+          changelog:
+            provider: "gemini"
+            base_url: "http://h:11434/#v1"
+          provider: wrong
+    """
+    assert run(tmp_path, yml, "changelog.provider") == (0, "gemini")
+    assert run(tmp_path, yml, "changelog.base_url") == (0, "http://h:11434/#v1"), "따옴표 안의 # 은 주석이 아니다"
+    assert run(tmp_path, yml, "changelog.model", "x") == (0, "x")
+
+
+def test_block_scalar_content_is_not_a_key(tmp_path):
+    yml = """\
+    version: "1.0.0"
+    metadata:
+      template:
+        options:
+          notes: |
+            semver_auto: false
+          label_style: en
+    """
+    assert run(tmp_path, yml, "semver_auto", "true")[1] == "true"
+    assert run(tmp_path, yml, "label_style")[1] == "en"
+
+
+def _types(tmp_path, yml):
+    (tmp_path / "version.yml").write_text(textwrap.dedent(yml), encoding="utf-8")
+    p = subprocess.run([sys.executable, str(SCRIPT), "get-types"], cwd=tmp_path, capture_output=True, text=True)
+    return p.returncode, p.stdout.strip()
+
+
+def test_get_types_inline_and_block_list(tmp_path):
+    assert _types(tmp_path, 'version: "1.0.0"\nproject_types: ["spring", "react"]\n') == (0, "spring,react")
+    # 워크플로의 grep 은 블록 리스트를 못 읽어 빈 값이 됐다
+    assert _types(tmp_path, 'version: "1.0.0"\nproject_types:\n  - flutter\n  - "node"  # web\n') == (0, "flutter,node")
+    assert _types(tmp_path, 'version: "1.0.0"\n') == (0, "")
