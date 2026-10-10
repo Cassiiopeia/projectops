@@ -1,56 +1,38 @@
 # 이슈 생성 워크플로우 (pro-github 전용)
 
-사용자가 GitHub **이슈를 새로 만들어달라**고 하면(예: "이슈 만들어줘", "버그 리포트 올려줘", "기능 요청 이슈") `pro-github` 스킬이 이 절차를 따른다. 대략적인 설명을 받아 **GitHub 이슈 템플릿에 맞는 제목·본문을 자동 작성**하고, **로컬 파일로 먼저 저장**한 뒤, 사용자 확인(또는 자동 승인 설정)에 따라 **GitHub API로 실제 등록**하고, **즉시 브랜치명을 계산**하여 다음 작업 선택지를 제공한다.
+사용자가 GitHub **이슈를 새로 만들어달라**고 하면(예: "이슈 만들어줘", "버그 리포트 올려줘", "기능 요청 이슈") `pro-github` 스킬이 이 절차를 따른다. 대략적인 설명을 받아 **이슈 템플릿에 맞는 제목·본문을 작성**하고, **로컬 파일로 먼저 저장**한 뒤, 사용자 확인(또는 자동 승인 설정)에 따라 **GitHub에 등록**하고, **즉시 브랜치명을 계산**해 다음 작업 선택지를 준다.
 
-> 조회/수정/댓글/라벨/담당자/PR 등 이슈 "생성 외" 작업은 `pro-github/SKILL.md`의 서브커맨드 호출법을 따른다. 이 문서는 **생성 워크플로우 전용**이다.
+> 조회/수정/댓글/라벨/담당자/PR 등 "생성 외" 작업은 `pro-github/SKILL.md`를 따른다. 이 문서는 **생성 워크플로우 전용**이다.
+
+명령은 모두 `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py <서브커맨드> ...` 형태다. `{PYTHON}` · `{SCRIPTS}` · `{PROJECT_ROOT}`는 `pro-github/SKILL.md` "스크립트 찾기"를 한 번 실행해 얻은 실제 경로로 써넣는다 (Bash는 호출마다 상태가 초기화된다). PAT는 CLI가 자동 로드한다.
 
 ## 시작 전
 
 1. `common-rules.md`의 **절대 규칙** 적용 (Git 커밋 금지, 민감 정보 보호).
-
-2. **프로젝트 루트 확인**: `PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)`
-
-3. **Config 확인** — `config-rules.md` §2~5 절차. config.json은 고정 경로 `{HOME}/.projectops/config/config.json` 한 곳뿐이다 (Read tool로 직접 읽는다. `ls`·`find`로 탐색 금지).
-
-   파일이 존재하면 → `global_pat`, `repos` 추출. **레포 선택 우선순위**:
-   1. `git remote get-url origin`으로 현재 레포의 `owner/repo` 추출 → `repos` 배열과 매칭
-   2. 매칭 실패 시 → `default: true`인 repo
-   3. 없거나 여러 개면 → 번호를 매겨 선택하게 한다
-
-   파일이 없으면 → `global_pat`, `default_assignee`, 첫 repo(owner/repo/name)를 수집해 저장. 저장 형식은 `config-rules.md` 참조.
-
-4. **Python 실행 환경**: `common-rules.md` §"PYTHON 변수 설정" 패턴 사용 (Windows Store stub 회피).
-
-5. **자동 승인 모드 판정** — config에서 `issue.auto_approve` 값을 결정한다. (키 이름은 하위 호환을 위해 `issue.*` 그대로 유지한다.)
-
-   해석 우선순위 (먼저 발견되는 값 채택):
-   1. `github.repos[]` 중 `owner == 현 OWNER && repo == 현 REPO`인 항목의 `issue.auto_approve`
-   2. `github.issue.auto_approve` (글로벌 기본값)
+2. **Config 확인** — `config-rules.md` §2~5 절차. config.json은 고정 경로 `{HOME}/.projectops/config/config.json` 한 곳뿐이다 (Read tool로 직접 읽는다. `ls`·`find`로 탐색 금지).
+   - 있으면 → `global_pat`, `repos` 추출. **레포 선택**: ① `git remote get-url origin`의 `owner/repo`를 `repos`와 매칭 → ② 실패 시 `default: true`인 repo → ③ 없거나 여러 개면 번호를 매겨 고르게 한다.
+   - 없으면 → `global_pat`, `default_assignee`, 첫 repo(owner/repo/name)를 수집해 저장 (형식은 `config-rules.md`).
+3. **자동 승인 모드 판정** — `issue.auto_approve` (키 이름은 하위 호환을 위해 `issue.*` 유지). 먼저 발견되는 값 채택:
+   1. `github.repos[]` 중 현 OWNER/REPO 항목의 `issue.auto_approve`
+   2. `github.issue.auto_approve` (글로벌)
    3. 없으면 `false` (안전 default — 수동 승인)
 
-   두 값으로 기억: `AUTO_APPROVE`(boolean), `CONFIG_HAS_KEY`(true면 우선순위 1·2에서 발견, false면 첫 실행).
+   기억: `AUTO_APPROVE`(boolean), `CONFIG_HAS_KEY`(1·2에서 발견했으면 true, 아니면 첫 실행).
+   > 자동 모드라도 중복 검사(2-1, 4-1)와 open 동일 이슈 발견 시 중단 정책은 그대로다. auto_approve는 "최종 등록 승인" 게이트만 스킵한다.
+4. **담당자 결정** — "글로벌 + 레포별 오버라이드 + 첫 실행만 질문" 패턴:
+   1. `github.repos[]`의 현 OWNER/REPO 항목의 `issue.assignee`
+   2. `github.default_assignee` (글로벌)
+   3. 없으면 미설정 (첫 실행 — 4단계 C-2에서 한 번만 질문)
 
-   > 자동 모드라도 중복 검사(2-1, 4-1)와 open 동일 이슈 발견 시 중단 정책은 그대로 적용된다. auto_approve는 "최종 등록 승인" 게이트만 스킵한다.
-   > 사용자에게 노출하는 안내는 자연어로만 한다. "auto_approve", "config.json" 같은 키 이름·경로를 사용자 메시지에 쓰지 않는다.
+   기억: `ASSIGNEE`, `ASSIGNEE_HAS_KEY`. 정해져 있으면 묻지 않고 자동 적용하며 승인 화면에 "담당자: {ASSIGNEE}"만 표시한다.
 
-6. **담당자(assignee) 결정** — config에서 담당자를 결정한다 (auto_approve와 같은 "글로벌 + 레포별 오버라이드 + 첫 실행만 질문" 패턴).
-
-   우선순위:
-   1. `github.repos[]`의 현 OWNER/REPO 항목의 `issue.assignee` (레포별 오버라이드)
-   2. `github.default_assignee` (글로벌 기본값)
-   3. 없으면 미설정 (첫 실행 — 5단계에서 한 번만 질문)
-
-   두 값으로 기억: `ASSIGNEE`, `ASSIGNEE_HAS_KEY`.
-
-   > **핵심 — 사용자 무간섭**: `ASSIGNEE`가 정해져 있으면 묻지 않고 자동 적용, 승인 화면에 "담당자: {ASSIGNEE}"만 표시. `ASSIGNEE_HAS_KEY=false`일 때만 한 번 질문하고 config에 저장 → 이후 영구 자동.
+> 사용자에게 노출하는 안내는 자연어로만 한다. "auto_approve", "config.json" 같은 키 이름·경로를 사용자 메시지에 쓰지 않는다.
 
 ## 허용 이모지+태그 규칙
 
-`.github/ISSUE_TEMPLATE/` 폴더가 존재하면 파일들을 읽어 허용 조합을 파싱한다. 없으면 아래 기본값(영문)을 사용한다.
+> **언어는 대상 레포의 템플릿을 따른다.** 대상 레포의 `.github/ISSUE_TEMPLATE/`를 읽어 그 템플릿의 언어, 절 제목, 허용 태그를 그대로 쓴다. 한글 템플릿이면 한글 절 제목과 태그(`❗[버그]`)를, 영문 템플릿이면 영문(`❗[Bug]`)을 쓴다. 템플릿이 없으면 영문으로 쓴다(아래 기본값). 두 언어의 태그는 모두 커밋 타입과 매핑된다.
 
-> **언어는 대상 레포의 템플릿을 따른다.** 대상 레포의 `.github/ISSUE_TEMPLATE/`를 읽어 그 템플릿의 언어, 절 제목, 허용 태그를 그대로 쓴다. 한글 템플릿이면 한글 절 제목과 태그(`❗[버그]`)를, 영문 템플릿이면 영문(`❗[Bug]`)을 쓴다. 템플릿이 없으면 영문으로 쓴다. 두 언어의 태그는 모두 커밋 타입과 매핑된다 (아래 표 참고).
-
-**주요 태그** (타입 결정, 하나만 선택):
+**주요 태그** (타입 결정, 하나만):
 
 | 영문 (기본) | 한글 | 용도 |
 |-------------|------|------|
@@ -61,7 +43,7 @@
 | `🚀[Improvement]` | `🚀[기능개선]` | 기존 기능 개선 |
 | `🔍[QA]` | `🔍[시험요청]` | QA/테스트 요청 |
 
-**수식어 태그** (선택적, 주요 태그 앞에 붙임):
+**수식어 태그** (선택, 주요 태그 앞에):
 
 | 영문 (기본) | 한글 | 조건 |
 |-------------|------|------|
@@ -70,19 +52,16 @@
 | `⌛[~month/day]` | `⌛[~월/일]` | 마감일이 있을 때 |
 
 **규칙**: 이모지와 `[` 사이에 공백 없음. 위 목록에 없는 이모지 사용 금지.
-
-> 템플릿 주석의 복사용 예시는 `❗ [Bug][Category]`처럼 공백을 넣어 두었지만, **제목에는 붙여 쓴다** (`❗[Bug][Category]`). 이 레포에 실제 등록된 이슈 제목이 전부 붙여 쓴 형태이고, 공백이 있든 없든 이슈 헬퍼·커밋 템플릿이 태그를 똑같이 걷어 내므로 동작 차이는 없다 — 표기만 하나로 맞춘다.
+템플릿 주석의 복사용 예시는 `❗ [Bug][Category]`처럼 공백이 있지만 **제목에는 붙여 쓴다**. 등록된 이슈 제목이 전부 붙여 쓴 형태이고, 이슈 헬퍼·커밋 템플릿이 어느 쪽이든 태그를 똑같이 걷어 내므로 표기만 하나로 맞춘다.
 
 ## 절대 금지
 
 - 채팅으로만 이슈 본문을 출력하고 파일 저장을 생략하는 것
 - 코드적인 내용 (구현 방법, 코드 예시)
-- 허용 목록에 없는 이모지 사용
-- `🔥[긴급]` 임의 추가 (사용자가 명시할 때만)
-- 담당자 임의 채우기
-- 이모지와 `[` 사이 공백
-- 생성 단계에서 템플릿 기본 라벨(`status: todo`) 외의 상태 라벨을 붙이거나 이슈를 닫는 것. 이후 작업 시작(`status: in progress`)·완료(`status: done` 후 close)·취소(`status: cancelled` 후 close) 전환은 `common-rules.md` §이슈 상태 처리 규칙을 따른다
-- 자동 모드에서 중복 검사(2-1, 4-1) 스킵 — auto_approve라도 중복 검사는 항상 실행. open 동일 이슈 발견 시 무조건 중단
+- 허용 목록에 없는 이모지, 이모지와 `[` 사이 공백
+- `🔥[긴급]` 임의 추가 (사용자가 명시할 때만), 담당자 임의 채우기
+- 생성 단계에서 템플릿 기본 라벨(`status: todo`) 외의 상태 라벨을 붙이거나 이슈를 닫는 것. 이후 시작(`status: in progress`)·완료(`status: done` 후 close)·취소(`status: cancelled` 후 close) 전환은 `common-rules.md` §이슈 상태 처리 규칙을 따른다
+- 자동 모드에서 중복 검사(2-1, 4-1) 스킵 — 항상 실행. open 동일 이슈 발견 시 무조건 중단
 - config 키 이름·파일 경로를 사용자 메시지에 노출
 
 ## 프로세스
@@ -104,41 +83,26 @@
 [이모지+태그][카테고리] 제목 (50자 이내)
 ```
 
-예시: `⚙️[Feature][Skills] Add issue edit subcommands to the github skill` (한글 템플릿 레포: `⚙️[기능추가][Skills] github 스킬 이슈 편집 서브커맨드 보강`)
+예: `⚙️[Feature][Skills] Add issue edit subcommands to the github skill` (한글 템플릿 레포: `⚙️[기능추가][Skills] github 스킬 이슈 편집 서브커맨드 보강`)
 
-**제목 문장부호 규칙 (필수)**: 키보드로 바로 못 치는 특수 문장부호는 "AI가 만든 티"가 나므로 제목에서 쓰지 않는다.
+**제목 문장부호 규칙 (필수)** — 키보드로 바로 못 치는 문장부호는 "AI가 만든 티"가 나므로 쓰지 않는다.
 
-- **em dash(`—`), en dash(`–`) 금지.** 부연은 콜론(`:`), 쉼표(`,`), 괄호로 대체.
-  - ❌ `스킬 리브랜딩 — 중립화` / ✅ `스킬 리브랜딩: 중립화`
-- **가운뎃점(`·`) 금지.** 나열은 쉼표(`,`)나 슬래시(`/`)로 대체.
-  - ❌ `옛 이름·워크플로우명 수정` / ✅ `옛 이름, 워크플로우명 수정`
+- **em dash(`—`), en dash(`–`) 금지.** 콜론·쉼표·괄호로 대체. ❌ `스킬 리브랜딩 — 중립화` / ✅ `스킬 리브랜딩: 중립화`
+- **가운뎃점(`·`) 금지.** 쉼표나 슬래시로 대체. ❌ `옛 이름·워크플로우명 수정` / ✅ `옛 이름, 워크플로우명 수정`
 - 일반 하이픈(`-`)은 파일명·버전(`v4.2.0`) 등 원래 표기에 필요할 때만.
 
 ### 2-1단계: 중복 이슈 검색 (파일 저장 전)
 
-이슈 제목에서 핵심 키워드를 추출한다 (이모지·`[...]` 태그·특수문자·URL 제거 → 핵심 명사 2~3개).
-
-**인라인 Python 금지.** `github_cli.py`의 `search-issues`를 호출한다. keyword는 마지막 인자로 그대로 넘기며(공백 포함 가능), 내부에서 URL 인코딩한다. **PAT는 자동 로드되므로 `GITHUB_PAT=`는 생략 가능**하다.
+제목에서 핵심 키워드를 뽑는다 (이모지·`[...]` 태그·특수문자·URL 제거 → 핵심 명사 2~3개). keyword는 마지막 인자로 그대로 넘긴다(공백 포함 가능, 내부에서 URL 인코딩). 인라인 Python 금지.
 
 ```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
-[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
-  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
-done
-SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
-cd "$SCRIPTS" || exit 1
-PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py search-issues {owner} {repo} "{핵심 키워드 2~3개}"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py search-issues {owner} {repo} "{핵심 키워드 2~3개}"
 ```
 
-출력 JSON `{"count":N,"items":[{number,title,url,state,labels}]}`. `state`가 `closed`인 항목은 중복에서 제외. `[ERROR]`가 stderr에 찍히면 중복 검색을 건너뛰고 경고 후 진행.
+출력 JSON `{"count":N,"items":[{number,title,url,state,labels}]}`. `closed` 항목은 중복에서 제외. `[ERROR]`가 stderr에 찍히면 중복 검색을 건너뛰고 경고 후 진행.
 
-**판단 기준 (open 이슈만):**
-- **사실상 동일**: 즉시 중단.
+**판단 (open 이슈만):**
+- **사실상 동일** → 아래를 출력하고 **종료**.
   ```
   🚫 이미 동일한 이슈가 존재합니다.
 
@@ -147,9 +111,8 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py search-issues {owner} {repo} "{�
 
   새 이슈 생성을 중단합니다. 기존 이슈에서 작업을 이어가세요.
   ```
-  출력 후 **종료**.
-- **유사하지만 다름**: 경고 후 사용자 확인 (1. 새로 만들기 / 2. 취소). 2면 종료.
-- **무관** / 검색 결과 없음 / API 오류: 그대로 진행.
+- **유사하지만 다름** → 경고 후 사용자 확인 (1. 새로 만들기 / 2. 취소). 2면 종료.
+- **무관** / 결과 없음 / API 오류 → 그대로 진행.
 
 ### 3단계: 코드 탐색 및 본문 작성
 
@@ -159,30 +122,19 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py search-issues {owner} {repo} "{�
 
 ### 4단계: 로컬 파일 먼저 저장
 
-`doc-output-path.md` 규칙을 따른다. **경로를 직접 조립하지 않고** `github_cli.py get-output-path issue`가 돌려준 `path`를 그대로 쓴다 (산출물 루트는 설정으로 바뀐다):
+`doc-output-path.md` 규칙을 따른다. **경로를 직접 조립하지 않고** `get-output-path issue`가 돌려준 `path`를 그대로 쓴다 (산출물 루트는 설정으로 바뀐다). 현재 레포 기준으로 계산되므로 프로젝트 루트에서 부른다.
 
 ```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
-[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
-  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
-done
-SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
-cd "$PROJECT_ROOT" || exit 1   # 경로는 현재 레포 기준으로 계산되므로 프로젝트 루트에서 부른다
-PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/github_cli.py" get-output-path issue --title "{이슈 제목}"
+cd "{PROJECT_ROOT}" && PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py get-output-path issue --title "{이슈 제목}"
 ```
 
-- 출력 JSON의 `path` 예: `<산출물 루트>/issue/YYYYMMDD_001_제목.md`
+- `path` 예: `<산출물 루트>/issue/YYYYMMDD_001_제목.md`
 - 등록 전이라 이슈 번호 대신 **그날의 일련번호**(`001`, `002`…)가 붙는다. 이슈 브랜치 위에서 실행해도 그 브랜치 번호를 빌려 쓰지 않는다. `TMP` 접두사는 쓰지 않는다 (`common-rules.md` §이슈 MD 파일명 규칙)
 - 제목의 이모지·`[태그]`는 파일명에서 자동으로 빠진다
 
 **저장 직전**: `common-rules.md`의 **파일 저장 직전 자체검토 프로토콜**로 본문 전체를 검토. 민감 정보 발견 시 마스킹.
 
-파일 저장 후 [시작 전 §5]의 `AUTO_APPROVE` / `CONFIG_HAS_KEY`로 분기한다.
+저장 후 [시작 전 §3]의 `AUTO_APPROVE` / `CONFIG_HAS_KEY`로 분기한다.
 
 #### A. 자동 모드 (`AUTO_APPROVE == true`)
 
@@ -239,12 +191,9 @@ GitHub에 등록합니다.
 3. 지금처럼 매번 이슈 내용 확인받겠습니다
 ```
 
-응답에 따라 Read/Write로 `config.json` 갱신:
-- **1** → `github.repos[]`의 현 OWNER/REPO 항목에 `issue.auto_approve: true`
-- **2** → `github.issue.auto_approve: true`
-- **3** → `github.issue.auto_approve: false`
+응답에 따라 Read/Write로 `config.json` 갱신: **1** → `github.repos[]`의 현 OWNER/REPO 항목에 `issue.auto_approve: true` / **2** → `github.issue.auto_approve: true` / **3** → `github.issue.auto_approve: false`.
 
-> 갱신 시 `references/config-rules.md §4`대로 전체를 Read 후 해당 키만 수정해 Write. PAT·다른 repos 항목을 날리지 않는다.
+> 갱신은 `config-rules.md` §4대로 전체를 Read 후 해당 키만 수정해 Write. PAT·다른 repos 항목을 날리지 않는다.
 
 #### C-2. 담당자 첫 설정 (`ASSIGNEE_HAS_KEY == false`, 한 번만)
 
@@ -260,56 +209,33 @@ GitHub 사용자명을 알려주세요. (담당자 없이 진행하려면 "없�
 
 ### 4-1단계: 최종 중복 확인 (API 호출 직전)
 
-2-1과 동일하게 `github_cli.py`의 `search-issues`를 호출한다 (인라인 Python 금지).
+2-1과 같은 `search-issues`를 다시 부른다.
 
 ```bash
-SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
-  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
-done
-SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
-cd "$SCRIPTS" || exit 1
-PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py search-issues {owner} {repo} "{핵심 키워드}"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py search-issues {owner} {repo} "{핵심 키워드}"
 ```
 
-**사실상 동일 open 이슈 발견** → 즉시 중단. **없음/무관** → 5단계 진행. `closed` 이슈는 중복 아님.
+**사실상 동일한 open 이슈** → 즉시 중단. **없음/무관** → 5단계. `closed` 이슈는 중복 아님.
 
 ### 5단계: GitHub 이슈 생성 (승인 후)
 
-GitHub 이슈 본문에는 **제목 헤딩(`# ...`)과 라벨/담당자 메타 블록을 포함하지 않는다.** 템플릿 섹션(📝현재 문제점, 🛠️해결 방안 등)만 작성한다.
-
-**인라인 Python 금지.** `github_cli.py`의 `create-issue`를 호출한다. body는 로컬에 저장한 `.md` 파일(템플릿 섹션만)을 `body_file`로 전달한다. `--assignees`에는 [시작 전 §6]의 `ASSIGNEE`를 넘긴다 (미설정이면 생략).
+이슈 본문에는 **제목 헤딩(`# ...`)과 라벨/담당자 메타 블록을 넣지 않는다.** 템플릿 섹션(📝현재 문제점, 🛠️해결 방안 등)만 쓴다. 로컬 `.md` 파일을 `body_file`로 넘기고, `--assignees`에는 [시작 전 §4]의 `ASSIGNEE`를 넘긴다 (미설정이면 생략).
 
 ```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
-[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
-  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
-done
-SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
-cd "$SCRIPTS" || exit 1
-PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py create-issue {owner} {repo} "{제목}" "{이슈 본문 .md 절대경로}" "{라벨 csv}" --assignees "{ASSIGNEE}"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-issue {owner} {repo} "{제목}" "{이슈 본문 .md 절대경로}" "{라벨 csv}" --assignees "{ASSIGNEE}"
 ```
 
-출력 JSON: `{"number":...,"url":...,"title":...,"assignees":[...]}`. 존재하지 않는 라벨은 자동 필터링되어 422가 나지 않는다. 요청한 담당자가 반영되지 않으면 `assignee_warning`이 들어오며, 이슈는 정상 생성된 것이므로 중단하지 않고 그 경고만 자연어로 전달한다.
+출력 JSON: `{"number":...,"url":...,"title":...,"assignees":[...]}`. 존재하지 않는 라벨은 자동 필터링되어 422가 나지 않는다. 담당자가 반영되지 않으면 `assignee_warning`이 오며, 이슈는 정상 생성된 것이므로 중단하지 않고 경고만 자연어로 전달한다.
 
-반환된 실제 번호로 로컬 파일명의 일련번호(`001` 등)를 rename한다 (예: `20260710_001_제목.md` → `20260710_245_제목.md`).
+반환된 실제 번호로 로컬 파일명의 일련번호를 rename한다 (예: `20260710_001_제목.md` → `20260710_245_제목.md`).
 
 ### 6단계: 브랜치명 즉시 계산
 
-`github_cli.py`의 `create-branch-name`을 쓰거나 agent가 직접 계산:
-- 형식: `YYYYMMDD_#{이슈번호}_{정규화된제목}`
-- 예: `20260710_#235_기능추가_github_스킬_통합`
+`create-branch-name "{이슈 제목}" {번호}`를 쓰거나 직접 계산한다. 형식 `YYYYMMDD_#{이슈번호}_{정규화된제목}` (예: `20260710_#235_기능추가_github_스킬_통합`).
 
 ### 7단계: 커밋 템플릿 계산
 
-`github_cli.py get-commit-template "{이슈 제목}" "{이슈URL}"`을 부르고 출력의 `template`을 **그대로** 쓴다. agent가 직접 조립하지 않는다.
+`get-commit-template "{이슈 제목}" "{이슈URL}"`을 부르고 출력의 `template`을 **그대로** 쓴다. 직접 조립하지 않는다.
 - 형식: `{이슈제목에서 이모지·태그 제거한 순수 내용} : {타입} : {설명} {이슈URL}`
 - `{타입}`은 제목 태그에서 추론된다 — 버그면 `fix`, 기능이면 `feat`, 문서면 `docs`. `feat`로 고쳐 쓰지 않는다 (`semver_auto` 레포에서 버그 수정이 minor로 오른다)
 
@@ -334,7 +260,3 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py create-issue {owner} {repo} "{제
 - **1** → `/pro-init-worktree` 스킬에 브랜치명을 넘겨 위임한다. raw `git worktree add`를 직접 부르지 않는다 — 위치 규칙, 경로의 `#` 처리, 로컬 설정 파일 복사를 그 스킬이 맡는다
 - **2** → `git checkout -b {브랜치명}`. 여러 세션이 같은 트리를 쓰는 레포면 브랜치 전환이 다른 세션도 바꾸므로, 그럴 땐 1을 권한다
 - **3** / **4** → git 명령 없이 브랜치명만 출력하고 종료. 레포가 개발 브랜치 직행(예: develop에서 직접 작업)을 기본으로 정했으면 3을 기본 선택지로 안내한다
-
-## 산출물 저장
-
-`doc-output-path.md` 규칙을 따라 `github_cli.py get-output-path issue`가 돌려준 경로에 저장한다 (4단계에서 처리).
