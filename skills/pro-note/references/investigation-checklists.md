@@ -54,9 +54,10 @@ flutter pub deps                                          # Flutter
 ## 배포 실패
 
 ```bash
-# CI 실행 로그
-gh run list --limit 5          # gh가 있을 때
-# 또는 pro-github의 actions 서브커맨드 사용
+# CI 실행 로그 — pro-github 의 actions 서브커맨드로 실패 run 찾기 → 실패 job·step → 에러 로그 (gh CLI는 쓰지 않는다)
+$PYTHON skills/pro-github/scripts/github_cli.py actions list-failed {owner} {repo}
+$PYTHON skills/pro-github/scripts/github_cli.py actions show-run {owner} {repo} {run_id}
+$PYTHON skills/pro-github/scripts/github_cli.py actions joblog {owner} {repo} {job_id}
 
 # 인증서·자격증명 만료 (배포 실패의 흔한 원인)
 openssl x509 -in {인증서} -noout -dates

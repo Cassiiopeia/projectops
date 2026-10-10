@@ -507,13 +507,12 @@ flowchart TD
 | Situation | Skill to use |
 |------|----------|
 | Only a code review is needed | `review` |
-| Quickly draft just an issue | `issue` |
-| Generate a PR description / presentation / QA checklist | `report` / `ppt` / `testcase` |
+| Quickly draft just an issue | `github` |
+| Generate a PR description / QA checklist | `report` / `testcase` |
 | Move a Figma design into code and compare it with the design | `figma-verify` |
 | Synology external exposure guide | `synology-expose` |
 | SSH into a remote server and run commands | `ssh` |
 | Run a build / analyze errors | `build` |
-| Write code comments / docs | `document` |
 | Create a deploy PR + automerge | `changelog-deploy` |
 | Look up and manage GitHub issues/PRs | `github` |
 | Create/review/improve a Skill | `skill-creator` |

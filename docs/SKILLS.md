@@ -510,13 +510,12 @@ flowchart TD
 | 상황 | 사용 Skill |
 |------|----------|
 | 코드 리뷰만 필요 | `review` |
-| 이슈만 빠르게 초안 작성 | `issue` |
-| PR 설명 / 발표 자료 / QA 체크리스트 생성 | `report` / `ppt` / `testcase` |
+| 이슈만 빠르게 초안 작성 | `github` |
+| PR 설명 / QA 체크리스트 생성 | `report` / `testcase` |
 | Figma 디자인을 코드로 옮기고 시안과 대조 | `figma-verify` |
 | Synology 외부 노출 가이드 | `synology-expose` |
 | 원격 서버 SSH 접속·명령 실행 | `ssh` |
 | 빌드 실행 / 에러 분석 | `build` |
-| 코드 주석 / 문서 작성 | `document` |
 | 배포 PR 생성 + automerge | `changelog-deploy` |
 | GitHub 이슈/PR 조회 및 관리 | `github` |
 | Skill 생성/리뷰/개선 | `skill-creator` |
