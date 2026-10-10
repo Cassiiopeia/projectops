@@ -23,6 +23,7 @@ if str(_SCRIPTS_ROOT) not in sys.path:
 
 from common.cli_parser import JSONArgumentParser, run_cli  # noqa: E402
 from common.emit import emit  # noqa: E402
+from common.notes import attach_note_hits, failed_run_text  # noqa: E402
 from common.config import get_github_pat  # noqa: E402
 from common.gh_client import (  # noqa: E402
     GitHubAPIError,
@@ -43,11 +44,15 @@ def cmd_actions(args) -> int:
             data = get_run(args.owner, args.repo, int(args.arg), pat)
             if data.get("failed_job_ids"):
                 data["next"] = f"actions joblog {args.owner} {args.repo} {data['failed_job_ids'][0]}"
+                # 실패한 job·step 이름으로 과거 기록을 찾아 싣는다 (없으면 필드 없음)
+                attach_note_hits(data, failed_run_text(data))
             return emit(data)
         if args.sub == "joblog":
             if args.arg is None:
                 return emit({"ok": False, "code": "missing_argument", "error": "JOB_ID 필요"})
             data = get_job_log(args.owner, args.repo, int(args.arg), pat, grep=args.grep, tail=args.tail)
+            # 오류 라인의 핵심어로 과거 기록을 찾아 싣는다 (없으면 필드 없음)
+            attach_note_hits(data, "\n".join(data.get("lines") or []))
             return emit(data)
         if args.sub == "list-failed":
             runs = list_failed_runs(args.owner, args.repo, pat, limit=args.limit)

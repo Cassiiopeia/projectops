@@ -59,6 +59,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/note_cli.py search "{증상 키워드}
 | 관련 기록 발견 | 그 문서를 읽고 **해결법이 지금 상황에 적용되는지 먼저 검증**한다. 맞으면 조사 없이 끝난다. 알리는 형식은 `references/note-templates.md` |
 | 결과 없음 | 처음 겪는 문제다. 아래 조사 절차로 진행한다 |
 
+> `github_cli actions show-run·joblog`와 `changelog_cli actions`가 실패를 보여 줄 때 맞는 기록이 있으면 응답에 `note_hits`(제목·경로·요약, 최대 2건)가 **저절로** 실린다. 있으면 `search` 전에 그 문서부터 읽고, 필드가 없으면 맞는 기록이 없는 것이다.
+
 ### 시점 2. 어렵게 알아냈을 때 — 기록을 제안
 
 **고생한 흔적이 있을 때만** 제안한다. 한 번에 끝난 일은 남길 가치가 없고, 매번 물으면 방해다.
@@ -121,6 +123,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/note_cli.py resolve-scope
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/note_cli.py get-output-path case --title "{제목}" --scope {project|home}
+# 응답에 related(비슷한 기존 기록, 점수 포함 최대 3건)가 있으면 읽어 보고 같은 지식이면 새로 만들지 말고 그 기록을 갱신한다. 저장을 막지는 않는다.
 ```
 
 출력 JSON의 `path`에 저장한다(`dir`이 없으면 먼저 만든다). 본문은 `references/note-templates.md`의 case/fact 템플릿을 따르고,

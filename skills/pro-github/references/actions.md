@@ -39,6 +39,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py actions resolve-pr {owne
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py actions resolve-branch {owner} {repo} "{branch}" --limit 10
 ```
 
+> `show-run`(실패 시)·`joblog` 응답에 `note_hits`(제목·경로·요약, 최대 2건)가 있으면 `pro-note` 과거 기록이 맞은 것이다 — 조사 전에 그 문서부터 읽는다. 없으면 필드 자체가 없다.
+
 > **Windows 주의**: 임시 파일 파싱·curl 파이프 Python·heredoc 보간은 사용하지 않는다 (Windows Git Bash에서 깨짐). 인자는 모두 명령행/환경변수로 전달한다.
 
 ## 출력 예시

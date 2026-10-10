@@ -2802,10 +2802,16 @@ def cmd_logs(args) -> int:
     # 저장된 명령 안에 grep 이 있으면 매치 0건이 종료코드 1 이다 — 출력·오류가 모두 비면 성공으로 본다
     failed = r.returncode != 0 and not (r.returncode == 1 and not err and not (r.stdout or "").strip())
     if failed:
-        return out({"ok": False, "code": "logs_failed", "exit_code": r.returncode,
-                    "lines": [], "error": err[:500] or f"종료코드 {r.returncode}",
-                    "summary": f"로그 명령 실패 (종료코드 {r.returncode}) — 로그가 없는 것이 아니다",
-                    "next": "error 를 보고 접속 방법·명령을 고친다 (access show --key logs)"})
+        resp = {"ok": False, "code": "logs_failed", "exit_code": r.returncode,
+                "lines": [], "error": err[:500] or f"종료코드 {r.returncode}",
+                "summary": f"로그 명령 실패 (종료코드 {r.returncode}) — 로그가 없는 것이 아니다",
+                "next": "error 를 보고 접속 방법·명령을 고친다 (access show --key logs)"}
+        try:   # 같은 오류를 전에 풀어 둔 기록(pro-note)이 있으면 싣는다 — 없으면 필드가 생기지 않는다 (#840)
+            from common.notes import attach_note_hits
+            attach_note_hits(resp, err, project_root=_root(args))
+        except Exception:   # noqa: BLE001 — 기록 검색이 오류 보고를 막으면 안 된다
+            pass
+        return out(resp)
     lines = (r.stdout or "").splitlines()
     if args.grep:
         try:

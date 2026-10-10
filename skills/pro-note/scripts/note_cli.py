@@ -29,12 +29,13 @@ if str(_SCRIPTS_ROOT) not in sys.path:
 
 from common.emit import emit  # noqa: E402
 from common.cli_parser import JSONArgumentParser, positive_int, run_cli  # noqa: E402
+from common import notes as _notes  # noqa: E402
 
 # 기록 종류 — case는 사건, fact는 재사용 가능한 사실
 KINDS = ("case", "fact")
 
 # 홈 기록 루트. 프로젝트를 옮겨 다녀도 따라오는 지식이 여기 쌓인다.
-HOME_ROOT = Path.home() / ".projectops" / "note"
+HOME_ROOT = _notes.home_root()   # PROJECTOPS_HOME 을 따른다
 
 
 # ===================================================================
@@ -67,49 +68,20 @@ def _repo_root(start: Path | None = None) -> Path | None:
 
 def _project_note_root(project_root: Path) -> Path:
     """저장소 안 기록 루트. 산출물 루트 설정(output.root)을 그대로 따른다."""
-    try:
-        from common.paths import resolve_output_root
-        return Path(resolve_output_root(project_root)) / "note"
-    except Exception:
-        return project_root / "docs" / "projectops" / "note"
+    return _notes.project_note_root(project_root)
 
 
 def _roots(project_root: Path | None) -> list[tuple[str, Path]]:
     """검색 대상 루트 목록. (scope, path) 쌍."""
-    roots: list[tuple[str, Path]] = []
-    if project_root:
-        roots.append(("project", _project_note_root(project_root)))
-    roots.append(("home", HOME_ROOT))
-    return roots
+    return _notes.note_roots(project_root, home=HOME_ROOT)
 
 
 # ===================================================================
 # search — 이 스킬의 핵심
 # ===================================================================
 
-def _tokenize(query: str) -> list[str]:
-    """검색어를 토큰으로 쪼갠다. 2글자 미만은 잡음이라 버린다."""
-    parts = re.split(r"[\s,./:;_\-\[\]()]+", query.lower())
-    return [p for p in parts if len(p) >= 2]
-
-
-def _score(text: str, tokens: list[str]) -> int:
-    """토큰이 몇 개나 등장하는지로 점수를 낸다.
-
-    형태소 분석 없이 부분 문자열 일치만 본다. 한국어·영어가 섞이고
-    표현이 매번 다른 기록에서는 이 정도가 오히려 안정적이다.
-    """
-    low = text.lower()
-    return sum(1 for t in tokens if t in low)
-
-
-def _iter_notes(root: Path):
-    for kind in KINDS:
-        d = root / f"{kind}s"
-        if not d.exists():
-            continue
-        for f in sorted(d.glob("*.md"), reverse=True):
-            yield kind, f
+_tokenize = _notes.tokenize
+_iter_notes = _notes.iter_notes
 
 
 def cmd_search(args) -> int:
@@ -119,25 +91,10 @@ def cmd_search(args) -> int:
                      "summary": "검색어가 비었습니다"})
 
     project_root = _repo_root()
-    hits = []
-    for scope, root in _roots(project_root):
-        for kind, path in _iter_notes(root):
-            try:
-                text = path.read_text(encoding="utf-8")
-            except Exception:
-                continue
-            # 제목(파일명)은 본문보다 신뢰도가 높아 가중치를 준다
-            s = _score(path.stem, tokens) * 3 + _score(text, tokens)
-            if s <= 0:
-                continue
-            title = next((l.lstrip("# ").strip() for l in text.split("\n")
-                          if l.startswith("# ")), path.stem)
-            hits.append({
-                "scope": scope, "kind": kind, "title": title,
-                "path": str(path), "score": s,
-            })
-
-    hits.sort(key=lambda h: h["score"], reverse=True)
+    # 제목(파일명)은 본문보다 신뢰도가 높아 가중치를 준다 (공유 scan 이 처리)
+    hits = _notes.scan(tokens, _roots(project_root))
+    for h in hits:
+        h.pop("summary", None)
     hits = hits[: args.limit]
 
     if not hits:
@@ -257,12 +214,18 @@ def cmd_get_output_path(args) -> int:
         n = sum(1 for f in d.glob(f"{today}_*.md")) + 1 if d.exists() else 1
         path = d / f"{today}_{n:03d}_{slug}.md"
 
-    return emit({
+    out = {
         "path": str(path), "dir": str(d), "scope": args.scope,
         "kind": args.kind, "exists": path.exists(),
         "summary": f"{args.scope}/{args.kind} 경로 계산 완료",
         "next": "디렉터리를 만든 뒤 이 경로에 기록을 저장하세요",
-    })
+    }
+    # 저장 전에 비슷한 기록을 보여 준다 — 막지 않는다. 같은 지식이면 새로 쓰지 말고 그 기록에 합칠지 agent 가 판단한다.
+    rel = _notes.related(args.title, _roots(project_root))
+    if rel:
+        out["related"] = rel
+        out["next"] = "related 가 같은 지식이면 새로 만들지 말고 그 기록을 갱신하세요. 다르면 이 경로에 저장하세요"
+    return emit(out)
 
 
 def cmd_list(args) -> int:
