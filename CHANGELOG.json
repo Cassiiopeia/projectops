@@ -1,14 +1,39 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-10T11:31:37Z",
-    "currentVersion": "4.46.0",
+    "lastUpdated": "2026-10-10T16:08:25Z",
+    "currentVersion": "4.47.0",
     "projectType": "basic",
-    "totalReleases": 307,
+    "totalReleases": 308,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.47.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-10",
+      "pr_number": 856,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * 쌓인 기록이 없던 pro-note와 스크립트 없는 pro-build를 삭제하고 그 기록을 읽던 note_hits와 notes.py를 걷어내며, pro-figma-verify를 pro-figma로 이름을 바꾸고 CLI와 산출물 id와 참조를 맞춰 스킬을 15개로 정리\n\n* **Other**\n  * finalize release v4.46.0 and update release docs (PR )",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "쌓인 기록이 없던 pro-note와 스크립트 없는 pro-build를 삭제하고 그 기록을 읽던 note_hits와 notes.py를 걷어내며, pro-figma-verify를 pro-figma로 이름을 바꾸고 CLI와 산출물 id와 참조를 맞춰 스킬을 15개로 정리"
+          ]
+        },
+        "other": {
+          "title": "Other",
+          "items": [
+            "finalize release v4.46.0 and update release docs (PR )"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.46.0",
       "project_type": "basic",
