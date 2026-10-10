@@ -145,6 +145,12 @@ The projectops Flutter CI/CD system combines **wizard tools** with **GitHub Acti
 
 > The old aliases (`testflight_only`, `appstore_prepare`, `appstore_submit`) are still accepted.
 >
+> **⚠️ On a push (automatic deploy), `store_prepare` and `store_submit` are lowered to `store_only` (#816),**
+> even if a repository variable or `store-deploy.json` says otherwise. Google Play folds a new change into the review
+> already in progress and reviews it again (measured), so submitting on every deploy means the review never finishes.
+> **Promote to production and submit to App Store review by running the workflow manually (`deploy_mode`).**
+> To submit on every push anyway, set `"android": {"auto_submit_on_push": true}` (or `"ios"`) in `store-deploy.json`.
+>
 > **The default is `store_only`**, in the workflow and inside the Fastfile alike. Previously only the
 > Android Fastfile defaulted to `store_submit`, so calling the lane directly without going through the
 > workflow put the build into production review (fixed in #618).
@@ -177,10 +183,16 @@ so the existing value stayed. Confirmed by measurement.) Apps that have no share
 
 | Switch (repository variable / manual run input) | What it does | Default |
 |---|---|---|
-| `ANDROID_PROMOTE_TO_CLOSED_TESTING` | Also uploads to the closed testing track | `false` |
+| `ANDROID_PROMOTE_TO_CLOSED_TESTING` | Also uploads to the closed testing track (or `promote_closed_testing` in `store-deploy.json`) | **`true`** (#816) |
 | `ANDROID_PROMOTE_TO_OPEN_TESTING` | Also uploads to the open testing track | `false` |
 | `ANDROID_CLOSED_TESTING_TRACK` | Closed track name | `alpha` |
 | `ANDROID_OPEN_TESTING_TRACK` | Open track name | `beta` |
+
+> **After a manual production submission, pushes pause closed and open testing promotions (#816).** A closed testing
+> promotion is a review submission too, so sending one while the production review runs restarts that review. The Play API
+> does not expose review status, so for `review_cooldown_hours` (in `store-deploy.json`, default 48) after the last manual
+> `store_submit` run, pushes upload to internal testing only and leave a warning. To promote right away, run the workflow
+> manually with `promote_to_closed_testing` on.
 
 | Track | Google review | Takes effect | Counts toward production access requirements |
 |---|---|---|---|

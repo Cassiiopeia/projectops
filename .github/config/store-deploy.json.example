@@ -1,10 +1,14 @@
 {
-  "_comment": "복사해 store-deploy.json 으로 이름을 바꾸면 적용된다. 수동 실행 입력 > 이 파일 > 레포 변수(ANDROID_/IOS_DEPLOY_MODE) > store_only 순이다. deploy_mode: store_only(내부 테스트까지) | store_prepare(프로덕션 draft) | store_submit(심사 자동 등록, 되돌릴 수 없음). production_rollout 은 android 전용(0 초과 1.0 이하, 1.0=전체 출시).",
+  "_comment": "복사해 store-deploy.json 으로 이름을 바꾸면 적용된다. 수동 실행 입력 > 이 파일 > 레포 변수(ANDROID_/IOS_DEPLOY_MODE) > store_only 순이다. deploy_mode: store_only(내부 테스트·TestFlight 까지) | store_prepare(프로덕션 draft · ASC 제출 직전) | store_submit(심사 자동 등록, 되돌릴 수 없음). ⚠️ push(자동 배포)에서는 auto_submit_on_push 가 true 가 아니면 store_prepare·store_submit 을 store_only 로 낮춘다 — 심사 중에 다음 배포가 오면 그 심사가 다시 시작되기 때문이다(#816). 프로덕션·App Store 심사는 수동 실행으로 올린다. promote_closed_testing(android, 기본 true) = push 마다 비공개 테스트에도 올린다. review_cooldown_hours(android, 기본 48) = 수동 프로덕션 제출 뒤 이 시간 동안은 push 의 비공개·공개 승급을 건너뛴다. production_rollout 은 android 전용(0 초과 1.0 이하, 1.0=전체 출시).",
   "android": {
     "deploy_mode": "store_only",
+    "promote_closed_testing": true,
+    "review_cooldown_hours": 48,
+    "auto_submit_on_push": false,
     "production_rollout": "1.0"
   },
   "ios": {
-    "deploy_mode": "store_only"
+    "deploy_mode": "store_only",
+    "auto_submit_on_push": false
   }
 }

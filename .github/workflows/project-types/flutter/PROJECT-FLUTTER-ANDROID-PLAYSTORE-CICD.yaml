@@ -18,6 +18,8 @@
 # ===================================================================
 
 name: PROJECT-FLUTTER-ANDROID-PLAYSTORE-INTERNAL-CICD
+# 수동 실행은 고른 모드를 실행 이름에 남긴다 — push 배포가 "최근에 프로덕션을 제출했는지" 이 이름으로 판단한다 (#816).
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('PLAYSTORE deploy_mode={0} closed_testing={1}', inputs.deploy_mode, inputs.promote_to_closed_testing) || github.event.head_commit.message }}
 
 on:
   push:
@@ -36,7 +38,7 @@ on:
       promote_to_closed_testing:
         description: "비공개 테스트(alpha) 트랙에도 올린다 — 개인 계정 프로덕션 액세스 조건(테스터 12명·14일)에 필요"
         required: false
-        default: false
+        default: true
         type: boolean
       promote_to_open_testing:
         description: "공개 테스트(beta) 트랙에도 올린다"
@@ -53,6 +55,8 @@ permissions:
   # GITHUB_TOKEN 으로는 읽기만 한다. 명시해 두면 레포 기본값이 나중에 write 로 바뀌어도
   # 이 워크플로우가 필요 이상의 권한을 갖지 않는다 (#595).
   contents: read
+  # 최근 수동 프로덕션 제출을 찾는다 (store_deploy_config.py review-guard, #816)
+  actions: read
 
 # ============================================
 # 🔧 프로젝트별 설정 (아래 값들을 수정하세요)
@@ -68,6 +72,10 @@ env:
   # 통합 시점에 integrator의 flutter-root resolver가 project_paths.flutter 값으로 1회 치환.
   # FLUTTER_ROOT는 Flutter SDK 경로용 공식 변수라 충돌 — APP_ROOT로 분리
   APP_ROOT: "."  # @wizard auto:flutter-root
+  # ⚠️ push(자동 배포)는 프로덕션 단계를 타지 않는다 (#816). 아래 값이 store_prepare·store_submit 이어도
+  #    push 에서는 store_only 로 낮춘다 — Google Play 는 심사 중에 새 변경이 오면 그 심사에 합쳐 다시 심사해서,
+  #    배포마다 제출하면 심사가 끝나지 않는다(실측). 프로덕션은 Actions 에서 수동 실행(deploy_mode)으로 올린다.
+  #    push 마다 자동으로 하려면 .github/config/store-deploy.json 에 "android": {"auto_submit_on_push": true}.
   # 배포 모드 — main 배포 시 Play 프로덕션 단계를 어디까지 갈지
   #   store_only    : 내부 테스트 업로드까지 (기본)
   #   store_prepare : + 프로덕션에 draft 로 올림 (Play Console 에서 '출시 시작'은 사람이 누른다)
@@ -91,7 +99,10 @@ env:
   # 트랙 승급 스위치 — DEPLOY_MODE 와 독립이다 (#618).
   # 비공개 테스트는 2023-11-13 이후 개인 계정이 프로덕션 액세스를 받는 조건이라,
   # 내부 테스트만 돌리면 그 조건이 영영 차지 않는다.
-  PROMOTE_TO_CLOSED_TESTING: ${{ github.event.inputs.promote_to_closed_testing || vars.ANDROID_PROMOTE_TO_CLOSED_TESTING || 'false' }}
+  # 비공개 테스트는 기본으로 켠다 (#816) — push 마다 테스터가 최신판을 받는다. 끄려면 레포 변수
+  # ANDROID_PROMOTE_TO_CLOSED_TESTING=false 또는 store-deploy.json "promote_closed_testing": false.
+  # 수동 프로덕션 제출 뒤 review_cooldown_hours(기본 48) 동안은 push 의 승급을 건너뛴다 — 아래 review-guard 단계.
+  PROMOTE_TO_CLOSED_TESTING: ${{ github.event.inputs.promote_to_closed_testing || vars.ANDROID_PROMOTE_TO_CLOSED_TESTING || 'true' }}
   PROMOTE_TO_OPEN_TESTING: ${{ github.event.inputs.promote_to_open_testing || vars.ANDROID_PROMOTE_TO_OPEN_TESTING || 'false' }}
   # 트랙 이름은 콘솔에서 바꿀 수 있으므로 값으로 둔다 (박아두면 조용히 안 올라간다).
   CLOSED_TESTING_TRACK: ${{ vars.ANDROID_CLOSED_TESTING_TRACK || 'alpha' }}
@@ -678,6 +689,13 @@ jobs:
           INPUT_DEPLOY_MODE: ${{ github.event.inputs.deploy_mode }}
         run: python3 .github/scripts/store_deploy_config.py resolve --platform android
 
+      # 수동으로 올린 프로덕션 심사가 도는 동안 push 의 비공개·공개 승급이 그 심사를 다시 시작시키지 않게 한다 (#816).
+      # 확인에 실패하면 경고만 남기고 설정대로 진행한다 — 배포를 막지 않는다.
+      - name: Guard production review in progress
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/store_deploy_config.py review-guard
+
       # Fastfile 복사 (Play Store 배포용)
       # android/fastlane/Fastfile.playstore를 사용하여 일관성 유지
       - name: Copy Fastfile for Play Store
@@ -689,7 +707,7 @@ jobs:
           # 워크플로가 넘기는 값을 Fastfile 이 읽지 않으면 설정이 조용히 무시된다 (#766).
           # 직접 고친 Fastfile 에서 실제로 일어난 일이라, 기본값과 다른 값을 넘기는데
           # Fastfile 에 그 이름이 없으면 경고로 알린다. 막지는 않는다.
-          for pair in "DEPLOY_MODE:store_only" "PROMOTE_TO_CLOSED_TESTING:false" "PROMOTE_TO_OPEN_TESTING:false" "PRODUCTION_ROLLOUT:1.0"; do
+          for pair in "DEPLOY_MODE:store_only" "PROMOTE_TO_CLOSED_TESTING:true" "PROMOTE_TO_OPEN_TESTING:false" "PRODUCTION_ROLLOUT:1.0"; do
             name="${pair%%:*}"; default="${pair#*:}"
             eval "value=\"\${$name:-}\""
             if [ -n "$value" ] && [ "$value" != "$default" ] && ! grep -q "$name" android/fastlane/Fastfile.playstore; then

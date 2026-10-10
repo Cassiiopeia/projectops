@@ -113,6 +113,9 @@ env:
   # 레포 변수는 Settings → Secrets and variables → Actions → Variables 에서 바꾼다.
   # 코드가 아니라 레포 변수에 두는 이유: 급할 때 배포 없이 자동 제출을 바로 끌 수 있어야 한다 (값을 store_only 로).
   # 수동 실행(workflow_dispatch)에서 고른 값이 있으면 그것이 우선한다.
+  # ⚠️ push(자동 배포)는 TestFlight 까지만 간다 (#816). 아래 값이 store_prepare·store_submit 이어도 push 에서는
+  #    store_only 로 낮춘다. App Store 심사는 Actions 에서 수동 실행(deploy_mode)으로 올린다.
+  #    push 마다 자동으로 하려면 .github/config/store-deploy.json 에 "ios": {"auto_submit_on_push": true}.
   DEPLOY_MODE: ${{ github.event.inputs.deploy_mode || vars.IOS_DEPLOY_MODE || 'store_only' }}
 
   # ============================================

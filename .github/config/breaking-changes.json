@@ -79,5 +79,10 @@
     "severity": "critical",
     "title": "통합 마법사 npx projectops 단일 CLI로 전면 전환 — .sh/.ps1 실행 방식 변경",
     "message": "기존 프로젝트에 템플릿을 통합·업데이트하는 마법사가 'npx projectops' 단일 Node CLI로 전면 전환되었습니다(구 template_integrator.sh 5,660줄 + .ps1 5,127줄을 Node ESM으로 포팅, .sh와 바이트 등가 검증 완료). 이제 macOS·Linux·Windows 어디서든 Node.js 18 이상만 있으면 'npx projectops' 한 줄로 대화형 마법사가 실행됩니다(비대화형: npx projectops --mode full --type spring,react --force). 기존 curl/iex 스크립트 실행 방식은 당분간 병존하지만, 문서·안내가 모두 npx 우선으로 바뀌었으니 npx 방식으로 이관하세요. 이 버전부터 레포 전용 크로스-OS CI(PROJECT-TEMPLATE-CI: ubuntu·windows·macos × Node 18·20)가 추가되었으며, 워크플로우 파일 순회 순서가 .sh glob(.yaml 먼저 → .yml 나중)과 완전히 일치하도록 정밀화되어 version.yml deploy 블록 키 순서까지 등가가 되었습니다. 조치: 1) Node.js 18+ 설치 확인 2) 기존 프로젝트는 'npx projectops'(업데이트 모드)로 재통합 3) CI/CD 스크립트에 template_integrator.sh curl 호출을 박아뒀다면 npx projectops 호출로 교체 권장. Node.js를 설치할 수 없는 폐쇄 환경에서는 기존 스크립트 직접 실행 방식이 여전히 동작합니다."
+  },
+  "4.40.0": {
+    "severity": "warning",
+    "title": "앱 스토어 심사는 수동 실행에서만 — push 배포는 내부·비공개 테스트·TestFlight 까지",
+    "message": "Flutter 스토어 배포가 push(main) 에서는 심사 단계를 타지 않습니다 (#816). 레포 변수 ANDROID_DEPLOY_MODE·IOS_DEPLOY_MODE 나 store-deploy.json 이 store_prepare·store_submit 이어도 push 에서는 store_only 로 낮아집니다. Google Play 는 심사 중에 새 변경이 오면 그 심사에 합쳐 다시 심사해서, 배포마다 제출하면 심사가 끝나지 않았습니다. 프로덕션 승급과 App Store 심사는 Actions 에서 워크플로를 수동 실행(deploy_mode)해 올리세요. push 마다 자동 제출이 필요하면 .github/config/store-deploy.json 에 \"android\": {\"auto_submit_on_push\": true} (iOS 는 \"ios\") 를 적습니다. 또 Android 비공개 테스트(alpha) 승급이 기본으로 켜집니다 — 끄려면 레포 변수 ANDROID_PROMOTE_TO_CLOSED_TESTING=false 또는 store-deploy.json \"promote_closed_testing\": false. 수동 프로덕션 제출 뒤 48시간(review_cooldown_hours)은 push 의 비공개 승급을 건너뜁니다."
   }
 }

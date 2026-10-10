@@ -145,6 +145,12 @@ projectops의 Flutter CI/CD 시스템은 **마법사 도구**와 **GitHub Action
 
 > 구 별칭(`testflight_only`·`appstore_prepare`·`appstore_submit`)도 계속 받는다.
 >
+> **⚠️ push(자동 배포)에서는 `store_prepare`·`store_submit` 이 `store_only` 로 낮아진다 (#816).**
+> 레포 변수·`store-deploy.json` 에 적혀 있어도 그렇다. Google Play 는 심사 중에 새 변경이 오면 그 심사에 합쳐
+> 다시 심사하므로(실측), 배포마다 제출하면 심사가 끝나지 않는다. **프로덕션 승급과 App Store 심사는 Actions 에서
+> 워크플로를 수동 실행(`deploy_mode`)해 올린다.** push 마다 자동으로 하려면 `store-deploy.json` 에
+> `"android": {"auto_submit_on_push": true}`(iOS 는 `"ios"`)를 명시한다.
+>
 > **기본값은 `store_only` 다** — 워크플로도, Fastfile 내부도 같다. 예전에는 Android
 > Fastfile 만 `store_submit` 이라, 워크플로를 거치지 않고 lane 을 직접 부르면 프로덕션
 > 심사에 올라갔다 (#618 에서 교정).
@@ -177,10 +183,15 @@ App Store Connect 기존값을 그대로 둔다. (예전에는 빈 파일로 '�
 
 | 스위치 (레포 변수 / 수동 실행 입력) | 하는 일 | 기본 |
 |---|---|---|
-| `ANDROID_PROMOTE_TO_CLOSED_TESTING` | 비공개 테스트 트랙에도 올린다 | `false` |
+| `ANDROID_PROMOTE_TO_CLOSED_TESTING` | 비공개 테스트 트랙에도 올린다 (`store-deploy.json` 의 `promote_closed_testing` 으로도) | **`true`** (#816) |
 | `ANDROID_PROMOTE_TO_OPEN_TESTING` | 공개 테스트 트랙에도 올린다 | `false` |
 | `ANDROID_CLOSED_TESTING_TRACK` | 비공개 트랙 이름 | `alpha` |
 | `ANDROID_OPEN_TESTING_TRACK` | 공개 트랙 이름 | `beta` |
+
+> **수동 프로덕션 제출 뒤에는 push 의 비공개·공개 승급을 잠시 쉰다 (#816).** 비공개 승급도 심사 제출이라, 프로덕션
+> 심사가 도는 동안 올리면 그 심사가 다시 시작된다. Play API 에는 심사 상태가 없어서, 마지막 수동 `store_submit`
+> 실행 뒤 `review_cooldown_hours`(`store-deploy.json`, 기본 48시간) 동안은 내부 테스트에만 올리고 경고를 남긴다.
+> 바로 올려야 하면 수동 실행에서 `promote_to_closed_testing` 을 켠다.
 
 | 트랙 | 구글 검토 | 반영 | 프로덕션 액세스 조건에 포함 |
 |---|---|---|---|
