@@ -1,14 +1,58 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-10T00:55:03Z",
-    "currentVersion": "4.37.0",
+    "lastUpdated": "2026-10-10T01:48:29Z",
+    "currentVersion": "4.38.0",
     "projectType": "basic",
-    "totalReleases": 295,
+    "totalReleases": 296,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.38.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-10",
+      "pr_number": 827,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * app tap/swipe/tree를 화면 요소 기준으로 추가하고 실패 시 locale과 candidates, --shot은 화면이 바뀐 뒤 멈춘 장면과 screen_changed를 반환, 플랫폼 백엔드를 app_input 레지스트리로 분리, SKILL.md를 라우터로 줄이고 references와 기여 가이드 정리\n  * npm latest는 main 푸시 즉시 배포하고 승격 주기 없이 develop은 올리지 않는 정책을 워크플로우에 dist-tag latest로 명시하고 테스트와 문서에 기록\n\n* **Bug fixes**\n  * 완료 시 status: done 교체 후 close하는 규칙으로 공통 규칙과 스킬 문서를 맞추고 close-issue --reason, get-output-path issue 추가, pro-report에 완료 처리 단계 추가\n  * 이슈 파일 경로를 get-output-path issue로 받고 커밋 템플릿 타입은 추론 결과를 쓰며 worktree는 pro-init-worktree에 위임\n  * pro-commit은 건드린 경로만 명시 스테이징하고 pro-implement 로컬 머지 대상을 개발 브랜치로 바꾸며 main이면 차단\n  * provider 미설정 시 .coderabbit.yaml 있으면 coderabbit 없으면 commit으로 워크플로우와 CLI 통일, 배포 전 main 최신화 단계 추가, 앱 심사 레포는 항상 수동 승인, 종료된 github-ai 정리\n  * version.yml 머리말과 주석이 키 없음을 patch로 설명하던 것을 실제 동작(켜짐)으로 정정하고 version_code 주석 공백을 version_manager.py와 맞춰 업데이트 diff 제거\n\n* **Improvements**\n  * deploy, publish, intent, 라벨 표기, provider 값 목록을 core/constants.js 한 곳으로 모으고 version.yml 파서의 언어와 라벨 정규식을 목록에서 만들어 세 번째 언어도 읽게 함\n\n* **Documentation**\n  * 사라진 스킬 참조와 gh run list 안내를 현행 명령으로 정리\n  * Contributor Covenant 2.1을 신고 연락처와 함께 추가하고 README와 CONTRIBUTING에서 연결하며 사용자 프로젝트로는 복사하지 않음\n  * README와 CONTRIBUTING에 npm latest가 main과 같다는 채널 정책을 명시",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "app tap/swipe/tree를 화면 요소 기준으로 추가하고 실패 시 locale과 candidates, --shot은 화면이 바뀐 뒤 멈춘 장면과 screen_changed를 반환, 플랫폼 백엔드를 app_input 레지스트리로 분리, SKILL.md를 라우터로 줄이고 references와 기여 가이드 정리",
+            "npm latest는 main 푸시 즉시 배포하고 승격 주기 없이 develop은 올리지 않는 정책을 워크플로우에 dist-tag latest로 명시하고 테스트와 문서에 기록"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "완료 시 status: done 교체 후 close하는 규칙으로 공통 규칙과 스킬 문서를 맞추고 close-issue --reason, get-output-path issue 추가, pro-report에 완료 처리 단계 추가",
+            "이슈 파일 경로를 get-output-path issue로 받고 커밋 템플릿 타입은 추론 결과를 쓰며 worktree는 pro-init-worktree에 위임",
+            "pro-commit은 건드린 경로만 명시 스테이징하고 pro-implement 로컬 머지 대상을 개발 브랜치로 바꾸며 main이면 차단",
+            "provider 미설정 시 .coderabbit.yaml 있으면 coderabbit 없으면 commit으로 워크플로우와 CLI 통일, 배포 전 main 최신화 단계 추가, 앱 심사 레포는 항상 수동 승인, 종료된 github-ai 정리",
+            "version.yml 머리말과 주석이 키 없음을 patch로 설명하던 것을 실제 동작(켜짐)으로 정정하고 version_code 주석 공백을 version_manager.py와 맞춰 업데이트 diff 제거"
+          ]
+        },
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "deploy, publish, intent, 라벨 표기, provider 값 목록을 core/constants.js 한 곳으로 모으고 version.yml 파서의 언어와 라벨 정규식을 목록에서 만들어 세 번째 언어도 읽게 함"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "사라진 스킬 참조와 gh run list 안내를 현행 명령으로 정리",
+            "Contributor Covenant 2.1을 신고 연락처와 함께 추가하고 README와 CONTRIBUTING에서 연결하며 사용자 프로젝트로는 복사하지 않음",
+            "README와 CONTRIBUTING에 npm latest가 main과 같다는 채널 정책을 명시"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.37.0",
       "project_type": "basic",
