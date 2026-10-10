@@ -212,3 +212,19 @@ def test_npm_latest_follows_only_pushes_to_main():
     run = _step(WF / "PROJECT-TEMPLATE-NPM-PUBLISH.yaml", "publish-npm", "npm 배포")["run"]
     assert "--tag latest" in run, "dist-tag 를 latest 로 명시해야 정책이 코드에서 보인다"
     assert "--tag next" not in run
+
+
+# ── 워크플로 최상위 키 중복 (#816 QA 중 발견) ───────────────────────────────
+def test_workflows_have_no_duplicate_top_level_keys():
+    """로컬 YAML 파서는 중복 키를 조용히 받아들이지만 GitHub 은 워크플로 파일 자체를 거부한다(잡 0개로 실패).
+
+    #816 의 QA 워크플로를 만들다 `permissions:` 가 두 번 들어갔고, 로컬 yaml.safe_load 는 통과했지만 Actions 에서는 실패했다.
+    """
+    import collections
+    bad = []
+    for path in sorted(WF.rglob("*.y*ml")):
+        keys = re.findall(r"^([A-Za-z_][\w-]*):", path.read_text(encoding="utf-8"), re.M)
+        dup = [k for k, c in collections.Counter(keys).items() if c > 1]
+        if dup:
+            bad.append(f"{path.relative_to(WF)}: {dup}")
+    assert not bad, "최상위 키가 중복된 워크플로 (GitHub 이 거부한다):\n" + "\n".join(bad)
