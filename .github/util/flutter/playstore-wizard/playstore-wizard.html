@@ -8,10 +8,17 @@
     <script type="application/json" id="versionJson">
 {
   "name": "Android Play Store Setup Wizard",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "description": "Flutter Android 앱을 Play Store에 배포하기 위한 설정 마법사",
-  "lastUpdated": "2026-10-06",
+  "lastUpdated": "2026-10-10",
   "changelog": [
+    {
+      "version": "1.6.2",
+      "date": "2026-10-10",
+      "changes": [
+        "출시 노트 안내에 언어별 노트(store_locales, store_locales_play) 설명 추가 — 언어가 여럿인 스토어에 한국어 한 문구가 복사되던 문제(projectops#829)"
+      ]
+    },
     {
       "version": "1.6.1",
       "date": "2026-10-06",
@@ -1596,6 +1603,8 @@
               <p style="margin:8px 0 0;color:#57606a;">⚠️ 한 번도 프로덕션에 출시된 적 없는 앱은 API로 프로덕션 승급이 되지 않습니다. 최초 1회는 Play Console에서 사람이 출시해야 하고, 이후 업데이트부터 store_submit으로 자동화됩니다. 이미 비공개 테스트에 올라간 빌드는 <b>프로덕션 → 새 출시 → "라이브러리에서 추가"</b>로 새로 빌드하지 않고 붙일 수 있습니다.</p>
               <p style="margin:8px 0 0;"><b>프로덕션 출시 비율</b> — GitHub repo <b>Variables → ANDROID_PRODUCTION_ROLLOUT</b> (0 초과 1.0 이하, 기본 1.0). 1.0은 심사 통과 즉시 전체 사용자에게 나가 되돌릴 수 없고, 0.1처럼 낮추면 그 비율만 단계적으로 나갑니다. <b>비율을 올리는 일은 자동화되지 않아</b> Play Console 프로덕션 → 출시 관리에서 직접 올리고, 문제가 생기면 같은 화면에서 출시를 중단합니다.</p>
               <p style="margin:8px 0 0;"><b>'출시 노트' 문구</b> — 기본은 CHANGELOG 해당 버전 항목입니다. 한 줄 고정 문구를 쓰려면 워크플로 파일 <code>env</code>의 <code>STORE_WHATS_NEW_OVERRIDE</code>에 적으세요. 내부 테스트 업로드 때 정해져 모든 트랙에 같이 적용됩니다.</p>
+              <p style="margin:8px 0 0;"><b>언어별 노트</b> — 스토어에 언어가 여럿이면 <code>version.yml</code>의 <code>metadata.template.options.store_locales</code>에 언어를 적으세요(예: <code>["ko-KR", "en-US", "ja-JP", "zh-CN"]</code>, 첫 항목이 기본 언어). 번역은 <code>/pro-changelog-deploy</code>가 릴리스 노트를 쓸 때 초안을 만들어 승인받고, 번역이 없는 언어는 기본 언어 문구로 채웁니다(빈 칸은 스토어가 거부합니다). 키가 없으면 지금처럼 한 문구만 올라갑니다.</p>
+              <p style="margin:6px 0 0;color:#57606a;">Google Play만 언어 구성이 다르면 <code>store_locales_play</code>로 이 스토어 목록만 따로 적으세요(예: <code>["ko-KR", "en-US", "ja-JP"]</code>). Google Play에 없는 언어 코드는 올리지 않고 건너뜁니다.</p>
             </div>
 
             <div class="flex justify-between mt-8">

@@ -8,10 +8,17 @@
     <script type="application/json" id="versionJson">
 {
   "name": "iOS TestFlight Setup Wizard",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Flutter iOS 앱을 TestFlight에 배포하기 위한 설정 마법사",
-  "lastUpdated": "2026-09-30",
+  "lastUpdated": "2026-10-10",
   "changelog": [
+    {
+      "version": "1.5.2",
+      "date": "2026-10-10",
+      "changes": [
+        "'새로운 기능' 안내에 언어별 노트(store_locales, store_locales_ios) 설명과 App Store에 없는 언어를 두면 deliver가 활성화한다는 경고 추가 (projectops#829)"
+      ]
+    },
     {
       "version": "1.5.1",
       "date": "2026-09-30",
@@ -1911,6 +1918,9 @@
               </ul>
               <p style="margin:8px 0 0;color:#57606a;">⚠️ 신규 앱은 최초 1회 App Store Connect에서 수동 제출이 필요하고, 이후 업데이트부터 store_submit으로 자동화됩니다.</p>
               <p style="margin:8px 0 0;"><b>'새로운 기능' 문구</b> — 기본은 CHANGELOG 해당 버전 항목입니다. 심사자에게 변경 내용을 자세히 보이고 싶지 않으면 워크플로 파일 <code>env</code>의 <code>STORE_WHATS_NEW_OVERRIDE</code>에 한 줄 문구를 적으세요. TestFlight 'What to Test'에는 영향이 없습니다.</p>
+              <p style="margin:8px 0 0;"><b>언어별 노트</b> — 스토어에 언어가 여럿이면 <code>version.yml</code>의 <code>metadata.template.options.store_locales</code>에 언어를 적으세요(예: <code>["ko-KR", "en-US", "ja-JP", "zh-CN"]</code>, 첫 항목이 기본 언어). 번역은 <code>/pro-changelog-deploy</code>가 릴리스 노트를 쓸 때 초안을 만들어 승인받고, 번역이 없는 언어는 기본 언어 문구로 채웁니다(빈 칸은 스토어가 거부합니다). 키가 없으면 지금처럼 한 문구만 올라갑니다.</p>
+              <p style="margin:6px 0 0;color:#57606a;">App Store만 언어 구성이 다르면 <code>store_locales_ios</code>로 이 스토어 목록만 따로 적으세요(예: <code>["ko-KR", "en-US"]</code>). App Store에 없는 언어 코드는 올리지 않고 건너뜁니다.</p>
+              <p style="margin:6px 0 0;color:#57606a;">⚠️ App Store에 없는 언어를 목록에 두면 deliver가 그 언어를 앱에 새로 활성화합니다. App Store 언어가 다르면 반드시 <code>store_locales_ios</code>로 좁히세요.</p>
               <p style="margin:6px 0 0;"><b>심사 메모(Notes)</b> — <code>ios/fastlane/review_notes.txt</code>가 있으면 매번 그 내용을 넣고, 없으면 App Store Connect 기존값을 그대로 둡니다.</p>
             </div>
 

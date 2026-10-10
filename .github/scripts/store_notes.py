@@ -42,19 +42,52 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
-# 정본 표기는 Play 방식(ko-KR). iOS(App Store Connect) 코드는 표로 바꾼다.
-# 2026-10-10 EarLocAlert 실측: ASC 실제 코드는 ko / en-US / ja / zh-Hans (ja-JP, zh-CN 은 ASC 코드가 아니다).
-CANONICAL_TO_IOS = {
-    "ko-KR": "ko", "en-US": "en-US", "en-GB": "en-GB", "ja-JP": "ja",
-    "zh-CN": "zh-Hans", "zh-TW": "zh-Hant", "de-DE": "de-DE", "fr-FR": "fr-FR",
-    "es-ES": "es-ES", "pt-BR": "pt-BR", "ru-RU": "ru", "it-IT": "it",
-    "nl-NL": "nl-NL", "pl-PL": "pl", "tr-TR": "tr", "vi": "vi", "th": "th", "id": "id",
+# 스토어가 인정하는 언어 코드 — fastlane 2.240.1 소스에서 그대로 옮겼다.
+#   App Store : fastlane_core/lib/fastlane_core/languages.rb  ALL_LANGUAGES
+#   Google Play: supply/lib/supply/languages.rb              ALL_LANGUAGES (밑줄 → 하이픈)
+# 목록에 없는 코드를 넘기면 deliver 는 그 언어를 앱에 새로 활성화하려 하고, supply 는 거부한다.
+# 그래서 지어낸 코드를 그대로 넘기지 않는다 — 목록 밖이면 그 스토어에서는 건너뛰고 보고한다.
+IOS_LANGUAGES = frozenset("""
+ar-SA bn-BD ca cs da de-DE el en-AU en-CA en-GB en-US es-ES es-MX fi fr-CA fr-FR gu-IN he hi hr hu id it ja
+kn-IN ko ml-IN mr-IN ms nl-NL no or-IN pa-IN pl pt-BR pt-PT ro ru sk sl-SI sv ta-IN te-IN th tr uk ur-PK vi
+zh-Hans zh-Hant
+""".split())
+PLAY_LANGUAGES = frozenset("""
+af am ar az-AZ be bg bn-BD ca cs-CZ da-DK de-DE el-GR en-AU en-CA en-GB en-IN en-SG en-US en-ZA es-419 es-ES
+es-US et eu-ES fa fi-FI fil fr-CA fr-FR gl-ES hi-IN hr hu-HU hy-AM id is-IS it-IT iw-IL ja-JP ka-GE km-KH
+kn-IN ko-KR ky-KG lo-LA lt lv mk-MK ml-IN mn-MN mr-IN ms ms-MY my-MM ne-NP nl-NL no-NO pl-PL pt-BR pt-PT rm
+ro ru-RU si-LK sk sl sr sv-SE sw ta-IN te-IN th tr-TR uk vi zh-CN zh-HK zh-TW zu
+""".split())
+
+# 이름 규칙만으로는 맞출 수 없는 짝 (Play → App Store). 나머지는 아래 _ios_for 가 규칙으로 찾는다.
+_PLAY_TO_IOS_EXCEPTIONS = {
+    "zh-CN": "zh-Hans", "zh-TW": "zh-Hant", "zh-HK": "zh-Hant",
+    "iw-IL": "he", "es-419": "es-MX", "ar": "ar-SA", "sl": "sl-SI",
 }
-# 사용자가 iOS/짧은 표기로 적어도 같은 정본으로 모은다
-ALIASES = {
-    "ko": "ko-KR", "ja": "ja-JP", "zh-hans": "zh-CN", "zh-hant": "zh-TW",
-    "ru": "ru-RU", "it": "it-IT", "pl": "pl-PL", "tr": "tr-TR",
-}
+
+
+def _ios_for(play_code: str) -> str | None:
+    """Play 코드에 대응하는 App Store 코드. 없으면 None (그 언어는 App Store 에 없다)."""
+    if play_code in _PLAY_TO_IOS_EXCEPTIONS:
+        return _PLAY_TO_IOS_EXCEPTIONS[play_code]
+    if play_code in IOS_LANGUAGES:
+        return play_code
+    base = play_code.split("-")[0]
+    if base in IOS_LANGUAGES:                      # fi-FI → fi, ko-KR → ko, hi-IN → hi, ms-MY → ms
+        return base
+    regional = [c for c in IOS_LANGUAGES if c.split("-")[0] == base]
+    return regional[0] if len(regional) == 1 else None
+
+
+# 정본 표기는 Play 방식(ko-KR). 사용자가 App Store 표기(ko, zh-Hans)로 적어도 같은 정본으로 모은다.
+CANONICAL_TO_IOS = {pc: ic for pc in sorted(PLAY_LANGUAGES) if (ic := _ios_for(pc))}
+ALIASES: dict[str, str] = {}
+for _pc, _ic in sorted(CANONICAL_TO_IOS.items()):
+    # App Store 코드 하나에 Play 코드가 여럿이면(zh-Hant ← zh-TW, zh-HK) 지역 표기가 대표인 쪽을 고정한다
+    ALIASES.setdefault(_ic.lower(), _pc)
+ALIASES.update({"zh-hant": "zh-TW", "ms": "ms", "ko": "ko-KR", "ja": "ja-JP"})
+for _ic in IOS_LANGUAGES:                          # Play 에는 없는 App Store 전용 언어(or-IN, pa-IN, ur-PK 등)
+    ALIASES.setdefault(_ic.lower(), _ic)
 
 # 스토어별 한도 (여유를 둔 값). 넘기면 업로드가 통째로 거부된다.
 LIMITS = {"play": (480, "char"), "ios": (3800, "byte")}
@@ -62,17 +95,25 @@ FALLBACK_TEXT = "버그를 수정하고 안정성을 개선했습니다."
 
 
 def canonical(locale: str) -> str:
-    """언어 표기를 정본(Play 방식)으로 모은다. 모르는 표기는 그대로 둔다."""
-    loc = (locale or "").strip()
-    if loc in CANONICAL_TO_IOS:
+    """언어 표기를 정본(Play 방식)으로 모은다. ko_KR·KO-kr 처럼 적어도 같다. 모르는 표기는 그대로 둔다."""
+    loc = (locale or "").strip().replace("_", "-")
+    if loc in PLAY_LANGUAGES:
         return loc
-    return ALIASES.get(loc.lower(), loc)
+    lower = loc.lower()
+    for code in PLAY_LANGUAGES:                    # 대소문자만 다른 Play 코드
+        if code.lower() == lower:
+            return code
+    return ALIASES.get(lower, loc)
 
 
-def store_code(platform: str, locale: str) -> str:
-    """플랫폼이 인정하는 언어 코드. 모르는 표기는 그대로 넘긴다(스토어가 판단)."""
+def store_code(platform: str, locale: str) -> str | None:
+    """그 스토어가 인정하는 언어 코드. 그 스토어에 없는 언어면 None — 호출부는 건너뛰고 보고한다."""
     c = canonical(locale)
-    return CANONICAL_TO_IOS.get(c, c) if platform == "ios" else c
+    if platform == "ios":
+        if c in IOS_LANGUAGES:                     # App Store 전용 언어를 정본으로 받은 경우
+            return c
+        return CANONICAL_TO_IOS.get(c)
+    return c if c in PLAY_LANGUAGES else None
 
 
 def _read_list(version_yml_text: str, key: str) -> list[str] | None:
@@ -142,7 +183,8 @@ def cmd_locales(args) -> dict:
     ws = Path(args.workspace)
     locales = read_store_locales(_read(str(ws / "version.yml")), args.platform)
     return {"enabled": bool(locales), "default": locales[0] if locales else None,
-            "locales": [{"locale": l, "code": store_code(args.platform, l)} for l in locales]}
+            "locales": [{"locale": l, "code": store_code(args.platform, l)} for l in locales],
+            "unsupported": [l for l in locales if store_code(args.platform, l) is None]}
 
 
 def cmd_write(args) -> dict:
@@ -175,9 +217,14 @@ def cmd_write(args) -> dict:
             return {"enabled": True, "ok": False, "error": "ios 는 --out-dir 가 필요합니다"}
         base = Path(args.out_dir)
 
-    written = []
+    written, unsupported = [], []
     for i, loc in enumerate(locales):
         code = store_code(args.platform, loc)
+        if code is None:
+            # 이 스토어에 없는 언어 코드. 넘기면 deliver 는 앱에 언어를 새로 활성화하려 하고 supply 는 거부한다.
+            unsupported.append(loc)
+            print(f"⚠️ store_notes: '{loc}' 는 {args.platform} 스토어 언어 코드가 아니라 건너뜁니다", file=sys.stderr)
+            continue
         # 기본 언어는 항상 기본 문구. 그 외는 번역이 있으면 번역
         text, source = (default_text, "default") if i == 0 else locale_text(release, loc, default_text)
         if args.platform == "play":
@@ -198,7 +245,7 @@ def cmd_write(args) -> dict:
     if args.platform == "play":
         # 목록에 없는 언어 폴더에 이번 버전 노트가 있으면(옛 경로가 만든 ko-KR 등) 치운다.
         # 안 치우면 목록에서 뺀 언어에도 문구가 올라간다.
-        listed = {store_code("play", l) for l in locales}
+        listed = {c for l in locales if (c := store_code("play", l))}
         if base.is_dir():
             for d in sorted(p for p in base.iterdir() if p.is_dir() and p.name not in listed):
                 stale = d / "changelogs" / f"{args.version_code}.txt"
@@ -206,6 +253,7 @@ def cmd_write(args) -> dict:
                     stale.unlink()
                     pruned.append(d.name)
     return {"enabled": True, "ok": True, "default": locales[0], "written": written, "pruned": pruned,
+            "unsupported": unsupported,
             "translated": [w["locale"] for w in written if w["source"] == "store_notes"],
             "fell_back": [w["locale"] for w in written[1:] if w["source"] == "default"],
             "kept": [w["locale"] for w in written[1:] if w["source"] == "existing"]}

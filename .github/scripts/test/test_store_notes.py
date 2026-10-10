@@ -63,8 +63,41 @@ def test_locale_code_table(given, play, ios):
     assert sn.store_code("ios", given) == ios
 
 
-def test_unknown_locale_passes_through():
-    assert sn.store_code("ios", "xx-YY") == "xx-YY"
+def test_unknown_locale_is_not_passed_to_a_store():
+    """지어낸 코드를 넘기면 deliver 는 앱에 언어를 활성화하려 하고 supply 는 거부한다 — 넘기지 않는다."""
+    assert sn.store_code("ios", "xx-YY") is None
+    assert sn.store_code("play", "xx-YY") is None
+
+
+# ── 언어 표: fastlane 목록에서 나온다 ────────────────────────────────
+def test_every_mapping_lands_in_the_store_lists():
+    for play_code, ios_code in sn.CANONICAL_TO_IOS.items():
+        assert play_code in sn.PLAY_LANGUAGES, play_code
+        assert ios_code in sn.IOS_LANGUAGES, (play_code, ios_code)
+
+
+@pytest.mark.parametrize("given,play,ios", [
+    ("fi-FI", "fi-FI", "fi"), ("sv-SE", "sv-SE", "sv"), ("iw-IL", "iw-IL", "he"), ("he", "iw-IL", "he"),
+    ("es-419", "es-419", "es-MX"), ("no-NO", "no-NO", "no"), ("ar", "ar", "ar-SA"), ("zh-TW", "zh-TW", "zh-Hant"),
+    ("zh-Hant", "zh-TW", "zh-Hant"), ("ko_KR", "ko-KR", "ko"), ("KO-kr", "ko-KR", "ko"),
+    ("af", "af", None),          # Play 에만 있는 언어
+    ("ur-PK", None, "ur-PK"),    # App Store 에만 있는 언어
+])
+def test_language_only_on_one_store(given, play, ios):
+    assert sn.store_code("play", given) == play
+    assert sn.store_code("ios", given) == ios
+
+
+def test_unsupported_language_is_skipped_and_reported(tmp_path):
+    ws = _ws(tmp_path, yml='options:\n  store_locales: ["ko-KR", "en-US", "af"]\n')
+    out_dir = tmp_path / "o"
+    out = _run("write", "--platform", "ios", "--workspace", ws, "--version", "1", "--out-dir", out_dir,
+               "--default-file", ws / "default.txt")
+    assert sorted(p.name for p in out_dir.iterdir()) == ["en-US.txt", "ko.txt"]
+    assert out["unsupported"] == ["af"]
+    play = _run("write", "--platform", "play", "--workspace", ws, "--version", "1", "--version-code", "3",
+                "--default-file", ws / "default.txt")
+    assert play["unsupported"] == [] and (ws / "android/fastlane/metadata/android/af/changelogs/3.txt").is_file()
 
 
 def test_duplicate_locales_collapse():

@@ -1,9 +1,16 @@
 {
   "name": "iOS TestFlight Setup Wizard",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Flutter iOS 앱을 TestFlight에 배포하기 위한 설정 마법사",
-  "lastUpdated": "2026-09-30",
+  "lastUpdated": "2026-10-10",
   "changelog": [
+    {
+      "version": "1.5.2",
+      "date": "2026-10-10",
+      "changes": [
+        "'새로운 기능' 안내에 언어별 노트(store_locales, store_locales_ios) 설명과 App Store에 없는 언어를 두면 deliver가 활성화한다는 경고 추가 (projectops#829)"
+      ]
+    },
     {
       "version": "1.5.1",
       "date": "2026-09-30",
