@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { writeText } from "../core/fsutil.js";
 import { PATHS } from "../core/paths.js";
 import { installAgentGuide } from "../core/agent-guide.js";
-import { buildVersionYml, mergeDeployValues, resolveUpdatedBy } from "../core/version-yml.js";
+import { buildVersionYml, mergeDeployValues, resolveUpdatedBy, customYml } from "../core/version-yml.js";
 import { markerForType } from "../core/detect.js";
 import { addVersionSectionToReadme } from "../core/copy/readme.js";
 import { applyLabelStyle } from "../core/label-style.js";
@@ -30,6 +30,8 @@ export function runVersion(context, tempDir, targetRoot = ".") {
     buildVersionYml({
       version, types, paths, pathMarkers, branch, deployBranch, versionCode, now, today,
       deployValues,
+      // 생성기가 모르는 키(issue_helper 등)를 지킨다 — version.yml 을 매번 다시 쓰므로 안 그러면 업데이트마다 사라진다 (#835)
+      ...customYml(vyFile),
       updatedBy: resolveUpdatedBy(existsSync(vyFile) ? readFileSync(vyFile, "utf8") : "", targetRoot), // #811
       // mode(#502): version 모드가 기존 full 통합 기록을 "version"으로 강등하지 않도록
       // 호출부가 recordMode로 기존 값을 넘긴다 (full이 우세 — 업데이트 재실행 범위 축소 방지).

@@ -2,6 +2,7 @@
 // ⚠️ YAML 재직렬화 금지 — 주석이 데이터. .sh heredoc과 바이트 동일한 템플릿 문자열.
 // 실측 기준: template_integrator.sh 2184~2354.
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { DEPLOY_TARGETS, LABEL_STYLES } from "./constants.js";
 import { REPO_LANGUAGES } from "./repo-language.js";
 
@@ -406,6 +407,86 @@ export function parseExisting(content) {
   return { version, versionCode, types, paths, templateVersion, templateMode, options, defaultBranch, deployBranch };
 }
 
+// ── 생성기가 모르는 키를 지키기 (#835) ─────────────────────────────────────────────
+// version.yml 은 매 full/version 실행마다 처음부터 다시 쓴다. 생성기가 아는 키만 쓰면 사용자가 넣은 것은 사라진다 —
+// 특히 문서화된 `options.issue_helper`(브랜치 접두사·커밋 템플릿·시간대 …)가 업데이트마다 조용히 초기화됐다.
+// 그래서 아는 키는 지금처럼 만들고, 모르는 키는 **글자 그대로**(들여쓰기·주석 포함) 되돌려 쓴다.
+// project_type(단수)는 v4.1.0 에서 없앴다 — 남기면 version_manager 가 거부한다. 그래서 보존하지 않고 버린다.
+const OWNED_TOP = new Set(["version", "version_code", "project_types", "project_type", "project_paths", "metadata", "deploy"]);
+// metadata.template.options 아래에서 생성기가 직접 쓰는 키. 여기에 없는 것만 보존한다.
+// nexus · npm_publish · synology 는 옛 키다 — 파서가 신형(publish · secret_backup)으로 바꿔 쓰므로 그대로 두면 이중 기록이 된다.
+const OWNED_OPTION = new Set(["intent", "deploy", "publish", "secret_backup", "semver_auto", "projects_sync", "close_on_release",
+  "language", "label_style", "app_release", "excluded_workflows", "store_locales", "code_review", "changelog",
+  "nexus", "npm_publish", "synology"]);
+
+// indent 칸으로 시작하는 키 한 줄과 그 자식(더 깊은 들여쓰기·빈 줄·그 아래의 주석)을 한 덩어리로 자른다.
+function keyBlocks(lines, indent, isOwned) {
+  const keyRe = new RegExp(`^ {${indent}}([A-Za-z_][\\w-]*):`);
+  const blocks = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(keyRe);
+    if (!m) continue;
+    let j = i + 1;
+    while (j < lines.length && (lines[j].trim() === "" || /^\s/.test(lines[j]) && lines[j].search(/\S/) > indent
+      || (lines[j].trim().startsWith("#") && lines[j].search(/\S/) > indent))) j++;
+    while (j > i + 1 && lines[j - 1].trim() === "") j--;   // 덩어리 끝의 빈 줄은 뺀다
+    const block = lines.slice(i, j).join("\n");
+    if (!isOwned(m[1]) && looksWellFormed(block)) blocks.push(block);
+    i = j - 1;
+  }
+  return blocks;
+}
+
+// 되돌려 쓸 덩어리가 깨진 YAML 이면 version.yml 전체가 깨진다 — 그러면 모든 워크플로가 버전을 못 읽는다.
+// 의존성 없이 확인할 수 있는 만큼만 본다: 괄호·중괄호 짝, 닫히지 않은 따옴표. 의심스러우면 버린다(보존보다 파일 무결성이 먼저).
+function looksWellFormed(block) {
+  const text = block.split("\n").map((l) => l.replace(/\s#.*$/, "")).join("\n");   // 줄 끝 주석은 짝 검사에서 뺀다
+  const stack = [];
+  const pairs = { "]": "[", "}": "{" };
+  let quote = null;
+  for (const ch of text) {
+    if (quote) { if (ch === quote) quote = null; continue; }
+    if (ch === '"' || ch === "'") { quote = ch; continue; }
+    if (ch === "[" || ch === "{") stack.push(ch);
+    else if (ch === "]" || ch === "}") { if (stack.pop() !== pairs[ch]) return false; }
+  }
+  return !quote && stack.length === 0;
+}
+
+/** 기존 version.yml 에서 생성기가 모르는 것만 뽑는다. { optionBlocks: string[], topBlocks: string[] } */
+export function extractCustomYml(content) {
+  const lines = String(content || "").split(/\r?\n/);
+  const topBlocks = keyBlocks(lines, 0, (k) => OWNED_TOP.has(k));
+  // metadata → template → options 구간만 잘라 6칸 들여쓴 키를 본다
+  const find = (from, to, re) => { for (let i = from; i < to; i++) if (re.test(lines[i])) return i; return -1; };
+  const end = (start, indent) => { let j = start + 1; while (j < lines.length && (lines[j].trim() === "" || lines[j].search(/\S/) > indent)) j++; return j; };
+  const md = find(0, lines.length, /^metadata:/);
+  let optionBlocks = [];
+  if (md >= 0) {
+    const mdEnd = end(md, 0);
+    const tp = find(md + 1, mdEnd, /^ {2}template:/);
+    if (tp >= 0) {
+      const tpEnd = end(tp, 2);
+      const op = find(tp + 1, tpEnd, /^ {4}options:/);
+      if (op >= 0) optionBlocks = keyBlocks(lines.slice(op + 1, end(op, 4)), 6, (k) => OWNED_OPTION.has(k));
+    }
+  }
+  return { optionBlocks, topBlocks };
+}
+
+/**
+ * buildVersionYml 에 그대로 펼쳐 넣는 도우미: `...customYml(경로)`.
+ * 파일이 없거나 읽을 수 없으면 아무것도 보존하지 않는다 — 읽기 실패가 업데이트를 막으면 안 된다.
+ */
+export function customYml(file) {
+  try {
+    const { optionBlocks, topBlocks } = extractCustomYml(readFileSync(file, "utf8"));
+    return { customOptionBlocks: optionBlocks, customTopBlocks: topBlocks };
+  } catch {
+    return {};
+  }
+}
+
 // 기존 version.yml 의 deploy 블록 → Map<type, Map<key,value>> (#670 — 재실행 시 사용자 수정값 보존용).
 // 4.28.0 이 만든 깨진 구조(deploy 아래에 2칸 들여쓴 template 이 딸려 있음)도 읽을 수 있게,
 // 2칸 키 `template` 은 타입이 아니라 블록 종료로 본다.
@@ -444,7 +525,7 @@ export function mergeDeployValues(existingContent, fresh) {
 //   today = "YYYY-MM-DD" (UTC)
 //   pathMarkers = Map<type, markerFilename> (project_paths 주석용)
 //   templateOptions = { templateVersion, deployTarget, publishTargets, includeSecretBackup, optionsDate } (template 블록)
-export function buildVersionYml({ version, types = [], paths = new Map(), pathMarkers = new Map(), branch = "main", deployBranch = "", versionCode = 1, now, today, templateOptions = null, deployValues = new Map(), updatedBy = "template_integrator" }) {
+export function buildVersionYml({ version, types = [], paths = new Map(), pathMarkers = new Map(), branch = "main", deployBranch = "", versionCode = 1, now, today, templateOptions = null, deployValues = new Map(), updatedBy = "template_integrator", customOptionBlocks = [], customTopBlocks = [] }) {
   const lang = templateOptions?.language === "ko" ? "ko" : "en";
   const C = commentsFor(lang);
   const typesJson = types.length ? `[${types.map((t) => `"${t}"`).join(",")}]` : `["basic"]`;
@@ -518,6 +599,8 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
     out += `      changelog:\n`;
     out += `        provider: "${changelogProvider}"\n`;
     out += `        base_url: "${changelogBaseUrl}"\n`;
+    // 생성기가 모르는 옵션(issue_helper 등)은 그대로 되돌려 쓴다 (#835)
+    for (const b of customOptionBlocks) out += `${b}\n`;
   }
 
   // deploy 블록 (.sh update_version_yml_deploy). deployValues: Map<type, Map<key,value>>.
@@ -532,5 +615,7 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
       for (const [k, v] of deployValues.get(t)) out += `    ${k}: "${v}"\n`;
     }
   }
+  // 최상위의 모르는 키도 그대로 (#835)
+  for (const b of customTopBlocks) out += `\n${b}\n`;
   return out;
 }
