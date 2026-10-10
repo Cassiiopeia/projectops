@@ -237,6 +237,72 @@ def test_ladder_coderabbit_skips_repolling(git_repo):
     assert result["provider"] == "commit"
 
 
+# ── 워크플로우 기본값 = 사다리 기본값 (#821) ─────────────────────────
+# 워크플로우는 무조건 coderabbit, 스킬 CLI는 무조건 commit이라 판단이 갈렸다.
+# 규칙: 명시값 → (.coderabbit.yaml 있으면) coderabbit → commit. 워크플로우·CLI가 같아야 한다.
+# 문자열 대조가 아니라 그 run 줄을 실제 bash로 돌려 결과값을 본다.
+
+WORKFLOW_COPIES = [
+    ROOT / ".github" / "workflows" / "PROJECT-COMMON-RELEASE-CHANGELOG.yaml",
+    ROOT / ".github" / "workflows" / "project-types" / "common" / "PROJECT-COMMON-RELEASE-CHANGELOG.yaml",
+]
+
+
+def _provider_lines(path):
+    import yaml
+    steps = yaml.safe_load(path.read_text(encoding="utf-8"))["jobs"]["detect-and-parse"]["steps"]
+    run = next(s["run"] for s in steps if s.get("name") == "버전 정보 확인")
+    lines = run.splitlines()
+    # 추출 줄부터 base_url 읽기 직전까지가 provider 판정 블록이다 (if 블록 포함)
+    start = next(i for i, ln in enumerate(lines) if ln.strip().startswith("CHANGELOG_PROVIDER=$("))
+    end = next(i for i, ln in enumerate(lines) if "CHANGELOG_BASE_URL=" in ln)
+    block = [ln for ln in lines[start:end] if not ln.strip().startswith("#")]
+    assert block, f"{path.name}: provider 판정 블록을 못 찾았다"
+    return "\n".join(block)
+
+
+def _resolve_provider(path, tmp_path, version_yml, coderabbit_yaml=False):
+    (tmp_path / "version.yml").write_text(version_yml, encoding="utf-8")
+    if coderabbit_yaml:
+        (tmp_path / ".coderabbit.yaml").write_text("reviews: {}\n", encoding="utf-8")
+    script = _provider_lines(path) + '\nprintf "%s" "$CHANGELOG_PROVIDER"\n'
+    r = subprocess.run(["bash", "-c", script], cwd=tmp_path, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    return r.stdout
+
+
+@pytest.mark.parametrize("wf", WORKFLOW_COPIES, ids=["root", "common"])
+def test_workflow_default_provider_is_commit(wf, tmp_path):
+    """provider 미설정 + .coderabbit.yaml 없음 → commit (ladder.py 기본값과 같다)."""
+    assert _resolve_provider(wf, tmp_path, 'version: "1.0.0"\n') == "commit"
+
+
+@pytest.mark.parametrize("wf", WORKFLOW_COPIES, ids=["root", "common"])
+def test_workflow_unset_with_coderabbit_yaml_is_coderabbit(wf, tmp_path):
+    """미설정 + .coderabbit.yaml → coderabbit (CodeRabbit 사용 레포의 기존 동작 보존)."""
+    assert _resolve_provider(wf, tmp_path, 'version: "1.0.0"\n', coderabbit_yaml=True) == "coderabbit"
+
+
+@pytest.mark.parametrize("wf", WORKFLOW_COPIES, ids=["root", "common"])
+def test_workflow_explicit_beats_coderabbit_yaml(wf, tmp_path):
+    """명시값이 .coderabbit.yaml보다 우선한다."""
+    yml = 'version: "1.0.0"\nmetadata:\n  template:\n    options:\n      changelog:\n        provider: "gemini"\n'
+    assert _resolve_provider(wf, tmp_path, yml, coderabbit_yaml=True) == "gemini"
+
+
+@pytest.mark.parametrize("wf", WORKFLOW_COPIES, ids=["root", "common"])
+def test_workflow_keeps_explicit_provider(wf, tmp_path):
+    """명시한 저장값(coderabbit 포함)은 그대로 넘긴다 — 해석은 사다리 몫."""
+    yml = 'version: "1.0.0"\nmetadata:\n  template:\n    options:\n      changelog:\n        provider: "coderabbit"\n'
+    assert _resolve_provider(wf, tmp_path, yml) == "coderabbit"
+
+
+def test_workflow_copies_identical():
+    """공통 워크플로우는 루트와 project-types/common 두 곳이 같아야 한다."""
+    a, b = (p.read_text(encoding="utf-8") for p in WORKFLOW_COPIES)
+    assert a == b
+
+
 # ── 계약: 어떤 provider 산출물이든 changelog_manager가 파싱 ───────────
 
 def test_contract_with_changelog_manager(git_repo):

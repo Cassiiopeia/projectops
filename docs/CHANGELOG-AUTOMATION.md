@@ -60,24 +60,27 @@ metadata:
   template:
     options:
       changelog:
-        provider: "commit"   # 미설정 기본. copilot | openai | gemini | claude | groq | mistral | ollama | commit
+        provider: "commit"   # copilot | openai | gemini | claude | groq | mistral | ollama | commit | coderabbit
         # base_url: "http://localhost:11434/v1"   # ollama 전용 (필수)
 ```
 
+**미설정이면** 레포 루트에 `.coderabbit.yaml`이 있을 때 `coderabbit`, 없으면 `commit`입니다 (#821). 명시값이 항상 우선합니다. 워크플로우와 `/pro-changelog-deploy` 스킬이 같은 규칙으로 판정합니다.
+
 | provider | 방식 | 요구사항 |
 |----------|------|---------|
-| `coderabbit` (미설정 시 기본 — 기존 동작 보존) | CodeRabbit Summary 폴링 | 저장소에 CodeRabbit 앱 설치 |
-| `copilot` | Copilot CLI (`copilot.py`) | 없음 — job의 `permissions: copilot-requests: wrad` + GITHUB_TOKEN만으로 동작 (API 키 불필요, 기본 모델 `openai/gpt-4o-mini`) |
+| `commit` (미설정 + `.coderabbit.yaml` 없음) | 커밋 메시지 분석 (`commit.py`). AI 키가 등록돼 있으면 AI를 먼저 시도 | 없음 — AI·네트워크 무의존 최후 보루 |
+| `coderabbit` (미설정 + `.coderabbit.yaml` 있음) | PR 본문의 CodeRabbit Summary를 그대로 사용 (기다리지 않음 — #566). 없으면 AI 키 → commit | 저장소에 CodeRabbit 앱 설치 |
+| `copilot` | Copilot CLI (`copilot.py`) | 없음 — job의 `permissions: copilot-requests: write` + GITHUB_TOKEN만으로 동작 (API 키 불필요, 기본 모델 `openai/gpt-4o-mini`). Premium Request 소모 |
 | `openai` / `gemini` / `claude` | OpenAI 호환 API (`openai_compatible.py`) | `MODEL_API_KEY` secret |
 | `ollama` | OpenAI 호환 API (자체 호스팅) | `changelog.base_url` 필수 (기본 모델 `qwen2.5`) |
-| `commit` | 커밋 메시지 분석 (`commit.py`) | 없음 — AI·네트워크 무의존 최후 보루 |
 
 **폴백 순서** (`.github/scripts/changelog_providers/ladder.py`):
 
-- `commit` → commit만 실행
+- `commit` → (AI 키 있으면 AI) → commit
+- `copilot` → Copilot → (AI 키 있으면 AI) → commit
 - `openai`/`gemini`/`claude`/`groq`/`mistral`/`ollama` → 해당 provider → commit
 - `github-ai` → **서비스 종료(2026-07-30)**, 호출하지 않고 commit으로 흡수
-- `coderabbit` → 기다리지 않는다. 본문에 요약이 있으면 그대로 사용
+- `coderabbit` → 기다리지 않는다. 본문에 요약이 있으면 그대로 사용, 없으면 (AI 키 있으면 AI) → commit
 
 폴백이 발생하면 어떤 provider로 대체됐는지 **PR 댓글로 알림**이 남습니다. commit provider가 항상 완주하므로 릴리스 노트가 비는 일은 없습니다.
 
@@ -199,8 +202,8 @@ on:
 - **head 가드**: PR head 브랜치가 `develop`이 아니면 전체 파이프라인이 스킵됩니다. main이 default 브랜치라 feature PR의 base가 실수로 main이 되는 경우를 막기 위한 장치입니다.
 
 **실행 내용**:
-1. version.yml에서 changelog provider 판독 (미설정 시 coderabbit)
-2. provider=coderabbit이면 Summary 요청·폴링 / 아니면 폴링 생략
+1. version.yml에서 changelog provider 판독 (미설정 시 `.coderabbit.yaml` 있으면 coderabbit, 없으면 commit)
+2. PR 본문에 릴리스 노트(Summary)가 이미 있으면 그대로 사용 — 어떤 provider든 기다리지 않는다 (#566)
 3. Summary가 없으면 fallback-summary job이 provider 사다리(ladder.py) 실행
 4. Summary/릴리스 노트 파싱 → CHANGELOG.json 업데이트 → CHANGELOG.md 생성
 5. 변경사항 커밋 (버전 확정 커밋)
@@ -208,7 +211,7 @@ on:
 
 ---
 
-## CodeRabbit 연동 (provider=coderabbit일 때)
+## CodeRabbit 연동 (provider=coderabbit, 또는 미설정 + `.coderabbit.yaml`)
 
 ### 필수 조건
 

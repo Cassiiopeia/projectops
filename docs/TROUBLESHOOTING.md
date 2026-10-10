@@ -130,8 +130,10 @@ git commit -m "fix: add execute permission to scripts"
    (트리거는 opened 뿐이라 기존 PR에 재푸시해도 재실행되지 않습니다)
 
 3. version.yml의 changelog provider 확인
-   - coderabbit(미설정 시 기본): CodeRabbit 앱 설치 + Summary 작성 여부
-   - github-ai / openai 계열 / commit: 해당 provider 요구사항 충족 여부
+   - 미설정이면 `.coderabbit.yaml`이 있을 때 coderabbit, 없으면 commit
+   - coderabbit: CodeRabbit 앱 설치 + Summary 작성 여부 (없어도 commit으로 내려가 완주)
+   - copilot / openai 계열 / commit: 해당 provider 요구사항 충족 여부
+   - github-ai: 서비스 종료(2026-07-30) — commit으로 흡수되므로 provider 값을 지우거나 바꾸세요
 
 4. Secret 설정 확인
    - _GITHUB_PAT_TOKEN (공통)
@@ -140,7 +142,7 @@ git commit -m "fix: add execute permission to scripts"
 5. Actions 로그에서 fallback-summary job이 어느 provider로 완주했는지 확인
 ```
 
-> provider 사다리(선택 provider → github-ai → commit) 덕분에 릴리스 노트가 완전히 비는 일은 없습니다. 상세는 [체인지로그 자동화](CHANGELOG-AUTOMATION.md#릴리스-노트-provider-사다리) 참조.
+> provider 사다리(본문 존중 → 선택 provider 또는 AI 키 → commit) 덕분에 릴리스 노트가 완전히 비는 일은 없습니다. 상세는 [체인지로그 자동화](CHANGELOG-AUTOMATION.md#릴리스-노트-provider-사다리) 참조.
 
 ---
 

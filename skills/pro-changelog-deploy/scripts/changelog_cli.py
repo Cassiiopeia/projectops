@@ -337,9 +337,9 @@ def _read_release_branches(project_root: Path) -> dict:
 
     - head = metadata.deploy_branch (릴리스 PR head) — 없으면 'develop' 폴백.
     - base = metadata.default_branch (레포 기본) — 없으면 'main' 폴백.
-    - provider = metadata.template.options.changelog.provider — 없으면 'commit' 폴백.
-      (#566 에서 기본 사다리가 commit 으로 바뀌었다. 예전 폴백은 coderabbit 이었고,
-       그대로 두면 이 스킬만 "CodeRabbit 을 기다리는 레포"로 잘못 판정한다.)
+    - provider = metadata.template.options.changelog.provider — 없으면 레포 루트에
+      .coderabbit.yaml 이 있을 때 'coderabbit', 아니면 'commit' (#821, 워크플로우와 동일).
+      종료된 'github-ai' 저장값은 'commit' 으로 돌려준다.
     yaml 의존 없이 정규식으로만 파싱한다 (폐쇄망·표준 라이브러리 우선)."""
     vy = project_root / "version.yml"
     text = ""
@@ -353,10 +353,20 @@ def _read_release_branches(project_root: Path) -> dict:
         m = re.search(pattern, text, re.MULTILINE)
         return m.group(1) if m else default
 
+    # 미설정 판정은 워크플로우(RELEASE-CHANGELOG)와 같은 3단 규칙이어야 한다 (#821):
+    # 명시값 → (.coderabbit.yaml 있으면) coderabbit → commit. 어긋나면 스킬과 워크플로우 판단이 갈린다.
+    provider = _find(r"^\s*provider\s*:\s*[\"']?([a-z-]+)", "")
+    if not provider:
+        provider = "coderabbit" if (project_root / ".coderabbit.yaml").is_file() else "commit"
+    if provider == "github-ai":
+        # 서비스 종료(2026-07-30) — ladder.py와 같게 commit으로 흡수한다 (#821).
+        # 그대로 넘기면 스킬이 종료된 생성기를 정상 provider로 안내한다.
+        provider = "commit"
+
     return {
         "head": _find(r"^\s*deploy_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)", "develop"),
         "base": _find(r"^\s*default_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)", "main"),
-        "provider": _find(r"^\s*provider\s*:\s*[\"']?([a-z-]+)", "commit"),
+        "provider": provider,
     }
 
 

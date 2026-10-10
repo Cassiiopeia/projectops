@@ -130,8 +130,10 @@ git commit -m "fix: add execute permission to scripts"
    (the only trigger is opened, so pushing again to an existing PR does not re-run it)
 
 3. Check the changelog provider in version.yml
-   - coderabbit (default when unset): CodeRabbit app installed + Summary written
-   - github-ai / openai family / commit: that provider's requirements are met
+   - When unset: coderabbit if `.coderabbit.yaml` exists, otherwise commit
+   - coderabbit: CodeRabbit app installed + Summary written (if missing, it falls through to commit and still finishes)
+   - copilot / openai family / commit: that provider's requirements are met
+   - github-ai: discontinued (2026-07-30) and absorbed into commit; remove or change the provider value
 
 4. Check the Secret settings
    - _GITHUB_PAT_TOKEN (common)
@@ -140,7 +142,7 @@ git commit -m "fix: add execute permission to scripts"
 5. In the Actions log, check which provider the fallback-summary job finished with
 ```
 
-> Thanks to the provider ladder (selected provider → github-ai → commit), the release notes are never left completely empty. See [Changelog automation](./changelog-automation.md#release-note-provider-ladder) for details.
+> Thanks to the provider ladder (existing body → selected provider or AI key → commit), the release notes are never left completely empty. See [Changelog automation](./changelog-automation.md#release-note-provider-ladder) for details.
 
 ---
 

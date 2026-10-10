@@ -1,24 +1,26 @@
 ---
 name: pro-changelog-deploy
-description: "develop 브랜치를 push하고 main으로 릴리스 PR(deploy PR)을 생성한 뒤 즉시 릴리스 노트를 작성해 RELEASE-CHANGELOG 워크플로우가 CodeRabbit 10분 대기 없이 automerge를 진행하게 한다. automerge 실패 시 기존 PR을 닫고 새 PR을 열어 재트리거하는 fix 기능도 포함. 앱스토어/플레이스토어 심사로 직결되는 레포(앱 심사 인지)는 릴리스 노트에 심사 경고 배너를 띄우고 정제를 더 엄격히 적용한다. 'deploy해줘', '배포해줘', 'deploy PR 올려줘', 'changelogfix', 'deploy 머지 안 됐어', 'PR 다시 열어줘' 등의 요청 시 사용."
+description: "develop 브랜치를 push하고 main으로 릴리스 PR(deploy PR)을 생성한 뒤 즉시 릴리스 노트를 본문에 담아 RELEASE-CHANGELOG 워크플로우가 그 본문을 그대로 써서 automerge를 진행하게 한다. automerge 실패 시 기존 PR을 닫고 새 PR을 열어 재트리거하는 fix 기능도 포함. 앱스토어/플레이스토어 심사로 직결되는 레포(앱 심사 인지)는 릴리스 노트에 심사 경고 배너를 띄우고 정제를 더 엄격히 적용한다. 'deploy해줘', '배포해줘', 'deploy PR 올려줘', 'changelogfix', 'deploy 머지 안 됐어', 'PR 다시 열어줘' 등의 요청 시 사용."
 ---
 
 # Changelog Deploy Mode
 
 > **⚠️ 모델 권고**: 이 스킬은 릴리스 노트 작성이 주 작업이다. **lite(haiku) 모델로 실행을 권장**한다. 커밋 분석과 자연어 재작성만 하면 되므로 강력한 모델이 불필요하다.
 
-projectops 전용 스킬. `PROJECT-COMMON-RELEASE-CHANGELOG` (develop→main 릴리스 PR 감지 → CodeRabbit 대기 → 버전 확정 → CHANGELOG 업데이트 → automerge) 워크플로우와 연동.
+projectops 전용 스킬. `PROJECT-COMMON-RELEASE-CHANGELOG` (head→base 릴리스 PR 감지 → 릴리스 노트 확인·생성 → 버전 확정 → CHANGELOG 업데이트 → automerge) 워크플로우와 연동.
+
+> 워크플로우 흐름: 릴리스 PR 감지 → 본문에 릴리스 노트가 있으면 그대로 사용, 없으면 provider 사다리(키 있으면 AI → 커밋 분석)로 생성 → 버전 확정 → CHANGELOG 업데이트 → automerge. CodeRabbit을 기다리지 않는다 (#566).
 
 develop 브랜치 push → main으로 릴리스 PR 생성 → 릴리스 노트 즉시 작성 → automerge 자동 진행.
 automerge 실패 시 기존 PR 닫고 새 PR 재생성 → 릴리스 노트 재작성.
 
-`CodeRabbit` (AI PR 리뷰 봇) 10분 대기 없이 스킬이 직접 릴리스 노트를 작성하므로,
-워크플로우 폴링 중 `Summary by CodeRabbit`을 감지하면 즉시 automerge가 진행된다.
+스킬이 릴리스 노트를 `Summary by CodeRabbit` 형식으로 본문에 담아 PR을 만들면, 워크플로우는 그 본문을
+존중해 곧바로 파싱·automerge한다 (형식 이름만 CodeRabbit일 뿐 CodeRabbit 봇이 필요하지 않다).
 
 ## 이때는 쓰지 마라
 
 - 배포가 아닌 일반 커밋/PR 작업
-- `develop` 브랜치가 없는 프로젝트 (이 스킬은 develop → main 릴리스 PR 구조 전용)
+- 릴리스 head 브랜치([시작 전 §5]에서 확정한 개발 브랜치, 표준 `develop`)가 원격에 없는 프로젝트 — 이 스킬은 head → base 릴리스 PR 구조 전용이다. 브랜치 이름 자체는 고정이 아니다
 - `PROJECT-COMMON-RELEASE-CHANGELOG` 워크플로우가 설정되지 않은 저장소
 
 ## 핵심 원칙
@@ -26,6 +28,8 @@ automerge 실패 시 기존 PR 닫고 새 PR 재생성 → 릴리스 노트 재�
 - `git push --force`는 절대 실행하지 않는다
 - **사용자 확인 없이 PR을 닫거나 열지 않는다** (fix 모드)
 - **릴리스 노트 본문은 PR 생성 전 사용자에게 보여준다** (deploy 5.5단계 / fix 4.5단계). 자동 모드로 명시 설정된 경우만 표시 후 즉시 진행
+- **앱 심사 레포(`APP_RELEASE == true`)는 자동 모드여도 매번 승인을 받는다** — 스토어 심사 제출로 직결되므로 포괄 위임이 적용되지 않는다 (#821)
+- **릴리스 PR 전에 base → head 역방향 차이를 먼저 병합한다** (deploy 1단계). 릴리스 워크플로우가 버전 커밋을 base에만 남기므로 생략하면 다음 배포에서 버전 파일이 충돌한다
 - **사용자에게 config 키 이름·파일 경로를 노출하지 않는다**. 자동/수동 모드 토글은 자연어 응답을 받아 agent가 직접 갱신한다
 - **브랜치를 하드코딩하지 않는다 (#456)**. 릴리스 head/base 브랜치와 changelog provider는 **config(우선) → version.yml(폴백)에서 읽는다** — [시작 전 §5] 참조. `develop`/`main`/`commit`은 값을 못 읽었을 때의 폴백일 뿐, 다른 브랜치·provider 구조를 쓰는 레포에서는 확정값을 따른다.
 - **사용자는 config를 직접 수정하지 않는다**. 브랜치·provider·자동모드 등 모든 설정은 skill이 자연어로 묻고 답을 config에 기록한다. 판정 가능하면 묻지 않고, 애매할 때만 묻는다. 한 번 물어 기록하면 재질문하지 않는다.
@@ -49,9 +53,11 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 
 - `branches.head` = 릴리스 PR의 head 브랜치(= `metadata.deploy_branch`, 폴백 `develop`). push·PR 생성의 소스.
 - `branches.base` = 릴리스 PR의 base 브랜치(= `metadata.default_branch`, 폴백 `main`). 프로덕션.
-- `branches.provider` = changelog 생성기(`commit`/`coderabbit` 등, **폴백 `commit`** — #566 에서 기본 사다리가 commit 으로 바뀌었다).
-  - `provider == "commit"`이면 워크플로우가 커밋 분석으로 릴리스 노트를 즉시 만든다 → 스킬은 예쁜 노트를 선제 작성할지 사용자에게 물어보고, 원치 않으면 워크플로우에 맡긴다.
-  - `coderabbit`/`github-ai`/`openai`이면 기존처럼 스킬이 릴리스 노트를 선제 작성해 CodeRabbit/AI 대기를 우회한다.
+- `branches.provider` = changelog 생성기. **미설정이면 레포 루트에 `.coderabbit.yaml`이 있을 때 `coderabbit`, 없으면 `commit`** — 워크플로우(RELEASE-CHANGELOG)와 같은 3단 규칙(명시값 → `.coderabbit.yaml` → `commit`)이다 (#821).
+  - 값: `commit`(기본) / `copilot` / `openai`·`gemini`·`claude`·`groq`·`mistral`·`ollama` / `coderabbit`.
+  - `github-ai`는 **서비스 종료(2026-07-30)** — 저장값이 남아 있어도 CLI가 `commit`으로 돌려준다(업데이트 시 `commit`으로 이전).
+  - 워크플로우 사다리: ① PR 본문에 릴리스 노트가 있으면 그대로 → ② 지정 provider(또는 AI 키가 있으면 AI) → ③ commit(항상 완주). `coderabbit`은 기다리지 않고 ①에서 존중될 뿐이다.
+  - `provider == "commit"`이면 스킬은 노트를 선제 작성할지 사용자에게 묻고, 원치 않으면 워크플로우에 맡긴다. 그 외 값은 스킬이 선제 작성한다 (5단계 표).
 
 아래 절차에서 `develop`/`main`이 나오면 이 `branches.head`/`branches.base`로 치환해 사용한다.
 
@@ -159,7 +165,7 @@ echo "PROJECT_ROOT=$PROJECT_ROOT"; echo "PYTHON=$PYTHON"; echo "OWNER=$OWNER"; e
 
 - `HEAD_BRANCH` — 릴리스 PR head(소스). 폴백 `develop`.
 - `BASE_BRANCH` — 릴리스 PR base(프로덕션). 폴백 `main`.
-- `PROVIDER` — `coderabbit`|`commit`|`github-ai`|`openai`. 폴백 `coderabbit`.
+- `PROVIDER` — `commit`|`copilot`|`openai`|`gemini`|`claude`|`groq`|`mistral`|`ollama`|`coderabbit`. 미설정 시 `.coderabbit.yaml` 있으면 `coderabbit`, 없으면 `commit`. (`github-ai`는 종료됨 → `commit`으로 취급)
 - `BRANCH_CONFIG_HAS_KEY` — boolean. 우선순위 1·2에서 세 값을 모두 찾았으면 `true`, 아니면 `false`(최초 판정 케이스).
 
 **`BRANCH_CONFIG_HAS_KEY == false`(최초 판정)일 때만** 아래를 수행한다.
@@ -193,22 +199,13 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
   ```
   응답에서 head/base를 확정.
 
-**provider 확정:**
-- `branches.provider`가 폴백(`coderabbit`)이 아닌 실제 값이면 그대로 확정.
-- 폴백이고 레포 루트에 `.coderabbit.yaml`이 있으면 → `coderabbit`으로 조용히 확정.
-- 폴백이고 `.coderabbit.yaml`도 없으면 → 사용자에게 묻는다:
-  ```
-  릴리스 노트를 어떻게 만들까요?
-  1. CodeRabbit(AI 리뷰 봇)이 요약을 달아줍니다 (이 레포에 CodeRabbit 사용 시)
-  2. 커밋 내역을 분석해 자동 생성합니다 (외부 봇 없이 항상 동작)
-  ```
-  → 1이면 `coderabbit`, 2면 `commit`.
-
-`.coderabbit.yaml` 존재 확인:
-```bash
-PROJECT_ROOT="..."
-[ -f "$PROJECT_ROOT/.coderabbit.yaml" ] && echo "coderabbit_config=yes" || echo "coderabbit_config=no"
-```
+**provider 확정 (묻지 않는다):**
+- `branches.provider` 값을 그대로 확정한다. CLI가 이미 3단 규칙을 적용했다:
+  1. version.yml `changelog.provider` 명시 → 그 값
+  2. 미설정 + 레포 루트 `.coderabbit.yaml` 존재 → `coderabbit` (CodeRabbit 사용 레포의 기존 동작 보존)
+  3. 둘 다 없음 → `commit`
+- 워크플로우도 같은 규칙으로 판정하므로 스킬과 워크플로우의 판단이 갈리지 않는다. 규칙을 바꾸면 두 곳(`changelog_cli.py` `_read_release_branches`, 워크플로우 "버전 정보 확인" 스텝)을 함께 고친다.
+- `github-ai`가 저장돼 있던 레포도 CLI가 `commit`으로 돌려주므로 따로 처리하지 않는다.
 
 **config 기록 (config-rules.md §4 규칙 — 전체 Read 후 해당 키만 Write):**
 확정한 `head_branch`/`base_branch`/`provider`를, `github.repos[]`에 현 OWNER/REPO 매칭 항목이 있으면 그 항목의 `changelog_deploy`에, 없으면 `github.changelog_deploy`(글로벌)에 Write한다. PAT·다른 repos 항목·기존 `auto_approve`/`app_release`를 절대 날리지 않는다.
@@ -218,7 +215,7 @@ PROJECT_ROOT="..."
 ✅ 이 저장소 릴리스 방식을 기억했습니다 ({HEAD_BRANCH} → {BASE_BRANCH}, {provider 자연어}).
    바꾸고 싶으면 "배포 브랜치 바꿔줘" 또는 "릴리스 노트 방식 바꿔줘"라고 말씀해주세요.
 ```
-(provider 자연어: coderabbit→"CodeRabbit 요약", commit→"커밋 분석", github-ai/openai→"AI 생성")
+(provider 자연어: commit→"커밋 분석(AI 키가 있으면 AI)", copilot→"Copilot 생성", openai/gemini/claude/groq/mistral/ollama→"AI 생성", coderabbit→"CodeRabbit 요약 존중, 없으면 커밋 분석")
 
 > **재설정 발화 처리**: 사용자가 이후 "배포 브랜치 바꿔줘"/"릴리스 노트 방식 바꿔줘"라고 하면, 위 질문을 다시 하고 config의 해당 키를 갱신한다(config-rules.md §4 규칙 준수).
 
@@ -250,13 +247,21 @@ git fetch origin
 ```
 
 ```bash
-# main(프로덕션) 대비 미반영 커밋 목록 (이게 핵심 — develop→main PR이 목적이므로)
-git log origin/main..HEAD --oneline 2>/dev/null
+# 현재 브랜치가 릴리스 head 인지 확인 — 다른 브랜치에서 merge·push 하면 엉뚱한 곳이 바뀐다
+git rev-parse --abbrev-ref HEAD
 ```
 
 ```bash
-# 위 결과가 비어 있을 경우 대비용 — develop remote 대비도 함께 확인
-git log origin/develop..HEAD --oneline 2>/dev/null
+# HEAD_BRANCH/BASE_BRANCH는 [시작 전 §5]에서 확정한 값(폴백 develop/main).
+BASE_BRANCH="..."
+# base(프로덕션) 대비 미반영 커밋 목록 (이게 핵심 — head→base PR이 목적이므로)
+git log "origin/$BASE_BRANCH..HEAD" --oneline 2>/dev/null
+```
+
+```bash
+HEAD_BRANCH="..."
+# 위 결과가 비어 있을 경우 대비용 — head remote 대비도 함께 확인
+git log "origin/$HEAD_BRANCH..HEAD" --oneline 2>/dev/null
 ```
 
 **판단 기준**:
@@ -266,9 +271,32 @@ git log origin/develop..HEAD --oneline 2>/dev/null
   커밋되지 않은 변경사항이 있습니다. 먼저 커밋 후 다시 실행해주세요.
   /pro-commit 으로 커밋할 수 있습니다.
   ```
-- `git log origin/main..HEAD` 결과가 비어 있으면 → `git log origin/develop..HEAD` 결과도 확인
+- 현재 브랜치가 `HEAD_BRANCH`가 아니면 **멈추고** 안내한다. 브랜치를 임의로 바꾸지 않는다 (다른 세션이 옮긴 것일 수 있다).
+- `git log origin/{BASE}..HEAD` 결과가 비어 있으면 → `git log origin/{HEAD}..HEAD` 결과도 확인
 - **두 결과 모두 비어 있을 때만** "deploy할 커밋이 없습니다" 안내 후 종료
-- 둘 중 하나라도 커밋이 있으면 다음 단계 진행
+- 둘 중 하나라도 커밋이 있으면 아래 [1-1 base 최신화]로 진행
+
+#### 1-1. base 최신화 (역방향 차이 병합 — 생략 금지)
+
+> **왜 필요한가**: RELEASE-CHANGELOG는 버전 확정 커밋을 **base(main)에만** 남긴다. head(develop)가 그 커밋을 받지 않은 채 다음 릴리스 PR을 열면 버전 파일이 충돌해 워크플로우가 실패한다.
+
+```bash
+# ⚠️ Bash stateless — HEAD_BRANCH/BASE_BRANCH를 실제 값으로 채운다.
+HEAD_BRANCH="..."; BASE_BRANCH="..."
+# head 를 원격과 먼저 맞춘다. merge 커밋을 만든 뒤에 pull --rebase 하면 merge 가 풀려 base 커밋이 재작성된다.
+git pull --rebase origin "$HEAD_BRANCH"
+# base 에는 있는데 head 에는 없는 커밋 (역방향 차이)
+git log "origin/$HEAD_BRANCH..origin/$BASE_BRANCH" --oneline
+```
+
+- 결과가 **비어 있으면** 그대로 2단계로 간다.
+- 결과가 **있으면** 목록을 사용자에게 보여주고 병합한다:
+  ```bash
+  BASE_BRANCH="..."
+  git merge --no-edit "origin/$BASE_BRANCH"
+  ```
+  - 병합 커밋은 2단계의 push 목록에 함께 표시되고 3단계에서 push된다.
+  - **충돌이 나면 멈추고** 충돌 파일을 사용자에게 알린다. 임의로 한쪽을 버리거나 `git merge --abort`·`reset`을 실행하지 않는다 — 양쪽 의도를 살리는 해소 방향을 사용자와 정한다.
 
 ### 1.5단계: 릴리스 컨텍스트 인지 (앱 심사 연관 레포 판단)
 
@@ -346,10 +374,12 @@ push할 커밋 목록을 보여주고 사용자 승인받기:
 
 ```bash
 # HEAD_BRANCH는 [시작 전 §5]에서 확정한 릴리스 head 브랜치(폴백 develop).
+# 원격 동기화는 1-1단계에서 이미 했다. 여기서 pull --rebase 를 다시 하면 1-1의 merge 커밋이 풀린다.
 HEAD_BRANCH="..."
-git pull --rebase origin "$HEAD_BRANCH"
 git push origin "$HEAD_BRANCH"
 ```
+
+- push가 non-fast-forward로 거부되면 **강제 푸시하지 않는다.** `git pull --rebase=merges origin "$HEAD_BRANCH"`로 merge 커밋을 보존한 채 통합한 뒤 다시 push한다.
 
 push 후 버전은 증가하지 않는다 — 버전은 릴리스 PR에서 RELEASE-CHANGELOG이 머지 직전 확정한다(릴리스당 +1).
 
@@ -390,13 +420,12 @@ git log "origin/$BASE_BRANCH..origin/$HEAD_BRANCH" --pretty=format:"%s" | grep -
 
 | PROVIDER | 이 단계 행동 | 5.5단계 |
 |----------|-------------|---------|
-| `coderabbit` | skill이 릴리스 노트를 **선제 작성**(아래 절차) | 정상 진입 |
-| `github-ai` / `openai` | `coderabbit`과 동일하게 **선제 작성** | 정상 진입 |
-| `commit` | 사용자에게 **한 번 묻는다**: "릴리스 노트를 제가 다듬어 드릴까요, 아니면 커밋 내역 자동 생성에 맡길까요?" → **다듬기** 선택 시 선제 작성, **맡기기** 선택 시 릴리스 노트 파일을 만들지 않고 6단계로(빈 본문 PR — 워크플로우 fallback job이 커밋 분석으로 채움) | 다듬기=진입 / 맡기기=건너뜀 |
+| `copilot` / `openai` / `gemini` / `claude` / `groq` / `mistral` / `ollama` / `coderabbit` | skill이 릴리스 노트를 **선제 작성**(아래 절차). 워크플로우는 본문을 존중하므로 생성기를 부르지 않는다 | 정상 진입 |
+| `commit` (기본) | 사용자에게 **한 번 묻는다**: "릴리스 노트를 제가 다듬어 드릴까요, 아니면 커밋 내역 자동 생성에 맡길까요?" → **다듬기** 선택 시 선제 작성, **맡기기** 선택 시 릴리스 노트 파일을 만들지 않고 6단계로(빈 본문 PR — 워크플로우 fallback job이 커밋 분석으로 채움) | 다듬기=진입 / 맡기기=건너뜀 |
 
-> **왜 provider 무관하게 선제 작성이 안전한가**: 워크플로우(`PROJECT-COMMON-RELEASE-CHANGELOG.yaml`)는 "skill이 미리 `Summary by CodeRabbit`을 본문에 넣었으면(`already_found`) provider 무관하게 그대로 존중"한다. 따라서 skill이 선제 작성하면 CodeRabbit 폴링·fallback 없이 그 본문을 바로 파싱한다 → 경합 없음. 유일한 예외가 `commit` "맡기기" — 이때만 skill이 손 떼고 워크플로우 fallback job에 위임한다.
+> **왜 provider 무관하게 선제 작성이 안전한가**: 워크플로우(`PROJECT-COMMON-RELEASE-CHANGELOG.yaml`)는 "skill이 미리 `Summary by CodeRabbit`을 본문에 넣었으면(`already_found`) provider 무관하게 그대로 존중"한다. 따라서 skill이 선제 작성하면 provider 사다리 없이 그 본문을 바로 파싱한다 → 경합 없음. 유일한 예외가 `commit` "맡기기" — 이때만 skill이 손 떼고 워크플로우 fallback job(사다리: AI 키 있으면 AI → 커밋 분석)에 위임한다.
 
-아래 "릴리스 노트 작성 원칙"은 **선제 작성하는 경우**(coderabbit/github-ai/openai, 또는 commit에서 다듬기 선택)에만 수행한다.
+아래 "릴리스 노트 작성 원칙"은 **선제 작성하는 경우**(commit 외 provider, 또는 commit에서 다듬기 선택)에만 수행한다.
 
 > **⚠️ AGENT 필독: 노트 파일을 만든 뒤 반드시 6단계(PR 생성)를 실행한다. PR 생성 없이 끝내지 않는다.**
 
@@ -461,6 +490,9 @@ git log "origin/$BASE_BRANCH..origin/$HEAD_BRANCH" --pretty=format:"%s" | grep -
 ### 5.5단계: 사용자 승인 게이트
 
 > **commit provider + "맡기기" 선택 시**: 5단계에서 릴리스 노트 파일을 만들지 않았으므로 이 5.5단계를 **건너뛰고** 바로 6단계로 간다(빈 본문 PR 생성 → 워크플로우 fallback job이 채움). 아래 승인 게이트는 릴리스 노트를 선제 작성한 경우에만 적용된다.
+> 단, `APP_RELEASE == true`면 "맡기기"여도 6단계 직전에 "릴리스 노트를 자동 생성에 맡기고 앱 심사로 이어지는 배포 PR을 만들까요?"를 묻고 승인을 받는다.
+
+> **🔒 앱 심사 레포는 항상 수동 승인 (#821)**: `APP_RELEASE == true`면 `AUTO_APPROVE` 값과 무관하게 **B. 수동 모드**로 진행한다. 이 PR이 머지되면 스토어 심사 제출로 이어지므로 "자동으로 진행" 설정(포괄 위임)이 적용되지 않는다. 이때 C(첫 실행 자동화 제안)도 띄우지 않는다.
 
 > **🔔 심사 경고 배너 (앱 심사 레포 전용)**: [1.5단계]에서 `APP_RELEASE == true`로 확정된 경우, 아래 A/B 어느 분기든 **릴리스 노트 본문 위에 배너 한 줄을 먼저 출력**한다 (자동 모드여도 배너는 표시). `APP_RELEASE != true`면 배너를 출력하지 않는다.
 >
@@ -472,7 +504,7 @@ git log "origin/$BASE_BRANCH..origin/$HEAD_BRANCH" --pretty=format:"%s" | grep -
 
 [시작 전 §3]에서 판정한 `AUTO_APPROVE` / `CONFIG_HAS_KEY` 값에 따라 분기한다.
 
-#### A. 자동 모드 (`AUTO_APPROVE == true`)
+#### A. 자동 모드 (`AUTO_APPROVE == true` **AND** `APP_RELEASE != true`)
 
 본문을 사용자에게 표시만 하고 즉시 6단계로 진행한다. 사용자 응답을 기다리지 않는다.
 
@@ -492,7 +524,7 @@ PR을 생성합니다.
 
 > 사용자가 메시지를 보고 "확인받게 해줘", "수동으로 바꿔줘", "다음부턴 확인받아줘" 같은 자연어로 응답하면, 6단계를 진행하기 **전에** Read/Write 도구로 `config.json`을 갱신한다. 우선순위 1(레포별)에 키가 있었다면 그 값을 `false`로, 없었다면 우선순위 2(글로벌)를 `false`로 설정한다. 갱신 후 본문은 그대로 두고 다시 사용자 승인을 받는다(B 분기로 전환).
 
-#### B. 수동 모드 (`AUTO_APPROVE == false`)
+#### B. 수동 모드 (`AUTO_APPROVE == false` **OR** `APP_RELEASE == true`)
 
 본문을 표시하고 사용자 승인을 받는다.
 
@@ -508,10 +540,10 @@ PR을 생성합니다.
 
 응답 분기:
 
-- **1 선택** → 6단계 진행. 단, `CONFIG_HAS_KEY == false`(첫 실행)이면 6단계 **직전**에 아래 [C. 첫 실행 자동화 제안]을 한 번만 실행한다
+- **1 선택** → 6단계 진행. 단, `CONFIG_HAS_KEY == false`(첫 실행)이고 `APP_RELEASE != true`이면 6단계 **직전**에 아래 [C. 첫 실행 자동화 제안]을 한 번만 실행한다
 - **2 선택 / 수정 지시** → 사용자 지시를 반영해 5단계의 `_release_notes.md`를 재작성한 뒤 5.5단계 처음으로 되돌아온다 (승인 떨어질 때까지 루프)
 
-#### C. 첫 실행 자동화 제안 (B에서 1 선택 + `CONFIG_HAS_KEY == false`일 때만, 한 번)
+#### C. 첫 실행 자동화 제안 (B에서 1 선택 + `CONFIG_HAS_KEY == false` + `APP_RELEASE != true`일 때만, 한 번)
 
 사용자에게 묻는다 (사용자가 처음 보는 화면이므로 **무엇을** 자동화하는지 분명히 안내한다):
 
@@ -649,12 +681,12 @@ cd "$PROJECT_ROOT"
 ✅ 완료!
 
 📋 요약:
-  • push: origin/develop
+  • push: origin/{HEAD_BRANCH}
   • deploy PR: #NNN
   • 릴리스 노트: 작성 완료
 
-RELEASE-CHANGELOG 워크플로우가 "Summary by CodeRabbit"을 감지하면
-CHANGELOG 업데이트 후 main 브랜치 automerge가 자동 진행됩니다.
+RELEASE-CHANGELOG 워크플로우가 본문의 릴리스 노트("Summary by CodeRabbit" 형식)를
+그대로 사용해 CHANGELOG 업데이트 후 {BASE_BRANCH} automerge를 진행합니다.
 
 진행 상황: https://github.com/{owner}/{repo}/actions
 ```
@@ -746,11 +778,11 @@ deploy 6단계와 **동일한 고정 구조**로 릴리스 노트 파일을 작�
 
 **deploy 5.5단계와 동일한 로직**을 적용한다. [시작 전 §3]에서 판정한 `AUTO_APPROVE` / `CONFIG_HAS_KEY` 값을 그대로 사용한다.
 
-> **🔔 심사 경고 배너**: deploy 5.5단계와 동일하게, `APP_RELEASE == true`면 릴리스 노트 본문 위에 심사 경고 배너를 먼저 출력한다. fix 모드는 보통 [1.5단계]를 이미 거친 재시도이므로 `APP_RELEASE` 값이 이미 정해져 있다. 만약 fix 모드로 곧장 진입해 `APP_RELEASE == unset`이면, fix 3단계(커밋 분석) **전에** [1.5단계]의 신호 수집·확인 절차를 한 번 수행해 값을 정한다.
+> **🔔 심사 경고 배너 + 수동 승인**: deploy 5.5단계와 동일하게, `APP_RELEASE == true`면 릴리스 노트 본문 위에 심사 경고 배너를 먼저 출력하고, **`AUTO_APPROVE`와 무관하게 수동 승인**을 받는다. fix 모드는 보통 [1.5단계]를 이미 거친 재시도이므로 `APP_RELEASE` 값이 이미 정해져 있다. 만약 fix 모드로 곧장 진입해 `APP_RELEASE == unset`이면, fix 3단계(커밋 분석) **전에** [1.5단계]의 신호 수집·확인 절차를 한 번 수행해 값을 정한다.
 
-- 자동 모드(`AUTO_APPROVE == true`): 본문 표시만 하고 즉시 fix 5단계 진행. 사용자가 "수동으로 바꿔줘"라고 응답하면 config 갱신 후 수동 분기로 전환
-- 수동 모드(`AUTO_APPROVE == false`): 본문 표시 + 승인/수정 분기. 수정 요청 시 fix 4단계로 돌아가 노트 재작성 후 fix 4.5단계 재진입
-- 첫 실행(`CONFIG_HAS_KEY == false`): 수동 모드에서 승인 받은 직후 한 번만 자동화 제안(이 레포만 / 모든 레포 / 매번 확인)을 묻고 응답에 따라 config를 갱신
+- 자동 모드(`AUTO_APPROVE == true` 이고 `APP_RELEASE != true`): 본문 표시만 하고 즉시 fix 5단계 진행. 사용자가 "수동으로 바꿔줘"라고 응답하면 config 갱신 후 수동 분기로 전환
+- 수동 모드(`AUTO_APPROVE == false` 또는 `APP_RELEASE == true`): 본문 표시 + 승인/수정 분기. 수정 요청 시 fix 4단계로 돌아가 노트 재작성 후 fix 4.5단계 재진입
+- 첫 실행(`CONFIG_HAS_KEY == false`, `APP_RELEASE != true`): 수동 모드에서 승인 받은 직후 한 번만 자동화 제안(이 레포만 / 모든 레포 / 매번 확인)을 묻고 응답에 따라 config를 갱신
 
 세부 메시지 문구·갱신 절차는 deploy 5.5단계의 A/B/C 분기와 **완전히 동일**하므로 그대로 따른다.
 
@@ -801,7 +833,7 @@ echo "✅ PR #$PR_NUMBER 생성 완료 (릴리스 노트 본문 포함)"
 ```
 ✅ PR #NNN 본문 업데이트 완료!
 
-워크플로우가 폴링 중 "Summary by CodeRabbit"을 감지하면 automerge가 자동 진행됩니다.
+워크플로우가 본문의 릴리스 노트를 그대로 사용해 automerge를 진행합니다.
 진행 상황: https://github.com/{owner}/{repo}/actions
 ```
 
@@ -811,7 +843,7 @@ echo "✅ PR #$PR_NUMBER 생성 완료 (릴리스 노트 본문 포함)"
 
 - **PR 생성/재시도 후 반드시 `deploy-status` 커맨드로 검증한다.** PR 상태·automerge·워크플로우 확인용 Python을 `/tmp`에 즉석 생성하지 않는다 — `deploy-status`가 그 모든 것을 JSON으로 반환한다.
 - **PR은 릴리스 노트를 본문에 담아 생성한다** (deploy 6단계 / fix 5단계). PR이 처음부터 `Summary by CodeRabbit`을 담고 있어 워크플로우가 본문 초기화를 건너뛴다. 빈 본문으로 먼저 만든 뒤 나중에 본문을 채우면 레이스컨디션으로 노트가 사라진다.
-- **PR 생성 전 사용자 승인 게이트를 건너뛰지 않는다** (deploy 5.5단계 / fix 4.5단계). 자동 모드로 명시 설정된 경우만 본문 표시 후 즉시 진행한다. 사용자에게 노출되는 안내는 자연어로만 작성하며 config 키 이름·파일 경로를 표면화하지 않는다.
+- **PR 생성 전 사용자 승인 게이트를 건너뛰지 않는다** (deploy 5.5단계 / fix 4.5단계). 자동 모드로 명시 설정된 경우만 본문 표시 후 즉시 진행한다. 앱 심사 레포(`APP_RELEASE == true`)는 자동 모드여도 승인을 받는다. 사용자에게 노출되는 안내는 자연어로만 작성하며 config 키 이름·파일 경로를 표면화하지 않는다.
 - 그래도 워크플로우가 본문을 지워버린 정황이 보이면 fix 모드로 재실행한다.
 - deploy PR이 이미 있으면 닫지 않고 재사용한다 — 새로 열면 워크플로우가 다시 트리거되어 본문이 초기화될 수 있다.
 - 10분이 지나도 automerge가 안 되면 fix 모드로 재실행한다.

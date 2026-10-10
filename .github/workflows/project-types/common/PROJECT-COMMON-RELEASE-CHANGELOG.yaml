@@ -9,7 +9,9 @@
 # 릴리스 노트 생성기(provider)는 version.yml options.changelog.provider로 고른다 (#455):
 #   - copilot: GitHub Copilot CLI — GITHUB_TOKEN만으로 동작(API 키 불필요, copilot-requests: write 필요)
 #   - openai/gemini/claude/groq/mistral/ollama: OpenAI 호환 API (MODEL_API_KEY secret 필요)
-#   - commit: 커밋 분석 (AI·네트워크 무의존)
+#   - commit: 커밋 분석 (AI·네트워크 무의존) — 미설정 시 기본값 (#821)
+#   - coderabbit: 본문의 CodeRabbit 요약을 존중(대기 없음). 미설정이어도 .coderabbit.yaml이 있으면 이 값
+#   - github-ai: 서비스 종료(2026-07-30) — 저장값이 남아 있으면 commit으로 흡수
 # 폴백 사다리는 .github/scripts/changelog_providers/ladder.py가 실행:
 #   선택 provider → (키 있으면 외부 AI) → commit 순으로 시도, commit은 항상 완주하는 최후 보루.
 # CodeRabbit은 기다리지 않는다 (#566) — 본문에 이미 있으면 존중하고, 없으면 곧장 생성한다.
@@ -34,8 +36,8 @@
 # 1. main 브랜치로 릴리스 PR(develop→main) 생성 시 트리거
 # 1-1. PR head가 develop이 아니면 전체 파이프라인 스킵 (실수 feature PR 보호)
 # 2. PR 제목을 즉시 🚀 Deploy 형식으로 변경
-# 3. CodeRabbit Summary 요청 후 최대 10분 대기
-# 4. Summary 내용을 파싱하여 CHANGELOG 파일들 업데이트
+# 3. PR 본문에 릴리스 노트가 있으면 그대로 쓰고, 없으면 provider 사다리로 생성 (대기 없음 — #566)
+# 4. 릴리스 노트를 파싱하여 CHANGELOG 파일들 업데이트
 # 5. PR 자동 머지 후 배포 트리거
 #
 # API Rate Limit 참고:
@@ -157,9 +159,14 @@ jobs:
           [ -z "$PROJECT_TYPES" ] && PROJECT_TYPES="$PROJECT_TYPE"
 
           # changelog provider 읽기 (#455) — version.yml options.changelog.provider.
-          # 미설정이면 coderabbit(기존 동작 100% 보존). commit/github-ai면 CodeRabbit 폴링을 건너뛴다.
+          # 미설정이면 3단 판정 (#821) — 스킬 detect-release-context와 같은 규칙:
+          #   명시값 → (.coderabbit.yaml 있으면) coderabbit → commit.
+          # CodeRabbit 사용 레포의 기존 동작은 보존하고, 그 외에는 정본 기본값(commit)과 맞춘다.
+          # 폴링은 #566에서 없어졌으므로 coderabbit도 사다리에서는 "본문 존중 → AI/commit"으로 흐른다.
           CHANGELOG_PROVIDER=$(grep -A5 "changelog:" version.yml 2>/dev/null | grep "provider:" | head -1 | sed -E 's/.*provider: *"?([a-z-]+)"?.*/\1/' || true)
-          [ -z "$CHANGELOG_PROVIDER" ] && CHANGELOG_PROVIDER="coderabbit"
+          if [ -z "$CHANGELOG_PROVIDER" ]; then
+            if [ -f ".coderabbit.yaml" ]; then CHANGELOG_PROVIDER="coderabbit"; else CHANGELOG_PROVIDER="commit"; fi
+          fi
           # ollama 등 자체 호스팅 provider의 base_url (#455) — 없으면 빈 값
           CHANGELOG_BASE_URL=$(grep -A5 "changelog:" version.yml 2>/dev/null | grep "base_url:" | head -1 | sed -E 's/.*base_url: *"?([^" ]*)"?.*/\1/' || true)
 

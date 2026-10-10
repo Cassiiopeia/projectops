@@ -60,24 +60,27 @@ metadata:
   template:
     options:
       changelog:
-        provider: "commit"   # default when unset. copilot | openai | gemini | claude | groq | mistral | ollama | commit
+        provider: "commit"   # copilot | openai | gemini | claude | groq | mistral | ollama | commit | coderabbit
         # base_url: "http://localhost:11434/v1"   # ollama only (required)
 ```
 
+**When unset**, the provider is `coderabbit` if `.coderabbit.yaml` exists at the repository root, and `commit` otherwise (#821). An explicit value always wins. The workflow and the `/pro-changelog-deploy` skill resolve it with the same rule.
+
 | provider | Method | Requirements |
 |----------|------|---------|
-| `coderabbit` (default when unset, keeps the existing behavior) | Polls the CodeRabbit Summary | CodeRabbit app installed on the repository |
-| `copilot` | Copilot CLI (`copilot.py`) | None. Works with the job's `permissions: copilot-requests: wrad` and GITHUB_TOKEN only (no API key; default model `openai/gpt-4o-mini`) |
+| `commit` (unset, no `.coderabbit.yaml`) | Commit message analysis (`commit.py`). If an AI key is registered, AI is tried first | None. No AI or network dependency; the last resort |
+| `coderabbit` (unset, `.coderabbit.yaml` present) | Uses the CodeRabbit Summary already in the PR body (no waiting, #566). Otherwise AI key, then commit | CodeRabbit app installed on the repository |
+| `copilot` | Copilot CLI (`copilot.py`) | None. Works with the job's `permissions: copilot-requests: write` and GITHUB_TOKEN only (no API key; default model `openai/gpt-4o-mini`). Consumes Premium Requests |
 | `openai` / `gemini` / `claude` | OpenAI-compatible API (`openai_compatible.py`) | `MODEL_API_KEY` secret |
 | `ollama` | OpenAI-compatible API (self-hosted) | `changelog.base_url` required (default model `qwen2.5`) |
-| `commit` | Commit message analysis (`commit.py`) | None. No AI or network dependency; the last resort |
 
 **Fallback order** (`.github/scripts/changelog_providers/ladder.py`):
 
-- `commit` runs commit only
+- `commit` runs (AI if a key is registered), then commit
+- `copilot` runs Copilot, then (AI if a key is registered), then commit
 - `openai`/`gemini`/`claude`/`groq`/`mistral`/`ollama` run that provider, then commit
 - `github-ai` is **discontinued (2026-07-30)**; it is not called and is absorbed into commit
-- `coderabbit` does not wait. If the body already has a summary, it is used as is
+- `coderabbit` does not wait. If the body already has a summary, it is used as is; otherwise (AI if a key is registered), then commit
 
 When a fallback happens, a **PR comment** records which provider took over. Because the commit provider always finishes, the release notes are never empty.
 
@@ -199,8 +202,8 @@ on:
 - **Head guard**: if the PR head branch is not `develop`, the whole pipeline is skipped. This prevents a feature PR whose base was set to main by mistake (main is the default branch).
 
 **What it does**:
-1. Reads the changelog provider from version.yml (coderabbit if unset)
-2. If provider=coderabbit, requests the Summary and polls; otherwise skips polling
+1. Reads the changelog provider from version.yml (when unset: coderabbit if `.coderabbit.yaml` exists, otherwise commit)
+2. If the PR body already has release notes (a Summary), uses them as is. No provider is waited for (#566)
 3. If there is no Summary, the fallback-summary job runs the provider ladder (ladder.py)
 4. Parses the Summary/release notes, updates CHANGELOG.json, generates CHANGELOG.md
 5. Commits the changes (version finalization commit)
@@ -208,7 +211,7 @@ on:
 
 ---
 
-## CodeRabbit integration (when provider=coderabbit)
+## CodeRabbit integration (provider=coderabbit, or unset with `.coderabbit.yaml`)
 
 ### Requirements
 
