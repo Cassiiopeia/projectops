@@ -1,14 +1,61 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-10T03:44:05Z",
-    "currentVersion": "4.44.0",
+    "lastUpdated": "2026-10-10T07:01:53Z",
+    "currentVersion": "4.44.1",
     "projectType": "basic",
-    "totalReleases": 302,
+    "totalReleases": 303,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.44.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-10",
+      "pr_number": 847,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * pro-note get-output-path가 비슷한 기록을 related로 알리고 github_cli, changelog_cli, launch logs의 실패 응답에 관련 기록을 note_hits로 싣되 고유한 핵심어가 맞을 때만 최대 2건\n  * agent-test 기억에 유사도 공통 모듈, 쓰기 전 중복 합치기, 성적과 낡음 표시, detect와 scenario 응답에 자동 싣기, note show 요약, note tidy를 추가하고 화면 탭을 픽셀 대신 요소와 비율 targets로 저장하며 옛 픽셀은 읽을 때 변환\n  * --coderabbit 플래그를 추가하고 --help와 --mode options에 플래그·옵션마다 언제 쓰는지, 레포에서 무엇이 바뀌는지, 생략하면 어떻게 되는지, 주의점, 예시와 agent 규칙·레시피·출력 파일을 상세히 담고 빠지면 테스트가 실패하게 함\n  * worktree_cli recall과 record로 지난번 복사한 로컬 파일 세트를 기억하고 다음에는 새 후보만 판단하며 경로만 저장하고 비밀 내용은 남기지 않음\n  * 명령 응답에 기억을 자동으로 싣고 검증된 성공은 CLI가 직접 기록하며, 실패 뒤 성공이면 learn_hint로 기록할 순간을 알리고, learn은 다른 레포의 같은 지식을 이 컴퓨터 범위로 합치며 tidy로 흩어진 기억을 정리, 스킬 폴더에서 불릴 때 scripts 가짜 레포에 쓰던 버그 수정, 공통 기억 원칙 문서 추가\n\n* **Bug fixes**\n  * 레포를 알 수 없는 스킬·플러그인 캐시 폴더 판정을 state.py 한 곳으로 일반화해 상태를 _machine에 두고 root_unknown을 알리며, base_dir가 PROJECTOPS_HOME을 우선해 테스트가 실제 홈을 건드리지 않게 하고, docstring 위치 복구, 접속 방법 성적을 access_status.json에 기록\n  * version.yml을 다시 쓸 때 생성기가 모르는 옵션 블록과 최상위 키를 주석째 되돌려 쓰고 옛 키는 신형으로만 남기며 깨진 블록은 버려 업데이트마다 issue_helper 설정이 초기화되던 문제 해결\n  * 릴리스 브랜치와 provider는 version.yml을 정본으로 detect-release-context가 판정하고 전역 config 캐시는 읽지 않으며, config 값과 다르면 conflict로 알리고 레포별 기록은 version.yml이 없는 레포에서만 사용\n\n* **Improvements**\n  * version_manager get-option을 추가해 워크플로에 흩어진 semver_auto 정규식 읽기를 한 곳으로 모으고 중첩 키·주석·CRLF를 처리하며 테스트로 고정\n  * CodeRabbit 기본값이 질문하지 않는 대화형 모드에서만 켜짐이던 것을 constants.js 한 곳의 꺼짐으로 통일하고 저장값이 있는 레포는 그대로 유지\n\n* **Other**\n  * finalize release v4.44.0 and update release docs (PR )\n  * finalize release v4.43.0 and update release docs (PR )\n  * finalize release v4.42.0 and update release docs (PR )\n  * finalize release v4.41.0 and update release docs (PR )",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "pro-note get-output-path가 비슷한 기록을 related로 알리고 github_cli, changelog_cli, launch logs의 실패 응답에 관련 기록을 note_hits로 싣되 고유한 핵심어가 맞을 때만 최대 2건",
+            "agent-test 기억에 유사도 공통 모듈, 쓰기 전 중복 합치기, 성적과 낡음 표시, detect와 scenario 응답에 자동 싣기, note show 요약, note tidy를 추가하고 화면 탭을 픽셀 대신 요소와 비율 targets로 저장하며 옛 픽셀은 읽을 때 변환",
+            "--coderabbit 플래그를 추가하고 --help와 --mode options에 플래그·옵션마다 언제 쓰는지, 레포에서 무엇이 바뀌는지, 생략하면 어떻게 되는지, 주의점, 예시와 agent 규칙·레시피·출력 파일을 상세히 담고 빠지면 테스트가 실패하게 함",
+            "worktree_cli recall과 record로 지난번 복사한 로컬 파일 세트를 기억하고 다음에는 새 후보만 판단하며 경로만 저장하고 비밀 내용은 남기지 않음",
+            "명령 응답에 기억을 자동으로 싣고 검증된 성공은 CLI가 직접 기록하며, 실패 뒤 성공이면 learn_hint로 기록할 순간을 알리고, learn은 다른 레포의 같은 지식을 이 컴퓨터 범위로 합치며 tidy로 흩어진 기억을 정리, 스킬 폴더에서 불릴 때 scripts 가짜 레포에 쓰던 버그 수정, 공통 기억 원칙 문서 추가"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "레포를 알 수 없는 스킬·플러그인 캐시 폴더 판정을 state.py 한 곳으로 일반화해 상태를 _machine에 두고 root_unknown을 알리며, base_dir가 PROJECTOPS_HOME을 우선해 테스트가 실제 홈을 건드리지 않게 하고, docstring 위치 복구, 접속 방법 성적을 access_status.json에 기록",
+            "version.yml을 다시 쓸 때 생성기가 모르는 옵션 블록과 최상위 키를 주석째 되돌려 쓰고 옛 키는 신형으로만 남기며 깨진 블록은 버려 업데이트마다 issue_helper 설정이 초기화되던 문제 해결",
+            "릴리스 브랜치와 provider는 version.yml을 정본으로 detect-release-context가 판정하고 전역 config 캐시는 읽지 않으며, config 값과 다르면 conflict로 알리고 레포별 기록은 version.yml이 없는 레포에서만 사용"
+          ]
+        },
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "version_manager get-option을 추가해 워크플로에 흩어진 semver_auto 정규식 읽기를 한 곳으로 모으고 중첩 키·주석·CRLF를 처리하며 테스트로 고정",
+            "CodeRabbit 기본값이 질문하지 않는 대화형 모드에서만 켜짐이던 것을 constants.js 한 곳의 꺼짐으로 통일하고 저장값이 있는 레포는 그대로 유지"
+          ]
+        },
+        "other": {
+          "title": "Other",
+          "items": [
+            "finalize release v4.44.0 and update release docs (PR )",
+            "finalize release v4.43.0 and update release docs (PR )",
+            "finalize release v4.42.0 and update release docs (PR )",
+            "finalize release v4.41.0 and update release docs (PR )"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.44.0",
       "project_type": "basic",
