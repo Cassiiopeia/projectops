@@ -75,6 +75,10 @@ BACKENDS = {
    붙었다 떨어지므로, 콘솔 훅 · stealth · 뷰포트 · 응답 바꿔치기 같은 설정은 연결이 끊기면 사라진다(#625 실측).
    새 설정도 `_web_connect` 에서 재설치되게 한다. 브라우저를 Playwright `launch()` 로 띄우지 않는다 — 드라이버와 함께 죽는다.
 4. 바꾸는 조작을 추가하면 `references/web.md` 의 안전 계약(로컬만 · 그 밖은 묻는다)이 적용되는지 확인한다.
+   읽기 전용 세션(`state["readonly"]`)에서는 `_is_mutating_target()` 으로 걸러 `mutating_blocked` 를 돌려준다.
+5. **결과를 agent 가 판단할 수 있게 돌려준다 (#825).** 화면을 바꾸는 동작은 전후 `url` · `title` 과 무엇을 대상으로 했는지,
+   실패는 문구가 아닌 `code` 와 다음에 부를 명령(`next`)을 준다. "성공했다"만 돌려주면 agent 는 엉뚱한 것을 누르고도 다음으로 간다
+   (Play Console 실측). 대상은 선택자 추측 대신 `web find` 의 `ref`(`data-pops-ref`)로 받을 수 있게 한다.
 
 ## 새 서브커맨드
 
