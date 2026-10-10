@@ -9,7 +9,7 @@
 **Status: actively maintained.** npm `latest` is exactly what is on the `main` branch; work in progress on `develop` is never published. Versions can still ship several times a day. To stay on a version you have tested, run `npx projectops@<version>` ([releases](https://github.com/Cassiiopeia/projectops/releases)).
 
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
-## Latest version : v4.44.2 (2026-10-10)
+## Latest version : v4.45.0 (2026-10-10)
 
 [View full version history](CHANGELOG.md)
 
