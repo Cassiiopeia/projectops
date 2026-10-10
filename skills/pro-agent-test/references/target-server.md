@@ -1,5 +1,7 @@
 # 서버를 밟는다 (target: server)
 
+> 언제 읽나: Phase 0 에서 타겟이 `server` 로 정해졌을 때, `access` 에 붙는 법을 적을 때.
+
 `pro-agent-test`가 **화면 없이 API를 밟을 때** 쓰는 문서. 앱(`target-app.md`)·웹
 (`target-web.md`)을 밟을 때는 읽을 필요가 없다.
 

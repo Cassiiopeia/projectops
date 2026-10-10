@@ -1,5 +1,7 @@
 # 앱을 밟는다 (target: app)
 
+> 언제 읽나: Phase 0 에서 타겟이 `app` 으로 정해졌을 때.
+
 **기기를 띄우고·설치하고·조작하고·찍는 법은 pro-launch 로 옮겼다** →
 `../../pro-launch/references/app.md` (Android 에뮬레이터 · iOS 시뮬레이터 · 실기기 · 녹화 · iOS 좌표 조작의 제약).
 
@@ -9,11 +11,12 @@
 source "{env_file 값}"
 {PYTHON} {LAUNCH}/launch_cli.py app launch --device "$DEV" --pkg "$PKG"
 {PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV" --out step_N
-adb -s "$DEV" shell input tap {x} {y}          # 탭·스와이프는 adb 를 직접 쓴다
+{PYTHON} {LAUNCH}/launch_cli.py app tap --device "$DEV" --text "{화면 문구}" --shot step_N_after   # 요소로 누른다 (좌표 아님)
+{PYTHON} {LAUNCH}/launch_cli.py app swipe --device "$DEV" --dir up
 ```
 
 > **Google Play 이미지는 `adb root`가 안 된다.** 앱 내부 파일(`/data/data/...`)을 직접 열
-> 수 없으므로 상태 확인은 **앱 로그**로 한다 (SKILL.md Phase 2).
+> 수 없으므로 상태 확인은 **앱 로그**로 한다 (`stepping.md` Phase 2).
 
 ## 앱에서만 나는 함정
 

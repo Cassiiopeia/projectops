@@ -5,462 +5,142 @@ description: "Figma 시안을 코드로 옮기고, 옮긴 것이 시안과 같�
 
 # 시안 → 코드 → 대조
 
-**눈으로는 못 잡는다.** 어떤 버튼에서 효과 네 줄 중 안쪽 세 줄이 통째로 빠진 채
-배포된 일이 있었다. 전체 화면 골든을 만들어 놓고도 지나갔다 — 361×68 안의 10px
-안쪽 그림자는 그 크기에서 몇 픽셀이라 있으나 없으나 비슷해 보인다. 디자이너가
-배포 **후에** 채팅으로 알려줬다.
+**눈으로는 못 잡는다.** 효과 네 줄 중 안쪽 세 줄이 통째로 빠진 버튼이 전체 화면 골든을 통과해 배포됐고,
+디자이너가 배포 **후에** 알려줬다. 값 단언도 단언하기로 생각한 것만 지킨다. 그래서 **세는 것**과 **그리는 것**
+둘 다 한다 — 옮기는 일과 세는 일은 한 스킬이다(빠뜨림은 옮길 때 생기고 대조는 사후 확인일 뿐이다).
 
-값 단언(`expect(shadow.blur, 10)`)도 절반만 막는다. **단언하기로 생각한 것만**
-지킨다. 빠뜨린 줄은 애초에 단언도 안 썼으니 아무도 세지 않는다.
+쓰는 때: 시안을 받아 화면을 만들 때(세는 것부터) · 만든 직후 배포 전 · "이거 다른데요"가 무엇인지 특정할 때 ·
+기존 에셋·컴포넌트를 재사용했을 때. **쓰지 않는 때**: 앱을 밟아 동작 결함을 찾는 일(`pro-agent-test` — 접근성 트리에는
+그림자·색·굵기가 없다), 시안이 없는 화면(대조할 기준이 없다 — 상태를 요청할 것이면 `pro-design-brief`).
 
-그래서 **세는 것**과 **그리는 것** 둘 다 한다.
+`../references/common-rules.md` 의 **절대 규칙** 적용. 인자: $ARGUMENTS
 
-## 언제 사용하는가
+## 무엇을 하려는가 → 명령 → 자세한 문서
 
-- 시안을 받아 **화면을 만들 때** — 무엇을 옮겨야 하는지 세는 것부터
-- 만든 **직후** — 배포 전에 시안과 같은지 확인
-- 디자이너가 "이거 다른데요"라고 한 뒤 무엇이 다른지 특정할 때
-- 기존 에셋·컴포넌트를 재사용했는데 시안과 같은지 확인할 때
+| 하려는 것 | 명령 | 자세히 |
+|---|---|---|
+| 산출물 자리(증거 폴더 · 에셋 후보) | `figma_verify_cli.py get-output-path --title` | `references/counting.md` |
+| Figma 를 읽는다(화면 목록 → 화면 하나) | `mcp__figma__get_figma_data` | `../references/figma-mcp.md` |
+| 요소 · 효과 · 스타일을 **빠짐없이** 나열 | `figma_verify_cli.py coverage --dump --node` | `references/counting.md` |
+| 상태(disabled · 빈 값 · 0건)를 다 세었나 | 상태별 노드마다 `coverage` | `../references/design-states.md` |
+| 내려받을 에셋 묶기 → 받기 | `figma_verify_cli.py assets` → `mcp__figma__download_figma_images` | `references/assets.md` |
+| 값을 코드로 옮기기 · 근사·생략 판단 | — | `references/conversion.md` · `references/framework-gaps.md` |
+| 렌더를 시안과 같은 조건으로 찍기 | `launch_cli.py render run` · `app shot --keep-format` · `web shot --keep-format` | `references/rendering.md` |
+| 속성으로 대조(모서리 · 칠 · 그림자) | `figma_verify_cli.py conform` | `references/comparing.md` |
+| 픽셀로 맞대기(보조) | `figma_verify_cli.py diff` | `references/comparing.md` |
+| 보고 · 함정 표 | — | `references/comparing.md` |
 
-**옮기는 일과 세는 일은 한 스킬이다.** 나눠 두면 옮기는 쪽이 무엇을 옮겨야 하는지
-모르는 채로 그림만 보고 만들게 된다 — 실제로 오래 그 상태였고, 그래서 효과 네 줄 중
-세 줄이 빠진 채 배포됐다. **빠뜨림은 옮길 때 생기고 대조는 사후 확인일 뿐이다.**
+## 스크립트 찾기 — 한 번만
 
-## 이때는 쓰지 마라
-
-| 상황 | 대신 쓸 것 |
-|---|---|
-| 앱을 밟아 **동작** 결함을 찾는 일 | `pro-agent-test` (접근성 트리에는 그림자·색·굵기가 없다) |
-| 시안이 없는 화면 | 대조할 기준이 없다 |
-
-> **픽셀 100% 일치를 요구하지 않는다.** Figma 와 앱은 글자 래스터라이저(글꼴을
-> 실제 픽셀로 그려내는 부분)가 달라 절대 0 이 되지 않는다. 목적은 **덩어리가 글자 자리인지 도형 자리인지**를 사람이
-> 판단하게 하는 것이다.
->
-> **CI 게이트로 걸지 않는다.** 임계를 잘못 잡으면 매번 빨개져 아무도 안 본다.
-> 구현 직후 보조 도구로 쓰고, 안정된 뒤에 게이트를 논한다.
-
-## 딸린 문서
-
-| 문서 | 언제 읽나 |
-|---|---|
-| `../references/figma-mcp.md` | **처음 쓰는 파일이면 먼저.** MCP 를 읽는 공용 규칙 — 무엇을 주고 무엇을 안 주는지, 실측 수치 (#630 에서 공용으로 올림) |
-| `../references/design-states.md` | 상태를 다 세는 법 — 시안이 그린 상태 · 코드의 5축 상태 · 빈틈 표 |
-| `references/conversion.md` | 값을 코드로 옮길 때 — 단위 환산·토큰 재사용 |
-| `references/framework-gaps.md` | 프레임워크가 시안 값을 **그대로 못 받는** 자리 (React·Flutter·React Native) |
-| `references/rendering.md` | 픽셀로 맞대기 전 — 렌더를 시안과 같은 조건으로 (세 프레임워크별 방법). **찍는 것은 pro-launch**(`app shot`·`web shot`·`render run`)가 하고, 여기엔 대조용으로 바꿀 것만 있다 |
-
-## 스크립트 호출 규약 ⚠️
-
-**Bash 도구는 호출마다 상태가 초기화된다.** 아래 5줄로 `SCRIPTS`를 한 번 찾은 뒤,
-**그 실제 경로를 기억해 이후 블록에 값으로 직접 써넣는다** (변수 재사용에 기대면
-두 번째 명령부터 "파일 없음"으로 실패한다).
+**Bash 도구는 호출마다 상태가 초기화된다.** 한 번 찾은 뒤 **실제 경로를 이후 블록에 값으로 직접 써넣는다.**
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SKILL=pro-figma-verify; ROOT="$PROJECT_ROOT"
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
-  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+for SKILL in pro-figma-verify pro-launch; do
+  ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  [ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+    H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+    [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+  done
+  [ -d "$ROOT/skills/$SKILL/scripts" ] || { echo "$SKILL 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+  echo "$SKILL=$ROOT/skills/$SKILL/scripts"
 done
-SCRIPTS="$ROOT/skills/$SKILL/scripts"
+echo "PYTHON=$PYTHON PROJECT_ROOT=$PROJECT_ROOT"
 ```
 
-| 명령 | 하는 일 |
-|---|---|
-| `get-output-path --title {이름}` | 이번 대조의 **산출물 자리**를 만든다 (가장 먼저) |
-| `coverage --dump {파일} [--node {id}]` | 덤프의 요소·효과·스타일을 **빠짐없이 나열** |
-| `assets --dump {파일} [--node {id}]` | 내려받을 에셋을 묶어 **`nodes[]` 를 만들어 준다** |
-| `conform --dump {파일} --render {png} --node {id}` | 시안 값대로 그려졌는지 **속성으로 대조** (모서리·칠·그림자) |
-| `diff --render {png} --design {png} [--out {png}]` | 픽셀로 맞대 **덩어리로** 보고 (보조) |
+`pro-figma-verify=` 값이 `{SCRIPTS}`, `pro-launch=` 값이 `{LAUNCH}` 다. **찍는 것은 pro-launch 가 한다**(`../pro-launch/SKILL.md`).
 
-셋 다 JSON 을 돌려준다. `ok`·`code`·`summary`·`next` 를 보고 다음 수를 정한다.
-**판단은 네가 한다. 스크립트는 세고 나열하고 그릴 뿐이다.**
+## 공통 규칙
 
-## Phase 0 — 무엇을 다룰지 정한다
+- **JSON 하나를 돌려준다.** `ok` · `code` · `summary` · `next` 를 보고 다음 수를 정한다. **판단은 네가 한다** —
+  스크립트는 세고 나열하고 그릴 뿐이다.
+- **화면 하나씩 본다.** `--node` 없이 파일 전체를 넘기면 수천 개가 나와 분류할 수 없다. **공통 컴포넌트를 화면보다 먼저.**
+- **효과를 가장 먼저, 따로 본다.** `effect_counts` → `effects` 한 줄씩. `boxShadow[0]`·`[1]`… 번호만큼 코드에도 있어야 한다.
+  블러(자기가 흐려짐)와 배경 블러(뒤가 흐려짐)를 바꿔 쓰지 않는다.
+- **분류는 셋 중 하나**: 구현 · 근사(사유 필수) · 생략(사유 필수). 근사·생략은 **코드 주석에도** 사유를 남긴다.
+- **에셋은 증거 폴더(`run_dir`)에 받지 않는다** — `asset_dir_candidates` 중 하나(커밋돼야 하는 파일). 후보가 비면 묻는다.
+- **대조용 캡처는 원본 PNG**(`--keep-format`). pro-launch 기본(긴 변 1200 WebP)으로 줄이면 픽셀이 뭉개진다.
+- **픽셀 100% 일치를 요구하지 않고, 기본으로 CI 게이트를 걸지 않는다.** 퍼센트·덩어리 수를 결함 수로 읽지 않는다.
+- 기준은 언제나 **시안 export** 다. 구현자가 만든 골든은 기준이 아니다.
 
-### 산출물 자리를 먼저 만든다 ⚠️
+## 순서 — 단계별 결정 규칙
 
-**어디에 둘지 스스로 정하지 마라.** 정해 주지 않으면 매번 다른 곳에 쌓이고, 실제로
-다른 스킬에서 8MB 스크린샷이 추적되는 채로 엉뚱한 폴더에 쌓인 적이 있다 (#611).
+**Phase 0 — 자리를 받고 Figma 를 읽는다.**
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py get-output-path \
-  --title "{화면 이름}"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py get-output-path --title "{화면 이름}"
 ```
 
-돌려주는 자리는 **두 종류로 갈라져 있고, 섞으면 한쪽이 반드시 틀린다.**
+덤프·export·렌더·차이 그림은 `run_dir` 아래(추적 제외), 앱이 쓸 에셋은 `asset_dir_candidates`(추적).
+Figma 는 `depth: 2` 로 화면 목록 → 고른 화면 하나를 **`depth` 없이** 받아 **파일로** 둔다(`depth` 로 자르면 잘렸다는 표시가 없다).
+링크의 node-id(`238-1846` → `238:1846`)가 화면이라는 보장은 없다. 노드 id 를 모르면 묻는다.
 
-| 무엇 | 어디에 | 추적 |
-|---|---|:-:|
-| 덤프·시안 export·앱 렌더·차이 그림 | `run_dir` 아래 `dump`·`design`·`render`·`diff` | ❌ 폴더가 `.gitignore` 를 스스로 들고 있다 |
-| **실제 에셋** (앱이 쓸 아이콘·이미지) | `asset_dir_candidates` 중 하나 (`assets/images` 등) | ✅ **앱이 쓰는 파일이라 커밋돼야 한다** |
-
-> **에셋을 증거 폴더에 받지 마라.** 추적에서 빠져 있어 커밋되지 않고, 다른 사람이
-> 받았을 때 아이콘이 통째로 없는 앱이 된다. 후보가 비어 있으면 사용자에게 묻는다.
-
-### Figma 를 읽는다 — 공용 규칙 ⚠️
-
-**읽는 법은 `../references/figma-mcp.md` 에 있다.** 다른 스킬(`pro-design-brief`)도 같은 규칙으로
-읽으므로 여기에 복사해 두지 않는다. 처음 쓰는 파일이면 그 문서를 먼저 읽는다. 요지만 적는다.
-
-| 순서 | 무엇을 | 왜 |
-|---|---|---|
-| ① | **공통 컴포넌트를 화면보다 먼저** 맞댄다 | 하나가 어긋나면 그것을 쓰는 화면이 전부 어긋난다 — 실제로 아이콘 하나가 다섯 화면을 틀리게 했다 |
-| ② | 링크에서 `fileKey` · `nodeId` 를 뽑는다 (`238-1846` → `238:1846`) | |
-| ③ | **두 번에 나눠 받는다** — `depth: 2` 로 화면 목록 → 고른 화면 하나를 `depth` 없이 | 링크의 node-id 가 화면이라는 보장이 없다 (실측 SECTION, 108만 자) |
-| ④ | 응답을 **파일로 두고** `coverage` 에 넘긴다 (JSON·YAML 둘 다 받는다) | 스타일이 참조로만 오고, 그림자가 한 문자열에 여러 줄 뭉쳐 온다 |
-
-> **②에서는 `depth` 를 절대 주지 마라.** 트리를 자르는데 잘렸다는 표시가 없다.
-
-시안 노드 id 와 그에 대응하는(또는 만들) 화면을 짝짓는다. 노드 id 를 모르면 사용자에게 묻는다.
+**Phase 1 — 빠짐없이 분류한다.**
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py coverage \
-  --dump {덤프 파일} --node {노드 id}
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py coverage --dump {덤프 파일} --node {노드 id}
 ```
 
-> **화면 하나씩 본다.** 파일 전체를 넘기면 수천 개가 나온다 — 실측으로 한 보드에
-> 요소 3,851개 · 스타일 항목 5,931개였다. `--node` 로 화면 하나를 집으면 수십 개로
-> 줄어 사람이 실제로 분류할 수 있다.
+요소(`elements` — 화면에 있나) · 효과(`effects` — 한 줄도 안 빠졌나) · 스타일(`items`)을 **하나도 남기지 않고** 분류한다.
+`styles_resolved` 가 참조를 몇 개 이어 붙였는지 알려준다. 상태별 노드마다 돌리고, 시안에 **없는** 상태는 요청할 것으로 넘긴다.
 
-> **노드는 스타일을 참조로만 갖는다.** 실제 값은 `globalVars.styles` 에 따로 있고
-> 스크립트가 이어 붙인다. 이어 붙이지 않으면 `fills: "fill_B16QZY"` 가 값이 되어
-> 분류할 수 없고, 무엇보다 **여러 줄짜리 효과가 참조 한 줄로 뭉개져** 한 줄이 빠져도
-> 드러나지 않는다. 출력의 `styles_resolved` 가 몇 개를 이어 붙였는지 알려준다.
-
-## Phase 1 — 덤프를 빠짐없이 분류한다 ⚠️
-
-**세 층으로 본다.** `coverage` 는 셋 다 돌려준다.
-
-| 층 | 묻는 것 | 놓치면 |
-|---|---|---|
-| **요소** (`elements`) | 이것이 화면에 **있는가** | *"시안에 있는데 화면이 없다"* — 스타일만 세면 안 보인다 |
-| **효과** (`effects`) | 그림자·블러가 **한 줄도 안 빠졌는가** | 이번 사고 — 네 줄 중 세 줄이 빠졌다 |
-| **스타일 항목** (`items`) | 나머지 값이 **다 왔는가** | 색·간격·굵기가 조용히 달라진다 |
-
-### 효과를 가장 먼저, 따로 본다 ⚠️
-
-**효과는 layout 수십 줄 사이에 묻히면 아무도 안 본다.** 실측으로 한 화면이
-`layout 3,294 · fills 1,849 · effects 171` 이었다 — 효과는 3%다. 그런데 **빠뜨리는 것은
-거의 항상 이쪽**이다. 작고 은은해서 빠져도 눈에 안 띄기 때문이다.
-
-그래서 `coverage` 는 효과를 **따로 꺼내고 종류에 이름을 붙인다.**
-
-| 종류 | 무엇 | 빠지면 |
-|---|---|---|
-| `그림자` | 치우친 바깥 그림자 | 떠 있는 느낌이 사라진다 |
-| `안쪽 그림자` | `inset ...` | **가장 자주 빠진다** — 프레임워크가 지원 안 할 때가 많다 |
-| `글로우` | 치우침 0, 번짐만 (`0px 0px 30px`) | "빛나는" 느낌이 통째로 사라진다 |
-| `블러` | `filter: blur()` — 자기와 자식이 흐려진다 | |
-| `배경 블러` | `backdropFilter: blur()` — **뒤가** 흐려진다 | 유리 느낌이 사라진다 |
-
-> **블러와 배경 블러를 섞으면 결과가 전혀 다르다.** 이름이 비슷해 자주 바뀐다.
-
-`effect_counts` 로 종류별 개수를 먼저 확인하고, `effects` 를 **한 줄씩** 대조한다.
-
-> **한 문자열 안에 그림자가 여러 줄 들어 있다.** 실측 정의 12개 → 실제 16줄.
-> 스크립트가 쪼개므로 `boxShadow[0]`·`[1]`… 로 나온다. **번호가 있으면 그 개수만큼
-> 코드에도 있어야 한다.**
-
-### 상태를 다 세었는가 ⚠️
-
-**시안은 한 컴포넌트를 여러 상태로 그려 둔다**(disabled · 빈 값 · 진행 중 · 0건). 구현자는 대개
-기본 상태 하나만 보고 만든다. `coverage` 에 노드 하나만 넘기면 나머지 상태는 영영 안 세어진다 —
-**상태별 노드마다 돌린다.** 시안이 한 가지 내용(짧은 문구)으로만 그려져 있다는 것도 함께 본다.
-
-세는 법·흔히 빠지는 상태·코드의 5축 상태 목록은 **`../references/design-states.md`**.
-시안에 **없는** 상태를 찾았으면 대조 대상이 아니라 디자이너에게 요청할 것이다 (`pro-design-brief`).
-
-
-`coverage` 가 준 항목을 **하나도 남기지 않고** 셋 중 하나로 분류한다.
-
-| 분류 | 뜻 | 사유 |
-|---|---|---|
-| **구현** | 시안 값 그대로 들어갔다 | 불필요 |
-| **근사** | 값이 조금 다르다 | **필수** — 왜 그대로 못 넣었나 |
-| **생략** | 안 넣었다 | **필수** — 왜 빼기로 했나 |
-
-**값을 못 옮긴 것과 안 옮기기로 한 것을 구분하는 것이 이 단계의 전부다.**
-사유를 적지 않으면 나중에 둘을 구분할 수 없고, 구분할 수 없으면 검토할 수 없다.
-
-> 실제 사고에서 *"이 프레임워크는 안쪽 그림자를 지원하지 않으니 근사하자"* 고 판단한
-> 순간이 있었는데, **코드 주석에도 보고서에도 그 말이 없었다.** 생략이 기록되지 않으면
-> 아무도 되짚지 못한다.
-
-배열은 **원소마다 한 줄**로 나온다 (`effects[0]` `effects[1]` …). 네 줄짜리 효과에서
-한 줄이 빠지면 여기서 미분류로 드러난다 — 통째로 한 줄이면 티가 안 난다.
-
-프레임워크가 시안 값을 그대로 못 받는 자리는 `references/framework-gaps.md`.
-
-## Phase 2 — 에셋을 받는다 ⚠️
-
-**`get_figma_data` 는 그림을 주지 않는다.** 아이콘은 덤프 안에 `IMAGE-SVG` 노드로만
-있고 **모양 정보가 아예 없다.** 값을 아무리 잘 옮겨도 파일을 따로 받지 않으면
-화면에 아이콘이 없다.
+**Phase 2 — 에셋을 받는다.** `get_figma_data` 는 그림을 주지 않는다(`IMAGE-SVG` 노드에 모양 정보가 없다).
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py assets \
-  --dump {덤프 파일} --node {노드 id}
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py assets --dump {덤프 파일} --node {노드 id}
 ```
 
-돌려주는 `nodes` 를 **그대로** `mcp__figma__download_figma_images` 의 `nodes` 인자로
-넘기고, `localPath` 에 **Phase 0 의 `asset_dir_candidates` 중 고른 절대경로**를 준다.
+돌려준 `nodes` 를 **그대로** `download_figma_images` 의 `nodes` 에, `localPath` 는 고른 에셋 폴더의 절대경로.
+받은 뒤 `rename_me` · `certain: false` · 0 바이트 · 개수를 확인한다. `baked_effect` 항목은 **더 크게 온다** —
+코드에서 효과를 빼고 받은 크기 그대로 도형 중심에 둔다. 넣은 뒤 `fill`/`stroke` 값을 전수로 훑어 토큰에 없는 색을 찾는다.
 
-> - 프로젝트 밖은 거부된다 — `Invalid path specified. Directory traversal is not allowed.`
-> - **증거 폴더(`run_dir`)에 받지 마라.** 추적에서 빠져 커밋되지 않는다.
+**Phase 3 — 옮긴다.** 분류표가 곧 작업 목록이다. 이미 있는 토큰·컴포넌트를 먼저 쓴다(`references/conversion.md`).
+프레임워크가 그대로 못 받는 자리(안쪽 그림자 · 글로우 등)는 `references/framework-gaps.md`.
 
-### 순진하게 훑으면 이렇게 망가진다
-
-| 함정 | 실측 | 도구가 하는 일 |
-|---|---|---|
-| 노드마다 한 번씩 받는다 | 609번 받아 실제론 135개 | 증거로 묶어 준다 |
-| 레이어 이름을 파일명으로 | **46%가 거부된다** (한글·공백·`/`) | 통과하는 이름을 만든다 |
-| 이름이 같으면 같은 그림이겠지 | `Vector` 71개 = **서로 다른 48종** | 이름만 같으면 **안 묶는다** |
-| 이름으로 저장 | 609개 중 592개가 45종에 몰려 **덮어쓴다** | 겹치면 번호를 붙인다 |
-| 사진에 `imageRef` 누락 | 엉뚱한 그림이 온다 | 인자에 넣어 준다 |
-
-### 효과가 붙은 에셋은 **더 크게 온다** ⚠️
-
-`baked_effect` 가 붙은 항목은 번짐이 **그림 안에 SVG 필터로 박혀** 온다.
-
-> 실측: `layout` 36×34 인 글로우 도형이 **96×94** 로 왔다. 사방 30px 씩 늘어난 것이다.
-
-| 잘못 | 결과 |
-|---|---|
-| 레이아웃 크기(36×34)로 우겨 넣는다 | 글로우까지 줄어 **도형이 쪼그라든다** |
-| 효과를 코드로 또 넣는다 | **두 번 적용**돼 두 배로 번진다 |
-
-→ 그 항목은 **코드에서 효과를 빼고**, 크기는 받은 그림 그대로 두되 **도형 중심**으로
-배치한다. `coverage` 에서 그 효과 항목은 "구현(에셋에 포함)"으로 분류한다.
-
-### 받은 뒤 반드시 확인한다
-
-- `rename_me: true` — 원래 이름이 한글이라 **뜻을 잃었다.** `name` 을 보고 의미 있는
-  이름으로 고쳐서 넘긴다. `asset-976-4627.svg` 로 두면 다음 사람이 못 알아본다.
-- `certain: false` — `componentId` 가 없어 **내용이 같다는 것만 보고 묶었다.**
-  받은 뒤 눈으로 확인한다.
-- **파일 개수·0 바이트**를 센다. 받았다고 응답해 놓고 안 받아진 적이 있다.
-- **크기가 덤프와 다르면 효과가 박혀 온 것**이다. 위 절대로 처리한다.
-
-### 넣은 뒤 칠 값을 전수로 훑는다
-
-**"시안에서 받은 파일을 넣었으니 맞겠지"가 자주 틀린다.** 모양은 같은데 칠 값만 다른
-경우가 있다 — 다른 상태의 것을 받았거나 손으로 만들며 값이 섞인 것이다.
-
-```
-fill="#      fill:#      stroke="#      stroke:#
-```
-
-로 전부 뽑아 **디자인 토큰에 없는 값**을 찾는다. 그것이 후보다.
-
-> 실제로 아이콘 열일곱 개 중 둘이 토큰에 없는 값을 쓰고 있었다. 하나만 보면 알아채기
-> 어렵고 **같은 역할의 다른 아이콘과 나란히 놓았을 때** 비로소 보였다.
-
-## Phase 3 — 옮긴다
-
-**분류표가 곧 작업 목록이다.** 항목을 하나씩 처리한다. 나열을 건너뛰고 그림만 보고
-옮기면 작고 은은한 것이 그냥 빠진다 — 빠진 줄은 애초에 눈에 안 띈다.
-
-단위 환산·프레임워크별 방법·이미 있는 토큰을 쓰는 법은 `references/conversion.md`.
-
-**근사·생략은 코드 주석에 사유를 남긴다.** 남기지 않으면 못 옮긴 것인지 안 옮기기로
-한 것인지 나중에 아무도 구분하지 못한다.
-
-## Phase 4 — 속성으로 대조한다 ⚠️ (픽셀보다 먼저)
-
-**픽셀 퍼센트는 어디가 다른지만 말하고 무엇이 어떻게 다른지를 말하지 않는다.**
-
-> 실제 사고: 바텀시트 상단 모서리가 각져 있었다. 픽셀 도구는 이미 돌고 있었고 그 자리를
-> `476~519 / 0~785 / 평균차 77` 로 **리포트까지 했다.** 그런데 그 한 줄이 "모서리가
-> 각졌다"는 뜻인지 읽어낼 방법이 없었다. 전체 5.5% 다름에 덩어리 22개 —
-> **진짜 결함이 잡음에 묻혔다.** 사람은 22줄짜리 좌표표를 읽지 않는다.
-
-속성은 단정적이다. `좌상 r=20 인데 렌더가 각졌다`.
+**Phase 4 — 속성으로 대조한다(픽셀보다 먼저).**
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py conform \
-  --dump {덤프} --render {앱 렌더.png} --node {화면 노드 id}
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py conform --dump {덤프} --render {앱 렌더.png} --node {화면 노드 id}
+#   --check corners,fills,shadows   좁히기     --fail-on high   그 이상이면 종료코드 1 (기본 none)
 ```
 
-```
-사각형 31개 · corners·fills·shadows 검사 (배율 3) — high 2 · medium 1
-   [high  ] 카드 40x68 @16,390 좌상 r=16 → 렌더가 각졌다
-   [high  ] 배지 24x24 @300,120 투명도가 빠졌다 — 시안 alpha=0.4 인데 렌더가 원색 그대로다
-   [medium] 시트 393x420 @0,432 그림자가 안 보인다 — 시안은 0,8 blur 12 인데 …
-```
+`[high] … 좌상 r=16 → 렌더가 각졌다` 처럼 단정으로 나온다. **각졌다고 나오면 반지름을 다시 주지 말고 자식이 덮었는지**
+본다(Flutter `clipBehavior: Clip.antiAlias` · CSS/RN `overflow: hidden`). `INSTANCE` 가 스타일 없이 `componentId` 만 가지면
+컴포넌트 노드를 따로 받는다.
 
-정상 화면에서는 `이상 없음` 한 줄로 끝난다. **퍼센트 22줄이 못 한 일이다.**
-
-### 무엇을 보나
-
-| 검사 | 잡는 것 | 심각도 |
-|---|---|---|
-| `corners` | 시안이 둥글라 했는데 **각졌다** (기하로 판정) | high |
-| `fills` | 색이 다르다 · **투명도가 빠졌다** · **그라디언트를 단색으로 깔았다** | high |
-| `shadows` | 바깥 그림자가 **통째로 없다** | medium |
-
-셋 다 화면에서는 "비슷해" 보인다 — 눈으로도 픽셀 퍼센트로도 안 잡히고, **값을 알고 그 자리를 찍어야** 잡힌다.
-
-`--check corners,fills` 로 좁힐 수 있다. **사진(`imageRef`) 칠은 건드리지 않는다** — 시안의 이미지 참조와 렌더 픽셀은 애초에 비교 대상이 아니라, 잡기 시작하면 오탐이 쏟아진다.
-
-### CI 게이트
+**Phase 5 — 픽셀로 맞댄다(보조).** 같은 논리 크기 · 같은 안전영역 · 시안과 같은 내용으로 렌더한다(`references/rendering.md`).
 
 ```bash
-... conform --dump {덤프} --render {png} --node {id} --fail-on high
-```
-
-그 심각도 이상이 하나라도 있으면 **종료코드 1**. 기본값은 `none`(끊지 않음)이다 —
-임계를 잘못 잡으면 매번 빨개져 아무도 안 본다.
-
-### 각졌다고 나오면 먼저 이걸 의심한다 ⚠️
-
-**대개 라운드를 안 준 것이 아니라, 준 라운드를 자식이 덮은 것이다.**
-
-부모가 배경만 둥글게 칠하고 **자식을 자르지 않으면**(클리핑이 꺼져 있으면) 자식이 깐
-배경색이 둥근 자리를 메운다. 부모의 반지름 값은 코드에 멀쩡히 있으므로 코드만 읽어서는
-안 보인다 — 그려 봐야 보인다.
-
-| 프레임워크 | 자르는 스위치 |
-|---|---|
-| Flutter | `Container` 는 `decoration.borderRadius` 로 배경만 칠한다. `clipBehavior` 기본값이 `none` — `Clip.antiAlias` 로 켠다 |
-| React (CSS) | 부모에 `overflow: hidden` |
-| React Native | 부모에 `overflow: 'hidden'` — 단 그림자와 같이 주면 그림자가 잘린다 (`framework-gaps.md`) |
-
-### 다른 속성도 같은 방식으로 본다
-
-`conform` 은 **렌더에서 재어 판정할 수 있는 것**을 자동화한 것이다. 나머지는 `coverage` 가
-나열한 값을 코드와 눈으로 대조한다 — 특히 아래가 자주 어긋난다.
-
-| 항목 | 자주 빠지는 것 |
-|---|---|
-| 색 | hex 는 맞는데 **투명도**가 빠진다 (`conform` 이 잡는다) |
-| 선 | `strokeWeight` 는 맞는데 `strokeAlign`(안/가운데/밖)이 다르다 |
-| 타이포 | `lineHeight` · `letterSpacing` 이 기본값으로 남는다 |
-| 그라디언트 | 각도와 **스톱 위치**가 다르다. 단색으로 깔린 것은 `conform` 이 잡는다 |
-| 효과 | `framework-gaps.md` 의 표 — 안쪽 그림자·글로우 |
-| 상태 | 변형(variant)을 하나만 그린다 (Phase 1) |
-
-> **컴포넌트 원본은 화면 프레임이 아니라 컴포넌트 정의에 있다.** 화면 안의 `INSTANCE` 는
-> 참조만 하는 경우가 있다 — 실측으로 474개 중 **81개(17%)** 가 `componentId` 만 갖고
-> 스타일 키가 아예 없었다. 그런 노드는 화면만 읽어서는 반지름·색·상태를 알 수 없다.
-> `componentId` 를 따라 **컴포넌트 쪽 노드를 따로 받아** 값을 확인한다.
-
-## Phase 5 — 픽셀로 맞댄다 (보조)
-
-**속성으로 못 잡는 것만 본다** — 그림 자체가 다른 경우, 요소가 통째로 빠진 경우.
-퍼센트와 덩어리 수를 **결함 수로 읽지 않는다.**
-
-시안 노드를 이미지로 받고, 앱을 **같은 논리 크기·같은 안전영역**으로 렌더해 맞댄다.
-렌더를 시안과 같게 맞추는 방법은 `references/rendering.md` — **안 맞추면 본문이 통째로
-떠서 전부 어긋난 것으로 나온다.**
-
-**찍는 것은 pro-launch 로 한다** (스크립트는 `common-rules.md` 표준 블록을 `SKILL=pro-launch` 로 찾는다 → `{LAUNCH}`).
-대조용이므로 **원본 PNG** 를 받는다 — pro-launch 기본값(긴 변 1200 WebP)으로 줄이면 픽셀이 뭉개진다.
-
-```bash
-# 코드로 그려 찍는다 (Flutter 위젯 테스트 · 3배 Playwright 등) — 흔적 검사까지 한다
-{PYTHON} {LAUNCH}/launch_cli.py render snapshot --root {레포}
-{PYTHON} {LAUNCH}/launch_cli.py render run --root {레포} --cmd "{렌더 명령}" \
-  --collect "{렌더 결과 글롭}" --cleanup {임시 폴더}
-
-# 또는 기기·브라우저에서 그대로 받는다
-{PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV" --keep-format --out render
-{PYTHON} {LAUNCH}/launch_cli.py web shot --keep-format --out render
-```
-
-```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py diff \
-  --render {앱 렌더.png} --design {시안 export.png} --out {차이.png} \
+PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py render snapshot --root {레포}
+PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py render run --root {레포} --cmd "{렌더 명령}" --collect "{렌더 결과 글롭}" --cleanup {임시 폴더}
+PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV" --keep-format --out render   # 또는 기기에서 그대로
+PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py web shot --keep-format --out render
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py diff --render {앱 렌더.png} --design {시안 export.png} --out {차이.png} \
   --mask-top {상태바 높이} --mask-bottom {홈 인디케이터 높이}
 ```
 
-### 덩어리가 여럿이면 먼저 "통째로 밀렸나"를 본다 ⚠️
+덩어리가 여럿이면 **`shift_probe` 부터** — `looks_shifted: true` 면 컨테이너 하나가 밀린 것이다. 글자 자리 덩어리는 대개 무해,
+도형·여백·배경 자리는 실제로 틀린 것. 시안 모서리가 투명하면 `--bg RRGGBB`.
 
-`diff` 는 렌더를 조금씩 옮겨 보고 **한 번에 맞아떨어지는 자리가 있는지** 알려준다
-(`shift_probe`). 있으면 낱낱이 어긋난 것이 아니라 **컨테이너 하나가 밀린 것**이다.
+**Phase 6 — 컴포넌트를 3배로 따로 본다.** 그림자·발광·1px 테두리는 1배 전체 화면에서 사라진다. pro-launch 브라우저는
+1배 고정이라 3배는 임시 렌더 코드를 `render run` 으로 돌린다(`references/rendering.md`).
 
-```json
-{"shift_probe": {"dy": -35, "dx": 0, "before": 31.88, "after": 0.0,
-                 "looks_shifted": true}}
-```
+**Phase 7 — 보고한다.** **생략·근사를 맨 위에**, 그다음 속성 대조, 마지막에 픽셀 대조. 값은 다시 셀 수 있게(좌표 · 크기 · 평균차),
+무엇과 맞댔는지 노드 id 를 남긴다. 형식과 함정 표는 `references/comparing.md`.
 
-이때 고칠 곳은 안의 요소가 아니라 **그것을 담은 것**이다 — 컨테이너 높이·여백·안전영역.
+## 실패 code → 다음 행동
 
-> 실제로 시트 윗변이 35px 아래에 뜨자 안의 단계·보상·버튼이 **전부 두 겹**으로 보였다.
-> 덩어리가 열 개 나왔지만 틀린 것은 하나였다. 덩어리만 세면 "열 군데가 어긋났다"로
-> 읽혀 엉뚱한 데를 고치게 된다.
-
-**퍼센트가 아니라 덩어리 위치를 본다.**
-
-| 덩어리가 있는 곳 | 대개 |
+| code | 다음 행동 |
 |---|---|
-| 글자 자리 | 래스터라이저 차이 — 무해 |
-| 도형·여백·배경 자리 | **실제로 틀린 것** |
-
-> 배경색은 기본값 `auto` 로 시안 모서리에서 읽는다. 앱 렌더는 바깥 발광이 반투명으로
-> 남고 시안은 배경이 합성된 채로 오므로, 같은 배경 위에 올려놓지 않으면 **발광 전체가
-> '다름'으로 잡혀** 결과가 의미를 잃는다. 시안 모서리가 투명하면 `--bg RRGGBB` 로 준다.
-
-> 상태바·홈 인디케이터는 앱이 안 그리는 영역이라 늘 다르게 나온다. `--mask-*` 로 가린다.
-
-## Phase 6 — 컴포넌트를 따로 본다 ⚠️
-
-**그림자·발광·1px 테두리는 전체 화면에서 사라진다.** 화면 전체 1배로만 보면 이번 사고와
-똑같이 지나간다.
-
-문제로 지목된 컴포넌트 하나만 시안 export 와 **같은 배율**(보통 3배)로 찍어 다시 맞댄다.
-배율을 맞추는 방법은 `references/rendering.md` — Flutter 는 `RepaintBoundary` 로 감싼 위젯 테스트를,
-웹은 `deviceScaleFactor: 3` Playwright 스크립트를 임시로 짜 `render run` 으로 돌린다
-(pro-launch 브라우저는 1배로 고정이라 3배를 직접 못 찍는다).
-
-## Phase 7 — 보고
-
-**생략·근사를 맨 위에 모은다.** 픽셀 결과보다 먼저다 — 그게 검토받아야 할 판단이다.
-
-```
-## 분류하지 못한 것 / 생략·근사
-  931:4010/effects[1]  안쪽 하이라이트   생략 — 프레임워크가 inset 을 지원하지 않음
-  ...
-
-## 픽셀 대조
-  전체 화면  다른 픽셀 2.9%  덩어리 3개
-    y120~168 x24~369   글자 자리 — 래스터라이즈 차이로 판단
-    y430~498 x16~377   도형 자리 — 확인 필요
-  버튼 3배   평균 채널차 3.0
-```
-
-값은 **다시 셀 수 있게** 적는다 (좌표·크기·평균차). "비슷해 보인다"는 근거가 아니다.
-
-## 자주 묻는 함정
-
-| 함정 | 대응 |
-|---|---|
-| **전체 화면만 보고 통과** | 그림자·발광·1px 테두리는 그 크기에서 몇 픽셀이다. 컴포넌트를 따로 3배로 본다 |
-| **골든을 구현자가 만든다** | 효과가 빠진 채로 찍어도 그게 기준이 된다. 기준은 **시안 export** 여야 한다 |
-| **PNG 만 보고 토큰을 고른다** | 그림에서 굵기·색 코드는 안 읽힌다. **덤프의 값**을 읽는다 |
-| **모양이 같아 기존 에셋 재사용** | 모양이 같아도 색이 다를 수 있다. 재사용도 분류 대상이다 |
-| **시안과 다른 내용으로 렌더** | 목록 개수·문구가 다르면 diff 가 통째로 붉어져 정작 봐야 할 어긋남이 묻힌다 |
-| **안전영역을 안 맞춤** | 본문이 상태바 높이만큼 떠서 전부 어긋난 것으로 나온다 |
-| **덩어리 없이 픽셀 단위 보고** | 안티에일리어싱 노이즈에 묻혀 못 읽는다 (스크립트가 묶어 준다) |
-| **덩어리 수를 결함 수로 읽는다** | 컨테이너 하나가 밀리면 안의 줄이 전부 잡힌다. `shift_probe` 를 먼저 본다 |
-| **화면부터 본다** | 공통 컴포넌트가 어긋나 있으면 같은 원인을 화면 수만큼 적게 된다 |
-| **에셋을 넣었으니 맞겠지** | 모양이 같아도 **칠 값**이 다를 수 있다. 토큰에 없는 색이 쓰였는지 전수로 훑는다 |
-| **골든을 기준으로 삼는다** | 골든은 **구현자가 만든다.** 틀린 것을 고정해 두고 거기서 벗어나는 것만 잡는다 — 기준은 시안 export 다 |
-| **무엇과 맞댔는지 안 남긴다** | 다음 사람이 어느 노드와 비교할지 몰라 처음부터 다시 찾는다. 노드 id 를 테스트·주석에 남긴다 |
-| **효과를 스타일 목록에 섞어 본다** | 수천 줄 중 3%라 묻힌다. `effects` 를 **따로** 먼저 본다 |
-| **`boxShadow` 를 한 줄로 센다** | 한 문자열에 네 줄이 들어 있다. 번호(`[0]`·`[1]`…)만큼 코드에도 있어야 한다 |
-| **블러와 배경 블러를 바꿔 쓴다** | 자기가 흐려지는 것과 뒤가 흐려지는 것은 전혀 다르다 |
-| **에셋을 안 받고 값만 옮긴다** | 덤프에 그림이 없다. 화면에 아이콘이 통째로 없다 |
-| **이름이 같으니 같은 아이콘이겠지** | `Vector` 71개가 48종이었다. `certain` 이 false 면 눈으로 확인한다 |
-| **`nodeId` 없이 파일 전체를 받는다** | 스타일 항목 5,949개가 와서 분류가 불가능해진다 |
-| **`depth` 로 얕게 받아 분류한다** | 잘렸다는 표시가 없어 "요소가 몇 개뿐"이라고 잘못 결론 낸다. `depth` 는 화면 목록 찾을 때만 |
-| **링크의 node-id 를 화면이라 믿는다** | SECTION 이면 1MB 가 온다. `depth 2` 로 화면 목록을 먼저 본다 |
-| **받은 에셋을 레이아웃 크기로 넣는다** | 효과가 박혀 크게 온다. 도형이 쪼그라든다 |
-| **에셋에 박힌 효과를 코드로 또 넣는다** | 두 번 적용돼 두 배로 번진다 |
-| **퍼센트만 보고 통과를 판단한다** | 어디가 다른지만 알고 무엇이 틀렸는지는 모른다. `conform` 을 먼저 돌린다 |
-| **각졌길래 반지름을 다시 준다** | 값은 이미 있다. **자식이 덮은 것**이라 클리핑을 켜야 한다 |
-| **화면 노드만 읽고 컴포넌트 값을 판단한다** | INSTANCE 17%가 스타일을 아예 안 갖는다. `componentId` 를 따라간다 |
-| **투명도를 빼고 색만 맞춘다** | hex 가 같아도 화면이 다르다 |
+| `dump_not_found` · `dump_unreadable` | 덤프를 파일로 다시 저장한다(JSON·YAML). MCP 응답을 그대로 붙여 넣지 않는다 |
+| `node_not_found` | `--node` 가 덤프 안에 없다. `depth: 2` 목록에서 화면 노드를 다시 고르거나 그 노드를 받아 온다 |
+| `no_style_found` | 스타일 항목이 0건이다. 노드 id 가 맞는지, 덤프가 스타일을 포함하는지(`depth` 없이 받았는지) 본다 — 0건 통과는 대조를 안 한 것이다 |
+| `render_not_found` · `image_not_found` · `image_unreadable` | 렌더·시안 PNG 경로를 확인한다. WebP 로 줄였으면 `--keep-format` 으로 다시 찍는다 |
+| `imaging_missing` | 이미지 라이브러리(Pillow)가 없다. 설치를 사용자에게 제안한다 |
+| `unknown_check` | `--check` 는 `corners` · `fills` · `shadows` 만 받는다 |
+| `bad_bg` · `bad_mask` | `--bg` 는 `auto` 또는 `RRGGBB` · `--mask-top`+`--mask-bottom` 은 0 이상이고 시안 높이보다 작아야 한다 |
+| `conformance_failed` | `--fail-on` 이상 항목이 있다. 출력 항목을 고치거나 근사·생략 사유를 남긴다 |
+| `mkdir_failed` | 산출물 자리를 못 만들었다. 권한·`--root` 를 확인한다 |
+| `bad_args` | 서브커맨드·필수 인자(`--dump` · `--render` · `--design` · `--title`)를 확인한다 |

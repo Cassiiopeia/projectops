@@ -1,5 +1,7 @@
 # 기기가 여러 대일 때 (target: app)
 
+> 언제 읽나: 참가자가 둘 이상이라 기기를 두 대 이상 써야 할 때(연결·공유·초대), `build_mismatch` 가 났을 때.
+
 연결·공유·초대는 **참가자가 둘**이라 기기 한 대로는 밟을 수 없다. 한쪽에서 만든 것을
 다른 쪽이 받아야 비로소 확인되는 흐름이다.
 
@@ -34,7 +36,7 @@ export DEV="$DEV1"
 ```bash
 source "{env_file 값}"
 
-adb -s "$DEV1" shell input tap {x} {y}          # A 가 조작
+{PYTHON} {LAUNCH}/launch_cli.py app tap --device "$DEV1" --text "{버튼}"   # A 가 조작
 {PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV2" --out {이름}   # B 화면을 본다
 ```
 

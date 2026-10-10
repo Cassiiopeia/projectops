@@ -1,5 +1,7 @@
 # 앱·웹·서버가 아닌 것을 밟는다 (target: other)
 
+> 언제 읽나: Phase 0 에서 타겟이 `other`(CI 워크플로·CLI·라이브러리·템플릿·배치)로 정해졌을 때.
+
 `pro-agent-test`가 **CI 워크플로·CLI 툴·라이브러리·템플릿·배치·마이그레이션 스크립트**를
 밟을 때 쓰는 문서. 앱(`target-app.md`)·웹(`target-web.md`)·서버(`target-server.md`)를
 밟을 때는 읽을 필요가 없다.
