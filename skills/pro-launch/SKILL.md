@@ -22,7 +22,7 @@ description: "앱·웹·서버를 띄우고, 조작하고, 찍는 능력 스킬�
 | 앱 띄우기 · 찍기 | `app launch` · `app shot [--clean-status]` | `references/app.md` |
 | 앱 화면 구조 · 누르기 · 밀기 | `app tree` · `app tap` · `app swipe` | `references/app.md` |
 | 앱에 글자 넣기(Android, 저장된 로그인) | `app type --cred 이름` | `references/app.md` |
-| 브라우저 열기 · 이동 · 클릭 · 입력 · 캡처 · 확인 | `web setup\|open\|goto\|click\|type\|shot\|assert\|console\|close` | `references/web.md` |
+| 브라우저 열기 · **화면 읽기 · 누를 것 고르기** · 확인하며 클릭 · 입력 · 캡처 | `web setup\|open\|goto\|text\|find\|click\|type\|shot\|assert\|console\|close` | `references/web.md` |
 | 폭 바꾸기 · 응답 바꿔치기(빈 목록 · 500 · 지연) | `web viewport` · `web route` | `references/web.md` |
 | 코드로 상태를 그려 찍기 | `render snapshot` → `render run` | `references/render.md` |
 | 단건 HTTP · 붙는 법 기록 · SQL · 로그 | `http` · `access show\|set\|unset` · `db` · `logs` | `references/server.md` |
@@ -70,7 +70,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
   요소를 못 찾으면 `candidates`(화면에 실제로 있는 값)와 `locale` 이 온다 — **추측을 반복하지 말고 거기서 고른다.**
 - 캡처는 기본 긴 변 1200px WebP. 픽셀 대조처럼 원본이 필요할 때만 `--keep-format`. **찍은 것은 Read 로 열어 본다.**
   텍스트로 확인되면(`web assert` · `app tree` · 로그) 이미지를 읽지 않는다 — 가장 비싼 것이 이미지다.
-- **호스트 마우스로 좌표를 누르지 않는다**(`cliclick` · AppleScript · CGEvent) — 사용자 커서를 빼앗는다. 앱은 `app tap`, 웹은 셀렉터.
+- **호스트 마우스로 좌표를 누르지 않는다**(`cliclick` · AppleScript · CGEvent) — 사용자 커서를 빼앗는다. 앱은 `app tap`, 웹은 `web find` → `web click --ref`.
 - **자격증명을 평문으로 다루지 않는다.** 명령줄 `--text` 대신 `--cred`(저장된 것) · `--text-env`(일회용),
   명령 문자열에는 `$CRED_*` 환경변수. 결과·보고·이슈·커밋에 값을 옮기지 않는다. `access` 에는 비밀을 적지 않는다.
 - 바꾸는 조작(제출 · 삭제 · 결제 · 발송)은 **로컬만 그냥** 한다. 그 밖은 멈추고 묻는다 (`references/web.md` 안전 계약).
@@ -105,8 +105,10 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app swipe  --device "$DE
 ## 웹 — 이럴 땐 이것
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web open --url {주소}              # 처음 한 번
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web click --selector "text=로그인"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web open --url {주소}              # 떠 있으면 다시 붙는다(reused)
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web text                           # 화면 글자를 읽는다 — 스크린샷보다 싸다
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web find --text "로그인"            # 후보를 ref · 링크 주소와 함께
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web click --ref 1 --expect-url /home   # 고른 것만, 결과까지 확인
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web viewport --preset mobile
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web route --match "**/api/items*" --status 200 --body "[]"
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web goto --url {그 화면}            # 규칙은 이동할 때 걸린다
@@ -114,9 +116,20 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web shot --out 02_빈목
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web route --clear
 ```
 
+- **읽고 → 번호로 고르고 → 확인하며 누른다.** 선택자를 짐작하지 않는다. `click` 은 무엇을 눌렀고(`clicked`) 주소·제목이
+  바뀌었는지(`changed`) 돌려준다. `changed: false` 면 엉뚱한 것을 누른 것이다 — `find` 로 다시 고른다. 정보는 `web text` 로 읽고 `shot` 은 모양을 볼 때만.
+- **관리 콘솔(Play Console · App Store Connect · 결제·관리자)은 `web open --readonly`.** 삭제·출시·제출 같은 **버튼**은
+  `mutating_blocked` 로 막힌다(링크·탭·표 행은 이동이라 열린다). 승인받은 경우에만 `--confirm-mutating`.
 - 빈 목록 · 실패 · 로딩은 **서버를 건드리지 않고** `route` 로 연출한다(`--status 500` · `--delay 5000`). 끝나면 `--clear`.
 - Google·Apple 로그인이 막히면 먼저 `web open --headed`. 사이트가 이상하면 `--no-stealth` 로 비교한다.
 - `playwright_missing` 이면 사용자에게 묻고 `web setup`. `browser_not_open` · `browser_gone` 이면 `web open` 을 다시.
+
+| code | 다음 행동 |
+|---|---|
+| `nothing_found` · `selector_not_found` | `web text` 로 화면 글자를 읽고 그 글자로 `find` 를 다시 |
+| `ref_stale` | 화면이 바뀌었다. `find` 를 다시 |
+| `expect_not_met` | 기대한 결과가 안 왔다. `web text` 로 지금 화면을 보고 다른 후보를 고른다 |
+| `mutating_blocked` | 읽기 전용 세션이 위험 버튼을 막았다. 무엇이 바뀌는지 사용자에게 말하고 승인받는다 |
 - **처음 웹을 몰기 전에 `references/web.md` 의 안전 계약을 읽는다.**
 
 ## render · 서버 · 자격증명 · 기억 — 이럴 땐 이것

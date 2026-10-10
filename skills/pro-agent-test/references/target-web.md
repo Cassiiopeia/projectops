@@ -22,14 +22,19 @@ PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py web setup
 
 ```bash
 {PYTHON} {LAUNCH}/launch_cli.py web open  --root {ROOT} --url {주소}
-{PYTHON} {LAUNCH}/launch_cli.py web shot  --root {ROOT} --out step_N     # 매 조작 전에 본다
-{PYTHON} {LAUNCH}/launch_cli.py web click --root {ROOT} --selector "{셀렉터}"
+{PYTHON} {LAUNCH}/launch_cli.py web text  --root {ROOT}                  # 매 조작 전에 지금 화면을 읽는다
+{PYTHON} {LAUNCH}/launch_cli.py web find  --root {ROOT} --text "{누를 것의 글자}"
+{PYTHON} {LAUNCH}/launch_cli.py web click --root {ROOT} --ref {번호} --expect-url /home   # 결과가 안 오면 실패로 돌아온다
+{PYTHON} {LAUNCH}/launch_cli.py web shot  --root {ROOT} --out step_N     # 증거·모양 확인이 필요한 단계에서
 {PYTHON} {LAUNCH}/launch_cli.py web assert --root {ROOT} --url /home --text "환영"
 {PYTHON} {LAUNCH}/launch_cli.py web console --root {ROOT}                # 로드 중 오류까지
 {PYTHON} {LAUNCH}/launch_cli.py web close --root {ROOT}
 ```
 
-**찍은 화면은 Read 로 열어 본다.** 매 조작 전에 `shot` 으로 화면을 본다 — 이전 화면 기억으로 누르지 않는다.
+**매 조작 전에 `web text` 로 지금 화면을 읽는다** — 이전 화면 기억으로 누르지 않는다. 누를 것은 `find` 의 번호로
+고르고, `--expect-url`·`--expect-text` 로 결과를 확인한다(`changed: false` 면 엉뚱한 것을 누른 것이다).
+**결함의 증거나 배치·잘림처럼 모양이 중요한 단계에서는 `shot` 을 찍고 Read 로 연다.** 판단은 `pro-launch` 의
+`references/web.md` "조작" 절을 따른다.
 
 ## 바깥 경로를 연출한다 — 서버를 건드리지 않는다
 

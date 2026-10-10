@@ -85,6 +85,10 @@ def out(payload: dict) -> int:
         payload["migrated"] = moved
     if warns:
         payload["migration_warnings"] = warns
+    # summary 는 언제나 문자열이다 (#825) — None 이 섞이면 부르는 쪽 파싱이 깨진다(실측).
+    if not payload.get("summary"):
+        act = payload.get("action")
+        payload["summary"] = payload.get("error") or (f"{act} 완료" if act else "완료")
     return emit(payload)
 
 
@@ -341,9 +345,11 @@ def cmd_doctor(args) -> int:
     home = _home(root)
     shrink_by = resize_tool()
     pw = _playwright_state()
+    open_browser = _open_browser_status(_web_state_path(root))
     return out({
         "checks": checks,
         "browser": pw,
+        "open_browser": open_browser,
         "image_resize": shrink_by or "없음 — 캡처가 원본 크기로 남아 토큰·전송량이 커진다",
         "image_hint": None if shrink_by else
             "web setup 을 돌리면 전용 venv 에 Pillow 가 함께 깔립니다 (시스템은 건드리지 않습니다)",
@@ -356,6 +362,30 @@ def cmd_doctor(args) -> int:
                    + f" · 브라우저 {'준비' if pw['ready'] else '없음'}"
                    + f" · 이미지 축소 {shrink_by or '불가'}",
     })
+
+
+# 마지막으로 쓴 뒤 이만큼 지나면 "방치됐다"고 본다 — 다른 세션이 쓰는 중인지 가를 근거 (#825)
+_STALE_BROWSER_HOURS = 6
+
+
+def _open_browser_status(state_f: Path) -> dict | None:
+    """이 레포에 떠 있는 브라우저가 있나, 언제 마지막으로 썼나. 없으면 None."""
+    st = _read_web_state(state_f) if state_f.is_file() else {}
+    pid = st.get("pid")
+    if not pid:
+        return None
+    alive = _pid_alive(int(pid))
+    used = st.get("last_used") or st.get("opened_at")
+    idle_h = None
+    try:
+        idle_h = round((time.time() - time.mktime(time.strptime(used, "%Y-%m-%d %H:%M:%S"))) / 3600, 1)
+    except (TypeError, ValueError):
+        pass
+    stale = alive and idle_h is not None and idle_h >= _STALE_BROWSER_HOURS
+    return {"pid": pid, "alive": alive, "opened_at": st.get("opened_at"), "last_used": used,
+            "idle_hours": idle_h, "readonly": bool(st.get("readonly")), "stale": stale,
+            "hint": (f"{idle_h}시간째 안 쓴 브라우저다 — 다른 세션이 쓰는 중이 아니면 web close 로 정리하거나 web open 으로 다시 붙는다"
+                     if stale else None)}
 
 
 def cmd_detect(args) -> int:
@@ -1158,6 +1188,204 @@ def _install_console_hook(page) -> bool:
         return False
 
 
+# ── agent 가 혼자 브라우저를 몰 수 있게 (#825) ───────────────────────────
+#
+# 스크린샷과 "있나 없나(assert)"만으로는 화면을 읽을 수 없어서 agent 가 선택자를 **추측**했다.
+# 추측한 클릭은 엉뚱한 메뉴를 누르고도 ok 를 돌려줬다(Play Console 실측). 그래서 루프를 바꾼다.
+#
+#   web find  → 후보를 번호(ref)·글자·링크 주소와 함께 돌려준다 (요소에 data-pops-ref 를 단다)
+#   web click --ref N --expect-url/--expect-text → 그 요소만 누르고, 결과가 안 오면 실패로 보고한다
+#   web text  → 보이는 글자를 읽는다 (스크린샷보다 훨씬 싸다)
+#
+# 관리 콘솔(Play Console · App Store Connect)은 `web open --readonly` 로 연다.
+# 읽기 전용 세션에서는 되돌릴 수 없는 일을 하는 버튼을 --confirm-mutating 없이 누르지 않는다.
+
+_REF_ATTR = "data-pops-ref"
+
+# 읽기 전용 세션에서 막는 버튼 문구. "취소·확인"은 대화상자를 닫는 데도 쓰여 넣지 않았다.
+_MUTATING_RE = re.compile(
+    r"(삭제|제거|출시|게시|제출|전송|보내기|저장|승인|결제|구매|업로드|배포|폐기|롤아웃|"
+    r"\b(delete|remove|publish|release|roll ?out|submit|send|save|approve|pay|purchase|upload|deploy|discard)\b)",
+    re.IGNORECASE)
+
+
+def _is_mutating(label: str) -> bool:
+    """버튼 문구가 되돌리기 어려운 동작인가. 읽기 전용 세션에서 클릭을 막는 기준이다."""
+    return bool(_MUTATING_RE.search(label or ""))
+
+
+# 화면 이동으로 보는 요소 — 문구에 "제출·게시"가 있어도 막지 않는다.
+# Play Console 의 "제출 활동"·"게시 개요"는 기록을 보는 링크인데, 문구만 보면 위험 버튼으로 걸렸다(실측).
+_NAV_ROLES = {"link", "tab", "row", "menuitem", "treeitem", "option"}
+
+
+def _is_mutating_target(info: dict) -> bool:
+    """요소 종류까지 보고 판단한다. 링크·탭·행은 이동이라 허용하고, 버튼류만 문구로 검사한다."""
+    tag, role = (info.get("tag") or ""), (info.get("role") or "")
+    if (tag == "a" and info.get("href")) or role in _NAV_ROLES:
+        return False
+    return _is_mutating(f"{info.get('text') or ''} {info.get('aria') or ''}")
+
+
+# 클릭할 수 있는 것으로 보는 요소. 표의 행(role=row)도 넣는다 — 콘솔은 행 전체가 링크인 경우가 많다.
+_CLICKABLE = ("a[href],button,[role=button],[role=link],[role=tab],[role=menuitem],[role=row],"
+              "[role=option],[role=checkbox],[role=switch],[onclick],input[type=submit],"
+              "input[type=button],input[type=checkbox],summary")
+
+_FIND_JS = """(o) => {
+  const ATTR = o.attr;
+  document.querySelectorAll('[' + ATTR + ']').forEach(e => e.removeAttribute(ATTR));
+  const visible = e => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e);
+    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
+  const label = e => ((e.innerText || e.value || '') + ' ' + (e.getAttribute('aria-label') || '')).replace(/\\s+/g, ' ').trim();
+  let els;
+  if (o.selector) els = [...document.querySelectorAll(o.selector)];
+  else if (o.role === 'link') els = [...document.querySelectorAll('a[href],[role=link]')];
+  else if (o.role === 'button') els = [...document.querySelectorAll('button,[role=button],input[type=submit],input[type=button]')];
+  else if (o.role) els = [...document.querySelectorAll('[role=' + o.role + ']')];
+  else els = [...document.querySelectorAll(o.clickable)];
+  let fallback = false;
+  if (o.text) {
+    const t = o.text.toLowerCase();
+    let hit = els.filter(e => label(e).toLowerCase().includes(t));
+    if (!hit.length && !o.selector && !o.role) {
+      // 클릭 가능한 요소 안에 그 글자가 없으면, 글자를 가진 가장 안쪽 요소를 찾아 가장 가까운 클릭 대상으로 올린다
+      const leaves = [...document.querySelectorAll('body *')].filter(e =>
+        (e.innerText || '').toLowerCase().includes(t) &&
+        ![...e.children].some(c => (c.innerText || '').toLowerCase().includes(t)));
+      hit = [...new Set(leaves.map(e => e.closest(o.clickable) || e))];
+      fallback = true;
+    }
+    els = hit;
+  }
+  // 구체적인 것부터 — 진짜 링크·버튼이 그것을 감싼 행보다 먼저 나와야 첫 후보를 눌러도 헛클릭이 안 된다.
+  // (Play Console 실측: 행이 먼저 나와 눌렀더니 아무 일도 없었고, 실제 링크는 행 안의 화살표였다)
+  const rank = e => (e.matches('a[href]') ? 0 : e.matches('button,input[type=submit],input[type=button]') ? 1
+    : e.matches('[role=link],[role=button],[role=tab],[role=menuitem]') ? 2 : e.matches('[role=row]') ? 4 : 3);
+  els = els.map((e, i) => [e, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]);
+  const items = [];
+  for (const e of els) {
+    if (items.length >= o.limit) break;
+    if (!visible(e)) continue;
+    const ref = items.length + 1;
+    e.setAttribute(ATTR, String(ref));
+    items.push({ ref, tag: e.tagName.toLowerCase(), role: e.getAttribute('role'),
+      text: (e.innerText || e.value || '').replace(/\\s+/g, ' ').trim().slice(0, 120),
+      aria: e.getAttribute('aria-label'), href: e.getAttribute('href'),
+      clickable: e.matches(o.clickable),
+      disabled: !!e.disabled || e.getAttribute('aria-disabled') === 'true' });
+  }
+  return { items, total: els.length, fallback };
+}"""
+
+_DESCRIBE_JS = """(e) => ({ tag: e.tagName.toLowerCase(), role: e.getAttribute('role'),
+  text: (e.innerText || e.value || '').replace(/\\s+/g, ' ').trim().slice(0, 120),
+  aria: e.getAttribute('aria-label'), href: e.getAttribute('href') })"""
+
+
+def _web_find(page, args) -> dict:
+    res = page.evaluate(_FIND_JS, {"attr": _REF_ATTR, "clickable": _CLICKABLE, "text": args.text,
+                                   "role": args.role, "selector": args.selector, "limit": args.limit})
+    items = res.get("items") or []
+    for it in items:
+        it["mutating"] = _is_mutating_target(it)
+    if not items:
+        return {"ok": False, "code": "nothing_found", "action": "find", "url": page.url, "title": page.title(),
+                "error": "조건에 맞는 보이는 요소가 없습니다",
+                "next": "web text  # 화면 글자를 먼저 읽고 --text 를 그 글자로 다시 찾는다"}
+    return {"action": "find", "items": items, "total": res.get("total"), "shown": len(items),
+            "fallback": res.get("fallback"), "url": page.url, "title": page.title(),
+            "summary": f"후보 {len(items)}개 (전체 {res.get('total')})",
+            "next": "web click --ref <번호> --expect-url <바뀔 주소 일부>  # 고른 것만 누른다"}
+
+
+def _web_text(page, args) -> dict:
+    loc = page.locator(args.selector).first if args.selector else page.locator("body")
+    if args.selector and page.locator(args.selector).count() == 0:
+        return {"ok": False, "code": "selector_not_found", "action": "text", "url": page.url,
+                "error": f"{args.selector} 에 맞는 요소가 없습니다", "next": "web find --text <글자>"}
+    raw = loc.inner_text(timeout=args.timeout * 1000)
+    lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
+    text = "\n".join(lines)
+    cut = len(text) > args.max_chars
+    return {"action": "text", "text": text[:args.max_chars], "truncated": cut, "chars": len(text),
+            "url": page.url, "title": page.title(),
+            "summary": f"글자 {len(text)}자" + (f" (앞 {args.max_chars}자만)" if cut else ""),
+            "next": "web find --text <누를 것의 글자>" + ("  # 잘렸으면 --selector 로 범위를 좁힌다" if cut else "")}
+
+
+def _web_click(page, args, state: dict) -> dict:
+    """고른 요소 하나만 누르고, 무엇을 눌렀고 무엇이 바뀌었는지 돌려준다."""
+    if args.ref is None and not args.selector:
+        return {"ok": False, "code": "target_required", "action": "click",
+                "error": "--ref 나 --selector 가 필요합니다",
+                "next": "web find --text <글자>  # 후보 번호를 받아 --ref 로 누른다"}
+    target = f'[{_REF_ATTR}="{args.ref}"]' if args.ref is not None else args.selector
+    loc = page.locator(target)
+    if loc.count() == 0:
+        if args.ref is not None:
+            return {"ok": False, "code": "ref_stale", "action": "click", "url": page.url,
+                    "error": f"ref {args.ref} 이 화면에 없습니다 (이동·다시 그리기로 사라졌다)",
+                    "next": "web find  # 지금 화면에서 다시 고른다"}
+        return {"ok": False, "code": "selector_not_found", "action": "click", "url": page.url,
+                "error": f"{args.selector} 에 맞는 요소가 없습니다", "next": "web find --text <글자>"}
+    el = loc.first
+    info = el.evaluate(_DESCRIBE_JS)
+    label = f"{info.get('text') or ''} {info.get('aria') or ''}"
+    if state.get("readonly") and _is_mutating_target(info) and not args.confirm_mutating:
+        return {"ok": False, "code": "mutating_blocked", "action": "click", "clicked": None,
+                "target": info, "url": page.url,
+                "error": f"읽기 전용 세션이라 '{label.strip()[:60]}' 을 누르지 않았습니다",
+                "next": "정말 눌러야 하면 사용자에게 무엇이 바뀌는지 말하고 승인받은 뒤 --confirm-mutating 을 붙인다"}
+    before_url, before_title = page.url, page.title()
+    el.click(timeout=args.timeout * 1000)
+    waited = None
+    try:
+        if args.expect_url:
+            waited = "url"
+            page.wait_for_url(lambda u: args.expect_url in u, timeout=args.timeout * 1000)
+        elif args.expect_text:
+            waited = "text"
+            page.get_by_text(args.expect_text).first.wait_for(state="visible", timeout=args.timeout * 1000)
+        else:
+            # 기대를 안 줬으면 짧게만 기다린다 — SPA 는 주소가 늦게 바뀐다
+            try:
+                page.wait_for_load_state("domcontentloaded", timeout=3000)
+            except Exception:
+                pass
+            page.wait_for_timeout(800)
+    except Exception:
+        return {"ok": False, "code": "expect_not_met", "action": "click", "clicked": info,
+                "expected": args.expect_url or args.expect_text,
+                "before": {"url": before_url, "title": before_title},
+                "url": page.url, "title": page.title(),
+                "error": f"눌렀지만 기대한 {'주소' if waited == 'url' else '글자'}가 {args.timeout}초 안에 나오지 않았습니다",
+                "next": "web text  # 지금 화면을 읽고, 엉뚱한 것을 눌렀으면 web find 로 다시 고른다"}
+    _settle(page, state, args.timeout)
+    after_url, after_title = page.url, page.title()
+    changed = after_url != before_url or after_title != before_title
+    payload = {"action": "click", "clicked": info, "changed": changed,
+               "before": {"url": before_url, "title": before_title},
+               "url": after_url, "title": after_title,
+               "summary": f"'{(info.get('text') or info.get('aria') or info.get('tag'))[:40]}' 클릭 → "
+                          + ("주소·제목이 바뀌었다" if changed else "주소·제목 그대로")}
+    if not changed and not (args.expect_url or args.expect_text):
+        # 체크박스·펼치기처럼 제자리에서 바뀌는 것일 수도 있다 — 실패로 단정하지 않고 확인을 시킨다
+        payload["next"] = "의도한 결과가 맞는지 web text / web assert 로 확인한다. 아니면 web find 로 다시 고른다"
+    else:
+        payload["next"] = "web text  # 바뀐 화면을 읽는다"
+    return payload
+
+
+def _profile_in_use(profile: Path) -> bool:
+    """이 프로필로 떠 있는 브라우저 프로세스가 있나 — 잠금 파일을 지워도 되는지 가른다."""
+    try:
+        ps = subprocess.run(["ps", "-ax", "-o", "command="], capture_output=True, text=True, timeout=5).stdout
+    except Exception:
+        return True   # 확인 못 하면 쓰는 중으로 본다 — 남의 브라우저 잠금을 지우지 않는다
+    return f"--user-data-dir={profile}" in ps
+
+
 def _web_state_path(root: Path) -> Path:
     _home(root)
     return launch_file(root, _WEB_STATE)
@@ -1352,6 +1580,41 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     sync_playwright, err = _require_playwright()
     if err:
         return out(err)
+    prev = _read_web_state(state_f)
+    # 이미 떠 있으면 새로 띄우지 않고 붙는다 (#825). 예전엔 프로필 잠금 때문에 실패로 끝나
+    # agent 가 "브라우저를 못 띄운다"로 읽었는데, 정작 떠 있던 브라우저는 멀쩡히 쓸 수 있었다.
+    if prev.get("cdp") and prev.get("pid") and _pid_alive(int(prev["pid"])):
+        conn, cerr = _web_connect(prev)
+        if not cerr:
+            _pw, _br, _pg = conn
+            prev["readonly"] = bool(args.readonly)
+            prev["last_used"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            _write_web_state(state_f, prev)
+            try:
+                if args.url:
+                    _pg.goto(args.url, wait_until="domcontentloaded", timeout=args.timeout * 1000)
+                    _settle(_pg, prev, args.timeout)
+                url, title = _pg.url, _pg.title()
+            except Exception as e:
+                _pw.stop()
+                return out({"ok": False, "code": "goto_failed", "error": str(e)[:300],
+                            "hint": "주소가 맞는지, 서버가 떠 있는지 확인하세요"})
+            _pw.stop()
+            warn = None
+            if bool(args.headed) != bool(prev.get("headed")):
+                warn = "headed 여부는 새로 띄울 때만 바뀐다 — 바꾸려면 web close 후 다시 open"
+            return out({"action": "open", "reused": True, "pid": prev["pid"], "url": url, "title": title,
+                        "readonly": prev["readonly"], "opened_at": prev.get("opened_at"), "warning": warn,
+                        "summary": f"떠 있던 브라우저에 붙었습니다 ({prev.get('opened_at')}부터)",
+                        "next": "web text  # 화면 글자를 먼저 읽는다"})
+    # 죽은 브라우저가 남긴 잠금은 치운다 — 아무도 이 프로필을 안 쓰는 것을 확인한 뒤에만
+    profile_dir = _home(root) / ".browser-profile"
+    if not _profile_in_use(profile_dir):
+        for n in ("SingletonLock", "SingletonSocket", "SingletonCookie"):
+            try:
+                (profile_dir / n).unlink()
+            except (FileNotFoundError, IsADirectoryError, PermissionError):
+                pass
     import socket
     s = socket.socket()
     s.bind(("127.0.0.1", 0))
@@ -1416,6 +1679,7 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     prev = _read_web_state(state_f)
     state = {"cdp": cdp, "pid": proc.pid, "headed": bool(args.headed),
              "stealth": use_stealth, "profile": str(profile), "opened_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+             "last_used": time.strftime("%Y-%m-%d %H:%M:%S"), "readonly": bool(args.readonly),
              "viewport": prev.get("viewport"), "routes": prev.get("routes") or []}
     _write_web_state(state_f, state)
 
@@ -1442,9 +1706,10 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     return out({"action": "open", "url": args.url, "cdp": cdp, "pid": proc.pid,
                 "state_file": str(state_f), "console_hook": hooked,
                 "routes": len(state["routes"]), "viewport": state["viewport"],
-                "stealth": use_stealth,
-                "summary": f"브라우저를 열었습니다 ({args.url or '빈 탭'})",
-                "next": "web shot  # 화면을 먼저 봅니다"})
+                "stealth": use_stealth, "readonly": bool(args.readonly), "reused": False,
+                "summary": f"브라우저를 열었습니다 ({args.url or '빈 탭'})"
+                           + (" — 읽기 전용" if args.readonly else ""),
+                "next": "web text  # 화면 글자를 먼저 읽는다 (모양을 봐야 할 때만 web shot)"})
 
 
 def _pid_alive(pid: int) -> bool:
@@ -1643,6 +1908,9 @@ def cmd_web(args) -> int:
             _write_web_state(state_f, state)
         return out(err)
     pw, browser, page = conn
+    # 마지막 사용 시각 — 오래 방치된 브라우저와 지금 쓰는 브라우저를 가른다 (#825)
+    state["last_used"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    _write_web_state(state_f, state)
 
     try:
         nav_status = None
@@ -1655,17 +1923,18 @@ def cmd_web(args) -> int:
         if args.action == "goto":
             if not args.url:
                 return out({"ok": False, "code": "url_required", "error": "--url 이 필요합니다"})
-            resp = page.goto(args.url, wait_until="domcontentloaded")
+            resp = page.goto(args.url, wait_until="domcontentloaded", timeout=max(args.timeout, 30) * 1000)
             nav_status = resp.status if resp is not None else None
             _settle(page, state, args.timeout)
 
         elif args.action == "click":
-            if not args.selector:
-                return out({"ok": False, "code": "selector_required",
-                            "error": "--selector 가 필요합니다",
-                            "hint": "text=로그인 · #submit · button:has-text('저장')"})
-            page.click(args.selector, timeout=args.timeout * 1000)
-            _settle(page, state, args.timeout)
+            return out(_web_click(page, args, state))
+
+        elif args.action == "find":
+            return out(_web_find(page, args))
+
+        elif args.action == "text":
+            return out(_web_text(page, args))
 
         elif args.action == "type":
             if not (args.selector and args.text is not None):
@@ -1727,7 +1996,7 @@ def cmd_web(args) -> int:
 
         payload = {"action": args.action, "url": page.url, "title": page.title(),
                    "summary": f"{args.action} 완료 — {page.url}",
-                   "next": "web shot  # 결과를 눈으로 확인하세요"}
+                   "next": "web text  # 결과 화면의 글자를 읽는다"}
         if args.action == "goto":
             # 404·500 페이지로 가도 이동 자체는 성공이다 — 상태코드를 함께 줘서 호출한 쪽이 판단하게 한다 (#711)
             payload["status"] = nav_status
@@ -2557,7 +2826,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_app)
 
     p = sub.add_parser("web", help="브라우저를 조작한다")
-    p.add_argument("action", choices=["setup", "open", "goto", "click", "type", "shot",
+    p.add_argument("action", choices=["setup", "open", "goto", "find", "click", "type", "text", "shot",
                                       "assert", "console", "close", "viewport", "route"])
     p.add_argument("--force", action="store_true", help="setup: 이미 있어도 다시 만든다")
     p.add_argument("--root", default=".")
@@ -2587,6 +2856,18 @@ def build_parser() -> argparse.ArgumentParser:
                    help="route: 글자 그대로 돌려줄 본문 (파일 경로로 읽지 않는다)")
     p.add_argument("--delay", type=int, default=0, help="route: 응답 지연(ms) — 로딩 상태 연출")
     p.add_argument("--clear", action="store_true", help="viewport·route: 지정을 푼다")
+    p.add_argument("--ref", type=int, default=None, help="click: web find 가 준 번호. 선택자 추측 대신 이것을 쓴다")
+    p.add_argument("--role", default=None, help="find: link · button · row · tab 처럼 역할로 좁힌다")
+    p.add_argument("--limit", type=int, default=20, help="find: 돌려줄 후보 수")
+    p.add_argument("--max-chars", dest="max_chars", type=int, default=3000, help="text: 돌려줄 최대 글자 수")
+    p.add_argument("--expect-url", dest="expect_url", default=None,
+                   help="click: 누른 뒤 주소에 이 글자가 들어올 때까지 기다린다. 안 오면 실패")
+    p.add_argument("--expect-text", dest="expect_text", default=None,
+                   help="click: 누른 뒤 이 글자가 보일 때까지 기다린다. 안 오면 실패")
+    p.add_argument("--readonly", action="store_true",
+                   help="open: 읽기 전용 세션 — 삭제·출시·제출 같은 버튼은 --confirm-mutating 없이 누르지 않는다")
+    p.add_argument("--confirm-mutating", dest="confirm_mutating", action="store_true",
+                   help="click: 읽기 전용 세션에서도 누른다 (사용자 승인을 받은 뒤에만)")
     _shot_args(p)
     p.set_defaults(func=cmd_web)
 

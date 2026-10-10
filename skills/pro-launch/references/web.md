@@ -108,12 +108,14 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web setup
 **시스템 파이썬은 건드리지 않는다** — macOS Homebrew 파이썬은 PEP 668 로 `pip install` 을 막는다.
 `browser_missing` 이 나오면 패키지는 있는데 브라우저 파일이 없는 것이다 — `web setup` 을 다시 부른다.
 
-## 조작 — 한 번에 하나씩
+## 조작 — 읽고, 번호로 고르고, 확인하며 누른다
 
 ```bash
-... web open  --url {주소}              # --headed 로 창을 보이게
+... web open  --url {주소}              # --headed 창을 보이게 · --readonly 관리 콘솔
 ... web goto  --url {주소}
-... web click --selector "{셀렉터}"
+... web text  [--selector "{범위}"] [--max-chars 3000]     # 보이는 글자
+... web find  --text "{글자}" | --role link|button|row|tab | --selector "{css}"   # 후보 + ref
+... web click --ref {번호} [--expect-url "{주소 일부}" | --expect-text "{글자}"]
 ... web type  --selector "{셀렉터}" --text "{값}"
 ... web shot  --out {이름}              # --full 페이지 전체 · --selector 요소 하나
 ... web assert --url /home --text "환영"
@@ -121,8 +123,27 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web setup
 ... web close
 ```
 
-**찍은 화면은 Read 로 열어 본다.** 경로만 남기면 아무도 안 본다.
-**매 조작 전에 `shot` 으로 화면을 본다** — 모달이 떴거나 요소가 밀려 있을 수 있다.
+**정보는 `text` 로 읽는다.** 스크린샷을 Read 하는 것이 가장 비싸다. `shot` 은 배치·색·잘림처럼
+**모양**을 봐야 할 때, 또는 결과를 증거로 남길 때만 찍는다(찍었으면 Read 로 열어 본다).
+
+### `click` 이 돌려주는 것
+
+| 필드 | 뜻 |
+|---|---|
+| `clicked` | 실제로 누른 요소 (태그 · 글자 · 링크 주소) |
+| `before` · `url` · `title` | 누르기 전과 후 |
+| `changed` | 주소나 제목이 바뀌었나. **`false` 면 엉뚱한 것을 눌렀을 수 있다** — 제자리에서 펼쳐지는 것이면 `text` 로 확인 |
+| `code: expect_not_met` | `--expect-*` 를 줬는데 안 왔다. 실패다 |
+| `code: ref_stale` | 화면이 바뀌어 그 번호가 없다. `find` 를 다시 |
+| `code: mutating_blocked` | 읽기 전용 세션에서 위험 버튼을 막았다 |
+
+### 관리 콘솔 — `--readonly`
+
+Play Console · App Store Connect · 결제·관리자 화면은 버튼 하나가 심사 제출·삭제가 된다.
+`web open --readonly` 로 연 세션에서는 **버튼류**의 문구가 삭제·출시·게시·제출·전송·저장·승인·결제·업로드·배포
+(Delete · Publish · Release · Submit · Send · Save · Approve · Pay · Upload · Deploy …)면 누르지 않는다.
+**링크(`a[href]`)·탭·표 행·메뉴 항목은 이동이라 막지 않는다** — Play Console 의 "제출 활동"·"게시 개요"는
+기록을 보는 링크인데 문구만 보면 걸렸다(실측). 정말 눌러야 하면 사용자 승인 뒤 `--confirm-mutating`.
 
 | code | 다음 행동 |
 |---|---|
@@ -208,7 +229,8 @@ web click → 그 브라우저에 붙었다 떨어진다 (세션·쿠키 유지)
 
 | 방식 | 예 | 언제 |
 |---|---|---|
-| 텍스트 | `text=로그인` | **기본값.** 화면이 바뀌어도 잘 버틴다 |
+| **번호** | `click --ref 2` | **기본값.** `find` 가 준 그 요소만 누른다 — 추측이 없다 |
+| 텍스트 | `text=로그인` | `find` 없이 바로 누를 만큼 확실할 때 |
 | 역할+이름 | `button:has-text('저장')` | 같은 글자가 여러 곳에 있을 때 |
 | id | `#email` | 안정된 이름이 있을 때 |
 | CSS 경로 | `div > ul > li:nth-child(3)` | **마지막 수단** |
@@ -234,3 +256,7 @@ web click → 그 브라우저에 붙었다 떨어진다 (세션·쿠키 유지)
 | 영속 프로필이 옛 탭을 되살린다 | 마지막 탭을 잡는다. 이미 처리돼 있다 |
 | `web open` 을 거듭하면 about:blank 빈 탭이 쌓인다 | `web open` 이 작업 탭 외의 about:blank 탭을 닫는다. 이미 처리돼 있다 (#817) |
 | `close` 가 `browser_still_alive` | 프로세스가 안 죽었다. 안내된 `kill` 로 끝낸 뒤 다시 연다 |
+| 표의 행을 눌렀는데 아무 일도 없다 (`changed: false`) | 행 자체가 아니라 행 안의 링크(화살표 등)가 진짜 대상이다. `find --text "{행의 글자}"` 의 `a[href]` 후보를 누른다 (Play Console 실측) |
+| 셀 글자로 `text=` 를 눌렀는데 안 열린다 | 글자가 클릭 대상이 아니다. `find --text` 는 그 글자를 품은 가장 가까운 클릭 대상을 준다 |
+| `open` 이 예전엔 프로필 잠금으로 실패했다 | 지금은 떠 있으면 다시 붙고(`reused`), 아무도 안 쓰는 잠금은 치운다 |
+| 며칠 묵은 브라우저가 떠 있다 | `doctor` 의 `open_browser.stale`. 다른 세션이 쓰는 중이 아니면 `close` 하거나 그대로 붙어 쓴다 |
