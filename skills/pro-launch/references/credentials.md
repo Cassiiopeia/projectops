@@ -57,6 +57,7 @@
 - **서버 기억 (#841)**: `ssh` 응답의 `memory` 에는 그 서버(`server.<자격증명 이름>.*`) 기억만 실린다. 처음 접속에 성공하면
   CLI 가 OS(`uname -s`)와 시놀로지 docker 절대경로를 확인해 이 컴퓨터 범위에 남긴다(Windows 는 건너뜀).
   컨테이너 이름·로그 위치처럼 직접 알아낸 것은 `learn --area server --scope machine --key server.<서버>.<주제>` 로 남긴다(계정·비밀 금지).
+- **비밀번호를 한곳(cred)에만 두려면** `cred import-ssh --inline` 으로 값까지 가져오고, 접속이 되는지 확인한 뒤 옛 `ssh` 섹션을 지운다(지우기 전에 config 백업).
 - **옛 pro-ssh 서버 가져오기**: `cred import-ssh --dry-run` 으로 목록을 본 뒤 `--dry-run` 을 빼고 실행한다. 기본은 `ssh_server`
   참조만 만들고(비밀번호는 옛 섹션에 한 곳), `--inline` 이면 값까지 복사한다. 옛 `ssh` 섹션은 지우지 않는다.
 
