@@ -65,13 +65,18 @@ def load_all() -> dict:
     return _section(cfg.load())
 
 
-def _ssh_server(name: str) -> dict | None:
+def ssh_servers() -> list[dict]:
+    """config.json 의 옛 pro-ssh `ssh` 섹션 서버 목록 (읽기 전용)."""
     data = cfg.load() or {}
     servers = data.get("ssh")
     if isinstance(servers, dict):                 # 구버전 형태 {"instances": [...]}
         servers = servers.get("instances")
-    for s in servers or []:
-        if isinstance(s, dict) and s.get("name") == name:
+    return [s for s in servers or [] if isinstance(s, dict)]
+
+
+def _ssh_server(name: str) -> dict | None:
+    for s in ssh_servers():
+        if s.get("name") == name:
             return s
     return None
 

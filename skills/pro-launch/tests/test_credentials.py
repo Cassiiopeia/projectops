@@ -158,7 +158,8 @@ def _fake_bin(tmp_path: Path) -> Path:
     b = tmp_path / "bin"
     b.mkdir()
     (b / "sshpass").write_text('#!/bin/bash\necho "SSHPASS_SET=${SSHPASS:+yes}" >> "$REC"\nshift\nexec "$@"\n')
-    (b / "ssh").write_text('#!/bin/bash\nprintf "%s\\n" "$@" > "$REC.argv"\ncat > "$REC.stdin"\necho "ok from fake"\n')
+    # 첫 호출(실제 명령)만 기록한다 — 뒤따르는 서버 사실 탐침이 덮어쓰지 않게
+    (b / "ssh").write_text('#!/bin/bash\nif [ ! -e "$REC.argv" ]; then printf "%s\\n" "$@" > "$REC.argv"; cat > "$REC.stdin"; fi\necho "ok from fake"\n')
     for f in b.iterdir():
         f.chmod(0o755)
     return b

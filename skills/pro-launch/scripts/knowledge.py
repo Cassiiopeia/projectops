@@ -326,8 +326,11 @@ def tidy(today: str | None = None, junk_buckets: tuple = ("scripts", "pro-launch
 
 
 def surface(paths: dict[str, Path], area: str, seen_file: Path, limit: int = 3,
-            today: str | None = None) -> list[dict]:
+            today: str | None = None, key_prefix: str | None = None) -> list[dict]:
     """명령 응답에 실을 기억. 레포·영역마다 하루 한 번만 돌려준다 (토큰 절약).
+
+    key_prefix 가 있으면 그 접두사로 시작하는 key 만 싣고, 노출 기록도 접두사별로 센다
+    (서버 A 를 본 날 서버 B 의 기억이 가려지지 않게 — `server.<이름}.` 이 이 용도다).
 
     fail 이 ok 보다 크게 앞서는 것은 싣지 않는다 — 틀린 기억을 매번 들이밀지 않는다.
     """
@@ -336,10 +339,13 @@ def surface(paths: dict[str, Path], area: str, seen_file: Path, limit: int = 3,
         seen = json.loads(seen_file.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         seen = {}
-    if seen.get(area) == now:
+    seen_key = f"{area}:{key_prefix}" if key_prefix else area
+    if seen.get(seen_key) == now:
         return []
-    rows = [r for r in recall(paths, area, limit=limit * 3, today=now)
-            if r["fail"] < r["ok"] + HIDE_FAILS_OVER]
+    # 접두사 필터는 상한을 자르기 전에 건다 — 다른 서버 기억이 자리를 차지하면 안 된다
+    rows = [r for r in recall(paths, area, limit=1000, today=now)
+            if r["fail"] < r["ok"] + HIDE_FAILS_OVER
+            and (not key_prefix or r["key"].startswith(key_prefix))]
     out, kept = [], []
     for r in rows:
         if any(similar(r, k) for k in kept):
@@ -348,7 +354,7 @@ def surface(paths: dict[str, Path], area: str, seen_file: Path, limit: int = 3,
         out.append({k: r[k] for k in ("key", "how", "scope", "ok", "fail", "verify")})
         if len(out) >= limit:
             break
-    seen[area] = now
+    seen[seen_key] = now
     try:
         seen_file.parent.mkdir(parents=True, exist_ok=True)
         seen_file.write_text(json.dumps(seen), encoding="utf-8")

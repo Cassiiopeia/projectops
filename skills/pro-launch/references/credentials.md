@@ -54,6 +54,11 @@
 - 저장된 서버에는 `ssh --cred 이름 [--sudo] --command '…'` 로 들어간다. `--sudo` 를 주면 원격 명령 안에서 `SUDO <명령>` 을 쓸 수 있다.
 - 비밀번호는 명령줄이 아니라 표준입력·환경변수로만 가고, 서버가 되풀이해 찍어도 출력에서 `***` 로 가려진다.
 - 비밀번호 접속에는 `sshpass` 가 필요하다(없으면 `sshpass_missing`). 출력은 `--max-output` 자에서 자른다.
+- **서버 기억 (#841)**: `ssh` 응답의 `memory` 에는 그 서버(`server.<자격증명 이름>.*`) 기억만 실린다. 처음 접속에 성공하면
+  CLI 가 OS(`uname -s`)와 시놀로지 docker 절대경로를 확인해 이 컴퓨터 범위에 남긴다(Windows 는 건너뜀).
+  컨테이너 이름·로그 위치처럼 직접 알아낸 것은 `learn --area server --scope machine --key server.<서버>.<주제>` 로 남긴다(계정·비밀 금지).
+- **옛 pro-ssh 서버 가져오기**: `cred import-ssh --dry-run` 으로 목록을 본 뒤 `--dry-run` 을 빼고 실행한다. 기본은 `ssh_server`
+  참조만 만들고(비밀번호는 옛 섹션에 한 곳), `--inline` 이면 값까지 복사한다. 옛 `ssh` 섹션은 지우지 않는다.
 
 ## 이 맥의 sudo 비밀번호 (#784)
 

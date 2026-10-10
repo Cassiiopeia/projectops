@@ -26,7 +26,7 @@ description: "앱·웹·서버를 띄우고, 조작하고, 찍는 능력 스킬�
 | 폭 바꾸기 · 응답 바꿔치기(빈 목록 · 500 · 지연) | `web viewport` · `web route` | `references/web.md` |
 | 코드로 상태를 그려 찍기 | `render snapshot` → `render run` | `references/render.md` |
 | 단건 HTTP · 붙는 법 기록 · SQL · 로그 | `http` · `access show\|set\|unset` · `db` · `logs` | `references/server.md` |
-| 자격증명 저장 · 원격 명령 · 이 맥 sudo | `cred list\|show\|set\|unset` · `ssh` · `local sudo` | `references/credentials.md` |
+| 자격증명 저장 · 원격 명령 · 이 맥 sudo | `cred list\|show\|set\|unset\|import-ssh` · `ssh` · `local sudo` | `references/credentials.md` |
 | 이슈 첨부용 축소 | `shrink` | `references/memory.md` |
 | 이 컴퓨터에서 먹힌 방식 꺼내기 · 남기기 · 지우기 · 정리 | `recall` · `learn` · `forget` · `tidy` | `references/memory.md` |
 | 이번 실행 자리 + `env.sh` | `get-output-path` | 아래 |

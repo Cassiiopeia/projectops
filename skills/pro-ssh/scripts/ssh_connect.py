@@ -1,7 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-ssh_connect.py — paramiko 기반 범용 SSH 접속 스크립트
+ssh_connect.py — paramiko 기반 범용 SSH 접속 스크립트  [사용 중단 예정 — 호환용]
+
+정본은 `pro-launch` 의 `launch_cli.py ssh --cred <서버> --command '…'` 다 (#841).
+그쪽은 서버 이름으로 접속하고, 비밀번호를 명령줄에 싣지 않으며, 출력의 비밀을 가리고,
+서버별 기억(OS · docker 경로)을 응답에 싣는다. 이 스크립트는 launch 를 쓸 수 없는 환경
+(sshpass 가 없는 Windows 등)을 위한 대체 경로로만 남긴다.
+
+  - 비밀번호는 `--password` 대신 환경변수 SSH_PASSWORD 로 받는 것을 권장한다 (argv 는 ps 로 보인다).
+  - 출력에 비밀번호가 섞이면 `***` 로 가린다.
 
 지원:
   - 비밀번호 인증 (auth=password)
@@ -112,7 +120,8 @@ def main():
         choices=["password", "key"],
         help="인증 방식: password 또는 key",
     )
-    parser.add_argument("--password", default=None, help="SSH 비밀번호 (auth=password 시 필수)")
+    parser.add_argument("--password", default=None,
+                        help="SSH 비밀번호 (권장하지 않음 — argv 로 보인다. 환경변수 SSH_PASSWORD 를 쓴다)")
     parser.add_argument("--key-path", default=None, help="PEM 키 경로 (auth=key 시 필수)")
     parser.add_argument("--command", required=True, help="원격에서 실행할 명령")
     parser.add_argument(
@@ -120,6 +129,10 @@ def main():
     )
 
     args = parser.parse_args()
+    # 비밀번호는 환경변수가 우선 — argv 에 남기지 않는 경로
+    if args.password is None:
+        args.password = os.environ.get("SSH_PASSWORD") or None
+    print("[안내] ssh_connect.py 는 호환용이다. launch_cli.py ssh --cred <서버> 를 쓴다.", file=sys.stderr)
 
     # ── 인자 검증 ──────────────────────────────────
     if args.auth == "password" and not args.password:
@@ -168,6 +181,10 @@ def main():
         client.close()
 
     # ── 결과 출력 ──────────────────────────────────
+    # 서버가 환경변수 등을 되풀이해 찍으면 비밀번호가 화면에 남는다 — 가린다
+    if args.password and len(args.password) >= 4:
+        out = out.replace(args.password, "***")
+        err = err.replace(args.password, "***")
     if out:
         print(out)
     if err:

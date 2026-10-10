@@ -167,9 +167,11 @@ _MEMORY_CTX: dict = {}
 _FIX_WINDOW_SEC = 30 * 60   # 실패 뒤 이 안에 같은 영역이 성공하면 '새로 알게 된 방식'일 수 있다
 
 
-def _set_area(area: str | None, root: Path | None = None) -> None:
+def _set_area(area: str | None, root: Path | None = None, key_prefix: str | None = None) -> None:
+    """key_prefix: 이 접두사의 기억만 싣는다 (예: 서버 이름별 `server.<이름>.`)."""
     if area in knowledge.AREAS:
-        _MEMORY_CTX.update(area=area, root=root or _MEMORY_CTX.get("root") or Path(".").resolve())
+        _MEMORY_CTX.update(area=area, root=root or _MEMORY_CTX.get("root") or Path(".").resolve(),
+                           key_prefix=key_prefix)
 
 
 def _memory_hooks(payload: dict) -> None:
@@ -185,7 +187,8 @@ def _memory_hooks(payload: dict) -> None:
         if not unknown:
             paths["repo"] = knowledge.store_path("repo", root)
         seen_dir = knowledge.store_path("machine" if unknown else "repo", root).parent
-        mem = knowledge.surface(paths, area, seen_dir / "memory_seen.json")
+        mem = knowledge.surface(paths, area, seen_dir / "memory_seen.json",
+                                key_prefix=_MEMORY_CTX.get("key_prefix"))
         if mem:
             payload["memory"] = mem
             payload["memory_note"] = ("이 컴퓨터에서 먹혔던 방식이다. 쓴 것이 있으면 결과를 "
@@ -2306,6 +2309,47 @@ def _cred_field(name: str, field: str | None) -> tuple[str | None, dict | None]:
     return str(v), None
 
 
+def _cred_import_ssh(args) -> int:
+    """옛 pro-ssh `ssh` 섹션 서버를 launch 자격증명으로 옮긴다.
+
+    기본은 참조(`ssh_server`)만 만든다 — 비밀번호는 한 곳에만 둔다. `--inline` 이면 값까지 복사한다
+    (옛 섹션을 지워도 되게). 옛 섹션은 지우지 않는다. 응답에는 비밀 값을 싣지 않는다.
+    """
+    existing = credentials.load_all()
+    plan = []
+    for srv in credentials.ssh_servers():
+        name = srv.get("name")
+        if not name or not credentials.NAME_RE.match(str(name)):
+            plan.append({"name": name, "status": "skipped", "reason": "이름이 없거나 형식이 맞지 않음"})
+            continue
+        if name in existing:
+            plan.append({"name": name, "status": "exists", "reason": "이미 같은 이름의 자격증명이 있음"})
+            continue
+        if args.inline:
+            fields = {"kind": "ssh", **{k: srv[k] for k in ("host", "port", "user", "auth", "key_path", "password")
+                                        if srv.get(k) not in (None, "")}}
+        else:
+            fields = {"kind": "ssh", "ssh_server": name}
+        plan.append({"name": name, "status": "would_import" if args.dry_run else "imported",
+                     "fields": credentials.public_view(fields), "_raw": fields})
+    if not args.dry_run:
+        try:
+            for p in plan:
+                if p["status"] == "imported":
+                    credentials.save_credential(p["name"], p["_raw"])
+        except credentials.CredError as e:
+            return out({"ok": False, "code": e.code, "error": e.message})
+    for p in plan:
+        p.pop("_raw", None)
+    n = sum(1 for p in plan if p["status"] in ("would_import", "imported"))
+    return out({"ok": True, "code": "ok", "dry_run": bool(args.dry_run), "servers": plan, "count": n,
+                "summary": (f"{n}개 가져올 수 있음 (dry-run, 아무것도 쓰지 않음)" if args.dry_run
+                            else f"{n}개 가져옴") if plan else "옛 ssh 섹션에 서버가 없습니다",
+                "next": ("실제로 옮기려면 --dry-run 을 빼고 다시 부른다. 그다음 cred set --name 이름 --json "
+                         "'{\"use_when\":\"...\",\"scope\":\"...\"}' 로 허용 범위를 채운다" if args.dry_run and n
+                         else "use_when · scope 를 cred set 으로 채운다. 옛 ssh 섹션은 지우지 않았다")})
+
+
 def cmd_cred(args) -> int:
     """자격증명을 저장하고 꺼낸다. 값은 config.json 에만 남고 목록·조회에서는 가려진다."""
     if args.action == "list":
@@ -2319,6 +2363,9 @@ def cmd_cred(args) -> int:
                     "summary": (f"{len(items)}개 저장됨" if items else "저장된 자격증명이 없습니다"),
                     "next": ("use_when · scope 가 지금 하려는 일에 맞는 것만 쓴다. cred show --name 이름"
                              if items else "cred set --name 이름 --json '{\"kind\":\"ssh\",...}'")})
+
+    if args.action == "import-ssh":
+        return _cred_import_ssh(args)
 
     try:
         if args.action == "show":
@@ -2405,11 +2452,51 @@ def cmd_local(args) -> int:
                 "next": None if ok else "stderr 를 보고 명령을 고친다. 비밀번호가 틀렸으면 사용자가 cred set --name 이름 --prompt 로 다시 저장"})
 
 
+def _server_prefix(name: str) -> str:
+    return f"server.{knowledge.norm_key(name)}."
+
+
+# 서버 사실 탐침: 셸이 POSIX 이고 uname 이 있을 때만 의미가 있다 (Windows 는 조용히 건너뛴다).
+_PROBE = ("uname -s 2>/dev/null; "
+          "[ -x /var/packages/ContainerManager/target/usr/bin/docker ] && echo SYNO_DOCKER; true")
+_SYNO_DOCKER = "/var/packages/ContainerManager/target/usr/bin/docker"
+_KNOWN_OS = ("Linux", "Darwin", "FreeBSD")
+
+
+def _record_server_facts(name: str, base_cmd: list[str], env: dict) -> None:
+    """처음 접속 성공 때 확인된 사실(OS · 시놀로지 docker 절대경로)만 이 컴퓨터 범위에 남긴다.
+
+    이미 OS 를 알고 있으면 추가 접속을 하지 않는다. 호스트·계정·비밀은 how 에 쓰지 않는다.
+    어떤 실패도 본 명령 결과를 망치지 않는다.
+    """
+    try:
+        if not knowledge.base_dir().is_absolute():
+            return
+        prefix = _server_prefix(name)
+        if any(e["key"] == prefix + "os" for e in knowledge.load(knowledge.store_path("machine", Path(".")))
+               if e["area"] == "server"):
+            return
+        r = subprocess.run(base_cmd + [_PROBE], env=env, capture_output=True, text=True, timeout=15)
+        lines = [ln.strip() for ln in r.stdout.splitlines() if ln.strip()]
+        if r.returncode != 0 or not lines or lines[0] not in _KNOWN_OS:
+            return
+        knowledge.auto_record("server", prefix + "os", f"OS {lines[0]} (uname -s 로 확인)")
+        if "SYNO_DOCKER" in lines:
+            knowledge.auto_record("server", prefix + "docker",
+                                  f"docker 는 PATH 에 없다 — 절대경로 {_SYNO_DOCKER} 로 부른다 "
+                                  "(컨테이너 안 curl 이 없으면 wget)")
+    except Exception:   # noqa: BLE001 — 기억은 보조다
+        pass
+
+
 def cmd_ssh(args) -> int:
     """저장된 서버 자격증명으로 원격 명령을 실행한다. 비밀번호는 명령줄·출력에 드러나지 않는다.
 
     --sudo 면 원격에서 `SUDO <명령>` 을 쓸 수 있다 (비밀번호가 필요한 sudo, PATH 에 /usr/local/bin 포함).
     """
+    # 서버 기억은 이 서버 것만 싣는다 — key 는 server.<자격증명 이름>.* (기억 원칙 1)
+    if args.cred:
+        _set_area("server", _root(args), key_prefix=_server_prefix(args.cred))
     cred, err = _load_cred(args.cred)
     if err:
         return out(err)
@@ -2459,6 +2546,8 @@ def cmd_ssh(args) -> int:
     stdout = credentials.mask(r.stdout, cred)
     stderr = credentials.mask(r.stderr, cred)
     ok = r.returncode == 0
+    if ok:
+        _record_server_facts(args.cred, argv_prefix + ssh + [dest], env)
     return out({"ok": ok, "code": "ok" if ok else "ssh_failed", "exit_code": r.returncode,
                 "stdout": stdout[:args.max_output], "stderr": stderr.strip()[:1000] or None,
                 "truncated": len(stdout) > args.max_output,
@@ -3151,8 +3240,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_logs)
 
     p = sub.add_parser("cred", help="이름 붙은 자격증명을 저장하고 꺼낸다 (다음 실행에서 다시 묻지 않는다)")
-    p.add_argument("action", choices=["list", "show", "set", "unset"])
+    p.add_argument("action", choices=["list", "show", "set", "unset", "import-ssh"])
     p.add_argument("--name", default=None)
+    p.add_argument("--dry-run", dest="dry_run", action="store_true",
+                   help="import-ssh 때 아무것도 쓰지 않고 옮길 목록만 보여 준다 (비밀 값은 가려서)")
+    p.add_argument("--inline", action="store_true",
+                   help="import-ssh 때 참조 대신 host·user·password 값까지 복사한다")
     p.add_argument("--json", dest="json_value", default=None,
                    help='저장할 내용(JSON). 예: {"kind":"ssh","ssh_server":"synology-nas","use_when":"..."}')
     p.add_argument("--replace", action="store_true", help="set 때 기존 항목을 합치지 않고 통째로 바꾼다")

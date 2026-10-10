@@ -1,6 +1,7 @@
 # 시놀로지 특이사항 · Windows PowerShell · 자주 만나는 함정
 
-> 언제 읽나: 대상이 시놀로지 NAS일 때, Windows PowerShell에서 실행할 때, `ssh_connect.py` 가 `[ERROR]` 를 냈을 때.
+> 언제 읽나: 대상이 시놀로지 NAS일 때, Windows PowerShell에서 실행할 때, `launch_cli ssh` 나 호환용 `ssh_connect.py` 가 실패했을 때.
+> 시놀로지 docker 경로는 첫 접속 때 `launch_cli ssh` 가 확인해 `server.<서버>.docker` 기억으로 남긴다.
 
 ## 시놀로지 NAS 특이사항
 
@@ -41,6 +42,7 @@ if ($LASTEXITCODE -ne 0) { & $PYTHON -m pip install paramiko }
 |------|------|------|
 | `[ERROR] paramiko 모듈이 없습니다.` | paramiko 미설치 | `pip install paramiko` 또는 `pip3 install paramiko` |
 | `[ERROR] Python이 설치되지 않았습니다.` | Python 미설치 | python.org에서 설치 (Windows: PATH 추가 필수) |
+| `sshpass_missing` (launch_cli) | 비밀번호 접속에 sshpass 없음 | `brew install hudochenkov/sshpass/sshpass`, 키 접속, 또는 `ssh_connect.py` |
 | `[ERROR] 인증 실패` | 비밀번호 또는 키 오류 | config의 `password` / `key_path` 값 확인 |
 | `[ERROR] 소켓 오류` | 포트 오류 또는 방화벽 | config `port` 확인, 서버 방화벽 규칙 확인 |
 | `[ERROR] PEM 키 파일을 찾을 수 없습니다` | key_path 경로 오류 | `~` 포함 절대 경로로 입력 (예: `~/.ssh/my-key.pem`) |
