@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.43.0  
-**Last updated:** 2026-10-10T03:32:17Z  
+**Current version:** 4.44.0  
+**Last updated:** 2026-10-10T03:44:05Z  
+
+---
+
+## [4.44.0] - 2026-10-10
+
+**PR:** #846  
+
+**New features**
+- pro-note get-output-path가 비슷한 기록을 related로 알리고 github_cli, changelog_cli, launch logs의 실패 응답에 관련 기록을 note_hits로 싣되 고유한 핵심어가 맞을 때만 최대 2건
 
 ---
 

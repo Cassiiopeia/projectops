@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-10T03:32:17Z",
-    "currentVersion": "4.43.0",
+    "lastUpdated": "2026-10-10T03:44:05Z",
+    "currentVersion": "4.44.0",
     "projectType": "basic",
-    "totalReleases": 301,
+    "totalReleases": 302,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.44.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-10",
+      "pr_number": 846,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * pro-note get-output-path가 비슷한 기록을 related로 알리고 github_cli, changelog_cli, launch logs의 실패 응답에 관련 기록을 note_hits로 싣되 고유한 핵심어가 맞을 때만 최대 2건",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "pro-note get-output-path가 비슷한 기록을 related로 알리고 github_cli, changelog_cli, launch logs의 실패 응답에 관련 기록을 note_hits로 싣되 고유한 핵심어가 맞을 때만 최대 2건"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.43.0",
       "project_type": "basic",
