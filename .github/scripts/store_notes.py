@@ -17,6 +17,7 @@
 # 문구의 출처
 #   기본 언어  : --default-file (CHANGELOG 에서 만든 한국어 노트) 또는 --override
 #   그 외 언어 : CHANGELOG.json 해당 버전의 store_notes[언어]. 없거나 비면 기본 언어 문구.
+#                단, 그 언어 파일이 이미 있고 비어 있지 않으면(레포가 직접 쓴 노트) 덮어쓰지 않는다.
 #
 # 사용법
 #   store_notes.py write --platform play --workspace . [--app-root app] --version 1.2.3 --version-code 136 \
@@ -169,6 +170,11 @@ def cmd_write(args) -> dict:
         else:
             target = base / f"{code}.txt"
         target.parent.mkdir(parents=True, exist_ok=True)
+        # 번역이 없을 때 이미 준비된 파일(레포가 직접 쓴 언어별 노트 등)이 있으면 기본 문구로 덮어쓰지 않는다.
+        # 덮으면 직접 쓴 영어 노트가 한국어로 바뀌는 회귀가 된다. 비어 있거나 없을 때만 기본 문구로 채운다.
+        if i > 0 and source == "default" and target.is_file() and target.read_text(encoding="utf-8", errors="replace").strip():
+            written.append({"locale": loc, "code": code, "source": "existing", "file": str(target)})
+            continue
         target.write_text(text + "\n", encoding="utf-8")
         _truncate(target, args.platform)
         written.append({"locale": loc, "code": code, "source": source, "file": str(target)})
@@ -186,7 +192,8 @@ def cmd_write(args) -> dict:
                     pruned.append(d.name)
     return {"enabled": True, "ok": True, "default": locales[0], "written": written, "pruned": pruned,
             "translated": [w["locale"] for w in written if w["source"] == "store_notes"],
-            "fell_back": [w["locale"] for w in written[1:] if w["source"] == "default"]}
+            "fell_back": [w["locale"] for w in written[1:] if w["source"] == "default"],
+            "kept": [w["locale"] for w in written[1:] if w["source"] == "existing"]}
 
 
 def main(argv=None) -> int:

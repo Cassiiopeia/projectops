@@ -274,3 +274,31 @@ def test_language_subtags_with_script_are_accepted():
     block = "<!-- projectops:store-notes -->\n**zh-Hans**\n- 改善\n**vi**\n- Cải thiện\n<!-- /projectops:store-notes -->\n"
     _, notes = cm.extract_store_notes(block)
     assert set(notes) == {"zh-Hans", "vi"}
+
+
+# ── 이미 준비된 언어별 파일은 기본 문구로 덮지 않는다 ───────────────────
+def test_play_keeps_existing_language_file_when_no_translation(tmp_path):
+    """레포가 직접 쓴 en-US 노트(다른 스크립트가 먼저 배치)가 있으면, 번역이 없다고 한국어로 덮으면 회귀다."""
+    ws = _ws(tmp_path)
+    base = ws / "android/fastlane/metadata/android"
+    for loc, text in (("en-US", "Hand-written English"), ("ja-JP", "")):
+        d = base / loc / "changelogs"
+        d.mkdir(parents=True)
+        (d / "7.txt").write_text(text, encoding="utf-8")
+    out = _run("write", "--platform", "play", "--workspace", ws, "--version", "1", "--version-code", "7",
+               "--default-file", ws / "default.txt")
+    assert (base / "en-US/changelogs/7.txt").read_text(encoding="utf-8") == "Hand-written English"
+    # 비어 있던 ja-JP, 아예 없던 zh-CN 은 기본 문구로 채운다 (빈 언어를 두지 않는다)
+    assert (base / "ja-JP/changelogs/7.txt").read_text(encoding="utf-8").strip() == KO
+    assert (base / "zh-CN/changelogs/7.txt").read_text(encoding="utf-8").strip() == KO
+    assert out["kept"] == ["en-US"] and out["fell_back"] == ["ja-JP", "zh-CN"]
+
+
+def test_translation_still_wins_over_existing_file(tmp_path):
+    ws = _ws(tmp_path, changelog={"releases": [{"version": "1", "store_notes": {"en-US": "- Translated"}}]})
+    d = ws / "android/fastlane/metadata/android/en-US/changelogs"
+    d.mkdir(parents=True)
+    (d / "7.txt").write_text(KO, encoding="utf-8")   # 다른 스크립트가 한국어를 복사해 둔 상태
+    _run("write", "--platform", "play", "--workspace", ws, "--version", "1", "--version-code", "7",
+         "--default-file", ws / "default.txt")
+    assert (d / "7.txt").read_text(encoding="utf-8").strip() == "- Translated"
