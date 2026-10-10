@@ -26,8 +26,45 @@ LAUNCH_OWNED = ("devices.json", "browser.json", "access.json", ".browser-profile
 _BROWSER_FILES = ("browser.json", ".browser-profile")
 
 
+# 레포를 알 수 없을 때(스킬·플러그인 캐시 폴더에서 불림) 쓰는 이 컴퓨터 공용 버킷 (#836)
+MACHINE_BUCKET = "_machine"
+
+# 스킬·플러그인이 놓이는 자리. 여기서 불렸는데 git 원격이 없으면 사용자 프로젝트가 아니다.
+_SKILL_PATH_MARKERS = ("/skills/pro-", "/plugins/cache/")
+
+
 def base_dir() -> Path:
+    """상태 루트. PROJECTOPS_HOME 이 있으면 그것 — 테스트가 실제 홈을 건드리지 않게 하는 탈출구다 (#836).
+
+    HOME 을 바꾸면 macOS Chrome 이 멈추므로(실측) 브라우저 테스트는 이 변수만 바꾼다.
+    """
+    env = os.environ.get("PROJECTOPS_HOME")
+    if env:
+        return Path(env).expanduser()
     return Path.home() / ".projectops"
+
+
+def _origin_url(root: Path) -> str:
+    try:
+        return subprocess.run(["git", "-C", str(root), "remote", "get-url", "origin"],
+                              capture_output=True, text=True, timeout=10).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def in_skill_path(root: Path) -> bool:
+    """root 가 스킬·플러그인 캐시 폴더 안인가 (경로만 본다 — git 은 부르지 않는다)."""
+    s = Path(root).resolve().as_posix() + "/"
+    return any(m in s for m in _SKILL_PATH_MARKERS)
+
+
+def repo_unknown(root: Path) -> bool:
+    """어느 프로젝트인지 알 수 없다 — 스킬·플러그인 캐시 폴더에서 불렸고 git 원격도 없다.
+
+    이때 폴더 이름(`scripts` 등)을 레포 키로 쓰면 가짜 버킷이 생겨 상태·기억이 흩어진다 (#833·#836).
+    개발 체크아웃처럼 원격이 있으면 정상 레포로 본다.
+    """
+    return in_skill_path(root) and not _origin_url(root)
 
 
 def repo_key(root: Path) -> str:
@@ -37,11 +74,7 @@ def repo_key(root: Path) -> str:
     갈라지고, 그러면 쌓은 지식이 워크트리 수만큼 쪼개진다.
     remote가 없는(로컬 전용) 저장소는 폴더명으로 떨어지고, 비ASCII 이름은 경로 해시가 붙는다.
     """
-    try:
-        url = subprocess.run(["git", "-C", str(root), "remote", "get-url", "origin"],
-                             capture_output=True, text=True, timeout=10).stdout.strip()
-    except (OSError, subprocess.SubprocessError):
-        url = ""
+    url = _origin_url(root)
     m = re.search(r"[:/]([^/:]+)/([^/]+?)(?:\.git)?$", url) if url else None
     if m:
         return f"{m.group(1)}__{m.group(2)}"
@@ -57,9 +90,14 @@ def repo_key(root: Path) -> str:
 
 
 def state_dir(kind: str, root: Path) -> Path:
-    """kind 별 상태 폴더. 만들지는 않는다 — 쓰는 쪽이 필요할 때 만든다."""
+    """kind 별 상태 폴더. 만들지는 않는다 — 쓰는 쪽이 필요할 때 만든다.
+
+    레포를 알 수 없으면 가짜 버킷 대신 이 컴퓨터 공용 자리(`_machine`)를 쓴다 (#836).
+    """
     if kind not in KINDS:
         raise ValueError(f"알 수 없는 kind: {kind}")
+    if repo_unknown(root):
+        return base_dir() / kind / MACHINE_BUCKET
     return base_dir() / kind / repo_key(root)
 
 
@@ -141,11 +179,15 @@ def launch_file(root: Path, name: str) -> Path:
 
 def venv_dir() -> Path:
     new = base_dir() / "launch" / ".venv"
-    old = base_dir() / "agent-test" / ".venv"
-    if _venv_exe(new):
-        return new
-    if _venv_exe(old):
-        return old
+    candidates = [new, base_dir() / "agent-test" / ".venv"]
+    # PROJECTOPS_HOME 으로 상태만 옮긴 경우에도 이미 깔린 venv(설치물이지 상태가 아니다)는 찾아 쓴다.
+    # 읽기만 한다 — 없으면 새로 만들 자리는 언제나 base_dir() 쪽이다.
+    real = Path.home() / ".projectops"
+    if real != base_dir():
+        candidates += [real / "launch" / ".venv", real / "agent-test" / ".venv"]
+    for d in candidates:
+        if _venv_exe(d):
+            return d
     return new   # 아직 없으면 새로 만들 자리
 
 

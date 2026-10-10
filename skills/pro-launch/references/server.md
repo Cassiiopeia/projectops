@@ -29,6 +29,13 @@
 | `secret_in_value` | `access` 에 비밀을 적었다. `cred set` 으로 옮기고 `{"cred":"이름"}` 만 적는다 |
 | `db_timeout` · `logs_timeout` | 접속 경로(직접 · ssh · command)가 맞는지 본다. `--timeout` 을 늘리는 것은 그다음이다 |
 
+**적어 둔 방법의 성적.** `logs` · `db --profile` · `http`(경로만 줘서 `base_url` 을 쓴 경우)가 access 기록으로
+실행되면 결과를 도구가 `access_status.json` 에 직접 남긴다 — 성공이면 `verified`(날짜), 실패면
+`last_fail`(날짜 · code). 오류 원문은 남기지 않는다. 미설치·환경변수 누락처럼 환경 탓인 실패는 세지 않는다.
+지난번에 실패했던 방법을 다시 쓰면 응답에 `verify: true` 와 `verify_note` 가 붙는다 — 결과를 확인하고
+틀렸으면 코드를 다시 읽어 `access set` 으로 고친다(고치면 그 키의 성적은 지워진다). `access show` 의
+`status` · `verify` 로도 본다.
+
 ## 주소
 
 ```bash

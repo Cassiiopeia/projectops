@@ -43,14 +43,16 @@ _SCRIPTS_ROOT = _PROJECT_ROOT / "scripts"
 if str(_SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_ROOT))
 
-from common.access import access_path, find_secrets, load_access, save_access  # noqa: E402
+from common.access import (access_path, find_secrets, load_access, load_status,  # noqa: E402
+                           needs_verify, record_result, reset_status, save_access)
 from common.emit import emit  # noqa: E402
 from common.http import request as http_request  # noqa: E402
 from common.image import (SHOT_MAX_SIDE, WEBP_QUALITY, has_pillow,  # noqa: E402
                           resize_tool, shrink, to_webp)
 from common.proc import run, sdk_tool  # noqa: E402
-from common.state import (launch_file, migrate_launch, repo_key,  # noqa: E402
-                          state_dir, venv_dir, venv_python, venv_site_packages)
+from common.state import (in_skill_path, launch_file, migrate_launch,  # noqa: E402
+                          repo_key, repo_unknown, state_dir, venv_dir, venv_python,
+                          venv_site_packages)
 
 # 같은 스킬 안의 보조 모듈 — 스크립트로 불리든 테스트가 import 하든 찾게 한다
 if str(_HERE.parent) not in sys.path:
@@ -89,8 +91,70 @@ def out(payload: dict) -> int:
     if not payload.get("summary"):
         act = payload.get("action")
         payload["summary"] = payload.get("error") or (f"{act} 완료" if act else "완료")
+    _root_warning(payload)
+    _grade_access(payload)
     _memory_hooks(payload)
     return emit(payload)
+
+
+# ── 레포를 알 수 없을 때 (#836) ──────────────────────────────────────────
+#
+# 스킬·플러그인 캐시 폴더에서 불렸고 git 원격도 없으면 어느 프로젝트인지 모른다. 이때 상태는
+# 이 컴퓨터 공용 자리(_machine)에 쓰고(state.state_dir 이 정한다), 응답으로 --root 를 요구한다.
+
+_ROOT_CTX: dict = {}
+
+
+def _root_warning(payload: dict) -> None:
+    if not _ROOT_CTX.get("unknown"):
+        return
+    payload["root_unknown"] = True
+    payload["root_warning"] = (f"프로젝트를 알 수 없는 폴더({_ROOT_CTX.get('path')})에서 불렸다 — "
+                               "상태는 이 컴퓨터 공용 자리에 쓰고, 레포 기억은 쓰지 않는다")
+    fix = "--root <프로젝트 경로> 를 붙여 다시 부른다 (또는 PROJECT_ROOT 환경변수)"
+    nxt = payload.get("next")
+    if not nxt:
+        payload["next"] = fix
+    elif isinstance(nxt, str) and fix not in nxt:
+        payload["next"] = f"{fix}. 그 다음: {nxt}"
+
+
+# ── 적어 둔 접속 방법의 성적 (#836) ──────────────────────────────────────
+#
+# logs·db·http 가 access 기록으로 실행되면 결과를 도구가 직접 남긴다(기억 원칙 2).
+# 미설치·환경변수 누락처럼 환경 탓인 실패는 방법의 실패가 아니므로 세지 않는다.
+
+_ACCESS_CTX: dict = {}
+_ACCESS_FAIL_CODES = {"db_query_failed", "db_timeout", "logs_failed", "logs_timeout",
+                      "request_failed"}
+# http 는 응답만 받으면 붙는 법은 맞다 — 기대 상태코드가 다른 것은 시나리오 판정이다
+_ACCESS_OK_CODES = {"ok", "unexpected_status"}
+
+
+def _use_access(root: Path, key: str) -> None:
+    """이번 명령이 access 의 key 로 적힌 방법을 쓴다고 표시한다. out() 이 결과를 기록한다."""
+    _ACCESS_CTX.update(root=root, key=key)
+
+
+def _grade_access(payload: dict) -> None:
+    key = _ACCESS_CTX.pop("key", None)
+    root = _ACCESS_CTX.pop("root", None)
+    if not key or root is None:
+        return
+    code = payload.get("code")
+    ok = payload.get("ok", True) is not False and code in (None, *_ACCESS_OK_CODES)
+    if not ok and code not in _ACCESS_FAIL_CODES:
+        return
+    try:
+        prev = record_result(root, key, ok, code)
+    except Exception:   # noqa: BLE001 — 성적은 보조다
+        return
+    if needs_verify(prev):
+        lf = prev.get("last_fail") or {}
+        payload["verify"] = True
+        payload["verify_note"] = (f"access '{key}' 는 지난번({lf.get('date')}, {lf.get('code')}) 실패했던 방법이다 — "
+                                  + ("이번에는 먹혔다" if ok else
+                                     "이번에도 실패했다. 코드를 다시 읽어 access set 으로 고친다"))
 
 
 # ── 기억을 응답에 싣는다 (#833) ──────────────────────────────────────────
@@ -169,14 +233,17 @@ def _root(args) -> Path:
     엉뚱한 곳(~/.projectops/launch/scripts/)에 쌓였다(#833 실측). 그때는 $PROJECT_ROOT 를 쓴다.
     """
     r = Path(getattr(args, "root", ".") or ".").resolve()
-    if _is_skill_dir(r) and os.environ.get("PROJECT_ROOT"):
-        return Path(os.environ["PROJECT_ROOT"]).resolve()
+    if _repo_unknown(r):
+        if os.environ.get("PROJECT_ROOT"):
+            return Path(os.environ["PROJECT_ROOT"]).resolve()
+        # 상태는 state_dir 이 _machine 으로 돌린다. 응답에서 --root 를 요구하도록 표시만 한다
+        _ROOT_CTX.update(unknown=True, path=str(r))
     return r
 
 
 def _is_skill_dir(r: Path) -> bool:
-    """r 이 이 스킬 자신의 폴더(scripts 또는 그 위 스킬 폴더)인가."""
-    return r in (_HERE.parent, _HERE.parent.parent)
+    """r 이 스킬·플러그인 폴더(이 스킬 자신 포함) 안인가 — 사용자 프로젝트가 아닐 수 있다."""
+    return r in (_HERE.parent, _HERE.parent.parent) or in_skill_path(r)
 
 
 # =========================================================================
@@ -1961,8 +2028,8 @@ def _web_route(args, state: dict, state_f: Path) -> int:
 
 
 def cmd_web(args) -> int:
-    _set_area("web", _root(args))
     """웹 화면을 조작한다. 한 번에 한 동작 — agent가 화면을 보고 다음을 정한다."""
+    _set_area("web", _root(args))
     # 비밀번호를 --text 에 적으면 세션 기록에 평문으로 남는다(#604) — --text-env 로 받는다
     secret_value = None
     if getattr(args, "text_env", None):
@@ -2124,6 +2191,7 @@ def cmd_web(args) -> int:
 # =========================================================================
 
 def cmd_http(args) -> int:
+    """HTTP 한 건. 경로만 주면 access 의 base_url 에 붙인다 — 판정은 부르는 쪽이 한다."""
     _set_area("server", _root(args))
     root = _root(args)
     url = args.url
@@ -2136,6 +2204,7 @@ def cmd_http(args) -> int:
                         "error": f"'{url}' 는 전체 주소가 아니고, 적어 둔 base_url 도 없습니다",
                         "next": "access set --key base_url --json '{\"url\":\"http://...\"}'"})
         url = base.rstrip("/") + "/" + url.lstrip("/")
+        _use_access(root, "base_url")
 
     headers = {"Accept": "application/json"}
     cred, err = _load_cred(getattr(args, "cred", None))
@@ -2449,7 +2518,11 @@ def cmd_access(args) -> int:
     data = load_access(root)
 
     if args.action == "show":
+        status = {k: v for k, v in load_status(root).items() if k in data}
+        doubt = sorted(k for k, v in status.items() if needs_verify(v))
         return out({"file": str(access_path(root)), "access": data,
+                    "status": status or None,
+                    "verify": doubt or None,
                     "summary": (f"{', '.join(data)} 기록됨" if data else "아직 기록이 없습니다"),
                     "next": (None if data else
                              "코드를 읽어 붙는 법을 알아낸 뒤 access set --key db --json '{...}'")})
@@ -2472,6 +2545,7 @@ def cmd_access(args) -> int:
                                  'access 에는 {"cred":"이름"} 만 적는다 (환경변수로 받으려면 {"password_env":"APP_DB_PASSWORD"})')})
         data[args.key] = value
         f = save_access(root, data)
+        reset_status(root, args.key)   # 방법이 바뀌었으면 옛 성적은 의미가 없다
         return out({"file": str(f), "key": args.key, "access": data,
                     "summary": f"{args.key} 기록 완료"})
 
@@ -2483,6 +2557,7 @@ def cmd_access(args) -> int:
         if args.key in data:
             del data[args.key]
             save_access(root, data)
+            reset_status(root, args.key)
             return out({"key": args.key, "access": data, "summary": f"{args.key} 지움"})
         return out({"key": args.key, "access": data, "code": "not_found",
                     "summary": f"{args.key} 가 없습니다"})
@@ -2502,13 +2577,13 @@ def _proc_result(r, via: str, engine: str | None = None) -> int:
 
 
 def cmd_db(args) -> int:
-    _set_area("server", _root(args))
     """SQL 한 줄을 실행한다. **어떻게 붙을지는 호출하는 쪽이 정한다.**
 
       --command  임의 명령 (docker exec 등). 가장 자유롭다
       --via ssh  원격에 들어가 그 안에서 클라이언트를 실행한다
       (기본)     여기서 직접 붙는다
     """
+    _set_area("server", _root(args))
     sql = args.sql
     if not sql:
         return out({"ok": False, "code": "sql_required", "error": "--sql 이 필요합니다"})
@@ -2524,6 +2599,7 @@ def cmd_db(args) -> int:
             return out({"ok": False, "code": "profile_not_found",
                         "error": f"'{args.profile}' 기록이 없습니다",
                         "next": f"access show --root {args.root}"})
+        _use_access(root, args.profile)
         if isinstance(saved, dict):
             for k in ("engine", "host", "port", "db", "user", "password",
                       "command", "ssh_host", "ssh_user", "ssh_port"):
@@ -2603,8 +2679,8 @@ def cmd_db(args) -> int:
 
 
 def cmd_logs(args) -> int:
-    _set_area("server", _root(args))
     """서버 로그를 본다. **보는 방법은 적어 둔 것을 쓴다** — 맞히려 들지 않는다."""
+    _set_area("server", _root(args))
     root = _root(args)
     _home(root)
     command = args.command
@@ -2612,6 +2688,8 @@ def cmd_logs(args) -> int:
     if not command:
         saved = load_access(root).get(args.profile or "logs")
         command = saved.get("command") if isinstance(saved, dict) else saved
+        if command:
+            _use_access(root, args.profile or "logs")
     cred, err = _load_cred(_cred_from_profile(args, saved))
     if err:
         return out(err)
@@ -2839,8 +2917,8 @@ def _shot_args(p) -> None:
 # =========================================================================
 
 def _repo_unknown(root: Path) -> bool:
-    """프로젝트를 알 수 없다 — 스킬 폴더에서 불렸고 git 원격도 없다(플러그인 캐시)."""
-    return _is_skill_dir(root) and "__" not in repo_key(root)
+    """프로젝트를 알 수 없다 — 스킬·플러그인 폴더에서 불렸고 git 원격도 없다 (판정은 state.repo_unknown)."""
+    return repo_unknown(root)
 
 
 def _knowledge_paths(args) -> dict:
@@ -3164,6 +3242,9 @@ def main(argv: list[str] | None = None) -> int:
         return emit({"ok": False, "code": "bad_args",
                      "error": "인자가 올바르지 않습니다 (위 사용법 참고)",
                      "next": "launch_cli.py <서브커맨드> --help"})
+    # 한 프로세스에서 main 을 여러 번 부르는 경우(테스트) 이전 호출의 표시가 새지 않게 한다
+    _ROOT_CTX.clear()
+    _ACCESS_CTX.clear()
     try:
         return args.func(args)
     except Exception as e:   # 예상 못 한 입력이 트레이스백으로 끝나지 않게 — 에이전트는 JSON 만 읽는다 (#705)

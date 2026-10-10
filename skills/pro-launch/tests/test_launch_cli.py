@@ -6,7 +6,7 @@ pro-agent-test 에서 옮겨 온 실행·캡처 계약(web · device · shrink �
 기기·브라우저·서버가 없어도 돌아야 한다. 진짜 브라우저가 필요한 것만 `local_only` 다.
 
 ⚠️ 브라우저 테스트는 HOME 을 바꾸지 않는다 — macOS Chrome 은 HOME 이 바뀌면 이동 중
-멈춘다(실측). 대신 원격 없는 임시 레포를 --root 로 줘서 상태 폴더만 나누고 끝나면 지운다.
+멈춘다(실측). 대신 상태 루트(PROJECTOPS_HOME)만 conftest 가 테스트마다 임시로 돌린다 (#836).
 """
 from __future__ import annotations
 
@@ -41,6 +41,10 @@ def run_cli(*args, home: Path | None = None, cwd: Path | None = None, env_extra=
     if home is not None:
         env["HOME"] = str(home)
         env["USERPROFILE"] = str(home)   # Windows
+    # 상태 루트는 conftest 가 테스트마다 임시로 준다. 그 밖에서 불려도 실제 홈에 쓰지 않게 한다 (#836)
+    if not env.get("PROJECTOPS_HOME"):
+        import tempfile
+        env["PROJECTOPS_HOME"] = str((home or Path(tempfile.mkdtemp())) / ".projectops")
     for k in ("SHOT_DIR", "RUN_DIR", "DEV", "PKG"):
         env.pop(k, None)
     env.update(env_extra or {})

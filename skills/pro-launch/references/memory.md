@@ -61,10 +61,18 @@ agent 가 "모른다는 것을 모르는" 상태에서 꺼내 볼 생각을 하�
 
 | 자리 | 담는 것 |
 |---|---|
-| `~/.projectops/launch/<owner__repo>/` | devices.json · browser.json · access.json(**비밀 없음**) · knowledge.json · `.browser-profile/` · `shots/` |
+| `~/.projectops/launch/<owner__repo>/` | devices.json · browser.json · access.json(**비밀 없음**) · access_status.json(접속 방법 성적) · knowledge.json · `.browser-profile/` · `shots/` |
 | `~/.projectops/config/config.json` → `launch.credentials` | **자격증명**(값 포함, 파일 600). `pro-ssh`·`pro-github` 와 같은 파일 |
-| `~/.projectops/launch/_machine/` | knowledge.json — 이 컴퓨터 전체에 해당하는 방식 |
+| `~/.projectops/launch/_machine/` | knowledge.json — 이 컴퓨터 전체에 해당하는 방식. 레포를 알 수 없을 때의 상태도 여기 둔다(아래) |
 | `~/.projectops/launch/.venv` | Playwright · Pillow (옛 `agent-test/.venv` 가 있으면 그것을 쓴다) |
+
+`PROJECTOPS_HOME` 환경변수가 있으면 `~/.projectops` 대신 그 자리를 쓴다(테스트 격리용). venv 는 설치물이라
+그 자리에 없으면 실제 홈의 것을 찾아 쓴다.
+
+**레포를 알 수 없을 때** — 스킬·플러그인 캐시 폴더(경로에 `/skills/pro-` · `/plugins/cache/`)에서 불렸고 git 원격이
+없으면 폴더 이름(`scripts` 등)을 레포로 삼지 않는다. `$PROJECT_ROOT` 가 있으면 그것을 쓰고, 없으면 상태를
+`_machine/` 에 쓰며 응답에 `root_unknown: true` 와 `--root <프로젝트>` 로 다시 부르라는 `next` 를 붙인다.
+레포 범위 기억은 이때 쓰지 않는다.
 
 예전에는 `~/.projectops/agent-test/` 에 섞여 있었다. 처음 부를 때 launch 몫을 옮기고
 결과에 `migrated` 로 알린다. 두 번째부터는 아무 일도 없다. 브라우저가 떠 있으면 브라우저
