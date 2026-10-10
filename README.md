@@ -6,7 +6,7 @@
 
 [![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/)
 
-**Status: actively maintained.** New versions ship often, sometimes several a day. To stay on a version you have tested, run `npx projectops@<version>` ([releases](https://github.com/Cassiiopeia/projectops/releases)).
+**Status: actively maintained.** npm `latest` is exactly what is on the `main` branch; work in progress on `develop` is never published. Versions can still ship several times a day. To stay on a version you have tested, run `npx projectops@<version>` ([releases](https://github.com/Cassiiopeia/projectops/releases)).
 
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
 ## Latest version : v4.36.4 (2026-10-07)
@@ -300,7 +300,7 @@ We would rather tell you up front when this is not a fit.
 - **Releases assume a develop branch → default branch PR flow.** Branch names can be changed in `version.yml`, but it does not suit a repo that does not use two branches.
 - **A personal access token is optional.** You need one only to merge past branch protection or to sync a Projects board. See [Setup](#setup).
 - **It adds about 50 files to your repository** (workflows, helper scripts, templates). See [the measurement](#compared-with-other-tools).
-- **New versions ship often.** Pin a version you have tested with `npx projectops@<version>`.
+- **New versions ship often.** `latest` follows every push to `main` with no delay. Pin a version you have tested with `npx projectops@<version>`.
 - **Server deploy workflows assume a Docker server reachable over SSH.**
 
 ---
@@ -327,6 +327,7 @@ Browse and search everything on the **[docs site](https://cassiiopeia.github.io/
 - [Issues](https://github.com/Cassiiopeia/projectops/issues): bug reports and feature requests
   - Finished issues are marked with the `status: done` label and closed automatically when a release is merged (`close_on_release`).
 - [CONTRIBUTING.md](CONTRIBUTING.md): contribution guide
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): how we expect everyone to behave, and where to report problems
 - [SECURITY.md](SECURITY.md): please report security vulnerabilities privately, not in a public issue
 
 ---

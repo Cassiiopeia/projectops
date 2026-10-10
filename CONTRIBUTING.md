@@ -3,6 +3,8 @@
 Thanks for helping out. This guide is short on purpose: it covers what you need to get a change from idea to merged PR.
 A Korean version is in [docs/i18n/CONTRIBUTING.ko.md](docs/i18n/CONTRIBUTING.ko.md).
 
+This project follows the [Code of Conduct](CODE_OF_CONDUCT.md). By taking part you agree to it.
+
 ## What this project is
 
 projectops is a template and installer (`npx projectops`) that adds GitHub Actions workflows, version management,
@@ -79,7 +81,7 @@ automation (issue helper, version bump), not your pull request.
 
 ## Releases
 
-- Releases go out whenever finished work is on `develop`, often several times a day. A stable channel for users who want fewer updates is tracked in [#796](https://github.com/Cassiiopeia/projectops/issues/796).
+- npm `latest` is exactly what is on `main`. Pushing to `main` publishes it as `latest` immediately, with no waiting period or promotion schedule. `develop` is never published to npm, so `latest` only ever carries versions a maintainer decided to release. How often versions ship is the maintainer's choice of when to push to `main`.
 - Release PRs are titled `🚀 Deploy <date>-v<version>`. To hide them in the PR list, filter with `is:pr -head:develop`.
 - This project is actively maintained. Pull requests are reviewed by the code owners listed in `.github/CODEOWNERS`.
 
