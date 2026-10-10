@@ -64,6 +64,7 @@ echo "PYTHON=$PYTHON PROJECT_ROOT=$PROJECT_ROOT"
 - **대조용 캡처는 원본 PNG**(`--keep-format`). pro-launch 기본(긴 변 1200 WebP)으로 줄이면 픽셀이 뭉개진다.
 - **픽셀 100% 일치를 요구하지 않고, 기본으로 CI 게이트를 걸지 않는다.** 퍼센트·덩어리 수를 결함 수로 읽지 않는다.
 - 기준은 언제나 **시안 export** 다. 구현자가 만든 골든은 기준이 아니다.
+  시안 export 는 화면 노드를 `download_figma_images` 로 받되 `pngScale` 을 기기 배율(3배 기기면 3)에 맞춘다 — `references/comparing.md` "시안 export 받기".
 
 ## 순서 — 단계별 결정 규칙
 

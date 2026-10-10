@@ -52,7 +52,8 @@ source "{env_file 값}"
 |---|---|
 | `no_device` | `devices` 로 목록을 보고 `--device` 를 준다 |
 | `not_found` · `index_out_of_range` | `candidates` 에서 고른다. 화면 언어는 `locale` |
-| `ui_dump_failed` | 화면이 전환 중이거나 보안 화면이다. 잠시 뒤 `app tree` 를 다시 본다 |
+| `ui_dump_failed` | 화면이 전환 중이거나 보안 화면이다. 잠시 뒤 `app tree` 를 다시 본다. 계속 실패하면 `--at` 비율 좌표 |
+| `tree_unsupported` | 이 기기 백엔드는 화면 구조를 못 읽는다. `app shot` 으로 보고 `--text` 로 누르거나 `--at` 비율 좌표 |
 | `ios_tool_missing` · `android_tool_missing` | `next` 의 설치 명령(iOS 는 Maestro)을 사용자에게 제안한다 |
 | `adb_missing` | 아래 PATH 를 잡거나 `doctor` 의 `adb_path` 를 쓴다 |
 | `capture_failed` | 잠긴 화면이거나 `FLAG_SECURE` 다(아래 "관측") |
@@ -116,7 +117,7 @@ adb -s "$DEV" shell input keyevent KEYCODE_ENTER   # 완료 키
 ```
 
 - 값은 **명령줄이 아니라 표준입력**으로만 기기에 간다(호스트 `ps` 에 남지 않는다). `--text` 로 값을 직접 주는 방식은 없다.
-- 포커스된 입력창에 들어간다 — 누르는 것은 지금처럼 좌표로 한다. 입력 뒤에는 `app shot` 으로 확인한다.
+- 포커스된 입력창에 들어간다 — 입력창은 먼저 `app tap --text|--id`(요소 기준)로 눌러 포커스를 준다. 입력 뒤에는 `app shot` 으로 확인한다.
 - **`adb input text` 는 ASCII 만 된다**(한글 불가 → `non_ascii_unsupported`). 한글이 필요하면 IME 를 설치한다.
 - iOS 시뮬레이터에는 텍스트를 넣는 공식 명령이 없다(`ios_text_unsupported`) — Maestro 같은 도구나 사용자에게 맡긴다.
 - 저장된 로그인 정보가 없으면 사용자에게 묻고, **허락받은 것만 `cred set`** 한다(`references/web.md` 의 "로그인 정보를 저장할 때").
@@ -164,6 +165,9 @@ xcrun simctl uninstall {UDID} {번들ID}
 {PYTHON} {SCRIPTS}/launch_cli.py app shot --device {UDID} --out {이름} --clean-status
 xcrun simctl io {UDID} recordVideo {경로}.mp4   # Ctrl+C로 종료
 ```
+
+`--pkg` 에는 번들 ID 를 준다. 자기 앱은 `detect --path .` 가 돌려주는 번들 ID 를 쓴다.
+시스템 앱 예: 설정 `com.apple.Preferences` · 사파리 `com.apple.mobilesafari` · 사진 `com.apple.mobileslideshow`.
 
 ### iOS 시뮬레이터는 좌표로 누르지 않는다 ⚠️
 

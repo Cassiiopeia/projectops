@@ -124,6 +124,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py other run --command "{명�
 누르기 전에 **주소의 `flowName` 을 읽는다**: `WebLiteSignIn` 이면 자동화로 인식돼 이메일 단계에서 거부된다(시도하지 않는다),
 `GlifWebSignIn` 이면 정상. 그래서 로그인이 필요하면 **처음부터 `web open --headed`** 로 연다(2026-09-18 실측: headless 는
 `WebLiteSignIn`, `--headed` 는 `GlifWebSignIn`). 비밀번호는 `--text-env`. 상세는 `references/social-login.md`.
+Android 네이티브 Google 로그인(Play Services 계정 선택 창)은 앱 밖 화면이다 — 기기에 테스트 계정이 있으면 `app tap --text <계정>` 으로 고르고, 없거나 2단계 인증이면 멈추고 사용자에게 넘긴다.
 
 **Phase 4.4 — 되는데 이상한 것.** `$SHOT_DIR` 의 화면을 나란히 놓고 축 4(같은 것이 같게) · 5(눌러서 말이 되나) ·
 6(움직임) · 7(시안 대조 기록)을 **값으로** 본다 — "느낌"이 아니라 "제목 크기 4개 화면에서 3종류". 시안이 있는 화면인데
@@ -141,6 +142,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py other run --command "{명�
 
 ## 기록 쌓기
 
+앱·웹 작업을 시작할 때 `pro-launch` 의 `recall --area ios|android|web|server` 를 한 번 보고, 끝나면 먹힌 방식을 `learn --result ok|fail` 로 남긴다.
 알아낸 화면·규칙·함정·실행 결과는 `note` 로 남기고, 시작할 때 `note show` 로 읽는다. 기록은 홈
 (`detect` 의 `knowledge_dir`)에 쌓여 워크트리를 새로 만들어도 산다. 이메일·전화·JWT·비밀번호가 섞이면 거부된다.
 `references/learning.md`.

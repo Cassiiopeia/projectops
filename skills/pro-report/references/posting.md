@@ -27,6 +27,8 @@
 
 ## 스크린샷·증적 이미지 첨부
 
+> **순서**: 승인 화면에는 본문과 함께 "첨부할 이미지 목록"을 보여 준다. 승인 뒤에 `upload-image` → 받은 `markdown` 을 본문에 넣고 → `add-comment`. 승인받은 본문과 게시본은 이미지 링크만 다르다. "보기만"이면 업로드도 하지 않는다.
+
 보고서에 **화면이 필요하면 이미지를 함께 올린다.** 테스트 결과·장애 재현·UI 변경은 글보다 화면이 증거가 된다.
 
 ```bash
@@ -38,6 +40,6 @@ PYTHONIOENCODING=utf-8 "{PYTHON}" "{pro-github/scripts}/github_cli.py" \
 출력 JSON의 `markdown` 필드를 보고서 `.md`에 붙여넣은 뒤 `add-comment`로 올린다.
 **순서를 지킨다** — 보고서를 먼저 올리면 이미지 없는 본문이 게시된다.
 
-상세 규칙(형식 제한·private 레포 제약·되돌리기)은 `pro-github` SKILL.md의 "이미지 첨부" 절.
+상세 규칙(형식 제한·private 레포 제약·되돌리기)은 `../../pro-github/references/images.md`.
 
 > 이미지가 없으면 넣지 않는다. 의미 없는 스크린샷은 보고서를 길게만 만든다.

@@ -43,6 +43,7 @@
   상태 외 라벨(`priority: urgent` 등)을 지키려면 `get-issue`로 기존 라벨을 읽어 상태 라벨만 바꾼 목록을 넘긴다.
 - 완료 처리 레시피는 `pro-github/SKILL.md` §"이슈 완료 처리"에 있다. `pro-report`가 보고서를 올린 뒤 이 레시피를 따른다.
 - 릴리스 워크플로우(`close_on_release`)도 완료 라벨 이슈를 닫지만, 이미 닫힌 이슈는 건너뛰므로 먼저 닫아도 충돌하지 않는다.
+- **취소 이슈는 `close_on_release`가 닫지 않는다**(완료 라벨만 대상). 그래서 취소는 agent가 직접 `close-issue --reason not_planned` 까지 한다.
 
 ### 필요한 것이 없을 때
 

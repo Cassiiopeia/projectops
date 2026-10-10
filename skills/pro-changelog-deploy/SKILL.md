@@ -91,12 +91,14 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 ## deploy 모드 — 단계와 판단 (명령·문구는 `references/deploy-steps.md`)
 
 **1단계 커밋 상태 확인** — `git status --short` · `git fetch origin` · 현재 브랜치 · `git log origin/{BASE}..HEAD` · `git log origin/{HEAD}..HEAD`를 **각각 따로** 실행한다.
-- 미커밋 변경이 있으면 **즉시 멈추고** `/pro-commit` 안내.
+- 미커밋 변경이 **내 것**(이번 작업에서 만든 것)이면 멈추고 `/pro-commit`을 먼저 한다.
+- **의도를 모르는 남의 변경**(다른 세션)이면 건드리지 말고 목록을 알린 뒤 진행한다 — 배포는 커밋만 push한다. 단 1-1 merge가 그 파일과 겹쳐 실패하면 멈추고 사용자에게 넘긴다.
 - 현재 브랜치가 `HEAD_BRANCH`가 아니면 **멈추고** 안내한다. 브랜치를 임의로 바꾸지 않는다 (다른 세션이 옮긴 것일 수 있다).
 - 두 log가 **모두 비었을 때만** "deploy할 커밋이 없습니다" 후 종료. 하나라도 있으면 1-1로.
 
 **1-1단계 base 최신화 (생략 금지)** — 순서가 계약이다:
 1. `git pull --rebase origin {HEAD}` 로 head를 원격과 먼저 맞춘다 (merge 커밋을 만든 뒤 pull --rebase 하면 merge가 풀린다).
+   작업트리에 **남의 미커밋 변경**이 있어 pull --rebase 가 거부되면 stash 하지 않고 `git fetch origin` → `git merge --ff-only origin/{HEAD}` 로 맞춘다(겹치는 파일이 없으면 더러운 트리에서도 된다). ff 가 안 되면(내 로컬 커밋과 갈라짐) 멈추고 묻는다.
 2. `git log origin/{HEAD}..origin/{BASE}` 로 역방향 차이를 본다. 비었으면 2단계로.
 3. 있으면 목록을 보여주고 `git merge --no-edit origin/{BASE}`. **충돌이 나면 멈추고** 사용자와 해소 방향을 정한다 — `merge --abort`·`reset`·한쪽 버리기를 임의로 하지 않는다.
 
@@ -110,7 +112,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 | `APP_RELEASE == false` | 묻지 않고 경고 없이 진행 |
 
 **2단계 push 전 확인** — push할 커밋 목록을 보여주고 승인받는다.
-**3단계 push** — `git push origin {HEAD}`. 여기서 pull --rebase를 다시 하지 않는다(1-1 merge가 풀린다). non-fast-forward면 **강제 푸시 금지**, `git pull --rebase=merges origin {HEAD}` 후 다시 push. 버전은 여기서 오르지 않는다(릴리스 PR에서 확정).
+**3단계 push** — `git push origin {HEAD}`. 여기서 pull --rebase를 다시 하지 않는다(1-1 merge가 풀린다). non-fast-forward면 **강제 푸시 금지**, `git pull --rebase=merges origin {HEAD}` 후 다시 push (남의 미커밋 때문에 거부되면 멈추고 묻는다 — stash 금지). 버전은 여기서 오르지 않는다(릴리스 PR에서 확정).
 
 > **⚠️ 단계 순서 (레이스컨디션 방지 — 반드시 지킨다)**
 > RELEASE-CHANGELOG는 deploy PR `opened` 시점에 본문을 확인해 `Summary by CodeRabbit`이 **없으면 본문을 초기화**한다. 빈 본문으로 PR을 먼저 만들면 워크플로우가 끼어들어 노트가 사라진다. 그래서 **커밋 분석(4) → 노트 작성(5) → 승인(5.5) → 노트를 본문에 담아 PR 생성(6)** 순서로 PR 생성을 맨 마지막에 둔다. (워크플로우 로직은 수정하지 않는다.)
@@ -146,7 +148,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 | verdict | 의미 | 행동 |
 |---------|------|------|
 | `merged` | automerge 완료 | 결과 안내, 종료 |
-| `waiting_for_automerge` | 정상 대기 중 (워크플로우 in_progress 포함) | **sleep 금지.** `ScheduleWakeup(delaySeconds=60)`으로 재확인하고 `merged`가 될 때까지 **60초 간격으로 반복** (보통 60초 안에 끝난다. 60초가 ScheduleWakeup 최소값) |
+| `waiting_for_automerge` | 정상 대기 중 (워크플로우 in_progress 포함) | **sleep 금지.** `ScheduleWakeup(delaySeconds=60)`으로 60초 간격 재확인 (보통 60초 안에 끝난다. 60초가 ScheduleWakeup 최소값). **PR 생성 후 10분이 지나도 이 verdict면** 멈추고 fix 모드를 안내한다. ScheduleWakeup 이 없는 하네스면 대기하지 말고 PR 링크와 재확인 명령(`deploy-status --pr N`)을 알리고 끝낸다 |
 | `missing_coderabbit_summary` | 워크플로우는 끝났는데 본문에 `Summary by CodeRabbit`이 없음 | **즉시 fix 모드로 가지 않고 즉시 `update-pr`도 하지 않는다.** 60초 후 `deploy-status`로 한 번 더 확인하고, **두 번 연속 같은 verdict일 때만** fix 모드 안내. 한 번이면 race를 우선 가정한다 (#331 — 워크플로우 PATCH와 겹쳐 본문 사라짐이 반복된 실사고) |
 | `workflow_failed` | 워크플로우 실패 | `workflow.run_url` 안내 + fix 모드로 재실행 |
 | `conflict` | 머지 충돌/차단 | 충돌 상태 안내, 수동 확인 요청 |
@@ -167,6 +169,6 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 - **PR 생성/재시도 후 반드시 `deploy-status`로 검증한다.** 상태 확인용 Python을 `/tmp`에 즉석 생성하지 않는다.
 - **PR은 노트를 본문에 담아 생성한다.** 빈 본문으로 먼저 만든 뒤 채우면 레이스컨디션으로 노트가 사라진다.
 - **승인 게이트를 건너뛰지 않는다.** 자동 모드로 명시 설정된 경우만 표시 후 진행하고, 앱 심사 레포는 자동 모드여도 승인을 받는다. 안내는 자연어로만, config 키·경로를 표면화하지 않는다.
-- 워크플로우가 본문을 지운 정황이 보이거나 10분이 지나도 automerge가 안 되면 fix 모드로 재실행한다.
+- fix 모드로 넘어가는 기준은 위 verdict 표 하나다(`missing_coderabbit_summary` 2회 연속 · `workflow_failed` · `waiting_for_automerge` 10분 초과).
 - deploy PR이 이미 있으면 닫지 않고 재사용한다.
 - **Windows 내부망에서 curl exit 35 (SSL 오류)**: curl 호출에 `--ssl-no-revoke` 추가 (`../references/common-rules.md` Windows 내부망 환경 섹션).

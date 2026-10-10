@@ -92,12 +92,16 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app swipe  --device "$DE
 - 캔버스·지도처럼 요소가 없을 때만 `--at 0.5,0.8` **비율(0~1)** 좌표. 픽셀은 거절한다(`bad_ratio`).
 - 밀기는 `--dir up|down|left|right`, 정확한 궤적이면 `--from 0.5,0.8 --to 0.5,0.2 --ms 300`.
 - `--shot 이름` 을 붙이면 화면이 멈춘 뒤 찍어 준다. `screen_changed: false` 면 반응이 없었다 — 다른 요소를 고른다.
-- iOS 조작은 Maestro 가 필요하다(호출당 10~40초). 긴 시나리오는 프로젝트의 E2E flow 로 한 번에 돌린다.
+- iOS 는 `app tap`·`app swipe` 뿐 아니라 **`app tree` 도 Maestro 를 쓴다**(호출당 10~40초). 긴 시나리오는 프로젝트의 E2E flow 로 한 번에 돌린다.
+- 화면 전환·로딩 직후 `not_found` 면 `app shot` 으로 지금 화면을 확인한 뒤 `--shot` 을 붙여 **1회만** 다시 누른다. 또 실패하면 `candidates` 에서 고른다.
+- iOS 번들 ID(시스템 앱 포함)는 `references/app.md` 의 iOS 절.
 
 | code | 다음 행동 |
 |---|---|
 | `no_device` | `devices` 로 보고 `--device` 를 준다 |
 | `not_found` | `candidates` 에서 고른다 |
+| `ui_dump_failed` | 화면 구조를 못 읽었다(전환 중·보안 화면). 잠시 뒤 다시, 계속이면 `--at` 비율 좌표 |
+| `tree_unsupported` | 이 기기는 화면 구조를 못 읽는다. `app shot` 으로 보고 `--text` 또는 `--at` 비율 좌표 |
 | `ios_tool_missing` · `android_tool_missing` · `adb_missing` | 결과의 설치 안내를 사용자에게 제안한다 |
 | `non_ascii_unsupported` · `ios_text_unsupported` | `app type` 이 못 넣는다. 영문 대체 또는 사용자에게 맡긴다 |
 | `build_mismatch` | 기기마다 설치된 빌드가 다르다. 멈추고 양쪽을 맞춘다 |

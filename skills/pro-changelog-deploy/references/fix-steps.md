@@ -68,35 +68,24 @@ deploy 5.5단계와 **동일한 로직·문구**를 쓴다 ([시작 전 §3]의 
 PR이 처음부터 `Summary by CodeRabbit`을 담고 태어나야 워크플로우가 본문을 초기화하지 않는다.
 
 ```bash
-GITHUB_PAT="{PAT}"; OWNER="{OWNER}"; REPO="{REPO}"; PYTHON="{PYTHON}"; SCRIPTS="{SCRIPTS}"; HEAD_BRANCH="{HEAD_BRANCH}"; BASE_BRANCH="{BASE_BRANCH}"
-
 # 릴리스 노트 임시 파일 — fix 4단계에서 Write한 그 절대경로와 동일해야 한다.
-NOTES_FILE="$HOME/.projectops/tmp/${OWNER}__${REPO}__release_notes.md"
+NOTES_FILE="$HOME/.projectops/tmp/{OWNER}__{REPO}__release_notes.md"
 # commit provider "맡기기"로 노트 파일이 없으면 빈 문자열 → 빈 본문 PR (워크플로우가 채움).
 [ -f "$NOTES_FILE" ] || NOTES_FILE=""
 
-TODAY=$(date '+%Y%m%d')
-TITLE="🚀 Deploy ${TODAY} (재시도)"
-
-# create-pr의 body_file에 릴리스 노트 절대경로를 넘겨 본문 포함 PR 생성 (deploy 6단계와 동일 패턴).
-CREATE_OUT=$(GITHUB_PAT="$GITHUB_PAT" PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" \
-  create-pr "$OWNER" "$REPO" "$TITLE" "$NOTES_FILE" "$HEAD_BRANCH" "$BASE_BRANCH")
-PR_NUMBER=$(CREATE_OUT="$CREATE_OUT" "$PYTHON" -c "import os,json; print(json.loads(os.environ['CREATE_OUT']).get('number',''))")
+# create-pr의 body_file에 릴리스 노트 절대경로를 넘겨 본문 포함 PR 생성 (deploy 6-2b와 동일 패턴).
+GITHUB_PAT="{PAT}" PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/changelog_cli.py" \
+  create-pr "{OWNER}" "{REPO}" "🚀 Deploy $(date '+%Y%m%d') (재시도)" "$NOTES_FILE" "{HEAD_BRANCH}" "{BASE_BRANCH}"
 rm -f "$NOTES_FILE"
-
-if [ -z "$PR_NUMBER" ]; then
-  echo "❌ PR 생성 실패. GitHub API 응답을 확인하세요. ($CREATE_OUT)"
-  exit 1
-fi
-echo "✅ PR #$PR_NUMBER 생성 완료 (릴리스 노트 본문 포함)"
 ```
 
-출력 JSON(`{"number","url"}`)으로 성공을 확인한다. 이후 deploy 7단계처럼 `deploy-status --pr`로 검증한다.
+출력 JSON의 `number`를 새 PR 번호로 읽는다. 없으면 "❌ PR 생성 실패"와 응답 JSON을 보여주고 멈춘다.
+있으면 deploy 7단계처럼 `deploy-status --pr {number}`로 검증한다.
 
 ## fix 6단계: 결과 안내
 
 ```
-✅ PR #NNN 본문 업데이트 완료!
+✅ 새 deploy PR #NNN 생성 완료!
 
 워크플로우가 본문의 릴리스 노트를 그대로 사용해 automerge를 진행합니다.
 진행 상황: https://github.com/{owner}/{repo}/actions

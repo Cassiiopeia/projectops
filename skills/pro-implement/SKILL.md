@@ -71,8 +71,8 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/implement_cli.py" find-inputs
 | 상태 | 행동 |
 |------|------|
 | analyze.md 있음 | 읽고 구현 시작. "analyze(`{경로}`)를 읽었습니다. 구현을 시작합니다." 한 줄 알림 |
-| plan.md만 있음 | `analyze` 스킬 호출해 HOW 구체화 → 완료 후 구현 |
-| 아무것도 없음 | HARD-GATE 작업이면 `plan` → `analyze` → implement. 단순 작업이면 사용자 확인 후 진행 |
+| plan.md만 있음 | analyze 를 **자동 호출하지 않는다**(명시 호출 전용). `/pro-analyze` 로 HOW 를 먼저 구체화할지, plan 만으로 진행할지 사용자에게 묻는다 |
+| 아무것도 없음 | HARD-GATE 작업이면 `/pro-plan` → `/pro-analyze` 를 **제안**한다(자동 호출 안 함). 단순 작업이면 사용자 확인 후 진행 |
 | 사용자가 파일 직접 지정 | 그 파일 사용 (위 판단 스킵) |
 
 ## Phase 1~5 — 핵심 결정 규칙
@@ -91,6 +91,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/implement_cli.py" find-inputs
 
 - **머지·PR 대상(`BASE_BRANCH`)은 개발(릴리스 소스) 브랜치다** — `version.yml` `metadata.deploy_branch`, 없으면 `develop`. `origin/HEAD` 로 잡지 않는다.
 - **`BASE_BRANCH`가 `main`/`master`이거나 기본(배포) 브랜치와 같으면 옵션 2(로컬 머지)를 막는다** — 기본 브랜치는 릴리스 PR(`/pro-changelog-deploy`)로만 갱신된다. 옵션 1만 안내.
+- **현재 브랜치 == `BASE_BRANCH`(develop 직행)이면 머지할 브랜치가 없다** — PR·로컬 머지 옵션을 보이지 않고 "커밋은 `/pro-commit`" 만 안내한다. 미커밋 상태에서 `git pull --rebase` 하지 않는다.
 - PR 은 `github` 스킬로 만든다 (`gh pr create` 금지). 제목은 `pro-github` PR 제목 규칙.
 - 로컬 머지는 **공유 작업 트리에서 checkout 하지 않는다** — `MAIN_ROOT` 가 이미 `BASE_BRANCH` 일 때만, `git pull --rebase` 로 통합.
 - worktree 정리는 옵션 2/4만, `MAIN_ROOT` 로 이동해서.

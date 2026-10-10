@@ -44,6 +44,9 @@ git log "origin/{HEAD_BRANCH}..HEAD" --oneline 2>/dev/null
 ```bash
 # head 를 원격과 먼저 맞춘다. merge 커밋을 만든 뒤에 pull --rebase 하면 merge 가 풀려 base 커밋이 재작성된다.
 git pull --rebase origin "{HEAD_BRANCH}"
+# 남의 미커밋 변경 때문에 거부되면(stash 금지 — 다른 세션 작업이 쓸려 들어간다):
+#   git fetch origin && git merge --ff-only "origin/{HEAD_BRANCH}"
+#   겹치는 파일이 없으면 더러운 작업트리에서도 된다. ff 불가(갈라짐)면 멈추고 사용자에게 묻는다.
 # base 에는 있는데 head 에는 없는 커밋 (역방향 차이)
 git log "origin/{HEAD_BRANCH}..origin/{BASE_BRANCH}" --oneline
 ```
@@ -125,47 +128,34 @@ git log "origin/{BASE_BRANCH}..origin/{HEAD_BRANCH}" --pretty=format:"%s" | grep
 
 VERSION-CONTROL 워크플로우 완료를 기다리지 않고 deploy PR을 생성한다. **5단계에서 만든 릴리스 노트 파일을 본문으로 담아 생성**하는 것이 핵심이다 — PR이 처음부터 `Summary by CodeRabbit`을 담고 있어야 RELEASE-CHANGELOG가 본문을 초기화하지 않는다.
 
+**6-1. open deploy PR 찾기** — 출력 JSON의 `pr.number`를 읽는다. 값이 있으면 재사용(6-2a), 없으면(`no_pr`) 신규(6-2b).
+
 ```bash
-GITHUB_PAT="{PAT}"; OWNER="{OWNER}"; REPO="{REPO}"; PYTHON="{PYTHON}"; SCRIPTS="{SCRIPTS}"; HEAD_BRANCH="{HEAD_BRANCH}"; BASE_BRANCH="{BASE_BRANCH}"
-
-# 릴리스 노트 임시 파일 — 5단계에서 Write한 그 절대경로와 동일해야 한다.
-# 홈 디렉토리 + {OWNER}__{REPO} prefix → cwd 무관·레포별 격리. (Windows Git Bash도 $HOME 정상 동작)
-NOTES_FILE="$HOME/.projectops/tmp/${OWNER}__${REPO}__release_notes.md"
-# commit provider에서 "맡기기" 선택 시 5단계가 노트 파일을 만들지 않는다.
-# 파일이 없으면 빈 문자열로 넘겨 빈 본문 PR 생성 → 워크플로우 fallback job이 커밋 분석으로 채운다.
-[ -f "$NOTES_FILE" ] || NOTES_FILE=""
-
-TODAY=$(date '+%Y%m%d')
-TITLE="🚀 Deploy ${TODAY}"
-
-DEPLOY_STATUS=$(GITHUB_PAT="$GITHUB_PAT" PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" \
-  deploy-status "$OWNER" "$REPO" --base "$BASE_BRANCH" --head "$HEAD_BRANCH")
-EXISTING_PR=$(DEPLOY_STATUS="$DEPLOY_STATUS" "$PYTHON" -c "import os,json; d=json.loads(os.environ['DEPLOY_STATUS']); print((d.get('pr') or {}).get('number',''))")
-
-# 기존 open deploy PR이 있으면 재사용 — 닫지 않는다 (새로 열면 워크플로우 재트리거되어 본문 초기화 위험)
-if [ -n "$EXISTING_PR" ]; then
-  # 재사용: 이미 PR이 있으므로 update-pr로 릴리스 노트 본문만 갱신한다.
-  PR_NUMBER=$EXISTING_PR
-  echo "기존 deploy PR #$PR_NUMBER 재사용 → 본문 업데이트"
-  RESULT_OUT=$(GITHUB_PAT="$GITHUB_PAT" PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" \
-    update-pr "$OWNER" "$REPO" "$PR_NUMBER" "$NOTES_FILE")
-else
-  # 신규: create-pr의 body_file에 릴리스 노트 절대경로를 넘겨 본문 포함 PR 생성.
-  # NOTES_FILE이 빈 문자열(commit 맡기기)이면 빈 본문 PR → 워크플로우가 채운다.
-  RESULT_OUT=$(GITHUB_PAT="$GITHUB_PAT" PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" \
-    create-pr "$OWNER" "$REPO" "$TITLE" "$NOTES_FILE" "$HEAD_BRANCH" "$BASE_BRANCH")
-  PR_NUMBER=$(RESULT_OUT="$RESULT_OUT" "$PYTHON" -c "import os,json; print(json.loads(os.environ['RESULT_OUT']).get('number',''))")
-  echo "새 deploy PR #$PR_NUMBER 생성 (릴리스 노트 본문 포함)"
-fi
-rm -f "$NOTES_FILE"
-
-if [ -z "$PR_NUMBER" ]; then
-  echo "❌ PR 생성/업데이트 실패. GitHub API 응답을 확인하세요. ($RESULT_OUT)"
-  exit 1
-fi
+GITHUB_PAT="{PAT}" PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/changelog_cli.py" \
+  deploy-status "{OWNER}" "{REPO}" --base "{BASE_BRANCH}" --head "{HEAD_BRANCH}"
 ```
 
-출력 JSON(`{"number","url"}`)으로 성공을 확인한다.
+**6-2. 본문 담아 갱신 또는 생성** — `NOTES_FILE`은 5단계에서 Write한 그 절대경로와 같아야 한다
+(홈 디렉토리 + `{OWNER}__{REPO}` prefix → cwd 무관·레포별 격리, Windows Git Bash도 `$HOME` 정상).
+
+```bash
+NOTES_FILE="$HOME/.projectops/tmp/{OWNER}__{REPO}__release_notes.md"
+# commit provider "맡기기"면 5단계가 노트 파일을 만들지 않는다 → 빈 문자열로 넘겨 빈 본문 PR, 워크플로우 fallback job이 채운다.
+[ -f "$NOTES_FILE" ] || NOTES_FILE=""
+
+# 6-2a. 기존 PR 재사용 — 닫지 않는다 (새로 열면 워크플로우가 재트리거돼 본문 초기화 위험). 본문만 갱신.
+GITHUB_PAT="{PAT}" PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/changelog_cli.py" \
+  update-pr "{OWNER}" "{REPO}" {EXISTING_PR} "$NOTES_FILE"
+
+# 6-2b. 신규 — body_file 에 노트 절대경로를 넘겨 본문 포함 PR 생성. 제목은 "🚀 Deploy {YYYYMMDD}".
+GITHUB_PAT="{PAT}" PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/changelog_cli.py" \
+  create-pr "{OWNER}" "{REPO}" "🚀 Deploy $(date '+%Y%m%d')" "$NOTES_FILE" "{HEAD_BRANCH}" "{BASE_BRANCH}"
+
+rm -f "$NOTES_FILE"   # 6-2a·6-2b 중 하나를 실행한 뒤 같은 블록에서 지운다
+```
+
+6-2a·6-2b 중 **하나만** 실행한다. 출력 JSON의 `number`를 PR 번호로 기억한다(7단계 `--pr`). `number`가 없으면
+"❌ PR 생성/업데이트 실패"와 응답 JSON을 보여주고 멈춘다.
 
 ## 7단계: automerge 검증 (deploy-status)
 

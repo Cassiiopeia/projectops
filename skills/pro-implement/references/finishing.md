@@ -37,6 +37,9 @@ MAIN_ROOT=$(git -C "$GIT_COMMON/.." rev-parse --show-toplevel)
 - `BASE_BRANCH` → 옵션 2 머지 대상. 원격에 그 브랜치가 없으면(`git ls-remote --heads origin "$BASE_BRANCH"`가 비면) 사용자에게 묻는다
 - **`BASE_BRANCH`가 `main`/`master`이거나 `DEFAULT_BRANCH`와 같으면 옵션 2를 막는다** — 기본(배포) 브랜치는 릴리스 PR(`/pro-changelog-deploy`)로만 갱신된다. 이때는 옵션 1(PR)만 안내한다
 - `CURRENT_BRANCH`, `WORKTREE_PATH`, `MAIN_ROOT` → Step 4에서 사용
+- **`CURRENT_BRANCH == BASE_BRANCH`(develop 직행)** → 머지할 브랜치가 없다. Step 3 옵션을 보이지 않고
+  "구현이 끝났습니다. 커밋은 `/pro-commit` 으로 하세요." 한 줄만 안내하고 Step 5로 간다.
+  작업 트리에 미커밋 변경이 있으므로 `git pull --rebase` 를 하지 않는다.
 
 ## Step 3: 옵션 제시
 
