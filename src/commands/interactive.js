@@ -2,7 +2,7 @@
 // io 주입으로 테스트 가능. 실제 실행은 src/ui/prompts.js 함수를 io로 넘긴다.
 // 새 시각 층(banner/detectionLog/analysisCard/ideStatus/installKind/summary)과 저수준 엔진(engineIo)은
 // io의 "옵셔널 멤버" — 스텁이 생략하면 해당 층만 건너뛰고 실행 계약은 동일하다.
-import { DEFAULT_CODE_REVIEW_CODERABBIT } from "../core/constants.js";
+import { resolveOptions } from "../core/resolve-options.js";
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { PATHS } from "../core/paths.js";
@@ -14,7 +14,7 @@ import { runBreakingCheck } from "../core/breaking-check.js";
 import { runMigrations } from "../core/migrations/index.js";
 import { detectOrphanWorkflows, applyOrphanCleanup } from "../core/orphan-workflows.js";
 import { resolveProjectPaths, filterExcludedTypes } from "../core/paths-resolve.js";
-import { askAllOptionalWorkflows, OPTION_AXES, applicableTargets, migrateProvider } from "../core/options-ask.js";
+import { askAllOptionalWorkflows, OPTION_AXES, applicableTargets } from "../core/options-ask.js";
 import { createRunTrace, MIGRATION_DIR } from "../core/run-trace.js";
 import { appendGuideEntry } from "../core/migration-guide.js";
 import { promptEnvPlan } from "../ui/env-plan.js";
@@ -125,35 +125,26 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     let branch = detectDefaultBranch(cwd);
     const repoName = detectRepoName(cwd);
     const versionCode = existing?.versionCode ?? 1; // 기존 빌드번호 보존
-    // 배포/publish 축 초기값(#439): version.yml 저장 옵션 (구 키 자동 마이그레이션 포함)
-    let deployTarget = existing?.options?.deploy ?? "docker-ssh";
-    let publishTargets = existing?.options?.publish ?? [];
-    let includeSecretBackup = existing?.options?.secretBackup ?? false;
-    let aiPrSummary = existing?.options?.aiPrSummary ?? null;   // null = 아직 안 물음 (#566)
-    let codeReviewCoderabbit = existing?.options?.codeReviewCoderabbit ?? DEFAULT_CODE_REVIEW_CODERABBIT;
-    let changelogProvider = migrateProvider(existing?.options?.changelogProvider) ?? "commit";
-    let changelogBaseUrl = existing?.options?.changelogBaseUrl ?? "";
-    let deployBranch = existing?.options?.deployBranch ?? "develop"; // #456
+    // 옵션 초기값은 비대화형과 같은 resolve-options.js 에서 받는다 (#851).
+    // 질문을 건너뛰는 모드(version 등)도 이 값이 그대로 기록되므로 타입 적용성 정리까지 거친 값이어야 한다.
+    const { values: init, sources: initSources } = resolveOptions({ existing, types, cwd });
+    let deployTarget = init.deployTarget;
+    let publishTargets = init.publishTargets;
+    let includeSecretBackup = init.includeSecretBackup;
+    let aiPrSummary = init.aiPrSummary;
+    let codeReviewCoderabbit = init.codeReviewCoderabbit;
+    let changelogProvider = init.changelogProvider;
+    let changelogBaseUrl = init.changelogBaseUrl;
+    let deployBranch = init.deployBranch; // #456 — 비어 있으면 기록하지 않는다. 질문에서 고른 값만 남긴다
     let deployBranchReady = null; // #490 — 이번 실행에서 개발 브랜치 존재/생성이 확인됐는지
     let deployBranchCreated = null; // #493 — 마법사가 직접 생성했는지 (가이드 기록용)
-    let intent = existing?.options?.intent ?? null; // #485 프로젝트 성격
-    // semver 자동 승격(#546) — 질문하지 않는다(#485 질문 부담 축소 방향 유지).
-    // 저장값(명시적 false 포함)은 보존하고, 키가 없으면 기존 레포도 ON. 켜진 사실은 완료 화면이 알린다.
-    const semverAuto = existing?.options?.semverAuto ?? true;
-    const semverAutoNewlyOn = !!existing && existing?.options?.semverAuto == null;
-    const appRelease = existing?.options?.appRelease ?? null; // #553 저장값 보존 (묻지 않음)
-    // 상태 라벨 표기(#776): 저장값 > (신규 en / 기존 ko). 기존 한글 레포에는 영문 전환을 한 번 제안한다(아래).
-    const closeOnRelease = existing?.options?.closeOnRelease ?? (existing ? null : true); // #771 묻지 않는다
-    const excludedWorkflows = existing?.options?.excludedWorkflows ?? null; // #810 저장값 보존
-    const storeLocales = existing?.options?.storeLocales ?? null; // #829 저장값 보존
-    const storeLocalesIos = existing?.options?.storeLocalesIos ?? null;
-    const storeLocalesPlay = existing?.options?.storeLocalesPlay ?? null;
-    // Projects 보드 동기화(#716): 묻지 않는다. 저장값 > 이미 설치돼 있으면 유지 > 신규는 제외 (index.js 와 같은 규칙).
-    const projectsSync = existing?.options?.projectsSync
-      ?? existsSync(join(cwd, ".github/workflows/PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml"));
-    // 레포 문구 언어(#769): 저장값 > (신규 en / 기존 ko). 기존 레포에는 영문 전환을 한 번만 제안한다.
-    let language = resolveRepoLanguage({ flag: null, stored: existing?.options?.language, existing: !!existing });
-    let labelStyle = resolveLabelStyle({ flag: null, stored: existing?.options?.labelStyle, existing: !!existing });
+    let intent = init.intent; // #485 프로젝트 성격
+    // 묻지 않는 값 — 저장값 보존 규칙은 resolve-options.js 에 있다
+    const { semverAuto, appRelease, closeOnRelease, excludedWorkflows, storeLocales, storeLocalesIos, storeLocalesPlay, projectsSync } = init;
+    const semverAutoNewlyOn = initSources.semverAutoNewlyOn;
+    // 레포 문구 언어(#769)·라벨 표기(#776): 기존 레포에는 영문 전환을 한 번만 제안한다(아래).
+    let language = init.language;
+    let labelStyle = init.labelStyle;
     const showOptional = mode === "full" || mode === "workflows";
     const realTty = process.stdout.isTTY === true;
     // 기존 한글 라벨 레포에는 영문 표준 전환을 한 번만 제안한다(#776). 거절하면 한글을 저장해 다시 묻지 않는다.
@@ -194,6 +185,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       publishTargets = r.publish;
       includeSecretBackup = r.secretBackup;
       codeReviewCoderabbit = r.codeReviewCoderabbit;
+      aiPrSummary = r.aiPrSummary; // #851 — 빠져 있어 PR 요약 선택이 버려졌다
       changelogProvider = r.changelogProvider;
       changelogBaseUrl = r.changelogBaseUrl;
       deployBranch = r.deployBranch;
@@ -256,7 +248,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
             tempDir, types, targetRoot: cwd, defaultBranch: branch,
             current: {
               deploy: deployTarget, publish: publishTargets, secretBackup: includeSecretBackup,
-              codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent,
+              codeReviewCoderabbit, aiPrSummary, changelogProvider, changelogBaseUrl, deployBranch, intent,
             },
             force: false, tty: realTty, forceAsk: true, scope: [what],
             io: {
@@ -270,6 +262,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
           publishTargets = r.publish;
           includeSecretBackup = r.secretBackup;
           codeReviewCoderabbit = r.codeReviewCoderabbit;
+          aiPrSummary = r.aiPrSummary; // #851
           changelogProvider = r.changelogProvider;
           changelogBaseUrl = r.changelogBaseUrl;
           deployBranch = r.deployBranch;
@@ -334,10 +327,10 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     const { now, today } = clock || utcNow();
     const ctx = createContext({
       mode, force: true, types, version, versionCode, branch, paths, deployTarget, publishTargets, includeSecretBackup,
-      codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync, language, excludedWorkflows, storeLocales, storeLocalesIos, storeLocalesPlay,
+      aiPrSummary, codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync, language, excludedWorkflows, storeLocales, storeLocalesIos, storeLocalesPlay,
       repoName, templateVersion, resolvers, envValues, envUseDefaults, now, today,
       // #502 — version 모드가 기존 full 기록을 강등하지 않도록 (full이 우세)
-      recordMode: existing?.templateMode === "full" ? "full" : "version",
+      recordMode: init.recordMode,
     });
     ctx.templateVersion = templateVersion;
 

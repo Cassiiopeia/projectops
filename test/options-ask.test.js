@@ -341,7 +341,7 @@ test("askAllOptionalWorkflows: 비대화형 — current 유지, 미설정은 기
       targetRoot: target, force: true, tty: false, io,
     });
     assert.deepEqual(r, { deploy: "vercel", publish: [], secretBackup: false,
-      codeReviewCoderabbit: false, aiPrSummary: true, changelogProvider: "commit", changelogBaseUrl: "", deployBranch: "develop",
+      codeReviewCoderabbit: false, aiPrSummary: true, changelogProvider: "commit", changelogBaseUrl: "", deployBranch: "", // #851 — 묻지 못했으면 기록하지 않는다
       deployBranchReady: null, // #490 — 비대화형은 브랜치 확인 안 함
       deployBranchCreated: null, // #493 — 비대화형은 생성 안 함
       intent: "app" }); // deploy≠none & publish=[] → app 역추론 (#485)

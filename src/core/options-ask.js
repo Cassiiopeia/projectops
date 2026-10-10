@@ -234,7 +234,10 @@ export async function askAllOptionalWorkflows({
       if (askIntent) {
         if (force || !tty || typeof io.select !== "function") {
           // 비대화형: CLI intent 미지정이면 deploy/publish에서 역추론, 그래도 없으면 manual(기존 동작)
-          intent = intent ?? inferIntent(deploy, publish) ?? "manual";
+          // 축이 아직 안 정해졌으면 비대화형(resolve-options.js)과 같은 기본 축으로 추론한다 (#851).
+          // 예전에는 null 로 추론해 "manual" 이 기록되어 같은 레포에서 두 경로의 결과가 갈렸다.
+          const defaultDeploy = applicable.deploy.includes("docker-ssh") ? "docker-ssh" : "none";
+          intent = intent ?? inferIntent(deploy ?? defaultDeploy, publish ?? []) ?? "manual";
         } else {
           say("");
           say(msg("options.intent.intro"));
@@ -394,7 +397,8 @@ export async function askAllOptionalWorkflows({
   //    "배포 브랜치"가 아니다 — 배포가 도는 곳은 기본 브랜치(default) 쪽 개념. #482 참조.
   if (ask("release-branch") || deployBranch === null) {
     if (force || !tty || typeof io.text !== "function") {
-      deployBranch = deployBranch ?? "develop";
+      // 묻지 못했으면 값을 지어내지 않는다 (#851) — 비어 있으면 기록하지 않고 스킬이 develop 으로 폴백한다.
+      deployBranch = deployBranch ?? "";
     } else {
       const base = defaultBranch || "main"; // git으로 감지된 기본 브랜치 (#481 동적 안내)
       say("");
@@ -431,7 +435,7 @@ export async function askAllOptionalWorkflows({
     aiPrSummary: aiPrSummary !== false,
     changelogProvider: changelogProvider ?? "commit",
     changelogBaseUrl: changelogBaseUrl ?? "",
-    deployBranch: deployBranch ?? "develop",
+    deployBranch: deployBranch ?? "",
     deployBranchReady, // #490 — true=존재/생성 확인됨, false=거절/실패, null=확인 안 함
     deployBranchCreated, // #493 — true=이번 실행에서 마법사가 생성, null=확인 안 함
 

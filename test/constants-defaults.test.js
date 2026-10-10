@@ -11,9 +11,14 @@ test("CodeRabbit 은 기본으로 꺼져 있다 — 별도 앱 설치 없이는 
 });
 
 test("대화형·비대화형·질문 경로가 모두 같은 상수를 쓰고 값을 따로 박지 않는다", () => {
-  for (const f of ["src/index.js", "src/commands/interactive.js", "src/core/options-ask.js"]) {
+  // 기본값을 정하는 곳은 resolve-options.js(초기값)와 options-ask.js(질문 폴백) 둘뿐이다 (#851).
+  // 진입점(index.js, interactive.js)은 resolve-options.js 를 거치므로 값을 직접 갖지 않는다.
+  for (const f of ["src/core/resolve-options.js", "src/core/options-ask.js"]) {
     const text = readFileSync(new URL(`../${f}`, import.meta.url), "utf8");
     assert.match(text, /DEFAULT_CODE_REVIEW_CODERABBIT/, `${f} 가 공용 기본값을 쓰지 않는다`);
+  }
+  for (const f of ["src/index.js", "src/commands/interactive.js", "src/core/resolve-options.js", "src/core/options-ask.js"]) {
+    const text = readFileSync(new URL(`../${f}`, import.meta.url), "utf8");
     assert.doesNotMatch(text, /codeReviewCoderabbit\s*(\?\?|=)\s*(true|false)\b[^=]/,
       `${f} 에 CodeRabbit 기본값이 직접 박혀 있다 — constants.js 의 DEFAULT_CODE_REVIEW_CODERABBIT 를 쓴다`);
   }

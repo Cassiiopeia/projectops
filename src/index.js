@@ -19,16 +19,13 @@ import { detectOrphanWorkflows } from "./core/orphan-workflows.js";
 import { createRunTrace, MIGRATION_DIR } from "./core/run-trace.js";
 import { appendGuideEntry } from "./core/migration-guide.js";
 import { resolveProjectPaths, markerForType } from "./core/paths-resolve.js";
-import { applicableTargets, migrateProvider } from "./core/options-ask.js";
-import { DEFAULT_CODE_REVIEW_CODERABBIT } from "./core/constants.js";
+import { resolveOptions } from "./core/resolve-options.js";
 import { printBannerCompact } from "./ui/banner.js";
 import { printSummary } from "./ui/summary.js";
 import { runFull } from "./commands/full.js";
 import { runVersion } from "./commands/version.js";
 import { runWorkflows } from "./commands/workflows.js";
 import { runIssues } from "./commands/issues.js";
-import { resolveLabelStyle } from "./core/label-style.js";
-import { resolveRepoLanguage } from "./core/repo-language.js";
 import { runInteractive } from "./commands/interactive.js";
 import { runSkills } from "./commands/skills.js";
 
@@ -191,86 +188,38 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
   const { now, today } = clock || utcNow();
   const tempDir = join(cwd, PATHS.tempDir);
 
-  // 프로젝트 성격(#485): CLI --intent → version.yml 저장값. deploy/publish 유도의 기준.
-  let intent = opts.intent ?? existing?.options?.intent ?? null;
-  // 배포/publish 축(#439): CLI 플래그 최우선 → 저장값 → 기본값(적용 가능할 때만 docker-ssh — #498).
-  //   단 --intent가 명시됐고 해당 축 플래그가 없으면 intent가 유도한다 (#485 비대화형):
-  //   library/none이면 deploy=none, app/none이면 publish=[].
-  const applicable = applicableTargets(types);
-  let deployTarget = opts.deployTarget ?? existing?.options?.deploy
-    ?? (applicable.deploy.includes("docker-ssh") ? "docker-ssh" : "none");
-  let publishTargets = opts.publishTargets ?? existing?.options?.publish ?? [];
-  if (opts.intent != null) {
-    if ((intent === "library" || intent === "none") && opts.deployTarget == null) deployTarget = "none";
-    if ((intent === "app" || intent === "none") && opts.publishTargets == null) publishTargets = [];
-  }
-  // 적용 불가 타겟 조용한 정리 (#498) — 대화형과 동일 규칙. 타입에 성립하지 않는 축 값은
-  // 복사 결과가 동일하므로 경고 없이 none/교집합으로 정리한다 (모바일 앱/basic 단독 등).
-  const beforeCleanup = { deploy: deployTarget, publish: [...publishTargets] };
-  if (deployTarget !== "none" && !applicable.deploy.includes(deployTarget)) deployTarget = "none";
-  publishTargets = publishTargets.filter((t) => applicable.publish.includes(t));
-  if (types.length > 0 && applicable.deploy.length === 0 && applicable.publish.length === 0) intent = "none";
+  // 옵션 값은 resolve-options.js 한 곳에서 정한다 (#851) — 대화형과 같은 규칙.
+  const { values: resolved, sources } = resolveOptions({
+    flags: {
+      intent: opts.intent, deployTarget: opts.deployTarget, publishTargets: opts.publishTargets,
+      includeSecretBackup: opts.includeSecretBackup, aiPrSummary: opts.aiPrSummary, projectsSync: opts.projectsSync,
+      deployBranch: opts.deployBranch, codeReviewCoderabbit: opts.codeReviewCoderabbit,
+      language: opts.language, labelStyle: opts.labelStyle,
+    },
+    existing, types, cwd,
+  });
+  const { intent, deployTarget, publishTargets } = resolved;
+  const { before: beforeCleanup, applicable } = sources;
 
   // 축 확정 근거 (#561) — "왜 이 값인가"가 가장 헷갈리는 자리다.
   // CLI 플래그 / 저장값 / intent 유도 / 타입 적용성 정리 중 무엇이 이겼는지 남긴다.
-  trace.event("resolve", "intent", String(intent ?? "(unset)"), {
-    source: opts.intent != null ? "cli-flag(--intent)"
-      : (existing?.options?.intent ? "version.yml(stored value)" : "not given, inferred from deploy/publish"),
-  });
+  trace.event("resolve", "intent", String(intent ?? "(unset)"), { source: sources.intent });
   trace.event("resolve", "deploy", deployTarget, {
-    source: opts.deployTarget != null ? "cli-flag(--deploy)"
-      : (existing?.options?.deploy ? "version.yml(stored value)" : "default"),
+    source: sources.deploy,
     applicableForTypes: applicable.deploy,
     adjusted: beforeCleanup.deploy !== deployTarget
       ? `${beforeCleanup.deploy} → ${deployTarget} (not applicable to the selected types)` : null,
   });
   trace.event("resolve", "publish", publishTargets.join(",") || "(none)", {
-    source: opts.publishTargets != null ? "cli-flag(--publish)"
-      : (existing?.options?.publish ? "version.yml(stored value)" : "default"),
+    source: sources.publish,
     applicableForTypes: applicable.publish,
     adjusted: beforeCleanup.publish.join(",") !== publishTargets.join(",")
       ? `${beforeCleanup.publish.join(",") || "(none)"} → ${publishTargets.join(",") || "(none)"} (cleaned up, not applicable)` : null,
   });
 
   const context = createContext({
-    mode: opts.mode, force: true, types, version, versionCode, branch,
-    paths,
-    deployTarget,
-    publishTargets,
-    includeSecretBackup: opts.includeSecretBackup ?? existing?.options?.secretBackup ?? false,
-    // #566 — CLI 값 우선, 없으면 저장값 보존, 그것도 없으면 true(설정 없이 바로 동작).
-    aiPrSummary: opts.aiPrSummary ?? existing?.options?.aiPrSummary ?? true,
-    // Projects 보드 동기화(#716): CLI > 저장값 > 이미 설치돼 있으면 유지 > 신규는 제외.
-    // 설정(Secret, PROJECT_URL)이 없는 레포에 설치되면 라벨이 바뀔 때마다 알림만 쌓이기 때문이다.
-    // 이미 설치된 레포가 갱신만으로 연동을 잃지 않도록 파일이 있으면 켜진 것으로 본다.
-    projectsSync: opts.projectsSync ?? existing?.options?.projectsSync
-      ?? existsSync(join(cwd, ".github/workflows/PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml")),
-    // #502 — version 모드가 기존 full 통합 기록(mode)을 강등하지 않도록 (full이 우세)
-    recordMode: existing?.templateMode === "full" ? "full" : "version",
-    // 릴리스 배포 브랜치(#456): CLI 플래그 → version.yml 저장값 → 빈 값(미출력, 스킬이 develop 폴백)
-    deployBranch: opts.deployBranch || existing?.options?.deployBranch || "",
-    intent,
-    // changelog/code_review 축(#455): 비대화형은 저장값 → 기본값. null이 흘러 provider:"null"로 기록되던 버그 수정.
-    changelogProvider: migrateProvider(existing?.options?.changelogProvider) ?? "commit",
-    changelogBaseUrl: existing?.options?.changelogBaseUrl ?? "",
-    // 플래그 > 저장값 > 기본(꺼짐). 쓰겠다고 명시하면 켜지고, 아무 말이 없을 때만 기본값이 적용된다.
-    codeReviewCoderabbit: opts.codeReviewCoderabbit ?? existing?.options?.codeReviewCoderabbit ?? DEFAULT_CODE_REVIEW_CODERABBIT,
-    // semver 자동 승격(#546, #814): 저장값(명시적 false 포함)은 존중하고, 키가 없으면 신규·기존 모두 켠다.
-    // 기존 레포에서 처음 켜질 때는 버전이 예고 없이 오르지 않게 완료 화면이 알린다 (semverAutoNewlyOn).
-    semverAuto: existing?.options?.semverAuto ?? true,
-    // 앱 심사 배포 레포 여부(#553): 저장값만 보존한다. 마법사가 묻지 않으므로 새로 켜지 않는다
-    // (사용자가 version.yml에 직접 쓰거나 스킬이 기록한 값을 그대로 유지).
-    appRelease: existing?.options?.appRelease ?? null,
-    excludedWorkflows: existing?.options?.excludedWorkflows ?? null, // #810 저장값 보존
-    storeLocales: existing?.options?.storeLocales ?? null, // #829 저장값 보존 (전체 재생성이라 안 넘기면 사라진다)
-    storeLocalesIos: existing?.options?.storeLocalesIos ?? null,
-    storeLocalesPlay: existing?.options?.storeLocalesPlay ?? null,
-    // 상태 라벨 표기(#776): 플래그 > 저장값 > (신규 en / 기존 ko). 기존 레포의 라벨 이름은 업데이트만으로 바뀌지 않는다.
-    // 릴리스 시 완료 이슈 닫기(#771): 저장값 보존, 없으면 신규만 true. 기존 레포는 키를 만들지 않아 현행 유지.
-    closeOnRelease: existing?.options?.closeOnRelease ?? (existing ? null : true),
-    // 레포 문구 언어(#769): 플래그 > 저장값 > (신규 en / 기존 ko). 기존 레포의 템플릿 언어는 업데이트만으로 바뀌지 않는다.
-    language: resolveRepoLanguage({ flag: opts.language, stored: existing?.options?.language, existing: !!existing }),
-    labelStyle: resolveLabelStyle({ flag: opts.labelStyle, stored: existing?.options?.labelStyle, existing: !!existing }),
+    mode: opts.mode, force: true, types, version, versionCode, branch, paths,
+    ...resolved,
     repoName,
     // 실 resolver 4종 (.sh resolve_token 등가 — spring-app-yml 스텁 제거)
     resolvers: makeResolvers(cwd, repoName, paths),
@@ -382,7 +331,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       replacedBak: result?.workflows?.replacedBak ?? [],             // #673 기준점 없이 교체한 파일 안내
       legacyLeftover: migrationsResult?.confirmPending ?? [],         // #809 신·구 세대 동시 실행 안내
       notInstalled: result?.workflows?.notInstalled ?? [],            // #810 깔지 않은 워크플로우 안내
-      semverAutoNewlyOn: !!existing && existing?.options?.semverAuto == null && context.semverAuto === true, // 업데이트가 켠 사실 안내
+      semverAutoNewlyOn: sources.semverAutoNewlyOn && context.semverAuto === true, // 업데이트가 켠 사실 안내
       verification: result?.verification,   // #549 설치 후 검증 결과 (full/workflows 모드에서만 존재)
       // #569 — 고른 것만 안내하려면 선택값이 필요하다
       aiPrSummary: context.aiPrSummary, codeReviewCoderabbit: context.codeReviewCoderabbit,
