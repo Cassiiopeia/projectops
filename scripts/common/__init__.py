@@ -8,8 +8,6 @@ __version__ = "1.0.0"
 
 # 산출물 경로 생성 대상 skill_id 목록 (paths.py·기타에서 사용)
 SUPPORTED_SKILL_IDS = [
-    "analyze",
-    "plan",
     "note",
     "report",
     "review",

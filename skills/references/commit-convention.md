@@ -1,7 +1,7 @@
 # 커밋 메시지 컨벤션 (상세)
 
 `common-rules.md` §"커밋 메시지 컨벤션"의 상세다. 커밋을 만드는 스킬(`pro-commit`, 커밋을 직접 실행하는
-`pro-report`·`pro-implement` 등)이 읽는다.
+`pro-report` 등)이 읽는다.
 
 ## 형식
 

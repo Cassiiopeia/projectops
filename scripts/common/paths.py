@@ -86,11 +86,10 @@ EVIDENCE_SKILLS = frozenset({
     "design-brief",   # 요청서 보드 · 상태별 캡처 (#634)
 })
 
-# 사라진 스킬(design-analyze·refactor-analyze·ppt·troubleshoot·pr)은 뺐다 (#822).
+# 사라진 스킬(analyze·plan·implement·design-analyze·refactor-analyze·ppt·troubleshoot·pr)은 뺐다 (#822).
 # 남겨 두면 없는 스킬 이름으로도 산출물 폴더가 만들어진다.
 DOCUMENT_SKILLS = frozenset({
-    "analyze", "implement", "issue", "note", "oss-consult", "plan",
-    "report", "review", "testcase",
+    "issue", "note", "oss-consult", "report", "review", "testcase",
 })
 
 

@@ -82,7 +82,8 @@ test("이 레포의 AGENTS.md 는 추적되는 스킬을 빠짐없이 안내한�
   const skills = readdirSync(new URL("../skills", import.meta.url), { withFileTypes: true })
     .filter((e) => e.isDirectory() && existsSync(new URL(`../skills/${e.name}/SKILL.md`, import.meta.url)))
     .map((e) => e.name);
-  assert.ok(skills.length >= 20);
+  // 스킬 폴더를 제대로 읽었는지만 본다(하한). 스킬 수는 늘고 줄기 때문에 정확한 개수를 박지 않는다 (#849)
+  assert.ok(skills.length >= 10, `스킬 폴더를 읽지 못했다: ${skills.length}개`);
   const missing = skills.filter((s) => !agents.includes(`\`${s}\``));
   assert.deepEqual(missing, [], `AGENTS.md 라우팅 표에 없는 스킬: ${missing.join(", ")}`);
 });

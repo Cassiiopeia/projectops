@@ -112,10 +112,10 @@ def test_gitignore_keeps_itself_trackable():
 #
 # 산출물 루트는 설정(`output.root`)으로 바뀐다. SKILL.md 가 `docs/projectops/...`
 # 를 직접 조립하면 루트를 옮긴 팀에서 **조용히 틀린다** — testcase 는 엉뚱한
-# 곳에 쓰고, implement 는 빈 폴더를 뒤져 "계획 없음"으로 판단했다.
+# 곳에 쓰고 있었다.
 # =========================================================================
 
-_PATH_COMMANDS = ("get-output-path", "find-inputs")
+_PATH_COMMANDS = ("get-output-path",)
 
 
 def _skills_with_artifacts():

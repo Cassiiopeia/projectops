@@ -1,7 +1,7 @@
 # Agent Skills guide
 
 > **This repository is an Agent Skill package you can use with Claude Code, Cursor, Gemini CLI, and Codex CLI.**
-> Along with the GitHub Actions automation template, it provides 20 development/DevOps Skills.
+> Along with the GitHub Actions automation template, it provides 17 development/DevOps Skills.
 
 ---
 
@@ -101,50 +101,23 @@ In Codex there is no slash command UI. You use Skills by having it read the rele
 
 ---
 
-## Full Skill list (20)
+## Full Skill list (17)
 
 By purpose, they fall into four groups:
 
-- **Analysis** (4) — Only read code and never modify it. Return plans, reviews, or diagnoses.
-- **Implementation** (7) — Actually modify or create files.
+- **Analysis** (2) — Only read code and never modify it. Return plans, reviews, or diagnoses.
+- **Implementation** (6) — Actually modify or create files.
 - **Development cycle automation** (3) — Do commits, deploys, and GitHub work for you.
 - **Document/artifact generation** (6) — Do not touch code; generate `.md` files or reports.
 
-> The design, planning, and implementation flow is handled by `superpowers` (brainstorming → writing-plans → executing-plans). `/pro-plan` · `/pro-analyze` · `/pro-implement` are the previous-generation path for the same roles, and only run when you call them explicitly.
+> Design, planning, and implementation are handled by `superpowers` (brainstorming → writing-plans → executing-plans), not by this plugin.
+
 
 ---
 
-## 📊 Analysis Skills (4)
+## 📊 Analysis Skills (2)
 
 They do not modify code. Use them "when you want to understand the situation first".
-
-### `/pro-analyze`
-
-**What does it do?**
-Use it when you think "I want to add this feature, but first I want to know the current state of the code". It scans the current codebase and returns an analysis report covering which files need changes, where the impact reaches, and where tests are needed.
-
-**Modifies**: nothing (read only)
-**Returns**: code analysis + a draft implementation plan + a list of risks
-
-**When to use it**
-- Before starting a new feature, when you wonder "how does this fit with the existing structure?"
-- In a repo you are seeing for the first time, when you wonder about the impact range of a specific feature
-
----
-
-### `/pro-plan`
-
-**What does it do?**
-Use it when "what to build is decided, but how to build it is not". If the requirements are vague, it first clarifies them with questions, then writes a strategy document that compares **at least two approaches** with their pros and cons.
-
-**Modifies**: nothing
-**Returns**: a strategy document covering background, requirements, approach comparison, key decisions, and risks
-
-**When to use it**
-- When the direction must be set first, as in a refactor or an architecture change
-- When you want to leave a record of decisions before jumping into coding
-
----
 
 ### `/pro-review`
 
@@ -194,23 +167,9 @@ It decides automatically based on whether repository files changed, and asks onc
 
 ---
 
-## 🔧 Implementation Skills (7)
+## 🔧 Implementation Skills (6)
 
 They actually modify files. Use them when you want the work to be carried out.
-
-### `/pro-implement`
-
-**What does it do?**
-It **implements in real code** a plan that came out of `/pro-plan` or `/pro-analyze`. It automatically detects the existing project's code style (indentation, naming, patterns) and writes code that matches it 100%.
-
-**Modifies**: actual source code files
-**Returns**: the implemented code + self-verification results
-
-**When to use it**
-- When the plan is already in place and you only need to implement it
-- It is also fine to ask directly, "implement this for me"
-
----
 
 ### `/pro-figma-verify`
 
@@ -490,7 +449,6 @@ flowchart TD
     K --> L["/pro-changelog-deploy<br/>Release PR + automerge"]
 ```
 
-> Design, planning, and implementation are handled by the three `superpowers` Skills. `/pro-plan` · `/pro-analyze` · `/pro-implement` are the previous-generation path for the same roles, and only run when you call them explicitly.
 
 ### Flow by scenario
 

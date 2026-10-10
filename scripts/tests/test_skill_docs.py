@@ -250,14 +250,6 @@ def test_mcp_rules_document_json_argparse_standard():
     assert "available_subcommands" in text
 
 
-def test_plan_skill_does_not_reference_removed_get_next_seq_subcommand():
-    """plan/SKILL.md는 issue_cli의 get-next-seq를 참조하면 안 된다 (이슈 #329)."""
-    path = ROOT / "skills" / "pro-plan" / "SKILL.md"
-    text = path.read_text(encoding="utf-8")
-    assert "issue_cli.py 가 `get-next-seq`" not in text
-    assert "`get-next-seq`·`normalize-title` 보유" not in text
-
-
 # 비ASCII 를 다루지 않아 PYTHONIOENCODING 이 필요 없는 호출 (파일 경로, 사유).
 # 여기 넣으려면 출력·입력이 숫자·영문뿐이라는 근거가 있어야 한다.
 _ASCII_ONLY_PYTHON_CALLS = {

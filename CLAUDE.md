@@ -774,11 +774,10 @@ claude plugin marketplace add Cassiiopeia/projectops
 claude plugin install projectops@projectops-marketplace --scope user
 ```
 
+> 설계·계획·구현은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 맡는다. 아래 17종에는 분석·계획·구현 스킬이 없다.
+
 | 명령어 | 용도 |
 |--------|------|
-| `analyze` | 코드 분석 (명시 호출 전용) |
-| `plan` | 계획 수립 (명시 호출 전용) |
-| `implement` | 구현 (명시 호출 전용) |
 | `review` | 코드 리뷰 |
 | `testcase` | QA 테스트케이스 |
 | `note` | 막혔을 때 과거 기록 검색, 알아낸 것 기록 |
@@ -809,7 +808,6 @@ skills/
 └── references/
     ├── common-rules.md       # 절대 규칙, 커밋 컨벤션, 작업 시작 프로토콜(페르소나 로드 포함)
     ├── personas.md           # 5 전문가 페르소나 + 6 마인드셋 (harness/PERSONA.md single source) — 코드 스킬이 시작 시 로드
-    ├── self-review-checklist.md # plan/analyze/implement 산출물 제출 전 자체검토 + Devil's Advocate 게이트
     ├── approval-and-questions.md # 산출물 skill 8종의 승인 게이트 + 시작 전 핵심 질문 표준 (#526)
     ├── config-rules.md       # config 경로·스키마·읽기/쓰기 표준
     ├── mcp-subcommand-rules.md # skill CLI(<scope>_cli.py) 서브커맨드 MCP-style 설계 표준 (JSON+next, 코드 템플릿)
@@ -934,7 +932,6 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` | actions, deploy-status, list-prs, update-pr, create-pr, detect-release-context |
 | analyze / plan / testcase | `skills/pro-<skill>/scripts/<scope>_cli.py` | get-output-path (#525·#623에서 신설 — 이전엔 경로 계산 수단이 없었다) |
 | init-worktree | `skills/pro-init-worktree/scripts/worktree_cli.py` | recall, record (지난번 복사한 로컬 파일 세트를 기억 — #839) |
-| implement | `skills/pro-implement/scripts/implement_cli.py` | find-inputs (**쓰는 게 아니라 읽는다** — plan·analyze 산출물 자리를 돌려준다, #623) |
 | figma-verify | `skills/pro-figma-verify/scripts/figma_verify_cli.py` | get-output-path, coverage, assets, conform, diff |
 | agent-test | `skills/pro-agent-test/scripts/e2e_cli.py` | detect, scenario, note, api, other (실행·캡처 명령은 pro-launch 로 넘겨준다 — #631) |
 | launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, render, http, access, db, logs, cred, ssh, local (이 맥 sudo, #784), shrink, recall, learn, forget, get-output-path |
@@ -945,9 +942,8 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 
 > **⚠️ 산출물 경로를 SKILL.md에 박아 쓰지 않는다 (#623 — agent 필독).** 산출물 루트는
 > 설정(`output.root`)으로 바뀐다. `docs/projectops/<스킬>/...`를 직접 조립하면 루트를 옮긴
-> 팀에서 **조용히 틀린다** — 실제로 `testcase`는 엉뚱한 곳에 쓰고, `implement`는 빈 폴더를
-> 뒤져 "계획 없음"으로 판단했다. 쓰는 스킬은 `get-output-path`, 읽는 스킬은 `find-inputs`를
-> 부른다. 회귀 방지: `scripts/tests/test_output_tracking.py`가 **산문 언급이 아니라 실제
+> 팀에서 **조용히 틀린다** — 실제로 `testcase`는 엉뚱한 곳에 쓰고, 읽는 스킬은 빈 폴더를
+> 뒤져 "산출물 없음"으로 판단했다. 산출물 경로는 항상 CLI의 `get-output-path`로 받는다. 회귀 방지: `scripts/tests/test_output_tracking.py`가 **산문 언급이 아니라 실제
 > 호출 줄**을 요구하고, 문서가 부르는 서브커맨드가 CLI에 실재하는지까지 본다.
 >
 > **증거물(스크린샷·덤프·렌더)과 문서(보고서·계획)는 다르다 (#621).** 어느 쪽인지는
@@ -1024,7 +1020,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | **구현 계획 (어떻게)** | **`superpowers:writing-plans`** |
 | **계획 실행** | **`superpowers:executing-plans`** |
 
-> **`pro-plan`·`pro-analyze`·`pro-implement`는 자동 트리거하지 않는다.** 설계·계획·구현 흐름은 위 superpowers 3종이 담당한다. 세 스킬은 사용자가 `/pro-plan`처럼 명시적으로 호출할 때만 동작한다 (기존 사용자를 위해 남겨둔 경로).
+> 설계·계획·구현 흐름은 위 superpowers 3종이 담당한다. (옛 분석·계획·구현 스킬 3종은 #849에서 삭제되어 superpowers로 이관됐다.)
 
 ## 커밋 컨벤션 필수 규칙
 
@@ -1034,7 +1030,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 - 올바른 예: `RELEASE-CHANGELOG PR 본문 초기화 보호 로직 추가 : feat : ... https://...`
 - 잘못된 예: `🚀[기능개선][ChangeLog] RELEASE-CHANGELOG : feat : ...`
 
-커밋은 `pro-commit`이 만든다. `pro-report`·`pro-implement`는 커밋을 직접 실행하지 않는다(각 SKILL.md에서 금지) — 커밋 메시지를 제안하는 스킬도 이 규칙을 따른다.
+커밋은 `pro-commit`이 만든다. `pro-report`는 커밋을 직접 실행하지 않는다(SKILL.md에서 금지) — 커밋 메시지를 제안하는 스킬도 이 규칙을 따른다.
 
 ### 커밋 타입이 릴리스 버전을 결정한다 (#546 — agent 필독)
 

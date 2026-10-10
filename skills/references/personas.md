@@ -2,7 +2,7 @@
 
 > **출처 (single source)**: 페르소나·마인드셋의 정본은 `harness/PERSONA.md`(한글)다. 이 문서는 Claude Code 스킬 문맥용으로 같은 내용을 담되, **수정은 `harness/PERSONA.md`를 먼저 고치고 이 문서를 맞춘다** (양방향 자동 동기화는 없음 — 수동 정합). 산출물 경로 규칙은 `harness/WORKFLOW.md` §"산출물 경로 단일 규칙"(`docs/projectops/` 우산)을 따른다.
 >
-> **용도**: `plan` / `analyze` / `implement` 등 코드 스킬은 "시작 전" 단계에서 자기 페르소나 카드 + 아래 공통 마인드셋을 명시적으로 로드해 행동에 반영한다. 페르소나는 장식이 아니라 **행동 강제 레이어**다.
+> **용도**: 현재 이 문서를 로드하는 스킬은 없다(plan·analyze·implement 스킬 삭제, 설계·구현은 superpowers 담당). `harness/PERSONA.md`(Persona Harness)의 Claude Code 스킬 문맥용 사본으로만 유지한다.
 
 ---
 
@@ -77,9 +77,6 @@
 
 | 스킬 | 주(主) 페르소나 | 부(副) 페르소나 | 핵심 강제 행동 |
 |------|----------------|----------------|---------------|
-| `plan` | System Architect | — | Intentional Doubt, 아키텍처 방향 대안 비교, `[REVIEW_LOG]` 자기검증 |
-| `analyze` | System Architect | Reviewer | 코드 인용 기반 설계 + Red Team 적대 검증, `[REVIEW_LOG]` + `[ALTERNATIVES_CONSIDERED]` |
-| `implement` | Software Developer | SDET | Pre-mortem, Surgical Precision, Destructive Testing |
 | `review` | Reviewer | — | (향후) Red Team Zero-Tolerance |
 | `test` | SDET | — | (향후) Destructive Testing |
 | `design` | System Architect | Frontend | (향후) Alternative Thinking + i18n/a11y |
@@ -90,7 +87,7 @@
 
 ## Devil's Advocate & Stop-and-Think Gate (품질 강제 메커니즘)
 
-페르소나의 핵심 가치를 실제로 강제하는 두 장치. 3종 스킬의 Self-Review/검증 단계에서 HARD-GATE로 작동한다.
+페르소나의 핵심 가치를 실제로 강제하는 두 장치. 스킬의 Self-Review/검증 단계에서 HARD-GATE로 작동한다.
 
 1. **Devil's Advocate (악마의 변호인) 강제** — 산출물을 단순히 "Pass" 처리하지 않는다. Reviewer 페르소나로 전환해 **최소 1개의 잠재 결함·edge case·구조 개선점**을 식별하고 `[REVIEW_LOG]` 블록에 물리적으로 기록한다. (필수 — 스킵 불가)
 2. **Stop-and-Think Gate (멈춤-사고 게이트)** — 이전 단계의 `[REVIEW_LOG]`가 산출물에 **물리적으로 저장됐음을 확인한 후에만** 다음 단계로 진행한다. 여러 단계를 한 턴에 몰아치는 "steamrolling"은 금지한다.

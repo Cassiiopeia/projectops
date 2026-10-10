@@ -88,8 +88,8 @@ def test_output_path_rejects_unregistered_skill_id():
 def test_output_path_registered_skill_still_works(monkeypatch):
     from common.paths import resolve_output_path
     monkeypatch.chdir(ROOT)  # 다른 테스트가 cwd 를 바꿔 둬도 저장소 안에서 계산한다
-    r = resolve_output_path("plan", "t")
-    assert "path" in r and "/plan/" in r["path"].replace("\\", "/")
+    r = resolve_output_path("report", "t")
+    assert "path" in r and "/report/" in r["path"].replace("\\", "/")
 
 
 def test_detect_release_context_missing_root(monkeypatch, tmp_path):

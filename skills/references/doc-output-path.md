@@ -1,6 +1,6 @@
 # 산출물 경로 규칙
 
-이 reference는 `analyze`, `plan`, `note`, `report`, `review`, `issue`(pro-github) skill이 md 산출물을 저장할 때 반드시 따르는 규칙이다.
+이 reference는 `note`, `report`, `review`, `issue`(pro-github) skill이 md 산출물을 저장할 때 반드시 따르는 규칙이다.
 
 ## 저장 전 경로 계산
 
@@ -11,8 +11,6 @@ skill별 호출 위치 매핑 — **산출물 스킬 전부 자기 CLI를 갖는
 
 | skill_id | 호출 cwd | cli 파일 |
 |---|---|---|
-| analyze | `skills/pro-analyze/scripts/` | `analyze_cli.py` |
-| plan | `skills/pro-plan/scripts/` | `plan_cli.py` |
 | review | `skills/pro-review/scripts/` | `review_cli.py` |
 | note | `skills/pro-note/scripts/` | `note_cli.py` |
 | report | `skills/pro-report/scripts/` | `report_cli.py` |
@@ -53,8 +51,8 @@ PYTHONIOENCODING=utf-8 "$PYTHON" review_cli.py get-output-path review
 출력 JSON의 `path` 필드를 추출해 사용한다.
 
 반환값 예시:
-- `docs/projectops/plan/20260418_427_드롭다운_디자인_변경.md`
-- `docs/projectops/analyze/20260418_001_초기_분석.md`
+- `docs/projectops/report/20260418_427_드롭다운_디자인_변경.md`
+- `docs/projectops/review/20260418_001_초기_리뷰.md`
 
 ## 산출물 경로 우산 (기본 `docs/projectops/`)
 
@@ -62,7 +60,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" review_cli.py get-output-path review
 
 | 종류 | 경로 | 비고 |
 |------|------|------|
-| skill 최종 산출물 | `<우산>/<skill>/` | plan·analyze·report·review·issue 등 |
+| skill 최종 산출물 | `<우산>/<skill>/` | report·review·issue 등 |
 | 작업중 지식 그래프 | `<우산>/hypercortex/` | harness SDLC의 TODO·REQUIREMENT·DESIGN·QUALITY 등 |
 | 코드 작업 격리 | `<우산>/workspace/` | harness Phase 4 코드 산출물 격리 |
 

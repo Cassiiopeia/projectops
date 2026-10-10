@@ -49,7 +49,7 @@ This project automates your development workflow on two axes.
 | Format every issue by hand | `/pro-github` writes and files an issue from the standard template in one step |
 | Copy the issue URL into commit messages | `/pro-commit` completes the message from the issue context |
 | Write PR descriptions and reports by hand | `/pro-report` analyzes the git diff and generates one |
-| Re-type prompts for every code review or analysis | 20 Skills give consistent results without re-typing |
+| Re-type prompts for every code review or analysis | 17 Skills give consistent results without re-typing |
 
 ---
 
@@ -137,8 +137,7 @@ Open a PR from the development branch to `main` and it writes the release notes,
 | `/pro-design-brief` | A design request for a screen you built before the mockup exists: state captures, alternatives, copy candidates, and must-keep rules as a board for the designer |
 | `/pro-oss-consult` | Diagnose a GitHub repo as an open-source project: type detection, 6-axis scoring, maturity stage, and edits to About, topics, labels, and files only after approval. One repo or a whole account |
 
-> Design, planning, and implementation flow is handled by `superpowers` (brainstorming → writing-plans → executing-plans).
-> `/pro-plan`, `/pro-analyze`, and `/pro-implement` are the previous generation of the same roles and only run when invoked explicitly. Together with the 17 in the tables above, that makes 20 in total.
+> Design, planning, and implementation are handled by `superpowers` (brainstorming → writing-plans → executing-plans), not by this plugin.
 
 ### 📝 Documents and artifacts
 

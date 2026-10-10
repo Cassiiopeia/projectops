@@ -42,7 +42,7 @@
 | 每次按格式手写 Issue | `/pro-github` 一步按标准模板生成并提交 |
 | 手动把 Issue 链接复制到提交信息 | `/pro-commit` 根据 Issue 上下文自动补全 |
 | 手写 PR 说明和报告 | `/pro-report` 分析 git diff 后自动生成 |
-| 每次代码审查和分析都要重新输入提示词 | 20 个 Skills 提供一致的结果，无需重复输入 |
+| 每次代码审查和分析都要重新输入提示词 | 17 个 Skills 提供一致的结果，无需重复输入 |
 
 ---
 
@@ -97,11 +97,11 @@
 | 组成 | 作用 | 文档 |
 |---|---|---|
 | **GitHub Actions** | 推送一次 main，版本管理、更新日志、CI/CD 部署全部自动完成 | [版本管理](https://cassiiopeia.github.io/projectops/VERSION-CONTROL)（韩文） |
-| **Agent Skills**（20 个） | 通过 `/pro-github`、`/pro-commit`、`/pro-report` 等命令，由 AI 代你撰写 Issue、提交信息和实现报告 | [Skills 指南](https://cassiiopeia.github.io/projectops/SKILLS)（韩文） |
+| **Agent Skills**（17 个） | 通过 `/pro-github`、`/pro-commit`、`/pro-report` 等命令，由 AI 代你撰写 Issue、提交信息和实现报告 | [Skills 指南](https://cassiiopeia.github.io/projectops/SKILLS)（韩文） |
 | **npx CLI** | 向现有项目安装并更新工作流，并诊断其状态 | [CLI 参考](https://cassiiopeia.github.io/projectops/en/cli)（英文） |
 
 <details>
-<summary>查看全部 20 个 Agent Skills</summary>
+<summary>查看全部 17 个 Agent Skills</summary>
 
 ### 🔄 开发周期自动化
 
@@ -130,8 +130,7 @@
 | `/pro-design-brief` | 设计稿出来之前，为已做好的页面生成设计需求：各状态截图、备选方案、文案候选、必须遵守的约束，整理成画板交给设计师 |
 | `/pro-oss-consult` | 以开源项目的标准诊断 GitHub 仓库：判别类型、6 个维度评分、成熟度阶段，仅在获得批准后修改 About、topics、标签和文件。支持单个仓库或整个账号 |
 
-> 设计、规划和实现流程由 `superpowers`（brainstorming → writing-plans → executing-plans）负责。
-> `/pro-plan`、`/pro-analyze`、`/pro-implement` 是同类职责的上一代路径，仅在显式调用时运行。加上上表中的 17 个，共 20 个。
+> 设计、规划和实现流程由 `superpowers`（brainstorming → writing-plans → executing-plans）负责，而非本插件。
 
 ### 📝 文档/产出物生成类
 

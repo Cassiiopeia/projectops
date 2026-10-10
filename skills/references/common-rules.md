@@ -94,27 +94,21 @@ rename `YYYYMMDD_245_제목.md`(권장). 파일명에 이모지·`TMP` 접두사
 
 모든 코드 관련 skill은 다음 순서로 시작한다.
 
-0. **페르소나 로드** — `personas.md`에서 공통 마인드셋 6종 + 본 skill의 페르소나 카드(매핑표 참조)를 장착한다. 장식이 아니라 행동 강제 레이어다.
 1. `project-detection.md`로 프로젝트 타입 감지
 2. `code-style-detection.md`로 코드 스타일 감지 (기존 코드 3-5개 샘플링)
 3. 기술 가이드: Spring Boot → `tech-spring.md` · React / React Native / Expo / Next.js → `tech-react.md` · Flutter → `tech-flutter.md` · Node.js / Python → 가이드 없음, 코드베이스 직접 분석
 4. **Git 컨텍스트 확인** (코드 수정이 수반될 때) — 아래 §Git 컨텍스트 확인 프로토콜
 5. 본 skill의 작업 수행
 
-설계·계획·구현 흐름은 `superpowers:brainstorming` → `writing-plans` → `executing-plans` → `/pro-review`. `/pro-plan` · `/pro-analyze` ·
-`/pro-implement`는 이전 세대 경로로, 사용자가 명시적으로 호출할 때만 동작한다.
+설계·계획·구현 흐름은 `superpowers:brainstorming` → `writing-plans` → `executing-plans` → `/pro-review`.
 
 ## Git 컨텍스트 확인 프로토콜
 
-코드 수정 작업 전에 수행한다 (`/pro-plan`, `/pro-analyze` 제외). 질문 문구·선택지별 처리: `work-start-protocol.md`.
+코드 수정 작업 전에 수행한다. 질문 문구·선택지별 처리: `work-start-protocol.md`.
 
 - **main**(프로덕션) → 즉시 멈추고 사용자에게 확인. main은 릴리스 PR로만 갱신된다.
 - **개발 브랜치**(`version.yml` `metadata.deploy_branch`, 없으면 `develop`) → 레포 `CLAUDE.md`·`AGENTS.md`가 직행을 선언했으면 통과, 아니면 이슈 연결 여부를 묻는다.
 - **feature 브랜치** → `YYYYMMDD_#번호_제목`에서 번호를 뽑아 이슈 조회, 없으면 묻는다. 새 브랜치가 필요하면 worktree(`/pro-init-worktree`) 여부를 묻는다.
-
-## 분석 전용 스킬 규칙
-
-`/pro-plan`, `/pro-analyze`: Edit/Write·파일 생성/수정/삭제·코드 작성 **금지**. 읽기·검색·분석·계획·질문만 허용.
 
 ## skill별 py 분산 호출
 

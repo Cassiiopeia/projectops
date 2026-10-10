@@ -157,7 +157,7 @@ npx projectops로 통합 시 자동 안내되지만, 수동으로도 설치할 �
 
 | IDE | 설치 방법 | 사용 예시 |
 |-----|----------|----------|
-| **Claude Code** | 플러그인 마켓플레이스 (CLI) | `/pro-analyze`, `/pro-review` |
+| **Claude Code** | 플러그인 마켓플레이스 (CLI) | `/pro-github`, `/pro-review` |
 | **Cursor** | `.cursor/skills/` 폴더 복사 | Skills 패널에서 선택 |
 | **Gemini CLI** | `gemini extensions install` | extension 명령 |
 | **Codex CLI** | `codex plugin marketplace add` | `/plugins`에서 확인 |

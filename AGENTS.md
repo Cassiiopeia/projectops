@@ -57,7 +57,6 @@ No slash-command UI is needed; read the file directly.
 | Run commands on a remote server over SSH | `pro-ssh` |
 | Expose a Synology service on a domain | `pro-synology-expose` |
 | Create, review or improve a skill | `pro-skill-creator` |
-| Plan / analyze / implement (explicit call only) | `pro-plan`, `pro-analyze`, `pro-implement` |
 
 ## Installing the skills
 

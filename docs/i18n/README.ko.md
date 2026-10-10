@@ -44,7 +44,7 @@
 | 이슈 매번 형식 맞춰 작성 | `/pro-github` 한 번에 표준 템플릿 생성 + 등록 |
 | 커밋 메시지 이슈 URL 수동 복사 | `/pro-commit` 이슈 컨텍스트 기반 자동 완성 |
 | PR 설명/보고서 직접 작성 | `/pro-report` git diff 분석 후 자동 생성 |
-| 코드 리뷰·분석 매번 프롬프트 입력 | 20종 Skills로 일관된 결과, 매번 재입력 불필요 |
+| 코드 리뷰·분석 매번 프롬프트 입력 | 17종 Skills로 일관된 결과, 매번 재입력 불필요 |
 
 ---
 
@@ -99,11 +99,11 @@
 | 구성 | 하는 일 | 문서 |
 |---|---|---|
 | **GitHub Actions** | main 푸시 한 번으로 버전 관리, 체인지로그, CI/CD 배포를 자동 처리합니다 | [버전 관리](https://cassiiopeia.github.io/projectops/VERSION-CONTROL) |
-| **Agent Skills** (20종) | `/pro-github`, `/pro-commit`, `/pro-report` 등으로 AI가 이슈·커밋 메시지·구현 보고서를 대신 만듭니다 | [Skills 가이드](https://cassiiopeia.github.io/projectops/SKILLS) |
+| **Agent Skills** (17종) | `/pro-github`, `/pro-commit`, `/pro-report` 등으로 AI가 이슈·커밋 메시지·구현 보고서를 대신 만듭니다 | [Skills 가이드](https://cassiiopeia.github.io/projectops/SKILLS) |
 | **npx CLI** | 기존 프로젝트에 워크플로우를 설치·업데이트하고 상태를 진단합니다 | [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/CLI) |
 
 <details>
-<summary>Agent Skills 20종 전체 보기</summary>
+<summary>Agent Skills 17종 전체 보기</summary>
 
 ### 🔄 개발 사이클 자동화
 
@@ -132,9 +132,7 @@
 | `/pro-design-brief` | 시안보다 먼저 만든 화면의 디자인 요청서 — 상태별 캡처·대안·문구 후보·꼭 지킬 것을 보드로 만들어 디자이너에게 |
 | `/pro-oss-consult` | GitHub 레포를 오픈소스로서 진단 — 성격 판별, 6축 채점, 성숙도 단계, 승인받은 것만 About·topics·라벨·파일 수정. 단일 레포·계정 전체 일괄 |
 
-> 설계·계획·구현 흐름은 `superpowers`(brainstorming → writing-plans → executing-plans)가 담당합니다.
-> `/pro-plan` · `/pro-analyze` · `/pro-implement`는 같은 역할의 이전 세대 경로로, 명시적으로 호출할 때만 동작합니다.
-> 위 표의 17종과 이 3종을 합쳐 총 20종입니다.
+> 설계·계획·구현 흐름은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 담당합니다.
 
 ### 📝 문서/산출물 생성형
 
