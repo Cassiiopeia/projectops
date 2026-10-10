@@ -58,6 +58,7 @@ if str(_HERE.parent) not in sys.path:
 import credentials  # noqa: E402
 import knowledge  # noqa: E402
 import stealth  # noqa: E402
+import app_input  # noqa: E402
 
 
 # =========================================================================
@@ -939,10 +940,169 @@ def _app_type(args) -> int:
                 "next": "app shot  # 입력됐는지 화면으로 확인한다 (비밀번호 칸은 가려져 보인다)"})
 
 
+# ── 탭 · 스와이프 · 화면 구조 ─────────────────────────────────────────────
+#
+# 플랫폼 차이는 app_input.py 의 백엔드가 전부 맡는다. 여기는 인자 해석과 JSON 응답만 한다.
+# 계약: 실패면 code + next(+ 못 찾았으면 candidates·locale), --shot 이면 shot·screen_changed.
+
+
+def _backend_for(args):
+    """(백엔드, 기기 id, 오류 응답). 기기를 못 고르거나 도구가 없으면 오류 응답을 채운다."""
+    platform, dev_id, dev = _pick_device(args.device)
+    if not platform:
+        return None, None, _no_device(dev, args.device)
+    be = app_input.get_backend(platform, getattr(args, "pkg", None) or os.environ.get("PKG"))
+    if be is None:
+        return None, None, out({"ok": False, "code": "platform_unsupported",
+                                "error": f"{platform} 은 조작 백엔드가 없다",
+                                "next": "references/extending.md 를 보고 백엔드를 추가한다"})
+    if not be.available():
+        return None, None, out({"ok": False, "code": f"{be.name}_tool_missing",
+                                "error": f"{be.name} 조작 도구가 없다", "next": be.install_hint})
+    return be, dev_id, None
+
+
+def _before_shot(args, be, dev_id) -> bytes | None:
+    """--shot 일 때만 동작 전 화면을 기억한다 — 나중에 '바뀐 뒤 멈춘 화면'을 고르는 기준."""
+    return be.grab(dev_id) if getattr(args, "shot", None) else None
+
+
+def _after_shot(args, be, dev_id, before: bytes | None) -> dict:
+    """--shot 이면 동작 결과 화면을 찍는다 — 확인용 shot 호출 한 번을 아낀다.
+
+    고정 대기는 실패한다(실측): Android 는 캡처가 느려 전환이 시작되기도 전에 같은 장면을 두 번
+    찍고 '멈췄다'고 판단했다. 그래서 **동작 전 화면과 달라진 뒤, 연속 두 장이 같아질 때**를 고른다.
+    끝내 안 바뀌면 screen_changed=false — '눌렀는데 반응 없음'을 agent 가 바로 안다.
+    """
+    if not getattr(args, "shot", None):
+        return {}
+    prev, data, changed, deadline = None, None, False, time.time() + 5.0
+    while time.time() < deadline:
+        data = be.grab(dev_id)
+        if data is None:
+            return {"shot": None}
+        changed = changed or (before is not None and data != before)
+        if changed and data == prev:
+            break
+        prev = data
+        time.sleep(0.3)
+    raw, explicit = _shot_target(_root(args), args.shot)
+    raw.write_bytes(data)
+    return {"shot": str(_finish_shot(raw, explicit, args)),
+            "screen_changed": changed if before is not None else None}
+
+
+def _gesture_result(args, be, dev_id, before, ok: bool, detail: str, fail_code: str,
+                    summary: str, **extra) -> int:
+    res = {"ok": ok, "code": "ok" if ok else fail_code, "device": dev_id, "via": be.name,
+           **extra, "error": None if ok else (detail or "")[-400:] or None,
+           "summary": summary if ok else f"실패 — {fail_code}",
+           "next": "app shot  # 결과 화면 확인"}
+    if ok:
+        res.update(_after_shot(args, be, dev_id, before))
+        if res.get("shot"):
+            res["next"] = ("shot 이미지를 읽어 결과를 확인한다" if res.get("screen_changed") is not False
+                           else "화면이 그대로다 — 다른 요소를 고르거나 app tree 로 다시 본다")
+    return out(res)
+
+
+def _not_found(be, dev_id, field: str, value: str, nodes: list[dict] | None) -> int:
+    """못 찾았을 때 추측을 반복하지 않도록 화면 언어와 화면에 실제로 있는 값을 같이 준다."""
+    if nodes is None:
+        nodes = be.nodes(dev_id) or []
+    cands = list(dict.fromkeys(n[field] for n in nodes if n[field]))[:25]
+    return out({"ok": False, "code": "not_found", "device": dev_id,
+                "error": f"{field}={value!r} 인 요소가 없다",
+                "locale": be.locale(dev_id), "candidates": cands,
+                "next": "candidates 의 값으로 다시 app tap (문구는 화면 언어 그대로)"})
+
+
+def _app_tap(args) -> int:
+    """화면 요소를 누른다. --text / --id / --desc 로 찾고, 요소가 없는 화면(캔버스·지도)만 --at 비율."""
+    sel = next(((f, getattr(args, f"sel_{f}")) for f in app_input.SELECTOR_FIELDS
+                if getattr(args, f"sel_{f}", None)), None)
+    at = app_input.parse_ratio(getattr(args, "at", None))
+    if getattr(args, "at", None) and not at:
+        return out({"ok": False, "code": "bad_ratio",
+                    "error": "--at 은 0~1 비율이다 (예: 0.5,0.8). 픽셀은 받지 않는다 — 캡처가 축소돼 있어 빗나간다"})
+    if not sel and not at:
+        return out({"ok": False, "code": "target_required",
+                    "error": "--text · --id · --desc 중 하나, 또는 --at 비율 좌표가 필요하다",
+                    "next": "app tree  # 누를 수 있는 요소와 화면 언어를 본다"})
+    be, dev_id, err = _backend_for(args)
+    if err is not None:
+        return err
+    before = _before_shot(args, be, dev_id)
+    label = f"{sel[0]}={sel[1]!r}" if sel else f"at {args.at}"
+
+    if not sel:
+        ok, detail = be.tap_ratio(dev_id, *at)
+        return _gesture_result(args, be, dev_id, before, ok, detail, "tap_failed", f"탭 ({label})")
+
+    field, value = sel
+    if be.selects_itself:
+        ok, detail = be.tap_selector(dev_id, field, value)
+        if not ok and "not found" in (detail or "").lower():
+            return _not_found(be, dev_id, field, value, None)
+        return _gesture_result(args, be, dev_id, before, ok, detail, "tap_failed", f"탭 ({label})")
+
+    nodes = be.nodes(dev_id) or []
+    if not nodes:
+        return out({"ok": False, "code": "ui_dump_failed", "device": dev_id,
+                    "error": "화면 구조를 읽지 못했다 (애니메이션 중이거나 보안 화면일 수 있다)",
+                    "next": "잠시 뒤 다시 시도하거나 --at 비율 좌표를 쓴다"})
+    found = app_input.match_nodes(nodes, field, value)
+    if not found:
+        return _not_found(be, dev_id, field, value, nodes)
+    idx = getattr(args, "index", 0) or 0
+    if idx >= len(found):
+        return out({"ok": False, "code": "index_out_of_range", "matches": len(found)})
+    target = found[idx]
+    ok, detail = be.tap_xy(dev_id, *target["center"])
+    return _gesture_result(args, be, dev_id, before, ok, detail, "tap_failed",
+                           f"탭 {target['center']} ({label})",
+                           element={k: v for k, v in target.items() if v not in ("", None)},
+                           matches=len(found))
+
+
+def _app_swipe(args) -> int:
+    """스와이프. --dir up|down|left|right 또는 --from/--to 비율 좌표."""
+    if getattr(args, "dir", None):
+        start, end = app_input.SWIPE_DIRS[args.dir]
+    else:
+        start = app_input.parse_ratio(getattr(args, "frm", None))
+        end = app_input.parse_ratio(getattr(args, "to", None))
+        if not (start and end):
+            return out({"ok": False, "code": "swipe_target_required",
+                        "error": "--dir 또는 --from/--to (0~1 비율, 예: 0.5,0.8) 가 필요하다"})
+    be, dev_id, err = _backend_for(args)
+    if err is not None:
+        return err
+    before = _before_shot(args, be, dev_id)
+    ms = getattr(args, "ms", 300) or 300
+    ok, detail = be.swipe_ratio(dev_id, start, end, ms)
+    return _gesture_result(args, be, dev_id, before, ok, detail, "swipe_failed",
+                           f"스와이프 {args.dir or f'{start}→{end}'}")
+
+
+def _app_tree(args) -> int:
+    """누를 수 있는 요소와 화면 언어 — tap 의 --text/--id/--desc 를 고르는 용도."""
+    be, dev_id, err = _backend_for(args)
+    if err is not None:
+        return err
+    nodes = be.nodes(dev_id)
+    if nodes is None:
+        return out({"ok": False, "code": "tree_unsupported", "error": f"{be.name} 은 화면 구조를 읽지 못한다"})
+    els = app_input.slim([n for n in nodes if n["text"] or n["desc"] or (n["clickable"] and n["id"])])
+    return out({"ok": bool(els), "code": "ok" if els else "ui_dump_failed", "device": dev_id,
+                "platform": be.name, "locale": be.locale(dev_id), "count": len(els), "elements": els,
+                "summary": f"요소 {len(els)}개", "next": "app tap --text '<elements 의 text>'"})
+
+
 def cmd_app(args) -> int:
-    if args.action == "type":
-        return _app_type(args)
-    return _app_shot(args) if args.action == "shot" else _app_launch(args)
+    handlers = {"type": _app_type, "tap": _app_tap, "swipe": _app_swipe, "tree": _app_tree,
+                "shot": _app_shot}
+    return handlers.get(args.action, _app_launch)(args)
 
 
 # =========================================================================
@@ -2369,8 +2529,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--run-dir", default=None, help="env.sh 를 쓸 실행 폴더. 없으면 $RUN_DIR")
     p.set_defaults(func=cmd_device)
 
-    p = sub.add_parser("app", help="앱 화면을 찍고(shot) 띄우고(launch) 글자를 넣는다(type, Android)")
-    p.add_argument("action", choices=["shot", "launch", "type"])
+    p = sub.add_parser("app", help="앱 화면을 찍고(shot) 띄우고(launch) 글자를 넣고(type) 누르고(tap) 민다(swipe)")
+    p.add_argument("action", choices=["shot", "launch", "type", "tap", "swipe", "tree"])
+    p.add_argument("--text", dest="sel_text", default=None, help="tap: 보이는 문구로 찾는다")
+    p.add_argument("--id", dest="sel_id", default=None, help="tap: resource-id(Android) · accessibilityIdentifier(iOS)")
+    p.add_argument("--desc", dest="sel_desc", default=None, help="tap: 접근성 설명(content-desc)으로 찾는다")
+    p.add_argument("--index", type=int, default=0, help="tap: 여러 개 맞으면 몇 번째 (0부터)")
+    p.add_argument("--at", default=None, help="tap: 요소로 못 찾을 때만 — 0~1 비율 좌표 (예: 0.5,0.8)")
+    p.add_argument("--dir", choices=sorted(app_input.SWIPE_DIRS), default=None, help="swipe: 방향")
+    p.add_argument("--from", dest="frm", default=None, help="swipe: 시작 비율 좌표 (예: 0.5,0.8)")
+    p.add_argument("--to", default=None, help="swipe: 끝 비율 좌표")
+    p.add_argument("--ms", type=int, default=300, help="swipe: 걸리는 시간(ms)")
+    p.add_argument("--shot", default=None, help="tap·swipe: 끝나면 바로 찍는다 (이름 또는 경로) — 확인용 shot 호출을 아낀다")
     p.add_argument("--cred", default=None, help="type: 저장된 로그인 정보 이름 (cred list)")
     p.add_argument("--cred-field", dest="cred_field", default=None, help="type: 넣을 필드 (기본 password, 예: account)")
     p.add_argument("--text-env", dest="text_env", default=None, help="type: 값을 읽을 환경변수 (일회용)")

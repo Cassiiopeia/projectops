@@ -1,5 +1,7 @@
 # 브라우저를 몬다
 
+> 언제 읽나: 웹 작업을 처음 할 때(안전 계약은 반드시), 로그인 화면이 막힐 때, 상태 연출·셀렉터가 뜻대로 안 될 때.
+
 ## 안전 계약 ⚠️ — 먼저 읽는다
 
 **이건 진짜 브라우저다.** 눌리면 진짜로 눌린다.
@@ -122,6 +124,14 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web setup
 **찍은 화면은 Read 로 열어 본다.** 경로만 남기면 아무도 안 본다.
 **매 조작 전에 `shot` 으로 화면을 본다** — 모달이 떴거나 요소가 밀려 있을 수 있다.
 
+| code | 다음 행동 |
+|---|---|
+| `playwright_missing` · `venv_missing` | 사용자에게 묻고 `web setup` |
+| `browser_missing` | 패키지는 있는데 브라우저 파일이 없다 — `web setup` 을 다시 |
+| `browser_not_open` · `browser_gone` | `web open --url <주소>` 로 다시 연다. 뷰포트·규칙은 남아 있다 |
+| `web_action_failed` | 셀렉터가 안 맞거나 요소가 가려졌다. `web shot` 으로 화면을 보고 셀렉터를 고친다 |
+| `browser_still_alive` | 아래 "함정" |
+
 ### 왜 호출이 쪼개져 있나
 
 agent 가 화면을 보고 다음 수를 정한다. 그래서 명령 하나가 동작 하나다. 대신 브라우저는 살아 있어야 한다.
@@ -222,4 +232,5 @@ web click → 그 브라우저에 붙었다 떨어진다 (세션·쿠키 유지)
 |---|---|
 | 테스트에서 HOME 을 임시 폴더로 바꾸면 macOS Chrome 이 이동 중 멈춘다 | 실제 HOME 을 두고 원격 없는 임시 레포를 `--root` 로 줘서 상태 폴더만 나눈다 (실측) |
 | 영속 프로필이 옛 탭을 되살린다 | 마지막 탭을 잡는다. 이미 처리돼 있다 |
+| `web open` 을 거듭하면 about:blank 빈 탭이 쌓인다 | `web open` 이 작업 탭 외의 about:blank 탭을 닫는다. 이미 처리돼 있다 (#817) |
 | `close` 가 `browser_still_alive` | 프로세스가 안 죽었다. 안내된 `kill` 로 끝낸 뒤 다시 연다 |

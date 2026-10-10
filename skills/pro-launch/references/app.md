@@ -1,6 +1,8 @@
 # 앱에 붙는 법 — Android 에뮬레이터 · iOS 시뮬레이터 · 실기기
 
-`launch_cli.py app shot` · `app launch` 로 안 되는 조작(탭·설치·로그·녹화)은 도구를 직접 쓴다.
+> 언제 읽나: 기기를 부팅·설치·녹화하거나, `app tap`·`app swipe` 가 뜻대로 안 될 때, iOS 를 조작해야 할 때.
+
+누르기·밀기는 `launch_cli.py app tap` · `app swipe` 를 쓴다. 그것으로 안 되는 조작(설치·로그·녹화)만 도구를 직접 쓴다.
 **모든 adb 명령에 `-s "$DEV"` 를 붙인다.** 기기가 여러 대면 빠뜨린 명령이 엉뚱한 쪽으로 간다.
 
 ## PATH
@@ -10,6 +12,52 @@ Android SDK 도구는 PATH 에 없을 수 있다. `doctor`·`devices` 결과의 
 ```bash
 export PATH="$PATH:$HOME/Library/Android/sdk/platform-tools:$HOME/Library/Android/sdk/emulator"
 ```
+
+---
+
+## 찍기 · 띄우기 · 누르기 · 밀기 — 공통
+
+```bash
+source "{env_file 값}"
+{PYTHON} {SCRIPTS}/launch_cli.py app launch --device "$DEV" --pkg "$PKG"
+{PYTHON} {SCRIPTS}/launch_cli.py app shot   --device "$DEV" --out 01_로그인 --clean-status
+{PYTHON} {SCRIPTS}/launch_cli.py app tree   --device "$DEV"                       # 누를 수 있는 문구·id + 화면 언어
+{PYTHON} {SCRIPTS}/launch_cli.py app tap    --device "$DEV" --text "로그인" --shot after_login
+{PYTHON} {SCRIPTS}/launch_cli.py app tap    --device "$DEV" --id login_button      # resource-id · accessibilityIdentifier
+{PYTHON} {SCRIPTS}/launch_cli.py app tap    --device "$DEV" --desc "닫기" --index 1 # 접근성 설명 · 여러 개면 몇 번째(0부터)
+{PYTHON} {SCRIPTS}/launch_cli.py app tap    --device "$DEV" --at 0.5,0.8           # 요소로 못 찾을 때만 — 비율 좌표
+{PYTHON} {SCRIPTS}/launch_cli.py app swipe  --device "$DEV" --dir up --shot list_scrolled
+{PYTHON} {SCRIPTS}/launch_cli.py app swipe  --device "$DEV" --from 0.5,0.8 --to 0.5,0.2 --ms 500
+```
+
+- `--device` 는 Android 시리얼이나 iOS UDID. 없으면 `$DEV` → 붙은 기기가 한 대뿐이면 그것.
+  **여러 대인데 안 고르면 `no_device` 로 멈춘다** — 엉뚱한 기기를 찍지 않게 하려는 것이다.
+- `--clean-status` 는 상태바를 9:41 · 배터리 100% 로 고정해 찍고 **찍은 뒤 되돌린다**
+  (iOS `simctl status_bar`, Android 데모 모드 + 허용 설정 원복). 캡처끼리 시각이 달라 보이지 않게 한다.
+- 기본은 긴 변 1200px WebP 다. **픽셀 대조처럼 원본이 필요하면** `--keep-format`
+  (또는 `--out` 에 경로를 직접 주면 그대로 저장한다). `--max-side` · `--quality` 로 조정한다.
+- **좌표를 눈대중하지 않고 화면 요소로 찾는다.** 문구는 **화면 언어 그대로** 쓴다. 모르면 `app tree` 의
+  `locale` 과 `elements` 를 먼저 본다. 못 찾으면 `not_found` 와 함께 화면에 실제로 있는 `candidates` 가 오니
+  **추측을 반복하지 말고** 거기서 고른다.
+- `--shot` 을 붙이면 **화면이 바뀌고 멈춘 뒤** 찍어 경로를 준다(확인용 `app shot` 호출이 필요 없다).
+  `screen_changed: false` 면 눌렀는데 아무 일도 없었다는 뜻이다 — 다른 요소를 고른다.
+- 요소로 못 찾는 것(캔버스·지도)만 `--at 0.5,0.8` **비율** 좌표(0~1)를 쓴다. 픽셀은 거절한다(`bad_ratio`) —
+  캡처는 축소돼 있어 그 좌표로 누르면 빗나간다.
+- `swipe --dir up|down|left|right` 는 화면 가장자리 제스처를 피하려고 15% 안쪽에서 움직인다.
+  정확한 궤적이 필요하면 `--from`·`--to` 비율 좌표와 `--ms`(기본 300).
+- Android 는 기기 내장 `uiautomator` 라 설치가 필요 없다. **iOS 는 Maestro 가 필요하다**(simctl 에 탭 명령이
+  없다). 호출마다 Maestro 가 새로 떠서 10~40초 걸리니, 긴 시나리오는 프로젝트의 Maestro flow 로 한 번에 돌린다.
+
+| code | 다음 행동 |
+|---|---|
+| `no_device` | `devices` 로 목록을 보고 `--device` 를 준다 |
+| `not_found` · `index_out_of_range` | `candidates` 에서 고른다. 화면 언어는 `locale` |
+| `ui_dump_failed` | 화면이 전환 중이거나 보안 화면이다. 잠시 뒤 `app tree` 를 다시 본다 |
+| `ios_tool_missing` · `android_tool_missing` | `next` 의 설치 명령(iOS 는 Maestro)을 사용자에게 제안한다 |
+| `adb_missing` | 아래 PATH 를 잡거나 `doctor` 의 `adb_path` 를 쓴다 |
+| `capture_failed` | 잠긴 화면이거나 `FLAG_SECURE` 다(아래 "관측") |
+
+새 플랫폼(백엔드)을 붙이는 법은 `extending.md`.
 
 ---
 
@@ -51,8 +99,8 @@ adb -s "$DEV" shell pm clear {패키지}        # 데이터만 초기화 (앱은
 {PYTHON} {SCRIPTS}/launch_cli.py app launch --device "$DEV" --pkg "$PKG"
 adb -s "$DEV" shell am force-stop {패키지}
 
-adb -s "$DEV" shell input tap {x} {y}
-adb -s "$DEV" shell input swipe {x1} {y1} {x2} {y2} {ms}
+{PYTHON} {SCRIPTS}/launch_cli.py app tap   --device "$DEV" --text "{화면 문구}" --shot {이름}
+{PYTHON} {SCRIPTS}/launch_cli.py app swipe --device "$DEV" --dir up
 adb -s "$DEV" shell input text "{문자열}"          # 공백은 %s, 한글은 입력되지 않는 기기가 있다
 adb -s "$DEV" shell input keyevent KEYCODE_BACK    # 키보드 내리기 / 뒤로
 adb -s "$DEV" shell input keyevent KEYCODE_ENTER   # 완료 키
@@ -128,7 +176,9 @@ xcrun simctl io {UDID} recordVideo {경로}.mp4   # Ctrl+C로 종료
 
 조작이 필요하면 이 순서로 한다:
 
-1. **프로젝트에 이미 있는 E2E 방식을 먼저 찾는다.** `e2e/` · `.maestro/` · `tool/*e2e*` ·
+0. **한두 번 누르는 것은 `app tap --text` · `app swipe` 로 한다.** 안에서 Maestro 를 불러 접근성 정보로
+   요소를 찾으므로 호스트 커서를 건드리지 않는다. Maestro 가 없으면 `ios_tool_missing` 과 `next` 에 설치 명령이 온다.
+1. **긴 시나리오는 프로젝트에 이미 있는 E2E 방식을 먼저 찾는다.** `e2e/` · `.maestro/` · `tool/*e2e*` ·
    `integration_test/` 를 본다. 있으면 그것을 쓴다 — 위젯 **텍스트로 찾으므로** 좌표가 필요 없다.
    원래 쓰던 방식을 확인하지 않고 임의로 고르지 않는다.
 2. 없으면 **사용자에게 어느 방법을 쓸지 묻는다**: Maestro 플로우 작성 / `flutter drive`·`integration_test`

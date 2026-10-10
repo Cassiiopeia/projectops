@@ -656,6 +656,151 @@ def test_close_blank_tabs_keeps_work_tab_and_real_pages():
     assert not real.closed and not work.closed
 
 
+# ── 앱 탭 · 스와이프 (#826) ───────────────────────────────────────────────
+
+import app_input  # noqa: E402
+
+_UI_XML = (
+    '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
+    '<node text="" resource-id="" content-desc="" clickable="false" bounds="[0,0][1080,2400]">'
+    '<node text="로그인" resource-id="com.x:id/login" content-desc="" clickable="true" bounds="[100,2000][980,2140]"/>'
+    '<node text="로그인 없이 둘러보기" resource-id="" content-desc="" clickable="true" bounds="[100,2200][980,2300]"/>'
+    '<node text="" resource-id="" content-desc="닫기" clickable="true" bounds="[960,80][1060,180]"/>'
+    '<node text="숨김" resource-id="" content-desc="" clickable="true" bounds="[0,0][0,0]"/>'
+    '</node></hierarchy>UI hierchary dumped to: /dev/tty')
+
+_MAESTRO_JSON = json.dumps({"attributes": {"bounds": "[0,0][393,852]", "accessibilityText": "설정"},
+                            "children": [
+    {"attributes": {"text": "", "accessibilityText": "일반", "resource-id": "", "bounds": "[16,300][377,344]"}},
+    {"attributes": {"text": "", "accessibilityText": "", "resource-id": "", "bounds": "[0,0][0,0]"}},
+]})
+
+
+def test_ui_nodes_parses_dump_with_trailing_banner():
+    """/dev/tty 로 받은 dump 뒤의 안내 문구를 걷어내고, 크기 0 인 노드는 뺀다."""
+    nodes = app_input.ui_nodes(_UI_XML)
+    assert "숨김" not in [n["text"] for n in nodes]
+    login = next(n for n in nodes if n["text"] == "로그인")
+    assert login["center"] == [540, 2070] and login["clickable"] is True
+
+
+def test_maestro_nodes_uses_accessibility_text_as_label():
+    """iOS 는 보이는 문구가 accessibilityText 에 온다 — Android 와 같은 모양으로 맞춘다."""
+    nodes = app_input.maestro_nodes("Running...\n" + _MAESTRO_JSON)
+    assert [n["text"] for n in nodes] == ["설정", "일반"]
+    assert nodes[1]["center"] == [196, 322]
+
+
+def test_match_nodes_prefers_exact_then_contains_and_short_id():
+    nodes = app_input.ui_nodes(_UI_XML)
+    assert [n["text"] for n in app_input.match_nodes(nodes, "text", "로그인")] == ["로그인"]
+    assert app_input.match_nodes(nodes, "text", "둘러보기")[0]["text"] == "로그인 없이 둘러보기"
+    assert app_input.match_nodes(nodes, "id", "login")[0]["text"] == "로그인"
+    assert app_input.match_nodes(nodes, "desc", "닫기")[0]["center"] == [1010, 130]
+    assert app_input.match_nodes(nodes, "text", "없는문구") == []
+
+
+def test_slim_drops_duplicates_and_empty_fields():
+    nodes = app_input.ui_nodes(_UI_XML) * 2
+    out = app_input.slim(nodes)
+    assert len(out) == len({(n["text"], n["id"], n["desc"]) for n in nodes})
+    assert all("bounds" not in n and "" not in n.values() for n in out)
+
+
+def test_parse_ratio_rejects_pixels():
+    """픽셀 좌표를 비율 자리에 넣으면 거절한다 — 축소 캡처 좌표로 엉뚱한 곳을 누르는 사고 방지."""
+    assert app_input.parse_ratio("0.5,0.8") == (0.5, 0.8)
+    assert app_input.parse_ratio("540,2070") is None
+    assert app_input.parse_ratio("abc") is None
+    assert app_input.parse_ratio(None) is None
+
+
+def test_maestro_flow_is_valid_single_step():
+    flow = app_input.maestro_flow({"tapOn": {"text": "설정 \"일반\""}}, None)
+    assert flow.splitlines()[:2] == ["appId: any.app", "---"]
+    assert '- tapOn:' in flow and 'text: "설정 \\"일반\\""' in flow
+    swipe = app_input.maestro_flow({"swipe": {"start": "50%,75%", "end": "50%,25%", "duration": 300}}, "com.a")
+    assert swipe.startswith("appId: com.a") and 'start: "50%,75%"' in swipe and "duration: 300" in swipe
+
+
+def test_every_registered_backend_implements_the_contract():
+    """새 백엔드를 등록하면 계약 메서드를 다 채웠는지 여기서 걸린다 (기여자 안전망)."""
+    for name, make in app_input.BACKENDS.items():
+        be = make()
+        assert be.name == name
+        for m in ("tap_ratio", "swipe_ratio", "grab", "nodes", "locale"):
+            assert getattr(type(be), m) is not getattr(app_input.Backend, m), f"{name}.{m} 미구현"
+        needed = "tap_selector" if be.selects_itself else "tap_xy"
+        assert getattr(type(be), needed) is not getattr(app_input.Backend, needed), f"{name}.{needed} 미구현"
+        assert be.install_hint
+
+
+def test_tap_requires_target_and_rejects_pixel_at():
+    assert _j(run_cli("app", "tap")[1])["code"] == "target_required"
+    assert _j(run_cli("app", "tap", "--at", "540,2070")[1])["code"] == "bad_ratio"
+
+
+def test_swipe_requires_direction_or_points():
+    assert _j(run_cli("app", "swipe")[1])["code"] == "swipe_target_required"
+
+
+class _FrameBackend(app_input.Backend):
+    name = "fake"
+
+    def __init__(self, frames):
+        self.frames, self.i = frames, 0
+
+    def grab(self, dev):
+        f = self.frames[min(self.i, len(self.frames) - 1)]
+        self.i += 1
+        return f
+
+
+def _after_args(tmp_path):
+    import argparse
+    return argparse.Namespace(shot=str(tmp_path / "after.png"), root=str(tmp_path))
+
+
+def _no_wait(monkeypatch):
+    monkeypatch.setattr(launch_cli.time, "sleep", lambda s: None)
+    monkeypatch.setattr(launch_cli, "_finish_shot", lambda raw, explicit, args: raw)
+
+
+def test_after_shot_waits_for_change_then_stability(monkeypatch, tmp_path):
+    """동작 전 화면이 두 번 연속 나와도 '멈췄다'로 보지 않는다 — Android 실측 사고(전환 전 장면을 찍음)."""
+    _no_wait(monkeypatch)
+    be = _FrameBackend([b"\x89PNG-before", b"\x89PNG-before", b"\x89PNG-mid", b"\x89PNG-new", b"\x89PNG-new"])
+    r = launch_cli._after_shot(_after_args(tmp_path), be, "emu", b"\x89PNG-before")
+    assert r["screen_changed"] is True
+    assert Path(r["shot"]).read_bytes() == b"\x89PNG-new"
+
+
+def test_after_shot_reports_no_change(monkeypatch, tmp_path):
+    """눌렀는데 화면이 그대로면 screen_changed=false — agent 가 다른 요소를 고르게 한다."""
+    _no_wait(monkeypatch)
+    t = iter(range(0, 1000))
+    monkeypatch.setattr(launch_cli.time, "time", lambda: next(t))
+    r = launch_cli._after_shot(_after_args(tmp_path), _FrameBackend([b"\x89PNG-same"]), "emu", b"\x89PNG-same")
+    assert r["screen_changed"] is False and Path(r["shot"]).exists()
+
+
+def test_after_shot_skipped_without_flag(tmp_path):
+    import argparse
+    assert launch_cli._after_shot(argparse.Namespace(shot=None), None, "emu", None) == {}
+
+
+@pytest.mark.local_only
+def test_android_tap_and_tree_on_real_device():
+    """붙은 Android 기기가 있으면 실제로 화면 구조를 읽고 비율 탭을 한다."""
+    dev = (app_input.sdk_tool("adb") and subprocess.run(
+        [app_input.sdk_tool("adb"), "devices"], capture_output=True, text=True).stdout) or ""
+    serials = [l.split()[0] for l in dev.splitlines()[1:] if l.endswith("device")]
+    if not serials:
+        pytest.skip("붙은 Android 기기 없음")
+    d = _j(run_cli("app", "tree", "--device", serials[0])[1])
+    assert d["platform"] == "android" and d["count"] > 0
+
+
 # ── 진짜 브라우저 (local_only) ────────────────────────────────────────────
 
 _PAGE = (

@@ -1,10 +1,33 @@
 # 서버에 붙는 법 — 요청 · DB · 로그
 
+> 언제 읽나: `http`·`db`·`logs` 를 처음 쓰거나, `access` 에 붙는 법을 적을 때. 비밀 값 저장은 `credentials.md`.
+
 **설정이 사는 곳과 붙는 길은 프로젝트마다 다르다.** Spring 의 `application.yml` 일 수도,
 `.env`·`settings.py`·`ormconfig` 일 수도 있고, 로컬 DB 일 수도 SSH 로 들어가야 닿는 DB 일
 수도 컨테이너 안에서 실행해야 할 수도 있다. **스크립트가 맞히지 않는다 — 코드를 읽고 네가 판단한다.**
 
 알아냈으면 **기록해 둔다.** 다음 실행부터는 그것을 쓴다.
+
+## 한눈에
+
+```bash
+{PYTHON} {SCRIPTS}/launch_cli.py http --url /api/health --expect-status 200
+{PYTHON} {SCRIPTS}/launch_cli.py http --method POST --url /api/items --data '{"name":"x"}' \
+  --header "Authorization: Bearer $TOKEN" --save create.json
+{PYTHON} {SCRIPTS}/launch_cli.py access set --key base_url --json '{"url":"http://localhost:8080"}'
+{PYTHON} {SCRIPTS}/launch_cli.py access show
+{PYTHON} {SCRIPTS}/launch_cli.py access unset --key base_url
+{PYTHON} {SCRIPTS}/launch_cli.py db --profile db --sql "select count(*) from item"
+{PYTHON} {SCRIPTS}/launch_cli.py logs --tail 100 --grep ERROR
+```
+
+| code | 다음 행동 |
+|---|---|
+| `base_url_required` | 경로만 줬는데 `base_url` 이 없다. 코드를 읽어 `access set --key base_url` |
+| `unexpected_status` | `--expect-status` 와 다르다. 응답 본문·서버 로그를 본다 |
+| `profile_not_found` · `no_log_command` | `access show` 로 적힌 키를 보고, 없으면 붙는 법을 알아내 `access set` |
+| `secret_in_value` | `access` 에 비밀을 적었다. `cred set` 으로 옮기고 `{"cred":"이름"}` 만 적는다 |
+| `db_timeout` · `logs_timeout` | 접속 경로(직접 · ssh · command)가 맞는지 본다. `--timeout` 을 늘리는 것은 그다음이다 |
 
 ## 주소
 
