@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.45.1  
-**Last updated:** 2026-10-10T08:23:45Z  
+**Current version:** 4.46.0  
+**Last updated:** 2026-10-10T11:31:37Z  
+
+---
+
+## [4.46.0] - 2026-10-10
+
+**PR:** #855  
+
+**New features**
+- 쌓인 기록이 없던 pro-note와 스크립트 없는 pro-build를 삭제하고 그 기록을 읽던 note_hits와 notes.py를 걷어내며, pro-figma-verify를 pro-figma로 이름을 바꾸고 CLI와 산출물 id와 참조를 맞춰 스킬을 15개로 정리
 
 ---
 
