@@ -52,13 +52,19 @@ git rev-parse --abbrev-ref HEAD
 
 다음 중 하나라도 매치되면 보호 브랜치:
 
-- 정확 일치: `main`, `master`, `develop`
+- 정확 일치: `main`, `master`, `develop` (단 `develop`은 아래 0-0-3의 개발 브랜치 직행 예외를 먼저 본다)
 - 패턴 매치 (case-insensitive): `*release*`, `^R_\d+$`, `.*_R_\d+$`
 - `git symbolic-ref refs/remotes/origin/HEAD` 결과 (있으면)
 
 ### 0-0-3. 보호 브랜치 아니면 통과
 
 Phase 0으로 진행.
+
+**개발 브랜치 직행 레포는 통과한다.** 레포가 개발 브랜치에서 직접 작업하는 것을 기본으로
+선언했으면(레포 `CLAUDE.md`·`AGENTS.md`에 "develop에서 직접 작업", "develop 직행" 같은 규칙이
+있으면), 현재 브랜치가 그 개발 브랜치(`version.yml`의 `metadata.deploy_branch`, 없으면 `develop`)일 때
+보호 브랜치로 보지 않고 Phase 0으로 진행한다. 묻지 않는다 — 레포가 이미 정한 규칙이다.
+`main`/`master`/기본(배포) 브랜치는 이 예외가 없다.
 
 ### 0-0-4. 보호 브랜치면 3옵션 제시
 
@@ -290,13 +296,18 @@ GIT_DIR=$(git rev-parse --git-dir)
 GIT_COMMON=$(git rev-parse --git-common-dir)
 WORKTREE_PATH=$(git rev-parse --show-toplevel)
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-BASE_BRANCH=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' || echo "main")
+# 머지 대상은 개발(릴리스 소스) 브랜치다 — version.yml metadata.deploy_branch, 없으면 develop.
+# origin/HEAD(=기본·배포 브랜치)로 잡으면 main 에 직접 머지하게 된다.
+BASE_BRANCH=$(grep -E '^[[:space:]]*deploy_branch:' version.yml 2>/dev/null | head -1 | sed -E 's/.*deploy_branch:[[:space:]]*"?([^"#[:space:]]+)"?.*/\1/')
+[ -n "$BASE_BRANCH" ] || BASE_BRANCH=develop
+DEFAULT_BRANCH=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')
 MAIN_ROOT=$(git -C "$GIT_COMMON/.." rev-parse --show-toplevel)
 ```
 
 판정:
 - `GIT_DIR != GIT_COMMON` → worktree 환경 (옵션 2/4에서 worktree 정리)
-- `BASE_BRANCH` → 옵션 2 머지 대상 (감지 실패 시 사용자에게 질문)
+- `BASE_BRANCH` → 옵션 2 머지 대상. 원격에 그 브랜치가 없으면(`git ls-remote --heads origin "$BASE_BRANCH"`가 비면) 사용자에게 묻는다
+- **`BASE_BRANCH`가 `main`/`master`이거나 `DEFAULT_BRANCH`와 같으면 옵션 2를 막는다** — 기본(배포) 브랜치는 릴리스 PR(`/pro-changelog-deploy`)로만 갱신된다. 이때는 옵션 1(PR)만 안내한다
 - `CURRENT_BRANCH`, `WORKTREE_PATH`, `MAIN_ROOT` → Step 4에서 사용
 
 ### Step 3: 옵션 제시
@@ -316,15 +327,22 @@ MAIN_ROOT=$(git -C "$GIT_COMMON/.." rev-parse --show-toplevel)
 
 **옵션 1 — GitHub PR 생성**:
 - `github` 스킬 호출 (⚠ `gh pr create` 직접 호출 금지 — common-rules의 전용 스킬 경유 강제)
-- PR 제목: `[#{GitHub 이슈번호}] {plan 한 줄 요약}` (이슈 없으면 한 줄 요약만)
+- PR 제목·본문은 `pro-github` 의 PR 제목 규칙을 그대로 따른다 — 이슈 제목에서 이모지와 `[태그]`를 뺀 순수 텍스트 (이슈 없으면 plan 한 줄 요약). 형식을 여기서 따로 정하지 않는다
+- PR base 는 위 `BASE_BRANCH`(개발 브랜치)다
 - worktree 유지 (PR 피드백 반영 위해)
 
-**옵션 2 — 로컬 머지**:
+**옵션 2 — 로컬 머지** (`BASE_BRANCH`가 기본·배포 브랜치면 실행하지 않는다):
+
+> ⚠ **공유 작업 트리에서 `checkout` 하지 않는다.** `MAIN_ROOT`는 다른 세션도 쓰는 트리일 수 있고,
+> 거기서 브랜치를 바꾸면 그 세션의 작업 기준이 통째로 바뀐다. `MAIN_ROOT`의 현재 브랜치가
+> 이미 `BASE_BRANCH`일 때만 아래를 실행하고, 아니면 멈추고 사용자에게 알린다 (옵션 1 PR 권장).
+> `git pull`은 non-fast-forward 면 `--rebase`로 통합한다 — 강제 리셋 금지.
+
 ```bash
 MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
 cd "$MAIN_ROOT"
-git checkout <base-branch>
-git pull
+[ "$(git rev-parse --abbrev-ref HEAD)" = "$BASE_BRANCH" ] || { echo "MAIN_ROOT 가 $BASE_BRANCH 에 있지 않습니다 — checkout 하지 않고 멈춥니다"; exit 1; }
+git pull --rebase origin "$BASE_BRANCH"
 git merge <feature-branch>
 ```
 머지 후 테스트 재검증 → 통과 시 worktree 정리:
