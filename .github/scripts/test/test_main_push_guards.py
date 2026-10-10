@@ -201,3 +201,14 @@ def test_installer_bug_form_requires_the_fields_that_make_it_reproducible():
     # 이 저장소 전용이라 새 프로젝트로 복사·남겨지면 안 된다
     init = (ROOT / ".github" / "scripts" / "template_initializer.py").read_text(encoding="utf-8")
     assert "projectops-installer-bug.yml" in init
+
+
+# ── #796: npm latest 는 배포 브랜치(main)에 올린 것과 같다 ───────────────────
+def test_npm_latest_follows_only_pushes_to_main():
+    """main 에 올리면 즉시 latest. develop 은 npm 에 올리지 않는다 (승격 주기 없음)."""
+    data = yaml.safe_load((WF / "PROJECT-TEMPLATE-NPM-PUBLISH.yaml").read_text(encoding="utf-8"))
+    on = data.get("on", data.get(True))
+    assert on["push"]["branches"] == ["main"], "npm 배포 트리거는 main 하나뿐이어야 한다"
+    run = _step(WF / "PROJECT-TEMPLATE-NPM-PUBLISH.yaml", "publish-npm", "npm 배포")["run"]
+    assert "--tag latest" in run, "dist-tag 를 latest 로 명시해야 정책이 코드에서 보인다"
+    assert "--tag next" not in run

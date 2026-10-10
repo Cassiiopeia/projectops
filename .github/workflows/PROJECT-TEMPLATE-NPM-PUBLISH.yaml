@@ -13,6 +13,13 @@
 #   설치 대상 레포로 복사되는 공통 워크플로우가 아니라 이 레포 전용 파일에 둔 이유:
 #   Release 생성을 공통에 넣으면 이 템플릿을 설치한 모든 레포의 동작이 바뀐다.
 #
+# 채널 정책 (#796): npm `latest` 는 배포 브랜치(main)에 올린 것과 항상 같다.
+#   - main 에 push 하는 순간 곧바로 `latest` 로 나간다. 별도 승격 주기·대기 기간은 없다.
+#   - develop(개발 브랜치)은 npm 에 올리지 않는다. 그래서 `latest` 를 받는 사용자는 사람이 main 에 올리기로
+#     결정한 버전만 받는다. "얼마나 자주 나가는가"는 main 에 올리는 빈도, 곧 메인테이너의 결정이다.
+#   - 이 정책이 깨지지 않도록 트리거를 main 으로만 두고 dist-tag 를 `latest` 로 명시한다
+#     (회귀 방지: .github/scripts/test/test_main_push_guards.py).
+
 # 트리거: main 브랜치 push 시 (+ 수동 실행)
 # (VERSION-CONTROL이 GITHUB_TOKEN으로 version.yml을 변경하면
 #  후속 워크플로우가 트리거되지 않으므로 main push를 트리거로 사용
@@ -84,7 +91,7 @@ jobs:
 
       - name: npm 배포
         if: steps.check.outputs.skip == 'false'
-        run: npm publish --provenance --access public
+        run: npm publish --provenance --access public --tag latest
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
