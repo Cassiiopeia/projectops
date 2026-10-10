@@ -18,24 +18,14 @@ config 파일은 **글로벌 단일 파일**로만 관리한다. 스킬이 추�
 
 ## 2. 홈 디렉토리 확인 (OS별)
 
-config를 읽거나 쓰기 전에 아래 커맨드로 홈 디렉토리를 확인한다:
+config를 읽거나 쓰기 전에 `echo "$HOME"`으로 홈 디렉토리를 확인한다. 비어 있으면 `echo "$USERPROFILE"`로 재시도.
 
-```bash
-echo "$HOME"
-```
-
-| OS | 반환 예시 |
-|----|-----------|
-| macOS | `/Users/username` |
-| Linux | `/home/username` |
-| Windows (Git Bash) | `/c/Users/username` |
-| Windows (PowerShell) | `C:\Users\username` (단, `$HOME` 대신 `$env:USERPROFILE`) |
-
-**agent 판단 규칙:**
-- `echo "$HOME"` 결과가 `/c/Users/...` 또는 `C:\Users\...` 형태 → Windows
-- `/Users/...` → macOS
-- `/home/...` → Linux
-- 결과가 비어있으면 `echo "$USERPROFILE"` 로 재시도
+| 반환 형태 | OS |
+|-----------|----|
+| `/Users/username` | macOS |
+| `/home/username` | Linux |
+| `/c/Users/username` | Windows (Git Bash) |
+| `C:\Users\username` | Windows (PowerShell — `$HOME` 대신 `$env:USERPROFILE`) |
 
 ---
 
@@ -43,10 +33,7 @@ echo "$HOME"
 
 > ⚠️ **config.json은 절대 탐색하지 않는다.** 경로는 `{HOME}/.projectops/config/config.json` **한 곳으로 고정**이다. Read tool로 이 경로를 **바로** 읽는다. `ls`·`find`·glob으로 찾지 마라.
 >
-> **특히 하네스 설치 경로(`~/.claude/...`, `~/.codex/...`, `~/.gemini/...`, `~/.pi/...`)를 뒤지지 마라.** 각 스킬의 SKILL.md는 *스크립트*(`*_cli.py`) 위치를 찾을 때 이 경로들을 `ls`로 조회한다 — 이건 **스크립트 전용**이며 config.json은 그 안에 **없다.** 그 `ls` 패턴을 config 찾기에 전이시키면 엉뚱한 파일을 잡거나 "config 없음"으로 오판해 이미 등록된 PAT를 사용자에게 다시 묻게 된다 (실제 발생한 사고). **스크립트는 캐시에서 ls로, config는 홈의 고정 경로에서 Read로 — 두 경로를 절대 섞지 않는다.**
-
-agent는 Read tool로 `{HOME}/.projectops/config/config.json`을 읽는다.
-(Search·find로 탐색하지 않는다 — 경로가 고정이므로 탐색이 필요 없고, 탐색하면 플러그인 캐시 등 엉뚱한 파일을 잡을 수 있다)
+> **특히 하네스 설치 경로(`~/.claude/...`, `~/.codex/...`, `~/.gemini/...`, `~/.pi/...`)를 뒤지지 마라.** 스킬이 *스크립트*(`*_cli.py`)를 찾을 때 이 경로들을 `find`로 조회하지만 그건 **스크립트 전용**이고 config.json은 그 안에 **없다.** 그 패턴을 config 찾기에 전이시키면 엉뚱한 파일을 잡거나 "config 없음"으로 오판해 이미 등록된 PAT를 다시 묻게 된다 (실제 발생한 사고). **스크립트는 설치 경로에서 find로, config는 홈의 고정 경로에서 Read로 — 두 경로를 섞지 않는다.**
 
 파일이 없으면 → §5 대화형 수집으로 진행한다.
 
@@ -76,20 +63,13 @@ git remote get-url origin 2>/dev/null
 
 config에 해당 레포가 없는 경우 → 새 레포 추가 여부를 사용자에게 묻고 §4 절차로 추가한다.
 
-**PAT 우선순위 (레포별 API 호출 시):**
-1. 해당 repo 항목의 `pat` 필드가 non-null이면 사용
-2. `null`이거나 없으면 `global_pat` fallback
+**PAT 우선순위**: repo 항목의 `pat`(non-null) → 없으면 `global_pat` (§7 PAT 결정 로직).
 
-**PAT는 직접 추출하지 않는다 — 표준 도구를 쓴다 (중요):**
+**PAT는 직접 추출하지 않는다 (중요).** 과거 agent가 인라인 Python으로 PAT를 꺼내다 `["github"]` 네임스페이스를
+빠뜨려 `KeyError`/`missing_pat`이 반복 발생했다. 아래 두 경로 중 하나만 쓴다.
 
-과거 agent가 인라인 Python으로 PAT를 꺼내다 `config["github"]["global_pat"]`의
-`["github"]` 네임스페이스를 빠뜨려 `KeyError`/`missing_pat`이 반복 발생했다.
-PAT 추출은 매번 즉흥 코드로 짜지 말고 아래 두 경로 중 하나만 쓴다:
-
-- **각 skill의 `<scope>_cli.py` 서브커맨드 호출 시** → PAT를 아예 신경 쓰지 않는다.
-  `<scope>_cli.py`가 `GITHUB_PAT` 환경변수 → 없으면 `config.json`에서 위 우선순위로 **자동 로드**한다 (`scripts/common/config.py:get_github_pat`).
-  `GITHUB_PAT=`를 안 붙여도 동작한다.
-
+- **`<scope>_cli.py` 서브커맨드 호출 시** → PAT를 신경 쓰지 않는다. CLI가 `GITHUB_PAT` 환경변수 → `config.json`
+  순으로 **자동 로드**한다 (`scripts/common/config.py:get_github_pat`).
 - **curl로 직접 호출 시 (긴급용)** → `common.config.get_github_pat` 함수를 사용한다.
 
   ```bash
@@ -99,36 +79,27 @@ PAT 추출은 매번 즉흥 코드로 짜지 말고 아래 두 경로 중 하나
   # PAT가 빈 문자열이면 config 없음 → 이 문서 §2~5 절차로 대화형 등록 안내
   ```
 
-  `get_github_pat`은 위 우선순위(repo별 `pat` → `global_pat`)를 그대로 구현하므로
-  agent가 네임스페이스를 직접 다룰 일이 없다.
-
 ---
 
 ## 4. Config 저장 (쓰기)
 
-agent가 Write tool로 `{HOME}/.projectops/config/config.json`에 저장한다.
-
-**반드시 전체 파일을 Read로 읽은 뒤 수정**하여 덮어쓴다. 기존 다른 섹션을 날리지 않도록 주의한다.
-
-새 섹션 추가 시 기존 파일을 Read로 읽은 뒤 해당 `skill_id` 키를 추가하여 저장한다.
+Write tool로 `{HOME}/.projectops/config/config.json`에 저장한다. **반드시 전체 파일을 Read로 읽은 뒤** 해당
+`skill_id` 섹션(또는 키)만 바꿔 덮어쓴다 — 다른 섹션·PAT를 날리지 않는다.
 
 ---
 
 ## 5. Config 없을 때 — 대화형 수집
 
-파일이 없으면 정보를 하나씩 수집한다. **한 번에 여러 개를 묻지 않는다.**
-
-스킬에 필요한 섹션만 수집한 뒤 §4의 저장 절차를 따른다.
+스킬에 필요한 섹션만 **하나씩** 수집한 뒤(한 번에 여러 개를 묻지 않는다) §4 절차로 저장한다.
 
 ---
 
 ## 6. Agent 판단 원칙
 
-- **애매하면 억지 추론 금지** — 즉시 사용자에게 질문
-- **한 메시지 = 한 질문** — 여러 항목을 한꺼번에 묻지 않는다
+- **애매하면 억지 추론 금지** — 즉시 사용자에게 질문 (한 메시지 = 한 질문)
 - **이미 준 정보는 다시 묻지 않는다**
 - **위험한 작업 실행 전 반드시 확인** — config 덮어쓰기 포함
-- PAT, 토큰 등 민감 정보는 `common-rules.md` 마스킹 규칙 적용
+- PAT, 토큰 등 민감 정보는 `common-rules.md` §마스킹 규칙 적용
 
 ---
 
@@ -352,6 +323,6 @@ effective_pat = repo.pat if repo.pat else config["github"].global_pat
 1. `skill_id`(스킬 폴더명)를 키로 `config.json`에 섹션 추가
 2. 이 파일(§7)에 스키마 문서화
 3. `skills/config.json.example`에 예시 추가
-4. SKILL.md에 `references/config-rules.md §2~3` 참조 명시
+4. SKILL.md에 `../references/config-rules.md` §2~3 참조 명시
 
 **절대 별도 config 파일(`skill-name.config.json` 등)을 새로 만들지 않는다.**

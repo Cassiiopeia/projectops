@@ -1,16 +1,19 @@
 # 공통 규칙
 
-모든 skill에서 공유하는 규칙. 각 스킬은 "시작 전" 단계에서 이 파일의 프로토콜을 따른다.
+모든 skill이 시작할 때 읽는 절대 규칙이다. 특정 상황의 상세는 각 절의 링크 문서에 있다 — 필요할 때만 읽는다.
+스킬 문서를 쓰거나 고칠 때(참조 경로 `../references/` 규칙 등)는 `skill-authoring.md`.
 
 ## 절대 규칙
 
-1. **Git 커밋은 이슈 컨텍스트 + 사용자 승인 없이 실행하지 않는다** — 이슈 기반 작업은 이슈 번호 확정 후에만 커밋. 이슈와 무관한 hotfix·설정 변경은 자유 형식 허용. 서브에이전트에게도 동일하게 지시한다.
+1. **Git 커밋은 이슈 컨텍스트 + 사용자 승인 없이 실행하지 않는다** — 이슈 기반 작업은 이슈 번호 확정 후에만 커밋. 이슈와 무관한 hotfix·설정 변경은 자유 형식 허용. 서브에이전트에게도 동일하게 지시한다. 번호는 브랜치명(`commit_cli.py get-issue-number`) 또는 사용자에게 받고, 확인하지 못하면 **즉시 멈추고** 선택지를 제시한다 (`commit-convention.md` §이슈 기반 커밋 원칙).
 2. **코드 스타일 100% 준수** — 기존 프로젝트 패턴을 감지하고 동일하게 따른다. 새로운 "더 나은" 방식을 임의로 제안하지 않는다.
 3. **프로젝트 타입 감지 필수** — 작업 시작 전 반드시 프로젝트 타입을 자동 감지한다.
+4. **민감 정보 보호** — 산출물·댓글에 실제 비밀값을 넣지 않는다 (아래 §민감 정보 보호).
+5. 레포 `CLAUDE.md`·`AGENTS.md`가 다른 규칙을 정했으면 그쪽이 우선한다.
 
 ## AI 행동 강제 원칙
 
-스킬을 실행하는 AI는 아래 원칙을 **스킬 내용보다 우선**하여 지킨다. 어떤 상황에서도 예외 없다.
+아래 원칙은 **스킬 내용보다 우선**한다.
 
 ### 확인 없이 절대 하지 않는 것
 
@@ -40,44 +43,17 @@
   상태 외 라벨(`priority: urgent` 등)을 지키려면 `get-issue`로 기존 라벨을 읽어 상태 라벨만 바꾼 목록을 넘긴다.
 - 완료 처리 레시피는 `pro-github/SKILL.md` §"이슈 완료 처리"에 있다. `pro-report`가 보고서를 올린 뒤 이 레시피를 따른다.
 - 릴리스 워크플로우(`close_on_release`)도 완료 라벨 이슈를 닫지만, 이미 닫힌 이슈는 건너뛰므로 먼저 닫아도 충돌하지 않는다.
-- 레포 `CLAUDE.md`가 다른 규칙을 정했으면 그쪽이 우선한다.
 
-### 필요한 것이 없을 때 — 안내만 하고 멈추지 않는다
+### 필요한 것이 없을 때
 
-스킬이 도구(패키지·브라우저·CLI)를 필요로 하는데 없을 수 있다. 이때 지켜야 할 순서가 있다.
-
-1. **무엇이 왜 필요한지, 얼마나 받는지 말한다** — "웹을 밟으려면 브라우저(약 100MB)가 필요합니다"
-2. **물어본다** — 사용자 환경을 바꾸는 일이라 승인이 필요하다
-3. **승인받으면 스킬이 직접 깐다** — 명령어만 알려주고 끝내지 않는다
-
-> "`pip install X` 하세요"라고 안내만 하면 사용자는 거기서 멈춘다. 실제로 macOS의 Homebrew
-> 파이썬은 PEP 668로 `pip install`을 막아 두어 **그 안내대로 해도 실패한다.** 그 벽을 사용자에게
-> 떠넘기지 않는 것까지가 스킬의 역할이다.
-
-**시스템 환경은 최소로 건드린다.** 전용 가상환경·격리된 경로에 깔 수 있으면 그렇게 한다.
-설치는 **멱등**이어야 한다 — 이미 있으면 조용히 통과하고, 다시 불러도 망가지지 않는다.
-
-### 안 된다고 말하기 전에 — 자동화 경로부터 확인한다
-
-"사용자가 직접 콘솔·화면에서 해야 한다"고 판단하기 전에, 그 작업이 이미 레포에 있는
-CLI·자동화 수단(fastlane match/cert/sigh, gh API, SSH 스크립트 등)이나 저장된
-자격증명(`launch_cli.py cred list` 의 `kind: login` 등)으로 가능한지 먼저 **조회**한다.
-확인 없이 "저는 할 수 없습니다"로 끝내지 않는다.
-
-- **조회·확인은 바로, 바꾸는 실행은 승인 후.** 파일 읽기·`cred list`·`--readonly` 확인은
-  묻지 않고 한다. 인증서 재발급, Secret 교체, 외부 계정·저장소 변경처럼 **되돌리기 어렵거나
-  외부 상태를 바꾸는 실행**은 무엇이 바뀌는지 말하고 승인받은 뒤에 한다 — "먼저 시도"는
-  "승인 없이 실행"이 아니다. 저장된 자격증명도 그 `use_when` · `scope` 안에서만 쓴다.
-- **진짜 막히는 지점**(2FA 코드 입력, 계정 소유자 승인 등)과 **직접 할 수 있는
-  부분**을 분리해서 제안한다. "전부 못 한다"로 뭉뚱그리지 않는다.
-- 예: "인증서 재발급은 fastlane match로 제가 시도할 수 있는데, Apple 2FA 코드만
-  입력해 주시면 됩니다. 진행할까요?"
-- 사용자가 "로그인해서 할 수 있잖아" 같은 반응을 보이면, 거부가 아니라
-  **무엇을 시도했고 어디서 막혔는지 구체적으로 답한다** — "안 된다"만 반복하지 않는다.
+도구가 없으면 ① 무엇이 왜 필요한지·얼마나 받는지 말하고 ② 물어본 뒤 ③ 승인받으면 **스킬이 직접 깐다**
+(명령만 알려주고 멈추지 않는다). 격리된 경로에 멱등으로 설치한다.
+**안 된다고 말하기 전에** 레포의 CLI·자동화 수단과 저장된 자격증명(`launch_cli.py cred list`)으로 되는지 먼저 **조회**한다.
+조회는 바로, 바꾸는 실행은 승인 후. 막히는 지점과 할 수 있는 부분을 나눠 제안한다. 상세: `agent-conduct.md`.
 
 ### 전용 스킬 경유 강제 (우회 금지)
 
-아래 작업은 **반드시 해당 전용 스킬을 거쳐서** 수행한다. 스킬을 건너뛰고 `curl`·GitHub API로 직접 처리하는 것은 금지한다 — 템플릿 규격·제목 prefix·중복검사·로컬 파일 저장 등 스킬이 보장하는 절차를 우회하기 때문이다.
+`curl`·GitHub API로 직접 처리하면 템플릿 규격·중복검사·로컬 저장 등 스킬이 보장하는 절차를 우회하게 된다.
 
 | 작업 | 반드시 경유할 스킬 |
 |------|------------------|
@@ -86,27 +62,12 @@ CLI·자동화 수단(fastlane match/cert/sigh, gh API, SSH 스크립트 등)이
 | 이슈 기반 커밋 | `pro-commit` |
 | 구현 보고서 작성·PR 댓글 | `pro-report` |
 
-**복합 요청 처리 원칙**: "이슈 만들고 커밋하고 보고서까지"처럼 여러 작업이 한 번에 요청되어도, **각 단계를 빠르게 직접 처리하지 말고** 해당 단계의 전용 스킬을 순서대로 호출한다. "한 번에 끝내는 게 빠르다"는 판단으로 스킬을 우회하지 않는다.
-
-**예외**: 이미 생성된 이슈의 제목·본문을 규격에 맞게 **보정**하거나, 스킬이 명시적으로 위임한 curl 호출(스킬 내부 절차)은 직접 호출을 허용한다.
-
-### 이슈 기반 커밋 원칙
-
-이슈 기반 작업 시 커밋 전 반드시 이슈 번호가 확정돼 있어야 한다. 브랜치명(`YYYYMMDD_#번호_제목`)에서
-번호를 뽑거나(`commit_cli.py get-issue-number`), 사용자가 알려준 번호로 이슈를 조회해 확인한다.
-develop 직행처럼 브랜치명에 번호가 없으면 사용자에게 번호를 묻는다.
-번호를 확인하지 못하면 **즉시 멈추고** 선택지 제시 — 절대 임의로 커밋 메시지를 만들어 커밋하지 않는다.
-(이슈와 무관한 hotfix·설정 변경은 자유 형식 커밋 허용 — 절대 규칙 §1 참조)
+한 번에 여러 작업을 요청받아도 각 단계의 전용 스킬을 순서대로 호출한다. **예외**: 이미 생성된 이슈의 제목·본문 **보정**, 스킬이 명시적으로 위임한 호출.
 
 ### 이슈 작성 컨벤션 (반드시 준수)
 
-이슈 제목 형식:
-```
-[이모지+태그][카테고리] 제목
-```
-
-허용 이모지+태그 (이 외 사용 금지). 대상 레포 템플릿의 언어를 따르고, 템플릿이 없으면 영문을 쓴다.
-두 언어의 태그는 같은 커밋 타입으로 매핑된다 (대소문자 무시).
+제목 형식 `[이모지+태그][카테고리] 제목`. 허용 태그는 아래뿐이다. 대상 레포 템플릿의 언어를 따르고, 템플릿이
+없으면 영문을 쓴다. 두 언어의 태그는 같은 커밋 타입으로 매핑된다 (대소문자 무시).
 
 | 영문 (기본) | 한글 | 용도 |
 |-------------|------|------|
@@ -119,193 +80,58 @@ develop 직행처럼 브랜치명에 번호가 없으면 사용자에게 번호�
 | `📄[Docs]` | `📄[문서]` | 문서 관련 |
 | `🔥[Urgent]` | `🔥[긴급]` | 긴급 (사용자가 명시할 때만) |
 
-**규칙**:
-- 이모지와 `[` 사이 공백 없음: `⚙️[Feature]` (O), `⚙️ [Feature]` (X). 템플릿 주석의 복사용 예시(`❗ [Bug]`)에 공백이 있어도 **제목에는 붙여 쓴다** — 실제 등록된 이슈 제목이 전부 붙여 쓴 형태이고, 그 형태를 기준으로 맞춘다
-- `·` 등 구분자 이모지 사용 금지
-- 허용 목록 외 이모지 사용 금지
-- 이슈 파일 저장 위치는 `github_cli.py get-output-path issue --title "{제목}"`이 돌려준 `path`를 그대로 쓴다 (경로를 직접 조립하지 않는다 — 산출물 루트는 설정으로 바뀐다)
-- `.issue/` 폴더에 저장하는 것 금지
+- 이모지와 `[` 사이 공백 없음: `⚙️[Feature]` (O), `⚙️ [Feature]` (X). 템플릿 주석의 복사용 예시(`❗ [Bug]`)에 공백이 있어도 **제목에는 붙여 쓴다** — 실제 등록된 이슈 제목이 전부 붙여 쓴 형태다
+- `·` 등 구분자 이모지, 허용 목록 외 이모지 사용 금지. 이슈 파일은 `github_cli.py get-output-path issue --title "{제목}"`이 돌려준 `path`에 저장한다 (직접 조립 금지, `.issue/` 폴더 금지)
 
 ### 이슈 MD 파일명 규칙
 
-- **등록 전**: `YYYYMMDD_001_제목.md` — `get-output-path issue`가 그날의 일련번호와 이모지·태그를 뺀 제목으로 만들어 준다
-- **등록 후**: `YYYYMMDD_245_제목.md` — 실제 이슈 번호로 rename (권장)
-- **금지**: 파일명에 이모지 포함, `TMP` 접두사 사용
-
-### 이슈 등록 순서 (이슈 기반 작업 시)
-
-1. 이슈 파일 로컬 저장 (`get-output-path issue`가 준 `YYYYMMDD_001_제목.md`)
-2. 사용자에게 내용 확인 요청
-3. 승인 후 GitHub 등록
-4. 반환된 실제 이슈 번호 확인
-5. 이슈 번호 확정 후 파일명 rename (`YYYYMMDD_245_제목.md`) — 권장
-6. 이슈 번호가 확정된 후에만 커밋 가능
-
-이슈 기반 작업에서 이슈 번호 없이 커밋하는 것은 절대 금지다.
+등록 전 `YYYYMMDD_001_제목.md`(`get-output-path issue`가 그날 일련번호·태그 뺀 제목으로 만든다) → 등록 후 실제 번호로
+rename `YYYYMMDD_245_제목.md`(권장). 파일명에 이모지·`TMP` 접두사 금지. 등록 순서: `work-start-protocol.md` §이슈 등록 순서.
 
 ## 작업 시작 프로토콜
 
-모든 코드 관련 skill은 다음 순서로 시작한다:
+모든 코드 관련 skill은 다음 순서로 시작한다.
 
-0. **페르소나 로드** — `personas.md`에서 공통 마인드셋 6종 + 본 skill의 페르소나 카드(매핑표 참조)를 명시적으로 장착한다. 페르소나는 장식이 아니라 행동 강제 레이어다.
-1. `project-detection.md`에 따라 프로젝트 타입 감지
-2. `code-style-detection.md`에 따라 코드 스타일 감지 (기존 코드 3-5개 샘플링)
-3. 프로젝트 타입에 맞는 기술 가이드 참조:
-   - Spring Boot → `tech-spring.md`
-   - React / React Native / Expo → `tech-react.md`
-   - Flutter → `tech-flutter.md`
-   - Next.js → `tech-react.md` (React 기반)
-   - Node.js / Python → 기술 가이드 없음, 코드베이스 직접 분석
-4. **Git 컨텍스트 확인** (코드 수정이 수반되는 작업 시 필수) — 아래 §Git 컨텍스트 확인 프로토콜 수행
+0. **페르소나 로드** — `personas.md`에서 공통 마인드셋 6종 + 본 skill의 페르소나 카드(매핑표 참조)를 장착한다. 장식이 아니라 행동 강제 레이어다.
+1. `project-detection.md`로 프로젝트 타입 감지
+2. `code-style-detection.md`로 코드 스타일 감지 (기존 코드 3-5개 샘플링)
+3. 기술 가이드: Spring Boot → `tech-spring.md` · React / React Native / Expo / Next.js → `tech-react.md` · Flutter → `tech-flutter.md` · Node.js / Python → 가이드 없음, 코드베이스 직접 분석
+4. **Git 컨텍스트 확인** (코드 수정이 수반될 때) — 아래 §Git 컨텍스트 확인 프로토콜
 5. 본 skill의 작업 수행
+
+설계·계획·구현 흐름은 `superpowers:brainstorming` → `writing-plans` → `executing-plans` → `/pro-review`. `/pro-plan` · `/pro-analyze` ·
+`/pro-implement`는 이전 세대 경로로, 사용자가 명시적으로 호출할 때만 동작한다.
 
 ## Git 컨텍스트 확인 프로토콜
 
-코드 수정이 수반되는 모든 작업(구현, 버그 수정, 리팩토링 등) 시작 전에 반드시 수행한다.
-분석·계획·문서 전용 스킬(`/pro-plan`, `/pro-analyze`)은 제외.
+코드 수정 작업 전에 수행한다 (`/pro-plan`, `/pro-analyze` 제외). 질문 문구·선택지별 처리: `work-start-protocol.md`.
 
-### 1단계: 현재 브랜치 확인
-
-```bash
-git rev-parse --abbrev-ref HEAD
-```
-
-현재 브랜치가 **main(프로덕션, 직접 커밋·push 금지, 레포에 따라 master 등으로 불릴 수 있는 default branch)이면 즉시 멈추고** 사용자에게 확인한다 — main은 릴리스(develop→main PR)로만 갱신되어야 하는 배포 브랜치다.
-
-현재 브랜치가 **개발 브랜치**(`version.yml`의 `metadata.deploy_branch`, 없으면 `develop`)이면 레포 규칙을 먼저 본다.
-
-- 레포 `CLAUDE.md`·`AGENTS.md`가 개발 브랜치 직행을 기본으로 선언했으면(예: "develop에서 직접 작업", "develop 직행") **멈추지 않고 통과**한다. 이슈 번호는 사용자 메시지에 있으면 그것을 쓰고, 없으면 커밋 시점(`pro-commit`)에 묻는다.
-- 선언이 없으면 아래 §3단계의 develop 질문으로 확인한다.
-
-feature 브랜치이면 이슈 번호 추출로 넘어간다.
-
-### 2단계: 이슈 번호 확인
-
-현재 브랜치명이 `YYYYMMDD_#번호_제목` 형식인지 확인한다.
-
-- **이슈 번호 있음** → 해당 이슈를 GitHub API로 조회해 제목·상태 출력 후 작업 진행
-- **이슈 번호 없음** → 사용자에게 확인 (아래 §사용자 확인 메시지 참조)
-
-### 3단계: 사용자 확인 메시지
-
-브랜치가 main·develop이거나 이슈 번호가 없을 때 **반드시** 아래 형식으로 묻는다 (develop 직행을 선언한 레포의 develop은 1단계에서 이미 통과했으므로 묻지 않는다).
-한 번에 한 질문. 사용자가 답하면 그에 따라 진행한다.
-
-**main 브랜치인 경우 (⚠️ main은 프로덕션 — 직접 커밋·push 금지):**
-```
-현재 main(프로덕션) 브랜치에서 작업하려고 합니다. main은 직접 커밋·push 대상이 아니며, develop→main 릴리스 PR로만 갱신되어야 합니다.
-이 작업에 연결된 이슈가 있나요?
-
-1. 이슈 번호 알려주세요 → 브랜치명 자동 계산 후 안내
-2. 이슈 없음 → 새로 생성할까요? (`/pro-github`의 이슈 생성 워크플로우로 이동)
-3. 그래도 main에서 바로 작업 (hotfix 등 예외 상황 — 신중히 확인 후 진행)
-```
-
-**develop 브랜치인 경우 (기본 개발 브랜치):**
-```
-현재 develop 브랜치에서 작업하려고 합니다.
-이 작업에 연결된 이슈가 있나요?
-
-1. 이슈 번호 알려주세요 → 브랜치명 자동 계산 후 안내
-2. 이슈 없음 → 새로 생성할까요? (`/pro-github`의 이슈 생성 워크플로우로 이동)
-3. 이슈 없이 develop에서 바로 작업 (경미한 수정 등)
-```
-
-**feature 브랜치이지만 이슈 번호가 없는 경우:**
-```
-현재 브랜치 [{브랜치명}]에 이슈 번호가 없습니다.
-연결된 이슈가 있나요?
-
-1. 이슈 번호 알려주세요
-2. 이슈 없이 현재 브랜치에서 바로 작업
-```
-
-### 4단계: 사용자 선택에 따른 처리
-
-| 선택 | 처리 |
-|------|------|
-| 이슈 번호 제공 | GitHub API로 이슈 조회 → 브랜치명 계산(`YYYYMMDD_#번호_제목`) → worktree 여부 확인 → 작업 진행 |
-| 이슈 새로 생성 | `/pro-github`의 이슈 생성 워크플로우로 이동 (이슈 생성 후 돌아와서 작업) |
-| main에서 바로 작업 | 사용자가 명시적으로 선택한 것이므로 허용 — 커밋은 자유 형식 |
-| 현재 브랜치에서 바로 작업 | 허용 — 진행 |
-
-### worktree 여부 확인
-
-이슈 번호가 확정되어 새 브랜치가 필요한 경우 반드시 묻는다:
-
-```
-worktree로 격리된 환경에서 작업할까요, 아니면 현재 디렉토리에서 브랜치만 생성할까요?
-
-1. worktree 생성 (/pro-init-worktree 실행)
-2. 현재 디렉토리에서 브랜치만 생성
-```
+- **main**(프로덕션) → 즉시 멈추고 사용자에게 확인. main은 릴리스 PR로만 갱신된다.
+- **개발 브랜치**(`version.yml` `metadata.deploy_branch`, 없으면 `develop`) → 레포 `CLAUDE.md`·`AGENTS.md`가 직행을 선언했으면 통과, 아니면 이슈 연결 여부를 묻는다.
+- **feature 브랜치** → `YYYYMMDD_#번호_제목`에서 번호를 뽑아 이슈 조회, 없으면 묻는다. 새 브랜치가 필요하면 worktree(`/pro-init-worktree`) 여부를 묻는다.
 
 ## 분석 전용 스킬 규칙
 
-`/pro-plan`, `/pro-analyze`에 적용:
+`/pro-plan`, `/pro-analyze`: Edit/Write·파일 생성/수정/삭제·코드 작성 **금지**. 읽기·검색·분석·계획·질문만 허용.
 
-- **금지**: Edit/Write 도구 사용, 파일 생성/수정/삭제, 코드 작성
-- **허용**: 코드 읽기(Read), 검색(Glob, Grep), 분석, 계획 수립, 사용자 질문
+## skill별 py 분산 호출
 
-## 워크플로우 체인
+각 skill이 `skills/<skill>/scripts/<scope>_cli.py`를 보유하고(argparse 서브커맨드), 공유 로직은 `scripts/common/`에
+있다. SKILL.md는 아래 표준 블록으로 Python을 호출한다 (self-contained 5줄 원칙 — 어느 블록부터 시작해도 동작).
+config는 CLI가 아니라 agent가 Read/Write로 직접 다룬다 (`config-rules.md`).
 
-설계·계획·구현 흐름은 `superpowers` 3종이 담당한다:
+예: `pro-github/scripts/github_cli.py` · `pro-commit/scripts/commit_cli.py` · `pro-report/scripts/report_cli.py` ·
+`pro-review/scripts/review_cli.py` · `pro-note/scripts/note_cli.py` · `pro-changelog-deploy/scripts/changelog_cli.py` (다른 스킬도 같은 규칙).
+3-layer 구조·JSON 출력(`ok`/`code`/`summary`/`next`)·GitHub API 에러 대응·OS 호환성: `script-invocation.md`.
 
-**기본**: `superpowers:brainstorming` → `superpowers:writing-plans` → `superpowers:executing-plans` → `/pro-review`
+**GitHub 작업**도 이 서브커맨드로만 한다. `gh` CLI 금지, 스킬 문서에 curl 레시피·Python heredoc·임시 Python 파일을 넣지 않는다.
+PAT는 CLI가 자동 로드한다.
 
-`/pro-plan` · `/pro-analyze` · `/pro-implement`는 같은 역할의 이전 세대 경로다. 자동 트리거하지 않으며, 사용자가 명시적으로 호출할 때만 동작한다.
+### 표준 호출 패턴
 
-각 skill은 이전 단계의 결과를 참조하고, 다음 단계를 안내한다.
-
-## 참조 문서 경로 규칙 (#543 — agent 필독)
-
-참조 문서는 **두 종류**이고 경로 표기가 다르다. 섞으면 스킬이 문서를 못 찾고, 규정된 절차 대신 임의 판단으로 진행하게 된다.
-
-| 종류 | 어디에 있나 | SKILL.md에서 쓰는 표기 |
-|------|------------|----------------------|
-| **공용 문서** (이 파일, config-rules, personas 등) | `skills/references/` | `../references/<파일>.md` |
-| **스킬 고유 문서** (그 스킬만 쓰는 체크리스트 등) | `skills/<skill>/references/` | `references/<파일>.md` |
-
-SKILL.md에서 접두사 없이 `references/<파일>` 형태로 쓰면 **자기 스킬 폴더 안**을 가리킨다. 공용 문서는 거기 없으므로 반드시 `../`를 붙인다.
-
-> 이 규칙을 어겨 16개 스킬 50곳이 존재하지 않는 경로를 지시했고, 실제로 이슈 생성 절차 문서를 찾지 못해 중복 검사·승인 게이트를 건너뛴 사고가 있었다 (#543).
-
-**같은 폴더 안(`skills/references/` 문서끼리)에서 서로를 참조할 때는 접두사 없이 파일명만 쓴다** — `config-rules.md`. `references/`를 붙이면 자기 폴더 아래의 없는 하위 폴더를 가리키게 된다.
-
-검증 — **손으로 돌리지 않는다. CI 가 매번 돌린다** (#612):
-
-```bash
-python3 -m pytest scripts/tests/test_skill_docs.py -q -k reference_paths
-```
-
-`test_skill_doc_reference_paths_exist` 가 `references/` 접두사가 붙은 참조를 전수 확인한다.
-예전에는 이 자리에 붙여넣기용 Python 스니펫이 있었는데, 손으로 돌려야 해서 아무도 돌리지
-않았고 **heredoc 금지 규약을 이 문서 자신이 어기고 있었다.**
-
-## skill별 py 분산 호출 (3-layer 아키텍처 표준)
-
-`config-get` / `init-config`는 제거되었다 — config는 agent가 Read/Write tool로 직접 처리한다 (`config-rules.md` 참조).
-
-`scripts/suh_template/` 단일 모듈은 제거되었다. 7개 skill이 각자 `skills/<skill>/scripts/<scope>_cli.py`를 보유하고, 공유 도메인 로직은 `scripts/common/`에서 import한다.
-
-### 3-layer 아키텍처
-
-- **Layer 1** `scripts/common/`: GitHub HTTP·config 로드·경로/제목/이슈번호 등 도메인 순수 함수
-- **Layer 2** `skills/<skill>/scripts/<scope>_cli.py`: skill 1개 = py 1개 = argparse 서브커맨드
-- **Layer 3** `SKILL.md`: 사용자 대화·문서 작성·Python 호출 = self-contained 5줄
-
-| skill | py 파일 |
-|---|---|
-| github | `skills/pro-github/scripts/github_cli.py` (이슈 생성·조회·수정·검색·댓글·라벨·담당자·PR·secret·actions + normalize-title·create-branch-name·get-commit-template 흡수) |
-| commit | `skills/pro-commit/scripts/commit_cli.py` |
-| report | `skills/pro-report/scripts/report_cli.py` |
-| review | `skills/pro-review/scripts/review_cli.py` |
-| note | `skills/pro-note/scripts/note_cli.py` |
-| changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` |
-
-### 표준 호출 패턴 (self-contained 6줄)
-
-모든 Bash 코드블록은 self-contained — agent가 어느 블록부터 시작해도 100% 동작.
+**Bash 도구는 호출마다 상태가 초기화된다.** 스크립트는 스킬 실행당 **한 번** 찾고, 출력된 실제 경로를 이후 블록에
+값으로 써넣는다 — `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/<scope>_cli.py <subcommand> [args]` (모범: `pro-launch/SKILL.md`).
+다른 스킬의 스크립트를 부를 때도 `SKILL=` 값만 그 스킬로 바꾼다.
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -318,221 +144,57 @@ SKILL=<skill>; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
-cd "$SCRIPTS" || exit 1
-PYTHONIOENCODING=utf-8 "$PYTHON" <scope>_cli.py <subcommand> [args]
+echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS PROJECT_ROOT=$PROJECT_ROOT"
 ```
 
-> **⚠️ 스크립트 탐색: 로컬 → 하네스 설치 경로 폴백 (#524·#528·#542 — 이 형태를 바꾸지 말 것)**
->
-> 위 블록은 **스킬명이 경로에 박히지 않도록 "플러그인 루트"만 해석**한다. 그래서 어느 스킬에서든 `SKILL=` 값 하나만 다르고 나머지는 문자 그대로 같다. 하네스가 늘어도 고칠 형태는 이 한 곳뿐이다.
->
-> | 위치 | 언제 | 버전 계층 |
-> |---|---|---|
-> | `$ROOT/skills/<skill>/scripts/` | **projectops 레포 자신** (여기서만 `skills/`가 실재) | 해당 없음 |
-> | `~/.claude/plugins/cache/{마켓}/projectops/{버전}/` | Claude Code | 있음 |
-> | `~/.codex/plugins/cache/{마켓}/projectops/{버전}/` | Codex | 있음 |
-> | `~/.gemini/extensions/projectops/` | Gemini | 없음 |
-> | `~/.pi/agent/git/github.com/{owner}/projectops/` | pi | 없음 |
->
-> **하네스를 한 줄에 나열하지 않고 `for`로 하나씩 검사한다 (#542 — 절대 되돌리지 말 것).**
-> 여러 경로 패턴을 한 `ls`에 나열하면, zsh는 그중 하나라도 매치되지 않을 때 `no matches found`로 **명령 전체를 실행하지 않는다.** Claude Code의 실행 셸이 zsh이므로, Codex를 안 쓰는 사용자에게는 나란히 적힌 Claude 경로까지 함께 버려졌다. 실측에서 최신 캐시(4.2.44)가 있는데도 빈 값이 나왔고, 다른 설치본이 있으면 **구버전(4.2.19)이 조용히 실행**됐으며, Claude Code만 설치한 환경에서는 스킬이 아예 죽었다.
->
-> **`ls` + 나열 대신 `find`를 위치별로 쓴다.** `find`는 없는 경로를 만나도 그 경로만 건너뛴다. 우선순위는 `for` 목록 순서가 정하고, 같은 위치 안의 여러 버전은 `sort -V | tail -1`이 최신을 고른다. 하네스 루트 이름이 버전 비교에 끼어들 여지가 없다.
->
-> 마지막 `[ -d "$SCRIPTS" ] || { ...; exit 1; }` 가드도 빼지 말 것. `cd ""`는 실패하지 않고 현재 디렉터리에 머물기 때문에, 가드가 없으면 스크립트를 못 찾아도 조용히 통과해 엉뚱한 위치에서 실행된다.
->
-> 위 `ROOT=...` 라인은 **로컬이 있으면 로컬, 없으면 하네스 설치본**으로 폴백한다. 두 환경 모두에서 옳다:
->
-> - 사용자 프로젝트에는 `skills/`가 없다(통합 시 제외) → 자동으로 하네스 설치본이 쓰인다. **기존과 동일한 동작.**
-> - projectops 레포에는 `skills/`가 있다 → 자기 코드가 쓰인다. **수정 즉시 테스트 가능.**
->
-> 과거에는 캐시를 먼저 봤는데(#386 해결 과정에서 도입), 그러면 이 레포에서 스킬을 고쳐도 **릴리스로 캐시가 갱신되기 전까지 자기 변경분을 쓸 수 없었다.** 새 서브커맨드를 추가하자마자 "그런 커맨드 없음"으로 실패하는 문제가 실제로 발생했다.
->
-> `_cli.py`는 `Path(__file__).parents[3]` 기준으로 `scripts/common`을 import하므로(cwd 무관), 스크립트 파일 위치만 맞으면 `cd` 위치와 무관하게 import가 풀린다.
-> config(`~/.projectops/config/config.json`)는 항상 user 홈 기준이라 프로젝트 위치와 무관하다.
+한 블록에서 찾기와 호출을 함께 하려면(self-contained) `echo` 줄 대신
+`cd "$SCRIPTS" || exit 1` 다음 줄에 `PYTHONIOENCODING=utf-8 "$PYTHON" <scope>_cli.py <subcommand> [args]`를 둔다.
 
-### OS 호환성 (실측 검증 완료)
+### 스크립트 탐색
 
-- Windows Git Bash MINGW64 ⭕
-- WSL Linux bash 5.2 ⭕
-- macOS bash/zsh ⭕ (POSIX 호환)
-- PowerShell 미지원 (Claude Code Bash tool = bash 강제)
+위 블록은 **로컬(projectops 레포의 `skills/`) → 하네스 설치 경로(Claude Code·Codex·Gemini·pi)** 순으로 플러그인 루트를 찾는다.
+**형태를 바꾸지 않는다** — 하네스를 `for`로 하나씩 `find`하는 것(zsh `no matches found` 회피, #542)과 마지막 `[ -d "$SCRIPTS" ]`
+가드는 실사고로 생긴 것이다. 근거: `script-invocation.md` §스크립트 탐색.
 
-### MCP-style JSON 출력 표준 (4필드 강제)
+### PYTHON 변수 설정 (크로스 플랫폼 필수)
 
-모든 `<scope>_cli.py` 서브커맨드 출력 = stdout JSON. `scripts/common/emit.py`의 `emit()` 헬퍼가 4필드 자동 보장:
+위 블록의 `PYTHON=` 줄을 그대로 쓴다. `python3 -c` 직접 호출 금지(Windows Store stub → `Exit code 49`), 한글이 흐르는 호출은
+`PYTHONIOENCODING=utf-8` 필수. 근거: `script-invocation.md` §PYTHON 변수 설정.
 
-| 필드 | 의미 | 예시 |
-|---|---|---|
-| `ok` | 성공 여부 | `true` / `false` |
-| `code` | 식별자 (에러 시 디버깅용) | `ok`, `missing_pat`, `github_api_404` |
-| `summary` | 사람 친화 한 줄 요약 | `"PR #123 생성 완료"` |
-| `next` | 다음 행동 힌트 (agent 자율 워크플로우용) | `"deploy-status owner repo --pr 123"` 또는 null |
+### Windows 내부망 환경
 
-## GitHub 작업 원칙
+curl `exit 35`(SSL) → `--ssl-no-revoke` 추가 후 재시도. 상세: `script-invocation.md` §Windows 내부망 환경.
 
-GitHub API 작업은 **각 skill의 `<scope>_cli.py` 서브커맨드로 호출**한다. 스킬 문서에 curl 레시피, Python heredoc, 임시 Python 파일을 새로 넣지 않는다.
+## 출력 경로
 
-- PAT는 cli가 `GITHUB_PAT` 환경변수 → `config.json` 순으로 자동 로드한다 (`scripts/common/config.py:get_github_pat`).
-- 새 GitHub API 동작이 필요하면 먼저 `mcp-subcommand-rules.md`를 읽고 `scripts/common/gh_client.py` 헬퍼 + 해당 skill의 `_cli.py` 서브커맨드 + 테스트를 추가한다.
-- `gh` CLI는 별도 설치 필요 및 Windows/macOS 환경 차이로 사용하지 않는다.
-- curl 직접 호출은 아직 서브커맨드가 없는 긴급 조사에만 임시 허용한다. 반복 사용이 보이면 즉시 `<scope>_cli.py` 서브커맨드로 승격한다.
-
-대표 호출 (github get-issue):
-
-```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
-[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
-  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
-done
-SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
-cd "$SCRIPTS" || exit 1
-PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py get-issue {owner} {repo} {number} --with-comments
-```
-
-### GitHub API 공통 에러 대응
-
-| HTTP 코드 | 원인 | 조치 |
-|-----------|------|------|
-| 401 | PAT 만료 또는 미전달 | `references/config-rules.md §2~5`로 PAT 재등록 안내 |
-| 403 | 권한 부족 (repo/workflow 권한 없음) | PAT 권한 확인 요청 |
-| 404 | owner/repo 오타 또는 비공개 저장소 접근 | `git remote get-url origin` 재확인 |
-| 422 | 요청 값 오류 (라벨 없음, 중복 PR 등) | 오류 메시지 파싱 후 사용자에게 안내 |
-| 35 (curl exit) | Windows 내부망 SSL 오류 | `--ssl-no-revoke` 추가 후 재시도 |
+산출물 저장 위치는 각 스킬 CLI의 `get-output-path`가 돌려준 `path`를 그대로 쓴다. 경로를 직접 조립하지 않는다
+(산출물 루트는 설정 `output.root`로 바뀐다). 상세: `doc-output-path.md`.
 
 ## Git Push 실행 시 동작 규칙
 
-스킬이 `git push`를 실행해야 하는 경우 (사용자가 push를 요청하거나 스킬 플로우상 push가 필요한 경우):
-
-1. 현재 브랜치를 확인한다. **main(기본·배포 브랜치)이면 push하지 않는다** — main은 릴리스 PR(`/pro-changelog-deploy`)로만 갱신된다
-2. `git pull --rebase origin {현재 브랜치}` 먼저 실행
-3. rebase 성공 후 `git push origin {현재 브랜치}` 실행. non-fast-forward면 다시 rebase로 통합한다 (강제 push 금지)
-4. 사용자에게는 결과만 친근하게 안내 (rebase 과정은 내부적으로 처리, 별도 설명 불필요)
-
-> 릴리스 때 버전 확정 커밋이 개발 브랜치에도 추가되어 로컬이 뒤처지기 쉽다. rebase 없이 push하면 rejected된다.
+1. **main(기본·배포 브랜치)이면 push하지 않는다** — main은 릴리스 PR(`/pro-changelog-deploy`)로만 갱신된다
+2. `git pull --rebase origin {현재 브랜치}` 먼저 (릴리스 때 버전 확정 커밋이 개발 브랜치에도 추가되어 로컬이 뒤처지기 쉽다)
+3. `git push origin {현재 브랜치}`. non-fast-forward면 다시 rebase로 통합 (강제 push 금지). 사용자에게는 결과만 안내
 
 ## 커밋 메시지 컨벤션
 
-이 프로젝트의 커밋 메시지 형식은 다음과 같다:
-
-```
-{이슈제목} : {타입} : {변경사항 설명} {이슈URL}
-```
-
-**타입 목록**:
-
-| 타입 | 용도 |
-|------|------|
-| `feat` | 새 기능 추가 |
-| `fix` | 버그 수정 |
-| `refactor` | 리팩토링 (기능 변경 없음) |
-| `docs` | 문서/주석 변경 |
-| `chore` | 빌드, 설정, 기타 |
-| `style` | 코드 스타일 (로직 변경 없음) |
-| `test` | 테스트 추가/수정 |
-
-**예시**:
-
-이슈 제목이 `⚙️[기능추가][Skills] commit 스킬 신규 추가`인 경우, SUH-ISSUE-HELPER가 생성하는 커밋 템플릿은 이모지+태그를 제거한 순수 내용만 사용한다:
-
-```
-commit 스킬 신규 추가 : feat : 이슈 컨텍스트 기반 커밋 메시지 자동 생성 https://github.com/Cassiiopeia/projectops/issues/224
-commit 스킬 신규 추가 : docs : common-rules 커밋 컨벤션 예시 수정 https://github.com/Cassiiopeia/projectops/issues/224
-commit 스킬 신규 추가 : fix : owner/repo 추출 로직 버그 수정 https://github.com/Cassiiopeia/projectops/issues/224
-```
-
-**핵심 규칙**:
-- `{이슈제목}`은 SUH-ISSUE-HELPER가 생성한 커밋 템플릿의 앞부분을 **그대로** 사용한다 — 이모지+태그(`⚙️[기능추가][Skills]`)는 포함하지 않는다
-- `{타입}`은 **이번 커밋의 변경 내용**에 따라 결정한다 — `feat`가 기본값이지만 항상 feat가 아니다
-- 같은 이슈에 여러 커밋을 할 때 타입이 달라질 수 있다 (feat → fix → docs 순서로 커밋 가능)
-- 이슈 컨텍스트가 있을 때만 이 형식을 사용한다
-- 이슈와 무관한 커밋(hotfix, 설정 변경 등)은 자유 형식 허용
-- 사용자가 `/commit` 스킬을 호출하면 이 형식으로 자동 완성
-
-**커밋 타입이 릴리스 버전을 결정한다 (#546)**
-
-`version.yml`의 `metadata.template.options.semver_auto`가 켜진 레포는 릴리스 구간 커밋
-제목으로 버전 승격 폭이 정해진다. 타입을 아무거나 고르면 버전이 잘못 나간다.
-
-| 커밋 타입 | 릴리스 결과 |
-|---|---|
-| `제목 : feat! : 내용` (또는 `feat!:`) | **major** — 4.2.45 → 5.0.0 |
-| `제목 : feat : 내용` | **minor** — 4.2.45 → 4.3.0 |
-| `fix` / `docs` / `chore` / `refactor` / `test` | patch — 4.2.45 → 4.2.46 |
-
-- **`!`는 호환성이 깨질 때만 붙인다** — 기존 사용자의 설정·API·CLI 인자가 더 이상 동작하지
-  않게 되는 변경. 확신이 없으면 붙이지 말고 사용자에게 묻는다.
-- 한 릴리스 구간에 섞이면 가장 높은 것이 이긴다 (major > minor > patch).
-- 키가 없거나 `false`인 레포는 항상 patch라 타입이 버전에 영향을 주지 않는다.
-
-커밋 템플릿 계산은 `github_cli.py get-commit-template "{이슈 제목}" "{이슈URL}"`의 `template`을 **그대로** 쓴다.
-타입은 제목 태그에서 추론된다(버그 → `fix`, 기능 → `feat`, 문서 → `docs` 등). 실제 작업이 태그와 다를 때만 `--type`으로 바꾼다.
-```
-형식: {이슈제목에서 이모지·태그 제거한 순수 내용} : {타입} : {설명} {이슈URL}
-```
+형식 `{이슈제목} : {타입} : {변경사항 설명} {이슈URL}` — 이슈제목은 이모지·태그를 뺀 순수 내용,
+타입(`feat`/`fix`/`refactor`/`docs`/`chore`/`style`/`test`)은 **이번 커밋의 변경 내용**으로 정한다. 템플릿은
+`github_cli.py get-commit-template`의 `template`을 그대로 쓴다. `semver_auto` 레포에서는 타입이 릴리스 버전을 정한다
+(`feat!` major · `feat` minor · 나머지 patch — `!`는 호환성이 깨질 때만). 이슈와 무관한 커밋은 자유 형식.
+상세·예시: `commit-convention.md`.
 
 ## 민감 정보 보호
 
-`docs/projectops/` 폴더는 Git에 공개 커밋된다. 이슈/보고서/플랜 등 모든 산출물 파일에 민감 정보가 포함되지 않도록 반드시 아래 규칙을 따른다.
-
-### 절대 포함 금지 항목
-
-- GitHub PAT, API Key, Secret, Token, Password 실제 값
-- 서버 IP, 내부 도메인, SSH 접속 정보
-- 개인 이메일, 전화번호 등 개인정보
-- `.env` 파일 내용, DB 접속 정보
+`docs/projectops/` 산출물은 Git에 공개 커밋된다. PAT·API Key·Secret·Token·Password 실제 값, 서버 IP·내부 도메인·SSH 정보,
+개인정보, `.env`·DB 접속 정보를 넣지 않는다.
 
 ### 마스킹 규칙
 
-실제 값이 아닌 플레이스홀더로 표기:
-
-| 종류 | 표기 방식 |
-|------|-----------|
-| API Key / PAT / Token | `{API_KEY}`, `{PAT}`, `{TOKEN}` |
-| Password / Secret | `{PASSWORD}`, `{SECRET}` |
-| DB 유저명 / 계정명 | `{DB_USERNAME}`, `{ADMIN_ID}` |
-| 서버 주소 | `{SERVER_HOST}` |
-| 개인정보 | `{EMAIL}`, `{PHONE}` |
-
-### 보고서/이슈 작성 시 추가 주의
-
-- 에러 로그에 토큰/키가 포함된 경우 반드시 마스킹 후 기재
-- 재현 방법에 실제 서버 정보 대신 `{SERVER_HOST}` 등 플레이스홀더 사용
-- 스크린샷/로그 인용 시 민감 값은 플레이스홀더로 대체 (`***` 같은 익명 별표 금지 — 종류를 알 수 없어 의미 전달 불가)
+실제 값 대신 명명된 플레이스홀더(`{PAT}`, `{API_KEY}`, `{PASSWORD}`, `{DB_USERNAME}`, `{SERVER_HOST}`, `{EMAIL}` 등)를 쓴다.
+`***` 같은 익명 별표는 금지. 표: `sensitive-info.md` §마스킹 규칙.
 
 ### 파일 저장 직전 자체검토 프로토콜
 
-산출물 파일(보고서, 이슈 등)을 저장하기 **직전**, AI는 작성한 내용 전체를 스스로 아래 체크리스트로 검토한다.
-
-**검토 항목**:
-
-| 항목 | 위험 예시 | 안전 예시 |
-|------|-----------|-----------|
-| 비밀번호 실제값 | `password: abc123`, `비번: qwer1234` | `password: {PASSWORD}` |
-| ID/계정/DB유저명 실제값 | `admin/mypassword`, `아이디: hong123`, `username: kimchi` | `{ADMIN_ID}/{PASSWORD}`, `{DB_USERNAME}` |
-| API Key / Token 실제값 | `sk-abc123xyz`, `AIza...` | `{API_KEY}` |
-| GitHub PAT 실제값 | `ghp_abc123...` (실제 유효한 긴 문자열) | `{PAT}` |
-| DB 접속 정보 실제값 | `mysql://user:pass@192.168.0.1` | `mysql://{DB_USER}:{DB_PASS}@{DB_HOST}` |
-| 개인정보 | 전화번호, 주민번호, 실명+계좌 조합 | `{PHONE}`, `{SSN}` |
-
-**판단 기준**:
-- `${{ secrets.XXX }}` 형태 — **안전** (키 이름이며 실제값 아님)
-- `{DB_USERNAME}`, `{PASSWORD}` 형태 — **안전** (명명된 플레이스홀더)
-- `ghp_ru0dCYe...` 처럼 실제로 유효해 보이는 긴 문자열 — **위험**
-- `password: admin123` 처럼 실제 값이 평문 노출 — **위험**
-- `username: kimchi`, `user: hong123` 처럼 실제 계정명 노출 — **위험**
-- `********` 같은 익명 별표 — **금지** (플레이스홀더로 교체할 것)
-
-**처리 방식**:
-1. 위험 항목 발견 시 → 해당 값을 플레이스홀더로 교체 후 저장
-2. 마스킹한 항목이 있으면 저장 후 사용자에게 고지:
-   ```
-   ⚠️ 민감 정보 마스킹 처리됨:
-   - [항목 종류]: 실제값 → {플레이스홀더}
-   ```
-3. 위험 항목 없으면 → 그대로 저장 진행 (별도 메시지 불필요)
+산출물을 저장하기 **직전** 내용 전체를 검토해 위험 값을 플레이스홀더로 바꾸고, 바꾼 것이 있으면 저장 후 사용자에게 알린다.
+체크리스트·판단 기준·고지 형식: `sensitive-info.md` §파일 저장 직전 자체검토 프로토콜.
