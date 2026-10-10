@@ -9,7 +9,7 @@
 **Status: actively maintained.** New versions ship often, sometimes several a day. To stay on a version you have tested, run `npx projectops@<version>` ([releases](https://github.com/Cassiiopeia/projectops/releases)).
 
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
-## Latest version : v4.36.3 (2026-10-07)
+## Latest version : v4.36.4 (2026-10-07)
 
 [View full version history](CHANGELOG.md)
 
