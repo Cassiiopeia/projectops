@@ -1094,6 +1094,20 @@ def _install_stealth(ctx, page) -> bool:
     return ok
 
 
+def _close_blank_tabs(ctx, keep) -> int:
+    """작업 탭(keep) 외의 about:blank 탭을 닫는다.
+    web open 마다 about:blank 로 띄우고 영속 프로필이 옛 탭을 복원해서 빈 탭이 쌓인다."""
+    closed = 0
+    for pg in list(ctx.pages):
+        try:
+            if pg != keep and pg.url == "about:blank":
+                pg.close()
+                closed += 1
+        except Exception:
+            pass
+    return closed
+
+
 def _web_connect(state: dict):
     """열려 있는 브라우저에 붙고, 붙어 있는 동안만 사는 설정(훅·stealth·뷰포트·규칙)을 다시 건다."""
     sync_playwright, err = _require_playwright()
@@ -1250,6 +1264,11 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     if not cerr:
         _pw, _br, _pg = conn
         hooked = True
+        # 빈 탭 정리 — 이전 open 이 남긴 about:blank 가 누적되는 것을 막는다
+        try:
+            _close_blank_tabs(_pg.context, _pg)
+        except Exception:
+            pass
         if args.url:
             try:
                 _pg.goto(args.url, wait_until="domcontentloaded", timeout=args.timeout * 1000)

@@ -631,6 +631,31 @@ def test_console_hook_covers_every_way_an_error_shows_up():
     assert "if (window.__projectops_console) return;" in hook
 
 
+# ── 빈 탭 정리 ────────────────────────────────────────────────────────────
+
+class _BlankTabPage:
+    def __init__(self, url):
+        self.url, self.closed = url, False
+
+    def close(self):
+        self.closed = True
+
+
+class _BlankTabCtx:
+    def __init__(self, pages):
+        self.pages = pages
+
+
+def test_close_blank_tabs_keeps_work_tab_and_real_pages():
+    """about:blank 만 닫고 작업 탭·실제 페이지는 남긴다 (open 반복 시 빈 탭 누적 방지)."""
+    blank1, blank2 = _BlankTabPage("about:blank"), _BlankTabPage("about:blank")
+    real, work = _BlankTabPage("https://github.com/x"), _BlankTabPage("about:blank")
+    n = launch_cli._close_blank_tabs(_BlankTabCtx([blank1, real, blank2, work]), work)
+    assert n == 2
+    assert blank1.closed and blank2.closed
+    assert not real.closed and not work.closed
+
+
 # ── 진짜 브라우저 (local_only) ────────────────────────────────────────────
 
 _PAGE = (
