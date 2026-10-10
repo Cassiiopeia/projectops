@@ -1,14 +1,42 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-10T08:00:14Z",
-    "currentVersion": "4.45.0",
+    "lastUpdated": "2026-10-10T08:23:45Z",
+    "currentVersion": "4.45.1",
     "projectType": "basic",
-    "totalReleases": 305,
+    "totalReleases": 306,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.45.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-10",
+      "pr_number": 852,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 대화형 설치에서 PR 변경 요약을 골라도 설치되지 않던 문제 해결\n  * 모바일 앱 레포를 버전만 갱신할 때 서버 배포 설정이 남던 문제 해결\n  * 묻지 않은 개발 브랜치와 프로젝트 성격이 임의로 기록되던 문제 해결\n  * 여러 줄로 적은 프로젝트 타입과 릴리스 노트 설정을 워크플로가 잘못 읽던 문제 해결\n\n* **개선**\n  * 대화형과 비대화형 설치가 같은 규칙으로 옵션을 정합니다",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "대화형 설치에서 PR 변경 요약을 골라도 설치되지 않던 문제 해결",
+            "모바일 앱 레포를 버전만 갱신할 때 서버 배포 설정이 남던 문제 해결",
+            "묻지 않은 개발 브랜치와 프로젝트 성격이 임의로 기록되던 문제 해결",
+            "여러 줄로 적은 프로젝트 타입과 릴리스 노트 설정을 워크플로가 잘못 읽던 문제 해결"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "대화형과 비대화형 설치가 같은 규칙으로 옵션을 정합니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.45.0",
       "project_type": "basic",
