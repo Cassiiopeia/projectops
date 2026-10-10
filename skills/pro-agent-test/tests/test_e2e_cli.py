@@ -38,6 +38,9 @@ def run_cli(*args, home: Path | None = None, cwd: Path | None = None):
     if home is not None:
         env["HOME"] = str(home)
         env["USERPROFILE"] = str(home)   # Windows
+        # 상태 루트는 PROJECTOPS_HOME 이 이긴다 (#836) — 넘긴 홈 아래로 맞춘다.
+        # 홈을 안 넘기면 conftest 가 정한 임시 루트를 물려받는다.
+        env["PROJECTOPS_HOME"] = str(Path(home) / ".projectops")
     r = subprocess.run([sys.executable, str(CLI), *args],
                        capture_output=True, text=True, encoding="utf-8", env=env,
                        cwd=str(cwd) if cwd else None)
@@ -215,7 +218,9 @@ def test_home_dir_is_outside_project():
     with tempfile.TemporaryDirectory() as tmp:
         r = _git_repo(Path(tmp), "https://github.com/o/r.git")
         home = e2e_cli._home_dir(r)
-        assert str(home).startswith(str(Path.home()))
+        # 상태 루트(base_dir) 아래여야 한다 — 테스트에서는 PROJECTOPS_HOME 이 임시 폴더다 (#836)
+        from common.state import base_dir
+        assert str(home).startswith(str(base_dir()))
         assert str(r) not in str(home)
 
 
@@ -553,7 +558,7 @@ WRITE_CALLS = [
     ("note pitfall",    ["note", "pitfall", "--text", "토스트가 2초 뒤 사라진다"]),
     ("note run",        ["note", "run", "--name", "signup", "--text", "3단계 통과"]),
     ("note screen",     ["note", "screen", "--name", "로그인", "--anchor", "로그인하기",
-                         "--taps", "버튼=540,1200", "--screen-size", "1080x2400"]),
+                         "--target", "버튼=text:로그인하기", "--screen-size", "1080x2400"]),
     ("scenario init app",    ["scenario", "init", "--name", "s_app", "--target", "app"]),
     ("scenario init web",    ["scenario", "init", "--name", "s_web", "--target", "web"]),
     ("scenario init server", ["scenario", "init", "--name", "s_srv", "--target", "server"]),
@@ -925,7 +930,8 @@ def test_web_shot_can_keep_the_original_size():
 def test_doctor_tells_when_screens_cannot_be_shrunk(sandbox, monkeypatch):
     """수단이 없다는 사실이 드러나야 사용자가 조치할 수 있다."""
     import json as _json
-    _, out, _ = run_cli("doctor", "--root", str(sandbox), home=sandbox)
+    proj, home = sandbox          # 예전엔 튜플을 통째로 넘겨 HOME 이 엉뚱한 문자열이 됐다
+    _, out, _ = run_cli("doctor", "--root", str(proj), home=home)
     d = _json.loads(out)
     assert "image_resize" in d
     # 수단이 있으면 이름이, 없으면 무엇이 손해인지가 적혀야 한다
@@ -1185,19 +1191,19 @@ def test_old_screen_records_are_promoted_not_lost(tmp_path):
 
 
 def test_screens_keep_one_set_of_taps_per_role(tmp_path):
-    """역할이 다르면 좌표가 따로 쌓여야 한다 — 빌드가 다르면 화면이 다르다."""
+    """역할이 다르면 대상이 따로 쌓여야 한다 — 빌드가 다르면 화면이 다르다."""
     home = tmp_path / "home"
     home.mkdir(exist_ok=True)
     proj = _repo(tmp_path, "p2")
-    for role, xy in (("A", "540,1200"), ("B", "540,1400")):
+    for role, at in (("A", "0.5,0.5"), ("B", "0.5,0.5833")):
         run_cli("note", "screen", "--root", str(proj), "--name", "설정",
-                "--anchor", "설정", "--taps", f"로그아웃={xy}",
+                "--anchor", "설정", "--target", f"로그아웃=at:{at}",
                 "--screen-size", "1080x2400", "--role", role, home=home)
     _, out, _ = run_cli("note", "show", "--root", str(proj), home=home)
     variants = json.loads(out)["screens"]["설정"]["variants"]
     assert set(variants) == {"A@1080x2400", "B@1080x2400"}, variants
-    assert variants["A@1080x2400"]["taps"]["로그아웃"] == "540,1200"
-    assert variants["B@1080x2400"]["taps"]["로그아웃"] == "540,1400"
+    assert variants["A@1080x2400"]["targets"]["로그아웃"] == {"at": "0.5,0.5"}
+    assert variants["B@1080x2400"]["targets"]["로그아웃"] == {"at": "0.5,0.5833"}
 
 
 # ── 문서가 기기를 지정하지 않는 명령을 가르치면 안 된다 (#583) ────────────
@@ -1376,8 +1382,12 @@ def _learned(home: Path):
 
 
 @pytest.mark.parametrize("extra,code", [
-    (["--taps", "bad"], "bad_taps"),
-    (["--taps", "a=x,y"], "bad_taps"),
+    (["--taps", "bad"], "pixels_rejected"),          # 옛 픽셀 입력은 무엇이든 거절 (#838)
+    (["--target", "a=x,y"], "bad_target"),
+    (["--target", "a=540,1200"], "pixels_rejected"),
+    (["--target", "a=at:540,1200"], "pixels_rejected"),
+    (["--target", "a=at:1.5,0.2"], "pixels_rejected"),
+    (["--target", "a=xpath:/x"], "bad_target"),
     (["--screen-size", "abc"], "bad_screen_size"),
 ])
 def test_note_screen_rejects_garbage_and_writes_nothing(tmp_path, extra, code):
@@ -1389,14 +1399,19 @@ def test_note_screen_rejects_garbage_and_writes_nothing(tmp_path, extra, code):
     assert _learned(home) == [], "검증 전에 파일이 만들어졌다"
 
 
-def test_note_screen_accepts_valid_taps_and_size(tmp_path):
+def test_note_screen_accepts_valid_targets_and_size(tmp_path):
     home = tmp_path / "home"
-    _, out, _ = run_cli("note", "screen", "--name", "s2", "--anchor", "a", "--taps", "로그인=540,1200",
+    _, out, _ = run_cli("note", "screen", "--name", "s2", "--anchor", "a",
+                        "--target", "로그인=at:0.5,0.5", "메뉴=text:전체 메뉴|index=1",
                         "--screen-size", "1080x2400", "--root", str(tmp_path), home=home, cwd=tmp_path)
-    assert json.loads(out.strip().splitlines()[-1])["ok"] is True
+    d = json.loads(out.strip().splitlines()[-1])
+    assert d["ok"] is True, d
+    assert d["targets"]["메뉴"] == 'app tap --text "전체 메뉴" --index 1'
     saved = json.loads(_learned(home)[0].read_text(encoding="utf-8"))
+    assert saved["schema"] == 3
     variant = next(iter(saved["screens"]["s2"]["variants"].values()))
-    assert variant["taps"] == {"로그인": "540,1200"}
+    assert variant["targets"] == {"로그인": {"at": "0.5,0.5"},
+                                  "메뉴": {"text": "전체 메뉴", "index": 1}}
 
 
 def test_note_run_without_name_or_text_is_rejected(tmp_path):

@@ -28,7 +28,7 @@ QA 판단은 이 스킬(`{SCRIPTS}/e2e_cli.py`), **실행·캡처는 pro-launch*
 | 하려는 것 | 명령 | 자세히 |
 |---|---|---|
 | 무엇을 밟을 수 있나 · 타겟별 정보(패키지명 · 기기 · `adb_path` · 웹 주소 · 적어 둔 접속 정보) | `e2e_cli.py detect --path .` | `references/planning.md` |
-| 판단한 타겟 적기 · 화면·규칙·함정·실행 결과 쌓기 | `e2e_cli.py note show\|target\|screen\|constraint\|pitfall\|run` | `references/learning.md` |
+| 판단한 타겟 적기 · 화면·규칙·함정·실행 결과 쌓기 · 범위 정리 | `e2e_cli.py note show\|target\|screen\|constraint\|pitfall\|run\|tidy\|forget` | `references/learning.md` |
 | 시나리오 틀 · 목록 · **밟기 전 검증** | `e2e_cli.py scenario init\|list\|show` | `references/planning.md` |
 | 서버 시나리오를 끝까지 밟기 | `e2e_cli.py api --name` | `references/target-server.md` |
 | 앱·웹·서버가 아닌 것(CI·CLI·라이브러리) 돌리고 산출물 보기 | `e2e_cli.py other run` | `references/target-other.md` |
@@ -143,8 +143,16 @@ Android 네이티브 Google 로그인(Play Services 계정 선택 창)은 앱 �
 ## 기록 쌓기
 
 앱·웹 작업을 시작할 때 `pro-launch` 의 `recall --area ios|android|web|server` 를 한 번 보고, 끝나면 먹힌 방식을 `learn --result ok|fail` 로 남긴다.
-알아낸 화면·규칙·함정·실행 결과는 `note` 로 남기고, 시작할 때 `note show` 로 읽는다. 기록은 홈
+알아낸 화면·규칙·함정·실행 결과는 `note` 로 남긴다. **`detect` · `scenario show` 응답의 `memory` 에 맥락에 맞는 규칙·함정이 몇 건 실려 온다**
+(하루·영역 한 번) — 먼저 읽는다. 전부는 `note show --all`, 기본 `note show` 는 요약이다. 기록은 홈
 (`detect` 의 `knowledge_dir`)에 쌓여 워크트리를 새로 만들어도 산다. 이메일·전화·JWT·비밀번호가 섞이면 거부된다.
+
+- 화면 기록은 **요소**(`--target "라벨=text:문구"`) 또는 **비율**(`"라벨=at:0.5,0.8"`)로 남긴다. 픽셀은 거절된다.
+- 기록한 대상으로 `app tap --shot` 을 했으면 **결과를 남긴다** — `screen_changed: true` 면 `note screen --name 화면 --target 라벨 --result ok`,
+  `not_found` 거나 `screen_changed: false` 면 `--result fail`. 실패가 앞선 대상은 `verify` 가 붙어 다음에 다시 확인하게 된다.
+- 함정·규칙을 쓰면 비슷한 것을 먼저 찾는다. 확실히 같으면 합쳐지고(`merged_into`), 애매하면 `related` 가 온다 — 같은 지식이면 `next` 대로 합친다.
+- `flutter` · `platform` 범위 함정은 이 컴퓨터 범위(`_machine`)에 쌓인다. 예전 기록은 `note tidy`(계획) → `note tidy --apply` 로 옮긴다.
+
 `references/learning.md`.
 
 ## 실패 code → 다음 행동
@@ -154,6 +162,7 @@ Android 네이티브 Google 로그인(Play Services 계정 선택 창)은 앱 �
 | `no_device` | `devices` 로 보고 `--device` 를 준다. 기기가 없으면 `next` 의 부팅 안내 |
 | `not_found` · `index_out_of_range` | `candidates` 에서 고른다. 화면 언어는 `locale`. 추측을 반복하지 않는다 |
 | `bad_ratio` | `--at` 은 0~1 비율만 받는다. 픽셀이면 화면 크기로 나눈다 |
+| `pixels_rejected` (note screen) | 픽셀은 저장하지 않는다. `hint` 의 `라벨=at:…` 비율로, 요소가 보이면 `text:`·`id:`·`desc:` 로 |
 | `tree_unsupported` · 빈 `elements` | Flutter 캔버스 등 — `--at` 비율 좌표로 누르고 `--shot` 으로 확인한다 |
 | `build_mismatch` | 기기마다 빌드가 다르다. 멈추고 양쪽을 맞춘다 |
 | `ios_tool_missing` · `android_tool_missing` · `adb_missing` | 결과의 설치 안내를 사용자에게 제안한다 |

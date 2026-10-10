@@ -22,6 +22,7 @@ import os
 import re
 from pathlib import Path
 
+from common import memory
 from common.access import find_secrets
 from common.state import base_dir, state_dir
 
@@ -33,7 +34,7 @@ MAX_ENTRIES = 30        # 범위별 상한 — 넘으면 점수 낮은 것부터
 MAX_HOW = 200           # 한 항목 글자 수 상한 (recall 한 번이 수백 토큰에 머물게)
 MAX_KEY = 60
 DEFAULT_LIMIT = 5
-STALE_DAYS = 90
+STALE_DAYS = memory.STALE_DAYS
 
 # 기억이 뒤집을 수 없는 금지 방법. 호스트 마우스를 움직여 화면 좌표를 누르는 것(#640).
 # 저장도, 꺼내기도 막는다 — 손으로 고친 파일이나 옛 파일에서 들어와도 걸러야 한다.
@@ -89,11 +90,7 @@ def _score(e: dict) -> int:
 
 
 def _stale(e: dict, today: str) -> bool:
-    try:
-        d = dt.date.fromisoformat(e["last_seen"])
-        return (dt.date.fromisoformat(today) - d).days > STALE_DAYS
-    except ValueError:
-        return True
+    return memory.stale(e["last_seen"], today, STALE_DAYS)
 
 
 def learn(path: Path, area: str, key: str, how: str, result: str,
@@ -168,29 +165,18 @@ def recall(paths: dict[str, Path], area: str | None, limit: int = DEFAULT_LIMIT,
 # 같은 지식이 레포마다 키만 다르게 쌓였다(실측: ASC iframe 로그인 4곳). 레포에 상관없는
 # 지식은 이 컴퓨터 범위(_machine) 한 곳에 있어야 다른 레포에서도 바로 쓰인다.
 
-SIMILAR = 0.6            # 자동으로 합칠 만큼 확실한 겹침 (실측: 같은 지식도 문장이 달라 0.13~0.37)
-RELATED = 0.25           # 이 이상이면 '비슷한 기억'으로 보여 주고 합칠지는 agent 가 판단한다
-# 어느 지식에나 나오는 말 — 이것끼리 겹쳐서 같은 지식으로 오판했다(실측: Google 팝업 ↔ Apple iframe)
-_GENERIC = {"web", "ios", "android", "server", "open", "goto", "type", "input", "click", "로그인",
-            "입력", "통과", "있다", "있다.", "앞에", "폼은", "launch_cli", "--headed", "headed", "이메일",
-            "비밀번호", "cdp", "app", "tap"}
-HIDE_FAILS_OVER = 2      # fail >= ok + 이 값이면 자동으로 싣지 않는다
-_WORD = re.compile(r"[0-9A-Za-z가-힣_.#-]{2,}")
-
-
-def _words(text: str) -> set[str]:
-    return {w.lower() for w in _WORD.findall(text or "")} - _GENERIC
+# 유사도·노출 상한 규칙은 pro-agent-test note 와 같아야 해서 common/memory.py 로 옮겼다 (#837).
+# 이 모듈의 공개 이름(SIMILAR·RELATED·overlap·similar …)은 그대로 둔다 — launch_cli·테스트가 쓴다.
+SIMILAR = memory.SIMILAR
+RELATED = memory.RELATED
+_GENERIC = memory._GENERIC
+HIDE_FAILS_OVER = memory.HIDE_FAILS_OVER
+_WORD = memory._WORD
+_words = memory.words
 
 
 def overlap(a: dict, b: dict) -> float:
-    if a["area"] != b["area"]:
-        return 0.0
-    if a["key"] == b["key"]:
-        return 1.0
-    wa, wb = _words(a["how"]), _words(b["how"])
-    if not wa or not wb:
-        return 0.0
-    return len(wa & wb) / min(len(wa), len(wb))
+    return memory.overlap(a, b, field="how", group="area", key="key")
 
 
 def similar(a: dict, b: dict) -> bool:

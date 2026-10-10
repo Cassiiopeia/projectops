@@ -87,6 +87,13 @@ adb -s "$DEV" shell input keyevent KEYCODE_BACK  # 키보드 내리기 · 기기
 `--shot` 결과의 `screen_changed: false` 면 **눌렀는데 아무 일도 없었다** — 다른 요소를 고르거나,
 그 자체가 결함("반응 없는 요소", `looks-wrong.md` 축 5)인지 본다. 화면만 보지 않는다. 크래시·에러를 함께 본다.
 
+`note screen` 에 기록해 둔 대상을 눌렀다면 **결과를 남긴다** — 다음 실행이 그 기록을 믿어도 되는지 알게 된다.
+
+```bash
+# screen_changed: true → ok / not_found · screen_changed: false → fail
+{PYTHON} {SCRIPTS}/e2e_cli.py note screen --root {PROJECT_ROOT} --name "{화면}" --target "{라벨}" --result ok
+```
+
 ```bash
 adb -s "$DEV" shell dumpsys window | grep mCurrentFocus   # 지금 어느 화면인가
 adb -s "$DEV" logcat -d -b crash | tail -40               # 죽지 않았나

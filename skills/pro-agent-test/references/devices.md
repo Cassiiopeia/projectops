@@ -86,18 +86,25 @@ source "{env_file 값}"
 
 `roles` 를 비워 두면 예전처럼 기기 한 대로 밟는다. 기존 시나리오는 그대로 유효하다.
 
-## 5. 좌표는 기기마다 따로 기억한다
+## 5. 누를 대상은 기기마다 따로 기억한다
 
 ```bash
 {PYTHON} {SCRIPTS}/e2e_cli.py note screen --root {PROJECT_ROOT} \
   --name "{화면}" --anchor "{알아보는 단서}" \
-  --taps "{라벨}={x},{y}" --screen-size {가로}x{세로} --role A --build {apk값}
+  --target "{라벨}=text:{문구}" "{라벨2}=at:{0~1 가로},{0~1 세로}" \
+  --screen-size {가로}x{세로} --role A --build {apk값}
+
+# 그 대상을 눌러 본 결과 (app tap --shot 의 screen_changed 가 true 면 ok, not_found·false 면 fail)
+{PYTHON} {SCRIPTS}/e2e_cli.py note screen --root {PROJECT_ROOT} \
+  --name "{화면}" --target "{라벨}" --result ok --role A --screen-size {가로}x{세로}
 ```
 
 **해상도가 같아도 빌드가 다르면 화면이 다르다.** 역할별로 다른 빌드가 깔리는 일이 흔해서
-좌표를 한 벌만 기억하면 엉뚱한 자리를 누른다. `--role` 을 붙이면 따로 쌓인다.
+대상을 한 벌만 기억하면 엉뚱한 자리를 누른다. `--role` 을 붙이면 따로 쌓인다.
+픽셀(`라벨=540,1200`)은 거절된다 — `app tap` 이 받지 않는다. 요소가 보이면 `text:`·`id:`·`desc:`, 아니면 `at:` 비율.
 
-예전 기록(좌표 한 벌)은 읽는 순간 자동으로 올라간다. 다시 잴 필요 없다.
+예전 기록(픽셀 좌표 한 벌)은 읽는 순간 비율로 바뀌고 `verify` 가 붙는다(원본은 `legacy_taps`).
+한 번 눌러 보고 `--result ok` 를 남기면 `verify` 가 내려간다.
 
 ## 6. 테스트용 빌드 플래그는 되돌리는 것까지 한 단위다 ⚠️
 
