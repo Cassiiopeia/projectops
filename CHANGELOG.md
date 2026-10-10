@@ -1,7 +1,23 @@
 # Changelog
 
-**Current version:** 4.40.0  
-**Last updated:** 2026-10-10T02:24:36Z  
+**Current version:** 4.41.0  
+**Last updated:** 2026-10-10T02:57:24Z  
+
+---
+
+## [4.41.0] - 2026-10-10
+
+**PR:** #834  
+
+**New features**
+- 명령 응답에 기억을 자동으로 싣고 검증된 성공은 CLI가 직접 기록하며, 실패 뒤 성공이면 learn_hint로 기록할 순간을 알리고, learn은 다른 레포의 같은 지식을 이 컴퓨터 범위로 합치며 tidy로 흩어진 기억을 정리, 스킬 폴더에서 불릴 때 scripts 가짜 레포에 쓰던 버그 수정, 공통 기억 원칙 문서 추가
+- store_locales 옵션을 켜면 스토어 언어별 릴리스 노트를 준비하고 번역이 없는 언어는 기본 언어 문구로 채우며 키가 없으면 기존 동작을 유지
+
+**Improvements**
+- 낡은 주석 정정, ARCHITECTURE에 플래그·옵션·provider·언어·스킬 추가 가이드 연결, help·docs·AI 키 목록·하위 폴더 사본·제외 목록 동기화 테스트, doctor의 vunknown 문구와 브랜치 첫 이슈 번호 추출 수정
+
+**Other**
+- 로컬 파서가 놓치는 워크플로 최상위 키 중복을 GitHub처럼 거부하는 회귀 테스트 추가
 
 ---
 
