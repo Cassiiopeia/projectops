@@ -192,6 +192,72 @@ def test_close_issue(monkeypatch):
     rc, out = _run(monkeypatch, ["close-issue", "o", "r", "5"], update_issue=_upd)
     assert rc == 0
     assert captured["state"] == "closed"
+    # 기본은 완료(completed) — 파이프라인 완료 처리가 이유 없이 닫히지 않게 한다 (#819)
+    assert captured["state_reason"] == "completed"
+    assert out["state_reason"] == "completed"
+
+
+def test_close_issue_as_not_planned(monkeypatch):
+    """취소된 작업은 not_planned 로 닫아 완료와 구분한다 (#819)."""
+    captured = {}
+
+    def _upd(o, r, n, pat, **kw):
+        captured.update(kw)
+        return {"number": n, "url": "u", "title": "t"}
+    rc, out = _run(monkeypatch, ["close-issue", "o", "r", "5", "--reason", "not_planned"],
+                   update_issue=_upd)
+    assert rc == 0
+    assert captured["state_reason"] == "not_planned"
+
+
+def test_close_issue_rejects_unknown_reason(monkeypatch):
+    rc, out = _run(monkeypatch, ["close-issue", "o", "r", "5", "--reason", "duplicate"],
+                   update_issue=lambda *a, **k: {})
+    assert out["ok"] is False
+
+
+def test_update_issue_sends_state_reason(monkeypatch):
+    """state_reason 은 PATCH payload 에 그대로 실려야 GitHub 에 반영된다."""
+    from common import gh_client
+    sent = {}
+
+    def _req(method, url, data, pat, raw=False):
+        sent.update(data or {})
+        return {"number": 5, "html_url": "u", "title": "t"}
+    monkeypatch.setattr(gh_client, "_request", _req)
+    gh_client.update_issue("o", "r", 5, "pat", state="closed", state_reason="not_planned")
+    assert sent == {"state": "closed", "state_reason": "not_planned"}
+
+
+# --- #822: 이슈 문서 경로도 CLI 가 정한다 ---
+
+def _git_repo(path, branch):
+    import subprocess
+    path.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init", "-q", "-b", branch], cwd=path, check=True)
+    return path
+
+
+def test_issue_output_path_uses_seq_not_branch_issue(tmp_path, monkeypatch):
+    """이슈 브랜치 위에서 새 이슈를 만들어도 그 브랜치 번호를 빌리지 않는다."""
+    from datetime import date
+    proj = _git_repo(tmp_path / "proj", "20261010_#819_다른_이슈")
+    monkeypatch.chdir(proj)
+    rc, out = _run(monkeypatch, ["get-output-path", "issue", "--title", "❗[Bug][Skills] New issue"])
+    assert rc == 0, out
+    p = Path(out["path"])
+    today = date.today().strftime("%Y%m%d")
+    assert p.parent.name == "issue"
+    assert p.name == f"{today}_001_New_issue.md", p.name  # 이모지·태그는 파일명에서 빠진다
+    assert "819" not in p.name
+
+
+def test_issue_output_path_default_skill_id(tmp_path, monkeypatch):
+    proj = _git_repo(tmp_path / "proj", "develop")
+    monkeypatch.chdir(proj)
+    rc, out = _run(monkeypatch, ["get-output-path", "--title", "제목"])
+    assert rc == 0, out
+    assert out["path"].endswith("_001_제목.md")
 
 
 # --- #699: 전부 실패/바꿀 값 없음을 ok:true 로 보고하지 않는다 ---

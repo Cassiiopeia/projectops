@@ -316,8 +316,12 @@ def update_issue(
     title: str | None = None, body: str | None = None,
     state: str | None = None, labels: list[str] | None = None,
     assignees: list[str] | None = None,
+    state_reason: str | None = None,
 ) -> dict:
-    """이슈를 수정하고 {number, url, title}을 반환한다."""
+    """이슈를 수정하고 {number, url, title}을 반환한다.
+
+    state_reason: completed | not_planned | reopened — 닫을 때 완료/취소를 구분한다 (#819).
+    """
     payload: dict = {}
     if title is not None:
         payload["title"] = title
@@ -325,6 +329,8 @@ def update_issue(
         payload["body"] = body
     if state is not None:
         payload["state"] = state
+    if state_reason is not None:
+        payload["state_reason"] = state_reason
     if labels is not None:
         # 없는 라벨은 PATCH가 새로 만들어 버리므로, 별칭 중 레포에 있는 이름으로 먼저 치환한다 (#776)
         labels = resolve_label_aliases(labels, list_labels(owner, repo, pat))

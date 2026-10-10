@@ -67,7 +67,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py shrink {스크린샷...} 
 **잘못 본 것을 발견하면 즉시 정정한다.** 이미 올린 이슈가 있으면:
 
 1. 정정 댓글 — 무엇을 잘못 봤는지, 실제로는 어떤지, 근거 이미지
-2. 라벨을 `취소`로 바꾸고 닫는다
+2. 라벨을 `status: cancelled`(`취소`)로 교체하고 `close-issue --reason not_planned`로 닫는다
 3. 그 과정에서 **진짜로 남은 문제**가 있으면 분리해서 적는다
 
 예: "잘려 보인다"고 올렸는데 실제로는 스크롤을 덜 한 것이었다 → 이슈는 취소하되,

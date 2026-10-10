@@ -202,10 +202,10 @@ GitHub 댓글은 mermaid 블록을 렌더링하므로 흐름도가 그대로 표
 
 ### 이슈 번호 자동 감지 순서
 
-1. 현재 작업 디렉토리 경로에서 `YYYYMMDD_#숫자_제목` 패턴 추출
-2. `.issue/` 폴더 파일명에서 추출 (예: `.issue/20260115_#427_제목.md` → 427)
-3. git 브랜치명에서 추출 (`git rev-parse --abbrev-ref HEAD`)
-4. 위 세 방법 모두 실패 시 사용자에게 이슈 번호 질문
+1. 현재 작업 디렉토리 경로(worktree 폴더명)에서 `YYYYMMDD_숫자_제목` 패턴 추출
+2. git 브랜치명에서 추출 (`git rev-parse --abbrev-ref HEAD`의 `YYYYMMDD_#번호_제목`)
+3. 대화에서 사용자가 말한 이슈 번호 (develop 직행처럼 브랜치명에 번호가 없을 때)
+4. 위 방법 모두 실패 시 사용자에게 이슈 번호 질문
 
 ### 포스팅 플로우
 
@@ -236,11 +236,21 @@ PYTHONIOENCODING=utf-8 "$PYTHON" report_cli.py add-comment {owner} {repo} {이�
 
 > **Windows + macOS/WSL 호환**: self-contained 5줄 패턴이라 cwd·환경변수 상태 무관하게 동작.
 
+### 이슈 완료 처리 (보고서 포스팅 후)
+
+보고서 댓글이 올라갔으면 이슈를 완료 처리한다. 절차는 `pro-github` SKILL.md의 §"이슈 완료 처리" 레시피를 그대로 따른다 — 여기서 따로 정하지 않는다.
+
+- **작업이 끝났으면**: `set-labels`로 상태 라벨을 `status: done`(`작업완료`)으로 **교체**한 뒤 `close-issue --reason completed`
+- **남은 작업이 있으면**(후속 커밋·배포 후 검증 대기·사용자가 "아직"이라고 한 경우): 이 단계를 **생략**하고 `status: in progress`로 둔다. 무엇이 남았는지 완료 메시지에 적는다
+- 레포 `CLAUDE.md`가 다른 규칙을 정했으면 그쪽을 따른다
+- PAT가 없어 댓글을 못 올렸으면 이 단계도 건너뛴다
+
 ### 완료 메시지
 
 ```
 보고서 저장: {get-output-path 가 돌려준 경로}
 GitHub 댓글: https://github.com/{owner}/{repo}/issues/{번호}#issuecomment-{id}
+이슈 상태: status: done 으로 교체 후 닫음 (또는: 남은 작업 {무엇} — 열어 둠)
 ```
 
 PAT 미설정 시:

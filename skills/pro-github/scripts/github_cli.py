@@ -197,8 +197,11 @@ def cmd_close_issue(args) -> int:
     if not pat:
         return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
     try:
-        result = update_issue(args.owner, args.repo, args.number, pat, state="closed")
-        return emit({**result, "summary": f"#{args.number} 닫음"})
+        # 완료(completed)와 취소(not_planned)를 GitHub 에서도 구분해 남긴다 (#819)
+        result = update_issue(args.owner, args.repo, args.number, pat,
+                              state="closed", state_reason=args.reason)
+        return emit({**result, "state_reason": args.reason,
+                     "summary": f"#{args.number} 닫음 ({args.reason})"})
     except GitHubAPIError as e:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
 
@@ -548,6 +551,16 @@ def cmd_search_issues(args) -> int:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
 
 
+def cmd_get_output_path(args) -> int:
+    # 경로 규칙은 common/paths.py 단일 소유 (#525·#623) — 이슈 문서도 직접 조립하지 않는다 (#822).
+    # 새 이슈는 아직 번호가 없으므로 현재 브랜치의 이슈 번호를 빌려 쓰지 않고 일련번호를 붙인다.
+    from common.gh_branch import strip_issue_decorations
+    from common.paths import resolve_output_path
+    # 파일명에는 이모지·[태그]를 넣지 않는다 — 태그가 제목에 붙어 `BugSkills_...` 가 되는 것을 막는다
+    title = strip_issue_decorations(args.title) if args.title else None
+    return emit(resolve_output_path("issue", title, use_issue_number=False))
+
+
 def cmd_normalize_title(args) -> int:
     from common.title import normalize
     result = normalize(" ".join(args.title))
@@ -864,6 +877,8 @@ def build_parser() -> JSONArgumentParser:
     p_cli.add_argument("owner")
     p_cli.add_argument("repo")
     p_cli.add_argument("number", type=int)
+    p_cli.add_argument("--reason", choices=["completed", "not_planned"], default="completed",
+                       help="완료=completed(기본), 취소=not_planned")
     p_cli.set_defaults(func=cmd_close_issue)
 
     p_roi = sub.add_parser("reopen-issue", help="이슈 다시 열기")
@@ -1001,6 +1016,11 @@ def build_parser() -> JSONArgumentParser:
     p_si.add_argument("repo")
     p_si.add_argument("keywords", nargs="+")
     p_si.set_defaults(func=cmd_search_issues)
+
+    p_gop = sub.add_parser("get-output-path", help="이슈 문서 저장 경로 (등록 전 일련번호)")
+    p_gop.add_argument("skill_id", nargs="?", default="issue", choices=["issue"])
+    p_gop.add_argument("--title", help="이슈 제목 (이모지·태그 포함 가능, 정규화된다)")
+    p_gop.set_defaults(func=cmd_get_output_path)
 
     p_nt = sub.add_parser("normalize-title", help="제목 정규화")
     p_nt.add_argument("title", nargs="+")

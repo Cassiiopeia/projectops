@@ -54,13 +54,14 @@
 
 ## ⚠️ 이슈 처리 규칙 (agent 필독)
 
-**이 프로젝트는 이슈가 완료되어도 이슈를 닫지(close) 않는다. 대신 라벨을 수정한다.**
+**이 프로젝트는 이슈가 완료되면 완료 라벨을 붙이고 이슈를 닫는다(close).** (2026-10-10 소유자 결정으로 변경 — 이전엔 닫지 않고 라벨만 바꿨다.)
 
-- 작업이 끝나면 이슈 상태 라벨을 `작업전`/`작업중` → **`작업완료`**(또는 상황에 맞는 라벨)로 변경한다.
-- **이슈를 `close` 처리하지 않는다** — 라벨(`PROJECT-COMMON-PROJECTS-SYNC-MANAGER`가 Projects 보드 상태와 동기화)이 완료를 나타내며, close는 이 흐름을 깨뜨린다.
-- 사용자가 **명시적으로 "이슈 닫아줘"라고 요청한 경우에만** close한다. 구현·보고서 작성이 끝났다는 이유만으로 임의로 닫지 않는다.
-- 라벨 변경은 `/pro-github`(또는 `github_cli.py set-labels`/`add-labels`/`remove-label`)로 처리한다.
-- **이슈는 릴리스가 나갈 때 워크플로우가 닫는다 (#771, `close_on_release`).** 완료 라벨(`status: done`/`작업완료`)이 붙은 이슈 중 릴리스 구간 커밋이 URL로 참조한 것만 닫힌다. 에이전트가 직접 닫지 않는 원칙은 그대로다. 이 저장소는 `version.yml`에서 켜져 있다.
+- 작업이 끝나면 이슈 상태 라벨을 **`status: done`**(기존 한글 레포는 `작업완료`)으로 바꾼 뒤 **이슈를 닫는다.**
+  라벨은 `set-labels`(전체 교체)로 바꾼다 — `add-labels`만 쓰면 이전 상태 라벨이 남아 상태가 두 개가 된다.
+- **완료 기준을 지킨다** — 구현이 main(또는 개발 브랜치)에 반영되고, 검증과 보고서(`/pro-report`)까지 끝난 것만 닫는다.
+  남은 하위 작업이 있으면 닫지 않고 `status: in progress`로 둔다. 취소된 작업은 `status: cancelled`와 함께 닫는다.
+- 라벨 변경과 close는 `/pro-github`(`github_cli.py set-labels` / `close-issue`)로 처리한다.
+- **릴리스 워크플로우도 닫는다 (#771, `close_on_release`).** 완료 라벨이 붙은 이슈 중 릴리스 구간 커밋이 URL로 참조한 것을 닫는다. 에이전트가 먼저 닫아도 충돌하지 않는다(이미 닫힌 이슈는 건너뛴다). 이 저장소는 `version.yml`에서 켜져 있다.
 - **업데이트는 사용자가 지운·제외한 워크플로우를 되살리지 않는다 (#810).** baseline에 있는데 없는 파일, `options.excluded_workflows`에 적힌 파일, 개발 브랜치가 원격에 없는데 `develop`에서만 도는 파일은 건너뛰고 `incoming/`에 사본을 남긴다. 새 조건부 설치 경로를 추가하면 `copy/workflows.js`의 `skipNew` 게이트를 거치게 한다. 회귀 방지: `test/skip-new-workflows.test.js`.
 - **상태 라벨은 영문 표준(`status: todo` 등)과 기존 한글(`작업전` 등)을 둘 다 쓴다 (#776).** `label_style`이 표기를 정하고(신규 `en`, 기존 `ko` 유지), 스킬 공통 라벨 함수와 Projects 동기화는 두 표기를 서로 바꿔 인식한다.
 
@@ -613,11 +614,13 @@ python3 .github/scripts/changelog_manager.py classify-bump --commits-file commit
 
 | provider 저장값 | 동작 |
 |---|---|
-| 미설정(기본) | `commit`. 키가 있으면 사다리가 외부 AI를 자동으로 집는다 |
+| 미설정 | 레포 루트에 `.coderabbit.yaml`이 있으면 `coderabbit`, 없으면 `commit`. 어느 쪽이든 키가 있으면 사다리가 외부 AI를 자동으로 집는다 (#821) |
 | `copilot` | Copilot → (키 있으면 Gemini) → commit |
 | `openai`/`gemini`/`claude`/`groq`/`mistral`/`ollama` | 해당 provider → commit (`MODEL_API_KEY` 필요, ollama는 `changelog.base_url`) |
 | `github-ai` | **서비스 종료(2026-07-30)** — 호출하지 않고 조용히 흡수, 업데이트 시 `commit`으로 이전 |
 | `coderabbit` | 기다리지 않는다. 본문에 요약이 있으면 ①에서 존중될 뿐 |
+
+> 미설정 판정(명시값 → `.coderabbit.yaml` → `commit`)은 워크플로우 "버전 정보 확인" 스텝과 `changelog_cli.py` `_read_release_branches` **두 곳이 같은 규칙**이어야 한다. 회귀 방지: `.github/scripts/test/test_changelog_providers.py`, `test_changelog_deploy_provider.py`.
 
 > **⚠️ 모델명에 버전을 박지 말 것 (#566).** `gemini-1.5-flash`가 404로 죽어 있었다. `openai_compatible.py`의 preset은 `-latest` 별칭을 쓴다. gemini는 **`gemini-flash-lite-latest`** 가 기본인데, 무료 등급에서 상위 Flash는 RPD 20인 반면 Lite는 500이라 자동화에 쓸 수 있는 쪽이 Lite뿐이기 때문이다(실측).
 >
@@ -808,7 +811,7 @@ skills/
     ├── self-review-checklist.md # plan/analyze/implement 산출물 제출 전 자체검토 + Devil's Advocate 게이트
     ├── approval-and-questions.md # 산출물 skill 8종의 승인 게이트 + 시작 전 핵심 질문 표준 (#526)
     ├── config-rules.md       # config 경로·스키마·읽기/쓰기 표준
-    ├── mcp-subcommand-rules.md # suh_command 서브커맨드 MCP-style 설계 표준 (JSON+next, 코드 템플릿)
+    ├── mcp-subcommand-rules.md # skill CLI(<scope>_cli.py) 서브커맨드 MCP-style 설계 표준 (JSON+next, 코드 템플릿)
     ├── doc-output-path.md
     ├── project-detection.md
     ├── code-style-detection.md
@@ -821,7 +824,7 @@ skills/
 
 1. **config는 agent가 Read/Write tool로 직접 처리** — `config-get` CLI 호출 금지
 2. **config 경로·스키마는 `references/config-rules.md` 참조** — skill 내 직접 기술 금지
-3. **GitHub API는 curl 직접 호출** — `gh` CLI, Python CLI 모두 금지
+3. **GitHub API는 각 skill의 `<scope>_cli.py` 서브커맨드로 호출** (`scripts/common/gh_client` 경유) — `gh` CLI 금지
 4. **OS 호환성**: Python 실행 시 `PYTHON=$(command -v python3 2>/dev/null || command -v python 2>/dev/null)` 패턴 사용
 5. **skill 시작 시 필독**: `references/common-rules.md` → (코드 스킬이면) `references/personas.md`에서 자기 페르소나 로드 → (config 필요 시) `references/config-rules.md` → (기술별) `tech-*.md`
 5.5. **산출물(md)을 만드는 skill이면** `references/approval-and-questions.md`를 따른다 — 시작 전 핵심 질문, 저장 전 승인 게이트, 첫 실행 1회 자동화 제안. 저장 경로는 각 skill CLI의 `get-output-path`로 받고 직접 조립하지 않는다 (#525·#526)
@@ -832,7 +835,7 @@ skills/
 스킬이 Python으로 외부 시스템(GitHub API, SSH 등)을 호출할 때 반드시 이 패턴을 따른다.
 이 표준은 Windows Git Bash + macOS 양쪽에서 깨지지 않도록 실측 검증된 것이다.
 
-> **`suh_command.py`에 새 서브커맨드를 추가할 때는 `skills/references/mcp-subcommand-rules.md`를 먼저 읽는다.** 입력 계약·JSON 스키마(`ok`/`verdict`/`summary`/`next`)·gh_client와 command 레이어 분리·테스트 패턴을 코드 템플릿과 체크리스트로 정리해 둔 구체적 구현 레퍼런스다. 모범 사례는 `actions`·`deploy-status` 서브커맨드.
+> **skill CLI(`skills/pro-*/scripts/<scope>_cli.py`)에 새 서브커맨드를 추가할 때는 `skills/references/mcp-subcommand-rules.md`를 먼저 읽는다.** 입력 계약·JSON 스키마(`ok`/`verdict`/`summary`/`next`)·gh_client와 command 레이어 분리·테스트 패턴을 코드 템플릿과 체크리스트로 정리해 둔 구체적 구현 레퍼런스다. 모범 사례는 `actions`·`deploy-status` 서브커맨드.
 
 #### 1. 로직은 재사용 스크립트 파일에 둔다
 
@@ -922,15 +925,15 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 
 | skill | cli 파일 | 주요 서브커맨드 |
 |---|---|---|
-| github | `skills/pro-github/scripts/github_cli.py` | create-issue, get-issue, get-issues, list-issues, update-issue, close-issue, reopen-issue, search-issues, add-comment, list-comments, edit-comment, delete-comment, list-labels, add-labels, remove-label, set-labels, add-assignees, remove-assignees, create-pr, list-prs, update-pr, get-pr, add-pr-comment, close-pr, reopen-pr, merge-pr, normalize-title, create-branch-name, get-commit-template, explore, secrets, actions, upload-image, delete-image |
-| commit | `skills/pro-commit/scripts/commit_cli.py` | get-issue-number, get-issue, normalize-title, get-commit-template |
+| github | `skills/pro-github/scripts/github_cli.py` | create-issue, get-issue, get-issues, list-issues, update-issue, close-issue, reopen-issue, search-issues, add-comment, list-comments, edit-comment, delete-comment, list-labels, add-labels, remove-label, set-labels, add-assignees, remove-assignees, create-pr, list-prs, update-pr, get-pr, add-pr-comment, close-pr, reopen-pr, merge-pr, normalize-title, create-branch-name, get-commit-template, explore, secrets, actions, upload-image, delete-image, get-output-path |
+| commit | `skills/pro-commit/scripts/commit_cli.py` | get-issue-number, get-issue, normalize-title, sanitize-message, get-commit-template |
 | report | `skills/pro-report/scripts/report_cli.py` | get-output-path, add-comment |
 | review | `skills/pro-review/scripts/review_cli.py` | get-output-path |
 | note | `skills/pro-note/scripts/note_cli.py` | search, resolve-scope, get-output-path, list |
-| changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` | actions, deploy-status, list-prs, update-pr, create-pr |
+| changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` | actions, deploy-status, list-prs, update-pr, create-pr, detect-release-context |
 | analyze / plan / testcase | `skills/pro-<skill>/scripts/<scope>_cli.py` | get-output-path (#525·#623에서 신설 — 이전엔 경로 계산 수단이 없었다) |
 | implement | `skills/pro-implement/scripts/implement_cli.py` | find-inputs (**쓰는 게 아니라 읽는다** — plan·analyze 산출물 자리를 돌려준다, #623) |
-| figma-verify | `skills/pro-figma-verify/scripts/figma_verify_cli.py` | get-output-path, coverage, assets, diff |
+| figma-verify | `skills/pro-figma-verify/scripts/figma_verify_cli.py` | get-output-path, coverage, assets, conform, diff |
 | agent-test | `skills/pro-agent-test/scripts/e2e_cli.py` | detect, scenario, note, api, other (실행·캡처 명령은 pro-launch 로 넘겨준다 — #631) |
 | launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, render, http, access, db, logs, cred, ssh, local (이 맥 sudo, #784), shrink, recall, learn, forget, get-output-path |
 | design-brief | `skills/pro-design-brief/scripts/design_brief_cli.py` | config, get-output-path, board, copy-lint, ascii |
@@ -1029,7 +1032,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 - 올바른 예: `RELEASE-CHANGELOG PR 본문 초기화 보호 로직 추가 : feat : ... https://...`
 - 잘못된 예: `🚀[기능개선][ChangeLog] RELEASE-CHANGELOG : feat : ...`
 
-report·implement 등 커밋을 직접 실행하는 스킬도 이 규칙을 따른다.
+커밋은 `pro-commit`이 만든다. `pro-report`·`pro-implement`는 커밋을 직접 실행하지 않는다(각 SKILL.md에서 금지) — 커밋 메시지를 제안하는 스킬도 이 규칙을 따른다.
 
 ### 커밋 타입이 릴리스 버전을 결정한다 (#546 — agent 필독)
 
@@ -1073,7 +1076,7 @@ report·implement 등 커밋을 직접 실행하는 스킬도 이 규칙을 따�
 - 또는 메시지 앞에 "github:" 접두어 사용 ("github: PR 올려줘")
 
 **해결 방법 (스킬 개발 관점)**:
-- `skills/github/SKILL.md`의 description에 더 구체적인 트리거 키워드 추가 필요
+- `skills/pro-github/SKILL.md`의 description에 더 구체적인 트리거 키워드 추가 필요
 - 또는 `pro-github`를 Skill routing 표에 더 명확한 패턴으로 등록
 - PR 생성, 이슈 댓글, GitHub API 작업은 **반드시 `/pro-github` 명시 호출** 원칙을 CLAUDE.md에 명시
 
@@ -1096,7 +1099,7 @@ report·implement 등 커밋을 직접 실행하는 스킬도 이 규칙을 따�
 **해결 방법 (스킬 개선 필요)**:
 - Windows 환경에서 GitHub API JSON 파싱은 `curl | python3 -c` 대신 **PowerShell `Invoke-RestMethod`** 사용
 - 또는 curl 응답을 파일로 저장 후 파싱: `curl ... -o /tmp/out.json && python3 /tmp/out.json`
-- `skills/github/SKILL.md`에 Windows 대응 PowerShell 코드블록 추가 필요
+- `skills/pro-github/SKILL.md`에 Windows 대응 PowerShell 코드블록 추가 필요
 
 **임시 해결**: Claude가 PowerShell tool을 직접 사용하여 `Invoke-RestMethod`로 GitHub API 호출
 

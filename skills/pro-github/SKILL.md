@@ -106,11 +106,34 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py create-issue {owner} {repo} "{제
 ### 이슈 상태 변경 (닫기 / 다시 열기)
 
 ```bash
-PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py close-issue {owner} {repo} {번호}
+PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py close-issue {owner} {repo} {번호}                         # 완료 (기본 --reason completed)
+PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py close-issue {owner} {repo} {번호} --reason not_planned    # 취소
 PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py reopen-issue {owner} {repo} {번호}
 ```
 
-출력 JSON: `{"number":...,"url":...,"title":...}`. 사용자가 명시적으로 요청할 때만 상태를 변경한다.
+출력 JSON: `{"number":...,"url":...,"title":...,"state_reason":"completed"}`.
+작업 파이프라인의 완료·취소 처리(아래 §이슈 완료 처리)는 확인 없이 해도 된다. 그 밖에 남의 이슈를 닫거나 다시 여는 것은 사용자가 요청할 때만 한다 (`../references/common-rules.md` §이슈 상태 처리 규칙).
+
+### 이슈 완료 처리 (작업 끝 — 라벨 교체 후 close)
+
+작업이 끝나면 상태 라벨을 **교체**하고 닫는다. `pro-report`가 보고서를 올린 뒤 이 레시피를 따른다.
+
+```bash
+# 1) 상태 라벨 교체 — add-labels 가 아니라 set-labels (더하기만 하면 status: todo 가 남는다)
+PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py set-labels {owner} {repo} {이슈번호} "status: done"
+# 2) 완료로 닫기
+PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py close-issue {owner} {repo} {이슈번호} --reason completed
+```
+
+| 상황 | 라벨 (영문 표준 / 한글) | 닫기 |
+|------|------------------------|------|
+| 완료 | `status: done` / `작업완료` | `--reason completed` |
+| 남은 작업 있음 | `status: in progress` / `작업중` | 닫지 않는다 |
+| 취소 | `status: cancelled` / `취소` | `--reason not_planned` |
+
+- 레포에 한글 라벨만 있어도 영문 표준 이름으로 넘기면 CLI가 레포에 있는 표기로 바꿔 붙인다 (#776).
+- 상태 외 라벨(`priority: urgent`, `documentation` 등)을 지키려면 먼저 `get-issue`로 라벨을 읽고, 상태 라벨만 바꾼 csv를 `set-labels`에 넘긴다.
+- 레포 `CLAUDE.md`가 다른 규칙(예: 닫지 않고 라벨만)을 정했으면 그쪽을 따른다.
 
 ### 이슈 헬퍼 (제목 정규화 / 브랜치명 / 커밋 템플릿)
 
@@ -121,9 +144,14 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py normalize-title "❗[버그] 한�
 # → {"normalized":"버그_한글_제목", ...}
 PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py create-branch-name "이슈 제목" 235 --date 20260710
 # → {"branch":"20260710_#235_이슈_제목", ...}
-PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py get-commit-template "이슈 제목" "https://github.com/o/r/issues/235"
-# → {"template":"이슈 제목 : feat : {설명} https://...", ...}
+PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py get-commit-template "❗[Bug][Skills] 이슈 제목" "https://github.com/o/r/issues/235"
+# → {"template":"이슈 제목 : fix : {설명} https://...", ...}   타입은 제목 태그에서 추론 (버그→fix, 기능→feat)
+PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py get-output-path issue --title "❗[Bug][Skills] 이슈 제목"
+# → {"path":".../issue/20260710_001_이슈_제목.md", ...}   이슈 문서 저장 경로 (등록 전 일련번호)
 ```
+
+- 커밋 템플릿은 `template` 값을 그대로 쓴다. 타입을 `feat`로 고쳐 쓰지 않는다 — `semver_auto` 레포에서 버그 수정이 minor로 오른다.
+- 이슈 문서 경로는 직접 조립하지 않고 `get-output-path issue`의 `path`를 쓴다 (산출물 루트는 설정으로 바뀐다).
 
 ### 이슈 수정
 
@@ -143,8 +171,10 @@ SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
 PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py update-issue {owner} {repo} {이슈번호} \
-  --title "새 제목" --state closed --labels "작업중" --assignees "Cassiiopeia"
+  --title "새 제목" --labels "status: in progress" --assignees "Cassiiopeia"
 ```
+
+> 닫을 때는 `update-issue --state closed` 대신 §이슈 완료 처리 레시피(`set-labels` → `close-issue --reason`)를 쓴다. 열린 상태 라벨을 붙인 채로 닫는 조합은 만들지 않는다.
 
 ### 이슈에 댓글 추가
 
@@ -223,16 +253,19 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py delete-comment {owner} {repo} {co
 PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py list-labels {owner} {repo}
 
 # 기존 라벨 유지하며 추가 (csv)
-PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py add-labels {owner} {repo} {이슈번호} "작업중,긴급"
+PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py add-labels {owner} {repo} {이슈번호} "priority: urgent"
 
 # 라벨 하나만 제거 (나머지 유지, 없으면 멱등 처리)
-PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py remove-label {owner} {repo} {이슈번호} "작업전"
+PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py remove-label {owner} {repo} {이슈번호} "status: todo"
 
-# 라벨 전체 교체 (빈 문자열이면 전부 제거)
-PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py set-labels {owner} {repo} {이슈번호} "작업완료"
+# 라벨 전체 교체 (빈 문자열이면 전부 제거) — 상태 라벨을 바꿀 때는 이것을 쓴다
+PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py set-labels {owner} {repo} {이슈번호} "status: in progress"
 ```
 
-`add-labels`는 레포에 없는 라벨은 무시하고 `label_warning`으로 알린다. `remove-label`은 이슈에 그 라벨이 원래 없으면 `code:"label_not_present"`(변경 없음)를 반환한다. 한글 라벨(`작업중` 등)도 URL 인코딩되어 정상 처리된다. 사용자가 명시적으로 요청할 때만 라벨을 변경한다.
+상태 라벨은 영문 표준과 한글을 둘 다 쓴다: `status: todo`(`작업전`) · `status: in progress`(`작업중`) · `status: needs review`(`담당자확인`) · `status: feedback`(`피드백`) · `status: done`(`작업완료`) · `status: on hold`(`보류`) · `status: cancelled`(`취소`), 그 밖에 `priority: urgent`(`긴급`) · `documentation`(`문서`). 어느 표기로 넘겨도 CLI가 레포에 있는 쪽으로 바꿔 붙인다 (#776).
+
+`add-labels`는 레포에 없는 라벨은 무시하고 `label_warning`으로 알린다. `remove-label`은 이슈에 그 라벨이 원래 없으면 `code:"label_not_present"`(변경 없음)를 반환한다. 한글 라벨도 URL 인코딩되어 정상 처리된다.
+작업 파이프라인의 상태 전환(시작 시 `status: in progress`, 완료 시 `status: done`)은 확인 없이 해도 된다. 그 밖의 라벨 변경은 사용자가 요청할 때만 한다.
 
 ### 담당자 (추가 / 제거)
 
@@ -273,8 +306,10 @@ done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
 cd "$SCRIPTS" || exit 1
-PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py create-pr {owner} {repo} "{제목}" "{PR 본문 파일 경로}" "{owner}:{head_branch}" main
+PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py create-pr {owner} {repo} "{제목}" "{PR 본문 파일 경로}" "{owner}:{head_branch}" {base_branch}
 ```
+
+`{base_branch}`는 작업 PR이면 **개발(릴리스 소스) 브랜치**다 — `version.yml`의 `metadata.deploy_branch`, 없으면 `develop` (원격에 개발 브랜치가 아예 없는 단일 브랜치 레포면 기본 브랜치). 기본(배포) 브랜치(`main`)로 가는 릴리스 PR은 이 레시피가 아니라 `/pro-changelog-deploy`가 만든다. 사용자가 base를 명시하면 그것을 따른다.
 
 #### PR 제목 규칙 (필수)
 

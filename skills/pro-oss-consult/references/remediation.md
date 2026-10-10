@@ -78,8 +78,8 @@ SECURITY.md·CODE_OF_CONDUCT·AI 기여 정책은 **파일이 아니라 약속**
   - `area: <레포 영역>` (레포 구조를 보고 정한다)
   - `priority: critical` `priority: high` `priority: medium` `priority: low`
   - `status: needs triage` `status: in progress` `status: blocked`
-- **projectops를 쓰는 레포는 한글 상태 라벨(`작업전`·`작업중`·`작업완료` 등)이 Projects 보드 동기화에 쓰인다.**
-  이 라벨은 지우거나 바꾸지 않는다. 영어 라벨을 **추가**만 하고, 전환은 사용자에게 묻는다.
+- **projectops를 쓰는 레포는 상태 라벨(영문 표준 `status: todo`·`status: in progress`·`status: done` 등, 기존 한글 `작업전`·`작업중`·`작업완료`)이 Projects 보드 동기화에 쓰인다.**
+  두 표기는 같은 라벨로 인식되므로(#776) 이 라벨은 지우거나 바꾸지 않는다. 없는 쪽 라벨을 **추가**만 하고, 전환은 사용자에게 묻는다.
 
 ## 영어화
 
