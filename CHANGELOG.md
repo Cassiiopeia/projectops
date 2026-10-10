@@ -1,7 +1,25 @@
 # Changelog
 
-**Current version:** 4.38.0  
-**Last updated:** 2026-10-10T01:48:29Z  
+**Current version:** 4.39.0  
+**Last updated:** 2026-10-10T02:07:45Z  
+
+---
+
+## [4.39.0] - 2026-10-10
+
+**PR:** #830  
+
+**New features**
+- web text·find로 화면을 읽고 번호로 고르며 click이 무엇을 눌렀고 무엇이 바뀌었는지 돌려주고 --expect로 결과를 확인, 관리 콘솔용 --readonly, 떠 있는 브라우저 재사용, doctor의 방치 브라우저 표시
+
+**Improvements**
+- 나머지 스킬 13개 SKILL.md를 라우터로 줄이고 템플릿, 체크리스트, 단계 상세를 references로 이동
+- pro-agent-test, pro-figma-verify, pro-design-brief를 라우터로 줄이고 좌표 탭 안내를 pro-launch app tap으로 교체
+- pro-github 651줄과 pro-changelog-deploy 850줄을 라우터로 줄이고 반복되던 스크립트 찾기 블록을 한 번으로 합치며 상세는 references로 이동
+- 모든 스킬이 시작 때 읽는 common-rules를 538줄에서 200줄로 줄이고 상세는 script-invocation, commit-convention, work-start-protocol, sensitive-info 등 주제별 문서로 이동
+
+**Documentation**
+- 새 web 동작 추가 가이드에 결과 보고 계약과 읽기 전용 차단 규칙 추가
 
 ---
 
