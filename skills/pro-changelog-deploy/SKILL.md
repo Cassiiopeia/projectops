@@ -28,7 +28,7 @@ projectops 전용 스킬. `PROJECT-COMMON-RELEASE-CHANGELOG` 워크플로우와 
 - **릴리스 PR 전에 base → head 역방향 차이를 먼저 병합한다** (deploy 1-1). 릴리스 워크플로우가 버전 커밋을 base에만 남기므로 생략하면 다음 배포에서 버전 파일이 충돌한다
 - **PR 생성은 릴리스 노트 작성 뒤 맨 마지막이다** (아래 레이스 방지)
 - **사용자에게 config 키 이름·파일 경로를 노출하지 않는다**. 자동/수동 토글은 자연어 응답을 받아 agent가 직접 갱신한다
-- **브랜치를 하드코딩하지 않는다 (#456)**. head/base 브랜치와 provider는 **config(우선) → version.yml(폴백)**. `develop`/`main`/`commit`은 값을 못 읽었을 때의 폴백일 뿐이다. 아래 절차의 `develop`/`main`은 확정값으로 치환한다
+- **브랜치를 하드코딩하지 않는다 (#456)**. head/base 브랜치와 provider의 정본은 **`detect-release-context`(version.yml)** 다 (#842). config는 version.yml이 없는 레포의 레포별 기록일 뿐이고, 전역 config의 브랜치·provider 키는 읽지 않는다. `develop`/`main`/`commit`은 값을 못 읽었을 때의 폴백일 뿐이다. 아래 절차의 `develop`/`main`은 확정값으로 치환한다
 - **사용자는 config를 직접 수정하지 않는다**. 판정 가능하면 묻지 않고, 애매할 때만 자연어로 묻고 기록하며, 한 번 기록하면 재질문하지 않는다
 
 ## 무엇을 하려는가 → 명령 → 자세한 문서
@@ -70,7 +70,7 @@ echo "PROJECT_ROOT=$PROJECT_ROOT PYTHON=$PYTHON SCRIPTS=$SCRIPTS OWNER=$OWNER RE
 PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-context --project-root "$PROJECT_ROOT"
 ```
 
-`detect-release-context` 출력의 `branches`(브랜치·provider)와 `signals`·`hint`(앱 심사 신호)를 기억한다.
+`detect-release-context` 출력의 `branches`(브랜치·provider)·`branches_source`·`conflict`와 `signals`·`hint`(앱 심사 신호)를 기억한다. owner/repo는 origin URL에서, config는 고정 경로에서 CLI가 알아서 읽는다(읽기 전용). 다른 레포를 볼 때만 `detect-release-context --project-root {PROJECT_ROOT} --owner {OWNER} --repo {REPO}`처럼 지정한다.
 
 ### 2)~5) config에서 값 정하기 — 상세 `references/config.md`
 
@@ -79,7 +79,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 | 2 | `PAT` | **agent가 Read 도구로** `~/.projectops/config/config.json`을 직접 읽는다 (bash Python 추출 금지 — Windows `$HOME` 경로 버그). 고정 경로만, 캐시 탐색 금지. repo별 `pat` → `global_pat`. 없으면 "`/pro-github`로 PAT 먼저 등록" 안내 후 종료 |
 | 3 | `AUTO_APPROVE`, `CONFIG_HAS_KEY` | `changelog_deploy.auto_approve`: 레포별 → 글로벌 → 없으면 `false`(수동). 옛 키 `auto_approve_release_notes`는 무시 |
 | 4 | `APP_RELEASE` | `changelog_deploy.app_release`: **레포별만** → 없으면 `unset` |
-| 5 | `HEAD_BRANCH`, `BASE_BRANCH`, `PROVIDER`, `BRANCH_CONFIG_HAS_KEY` | 레포별 → 글로벌 → 최초 판정(`detect-release-context` + 애매할 때만 질문 → config 기록) |
+| 5 | `HEAD_BRANCH`, `BASE_BRANCH`, `PROVIDER`, `BRANCH_SOURCE` | **`detect-release-context`의 `branches`를 그대로 쓴다.** CLI 판정 순서: version.yml(있으면 항상) → 레포별 config(version.yml 없을 때만) → 폴백. 전역 키는 읽지 않는다. `conflict`가 있으면 version.yml로 진행하고 한 줄 안내. `branches_source == fallback`이고 version.yml이 없을 때만 최초 판정(애매하면 질문 → 레포별 config 기록) |
 
 **provider 3단 규칙 (#821)** — `branches.provider`는 CLI가 이미 적용한 값이다: ① version.yml `changelog.provider` 명시값 → ② 미설정 + 레포 루트 `.coderabbit.yaml` → `coderabbit` → ③ 둘 다 없음 → `commit`. 워크플로우도 같은 규칙이라 판단이 갈리지 않는다. `github-ai`(서비스 종료)는 CLI가 `commit`으로 돌려준다. provider는 묻지 않는다.
 

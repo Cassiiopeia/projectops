@@ -34,10 +34,7 @@
         },
         "changelog_deploy": {
           "auto_approve": true,
-          "app_release": true,
-          "head_branch": "develop",
-          "base_branch": "main",
-          "provider": "coderabbit"
+          "app_release": true
         }
       }
     ]

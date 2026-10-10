@@ -332,6 +332,49 @@ def _read_project_types(project_root: Path) -> list[str]:
     return [m2.group(1)] if m2 else []
 
 
+def _normalize_provider(provider: str, project_root: Path) -> str:
+    """provider 미설정·종료값을 워크플로우와 같은 규칙으로 정리한다 (#821).
+
+    미설정 판정은 워크플로우(RELEASE-CHANGELOG)와 같은 3단 규칙이어야 한다:
+    명시값 → (.coderabbit.yaml 있으면) coderabbit → commit. 어긋나면 스킬과 워크플로우 판단이 갈린다."""
+    if not provider:
+        provider = "coderabbit" if (project_root / ".coderabbit.yaml").is_file() else "commit"
+    if provider == "github-ai":
+        # 서비스 종료(2026-07-30) — ladder.py와 같게 commit으로 흡수한다 (#821).
+        # 그대로 넘기면 스킬이 종료된 생성기를 정상 provider로 안내한다.
+        provider = "commit"
+    return provider
+
+
+def _parse_release_branches(project_root: Path) -> tuple[dict, dict]:
+    """version.yml을 읽어 (값, 명시 여부)를 돌려준다.
+
+    명시 여부(explicit)는 version.yml에 키가 실제로 적혀 있었는지다 — 폴백값과 config 값이
+    어긋날 때 "version.yml이 정말 그렇게 말하는지"를 agent가 구분할 수 있게 한다 (#842)."""
+    vy = project_root / "version.yml"
+    text = ""
+    if vy.exists():
+        try:
+            text = vy.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            text = ""
+
+    def _find(pattern):
+        m = re.search(pattern, text, re.MULTILINE)
+        return m.group(1) if m else None
+
+    head = _find(r"^\s*deploy_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)")
+    base = _find(r"^\s*default_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)")
+    provider = _find(r"^\s*provider\s*:\s*[\"']?([a-z-]+)")
+    values = {
+        "head": head or "develop",
+        "base": base or "main",
+        "provider": _normalize_provider(provider or "", project_root),
+    }
+    explicit = {"head": head is not None, "base": base is not None, "provider": provider is not None}
+    return values, explicit
+
+
 def _read_release_branches(project_root: Path) -> dict:
     """version.yml에서 릴리스 브랜치·changelog provider를 읽는다 (#456, SSOT).
 
@@ -341,32 +384,71 @@ def _read_release_branches(project_root: Path) -> dict:
       .coderabbit.yaml 이 있을 때 'coderabbit', 아니면 'commit' (#821, 워크플로우와 동일).
       종료된 'github-ai' 저장값은 'commit' 으로 돌려준다.
     yaml 의존 없이 정규식으로만 파싱한다 (폐쇄망·표준 라이브러리 우선)."""
-    vy = project_root / "version.yml"
-    text = ""
-    if vy.exists():
-        try:
-            text = vy.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            text = ""
+    return _parse_release_branches(project_root)[0]
 
-    def _find(pattern, default):
-        m = re.search(pattern, text, re.MULTILINE)
-        return m.group(1) if m else default
 
-    # 미설정 판정은 워크플로우(RELEASE-CHANGELOG)와 같은 3단 규칙이어야 한다 (#821):
-    # 명시값 → (.coderabbit.yaml 있으면) coderabbit → commit. 어긋나면 스킬과 워크플로우 판단이 갈린다.
-    provider = _find(r"^\s*provider\s*:\s*[\"']?([a-z-]+)", "")
-    if not provider:
-        provider = "coderabbit" if (project_root / ".coderabbit.yaml").is_file() else "commit"
-    if provider == "github-ai":
-        # 서비스 종료(2026-07-30) — ladder.py와 같게 commit으로 흡수한다 (#821).
-        # 그대로 넘기면 스킬이 종료된 생성기를 정상 provider로 안내한다.
-        provider = "commit"
+# branches 키 ↔ config changelog_deploy 키. config 는 사람이 읽는 이름(head_branch)을 쓴다.
+_BRANCH_CONFIG_KEYS = (("head", "head_branch"), ("base", "base_branch"), ("provider", "provider"))
 
+
+def _detect_owner_repo(project_root: Path) -> tuple[str | None, str | None]:
+    """origin URL에서 owner/repo를 뽑는다. 실패하면 (None, None) — config 대조만 건너뛴다."""
+    import subprocess
+    try:
+        url = subprocess.run(
+            ["git", "-C", str(project_root), "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=10,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None, None
+    m = re.search(r"github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$", url)
+    return (m.group(1), m.group(2)) if m else (None, None)
+
+
+def _load_config(config_arg: str | None) -> dict | None:
+    """config.json을 읽기 전용으로 연다. 경로를 안 주면 PAT 자동 로드와 같은 고정 경로를 쓴다.
+
+    CLI가 config를 읽는 것은 PAT 자동 로드(common.config)와 같은 선례다 — 쓰기는 하지 않는다.
+    경로를 Python이 Path.home()으로 직접 풀기 때문에 Windows Git Bash `$HOME` 경로 문제가 없다."""
+    import json
+    if config_arg:
+        path = Path(config_arg).expanduser()
+    else:
+        from common.config import config_path
+        path = config_path()
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _release_config_view(config: dict | None, owner: str | None, repo: str | None) -> dict:
+    """config에서 이 레포의 브랜치·provider 기록과, 더는 읽지 않는 전역 키를 뽑는다 (#842).
+
+    전역 `github.changelog_deploy.{head_branch,base_branch,provider}`는 레포 지식을 컴퓨터
+    전체에 둔 것이라 다른 레포의 version.yml을 덮어썼다. 값은 쓰지 않고 '남아 있다'는 사실만 알린다."""
+    gh = (config or {}).get("github") if isinstance(config, dict) else None
+    gh = gh if isinstance(gh, dict) else {}
+    glob = gh.get("changelog_deploy") if isinstance(gh.get("changelog_deploy"), dict) else {}
+    ignored_global = sorted(k for _, k in _BRANCH_CONFIG_KEYS if k in glob)
+
+    repo_values: dict = {}
+    repo_entry = False
+    if owner and repo:
+        for r in gh.get("repos", []) or []:
+            if isinstance(r, dict) and r.get("owner") == owner and r.get("repo") == repo:
+                repo_entry = True
+                cd = r.get("changelog_deploy") if isinstance(r.get("changelog_deploy"), dict) else {}
+                repo_values = {k: cd[k] for _, k in _BRANCH_CONFIG_KEYS if cd.get(k)}
+                break
     return {
-        "head": _find(r"^\s*deploy_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)", "develop"),
-        "base": _find(r"^\s*default_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)", "main"),
-        "provider": provider,
+        "found": config is not None,
+        "repo_entry": repo_entry,
+        "repo_values": repo_values,
+        "ignored_global_keys": ignored_global,
     }
 
 
@@ -422,7 +504,44 @@ def cmd_detect_release_context(args) -> int:
     )
 
     # 릴리스 브랜치·provider (#456) — 스킬이 develop/main 하드코딩 대신 이 값을 쓴다.
-    branches = _read_release_branches(project_root)
+    # 정본은 version.yml이다 (#842). 워크플로우와 같은 곳을 읽어야 스킬과 워크플로우 판단이 안 갈린다.
+    branches, explicit = _parse_release_branches(project_root)
+    has_version_yml = (project_root / "version.yml").is_file()
+
+    owner, repo = args.owner, args.repo
+    if not (owner and repo):
+        owner, repo = _detect_owner_repo(project_root)
+    view = _release_config_view(_load_config(args.config), owner, repo)
+    repo_values = view["repo_values"]
+
+    conflict = []
+    if has_version_yml:
+        # version.yml 이 이긴다. 레포별 config 값은 낡은 캐시일 수 있으니 다르면 알리기만 한다.
+        source = "version.yml"
+        for key, cfg_key in _BRANCH_CONFIG_KEYS:
+            if cfg_key in repo_values and repo_values[cfg_key] != branches[key]:
+                conflict.append({
+                    "key": cfg_key,
+                    "version_yml": branches[key],
+                    "config": repo_values[cfg_key],
+                    "version_yml_explicit": explicit[key],
+                })
+    elif repo_values:
+        # version.yml 이 없는 레포만 레포별 config 기록을 쓴다. 빠진 키는 폴백 규칙으로 채운다.
+        source = "config"
+        for key, cfg_key in _BRANCH_CONFIG_KEYS:
+            if cfg_key in repo_values:
+                value = repo_values[cfg_key]
+                branches[key] = _normalize_provider(value, project_root) if key == "provider" else value
+    else:
+        source = "fallback"
+
+    if conflict:
+        next_hint = ("agent: version.yml 값으로 진행하고 차이를 사용자에게 한 줄로 알린다. "
+                     "레포별 config 의 해당 키는 낡은 기록이다. " + next_hint)
+    elif source == "fallback" and not has_version_yml:
+        next_hint = ("agent: version.yml 없음 — 브랜치를 확정(애매하면 질문)해 레포별 config 에 기록한다. "
+                     + next_hint)
 
     return emit({
         "ok": True,
@@ -434,6 +553,16 @@ def cmd_detect_release_context(args) -> int:
             "has_app_type": has_app_type,
         },
         "branches": branches,   # {head, base, provider} — head→base로 릴리스 PR 생성
+        # version.yml(정본) | config(version.yml 없는 레포의 레포별 기록) | fallback(아무것도 없음)
+        "branches_source": source,
+        "conflict": conflict,   # version.yml ≠ 레포별 config 일 때만 채워진다
+        "config": {
+            "owner": owner,
+            "repo": repo,
+            "repo_entry": view["repo_entry"],
+            # 더는 읽지 않는 전역 키 — 남아 있으면 사용자에게 정리 대상이다
+            "ignored_global_keys": view["ignored_global_keys"],
+        },
         "hint": hint,
         "next": next_hint,
     })
@@ -488,6 +617,10 @@ def build_parser() -> JSONArgumentParser:
     # 앱 스토어 심사 연관 레포인지 '신호'를 수집한다 (판단·확인은 agent). PAT 불필요 — 로컬 파일만 스캔.
     p_drc = sub.add_parser("detect-release-context", help="앱 심사 연관 레포 신호 수집 (signals/hint JSON)")
     p_drc.add_argument("--project-root", help="레포 루트 절대경로 (생략 시 cwd)")
+    # config 대조용 (#842) — 생략하면 origin URL·고정 config 경로를 쓴다. config는 읽기만 한다.
+    p_drc.add_argument("--owner", help="레포 owner (생략 시 origin URL에서 추출)")
+    p_drc.add_argument("--repo", help="레포 이름 (생략 시 origin URL에서 추출)")
+    p_drc.add_argument("--config", help="config.json 경로 (생략 시 ~/.projectops/config/config.json)")
     p_drc.set_defaults(func=cmd_detect_release_context)
 
     return parser
