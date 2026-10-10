@@ -22,6 +22,13 @@ export const INTENT_VALUES = Object.freeze(["app", "library", "both", "none", "m
 export const LABEL_STYLES = Object.freeze(["en", "ko"]);
 
 /**
+ * 저장값이 없을 때 CodeRabbit 코드 리뷰 설정을 설치할지의 기본값 (#832).
+ * 꺼 둔다 — CodeRabbit 은 별도 GitHub 앱을 설치해야 동작하므로, 설치 없이 켜 두면 설정 파일만 있고 아무도 리뷰하지 않는다.
+ * 대화형(질문하지 않는 version·issues 모드)과 비대화형이 각자 기본값을 가져 `true`/`false` 로 갈려 있던 것을 한 곳으로 모았다.
+ */
+export const DEFAULT_CODE_REVIEW_CODERABBIT = false;
+
+/**
  * 릴리스 노트 생성기 (#455, #566). 기본값은 commit — 외부 의존이 없어 어디서나 결과가 나온다.
  * 실제 구현은 .github/scripts/changelog_providers/ 에 있고, 그쪽 목록과의 정합은 테스트가 본다.
  */

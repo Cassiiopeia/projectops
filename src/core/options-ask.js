@@ -13,7 +13,7 @@ import { PATHS } from "./paths.js";
 import { t as msg } from "../i18n/index.js";
 import { parseTemplateOptions, inferIntent } from "./version-yml.js";
 import { branchStatus, createBranch, pushBranch } from "./git-branch.js";
-import { DEPLOY_TARGETS, PUBLISH_TARGETS, CHANGELOG_PROVIDERS } from "./constants.js";
+import { DEPLOY_TARGETS, PUBLISH_TARGETS, CHANGELOG_PROVIDERS, DEFAULT_CODE_REVIEW_CODERABBIT } from "./constants.js";
 
 // 개발(배포) 브랜치 존재 확인 + 생성 제안 (#477) — 대화형 전용.
 // 로컬에 없고 원격에도 없(거나 불명이)면 기본 브랜치에서 생성을 제안하고, 생성 후 push 여부도 묻는다.
@@ -336,7 +336,7 @@ export async function askAllOptionalWorkflows({
     if (force || !tty || typeof io.select !== "function") {
       // 비대화형 기본값: CodeRabbit은 별도 앱 설치가 있어야 실제로 동작하므로
       // 자동화 환경에서 켜봐야 의미가 없다. 설정 없이 바로 도는 요약만 켠다.
-      codeReviewCoderabbit = codeReviewCoderabbit ?? false;
+      codeReviewCoderabbit = codeReviewCoderabbit ?? DEFAULT_CODE_REVIEW_CODERABBIT;
       aiPrSummary = aiPrSummary ?? true;
     } else {
       say("");

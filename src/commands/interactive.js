@@ -2,6 +2,7 @@
 // io 주입으로 테스트 가능. 실제 실행은 src/ui/prompts.js 함수를 io로 넘긴다.
 // 새 시각 층(banner/detectionLog/analysisCard/ideStatus/installKind/summary)과 저수준 엔진(engineIo)은
 // io의 "옵셔널 멤버" — 스텁이 생략하면 해당 층만 건너뛰고 실행 계약은 동일하다.
+import { DEFAULT_CODE_REVIEW_CODERABBIT } from "../core/constants.js";
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { PATHS } from "../core/paths.js";
@@ -129,7 +130,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     let publishTargets = existing?.options?.publish ?? [];
     let includeSecretBackup = existing?.options?.secretBackup ?? false;
     let aiPrSummary = existing?.options?.aiPrSummary ?? null;   // null = 아직 안 물음 (#566)
-    let codeReviewCoderabbit = existing?.options?.codeReviewCoderabbit ?? true;
+    let codeReviewCoderabbit = existing?.options?.codeReviewCoderabbit ?? DEFAULT_CODE_REVIEW_CODERABBIT;
     let changelogProvider = migrateProvider(existing?.options?.changelogProvider) ?? "commit";
     let changelogBaseUrl = existing?.options?.changelogBaseUrl ?? "";
     let deployBranch = existing?.options?.deployBranch ?? "develop"; // #456
