@@ -1,7 +1,36 @@
 # Changelog
 
-**Current version:** 4.36.4  
-**Last updated:** 2026-10-07T16:18:44Z  
+**Current version:** 4.37.0  
+**Last updated:** 2026-10-10T00:55:03Z  
+
+---
+
+## [4.37.0] - 2026-10-10
+
+**PR:** #818  
+
+**New features**
+- 개발 브랜치 유무와 상관없이 semver_auto가 켜져 있으면 main 직접 push도 커밋 제목으로 major/minor/patch를 정하고 명시적 false일 때만 patch
+- 이 저장소 전용 설치기 버그 YAML 양식을 추가하고 버전, OS, 실행 방법, 실행 로그를 필수로 받으며 사용자 레포로는 복사하지 않음
+- GitHub 소유가 아닌 서드파티 action 12종을 커밋 SHA와 버전 주석으로 고정하고 태그만 쓰면 실패하는 테스트 추가
+- 키가 없으면 신규와 기존 레포 모두 켜진 것으로 보고, 업데이트가 처음 켠 때는 완료 화면에서 경고하며 명시적 false는 그대로 존중
+- npx projectops --mode options --json로 모든 플래그와 version.yml 옵션을 출력하고 코드와 대조하는 테스트, 사용자 레포용 AGENT-GUIDE.md, 영문 AGENTS.md와 llms.txt 추가
+- 완료 요약과 doctor에 남은 구세대 워크플로우와 git rm 명령을 표시하고, --remove-legacy 플래그와 대화형 확인으로 .bak 무해화 지원
+
+**Bug fixes**
+- web open 시 작업 탭 외 about:blank 탭을 닫아 빈 탭 누적을 막고 단위 테스트 추가
+- 지운 워크플로우·excluded_workflows·개발 브랜치 없는 레포의 develop 전용 워크플로우는 설치하지 않고 사본을 incoming에 남기며, 예시 기본값은 채우지 않고 갱신 시 고른 env 값을 유지
+- version.yml 헤더와 키 주석을 options.language에 맞춰 쓰고, last_updated_by는 git 사용자, 기존 값, template_integrator 순으로 결정
+- 삭제 대상 확인 단계를 추가해 SERVER_HOST가 없거나 배포된 Preview가 없으면 SSH 삭제와 삭제 댓글을 건너뜀
+- 재시도 pull에 --autostash를 붙여 chmod로 생긴 미스테이징 변경이 있어도 rebase 재시도가 돌게 함
+- 릴리스 머지 판정을 파일 이름 대신 version 값 변경으로 바꾸고, 개발 브랜치가 없는 main 직행 레포는 semver_auto에 따라 push 구간 커밋으로 승격 폭 결정
+
+**Documentation**
+- PR Preview, SSH와 Docker 배포, Flutter CI/CD, Agent Skills 가이드를 영문으로 추가하고 README와 사이트 사이드바에 연결
+- 우선순위 4종(버전 관리, 체인지로그 자동화, 이슈 자동화, 문제 해결)을 docs/en에 영문으로 추가하고 README와 사이트 사이드바에 연결
+
+**Other**
+- 템플릿 최초 커밋 이후 어디서도 참조되지 않는 옛 한글 이슈 템플릿 OLD_ISSUE_TEMPLATE.md 삭제
 
 ---
 
