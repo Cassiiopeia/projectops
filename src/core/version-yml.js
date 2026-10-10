@@ -115,6 +115,7 @@ const COMMENTS = {
     appRelease: "whether releases go through App Store / Play Store review",
     deploy: "deploy settings remembered by the wizard (non-sensitive, safe to edit by hand)",
     excluded: "workflow files the update must never install (safe to edit by hand)",
+    storeLocales: "store release-note languages, first is the default (missing = one text for every store language)",
   },
   ko: {
     versionCode: "app build number",
@@ -130,6 +131,7 @@ const COMMENTS = {
     appRelease: "앱스토어·플레이스토어 심사로 이어지는 배포인가",
     deploy: "마법사가 기억하는 배포 설정 (비민감 / 직접 수정 가능)",
     excluded: "업데이트가 절대 설치하지 않을 워크플로우 파일 (직접 수정 가능)",
+    storeLocales: "스토어 릴리스 노트 언어 목록, 첫 항목이 기본 언어 (미기재면 모든 스토어 언어에 같은 문구)",
   },
 };
 const commentsFor = (lang) => COMMENTS[lang === "ko" ? "ko" : "en"];
@@ -158,7 +160,7 @@ export function resolveUpdatedBy(existingContent = "", cwd = ".") {
 export function parseTemplateOptions(content) {
   const out = { deploy: null, publish: null, secretBackup: null,
                 changelogProvider: null, changelogBaseUrl: null, codeReviewCoderabbit: null, aiPrSummary: null, projectsSync: null,
-                deployBranch: null, intent: null, semverAuto: null, appRelease: null, labelStyle: null, closeOnRelease: null, language: null, excludedWorkflows: null };
+                deployBranch: null, intent: null, semverAuto: null, appRelease: null, labelStyle: null, closeOnRelease: null, language: null, excludedWorkflows: null, storeLocales: null };
   // deploy_branch는 metadata 직속(#456) — template.options 밖이라 별도로 스캔한다.
   for (const line of String(content || "").split("\n")) {
     if (line.startsWith("#")) continue;
@@ -264,6 +266,12 @@ export function parseTemplateOptions(content) {
       m = line.match(/^\s+excluded_workflows:\s*\[([^\]]*)\]/);
       if (m) {
         out.excludedWorkflows = m[1].split(",").map((s) => s.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
+        continue;
+      }
+      // 스토어 릴리스 노트 언어 (#829) — 인라인 배열, 첫 항목이 기본 언어. 미기재면 현행 동작(한 문구를 모든 언어에).
+      m = line.match(/^\s+store_locales:\s*\[([^\]]*)\]/);
+      if (m) {
+        out.storeLocales = m[1].split(",").map((s) => s.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
         continue;
       }
       // 프로젝트 성격(#553) — 앱 심사로 이어지는 레포인가. 워크플로우와 스킬이 같은 값을 본다.
@@ -470,7 +478,7 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
   if (templateOptions) {
     const { templateVersion = "unknown", deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, optionsDate = today,
             changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true, aiPrSummary = true, intent = null, mode = null,
-            semverAuto = true, appRelease = null, labelStyle = null, closeOnRelease = null, projectsSync = null, language = null, excludedWorkflows = null } = templateOptions;
+            semverAuto = true, appRelease = null, labelStyle = null, closeOnRelease = null, projectsSync = null, language = null, excludedWorkflows = null, storeLocales = null } = templateOptions;
     const publishJson = `[${publishTargets.map((t) => `"${t}"`).join(",")}]`;
     // intent(프로젝트 성격, #485) — 미지정이면 deploy/publish에서 역추론해 기록 (재통합 시 진입 질문 생략용)
     const intentVal = intent || inferIntent(deployTarget, publishTargets) || "manual";
@@ -496,6 +504,8 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
     // 레포 문구 언어(#769) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).
     // 설치 제외 목록(#810) — 전체 재생성이라 다시 쓰지 않으면 사용자가 적은 목록이 사라진다.
     if (excludedWorkflows && excludedWorkflows.length) out += `      excluded_workflows: [${excludedWorkflows.map((f) => `"${f}"`).join(", ")}]   # ${C.excluded}\n`;
+    // 스토어 릴리스 노트 언어(#829) — 미지정이면 키를 쓰지 않는다. 전체 재생성이라 다시 쓰지 않으면 사용자가 적은 값이 사라진다.
+    if (storeLocales && storeLocales.length) out += `      store_locales: [${storeLocales.map((l) => `"${l}"`).join(", ")}]   # ${C.storeLocales}\n`;
     if (language) out += `      language: ${language}   # ${C.language}\n`;
     if (labelStyle) out += `      label_style: ${labelStyle}   # ${C.labelStyle}\n`;
     // 앱 심사 배포 레포 여부(#553) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).

@@ -72,6 +72,8 @@
 <!-- end of auto-generated comment: release notes by coderabbit.ai -->
 ```
 
+> 스토어 언어별 번역(`store_locales`가 둘 이상일 때)은 이 구조 **뒤**에 별도 블록으로 덧붙인다 — 형식과 규칙은 `store-translations.md`. 한국어 구조 자체는 바꾸지 않는다.
+
 ## 승인 게이트 문구 (deploy 5.5 / fix 4.5)
 
 분기 조건은 SKILL.md "승인 게이트"에 있다. 여기는 화면에 띄울 문구다.

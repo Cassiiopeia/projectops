@@ -30,6 +30,21 @@ def resolve_whats_new(override, changelog)
   [default_notes, "기본 문구"]
 end
 
+# 언어별 '새로운 기능' 문구를 읽는다 (#829). 폴더(STORE_NOTES_DIR)는 store_notes.py 가 만들며
+# 파일 이름이 App Store Connect 언어 코드다(ko.txt, en-US.txt, ja.txt, zh-Hans.txt).
+# 폴더가 없거나 비어 있으면 nil — 이때 호출부는 옛 동작(한 문구를 DELIVER_LOCALES 전체에)을 그대로 탄다.
+# version.yml 에 store_locales 가 없는 레포는 폴더가 만들어지지 않으므로 아무것도 달라지지 않는다.
+def resolve_locale_notes(dir)
+  return nil if dir.nil? || dir.strip.empty? || !Dir.exist?(dir)
+  notes = {}
+  Dir.children(dir).sort.each do |name|
+    next unless name.end_with?(".txt")
+    text = File.read(File.join(dir, name)).strip
+    notes[File.basename(name, ".txt")] = text unless text.empty?
+  end
+  notes.empty? ? nil : notes
+end
+
 # 심사 메모 원본 파일 내용. 없거나 비어 있으면 nil — 이때는 notes.txt 를 만들지 않아야 ASC 기존값이 남는다.
 # (빈 notes.txt 는 deliver 가 전송하지 않아 '초기화'도 되지 않는다 — 실측)
 def resolve_review_notes(path)
@@ -85,13 +100,25 @@ platform :ios do
       metadata_path = File.join(workspace, "ios", "fastlane", "metadata")
       require "fileutils"
       # ⚠️ 로케일 디렉토리명은 deliver가 인정하는 코드만 (ko 유효, ko-KR 무효).
-      locales = (ENV["DELIVER_LOCALES"] || "ko").split(",").map(&:strip).reject(&:empty?)
-      locales.each do |loc|
-        dir = File.join(metadata_path, loc)
-        FileUtils.mkdir_p(dir)
-        File.write(File.join(dir, "release_notes.txt"), release_notes)
+      locale_notes = resolve_locale_notes(ENV["STORE_NOTES_DIR"])
+      if locale_notes
+        # 언어별 문구(#829). 번역이 없는 언어는 store_notes.py 가 기본 언어 문구로 이미 채워 두었다 —
+        # App Store Connect 는 What's New 가 빈 언어가 하나라도 있으면 심사 제출을 거부한다.
+        locale_notes.each do |loc, text|
+          dir = File.join(metadata_path, loc)
+          FileUtils.mkdir_p(dir)
+          File.write(File.join(dir, "release_notes.txt"), text)
+          UI.message("📝 whatsNew 메타 작성 [#{loc}]: #{text}")
+        end
+      else
+        locales = (ENV["DELIVER_LOCALES"] || "ko").split(",").map(&:strip).reject(&:empty?)
+        locales.each do |loc|
+          dir = File.join(metadata_path, loc)
+          FileUtils.mkdir_p(dir)
+          File.write(File.join(dir, "release_notes.txt"), release_notes)
+        end
+        UI.message("📝 whatsNew 메타 작성: #{release_notes}")
       end
-      UI.message("📝 whatsNew 메타 작성: #{release_notes}")
 
       # 심사 메모(Notes)는 ios/fastlane/review_notes.txt 를 원본으로 삼아 매번 그 내용을 넣는다.
       # 심사용 공용 계정이 없어 로그인 안내를 Notes 에만 두는 앱은 그 안내가 어긋나면 거절되므로 코드와 함께 관리한다.

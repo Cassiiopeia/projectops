@@ -128,6 +128,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 
 선제 작성이 provider와 무관하게 안전한 이유: 워크플로우는 skill이 미리 넣은 `Summary by CodeRabbit`을(`already_found`) provider 무관하게 그대로 존중한다. 유일한 예외가 `commit` "맡기기"다.
 노트는 `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md`에 고정 구조로 Write한다 (`references/release-notes.md`).
+**5단계 후속 — 스토어 언어별 번역 초안** — 노트 파일을 쓴 직후 `version.yml`의 `metadata.template.options.store_locales`를 Read로 확인한다. **언어가 둘 이상이면** `references/store-translations.md`를 읽고 번역 초안을 노트 파일 끝에 덧붙인다(외부 AI 호출 없이 직접 번역). 키가 없거나 하나면 이 단계는 없는 것과 같다.
 > **⚠️ AGENT 필독: 노트 파일을 만든 뒤 반드시 6단계(PR 생성)까지 실행한다. 단, 곧바로 가지 않고 5.5단계부터 거친다.**
 
 **5.5단계 승인 게이트** (문구는 `references/release-notes.md`):
@@ -159,7 +160,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 1. **상태 확인** — `deploy-status --base {BASE}`(`--pr` 없이 open deploy PR 자동 탐색). `no_pr` → 3단계로 / `merged` → 안내 후 종료 / 그 외 → `pr.number`를 `EXISTING_PR`로 기억하고 2단계로.
 2. **기존 PR 닫기** — **사용자에게 확인받은 뒤에만** `update-pr ... "-" --state closed`.
 3. **커밋 분석** — deploy 4단계와 같다. 곧장 fix로 들어와 `APP_RELEASE == unset`이면 이 단계 전에 deploy 1.5단계를 한 번 수행한다.
-4. **노트 작성** — deploy 5단계와 같은 위치·구조. 곧바로 5단계로 가지 않는다.
+4. **노트 작성** — deploy 5단계와 같은 위치·구조(스토어 언어별 번역 초안 포함 — `references/store-translations.md`). 곧바로 5단계로 가지 않는다.
 4.5. **승인 게이트** — deploy 5.5단계와 **완전히 같은** 분기(A/B/C, 앱 심사면 배너 + 수동 승인).
 5. **새 PR 생성** — 노트를 본문에 담아 `create-pr`(제목 `🚀 Deploy {YYYYMMDD} (재시도)`). fix도 **PR 생성이 맨 마지막**이다.
 6. **결과 안내** 후 `deploy-status --pr`로 검증한다.

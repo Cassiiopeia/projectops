@@ -37,6 +37,8 @@ export function copyScripts(tempDir, targetRoot = ".") {
     "close_issues_on_release.py",
     // Play Store/TestFlight 배포 모드를 코드 설정(.github/config/store-deploy.json)에서 읽는다 (#767).
     "store_deploy_config.py",
+    // 스토어 릴리스 노트를 언어별로 준비 (#829). version.yml 의 store_locales 가 없으면 아무것도 하지 않는다.
+    "store_notes.py",
     "changelog_providers/_common.py", "changelog_providers/ladder.py",
     "changelog_providers/commit.py", "changelog_providers/copilot.py",
     "changelog_providers/openai_compatible.py",

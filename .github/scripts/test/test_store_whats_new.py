@@ -146,3 +146,52 @@ def test_android_release_notes_source(override, changelog, text, source, tmp_pat
 def test_android_dispatch_input_wins(tmp_path):
     got, _ = _android(tmp_path, OVERRIDE, CHANGELOG, input_override="이번만 쓰는 문구")
     assert got == "이번만 쓰는 문구"
+
+
+# ── 언어별 문구 (#829) ─────────────────────────────────────────────
+
+@needs_ruby
+def test_ios_locale_notes_missing_dir_keeps_legacy(tmp_path):
+    """폴더가 없거나 비면 nil — 호출부가 옛 동작(한 문구를 DELIVER_LOCALES 전체에)을 그대로 탄다."""
+    assert _ruby("p resolve_locale_notes(nil)", tmp_path) == "nil"
+    assert _ruby("p resolve_locale_notes('')", tmp_path) == "nil"
+    assert _ruby(f"p resolve_locale_notes({str(tmp_path / 'none')!r})", tmp_path) == "nil"
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert _ruby(f"p resolve_locale_notes({str(empty)!r})", tmp_path) == "nil"
+
+
+@needs_ruby
+def test_ios_locale_notes_reads_per_language_files(tmp_path):
+    d = tmp_path / "notes"
+    d.mkdir()
+    (d / "ko.txt").write_text("한국어 문구\n", encoding="utf-8")
+    (d / "en-US.txt").write_text("English text\n", encoding="utf-8")
+    (d / "ja.txt").write_text("  \n", encoding="utf-8")   # 빈 파일은 건너뛴다
+    (d / "README.md").write_text("무시", encoding="utf-8")
+    out = _ruby(f"n = resolve_locale_notes({str(d)!r}); puts n.keys.sort.join(','); puts n['en-US']", tmp_path)
+    assert out.splitlines() == ["en-US,ko", "English text"]
+
+
+def test_ios_lane_legacy_loop_is_kept_when_no_locale_folder():
+    """폴더가 없을 때 타는 가지는 예전 반복문 그대로여야 한다 (기존 사용자 무변화)."""
+    text = IOS_FASTFILE.read_text(encoding="utf-8")
+    assert 'locale_notes = resolve_locale_notes(ENV["STORE_NOTES_DIR"])' in text
+    legacy = '''        locales = (ENV["DELIVER_LOCALES"] || "ko").split(",").map(&:strip).reject(&:empty?)
+        locales.each do |loc|
+          dir = File.join(metadata_path, loc)
+          FileUtils.mkdir_p(dir)
+          File.write(File.join(dir, "release_notes.txt"), release_notes)
+        end'''
+    assert legacy in text
+
+
+def test_workflows_call_store_notes_and_fall_back_without_stopping():
+    ios = IOS_WF.read_text(encoding="utf-8")
+    android = ANDROID_WF.read_text(encoding="utf-8")
+    assert "store_notes.py\" write --platform ios" in ios and "store_notes.py\" write --platform play" in android
+    # 준비가 실패해도 배포를 세우지 않는다 (옛 경로로 진행)
+    assert "|| echo" in ios.split("store_notes.py")[1].split("fi\n")[0]
+    assert "|| echo" in android.split("store_notes.py")[1].split("\n\n")[0]
+    # iOS 는 폴더가 비면 STORE_NOTES_DIR 를 비워 옛 동작을 탄다
+    assert 'export STORE_NOTES_DIR=""' in ios

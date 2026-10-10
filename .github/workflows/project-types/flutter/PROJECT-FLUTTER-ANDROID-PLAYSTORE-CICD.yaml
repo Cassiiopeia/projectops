@@ -828,6 +828,13 @@ jobs:
             echo "v$VERSION_NAME 업데이트" > "$CHANGELOG_DIR/${VERSION_CODE}.txt"
             echo "⚠️ 기본 Changelog 생성 (버전 코드: $VERSION_CODE)"
           fi
+
+          # 언어별 릴리스 노트 (#829) — version.yml 에 store_locales 가 있을 때만 동작한다.
+          # 없으면 아무것도 하지 않아 위에서 만든 ko-KR 한 개가 그대로 올라간다(기존 동작).
+          # 번역이 없는 언어는 기본 언어 문구로 채운다 (빈 채로 두지 않는다).
+          python3 "$GITHUB_WORKSPACE/.github/scripts/store_notes.py" write --platform play \
+            --workspace "$GITHUB_WORKSPACE" --app-root "$PWD" --version "$VERSION_NAME" --version-code "$VERSION_CODE" \
+            --default-file "$CHANGELOG_DIR/${VERSION_CODE}.txt" || echo "⚠️ 언어별 릴리스 노트 준비 실패 — 기본 changelog 로 진행"
           
           # Service Account JSON 파일 확인
           GOOGLE_PLAY_JSON_KEY="$HOME/.config/gcloud/service-account.json"

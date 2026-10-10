@@ -549,6 +549,21 @@ jobs:
             export STORE_WHATS_NEW_OVERRIDE="$INPUT_WHATS_NEW_OVERRIDE"
           fi
 
+          # 언어별 What's New (#829) — version.yml 에 store_locales 가 있을 때만 폴더가 만들어진다.
+          # 폴더가 없으면 STORE_NOTES_DIR 를 비워 Fastfile 이 옛 동작(한 문구를 모든 언어에)을 그대로 탄다.
+          # 번역이 없는 언어는 기본 언어 문구로 채운다 (빈 언어가 있으면 App Store Connect 가 심사 제출을 거부한다).
+          export STORE_NOTES_DIR=""
+          NOTES_OUT="$RUNNER_TEMP/store-notes-ios"
+          rm -rf "$NOTES_OUT"
+          printf '%s\n' "$RELEASE_NOTES" > "$RUNNER_TEMP/store-default-notes.txt"
+          python3 "$GITHUB_WORKSPACE/.github/scripts/store_notes.py" write --platform ios \
+            --workspace "$GITHUB_WORKSPACE" --version "${{ needs.prepare-build.outputs.version }}" \
+            --out-dir "$NOTES_OUT" --default-file "$RUNNER_TEMP/store-default-notes.txt" \
+            --override "${STORE_WHATS_NEW_OVERRIDE:-}" || echo "⚠️ 언어별 What's New 준비 실패 — 기본 문구로 진행"
+          if [ -n "$(ls -A "$NOTES_OUT" 2>/dev/null)" ]; then
+            export STORE_NOTES_DIR="$NOTES_OUT"
+          fi
+
           echo "🔧 DEPLOY_MODE: $DEPLOY_MODE / APP_IDENTIFIER: $APP_IDENTIFIER"
           # `bundle exec fastlane deploy` 는 아래 스크립트가 ios/ 에서 호출한다 (재시도 때마다 다시 부름).
           python3 "$GITHUB_WORKSPACE/.github/scripts/ios_release.py" archive-upload --phase upload

@@ -30,7 +30,7 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
     force = true, now, today, templateVersion = "unknown",
     deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, aiPrSummary = true,
     changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true,
-    deployBranch = "", intent = null, semverAuto = true , appRelease = null, labelStyle = "en", closeOnRelease = null, projectsSync = null, language = "en", excludedWorkflows = null } = context;
+    deployBranch = "", intent = null, semverAuto = true , appRelease = null, labelStyle = "en", closeOnRelease = null, projectsSync = null, language = "en", excludedWorkflows = null, storeLocales = null } = context;
 
   // project_paths 마커 계산 (.sh existing_marker_in_dir 등가 — 대표 마커명)
   const pathMarkers = new Map();
@@ -53,7 +53,7 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
       deployValues,
       updatedBy: resolveUpdatedBy(existsSync(vyFile) ? readFileSync(vyFile, "utf8") : "", targetRoot), // #811
       templateOptions: { templateVersion, deployTarget, publishTargets, includeSecretBackup, aiPrSummary, optionsDate: today,
-        changelogProvider, changelogBaseUrl, codeReviewCoderabbit, intent, mode: "full", semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync, language, excludedWorkflows },
+        changelogProvider, changelogBaseUrl, codeReviewCoderabbit, intent, mode: "full", semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync, language, excludedWorkflows, storeLocales },
     })), { version, versionCode });
 
   // 2. README 버전 섹션

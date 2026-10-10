@@ -79,6 +79,52 @@ def _clean_summary_noise(text: str) -> str:
     return text.strip()
 
 
+# ----------------------- 스토어 언어별 노트 (#829) -----------------------
+#
+# PR 본문 끝에 번역 초안을 이 블록으로 덧붙인다. 한국어 파서(_parse_summary_markdown)와
+# _clean_summary_noise 는 HTML 주석·태그를 지우고 항목을 카테고리로 읽으므로,
+# **파싱 전에 이 블록을 먼저 떼어내야** 번역 줄이 한국어 카테고리에 섞이지 않는다.
+#
+#   <!-- projectops:store-notes -->
+#   <details><summary>Store release notes (translations)</summary>
+#
+#   **en-US**
+#   - Improved alerts
+#
+#   **ja-JP**
+#   - 通知を改善
+#
+#   </details>
+#   <!-- /projectops:store-notes -->
+STORE_NOTES_BLOCK_RE = re.compile(r'<!--\s*projectops:store-notes\s*-->(.*?)<!--\s*/projectops:store-notes\s*-->', re.DOTALL)
+STORE_NOTES_LOCALE_RE = re.compile(r'^\*\*([a-z]{2,3}(?:-[A-Za-z0-9]+)*)\*\*\s*$')
+
+
+def extract_store_notes(content: str) -> tuple[str, dict]:
+    """본문에서 언어별 노트 블록을 떼어 (블록 뺀 본문, {언어: 문구})를 돌려준다. 블록이 없으면 본문 그대로."""
+    if not content or 'projectops:store-notes' not in content:
+        return content, {}
+    notes: dict[str, str] = {}
+    for m in STORE_NOTES_BLOCK_RE.finditer(content):
+        inner = re.sub(r'</?details>|<summary>.*?</summary>', '', m.group(1), flags=re.DOTALL | re.IGNORECASE)
+        current, buf = None, []
+
+        def flush():
+            text = "\n".join(buf).strip()
+            if current and text:
+                notes[current] = text
+
+        for line in inner.splitlines():
+            head = STORE_NOTES_LOCALE_RE.match(line.strip())
+            if head:
+                flush()
+                current, buf = head.group(1), []
+            elif current is not None:
+                buf.append(line.rstrip())
+        flush()
+    return STORE_NOTES_BLOCK_RE.sub('', content).strip() + "\n", notes
+
+
 def _make_safe_key(title: str, idx: int) -> str:
     """카테고리 제목을 안전한 키로 변환."""
     safe_key = re.sub(r'[^a-zA-Z0-9가-힣]', '_', title.lower()).strip('_')
@@ -283,6 +329,11 @@ def cmd_update_from_summary() -> int:
         print(f"📄 입력 파일: {input_file}")
         print(f"📝 파일 크기: {len(content)} bytes")
 
+        # 언어별 노트 블록은 한국어 파서가 보기 전에 떼어낸다 (#829)
+        content, store_notes = extract_store_notes(content)
+        if store_notes:
+            print(f"🌐 스토어 언어별 노트: {', '.join(store_notes)}")
+
         # Markdown 파싱 (통합)
         print("\n🔍 Markdown 파싱 시작...")
         categories = _parse_summary_markdown(content)
@@ -307,6 +358,9 @@ def cmd_update_from_summary() -> int:
             "parsed_changes": categories or {},
             "parse_method": parse_method,
         }
+        # 번역이 있을 때만 키를 만든다 — 없으면 CHANGELOG.json 모양이 지금과 같다
+        if store_notes:
+            new_release["store_notes"] = store_notes
 
         # 파싱 결과 출력
         print("\n📊 파싱 결과:")
