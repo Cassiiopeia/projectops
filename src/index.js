@@ -253,9 +253,8 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     changelogProvider: migrateProvider(existing?.options?.changelogProvider) ?? "commit",
     changelogBaseUrl: existing?.options?.changelogBaseUrl ?? "",
     codeReviewCoderabbit: existing?.options?.codeReviewCoderabbit ?? false,
-    // semver 자동 승격(#546): 저장값 → (기존 통합 레포면 false / 신규면 true).
-    // 이미 통합된 레포의 버전이 업데이트만으로 예고 없이 minor로 튀지 않게 하는 안전장치다.
-    // 저장값(명시적 false 포함)은 존중하고, 키가 없으면 기존 레포도 켠다. 켜진 사실은 완료 화면이 알린다.
+    // semver 자동 승격(#546, #814): 저장값(명시적 false 포함)은 존중하고, 키가 없으면 신규·기존 모두 켠다.
+    // 기존 레포에서 처음 켜질 때는 버전이 예고 없이 오르지 않게 완료 화면이 알린다 (semverAutoNewlyOn).
     semverAuto: existing?.options?.semverAuto ?? true,
     // 앱 심사 배포 레포 여부(#553): 저장값만 보존한다. 마법사가 묻지 않으므로 새로 켜지 않는다
     // (사용자가 version.yml에 직접 쓰거나 스킬이 기록한 값을 그대로 유지).

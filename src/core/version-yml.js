@@ -19,11 +19,11 @@ const HEADER_EN = `# ===========================================================
 # Automatic version updates:
 # - version_code: incremented by 1 on every build (independent of the rules below)
 # - How far the version is bumped is decided by metadata.template.options.semver_auto
-#   semver_auto: true  -> decided by the commit titles in the release range
+#   semver_auto: true  -> decided by the commit titles in the release range (also when the key is missing)
 #                         "title : feat! : body" or "feat!:" -> major (x+1.0.0)
 #                         "title : feat : body"  or "feat:"  -> minor (x.y+1.0)
 #                         anything else (fix/docs/chore/refactor/test) -> patch (x.y.z+1)
-#   key missing / false -> always patch +1
+#   semver_auto: false -> always patch +1
 # - You may edit the version value by hand regardless of the rules above
 #
 # Files synced per project type:
@@ -64,11 +64,11 @@ const HEADER_KO = `# ===========================================================
 # 자동 버전 업데이트:
 # - version_code: 매 빌드마다 자동으로 1씩 증가 (아래 판정과 무관)
 # - 버전 승격 폭은 metadata.template.options.semver_auto 가 정합니다
-#   semver_auto: true  -> 릴리스 구간 커밋 제목으로 판정
+#   semver_auto: true  -> 릴리스 구간 커밋 제목으로 판정 (키가 없어도 같다)
 #                         "제목 : feat! : 내용" 또는 "feat!:" -> major (x+1.0.0)
 #                         "제목 : feat : 내용"  또는 "feat:"  -> minor (x.y+1.0)
 #                         그 외(fix/docs/chore/refactor/test) -> patch (x.y.z+1)
-#   키 없음 / false     -> 항상 patch +1
+#   semver_auto: false -> 항상 patch +1
 # - 위 판정과 무관하게 version 값을 직접 수정해도 됩니다
 #
 # 프로젝트 타입별 동기화 파일:
@@ -220,7 +220,7 @@ export function parseTemplateOptions(content) {
         if (v === "false") out.secretBackup = false;
         continue;
       }
-      // semver 자동 승격(#546). null(미기재)은 "기존 통합 레포" 신호 — 호출부가 OFF로 해석한다.
+      // semver 자동 승격(#546). null(미기재)이면 호출부가 ON(true)으로 해석한다 (#814). 명시적 false 만 끈다.
       // 캡처를 true|false로 한정한다(intent와 같은 방식) — 값 뒤 인라인 주석이 값에 딸려오면
       // strip()은 따옴표·공백만 걷어내므로 "true # ..."가 되어 매칭이 조용히 실패한다.
       m = line.match(/^\s+semver_auto:\s*["']?(true|false)["']?/);
@@ -435,7 +435,7 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
 
   let out = (lang === "ko" ? HEADER_KO : HEADER_EN) + "\n";
   out += `version: "${version}"\n`;
-  out += `version_code: ${versionCode}  # ${C.versionCode}\n`;
+  out += `version_code: ${versionCode} # ${C.versionCode}\n`;   // 공백 1칸 — version_manager.py 가 쓰는 형태와 같아야 업데이트 diff 가 안 생긴다
   out += `project_types: ${typesJson}   # ${C.projectTypes}\n`;
 
   // project_paths 블록. pathMarkers: Map<type, markerFilename> (있으면 "  type: "path"   # path/marker" 주석).

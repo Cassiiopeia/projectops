@@ -2,7 +2,7 @@
 // 설정은 그대로인데 diff 가 86줄이라 리뷰어가 진짜 변경을 찾을 수 없었다.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -47,4 +47,19 @@ test("resolveUpdatedBy: git 사용자가 없으면 기존 값을 지킨다", () 
     for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
     Object.assign(process.env, saved);
   }
+});
+
+test("머리말이 semver_auto 기본값을 실제 동작(키 없음 = 켜짐)대로 설명한다", () => {
+  for (const language of ["en", "ko"]) {
+    const out = buildVersionYml({ ...base, templateOptions: { language } });
+    assert.doesNotMatch(out, /key missing \/ false|키 없음 \/ false/, `${language}: 키 없음을 patch 로 설명하면 안 된다`);
+    assert.match(out, /semver_auto: false -> /);
+  }
+});
+
+test("version_code 주석 앞 공백은 version_manager.py 와 같은 1칸 (업데이트 diff 방지)", () => {
+  const out = buildVersionYml({ ...base, versionCode: 136 });
+  assert.match(out, /^version_code: 136 # /m);
+  const vm = readFileSync(new URL("../.github/scripts/version_manager.py", import.meta.url), "utf8");
+  assert.match(vm, /version_code: \{new_code\} # app build number/, "version_manager.py 형식이 바뀌면 이 테스트와 같이 맞춘다");
 });
