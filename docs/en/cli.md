@@ -39,6 +39,7 @@ One-shot install followed by a read-only `doctor` check:
 | `--deploy-branch NAME` | Release PR head branch (default: develop) |
 | `--secret-backup` / `--no-secret-backup` | Include or exclude the secret backup workflow |
 | `--ai-summary` / `--no-ai-summary` | Include or exclude the PR summary workflow |
+| `--coderabbit` / `--no-coderabbit` | Install the CodeRabbit PR code review config (`.coderabbit.yaml`), `--mode full` only. Needs the CodeRabbit GitHub app; an existing file is overwritten and saved as `.bak`. Off when omitted (kept on if `version.yml` already stores on). Unrelated to release notes |
 | `--projects-sync` / `--no-projects-sync` | Include or exclude the GitHub Projects status sync workflow (excluded for new installs, kept if already installed) |
 | `--language LANG` | Language of the issue/PR templates and bot messages written into your repo: `en`, `ko`. New installs `en`; existing installs keep the stored value (`ko` if none) |
 | `--label-style STYLE` | Status label names: `en` (`status: todo`) or `ko` (legacy `작업전`). New installs `en` |

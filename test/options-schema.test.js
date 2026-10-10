@@ -92,3 +92,78 @@ test("템플릿 전용 안내 파일은 사용자 프로젝트로 복사되지 �
   const initializer = readFileSync(new URL("../.github/scripts/template_initializer.py", import.meta.url), "utf8");
   for (const f of ["AGENTS.md", "GEMINI.md", "llms.txt", "CODE_OF_CONDUCT.md"]) assert.ok(initializer.includes(`("${f}"`), `${f} 가 initializer 삭제 목록에 없다`);
 });
+
+// ── agent 가 읽고 판단할 수 있을 만큼 자세한가 (#835 후속) ──────────────────────────────
+// 이 CLI 는 사람 없이 AI agent 가 부른다. 짧은 한 줄 설명만으로는 "언제 쓰나 · 레포에서 무엇이 바뀌나 ·
+// 안 주면 어떻게 되나"를 알 수 없어 agent 가 추측하게 된다. 새 플래그·옵션은 상세 없이는 통과하지 못한다.
+import { FLAG_DETAILS, KEY_DETAILS, RECIPES, AGENT_RULES, OUTPUT_FILES, renderText } from "../src/core/options-schema.js";
+import { helpText } from "../src/cli/help.js";
+
+test("모든 (폐기 아닌) 플래그에 when · effect · omitted 가 있다", () => {
+  const missing = [];
+  for (const f of FLAGS.filter((x) => !x.deprecated)) {
+    const d = FLAG_DETAILS[f.flag];
+    if (!d || !d.when || !d.effect || !d.omitted) missing.push(f.flag);
+  }
+  assert.deepEqual(missing, [], `상세가 없는 플래그: ${missing.join(", ")} — options-schema.js 의 FLAG_DETAILS 에 when/effect/omitted 를 적는다`);
+});
+
+test("모든 version.yml 키에 when · effect 가 있다", () => {
+  const missing = VERSION_YML.filter((k) => !KEY_DETAILS[k.path]?.when || !KEY_DETAILS[k.path]?.effect).map((k) => k.path);
+  assert.deepEqual(missing, [], `상세가 없는 키: ${missing.join(", ")} — KEY_DETAILS 에 적는다`);
+});
+
+test("상세 표에 정본에 없는 항목(오타·삭제된 플래그)이 남아 있지 않다", () => {
+  const flags = new Set(FLAGS.map((f) => f.flag));
+  assert.deepEqual(Object.keys(FLAG_DETAILS).filter((k) => !flags.has(k)), []);
+  const keys = new Set(VERSION_YML.map((k) => k.path));
+  assert.deepEqual(Object.keys(KEY_DETAILS).filter((k) => !keys.has(k)), []);
+});
+
+test("상세는 한 단어짜리 얼버무림이 아니다", () => {
+  for (const [name, d] of [...Object.entries(FLAG_DETAILS), ...Object.entries(KEY_DETAILS)]) {
+    assert.ok((d.effect || "").length >= 20, `${name}: effect 가 너무 짧다`);
+    assert.ok((d.when || "").length >= 10, `${name}: when 이 너무 짧다`);
+  }
+});
+
+test("예시 명령은 실제 플래그만 쓴다", () => {
+  const known = new Set(FLAGS.flatMap((f) => [f.flag, f.alias, ...(f.aliases ?? []), f.negation].filter(Boolean)));
+  for (const cmd of [...Object.values(FLAG_DETAILS).map((d) => d.example), ...RECIPES.map((r) => r.command)].filter((c) => c?.startsWith("npx projectops"))) {
+    for (const m of cmd.matchAll(/\s(--?[a-z][a-z-]*)/g)) assert.ok(known.has(m[1]), `예시 "${cmd}" 의 ${m[1]} 는 없는 플래그다`);
+  }
+});
+
+test("agent 규칙·레시피·출력 파일 표가 있고 text 출력에 모두 나온다", () => {
+  assert.ok(AGENT_RULES.length >= 6 && RECIPES.length >= 6 && OUTPUT_FILES.length >= 6);
+  const text = renderText(buildSchema("x"));
+  for (const sec of ["RULES FOR AGENTS", "RECIPES", "FLAGS", "VERSION.YML KEYS", "FILES WRITTEN"]) assert.match(text, new RegExp(sec));
+  assert.match(text, /if omitted:/);
+  assert.match(text, /caution:/);
+});
+
+test("--mode options --json 의 각 플래그 항목에 상세가 합쳐져 있다", () => {
+  const j = buildSchema("x");
+  const cr = j.flags.find((f) => f.flag === "--coderabbit");
+  assert.ok(cr.when && cr.effect && cr.omitted && cr.caution && cr.example);
+  assert.match(cr.effect, /\.coderabbit\.yaml/);
+  assert.match(cr.omitted, /Off/);
+  assert.ok(j.versionYml.find((k) => k.path.endsWith("excluded_workflows")).effect);
+});
+
+test("--help 가 질문 규칙·--force 의미·종료 코드·결과 위치를 설명한다 (영·한)", () => {
+  for (const [lang, must] of [
+    ["en", [/asks NOTHING/, /--force/, /never overwrites/, /exit code/i, /\.github\/\.projectops\/incoming/, /--mode options --json/, /--coderabbit/]],
+    ["ko", [/묻지 않는다/, /--force/, /덮어쓰지 않는다/, /종료 코드/, /\.github\/\.projectops\/incoming/, /--mode options --json/, /--coderabbit/]],
+  ]) {
+    const text = helpText(lang);
+    for (const re of must) assert.match(text, re, `${lang} --help 에 ${re} 가 없다`);
+  }
+});
+
+test("CodeRabbit 은 플래그로 켜고 끌 수 있고 안 주면 저장값 → 꺼짐 순이다", async () => {
+  const { parseArgs } = await import("../src/cli/args.js");
+  assert.equal(parseArgs(["--mode", "full", "--coderabbit"]).codeReviewCoderabbit, true);
+  assert.equal(parseArgs(["--mode", "full", "--no-coderabbit"]).codeReviewCoderabbit, false);
+  assert.equal(parseArgs(["--mode", "full"]).codeReviewCoderabbit, null);   // null = 말이 없었다 → 저장값, 없으면 기본(꺼짐)
+});

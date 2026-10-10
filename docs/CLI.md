@@ -74,6 +74,7 @@ npx projectops --intent library
 | `--deploy-branch NAME` | 릴리스 PR의 head 브랜치(기본 `develop`). 기본(배포) 브랜치와는 별개입니다 |
 | `--secret-backup` / `--no-secret-backup` | Secret 백업 워크플로우 포함 / 제외 |
 | `--ai-summary` / `--no-ai-summary` | PR 변경 요약 워크플로우 포함 / 제외 |
+| `--coderabbit` / `--no-coderabbit` | CodeRabbit PR 코드 리뷰 설정(`.coderabbit.yaml`) 설치 (`--mode full` 에서만). CodeRabbit GitHub 앱이 따로 필요하고, 이미 있는 파일은 `.bak` 으로 백업하고 덮어쓴다. 생략하면 꺼짐(`version.yml` 에 켜짐이 저장돼 있으면 유지). 릴리스 노트와는 무관 |
 | `--projects-sync` / `--no-projects-sync` | GitHub Projects 상태 동기화 워크플로우 포함 / 제외 (신규 설치 기본 제외, 이미 설치돼 있으면 유지) |
 | `--language LANG` | 레포에 쓰이는 이슈/PR 템플릿·봇 문구 언어: `en` `ko`. 신규 설치 기본 `en`, 기존 설치는 저장값(없으면 `ko`) |
 | `--label-style STYLE` | 상태 라벨 표기: `en`(`status: todo`) `ko`(기존 `작업전`). 신규 설치 기본 `en` |

@@ -253,7 +253,8 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     // changelog/code_review 축(#455): 비대화형은 저장값 → 기본값. null이 흘러 provider:"null"로 기록되던 버그 수정.
     changelogProvider: migrateProvider(existing?.options?.changelogProvider) ?? "commit",
     changelogBaseUrl: existing?.options?.changelogBaseUrl ?? "",
-    codeReviewCoderabbit: existing?.options?.codeReviewCoderabbit ?? DEFAULT_CODE_REVIEW_CODERABBIT,
+    // 플래그 > 저장값 > 기본(꺼짐). 쓰겠다고 명시하면 켜지고, 아무 말이 없을 때만 기본값이 적용된다.
+    codeReviewCoderabbit: opts.codeReviewCoderabbit ?? existing?.options?.codeReviewCoderabbit ?? DEFAULT_CODE_REVIEW_CODERABBIT,
     // semver 자동 승격(#546, #814): 저장값(명시적 false 포함)은 존중하고, 키가 없으면 신규·기존 모두 켠다.
     // 기존 레포에서 처음 켜질 때는 버전이 예고 없이 오르지 않게 완료 화면이 알린다 (semverAutoNewlyOn).
     semverAuto: existing?.options?.semverAuto ?? true,
