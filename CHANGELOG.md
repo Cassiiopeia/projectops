@@ -1,7 +1,19 @@
 # Changelog
 
-**Current version:** 4.39.0  
-**Last updated:** 2026-10-10T02:07:45Z  
+**Current version:** 4.40.0  
+**Last updated:** 2026-10-10T02:24:36Z  
+
+---
+
+## [4.40.0] - 2026-10-10
+
+**PR:** #831  
+
+**New features**
+- push 배포는 프로덕션 승급과 App Store 심사를 타지 않고 수동 실행에서만 올리며, Android 비공개 테스트 승급을 기본으로 켜고 수동 프로덕션 제출 뒤 48시간은 push의 승급을 건너뜀
+
+**Bug fixes**
+- 행동 검증에서 나온 판단 공백 보완, 깨진 참조 수정, 배포 시 남의 미커밋이 있으면 stash 없이 fetch와 ff-only 병합, implement의 analyze 자동 호출 제거와 develop 직행 마무리 정의, commit 취소 시 내가 담은 것만 되돌리기, 네이티브 Google 계정 선택 창 처리
 
 ---
 
