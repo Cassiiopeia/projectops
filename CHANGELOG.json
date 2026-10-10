@@ -1,14 +1,35 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-10T07:32:18Z",
-    "currentVersion": "4.44.2",
+    "lastUpdated": "2026-10-10T08:00:14Z",
+    "currentVersion": "4.45.0",
     "projectType": "basic",
-    "totalReleases": 304,
+    "totalReleases": 305,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.45.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-10",
+      "pr_number": 850,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * superpowers와 기능이 겹치는 pro-analyze, pro-plan, pro-implement와 그 전용 규칙 문서를 삭제하고 스킬 수 표기와 참조와 테스트를 17개 기준으로 정리\n  * 언어 코드 표를 fastlane이 인정하는 App Store 50개와 Play 79개 목록에서 만들고 그 스토어에 없는 코드는 넘기지 않고 건너뛰며 보고하고, Play와 TestFlight 마법사에 언어별 노트와 스토어별 목록 안내를 추가\n  * App Store와 Play의 언어 구성이 다를 때 store_locales_ios, store_locales_play로 스토어별 목록을 따로 적을 수 있게 하고 없으면 공통 목록을 쓰며 deliver가 App Store에 없는 언어를 새로 활성화하는 것을 막음",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "superpowers와 기능이 겹치는 pro-analyze, pro-plan, pro-implement와 그 전용 규칙 문서를 삭제하고 스킬 수 표기와 참조와 테스트를 17개 기준으로 정리",
+            "언어 코드 표를 fastlane이 인정하는 App Store 50개와 Play 79개 목록에서 만들고 그 스토어에 없는 코드는 넘기지 않고 건너뛰며 보고하고, Play와 TestFlight 마법사에 언어별 노트와 스토어별 목록 안내를 추가",
+            "App Store와 Play의 언어 구성이 다를 때 store_locales_ios, store_locales_play로 스토어별 목록을 따로 적을 수 있게 하고 없으면 공통 목록을 쓰며 deliver가 App Store에 없는 언어를 새로 활성화하는 것을 막음"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.44.2",
       "project_type": "basic",
