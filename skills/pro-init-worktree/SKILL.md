@@ -83,6 +83,10 @@ python -X utf8 init_worktree_temp_{timestamp}.py
 
 **`references/local-files.md` 를 읽고 그대로 진행한다.** 핵심만:
 
+- **먼저 기억을 꺼낸다** — `{PYTHON} {SCRIPTS}/worktree_cli.py recall --root {원본_루트}` (스크립트 찾기는 `../references/common-rules.md` §표준 호출 패턴, `SKILL=pro-init-worktree`).
+  지난번 세트가 있으면 `copy_now` 는 그대로 복사하고 **`new_candidates` 만 판단**한다. 처음이면(`first_time`) 전부 판단한다.
+- **복사가 끝나면 바로 기록한다** — `{PYTHON} {SCRIPTS}/worktree_cli.py record --root {원본_루트} --copied a,b --skipped c`.
+  상대 경로만 넘긴다(파일 내용·값은 넘기지 않는다). 이 호출을 빼먹으면 다음 worktree 에서 같은 판단을 다시 한다.
 - `.gitignore` 에서 **원본에 실제로 있는 후보 inventory** 를 먼저 만든다 — 익숙한 파일명만 골라 복사하지 않는다.
 - 후보마다 `복사 권장` / `판단 필요` / `복사 비권장` 으로 분류하고, 애매하면 프로젝트 파일에서 **참조되는지** 확인해 승격한다.
   (`.env*` · `application-*.yml` · `key.properties` · `*.jks` · `google-services.json` · `GoogleService-Info.plist` 는 권장, 캐시·IDE·의존성·로그는 비권장)

@@ -933,6 +933,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | note | `skills/pro-note/scripts/note_cli.py` | search, resolve-scope, get-output-path, list |
 | changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` | actions, deploy-status, list-prs, update-pr, create-pr, detect-release-context |
 | analyze / plan / testcase | `skills/pro-<skill>/scripts/<scope>_cli.py` | get-output-path (#525·#623에서 신설 — 이전엔 경로 계산 수단이 없었다) |
+| init-worktree | `skills/pro-init-worktree/scripts/worktree_cli.py` | recall, record (지난번 복사한 로컬 파일 세트를 기억 — #839) |
 | implement | `skills/pro-implement/scripts/implement_cli.py` | find-inputs (**쓰는 게 아니라 읽는다** — plan·analyze 산출물 자리를 돌려준다, #623) |
 | figma-verify | `skills/pro-figma-verify/scripts/figma_verify_cli.py` | get-output-path, coverage, assets, conform, diff |
 | agent-test | `skills/pro-agent-test/scripts/e2e_cli.py` | detect, scenario, note, api, other (실행·캡처 명령은 pro-launch 로 넘겨준다 — #631) |

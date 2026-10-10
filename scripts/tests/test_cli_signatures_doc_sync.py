@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 CLI_TO_SKILL = {
     "pro-commit/scripts/commit_cli.py": ["pro-commit/SKILL.md"],
+    "pro-init-worktree/scripts/worktree_cli.py": ["pro-init-worktree/SKILL.md"],
     "pro-report/scripts/report_cli.py": ["pro-report/SKILL.md"],
     "pro-review/scripts/review_cli.py": ["pro-review/SKILL.md"],
     "pro-note/scripts/note_cli.py": ["pro-note/SKILL.md"],

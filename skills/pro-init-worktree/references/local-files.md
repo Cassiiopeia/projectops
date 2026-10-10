@@ -6,6 +6,28 @@ Worktree 생성 성공 후 **원본 프로젝트에 존재하는 gitignored 로�
 
 이 단계의 목적은 `.gitignore`에 등록된 모든 파일을 무조건 복사하는 것이 아니다. Spring, React, React Native, Flutter 등 프로젝트 타입마다 필요한 로컬 설정 파일이 다르므로, 후보를 inventory로 만든 뒤 판단 근거를 남겨 재발 가능한 누락을 줄이는 것이다.
 
+## 4-0. 지난번 복사 세트 꺼내기 (recall) — 항상 먼저
+
+레포마다 복사할 세트는 거의 같다. 매번 처음부터 판단하지 않도록 지난 세트를 기억한다 (#839,
+기억 원칙 `../../references/memory-principles.md`). 기억은 `~/.projectops/worktree/<owner__repo>.json` 에
+**경로만** 남는다 — 파일 내용은 저장하지 않는다. 원본·워크트리 어디서 불러도 같은 기억이다(키가 git remote).
+
+```bash
+PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/worktree_cli.py" recall --root "{소스_루트}"
+```
+
+| 응답 필드 | 뜻 | 할 일 |
+|---|---|---|
+| `verdict: first_time` | 기억 없음 | 4-2 ~ 4-5 를 전부 진행 (`candidates` 가 곧 inventory) |
+| `verdict: same` | 후보가 지난번과 같다 | `copy_now` 만 복사(4-6), 판단 생략 |
+| `verdict: changed` | 새 후보가 생겼다 | `copy_now` 는 복사, **`new_candidates` 만** 4-4·4-5 로 판단 |
+| `last.skipped` | 지난번 건너뛴 것 | 다시 판단하지 않는다 |
+| `gone` | 기억엔 있는데 원본에서 사라짐 | 복사하지 않는다 (다음 record 에서 자동으로 빠진다) |
+| `last.age_days` | 기억이 얼마나 오래됐나 | 오래됐으면 `copy_now` 도 한 번 훑어본다 |
+
+`candidates` 는 `git ls-files --others --ignored --exclude-standard --directory` 결과에서 4-2 의 제외 목록과
+1MB 초과 파일을 뺀 것이다. 통째로 무시된 폴더는 `secrets/` 처럼 한 줄로 나온다.
+
 ## 4-1. 소스/대상 경로 확정
 
 - **소스(원본) 루트**: 현재 작업 중인 프로젝트 루트 (`git rev-parse --show-toplevel`로 확인)
@@ -30,6 +52,8 @@ DerivedData  XCBuildData  .class  .pyc  .log  .symbols  .map.json
 bin/  out/  dist/  nbproject  .sts4-cache  .springBeans
 .idea  .vscode  .DS_Store  .flutter-plugins  flutter_export_environment.sh
 ```
+
+> `worktree_cli.py recall` 은 이 목록에 파이썬·웹 캐시(`__pycache__` `.pytest_cache` `.venv` `.next/` `.turbo` `.cache/` `coverage/`)와 `-Worktree/` 를 더해 거른다 (`EXCLUDE_MARKERS`).
 
 ## 4-3. 실제 존재 파일 탐색
 
@@ -111,6 +135,20 @@ reason: ios/Flutter/Debug.xcconfig 또는 Release.xcconfig에서 include되는 �
 ⏭ skipped .dart_tool/package_config.json
 reason: Flutter가 재생성하는 캐시 파일
 ```
+
+## 4-6-1. 복사 세트 기록 (record) — 복사 직후 반드시
+
+복사가 끝나면 **바로 다음 단계로** 기록한다. 이 호출을 빼면 다음 worktree 에서 같은 판단을 처음부터 다시 한다.
+
+```bash
+PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/worktree_cli.py" record --root "{소스_루트}" \
+  --copied ".env,android/key.properties" --skipped ".idea/workspace.xml"
+```
+
+- `--copied`: 이번에 **실제로 복사에 성공한** 상대 경로 전부 (`copy_now` 포함). 복사 실패(❌)는 넣지 않는다.
+- `--skipped`: 이번에 판단해서 건너뛴 상대 경로. 이번에 다루지 않은 지난 판단은 원본에 아직 있으면 이어 간다.
+- **경로만 넘긴다.** 절대경로·`..`·`=`·줄바꿈이 들어오면 `code: bad_path` 로 거부된다 — 파일 내용이나 값을 넘기지 않는다.
+- 복사할 것도 건너뛴 것도 없었으면 기록하지 않는다 (`code: empty`).
 
 ## 4-7. 복사 결과 및 누락 후보 체크
 
