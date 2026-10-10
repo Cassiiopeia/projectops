@@ -302,3 +302,64 @@ def test_translation_still_wins_over_existing_file(tmp_path):
     _run("write", "--platform", "play", "--workspace", ws, "--version", "1", "--version-code", "7",
          "--default-file", ws / "default.txt")
     assert (d / "7.txt").read_text(encoding="utf-8").strip() == "- Translated"
+
+
+# ── 스토어마다 언어 구성이 다를 때 ──────────────────────────────────
+PER_STORE_YML = '''options:
+  store_locales: ["ko-KR", "en-US", "ja-JP", "zh-CN"]
+  store_locales_ios: ["ko-KR", "en-US"]
+  store_locales_play: ["ko-KR", "en-US", "ja-JP"]
+'''
+
+
+def test_per_store_list_wins_over_common():
+    assert sn.read_store_locales(PER_STORE_YML, "ios") == ["ko-KR", "en-US"]
+    assert sn.read_store_locales(PER_STORE_YML, "play") == ["ko-KR", "en-US", "ja-JP"]
+    # 플랫폼을 안 주면 공통 목록
+    assert sn.read_store_locales(PER_STORE_YML) == ["ko-KR", "en-US", "ja-JP", "zh-CN"]
+
+
+def test_store_without_own_list_falls_back_to_common():
+    yml = 'options:\n  store_locales: ["ko-KR", "en-US", "ja-JP"]\n  store_locales_ios: ["ko-KR"]\n'
+    assert sn.read_store_locales(yml, "ios") == ["ko-KR"]
+    assert sn.read_store_locales(yml, "play") == ["ko-KR", "en-US", "ja-JP"]   # play 키 없음 -> 공통
+
+
+def test_store_specific_key_alone_enables_that_store_only():
+    """공통 키 없이 한 스토어 키만 있어도 그 스토어는 켜지고, 다른 스토어는 옛 동작이다."""
+    yml = 'options:\n  store_locales_play: ["ko-KR", "en-US"]\n'
+    assert sn.read_store_locales(yml, "play") == ["ko-KR", "en-US"]
+    assert sn.read_store_locales(yml, "ios") == []
+
+
+def test_empty_per_store_list_means_use_common():
+    yml = 'options:\n  store_locales: ["ko-KR", "en-US"]\n  store_locales_ios: []\n'
+    assert sn.read_store_locales(yml, "ios") == ["ko-KR", "en-US"]
+
+
+def test_ios_writes_only_its_languages_never_extra(tmp_path):
+    """App Store 에 없는 언어(ja/zh-Hans)를 만들면 deliver 가 앱에 그 언어를 새로 활성화한다."""
+    ws = _ws(tmp_path, yml=PER_STORE_YML)
+    out_dir = tmp_path / "o"
+    _run("write", "--platform", "ios", "--workspace", ws, "--version", "1", "--out-dir", out_dir, "--default-file", ws / "default.txt")
+    assert sorted(p.name for p in out_dir.iterdir()) == ["en-US.txt", "ko.txt"]
+
+
+def test_play_writes_only_its_languages_and_prunes_the_rest(tmp_path):
+    ws = _ws(tmp_path, yml=PER_STORE_YML)
+    stale = ws / "android/fastlane/metadata/android/zh-CN/changelogs"
+    stale.mkdir(parents=True)
+    (stale / "9.txt").write_text("남은 중국어", encoding="utf-8")
+    out = _run("write", "--platform", "play", "--workspace", ws, "--version", "1", "--version-code", "9", "--default-file", ws / "default.txt")
+    base = ws / "android/fastlane/metadata/android"
+    assert sorted(p.name for p in base.iterdir()) == ["en-US", "ja-JP", "ko-KR", "zh-CN"]   # zh-CN 폴더는 남되
+    assert not (stale / "9.txt").exists() and out["pruned"] == ["zh-CN"]                      # 이번 노트는 치웠다
+    assert (base / "ja-JP/changelogs/9.txt").is_file()
+
+
+def test_locales_command_reports_per_store(tmp_path):
+    ws = _ws(tmp_path, yml=PER_STORE_YML)
+    ios = _run("locales", "--platform", "ios", "--workspace", ws)
+    play = _run("locales", "--platform", "play", "--workspace", ws)
+    assert [l["code"] for l in ios["locales"]] == ["ko", "en-US"]
+    assert [l["code"] for l in play["locales"]] == ["ko-KR", "en-US", "ja-JP"]

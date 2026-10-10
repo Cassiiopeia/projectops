@@ -263,6 +263,8 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     appRelease: existing?.options?.appRelease ?? null,
     excludedWorkflows: existing?.options?.excludedWorkflows ?? null, // #810 저장값 보존
     storeLocales: existing?.options?.storeLocales ?? null, // #829 저장값 보존 (전체 재생성이라 안 넘기면 사라진다)
+    storeLocalesIos: existing?.options?.storeLocalesIos ?? null,
+    storeLocalesPlay: existing?.options?.storeLocalesPlay ?? null,
     // 상태 라벨 표기(#776): 플래그 > 저장값 > (신규 en / 기존 ko). 기존 레포의 라벨 이름은 업데이트만으로 바뀌지 않는다.
     // 릴리스 시 완료 이슈 닫기(#771): 저장값 보존, 없으면 신규만 true. 기존 레포는 키를 만들지 않아 현행 유지.
     closeOnRelease: existing?.options?.closeOnRelease ?? (existing ? null : true),
@@ -364,7 +366,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       migrationGuidePath = appendGuideEntry(cwd, {
         now, mode: opts.mode, types, repoName,
         templateFrom: existing?.templateVersion || "", templateTo: context.templateVersion,
-        options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto , appRelease: context.appRelease, language: context.language, labelStyle: context.labelStyle, closeOnRelease: context.closeOnRelease, projectsSync: context.projectsSync, excludedWorkflows: context.excludedWorkflows, storeLocales: context.storeLocales },
+        options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto , appRelease: context.appRelease, language: context.language, labelStyle: context.labelStyle, closeOnRelease: context.closeOnRelease, projectsSync: context.projectsSync, excludedWorkflows: context.excludedWorkflows, storeLocales: context.storeLocales, storeLocalesIos: context.storeLocalesIos, storeLocalesPlay: context.storeLocalesPlay },
         branches: { defaultBranch: branch, deployBranch: context.deployBranch || "develop", ready: null, created: null },
         breaking: breakingReport, migrations: migrationsResult, orphans: { cleaned: [], pending: orphanPending },
         events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },

@@ -33,6 +33,8 @@ export function createContext(overrides = {}) {
     labelStyle: null,        // 상태 라벨 표기 (#776). null=미설정(신규 en / 기존 레포 ko)
     excludedWorkflows: null, // 설치하지 않을 워크플로우 파일명 (#810). null=없음
     storeLocales: null,      // 스토어 릴리스 노트 언어 (#829). null=미설정 → 현행 동작 유지
+    storeLocalesIos: null,   // App Store 만 언어 구성이 다를 때 (#829). null=공통 store_locales 를 쓴다
+    storeLocalesPlay: null,  // Play 만 언어 구성이 다를 때 (#829)
     appRelease: null,        // 앱 심사 배포 레포인가 (#553). null=미설정(키 기록 안 함)
     templateVersion: "",
     tempDir: "",

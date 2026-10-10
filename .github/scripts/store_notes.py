@@ -11,6 +11,7 @@
 #
 # 켜는 법
 #   version.yml  metadata.template.options.store_locales: ["ko-KR", "en-US", "ja-JP", "zh-CN"]
+#   스토어마다 언어가 다르면 store_locales_ios / store_locales_play 로 그 스토어만 따로 적는다(없으면 공통).
 #   첫 항목이 기본 언어. **키가 없으면 이 스크립트는 아무것도 하지 않는다** — 기존 사용자는
 #   지금과 똑같이 동작한다(호출부가 "enabled": false 를 보고 옛 경로를 그대로 탄다).
 #
@@ -74,12 +75,12 @@ def store_code(platform: str, locale: str) -> str:
     return CANONICAL_TO_IOS.get(c, c) if platform == "ios" else c
 
 
-def read_store_locales(version_yml_text: str) -> list[str]:
-    """version.yml 의 options.store_locales. 없으면 빈 목록 — 호출부는 옛 동작을 유지한다."""
+def _read_list(version_yml_text: str, key: str) -> list[str] | None:
+    """options.<key> 인라인 배열. 키가 없으면 None, 있으면 정본 표기로 모은 중복 없는 목록."""
     for line in version_yml_text.splitlines():
         if line.lstrip().startswith("#"):
             continue
-        m = re.match(r"^\s+store_locales:\s*\[([^\]]*)\]", line)
+        m = re.match(rf"^\s+{key}:\s*\[([^\]]*)\]", line)
         if m:
             raw = [s.strip().strip("\"'") for s in m.group(1).split(",")]
             seen: list[str] = []
@@ -88,7 +89,21 @@ def read_store_locales(version_yml_text: str) -> list[str]:
                 if c and c not in seen:
                     seen.append(c)
             return seen
-    return []
+    return None
+
+
+def read_store_locales(version_yml_text: str, platform: str | None = None) -> list[str]:
+    """이 스토어가 쓸 언어 목록. 없으면 빈 목록 — 호출부는 옛 동작을 유지한다.
+
+    스토어마다 언어 구성이 다를 수 있다. store_locales_ios / store_locales_play 가 있으면 그 스토어는
+    그것을 쓰고, 없으면 공통 store_locales. App Store 에 없는 언어를 목록에 두면 deliver 가 그 언어를
+    앱에 새로 활성화해 버리므로(fastlane 소스 확인) 스토어별로 좁힐 수 있어야 한다.
+    """
+    if platform in ("ios", "play"):
+        own = _read_list(version_yml_text, f"store_locales_{platform}")
+        if own:
+            return own
+    return _read_list(version_yml_text, "store_locales") or []
 
 
 def locale_text(release: dict | None, locale: str, default_text: str) -> tuple[str, str]:
@@ -125,14 +140,14 @@ def _read(path: str | None) -> str:
 
 def cmd_locales(args) -> dict:
     ws = Path(args.workspace)
-    locales = read_store_locales(_read(str(ws / "version.yml")))
+    locales = read_store_locales(_read(str(ws / "version.yml")), args.platform)
     return {"enabled": bool(locales), "default": locales[0] if locales else None,
             "locales": [{"locale": l, "code": store_code(args.platform, l)} for l in locales]}
 
 
 def cmd_write(args) -> dict:
     ws = Path(args.workspace)
-    locales = read_store_locales(_read(str(ws / "version.yml")))
+    locales = read_store_locales(_read(str(ws / "version.yml")), args.platform)
     if not locales:
         # 키가 없으면 아무것도 하지 않는다 — 기존 사용자의 동작을 바꾸지 않는 약속
         return {"enabled": False}

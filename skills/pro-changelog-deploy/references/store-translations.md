@@ -11,11 +11,18 @@
 
 ## 대상 언어 정하기
 
-`version.yml`의 `metadata.template.options.store_locales`를 Read로 읽는다. 예: `["ko-KR", "en-US", "ja-JP", "zh-CN"]`.
+`version.yml`의 `metadata.template.options`에서 아래 키를 Read로 읽는다. 예: `store_locales: ["ko-KR", "en-US", "ja-JP", "zh-CN"]`.
 
-- **첫 항목이 기본 언어**다. 방금 쓴 노트가 이 언어다. 번역하지 않는다.
-- 나머지 항목이 번역 대상이다. 위 예시면 `en-US`, `ja-JP`, `zh-CN` 세 개.
-- 키가 없거나 항목이 하나면 번역 단계를 **건너뛴다.**
+| 키 | 뜻 |
+|---|---|
+| `store_locales` | 두 스토어 공통 언어 목록 |
+| `store_locales_ios` | (선택) App Store만 다를 때 — 있으면 App Store는 이 목록 |
+| `store_locales_play` | (선택) Play만 다를 때 — 있으면 Play는 이 목록 |
+
+- **첫 항목이 기본 언어**다. 방금 쓴 노트가 이 언어다. 번역하지 않는다. 스토어별 목록도 첫 항목을 같은 기본 언어로 둔다.
+- 번역 대상은 **세 키에 나온 언어를 모두 합친 것에서 기본 언어를 뺀 것**이다. 한 스토어에만 있는 언어도 그 스토어가 쓰므로 번역한다. 예: 공통 `[ko-KR, en-US]`, play `[ko-KR, en-US, ja-JP]`이면 `en-US`, `ja-JP`.
+- 모든 키가 없거나 합쳐서 기본 언어뿐이면 번역 단계를 **건너뛴다.**
+- 승인 화면에는 번역마다 어느 스토어에서 쓰이는지(`App Store`/`Play`/`둘 다`) 한 줄로 밝힌다.
 - 기본 언어가 한국어가 아닌 레포면 방금 쓴 노트(한국어)가 기본 언어가 아닐 수 있다. 이때는 멈추고 사용자에게 기본 언어 노트를 어느 언어로 쓸지 묻는다.
 
 ## 번역 규칙
