@@ -2528,25 +2528,47 @@ def _record_server_facts(name: str, base_cmd: list[str], env: dict) -> None:
 
 
 def cmd_ssh(args) -> int:
-    """저장된 서버 자격증명으로 원격 명령을 실행한다. 비밀번호는 명령줄·출력에 드러나지 않는다.
+    """원격 명령을 실행한다 — 저장된 서버(--cred)나, 저장 없이 직접 넘긴 접속 정보(--host …)로.
 
     --sudo 면 원격에서 `SUDO <명령>` 을 쓸 수 있다 (비밀번호가 필요한 sudo, PATH 에 /usr/local/bin 포함).
+    직접 넘긴 값(--host · --port · --user · --password · --password-env · --key-path)은 저장하지 않고,
+    --cred 와 함께 주면 그 값이 저장된 값보다 우선한다. 출력의 비밀번호는 가린다.
     """
-    # 서버 기억은 이 서버 것만 싣는다 — key 는 server.<자격증명 이름>.* (기억 원칙 1)
+    # 서버 기억은 이 서버 것만 싣는다 — key 는 server.<자격증명 이름>.* (기억 원칙 1). 저장 없는 접속은 기억하지 않는다
     if args.cred:
         _set_area("server", _root(args), key_prefix=_server_prefix(args.cred))
     cred, err = _load_cred(args.cred)
     if err:
         return out(err)
+    adhoc = {k: v for k, v in (("host", args.host), ("port", args.port), ("user", args.user),
+                                ("key_path", args.key_path)) if v not in (None, "")}
+    if args.password_env:
+        if args.password_env not in os.environ:
+            return out({"ok": False, "code": "env_not_set",
+                        "error": f"환경변수 {args.password_env} 가 비어 있습니다"})
+        adhoc["password"] = os.environ[args.password_env]
+    elif args.password:
+        adhoc["password"] = args.password
+    if adhoc:
+        # 직접 넘긴 비밀번호면 저장된 key_path 가, 직접 넘긴 key 면 저장된 password 가 끼어들지 않게 한다
+        base = dict(cred or {})
+        if "password" in adhoc:
+            base.pop("key_path", None)
+        if "key_path" in adhoc:
+            base.pop("password", None)
+        cred = {**base, **adhoc, "name": (cred or {}).get("name") or "(저장 안 함)"}
     if not cred:
-        return out({"ok": False, "code": "cred_required", "error": "--cred 가 필요합니다",
-                    "next": "cred list"})
+        return out({"ok": False, "code": "cred_required",
+                    "error": "저장된 서버(--cred) 나 접속 정보(--host --user …)가 필요합니다",
+                    "next": "cred list  # 또는 ssh --host <호스트> --port <포트> --user <계정> "
+                            "--password-env <변수> | --key-path <키 파일> --command '…'"})
     if not args.command:
         return out({"ok": False, "code": "command_required", "error": "--command 가 필요합니다"})
     host, user = cred.get("host"), cred.get("user")
+    label = args.cred or host or "(저장 안 함)"
     if not host:
         return out({"ok": False, "code": "host_missing",
-                    "error": f"'{args.cred}' 에 host 가 없습니다 (cred set 으로 host·user 를 적는다)"})
+                    "error": f"'{label}' 에 host 가 없습니다 (--host 를 주거나 cred set 으로 host·user 를 적는다)"})
     password = cred.get("password")
     key_path = cred.get("key_path")
     dest = f"{user}@{host}" if user else host
@@ -2584,13 +2606,17 @@ def cmd_ssh(args) -> int:
     stdout = credentials.mask(r.stdout, cred)
     stderr = credentials.mask(r.stderr, cred)
     ok = r.returncode == 0
-    if ok:
+    if ok and args.cred and not adhoc:
         _record_server_facts(args.cred, argv_prefix + ssh + [dest], env)
+    hint = ("stderr 를 보고 명령·접속 정보를 고친다" + (" (cred show --name)" if args.cred else ""))
+    if ok and adhoc and not args.cred:
+        hint = ("자주 쓰는 서버면 cred set --name <이름> --json "
+                "'{\"kind\":\"ssh\",\"host\":…,\"port\":…,\"user\":…,\"use_when\":…}' 로 저장해 두면 다음부터 이름만 쓴다")
     return out({"ok": ok, "code": "ok" if ok else "ssh_failed", "exit_code": r.returncode,
                 "stdout": stdout[:args.max_output], "stderr": stderr.strip()[:1000] or None,
                 "truncated": len(stdout) > args.max_output,
-                "summary": f"{args.cred}: " + ("실행 완료" if ok else f"실패 (종료코드 {r.returncode})"),
-                "next": None if ok else "stderr 를 보고 명령·접속 정보를 고친다 (cred show --name)"})
+                "summary": f"{label}: " + ("실행 완료" if ok else f"실패 (종료코드 {r.returncode})"),
+                "next": hint if (not ok or adhoc) else None})
 
 
 # =========================================================================
@@ -3310,8 +3336,14 @@ def build_parser() -> argparse.ArgumentParser:
     # 실행할 명령은 `--` 뒤에 둔다. main() 이 파서 전에 잘라 args.command 로 넣는다.
     p.set_defaults(func=cmd_local, command=[])
 
-    p = sub.add_parser("ssh", help="저장된 서버 자격증명으로 원격 명령을 실행한다")
-    p.add_argument("--cred", default=None, help="자격증명 이름 (cred list)")
+    p = sub.add_parser("ssh", help="원격 명령을 실행한다 (저장된 서버 --cred, 또는 저장 없이 --host 로 직접)")
+    p.add_argument("--cred", default=None, help="저장된 서버 자격증명 이름 (cred list)")
+    p.add_argument("--host", default=None, help="저장 없이 직접 접속: 호스트 (--cred 와 함께 주면 그 값을 덮어쓴다)")
+    p.add_argument("--port", type=int, default=None, help="SSH 포트")
+    p.add_argument("--user", default=None, help="계정")
+    p.add_argument("--password", default=None, help="비밀번호 (기록에 남아도 되는 환경일 때. 아니면 --password-env)")
+    p.add_argument("--password-env", dest="password_env", default=None, help="비밀번호를 읽을 환경변수 이름")
+    p.add_argument("--key-path", dest="key_path", default=None, help="개인키(PEM) 파일 경로 — 비밀번호 대신")
     p.add_argument("--command", default=None, help="원격에서 실행할 명령")
     p.add_argument("--sudo", action="store_true", help="원격에서 SUDO <명령> 을 쓸 수 있게 한다 (비밀번호 sudo)")
     p.add_argument("--timeout", type=int, default=60)

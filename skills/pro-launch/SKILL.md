@@ -142,7 +142,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web route --clear
   `render_failed` 는 `output_tail` 로 고치고, `residue` 는 **네가 만든 것만** 지운다(`references/render.md`).
 - 서버에 붙는 법은 코드를 읽어 정하고 `access set` 에 적는다. `http --url /경로` · `db --profile db --sql …` · `logs --tail 100`.
 - 서버·DB·로그인 화면을 만지기 전, "사용자가 직접 로그인해야 한다"고 말하기 전에 **`cred list` 를 먼저 본다.**
-  `use_when` 이 맞는 것만 쓰고, 새 정보는 저장해도 되는지 묻고 `cred set`. 원격은 `ssh --cred 이름 --command '…'`,
+  `use_when` 이 맞는 것만 쓰고, 새 정보는 저장해도 되는지 묻고 `cred set`. 원격은 `ssh --cred 이름 --command '…'`(저장 없이는 `ssh --host … --user … --password-env|--key-path …`),
   이 맥 관리자 권한은 `local sudo --cred 이름 -- <명령>`(첫 등록은 사용자가 `cred set --prompt` 로 직접). 상세는 `references/credentials.md`.
 - **응답에 `memory` 가 오면 먼저 읽고 그 방식부터 쓴다**(자동으로 실린다 — recall 을 따로 부를 필요 없다). 썼으면 `learn --key <그 key> --result ok|fail`,
   `learn_hint` 가 오면 막혔다 풀린 방식을 `learn` 으로 남긴다. 레포와 무관한 방법은 `--scope machine`.

@@ -133,3 +133,59 @@ def test_import_ssh_prune_은_백업한_뒤_가져온_서버만_옛_섹션에서
 def test_ssh_connect_는_환경변수_비밀번호를_쓰고_출력에서_가린다():
     src = (HERE.parents[1] / "pro-ssh" / "scripts" / "ssh_connect.py").read_text(encoding="utf-8")
     assert "SSH_PASSWORD" in src and '"***"' in src and "launch_cli.py ssh" in src
+
+
+# ── 저장 없이 직접 접속 (일회성) — pro-ssh 가 원래 하던 일을 잃지 않는다 ──────────────
+
+def _recording_ssh(tmp_path: Path) -> Path:
+    """받은 인자와 환경변수 SSHPASS 를 파일에 적는 가짜 ssh/sshpass."""
+    b = tmp_path / "rbin"
+    b.mkdir(exist_ok=True)
+    (b / "ssh").write_text('#!/bin/bash\ncat > /dev/null\necho "$@" > "$REC"\necho ok\n')
+    (b / "sshpass").write_text('#!/bin/bash\necho "SSHPASS=$SSHPASS" > "$REC.pw"\nshift\nexec "$@"\n')
+    for f in ("ssh", "sshpass"):
+        (b / f).chmod(0o755)
+    return b
+
+
+def test_저장_없이_host_user_key_로_바로_접속한다(home, tmp_path):
+    rec = tmp_path / "rec"
+    r = run(home, "ssh", "--host", "h.example", "--port", "2222", "--user", "me", "--key-path", "/k/id",
+            "--command", "uptime", path_prepend=_recording_ssh(tmp_path), env_extra={"REC": str(rec)})
+    assert r["ok"] is True and r["summary"].startswith("h.example")
+    args = rec.read_text()
+    assert "-p 2222" in args and "-i /k/id" in args and "me@h.example" in args and "uptime" in args
+    assert "cred set" in r["next"]                       # 자주 쓰면 저장하라고 알려 준다
+    # 저장하지 않았다
+    cfg = home / ".projectops" / "config" / "config.json"
+    assert not cfg.exists() or "h.example" not in cfg.read_text()
+
+
+def test_저장_없이_비밀번호는_환경변수나_인자로_받고_출력에서_가린다(home, tmp_path):
+    rec = tmp_path / "rec"
+    r = run(home, "ssh", "--host", "h", "--user", "u", "--password-env", "MY_PW", "--command", "echo pw-ZZZ-9999",
+            path_prepend=_recording_ssh(tmp_path), env_extra={"REC": str(rec), "MY_PW": "pw-ZZZ-9999"})
+    assert r["ok"] is True
+    assert (tmp_path / "rec.pw").read_text().strip() == "SSHPASS=pw-ZZZ-9999"     # sshpass -e 로 전달
+    assert "pw-ZZZ-9999" not in json.dumps(r)                                    # 응답에서는 가려진다
+    r2 = run(home, "ssh", "--host", "h", "--user", "u", "--password", "inline-PW-1", "--command", "true",
+             path_prepend=_recording_ssh(tmp_path), env_extra={"REC": str(rec)})
+    assert r2["ok"] is True and "inline-PW-1" not in json.dumps(r2)
+
+
+def test_비어_있는_환경변수와_host_없는_접속은_이유를_알려_준다(home, tmp_path):
+    r = run(home, "ssh", "--host", "h", "--password-env", "NOPE_NOT_SET", "--command", "true")
+    assert r["code"] == "env_not_set"
+    r = run(home, "ssh", "--user", "u", "--command", "true")
+    assert r["code"] == "host_missing"
+    r = run(home, "ssh", "--command", "true")
+    assert r["code"] == "cred_required" and "--host" in r["error"]
+
+
+def test_cred_와_함께_준_값은_저장된_값보다_우선한다(home, tmp_path):
+    _key_cred(home)                                          # host h.example, user u, key
+    rec = tmp_path / "rec"
+    r = run(home, "ssh", "--cred", "nas", "--port", "2022", "--command", "true",
+            path_prepend=_recording_ssh(tmp_path), env_extra={"REC": str(rec)})
+    assert r["ok"] is True and "-p 2022" in rec.read_text() and "u@h.example" in rec.read_text()
+    assert r["summary"].startswith("nas")

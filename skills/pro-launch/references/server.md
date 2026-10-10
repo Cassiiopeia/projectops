@@ -92,6 +92,6 @@ DB_PASSWORD=... ... db --profile db --sql "select count(*) from ..."
   안 보이면 서버 로그를 본다.
 - 비밀번호·토큰은 `access.json`·보고·커밋에 적지 않는다. 사용자에게 받으면 **`cred set` 으로 저장**해 다음에 다시 묻지 않는다
   (`~/.projectops/config/config.json` 의 `launch.credentials`, 파일 권한 600).
-- 저장된 서버에는 `ssh --cred 이름 [--sudo] --command '…'` 로 들어간다. 비밀번호는 명령줄이 아니라 표준입력·환경변수로만 가고,
+- 서버에는 `ssh --cred 이름 [--sudo] --command '…'`(저장된 서버)로, 또는 저장 없이 `ssh --host H --port P --user U --password-env 변수|--key-path 키 --command '…'` 로 들어간다. 비밀번호는 명령줄이 아니라 표준입력·환경변수로만 가고,
   서버가 되풀이해 찍어도 출력에서 `***` 로 가려진다. 비밀번호 접속에는 `sshpass` 가 필요하다.
 - 서버 호출 전에 `cred list` 의 `use_when` · `scope` · `notes` 를 읽고 그 안에서만 쓴다.

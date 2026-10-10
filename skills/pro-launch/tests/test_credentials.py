@@ -20,8 +20,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 import credentials  # noqa: E402
 
 
-def run(home: Path, *args, path_prepend: Path | None = None, stdin: str | None = None):
-    env = {**os.environ, "PYTHONIOENCODING": "utf-8", "HOME": str(home), "USERPROFILE": str(home)}
+def run(home: Path, *args, path_prepend: Path | None = None, stdin: str | None = None,
+        env_extra: dict | None = None):
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8", "HOME": str(home), "USERPROFILE": str(home),
+           **(env_extra or {})}
     if path_prepend:
         env["PATH"] = f"{path_prepend}{os.pathsep}{env['PATH']}"
     r = subprocess.run([sys.executable, str(CLI), *map(str, args)], capture_output=True, text=True, env=env,
