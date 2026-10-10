@@ -88,7 +88,7 @@ test("이 레포의 AGENTS.md 는 추적되는 스킬을 빠짐없이 안내한�
 });
 
 test("템플릿 전용 안내 파일은 사용자 프로젝트로 복사되지 않는다", () => {
-  for (const f of ["AGENTS.md", "GEMINI.md", "llms.txt"]) assert.ok(DOCS_TO_REMOVE.includes(f), `${f} 가 복사 제외 목록에 없다`);
+  for (const f of ["AGENTS.md", "GEMINI.md", "llms.txt", "CODE_OF_CONDUCT.md"]) assert.ok(DOCS_TO_REMOVE.includes(f), `${f} 가 복사 제외 목록에 없다`);
   const initializer = readFileSync(new URL("../.github/scripts/template_initializer.py", import.meta.url), "utf8");
-  for (const f of ["AGENTS.md", "GEMINI.md", "llms.txt"]) assert.ok(initializer.includes(`("${f}"`), `${f} 가 initializer 삭제 목록에 없다`);
+  for (const f of ["AGENTS.md", "GEMINI.md", "llms.txt", "CODE_OF_CONDUCT.md"]) assert.ok(initializer.includes(`("${f}"`), `${f} 가 initializer 삭제 목록에 없다`);
 });

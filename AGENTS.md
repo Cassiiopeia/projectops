@@ -81,7 +81,7 @@ Other IDEs: `npx projectops --mode skills`.
 ## Repository safety
 
 This repository is also the source that initializes other projects. Agent package files belong here
-but must not reach generated projects: `AGENTS.md`, `GEMINI.md`, `llms.txt`, `gemini-extension.json`,
+but must not reach generated projects: `AGENTS.md`, `GEMINI.md`, `llms.txt`, `CODE_OF_CONDUCT.md`, `gemini-extension.json`,
 `.agents/`, `.claude-plugin/`, `.codex-plugin/`, `.cursor/`, `skills/`.
 They are removed by `.github/scripts/template_initializer.py` and skipped by `src/core/exclusions.js`.
 Be careful when editing those two files and `.github/workflows/`.
