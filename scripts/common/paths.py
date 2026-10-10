@@ -34,9 +34,8 @@ def build_output_path(
 # ===================================================================
 # 산출물 경로 해석 (#525) — Layer 1 단일 구현
 # ===================================================================
-# 과거에는 report/review/troubleshoot 세 CLI가 같은 로직을 각자 복사해 갖고
-# 있었고, 나머지 5개 산출물 스킬(analyze/plan/design-analyze/refactor-analyze/
-# ppt)은 계산 수단조차 없어 "agent가 직접 계산"하는 상태였다. 규칙이 코드로
+# 과거에는 report/review 등 여러 CLI가 같은 로직을 각자 복사해 갖고 있었고,
+# 나머지 산출물 스킬은 계산 수단조차 없어 "agent가 직접 계산"하는 상태였다. 규칙이 코드로
 # 강제되지 않으니 스킬마다 파일명이 갈라져도 알아챌 방법이 없었다.
 # 이 함수가 유일한 구현이며, 모든 스킬 CLI는 이것을 호출한다.
 
@@ -87,9 +86,11 @@ EVIDENCE_SKILLS = frozenset({
     "design-brief",   # 요청서 보드 · 상태별 캡처 (#634)
 })
 
+# 사라진 스킬(design-analyze·refactor-analyze·ppt·troubleshoot·pr)은 뺐다 (#822).
+# 남겨 두면 없는 스킬 이름으로도 산출물 폴더가 만들어진다.
 DOCUMENT_SKILLS = frozenset({
-    "analyze", "design-analyze", "implement", "issue", "note", "oss-consult", "plan", "ppt",
-    "pr", "refactor-analyze", "report", "review", "testcase", "troubleshoot",
+    "analyze", "implement", "issue", "note", "oss-consult", "plan",
+    "report", "review", "testcase",
 })
 
 
@@ -117,11 +118,16 @@ def ensure_untracked(dir_path: Union[str, Path], skill_id: str) -> str:
     return "created"
 
 
-def resolve_output_path(skill_id: str, forced_title: Optional[str] = None) -> dict:
+def resolve_output_path(skill_id: str, forced_title: Optional[str] = None,
+                        use_issue_number: bool = True) -> dict:
     """산출물 md 경로를 계산해 dict로 반환한다 (CLI가 그대로 emit한다).
 
     이슈 번호는 worktree 경로 → 브랜치명 순으로 찾고, 둘 다 없으면
     그날의 일련번호를 붙인다. 제목은 인자 우선, 없으면 경로에서 추출한다.
+
+    use_issue_number=False 면 브랜치·worktree 번호를 쓰지 않고 일련번호만 붙인다.
+    새 이슈 문서처럼 **아직 번호가 없는 산출물**이 지금 브랜치의 이슈 번호를
+    빌려 가면 다른 이슈 파일과 이름이 겹친다 (#822).
     """
     import subprocess
     from datetime import date
@@ -149,6 +155,8 @@ def resolve_output_path(skill_id: str, forced_title: Optional[str] = None) -> di
     branch = get_current_branch()
     br_number = extract_from_branch(branch) if branch else None
     issue_num, mismatch = resolve(wt_number, br_number)
+    if not use_issue_number:
+        issue_num, mismatch = None, False
 
     try:
         root_str = subprocess.run(

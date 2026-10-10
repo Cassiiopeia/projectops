@@ -1,6 +1,6 @@
 # 산출물 경로 규칙
 
-이 reference는 `analyze`, `plan`, `note`, `report`, `review` skill이 md 산출물을 저장할 때 반드시 따르는 규칙이다.
+이 reference는 `analyze`, `plan`, `note`, `report`, `review`, `issue`(pro-github) skill이 md 산출물을 저장할 때 반드시 따르는 규칙이다.
 
 ## 저장 전 경로 계산
 
@@ -16,6 +16,7 @@ skill별 호출 위치 매핑 — **산출물 스킬 전부 자기 CLI를 갖는
 | review | `skills/pro-review/scripts/` | `review_cli.py` |
 | note | `skills/pro-note/scripts/` | `note_cli.py` |
 | report | `skills/pro-report/scripts/` | `report_cli.py` |
+| issue | `skills/pro-github/scripts/` | `github_cli.py get-output-path issue --title "{제목}"` (프로젝트 루트에서 호출. 등록 전이라 이슈 번호 대신 그날 일련번호가 붙고, 이슈 브랜치 위에서도 그 번호를 빌리지 않는다 — #822) |
 | agent-test | `skills/pro-launch/scripts/` | `launch_cli.py get-output-path --skill agent-test` (**md 가 아니라 실행 폴더**를 돌려준다 — 아래 참조. 실행·캡처가 pro-launch 로 옮겨 가며 자리를 여는 것도 그쪽이 한다, #631) |
 | launch | `skills/pro-launch/scripts/` | `launch_cli.py get-output-path` (실행 폴더 — 다른 증거 스킬은 `--skill <id>`) |
 

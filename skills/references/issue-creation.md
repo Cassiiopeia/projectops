@@ -46,30 +46,32 @@
 
 ## 허용 이모지+태그 규칙
 
-`.github/ISSUE_TEMPLATE/` 폴더가 존재하면 파일들을 읽어 허용 조합을 파싱한다. 없으면 아래 기본값을 사용한다.
+`.github/ISSUE_TEMPLATE/` 폴더가 존재하면 파일들을 읽어 허용 조합을 파싱한다. 없으면 아래 기본값(영문)을 사용한다.
 
 > **언어는 대상 레포의 템플릿을 따른다.** 대상 레포의 `.github/ISSUE_TEMPLATE/`를 읽어 그 템플릿의 언어, 절 제목, 허용 태그를 그대로 쓴다. 한글 템플릿이면 한글 절 제목과 태그(`❗[버그]`)를, 영문 템플릿이면 영문(`❗[Bug]`)을 쓴다. 템플릿이 없으면 영문으로 쓴다. 두 언어의 태그는 모두 커밋 타입과 매핑된다 (아래 표 참고).
 
 **주요 태그** (타입 결정, 하나만 선택):
 
-| 이모지+태그 | 용도 |
-|-------------|------|
-| `❗[버그]` | 버그 리포트 |
-| `🎨[디자인]` | 디자인/UI 요청 |
-| `🔧[기능요청]` | 기능 요청 |
-| `⚙️[기능추가]` | 새 기능 추가 |
-| `🚀[기능개선]` | 기존 기능 개선 |
-| `🔍[시험요청]` | QA/테스트 요청 |
+| 영문 (기본) | 한글 | 용도 |
+|-------------|------|------|
+| `❗[Bug]` | `❗[버그]` | 버그 리포트 |
+| `🎨[Design]` | `🎨[디자인]` | 디자인/UI 요청 |
+| `🔧[Feature Request]` | `🔧[기능요청]` | 기능 요청 |
+| `⚙️[Feature]` | `⚙️[기능추가]` | 새 기능 추가 |
+| `🚀[Improvement]` | `🚀[기능개선]` | 기존 기능 개선 |
+| `🔍[QA]` | `🔍[시험요청]` | QA/테스트 요청 |
 
 **수식어 태그** (선택적, 주요 태그 앞에 붙임):
 
-| 이모지+태그 | 조건 |
-|-------------|------|
-| `🔥[긴급]` | 사용자가 "긴급"이라 명시할 때만 |
-| `📄[문서]` | 문서 관련일 때 |
-| `⌛[~월/일]` | 마감일이 있을 때 |
+| 영문 (기본) | 한글 | 조건 |
+|-------------|------|------|
+| `🔥[Urgent]` | `🔥[긴급]` | 사용자가 "긴급"이라 명시할 때만 |
+| `📄[Docs]` | `📄[문서]` | 문서 관련일 때 |
+| `⌛[~month/day]` | `⌛[~월/일]` | 마감일이 있을 때 |
 
 **규칙**: 이모지와 `[` 사이에 공백 없음. 위 목록에 없는 이모지 사용 금지.
+
+> 템플릿 주석의 복사용 예시는 `❗ [Bug][Category]`처럼 공백을 넣어 두었지만, **제목에는 붙여 쓴다** (`❗[Bug][Category]`). 이 레포에 실제 등록된 이슈 제목이 전부 붙여 쓴 형태이고, 공백이 있든 없든 이슈 헬퍼·커밋 템플릿이 태그를 똑같이 걷어 내므로 동작 차이는 없다 — 표기만 하나로 맞춘다.
 
 ## 절대 금지
 
@@ -79,8 +81,7 @@
 - `🔥[긴급]` 임의 추가 (사용자가 명시할 때만)
 - 담당자 임의 채우기
 - 이모지와 `[` 사이 공백
-- 이슈 상태(open/closed) 임의 변경 — 사용자가 명시적으로 요청할 때만
-- 이슈 라벨 임의 변경 — 사용자가 명시적으로 요청할 때만
+- 생성 단계에서 템플릿 기본 라벨(`status: todo`) 외의 상태 라벨을 붙이거나 이슈를 닫는 것. 이후 작업 시작(`status: in progress`)·완료(`status: done` 후 close)·취소(`status: cancelled` 후 close) 전환은 `common-rules.md` §이슈 상태 처리 규칙을 따른다
 - 자동 모드에서 중복 검사(2-1, 4-1) 스킵 — auto_approve라도 중복 검사는 항상 실행. open 동일 이슈 발견 시 무조건 중단
 - config 키 이름·파일 경로를 사용자 메시지에 노출
 
@@ -95,7 +96,7 @@
 | **디자인** | 디자인, UI, UX, 폰트, 색상, 레이아웃 | `design_request` |
 | **QA** | 테스트, QA, 시험, 검증, 확인 | `qa_request` |
 
-**기능 세분류**: `🔧[기능요청]`(요청/검토), `⚙️[기능추가]`(완전히 새 기능), `🚀[기능개선]`(기존 개선).
+**기능 세분류**: `🔧[Feature Request]`/`🔧[기능요청]`(요청/검토), `⚙️[Feature]`/`⚙️[기능추가]`(완전히 새 기능), `🚀[Improvement]`/`🚀[기능개선]`(기존 개선).
 
 ### 2단계: 이슈 제목 생성
 
@@ -103,7 +104,7 @@
 [이모지+태그][카테고리] 제목 (50자 이내)
 ```
 
-예시: `⚙️[기능추가][Skills] github 스킬 이슈 편집 서브커맨드 보강`
+예시: `⚙️[Feature][Skills] Add issue edit subcommands to the github skill` (한글 템플릿 레포: `⚙️[기능추가][Skills] github 스킬 이슈 편집 서브커맨드 보강`)
 
 **제목 문장부호 규칙 (필수)**: 키보드로 바로 못 치는 특수 문장부호는 "AI가 만든 티"가 나므로 제목에서 쓰지 않는다.
 
@@ -158,10 +159,26 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py search-issues {owner} {repo} "{�
 
 ### 4단계: 로컬 파일 먼저 저장
 
-`doc-output-path.md` 규칙을 따른다. 경로를 agent가 직접 계산한다:
-- 형식: `{PROJECT_ROOT}/docs/projectops/issue/YYYYMMDD_{이슈번호}_{정규화된제목}.md`
-- 이슈 번호는 GitHub 등록 전이므로 임시로 `TMP1`, `TMP2`… 사용 (등록 후 실제 번호로 rename)
-- 제목 정규화: `github_cli.py`의 `normalize-title`을 쓰거나 agent가 직접(특수문자 제거, 공백→`_`, 50자 이내)
+`doc-output-path.md` 규칙을 따른다. **경로를 직접 조립하지 않고** `github_cli.py get-output-path issue`가 돌려준 `path`를 그대로 쓴다 (산출물 루트는 설정으로 바뀐다):
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
+[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
+SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+cd "$PROJECT_ROOT" || exit 1   # 경로는 현재 레포 기준으로 계산되므로 프로젝트 루트에서 부른다
+PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/github_cli.py" get-output-path issue --title "{이슈 제목}"
+```
+
+- 출력 JSON의 `path` 예: `<산출물 루트>/issue/YYYYMMDD_001_제목.md`
+- 등록 전이라 이슈 번호 대신 **그날의 일련번호**(`001`, `002`…)가 붙는다. 이슈 브랜치 위에서 실행해도 그 브랜치 번호를 빌려 쓰지 않는다. `TMP` 접두사는 쓰지 않는다 (`common-rules.md` §이슈 MD 파일명 규칙)
+- 제목의 이모지·`[태그]`는 파일명에서 자동으로 빠진다
 
 **저장 직전**: `common-rules.md`의 **파일 저장 직전 자체검토 프로토콜**로 본문 전체를 검토. 민감 정보 발견 시 마스킹.
 
@@ -175,9 +192,9 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py search-issues {owner} {repo} "{�
 🤖 이 레포는 확인 없이 바로 등록되도록 설정돼 있어 안내드리고 GitHub에 등록합니다.
    (다시 매번 확인받고 싶으시면 "확인받게 해줘"라고 말씀해주세요.)
 
-이슈 파일: docs/projectops/issue/20260710_TMP1_제목.md
-제목: ⚙️[기능추가][Skills] ...
-라벨: 작업전
+이슈 파일: {get-output-path 가 돌려준 경로}
+제목: ⚙️[Feature][Skills] ...
+라벨: status: todo
 담당자: {ASSIGNEE}
 
 GitHub에 등록합니다.
@@ -188,10 +205,10 @@ GitHub에 등록합니다.
 #### B. 수동 모드 (`AUTO_APPROVE == false`)
 
 ```
-이슈 파일을 생성했습니다: docs/projectops/issue/20260710_222_제목.md
+이슈 파일을 생성했습니다: {get-output-path 가 돌려준 경로}
 
-제목: ⚙️[기능추가][Skills] ...
-라벨: 작업전
+제목: ⚙️[Feature][Skills] ...
+라벨: status: todo
 담당자: {ASSIGNEE}
 
 내용을 확인해주세요. GitHub에 등록할까요?
@@ -282,7 +299,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py create-issue {owner} {repo} "{제
 
 출력 JSON: `{"number":...,"url":...,"title":...,"assignees":[...]}`. 존재하지 않는 라벨은 자동 필터링되어 422가 나지 않는다. 요청한 담당자가 반영되지 않으면 `assignee_warning`이 들어오며, 이슈는 정상 생성된 것이므로 중단하지 않고 그 경고만 자연어로 전달한다.
 
-반환된 실제 번호로 로컬 파일의 임시 번호(`TMP1` 등)를 rename한다.
+반환된 실제 번호로 로컬 파일명의 일련번호(`001` 등)를 rename한다 (예: `20260710_001_제목.md` → `20260710_245_제목.md`).
 
 ### 6단계: 브랜치명 즉시 계산
 
@@ -292,8 +309,9 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py create-issue {owner} {repo} "{제
 
 ### 7단계: 커밋 템플릿 계산
 
-`github_cli.py`의 `get-commit-template`을 쓰거나 agent가 직접:
-- 형식: `{이슈제목에서 이모지·태그 제거한 순수 내용} : feat : {설명} {이슈URL}`
+`github_cli.py get-commit-template "{이슈 제목}" "{이슈URL}"`을 부르고 출력의 `template`을 **그대로** 쓴다. agent가 직접 조립하지 않는다.
+- 형식: `{이슈제목에서 이모지·태그 제거한 순수 내용} : {타입} : {설명} {이슈URL}`
+- `{타입}`은 제목 태그에서 추론된다 — 버그면 `fix`, 기능이면 `feat`, 문서면 `docs`. `feat`로 고쳐 쓰지 않는다 (`semver_auto` 레포에서 버그 수정이 minor로 오른다)
 
 ### 8단계: 다음 작업 선택지 제시
 
@@ -303,20 +321,20 @@ PYTHONIOENCODING=utf-8 "$PYTHON" github_cli.py create-issue {owner} {repo} "{제
 이슈 URL: {url}
 
 📝 커밋 메시지 템플릿:
-{순수 내용} : feat : {변경사항 설명} {이슈URL}
+{get-commit-template 의 template 그대로}
 (작업 완료 후 /pro-commit 으로 자동 커밋하거나 위 형식으로 직접 커밋하세요)
 
 다음 작업을 선택하세요:
-1. 지금 worktree 생성 (../{브랜치명}/)
+1. 지금 worktree 생성 (/pro-init-worktree)
 2. 브랜치만 생성 (현재 디렉토리에서 작업)
 3. 현재 브랜치에서 그대로 작업 (브랜치 변경 없음)
 4. 나중에 직접 (브랜치명 복사만)
 ```
 
-- **1** → `git worktree add -b {브랜치명} ../{브랜치명}`
-- **2** → `git checkout -b {브랜치명}`
-- **3** / **4** → git 명령 없이 브랜치명만 출력하고 종료
+- **1** → `/pro-init-worktree` 스킬에 브랜치명을 넘겨 위임한다. raw `git worktree add`를 직접 부르지 않는다 — 위치 규칙, 경로의 `#` 처리, 로컬 설정 파일 복사를 그 스킬이 맡는다
+- **2** → `git checkout -b {브랜치명}`. 여러 세션이 같은 트리를 쓰는 레포면 브랜치 전환이 다른 세션도 바꾸므로, 그럴 땐 1을 권한다
+- **3** / **4** → git 명령 없이 브랜치명만 출력하고 종료. 레포가 개발 브랜치 직행(예: develop에서 직접 작업)을 기본으로 정했으면 3을 기본 선택지로 안내한다
 
 ## 산출물 저장
 
-`doc-output-path.md` 규칙을 따라 `docs/projectops/issue/` 하위에 저장한다 (Step 4에서 처리).
+`doc-output-path.md` 규칙을 따라 `github_cli.py get-output-path issue`가 돌려준 경로에 저장한다 (4단계에서 처리).
