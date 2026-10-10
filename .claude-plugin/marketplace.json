@@ -15,8 +15,8 @@
         "source": "url",
         "url": "https://github.com/Cassiiopeia/projectops.git"
       },
-      "description": "Agent skills for the whole development cycle: issues, commits, reports, reviews, builds, QA and release deployment (15 skills)",
-      "version": "4.45.0",
+      "description": "Agent skills for the whole development cycle: issues, commits, reports, reviews, QA and release deployment (15 skills)",
+      "version": "4.45.1",
       "category": "DevOps",
       "keywords": [
         "devops",
