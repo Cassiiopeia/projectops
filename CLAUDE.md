@@ -360,6 +360,7 @@ CLI 플래그와 `version.yml` 옵션의 이름·값·기본값은 **`src/core/o
 - 새 플래그(`src/cli/args.js`)나 `version.yml` 옵션(`parseTemplateOptions`)을 추가하면 **정본에도 반드시 추가한다.**
   `test/options-schema.test.js`가 코드와 정본을 대조해 어긋나면 실패한다.
 - 문서에 옵션 표를 새로 복제하지 않는다 — 복제본은 낡는다. 문서는 정본을 가리킨다.
+- **옵션 값(플래그 > 저장값 > 기본값)은 `src/core/resolve-options.js` 한 곳에서 정한다 (#851).** `index.js`(비대화형)는 결과를 그대로 쓰고, `interactive.js`는 초기값으로 쓴 뒤 사용자가 답한 것만 덮어쓴다. 진입점에 기본값을 다시 적지 않는다 — 두 경로가 갈라져 대화형에서 PR 요약 선택이 버려진 적이 있다. 두 경로 결과 비교: `test/resolve-options.test.js`.
 - 사용자 레포에는 `.github/.projectops/AGENT-GUIDE.md`가 설치된다(`src/core/agent-guide.js`). 옵션 값은 박지 않고 명령만 안내한다.
 - 이 레포의 `AGENTS.md`·`GEMINI.md`·`llms.txt`는 템플릿 전용이라 `exclusions.js`와 `template_initializer.py` 양쪽에서 제외된다.
 
@@ -482,7 +483,7 @@ deploy/publish 축은 **타입에 따라 적용 자체가 안 될 수 있다.** 
 > **⚠️ 워크플로우를 리네임/삭제할 때 (agent 필독, #470)**: 구 이름을 `src/core/migrations/registry.js`에 반드시 추가한다 — 마법사 업데이트가 기존 통합 레포의 구 파일을 자동 무해화(.bak)하는 유일한 경로다(레거시 마이그레이션은 전부 이 레지스트리 한 곳에서 관리). tier는 `safe`(순수 리네임 — 공존 시 중복 실행 실해) / `confirm`(배포 파이프라인일 수 있음 — 자동 조치 없이 안내만) 중 실해 기준으로 고른다. `test/migrations.test.js`가 레지스트리와 현행 배포 세트의 충돌(살아있는 워크플로우 오살)을 자동 검증한다. 구 파일에 사용자 커스텀 설정이 들어있을 수 있으면 registry 항목에 `settingsExtractor`를 지정해 무해화 직전 version.yml로 자동 이관한다 (`rules/settings-extractors.js`, #478 이슈 헬퍼가 모범 사례).
 > 참고: **타입 선택 해제로 남는 고아 워크플로우**는 registry가 아니라 `src/core/orphan-workflows.js`가 동적 감지한다(#487) — registry는 리네임·폐기 전용, 고아 정리는 템플릿 인벤토리 대조(정확한 파일명 일치) 방식이다. 대화형은 확인 후 .bak 무해화, 비대화형은 안내만 출력한다.
 >
-> **⚠️ `common/` 아래에 조건부 폴더를 새로 만들 때 (agent 필독, #567)**: 복사 게이트(`src/core/copy/workflows.js`)와 **고아 감지(`orphan-workflows.js`의 `commonOptionalOrphans`) 두 곳을 함께** 고쳐야 한다. 켜는 쪽만 만들면 **끈 뒤에도 파일이 남아 계속 실행된다** — 사용자에게는 "껐는데 왜 도나"가 된다. 실제로 `secret-backup`·`deploy/<target>`이 오래 그 상태였고 `pr-summary`를 만들면서 드러났다. 회귀 방지: `test/orphan-common.test.js`.
+> **⚠️ `common/` 아래에 조건부 폴더를 새로 만들 때 (agent 필독, #567·#851)**: `src/core/workflow-groups.js`의 `commonOptionalGroups`에 한 줄을 넣는다. 복사 게이트(`copy/workflows.js`)와 고아 감지(`orphan-workflows.js`)가 **같은 표**를 읽는다. 예전에는 두 곳을 따로 고쳐야 했고, 켜는 쪽만 만들어 **끈 뒤에도 파일이 남아 계속 실행되는** 일이 `secret-backup`·`deploy/<target>`에서 실제로 있었다. 표에 빠진 폴더는 `test/workflow-groups.test.js`가 잡는다.
 >
 > **`.github/util/` 모듈 안의 파일을 리네임/폐기할 때도 동일하다 (#500)**: registry에 `category: "util-file"`(tier safe, 정확 경로)로 구 파일을 등록한다 — util 복사(`src/core/copy/util.js`)는 overlay라 구 파일을 지우지 않으므로 registry가 유일한 정리 경로다. `test/migrations.test.js`의 util-file 충돌 테스트가 현행 템플릿 파일 오살을 자동 검증한다.
 >

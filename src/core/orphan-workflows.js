@@ -6,11 +6,12 @@ import { existsSync, renameSync, rmSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { PATHS } from "./paths.js";
 import { exists, listYamlFiles } from "./fsutil.js";
+import { commonOptionalGroups, SERVER_DEPLOY_DIR } from "./workflow-groups.js";
 
 // 템플릿의 project-types/<type>/ 인벤토리 — 직하위 + server-deploy/ + publish/*/ (copy 엔진과 동일 범위)
 function typeInventory(projectTypesDir, type) {
   const typeDir = join(projectTypesDir, type);
-  const dirs = [typeDir, join(typeDir, "server-deploy")];
+  const dirs = [typeDir, join(typeDir, SERVER_DEPLOY_DIR)];
   const pubRoot = join(typeDir, "publish");
   if (exists(pubRoot)) {
     for (const e of readdirSync(pubRoot, { withFileTypes: true })) {
@@ -28,30 +29,14 @@ function typeInventory(projectTypesDir, type) {
 // common/ 아래 "선택했을 때만 복사되는" 폴더들 (#566).
 // 켜면 복사 엔진이 넣어주지만, 끄면 이미 있던 파일이 그대로 남아 계속 실행됐다.
 // 축을 끈 사용자에게는 그게 곧 "껐는데 왜 도나"가 된다 — 여기서 고아로 잡는다.
-// deploy는 타겟별 폴더라 선택된 타겟만 살리고 나머지를 대상으로 삼는다.
+// 켜짐/꺼짐은 복사 엔진과 같은 표(workflow-groups.js)에서 읽는다 (#851).
 function commonOptionalOrphans(commonDir, opts) {
-  const { includeSecretBackup = false, aiPrSummary = true, projectsSync = true, deployTarget = "docker-ssh" } = opts;
   const out = [];
-
-  const gated = [
-    ["secret-backup", includeSecretBackup, "secret-backup"],
-    ["pr-summary", aiPrSummary, "pr-summary"],
-    ["projects-sync", projectsSync, "projects-sync"],
-  ];
-  for (const [dir, enabled, label] of gated) {
-    if (enabled) continue;
-    const d = join(commonDir, dir);
+  for (const group of commonOptionalGroups(commonDir, opts)) {
+    if (group.enabled) continue;
+    const d = join(commonDir, group.dir);
     if (!exists(d)) continue;
-    for (const f of listYamlFiles(d)) out.push({ filename: f, type: label });
-  }
-
-  // deploy/<target> — 선택된 타겟 외 폴더는 전부 고아 후보
-  const deployRoot = join(commonDir, "deploy");
-  if (exists(deployRoot)) {
-    for (const e of readdirSync(deployRoot, { withFileTypes: true })) {
-      if (!e.isDirectory() || e.name === deployTarget) continue;
-      for (const f of listYamlFiles(join(deployRoot, e.name))) out.push({ filename: f, type: `deploy/${e.name}` });
-    }
+    for (const f of listYamlFiles(d)) out.push({ filename: f, type: group.orphanLabel });
   }
   return out;
 }

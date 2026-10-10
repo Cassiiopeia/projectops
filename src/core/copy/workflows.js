@@ -15,6 +15,7 @@ import { substituteBranches } from "../branch-sub.js";
 import { saveIncoming, lineDiffCounts } from "../incoming.js";
 import { branchStatus } from "../git-branch.js";
 import { PUBLISH_TARGETS } from "../constants.js";
+import { commonOptionalGroups, serverDeployEnabled, SERVER_DEPLOY_DIR } from "../workflow-groups.js";
 
 // on: 블록의 브랜치 필터가 전부 develop 뿐인가 (#810).
 // 개발 브랜치가 없는 레포에 깔면 영영 실행되지 않는 워크플로우를 가린다.
@@ -229,76 +230,44 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
     if (asks.size) deployValues.set(type, asks);
   }
 
-  // (4.5) common/deploy/<target> — 타입 비종속 배포 타겟 (vercel 등, #439)
-  const commonDeployDir = join(commonDir, "deploy", deployTarget || "docker-ssh");
-  if (exists(commonDeployDir)) {
-    for (const filename of listYamlFiles(commonDeployDir)) {
-      const src = join(commonDeployDir, filename);
+  // (4.5~5) common/ 아래 선택형 폴더 — deploy/<target>, pr-summary, projects-sync, secret-backup.
+  // 어느 폴더를 켜는지는 workflow-groups.js 한 곳이 정한다 (#851). 고아 감지도 같은 표를 쓴다.
+  //   bak-replace: 템플릿과 같으면 건너뛰고, 다르면 .bak 으로 남기고 교체한다.
+  //   new-only   : 이미 있으면 건드리지 않는다. 새로 깔 때만 레포 이름을 채운다 (#729 — 고정값이면
+  //                모든 프로젝트가 서버의 같은 폴더에 Secret 을 덮어쓴다).
+  for (const group of commonOptionalGroups(commonDir, { includeSecretBackup, aiPrSummary, projectsSync, deployTarget })) {
+    const groupDir = join(commonDir, group.dir);
+    if (!group.enabled || !exists(groupDir)) continue;
+    for (const filename of listYamlFiles(groupDir)) {
+      const src = join(groupDir, filename);
       const dst = join(workflowsDir, filename);
-      if (existsSync(dst) && isUnchanged(readFileSync(src, "utf8"), readFileSync(dst, "utf8"), envOptsFor("common"))) {
-        counters.skipped++;
-        trace?.event("copy", "skipped-unchanged", filename, { group: "common-deploy" });
+      if (group.policy === "new-only") {
+        if (existsSync(dst)) continue;
+        if (skipNew(groupDir, filename, group.copyLabel)) continue;
+        copyFileSync(src, dst);
+        const raw = readFileSync(dst, "utf8");
+        const filled = resolveGlobalTokens(raw, repoName || "my-project");
+        if (filled !== raw) writeFileSync(dst, filled);
+        counters.optionalCopied++;
+        counters.copied++;
+        counters.copiedFiles.push(filename);
+        trace?.event("copy", "copied", filename, { group: group.copyLabel });
         continue;
       }
-      if (skipNew(commonDeployDir, filename, "common-deploy")) continue;
+      if (existsSync(dst) && isUnchanged(readFileSync(src, "utf8"), readFileSync(dst, "utf8"), envOptsFor("common"))) {
+        counters.skipped++;
+        trace?.event("copy", "skipped-unchanged", filename, { group: group.copyLabel });
+        continue;
+      }
+      if (skipNew(groupDir, filename, group.copyLabel)) continue;
       const backedUp = existsSync(dst);
       if (backedUp) renameSync(dst, dst + ".bak");
       copyFileSync(src, dst);
       counters.optionalCopied++;
       counters.copied++;
       counters.copiedFiles.push(filename);
-      trace?.event("copy", backedUp ? "replaced-bak" : "copied", filename, { group: "common-deploy" });
+      trace?.event("copy", backedUp ? "replaced-bak" : "copied", filename, { group: group.copyLabel });
       if (backedUp) counters.replacedBak.push(filename);   // #673
-    }
-  }
-
-  // (4.7) common/pr-summary — AI 변경 요약 (#566). 선택했을 때만 복사한다.
-  // 종전에는 common 본체에 있어 무조건 복사된 뒤 런타임에 스스로 빠졌고, 그 판단이
-  // ".coderabbit.yaml 존재"라 파일만 있고 앱이 없는 저장소에서는 아무도 요약하지 않았다.
-  // (4.8) common/projects-sync — Projects 보드 동기화 (#716). 이것도 선택했을 때만 복사한다.
-  //   Secret(_GITHUB_PAT_TOKEN)과 PROJECT_URL 변수를 등록해야 동작하는데, Projects 를 안 쓰는 레포가
-  //   많아 설치만 되고 설정되지 않은 채 남았다. 같은 폴더 방식이라 게이트와 고아 감지(orphan-workflows.js)를 함께 둔다.
-  for (const [groupName, groupEnabled] of [["pr-summary", aiPrSummary], ["projects-sync", projectsSync]]) {
-  const prSummaryDir = join(commonDir, groupName);
-  if (exists(prSummaryDir) && groupEnabled) {
-    for (const filename of listYamlFiles(prSummaryDir)) {
-      const src = join(prSummaryDir, filename);
-      const dst = join(workflowsDir, filename);
-      if (existsSync(dst) && isUnchanged(readFileSync(src, "utf8"), readFileSync(dst, "utf8"), envOptsFor("common"))) {
-        counters.skipped++;
-        trace?.event("copy", "skipped-unchanged", filename, { group: groupName });
-        continue;
-      }
-      if (skipNew(prSummaryDir, filename, groupName)) continue;
-      const backedUp = existsSync(dst);
-      if (backedUp) renameSync(dst, dst + ".bak");
-      copyFileSync(src, dst);
-      counters.optionalCopied++;
-      counters.copied++;
-      counters.copiedFiles.push(filename);
-      trace?.event("copy", backedUp ? "replaced-bak" : "copied", filename, { group: groupName });
-      if (backedUp) counters.replacedBak.push(filename);   // #673
-    }
-  }
-  }
-
-  // (5) common/secret-backup — 있으면 무조건 스킵/신규만 복사
-  const secretDir = join(commonDir, "secret-backup");
-  if (exists(secretDir) && includeSecretBackup) {
-    for (const filename of listYamlFiles(secretDir)) {
-      const dst = join(workflowsDir, filename);
-      if (existsSync(dst)) continue; // 이미 존재하면 스킵
-      if (skipNew(secretDir, filename, "secret-backup")) continue;
-      copyFileSync(join(secretDir, filename), dst);
-      // PROJECT_NAME 이 고정값이면 모든 프로젝트가 서버의 같은 폴더에 Secret 을 덮어쓴다 (#729) —
-      // 다른 배포 워크플로처럼 레포 이름으로 채운다. 이름을 알 수 없으면 기존 기본값을 쓴다.
-      const raw = readFileSync(dst, "utf8");
-      const filled = resolveGlobalTokens(raw, repoName || "my-project");
-      if (filled !== raw) writeFileSync(dst, filled);
-      counters.optionalCopied++;
-      counters.copied++;
-      counters.copiedFiles.push(filename);
-      trace?.event("copy", "copied", filename, { group: "secret-backup" });
     }
   }
 
@@ -411,8 +380,8 @@ export function listWorkflowConflicts(context, tempDir, targetRoot = ".") {
     if (exists(typeDir)) {
       for (const f of classify(typeDir, workflowsDir, envOpts, baseline).changed) conflicts.push({ filename: f, type });
     }
-    const serverDeployDir = join(typeDir, "server-deploy");
-    if (exists(serverDeployDir) && (deployTarget || "docker-ssh") === "docker-ssh") {
+    const serverDeployDir = join(typeDir, SERVER_DEPLOY_DIR);
+    if (exists(serverDeployDir) && serverDeployEnabled(deployTarget)) {
       for (const f of classify(serverDeployDir, workflowsDir, envOpts, baseline).changed) conflicts.push({ filename: f, type });
     }
   }
@@ -464,8 +433,8 @@ function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters
   }
 
   // server-deploy — deploy=docker-ssh일 때만 포함 (#439)
-  const serverDeployDir = join(typeDir, "server-deploy");
-  if (exists(serverDeployDir) && (deployTarget || "docker-ssh") === "docker-ssh") {
+  const serverDeployDir = join(typeDir, SERVER_DEPLOY_DIR);
+  if (exists(serverDeployDir) && serverDeployEnabled(deployTarget)) {
     const { newFiles, unchanged, changed, upstream } = classify(serverDeployDir, workflowsDir, envOpts, baseline);
     for (const f of unchanged) { counters.skipped++; trace?.event("copy", "skipped-unchanged", f, { group: `${type}/server-deploy` }); }
     for (const f of newFiles) { if (counters.skipNew(serverDeployDir, f, `${type}/server-deploy`)) continue; copyFileSync(join(serverDeployDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "copied", f, { group: `${type}/server-deploy` }); }
