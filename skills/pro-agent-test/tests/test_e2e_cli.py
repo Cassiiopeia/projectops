@@ -864,8 +864,11 @@ def test_web_accepts_text_env_so_passwords_stay_out_of_the_transcript():
 
 def test_web_text_env_refuses_when_the_variable_is_missing(sandbox):
     """값이 비었는데 조용히 빈 문자열을 넣으면, 로그인 실패 원인을 엉뚱한 데서 찾게 된다."""
+    # sandbox 는 (proj, home) 묶음이다 — 통째로 넘기면 HOME 이 상대 경로 문자열이 되어
+    # 레포 안에 "(PosixPath(..." 폴더가 생긴다(#833 에서 기록이 쓰이며 드러났다)
+    proj, home = sandbox
     _, out, _ = run_cli("web", "type", "--selector", "#pw", "--text-env", "NO_SUCH_VAR_HERE",
-                        "--root", str(sandbox), home=sandbox)
+                        "--root", str(proj), home=home)
     d = json.loads(out)
     assert d["ok"] is False
     assert d["code"] == "env_not_set"
@@ -874,8 +877,11 @@ def test_web_text_env_refuses_when_the_variable_is_missing(sandbox):
 
 def test_web_text_env_is_read_before_any_browser_is_needed(sandbox):
     """브라우저가 없어도 이 검사는 통과해야 한다 — 없는 변수는 네트워크 전에 걸린다."""
+    # sandbox 는 (proj, home) 묶음이다 — 통째로 넘기면 HOME 이 상대 경로 문자열이 되어
+    # 레포 안에 "(PosixPath(..." 폴더가 생긴다(#833 에서 기록이 쓰이며 드러났다)
+    proj, home = sandbox
     _, out, _ = run_cli("web", "type", "--selector", "#pw", "--text-env", "NO_SUCH_VAR_HERE",
-                        "--root", str(sandbox), home=sandbox)
+                        "--root", str(proj), home=home)
     d = json.loads(out)
     # 브라우저 미기동("no_browser") 이 아니라 환경변수 문제로 끝나야 한다
     assert d["code"] == "env_not_set"

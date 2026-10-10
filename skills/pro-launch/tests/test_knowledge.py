@@ -154,3 +154,100 @@ def test_cli_rejects_secret_with_json_error(env):
     assert r["ok"] is False and r["code"] == "secret_detected"
     for k in ("ok", "code", "summary", "next"):
         assert k in r      # MCP-style 4필드 보장
+
+
+# ── 쓰면 읽히고, 쓰일수록 정확해진다 (#833) ──────────────────────────────
+
+ASC = "ASC 로그인 폼은 iframe 안이다. 셀렉터 앞에 iframe >> internal:control=enter-frame >> 를 붙인다"
+
+
+@pytest.fixture()
+def khome(tmp_path, monkeypatch):
+    """knowledge 모듈을 임시 홈에 묶는다 (진짜 ~/.projectops 를 건드리지 않는다)."""
+    monkeypatch.setattr(knowledge, "base_dir", lambda: tmp_path / ".projectops")
+    return tmp_path / ".projectops" / "launch"
+
+
+def _repo_file(khome, name):
+    return khome / name / knowledge.FILE
+
+
+def test_similar_matches_same_key_or_overlapping_how():
+    a = {"area": "web", "key": "web.apple_login", "how": ASC}
+    b = {"area": "web", "key": "apple.login.iframe", "how": ASC.replace("이다.", "이다 —")}
+    assert knowledge.similar(a, b)
+    assert not knowledge.similar(a, {**b, "area": "ios"})
+    assert not knowledge.similar(a, {"area": "web", "key": "x", "how": "github 로그인은 headed 로 연다"})
+
+
+def test_learn_in_second_repo_promotes_to_machine(khome):
+    """다른 레포에 같은 지식이 있으면 새로 쌓지 않고 이 컴퓨터 범위로 합친다 (실측: 4곳 중복)."""
+    r1 = knowledge.learn_smart(_repo_file(khome, "a__one"), "web", "web.asc", ASC, "ok")
+    assert r1["scope"] == "repo"
+    r2 = knowledge.learn_smart(_repo_file(khome, "b__two"), "web", "apple.iframe", ASC, "ok")
+    assert r2["scope"] == "machine" and r2["promoted_from"] == 1
+    assert r2["entry"]["ok"] == 2                     # 두 번의 성공이 합쳐진다
+    assert knowledge.load(_repo_file(khome, "a__one")) == []
+    # 세 번째 레포는 이미 이 컴퓨터 범위에 있으니 거기를 강화한다
+    r3 = knowledge.learn_smart(_repo_file(khome, "c__three"), "web", "whatever", ASC, "ok")
+    assert r3["scope"] == "machine" and r3["entry"]["ok"] == 3
+
+
+def test_tidy_merges_spread_and_junk_buckets(khome):
+    for name, key in (("a__one", "web.asc"), ("b__two", "apple.iframe")):
+        knowledge.learn(_repo_file(khome, name), "web", key, ASC, "ok")
+    knowledge.learn(_repo_file(khome, "scripts"), "web", "web.google", "Google 로그인은 팝업이다", "ok")
+    knowledge.learn(_repo_file(khome, "a__one"), "ios", "ios.back", "iOS 뒤로는 화살표를 point 9%,10% 로", "ok")
+    r = knowledge.tidy()
+    m = knowledge.load(khome / "_machine" / knowledge.FILE)
+    assert {e["key"] for e in m} >= {"web.google"} and r["merged"] >= 1
+    asc = next(e for e in m if e["area"] == "web" and "iframe" in e["how"])
+    assert asc["ok"] == 2
+    # 한 레포에만 있는 고유 지식은 그 레포에 남는다
+    assert [e["key"] for e in knowledge.load(_repo_file(khome, "a__one"))] == ["ios.back"]
+    assert knowledge.load(_repo_file(khome, "scripts")) == []
+
+
+def test_surface_once_per_day_and_hides_failing(khome):
+    machine = khome / "_machine" / knowledge.FILE
+    knowledge.learn(machine, "ios", "ios.tap", "Maestro 로 누른다", "ok", today="2026-10-10")
+    for _ in range(3):
+        knowledge.learn(machine, "ios", "ios.bad", "cliclock 아닌 다른 방법", "fail", today="2026-10-10")
+    seen = khome / "seen.json"
+    got = knowledge.surface({"machine": machine}, "ios", seen, today="2026-10-10")
+    assert [g["key"] for g in got] == ["ios.tap"]      # 실패가 앞서는 기억은 싣지 않는다
+    assert knowledge.surface({"machine": machine}, "ios", seen, today="2026-10-10") == []
+    assert knowledge.surface({"machine": machine}, "ios", seen, today="2026-10-11") != []
+
+
+def test_auto_record_counts_once_per_day(khome):
+    for _ in range(3):
+        knowledge.auto_record("android", "android.input", "app tap 으로 된다", today="2026-10-10")
+    knowledge.auto_record("android", "android.input", "app tap 으로 된다", today="2026-10-11")
+    e = knowledge.load(khome / "_machine" / knowledge.FILE)[0]
+    assert e["ok"] == 2                               # 하루 한 번만 올라간다
+
+
+def test_track_attempt_hints_after_fail_then_success(tmp_path):
+    import launch_cli
+    f = tmp_path / "attempts.json"
+    assert launch_cli._track_attempt(f, "web", {"ok": False, "code": "not_found"}) is None
+    hint = launch_cli._track_attempt(f, "web", {"ok": True, "code": "ok"})
+    assert hint and "not_found" in hint and "learn" in hint
+    # 한 번 알려 준 뒤에는 다시 알리지 않는다
+    assert launch_cli._track_attempt(f, "web", {"ok": True, "code": "ok"}) is None
+
+
+def test_learn_from_skill_dir_without_remote_goes_to_machine(tmp_path):
+    """스킬 폴더로 cd 한 뒤 --root . 이면 'scripts' 가짜 레포 대신 이 컴퓨터 범위에 쓴다 (실측 버그)."""
+    import launch_cli
+    home = tmp_path / "home"
+    home.mkdir()
+    code, out, err = run_cli("learn", "--area", "web", "--key", "web.x", "--how", "headed 로 연다",
+                             "--result", "ok", "--root", str(launch_cli._HERE.parent), home=home)
+    d = _j(out)
+    # 개발 레포 안이면 git 원격이 있어 repo 로 간다. 원격 없는 플러그인 캐시를 흉내 낼 수 없으면 건너뛴다
+    if d["scope"] == "repo":
+        pytest.skip("이 체크아웃은 git 원격이 있어 레포를 알 수 있다")
+    assert d["scope"] == "machine"
+    assert not (home / ".projectops" / "launch" / "scripts").exists()

@@ -4,14 +4,32 @@
 
 ## 먹힌 방식을 기억한다 (쓸수록 정확해진다)
 
+> 공통 원칙: [`../../references/memory-principles.md`](../../references/memory-principles.md)
+
 사람마다 컴퓨터마다 잘 되는 방식이 다르다(iOS 는 Maestro 가 깔린 곳에서만, Google 로그인은 `--headed` 여야 하는 곳 등).
 같은 실패를 반복하지 않고 토큰을 아끼려고 **먹힌 방식을 홈에 적어 둔다.**
 
-1. **앱·웹 작업을 시작할 때 `recall` 을 한 번 부른다.** 상위 5건, 항목당 200자 이내라 짧다.
-   `verify:true` 는 실패가 앞서거나 오래된 것이니 **한 번 확인하고** 쓴다.
-2. **끝나면 `learn` 으로 결과만 남긴다** — 처음 알게 된 방식이거나, 기억이 맞았는지/틀렸는지.
-   맞았으면 `--result ok`, 틀렸으면 `--result fail`. 쌓일수록 순서가 정확해진다.
-3. 잘못 배운 것은 `forget`.
+**읽기는 자동이다 (#833).** `app` · `web` · `http` · `db` · `logs` 의 응답에 그 영역 기억이 `memory` 로 실려 온다
+(레포·영역마다 하루 한 번, 최대 3건, 실패가 크게 앞서는 것은 빠진다). `recall` 을 따로 부르지 않아도 된다 —
+agent 가 "모른다는 것을 모르는" 상태에서 꺼내 볼 생각을 하지 못해, 기억이 한 번도 다시 읽히지 않았다(실측).
+
+| 응답에 오는 것 | 할 일 |
+|---|---|
+| `memory` | **먼저 읽고** 그 방식부터 쓴다. 썼으면 결과를 `learn --key <그 key> --result ok\|fail` |
+| `learn_hint` | 방금 실패를 다른 방식으로 넘겼다는 뜻. 다음에도 쓸 방식이면 `learn` 으로 남긴다 |
+| `learn` 결과의 `related` | 비슷한 기억이 이미 있다. 같은 지식이면 새 항목을 `forget` 하고 그 key 로 다시 `learn --scope machine` |
+| `promoted_from` | 다른 레포에 같은 지식이 있어 이 컴퓨터 범위로 합쳤다 |
+
+- **검증된 성공은 CLI 가 직접 기록한다.** `app tap/swipe/tree` 가 성공하면 "이 컴퓨터는 이 방식으로 조작된다"가
+  이 컴퓨터 범위에 하루 한 번 올라간다. **실패·미설치는 자동 기록하지 않는다** — 환경 따라 바뀌어 쓰레기가 된다.
+- `verify:true` 는 실패가 앞서거나 90일이 지난 것이니 **한 번 확인하고** 쓴다. 잘못 배운 것은 `forget`.
+- 흩어진 기억(여러 레포에 같은 것, 잘못된 버킷)은 `tidy` 로 정리한다 — 확실한 것만 자동으로 합친다.
+
+**남기지 않는 것** (Hermes Agent 의 저장 금지 목록을 따랐다): 미설치·미인증 같은 환경 의존 실패,
+"X 는 안 된다" 같은 부정 단정, 해결 안 된 시행착오, 일회성 이야기, 비밀값, 호스트 마우스 방식.
+
+**범위**: 레포와 상관없는 방법(로그인 방식, 도구 사용법)은 `--scope machine`. 그 레포의 앱·프로필에
+묶인 것만 기본(repo) 범위에 둔다. 다른 레포에 같은 지식이 있으면 `learn` 이 알아서 이 컴퓨터 범위로 올린다.
 
 ```bash
 {PYTHON} {SCRIPTS}/launch_cli.py recall --area ios                 # --area ios|android|web|server · --scope both|repo|machine · --limit
@@ -19,6 +37,7 @@
     --how "client/tool/e2e_shot.sh (Maestro) 로 위젯 텍스트를 누른다" --result ok
 # 이 컴퓨터 전체에 해당하면 --scope machine (기본은 이 레포)
 {PYTHON} {SCRIPTS}/launch_cli.py forget --key ios.tap --area ios
+{PYTHON} {SCRIPTS}/launch_cli.py tidy                              # 흩어진 기억 정리
 ```
 
 - **안전 규칙이 기억보다 위다.** 호스트 마우스로 좌표를 누르는 방법(`cliclick` 등)은 저장도, 꺼내기도 막힌다.

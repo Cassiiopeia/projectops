@@ -49,7 +49,7 @@ from common.http import request as http_request  # noqa: E402
 from common.image import (SHOT_MAX_SIDE, WEBP_QUALITY, has_pillow,  # noqa: E402
                           resize_tool, shrink, to_webp)
 from common.proc import run, sdk_tool  # noqa: E402
-from common.state import (launch_file, migrate_launch,  # noqa: E402
+from common.state import (launch_file, migrate_launch, repo_key,  # noqa: E402
                           state_dir, venv_dir, venv_python, venv_site_packages)
 
 # 같은 스킬 안의 보조 모듈 — 스크립트로 불리든 테스트가 import 하든 찾게 한다
@@ -89,11 +89,94 @@ def out(payload: dict) -> int:
     if not payload.get("summary"):
         act = payload.get("action")
         payload["summary"] = payload.get("error") or (f"{act} 완료" if act else "완료")
+    _memory_hooks(payload)
     return emit(payload)
 
 
+# ── 기억을 응답에 싣는다 (#833) ──────────────────────────────────────────
+#
+# 읽기를 agent 의 recall 호출에 맡겼더니 한 번도 다시 읽히지 않았다(실측: 14건 전부 ok=1).
+# 그래서 영역(ios·android·web·server) 명령의 응답에 기억을 직접 싣는다 — 하네스와 무관하게 보인다.
+# 명령이 영역을 정하면 _MEMORY_CTX 에 적고, out() 이 마지막에 읽는다.
+
+_MEMORY_CTX: dict = {}
+_FIX_WINDOW_SEC = 30 * 60   # 실패 뒤 이 안에 같은 영역이 성공하면 '새로 알게 된 방식'일 수 있다
+
+
+def _set_area(area: str | None, root: Path | None = None) -> None:
+    if area in knowledge.AREAS:
+        _MEMORY_CTX.update(area=area, root=root or _MEMORY_CTX.get("root") or Path(".").resolve())
+
+
+def _memory_hooks(payload: dict) -> None:
+    """기억 싣기 · 실패 뒤 성공이면 learn_hint. 어떤 오류도 명령 결과를 망치지 않는다."""
+    area = _MEMORY_CTX.get("area")
+    # HOME 이 상대 경로면 작업 폴더 아래에 기록이 생긴다 — 쓰지 않는다 (테스트가 실제로 그렇게 만들었다)
+    if not area or not knowledge.base_dir().is_absolute():
+        return
+    try:
+        root = _MEMORY_CTX["root"]
+        unknown = _repo_unknown(root)
+        paths = {"machine": knowledge.store_path("machine", root)}
+        if not unknown:
+            paths["repo"] = knowledge.store_path("repo", root)
+        seen_dir = knowledge.store_path("machine" if unknown else "repo", root).parent
+        mem = knowledge.surface(paths, area, seen_dir / "memory_seen.json")
+        if mem:
+            payload["memory"] = mem
+            payload["memory_note"] = ("이 컴퓨터에서 먹혔던 방식이다. 쓴 것이 있으면 결과를 "
+                                      f"learn --area {area} --key <key> --how <how> --result ok|fail 로 남긴다")
+        hint = _track_attempt(seen_dir / "attempts.json", area, payload)
+        if hint:
+            payload["learn_hint"] = hint
+    except Exception:   # noqa: BLE001 — 기억은 보조다. 실패해도 본 명령 결과는 그대로 낸다
+        pass
+
+
+def _track_attempt(f: Path, area: str, payload: dict) -> str | None:
+    """같은 영역에서 실패한 뒤 성공하면 '새로 알게 된 방식이면 기록하라'고 알려 준다.
+
+    agent 가 기억을 남길 가장 좋은 순간은 막혔다 풀린 직후다. 그 순간을 도구가 짚어 준다.
+    """
+    ok = payload.get("ok", True) is not False and payload.get("code") in (None, "ok")
+    try:
+        last = json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        last = {}
+    now = time.time()
+    prev = last.get(area) or {}
+    if ok:
+        last.pop(area, None)
+    else:
+        last[area] = {"code": payload.get("code"), "at": now}
+    try:
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(last), encoding="utf-8")
+    except OSError:
+        pass
+    if ok and prev and now - prev.get("at", 0) < _FIX_WINDOW_SEC:
+        return (f"방금 '{prev.get('code')}' 실패를 다른 방식으로 넘겼다. 다음에도 쓸 방식이면 "
+                f"learn --area {area} --key <짧은키> --how '<무엇을 어떻게>' --result ok 로 남긴다 "
+                "(미설치·일회성·비밀값은 남기지 않는다)")
+    return None
+
+
 def _root(args) -> Path:
-    return Path(getattr(args, "root", ".") or ".").resolve()
+    """작업 대상 프로젝트 루트.
+
+    agent 가 스크립트 폴더로 `cd` 한 뒤 `--root .` 으로 부르면 그 폴더가 프로젝트로 잡힌다.
+    플러그인 캐시는 git 레포가 아니라 폴더 이름 `scripts` 가 레포 키가 되어, 기억과 상태가
+    엉뚱한 곳(~/.projectops/launch/scripts/)에 쌓였다(#833 실측). 그때는 $PROJECT_ROOT 를 쓴다.
+    """
+    r = Path(getattr(args, "root", ".") or ".").resolve()
+    if _is_skill_dir(r) and os.environ.get("PROJECT_ROOT"):
+        return Path(os.environ["PROJECT_ROOT"]).resolve()
+    return r
+
+
+def _is_skill_dir(r: Path) -> bool:
+    """r 이 이 스킬 자신의 폴더(scripts 또는 그 위 스킬 폴더)인가."""
+    return r in (_HERE.parent, _HERE.parent.parent)
 
 
 # =========================================================================
@@ -813,8 +896,10 @@ def _pick_device(want: str | None) -> tuple[str | None, str | None, dict]:
     if not cand:
         return None, None, dev
     if cand in dev["android"]:
+        _set_area("android")
         return "android", cand, dev
     if cand in udids or cand == "booted":
+        _set_area("ios")
         return "ios", cand, dev
     return None, cand, dev
 
@@ -1029,11 +1114,26 @@ def _gesture_result(args, be, dev_id, before, ok: bool, detail: str, fail_code: 
            "summary": summary if ok else f"실패 — {fail_code}",
            "next": "app shot  # 결과 화면 확인"}
     if ok:
+        _auto_record_backend(be)
         res.update(_after_shot(args, be, dev_id, before))
         if res.get("shot"):
             res["next"] = ("shot 이미지를 읽어 결과를 확인한다" if res.get("screen_changed") is not False
                            else "화면이 그대로다 — 다른 요소를 고르거나 app tree 로 다시 본다")
     return out(res)
+
+
+_BACKEND_HOW = {"android": "앱 누르기·밀기는 launch_cli app tap/swipe (uiautomator + adb input, 화면 요소 기준)로 된다",
+                "ios": "앱 누르기·밀기는 launch_cli app tap/swipe (Maestro, 화면 요소 기준)로 된다"}
+
+
+def _auto_record_backend(be) -> None:
+    """실제로 성공한 조작 방식을 이 컴퓨터 범위에 남긴다 — 검증된 것만, 하루 한 번."""
+    how = _BACKEND_HOW.get(be.name)
+    if how:
+        try:
+            knowledge.auto_record(be.name, f"{be.name}.input", how)
+        except Exception:   # noqa: BLE001 — 기록 실패가 조작 결과를 바꾸면 안 된다
+            pass
 
 
 def _not_found(be, dev_id, field: str, value: str, nodes: list[dict] | None) -> int:
@@ -1130,6 +1230,7 @@ def _app_tree(args) -> int:
 
 
 def cmd_app(args) -> int:
+    _MEMORY_CTX["root"] = _root(args)
     handlers = {"type": _app_type, "tap": _app_tap, "swipe": _app_swipe, "tree": _app_tree,
                 "shot": _app_shot}
     return handlers.get(args.action, _app_launch)(args)
@@ -1860,6 +1961,7 @@ def _web_route(args, state: dict, state_f: Path) -> int:
 
 
 def cmd_web(args) -> int:
+    _set_area("web", _root(args))
     """웹 화면을 조작한다. 한 번에 한 동작 — agent가 화면을 보고 다음을 정한다."""
     # 비밀번호를 --text 에 적으면 세션 기록에 평문으로 남는다(#604) — --text-env 로 받는다
     secret_value = None
@@ -2022,6 +2124,7 @@ def cmd_web(args) -> int:
 # =========================================================================
 
 def cmd_http(args) -> int:
+    _set_area("server", _root(args))
     root = _root(args)
     url = args.url
     if not re.match(r"https?://", url):
@@ -2399,6 +2502,7 @@ def _proc_result(r, via: str, engine: str | None = None) -> int:
 
 
 def cmd_db(args) -> int:
+    _set_area("server", _root(args))
     """SQL 한 줄을 실행한다. **어떻게 붙을지는 호출하는 쪽이 정한다.**
 
       --command  임의 명령 (docker exec 등). 가장 자유롭다
@@ -2499,6 +2603,7 @@ def cmd_db(args) -> int:
 
 
 def cmd_logs(args) -> int:
+    _set_area("server", _root(args))
     """서버 로그를 본다. **보는 방법은 적어 둔 것을 쓴다** — 맞히려 들지 않는다."""
     root = _root(args)
     _home(root)
@@ -2733,11 +2838,23 @@ def _shot_args(p) -> None:
 # 컴퓨터별 학습 메모 — recall · learn · forget (설계: docs/superpowers/specs/2026-09-29-...)
 # =========================================================================
 
+def _repo_unknown(root: Path) -> bool:
+    """프로젝트를 알 수 없다 — 스킬 폴더에서 불렸고 git 원격도 없다(플러그인 캐시)."""
+    return _is_skill_dir(root) and "__" not in repo_key(root)
+
+
 def _knowledge_paths(args) -> dict:
     scope = getattr(args, "scope", "both")
     root = _root(args)
     want = ("repo", "machine") if scope == "both" else (scope,)
+    if _repo_unknown(root):
+        # 어느 레포인지 모르면 레포 범위를 만들지 않는다 — 'scripts' 같은 가짜 레포가 생긴다
+        want = ("machine",)
     return {sc: knowledge.store_path(sc, root) for sc in want}
+
+
+def _learn_scope(args) -> str:
+    return "machine" if args.scope == "repo" and _repo_unknown(_root(args)) else args.scope
 
 
 def cmd_recall(args) -> int:
@@ -2752,18 +2869,34 @@ def cmd_recall(args) -> int:
 
 
 def cmd_learn(args) -> int:
-    path = knowledge.store_path(args.scope, _root(args))
-    r = knowledge.learn(path, args.area, args.key, args.how, args.result)
+    args.scope = _learn_scope(args)
+    repo_path = None if args.scope == "machine" else knowledge.store_path("repo", _root(args))
+    r = knowledge.learn_smart(repo_path, args.area, args.key, args.how, args.result, args.scope)
     if "error" in r:
         return out({"ok": False, "code": r["error"], "error": r["message"],
                     "next": "내용을 고쳐 다시 부른다"})
     e = r["entry"]
-    return out({"ok": True, "code": "ok", "entry": e,
-                "summary": f"{e['key']} ok={e['ok']} fail={e['fail']} ({args.scope})",
-                "next": None})
+    note = (f" — 다른 레포의 같은 지식 {r['promoted_from']}건과 합쳐 이 컴퓨터 범위로 올렸다"
+            if r.get("promoted_from") else "")
+    rel = r.get("related") or []
+    return out({"ok": True, "code": "ok", "entry": e, "scope": r["scope"],
+                "promoted_from": r.get("promoted_from", 0), "related": rel or None,
+                "summary": f"{e['key']} ok={e['ok']} fail={e['fail']} ({r['scope']}){note}",
+                # 비슷한 기억이 있으면 같은 지식인지 agent 가 판단한다 — 도구가 애매한 것을 멋대로 합치지 않는다
+                "next": (f"related 중 같은 지식이 있으면 forget --key <방금 key> 후 "
+                         f"learn --scope machine --key <그 key> 로 합친다" if rel else None)})
+
+
+def cmd_tidy(args) -> int:
+    """흩어진 기억을 정리한다 — 여러 레포에 걸친 것과 잘못된 버킷을 이 컴퓨터 범위로 합친다."""
+    r = knowledge.tidy()
+    return out({"ok": True, "code": "ok", **r,
+                "summary": f"{r['moved_to_machine']}건을 이 컴퓨터 범위로 옮김 (합친 것 {r['merged']}건)",
+                "next": "recall --scope machine  # 결과를 본다"})
 
 
 def cmd_forget(args) -> int:
+    args.scope = _learn_scope(args)
     path = knowledge.store_path(args.scope, _root(args))
     n = knowledge.forget(path, args.key, args.area)
     return out({"ok": True, "code": "ok" if n else "not_found", "removed": n,
@@ -2990,6 +3123,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--scope", choices=list(knowledge.SCOPES), default="repo")
     p.add_argument("--root", default=".")
     p.set_defaults(func=cmd_learn)
+
+    p = sub.add_parser("tidy", help="흩어진 기억을 정리한다 (여러 레포에 걸친 것 → 이 컴퓨터 범위)")
+    p.add_argument("--root", default=".")
+    p.set_defaults(func=cmd_tidy)
 
     p = sub.add_parser("forget", help="잘못 배운 방식을 지운다")
     p.add_argument("--key", required=True)

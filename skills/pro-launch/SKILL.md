@@ -28,7 +28,7 @@ description: "앱·웹·서버를 띄우고, 조작하고, 찍는 능력 스킬�
 | 단건 HTTP · 붙는 법 기록 · SQL · 로그 | `http` · `access show\|set\|unset` · `db` · `logs` | `references/server.md` |
 | 자격증명 저장 · 원격 명령 · 이 맥 sudo | `cred list\|show\|set\|unset` · `ssh` · `local sudo` | `references/credentials.md` |
 | 이슈 첨부용 축소 | `shrink` | `references/memory.md` |
-| 이 컴퓨터에서 먹힌 방식 꺼내기 · 남기기 · 지우기 | `recall` · `learn` · `forget` | `references/memory.md` |
+| 이 컴퓨터에서 먹힌 방식 꺼내기 · 남기기 · 지우기 · 정리 | `recall` · `learn` · `forget` · `tidy` | `references/memory.md` |
 | 이번 실행 자리 + `env.sh` | `get-output-path` | 아래 |
 | 새 플랫폼 · 새 동작 추가(기여자) | — | `references/extending.md` |
 
@@ -144,5 +144,6 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web route --clear
 - 서버·DB·로그인 화면을 만지기 전, "사용자가 직접 로그인해야 한다"고 말하기 전에 **`cred list` 를 먼저 본다.**
   `use_when` 이 맞는 것만 쓰고, 새 정보는 저장해도 되는지 묻고 `cred set`. 원격은 `ssh --cred 이름 --command '…'`,
   이 맥 관리자 권한은 `local sudo --cred 이름 -- <명령>`(첫 등록은 사용자가 `cred set --prompt` 로 직접). 상세는 `references/credentials.md`.
-- 앱·웹 작업 시작 때 `recall --area ios|android|web|server` 를 한 번, 끝나면 먹힌 방식을 `learn --result ok|fail`.
+- **응답에 `memory` 가 오면 먼저 읽고 그 방식부터 쓴다**(자동으로 실린다 — recall 을 따로 부를 필요 없다). 썼으면 `learn --key <그 key> --result ok|fail`,
+  `learn_hint` 가 오면 막혔다 풀린 방식을 `learn` 으로 남긴다. 레포와 무관한 방법은 `--scope machine`.
   비밀값과 호스트 마우스 방식은 저장되지 않는다. 캡처는 이슈에 붙이기 전에 `shrink`. 상세는 `references/memory.md`.
