@@ -42,7 +42,7 @@ config를 읽거나 쓰기 전에 `echo "$HOME"`으로 홈 디렉토리를 확�
 ```
 github 스킬    → config["github"]
 synology-expose → config["synology-expose"]
-ssh 스킬       → config["ssh"]
+ssh 스킬       → config["launch"]["credentials"]  (서버도 pro-launch 자격증명 한 곳에 둔다 — §7 `launch` 섹션)
 launch 스킬    → config["launch"]  (이름 붙은 자격증명 — §7 `launch` 섹션)
 ```
 
@@ -204,44 +204,17 @@ effective_pat = repo.pat if repo.pat else config["github"].global_pat
 | `dns_provider` | ✅ | DNS 공급자 (예: `cloudflare`, `route53`) |
 | `default` | — | 여러 인스턴스 중 기본 선택 여부 |
 
-### `ssh` 섹션
+### `ssh` 섹션 (폐기 — 호환용으로만 읽는다)
 
-`ssh` 스킬이 사용한다.
-
-```json
-{
-  "ssh": {
-    "instances": [
-      {
-        "name": "서버 식별 이름",
-        "host": "your-server.example.com",
-        "port": 22,
-        "user": "username",
-        "auth": "key",
-        "key_path": "~/.ssh/id_rsa",
-        "password": null,
-        "default": true
-      }
-    ]
-  }
-}
-```
-
-| 필드 | 필수 | 설명 |
-|------|------|------|
-| `name` | ✅ | 서버 식별 이름 |
-| `host` | ✅ | 서버 주소 (IP 또는 도메인) |
-| `port` | ✅ | SSH 포트 (기본 22) |
-| `user` | ✅ | SSH 접속 사용자명 |
-| `auth` | ✅ | 인증 방식: `key` 또는 `password` |
-| `key_path` | — | `auth: key`일 때 PEM 키 경로 |
-| `password` | — | `auth: password`일 때 비밀번호 |
-| `default` | — | 여러 인스턴스 중 기본 선택 여부 |
+서버 접속 정보는 **`launch.credentials`(`kind: "ssh"`) 한 곳**에 둔다(#841). 옛 `ssh` 섹션
+(`{"instances": [...]}` 또는 서버 목록)은 더 이상 쓰지 않는다. 이미 있다면 `launch_cli.py cred import-ssh`
+(`--dry-run` 으로 미리 보기, `--prune` 으로 가져온 서버를 옛 섹션에서 지움)로 옮긴다. 코드는 옛 섹션의
+`ssh_server` 참조만 읽고, 새로 쓰지 않는다.
 
 ### `launch` 섹션 (pro-launch 자격증명)
 
 `pro-launch` 가 서버·레지스트리·조직에 **다시 묻지 않고** 붙기 위한 이름 붙은 자격증명이다.
-`pro-ssh` 서버를 `ssh_server` 로 참조하면 비밀번호는 `ssh` 섹션 한 곳에만 둔다.
+서버(SSH)도 여기에 둔다 — host·port·user·password(또는 `key_path`)를 직접 적고, 비밀번호는 이 파일 한 곳에만 있다.
 저장은 `launch_cli.py cred set` 이 하고(다른 섹션은 건드리지 않는다, 파일 권한 600), 조회에서는 비밀 값이 가려진다.
 
 ```json
@@ -250,7 +223,10 @@ effective_pat = repo.pat if repo.pat else config["github"].global_pat
     "credentials": {
       "synology": {
         "kind": "ssh",
-        "ssh_server": "synology-nas",
+        "host": "your-server.example.com",
+        "port": 22,
+        "user": "username",
+        "password": "...",
         "scope": "test-only",
         "use_when": "서버 배포 QA 에서만 쓴다",
         "notes": "운영 컨테이너가 있으니 pops-qa- 접두사만 만들고 지운다"
@@ -264,7 +240,7 @@ effective_pat = repo.pat if repo.pat else config["github"].global_pat
 | 필드 | 설명 |
 |------|------|
 | `kind` | `ssh` · `dockerhub` · `db` · `http` · `github-org` · `other` |
-| `ssh_server` | `ssh` 섹션의 서버 `name` 참조(host·port·user·password 를 가져온다, 직접 적은 값이 이긴다) |
+| `ssh_server` | (폐기, 호환용) 옛 `ssh` 섹션의 서버 `name` 참조. 새로 쓰지 않는다 — `import-ssh` 로 값을 옮긴다 |
 | `use_when` · `scope` · `notes` | agent 가 **언제 써도 되는지** 판단하는 근거·허용 범위·주의점 |
 | 그 밖 | `host` · `port` · `user` · `username` · `password` · `token` · `db` … 자유 |
 

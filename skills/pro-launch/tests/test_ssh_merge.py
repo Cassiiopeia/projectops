@@ -97,15 +97,37 @@ def test_import_ssh_dry_run_은_아무것도_쓰지_않고_비밀을_가린다(h
     assert (home / ".projectops" / "config" / "config.json").read_text(encoding="utf-8") == before
 
 
-def test_import_ssh_기본은_참조만_만들고_이미_있는_이름은_건너뛴다(home):
+def test_import_ssh_기본은_값까지_복사하고_이미_있는_이름은_건너뛴다(home):
     write_cfg(home, {"ssh": [{"name": "nas", "host": "h", "password": "pw-SECRET99"}, {"name": "old", "host": "o"}]})
     run(home, "cred", "set", "--name", "old", "--json", json.dumps({"kind": "ssh", "host": "o"}))
     r = run(home, "cred", "import-ssh")
     st = {s["name"]: s["status"] for s in r["servers"]}
     assert st == {"nas": "imported", "old": "exists"}
+    assert "pw-SECRET99" not in json.dumps(r)                      # 응답에는 비밀이 없다
     saved = json.loads((home / ".projectops" / "config" / "config.json").read_text(encoding="utf-8"))
-    assert saved["launch"]["credentials"]["nas"] == {"kind": "ssh", "ssh_server": "nas"}   # 비밀번호 복사 없음
-    assert saved["ssh"][0]["password"] == "pw-SECRET99"                                    # 옛 섹션은 그대로
+    assert saved["launch"]["credentials"]["nas"]["password"] == "pw-SECRET99"   # cred 한 곳에 값이 있다
+    assert saved["ssh"][0]["password"] == "pw-SECRET99"                          # 옛 섹션은 --prune 전까지 그대로
+
+
+def test_import_ssh_ref_는_참조만_만든다(home):
+    write_cfg(home, {"ssh": [{"name": "nas", "host": "h", "password": "pw-SECRET99"}]})
+    run(home, "cred", "import-ssh", "--ref")
+    saved = json.loads((home / ".projectops" / "config" / "config.json").read_text(encoding="utf-8"))
+    assert saved["launch"]["credentials"]["nas"] == {"kind": "ssh", "ssh_server": "nas"}
+
+
+def test_import_ssh_prune_은_백업한_뒤_가져온_서버만_옛_섹션에서_지운다(home):
+    write_cfg(home, {"ssh": [{"name": "nas", "host": "h", "password": "pw-SECRET99"},
+                             {"name": "한글이름", "host": "k", "password": "pw-KEEP"}]})
+    r = run(home, "cred", "import-ssh", "--prune")
+    assert r["pruned"]["removed"] == ["nas"] and "pw-SECRET99" not in json.dumps(r)
+    cfgdir = home / ".projectops" / "config"
+    saved = json.loads((cfgdir / "config.json").read_text(encoding="utf-8"))
+    assert [s["name"] for s in saved["ssh"]] == ["한글이름"]            # 못 가져온 서버는 옛 섹션에 남는다
+    assert saved["launch"]["credentials"]["nas"]["password"] == "pw-SECRET99"
+    bak = cfgdir / "config.json.bak-ssh-prune"
+    assert bak.exists() and oct(bak.stat().st_mode & 0o777) == "0o600"
+    assert "pw-SECRET99" in bak.read_text(encoding="utf-8")            # 백업에서 되돌릴 수 있다
 
 
 def test_ssh_connect_는_환경변수_비밀번호를_쓰고_출력에서_가린다():

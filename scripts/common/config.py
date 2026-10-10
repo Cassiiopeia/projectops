@@ -2,7 +2,7 @@
 사용자 config(`~/.projectops/config/config.json`)를 읽고 쓰는 모듈.
 
 config는 글로벌 단일 파일 하나로만 관리하며, skill_id를 최상위 키로 네임스페이스를 나눈다.
-예) config["github"]["global_pat"], config["ssh"]["instances"]
+예) config["github"]["global_pat"], config["launch"]["credentials"]
 
 자세한 스키마는 skills/references/config-rules.md 와 skills/config.json.example 참조.
 """

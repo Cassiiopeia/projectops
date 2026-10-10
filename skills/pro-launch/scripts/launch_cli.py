@@ -2309,11 +2309,45 @@ def _cred_field(name: str, field: str | None) -> tuple[str | None, dict | None]:
     return str(v), None
 
 
+def _prune_old_ssh(plan: list) -> dict:
+    """가져온 서버를 옛 `ssh` 섹션에서 지운다. 값이 cred 에 실제로 있는 것만, 지우기 전에 백업한다.
+
+    참조(`ssh_server`)로 만든 것은 옛 섹션이 아직 필요하므로 지우지 않는다.
+    """
+    import shutil
+    moved = {p["name"] for p in plan if p["status"] in ("imported", "exists")
+             and not p.get("_raw", {}).get("ssh_server")}
+    data = credentials.cfg.load() or {}
+    creds = credentials.load_all()
+    servers = data.get("ssh")
+    key = "instances" if isinstance(servers, dict) else None
+    items = (servers.get("instances") if key else servers) or []
+    safe = {n for n in moved if creds.get(n, {}).get("host") and not creds[n].get("ssh_server")}
+    keep = [s for s in items if s.get("name") not in safe]
+    removed = [s.get("name") for s in items if s.get("name") in safe]
+    if not removed:
+        return {"removed": [], "backup": None}
+    path = credentials.cfg.config_path()
+    backup = path.with_name(path.name + ".bak-ssh-prune")
+    shutil.copy2(path, backup)
+    os.chmod(backup, 0o600)
+    if key:
+        servers["instances"] = keep
+        data["ssh"] = servers
+    elif keep:
+        data["ssh"] = keep
+    else:
+        data.pop("ssh", None)
+    credentials._write_config(data)
+    return {"removed": removed, "backup": str(backup)}
+
+
 def _cred_import_ssh(args) -> int:
     """옛 pro-ssh `ssh` 섹션 서버를 launch 자격증명으로 옮긴다.
 
-    기본은 참조(`ssh_server`)만 만든다 — 비밀번호는 한 곳에만 둔다. `--inline` 이면 값까지 복사한다
-    (옛 섹션을 지워도 되게). 옛 섹션은 지우지 않는다. 응답에는 비밀 값을 싣지 않는다.
+    **서버 정보는 cred 한 곳에 둔다** — 기본은 host·user·password 값까지 복사한다. 옛 섹션을 계속 쓰고
+    싶으면 `--ref`(참조만 만든다, 비밀번호는 옛 섹션에 남는다). `--prune` 은 가져온 서버를 옛 섹션에서
+    지운다(config 를 먼저 백업한다). 응답에는 비밀 값을 싣지 않는다.
     """
     existing = credentials.load_all()
     plan = []
@@ -2325,11 +2359,11 @@ def _cred_import_ssh(args) -> int:
         if name in existing:
             plan.append({"name": name, "status": "exists", "reason": "이미 같은 이름의 자격증명이 있음"})
             continue
-        if args.inline:
+        if getattr(args, "ref", False):
+            fields = {"kind": "ssh", "ssh_server": name}
+        else:
             fields = {"kind": "ssh", **{k: srv[k] for k in ("host", "port", "user", "auth", "key_path", "password")
                                         if srv.get(k) not in (None, "")}}
-        else:
-            fields = {"kind": "ssh", "ssh_server": name}
         plan.append({"name": name, "status": "would_import" if args.dry_run else "imported",
                      "fields": credentials.public_view(fields), "_raw": fields})
     if not args.dry_run:
@@ -2339,10 +2373,14 @@ def _cred_import_ssh(args) -> int:
                     credentials.save_credential(p["name"], p["_raw"])
         except credentials.CredError as e:
             return out({"ok": False, "code": e.code, "error": e.message})
+    pruned = None
+    if getattr(args, "prune", False) and not args.dry_run:
+        pruned = _prune_old_ssh(plan)
     for p in plan:
         p.pop("_raw", None)
     n = sum(1 for p in plan if p["status"] in ("would_import", "imported"))
     return out({"ok": True, "code": "ok", "dry_run": bool(args.dry_run), "servers": plan, "count": n,
+                "pruned": pruned,
                 "summary": (f"{n}개 가져올 수 있음 (dry-run, 아무것도 쓰지 않음)" if args.dry_run
                             else f"{n}개 가져옴") if plan else "옛 ssh 섹션에 서버가 없습니다",
                 "next": ("실제로 옮기려면 --dry-run 을 빼고 다시 부른다. 그다음 cred set --name 이름 --json "
@@ -2508,7 +2546,7 @@ def cmd_ssh(args) -> int:
     host, user = cred.get("host"), cred.get("user")
     if not host:
         return out({"ok": False, "code": "host_missing",
-                    "error": f"'{args.cred}' 에 host 가 없습니다 (ssh_server 참조 또는 host 를 적는다)"})
+                    "error": f"'{args.cred}' 에 host 가 없습니다 (cred set 으로 host·user 를 적는다)"})
     password = cred.get("password")
     key_path = cred.get("key_path")
     dest = f"{user}@{host}" if user else host
@@ -3251,9 +3289,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--dry-run", dest="dry_run", action="store_true",
                    help="import-ssh 때 아무것도 쓰지 않고 옮길 목록만 보여 준다 (비밀 값은 가려서)")
     p.add_argument("--inline", action="store_true",
-                   help="import-ssh 때 참조 대신 host·user·password 값까지 복사한다")
+                   help="(기본 동작) import-ssh 때 host·user·password 값까지 복사한다")
+    p.add_argument("--ref", action="store_true",
+                   help="import-ssh 때 값을 복사하지 않고 옛 ssh 섹션을 참조만 한다 (비밀번호가 두 곳에 남는다)")
+    p.add_argument("--prune", action="store_true",
+                   help="import-ssh 뒤에 가져온 서버를 옛 ssh 섹션에서 지운다 (config 를 먼저 백업)")
     p.add_argument("--json", dest="json_value", default=None,
-                   help='저장할 내용(JSON). 예: {"kind":"ssh","ssh_server":"synology-nas","use_when":"..."}')
+                   help='저장할 내용(JSON). 예: {"kind":"ssh","host":"h","port":22,"user":"u","use_when":"..."}')
     p.add_argument("--replace", action="store_true", help="set 때 기존 항목을 합치지 않고 통째로 바꾼다")
     p.add_argument("--reveal", action="store_true", help="show 때 비밀 값도 그대로 보여 준다 (꼭 필요할 때만)")
     p.add_argument("--prompt", action="store_true",

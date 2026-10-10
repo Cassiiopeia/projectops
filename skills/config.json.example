@@ -57,52 +57,14 @@
       }
     ]
   },
-  "ssh": {
-    "instances": [
-      {
-        "name": "{서버 식별 이름}",
-        "host": "{your-server.example.com}",
-        "port": 22,
-        "user": "{username}",
-        "auth": "key",
-        "key_path": "{~/.ssh/id_rsa}",
-        "password": null,
-        "default": true
-      },
-      {
-        "name": "{다른 서버}",
-        "host": "{192.168.0.1}",
-        "port": 22,
-        "user": "{username}",
-        "auth": "password",
-        "key_path": null,
-        "password": "{password}",
-        "default": false
-      }
-    ]
-  },
-  "design_brief": {
-    "_주석": "pro-design-brief 요청서를 어디로 넘길지. projects[].match 는 owner/repo 또는 레포 절대경로. 생략하면 첫 실행 때 묻는다.",
-    "destination": "issue",
-    "auto_approve": false,
-    "projects": [
-      {
-        "match": "acme-org/myapp",
-        "destination": "issue",
-        "designer": "designer-id"
-      },
-      {
-        "match": "/Users/me/work/landing",
-        "destination": "html",
-        "designer": "김디자인"
-      }
-    ]
-  },
   "launch": {
     "credentials": {
       "my-server": {
         "kind": "ssh",
-        "ssh_server": "{ssh 섹션의 서버 name}",
+        "host": "{your-server.example.com}",
+        "port": 22,
+        "user": "{username}",
+        "password": "{비밀번호 — 키 접속이면 \"key_path\": \"~/.ssh/id_ed25519\" 로}",
         "scope": "test-only",
         "use_when": "{언제 써도 되는지 — 사용자가 허용한 범위 그대로}",
         "notes": "{지켜야 할 이름 규칙 · 포트 범위 · 서버에 있는 운영 서비스}"

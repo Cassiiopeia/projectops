@@ -20,7 +20,7 @@ version: 2.0.0
 | 저장된 서버 보기 | `cred list` (`use_when` 이 지금 일에 맞는 것만 쓴다) |
 | 명령 실행 | `ssh --cred <서버> --command '…'` (비밀번호 sudo 는 `--sudo` + `SUDO <명령>`) |
 | 새 서버 저장 | 사용자에게 저장해도 되는지 묻고 `cred set --name <서버> --json '{"kind":"ssh","host":…,"user":…,"use_when":…}'` |
-| 옛 `ssh` 섹션 서버 가져오기 | `cred import-ssh --dry-run` 으로 목록 확인 → 빼고 실행 |
+| 옛 `ssh` 섹션 서버 가져오기 | `cred import-ssh --dry-run` 으로 목록 확인 → 빼고 실행(값까지 복사) → 접속 확인 후 `--prune` |
 | 로그 · DB | `logs --cred …` · `db --cred …` (`../pro-launch/references/server.md`) |
 
 - 응답의 `memory` 에 그 서버에서 알아낸 사실(OS · docker 경로 · 컨테이너 · 로그 위치)이 실린다. 새로 알아낸 것은

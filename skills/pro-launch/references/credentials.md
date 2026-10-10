@@ -9,7 +9,7 @@
 ```bash
 {PYTHON} {SCRIPTS}/launch_cli.py cred list                     # 작업 시작 때 한 번 — 무엇을 쓸 수 있나
 {PYTHON} {SCRIPTS}/launch_cli.py cred show --name synology     # 값은 가려서 보여 준다 (--reveal 은 꼭 필요할 때만)
-{PYTHON} {SCRIPTS}/launch_cli.py cred set --name synology --json '{"kind":"ssh","ssh_server":"synology-nas",
+{PYTHON} {SCRIPTS}/launch_cli.py cred set --name synology --json '{"kind":"ssh","host":"h","port":22,"user":"u",
   "use_when":"서버 배포 QA","scope":"test-only","notes":"운영 컨테이너가 있으니 pops-qa- 접두사만"}'
 {PYTHON} {SCRIPTS}/launch_cli.py cred unset --name synology
 {PYTHON} {SCRIPTS}/launch_cli.py ssh --cred synology --sudo --command 'SUDO docker ps'   # 비밀번호 sudo 도 된다
@@ -23,7 +23,7 @@
 | 항목 | 의미 |
 |---|---|
 | `kind` | `ssh` · `dockerhub` · `db` · `http` · `github-org` · `login` · `local` · `other` |
-| `ssh_server` | `pro-ssh` 에 등록된 서버 이름. 있으면 host·port·user·password 를 거기서 가져온다 — **비밀번호는 한 곳에만** 둔다 |
+| `ssh_server` | (폐기, 호환용) 옛 `ssh` 섹션의 서버 이름. 새로 쓰지 않는다 — `cred import-ssh` 로 값을 cred 로 옮긴다. 서버 정보와 비밀번호는 **cred 한 곳에만** 둔다 |
 | `use_when` | 이 자격증명을 **언제 써도 되는지**(근거). 사용자가 허용한 범위를 그대로 적는다 |
 | 로그인 계정 | `kind: login` + `provider`(google · apple · naver · kakao · custom) · `surface` · `app` · `account` · `password` · `two_factor` — 소셜·앱 로그인과 개발자 콘솔 로그인. 화면에는 `web type --cred` · `app type --cred` 로 넣는다. 필드 상세는 `web.md` 의 "로그인 정보를 저장할 때" |
 | 이 맥 sudo | `kind: local` + `sudo_password` — **이 맥**에서 관리자 권한(`sudo installer -pkg …` 등)이 필요할 때. `local sudo --cred 이름 -- <명령>` 으로 쓴다 (아래) |
@@ -57,9 +57,10 @@
 - **서버 기억 (#841)**: `ssh` 응답의 `memory` 에는 그 서버(`server.<자격증명 이름>.*`) 기억만 실린다. 처음 접속에 성공하면
   CLI 가 OS(`uname -s`)와 시놀로지 docker 절대경로를 확인해 이 컴퓨터 범위에 남긴다(Windows 는 건너뜀).
   컨테이너 이름·로그 위치처럼 직접 알아낸 것은 `learn --area server --scope machine --key server.<서버>.<주제>` 로 남긴다(계정·비밀 금지).
-- **비밀번호를 한곳(cred)에만 두려면** `cred import-ssh --inline` 으로 값까지 가져오고, 접속이 되는지 확인한 뒤 옛 `ssh` 섹션을 지운다(지우기 전에 config 백업).
-- **옛 pro-ssh 서버 가져오기**: `cred import-ssh --dry-run` 으로 목록을 본 뒤 `--dry-run` 을 빼고 실행한다. 기본은 `ssh_server`
-  참조만 만들고(비밀번호는 옛 섹션에 한 곳), `--inline` 이면 값까지 복사한다. 옛 `ssh` 섹션은 지우지 않는다.
+- **서버 정보는 cred 한 곳에 둔다.** 옛 `ssh` 섹션이 있으면 `cred import-ssh --dry-run` 으로 목록을 보고(비밀은 가려진다),
+  `--dry-run` 을 빼고 실행하면 host·user·password 값까지 가져온다. 접속이 되는지 확인한 뒤 `--prune` 을 붙여 다시 부르면
+  가져온 서버가 옛 섹션에서 지워진다(지우기 전에 `config.json.bak-ssh-prune` 으로 백업, 권한 600). 이름이 cred 형식(영문·숫자·`._-`)이
+  아닌 서버는 못 가져오니 `cred set` 으로 영문 이름을 붙여 직접 저장한다. `--ref` 는 참조만 만든다(비밀번호가 두 곳에 남는다).
 
 ## 이 맥의 sudo 비밀번호 (#784)
 
