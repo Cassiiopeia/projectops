@@ -122,7 +122,7 @@ jobs:
           RANGE: ${{ steps.release_guard.outputs.range }}
         run: |
           BUMP=patch
-          SEMVER_AUTO=$(python3 -c 'import re; t=open("version.yml",encoding="utf-8").read(); m=re.search(r"metadata:.*?template:.*?options:.*?semver_auto:\s*\"?(true|false)", t, re.S); print(m.group(1) if m else "true")' 2>/dev/null || echo "true")
+          SEMVER_AUTO=$(python3 .github/scripts/version_manager.py get-option semver_auto true 2>/dev/null || echo "true")
           if [ "$SEMVER_AUTO" != "true" ]; then
             echo "ℹ️ semver_auto 꺼짐 — patch"
           else

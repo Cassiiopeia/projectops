@@ -148,6 +148,8 @@ def _run_bump(tmp_path, semver, with_dev_branch, subjects):
 
     script = _step(WF / "PROJECT-COMMON-VERSION-CONTROL.yaml", "version-bump", "승격 폭 결정")["run"]
     script = script.replace("${{ github.event.repository.default_branch || 'main' }}", "main")
+    script = script.replace(".github/scripts/version_manager.py",
+                            str(ROOT / ".github" / "scripts" / "version_manager.py"))
     script = script.replace(".github/scripts/changelog_manager.py",
                             str(ROOT / ".github" / "scripts" / "changelog_manager.py"))
     out = tmp_path / "out.txt"
@@ -186,8 +188,9 @@ def test_missing_semver_key_defaults_to_on_in_both_workflows():
     for name in ("PROJECT-COMMON-RELEASE-CHANGELOG.yaml", "PROJECT-COMMON-VERSION-CONTROL.yaml"):
         for base in (WF, COMMON):
             text = (base / name).read_text(encoding="utf-8")
-            assert 'print(m.group(1) if m else "true")' in text, f"{base.name}/{name}"
-            assert 'print(m.group(1) if m else "false")' not in text, f"{base.name}/{name}"
+            # 읽기는 version_manager get-option 한 곳에서 하고, 기본값 인자가 true 여야 한다 (#832)
+            assert "version_manager.py get-option semver_auto true" in text, f"{base.name}/{name}"
+            assert "get-option semver_auto false" not in text, f"{base.name}/{name}"
 
 
 # ── #797: projectops 설치기 버그 YAML 양식 ───────────────────────────────

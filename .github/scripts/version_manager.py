@@ -858,7 +858,7 @@ def update_all_versions(cfg: Config, new_version: str):
     log_success(f"모든 버전 파일 업데이트 완료: {new_version}")
 
 
-USAGE = """사용법: version_manager.py {get|get-code|increment|increment-code|set|sync|validate} [version]
+USAGE = """사용법: version_manager.py {get|get-code|get-option|increment|increment-code|set|sync|validate} [version]
 
 Commands:
   get            - 현재 버전 가져오기 (동기화 포함)
@@ -870,6 +870,39 @@ Commands:
   sync           - 버전 파일 간 동기화
   validate       - 버전 형식 검증
 """
+
+
+def get_option(key: str):
+    """metadata.template.options.<key> 의 스칼라 값을 돌려준다. 없으면 None.
+
+    워크플로가 정규식으로 version.yml을 직접 읽으면 들여쓰기·따옴표·주석에 따라
+    조용히 틀린 값을 얻는다. 경로(metadata > template > options)를 들여쓰기로 따라가
+    한 곳에서만 해석한다 (#832).
+    """
+    path = ["metadata", "template", "options"]
+    depth, indents = 0, []  # 지금까지 내려온 경로의 들여쓰기
+    for raw in yml_lines():
+        line = raw.split(" #", 1)[0].rstrip()
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip())
+        # 현재 깊이보다 얕거나 같은 들여쓰기가 나오면 그 블록을 벗어난 것
+        while depth and indent <= indents[depth - 1]:
+            depth -= 1
+            indents.pop()
+        m = re.match(r"^([A-Za-z0-9_]+):\s*(.*)$", line.strip())
+        if not m:
+            continue
+        name, rest = m.group(1), m.group(2)
+        if depth < len(path):
+            if name == path[depth] and rest == "":
+                indents.append(indent)
+                depth += 1
+            continue
+        # options 블록 안: 직계 자식만 본다
+        if name == key and (len(indents) == len(path)) and rest != "":
+            return _unquote(rest)
+    return None
 
 
 def parse_bump_flag(argv) -> str | None:
@@ -898,15 +931,23 @@ def main(argv):
 def _main(argv):
     command = argv[1] if len(argv) > 1 else "get"
 
-    if command not in ("get", "get-code", "increment", "increment-code", "set", "sync", "validate"):
+    if command not in ("get", "get-code", "get-option", "increment", "increment-code", "set", "sync", "validate"):
         print(USAGE, file=sys.stderr)
         return 1
 
     # version_code만 다루는 명령은 version 키가 없어도 동작해야 한다 (기존 계약)
     # validate는 인자로 버전을 직접 주면 version.yml의 version 값 없이도 검증할 수 있다
-    needs_yml_version = command not in ("get-code", "increment-code") and not (command == "validate" and len(argv) > 2)
+    needs_yml_version = command not in ("get-code", "increment-code", "get-option") and not (command == "validate" and len(argv) > 2)
     cfg = Config(require_version=needs_yml_version)
 
+    if command == "get-option":
+        # get-option KEY [DEFAULT] — 키가 없으면 DEFAULT(없으면 빈 문자열)를 출력한다
+        if len(argv) < 3:
+            log_error("키를 지정해주세요: version_manager.py get-option semver_auto [기본값]")
+            return 1
+        value = get_option(argv[2])
+        print(value if value is not None else (argv[3] if len(argv) > 3 else ""))
+        return 0
     if command == "get":
         version = sync_versions(cfg)
         log_success(f"현재 버전: {version}")

@@ -353,7 +353,7 @@ jobs:
       - name: semver 자동 승격 옵션 확인
         id: semver_options
         run: |
-          SEMVER_AUTO=$(python3 -c 'import re; t=open("version.yml",encoding="utf-8").read(); m=re.search(r"metadata:.*?template:.*?options:.*?semver_auto:\s*\"?(true|false)", t, re.S); print(m.group(1) if m else "true")' 2>/dev/null || echo "true")
+          SEMVER_AUTO=$(python3 .github/scripts/version_manager.py get-option semver_auto true 2>/dev/null || echo "true")
           echo "semver_auto=$SEMVER_AUTO" >> $GITHUB_OUTPUT
           echo "ℹ️ semver 자동 승격: $SEMVER_AUTO"
 
