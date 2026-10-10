@@ -113,7 +113,7 @@ Animation · AnimationController · Tween · Curves. · transition: · @keyframe
 
 앞 축들은 **"이 제품 안에서 말이 되나"**를 묻는다. 이 축만 밖에 정답이 있다.
 
-**세는 일 자체는 `pro-figma-verify` 가 한다.** 덤프의 `fills`·`strokes`·`effects` 를 하나도
+**세는 일 자체는 `pro-figma` 가 한다.** 덤프의 `fills`·`strokes`·`effects` 를 하나도
 빠짐없이 분류하고, 시안 export 와 앱 렌더를 픽셀로 맞댄다. 여기서는 **밟다가 "시안에서 온
 화면인데 대조한 기록이 없다"를 발견하는 것**까지가 일이다 — 그 사실 자체가 결함이다.
 접근성 트리에는 그림자·색·굵기가 없어서 이 스킬로는 시안 값이 전부 왔는지 볼 수 없다.
@@ -133,7 +133,7 @@ Animation · AnimationController · Tween · Curves. · transition: · @keyframe
 
 > 실제로 별 화면이 이 이유로 **21% 달랐다.** 에셋을 열어 보니 시안에서 받은 것과
 > **바이트까지 같았다.** 프레임워크가 지원하지 않아 구현자가 근사한 경우
-> (`pro-figma-verify` 의 `framework-gaps.md`)와 **종류가 다르다** — 이쪽은 구현자가
+> (`pro-figma` 의 `framework-gaps.md`)와 **종류가 다르다** — 이쪽은 구현자가
 > 판단할 기회조차 없었다. 넣었고, 될 줄 알았다.
 
 **콘솔이 대개 먼저 알린다.** 위 사고에서는 `unhandled element <filter/>` 가 처음부터

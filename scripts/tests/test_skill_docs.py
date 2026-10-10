@@ -110,11 +110,11 @@ def test_github_skill_docs_use_suh_command_instead_of_direct_curl_recipes():
 
 
 def test_common_rules_documents_3layer_architecture():
-    """common-rules.md에 3-layer 아키텍처와 7개 skill cli 매핑이 명시되어야 한다."""
+    """common-rules.md에 3-layer 아키텍처와 skill cli 매핑이 명시되어야 한다."""
     text = (ROOT / "skills" / "references" / "common-rules.md").read_text(encoding="utf-8")
-    # issue_cli.py는 pro-issue 통합(#464)으로 삭제됨 — github_cli가 흡수.
+    # issue_cli.py는 pro-issue 통합(#464)으로 삭제됨 — github_cli가 흡수. note_cli.py는 pro-note 삭제(#853)로 빠짐.
     for cli in ["github_cli.py", "commit_cli.py", "report_cli.py",
-                "review_cli.py", "note_cli.py", "changelog_cli.py"]:
+                "review_cli.py", "changelog_cli.py"]:
         assert cli in text, f"{cli} 매핑이 common-rules.md에 없음"
     # 3-layer 핵심 키워드
     for keyword in ["scripts/common/", "skills/<skill>/scripts/", "self-contained 5줄"]:
@@ -175,24 +175,6 @@ def test_review_cli_bad_args_emits_json():
     import os
     import json
     cli_path = ROOT / "skills" / "pro-review" / "scripts" / "review_cli.py"
-    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
-    proc = subprocess.run(
-        [sys.executable, str(cli_path), "nonexistent-sub"],
-        capture_output=True, text=True, encoding="utf-8",
-        env=env,
-    )
-    assert proc.stdout.strip(), f"stdout empty, stderr={proc.stderr}"
-    out = json.loads(proc.stdout.strip().splitlines()[-1])
-    assert out["ok"] is False
-    assert out["code"] == "bad_args"
-
-
-def test_note_cli_bad_args_emits_json():
-    """troubleshoot_cli.py가 잘못된 인자를 받아도 stdout에 JSON을 emit해야 한다."""
-    import subprocess
-    import os
-    import json
-    cli_path = ROOT / "skills" / "pro-note" / "scripts" / "note_cli.py"
     env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
     proc = subprocess.run(
         [sys.executable, str(cli_path), "nonexistent-sub"],

@@ -1,7 +1,7 @@
 # Agent Skills 가이드
 
 > **이 레포는 Claude Code, Cursor, Gemini CLI, Codex CLI에서 사용할 수 있는 Agent Skill 패키지입니다.**
-> GitHub Actions 자동화 템플릿과 더불어, 개발/DevOps Skill 17종을 제공합니다.
+> GitHub Actions 자동화 템플릿과 더불어, 개발/DevOps Skill 15종을 제공합니다.
 
 ---
 
@@ -101,12 +101,12 @@ Codex에서는 slash command UI가 아니라 `AGENTS.md`와 설치된 `skills/`�
 
 ---
 
-## Skill 전체 목록 (17종)
+## Skill 전체 목록 (15종)
 
 용도에 따라 네 그룹으로 나뉩니다:
 
-- **분석형** (2종) — 코드를 읽기만 하고 수정하지 않음. 계획/리뷰/진단 결과를 돌려줌.
-- **구현형** (6종) — 실제로 파일을 수정하거나 생성함.
+- **분석형** (1종) — 코드를 읽기만 하고 수정하지 않음. 계획/리뷰/진단 결과를 돌려줌.
+- **구현형** (5종) — 실제로 파일을 수정하거나 생성함.
 - **개발 사이클 자동화형** (3종) — 커밋, 배포, GitHub 작업을 대신 수행함.
 - **문서/산출물 생성형** (6종) — 코드는 건드리지 않고, `.md` 파일이나 보고서를 생성함.
 
@@ -115,7 +115,7 @@ Codex에서는 slash command UI가 아니라 `AGENTS.md`와 설치된 `skills/`�
 
 ---
 
-## 📊 분석형 Skill (2종)
+## 📊 분석형 Skill (1종)
 
 코드를 수정하지 않습니다. "먼저 상황을 파악하고 싶을 때" 사용하세요.
 
@@ -134,44 +134,11 @@ Codex에서는 slash command UI가 아니라 `AGENTS.md`와 설치된 `skills/`�
 
 ---
 
-### `/pro-note`
-
-**무엇을 하나요?**
-막혔을 때 **과거에 같은 문제를 겪었는지 먼저 찾아보고**, 어렵게 알아낸 것을 다음에 쓸 수 있는 기록으로 남깁니다.
-
-기록의 기준은 하나입니다 — **6개월 뒤 누군가가 AI 없이 이 문서만 보고 같은 문제를 해결할 수 있어야 한다.** 그래서 명령어를 복사해서 그대로 실행할 수 있게 적고, 각 명령이 무엇을 확인하는지와 어떤 출력이 나오면 무슨 뜻인지를 함께 남깁니다. 되돌릴 수 없는 조치 앞에는 백업 절차를 먼저 둡니다.
-
-**수정되는 것**: 없음 (기록 파일만 생성)
-**돌려주는 것**: 과거 기록 검색 결과, 또는 실행 가능한 형태의 새 기록
-
-**두 시점에 자동으로 동작합니다**
-
-- **막혔을 때** — "빌드가 또 깨졌는데?" 하면 조사 전에 기록부터 검색합니다. 있으면 그때 해결법을 바로 꺼내옵니다.
-- **어렵게 풀었을 때** — 여러 번 시도했거나 원인이 예상과 달랐다면 기록을 제안합니다. 한 번에 끝난 일은 묻지 않습니다.
-
-**어디에 쌓이나요?**
-
-| 성격 | 저장 위치 |
-|---|---|
-| 이 프로젝트 코드·설정·관례 | 저장소 안 (`docs/projectops/note/`) |
-| 배포 도구·플랫폼 공통 문제 | 사용자 홈 (다른 프로젝트에서도 검색됨) |
-| 로컬 환경 문제 | 사용자 홈 |
-
-저장소 파일이 바뀌었는지로 자동 판정하며, 애매할 때만 한 번 묻습니다. 검색할 때는 양쪽을 모두 봅니다.
-
-**언제 쓰나요?**
-- 빌드·배포가 실패하는데 원인을 모를 때
-- 에러가 반복되는데 전에 어떻게 고쳤는지 기억 안 날 때
-- 라이브러리 사용법이나 프로젝트 관례를 삽질 끝에 알아냈을 때
-- 이미 해결한 것을 나중에 기록으로 남기고 싶을 때
-
----
-
-## 🔧 구현형 Skill (6종)
+## 🔧 구현형 Skill (5종)
 
 실제로 파일을 수정합니다. "작업을 진행해달라"일 때 사용하세요.
 
-### `/pro-figma-verify`
+### `/pro-figma`
 
 **무엇을 하나요?**
 Figma 시안을 **코드로 옮기고, 옮긴 것이 시안과 같은지 셉니다.** 덤프의 채움·테두리·효과·배치를 하나도 빠짐없이 나열해 작업 목록으로 삼고, 반응형 단위로 옮긴 뒤, 시안 그림과 앱 화면을 픽셀로 맞대 어긋난 자리를 짚어 줍니다.
@@ -205,21 +172,6 @@ GitHub 레포를 **오픈소스 프로젝트로서 진단**합니다. 레포 성
 
 ---
 
-### `/pro-build`
-
-**무엇을 하나요?**
-프로젝트 타입(Spring/Flutter/React/Node 등)에 맞는 빌드 명령을 실행하고, 빌드 에러가 나면 원인을 분석해서 고치고, 빌드 결과를 최적화할 여지가 있으면 제안합니다.
-
-**수정되는 것**: 빌드 설정 파일 (필요 시)
-**돌려주는 것**: 빌드 성공/실패 결과 + 에러 분석 + 최적화 제안
-
-**언제 쓰나요?**
-- 빌드가 깨져서 원인을 찾아야 할 때
-- 번들 크기 최적화 요청
-- "그냥 한 번 빌드해봐"
-
----
-
 ### `/pro-init-worktree`
 
 **무엇을 하나요?**
@@ -245,7 +197,7 @@ GitHub 레포를 **오픈소스 프로젝트로서 진단**합니다. 레포 성
 **언제 쓰나요?**
 - "에뮬레이터 띄워서 찍어줘", "모바일 폭으로 캡처해줘"
 - 빈 목록·500 에러 같은 상태 화면이 필요할 때
-- 다른 스킬(`pro-agent-test`, `pro-design-brief`, `pro-figma-verify`)이 화면을 찍어야 할 때
+- 다른 스킬(`pro-agent-test`, `pro-design-brief`, `pro-figma`)이 화면을 찍어야 할 때
 
 > 버그를 찾으며 끝까지 밟는 QA는 `/pro-agent-test`입니다. 이 스킬은 "띄우고 찍는 도구"입니다.
 
@@ -263,7 +215,7 @@ GitHub 레포를 **오픈소스 프로젝트로서 진단**합니다. 레포 성
 - "디자인 요청해줘", "빈 화면이랑 에러 화면도 그려 달라고 해줘"
 - 디자인 없이 먼저 만든 화면의 시안을 요청할 때
 
-> 시안을 코드로 옮기고 대조하는 일은 `/pro-figma-verify`입니다.
+> 시안을 코드로 옮기고 대조하는 일은 `/pro-figma`입니다.
 
 ---
 
@@ -439,7 +391,7 @@ flowchart TD
     C --> D{"작업 유형?"}
 
     D -->|새 기능·설계·리팩토링| E1["superpowers:brainstorming<br/>무엇을 왜 만들지 확정"]
-    D -->|버그·장애| E2["/pro-note<br/>과거 기록 검색 + 조사"]
+    D -->|버그·장애| E2["superpowers:systematic-debugging<br/>원인 조사"]
 
     E1 --> F1["superpowers:writing-plans<br/>구현 계획 수립"]
     F1 --> G1["superpowers:executing-plans<br/>계획 실행"]
@@ -458,7 +410,7 @@ flowchart TD
 | 상황 | 추천 흐름 |
 |------|----------|
 | **새 기능 개발 (표준)** | `pro-github` → `pro-init-worktree` → `brainstorming` → `writing-plans` → `executing-plans` → `pro-review` → `pro-commit` → `pro-report` → `pro-changelog-deploy` |
-| **버그 수정** | `pro-github` → `pro-init-worktree` → `pro-note`(검색) → `executing-plans` → `pro-commit` → `pro-report` → `pro-changelog-deploy` |
+| **버그 수정** | `pro-github` → `pro-init-worktree` → `systematic-debugging`(원인 조사) → `executing-plans` → `pro-commit` → `pro-report` → `pro-changelog-deploy` |
 | **리팩토링·설계 변경** | 새 기능 개발과 동일 (`brainstorming`에서 범위를 좁혀 시작) |
 | **QA 테스트케이스** | `pro-github` → `pro-testcase` |
 | **실제 실행 검증(앱·웹·서버)** | `pro-agent-test` → (문제 발견 시) `pro-github` → `pro-commit` |
@@ -470,10 +422,9 @@ flowchart TD
 | 코드 리뷰만 필요 | `review` |
 | 이슈만 빠르게 초안 작성 | `github` |
 | PR 설명 / QA 체크리스트 생성 | `report` / `testcase` |
-| Figma 디자인을 코드로 옮기고 시안과 대조 | `figma-verify` |
+| Figma 디자인을 코드로 옮기고 시안과 대조 | `figma` |
 | Synology 외부 노출 가이드 | `synology-expose` |
 | 원격 서버 SSH 접속·명령 실행 | `ssh` |
-| 빌드 실행 / 에러 분석 | `build` |
 | 배포 PR 생성 + automerge | `changelog-deploy` |
 | GitHub 이슈/PR 조회 및 관리 | `github` |
 | Skill 생성/리뷰/개선 | `skill-creator` |

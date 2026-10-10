@@ -775,14 +775,12 @@ claude plugin marketplace add Cassiiopeia/projectops
 claude plugin install projectops@projectops-marketplace --scope user
 ```
 
-> 설계·계획·구현은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 맡는다. 아래 17종에는 분석·계획·구현 스킬이 없다.
+> 설계·계획·구현은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 맡는다. 아래 15종에는 분석·계획·구현 스킬이 없다.
 
 | 명령어 | 용도 |
 |--------|------|
 | `review` | 코드 리뷰 |
 | `testcase` | QA 테스트케이스 |
-| `note` | 막혔을 때 과거 기록 검색, 알아낸 것 기록 |
-| `build` | 빌드 관리 |
 | `init-worktree` | Git worktree 생성 |
 | `commit` | 이슈 기반 커밋 자동화 |
 | `github` | GitHub 전반: 이슈 생성/조회/수정/댓글/라벨/담당자, PR 생성/머지/조회, 레포 탐색, Actions 로그, Secret 관리, **이미지 첨부**(이슈 본문·댓글·PR) |
@@ -792,7 +790,7 @@ claude plugin install projectops@projectops-marketplace --scope user
 | `ssh` | 원격 서버 SSH 접속 및 명령 실행 (AWS EC2, 시놀로지 NAS, Linux 서버 등) |
 | `skill-creator` | skill 생성/리뷰/개선 (CREATE·REVIEW·IMPROVE 3모드) |
 | `agent-test` | **앱·웹·서버를 실제로 실행해 밟는다** (E2E·증적) — 문서만 쓰는 `testcase`와 다르다 |
-| `figma-verify` | **시안 → 코드 → 대조** 한 묶음. 덤프 항목을 세어 작업 목록으로 삼고, 옮긴 뒤 픽셀로 맞댄다 (구 `figma` 흡수 — #619) |
+| `figma` | **시안 → 코드 → 대조** 한 묶음. 덤프 항목을 세어 작업 목록으로 삼고, 옮긴 뒤 픽셀로 맞댄다 (#619에서 옮기기·대조를 `figma-verify`로 합쳤고, #854에서 이름을 `figma`로 되돌렸다) |
 | `launch` | **능력 스킬** — 앱·웹·서버를 띄우고 조작하고 찍는다. 다른 스킬이 `launch_cli.py` 를 스크립트로 부른다 (#629) |
 | `design-brief` | **시안보다 먼저 만든 화면의 디자인 요청서** — 상태별 캡처 · 대안 · 문구 · 꼭 지킬 것을 보드로 조립해 이슈·HTML·md 로 넘긴다 (#634) |
 | `oss-consult` | **오픈소스 컨설팅** — 레포 성격을 판별하고 6축(첫인상·가치 증명·커뮤니티·코드 확장성·법적 안전·장기 운영)으로 깐깐하게 채점, 성숙도 단계와 선행 조건을 짚고 승인받은 것을 고친다. 단일 레포·전체 일괄 (#644) |
@@ -929,11 +927,10 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | commit | `skills/pro-commit/scripts/commit_cli.py` | get-issue-number, get-issue, normalize-title, sanitize-message, get-commit-template |
 | report | `skills/pro-report/scripts/report_cli.py` | get-output-path, add-comment |
 | review | `skills/pro-review/scripts/review_cli.py` | get-output-path |
-| note | `skills/pro-note/scripts/note_cli.py` | search, resolve-scope, get-output-path, list |
 | changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` | actions, deploy-status, list-prs, update-pr, create-pr, detect-release-context |
 | analyze / plan / testcase | `skills/pro-<skill>/scripts/<scope>_cli.py` | get-output-path (#525·#623에서 신설 — 이전엔 경로 계산 수단이 없었다) |
 | init-worktree | `skills/pro-init-worktree/scripts/worktree_cli.py` | recall, record (지난번 복사한 로컬 파일 세트를 기억 — #839) |
-| figma-verify | `skills/pro-figma-verify/scripts/figma_verify_cli.py` | get-output-path, coverage, assets, conform, diff |
+| figma | `skills/pro-figma/scripts/figma_cli.py` | get-output-path, coverage, assets, conform, diff |
 | agent-test | `skills/pro-agent-test/scripts/e2e_cli.py` | detect, scenario, note, api, other (실행·캡처 명령은 pro-launch 로 넘겨준다 — #631) |
 | launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, render, http, access, db, logs, cred, ssh, local (이 맥 sudo, #784), shrink, recall, learn, forget, get-output-path |
 | design-brief | `skills/pro-design-brief/scripts/design_brief_cli.py` | config, get-output-path, board, copy-lint, ascii |
@@ -1004,7 +1001,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | 요청 유형 | 호출 스킬 |
 |----------|----------|
 | **이슈 만들어줘, 이슈 등록, 버그 리포트, PR 생성, PR 올려줘, PR 머지, 이슈 댓글, 댓글 달아줘/수정/삭제, 이슈 확인, 이슈 닫기, 라벨 추가/제거, 담당자 추가, PR 조회, GitHub API** | **`pro-github` ← 최우선 트리거** |
-| 뭔가 안 됨, 버그, 장애, 원인 파악 | `pro-note` (과거 기록 먼저 검색) |
+| 뭔가 안 됨, 버그, 장애, 원인 파악 | `superpowers:systematic-debugging` |
 | 코드 리뷰 | `pro-review` |
 | QA 테스트케이스 | `pro-testcase` |
 | 이슈 작성 / 이슈 생성 | `pro-github` (이슈 생성 워크플로우 흡수) |
@@ -1016,7 +1013,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | **에뮬레이터 띄워서 찍어줘, 시뮬레이터 스크린샷, 브라우저로 캡처, 모바일 폭으로·빈 목록·500 화면 찍어줘** | `pro-launch` |
 | **디자인 요청해줘, 시안 요청 올려줘, 디자이너한테 보낼 거 만들어줘, 빈 화면·에러 화면도 그려 달라고 해줘** | `pro-design-brief` |
 | **오픈소스 점검, 레포 컨설팅, trending 가려면, 오픈소스답게 만들어줘, 내 레포 전부 점검, README·라벨·라이선스 괜찮아?** | `pro-oss-consult` |
-| **figma 디자인 구현, 시안대로 만들어줘, 시안이랑 같은지 확인, 디자인대로 됐는지, 그림자 빠진 거 없나** | `pro-figma-verify` |
+| **figma 디자인 구현, 시안대로 만들어줘, 시안이랑 같은지 확인, 디자인대로 됐는지, 그림자 빠진 거 없나** | `pro-figma` |
 | **설계·기획 (무엇을 왜)** | **`superpowers:brainstorming`** |
 | **구현 계획 (어떻게)** | **`superpowers:writing-plans`** |
 | **계획 실행** | **`superpowers:executing-plans`** |

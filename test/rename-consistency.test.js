@@ -72,16 +72,19 @@ test("핵심 pro- 스킬 폴더가 모두 존재한다", () => {
   // pro-report와 역할이 겹쳐 삭제됨 (24종→17종)
   // pro-spring-test는 #582에서 삭제됨 — assertion 없는 테스트를 만들어 내는 템플릿이었다 (17종→16종)
   // pro-figma는 #619에서 pro-figma-verify로 통합·삭제됨 — 옮기는 일과 세는 일이 나뉘어 있어
-  // 옮기는 쪽이 무엇을 옮겨야 하는지 모른 채 그림만 보고 만들었다
+  // 옮기는 쪽이 무엇을 옮겨야 하는지 모른 채 그림만 보고 만들었다.
+  // #854에서 합쳐진 스킬의 이름을 다시 pro-figma로 바꿨다 (옮기기·대조 한 묶음은 그대로).
+  // 설치본의 옛 pro-figma-verify는 Cursor 어댑터가 "소스에 없는 pro-*"로 보고 지운다.
   // pro-analyze·pro-plan·pro-implement는 #849에서 삭제됨 — superpowers(brainstorming·writing-plans·executing-plans)와 역할이 겹쳤다
+  // pro-note·pro-build는 #853에서 삭제됨 — 쌓인 기록이 0건이었고, 빌드 명령은 agent가 마커 파일로 직접 정한다
   //
   // 이 목록은 "있어야 하는 것"만 담는다. 새 스킬이 늘어도 이 테스트는 건드리지 않아도 되지만,
   // **스킬을 지울 때는 여기서도 빼야 한다** — 실제로 #582가 이걸 빠뜨려 develop이 깨진 채 있었다.
   const expected = [
-    "pro-build", "pro-changelog-deploy", "pro-commit",
-    "pro-figma-verify", "pro-github", "pro-init-worktree",
+    "pro-changelog-deploy", "pro-commit",
+    "pro-figma", "pro-github", "pro-init-worktree",
     "pro-report", "pro-review", "pro-skill-creator",
-    "pro-note", "pro-ssh", "pro-synology-expose", "pro-testcase",
+    "pro-ssh", "pro-synology-expose", "pro-testcase",
   ];
   for (const s of expected) {
     assert.ok(existsSync(join(ROOT, "skills", s, "SKILL.md")), `누락: skills/${s}/SKILL.md`);

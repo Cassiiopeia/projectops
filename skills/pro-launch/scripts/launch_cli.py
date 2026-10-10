@@ -2,7 +2,7 @@
 """launch_cli — pro-launch 전용 CLI (projectops 3-layer 표준, Layer 2, #629).
 
 앱·웹·서버를 **띄우고, 조작하고, 찍는** 능력만 담는다. 무엇을 왜 찍을지는 부르는
-작업 스킬(pro-agent-test · pro-design-brief · pro-figma-verify)이 정한다.
+작업 스킬(pro-agent-test · pro-design-brief · pro-figma)이 정한다.
 
 원칙: **판단은 agent, 스크립트는 실행과 기록.** 프로젝트 구조를 알아맞히지 않는다.
 
@@ -2870,11 +2870,6 @@ def cmd_logs(args) -> int:
                 "lines": [], "error": err[:500] or f"종료코드 {r.returncode}",
                 "summary": f"로그 명령 실패 (종료코드 {r.returncode}) — 로그가 없는 것이 아니다",
                 "next": "error 를 보고 접속 방법·명령을 고친다 (access show --key logs)"}
-        try:   # 같은 오류를 전에 풀어 둔 기록(pro-note)이 있으면 싣는다 — 없으면 필드가 생기지 않는다 (#840)
-            from common.notes import attach_note_hits
-            attach_note_hits(resp, err, project_root=_root(args))
-        except Exception:   # noqa: BLE001 — 기록 검색이 오류 보고를 막으면 안 된다
-            pass
         return out(resp)
     lines = (r.stdout or "").splitlines()
     if args.grep:

@@ -117,7 +117,7 @@ rename `YYYYMMDD_245_제목.md`(권장). 파일명에 이모지·`TMP` 접두사
 config는 CLI가 아니라 agent가 Read/Write로 직접 다룬다 (`config-rules.md`).
 
 예: `pro-github/scripts/github_cli.py` · `pro-commit/scripts/commit_cli.py` · `pro-report/scripts/report_cli.py` ·
-`pro-review/scripts/review_cli.py` · `pro-note/scripts/note_cli.py` · `pro-changelog-deploy/scripts/changelog_cli.py` (다른 스킬도 같은 규칙).
+`pro-review/scripts/review_cli.py` · `pro-changelog-deploy/scripts/changelog_cli.py` (다른 스킬도 같은 규칙).
 3-layer 구조·JSON 출력(`ok`/`code`/`summary`/`next`)·GitHub API 에러 대응·OS 호환성: `script-invocation.md`.
 
 **GitHub 작업**도 이 서브커맨드로만 한다. `gh` CLI 금지, 스킬 문서에 curl 레시피·Python heredoc·임시 Python 파일을 넣지 않는다.

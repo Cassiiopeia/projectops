@@ -44,7 +44,7 @@
 | 이슈 매번 형식 맞춰 작성 | `/pro-github` 한 번에 표준 템플릿 생성 + 등록 |
 | 커밋 메시지 이슈 URL 수동 복사 | `/pro-commit` 이슈 컨텍스트 기반 자동 완성 |
 | PR 설명/보고서 직접 작성 | `/pro-report` git diff 분석 후 자동 생성 |
-| 코드 리뷰·분석 매번 프롬프트 입력 | 17종 Skills로 일관된 결과, 매번 재입력 불필요 |
+| 코드 리뷰·분석 매번 프롬프트 입력 | 15종 Skills로 일관된 결과, 매번 재입력 불필요 |
 
 ---
 
@@ -99,11 +99,11 @@
 | 구성 | 하는 일 | 문서 |
 |---|---|---|
 | **GitHub Actions** | main 푸시 한 번으로 버전 관리, 체인지로그, CI/CD 배포를 자동 처리합니다 | [버전 관리](https://cassiiopeia.github.io/projectops/VERSION-CONTROL) |
-| **Agent Skills** (17종) | `/pro-github`, `/pro-commit`, `/pro-report` 등으로 AI가 이슈·커밋 메시지·구현 보고서를 대신 만듭니다 | [Skills 가이드](https://cassiiopeia.github.io/projectops/SKILLS) |
+| **Agent Skills** (15종) | `/pro-github`, `/pro-commit`, `/pro-report` 등으로 AI가 이슈·커밋 메시지·구현 보고서를 대신 만듭니다 | [Skills 가이드](https://cassiiopeia.github.io/projectops/SKILLS) |
 | **npx CLI** | 기존 프로젝트에 워크플로우를 설치·업데이트하고 상태를 진단합니다 | [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/CLI) |
 
 <details>
-<summary>Agent Skills 17종 전체 보기</summary>
+<summary>Agent Skills 15종 전체 보기</summary>
 
 ### 🔄 개발 사이클 자동화
 
@@ -120,14 +120,12 @@
 | 스킬 | 용도 |
 |------|------|
 | `/pro-review` | 보안/성능/버그/품질 6관점 리뷰, Critical/Major/Minor 분류 |
-| `/pro-note` | 막혔을 때 과거 기록 검색, 알아낸 것을 실행 가능한 기록으로 저장 |
 
 ### 🔧 구현형 (실제 코드 작성)
 
 | 스킬 | 용도 |
 |------|------|
-| `/pro-figma-verify` | Figma 시안을 코드로 옮기고, 옮긴 것이 시안과 같은지 픽셀로 센다 |
-| `/pro-build` | 프로젝트 빌드 실행, 에러 분석, 최적화 제안 |
+| `/pro-figma` | Figma 시안을 코드로 옮기고, 옮긴 것이 시안과 같은지 픽셀로 센다 |
 | `/pro-launch` | 앱·웹·서버를 띄우고 조작하고 찍는다 — 상태바 고정 캡처, 폭 바꾸기, 응답 바꿔치기(빈 목록·실패 연출), 코드 렌더 |
 | `/pro-design-brief` | 시안보다 먼저 만든 화면의 디자인 요청서 — 상태별 캡처·대안·문구 후보·꼭 지킬 것을 보드로 만들어 디자이너에게 |
 | `/pro-oss-consult` | GitHub 레포를 오픈소스로서 진단 — 성격 판별, 6축 채점, 성숙도 단계, 승인받은 것만 About·topics·라벨·파일 수정. 단일 레포·계정 전체 일괄 |
@@ -160,7 +158,7 @@ flowchart TD
     C --> D{"작업 유형"}
 
     D -->|새 기능·설계·리팩토링| E1["superpowers:brainstorming<br/>무엇을 왜 만들지 확정"]
-    D -->|버그·장애| E2["/pro-note<br/>과거 기록 검색 + 조사"]
+    D -->|버그·장애| E2["superpowers:systematic-debugging<br/>원인 조사"]
 
     E1 --> P["superpowers:writing-plans<br/>구현 계획"]
     P --> F["superpowers:executing-plans<br/>계획 실행"]

@@ -42,7 +42,7 @@
 | Issue を毎回書式に合わせて作成 | `/pro-github` が標準テンプレートで作成から登録まで一度で実行 |
 | コミットメッセージに Issue の URL を手作業でコピー | `/pro-commit` が Issue の文脈から自動で補完 |
 | PR の説明やレポートを手書き | `/pro-report` が git diff を分析して自動生成 |
-| コードレビューや分析のたびにプロンプトを入力 | 17 種の Skills で一貫した結果。毎回の再入力は不要 |
+| コードレビューや分析のたびにプロンプトを入力 | 15 種の Skills で一貫した結果。毎回の再入力は不要 |
 
 ---
 
@@ -97,11 +97,11 @@ Issue を開くと GitHub Actions が自動で動き、**ブランチ名とコ�
 | 構成 | できること | ドキュメント |
 |---|---|---|
 | **GitHub Actions** | main へ一度 push するだけで、バージョン管理、変更履歴、CI/CD デプロイまで自動で処理 | [バージョン管理](https://cassiiopeia.github.io/projectops/VERSION-CONTROL)（韓国語） |
-| **Agent Skills**（17 種） | `/pro-github`、`/pro-commit`、`/pro-report` などで、AI が Issue、コミットメッセージ、実装レポートを代わりに作成 | [Skills ガイド](https://cassiiopeia.github.io/projectops/SKILLS)（韓国語） |
+| **Agent Skills**（15 種） | `/pro-github`、`/pro-commit`、`/pro-report` などで、AI が Issue、コミットメッセージ、実装レポートを代わりに作成 | [Skills ガイド](https://cassiiopeia.github.io/projectops/SKILLS)（韓国語） |
 | **npx CLI** | 既存プロジェクトにワークフローを導入・更新し、状態を診断 | [CLI リファレンス](https://cassiiopeia.github.io/projectops/en/cli)（英語） |
 
 <details>
-<summary>Agent Skills 17 種をすべて見る</summary>
+<summary>Agent Skills 15 種をすべて見る</summary>
 
 ### 🔄 開発サイクルの自動化
 
@@ -118,14 +118,12 @@ Issue を開くと GitHub Actions が自動で動き、**ブランチ名とコ�
 | スキル | 用途 |
 |------|------|
 | `/pro-review` | セキュリティ・性能・バグ・品質など 6 つの観点でレビューし、Critical/Major/Minor に分類 |
-| `/pro-note` | 行き詰まったときに過去の記録を検索し、分かったことを実行可能な記録として保存 |
 
 ### 🔧 実装型（実際にコードを書く）
 
 | スキル | 用途 |
 |------|------|
-| `/pro-figma-verify` | Figma のデザインをコードに移し、出来上がりがデザインと同じかをピクセル単位で比較 |
-| `/pro-build` | プロジェクトのビルド実行、エラー分析、最適化の提案 |
+| `/pro-figma` | Figma のデザインをコードに移し、出来上がりがデザインと同じかをピクセル単位で比較 |
 | `/pro-launch` | アプリ・Web・サーバーを起動・操作・撮影：ステータスバー固定、幅の変更、レスポンスの差し替え（空リスト・失敗の再現）、コードによる描画 |
 | `/pro-design-brief` | デザインが出る前に作った画面のデザイン依頼書：状態別キャプチャ、代替案、文言候補、必ず守ることをボードにしてデザイナーへ |
 | `/pro-oss-consult` | GitHub リポジトリをオープンソースとして診断：性格の判別、6 軸の採点、成熟度ステージ、承認を得た内容だけ About・topics・ラベル・ファイルを修正。単一リポジトリもアカウント全体も対応 |
@@ -158,7 +156,7 @@ flowchart TD
     C --> D{"作業の種類"}
 
     D -->|新機能・設計・リファクタリング| E1["superpowers:brainstorming<br/>何をなぜ作るかを確定"]
-    D -->|バグ・障害| E2["/pro-note<br/>過去の記録を検索 + 調査"]
+    D -->|バグ・障害| E2["superpowers:systematic-debugging<br/>原因を調査"]
 
     E1 --> P["superpowers:writing-plans<br/>実装計画"]
     P --> F["superpowers:executing-plans<br/>計画の実行"]

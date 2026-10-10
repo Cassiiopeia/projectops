@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""figma_verify_cli — 시안과 구현 화면을 대조한다 (projectops 3-layer Layer 2).
+"""figma_cli — 시안과 구현 화면을 대조한다 (projectops 3-layer Layer 2).
 
 **눈으로는 못 잡는다.** 어떤 버튼에서 효과 네 줄 중 안쪽 세 줄이 통째로 빠진 채
 배포된 일이 있었다. 전체 화면 골든을 만들어 놓고도 지나갔다 — 361x68 안의 10px
@@ -895,11 +895,11 @@ def cmd_output_path(args) -> int:
                      "error": "scripts/common/paths.py 를 찾지 못했습니다",
                      "hint": "projectops 설치가 온전한지 확인하세요"})
 
-    r = resolve_output_path("figma-verify", args.title)
+    r = resolve_output_path("figma", args.title)
     if r.get("ok") is False:
         return emit(r)
 
-    md = Path(r["path"])          # <우산>/figma-verify/{날짜}_{번호}_{제목}.md
+    md = Path(r["path"])          # <우산>/figma/{날짜}_{번호}_{제목}.md
     run_dir = md.parent / md.stem
     subs = {name: run_dir / name for name in ("dump", "design", "render", "diff")}
     try:
@@ -1201,7 +1201,7 @@ def cmd_diff(args) -> int:
 
 def build_parser() -> JSONArgumentParser:
     # 인자 오류도 JSON(bad_args)으로 — 에이전트는 stdout JSON 만 읽는다 (#708)
-    p = JSONArgumentParser(prog="figma_verify_cli",
+    p = JSONArgumentParser(prog="figma_cli",
                            description="시안과 구현 화면을 대조한다")
     sub = p.add_subparsers(dest="command")
 

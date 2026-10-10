@@ -1,6 +1,6 @@
 ---
 name: pro-design-brief
-description: "시안보다 먼저 만든 화면을 디자이너에게 넘길 요청서를 만든다. 실제 화면을 상태별로 찍고(빈 목록·실패·긴 글자·글자 크기·작은 폰), 배치 대안 3~5안을 실제 컴포넌트로 렌더하고, 문구 후보·UI 요소 후보·꼭 지킬 것(브랜드 규격·레포 디자인 원칙·합의된 예외)을 모아 보드(HTML → 주제별 PNG)로 조립한 뒤 디자인 이슈·HTML 한 장·md 폴더 중 레포에 맞는 한 형식으로 넘긴다. Figma 링크가 있으면 시안에 그려진 상태와 빠진 상태를 가려 빈틈을 요청한다. 정답이 아니라 생각할 재료를 준다. '디자인 요청해줘', '시안 요청 올려줘', '디자이너한테 보낼 거 만들어줘', '이거 디자인 안 나왔는데 먼저 만들었어', '빈 화면이랑 에러 화면도 그려 달라고 해줘', '디자인 이슈 만들어줘' 같은 요청에 사용한다. 시안을 코드로 옮기고 대조하는 것은 pro-figma-verify, 버그를 찾는 것은 pro-agent-test 다."
+description: "시안보다 먼저 만든 화면을 디자이너에게 넘길 요청서를 만든다. 실제 화면을 상태별로 찍고(빈 목록·실패·긴 글자·글자 크기·작은 폰), 배치 대안 3~5안을 실제 컴포넌트로 렌더하고, 문구 후보·UI 요소 후보·꼭 지킬 것(브랜드 규격·레포 디자인 원칙·합의된 예외)을 모아 보드(HTML → 주제별 PNG)로 조립한 뒤 디자인 이슈·HTML 한 장·md 폴더 중 레포에 맞는 한 형식으로 넘긴다. Figma 링크가 있으면 시안에 그려진 상태와 빠진 상태를 가려 빈틈을 요청한다. 정답이 아니라 생각할 재료를 준다. '디자인 요청해줘', '시안 요청 올려줘', '디자이너한테 보낼 거 만들어줘', '이거 디자인 안 나왔는데 먼저 만들었어', '빈 화면이랑 에러 화면도 그려 달라고 해줘', '디자인 이슈 만들어줘' 같은 요청에 사용한다. 시안을 코드로 옮기고 대조하는 것은 pro-figma, 버그를 찾는 것은 pro-agent-test 다."
 ---
 
 # 디자인 요청서 — 시안보다 먼저 만든 화면
@@ -13,7 +13,7 @@ description: "시안보다 먼저 만든 화면을 디자이너에게 넘길 요
 
 | 쓴다 | 쓰지 않는다 |
 |---|---|
-| 시안 없이 먼저 구현했다 → 시안 요청 | 시안이 있고 코드로 옮기는 중 → `pro-figma-verify` |
+| 시안 없이 먼저 구현했다 → 시안 요청 | 시안이 있고 코드로 옮기는 중 → `pro-figma` |
 | 시안이 기본 화면만 있다 → 빠진 상태 요청 | 버그 찾기 → `pro-agent-test` |
 | 디자이너가 방향을 못 잡는다 → 재료 제공 | 디자인 시스템을 새로 짠다 |
 
@@ -26,7 +26,7 @@ description: "시안보다 먼저 만든 화면을 디자이너에게 넘길 요
 | 하려는 것 | 명령 | 자세히 |
 |---|---|---|
 | 출력 방식 · 디자이너 · 게시 전 확인 판정/저장 | `design_brief_cli.py config show\|set` | 아래 0단계 |
-| Figma · 이미지 입력 읽기, 빈틈 표 | `mcp__figma__get_figma_data` · `figma_verify_cli.py coverage` | `references/states-and-capture.md` |
+| Figma · 이미지 입력 읽기, 빈틈 표 | `mcp__figma__get_figma_data` · `figma_cli.py coverage` | `references/states-and-capture.md` |
 | 상태 목록(5축) | — (코드를 읽는다) | `references/states-and-capture.md` · `../references/design-states.md` |
 | 캡처 자리 · 실기기/브라우저/렌더 캡처 | `launch_cli.py get-output-path --skill design-brief` · `app shot` · `web route` · `render run` | `references/states-and-capture.md` |
 | 렌더할 수 없는 상태 · 아직 없는 안 | `design_brief_cli.py ascii --spec` | `references/states-and-capture.md` |
@@ -42,7 +42,7 @@ description: "시안보다 먼저 만든 화면을 디자이너에게 넘길 요
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-for SKILL in pro-design-brief pro-launch pro-github pro-figma-verify; do
+for SKILL in pro-design-brief pro-launch pro-github pro-figma; do
   ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
   [ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
     H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
@@ -54,7 +54,7 @@ done
 ```
 
 자리표시: `{SCRIPTS}` = pro-design-brief(config · get-output-path · board · copy-lint · ascii), `{LAUNCH}` = pro-launch(캡처 · 렌더 · 상태 연출),
-`{GITHUB}` = pro-github(이미지 · 이슈), `{FIGMA}` = pro-figma-verify(Figma 덤프 세기 — 링크가 있을 때).
+`{GITHUB}` = pro-github(이미지 · 이슈), `{FIGMA}` = pro-figma(Figma 덤프 세기 — 링크가 있을 때).
 
 ## 공통 규칙
 

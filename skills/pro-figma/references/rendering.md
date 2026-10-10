@@ -12,7 +12,7 @@
 
 ```bash
 # pro-launch 스크립트는 common-rules.md 표준 블록을 SKILL=pro-launch 로 돌려 찾는다 → {LAUNCH}
-{PYTHON} {LAUNCH}/launch_cli.py get-output-path --skill figma-verify --title "{화면 이름}"
+{PYTHON} {LAUNCH}/launch_cli.py get-output-path --skill figma --title "{화면 이름}"
 ```
 
 ## pro-launch 기본값과 다르게 찍는 것 — 한눈에

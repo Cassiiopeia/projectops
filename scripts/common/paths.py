@@ -81,15 +81,18 @@ def resolve_output_root(project_root: Union[str, Path]) -> Path:
 # 조용히 커밋되기 시작하고, 알아챌 때쯤엔 이미 이력에 박혀 있다.
 EVIDENCE_SKILLS = frozenset({
     "agent-test",     # 스크린샷·기기 로그
-    "figma-verify",   # 덤프·시안 export·앱 렌더·차이 그림
+    # 덤프·시안 export·앱 렌더·차이 그림. #854 에서 figma-verify → figma 로 이름을 바꿨다.
+    # 옛 figma-verify/ 폴더는 그대로 둔다 — 회차마다 새로 만드는 증거물이라 다시 읽는 곳이 없고,
+    # 스스로 .gitignore 를 들고 있어 커밋되지도 않는다. 그래서 읽기 폴백을 두지 않는다.
+    "figma",
     "launch",         # 앱·웹 캡처 · http 응답 (#629)
     "design-brief",   # 요청서 보드 · 상태별 캡처 (#634)
 })
 
-# 사라진 스킬(analyze·plan·implement·design-analyze·refactor-analyze·ppt·troubleshoot·pr)은 뺐다 (#822).
+# 사라진 스킬(note·analyze·plan·implement·design-analyze·refactor-analyze·ppt·troubleshoot·pr)은 뺐다 (#822).
 # 남겨 두면 없는 스킬 이름으로도 산출물 폴더가 만들어진다.
 DOCUMENT_SKILLS = frozenset({
-    "issue", "note", "oss-consult", "report", "review", "testcase",
+    "issue", "oss-consult", "report", "review", "testcase",
 })
 
 

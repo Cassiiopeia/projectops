@@ -1,7 +1,7 @@
 # Agent Skills guide
 
 > **This repository is an Agent Skill package you can use with Claude Code, Cursor, Gemini CLI, and Codex CLI.**
-> Along with the GitHub Actions automation template, it provides 17 development/DevOps Skills.
+> Along with the GitHub Actions automation template, it provides 15 development/DevOps Skills.
 
 ---
 
@@ -101,12 +101,12 @@ In Codex there is no slash command UI. You use Skills by having it read the rele
 
 ---
 
-## Full Skill list (17)
+## Full Skill list (15)
 
 By purpose, they fall into four groups:
 
-- **Analysis** (2) — Only read code and never modify it. Return plans, reviews, or diagnoses.
-- **Implementation** (6) — Actually modify or create files.
+- **Analysis** (1) — Only read code and never modify it. Return plans, reviews, or diagnoses.
+- **Implementation** (5) — Actually modify or create files.
 - **Development cycle automation** (3) — Do commits, deploys, and GitHub work for you.
 - **Document/artifact generation** (6) — Do not touch code; generate `.md` files or reports.
 
@@ -115,7 +115,7 @@ By purpose, they fall into four groups:
 
 ---
 
-## 📊 Analysis Skills (2)
+## 📊 Analysis Skills (1)
 
 They do not modify code. Use them "when you want to understand the situation first".
 
@@ -134,44 +134,11 @@ It reviews code from **six angles: security, performance, bugs, quality, archite
 
 ---
 
-### `/pro-note`
-
-**What does it do?**
-When you are stuck, it **first looks for whether you hit the same problem before**, and it records what you worked hard to figure out in a form you can use next time.
-
-There is one standard for a record — **six months from now, someone must be able to solve the same problem from this document alone, without AI.** So commands are written so you can copy and run them as they are, and each one comes with what it checks and what a given output means. Before any step that cannot be undone, a backup procedure comes first.
-
-**Modifies**: nothing (only creates record files)
-**Returns**: past-record search results, or a new record in an executable form
-
-**It works automatically at two moments**
-
-- **When you are stuck** — If you say "the build broke again?", it searches the records before investigating. If one exists, it brings out the fix from last time right away.
-- **After a hard fix** — If it took several tries or the cause was not what you expected, it suggests writing a record. It does not ask about things that were done in one go.
-
-**Where do records accumulate?**
-
-| Nature | Storage location |
-|---|---|
-| This project's code, settings, conventions | Inside the repository (`docs/projectops/note/`) |
-| Problems common to deploy tools and platforms | User home (also searched from other projects) |
-| Local environment problems | User home |
-
-It decides automatically based on whether repository files changed, and asks once only when it is unclear. Searches look at both places.
-
-**When to use it**
-- A build or deploy fails and you do not know the cause
-- An error keeps repeating and you do not remember how you fixed it before
-- You worked out a library usage or a project convention the hard way
-- You want to record something you already solved, for later
-
----
-
-## 🔧 Implementation Skills (6)
+## 🔧 Implementation Skills (5)
 
 They actually modify files. Use them when you want the work to be carried out.
 
-### `/pro-figma-verify`
+### `/pro-figma`
 
 **What does it do?**
 It **moves a Figma design into code and counts whether what you moved matches the design.** It lists every fill, border, effect, and layout in the dump without omission and uses that as the work list. It converts to responsive units, then compares the design image against the app screen pixel by pixel and points out where they differ.
@@ -205,21 +172,6 @@ It **diagnoses a GitHub repo as an open source project**. It first determines th
 
 ---
 
-### `/pro-build`
-
-**What does it do?**
-It runs the build command that fits the project type (Spring/Flutter/React/Node and so on). If the build errors out it analyzes the cause and fixes it, and if there is room to optimize the build result it suggests how.
-
-**Modifies**: build config files (when needed)
-**Returns**: build success/failure result + error analysis + optimization suggestions
-
-**When to use it**
-- The build broke and you need to find the cause
-- A request to optimize bundle size
-- "Just run a build"
-
----
-
 ### `/pro-init-worktree`
 
 **What does it do?**
@@ -245,7 +197,7 @@ A **capability Skill** that starts, operates, and captures apps, web, and server
 **When to use it**
 - "Start the emulator and capture it", "capture it at mobile width"
 - When you need state screens such as an empty list or a 500 error
-- When another Skill (`pro-agent-test`, `pro-design-brief`, `pro-figma-verify`) needs to capture a screen
+- When another Skill (`pro-agent-test`, `pro-design-brief`, `pro-figma`) needs to capture a screen
 
 > QA that goes through the app end to end looking for bugs is `/pro-agent-test`. This Skill is "a tool for starting and capturing".
 
@@ -263,7 +215,7 @@ It builds a **request document** to hand to a designer for a screen you built be
 - "Request a design", "ask them to draw the empty and error screens too"
 - When requesting a design for a screen you built without one
 
-> Moving a design into code and comparing it is `/pro-figma-verify`.
+> Moving a design into code and comparing it is `/pro-figma`.
 
 ---
 
@@ -436,7 +388,7 @@ flowchart TD
     C --> D{"Type of work?"}
 
     D -->|New feature, design, refactor| E1["superpowers:brainstorming<br/>Decide what to build and why"]
-    D -->|Bug, incident| E2["/pro-note<br/>Search past records + investigate"]
+    D -->|Bug, incident| E2["superpowers:systematic-debugging<br/>Find the root cause"]
 
     E1 --> F1["superpowers:writing-plans<br/>Write the implementation plan"]
     F1 --> G1["superpowers:executing-plans<br/>Execute the plan"]
@@ -455,7 +407,7 @@ flowchart TD
 | Situation | Recommended flow |
 |------|----------|
 | **New feature development (standard)** | `pro-github` → `pro-init-worktree` → `brainstorming` → `writing-plans` → `executing-plans` → `pro-review` → `pro-commit` → `pro-report` → `pro-changelog-deploy` |
-| **Bug fix** | `pro-github` → `pro-init-worktree` → `pro-note`(search) → `executing-plans` → `pro-commit` → `pro-report` → `pro-changelog-deploy` |
+| **Bug fix** | `pro-github` → `pro-init-worktree` → `systematic-debugging`(root cause) → `executing-plans` → `pro-commit` → `pro-report` → `pro-changelog-deploy` |
 | **Refactor, design change** | Same as new feature development (start by narrowing the scope in `brainstorming`) |
 | **QA test cases** | `pro-github` → `pro-testcase` |
 | **Real-run verification (app, web, server)** | `pro-agent-test` → (if a problem is found) `pro-github` → `pro-commit` |
@@ -467,10 +419,9 @@ flowchart TD
 | Only a code review is needed | `review` |
 | Quickly draft just an issue | `github` |
 | Generate a PR description / QA checklist | `report` / `testcase` |
-| Move a Figma design into code and compare it with the design | `figma-verify` |
+| Move a Figma design into code and compare it with the design | `figma` |
 | Synology external exposure guide | `synology-expose` |
 | SSH into a remote server and run commands | `ssh` |
-| Run a build / analyze errors | `build` |
 | Create a deploy PR + automerge | `changelog-deploy` |
 | Look up and manage GitHub issues/PRs | `github` |
 | Create/review/improve a Skill | `skill-creator` |

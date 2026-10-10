@@ -45,14 +45,12 @@ No slash-command UI is needed; read the file directly.
 | Open the release PR from develop to main, retrigger automerge | `pro-changelog-deploy` |
 | Write the implementation report for an issue or PR | `pro-report` |
 | Review code | `pro-review` |
-| Something is broken, or you learned something worth recording | `pro-note` |
 | Run the app / server / browser and look for bugs end to end | `pro-agent-test` |
 | Launch an emulator, simulator, browser or server and capture it | `pro-launch` |
-| Compare an implementation with a Figma design | `pro-figma-verify` |
+| Compare an implementation with a Figma design | `pro-figma` |
 | Hand an already-built screen to a designer | `pro-design-brief` |
 | Diagnose a repository as an open source project | `pro-oss-consult` |
 | Generate QA test cases | `pro-testcase` |
-| Build or package the project | `pro-build` |
 | Create a git worktree for an issue | `pro-init-worktree` |
 | Run commands on a remote server over SSH | `pro-ssh` |
 | Expose a Synology service on a domain | `pro-synology-expose` |

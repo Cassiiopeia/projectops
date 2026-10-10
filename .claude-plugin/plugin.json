@@ -1,6 +1,6 @@
 {
   "name": "projectops",
-  "description": "Agent skills for the whole development cycle: issues, commits, reports, reviews, builds, QA and release deployment (17 skills)",
+  "description": "Agent skills for the whole development cycle: issues, commits, reports, reviews, builds, QA and release deployment (15 skills)",
   "version": "4.45.0",
   "author": {
     "name": "Cassiiopeia",

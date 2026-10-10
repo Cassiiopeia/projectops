@@ -4,10 +4,10 @@
 
 | 스킬 | 무엇을 얻나 |
 |---|---|
-| `pro-figma-verify` | 값을 빠짐없이 세어 작업 목록으로 삼고, 옮긴 뒤 대조한다 |
+| `pro-figma` | 값을 빠짐없이 세어 작업 목록으로 삼고, 옮긴 뒤 대조한다 |
 | `pro-design-brief` | 시안에 **그려진 상태와 빠진 상태**를 가려 디자이너에게 요청할 목록을 만든다 |
 
-예전에는 이 규칙이 `pro-figma-verify` 안에만 있어 다른 스킬이 복사해야 했다. 복사본은
+예전에는 이 규칙이 `pro-figma` 안에만 있어 다른 스킬이 복사해야 했다. 복사본은
 한쪽만 고쳐져 어긋난다. 규칙은 여기 한 곳에 둔다. 상태를 세는 법은 `design-states.md`.
 
 이 문서의 수치는 **실제 응답을 세어 얻은 것**이다. 지어낸 예시로만 도구를 만들었다가
@@ -120,7 +120,7 @@ https://www.figma.com/design/VSmGuv1iuOpLZmp6QeBHWr/이룸?node-id=238-1846
 ### ① 응답은 JSON 이 아니라 **YAML** 이다
 
 `json.loads` 로 받으면 그대로 실패한다. 실제로 이 스킬의 도구가 처음 실제 응답을 만났을 때
-`dump_unreadable` 로 죽었다. → `figma_verify_cli.py` 가 JSON·YAML 둘 다 받는다.
+`dump_unreadable` 로 죽었다. → `figma_cli.py` 가 JSON·YAML 둘 다 받는다.
 
 ### ② 노드는 스타일을 **참조로만** 갖는다
 
@@ -290,21 +290,21 @@ fill_JJ816G:
 
 ## 4. 다른 스킬에서 세는 도구를 부르는 법
 
-세는 도구는 `pro-figma-verify` 의 스크립트에 있다. **스킬을 부르지 않고 스크립트로 부른다**
-(스크립트 찾는 블록은 `common-rules.md` §"표준 호출 패턴"을 `SKILL=pro-figma-verify` 로).
+세는 도구는 `pro-figma` 의 스크립트에 있다. **스킬을 부르지 않고 스크립트로 부른다**
+(스크립트 찾는 블록은 `common-rules.md` §"표준 호출 패턴"을 `SKILL=pro-figma` 로).
 
 ```bash
 # 덤프(②의 응답 파일)의 요소·효과·스타일을 빠짐없이 나열한다 — 참조를 풀고 그림자 줄을 쪼갠다
-PYTHONIOENCODING=utf-8 {PYTHON} {FIGMA_SCRIPTS}/figma_verify_cli.py coverage --dump {덤프 파일} --node {노드 id}
+PYTHONIOENCODING=utf-8 {PYTHON} {FIGMA_SCRIPTS}/figma_cli.py coverage --dump {덤프 파일} --node {노드 id}
 
 # 내려받을 에셋을 묶어 download_figma_images 에 그대로 넘길 nodes[] 를 만든다
-PYTHONIOENCODING=utf-8 {PYTHON} {FIGMA_SCRIPTS}/figma_verify_cli.py assets --dump {덤프 파일} --node {노드 id}
+PYTHONIOENCODING=utf-8 {PYTHON} {FIGMA_SCRIPTS}/figma_cli.py assets --dump {덤프 파일} --node {노드 id}
 ```
 
 | 부르는 쪽 | 무엇에 쓰나 |
 |---|---|
 | 요청서(`pro-design-brief`) | `coverage` 를 **상태 노드마다** 돌려 그려진 상태를 세고, 코드의 상태 목록과 맞대 빈틈 표를 만든다. 토큰(색·글꼴·모서리)을 대안 목업에 쓴다 |
-| 대조(`pro-figma-verify`) | 항목을 구현·근사·생략으로 하나도 남기지 않고 분류한다 |
+| 대조(`pro-figma`) | 항목을 구현·근사·생략으로 하나도 남기지 않고 분류한다 |
 
 > **덤프를 넘길 때 `--node` 를 빼지 않는다.** 파일 전체를 넘기면 수천 개가 나온다 — 실측으로
 > 한 보드에 요소 3,851개 · 스타일 항목 5,931개였다.

@@ -30,11 +30,6 @@ def _run(monkeypatch, mod, argv):
 
 
 @pytest.fixture
-def note():
-    return _load("skills/pro-note/scripts/note_cli.py", "note_cli_713")
-
-
-@pytest.fixture
 def commit():
     return _load("skills/pro-commit/scripts/commit_cli.py", "commit_cli_713")
 
@@ -42,16 +37,6 @@ def commit():
 @pytest.fixture
 def gh():
     return _load("skills/pro-github/scripts/github_cli.py", "github_cli_713")
-
-
-@pytest.mark.parametrize("argv", [
-    ["search", "gradle", "--limit", "-1"],
-    ["search", "gradle", "--limit", "0"],
-    ["list", "--limit", "0"],
-])
-def test_note_limit_must_be_positive(monkeypatch, note, argv):
-    rc, out = _run(monkeypatch, note, argv)
-    assert rc == 1 and out["code"] == "bad_args"
 
 
 @pytest.mark.parametrize("cli", ["commit", "gh"])

@@ -70,8 +70,8 @@ def test_evidence_really_is_not_staged_by_git_add_all(tmp_path, monkeypatch):
     """`.gitignore` 가 있다가 아니라, `git add -A` 로도 안 담기는지 본다."""
     proj = _repo(tmp_path / "proj")
     monkeypatch.chdir(proj)
-    r = resolve_output_path("figma-verify", "로그인")
-    base = Path(r["output_root"]) / "figma-verify"
+    r = resolve_output_path("figma", "로그인")
+    base = Path(r["output_root"]) / "figma"
     (base / "20260101_001_로그인").mkdir(parents=True, exist_ok=True)
     (base / "20260101_001_로그인" / "render.png").write_bytes(b"\x89PNG" + b"0" * 5000)
 
@@ -79,7 +79,7 @@ def test_evidence_really_is_not_staged_by_git_add_all(tmp_path, monkeypatch):
     staged = subprocess.run(["git", "diff", "--cached", "--name-only"],
                             cwd=proj, capture_output=True, text=True, check=True
                             ).stdout.split()
-    assert staged == ["docs/projectops/figma-verify/.gitignore"], staged
+    assert staged == ["docs/projectops/figma/.gitignore"], staged
 
 
 def test_root_gitignore_is_never_touched(tmp_path, monkeypatch):

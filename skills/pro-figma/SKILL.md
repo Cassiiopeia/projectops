@@ -1,5 +1,5 @@
 ---
-name: pro-figma-verify
+name: pro-figma
 description: "Figma 시안을 코드로 옮기고, 옮긴 것이 시안과 같은지 센다. Figma MCP 응답의 허점(스타일이 참조로만 오는 것, 한 문자열에 그림자 여러 줄이 뭉쳐 오는 것, 아이콘 모양 정보가 아예 없는 것)을 알고 값을 복원해, 요소·효과(그림자·안쪽그림자·글로우·블러·배경블러)·스타일을 하나도 빠짐없이 나열해 작업 목록으로 삼는다. 아이콘·이미지 에셋을 중복 없이 안전한 파일명으로 내려받는 목록도 만들어 준다. 옮긴 뒤에는 시안 export 와 앱 렌더를 픽셀로 맞대 어긋난 자리를 덩어리로 짚는다. React·Flutter·React Native 를 가리지 않는다. 'figma 디자인 구현해줘', '시안대로 만들어줘', 'figma 코드로 바꿔줘', 'figma 에셋 받아줘', '아이콘 다운로드', '시안이랑 같은지 확인해줘', '디자인대로 됐는지 봐줘', 'figma 대조해줘', '그림자 빠진 거 없나', '모서리가 각진 것 같은데', '라운드 안 먹었어' 같은 요청에 사용한다. 앱을 밟아 동작 결함을 찾는 것은 pro-agent-test 다."
 ---
 
@@ -19,15 +19,15 @@ description: "Figma 시안을 코드로 옮기고, 옮긴 것이 시안과 같�
 
 | 하려는 것 | 명령 | 자세히 |
 |---|---|---|
-| 산출물 자리(증거 폴더 · 에셋 후보) | `figma_verify_cli.py get-output-path --title` | `references/counting.md` |
+| 산출물 자리(증거 폴더 · 에셋 후보) | `figma_cli.py get-output-path --title` | `references/counting.md` |
 | Figma 를 읽는다(화면 목록 → 화면 하나) | `mcp__figma__get_figma_data` | `../references/figma-mcp.md` |
-| 요소 · 효과 · 스타일을 **빠짐없이** 나열 | `figma_verify_cli.py coverage --dump --node` | `references/counting.md` |
+| 요소 · 효과 · 스타일을 **빠짐없이** 나열 | `figma_cli.py coverage --dump --node` | `references/counting.md` |
 | 상태(disabled · 빈 값 · 0건)를 다 세었나 | 상태별 노드마다 `coverage` | `../references/design-states.md` |
-| 내려받을 에셋 묶기 → 받기 | `figma_verify_cli.py assets` → `mcp__figma__download_figma_images` | `references/assets.md` |
+| 내려받을 에셋 묶기 → 받기 | `figma_cli.py assets` → `mcp__figma__download_figma_images` | `references/assets.md` |
 | 값을 코드로 옮기기 · 근사·생략 판단 | — | `references/conversion.md` · `references/framework-gaps.md` |
 | 렌더를 시안과 같은 조건으로 찍기 | `launch_cli.py render run` · `app shot --keep-format` · `web shot --keep-format` | `references/rendering.md` |
-| 속성으로 대조(모서리 · 칠 · 그림자) | `figma_verify_cli.py conform` | `references/comparing.md` |
-| 픽셀로 맞대기(보조) | `figma_verify_cli.py diff` | `references/comparing.md` |
+| 속성으로 대조(모서리 · 칠 · 그림자) | `figma_cli.py conform` | `references/comparing.md` |
+| 픽셀로 맞대기(보조) | `figma_cli.py diff` | `references/comparing.md` |
 | 보고 · 함정 표 | — | `references/comparing.md` |
 
 ## 스크립트 찾기 — 한 번만
@@ -38,7 +38,7 @@ description: "Figma 시안을 코드로 옮기고, 옮긴 것이 시안과 같�
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-for SKILL in pro-figma-verify pro-launch; do
+for SKILL in pro-figma pro-launch; do
   ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
   [ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
     H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
@@ -50,7 +50,7 @@ done
 echo "PYTHON=$PYTHON PROJECT_ROOT=$PROJECT_ROOT"
 ```
 
-`pro-figma-verify=` 값이 `{SCRIPTS}`, `pro-launch=` 값이 `{LAUNCH}` 다. **찍는 것은 pro-launch 가 한다**(`../pro-launch/SKILL.md`).
+`pro-figma=` 값이 `{SCRIPTS}`, `pro-launch=` 값이 `{LAUNCH}` 다. **찍는 것은 pro-launch 가 한다**(`../pro-launch/SKILL.md`).
 
 ## 공통 규칙
 
@@ -71,7 +71,7 @@ echo "PYTHON=$PYTHON PROJECT_ROOT=$PROJECT_ROOT"
 **Phase 0 — 자리를 받고 Figma 를 읽는다.**
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py get-output-path --title "{화면 이름}"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py get-output-path --title "{화면 이름}"
 ```
 
 덤프·export·렌더·차이 그림은 `run_dir` 아래(추적 제외), 앱이 쓸 에셋은 `asset_dir_candidates`(추적).
@@ -81,7 +81,7 @@ Figma 는 `depth: 2` 로 화면 목록 → 고른 화면 하나를 **`depth` 없
 **Phase 1 — 빠짐없이 분류한다.**
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py coverage --dump {덤프 파일} --node {노드 id}
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py coverage --dump {덤프 파일} --node {노드 id}
 ```
 
 요소(`elements` — 화면에 있나) · 효과(`effects` — 한 줄도 안 빠졌나) · 스타일(`items`)을 **하나도 남기지 않고** 분류한다.
@@ -90,7 +90,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py coverage --dump {�
 **Phase 2 — 에셋을 받는다.** `get_figma_data` 는 그림을 주지 않는다(`IMAGE-SVG` 노드에 모양 정보가 없다).
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py assets --dump {덤프 파일} --node {노드 id}
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py assets --dump {덤프 파일} --node {노드 id}
 ```
 
 돌려준 `nodes` 를 **그대로** `download_figma_images` 의 `nodes` 에, `localPath` 는 고른 에셋 폴더의 절대경로.
@@ -103,7 +103,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py assets --dump {덤
 **Phase 4 — 속성으로 대조한다(픽셀보다 먼저).**
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py conform --dump {덤프} --render {앱 렌더.png} --node {화면 노드 id}
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py conform --dump {덤프} --render {앱 렌더.png} --node {화면 노드 id}
 #   --check corners,fills,shadows   좁히기     --fail-on high   그 이상이면 종료코드 1 (기본 none)
 ```
 
@@ -118,7 +118,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py render snapshot --root {�
 PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py render run --root {레포} --cmd "{렌더 명령}" --collect "{렌더 결과 글롭}" --cleanup {임시 폴더}
 PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV" --keep-format --out render   # 또는 기기에서 그대로
 PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py web shot --keep-format --out render
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_verify_cli.py diff --render {앱 렌더.png} --design {시안 export.png} --out {차이.png} \
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py diff --render {앱 렌더.png} --design {시안 export.png} --out {차이.png} \
   --mask-top {상태바 높이} --mask-bottom {홈 인디케이터 높이}
 ```
 

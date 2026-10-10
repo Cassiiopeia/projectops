@@ -1,4 +1,4 @@
-"""figma_verify_cli 테스트 (이슈 #616).
+"""figma_cli 테스트 (이슈 #616).
 
 지키려는 것은 하나다 — **빠진 것이 빠진 채로 통과하지 않는다.**
 
@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-CLI = Path(__file__).resolve().parents[1] / "scripts" / "figma_verify_cli.py"
+CLI = Path(__file__).resolve().parents[1] / "scripts" / "figma_cli.py"
 
 
 def run(*args, cwd=None):
@@ -710,7 +710,7 @@ def test_output_path_separates_evidence_from_real_assets(tmp_path, monkeypatch):
     ignore = run_dir.parent / ".gitignore"
     body = ignore.read_text(encoding="utf-8")
     assert body.splitlines()[-2:] == ["*", "!.gitignore"], body
-    assert "figma-verify" in body
+    assert "figma" in body
 
     # 실제 에셋 자리는 증거 폴더 **밖**이고, 있는 폴더가 앞에 온다
     assert d["asset_dir_candidates"][0] == "assets/images"
@@ -743,7 +743,7 @@ def test_output_path_gitignore_is_idempotent(tmp_path, monkeypatch):
 # 순수 값 검사는 모듈을 직접 불러 확인한다 — 하위 프로세스를 띄울 이유가 없다.
 import importlib.util  # noqa: E402
 
-_spec = importlib.util.spec_from_file_location("figma_verify_under_test", CLI)
+_spec = importlib.util.spec_from_file_location("figma_under_test", CLI)
 _m = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_m)
 

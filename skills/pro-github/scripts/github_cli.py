@@ -28,7 +28,6 @@ if str(_SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_ROOT))
 
 from common.emit import emit  # noqa: E402
-from common.notes import attach_note_hits, failed_run_text  # noqa: E402
 from common.config import get_github_pat  # noqa: E402
 from common.cli_parser import JSONArgumentParser, run_cli  # noqa: E402
 from common.gh_client import (  # noqa: E402
@@ -775,8 +774,6 @@ def cmd_actions(args) -> int:
             if err is not None:
                 return err
             result = get_run(args.owner, args.repo, run_id, pat)
-            if result.get("failed_job_ids"):   # 실패 job·step 이름으로 과거 기록을 찾아 싣는다 (없으면 필드 없음)
-                attach_note_hits(result, failed_run_text(result))
             return emit({
                 **result,
                 "summary": f"Run {run_id} 상태: {result.get('status')} / {result.get('conclusion')}",
@@ -787,7 +784,6 @@ def cmd_actions(args) -> int:
             if err is not None:
                 return err
             result = get_job_log(args.owner, args.repo, job_id, pat, grep=args.grep, tail=args.tail)
-            attach_note_hits(result, "\n".join(result.get("lines") or []))   # 오류 라인 핵심어로 과거 기록 싣기
             return emit({
                 **result,
                 "summary": f"Job {job_id} 로그 {result.get('matched_count')}건 검색됨"
