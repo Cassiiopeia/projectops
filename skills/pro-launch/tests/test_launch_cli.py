@@ -397,8 +397,9 @@ def test_env_sh_actually_sources_in_bash(tmp_path):
                                 ["--role", "A", "--serial", "emulator-5554"],
                                 ["--role", "받는 쪽", "--serial", "emulator-5556", "--note", "it's B"],
                                 ["--role", "it's-a/role", "--serial", "emulator-5558"])
-    r = subprocess.run(["bash", "-c", f'source "{env_file}"; echo "$ROLE2|$ROLE3|$DEV2|$DEV_COUNT|$DEV"'],
-                       capture_output=True, text=True)
+    # 윈도우에서 이름만 "bash" 로 부르면 System32 의 WSL 런처가 먼저 잡혀 C:\ 경로를 못 읽는다
+    r = subprocess.run([shutil.which("bash"), "-c", f'source "{env_file}"; echo "$ROLE2|$ROLE3|$DEV2|$DEV_COUNT|$DEV"'],
+                       capture_output=True, text=True, encoding="utf-8")
     assert r.returncode == 0, r.stderr
     assert r.stdout.strip() == "받는 쪽|it's-a/role|emulator-5556|3|emulator-5554"
 
@@ -1222,3 +1223,58 @@ def test_web_close_does_not_hang_on_unresponsive_browser(tmp_path, monkeypatch):
     finally:
         if proc.poll() is None:
             proc.kill()
+
+
+# ── 브라우저 선택 (#857: 내부망에서 설치된 Chrome·Edge 사용) ─────────────────
+import browser_pick  # noqa: E402
+
+
+class TestBrowserPick:
+    def _exe(self, tmp_path, name="chrome.exe"):
+        p = tmp_path / name
+        p.write_text("x")
+        return str(p)
+
+    def test_env_override_wins_over_bundled(self, tmp_path):
+        bundled = self._exe(tmp_path, "bundled.exe")
+        custom = self._exe(tmp_path, "custom.exe")
+        pick = browser_pick.resolve(bundled, env={browser_pick.ENV_VAR: custom})
+        assert pick["exe"] == custom and pick["source"] == "env"
+
+    def test_env_invalid_stops_instead_of_falling_back(self, tmp_path):
+        bundled = self._exe(tmp_path, "bundled.exe")
+        pick = browser_pick.resolve(bundled, env={browser_pick.ENV_VAR: str(tmp_path / "nope.exe")})
+        assert pick["exe"] is None and pick.get("error")
+
+    def test_bundled_used_when_present(self, tmp_path, monkeypatch):
+        bundled = self._exe(tmp_path, "bundled.exe")
+        monkeypatch.setattr(browser_pick, "system_candidates",
+                            lambda: [("Chrome", tmp_path / "chrome.exe")])
+        pick = browser_pick.resolve(bundled, env={})
+        assert pick["source"] == "bundled" and pick["exe"] == bundled
+
+    def test_falls_back_to_system_when_bundled_missing(self, tmp_path, monkeypatch):
+        chrome = self._exe(tmp_path, "chrome.exe")
+        monkeypatch.setattr(browser_pick, "system_candidates", lambda: [("Chrome", Path(chrome))])
+        pick = browser_pick.resolve(str(tmp_path / "gone.exe"), env={})
+        assert pick["source"] == "system" and pick["label"] == "Chrome" and pick["exe"] == chrome
+
+    def test_system_order_is_respected(self, tmp_path, monkeypatch):
+        chrome = self._exe(tmp_path, "chrome.exe")
+        edge = self._exe(tmp_path, "msedge.exe")
+        monkeypatch.setattr(browser_pick, "system_candidates",
+                            lambda: [("Chrome", Path(chrome)), ("Edge", Path(edge))])
+        assert browser_pick.resolve(None, env={})["label"] == "Chrome"
+
+    def test_nothing_found(self, monkeypatch):
+        monkeypatch.setattr(browser_pick, "system_candidates", lambda: [])
+        pick = browser_pick.resolve(None, env={})
+        assert pick["exe"] is None and pick["source"] is None
+
+    def test_unreachable_host_is_false_fast(self):
+        # 닫힌 포트: 연결 거부 → False. 100MB 받다 실패하기 전에 안다
+        assert browser_pick.download_host_reachable("https://127.0.0.1:1", timeout=1.0) is False
+
+    def test_download_host_follows_playwright_mirror_env(self, monkeypatch):
+        monkeypatch.setenv("PLAYWRIGHT_DOWNLOAD_HOST", "https://mirror.example.com/")
+        assert browser_pick.download_host() == "https://mirror.example.com"
