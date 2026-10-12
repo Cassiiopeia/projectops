@@ -21,7 +21,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_launch_cli import run_cli, _j, _repo  # noqa: E402
-import launch_cli  # noqa: E402
+from pro_launch.commands.web import targets as web_targets  # noqa: E402
+from pro_launch.commands.web.actions import click as web_click_action  # noqa: E402
+from pro_launch.runtime import browser as rt_browser  # noqa: E402
 from common import state as common_state  # noqa: E402
 
 _UI = """<!doctype html><meta charset="utf-8"><title>목록</title>
@@ -48,7 +50,7 @@ def _page(path: str) -> bytes:
 
 @contextlib.contextmanager
 def _session(tmp_path):
-    ok, _ = launch_cli._require_playwright()
+    ok, _ = rt_browser.require_playwright()
     if ok is None:
         pytest.skip("Playwright 없음 — web setup 후 실행된다")
 
@@ -84,12 +86,12 @@ def web(r, *a):
 @pytest.mark.parametrize("label", ["변경사항 삭제", "프로덕션으로 출시", "검토를 위해 변경사항 전송", "Publish", "Submit for review",
                                    "Delete app", "Roll out", "저장"])
 def test_mutating_labels_are_recognised(label):
-    assert launch_cli._is_mutating(label)
+    assert web_targets._is_mutating(label)
 
 
 @pytest.mark.parametrize("label", ["취소", "확인", "다음", "필터 추가", "Details"])
 def test_navigation_labels_are_not_mutating(label):
-    assert not launch_cli._is_mutating(label)
+    assert not web_targets._is_mutating(label)
 
 
 @pytest.mark.parametrize("info", [
@@ -100,7 +102,7 @@ def test_navigation_labels_are_not_mutating(label):
 ])
 def test_links_tabs_and_rows_are_navigation_even_with_action_words(info):
     """Play Console 실측: 기록을 보는 링크 "제출 활동"을 문구만 보고 막으면 읽기 전용에서 아무것도 못 한다."""
-    assert not launch_cli._is_mutating_target(info)
+    assert not web_targets.is_mutating_target(info)
 
 
 @pytest.mark.parametrize("info", [
@@ -110,7 +112,7 @@ def test_links_tabs_and_rows_are_navigation_even_with_action_words(info):
     {"tag": "input", "text": "Submit"},
 ])
 def test_buttons_with_action_words_are_mutating(info):
-    assert launch_cli._is_mutating_target(info)
+    assert web_targets.is_mutating_target(info)
 
 
 def test_every_response_has_a_string_summary(tmp_path):
@@ -122,7 +124,7 @@ def test_every_response_has_a_string_summary(tmp_path):
 def test_click_needs_a_target():
     import argparse
     a = argparse.Namespace(ref=None, selector=None)
-    assert launch_cli._web_click(None, a, {})["code"] == "target_required"
+    assert web_click_action._web_click(None, a, {})["code"] == "target_required"
 
 
 # ── 진짜 브라우저 ─────────────────────────────────────────────────────────
@@ -223,13 +225,13 @@ def test_real_link_comes_before_the_row_that_wraps_it(tmp_path):
 def test_doctor_reports_an_abandoned_browser(tmp_path):
     """3일 묵은 브라우저가 살아 있었는데 아무도 몰랐다 (Play Console 실측). 살아 있는 pid 로 흉내 낸다."""
     proj = _repo(tmp_path)
-    st = launch_cli._web_state_path(proj)
-    launch_cli._write_web_state(st, {"cdp": "http://127.0.0.1:1", "pid": os.getpid(),
+    st = rt_browser.state_path(proj)
+    rt_browser.write_state(st, {"cdp": "http://127.0.0.1:1", "pid": os.getpid(),
                                      "opened_at": "2026-10-06 22:09:48", "last_used": "2026-10-06 22:10:00"})
-    b = launch_cli._open_browser_status(st)
+    b = rt_browser.open_browser_status(st)
     assert b["alive"] and b["stale"] and "web close" in b["hint"], b
-    launch_cli._write_web_state(st, {"pid": os.getpid(), "last_used": __import__("time").strftime("%Y-%m-%d %H:%M:%S")})
-    assert launch_cli._open_browser_status(st)["stale"] is False
+    rt_browser.write_state(st, {"pid": os.getpid(), "last_used": __import__("time").strftime("%Y-%m-%d %H:%M:%S")})
+    assert rt_browser.open_browser_status(st)["stale"] is False
 
 
 def test_help_lists_the_reading_and_checking_options():

@@ -2,6 +2,9 @@
 
 > 언제 읽나: pro-launch 에 새 플랫폼(앱 백엔드)이나 새 web 동작, 새 서브커맨드를 추가하려는 기여자가 코드를 고치기 전에.
 
+**코드 지도는 `scripts/pro_launch/ARCHITECTURE.md` 다 — 어디에 무엇이 있는지, 무엇을 하려면 어느 파일을 고치는지가 거기 있다.**
+이 문서는 그 위에서 "새로 붙이는 법"만 다룬다.
+
 먼저 레포 `CLAUDE.md` 의 **"Python 행동 스크립트 표준"** 절과 `skills/references/mcp-subcommand-rules.md` 를 읽는다.
 요점만 옮기면 이렇다.
 
@@ -27,7 +30,7 @@
 
 ## 새 앱 플랫폼 — 백엔드 클래스 하나 + 레지스트리 등록 + 테스트
 
-앱 조작(`app tap` · `swipe` · `tree`, #826)은 `scripts/app_input.py` 의 **플랫폼 백엔드**가 맡는다. `launch_cli.py` 는 이 모듈만 부르고,
+앱 조작(`app tap` · `swipe` · `tree`, #826)은 `scripts/app_input.py` 의 **플랫폼 백엔드**가 맡는다. `pro_launch/commands/app/` 은 이 모듈만 부르고,
 플랫폼 차이는 전부 여기 있다. 지금은 `AndroidBackend`(adb + uiautomator, 기기 내장이라 설치 없음)와
 `IOSMaestroBackend`(Maestro — simctl 에 탭·화면 구조 명령이 없다) 둘이다.
 
@@ -36,7 +39,7 @@ BACKENDS = {
     "android": lambda app_id=None: AndroidBackend(),
     "ios": lambda app_id=None: IOSMaestroBackend(app_id=app_id),
 }
-# get_backend(platform, app_id) 가 이 표에서 만든다. 키는 _pick_device 가 돌려주는 플랫폼 이름과 같아야 한다
+# get_backend(platform, app_id) 가 이 표에서 만든다. 키는 runtime/devices.py 의 pick_device 가 돌려주는 플랫폼 이름과 같아야 한다
 ```
 
 `Backend` 를 상속해 채운다. 동작 메서드는 모두 `(성공 여부, 사람이 읽을 사유)` 를 돌려준다.
@@ -58,7 +61,7 @@ BACKENDS = {
 
 1. `scripts/app_input.py` 에 `Backend` 를 상속한 클래스를 만든다. 외부 도구는 `subprocess` 로 부른다.
    화면 덤프 파싱처럼 **기기 없이 검사할 수 있는 것은 모듈 수준 순수 함수로** 뺀다(`ui_nodes` · `maestro_nodes` · `match_nodes` · `parse_ratio` 가 그 예).
-2. `BACKENDS` 에 등록한다. `launch_cli.py` 의 `app` 서브커맨드는 백엔드를 골라 부를 뿐이라 **고칠 필요가 없어야 한다.**
+2. `BACKENDS` 에 등록한다. `pro_launch/commands/app/` 은 백엔드를 골라 부를 뿐이라 **고칠 필요가 없어야 한다.**
    고쳐야 한다면 인터페이스가 새는 것이니 그 부분을 백엔드 쪽으로 옮긴다.
 3. 테스트를 추가한다(아래). 등록만 해도 `tests/test_launch_cli.py` 의 `test_every_registered_backend_implements_the_contract` 가
    새 백엔드가 계약 멤버를 다 갖췄는지 검사한다 — 이것과 별도로 그 백엔드의 파싱·실패 경로 단위 테스트를 넣는다.
@@ -69,28 +72,84 @@ BACKENDS = {
 
 ## 새 web 동작
 
-1. `launch_cli.py` 의 `web` 서브커맨드 `action` choices 에 이름을 넣는다. 필요한 옵션은 같은 파서에 붙인다.
-2. `cmd_web` 의 분기에 동작을 구현한다. 한 호출 = 한 동작이다 — agent 가 화면을 보고 다음 수를 정한다.
-3. **붙어 있는 동안만 사는 것은 상태 파일에 적고 붙을 때마다 다시 건다.** `web` 은 매 호출 CDP(`connect_over_cdp`)로
+동작 하나는 `scripts/pro_launch/commands/web/actions/` 의 **모듈 하나**다. 다른 파일은 고치지 않는다 —
+`web` 이 그 폴더를 훑어 선택지·옵션·디스패치를 만든다.
+
+```python
+# commands/web/actions/hover.py
+from pro_launch.registry import Action
+
+def configure(p) -> None:                       # 이 동작만 쓰는 옵션 (선택)
+    p.add_argument("--duration", type=int, default=300, help="hover: 머무는 시간(ms)")
+
+def execute(page, args, state) -> dict:          # needs="page" 면 (page, args, state) → 결과 dict
+    page.hover(args.selector)
+    return {"action": "hover", "summary": "올렸다", "next": "web shot"}
+
+ACTION = Action(name="hover", run=execute, configure=configure)
+```
+
+`needs` 가 디스패처가 해 줄 준비를 정한다.
+
+| needs | `run` 의 모양 | 언제 |
+|---|---|---|
+| `page` (기본) | `(page, args, state) -> dict` | 붙어서 화면을 조작한다. 연결 · 마지막 사용 시각 · 예외 변환(비밀값 가림) · 연결 끊기는 디스패처가 한다 |
+| `nothing` | `(args) -> int` | 상태도 브라우저도 안 읽는다 (`setup`) |
+| `launch` | `(args, root, state_file) -> int` | 브라우저를 새로 띄운다 (`open`) |
+| `state_offline` | `(args, state, state_file) -> int` | 상태 파일만 만진다. 브라우저가 없어도 된다 (`viewport` · `route`) |
+| `state_online` | `(args, state, state_file) -> int` | 떠 있는 브라우저 정보가 있어야 하나 연결은 맺지 않는다 (`close`) |
+
+순서:
+
+1. 위 모양대로 모듈을 만든다. 옵션 이름은 다른 동작과 겹치지 않게 한다 — 여러 동작이 쓰는 옵션
+   (`--url` · `--selector` · `--text` · `--timeout` …)은 `commands/web/__init__.py` 의 `configure` 에 이미 있다.
+2. **붙어 있는 동안만 사는 것은 상태 파일에 적고 붙을 때마다 다시 건다.** `web` 은 매 호출 CDP(`connect_over_cdp`)로
    붙었다 떨어지므로, 콘솔 훅 · stealth · 뷰포트 · 응답 바꿔치기 같은 설정은 연결이 끊기면 사라진다(#625 실측).
-   새 설정도 `_web_connect` 에서 재설치되게 한다. 브라우저를 Playwright `launch()` 로 띄우지 않는다 — 드라이버와 함께 죽는다.
-4. 바꾸는 조작을 추가하면 `references/web.md` 의 안전 계약(로컬만 · 그 밖은 묻는다)이 적용되는지 확인한다.
-   읽기 전용 세션(`state["readonly"]`)에서는 `_is_mutating_target()` 으로 걸러 `mutating_blocked` 를 돌려준다.
-5. **결과를 agent 가 판단할 수 있게 돌려준다 (#825).** 화면을 바꾸는 동작은 전후 `url` · `title` 과 무엇을 대상으로 했는지,
+   새 설정도 `commands/web/session.py` 의 `web_connect` 에서 재설치되게 한다. 브라우저를 Playwright `launch()` 로 띄우지 않는다 — 드라이버와 함께 죽는다.
+3. 바꾸는 조작을 추가하면 `references/web.md` 의 안전 계약(로컬만 · 그 밖은 묻는다)이 적용되는지 확인한다.
+   읽기 전용 세션(`state["readonly"]`)에서는 `commands/web/targets.py` 의 `is_mutating_target()` 으로 걸러 `mutating_blocked` 를 돌려준다.
+4. **결과를 agent 가 판단할 수 있게 돌려준다 (#825).** 화면을 바꾸는 동작은 전후 `url` · `title` 과 무엇을 대상으로 했는지,
    실패는 문구가 아닌 `code` 와 다음에 부를 명령(`next`)을 준다. "성공했다"만 돌려주면 agent 는 엉뚱한 것을 누르고도 다음으로 간다
    (Play Console 실측). 대상은 선택자 추측 대신 `web find` 의 `ref`(`data-pops-ref`)로 받을 수 있게 한다.
+5. 단위 테스트를 `tests/` 에 넣는다. `tests/test_launch_architecture.py` 가 동작의 모양(`needs` 와 인자 수)을 자동으로 검사한다.
+
+## 새 app 동작
+
+`scripts/pro_launch/commands/app/actions/` 에 모듈 하나. `ACTION = Action(name=..., run=execute, configure=...)` 이고
+`execute(args) -> int` 가 결과를 `out(...)` 으로 직접 낸다. 플랫폼을 알 필요가 없다 — `commands/app/gestures.py` 의
+`backend_for(args)` 가 백엔드를 골라 준다.
 
 ## 새 서브커맨드
 
-- `build_parser()` 에 `add_parser` 로 추가하면 **SKILL.md 에 그 이름이 호출 예로 있어야 한다**
-  (`scripts/tests/test_cli_signatures_doc_sync.py` 가 막는다). 라우터 표에 한 줄, 상세는 references 에 둔다.
+`scripts/pro_launch/commands/` 에 **모듈 하나**를 둔다. 파서 · 도움말 · 디스패치는 선언에서 만들어지므로 다른 파일은 고치지 않는다.
+
+```python
+# commands/ping.py
+from pro_launch.registry import Command
+from pro_launch.runtime.output import out
+
+def configure(p) -> None:
+    p.add_argument("--host", required=True)
+
+def cmd_ping(args) -> int:
+    return out({"ok": True, "code": "ok", "summary": f"{args.host} 확인", "next": None})
+
+COMMANDS = [Command(name="ping", help="호스트가 응답하는지 본다", run=cmd_ping, configure=configure)]
+```
+
+- 결과는 언제나 `runtime.output.out()` 으로 낸다 — 마이그레이션 알림 · 루트 경고 · 접속 방법 성적 · 기억 싣기가 거기서 공통으로 붙는다.
+- 다른 명령 모듈을 import 하지 않는다. 둘 이상이 쓸 것이면 `runtime/` 으로 내린다 (`test_launch_architecture.py` 가 막는다).
+- `sys.platform` 으로 갈리는 동작은 `runtime/procs.py` 에만 둔다.
+- 새 이름은 **SKILL.md 에 호출 예로 있어야 한다** (`scripts/tests/test_cli_signatures_doc_sync.py` 가 `Command(name=...)` 선언을 읽어 막는다).
+  라우터 표에 한 줄, 상세는 references 에 둔다.
 - 산출물 경로는 `get-output-path` 가 돌려준 값만 쓴다. 경로를 조립하지 않는다(#623).
+- `--help` 에서 보이는 순서는 `pro_launch/cli.py` 의 `HELP_ORDER` 다. 없어도 등록은 되고 이름순으로 뒤에 붙는다.
 
 ## 테스트 규칙
 
 | 무엇 | 어디 · 어떻게 |
 |---|---|
-| 단위 테스트 — **필수** | `skills/pro-launch/tests/`(앱 백엔드는 `test_launch_cli.py`). 기기·브라우저 없이 돈다. 외부 명령은 가짜 실행 파일(PATH 앞에 둔 스크립트)이나 monkeypatch 로 바꾸고, `nodes` 파싱 · 비율 계산 · 실패 code · JSON 필드를 검사한다 |
+| 단위 테스트 — **필수** | `skills/pro-launch/tests/`(앱 백엔드는 `test_launch_cli.py`, 구조 규칙은 `test_launch_architecture.py`). 기기·브라우저 없이 돈다. 외부 명령은 가짜 실행 파일(PATH 앞에 둔 스크립트)이나 monkeypatch 로 바꾸고, `nodes` 파싱 · 비율 계산 · 실패 code · JSON 필드를 검사한다 |
 | 실제 기기 · 브라우저가 필요한 것 | `@pytest.mark.local_only` 를 붙인다. 로컬에 도구가 있으면 돌고, CI(`CI=true`)에서는 건너뛴다 |
 | 순수 값 검사 | `local_only` 를 붙이지 않는다. 도구가 없는 상태를 테스트가 직접 만들어 어디서나 돌게 한다(#591) |
 

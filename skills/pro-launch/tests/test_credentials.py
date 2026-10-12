@@ -26,8 +26,9 @@ def run(home: Path, *args, path_prepend: Path | None = None, stdin: str | None =
            **(env_extra or {})}
     if path_prepend:
         env["PATH"] = f"{path_prepend}{os.pathsep}{env['PATH']}"
-    r = subprocess.run([sys.executable, str(CLI), *map(str, args)], capture_output=True, text=True, env=env,
-                       input=stdin, timeout=60)
+    # 한글이 든 출력을 로케일(윈도우 cp949)로 읽으면 깨진다 — 스크립트는 UTF-8 로 쓴다
+    r = subprocess.run([sys.executable, str(CLI), *map(str, args)], capture_output=True, text=True,
+                       encoding="utf-8", env=env, input=stdin, timeout=60)
     try:
         return json.loads(r.stdout)
     except json.JSONDecodeError:

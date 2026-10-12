@@ -46,17 +46,31 @@ EXPECTED_MISSING = {
 
 
 def _extract_subcommands(cli_path: Path) -> list:
-    """add_parser("subname", ...) 호출에서 첫 인자(서브커맨드명)를 모두 수집."""
-    tree = ast.parse(cli_path.read_text(encoding="utf-8"))
+    """서브커맨드 이름을 모은다.
+
+    · `add_parser("subname", ...)` 호출의 첫 인자 — 파서를 직접 짜는 CLI
+    · `Command(name="subname", ...)` 선언 — 명령을 모듈로 나눠 선언하는 CLI(pro-launch 의 pro_launch 패키지).
+      진입점 옆의 패키지 폴더를 훑는다. 명령을 모듈 하나로 추가해도 이 점검이 그대로 걸리게 한다.
+    """
+    sources = [cli_path]
+    for pkg in cli_path.parent.iterdir():
+        if pkg.is_dir() and (pkg / "__init__.py").exists() and pkg.name != "__pycache__":
+            sources += sorted(pkg.rglob("*.py"))
     names = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        func = node.func
-        if isinstance(func, ast.Attribute) and func.attr == "add_parser" and node.args:
-            first = node.args[0]
-            if isinstance(first, ast.Constant) and isinstance(first.value, str):
-                names.append(first.value)
+    for src in sources:
+        tree = ast.parse(src.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if isinstance(func, ast.Attribute) and func.attr == "add_parser" and node.args:
+                first = node.args[0]
+                if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                    names.append(first.value)
+            elif isinstance(func, ast.Name) and func.id == "Command":
+                for kw in node.keywords:
+                    if kw.arg == "name" and isinstance(kw.value, ast.Constant)                             and isinstance(kw.value.value, str):
+                        names.append(kw.value.value)
     return names
 
 

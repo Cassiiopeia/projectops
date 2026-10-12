@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -28,6 +29,14 @@ sys.path.insert(0, str(CLI.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
 import launch_cli  # noqa: E402
+import pro_launch.commands.web as web_cmd  # noqa: E402
+from pro_launch.commands import detect as detect_cmd, shrink as shrink_cmd  # noqa: E402
+from pro_launch.commands.app import gestures as app_gestures  # noqa: E402
+from pro_launch.commands.app.actions import shot as app_shot_action  # noqa: E402
+from pro_launch.commands.web import session as web_session, targets as web_targets  # noqa: E402
+from pro_launch.commands.web.actions import click as web_click_action  # noqa: E402
+from pro_launch.runtime import (browser as rt_browser, devices as rt_devices,  # noqa: E402
+                                output as rt_output, procs as rt_procs)
 import stealth  # noqa: E402
 from common import image as common_image  # noqa: E402
 from common import state as common_state  # noqa: E402
@@ -114,7 +123,7 @@ def test_shot_and_shrink_share_one_max_side():
 
 def test_web_reports_missing_playwright_with_install_hint():
     with playwright_hidden():
-        ok, err = launch_cli._require_playwright()
+        ok, err = rt_browser.require_playwright()
     assert ok is None
     assert err["code"] == "playwright_missing"
     assert err["fix"].startswith("web setup"), err
@@ -143,13 +152,13 @@ def test_version_yml_wins_over_markers(tmp_path):
     (tmp_path / "version.yml").write_text(
         "metadata:\n  project_types:\n    - flutter\n    - spring\n", encoding="utf-8")
     (tmp_path / "package.json").write_text('{"dependencies":{"react":"18"}}', encoding="utf-8")
-    det = launch_cli.detect_kinds(tmp_path)
+    det = detect_cmd.detect_kinds(tmp_path)
     assert det["source"] == "version.yml" and det["kinds"] == ["app", "server"], det
 
 
 def test_markers_used_when_no_version_yml(tmp_path):
     (tmp_path / "package.json").write_text('{"dependencies":{"next":"14"}}', encoding="utf-8")
-    det = launch_cli.detect_kinds(tmp_path)
+    det = detect_cmd.detect_kinds(tmp_path)
     assert det["source"] == "marker" and "web" in det["kinds"], det
 
 
@@ -158,11 +167,11 @@ def test_flutter_android_gradle_is_not_mistaken_for_server(tmp_path):
     (tmp_path / "pubspec.yaml").write_text("name: x\ndependencies:\n  flutter:\n", encoding="utf-8")
     (tmp_path / "android").mkdir()
     (tmp_path / "android" / "build.gradle").write_text("// app", encoding="utf-8")
-    assert launch_cli.detect_kinds(tmp_path)["kinds"] == ["app"]
+    assert detect_cmd.detect_kinds(tmp_path)["kinds"] == ["app"]
 
 
 def test_unknown_project_reports_none_not_crash(tmp_path):
-    det = launch_cli.detect_kinds(tmp_path)
+    det = detect_cmd.detect_kinds(tmp_path)
     assert det["kinds"] == [] and det["source"] == "none"
 
 
@@ -422,11 +431,11 @@ def test_package_is_kept_when_bindings_change(tmp_path):
 
 
 def test_build_mismatch_needs_hashes_not_versions():
-    found = launch_cli._build_mismatch([
+    found = rt_devices.build_mismatch([
         {"role": "A", "build": {"apk": "aaa", "version": "1.2.0+45"}},
         {"role": "B", "build": {"apk": "bbb", "version": "1.2.0+45"}}])
     assert found and "한쪽만 다시 설치" in found[0]["detail"]
-    assert launch_cli._build_mismatch([
+    assert rt_devices.build_mismatch([
         {"role": "A", "build": {"apk": "aaa"}}, {"role": "B", "build": {"apk": None}}]) == []
 
 
@@ -439,13 +448,13 @@ _DEV2 = {"android": ["emulator-5554"],
 
 def test_pick_device_refuses_to_guess_between_several(monkeypatch):
     """여러 대인데 고르지 않으면 엉뚱한 기기를 찍는다 — 멈춘다."""
-    monkeypatch.setattr(launch_cli, "_devices", lambda: _DEV2)
+    monkeypatch.setattr(rt_devices, "list_devices", lambda: _DEV2)
     monkeypatch.delenv("DEV", raising=False)
-    assert launch_cli._pick_device(None)[0] is None
-    assert launch_cli._pick_device("emulator-5554")[:2] == ("android", "emulator-5554")
-    assert launch_cli._pick_device("3F328F1A-16D1-453B-A0D3-94CDC21C4189")[0] == "ios"
+    assert rt_devices.pick_device(None)[0] is None
+    assert rt_devices.pick_device("emulator-5554")[:2] == ("android", "emulator-5554")
+    assert rt_devices.pick_device("3F328F1A-16D1-453B-A0D3-94CDC21C4189")[0] == "ios"
     monkeypatch.setenv("DEV", "emulator-5554")
-    assert launch_cli._pick_device(None)[1] == "emulator-5554"
+    assert rt_devices.pick_device(None)[1] == "emulator-5554"
 
 
 def _shot_args(tmp, **over):
@@ -461,19 +470,19 @@ def test_android_shot_writes_png_and_restores_demo_mode(tmp_path, monkeypatch, c
     """상태바를 고정했으면 찍은 뒤 되돌린다 — 남의 기기 설정을 바꿔 두지 않는다."""
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("SHOT_DIR", str(tmp_path / "shots"))
-    monkeypatch.setattr(launch_cli, "_devices", lambda: _DEV2)
-    monkeypatch.setattr(launch_cli, "sdk_tool", lambda n: "/x/adb")
+    monkeypatch.setattr(rt_devices, "list_devices", lambda: _DEV2)
+    monkeypatch.setattr(app_shot_action, "sdk_tool", lambda n: "/x/adb")
     calls = []
-    monkeypatch.setattr(launch_cli, "_adb_shell",
+    monkeypatch.setattr(app_shot_action, "adb_shell",
                         lambda serial, *a, **k: calls.append(a) or ("null" if a[:2] == ("settings", "get") else ""))
 
     class R:
         stdout = b"\x89PNG\r\n\x1a\nfake"
         stderr = b""
-    monkeypatch.setattr(launch_cli.subprocess, "run", lambda *a, **k: R())
-    monkeypatch.setattr(launch_cli.time, "sleep", lambda s: None)
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: R())
+    monkeypatch.setattr(time, "sleep", lambda s: None)
 
-    rc = launch_cli._app_shot(_shot_args(tmp_path, clean_status=True))
+    rc = app_shot_action._app_shot(_shot_args(tmp_path, clean_status=True))
     d = json.loads(capsys.readouterr().out)
     assert rc == 0 and d["platform"] == "android"
     assert Path(d["file"]).read_bytes().startswith(b"\x89PNG")
@@ -485,14 +494,14 @@ def test_android_shot_writes_png_and_restores_demo_mode(tmp_path, monkeypatch, c
 
 def test_android_shot_rejects_a_non_png(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("SHOT_DIR", str(tmp_path / "shots"))
-    monkeypatch.setattr(launch_cli, "_devices", lambda: _DEV2)
-    monkeypatch.setattr(launch_cli, "sdk_tool", lambda n: "/x/adb")
+    monkeypatch.setattr(rt_devices, "list_devices", lambda: _DEV2)
+    monkeypatch.setattr(app_shot_action, "sdk_tool", lambda n: "/x/adb")
 
     class R:
         stdout = b"error: device offline"
         stderr = b""
-    monkeypatch.setattr(launch_cli.subprocess, "run", lambda *a, **k: R())
-    launch_cli._app_shot(_shot_args(tmp_path))
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: R())
+    app_shot_action._app_shot(_shot_args(tmp_path))
     assert json.loads(capsys.readouterr().out)["code"] == "capture_failed"
 
 
@@ -546,12 +555,12 @@ def test_route_handler_takes_the_request_as_second_argument():
         def continue_(self):
             got["continued"] = True
 
-    h = launch_cli._route_handler({"status": 500, "body": "x", "content_type": "text/plain"})
+    h = web_session._route_handler({"status": 500, "body": "x", "content_type": "text/plain"})
     h(FakeRoute(), object())
     assert got["status"] == 500 and got["body"] == "x"
 
     got.clear()
-    launch_cli._route_handler({"status": None, "delay_ms": 0})(FakeRoute(), object())
+    web_session._route_handler({"status": None, "delay_ms": 0})(FakeRoute(), object())
     assert got == {"continued": True}
 
 
@@ -631,7 +640,7 @@ def test_stealth_keeps_the_upstream_license():
 
 
 def test_console_hook_covers_every_way_an_error_shows_up():
-    hook = launch_cli._CONSOLE_HOOK
+    hook = web_session._CONSOLE_HOOK
     assert 'addEventListener("error"' in hook and 'addEventListener("unhandledrejection"' in hook
     assert "if (window.__projectops_console) return;" in hook
 
@@ -655,7 +664,7 @@ def test_close_blank_tabs_keeps_work_tab_and_real_pages():
     """about:blank 만 닫고 작업 탭·실제 페이지는 남긴다 (open 반복 시 빈 탭 누적 방지)."""
     blank1, blank2 = _BlankTabPage("about:blank"), _BlankTabPage("about:blank")
     real, work = _BlankTabPage("https://github.com/x"), _BlankTabPage("about:blank")
-    n = launch_cli._close_blank_tabs(_BlankTabCtx([blank1, real, blank2, work]), work)
+    n = web_session.close_blank_tabs(_BlankTabCtx([blank1, real, blank2, work]), work)
     assert n == 2
     assert blank1.closed and blank2.closed
     assert not real.closed and not work.closed
@@ -767,15 +776,15 @@ def _after_args(tmp_path):
 
 
 def _no_wait(monkeypatch):
-    monkeypatch.setattr(launch_cli.time, "sleep", lambda s: None)
-    monkeypatch.setattr(launch_cli, "_finish_shot", lambda raw, explicit, args: raw)
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    monkeypatch.setattr(app_gestures, "finish_shot", lambda raw, explicit, args: raw)
 
 
 def test_after_shot_waits_for_change_then_stability(monkeypatch, tmp_path):
     """동작 전 화면이 두 번 연속 나와도 '멈췄다'로 보지 않는다 — Android 실측 사고(전환 전 장면을 찍음)."""
     _no_wait(monkeypatch)
     be = _FrameBackend([b"\x89PNG-before", b"\x89PNG-before", b"\x89PNG-mid", b"\x89PNG-new", b"\x89PNG-new"])
-    r = launch_cli._after_shot(_after_args(tmp_path), be, "emu", b"\x89PNG-before")
+    r = app_gestures.after_shot(_after_args(tmp_path), be, "emu", b"\x89PNG-before")
     assert r["screen_changed"] is True
     assert Path(r["shot"]).read_bytes() == b"\x89PNG-new"
 
@@ -784,14 +793,14 @@ def test_after_shot_reports_no_change(monkeypatch, tmp_path):
     """눌렀는데 화면이 그대로면 screen_changed=false — agent 가 다른 요소를 고르게 한다."""
     _no_wait(monkeypatch)
     t = iter(range(0, 1000))
-    monkeypatch.setattr(launch_cli.time, "time", lambda: next(t))
-    r = launch_cli._after_shot(_after_args(tmp_path), _FrameBackend([b"\x89PNG-same"]), "emu", b"\x89PNG-same")
+    monkeypatch.setattr(time, "time", lambda: next(t))
+    r = app_gestures.after_shot(_after_args(tmp_path), _FrameBackend([b"\x89PNG-same"]), "emu", b"\x89PNG-same")
     assert r["screen_changed"] is False and Path(r["shot"]).exists()
 
 
 def test_after_shot_skipped_without_flag(tmp_path):
     import argparse
-    assert launch_cli._after_shot(argparse.Namespace(shot=None), None, "emu", None) == {}
+    assert app_gestures.after_shot(argparse.Namespace(shot=None), None, "emu", None) == {}
 
 
 @pytest.mark.local_only
@@ -827,7 +836,7 @@ _PAGE = (
 
 @contextlib.contextmanager
 def _browser_session(tmp_path):
-    ok, _ = launch_cli._require_playwright()
+    ok, _ = rt_browser.require_playwright()
     if ok is None:
         pytest.skip("Playwright 없음 — web setup 후 실행된다")
 
@@ -1106,9 +1115,9 @@ def test_render_run_missing_cwd_is_json_error(tmp_path):
 
 def test_unexpected_handler_exception_becomes_json(monkeypatch, capsys):
     """어떤 핸들러든 예외가 새도 main 이 JSON 으로 감싼다."""
-    def boom(args):
+    def boom(*args, **kwargs):
         raise RuntimeError("boom")
-    monkeypatch.setattr(launch_cli, "cmd_shrink", boom)
+    monkeypatch.setattr(shrink_cmd, "shrink", boom)
     rc = launch_cli.main(["shrink", "x.png"])
     d = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert rc == 1 and d["code"] == "handler_error" and "boom" in d["error"]
@@ -1171,9 +1180,9 @@ def test_goto_reports_http_status(tmp_path, monkeypatch, capsys, status, http_er
     monkeypatch.setenv("HOME", str(tmp_path))   # 사용자의 진짜 ~/.projectops 를 건드리지 않는다
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
     proj = _root_for_web(tmp_path)
-    state_f = launch_cli._web_state_path(proj)
-    launch_cli._write_web_state(state_f, {"cdp": "http://127.0.0.1:1"})
-    monkeypatch.setattr(launch_cli, "_web_connect",
+    state_f = rt_browser.state_path(proj)
+    rt_browser.write_state(state_f, {"cdp": "http://127.0.0.1:1"})
+    monkeypatch.setattr(web_cmd, "web_connect",
                         lambda st: ((_FakePw(), None, _FakePage(status)), None))
     rc = launch_cli.main(["web", "goto", "--root", str(proj), "--url", "http://x/nonexistent-page"])
     d = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
@@ -1194,9 +1203,9 @@ def test_kill_browser_escalates_to_sigkill_when_sigterm_is_ignored():
                             start_new_session=True)
     try:
         proc.stdout.readline()   # SIGTERM 무시 설정이 끝난 뒤에 시작한다
-        alive = launch_cli._kill_browser(proc.pid, grace=0.5)
+        alive = rt_procs.kill_browser(proc.pid, grace=0.5)
         assert alive is False
-        assert proc.poll() is not None or not launch_cli._pid_alive(proc.pid)
+        assert proc.poll() is not None or not rt_procs.pid_alive(proc.pid)
     finally:
         if proc.poll() is None:
             proc.kill()
@@ -1213,8 +1222,8 @@ def test_web_close_does_not_hang_on_unresponsive_browser(tmp_path, monkeypatch):
     threading.Thread(target=proc.wait, daemon=True).start()
     try:
         proc.stdout.readline()
-        state_f = launch_cli._web_state_path(proj)
-        launch_cli._write_web_state(state_f, {"cdp": "http://127.0.0.1:1", "pid": proc.pid})
+        state_f = rt_browser.state_path(proj)
+        rt_browser.write_state(state_f, {"cdp": "http://127.0.0.1:1", "pid": proc.pid})
         rc, out, err = run_cli("web", "close", "--root", str(proj), home=tmp_path)
         d = _j(out)
         assert d["ok"] is True and d.get("action") == "close", d

@@ -229,13 +229,13 @@ def test_auto_record_counts_once_per_day(khome):
 
 
 def test_track_attempt_hints_after_fail_then_success(tmp_path):
-    import launch_cli
+    from pro_launch.runtime import output as rt_output
     f = tmp_path / "attempts.json"
-    assert launch_cli._track_attempt(f, "web", {"ok": False, "code": "not_found"}) is None
-    hint = launch_cli._track_attempt(f, "web", {"ok": True, "code": "ok"})
+    assert rt_output._track_attempt(f, "web", {"ok": False, "code": "not_found"}) is None
+    hint = rt_output._track_attempt(f, "web", {"ok": True, "code": "ok"})
     assert hint and "not_found" in hint and "learn" in hint
     # 한 번 알려 준 뒤에는 다시 알리지 않는다
-    assert launch_cli._track_attempt(f, "web", {"ok": True, "code": "ok"}) is None
+    assert rt_output._track_attempt(f, "web", {"ok": True, "code": "ok"}) is None
 
 
 def test_learn_from_skill_dir_without_remote_goes_to_machine(tmp_path):

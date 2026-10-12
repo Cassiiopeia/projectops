@@ -172,7 +172,8 @@ def test_every_declared_path_command_actually_exists():
         text = md.read_text(encoding="utf-8")
         scripts = md.parent / "scripts"
         sources = "\n".join(f.read_text(encoding="utf-8")
-                            for f in scripts.glob("*.py")) if scripts.is_dir() else ""
+                            for f in scripts.rglob("*.py")   # 명령을 모듈로 나눈 스킬은 하위 폴더까지
+                            if "__pycache__" not in f.parts) if scripts.is_dir() else ""
         for cmd in _PATH_COMMANDS:
             if cmd in text and f'"{cmd}"' not in sources:
                 missing.append(f"{skill_id}:{cmd}")

@@ -117,7 +117,9 @@ def test_normal_repo_has_no_root_warning(tmp_path):
 @pytest.mark.parametrize("fn", ["cmd_web", "cmd_db", "cmd_logs", "cmd_http"])
 def test_command_docstrings_survive(fn):
     """#833 이 docstring 앞에 문장을 넣어 docstring 이 사라졌다."""
-    assert getattr(launch_cli, fn).__doc__, f"{fn} docstring 이 없다"
+    from pro_launch.commands import db, http, logs, web
+    owner = {"cmd_web": web, "cmd_db": db, "cmd_logs": logs, "cmd_http": http}[fn]
+    assert getattr(owner, fn).__doc__, f"{fn} docstring 이 없다"
 
 
 # ── access 성적 ──────────────────────────────────────────────────────────
