@@ -117,7 +117,7 @@ def web_connect(state: dict):
     ctx = browser.contexts[0] if browser.contexts else browser.new_context()
     # 마지막 탭을 본다. 프로필이 영속이라 Chromium 이 옛 탭을 되살리는데,
     # pages[0] 을 잡으면 방금 연 탭이 아니라 그 옛 탭을 몰게 된다(실측).
-    page = ctx.pages[-1] if ctx.pages else ctx.new_page()
+    page = work_page(ctx)
     # 옛 상태 파일(키 없음)은 켠 것으로 본다 — 끄는 것은 --no-stealth 로 명시할 때뿐이다
     if state.get("stealth", True):
         install_stealth(ctx, page)
@@ -130,6 +130,29 @@ def web_connect(state: dict):
             pass
     apply_routes(page, state.get("routes") or [])
     return (pw, browser, page), None
+
+
+# Chrome 이 스스로 띄우는 안내 탭. 작업 탭이 아니다
+_BROWSER_INTERNAL = ("chrome://", "chrome-untrusted://", "devtools://", "edge://")
+
+
+def work_page(ctx):
+    """작업에 쓸 탭을 고른다.
+
+    영속 프로필은 옛 탭을 되살리고, 설치된 Chrome 은 시작할 때 안내 탭(chrome://privacy-sandbox-dialog 등)을
+    함께 띄운다. 그냥 마지막 탭을 쓰면 그 안내 탭을 잡았다가, 이동하는 순간 Chrome 이 닫아 버려
+    'Target page, context or browser has been closed' 로 실패한다(#860 실측, 순서는 실행마다 달랐다).
+    chrome:// 가 아닌 탭 중 마지막 것을 쓰고, 없으면 새로 연다.
+    """
+    live = [p for p in ctx.pages if not p.is_closed()]
+    usable = [p for p in live if not p.url.startswith(_BROWSER_INTERNAL)]
+    return usable[-1] if usable else ctx.new_page()
+
+
+def safe_title(page) -> str:
+    """제목을 읽는다. 리다이렉트 도중에 읽으면 'Execution context was destroyed' 로 터지므로
+    로드가 끝나길 기다렸다 다시 읽는다 (#860)."""
+    return read_url_title(page)[1]
 
 
 def read_url_title(page, timeout: int = 10) -> tuple[str, str]:
@@ -162,7 +185,11 @@ def settle(page, state: dict, timeout: int) -> None:
 
 
 def done_payload(action: str, page) -> dict:
-    """화면을 바꾸지 않은 동작(goto·type)의 공통 결과 — 지금 주소와 제목을 알려 준다."""
-    return {"action": action, "url": page.url, "title": page.title(),
-            "summary": f"{action} 완료 — {page.url}",
+    """화면을 바꾸지 않은 동작(goto·type)의 공통 결과 — 지금 주소와 제목을 알려 준다.
+
+    주소와 제목을 한 번에 읽는다. 따로 읽으면 리다이렉트 사이에 낀 서로 다른 시점의 값이 섞인다.
+    """
+    url, title = read_url_title(page)
+    return {"action": action, "url": url, "title": title,
+            "summary": f"{action} 완료 — {url}",
             "next": "web text  # 결과 화면의 글자를 읽는다"}

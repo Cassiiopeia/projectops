@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 
+from pro_launch.commands.web.session import safe_title
 from pro_launch.registry import Action
 
 
@@ -15,7 +16,7 @@ def _web_text(page, args) -> dict:
     text = "\n".join(lines)
     cut = len(text) > args.max_chars
     return {"action": "text", "text": text[:args.max_chars], "truncated": cut, "chars": len(text),
-            "url": page.url, "title": page.title(),
+            "url": page.url, "title": safe_title(page),
             "summary": f"글자 {len(text)}자" + (f" (앞 {args.max_chars}자만)" if cut else ""),
             "next": "web find --text <누를 것의 글자>" + ("  # 잘렸으면 --selector 로 범위를 좁힌다" if cut else "")}
 

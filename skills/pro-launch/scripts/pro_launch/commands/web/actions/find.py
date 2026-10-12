@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 
+from pro_launch.commands.web.session import safe_title
 from pro_launch.commands.web.targets import CLICKABLE, FIND_JS, REF_ATTR, is_mutating_target
 from pro_launch.registry import Action
 
@@ -13,11 +14,11 @@ def _web_find(page, args) -> dict:
     for it in items:
         it["mutating"] = is_mutating_target(it)
     if not items:
-        return {"ok": False, "code": "nothing_found", "action": "find", "url": page.url, "title": page.title(),
+        return {"ok": False, "code": "nothing_found", "action": "find", "url": page.url, "title": safe_title(page),
                 "error": "조건에 맞는 보이는 요소가 없습니다",
                 "next": "web text  # 화면 글자를 먼저 읽고 --text 를 그 글자로 다시 찾는다"}
     return {"action": "find", "items": items, "total": res.get("total"), "shown": len(items),
-            "fallback": res.get("fallback"), "url": page.url, "title": page.title(),
+            "fallback": res.get("fallback"), "url": page.url, "title": safe_title(page),
             "summary": f"후보 {len(items)}개 (전체 {res.get('total')})",
             "next": "web click --ref <번호> --expect-url <바뀔 주소 일부>  # 고른 것만 누른다"}
 

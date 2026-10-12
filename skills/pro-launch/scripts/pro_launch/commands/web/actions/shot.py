@@ -1,7 +1,7 @@
 """`web shot` — 화면을 찍는다."""
 from __future__ import annotations
 
-
+from pro_launch.commands.web.session import safe_title
 from pro_launch.registry import Action
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.shots import finish_shot, shot_target
@@ -22,7 +22,7 @@ def execute(page, args, state: dict) -> dict:
         page.screenshot(path=str(raw), full_page=args.full)
     final = finish_shot(raw, explicit, args)
     return {"action": "shot", "file": str(final), "url": page.url,
-            "title": page.title(), "viewport": state.get("viewport"),
+            "title": safe_title(page), "viewport": state.get("viewport"),
             "routes": len(state.get("routes") or []),
             "summary": f"화면을 찍었습니다: {final.name}",
             "next": "이미지를 읽어 다음 조작을 정하세요"}

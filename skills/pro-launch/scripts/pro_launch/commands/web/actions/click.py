@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 
-from pro_launch.commands.web.session import settle
+from pro_launch.commands.web.session import safe_title, settle
 from pro_launch.commands.web.targets import DESCRIBE_JS, REF_ATTR, is_mutating_target
 from pro_launch.registry import Action
 
@@ -30,7 +30,7 @@ def _web_click(page, args, state: dict) -> dict:
                 "target": info, "url": page.url,
                 "error": f"읽기 전용 세션이라 '{label.strip()[:60]}' 을 누르지 않았습니다",
                 "next": "정말 눌러야 하면 사용자에게 무엇이 바뀌는지 말하고 승인받은 뒤 --confirm-mutating 을 붙인다"}
-    before_url, before_title = page.url, page.title()
+    before_url, before_title = page.url, safe_title(page)
     el.click(timeout=args.timeout * 1000)
     waited = None
     try:
@@ -51,11 +51,11 @@ def _web_click(page, args, state: dict) -> dict:
         return {"ok": False, "code": "expect_not_met", "action": "click", "clicked": info,
                 "expected": args.expect_url or args.expect_text,
                 "before": {"url": before_url, "title": before_title},
-                "url": page.url, "title": page.title(),
+                "url": page.url, "title": safe_title(page),
                 "error": f"눌렀지만 기대한 {'주소' if waited == 'url' else '글자'}가 {args.timeout}초 안에 나오지 않았습니다",
                 "next": "web text  # 지금 화면을 읽고, 엉뚱한 것을 눌렀으면 web find 로 다시 고른다"}
     settle(page, state, args.timeout)
-    after_url, after_title = page.url, page.title()
+    after_url, after_title = page.url, safe_title(page)
     changed = after_url != before_url or after_title != before_title
     payload = {"action": "click", "clicked": info, "changed": changed,
                "before": {"url": before_url, "title": before_title},
