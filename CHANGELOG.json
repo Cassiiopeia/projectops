@@ -1,14 +1,40 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-12T02:47:38Z",
-    "currentVersion": "4.48.0",
+    "lastUpdated": "2026-10-12T07:00:04Z",
+    "currentVersion": "4.48.1",
     "projectType": "basic",
-    "totalReleases": 309,
+    "totalReleases": 310,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.48.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-12",
+      "pr_number": 861,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 설치된 Chrome으로 웹 화면을 열 때 간헐적으로 실패하던 문제 해결\n  * 주소 이동 직후 페이지 제목을 읽다가 오류가 나던 문제 해결\n\n* **개선**\n  * 앱·웹·서버 조작 기능의 내부 구조를 정리해 기여와 확장이 쉬워졌습니다",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "설치된 Chrome으로 웹 화면을 열 때 간헐적으로 실패하던 문제 해결",
+            "주소 이동 직후 페이지 제목을 읽다가 오류가 나던 문제 해결"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "앱·웹·서버 조작 기능의 내부 구조를 정리해 기여와 확장이 쉬워졌습니다"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.48.0",
       "project_type": "basic",
