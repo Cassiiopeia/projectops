@@ -1,14 +1,40 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-10T16:08:25Z",
-    "currentVersion": "4.47.0",
+    "lastUpdated": "2026-10-12T02:47:38Z",
+    "currentVersion": "4.48.0",
     "projectType": "basic",
-    "totalReleases": 308,
+    "totalReleases": 309,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.48.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-12",
+      "pr_number": 858,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **개선**\n  * 인터넷이 제한된 사내망에서도 설치된 Chrome·Edge로 웹 화면을 확인할 수 있습니다.\n  * 브라우저를 자동으로 판단해 준비 과정이 더 간단해졌습니다.\n\n* **버그 수정**\n  * Windows에서 브라우저를 닫거나 다시 열 때 오류가 발생하던 문제 해결",
+      "parsed_changes": {
+        "개선": {
+          "title": "개선",
+          "items": [
+            "인터넷이 제한된 사내망에서도 설치된 Chrome·Edge로 웹 화면을 확인할 수 있습니다.",
+            "브라우저를 자동으로 판단해 준비 과정이 더 간단해졌습니다."
+          ]
+        },
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "Windows에서 브라우저를 닫거나 다시 열 때 오류가 발생하던 문제 해결"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.47.0",
       "project_type": "basic",
