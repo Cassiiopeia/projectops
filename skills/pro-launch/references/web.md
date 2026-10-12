@@ -108,6 +108,30 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web setup
 **시스템 파이썬은 건드리지 않는다** — macOS Homebrew 파이썬은 PEP 668 로 `pip install` 을 막는다.
 `browser_missing` 이 나오면 패키지는 있는데 브라우저 파일이 없는 것이다 — `web setup` 을 다시 부른다.
 
+### 내부망 · 번들 Chromium 을 못 받는 곳 (#857)
+
+`cdn.playwright.dev` 와 PyPI 가 막힌 곳에서도 **설치된 Chrome · Edge 로 그대로 돈다.**
+"내부망인가"를 추측하지 않고 쓸 수 있는 브라우저가 있나로 정한다 — 순서는 아래와 같다.
+
+| 순서 | 무엇 | 언제 |
+|---|---|---|
+| 1 | 환경변수 `LAUNCH_CHROMIUM_PATH` | 지정했을 때. 경로가 틀리면 다른 것으로 넘어가지 않고 `browser_env_invalid` 로 멈춘다 |
+| 2 | Playwright 번들 Chromium | 있을 때 (기존 동작) |
+| 3 | 설치된 Chrome → Edge → Chromium | 위가 없을 때 표준 위치에서 자동 탐지 |
+
+- `web setup` 은 받기 전에 다운로드 호스트(`PLAYWRIGHT_DOWNLOAD_HOST`, 기본 `cdn.playwright.dev`)에
+  TLS 핸드셰이크를 3초 시도한다. 안 닿으면 100MB 시도를 건너뛰고 설치된 브라우저로 이어간다.
+- pip 인덱스가 막혀도 시스템 파이썬에 Playwright 가 이미 있으면 그것을 쓴다.
+  없으면 `pip_failed` — 사내 PyPI 미러로 `pip install playwright pillow` 를 먼저 한다.
+- 어느 브라우저를 왜 골랐는지는 `doctor` 의 `browser_choice`, `web open` 의 `browser` ·
+  `browser_source` · `browser_reason` 에 나온다.
+- 설치된 브라우저는 별도 `--user-data-dir` 로 띄우므로 평소 쓰는 프로필과 섞이지 않는다.
+
+```bash
+# 설치된 브라우저를 직접 지정할 때
+LAUNCH_CHROMIUM_PATH="C:/Program Files/Google/Chrome/Application/chrome.exe"   {PYTHON} {SCRIPTS}/launch_cli.py web open --url {주소}
+```
+
 ## 조작 — 읽고, 번호로 고르고, 확인하며 누른다
 
 ```bash

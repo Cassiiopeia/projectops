@@ -27,6 +27,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -60,6 +61,7 @@ if str(_HERE.parent) not in sys.path:
 import credentials  # noqa: E402
 import knowledge  # noqa: E402
 import stealth  # noqa: E402
+import browser_pick  # noqa: E402
 import app_input  # noqa: E402
 
 
@@ -498,10 +500,13 @@ def cmd_doctor(args) -> int:
     home = _home(root)
     shrink_by = resize_tool()
     pw = _playwright_state()
+    # Playwright 가 있어야 번들 경로를 알 수 있다. 없어도 환경변수·설치된 브라우저는 보인다
+    chosen = _browser_choice()
     open_browser = _open_browser_status(_web_state_path(root))
     return out({
         "checks": checks,
         "browser": pw,
+        "browser_choice": {k: chosen.get(k) for k in ("exe", "source", "label", "reason", "error")},
         "open_browser": open_browser,
         "image_resize": shrink_by or "없음 — 캡처가 원본 크기로 남아 토큰·전송량이 커진다",
         "image_hint": None if shrink_by else
@@ -513,6 +518,7 @@ def cmd_doctor(args) -> int:
         "summary": (f"{sys.platform}: "
                     + (", ".join(c["tool"] for c in checks if c["found"]) or "도구 없음"))
                    + f" · 브라우저 {'준비' if pw['ready'] else '없음'}"
+                   + (f" ({chosen['label']})" if chosen.get("exe") else "")
                    + f" · 이미지 축소 {shrink_by or '불가'}",
     })
 
@@ -1602,12 +1608,29 @@ def _require_playwright() -> tuple[object | None, dict | None]:
         }
 
 
+def _bundled_chromium_path() -> str | None:
+    """Playwright 번들 Chromium 이 있어야 할 자리. Playwright 가 없거나 못 읽으면 None."""
+    sync_playwright, err = _require_playwright()
+    if err:
+        return None
+    try:
+        with sync_playwright() as pw:
+            return pw.chromium.executable_path
+    except Exception:
+        return None
+
+
 def _playwright_state() -> dict:
     ok, err = _require_playwright()
     if err:
         return {"ready": False, "reason": err["error"], "fix": err["fix"],
                 "ask_user": err["ask_user"]}
     return {"ready": True, "venv": str(venv_dir()) if venv_python() else "시스템"}
+
+
+def _browser_choice() -> dict:
+    """이번에 쓸 브라우저. 어느 것을 왜 골랐는지까지 — 조용히 바꾸지 않는다 (#857)."""
+    return browser_pick.resolve(_bundled_chromium_path())
 
 
 def _apply_routes(page, rules: list[dict]) -> int:
@@ -1698,6 +1721,21 @@ def _web_connect(state: dict):
     return (pw, browser, page), None
 
 
+def _read_url_title(page, timeout: int = 10) -> tuple[str, str]:
+    """주소와 제목을 읽는다. 서버·스크립트 리다이렉트 도중에 title() 을 부르면
+    'Execution context was destroyed' 로 터진다 — 로드가 끝나길 기다렸다 다시 읽는다."""
+    for _ in range(3):
+        try:
+            page.wait_for_load_state("load", timeout=timeout * 1000)
+        except Exception:
+            pass
+        try:
+            return page.url, page.title()
+        except Exception:
+            time.sleep(0.5)
+    return page.url, ""
+
+
 def _settle(page, state: dict, timeout: int) -> None:
     """바꿔치기 규칙이 있으면 요청이 다 끝날 때까지 기다린다.
 
@@ -1729,22 +1767,55 @@ def _web_setup(force: bool = False) -> dict:
         return {"ok": False, "code": "venv_missing", "steps": steps,
                 "error": "가상환경 파이썬을 찾지 못했습니다"}
     # Pillow 를 함께 깐다 — 캡처를 줄이는 수단을 시스템을 건드리지 않고 확보한다
-    r = subprocess.run([str(vpy), "-m", "pip", "install", "-q", "playwright", "pillow"],
-                       capture_output=True, text=True, timeout=900)
-    steps.append({"step": "playwright · pillow 설치", "ok": r.returncode == 0,
-                  "error": (r.stderr or "")[-300:] or None})
-    if r.returncode != 0:
-        return {"ok": False, "code": "pip_failed", "steps": steps,
-                "error": "playwright를 설치하지 못했습니다"}
-    r = subprocess.run([str(vpy), "-m", "playwright", "install", "chromium"],
-                       capture_output=True, text=True, timeout=1800)
-    steps.append({"step": "chromium 내려받기", "ok": r.returncode == 0,
-                  "error": (r.stderr or "")[-300:] or None})
-    if r.returncode != 0:
-        return {"ok": False, "code": "browser_failed", "steps": steps,
-                "error": "브라우저를 받지 못했습니다"}
-    return {"ok": True, "steps": steps, "venv": str(vd),
-            "summary": "웹을 띄울 준비가 됐습니다", "next": "web open --url <주소>"}
+    try:
+        r = subprocess.run([str(vpy), "-m", "pip", "install", "-q", "playwright", "pillow"],
+                           capture_output=True, text=True, timeout=900)
+    except subprocess.TimeoutExpired:
+        r = None
+    pip_ok = r is not None and r.returncode == 0
+    steps.append({"step": "playwright · pillow 설치", "ok": pip_ok,
+                  "error": None if pip_ok else ((r.stderr or "")[-300:] if r else "시간 초과") or None})
+    if not pip_ok:
+        # 내부망: 인덱스가 막혀도 시스템 파이썬에 Playwright 가 이미 있으면 그대로 간다 (#857)
+        if importlib.util.find_spec("playwright") is None:
+            return {"ok": False, "code": "pip_failed", "steps": steps,
+                    "error": "playwright를 설치하지 못했습니다",
+                    "next": ("내부망이면 사내 PyPI 미러를 지정해 `pip install playwright pillow` 를 "
+                             "시스템에 먼저 깔아 두세요. 브라우저는 설치된 Chrome·Edge 를 씁니다")}
+        steps.append({"step": "시스템 Playwright 사용", "ok": True, "error": None,
+                      "note": "인덱스에 닿지 않아 전용 환경 설치를 건너뛰고 시스템에 깔린 것을 쓴다"})
+    # 이미 쓸 브라우저가 있으면 100MB 를 받지 않는다. 번들이 있으면 기존 동작 그대로다
+    pick = browser_pick.resolve(_bundled_chromium_path())
+    if pick.get("error"):
+        return {"ok": False, "code": "browser_env_invalid", "steps": steps, "error": pick["error"],
+                "next": f"{browser_pick.ENV_VAR} 를 고치거나 지우세요"}
+    if pick["source"] in ("env", "bundled"):
+        steps.append({"step": "chromium 내려받기", "ok": True, "error": None,
+                      "skipped": True, "note": pick["reason"]})
+        return {"ok": True, "steps": steps, "venv": str(vd), "browser": pick["label"],
+                "summary": f"웹을 띄울 준비가 됐습니다 ({pick['label']})", "next": "web open --url <주소>"}
+    host = browser_pick.download_host()
+    reachable = browser_pick.download_host_reachable(host)
+    if reachable:
+        r = subprocess.run([str(vpy), "-m", "playwright", "install", "chromium"],
+                           capture_output=True, text=True, timeout=1800)
+        steps.append({"step": "chromium 내려받기", "ok": r.returncode == 0,
+                      "error": (r.stderr or "")[-300:] or None})
+        if r.returncode == 0:
+            return {"ok": True, "steps": steps, "venv": str(vd), "browser": "Playwright Chromium",
+                    "summary": "웹을 띄울 준비가 됐습니다", "next": "web open --url <주소>"}
+    else:
+        steps.append({"step": "chromium 내려받기", "ok": False, "skipped": True,
+                      "error": f"{host} 에 닿지 않아 받지 않았다"})
+    # 못 받았다 — 설치된 Chrome·Edge 가 있으면 그것으로 간다
+    if pick["exe"]:
+        return {"ok": True, "steps": steps, "venv": str(vd), "browser": pick["label"],
+                "browser_source": "system",
+                "summary": f"번들 브라우저는 받지 못했지만 설치된 브라우저({pick['label']})로 웹을 띄웁니다",
+                "next": "web open --url <주소>"}
+    return {"ok": False, "code": "browser_failed", "steps": steps,
+            "error": "브라우저를 받지 못했고 설치된 Chrome·Edge 도 찾지 못했습니다",
+            "next": f"Chrome 또는 Edge 를 설치하거나 {browser_pick.ENV_VAR}=<실행 파일 경로> 로 지정하세요"}
 
 
 def _web_open(args, root: Path, state_f: Path) -> int:
@@ -1765,7 +1836,7 @@ def _web_open(args, root: Path, state_f: Path) -> int:
                 if args.url:
                     _pg.goto(args.url, wait_until="domcontentloaded", timeout=args.timeout * 1000)
                     _settle(_pg, prev, args.timeout)
-                url, title = _pg.url, _pg.title()
+                url, title = _read_url_title(_pg)
             except Exception as e:
                 _pw.stop()
                 return out({"ok": False, "code": "goto_failed", "error": str(e)[:300],
@@ -1775,6 +1846,7 @@ def _web_open(args, root: Path, state_f: Path) -> int:
             if bool(args.headed) != bool(prev.get("headed")):
                 warn = "headed 여부는 새로 띄울 때만 바뀐다 — 바꾸려면 web close 후 다시 open"
             return out({"action": "open", "reused": True, "pid": prev["pid"], "url": url, "title": title,
+                        "browser": prev.get("browser"), "browser_source": prev.get("browser_source"),
                         "readonly": prev["readonly"], "opened_at": prev.get("opened_at"), "warning": warn,
                         "summary": f"떠 있던 브라우저에 붙었습니다 ({prev.get('opened_at')}부터)",
                         "next": "web text  # 화면 글자를 먼저 읽는다"})
@@ -1796,12 +1868,20 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     # 호출이 여러 번으로 쪼개지므로 두 번째 명령이 붙을 곳이 없어진다(실측).
     # 그래서 브라우저를 Playwright 밖에서 독립 프로세스로 띄우고 CDP로 붙는다.
     with sync_playwright() as pw:
-        exe = pw.chromium.executable_path
-    # 패키지는 있는데 브라우저 파일을 안 받았거나 지워진 경우 — 예외로 죽지 않고 고칠 길을 준다
-    if not exe or not Path(exe).exists():
+        bundled = pw.chromium.executable_path
+    pick = browser_pick.resolve(bundled)
+    # 환경변수가 틀렸으면 다른 브라우저로 넘어가지 않고 멈춘다 — 지정한 사람이 원한 것은 그것이다
+    if pick.get("error"):
+        return out({"ok": False, "code": "browser_env_invalid", "error": pick["error"],
+                    "next": f"{browser_pick.ENV_VAR} 를 고치거나 지우세요"})
+    exe = pick["exe"]
+    # 번들도 설치된 브라우저도 없는 경우 — 예외로 죽지 않고 고칠 길을 준다
+    if not exe:
         return out({"ok": False, "code": "browser_missing",
                     "error": "Chromium 이 설치돼 있지 않습니다",
-                    "path": exe, "next": "web setup  # 브라우저(약 100MB)를 받습니다"})
+                    "path": bundled,
+                    "next": ("web setup  # 브라우저(약 100MB)를 받습니다. 내부망이면 Chrome 또는 Edge 를 "
+                             f"설치하거나 {browser_pick.ENV_VAR}=<chrome.exe 경로> 로 지정하세요")})
     profile = _home(root) / ".browser-profile"
     profile.mkdir(parents=True, exist_ok=True)
     cmd = [exe, f"--remote-debugging-port={port}", f"--user-data-dir={profile}",
@@ -1815,8 +1895,10 @@ def _web_open(args, root: Path, state_f: Path) -> int:
         cmd.append("--headless=new")
     # ⚠️ 목적지를 여기서 넘기면 **훅을 심기 전에 첫 로드가 끝난다** (#625).
     cmd.append("about:blank")
+    detach = ({"creationflags": 0x00000008 | 0x00000200}   # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+              if sys.platform == "win32" else {"start_new_session": True})
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                            start_new_session=True)   # 우리가 끝나도 살아 있어야 한다
+                            **detach)   # 우리가 끝나도 살아 있어야 한다
     cdp = f"http://127.0.0.1:{port}"
     for _ in range(60):
         with socket.socket() as probe:
@@ -1850,6 +1932,7 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     prev = _read_web_state(state_f)
     state = {"cdp": cdp, "pid": proc.pid, "headed": bool(args.headed),
              "stealth": use_stealth, "profile": str(profile), "opened_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+             "browser": pick["label"], "browser_source": pick["source"],
              "last_used": time.strftime("%Y-%m-%d %H:%M:%S"), "readonly": bool(args.readonly),
              "viewport": prev.get("viewport"), "routes": prev.get("routes") or []}
     _write_web_state(state_f, state)
@@ -1878,6 +1961,7 @@ def _web_open(args, root: Path, state_f: Path) -> int:
                 "state_file": str(state_f), "console_hook": hooked,
                 "routes": len(state["routes"]), "viewport": state["viewport"],
                 "stealth": use_stealth, "readonly": bool(args.readonly), "reused": False,
+                "browser": pick["label"], "browser_source": pick["source"], "browser_reason": pick["reason"],
                 "summary": f"브라우저를 열었습니다 ({args.url or '빈 탭'})"
                            + (" — 읽기 전용" if args.readonly else ""),
                 "next": "web text  # 화면 글자를 먼저 읽는다 (모양을 봐야 할 때만 web shot)"})
@@ -1885,6 +1969,8 @@ def _web_open(args, root: Path, state_f: Path) -> int:
 
 def _pid_alive(pid: int) -> bool:
     """프로세스가 살아 있나. 우리가 띄운 자식이 좀비로 남은 경우는 거둬들이고 죽은 것으로 본다."""
+    if sys.platform == "win32":
+        return _pid_alive_windows(pid)
     try:
         done, _ = os.waitpid(pid, os.WNOHANG)   # 자식이면 거둬들인다 (아니면 ChildProcessError)
         if done:
@@ -1902,12 +1988,46 @@ def _pid_alive(pid: int) -> bool:
     return True
 
 
+def _pid_alive_windows(pid: int) -> bool:
+    """윈도우는 os.kill(pid, 0) 이 프로세스를 **종료**시킨다. 핸들을 열어 종료 코드를 본다."""
+    import ctypes
+    kernel32 = ctypes.windll.kernel32
+    handle = kernel32.OpenProcess(0x1000, False, int(pid))   # PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        return False
+    try:
+        code = ctypes.c_ulong()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+            return False
+        return code.value == 259   # STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def _kill_browser_windows(pid: int, grace: float) -> bool:
+    """taskkill /T 로 자식 렌더러까지 정리한다. 정상 종료를 먼저, 안 죽으면 /F."""
+    for force, wait in ((False, grace), (True, 3.0)):
+        cmd = ["taskkill", "/PID", str(pid), "/T"] + (["/F"] if force else [])
+        try:
+            subprocess.run(cmd, capture_output=True, timeout=10)
+        except (OSError, subprocess.SubprocessError):
+            pass
+        end = time.time() + wait
+        while time.time() < end:
+            if not _pid_alive_windows(pid):
+                return False
+            time.sleep(0.1)
+    return _pid_alive_windows(pid)
+
+
 def _kill_browser(pid: int, grace: float = 5.0) -> bool:
     """브라우저를 직접 정리한다. 정상 종료를 기다리다 안 죽으면 강제 종료한다. 살아 있으면 True.
 
     CDP 로 붙어 close() 를 부르면 응답 없는 브라우저에서 제한 없이 멈춘다 (#712).
     독립 프로세스로 띄웠으니 신호로 끝내는 편이 확실하다.
     """
+    if sys.platform == "win32":
+        return _kill_browser_windows(pid, grace)
     for sig, wait in ((signal.SIGTERM, grace), (signal.SIGKILL, 3.0)):
         try:
             # 새 세션으로 띄웠으므로 pid 가 프로세스 그룹 id 이기도 하다 — 자식 렌더러까지 함께 정리
@@ -1937,7 +2057,8 @@ def _web_close(state: dict, state_f: Path) -> int:
     if alive:
         return out({"ok": False, "code": "browser_still_alive", "pid": pid,
                     "error": f"브라우저(pid {pid})가 아직 살아 있습니다",
-                    "next": f"kill -9 {pid}  # 직접 종료한 뒤 다시 여세요"})
+                    "next": (f"taskkill /PID {pid} /T /F" if sys.platform == "win32" else f"kill -9 {pid}")
+                            + "  # 직접 종료한 뒤 다시 여세요"})
     state_f.unlink(missing_ok=True)
     return out({"action": "close", "summary": "브라우저를 닫았습니다"})
 
