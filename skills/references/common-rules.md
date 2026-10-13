@@ -6,7 +6,7 @@
 
 ## 절대 규칙
 
-1. **Git 커밋은 이슈 컨텍스트 + 사용자 승인 없이 실행하지 않는다** — 이슈 기반 작업은 이슈 번호 확정 후에만 커밋. 이슈와 무관한 hotfix·설정 변경은 자유 형식 허용. 서브에이전트에게도 동일하게 지시한다. 번호는 브랜치명(`commit_cli.py get-issue-number`) 또는 사용자에게 받고, 확인하지 못하면 **즉시 멈추고** 선택지를 제시한다 (`commit-convention.md` §이슈 기반 커밋 원칙).
+1. **Git 커밋은 이슈 컨텍스트 + 사용자 승인 없이 실행하지 않는다** — 이슈 기반 작업은 이슈 번호 확정 후에만 커밋. 이슈와 무관한 hotfix·설정 변경은 자유 형식 허용. 서브에이전트에게도 동일하게 지시한다. 번호는 브랜치명(`YYYYMMDD_#번호_제목`) 또는 사용자에게 받고, 확인하지 못하면 **즉시 멈추고** 선택지를 제시한다 (`commit-convention.md` §이슈 기반 커밋 원칙).
 2. **코드 스타일 100% 준수** — 기존 프로젝트 패턴을 감지하고 동일하게 따른다. 새로운 "더 나은" 방식을 임의로 제안하지 않는다.
 3. **프로젝트 타입 감지 필수** — 작업 시작 전 반드시 프로젝트 타입을 자동 감지한다.
 4. **민감 정보 보호** — 산출물·댓글에 실제 비밀값을 넣지 않는다 (아래 §민감 정보 보호).
@@ -61,7 +61,6 @@
 |------|------------------|
 | GitHub 이슈 **생성** | `pro-github` (`issue-creation.md` 워크플로우) |
 | GitHub PR 생성, 이슈 조회/수정/댓글/라벨/닫기, Actions Secret | `pro-github` |
-| 이슈 기반 커밋 | `pro-commit` |
 | 구현 보고서 작성·PR 댓글 | `pro-report` |
 
 한 번에 여러 작업을 요청받아도 각 단계의 전용 스킬을 순서대로 호출한다. **예외**: 이미 생성된 이슈의 제목·본문 **보정**, 스킬이 명시적으로 위임한 호출.
@@ -117,7 +116,7 @@ rename `YYYYMMDD_245_제목.md`(권장). 파일명에 이모지·`TMP` 접두사
 있다. SKILL.md는 아래 표준 블록으로 Python을 호출한다 (self-contained 5줄 원칙 — 어느 블록부터 시작해도 동작).
 config는 CLI가 아니라 agent가 Read/Write로 직접 다룬다 (`config-rules.md`).
 
-예: `pro-github/scripts/github_cli.py` · `pro-commit/scripts/commit_cli.py` · `pro-report/scripts/report_cli.py` ·
+예: `pro-github/scripts/github_cli.py` · `pro-report/scripts/report_cli.py` ·
 `pro-review/scripts/review_cli.py` · `pro-changelog-deploy/scripts/changelog_cli.py` (다른 스킬도 같은 규칙).
 3-layer 구조·JSON 출력(`ok`/`code`/`summary`/`next`)·GitHub API 에러 대응·OS 호환성: `script-invocation.md`.
 

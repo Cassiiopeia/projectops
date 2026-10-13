@@ -113,7 +113,7 @@ def test_common_rules_documents_3layer_architecture():
     """common-rules.md에 3-layer 아키텍처와 skill cli 매핑이 명시되어야 한다."""
     text = (ROOT / "skills" / "references" / "common-rules.md").read_text(encoding="utf-8")
     # issue_cli.py는 pro-issue 통합(#464)으로 삭제됨 — github_cli가 흡수. note_cli.py는 pro-note 삭제(#853)로 빠짐.
-    for cli in ["github_cli.py", "commit_cli.py", "report_cli.py",
+    for cli in ["github_cli.py", "report_cli.py",
                 "review_cli.py", "changelog_cli.py"]:
         assert cli in text, f"{cli} 매핑이 common-rules.md에 없음"
     # 3-layer 핵심 키워드
@@ -285,3 +285,16 @@ def test_every_skill_documents_customize_section():
 def test_common_rules_load_preferences():
     text = (ROOT / "skills" / "references" / "common-rules.md").read_text(encoding="utf-8")
     assert "prefs_cli.py resolve" in text
+
+
+def test_skills_do_not_route_commits_through_pro_commit():
+    """커밋 방식은 사람마다 다르다. pro-commit 밖의 스킬 문서는 커밋을 특정 스킬로 강제하지 않는다 (#864)."""
+    hits = []
+    for path in sorted((ROOT / "skills").rglob("*.md")):
+        rel = path.relative_to(ROOT).as_posix()
+        if rel.startswith("skills/pro-commit/") or "__pycache__" in rel:
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "/pro-commit" in text or "commit_cli" in text:
+            hits.append(rel)
+    assert hits == []

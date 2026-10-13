@@ -34,7 +34,6 @@ git log "origin/{HEAD_BRANCH}..HEAD" --oneline 2>/dev/null
 미커밋 변경이 있을 때 안내 문구:
 ```
 커밋되지 않은 변경사항이 있습니다. 먼저 커밋 후 다시 실행해주세요.
-/pro-commit 으로 커밋할 수 있습니다.
 ```
 
 ## 1-1. base 최신화 (역방향 차이 병합 — 생략 금지)

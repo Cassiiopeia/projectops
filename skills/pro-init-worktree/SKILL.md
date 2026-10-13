@@ -103,13 +103,12 @@ python -X utf8 init_worktree_temp_{timestamp}.py
 
 📝 커밋 메시지 템플릿:
 {get-commit-template 의 template 그대로}
-(작업 완료 후 /pro-commit 으로 자동 커밋하세요)
 ```
 
 커밋 템플릿은 직접 조립하지 않는다. 브랜치명의 이슈 번호로 `github_cli.py get-issue {owner} {repo} {번호}`를 불러
 원본 제목과 URL을 받고, `github_cli.py get-commit-template "{원본 제목}" "{이슈URL}"`의 `template`을 그대로 보여준다.
 타입은 제목 태그에서 추론된다(버그 → `fix`, 기능 → `feat`) — `feat`로 고정하면 `semver_auto` 레포에서 버그 수정이 minor로 오른다.
-이슈를 조회하지 못하면(PAT 없음 등) 템플릿 줄을 빼고 `/pro-commit`만 안내한다.
+이슈를 조회하지 못하면(PAT 없음 등) 템플릿 줄을 뺀다.
 
 ## 브랜치명 처리 규칙
 

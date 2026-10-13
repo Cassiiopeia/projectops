@@ -18,7 +18,7 @@
 | 등급 | 항목 | 적용 경로 |
 |---|---|---|
 | **API 수정** (승인 후) | About description·homepage·topics, Discussions 켜기, 라벨 생성·이름 변경·색상 | 아래 "API 수정 경로" 참고 |
-| **파일 추가** (승인 후 커밋) | CONTRIBUTING, yml 이슈 폼, `ISSUE_TEMPLATE/config.yml`, PR 템플릿, `dependabot.yml`, AGENTS.md | 레포를 로컬에 받아 **브랜치에서** 파일 작성 → `/pro-commit` |
+| **파일 추가** (승인 후 커밋) | CONTRIBUTING, yml 이슈 폼, `ISSUE_TEMPLATE/config.yml`, PR 템플릿, `dependabot.yml`, AGENTS.md | 레포를 로컬에 받아 **브랜치에서** 파일 작성 → 변경 경로·제안 메시지를 보여주고 커밋은 사용자에게 맡김 |
 | **초안** (사용자가 검토) | README 재구성, 비교 표, 벤치마크 절, vhs `.tape`, 로고·배너 SVG, 소셜 미리보기 이미지, **SECURITY.md, CODE_OF_CONDUCT, AI 기여 정책** | 파일로 만들어 보여주고 반영 여부를 묻는다 |
 | **제안만** | 라이선스 선택·변경, 소셜 미리보기 업로드(API 없음), 브랜치 보호, 거버넌스, 레포 보관(archive), 레포 이름 변경, **레포 가시성 변경, 기본 브랜치 변경, 이슈 닫기(일괄 포함), 레포 삭제** | 보고서에 이유와 방법만 적는다 |
 
@@ -98,5 +98,5 @@ SECURITY.md·CODE_OF_CONDUCT·AI 기여 정책은 **파일이 아니라 약속**
 
 ## 커밋·푸시
 
-- 커밋은 `/pro-commit` 규칙을 따른다. 푸시는 사용자가 명시적으로 요청할 때만 한다.
+- 커밋은 사용자가 한다(변경 경로와 제안 메시지만 보여준다). 푸시는 사용자가 명시적으로 요청할 때만 한다.
 - 대상 레포가 로컬에 없으면 clone 위치를 사용자에게 묻는다.

@@ -6,7 +6,7 @@ description: "GitHub Mode - 독립적인 GitHub 제어 스킬. GitHub로 하는 
 # GitHub Mode
 
 독립적인 GitHub 제어 스킬이다. 다른 스킬 없이 단독으로 이슈/PR/레포/Actions/Secret 작업을 전부 수행한다.
-다른 스킬(pro-report · pro-commit · pro-changelog-deploy 등)도 이 스크립트를 부른다.
+다른 스킬(pro-report · pro-changelog-deploy 등)도 이 스크립트를 부른다.
 
 > **이슈 "생성"(새 이슈 작성+등록)** 요청이면 — "이슈 만들어줘", "버그 리포트 올려줘", "기능 요청 이슈" 등 — 먼저 `../references/issue-creation.md`의 워크플로우(타입 판단 → 템플릿 작성 → 중복검사 → 로컬 md 저장 → 승인 게이트 → 담당자 결정 → 등록 → 브랜치명 계산)를 따른다. 그 외 작업은 아래 표를 따른다.
 

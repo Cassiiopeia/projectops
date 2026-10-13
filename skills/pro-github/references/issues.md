@@ -129,7 +129,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py remove-assignees {owner}
 
 ## 이슈 헬퍼 (제목 정규화 / 브랜치명 / 커밋 템플릿 / 문서 경로)
 
-이슈 생성 워크플로우와 `/pro-commit`이 쓰는 순수 계산 헬퍼다 (API 호출 없음):
+이슈 생성 워크플로우와 커밋 메시지 조립이 쓰는 순수 계산 헬퍼다 (API 호출 없음):
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py normalize-title "❗[버그] 한글 제목!"

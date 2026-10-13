@@ -93,7 +93,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 릴리스 노트 머리말은 preferences의 `template`이 있으면 그것을 쓴다.
 
 **1단계 커밋 상태 확인** — `git status --short` · `git fetch origin` · 현재 브랜치 · `git log origin/{BASE}..HEAD` · `git log origin/{HEAD}..HEAD`를 **각각 따로** 실행한다.
-- 미커밋 변경이 **내 것**(이번 작업에서 만든 것)이면 멈추고 `/pro-commit`을 먼저 한다.
+- 미커밋 변경이 **내 것**(이번 작업에서 만든 것)이면 멈추고 먼저 커밋한다.
 - **의도를 모르는 남의 변경**(다른 세션)이면 건드리지 말고 목록을 알린 뒤 진행한다 — 배포는 커밋만 push한다. 단 1-1 merge가 그 파일과 겹쳐 실패하면 멈추고 사용자에게 넘긴다.
 - 현재 브랜치가 `HEAD_BRANCH`가 아니면 **멈추고** 안내한다. 브랜치를 임의로 바꾸지 않는다 (다른 세션이 옮긴 것일 수 있다).
 - 두 log가 **모두 비었을 때만** "deploy할 커밋이 없습니다" 후 종료. 하나라도 있으면 1-1로.

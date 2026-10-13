@@ -14,7 +14,7 @@ git rev-parse --abbrev-ref HEAD
 - **개발 브랜치**(`version.yml`의 `metadata.deploy_branch`, 없으면 `develop`) → 레포 규칙을 먼저 본다.
   - 레포 `CLAUDE.md`·`AGENTS.md`가 개발 브랜치 직행을 기본으로 선언했으면(예: "develop에서 직접 작업",
     "develop 직행") **멈추지 않고 통과**한다. 이슈 번호는 사용자 메시지에 있으면 그것을 쓰고, 없으면
-    커밋 시점(`pro-commit`)에 묻는다.
+    커밋 시점에 묻는다.
   - 선언이 없으면 3단계의 develop 질문으로 확인한다.
 - **feature 브랜치** → 2단계로.
 

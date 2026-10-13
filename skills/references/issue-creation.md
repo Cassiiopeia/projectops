@@ -248,7 +248,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-issue {owner} {re
 
 📝 커밋 메시지 템플릿:
 {get-commit-template 의 template 그대로}
-(작업 완료 후 /pro-commit 으로 자동 커밋하거나 위 형식으로 직접 커밋하세요)
+(작업 완료 후 위 형식을 참고해 커밋하세요 — 메시지 형식은 사용자·레포 규칙을 따릅니다)
 
 다음 작업을 선택하세요:
 1. 지금 worktree 생성 (/pro-init-worktree)

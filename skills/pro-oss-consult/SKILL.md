@@ -191,7 +191,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/oss_cli.py get-output-path oss-consult
    - **About·topics·Discussions**: 이 skill의 `repo-update`. 먼저 `--dry-run`으로 `before`와 `planned`를 보여준다
    - **라벨 생성·이름 변경·색 변경**: 이 skill의 `label`. 삭제는 지원하지 않는다. 이름을 바꾸기 전에 그 라벨을 참조하는
      동기화 워크플로우·이슈 폼·PR 템플릿·dependabot 설정을 먼저 찾는다 (remediation.md)
-   - **파일 추가**: 대상 레포에 **새 브랜치**를 만들어 작성하고 `/pro-commit`으로 커밋한다. 기본 브랜치에 직접 커밋하지 않고,
+   - **파일 추가**: 대상 레포에 **새 브랜치**를 만들어 작성하되 커밋은 사용자에게 맡긴다 — 변경 경로와 제안 커밋 메시지만 보여준다. 기본 브랜치에 직접 커밋하지 않고,
      **이미 있는 파일은 덮어쓰지 않는다**(diff를 제안만). 푸시·PR은 사용자가 요청할 때만
    - 이슈 생성·댓글·PR은 `/pro-github`
 4. `before` 값은 보고서나 대화에 남겨 되돌릴 수 있게 한다
