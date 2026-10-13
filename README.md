@@ -121,6 +121,19 @@ Skills write in your style. Put your preferences in `~/.projectops/config/config
 
 Team formats in `version.yml` win; your tone still applies. Details: [Skills guide](docs/en/skills.md).
 
+### Example: /pro-oss-consult on this repo
+
+We ran `/pro-oss-consult` on this repo, then fixed what it found (measured 2026-10-13).
+
+| Check | Before | After |
+|---|---|---|
+| Skill count stated in README and manifests | inconsistent (15 vs 20) | 14 everywhere |
+| Longest skill description | 1,183 chars; 6 over 1,000 | 237 chars; 0 over 300 |
+| Skills with no tests | 6 | 0 (56 contract test cases cover all 14) |
+| Commit format | hardcoded in `pro-commit` | configurable via preferences and `version.yml` |
+
+What it changed: descriptions were cut to short English triggers, a shared contract test now checks every skill, and `pro-commit` follows your team's `version.yml` commit template.
+
 ---
 
 ## What is inside

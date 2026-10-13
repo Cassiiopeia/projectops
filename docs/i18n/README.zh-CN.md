@@ -114,6 +114,19 @@ Skill 会按你的风格输出。把偏好写进 `~/.projectops/config/config.js
 
 `version.yml` 中的团队格式优先；你的语气仍然生效。详见 [Skills 指南](../en/skills.md)。
 
+### 示例：在本仓库上运行 /pro-oss-consult
+
+我们在本仓库上运行了 `/pro-oss-consult`，并修复了它发现的问题（测量日期 2026-10-13）。
+
+| 检查项 | 之前 | 之后 |
+|---|---|---|
+| README 与清单中的 Skills 数量 | 不一致（15 与 20） | 全部为 14 |
+| 最长的 Skill description | 1,183 字符，6 个超过 1,000 | 237 字符，0 个超过 300 |
+| 没有测试的 Skills | 6 个 | 0 个（56 个契约测试用例覆盖全部 14 个） |
+| 提交格式 | 在 `pro-commit` 中写死 | 可通过偏好设置和 `version.yml` 配置 |
+
+改动：description 缩短为简短的英文触发语，通用契约测试检查每个 Skill，`pro-commit` 遵循团队 `version.yml` 的提交模板。
+
 ---
 
 ## 组成部分
