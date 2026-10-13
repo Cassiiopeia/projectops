@@ -80,6 +80,8 @@
 - **1 선택** → `github.repos[]`에서 현 OWNER/REPO 매칭 항목에 `commit.auto_approve: true` 추가
 - **2 선택** → `github.commit.auto_approve: true` 추가 (객체 없으면 생성)
 - **3 선택** → `github.commit.auto_approve: false` 추가 (다음 실행부터 묻지 않도록 키 자체는 남긴다)
+- **1·2·3 공통** → 이번 `resolve-style` 의 `source` 가 `default` 였다면 `skills.pro-commit.preset` 에 그 `preset` 값(`conventional`)도 함께 적는다.
+  승인 키가 생기면 다음 실행부터 "기존 사용자"(`legacy-default` → `projectops`)로 판정되므로, 적지 않으면 두 번째 커밋부터 형식이 바뀐다.
 
 갱신 후 안내:
 

@@ -394,6 +394,8 @@ claude plugin install projectops-extras@projectops-marketplace --scope user
 
 Cursor·Gemini CLI·pi에는 extras 설치 경로가 없고, `npx projectops` 동기화 때 이 스킬이 제거됩니다. 계속 쓰려면 레포의 `plugins/projectops-extras/skills/pro-synology-expose`와 `plugins/projectops-extras/skills/references/`를 둘 다 직접 복사하세요.
 
+개인 설정(언어·말투·규칙)을 읽는 `prefs_cli.py`는 코어 플러그인에 들어 있습니다. extras만 설치하면 설정을 찾지 못해 기본값으로 동작합니다. 개인 설정을 쓰려면 코어 플러그인도 함께 설치하세요.
+
 ---
 
 ## 어떤 Skill을 언제 쓸까?

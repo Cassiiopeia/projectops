@@ -235,8 +235,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-issue {owner} {re
 
 ### 7단계: 커밋 템플릿 계산
 
-`get-commit-template "{이슈 제목}" "{이슈URL}"`을 부르고 출력의 `template`을 **그대로** 쓴다. 직접 조립하지 않는다.
-- 형식: `{이슈제목에서 이모지·태그 제거한 순수 내용} : {타입} : {설명} {이슈URL}`
+`get-commit-template "{이슈 제목}" "{이슈URL}" --repo-root "{PROJECT_ROOT}"`을 부르고 출력의 `template`을 **그대로** 쓴다. 직접 조립하지 않는다.
+- 형식은 팀·개인 설정을 따른다 (팀 `version.yml` 형식이 있으면 그것, 없으면 개인 설정 — `preferences.md`). 여기서 형식을 가정하지 않는다
 - `{타입}`은 제목 태그에서 추론된다 — 버그면 `fix`, 기능이면 `feat`, 문서면 `docs`. `feat`로 고쳐 쓰지 않는다 (`semver_auto` 레포에서 버그 수정이 minor로 오른다)
 
 ### 8단계: 다음 작업 선택지 제시

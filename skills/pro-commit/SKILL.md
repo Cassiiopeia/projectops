@@ -20,8 +20,8 @@ description: "Create the commit with a message built from the issue number in th
 |---|---|---|
 | 이슈 제목·URL 조회 | `get-issue {owner} {repo} {번호}` | 3단계 |
 | 현재 브랜치(cwd)의 이슈 번호 | `get-issue-number` | 3단계 |
-| 커밋 형식·말투 조회 (팀 > 개인) | `resolve-style [--repo-root PATH]` | 4단계 · Customize |
-| 이슈 제목 정제 · 메시지 틀 조립 | `normalize-title "<제목>"` · `get-commit-template "<제목>" "<URL>" [--type fix] [--scope S] [--repo-root PATH]` | `references/message-rules.md` |
+| 커밋 형식·말투 조회 (팀 > 개인) | `resolve-style --repo-root "{PROJECT_ROOT}"` | 4단계 · Customize |
+| 이슈 제목 정제 · 메시지 틀 조립 | `normalize-title "<제목>"` · `get-commit-template "<제목>" "<URL>" [--type fix] [--scope S] --repo-root "{PROJECT_ROOT}"` | `references/message-rules.md` |
 | 커밋 직전 mention trailer 제거 | `sanitize-message "<메시지>"` | `references/message-rules.md` |
 | 자동/수동 승인 판정 · 첫 실행 제안 | (config Read/Write) | `references/approval-gate.md` |
 
@@ -133,8 +133,8 @@ PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/commit_cli.py" get-issue {owner} {r
 
 형식은 하드코딩이 아니라 설정에서 온다. 순서대로 한다.
 
-1. `resolve-style` 로 `template`·`source`·`preset`·`language`·`tone`·`rules`·`examples`·`warnings` 를 받는다. `warnings`·`ignored` 가 비어 있지 않으면 사용자에게 한 줄로 알린다.
-2. `get-commit-template "<제목>" "<URL>" [--type T] [--scope S]` 로 틀을 받는다. 틀에는 `{description}` 만 남아 있다.
+1. `resolve-style --repo-root "{PROJECT_ROOT}"` 로 `template`·`source`·`preset`·`language`·`tone`·`rules`·`examples`·`warnings` 를 받는다. `warnings`·`ignored` 가 비어 있지 않으면 사용자에게 한 줄로 알린다.
+2. `get-commit-template "<제목>" "<URL>" [--type T] [--scope S] --repo-root "{PROJECT_ROOT}"` 로 틀을 받는다. 틀에는 `{description}` 만 남아 있다. `--repo-root` 를 빼면 cwd 의 git 루트를 쓰지만, 하위 폴더·다른 레포에서 불릴 수 있으므로 항상 명시한다.
 3. `{description}` 을 staged diff 로 채운다. `language`·`tone`·`rules` 를 따르고, `examples` 는 문체·길이 참고만 하며 그대로 베끼지 않는다. 비어 있으면 기본 동작이다.
 
 - 이슈 제목 정제와 URL 은 CLI 결과를 그대로 쓴다 (요약·재작성 금지).
@@ -147,6 +147,7 @@ PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/commit_cli.py" get-issue {owner} {r
 - `AUTO_APPROVE == true` → 메시지를 보여주기만 하고 바로 6단계.
 - `false` → 제안 후 1(커밋)/2(타입 변경)/3(설명 수정)/4(취소)로 묻고 **응답 전 커밋 금지**.
 - 첫 실행(`CONFIG_HAS_KEY == false`)에서 1을 고르면 커밋 직전 자동화 제안을 **한 번** 한다.
+- `resolve-style` 의 `source` 가 `default` 또는 `legacy-default` 면(형식을 정한 적 없음) 이 세션의 첫 제안 끝에 **한 줄만** 붙인다: "Commit format and tone can be customized; see Customize" (사용자 언어로). 같은 세션에서 다시 붙이지 않는다.
 
 문구·분기·config 갱신 규칙 전문: `references/approval-gate.md`.
 
@@ -188,7 +189,7 @@ Keys for this skill (set under `skills.pro-commit` in `~/.projectops/config/conf
 | Key | Meaning |
 |---|---|
 | `preset` | `conventional` (default for new users), `projectops`, `gitmoji`, or `custom` |
-| `template` | your own format, honored whenever set (the preset then becomes `custom`); placeholders `{issue_title}` `{issue_url}` `{issue_number}` `{type}` `{emoji}` `{scope}` `{description}`. Legacy `${issueTitle}`-style placeholders are accepted too |
+| `template` | your own format; beats a `preset` set in the same layer (the preset then becomes `custom`); placeholders `{issue_title}` `{issue_url}` `{issue_number}` `{type}` `{emoji}` `{scope}` `{description}`. Legacy `${issueTitle}`-style placeholders are accepted too |
 | `examples` | sample messages to match in voice and length; never copied verbatim |
 | `language` / `tone` / `rules` | how `{description}` is written |
 
@@ -197,5 +198,7 @@ Keys for this skill (set under `skills.pro-commit` in `~/.projectops/config/conf
                            "rules": ["max 72 chars in the first line"]}}}
 ```
 
-- A repo with projectops installed (`version.yml` has `issue_helper.commit_template`, or `metadata`) uses the team format and it beats your preset and template (`source` is `version.yml` or `team-default`). Your `tone`/`rules`/`language` still apply inside it.
+- A repo with projectops installed (`version.yml` has `issue_helper.commit_template`, or `metadata`) uses the team format and it beats your preset and template (`source` is `version.yml` or `team-default`). Your `tone`/`rules`/`language` still apply inside it. The team `commit_type_map` also applies when the type is inferred from title tags.
+- `preset` and `template` are one pair: the later layer that sets either one wins (a repo-level `preset` beats a global `template`).
+- Existing users keep their format: if you already have approval settings (`github.commit` or `repos[].commit`) and never set `preset`/`template`, the format stays `projectops` (`source` is `legacy-default`) instead of switching to `conventional`.
 - Show `warnings` from `resolve-style` / `get-commit-template` to the user.

@@ -174,9 +174,9 @@ curl `exit 35`(SSL) → `--ssl-no-revoke` 추가 후 재시도. 상세: `script-
 
 ## 커밋 메시지 컨벤션
 
-형식 `{이슈제목} : {타입} : {변경사항 설명} {이슈URL}` — 이슈제목은 이모지·태그를 뺀 순수 내용,
+형식은 팀·개인 설정을 따른다 (팀 `version.yml` 형식 > 개인 설정 — `preferences.md`). 이슈제목은 이모지·태그를 뺀 순수 내용,
 타입(`feat`/`fix`/`refactor`/`docs`/`chore`/`style`/`test`)은 **이번 커밋의 변경 내용**으로 정한다. 템플릿은
-`github_cli.py get-commit-template`의 `template`을 그대로 쓴다. `semver_auto` 레포에서는 타입이 릴리스 버전을 정한다
+`github_cli.py get-commit-template ... --repo-root "{PROJECT_ROOT}"`의 `template`을 그대로 쓴다. `semver_auto` 레포에서는 타입이 릴리스 버전을 정한다
 (`feat!` major · `feat` minor · 나머지 patch — `!`는 호환성이 깨질 때만). 이슈와 무관한 커밋은 자유 형식.
 상세·예시: `commit-convention.md`.
 

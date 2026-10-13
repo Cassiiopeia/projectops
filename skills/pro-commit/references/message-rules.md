@@ -11,7 +11,7 @@
 3. 앞뒤 공백 trim — 결과가 비면 원본 제목을 그대로 사용
 
 같은 규칙을 `commit_cli.py normalize-title "<제목>"` 이 실행한다. 이슈 URL·정제 제목·타입을 한 번에 조립하려면
-`commit_cli.py get-commit-template "<이슈제목>" "<이슈URL>" [--type fix] [--scope S]` 를 쓴다 (`--type` 을 생략하면 제목 태그에서 유도하므로, 태그와 실제 작업이 다를 때만 지정). 현재 작업 디렉터리 기준 이슈 번호는
+`commit_cli.py get-commit-template "<이슈제목>" "<이슈URL>" [--type fix] [--scope S] --repo-root "{PROJECT_ROOT}"` 를 쓴다 (`--type` 을 생략하면 제목 태그에서 유도하므로, 태그와 실제 작업이 다를 때만 지정). 현재 작업 디렉터리 기준 이슈 번호는
 `commit_cli.py get-issue-number` 로도 얻을 수 있다.
 
 ## 타입 추천표
@@ -33,7 +33,7 @@
 
 ## 메시지 형식 (기본 프리셋 예시)
 
-실제 형식은 `resolve-style` 이 정한다 (팀 `version.yml` `commit_template` > projectops 설치 레포의 team-default > 개인 template/preset > 기본 `conventional`). 아래는 `projectops` 프리셋의 예시일 뿐이다.
+실제 형식은 `resolve-style` 이 정한다 (팀 `version.yml` `commit_template` > projectops 설치 레포의 team-default > 개인 template/preset > 기존 사용자의 `legacy-default`(`projectops`) > 기본 `conventional`). 팀 `commit_type_map` 이 있으면 제목 태그 → 타입 유도에도 반영된다. 아래는 `projectops` 프리셋의 예시일 뿐이다.
 
 `{clean_title} : {타입} : {변경설명} {html_url}`
 

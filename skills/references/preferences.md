@@ -5,6 +5,9 @@ Every skill reads the user's own style settings once, at the start, and applies 
 
 ## Layers (later wins)
 
+`template` and `preset` are one pair: a layer that sets either one replaces both from earlier layers
+(a repo-level `preset` beats a global `template`).
+
 | Order | Where in `~/.projectops/config/config.json` | Meaning |
 |---|---|---|
 | 1 | `preferences` | you, everywhere |
@@ -45,7 +48,12 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$PREFS" resolve --skill "$SKILL_ID"
 ```
 
 The repo is detected from `origin`; pass `--repo owner/repo` to force one. The JSON has `values` (merged),
-`sources` (which layer each value came from) and `ignored`.
+`sources` (which layer each value came from) and `ignored`. If `code` is `config_unreadable`, the config file exists
+but is not valid JSON: tell the user in one line and continue with defaults.
+
+`prefs_cli.py` ships with the core plugin (Claude Code, Codex, Gemini, pi). Installs that copy only the skill folders
+(Cursor via `npx projectops`) and extras-only installs have no `prefs_cli.py`; the snippet then prints the "not found"
+line and the skill runs with defaults.
 
 ## How to apply them
 

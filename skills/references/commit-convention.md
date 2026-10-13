@@ -3,7 +3,7 @@
 `common-rules.md` §"커밋 메시지 컨벤션"의 상세다. 커밋 메시지를 제안하는 스킬이 참고한다.
 형식 자체는 사람·팀이 정한다 — 이 레포가 `semver_auto`를 쓰면 커밋 타입이 릴리스 버전을 정한다는 점만 지킨다.
 
-## 형식
+## 형식 (projectops 팀 형식 예시 — 실제 형식은 get-commit-template 결과)
 
 ```
 {이슈제목} : {타입} : {변경사항 설명} {이슈URL}
@@ -36,7 +36,7 @@ commit 스킬 신규 추가 : fix : owner/repo 추출 로직 버그 수정 https
 - 이슈 컨텍스트가 있을 때만 이 형식을 쓴다. 이슈와 무관한 커밋(hotfix, 설정 변경 등)은 자유 형식 허용
 - 사용자가 `/commit` 스킬을 호출하면 이 형식으로 자동 완성
 
-커밋 템플릿은 `github_cli.py get-commit-template "{이슈 제목}" "{이슈URL}"`의 `template`을 **그대로** 쓴다.
+커밋 템플릿은 `github_cli.py get-commit-template "{이슈 제목}" "{이슈URL}" --repo-root "{PROJECT_ROOT}"`의 `template`을 **그대로** 쓴다.
 타입은 제목 태그에서 추론된다(버그 → `fix`, 기능 → `feat`, 문서 → `docs` 등). 실제 작업이 태그와 다를 때만
 `--type`으로 바꾼다.
 

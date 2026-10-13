@@ -391,6 +391,8 @@ claude plugin install projectops-extras@projectops-marketplace --scope user
 
 Cursor, Gemini CLI and pi have no extras install path. `npx projectops` removes the skill on its next sync. To keep it, copy both `plugins/projectops-extras/skills/pro-synology-expose` and `plugins/projectops-extras/skills/references/` from this repository by hand.
 
+The preferences reader (`prefs_cli.py`) ships with the core plugin. With extras alone, skills cannot find it and run with default preferences. Install the core plugin as well to use your preferences.
+
 ---
 
 ## Which Skill when?
