@@ -22,6 +22,11 @@ _TYPES = {
 }
 
 
+def _as_dict(x: object) -> dict:
+    """설정 값이 dict 가 아니면 빈 dict 로 본다. 손으로 고친 config 가 깨져도 기본값으로 떨어지게 한다."""
+    return x if isinstance(x, dict) else {}
+
+
 def _take(layer: object, allowed: tuple, label: str, values: dict, sources: dict, ignored: list) -> None:
     if not isinstance(layer, dict):
         return
@@ -40,7 +45,9 @@ def _take(layer: object, allowed: tuple, label: str, values: dict, sources: dict
 def _find_repo(data: dict, owner: Optional[str], repo: Optional[str]) -> Optional[dict]:
     if not owner or not repo:
         return None
-    repos = ((data.get("github") or {}).get("repos")) or []
+    repos = _as_dict(data.get("github")).get("repos")
+    if not isinstance(repos, list):
+        return None
     for r in repos:
         if not isinstance(r, dict):
             continue
@@ -66,13 +73,13 @@ def resolve(skill_id: str, owner: Optional[str] = None, repo: Optional[str] = No
 
     skill_allowed = COMMON_KEYS + SKILL_KEYS
     _take(data.get("preferences"), COMMON_KEYS, "preferences", values, sources, ignored)
-    _take((data.get("skills") or {}).get(skill_id), skill_allowed, f"skills.{skill_id}", values, sources, ignored)
+    _take(_as_dict(data.get("skills")).get(skill_id), skill_allowed, f"skills.{skill_id}", values, sources, ignored)
 
     entry = _find_repo(data, owner, repo)
     if entry is not None:
         tag = f"repos[{entry.get('owner')}/{entry.get('repo')}]"
         _take(entry.get("preferences"), COMMON_KEYS, f"{tag}.preferences", values, sources, ignored)
-        _take((entry.get("skills") or {}).get(skill_id), skill_allowed, f"{tag}.skills.{skill_id}",
+        _take(_as_dict(entry.get("skills")).get(skill_id), skill_allowed, f"{tag}.skills.{skill_id}",
               values, sources, ignored)
     return {"values": values, "sources": sources, "ignored": ignored}
 

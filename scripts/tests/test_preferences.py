@@ -78,3 +78,28 @@ def test_cli_emits_json(tmp_path):
     payload = json.loads(out.stdout)
     assert out.returncode == 0 and payload["ok"] is True
     assert payload["values"]["preset"] == "conventional"
+
+
+def test_malformed_sections_fall_back():
+    """손으로 고친 config 의 깨진 섹션이 예외 없이 기본값으로 떨어지고, 멀쩡한 층은 그대로 적용된다."""
+    # skills 가 문자열 — 스킬 층만 버리고 공통 층은 살아야 한다
+    r = resolve("pro-commit", data={"preferences": {"tone": "x"}, "skills": "x"})
+    assert r["values"] == {"tone": "x"}
+
+    # github 이 리스트 — 레포 층 없이 공통 층만
+    r = resolve("pro-commit", owner="Acme", repo="Web",
+                data={"preferences": {"tone": "x"}, "github": []})
+    assert r["values"] == {"tone": "x"}
+
+    # repos 가 리스트가 아님 — 레포 매칭 자체를 건너뛴다
+    r = resolve("pro-commit", owner="Acme", repo="Web",
+                data={"preferences": {"tone": "x"}, "github": {"repos": "x"}})
+    assert r["values"] == {"tone": "x"}
+
+    # 레포 항목의 skills 가 문자열 — 레포 공통 층(preferences)은 여전히 적용된다
+    data = {"github": {"repos": [
+        {"owner": "Acme", "repo": "Web", "preferences": {"language": "en"}, "skills": "x"},
+    ]}}
+    r = resolve("pro-commit", owner="Acme", repo="Web", data=data)
+    assert r["values"] == {"language": "en"}
+    assert r["sources"]["language"] == "repos[Acme/Web].preferences"
