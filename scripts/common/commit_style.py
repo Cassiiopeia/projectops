@@ -105,19 +105,28 @@ def resolve_style(prefs_values: dict, repo_root: str) -> dict:
     return {"template": template, "source": source, "preset": preset, "warnings": warnings}
 
 
+_PLACEHOLDER = re.compile(r"\{(issue_title|type|scope|issue_url|issue_number|emoji)\}")
+
+
 def render(template: str, *, issue_title: str, issue_url: str, commit_type: str, scope: str = "") -> str:
-    """{description} 만 남기고 채운다. 빈 값 때문에 생기는 '()'·빈 URL 줄은 지운다."""
+    """{description} 만 남기고 채운다. 빈 값 때문에 생기는 '()'·빈 URL 줄·앞 구분자를 지운다."""
     out = normalize_placeholders(template)
     if not scope:
         out = out.replace("({scope})", "")
     num = re.search(r"/issues/(\d+)", issue_url or "")
-    for key, val in {
-        "{issue_title}": strip_issue_decorations(issue_title) if issue_title else "",
-        "{type}": commit_type, "{scope}": scope, "{issue_url}": issue_url or "",
-        "{issue_number}": num.group(1) if num else "", "{emoji}": _EMOJI.get(commit_type, "🔧"),
-    }.items():
-        out = out.replace(key, val)
-    lines = [ln.rstrip() for ln in out.split("\n")]
+    values = {
+        "issue_title": strip_issue_decorations(issue_title) if issue_title else "",
+        "type": commit_type, "scope": scope, "issue_url": issue_url or "",
+        "issue_number": num.group(1) if num else "", "emoji": _EMOJI.get(commit_type, "🔧"),
+    }
+    # 한 번에 치환한다. 순차 replace 면 제목에 든 "{type}" 같은 글자가 뒤의 치환에 다시 걸린다.
+    out = _PLACEHOLDER.sub(lambda m: values[m.group(1)], out)
+    lines = []
+    for ln in out.split("\n"):
+        # 제목이 비면 "제목 : 타입" 형식이 앞에 " : " 를 남긴다. 그 구분자만 떼어낸다.
+        if not issue_title:
+            ln = ln.lstrip(" :")
+        lines.append(ln.rstrip())
     while lines and not lines[-1]:
         lines.pop()
     return "\n".join(lines).strip()
