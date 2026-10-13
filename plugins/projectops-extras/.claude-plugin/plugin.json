@@ -1,8 +1,11 @@
 {
   "name": "projectops-extras",
   "description": "Optional projectops skills outside the core dev cycle (Synology NAS service exposure).",
-  "version": "4.48.1",
-  "author": { "name": "Cassiiopeia", "url": "https://github.com/Cassiiopeia" },
+  "version": "4.49.0",
+  "author": {
+    "name": "Cassiiopeia",
+    "url": "https://github.com/Cassiiopeia"
+  },
   "homepage": "https://github.com/Cassiiopeia/projectops",
   "repository": "https://github.com/Cassiiopeia/projectops",
   "license": "MIT"
