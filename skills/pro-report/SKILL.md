@@ -96,6 +96,8 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/report_cli.py" get-output-path report
 다단계·분기·상태 전이·여러 컴포넌트 협력이면 그리고, 단순 변경이면 생략한다. 출력 틀·판단표·mermaid 규칙(subgraph ID 분리,
 `flowchart TD` 강제, `\n`·self-loop 금지 등)은 `references/output-template.md`.
 
+preferences의 `sections`·`template`이 있으면 보고서 섹션 구성에 그것을 쓴다.
+
 ### 5단계: 저장 직전 민감정보 자체검토 → 저장
 
 `../references/common-rules.md`의 **파일 저장 직전 자체검토 프로토콜**로 본문 전체를 검토하고, 발견되면 마스킹 후
@@ -140,3 +142,10 @@ PAT 미설정 시:
 보고서 저장: {get-output-path 가 돌려준 경로}
 (GitHub PAT 미설정 — 로컬 저장만 완료)
 ```
+
+## Customize
+
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
+`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-report`.
+Keys for this skill: `sections`, `template` plus the common `language`, `tone`, `rules`.
+Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

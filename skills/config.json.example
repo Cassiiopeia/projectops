@@ -1,4 +1,14 @@
 {
+  "preferences": {
+    "language": "ko",
+    "tone": "{간결하게, ~한다 체}",
+    "rules": ["{표보다 문장}", "{이모지 쓰지 않기}"]
+  },
+  "skills": {
+    "pro-commit": { "template": "{type}({scope}): {description}", "examples": ["{fix(auth): refresh token before expiry}"] },
+    "pro-report": { "sections": ["{요약}", "{변경}", "{검증}"], "tone": "{보고서체}" },
+    "pro-review": { "rules": ["{보안 지적은 항상 맨 위}"] }
+  },
   "github": {
     "default_assignee": "{GitHub_사용자명}",
     "global_pat": "{ghp_xxxxxxxxxxxxxxxxxxxx}",
@@ -25,6 +35,8 @@
         "repo": "{저장소명}",
         "pat": "{ghp_별도PAT_있으면_입력}",
         "default": false,
+        "preferences": { "language": "en" },
+        "skills": { "pro-commit": { "preset": "conventional" } },
         "commit": {
           "auto_approve": true
         },

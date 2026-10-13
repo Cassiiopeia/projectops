@@ -147,3 +147,10 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web route --clear
 - **응답에 `memory` 가 오면 먼저 읽고 그 방식부터 쓴다**(자동으로 실린다 — recall 을 따로 부를 필요 없다). 썼으면 `learn --key <그 key> --result ok|fail`,
   `learn_hint` 가 오면 막혔다 풀린 방식을 `learn` 으로 남긴다. 레포와 무관한 방법은 `--scope machine`.
   비밀값과 호스트 마우스 방식은 저장되지 않는다. 캡처는 이슈에 붙이기 전에 `shrink`. 상세는 `references/memory.md`.
+
+## Customize
+
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
+`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-launch`.
+Keys for this skill: the common `language`, `tone`, `rules` only.
+Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

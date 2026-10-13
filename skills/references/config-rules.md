@@ -108,6 +108,37 @@ Write tool로 `{HOME}/.projectops/config/config.json`에 저장한다. **반드�
 모든 스킬의 설정은 단일 `config.json` 안에서 `skill_id`를 키로 구분한다.
 전체 구조 예시는 `skills/config.json.example` 참조.
 
+### `preferences` · `skills` 섹션 (#864)
+
+모든 스킬이 공유하는 개인 표현 설정이다. 병합 순서(뒤가 이김)는 `preferences` → `skills.<스킬>` →
+`github.repos[].preferences` → `github.repos[].skills.<스킬>`. 키 의미와 적용 규칙은 `preferences.md`.
+허용 키는 `language`·`tone`·`rules`(공통)와 `template`·`preset`·`examples`·`sections`(스킬별)뿐이고,
+`auto_approve` 같은 안전 설정은 여기서 읽지 않는다.
+
+```json
+{
+  "preferences": {
+    "language": "ko",
+    "tone": "간결하게, ~한다 체",
+    "rules": ["표보다 문장", "이모지 쓰지 않기"]
+  },
+  "skills": {
+    "pro-commit": { "template": "{type}({scope}): {description}", "examples": ["fix(auth): refresh token before expiry"] },
+    "pro-report": { "sections": ["요약", "변경", "검증"], "tone": "보고서체" },
+    "pro-review": { "rules": ["보안 지적은 항상 맨 위"] }
+  },
+  "github": {
+    "repos": [
+      {
+        "owner": "my-org", "repo": "my-repo",
+        "preferences": { "language": "en" },
+        "skills": { "pro-commit": { "preset": "conventional" } }
+      }
+    ]
+  }
+}
+```
+
 ### `github` 섹션
 
 `issue`, `commit`, `changelog-deploy`, `github`, `report` 스킬이 공유한다.

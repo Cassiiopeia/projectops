@@ -49,3 +49,10 @@ version: 2.1.0
 
 - `references/troubleshooting.md` — 시놀로지 docker 절대경로·`wget`·Windows PowerShell·자주 만나는 함정 (서버 종류별 지식).
 - `scripts/ssh_connect.py` — paramiko 기반 호환 경로. `launch_cli` 를 못 쓰는 환경(sshpass 없는 Windows)에서만. 비밀번호는 환경변수 `SSH_PASSWORD` 로도 받는다.
+
+## Customize
+
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
+`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-ssh`.
+Keys for this skill: the common `language`, `tone`, `rules` only.
+Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

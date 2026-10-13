@@ -18,6 +18,8 @@ description: "Review Mode - 코드 리뷰 전문가. 코드의 품질, 보안, �
 
 ## 리뷰 프로세스
 
+preferences의 `sections`가 있으면 리뷰 결과 섹션 구성에 그것을 쓴다.
+
 | 단계 | 하는 일 | 자세히 |
 |---|---|---|
 | 1 범위 파악 | 타입(PR/파일/전체), 변경 라인 수, 주요 변경 영역 | — |
@@ -51,3 +53,10 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/review_cli.py" get-output-path review
 ```
 
 출력 JSON의 `path` 필드 경로에 파일을 저장한다. `ok: false` 면 `code`·`next` 를 보고 멈춘다 — 경로를 지어내지 않는다.
+
+## Customize
+
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
+`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-review`.
+Keys for this skill: `sections` plus the common `language`, `tone`, `rules`.
+Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

@@ -28,6 +28,8 @@ QA 체크리스트가 아닌, **기능 동작 검증 위주**의 TC를 작성한
 
 ## 프로세스
 
+preferences의 `sections`가 있으면 TC 문서 섹션 구성에 그것을 쓴다.
+
 1. **이슈/변경사항 파싱** — 이슈 번호·제목·도메인·담당자·PR 링크. 대화 컨텍스트나 `git status`로 구현 내용 파악 (이미 알면 생략).
 2. **관련 코드 탐색** — Spring Boot: Controller/Service/DTO. React/Flutter: 컴포넌트/API 호출/화면 구조.
 3. **TC 항목 도출** — 기능별로:
@@ -70,3 +72,10 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/testcase_cli.py" get-output-path --ti
 파일: {get-output-path 가 돌려준 경로}
 → GitHub 이슈 댓글에 붙여넣기: 파일 열기 → 전체 복사 → 댓글란 붙여넣기
 ```
+
+## Customize
+
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
+`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-testcase`.
+Keys for this skill: `sections` plus the common `language`, `tone`, `rules`.
+Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

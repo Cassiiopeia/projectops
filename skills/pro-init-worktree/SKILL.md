@@ -121,3 +121,10 @@ python -X utf8 init_worktree_temp_{timestamp}.py
 
 `worktree_manager.py`를 다음 순서로 탐색:
 1. `scripts/worktree_manager.py`
+
+## Customize
+
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
+`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-init-worktree`.
+Keys for this skill: the common `language`, `tone`, `rules` only.
+Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

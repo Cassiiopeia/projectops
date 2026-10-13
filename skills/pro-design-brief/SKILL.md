@@ -165,3 +165,10 @@ PYTHONIOENCODING=utf-8 {PYTHON} {GITHUB}/github_cli.py add-comment {owner} {repo
 | Figma 읽기 실패 · 디자이너 모름 | 없이 진행하고 요약에 적는다(담당자 없이 등록 → 다음에 묻는다) |
 | 대상 레포에 흔적(`residue`) | 그대로 보고하고 지우지 않는다(네가 만든 것만 지운다) |
 | 실기기로 확인할 수 없다(기기·계정·비용) | 그 사실은 `facts` 에서 빼거나 근거 없음으로 두고 "확인 못 함"으로 적는다. 렌더로 대신 단정하지 않는다 |
+
+## Customize
+
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
+`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-design-brief`.
+Keys for this skill: the common `language`, `tone`, `rules` only.
+Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

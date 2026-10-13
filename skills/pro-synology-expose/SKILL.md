@@ -102,3 +102,10 @@ description: "시놀로지 NAS에 새 웹 서비스를 외부 도메인으로 �
 ## 안내 형식
 
 사용자에게 안내할 때는 각 단계를 순서대로 보여주되, **설정 파일의 값과 사용자가 입력한 서비스 정보로 모든 플레이스홀더를 채운 상태**로 제공한다. 사용자가 복사해서 그대로 입력할 수 있도록 구체적인 값을 모두 표시한다.
+
+## Customize
+
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
+`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-synology-expose`.
+Keys for this skill: the common `language`, `tone`, `rules` only.
+Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

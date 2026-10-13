@@ -118,7 +118,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py search-issues {owner} {r
 
 1. `.github/ISSUE_TEMPLATE/` 해당 템플릿을 Read로 읽어 형식 파악
 2. 관련 코드를 탐색하여 연관 파일 경로 포함
-3. 템플릿 형식에 맞춰 본문 작성
+3. 템플릿 형식에 맞춰 본문 작성 (preferences의 `template`이 있으면 추가 섹션으로 덧붙이고, `examples`는 문체 참고용으로만 본다)
 
 ### 4단계: 로컬 파일 먼저 저장
 

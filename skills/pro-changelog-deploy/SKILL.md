@@ -90,6 +90,8 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 
 ## deploy 모드 — 단계와 판단 (명령·문구는 `references/deploy-steps.md`)
 
+릴리스 노트 머리말은 preferences의 `template`이 있으면 그것을 쓴다.
+
 **1단계 커밋 상태 확인** — `git status --short` · `git fetch origin` · 현재 브랜치 · `git log origin/{BASE}..HEAD` · `git log origin/{HEAD}..HEAD`를 **각각 따로** 실행한다.
 - 미커밋 변경이 **내 것**(이번 작업에서 만든 것)이면 멈추고 `/pro-commit`을 먼저 한다.
 - **의도를 모르는 남의 변경**(다른 세션)이면 건드리지 말고 목록을 알린 뒤 진행한다 — 배포는 커밋만 push한다. 단 1-1 merge가 그 파일과 겹쳐 실패하면 멈추고 사용자에게 넘긴다.
@@ -173,3 +175,10 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 - fix 모드로 넘어가는 기준은 위 verdict 표 하나다(`missing_coderabbit_summary` 2회 연속 · `workflow_failed` · `waiting_for_automerge` 10분 초과).
 - deploy PR이 이미 있으면 닫지 않고 재사용한다.
 - **Windows 내부망에서 curl exit 35 (SSL 오류)**: curl 호출에 `--ssl-no-revoke` 추가 (`../references/common-rules.md` Windows 내부망 환경 섹션).
+
+## Customize
+
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
+`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-changelog-deploy`.
+Keys for this skill: `template` (release-note lead-in) plus the common `language`, `tone`, `rules`.
+Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

@@ -135,3 +135,10 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py close-issue {owner} {rep
 | `merge-pr` `not_mergeable` · `sha_mismatch` · `method_not_allowed` | 405 충돌·체크 실패·드래프트 / 409 / 422 rebase 불허 | 원인을 사용자에게 알리고 지시를 받는다 |
 | API rate limit | `X-RateLimit-Remaining: 0` | 한도 초과 안내 |
 | 네트워크 오류 | 연결 실패 | exit code 확인 후 재시도 1회, 실패 시 안내 |
+
+## Customize
+
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
+`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-github`.
+Keys for this skill: `template` (extra issue-body sections), `examples` plus the common `language`, `tone`, `rules`.
+Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

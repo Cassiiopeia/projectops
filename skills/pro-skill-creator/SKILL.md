@@ -136,3 +136,10 @@ version: 2.3
 ### Phase 7 — 실제 호출 동작 확인 (강권)
 
 "지금 한 번 호출해서 테스트해볼까요?"를 제안한다 — 써보면 description 누락·스크립트 에러·설정 불일치가 바로 드러난다. "나중에"면 스킵.
+
+## Customize
+
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
+`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-skill-creator`.
+Keys for this skill: the common `language`, `tone`, `rules` only.
+Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

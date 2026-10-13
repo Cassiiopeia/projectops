@@ -145,3 +145,10 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py diff --render {앱 렌더
 | `conformance_failed` | `--fail-on` 이상 항목이 있다. 출력 항목을 고치거나 근사·생략 사유를 남긴다 |
 | `mkdir_failed` | 산출물 자리를 못 만들었다. 권한·`--root` 를 확인한다 |
 | `bad_args` | 서브커맨드·필수 인자(`--dump` · `--render` · `--design` · `--title`)를 확인한다 |
+
+## Customize
+
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
+`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-figma`.
+Keys for this skill: the common `language`, `tone`, `rules` only.
+Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

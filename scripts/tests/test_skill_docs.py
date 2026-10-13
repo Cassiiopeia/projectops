@@ -273,3 +273,15 @@ def test_python_calls_in_skill_docs_force_utf8_stdio():
                 continue
             failures.append(f"{rel}: {stripped[:100]}")
     assert failures == []
+
+
+def test_every_skill_documents_customize_section():
+    """모든 스킬이 사람별 설정을 받는다는 약속을 문서로 지킨다 (#864)."""
+    missing = [p.parent.name for p in sorted((ROOT / "skills").glob("pro-*/SKILL.md"))
+               if "## Customize" not in p.read_text(encoding="utf-8")]
+    assert missing == []
+
+
+def test_common_rules_load_preferences():
+    text = (ROOT / "skills" / "references" / "common-rules.md").read_text(encoding="utf-8")
+    assert "prefs_cli.py resolve" in text

@@ -170,3 +170,10 @@ Android 네이티브 Google 로그인(Play Services 계정 선택 창)은 앱 �
 | `playwright_missing` | 사용자에게 묻고 `web setup` |
 | `env_not_set` | `--text-env` 로 지정한 환경변수가 비었다. 값을 넣어 다시 |
 | `scenario show` 의 검증 실패 | 기대 결과 · 중괄호 · 타겟을 채우고 다시 `show` |
+
+## Customize
+
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
+`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-agent-test`.
+Keys for this skill: the common `language`, `tone`, `rules` only.
+Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.
