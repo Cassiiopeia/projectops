@@ -127,9 +127,9 @@ We ran `/pro-oss-consult` on this repo, then fixed what it found (measured 2026-
 
 | Check | Before | After |
 |---|---|---|
-| Skill count stated in README and manifests | inconsistent (15 vs 20) | 14 everywhere |
+| Skill count stated in README and manifests | inconsistent (15 vs 20 stated, actual 15) | consistent: 14 core + 1 in the optional extras plugin |
 | Longest skill description | 1,183 chars; 6 over 1,000 | 237 chars; 0 over 300 |
-| Skills with no tests | 6 | 0 (56 contract test cases cover all 14) |
+| Skills with no tests (all 15 skills) | 6 | 0 (56 contract test cases cover all 15 skills, 14 core + 1 extras) |
 | Commit format | hardcoded in `pro-commit` | configurable via preferences and `version.yml` |
 
 What it changed: descriptions were cut to short English triggers, a shared contract test now checks every skill, and `pro-commit` follows your team's `version.yml` commit template.

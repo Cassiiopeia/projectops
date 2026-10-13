@@ -120,9 +120,9 @@ Skill 会按你的风格输出。把偏好写进 `~/.projectops/config/config.js
 
 | 检查项 | 之前 | 之后 |
 |---|---|---|
-| README 与清单中的 Skills 数量 | 不一致（15 与 20） | 全部为 14 |
+| README 与清单中的 Skills 数量 | 不一致（标注 15 与 20，实际 15） | 一致：核心 14 个 + 可选 extras 插件 1 个 |
 | 最长的 Skill description | 1,183 字符，6 个超过 1,000 | 237 字符，0 个超过 300 |
-| 没有测试的 Skills | 6 个 | 0 个（56 个契约测试用例覆盖全部 14 个） |
+| 没有测试的 Skills（共 15 个） | 6 个 | 0 个（56 个契约测试用例覆盖全部 15 个，核心 14 + extras 1） |
 | 提交格式 | 在 `pro-commit` 中写死 | 可通过偏好设置和 `version.yml` 配置 |
 
 改动：description 缩短为简短的英文触发语，通用契约测试检查每个 Skill，`pro-commit` 遵循团队 `version.yml` 的提交模板。
