@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import argparse
 import base64
+import contextlib
 import html
+import io
 import json
 import mimetypes
 import re
@@ -866,12 +868,17 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
+    err = io.StringIO()
     try:
-        args = parser.parse_args(argv)
+        # argparse 가 stderr 로 쓰는 원인 문구를 error 에 싣는다 (에이전트는 JSON 만 읽는다)
+        with contextlib.redirect_stderr(err):
+            args = parser.parse_args(argv)
     except SystemExit as e:
         if e.code in (0, None):
             raise
-        return emit({"ok": False, "code": "bad_args", "error": "인자가 올바르지 않습니다",
+        sys.stderr.write(err.getvalue())
+        reason = err.getvalue().strip().splitlines()[-1] if err.getvalue().strip() else ""
+        return emit({"ok": False, "code": "bad_args", "error": f"인자가 올바르지 않습니다: {reason}",
                      "next": "design_brief_cli.py <서브커맨드> --help"})
     return args.func(args)
 

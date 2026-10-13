@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import sys
 
 from common.emit import emit
@@ -60,15 +62,20 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, tail = _split_tail(raw, load_commands())
+    err = io.StringIO()
     try:
-        args = parser.parse_args(raw)
+        # argparse 가 stderr 로 쓰는 원인 문구를 error 에 싣는다 (에이전트는 JSON 만 읽는다)
+        with contextlib.redirect_stderr(err):
+            args = parser.parse_args(raw)
         if getattr(args, "_tail_dest", None):
             setattr(args, args._tail_dest, tail)
     except SystemExit as e:
         if e.code in (0, None):
             raise
+        sys.stderr.write(err.getvalue())
+        reason = err.getvalue().strip().splitlines()[-1] if err.getvalue().strip() else ""
         payload = {"ok": False, "code": "bad_args",
-                   "error": "인자가 올바르지 않습니다 (위 사용법 참고)",
+                   "error": f"인자가 올바르지 않습니다: {reason}",
                    "next": "launch_cli.py <서브커맨드> --help"}
         if registry.LOAD_ERRORS:
             # 모듈이 깨져서 서브커맨드가 안 보이는 것일 수 있다 — 원인을 알려 준다

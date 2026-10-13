@@ -33,14 +33,22 @@ import os
 import argparse
 
 # ──────────────────────────────────────────────
-# paramiko import (없으면 설치 안내 후 종료)
+# paramiko 는 실제 접속 직전에 불러온다 (--help·인자 오류는 paramiko 없이도 동작)
 # ──────────────────────────────────────────────
-try:
-    import paramiko
-except ImportError:
-    print("[ERROR] paramiko 모듈이 없습니다.")
-    print("설치 명령: pip install paramiko   (또는 pip3 install paramiko)")
-    sys.exit(1)
+paramiko = None
+
+
+def _require_paramiko():
+    """paramiko 를 지연 import 한다. 없으면 설치 안내 후 종료."""
+    global paramiko
+    try:
+        import paramiko as _paramiko
+    except ImportError:
+        print("[ERROR] paramiko 모듈이 없습니다.")
+        print("설치 명령: pip install paramiko   (또는 pip3 install paramiko)")
+        sys.exit(1)
+    paramiko = _paramiko
+
 
 import socket
 import traceback
@@ -143,6 +151,7 @@ def main():
         sys.exit(1)
 
     # ── 접속 ───────────────────────────────────────
+    _require_paramiko()
     client = None
     try:
         if args.auth == "password":
