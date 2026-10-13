@@ -1,9 +1,19 @@
 ---
 name: pro-github
-description: "GitHub Mode - 독립적인 GitHub 제어 스킬. GitHub로 하는 모든 이슈/PR 작업을 단독으로 수행한다. 이슈 생성(작성+등록), 이슈 조회/수정/검색/닫기/열기, 댓글 추가/수정/삭제, 라벨 추가/제거/교체, 담당자 추가/제거, PR 생성/조회/수정/머지/닫기, PR 릴리스노트, 레포 탐색, GitHub Actions 로그, Actions Secret 관리. 이슈 만들어줘, 이슈 올려줘, 이슈 등록, 버그 리포트, 기능 요청 이슈, QA 요청 이슈, 디자인 요청 이슈, PR 생성, PR 올려줘, PR 머지해줘, 이슈 댓글, 댓글 달아줘, 댓글 수정, 댓글 삭제, 이슈 확인해줘, 이슈 닫아줘, 이슈 수정해줘, 라벨 추가/바꿔줘/빼줘, 담당자 추가해줘, '/github', '/issue', 내 레포 보여줘, 레포 목록 탐색해줘, README 가져와줘, {레포명} 정보 봐줘, Org 레포 탐색해줘, secret 업데이트해줘, Actions secret 등록해줘, 환경변수 secret 올려줘, BACKEND_ENV_FILE 업데이트 등 GitHub 이슈/PR/레포/Actions/Secret 관련 요청이면 반드시 이 skill을 사용한다. 다른 스킬보다 먼저 트리거되어야 한다."
+description: "All GitHub work: create, read, edit, close issues and PRs, comments, labels, assignees, merges, repo exploration, Actions logs and secrets. Use for any GitHub issue, PR, label, comment, Actions or secret task, before other skills."
 ---
 
 # GitHub Mode
+
+## When to use
+
+- 이슈 만들어줘, 이슈 올려줘, 이슈 등록, 버그 리포트, 기능 요청 이슈, QA 요청 이슈, 디자인 요청 이슈
+- PR 생성, PR 올려줘, PR 머지해줘
+- 이슈 댓글, 댓글 달아줘, 댓글 수정, 댓글 삭제, 이슈 확인해줘, 이슈 닫아줘, 이슈 수정해줘
+- 라벨 추가/바꿔줘/빼줘, 담당자 추가해줘
+- '/github', '/issue', 내 레포 보여줘, 레포 목록 탐색해줘, README 가져와줘, {레포명} 정보 봐줘, Org 레포 탐색해줘
+- secret 업데이트해줘, Actions secret 등록해줘, 환경변수 secret 올려줘, BACKEND_ENV_FILE 업데이트
+- GitHub 이슈/PR/레포/Actions/Secret 관련 요청이면 반드시 이 skill을 사용한다. 다른 스킬보다 먼저 트리거되어야 한다.
 
 독립적인 GitHub 제어 스킬이다. 다른 스킬 없이 단독으로 이슈/PR/레포/Actions/Secret 작업을 전부 수행한다.
 다른 스킬(pro-report · pro-changelog-deploy 등)도 이 스크립트를 부른다.

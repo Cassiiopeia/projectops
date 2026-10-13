@@ -1,9 +1,14 @@
 ---
 name: pro-changelog-deploy
-description: "develop 브랜치를 push하고 main으로 릴리스 PR(deploy PR)을 생성한 뒤 즉시 릴리스 노트를 본문에 담아 RELEASE-CHANGELOG 워크플로우가 그 본문을 그대로 써서 automerge를 진행하게 한다. automerge 실패 시 기존 PR을 닫고 새 PR을 열어 재트리거하는 fix 기능도 포함. 앱스토어/플레이스토어 심사로 직결되는 레포(앱 심사 인지)는 릴리스 노트에 심사 경고 배너를 띄우고 정제를 더 엄격히 적용한다. 'deploy해줘', '배포해줘', 'deploy PR 올려줘', 'changelogfix', 'deploy 머지 안 됐어', 'PR 다시 열어줘' 등의 요청 시 사용."
+description: "Release flow: push develop, open the deploy PR to main with release notes in the body so automerge proceeds, and re-trigger by reopening the PR if automerge fails. Use for 'deploy', 'deploy PR', 'changelogfix'."
 ---
 
 # Changelog Deploy Mode
+
+## When to use
+
+- 'deploy해줘', '배포해줘', 'deploy PR 올려줘', 'changelogfix', 'deploy 머지 안 됐어', 'PR 다시 열어줘'
+- 앱스토어/플레이스토어 심사로 직결되는 레포(앱 심사 인지)는 릴리스 노트에 심사 경고 배너를 띄우고 정제를 더 엄격히 적용한다.
 
 > **⚠️ 모델 권고**: 이 스킬은 릴리스 노트 작성이 주 작업이다. **lite(haiku) 모델로 실행을 권장**한다. 커밋 분석과 자연어 재작성만 하면 되므로 강력한 모델이 불필요하다.
 

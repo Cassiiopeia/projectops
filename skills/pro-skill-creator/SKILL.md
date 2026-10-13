@@ -1,10 +1,18 @@
 ---
 name: pro-skill-creator
-description: 표준 skill을 생성(create)·리뷰(review)·개선(improve)할 때 사용한다. 트리거 발화 — "skill 만들어줘", "skill 추가해줘", "이거 skill로 만들자", "이 skill 리뷰해줘", "skill 검증해줘", "skill 개선해줘", "skill 고쳐줘", "create a skill", "review this skill". 호출 즉시 사용자 의도를 create/review/improve 셋 중 하나로 분류한 뒤, 모드별 Phase를 순서대로 실행한다. 한 번에 한 질문·자동 추론 우선·하드코딩 금지·설정 분리 등 8대 원칙을 기계적으로 강제한다.
+description: Create, review or improve a standard skill. Classifies intent as create/review/improve, then runs the matching phases. Use for 'make a skill', 'review this skill', 'improve this skill'.
 version: 2.3
 ---
 
 # Skill Creator
+
+## When to use
+
+- "skill 만들어줘", "skill 추가해줘", "이거 skill로 만들자"
+- "이 skill 리뷰해줘", "skill 검증해줘"
+- "skill 개선해줘", "skill 고쳐줘"
+- "create a skill", "review this skill"
+- 호출 즉시 사용자 의도를 create/review/improve 셋 중 하나로 분류한 뒤 모드별 Phase를 실행한다. 한 번에 한 질문·자동 추론 우선·하드코딩 금지·설정 분리 등 8대 원칙을 강제한다.
 
 이 문서는 **글이 아니라 의사결정 절차**다. 위에서 아래로 실행하고, 각 Phase의 "종료 조건"이 충족될 때까지 다음 Phase로 넘어가지 않는다.
 

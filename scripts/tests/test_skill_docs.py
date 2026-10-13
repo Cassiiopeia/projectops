@@ -298,3 +298,27 @@ def test_skills_do_not_route_commits_through_pro_commit():
         if "/pro-commit" in text or "commit_cli" in text:
             hits.append(rel)
     assert hits == []
+
+
+def _frontmatter_description(path):
+    """frontmatter description 값. 큰따옴표·작은따옴표를 벗기고, 블록 스칼라는 조용히 넘기지 않고 실패시킨다."""
+    m = re.search(r"^description:[ \t]*(.*)$", path.read_text(encoding="utf-8"), re.MULTILINE)
+    if not m:
+        return ""
+    value = m.group(1).strip()
+    assert not re.match(r"^[|>][+-]?\d*$", value), f"{path}: block scalar description is not supported"
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        value = value[1:-1]
+    return value
+
+
+def test_descriptions_short_and_english():
+    """description 은 매 세션 컨텍스트에 실린다. 짧고, 해외 사용자도 읽게 영어로 (#864)."""
+    paths = [*sorted((ROOT / "skills").glob("pro-*/SKILL.md")),
+             *sorted((ROOT / "plugins").glob("*/skills/pro-*/SKILL.md"))]
+    bad = []
+    for p in paths:
+        d = _frontmatter_description(p)
+        if not d or len(d) > 300 or re.search(r"[가-힣]", d):
+            bad.append(f"{p.parent.name}: {len(d)}")
+    assert bad == []

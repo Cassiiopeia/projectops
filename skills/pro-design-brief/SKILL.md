@@ -1,9 +1,16 @@
 ---
 name: pro-design-brief
-description: "시안보다 먼저 만든 화면을 디자이너에게 넘길 요청서를 만든다. 실제 화면을 상태별로 찍고(빈 목록·실패·긴 글자·글자 크기·작은 폰), 배치 대안 3~5안을 실제 컴포넌트로 렌더하고, 문구 후보·UI 요소 후보·꼭 지킬 것(브랜드 규격·레포 디자인 원칙·합의된 예외)을 모아 보드(HTML → 주제별 PNG)로 조립한 뒤 디자인 이슈·HTML 한 장·md 폴더 중 레포에 맞는 한 형식으로 넘긴다. Figma 링크가 있으면 시안에 그려진 상태와 빠진 상태를 가려 빈틈을 요청한다. 정답이 아니라 생각할 재료를 준다. '디자인 요청해줘', '시안 요청 올려줘', '디자이너한테 보낼 거 만들어줘', '이거 디자인 안 나왔는데 먼저 만들었어', '빈 화면이랑 에러 화면도 그려 달라고 해줘', '디자인 이슈 만들어줘' 같은 요청에 사용한다. 시안을 코드로 옮기고 대조하는 것은 pro-figma, 버그를 찾는 것은 pro-agent-test 다."
+description: "Build a design request for a designer from a screen you already built: capture real states, render layout alternatives, collect copy and must-keep rules, deliver as issue, HTML or md. Use for 'request a design', 'send to designer'."
 ---
 
 # 디자인 요청서 — 시안보다 먼저 만든 화면
+
+## When to use
+
+- '디자인 요청해줘', '시안 요청 올려줘', '디자이너한테 보낼 거 만들어줘'
+- '이거 디자인 안 나왔는데 먼저 만들었어', '빈 화면이랑 에러 화면도 그려 달라고 해줘', '디자인 이슈 만들어줘'
+- 시안을 코드로 옮기고 대조하는 것은 pro-figma, 버그를 찾는 것은 pro-agent-test 다.
+- Figma 링크가 있으면 시안에 그려진 상태와 빠진 상태를 가려 빈틈을 요청한다. 정답이 아니라 생각할 재료를 준다.
 
 화면이 먼저 만들어지고 시안은 나중에 온다. **디자이너는 보통 기본 화면만 그린다** — 비었을 때·실패했을 때·
 글자가 길 때가 빠진다. 이 스킬은 그 빈자리를 먼저 채운 요청서를 만든다.

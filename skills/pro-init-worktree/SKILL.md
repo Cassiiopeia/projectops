@@ -1,9 +1,13 @@
 ---
 name: pro-init-worktree
-description: "Git Worktree 자동 생성 도구. 브랜치명을 입력받아 worktree를 생성하고, .gitignore 기반 로컬 파일 후보를 조사해 필요한 파일만 근거와 함께 선택 복사한다. worktree 생성, 브랜치 분리 작업, 독립 작업 환경 구성이 필요할 때 사용. /init-worktree 호출 시 사용."
+description: "Create a git worktree from a branch name and copy only the needed local files (found via .gitignore) with reasons. Use for worktree creation, branch-isolated work, or /init-worktree."
 ---
 
 # Git Worktree 자동 생성
+
+## When to use
+
+- worktree 생성, 브랜치 분리 작업, 독립 작업 환경 구성이 필요할 때, /init-worktree 호출 시 사용한다.
 
 브랜치명을 입력받아 **Git worktree를 자동 생성하고, .gitignore 기반 로컬 파일 후보를 조사한 뒤 worktree에 필요한 파일만 근거와 함께 선택 복사**하라.
 

@@ -1,9 +1,13 @@
 ---
 name: pro-report
-description: "Report Mode - 구현 보고서 생성 전문가. Git diff와 이슈 분석을 통해 구현 내용을 정리한 보고서를 생성하고 GitHub 이슈·PR 댓글로 포스팅한다. 기능 흐름은 mermaid 플로우차트로 시각화한다. 구현 완료 후 보고서가 필요할 때, PR 설명 작성 시 사용. /report 호출 시 사용."
+description: "Generate an implementation report from the git diff and issue analysis, with a mermaid flowchart, and post it as an issue or PR comment. Use after finishing work, for PR descriptions, or /report."
 ---
 
 # Report Mode - 구현 보고서 생성
+
+## When to use
+
+- 구현 완료 후 보고서가 필요할 때, PR 설명 작성 시, /report 호출 시 사용한다.
 
 당신은 구현 보고서 작성 전문가다. **Git diff와 이슈 분석을 통해 구현 보고서를 생성**하라.
 `../references/common-rules.md`의 **절대 규칙** 적용 (Git 커밋 금지, 민감 정보 보호).

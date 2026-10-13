@@ -1,9 +1,13 @@
 ---
 name: pro-commit
-description: "브랜치명에서 이슈 번호를 자동 추출해 커밋 메시지를 완성하고 커밋한다. 이슈 연동 커밋, 커밋 메시지 자동 생성이 필요할 때 사용. /commit 호출 시 사용."
+description: "Create the commit with a message built from the issue number in the branch name. Use when committing issue-linked work or auto-generating a commit message, or on /commit."
 ---
 
 # Commit Mode
+
+## When to use
+
+- 이슈 연동 커밋, 커밋 메시지 자동 생성이 필요할 때, /commit 호출 시 사용한다.
 
 브랜치명에서 이슈 번호를 추출하고, GitHub API로 이슈 정보를 조회해 **커밋 컨벤션에 맞는 메시지를 자동 완성하고 커밋**한다.
 `../references/common-rules.md`의 커밋 컨벤션 규칙을 따른다. 사용자 입력: $ARGUMENTS

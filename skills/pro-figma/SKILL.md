@@ -1,9 +1,16 @@
 ---
 name: pro-figma
-description: "Figma 시안을 코드로 옮기고, 옮긴 것이 시안과 같은지 센다. Figma MCP 응답의 허점(스타일이 참조로만 오는 것, 한 문자열에 그림자 여러 줄이 뭉쳐 오는 것, 아이콘 모양 정보가 아예 없는 것)을 알고 값을 복원해, 요소·효과(그림자·안쪽그림자·글로우·블러·배경블러)·스타일을 하나도 빠짐없이 나열해 작업 목록으로 삼는다. 아이콘·이미지 에셋을 중복 없이 안전한 파일명으로 내려받는 목록도 만들어 준다. 옮긴 뒤에는 시안 export 와 앱 렌더를 픽셀로 맞대 어긋난 자리를 덩어리로 짚는다. React·Flutter·React Native 를 가리지 않는다. 'figma 디자인 구현해줘', '시안대로 만들어줘', 'figma 코드로 바꿔줘', 'figma 에셋 받아줘', '아이콘 다운로드', '시안이랑 같은지 확인해줘', '디자인대로 됐는지 봐줘', 'figma 대조해줘', '그림자 빠진 거 없나', '모서리가 각진 것 같은데', '라운드 안 먹었어' 같은 요청에 사용한다. 앱을 밟아 동작 결함을 찾는 것은 pro-agent-test 다."
+description: "Turn a Figma design into code and verify it matches: enumerate every element and effect as a worklist, download assets, then pixel-compare export vs render. Use for 'implement this Figma design', 'does it match the design'."
 ---
 
 # 시안 → 코드 → 대조
+
+## When to use
+
+- 'figma 디자인 구현해줘', '시안대로 만들어줘', 'figma 코드로 바꿔줘', 'figma 에셋 받아줘', '아이콘 다운로드'
+- '시안이랑 같은지 확인해줘', '디자인대로 됐는지 봐줘', 'figma 대조해줘'
+- '그림자 빠진 거 없나', '모서리가 각진 것 같은데', '라운드 안 먹었어'
+- 앱을 밟아 동작 결함을 찾는 것은 pro-agent-test 다. React·Flutter·React Native 를 가리지 않는다.
 
 **눈으로는 못 잡는다.** 효과 네 줄 중 안쪽 세 줄이 통째로 빠진 버튼이 전체 화면 골든을 통과해 배포됐고,
 디자이너가 배포 **후에** 알려줬다. 값 단언도 단언하기로 생각한 것만 지킨다. 그래서 **세는 것**과 **그리는 것**

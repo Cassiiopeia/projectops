@@ -1,10 +1,16 @@
 ---
 name: pro-ssh
-description: "원격 서버에 SSH로 접속해 명령을 실행하고 결과를 확인하는 skill. AWS EC2, 시놀로지 NAS, 일반 Linux 서버 등 모든 SSH 접근 가능한 서버에 사용한다. 저장된 서버 이름으로도, 저장 없이 호스트·포트·계정·비밀번호/키를 직접 넘겨서도 접속한다. 사용자가 '서버 확인해줘', '로그 봐줘', 'EC2 접속해', '시놀로지 접속해', 'prod 검수해줘', '서버 상태 확인', '배포 됐는지 확인해줘', '서버에서 ~해줘' 등을 언급하면 이 skill을 사용한다."
+description: "Run commands on remote servers over SSH (AWS EC2, Synology NAS, any Linux host), by saved name or direct host/user/key. Use for 'check the server', 'look at logs', 'is the deploy live'."
 version: 2.1.0
 ---
 
 # SSH — 원격 서버 SSH 접근
+
+## When to use
+
+- '서버 확인해줘', '로그 봐줘', 'EC2 접속해', '시놀로지 접속해'
+- 'prod 검수해줘', '서버 상태 확인', '배포 됐는지 확인해줘', '서버에서 ~해줘'
+- 저장된 서버 이름으로도, 저장 없이 호스트·포트·계정·비밀번호/키를 직접 넘겨서도 접속한다.
 
 접속 실행기는 **`pro-launch` 의 `launch_cli.py ssh`** 다 (#841). 저장된 서버(`--cred`)로도, **저장 없이 접속 정보를 직접 넘겨서도** 된다.
 

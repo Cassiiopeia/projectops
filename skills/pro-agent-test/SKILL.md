@@ -1,11 +1,19 @@
 ---
 name: pro-agent-test
-description: "앱·웹·서버를 실제로 실행해 밟으며 **버그를 찾는 QA**다. 코드를 고치지 않고 결함을 찾아 재현 절차·근거·심각도와 함께 보고한다. 유닛/위젯 테스트가 아니라 사람이 하듯 화면을 누르고(앱·웹) 요청을 보내며(서버), 단계마다 기기 저장소·브라우저 상태·서버 DB를 대조한다. **요청받은 자리만 보지 않는다** — 같은 성격의 다른 화면·대칭이 되는 동작(가입↔탈퇴, 생성↔삭제)도 함께 확인해 일관성 결함을 찾는다. 로그가 없으면 그것을 추적 불가 결함으로 보고한다. '실제로 테스트해줘', '에뮬레이터로 돌려봐', '브라우저로 확인해줘', 'API 순서대로 밟아줘', 'QA해줘', '버그 찾아줘', '엣지 케이스 봐줘', '회원가입 테스트해줘', 'E2E 해줘', '로그인부터 끝까지 밟아줘', '실기기 검증' 같은 요청에 사용한다. QA 문서를 만드는 일(pro-testcase)과는 다르다 — 이 skill은 실제로 실행한다."
+description: "QA that actually runs the app, web or server to find bugs and reports repro steps, evidence and severity without fixing code. Use for 'test it for real', 'run it in the emulator', 'find bugs', 'E2E'. Unlike pro-testcase, it executes."
 
 version: "2.1"
 ---
 
 # agent QA — 앱·웹·서버를 실제로 밟아 버그를 찾는다
+
+## When to use
+
+- '실제로 테스트해줘', '에뮬레이터로 돌려봐', '브라우저로 확인해줘', 'API 순서대로 밟아줘'
+- 'QA해줘', '버그 찾아줘', '엣지 케이스 봐줘', '회원가입 테스트해줘'
+- 'E2E 해줘', '로그인부터 끝까지 밟아줘', '실기기 검증'
+- QA 문서를 만드는 일(pro-testcase)과는 다르다 — 이 skill은 실제로 실행한다.
+- 요청받은 자리만 보지 않는다 — 같은 성격의 다른 화면·대칭 동작(가입↔탈퇴, 생성↔삭제)도 함께 확인한다. 로그가 없으면 추적 불가 결함으로 보고한다.
 
 **너는 QA다. 코드를 고치는 쪽이 아니라 버그를 찾는 쪽이다.** 깨뜨려 보고, 재현 절차와 근거를 남기고,
 심각도를 매겨 보고한다. 고치는 것은 다른 skill(`superpowers:*`)의 일이다 —

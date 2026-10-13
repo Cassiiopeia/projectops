@@ -1,9 +1,14 @@
 ---
 name: pro-synology-expose
-description: "시놀로지 NAS에 새 웹 서비스를 외부 도메인으로 노출하는 가이드. DNS 레코드 추가, 시놀로지 DSM 역방향 프록시 설정, Let's Encrypt 인증서 발급 및 연결을 단계별로 안내한다. 사용자가 '서비스 외부 노출', '도메인 연결', '역방향 프록시 추가', '서브도메인 설정', 'HTTPS 설정', '인증서 발급', '시놀로지에 새 서비스 붙이기', '웹소켓 프록시' 등을 언급하면 이 skill을 사용한다."
+description: "Guide to expose a new web service from a Synology NAS on an external domain: DNS record, DSM reverse proxy, Let's Encrypt certificate. Use for 'expose service', 'connect domain', 'add reverse proxy'."
 ---
 
 # Synology Expose - 웹 서비스 외부 노출 가이드
+
+## When to use
+
+- '서비스 외부 노출', '도메인 연결', '역방향 프록시 추가', '서브도메인 설정'
+- 'HTTPS 설정', '인증서 발급', '시놀로지에 새 서비스 붙이기', '웹소켓 프록시'
 
 시놀로지 NAS에서 Docker 등으로 실행 중인 웹 서비스를 커스텀 도메인으로 외부에 HTTPS로 노출하는 절차를 안내한다.
 

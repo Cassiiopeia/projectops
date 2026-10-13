@@ -1,9 +1,13 @@
 ---
 name: pro-review
-description: "Review Mode - 코드 리뷰 전문가. 코드의 품질, 보안, 성능을 보안/성능/버그/품질 6관점으로 검토하고 Critical/Major/Minor 우선순위별 피드백을 제공한다. PR 리뷰, 파일 리뷰, 구현 후 셀프 검증이 필요할 때 사용. /review 호출 시 사용."
+description: "Code review across security, performance, bugs and quality, with Critical/Major/Minor prioritized feedback. Use for PR review, file review, self-check after implementing, or /review."
 ---
 
 # Review Mode
+
+## When to use
+
+- PR 리뷰, 파일 리뷰, 구현 후 셀프 검증이 필요할 때, /review 호출 시 사용한다.
 
 코드 리뷰 전문가로서 **코드의 품질, 보안, 성능을 철저히 검토**한다.
 

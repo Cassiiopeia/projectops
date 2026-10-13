@@ -1,9 +1,16 @@
 ---
 name: pro-launch
-description: "앱·웹·서버를 띄우고, 조작하고, 찍는 능력 스킬이다. Android 에뮬레이터·iOS 시뮬레이터 화면을 찍고(상태바 고정 포함) 앱을 띄우며, 브라우저를 열어 이동·클릭·입력·캡처하고, 폭을 바꾸거나 API 응답을 바꿔치기해 빈 목록·실패·로딩 상태를 서버를 건드리지 않고 연출한다. 자동화 표식을 가려 Google·Apple 로그인 화면이 자동화 브라우저를 막는 것을 줄인다. 단건 HTTP 요청·DB 조회·서버 로그도 적어 둔 접속 방법대로 실행한다. 무엇을 왜 찍을지는 정하지 않는다 — 그건 부르는 작업 스킬(pro-agent-test · pro-design-brief · pro-figma)의 일이다. '에뮬레이터 띄워서 찍어줘', '시뮬레이터 스크린샷', '브라우저로 이 화면 캡처해줘', '모바일 폭으로 찍어줘', '빈 목록 화면 찍어줘', '500 났을 때 화면 보여줘', '이 API 한 번 불러줘' 같은 요청에 사용한다. 버그를 찾으며 끝까지 밟는 QA 는 pro-agent-test 다."
+description: "Capability skill that launches and drives apps, web and servers: emulator/simulator screenshots, browser navigation and capture, API mocking for empty/error states, HTTP/DB/log access. Used by pro-agent-test, pro-design-brief, pro-figma."
 ---
 
 # pro-launch — 띄우고, 조작하고, 찍는다
+
+## When to use
+
+- '에뮬레이터 띄워서 찍어줘', '시뮬레이터 스크린샷', '브라우저로 이 화면 캡처해줘', '모바일 폭으로 찍어줘'
+- '빈 목록 화면 찍어줘', '500 났을 때 화면 보여줘', '이 API 한 번 불러줘'
+- 무엇을 왜 찍을지는 정하지 않는다 — 그건 부르는 작업 스킬(pro-agent-test · pro-design-brief · pro-figma)의 일이다.
+- 버그를 찾으며 끝까지 밟는 QA 는 pro-agent-test 다. Google·Apple 로그인 화면은 자동화 표식을 가려 차단을 줄인다.
 
 **능력 스킬이다.** 무엇을 부르면 무엇이 나오는지만 적는다. 무엇을 왜 찍을지는 부르는 작업 스킬
 (pro-agent-test · pro-design-brief · pro-figma · pro-report)이 정하고, 이 스크립트를 **Skill 호출이 아니라 스크립트로** 부른다(같은 층의 능력 스킬: pro-github · pro-ssh).
