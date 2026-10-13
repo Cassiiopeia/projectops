@@ -1,4 +1,5 @@
 """커밋 형식 해석 계약 (#864). 팀 형식 > 개인 형식 > 프리셋."""
+import os
 import sys
 from pathlib import Path
 
@@ -13,6 +14,18 @@ from common.commit_style import (  # noqa: E402
 )
 
 URL = "https://github.com/o/r/issues/7"
+
+
+@pytest.fixture
+def hermetic_git(monkeypatch):
+    """기여자의 gitconfig(insteadOf·hooks·defaultBranch 등)와 GIT_* 변수가 git 호출에 끼지 않게 한다.
+
+    테스트 안의 git 과 테스트 대상 코드가 부르는 git 이 모두 os.environ 을 물려받으므로 여기서 한 번에 막는다.
+    """
+    for key in [k for k in os.environ if k.startswith("GIT_")]:
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
 
 
 def _yml(tmp_path, body):
@@ -171,7 +184,7 @@ def test_version_yml_with_bom(tmp_path):
     assert read_team_template(str(tmp_path))[0] == "{type}: {설명}"
 
 
-def test_resolve_for_repo_defaults_to_git_toplevel(tmp_path, monkeypatch):
+def test_resolve_for_repo_defaults_to_git_toplevel(tmp_path, monkeypatch, hermetic_git):
     """하위 폴더에서 불러도 레포 루트의 version.yml(팀 형식)을 찾는다."""
     import subprocess
     from common import commit_style
@@ -194,3 +207,20 @@ def test_resolve_for_repo_marks_legacy_user(tmp_path, monkeypatch):
     plain = tmp_path / "plain"; plain.mkdir()
     _, style = commit_style.resolve_for_repo(str(plain))
     assert style["source"] == "legacy-default" and style["preset"] == "projectops"
+
+
+def test_empty_issue_number_in_parens_leaves_nothing():
+    out = render("{type}: {description} (#{issue_number})", issue_title="", issue_url="", commit_type="fix")
+    assert out == "fix: {description}"
+
+
+def test_dangling_label_line_removed_when_value_empty():
+    t = "{type}: {description}\n\nRefs: {issue_url}"
+    assert render(t, issue_title="", issue_url="", commit_type="fix") == "fix: {description}"
+    # 값이 있으면 그대로
+    assert render(t, issue_title="", issue_url=URL, commit_type="fix") == f"fix: {{description}}\n\nRefs: {URL}"
+
+
+def test_label_rule_does_not_touch_lines_with_other_content():
+    out = render("{type}: {description} {issue_url}", issue_title="", issue_url="", commit_type="fix")
+    assert out == "fix: {description}"

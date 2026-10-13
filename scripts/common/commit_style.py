@@ -156,8 +156,12 @@ def _drop_empty(line: str) -> str:
     """빈 값 때문에 남는 '()'·'[]'·'#'·앞 구분자(' : ' 등)·겹 공백을 지운다."""
     if _EMPTY not in line:
         return line
-    line = re.sub(r"[(\[]\x00[)\]]", _EMPTY, line)
+    # "Refs: {issue_url}" 처럼 라벨 하나와 빈 값뿐인 줄은 라벨째 지운다 (다른 내용이 있으면 손대지 않는다)
+    if re.fullmatch(r"\s*\w[\w-]*\s*:\s*\x00\s*", line):
+        return ""
+    # '#'·'@' 를 먼저 걷어야 "(#{issue_number})" 가 "(\x00)" 이 되어 괄호 규칙에 걸린다
     line = re.sub(r"[#@]\x00", _EMPTY, line)
+    line = re.sub(r"[(\[]\x00[)\]]", _EMPTY, line)
     line = re.sub(r"\s*[:|,]\s*\x00", _EMPTY, line)       # 앞 구분자째
     line = re.sub(r"^\s*\x00\s*[:|,]?\s*", "", line)     # 줄 머리면 뒤 구분자째
     line = line.replace(_EMPTY, "")

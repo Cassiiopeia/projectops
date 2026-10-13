@@ -33,7 +33,7 @@ description: "Create the commit with a message built from the issue number in th
 - **`git push`는 절대 실행하지 않는다** — 커밋까지만 담당 (CLAUDE.md 규칙: push는 명시 허락 시에만)
 - **커밋에 Claude/AI 흔적을 절대 남기지 않는다** — `Co-Authored-By`, `Generated with Claude`, `🤖`, `@claude` 등 AI 서명/푸터/GitHub @mention trailer 일절 금지. 변경설명·푸터 어디에도 `@username` GitHub mention을 포함하지 않는다(이슈 본문에서 가져온 mention도 제거). 사용자의 git 설정으로만 커밋되어 사용자가 직접 작성한 것처럼 보여야 한다. 커밋 메시지는 본문만 작성한다.
 - **자동 모드(`auto_approve == true`)에서도 제안 메시지는 사용자에게 보여준 뒤 커밋한다** — 표시만 하고 즉시 진행. 응답을 기다리지 않는다.
-- **사용자에게 config 키 이름·파일 경로를 노출하지 않는다** — 자동/수동 토글은 자연어 응답("자동으로 진행해줘" / "매번 확인받게 해줘")을 받아 agent가 직접 갱신한다.
+- **사용자에게 config 키 이름·파일 경로를 노출하지 않는다** — 자동/수동 토글은 자연어 응답("자동으로 진행해줘" / "매번 확인받게 해줘")을 받아 agent가 직접 갱신한다. 승인 설정을 쓸 때마다 `references/approval-gate.md` 규칙 D(형식 고정)를 함께 적용한다.
 
 ## 시작 전 — 자동 승인 판정
 

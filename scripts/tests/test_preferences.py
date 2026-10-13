@@ -24,6 +24,18 @@ def _env(home) -> dict:
     env.update({"HOME": str(home), "USERPROFILE": str(home), "PYTHONIOENCODING": "utf-8"})
     return env
 
+
+@pytest.fixture
+def hermetic_git(monkeypatch):
+    """기여자의 gitconfig(insteadOf·hooks·defaultBranch 등)와 GIT_* 변수가 git 호출에 끼지 않게 한다.
+
+    테스트 안의 git 과 테스트 대상 코드가 부르는 git 이 모두 os.environ 을 물려받으므로 여기서 한 번에 막는다.
+    """
+    for key in [k for k in os.environ if k.startswith("GIT_")]:
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+
 DATA = {
     "preferences": {"language": "ko", "tone": "간결하게", "rules": ["이모지 금지"]},
     "skills": {"pro-commit": {"preset": "projectops", "tone": "명령형"}},
@@ -141,7 +153,7 @@ def test_format_pair_same_layer_keeps_both():
     ("git@github.com:1234/Web.git", ("1234", "Web")),
     ("https://github.com/Acme/Web", ("Acme", "Web")),
 ])
-def test_detect_repo_url_forms(tmp_path, url, expected):
+def test_detect_repo_url_forms(tmp_path, url, expected, hermetic_git):
     from common.preferences import detect_repo
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     subprocess.run(["git", "-C", str(tmp_path), "remote", "add", "origin", url], check=True)

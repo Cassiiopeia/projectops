@@ -21,6 +21,8 @@
 
 `CONFIG_HAS_KEY=false`인 경우는 아래 **C. 첫 실행 자동화 제안** 트리거로 사용한다.
 
+> **승인 설정을 쓰는 모든 경로(A·C, 그리고 언제든 "자동으로 바꿔줘" / "확인받게 해줘" 요청)는 쓰기 직전에 아래 규칙 D를 적용한다.**
+
 > **사용자에게 노출하는 안내는 자연어로만 한다.** "auto_approve", "config.json", "commit 섹션" 같은 키 이름·파일 경로를 사용자 메시지에 절대 쓰지 않는다. 사용자는 "자동으로 진행" / "매번 확인" 같은 자연어로 의사 표시하며 agent가 config를 직접 갱신한다.
 
 ## A. 자동 모드 (`AUTO_APPROVE == true`)
@@ -37,7 +39,7 @@
 커밋을 실행합니다.
 ```
 
-> 사용자가 메시지를 보고 "확인받게 해줘", "수동으로 바꿔줘", "다음부턴 확인받아줘" 같은 자연어로 응답하면, 6단계를 진행하기 **전에** Read/Write 도구로 `config.json`을 갱신한다. 우선순위 1(레포별)에 키가 있었다면 그 값을 `false`로, 없었다면 우선순위 2(글로벌)를 `false`로 설정한다. 갱신 후 메시지는 그대로 두고 다시 사용자 승인을 받는다(B 분기로 전환).
+> 사용자가 메시지를 보고 "확인받게 해줘", "수동으로 바꿔줘", "다음부턴 확인받아줘" 같은 자연어로 응답하면, 6단계를 진행하기 **전에** Read/Write 도구로 `config.json`을 갱신한다. 우선순위 1(레포별)에 키가 있었다면 그 값을 `false`로, 없었다면 우선순위 2(글로벌)를 `false`로 설정한다(규칙 D 적용). 갱신 후 메시지는 그대로 두고 다시 사용자 승인을 받는다(B 분기로 전환).
 
 ## B. 수동 모드 (`AUTO_APPROVE == false`)
 
@@ -80,8 +82,7 @@
 - **1 선택** → `github.repos[]`에서 현 OWNER/REPO 매칭 항목에 `commit.auto_approve: true` 추가
 - **2 선택** → `github.commit.auto_approve: true` 추가 (객체 없으면 생성)
 - **3 선택** → `github.commit.auto_approve: false` 추가 (다음 실행부터 묻지 않도록 키 자체는 남긴다)
-- **1·2·3 공통** → 이번 `resolve-style` 의 `source` 가 `default` 였다면 `skills.pro-commit.preset` 에 그 `preset` 값(`conventional`)도 함께 적는다.
-  승인 키가 생기면 다음 실행부터 "기존 사용자"(`legacy-default` → `projectops`)로 판정되므로, 적지 않으면 두 번째 커밋부터 형식이 바뀐다.
+- **1·2·3 공통** → 규칙 D 적용.
 
 갱신 후 안내:
 
@@ -90,5 +91,15 @@
 - 3: "✅ 앞으로도 매번 커밋 메시지 확인받습니다."
 
 이후 6단계 진행.
+
+## D. 형식 고정 규칙 (승인 설정을 쓸 때마다)
+
+`github.commit` 또는 `github.repos[].commit` 을 **쓰는 모든 경우**(A의 수동 전환, C의 첫 실행 제안, 사용자가 언제든 "자동으로 바꿔줘" / "확인받게 해줘"라고 한 경우) 같은 Write 에서 함께 처리한다:
+
+- 사용자가 형식을 정한 적이 없으면 — config 의 `skills.pro-commit` 과 현 레포 `repos[].skills.pro-commit` 어디에도 `preset`·`template` 이 없고, 이번 `resolve-style` 의 `source` 가 `legacy-default` 가 아니면 — `skills.pro-commit.preset: "conventional"` 을 함께 적는다.
+  `source` 가 `default` 든 팀 형식(`team-default` / `version.yml`)이든 같다. 팀 형식 레포에서는 이 값이 쓰이지 않지만, 적지 않으면 승인 키 때문에 다음부터 "기존 사용자"(`legacy-default` → `projectops`)로 판정돼 **다른 레포에서** 형식이 conventional 에서 projectops 로 바뀐다.
+- `source` 가 `legacy-default`(예전부터 쓰던 사람)면 아무것도 적지 않는다 — 지금처럼 `projectops` 를 유지한다.
+- `source` 가 `preferences` 이거나 이미 `preset`/`template` 이 있으면 건드리지 않는다.
+- 사용자에게 이 키를 언급하지 않는다(위 자연어 원칙).
 
 > **갱신 시 주의**: `../../references/config-rules.md` §4 규칙대로 전체 파일을 Read로 먼저 읽고 다른 섹션을 보존한 채 해당 키만 추가/수정해 Write한다. PAT·다른 repos 항목을 절대 날리지 않는다.
