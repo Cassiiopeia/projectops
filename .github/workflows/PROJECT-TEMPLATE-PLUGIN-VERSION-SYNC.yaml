@@ -11,6 +11,7 @@
 # - .claude-plugin/marketplace.json
 # - .codex-plugin/plugin.json
 # - .agents/plugins/marketplace.json (Codex marketplace source metadata, no version field)
+# - plugins/projectops-extras/.claude-plugin/plugin.json, .codex-plugin/plugin.json
 # - gemini-extension.json
 # - package.json (pi 패키지 매니페스트)
 #
@@ -90,10 +91,10 @@ jobs:
 
           # jq가 있으면 사용, 없으면 sed로 대체
           if command -v jq &> /dev/null; then
-            jq --arg v "$VERSION" '.plugins[0].version = $v' "$MARKETPLACE_FILE" > tmp.json && mv tmp.json "$MARKETPLACE_FILE"
+            jq --arg v "$VERSION" '.plugins[].version = $v' "$MARKETPLACE_FILE" > tmp.json && mv tmp.json "$MARKETPLACE_FILE"
           else
-            # plugins 배열 내 version만 변경 (첫 번째 매칭)
-            sed -i "0,/\"version\": \"[^\"]*\"/! { s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/; }" "$MARKETPLACE_FILE"
+            # "plugins" 줄 이후의 version만 변경 (metadata.version 보존, 모든 플러그인 항목 대상)
+            sed -i.bak "/\"plugins\"/,\$ s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" "$MARKETPLACE_FILE" && rm -f "$MARKETPLACE_FILE.bak"
           fi
 
           echo "✅ marketplace.json 버전 동기화: $VERSION"
@@ -115,6 +116,25 @@ jobs:
           fi
 
           echo "✅ Codex plugin.json 버전 동기화: $VERSION"
+
+      - name: extras 플러그인 버전 동기화
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          for F in plugins/projectops-extras/.claude-plugin/plugin.json plugins/projectops-extras/.codex-plugin/plugin.json; do
+            if [ ! -f "$F" ]; then
+              echo "⚠️ $F 파일이 없습니다. 건너뜁니다."
+              continue
+            fi
+
+            if command -v jq &> /dev/null; then
+              jq --arg v "$VERSION" '.version = $v' "$F" > tmp.json && mv tmp.json "$F"
+            else
+              sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" "$F"
+            fi
+
+            echo "✅ $F 버전 동기화: $VERSION"
+          done
 
       - name: Gemini extension 버전 동기화
         run: |
@@ -157,7 +177,7 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          git add .claude-plugin/plugin.json .claude-plugin/marketplace.json .codex-plugin/plugin.json gemini-extension.json package.json
+          git add .claude-plugin/plugin.json .claude-plugin/marketplace.json .codex-plugin/plugin.json gemini-extension.json package.json plugins/projectops-extras/.claude-plugin/plugin.json plugins/projectops-extras/.codex-plugin/plugin.json
 
           if git diff --staged --quiet; then
             echo "ℹ️ 플러그인 버전이 이미 동기화되어 있습니다."

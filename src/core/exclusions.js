@@ -29,6 +29,7 @@ export const PLUGIN_ITEMS_TO_REMOVE = [
   "scripts",
   "package.json",
   "harness",
+  "plugins",
   "bin",
   "src",
   "site",

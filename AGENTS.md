@@ -53,7 +53,7 @@ No slash-command UI is needed; read the file directly.
 | Generate QA test cases | `pro-testcase` |
 | Create a git worktree for an issue | `pro-init-worktree` |
 | Run commands on a remote server over SSH | `pro-ssh` |
-| Expose a Synology service on a domain | `pro-synology-expose` |
+| Expose a Synology service on a domain | `pro-synology-expose` (optional `projectops-extras` plugin) |
 | Create, review or improve a skill | `pro-skill-creator` |
 
 ## Installing the skills

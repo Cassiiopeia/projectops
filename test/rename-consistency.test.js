@@ -84,7 +84,7 @@ test("핵심 pro- 스킬 폴더가 모두 존재한다", () => {
     "pro-changelog-deploy", "pro-commit",
     "pro-figma", "pro-github", "pro-init-worktree",
     "pro-report", "pro-review", "pro-skill-creator",
-    "pro-ssh", "pro-synology-expose", "pro-testcase",
+    "pro-ssh", "pro-testcase",
   ];
   for (const s of expected) {
     assert.ok(existsSync(join(ROOT, "skills", s, "SKILL.md")), `누락: skills/${s}/SKILL.md`);

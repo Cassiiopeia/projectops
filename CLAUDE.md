@@ -786,7 +786,7 @@ claude plugin install projectops@projectops-marketplace --scope user
 | `github` | GitHub 전반: 이슈 생성/조회/수정/댓글/라벨/담당자, PR 생성/머지/조회, 레포 탐색, Actions 로그, Secret 관리, **이미지 첨부**(이슈 본문·댓글·PR) |
 | `report` | 구현 보고서 생성 |
 | `changelog-deploy` | develop push → main으로 릴리스 PR(deploy PR) → 버전 확정 + automerge / automerge 실패 시 재트리거 |
-| `synology-expose` | 시놀로지 서비스 외부 노출 가이드 |
+| `synology-expose` | 시놀로지 서비스 외부 노출 가이드 (**extras 선택 플러그인** `projectops-extras` — `plugins/projectops-extras/`, 공유 문서 사본은 `scripts/sync_extras.py`로 동기화) |
 | `ssh` | 원격 서버 SSH 접속 및 명령 실행 (AWS EC2, 시놀로지 NAS, Linux 서버 등) |
 | `skill-creator` | skill 생성/리뷰/개선 (CREATE·REVIEW·IMPROVE 3모드) |
 | `agent-test` | **앱·웹·서버를 실제로 실행해 밟는다** (E2E·증적) — 문서만 쓰는 `testcase`와 다르다 |

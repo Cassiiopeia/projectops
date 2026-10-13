@@ -84,5 +84,10 @@
     "severity": "warning",
     "title": "앱 스토어 심사는 수동 실행에서만 — push 배포는 내부·비공개 테스트·TestFlight 까지",
     "message": "Flutter 스토어 배포가 push(main) 에서는 심사 단계를 타지 않습니다 (#816). 레포 변수 ANDROID_DEPLOY_MODE·IOS_DEPLOY_MODE 나 store-deploy.json 이 store_prepare·store_submit 이어도 push 에서는 store_only 로 낮아집니다. Google Play 는 심사 중에 새 변경이 오면 그 심사에 합쳐 다시 심사해서, 배포마다 제출하면 심사가 끝나지 않았습니다. 프로덕션 승급과 App Store 심사는 Actions 에서 워크플로를 수동 실행(deploy_mode)해 올리세요. push 마다 자동 제출이 필요하면 .github/config/store-deploy.json 에 \"android\": {\"auto_submit_on_push\": true} (iOS 는 \"ios\") 를 적습니다. 또 Android 비공개 테스트(alpha) 승급이 기본으로 켜집니다 — 끄려면 레포 변수 ANDROID_PROMOTE_TO_CLOSED_TESTING=false 또는 store-deploy.json \"promote_closed_testing\": false. 수동 프로덕션 제출 뒤 48시간(review_cooldown_hours)은 push 의 비공개 승급을 건너뜁니다."
+  },
+  "4.49.0": {
+    "severity": "warning",
+    "title": "pro-synology-expose가 projectops-extras 플러그인으로 이동",
+    "message": "개인 인프라용 스킬 pro-synology-expose가 코어 projectops 플러그인에서 빠지고 선택 플러그인 projectops-extras로 옮겨졌습니다. 시놀로지 외부 노출 가이드를 계속 쓰려면 'claude plugin install projectops-extras@projectops-marketplace --scope user' 로 설치하세요. 코어 플러그인 스킬은 14종이 됩니다."
   }
 }

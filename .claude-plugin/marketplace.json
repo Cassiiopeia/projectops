@@ -23,6 +23,13 @@
         "automation",
         "skills"
       ]
+    },
+    {
+      "name": "projectops-extras",
+      "source": "./plugins/projectops-extras",
+      "description": "Optional skills outside the core dev cycle: Synology NAS service exposure (1 skill)",
+      "version": "4.48.1",
+      "category": "DevOps"
     }
   ]
 }

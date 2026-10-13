@@ -193,6 +193,7 @@ def update_workflow_triggers(branch):
 CLEANUP_TARGETS = [
     ("CHANGELOG.md", "CHANGELOG.md 삭제"),
     ("CHANGELOG.json", "CHANGELOG.json 삭제"),
+    ("plugins", "plugins 폴더 삭제 (마켓플레이스 전용 extras 플러그인)"),
     ("LICENSE", "LICENSE 삭제"),
     ("CONTRIBUTING.md", "CONTRIBUTING.md 삭제"),
     ("SECURITY.md", "SECURITY.md 삭제"),
