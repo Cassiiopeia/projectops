@@ -56,7 +56,6 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/review_cli.py" get-output-path review
 
 ## Customize
 
-Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
-`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-review`.
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start: run the snippet in `../references/preferences.md` with `SKILL_ID=pro-review`.
 Keys for this skill: `sections` plus the common `language`, `tone`, `rules`.
 Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

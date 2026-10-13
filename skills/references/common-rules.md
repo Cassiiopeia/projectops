@@ -98,7 +98,7 @@ rename `YYYYMMDD_245_제목.md`(권장). 파일명에 이모지·`TMP` 접두사
 2. `code-style-detection.md`로 코드 스타일 감지 (기존 코드 3-5개 샘플링)
 3. 기술 가이드: Spring Boot → `tech-spring.md` · React / React Native / Expo / Next.js → `tech-react.md` · Flutter → `tech-flutter.md` · Node.js / Python → 가이드 없음, 코드베이스 직접 분석
 4. **Git 컨텍스트 확인** (코드 수정이 수반될 때) — 아래 §Git 컨텍스트 확인 프로토콜
-5. **개인 설정 로드** — 산출물(메시지·보고서·이슈·댓글)을 쓰는 skill은 시작 시 `prefs_cli.py resolve --skill <id>`로 개인 설정을 읽고 `preferences.md` 규칙대로 적용한다
+5. **개인 설정 로드** — 산출물(메시지·보고서·이슈·댓글)을 쓰는 skill은 시작 시 `preferences.md`의 locate 스니펫(`prefs_cli.py resolve --skill <id>`)으로 개인 설정을 읽고 `preferences.md` 규칙대로 적용한다
 6. 본 skill의 작업 수행
 
 설계·계획·구현 흐름은 `superpowers:brainstorming` → `writing-plans` → `executing-plans` → `/pro-review`.

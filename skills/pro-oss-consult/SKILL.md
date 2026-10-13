@@ -239,7 +239,6 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/oss_cli.py label OWNER/REPO recolor --
 
 ## Customize
 
-Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
-`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-oss-consult`.
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start: run the snippet in `../references/preferences.md` with `SKILL_ID=pro-oss-consult`.
 Keys for this skill: the common `language`, `tone`, `rules` only.
 Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

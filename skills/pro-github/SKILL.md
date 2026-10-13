@@ -138,7 +138,6 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py close-issue {owner} {rep
 
 ## Customize
 
-Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
-`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-github`.
-Keys for this skill: `template` (extra issue-body sections), `examples` plus the common `language`, `tone`, `rules`.
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start: run the snippet in `../references/preferences.md` with `SKILL_ID=pro-github`.
+Keys for this skill: `template` (extra issue-body sections), `examples` (applied in `../references/issue-creation.md` step 3) plus the common `language`, `tone`, `rules`.
 Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

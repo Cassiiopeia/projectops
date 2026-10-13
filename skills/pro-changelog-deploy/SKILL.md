@@ -178,7 +178,6 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 
 ## Customize
 
-Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
-`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-changelog-deploy`.
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start: run the snippet in `../references/preferences.md` with `SKILL_ID=pro-changelog-deploy`.
 Keys for this skill: `template` (release-note lead-in) plus the common `language`, `tone`, `rules`.
 Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

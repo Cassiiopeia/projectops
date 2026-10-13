@@ -173,7 +173,6 @@ Android 네이티브 Google 로그인(Play Services 계정 선택 창)은 앱 �
 
 ## Customize
 
-Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with
-`PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill pro-agent-test`.
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start: run the snippet in `../references/preferences.md` with `SKILL_ID=pro-agent-test`.
 Keys for this skill: the common `language`, `tone`, `rules` only.
 Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

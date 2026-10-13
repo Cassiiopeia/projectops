@@ -28,8 +28,20 @@ Any other key (including `auto_approve`, `dry_run`) is ignored and reported unde
 
 ## How to read them
 
+Run this snippet as is, changing only `SKILL_ID`. It finds `prefs_cli.py` without depending on any skill's own folder:
+the local repo first, then the harness plugin caches.
+
 ```bash
-PYTHONIOENCODING=utf-8 "$PYTHON" "$ROOT/scripts/prefs_cli.py" resolve --skill <skill-id>
+SKILL_ID=<skill-id>
+PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
+[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
+PREFS="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/scripts/prefs_cli.py"
+[ -f "$PREFS" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type f -path "*/projectops/*scripts/prefs_cli.py" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { PREFS="$H"; break; }
+done
+[ -f "$PREFS" ] || { echo "prefs_cli.py not found; skip preferences and use defaults"; exit 0; }
+PYTHONIOENCODING=utf-8 "$PYTHON" "$PREFS" resolve --skill "$SKILL_ID"
 ```
 
 The repo is detected from `origin`; pass `--repo owner/repo` to force one. The JSON has `values` (merged),
