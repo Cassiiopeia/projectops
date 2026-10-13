@@ -2,13 +2,13 @@
 
 <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/hero-en.webp" alt="Projectops：Issue からリリースまで" width="100%">
 
+**一度のインストールで Issue → ブランチ → リリース PR → デプロイまで、各ステップをエージェントスキルが動かします。**
+
 [한국어](README.ko.md) | [English](../../README.md) | [简体中文](README.zh-CN.md) | **日本語**
 
 [![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/)
 
 </div>
-
-**一度のインストールで Issue → ブランチ → リリース PR → デプロイまで、各ステップをエージェントスキルが動かします。**
 
 ---
 
@@ -112,7 +112,7 @@ Skill は自分のスタイルで書きます。好みは `~/.projectops/config/
 }
 ```
 
-`version.yml` のチームルールは個人のスタイルより優先されます。詳しくは [Skills ガイド](../SKILLS.md)を参照してください。
+`version.yml` のチーム形式が優先され、自分のトーンはそのまま適用されます。詳しくは [Skills ガイド](../en/skills.md)を参照してください。
 
 ---
 

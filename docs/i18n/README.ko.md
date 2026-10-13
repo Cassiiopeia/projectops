@@ -2,6 +2,8 @@
 
 <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/hero.webp" alt="Projectops — 이슈부터 배포까지" width="100%">
 
+**설치 한 번으로 이슈 → 브랜치 → 릴리스 PR → 배포까지, 단계마다 에이전트 스킬이 함께 움직입니다.**
+
 **한국어** | [English](../../README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md)
 
 [![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/)
@@ -9,8 +11,6 @@
 **상태: 활발히 유지보수 중.** 새 버전이 자주, 하루에 여러 번 나가기도 합니다. 검증한 버전에 머물려면 `npx projectops@<버전>`으로 실행하세요 ([릴리스 목록](https://github.com/Cassiiopeia/projectops/releases)).
 
 </div>
-
-**설치 한 번으로 이슈 → 브랜치 → 릴리스 PR → 배포까지, 단계마다 에이전트 스킬이 함께 움직입니다.**
 
 ---
 
@@ -114,7 +114,7 @@ Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json
 }
 ```
 
-팀 규칙(`version.yml`)이 개인 스타일보다 우선합니다. 자세히: [Skills 가이드](../SKILLS.md).
+`version.yml`의 팀 형식이 우선하며, 내 말투는 그대로 적용됩니다. 자세히: [Skills 가이드](../SKILLS.md).
 
 ---
 

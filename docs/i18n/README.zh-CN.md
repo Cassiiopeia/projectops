@@ -2,13 +2,13 @@
 
 <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/hero-en.webp" alt="Projectops：从 Issue 到发布" width="100%">
 
+**一次安装，从 Issue → 分支 → 发布 PR → 部署，每一步都有 Agent Skills 配合驱动。**
+
 [한국어](README.ko.md) | [English](../../README.md) | **简体中文** | [日本語](README.ja.md)
 
 [![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/)
 
 </div>
-
-**一次安装，从 Issue → 分支 → 发布 PR → 部署，每一步都有 Agent Skills 配合驱动。**
 
 ---
 
@@ -112,7 +112,7 @@ Skill 会按你的风格输出。把偏好写进 `~/.projectops/config/config.js
 }
 ```
 
-`version.yml` 中的团队规则优先于个人风格。详见 [Skills 指南](../SKILLS.md)。
+`version.yml` 中的团队格式优先；你的语气仍然生效。详见 [Skills 指南](../en/skills.md)。
 
 ---
 

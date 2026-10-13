@@ -2,6 +2,8 @@
 
 <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/hero-en.webp" alt="Projectops: from issue to release" width="100%">
 
+**One install: issue → branch → release PR → deploy, with agent skills that drive each step.**
+
 [한국어](docs/i18n/README.ko.md) | **English** | [简体中文](docs/i18n/README.zh-CN.md) | [日本語](docs/i18n/README.ja.md)
 
 [![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/)
@@ -14,8 +16,6 @@
 [View full version history](CHANGELOG.md)
 
 </div>
-
-**One install: issue → branch → release PR → deploy, with agent skills that drive each step.**
 
 ---
 
@@ -119,7 +119,7 @@ Skills write in your style. Put your preferences in `~/.projectops/config/config
 }
 ```
 
-Team rules in `version.yml` win over personal style. Details: [Skills guide](docs/en/skills.md).
+Team formats in `version.yml` win; your tone still applies. Details: [Skills guide](docs/en/skills.md).
 
 ---
 
