@@ -15,6 +15,8 @@
 
 </div>
 
+**One install: issue → branch → release PR → deploy, with agent skills that drive each step.**
+
 ---
 
 ## Get started in 30 seconds
@@ -39,7 +41,7 @@
 This project automates your development workflow on two axes.
 
 **① GitHub Actions**: one push to main handles versioning, changelogs, and CI/CD deployment.
-**② Agent Skills**: commands such as `/pro-github`, `/pro-commit`, and `/pro-report` let an AI agent write issues, commit messages, and implementation reports for you.
+**② Agent Skills**: commands such as `/pro-github`, `/pro-commit`, and `/pro-report` let an AI agent drive each step of that automation for you: issues, commits in your own style, reports, and release PRs.
 
 | The usual way | With Projectops |
 |----------|---------------------|
@@ -47,9 +49,9 @@ This project automates your development workflow on two axes.
 | Write the changelog yourself | Generated for every release PR (commit analysis, or an AI summary if you add an AI key) |
 | Set up CI/CD from scratch | Workflows for your project type, ready immediately |
 | Format every issue by hand | `/pro-github` writes and files an issue from the standard template in one step |
-| Copy the issue URL into commit messages | `/pro-commit` completes the message from the issue context |
+| Copy the issue URL into commit messages | `/pro-commit` completes the message from the issue context, in your own style |
 | Write PR descriptions and reports by hand | `/pro-report` analyzes the git diff and generates one |
-| Re-type prompts for every code review or analysis | 15 Skills give consistent results without re-typing |
+| Re-type prompts for every code review or analysis | 14 skills give consistent results without re-typing |
 
 ---
 
@@ -63,7 +65,7 @@ If you only need one piece of this, a smaller tool may suit you better.
 | Review step before a release | A release PR (develop → main), merged automatically | A release PR you merge | None by default, releases on push | A "Version Packages" PR |
 | Changelog | Written in the release PR (commit analysis, or an AI summary) | Generated | Generated (plugin) | Assembled from changeset files |
 | CI/CD workflows for your project type | Yes (Spring, Flutter, React, Node, Python ...) | No | No | No |
-| Issue and PR helpers, Agent Skills | Yes | No | No | No |
+| Agent skills that run the cycle (issues, worktrees, commits in your style, reports, release PRs, real-device QA) | Yes | No | No | No |
 | What it adds to your repo | About 50 files (below) | A workflow and a config file | A config file and a CI step | A `.changeset/` folder and a CI step |
 
 - Want only versioning and a changelog? release-please or semantic-release is smaller.
@@ -84,11 +86,15 @@ Below is a **real run, recorded** after installing projectops in a sample repo i
 
 When an issue is opened, GitHub Actions runs on its own and comments a **branch name and a commit message template**. Work on that branch name and the issue number links into your commits and reports automatically.
 
+**Drive it from your agent:** `/pro-github` files the issue, `/pro-init-worktree` sets up the workspace, and `/pro-commit` writes the commit in your format.
+
 ### 2. Open a PR and a change summary arrives automatically
 
 ![Change summary comment after opening a PR](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-pr-summary.gif)
 
 Open a PR from a work branch and a **change summary** built from the commits is posted as a comment. Push more commits and the same comment is updated instead of piling up new ones.
+
+**Drive it from your agent:** `/pro-report` analyzes the diff and posts the implementation report; `/pro-agent-test` verifies the change by actually running it.
 
 ### 3. Open a release PR and everything from versioning to merge and tag is automatic
 
@@ -96,7 +102,25 @@ Open a PR from a work branch and a **change summary** built from the commits is 
 
 Open a PR from the development branch to `main` and it writes the release notes, decides the version from commit titles (`feat`, `fix`, ...) and puts it in the PR title, merges automatically, and creates the **version tag**. This example had `feat` commits, so the minor version went up.
 
+**Drive it from your agent:** `/pro-changelog-deploy` pushes develop and opens the release PR for you.
+
 > The warning banner GitHub shows for Korean branch names is hidden in the recording. Everything else is the unedited screen.
+
+---
+
+## Make it yours
+
+Skills write in your style. Put your preferences in `~/.projectops/config/config.json`; nothing is asked on first run.
+
+```json
+{
+  "preferences": { "language": "en", "tone": "short and direct", "rules": ["no emoji"] },
+  "skills": { "pro-commit": { "preset": "gitmoji" } }
+}
+```
+
+Team rules in `version.yml` win over personal style. Details: [Skills guide](docs/en/skills.md).
+
 ---
 
 ## What is inside
@@ -104,18 +128,18 @@ Open a PR from the development branch to `main` and it writes the release notes,
 | Part | What it does | Docs |
 |---|---|---|
 | **GitHub Actions** | One push to main handles versioning, changelogs, and CI/CD deployment | [Versioning](https://cassiiopeia.github.io/projectops/VERSION-CONTROL) (Korean) |
-| **Agent Skills** (20) | `/pro-github`, `/pro-commit`, `/pro-report` and more let an AI agent write issues, commit messages, and implementation reports | [Skills guide](https://cassiiopeia.github.io/projectops/SKILLS) (Korean) |
+| **Agent Skills** (14) | `/pro-github`, `/pro-commit`, `/pro-report` and more let an AI agent drive each step: issues, commits in your style, reports, release PRs | [Skills guide](https://cassiiopeia.github.io/projectops/SKILLS) (Korean) |
 | **npx CLI** | Installs and updates workflows in an existing project, and diagnoses its state | [CLI reference](https://cassiiopeia.github.io/projectops/en/cli) |
 
 <details>
-<summary>See all 20 Agent Skills</summary>
+<summary>See all 14 Agent Skills</summary>
 
 ### 🔄 Development cycle automation
 
 | Skill | Purpose |
 |------|------|
 | `/pro-init-worktree` | Create a Git worktree and copy sensitive files automatically |
-| `/pro-commit` | Complete a commit message from the issue context (follows superpowers) |
+| `/pro-commit` | Complete a commit message from the issue context, in your own format (preset or template) |
 | `/pro-report` | Analyze the git diff → generate an implementation report and post it as a GitHub comment |
 | `/pro-changelog-deploy` | Push develop → open the main release PR + write release notes + automerge |
 | `/pro-github` | GitHub in general: create issues (one-line description → template + file), view/edit/comment/label/assign, create/merge/view PRs, explore repos, manage Actions and Secrets |
@@ -143,9 +167,10 @@ Open a PR from the development branch to `main` and it writes the release notes,
 |------|------|
 | `/pro-testcase` | Analyze an issue → generate a QA checklist |
 | `/pro-agent-test` | QA that actually runs apps, web, and servers to find bugs, reporting reproduction steps, evidence, and severity (it does not fix code) |
-| `/pro-synology-expose` | Guide to exposing a Synology NAS service on an external domain |
 | `/pro-ssh` | Connect to a remote server over SSH and run commands (AWS EC2, Synology NAS, Linux, and more) |
 | `/pro-skill-creator` | Create, review, and improve a Skill (CREATE / REVIEW / IMPROVE modes) |
+
+**Extras** (optional plugin): `/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 </details>
 

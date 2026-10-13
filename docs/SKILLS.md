@@ -1,7 +1,7 @@
 # Agent Skills 가이드
 
 > **이 레포는 Claude Code, Cursor, Gemini CLI, Codex CLI에서 사용할 수 있는 Agent Skill 패키지입니다.**
-> GitHub Actions 자동화 템플릿과 더불어, 개발/DevOps Skill 15종을 제공합니다.
+> GitHub Actions 자동화 템플릿과 더불어, 개발/DevOps Skill 14종을 제공합니다.
 
 ---
 
@@ -101,14 +101,14 @@ Codex에서는 slash command UI가 아니라 `AGENTS.md`와 설치된 `skills/`�
 
 ---
 
-## Skill 전체 목록 (15종)
+## Skill 전체 목록 (14종)
 
 용도에 따라 네 그룹으로 나뉩니다:
 
 - **분석형** (1종) — 코드를 읽기만 하고 수정하지 않음. 계획/리뷰/진단 결과를 돌려줌.
 - **구현형** (5종) — 실제로 파일을 수정하거나 생성함.
 - **개발 사이클 자동화형** (3종) — 커밋, 배포, GitHub 작업을 대신 수행함.
-- **문서/산출물 생성형** (6종) — 코드는 건드리지 않고, `.md` 파일이나 보고서를 생성함.
+- **문서/산출물 생성형** (5종) — 코드는 건드리지 않고, `.md` 파일이나 보고서를 생성함.
 
 > 설계·계획·구현 흐름은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 담당합니다.
 
@@ -282,7 +282,7 @@ GitHub 이슈/PR/댓글을 **독립적으로 조회하고 관리**합니다. 다
 
 ---
 
-## 📝 문서/산출물 생성형 Skill (6종)
+## 📝 문서/산출물 생성형 Skill (5종)
 
 코드는 건드리지 않고, 특정 형식의 **문서 파일**을 생성합니다.
 
@@ -334,20 +334,6 @@ GitHub 이슈를 읽고 관련 코드를 탐색한 뒤, **QA용 테스트 체크
 
 ---
 
-### `/pro-synology-expose`
-
-**무엇을 하나요?**
-시놀로지 NAS에 올린 웹 서비스를 **외부 도메인으로 노출하는 설정 가이드**를 단계별로 안내합니다. DNS 레코드 추가(Cloudflare/Route53 등), DSM 역방향 프록시 설정, Let's Encrypt 인증서 발급까지 커버합니다.
-
-**수정되는 것**: 설정 가이드 `.md` 파일 (안내 중심, 실제 서버 설정은 사용자가 진행)
-**돌려주는 것**: 도메인/DDNS/DNS 제공자/이메일을 입력받아 맞춤 가이드 생성
-
-**언제 쓰나요?**
-- 새 서비스를 Synology로 외부에 공개해야 할 때
-- HTTPS 인증서 설정이 처음일 때
-
----
-
 ### `/pro-ssh`
 
 **무엇을 하나요?**
@@ -375,6 +361,38 @@ Skill 파일을 **생성(CREATE)·리뷰(REVIEW)·개선(IMPROVE)** 3가지 모�
 - 새 Skill을 표준에 맞게 처음부터 만들고 싶을 때
 - 기존 Skill이 최신 컨벤션과 맞는지 검토할 때
 - 리뷰 결과를 바로 Skill에 반영하고 싶을 때
+
+---
+
+## 나에게 맞추기 (Make it yours)
+
+Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json`에 적습니다. 첫 실행 때 묻지 않으며, 비어 있으면 각 Skill의 기본 동작입니다.
+
+```json
+{
+  "preferences": { "language": "ko", "tone": "짧고 단정하게", "rules": ["이모지 금지"] },
+  "skills": { "pro-commit": { "preset": "gitmoji" } }
+}
+```
+
+- 적용 순서(뒤가 이김): `preferences` → `skills.<skill-id>` → `github.repos[].preferences` → `github.repos[].skills.<skill-id>`.
+- `/pro-commit`의 형식 우선순위: 팀 `version.yml`의 `issue_helper.commit_template` → projectops가 설치된 레포의 projectops 형식 → 내 `template` → 내 `preset`(기본 `conventional`, 그 외 `projectops`·`gitmoji`·`custom`).
+- 선호는 표현만 바꿉니다. 승인 게이트, 시크릿 보호, `--dry-run`, push 금지는 끌 수 없습니다.
+- 자세히: [`skills/references/preferences.md`](https://github.com/Cassiiopeia/projectops/blob/main/skills/references/preferences.md)
+
+---
+
+## Extras (선택 플러그인)
+
+`/pro-synology-expose`(시놀로지 NAS 서비스를 외부 도메인으로 노출하는 가이드)는 코어 플러그인에 없고 선택 플러그인 `projectops-extras`에 있습니다.
+
+```bash
+# Claude Code
+claude plugin install projectops-extras@projectops-marketplace --scope user
+# Codex CLI: `codex plugin marketplace add Cassiiopeia/projectops` 후 플러그인 목록에서 projectops-extras 설치
+```
+
+Cursor·Gemini CLI·pi에는 extras 설치 경로가 없고, `npx projectops` 동기화 때 이 스킬이 제거됩니다. 계속 쓰려면 레포의 `plugins/projectops-extras/skills/pro-synology-expose`와 `plugins/projectops-extras/skills/references/`를 둘 다 직접 복사하세요.
 
 ---
 
@@ -423,7 +441,6 @@ flowchart TD
 | 이슈만 빠르게 초안 작성 | `github` |
 | PR 설명 / QA 체크리스트 생성 | `report` / `testcase` |
 | Figma 디자인을 코드로 옮기고 시안과 대조 | `figma` |
-| Synology 외부 노출 가이드 | `synology-expose` |
 | 원격 서버 SSH 접속·명령 실행 | `ssh` |
 | 배포 PR 생성 + automerge | `changelog-deploy` |
 | GitHub 이슈/PR 조회 및 관리 | `github` |

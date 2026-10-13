@@ -1,6 +1,6 @@
 {
   "name": "projectops",
   "version": "4.48.1",
-  "description": "DevOps automation skills for coding agents",
+  "description": "Agent skills that drive the projectops automation cycle: issues, worktrees, commits in your own style, reports, reviews, QA and release PRs (14 skills)",
   "skills": "./skills/"
 }

@@ -15,7 +15,7 @@ version: 2.1.0
 접속 실행기는 **`pro-launch` 의 `launch_cli.py ssh`** 다 (#841). 저장된 서버(`--cred`)로도, **저장 없이 접속 정보를 직접 넘겨서도** 된다.
 
 - 쓰는 때: 서버 상태·로그·파일 확인, 배포 후 서버 검수, "서버 들어가서 ~해줘".
-- **쓰지 않는 때**: 시놀로지 DSM 역방향 프록시·도메인 설정 → `pro-synology-expose`.
+- **쓰지 않는 때**: 시놀로지 DSM 역방향 프록시·도메인 설정 → `pro-synology-expose` (선택 플러그인 projectops-extras에 있음).
 
 `{SCRIPTS}` 는 pro-launch 의 `scripts/` (찾는 법은 `../pro-launch/SKILL.md`). 호출은 `{PYTHON} {SCRIPTS}/launch_cli.py …`.
 

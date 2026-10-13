@@ -88,6 +88,6 @@
   "4.49.0": {
     "severity": "warning",
     "title": "pro-synology-expose가 projectops-extras 플러그인으로 이동",
-    "message": "개인 인프라용 스킬 pro-synology-expose가 코어 projectops 플러그인에서 빠지고 선택 플러그인 projectops-extras로 옮겨졌습니다(코어는 14종). [Claude Code] 'claude plugin install projectops-extras@projectops-marketplace --scope user' 로 설치하세요. [Codex] 'codex plugin marketplace add Cassiiopeia/projectops' 후 Codex 플러그인 목록에서 projectops-extras를 설치하세요(기본 설치 대상이 아닙니다). [Cursor·Gemini·pi] extras 설치 경로가 없어 다음 'npx projectops' 동기화 때 이 스킬이 제거됩니다 — 필요하면 레포의 plugins/projectops-extras/skills/pro-synology-expose 폴더를 직접 복사해 두세요."
+    "message": "개인 인프라용 스킬 pro-synology-expose가 코어 projectops 플러그인에서 빠지고 선택 플러그인 projectops-extras로 옮겨졌습니다(코어는 14종). [Claude Code] 'claude plugin install projectops-extras@projectops-marketplace --scope user' 로 설치하세요. [Codex] 'codex plugin marketplace add Cassiiopeia/projectops' 후 Codex 플러그인 목록에서 projectops-extras를 설치하세요(기본 설치 대상이 아닙니다). [Cursor·Gemini·pi] extras 설치 경로가 없어 다음 'npx projectops' 동기화 때 이 스킬이 제거됩니다 — 필요하면 레포의 plugins/projectops-extras/skills/pro-synology-expose 폴더와 plugins/projectops-extras/skills/references/ 폴더를 둘 다 직접 복사해 두세요."
   }
 }

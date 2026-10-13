@@ -10,6 +10,8 @@
 
 </div>
 
+**설치 한 번으로 이슈 → 브랜치 → 릴리스 PR → 배포까지, 단계마다 에이전트 스킬이 함께 움직입니다.**
+
 ---
 
 ## 30초 시작
@@ -34,7 +36,7 @@
 이 프로젝트는 두 축으로 개발 워크플로우를 자동화합니다.
 
 **① GitHub Actions** — main 푸시 한 번으로 버전 관리, 체인지로그, CI/CD 배포까지 자동 처리  
-**② Agent Skills** — `/pro-github`, `/pro-commit`, `/pro-report` 등 AI가 이슈 작성부터 커밋 메시지, 구현 보고서까지 대신 생성
+**② Agent Skills** — `/pro-github`, `/pro-commit`, `/pro-report` 등 AI가 그 자동화의 단계마다 이슈, 내 스타일의 커밋, 보고서, 릴리스 PR까지 대신 진행
 
 | 기존 방식 | Projectops |
 |----------|---------------------|
@@ -42,9 +44,9 @@
 | 체인지로그 직접 작성 | 릴리스 PR마다 자동 생성 (커밋 분석, AI 키가 있으면 AI 요약) |
 | CI/CD 처음부터 설정 | 프로젝트 타입별 워크플로우 즉시 구성 |
 | 이슈 매번 형식 맞춰 작성 | `/pro-github` 한 번에 표준 템플릿 생성 + 등록 |
-| 커밋 메시지 이슈 URL 수동 복사 | `/pro-commit` 이슈 컨텍스트 기반 자동 완성 |
+| 커밋 메시지 이슈 URL 수동 복사 | `/pro-commit` 이슈 컨텍스트 기반으로 내 형식에 맞춰 자동 완성 |
 | PR 설명/보고서 직접 작성 | `/pro-report` git diff 분석 후 자동 생성 |
-| 코드 리뷰·분석 매번 프롬프트 입력 | 15종 Skills로 일관된 결과, 매번 재입력 불필요 |
+| 코드 리뷰·분석 매번 프롬프트 입력 | 14종 Skills로 일관된 결과, 매번 재입력 불필요 |
 
 ---
 
@@ -58,7 +60,7 @@
 | 릴리스 전 검토 단계 | 릴리스 PR(develop → main), 자동 머지 | 직접 머지하는 릴리스 PR | 기본은 없음, push 시 바로 릴리스 | "Version Packages" PR |
 | 체인지로그 | 릴리스 PR에서 작성 (커밋 분석 또는 AI 요약) | 자동 생성 | 자동 생성 (플러그인) | changeset 파일을 모아 작성 |
 | 프로젝트 타입별 CI/CD 워크플로우 | 있음 (Spring, Flutter, React, Node, Python ...) | 없음 | 없음 | 없음 |
-| 이슈·PR 도우미, Agent Skills | 있음 | 없음 | 없음 | 없음 |
+| 사이클을 직접 굴리는 에이전트 스킬 (이슈, worktree, 내 스타일 커밋, 보고서, 릴리스 PR, 실기기 QA) | 있음 | 없음 | 없음 | 없음 |
 | 저장소에 추가되는 것 | 약 50개 파일 (아래) | 워크플로우 1개와 설정 파일 | 설정 파일과 CI 단계 | `.changeset/` 폴더와 CI 단계 |
 
 - 버전과 체인지로그만 필요하다면 release-please나 semantic-release가 더 가볍습니다.
@@ -79,11 +81,15 @@
 
 이슈를 열면 GitHub Actions가 스스로 실행되어 **브랜치명과 커밋 메시지 템플릿**을 댓글로 알려 줍니다. 이 브랜치명으로 작업하면 이슈 번호가 커밋·보고서에 자동으로 연동됩니다.
 
+**에이전트로 진행하기:** `/pro-github`로 이슈를 만들고, `/pro-init-worktree`로 작업 공간을 만들고, `/pro-commit`으로 내 형식의 커밋을 씁니다.
+
 ### ② PR을 열면 변경 요약이 자동으로 달립니다
 
 ![PR을 열면 변경 요약 댓글이 달리는 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-pr-summary.gif)
 
 작업 브랜치로 PR을 열면 커밋을 분석한 **변경 요약**이 댓글로 달립니다. 커밋을 더 올리면 새 댓글을 쌓지 않고 같은 댓글을 갱신합니다.
+
+**에이전트로 진행하기:** `/pro-report`가 diff를 분석해 구현 보고서를 올리고, `/pro-agent-test`가 실제로 실행해 검증합니다.
 
 ### ③ 릴리스 PR을 열면 버전 확정부터 머지, 태그까지 자동입니다
 
@@ -91,7 +97,25 @@
 
 개발 브랜치에서 `main`으로 PR을 열면 릴리스 노트를 쓰고, 커밋 제목(`feat`, `fix` 등)으로 버전을 정해 PR 제목에 반영한 뒤, 자동으로 머지하고 **버전 태그**까지 만듭니다. 위 예시는 `feat` 커밋이라 minor 버전이 올랐습니다.
 
+**에이전트로 진행하기:** `/pro-changelog-deploy`가 develop을 푸시하고 릴리스 PR을 대신 엽니다.
+
 > 한글 브랜치명에 GitHub이 띄우는 경고 배너는 화면에서 가렸습니다. 그 외에는 가공하지 않은 실제 화면입니다.
+
+---
+
+## 나에게 맞추기 (Make it yours)
+
+Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json`에 적고, 첫 실행 때 따로 묻지 않습니다.
+
+```json
+{
+  "preferences": { "language": "ko", "tone": "짧고 단정하게", "rules": ["이모지 금지"] },
+  "skills": { "pro-commit": { "preset": "gitmoji" } }
+}
+```
+
+팀 규칙(`version.yml`)이 개인 스타일보다 우선합니다. 자세히: [Skills 가이드](../SKILLS.md).
+
 ---
 
 ## 구성 요소
@@ -99,18 +123,18 @@
 | 구성 | 하는 일 | 문서 |
 |---|---|---|
 | **GitHub Actions** | main 푸시 한 번으로 버전 관리, 체인지로그, CI/CD 배포를 자동 처리합니다 | [버전 관리](https://cassiiopeia.github.io/projectops/VERSION-CONTROL) |
-| **Agent Skills** (15종) | `/pro-github`, `/pro-commit`, `/pro-report` 등으로 AI가 이슈·커밋 메시지·구현 보고서를 대신 만듭니다 | [Skills 가이드](https://cassiiopeia.github.io/projectops/SKILLS) |
+| **Agent Skills** (14종) | `/pro-github`, `/pro-commit`, `/pro-report` 등으로 AI가 단계마다 이슈·내 스타일 커밋·보고서·릴리스 PR을 대신 진행합니다 | [Skills 가이드](https://cassiiopeia.github.io/projectops/SKILLS) |
 | **npx CLI** | 기존 프로젝트에 워크플로우를 설치·업데이트하고 상태를 진단합니다 | [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/CLI) |
 
 <details>
-<summary>Agent Skills 15종 전체 보기</summary>
+<summary>Agent Skills 14종 전체 보기</summary>
 
 ### 🔄 개발 사이클 자동화
 
 | 스킬 | 용도 |
 |------|------|
 | `/pro-init-worktree` | Git worktree 생성 + 민감 파일 자동 복사 |
-| `/pro-commit` | 이슈 컨텍스트 기반 커밋 메시지 자동 완성 (superpowers 준수) |
+| `/pro-commit` | 이슈 컨텍스트 기반 커밋 메시지를 내 형식(preset·template)으로 자동 완성 |
 | `/pro-report` | git diff 분석 → 구현 보고서 생성 + GitHub 댓글 자동 포스팅 |
 | `/pro-changelog-deploy` | develop push → main 릴리스 PR 생성 + 릴리스 노트 작성 + automerge |
 | `/pro-github` | GitHub 전반: 이슈 생성(설명 한 줄 → 템플릿 작성+등록)/조회/수정/댓글/라벨/담당자, PR 생성/머지/조회, 레포 탐색, Actions/Secret 관리 |
@@ -138,9 +162,10 @@
 |------|------|
 | `/pro-testcase` | 이슈 분석 → QA 체크리스트 생성 |
 | `/pro-agent-test` | 앱·웹·서버를 실제로 실행해 밟으며 버그를 찾는 QA — 재현 절차·근거·심각도와 함께 보고 (코드는 고치지 않음) |
-| `/pro-synology-expose` | Synology NAS 외부 도메인 노출 설정 가이드 |
 | `/pro-ssh` | 원격 서버 SSH 접속·명령 실행 (AWS EC2, 시놀로지 NAS, Linux 등 범용) |
 | `/pro-skill-creator` | Skill 생성/리뷰/개선 (CREATE·REVIEW·IMPROVE 3모드) |
+
+**Extras** (선택 플러그인): `/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 </details>
 

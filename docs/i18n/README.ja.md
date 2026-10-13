@@ -8,6 +8,8 @@
 
 </div>
 
+**一度のインストールで Issue → ブランチ → リリース PR → デプロイまで、各ステップをエージェントスキルが動かします。**
+
 ---
 
 ## 30 秒ではじめる
@@ -32,7 +34,7 @@
 このプロジェクトは 2 つの軸で開発ワークフローを自動化します。
 
 **① GitHub Actions**：main へ一度 push するだけで、バージョン管理、変更履歴、CI/CD デプロイまで自動で処理します。
-**② Agent Skills**：`/pro-github`、`/pro-commit`、`/pro-report` などのコマンドで、AI が Issue の作成からコミットメッセージ、実装レポートまで代わりに作成します。
+**② Agent Skills**：`/pro-github`、`/pro-commit`、`/pro-report` などのコマンドで、AI がその自動化の各ステップ（Issue、自分のスタイルのコミット、レポート、リリース PR）を代わりに進めます。
 
 | 従来の方法 | Projectops |
 |----------|---------------------|
@@ -40,9 +42,9 @@
 | 変更履歴を手書き | リリース PR ごとに自動生成（コミット分析。AI キーがあれば AI 要約） |
 | CI/CD を一から設定 | プロジェクトタイプ別のワークフローをすぐに構成 |
 | Issue を毎回書式に合わせて作成 | `/pro-github` が標準テンプレートで作成から登録まで一度で実行 |
-| コミットメッセージに Issue の URL を手作業でコピー | `/pro-commit` が Issue の文脈から自動で補完 |
+| コミットメッセージに Issue の URL を手作業でコピー | `/pro-commit` が Issue の文脈から、自分の形式で自動補完 |
 | PR の説明やレポートを手書き | `/pro-report` が git diff を分析して自動生成 |
-| コードレビューや分析のたびにプロンプトを入力 | 15 種の Skills で一貫した結果。毎回の再入力は不要 |
+| コードレビューや分析のたびにプロンプトを入力 | 14 種の Skills で一貫した結果。毎回の再入力は不要 |
 
 ---
 
@@ -56,7 +58,7 @@
 | リリース前の確認段階 | リリース PR（develop → main）、自動マージ | 自分でマージするリリース PR | 既定ではなし、push で即リリース | 「Version Packages」PR |
 | 変更履歴 | リリース PR で作成（コミット分析または AI 要約） | 自動生成 | 自動生成（プラグイン） | changeset ファイルから組み立て |
 | プロジェクトタイプ別の CI/CD ワークフロー | あり（Spring、Flutter、React、Node、Python ...） | なし | なし | なし |
-| Issue・PR の補助、Agent Skills | あり | なし | なし | なし |
+| サイクルを回す Agent Skills（Issue、worktree、自分のスタイルのコミット、レポート、リリース PR、実機 QA） | あり | なし | なし | なし |
 | リポジトリに追加されるもの | 約 50 ファイル（下記） | ワークフロー 1 つと設定ファイル | 設定ファイルと CI ステップ | `.changeset/` フォルダーと CI ステップ |
 
 - バージョンと変更履歴だけが必要なら、release-please か semantic-release のほうが軽量です。
@@ -77,11 +79,15 @@
 
 Issue を開くと GitHub Actions が自動で動き、**ブランチ名とコミットメッセージのテンプレート**をコメントで知らせます。このブランチ名で作業すると、Issue 番号がコミットやレポートに自動で連動します。
 
+**エージェントで進める：** `/pro-github` で Issue を作成し、`/pro-init-worktree` で作業環境を用意し、`/pro-commit` で自分の形式のコミットを書きます。
+
 ### ② PR を開くと、変更の要約が自動で付く
 
 ![PR を開くと変更の要約コメントが付く画面](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-pr-summary.gif)
 
 作業ブランチから PR を開くと、コミットを分析した**変更の要約**がコメントで付きます。コミットを追加しても新しいコメントを積み重ねず、同じコメントを更新します。
+
+**エージェントで進める：** `/pro-report` が diff を分析して実装レポートを投稿し、`/pro-agent-test` が実際に実行して検証します。
 
 ### ③ リリース PR を開くと、バージョン確定からマージ、タグまで自動
 
@@ -89,7 +95,25 @@ Issue を開くと GitHub Actions が自動で動き、**ブランチ名とコ�
 
 開発ブランチから `main` へ PR を開くと、リリースノートを書き、コミットタイトル（`feat`、`fix` など）でバージョンを決めて PR タイトルに反映し、自動でマージして**バージョンタグ**まで作ります。この例は `feat` コミットなので minor が上がりました。
 
+**エージェントで進める：** `/pro-changelog-deploy` が develop を push してリリース PR を開きます。
+
 > 韓国語のブランチ名に GitHub が表示する警告バナーは、画面上では隠しています。それ以外は加工していない実際の画面です。
+
+---
+
+## 自分好みにする（Make it yours）
+
+Skill は自分のスタイルで書きます。好みは `~/.projectops/config/config.json` に書きます。初回実行時に質問はしません。
+
+```json
+{
+  "preferences": { "language": "ja", "tone": "短く簡潔に", "rules": ["絵文字なし"] },
+  "skills": { "pro-commit": { "preset": "gitmoji" } }
+}
+```
+
+`version.yml` のチームルールは個人のスタイルより優先されます。詳しくは [Skills ガイド](../SKILLS.md)を参照してください。
+
 ---
 
 ## 構成要素
@@ -97,18 +121,18 @@ Issue を開くと GitHub Actions が自動で動き、**ブランチ名とコ�
 | 構成 | できること | ドキュメント |
 |---|---|---|
 | **GitHub Actions** | main へ一度 push するだけで、バージョン管理、変更履歴、CI/CD デプロイまで自動で処理 | [バージョン管理](https://cassiiopeia.github.io/projectops/VERSION-CONTROL)（韓国語） |
-| **Agent Skills**（15 種） | `/pro-github`、`/pro-commit`、`/pro-report` などで、AI が Issue、コミットメッセージ、実装レポートを代わりに作成 | [Skills ガイド](https://cassiiopeia.github.io/projectops/SKILLS)（韓国語） |
+| **Agent Skills**（14 種） | `/pro-github`、`/pro-commit`、`/pro-report` などで、AI が各ステップ（Issue、自分のスタイルのコミット、レポート、リリース PR）を代わりに進める | [Skills ガイド](https://cassiiopeia.github.io/projectops/SKILLS)（韓国語） |
 | **npx CLI** | 既存プロジェクトにワークフローを導入・更新し、状態を診断 | [CLI リファレンス](https://cassiiopeia.github.io/projectops/en/cli)（英語） |
 
 <details>
-<summary>Agent Skills 15 種をすべて見る</summary>
+<summary>Agent Skills 14 種をすべて見る</summary>
 
 ### 🔄 開発サイクルの自動化
 
 | スキル | 用途 |
 |------|------|
 | `/pro-init-worktree` | Git worktree を作成し、機密ファイルを自動でコピー |
-| `/pro-commit` | Issue の文脈からコミットメッセージを自動補完（superpowers 準拠） |
+| `/pro-commit` | Issue の文脈から、自分の形式（preset・template）でコミットメッセージを自動補完 |
 | `/pro-report` | git diff を分析 → 実装レポートを生成し、GitHub コメントとして自動投稿 |
 | `/pro-changelog-deploy` | develop を push → main へのリリース PR を作成 + リリースノート作成 + automerge |
 | `/pro-github` | GitHub 全般：Issue の作成（一行の説明 → テンプレートで作成・登録）/参照/編集/コメント/ラベル/担当者、PR の作成/マージ/参照、リポジトリ探索、Actions・Secret の管理 |
@@ -136,9 +160,10 @@ Issue を開くと GitHub Actions が自動で動き、**ブランチ名とコ�
 |------|------|
 | `/pro-testcase` | Issue を分析 → QA チェックリストを生成 |
 | `/pro-agent-test` | アプリ・Web・サーバーを実際に動かしてバグを探す QA。再現手順・根拠・深刻度とともに報告（コードは修正しない） |
-| `/pro-synology-expose` | Synology NAS のサービスを外部ドメインに公開する設定ガイド |
 | `/pro-ssh` | リモートサーバーへ SSH 接続してコマンドを実行（AWS EC2、Synology NAS、Linux など汎用） |
 | `/pro-skill-creator` | Skill の作成・レビュー・改善（CREATE・REVIEW・IMPROVE の 3 モード） |
+
+**Extras**（オプションのプラグイン）：`/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 </details>
 

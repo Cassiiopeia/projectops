@@ -1,7 +1,7 @@
 # Agent Skills guide
 
 > **This repository is an Agent Skill package you can use with Claude Code, Cursor, Gemini CLI, and Codex CLI.**
-> Along with the GitHub Actions automation template, it provides 15 development/DevOps Skills.
+> Along with the GitHub Actions automation template, it provides 14 development/DevOps Skills.
 
 ---
 
@@ -101,14 +101,14 @@ In Codex there is no slash command UI. You use Skills by having it read the rele
 
 ---
 
-## Full Skill list (15)
+## Full Skill list (14)
 
 By purpose, they fall into four groups:
 
 - **Analysis** (1) — Only read code and never modify it. Return plans, reviews, or diagnoses.
 - **Implementation** (5) — Actually modify or create files.
 - **Development cycle automation** (3) — Do commits, deploys, and GitHub work for you.
-- **Document/artifact generation** (6) — Do not touch code; generate `.md` files or reports.
+- **Document/artifact generation** (5) — Do not touch code; generate `.md` files or reports.
 
 > Design, planning, and implementation are handled by `superpowers` (brainstorming → writing-plans → executing-plans), not by this plugin.
 
@@ -282,7 +282,7 @@ It **looks up and manages** GitHub issues/PRs/comments **independently**. Withou
 
 ---
 
-## 📝 Document/artifact generation Skills (6)
+## 📝 Document/artifact generation Skills (5)
 
 They do not touch code; they generate **document files** in a specific format.
 
@@ -331,20 +331,6 @@ QA that **actually runs apps, web, and servers and goes through them looking for
 
 ---
 
-### `/pro-synology-expose`
-
-**What does it do?**
-It guides you step by step through a **setup guide for exposing a web service on a Synology NAS under an external domain**. It covers adding DNS records (Cloudflare/Route53 and others), DSM reverse proxy setup, and issuing a Let's Encrypt certificate.
-
-**Modifies**: a setup guide `.md` file (guidance-focused; the user does the actual server setup)
-**Returns**: a tailored guide generated from the domain/DDNS/DNS provider/email you enter
-
-**When to use it**
-- When you need to publish a new service externally through Synology
-- When it is your first time setting up an HTTPS certificate
-
----
-
 ### `/pro-ssh`
 
 **What does it do?**
@@ -372,6 +358,38 @@ It manages Skill files in three modes: **create (CREATE), review (REVIEW), and i
 - When you want to build a new Skill from scratch to the standard
 - When checking whether an existing Skill matches the latest conventions
 - When you want to apply review results to a Skill right away
+
+---
+
+## Make it yours
+
+Skills write in your style. Put your preferences in `~/.projectops/config/config.json`; nothing is asked on first run, and empty settings mean each skill's default.
+
+```json
+{
+  "preferences": { "language": "en", "tone": "short and direct", "rules": ["no emoji"] },
+  "skills": { "pro-commit": { "preset": "gitmoji" } }
+}
+```
+
+- Layers (later wins): `preferences` → `skills.<skill-id>` → `github.repos[].preferences` → `github.repos[].skills.<skill-id>`.
+- `/pro-commit` picks its format in this order: the team's `issue_helper.commit_template` in `version.yml`, then the projectops format in a repo that has projectops installed, then your `template`, then your `preset` (`conventional` by default; also `projectops`, `gitmoji`, `custom`).
+- Preferences change presentation only. Approval gates, secret protection, `--dry-run` and the push ban cannot be turned off.
+- Details: [`skills/references/preferences.md`](https://github.com/Cassiiopeia/projectops/blob/main/skills/references/preferences.md).
+
+---
+
+## Extras (optional plugin)
+
+`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain) is not in the core plugin. It lives in the optional `projectops-extras` plugin.
+
+```bash
+# Claude Code
+claude plugin install projectops-extras@projectops-marketplace --scope user
+# Codex CLI: run `codex plugin marketplace add Cassiiopeia/projectops`, then install projectops-extras from the plugin list
+```
+
+Cursor, Gemini CLI and pi have no extras install path. `npx projectops` removes the skill on its next sync. To keep it, copy both `plugins/projectops-extras/skills/pro-synology-expose` and `plugins/projectops-extras/skills/references/` from this repository by hand.
 
 ---
 
@@ -420,7 +438,6 @@ flowchart TD
 | Quickly draft just an issue | `github` |
 | Generate a PR description / QA checklist | `report` / `testcase` |
 | Move a Figma design into code and compare it with the design | `figma` |
-| Synology external exposure guide | `synology-expose` |
 | SSH into a remote server and run commands | `ssh` |
 | Create a deploy PR + automerge | `changelog-deploy` |
 | Look up and manage GitHub issues/PRs | `github` |

@@ -8,6 +8,8 @@
 
 </div>
 
+**一次安装，从 Issue → 分支 → 发布 PR → 部署，每一步都有 Agent Skills 配合驱动。**
+
 ---
 
 ## 30 秒开始
@@ -32,7 +34,7 @@
 本项目从两个方向自动化开发工作流。
 
 **① GitHub Actions**：推送一次 main，版本管理、更新日志、CI/CD 部署全部自动完成。
-**② Agent Skills**：通过 `/pro-github`、`/pro-commit`、`/pro-report` 等命令，由 AI 代你撰写 Issue、提交信息和实现报告。
+**② Agent Skills**：通过 `/pro-github`、`/pro-commit`、`/pro-report` 等命令，由 AI 代你推进这套自动化的每一步：Issue、你自己风格的提交、报告和发布 PR。
 
 | 传统做法 | 使用 Projectops |
 |----------|---------------------|
@@ -40,9 +42,9 @@
 | 手写更新日志 | 每个发布 PR 自动生成（提交分析；配置 AI 密钥后为 AI 摘要） |
 | 从零搭建 CI/CD | 立即按项目类型配置好工作流 |
 | 每次按格式手写 Issue | `/pro-github` 一步按标准模板生成并提交 |
-| 手动把 Issue 链接复制到提交信息 | `/pro-commit` 根据 Issue 上下文自动补全 |
+| 手动把 Issue 链接复制到提交信息 | `/pro-commit` 根据 Issue 上下文，按你自己的格式自动补全 |
 | 手写 PR 说明和报告 | `/pro-report` 分析 git diff 后自动生成 |
-| 每次代码审查和分析都要重新输入提示词 | 15 个 Skills 提供一致的结果，无需重复输入 |
+| 每次代码审查和分析都要重新输入提示词 | 14 个 Skills 提供一致的结果，无需重复输入 |
 
 ---
 
@@ -56,7 +58,7 @@
 | 发布前的审查环节 | 发布 PR（develop → main），自动合并 | 由你合并的发布 PR | 默认没有，推送即发布 | “Version Packages” PR |
 | 更新日志 | 在发布 PR 中生成（提交分析或 AI 摘要） | 自动生成 | 自动生成（插件） | 由 changeset 文件汇总 |
 | 按项目类型的 CI/CD 工作流 | 有（Spring、Flutter、React、Node、Python ...） | 无 | 无 | 无 |
-| Issue 和 PR 助手、Agent Skills | 有 | 无 | 无 | 无 |
+| 驱动整个周期的 Agent Skills（Issue、worktree、你风格的提交、报告、发布 PR、真机 QA） | 有 | 无 | 无 | 无 |
 | 添加到仓库的内容 | 约 50 个文件（见下文） | 一个工作流和一个配置文件 | 一个配置文件和一个 CI 步骤 | `.changeset/` 文件夹和一个 CI 步骤 |
 
 - 只需要版本管理和更新日志？release-please 或 semantic-release 更轻量。
@@ -77,11 +79,15 @@
 
 创建 Issue 后，GitHub Actions 会自动运行，并在评论中给出**分支名和提交信息模板**。使用这个分支名工作，Issue 编号会自动关联到提交和报告中。
 
+**用 Agent 推进：** `/pro-github` 创建 Issue，`/pro-init-worktree` 准备工作空间，`/pro-commit` 按你的格式写提交。
+
 ### ② 创建 PR，变更摘要自动出现
 
 ![创建 PR 后出现变更摘要评论](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-pr-summary.gif)
 
 从工作分支创建 PR 后，会以评论形式发布根据提交分析得出的**变更摘要**。继续推送提交时，不会堆叠新评论，而是更新同一条评论。
+
+**用 Agent 推进：** `/pro-report` 分析 diff 并生成实现报告，`/pro-agent-test` 实际运行来验证。
 
 ### ③ 创建发布 PR，从确定版本到合并、打标签全部自动完成
 
@@ -89,7 +95,25 @@
 
 从开发分支向 `main` 创建 PR 后，会撰写发布说明，根据提交标题（`feat`、`fix` 等）确定版本并写入 PR 标题，随后自动合并并创建**版本标签**。此示例是 `feat` 提交，所以升级了次版本号。
 
+**用 Agent 推进：** `/pro-changelog-deploy` 代你推送 develop 并创建发布 PR。
+
 > GitHub 对韩文分支名显示的警告横幅在画面中已被隐藏，其余均为未经加工的真实画面。
+
+---
+
+## 打造专属风格（Make it yours）
+
+Skill 会按你的风格输出。把偏好写进 `~/.projectops/config/config.json`，首次运行不会额外提问。
+
+```json
+{
+  "preferences": { "language": "zh-CN", "tone": "简短直接", "rules": ["不使用 emoji"] },
+  "skills": { "pro-commit": { "preset": "gitmoji" } }
+}
+```
+
+`version.yml` 中的团队规则优先于个人风格。详见 [Skills 指南](../SKILLS.md)。
+
 ---
 
 ## 组成部分
@@ -97,18 +121,18 @@
 | 组成 | 作用 | 文档 |
 |---|---|---|
 | **GitHub Actions** | 推送一次 main，版本管理、更新日志、CI/CD 部署全部自动完成 | [版本管理](https://cassiiopeia.github.io/projectops/VERSION-CONTROL)（韩文） |
-| **Agent Skills**（15 个） | 通过 `/pro-github`、`/pro-commit`、`/pro-report` 等命令，由 AI 代你撰写 Issue、提交信息和实现报告 | [Skills 指南](https://cassiiopeia.github.io/projectops/SKILLS)（韩文） |
+| **Agent Skills**（14 个） | 通过 `/pro-github`、`/pro-commit`、`/pro-report` 等命令，由 AI 代你推进每一步：Issue、你风格的提交、报告、发布 PR | [Skills 指南](https://cassiiopeia.github.io/projectops/SKILLS)（韩文） |
 | **npx CLI** | 向现有项目安装并更新工作流，并诊断其状态 | [CLI 参考](https://cassiiopeia.github.io/projectops/en/cli)（英文） |
 
 <details>
-<summary>查看全部 15 个 Agent Skills</summary>
+<summary>查看全部 14 个 Agent Skills</summary>
 
 ### 🔄 开发周期自动化
 
 | 技能 | 用途 |
 |------|------|
 | `/pro-init-worktree` | 创建 Git worktree 并自动复制敏感文件 |
-| `/pro-commit` | 根据 Issue 上下文自动补全提交信息（遵循 superpowers） |
+| `/pro-commit` | 根据 Issue 上下文，按你的格式（preset 或 template）自动补全提交信息 |
 | `/pro-report` | 分析 git diff → 生成实现报告并自动发布为 GitHub 评论 |
 | `/pro-changelog-deploy` | 推送 develop → 创建 main 发布 PR + 撰写发布说明 + automerge |
 | `/pro-github` | GitHub 全面操作：创建 Issue（一句话描述 → 按模板撰写并提交）/查看/编辑/评论/标签/负责人，创建/合并/查看 PR，浏览仓库，管理 Actions 与 Secret |
@@ -136,9 +160,10 @@
 |------|------|
 | `/pro-testcase` | 分析 Issue → 生成 QA 检查清单 |
 | `/pro-agent-test` | 真正运行应用、网页和服务器来查找缺陷的 QA，并附复现步骤、依据和严重程度（不修改代码） |
-| `/pro-synology-expose` | 将 Synology NAS 服务暴露到外部域名的设置指南 |
 | `/pro-ssh` | 通过 SSH 连接远程服务器并执行命令（AWS EC2、Synology NAS、Linux 等通用） |
 | `/pro-skill-creator` | 创建/审查/改进 Skill（CREATE / REVIEW / IMPROVE 三种模式） |
+
+**Extras**（可选插件）：`/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 </details>
 
