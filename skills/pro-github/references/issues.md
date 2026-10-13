@@ -137,7 +137,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py normalize-title "❗[버
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-branch-name "이슈 제목" 235 --date 20260710
 # → {"branch":"20260710_#235_이슈_제목", ...}
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py get-commit-template "❗[Bug][Skills] 이슈 제목" "https://github.com/o/r/issues/235"
-# → {"template":"이슈 제목 : fix : {설명} https://...", ...}   타입은 제목 태그에서 추론 (버그→fix, 기능→feat)
+# → {"template":"...{description}...","source":"...","warnings":[]}   형식은 팀·개인 설정을 따른다 (예: 팀 형식이면 "이슈 제목 : fix : {description} https://..."). 타입은 제목 태그에서 추론 (버그→fix, 기능→feat)
+#   --repo-root PATH 로 형식을 찾을 레포를 지정한다 (생략하면 cwd). warnings 가 있으면 사용자에게 알린다
 #   태그와 실제 작업이 다를 때만 --type fix|docs|chore 등으로 직접 지정한다
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py get-output-path issue --title "❗[Bug][Skills] 이슈 제목"
 # → {"path":".../issue/20260710_001_이슈_제목.md", ...}   이슈 문서 저장 경로 (등록 전 일련번호)

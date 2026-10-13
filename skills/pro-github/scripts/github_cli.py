@@ -584,10 +584,15 @@ def _date_arg(value: str) -> str:
 
 
 def cmd_get_commit_template(args) -> int:
-    from common.gh_branch import get_commit_template
-    template = get_commit_template(args.issue_title, args.issue_url,
-                                    getattr(args, "commit_type", None))
-    return emit({"template": template, "summary": template})
+    # 커밋 스킬과 같은 해석 경로를 쓴다 — 이슈 생성 직후 보여주는 틀이 커밋 때와 갈라지지 않게
+    from common.commit_style import render, resolve_for_repo
+    from common.gh_branch import infer_commit_type
+    _, style = resolve_for_repo(getattr(args, "repo_root", None))
+    ctype = getattr(args, "commit_type", None) or infer_commit_type(args.issue_title)
+    template = render(style["template"], issue_title=args.issue_title, issue_url=args.issue_url,
+                      commit_type=ctype)
+    return emit({"template": template, "source": style["source"], "warnings": style["warnings"],
+                 "summary": template})
 
 
 def cmd_explore(args) -> int:
@@ -1039,6 +1044,8 @@ def build_parser() -> JSONArgumentParser:
     # 경우처럼 태그와 내용이 다를 때만 직접 지정한다.
     p_gct.add_argument("--type", dest="commit_type", default=None, type=_commit_type_arg,
                        help="커밋 타입 (fix·docs·chore 등). 생략하면 제목 태그에서 유도")
+    p_gct.add_argument("--repo-root", dest="repo_root", default=None,
+                       help="형식을 찾을 레포 루트 (생략하면 cwd)")
     p_gct.set_defaults(func=cmd_get_commit_template)
 
     p_ex = sub.add_parser("explore", help="레포 탐색 (list-repos|repo-detail|readme|languages|commits)")

@@ -47,8 +47,11 @@ def test_commit_type_is_validated(monkeypatch, request, cli):
 
 
 @pytest.mark.parametrize("ctype", ["fix", "feat", "docs", "chore", "feat!"])
-def test_commit_type_valid_values_still_work(monkeypatch, commit, ctype):
-    rc, out = _run(monkeypatch, commit, ["get-commit-template", "제목", "u", "--type", ctype])
+def test_commit_type_valid_values_still_work(monkeypatch, commit, ctype, tmp_path):
+    # 형식이 cwd·개인 설정에 따라 달라지므로 projectops 설치 레포를 직접 지정해 고정한다
+    (tmp_path / "version.yml").write_text("metadata:\n  template: {}\n", encoding="utf-8")
+    rc, out = _run(monkeypatch, commit, ["get-commit-template", "제목", "u", "--type", ctype,
+                                         "--repo-root", str(tmp_path)])
     assert rc == 0 and f": {ctype} :" in out["template"]
 
 

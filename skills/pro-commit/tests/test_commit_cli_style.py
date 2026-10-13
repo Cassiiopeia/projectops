@@ -37,3 +37,16 @@ def test_team_template_in_projectops_repo(tmp_path):
     (repo / "version.yml").write_text("metadata:\n  template: {}\n", encoding="utf-8")
     p = _run(["get-commit-template", "⚙️[기능추가] 검색", URL, "--repo-root", str(repo)], home, repo)
     assert p["template"] == f"검색 : feat : {{description}} {URL}" and p["source"] == "team-default"
+
+
+def test_repo_root_flag_vs_cwd(tmp_path):
+    home = _home(tmp_path, {"skills": {"pro-commit": {"preset": "conventional"}}})
+    repo = tmp_path / "r"; repo.mkdir()
+    (repo / "version.yml").write_text("metadata:\n  template: {}\n", encoding="utf-8")
+    plain = tmp_path / "plain"; plain.mkdir()
+    args = ["get-commit-template", "[Bug] 로그인", URL]
+    # cwd 는 일반 폴더, --repo-root 로 설치 레포를 가리키면 팀 형식
+    assert _run(args + ["--repo-root", str(repo)], home, tmp_path)["source"] == "team-default"
+    # 플래그 없이 cwd 만으로도 판정
+    assert _run(args, home, repo)["source"] == "team-default"
+    assert _run(args, home, plain)["template"].startswith("fix: ")

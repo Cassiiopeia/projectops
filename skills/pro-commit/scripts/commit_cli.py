@@ -73,12 +73,8 @@ def _commit_type_arg(value: str) -> str:
 
 def _style(args) -> tuple:
     """개인 preferences + 팀 version.yml 을 합쳐 커밋 형식을 정한다."""
-    from common.preferences import detect_repo, resolve
-    from common.commit_style import resolve_style
-    root = getattr(args, "repo_root", None) or os.getcwd()
-    owner, repo = detect_repo(root)
-    prefs = resolve("pro-commit", owner, repo, load=True)
-    return prefs, resolve_style(prefs["values"], root)
+    from common.commit_style import resolve_for_repo
+    return resolve_for_repo(getattr(args, "repo_root", None))
 
 
 def cmd_resolve_style(args) -> int:

@@ -130,3 +130,13 @@ def render(template: str, *, issue_title: str, issue_url: str, commit_type: str,
     while lines and not lines[-1]:
         lines.pop()
     return "\n".join(lines).strip()
+
+
+def resolve_for_repo(repo_root: str | None = None) -> tuple:
+    """레포의 커밋 형식을 해석한다 (팀 > 개인). pro-commit·이슈 헬퍼 CLI 가 같은 결과를 보게 하는 단일 경로."""
+    import os
+    from common.preferences import detect_repo, resolve
+    root = repo_root or os.getcwd()
+    owner, repo = detect_repo(root)
+    prefs = resolve("pro-commit", owner, repo, load=True)
+    return prefs, resolve_style(prefs["values"], root)

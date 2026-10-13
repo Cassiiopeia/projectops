@@ -184,7 +184,7 @@ Keys for this skill (set under `skills.pro-commit` in `~/.projectops/config/conf
 | Key | Meaning |
 |---|---|
 | `preset` | `conventional` (default for new users), `projectops`, `gitmoji`, or `custom` |
-| `template` | your own format when `preset` is `custom`; placeholders `{issue_title}` `{issue_url}` `{type}` `{scope}` `{description}` |
+| `template` | your own format, honored whenever set (the preset then becomes `custom`); placeholders `{issue_title}` `{issue_url}` `{issue_number}` `{type}` `{emoji}` `{scope}` `{description}`. Legacy `${issueTitle}`-style placeholders are accepted too |
 | `examples` | sample messages to match in voice and length; never copied verbatim |
 | `language` / `tone` / `rules` | how `{description}` is written |
 

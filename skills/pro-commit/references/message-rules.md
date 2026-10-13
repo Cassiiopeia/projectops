@@ -33,7 +33,7 @@
 
 ## 메시지 형식 (기본 프리셋 예시)
 
-실제 형식은 `resolve-style` 이 정한다 (팀 `version.yml` > 개인 preset/template > 기본 `conventional`). 아래는 `projectops` 프리셋의 예시일 뿐이다.
+실제 형식은 `resolve-style` 이 정한다 (팀 `version.yml` `commit_template` > projectops 설치 레포의 team-default > 개인 template/preset > 기본 `conventional`). 아래는 `projectops` 프리셋의 예시일 뿐이다.
 
 `{clean_title} : {타입} : {변경설명} {html_url}`
 

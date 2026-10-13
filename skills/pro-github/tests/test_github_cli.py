@@ -203,3 +203,21 @@ def test_actions_runs_without_pat_and_reports_it(tmp_path):
                                     "GITHUB_PAT": ""})
     d = json.loads(out)
     assert d["code"] == "missing_pat", d      # bad_args 가 아니라 PAT 문제로 보고
+
+
+def test_get_commit_template_follows_personal_preset(tmp_path):
+    """이슈 헬퍼 쪽 틀도 커밋 스킬과 같은 개인 설정을 따른다 (#864)."""
+    import json, subprocess, sys
+    from pathlib import Path
+    cli = Path(__file__).resolve().parents[1] / "scripts" / "github_cli.py"
+    home = tmp_path / "home"
+    (home / ".projectops" / "config").mkdir(parents=True)
+    (home / ".projectops" / "config" / "config.json").write_text(
+        json.dumps({"skills": {"pro-commit": {"preset": "conventional"}}}), encoding="utf-8")
+    repo = tmp_path / "r"; repo.mkdir()
+    url = "https://github.com/o/r/issues/3"
+    out = subprocess.run([sys.executable, str(cli), "get-commit-template", "[Bug] 로그인", url,
+                          "--repo-root", str(repo)], capture_output=True, text=True, cwd=repo,
+                         env={"HOME": str(home), "USERPROFILE": str(home), "PYTHONIOENCODING": "utf-8"})
+    p = json.loads(out.stdout)
+    assert p["ok"] and p["template"] == f"fix: {{description}}\n\n{url}" and p["source"] == "preferences"
