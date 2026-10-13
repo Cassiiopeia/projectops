@@ -28,8 +28,15 @@ def cmd_resolve(args) -> int:
         owner, repo = detect_repo()
     result = resolve(args.skill, owner, repo, load=True)
     keys = ", ".join(sorted(result["values"])) or "없음(기본값)"
-    return emit({**result, "repo": f"{owner}/{repo}" if owner else None,
-                 "summary": f"{args.skill} 설정: {keys}"})
+    payload = {**result, "repo": f"{owner}/{repo}" if owner else None,
+               "summary": f"{args.skill} 설정: {keys}"}
+    if result.get("config_status") == "unreadable":
+        # 깨진 config 를 조용히 기본값으로 덮으면 사용자는 설정이 왜 안 먹는지 모른다.
+        # 기본값으로 계속 진행할 수 있으므로 ok 는 유지하고 code 로만 알린다.
+        payload.update(code="config_unreadable",
+                       summary=f"config.json 을 읽지 못해 기본값을 쓴다 ({args.skill})",
+                       next="~/.projectops/config/config.json 의 JSON 문법을 고친다")
+    return emit(payload)
 
 
 def build_parser() -> JSONArgumentParser:

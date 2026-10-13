@@ -4,14 +4,25 @@
 표현 키만 받는다 — 안전 규칙(승인·dry-run 등)을 끄는 키는 ignored 로 빠진다.
 """
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from common.preferences import resolve  # noqa: E402
+
+
+def _env(home) -> dict:
+    """PATH·SYSTEMROOT 는 살리고 HOME 계열과 PYTHONPATH 만 격리한다 (기여자 config 가 새지 않게)."""
+    env = {k: v for k, v in os.environ.items()
+           if k not in ("HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "PYTHONPATH")}
+    env.update({"HOME": str(home), "USERPROFILE": str(home), "PYTHONIOENCODING": "utf-8"})
+    return env
 
 DATA = {
     "preferences": {"language": "ko", "tone": "간결하게", "rules": ["이모지 금지"]},
@@ -73,7 +84,7 @@ def test_cli_emits_json(tmp_path):
     (home / ".projectops" / "config" / "config.json").write_text(json.dumps(DATA), encoding="utf-8")
     out = subprocess.run(
         [sys.executable, str(ROOT / "scripts" / "prefs_cli.py"), "resolve", "--skill", "pro-commit", "--repo", "Acme/Web"],
-        capture_output=True, text=True, env={"HOME": str(home), "USERPROFILE": str(home), "PYTHONIOENCODING": "utf-8"},
+        capture_output=True, text=True, env=_env(home),
     )
     payload = json.loads(out.stdout)
     assert out.returncode == 0 and payload["ok"] is True
@@ -103,3 +114,56 @@ def test_malformed_sections_fall_back():
     r = resolve("pro-commit", owner="Acme", repo="Web", data=data)
     assert r["values"] == {"language": "en"}
     assert r["sources"]["language"] == "repos[Acme/Web].preferences"
+
+
+# ── 최종 리뷰 반영 (#864) ─────────────────────────────────────────────
+
+def test_format_pair_later_layer_wins():
+    """template·preset 은 한 쌍이다. 뒤 층(레포)이 preset 만 정해도 앞 층(전역) template 을 이긴다."""
+    data = {"skills": {"pro-commit": {"template": "{type}: {description}"}},
+            "github": {"repos": [{"owner": "Acme", "repo": "Web",
+                                  "skills": {"pro-commit": {"preset": "conventional"}}}]}}
+    r = resolve("pro-commit", owner="Acme", repo="Web", data=data)
+    assert r["values"].get("preset") == "conventional" and "template" not in r["values"]
+    # 레포가 아니면 전역 template 그대로
+    assert resolve("pro-commit", data=data)["values"] == {"template": "{type}: {description}"}
+
+
+def test_format_pair_same_layer_keeps_both():
+    data = {"skills": {"pro-commit": {"template": "x {description}", "preset": "gitmoji"}}}
+    assert resolve("pro-commit", data=data)["values"] == {"template": "x {description}", "preset": "gitmoji"}
+
+
+@pytest.mark.parametrize("url,expected", [
+    ("ssh://git@github.com:22/Acme/Web.git", ("Acme", "Web")),
+    ("ssh://git@github.com/Acme/Web.git", ("Acme", "Web")),
+    ("git@github.com:Acme/Web.git", ("Acme", "Web")),
+    ("git@github.com:1234/Web.git", ("1234", "Web")),
+    ("https://github.com/Acme/Web", ("Acme", "Web")),
+])
+def test_detect_repo_url_forms(tmp_path, url, expected):
+    from common.preferences import detect_repo
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "remote", "add", "origin", url], check=True)
+    assert detect_repo(str(tmp_path)) == expected
+
+
+def test_cli_reports_unreadable_config(tmp_path):
+    home = tmp_path / "home"
+    (home / ".projectops" / "config").mkdir(parents=True)
+    (home / ".projectops" / "config" / "config.json").write_text("{ broken", encoding="utf-8")
+    out = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "prefs_cli.py"), "resolve", "--skill", "pro-commit", "--repo", "a/b"],
+        capture_output=True, text=True, env=_env(home),
+    )
+    payload = json.loads(out.stdout)
+    assert payload["code"] == "config_unreadable" and payload["values"] == {}
+
+
+def test_config_with_bom_is_read(tmp_path, monkeypatch):
+    from common import config
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    p = tmp_path / ".projectops" / "config" / "config.json"
+    p.parent.mkdir(parents=True)
+    p.write_text(json.dumps({"preferences": {"tone": "x"}}), encoding="utf-8-sig")
+    assert config.load() == {"preferences": {"tone": "x"}}

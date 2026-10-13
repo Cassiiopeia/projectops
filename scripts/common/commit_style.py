@@ -23,7 +23,8 @@ _EMOJI = {"feat": "✨", "fix": "🐛", "docs": "📝", "refactor": "♻️", "t
 # 이슈 헬퍼(${...})와 한·영 설명 자리표시자를 새 이름으로 통일한다
 _LEGACY = [
     ("${issueTitle}", "{issue_title}"), ("${commitType}", "{type}"), ("${issueUrl}", "{issue_url}"),
-    ("${issueNumber}", "{issue_number}"), ("{변경 사항에 대한 설명}", "{description}"),
+    ("${issueNumber}", "{issue_number}"), ("${branchName}", "{branch_name}"), ("${date}", "{date}"),
+    ("${labels}", "{labels}"), ("${assignees}", "{assignees}"), ("{변경 사항에 대한 설명}", "{description}"),
     ("{description of the change}", "{description}"), ("{설명}", "{description}"),
 ]
 
@@ -49,39 +50,74 @@ def _unquote(v: str) -> str:
     return v[1:-1] if len(v) >= 2 and v[0] == v[-1] and v[0] in "'\"" else v
 
 
-def read_team_template(repo_root: str) -> tuple:
-    """(commit_template 또는 None, projectops 설치 여부, semver_auto 여부)."""
+def read_team_config(repo_root: str) -> dict:
+    """version.yml 에서 팀 커밋 설정을 읽는다.
+
+    issue_helper 섹션 해석은 `.github/scripts/issue_helper.py` load_config 와 같은 규칙이다
+    (첫 `issue_helper:` 블록만, 끝나면 멈춤, commit_type_map 은 얕은 맵 1개). 배포 경로가 달라
+    import 할 수 없어 복제하며, 일치는 test_commit_style 의 렌더 패리티 테스트가 강제한다.
+    """
+    out = {"template": None, "installed": False, "semver_auto": False, "commit_type_map": {}}
     path = Path(repo_root) / "version.yml"
     if not path.exists():
-        return None, False, False
-    template, installed, semver = None, False, False
-    in_helper, helper_indent = False, 0
-    for line in path.read_text(encoding="utf-8").splitlines():
+        return out
+    try:
+        # BOM 이 붙은 파일도 읽는다 (Windows 편집기)
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return out
+    section_indent = None
+    section_done = False
+    in_type_map, type_map_indent = False, 0
+    for line in lines:
         s = line.strip()
         if not s or s.startswith("#"):
             continue
         indent = len(line) - len(line.lstrip())
         # 설치 판정은 최상위 키만 본다. 중첩된 같은 이름 키는 projectops 설치의 증거가 아니다.
         if indent == 0 and re.match(r"^(issue_helper|metadata):", s):
-            installed = True
+            out["installed"] = True
         if re.match(r"^semver_auto:\s*true\b", s, re.IGNORECASE):
-            semver = True
-        if re.match(r"^issue_helper:\s*(#.*)?$", s):
-            in_helper, helper_indent = True, indent
+            out["semver_auto"] = True
+        if section_done:
             continue
-        if in_helper:
-            if indent <= helper_indent:
-                in_helper = False
-                continue
-            m = re.match(r"^commit_template\s*:\s*(.*)$", s)
-            if m:
-                template = _unquote(_strip_comment(m.group(1)))
-    return template, installed, semver
+        if section_indent is None:
+            if re.match(r"^issue_helper:\s*(#.*)?$", s):
+                section_indent = indent
+            continue
+        if indent <= section_indent:  # 섹션 종료 — 뒤에 같은 이름 섹션이 또 있어도 issue_helper 처럼 무시
+            section_done = True
+            continue
+        m = re.match(r"""^["']?([^"':]+)["']?\s*:\s*(.*?)\s*$""", s)
+        if not m:
+            continue
+        key, raw = m.group(1).strip(), _strip_comment(m.group(2))
+        if in_type_map and indent > type_map_indent:
+            out["commit_type_map"][key] = _unquote(raw)
+            continue
+        in_type_map = False
+        if key == "commit_type_map":
+            in_type_map, type_map_indent = True, indent
+        elif key == "commit_template":
+            out["template"] = _unquote(raw)
+    return out
 
 
-def resolve_style(prefs_values: dict, repo_root: str) -> dict:
+def read_team_template(repo_root: str) -> tuple:
+    """(commit_template 또는 None, projectops 설치 여부, semver_auto 여부). 하위호환용 — read_team_config 참조."""
+    cfg = read_team_config(repo_root)
+    return cfg["template"], cfg["installed"], cfg["semver_auto"]
+
+
+def resolve_style(prefs_values: dict, repo_root: str, *, legacy_user: bool = False) -> dict:
+    """형식 결정: 팀 template > 설치 레포 기본 > 개인 template/preset > (기존 사용자면 projectops) > conventional.
+
+    legacy_user — 예전부터 pro-commit 을 써 온 사람(승인 설정이 남아 있음). 형식을 정한 적이 없으면
+    새 기본값 대신 그동안 쓰던 projectops 형식을 유지해 어느 날 갑자기 바뀌지 않게 한다 (spec S1).
+    """
     warnings = []
-    team, installed, semver = read_team_template(repo_root)
+    team_cfg = read_team_config(repo_root)
+    team, installed, semver = team_cfg["template"], team_cfg["installed"], team_cfg["semver_auto"]
     preset = prefs_values.get("preset") or "conventional"
     if preset not in PRESETS and preset != "custom":
         warnings.append(f"알 수 없는 preset '{preset}' — conventional 을 쓴다")
@@ -96,47 +132,96 @@ def resolve_style(prefs_values: dict, repo_root: str) -> dict:
     elif preset == "custom":
         warnings.append("preset 이 custom 인데 template 이 없다 — conventional 을 쓴다")
         template, source, preset = PRESETS["conventional"], "default", "conventional"
+    elif not prefs_values.get("preset") and legacy_user:
+        template, source, preset = PRESETS["projectops"], "legacy-default", "projectops"
     else:
         template = PRESETS[preset]
         source = "preferences" if prefs_values.get("preset") else "default"
 
     if semver and "{type}" not in template:
         warnings.append("semver_auto 가 켜진 레포인데 형식에 {type} 이 없다 — 릴리스가 항상 patch 로 판정된다")
-    return {"template": template, "source": source, "preset": preset, "warnings": warnings}
+    return {"template": template, "source": source, "preset": preset, "warnings": warnings,
+            "commit_type_map": team_cfg["commit_type_map"]}
 
 
-_PLACEHOLDER = re.compile(r"\{(issue_title|type|scope|issue_url|issue_number|emoji)\}")
+# 알려진 자리표시자 + 이슈 헬퍼에도 없는 ${...}. 후자는 채울 값이 없으므로 문자 그대로 커밋에
+# 박히지 않게 빈 값으로 본다. 한 정규식으로 한 번에 치환해야 제목 속 "${x}" 글자를 건드리지 않는다.
+_PLACEHOLDER = re.compile(
+    r"\{(issue_title|type|scope|issue_url|issue_number|emoji|branch_name|date|labels|assignees)\}"
+    r"|\$\{[A-Za-z_]\w*\}")
+_EMPTY = "\x00"  # 빈 값 자리 표식. 주변 구분자를 함께 걷기 위해 잠시 남긴다
 
 
-def render(template: str, *, issue_title: str, issue_url: str, commit_type: str, scope: str = "") -> str:
-    """{description} 만 남기고 채운다. 빈 값 때문에 생기는 '()'·빈 URL 줄·앞 구분자를 지운다."""
+def _drop_empty(line: str) -> str:
+    """빈 값 때문에 남는 '()'·'[]'·'#'·앞 구분자(' : ' 등)·겹 공백을 지운다."""
+    if _EMPTY not in line:
+        return line
+    line = re.sub(r"[(\[]\x00[)\]]", _EMPTY, line)
+    line = re.sub(r"[#@]\x00", _EMPTY, line)
+    line = re.sub(r"\s*[:|,]\s*\x00", _EMPTY, line)       # 앞 구분자째
+    line = re.sub(r"^\s*\x00\s*[:|,]?\s*", "", line)     # 줄 머리면 뒤 구분자째
+    line = line.replace(_EMPTY, "")
+    return re.sub(r" {2,}", " ", line)
+
+
+def render(template: str, *, issue_title: str, issue_url: str, commit_type: str, scope: str = "",
+           branch_name: str = "", date: str = "", labels: str = "", assignees: str = "") -> str:
+    """{description} 만 남기고 채운다. 빈 값 때문에 생기는 '()'·빈 URL 줄·앞 구분자를 지운다.
+
+    branch_name·date·labels·assignees 는 이슈 헬퍼(${branchName} 등)와 같은 자리표시자다.
+    모르면 비워 두며, 그 자리는 주변 구분자와 함께 사라진다.
+    """
     out = normalize_placeholders(template)
-    if not scope:
-        out = out.replace("({scope})", "")
     num = re.search(r"/issues/(\d+)", issue_url or "")
     values = {
         "issue_title": strip_issue_decorations(issue_title) if issue_title else "",
         "type": commit_type, "scope": scope, "issue_url": issue_url or "",
         "issue_number": num.group(1) if num else "", "emoji": _EMOJI.get(commit_type, "🔧"),
+        "branch_name": branch_name, "date": date, "labels": labels, "assignees": assignees,
     }
     # 한 번에 치환한다. 순차 replace 면 제목에 든 "{type}" 같은 글자가 뒤의 치환에 다시 걸린다.
-    out = _PLACEHOLDER.sub(lambda m: values[m.group(1)], out)
-    lines = []
-    for ln in out.split("\n"):
-        # 제목이 비면 "제목 : 타입" 형식이 앞에 " : " 를 남긴다. 그 구분자만 떼어낸다.
-        if not issue_title:
-            ln = ln.lstrip(" :")
-        lines.append(ln.rstrip())
+    out = _PLACEHOLDER.sub(lambda m: (values[m.group(1)] if m.group(1) else "") or _EMPTY, out)
+    lines = [_drop_empty(ln).rstrip() for ln in out.split("\n")]
     while lines and not lines[-1]:
         lines.pop()
     return "\n".join(lines).strip()
 
 
+def render_for_issue(style: dict, *, issue_title: str, issue_url: str, commit_type: str | None = None,
+                     scope: str = "", **extra) -> str:
+    """해석된 형식(style)으로 렌더한다. 타입을 안 주면 팀 commit_type_map 까지 반영해 제목 태그에서 유도한다.
+
+    두 CLI(커밋·GitHub)가 이 함수 하나를 써야 이슈 헬퍼 댓글과 같은 타입이 나온다.
+    """
+    from common.gh_branch import infer_commit_type
+    ctype = commit_type or infer_commit_type(issue_title, style.get("commit_type_map") or None)
+    return render(style["template"], issue_title=issue_title, issue_url=issue_url, commit_type=ctype,
+                  scope=scope, **extra)
+
+
 def resolve_for_repo(repo_root: str | None = None) -> tuple:
     """레포의 커밋 형식을 해석한다 (팀 > 개인). pro-commit·이슈 헬퍼 CLI 가 같은 결과를 보게 하는 단일 경로."""
-    import os
-    from common.preferences import detect_repo, resolve
-    root = repo_root or os.getcwd()
+    from common import config
+    from common.preferences import detect_repo, is_legacy_commit_user, resolve
+    root = repo_root or _toplevel()
     owner, repo = detect_repo(root)
-    prefs = resolve("pro-commit", owner, repo, load=True)
-    return prefs, resolve_style(prefs["values"], root)
+    data, status = config.load_with_status()
+    prefs = resolve("pro-commit", owner, repo, data if status == "ok" else None)
+    style = resolve_style(prefs["values"], root, legacy_user=is_legacy_commit_user(data))
+    if status == "unreadable":
+        prefs["config_status"] = status
+        style["warnings"].append("config.json 을 읽지 못해 개인 설정 없이 기본값을 쓴다")
+    return prefs, style
+
+
+def _toplevel() -> str:
+    """cwd 가 속한 git 레포 루트. 하위 폴더에서 불러도 루트의 version.yml(팀 형식)을 찾게 한다."""
+    import os
+    import subprocess
+    cwd = os.getcwd()
+    try:
+        r = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=cwd,
+                           capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return cwd
+    return r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else cwd

@@ -29,15 +29,24 @@ def config_path() -> Path:
     return new
 
 
-def load() -> Optional[dict]:
-    """config.json 전체를 dict로 읽어 반환한다. 파일이 없거나 깨졌으면 None."""
+def load_with_status() -> tuple:
+    """(data, status). status 는 "ok" · "missing" · "unreadable".
+
+    없음과 깨짐을 구분해야 "설정이 무시되고 있다"를 사용자에게 알릴 수 있다.
+    """
     path = config_path()
     if not path.exists():
-        return None
+        return None, "missing"
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return None
+        # Windows 메모장이 붙이는 BOM 이 있으면 json 이 깨진다 — utf-8-sig 는 BOM 이 없어도 그대로 읽는다
+        return json.loads(path.read_text(encoding="utf-8-sig")), "ok"
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+        return None, "unreadable"
+
+
+def load() -> Optional[dict]:
+    """config.json 전체를 dict로 읽어 반환한다. 파일이 없거나 깨졌으면 None."""
+    return load_with_status()[0]
 
 
 def get_section(skill_id: str) -> Optional[dict]:

@@ -5,16 +5,18 @@ GitHub API 실제 호출 안 함 — emit JSON 출력 형식·argparse 라우팅
 import json
 import sys
 import subprocess
+import tempfile
 from pathlib import Path
 
 CLI = Path(__file__).resolve().parents[1] / "scripts" / "github_cli.py"
+# 기본 HOME — 비어 있는 임시 폴더. 기여자의 실제 PAT 로 GitHub 에 요청이 나가지 않게 한다 (종료 시 정리)
+_EMPTY_HOME = tempfile.TemporaryDirectory(prefix="pops-gh-home-")
 
 
 def run_cli(*args, env_extra=None):
-    env = {**__import__("os").environ}
+    env = _isolated_env(_EMPTY_HOME.name)
     if env_extra:
         env.update(env_extra)
-    env.setdefault("PYTHONIOENCODING", "utf-8")
     result = subprocess.run(
         [sys.executable, str(CLI), *args],
         capture_output=True, text=True, encoding="utf-8", env=env,
@@ -39,7 +41,7 @@ def test_get_issue_missing_args_returns_argparse_error():
         capture_output=True,
         text=True,
         encoding="utf-8",
-        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+        env=_isolated_env(_EMPTY_HOME.name),
     )
     assert result.returncode == 1
     payload = json.loads(result.stdout.strip().splitlines()[-1])
@@ -218,6 +220,30 @@ def test_get_commit_template_follows_personal_preset(tmp_path):
     url = "https://github.com/o/r/issues/3"
     out = subprocess.run([sys.executable, str(cli), "get-commit-template", "[Bug] 로그인", url,
                           "--repo-root", str(repo)], capture_output=True, text=True, cwd=repo,
-                         env={"HOME": str(home), "USERPROFILE": str(home), "PYTHONIOENCODING": "utf-8"})
+                         env=_isolated_env(home))
     p = json.loads(out.stdout)
     assert p["ok"] and p["template"] == f"fix: {{description}}\n\n{url}" and p["source"] == "preferences"
+
+
+def _isolated_env(home) -> dict:
+    """PATH·SYSTEMROOT 는 살리고 HOME 계열과 PYTHONPATH 만 격리한다 (기여자 config 가 새지 않게)."""
+    import os
+    env = {k: v for k, v in os.environ.items()
+           if k not in ("HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "PYTHONPATH")}
+    env.update({"HOME": str(home), "USERPROFILE": str(home), "PYTHONIOENCODING": "utf-8"})
+    return env
+
+
+def test_get_commit_template_accepts_scope(tmp_path):
+    """커밋 스킬과 같은 --scope 를 받는다 (#864 최종 리뷰)."""
+    home = tmp_path / "home"
+    (home / ".projectops" / "config").mkdir(parents=True)
+    (home / ".projectops" / "config" / "config.json").write_text(
+        json.dumps({"skills": {"pro-commit": {"preset": "conventional"}}}), encoding="utf-8")
+    repo = tmp_path / "r"; repo.mkdir()
+    url = "https://github.com/o/r/issues/3"
+    out = subprocess.run([sys.executable, str(CLI), "get-commit-template", "[Bug] 로그인", url,
+                          "--scope", "auth", "--repo-root", str(repo)],
+                         capture_output=True, text=True, cwd=repo, env=_isolated_env(home))
+    p = json.loads(out.stdout)
+    assert p["template"] == f"fix(auth): {{description}}\n\n{url}", p

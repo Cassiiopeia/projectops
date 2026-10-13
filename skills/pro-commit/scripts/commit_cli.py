@@ -86,12 +86,12 @@ def cmd_resolve_style(args) -> int:
 
 
 def cmd_get_commit_template(args) -> int:
-    from common.commit_style import render
-    from common.gh_branch import infer_commit_type
+    from common.commit_style import render_for_issue
     _, style = _style(args)
-    ctype = getattr(args, "commit_type", None) or infer_commit_type(args.issue_title)
-    template = render(style["template"], issue_title=args.issue_title, issue_url=args.issue_url,
-                      commit_type=ctype, scope=getattr(args, "scope", None) or "")
+    # 타입 생략 시 팀 commit_type_map 까지 반영 — 이슈 헬퍼 댓글과 같은 타입이 나오게
+    template = render_for_issue(style, issue_title=args.issue_title, issue_url=args.issue_url,
+                                commit_type=getattr(args, "commit_type", None),
+                                scope=getattr(args, "scope", None) or "")
     return emit({"template": template, "source": style["source"], "warnings": style["warnings"],
                  "summary": template})
 
@@ -151,12 +151,12 @@ def build_parser() -> JSONArgumentParser:
                        help="커밋 타입 (fix·docs·chore 등). 생략하면 제목 태그에서 유도")
     p_gct.add_argument("--scope", default=None, help="{scope} 자리표시자에 넣을 값")
     p_gct.add_argument("--repo-root", dest="repo_root", default=None,
-                       help="형식을 찾을 레포 루트 (생략하면 cwd)")
+                       help="형식을 찾을 레포 루트 (생략하면 cwd 의 git 루트, git 이 아니면 cwd)")
     p_gct.set_defaults(func=cmd_get_commit_template)
 
     p_rs = sub.add_parser("resolve-style", help="커밋 형식·말투 (팀 > 개인) 조회")
     p_rs.add_argument("--repo-root", dest="repo_root", default=None,
-                      help="형식을 찾을 레포 루트 (생략하면 cwd)")
+                      help="형식을 찾을 레포 루트 (생략하면 cwd 의 git 루트, git 이 아니면 cwd)")
     p_rs.set_defaults(func=cmd_resolve_style)
 
     return parser

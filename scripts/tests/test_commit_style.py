@@ -98,3 +98,99 @@ def test_title_with_placeholder_text_is_rendered_literally():
 def test_empty_title_leaves_no_leading_separator():
     out = render(PRESETS["projectops"], issue_title="", issue_url=URL, commit_type="feat")
     assert out == f"feat : {{description}} {URL}"
+
+
+# ── 최종 리뷰 반영 (#864) ─────────────────────────────────────────────
+
+def test_legacy_user_keeps_projectops_format(tmp_path):
+    """기존 pro-commit 사용자(github.commit 있음, 형식 설정 없음)는 갑자기 conventional 로 바뀌지 않는다."""
+    s = resolve_style({}, str(tmp_path), legacy_user=True)
+    assert s["preset"] == "projectops" and s["source"] == "legacy-default"
+    assert s["template"] == PRESETS["projectops"]
+
+
+def test_legacy_user_explicit_preset_still_wins(tmp_path):
+    s = resolve_style({"preset": "gitmoji"}, str(tmp_path), legacy_user=True)
+    assert s["preset"] == "gitmoji" and s["source"] == "preferences"
+
+
+def test_legacy_flag_does_not_beat_team_format(tmp_path):
+    root = _yml(tmp_path, "metadata:\n  template: {}\n")
+    assert resolve_style({}, root, legacy_user=True)["source"] == "team-default"
+
+
+def test_render_issue_helper_extra_vars():
+    t = "${branchName} | ${date} | ${labels} | ${assignees} | {type}: {description}"
+    out = render(t, issue_title="x", issue_url=URL, commit_type="feat",
+                 branch_name="20261013_#7_x", date="20261013", labels="bug, ui", assignees="me")
+    assert out == "20261013_#7_x | 20261013 | bug, ui | me | feat: {description}"
+
+
+def test_render_unknown_values_leave_no_placeholder_or_dangling_separator():
+    t = "${issueTitle} : ${commitType} : {설명} (${labels}) ${issueUrl} : ${assignees} ${unknownVar}"
+    out = render(t, issue_title="로그인", issue_url=URL, commit_type="feat")
+    assert "${" not in out and "()" not in out and "  " not in out
+    assert out == f"로그인 : feat : {{description}} {URL}"
+
+
+def test_team_commit_type_map_is_read(tmp_path):
+    root = _yml(tmp_path, "issue_helper:\n  commit_type_map:\n    \"정리\": chore\n    잡일: chore  # 주석\n")
+    s = resolve_style({}, root)
+    assert s["commit_type_map"] == {"정리": "chore", "잡일": "chore"}
+
+
+# 같은 제목·URL·템플릿이면 워크플로우 댓글(issue_helper)과 스킬(commit_style)의 **렌더 결과**가 같아야 한다.
+_ALL_VARS = ("\"${issueTitle} : ${commitType} : {변경 사항에 대한 설명} #${issueNumber} "
+             "${branchName} ${date} [${labels}] @${assignees} ${issueUrl}\"")
+PARITY_TOP = f"issue_helper:\n  commit_template: {_ALL_VARS}\n  commit_type_map:\n    정리: chore\n"
+PARITY_NESTED = ("version: 1.0.0\nmetadata:\n  template:\n    options:\n      issue_helper:\n"
+                 f"        commit_template: {_ALL_VARS}\n        commit_type_map:\n          정리: chore\n")
+
+
+@pytest.mark.parametrize("body", [PARITY_TOP, PARITY_NESTED], ids=["top-level", "nested"])
+@pytest.mark.parametrize("raw_title", ["⚙️[정리] 로그 정리", "[버그] 로그인 실패", "[Feature] Search"])
+def test_rendered_output_matches_issue_helper(tmp_path, body, raw_title):
+    import issue_helper
+    from common.commit_style import render_for_issue
+    root = _yml(tmp_path, body)
+    payload = {"issue": {"title": raw_title, "number": 7, "html_url": URL,
+                         "labels": [{"name": "bug"}, {"name": "ui"}], "assignees": [{"login": "me"}]}}
+    wf = tmp_path / "wf"; wf.mkdir()
+    cfg = issue_helper.load_config(root)
+    branch, ih_msg, _ = issue_helper.prepare_comment(payload, cfg, wf, "20261013")
+
+    style = resolve_style({}, root)
+    ours = render_for_issue(style, issue_title=raw_title, issue_url=URL, branch_name=branch,
+                            date="20261013", labels="bug, ui", assignees="me")
+    assert ours == normalize_placeholders(ih_msg)
+
+
+def test_version_yml_with_bom(tmp_path):
+    (tmp_path / "version.yml").write_text("issue_helper:\n  commit_template: \"{type}: {설명}\"\n",
+                                          encoding="utf-8-sig")
+    assert read_team_template(str(tmp_path))[0] == "{type}: {설명}"
+
+
+def test_resolve_for_repo_defaults_to_git_toplevel(tmp_path, monkeypatch):
+    """하위 폴더에서 불러도 레포 루트의 version.yml(팀 형식)을 찾는다."""
+    import subprocess
+    from common import commit_style
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / "version.yml").write_text("metadata:\n  template: {}\n", encoding="utf-8")
+    sub = tmp_path / "a" / "b"; sub.mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path / "home"))
+    monkeypatch.chdir(sub)
+    _, style = commit_style.resolve_for_repo()
+    assert style["source"] == "team-default"
+
+
+def test_resolve_for_repo_marks_legacy_user(tmp_path, monkeypatch):
+    import json as _json
+    from common import commit_style
+    home = tmp_path / "home"; (home / ".projectops" / "config").mkdir(parents=True)
+    (home / ".projectops" / "config" / "config.json").write_text(
+        _json.dumps({"github": {"commit": {"auto_approve": False}}}), encoding="utf-8")
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    plain = tmp_path / "plain"; plain.mkdir()
+    _, style = commit_style.resolve_for_repo(str(plain))
+    assert style["source"] == "legacy-default" and style["preset"] == "projectops"

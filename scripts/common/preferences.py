@@ -27,15 +27,27 @@ def _as_dict(x: object) -> dict:
     return x if isinstance(x, dict) else {}
 
 
+# 형식을 정하는 키 쌍. 한 층이 둘 중 하나라도 정하면 앞 층의 쌍을 통째로 버린다 —
+# 그렇지 않으면 레포 층의 preset 이 전역 template 에 늘 져서 "레포마다 다른 형식"을 쓸 수 없다.
+FORMAT_KEYS = ("template", "preset")
+
+
+def _valid(key: str, val: object, allowed: tuple) -> bool:
+    typ = _TYPES.get(key)
+    if key not in allowed or typ is None or not isinstance(val, typ):
+        return False
+    return not (typ is list and not all(isinstance(x, str) for x in val))
+
+
 def _take(layer: object, allowed: tuple, label: str, values: dict, sources: dict, ignored: list) -> None:
     if not isinstance(layer, dict):
         return
+    if any(k in FORMAT_KEYS and _valid(k, v, allowed) for k, v in layer.items()):
+        for k in FORMAT_KEYS:
+            values.pop(k, None)
+            sources.pop(k, None)
     for key, val in layer.items():
-        typ = _TYPES.get(key)
-        if key not in allowed or typ is None or not isinstance(val, typ):
-            ignored.append(f"{label}.{key}")
-            continue
-        if typ is list and not all(isinstance(x, str) for x in val):
+        if not _valid(key, val, allowed):
             ignored.append(f"{label}.{key}")
             continue
         values[key] = val
@@ -62,14 +74,20 @@ def resolve(skill_id: str, owner: Optional[str] = None, repo: Optional[str] = No
     """층을 순서대로 덮어 최종 값과 출처를 돌려준다.
 
     data 를 안 넘기고 load=True 면 config 파일을 읽는다. 파일이 없거나 깨졌으면 빈 결과.
+    config_status 는 "ok" · "missing" · "unreadable" (data 를 직접 넘기면 "ok").
     """
+    status = "ok"
     if data is None and load:
-        data = config.load()
+        data, status = config.load_with_status()
     values: dict = {}
     sources: dict = {}
     ignored: list = []
     if not isinstance(data, dict):
-        return {"values": values, "sources": sources, "ignored": ignored}
+        if data is None:
+            status = "missing" if status == "ok" else status
+        else:
+            status = "unreadable"  # 최상위가 객체가 아닌 JSON 도 읽을 수 없는 설정이다
+        return {"values": values, "sources": sources, "ignored": ignored, "config_status": status}
 
     skill_allowed = COMMON_KEYS + SKILL_KEYS
     _take(data.get("preferences"), COMMON_KEYS, "preferences", values, sources, ignored)
@@ -81,10 +99,25 @@ def resolve(skill_id: str, owner: Optional[str] = None, repo: Optional[str] = No
         _take(entry.get("preferences"), COMMON_KEYS, f"{tag}.preferences", values, sources, ignored)
         _take(_as_dict(entry.get("skills")).get(skill_id), skill_allowed, f"{tag}.skills.{skill_id}",
               values, sources, ignored)
-    return {"values": values, "sources": sources, "ignored": ignored}
+    return {"values": values, "sources": sources, "ignored": ignored, "config_status": status}
 
 
-_REMOTE = re.compile(r"github\.com[:/]+([^/]+)/([^/]+?)(?:\.git)?/?$")
+def is_legacy_commit_user(data: Optional[dict]) -> bool:
+    """예전부터 pro-commit 을 써 온 사람인가 — 승인 설정(github.commit 또는 repos[].commit)이 남아 있다.
+
+    이런 사람에게 새 기본값(conventional)을 조용히 적용하면 어느 날 커밋 형식이 바뀐다 (spec S1).
+    """
+    gh = _as_dict(_as_dict(data).get("github"))
+    if isinstance(gh.get("commit"), dict):
+        return True
+    repos = gh.get("repos")
+    return isinstance(repos, list) and any(isinstance(r, dict) and isinstance(r.get("commit"), dict)
+                                           for r in repos)
+
+
+# ssh://git@github.com:22/o/r 처럼 포트가 붙는 형태가 있다. 포트는 owner 가 아니므로 건너뛴다
+# (scp 형식 git@github.com:1234/r 은 뒤에 두 마디가 없어 포트로 오인되지 않는다).
+_REMOTE = re.compile(r"github\.com(?::\d+(?=/))?[:/]+([^/]+)/([^/]+?)(?:\.git)?/?$")
 
 
 def detect_repo(cwd: Optional[str] = None) -> tuple:
