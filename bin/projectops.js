@@ -15,4 +15,6 @@ const indexPath = join(here, "..", "src", "index.js");
 const { run } = await import(pathToFileURL(indexPath).href);
 
 const code = await run(process.argv.slice(2), { cwd: process.cwd() });
-process.exit(code);
+// stdout 이 파이프면 쓰기가 비동기라, 바로 exit 하면 큰 출력(--mode options --json)이 8KB 근처에서 잘린다.
+// 빈 write 의 콜백은 앞선 쓰기가 모두 넘겨진 뒤에 불리므로, 거기서 종료한다.
+process.stdout.write("", () => process.exit(code));

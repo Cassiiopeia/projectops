@@ -6,9 +6,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { commonOptionalGroups, serverDeployEnabled } from "../src/core/workflow-groups.js";
 
-const COMMON = new URL("../.github/workflows/project-types/common/", import.meta.url).pathname;
+// pathname 은 Windows 에서 "/D:/..." 라 join 하면 "D:\D:\..." 가 된다 — fileURLToPath 를 쓴다
+const COMMON = fileURLToPath(new URL("../.github/workflows/project-types/common/", import.meta.url));
 const subdirs = (d) => readdirSync(d, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
 
 test("common/ 아래 모든 하위 폴더가 선택형 그룹 표에 있다", () => {

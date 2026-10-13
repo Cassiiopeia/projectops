@@ -5,7 +5,8 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = join(import.meta.dirname, "..");
-const read = (rel) => readFileSync(join(ROOT, rel), "utf8");
+// Windows 체크아웃은 줄바꿈이 CRLF 라 frontmatter 정규식(\n)이 안 맞는다 — 구조 비교 전에 LF 로 맞춘다
+const read = (rel) => readFileSync(join(ROOT, rel), "utf8").replace(/\r\n/g, "\n");
 const TEMPLATES = ["bug_report", "feature_request", "design_request", "qa_request"].map((n) => `.github/ISSUE_TEMPLATE/${n}.md`);
 const PAIRS = [...TEMPLATES, ".github/PULL_REQUEST_TEMPLATE.md"].map((rel) => [rel, rel.replace(".github/", ".github/i18n/ko/")]);
 

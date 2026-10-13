@@ -68,7 +68,8 @@ def main(argv=None) -> int:
         out = {"comment": build_comment(a.lang, a.qa, a.original)}
     else:
         out = {"error": build_error(a.lang, a.message)}
-    print(json.dumps(out, ensure_ascii=False))
+    # Windows 콘솔 기본 인코딩(cp1252 등)은 이모지·한글을 못 써서 죽는다 — 출력은 항상 UTF-8 로 낸다
+    sys.stdout.buffer.write((json.dumps(out, ensure_ascii=False) + "\n").encode("utf-8"))
     return 0
 
 
