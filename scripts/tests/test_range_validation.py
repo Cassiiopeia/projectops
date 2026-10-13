@@ -22,6 +22,16 @@ def _load(rel: str, name: str):
     return mod
 
 
+@pytest.fixture(autouse=True)
+def _isolated_home(monkeypatch, tmp_path):
+    """실제 ~/.projectops 를 읽지 않고, ~/.suh-template 이주 복사도 일으키지 않게 HOME 을 격리한다."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+
+
 def _run(monkeypatch, mod, argv):
     buf = io.StringIO()
     monkeypatch.setattr(sys, "stdout", buf)
