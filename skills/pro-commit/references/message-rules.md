@@ -11,7 +11,7 @@
 3. 앞뒤 공백 trim — 결과가 비면 원본 제목을 그대로 사용
 
 같은 규칙을 `commit_cli.py normalize-title "<제목>"` 이 실행한다. 이슈 URL·정제 제목·타입을 한 번에 조립하려면
-`commit_cli.py get-commit-template "<이슈제목>" "<이슈URL>" [--type fix]` 를 쓴다 (`--type` 을 생략하면 제목 태그에서 유도하므로, 태그와 실제 작업이 다를 때만 지정). 현재 작업 디렉터리 기준 이슈 번호는
+`commit_cli.py get-commit-template "<이슈제목>" "<이슈URL>" [--type fix] [--scope S]` 를 쓴다 (`--type` 을 생략하면 제목 태그에서 유도하므로, 태그와 실제 작업이 다를 때만 지정). 현재 작업 디렉터리 기준 이슈 번호는
 `commit_cli.py get-issue-number` 로도 얻을 수 있다.
 
 ## 타입 추천표
@@ -31,7 +31,9 @@
 기존 사용자의 설정·API·CLI 인자가 더 이상 동작하지 않게 되는 변경에만 붙이고,
 확신이 없으면 붙이지 않는다 (사용자에게 물어본다).
 
-## 메시지 형식
+## 메시지 형식 (기본 프리셋 예시)
+
+실제 형식은 `resolve-style` 이 정한다 (팀 `version.yml` > 개인 preset/template > 기본 `conventional`). 아래는 `projectops` 프리셋의 예시일 뿐이다.
 
 `{clean_title} : {타입} : {변경설명} {html_url}`
 
@@ -40,7 +42,7 @@
 | `clean_title` | 위 정제 결과 **그대로** — agent가 다시 요약/재작성하지 않는다 |
 | `html_url` | `get-issue` 결과 **그대로** |
 | `{타입}` | diff 분석으로 agent 추천 (사용자 승인) |
-| `{변경설명}` | staged diff 분석으로 agent 작성 (사용자 승인) |
+| `{변경설명}` | staged diff 분석으로 agent 작성 — `language`·`tone`·`rules`·`examples` 설정을 따른다 (사용자 승인) |
 
 - agent가 자유 판단하는 부분은 **타입과 변경설명뿐**이다.
 - `{변경설명}`에 `@username` GitHub mention(`@claude` 등)을 절대 포함하지 않는다. 이슈 본문·제목에서 따온 문구에 mention이 있으면 제거 후 사용한다.

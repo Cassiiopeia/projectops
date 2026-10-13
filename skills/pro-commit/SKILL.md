@@ -16,7 +16,8 @@ description: "브랜치명에서 이슈 번호를 자동 추출해 커밋 메시
 |---|---|---|
 | 이슈 제목·URL 조회 | `get-issue {owner} {repo} {번호}` | 3단계 |
 | 현재 브랜치(cwd)의 이슈 번호 | `get-issue-number` | 3단계 |
-| 이슈 제목 정제 · 메시지 틀 조립 | `normalize-title "<제목>"` · `get-commit-template "<제목>" "<URL>" [--type fix]` | `references/message-rules.md` |
+| 커밋 형식·말투 조회 (팀 > 개인) | `resolve-style [--repo-root PATH]` | 4단계 · Customize |
+| 이슈 제목 정제 · 메시지 틀 조립 | `normalize-title "<제목>"` · `get-commit-template "<제목>" "<URL>" [--type fix] [--scope S] [--repo-root PATH]` | `references/message-rules.md` |
 | 커밋 직전 mention trailer 제거 | `sanitize-message "<메시지>"` | `references/message-rules.md` |
 | 자동/수동 승인 판정 · 첫 실행 제안 | (config Read/Write) | `references/approval-gate.md` |
 
@@ -126,11 +127,16 @@ PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/commit_cli.py" get-issue {owner} {r
 
 ### 4단계: 메시지 구성
 
-**형식**: `{clean_title} : {타입} : {변경설명} {html_url}`
+형식은 하드코딩이 아니라 설정에서 온다. 순서대로 한다.
 
-- agent가 정하는 것은 **타입과 변경설명뿐**이다. 타입은 staged diff로 추천한다(feat/fix/refactor/docs/chore/test/style — 표는 `references/message-rules.md`).
+1. `resolve-style` 로 `template`·`source`·`preset`·`language`·`tone`·`rules`·`examples`·`warnings` 를 받는다. `warnings`·`ignored` 가 비어 있지 않으면 사용자에게 한 줄로 알린다.
+2. `get-commit-template "<제목>" "<URL>" [--type T] [--scope S]` 로 틀을 받는다. 틀에는 `{description}` 만 남아 있다.
+3. `{description}` 을 staged diff 로 채운다. `language`·`tone`·`rules` 를 따르고, `examples` 는 문체·길이 참고만 하며 그대로 베끼지 않는다. 비어 있으면 기본 동작이다.
+
+- 이슈 제목 정제와 URL 은 CLI 결과를 그대로 쓴다 (요약·재작성 금지).
+- 타입은 staged diff 로 추천한다 (feat/fix/refactor/docs/chore/test/style — 표는 `references/message-rules.md`). `--type` 을 생략하면 제목 태그에서 유도한다.
 - **호환성이 깨지는 변경에만 `!`** (`feat!` → 릴리스 major 승격, #546). 확신이 없으면 붙이지 말고 묻는다.
-- `{변경설명}`에 `@username` mention을 넣지 않는다.
+- `{description}` 에 `@username` mention 을 넣지 않는다.
 
 ### 5단계: 승인 게이트
 
@@ -170,6 +176,22 @@ git push origin {현재 브랜치명}
 
 ## Customize
 
-Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start: run the snippet in `../references/preferences.md` with `SKILL_ID=pro-commit`.
-Keys for this skill: `preset`, `template`, `examples` (details come in a later section) plus the common `language`, `tone`, `rules`.
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start: run the snippet in `../references/preferences.md` with `SKILL_ID=pro-commit` (or call `resolve-style`, which also returns them).
 Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.
+
+Keys for this skill (set under `skills.pro-commit` in `~/.projectops/config/config.json`):
+
+| Key | Meaning |
+|---|---|
+| `preset` | `conventional` (default for new users), `projectops`, `gitmoji`, or `custom` |
+| `template` | your own format when `preset` is `custom`; placeholders `{issue_title}` `{issue_url}` `{type}` `{scope}` `{description}` |
+| `examples` | sample messages to match in voice and length; never copied verbatim |
+| `language` / `tone` / `rules` | how `{description}` is written |
+
+```json
+{"skills": {"pro-commit": {"preset": "conventional", "language": "en", "tone": "imperative",
+                           "rules": ["max 72 chars in the first line"]}}}
+```
+
+- A repo with projectops installed (`version.yml` has `issue_helper.commit_template`, or `metadata`) uses the team format and it beats your preset and template (`source` is `version.yml` or `team-default`). Your `tone`/`rules`/`language` still apply inside it.
+- Show `warnings` from `resolve-style` / `get-commit-template` to the user.

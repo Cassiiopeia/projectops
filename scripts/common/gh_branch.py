@@ -168,7 +168,7 @@ def create_branch_name(
 
 def get_commit_template(issue_title: str, issue_url: str,
                        commit_type: str | None = None) -> str:
-    """커밋 메시지 템플릿을 반환한다.
+    """커밋 메시지 템플릿을 반환한다. (프리셋 projectops 고정 — 스킬은 commit_style.render 를 쓴다)
 
     제목의 이모지·태그를 벗기고, 그 태그에서 커밋 타입을 유도한다.
     예전에는 제목을 그대로 붙이고 타입을 feat 로 박아, 규칙 위반 커밋과

@@ -2,7 +2,8 @@
 """commit_cli — commit skill 전용 CLI.
 
 브랜치명 → 이슈 번호 추출, 이슈 제목 조회, 커밋 템플릿 생성.
-서브커맨드: get-issue-number, get-issue, normalize-title, get-commit-template
+서브커맨드: get-issue-number, get-issue, normalize-title, get-commit-template,
+resolve-style, sanitize-message
 
 사용법:
     cd skills/pro-commit/scripts
@@ -70,11 +71,33 @@ def _commit_type_arg(value: str) -> str:
     return commit_type_arg(value)
 
 
+def _style(args) -> tuple:
+    """개인 preferences + 팀 version.yml 을 합쳐 커밋 형식을 정한다."""
+    from common.preferences import detect_repo, resolve
+    from common.commit_style import resolve_style
+    root = getattr(args, "repo_root", None) or os.getcwd()
+    owner, repo = detect_repo(root)
+    prefs = resolve("pro-commit", owner, repo, load=True)
+    return prefs, resolve_style(prefs["values"], root)
+
+
+def cmd_resolve_style(args) -> int:
+    prefs, style = _style(args)
+    v = prefs["values"]
+    return emit({**style, "language": v.get("language"), "tone": v.get("tone"),
+                 "rules": v.get("rules", []), "examples": v.get("examples", []),
+                 "ignored": prefs["ignored"], "summary": f"{style['preset']} ({style['source']})"})
+
+
 def cmd_get_commit_template(args) -> int:
-    from common.gh_branch import get_commit_template
-    template = get_commit_template(args.issue_title, args.issue_url,
-                                    getattr(args, "commit_type", None))
-    return emit({"template": template, "summary": template})
+    from common.commit_style import render
+    from common.gh_branch import infer_commit_type
+    _, style = _style(args)
+    ctype = getattr(args, "commit_type", None) or infer_commit_type(args.issue_title)
+    template = render(style["template"], issue_title=args.issue_title, issue_url=args.issue_url,
+                      commit_type=ctype, scope=getattr(args, "scope", None) or "")
+    return emit({"template": template, "source": style["source"], "warnings": style["warnings"],
+                 "summary": template})
 
 
 def cmd_sanitize_message(args) -> int:
@@ -130,7 +153,15 @@ def build_parser() -> JSONArgumentParser:
     # 경우처럼 태그와 내용이 다를 때만 직접 지정한다.
     p_gct.add_argument("--type", dest="commit_type", default=None, type=_commit_type_arg,
                        help="커밋 타입 (fix·docs·chore 등). 생략하면 제목 태그에서 유도")
+    p_gct.add_argument("--scope", default=None, help="{scope} 자리표시자에 넣을 값")
+    p_gct.add_argument("--repo-root", dest="repo_root", default=None,
+                       help="형식을 찾을 레포 루트 (생략하면 cwd)")
     p_gct.set_defaults(func=cmd_get_commit_template)
+
+    p_rs = sub.add_parser("resolve-style", help="커밋 형식·말투 (팀 > 개인) 조회")
+    p_rs.add_argument("--repo-root", dest="repo_root", default=None,
+                      help="형식을 찾을 레포 루트 (생략하면 cwd)")
+    p_rs.set_defaults(func=cmd_resolve_style)
 
     return parser
 
