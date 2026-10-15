@@ -178,7 +178,7 @@ Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json
 | `/pro-ssh` | 원격 서버 SSH 접속·명령 실행 (AWS EC2, 시놀로지 NAS, Linux 등 범용) |
 | `/pro-skill-creator` | Skill 생성/리뷰/개선 (CREATE·REVIEW·IMPROVE 3모드) |
 
-**Extras** (선택 플러그인): `/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
+**Extras** (선택 플러그인): `/pro-architecture-consult` (AI가 짠 코드 관리: 점검·한 항목씩 리팩터링·변경분 검사·위반 동결), `/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 </details>
 

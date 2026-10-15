@@ -384,7 +384,7 @@ Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json
 
 ## Extras (선택 플러그인)
 
-`/pro-synology-expose`(시놀로지 NAS 서비스를 외부 도메인으로 노출하는 가이드)는 코어 플러그인에 없고 선택 플러그인 `projectops-extras`에 있습니다.
+`/pro-synology-expose`(시놀로지 NAS 서비스를 외부 도메인으로 노출하는 가이드)와 `/pro-architecture-consult`(AI가 짠 코드를 코딩 규칙에 맞게 점검·리팩터링하고, 변경분마다 낡은 주석·중복을 검사하며, 기존 위반을 동결 목록으로 묶어 줄여 가는 스킬)는 코어 플러그인에 없고 선택 플러그인 `projectops-extras`에 있습니다.
 
 ```bash
 # Claude Code
@@ -392,7 +392,7 @@ claude plugin install projectops-extras@projectops-marketplace --scope user
 # Codex CLI: `codex plugin marketplace add Cassiiopeia/projectops` 후 플러그인 목록에서 projectops-extras 설치
 ```
 
-Cursor·Gemini CLI·pi에는 extras 설치 경로가 없고, `npx projectops` 동기화 때 이 스킬이 제거됩니다. 계속 쓰려면 레포의 `plugins/projectops-extras/skills/pro-synology-expose`와 `plugins/projectops-extras/skills/references/`를 둘 다 직접 복사하세요.
+Cursor·Gemini CLI·pi에는 extras 설치 경로가 없고, `npx projectops` 동기화 때 이 스킬이 제거됩니다. 계속 쓰려면 레포의 `plugins/projectops-extras/skills/<스킬 폴더>`와 `plugins/projectops-extras/skills/references/`를 둘 다 직접 복사하세요.
 
 개인 설정(언어·말투·규칙)을 읽는 `prefs_cli.py`는 코어 플러그인에 들어 있습니다. extras만 설치하면 설정을 찾지 못해 기본값으로 동작합니다. 개인 설정을 쓰려면 코어 플러그인도 함께 설치하세요.
 

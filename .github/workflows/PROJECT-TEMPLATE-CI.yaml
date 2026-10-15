@@ -115,6 +115,10 @@ jobs:
         # 전체가 조용히 어긋나는데, 오래 CI 경로에서 빠져 있어 실패가 쌓여 있었다 (#612).
         run: python3 -m pytest scripts/tests/ -q
 
+      - name: extras 플러그인 테스트
+        # plugins/ 의 선택 스킬 (projectops-extras)
+        run: python3 -m pytest plugins/ -q
+
       - name: 마법사 3종 정합성 검증
         # CSS/JS 공통 자산 로드, 공통 유틸 재정의, 필수 기능 균일성,
         # version.json ↔ HTML 동기화, 낡은 링크, 첫 사용자 안내, CLI 계약을 검사한다
@@ -194,3 +198,6 @@ jobs:
 
       - name: 공용 레이어 테스트
         run: python3 -m pytest scripts/tests/ -q
+
+      - name: extras 플러그인 테스트
+        run: python3 -m pytest plugins/ -q

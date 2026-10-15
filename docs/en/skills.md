@@ -381,7 +381,7 @@ Skills write in your style. Put your preferences in `~/.projectops/config/config
 
 ## Extras (optional plugin)
 
-`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain) is not in the core plugin. It lives in the optional `projectops-extras` plugin.
+`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain) and `/pro-architecture-consult` (audit and refactor AI-written code against your coding conventions, check each diff for stale comments and duplicates, and freeze existing violations so they only shrink) are not in the core plugin. They live in the optional `projectops-extras` plugin.
 
 ```bash
 # Claude Code
@@ -389,7 +389,7 @@ claude plugin install projectops-extras@projectops-marketplace --scope user
 # Codex CLI: run `codex plugin marketplace add Cassiiopeia/projectops`, then install projectops-extras from the plugin list
 ```
 
-Cursor, Gemini CLI and pi have no extras install path. `npx projectops` removes the skill on its next sync. To keep it, copy both `plugins/projectops-extras/skills/pro-synology-expose` and `plugins/projectops-extras/skills/references/` from this repository by hand.
+Cursor, Gemini CLI and pi have no extras install path. `npx projectops` removes the skill on its next sync. To keep it, copy both `plugins/projectops-extras/skills/<skill folder>` and `plugins/projectops-extras/skills/references/` from this repository by hand.
 
 The preferences reader (`prefs_cli.py`) ships with the core plugin. With extras alone, skills cannot find it and run with default preferences. Install the core plugin as well to use your preferences.
 

@@ -176,7 +176,7 @@ Skill は自分のスタイルで書きます。好みは `~/.projectops/config/
 | `/pro-ssh` | リモートサーバーへ SSH 接続してコマンドを実行（AWS EC2、Synology NAS、Linux など汎用） |
 | `/pro-skill-creator` | Skill の作成・レビュー・改善（CREATE・REVIEW・IMPROVE の 3 モード） |
 
-**Extras**（オプションのプラグイン）：`/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
+**Extras**（オプションのプラグイン）：`/pro-architecture-consult`（AI が書いたコードの保守：監査・1 項目ずつのリファクタリング・差分チェック・違反の凍結）、`/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 </details>
 
