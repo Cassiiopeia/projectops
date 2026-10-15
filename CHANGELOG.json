@@ -1,14 +1,48 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-13T14:50:28Z",
-    "currentVersion": "4.49.0",
+    "lastUpdated": "2026-10-15T06:47:32Z",
+    "currentVersion": "4.50.0",
     "projectType": "basic",
-    "totalReleases": 311,
+    "totalReleases": 312,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.50.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-15",
+      "pr_number": 868,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * AI가 짠 코드를 내 규칙대로 점검·정리하는 선택 스킬 추가\n  * 변경분마다 낡은 주석·중복 코드를 바로 알려 줌\n  * 기존 위반은 묶어 두고 새 위반만 막는 규칙 테스트 제공\n* **버그 수정**\n  * Windows·macOS에서 CI 테스트가 실패하던 문제 해결\n  * 점검 결과의 잘못된 모듈 순환 경고 수정\n* **개선**\n  * 코드 주석을 지금 동작 기준으로 정리",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "AI가 짠 코드를 내 규칙대로 점검·정리하는 선택 스킬 추가",
+            "변경분마다 낡은 주석·중복 코드를 바로 알려 줌",
+            "기존 위반은 묶어 두고 새 위반만 막는 규칙 테스트 제공"
+          ]
+        },
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "Windows·macOS에서 CI 테스트가 실패하던 문제 해결",
+            "점검 결과의 잘못된 모듈 순환 경고 수정"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "코드 주석을 지금 동작 기준으로 정리"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.49.0",
       "project_type": "basic",
