@@ -1,0 +1,5 @@
+# 경위 주석 금지: 이유(WHY)는 현재형으로, 경위는 커밋·이슈에 (conventions §7.5·7.6)
+description=코드 주석·docstring 에 "예전에는/예전엔" 경위 서술 금지
+paths=src/,scripts/common/,skills/
+extensions=.js,.mjs,.py
+pattern=예전(?:에는|엔)

@@ -311,11 +311,8 @@ def _home_dir(root: Path) -> Path:
 def _scenario_dir(root: Path, create: bool = False) -> Path:
     """시나리오·지식을 둘 곳.
 
-    예전에는 프로젝트 안(`docs/testing/e2e`)이었는데, 그 폴더는 .gitignore로 추적에서
-    빠져 있어 **새 워크트리에 복사되지 않았다.** 이슈마다 워크트리를 만드는 흐름에서는
-    이슈 하나가 끝날 때마다 쌓은 지식이 통째로 사라졌다 (이슈 #586).
-
-    이제 홈에 두고 git remote로 프로젝트를 구분한다.
+    홈에 두고 git remote로 프로젝트를 구분한다. 프로젝트 안 폴더는 .gitignore로 빠지면
+    **새 워크트리에 복사되지 않아**, 이슈마다 워크트리를 만드는 흐름에서 지식이 사라진다 (#586).
     """
     home = _home_dir(root)
     if create and not home.is_dir():

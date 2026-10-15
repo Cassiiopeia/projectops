@@ -154,7 +154,7 @@ export function localChecks(cwd = ".") {
   }
 
   // 은퇴한 구세대 워크플로우 (#809) — 업데이트는 감지만 하고 남겨 두므로 신형과 함께 돈다.
-  // 예전엔 로그에만 남아 doctor 가 "문제 없음"이라 했다.
+  // 로그에만 남기면 doctor 가 "문제 없음"으로 보고하므로 여기서 잡는다.
   const legacy = detectMigrations(cwd).confirm;
   add({
     name: t("doctor.legacy.name"), purpose: t("doctor.legacy.purpose"),

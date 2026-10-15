@@ -1,7 +1,7 @@
 // 선택형 워크플로 그룹의 켜짐/꺼짐을 정하는 단 한 곳 (#851).
 //
-// 예전에는 복사(copy/workflows.js), 충돌 목록(listWorkflowConflicts), 고아 감지(orphan-workflows.js)가
-// 같은 조건을 각자 들고 있었다. 한쪽만 고치면 "켰는데 안 깔림" 또는 "껐는데 계속 돎"이 된다 (#567).
+// 복사(copy/workflows.js), 충돌 목록(listWorkflowConflicts), 고아 감지(orphan-workflows.js)가 같은 조건을 쓴다.
+// 각자 들고 있으면 한쪽만 고쳐 "켰는데 안 깔림" 또는 "껐는데 계속 돎"이 된다 (#567).
 // 새 조건부 폴더를 만들면 여기에 한 줄을 넣는다. 세 곳이 함께 따라온다.
 import { readdirSync } from "node:fs";
 import { join } from "node:path";

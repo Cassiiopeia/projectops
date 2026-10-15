@@ -1081,11 +1081,8 @@ def build_parser() -> JSONArgumentParser:
     p_ac.add_argument("sub", choices=["show-run", "joblog", "list-failed", "resolve-pr", "resolve-branch"])
     p_ac.add_argument("owner")
     p_ac.add_argument("repo")
-    # ⚠️ 위치 인자는 **하나**여야 한다 (#622). 예전에는 run_id·job_id·pr_number·
-    # branch 를 줄줄이 선택 인자로 뒀는데, argparse 는 값을 **왼쪽부터** 채우므로
-    # 어떤 서브커맨드를 부르든 첫 값이 run_id 로 들어갔다. joblog·resolve-pr·
-    # resolve-branch 셋이 문서에 적힌 그대로 불러도 깨졌고, show-run 과
-    # list-failed 만 우연히 맞았다. 형제인 changelog_cli 는 처음부터 하나였다.
+    # ⚠️ 위치 인자는 **하나**여야 한다 (#622). argparse 는 값을 **왼쪽부터** 채우므로
+    # run_id·job_id·pr_number·branch 를 각자 선택 인자로 두면 어떤 서브커맨드든 첫 값이 run_id 가 된다.
     p_ac.add_argument("arg", nargs="?",
                       help="서브커맨드에 따라 run_id · job_id · pr_number · branch")
     p_ac.add_argument("--grep", default="error", help="Filter logs")

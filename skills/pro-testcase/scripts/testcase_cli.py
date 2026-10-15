@@ -6,8 +6,7 @@
 
 경로 규칙 자체는 Layer 1(`scripts/common/paths.py`)이 단일 소유한다.
 이 파일은 그 규칙을 호출만 한다 — 스킬마다 규칙이 갈라지지 않게 하기 위함이다 (#525).
-예전에는 SKILL.md 가 `{PROJECT_ROOT}/docs/projectops/testcase/...` 를 직접 조립했는데,
-산출물 루트를 옮긴 팀에서는 **엉뚱한 곳에 조용히 쓰였다** (#623).
+SKILL.md 가 경로를 직접 조립하면 산출물 루트를 옮긴 팀에서 **엉뚱한 곳에 조용히 쓰인다** (#623).
 """
 from __future__ import annotations
 

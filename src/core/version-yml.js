@@ -7,7 +7,7 @@ import { DEPLOY_TARGETS, LABEL_STYLES } from "./constants.js";
 import { REPO_LANGUAGES } from "./repo-language.js";
 
 // 값 목록으로 만든 매칭 패턴 — 목록에 언어·표기를 추가하면 파서가 저절로 읽는다.
-// (예전엔 `(en|ko)` 가 박혀 있어 세 번째 언어를 저장하면 다음 업데이트에서 못 읽고 ko 로 되돌아갔다.)
+// (언어를 패턴에 박아 두면 새 언어를 저장한 뒤 다음 업데이트에서 못 읽고 ko 로 되돌아간다.)
 const alt = (values) => values.map((v) => v.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&")).join("|");
 const LANGUAGE_RE = new RegExp(`^\\s+language:\\s*["']?(${alt(REPO_LANGUAGES)})["']?`);
 const LABEL_STYLE_RE = new RegExp(`^\\s+label_style:\\s*["']?(${alt(LABEL_STYLES)})["']?`);
@@ -140,7 +140,7 @@ const COMMENTS = {
 const commentsFor = (lang) => COMMENTS[lang === "ko" ? "ko" : "en"];
 
 // last_updated_by 결정 (#811): 실행한 git 사용자 → 기존 값 → template_integrator.
-// 예전엔 업데이트마다 "template_integrator"로 덮어써 누가 바꿨는지가 사라졌다.
+// 매번 "template_integrator"로 덮어쓰면 누가 바꿨는지가 사라진다.
 export function resolveUpdatedBy(existingContent = "", cwd = ".") {
   try {
     const name = execFileSync("git", ["config", "user.name"],

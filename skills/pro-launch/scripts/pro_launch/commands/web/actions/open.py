@@ -30,8 +30,8 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     if err:
         return out(err)
     prev = read_state(state_f)
-    # 이미 떠 있으면 새로 띄우지 않고 붙는다 (#825). 예전엔 프로필 잠금 때문에 실패로 끝나
-    # agent 가 "브라우저를 못 띄운다"로 읽었는데, 정작 떠 있던 브라우저는 멀쩡히 쓸 수 있었다.
+    # 이미 떠 있으면 새로 띄우지 않고 붙는다 (#825). 새로 띄우면 프로필 잠금으로 실패해
+    # agent 가 떠 있는 멀쩡한 브라우저를 두고 "못 띄운다"로 잘못 읽는다.
     if prev.get("cdp") and prev.get("pid") and pid_alive(int(prev["pid"])):
         conn, cerr = web_connect(prev)
         if not cerr:

@@ -171,8 +171,8 @@ def get_commit_template(issue_title: str, issue_url: str,
     """커밋 메시지 템플릿을 반환한다. (프리셋 projectops 고정 — 스킬은 commit_style.render 를 쓴다)
 
     제목의 이모지·태그를 벗기고, 그 태그에서 커밋 타입을 유도한다.
-    예전에는 제목을 그대로 붙이고 타입을 feat 로 박아, 규칙 위반 커밋과
-    잘못된 버전 승격을 agent 가 매번 손으로 막아야 했다.
+    제목을 그대로 붙이고 타입을 feat 로 고정하면 규칙 위반 커밋과
+    잘못된 버전 승격을 agent 가 매번 손으로 막아야 한다.
 
     Args:
         issue_title: 이슈 제목 (이모지·태그가 붙어 있어도 된다)

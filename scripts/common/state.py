@@ -5,8 +5,8 @@
     ~/.projectops/launch/.venv               Playwright · Pillow
     ~/.projectops/agent-test/<owner__repo>/  learned.json · 시나리오 · flows/
 
-예전에는 전부 agent-test 폴더 하나에 섞여 있었다. 실행·캡처가 pro-launch 로 떨어져
-나가면서 "붙는 법"은 launch 로 옮긴다. 옛 폴더에 남은 파일은 첫 호출 때 옮긴다.
+실행·캡처("붙는 법")는 pro-launch, 시나리오·지식은 agent-test 소유.
+옛 agent-test 폴더에 남은 launch 파일은 첫 호출 때 옮긴다.
 """
 from __future__ import annotations
 

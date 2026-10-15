@@ -235,7 +235,7 @@ export async function askAllOptionalWorkflows({
         if (force || !tty || typeof io.select !== "function") {
           // 비대화형: CLI intent 미지정이면 deploy/publish에서 역추론, 그래도 없으면 manual(기존 동작)
           // 축이 아직 안 정해졌으면 비대화형(resolve-options.js)과 같은 기본 축으로 추론한다 (#851).
-          // 예전에는 null 로 추론해 "manual" 이 기록되어 같은 레포에서 두 경로의 결과가 갈렸다.
+          // null 로 추론하면 "manual" 이 기록되어 같은 레포에서 두 경로의 결과가 갈린다.
           const defaultDeploy = applicable.deploy.includes("docker-ssh") ? "docker-ssh" : "none";
           intent = intent ?? inferIntent(deploy ?? defaultDeploy, publish ?? []) ?? "manual";
         } else {

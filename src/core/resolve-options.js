@@ -1,8 +1,8 @@
 // 설치 옵션 값을 정하는 단 한 곳 (#851).
 //
-// 예전에는 비대화형(src/index.js)과 대화형(src/commands/interactive.js)이 같은 옵션을
-// 각자 정했다. 그 사이 규칙이 갈라져 대화형에서 PR 요약 선택이 버려지고(aiPrSummary),
-// 질문을 건너뛰는 version 모드가 모바일 단독 레포에 deploy: docker-ssh 를 남겼다.
+// 비대화형(src/index.js)과 대화형(src/commands/interactive.js)이 같은 결과를 쓴다.
+// 각자 정하면 규칙이 갈라진다: 대화형 PR 요약 선택 유실(aiPrSummary),
+// 질문을 건너뛰는 version 모드가 모바일 단독 레포에 deploy: docker-ssh 를 남김.
 // 규칙은 모든 옵션에 같다: CLI 플래그 > version.yml 저장값 > 기본값.
 // 대화형은 이 결과를 초기값으로 쓰고, 사용자가 답한 것만 그 위에 덮어쓴다.
 import { existsSync } from "node:fs";
