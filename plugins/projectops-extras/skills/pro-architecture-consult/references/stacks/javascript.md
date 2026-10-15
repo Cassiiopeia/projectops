@@ -37,8 +37,10 @@ pattern=["'`]#[0-9a-fA-F]{6}\b|-\[#[0-9a-fA-F]{3,8}\]
 description=컴포넌트가 HTTP 클라이언트를 직접 import 금지 (hooks·services 경유)
 paths=src/components/
 extensions=.ts,.tsx,.js,.jsx
-pattern=from\s+['"][^'"]*/api/client['"]
+pattern=from\s+['"](?:@/|\.\.?/)[^'"]*\bapis?/[^'"]*['"]
 ```
+
+패턴은 이 레포의 실제 클라이언트 폴더(`deps`의 인프라 간선, `bypassed_components`의 `wrappers`)에 맞춰 고친다. `ledger` 판정이 0건이면 경로가 틀린 것이다.
 
 계층 import는 dependency-cruiser·eslint-plugin-boundaries가 더 정확하다 — 새 의존성이라 **제안만** 한다.
 

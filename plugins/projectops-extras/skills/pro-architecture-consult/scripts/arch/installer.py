@@ -75,14 +75,16 @@ def install_rule_test(root: Path, stack: str, module: str, is_force: bool) -> di
     shutil.copyfile(RULE_TEST_TEMPLATES_DIRECTORY / stack / template_name, target)
     return {"installed": str(target.relative_to(root)), "rules_directory": str(rules.relative_to(root)),
             "summary": f"{stack} 규칙 테스트 설치: {target.relative_to(root)}",
-            "next": "규칙을 docs/architecture/rules/<id>.rule 로 추가하고 `ledger PATH freeze <id>`"}
+            "next": "규칙을 docs/architecture/rules/<id>.rule 로 추가하고 `ledger PATH freeze --rule <id>`"}
 
 
 def audit_output_path(root: Path, title: str) -> dict:
+    """경로 계산만 (폴더를 만들지 않는다 — 승인 전 호출해도 대상 레포가 바뀌지 않게, 폴더는 보고서를 쓸 때 생긴다)"""
     slug = OUTPUT_TITLE_ALLOWED_PATTERN.sub("_", title.strip()).strip("_")[:MAXIMUM_TITLE_LENGTH] or "audit"
-    path = root / "docs" / "architecture" / "audits" / f"{date.today().isoformat()}_{slug}.md"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    return {"path": str(path), "exists": path.exists(), "summary": str(path.relative_to(root))}
+    audits = root / "docs" / "architecture" / "audits"
+    path = audits / f"{date.today().isoformat()}_{slug}.md"
+    previous = sorted(p.relative_to(root).as_posix() for p in audits.glob("*.md")) if audits.is_dir() else []
+    return {"path": str(path), "exists": path.exists(), "previous_audits": previous, "summary": str(path.relative_to(root))}
 
 
 def _status(source: Path, target: Path) -> str:

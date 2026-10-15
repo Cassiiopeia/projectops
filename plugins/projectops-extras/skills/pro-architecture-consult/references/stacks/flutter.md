@@ -12,6 +12,9 @@
 | 인프라 | `features/<기능>/data/{repositories,sources}`, `core/network` | dio, 저장소, 로컬 DB |
 | 공통 | `core/` (설정·에러·포맷), `design/` 또는 `presentation/design/` (토큰·컴포넌트) | |
 
+**계층 우선 구조**(`lib/presentation/{pages,widgets,providers}`, `lib/domain`, `lib/data`, `lib/core`)도 흔하다. 계층은 같고 폴더 순서만 다르다 — 규칙의 `paths`를 `lib/presentation/pages/,lib/presentation/widgets/`처럼 실제 폴더로 맞춘다 (`lib/features/`로 두면 0건 동결).
+provider·notifier가 `data/`를 import하는 것(`deps`의 `from_role: "state"`)은 Riverpod 관례상 허용하는 팀이 많다. 레포 규칙에 없으면 위반이 아니라 "팀 결정 필요"로 적는다.
+
 의존 방향: 표현 → 응용 → 도메인 ← 인프라. **화면이 `data/`·`core/network`를 직접 import하면 위반.**
 `core/`·`shared/`가 `features/`를 import하는 것도 위반 (공통이 기능에 묶인다).
 

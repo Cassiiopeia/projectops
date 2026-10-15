@@ -10,7 +10,9 @@
 
 - `prior_audits`가 있으면 **읽고 항목마다 지금도 그런지 다시 판정한다** (고쳐짐 / 그대로 / 악화). 처음부터 다시 쓰지 않는다.
 - `allowlists`·`rule_tests`가 있으면 그 레포가 이미 쓰는 강제 장치다. 같은 규칙을 `docs/architecture/rules/`에 중복으로 만들지 않고, 그 장치를 확장하는 쪽을 먼저 제안한다.
-- `has_architecture_folder`가 참이면 `ledger PATH check`·`conventions PATH check`로 현재 상태를 본다.
+- `has_architecture_folder`가 참이면(이 스킬의 `rules/`·`CONVENTIONS.md`가 있음) `ledger PATH check`·`conventions PATH check`로 현재 상태를 본다.
+- 기존 감사가 md뿐이고 수치가 없으면 보고서 "지난 감사" 칸은 "수치 없음"으로 두고, 그 문서의 항목마다 지금 상태만 표로 이어받는다.
+- `stacks`의 `flutter_host_of`(Flutter 앱의 `android/`)는 별도 스택으로 감사하지 않는다.
 
 ## 2. 사실 수집
 
@@ -23,13 +25,17 @@ rule-docs PATH
 
 출력 해석은 `references/facts.md`. 수치는 후보일 뿐이다 — 원문을 열어 확인한 것만 문제로 쓴다.
 
+- **감사 범위는 레포가 소유한 코드다.** scan·deps는 설치물·생성물·외부 라이브러리를 이미 뺐다(`excluded`). 보고서에 무엇을 뺐는지 한 줄 적는다.
+- **`review_order` 순서로 표본을 연다.** 범주마다 앞에서 최대 10개를 열어 진짜/오탐을 가르고, 오탐 비율이 높은 범주는 보고서에서 수치를 쓰지 않는다.
+- **`facts.md`의 "scan이 보지 못하는 것"은 직접 확인한다.** 실측에서 가장 위험한 문제(롤백 뒤 계속 진행하는 catch, 운영에 열린 테스트 API, 토큰 처리 3곳)는 CLI 밖이나 판단 단서 쪽에서 나왔다.
+
 ## 3. 스택별 감사 (병렬)
 
 스택(또는 모노레포 폴더)마다 읽기 전용 하위 에이전트를 하나씩 띄운다. 프롬프트에 반드시 넣는 것:
 
 - 그 폴더의 `CLAUDE.md`·`AGENTS.md`·`.claude/rules`를 **먼저** 읽는다. 규칙 문서도 감사 대상이다 (코드와 모순, 없는 파일 참조)
 - `references/conventions.md` 기준, `references/stacks/<스택>.md`의 "자주 나오는 AI 냄새"
-- 2단계 사실 JSON 중 그 폴더 부분
+- 그 폴더 사실만: `scan PATH --only <폴더> --limit 30` (전체 JSON을 넘기지 않는다 — 수십 KB라 에이전트가 앞부분만 본다)
 - 요구: `file:line` 근거, 추측 금지, 심각도(high/med/low), "확인 못 한 것" 목록, 우선순위 top 10, 700단어 이내
 - 잘한 것도 적게 한다 — 다른 폴더로 옮길 수 있는 패턴이다
 
@@ -41,11 +47,13 @@ rule-docs PATH
 - 판정은 레포가 아니라 **구간** 단위다. 사람이 짠 레포에도 바이브코딩 구간이 섞인다.
 - 같은 문제가 여러 곳이면 **원인 한 줄**로 묶는다 (예: "공통 로딩 컴포넌트가 문서에 없어서 12곳이 각자 만듦").
 - 규칙 문서가 문제를 **유도**하면 그것이 근본 원인이다 (`rule-docs`의 `prose_comment_inducing`).
+- **레포 규칙과 스킬 기준이 다르면 레포가 이긴다.** 레포 CLAUDE.md가 명시적으로 정한 것(예 "엔티티를 그대로 응답", "같은 기능 안 presentation → data 허용")은 위반으로 쓰지 않고, 바꿀 가치가 있으면 "팀 결정 필요"로 따로 적는다. 기존 예외 목록이 허용한 간선도 같다.
+- 바꾸면 계약이 깨지는 이름(`contract` 태그)은 고칠 목록이 아니라 "이관 계획" 항목으로 분리한다.
 
 ## 5. 보고서 · 동결 제안
 
-1. `get-output-path PATH --title "<제목>"` → `references/report-template.md` 형식으로 쓴다
-2. 반복 패턴마다 **동결할 규칙 후보**(`.rule` 초안)를 보고서 끝에 붙인다 — `references/stacks/<스택>.md`의 "첫 규칙 후보"에서 출발
+1. `get-output-path PATH --title "<제목>"` → `references/report-template.md` 형식으로 쓴다 (경로만 준다 — 폴더는 보고서를 쓸 때 생긴다. `previous_audits`가 있으면 이어받는다)
+2. 반복 패턴마다 **동결할 규칙 후보**(`.rule` 초안)를 보고서 끝에 붙인다 — `references/stacks/<스택>.md`의 "첫 규칙 후보"에서 출발하되, **이 레포의 실제 반복 문제**(`bypassed_components`·감사 Top 10)로 패턴과 `paths`를 맞춘다. 초안마다 `ledger` 판정으로 현재 위반 수를 확인하고, 0건이면 막을 것이 없는 규칙이라 빼거나 경로를 고친다
 3. 사용자에게 보고서 요약 + 동결 후보 목록을 보여 주고 **승인받은 규칙만** 만든다
 4. 규칙마다 `ledger PATH freeze --rule <id>` → `ledger PATH check`가 pass인지 확인
 5. 규칙 테스트가 아직 없으면 `install-tests`를 제안한다 (`references/init.md` 5단계)

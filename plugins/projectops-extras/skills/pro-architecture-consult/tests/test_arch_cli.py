@@ -1,4 +1,4 @@
-"""arch_cli 계약 테스트 6개: 오류 JSON · audit 사실 · check(diff) · ledger · init 설치 · 템플릿 판정 동등성
+"""arch_cli 계약 테스트 7개: 오류 JSON · audit 사실 · 실측 오탐·놓침 회귀 · check(diff) · ledger · init 설치 · 템플릿 판정 동등성
 임시 미니 모노레포(Flutter·Spring·Python·JS) 하나로 서브커맨드 전부를 본다
 """
 import json
@@ -129,7 +129,7 @@ def test_audit_facts(project):
     # assets: 같은 내용 사본 + 같은 이름·다른 내용
     assets = run_cli("assets", project)[0]
     assert sorted(assets["identical_copies"][0]["paths"]) == ["app/assets/logo.png", "web/public/logo.png"]
-    assert assets["same_name_different_content"][0]["name"] == "logo"
+    assert assets["same_name_different_content"][0]["name"] == "logo.png"
 
     # deps: 화면 > 데이터 직접 import, Gradle 순환
     dependencies = run_cli("deps", project)[0]
@@ -143,6 +143,70 @@ def test_audit_facts(project):
     document = next(d for d in run_cli("rule-docs", project)[0]["documents"] if d["path"] == "CLAUDE.md")
     assert [m["reference"] for m in document["missing_references"]] == ["docs/missing-guide.md"]
     assert document["prose_comment_inducing"]
+
+
+def test_judgment_aids_from_dogfood(project):
+    """레퍼런스 레포 4곳 실측에서 나온 오탐·놓침 회귀 (#867)"""
+    # 출처: 도구 설치물·외부 라이브러리는 제외, 테스트는 따로 센다
+    write(project, ".github/scripts/changelog_manager.py", "def run_tmp_job(flag: bool):\n    pass\n")
+    write(project, "server/web/src/main/resources/static/js/semantic.js",
+          "/*\n * # Semantic UI - 1.12.2\n */\nvar tmpValue = 1;\n")
+    write(project, "app/test/quiz_test.dart", "void main() { final bool ready = true; }\n")
+    # Java: 주입 필드 타입명 오탐, 타입 선언 지역 변수 놓침, Spring Data·override·catch
+    write(project, "server/web/src/main/java/com/sample/web/MemberService.java",
+          "package com.sample.web;\n\nimport com.sample.core.MemberRepository;\n"
+          "public class MemberService {\n  private final JwtUtil jwtUtil;\n"
+          "  void load() { Member curMember = find();\n"
+          "    try { save(); } catch (Exception e) { log.error(\"rollback\"); rollback(); }\n  }\n"
+          "  @Override\n  public boolean equals(Object other) { return true; }\n"
+          "  // 기존 SSE 방식에서 전환\n  // 테스트 전용 스키마를 생성/삭제함\n  // 관리자가 모델명만 바꿨을 뿐인데\n}\n")
+    write(project, "server/core/src/main/java/com/sample/core/MemberRepository.java",
+          "package com.sample.core;\npublic interface MemberRepository { boolean existsByStudentId(String id); }\n")
+    # Flutter: 공통 스피너가 있는데 화면이 직접 씀, 함수 타입은 함수 이름이 아님
+    write(project, "app/lib/core/widgets/app_spinner.dart", "class AppSpinner { build() => CircularProgressIndicator(); }\n")
+    write(project, "app/lib/features/quiz/presentation/widgets/quiz_card.dart",
+          "class QuizCard { build() => CircularProgressIndicator(); final bool Function(int) onTap; }\n")
+
+    scanned = run_cli("scan", project, "--limit", "200")[0]
+    findings, counts = scanned["findings"], scanned["counts"]
+    assert scanned["excluded"]["tooling"]["count"] == 1 and scanned["excluded"]["vendored"]["count"] == 1
+    assert ".github/" not in json.dumps(findings) and "semantic" not in json.dumps(findings)
+    assert scanned["test_counts"]["boolean_names"] == 1 and counts["boolean_names"] == 2  # loading, strict
+    abbreviations = {f["name"] for f in findings["abbreviations"]}
+    assert "curMember" in abbreviations and "JwtUtil" not in abbreviations
+    boolean_functions = {f["name"] for f in findings["boolean_functions"]}
+    assert not boolean_functions & {"equals", "existsByStudentId", "Function"}
+    history = [f["text"] for f in findings["history_comments"]]
+    assert any("전환" in t for t in history) and not any("삭제함" in t or "관리자가" in t for t in history)
+    bypassed = next(b for b in findings["bypassed_components"] if b["call"] == "CircularProgressIndicator(")
+    assert bypassed["wrappers"] == ["app/lib/core/widgets/app_spinner.dart"] and bypassed["files"] == 1
+    catch = next(f for f in findings["unhandled_catch"] if f["path"].endswith("MemberService.java"))
+    assert (catch["kind"], catch["is_catch_all"], catch["has_log"]) == ("no_rethrow", True, True)
+    assert scanned["review_order"][0]["group"] == "동작 위험"
+
+    # deps: 줄 번호(앞 빈 줄), 모듈 간 저장소 직접 사용
+    dependencies = run_cli("deps", project)[0]
+    cross = dependencies["cross_module_repository_imports"][0]
+    assert (cross["from_module"], cross["to_module"], cross["line"]) == ("server/web", "server/core", 3)
+
+    # assets: 형식만 다른 같은 이름은 낡은 사본이 아님
+    write(project, "app/assets/star.svg", "<svg/>")
+    write(project, "web/public/star.png", data=b"STAR")
+    assets = run_cli("assets", project)[0]
+    assert not any(s["name"].startswith("star") for s in assets["same_name_different_content"])
+    assert assets["format_variants"]["count"] == 1
+
+    # rule-docs: MIME 타입·꼬리 일치·gitignore 대상은 없는 경로가 아님
+    write(project, ".gitignore", "application-prod.yml\n")
+    write(project, "server/CLAUDE.md", "- `multipart/form-data`\n- `web/OrderService.java` 없음, `web/MemberService.java`·`com/sample/core/` 있음\n"
+                                       "- `application-prod.yml` 은 커밋 안 함\n")
+    document = next(d for d in run_cli("rule-docs", project)[0]["documents"] if d["path"] == "server/CLAUDE.md")
+    assert [m["reference"] for m in document["missing_references"]] == ["web/OrderService.java"]
+    assert [m["reference"] for m in document["ignored_references"]] == ["application-prod.yml"]
+
+    # get-output-path 는 경로만 (승인 전 호출해도 레포가 바뀌지 않음)
+    run_cli("get-output-path", project, "--title", "점검")
+    assert not (project / "docs/architecture/audits").exists()
 
 
 def test_check_diff(project):

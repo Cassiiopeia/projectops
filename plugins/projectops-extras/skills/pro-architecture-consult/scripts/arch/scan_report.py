@@ -1,0 +1,104 @@
+"""scan 결과 정리: 범주 정렬 > 운영/테스트 분리 수치 > 파일별 집계 > 읽는 순서
+
+목록은 경로 순이 아니다. 심한 것 먼저, 같은 무게면 폴더마다 번갈아 뽑는다
+(한 폴더가 상위 목록을 다 채워 다른 폴더가 안 보이는 일 방지). 테스트 항목은 운영 항목 뒤에 둔다.
+"""
+from __future__ import annotations
+
+from itertools import zip_longest
+
+# 읽는 순서 = 위험도 순 (동작 위험 > 공통화·단일 원본 > 구조 > 주석 > 이름·토큰)
+REVIEW_ORDER = (
+    ("동작 위험", ("unhandled_catch", "test_code_in_production", "swallowed_catch", "hardcoded_urls", "lint_disabled_files")),
+    ("공통화·단일 원본", ("bypassed_components", "common_call_candidates", "duplicate_constants")),
+    ("구조", ("long_files", "long_functions", "file_type_mismatch")),
+    ("주석", ("history_comments", "commented_out_code", "long_comment_blocks", "comment_heavy_files",
+             "banner_comments", "prose_ending_comments")),
+    ("이름·토큰", ("boolean_functions", "boolean_names", "abbreviations", "meaningless_names", "hardcoded_tokens")),
+)
+CROSS_FILE_CATEGORIES = ("bypassed_components", "common_call_candidates", "duplicate_constants")
+PER_FILE_CATEGORIES = tuple(c for _, group in REVIEW_ORDER for c in group if c not in CROSS_FILE_CATEGORIES)
+# 크기 순 정렬 기준 (나머지 범주는 폴더 번갈아)
+SIZE_SORT_KEYS = {
+    "long_files": lambda f: -f["lines"],
+    "long_functions": lambda f: -f["lines"],
+    "comment_heavy_files": lambda f: (f.get("is_declaration_only", False), -(f["comment_lines"] - f["code_lines"])),
+    "long_comment_blocks": lambda f: (f["kind"] != "prose", -f["length"]),
+    "commented_out_code": lambda f: -f["length"],
+    "unhandled_catch": lambda f: (f.get("records_failure", False), f["has_log"] and f["kind"] == "no_rethrow",
+                                  not f["is_catch_all"], -f["body_lines"]),
+}
+MUST_SPLIT_LINES = 500
+HOTSPOT_COUNT = 15
+# 파일별 집계에서 뺄 범주 (파일 단위 사실이라 중복 집계가 됨)
+HOTSPOT_SKIPPED = {"long_files", "comment_heavy_files", "file_type_mismatch", "lint_disabled_files", "test_code_in_production"}
+
+
+def build_report(findings: dict, cross_file: dict, limit: int, categories: list | None) -> dict:
+    counts, test_counts, ordered = {}, {}, {}
+    for category, items in findings.items():
+        production = [f for f in items if "origin" not in f]
+        others = [f for f in items if "origin" in f]
+        counts[category] = len(production)
+        if others:
+            test_counts[category] = len(others)
+        ordered[category] = _ordered(category, production) + _ordered(category, others)
+    for category, items in cross_file.items():
+        counts[category] = len(items)
+        ordered[category] = items
+    counts["must_split_files"] = sum(1 for f in findings["long_files"] if "origin" not in f and f["lines"] > MUST_SPLIT_LINES)
+
+    selected = categories or list(ordered)
+    limited = {c: ordered[c][:limit] for c in selected if c in ordered}
+    truncated = {c: len(ordered[c]) for c in selected if c in ordered and len(ordered[c]) > limit}
+    return {
+        "counts": counts,
+        "test_counts": test_counts,
+        "findings": limited,
+        "truncated": truncated,
+        "hotspots": _hotspots(findings),
+        "review_order": [{"group": group, "categories": [c for c in members if counts.get(c)]}
+                         for group, members in REVIEW_ORDER],
+    }
+
+
+def summary_text(files_by_origin: dict, counts: dict, test_counts: dict, excluded: dict) -> str:
+    excluded_text = ", ".join(f"{origin} {entry['count']}" for origin, entry in excluded.items()) or "없음"
+    groups = []
+    for group, members in REVIEW_ORDER:
+        present = [f"{c} {counts[c]}" for c in members if counts.get(c)]
+        if present:
+            groups.append(f"[{group}] " + ", ".join(present))
+    return (f"운영 {files_by_origin.get('production', 0)}·테스트 {files_by_origin.get('test', 0)}개 파일 "
+            f"(제외: {excluded_text}) | " + " | ".join(groups) +
+            (f" | 테스트 쪽 후보 {sum(test_counts.values())}건은 test_counts" if test_counts else ""))
+
+
+def _ordered(category: str, items: list) -> list:
+    if category in SIZE_SORT_KEYS:
+        return sorted(items, key=SIZE_SORT_KEYS[category])
+    return _round_robin_by_area(items)
+
+
+def _round_robin_by_area(items: list) -> list:
+    """폴더(경로 앞 3단계)마다 번갈아 — 큰 폴더 먼저"""
+    by_area = {}
+    for item in items:
+        by_area.setdefault("/".join(item["path"].split("/")[:3]), []).append(item)
+    queues = sorted(by_area.values(), key=len, reverse=True)
+    return [item for row in zip_longest(*queues) for item in row if item is not None]
+
+
+def _hotspots(findings: dict) -> list:
+    """운영 파일별 후보 수 상위 (원인 묶기 출발점: 한 파일에 여러 범주가 몰리면 그 파일 하나가 원인)"""
+    by_file = {}
+    for category, items in findings.items():
+        if category in HOTSPOT_SKIPPED:
+            continue
+        for item in items:
+            if "origin" in item:
+                continue
+            entry = by_file.setdefault(item["path"], {})
+            entry[category] = entry.get(category, 0) + 1
+    ranked = sorted(by_file.items(), key=lambda pair: -sum(pair[1].values()))[:HOTSPOT_COUNT]
+    return [{"path": path, "total": sum(categories.values()), "categories": categories} for path, categories in ranked]

@@ -77,7 +77,7 @@ def review_diff(root: Path, base: str, limit: int) -> dict:
             line = lines[number - 1]
             for name in code_smells.boolean_names_in_line(line, language):
                 report["new_boolean_names"].append({"path": relative, "line": number, "name": name})
-            for kind, name, word in code_smells.naming_findings_in_line(line):
+            for kind, name, word in code_smells.naming_findings_in_line(line, language):
                 report["new_naming_problems"].append({"path": relative, "line": number, "kind": kind, "name": name, "word": word})
 
     counts = {key: len(items) for key, items in report.items()}

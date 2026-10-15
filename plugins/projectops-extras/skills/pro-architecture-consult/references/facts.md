@@ -2,52 +2,74 @@
 
 > 언제 읽나: `arch_cli.py` 결과 JSON을 해석할 때. 수치는 후보이고, **판정은 원문을 읽고 한다.**
 
-공통: `truncated`에 범주가 있으면 목록이 잘린 것이다 (값 = 전체 수). `--limit`을 올리거나 범주별로 다시 본다.
+## 읽는 순서 (scan)
 
-## scan
+1. **`excluded`부터 본다.** 레포가 소유하지 않은 코드는 이미 빠져 있다: `tooling`(`.github/`·`.claude/` 등 설치물 — 원본 레포에서 고칠 일), `generated`(생성 머리 표식·gen-l10n), `vendored`(`vendor/`, 버전 머리가 있는 정적 JS, shadcn ui). 사람이 고친 shadcn 컴포넌트처럼 봐야 할 것이 섞였으면 `scan PATH --all`로 다시 본다 (항목에 `origin` 태그).
+2. **`counts`는 운영 코드만이다.** 테스트 쪽은 `test_counts`. 항목에 `origin: "test"`가 붙은 것은 운영 항목 뒤에 온다. 테스트 이름·상수는 우선순위를 낮춘다.
+3. **`review_order` 순서로 연다**: 동작 위험 > 공통화·단일 원본 > 구조 > 주석 > 이름·토큰. 수가 많은 범주가 큰 문제인 것이 아니다 (긴 주석 150건보다 다시 던지지 않는 catch 3건이 먼저다).
+4. **`hotspots`로 원인을 묶는다.** 한 파일에 여러 범주가 몰리면 그 파일 하나가 원인이다 (분리 대상).
+5. 목록은 심한 것 먼저, 같은 무게면 폴더마다 번갈아 나온다. `truncated`에 범주가 있으면 잘린 것이다 (값 = 전체 수). 범주 하나만 더 보려면 `--category X --limit 200`, 폴더 하나만 보려면 `--only app/` (하위 에이전트에 넘길 사실).
 
-| 범주 | 뜻 | 오탐이 나는 곳 |
+## scan 범주
+
+| 범주 | 뜻 | 판단 단서 · 오탐이 나는 곳 |
 |---|---|---|
-| `long_files` | 300줄 초과 (`must_split_files`: 500 초과) | 데이터·상수 표 파일 |
-| `comment_heavy_files` | 주석 줄 > 코드 줄 | 상수·설정 파일의 값 설명 (정상일 수 있음) |
-| `long_comment_blocks` | 5줄 이상 연속 주석·docstring | 라이선스 머리, 공개 API 문서 |
-| `history_comments` | "기존에는·바꿨다·previously" 같은 경위 문구 | 마이그레이션 로직 설명 |
-| `banner_comments` | `// ====` 장식 | 문서 생성용 구분 |
-| `prose_ending_comments` | "~합니다·~하기 위해" 문장체 | 사용자 노출 문구를 담은 주석 |
-| `boolean_names` | is/has/can/should 없는 boolean 변수·필드·매개변수 | 외부 API·직렬화 필드명 (바꾸면 계약이 깨짐) |
-| `boolean_functions` | 질문형 아닌 boolean 반환 함수 (`create_branch -> bool`) | 성공 여부를 돌려주는 동작 함수 — 이름보다 반환 설계를 본다 |
-| `abbreviations`·`meaningless_names` | 약어 단어, 단독 `data`·`result` 같은 이름 | 도메인 용어 (`repo`가 저장소 자체를 뜻하는 곳) |
-| `file_type_mismatch` | Dart 파일명 ≠ 타입명, TSX 파일명 ≠ export 컴포넌트 | 한 파일에 작은 타입 여러 개 |
-| `hardcoded_tokens` | 색·간격·글자 크기·자산 경로 직접 사용 (토큰 정의 폴더 제외) | 테마 파일이 다른 이름 폴더에 있을 때 |
-| `swallowed_catch` | 빈 catch·`except: pass` | 실패해도 되는 정리 코드 (이유 주석이 있어야 함) |
+| `unhandled_catch` | 본문이 있는데 throw·return·raise 없는 catch(`no_rethrow`), catch-all이 다른 예외로 바꿔 던짐(`rewrap_all`) | `no_rethrow`: 롤백·보상 뒤에 흐름이 계속되면 high. `records_failure`(실패를 결과 목록에 담음 — 일괄 처리 정상 패턴)·`has_log`만 있는 로깅 실패 흡수는 낮다. `rewrap_all`: 안에서 던진 업무 예외 코드가 사라지는지 본다 |
+| `test_code_in_production` | `src/main` 아래 test·mock 폴더, `Test*Controller` 같은 파일 | 운영 노출 여부(보안 설정·프로필)를 원문으로 확인 |
+| `swallowed_catch` | 빈 catch·`except: pass` | `has_reason_comment`가 참이면 이유가 적힌 정리 코드일 수 있다 |
+| `hardcoded_urls` | 코드 줄의 `https?://` 리터럴 (스키마·example·localhost 제외) | 설정 원본으로 옮길 대상. 외부 공개 링크(스토어 주소)는 상수 한 곳이면 정상 |
+| `lint_disabled_files` | 파일 머리에서 린트 전체 끄기 | 생성 코드가 아니면 끈 이유가 없는 경우가 대부분 |
+| `bypassed_components` | 공통 폴더(`core`·`design`·`common`·`apis` 등)에 같은 원본 호출을 감싼 파일(`wrappers`)이 있는데 다른 곳이 직접 부름 | `wrappers`를 열어 진짜 래퍼인지 확인. 맞으면 "공통 지점이 문서에 없다"가 원인 |
+| `common_call_candidates` | 래퍼 없이 3개 파일 이상이 같은 원본을 직접 부름 | 세 번째 원칙 후보 (공통 지점을 새로 만든다) |
+| `duplicate_constants` | 같은 값 상수가 2개 파일 이상 (문자열은 값, 숫자는 이름+값으로 묶음) | 설정 키·접두사는 2곳이어도 단일 원본 대상. 우연히 같은 짧은 문자열은 무시 |
+| `long_files` · `long_functions` | 300줄 초과(500 초과는 `must_split_files`) · 60줄 넘는 함수 | 데이터·상수 표 파일. 함수 길이는 중괄호·들여쓰기 기준 근사 |
+| `file_type_mismatch` | Dart 파일명 ≠ 타입명, TSX 파일명 ≠ export 컴포넌트 (대소문자 무시) | 묶음 파일(`_parts` 등)과 최상위 함수가 주인인 파일은 이미 뺐다 |
+| `history_comments` | 경위 문구 ("기존에는", "옮겼다", "~에서 전환", "previously") | 명사형 끝맺음("삭제함")과 사용자·관리자 동작·가정문은 이미 뺐다. 마이그레이션 로직 설명은 정상 |
+| `commented_out_code` | 3줄 이상, 60% 이상이 코드 모양인 주석 블록 | conventions §7.7 "주석 처리한 옛 코드" — 지울 대상 |
+| `long_comment_blocks` | 5줄 이상 주석. `kind`: `prose`(줄글) / `api_doc`(@param 등 문서 주석) | `prose`가 먼저 나온다. `api_doc`은 팀이 Javadoc 문화면 정상. 라이선스 머리는 이미 뺐다 |
+| `comment_heavy_files` | 주석 줄 > 코드 줄 | `is_declaration_only`(인터페이스·추상 클래스·`.d.ts`)는 정상인 경우가 많다 |
+| `banner_comments` · `prose_ending_comments` | `// ====` 장식 · "~합니다" 문장체 | 낮은 우선순위. 파일 분리하면 배너는 사라진다 |
+| `boolean_functions` | 질문형 아닌 boolean 반환 함수 | override·`exists`/`contains`/`equals`/`matches`·React 훅·함수 타입은 이미 뺐다. 성공 여부를 돌려주는 동작 함수는 이름보다 반환 설계(사유가 담긴 결과)를 본다 |
+| `boolean_names` | is/has/can/should 없는 boolean | `contract` 태그(dto·설정 바인딩·JPA·직렬화)는 바꾸면 JSON·설정 키·컬럼이 깨진다 — "고칠 것"이 아니라 "이관 계획이 필요한 것"으로 분리 |
+| `abbreviations` · `meaningless_names` | 약어 단어 · 단독 `data`·`result`·`info`·한 글자 지역 변수 | `memberInfo`·`JwtUtil` 같은 합성어는 허용(conventions §2.2). 도메인 용어(`repo`가 저장소 자체)와 타입 이름(`class Item`)은 정상 |
+| `hardcoded_tokens` | 색·0 아닌 간격·글자 크기·자산 경로 직접 사용 | 토큰·테마 파일(`*_colors.dart`, `tailwind.config.*`)은 뺐다. 디자인 컴포넌트 안도 잡는다 (컴포넌트도 토큰을 써야 한다) |
 
-생성 파일(`*.g.dart`·`*.freezed.dart`·`*.min.js` 등)과 `build`·`node_modules` 같은 폴더는 처음부터 뺀다.
+## scan이 보지 못하는 것 (감사 에이전트가 직접 본다)
 
-## assets
+CLI는 정규식 사실 수집이다. 아래는 사실이 없으니 원문으로 확인하고 보고서 "확인한 방법"에 적는다.
 
-- `identical_copies`: 같은 내용이 여러 곳 — `areas`가 2개 이상이면 플랫폼을 넘는 손복사 후보. 생성 스크립트로 바꿀 대상
-- `same_name_different_content`: 같은 이름(배율·크기 접미사 제거)이 영역마다 다른 내용 — **한쪽만 고쳐진 낡은 사본** 후보. 가장 먼저 본다
+- **보안 노출**: 인증 없이 열린 경로(보안 설정의 permitAll·테스트 API), 운영 프로필에서 켜지는지
+- **토큰·세션 처리가 여러 곳**: 인터셉터·헤더 함수·저장소 직접 접근이 섞였는지 (`bypassed_components`의 `sessionStorage/localStorage`가 단서)
+- **스택을 넘는 드리프트**: 서버 enum ↔ 클라이언트 상수, API 응답 ↔ 손으로 쓴 타입
+- **근사 중복**: 이름만 다른 비슷한 컴포넌트·서비스 (같은 코드 3곳)
+- **주석 ↔ 코드 불일치**: 감사에서는 표본 10개를 골라 주석이 지금 코드와 맞는지 읽는다
+- **HTML·CSS·템플릿**: 스캔 대상이 아니다. 관리자 템플릿 인라인 스크립트·CSS 크기는 직접 본다
+- **규칙 문서 내부 모순**과 **기존 규칙 테스트가 문서 규칙 중 무엇을 강제하지 않는지**
 
 ## deps
 
-- `layer_violations`: 금지 방향 import (화면 → 인프라, 도메인 → 다른 계층 등). 계층은 폴더 이름으로 분류하므로, 폴더 이름이 관례와 다른 레포는 `layer_edges`로 전체 그림을 먼저 본다
-- `gradle_modules.cycles`: 모듈 순환. 있으면 high
-- import 해석은 레포 안 파일만 본다. 외부 패키지는 무시한다
+- `layer_violations`: 금지 방향 import. 분류 순서: Java·Kotlin 파일 접미사(`*Controller`·`*ExceptionHandler` > 표현, `*Repository` > 인프라, `*Service` > 응용) > 예외·상수 폴더(`common` — 방향 규칙 밖) > 폴더 이름 > Next `app/` 라우터(표현). 폴더 이름이 관례와 다르면 `layer_edges`로 전체 그림을 먼저 본다
+- `from_role: "state"`: Flutter provider·notifier가 데이터 계층을 import. 허용 여부는 팀 결정이다 (`stacks/flutter.md`)
+- `test_violation_count`: 테스트 파일의 위반 수 (목록에 넣지 않음)
+- `cross_module_repository_imports`: 다른 Gradle 모듈의 Repository를 직접 import. 그 모듈의 서비스를 거쳐야 하는 자리다. `is_to_common_module`이면 공통 모듈 저장소라 정상일 수 있다
+- `gradle_modules.cycles`: 운영 의존 순환 (테스트 범위 의존은 `test_edges`). 있으면 high
+- 레포에 기존 계층 예외 목록(`detect.allowlists`)이 있으면 그 목록과 대조한다. 기존 장치가 허용한 간선은 위반으로 쓰지 않는다
 
-## diff
+## assets
 
-`references/check.md` 표 참고. 새 파일은 낡은 주석·고쳐 쓴 주석 검사에서 뺀다 (모든 줄이 새 줄이라).
+- `identical_copies`: 같은 내용이 여러 곳. 영역을 넘는 손복사가 먼저 온다. `is_generated_icon_set`(flutter_launcher_icons 결과)·`is_reference_copy`(`docs/`·figma 내보내기)는 낮다
+- `same_name_different_content`: 같은 이름·같은 확장자(PNG는 같은 픽셀)가 영역마다 다른 내용 — **한쪽만 고쳐진 낡은 사본** 후보. 가장 먼저 본다
+- `format_variants`: 같은 이름이 svg·png처럼 형식만 다름 — 한쪽이 안 쓰이는 사본일 수 있다 (참조를 검색해 확인)
 
 ## rule-docs
 
-- `missing_references`: 백틱 안 경로가 문서 폴더·레포 루트 어디에도 없음 (맨 파일명은 레포 어디든 있으면 통과)
-- `prose_comment_inducing`: 줄글 주석을 부르는 문구. 코드 주석 과잉의 **원인**일 수 있다 ("주석 필수"·"자세히" 류. "WHY 중심" 단독은 conventions §7.5와 같으므로 잡지 않는다)
+- `missing_references`: 문서 폴더·조상 폴더·경로 꼬리 일치 어디에도 없는 경로. `in_code_block`은 트리 그림·예시일 수 있다
+- `ignored_references`: gitignore 대상 경로 (비밀 설정 파일 등 — 없는 게 정상일 수 있다. 문서가 그렇다고 적었는지 본다)
+- `prose_comment_inducing`: 줄글 주석을 부르는 문구 ("주석 필수"·"자세히" 류. "WHY 중심" 단독은 conventions §7.5와 같아 잡지 않는다)
+- `duplicate_documents`: 같은 내용 규칙 문서 사본 — 한쪽만 고쳐지면 모순이 생긴다
 
-## ledger
+## diff · ledger · conventions
 
-- `check`: 규칙별 `new`(새 위반 — 코드를 고친다), `fixed`(고쳐짐 — `tighten`으로 목록에서 지운다), `verdict`
-- `freeze`: `.allow`가 이미 있으면 `allow_exists`로 거부한다. 동결 목록에 줄을 더하는 명령은 없다 (의도된 설계)
-
-## conventions
-
-`same` · `outdated`(정본이 바뀜) · `locally_modified`(프로젝트가 고침 — 그 프로젝트 규칙으로 존중) · `missing`.
+- diff: `references/check.md` 표 참고. 새 파일은 낡은 주석·고쳐 쓴 주석 검사에서 뺀다
+- ledger `check`: 규칙별 `new`(새 위반 — 코드를 고친다), `fixed`(고쳐짐 — `tighten`으로 목록에서 지운다), `verdict`. `freeze`는 `.allow`가 있으면 `allow_exists`로 거부한다 (목록에 줄을 더하는 명령은 없다)
+- conventions: `same` · `outdated`(정본이 바뀜) · `locally_modified`(프로젝트가 고침 — 그 프로젝트 규칙으로 존중) · `missing`

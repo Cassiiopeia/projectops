@@ -53,13 +53,13 @@ def cmd_detect(args, root):
 
 
 def cmd_scan(args, root):
-    result = scan.scan_project(root, args.limit)
+    result = scan.scan_project(root, args.limit, args.all, args.only, args.category)
     if args.record:
         rule_counts = {r["id"]: r.get("violations", 0) for r in ledger.check_rules(root)["rules"]}
-        result["recorded"] = str(scan.record_metrics(root, result["summary"], rule_counts))
+        result["recorded"] = str(scan.record_metrics(root, result["counts"], rule_counts))
     summary_text = result.pop("summary_text")
-    return {**result, "counts": result["summary"], "summary": summary_text,
-            "next": f"assets {root} · deps {root} · rule-docs {root}"}
+    return {**result, "summary": summary_text,
+            "next": f"review_order 순서로 원문 확인 (references/facts.md) · assets {root} · deps {root} · rule-docs {root}"}
 
 
 def cmd_assets(args, root):
@@ -67,7 +67,8 @@ def cmd_assets(args, root):
 
 
 def cmd_deps(args, root):
-    return {**deps.analyze_dependencies(root, args.limit), "next": f"rule-docs {root}"}
+    return {**deps.analyze_dependencies(root, args.limit, args.all),
+            "next": f"layer_edges 로 전체 그림 확인 후 위반 원문 확인 (references/facts.md) · rule-docs {root}"}
 
 
 def cmd_diff(args, root):
@@ -126,10 +127,15 @@ def build_parser() -> JsonArgumentParser:
         return command
 
     add("detect", cmd_detect, "스택·규칙 문서·이어받을 자료")
-    add("scan", cmd_scan, "파일별 냄새 사실", has_limit=True).add_argument(
-        "--record", action="store_true", help="docs/architecture/metrics.jsonl 에 요약 1줄 추가")
+    scan_command = add("scan", cmd_scan, "레포가 소유한 코드의 냄새 사실", has_limit=True)
+    scan_command.add_argument("--record", action="store_true", help="docs/architecture/metrics.jsonl 에 요약 1줄 추가")
+    scan_command.add_argument("--all", action="store_true", help="도구 설치물·생성물·외부 라이브러리도 포함 (origin 태그)")
+    scan_command.add_argument("--only", action="append", metavar="PREFIX", help="이 경로 아래만 (여러 번) — 하위 에이전트용")
+    scan_command.add_argument("--category", action="append", choices=scan.PER_FILE_CATEGORIES + scan.CROSS_FILE_CATEGORIES,
+                              help="이 범주만 출력 (여러 번)")
     add("assets", cmd_assets, "이미지·폰트 사본과 같은 이름·다른 내용", has_limit=True)
-    add("deps", cmd_deps, "계층 역방향 import · Gradle 모듈 순환", has_limit=True)
+    add("deps", cmd_deps, "계층 역방향 import · 모듈 간 저장소 직접 사용 · Gradle 모듈 순환", has_limit=True).add_argument(
+        "--all", action="store_true", help="도구 설치물·생성물·외부 라이브러리도 포함")
     add("diff", cmd_diff, "변경분만 검사", has_limit=True).add_argument(
         "--base", default="HEAD", help="비교 기준 커밋 (기본 HEAD — 아직 커밋 안 한 변경)")
     add("rule-docs", cmd_rule_docs, "규칙 문서의 없는 경로·줄글 주석 유도 문구")

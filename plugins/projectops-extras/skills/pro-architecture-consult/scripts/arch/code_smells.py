@@ -1,21 +1,31 @@
-"""줄·파일 단위 냄새 탐지 (scan·diff 공용): 주석 문구, boolean 이름, 약어, 하드코딩 토큰, 삼키는 catch
+"""줄·파일 단위 냄새 탐지 (scan·diff 공용): 주석 문구·블록, 하드코딩 토큰·URL, catch 처리, 린트 끄기
 
-판정은 하지 않는다 — 후보만 낸다. 오탐은 에이전트가 원문을 보고 거른다.
+판정은 하지 않는다 — 후보와 판단 단서(태그)만 낸다. 오탐은 에이전트가 원문을 보고 거른다.
+이름 냄새는 naming_smells, 파일을 넘는 냄새(우회·중복 상수·긴 함수)는 structure_smells.
 """
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
-from .source_files import split_identifier_words
+from .naming_smells import (boolean_function_names_in_line, boolean_names_in_line,  # noqa: F401 — diff_review 호환
+                            file_type_name_mismatch, naming_findings_in_line, without_string_literals)
 
 # 경위 주석 (작업 이력은 커밋·이슈에 남긴다 — conventions §7.6)
+# 명사형 끝맺음(추가함·삭제함)은 현재 동작 설명에도 쓰여(conventions §7 권장 형태) 넣지 않는다
 HISTORY_COMMENT_PATTERN = re.compile(
-    r"기존에는|예전에는|원래는|이전에는|바꿨|바꾸었|변경했|변경함|수정했|수정함|고쳤|(?<![가-힣])고침|추가했|추가함|"
-    r"제거했|제거함|삭제했|삭제함|이제는|리팩터링으로|리팩토링으로|이전\s*버그|"
+    r"기존에는|예전에는|예전엔|원래는|이전에는|이제는|"
+    r"바꿨|바꾸었|바꿈(?![가-힣])|변경했|수정했|고쳤|추가했|제거했|삭제했|옮겼|걷어냈|없앴|되돌렸|뒤집었|바뀌었|통일했|통일함|"
+    r"리팩터링으로|리팩토링으로|이전\s*버그|문제가\s*있었|그대로\s*옮|통합\s*후|"
+    r"기존\s*\S*\s*(?:방식|메서드|로직|코드|구조|버전)|기존\s*\S+\s*(?:→|->)|에서\s*(?:\S+\s*(?:으로|로)\s*)?전환|"
+    r"(?:으로|로)\s*(?:변경|통합|교체)(?:했|함|되었|됐)|"
     r"\bpreviously\b|\bused to\b|\bno longer\b|\bnow uses?\b|\bwas changed\b|\brefactored\b|"
-    r"\bchanged from\b|\bfixed (?:a |the )?bug\b|\bold (?:code|logic|version|behavior)\b",
+    r"\bchanged from\b|\bfixed (?:a |the )?bug\b|\bold (?:code|logic|version|behavior)\b|\bmigrated from\b",
     re.IGNORECASE,
+)
+# 경위가 아닌 문장: 사용자·관리자의 동작, 가정·조건 ("관리자가 바꿨을 뿐인데", "추가했는지")
+NOT_HISTORY_PATTERN = re.compile(
+    r"(?:사용자|관리자|유저|운영자|누군가|상대)(?:가|이)\s|"
+    r"(?:바꿨|바꾸었|변경했|수정했|추가했|삭제했|제거했)(?:을\s*때|으면|다면|다고|더라도|는지|을지|을\s*뿐|는데도)"
 )
 # 장식 배너 (// ====, # ----)
 BANNER_COMMENT_PATTERN = re.compile(r"[=\-*#~]{4,}")
@@ -26,73 +36,68 @@ PROSE_ENDING_PATTERN = re.compile(
 
 # 주석 블록이 이 줄 수 이상이면 "긴 블록" (클래스 문서 주석은 2줄 이내 — conventions §7.1)
 LONG_COMMENT_BLOCK_LINES = 5
-
-BOOLEAN_PREFIX_PATTERN = re.compile(r"^_*(?:is|has|can|should)(?:[A-Z_0-9]|$)")
-BOOLEAN_DECLARATION_PATTERNS = {
-    "dart": [re.compile(r"\bbool\??\s+(?:get\s+)?(?!operator\b)([A-Za-z_]\w*)\s*(?:[=;,){]|=>)")],
-    "java": [re.compile(r"\b(?:boolean|Boolean)\s+([A-Za-z_]\w*)\s*[=;,)]")],
-    "kotlin": [re.compile(r"\b(?:val|var)\s+([A-Za-z_]\w*)\s*:\s*Boolean\b")],
-    "python": [re.compile(r"\b([A-Za-z_]\w*)\s*:\s*bool\b")],
-    "javascript": [re.compile(r"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:true|false)\b"),
-                   re.compile(r"\bconst\s*\[\s*([A-Za-z_$][\w$]*)\s*,\s*set\w*\s*\]\s*=\s*useState(?:<boolean>)?\(\s*(?:true|false)\s*\)")],
-    "typescript": [re.compile(r"\b([A-Za-z_$][\w$]*)\??\s*:\s*boolean\b"),
-                   re.compile(r"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:true|false)\b"),
-                   re.compile(r"\bconst\s*\[\s*([A-Za-z_$][\w$]*)\s*,\s*set\w*\s*\]\s*=\s*useState(?:<boolean>)?\(\s*(?:true|false)\s*\)")],
-}
-
-# boolean 반환 함수 (질문형 이름 — conventions §2.1)
-BOOLEAN_FUNCTION_PATTERNS = {
-    "dart": [re.compile(r"\bbool\s+(?!operator\b)([A-Za-z_]\w*)\s*\(")],
-    "java": [re.compile(r"\b(?:boolean|Boolean)\s+([A-Za-z_]\w*)\s*\(")],
-    "kotlin": [re.compile(r"\bfun\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*:\s*Boolean\b")],
-    "python": [re.compile(r"\bdef\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*->\s*bool\b")],
-    "typescript": [re.compile(r"\bfunction\s+([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*:\s*boolean\b")],
-}
-
-# 약어 (업계 표준 id·url·api·json·http·sql·ui·dto·jwt·uuid·db 는 허용 — conventions §2.2)
-ABBREVIATION_WORDS = {
-    "svc", "repo", "repos", "mgr", "btn", "idx", "tmp", "res", "resp", "req", "cnt", "cur", "curr",
-    "prev", "pre", "msg", "msgs", "str", "num", "val", "vals", "cfg", "conf", "img", "imgs", "pwd",
-    "usr", "addr", "lbl", "txt", "calc", "cb", "evt", "elem", "el", "obj", "arr", "len", "sz", "err",
-    "util", "utils", "info", "desc", "dt", "proc", "pos", "temp",
-}
-# 단독으로 쓰면 뜻이 없는 이름 (무엇의 무엇인지 붙인다)
-MEANINGLESS_NAMES = {"data", "info", "item", "value", "temp", "tmp", "result", "manager", "helper", "util", "utils", "obj", "thing", "stuff"}
-DECLARED_NAME_PATTERN = re.compile(
-    r"\b(?:class|enum|interface|mixin|record|def|function|fun|val|var|let|const|final|late)\s+([A-Za-z_$][\w$]*)"
-)
-# 이 언어 키워드·관례 이름은 이름 검사 제외
-IGNORED_DECLARED_NAMES = {"i", "j", "k", "e", "_", "x", "y", "it", "self", "cls", "args", "kwargs", "main"}
+# 주석 처리된 코드 판정: 3줄 이상이고 60% 이상이 코드 모양
+COMMENTED_CODE_MINIMUM_LINES = 3
+COMMENTED_CODE_RATIO = 0.6
+CODE_LIKE_COMMENT_PATTERN = re.compile(
+    r"^(?:import |package |from \S+ import |return\b|public |private |protected |static |final |const |let |var |val |"
+    r"if\s*\(|for\s*\(|while\s*\(|try\s*\{|\}|@[A-Z]\w*|[\w.$]+\s*\(.*\)\s*;$)|;\s*$|\{\s*$|^\s*\w[\w.]*\s*=\s*[^=]")
+API_DOC_PATTERN = re.compile(r"@(?:param|return|returns|throws|see|example)\b|^(?:Args|Returns|Raises):")
+LICENSE_PATTERN = re.compile(r"license|copyright|\(c\)\s*\d{4}", re.IGNORECASE)
 
 HARDCODED_TOKEN_PATTERNS = {
     "dart": [
         ("color_literal", re.compile(r"\bColor\(0x")),
         ("material_color", re.compile(r"\bColors\.(?!transparent\b)[a-z]\w*")),
-        ("spacing_literal", re.compile(r"\bEdgeInsets\.(?:all|symmetric|only|fromLTRB)\([^)]*\d")),
-        ("font_size_literal", re.compile(r"\bfontSize:\s*\d")),
-        ("radius_literal", re.compile(r"\bBorderRadius\.circular\(\s*\d")),
+        ("spacing_literal", re.compile(r"\bEdgeInsets\.(?:all|symmetric|only|fromLTRB)\([^)]*(?<![\w.])[1-9]")),
+        ("sized_box_literal", re.compile(r"\bSizedBox\(\s*(?:height|width):\s*[1-9]")),
+        ("font_size_literal", re.compile(r"\bfontSize:\s*[1-9]")),
+        ("radius_literal", re.compile(r"\bBorderRadius\.circular\(\s*[1-9]")),
         ("asset_path_literal", re.compile(r"\b(?:Image|SvgPicture)\.asset\(\s*['\"]")),
     ],
     "javascript": [
         ("hex_color", re.compile(r"['\"`](?:#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?|#(?=[0-9]*[a-fA-F])[0-9a-fA-F]{3})\b")),
         ("tailwind_arbitrary_value", re.compile(r"-\[(?:#[0-9a-fA-F]{3,8}|\d+(?:px|rem))\]")),
         ("inline_style", re.compile(r"\bstyle=\{\{")),
+        ("asset_path_literal", re.compile(r"\bsrc=\{?\s*[\"'`]/(?:icons?|images?|img|assets|logos?)/")),
     ],
 }
 HARDCODED_TOKEN_PATTERNS["typescript"] = HARDCODED_TOKEN_PATTERNS["javascript"]
-# 토큰 정의 자리 (여기서는 값을 직접 쓰는 것이 정상)
-TOKEN_DEFINITION_PATH_PATTERN = re.compile(r"(?:^|/)(?:theme|themes|design|tokens?|styles?|colors?)(?:/|\.|_)", re.IGNORECASE)
+# 토큰 정의 자리 (여기서는 값을 직접 쓰는 것이 정상) — design/ 전체가 아니라 토큰·테마 파일만
+TOKEN_DEFINITION_PATH_PATTERN = re.compile(
+    r"(?:^|/)(?:themes?|tokens?|colors?|palette)(?:/|\.|_)|(?:^|/)tailwind\.config\.|_(?:colors?|tokens?|theme|spacing|typography)\.\w+$",
+    re.IGNORECASE)
+
+# 하드코딩 URL (설정 원본에 둔다 — conventions §5). 스키마·예시·표준 문서 주소는 제외
+URL_LITERAL_PATTERN = re.compile(r"[\"'`](https?://[^\"'`\s]+)")
+IGNORED_URL_PATTERN = re.compile(r"https?://(?:www\.)?(?:w3\.org|example\.(?:com|org)|schemas?\.|json-schema\.org|xmlns|localhost(?::\d+)?/?[\"'`]?$)")
 
 SWALLOWED_CATCH_PATTERNS = {
     "slash": re.compile(r"\bcatch\s*(?:\([^)]*\))?\s*\{\s*\}"),
     "python": re.compile(r"\bexcept\b[^:\n]*:\s*(?:#[^\n]*)?\n\s*pass\b|\bexcept\b[^:\n]*:\s*pass\b"),
 }
+CATCH_START_PATTERNS = {
+    "slash": re.compile(r"\bcatch\s*\(([^)]*)\)\s*\{"),
+    "python": re.compile(r"^([ \t]*)except\b([^:\n]*):[ \t]*(?:#.*)?$", re.MULTILINE),
+}
+# 모든 예외를 잡는 catch: Java·Kotlin 최상위 타입, 파이썬 bare·Exception, Dart·JS 타입 없는 catch (on X catch 제외)
+TYPED_CATCH_ALL_PATTERN = re.compile(r"^\s*(?:final\s+)?(?:Exception|Throwable|RuntimeException)\b|^\s*\w+\s*:\s*(?:Exception|Throwable)\b")
+UNTYPED_CATCH_PATTERN = re.compile(r"^\s*\w+\s*(?:,\s*\w+\s*)?$")
+RETHROW_PATTERN = re.compile(r"\b(?:throw|rethrow|raise|return|Result\.|Either\.|Failure\(|emit\()")
+# 실패를 결과에 담는 건별 처리 (일괄 작업의 정상 패턴 — 흐름이 계속되는 게 의도)
+RECORDS_FAILURE_PATTERN = re.compile(r"\.(?:add|put|append|push)\(|isSuccess\(false\)|failReason|\berrors?\[|\bfailures?\b|\bfailed\w*\s*[+=]")
+LOGGING_PATTERN = re.compile(r"\b(?:log|logger|LOG|LOGGER|console|print|debugPrint|logging)\b")
+
+# 파일 전체 린트 끄기 (첫 5줄)
+LINT_DISABLED_PATTERN = re.compile(
+    r"eslint-disable(?!-next-line|-line)|tslint:disable(?!-next-line)|@ts-nocheck|ignore_for_file:|"
+    r"#\s*flake8:\s*noqa|#\s*type:\s*ignore|#\s*pylint:\s*disable=all|@SuppressWarnings\(\s*\"all\"\s*\)")
 
 
 def comment_phrase_findings(content: str) -> list[str]:
     """주석 한 줄의 문제 종류 목록: history / banner / prose_ending"""
     kinds = []
-    if HISTORY_COMMENT_PATTERN.search(content):
+    if HISTORY_COMMENT_PATTERN.search(content) and not NOT_HISTORY_PATTERN.search(content):
         kinds.append("history")
     body = content.lstrip("/#*! ").rstrip("*/ ")
     if BANNER_COMMENT_PATTERN.search(body) and len(re.sub(r"[=\-*#~\s]", "", body)) < len(body) // 2:
@@ -102,39 +107,18 @@ def comment_phrase_findings(content: str) -> list[str]:
     return kinds
 
 
-def boolean_names_in_line(line: str, language: str) -> list[str]:
-    """접두사(is/has/can/should) 없는 boolean 이름"""
-    names = []
-    for pattern in BOOLEAN_DECLARATION_PATTERNS.get(language, []):
-        for match in pattern.finditer(line):
-            name = match.group(1)
-            if name and not BOOLEAN_PREFIX_PATTERN.match(name) and name not in IGNORED_DECLARED_NAMES:
-                names.append(name)
-    return names
-
-
-def boolean_function_names_in_line(line: str, language: str) -> list[str]:
-    """질문형(is/has/can/should) 아닌 boolean 반환 함수 이름"""
-    return [m.group(1) for p in BOOLEAN_FUNCTION_PATTERNS.get(language, []) for m in p.finditer(line)
-            if not BOOLEAN_PREFIX_PATTERN.match(m.group(1))]
-
-
-def naming_findings_in_line(line: str) -> list[tuple[str, str, str]]:
-    """선언된 이름의 약어·뜻 없는 이름: [(종류, 이름, 걸린 단어)]"""
-    findings = []
-    for match in DECLARED_NAME_PATTERN.finditer(line):
-        name = match.group(1)
-        if name in IGNORED_DECLARED_NAMES or len(name) <= 1:
-            continue
-        words = split_identifier_words(name)
-        if name.lower().strip("_") in MEANINGLESS_NAMES:
-            findings.append(("meaningless_name", name, name.lower()))
-            continue
-        for word in words:
-            if word in ABBREVIATION_WORDS:
-                findings.append(("abbreviation", name, word))
-                break
-    return findings
+def comment_block_kind(start_line: int, contents: list[str]) -> str:
+    """주석 블록 성격: license / commented_code / api_doc / prose (판단 단서)"""
+    bodies = [c.lstrip("/#*! ").rstrip("*/ ").strip() for c in contents]
+    bodies = [b for b in bodies if b]
+    if start_line <= 3 and any(LICENSE_PATTERN.search(b) for b in bodies):
+        return "license"
+    if len(bodies) >= COMMENTED_CODE_MINIMUM_LINES and \
+            sum(1 for b in bodies if CODE_LIKE_COMMENT_PATTERN.search(b)) >= len(bodies) * COMMENTED_CODE_RATIO:
+        return "commented_code"
+    if any(API_DOC_PATTERN.search(b) for b in bodies):
+        return "api_doc"
+    return "prose"
 
 
 def hardcoded_tokens_in_line(line: str, language: str, relative_path: str) -> list[str]:
@@ -143,25 +127,76 @@ def hardcoded_tokens_in_line(line: str, language: str, relative_path: str) -> li
     return [kind for kind, pattern in HARDCODED_TOKEN_PATTERNS.get(language, []) if pattern.search(line)]
 
 
-def swallowed_catch_lines(text: str, language: str) -> list[int]:
+def hardcoded_urls_in_line(line: str) -> list[str]:
+    return [m.group(1)[:120] for m in URL_LITERAL_PATTERN.finditer(line) if not IGNORED_URL_PATTERN.match(m.group(1))]
+
+
+def swallowed_catch_findings(text: str, language: str) -> list[dict]:
+    """빈 catch·except: pass (has_reason_comment: 같은 줄·바로 위 주석 있음 — 실패해도 되는 정리 코드 단서)"""
     pattern = SWALLOWED_CATCH_PATTERNS["python" if language == "python" else "slash"]
-    return [text.count("\n", 0, match.start()) + 1 for match in pattern.finditer(text)]
+    lines = text.splitlines()
+    findings = []
+    for match in pattern.finditer(text):
+        number = text.count("\n", 0, match.start()) + 1
+        nearby = match.group(0) + (lines[number - 2] if number >= 2 else "")
+        findings.append({"line": number, "has_reason_comment": "#" in nearby or "//" in nearby})
+    return findings
 
 
-def file_type_name_mismatch(relative_path: str, language: str, text: str) -> str | None:
-    """파일명 ≠ 주된 타입명이면 그 파일의 첫 공개 타입 이름 (Dart·JSX/TSX 컴포넌트만)"""
-    stem = Path(relative_path).stem
-    if language == "dart":
-        if stem in {"main", "app_router"} or "_test" in stem:
-            return None
-        expected = "".join(word.capitalize() for word in stem.split("_"))
-        types = re.findall(
-            r"^(?:(?:abstract|sealed|final|base|interface)\s+)*(?:class|enum|mixin|extension\s+type)\s+([A-Z]\w*)",
-            text, re.MULTILINE)
-        if types and expected not in types:
-            return types[0]
-    elif relative_path.endswith((".tsx", ".jsx")) and stem[:1].isupper() and stem != "index":
-        exported = re.findall(r"\bexport\s+(?:default\s+)?(?:function|class|const)\s+([A-Z]\w*)", text)
-        if exported and stem not in exported:
-            return exported[0]
-    return None
+def unhandled_catch_findings(text: str, language: str) -> list[dict]:
+    """다시 던지지 않는 catch (본문이 있는데 throw·return·raise 없음) + catch-all 이 다른 예외로 바꿔 던짐
+
+    kind: no_rethrow(흐름이 계속됨 — 롤백·보상 뒤에 계속 진행되는지 본다) / rewrap_all(원래 오류 코드가 사라짐)
+    """
+    findings = []
+    for line_number, caught, body, prefix in _catch_bodies(text, language):
+        code = "\n".join(l for l in body.splitlines() if not l.strip().startswith(("//", "#", "*", "/*")))
+        if not code.strip() or code.strip() == "pass":
+            continue  # 빈 catch 는 swallowed_catch
+        is_catch_all = _is_catch_all(caught, language, prefix)
+        if not RETHROW_PATTERN.search(code):
+            finding = {"line": line_number, "kind": "no_rethrow", "is_catch_all": is_catch_all,
+                       "has_log": bool(LOGGING_PATTERN.search(code)), "body_lines": len(body.splitlines())}
+            if RECORDS_FAILURE_PATTERN.search(code):
+                finding["records_failure"] = True
+            findings.append(finding)
+        elif is_catch_all and re.search(r"\bthrow\s+new\b|\braise\s+\w+\(", code):
+            findings.append({"line": line_number, "kind": "rewrap_all", "is_catch_all": True,
+                             "has_log": bool(LOGGING_PATTERN.search(code)), "body_lines": len(body.splitlines())})
+    return findings
+
+
+def lint_disabled_marker(text: str) -> str | None:
+    match = LINT_DISABLED_PATTERN.search("\n".join(text.splitlines()[:5]))
+    return match.group(0) if match else None
+
+
+def _is_catch_all(caught: str, language: str, prefix: str) -> bool:
+    if language == "python":
+        return not caught or bool(re.match(r"(?:Exception|BaseException)\b", caught))
+    if language in ("dart", "javascript", "typescript"):
+        return bool(UNTYPED_CATCH_PATTERN.match(caught)) and not re.search(r"\bon\s+[\w<>.]+\s*$", prefix)
+    return bool(TYPED_CATCH_ALL_PATTERN.match(caught))
+
+
+def _catch_bodies(text: str, language: str):
+    """(catch 줄 번호, 잡은 타입, 본문, catch 앞 글자) — 중괄호 언어는 괄호 짝, 파이썬은 들여쓰기"""
+    if language == "python":
+        lines = text.splitlines()
+        for match in CATCH_START_PATTERNS["python"].finditer(text):
+            number = text.count("\n", 0, match.start()) + 1
+            indent = len(match.group(1).expandtabs())
+            body = []
+            for line in lines[number:]:
+                if line.strip() and len(line) - len(line.lstrip()) <= indent:
+                    break
+                body.append(line)
+            yield number, match.group(2).strip(), "\n".join(body), ""
+        return
+    for match in CATCH_START_PATTERNS["slash"].finditer(text):
+        depth, index = 1, match.end()
+        while index < len(text) and depth:
+            depth += {"{": 1, "}": -1}.get(text[index], 0)
+            index += 1
+        yield (text.count("\n", 0, match.start()) + 1, match.group(1), text[match.end():index - 1],
+               text[max(0, match.start() - 60):match.start()])

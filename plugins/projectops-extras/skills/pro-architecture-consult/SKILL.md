@@ -17,6 +17,7 @@ description: "Keep AI-written code maintainable by your conventions: audit, refa
 AI 코드의 병 다섯 가지를 고친다: 주석 과잉, 낡은 주석, 재사용 없는 새 코드, 의존 방향 무시, 큰 파일과 약어.
 
 **스크립트는 사실만 모은다. 판단은 당신이 한다.** 수치는 후보다. 원문을 열어 확인한 것만 문제로 쓴다.
+CLI는 판단 단서를 함께 준다: 출처(`excluded`·`origin`), 운영/테스트 분리(`counts`·`test_counts`), 읽는 순서(`review_order`), 원인 묶기(`hotspots`), 항목 태그(`contract`·`records_failure`·`kind`). 태그의 뜻과 CLI가 보지 못하는 것은 `references/facts.md`.
 **보고서로 끝내지 않는다.** 문제를 찾았으면 동결(더 늘지 않게) → 하나씩 고치기 → 규칙 테스트로 봉인까지 간다.
 
 ## 의도 분류 (첫 단계 — 사용자는 모드 이름을 모른다)
@@ -39,9 +40,9 @@ AI 코드의 병 다섯 가지를 고친다: 주석 과잉, 낡은 주석, 재�
 | 하려는 것 | 명령 |
 |---|---|
 | 스택·규칙 문서·이어받을 것(기존 감사·예외 목록·규칙 테스트) | `detect PATH` |
-| 파일별 냄새 (크기·주석·이름·토큰·삼키는 catch) | `scan PATH [--limit N] [--record]` |
+| 레포가 소유한 코드의 냄새 (catch·우회·중복 상수·크기·주석·이름·토큰) | `scan PATH [--limit N] [--only DIR] [--category C] [--all] [--record]` |
 | 이미지·폰트 사본, 같은 이름·다른 내용 | `assets PATH` |
-| 계층 역방향 import, Gradle 모듈 순환 | `deps PATH` |
+| 계층 역방향 import, 모듈 간 저장소 직접 사용, Gradle 모듈 순환 | `deps PATH [--all]` |
 | 변경분만 (낡은 주석·새 주석·재사용 후보·새 이름) | `diff PATH [--base REF]` |
 | 규칙 문서의 없는 경로·줄글 주석 유도 문구 | `rule-docs PATH` |
 | 동결 목록 판정 · 최초 동결 · 고쳐진 줄 정리 | `ledger PATH check` · `ledger PATH freeze --rule ID` · `ledger PATH tighten` |

@@ -11,6 +11,8 @@ RULE_DOCUMENT_NAMES = {"CLAUDE.md", "claude.md", "AGENTS.md", "GEMINI.md", ".cur
 RULE_DOCUMENT_DIRECTORY_PARTS = ("/.claude/rules/", "/.cursor/rules/", "/docs/architecture/")
 PRIOR_AUDIT_PATTERN = re.compile(r"audit", re.IGNORECASE)
 ALLOWLIST_PATTERN = re.compile(r"(?:allow(?:ed|list)?|baseline|frozen)[\w.-]*\.(?:txt|allow|json)$|\.allow$", re.IGNORECASE)
+# 예외 목록이 아닌 같은 이름 파일 (projectops 설치 기록)
+NOT_ALLOWLIST_PATHS = (".github/.projectops/",)
 # 규칙 테스트 흔적 (파일 경로 또는 본문)
 RULE_TEST_PATH_PATTERN = re.compile(r"(?:^|/)(?:test|tests|spec)/.*(?:architecture|layer|arch_|rules?_test|design_token)", re.IGNORECASE)
 RULE_TEST_CONFIG_NAMES = {".importlinter", ".dependency-cruiser.js", ".dependency-cruiser.cjs", "importlinter.ini"}
@@ -36,7 +38,7 @@ def detect_project(root: Path) -> dict:
             rule_documents.append(relative)
         if name.endswith(".md") and PRIOR_AUDIT_PATTERN.search(name):
             prior_audits.append(relative)
-        if ALLOWLIST_PATTERN.search(name):
+        if ALLOWLIST_PATTERN.search(name) and not any(p in probe for p in NOT_ALLOWLIST_PATHS):
             allowlists.append(relative)
         if name in RULE_TEST_CONFIG_NAMES or RULE_TEST_PATH_PATTERN.search(relative) and _is_code(name):
             rule_tests.append(relative)
@@ -45,6 +47,12 @@ def detect_project(root: Path) -> dict:
                 rule_tests.append(relative)
 
     stacks = _collapse_gradle_submodules(stacks, gradle_settings_directories)
+    # Flutter 앱의 android/ 는 별도 스택이 아니라 호스트 (감사 대상은 flutter 모듈)
+    flutter_modules = {s["module"] for s in stacks if s["stack"] == "flutter"}
+    for stack in stacks:
+        parent = str(Path(stack["module"]).parent.as_posix())
+        if stack["stack"] == "jvm" and Path(stack["module"]).name == "android" and parent in flutter_modules:
+            stack["flutter_host_of"] = parent
     return {
         "root": str(root),
         "stacks": stacks,
@@ -52,7 +60,9 @@ def detect_project(root: Path) -> dict:
         "prior_audits": prior_audits[:MAXIMUM_LISTED],
         "allowlists": allowlists[:MAXIMUM_LISTED],
         "rule_tests": rule_tests[:MAXIMUM_LISTED],
-        "has_architecture_folder": (root / "docs" / "architecture").is_dir(),
+        # 이 스킬이 설치한 것이 있을 때만 참 (빈 audits 폴더만으로는 이어받을 것이 없다)
+        "has_architecture_folder": (root / "docs" / "architecture" / "rules").is_dir()
+                                   or (root / "docs" / "architecture" / "CONVENTIONS.md").is_file(),
         "summary": f"스택 {sorted({s['stack'] for s in stacks})}, 규칙 문서 {len(rule_documents)}, "
                    f"기존 감사 {len(prior_audits)}, 예외 목록 {len(allowlists)}, 규칙 테스트 흔적 {len(rule_tests)}",
     }
@@ -65,7 +75,9 @@ def _stack_of_marker(name: str, absolute: Path):
         return ("flutter" if re.search(r"^\s*flutter\s*:", text, re.MULTILINE) else "dart"), {}
     if name in ("build.gradle", "build.gradle.kts", "pom.xml"):
         text = _read(absolute)
-        return ("spring" if "springframework" in text else "jvm"), {"is_android": "com.android" in text}
+        sibling_app = absolute.parent / "app" / name
+        is_android = "com.android" in text or (sibling_app.is_file() and "com.android" in _read(sibling_app))
+        return ("spring" if "springframework" in text else "jvm"), {"is_android": is_android}
     if name in ("pyproject.toml", "requirements.txt", "setup.py"):
         return "python", {}
     if name == "package.json":
