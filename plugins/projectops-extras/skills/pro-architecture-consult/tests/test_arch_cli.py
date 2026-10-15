@@ -48,10 +48,11 @@ def project(tmp_path):
           "}\n")
     write(root, "app/lib/features/quiz/data/quiz_repository.dart", "class QuizRepository {}\n")
     # Spring 멀티모듈 (순환 포함)
-    write(root, "server/settings.gradle", "include ':core', ':web'\n")
+    write(root, "server/settings.gradle", "include ':core', ':web', ':api'\n")
     write(root, "server/build.gradle", "plugins { id 'org.springframework.boot' }\n")
     write(root, "server/core/build.gradle", "dependencies { implementation project(':web') }\n")
     write(root, "server/web/build.gradle", "dependencies { api project(':core') }\n")
+    write(root, "server/api/build.gradle", "dependencies { implementation project(':core')\n testImplementation project(':web') }\n")
     # Python
     write(root, "ai/pyproject.toml", "[project]\nname='ai'\n")
     write(root, "ai/app/service.py",
@@ -107,7 +108,7 @@ def test_audit_facts(project):
     detected = run_cli("detect", project)[0]
     stacks = {(s["stack"], s["module"]) for s in detected["stacks"]}
     assert {("flutter", "app"), ("spring", "server"), ("python", "ai"), ("javascript", "web")} <= stacks
-    assert sorted(next(s for s in detected["stacks"] if s["module"] == "server")["modules"]) == ["server/core", "server/web"]
+    assert sorted(next(s for s in detected["stacks"] if s["module"] == "server")["modules"]) == ["server/api", "server/core", "server/web"]
     assert "CLAUDE.md" in detected["rule_documents"] and "docs/ARCHITECTURE-AUDIT.md" in detected["prior_audits"]
 
     # scan: 범주별 대표 사례 (여러 줄 문자열 안의 문구는 주석 아님)
@@ -134,7 +135,9 @@ def test_audit_facts(project):
     dependencies = run_cli("deps", project)[0]
     violation = dependencies["layer_violations"][0]
     assert (violation["from_layer"], violation["to_layer"]) == ("presentation", "infrastructure")
-    assert dependencies["gradle_modules"]["cycles"]
+    # core <-> web 만 순환, 테스트 범위 의존(api > web)은 순환 판정 밖
+    assert [sorted(set(c)) for c in dependencies["gradle_modules"]["cycles"]] == [["core", "web"]]
+    assert [e["to"] for e in dependencies["gradle_modules"]["test_edges"]] == ["web"]
 
     # rule-docs: 없는 경로 참조, 줄글 주석 유도 문구
     document = next(d for d in run_cli("rule-docs", project)[0]["documents"] if d["path"] == "CLAUDE.md")

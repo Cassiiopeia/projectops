@@ -41,7 +41,7 @@
 ## rule-docs
 
 - `missing_references`: 백틱 안 경로가 문서 폴더·레포 루트 어디에도 없음 (맨 파일명은 레포 어디든 있으면 통과)
-- `prose_comment_inducing`: 줄글 주석을 부르는 문구. 코드 주석 과잉의 **원인**일 수 있다
+- `prose_comment_inducing`: 줄글 주석을 부르는 문구. 코드 주석 과잉의 **원인**일 수 있다 ("주석 필수"·"자세히" 류. "WHY 중심" 단독은 conventions §7.5와 같으므로 잡지 않는다)
 
 ## ledger
 

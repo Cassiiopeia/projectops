@@ -98,7 +98,10 @@ def gradle_module_graph(root: Path) -> dict:
                     build_text = build_file.read_text(encoding="utf-8", errors="replace")
                     for configuration, target in re.findall(r"(\w+)\s*\(?\s*project\s*\(\s*['\"]:?([\w\-:]+)['\"]", build_text):
                         edges.append({"from": name, "to": target, "configuration": configuration})
-    return {"edges": edges, "cycles": _find_cycles(edges)}
+    # 테스트 범위 의존(testImplementation 등)은 운영 클래스패스가 아니라 순환 판정에서 제외
+    production_edges = [e for e in edges if not e["configuration"].lower().startswith("test")]
+    return {"edges": production_edges, "test_edges": [e for e in edges if e not in production_edges],
+            "cycles": _find_cycles(production_edges)}
 
 
 def _find_cycles(edges: list[dict]) -> list[list[str]]:

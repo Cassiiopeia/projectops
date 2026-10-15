@@ -10,7 +10,7 @@ from .source_files import walk_files
 BACKTICK_PATH_PATTERN = re.compile(r"`([\w.\-]+(?:/[\w.\-]+)+/?|[\w\-]+\.(?:md|py|js|mjs|ts|tsx|dart|java|kt|ya?ml|json|txt|gradle|toml))`")
 # 줄글 주석을 유도하는 문구 (주석은 한 줄 요약·단계 머리글로 — conventions §7)
 PROSE_COMMENT_INDUCING_PATTERN = re.compile(
-    r"주석\s*(?:은|을|도)?\s*(?:필수|꼭|반드시|자세히|상세히|많이|충분히|풍부)|코드\s*주석\s*필수|WHY\s*중심|"
+    r"주석\s*(?:은|을|도)?\s*(?:필수|꼭|반드시|자세히|상세히|많이|충분히|풍부)|코드\s*주석\s*필수|"
     r"모든\s*(?:함수|메서드|클래스|파일)에\s*주석|comment\s+(?:every|all|each)|always\s+(?:add|write)\s+comments|"
     r"document\s+every|detailed\s+comments|thoroughly\s+comment",
     re.IGNORECASE,
