@@ -46,6 +46,30 @@ agent 가 "모른다는 것을 모르는" 상태에서 꺼내 볼 생각을 하�
 - 여기에는 결론만 남긴다. 왜 막혔고 어떻게 풀었는지 같은 긴 사례는 레포 문서(`CLAUDE.md` 등)에 적는다.
 - 계정은 `cred`(`credentials.md`), 방식은 `learn` 으로 나눈다.
 
+## 했던 작업을 적어 둔다 (작업 일지)
+
+`learn` 은 "이 방식이 먹혔다"라는 한 줄 결론용이다. 한 건의 **작업 맥락**(무엇을 왜 했고, 어떤 순서였고,
+무엇을 기준으로 판단했고, 결과가 어땠고, 다음에 헷갈릴 점)은 `journal` 에 자유롭게 적는다. 형식은 없다.
+
+**언제 적나**
+- 작업을 마치고 창을 닫으면 응답에 `journal_hint` 가 온다. 다음에도 반복될 만한 작업이면 **사용자에게 먼저
+  "이 작업을 기록해 둘까요?" 라고 묻고**, 동의하면 적는다.
+- 사용자가 먼저 "이거 기록해 줘" 라고 하면 묻지 않고 바로 적는다.
+
+**언제 읽히나**: 같은 영역(web·app·server)을 다시 열면 응답에 `journal`(최근 2건, 하루 한 번)이 실려 온다.
+**참고만 한다** — 순서와 판단 기준을 이어 쓰되, 변경하는 동작(제외·삭제·제출 등)은 사용자 확인을 거친다.
+적힌 것이 낡았거나 화면이 달라졌으면 그대로 따르지 말고 달라진 점을 `--add` 로 덧붙인다.
+
+```bash
+{PYTHON} {SCRIPTS}/launch_cli.py journal --add-file "$NOTE" --title "sparrow 오탐 제외 요청" --area web --site 10.206.10.195
+{PYTHON} {SCRIPTS}/launch_cli.py journal --site sparrow       # 찾기 (최근 것부터)
+{PYTHON} {SCRIPTS}/launch_cli.py journal --forget "sparrow 오탐 제외 요청"
+```
+
+- 긴 글·줄바꿈은 `--add-file`(UTF-8 파일)로 넘긴다. 한 건 1500자, 레포당 40건까지.
+- **비밀번호·토큰은 저장을 거절한다.** 계정은 `cred` 로 둔다.
+- 저장 위치: `~/.projectops/launch/<owner__repo>/journal.jsonl`.
+
 ## 토큰을 아낀다
 
 - 화면 이미지를 읽는 것이 가장 비싸다. **텍스트로 확인되면(`assert` · 로그 · `app tree` · E2E 의 assertVisible) 스크린샷을 읽지 않는다.**

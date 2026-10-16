@@ -36,6 +36,7 @@ description: "Capability skill that launches and drives apps, web and servers: e
 | 자격증명 저장 · 원격 명령 · 이 맥 sudo | `cred list\|show\|set\|unset\|import-ssh` · `ssh` · `local sudo` | `references/credentials.md` |
 | 이슈 첨부용 축소 | `shrink` | `references/memory.md` |
 | 이 컴퓨터에서 먹힌 방식 꺼내기 · 남기기 · 지우기 · 정리 | `recall` · `learn` · `forget` · `tidy` | `references/memory.md` |
+| 했던 작업을 자유롭게 적어 두고 다음에 다시 읽기 (작업 일지) | `journal [--add "..."] [--title] [--site]` | `references/memory.md` |
 | 이번 실행 자리 + `env.sh` | `get-output-path` | 아래 |
 | 새 플랫폼 · 새 동작 추가(기여자) | — | `references/extending.md` |
 

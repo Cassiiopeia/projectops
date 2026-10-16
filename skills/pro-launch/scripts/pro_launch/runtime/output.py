@@ -9,6 +9,7 @@ from common.access import needs_verify, record_result
 from common.emit import emit
 from common.state import repo_unknown
 
+import journal
 import knowledge
 
 from pro_launch.runtime.context import ACCESS_CTX, MEMORY_CTX, MIGRATION, ROOT_CTX
@@ -112,8 +113,26 @@ def _memory_hooks(payload: dict) -> None:
         hint = _track_attempt(seen_dir / "attempts.json", area, payload)
         if hint:
             payload["learn_hint"] = hint
+        _journal_hooks(payload, area, root, unknown, seen_dir)
     except Exception:   # noqa: BLE001 — 기억은 보조다. 실패해도 본 명령 결과는 그대로 낸다
         pass
+
+
+def _journal_hooks(payload: dict, area: str, root: Path, unknown: bool, seen_dir: Path) -> None:
+    """작업 일지 — 같은 영역에 돌아오면 최근 기록을 싣고, 작업을 마치면 적어 둘지 묻게 한다."""
+    path = journal.store_path(root)
+    rows = journal.surface(path, area, seen_dir / "journal_seen.json")
+    if rows:
+        payload["journal"] = rows
+        payload["journal_note"] = ("전에 이 영역에서 했던 작업 기록이다. 참고만 한다 — 같은 작업을 다시 할 때 "
+                                   "순서와 판단 기준을 이어 쓰되, 변경하는 동작은 사용자 확인을 거친다. "
+                                   "달라진 점은 journal --add 로 덧붙인다")
+    # 작업을 마치는 순간(창을 닫는 때)이 적어 둘 가장 좋은 때다 — 사용자에게 먼저 묻는다
+    if payload.get("action") == "close" and payload.get("ok", True) is not False and not unknown:
+        payload["journal_hint"] = (
+            "이번에 한 작업이 다음에도 반복될 만하면 사용자에게 \"이 작업을 기록해 둘까요?\" 라고 묻고, 동의하면 "
+            f"journal --add \"<무엇을 왜 했는지·순서·판단 기준·결과·다음에 헷갈릴 점>\" --title <제목> --area {area} "
+            "--site <주소 일부> 로 적는다. 사용자가 먼저 기록해 달라고 하면 묻지 않고 바로 적는다 (비밀값은 적지 않는다)")
 
 
 def _track_attempt(f: Path, area: str, payload: dict) -> str | None:
