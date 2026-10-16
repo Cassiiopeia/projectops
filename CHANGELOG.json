@@ -1,14 +1,38 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-15T22:20:13Z",
-    "currentVersion": "4.51.0",
+    "lastUpdated": "2026-10-16T00:10:11Z",
+    "currentVersion": "4.52.0",
     "projectType": "basic",
-    "totalReleases": 313,
+    "totalReleases": 314,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.52.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-16",
+      "pr_number": 870,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **개선**\n  * 아키텍처 점검에서 소유한 코드가 생성물로 잘못 빠지던 문제 해결\n  * 문서 예시 주소와 이름 규칙의 잘못된 지적 대폭 감소\n  * 모듈 간 저장소 사용을 위반 후보와 정상 구조로 구분\n  * 무시 대상 파일을 git 규칙 그대로 제외\n  * 오류 처리·린트 끄기 판정의 오탐 감소\n  * 점검 결과를 믿기 전 확인할 판단 기준 문서화",
+      "parsed_changes": {
+        "개선": {
+          "title": "개선",
+          "items": [
+            "아키텍처 점검에서 소유한 코드가 생성물로 잘못 빠지던 문제 해결",
+            "문서 예시 주소와 이름 규칙의 잘못된 지적 대폭 감소",
+            "모듈 간 저장소 사용을 위반 후보와 정상 구조로 구분",
+            "무시 대상 파일을 git 규칙 그대로 제외",
+            "오류 처리·린트 끄기 판정의 오탐 감소",
+            "점검 결과를 믿기 전 확인할 판단 기준 문서화"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.51.0",
       "project_type": "basic",
