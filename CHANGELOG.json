@@ -1,14 +1,35 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-16T02:16:28Z",
-    "currentVersion": "4.52.1",
+    "lastUpdated": "2026-10-16T02:37:11Z",
+    "currentVersion": "4.53.0",
     "projectType": "basic",
-    "totalReleases": 315,
+    "totalReleases": 316,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.53.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-16",
+      "pr_number": 874,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * 했던 작업을 기록해 두고 다음에 이어서 할 수 있어요\n  * 같은 화면을 다시 열면 지난 작업 기록이 자동으로 보여요\n  * 작업을 마치면 기록해 둘지 먼저 물어봐요",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "했던 작업을 기록해 두고 다음에 이어서 할 수 있어요",
+            "같은 화면을 다시 열면 지난 작업 기록이 자동으로 보여요",
+            "작업을 마치면 기록해 둘지 먼저 물어봐요"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.52.1",
       "project_type": "basic",
