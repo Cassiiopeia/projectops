@@ -1,14 +1,35 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-16T00:10:11Z",
-    "currentVersion": "4.52.0",
+    "lastUpdated": "2026-10-16T02:16:28Z",
+    "currentVersion": "4.52.1",
     "projectType": "basic",
-    "totalReleases": 314,
+    "totalReleases": 315,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.52.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-16",
+      "pr_number": 872,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 사내망의 자체서명 HTTPS 서버에서 브라우저 실행이 막히던 문제 해결\n  * 윈도우 한글 환경에서 브라우저 실행 중 오류가 나던 문제 해결\n  * 인증서 오류 시 해결 방법을 안내하도록 개선",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "사내망의 자체서명 HTTPS 서버에서 브라우저 실행이 막히던 문제 해결",
+            "윈도우 한글 환경에서 브라우저 실행 중 오류가 나던 문제 해결",
+            "인증서 오류 시 해결 방법을 안내하도록 개선"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.52.0",
       "project_type": "basic",
