@@ -24,8 +24,11 @@ STATIC_DIRECTORY_NAMES = {"static", "public", "assets", "wwwroot"}
 LIBRARY_HEADER_PATTERN = re.compile(r"@license|\blicense\b|copyright|\(c\)|\bv?\d+\.\d+\.\d+\b", re.IGNORECASE)
 # 이 줄 수를 넘는 JS 한 파일은 머리 표식이 있으면 외부 라이브러리로 본다
 LARGE_SINGLE_SCRIPT_LINES = 5000
+# @generated 는 대소문자 구분 + 단어 경계 (JPA @GeneratedValue 오인 방지)
 GENERATED_HEADER_PATTERN = re.compile(
-    r"generated (?:code|file|by)|do not (?:edit|modify)|@generated|auto-?generated|code generated", re.IGNORECASE)
+    r"generated (?:code|file|by)|do not (?:edit|modify)|(?-i:@generated\b)|auto-?generated|code generated", re.IGNORECASE)
+# shadcn 컴포넌트 폴더 이름 (components.json 이 있는 모듈에서 alias 경로와 함께 본다)
+SHADCN_DIRECTORY_NAMES = {"shadcn"}
 
 TEST_DIRECTORY_NAMES = {"test", "tests", "__tests__", "spec", "specs", "integration_test", "androidTest",
                         "testFixtures", "e2e", "__mocks__"}
@@ -41,6 +44,7 @@ class SourceInventory:
         self.is_including_all = is_including_all
         self.generated_prefixes = []   # gen-l10n 출력 (경로 접두사 + 파일 이름 접두사)
         self.vendored_prefixes = []    # shadcn ui 폴더 등
+        self.shadcn_modules = []       # components.json 이 있는 모듈 (alias 와 다른 shadcn 폴더도 제외)
         self.files = []                # (상대경로, 언어, 본문, 출처)
         self.excluded = {}             # 출처 > {count, reasons, examples}
         self._collect_markers()
@@ -65,6 +69,7 @@ class SourceInventory:
                     has_src = (absolute.parent / "src").is_dir()
                     self.vendored_prefixes.append(
                         (module_prefix + ("src/" if has_src else "") + ui_alias[2:].strip("/") + "/", "shadcn ui"))
+                self.shadcn_modules.append(module_prefix)
             elif name == "l10n.yaml":
                 text = _read_text(absolute)
                 output_directory = _yaml_value(text, "output-dir") or _yaml_value(text, "arb-dir") or "lib/l10n"
@@ -108,6 +113,8 @@ class SourceInventory:
         for prefix, reason in self.vendored_prefixes:
             if relative.startswith(prefix):
                 return "vendored", reason
+        if any(relative.startswith(m) for m in self.shadcn_modules) and SHADCN_DIRECTORY_NAMES & set(directories):
+            return "vendored", "shadcn 폴더"
         if language in ("javascript", "typescript") and _looks_like_library_copy(directories, text):
             return "vendored", "외부 라이브러리 머리"
         return ("test", "") if is_test_path(relative) else ("production", "")

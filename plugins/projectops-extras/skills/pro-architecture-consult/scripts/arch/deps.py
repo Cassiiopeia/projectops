@@ -22,7 +22,8 @@ LAYER_BY_DIRECTORY_NAME = {
 }
 # 언어별 추가 폴더 이름 (JS api 폴더는 HTTP 클라이언트, Java object·vo 는 엔티티 — Spring api 패키지는 컨트롤러라 공통 표에 넣지 않음)
 LANGUAGE_LAYER_BY_DIRECTORY_NAME = {
-    "javascript": {"api": "infrastructure", "apis": "infrastructure", "http": "infrastructure", "fetchers": "infrastructure"},
+    "javascript": {"api": "infrastructure", "apis": "infrastructure", "http": "infrastructure", "fetchers": "infrastructure",
+                   "hooks": "application"},
     "java": {"object": "domain", "objects": "domain", "vo": "domain", "vos": "domain"},
 }
 LANGUAGE_LAYER_BY_DIRECTORY_NAME["typescript"] = LANGUAGE_LAYER_BY_DIRECTORY_NAME["javascript"]
@@ -34,6 +35,8 @@ JVM_LAYER_BY_SUFFIX = (
     (re.compile(r"(?:Service|ServiceImpl|UseCase|Facade)$"), "application"),
 )
 COMMON_DIRECTORY_NAMES = {"exception", "exceptions", "error", "errors", "constant", "constants"}
+# 타입 선언 폴더 (JS·TS 순수 타입 — 하위 폴더 이름이 api 여도 인프라가 아니라 도메인 형태)
+TYPE_DECLARATION_DIRECTORY_NAMES = {"types", "typings", "interfaces", "dto", "dtos", "schemas"}
 # 상태 계층 (Flutter provider·notifier — 데이터 계층 import 허용 여부는 팀 결정, 스택 문서 참고)
 STATE_DIRECTORY_NAMES = {"providers", "provider", "notifiers", "controllers", "blocs", "bloc", "viewmodels", "stores"}
 # 금지 방향 (from 계층 > 가면 안 되는 계층)
@@ -67,6 +70,9 @@ def layer_of(relative: str, language: str | None = None, is_next_module: bool = 
                 return layer
     if COMMON_DIRECTORY_NAMES & {d.lower() for d in directories}:
         return "common"
+    if language in ("javascript", "typescript") and (
+            TYPE_DECLARATION_DIRECTORY_NAMES & {d.lower() for d in directories} or relative.endswith(".d.ts")):
+        return "domain"
     is_next_route = is_next_module and "app" in directories
     for index in range(len(directories) - 1, -1, -1):
         if directories[index] in SOURCE_ROOT_DIRECTORY_NAMES:
@@ -93,11 +99,17 @@ def analyze_dependencies(root: Path, limit: int, is_including_all: bool = False)
 
     # 계층 간선 수집 > 금지 방향만 위반으로 (테스트는 수만)
     violations, edge_counts, test_violation_count, cross_module = [], {}, 0, []
+    unclassified = {}
+    aggregators = _aggregator_modules(modules)
     for relative, (language, text) in sources.items():
         from_layer = layer(relative, language)
+        # 미분류 영역 (JVM 은 파일 접미사로 분류하고 패키지가 깊어 영역 집계가 의미 없다)
+        if not from_layer and relative not in test_files and language not in ("java", "kotlin"):
+            area = _source_area(relative)
+            unclassified[area] = unclassified.get(area, 0) + 1
         for line_number, target in resolver.imports_of(relative, language, text):
             if language in ("java", "kotlin") and relative not in test_files:
-                _collect_cross_module(relative, line_number, target, modules["module_directories"], cross_module)
+                _collect_cross_module(relative, line_number, target, modules["module_directories"], aggregators, cross_module)
             to_layer = layer(target, sources[target][0])
             if not from_layer or not to_layer or to_layer == from_layer:
                 continue
@@ -113,6 +125,9 @@ def analyze_dependencies(root: Path, limit: int, is_including_all: bool = False)
                 violation["from_role"] = "state"
             violations.append(violation)
 
+    # 위반 후보 먼저: 공통 모듈 저장소·조합 모듈에서 오는 것은 뒤로 (설계상 정상인 경우가 많다)
+    cross_module.sort(key=lambda c: (c["is_to_common_module"], c["is_from_aggregator_module"]))
+    boundary_count = sum(1 for c in cross_module if not c["is_to_common_module"] and not c["is_from_aggregator_module"])
     truncated = {k: len(v) for k, v in (("layer_violations", violations), ("cross_module_repository_imports", cross_module))
                  if len(v) > limit}
     return {
@@ -120,22 +135,44 @@ def analyze_dependencies(root: Path, limit: int, is_including_all: bool = False)
         "layer_violations": violations[:limit],
         "test_violation_count": test_violation_count,
         "cross_module_repository_imports": cross_module[:limit],
+        "unclassified_directories": dict(sorted(unclassified.items(), key=lambda pair: -pair[1])[:10]),
         "gradle_modules": modules,
         "excluded": inventory.excluded_summary(),
         "truncated": truncated,
-        "summary": f"계층 역방향 {len(violations)} (테스트 {test_violation_count} 별도), 모듈 간 저장소 직접 사용 {len(cross_module)}, "
+        "summary": f"계층 역방향 {len(violations)} (테스트 {test_violation_count} 별도), "
+                   f"모듈 간 저장소 직접 사용 {boundary_count} (공통 모듈 대상·조합 모듈 출발 {len(cross_module) - boundary_count} 별도), "
                    f"Gradle 모듈 {len(modules['edges'])}개 간선·순환 {len(modules['cycles'])}",
     }
 
 
-def _collect_cross_module(relative, line_number, target, module_directories, found):
+def _source_area(relative: str) -> str:
+    """소스 루트(src·lib 등) 바로 아래 폴더 (계층 분류가 안 된 영역 집계용)"""
+    parts = relative.split("/")[:-1]
+    for index in range(len(parts) - 1, -1, -1):
+        if parts[index] in SOURCE_ROOT_DIRECTORY_NAMES:
+            return "/".join(parts[:index + 2])
+    return "/".join(parts[:2]) or "."
+
+
+def _aggregator_modules(modules: dict) -> set:
+    """조합 모듈: 다른 모듈 절반 넘게(3개 이상) 의존하는 모듈 (응용·진입점 — 여러 도메인 저장소 사용이 설계일 수 있다)"""
+    outgoing = {}
+    for edge in modules["edges"]:
+        outgoing.setdefault(edge["from"], set()).add(edge["to"])
+    other_module_count = max(len(modules["module_names_by_directory"]) - 1, 1)
+    names = {name for name, targets in outgoing.items() if len(targets) >= 3 and len(targets) > other_module_count / 2}
+    return {directory for directory, name in modules["module_names_by_directory"].items() if name in names}
+
+
+def _collect_cross_module(relative, line_number, target, module_directories, aggregators, found):
     """다른 Gradle 모듈의 Repository 를 직접 import (그 모듈의 서비스·공개 API 를 거쳐야 하는 자리)"""
     if not re.search(r"(?:Repository|RepositoryCustom|Dao)$", Path(target).stem):
         return
     from_module, to_module = _module_of(relative, module_directories), _module_of(target, module_directories)
     if from_module and to_module and from_module != to_module:
         found.append({"from": relative, "line": line_number, "to": target, "from_module": from_module,
-                      "to_module": to_module, "is_to_common_module": "common" in to_module.lower()})
+                      "to_module": to_module, "is_to_common_module": "common" in to_module.lower(),
+                      "is_from_aggregator_module": from_module in aggregators})
 
 
 def _module_of(relative: str, module_directories: list) -> str | None:
@@ -159,7 +196,7 @@ def _next_module_prefixes(root: Path) -> list:
 
 def gradle_module_graph(root: Path) -> dict:
     """settings.gradle(.kts) include + 각 모듈 project(':x') 의존 > 간선·순환"""
-    edges, module_directories = [], []
+    edges, module_directories, module_names_by_directory = [], [], {}
     for relative, absolute in walk_files(root):
         if not relative.endswith(("settings.gradle", "settings.gradle.kts")):
             continue
@@ -170,6 +207,7 @@ def gradle_module_graph(root: Path) -> dict:
             module_dir = base / name.replace(":", "/")
             if module_dir.is_dir():
                 module_directories.append(module_dir.relative_to(root).as_posix())
+                module_names_by_directory[module_directories[-1]] = name
             for build_name in ("build.gradle", "build.gradle.kts"):
                 build_file = module_dir / build_name
                 if build_file.exists():
@@ -179,7 +217,8 @@ def gradle_module_graph(root: Path) -> dict:
     # 테스트 범위 의존(testImplementation 등)은 운영 클래스패스가 아니라 순환 판정에서 제외
     production_edges = [e for e in edges if not e["configuration"].lower().startswith("test")]
     return {"edges": production_edges, "test_edges": [e for e in edges if e not in production_edges],
-            "cycles": _find_cycles(production_edges), "module_directories": module_directories}
+            "cycles": _find_cycles(production_edges), "module_directories": module_directories,
+            "module_names_by_directory": module_names_by_directory}
 
 
 def _find_cycles(edges: list[dict]) -> list[list[str]]:

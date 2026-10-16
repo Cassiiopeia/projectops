@@ -14,7 +14,7 @@ from .naming_smells import (boolean_function_names_in_line, boolean_names_in_lin
 # 명사형 끝맺음(추가함·삭제함)은 현재 동작 설명에도 쓰여(conventions §7 권장 형태) 넣지 않는다
 HISTORY_COMMENT_PATTERN = re.compile(
     r"기존에는|예전에는|예전엔|원래는|이전에는|이제는|"
-    r"바꿨|바꾸었|바꿈(?![가-힣])|변경했|수정했|고쳤|추가했|제거했|삭제했|옮겼|걷어냈|없앴|되돌렸|뒤집었|바뀌었|통일했|통일함|"
+    r"바꿨|바꾸었|(?<!줄)바꿈(?![가-힣])|변경했|수정했|고쳤|추가했|제거했|삭제했|옮겼|걷어냈|없앴|되돌렸|뒤집었|바뀌었|통일했|통일함|"
     r"리팩터링으로|리팩토링으로|이전\s*버그|문제가\s*있었|그대로\s*옮|통합\s*후|"
     r"기존\s*\S*\s*(?:방식|메서드|로직|코드|구조|버전)|기존\s*\S+\s*(?:→|->)|에서\s*(?:\S+\s*(?:으로|로)\s*)?전환|"
     r"(?:으로|로)\s*(?:변경|통합|교체)(?:했|함|되었|됐)|"
@@ -41,8 +41,10 @@ COMMENTED_CODE_MINIMUM_LINES = 3
 COMMENTED_CODE_RATIO = 0.6
 CODE_LIKE_COMMENT_PATTERN = re.compile(
     r"^(?:import |package |from \S+ import |return\b|public |private |protected |static |final |const |let |var |val |"
-    r"if\s*\(|for\s*\(|while\s*\(|try\s*\{|\}|@[A-Z]\w*|[\w.$]+\s*\(.*\)\s*;$)|;\s*$|\{\s*$|^\s*\w[\w.]*\s*=\s*[^=]")
-API_DOC_PATTERN = re.compile(r"@(?:param|return|returns|throws|see|example)\b|^(?:Args|Returns|Raises):")
+    r"if\s*\(|for\s*\(|while\s*\(|try\s*\{|\}|@[A-Z]\w*|[\w.$]+\s*\(.*\)\s*;$|</?[A-Z][\w.]*[\s/>])|"
+    r";\s*$|\{\s*$|=>\s*[{(]?\s*$|^\s*\w[\w.]*\s*=\s*[^=]")
+# 문서 주석: @태그, 파이썬 docstring 절, Javadoc HTML 태그(<p>·<h3>·<ul>)
+API_DOC_PATTERN = re.compile(r"@(?:param|return|returns|throws|see|example)\b|^(?:Args|Returns|Raises):|^<(?:p|h\d|ul|ol|li|pre|br)\b")
 LICENSE_PATTERN = re.compile(r"license|copyright|\(c\)\s*\d{4}", re.IGNORECASE)
 
 HARDCODED_TOKEN_PATTERNS = {
@@ -70,7 +72,10 @@ TOKEN_DEFINITION_PATH_PATTERN = re.compile(
 
 # 하드코딩 URL (설정 원본에 둔다 — conventions §5). 스키마·예시·표준 문서 주소는 제외
 URL_LITERAL_PATTERN = re.compile(r"[\"'`](https?://[^\"'`\s]+)")
-IGNORED_URL_PATTERN = re.compile(r"https?://(?:www\.)?(?:w3\.org|example\.(?:com|org)|schemas?\.|json-schema\.org|xmlns|localhost(?::\d+)?/?[\"'`]?$)")
+IGNORED_URL_PATTERN = re.compile(
+    r"https?://(?:www\.)?(?:w3\.org|example\.(?:com|org)|schemas?\.|json-schema\.org|xmlns|(?:localhost|127\.0\.0\.1)(?::\d+)?(?:/|$))")
+# API 문서 예시 속성 (@Schema(example=...)·examples) — 설정이 아니라 문서
+DOCUMENTATION_EXAMPLE_PATTERN = re.compile(r"\bexamples?\s*[=:]")
 
 SWALLOWED_CATCH_PATTERNS = {
     "slash": re.compile(r"\bcatch\s*(?:\([^)]*\))?\s*\{\s*\}"),
@@ -84,13 +89,19 @@ CATCH_START_PATTERNS = {
 TYPED_CATCH_ALL_PATTERN = re.compile(r"^\s*(?:final\s+)?(?:Exception|Throwable|RuntimeException)\b|^\s*\w+\s*:\s*(?:Exception|Throwable)\b")
 UNTYPED_CATCH_PATTERN = re.compile(r"^\s*\w+\s*(?:,\s*\w+\s*)?$")
 RETHROW_PATTERN = re.compile(r"\b(?:throw|rethrow|raise|return|Result\.|Either\.|Failure\(|emit\()")
+# 화면·호출자에 실패를 알림 (에러 상태 설정·에러 콜백·알림 표시 — UI 경계의 정상 처리)
+SETS_ERROR_STATE_PATTERN = re.compile(
+    r"\bset\w*Error\w*\s*\(|\bon\w*Error\w*\s*[(?.]|completeError|\berror\w*\s*:\s*(?!null\b)|"
+    r"\b(?:toast|alert|show\w*(?:Error|Toast|Snack|Dialog)\w*|notify\w*)\s*[.(]", re.IGNORECASE)
+# catch 바로 앞 형제 catch 가 잡은 예외를 그대로 던짐 (업무 예외는 이미 통과 — 뒤 catch-all 감싸기는 예외 번역)
+PASSTHROUGH_CATCH_PATTERN = re.compile(r"catch\s*\([^)]*\)\s*\{\s*throw\s+\w+\s*;\s*\}\s*$|\n\s*raise\s*\n\s*$")
 # 실패를 결과에 담는 건별 처리 (일괄 작업의 정상 패턴 — 흐름이 계속되는 게 의도)
 RECORDS_FAILURE_PATTERN = re.compile(r"\.(?:add|put|append|push)\(|isSuccess\(false\)|failReason|\berrors?\[|\bfailures?\b|\bfailed\w*\s*[+=]")
 LOGGING_PATTERN = re.compile(r"\b(?:log|logger|LOG|LOGGER|console|print|debugPrint|logging)\b")
 
 # 파일 전체 린트 끄기 (첫 5줄)
 LINT_DISABLED_PATTERN = re.compile(
-    r"eslint-disable(?!-next-line|-line)|tslint:disable(?!-next-line)|@ts-nocheck|ignore_for_file:|"
+    r"eslint-disable(?!-next-line|-line)(?=\s*(?:\*/|$))|tslint:disable(?!-next-line)(?=\s*(?:\*/|$))|@ts-nocheck|ignore_for_file:|"
     r"#\s*flake8:\s*noqa|#\s*type:\s*ignore|#\s*pylint:\s*disable=all|@SuppressWarnings\(\s*\"all\"\s*\)")
 
 
@@ -128,7 +139,22 @@ def hardcoded_tokens_in_line(line: str, language: str, relative_path: str) -> li
 
 
 def hardcoded_urls_in_line(line: str) -> list[str]:
+    if DOCUMENTATION_EXAMPLE_PATTERN.search(line):
+        return []
     return [m.group(1)[:120] for m in URL_LITERAL_PATTERN.finditer(line) if not IGNORED_URL_PATTERN.match(m.group(1))]
+
+
+def text_block_lines(text: str, language: str) -> set:
+    """Java·Kotlin 텍스트 블록(\"\"\" ... \"\"\") 안 줄 번호 (API 문서 예시 JSON 등 — URL 검사에서 뺌)"""
+    if language not in ("java", "kotlin"):
+        return set()
+    inside, numbers = False, set()
+    for number, line in enumerate(text.splitlines(), start=1):
+        if inside:
+            numbers.add(number)
+        if line.count('"""') % 2 == 1:
+            inside = not inside
+    return numbers
 
 
 def swallowed_catch_findings(text: str, language: str) -> list[dict]:
@@ -159,10 +185,15 @@ def unhandled_catch_findings(text: str, language: str) -> list[dict]:
                        "has_log": bool(LOGGING_PATTERN.search(code)), "body_lines": len(body.splitlines())}
             if RECORDS_FAILURE_PATTERN.search(code):
                 finding["records_failure"] = True
+            if SETS_ERROR_STATE_PATTERN.search(code):
+                finding["sets_error_state"] = True
             findings.append(finding)
         elif is_catch_all and re.search(r"\bthrow\s+new\b|\braise\s+\w+\(", code):
-            findings.append({"line": line_number, "kind": "rewrap_all", "is_catch_all": True,
-                             "has_log": bool(LOGGING_PATTERN.search(code)), "body_lines": len(body.splitlines())})
+            finding = {"line": line_number, "kind": "rewrap_all", "is_catch_all": True,
+                       "has_log": bool(LOGGING_PATTERN.search(code)), "body_lines": len(body.splitlines())}
+            if PASSTHROUGH_CATCH_PATTERN.search(prefix):
+                finding["has_passthrough_before"] = True
+            findings.append(finding)
     return findings
 
 
@@ -191,7 +222,7 @@ def _catch_bodies(text: str, language: str):
                 if line.strip() and len(line) - len(line.lstrip()) <= indent:
                     break
                 body.append(line)
-            yield number, match.group(2).strip(), "\n".join(body), ""
+            yield number, match.group(2).strip(), "\n".join(body), text[max(0, match.start() - 200):match.start()]
         return
     for match in CATCH_START_PATTERNS["slash"].finditer(text):
         depth, index = 1, match.end()
@@ -199,4 +230,4 @@ def _catch_bodies(text: str, language: str):
             depth += {"{": 1, "}": -1}.get(text[index], 0)
             index += 1
         yield (text.count("\n", 0, match.start()) + 1, match.group(1), text[match.end():index - 1],
-               text[max(0, match.start() - 60):match.start()])
+               text[max(0, match.start() - 200):match.start()])

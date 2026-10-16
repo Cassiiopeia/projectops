@@ -117,7 +117,8 @@ def naming_findings_in_line(line: str, language: str = "") -> list[tuple[str, st
         declared += [(m.group(1), "variable") for m in TYPED_VARIABLE_PATTERN.finditer(code)]
     findings, seen = [], set()
     for name, kind in declared:
-        if name in seen or name in IGNORED_DECLARED_NAMES:
+        # 언어 특수 메서드(__str__ 등)는 이름을 고를 수 없다
+        if name in seen or name in IGNORED_DECLARED_NAMES or re.fullmatch(r"__\w+__", name):
             continue
         seen.add(name)
         if len(name) == 1:
@@ -125,7 +126,9 @@ def naming_findings_in_line(line: str, language: str = "") -> list[tuple[str, st
                 findings.append(("meaningless_name", name, name))
             continue
         if kind != "type" and name.lower().strip("_") in MEANINGLESS_NAMES:
-            findings.append(("meaningless_name", name, name.lower()))
+            # 변수 이름 = 타입 이름 (Item item) 은 도메인 이름이라 정상
+            if not re.search(rf"\b{re.escape(name.strip('_')[:1].upper() + name.strip('_')[1:])}\b", code):
+                findings.append(("meaningless_name", name, name.lower()))
             continue
         word = next((w for w in split_identifier_words(name) if w in ABBREVIATION_WORDS), None)
         if word:

@@ -7,8 +7,13 @@ from pathlib import Path
 
 from .source_files import walk_files
 
-RULE_DOCUMENT_NAMES = {"CLAUDE.md", "claude.md", "AGENTS.md", "GEMINI.md", ".cursorrules"}
+RULE_DOCUMENT_NAMES = {"CLAUDE.md", "claude.md", "AGENTS.md", "GEMINI.md", ".cursorrules", "copilot-instructions.md"}
 RULE_DOCUMENT_DIRECTORY_PARTS = ("/.claude/rules/", "/.cursor/rules/", "/docs/architecture/")
+# 에이전트 설정 폴더 바로 아래 문서도 팀 규칙 (.cursor/가이드.md 같은 자리)
+RULE_DOCUMENT_TOP_DIRECTORIES = {".cursor", ".claude", ".agents"}
+RULE_DOCUMENT_EXTENSIONS = (".md", ".mdc")
+# 설치한 스킬·플러그인·명령 문서는 레포 규칙이 아니다 (외부 도구 설명서)
+NOT_RULE_DOCUMENT_DIRECTORY_NAMES = {"skills", "plugins", "commands", "agents", "node_modules"}
 PRIOR_AUDIT_PATTERN = re.compile(r"audit", re.IGNORECASE)
 ALLOWLIST_PATTERN = re.compile(r"(?:allow(?:ed|list)?|baseline|frozen)[\w.-]*\.(?:txt|allow|json)$|\.allow$", re.IGNORECASE)
 # 예외 목록이 아닌 같은 이름 파일 (projectops 설치 기록)
@@ -34,7 +39,7 @@ def detect_project(root: Path) -> dict:
             stacks.append({"stack": stack[0], "module": str(Path(relative).parent.as_posix()), "marker": name, **stack[1]})
 
         # 규칙 문서 · 이어받을 자료
-        if name in RULE_DOCUMENT_NAMES or (name.endswith(".md") and any(p in probe for p in RULE_DOCUMENT_DIRECTORY_PARTS)):
+        if _is_rule_document(relative, name, probe):
             rule_documents.append(relative)
         if name.endswith(".md") and PRIOR_AUDIT_PATTERN.search(name):
             prior_audits.append(relative)
@@ -66,6 +71,18 @@ def detect_project(root: Path) -> dict:
         "summary": f"스택 {sorted({s['stack'] for s in stacks})}, 규칙 문서 {len(rule_documents)}, "
                    f"기존 감사 {len(prior_audits)}, 예외 목록 {len(allowlists)}, 규칙 테스트 흔적 {len(rule_tests)}",
     }
+
+
+def _is_rule_document(relative: str, name: str, probe: str) -> bool:
+    directories = relative.split("/")[:-1]
+    if NOT_RULE_DOCUMENT_DIRECTORY_NAMES & set(directories):
+        return False
+    if name in RULE_DOCUMENT_NAMES:
+        return True
+    if not name.endswith(RULE_DOCUMENT_EXTENSIONS):
+        return False
+    return any(p in probe for p in RULE_DOCUMENT_DIRECTORY_PARTS) or \
+        (bool(directories) and directories[-1] in RULE_DOCUMENT_TOP_DIRECTORIES)
 
 
 def _stack_of_marker(name: str, absolute: Path):

@@ -1,8 +1,10 @@
 """소스 파일 탐색 공통: 제외 폴더, 언어 판별, 주석 줄 분류"""
 from __future__ import annotations
 
+import fnmatch
 import os
 import re
+import subprocess
 from pathlib import Path
 
 # 탐색 제외 폴더 (규칙 테스트 템플릿 4종과 같은 목록 — ledger 판정이 같아야 한다)
@@ -35,6 +37,36 @@ def walk_files(root: Path, start: Path | None = None):
         for filename in sorted(filenames):
             absolute = Path(directory) / filename
             yield absolute.relative_to(root).as_posix(), absolute
+
+
+def git_ignored_paths(root: Path, relatives: list) -> set | None:
+    """무시 대상 경로. git 이 있으면 git check-ignore (하위 폴더 .gitignore 범위까지 git 규칙 그대로),
+    git 레포가 아니면 루트 .gitignore 패턴만으로 근사"""
+    if not relatives:
+        return set()
+    try:
+        completed = subprocess.run(["git", "-C", str(root), "check-ignore", "--stdin"], input="\n".join(relatives),
+                                   capture_output=True, text=True, timeout=60)
+        # 종료 코드: 0 하나 이상 무시, 1 없음, 128 git 레포 아님
+        if completed.returncode in (0, 1):
+            return {line.strip() for line in completed.stdout.splitlines() if line.strip()}
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return _ignored_by_root_gitignore(root, relatives)
+
+
+def _ignored_by_root_gitignore(root: Path, relatives: list) -> set:
+    try:
+        lines = (root / ".gitignore").read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return set()
+    patterns = [l.strip().lstrip("/").rstrip("/") for l in lines if l.strip() and not l.startswith(("#", "!"))]
+    ignored = set()
+    for relative in relatives:
+        name = relative.rsplit("/", 1)[-1]
+        if any(fnmatch.fnmatch(c, p) or fnmatch.fnmatch(c, p + "/*") for p in patterns for c in (relative, name)):
+            ignored.add(relative)
+    return ignored
 
 
 def language_of(relative_path: str) -> str | None:

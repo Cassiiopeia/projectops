@@ -4,13 +4,12 @@
 """
 from __future__ import annotations
 
-import fnmatch
 import hashlib
 import re
 from pathlib import Path
 
 from .detect import detect_project
-from .source_files import walk_files
+from .source_files import git_ignored_paths, walk_files
 
 BACKTICK_PATH_PATTERN = re.compile(r"`([\w.\-]+(?:/[\w.\-]+)+/?|[\w\-]+\.(?:md|py|js|mjs|ts|tsx|dart|java|kt|ya?ml|json|txt|gradle|toml))`")
 # 코드블록 안 경로 (트리 그림·예시 — 낮은 확신, in_code_block 태그)
@@ -30,21 +29,20 @@ def inspect_rule_documents(root: Path) -> dict:
     documents = detect_project(root)["rule_documents"]
     all_paths = [relative for relative, _ in walk_files(root)]
     index = _PathIndex(all_paths)
-    ignore_patterns = _gitignore_patterns(root)
     results, hashes = [], {}
     for relative in documents:
         path = root / relative
         text = path.read_text(encoding="utf-8", errors="replace")
         hashes.setdefault(hashlib.sha256(text.encode("utf-8")).hexdigest(), []).append(relative)
-        missing, ignored, inducing = [], [], []
+        unresolved, inducing = [], []
         for number, line, is_in_code_block in _lines_with_fence_state(text):
             for reference in _references_in(line, is_in_code_block):
                 if not _is_checkable(reference, index) or _exists(root, path.parent, reference, index):
                     continue
-                entry = {"line": number, "reference": reference, **({"in_code_block": True} if is_in_code_block else {})}
-                (ignored if _is_ignored(reference, ignore_patterns) else missing).append(entry)
+                unresolved.append({"line": number, "reference": reference, **({"in_code_block": True} if is_in_code_block else {})})
             if not is_in_code_block and PROSE_COMMENT_INDUCING_PATTERN.search(line):
                 inducing.append({"line": number, "text": line.strip()[:200]})
+        missing, ignored = _split_ignored(root, path.parent, unresolved)
         results.append({"path": relative, "lines": len(text.splitlines()),
                         "missing_references": missing[:MAXIMUM_FINDINGS_PER_DOCUMENT],
                         "ignored_references": ignored[:MAXIMUM_FINDINGS_PER_DOCUMENT],
@@ -117,20 +115,14 @@ def _exists(root: Path, document_directory: Path, reference: str, index: _PathIn
     return index.has_suffix(reference)
 
 
-def _gitignore_patterns(root: Path) -> list[str]:
-    patterns = []
-    for relative, absolute in walk_files(root):
-        if absolute.name != ".gitignore":
-            continue
-        try:
-            lines = absolute.read_text(encoding="utf-8", errors="replace").splitlines()
-        except OSError:
-            continue
-        patterns += [line.strip().lstrip("/") for line in lines if line.strip() and not line.startswith(("#", "!"))]
-    return patterns
-
-
-def _is_ignored(reference: str, patterns: list[str]) -> bool:
-    name = reference.rstrip("/").rsplit("/", 1)[-1]
-    candidates = (reference, reference.rstrip("/"), name)
-    return any(fnmatch.fnmatch(c, p.rstrip("/")) or fnmatch.fnmatch(c, p.rstrip("/") + "/*") for p in patterns for c in candidates)
+def _split_ignored(root: Path, document_directory: Path, entries: list):
+    """없는 경로 > (진짜 없음, gitignore 대상) — 문서 폴더 기준·레포 루트 기준 둘 다 git 규칙으로 확인"""
+    def candidates(reference):
+        relative_to_document = (document_directory / reference).relative_to(root).as_posix() if document_directory != root else reference
+        return {reference.rstrip("/"), relative_to_document.rstrip("/")}
+    asked = sorted({c for e in entries for c in candidates(e["reference"])})
+    ignored_paths = git_ignored_paths(root, asked) or set()
+    missing, ignored = [], []
+    for entry in entries:
+        (ignored if candidates(entry["reference"]) & ignored_paths else missing).append(entry)
+    return missing, ignored

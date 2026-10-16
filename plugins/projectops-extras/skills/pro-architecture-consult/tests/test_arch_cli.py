@@ -1,4 +1,4 @@
-"""arch_cli 계약 테스트 7개: 오류 JSON · audit 사실 · 실측 오탐·놓침 회귀 · check(diff) · ledger · init 설치 · 템플릿 판정 동등성
+"""arch_cli 계약 테스트 8개: 오류 JSON · audit 사실 · 실측 오탐·놓침 회귀 · check(diff) · ledger · init 설치 · 템플릿 판정 동등성
 임시 미니 모노레포(Flutter·Spring·Python·JS) 하나로 서브커맨드 전부를 본다
 """
 import json
@@ -207,6 +207,39 @@ def test_judgment_aids_from_dogfood(project):
     # get-output-path 는 경로만 (승인 전 호출해도 레포가 바뀌지 않음)
     run_cli("get-output-path", project, "--title", "점검")
     assert not (project / "docs/architecture/audits").exists()
+
+
+def test_generic_false_positive_guards(tmp_path):
+    """2차 실측 오탐 회귀: JPA 어노테이션≠생성물, 문서 예시 URL, 앞선 catch 통과, 규칙 하나만 끄는 린트, 조합 모듈"""
+    root = tmp_path / "repo"
+    write(root, "a/src/main/java/x/Entity.java", "@Entity\npublic class Row { @GeneratedValue Long id; }\n")
+    write(root, "a/src/main/java/x/Docs.java",
+          'class Docs {\n  String s = """\n  {"url": "https://api.test.io/x"}\n  """;\n'
+          '  @Schema(example = "https://a.test.io/y") String t;\n  String real = "https://real.test.io";\n}\n')
+    write(root, "a/src/main/java/x/Svc.java",
+          "class Svc { void f() { try { g(); } catch (BizException e) { throw e; } catch (Exception e) { throw new BizException(e); } } }\n")
+    write(root, "web/src/slice.ts", "/* eslint-disable no-param-reassign */\nexport const a = 1;\n")
+    write(root, "web/src/ui.tsx", "async function load() { try { await f(); } catch (e) { setError(String(e)); } }\n")
+    write(root, "web/src/types/api/res.ts", "export type Res = { ok: boolean }\n")
+    write(root, ".gitignore", "")
+    _git(root, "init", "-q")
+    write(root, "docs/shots/.gitignore", "*\n")
+    write(root, "docs/shots/a.png", data=b"SAME")
+    write(root, "app/assets/a.png", data=b"SAME")
+    write(root, "app/assets/b.png", data=b"SAME")
+
+    scanned = run_cli("scan", root, "--limit", "100")[0]
+    findings = scanned["findings"]
+    assert "excluded" in scanned and "generated" not in scanned["excluded"]
+    assert [f["url"] for f in findings["hardcoded_urls"]] == ["https://real.test.io"]
+    rewrap = next(f for f in findings["unhandled_catch"] if f["path"].endswith("Svc.java"))
+    assert rewrap["kind"] == "rewrap_all" and rewrap["has_passthrough_before"]
+    assert next(f for f in findings["unhandled_catch"] if f["path"].endswith("ui.tsx"))["sets_error_state"]
+    assert findings["lint_disabled_files"] == []
+    # 하위 폴더 .gitignore 는 그 폴더에만 적용 (사본 묶음에서 빠지고, 다른 영역 사본은 남음)
+    copies = run_cli("assets", root)[0]["identical_copies"]
+    assert all("docs/shots" not in path for group in copies for path in group["paths"])
+    assert len(copies) == 1 and len(copies[0]["paths"]) == 2
 
 
 def test_check_diff(project):

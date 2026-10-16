@@ -9,10 +9,12 @@ import re
 import struct
 from pathlib import Path
 
-from .source_files import walk_files
+from .source_files import git_ignored_paths, walk_files
 
 ASSET_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".ico",
                     ".ttf", ".otf", ".woff", ".woff2"}
+# 웹폰트 형식 묶음 (ttf·woff·woff2 를 함께 두는 것은 정상 — 형식 변형 후보에서 뺌)
+FONT_EXTENSIONS = {".ttf", ".otf", ".woff", ".woff2", ".eot"}
 # 자산 최대 크기 (20MB — 그 이상은 원본 작업 파일로 보고 건너뜀)
 MAXIMUM_ASSET_BYTES = 20 * 1024 * 1024
 # 이름 정규화: 배율·크기 접미사 제거 (logo@2x, app_icon_1024 > logo, app_icon)
@@ -36,9 +38,11 @@ def scan_assets(root: Path, limit: int) -> dict:
     files_by_hash: dict[str, list[str]] = {}
     sizes: dict[str, int] = {}
 
-    # 해시 수집
-    for relative, absolute in walk_files(root):
-        if Path(relative).suffix.lower() not in ASSET_EXTENSIONS:
+    # 해시 수집 (gitignore 대상 제외 — 스크린샷·증거 폴더는 레포 자산이 아니다)
+    candidates = [(r, a) for r, a in walk_files(root) if Path(r).suffix.lower() in ASSET_EXTENSIONS]
+    ignored = git_ignored_paths(root, [r for r, _ in candidates]) or set()
+    for relative, absolute in candidates:
+        if relative in ignored:
             continue
         try:
             size = absolute.stat().st_size
@@ -69,12 +73,13 @@ def scan_assets(root: Path, limit: int) -> dict:
 
     return {
         "assets_scanned": sum(len(p) for p in files_by_hash.values()),
+        "ignored_assets": len(ignored),
         "identical_copies": copies[:limit],
         "same_name_different_content": drift[:limit],
         "format_variants": {"count": len(format_variants), "examples": format_variants[:10]},
         "truncated": {k: n for k, n in (("identical_copies", len(copies)),
                                         ("same_name_different_content", len(drift))) if n > limit},
-        "summary": f"사본 묶음 {len(copies)}, 같은 이름·다른 내용 {len(drift)}, 형식만 다른 같은 이름 {len(format_variants)}",
+        "summary": f"사본 묶음 {len(copies)} (생성 결과·참고 사본 {sum(1 for g in copies if g.get('is_generated_icon_set') or g.get('is_reference_copy'))} 포함), 같은 이름·다른 내용 {len(drift)}, 형식만 다른 같은 이름 {len(format_variants)}",
     }
 
 
@@ -120,7 +125,8 @@ def _same_name_different_content(root: Path, files_by_hash: dict):
             suspect["pixels"] = f"{size[0]}x{size[1]}"
         suspects.append(suspect)
     suspects.sort(key=lambda s: -len(s["variants"]))
-    format_variants = sorted(f"{n} ({', '.join(sorted(e))})" for n, e in extensions_by_name.items() if len(e) > 1 and len(n) >= 3)
+    format_variants = sorted(f"{n} ({', '.join(sorted(e))})" for n, e in extensions_by_name.items()
+                             if len(e) > 1 and len(n) >= 3 and not e <= FONT_EXTENSIONS)
     return suspects, format_variants
 
 

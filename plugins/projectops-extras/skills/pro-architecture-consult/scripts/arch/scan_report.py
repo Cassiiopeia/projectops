@@ -25,8 +25,10 @@ SIZE_SORT_KEYS = {
     "comment_heavy_files": lambda f: (f.get("is_declaration_only", False), -(f["comment_lines"] - f["code_lines"])),
     "long_comment_blocks": lambda f: (f["kind"] != "prose", -f["length"]),
     "commented_out_code": lambda f: -f["length"],
-    "unhandled_catch": lambda f: (f.get("records_failure", False), f["has_log"] and f["kind"] == "no_rethrow",
-                                  not f["is_catch_all"], -f["body_lines"]),
+    # 낮은 것 뒤로: 실패를 결과에 담음·화면에 알림·업무 예외 통과 후 번역 > 로그만 > 좁은 catch
+    "unhandled_catch": lambda f: (f.get("records_failure", False) or f.get("sets_error_state", False)
+                                  or f.get("has_passthrough_before", False),
+                                  f["has_log"] and f["kind"] == "no_rethrow", not f["is_catch_all"], -f["body_lines"]),
 }
 MUST_SPLIT_LINES = 500
 HOTSPOT_COUNT = 15

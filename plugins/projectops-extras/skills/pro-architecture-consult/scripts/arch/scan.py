@@ -99,6 +99,7 @@ def _collect_file(relative: str, language: str, text: str, origin: str, findings
 
     # 줄 단위: 주석 문구, 이름, 토큰, URL
     contract = naming_smells.contract_reason(relative, text)
+    text_block_numbers = code_smells.text_block_lines(text, language)
     code_lines = []
     for number, kind, content in classified:
         if content:
@@ -111,7 +112,7 @@ def _collect_file(relative: str, language: str, text: str, origin: str, findings
         _collect_names(relative, language, line, number, lines, contract, findings, tag)
         for token_kind in code_smells.hardcoded_tokens_in_line(line, language, relative):
             findings["hardcoded_tokens"].append({"path": relative, "line": number, "kind": token_kind, **tag})
-        for url in code_smells.hardcoded_urls_in_line(line):
+        for url in ([] if number in text_block_numbers else code_smells.hardcoded_urls_in_line(line)):
             findings["hardcoded_urls"].append({"path": relative, "line": number, "url": url, **tag})
 
     # 파일 단위: 타입명, catch 처리, 린트 끄기, 운영에 섞인 테스트 코드
