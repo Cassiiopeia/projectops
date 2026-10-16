@@ -217,7 +217,7 @@ def test_generic_false_positive_guards(tmp_path):
           'class Docs {\n  String s = """\n  {"url": "https://api.test.io/x"}\n  """;\n'
           '  @Schema(example = "https://a.test.io/y") String t;\n  String real = "https://real.test.io";\n}\n')
     write(root, "a/src/main/java/x/Svc.java",
-          "class Svc { void f() { try { g(); } catch (BizException e) { throw e; } catch (Exception e) { throw new BizException(e); } } }\n")
+          "class Svc { void f() { try { if (x) throw new BizException(1); g(); } catch (BizException e) { throw e; } catch (Exception e) { throw new BizException(e); } } }\n")
     write(root, "web/src/slice.ts", "/* eslint-disable no-param-reassign */\nexport const a = 1;\n")
     write(root, "web/src/ui.tsx", "async function load() { try { await f(); } catch (e) { setError(String(e)); } }\n")
     write(root, "web/src/types/api/res.ts", "export type Res = { ok: boolean }\n")
@@ -226,7 +226,8 @@ def test_generic_false_positive_guards(tmp_path):
           'SCRIPT = """\nconst descElement = document.querySelector("a")\n"""\n'
           'class M:\n    schema = {\n        "example": {\n            "u": "https://x.test.io/p"\n        }\n    }\n'
           '# 사용자가 이름을 바꿨을 때\n# 원천 양식이 바뀌었는지 대조한다\n# 이 메서드는 쓰이는 곳이 많다 (is used to build)\n'
-          'PREFIX = "https://www."\n')
+          'PREFIX = "https://www."\n'
+          '# call(\n#     first,\n#     second +\n#     third,\n# )\n')
     write(root, "cmd/main.go", "package main\n")
     write(root, ".gitignore", "")
     _git(root, "init", "-q")
@@ -240,10 +241,12 @@ def test_generic_false_positive_guards(tmp_path):
     assert "excluded" in scanned and "generated" not in scanned["excluded"]
     assert [f["url"] for f in findings["hardcoded_urls"]] == ["https://real.test.io"]
     rewrap = next(f for f in findings["unhandled_catch"] if f["path"].endswith("Svc.java"))
-    assert rewrap["kind"] == "rewrap_all" and rewrap["has_passthrough_before"]
+    assert rewrap["kind"] == "rewrap_all" and rewrap["has_passthrough_before"] \
+        and rewrap["try_body_throws"]
     assert next(f for f in findings["unhandled_catch"] if f["path"].endswith("ui.tsx"))["sets_error_state"]
     assert findings["lint_disabled_files"] == []
     assert scanned["not_analyzed_languages"] == {"go": 1} and "go 1" in run_cli("scan", root)[0]["summary"]
+    assert any(f["path"].endswith("models.py") for f in findings["long_comment_blocks"] + findings["commented_out_code"])
     assert not any(f["path"].endswith("models.py") for c in ("abbreviations", "history_comments") for f in findings[c])
     # 하위 폴더 .gitignore 는 그 폴더에만 적용 (사본 묶음에서 빠지고, 다른 영역 사본은 남음)
     copies = run_cli("assets", root)[0]["identical_copies"]

@@ -45,7 +45,8 @@ COMMENTED_CODE_RATIO = 0.6
 CODE_LIKE_COMMENT_PATTERN = re.compile(
     r"^(?:import |package |from \S+ import |return\b|public |private |protected |static |final |const |let |var |val |"
     r"if\s*\(|for\s*\(|while\s*\(|try\s*\{|\}|@[A-Z]\w*|[\w.$]+\s*\(.*\)\s*;$|</?[A-Z][\w.]*[\s/>])|"
-    r";\s*$|\{\s*$|=>\s*[{(]?\s*$|^\s*\w[\w.]*\s*=\s*[^=]")
+    r";\s*$|\{\s*$|=>\s*[{(]?\s*$|^\s*\w[\w.]*\s*=\s*[^=]|"
+    r"^[^가-힣]*[\w)\]\"'][,+]\s*$")
 # 문서 주석: @태그, 파이썬 docstring 절, Javadoc HTML 태그(<p>·<h3>·<ul>)
 API_DOC_PATTERN = re.compile(r"@(?:param|return|returns|throws|see|example)\b|^(?:Args|Returns|Raises):|^<(?:p|h\d|ul|ol|li|pre|br)\b")
 LICENSE_PATTERN = re.compile(r"license|copyright|\(c\)\s*\d{4}", re.IGNORECASE)
@@ -100,6 +101,8 @@ SETS_ERROR_STATE_PATTERN = re.compile(
 PASSTHROUGH_CATCH_PATTERN = re.compile(r"catch\s*\([^)]*\)\s*\{\s*throw\s+\w+\s*;\s*\}\s*$|\n\s*raise\s*\n\s*$")
 # 실패를 결과에 담는 건별 처리 (일괄 작업의 정상 패턴 — 흐름이 계속되는 게 의도)
 RECORDS_FAILURE_PATTERN = re.compile(r"\.(?:add|put|append|push)\(|isSuccess\(false\)|failReason|\berrors?\[|\bfailures?\b|\bfailed\w*\s*[+=]")
+# try 본문이 직접 던지는 예외 (catch-all 이 이를 삼켜 다른 예외로 바꾸는지 보는 단서)
+THROWS_IN_TRY_PATTERN = re.compile(r"\bthrow\s+new\b|\braise\s+\w+")
 LOGGING_PATTERN = re.compile(r"\b(?:log|logger|LOG|LOGGER|console|print|debugPrint|logging)\b")
 
 # 파일 전체 린트 끄기 (첫 5줄)
@@ -219,6 +222,8 @@ def unhandled_catch_findings(text: str, language: str) -> list[dict]:
                        "has_log": bool(LOGGING_PATTERN.search(code)), "body_lines": len(body.splitlines())}
             if PASSTHROUGH_CATCH_PATTERN.search(prefix):
                 finding["has_passthrough_before"] = True
+            if THROWS_IN_TRY_PATTERN.search(_try_body_before(text, language, line_number)):
+                finding["try_body_throws"] = True
             findings.append(finding)
     return findings
 
@@ -226,6 +231,14 @@ def unhandled_catch_findings(text: str, language: str) -> list[dict]:
 def lint_disabled_marker(text: str) -> str | None:
     match = LINT_DISABLED_PATTERN.search("\n".join(text.splitlines()[:5]))
     return match.group(0) if match else None
+
+
+def _try_body_before(text: str, language: str, catch_line: int) -> str:
+    """catch 바로 앞 try 시작부터 catch 줄 전까지 (가장 가까운 try 기준)"""
+    through_line = "\n".join(text.splitlines()[:catch_line])
+    before = through_line[:max(through_line.rfind("except" if language == "python" else "catch"), 0)]
+    start = before.rfind("try:" if language == "python" else "try")
+    return before[start:] if start >= 0 else ""
 
 
 def _is_catch_all(caught: str, language: str, prefix: str) -> bool:

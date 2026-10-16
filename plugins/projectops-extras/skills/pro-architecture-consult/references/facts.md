@@ -14,7 +14,7 @@
 
 | 범주 | 뜻 | 판단 단서 · 오탐이 나는 곳 |
 |---|---|---|
-| `unhandled_catch` | 본문이 있는데 throw·return·raise 없는 catch(`no_rethrow`), catch-all이 다른 예외로 바꿔 던짐(`rewrap_all`) | `no_rethrow`: 트랜잭션 안에서 흡수하면 high(롤백 표시만 남고 커밋 때 터진다), 롤백·보상 뒤에 흐름이 계속되면 high. `records_failure`(실패를 결과 목록에 담음)·`sets_error_state`(화면 오류 상태·에러 콜백·알림 — UI 경계의 정상 처리)는 낮다. 문제는 로그만 남기고 사용자에게 실패를 숨기는 경우. `rewrap_all`: `has_passthrough_before`(앞 catch가 업무 예외를 그대로 던짐)나 try 안에 업무 예외가 없는 checked→unchecked 변환은 정상. 안에서 던진 업무 예외 코드가 사라질 때만 문제 |
+| `unhandled_catch` | 본문이 있는데 throw·return·raise 없는 catch(`no_rethrow`), catch-all이 다른 예외로 바꿔 던짐(`rewrap_all`) | `no_rethrow`: 트랜잭션 안에서 흡수하면 high(롤백 표시만 남고 커밋 때 터진다), 롤백·보상 뒤에 흐름이 계속되면 high. `records_failure`(실패를 결과 목록에 담음)·`sets_error_state`(화면 오류 상태·에러 콜백·알림 — UI 경계의 정상 처리)는 낮다. 문제는 로그만 남기고 사용자에게 실패를 숨기는 경우. `rewrap_all`: `has_passthrough_before`(앞 catch가 업무 예외를 그대로 던짐)나 try 안에 업무 예외가 없는 checked→unchecked 변환은 정상. `try_body_throws`가 붙으면 try 안에서 직접 던진 예외가 있다는 뜻이라 사라지는지 먼저 본다. 안에서 던진 업무 예외 코드가 사라질 때만 문제 |
 | `test_code_in_production` | `src/main` 아래 test·mock 폴더, `Test*Controller` 같은 파일 | 운영 노출 여부(보안 설정·프로필)를 원문으로 확인 |
 | `swallowed_catch` | 빈 catch·`except: pass` | `has_reason_comment`가 참이면 이유가 적힌 정리 코드일 수 있다 |
 | `hardcoded_urls` | 코드 줄의 `https?://` 리터럴 (스키마·example·localhost·텍스트 블록·`example=` 속성 제외) | 설정 원본으로 옮길 대상(허용 출처·외부 서비스 주소). 외부 공개 링크는 상수 한 곳이면 정상. 한 파일에 몰려 있으면 문서 예시일 수 있으니 원문을 연다 |
