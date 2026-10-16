@@ -13,16 +13,24 @@ from pro_launch.registry import Action
 from pro_launch.runtime.browser import read_state, require_playwright, write_state
 from pro_launch.runtime.context import state_home
 from pro_launch.runtime.output import out
-from pro_launch.runtime.procs import detach_options, pid_alive
+from pro_launch.runtime.procs import detach_options, pid_alive, process_command_lines
 
 
 def _profile_in_use(profile: Path) -> bool:
     """이 프로필로 떠 있는 브라우저 프로세스가 있나 — 잠금 파일을 지워도 되는지 가른다."""
-    try:
-        ps = subprocess.run(["ps", "-ax", "-o", "command="], capture_output=True, text=True, timeout=5).stdout
-    except Exception:
+    ps = process_command_lines()
+    if not ps:
         return True   # 확인 못 하면 쓰는 중으로 본다 — 남의 브라우저 잠금을 지우지 않는다
-    return f"--user-data-dir={profile}" in ps
+    # 윈도우는 공백 경로를 따옴표로 감싸므로 인자 이름이 아니라 경로 자체로 찾는다
+    return str(profile) in ps
+
+
+def _cert_hint(msg: str) -> str | None:
+    """자체서명·사설 인증서면 고칠 길을 준다. 사내 서버는 대부분 이 경우다."""
+    if "ERR_CERT" in msg or "ERR_SSL" in msg:
+        return ("사설/자체서명 인증서로 막혔다 — web close 후 `web open --ignore-cert-errors --url ...` "
+                "로 다시 연다 (테스트 서버 전용, 새로 띄울 때만 적용)")
+    return None
 
 
 def _web_open(args, root: Path, state_f: Path) -> int:
@@ -47,7 +55,7 @@ def _web_open(args, root: Path, state_f: Path) -> int:
             except Exception as e:
                 _pw.stop()
                 return out({"ok": False, "code": "goto_failed", "error": str(e)[:300],
-                            "hint": "주소가 맞는지, 서버가 떠 있는지 확인하세요"})
+                            "hint": _cert_hint(str(e)) or "주소가 맞는지, 서버가 떠 있는지 확인하세요"})
             _pw.stop()
             warn = None
             if bool(args.headed) != bool(prev.get("headed")):
@@ -98,6 +106,8 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     use_stealth = not args.no_stealth
     if use_stealth:
         cmd += stealth.launch_args(exe)
+    if args.ignore_cert_errors:
+        cmd.append("--ignore-certificate-errors")
     if not args.headed:
         cmd.append("--headless=new")
     # ⚠️ 목적지를 여기서 넘기면 **훅을 심기 전에 첫 로드가 끝난다** (#625).
@@ -160,7 +170,7 @@ def _web_open(args, root: Path, state_f: Path) -> int:
             except Exception as e:
                 _br.close(); _pw.stop()
                 return out({"ok": False, "code": "goto_failed", "error": str(e),
-                            "hint": "주소가 맞는지, 서버가 떠 있는지 확인하세요"})
+                            "hint": _cert_hint(str(e)) or "주소가 맞는지, 서버가 떠 있는지 확인하세요"})
         _br.close()
         _pw.stop()
     return out({"action": "open", "url": args.url, "cdp": cdp, "pid": proc.pid,
@@ -178,6 +188,8 @@ def configure(p) -> None:
                    help="open: 눈에 보이게 연다 — 소셜 로그인이 막히면 이것이 먼저다(#604 실측)")
     p.add_argument("--no-stealth", action="store_true",
                    help="open: 자동화 표식 가리기를 끈다 (사이트가 깨질 때 비교용)")
+    p.add_argument("--ignore-cert-errors", action="store_true",
+                   help="open: 자체서명·사설 인증서 오류를 무시한다 — 사내 테스트 서버용, 새로 띄울 때만 적용")
     p.add_argument("--width", type=int, default=1280)
     p.add_argument("--height", type=int, default=800)
     p.add_argument("--readonly", action="store_true",

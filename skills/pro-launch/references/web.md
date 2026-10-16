@@ -132,6 +132,17 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web setup
 LAUNCH_CHROMIUM_PATH="C:/Program Files/Google/Chrome/Application/chrome.exe"   {PYTHON} {SCRIPTS}/launch_cli.py web open --url {주소}
 ```
 
+### 사설·자체서명 인증서 (사내 서버)
+
+사내 서버는 대부분 자체서명 HTTPS 라 `goto_failed` + `ERR_CERT_AUTHORITY_INVALID` 로 막힌다.
+`web close` 후 `web open --ignore-cert-errors --url {주소}` 로 다시 연다 (새로 띄울 때만 적용, 테스트 서버 전용).
+실패 응답의 `hint` 가 이 길을 알려 준다.
+
+### 윈도우에서 파이썬 찾기
+
+`python3` 가 Microsoft Store 스텁이면 아무 출력 없이 끝난다(`Python` 한 줄만 나온다).
+`python`·`py -3` 또는 실제 설치 경로의 `python.exe` 를 쓴다.
+
 ## 조작 — 읽고, 번호로 고르고, 확인하며 누른다
 
 ```bash

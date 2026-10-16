@@ -93,6 +93,28 @@ def detach_options() -> dict:
     return {"start_new_session": True}
 
 
+def process_command_lines() -> str | None:
+    """떠 있는 모든 프로세스의 명령줄을 한 덩어리로. 읽지 못하면 None.
+
+    윈도우엔 ps 가 없고, 한글 경로가 든 명령줄은 기본 코드페이지로 읽으면 디코딩이 깨져
+    stdout 이 None 이 된다 — 인코딩을 명시한다.
+    """
+    try:
+        if sys.platform == "win32":
+            r = subprocess.run(
+                ["powershell", "-NoProfile", "-Command",
+                 "[Console]::OutputEncoding=[Text.Encoding]::UTF8; "
+                 "(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine } "
+                 "| ForEach-Object { $_.CommandLine }) -join \"`n\""],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15)
+        else:
+            r = subprocess.run(["ps", "-ax", "-o", "command="], capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=5)
+    except Exception:
+        return None
+    return r.stdout or None
+
+
 def manual_kill_command(pid: int) -> str:
     """사용자가 직접 브라우저를 끝낼 때 칠 명령."""
     return f"taskkill /PID {pid} /T /F" if sys.platform == "win32" else f"kill -9 {pid}"
