@@ -13,7 +13,8 @@ import json
 import re
 from pathlib import Path
 
-from .source_files import is_generated_file, language_of, walk_files, MAXIMUM_SOURCE_BYTES
+from .source_files import (NOT_ANALYZED_LANGUAGE_BY_EXTENSION, is_generated_file, language_of, walk_files,
+                           MAXIMUM_SOURCE_BYTES)
 
 OWNED_ORIGINS = ("production", "test")
 TOOLING_DIRECTORY_NAMES = {".github", ".cursor", ".claude", ".agents", ".codex", ".gemini", ".pi", ".husky"}
@@ -47,6 +48,7 @@ class SourceInventory:
         self.shadcn_modules = []       # components.json 이 있는 모듈 (alias 와 다른 shadcn 폴더도 제외)
         self.files = []                # (상대경로, 언어, 본문, 출처)
         self.excluded = {}             # 출처 > {count, reasons, examples}
+        self.not_analyzed_languages = {}  # CLI가 못 읽는 언어 > 파일 수 (도구·외부 폴더 제외)
         self._collect_markers()
         self._collect_files()
 
@@ -81,6 +83,7 @@ class SourceInventory:
         for relative, absolute in walk_files(self.root):
             language = language_of(relative)
             if not language:
+                self._count_not_analyzed(relative)
                 continue
             try:
                 if absolute.stat().st_size > MAXIMUM_SOURCE_BYTES:
@@ -95,6 +98,12 @@ class SourceInventory:
                 if not self.is_including_all:
                     continue
             self.files.append((relative, language, text, origin))
+
+    def _count_not_analyzed(self, relative: str):
+        name = NOT_ANALYZED_LANGUAGE_BY_EXTENSION.get(Path(relative).suffix.lower())
+        directories = set(relative.split("/")[:-1])
+        if name and not (TOOLING_DIRECTORY_NAMES | VENDORED_DIRECTORY_NAMES) & directories and not is_generated_file(relative):
+            self.not_analyzed_languages[name] = self.not_analyzed_languages.get(name, 0) + 1
 
     def _origin_of(self, relative: str, language: str, text: str):
         directories = relative.split("/")[:-1]

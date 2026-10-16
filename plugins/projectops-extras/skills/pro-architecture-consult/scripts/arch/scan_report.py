@@ -64,16 +64,21 @@ def build_report(findings: dict, cross_file: dict, limit: int, categories: list 
     }
 
 
-def summary_text(files_by_origin: dict, counts: dict, test_counts: dict, excluded: dict) -> str:
+def summary_text(files_by_origin: dict, counts: dict, test_counts: dict, excluded: dict,
+                 not_analyzed_languages: dict | None = None) -> str:
     excluded_text = ", ".join(f"{origin} {entry['count']}" for origin, entry in excluded.items()) or "없음"
     groups = []
     for group, members in REVIEW_ORDER:
         present = [f"{c} {counts[c]}" for c in members if counts.get(c)]
         if present:
             groups.append(f"[{group}] " + ", ".join(present))
-    return (f"운영 {files_by_origin.get('production', 0)}·테스트 {files_by_origin.get('test', 0)}개 파일 "
-            f"(제외: {excluded_text}) | " + " | ".join(groups) +
-            (f" | 테스트 쪽 후보 {sum(test_counts.values())}건은 test_counts" if test_counts else ""))
+    parts = [f"운영 {files_by_origin.get('production', 0)}·테스트 {files_by_origin.get('test', 0)}개 파일 (제외: {excluded_text})"]
+    parts += [" | ".join(groups)] if groups else []
+    if test_counts:
+        parts.append(f"테스트 쪽 후보 {sum(test_counts.values())}건은 test_counts")
+    if not_analyzed_languages:
+        parts.append("CLI가 못 읽은 언어(직접 표본 확인): " + ", ".join(f"{n} {c}" for n, c in not_analyzed_languages.items()))
+    return " | ".join(parts)
 
 
 def _ordered(category: str, items: list) -> list:

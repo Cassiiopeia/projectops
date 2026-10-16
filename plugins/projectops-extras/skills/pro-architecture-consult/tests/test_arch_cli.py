@@ -221,6 +221,13 @@ def test_generic_false_positive_guards(tmp_path):
     write(root, "web/src/slice.ts", "/* eslint-disable no-param-reassign */\nexport const a = 1;\n")
     write(root, "web/src/ui.tsx", "async function load() { try { await f(); } catch (e) { setError(String(e)); } }\n")
     write(root, "web/src/types/api/res.ts", "export type Res = { ok: boolean }\n")
+    # 3차 실측 오탐: 파이썬 문자열 안 JS·스키마 example 블록의 URL, 호스트 없는 접두사, 도메인 사건 설명 주석
+    write(root, "svc/models.py",
+          'SCRIPT = """\nconst descElement = document.querySelector("a")\n"""\n'
+          'class M:\n    schema = {\n        "example": {\n            "u": "https://x.test.io/p"\n        }\n    }\n'
+          '# 사용자가 이름을 바꿨을 때\n# 원천 양식이 바뀌었는지 대조한다\n# 이 메서드는 쓰이는 곳이 많다 (is used to build)\n'
+          'PREFIX = "https://www."\n')
+    write(root, "cmd/main.go", "package main\n")
     write(root, ".gitignore", "")
     _git(root, "init", "-q")
     write(root, "docs/shots/.gitignore", "*\n")
@@ -236,6 +243,8 @@ def test_generic_false_positive_guards(tmp_path):
     assert rewrap["kind"] == "rewrap_all" and rewrap["has_passthrough_before"]
     assert next(f for f in findings["unhandled_catch"] if f["path"].endswith("ui.tsx"))["sets_error_state"]
     assert findings["lint_disabled_files"] == []
+    assert scanned["not_analyzed_languages"] == {"go": 1} and "go 1" in run_cli("scan", root)[0]["summary"]
+    assert not any(f["path"].endswith("models.py") for c in ("abbreviations", "history_comments") for f in findings[c])
     # 하위 폴더 .gitignore 는 그 폴더에만 적용 (사본 묶음에서 빠지고, 다른 영역 사본은 남음)
     copies = run_cli("assets", root)[0]["identical_copies"]
     assert all("docs/shots" not in path for group in copies for path in group["paths"])

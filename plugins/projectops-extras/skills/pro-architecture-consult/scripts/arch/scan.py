@@ -53,10 +53,11 @@ def scan_project(root: Path, limit: int, is_including_all: bool = False,
         "files_scanned": sum(files_by_origin.values()),
         "files_by_origin": files_by_origin,
         "files_by_language": files_by_language,
+        "not_analyzed_languages": inventory.not_analyzed_languages,
         "excluded": inventory.excluded_summary(),
         **report,
         "summary_text": scan_report.summary_text(files_by_origin, report["counts"], report["test_counts"],
-                                                 inventory.excluded_summary()),
+                                                 inventory.excluded_summary(), inventory.not_analyzed_languages),
     }
 
 
@@ -99,7 +100,7 @@ def _collect_file(relative: str, language: str, text: str, origin: str, findings
 
     # 줄 단위: 주석 문구, 이름, 토큰, URL
     contract = naming_smells.contract_reason(relative, text)
-    text_block_numbers = code_smells.text_block_lines(text, language)
+    embedded_numbers = code_smells.embedded_text_lines(text, language)
     code_lines = []
     for number, kind, content in classified:
         if content:
@@ -109,10 +110,12 @@ def _collect_file(relative: str, language: str, text: str, origin: str, findings
             continue
         line = lines[number - 1]
         code_lines.append((number, line))
+        if number in embedded_numbers:
+            continue
         _collect_names(relative, language, line, number, lines, contract, findings, tag)
         for token_kind in code_smells.hardcoded_tokens_in_line(line, language, relative):
             findings["hardcoded_tokens"].append({"path": relative, "line": number, "kind": token_kind, **tag})
-        for url in ([] if number in text_block_numbers else code_smells.hardcoded_urls_in_line(line)):
+        for url in code_smells.hardcoded_urls_in_line(line):
             findings["hardcoded_urls"].append({"path": relative, "line": number, "url": url, **tag})
 
     # 파일 단위: 타입명, catch 처리, 린트 끄기, 운영에 섞인 테스트 코드

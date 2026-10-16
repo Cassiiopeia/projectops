@@ -23,6 +23,12 @@ LANGUAGE_BY_EXTENSION = {
     ".js": "javascript", ".mjs": "javascript", ".cjs": "javascript", ".jsx": "javascript",
     ".ts": "typescript", ".tsx": "typescript",
 }
+# CLI가 분석하지 못하는 언어 (파일 수만 세어 알린다 — 에이전트가 직접 표본을 읽어야 하는 영역)
+NOT_ANALYZED_LANGUAGE_BY_EXTENSION = {
+    ".go": "go", ".rs": "rust", ".swift": "swift", ".m": "objective-c", ".mm": "objective-c", ".cs": "csharp",
+    ".php": "php", ".rb": "ruby", ".scala": "scala", ".c": "c", ".h": "c", ".cc": "cpp", ".cpp": "cpp",
+    ".hpp": "cpp", ".lua": "lua", ".ex": "elixir", ".exs": "elixir", ".vue": "vue", ".svelte": "svelte",
+}
 SLASH_COMMENT_LANGUAGES = {"dart", "java", "kotlin", "javascript", "typescript"}
 
 # 한 파일 최대 읽기 크기 (2MB — 그 이상은 생성물·데이터로 보고 건너뜀)

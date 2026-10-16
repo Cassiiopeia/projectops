@@ -14,18 +14,21 @@ from .naming_smells import (boolean_function_names_in_line, boolean_names_in_lin
 # 명사형 끝맺음(추가함·삭제함)은 현재 동작 설명에도 쓰여(conventions §7 권장 형태) 넣지 않는다
 HISTORY_COMMENT_PATTERN = re.compile(
     r"기존에는|예전에는|예전엔|원래는|이전에는|이제는|"
-    r"바꿨|바꾸었|(?<!줄)바꿈(?![가-힣])|변경했|수정했|고쳤|추가했|제거했|삭제했|옮겼|걷어냈|없앴|되돌렸|뒤집었|바뀌었|통일했|통일함|"
-    r"리팩터링으로|리팩토링으로|이전\s*버그|문제가\s*있었|그대로\s*옮|통합\s*후|"
-    r"기존\s*\S*\s*(?:방식|메서드|로직|코드|구조|버전)|기존\s*\S+\s*(?:→|->)|에서\s*(?:\S+\s*(?:으로|로)\s*)?전환|"
+    r"리팩터링으로|리팩토링으로|이전\s*버그|문제가\s*있었|그대로\s*옮(?:겼|김)|통합\s*후|"
+    r"기존\s*\S*\s*(?:방식|메서드|로직|버전)|기존\s*\S+\s*(?:→|->)|에서\s*(?:\S+\s*(?:으로|로)\s*)?전환|"
     r"(?:으로|로)\s*(?:변경|통합|교체)(?:했|함|되었|됐)|"
-    r"\bpreviously\b|\bused to\b|\bno longer\b|\bnow uses?\b|\bwas changed\b|\brefactored\b|"
+    r"\bpreviously\b|(?<!is )(?<!are )(?<!be )(?<!was )(?<!were )(?<!been )(?<!being )\bused to\b|"
+    r"\bno longer\b|\bnow uses?\b|\bwas changed\b|\brefactored\b|"
     r"\bchanged from\b|\bfixed (?:a |the )?bug\b|\bold (?:code|logic|version|behavior)\b|\bmigrated from\b",
     re.IGNORECASE,
 )
-# 경위가 아닌 문장: 사용자·관리자의 동작, 가정·조건 ("관리자가 바꿨을 뿐인데", "추가했는지")
+# 약한 표현: 과거형 동사만 있는 문장은 도메인 사건 설명("비밀번호를 변경했다", "양식이 바뀌었다")에도 쓰인다
+WEAK_HISTORY_COMMENT_PATTERN = re.compile(
+    r"바꿨|바꾸었|(?<!줄)바꿈(?![가-힣])|변경했|수정했|고쳤|추가했|제거했|삭제했|옮겼|걷어냈|없앴|되돌렸|뒤집었|바뀌었|통일했|통일함")
+# 경위가 아닌 문장: 사용자·관리자의 동작, 가정·조건·의문 ("관리자가 바꿨을 때", "바뀌었나", "고쳤는데 깨진다")
 NOT_HISTORY_PATTERN = re.compile(
     r"(?:사용자|관리자|유저|운영자|누군가|상대)(?:가|이)\s|"
-    r"(?:바꿨|바꾸었|변경했|수정했|추가했|삭제했|제거했)(?:을\s*때|으면|다면|다고|더라도|는지|을지|을\s*뿐|는데도)"
+    r"(?:바꿨|바꾸었|변경했|수정했|추가했|삭제했|제거했|고쳤|바뀌었|옮겼|되돌렸)(?:을|는지|어도|나[\s.?」)]|나$|는데|으면|다면|다고|더라도|을지)"
 )
 # 장식 배너 (// ====, # ----)
 BANNER_COMMENT_PATTERN = re.compile(r"[=\-*#~]{4,}")
@@ -73,7 +76,7 @@ TOKEN_DEFINITION_PATH_PATTERN = re.compile(
 # 하드코딩 URL (설정 원본에 둔다 — conventions §5). 스키마·예시·표준 문서 주소는 제외
 URL_LITERAL_PATTERN = re.compile(r"[\"'`](https?://[^\"'`\s]+)")
 IGNORED_URL_PATTERN = re.compile(
-    r"https?://(?:www\.)?(?:w3\.org|example\.(?:com|org)|schemas?\.|json-schema\.org|xmlns|(?:localhost|127\.0\.0\.1)(?::\d+)?(?:/|$))")
+    r"https?://(?:www\.)?(?:$|w3\.org|example\.(?:com|org)|schemas?\.|json-schema\.org|xmlns|(?:localhost|127\.0\.0\.1)(?::\d+)?(?:/|$))")
 # API 문서 예시 속성 (@Schema(example=...)·examples) — 설정이 아니라 문서
 DOCUMENTATION_EXAMPLE_PATTERN = re.compile(r"\bexamples?\s*[=:]")
 
@@ -108,8 +111,10 @@ LINT_DISABLED_PATTERN = re.compile(
 def comment_phrase_findings(content: str) -> list[str]:
     """주석 한 줄의 문제 종류 목록: history / banner / prose_ending"""
     kinds = []
-    if HISTORY_COMMENT_PATTERN.search(content) and not NOT_HISTORY_PATTERN.search(content):
-        kinds.append("history")
+    if not NOT_HISTORY_PATTERN.search(content):
+        is_one_line_doc = content.startswith("/**") and content.endswith("*/")
+        if HISTORY_COMMENT_PATTERN.search(content) or (WEAK_HISTORY_COMMENT_PATTERN.search(content) and not is_one_line_doc):
+            kinds.append("history")
     body = content.lstrip("/#*! ").rstrip("*/ ")
     if BANNER_COMMENT_PATTERN.search(body) and len(re.sub(r"[=\-*#~\s]", "", body)) < len(body) // 2:
         kinds.append("banner")
@@ -144,16 +149,37 @@ def hardcoded_urls_in_line(line: str) -> list[str]:
     return [m.group(1)[:120] for m in URL_LITERAL_PATTERN.finditer(line) if not IGNORED_URL_PATTERN.match(m.group(1))]
 
 
-def text_block_lines(text: str, language: str) -> set:
-    """Java·Kotlin 텍스트 블록(\"\"\" ... \"\"\") 안 줄 번호 (API 문서 예시 JSON 등 — URL 검사에서 뺌)"""
-    if language not in ("java", "kotlin"):
-        return set()
-    inside, numbers = False, set()
+EXAMPLE_BLOCK_OPEN_PATTERN = re.compile(r"[\"']examples?[\"']\s*:\s*[\[{(]|\bexamples?\s*=\s*[\[{(]|\b(?:json_schema_extra|schema_extra)\b")
+TEXT_BLOCK_DELIMITERS = {"java": ('"""',), "kotlin": ('"""',), "python": ('"""', "'''"), "dart": ('"""', "'''")}
+
+
+def embedded_text_lines(text: str, language: str) -> set:
+    """코드가 아닌 문자열·문서 예시 안 줄 번호: 여러 줄 문자열(텍스트 블록·삼중따옴표)과 example(s) 블록
+
+    안에는 API 문서 예시 JSON, 다른 언어 스크립트(브라우저 JS·SQL) 같은 것이 들어간다 — URL·이름 검사에서 뺀다.
+    """
+    numbers = set()
+    delimiters = TEXT_BLOCK_DELIMITERS.get(language, ())
+    open_delimiter = None
+    depth = 0
     for number, line in enumerate(text.splitlines(), start=1):
-        if inside:
+        if open_delimiter:
             numbers.add(number)
-        if line.count('"""') % 2 == 1:
-            inside = not inside
+            if line.count(open_delimiter) % 2 == 1:
+                open_delimiter = None
+            continue
+        if depth > 0:
+            numbers.add(number)
+            depth += sum(line.count(c) for c in "[{(") - sum(line.count(c) for c in "]})")
+            continue
+        for delimiter in delimiters:
+            if line.count(delimiter) % 2 == 1:
+                open_delimiter = delimiter
+                break
+        match = EXAMPLE_BLOCK_OPEN_PATTERN.search(line)
+        if match and not open_delimiter:
+            depth = sum(line[match.start():].count(c) for c in "[{(") - sum(line[match.start():].count(c) for c in "]})")
+            depth = max(depth, 0)
     return numbers
 
 
