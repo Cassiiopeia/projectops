@@ -97,6 +97,15 @@ test("다른 워크플로우를 깨우지 않는 파일은 권한 선언을 요�
   assert.equal(row(rows, "Workflow permission declarations").status, "OK");
 });
 
+test("주석에서 dispatch_downstream.py 를 언급만 한 파일은 권한 선언을 요구하지 않는다", () => {
+  // 깨워지는 쪽 워크플로가 주석으로 호출자를 설명한다 (CLOSE-ISSUES-ON-RELEASE 실측 오탐)
+  const rows = localChecks(repo({
+    versionYml: VY,
+    workflows: { "C.yaml": "name: C\n# dispatch_downstream.py 가 workflow_dispatch 로 깨운다\npermissions:\n  contents: read\n" },
+  }));
+  assert.equal(row(rows, "Workflow permission declarations").status, "OK");
+});
+
 // ── 기준점 ────────────────────────────────────────────────────────────
 test("기준점이 없으면 다음 업데이트 동작을 알린다", () => {
   const rows = localChecks(repo({ versionYml: VY, workflows: { "A.yaml": "name: A\n" } }));

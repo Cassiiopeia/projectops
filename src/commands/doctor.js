@@ -134,7 +134,9 @@ export function localChecks(cwd = ".") {
   const needsActionsWrite = [];
   for (const f of files) {
     const body = readFileSync(join(wfDir, f), "utf8");
-    if (!body.includes("dispatch_downstream.py")) continue;     // 다른 워크플로우를 깨우는 파일만
+    // 다른 워크플로우를 깨우는 파일만 — 주석 줄의 언급(깨워지는 쪽 설명)은 호출이 아니다
+    const code = body.split("\n").filter((line) => !/^\s*#/.test(line)).join("\n");
+    if (!code.includes("dispatch_downstream.py")) continue;
     const perm = body.match(/^permissions:\n((?:\s+.*\n)+)/m);
     const hasActionsWrite = perm ? /^\s+actions:\s*write/m.test(perm[1]) : false;
     if (!hasActionsWrite) needsActionsWrite.push(f);
