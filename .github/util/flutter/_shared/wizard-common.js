@@ -10,12 +10,13 @@
  *
  * ⚠️ 규칙
  * -------------------------------------------------------------------
- * 1. 여기에는 "마법사 흐름과 무관한 순수 유틸"만 둔다.
- *    단계 이동(showStep/goToStep), 상태 스키마(saveState/loadState),
- *    산출물 생성(generateXxx)은 마법사마다 다르므로 각자 파일에 둔다.
+ * 1. 순수 유틸 + testflight·playstore에 글자 단위로 같던 흐름 기본 구현
+ *    (showStep/prevStep/saveState/clearState·커스텀 Secret)을 둔다.
+ *    갈라진 흐름(goToStep/nextStep/loadState/initializeStep)과
+ *    산출물 생성(generateXxx)은 각자 파일에 둔다.
  * 2. 마법사 JS에서 같은 이름을 다시 정의하면 이 정본이 덮어써진다.
- *    의도적 오버라이드가 아니라면 중복 정의하지 말 것.
- *    (_shared/check-consistency.py가 중복 정의를 잡아낸다)
+ *    의도적 오버라이드는 check-consistency.py INTENTIONAL_OVERRIDES 에 등록한다.
+ *    (그 외 중복 정의는 검증기가 잡아낸다)
  * 3. 함수 시그니처를 바꾸면 3종 전부 영향을 받는다. 반드시 3종을 함께 확인한다.
  *
  * 구현 선택 근거 — 3종에 갈라져 있던 구현 중 가장 안전한 것을 채택했다:
@@ -430,4 +431,205 @@ function triggerDownload(blob, fileName) {
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ============================================
+// DOM 선택자
+// ============================================
+
+function $(selector) {
+    return document.querySelector(selector);
+}
+
+function $$(selector) {
+    return document.querySelectorAll(selector);
+}
+
+// ============================================
+// 단계 이동·상태 저장 기본 구현
+// ============================================
+// 마법사 JS가 제공해야 하는 전역: state(currentStep·customSecrets), STORAGE_KEY,
+// updateProgress, initializeStep, saveCurrentStepData
+// firebase는 흐름이 달라 일부를 자체 구현으로 덮어쓴다 (check-consistency.py INTENTIONAL_OVERRIDES)
+
+function saveState() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+        console.warn('localStorage 저장 실패:', e);
+    }
+}
+
+function clearState() {
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+        console.warn('localStorage 삭제 실패:', e);
+    }
+}
+
+/** 해당 단계 화면만 표시 > 단계별 초기화 */
+function showStep(stepNumber) {
+    $$('.step-content').forEach(step => {
+        step.classList.add('hidden');
+        step.classList.remove('fade-in');
+    });
+
+    const currentStepElement = $(`.step-content[data-step="${stepNumber}"]`);
+    if (currentStepElement) {
+        currentStepElement.classList.remove('hidden');
+        currentStepElement.classList.add('fade-in');
+    }
+
+    initializeStep(stepNumber);
+}
+
+/** 현재 단계 입력 저장 > 이전 단계 표시 > 진행률·상태 저장 */
+function prevStep() {
+    if (state.currentStep > 1) {
+        saveCurrentStepData();
+        state.currentStep--;
+        showStep(state.currentStep);
+        updateProgress();
+        saveState();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
+// ============================================
+// 커스텀 Secret (파일 타입별 자동 처리)
+// ============================================
+
+/** 파일 > Secret 값 (텍스트는 원문, 바이너리는 Base64) */
+async function processFile(file) {
+    if (getFileType(file) === 'text') {
+        return { value: await fileToText(file), type: 'text', hint: 'cat <<EOF > file 로 사용' };
+    }
+    return { value: await fileToBase64(file), type: 'binary', hint: 'echo $SECRET | base64 -d > file 로 사용' };
+}
+
+function addCustomSecret() {
+    state.customSecrets.push({
+        key: '',
+        value: '',
+        fileName: '',
+        type: null,
+        hint: ''
+    });
+    renderCustomSecrets();
+    saveState();
+}
+
+function removeCustomSecret(index) {
+    state.customSecrets.splice(index, 1);
+    renderCustomSecrets();
+    saveState();
+}
+
+/** Secret 이름 규칙(대문자·숫자·_)으로 정리 후 저장 */
+function updateCustomSecretKey(index, key) {
+    if (state.customSecrets[index]) {
+        state.customSecrets[index].key = key.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+        saveState();
+    }
+}
+
+/** 파일 업로드 > 값 변환 > 키 비어 있으면 파일명으로 자동 생성 */
+async function handleCustomFileUpload(index, file) {
+    if (!file) return;
+
+    try {
+        const result = await processFile(file);
+        const suggestedKey = generateKeyName(file.name, result.type);
+
+        state.customSecrets[index] = {
+            key: state.customSecrets[index]?.key || suggestedKey,
+            value: result.value,
+            fileName: file.name,
+            type: result.type,
+            hint: result.hint
+        };
+
+        renderCustomSecrets();
+        saveState();
+        showToast(`✅ ${file.name} 업로드 완료 (${result.type === 'text' ? '텍스트' : 'Base64'})`);
+    } catch (error) {
+        showToast('❌ 파일 읽기 실패: ' + error.message);
+    }
+}
+
+function copyCustomSecretValue(index) {
+    const secret = state.customSecrets[index];
+    if (secret && secret.value) {
+        navigator.clipboard.writeText(secret.value).then(() => {
+            showToast(`✅ ${secret.key} 값 복사됨`);
+        }).catch(() => {
+            showToast('❌ 클립보드 복사 실패');
+        });
+    }
+}
+
+function renderCustomSecrets() {
+    const container = document.getElementById('customSecretsList');
+    if (!container) return;
+
+    if (state.customSecrets.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = state.customSecrets.map((secret, index) => {
+        const hasFile = secret.value && secret.fileName;
+        const typeIcon = secret.type === 'text' ? '📄' : '🔐';
+        const typeBadge = secret.type === 'text' ? 'Raw Text' : 'Base64';
+        const typeClass = secret.type === 'text' ? 'text' : 'binary';
+
+        return `
+            <div class="custom-secret-item">
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    ${hasFile ? `<span class="type-badge ${typeClass}">${typeIcon} ${typeBadge}</span>` : '<span></span>'}
+                    <button class="remove-secret-btn" onclick="removeCustomSecret(${index})">✕ 삭제</button>
+                </div>
+
+                <div class="mb-3">
+                    <label class="block text-xs text-slate-400 mb-1">Secret 이름</label>
+                    <input type="text"
+                           class="secret-key-input"
+                           placeholder="SECRET_NAME"
+                           value="${secret.key || ''}"
+                           onchange="updateCustomSecretKey(${index}, this.value)"
+                           oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_')">
+                </div>
+
+                <div class="custom-file-upload ${hasFile ? 'has-file' : ''}"
+                     onclick="document.getElementById('customFile${index}').click()">
+                    <input type="file" id="customFile${index}" onchange="handleCustomFileUpload(${index}, this.files[0])">
+                    ${hasFile
+                        ? `<div class="text-green-400 text-sm">✅ ${escapeHtml(secret.fileName)}</div>`
+                        : `<div class="text-slate-400 text-sm">📁 파일 선택 또는 클릭</div>`
+                    }
+                </div>
+
+                ${hasFile ? `
+                    <div class="usage-hint">💡 ${escapeHtml(secret.hint)}</div>
+                    <div class="flex justify-end mt-2">
+                        <button class="copy-btn-small" onclick="copyCustomSecretValue(${index})">값 복사</button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+/** 값이 채워진 커스텀 Secret만 내보내기 형식으로 */
+function getCustomSecretsForExport() {
+    return state.customSecrets
+        .filter(cs => cs.key && cs.value)
+        .map(cs => ({
+            key: cs.key,
+            value: cs.value,
+            desc: `사용자 추가 (${cs.fileName})`,
+            type: cs.type,
+            hint: cs.hint
+        }));
 }

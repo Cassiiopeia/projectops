@@ -30,7 +30,7 @@
 | 파일 | 역할 |
 |------|------|
 | `wizard.css` | 3종 공통 컴포넌트 스타일 (툴팁·코드블록·모달·토스트·업로드·커스텀 Secret 등) |
-| `wizard-common.js` | 3종 공통 유틸 (이스케이프·클립보드·파일 변환·OS 감지·상태 저장·변경 이력 모달) |
+| `wizard-common.js` | 3종 공통 유틸 (이스케이프·클립보드·파일 변환·OS 감지·상태 저장·변경 이력 모달) + testflight·playstore에 같던 흐름 기본 구현(`showStep`·`prevStep`·`saveState`·`clearState`·커스텀 Secret) |
 | `check-consistency.py` | 3종이 다시 갈라지면 검출하는 정합성 검증기 |
 | `test_wizard_cli.py` | Python CLI 계약과 `--dry-run` 안전성 회귀 테스트 |
 
@@ -44,8 +44,13 @@
 <link rel="stylesheet" href="../_shared/wizard.css">
 ...
 <script src="../_shared/wizard-common.js"></script>
-<script src="testflight-wizard.js"></script>   <!-- 공통보다 뒤 -->
+<script src="testflight-wizard.js"></script>          <!-- 공통보다 뒤 -->
+<script src="testflight-wizard-export.js"></script>   <!-- 단계별 분할 파일: 본 파일 뒤 -->
 ```
+
+마법사 JS는 `<name>-wizard*.js` 여러 개로 나눌 수 있다. 분할 파일에는 **함수 선언만** 둔다
+(상태·초기화 코드는 본 파일). 검증기가 폴더의 `<name>-wizard*.js`를 전부 읽고, HTML이 각각을
+공통 JS 뒤에 로드하는지 확인한다.
 
 공통이 먼저 로드돼야 마법사 JS가 필요 시 의도적으로 덮어쓸 수 있습니다.
 순서가 뒤바뀌면 공통이 마법사 구현을 덮어써 조용히 동작이 바뀝니다.
@@ -54,12 +59,16 @@
 
 같은 이름으로 다시 정의하면 정본이 무력화됩니다.
 `check-consistency.py`가 중복 정의를 잡아냅니다.
+흐름이 달라 덮어써야 하면 `INTENTIONAL_OVERRIDES`에 이유와 함께 등록합니다
+(현재 firebase: `showStep`·`prevStep`·`addCustomSecret`·`updateCustomSecretKey`·`renderCustomSecrets`).
+공통 흐름 함수는 마법사 JS의 전역 `state`·`STORAGE_KEY`·`updateProgress`·`initializeStep`·`saveCurrentStepData`를 부릅니다.
 
 ### 3. 무엇을 공통에 두고 무엇을 각자 두나
 
 | 공통 (`_shared/`) | 각 마법사 |
 |---|---|
-| 마법사 흐름과 무관한 순수 유틸 | 단계 이동·상태 스키마(`saveState`/`loadState`) |
+| 마법사 흐름과 무관한 순수 유틸 | 갈라진 단계 이동(`goToStep`/`nextStep`)·상태 복원(`loadState`) |
+| testflight·playstore에 글자 단위로 같던 흐름 함수 | `initializeStep`·`saveCurrentStepData` 등 단계 내용 |
 | 3종이 똑같이 쓰는 컴포넌트 스타일 | 마법사 고유 색상·브랜드 스타일 |
 | 변경 이력 모달·보안 경고 같은 공통 UI 동작 | 산출물 생성(`generateXxx`)·단계별 검증 |
 
@@ -87,6 +96,14 @@ python3 testflight-wizard.py setup --project-path . --bundle-id com.x.y ... --dr
 구 위치인자 호출도 계속 받습니다 — 마법사 HTML이 이미 배포한 명령어가 그 형식이기 때문입니다.
 공통 옵션 `--dry-run` / `--no-backup` / `--non-interactive` 는 3종 모두 지원해야 합니다.
 
+### 6. `.py` 공통 블록은 글자 단위로 같게 둔다
+
+testflight·playstore `.py`의 `# >>> 공통 블록: 쓰기 게이트`·`# >>> 공통 블록: 인자 계약` 구간은
+두 파일이 같아야 하고, 검증기가 비교한다. 공용 모듈로 빼지 않는 이유: `.py`는 단일 파일로
+실행·배포된다(firebase ZIP은 `.py` 하나만 담는다). 인코딩·개행 처리는 블록 밖
+`_READ_KWARGS`·`_WRITE_KWARGS`로 마법사마다 둔다. firebase는 위치인자 호출 이력이 없어
+argparse로 같은 플래그를 받고, dry-run은 함수 인자로 전달한다.
+
 `--dry-run`은 **선언만 하면 안 됩니다.** 파일을 바꾸는 모든 원시 동작
 (쓰기·복사·이동·삭제·디렉터리 생성·keytool)은 게이트 함수를 거쳐야 하고,
 "쓰고 다시 읽어 검증"하는 단계를 위해 메모리 오버레이로 실제 실행과 같은 경로를 타야 합니다.
@@ -96,7 +113,7 @@ python3 testflight-wizard.py setup --project-path . --bundle-id com.x.y ... --dr
 ## 검증
 
 ```bash
-# 3종 정합성 (CSS·JS·링크·버전 동기화·CLI 계약·첫 사용자 안내)
+# 3종 정합성 (CSS·JS·링크·버전 동기화·CLI 계약·.py 공통 블록·첫 사용자 안내)
 python3 .github/util/flutter/_shared/check-consistency.py
 
 # CLI 계약 + dry-run 안전성 회귀 테스트

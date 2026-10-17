@@ -129,7 +129,7 @@ def patch_build_gradle(gradle_file_path):
         print("ℹ️  --no-backup: 백업을 건너뜁니다")
     else:
         try:
-            _write_text(backup_path, content)
+            write_text(backup_path, content)
             print(f"✅ 백업 생성: {backup_path}")
         except Exception as e:
             print(f"⚠️  백업 생성 실패 (계속 진행): {e}")
@@ -239,7 +239,7 @@ if (keystorePropertiesFile.exists()) {
     # 6. 파일 저장 (변경사항이 있는 경우에만)
     if content != original_content:
         try:
-            _write_text(gradle_file_path, content)
+            write_text(gradle_file_path, content)
             print("✅ build.gradle.kts 패치 완료!")
             return True
         except Exception as e:
@@ -247,7 +247,7 @@ if (keystorePropertiesFile.exists()) {
             # 백업에서 복원 시도
             if path_exists(backup_path):
                 try:
-                    _write_text(gradle_file_path, _read_text(backup_path))
+                    write_text(gradle_file_path, read_text(backup_path))
                     print("✅ 백업에서 복원 완료")
                 except Exception:
                     pass
@@ -496,20 +496,23 @@ def find_template_dir():
     return template_dir
 
 
-# ── 쓰기 게이트 (--dry-run 지원) ─────────────────────────────────────
-# 파일·keystore를 변경하는 원시 동작은 전부 아래 게이트를 거친다.
+# 파일 IO: 읽기는 깨진 바이트를 대체 문자로, 쓰기는 OS와 무관하게 LF 고정
+_READ_KWARGS = dict(encoding="utf-8", errors="replace")
+_WRITE_KWARGS = dict(encoding="utf-8", newline="\n")
+
+# >>> 공통 블록: 쓰기 게이트 (testflight·playstore 동일 — _shared/check-consistency.py 가 비교)
+# 파일을 변경하는 원시 동작(쓰기·복사·이동·삭제·디렉터리 생성)은 전부 아래 게이트를 거친다.
 # DRY_RUN이면 디스크를 건드리지 않고 "무엇을 할지"만 출력한다.
 #
 # ⚠️ 오버레이가 필요한 이유
-#   이 스크립트는 "쓰고 → 다시 읽어 검증"하는 단계가 있다. 쓰기만 건너뛰면
-#   뒷 단계가 낡은 내용을 읽어 실제 실행과 다른 경로를 타고 거짓 실패를 낸다.
-#   그래서 dry-run에서는 쓰였을 내용을 메모리에 두고 읽기가 그것을 먼저 본다.
-#
-# ⚠️ 이 블록은 3종 .py의 공통 계약이다 (_shared/check-consistency.py가 검증).
+#   "쓰고 → 다시 읽어 검증"하는 단계가 있어, 쓰기만 건너뛰면 뒷 단계가 낡은 내용을
+#   읽어 실제 실행과 다른 경로를 타고 거짓 실패를 낸다. 그래서 dry-run에서는
+#   쓰였을 내용을 메모리에 두고 read_text가 그것을 먼저 본다.
+# 인코딩·개행 처리는 마법사마다 다르므로 블록 밖의 _READ_KWARGS·_WRITE_KWARGS 를 쓴다.
 DRY_RUN = False
 NO_BACKUP = False
-_DRY_FS = {}
-_DRY_DELETED = set()
+_DRY_FS = {}          # path -> content (dry-run 가상 파일 내용)
+_DRY_DELETED = set()  # dry-run에서 삭제된 것으로 간주하는 경로
 
 
 def _dry(msg):
@@ -517,10 +520,11 @@ def _dry(msg):
 
 
 def copy_file(src, dst):
+    """shutil.copyfile 대체 — dry-run이면 계획만 출력하고 오버레이에 반영한다."""
     if DRY_RUN:
         _dry(f"복사: {src} → {dst}")
         try:
-            _DRY_FS[dst] = _read_text(src)
+            _DRY_FS[dst] = read_text(src)
             _DRY_DELETED.discard(dst)
         except OSError:
             pass
@@ -536,6 +540,7 @@ def backup_file(path, suffix=".bak"):
 
 
 def remove_file(path):
+    """삭제 — dry-run이면 계획만. 없으면 조용히 통과."""
     if DRY_RUN:
         _dry(f"삭제: {path}")
         _DRY_FS.pop(path, None)
@@ -546,10 +551,11 @@ def remove_file(path):
 
 
 def move_file(src, dst):
+    """이동(주로 백업 복원) — dry-run이면 계획만."""
     if DRY_RUN:
         _dry(f"이동: {src} → {dst}")
         try:
-            _DRY_FS[dst] = _read_text(src)
+            _DRY_FS[dst] = read_text(src)
             _DRY_DELETED.discard(dst)
         except OSError:
             pass
@@ -576,35 +582,36 @@ def path_exists(path):
     return os.path.exists(path)
 
 
-def _read_text(path):
+def read_text(path):
     if DRY_RUN:
         if path in _DRY_FS:
             return _DRY_FS[path]
         if path in _DRY_DELETED:
             raise FileNotFoundError(path)
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
+    with open(path, "r", **_READ_KWARGS) as f:
         return f.read()
 
 
-def _append_text(path, text):
+def write_text(path, content):
+    if DRY_RUN:
+        _dry(f"쓰기: {path} ({len(content)} bytes)")
+        _DRY_FS[path] = content
+        _DRY_DELETED.discard(path)
+        return
+    with open(path, "w", **_WRITE_KWARGS) as f:
+        f.write(content)
+
+
+def append_text(path, content):
     if DRY_RUN:
         _dry(f"추가: {path}")
-        base = _read_text(path) if (path in _DRY_FS or path_exists(path)) else ""
-        _DRY_FS[path] = base + text
+        base = read_text(path) if (path in _DRY_FS or path_exists(path)) else ""
+        _DRY_FS[path] = base + content
         _DRY_DELETED.discard(path)
         return
-    with open(path, "a", encoding="utf-8", newline="\n") as f:
-        f.write(text)
-
-
-def _write_text(path, text):
-    if DRY_RUN:
-        _dry(f"쓰기: {path} ({len(text)} bytes)")
-        _DRY_FS[path] = text
-        _DRY_DELETED.discard(path)
-        return
-    with open(path, "w", encoding="utf-8", newline="\n") as f:
-        f.write(text)
+    with open(path, "a", **_WRITE_KWARGS) as f:
+        f.write(content)
+# <<< 공통 블록: 쓰기 게이트
 
 
 # 워크플로의 store_deploy_config.py 와 같은 값만 받는다. 오타를 조용히 넘기면
@@ -642,7 +649,7 @@ def create_store_deploy_config(ctx):
     data = {}
     if path_exists(cfg_path):
         try:
-            data = json.loads(_read_text(cfg_path))
+            data = json.loads(read_text(cfg_path))
         except ValueError:
             print_error(f"{cfg_path} 가 올바른 JSON 이 아닙니다. 직접 고친 뒤 다시 실행하세요.")
             sys.exit(1)
@@ -657,7 +664,7 @@ def create_store_deploy_config(ctx):
         android["production_rollout"] = rollout
     data["android"] = android
     make_dirs(cfg_dir)
-    _write_text(cfg_path, json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+    write_text(cfg_path, json.dumps(data, ensure_ascii=False, indent=2) + "\n")
     print_success(f"store-deploy.json 기록 완료 (android: {', '.join(f'{k}={v}' for k, v in android.items())})")
 
 
@@ -688,11 +695,11 @@ def update_gitignore(ctx):
             ".env.*.local",
         ]
 
-        content = _read_text(gitignore_path)
+        content = read_text(gitignore_path)
         for entry in gitignore_entries:
             if entry not in content:  # grep -qF 대응 (고정 문자열 부분 일치)
                 appended = f"\n# Play Store CI/CD - 민감한 파일 (자동 생성됨)\n{entry}\n"
-                _append_text(gitignore_path, appended)
+                append_text(gitignore_path, appended)
                 content += appended
                 print_info(f"루트 .gitignore에 추가: {entry}")
                 gitignore_updated = True
@@ -701,8 +708,8 @@ def update_gitignore(ctx):
     # android/.gitignore 처리
     if path_exists(android_gitignore_path):
         # 항목 확인 및 추가
-        if "key.properties" not in _read_text(android_gitignore_path):
-            _append_text(
+        if "key.properties" not in read_text(android_gitignore_path):
+            append_text(
                 android_gitignore_path,
                 "\n# Play Store Keystore (자동 생성됨)\nkey.properties\nkeystore/\n",
             )
@@ -711,7 +718,7 @@ def update_gitignore(ctx):
     else:
         # android/.gitignore가 없으면 생성
         make_dirs(os.path.join(project_path, "android"))
-        _write_text(android_gitignore_path, """# Play Store CI/CD - 민감한 파일 (자동 생성됨)
+        write_text(android_gitignore_path, """# Play Store CI/CD - 민감한 파일 (자동 생성됨)
 key.properties
 keystore/
 *.jks
@@ -977,14 +984,14 @@ keyPassword={ctx['KEY_PASSWORD']}
 
     # 파일 쓰기 시도
     try:
-        _write_text(key_properties_path, key_properties_content)
+        write_text(key_properties_path, key_properties_content)
     except OSError:
         # 파일이 잠겨있으면 프로세스 종료 후 재시도
         print_warning("key.properties 파일 쓰기 실패. 파일을 사용 중인 프로세스 종료 시도 중...")
 
         if stop_processes_using_file(key_properties_path):
             try:
-                _write_text(key_properties_path, key_properties_content)
+                write_text(key_properties_path, key_properties_content)
                 print_info("프로세스 종료 후 key.properties 쓰기 성공")
             except OSError:
                 print_error("프로세스 종료 후에도 key.properties 파일 쓰기 실패")
@@ -1001,7 +1008,7 @@ keyPassword={ctx['KEY_PASSWORD']}
         sys.exit(1)
 
     # 파일 내용 확인
-    if "storePassword" not in _read_text(key_properties_path):
+    if "storePassword" not in read_text(key_properties_path):
         print_error(f"key.properties 파일이 존재하지만 내용이 유효하지 않습니다: {key_properties_path}")
         sys.exit(1)
 
@@ -1056,16 +1063,16 @@ def create_fastfile(ctx, template_dir):
     # 템플릿 파일 존재 확인
     if path_exists(template_fastfile):
         # 템플릿에서 복사하고 플레이스홀더 치환
-        _write_text(
+        write_text(
             fastfile_path,
-            _read_text(template_fastfile).replace("{{APPLICATION_ID}}", ctx["APPLICATION_ID"]),
+            read_text(template_fastfile).replace("{{APPLICATION_ID}}", ctx["APPLICATION_ID"]),
         )
         print_info("템플릿에서 생성됨")
     else:
         # 템플릿이 없으면 직접 생성
         # 주의: 구 sh 헤레독은 \#{...}의 백슬래시를 그대로 출력했다 (bash 실측 확인) — 바이트 동일 유지.
         # sh/ps1 분기: ps1 fallback은 package_name 없는 전혀 다른 내용이었다 — sh 내용 채택.
-        _write_text(fastfile_path, f"""# Fastfile for Play Store Internal Testing Deployment
+        write_text(fastfile_path, f"""# Fastfile for Play Store Internal Testing Deployment
 # Path: android/fastlane/Fastfile.playstore
 # Generated by Flutter Play Store CI/CD Helper
 
@@ -1134,7 +1141,7 @@ def create_gemfile(ctx):
         backup_file(gemfile_path)
 
     # sh/ps1 분기: ps1에는 "# frozen_string_literal: true" 줄이 없었다 — sh 내용 채택.
-    _write_text(gemfile_path, """# frozen_string_literal: true
+    write_text(gemfile_path, """# frozen_string_literal: true
 
 source "https://rubygems.org"
 
@@ -1209,8 +1216,9 @@ def print_completion(ctx):
     print("      (그 이전에 만든 계정과 조직 계정은 해당하지 않습니다.)")
 
 
+# >>> 공통 블록: 인자 계약 (testflight·playstore 동일 — _shared/check-consistency.py 가 비교)
 # ===================================================================
-# 3종 공통 인자 계약 (testflight / playstore / firebase 동일)
+# 공통 인자 계약 (명명 플래그 정본 + 구 위치인자 호환)
 # ===================================================================
 # 정본은 **명명 플래그**다. 위치인자가 10개까지 늘어나면서 순서 실수가
 # 잦았고(특히 비밀번호 자리), 무엇을 넘기는지 명령어만 보고 알 수 없었다.
@@ -1221,8 +1229,7 @@ def print_completion(ctx):
 #   신형:  setup --project-path /p --bundle-id com.x.y --team-id ABC123 ...
 #   구형:  setup /p com.x.y ABC123 "Profile Name"
 #
-# ⚠️ 이 블록은 3종 .py에 동일하게 존재해야 한다.
-#    _shared/check-consistency.py 가 동일성을 검증한다.
+# firebase 는 위치인자 호출 이력이 없어 argparse 로 같은 플래그만 받는다.
 # ===================================================================
 
 COMMON_FLAGS = ("--dry-run", "--non-interactive", "--no-backup")
@@ -1281,6 +1288,7 @@ def normalize_params(params, order):
         return merged, opts
 
     return positional, opts
+# <<< 공통 블록: 인자 계약
 
 
 def cmd_setup(params):
@@ -1387,7 +1395,7 @@ def cmd_apply(params):
     print(f"{YELLOW}[3/5] Creating Fastlane configuration...{NC}")
     if not path_exists("android/fastlane/Fastfile.playstore"):
         # Get applicationId from build.gradle
-        gradle_lines = _read_text(gradle_file).splitlines()
+        gradle_lines = read_text(gradle_file).splitlines()
         app_id = ""
         if gradle_type == "kts":
             matched = [l for l in gradle_lines if re.search(r'applicationId\s*=', l)]
@@ -1396,7 +1404,7 @@ def cmd_apply(params):
         if matched:
             app_id = _sed_double_quoted_greedy(matched[0])
 
-        _write_text("android/fastlane/Fastfile.playstore", f"""# Fastfile for Play Store Internal Testing Deployment
+        write_text("android/fastlane/Fastfile.playstore", f"""# Fastfile for Play Store Internal Testing Deployment
 # Path: android/fastlane/Fastfile.playstore
 # Generated by Flutter Play Store CI/CD Helper
 
@@ -1482,7 +1490,7 @@ end
     # Create key.properties template
     print(f"{YELLOW}[4/5] Creating key.properties template...{NC}")
     if not path_exists("android/key.properties"):
-        _write_text("android/key.properties", """# Release Keystore Configuration
+        write_text("android/key.properties", """# Release Keystore Configuration
 # WARNING: Do not commit this file to version control!
 # Add 'android/key.properties' to your .gitignore
 
@@ -1505,10 +1513,10 @@ keyPassword=YOUR_KEY_PASSWORD
         "*.keystore",
     ]
 
-    gitignore_content = _read_text(".gitignore") if path_exists(".gitignore") else ""
+    gitignore_content = read_text(".gitignore") if path_exists(".gitignore") else ""
     for entry in gitignore_entries:
         if entry not in gitignore_content:
-            _append_text(".gitignore", entry + "\n")
+            append_text(".gitignore", entry + "\n")
             gitignore_content += entry + "\n"
             print(f"{GREEN}  Added to .gitignore: {entry}{NC}")
 
@@ -1582,8 +1590,8 @@ def _detect_android_env_posix():
 
         if shell_rc:
             # ANDROID_HOME이 설정되어 있는지 확인
-            if "export ANDROID_HOME" not in _read_text(shell_rc):
-                _append_text(
+            if "export ANDROID_HOME" not in read_text(shell_rc):
+                append_text(
                     shell_rc,
                     "\n# Android SDK (자동 추가됨 by playstore-wizard)\n"
                     f"export ANDROID_HOME=\"{android_home}\"\n"
@@ -1696,7 +1704,7 @@ def cmd_detect_app_id(project_path):
         print('{"error": "build.gradle 파일을 찾을 수 없습니다", "env": "error"}')
         sys.exit(1)
 
-    gradle_lines = _read_text(gradle_file).splitlines()
+    gradle_lines = read_text(gradle_file).splitlines()
     application_id = ""
 
     # Kotlin DSL (build.gradle.kts)

@@ -92,18 +92,21 @@ PROFILE_NAME = ""
 USES_NON_EXEMPT_ENCRYPTION = "false"
 TEMPLATE_DIR = ""
 
-# ── 쓰기 게이트 (--dry-run 지원) ─────────────────────────────────────
-# 파일을 변경하는 원시 동작은 전부 아래 게이트 함수를 거친다.
+# 파일 IO: 바이트 보존을 위해 surrogateescape + 개행 무변환(newline="")
+_READ_KWARGS = _WRITE_KWARGS = dict(encoding="utf-8", errors="surrogateescape", newline="")
+
+# >>> 공통 블록: 쓰기 게이트 (testflight·playstore 동일 — _shared/check-consistency.py 가 비교)
+# 파일을 변경하는 원시 동작(쓰기·복사·이동·삭제·디렉터리 생성)은 전부 아래 게이트를 거친다.
 # DRY_RUN이면 디스크를 건드리지 않고 "무엇을 할지"만 출력한다.
 #
 # ⚠️ 오버레이가 필요한 이유
-#   이 스크립트는 "쓰고 → 다시 읽어 검증"하는 단계가 여러 곳이다.
-#   단순히 쓰기만 건너뛰면 뒷 단계가 낡은 내용을 읽어 실제 실행과 다른
-#   경로를 타고 거짓 실패를 낸다. 그래서 dry-run에서는 쓰였을 내용을
-#   메모리에 보관하고 read_text가 그것을 먼저 보게 한다.
+#   "쓰고 → 다시 읽어 검증"하는 단계가 있어, 쓰기만 건너뛰면 뒷 단계가 낡은 내용을
+#   읽어 실제 실행과 다른 경로를 타고 거짓 실패를 낸다. 그래서 dry-run에서는
+#   쓰였을 내용을 메모리에 두고 read_text가 그것을 먼저 본다.
+# 인코딩·개행 처리는 마법사마다 다르므로 블록 밖의 _READ_KWARGS·_WRITE_KWARGS 를 쓴다.
 DRY_RUN = False
 NO_BACKUP = False
-_DRY_FS = {}       # path -> content (dry-run 가상 파일 내용)
+_DRY_FS = {}          # path -> content (dry-run 가상 파일 내용)
 _DRY_DELETED = set()  # dry-run에서 삭제된 것으로 간주하는 경로
 
 
@@ -132,7 +135,7 @@ def backup_file(path, suffix=".bak"):
 
 
 def remove_file(path):
-    """삭제 — dry-run이면 계획만. 없으면 조용히 통과(구 동작 유지)."""
+    """삭제 — dry-run이면 계획만. 없으면 조용히 통과."""
     if DRY_RUN:
         _dry(f"삭제: {path}")
         _DRY_FS.pop(path, None)
@@ -157,6 +160,13 @@ def move_file(src, dst):
     shutil.move(src, dst)
 
 
+def make_dirs(path):
+    if DRY_RUN:
+        _dry(f"디렉터리 생성: {path}")
+        return
+    os.makedirs(path, exist_ok=True)
+
+
 def path_exists(path):
     """존재 확인 — dry-run 오버레이를 반영한다."""
     if DRY_RUN:
@@ -167,24 +177,13 @@ def path_exists(path):
     return os.path.exists(path)
 
 
-def make_dirs(path):
-    if DRY_RUN:
-        _dry(f"디렉터리 생성: {path}")
-        return
-    os.makedirs(path, exist_ok=True)
-
-
-# 파일 IO: 바이트 보존을 위해 surrogateescape + 개행 무변환(newline="")
-_IO_KWARGS = dict(encoding="utf-8", errors="surrogateescape", newline="")
-
-
 def read_text(path):
     if DRY_RUN:
         if path in _DRY_FS:
             return _DRY_FS[path]
         if path in _DRY_DELETED:
             raise FileNotFoundError(path)
-    with open(path, "r", **_IO_KWARGS) as f:
+    with open(path, "r", **_READ_KWARGS) as f:
         return f.read()
 
 
@@ -194,7 +193,7 @@ def write_text(path, content):
         _DRY_FS[path] = content
         _DRY_DELETED.discard(path)
         return
-    with open(path, "w", **_IO_KWARGS) as f:
+    with open(path, "w", **_WRITE_KWARGS) as f:
         f.write(content)
 
 
@@ -205,8 +204,9 @@ def append_text(path, content):
         _DRY_FS[path] = base + content
         _DRY_DELETED.discard(path)
         return
-    with open(path, "a", **_IO_KWARGS) as f:
+    with open(path, "a", **_WRITE_KWARGS) as f:
         f.write(content)
+# <<< 공통 블록: 쓰기 게이트
 
 
 # 출력 함수
@@ -851,8 +851,9 @@ def print_completion():
 # 메인 실행
 # ===================================================================
 
+# >>> 공통 블록: 인자 계약 (testflight·playstore 동일 — _shared/check-consistency.py 가 비교)
 # ===================================================================
-# 3종 공통 인자 계약 (testflight / playstore / firebase 동일)
+# 공통 인자 계약 (명명 플래그 정본 + 구 위치인자 호환)
 # ===================================================================
 # 정본은 **명명 플래그**다. 위치인자가 10개까지 늘어나면서 순서 실수가
 # 잦았고(특히 비밀번호 자리), 무엇을 넘기는지 명령어만 보고 알 수 없었다.
@@ -863,8 +864,7 @@ def print_completion():
 #   신형:  setup --project-path /p --bundle-id com.x.y --team-id ABC123 ...
 #   구형:  setup /p com.x.y ABC123 "Profile Name"
 #
-# ⚠️ 이 블록은 3종 .py에 동일하게 존재해야 한다.
-#    _shared/check-consistency.py 가 동일성을 검증한다.
+# firebase 는 위치인자 호출 이력이 없어 argparse 로 같은 플래그만 받는다.
 # ===================================================================
 
 COMMON_FLAGS = ("--dry-run", "--non-interactive", "--no-backup")
@@ -923,6 +923,7 @@ def normalize_params(params, order):
         return merged, opts
 
     return positional, opts
+# <<< 공통 블록: 인자 계약
 
 
 def cmd_setup(params):

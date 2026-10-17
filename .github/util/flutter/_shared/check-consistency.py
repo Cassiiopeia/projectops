@@ -16,6 +16,7 @@
 5. 버전 동기화         — version.json 과 HTML 인라인 versionJson 이 일치하는가
 6. 낡은 링크           — 구 레포명·존재하지 않는 경로를 가리키고 있지 않은가
 7. 첫 사용자 안내      — 준비물/소요시간/문서링크/재개안내가 3종에 모두 있는가
+8. Python 공통 블록    — testflight·playstore .py의 쓰기 게이트·인자 계약 블록이 글자 단위로 같은가
 
 사용법
 ------
@@ -39,6 +40,17 @@ REPO_SLUG = "Cassiiopeia/projectops"
 
 # 공통 유틸에 정의된 함수 — 마법사 JS가 재정의하면 정본이 무력화된다
 SHARED_FUNCS_RE = re.compile(r"^(?:async )?function ([A-Za-z0-9_]+)", re.M)
+
+# 공통 JS를 의도적으로 덮어쓰는 함수 (마법사별 명시 목록)
+# firebase: 단계 이동이 순서 제약 없고 Secret 입력 UI가 달라 흐름 함수를 자체 구현으로 대체
+INTENTIONAL_OVERRIDES = {
+    "firebase": {"showStep", "prevStep", "addCustomSecret", "updateCustomSecretKey", "renderCustomSecrets"},
+}
+
+# testflight·playstore .py에 글자 단위로 같아야 하는 블록 (# >>> 공통 블록: 이름 ... # <<< 공통 블록: 이름)
+# 공용 모듈로 빼지 않는 이유: .py는 단일 파일로 실행·배포된다 (firebase ZIP은 .py 하나만 담음)
+PY_SHARED_BLOCKS = ("쓰기 게이트", "인자 계약")
+PY_BLOCK_WIZARDS = ("testflight", "playstore")
 
 # 3종이 모두 제공해야 하는 기능 (이름 통일 대상)
 REQUIRED_FUNCS = (
@@ -79,6 +91,12 @@ def wizard_paths(name: str) -> dict[str, Path]:
     }
 
 
+def wizard_js_files(name: str) -> list[Path]:
+    """마법사 JS 전부 (본 파일 + 단계별 분할 파일 {name}-wizard-*.js)"""
+    base = FLUTTER_DIR / f"{name}-wizard"
+    return sorted(base.glob(f"{name}-wizard*.js"))
+
+
 def read(p: Path) -> str:
     return p.read_text(encoding="utf-8") if p.exists() else ""
 
@@ -105,7 +123,8 @@ def check() -> list[str]:
         for key, p in paths.items():
             if not p.exists():
                 problems.append(f"{tag} {p.name} 이 없습니다")
-        html, js = read(paths["html"]), read(paths["js"])
+        js_files = wizard_js_files(name)
+        html, js = read(paths["html"]), "\n".join(read(p) for p in js_files)
         if not html or not js:
             continue
 
@@ -118,13 +137,17 @@ def check() -> list[str]:
         else:
             # 공통 JS가 마법사 JS보다 먼저 로드되어야 오버라이드 사고가 없다
             i_common = html.find("../_shared/wizard-common.js")
-            i_own = html.find(f"{name}-wizard.js")
-            if i_own != -1 and i_common > i_own:
-                problems.append(f"{tag} 공통 JS가 마법사 JS보다 늦게 로드됩니다 (순서 교정 필요)")
+            for js_file in js_files:
+                i_own = html.find(f'src="{js_file.name}"')
+                if i_own == -1:
+                    problems.append(f"{tag} HTML이 {js_file.name} 를 로드하지 않습니다")
+                elif i_common > i_own:
+                    problems.append(f"{tag} 공통 JS가 {js_file.name} 보다 늦게 로드됩니다 (순서 교정 필요)")
 
         # 2. 공통 함수 재정의
         own_funcs = set(SHARED_FUNCS_RE.findall(js))
-        redefined = sorted(own_funcs & shared_funcs)
+        allowed = INTENTIONAL_OVERRIDES.get(name, set())
+        redefined = sorted((own_funcs & shared_funcs) - allowed)
         if redefined:
             problems.append(f"{tag} 공통 유틸을 재정의하고 있습니다: {', '.join(redefined)}")
 
@@ -204,6 +227,34 @@ def check() -> list[str]:
         if "--dry-run" in py and not re.search(r"\bDRY_RUN\b|\bdry_run\b", py):
             problems.append(f"{tag} --dry-run을 받지만 실제 동작에 연결되어 있지 않습니다")
 
+    problems.extend(check_python_shared_blocks())
+    return problems
+
+
+def extract_python_block(source: str, block_name: str) -> str | None:
+    """`# >>> 공통 블록: 이름` ~ `# <<< 공통 블록: 이름` 사이 본문 (시작 줄 설명은 제외)"""
+    pattern = re.compile(
+        rf"^# >>> 공통 블록: {re.escape(block_name)}\b[^\n]*\n(.*?)^# <<< 공통 블록: {re.escape(block_name)}$",
+        re.S | re.M,
+    )
+    match = pattern.search(source)
+    return match.group(1) if match else None
+
+
+def check_python_shared_blocks() -> list[str]:
+    """공통 블록 존재 > 마법사 간 동일성 비교"""
+    problems: list[str] = []
+    for block_name in PY_SHARED_BLOCKS:
+        bodies = {}
+        for name in PY_BLOCK_WIZARDS:
+            body = extract_python_block(read(wizard_paths(name)["py"]), block_name)
+            if body is None:
+                problems.append(f"[{name}] .py에 '{block_name}' 공통 블록 표시가 없습니다")
+            else:
+                bodies[name] = body
+        if len(bodies) == len(PY_BLOCK_WIZARDS) and len(set(bodies.values())) > 1:
+            names = " ↔ ".join(PY_BLOCK_WIZARDS)
+            problems.append(f"[공통] .py '{block_name}' 블록이 서로 다릅니다 ({names}) — 한쪽을 고쳤으면 다른 쪽도 같게")
     return problems
 
 

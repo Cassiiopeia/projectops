@@ -34,11 +34,6 @@ const state = {
 
 const STORAGE_KEY = 'firebase_wizard_state';
 
-function saveState() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-    catch (e) { console.warn('localStorage save failed:', e); }
-}
-
 function loadState() {
     try {
         const saved = localStorage.getItem(STORAGE_KEY);
@@ -57,15 +52,9 @@ function loadState() {
     return false;
 }
 
-function clearState() {
-    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
-}
-
 // ============================================
 // Helpers
 // ============================================
-function $(sel) { return document.querySelector(sel); }
-function $$(sel) { return document.querySelectorAll(sel); }
 
 function copySecret(name) {
     const map = {
@@ -317,12 +306,6 @@ function suggestSecretKey(filename, type) {
 
 function addCustomSecret() {
     state.customSecrets.push({ key: '', value: '', fileName: '', type: 'text' });
-    saveState();
-    renderCustomSecrets();
-}
-
-function removeCustomSecret(index) {
-    state.customSecrets.splice(index, 1);
     saveState();
     renderCustomSecrets();
 }
