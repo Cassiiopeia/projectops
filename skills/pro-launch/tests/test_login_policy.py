@@ -171,6 +171,7 @@ from pro_launch.runtime.creds import with_login_policy  # noqa: E402
 
 LOGIN_ENTRY_POINTS = (
     SCRIPTS_DIR / "pro_launch" / "commands" / "web" / "__init__.py",
+    SCRIPTS_DIR / "pro_launch" / "commands" / "web" / "actions" / "login.py",
     SCRIPTS_DIR / "pro_launch" / "commands" / "app" / "actions" / "type_.py",
 )
 

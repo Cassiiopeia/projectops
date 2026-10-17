@@ -69,7 +69,7 @@ launch_cli.py web type --selector 'input[type=password]' --cred google-dev      
 
 값은 `ask`(기본) · `always` · `never`. 계정별 값이 전체 기본값보다 우선한다.
 
-1. `web type --cred|--text-env` · `app type --cred|--text-env` 결과의 `login_policy` 를 읽는다
+1. `web login` · `web type --cred|--text-env` · `app type --cred|--text-env` 결과의 `login_policy` 를 읽는다
    (따로 보려면 `cred policy get --name 이름`).
 2. 화면이 위 셋 중 하나이고 값이 `always`·`never` 면 **묻지 않고 그대로 누른다.** 보고에 한 줄 남긴다
    ("저장된 설정대로 기기 신뢰함 체크").
@@ -89,8 +89,9 @@ launch_cli.py web type --selector 'input[type=password]' --cred google-dev      
 방식(폰 승인 · 문자 코드 · 인증 앱 코드 · 보안 키)은 제공자·계정마다 다르다. 화면을 읽고 그때마다 판단한다.
 
 - **폰 승인**: 화면의 숫자·안내 문구를 대화로 그대로 전하고 `web shot` 캡처를 보낸다. 승인 화면에서 **이동하지 않는다**
-  (이동하면 걸린 승인이 취소된다). 사용자가 눌렀다고 하면 `web text` · `web shot` 으로 넘어갔는지 확인한다.
-- **문자·인증 앱 코드**: 대화로 받아 `--text-env` 로 넣는다. 받은 코드는 기록·보고에 옮기지 않는다.
+  (이동하면 걸린 승인이 취소된다). `web wait --url-contains "{로그인 뒤 주소 일부}"` (또는 `--gone "{승인 안내 글자}"`)로
+  넘어갈 때까지 기다린다. `web login` 이 `needs_user` 로 넘겼으면 승인 뒤 `web login --resume` 으로 이어간다.
+- **문자·인증 앱 코드**: 대화로 받아 `web login --otp-env` (또는 `--text-env`) 로 넣는다. 받은 코드는 기록·보고에 옮기지 않는다.
 - **보안 키 · 사람만 할 수 있는 단계**: 무엇이 필요한지 캡처와 함께 알리고 기다린다.
 - 통과한 방식(어느 순서, headed 필요 여부)은 `learn` 으로 남긴다 — 값은 적지 않는다.
 

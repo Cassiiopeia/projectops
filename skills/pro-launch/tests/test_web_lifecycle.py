@@ -196,6 +196,19 @@ def test_login_masks_secret_in_errors(monkeypatch):
     assert payload["code"] == "web_action_failed" and "s3cret-pass" not in payload["error"]
 
 
+def test_login_results_carry_login_policy_for_the_cred(monkeypatch):
+    # 성공 · 사용자 인계 둘 다 그 계정의 중간 화면 정책을 싣는다 (#905)
+    import credentials
+    asked = []
+    monkeypatch.setattr(credentials, "resolve_login_policy",
+                        lambda name: asked.append(name) or {"trust_device": {"value": "always", "source": "credential"}})
+    _fake_cred(monkeypatch)
+    handoff = login.execute(_LoginPage(), _login_args(), {"headed": False})
+    done = login.execute(_LoginPage(), _login_args(until_url=None), {})
+    assert handoff["login_policy"]["trust_device"]["value"] == "always"
+    assert done["login_policy"]["trust_device"]["value"] == "always"
+    assert asked == ["staging", "staging"]
+
 def test_connect_reports_hung_browser_without_waiting(monkeypatch):
     # 프로세스는 살아 있는데 CDP 무응답 → Playwright 연결 전에 browser_hung (#887)
     from pro_launch.commands.web import session as web_session

@@ -11,7 +11,7 @@ import time
 
 from pro_launch.commands.web.session import read_url_title
 from pro_launch.registry import Action
-from pro_launch.runtime.creds import load_cred
+from pro_launch.runtime.creds import load_cred, with_login_policy
 
 # 아이디로 쓸 필드를 자동으로 고를 때 보는 순서
 IDENTIFIER_FIELD_CANDIDATES = ("username", "account", "email", "user", "login", "id")
@@ -152,15 +152,18 @@ def execute(page, args, state: dict) -> dict:
             if failure:
                 return failure
         if not _wait_for_condition(page, args):
-            return _handoff_payload(page, args, state, filled)
+            # 사용자 인계에도 중간 화면 정책을 싣는다 (#905)
+            return with_login_policy(_handoff_payload(page, args, state, filled), args.login_cred)
     except Exception as e:
         return {"ok": False, "code": "web_action_failed", "action": "login", "filled": filled,
                 "error": _mask(str(e), secret_values)[:400],
                 "next": "web find  # 입력칸 선택자가 맞는지 본다"}
     url, title = read_url_title(page)
-    return {"action": "login", "url": url, "title": title, "filled": filled, "resumed": bool(args.resume),
-            "summary": "로그인 단계를 마쳤습니다" + (" (조건 확인됨)" if (args.until_url or args.until_text) else ""),
-            "next": "web text  # 로그인 뒤 화면을 읽는다"}
+    result = {"action": "login", "url": url, "title": title, "filled": filled, "resumed": bool(args.resume),
+              "summary": "로그인 단계를 마쳤습니다" + (" (조건 확인됨)" if (args.until_url or args.until_text) else ""),
+              "next": "web text  # 로그인 뒤 화면을 읽는다"}
+    # 로그인 결과에 중간 화면 정책을 싣는다 (#905)
+    return with_login_policy(result, args.login_cred)
 
 
 def configure(p) -> None:
