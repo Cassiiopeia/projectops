@@ -46,7 +46,38 @@ source "{env_file 값}"
 - `swipe --dir up|down|left|right` 는 화면 가장자리 제스처를 피하려고 15% 안쪽에서 움직인다.
   정확한 궤적이 필요하면 `--from`·`--to` 비율 좌표와 `--ms`(기본 300).
 - Android 는 기기 내장 `uiautomator` 라 설치가 필요 없다. **iOS 는 Maestro 가 필요하다**(simctl 에 탭 명령이
-  없다). 호출마다 Maestro 가 새로 떠서 10~40초 걸리니, 긴 시나리오는 프로젝트의 Maestro flow 로 한 번에 돌린다.
+  없다). 호출마다 Maestro 가 새로 떠서 10~40초 걸린다 — 결과의 `elapsed_seconds` 에 보인다.
+  **두 단계 이상이면 `app run` 으로 묶는다**(아래). 더 긴 시나리오는 프로젝트의 Maestro flow 로 돌린다.
+
+### 여러 단계를 한 번에 — `app run` (#893)
+
+```bash
+cat > steps.json <<'JSON'
+[{"tap": {"text": "이메일"}}, {"type": {"env": "LOGIN_EMAIL"}},
+ {"tap": {"id": "password_field"}}, {"type": {"cred": "staging", "submit": true}},
+ {"wait": {"text": "홈", "timeout": 10}}]
+JSON
+{PYTHON} {SCRIPTS}/launch_cli.py app run --device "$DEV" --steps steps.json --shot after_login
+```
+
+| 단계 | 키 |
+|---|---|
+| `tap` | `text` · `id` · `desc` 중 하나 (+`index`), 또는 `point: "0.5,0.8"` 비율 |
+| `swipe` | `direction: up\|down\|left\|right`, 또는 `from`·`to` 비율 (+`ms`) |
+| `type` | `env`(환경변수 이름) 또는 `cred`(+`field`), `submit` — **값을 파일에 적지 않는다** |
+| `wait` | `text` · `id` · `desc` 중 하나 + `timeout`(초, 기본 10 · 최대 60) |
+| `back` | `true` — Android 만 (iOS 는 `step_unsupported_on_platform`) |
+
+- iOS 는 **Maestro 를 한 번만** 띄운다(실측: 4단계 20초, 따로 부르면 단계당 15~45초). Android 는 같은 파일을 차례로 실행한다.
+- 결과: `steps[]`(단계별 `status`: completed · failed · not_run · unknown) · `failed_step` · `elapsed_seconds`.
+  `--shot` 은 전부 성공했을 때만 찍는다. iOS 의 `text`·`wait` 은 **요소 문구 전체**와 맞아야 한다.
+
+| code | 다음 행동 |
+|---|---|
+| `bad_steps` | `step_index` 번 단계를 고친다 (`null` 이면 파일 자체 — 경로·JSON·빈 배열) |
+| `step_failed` | `failed_step` 부터 `app tree` 로 보고 고쳐 다시 run. `null` 이면 단계 전에 멈췄다(`error`) |
+| `step_unsupported_on_platform` | `next` 의 대안(뒤로 버튼 tap · 가장자리 swipe) |
+| `env_not_set` · `cred_field_missing` · `non_ascii_unsupported` | `step_index` 의 type 단계 값 출처를 고친다 |
 
 | code | 다음 행동 |
 |---|---|
@@ -57,6 +88,35 @@ source "{env_file 값}"
 | `ios_tool_missing` · `android_tool_missing` | `next` 의 설치 명령(iOS 는 Maestro)을 사용자에게 제안한다 |
 | `adb_missing` | 아래 PATH 를 잡거나 `doctor` 의 `adb_path` 를 쓴다 |
 | `capture_failed` | 잠긴 화면이거나 `FLAG_SECURE` 다(아래 "관측") |
+
+## 끄기 · 다시 띄우기 · 위치 · 권한 · 푸시 · 딥링크 (#892)
+
+raw `xcrun simctl` · `adb shell am|pm` 대신 쓴다. 패키지는 `--pkg` → `$PKG` → `device bind` 의 package 순.
+
+```bash
+{PYTHON} {SCRIPTS}/launch_cli.py app terminate  --device "$DEV" --pkg "$PKG"      # 꺼져 있었으면 was_running=false (Android 는 null)
+{PYTHON} {SCRIPTS}/launch_cli.py app relaunch   --device "$DEV" --pkg "$PKG"      # 끄기 실패면 띄우지 않는다
+{PYTHON} {SCRIPTS}/launch_cli.py app location   --device "$DEV" --lat 37.5665 --lon 126.978
+{PYTHON} {SCRIPTS}/launch_cli.py app permission --device "$DEV" --pkg "$PKG" --service photos --grant   # 또는 --revoke
+{PYTHON} {SCRIPTS}/launch_cli.py app push       --device "$DEV" --pkg "$PKG" --payload push.json       # iOS 시뮬레이터만
+{PYTHON} {SCRIPTS}/launch_cli.py app openurl    --device "$DEV" --url "myapp://home?id=1"              # Android 는 --pkg 를 주면 그 앱으로 고정
+```
+
+| 동작 | iOS 시뮬레이터 | Android |
+|---|---|---|
+| terminate · relaunch | `simctl terminate` · `launch` | `am force-stop` · `monkey` |
+| location | `simctl location set` | 에뮬레이터만 `emu geo fix` (실기기 → `unsupported_on_platform`) |
+| permission | `simctl privacy` — 서비스: `all` `calendar` `contacts` `location` `location-always` `photos` `photos-add` `media-library` `microphone` `motion` `reminders` `siri` (권한이 바뀌면 앱이 꺼진다) | `pm grant/revoke` — `camera` `microphone` `location` `location-always` `contacts` `calendar` `photos` `notifications` 또는 `android.permission.X` 원문 |
+| push | `simctl push` (payload 에 `Simulator Target Bundle` 이 있으면 `--pkg` 불필요) | `unsupported_on_platform` — FCM 테스트 메시지로 |
+| openurl | `simctl openurl` | `am start -a VIEW -d` |
+
+| code | 다음 행동 |
+|---|---|
+| `package_required` | `--pkg` 를 준다 |
+| `unsupported_on_platform` | `next` 의 대안. 다른 플랫폼에만 있는 권한 서비스(iOS `camera` 등)도 이 code |
+| `bad_coordinates` · `permission_mode_required` · `payload_invalid` · `url_required` | 인자를 고친다 (`error` 에 이유) |
+| `unknown_permission_service` | `candidates` 에서 고른다 |
+| `terminate_failed` · `launch_failed` · `location_failed` · `permission_failed` · `push_failed` · `openurl_failed` | `error` 의 도구 출력을 본다. openurl 은 앱이 scheme 을 등록했는지 |
 
 새 플랫폼(백엔드)을 붙이는 법은 `extending.md`.
 
@@ -98,7 +158,7 @@ adb -s "$DEV" shell pm clear {패키지}        # 데이터만 초기화 (앱은
 
 ```bash
 {PYTHON} {SCRIPTS}/launch_cli.py app launch --device "$DEV" --pkg "$PKG"
-adb -s "$DEV" shell am force-stop {패키지}
+{PYTHON} {SCRIPTS}/launch_cli.py app terminate --device "$DEV" --pkg "$PKG"
 
 {PYTHON} {SCRIPTS}/launch_cli.py app tap   --device "$DEV" --text "{화면 문구}" --shot {이름}
 {PYTHON} {SCRIPTS}/launch_cli.py app swipe --device "$DEV" --dir up
@@ -109,7 +169,7 @@ adb -s "$DEV" shell input keyevent KEYCODE_ENTER   # 완료 키
 
 한글이 입력되지 않으면 영문으로 대체하고 그 사실을 기록한다.
 
-### 글자 입력 — 로그인 정보는 저장된 것으로 (Android)
+### 글자 입력 — 로그인 정보는 저장된 것으로 (Android · iOS)
 
 ```bash
 {PYTHON} {SCRIPTS}/launch_cli.py app type --device "$DEV" --cred naver-test --cred-field account
@@ -119,7 +179,8 @@ adb -s "$DEV" shell input keyevent KEYCODE_ENTER   # 완료 키
 - 값은 **명령줄이 아니라 표준입력**으로만 기기에 간다(호스트 `ps` 에 남지 않는다). `--text` 로 값을 직접 주는 방식은 없다.
 - 포커스된 입력창에 들어간다 — 입력창은 먼저 `app tap --text|--id`(요소 기준)로 눌러 포커스를 준다. 입력 뒤에는 `app shot` 으로 확인한다.
 - **`adb input text` 는 ASCII 만 된다**(한글 불가 → `non_ascii_unsupported`). 한글이 필요하면 IME 를 설치한다.
-- iOS 시뮬레이터에는 텍스트를 넣는 공식 명령이 없다(`ios_text_unsupported`) — Maestro 같은 도구나 사용자에게 맡긴다.
+- **iOS 는 Maestro `inputText` 로 넣는다(#894).** 값은 `MAESTRO_` 환경변수로만 넘겨 flow 파일·명령줄에 남지 않는다.
+  Maestro 가 없으면 `ios_tool_missing`(`next` 에 설치 명령), 실패하면 `app_type_failed`(출력의 값은 `***`). 호출당 10~40초.
 - 저장된 로그인 정보가 없으면 사용자에게 묻고, **허락받은 것만 `cred set`** 한다(`references/web.md` 의 "로그인 정보를 저장할 때").
 
 ### 관측
@@ -159,7 +220,7 @@ open -a Simulator                              # 창 띄우기
 
 xcrun simctl install {UDID} {앱.app}
 {PYTHON} {SCRIPTS}/launch_cli.py app launch --device {UDID} --pkg {번들ID}
-xcrun simctl terminate {UDID} {번들ID}
+{PYTHON} {SCRIPTS}/launch_cli.py app terminate --device {UDID} --pkg {번들ID}
 xcrun simctl uninstall {UDID} {번들ID}
 
 {PYTHON} {SCRIPTS}/launch_cli.py app shot --device {UDID} --out {이름} --clean-status
@@ -180,15 +241,15 @@ xcrun simctl io {UDID} recordVideo {경로}.mp4   # Ctrl+C로 종료
 
 조작이 필요하면 이 순서로 한다:
 
-0. **한두 번 누르는 것은 `app tap --text` · `app swipe` 로 한다.** 안에서 Maestro 를 불러 접근성 정보로
+0. **한두 번 누르는 것은 `app tap --text` · `app swipe`, 여러 단계는 `app run --steps` 로 한다.** 안에서 Maestro 를 불러 접근성 정보로
    요소를 찾으므로 호스트 커서를 건드리지 않는다. Maestro 가 없으면 `ios_tool_missing` 과 `next` 에 설치 명령이 온다.
 1. **긴 시나리오는 프로젝트에 이미 있는 E2E 방식을 먼저 찾는다.** `e2e/` · `.maestro/` · `tool/*e2e*` ·
    `integration_test/` 를 본다. 있으면 그것을 쓴다 — 위젯 **텍스트로 찾으므로** 좌표가 필요 없다.
    원래 쓰던 방식을 확인하지 않고 임의로 고르지 않는다.
 2. 없으면 **사용자에게 어느 방법을 쓸지 묻는다**: Maestro 플로우 작성 / `flutter drive`·`integration_test`
    작성 / 몇 단계 안 되면 사용자가 직접 조작.
-3. `simctl` 로 **좌표 없이** 되는 것은 그대로 쓴다: 실행 · 종료 · 딥링크(`xcrun simctl openurl {UDID} {URL}`) ·
-   권한(`xcrun simctl privacy`) · 캡처 · 녹화.
+3. **좌표 없이** 되는 것은 `app` 동작을 쓴다: 실행·종료(`app launch|terminate|relaunch`) · 딥링크(`app openurl`) ·
+   권한(`app permission`) · 위치(`app location`) · 푸시(`app push`) · 캡처(`app shot`). 녹화만 `simctl` 을 직접 쓴다.
 
 **앱 밖 화면은 자동으로 못 누른다.** 네이버·구글 같은 웹 인증 창은 앱 바깥이라 E2E 로 조작할 수 없다.
 앱이 인증 요청을 보내는 데까지만 자동으로 확인하고, 그 안은 사용자에게 부탁한다.

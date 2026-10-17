@@ -41,6 +41,14 @@ ACCESS_CTX: dict = {}
 MEMORY_CTX: dict = {}
 
 
+# ── 출력 모양 (#897) ──────────────────────────────────────────────────────
+#
+# 결과를 head·cut·python 으로 잘라 읽다가 next·memory·known_fix 가 버려졌다(실측 636+275회).
+# 전역 --brief · --fields 를 cli.main 이 여기 적고, out() 이 마지막에 읽어 줄인다.
+# is_brief: 핵심 키만 / field_names: 남길 최상위 키 (None 이면 전부)
+OUTPUT_CTX: dict = {}
+
+
 def project_root(args) -> Path:
     """작업 대상 프로젝트 루트.
 

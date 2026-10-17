@@ -1,0 +1,27 @@
+{
+  "id": "web-find-nothing-found",
+  "area": "web",
+  "title": "web find 가 nothing_found — 기본은 누를 수 있는 요소만 찾는다",
+  "match": {
+    "codes": [
+      "nothing_found"
+    ],
+    "keywords": []
+  },
+  "symptom": "화면에 글자가 보이는데 web find 가 nothing_found(조건에 맞는 보이는 요소가 없다)를 낸다",
+  "cause": "--selector·--role 이 없으면 링크·버튼·role 이 달린 것 같은 클릭 대상만 본다. 일반 입력칸(input·textarea)은 여기에 없다. --role 은 role 속성이 실제로 붙은 요소만 찾는다(--role textbox 는 <input> 을 못 찾는다). iframe 안도 보지 않는다",
+  "fix": [
+    "launch_cli.py web text --max-chars 3000",
+    "launch_cli.py web find --text <text 에서 본 글자 그대로>",
+    "입력칸은 CSS 로 찾는다: launch_cli.py web find --selector input",
+    "그래도 없으면 iframe 안일 수 있다 — kb show web-iframe-login-fields"
+  ],
+  "refs": [
+    825,
+    889
+  ],
+  "verified_at": "2026-10-17",
+  "see_also": [
+    "web-iframe-login-fields"
+  ]
+}

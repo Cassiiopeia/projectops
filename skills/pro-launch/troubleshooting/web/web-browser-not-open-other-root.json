@@ -1,0 +1,27 @@
+{
+  "id": "web-browser-not-open-other-root",
+  "area": "web",
+  "title": "방금 연 브라우저인데 browser_not_open — 다른 프로젝트 자리로 불렸다",
+  "match": {
+    "codes": [
+      "browser_not_open"
+    ],
+    "keywords": []
+  },
+  "symptom": "web open 은 성공했는데 다음 web text·shot 이 browser_not_open(열린 브라우저가 없다)을 낸다. next 의 --root 경로가 스크립트·플러그인 캐시·임시 폴더다",
+  "cause": "브라우저 상태 파일은 프로젝트(git 원격 owner/repo)마다 따로 있다. open 과 다음 명령의 작업 폴더(--root, 기본 '.')가 다르면 서로 다른 상태 파일을 본다. 스크립트 폴더로 cd 하거나 임시 폴더에서 부르면 이렇게 갈린다",
+  "fix": [
+    "launch_cli.py web text --root <프로젝트 경로>",
+    "open 부터 같은 --root 로 부른다. cd 로 스크립트 폴더에 들어가지 말고 절대경로로 스크립트를 부른다",
+    "정말 안 떠 있으면: launch_cli.py web open --root <프로젝트 경로> --url <주소>"
+  ],
+  "refs": [
+    833,
+    836,
+    889
+  ],
+  "verified_at": "2026-10-17",
+  "see_also": [
+    "general-root-unknown-skill-folder"
+  ]
+}

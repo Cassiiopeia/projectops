@@ -41,4 +41,6 @@ def configure(p) -> None:
     p.add_argument("--preset", default=None, help="viewport: mobile · tablet · desktop 또는 390x844")
 
 
-ACTION = Action(name="viewport", needs="state_offline", run=_web_viewport, configure=configure)
+ACTION = Action(name="viewport", needs="state_offline", run=_web_viewport, configure=configure,
+                options=("clear",), help="폭을 바꾼다 — 다음 연결부터 걸린다",
+                example="web viewport --preset mobile")

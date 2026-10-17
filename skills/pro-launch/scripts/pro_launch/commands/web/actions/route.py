@@ -83,4 +83,6 @@ def configure(p) -> None:
     p.add_argument("--delay", type=int, default=0, help="route: 응답 지연(ms) — 로딩 상태 연출")
 
 
-ACTION = Action(name="route", needs="state_offline", run=_web_route, configure=configure)
+ACTION = Action(name="route", needs="state_offline", run=_web_route, configure=configure, options=("clear",),
+                help="응답을 바꿔치기해 빈 목록·실패·지연을 연출한다",
+                example='web route --match "**/api/items*" --status 200 --body "[]"')

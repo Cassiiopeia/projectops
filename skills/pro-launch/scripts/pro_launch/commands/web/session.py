@@ -102,7 +102,7 @@ def close_blank_tabs(ctx, keep) -> int:
 
 
 def web_connect(state: dict):
-    """열려 있는 브라우저에 붙고, 붙어 있는 동안만 사는 설정(훅·stealth·뷰포트·규칙)을 다시 건다."""
+    """열려 있는 브라우저에 붙고, 붙어 있는 동안만 사는 설정(훅·stealth·뷰포트·규칙·대화상자)을 다시 건다."""
     sync_playwright, err = require_playwright()
     if err:
         return None, err
@@ -129,7 +129,43 @@ def web_connect(state: dict):
         except Exception:
             pass
     apply_routes(page, state.get("routes") or [])
+    arm_dialog(page, state)
     return (pw, browser, page), None
+
+
+# 이번 호출 중에 뜬 대화상자 기록을 디스패처에 넘기는 상태 키 — 결과에 실린 뒤 지워진다
+DIALOG_EVENT_KEY = "_dialog_event"
+
+
+def arm_dialog(page, state: dict) -> bool:
+    """대화상자(alert·confirm·prompt) 처리를 건다. 붙을 때마다 다시 건다 — 연결이 끊기면 사라진다 (#625).
+
+    `web dialog` 로 걸어 둔 처리(state["dialog"])는 다음 한 번에만 쓰고 지운다.
+    걸어 둔 것이 없으면 닫는다(dismiss) — Playwright 기본 동작과 같고, 뜬 사실만 결과에 남긴다.
+    """
+    try:
+        page.on("dialog", dialog_handler(state))
+        return True
+    except Exception:
+        return False
+
+
+def dialog_handler(state: dict):
+    def handler(dialog) -> None:
+        plan = state.pop("dialog", None) or {}
+        should_accept = plan.get("action") == "accept"
+        event = {"type": getattr(dialog, "type", None), "message": (getattr(dialog, "message", "") or "")[:300],
+                 "handled": "accept" if should_accept else "dismiss", "armed": bool(plan)}
+        try:
+            if should_accept:
+                prompt_text = plan.get("text")
+                dialog.accept(prompt_text) if prompt_text is not None else dialog.accept()
+            else:
+                dialog.dismiss()
+        except Exception as e:   # 이미 닫힌 대화상자 — 기록만 남긴다
+            event["error"] = str(e)[:200]
+        state[DIALOG_EVENT_KEY] = event
+    return handler
 
 
 # Chrome 이 스스로 띄우는 안내 탭. 작업 탭이 아니다

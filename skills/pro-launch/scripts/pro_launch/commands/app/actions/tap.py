@@ -35,7 +35,7 @@ def _app_tap(args) -> int:
     if be.selects_itself:
         ok, detail = be.tap_selector(dev_id, field, value)
         if not ok and "not found" in (detail or "").lower():
-            return not_found_response(be, dev_id, field, value, None)
+            return not_found_response(be, dev_id, field, value, None, args)
         return gesture_result(args, be, dev_id, before, ok, detail, "tap_failed", f"탭 ({label})")
 
     nodes = be.nodes(dev_id) or []
@@ -45,7 +45,7 @@ def _app_tap(args) -> int:
                     "next": "잠시 뒤 다시 시도하거나 --at 비율 좌표를 쓴다"})
     found = app_input.match_nodes(nodes, field, value)
     if not found:
-        return not_found_response(be, dev_id, field, value, nodes)
+        return not_found_response(be, dev_id, field, value, nodes, args)
     idx = getattr(args, "index", 0) or 0
     if idx >= len(found):
         return out({"ok": False, "code": "index_out_of_range", "matches": len(found)})

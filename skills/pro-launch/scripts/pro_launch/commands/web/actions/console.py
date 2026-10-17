@@ -24,4 +24,5 @@ def execute(page, args, state: dict) -> dict:
                      if errs else None)}
 
 
-ACTION = Action(name="console", run=execute)
+ACTION = Action(name="console", run=execute, options=(),
+                help="페이지가 로드되는 동안 쌓인 콘솔 기록을 읽는다", example="web console")

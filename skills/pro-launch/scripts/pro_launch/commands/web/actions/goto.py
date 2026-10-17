@@ -21,4 +21,5 @@ def execute(page, args, state: dict) -> dict:
     return payload
 
 
-ACTION = Action(name="goto", run=execute)
+ACTION = Action(name="goto", run=execute, options=("url", "timeout"),
+                help="주소로 이동한다", example="web goto --url http://localhost:3000/items")

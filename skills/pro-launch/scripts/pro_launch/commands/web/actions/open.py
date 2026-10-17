@@ -196,4 +196,6 @@ def configure(p) -> None:
                    help="open: 읽기 전용 세션 — 삭제·출시·제출 같은 버튼은 --confirm-mutating 없이 누르지 않는다")
 
 
-ACTION = Action(name="open", needs="launch", run=_web_open, configure=configure)
+ACTION = Action(name="open", needs="launch", run=_web_open, configure=configure, options=("url", "timeout"),
+                help="브라우저를 독립 프로세스로 띄운다 (떠 있으면 다시 붙는다)",
+                example="web open --url http://localhost:3000 --headed")

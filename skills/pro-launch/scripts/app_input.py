@@ -17,6 +17,7 @@ launch_cli.py 의 `app tap|swipe|tree` 가 이 모듈만 부른다. 플랫폼 �
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -32,6 +33,8 @@ SWIPE_DIRS = {
     "left": ((0.85, 0.5), (0.15, 0.5)), "right": ((0.15, 0.5), (0.85, 0.5)),
 }
 SELECTOR_FIELDS = ("text", "id", "desc")
+# Maestro 가 flow 의 ${...} 로 읽는 환경변수 (MAESTRO_ 접두만 셸에서 넘어간다)
+INPUT_TEXT_ENV = "MAESTRO_PRO_LAUNCH_INPUT_TEXT"
 
 
 # ── 공통 순수 함수 (기기 없이 테스트된다) ─────────────────────────────────
@@ -119,15 +122,16 @@ def slim(nodes: list[dict], limit: int = 80) -> list[dict]:
     return outl[:limit]
 
 
-def maestro_flow(command: dict, app_id: str | None) -> str:
-    """한 동작짜리 Maestro flow. 헤더 appId 는 필수라 모르면 자리표시값을 둔다(앱을 띄우지 않으므로 무관)."""
+def maestro_flow(command: dict | list[dict], app_id: str | None) -> str:
+    """Maestro flow (단계 하나 또는 여러 개). 헤더 appId 는 필수라 모르면 자리표시값을 둔다(앱을 띄우지 않으므로 무관)."""
     lines = [f"appId: {app_id or 'any.app'}", "---"]
-    (name, params), = command.items()
-    if isinstance(params, dict):
-        lines.append(f"- {name}:")
-        lines += [f"    {k}: {json.dumps(v, ensure_ascii=False)}" for k, v in params.items()]
-    else:
-        lines.append(f"- {name}: {json.dumps(params, ensure_ascii=False)}")
+    for step in (command if isinstance(command, list) else [command]):
+        (name, params), = step.items()
+        if isinstance(params, dict):
+            lines.append(f"- {name}:")
+            lines += [f"    {k}: {json.dumps(v, ensure_ascii=False)}" for k, v in params.items()]
+        else:
+            lines.append(f"- {name}: {json.dumps(params, ensure_ascii=False)}")
     return "\n".join(lines) + "\n"
 
 
@@ -142,6 +146,8 @@ class Backend:
     name = "base"
     # 백엔드가 요소를 직접 찾아 누르면 True (예: Maestro). False 면 nodes() 로 찾아 tap_xy 로 누른다
     selects_itself = False
+    # 뒤로 버튼이 있는 플랫폼만 True (Android). iOS 는 화면마다 뒤로가기 방식이 달라 단계로 받지 않는다
+    has_back_button = False
     install_hint: str | None = None
 
     def available(self) -> bool:
@@ -166,6 +172,14 @@ class Backend:
     def swipe_ratio(self, dev: str, start, end, ms: int) -> tuple[bool, str]:
         raise NotImplementedError
 
+    def input_text(self, dev: str, value: str, submit: bool = False) -> tuple[bool, str]:
+        """포커스된 입력창에 글자 넣기. 값은 명령줄·파일에 남기지 않는다."""
+        raise NotImplementedError
+
+    def press_back(self, dev: str) -> tuple[bool, str]:
+        """뒤로가기. 하드웨어 뒤로 버튼이 없는 플랫폼(iOS)은 구현하지 않는다."""
+        raise NotImplementedError
+
     def grab(self, dev: str) -> bytes | None:
         """현재 화면 PNG — --shot 이 '바뀐 뒤 멈춘 화면'을 고를 때 쓴다."""
         return None
@@ -174,12 +188,14 @@ class Backend:
 class AndroidBackend(Backend):
     """adb + uiautomator. 기기 내장이라 추가 설치가 없다."""
     name = "android"
+    has_back_button = True
     install_hint = "Android SDK platform-tools(adb)를 설치하거나 ANDROID_HOME 을 맞춘다"
 
-    def _adb(self, dev: str, *args: str, timeout: int = 15, binary: bool = False):
+    def _adb(self, dev: str, *args: str, timeout: int = 15, binary: bool = False,
+             input_text: str | None = None):
         adb = sdk_tool("adb")
         return subprocess.run([adb, "-s", dev, *args], capture_output=True,
-                              text=not binary, timeout=timeout)
+                              text=not binary, timeout=timeout, input=input_text)
 
     def available(self) -> bool:
         return bool(sdk_tool("adb"))
@@ -219,6 +235,18 @@ class AndroidBackend(Backend):
         pts = [round(start[0] * size[0]), round(start[1] * size[1]),
                round(end[0] * size[0]), round(end[1] * size[1])]
         r = self._adb(dev, "shell", "input", "swipe", *map(str, pts), str(ms))
+        return r.returncode == 0, (r.stderr or "").strip()
+
+    def input_text(self, dev, value, submit=False):
+        # 공백은 `%s`. 값은 표준입력으로 읽어 따옴표 안에서만 쓴다 (명령줄·셸 메타문자에 안 실린다)
+        r = self._adb(dev, "shell", 'IFS= read -r T; input text "$T"', timeout=30,
+                      input_text=value.replace(" ", "%s") + "\n")
+        if r.returncode == 0 and submit:
+            r = self._adb(dev, "shell", "input", "keyevent", "66")   # 66 = Enter
+        return r.returncode == 0, (r.stderr or "").strip()
+
+    def press_back(self, dev):
+        r = self._adb(dev, "shell", "input", "keyevent", "4")   # 4 = 뒤로
         return r.returncode == 0, (r.stderr or "").strip()
 
     def grab(self, dev):
@@ -264,20 +292,28 @@ class IOSMaestroBackend(Backend):
             return []
         return maestro_nodes(r.stdout or "")
 
-    def _run(self, dev: str, command: dict) -> tuple[bool, str]:
+    def run_flow(self, dev: str, command: dict | list[dict], env: dict | None = None) -> tuple[bool | None, list[str]]:
+        """flow 한 번 실행 > (성공 여부, 출력 줄). 시간 초과면 (None, [사유]) — 단계별 결과를 읽는 쪽(app run)이 쓴다."""
         with tempfile.TemporaryDirectory() as d:
             f = Path(d) / "step.yaml"
             f.write_text(maestro_flow(command, self.app_id), encoding="utf-8")
             try:
                 r = subprocess.run(self._base(dev) + ["test", str(f)], capture_output=True,
-                                   text=True, timeout=self.timeout)
+                                   text=True, timeout=self.timeout,
+                                   env={**os.environ, **env} if env else None)
             except subprocess.TimeoutExpired:
-                return False, f"maestro 응답 없음 ({self.timeout}초)"
+                return None, [f"maestro 응답 없음 ({self.timeout}초)"]
         # Maestro 는 끝에 광고 상자(│ ╭ ╰)를 찍는다. 걷어내야 실패 원인 줄이 보인다
         lines = [l for l in ((r.stdout or "") + (r.stderr or "")).splitlines()
                  if l.strip() and not l.lstrip().startswith(("│", "╭", "╰"))]
+        return r.returncode == 0, lines
+
+    def _run(self, dev: str, command: dict | list[dict], env: dict | None = None) -> tuple[bool, str]:
+        is_success, lines = self.run_flow(dev, command, env)
+        if is_success is None:
+            return False, lines[0]
         reason = [l for l in lines if "FAILED" in l or "not found" in l.lower() or "Error" in l]
-        return r.returncode == 0, "\n".join((reason or lines)[-6:])
+        return is_success, "\n".join((reason or lines)[-6:])
 
     def tap_selector(self, dev, field, value):
         # Maestro 의 text·id 는 정규식이다. 괄호·물음표가 든 문구가 엉뚱하게 맞지 않도록 그대로 맞춘다
@@ -289,6 +325,13 @@ class IOSMaestroBackend(Backend):
 
     def swipe_ratio(self, dev, start, end, ms):
         return self._run(dev, {"swipe": {"start": pct(start), "end": pct(end), "duration": ms}})
+
+    def input_text(self, dev, value, submit=False):
+        # 값은 MAESTRO_ 접두 환경변수로만 넘긴다 — flow 파일·명령줄(-e)에 평문이 남지 않는다
+        steps: list[dict] = [{"inputText": "${" + INPUT_TEXT_ENV + "}"}]
+        if submit:
+            steps.append({"pressKey": "Enter"})
+        return self._run(dev, steps, env={INPUT_TEXT_ENV: value})
 
     def grab(self, dev):
         r = subprocess.run(["xcrun", "simctl", "io", dev, "screenshot", "--type=png", "-"],

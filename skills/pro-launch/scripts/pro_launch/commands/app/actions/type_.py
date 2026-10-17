@@ -8,6 +8,7 @@ from common.proc import sdk_tool
 
 import credentials
 
+from pro_launch.commands.app.gestures import backend_on, elapsed_seconds
 from pro_launch.registry import Action
 from pro_launch.runtime.creds import cred_field
 from pro_launch.runtime.devices import no_device_response, pick_device
@@ -17,8 +18,8 @@ from pro_launch.runtime.output import out
 def _app_type(args) -> int:
     """기기 화면의 포커스된 입력창에 글자를 넣는다. 로그인 정보는 저장된 자격증명에서 꺼내 쓴다.
 
-    값은 명령줄이 아니라 표준입력으로만 기기에 보낸다 (호스트 `ps` 에 남지 않는다).
-    Android 만 된다 — iOS 는 시뮬레이터에 텍스트를 넣는 공식 명령이 없다.
+    값은 명령줄에 싣지 않는다 (호스트 `ps` 에 남지 않게): Android 표준입력, iOS Maestro 환경변수.
+    iOS 는 simctl 에 텍스트 명령이 없어 Maestro inputText 로 넣는다 (#894).
     """
     if getattr(args, "cred", None):
         value, err = cred_field(args.cred, getattr(args, "cred_field", None))
@@ -35,10 +36,12 @@ def _app_type(args) -> int:
     platform, dev_id, dev = pick_device(args.device)
     if not platform:
         return no_device_response(dev, args.device)
+    if platform == "ios":
+        return _type_with_backend(args, platform, dev_id, value)
     if platform != "android":
         return out({"ok": False, "code": "ios_text_unsupported",
-                    "error": "iOS 시뮬레이터에는 텍스트를 넣는 공식 명령이 없다",
-                    "next": "프로젝트의 E2E 도구(Maestro 등)를 쓰거나 사용자에게 직접 입력을 부탁한다"})
+                    "error": f"{platform} 에는 텍스트를 넣는 방법이 없다",
+                    "next": "사용자에게 직접 입력을 부탁한다"})
     if not value.isascii():
         return out({"ok": False, "code": "non_ascii_unsupported",
                     "error": "adb input text 는 ASCII 만 받는다 (한글 불가)",
@@ -60,9 +63,27 @@ def _app_type(args) -> int:
     ok = r.returncode == 0
     return out({"ok": ok, "code": "ok" if ok else "app_type_failed", "device": dev_id,
                 "chars": len(value), "submitted": bool(getattr(args, "submit", False)) and ok,
+                "elapsed_seconds": elapsed_seconds(args),
                 "error": credentials.mask((r.stderr or "").strip(), entry)[:300] or None,
                 "summary": f"{len(value)}자 입력" + (" + Enter" if getattr(args, "submit", False) and ok else ""),
                 "next": "app shot  # 입력됐는지 화면으로 확인한다 (비밀번호 칸은 가려져 보인다)"})
+
+
+def _type_with_backend(args, platform: str, dev_id: str, value: str) -> int:
+    """iOS — 조작 백엔드(Maestro)의 input_text. 도구가 없으면 ios_tool_missing (tap·swipe 와 같은 code)."""
+    be, err = backend_on(platform, args)
+    if err is not None:
+        return err
+    should_submit = bool(getattr(args, "submit", False))
+    ok, detail = be.input_text(dev_id, value, submit=should_submit)
+    entry = {"password": value, "token": value}
+    return out({"ok": ok, "code": "ok" if ok else "app_type_failed", "device": dev_id, "via": be.name,
+                "chars": len(value), "submitted": should_submit and ok,
+                "elapsed_seconds": elapsed_seconds(args),
+                "error": None if ok else credentials.mask(detail, entry)[-400:] or None,
+                "summary": f"{len(value)}자 입력" + (" + Enter" if should_submit and ok else ""),
+                "next": "app shot  # 입력됐는지 화면으로 확인한다 (비밀번호 칸은 가려져 보인다)" if ok
+                        else "입력창을 app tap 으로 먼저 눌러 포커스를 준 뒤 다시 시도한다"})
 
 
 def configure(p) -> None:

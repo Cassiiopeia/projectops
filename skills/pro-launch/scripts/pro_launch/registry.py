@@ -44,10 +44,17 @@ class Action:
     run: Callable
     needs: str = "page"
     configure: Callable[[argparse.ArgumentParser], None] | None = None
+    # `<명령> <동작> --help` 의 한 줄 설명 · 예시 한 줄
+    help: str = ""
+    example: str = ""
+    # 이 동작이 쓰는 공통 옵션 이름. None 이면 공통 옵션을 전부 받는다 (동작별로 나누지 않은 명령 — app)
+    options: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.needs not in NEEDS:
             raise ValueError(f"needs 는 {NEEDS} 중 하나여야 한다: {self.needs!r}")
+        if self.options is not None and not isinstance(self.options, tuple):
+            raise ValueError(f"options 는 tuple 이어야 한다: {self.options!r}")
 
 
 # 모듈 이름 → 오류. 한 모듈이 깨져도 나머지 명령은 돈다
@@ -87,3 +94,76 @@ def discover_actions(package) -> dict[str, Action]:
             raise ValueError(f"동작 이름이 겹친다: {act.name} ({mod_name})")
         found[act.name] = act
     return dict(sorted(found.items()))
+
+
+# ── 동작별 파서 (#895) ────────────────────────────────────────────────────
+#
+# 공통 옵션을 한 파서에 다 달면 `web type --help` 에 30개가 나오고, 그 동작이 안 쓰는 옵션도 조용히 받아 버린다.
+# 동작마다 하위 파서를 두고 그 동작이 쓴다고 선언한 공통 옵션 + 자기 옵션만 단다.
+
+
+class ActionParser(argparse.ArgumentParser):
+    """동작 하나의 파서. 그 동작이 받지 않는 옵션은 조용히 넘기지 않고 쓸 수 있는 옵션과 함께 거절한다."""
+
+    def parse_known_args(self, args=None, namespace=None):
+        namespace, extras = super().parse_known_args(args, namespace)
+        unsupported = [a.split("=", 1)[0] for a in extras if a.startswith("-") and len(a) > 1]
+        if unsupported:
+            # cli.main 이 stderr 마지막 줄을 bad_args 의 error 에 싣는다 — 한 줄로 쓴다
+            # 앞에 prog(예: launch_cli web type)가 붙으므로 동작 이름은 다시 쓰지 않는다
+            self.error(f"이 동작은 {' '.join(unsupported)} 를 받지 않습니다 (unsupported option). "
+                       f"쓸 수 있는 옵션: {' '.join(self.option_names())}")
+        return namespace, extras
+
+    def option_names(self) -> list[str]:
+        """이 파서가 받는 긴 옵션 이름 (--help 제외)."""
+        names = []
+        for act in self._actions:
+            longs = [o for o in act.option_strings if o.startswith("--") and o != "--help"]
+            names += longs[:1]
+        return names
+
+
+def shared_option_defaults(shared: dict[str, Callable[[argparse.ArgumentParser], None]]) -> dict:
+    """공통 옵션 전부의 (dest → 기본값). 선언하지 않은 동작에도 속성은 있어야 디스패처가 getattr 없이 읽는다."""
+    scratch = argparse.ArgumentParser(add_help=False)
+    for add in shared.values():
+        add(scratch)
+    return vars(scratch.parse_args([]))
+
+
+def add_action_parsers(parser: argparse.ArgumentParser, actions: dict[str, Action],
+                       shared: dict[str, Callable[[argparse.ArgumentParser], None]],
+                       always: tuple[str, ...] = ()) -> None:
+    """동작마다 하위 파서를 단다: 항상 붙는 공통 옵션 + 선언한 공통 옵션 + 그 동작의 configure.
+
+    선언하지 않은 공통 옵션은 명령줄에서 받지 않고 기본값만 채운다.
+    """
+    defaults = shared_option_defaults(shared)
+    sub = parser.add_subparsers(dest="action", required=True, metavar="<동작>",
+                                parser_class=ActionParser)
+    for name, action in actions.items():
+        chosen = tuple(shared) if action.options is None else always + action.options
+        unknown = [o for o in chosen if o not in shared]
+        if unknown:
+            raise ValueError(f"{name}: 모르는 공통 옵션 {unknown} (있는 것: {sorted(shared)})")
+        p = sub.add_parser(name, help=action.help or None, description=action.help or None,
+                           epilog=f"예: {action.example}" if action.example else None,
+                           formatter_class=argparse.RawDescriptionHelpFormatter)
+        p.set_defaults(**defaults)
+        for option in dict.fromkeys(chosen):
+            shared[option](p)
+        if action.configure:
+            action.configure(p)
+
+
+def action_usage_lines(parser: argparse.ArgumentParser) -> list[str]:
+    """`<명령> --help` 에 붙일 동작별 옵션 요약 — 동작마다 한 줄."""
+    sub = next((a for a in parser._actions if isinstance(a, argparse._SubParsersAction)), None)
+    if sub is None:
+        return []
+    lines = []
+    for name, p in sub.choices.items():
+        options = p.option_names() if isinstance(p, ActionParser) else []
+        lines.append(f"  {name:<9} {' '.join(options)}")
+    return lines

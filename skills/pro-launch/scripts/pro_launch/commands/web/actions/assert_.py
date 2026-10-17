@@ -25,4 +25,6 @@ def execute(page, args, state: dict) -> dict:
             "summary": "확인 통과" if passed else "확인 실패"}
 
 
-ACTION = Action(name="assert", run=execute)
+ACTION = Action(name="assert", run=execute, options=("url", "text", "selector"),
+                help="주소·글자·요소가 있는지 확인한다",
+                example='web assert --url /home --text "환영"')

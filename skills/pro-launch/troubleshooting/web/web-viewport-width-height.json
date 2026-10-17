@@ -1,0 +1,22 @@
+{
+  "id": "web-viewport-width-height",
+  "area": "web",
+  "title": "web viewport --width --height 가 bad_viewport — 크기는 --preset 으로",
+  "match": {
+    "codes": [
+      "bad_viewport"
+    ],
+    "keywords": []
+  },
+  "symptom": "web viewport --width 1280 --height 900 이 bad_viewport(뷰포트 '' 을 모릅니다)로 끝난다",
+  "cause": "viewport 는 --preset 만 읽는다. --width·--height 는 web open 이 새 창을 띄울 때의 창 크기 옵션이라 viewport 에서는 쓰이지 않는다",
+  "fix": [
+    "launch_cli.py web viewport --preset 1280x900",
+    "launch_cli.py web viewport --preset mobile",
+    "프리셋은 mobile(390x844) · tablet(820x1180) · desktop(1280x800). 풀 때는 web viewport --clear"
+  ],
+  "refs": [
+    889
+  ],
+  "verified_at": "2026-10-17"
+}

@@ -8,8 +8,7 @@ from pro_launch.runtime.shots import finish_shot, shot_target
 
 
 def configure(p) -> None:
-    p.add_argument("--out", default=None, help="shot: 이름(→ $SHOT_DIR 아래) 또는 경로")
-    p.add_argument("--full", action="store_true", help="shot: 페이지 전체")
+    p.add_argument("--full", action="store_true", help="페이지 전체")
 
 
 def execute(page, args, state: dict) -> dict:
@@ -28,4 +27,5 @@ def execute(page, args, state: dict) -> dict:
             "next": "이미지를 읽어 다음 조작을 정하세요"}
 
 
-ACTION = Action(name="shot", run=execute, configure=configure)
+ACTION = Action(name="shot", run=execute, configure=configure, options=("selector", "out", "shot_format"),
+                help="화면을 찍는다 (기본 WebP 로 줄인다)", example="web shot --out 02_empty --full")

@@ -1,0 +1,23 @@
+{
+  "id": "general-env-not-set",
+  "area": "general",
+  "title": "--text-env 가 env_not_set — 값이 아니라 환경변수 이름을 넘긴다",
+  "match": {
+    "codes": [
+      "env_not_set"
+    ],
+    "keywords": []
+  },
+  "symptom": "web type·app type 이 env_not_set(환경변수 … 가 비어 있다)으로 끝난다",
+  "cause": "--text-env 는 환경변수 이름을 받는다. 그 이름의 변수가 launch_cli 프로세스 환경에 없다 — 값 자체를 넘겼거나, 다른 Bash 호출에서 설정해 사라졌다(Bash 는 호출마다 초기화된다)",
+  "fix": [
+    "같은 명령줄 앞에 붙인다: CODE=<값> launch_cli.py web type --selector <칸> --text-env CODE",
+    "명령줄은 세션 기록에 남는다 — 일회용 인증 코드처럼 남아도 되는 값만 이렇게 넘긴다",
+    "저장된 로그인이면 값을 다루지 말고 --cred <이름> 을 쓴다 (값이 명령줄·기록에 남지 않는다)"
+  ],
+  "refs": [
+    604,
+    889
+  ],
+  "verified_at": "2026-10-17"
+}

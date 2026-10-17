@@ -1,0 +1,23 @@
+{
+  "id": "ios-maestro-not-installed",
+  "area": "ios",
+  "title": "iOS app tap·swipe·tree 가 ios_tool_missing — Maestro 미설치",
+  "match": {
+    "codes": [
+      "ios_tool_missing"
+    ],
+    "keywords": []
+  },
+  "symptom": "iOS 시뮬레이터에서 app tap·app swipe·app tree 가 ios_tool_missing(ios 조작 도구가 없다)으로 멈춘다",
+  "cause": "simctl 에는 탭·화면구조 명령이 없어 iOS 조작은 Maestro 에 맡긴다. maestro 가 PATH 에도 ~/.maestro/bin/maestro 에도 없다",
+  "fix": [
+    "설치는 사용자에게 먼저 묻는다: curl -fsSL \"https://get.maestro.mobile.dev\" | bash",
+    "launch_cli.py app tree --device <시뮬레이터 id>",
+    "호출마다 Maestro(JVM)가 새로 떠 10~40초 걸린다 — 긴 시나리오는 프로젝트의 Maestro flow 로 한 번에 돌린다"
+  ],
+  "refs": [
+    826
+  ],
+  "verified_at": "2026-10-17",
+  "applies_to": "macOS + iOS 시뮬레이터"
+}

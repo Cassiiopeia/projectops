@@ -79,8 +79,9 @@ def test_no_module_failed_to_load():
 @pytest.mark.parametrize("pkg_path,expected", [
     ("pro_launch.commands.web.actions",
      {"setup", "open", "goto", "find", "click", "type", "text", "shot", "assert", "console", "close",
-      "viewport", "route"}),
-    ("pro_launch.commands.app.actions", {"shot", "launch", "type", "tap", "swipe", "tree"}),
+      "viewport", "route", "inspect", "select", "check", "press", "hover", "dialog", "download"}),
+    ("pro_launch.commands.app.actions", {"shot", "launch", "type", "tap", "swipe", "tree", "terminate",
+                                         "relaunch", "location", "permission", "push", "openurl", "run"}),
 ])
 def test_actions_are_discovered_from_their_folder(pkg_path, expected):
     import importlib

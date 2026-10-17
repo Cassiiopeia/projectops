@@ -193,6 +193,9 @@ def test_board_png_one_per_topic_and_within_width(tmp_path):
     f = _data(tmp_path)
     d = run_cli("board", "--data", str(f), "--out", str(tmp_path / "board"), "--png",
                 home=Path(os.path.expanduser("~")))   # 브라우저는 실제 HOME 의 것을 쓴다
+    # 패키지는 있는데 브라우저 실행 파일이 없음(버전 불일치) = 도구 없음 → 건너뜀 (#591 local_only 규칙)
+    if not d.get("ok") and d.get("code") == "png_failed" and "Executable doesn't exist" in str(d.get("error")):
+        pytest.skip("Playwright 브라우저 실행 파일 없음 — pro-launch web setup 후 실행된다")
     assert d["ok"], d
     assert len(d["png"]) == len(d["topics"]) == 5
     assert all(db._png_width(Path(p)) <= db.MAX_PNG_WIDTH for p in d["png"])

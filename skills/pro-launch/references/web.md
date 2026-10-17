@@ -156,7 +156,21 @@ LAUNCH_CHROMIUM_PATH="C:/Program Files/Google/Chrome/Application/chrome.exe"   {
 ... web assert --url /home --text "환영"
 ... web console                        # 로드 시점부터 쌓인 콘솔
 ... web close
+... web inspect [--role input|button|checkbox|select|link|all] [--near "{글자}"] [--limit 40]   # 폼 읽기 + ref (읽기 전용)
+... web text  --grep "{글자}" [--around 1]   # 맞는 줄과 앞뒤만 (대소문자 무시, 정규식 아님) + match_count
+... web type  --ref {번호} --text "{값}"
+... web select --ref {번호} --value "{value 또는 보이는 이름}"   # 없으면 option_not_found + options
+... web check  --ref {번호} [--off]
+... web press  --key Enter|Escape|Tab|ArrowDown [--ref {번호}]    # 대상이 없으면 지금 초점에서
+... web hover  --ref {번호}                # 툴팁 · 펼침 메뉴
+... web dialog --accept [--text "{prompt 입력}"] | --dismiss | --clear   # 다음 대화상자 한 번 — 결과의 dialog 에 처리 내용
+... web download --ref {번호} [--out {이름|경로}]   # $SHOT_DIR 에 저장, file · bytes
 ```
+
+- 옵션은 동작마다 다르다: `web <동작> --help` 는 그 동작의 옵션과 예시 한 줄만 보여 준다. 안 받는 옵션은 `bad_args`.
+- `click` · `type` · `check` · `select` 대상이 **보이는데 비활성**이면 기다리지 않고 `element_disabled`(+ `target`). 먼저 채울 칸이 있는지 `inspect` 로 본다.
+- 대화상자는 누르는 순간 뜬다 — `dialog` 로 **미리** 건다. 상태 파일에 남아 붙을 때마다 다시 걸리고 한 번 쓰면 지워진다. 걸어 둔 것이 없으면 닫고(dismiss) 그 사실만 결과 `dialog` 에 싣는다.
+- 새 실패 code: `element_disabled` · `near_not_found` · `option_not_found` · `not_a_select` · `not_checkable` · `bad_key` · `download_not_started` · `download_failed`. `select` · `check` · `press`(Enter·Space) · `download` 도 읽기 전용 세션의 `mutating_blocked` 를 따른다.
 
 **정보는 `text` 로 읽는다.** 스크린샷을 Read 하는 것이 가장 비싸다. `shot` 은 배치·색·잘림처럼
 **모양**을 봐야 할 때, 또는 결과를 증거로 남길 때만 찍는다(찍었으면 Read 로 열어 본다).

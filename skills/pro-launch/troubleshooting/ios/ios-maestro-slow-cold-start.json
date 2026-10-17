@@ -1,0 +1,27 @@
+{
+  "id": "ios-maestro-slow-cold-start",
+  "area": "ios",
+  "title": "iOS app tap·swipe·tree 가 수십 초 걸린다 — 호출마다 Maestro(JVM)가 뜬다",
+  "match": {
+    "codes": [],
+    "keywords": [
+      "maestro",
+      "90초"
+    ]
+  },
+  "symptom": "iOS 시뮬레이터에서 app tap·swipe·tree 가 한 번에 20~50초 걸리거나 'maestro 응답 없음 (90초)'로 실패한다. Android 는 몇 초다",
+  "cause": "simctl 에는 탭·화면구조 명령이 없어 iOS 조작은 Maestro 에 맡기고, 호출마다 Maestro(JVM)가 새로 뜬다. 한 동작 제한은 90초다. 고장이 아니라 예상된 느림이다",
+  "fix": [
+    "느리다고 같은 명령을 겹쳐 부르지 않는다 — 앞 호출이 끝나길 기다린다",
+    "화면 확인은 따로 shot 을 부르지 말고 동작에 --shot 을 붙인다: launch_cli.py app tap --device <UDID> --text <글자> --shot <이름>",
+    "긴 시나리오는 프로젝트의 Maestro flow 로 한 번에 돌린다"
+  ],
+  "refs": [
+    826,
+    889
+  ],
+  "verified_at": "2026-10-17",
+  "see_also": [
+    "ios-maestro-not-installed"
+  ]
+}

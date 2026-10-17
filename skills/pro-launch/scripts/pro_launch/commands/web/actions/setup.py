@@ -90,4 +90,5 @@ def execute(args) -> int:
     return out(_web_setup(force=args.force))
 
 
-ACTION = Action(name="setup", needs="nothing", run=execute, configure=configure)
+ACTION = Action(name="setup", needs="nothing", run=execute, configure=configure, options=(),
+                help="전용 환경 · Playwright · 브라우저를 준비한다 (약 100MB)", example="web setup")

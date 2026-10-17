@@ -1,0 +1,25 @@
+{
+  "id": "web-iframe-login-fields",
+  "area": "web",
+  "title": "iframe 안의 로그인 칸(App Store Connect 등)을 못 찾는다",
+  "match": {
+    "codes": [],
+    "keywords": [
+      "iframe",
+      "enter-frame"
+    ]
+  },
+  "symptom": "로그인 칸이 화면에 보이는데 web find 가 못 찾고, web type·click --selector 가 시간 초과나 assert_failed 로 끝난다. 'iframe >> input' 처럼 써도 안 맞는다",
+  "cause": "로그인 폼이 iframe 안에 있다(App Store Connect 로그인 등). web find 는 최상위 문서만 훑는다. type·click·text·assert 의 --selector 는 Playwright 선택자라 iframe 안으로 들어가는 구간(internal:control=enter-frame)이 있어야 닿는다",
+  "fix": [
+    "launch_cli.py web type --selector \"iframe >> internal:control=enter-frame >> input#account_name_text_field\" --cred <이름> --cred-field account",
+    "launch_cli.py web click --selector \"iframe >> internal:control=enter-frame >> #sign-in\" --expect-text <로그인 뒤 보일 글자>",
+    "iframe 이 여럿이면 앞 구간을 iframe#<id> 로 좁힌다. web find 는 iframe 안을 보지 않으니 칸 이름은 web shot 으로 보고 정한다",
+    "읽기 전용(--readonly) 세션이면 로그인 버튼도 막힐 수 있다 — 사용자에게 알리고 --confirm-mutating 을 붙인다"
+  ],
+  "refs": [
+    889
+  ],
+  "verified_at": "2026-10-17",
+  "applies_to": "web (Playwright 선택자)"
+}

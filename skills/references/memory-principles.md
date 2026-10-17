@@ -31,3 +31,21 @@ agent 는 "모른다는 것을 모른다." 필요한 기억이 있는지 모르�
 ## 5. 저장 위치
 - 로컬 홈(`~/.projectops/...`) — 남의 레포에 커밋되지 않고, 사람·컴퓨터마다 다른 환경을 섞지 않는다.
 - 사람이 함께 봐야 하는 지식(팀 공용 사례)은 레포의 문서(`CLAUDE.md`·`AGENTS.md`·`docs/`)에 직접 적는다 — 기억 기능이 레포에 쓰지 않는다.
+
+## 6. 공식 지식 층 (스킬 내장 트러블슈팅, #889)
+위 1~5 는 사용자 기억(이 컴퓨터만)이다. **검증된 해결은 스킬 안에 공식 지식으로 두고 모두에게 배포한다.**
+- 위치: `skills/<skill>/troubleshooting/<area>/<id>.json` — 한 항목 = 한 파일. area 는 web · android · ios · server · ssh · general.
+- 스키마·찾기·검증은 `scripts/common/troubleshoot.py` 한 곳. 색인(`troubleshooting/index.json`)과 사람용 문서
+  (`skills/<skill>/references/troubleshooting.md`)는 `python3 scripts/build_troubleshooting.py skills/<skill>` 의 생성물 — 손으로 고치지 않는다.
+- 읽기는 1절과 같다: 실패 응답에 `known_fix`(최대 2건, 요약만)를 싣는다. 전체는 `kb show <id>`.
+- 사용자 기억 → 공식 승격은 사람 검토로만: `kb propose` 초안 → 이슈·PR → 관리자 검토.
+
+**항목 작성 규칙**
+- 필수: `id`(파일명과 같은 kebab) · `area`(폴더와 같음) · `title`(80자 이내) · `match`(`codes` 실패 code 목록, `keywords` 핵심어) ·
+  `symptom` · `cause` · `fix`(1~8개, 실행할 명령이나 짧은 단계, 각 200자 이내) · `refs`(근거 이슈 번호) · `verified_at`(YYYY-MM-DD). 선택: `applies_to` · `see_also`.
+- **코드로 확인한 사실만** 적는다. 코드로 고칠 수 있는 것은 고치고, 환경·외부 사정이라 못 고치는 것을 남긴다.
+- `match.codes` 는 CLI 가 실제로 내는 code 여야 하고, `fix` 의 `launch_cli.py <명령> <동작> --옵션` 은 실제 파서에 있어야 한다 — 테스트가 막는다.
+- `keywords` 는 그 문제에만 나오는 말로(`SingletonLock`). 흔한 말(`maestro` 처럼 다른 실패 문구에도 나오는 말)은 엉뚱한 실패에 실린다 — code 가 정확하면 비워 둔다.
+- 설치·되돌릴 수 없는 조작은 `fix` 에 "사용자에게 먼저 묻는다"를 적는다. 비밀값 금지(검증이 거절한다).
+- 추가·수정 뒤 생성 스크립트를 돌리고 함께 커밋한다(`--check` 를 테스트가 돈다).
+

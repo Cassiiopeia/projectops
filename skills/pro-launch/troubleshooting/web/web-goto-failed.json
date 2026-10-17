@@ -1,0 +1,25 @@
+{
+  "id": "web-goto-failed",
+  "area": "web",
+  "title": "web open·goto 이동 실패 — 주소·서버·인증서를 본다",
+  "match": {
+    "codes": [
+      "goto_failed"
+    ],
+    "keywords": [
+      "ERR_CERT_AUTHORITY_INVALID"
+    ]
+  },
+  "symptom": "web open --url 이 goto_failed 로, 또는 web goto 가 web_action_failed 로 끝난다. 오류에 Timeout, ERR_CONNECTION_REFUSED, ERR_CERT_* 같은 문구가 있다",
+  "cause": "이동 자체가 실패했다 — 서버가 안 떴거나 주소가 틀렸거나(Timeout·CONNECTION_REFUSED), 사설·자체서명 인증서라 막혔다(ERR_CERT·ERR_SSL). web goto 는 404·500 페이지도 이동 성공으로 보고 status 로 알려 준다",
+  "fix": [
+    "로컬 서버면 먼저 떠 있는지 본다: launch_cli.py http --url <주소>",
+    "인증서 오류(테스트 서버 전용): launch_cli.py web close",
+    "launch_cli.py web open --ignore-cert-errors --url <주소>  # 새로 띄울 때만 적용된다"
+  ],
+  "refs": [
+    711,
+    889
+  ],
+  "verified_at": "2026-10-17"
+}

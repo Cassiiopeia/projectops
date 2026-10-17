@@ -13,20 +13,32 @@ from pro_launch.runtime.output import out
 from pro_launch.runtime.shots import finish_shot, shot_target
 
 
+def elapsed_seconds(args) -> float | None:
+    """`app` 호출 시작부터 지금까지 (초). 시작 표시가 없으면(동작을 직접 부른 테스트) None."""
+    started = getattr(args, "started_monotonic", None)
+    return round(time.monotonic() - started, 1) if started is not None else None
+
+
 def backend_for(args):
     """(백엔드, 기기 id, 오류 응답). 기기를 못 고르거나 도구가 없으면 오류 응답을 채운다."""
     platform, dev_id, dev = pick_device(args.device)
     if not platform:
         return None, None, no_device_response(dev, args.device)
+    be, err = backend_on(platform, args)
+    return be, (dev_id if be else None), err
+
+
+def backend_on(platform: str, args):
+    """(백엔드, 오류 응답) — 기기를 이미 고른 동작용. 백엔드가 없거나 도구가 없으면 오류 응답을 채운다."""
     be = app_input.get_backend(platform, getattr(args, "pkg", None) or os.environ.get("PKG"))
     if be is None:
-        return None, None, out({"ok": False, "code": "platform_unsupported",
-                                "error": f"{platform} 은 조작 백엔드가 없다",
-                                "next": "references/extending.md 를 보고 백엔드를 추가한다"})
+        return None, out({"ok": False, "code": "platform_unsupported",
+                          "error": f"{platform} 은 조작 백엔드가 없다",
+                          "next": "references/extending.md 를 보고 백엔드를 추가한다"})
     if not be.available():
-        return None, None, out({"ok": False, "code": f"{be.name}_tool_missing",
-                                "error": f"{be.name} 조작 도구가 없다", "next": be.install_hint})
-    return be, dev_id, None
+        return None, out({"ok": False, "code": f"{be.name}_tool_missing",
+                          "error": f"{be.name} 조작 도구가 없다", "next": be.install_hint})
+    return be, None
 
 
 def before_shot(args, be, dev_id) -> bytes | None:
@@ -68,6 +80,9 @@ def gesture_result(args, be, dev_id, before, ok: bool, detail: str, fail_code: s
     if ok:
         auto_record_backend(be)
         res.update(after_shot(args, be, dev_id, before))
+    # 조작 비용을 보이게 한다 — iOS 는 호출마다 Maestro(JVM)가 새로 떠서 수십 초다 (#893)
+    res["elapsed_seconds"] = elapsed_seconds(args)
+    if ok:
         if res.get("shot"):
             res["next"] = ("shot 이미지를 읽어 결과를 확인한다" if res.get("screen_changed") is not False
                            else "화면이 그대로다 — 다른 요소를 고르거나 app tree 로 다시 본다")
@@ -88,7 +103,7 @@ def auto_record_backend(be) -> None:
             pass
 
 
-def not_found_response(be, dev_id, field: str, value: str, nodes: list[dict] | None) -> int:
+def not_found_response(be, dev_id, field: str, value: str, nodes: list[dict] | None, args=None) -> int:
     """못 찾았을 때 추측을 반복하지 않도록 화면 언어와 화면에 실제로 있는 값을 같이 준다."""
     if nodes is None:
         nodes = be.nodes(dev_id) or []
@@ -96,4 +111,5 @@ def not_found_response(be, dev_id, field: str, value: str, nodes: list[dict] | N
     return out({"ok": False, "code": "not_found", "device": dev_id,
                 "error": f"{field}={value!r} 인 요소가 없다",
                 "locale": be.locale(dev_id), "candidates": cands,
+                "elapsed_seconds": elapsed_seconds(args),
                 "next": "candidates 의 값으로 다시 app tap (문구는 화면 언어 그대로)"})

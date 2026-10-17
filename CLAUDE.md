@@ -934,7 +934,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | init-worktree | `skills/pro-init-worktree/scripts/worktree_cli.py` | recall, record (지난번 복사한 로컬 파일 세트를 기억 — #839) |
 | figma | `skills/pro-figma/scripts/figma_cli.py` | get-output-path, coverage, assets, conform, diff |
 | agent-test | `skills/pro-agent-test/scripts/e2e_cli.py` | detect, scenario, note, api, other (실행·캡처 명령은 pro-launch 로 넘겨준다 — #631) |
-| launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, render, http, access, db, logs, cred, ssh, local (이 맥 sudo, #784), shrink, recall, learn, forget, get-output-path |
+| launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, render, http, access, db, logs, cred, ssh, local (이 맥 sudo, #784), shrink, recall, learn, forget, kb (공식 트러블슈팅 search·show·list·propose, #889), get-output-path |
 | design-brief | `skills/pro-design-brief/scripts/design_brief_cli.py` | config, get-output-path, board, copy-lint, ascii |
 | oss-consult | `skills/pro-oss-consult/scripts/oss_cli.py` | collect, local-facts, list-repos, get-output-path (**사실만 모은다 — 판단은 에이전트**, #644), repo-update, label (레포를 바꾸는 유일한 경로 — `--dry-run`·`before` 기록, **삭제·가시성 변경은 구현하지 않는다**, #660) |
 

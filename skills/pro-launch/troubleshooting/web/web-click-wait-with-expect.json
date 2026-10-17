@@ -1,0 +1,24 @@
+{
+  "id": "web-click-wait-with-expect",
+  "area": "web",
+  "title": "sleep 으로 기다리지 말고 click 의 --expect-url · --expect-text 로",
+  "match": {
+    "codes": [
+      "expect_not_met"
+    ],
+    "keywords": []
+  },
+  "symptom": "클릭 뒤 sleep 5 같은 고정 대기를 넣고 web text 로 결과를 확인한다. 느린 화면에서는 아직 안 바뀐 화면을 읽고, 빠른 화면에서는 시간을 버린다. expect_not_met 이 나기도 한다",
+  "cause": "web click 은 --expect-url·--expect-text 를 주면 그것이 나올 때까지(--timeout 초) 기다리고, 안 나오면 expect_not_met 으로 알려 준다. 주지 않으면 짧게만(몇 초) 기다린다. web type 은 칸이 나타날 때까지 --timeout 만큼 스스로 기다린다",
+  "fix": [
+    "launch_cli.py web click --ref <번호> --expect-text <다음 화면 글자> --timeout 30",
+    "launch_cli.py web click --ref <번호> --expect-url <바뀔 주소 일부>",
+    "expect_not_met 이면 web text 로 지금 화면을 읽는다 — 엉뚱한 것을 눌렀으면 web find 로 다시 고른다",
+    "web text·assert 의 --selector 는 기다리지 않는다 — 바로 읽을 것이면 click 의 expect 로 먼저 기다린다"
+  ],
+  "refs": [
+    825,
+    889
+  ],
+  "verified_at": "2026-10-17"
+}

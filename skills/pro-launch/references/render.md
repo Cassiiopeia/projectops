@@ -31,9 +31,13 @@ source "{env_file 값}"      # 모은 그림은 $SHOT_DIR 로 간다
 | 결과 `code` | 뜻 | 할 일 |
 |---|---|---|
 | `ok` | 모았고 흔적 없음 | Read 로 열어 본다 |
-| `render_failed` | 명령이 실패했다 — **수집하지 않고 청소만 했다** | `output_tail`(출력 끝 40줄)을 보고 렌더 코드를 고친다. 아래 함정 표를 먼저 본다 |
+| `render_failed` | 명령이 실패했다 — **수집하지 않고 청소만 했다** | **`first_error` 부터 본다** — 전체 출력에서 찾은 첫 컴파일 오류 줄(+소스·캐럿 2줄)이다. 없으면(`null`) `output_tail`(출력 끝 40줄)을 본다. 아래 함정 표를 먼저 본다 |
 | `residue` | 끝난 뒤 레포에 **처음에 없던 것**이 남았다 | 네가 만든 것이면 지우거나 `--cleanup` 에 넣어 다시 돈다. **모르는 변경이면 건드리지 않는다** — 다른 세션의 작업일 수 있다. 스크립트도 지우지 않는다 |
 | `nothing_collected` | 성공했는데 그림이 없다 | `--collect` 글롭이 레포 루트 기준으로 맞는지 본다 |
+
+> **`first_error` (#898)**: `render_failed` 일 때 응답 앞쪽(`summary` 다음)에 붙는다. Dart 형식
+> (`test/x_test.dart:12:9: Error: ...`)을 먼저 찾고, 없으면 일반 `error:` 줄(javac · tsc 등)을 찾는다.
+> 컴파일 오류는 출력 앞쪽에 나와 끝 40줄(`output_tail`)에서 밀려나기 쉽다. `summary` 에도 첫 줄이 들어간다.
 
 > **①을 건너뛰지 않는다.** 기준 없이 `run` 만 부르면 그 순간을 기준으로 삼는다 — 이미 만든
 > 임시 파일이 기준에 들어가, `--cleanup` 에서 빠뜨린 파일이 남아도 **흔적으로 안 잡힌다.**
@@ -54,6 +58,7 @@ source "{env_file 값}"      # 모은 그림은 $SHOT_DIR 로 간다
 ```dart
 // client/test/_launch_render/states_test.dart — render run 이 끝나면 지운다
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // MethodChannel · SystemChrome · 키 입력 — 플러그인 채널을 막을 때 필요
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -99,6 +104,7 @@ void main() {
 | `pumpAndSettle` 이 끝나지 않는다 | 무한 애니메이션 (로딩 스피너 · 반복 효과) | `pump(Duration)` 로 한 프레임만, 또는 "동작 줄이기"(`MediaQuery(disableAnimations: true)`)를 켠다 |
 | 건드리지 않은 줄까지 diff | `dart format` 이 파일 전체를 다시 썼다 | 임시 파일에만 돌린다. 레포 파일에 포맷터를 돌리지 않는다 |
 | 한글이 □ | 폰트를 안 실었다 | 위 "먼저 확인할 것" |
+| `render_failed` + `first_error` 가 `Error: Undefined name 'MethodChannel'` (또는 `SystemChrome` 등) | `package:flutter/services.dart` import 누락 — 렌더 실패의 가장 흔한 원인이었다 (#898) | 레시피의 import 세 줄을 그대로 둔다. 화면 위젯·가짜 모델을 쓰면 **그 파일의 `package:{앱}/...` import 도** 함께 넣는다 |
 | `render_failed` + 오버플로 | 레포의 테스트 설정이 오버플로를 실패로 만든다 | **그 자체가 발견이다.** 그 상태에서 화면이 깨진다는 뜻 — 보고에 적는다 |
 
 ## React / Next

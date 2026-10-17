@@ -95,7 +95,3 @@ FIND_JS = """(o) => {
   return { items, total: els.length, fallback };
 }"""
 
-
-DESCRIBE_JS = """(e) => ({ tag: e.tagName.toLowerCase(), role: e.getAttribute('role'),
-  text: (e.innerText || e.value || '').replace(/\\s+/g, ' ').trim().slice(0, 120),
-  aria: e.getAttribute('aria-label'), href: e.getAttribute('href') })"""

@@ -1,0 +1,56 @@
+"""`app push` — 푸시 알림을 흉내 낸다 (iOS 시뮬레이터 simctl push 전용)."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from pro_launch.commands.app.app_control import (control_result, resolve_target, run_tool,
+                                                 unsupported_response)
+from pro_launch.registry import Action
+from pro_launch.runtime.output import out
+
+# payload 안에 대상 앱을 적는 simctl 표준 키 — 있으면 --pkg 없이도 된다
+PAYLOAD_BUNDLE_KEY = "Simulator Target Bundle"
+
+
+def _read_payload(raw_path: str | None) -> tuple[dict | None, str]:
+    """(payload, 거부 사유). 파일이 없거나 JSON 객체가 아니면 사유를 돌려준다."""
+    if not raw_path:
+        return None, "--payload <json 파일> 이 필요하다"
+    path = Path(raw_path)
+    if not path.is_file():
+        return None, f"파일이 없다: {raw_path}"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return None, f"JSON 이 아니다: {e}"
+    if not isinstance(payload, dict) or "aps" not in payload:
+        return None, "최상위가 객체이고 aps 키가 있어야 한다 (APNs 형식)"
+    return payload, ""
+
+
+def _app_push(args) -> int:
+    payload, reason = _read_payload(getattr(args, "payload", None))
+    if payload is None:
+        return out({"ok": False, "code": "payload_invalid", "error": reason,
+                    "next": "{\"aps\": {\"alert\": {\"title\": \"t\", \"body\": \"b\"}}} 형식의 파일을 --payload 로 준다"})
+    is_package_required = PAYLOAD_BUNDLE_KEY not in payload
+    platform, dev_id, package, err = resolve_target(args, is_package_required=is_package_required)
+    if err is not None:
+        return err
+    if platform != "ios":
+        return unsupported_response(platform, dev_id, "push",
+                                    "Android 는 adb 로 푸시를 흉내 낼 공식 방법이 없다 (FCM 서버 경유)",
+                                    "FCM 테스트 메시지(Firebase 콘솔 · 서버 API)로 보낸다")
+    command = ["xcrun", "simctl", "push", dev_id] + ([package] if package else []) + [str(args.payload)]
+    ok, detail = run_tool(command)
+    return control_result("push", platform, dev_id, ok, detail, "push_failed",
+                          "푸시 전송", "app shot  # 알림 배너를 확인한다",
+                          "번들 ID 가 설치된 앱과 같은지 확인한다", package=package)
+
+
+def configure(p) -> None:
+    p.add_argument("--payload", default=None, help="push: APNs payload JSON 파일 (iOS 시뮬레이터만)")
+
+
+ACTION = Action(name="push", run=_app_push, configure=configure)

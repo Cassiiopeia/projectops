@@ -1,0 +1,29 @@
+{
+  "id": "browser-start-stale-process-or-lock",
+  "area": "web",
+  "title": "web open 이 browser_start_failed — 남은 브라우저 프로세스나 프로필 잠금",
+  "match": {
+    "codes": [
+      "browser_start_failed"
+    ],
+    "keywords": [
+      "SingletonLock",
+      "SingletonSocket",
+      "profile_locked",
+      "stale_pid"
+    ]
+  },
+  "symptom": "web open 이 browser_start_failed 로 끝나고 브라우저가 뜨지 않는다. 응답에 causes·stale_pid·profile_locked 가 온다",
+  "cause": "이전에 띄운 브라우저가 아직 같은 프로필을 쓰고 있거나 프로필 잠금(SingletonLock·SingletonSocket)이 남아 새 브라우저가 그 프로필로 뜨지 못한다. web open 은 아무 프로세스도 프로필을 쓰지 않을 때만 잠금을 스스로 치운다",
+  "fix": [
+    "launch_cli.py web close",
+    "close 가 browser_still_alive 면 응답 next 의 종료 명령(kill -9 <pid> 또는 taskkill)으로 그 pid 를 끝낸다",
+    "launch_cli.py web open --url <주소>",
+    "그래도 같으면 응답의 profile 폴더를 쓰는 브라우저가 없는지 확인한 뒤 SingletonLock·SingletonSocket 을 지운다"
+  ],
+  "refs": [
+    711,
+    712
+  ],
+  "verified_at": "2026-10-17"
+}

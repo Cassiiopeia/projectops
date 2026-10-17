@@ -56,4 +56,5 @@ def execute(args, state: dict, state_f: Path) -> int:
     return _close_by_connection(state, state_f)
 
 
-ACTION = Action(name="close", needs="state_online", run=execute)
+ACTION = Action(name="close", needs="state_online", run=execute, options=(),
+                help="브라우저를 닫는다", example="web close")

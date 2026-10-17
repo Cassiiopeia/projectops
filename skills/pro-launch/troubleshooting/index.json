@@ -1,0 +1,365 @@
+{
+  "schema": 1,
+  "codes": {
+    "adb_missing": [
+      "android-adb-missing"
+    ],
+    "android_tool_missing": [
+      "android-adb-missing"
+    ],
+    "bad_args": [
+      "general-bad-args-option-names"
+    ],
+    "bad_viewport": [
+      "web-viewport-width-height"
+    ],
+    "browser_gone": [
+      "web-browser-gone"
+    ],
+    "browser_missing": [
+      "web-playwright-or-browser-missing"
+    ],
+    "browser_not_open": [
+      "web-browser-not-open-other-root"
+    ],
+    "browser_start_failed": [
+      "browser-start-stale-process-or-lock"
+    ],
+    "cred_field_missing": [
+      "general-cred-field-missing"
+    ],
+    "element_disabled": [
+      "web-selector-guess-timeout"
+    ],
+    "env_not_set": [
+      "general-env-not-set"
+    ],
+    "expect_not_met": [
+      "web-click-wait-with-expect"
+    ],
+    "goto_failed": [
+      "web-goto-failed"
+    ],
+    "ios_tool_missing": [
+      "ios-maestro-not-installed"
+    ],
+    "mutating_blocked": [
+      "web-readonly-mutating-blocked"
+    ],
+    "no_device": [
+      "general-app-no-device"
+    ],
+    "non_ascii_unsupported": [
+      "android-non-ascii-text"
+    ],
+    "nothing_found": [
+      "web-find-nothing-found"
+    ],
+    "playwright_missing": [
+      "web-playwright-or-browser-missing"
+    ],
+    "render_failed": [
+      "general-render-failed-first-error"
+    ],
+    "selector_not_found": [
+      "web-selector-guess-timeout"
+    ],
+    "sshpass_missing": [
+      "ssh-sshpass-missing"
+    ]
+  },
+  "keywords": {
+    "90초": [
+      "ios-maestro-slow-cold-start"
+    ],
+    "cache": [
+      "general-plugin-cache-version-drift"
+    ],
+    "enter-frame": [
+      "web-iframe-login-fields"
+    ],
+    "err_cert_authority_invalid": [
+      "web-goto-failed"
+    ],
+    "for": [
+      "web-selector-guess-timeout"
+    ],
+    "iframe": [
+      "web-iframe-login-fields"
+    ],
+    "locator": [
+      "web-selector-guess-timeout"
+    ],
+    "maestro": [
+      "ios-maestro-slow-cold-start"
+    ],
+    "methodchannel": [
+      "general-render-failed-first-error"
+    ],
+    "plugins": [
+      "general-plugin-cache-version-drift"
+    ],
+    "profile_locked": [
+      "browser-start-stale-process-or-lock"
+    ],
+    "projectops-marketplace": [
+      "general-plugin-cache-version-drift"
+    ],
+    "root_unknown": [
+      "general-root-unknown-skill-folder"
+    ],
+    "root_warning": [
+      "general-root-unknown-skill-folder"
+    ],
+    "services.dart": [
+      "general-render-failed-first-error"
+    ],
+    "singletonlock": [
+      "browser-start-stale-process-or-lock"
+    ],
+    "singletonsocket": [
+      "browser-start-stale-process-or-lock"
+    ],
+    "stale_pid": [
+      "browser-start-stale-process-or-lock"
+    ],
+    "timeout": [
+      "web-selector-guess-timeout"
+    ],
+    "waiting": [
+      "web-selector-guess-timeout"
+    ]
+  },
+  "entries": {
+    "android-adb-missing": {
+      "area": "android",
+      "title": "adb_missing · android_tool_missing — adb 를 찾지 못했다",
+      "fix_short": [
+        "SDK 가 다른 곳에 있으면 ANDROID_HOME=<SDK 경로> 를 앞에 붙여 다시 부른다",
+        "launch_cli.py doctor"
+      ],
+      "keyword_count": 0,
+      "path": "android/android-adb-missing.json"
+    },
+    "android-non-ascii-text": {
+      "area": "android",
+      "title": "Android app type 이 non_ascii_unsupported — adb 는 한글을 못 넣는다",
+      "fix_short": [
+        "영문·숫자 값으로 바꿔 넣을 수 있으면 그렇게 한다",
+        "한글이 꼭 필요하면 ADBKeyboard 같은 IME 설치를 사용자에게 먼저 묻는다"
+      ],
+      "keyword_count": 0,
+      "path": "android/android-non-ascii-text.json"
+    },
+    "browser-start-stale-process-or-lock": {
+      "area": "web",
+      "title": "web open 이 browser_start_failed — 남은 브라우저 프로세스나 프로필 잠금",
+      "fix_short": [
+        "launch_cli.py web close",
+        "close 가 browser_still_alive 면 응답 next 의 종료 명령(kill -9 <pid> 또는 taskkill)으로 그 pid 를 끝낸다"
+      ],
+      "keyword_count": 4,
+      "path": "web/browser-start-stale-process-or-lock.json"
+    },
+    "general-app-no-device": {
+      "area": "general",
+      "title": "app 명령이 no_device — 기기가 여러 대거나 시뮬레이터가 안 켜졌다",
+      "fix_short": [
+        "응답의 android·ios_booted 에서 하나를 골라 --device <시리얼 또는 UDID> 로 다시 부른다",
+        "역할을 묶어 두면 env.sh 의 $DEV 로 고정된다: launch_cli.py device bind --role <역할> --serial <시리얼>"
+      ],
+      "keyword_count": 0,
+      "path": "general/general-app-no-device.json"
+    },
+    "general-bad-args-option-names": {
+      "area": "general",
+      "title": "bad_args — 옵션 이름을 착각했다 (--full-page · --field · 위치 인자)",
+      "fix_short": [
+        "error 의 unrecognized arguments·invalid choice 부분을 먼저 읽는다",
+        "launch_cli.py web --help"
+      ],
+      "keyword_count": 0,
+      "path": "general/general-bad-args-option-names.json"
+    },
+    "general-cred-field-missing": {
+      "area": "general",
+      "title": "--cred 가 cred_field_missing — 필드를 안 고르면 password 를 넣는다",
+      "fix_short": [
+        "아이디 칸이면: launch_cli.py web type --selector <칸> --cred <이름> --cred-field account",
+        "필드가 정말 없으면 사용자에게 값을 받아 cred set 으로 채운다 (값을 직접 적지 않는다)"
+      ],
+      "keyword_count": 0,
+      "path": "general/general-cred-field-missing.json"
+    },
+    "general-env-not-set": {
+      "area": "general",
+      "title": "--text-env 가 env_not_set — 값이 아니라 환경변수 이름을 넘긴다",
+      "fix_short": [
+        "같은 명령줄 앞에 붙인다: CODE=<값> launch_cli.py web type --selector <칸> --text-env CODE",
+        "명령줄은 세션 기록에 남는다 — 일회용 인증 코드처럼 남아도 되는 값만 이렇게 넘긴다"
+      ],
+      "keyword_count": 0,
+      "path": "general/general-env-not-set.json"
+    },
+    "general-plugin-cache-version-drift": {
+      "area": "general",
+      "title": "세션마다 다른 버전의 플러그인 캐시 경로로 스크립트를 부른다",
+      "fix_short": [
+        "세션을 시작할 때 SKILL.md '스크립트 찾기' 블록을 다시 돌려 SCRIPTS 를 받는다 — 옛 버전 경로를 붙여 넣지 않는다",
+        "문서도 같은 버전 폴더의 것(SCRIPTS 의 상위 references/)을 읽는다"
+      ],
+      "keyword_count": 3,
+      "path": "general/general-plugin-cache-version-drift.json"
+    },
+    "general-render-failed-first-error": {
+      "area": "general",
+      "title": "render run 이 render_failed — first_error 부터, 흔한 원인은 services.dart",
+      "fix_short": [
+        "응답의 first_error 를 먼저 읽는다 (없으면 output_tail)",
+        "Undefined name·Couldn't find constructor 'MethodChannel' 이면 import 'package:flutter/services.dart'; 를 넣는다"
+      ],
+      "keyword_count": 2,
+      "path": "general/general-render-failed-first-error.json"
+    },
+    "general-root-unknown-skill-folder": {
+      "area": "general",
+      "title": "캡처·상태가 ~/.projectops/launch/scripts 등 엉뚱한 곳에 쌓인다",
+      "fix_short": [
+        "프로젝트 폴더에서 스크립트를 절대경로로 부르고 --root <프로젝트 경로> 를 붙인다",
+        "또는 PROJECT_ROOT=<프로젝트 경로> 를 앞에 붙인다 (스크립트·캐시 폴더에서 불렸을 때 이 값을 쓴다)"
+      ],
+      "keyword_count": 2,
+      "path": "general/general-root-unknown-skill-folder.json"
+    },
+    "ios-maestro-not-installed": {
+      "area": "ios",
+      "title": "iOS app tap·swipe·tree 가 ios_tool_missing — Maestro 미설치",
+      "fix_short": [
+        "설치는 사용자에게 먼저 묻는다: curl -fsSL \"https://get.maestro.mobile.dev\" | bash",
+        "launch_cli.py app tree --device <시뮬레이터 id>"
+      ],
+      "keyword_count": 0,
+      "path": "ios/ios-maestro-not-installed.json"
+    },
+    "ios-maestro-slow-cold-start": {
+      "area": "ios",
+      "title": "iOS app tap·swipe·tree 가 수십 초 걸린다 — 호출마다 Maestro(JVM)가 뜬다",
+      "fix_short": [
+        "느리다고 같은 명령을 겹쳐 부르지 않는다 — 앞 호출이 끝나길 기다린다",
+        "화면 확인은 따로 shot 을 부르지 말고 동작에 --shot 을 붙인다: launch_cli.py app tap --device <UDID> --text <글자> --shot <이름>"
+      ],
+      "keyword_count": 2,
+      "path": "ios/ios-maestro-slow-cold-start.json"
+    },
+    "ssh-sshpass-missing": {
+      "area": "ssh",
+      "title": "암호 ssh 가 sshpass_missing — 키 접속이나 호환 경로로",
+      "fix_short": [
+        "키가 있으면: launch_cli.py ssh --cred <서버> --key-path <키 파일> --command '<명령>'",
+        "sshpass 설치는 사용자에게 먼저 묻는다: brew install hudochenkov/sshpass/sshpass"
+      ],
+      "keyword_count": 0,
+      "path": "ssh/ssh-sshpass-missing.json"
+    },
+    "web-browser-gone": {
+      "area": "web",
+      "title": "web 명령이 browser_gone — 띄워 둔 브라우저에 붙지 못했다",
+      "fix_short": [
+        "launch_cli.py web open --url <주소>",
+        "open 이 browser_start_failed 면 kb show browser-start-stale-process-or-lock"
+      ],
+      "keyword_count": 0,
+      "path": "web/web-browser-gone.json"
+    },
+    "web-browser-not-open-other-root": {
+      "area": "web",
+      "title": "방금 연 브라우저인데 browser_not_open — 다른 프로젝트 자리로 불렸다",
+      "fix_short": [
+        "launch_cli.py web text --root <프로젝트 경로>",
+        "open 부터 같은 --root 로 부른다. cd 로 스크립트 폴더에 들어가지 말고 절대경로로 스크립트를 부른다"
+      ],
+      "keyword_count": 0,
+      "path": "web/web-browser-not-open-other-root.json"
+    },
+    "web-click-wait-with-expect": {
+      "area": "web",
+      "title": "sleep 으로 기다리지 말고 click 의 --expect-url · --expect-text 로",
+      "fix_short": [
+        "launch_cli.py web click --ref <번호> --expect-text <다음 화면 글자> --timeout 30",
+        "launch_cli.py web click --ref <번호> --expect-url <바뀔 주소 일부>"
+      ],
+      "keyword_count": 0,
+      "path": "web/web-click-wait-with-expect.json"
+    },
+    "web-find-nothing-found": {
+      "area": "web",
+      "title": "web find 가 nothing_found — 기본은 누를 수 있는 요소만 찾는다",
+      "fix_short": [
+        "launch_cli.py web text --max-chars 3000",
+        "launch_cli.py web find --text <text 에서 본 글자 그대로>"
+      ],
+      "keyword_count": 0,
+      "path": "web/web-find-nothing-found.json"
+    },
+    "web-goto-failed": {
+      "area": "web",
+      "title": "web open·goto 이동 실패 — 주소·서버·인증서를 본다",
+      "fix_short": [
+        "로컬 서버면 먼저 떠 있는지 본다: launch_cli.py http --url <주소>",
+        "인증서 오류(테스트 서버 전용): launch_cli.py web close"
+      ],
+      "keyword_count": 1,
+      "path": "web/web-goto-failed.json"
+    },
+    "web-iframe-login-fields": {
+      "area": "web",
+      "title": "iframe 안의 로그인 칸(App Store Connect 등)을 못 찾는다",
+      "fix_short": [
+        "launch_cli.py web type --selector \"iframe >> internal:control=enter-frame >> input#account_name_text_field\" --cred <이름> --cred-field account",
+        "launch_cli.py web click --selector \"iframe >> internal:control=enter-frame >> #sign-in\" --expect-text <로그인 뒤 보일 글자>"
+      ],
+      "keyword_count": 2,
+      "path": "web/web-iframe-login-fields.json"
+    },
+    "web-playwright-or-browser-missing": {
+      "area": "web",
+      "title": "playwright_missing · browser_missing — web setup 이 필요하다",
+      "fix_short": [
+        "설치(약 100MB)는 사용자에게 먼저 묻는다: launch_cli.py web setup",
+        "내부망이면 설치된 Chrome·Edge 를 쓴다: LAUNCH_CHROMIUM_PATH=<브라우저 실행 파일 경로> 를 앞에 붙여 web open"
+      ],
+      "keyword_count": 0,
+      "path": "web/web-playwright-or-browser-missing.json"
+    },
+    "web-readonly-mutating-blocked": {
+      "area": "web",
+      "title": "읽기 전용 세션에서 저장·제출 버튼이 mutating_blocked",
+      "fix_short": [
+        "무엇이 바뀌는지 사용자에게 말하고 승인을 받는다 (되돌리기 어려운 조작)",
+        "승인 뒤: launch_cli.py web click --ref <번호> --confirm-mutating"
+      ],
+      "keyword_count": 0,
+      "path": "web/web-readonly-mutating-blocked.json"
+    },
+    "web-selector-guess-timeout": {
+      "area": "web",
+      "title": "추측한 --selector 가 시간 초과 — web find 로 고르고 --ref 로 누른다",
+      "fix_short": [
+        "launch_cli.py web find --text <버튼 글자>",
+        "launch_cli.py web click --ref <번호> --expect-url <바뀔 주소 일부>"
+      ],
+      "keyword_count": 4,
+      "path": "web/web-selector-guess-timeout.json"
+    },
+    "web-viewport-width-height": {
+      "area": "web",
+      "title": "web viewport --width --height 가 bad_viewport — 크기는 --preset 으로",
+      "fix_short": [
+        "launch_cli.py web viewport --preset 1280x900",
+        "launch_cli.py web viewport --preset mobile"
+      ],
+      "keyword_count": 0,
+      "path": "web/web-viewport-width-height.json"
+    }
+  }
+}

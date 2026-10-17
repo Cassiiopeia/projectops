@@ -46,6 +46,26 @@ agent 가 "모른다는 것을 모르는" 상태에서 꺼내 볼 생각을 하�
 - 여기에는 결론만 남긴다. 왜 막혔고 어떻게 풀었는지 같은 긴 사례는 레포 문서(`CLAUDE.md` 등)에 적는다.
 - 계정은 `cred`(`credentials.md`), 방식은 `learn` 으로 나눈다.
 
+## 공식 지식 vs 내 기억 (#889)
+
+| | 공식 트러블슈팅 | 내 기억 (`learn`) |
+|---|---|---|
+| 내용 | 검증된 증상 · 원인 · 해결 | 이 컴퓨터 · 이 레포에서 먹힌 방식 |
+| 위치 | 스킬 안 `troubleshooting/<area>/<id>.json` (목록: `troubleshooting.md`) | `~/.projectops/launch/` |
+| 쓰는 사람 | 관리자가 PR 로 | 에이전트가 자동으로 |
+| 응답에 실림 | 실패 응답의 `known_fix` (최대 2건, 매번) | 영역 명령 응답의 `memory` (하루 한 번) |
+
+- 실패하면 `known_fix` 부터 시도하고, 전체는 `kb show <id>`. 응답에 없으면 `kb search "<오류 문구>" --code <code>` · `kb list --area web`.
+- 여러 번 먹힌 내 기억(ok 3 이상, fail < ok)은 `kb propose` 가 공식 항목 초안으로 뽑는다(비밀값은 거르고, 파일에 쓰지 않는다).
+  todo 칸을 채워 **사용자 확인 뒤** 이슈나 PR 로 올린다. 공식에 자동으로 섞이지 않는다.
+
+```bash
+{PYTHON} {SCRIPTS}/launch_cli.py kb search "브라우저가 뜨지 않았습니다" --code browser_start_failed
+{PYTHON} {SCRIPTS}/launch_cli.py kb show browser-start-stale-process-or-lock
+{PYTHON} {SCRIPTS}/launch_cli.py kb list --area ios
+{PYTHON} {SCRIPTS}/launch_cli.py kb propose --key web.google-login     # → {"drafts":[{"path":..., "draft":{...}, "todo":[...]}]}
+```
+
 ## 했던 작업을 적어 둔다 (작업 일지)
 
 `learn` 은 "이 방식이 먹혔다"라는 한 줄 결론용이다. 한 건의 **작업 맥락**(무엇을 왜 했고, 어떤 순서였고,

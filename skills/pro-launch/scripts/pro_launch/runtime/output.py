@@ -5,6 +5,7 @@ import json
 import time
 from pathlib import Path
 
+from common import troubleshoot
 from common.access import needs_verify, record_result
 from common.emit import emit
 from common.state import repo_unknown
@@ -12,7 +13,10 @@ from common.state import repo_unknown
 import journal
 import knowledge
 
-from pro_launch.runtime.context import ACCESS_CTX, MEMORY_CTX, MIGRATION, ROOT_CTX
+from pro_launch.runtime.context import ACCESS_CTX, MEMORY_CTX, MIGRATION, OUTPUT_CTX, ROOT_CTX
+
+# skills/pro-launch — 공식 트러블슈팅(troubleshooting/)이 있는 곳
+SKILL_DIR = Path(__file__).resolve().parents[3]
 
 
 def out(payload: dict) -> int:
@@ -29,8 +33,76 @@ def out(payload: dict) -> int:
         payload["summary"] = payload.get("error") or (f"{act} 완료" if act else "완료")
     _root_warning(payload)
     _grade_access(payload)
+    attach_known_fix(payload)
     _memory_hooks(payload)
-    return emit(payload)
+    return emit_shaped(payload)
+
+
+# 맨 앞 4필드 — 잘라 읽어도 다음 행동이 남게 언제나 먼저 · 언제나 남긴다
+HEAD_KEYS = ("ok", "code", "summary", "next")
+# 실패 원인 한 줄 (render 의 묻힌 첫 오류 등) — 머리 바로 뒤 · --brief 에도 남긴다
+CAUSE_KEYS = ("first_error",)
+# 이 실패·영역에 맞춘 해결과 기억 — 원인 뒤 · 줄여도 남긴다
+GUIDANCE_KEYS = ("known_fix", "known_fix_note", "memory", "memory_note", "learn_hint")
+# --brief 가 남기는 키: 머리 + error + 원인 + 안내
+BRIEF_KEYS = (*HEAD_KEYS, "error", *CAUSE_KEYS, *GUIDANCE_KEYS)
+
+
+def shape_payload(payload: dict) -> dict:
+    """출력 모양 정리: 4필드 기본값 > 순서(머리 > 원인 > 안내 > 나머지) > --brief · --fields 거르기.
+
+    값은 바꾸지 않는다. 플래그가 없으면 키 집합은 그대로이고 순서만 바뀐다.
+    """
+    # 기본값 (emit 과 같은 규칙) — emit 이 뒤에 붙이면 순서가 다시 어긋난다
+    payload.setdefault("ok", True)
+    payload.setdefault("code", "ok" if payload["ok"] else "error")
+    payload.setdefault("summary", None)
+    payload.setdefault("next", None)
+    leading = [k for k in (*HEAD_KEYS, *CAUSE_KEYS, *GUIDANCE_KEYS) if k in payload]
+    ordered = {k: payload[k] for k in leading}
+    ordered.update((k, v) for k, v in payload.items() if k not in ordered)
+    kept_names = _kept_key_names()
+    if kept_names is None:
+        return ordered
+    return {k: v for k, v in ordered.items() if k in kept_names}
+
+
+def _kept_key_names() -> set[str] | None:
+    """--brief · --fields 로 남길 키 이름. 둘 다 없으면 None (전부 남김), 둘 다면 합집합."""
+    is_brief = bool(OUTPUT_CTX.get("is_brief"))
+    field_names = OUTPUT_CTX.get("field_names")
+    if not is_brief and not field_names:
+        return None
+    kept_names = {*HEAD_KEYS, *GUIDANCE_KEYS}
+    if is_brief:
+        kept_names.update(BRIEF_KEYS)
+    if field_names:
+        kept_names.update(field_names)
+    return kept_names
+
+
+def emit_shaped(payload: dict) -> int:
+    """모양을 정리해 JSON 하나로 낸다. out() 을 거치지 않는 인자 오류·예외 경로도 이것을 쓴다."""
+    return emit(shape_payload(payload))
+
+
+def attach_known_fix(payload: dict) -> None:
+    """실패면 공식 트러블슈팅 요약(최대 2건)을 known_fix 로 싣는다. 맞는 것이 없으면 필드 없음.
+
+    기억(memory)과 달리 하루 상한이 없다 — 이 실패에 맞춘 검증된 해결이라 매번 보여야 한다.
+    어떤 오류도 명령 결과를 망치지 않는다.
+    """
+    if payload.get("ok", True) is not False:
+        return
+    try:
+        causes = payload.get("causes") if isinstance(payload.get("causes"), list) else []
+        text = " ".join(str(v) for v in (payload.get("error"), payload.get("hint"), *causes) if v)
+        fixes = troubleshoot.find_known_fixes(SKILL_DIR, payload.get("code"), text)
+        if fixes:
+            payload["known_fix"] = fixes
+            payload["known_fix_note"] = "검증된 공식 해결이다. 먼저 시도하고, 전체는 kb show <id>"
+    except Exception:   # noqa: BLE001 — 공식 지식은 보조다
+        pass
 
 
 def _root_warning(payload: dict) -> None:

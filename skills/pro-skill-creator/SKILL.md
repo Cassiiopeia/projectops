@@ -27,6 +27,7 @@ version: 2.3
 | CREATE Phase 1 — 6개 슬롯 정의·자동 추론 | `references/phase1_slots.md` |
 | CREATE Phase 2 — 한 번에 하나씩 질문 포맷 | `references/phase2_question_format.md` |
 | CREATE Phase 3 · IMPROVE Phase 2 — 본문 쓰기 메타 원칙, 신규 skill Python CLI 3-layer 표준 | `references/meta_principles.md` |
+| 스킬에 공식 트러블슈팅 지식(`troubleshooting/`, 실패 응답의 `known_fix`) 붙이기 | `references/meta_principles.md` §3 |
 | CREATE Phase 4 · REVIEW Phase 2 — 8대 원칙 체크표 | `references/phase4_checklist.md` |
 | CREATE Phase 5 고급 — 공식 `run_loop.py` 정량 최적화 | `references/trigger_optimization.md` |
 | CREATE Phase 6 · IMPROVE Phase 4 — 보고 표준 포맷 | `references/phase6_report_format.md` |

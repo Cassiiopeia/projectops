@@ -1,0 +1,22 @@
+{
+  "id": "android-non-ascii-text",
+  "area": "android",
+  "title": "Android app type 이 non_ascii_unsupported — adb 는 한글을 못 넣는다",
+  "match": {
+    "codes": [
+      "non_ascii_unsupported"
+    ],
+    "keywords": []
+  },
+  "symptom": "Android 에서 app type 으로 한글을 넣으려 하면 non_ascii_unsupported 로 끝난다",
+  "cause": "Android 입력은 adb input text 를 쓰는데 ASCII 만 받는다",
+  "fix": [
+    "영문·숫자 값으로 바꿔 넣을 수 있으면 그렇게 한다",
+    "한글이 꼭 필요하면 ADBKeyboard 같은 IME 설치를 사용자에게 먼저 묻는다",
+    "안 되면 사용자에게 직접 입력을 부탁한다"
+  ],
+  "refs": [
+    889
+  ],
+  "verified_at": "2026-10-17"
+}

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import time
@@ -70,6 +71,34 @@ def _cleanup(root: Path, paths: list[str]) -> tuple[list[str], list[str]]:
     return removed, refused
 
 
+# 첫 컴파일 오류 찾기 (#898): 오류는 출력 앞쪽에 나오고 output_tail(끝 40줄)에는 안 보이는 일이 잦다
+# Dart 컴파일러: test/_launch_render/states_test.dart:12:5: Error: Undefined name 'MethodChannel'.
+_DART_COMPILE_ERROR = re.compile(r"^\S+\.dart:\d+:\d+: Error: ")
+# 그 밖의 도구 (gcc·javac·tsc 등): "x.java:3: error: ...", "error TS2304: ..." — 앞이 줄 처음·공백·콜론일 때만
+_GENERIC_ERROR = re.compile(r"(?i)(?:^|[\s:])error(?: TS\d+)?\s*:")
+# 오류 줄 뒤에 붙는 소스 줄·캐럿(^^^) 문맥 최대 줄 수
+_FIRST_ERROR_CONTEXT_LINES = 2
+# summary 에 넣는 첫 오류 줄 최대 길이
+_SUMMARY_ERROR_MAX_CHARS = 200
+
+
+def find_first_error(output: str) -> str | None:
+    """빌드 출력 > 첫 컴파일 오류 줄(+ 들여쓴 문맥 최대 2줄). Dart 형식 우선, 없으면 일반 error: 줄, 둘 다 없으면 None"""
+    lines = output.splitlines()
+    for pattern in (_DART_COMPILE_ERROR, _GENERIC_ERROR):
+        for index, line in enumerate(lines):
+            if not pattern.search(line):
+                continue
+            picked = [line.rstrip()]
+            # 바로 뒤 들여쓴 줄만 문맥으로 (빈 줄·다음 오류에서 멈춤)
+            for following in lines[index + 1:index + 1 + _FIRST_ERROR_CONTEXT_LINES]:
+                if not following.strip() or not following[:1].isspace():
+                    break
+                picked.append(following.rstrip())
+            return "\n".join(picked)
+    return None
+
+
 _RENDER_BASE = "render-baseline.json"
 
 
@@ -135,9 +164,16 @@ def cmd_render(args) -> int:
                "refused_cleanup": refused or None, "residue": residue,
                "git_checked": before is not None, "baseline": baseline_from}
     if rc != 0:
-        payload.update({"ok": False, "code": "render_failed", "output_tail": tail,
-                        "summary": f"렌더 명령 실패 (종료코드 {rc}) — 수집하지 않고 청소만 했다",
-                        "next": "output_tail 을 읽고 렌더 코드를 고친다. 레시피의 함정 표를 먼저 본다"})
+        first_error = find_first_error(output)
+        summary = f"렌더 명령 실패 (종료코드 {rc}) — 수집하지 않고 청소만 했다"
+        if first_error:
+            summary += f" · 첫 오류: {first_error.splitlines()[0][:_SUMMARY_ERROR_MAX_CHARS]}"
+        # first_error 를 앞쪽 키로 — 긴 output_tail 보다 먼저 읽히게
+        payload = {"ok": False, "code": "render_failed", "summary": summary,
+                   "first_error": first_error, **payload, "output_tail": tail,
+                   "next": ("first_error 부터 고친다 (import 누락이면 레시피의 import 를 본다). "
+                            if first_error else "output_tail 을 읽고 렌더 코드를 고친다. ")
+                           + "레시피의 함정 표를 먼저 본다"}
     elif residue:
         # 지우지 않는다 — 다른 세션의 변경일 수 있다
         payload.update({"ok": False, "code": "residue",

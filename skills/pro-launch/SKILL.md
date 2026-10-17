@@ -28,14 +28,18 @@ description: "Capability skill that launches and drives apps, web and servers: e
 | 참가자가 둘 이상 — 역할을 기기에 묶기 | `device list\|bind\|unbind\|show` | `references/app.md` |
 | 앱 띄우기 · 찍기 | `app launch` · `app shot [--clean-status]` | `references/app.md` |
 | 앱 화면 구조 · 누르기 · 밀기 | `app tree` · `app tap` · `app swipe` | `references/app.md` |
-| 앱에 글자 넣기(Android, 저장된 로그인) | `app type --cred 이름` | `references/app.md` |
+| 앱 여러 단계 한 번에 (iOS 는 Maestro 1회) | `app run --steps steps.json` | `references/app.md` |
+| 앱에 글자 넣기(저장된 로그인, iOS 는 Maestro) | `app type --cred 이름` | `references/app.md` |
+| 앱 끄기 · 다시 띄우기 · 위치 · 권한 · 푸시(iOS) · 딥링크 — **raw simctl/adb 대신** | `app terminate\|relaunch\|location\|permission\|push\|openurl` | `references/app.md` |
 | 브라우저 열기 · **화면 읽기 · 누를 것 고르기** · 확인하며 클릭 · 입력 · 캡처 | `web setup\|open\|goto\|text\|find\|click\|type\|shot\|assert\|console\|close` | `references/web.md` |
 | 폭 바꾸기 · 응답 바꿔치기(빈 목록 · 500 · 지연) | `web viewport` · `web route` | `references/web.md` |
+| **폼 읽기**(입력·버튼·체크·선택 + 값·비활성·ref) · 줄만 골라 읽기 · 고르기 · 체크 · 키 · 올리기 · 대화상자 · 내려받기 — **raw CDP 스크립트 대신** | `web inspect` · `web text --grep` · `web select\|check\|press\|hover\|dialog\|download` | `references/web.md` |
 | 코드로 상태를 그려 찍기 | `render snapshot` → `render run` | `references/render.md` |
 | 단건 HTTP · 붙는 법 기록 · SQL · 로그 | `http` · `access show\|set\|unset` · `db` · `logs` | `references/server.md` |
 | 자격증명 저장 · 원격 명령 · 이 맥 sudo | `cred list\|show\|set\|unset\|import-ssh` · `ssh` · `local sudo` | `references/credentials.md` |
 | 이슈 첨부용 축소 | `shrink` | `references/memory.md` |
 | 이 컴퓨터에서 먹힌 방식 꺼내기 · 남기기 · 지우기 · 정리 | `recall` · `learn` · `forget` · `tidy` | `references/memory.md` |
+| 공식 트러블슈팅 찾기 · 보기 · 목록 · 내 기억에서 공식 항목 초안 | `kb search\|show\|list\|propose` | `references/troubleshooting.md` · `references/memory.md` |
 | 했던 작업을 자유롭게 적어 두고 다음에 다시 읽기 (작업 일지) | `journal [--add "..."] [--title] [--site]` | `references/memory.md` |
 | 이번 실행 자리 + `env.sh` | `get-output-path` | 아래 |
 | 새 플랫폼 · 새 동작 추가(기여자) | — | `references/extending.md` |
@@ -44,6 +48,16 @@ description: "Capability skill that launches and drives apps, web and servers: e
 
 **Bash 도구는 호출마다 상태가 초기화된다.** 한 번 찾은 뒤 **실제 경로를 이후 블록에 값으로 직접 써넣는다.**
 다른 스킬에서 부를 때도 `SKILL=pro-launch` 그대로 쓴다.
+
+**고정 진입점이 있으면 그것을 쓴다** (#896) — 버전 폴더(`.../projectops/4.xx.x/...`)를 박아 쓰면 세션 중 문서와
+스크립트 버전이 어긋난다. `~/.projectops/bin/launch_cli.py` 는 한 번이라도 실행하면 생기고, 부를 때마다 가장
+새 설치본(체크아웃 > 플러그인 캐시 최고 버전 > Cursor)을 찾아 인자를 그대로 넘긴다. 특정 폴더를 강제하려면 `PROJECTOPS_LAUNCH_SCRIPTS`.
+
+```bash
+E="${PROJECTOPS_HOME:-$HOME/.projectops}/bin/launch_cli.py"; [ -f "$E" ] && echo "SCRIPTS 대신: {PYTHON} $E <명령>"
+```
+
+없으면(첫 실행) 아래로 찾는다.
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -76,6 +90,12 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
 - **기기는 `--device` 로 고른다.** 없으면 `$DEV` → 붙은 기기가 한 대뿐이면 그것. 여러 대인데 안 고르면 `no_device` 로 멈춘다.
 - **JSON 하나를 돌려준다.** `ok` 로 성패, `code` 로 갈래(문구가 아니라 code 로 판단), `next` 를 다음 명령 후보로 읽는다.
   요소를 못 찾으면 `candidates`(화면에 실제로 있는 값)와 `locale` 이 온다 — **추측을 반복하지 말고 거기서 고른다.**
+- **실패 응답에 `known_fix` 가 오면 그 해결부터 시도한다** — 검증된 공식 지식의 요약(최대 2건)이다. 전체 증상·원인은
+  `kb show <id>`, 응답에 없을 때 직접 찾기는 `kb search "<오류 문구>" --code <code>`.
+- **결과를 `head`·`cut`·python 으로 자르지 않는다** — `next`·`memory`·`known_fix` 가 같이 잘려 나간다.
+  짧게 받으려면 어느 명령에든 `--brief`(ok·code·summary·next·error·known_fix·memory·learn_hint 만),
+  특정 키만 원하면 `--fields path,url` 을 붙인다. 둘 다 그 안내 키들은 항상 남긴다. 키 순서는 언제나
+  `ok`·`code`·`summary`·`next` → `known_fix`·`memory` → 나머지다.
 - 캡처는 기본 긴 변 1200px WebP. 픽셀 대조처럼 원본이 필요할 때만 `--keep-format`. **찍은 것은 Read 로 열어 본다.**
   텍스트로 확인되면(`web assert` · `app tree` · 로그) 이미지를 읽지 않는다 — 가장 비싼 것이 이미지다.
 - **호스트 마우스로 좌표를 누르지 않는다**(`cliclick` · AppleScript · CGEvent) — 사용자 커서를 빼앗는다. 앱은 `app tap`, 웹은 `web find` → `web click --ref`.
@@ -93,16 +113,23 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app shot   --device "$DE
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app tree   --device "$DEV"
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app tap    --device "$DEV" --text "로그인" --shot after_login
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app swipe  --device "$DEV" --dir up --shot list_scrolled
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app relaunch   --device "$DEV" --pkg "$PKG"     # terminate 도 같은 모양
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app location   --device "$DEV" --lat 37.5665 --lon 126.978
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app permission --device "$DEV" --pkg "$PKG" --service location --grant
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app push       --device "$DEV" --pkg "$PKG" --payload push.json
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app openurl    --device "$DEV" --url "myapp://home"
 ```
 
 - 누를 대상은 **요소로** 찾는다: `--text`(화면 언어 그대로) · `--id`(resource-id · accessibilityIdentifier) · `--desc`(접근성 설명),
   여러 개면 `--index N`(0부터). 문구를 모르면 `app tree` 의 `elements` · `locale` 을 먼저 본다.
 - 캔버스·지도처럼 요소가 없을 때만 `--at 0.5,0.8` **비율(0~1)** 좌표. 픽셀은 거절한다(`bad_ratio`).
 - 밀기는 `--dir up|down|left|right`, 정확한 궤적이면 `--from 0.5,0.8 --to 0.5,0.2 --ms 300`.
+- **두 단계 이상은 `app run --steps steps.json`** 으로 묶는다 — iOS 는 Maestro 를 한 번만 띄운다(단계 모양은 `references/app.md`).
 - `--shot 이름` 을 붙이면 화면이 멈춘 뒤 찍어 준다. `screen_changed: false` 면 반응이 없었다 — 다른 요소를 고른다.
 - iOS 는 `app tap`·`app swipe` 뿐 아니라 **`app tree` 도 Maestro 를 쓴다**(호출당 10~40초). 긴 시나리오는 프로젝트의 E2E flow 로 한 번에 돌린다.
 - 화면 전환·로딩 직후 `not_found` 면 `app shot` 으로 지금 화면을 확인한 뒤 `--shot` 을 붙여 **1회만** 다시 누른다. 또 실패하면 `candidates` 에서 고른다.
 - iOS 번들 ID(시스템 앱 포함)는 `references/app.md` 의 iOS 절.
+- 앱 끄기·위치·권한·푸시·딥링크에 `xcrun simctl`·`adb shell am|pm` 를 직접 치지 않는다 — 위 `app` 동작이 기기 고르기·실패 code 를 맞춰 준다.
 
 | code | 다음 행동 |
 |---|---|
@@ -112,6 +139,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app swipe  --device "$DE
 | `tree_unsupported` | 이 기기는 화면 구조를 못 읽는다. `app shot` 으로 보고 `--text` 또는 `--at` 비율 좌표 |
 | `ios_tool_missing` · `android_tool_missing` · `adb_missing` | 결과의 설치 안내를 사용자에게 제안한다 |
 | `non_ascii_unsupported` · `ios_text_unsupported` | `app type` 이 못 넣는다. 영문 대체 또는 사용자에게 맡긴다 |
+| `unsupported_on_platform` | 이 플랫폼·기기에서 안 되는 동작(Android push · 실기기 Android location 등). `next` 의 대안을 쓴다 |
 | `build_mismatch` | 기기마다 설치된 빌드가 다르다. 멈추고 양쪽을 맞춘다 |
 
 ## 웹 — 이럴 땐 이것
@@ -135,6 +163,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web route --clear
 - 빈 목록 · 실패 · 로딩은 **서버를 건드리지 않고** `route` 로 연출한다(`--status 500` · `--delay 5000`). 끝나면 `--clear`.
 - Google·Apple 로그인이 막히면 먼저 `web open --headed`. 사이트가 이상하면 `--no-stealth` 로 비교한다.
 - `playwright_missing` 이면 사용자에게 묻고 `web setup`. `browser_not_open` · `browser_gone` 이면 `web open` 을 다시.
+- 폼은 `web inspect --role input --near "이메일"` 로 읽고 받은 `ref` 로 `type` · `check` · `select` 한다. 비활성이면 기다리지 않고 `element_disabled`.
+- 옵션은 동작마다 다르다 — `web <동작> --help`. 그 동작이 안 받는 옵션은 `bad_args` 로 거절된다(쓸 수 있는 옵션이 error 에 실린다).
 
 | code | 다음 행동 |
 |---|---|
@@ -147,7 +177,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web route --clear
 ## render · 서버 · 자격증명 · 기억 — 이럴 땐 이것
 
 - 실기기로 만들기 어려운 상태(빈 목록 · 긴 글자 · 권한 거부)는 `render snapshot` → 임시 렌더 코드 → `render run`.
-  `render_failed` 는 `output_tail` 로 고치고, `residue` 는 **네가 만든 것만** 지운다(`references/render.md`).
+  `render_failed` 는 `first_error` 부터 보고(없으면 `output_tail`) 고치고, `residue` 는 **네가 만든 것만** 지운다(`references/render.md`).
 - 서버에 붙는 법은 코드를 읽어 정하고 `access set` 에 적는다. `http --url /경로` · `db --profile db --sql …` · `logs --tail 100`.
 - 서버·DB·로그인 화면을 만지기 전, "사용자가 직접 로그인해야 한다"고 말하기 전에 **`cred list` 를 먼저 본다.**
   `use_when` 이 맞는 것만 쓰고, 새 정보는 저장해도 되는지 묻고 `cred set`. 원격은 `ssh --cred 이름 --command '…'`(저장 없이는 `ssh --host … --user … --password-env|--key-path …`),

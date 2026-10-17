@@ -32,4 +32,6 @@ def execute(page, args, state: dict) -> dict:
     return _web_find(page, args)
 
 
-ACTION = Action(name="find", run=execute, configure=configure)
+ACTION = Action(name="find", run=execute, configure=configure, options=("text", "selector"),
+                help="누를 만한 요소를 번호(ref)와 함께 돌려준다",
+                example='web find --text "로그인"')

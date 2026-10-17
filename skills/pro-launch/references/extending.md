@@ -76,17 +76,23 @@ BACKENDS = {
 `web` 이 그 폴더를 훑어 선택지·옵션·디스패치를 만든다.
 
 ```python
-# commands/web/actions/hover.py
+# commands/web/actions/scroll.py
+from pro_launch.commands.web.element import locate_target
 from pro_launch.registry import Action
 
 def configure(p) -> None:                       # 이 동작만 쓰는 옵션 (선택)
-    p.add_argument("--duration", type=int, default=300, help="hover: 머무는 시간(ms)")
+    p.add_argument("--pixels", type=int, default=600, help="내릴 거리(px)")
 
 def execute(page, args, state) -> dict:          # needs="page" 면 (page, args, state) → 결과 dict
-    page.hover(args.selector)
-    return {"action": "hover", "summary": "올렸다", "next": "web shot"}
+    element, info, failure = locate_target(page, args, state, "scroll", should_guard_mutating=False)
+    if failure:
+        return failure
+    element.evaluate("(e, n) => e.scrollBy(0, n)", args.pixels)
+    return {"action": "scroll", "target": info, "summary": "내렸다", "next": "web text"}
 
-ACTION = Action(name="hover", run=execute, configure=configure)
+# options: 쓰는 공통 옵션(commands/web/options.py 의 이름). 여기 없는 공통 옵션은 bad_args 로 거절된다
+ACTION = Action(name="scroll", run=execute, configure=configure, options=("selector", "ref"),
+                help="요소 안을 내린다", example="web scroll --ref 3 --pixels 800")
 ```
 
 `needs` 가 디스패처가 해 줄 준비를 정한다.
@@ -101,8 +107,9 @@ ACTION = Action(name="hover", run=execute, configure=configure)
 
 순서:
 
-1. 위 모양대로 모듈을 만든다. 옵션 이름은 다른 동작과 겹치지 않게 한다 — 여러 동작이 쓰는 옵션
-   (`--url` · `--selector` · `--text` · `--timeout` …)은 `commands/web/__init__.py` 의 `configure` 에 이미 있다.
+1. 위 모양대로 모듈을 만든다. 동작마다 하위 파서가 따로라 자기 옵션 이름은 다른 동작과 겹쳐도 된다. 여러 동작이 쓰는 옵션
+   (`--url` · `--selector` · `--ref` · `--text` · `--timeout` …)은 `commands/web/options.py` 에 있고, 쓰는 것만 `options=` 에 적는다
+   (#895 — `web <동작> --help` 는 그것과 `help` · `example` 만 보여 준다). `app` 동작은 `options` 를 적지 않는다(전부 받는다).
 2. **붙어 있는 동안만 사는 것은 상태 파일에 적고 붙을 때마다 다시 건다.** `web` 은 매 호출 CDP(`connect_over_cdp`)로
    붙었다 떨어지므로, 콘솔 훅 · stealth · 뷰포트 · 응답 바꿔치기 같은 설정은 연결이 끊기면 사라진다(#625 실측).
    새 설정도 `commands/web/session.py` 의 `web_connect` 에서 재설치되게 한다. 브라우저를 Playwright `launch()` 로 띄우지 않는다 — 드라이버와 함께 죽는다.

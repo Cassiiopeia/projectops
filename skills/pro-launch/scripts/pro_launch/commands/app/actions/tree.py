@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import app_input
 
-from pro_launch.commands.app.gestures import backend_for
+from pro_launch.commands.app.gestures import backend_for, elapsed_seconds
 from pro_launch.registry import Action
 from pro_launch.runtime.output import out
 
@@ -20,6 +20,7 @@ def _app_tree(args) -> int:
     els = app_input.slim([n for n in nodes if n["text"] or n["desc"] or (n["clickable"] and n["id"])])
     return out({"ok": bool(els), "code": "ok" if els else "ui_dump_failed", "device": dev_id,
                 "platform": be.name, "locale": be.locale(dev_id), "count": len(els), "elements": els,
+                "elapsed_seconds": elapsed_seconds(args),
                 "summary": f"요소 {len(els)}개", "next": "app tap --text '<elements 의 text>'"})
 
 

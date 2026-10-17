@@ -1,0 +1,22 @@
+{
+  "id": "general-cred-field-missing",
+  "area": "general",
+  "title": "--cred 가 cred_field_missing — 필드를 안 고르면 password 를 넣는다",
+  "match": {
+    "codes": [
+      "cred_field_missing"
+    ],
+    "keywords": []
+  },
+  "symptom": "web type·app type --cred 가 cred_field_missing('<이름>' 에 'password' 값 없음)으로 끝난다",
+  "cause": "--cred 는 --cred-field 가 없으면 password 필드 값을 넣는다. 아이디 칸에 넣으려 했거나 그 자격증명에 그 필드가 없다. 응답 fields 가 있는 필드 목록이다",
+  "fix": [
+    "아이디 칸이면: launch_cli.py web type --selector <칸> --cred <이름> --cred-field account",
+    "필드가 정말 없으면 사용자에게 값을 받아 cred set 으로 채운다 (값을 직접 적지 않는다)"
+  ],
+  "refs": [
+    604,
+    889
+  ],
+  "verified_at": "2026-10-17"
+}
