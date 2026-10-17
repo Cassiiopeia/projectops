@@ -1,14 +1,54 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-17T15:24:06Z",
-    "currentVersion": "4.57.0",
+    "lastUpdated": "2026-10-17T15:48:12Z",
+    "currentVersion": "4.58.0",
     "projectType": "basic",
-    "totalReleases": 321,
+    "totalReleases": 322,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.58.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-17",
+      "pr_number": 907,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * `web script`: 열려 있는 브라우저에서 Playwright 코드 조각을 바로 실행하고, 결과를 JSON으로 돌려줍니다. 정해진 동작에 없는 일을 처리할 때 씁니다. 시간 상한을 넘기면 실행을 끊고, 저장된 비밀값은 출력에서 가립니다.\n  * 웹 동작 `web wait`(조건 대기), `web scroll`, `web upload`, `web tab`(세션별 탭 소유), `web login`(입력 → 사용자 인계 → 재개)을 추가했습니다.\n  * 클릭·입력·찾기 동작에 `--frame` 옵션이 생겨 iframe 안에서도 쓸 수 있습니다.\n  * `app flow`: 프로젝트의 Maestro flow를 실행하고, 명령별 결과와 캡처를 돌려줍니다.\n  * `doctor --resources`로 호스트 메모리 압박과 켜진 기기를 보여 줍니다. `session-check`와 `learn --detail`도 추가했습니다.\n\n* **개선**\n  * 고정 머리글이나 오버레이가 버튼을 덮으면 스크롤해서 다시 누르고, 무엇이 덮었는지 알려 줍니다(`--dom-click` 대안).\n  * 브라우저가 멈추거나 죽으면 `web open`이 스스로 정리하고 다시 띄웁니다. 다른 동작은 오래 기다리지 않고 `browser_hung`을 바로 알립니다.\n  * `bad_args`에 비슷한 이름 제안(`did_you_mean`)과 그 동작의 옵션 목록을 싣습니다.\n  * 레포 밖에서 실행해도 최근에 쓴 레포를 찾아 씁니다.\n  * 메모리가 위험 수준이면 기기를 새로 띄우라고 안내하지 않고, 먼저 사용자에게 묻도록 했습니다.\n\n* **버그 수정**\n  * 셀렉터나 설명에 `password` 같은 낱말만 있어도 비밀값으로 막던 문제를 고쳤습니다. 이제 실제 값만 막습니다.\n  * `learn`이 긴 내용을 말없이 자르던 문제를 고쳤습니다. 이제 거절하고, 긴 내용은 노트로 남기도록 안내합니다.",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "`web script`: 열려 있는 브라우저에서 Playwright 코드 조각을 바로 실행하고, 결과를 JSON으로 돌려줍니다. 정해진 동작에 없는 일을 처리할 때 씁니다. 시간 상한을 넘기면 실행을 끊고, 저장된 비밀값은 출력에서 가립니다.",
+            "웹 동작 `web wait`(조건 대기), `web scroll`, `web upload`, `web tab`(세션별 탭 소유), `web login`(입력 → 사용자 인계 → 재개)을 추가했습니다.",
+            "클릭·입력·찾기 동작에 `--frame` 옵션이 생겨 iframe 안에서도 쓸 수 있습니다.",
+            "`app flow`: 프로젝트의 Maestro flow를 실행하고, 명령별 결과와 캡처를 돌려줍니다.",
+            "`doctor --resources`로 호스트 메모리 압박과 켜진 기기를 보여 줍니다. `session-check`와 `learn --detail`도 추가했습니다."
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "고정 머리글이나 오버레이가 버튼을 덮으면 스크롤해서 다시 누르고, 무엇이 덮었는지 알려 줍니다(`--dom-click` 대안).",
+            "브라우저가 멈추거나 죽으면 `web open`이 스스로 정리하고 다시 띄웁니다. 다른 동작은 오래 기다리지 않고 `browser_hung`을 바로 알립니다.",
+            "`bad_args`에 비슷한 이름 제안(`did_you_mean`)과 그 동작의 옵션 목록을 싣습니다.",
+            "레포 밖에서 실행해도 최근에 쓴 레포를 찾아 씁니다.",
+            "메모리가 위험 수준이면 기기를 새로 띄우라고 안내하지 않고, 먼저 사용자에게 묻도록 했습니다."
+          ]
+        },
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "셀렉터나 설명에 `password` 같은 낱말만 있어도 비밀값으로 막던 문제를 고쳤습니다. 이제 실제 값만 막습니다.",
+            "`learn`이 긴 내용을 말없이 자르던 문제를 고쳤습니다. 이제 거절하고, 긴 내용은 노트로 남기도록 안내합니다."
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.57.0",
       "project_type": "basic",
