@@ -16,6 +16,9 @@ export function copyScripts(tempDir, targetRoot = ".") {
     "changelog_manager.py",
     "truncate_release_notes.sh", "truncate_release_notes.py",
     "issue_helper.py",
+    // GitHub REST 호출 공통 (#914). issue_helper·changelog_notice·pr_summary_comment·dispatch_downstream·
+    // close_issues_on_release·store_deploy_config 가 import 하므로 빠지면 그 워크플로가 모두 죽는다.
+    "github_api.py",
     // 릴리스 워크플로우가 PAT 없이 머지한 뒤 후속 워크플로우를 깨울 때 호출 (#551).
     "dispatch_downstream.py",
     // AI PR SUMMARY 워크플로우가 요약 댓글을 작성·갱신할 때 호출 (#553).

@@ -180,16 +180,14 @@ def review_guard(a) -> int:
     hours = ((data or {}).get("android") or {}).get("review_cooldown_hours", DEFAULT_REVIEW_COOLDOWN_HOURS)
     if not hours:
         return 0
-    import json as _json
     import time as _time
-    import urllib.request
+    import github_api
     repo, token = os.environ.get("GITHUB_REPOSITORY", ""), os.environ.get("GITHUB_TOKEN", "")
     wf = (os.environ.get("GITHUB_WORKFLOW_REF", "").split("@")[0].rsplit("/", 1)[-1])
-    url = f"https://api.github.com/repos/{repo}/actions/workflows/{wf}/runs?event=workflow_dispatch&status=success&per_page=20"
+    url = f"{github_api.API_ROOT}/repos/{repo}/actions/workflows/{wf}/runs?event=workflow_dispatch&status=success&per_page=20"
     try:
-        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"})
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            runs = _json.load(resp).get("workflow_runs", [])
+        runs = (github_api.request("GET", url, token, user_agent="projectops-store-deploy",
+                                   timeout_seconds=20) or {}).get("workflow_runs", [])
     except Exception as e:  # noqa: BLE001 — 확인 실패는 배포를 막지 않는다
         print(f"::warning title=프로덕션 심사 확인 실패::최근 수동 프로덕션 제출을 확인하지 못해 설정대로 진행합니다 ({e})")
         return 0

@@ -24,7 +24,6 @@ test("copyScripts 2개 복사", () => {
 test("copyScripts: 복사 목록이 실제 템플릿 파일과 어긋나지 않는다 (#566)", () => {
   // 목록에만 있고 실물이 없으면 사용자 프로젝트에 파일이 조용히 빠진다.
   // 반대로 실물만 있고 목록에 없으면 그 기능이 남의 레포에서 동작하지 않는다.
-  // github_ai.py는 의도적 제외(서비스 종료) — 예외로 둔다.
   // ⚠️ pathname은 Windows에서 "/C:/..." 형태라 경로가 깨진다. fileURLToPath를 써야 한다.
   const repoRoot = fileURLToPath(new URL("..", import.meta.url));
   const listed = readText(join(repoRoot, "src/core/copy/simple.js"))
@@ -35,19 +34,25 @@ test("copyScripts: 복사 목록이 실제 템플릿 파일과 어긋나지 않�
     assert.ok(exists(join(repoRoot, ".github/scripts", rel)), `목록에 있으나 실물 없음: ${rel}`);
   }
 
-  const INTENTIONALLY_EXCLUDED = new Set(["github_ai.py"]);  // GitHub Models 종료 (#566)
   const actual = readdirSync(join(repoRoot, ".github/scripts/changelog_providers"))
     .filter((f) => f.endsWith(".py") && !f.startsWith("test_"));
   for (const f of actual) {
-    if (INTENTIONALLY_EXCLUDED.has(f)) continue;
     assert.ok(listed.includes(`changelog_providers/${f}`), `실물은 있으나 복사 목록 누락: ${f}`);
+  }
+
+  // 복사되는 스크립트가 import 하는 형제 모듈(github_api 등)도 함께 복사돼야 한다 (#914).
+  for (const rel of listed.filter((r) => !r.includes("/"))) {
+    const source = readText(join(repoRoot, ".github/scripts", rel));
+    for (const [, name] of source.matchAll(/^\s*import ([a-z_]+)\s*$/gm)) {
+      if (!exists(join(repoRoot, ".github/scripts", `${name}.py`))) continue;  // 표준 라이브러리
+      assert.ok(listed.includes(`${name}.py`), `${rel}이 import 하는 ${name}.py 가 복사 목록에 없음`);
+    }
   }
 });
 
 test("copyScripts changelog provider 사다리(.py) 복사 (#455)", () => {
   const tmp = fresh("cp-tmp-"); const tgt = fresh("cp-tgt-");
   try {
-    // github_ai.py는 GitHub Models 종료로 복사 목록에서 빠지고 copilot.py가 들어왔다 (#566)
     const providers = ["_common.py", "ladder.py", "commit.py", "copilot.py", "openai_compatible.py"];
     for (const p of providers) writeText(join(tmp, ".github/scripts/changelog_providers", p), "# py\n");
     assert.equal(copyScripts(tmp, tgt), providers.length);

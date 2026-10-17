@@ -17,7 +17,6 @@ sys.path.insert(0, str(SCRIPTS))
 
 import _common  # noqa: E402
 import copilot  # noqa: E402
-import github_ai  # noqa: E402
 import openai_compatible  # noqa: E402
 import pr_summary_comment  # noqa: E402
 
@@ -69,10 +68,9 @@ def test_empty_fallback(monkeypatch):
 def test_ko_prompts_are_byte_identical():
     assert copilot.build_prompt("{commits}", "ko") == golden("release_notes_prompt_copilot_ko.txt")
     assert openai_compatible.build_prompt("{commits}", "ko") == golden("release_notes_prompt_openai_ko.txt")
-    assert github_ai.build_prompt("{commits}", "ko") == golden("release_notes_prompt_openai_ko.txt")
 
 
-@pytest.mark.parametrize("builder", [copilot.build_prompt, openai_compatible.build_prompt, github_ai.build_prompt])
+@pytest.mark.parametrize("builder", [copilot.build_prompt, openai_compatible.build_prompt])
 def test_en_prompts_have_no_hangul_and_name_english_sections(builder):
     text = builder("abc", "en")
     assert not HANGUL.search(text)

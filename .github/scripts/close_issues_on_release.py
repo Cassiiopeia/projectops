@@ -16,15 +16,15 @@
 환경: GITHUB_TOKEN
 """
 import argparse
-import json
 import os
 import re
 import subprocess
 import sys
 import urllib.error
-import urllib.request
 
-API = "https://api.github.com"
+import github_api
+
+API = github_api.API_ROOT
 DONE_LABELS = {"status: done", "작업완료"}
 
 
@@ -54,14 +54,7 @@ def should_close(issue: dict) -> bool:
 
 
 def _request(method: str, url: str, token: str, payload: dict | None = None):
-    data = json.dumps(payload).encode() if payload is not None else None
-    req = urllib.request.Request(url, data=data, method=method, headers={
-        "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
-        "Content-Type": "application/json", "User-Agent": "projectops-close-on-release",
-    })
-    with urllib.request.urlopen(req, timeout=30) as r:
-        body = r.read().decode()
-        return json.loads(body) if body else None
+    return github_api.request(method, url, token, payload, user_agent="projectops-close-on-release")
 
 
 def _git(*args: str) -> str:

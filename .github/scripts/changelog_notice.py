@@ -20,13 +20,11 @@ import argparse
 import json
 import os
 import sys
-import urllib.error
-import urllib.request
 
+import github_api
 from i18n.messages import resolve_language, t
 
 MARKER = "<!-- PROJECTOPS-CHANGELOG-NOTICE -->"
-API = "https://api.github.com"
 
 # 사람이 읽는 이름 — 내부 라벨을 그대로 보여주지 않는다
 LABELS = {
@@ -101,34 +99,22 @@ def build_comment(result, lang=None):
     ])
 
 
-def request(method, url, token, payload=None):
-    data = json.dumps(payload).encode("utf-8") if payload is not None else None
-    req = urllib.request.Request(url, data=data, method=method, headers={
-        "Authorization": f"token {token}",
-        "Accept": "application/vnd.github+json",
-        "Content-Type": "application/json",
-    })
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.load(resp) if resp.length != 0 else None
+# 테스트가 이 이름을 모킹한다 — upsert 가 호출 시점에 이 모듈의 request 를 쓴다
+request = github_api.request
 
 
 def upsert_comment(repo, pr, token, body):
-    """마커가 있는 기존 댓글을 찾아 갱신, 없으면 생성."""
+    """마커가 있는 기존 댓글을 찾아 갱신, 없으면 생성. 실패는 경고만 (릴리스를 막지 않음)."""
     try:
-        comments = request("GET", f"{API}/repos/{repo}/issues/{pr}/comments?per_page=100", token) or []
-    except urllib.error.URLError as e:
-        print(f"⚠️ 댓글 조회 실패 ({e}) — 안내를 건너뜁니다", file=sys.stderr)
+        action, comment_id = github_api.upsert_marker_comment(
+            repo, pr, token, body, MARKER, request_function=request)
+    except OSError as e:
+        print(f"⚠️ 안내 댓글 처리 실패 ({e}) — 릴리스는 계속됩니다", file=sys.stderr)
         return
-    existing = next((c for c in comments if MARKER in (c.get("body") or "")), None)
-    try:
-        if existing:
-            request("PATCH", f"{API}/repos/{repo}/issues/comments/{existing['id']}", token, {"body": body})
-            print(f"📝 안내 댓글 갱신 (#{existing['id']}) — 알림은 가지 않습니다")
-        else:
-            request("POST", f"{API}/repos/{repo}/issues/{pr}/comments", token, {"body": body})
-            print("📣 안내 댓글 작성")
-    except urllib.error.URLError as e:
-        print(f"⚠️ 댓글 작성 실패 ({e}) — 릴리스는 계속됩니다", file=sys.stderr)
+    if action == "updated":
+        print(f"📝 안내 댓글 갱신 (#{comment_id}) — 알림은 가지 않습니다")
+    else:
+        print("📣 안내 댓글 작성")
 
 
 def main():

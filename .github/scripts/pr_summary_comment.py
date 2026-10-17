@@ -28,11 +28,12 @@ import os
 import re
 import sys
 import urllib.error
-import urllib.request
 
+import github_api
 from i18n.messages import resolve_language, t
 
 MARKER = "<!-- PROJECTOPS-AI-SUMMARY -->"
+USER_AGENT = "projectops-pr-summary"
 
 # 앱 심사로 이어지는 레포에서만 붙는 안내(pr_summary.app_release). 리뷰어가 무게를 다르게 잡도록 한다.
 
@@ -61,32 +62,8 @@ def build_comment(raw: str, app_release: bool, lang: str | None = None) -> str:
     return "\n".join(parts)
 
 
-def _req(url: str, token: str, method: str = "GET", payload: dict | None = None):
-    data = json.dumps(payload).encode("utf-8") if payload is not None else None
-    req = urllib.request.Request(url, data=data, method=method, headers={
-        "Authorization": f"token {token}",
-        "Accept": "application/vnd.github+json",
-        "Content-Type": "application/json",
-        "User-Agent": "projectops-pr-summary",
-    })
-    with urllib.request.urlopen(req) as resp:
-        raw = resp.read().decode("utf-8")
-        return json.loads(raw) if raw else None
-
-
-def find_existing(repo: str, pr: int, token: str) -> int | None:
-    """표식을 가진 기존 요약 댓글의 id. 없으면 None."""
-    page = 1
-    while page <= 10:  # 댓글이 아주 많은 PR에서도 멈추도록 상한을 둔다
-        items = _req(f"https://api.github.com/repos/{repo}/issues/{pr}/comments"
-                     f"?per_page=100&page={page}", token) or []
-        for c in items:
-            if MARKER in (c.get("body") or ""):
-                return c.get("id")
-        if len(items) < 100:
-            return None
-        page += 1
-    return None
+def _request(method: str, url: str, token: str, payload: dict | None = None):
+    return github_api.request(method, url, token, payload, user_agent=USER_AGENT)
 
 
 def main(argv=None) -> int:
@@ -117,17 +94,10 @@ def main(argv=None) -> int:
     body = build_comment(raw, str(args.app_release).lower() == "true")
 
     try:
-        existing = find_existing(args.repo, args.pr, token)
-        if existing:
-            res = _req(f"https://api.github.com/repos/{args.repo}/issues/comments/{existing}",
-                       token, "PATCH", {"body": body})
-            out.update(ok=True, action="updated", comment_id=existing,
-                       summary=f"기존 요약 댓글 갱신 (#{existing})")
-        else:
-            res = _req(f"https://api.github.com/repos/{args.repo}/issues/{args.pr}/comments",
-                       token, "POST", {"body": body})
-            out.update(ok=True, action="created", comment_id=(res or {}).get("id"),
-                       summary="요약 댓글 작성")
+        action, comment_id = github_api.upsert_marker_comment(
+            args.repo, args.pr, token, body, MARKER, request_function=_request)
+        summary = (f"기존 요약 댓글 갱신 (#{comment_id})" if action == "updated" else "요약 댓글 작성")
+        out.update(ok=True, action=action, comment_id=comment_id, summary=summary)
     except urllib.error.HTTPError as e:
         out["summary"] = f"댓글 처리 실패: HTTP {e.code} {e.reason}"
     except Exception as e:

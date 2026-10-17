@@ -97,23 +97,6 @@ def test_openai_unknown_provider_fails(git_repo):
     assert r.returncode == 1
 
 
-# ── github-ai provider ────────────────────────────────────────────────
-
-def test_github_ai_test_mode(git_repo):
-    r = run_script("github_ai.py", git_repo, {
-        "CHANGELOG_TEST_RESPONSE": "* **개선**\n  * 응답 속도가 빨라졌습니다",
-    })
-    assert r.returncode == 0, r.stderr
-    assert "PROVIDER=github-ai" in r.stdout
-    assert "응답 속도가 빨라졌" in read_body(git_repo)
-
-
-def test_github_ai_without_token_fails(git_repo):
-    r = run_script("github_ai.py", git_repo, {"GITHUB_TOKEN": ""})
-    assert r.returncode == 1
-    assert "GITHUB_TOKEN" in r.stderr
-
-
 # ── ladder (폴백 사다리) ──────────────────────────────────────────────
 
 def read_result(cwd):
@@ -131,7 +114,7 @@ def test_ladder_commit_direct(git_repo):
 def test_ladder_retired_github_ai_absorbed(git_repo):
     """저장값이 github-ai(서비스 종료)면 호출하지 않고 곧장 다음 단으로 간다 (#566).
 
-    종전에는 사다리 1단이 github-ai라 매 릴리스마다 죽은 API를 한 번씩 때렸다.
+    호출하면 매 릴리스마다 죽은 API 를 한 번씩 때린다.
     """
     r = run_script("ladder.py", git_repo, {
         "CHANGELOG_PROVIDER": "github-ai", "GITHUB_TOKEN": "",

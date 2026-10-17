@@ -32,8 +32,9 @@ import os
 import re
 import sys
 import urllib.error
-import urllib.request
 from pathlib import Path
+
+import github_api
 
 WORKFLOWS_DIR = Path(".github/workflows")
 
@@ -49,6 +50,7 @@ SELF = "PROJECT-COMMON-RELEASE-CHANGELOG"
 #   README 갱신 같은 후속 커밋이 먼저 들어오면 그 범위에 version.yml이 없어 가드가 뚫리고
 #   버전이 한 번 더 올라간다. 순서에 기대지 않고 아예 제외한다.
 EXCLUDE = {"PROJECT-COMMON-VERSION-CONTROL"}
+USER_AGENT = "projectops-dispatch-downstream"
 
 
 def _strip_comments(text: str) -> str:
@@ -109,7 +111,10 @@ def scan(branch: str, workflows_dir: Path = WORKFLOWS_DIR) -> dict:
                 continue
             try:
                 info = parse_triggers(path.read_text(encoding="utf-8"), branch)
-            except Exception:
+            except Exception as e:
+                # 판정 불가 — 깨우지 않되 결과에 남겨 수동 확인 대상으로 드러낸다
+                sys.stderr.write(f"  ⚠️ 트리거를 읽지 못함: {path.name} ({type(e).__name__}: {e})\n")
+                unreachable.append(path.name)
                 continue
             if not info["on_push_branch"]:
                 continue
@@ -118,17 +123,10 @@ def scan(branch: str, workflows_dir: Path = WORKFLOWS_DIR) -> dict:
 
 
 def _dispatch_one(repo: str, token: str, filename: str, ref: str) -> tuple[bool, str]:
-    url = f"https://api.github.com/repos/{repo}/actions/workflows/{filename}/dispatches"
-    data = json.dumps({"ref": ref}).encode("utf-8")
-    req = urllib.request.Request(url, data=data, method="POST", headers={
-        "Authorization": f"token {token}",
-        "Accept": "application/vnd.github+json",
-        "Content-Type": "application/json",
-        "User-Agent": "projectops-dispatch-downstream",
-    })
+    url = f"{github_api.API_ROOT}/repos/{repo}/actions/workflows/{filename}/dispatches"
     try:
-        with urllib.request.urlopen(req) as resp:
-            return (200 <= resp.status < 300), f"HTTP {resp.status}"
+        status, _ = github_api.send("POST", url, token, {"ref": ref}, user_agent=USER_AGENT)
+        return (200 <= status < 300), f"HTTP {status}"
     except urllib.error.HTTPError as e:
         return False, f"HTTP {e.code} {e.reason}"
     except Exception as e:  # 네트워크 오류 등 — 릴리스 자체를 실패시키지 않는다
@@ -161,17 +159,9 @@ def _notify_pr(repo: str, pr: str, token: str, out: dict) -> None:
         "`Read and write permissions`인지",
         "- 위 워크플로우들을 Actions 탭에서 수동 실행(Run workflow)하면 이번 릴리스분이 반영됩니다",
     ]
-    payload = json.dumps({"body": "\n".join(lines)}).encode("utf-8")
-    req = urllib.request.Request(
-        f"https://api.github.com/repos/{repo}/issues/{pr}/comments",
-        data=payload, method="POST", headers={
-            "Authorization": f"token {token}",
-            "Accept": "application/vnd.github+json",
-            "Content-Type": "application/json",
-            "User-Agent": "projectops-dispatch-downstream",
-        })
     try:
-        urllib.request.urlopen(req)
+        github_api.request("POST", f"{github_api.API_ROOT}/repos/{repo}/issues/{pr}/comments",
+                           token, {"body": "\n".join(lines)}, user_agent=USER_AGENT)
         sys.stderr.write("  ℹ️ 실패 사실을 릴리스 PR에 알렸습니다\n")
     except Exception as e:  # 알림 실패가 릴리스를 막아선 안 된다
         sys.stderr.write(f"  ⚠️ PR 알림 실패: {type(e).__name__}\n")
@@ -185,7 +175,7 @@ def _log(out: dict) -> None:
     for item in out.get("failed", []):
         w(f"  ⚠️ 트리거 실패: {item['workflow']} ({item['detail']})\n")
     for name in out.get("unreachable", []):
-        w(f"  ⚠️ 깨울 수 없음(workflow_dispatch 미지원): {name}\n")
+        w(f"  ⚠️ 깨울 수 없음(workflow_dispatch 미지원 또는 트리거 판독 실패): {name}\n")
         w("     이 워크플로우는 PAT 없이는 릴리스 후 자동 실행되지 않습니다.\n")
     w(f"{out.get('summary', '')}\n")
 

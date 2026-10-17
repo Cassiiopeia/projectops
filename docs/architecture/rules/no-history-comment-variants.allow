@@ -1,7 +1,2 @@
 # no-history-comment-variants 동결 목록: 줄을 지울 수만 있고 더할 수 없다
 # 고친 파일은 이 목록에서 지운다 (규칙 테스트가 남은 줄을 잡는다)
-.github/scripts/test/test_changelog_providers.py
-src/commands/full.js
-src/core/copy/workflows.js
-src/core/options-ask.js
-src/core/run-trace.js

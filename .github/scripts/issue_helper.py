@@ -25,10 +25,10 @@ import os
 import re
 import sys
 import unicodedata
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+import github_api
 from i18n.contracts import BRANCH_HEADING, LEGACY_COMMENT, LEGACY_SIGNATURE  # 번역하지 않는 계약 문자열 (#787)
 from i18n.messages import resolve_language, t
 
@@ -321,30 +321,18 @@ def prepare_comment(payload: dict, cfg: dict, workflows_dir: Path, date_yyyymmdd
     return branch, commit_message, body
 
 
-# ── GitHub API (urllib — 같은 레포 이슈 댓글이라 redirect 없음) ──────────────
-_API = "https://api.github.com"
-
+# ── GitHub API (공통 github_api — timeout·인증 헤더 통일) ──────────────────
 # 구 액션이 남긴 댓글도 upsert 대상으로 매칭 (중복 댓글 방지 — 하위호환)
 LEGACY_MARKER_HINTS = ("github-issue-helper", "SUH-ISSUE-HELPER 에 의해 자동으로")
-
-
-def _request(method: str, url: str, token: str, data: dict | None = None):
-    req = urllib.request.Request(url, method=method)
-    req.add_header("Authorization", f"token {token}")
-    req.add_header("Accept", "application/vnd.github+json")
-    payload = None
-    if data is not None:
-        payload = json.dumps(data).encode("utf-8")
-        req.add_header("Content-Type", "application/json")
-    with urllib.request.urlopen(req, payload) as res:
-        return json.loads(res.read().decode("utf-8"))
+# 댓글 조회 상한 (100개 × 50쪽) — 이슈 댓글이 많아도 기존 안내를 놓치지 않도록 넉넉히
+MAX_COMMENT_PAGES = 50
 
 
 def find_existing_comment(comments: list, marker: str):
     """신형 마커 우선, 없으면 구 액션 마커 힌트로 매칭."""
-    for c in comments:
-        if marker in (c.get("body") or ""):
-            return c
+    found = github_api.find_marker_comment(comments, marker)
+    if found:
+        return found
     for c in comments:
         body = c.get("body") or ""
         if any(hint in body for hint in LEGACY_MARKER_HINTS):
@@ -353,26 +341,11 @@ def find_existing_comment(comments: list, marker: str):
 
 
 def upsert_comment(owner: str, repo: str, issue_number: int, marker: str, body: str, token: str):
-    comments = []
-    page = 1
-    while True:
-        batch = _request(
-            "GET",
-            f"{_API}/repos/{owner}/{repo}/issues/{issue_number}/comments?per_page=100&page={page}",
-            token)
-        comments.extend(batch)
-        if len(batch) < 100:
-            break
-        page += 1
-
-    existing = find_existing_comment(comments, marker)
-    if existing:
-        _request("PATCH", f"{_API}/repos/{owner}/{repo}/issues/comments/{existing['id']}",
-                 token, {"body": body})
-        return "updated"
-    _request("POST", f"{_API}/repos/{owner}/{repo}/issues/{issue_number}/comments",
-             token, {"body": body})
-    return "created"
+    action, _ = github_api.upsert_marker_comment(
+        f"{owner}/{repo}", issue_number, token, body, marker,
+        find_function=lambda comments: find_existing_comment(comments, marker),
+        max_pages=MAX_COMMENT_PAGES)
+    return action
 
 
 def main() -> int:

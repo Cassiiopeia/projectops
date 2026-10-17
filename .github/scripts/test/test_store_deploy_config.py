@@ -135,7 +135,7 @@ def test_review_guard_는_확인에_실패해도_배포를_막지_않는다(monk
     monkeypatch.setenv("PROMOTE_TO_CLOSED_TESTING", "true")
     monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
     monkeypatch.setenv("GITHUB_WORKFLOW_REF", "o/r/.github/workflows/X.yaml@refs/heads/main")
-    import urllib.request
-    monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: (_ for _ in ()).throw(OSError("network")))
+    import github_api
+    monkeypatch.setattr(github_api, "request", lambda *a, **k: (_ for _ in ()).throw(OSError("network")))
     assert c.main(["review-guard", "--file", str(tmp_path / "none.json")]) == 0
     assert not env.exists(), "확인 실패로 승급을 끄면 안 된다 — 경고만 남긴다"
