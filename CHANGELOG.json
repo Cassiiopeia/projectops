@@ -1,14 +1,45 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-16T11:24:18Z",
-    "currentVersion": "4.54.0",
+    "lastUpdated": "2026-10-17T11:16:25Z",
+    "currentVersion": "4.55.0",
     "projectType": "basic",
-    "totalReleases": 317,
+    "totalReleases": 318,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.55.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-17",
+      "pr_number": 900,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * pro-launch에 공식 트러블슈팅 지식창고가 생겼습니다. 실패 응답에 알려진 해결법(`known_fix`)이 함께 실리고, `kb search·show·list·propose`로 찾아볼 수 있습니다. 세션 기록 분석에서 나온 항목 23건이 들어 있습니다.\n  * 웹 조작이 늘었습니다: `web inspect`(입력칸·버튼·체크박스·select 상태 읽기), `web text --grep`, `web select·check·press·hover·dialog·download`.\n  * 앱 조작이 늘었습니다: `app terminate·relaunch·location·permission·push·openurl`, iOS `app type`, 여러 단계를 Maestro 한 번으로 도는 `app run --steps`.\n  * 모든 명령에 `--brief`·`--fields`가 생겨 응답을 줄여 받아도 `next`와 해결 힌트가 남습니다.\n  * 플러그인 버전이 바뀌어도 쓸 수 있는 고정 진입점 `~/.projectops/bin/launch_cli.py`가 생겼습니다.\n\n* **개선**\n  * 비활성 요소를 누르거나 입력하면 10초를 기다리지 않고 바로 `element_disabled`로 알립니다.\n  * `web  --help`가 그 동작에 쓰는 옵션만 보여 주고, 맞지 않는 옵션은 거절합니다.\n  * 렌더 실패 시 첫 컴파일 오류 줄을 `first_error`로 따로 알려 주고, 렌더 레시피의 import 누락을 보강했습니다.",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "pro-launch에 공식 트러블슈팅 지식창고가 생겼습니다. 실패 응답에 알려진 해결법(`known_fix`)이 함께 실리고, `kb search·show·list·propose`로 찾아볼 수 있습니다. 세션 기록 분석에서 나온 항목 23건이 들어 있습니다.",
+            "웹 조작이 늘었습니다: `web inspect`(입력칸·버튼·체크박스·select 상태 읽기), `web text --grep`, `web select·check·press·hover·dialog·download`.",
+            "앱 조작이 늘었습니다: `app terminate·relaunch·location·permission·push·openurl`, iOS `app type`, 여러 단계를 Maestro 한 번으로 도는 `app run --steps`.",
+            "모든 명령에 `--brief`·`--fields`가 생겨 응답을 줄여 받아도 `next`와 해결 힌트가 남습니다.",
+            "플러그인 버전이 바뀌어도 쓸 수 있는 고정 진입점 `~/.projectops/bin/launch_cli.py`가 생겼습니다."
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "비활성 요소를 누르거나 입력하면 10초를 기다리지 않고 바로 `element_disabled`로 알립니다.",
+            "`web <동작> --help`가 그 동작에 쓰는 옵션만 보여 주고, 맞지 않는 옵션은 거절합니다.",
+            "렌더 실패 시 첫 컴파일 오류 줄을 `first_error`로 따로 알려 주고, 렌더 레시피의 import 누락을 보강했습니다."
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.54.0",
       "project_type": "basic",
