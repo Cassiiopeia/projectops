@@ -189,7 +189,7 @@ jobs:
           - version.yml → 0.0.0, basic 타입으로 초기화
           - CHANGELOG.md, CHANGELOG.json → 삭제
           - LICENSE, CONTRIBUTING.md → 삭제
-          - 테스트 폴더들 (.github/scripts/test, .github/workflows/test) → 삭제
+          - 테스트 폴더 (.github/scripts/test) → 삭제
           - README.md → 기본 템플릿으로 초기화  
           - 이슈 템플릿 assignee → ${{ github.repository_owner }}로 변경
           - 템플릿 초기화 워크플로우 삭제 (일회성 실행 완료)

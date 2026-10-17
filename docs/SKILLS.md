@@ -384,7 +384,7 @@ Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json
 
 ## Extras (선택 플러그인)
 
-`/pro-synology-expose`(시놀로지 NAS 서비스를 외부 도메인으로 노출하는 가이드)와 `/pro-architecture-consult`(AI가 짠 코드를 코딩 규칙에 맞게 점검·리팩터링하고, 변경분마다 낡은 주석·중복을 검사하며, 기존 위반을 동결 목록으로 묶어 줄여 가는 스킬)는 코어 플러그인에 없고 선택 플러그인 `projectops-extras`에 있습니다.
+`/pro-synology-expose`(시놀로지 NAS 서비스를 외부 도메인으로 노출하는 가이드)와 `/pro-code-consult`(AI가 짠 코드를 코딩 규칙에 맞게 점검·리팩터링하고, 변경분마다 낡은 주석·중복을 검사하며, 기존 위반을 동결 목록으로 묶어 줄여 가는 스킬)는 코어 플러그인에 없고 선택 플러그인 `projectops-extras`에 있습니다.
 
 ```bash
 # Claude Code

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""arch_cli: pro-architecture-consult 사실 수집 CLI — 판단은 에이전트, 출력은 항상 JSON (ok·code·summary·next)
+"""arch_cli: pro-code-consult 사실 수집 CLI — 판단은 에이전트, 출력은 항상 JSON (ok·code·summary·next)
 
 extras 플러그인은 자기 폴더만 설치되므로 scripts/common 을 쓰지 않는다 (표준 라이브러리 전용).
 """
@@ -115,7 +115,7 @@ def cmd_get_output_path(args, root):
 
 
 def build_parser() -> JsonArgumentParser:
-    parser = JsonArgumentParser(prog="arch_cli", description="pro-architecture-consult 사실 수집 CLI")
+    parser = JsonArgumentParser(prog="arch_cli", description="pro-code-consult 사실 수집 CLI")
     sub = parser.add_subparsers(dest="command", parser_class=JsonArgumentParser)
 
     def add(name, handler, help_text, has_limit=False):

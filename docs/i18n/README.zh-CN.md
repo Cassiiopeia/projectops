@@ -176,7 +176,7 @@ Skill 会按你的风格输出。把偏好写进 `~/.projectops/config/config.js
 | `/pro-ssh` | 通过 SSH 连接远程服务器并执行命令（AWS EC2、Synology NAS、Linux 等通用） |
 | `/pro-skill-creator` | 创建/审查/改进 Skill（CREATE / REVIEW / IMPROVE 三种模式） |
 
-**Extras**（可选插件）：`/pro-architecture-consult`（维护 AI 编写的代码：审计、逐项重构、检查每次改动、冻结违规），`/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
+**Extras**（可选插件）：`/pro-code-consult`（维护 AI 编写的代码：审计、逐项重构、检查每次改动、冻结违规），`/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 </details>
 

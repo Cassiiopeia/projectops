@@ -652,7 +652,7 @@ python3 .github/scripts/changelog_manager.py classify-bump --commits-file commit
 ```
 CLAUDE.md, CONTRIBUTING.md, LICENSE
 CHANGELOG.md, CHANGELOG.json
-docs/, .github/scripts/test/, .github/workflows/test/
+docs/, .github/scripts/test/
 .claude-plugin/, .codex-plugin/, .agents/, .cursor/, skills/, scripts/
 package.json, harness/         # pi 패키지 매니페스트 + Persona Harness
 plugins/                       # extras 선택 플러그인 (projectops-extras)
@@ -780,7 +780,7 @@ claude plugin marketplace add Cassiiopeia/projectops
 claude plugin install projectops@projectops-marketplace --scope user
 ```
 
-> 설계·계획·구현은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 맡는다. 아래 표(코어 14종 + extras 1종)에는 분석·계획·구현 스킬이 없다.
+> 설계·계획·구현은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 맡는다. 아래 표(코어 14종 + extras 2종)에는 분석·계획·구현 스킬이 없다.
 
 | 명령어 | 용도 |
 |--------|------|
@@ -792,7 +792,7 @@ claude plugin install projectops@projectops-marketplace --scope user
 | `report` | 구현 보고서 생성 |
 | `changelog-deploy` | develop push → main으로 릴리스 PR(deploy PR) → 버전 확정 + automerge / automerge 실패 시 재트리거 |
 | `synology-expose` | 시놀로지 서비스 외부 노출 가이드 (**extras 선택 플러그인** `projectops-extras` — `plugins/projectops-extras/`, 공유 문서 사본은 `scripts/sync_extras.py`로 동기화) |
-| `architecture-consult` | **AI가 짠 코드 관리** (**extras**) — 코딩 규칙 기준 점검·한 항목씩 리팩터링(전후 실행 대조)·변경분 검사(낡은 주석·중복)·위반 동결 목록(`docs/architecture/rules/`, 줄을 지울 수만 있음). CLI `arch_cli.py`는 extras가 자기 폴더만 설치되므로 `scripts/common`을 쓰지 않는다 (#867) |
+| `code-consult` | **AI가 짠 코드 관리** (**extras**) — 코딩 규칙 기준 점검·한 항목씩 리팩터링(전후 실행 대조)·변경분 검사(낡은 주석·중복)·위반 동결 목록(`docs/architecture/rules/`, 줄을 지울 수만 있음). CLI `arch_cli.py`는 extras가 자기 폴더만 설치되므로 `scripts/common`을 쓰지 않는다 (#867) |
 | `ssh` | 원격 서버 SSH 접속 및 명령 실행 (AWS EC2, 시놀로지 NAS, Linux 서버 등) |
 | `skill-creator` | skill 생성/리뷰/개선 (CREATE·REVIEW·IMPROVE 3모드) |
 | `agent-test` | **앱·웹·서버를 실제로 실행해 밟는다** (E2E·증적) — 문서만 쓰는 `testcase`와 다르다 |
@@ -811,8 +811,8 @@ skills/
 ├── {skill-name}/SKILL.md
 ├── config.json.example       # 전체 config 구조 예시 (모든 skill_id 섹션 포함)
 └── references/
-    ├── common-rules.md       # 절대 규칙, 커밋 컨벤션, 작업 시작 프로토콜(페르소나 로드 포함)
-    ├── personas.md           # 5 전문가 페르소나 + 6 마인드셋 (harness/PERSONA.md single source) — 코드 스킬이 시작 시 로드
+    ├── common-rules.md       # 절대 규칙, 커밋 컨벤션, 작업 시작 프로토콜
+    ├── personas.md           # 5 전문가 페르소나 + 6 마인드셋 (harness/PERSONA.md single source) — 로드하는 스킬 없음 (harness 사본)
     ├── approval-and-questions.md # 산출물 skill 8종의 승인 게이트 + 시작 전 핵심 질문 표준 (#526)
     ├── config-rules.md       # config 경로·스키마·읽기/쓰기 표준
     ├── mcp-subcommand-rules.md # skill CLI(<scope>_cli.py) 서브커맨드 MCP-style 설계 표준 (JSON+next, 코드 템플릿)
@@ -830,7 +830,7 @@ skills/
 2. **config 경로·스키마는 `references/config-rules.md` 참조** — skill 내 직접 기술 금지
 3. **GitHub API는 각 skill의 `<scope>_cli.py` 서브커맨드로 호출** (`scripts/common/gh_client` 경유) — `gh` CLI 금지
 4. **OS 호환성**: Python 실행 시 `PYTHON=$(command -v python3 2>/dev/null || command -v python 2>/dev/null)` 패턴 사용
-5. **skill 시작 시 필독**: `references/common-rules.md` → (코드 스킬이면) `references/personas.md`에서 자기 페르소나 로드 → (config 필요 시) `references/config-rules.md` → (기술별) `tech-*.md`
+5. **skill 시작 시 필독**: `references/common-rules.md` → (config 필요 시) `references/config-rules.md` → (기술별) `tech-*.md`
 5.5. **산출물(md)을 만드는 skill이면** `references/approval-and-questions.md`를 따른다 — 시작 전 핵심 질문, 저장 전 승인 게이트, 첫 실행 1회 자동화 제안. 저장 경로는 각 skill CLI의 `get-output-path`로 받고 직접 조립하지 않는다 (#525·#526)
 6. **Python 행동 로직은 재사용 스크립트 파일 + MCP-style 표준** — 아래 "Python 행동 스크립트 표준" 절을 따른다. SKILL.md에 긴 Python heredoc 인라인 금지.
 
@@ -843,6 +843,7 @@ skills/
 
 #### 1. 로직은 재사용 스크립트 파일에 둔다
 
+- **진입 파일은 얇게, 서브커맨드는 패키지로, 파일당 450줄.** 진입 `<scope>_cli.py`는 파서·등록만 두고 서브커맨드 구현은 옆 패키지에 둔다 (모범: `skills/pro-launch/scripts/pro_launch/`). 상한은 `scripts/tests/architecture/test_python_file_size.py`가 지킨다 — 넘는 기존 파일은 그 안의 동결 목록에만 둔다.
 - `skills/{skill-name}/scripts/{name}.py` 에 행동 로직을 고정 파일로 저장한다.
 - SKILL.md는 **호출법만** 기술한다 (서브커맨드·인자·환경변수). 긴 Python 코드를 SKILL.md에 인라인하지 않는다.
 - 이유: SKILL.md는 LLM이 매번 재입력하는 문서다. redirect strip 같은 핵심 로직을 인라인하면 재입력 시 누락·오타 위험.
@@ -925,7 +926,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 
 ### skill별 CLI 커맨드 (3-layer 아키텍처)
 
-각 skill이 자체 `scripts/<scope>_cli.py`를 보유한다. 호출 패턴 = self-contained 5줄 (`skills/references/common-rules.md` §"skill별 py 분산 호출" 참조).
+각 skill이 자체 `scripts/<scope>_cli.py`를 보유한다. 서브커맨드가 많은 CLI는 **진입 파일 + 같은 폴더의 패키지**로 나뉜다 — 진입 파일은 파서와 등록만, 서브커맨드 구현은 패키지(`pro_github/`·`pro_agent_test/`·`pro_design_brief/`·`figma_tools/`·`oss_consult/`·`pro_launch/`, 워크트리는 `scripts/git_worktree/`). 호출 패턴 = self-contained 5줄 (`skills/references/common-rules.md` §"skill별 py 분산 호출" 참조).
 
 | skill | cli 파일 | 주요 서브커맨드 |
 |---|---|---|
@@ -934,7 +935,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | report | `skills/pro-report/scripts/report_cli.py` | get-output-path, add-comment |
 | review | `skills/pro-review/scripts/review_cli.py` | get-output-path |
 | changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` | actions, deploy-status, list-prs, update-pr, create-pr, detect-release-context |
-| analyze / plan / testcase | `skills/pro-<skill>/scripts/<scope>_cli.py` | get-output-path (#525·#623에서 신설 — 이전엔 경로 계산 수단이 없었다) |
+| testcase | `skills/pro-testcase/scripts/testcase_cli.py` | get-output-path (#525·#623) |
 | init-worktree | `skills/pro-init-worktree/scripts/worktree_cli.py` | recall, record (지난번 복사한 로컬 파일 세트를 기억 — #839) |
 | figma | `skills/pro-figma/scripts/figma_cli.py` | get-output-path, coverage, assets, conform, diff |
 | agent-test | `skills/pro-agent-test/scripts/e2e_cli.py` | detect, scenario, note, api, other (실행·캡처 명령은 pro-launch 로 넘겨준다 — #631) |

@@ -1,6 +1,7 @@
 """conventions·install-tests·get-output-path: 스킬 정본 > 대상 프로젝트 설치 (덮어쓰지 않음)
 
-설치본 머리 표식 1줄: <!-- pro-architecture-consult:installed sha256=<정본 본문 해시> -->
+설치본 머리 표식 1줄: <!-- pro-code-consult:installed sha256=<정본 본문 해시> -->
+(옛 스킬 이름 pro-architecture-consult 표식도 같은 설치본으로 읽음)
 상태 4종: same(정본과 같음) / outdated(정본이 바뀜) / locally_modified(프로젝트 자체 수정본 — 그 프로젝트의 규칙) / missing
 """
 from __future__ import annotations
@@ -19,7 +20,7 @@ STACK_SOURCES_DIRECTORY = SKILL_DIRECTORY / "references" / "stacks"
 RULE_TEST_TEMPLATES_DIRECTORY = SKILL_DIRECTORY / "templates" / "rule-tests"
 
 STACKS = ("flutter", "spring", "python", "javascript")
-INSTALLED_MARKER_PATTERN = re.compile(r"^<!-- pro-architecture-consult:installed sha256=([0-9a-f]{64}) -->\n\n?")
+INSTALLED_MARKER_PATTERN = re.compile(r"^<!-- pro-(?:code|architecture)-consult:installed sha256=([0-9a-f]{64}) -->\n\n?")
 # 규칙 테스트 템플릿 > 모듈 안 설치 위치
 RULE_TEST_DESTINATIONS = {
     "flutter": ("architecture_rules_test.dart", "test/architecture/architecture_rules_test.dart"),
@@ -55,7 +56,7 @@ def install_documents(root: Path, stacks: list[str], is_force: bool) -> dict:
             continue
         body = source.read_text(encoding="utf-8")
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(f"<!-- pro-architecture-consult:installed sha256={_hash(body)} -->\n\n{body}", encoding="utf-8")
+        target.write_text(f"<!-- pro-code-consult:installed sha256={_hash(body)} -->\n\n{body}", encoding="utf-8")
         written.append(str(target.relative_to(root)))
     return {"written": written, "skipped": skipped,
             "summary": f"설치 {len(written)}, 건너뜀 {len(skipped)}",

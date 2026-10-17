@@ -77,6 +77,7 @@ test("핵심 pro- 스킬 폴더가 모두 존재한다", () => {
   // 설치본의 옛 pro-figma-verify는 Cursor 어댑터가 "소스에 없는 pro-*"로 보고 지운다.
   // pro-analyze·pro-plan·pro-implement는 #849에서 삭제됨 — superpowers(brainstorming·writing-plans·executing-plans)와 역할이 겹쳤다
   // pro-note·pro-build는 #853에서 삭제됨 — 쌓인 기록이 0건이었고, 빌드 명령은 agent가 마커 파일로 직접 정한다
+  // extras의 pro-architecture-consult는 #912에서 pro-code-consult로 이름이 바뀜 — 옛 설정 키·설치 표식은 폴백으로 읽는다
   //
   // 이 목록은 "있어야 하는 것"만 담는다. 새 스킬이 늘어도 이 테스트는 건드리지 않아도 되지만,
   // **스킬을 지울 때는 여기서도 빼야 한다** — 실제로 #582가 이걸 빠뜨려 develop이 깨진 채 있었다.
@@ -119,4 +120,35 @@ test("@suh-lab 트리거 잔재가 없다(외부 봇 서명 Guide by SUH-LAB은 
 test("보존: 외부 봇 서명 'Guide by SUH-LAB' 매칭이 살아있다", () => {
   const hits = findFiles("Guide by SUH-LAB", [".github/"]);
   assert.ok(hits.length > 0, "'Guide by SUH-LAB' 서명 매칭이 사라짐(빌드 트리거 파손)");
+});
+
+test("스킬 개수·목록이 폴더 ↔ 매니페스트 ↔ README·CLAUDE.md 에서 같다", () => {
+  // 실제 폴더 (SKILL.md 있는 것만)
+  const listSkills = (dir, prefix) => readdirSync(join(ROOT, dir))
+    .filter((d) => d.startsWith(prefix) && existsSync(join(ROOT, dir, d, "SKILL.md"))).sort();
+  const core = listSkills("skills", "pro-");
+  const extras = listSkills("plugins/projectops-extras/skills", "pro-");
+  const read = (path) => readFileSync(join(ROOT, path), "utf-8");
+  const expectIn = (path, needles) => {
+    const text = read(path);
+    const missing = needles.filter((n) => !text.includes(n));
+    assert.deepEqual(missing, [], `${path} 에 없음`);
+  };
+
+  // 매니페스트 설명의 개수
+  const market = JSON.parse(read(".claude-plugin/marketplace.json")).plugins;
+  const descriptionOf = (name) => market.find((p) => p.name === name).description;
+  assert.ok(descriptionOf("projectops").includes(`(${core.length} skills)`), "marketplace projectops 개수");
+  assert.ok(descriptionOf("projectops-extras").includes(`(${extras.length} skills)`), "marketplace extras 개수");
+  for (const manifest of [".claude-plugin/plugin.json", ".codex-plugin/plugin.json"]) {
+    assert.ok(JSON.parse(read(manifest)).description.includes(`(${core.length} skills)`), `${manifest} 개수`);
+  }
+
+  // 문서의 개수 표기와 목록
+  expectIn("README.md", [`**Agent Skills** (${core.length})`, `See all ${core.length} Agent Skills`,
+    ...[...core, ...extras].map((s) => `\`/${s}\``)]);
+  expectIn("CLAUDE.md", [`코어 ${core.length}종 + extras ${extras.length}종`,
+    ...[...core, ...extras].map((s) => `| \`${s.slice("pro-".length)}\` |`)]);
+  expectIn("docs/SKILLS.md", [`Skill 전체 목록 (${core.length}종)`, ...core.map((s) => `### \`/${s}\``)]);
+  expectIn("plugins/projectops-extras/README.md", extras.map((s) => `| \`${s}\` |`));
 });

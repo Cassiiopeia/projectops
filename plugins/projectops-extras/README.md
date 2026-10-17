@@ -4,7 +4,7 @@ Optional plugin from the projectops marketplace. It holds skills that are not pa
 
 | Skill | Purpose |
 |-------|---------|
-| `pro-architecture-consult` | Keep AI-written code maintainable: audit against your coding conventions, refactor one approved item at a time with before/after checks, check each diff for stale or prose comments and duplicated code, and freeze existing violations so they only shrink (rule tests for Flutter, Spring, Python, JavaScript) |
+| `pro-code-consult` | Keep AI-written code maintainable: audit against your coding conventions, refactor one approved item at a time with before/after checks, check each diff for stale or prose comments and duplicated code, and freeze existing violations so they only shrink (rule tests for Flutter, Spring, Python, JavaScript) |
 | `pro-synology-expose` | Guide for exposing a web service on a Synology NAS under your own domain (DNS, reverse proxy, certificate) |
 
 ## Install

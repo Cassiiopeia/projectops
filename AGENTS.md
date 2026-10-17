@@ -54,7 +54,7 @@ No slash-command UI is needed; read the file directly.
 | Create a git worktree for an issue | `pro-init-worktree` |
 | Run commands on a remote server over SSH | `pro-ssh` |
 | Expose a Synology service on a domain | `pro-synology-expose` (optional `projectops-extras` plugin) |
-| Audit or refactor AI-written code, check a diff for stale comments, install coding conventions | `pro-architecture-consult` (optional `projectops-extras` plugin) |
+| Audit or refactor AI-written code, check a diff for stale comments, install coding conventions | `pro-code-consult` (optional `projectops-extras` plugin) |
 | Create, review or improve a skill | `pro-skill-creator` |
 
 ## Installing the skills

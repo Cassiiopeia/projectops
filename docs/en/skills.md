@@ -381,7 +381,7 @@ Skills write in your style. Put your preferences in `~/.projectops/config/config
 
 ## Extras (optional plugin)
 
-`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain) and `/pro-architecture-consult` (audit and refactor AI-written code against your coding conventions, check each diff for stale comments and duplicates, and freeze existing violations so they only shrink) are not in the core plugin. They live in the optional `projectops-extras` plugin.
+`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain) and `/pro-code-consult` (audit and refactor AI-written code against your coding conventions, check each diff for stale comments and duplicates, and freeze existing violations so they only shrink) are not in the core plugin. They live in the optional `projectops-extras` plugin.
 
 ```bash
 # Claude Code

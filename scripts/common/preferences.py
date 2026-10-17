@@ -27,6 +27,19 @@ def _as_dict(x: object) -> dict:
     return x if isinstance(x, dict) else {}
 
 
+# 스킬 이름 > 옛 이름 (설정 키 skills.<옛 이름> 폴백 — 새 이름 키가 있으면 그쪽 우선)
+PREVIOUS_SKILL_IDS = {"pro-code-consult": ("pro-architecture-consult",)}
+
+
+def _skill_layer(skills: object, skill_id: str) -> tuple:
+    """skills 맵 > (설정 층, 실제 키): 새 이름 먼저, 없으면 옛 이름 (#912)"""
+    skills = _as_dict(skills)
+    for key in (skill_id, *PREVIOUS_SKILL_IDS.get(skill_id, ())):
+        if key in skills:
+            return skills[key], key
+    return None, skill_id
+
+
 # 형식을 정하는 키 쌍. 한 층이 둘 중 하나라도 정하면 앞 층의 쌍을 통째로 버린다 —
 # 그렇지 않으면 레포 층의 preset 이 전역 template 에 늘 져서 "레포마다 다른 형식"을 쓸 수 없다.
 FORMAT_KEYS = ("template", "preset")
@@ -91,14 +104,15 @@ def resolve(skill_id: str, owner: Optional[str] = None, repo: Optional[str] = No
 
     skill_allowed = COMMON_KEYS + SKILL_KEYS
     _take(data.get("preferences"), COMMON_KEYS, "preferences", values, sources, ignored)
-    _take(_as_dict(data.get("skills")).get(skill_id), skill_allowed, f"skills.{skill_id}", values, sources, ignored)
+    layer, key = _skill_layer(data.get("skills"), skill_id)
+    _take(layer, skill_allowed, f"skills.{key}", values, sources, ignored)
 
     entry = _find_repo(data, owner, repo)
     if entry is not None:
         tag = f"repos[{entry.get('owner')}/{entry.get('repo')}]"
         _take(entry.get("preferences"), COMMON_KEYS, f"{tag}.preferences", values, sources, ignored)
-        _take(_as_dict(entry.get("skills")).get(skill_id), skill_allowed, f"{tag}.skills.{skill_id}",
-              values, sources, ignored)
+        layer, key = _skill_layer(entry.get("skills"), skill_id)
+        _take(layer, skill_allowed, f"{tag}.skills.{key}", values, sources, ignored)
     return {"values": values, "sources": sources, "ignored": ignored, "config_status": status}
 
 

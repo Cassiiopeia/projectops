@@ -1,9 +1,9 @@
 ---
-name: pro-architecture-consult
+name: pro-code-consult
 description: "Keep AI-written code maintainable by your conventions: audit, refactor one approved item with before/after checks, check diffs for stale comments and duplicates, freeze violations so they only shrink. Use for 'refactor', 'clean up AI code', 'audit architecture', 'install my conventions'."
 ---
 
-# Architecture Consulting Mode
+# Code Consulting Mode
 
 ## When to use
 
@@ -59,12 +59,12 @@ CLI는 판단 단서를 함께 준다: 출처(`excluded`·`origin`), 운영/테�
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-SCRIPTS="$ROOT/plugins/projectops-extras/skills/pro-architecture-consult/scripts"
+SCRIPTS="$ROOT/plugins/projectops-extras/skills/pro-code-consult/scripts"
 [ -d "$SCRIPTS" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops-extras/*skills/pro-architecture-consult/scripts" 2>/dev/null | sort -V | tail -1)
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops-extras/*skills/pro-code-consult/scripts" 2>/dev/null | sort -V | tail -1)
   [ -n "$H" ] && { SCRIPTS="$H"; break; }
 done
-[ -d "$SCRIPTS" ] || { echo "pro-architecture-consult 스크립트를 찾지 못했습니다. projectops-extras 설치를 확인하세요."; exit 1; }
+[ -d "$SCRIPTS" ] || { echo "pro-code-consult 스크립트를 찾지 못했습니다. projectops-extras 설치를 확인하세요."; exit 1; }
 echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS"
 ```
 
@@ -94,6 +94,6 @@ Bash 도구는 호출마다 상태가 초기화된다. 출력된 실제 경로�
 
 ## Customize
 
-Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with `SKILL_ID=pro-architecture-consult`.
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with `SKILL_ID=pro-code-consult`.
 Preferences change how reports and proposals are written; approval gates and the frozen-list rule stay in force.
 The project's own `docs/architecture/CONVENTIONS.md`, when locally modified, overrides `references/conventions.md` for that project.

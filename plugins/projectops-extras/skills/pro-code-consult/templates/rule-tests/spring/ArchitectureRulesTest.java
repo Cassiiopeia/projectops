@@ -24,7 +24,7 @@ import org.junit.jupiter.api.TestFactory;
 
 /**
  * 아키텍처 규칙 테스트: docs/architecture/rules/<id>.rule 위반 <-> <id>.allow 대조
- * 규칙은 rules 폴더에서 고친다 (이 파일은 pro-architecture-consult 템플릿 — 판정 로직만)
+ * 규칙은 rules 폴더에서 고친다 (이 파일은 pro-code-consult 템플릿 — 판정 로직만)
  */
 class ArchitectureRulesTest {
 
