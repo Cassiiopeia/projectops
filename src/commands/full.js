@@ -1,4 +1,4 @@
-// full 모드 오케스트레이터 (.sh execute_integration full case 등가) — template_integrator.sh 4502~4514.
+// full 모드 오케스트레이터.
 // 복사 순서: version.yml → readme → workflows → (deploy블록) → scripts → config →
 //            util(타입별) → issue → discussion → coderabbit → gitignore → setup_guide → (옵션저장)
 import { join } from "node:path";
@@ -32,7 +32,7 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
     force = true, now, today, templateVersion, deployBranch = "",
     deployTarget, publishTargets, codeReviewCoderabbit, labelStyle, language } = context;
 
-  // project_paths 마커 계산 (.sh existing_marker_in_dir 등가 — 대표 마커명)
+  // project_paths 마커 계산 (대표 마커명)
   const pathMarkers = new Map();
   for (const [t] of paths) pathMarkers.set(t, markerForType(t));
 
@@ -46,7 +46,7 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
   const deployValues = mergeDeployValues(existsSync(vyFile) ? readFileSync(vyFile, "utf8") : "",
     wfCounters.deployValues || new Map()); // Map<type, Map<key,value>
 
-  // 1. version.yml 생성 (전체 재생성 — metadata → deploy → template 순, .sh 최종형과 동일)
+  // 1. version.yml 생성 (전체 재생성 — metadata → deploy → template 순)
   step("write-version-yml", () => writeText(join(targetRoot, PATHS.versionFile),
     buildVersionYml({
       version, types, paths, pathMarkers, branch, deployBranch, versionCode, now, today,

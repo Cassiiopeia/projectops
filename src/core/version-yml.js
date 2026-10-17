@@ -1,6 +1,5 @@
-// version.yml 파싱·생성 (.sh create_version_yml 등가, 전체 재생성 전략 D4).
-// ⚠️ YAML 재직렬화 금지 — 주석이 데이터. .sh heredoc과 바이트 동일한 템플릿 문자열.
-// 실측 기준: template_integrator.sh 2184~2354.
+// version.yml 파싱·생성 (전체 재생성 전략 D4).
+// ⚠️ YAML 재직렬화 금지 — 주석이 데이터. 템플릿 문자열로 바이트 단위 고정.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { DEPLOY_TARGETS, LABEL_STYLES } from "./constants.js";
@@ -118,6 +117,7 @@ const COMMENTS = {
     excluded: "workflow files the update must never install (safe to edit by hand)",
     storeLocales: "store release-note languages, first is the default (missing = one text for every store language)",
     storeLocalesStore: "same, only for this store when its languages differ from store_locales (optional)",
+    legacyDeployBranch: "old name of development_branch, kept equal for older skills",
   },
   ko: {
     versionCode: "app build number",
@@ -135,6 +135,7 @@ const COMMENTS = {
     excluded: "업데이트가 절대 설치하지 않을 워크플로우 파일 (직접 수정 가능)",
     storeLocales: "스토어 릴리스 노트 언어 목록, 첫 항목이 기본 언어 (미기재면 모든 스토어 언어에 같은 문구)",
     storeLocalesStore: "이 스토어만 언어 구성이 store_locales 와 다를 때 쓰는 선택 키",
+    legacyDeployBranch: "development_branch 의 구 이름 — 구버전 스킬용으로 같은 값 유지",
   },
 };
 const commentsFor = (lang) => COMMENTS[lang === "ko" ? "ko" : "en"];
@@ -151,7 +152,7 @@ export function resolveUpdatedBy(existingContent = "", cwd = ".") {
   return m && m[1] ? m[1] : "template_integrator";
 }
 
-// metadata.template.options 상태머신 파싱 (.sh read_template_options L2361~2416 등가).
+// metadata.template.options 상태머신 파싱.
 // 반환(#439 배포/publish 축): { deploy: string|null, publish: string[]|null, secretBackup: bool|null }
 //   deploy: 'docker-ssh'|'vercel'|'none', publish: ['nexus','npm','github-packages'] 부분집합. null=미기재.
 // 구 키(nexus/npm_publish/synology)는 신 축으로 자동 마이그레이션해 읽는다 (v4.2.0 이전 파일 호환):
@@ -164,16 +165,12 @@ export function parseTemplateOptions(content) {
   const out = { deploy: null, publish: null, secretBackup: null,
                 changelogProvider: null, changelogBaseUrl: null, codeReviewCoderabbit: null, aiPrSummary: null, projectsSync: null,
                 deployBranch: null, intent: null, semverAuto: null, appRelease: null, labelStyle: null, closeOnRelease: null, language: null, excludedWorkflows: null, storeLocales: null, storeLocalesIos: null, storeLocalesPlay: null };
-  // deploy_branch는 metadata 직속(#456) — template.options 밖이라 별도로 스캔한다.
-  for (const line of String(content || "").split("\n")) {
-    if (line.startsWith("#")) continue;
-    const m = line.match(/^\s+deploy_branch:\s*"([^"]*)"/);
-    if (m) { out.deployBranch = m[1]; break; }
-  }
+  // 개발 브랜치는 metadata 직속(#456) — template.options 밖이라 별도로 스캔한다.
+  out.deployBranch = readDevelopmentBranch(content);
   let legacyNexus = null;
   let legacyNpm = null;
   let legacySynology = null;
-  // 값 정규화: 따옴표 제거 + 트림 (.sh tr -d '"' | tr -d "'" | xargs 등가)
+  // 값 정규화: 따옴표 제거 + 트림
   const strip = (s) => String(s).replace(/["']/g, "").trim();
   let inTemplate = false;
   let inOptions = false;
@@ -303,10 +300,10 @@ export function parseTemplateOptions(content) {
         if (v === "false") legacySynology = false;
         continue;
       }
-      // 들여쓰기 0~4칸의 다른 키 → options 섹션 종료 (.sh L2404~2408)
+      // 들여쓰기 0~4칸의 다른 키 → options 섹션 종료
       if (/^\s{0,4}[a-z_]+:/.test(line)) { inOptions = false; inTemplate = false; }
     }
-    // 최상위 키 → template 섹션 종료 (.sh L2411~2415)
+    // 최상위 키 → template 섹션 종료
     if (inTemplate && /^[a-z_]+:/.test(line)) { inTemplate = false; inOptions = false; }
   }
   // ── 구 키 마이그레이션 — 신 publish 키가 없을 때만 ──
@@ -362,7 +359,23 @@ export function convertLegacySingularType(content) {
   return lines.join("\n");
 }
 
-// 기존 version.yml에서 값 추출 (.sh grep/sed 등가, 주석 라인 오탐 방지).
+// 개발(릴리스 소스) 브랜치 = 릴리스 PR head (#915)
+// 키 2개: development_branch(정본) > deploy_branch(구 이름 — 이것만 읽는 구버전 스킬이 있어 함께 기록)
+// 반환: 브랜치명, 둘 다 없으면 null
+export const DEVELOPMENT_BRANCH_KEYS = ["development_branch", "deploy_branch"];
+export function readDevelopmentBranch(content) {
+  const lines = String(content || "").split("\n").filter((l) => !l.startsWith("#"));
+  for (const key of DEVELOPMENT_BRANCH_KEYS) {
+    const re = new RegExp(`^\\s+${key}:\\s*"([^"]*)"`);
+    for (const l of lines) {
+      const m = l.match(re);
+      if (m) return m[1];
+    }
+  }
+  return null;
+}
+
+// 기존 version.yml에서 값 추출 (라인 정규식, 주석 라인 오탐 방지).
 export function parseExisting(content) {
   const text = String(content || "");
   const line = (re) => {
@@ -407,9 +420,9 @@ export function parseExisting(content) {
       if (/^\S/.test(l)) break;
     }
   }
-  // 브랜치 정보 (#456) — default_branch(레포 기본)와 deploy_branch(릴리스 PR head)는 별개.
+  // 브랜치 정보 (#456) — default_branch(레포 기본)와 개발 브랜치(릴리스 PR head)는 별개.
   const defaultBranch = line(/^\s*default_branch:\s*"([^"]*)"/);
-  const deployBranch = line(/^\s*deploy_branch:\s*"([^"]*)"/);
+  const deployBranch = readDevelopmentBranch(text);
   // 선택 워크플로우 옵션 (metadata.template.options — nexus/secret_backup)
   const options = parseTemplateOptions(text);
   return { version, versionCode, types, paths, templateVersion, templateMode, options, defaultBranch, deployBranch };
@@ -528,7 +541,7 @@ export function mergeDeployValues(existingContent, fresh) {
   return merged;
 }
 
-// version.yml 전체 생성 (.sh create_version_yml + save_template_options 신규 케이스 등가).
+// version.yml 전체 생성 (metadata > template 옵션 > deploy > 사용자 블록).
 // opts: { version, types:[], paths:Map, pathMarkers?:Map, branch, versionCode, now, today, templateOptions? }
 // primary 타입은 별도 키 없이 project_types[0]이다 (v4.1.0 SSOT — 단수 project_type 키 제거).
 //   now   = "YYYY-MM-DD HH:MM:SS" (UTC) — 결정성 위해 주입
@@ -559,13 +572,17 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
   out += `  last_updated: "${now}"\n`;
   out += `  last_updated_by: "${String(updatedBy || "template_integrator").replace(/"/g, "")}"\n`;
   out += `  default_branch: "${branch}"\n`;
-  // deploy_branch: 릴리스 PR의 head 브랜치(#456). default_branch(레포 기본)와 별개 개념.
-  // 지정된 경우에만 출력 — 미지정이면 스킬이 develop로 폴백(하위호환).
-  if (deployBranch) out += `  deploy_branch: "${deployBranch}"\n`;
+  // 개발(릴리스 소스) 브랜치 = 릴리스 PR head (#456). default_branch(레포 기본)와 별개 개념.
+  // 지정된 경우에만 출력 — 미지정이면 스킬이 develop로 폴백.
+  // deploy_branch 병기: 그 키만 읽는 구버전 스킬(changelog_cli)이 develop로 폴백하지 않게 (#915)
+  if (deployBranch) {
+    out += `  development_branch: "${deployBranch}"\n`;
+    out += `  deploy_branch: "${deployBranch}"   # ${C.legacyDeployBranch}\n`;
+  }
   out += `  integrated_from: "projectops"\n`;
   out += `  integration_date: "${today}"\n`;
 
-  // template 옵션 블록 (.sh save_template_options 신규 추가 케이스). templateOptions 지정 시.
+  // template 옵션 블록. templateOptions 지정 시.
   if (templateOptions) {
     const { templateVersion = "unknown", deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, optionsDate = today,
             changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true, aiPrSummary = true, intent = null, mode = null,
@@ -615,7 +632,7 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
     for (const b of customOptionBlocks) out += `${b}\n`;
   }
 
-  // deploy 블록 (.sh update_version_yml_deploy). deployValues: Map<type, Map<key,value>>.
+  // deploy 블록. deployValues: Map<type, Map<key,value>>.
   // WF ask 값이 있는 타입만. 반드시 template 뒤의 별도 최상위 키로 둔다 — metadata 와 template
   // 사이에 끼면 template 이 deploy 의 자식이 되어 metadata.template.options 구조가 깨진다 (#670).
   const deployTypes = [...deployValues.keys()].filter((t) => deployValues.get(t) && deployValues.get(t).size > 0);

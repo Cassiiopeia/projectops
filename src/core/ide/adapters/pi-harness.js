@@ -1,5 +1,4 @@
-// PI Persona Harness 어댑터 (.sh _pi_harness_toggle / _pi_harness_remove_only /
-// _pi_harness_add / _pi_harness_remove / _pi_harness_enabled 등가).
+// PI Persona Harness 어댑터 (켜기·끄기·상태 조회).
 // PI skill과 독립 — skill은 그대로 두고 harness 등록(settings.json extensions)만 켜고/끈다.
 import { existsSync } from "node:fs";
 import { harnessEnabled, harnessAdd, harnessRemove, harnessLoaderPath, piSettingsPath } from "./pi-common.js";

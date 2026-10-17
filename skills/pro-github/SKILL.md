@@ -111,7 +111,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py close-issue {owner} {rep
 ## PR — 결정 규칙
 
 - 만들기 전에 head 브랜치가 원격에 있는지 `git ls-remote --heads origin "{브랜치}"`로 확인하고, `head`는 `owner:branch` 형식으로 넘긴다 (한글 브랜치명 422 방지).
-- base는 작업 PR이면 **개발(릴리스 소스) 브랜치**(`version.yml` `metadata.deploy_branch`, 없으면 `develop`, 개발 브랜치가 없는 레포면 기본 브랜치). `main`으로 가는 릴리스 PR은 `/pro-changelog-deploy`가 만든다. 사용자가 base를 명시하면 그것을 따른다.
+- base는 작업 PR이면 **개발(릴리스 소스) 브랜치**(`version.yml` `metadata.development_branch`(구 이름 `deploy_branch`), 없으면 `develop`, 개발 브랜치가 없는 레포면 기본 브랜치). `main`으로 가는 릴리스 PR은 `/pro-changelog-deploy`가 만든다. 사용자가 base를 명시하면 그것을 따른다.
 - 제목은 브랜치명 `YYYYMMDD_#번호_제목`에서 번호를 뽑아 이슈 제목을 조회하고 **이모지·`[태그]`를 걷어 낸** 순수 텍스트. 본문에는 `- https://github.com/{owner}/{repo}/issues/{번호}` 링크를 반드시 넣는다. 상세는 `references/prs.md`.
 
 ## Actions — 입력 라우팅 (필수)

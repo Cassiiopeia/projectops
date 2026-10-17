@@ -363,7 +363,9 @@ def _parse_release_branches(project_root: Path) -> tuple[dict, dict]:
         m = re.search(pattern, text, re.MULTILINE)
         return m.group(1) if m else None
 
-    head = _find(r"^\s*deploy_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)")
+    # 개발 브랜치 키: development_branch(정본) > deploy_branch(구 이름) (#915)
+    head = (_find(r"^\s*development_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)")
+            or _find(r"^\s*deploy_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)"))
     base = _find(r"^\s*default_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)")
     provider = _find(r"^\s*provider\s*:\s*[\"']?([a-z-]+)")
     values = {
@@ -378,7 +380,7 @@ def _parse_release_branches(project_root: Path) -> tuple[dict, dict]:
 def _read_release_branches(project_root: Path) -> dict:
     """version.yml에서 릴리스 브랜치·changelog provider를 읽는다 (#456, SSOT).
 
-    - head = metadata.deploy_branch (릴리스 PR head) — 없으면 'develop' 폴백.
+    - head = metadata.development_branch (릴리스 PR head) > 구 키 deploy_branch > 'develop' 폴백.
     - base = metadata.default_branch (레포 기본) — 없으면 'main' 폴백.
     - provider = metadata.template.options.changelog.provider — 없으면 레포 루트에
       .coderabbit.yaml 이 있을 때 'coderabbit', 아니면 'commit' (#821, 워크플로우와 동일).

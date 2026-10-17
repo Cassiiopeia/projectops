@@ -1,15 +1,13 @@
-// wizard-prompts.yml 라벨 메타 파서 (.sh _wf_labels_path/_wf_read_field/wf_field/wf_workflow_name 등가).
-// 실측 기준: template_integrator.sh 2809~2814(_wf_labels_path), 2895~2932(wf_workflow_name),
-//           2934~2960(_wf_read_field), 2962~2970(wf_field).
-// ⚠️ YAML 라이브러리 금지 — .sh와 동일하게 라인 기반 파싱만 한다(외부 의존성 0 + 포맷 관용성 동일).
+// wizard-prompts.yml 라벨 메타 파서: 파일 위치, 필드 조회, 워크플로우 표시 이름.
+// ⚠️ YAML 라이브러리 금지 — 라인 기반 파싱만 한다(외부 의존성 0 + 포맷 관용성).
 import { join } from "node:path";
 import * as nodeFs from "node:fs";
 import { PATHS } from "./paths.js";
 
-// wizard-prompts.yml 위치 (레포 루트 기준 상대경로 — .sh LABELS_FILE 상수)
+// wizard-prompts.yml 위치 (레포 루트 기준 상대경로)
 export const LABELS_FILE = ".github/config/wizard-prompts.yml";
 
-// 따옴표 감싸진 값이면 벗기고 trim ("값" → 값). .sh sub(/^"/)/sub(/"$/) 등가.
+// 따옴표 감싸진 값이면 벗기고 trim ("값" → 값).
 function unquote(s) {
   const t = s.trim();
   if (t.startsWith('"') && t.endsWith('"') && t.length >= 2) return t.slice(1, -1);
@@ -19,7 +17,7 @@ function unquote(s) {
 // wizard-prompts.yml 텍스트 → 파싱 객체 (순수 함수 — 테스트 직접 사용 가능).
 // 반환: { fields: Map<조회키, {label?,help?,example?}>, workflowNames: [{key,value}] }
 //  - 조회키: "PROJECT_NAME" 또는 "flutter.APP_ARTIFACT_NAME" (dotted 타입 오버라이드)
-//  - 구형 1줄(KEY: "라벨")은 fields의 label로 흡수 (.sh _wf_read_field 형식1 등가 — label만 의미)
+//  - 구형 1줄(KEY: "라벨")은 fields의 label로 흡수 (label만 의미)
 export function parseWizardPrompts(text) {
   const fields = new Map();
   const workflowNames = [];
@@ -28,10 +26,10 @@ export function parseWizardPrompts(text) {
 
   for (const raw of String(text).split(/\r?\n/)) {
     const line = raw.replace(/\r$/, "");
-    if (!line.trim() || line.trim().startsWith("#")) continue; // 빈 줄·주석은 블록을 끊지 않음(.sh awk도 동일하게 무해)
+    if (!line.trim() || line.trim().startsWith("#")) continue; // 빈 줄·주석은 블록을 끊지 않음
 
     if (!/^\s/.test(line)) {
-      // 최상위 키 라인 — 이전 블록 종료 (.sh awk `/^[^[:space:]]/ { inblk=0 }` 등가)
+      // 최상위 키 라인 — 이전 블록 종료
       current = null; inWfNames = false;
       const m = line.match(/^([A-Za-z_][A-Za-z0-9_.\-]*):(.*)$/);
       if (!m) continue;
@@ -40,7 +38,7 @@ export function parseWizardPrompts(text) {
       if (key === "_workflow_names") { inWfNames = true; continue; }
       const entry = fields.get(key) || {};
       if (rest) {
-        // 구형 1줄: KEY: "라벨" (.sh 형식1 — label로만 사용)
+        // 구형 1줄: KEY: "라벨" (label로만 사용)
         const q = rest.match(/^"([^"]*)"\s*$/);
         if (q) entry.label = q[1];
       }
@@ -53,20 +51,20 @@ export function parseWizardPrompts(text) {
     const m = line.match(/^\s+([A-Za-z_][A-Za-z0-9_.\-]*):\s*(.*)$/);
     if (!m) continue;
     if (inWfNames) {
-      // "  KEY: "값"" 형식만 인정 (.sh _wf_load_workflow_names의 `*:\ \"*\"` case 등가)
+      // "  KEY: "값"" 형식만 인정
       const q = m[2].match(/^"(.*)"\s*$/);
       if (q) workflowNames.push({ key: m[1], value: q[1] });
       continue;
     }
     if (current && (m[1] === "label" || m[1] === "help" || m[1] === "example")) {
-      // 블록 내 첫 등장만 채택 (.sh awk `print line; exit` — 첫 매치 사용)
+      // 블록 내 첫 등장만 채택
       if (current[m[1]] == null) current[m[1]] = unquote(m[2]);
     }
   }
   return { fields, workflowNames };
 }
 
-// wizard-prompts.yml을 찾아 읽고 파싱 (.sh _wf_labels_path 등가).
+// wizard-prompts.yml을 찾아 읽고 파싱.
 // 우선순위: 대상 프로젝트(targetRoot) → 다운로드 원본(tempDir) 폴백 → null.
 // WHY 폴백: 신규 통합에서는 copy_config_folder가 configure_workflow_env보다 늦게 실행되어
 //          대상에 아직 파일이 없다 — 폴백 없으면 label/help/example이 전부 빈값(KEY명만 출력)이 된다.
@@ -80,7 +78,7 @@ export function loadWizardPrompts(targetRoot = ".", tempDir = "", fs = nodeFs) {
   return null;
 }
 
-// 필드 조회 (.sh wf_field 등가). field: "label" | "help" | "example".
+// 필드 조회. field: "label" | "help" | "example".
 // 우선순위: "{type}.KEY" 블록 → "KEY" 블록(구형 1줄 포함) → 폴백(label이면 KEY명, 아니면 "").
 export function wfField(prompts, type, key, field) {
   if (prompts && prompts.fields) {
@@ -92,11 +90,11 @@ export function wfField(prompts, type, key, field) {
   return field === "label" ? key : "";
 }
 
-// 워크플로우 파일명 → 사람이 읽는 짧은 이름 (.sh wf_workflow_name 등가).
+// 워크플로우 파일명 → 사람이 읽는 짧은 이름.
 // _workflow_names에서 "키가 파일명에 포함되면" 그 값 사용 — 최장 키 우선(REACT-CI vs REACT-CICD 구분).
-// 미매칭이면 .yaml/.yml 확장자만 제거해 반환 (.sh `${_base%.y*ml}` 등가).
+// 미매칭이면 .yaml/.yml 확장자만 제거해 반환.
 export function workflowDisplayName(prompts, filename) {
-  const base = String(filename).split("/").pop().split("\\").pop(); // 경로 제거 (.sh `${_file##*/}`)
+  const base = String(filename).split("/").pop().split("\\").pop(); // 경로 제거
   let best = null; let bestLen = 0;
   for (const { key, value } of prompts?.workflowNames ?? []) {
     if (base.includes(key) && key.length > bestLen) { best = value; bestLen = key.length; }

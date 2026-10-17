@@ -31,6 +31,12 @@ def test_reads_deploy_and_default_branch(tmp_path):
     assert b["base"] == "trunk"     # default_branch
 
 
+def test_development_branch_wins_over_old_key(tmp_path):
+    # 정본 development_branch > 구 키 deploy_branch (#915)
+    _write_vy(tmp_path, 'version: "1.0.0"\nmetadata:\n  development_branch: "dev"\n  deploy_branch: "old"\n')
+    assert _read_branches(tmp_path)["head"] == "dev"
+
+
 def test_falls_back_to_develop_main(tmp_path):
     # deploy_branch·default_branch 둘 다 없으면 develop→main 폴백
     _write_vy(tmp_path, 'version: "1.0.0"\nmetadata:\n  last_updated: "x"\n')

@@ -1,4 +1,4 @@
-// Gemini CLI 어댑터 (.sh _manage_gemini_extension / _remove_gemini_section 등가).
+// Gemini CLI 어댑터 (확장 설치·제거).
 // extension install/update/uninstall. 마켓플레이스 대신 git URL 확장.
 import { migrateConfigRoot } from "../legacy.js";
 import { t } from "../../../i18n/index.js";
@@ -10,7 +10,7 @@ const LEGACY_EXTS = ["SUH-DEVOPS-TEMPLATE"];
 
 function detect(io) {
   if (!io.which("gemini")) return { installed: false, version: null, cliMissing: true, note: t("ide.cliMissing") };
-  // .sh는 gemini 설치 상태를 정밀 조회하지 않고 "설치 가능"으로만 표기 → installed 미상.
+  // gemini 설치 상태는 정밀 조회하지 않고 "설치 가능"으로만 표기 → installed 미상.
   return { installed: false, version: null, cliMissing: false, note: t("ide.installable") };
 }
 

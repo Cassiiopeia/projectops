@@ -107,7 +107,7 @@ rename `YYYYMMDD_245_제목.md`(권장). 파일명에 이모지·`TMP` 접두사
 코드 수정 작업 전에 수행한다. 질문 문구·선택지별 처리: `work-start-protocol.md`.
 
 - **main**(프로덕션) → 즉시 멈추고 사용자에게 확인. main은 릴리스 PR로만 갱신된다.
-- **개발 브랜치**(`version.yml` `metadata.deploy_branch`, 없으면 `develop`) → 레포 `CLAUDE.md`·`AGENTS.md`가 직행을 선언했으면 통과, 아니면 이슈 연결 여부를 묻는다.
+- **개발 브랜치**(`version.yml` `metadata.development_branch`(구 이름 `deploy_branch`), 없으면 `develop`) → 레포 `CLAUDE.md`·`AGENTS.md`가 직행을 선언했으면 통과, 아니면 이슈 연결 여부를 묻는다.
 - **feature 브랜치** → `YYYYMMDD_#번호_제목`에서 번호를 뽑아 이슈 조회, 없으면 묻는다. 새 브랜치가 필요하면 worktree(`/pro-init-worktree`) 여부를 묻는다.
 
 ## skill별 py 분산 호출

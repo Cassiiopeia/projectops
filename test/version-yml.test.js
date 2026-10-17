@@ -48,25 +48,33 @@ test("buildVersionYml: 단수 project_type 키를 쓰지 않는다 (v4.1.0 SSOT)
   assert.ok(yml.includes('project_types: ["spring","react"]'));
 });
 
-// #456 — deploy_branch를 default_branch와 별개 키로 저장한다 (릴리스 PR의 head).
-test("buildVersionYml: deployBranch 지정 시 metadata.deploy_branch 출력", () => {
+// #456 — 개발 브랜치를 default_branch와 별개 키로 저장한다 (릴리스 PR의 head).
+// #915 — 정본 development_branch + 구 이름 deploy_branch 같은 값 병기
+test("buildVersionYml: deployBranch 지정 시 development_branch·deploy_branch 함께 출력", () => {
   const yml = buildVersionYml({
-    version: "1.0.0", types: ["basic"], branch: "main", deployBranch: "develop", now: "n", today: "t",
+    version: "1.0.0", types: ["basic"], branch: "main", deployBranch: "dev", now: "n", today: "t",
   });
   assert.ok(yml.includes('default_branch: "main"'), "default_branch는 유지");
-  assert.ok(yml.includes('deploy_branch: "develop"'), "deploy_branch 별개 키 출력");
+  assert.ok(yml.includes('development_branch: "dev"'), "정본 키 출력");
+  assert.ok(/^  deploy_branch: "dev"/m.test(yml), "구 키도 같은 값");
+  assert.equal(parseExisting(yml).deployBranch, "dev");
 });
 
-test("buildVersionYml: deployBranch 미지정이면 deploy_branch 라인 없음(하위호환)", () => {
+test("buildVersionYml: deployBranch 미지정이면 브랜치 라인 없음", () => {
   const yml = buildVersionYml({ version: "1.0.0", types: ["basic"], branch: "main", now: "n", today: "t" });
-  assert.ok(!/deploy_branch:/.test(yml), "deployBranch 없으면 라인 미출력");
+  assert.ok(!/(deploy|development)_branch:/.test(yml), "deployBranch 없으면 라인 미출력");
 });
 
-test("parseExisting: default_branch·deploy_branch 읽기", () => {
+test("parseExisting: 구 키 deploy_branch만 있어도 읽는다", () => {
   const yml = 'version: "1.0.0"\nmetadata:\n  default_branch: "main"\n  deploy_branch: "release"\n';
   const p = parseExisting(yml);
   assert.equal(p.defaultBranch, "main");
   assert.equal(p.deployBranch, "release");
+});
+
+test("parseExisting: development_branch가 deploy_branch보다 우선", () => {
+  const yml = 'version: "1.0.0"\nmetadata:\n  deploy_branch: "old"\n  development_branch: "new"\n';
+  assert.equal(parseExisting(yml).deployBranch, "new");
 });
 
 test("parseExisting: deploy_branch 없으면 null(폴백은 호출부 책임)", () => {

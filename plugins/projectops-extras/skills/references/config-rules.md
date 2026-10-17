@@ -183,7 +183,7 @@ Write tool로 `{HOME}/.projectops/config/config.json`에 저장한다. **반드�
 | `repos[].{commit,issue,changelog_deploy}.auto_approve` | — | 해당 레포에 한정한 자동 승인 오버라이드. 글로벌 값보다 우선 |
 | `repos[].issue.assignee` | — | 이 레포만 다른 이슈 담당자. `default_assignee`(글로벌)보다 우선. 누락 시 글로벌 사용. 사용자가 "이 레포 담당자는 OOO으로" 하면 agent가 저장 |
 | `repos[].changelog_deploy.app_release` | — | 이 레포가 앱스토어/플레이스토어 심사로 직결되는 배포인지(앱 심사 인지). `true`면 changelog-deploy 스킬이 릴리스 노트 승인 게이트에 심사 경고 배너를 띄우고 정제를 더 엄격히 적용. **레포별로만** 저장(글로벌 기본값 없음). 누락 시 스킬이 1.5단계에서 자동 감지 후 한 번 확인해 저장. agent가 자연어 응답을 받아 갱신하며 사용자가 직접 편집하지 않는다 |
-| `repos[].changelog_deploy.{head_branch,base_branch,provider}` | — | **version.yml 이 없는 레포에서만** 쓰는 릴리스 브랜치·provider. 정본은 version.yml(`deploy_branch`, `default_branch`, `options.changelog.provider`)이고 `changelog_cli.py detect-release-context` 가 판정한다. version.yml 이 있는데 이 값이 다르면 CLI 가 `conflict` 로 알리고 version.yml 을 따른다 (#842) |
+| `repos[].changelog_deploy.{head_branch,base_branch,provider}` | — | **version.yml 이 없는 레포에서만** 쓰는 릴리스 브랜치·provider. 정본은 version.yml(`development_branch`(구 `deploy_branch`), `default_branch`, `options.changelog.provider`)이고 `changelog_cli.py detect-release-context` 가 판정한다. version.yml 이 있는데 이 값이 다르면 CLI 가 `conflict` 로 알리고 version.yml 을 따른다 (#842) |
 
 > 전역 `github.changelog_deploy.{head_branch,base_branch,provider}` 는 **더 이상 읽지도 쓰지도 않는다** (#842). 한 레포에서 판정한 값이 다른 모든 레포의 version.yml 을 덮어쓰던 캐시였다. 남아 있어도 무시되며 `detect-release-context` 가 `config.ignored_global_keys` 로 알려 준다.
 

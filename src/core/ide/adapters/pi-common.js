@@ -1,6 +1,4 @@
 // PI 공용 경로·상태 로직 (pi 어댑터와 pi-harness 어댑터가 공유).
-// .sh: PI_PACKAGE_URL / _pi_is_installed / _pi_clone_dir / _pi_harness_loader_path /
-//      _pi_settings_path / _pi_harness_enabled 등가.
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { t } from "../../../i18n/index.js";

@@ -1,4 +1,4 @@
-// 대화형 프롬프트 래핑 (.sh interactive_menu/choose_menu/ask_* 등가).
+// 대화형 프롬프트 래핑 (메뉴·선택·질문).
 // node:readline 기반 자체 엔진 사용 (@clack/prompts 는 Windows TTY에서 Enter가 멈추는 버그로 제거).
 // 취소(ESC/Ctrl+C)는 각 함수가 CANCEL 심볼을 반환 → 호출부가 정상 종료(exit 0) 처리.
 import * as engine from "./readline-engine.js";

@@ -1,4 +1,4 @@
-// IDE Skills 대화형 프롬프트 (.sh 라우터 choose_menu 등가).
+// IDE Skills 대화형 프롬프트.
 // node:readline 기반 자체 엔진 사용 (@clack/prompts 는 Windows TTY Enter 버그로 제거).
 import * as engine from "./readline-engine.js";
 import { t } from "../i18n/index.js";

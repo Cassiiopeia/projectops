@@ -1,4 +1,4 @@
-// version 모드 (.sh execute_integration version case 등가) — template_integrator.sh 4517~4530.
+// version 모드 (version.yml 생성·갱신).
 // 순서: version.yml → readme → scripts → config → gitignore → setup_guide.
 // (워크플로우 미복사 → deploy 블록 없음. util·issue·coderabbit도 없음.)
 import { existsSync, readFileSync } from "node:fs";

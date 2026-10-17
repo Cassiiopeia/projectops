@@ -1,5 +1,4 @@
-// 배포/publish 축(#439) + Secret 백업 opt-in 질문 (.sh ask_deploy_publish /
-// ask_optional_workflow / ask_all_optional_workflows 등가).
+// 배포/publish 축(#439) + Secret 백업 opt-in 질문.
 //
 // io 주입 계약(readline-engine 시그니처):
 //   io.confirm({message, initialValue})            → bool | CANCEL(symbol)
@@ -110,7 +109,7 @@ export function migrateProvider(saved) {
 
 const isCancel = (v) => typeof v === "symbol";
 
-// Secret 백업 등 폴더 기반 opt-in 1종 질문 (.sh ask_optional_workflow 등가).
+// Secret 백업 등 폴더 기반 opt-in 1종 질문.
 // 반환: true/false/null(폴더 없음·파일 0개로 질문 자체 생략 → 현재값 유지).
 async function askOptionalWorkflow({ dir, icon, short, desc, current, force, tty, io, forceAsk, say }) {
   // 폴더가 없거나 yaml이 0개면 조용히 건너뜀 — 질문 자체가 성립 안 함
@@ -148,7 +147,7 @@ export const OPTION_AXES = ["intent", "deploy", "publish", "code-review", "chang
 const INTENT_ASKS_DEPLOY = { app: true, both: true, manual: true, library: false, none: false };
 const INTENT_ASKS_PUBLISH = { library: true, both: true, manual: true, app: false, none: false };
 
-// 배포/publish 축 + Secret 백업을 순서대로 질문 (.sh ask_all_optional_workflows 등가).
+// 배포/publish 축 + Secret 백업을 순서대로 질문.
 // tempDir: 템플릿 다운로드 루트 — project-types는 {tempDir}/.github/workflows/project-types
 // current: { deploy: string|null, publish: string[]|null, secretBackup: bool|null } — CLI 명시값
 // scope: null이면 전 축(초기 통합·전체 재질문). Set/배열이면 그 축만 forceAsk 대상 (#483 수정 메뉴 격리).
@@ -204,7 +203,7 @@ export async function askAllOptionalWorkflows({
       if (aiPrSummary === null && saved.aiPrSummary != null) aiPrSummary = saved.aiPrSummary;
       if (changelogProvider === null && saved.changelogProvider !== null) changelogProvider = saved.changelogProvider;
       if (changelogBaseUrl === null && saved.changelogBaseUrl !== null) changelogBaseUrl = saved.changelogBaseUrl;
-      // #456 deploy_branch 저장값 재사용
+      // #456 개발 브랜치 저장값 재사용
       if (deployBranch === null && saved.deployBranch != null) deployBranch = saved.deployBranch;
       // #485 intent 저장값 재사용 — 없으면 저장된 deploy/publish에서 역추론(구 version.yml 하위호환)
       if (intent === null) intent = saved.intent ?? inferIntent(saved.deploy, saved.publish);
@@ -391,7 +390,7 @@ export async function askAllOptionalWorkflows({
     changelogBaseUrl = "";
   }
 
-  // ── 릴리스 소스(개발) 브랜치 (#456 필드 deploy_branch — 이름과 달리 "개발 브랜치"다, #482) ──
+  // ── 릴리스 소스(개발) 브랜치 (#456, version.yml development_branch — #915) ──
   //    이 값은 릴리스 PR(개발→기본)의 head, 즉 개발한 걸 모아 기본 브랜치로 올리는 브랜치다.
   //    "배포 브랜치"가 아니다 — 배포가 도는 곳은 기본 브랜치(default) 쪽 개념. #482 참조.
   if (ask("release-branch") || deployBranch === null) {

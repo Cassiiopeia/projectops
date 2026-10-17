@@ -1,4 +1,4 @@
-// 외부 CLI 실행·감지 래퍼 (.sh command -v / CLI 호출 등가).
+// 외부 CLI 실행·감지 래퍼.
 // 전부 주입 가능 — 테스트는 stub runner/which/home 를 넘겨 실제 CLI 없이 검증한다.
 import { spawnSync } from "node:child_process";
 import { delimiter, join } from "node:path";
@@ -54,6 +54,6 @@ export function defaultIo() {
     which,
     run,
     home: () => homedir(),
-    log: (msg) => console.error(msg), // .sh는 안내를 stderr로 출력
+    log: (msg) => console.error(msg), // 안내는 stderr로 (stdout 파이프 오염 방지)
   };
 }

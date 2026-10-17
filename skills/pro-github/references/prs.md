@@ -21,7 +21,7 @@ git ls-remote --heads origin "$HEAD_BRANCH" | grep -q "$HEAD_BRANCH" || echo "�
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-pr {owner} {repo} "{제목}" "{PR 본문 파일 경로}" "{owner}:{head_branch}" {base_branch}
 ```
 
-`{base_branch}`는 작업 PR이면 **개발(릴리스 소스) 브랜치**다 — `version.yml`의 `metadata.deploy_branch`, 없으면 `develop` (원격에 개발 브랜치가 아예 없는 단일 브랜치 레포면 기본 브랜치). 기본(배포) 브랜치(`main`)로 가는 릴리스 PR은 이 레시피가 아니라 `/pro-changelog-deploy`가 만든다. 사용자가 base를 명시하면 그것을 따른다.
+`{base_branch}`는 작업 PR이면 **개발(릴리스 소스) 브랜치**다 — `version.yml`의 `metadata.development_branch`(구 이름 `deploy_branch`), 없으면 `develop` (원격에 개발 브랜치가 아예 없는 단일 브랜치 레포면 기본 브랜치). 기본(배포) 브랜치(`main`)로 가는 릴리스 PR은 이 레시피가 아니라 `/pro-changelog-deploy`가 만든다. 사용자가 base를 명시하면 그것을 따른다.
 
 ### PR 제목 규칙 (필수)
 

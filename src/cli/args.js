@@ -1,4 +1,4 @@
-// CLI 인자 파싱 (.sh top-level while-case 등가) — template_integrator.sh 842~920.
+// CLI 인자 파싱.
 import { existsSync, statSync, realpathSync } from "node:fs";
 import { join, relative, isAbsolute } from "node:path";
 import { VALID_TYPES } from "../context.js";
@@ -196,7 +196,7 @@ export function parseArgs(argv) {
 
 export class CliError extends Error {}
 
-// 경로 정규화 (.sh resolve_project_paths §3.4): 앞뒤 공백·\→/·끝 /·앞 ./ 제거, 빈값→"."
+// 경로 정규화: 앞뒤 공백·\→/·끝 /·앞 ./ 제거, 빈값→"."
 export function normalizePath(p) {
   let s = String(p).trim();
   s = s.replace(/\\/g, "/");

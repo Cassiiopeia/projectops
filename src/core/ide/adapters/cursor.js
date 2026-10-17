@@ -1,5 +1,4 @@
-// Cursor 어댑터 (.sh _manage_cursor_section / _do_cursor_skills_copy /
-// _write_cursor_skills_meta / _remove_cursor_section 등가).
+// Cursor 어댑터 (skills 복사·메타 기록·제거).
 // 마켓플레이스 없음 → ~/.cursor/skills/ 에 skills/ 폴더를 복사하고 meta.json으로 버전 추적.
 import { join } from "node:path";
 import { existsSync, readFileSync, mkdirSync, cpSync, rmSync, writeFileSync, readdirSync } from "node:fs";

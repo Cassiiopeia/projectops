@@ -31,10 +31,8 @@ export function remove(p) {
 }
 
 // 디렉토리 직하위 .yaml/.yml 파일명 목록. 하위 폴더 제외.
-// 정렬 순서는 .sh의 glob `"$_dir"/*.yaml "$_dir"/*.yml` 와 일치시킨다:
-// 확장자로 1차 그룹(.yaml 먼저 → .yml 나중), 각 그룹 안에서 알파벳순.
-// (단순 .sort()는 확장자를 섞어 정렬해 .sh와 파일 순회 순서가 갈리고,
-//  그 결과 version.yml deploy 블록의 키 순서까지 달라진다. 확장자 그룹핑으로 바이트 등가 확보.)
+// 정렬: 확장자로 1차 그룹(.yaml 먼저 → .yml 나중), 각 그룹 안에서 알파벳순.
+// (순회 순서가 version.yml deploy 블록의 키 순서를 정함 — 기존 설치본과 바이트 동일 유지)
 export function listYamlFiles(dir) {
   if (!existsSync(dir)) return [];
   const names = readdirSync(dir, { withFileTypes: true })

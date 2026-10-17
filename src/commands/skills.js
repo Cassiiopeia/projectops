@@ -1,4 +1,4 @@
-// IDE Skills 설치 오케스트레이터 (.sh offer_ide_tools_install 등가).
+// IDE Skills 설치 오케스트레이터.
 // 레지스트리 기반 — 개별 IDE를 이름으로 알지 않고 ADAPTERS 배열만 순회한다.
 // 새 IDE는 adapters/ 에 파일 추가 + registry 등록만으로 여기 수정 없이 동작한다.
 import { ADAPTERS } from "../core/ide/registry.js";

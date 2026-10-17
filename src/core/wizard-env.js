@@ -1,9 +1,8 @@
-// @wizard env 토큰 엔진 (.sh configure_workflow_env / _wf_set_env / _wf_is_unchanged 등가).
+// @wizard env 토큰 엔진: 값 치환, 잔여 토큰 치환, 미변경 판정.
 // ⚠️ YAML 파싱/재직렬화 금지 — 라인 단위 문자열 처리 (포맷·주석 보존이 unchanged 판정 전제).
-// 실측 기준: template_integrator.sh 3282~3360, 3003~3012.
 import { substituteBranches } from "./branch-sub.js";
 
-// KEY 정규식: .sh는 [A-Z_]+ (대문자+언더스코어만). ask/auto 마커가 있는 라인만 대상.
+// KEY 정규식: [A-Z_]+ (대문자+언더스코어만). ask/auto 마커가 있는 라인만 대상.
 const MARKER_RE = /#\s*@wizard\s+(ask|auto):(.*)$/;
 const KEY_RE = /^(\s*)([A-Z_]+):/;
 const PATHS_ANCHOR_RE = /#\s*@wizard\s+paths-anchor/;
@@ -17,8 +16,8 @@ export function parseWizardLine(line) {
   return { indent: km[1], key: km[2], action: marker[1], arg: marker[2].trim() };
 }
 
-// .sh _wf_set_env 등가: `KEY: "..."` 따옴표 안 값 치환 + 그 줄 끝 `# @wizard ...` 주석 제거.
-// 라인 하나에 대해 수행. value가 빈문자면 (.sh는 [ -n "$_val" ] 가드) 치환 스킵.
+// `KEY: "..."` 따옴표 안 값 치환 + 그 줄 끝 `# @wizard ...` 주석 제거.
+// 라인 하나에 대해 수행. value가 빈문자면 치환 스킵.
 export function setEnvLine(line, key, value) {
   if (value === "" || value == null) return line;
   // CRLF 안전: 라인 끝 \r을 분리해 처리 후 복원 (autocrlf 프로젝트 대응)
@@ -54,21 +53,21 @@ export function isPlaceholderDefault(value) {
   return /(^|\.)example\.(com|org|net)$/i.test(String(value || "").trim());
 }
 
-// resolver — .sh resolve_token 등가. 값 계산은 주입된 resolvers로 위임(순수성 유지).
+// resolver — 값 계산은 주입된 resolvers로 위임(순수성 유지).
 // resolvers: { repo, "spring-app-yml-dir"(type), "spring-app-yml-path"(type), "flutter-root" }
 export function resolveToken(name, type, resolvers = {}) {
   const fn = resolvers[name];
   return typeof fn === "function" ? (fn(type) ?? "") : "";
 }
 
-// 잔여 전역 토큰 치환 (.sh 3347~3351) — 파일 본문·수집값(#489)·카드 표시가 전부 같은 규칙을 쓴다.
+// 잔여 전역 토큰 치환 — 파일 본문·수집값(#489)·카드 표시가 전부 같은 규칙을 쓴다.
 // 파일에 실제 써지는 값과 version.yml deploy 블록 기억값이 어긋나지 않게 하는 단일 지점.
 export function resolveGlobalTokens(s, repoName = "") {
   if (typeof s !== "string" || (!s.includes("__PROJECT_NAME__") && !s.includes("__APP_ARTIFACT_NAME__"))) return s;
   return s.replaceAll("__PROJECT_NAME__", repoName).replaceAll("__APP_ARTIFACT_NAME__", repoName);
 }
 
-// 파일 전체 치환 (configure_workflow_env 등가).
+// 파일 전체 치환.
 // content: 원본 워크플로우 텍스트. 반환: 치환된 텍스트.
 // opts:
 //   type          - 프로젝트 타입 (resolver·값 조회용)
@@ -98,7 +97,7 @@ export function substituteEnv(content, opts = {}) {
       if (chosen != null && chosen !== "" && !useDefaults) val = chosen;
       else if (isPlaceholderDefault(def)) continue; // 예시값은 쓰지 않는다 — 토큰·마커 그대로 (#810)
       else val = def;
-      // ask 키만 수집 (.sh wf_deploy_set — auto는 저장 안 함). deploy 블록용.
+      // ask 키만 수집 (auto는 저장 안 함). deploy 블록용.
       // #489 — 파일 본문은 아래 전역 토큰 치환을 거치므로 수집값도 동일 치환해
       //        version.yml deploy 블록이 설치본과 항상 바이트 일치하게 한다.
       if (collectAsks) collectAsks.set(p.key, resolveGlobalTokens(val, repoName));
@@ -112,10 +111,10 @@ export function substituteEnv(content, opts = {}) {
   }
   let out = lines.join(usesCRLF ? "\r\n" : "\n");
 
-  // 잔여 전역 토큰 (.sh 3347~3351)
+  // 잔여 전역 토큰
   out = resolveGlobalTokens(out, repoName);
 
-  // paths-anchor (.sh 3353~3360): 경로가 '.'이 아니면 주석 라인 전체를 paths 라인으로 교체
+  // paths-anchor: 경로가 '.'이 아니면 주석 라인 전체를 paths 라인으로 교체
   if (PATHS_ANCHOR_RE.test(out) && projectPath && projectPath !== ".") {
     const eol = out.includes("\r\n") ? "\r\n" : "\n";
     out = out.split(/\r?\n/).map((line) => {
@@ -129,7 +128,7 @@ export function substituteEnv(content, opts = {}) {
   return out;
 }
 
-// .sh _wf_is_unchanged 등가: 원본을 "기본값으로 가상 치환한 최종형"과 설치본을 바이트 비교.
+// 미변경 판정: 원본을 "기본값으로 가상 치환한 최종형"과 설치본을 바이트 비교.
 export function isUnchanged(templateContent, installedContent, opts = {}) {
   // 브랜치 치환(#477)도 가상 비교에 포함 — 치환 설치본이 "변경됨"으로 오판되어 매 업데이트마다
   // 재복사(.bak churn)되는 것을 막는다. opts.branches 미지정/표준값이면 no-op.

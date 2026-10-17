@@ -1,4 +1,4 @@
-// 경로 상수 (.sh readonly 상수군 등가) — template_integrator.sh 113~137
+// 경로 상수
 export const PATHS = {
   tempDir: ".template_download_temp",
   versionFile: "version.yml",

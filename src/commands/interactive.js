@@ -1,4 +1,4 @@
-// 대화형 마법사 (.sh interactive_mode 등가) — template_integrator.sh 4262~4411 + #446 UI 5층.
+// 대화형 마법사 (#446 UI 5층).
 // io 주입으로 테스트 가능. 실제 실행은 src/ui/prompts.js 함수를 io로 넘긴다.
 // 새 시각 층(banner/detectionLog/analysisCard/ideStatus/installKind/summary)과 저수준 엔진(engineIo)은
 // io의 "옵셔널 멤버" — 스텁이 생략하면 해당 층만 건너뛰고 실행 계약은 동일하다.
@@ -53,7 +53,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
   let skipRecord = false;
   if (io === prompts) trace.mirrorStart();
   try {
-    // 템플릿 먼저 획득 — 배너에 실제 템플릿 버전을 표시 (.sh는 원격 version.yml fetch L4270~4280 등가)
+    // 템플릿 먼저 획득 — 배너에 실제 템플릿 버전을 표시
     trace.step("acquire-template", () => acquireTemplate({ tempDir, source }), { source: source?.type || "git" });
     const templateVersion = readTemplateVersion(tempDir);
     traceTo = templateVersion;
@@ -62,7 +62,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     if (io.banner) io.banner({ version: templateVersion, modeLabel: t("banner.interactive") });
     else io.intro?.(`projectops, ${t("banner.interactive")}`);
 
-    // 기존 version.yml — version/version_code/paths/옵션 보존의 단일 진실 (.sh SSoT L2208~2239)
+    // 기존 version.yml — version/version_code/paths/옵션 보존의 단일 진실
     const vyPath = join(cwd, "version.yml");
     const existing = existsSync(vyPath) ? parseExisting(readFileSync(vyPath, "utf8")) : null;
     traceFrom = existing?.templateVersion || "";
@@ -82,7 +82,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     const updateRun = picked === "update";
     const mode = updateRun ? (existing?.templateMode || "full") : picked;
 
-    // Breaking Changes 게이트 (.sh execute_integration L4415~4420 — 모든 모드 공통, 대화형은 확인 질문)
+    // Breaking Changes 게이트 (모든 모드 공통, 대화형은 확인 질문)
     let breakingReport = null; // #493 — 통과 구간 항목을 가이드에 조치 방법 전문으로 임베드
     const proceed = await trace.stepAsync("breaking-check", () => runBreakingCheck({
       cwd, tempDir, templateVersion,
@@ -194,7 +194,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       intent = r.intent;
     }
 
-    // 확인/수정 루프 — ESC는 '머무르기' (.sh L1877~1881: 명시적 '아니오'만 종료)
+    // 확인/수정 루프 — ESC는 '머무르기' (명시적 '아니오'만 종료)
     let paths = new Map();
     let confirmed = false;
     // 업데이트 모드 — 카드는 보여주되 확인 루프 생략 (#502: 설정 변경은 기존 모드의 몫)
@@ -227,7 +227,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
           const t = await io.selectTypes(types);
           trace.event("prompt", "types", (Array.isArray(t) ? t : []).join(",") || "", { before: types });
           if (!isCancel(t) && Array.isArray(t) && t.length) {
-            // 타입 집합이 실제로 바뀌면 경로 재해석 대상으로 초기화 (.sh L1984~1992 — 정렬 집합 비교)
+            // 타입 집합이 실제로 바뀌면 경로 재해석 대상으로 초기화 (정렬 집합 비교)
             const oldSorted = [...types].sort().join(",");
             types = t.filter((x) => VALID_TYPES.includes(x));
             if ([...types].sort().join(",") !== oldSorted) paths = new Map();
@@ -235,7 +235,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
         } else if (what === "version") {
           const v = await io.askText(t("flow.askVersion"), version);
           if (!isCancel(v) && v !== version) {
-            // semver 형식 검증 (.sh L2010~2015)
+            // semver 형식 검증
             if (/^\d+\.\d+\.\d+$/.test(v)) version = v;
             else io.note?.(t("flow.badVersion"), t("flow.badVersionTitle"));
           }
@@ -273,7 +273,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       }
     }
 
-    // 경로 확정 (.sh resolve_project_paths L1362~1589 — full/version만. 저장값·후보 스캔·질문)
+    // 경로 확정 (full/version만. 저장값·후보 스캔·질문)
     if (mode === "full" || mode === "version") {
       paths = await resolveProjectPaths({
         root: cwd, types, paths, existingPaths: existing?.paths ?? new Map(),
@@ -285,7 +285,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       for (const t of types) if (t !== "basic" && !paths.has(t)) paths.set(t, existing?.paths.get(t) || ".");
     }
 
-    // @wizard env 계획 질문 (.sh wf_prompt_env_plan L3220 — full/workflows만).
+    // @wizard env 계획 질문 (full/workflows만).
     // 업데이트 모드는 생략 — 신규 파일은 기본값, 교체 파일은 아래 carryover가 기존 실값을 이월한다.
     const resolvers = makeResolvers(cwd, repoName, paths);
     let envValues = new Map(), envUseDefaults = true;
@@ -334,7 +334,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     });
     ctx.templateVersion = templateVersion;
 
-    // 기존 워크플로우 충돌 3지선 — 타입당 1회 결정을 파일에 캐시 적용 (.sh L3440~3508 UX 등가)
+    // 기존 워크플로우 충돌 3지선 — 타입당 1회 결정을 파일에 캐시 적용
     // 업데이트 모드는 위에서 일괄 결정(updateDecisions)했으므로 3지선다를 건너뛴다 (#502).
     let hooks = updateDecisions ? { decisions: updateDecisions } : {};
     if (showOptional && io.engineIo?.select && !updateRun) {
@@ -352,7 +352,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
                 { value: "template", label: t("flow.opt.template") },
               ],
             });
-            perType.set(type, isCancel(sel) || sel == null ? "skip" : sel); // ESC = 건너뛰기 (.sh L3463)
+            perType.set(type, isCancel(sel) || sel == null ? "skip" : sel); // ESC = 건너뛰기
           }
           decisions.set(filename, perType.get(type));
         }
@@ -402,7 +402,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     else if (mode === "version") result = trace.step("install-version", () => runVersion(ctx, tempDir, cwd));
     else if (mode === "workflows") result = trace.step("install-workflows", () => runWorkflows(ctx, tempDir, cwd, { ...hooks, trace }));
 
-    // 통합 후 IDE 스킬 제안 (.sh L4557 offer_ide_tools_install — 사전 질문 게이트, 기본 N)
+    // 통합 후 IDE 스킬 제안 (사전 질문 게이트, 기본 N)
     // 업데이트 모드(#502): 이미 설치된 IDE 스킬만 질문 없이 최신화 (미설치 IDE는 건드리지 않음)
     if (updateRun) {
       await skills({ templateVersion, tempDir, interactive: false, installedOnly: true });
@@ -430,7 +430,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       }).guidePath;
     }
 
-    // 완료 요약 (.sh print_summary L5438)
+    // 완료 요약
     const summaryCtx = {
       mode, types, version, deployBranch, deployBranchReady, migrationGuidePath,
       counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },

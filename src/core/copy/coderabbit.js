@@ -1,4 +1,4 @@
-// .coderabbit.yaml 복사 (.sh copy_coderabbit_config 등가, force 경로) — template_integrator.sh 3938~3990.
+// .coderabbit.yaml 복사 (force 경로).
 // SP2-B는 force/비대화형 경로만 구현. 대화형 덮어쓰기/건너뛰기 메뉴는 SP2-C.
 import { join } from "node:path";
 import { exists, copyFileSync } from "../fsutil.js";

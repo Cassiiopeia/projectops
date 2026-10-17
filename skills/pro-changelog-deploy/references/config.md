@@ -59,7 +59,7 @@
 
 | 순위 | 출처 | 언제 | `branches_source` |
 |---|---|---|---|
-| 1 | version.yml (`deploy_branch`·`default_branch`·`changelog.provider`, 폴백 포함) | version.yml이 있으면 **항상** | `version.yml` |
+| 1 | version.yml (`development_branch`(구 `deploy_branch`)·`default_branch`·`changelog.provider`, 폴백 포함) | version.yml이 있으면 **항상** | `version.yml` |
 | 2 | `github.repos[]` 현 OWNER/REPO 항목의 `changelog_deploy.{head_branch, base_branch, provider}` | version.yml이 **없을 때만** | `config` |
 | 3 | 폴백 `develop` → `main`, provider 3단 규칙 | 1·2 모두 없을 때 → 최초 판정 후 2에 기록 | `fallback` |
 
@@ -118,7 +118,7 @@ version.yml이 있으면(폴백값이어도) 여기로 오지 않는다 — 정�
 (provider 자연어: commit→"커밋 분석(AI 키가 있으면 AI)", copilot→"Copilot 생성", openai/gemini/claude/groq/mistral/ollama→"AI 생성", coderabbit→"CodeRabbit 요약 존중, 없으면 커밋 분석")
 
 > **재설정 발화 처리**: "배포 브랜치 바꿔줘"/"릴리스 노트 방식 바꿔줘"라고 하면
-> - version.yml이 있는 레포 → config에 쓰지 않는다. 저장소 설정(version.yml `deploy_branch`·`default_branch`·`changelog.provider`)을 바꿔야 워크플로우도 같이 바뀐다고 자연어로 안내하고, 원하면 그 파일을 고친다.
+> - version.yml이 있는 레포 → config에 쓰지 않는다. 저장소 설정(version.yml `development_branch`·`default_branch`·`changelog.provider`)을 바꿔야 워크플로우도 같이 바뀐다고 자연어로 안내하고, 원하면 그 파일을 고친다.
 > - version.yml이 없는 레포 → 위 질문을 다시 하고 레포별 config의 해당 키를 갱신한다.
 
 ### provider 값 참고

@@ -1,4 +1,4 @@
-// workflows 모드 (.sh execute_integration workflows case 등가) — template_integrator.sh 4523~4531.
+// workflows 모드 (워크플로우만 설치).
 // 순서: copy_workflows → update_version_yml_deploy(version.yml 있을 때만) → scripts → config → util(타입별) → setup_guide.
 // (version.yml 생성 안 함 — 기존 version.yml이 있을 때만 deploy 블록 추가.)
 import { join } from "node:path";
@@ -58,7 +58,7 @@ export function runWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   return { workflows: wf, verification };
 }
 
-// 기존 version.yml에서 deploy: 블록을 제거하고 새로 append (.sh update_version_yml_deploy 멱등).
+// 기존 version.yml에서 deploy: 블록을 제거하고 새로 append (멱등).
 export function upsertDeployBlock(content, deployValues) {
   // 기존 deploy: 블록 제거 (deploy: 라인 ~ 다음 최상위 키 전까지)
   const lines = content.split(/\r?\n/);

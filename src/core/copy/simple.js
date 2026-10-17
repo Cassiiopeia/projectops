@@ -1,5 +1,4 @@
-// 단순 복사 함수 (무조건 덮어쓰기류) — .sh copy_scripts/config/issue/discussion/setup_guide 등가.
-// 실측: template_integrator.sh 3818, 3845, 3872, 3895, 4114.
+// 단순 복사 함수 (무조건 덮어쓰기류): scripts, config, issue, discussion, setup guide.
 import { join, basename } from "node:path";
 import { chmodSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { PATHS } from "../paths.js";

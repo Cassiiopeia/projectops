@@ -1,4 +1,4 @@
-// issues 모드 (.sh execute_integration issues case 등가) — template_integrator.sh 4532~4535.
+// issues 모드 (이슈·PR 템플릿만 설치).
 // 이슈/PR 템플릿 + Discussion 템플릿만 복사.
 import { applyLabelStyle } from "../core/label-style.js";
 import { applyRepoLanguage } from "../core/repo-language.js";

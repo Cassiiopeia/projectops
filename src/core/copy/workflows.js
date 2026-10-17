@@ -1,5 +1,4 @@
-// 워크플로우 복사 엔진. 구 template_integrator.sh(#458 로 삭제됨)의 copy_workflows 를 포팅한 것이다.
-// 파일 안의 ".sh ... 등가" 표기는 그 삭제된 스크립트를 가리킨다 — 줄 번호는 더 이상 찾을 수 없다.
+// 워크플로우 복사 엔진.
 //
 // 충돌(기존 파일과 다름)의 처리 결정은 hooks.decisions(Map<파일명, 'skip'|'backup'|'template'>)로 받는다.
 //   - 실제 마법사(commands/interactive.js)는 listWorkflowConflicts 로 충돌 목록을 얻어 직접 Map 을 만든다.
@@ -35,7 +34,7 @@ export function onlyTriggersOnDevelop(content) {
   return branches.length > 0 && filtered >= needFilter && branches.every((b) => b === "develop");
 }
 
-// 한 파일에 env 치환을 적용해 대상 파일을 갱신 (.sh configure_workflow_env 등가).
+// 한 파일에 env 치환을 적용해 대상 파일을 갱신.
 // values/useDefaults: env 계획(promptEnvPlan) 결과 — 미지정이면 기본값 경로(현행 force 동작).
 // trace(#494): 치환 1건당 env.substituted 이벤트 (before/after 포함 — 치환 불일치류 버그의 즉시 발견 근거).
 function configureEnv(targetPath, filename, { type, projectPath = ".", repoName = "", resolvers = {}, collectAsks = null, values = new Map(), useDefaults = true, trace = null }) {
@@ -316,13 +315,13 @@ function recordBaseline(workflowsDir, targetRoot, counters, previous, templateVe
   }
 }
 
-// changed(기존에 있고 내용이 바뀐) 파일 1개를 결정에 따라 처리 (.sh 3440~3508 3지선 case 등가).
+// changed(기존에 있고 내용이 바뀐) 파일 1개를 결정에 따라 처리 (3지선: 백업 교체·템플릿 사본·유지).
 // 'skip'(기본): 기존 유지. 'backup': 기존→.bak 후 교체. 'template': 기존 유지 + 새 버전을 .template.yaml로.
 function applyDecision(decision, srcDir, workflowsDir, filename, counters, trace = null, type = "") {
   const src = join(srcDir, filename);
   const dst = join(workflowsDir, filename);
   if (decision === "backup") {
-    // .sh O) mv → cp: 기존을 .bak으로 백업 후 새 버전으로 교체
+    // 백업 교체: 기존을 .bak으로 백업 후 새 버전으로 교체
     renameSync(dst, dst + ".bak");
     copyFileSync(src, dst);
     counters.copied++;
@@ -331,14 +330,14 @@ function applyDecision(decision, srcDir, workflowsDir, filename, counters, trace
     return;
   }
   if (decision === "template") {
-    // .sh T) `${filename%.yaml}.template.yaml` — .yaml만 strip (.yml은 그대로 뒤에 붙음, .sh 동일)
+    // 템플릿 사본: `<이름>.template.yaml` — .yaml만 strip (.yml은 그대로 뒤에 붙음)
     const templateName = (filename.endsWith(".yaml") ? filename.slice(0, -".yaml".length) : filename) + ".template.yaml";
-    copyFileSync(src, join(workflowsDir, templateName)); // cp가 기존 .template.yaml 덮어씀(.sh rm -f + cp 등가)
+    copyFileSync(src, join(workflowsDir, templateName)); // 기존 .template.yaml 덮어씀
     counters.templateAdded++;
     trace?.event("copy", "template-added", templateName, { original: filename });
     return;
   }
-  counters.skipped++; // 'skip'/미지정/ESC → 기존 유지 (.sh S)·force 기본)
+  counters.skipped++; // 'skip'/미지정/ESC → 기존 유지 (force 기본)
   // #654 — 새 템플릿을 incoming에 남기고 diff 줄 수를 detail로 함께 기록
   const inc = counters.onSkip?.(srcDir, filename, type) ?? {};
   trace?.event("copy", "skipped-conflict", filename, {

@@ -1,4 +1,4 @@
-// 템플릿 자산 획득 + 제외 적용 (.sh download_template 등가) — template_integrator.sh 2064~2141.
+// 템플릿 자산 획득 + 제외 적용.
 import { execFileSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -11,7 +11,7 @@ import { TEMPLATE_REPO } from "./paths.js";
 // source:
 //   {type:'git', repo?}   → git clone --depth 1 (기본 repo=TEMPLATE_REPO)
 //   {type:'local', path}  → 로컬 트리 복사 (네트워크 없는 등가 검증용)
-// 이미 tempDir/.github 있으면 스킵(.sh 중복 호출 방지). 획득 후 applyExclusions 자동 호출.
+// 이미 tempDir/.github 있으면 스킵(중복 호출 방지). 획득 후 applyExclusions 자동 호출.
 export function acquireTemplate({ tempDir, source = { type: "git" } }) {
   if (exists(join(tempDir, ".github"))) {
     applyExclusions(tempDir);
@@ -30,7 +30,7 @@ export function acquireTemplate({ tempDir, source = { type: "git" } }) {
   applyExclusions(tempDir);
 }
 
-// DOCS_TO_REMOVE + PLUGIN_ITEMS_TO_REMOVE 삭제. skills/ 는 보존(.sh 주석).
+// DOCS_TO_REMOVE + PLUGIN_ITEMS_TO_REMOVE 삭제. skills/ 는 보존.
 export function applyExclusions(tempDir) {
   for (const doc of DOCS_TO_REMOVE) remove(join(tempDir, doc));
   for (const item of PLUGIN_ITEMS_TO_REMOVE) remove(join(tempDir, item));

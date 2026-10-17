@@ -1,5 +1,4 @@
-// Claude Code 어댑터 (.sh _manage_claude_section / _do_claude_plugin_install /
-// _remove_claude_section / _remove_claude_plugin_data 등가).
+// Claude Code 어댑터 (플러그인 설치·제거, 플러그인 데이터 정리).
 // 마켓플레이스 Cassiiopeia/projectops, 플러그인 projectops@projectops-marketplace.
 import { join } from "node:path";
 import { existsSync, readdirSync, mkdirSync, cpSync, rmSync } from "node:fs";

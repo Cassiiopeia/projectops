@@ -1,5 +1,4 @@
-// 타입별 프로젝트 경로 감지·확정 (.sh find_type_path_candidates L1249~1311 /
-// resolve_project_paths L1362~1589 등가). 모노레포에서 각 타입의 버전 파일이
+// 타입별 프로젝트 경로 감지·확정. 모노레포에서 각 타입의 버전 파일이
 // 어느 폴더에 있는지 5단계 우선순위로 확정한다.
 //
 // io 주입 계약(readline-engine 시그니처 그대로):
@@ -16,8 +15,8 @@ import { normalizePath } from "../cli/args.js";
 // 취소(ESC/Ctrl+C)는 CANCEL 심볼 — ui를 import하지 않고 심볼 여부로만 판정 (core→ui 역참조 방지)
 const isCancel = (v) => typeof v === "symbol";
 
-// 타입의 대표 마커 파일명 (.sh marker_for_type L1220~1229 등가).
-// detect.js는 미지 타입에 package.json을 기본 반환하지만 .sh는 빈 문자열 — 등가를 위해 래핑.
+// 타입의 대표 마커 파일명.
+// detect.js는 미지 타입에 package.json을 기본 반환 — 여기서는 빈 문자열이 되도록 래핑.
 const KNOWN_MARKER_TYPES = new Set([
   "flutter", "react", "node", "react-native", "react-native-expo", "python", "spring",
 ]);
@@ -26,7 +25,7 @@ export function markerForType(type) {
 }
 
 // 디렉토리에 실재하는 마커 파일명 반환 — 보조 마커 포함, 없으면 대표 마커 (표시용).
-// (.sh existing_marker_in_dir L1232~1245: spring build.gradle/.kts/pom.xml, python pyproject/setup.py/requirements.txt)
+// (spring build.gradle/.kts/pom.xml, python pyproject/setup.py/requirements.txt)
 export function existingMarkerInDir(type, dir) {
   const primary = markerForType(type);
   const names = primary ? [primary, ...extraMarkers(type)] : [];
@@ -47,7 +46,7 @@ function walkFindDirs(root, { prune, match, maxDepth = 3 }) {
       const childDepth = depth + 1;
       const childRel = rel ? `${rel}/${e.name}` : e.name;
       if (e.isDirectory()) {
-        // prune 폴더는 하위 전체 제외 (.sh find -prune 등가)
+        // prune 폴더는 하위 전체 제외
         if (prune.has(e.name)) continue;
         // 자식 파일이 depth ≤ maxDepth 안에 들어올 때만 하강
         if (childDepth < maxDepth) walk(childRel, childDepth);
@@ -59,13 +58,13 @@ function walkFindDirs(root, { prune, match, maxDepth = 3 }) {
     }
   };
   walk("", 0);
-  return [...new Set(hits)].sort(); // sort -u 등가
+  return [...new Set(hits)].sort(); // 중복 제거 + 정렬
 }
 
-// 타입별 마커 파일 후보 검색 (.sh find_type_path_candidates L1249~1311 등가).
+// 타입별 마커 파일 후보 검색.
 // 반환: 후보 디렉토리 상대경로 배열 (루트는 ".").
 export function findTypePathCandidates(root, type) {
-  // ── Spring 멀티모듈: settings.gradle(.kts) 폴더 = 모듈 루트로 축약 (.sh L1255~1268) ──
+  // ── Spring 멀티모듈: settings.gradle(.kts) 폴더 = 모듈 루트로 축약 ──
   // version_manager가 그 폴더 아래 build.gradle 전부를 갱신하므로 하위 모듈을 펼치지 않는다.
   // android/ 의 settings.gradle(Flutter/RN)은 spring이 아니므로 prune.
   if (type === "spring") {
@@ -92,7 +91,7 @@ export function findTypePathCandidates(root, type) {
     "node_modules", ".git", "build", "dist", ".dart_tool", "android", "ios",
     ".gradle", "venv", ".venv", "__pycache__",
   ]);
-  // 우선순위 높은 마커에서 발견되면 그것만 사용 (.sh L1281~1288)
+  // 우선순위 높은 마커에서 발견되면 그것만 사용
   let found = [];
   for (const n of names) {
     found = walkFindDirs(root, { prune, match: (name) => name === n });
@@ -101,13 +100,13 @@ export function findTypePathCandidates(root, type) {
 
   return found.filter((d) => {
     if (type === "flutter") {
-      // example/ 제외 + lib/ 동반 확인 — 오탐 방지 (.sh L1298~1303)
+      // example/ 제외 + lib/ 동반 확인 — 오탐 방지
       if (d.includes("example")) return false;
       const libDir = d === "." ? join(root, "lib") : join(root, d, "lib");
       if (!existsSync(libDir)) return false;
     }
     if (type === "spring") {
-      // Flutter/RN의 android/build.gradle 오탐 제외 (.sh L1304~1307)
+      // Flutter/RN의 android/build.gradle 오탐 제외
       if (d.includes("android")) return false;
     }
     return true;
@@ -115,7 +114,7 @@ export function findTypePathCandidates(root, type) {
 }
 
 // 선택된 모든 타입의 경로를 감지·확인하여 Map<type,path> 확정
-// (.sh resolve_project_paths L1362~1589 등가 — 5단계 우선순위).
+// (5단계 우선순위).
 //   ① paths에 이미 있음(--paths) → 유지
 //   ② 루트에 마커 존재 → "." 자동
 //   ③ existingPaths(version.yml 저장값)
@@ -127,11 +126,11 @@ export async function resolveProjectPaths({
 }) {
   const say = io.log || ((m) => process.stderr.write(`${m}\n`));
   const result = new Map(paths); // --paths 사전값 유지 (호출부 Map은 불변)
-  const targets = types.filter((t) => t !== "basic"); // basic은 경로 불필요 (.sh L1400)
+  const targets = types.filter((t) => t !== "basic"); // basic은 경로 불필요
   if (targets.length === 0) return result;
 
   const total = targets.length;
-  // ── 도입부 안내 (.sh L1407~1434 — 감지 결과 + 무엇을 할지 설명) ──
+  // ── 도입부 안내 (감지 결과 + 무엇을 할지 설명) ──
   say("");
   if (total > 1) say(msg("paths.multi", { total }));
   else say(msg("paths.single", { type: targets[0] }));
@@ -145,13 +144,13 @@ export async function resolveProjectPaths({
     idx += 1;
     const prog = `[${idx}/${total}]`;
 
-    // ① --paths 등으로 이미 지정됨 → 최우선 (.sh L1441~1446)
+    // ① --paths 등으로 이미 지정됨 → 최우선
     if (result.get(t)) {
       say(msg("paths.byFlag", { type: t, path: result.get(t) }));
       continue;
     }
 
-    // ② 루트에 마커 존재 → "." 자동 확정 (.sh L1449~1455, 보조 마커 포함)
+    // ② 루트에 마커 존재 → "." 자동 확정 (보조 마커 포함)
     const rootMarker = existingMarkerInDir(t, root);
     if (rootMarker && existsSync(join(root, rootMarker))) {
       result.set(t, ".");
@@ -159,14 +158,14 @@ export async function resolveProjectPaths({
       continue;
     }
 
-    // ③ 기존 version.yml 저장값 → 기본 제안값 (.sh L1458~1466)
+    // ③ 기존 version.yml 저장값 → 기본 제안값
     const existing = existingPaths.get(t) || "";
 
-    // ④ 후보 검색 (.sh L1469~1471)
+    // ④ 후보 검색
     const candidates = findTypePathCandidates(root, t);
     let chosen = "";
 
-    // ── ⑤-a 비대화형 (--force 또는 TTY 없음, .sh L1476~1489) ──
+    // ── ⑤-a 비대화형 (--force 또는 TTY 없음) ──
     if (force || !tty) {
       if (existing) {
         chosen = existing;
@@ -182,7 +181,7 @@ export async function resolveProjectPaths({
       continue;
     }
 
-    // ── ⑤-b 대화형: 후보 개수별 분기 (.sh L1492~1525) + 타입 탈출구 (#487) ──
+    // ── ⑤-b 대화형: 후보 개수별 분기 + 타입 탈출구 (#487) ──
     const EXCLUDE = "이 타입 제외"; // 센티넬 — 한국어 value로 노출 (기존 "직접 입력" 패턴)
     let excluded = false;
     if (candidates.length === 1) {
@@ -206,7 +205,7 @@ export async function resolveProjectPaths({
     } else if (candidates.length > 1) {
       say("");
       say(msg("paths.multiFound", { prog, type: t, count: candidates.length }));
-      // 후보들 + '직접 입력'/'이 타입 제외' 메뉴 — value 자체를 한국어로 (센티넬 노출 방지, .sh L1508~1521)
+      // 후보들 + '직접 입력'/'이 타입 제외' 메뉴 — value 자체를 한국어로 (센티넬 노출 방지)
       const options = candidates.map((c) => ({
         value: c,
         label: `${c} (${existingMarkerInDir(t, c === "." ? root : join(root, c))})`,
@@ -214,7 +213,7 @@ export async function resolveProjectPaths({
       options.push({ value: "직접 입력", label: msg("paths.manual") });
       options.push({ value: EXCLUDE, label: msg("paths.exclude", { type: t }) });
       const sel = await io.select({ message: msg("paths.selectPrompt", { type: t }), options });
-      // ESC(취소)도 직접 입력으로 폴백 (.sh `|| _sel="직접 입력"`)
+      // ESC(취소)도 직접 입력으로 폴백
       if (sel === EXCLUDE) excluded = true;
       else if (!isCancel(sel) && sel != null && sel !== "직접 입력") chosen = sel;
     } else {
@@ -222,7 +221,7 @@ export async function resolveProjectPaths({
       say(msg("paths.notFound", { prog, type: t }));
     }
 
-    // ── 직접 입력 루프 (위에서 미확정 시, .sh L1528~1553) — 제외 탈출구 포함 (#487) ──
+    // ── 직접 입력 루프 (위에서 미확정 시) — 제외 탈출구 포함 (#487) ──
     while (!chosen && !excluded) {
       const hintMarker = existingMarkerInDir(t, root);
       let prompt = msg("paths.inputPrompt", { type: t, marker: hintMarker });
@@ -231,9 +230,9 @@ export async function resolveProjectPaths({
       let input = await io.text({ message: prompt, defaultValue: "" });
       if (isCancel(input) || input == null) input = ""; // ESC → 빈값 (아래 폴백)
       input = String(input).trim();
-      // 빈값 → 기존값 또는 루트 (.sh L1541~1543) — normalizePath 전에 판정
+      // 빈값 → 기존값 또는 루트 — normalizePath 전에 판정
       input = input === "" ? (existing || ".") : normalizePath(input);
-      // 검증: 입력 경로에 마커 존재 확인 (보조 마커 포함, .sh L1544~1552)
+      // 검증: 입력 경로에 마커 존재 확인 (보조 마커 포함)
       const m = existingMarkerInDir(t, input === "." ? root : join(root, input));
       if (m && existsSync(join(root, input === "." ? "" : input, m))) {
         chosen = input;
@@ -262,7 +261,7 @@ export async function resolveProjectPaths({
     say(`  ✅ ${t} → ${chosen}`);
   }
 
-  // ── 요약 + 같은 마커 파일 중복 경고 (.sh L1559~1587) ──
+  // ── 요약 + 같은 마커 파일 중복 경고 ──
   say("");
   say(msg("paths.summary"));
   const fileToTypes = new Map(); // 마커 파일 상대경로 → 그 파일을 쓰는 타입들
@@ -275,7 +274,7 @@ export async function resolveProjectPaths({
   }
   for (const [file, ts] of fileToTypes) {
     if (ts.length > 1) {
-      // 멱등 동작이라 막지는 않고 경고만 (.sh L1577~1586)
+      // 멱등 동작이라 막지는 않고 경고만
       say(msg("paths.duplicate", { types: ts.join(" "), file }));
       say(msg("paths.duplicateNote"));
     }

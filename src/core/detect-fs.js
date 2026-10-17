@@ -1,4 +1,4 @@
-// 실 파일시스템 프로젝트 감지 (.sh detect_* 실행부 등가).
+// 실 파일시스템 프로젝트 감지.
 // SP2-A detect.js 순수 함수를 fs/git으로 구동한다.
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, basename } from "node:path";
@@ -18,7 +18,7 @@ function gitOut(root, args) {
   } catch { return ""; }
 }
 
-// 확장자 스캔용 파일 목록 (.sh suggest_types_by_scan find 등가 — depth≤3, vendor 폴더 프루닝).
+// 확장자 스캔용 파일 목록 (depth≤3, vendor 폴더 프루닝).
 const SCAN_PRUNE = new Set([
   "node_modules", ".git", "build", "dist", ".dart_tool",
   "android", "ios", ".gradle", "venv", ".venv", "__pycache__",
@@ -45,7 +45,7 @@ export function listScanFiles(root, maxDepth = 3) {
 }
 
 // 타입 감지 — version.yml의 project_types 최우선(source of truth), 없으면 마커 스캔.
-// 마커도 전혀 없으면(basic 폴백) 확장자 빈도 스캔으로 2차 추천 (.sh suggest_types_by_scan 등가, #458).
+// 마커도 전혀 없으면(basic 폴백) 확장자 빈도 스캔으로 2차 추천 (#458).
 export function detectTypes(root) {
   const vy = join(root, "version.yml");
   if (existsSync(vy)) {
@@ -64,7 +64,7 @@ export function detectTypes(root) {
   return byMarkers;
 }
 
-// 버전 감지 — .sh detect_version 순서. jq 유무는 command 존재로 판정.
+// 버전 감지. jq 유무는 command 존재로 판정.
 export function detectVersion(root, { hasJq } = {}) {
   const read = readFile(root);
   const readJson = (rel) => { const c = read(rel); try { return c ? JSON.parse(c) : null; } catch { return null; } };
@@ -103,7 +103,7 @@ function hasCommand(cmd) {
   } catch { return false; }
 }
 
-// Spring application*.yml 탐색 (.sh resolve_spring_app_yml_dir/path L2767~2780 등가)
+// Spring application*.yml 탐색
 // find {base} -path "*/src/main/resources/application*.yml" | head -1 의 fs 재귀 구현.
 // 반환: root 기준 상대경로 (예: "server/src/main/resources/application.yml") 또는 "".
 export function findSpringAppYml(root, base = ".") {
@@ -130,7 +130,7 @@ export function findSpringAppYml(root, base = ".") {
   return hit;
 }
 
-// 실 resolver 세트 생성 (.sh resolve_token 4종 등가) — index/interactive 공용.
+// 실 resolver 4종 세트 생성 — index/interactive 공용.
 // paths: Map<type, path> (모노레포 경로).
 export function makeResolvers(root, repoName, paths) {
   const springBase = (t) => paths.get(t || "spring") || paths.get("spring") || ".";

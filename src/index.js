@@ -1,4 +1,4 @@
-// projectops CLI 진입 파이프라인 (.sh main + execute_integration 등가).
+// projectops CLI 진입 파이프라인 (인자 > 감지 > 모드별 통합 > 요약).
 // 감지 → 다운로드 → 모드 라우팅 → 통합 실행 → 정리. 비대화형(--force) 우선.
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -130,7 +130,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     disarmSignals = trace.armSignals({ targetRoot: cwd, now: "" });
   }
 
-  // 기존 version.yml 로드 — version/version_code/project_paths 보존의 단일 진실 (.sh L2208~2239 SSoT)
+  // 기존 version.yml 로드 — version/version_code/project_paths 보존의 단일 진실
   const vyPath = join(cwd, "version.yml");
   const existing = existsSync(vyPath) ? parseExisting(readFileSync(vyPath, "utf8")) : null;
   trace.event("detect", "existing-install", existing ? "found" : "none", {
@@ -150,11 +150,11 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     source: existing?.version ? "version.yml(existing value kept)"
       : (opts.version ? "cli-flag(--project-version)" : "project file detection"),
   });
-  const versionCode = existing?.versionCode ?? 1; // 기존 빌드번호 보존 (.sh L2208~2221)
+  const versionCode = existing?.versionCode ?? 1; // 기존 빌드번호 보존
   const branch = detectDefaultBranch(cwd);
   const repoName = detectRepoName(cwd);
   trace.event("detect", "repo", repoName || "(unknown)", { defaultBranch: branch, versionCode });
-  // 경로 확정 (.sh resolve_project_paths 비대화형 경로 — --paths 우선 → 저장값 → 후보 1개 자동 → 루트 폴백)
+  // 경로 확정 (비대화형 — --paths 우선 → 저장값 → 후보 1개 자동 → 루트 폴백)
   let cliPaths;
   try {
     cliPaths = parsePathsCsv(opts.pathsCsv);
@@ -221,7 +221,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     mode: opts.mode, force: true, types, version, versionCode, branch, paths,
     ...resolved,
     repoName,
-    // 실 resolver 4종 (.sh resolve_token 등가 — spring-app-yml 스텁 제거)
+    // 실 resolver 4종 (spring-app-yml 포함)
     resolvers: makeResolvers(cwd, repoName, paths),
     now, today,
   });
@@ -263,7 +263,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     // 비대화형 축약 배너 (#446 확정 — 1줄, 로그 오염 최소)
     printBannerCompact({ version: context.templateVersion, mode: opts.mode });
 
-    // Breaking Changes 게이트 (.sh execute_integration L4415~4420 등가 — 비대화형은 경고 후 진행)
+    // Breaking Changes 게이트 (비대화형은 경고 후 진행)
     const proceed = await trace.stepAsync("breaking-check", () => runBreakingCheck({
       cwd, tempDir, templateVersion: context.templateVersion,
       onItems: (items) => { breakingReport = items; },
@@ -301,7 +301,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       case "workflows": result = trace.step("install-workflows", () => runWorkflows(context, tempDir, cwd, { trace })); break;
       case "issues": result = trace.step("install-issues", () => runIssues(context, tempDir, cwd)); break;
       default:
-        // 알 수 없는 모드 → .sh와 동일하게 복사 0건, 에러 아님
+        // 알 수 없는 모드 → 복사 0건, 에러 아님
         break;
     }
     // 마이그레이션 기록 (#493/#494) — Layer 2/3 트레이스 파일 + Layer 1 가이드 엔트리
@@ -323,7 +323,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       }).guidePath;
     }
 
-    // 완료 요약 (.sh print_summary — CLI 모드에서도 출력)
+    // 완료 요약 (CLI 모드에서도 출력)
     printSummary({
       mode: opts.mode, types, version, deployBranch: context.deployBranch, migrationGuidePath,
       counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },

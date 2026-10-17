@@ -1,5 +1,5 @@
-// package.json 내용 분류 (.sh classify_package_json 등가) — 원본 파일 텍스트에 대한
-// grep 부분문자열 매칭. dependencies 파싱이 아니라 raw 텍스트 검사여야 등가.
+// package.json 내용 분류 — 원본 파일 텍스트에 대한 부분문자열 매칭.
+// dependencies 파싱이 아니라 raw 텍스트 검사 (깨진 JSON에도 동작).
 // 입력은 package.json의 원문 문자열(raw). 순서 중요.
 export function classifyPackageText(raw) {
   const s = String(raw || "");
@@ -61,7 +61,7 @@ export function extraMarkers(type) {
   return { python: ["setup.py", "requirements.txt"], spring: ["build.gradle.kts", "pom.xml"] }[type] || [];
 }
 
-// 확장자 빈도 스캔 추천 (.sh suggest_types_by_scan 2단계 등가, #458 npx 이식).
+// 확장자 빈도 스캔 추천 (마커 없을 때 2단계, #458).
 // 마커가 전혀 없을 때(=basic 폴백)만 쓰는 2차 추천. files = 프루닝된 상대경로 목록.
 // 임계: dart≥1→flutter, java+kt+gradle≥3→spring, tsx+jsx≥3→react, py≥3→python,
 //       아무것도 없고 ts+js≥3→node. 반환은 메뉴 정의 순서로 정렬.

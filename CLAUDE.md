@@ -45,10 +45,14 @@
 | 개념 | 뜻 | version.yml 필드 | 표준값 |
 |------|-----|-----------------|--------|
 | **기본(배포) 브랜치** | 레포 default·프로덕션. push되면 배포가 도는 곳 | `default_branch` | `main` |
-| **개발(릴리스 소스) 브랜치** | 개발을 모아 기본 브랜치로 올리는 릴리스 PR의 head | `deploy_branch` ⚠️ | `develop` |
+| **개발(릴리스 소스) 브랜치** | 개발을 모아 기본 브랜치로 올리는 릴리스 PR의 head | `development_branch` (구 `deploy_branch`) | `develop` |
 | 이슈 브랜치 | 작업 단위 (`YYYYMMDD_#번호_제목`) | — | — |
 
-> ⚠️ **`deploy_branch`는 이름과 달리 "개발 브랜치"다** (릴리스 PR head). "배포 브랜치"로 읽으면 안 된다 — 배포가 도는 곳은 `default_branch`. 사용자 노출 문구에서 이 필드를 "배포 브랜치"라 부르지 말고 "개발(릴리스 소스) 브랜치"로 칭한다. (필드 개명은 파급이 커 후속 과제 — 라벨·문구만 먼저 정합화됨.)
+> ⚠️ **키 이름은 `development_branch`가 정본이다 (#915).** 구 이름 `deploy_branch`는 "배포 브랜치"로 오독되는 이름이라 정본에서 내렸고, 하위호환용으로만 남는다.
+> - **읽기**: 모든 소비자가 `development_branch` → 없으면 `deploy_branch` → 없으면 `develop` 순으로 읽는다 (`src/core/version-yml.js` `readDevelopmentBranch`, `changelog_cli.py` `_parse_release_branches`).
+> - **쓰기**: 생성기는 두 키를 **같은 값으로 함께** 쓴다 — 구 키만 읽는 구버전 스킬(플러그인은 레포와 따로 업데이트된다)이 조용히 `develop`로 폴백하지 않게 하기 위해서다. 업데이트(마법사 재실행)가 구 키만 있는 파일을 두 키로 다시 쓴다.
+> - 워크플로우는 런타임에 이 키를 읽지 않는다 (설치 시 브랜치명을 치환해 넣는다).
+> - 사용자 노출 문구에서 이 브랜치를 "배포 브랜치"라 부르지 말고 "개발(릴리스 소스) 브랜치"로 칭한다. CLI 플래그 `--deploy-branch`와 내부 변수명 `deployBranch`는 그대로다.
 
 ---
 
@@ -641,7 +645,7 @@ python3 .github/scripts/changelog_manager.py classify-bump --commits-file commit
 테스트: `python3 -m pytest .github/scripts/test/test_issue_helper.py`
 
 ### template_integrator.sh / .ps1 — 제거됨 (EOF #458 → 삭제 #800)
-**두 스크립트는 v4.3.0에서 안내용 shim으로 바뀌었고, #800에서 파일 자체를 지웠다.** 옛 `curl .../template_integrator.sh | bash`는 이제 404다. `src/` 주석의 `template_integrator.sh 줄번호` 표기는 포팅 원본을 가리키는 이력이라 그대로 둔다.
+**두 스크립트는 v4.3.0에서 안내용 shim으로 바뀌었고, #800에서 파일 자체를 지웠다.** 옛 `curl .../template_integrator.sh | bash`는 이제 404다. `src/` 주석에 지운 스크립트의 줄번호·함수명(`.sh L1234 등가`)을 적지 않는다 — 가리키는 파일이 없다. 이유는 현재형으로 적는다 (#916).
 통합/업데이트/스킬 설치는 전부 **`npx projectops`** 한 경로다. 배포/publish 축·secret 백업 등 모든 옵션은 npx 마법사가 질문하며, 선택 값은 `version.yml`의 `metadata.template.options.*`에 동일하게 저장된다.
 
 **초기화/통합 시 복사되지 않는 템플릿 전용 파일**:

@@ -1,10 +1,10 @@
-// .gitignore 보장 (.sh ensure_gitignore + normalize/check 등가) — template_integrator.sh 3996~4111.
+// .gitignore 보장 (항목 정규화 > 누락 확인 > 추가).
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
 const REQUIRED_ENTRIES = ["/.idea", "/.claude/settings.local.json"];
 
-// .sh normalize_gitignore_entry: 주석 제거·트림·앞 / 제거·앞 ./ 제거·뒤 / 제거. 빈값이면 원본.
+// 항목 정규화: 주석 제거·트림·앞 / 제거·앞 ./ 제거·뒤 / 제거. 빈값이면 원본.
 export function normalizeGitignoreEntry(entry) {
   let e = String(entry);
   e = e.replace(/#.*$/, "");        // 주석 제거
@@ -43,7 +43,7 @@ export function ensureGitignore(targetRoot = ".") {
   const toAdd = REQUIRED_ENTRIES.filter((e) => !entryExists(e, content));
   if (toAdd.length === 0) return { created: false, added: [] };
 
-  // 파일 끝에 개행 없으면 추가 (.sh: tail -c 1 이 non-empty면 echo "")
+  // 파일 끝에 개행 없으면 추가
   if (content.length > 0 && !content.endsWith("\n")) content += "\n";
   content += "\n";
   content += "# ====================================================================\n";

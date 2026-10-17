@@ -1,4 +1,4 @@
-// util 모듈 복사 (.sh copy_util_modules 등가, force 경로) — template_integrator.sh 4203~.
+// util 모듈 복사 (force 경로).
 // tempDir/.github/util/<type>/ 있으면 (force) .github/util/<type>/로 전체 복사, 모듈 수 카운트.
 import { join } from "node:path";
 import { readdirSync } from "node:fs";
@@ -15,7 +15,7 @@ export function copyUtilModules(tempDir, type, { force = false } = {}, targetRoo
   const dst = join(targetRoot, ".github", "util", type);
   copyDirSync(src, dst);
 
-  // 하위 디렉토리 개수 = 모듈 수 (.sh: for dir in "$util_dst"/*/)
+  // 하위 디렉토리 개수 = 모듈 수
   // `_` 로 시작하는 폴더는 모듈이 아니라 모듈들이 공유하는 자산이다
   // (예: flutter/_shared — 마법사 3종 공통 CSS/JS). 개수에서 제외한다.
   let moduleCount = 0;

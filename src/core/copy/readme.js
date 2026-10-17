@@ -1,4 +1,4 @@
-// README 버전 섹션 추가 (.sh add_version_section_to_readme 등가) — template_integrator.sh 2145~2181.
+// README 버전 섹션 추가.
 import { join } from "node:path";
 import { existsSync, readFileSync, appendFileSync } from "node:fs";
 
@@ -15,8 +15,7 @@ export function addVersionSectionToReadme(version, targetRoot = ".") {
   if (content.includes(MARKER)) return "skip-marker";
   if (VERSION_LINE_RE.test(content)) return "skip-version-line";
 
-  // .sh: cat >> README.md << EOF — EOF 다음 첫 줄이 빈 줄이므로 append 본문은 "\n---\n..."로 시작.
-  // (원본 파일이 개행으로 끝난다는 전제는 .sh와 동일 — heredoc은 원본 끝에 그대로 붙는다.)
+  // append 본문은 빈 줄 + "---"로 시작 (원본 파일이 개행으로 끝난다는 전제).
   const section =
     "\n" +
     "---\n" +

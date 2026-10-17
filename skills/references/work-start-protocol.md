@@ -11,7 +11,7 @@ git rev-parse --abbrev-ref HEAD
 
 - **main**(프로덕션·default branch, 레포에 따라 master 등) → **즉시 멈추고** 사용자에게 확인한다. main은
   릴리스(develop→main PR)로만 갱신되어야 하는 배포 브랜치다.
-- **개발 브랜치**(`version.yml`의 `metadata.deploy_branch`, 없으면 `develop`) → 레포 규칙을 먼저 본다.
+- **개발 브랜치**(`version.yml`의 `metadata.development_branch`(구 이름 `deploy_branch`), 없으면 `develop`) → 레포 규칙을 먼저 본다.
   - 레포 `CLAUDE.md`·`AGENTS.md`가 개발 브랜치 직행을 기본으로 선언했으면(예: "develop에서 직접 작업",
     "develop 직행") **멈추지 않고 통과**한다. 이슈 번호는 사용자 메시지에 있으면 그것을 쓰고, 없으면
     커밋 시점에 묻는다.

@@ -1,5 +1,4 @@
-// Codex CLI 어댑터 (.sh _manage_codex_skills / _do_codex_marketplace_register /
-// _remove_codex_section 등가).
+// Codex CLI 어댑터 (skills 관리·마켓플레이스 등록·제거).
 // marketplace 등록/업그레이드가 주 경로. native ~/.agents/skills/projectops 심링크는 감지·제거에 사용.
 import { join } from "node:path";
 import { existsSync, lstatSync, rmSync } from "node:fs";

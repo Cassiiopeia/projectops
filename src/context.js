@@ -5,7 +5,7 @@ export const VALID_TYPES = [
   "react-native", "react-native-expo", "node", "python", "basic",
 ];
 
-export const DEFAULT_VERSION = "1.3.14"; // .sh DEFAULT_VERSION (배너 폴백용 — breaking 비교엔 안 씀)
+export const DEFAULT_VERSION = "1.3.14"; // 템플릿 버전 미상 시 (배너 폴백용 — breaking 비교엔 안 씀)
 
 export function createContext(overrides = {}) {
   return {
@@ -25,7 +25,7 @@ export function createContext(overrides = {}) {
     changelogProvider: null, // 'commit'(기본) | 'coderabbit' | 'openai' | 'gemini' | 'claude' | 'ollama' | 'commit'
     changelogBaseUrl: null,  // ollama일 때만 값
     codeReviewCoderabbit: null,
-    deployBranch: "",        // 릴리스 PR head 브랜치 (#456). 빈 값=metadata.deploy_branch 미출력
+    deployBranch: "",        // 릴리스 PR head 브랜치 (#456). 빈 값=metadata.development_branch 미출력
     intent: null,            // 프로젝트 성격 (#485 — app/library/both/none/manual). null=미설정(역추론)
     semverAuto: null,        // semver 자동 승격 (#546). null=미설정 → 신규·기존 모두 true (#814). 명시적 false 만 끈다
     closeOnRelease: null,    // 릴리스 시 완료 이슈 닫기 (#771). null=미설정(신규 true / 기존 레포 키 없음)
