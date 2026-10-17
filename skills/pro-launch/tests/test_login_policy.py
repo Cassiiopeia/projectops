@@ -224,3 +224,31 @@ def test_config_가_객체가_아니면_조회는_ask_쓰기는_거절(home):
         credentials.set_login_policy(None, "trust_device", "always")
     assert error.value.code == "config_unreadable"
     assert read_cfg(home) == [1]
+
+
+# ── 리뷰 Minor 3건 수정 ────────────────────────────────────────────────────
+def test_cli_policy_가_아닌_동작에_하위_동작을_붙이면_거절한다(home):
+    result = run(home, "cred", "list", "get")
+    assert result["ok"] is False and result["code"] == "unexpected_argument" and result["next"]
+
+
+def test_cli_set_replace_는_저장된_정책을_지우지_않는다(home):
+    run(home, "cred", "set", "--name", "g", "--json", '{"kind":"login","password":"old"}')
+    run(home, "cred", "policy", "set", "--name", "g", "--key", "trust_device", "--value", "always")
+    assert run(home, "cred", "set", "--name", "g", "--replace", "--json", '{"kind":"login","password":"new"}')["summary"]
+    entry = read_cfg(home)["launch"]["credentials"]["g"]
+    assert entry == {"kind": "login", "password": "new", "login_policy": {"trust_device": "always"}}
+
+
+def test_cli_set_json_으로_정책을_쓰면_cred_policy_로_안내한다(home):
+    result = run(home, "cred", "set", "--name", "g", "--json", '{"kind":"login","login_policy":{"trust_device":"yes"}}')
+    assert result["ok"] is False and result["code"] == "use_cred_policy" and "cred policy set" in result["next"]
+    assert not cfg_path(home).exists()
+
+
+def test_cred_field_missing_의_필드_목록에_정책이_없다(home):
+    from pro_launch.runtime.creds import cred_field
+    write_cfg(home, {"launch": {"credentials": {"g": {"kind": "login", "account": "a",
+                                                      "login_policy": {"trust_device": "always"}}}}})
+    value, error = cred_field("g", "password")
+    assert value is None and error["code"] == "cred_field_missing" and error["fields"] == ["account"]

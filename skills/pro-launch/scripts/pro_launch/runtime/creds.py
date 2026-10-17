@@ -34,7 +34,9 @@ def cred_field(name: str, field: str | None) -> tuple[str | None, dict | None]:
     f = field or "password"
     v = cred.get(f)
     if v in (None, ""):
-        keys = sorted(k for k, x in cred.items() if x not in (None, "") and k not in ("name", "kind"))
+        # 입력할 수 있는 값(글자·숫자)만 고를 거리로 보여 준다 — login_policy 같은 객체는 뺀다
+        keys = sorted(k for k, x in cred.items() if isinstance(x, (str, int, float)) and x != ""
+                      and k not in ("name", "kind"))
         return None, {"ok": False, "code": "cred_field_missing",
                       "error": f"'{name}' 에 '{f}' 값이 없습니다", "fields": keys,
                       "next": f"cred set --name {name} --json '{{\"{f}\": \"...\"}}'  # 또는 --cred-field 로 다른 필드를 고른다"}

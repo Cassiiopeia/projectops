@@ -21,7 +21,7 @@
 {PYTHON} {SCRIPTS}/launch_cli.py http --cred api --url /me        # token 이면 Authorization: Bearer
 ```
 
-`cred set` 은 기존 항목에 합친다. 통째로 바꾸려면 `--replace`.
+`cred set` 은 기존 항목에 합친다. 통째로 바꾸려면 `--replace`. `--replace` 도 저장된 `login_policy` 는 남긴다. `--json` 에 `login_policy` 를 넣으면 `use_cred_policy` 로 거절된다 — 정책은 `cred policy set|unset` 으로만 바꾼다.
 
 | 항목 | 의미 |
 |---|---|

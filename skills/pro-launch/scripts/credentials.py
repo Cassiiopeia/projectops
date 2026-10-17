@@ -35,10 +35,11 @@ SECRET_KEYS = ("password", "passwd", "token", "secret", "passphrase", "api_key",
 class CredError(Exception):
     """저장·조회 실패. code 는 JSON 응답의 code 로 쓴다."""
 
-    def __init__(self, code: str, message: str):
+    def __init__(self, code: str, message: str, next_hint: str | None = None):
         super().__init__(message)
         self.code = code
         self.message = message
+        self.next_hint = next_hint                  # JSON 응답의 next (있을 때만)
 
 
 def _is_secret_key(key: str) -> bool:
@@ -169,10 +170,17 @@ def save_credential(name: str, fields: dict, replace: bool = False) -> Path:
     if data is None and cfg.config_path().exists():
         # 파일은 있는데 읽지 못했다 = 깨졌다. 덮어쓰면 PAT·서버 정보가 전부 사라진다.
         raise CredError("config_unreadable", "config.json 을 읽지 못했습니다 (깨졌을 수 있습니다). 덮어쓰지 않았습니다")
+    if "login_policy" in fields:
+        # 정책은 키·값 검증과 키 단위 병합이 필요하다 > 전용 경로로만 (#905)
+        raise CredError("use_cred_policy", "login_policy 는 cred set 으로 바꾸지 않습니다",
+                        next_hint=f"cred policy set --name {name} --key <키> --value <ask|always|never>")
     data = data or {}
     creds = _section(data, create=True)
-    base = {} if replace else dict(creds.get(name) or {})
+    existing = dict(creds.get(name) or {})
+    base = {} if replace else existing
     base.update(fields)
+    if replace and isinstance(existing.get("login_policy"), dict):
+        base["login_policy"] = existing["login_policy"]   # --replace 는 값만 바꾼다. 정책은 cred policy unset 으로
     creds[name] = base
     return _write_config(data)
 

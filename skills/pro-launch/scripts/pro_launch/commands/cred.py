@@ -132,6 +132,11 @@ def _cred_policy(args) -> int:
 
 def cmd_cred(args) -> int:
     """자격증명을 저장하고 꺼낸다. 값은 config.json 에만 남고 목록·조회에서는 가려진다."""
+    # get · set · unset 은 policy 전용 하위 동작 (다른 동작에 붙으면 조용히 무시하지 않는다)
+    if args.policy_action and args.action != "policy":
+        return out({"ok": False, "code": "unexpected_argument",
+                    "error": f"'{args.policy_action}' 는 cred policy 에서만 쓰는 하위 동작입니다",
+                    "next": f"cred {args.action}  # 또는 cred policy {args.policy_action}"})
     if args.action == "list":
         allc = credentials.load_all()
         items = []
@@ -191,7 +196,7 @@ def cmd_cred(args) -> int:
             return out({"name": args.name, "ok": ok, "code": "ok" if ok else "not_found",
                         "summary": f"{args.name} 지움" if ok else f"{args.name} 가 없습니다"})
     except credentials.CredError as e:
-        return out({"ok": False, "code": e.code, "error": e.message})
+        return out({"ok": False, "code": e.code, "error": e.message, "next": e.next_hint})
     return out({"ok": False, "code": "unknown_action", "error": args.action})
 
 
