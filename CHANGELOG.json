@@ -1,14 +1,40 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-17T12:06:15Z",
-    "currentVersion": "4.56.0",
+    "lastUpdated": "2026-10-17T12:28:54Z",
+    "currentVersion": "4.56.1",
     "projectType": "basic",
-    "totalReleases": 319,
+    "totalReleases": 320,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.56.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-17",
+      "pr_number": 903,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * Android 에서 화면에 초점 창이 없을 때(재부팅 직후·화면 꺼짐·잠금) 화면 구조 읽기가 실패하던 문제를 고쳤습니다. 화면을 깨운 뒤 세 번까지 다시 읽고, 그래도 안 되면 `no_focused_window` 로 원인을 알려 줍니다.\n\n* **문서**\n  * pro-launch 코드 주석·문서·트러블슈팅 항목에 적힌 이슈 번호를 실제 번호로 바로잡았습니다.\n  * 트러블슈팅 항목을 27건으로 늘렸습니다(초점 창 없음, 에뮬레이터 시스템 재시작 반복의 실측 해결법).",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "Android 에서 화면에 초점 창이 없을 때(재부팅 직후·화면 꺼짐·잠금) 화면 구조 읽기가 실패하던 문제를 고쳤습니다. 화면을 깨운 뒤 세 번까지 다시 읽고, 그래도 안 되면 `no_focused_window` 로 원인을 알려 줍니다."
+          ]
+        },
+        "문서": {
+          "title": "문서",
+          "items": [
+            "pro-launch 코드 주석·문서·트러블슈팅 항목에 적힌 이슈 번호를 실제 번호로 바로잡았습니다.",
+            "트러블슈팅 항목을 27건으로 늘렸습니다(초점 창 없음, 에뮬레이터 시스템 재시작 반복의 실측 해결법)."
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.56.0",
       "project_type": "basic",
