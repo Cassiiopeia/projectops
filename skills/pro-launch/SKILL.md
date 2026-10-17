@@ -38,6 +38,7 @@ description: "Capability skill that launches and drives apps, web and servers: e
 | 코드로 상태를 그려 찍기 | `render snapshot` → `render run` | `references/render.md` |
 | 단건 HTTP · 붙는 법 기록 · SQL · 로그 | `http` · `access show\|set\|unset` · `db` · `logs` | `references/server.md` |
 | 자격증명 저장 · 원격 명령 · 이 맥 sudo | `cred list\|show\|set\|unset\|import-ssh` · `ssh` · `local sudo` | `references/credentials.md` |
+| 로그인 중간 화면(기기 신뢰 · 로그인 유지 · 권유) 정책 | `cred policy get\|set\|unset` | `references/web.md` "로그인 중간 화면" |
 | 이슈 첨부용 축소 | `shrink` | `references/memory.md` |
 | 이 컴퓨터에서 먹힌 방식 꺼내기 · 남기기 · 지우기 · 정리 | `recall` · `learn` · `forget` · `tidy` | `references/memory.md` |
 | 공식 트러블슈팅 찾기 · 보기 · 목록 · 내 기억에서 공식 항목 초안 | `kb search\|show\|list\|propose` | `references/troubleshooting.md` · `references/memory.md` |

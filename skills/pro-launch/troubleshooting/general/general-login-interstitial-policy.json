@@ -1,0 +1,31 @@
+{
+  "id": "general-login-interstitial-policy",
+  "area": "general",
+  "title": "로그인 도중 기기 신뢰·로그인 유지·권유 화면에서 매번 멈춘다",
+  "match": {
+    "codes": [],
+    "keywords": [
+      "trust this device",
+      "기기 신뢰",
+      "다시 묻지",
+      "로그인 상태 유지",
+      "stay signed in",
+      "passkey",
+      "패스키"
+    ]
+  },
+  "symptom": "로그인할 때마다 이 기기 신뢰(다시 묻지 않기) · 로그인 상태 유지 · 패스키·연락처 추가 권유 화면에서 사용자에게 같은 질문을 되풀이한다. 원격(remote-control)에서는 사용자가 화면을 못 봐 흐름이 끊긴다",
+  "cause": "로그인 중간 화면 정책이 저장되지 않았다(모든 키가 ask). 제공자마다 화면 모양이 달라 자동 클릭 코드는 없고, agent 가 화면 종류를 판단해 저장된 정책대로 누른다",
+  "fix": [
+    "launch_cli.py cred policy get --name <이름>",
+    "launch_cli.py cred policy set --name <이름> --key trust_device --value always",
+    "launch_cli.py cred policy set --key skip_nags --value always",
+    "web type --cred · app type --cred 결과의 login_policy 가 always·never 면 묻지 않고 그대로 누른다. ask 면 캡처와 함께 묻고 '이 계정만 / 모든 사이트 / 이번만' 답을 cred policy set 으로 저장한다",
+    "어느 종류인지 모르겠는 화면은 누르지 않는다 — 캡처를 대화로 보내고 묻는다. 2단계 인증 해제·계정 보안 설정 변경은 하지 않는다"
+  ],
+  "refs": [
+    905
+  ],
+  "verified_at": "2026-10-18",
+  "applies_to": "web · android · ios"
+}

@@ -90,6 +90,46 @@ def _cred_import_ssh(args) -> int:
                          else "use_when · scope 를 cred set 으로 채운다. 옛 ssh 섹션은 지우지 않았다")})
 
 
+def _cred_policy(args) -> int:
+    """로그인 중간 화면 정책 조회·변경 (#905). --name 이 있으면 그 계정, 없으면 전체 기본값"""
+    # 입력 확인 (동작, 키, 값)
+    if not args.policy_action:
+        return out({"ok": False, "code": "policy_action_required", "error": "get · set · unset 중 하나가 필요합니다",
+                    "next": "cred policy get [--name 이름]"})
+    if args.policy_action in ("set", "unset") and not args.key:
+        return out({"ok": False, "code": "key_required",
+                    "error": f"--key 가 필요합니다 ({', '.join(credentials.LOGIN_POLICY_KEYS)})",
+                    "next": "cred policy get [--name 이름]"})
+    if args.policy_action == "set" and not args.value:
+        return out({"ok": False, "code": "value_required",
+                    "error": f"--value 가 필요합니다 ({', '.join(credentials.LOGIN_POLICY_VALUES)})",
+                    "next": "cred policy get [--name 이름]"})
+    scope = "credential" if args.name else "global"
+    try:
+        if args.policy_action == "set":
+            credentials.set_login_policy(args.name, args.key, args.value)
+            return out({"ok": True, "code": "ok", "name": args.name, "scope": scope,
+                        "login_policy": credentials.resolve_login_policy(args.name),
+                        "summary": f"{args.key} = {args.value} 저장 ({args.name or '모든 사이트'})",
+                        "next": "cred policy get" + (f" --name {args.name}" if args.name else "")})
+        if args.policy_action == "unset":
+            is_removed = credentials.unset_login_policy(args.name, args.key)
+            return out({"ok": is_removed, "code": "ok" if is_removed else "not_found", "name": args.name,
+                        "scope": scope, "login_policy": credentials.resolve_login_policy(args.name),
+                        "summary": f"{args.key} 지움" if is_removed else f"{args.key} 는 이 층에 저장돼 있지 않습니다",
+                        "next": "cred policy get" + (f" --name {args.name}" if args.name else "")})
+        if args.name and not credentials.has_credential(args.name):
+            raise credentials.CredError("cred_not_found", f"'{args.name}' 자격증명이 없습니다")
+        return out({"ok": True, "code": "ok", "name": args.name,
+                    "login_policy": credentials.resolve_login_policy(args.name),
+                    "summary": "로그인 중간 화면 정책" + (f" ({args.name})" if args.name else " (모든 사이트)"),
+                    "next": ("value 가 always·never 인 화면은 묻지 않고 그대로 누른다. "
+                             "ask 면 사용자에게 묻고 답을 cred policy set 으로 저장한다")})
+    except credentials.CredError as error:
+        return out({"ok": False, "code": error.code, "error": error.message,
+                    "next": "cred policy get  # 또는 cred list 로 계정 이름을 본다"})
+
+
 def cmd_cred(args) -> int:
     """자격증명을 저장하고 꺼낸다. 값은 config.json 에만 남고 목록·조회에서는 가려진다."""
     if args.action == "list":
@@ -106,6 +146,9 @@ def cmd_cred(args) -> int:
 
     if args.action == "import-ssh":
         return _cred_import_ssh(args)
+
+    if args.action == "policy":
+        return _cred_policy(args)
 
     try:
         if args.action == "show":
@@ -153,7 +196,9 @@ def cmd_cred(args) -> int:
 
 
 def configure_cred(p) -> None:
-    p.add_argument("action", choices=["list", "show", "set", "unset", "import-ssh"])
+    p.add_argument("action", choices=["list", "show", "set", "unset", "import-ssh", "policy"])
+    # policy 전용: get · set · unset (로그인 중간 화면 정책, #905)
+    p.add_argument("policy_action", nargs="?", choices=["get", "set", "unset"], default=None)
     p.add_argument("--name", default=None)
     p.add_argument("--dry-run", dest="dry_run", action="store_true",
                    help="import-ssh 때 아무것도 쓰지 않고 옮길 목록만 보여 준다 (비밀 값은 가려서)")
@@ -166,6 +211,9 @@ def configure_cred(p) -> None:
     p.add_argument("--json", dest="json_value", default=None,
                    help='저장할 내용(JSON). 예: {"kind":"ssh","host":"h","port":22,"user":"u","use_when":"..."}')
     p.add_argument("--replace", action="store_true", help="set 때 기존 항목을 합치지 않고 통째로 바꾼다")
+    # --key · --value 는 choices 를 두지 않는다 — 잘못된 값도 JSON code 로 돌려주기 위해
+    p.add_argument("--key", default=None, help="policy: trust_device · keep_signed_in · skip_nags")
+    p.add_argument("--value", default=None, help="policy set: ask · always · never")
     p.add_argument("--reveal", action="store_true", help="show 때 비밀 값도 그대로 보여 준다 (꼭 필요할 때만)")
     p.add_argument("--prompt", action="store_true",
                    help="set 때 이 맥의 sudo 비밀번호를 터미널에서 직접 입력받아 저장한다 (화면에 안 보임, TTY 필요)")

@@ -70,6 +70,11 @@
     ]
   },
   "launch": {
+    "login_policy": {
+      "trust_device": "always",
+      "keep_signed_in": "ask",
+      "skip_nags": "always"
+    },
     "credentials": {
       "my-server": {
         "kind": "ssh",
@@ -87,6 +92,16 @@
         "token": "{access token}",
         "scope": "test-only",
         "use_when": "{예: 배포 워크플로 테스트에서 Secret 으로 등록할 때}"
+      },
+      "my-google": {
+        "kind": "login",
+        "provider": "google",
+        "surface": "web",
+        "app": "{console.cloud.google.com}",
+        "account": "{me@example.com}",
+        "password": "{비밀번호}",
+        "use_when": "{구글 개발자 콘솔 점검}",
+        "login_policy": { "trust_device": "never" }
       }
     }
   }

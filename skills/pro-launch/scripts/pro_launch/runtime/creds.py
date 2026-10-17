@@ -39,3 +39,17 @@ def cred_field(name: str, field: str | None) -> tuple[str | None, dict | None]:
                       "error": f"'{name}' 에 '{f}' 값이 없습니다", "fields": keys,
                       "next": f"cred set --name {name} --json '{{\"{f}\": \"...\"}}'  # 또는 --cred-field 로 다른 필드를 고른다"}
     return str(v), None
+
+
+def with_login_policy(payload: dict, cred_name: str | None) -> dict:
+    """로그인 입력 결과에 최종 정책을 싣는다 (#905). 성공·사용자 인계(needs_user)에만, 그 외 실패는 그대로
+
+    agent 는 이 값을 보고 로그인 중간 화면(기기 신뢰·로그인 유지·권유)을 묻지 않고 처리할지 정한다.
+    """
+    if payload.get("ok") is False and payload.get("code") != "needs_user":
+        return payload
+    try:
+        payload["login_policy"] = credentials.resolve_login_policy(cred_name)
+    except Exception:
+        pass                                        # 정책을 못 읽어도 입력 결과는 그대로 내보낸다
+    return payload

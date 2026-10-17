@@ -12,6 +12,9 @@
 {PYTHON} {SCRIPTS}/launch_cli.py cred set --name synology --json '{"kind":"ssh","host":"h","port":22,"user":"u",
   "use_when":"서버 배포 QA","scope":"test-only","notes":"운영 컨테이너가 있으니 pops-qa- 접두사만"}'
 {PYTHON} {SCRIPTS}/launch_cli.py cred unset --name synology
+{PYTHON} {SCRIPTS}/launch_cli.py cred policy get --name google-dev                 # 로그인 중간 화면 정책 (계정 > 전체 > ask)
+{PYTHON} {SCRIPTS}/launch_cli.py cred policy set --name google-dev --key trust_device --value always
+{PYTHON} {SCRIPTS}/launch_cli.py cred policy set --key skip_nags --value always    # --name 없으면 모든 사이트 기본값
 {PYTHON} {SCRIPTS}/launch_cli.py ssh --cred synology --sudo --command 'SUDO docker ps'   # 비밀번호 sudo 도 된다
 {PYTHON} {SCRIPTS}/launch_cli.py logs --cred synology --command 'sshpass -e ssh -p $CRED_PORT $CRED_USER@$CRED_HOST "docker logs --tail 100 app"'
 {PYTHON} {SCRIPTS}/launch_cli.py db --cred pg --sql "select 1"   # host·user·password 를 채운다
@@ -26,6 +29,7 @@
 | `ssh_server` | (폐기, 호환용) 옛 `ssh` 섹션의 서버 이름. 새로 쓰지 않는다 — `cred import-ssh` 로 값을 cred 로 옮긴다. 서버 정보와 비밀번호는 **cred 한 곳에만** 둔다 |
 | `use_when` | 이 자격증명을 **언제 써도 되는지**(근거). 사용자가 허용한 범위를 그대로 적는다 |
 | 로그인 계정 | `kind: login` + `provider`(google · apple · naver · kakao · custom) · `surface` · `app` · `account` · `password` · `two_factor` — 소셜·앱 로그인과 개발자 콘솔 로그인. 화면에는 `web type --cred` · `app type --cred` 로 넣는다. 필드 상세는 `web.md` 의 "로그인 정보를 저장할 때" |
+| `login_policy` | 로그인 계정의 중간 화면 정책(`trust_device` · `keep_signed_in` · `skip_nags` = `ask`·`always`·`never`). **`cred policy set|unset` 으로만** 바꾼다 — 처리 규칙은 `web.md` 의 "로그인 중간 화면" |
 | 이 맥 sudo | `kind: local` + `sudo_password` — **이 맥**에서 관리자 권한(`sudo installer -pkg …` 등)이 필요할 때. `local sudo --cred 이름 -- <명령>` 으로 쓴다 (아래) |
 | `scope` | `test-only` · `test-ok` · `readonly` … 허용 범위 |
 | `notes` | 지켜야 할 이름 규칙·포트 범위·서버에 있는 운영 서비스 등 알아둘 것 |

@@ -10,7 +10,7 @@ import credentials
 
 from pro_launch.commands.app.gestures import backend_on, elapsed_seconds, session_fields
 from pro_launch.registry import Action
-from pro_launch.runtime.creds import cred_field
+from pro_launch.runtime.creds import cred_field, with_login_policy
 from pro_launch.runtime.devices import no_device_response, pick_device
 from pro_launch.runtime.output import out
 
@@ -61,12 +61,14 @@ def _app_type(args) -> int:
         return out({"ok": False, "code": "app_type_timeout", "error": "기기 응답 없음 (30초)"})
     entry = {"password": value, "token": value}
     ok = r.returncode == 0
-    return out({"ok": ok, "code": "ok" if ok else "app_type_failed", "device": dev_id,
-                "chars": len(value), "submitted": bool(getattr(args, "submit", False)) and ok,
-                "elapsed_seconds": elapsed_seconds(args),
-                "error": credentials.mask((r.stderr or "").strip(), entry)[:300] or None,
-                "summary": f"{len(value)}자 입력" + (" + Enter" if getattr(args, "submit", False) and ok else ""),
-                "next": "app shot  # 입력됐는지 화면으로 확인한다 (비밀번호 칸은 가려져 보인다)"})
+    result = {"ok": ok, "code": "ok" if ok else "app_type_failed", "device": dev_id,
+              "chars": len(value), "submitted": bool(getattr(args, "submit", False)) and ok,
+              "elapsed_seconds": elapsed_seconds(args),
+              "error": credentials.mask((r.stderr or "").strip(), entry)[:300] or None,
+              "summary": f"{len(value)}자 입력" + (" + Enter" if getattr(args, "submit", False) and ok else ""),
+              "next": "app shot  # 입력됐는지 화면으로 확인한다 (비밀번호 칸은 가려져 보인다)"}
+    # 로그인 입력이면 중간 화면 정책을 싣는다 (#905)
+    return out(with_login_policy(result, getattr(args, "cred", None)))
 
 
 def _type_with_backend(args, platform: str, dev_id: str, value: str) -> int:
@@ -78,13 +80,15 @@ def _type_with_backend(args, platform: str, dev_id: str, value: str) -> int:
     ok, detail = be.input_text(dev_id, value, submit=should_submit)
     entry = {"password": value, "token": value}
     # 비밀 값은 상주 세션에 싣지 않는다 — 세션이 있으면 session_fallback=secret_input_per_call 로 보인다
-    return out({"ok": ok, "code": "ok" if ok else "app_type_failed", "device": dev_id, "via": be.name,
-                **session_fields(be), "chars": len(value), "submitted": should_submit and ok,
-                "elapsed_seconds": elapsed_seconds(args),
-                "error": None if ok else credentials.mask(detail, entry)[-400:] or None,
-                "summary": f"{len(value)}자 입력" + (" + Enter" if should_submit and ok else ""),
-                "next": "app shot  # 입력됐는지 화면으로 확인한다 (비밀번호 칸은 가려져 보인다)" if ok
-                        else "입력창을 app tap 으로 먼저 눌러 포커스를 준 뒤 다시 시도한다"})
+    result = {"ok": ok, "code": "ok" if ok else "app_type_failed", "device": dev_id, "via": be.name,
+              **session_fields(be), "chars": len(value), "submitted": should_submit and ok,
+              "elapsed_seconds": elapsed_seconds(args),
+              "error": None if ok else credentials.mask(detail, entry)[-400:] or None,
+              "summary": f"{len(value)}자 입력" + (" + Enter" if should_submit and ok else ""),
+              "next": "app shot  # 입력됐는지 화면으로 확인한다 (비밀번호 칸은 가려져 보인다)" if ok
+                      else "입력창을 app tap 으로 먼저 눌러 포커스를 준 뒤 다시 시도한다"}
+    # 로그인 입력이면 중간 화면 정책을 싣는다 (#905)
+    return out(with_login_policy(result, getattr(args, "cred", None)))
 
 
 def configure(p) -> None:

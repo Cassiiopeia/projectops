@@ -185,3 +185,100 @@ def delete_credential(name: str) -> bool:
     del creds[name]
     _write_config(data)
     return True
+
+
+# ── 로그인 중간 화면 정책 (#905) ─────────────────────────────────────────
+# 판정: 계정 launch.credentials.<이름>.login_policy > 전체 launch.login_policy > ask
+# 화면 3종: 기기 신뢰(다시 묻지 않기) · 로그인 상태 유지 · 패스키·연락처 추가 같은 권유
+LOGIN_POLICY_KEYS = ("trust_device", "keep_signed_in", "skip_nags")
+# ask: 사용자에게 묻는다 · always: 묻지 않고 받아들인다(권유는 건너뛴다) · never: 묻지 않고 거절한다
+LOGIN_POLICY_VALUES = ("ask", "always", "never")
+LOGIN_POLICY_DEFAULT_VALUE = "ask"
+
+
+def _validate_login_policy(key: str, value: str | None = None) -> None:
+    if key not in LOGIN_POLICY_KEYS:
+        raise CredError("invalid_policy_key", f"'{key}' 는 정책 키가 아닙니다. 쓸 수 있는 것: {', '.join(LOGIN_POLICY_KEYS)}")
+    if value is not None and value not in LOGIN_POLICY_VALUES:
+        raise CredError("invalid_policy_value", f"'{value}' 는 정책 값이 아닙니다. 쓸 수 있는 것: {', '.join(LOGIN_POLICY_VALUES)}")
+
+
+def _policy_of(holder) -> dict:
+    """login_policy 객체에서 올바른 키·값만 남긴다 (손으로 잘못 고친 값은 없는 것으로 본다)"""
+    policy = holder.get("login_policy") if isinstance(holder, dict) else None
+    if not isinstance(policy, dict):
+        return {}
+    return {key: value for key, value in policy.items() if key in LOGIN_POLICY_KEYS and value in LOGIN_POLICY_VALUES}
+
+
+def resolve_login_policy(name: str | None) -> dict:
+    """최종 정책: 키마다 {"value", "source": credential | global | default}"""
+    data = cfg.load()
+    data = data if isinstance(data, dict) else {}       # 읽지 못했거나 객체가 아니면 저장된 선택 없음
+    launch = data.get("launch") if isinstance(data.get("launch"), dict) else {}
+    global_policy = _policy_of(launch)
+    credential_policy = _policy_of(_section(data).get(name)) if name else {}
+    resolved = {}
+    for key in LOGIN_POLICY_KEYS:
+        if key in credential_policy:
+            resolved[key] = {"value": credential_policy[key], "source": "credential"}
+        elif key in global_policy:
+            resolved[key] = {"value": global_policy[key], "source": "global"}
+        else:
+            resolved[key] = {"value": LOGIN_POLICY_DEFAULT_VALUE, "source": "default"}
+    return resolved
+
+
+def _load_for_policy_write() -> dict:
+    """정책을 쓸 config 를 읽는다. 깨진 파일은 덮어쓰지 않는다 (PAT·서버 정보 보호)"""
+    data = cfg.load()
+    if (data is None and cfg.config_path().exists()) or (data is not None and not isinstance(data, dict)):
+        raise CredError("config_unreadable", "config.json 을 읽지 못했습니다 (깨졌을 수 있습니다). 덮어쓰지 않았습니다")
+    return data or {}
+
+
+def _policy_holder(data: dict, name: str | None, create: bool) -> dict | None:
+    """정책을 담을 객체: 이름이 있으면 그 계정, 없으면 launch 섹션. 계정이 없으면 cred_not_found"""
+    if name:
+        entry = _section(data).get(name)
+        if not isinstance(entry, dict):
+            known = ", ".join(sorted(_section(data))) or "(없음)"
+            raise CredError("cred_not_found", f"'{name}' 자격증명이 없습니다. 있는 것: {known}")
+        return entry
+    launch = data.get("launch")
+    if not isinstance(launch, dict):
+        if not create:
+            return None
+        launch = data["launch"] = {}
+    return launch
+
+
+def has_credential(name: str) -> bool:
+    """이름 붙은 항목이 있는지만 본다 (ssh_server 참조는 풀지 않는다)"""
+    return isinstance(load_all().get(name), dict)
+
+
+def set_login_policy(name: str | None, key: str, value: str) -> Path:
+    """정책 한 키 저장 — 이름이 있으면 그 계정에, 없으면 전체 기본값에"""
+    _validate_login_policy(key, value)
+    data = _load_for_policy_write()
+    holder = _policy_holder(data, name, create=True)
+    policy = holder.get("login_policy") if isinstance(holder.get("login_policy"), dict) else {}
+    policy[key] = value
+    holder["login_policy"] = policy
+    return _write_config(data)
+
+
+def unset_login_policy(name: str | None, key: str) -> bool:
+    """정책 한 키 제거 (위 층으로 돌아간다). 마지막 키면 login_policy 객체도 지운다. 지웠으면 True"""
+    _validate_login_policy(key)
+    data = _load_for_policy_write()
+    holder = _policy_holder(data, name, create=False)
+    policy = holder.get("login_policy") if holder else None
+    if not isinstance(policy, dict) or key not in policy:
+        return False
+    del policy[key]
+    if not policy:
+        del holder["login_policy"]
+    _write_config(data)
+    return True

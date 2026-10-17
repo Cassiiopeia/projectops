@@ -109,6 +109,7 @@
       "android-system-restart-loop"
     ],
     "device": [
+      "general-login-interstitial-policy",
       "ios-maestro-session-reconnect"
     ],
     "device_unreachable": [
@@ -134,6 +135,9 @@
     ],
     "iframe": [
       "web-iframe-login-fields"
+    ],
+    "in": [
+      "general-login-interstitial-policy"
     ],
     "inputtextcommand": [
       "ios-maestro-log-keeps-input-text"
@@ -161,6 +165,9 @@
     ],
     "null": [
       "android-no-focused-window"
+    ],
+    "passkey": [
+      "general-login-interstitial-policy"
     ],
     "plugins": [
       "general-plugin-cache-version-drift"
@@ -192,6 +199,9 @@
     "session_fallback": [
       "ios-maestro-session-reconnect"
     ],
+    "signed": [
+      "general-login-interstitial-policy"
+    ],
     "singletonlock": [
       "browser-start-stale-process-or-lock"
     ],
@@ -201,12 +211,21 @@
     "stale_pid": [
       "browser-start-stale-process-or-lock"
     ],
+    "stay": [
+      "general-login-interstitial-policy"
+    ],
+    "this": [
+      "general-login-interstitial-policy"
+    ],
     "timeout": [
       "android-system-restart-loop",
       "web-selector-guess-timeout"
     ],
     "transport": [
       "android-system-restart-loop"
+    ],
+    "trust": [
+      "general-login-interstitial-policy"
     ],
     "uiautomation": [
       "android-system-restart-loop"
@@ -222,6 +241,27 @@
     ],
     "while": [
       "android-system-restart-loop"
+    ],
+    "기기": [
+      "general-login-interstitial-policy"
+    ],
+    "다시": [
+      "general-login-interstitial-policy"
+    ],
+    "묻지": [
+      "general-login-interstitial-policy"
+    ],
+    "상태": [
+      "general-login-interstitial-policy"
+    ],
+    "신뢰": [
+      "general-login-interstitial-policy"
+    ],
+    "유지": [
+      "general-login-interstitial-policy"
+    ],
+    "패스키": [
+      "general-login-interstitial-policy"
     ]
   },
   "entries": {
@@ -314,6 +354,16 @@
       ],
       "keyword_count": 0,
       "path": "general/general-env-not-set.json"
+    },
+    "general-login-interstitial-policy": {
+      "area": "general",
+      "title": "로그인 도중 기기 신뢰·로그인 유지·권유 화면에서 매번 멈춘다",
+      "fix_short": [
+        "launch_cli.py cred policy get --name <이름>",
+        "launch_cli.py cred policy set --name <이름> --key trust_device --value always"
+      ],
+      "keyword_count": 14,
+      "path": "general/general-login-interstitial-policy.json"
     },
     "general-plugin-cache-version-drift": {
       "area": "general",

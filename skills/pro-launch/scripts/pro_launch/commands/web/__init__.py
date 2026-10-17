@@ -24,7 +24,7 @@ from pro_launch.commands.web.session import DIALOG_EVENT_KEY, web_connect
 from pro_launch.registry import Command, action_usage_lines, add_action_parsers, discover_actions
 from pro_launch.runtime.browser import read_state, state_path, write_state
 from pro_launch.runtime.context import project_root
-from pro_launch.runtime.creds import cred_field
+from pro_launch.runtime.creds import cred_field, with_login_policy
 from pro_launch.runtime.output import out, set_area
 
 ACTIONS = discover_actions(_actions)
@@ -112,6 +112,9 @@ def cmd_web(args) -> int:
         # 연결만 끊는다. browser.close()를 부르면 다음 호출이 붙을 곳이 없어진다.
         pw.stop()
     _attach_dialog_event(payload, state, state_f)
+    # 로그인 입력이면 중간 화면 정책을 싣는다 (#905)
+    if args.action == "type" and secret_value:
+        with_login_policy(payload, getattr(args, "cred", None))
     return out(payload)
 
 

@@ -229,6 +229,9 @@ adb -s "$DEV" shell input keyevent KEYCODE_ENTER   # 완료 키
   Maestro 가 없으면 `ios_tool_missing`(`next` 에 설치 명령), 실패하면 `app_type_failed`(출력의 값은 `***`). 호출당 10~40초.
   상주 세션이 있어도 type 은 타지 않는다(`session_fallback: secret_input_per_call`, 위 "iOS 상주 세션").
 - 저장된 로그인 정보가 없으면 사용자에게 묻고, **허락받은 것만 `cred set`** 한다(`references/web.md` 의 "로그인 정보를 저장할 때").
+- 결과의 `login_policy` 로 앱 안 로그인 중간 화면(기기 신뢰 · 로그인 유지 · 권유)을 처리한다 — 규칙은 웹과 같다
+  (`references/web.md` 의 "로그인 중간 화면", "2단계 인증"). 화면은 `app shot` · 트리로 읽고, 캡처를 대화로 보내며,
+  코드는 대화로 받아 `app type --text-env` 로 넣는다. 승인 대기는 화면을 다시 읽어 넘어갔는지 확인한다.
 
 ### 관측
 

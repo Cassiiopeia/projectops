@@ -273,7 +273,22 @@ effective_pat = repo.pat if repo.pat else config["github"].global_pat
 | `kind` | `ssh` · `dockerhub` · `db` · `http` · `github-org` · `other` |
 | `ssh_server` | (폐기, 호환용) 옛 `ssh` 섹션의 서버 `name` 참조. 새로 쓰지 않는다 — `import-ssh` 로 값을 옮긴다 |
 | `use_when` · `scope` · `notes` | agent 가 **언제 써도 되는지** 판단하는 근거·허용 범위·주의점 |
+| `login_policy` | (`kind: login`) 이 계정의 로그인 중간 화면 정책 — 아래 표. 전체 기본값보다 우선 |
 | 그 밖 | `host` · `port` · `user` · `username` · `password` · `token` · `db` … 자유 |
+
+**로그인 중간 화면 정책 (#905)** — `launch.login_policy`(전체 기본값)와 `launch.credentials.<이름>.login_policy`(계정별).
+판정은 키마다 계정 > 전체 > `ask`. 저장·변경은 `launch_cli.py cred policy set|unset` 으로만 한다
+(`cred set --json` 은 얕게 합쳐 객체를 통째로 덮는다).
+
+| 키 | 화면 종류 | 값 |
+|---|---|---|
+| `trust_device` | 이 기기 신뢰 · 다시 묻지 않기 · 자주 쓰는 기기 등록 | `ask` · `always` · `never` |
+| `keep_signed_in` | 로그인 상태 유지 | 〃 |
+| `skip_nags` | 패스키 만들기 · 연락처 추가 같은 권유 | 〃 (`always` = 건너뛰기) |
+
+```json
+{ "launch": { "login_policy": { "trust_device": "always", "skip_nags": "always" } } }
+```
 
 ### `output` 섹션 (#525)
 

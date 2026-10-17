@@ -295,6 +295,7 @@
 | `general-bad-args-option-names` | bad_args — 옵션 이름을 착각했다 (--full-page · --field · 위치 인자) | `bad_args` |
 | `general-cred-field-missing` | --cred 가 cred_field_missing — 필드를 안 고르면 password 를 넣는다 | `cred_field_missing` |
 | `general-env-not-set` | --text-env 가 env_not_set — 값이 아니라 환경변수 이름을 넘긴다 | `env_not_set` |
+| `general-login-interstitial-policy` | 로그인 도중 기기 신뢰·로그인 유지·권유 화면에서 매번 멈춘다 | — |
 | `general-plugin-cache-version-drift` | 세션마다 다른 버전의 플러그인 캐시 경로로 스크립트를 부른다 | — |
 | `general-render-failed-first-error` | render run 이 render_failed — first_error 부터, 흔한 원인은 services.dart | `render_failed` |
 | `general-root-unknown-skill-folder` | 캡처·상태가 ~/.projectops/launch/scripts 등 엉뚱한 곳에 쌓인다 | — |
@@ -342,6 +343,20 @@
   2. 명령줄은 세션 기록에 남는다 — 일회용 인증 코드처럼 남아도 되는 값만 이렇게 넘긴다
   3. 저장된 로그인이면 값을 다루지 말고 --cred <이름> 을 쓴다 (값이 명령줄·기록에 남지 않는다)
 - 근거: #604, #889 · 확인 2026-10-17
+
+### `general-login-interstitial-policy` — 로그인 도중 기기 신뢰·로그인 유지·권유 화면에서 매번 멈춘다
+
+- 핵심어: trust this device, 기기 신뢰, 다시 묻지, 로그인 상태 유지, stay signed in, passkey, 패스키
+- 해당: web · android · ios
+- 증상: 로그인할 때마다 이 기기 신뢰(다시 묻지 않기) · 로그인 상태 유지 · 패스키·연락처 추가 권유 화면에서 사용자에게 같은 질문을 되풀이한다. 원격(remote-control)에서는 사용자가 화면을 못 봐 흐름이 끊긴다
+- 원인: 로그인 중간 화면 정책이 저장되지 않았다(모든 키가 ask). 제공자마다 화면 모양이 달라 자동 클릭 코드는 없고, agent 가 화면 종류를 판단해 저장된 정책대로 누른다
+- 해결:
+  1. launch_cli.py cred policy get --name <이름>
+  2. launch_cli.py cred policy set --name <이름> --key trust_device --value always
+  3. launch_cli.py cred policy set --key skip_nags --value always
+  4. web type --cred · app type --cred 결과의 login_policy 가 always·never 면 묻지 않고 그대로 누른다. ask 면 캡처와 함께 묻고 '이 계정만 / 모든 사이트 / 이번만' 답을 cred policy set 으로 저장한다
+  5. 어느 종류인지 모르겠는 화면은 누르지 않는다 — 캡처를 대화로 보내고 묻는다. 2단계 인증 해제·계정 보안 설정 변경은 하지 않는다
+- 근거: #905 · 확인 2026-10-18
 
 ### `general-plugin-cache-version-drift` — 세션마다 다른 버전의 플러그인 캐시 경로로 스크립트를 부른다
 
