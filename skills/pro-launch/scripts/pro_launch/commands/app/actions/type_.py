@@ -19,7 +19,7 @@ def _app_type(args) -> int:
     """기기 화면의 포커스된 입력창에 글자를 넣는다. 로그인 정보는 저장된 자격증명에서 꺼내 쓴다.
 
     값은 명령줄에 싣지 않는다 (호스트 `ps` 에 남지 않게): Android 표준입력, iOS Maestro 환경변수.
-    iOS 는 simctl 에 텍스트 명령이 없어 Maestro inputText 로 넣는다 (#894).
+    iOS 는 simctl 에 텍스트 명령이 없어 Maestro inputText 로 넣는다 (#895).
     """
     if getattr(args, "cred", None):
         value, err = cred_field(args.cred, getattr(args, "cred_field", None))

@@ -50,7 +50,7 @@ description: "Capability skill that launches and drives apps, web and servers: e
 **Bash 도구는 호출마다 상태가 초기화된다.** 한 번 찾은 뒤 **실제 경로를 이후 블록에 값으로 직접 써넣는다.**
 다른 스킬에서 부를 때도 `SKILL=pro-launch` 그대로 쓴다.
 
-**고정 진입점이 있으면 그것을 쓴다** (#896) — 버전 폴더(`.../projectops/4.xx.x/...`)를 박아 쓰면 세션 중 문서와
+**고정 진입점이 있으면 그것을 쓴다** (#897) — 버전 폴더(`.../projectops/4.xx.x/...`)를 박아 쓰면 세션 중 문서와
 스크립트 버전이 어긋난다. `~/.projectops/bin/launch_cli.py` 는 한 번이라도 실행하면 생기고, 부를 때마다 가장
 새 설치본(체크아웃 > 플러그인 캐시 최고 버전 > Cursor)을 찾아 인자를 그대로 넘긴다. 특정 폴더를 강제하려면 `PROJECTOPS_LAUNCH_SCRIPTS`.
 
@@ -140,6 +140,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app openurl    --device 
 | `no_device` | `devices` 로 보고 `--device` 를 준다 |
 | `not_found` | `candidates` 에서 고른다 |
 | `ui_dump_failed` | 화면 구조를 못 읽었다(전환 중·보안 화면). 잠시 뒤 다시, 계속이면 `--at` 비율 좌표 |
+| `no_focused_window` | 초점 창이 없다(화면 꺼짐·잠금·전환 중). 깨우고 세 번까지 다시 읽은 뒤다. `app shot` 으로 화면을 본다 |
 | `android_system_not_ready` · `ui_automation_unavailable` · `ui_dump_timeout` | 기기 쪽 문제다(시스템 재시작 중 · UiAutomation 연결 실패 · 시간 초과). `app shot` 으로 보고, 계속이면 사용자에게 에뮬레이터 cold boot 를 묻는다 |
 | `session_start_failed` · `session_tools_missing` | 세션 없이 그대로 쓴다(호출마다 Maestro). `reason` 을 본다 |
 | `tree_unsupported` | 이 기기는 화면 구조를 못 읽는다. `app shot` 으로 보고 `--text` 또는 `--at` 비율 좌표 |

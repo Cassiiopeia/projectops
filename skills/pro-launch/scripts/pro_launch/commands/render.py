@@ -71,7 +71,7 @@ def _cleanup(root: Path, paths: list[str]) -> tuple[list[str], list[str]]:
     return removed, refused
 
 
-# 첫 컴파일 오류 찾기 (#898): 오류는 출력 앞쪽에 나오고 output_tail(끝 40줄)에는 안 보이는 일이 잦다
+# 첫 컴파일 오류 찾기 (#901): 오류는 출력 앞쪽에 나오고 output_tail(끝 40줄)에는 안 보이는 일이 잦다
 # Dart 컴파일러: test/_launch_render/states_test.dart:12:5: Error: Undefined name 'MethodChannel'.
 _DART_COMPILE_ERROR = re.compile(r"^\S+\.dart:\d+:\d+: Error: ")
 # 그 밖의 도구 (gcc·javac·tsc 등): "x.java:3: error: ...", "error TS2304: ..." — 앞이 줄 처음·공백·콜론일 때만

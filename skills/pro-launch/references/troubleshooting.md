@@ -162,6 +162,7 @@
 | id | 제목 | 코드 |
 |---|---|---|
 | `android-adb-missing` | adb_missing · android_tool_missing — adb 를 찾지 못했다 | `adb_missing` · `android_tool_missing` |
+| `android-no-focused-window` | no_focused_window — 초점 창이 없어 화면 구조를 못 읽음 (null root node) | `no_focused_window` |
 | `android-non-ascii-text` | Android app type 이 non_ascii_unsupported — adb 는 한글을 못 넣는다 | `non_ascii_unsupported` |
 | `android-system-restart-loop` | android_system_not_ready · ui_automation_unavailable — 에뮬레이터 시스템 재시작 반복 | `android_system_not_ready` · `ui_automation_unavailable` · `ui_dump_timeout` |
 
@@ -175,6 +176,18 @@
   2. launch_cli.py doctor
   3. SDK platform-tools 설치는 사용자에게 먼저 묻는다
 - 근거: #889 · 확인 2026-10-17
+
+### `android-no-focused-window` — no_focused_window — 초점 창이 없어 화면 구조를 못 읽음 (null root node)
+
+- 코드: `no_focused_window`
+- 핵심어: null root node returned by UiTestAutomationBridge
+- 증상: app tree · app tap --text · app run 의 wait 가 실패하고, uiautomator dump 가 'ERROR: null root node returned by UiTestAutomationBridge.' 를 낸다. 화면에는 홈 화면이 떠 있어 보인다
+- 원인: Android 에 초점을 가진 창이 없다(dumpsys window 의 mCurrentFocus=null). 재부팅 직후 · 화면 꺼짐 · 잠금 · 화면 전환 중에 생긴다(실측: 에뮬레이터 소프트 재부팅 직후 5회 연속)
+- 해결:
+  1. CLI 가 이미 화면을 깨우고(WAKEUP · 잠금 해제) 세 번까지 다시 읽은 뒤에 이 code 를 낸다 — 몇 초 뒤 app tree 를 한 번 더 부른다
+  2. app shot 으로 지금 화면을 본다. 비밀번호 잠금 화면이면 사용자에게 풀어 달라고 한다
+  3. 계속이면 adb -s <시리얼> shell dumpsys window | grep mCurrentFocus 로 초점 창이 생겼는지 본다
+- 근거: #894 · 확인 2026-10-17
 
 ### `android-non-ascii-text` — Android app type 이 non_ascii_unsupported — adb 는 한글을 못 넣는다
 
@@ -195,9 +208,10 @@
 - 원인: system_server 가 몇 분마다 다시 뜬다(pidof system_server 가 바뀐다, getprop init.svc.bootanim = running). 오래 켜 둔 에뮬레이터(실측: 가동 1일 10시간 · 메모리 2GB 중 여유 100MB)에서 생겼다. sys.boot_completed 는 1 로 남아 부팅이 끝난 것처럼 보인다
 - 해결:
   1. adb -s <시리얼> shell getprop init.svc.bootanim  — running 이면 시스템이 아직 안 떴다
-  2. 몇 분 기다려도 그대로면 사용자에게 에뮬레이터 cold boot 를 묻는다: emulator -avd <AVD> -no-snapshot-load (다른 세션이 쓰는 중일 수 있어 임의로 끄지 않는다)
-  3. ui_automation_unavailable 만 계속이면 다른 자동화(Maestro·Appium)가 UiAutomation 을 쥐고 있는지 본다
-- 근거: #893 · 확인 2026-10-17
+  2. 사용자 확인 뒤 adb -s <시리얼> reboot (소프트 재부팅, 데이터 유지) — 실측: 52초 만에 부팅이 끝나고 app run 이 정상으로 돌았다
+  3. 몇 분 기다려도 그대로면 사용자에게 에뮬레이터 cold boot 를 묻는다: emulator -avd <AVD> -no-snapshot-load (다른 세션이 쓰는 중일 수 있어 임의로 끄지 않는다)
+  4. ui_automation_unavailable 만 계속이면 다른 자동화(Maestro·Appium)가 UiAutomation 을 쥐고 있는지 본다
+- 근거: #894 · 확인 2026-10-17
 
 ## iOS (`ios`)
 
@@ -216,7 +230,7 @@
 - 해결:
   1. pro-launch 의 app type · type 단계는 --debug-output <임시 폴더> --flatten-debug-output 으로 기록을 임시 폴더로 돌려 함께 지운다 — 직접 maestro test 를 부를 때도 같은 옵션을 쓴다
   2. 이미 남은 기록이 있으면 사용자에게 알리고 지울지 묻는다 (임의로 지우지 않는다)
-- 근거: #893, #894 · 확인 2026-10-17
+- 근거: #894, #895 · 확인 2026-10-17
 
 ### `ios-maestro-not-installed` — iOS app tap·swipe·tree 가 ios_tool_missing — Maestro 미설치
 
@@ -240,7 +254,7 @@
   1. 한 번 느린 것은 정상이다 — 그대로 이어서 쓴다
   2. 계속 device_unreachable 이면 다른 세션이 같은 기기로 maestro 를 돌리는 중인지 본다 (ps -ax | grep maestro)
   3. launch_cli.py app session stop --device <UDID> 뒤 다시 start
-- 근거: #893 · 확인 2026-10-17
+- 근거: #894 · 확인 2026-10-17
 - 함께 볼 것: `ios-maestro-slow-cold-start`
 
 ### `ios-maestro-slow-cold-start` — iOS app tap·swipe·tree 가 수십 초 걸린다 — 호출마다 Maestro(JVM)가 뜬다
@@ -253,7 +267,7 @@
   2. 느리다고 같은 명령을 겹쳐 부르지 않는다 — 앞 호출이 끝나길 기다린다
   3. 화면 확인은 따로 shot 을 부르지 말고 동작에 --shot 을 붙인다: launch_cli.py app tap --device <UDID> --text <글자> --shot <이름>
   4. 긴 시나리오는 프로젝트의 Maestro flow 로 한 번에 돌린다
-- 근거: #826, #889, #893 · 확인 2026-10-17
+- 근거: #826, #889, #894 · 확인 2026-10-17
 - 함께 볼 것: `ios-maestro-not-installed`, `ios-maestro-session-reconnect`
 
 ## SSH (`ssh`)
@@ -351,7 +365,7 @@
   2. Undefined name·Couldn't find constructor 'MethodChannel' 이면 import 'package:flutter/services.dart'; 를 넣는다
   3. 화면 위젯·가짜 모델을 쓰면 그 파일의 package:<앱>/... import 도 함께 넣는다
   4. references/render.md 의 함정 표를 본다
-- 근거: #898, #889 · 확인 2026-10-17
+- 근거: #901, #889 · 확인 2026-10-17
 
 ### `general-root-unknown-skill-folder` — 캡처·상태가 ~/.projectops/launch/scripts 등 엉뚱한 곳에 쌓인다
 

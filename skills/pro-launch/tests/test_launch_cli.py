@@ -812,7 +812,7 @@ def test_android_tap_and_tree_on_real_device():
     if not serials:
         pytest.skip("붙은 Android 기기 없음")
     d = _j(run_cli("app", "tree", "--device", serials[0])[1])
-    if d.get("code") in ("ui_dump_failed", "ui_dump_timeout", "ui_automation_unavailable", "android_system_not_ready"):
+    if d.get("code") in ("ui_dump_failed", "ui_dump_timeout", "ui_automation_unavailable", "android_system_not_ready", "no_focused_window"):
         # 잠금 화면·부팅 중·시스템 재시작 중이면 화면 구조가 비어 온다 — 코드 결함이 아니라 기기 상태다
         pytest.skip("기기 화면을 읽을 수 없는 상태(잠금·부팅 중)")
     assert d["platform"] == "android" and d["count"] > 0

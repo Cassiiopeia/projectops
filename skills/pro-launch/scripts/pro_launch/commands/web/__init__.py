@@ -31,7 +31,7 @@ ACTIONS = discover_actions(_actions)
 
 
 def configure(p) -> None:
-    # 동작별 하위 파서 — `web <동작> --help` 는 그 동작이 쓰는 옵션만 보여 준다 (#895)
+    # 동작별 하위 파서 — `web <동작> --help` 는 그 동작이 쓰는 옵션만 보여 준다 (#896)
     add_action_parsers(p, ACTIONS, SHARED_OPTIONS, always=ALWAYS_OPTIONS)
     p.formatter_class = argparse.RawDescriptionHelpFormatter
     p.description = "브라우저를 조작한다. 한 번에 한 동작 — 자세한 옵션은 web <동작> --help"

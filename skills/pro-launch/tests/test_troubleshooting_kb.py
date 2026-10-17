@@ -191,7 +191,7 @@ def test_every_launch_cli_command_in_fix_exists():
             positional = next((a for a in sub._actions if not a.option_strings and a.choices), None)
             if positional and rest and not rest[0].startswith("-") and rest[0] not in positional.choices:
                 problems.append(f"{entry['id']}: {name} 에 없는 동작 {rest[0]}")
-            # web 처럼 동작마다 하위 파서가 있으면 그 동작의 옵션으로 본다 (#895)
+            # web 처럼 동작마다 하위 파서가 있으면 그 동작의 옵션으로 본다 (#896)
             if positional and rest and isinstance(positional.choices, dict) and rest[0] in positional.choices:
                 sub = positional.choices[rest[0]]
             options = {o for a in sub._actions for o in a.option_strings}

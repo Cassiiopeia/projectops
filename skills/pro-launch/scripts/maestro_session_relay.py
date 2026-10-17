@@ -1,4 +1,4 @@
-"""iOS 상주 Maestro 세션의 중계 프로세스 (#893 2단계) — `maestro mcp` 의 표준입출력을 소유하고 127.0.0.1 TCP 로 요청을 넘긴다.
+"""iOS 상주 Maestro 세션의 중계 프로세스 (#894 2단계) — `maestro mcp` 의 표준입출력을 소유하고 127.0.0.1 TCP 로 요청을 넘긴다.
 
 `app session start` 가 백그라운드로 띄운다: python3 maestro_session_relay.py serve --device <UDID> ...
 준비 > 상태 파일 ready (포트·토큰) > 요청 처리 > 유휴 N분 · stop 요청이면 maestro mcp 와 함께 끝난다.

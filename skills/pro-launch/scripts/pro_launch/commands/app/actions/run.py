@@ -1,4 +1,4 @@
-"""`app run` — 단계 여러 개를 한 번에 돌린다 (#893).
+"""`app run` — 단계 여러 개를 한 번에 돌린다 (#894).
 
 iOS 는 호출마다 Maestro(JVM)가 새로 떠서 tap 하나에 수십 초다. 단계를 한 flow 로 묶어 Maestro 를 한 번만 띄운다.
 Android 는 같은 단계 파일을 기존 백엔드 메서드로 차례로 실행한다 (플랫폼이 달라도 단계 파일은 하나).
@@ -122,7 +122,7 @@ def _run_in_one_flow(be, dev_id: str, steps: list[dict],
     return False, results, "\n".join((reason or lines)[-FAILURE_DETAIL_LINE_COUNT:])
 
 
-# ── iOS 상주 세션: 단계마다 run 한 번 (#893 2단계) ─────────────────────────
+# ── iOS 상주 세션: 단계마다 run 한 번 (#894 2단계) ─────────────────────────
 
 def _run_each_step_in_session(be, dev_id: str, steps: list[dict]) -> tuple[bool, list[dict], str]:
     """세션의 run 은 단계별 상태를 주지 않는다 — 단계마다 따로 불러(호출당 1초 안팎) 어느 단계가 실패했는지 정확히 안다.

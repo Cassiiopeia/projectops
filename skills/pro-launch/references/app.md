@@ -49,7 +49,7 @@ source "{env_file 값}"
   없다). 호출마다 Maestro 가 새로 떠서 10~40초 걸린다 — 결과의 `elapsed_seconds` 에 보인다.
   **두 단계 이상이면 `app run` 으로 묶는다**(아래). 더 긴 시나리오는 프로젝트의 Maestro flow 로 돌린다.
 
-### 여러 단계를 한 번에 — `app run` (#893)
+### 여러 단계를 한 번에 — `app run` (#894)
 
 ```bash
 cat > steps.json <<'JSON'
@@ -81,7 +81,7 @@ JSON
 
 결과에 `cause`(예: `android_system_not_ready`)가 있으면 단계가 아니라 **기기 상태**가 원인이다 — 단계를 고치지 말고 기기부터 본다.
 
-### iOS 상주 세션 — `app session` (#893 2단계, 선택)
+### iOS 상주 세션 — `app session` (#894 2단계, 선택)
 
 호출마다 Maestro(JVM)를 띄우는 대신 `maestro mcp` 를 한 번 띄워 두고 쓴다. 보고 → 판단 → 누르기를 여러 번 할 때 켠다.
 
@@ -126,6 +126,7 @@ JSON
 | `no_device` | `devices` 로 목록을 보고 `--device` 를 준다 |
 | `not_found` · `index_out_of_range` | `candidates` 에서 고른다. 화면 언어는 `locale` |
 | `ui_dump_failed` | 화면이 전환 중이거나 보안 화면이다. 잠시 뒤 `app tree` 를 다시 본다. 계속 실패하면 `--at` 비율 좌표 |
+| `no_focused_window` | Android 에 초점을 가진 창이 없다(화면 꺼짐·잠금·재부팅 직후). CLI 가 화면을 깨우고(`WAKEUP`·잠금 해제) 세 번까지 다시 읽은 뒤에 낸다. 비밀번호 잠금이면 사용자에게 풀어 달라고 한다 |
 | `android_system_not_ready` | 부팅 애니메이션이 떠 있다(system_server 재시작 반복 실측). 기다려도 그대로면 사용자에게 cold boot 를 묻는다 |
 | `ui_automation_unavailable` | uiautomator 가 UiAutomation 에 못 붙었다. 다른 자동화(Maestro·Appium)가 기기를 쥐고 있는지 본다 |
 | `ui_dump_timeout` | 20초 안에 안 끝났다(한 번 더 시도한 뒤). 애니메이션이 계속되는 화면이면 `--at` 비율 좌표 |
@@ -134,7 +135,7 @@ JSON
 | `adb_missing` | 아래 PATH 를 잡거나 `doctor` 의 `adb_path` 를 쓴다 |
 | `capture_failed` | 잠긴 화면이거나 `FLAG_SECURE` 다(아래 "관측") |
 
-## 끄기 · 다시 띄우기 · 위치 · 권한 · 푸시 · 딥링크 (#892)
+## 끄기 · 다시 띄우기 · 위치 · 권한 · 푸시 · 딥링크 (#893)
 
 raw `xcrun simctl` · `adb shell am|pm` 대신 쓴다. 패키지는 `--pkg` → `$PKG` → `device bind` 의 package 순.
 
@@ -224,7 +225,7 @@ adb -s "$DEV" shell input keyevent KEYCODE_ENTER   # 완료 키
 - 값은 **명령줄이 아니라 표준입력**으로만 기기에 간다(호스트 `ps` 에 남지 않는다). `--text` 로 값을 직접 주는 방식은 없다.
 - 포커스된 입력창에 들어간다 — 입력창은 먼저 `app tap --text|--id`(요소 기준)로 눌러 포커스를 준다. 입력 뒤에는 `app shot` 으로 확인한다.
 - **`adb input text` 는 ASCII 만 된다**(한글 불가 → `non_ascii_unsupported`). 한글이 필요하면 IME 를 설치한다.
-- **iOS 는 Maestro `inputText` 로 넣는다(#894).** 값은 `MAESTRO_` 환경변수로만 넘겨 flow 파일·명령줄에 남지 않는다.
+- **iOS 는 Maestro `inputText` 로 넣는다(#895).** 값은 `MAESTRO_` 환경변수로만 넘겨 flow 파일·명령줄에 남지 않는다.
   Maestro 가 없으면 `ios_tool_missing`(`next` 에 설치 명령), 실패하면 `app_type_failed`(출력의 값은 `***`). 호출당 10~40초.
   상주 세션이 있어도 type 은 타지 않는다(`session_fallback: secret_input_per_call`, 위 "iOS 상주 세션").
 - 저장된 로그인 정보가 없으면 사용자에게 묻고, **허락받은 것만 `cred set`** 한다(`references/web.md` 의 "로그인 정보를 저장할 때").

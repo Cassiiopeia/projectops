@@ -44,6 +44,9 @@ UI_DUMP_ATTEMPT_COUNT = 2
 UI_DUMP_RETRY_DELAY_SECONDS = 1.5
 # uiautomator 가 UiAutomation 에 못 붙었을 때의 출력 (다른 자동화 도구가 쥐고 있거나 시스템이 재시작 중)
 UI_AUTOMATION_FAILURE_MARKERS = ("Killed", "UiAutomation", "TimeoutException", "already registered")
+# 초점 창이 없을 때의 출력 (화면 꺼짐·잠금·전환 중, 재부팅 직후 실측) — 깨우고 다시 시도하면 대개 풀린다
+NO_FOCUSED_WINDOW_MARKER = "null root node"
+NO_FOCUSED_WINDOW_ATTEMPT_COUNT = 3
 
 
 # ── 공통 순수 함수 (기기 없이 테스트된다) ─────────────────────────────────
@@ -233,7 +236,9 @@ class AndroidBackend(Backend):
     def nodes(self, dev: str) -> list[dict]:
         """화면 구조: 시간 제한 + 한 번 더 시도. 못 읽으면 [] 와 함께 device_failure 에 code·사유를 남긴다."""
         self.device_failure = None
-        for attempt in range(UI_DUMP_ATTEMPT_COUNT):
+        attempt_count = UI_DUMP_ATTEMPT_COUNT
+        attempt = 0
+        while attempt < attempt_count:
             try:
                 # 파일을 기기에 남기지 않도록 표준출력으로 받는다
                 r = self._adb(dev, "exec-out", "uiautomator", "dump", "/dev/tty", timeout=UI_DUMP_TIMEOUT_SECONDS)
@@ -244,10 +249,22 @@ class AndroidBackend(Backend):
                 if "<hierarchy" in (r.stdout or ""):
                     return ui_nodes(r.stdout)
                 self.device_failure = self._dump_failure(dev, (r.stdout or "") + (r.stderr or ""))
-            if self.device_failure["code"] == "android_system_not_ready" or attempt + 1 == UI_DUMP_ATTEMPT_COUNT:
+            if self.device_failure["code"] == "no_focused_window":
+                # 초점 창 없음: 화면을 깨우고 잠금을 내린 뒤 다시 (시도 횟수도 늘린다)
+                attempt_count = NO_FOCUSED_WINDOW_ATTEMPT_COUNT
+                self._wake_screen(dev)
+            attempt += 1
+            if self.device_failure["code"] == "android_system_not_ready" or attempt == attempt_count:
                 break
             time.sleep(UI_DUMP_RETRY_DELAY_SECONDS)
         return []
+
+    def _wake_screen(self, dev: str) -> None:
+        """화면 깨우기 + 잠금 해제 (비밀번호 잠금은 못 푼다 — 실패해도 무시)."""
+        try:
+            self._adb(dev, "shell", "input keyevent WAKEUP; wm dismiss-keyguard", timeout=10)
+        except subprocess.TimeoutExpired:
+            pass
 
     def system_readiness_failure(self, dev: str) -> dict | None:
         """부팅 애니메이션이 떠 있거나 window 서비스가 없으면 시스템이 (재)시작 중이다 (system_server 재시작 반복 실측)."""
@@ -265,6 +282,9 @@ class AndroidBackend(Backend):
         not_ready = self.system_readiness_failure(dev)
         if not_ready:
             return not_ready
+        if NO_FOCUSED_WINDOW_MARKER in output:
+            return {"code": "no_focused_window",
+                    "reason": "초점을 가진 창이 없다 (화면 꺼짐·잠금·화면 전환 중) — 깨운 뒤에도 계속이면 app shot 으로 화면을 본다"}
         if any(marker in output for marker in UI_AUTOMATION_FAILURE_MARKERS):
             return {"code": "ui_automation_unavailable",
                     "reason": "uiautomator 가 UiAutomation 에 붙지 못했다 (다른 자동화 도구가 쥐고 있거나 시스템이 불안정)"}

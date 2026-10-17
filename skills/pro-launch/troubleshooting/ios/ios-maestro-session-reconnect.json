@@ -20,7 +20,7 @@
     "launch_cli.py app session stop --device <UDID> 뒤 다시 start"
   ],
   "refs": [
-    893
+    894
   ],
   "verified_at": "2026-10-17",
   "see_also": [

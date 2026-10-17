@@ -1,4 +1,4 @@
-"""`web select` — 드롭다운(<select>)에서 값이나 보이는 이름으로 하나를 고른다 (#891)."""
+"""`web select` — 드롭다운(<select>)에서 값이나 보이는 이름으로 하나를 고른다 (#892)."""
 from __future__ import annotations
 
 

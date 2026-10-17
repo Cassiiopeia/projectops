@@ -1,4 +1,4 @@
-"""web 의 폼 읽기 · 조작 동작과 동작별 도움말 (#888 · #890 · #891 · #895 · #899).
+"""web 의 폼 읽기 · 조작 동작과 동작별 도움말 (#888 · #891 · #892 · #896 · #899).
 
 108개 세션 분석에서 agent 가 `web` 을 두고 날 CDP 스크립트를 654번 썼다 — 기능이 없어서였다.
 여기서 지키는 것:
@@ -35,7 +35,7 @@ from pro_launch.runtime import browser as rt_browser  # noqa: E402
 from common import state as common_state  # noqa: E402
 
 
-# ── 동작별 도움말 · 옵션 거절 (#895) ─────────────────────────────────────
+# ── 동작별 도움말 · 옵션 거절 (#896) ─────────────────────────────────────
 
 def test_action_help_shows_only_its_own_options():
     _, out, _ = run_cli("web", "type", "--help")
@@ -100,7 +100,7 @@ def test_action_without_options_stays_permissive():
     assert parser.parse_args(["x", "--url", "u", "--root", "r"]).url == "u"
 
 
-# ── text --grep (#890) ────────────────────────────────────────────────────
+# ── text --grep (#891) ────────────────────────────────────────────────────
 
 def test_grep_returns_matching_lines_with_context_and_count():
     lines = ["a", "b", "Error one", "c", "d", "e", "f", "error two", "g"]
@@ -302,7 +302,7 @@ def test_shared_option_defaults_first_declaration_wins():
     assert registry.shared_option_defaults(shared)["timeout"] == 10
 
 
-# ── dialog (#891) — 상태 파일에 걸고, 붙을 때마다 다시 건다 ───────────────
+# ── dialog (#892) — 상태 파일에 걸고, 붙을 때마다 다시 건다 ───────────────
 
 def test_dialog_plan_is_written_to_state(tmp_path, capsys):
     state_f = tmp_path / "browser.json"

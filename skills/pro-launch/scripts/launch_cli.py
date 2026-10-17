@@ -39,7 +39,7 @@ from pro_launch.cli import build_parser, main  # noqa: E402,F401
 
 
 def _refresh_stable_entrypoint() -> None:
-    """~/.projectops/bin/launch_cli.py(버전 무관 진입점) 갱신 + 옛 캐시 버전 경고 (#896). 실패해도 명령은 돈다"""
+    """~/.projectops/bin/launch_cli.py(버전 무관 진입점) 갱신 + 옛 캐시 버전 경고 (#897). 실패해도 명령은 돈다"""
     try:
         import launch_resolver
         from common.state import base_dir

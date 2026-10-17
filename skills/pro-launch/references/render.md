@@ -35,7 +35,7 @@ source "{env_file 값}"      # 모은 그림은 $SHOT_DIR 로 간다
 | `residue` | 끝난 뒤 레포에 **처음에 없던 것**이 남았다 | 네가 만든 것이면 지우거나 `--cleanup` 에 넣어 다시 돈다. **모르는 변경이면 건드리지 않는다** — 다른 세션의 작업일 수 있다. 스크립트도 지우지 않는다 |
 | `nothing_collected` | 성공했는데 그림이 없다 | `--collect` 글롭이 레포 루트 기준으로 맞는지 본다 |
 
-> **`first_error` (#898)**: `render_failed` 일 때 응답 앞쪽(`summary` 다음)에 붙는다. Dart 형식
+> **`first_error` (#901)**: `render_failed` 일 때 응답 앞쪽(`summary` 다음)에 붙는다. Dart 형식
 > (`test/x_test.dart:12:9: Error: ...`)을 먼저 찾고, 없으면 일반 `error:` 줄(javac · tsc 등)을 찾는다.
 > 컴파일 오류는 출력 앞쪽에 나와 끝 40줄(`output_tail`)에서 밀려나기 쉽다. `summary` 에도 첫 줄이 들어간다.
 
@@ -104,7 +104,7 @@ void main() {
 | `pumpAndSettle` 이 끝나지 않는다 | 무한 애니메이션 (로딩 스피너 · 반복 효과) | `pump(Duration)` 로 한 프레임만, 또는 "동작 줄이기"(`MediaQuery(disableAnimations: true)`)를 켠다 |
 | 건드리지 않은 줄까지 diff | `dart format` 이 파일 전체를 다시 썼다 | 임시 파일에만 돌린다. 레포 파일에 포맷터를 돌리지 않는다 |
 | 한글이 □ | 폰트를 안 실었다 | 위 "먼저 확인할 것" |
-| `render_failed` + `first_error` 가 `Error: Undefined name 'MethodChannel'` (또는 `SystemChrome` 등) | `package:flutter/services.dart` import 누락 — 렌더 실패의 가장 흔한 원인이었다 (#898) | 레시피의 import 세 줄을 그대로 둔다. 화면 위젯·가짜 모델을 쓰면 **그 파일의 `package:{앱}/...` import 도** 함께 넣는다 |
+| `render_failed` + `first_error` 가 `Error: Undefined name 'MethodChannel'` (또는 `SystemChrome` 등) | `package:flutter/services.dart` import 누락 — 렌더 실패의 가장 흔한 원인이었다 (#901) | 레시피의 import 세 줄을 그대로 둔다. 화면 위젯·가짜 모델을 쓰면 **그 파일의 `package:{앱}/...` import 도** 함께 넣는다 |
 | `render_failed` + 오버플로 | 레포의 테스트 설정이 오버플로를 실패로 만든다 | **그 자체가 발견이다.** 그 상태에서 화면이 깨진다는 뜻 — 보고에 적는다 |
 
 ## React / Next

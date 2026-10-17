@@ -34,7 +34,7 @@ def load_commands() -> list[Command]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="launch_cli",
                                      description="앱·웹·서버를 띄우고 조작하고 찍는다")
-    # 출력 모양 옵션 (#897) — 실제로는 _pop_output_options 가 파서 전에 꺼낸다. 여기 둔 것은 도움말용
+    # 출력 모양 옵션 (#898) — 실제로는 _pop_output_options 가 파서 전에 꺼낸다. 여기 둔 것은 도움말용
     parser.add_argument("--brief", action="store_true",
                         help="핵심 키만 낸다: ok·code·summary·next·error·known_fix·memory·learn_hint")
     parser.add_argument("--fields", metavar="a,b,c",

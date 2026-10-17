@@ -109,7 +109,7 @@ ACTION = Action(name="scroll", run=execute, configure=configure, options=("selec
 
 1. 위 모양대로 모듈을 만든다. 동작마다 하위 파서가 따로라 자기 옵션 이름은 다른 동작과 겹쳐도 된다. 여러 동작이 쓰는 옵션
    (`--url` · `--selector` · `--ref` · `--text` · `--timeout` …)은 `commands/web/options.py` 에 있고, 쓰는 것만 `options=` 에 적는다
-   (#895 — `web <동작> --help` 는 그것과 `help` · `example` 만 보여 준다). `app` 동작은 `options` 를 적지 않는다(전부 받는다).
+   (#896 — `web <동작> --help` 는 그것과 `help` · `example` 만 보여 준다). `app` 동작은 `options` 를 적지 않는다(전부 받는다).
 2. **붙어 있는 동안만 사는 것은 상태 파일에 적고 붙을 때마다 다시 건다.** `web` 은 매 호출 CDP(`connect_over_cdp`)로
    붙었다 떨어지므로, 콘솔 훅 · stealth · 뷰포트 · 응답 바꿔치기 같은 설정은 연결이 끊기면 사라진다(#625 실측).
    새 설정도 `commands/web/session.py` 의 `web_connect` 에서 재설치되게 한다. 브라우저를 Playwright `launch()` 로 띄우지 않는다 — 드라이버와 함께 죽는다.

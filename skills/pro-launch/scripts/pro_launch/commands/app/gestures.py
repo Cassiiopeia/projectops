@@ -99,7 +99,7 @@ def gesture_result(args, be, dev_id, before, ok: bool, detail: str, fail_code: s
     if ok:
         auto_record_backend(be)
         res.update(after_shot(args, be, dev_id, before))
-    # 조작 비용을 보이게 한다 — iOS 는 호출마다 Maestro(JVM)가 새로 떠서 수십 초다 (#893)
+    # 조작 비용을 보이게 한다 — iOS 는 호출마다 Maestro(JVM)가 새로 떠서 수십 초다 (#894)
     res["elapsed_seconds"] = elapsed_seconds(args)
     if ok:
         if res.get("shot"):

@@ -1,4 +1,4 @@
-"""#896 — 버전 무관 진입점 (~/.projectops/bin/launch_cli.py).
+"""#897 — 버전 무관 진입점 (~/.projectops/bin/launch_cli.py).
 
 지키려는 것:
   · 플러그인 캐시에 버전이 여럿 깔려 있으면 가장 높은 버전을 고른다 (사전순이 아니라 숫자순)

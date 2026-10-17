@@ -18,11 +18,12 @@
   "cause": "system_server 가 몇 분마다 다시 뜬다(pidof system_server 가 바뀐다, getprop init.svc.bootanim = running). 오래 켜 둔 에뮬레이터(실측: 가동 1일 10시간 · 메모리 2GB 중 여유 100MB)에서 생겼다. sys.boot_completed 는 1 로 남아 부팅이 끝난 것처럼 보인다",
   "fix": [
     "adb -s <시리얼> shell getprop init.svc.bootanim  — running 이면 시스템이 아직 안 떴다",
+    "사용자 확인 뒤 adb -s <시리얼> reboot (소프트 재부팅, 데이터 유지) — 실측: 52초 만에 부팅이 끝나고 app run 이 정상으로 돌았다",
     "몇 분 기다려도 그대로면 사용자에게 에뮬레이터 cold boot 를 묻는다: emulator -avd <AVD> -no-snapshot-load (다른 세션이 쓰는 중일 수 있어 임의로 끄지 않는다)",
     "ui_automation_unavailable 만 계속이면 다른 자동화(Maestro·Appium)가 UiAutomation 을 쥐고 있는지 본다"
   ],
   "refs": [
-    893
+    894
   ],
   "verified_at": "2026-10-17"
 }

@@ -1,4 +1,4 @@
-"""`web dialog` — 다음에 뜰 대화상자(alert·confirm·prompt)를 어떻게 처리할지 미리 건다 (#891).
+"""`web dialog` — 다음에 뜰 대화상자(alert·confirm·prompt)를 어떻게 처리할지 미리 건다 (#892).
 
 대화상자는 누르는 순간 뜨므로 뜬 뒤에 처리하면 늦다. 상태 파일에 적어 두고 붙을 때마다 다시 건다
 (`session.arm_dialog`, #625). 한 번 쓰면 지워진다. 처리 결과는 그 호출의 결과 `dialog` 에 실린다.

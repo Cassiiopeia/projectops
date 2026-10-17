@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""pro-launch 버전 무관 진입점: 설치된 스크립트 중 가장 새것 찾기 > launch_cli.py 로 인자 그대로 넘김 (#896)
+"""pro-launch 버전 무관 진입점: 설치된 스크립트 중 가장 새것 찾기 > launch_cli.py 로 인자 그대로 넘김 (#897)
 
 이 파일 자체가 `~/.projectops/bin/launch_cli.py`(고정 진입점)로 복사된다 — 표준 라이브러리만 쓰고
 다른 모듈을 import 하지 않는다. 복사본은 원래 자리를 모르므로 스스로 찾아야 한다.

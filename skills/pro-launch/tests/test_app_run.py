@@ -1,4 +1,4 @@
-"""app run — 단계 여러 개를 한 번에 (#893). 기기 없이 subprocess 를 가짜로 바꿔 검사한다."""
+"""app run — 단계 여러 개를 한 번에 (#894). 기기 없이 subprocess 를 가짜로 바꿔 검사한다."""
 from __future__ import annotations
 
 import argparse

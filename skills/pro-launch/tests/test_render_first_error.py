@@ -1,4 +1,4 @@
-"""render_failed 의 first_error — 출력 깊숙이 묻힌 첫 컴파일 오류를 앞으로 끌어낸다 (#898).
+"""render_failed 의 first_error — 출력 깊숙이 묻힌 첫 컴파일 오류를 앞으로 끌어낸다 (#901).
 
 실제 Flutter 없이 컴파일러 출력 샘플만으로 검증한다.
 """
@@ -92,6 +92,6 @@ def test_render_failed_puts_buried_first_error_near_top(tmp_path):
         "test/_launch_render/states_test.dart:12:9: Error: Undefined name 'MethodChannel'.")
     assert "MethodChannel" in payload["summary"]
     assert keys.index("first_error") < keys.index("output_tail")
-    # 공통 4필드(ok·code·summary·next) 바로 뒤 (#897)
+    # 공통 4필드(ok·code·summary·next) 바로 뒤 (#898)
     assert keys.index("first_error") == keys.index("next") + 1
     assert "first_error" in payload["next"]

@@ -55,6 +55,9 @@
     "no_device": [
       "general-app-no-device"
     ],
+    "no_focused_window": [
+      "android-no-focused-window"
+    ],
     "non_ascii_unsupported": [
       "android-non-ascii-text"
     ],
@@ -89,6 +92,9 @@
     ],
     "became": [
       "ios-maestro-session-reconnect"
+    ],
+    "by": [
+      "android-no-focused-window"
     ],
     "cache": [
       "general-plugin-cache-version-drift"
@@ -147,8 +153,14 @@
     "methodchannel": [
       "general-render-failed-first-error"
     ],
+    "node": [
+      "android-no-focused-window"
+    ],
     "not": [
       "android-system-restart-loop"
+    ],
+    "null": [
+      "android-no-focused-window"
     ],
     "plugins": [
       "general-plugin-cache-version-drift"
@@ -158,6 +170,12 @@
     ],
     "projectops-marketplace": [
       "general-plugin-cache-version-drift"
+    ],
+    "returned": [
+      "android-no-focused-window"
+    ],
+    "root": [
+      "android-no-focused-window"
     ],
     "root_unknown": [
       "general-root-unknown-skill-folder"
@@ -193,6 +211,9 @@
     "uiautomation": [
       "android-system-restart-loop"
     ],
+    "uitestautomationbridge": [
+      "android-no-focused-window"
+    ],
     "unreachable": [
       "ios-maestro-session-reconnect"
     ],
@@ -214,6 +235,16 @@
       "keyword_count": 0,
       "path": "android/android-adb-missing.json"
     },
+    "android-no-focused-window": {
+      "area": "android",
+      "title": "no_focused_window — 초점 창이 없어 화면 구조를 못 읽음 (null root node)",
+      "fix_short": [
+        "CLI 가 이미 화면을 깨우고(WAKEUP · 잠금 해제) 세 번까지 다시 읽은 뒤에 이 code 를 낸다 — 몇 초 뒤 app tree 를 한 번 더 부른다",
+        "app shot 으로 지금 화면을 본다. 비밀번호 잠금 화면이면 사용자에게 풀어 달라고 한다"
+      ],
+      "keyword_count": 6,
+      "path": "android/android-no-focused-window.json"
+    },
     "android-non-ascii-text": {
       "area": "android",
       "title": "Android app type 이 non_ascii_unsupported — adb 는 한글을 못 넣는다",
@@ -229,7 +260,7 @@
       "title": "android_system_not_ready · ui_automation_unavailable — 에뮬레이터 시스템 재시작 반복",
       "fix_short": [
         "adb -s <시리얼> shell getprop init.svc.bootanim — running 이면 시스템이 아직 안 떴다",
-        "몇 분 기다려도 그대로면 사용자에게 에뮬레이터 cold boot 를 묻는다: emulator -avd <AVD> -no-snapshot-load (다른 세션이 쓰는 중일 수 있어 임의로 끄지 않는다)"
+        "사용자 확인 뒤 adb -s <시리얼> reboot (소프트 재부팅, 데이터 유지) — 실측: 52초 만에 부팅이 끝나고 app run 이 정상으로 돌았다"
       ],
       "keyword_count": 12,
       "path": "android/android-system-restart-loop.json"

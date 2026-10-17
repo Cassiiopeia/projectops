@@ -1,4 +1,4 @@
-"""`web text` — 보이는 글자를 읽는다 (스크린샷보다 싸다). --grep 이면 맞는 줄과 앞뒤만 (#890)."""
+"""`web text` — 보이는 글자를 읽는다 (스크린샷보다 싸다). --grep 이면 맞는 줄과 앞뒤만 (#891)."""
 from __future__ import annotations
 
 

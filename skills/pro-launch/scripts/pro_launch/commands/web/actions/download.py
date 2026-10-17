@@ -1,4 +1,4 @@
-"""`web download` — 눌러서 받은 파일을 이번 실행 폴더에 저장하고 경로·크기를 돌려준다 (#891)."""
+"""`web download` — 눌러서 받은 파일을 이번 실행 폴더에 저장하고 경로·크기를 돌려준다 (#892)."""
 from __future__ import annotations
 
 import os

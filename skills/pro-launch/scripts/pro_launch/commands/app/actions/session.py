@@ -1,4 +1,4 @@
-"""`app session start|stop|status` — iOS 상주 Maestro 세션 (#893 2단계, 선택).
+"""`app session start|stop|status` — iOS 상주 Maestro 세션 (#894 2단계, 선택).
 
 세션이 떠 있으면 iOS tap·swipe·tree·run 이 JVM 을 새로 띄우지 않고 그 세션을 쓴다 (호출당 20초 > 1초 안팎).
 세션이 없으면 지금처럼 호출마다 Maestro 를 띄운다. 클라이언트는 scripts/maestro_session.py, 중계 프로세스는 scripts/maestro_session_relay.py.

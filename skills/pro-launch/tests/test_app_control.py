@@ -1,4 +1,4 @@
-"""app 앱 제어 동작 (#892) · iOS app type (#894) — 기기 없이 subprocess 를 가짜로 바꿔 검사한다."""
+"""app 앱 제어 동작 (#893) · iOS app type (#895) — 기기 없이 subprocess 를 가짜로 바꿔 검사한다."""
 from __future__ import annotations
 
 import argparse
@@ -247,7 +247,7 @@ def test_tool_timeout_becomes_failure_not_exception(monkeypatch):
     assert ok is False and "30" in detail
 
 
-# ── iOS app type (#894) ─────────────────────────────────────────────────
+# ── iOS app type (#895) ─────────────────────────────────────────────────
 
 SECRET = "Pa ss&w0rd!"
 

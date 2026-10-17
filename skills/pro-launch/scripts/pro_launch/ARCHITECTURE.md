@@ -24,7 +24,7 @@ scripts/
   credentials.py            자격증명 저장 · 마스킹
   knowledge.py              이 컴퓨터에서 먹힌 방식의 기억
   app_input.py              앱 조작 플랫폼 백엔드 (Android · iOS)
-  maestro_session.py        iOS 상주 Maestro 세션 — 상태 파일 · 중계를 부르는 클라이언트 (#893)
+  maestro_session.py        iOS 상주 Maestro 세션 — 상태 파일 · 중계를 부르는 클라이언트 (#894)
   maestro_session_relay.py  그 중계 프로세스 (`maestro mcp` 표준입출력 소유 · 127.0.0.1 TCP · 유휴 종료)
   browser_pick.py           어떤 브라우저로 띄울지
   stealth.py                자동화 표식 가리기

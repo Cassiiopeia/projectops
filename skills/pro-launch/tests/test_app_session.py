@@ -1,4 +1,4 @@
-"""iOS 상주 Maestro 세션 (#893 2단계) · Android 화면 구조 읽기 견고화.
+"""iOS 상주 Maestro 세션 (#894 2단계) · Android 화면 구조 읽기 견고화.
 
 기기 없이 돈다: 중계는 가짜 `maestro` 실행 파일(표준입출력 MCP 흉내)로, 클라이언트는 진짜 로컬 소켓으로 시험한다.
 실기기 측정은 맨 아래 local_only.
@@ -407,6 +407,25 @@ def test_android_ui_automation_failure_after_two_tries(android, monkeypatch):
     monkeypatch.setattr(android, "_adb", fake)
     assert android.nodes("emulator-5554") == []
     assert android.device_failure["code"] == "ui_automation_unavailable"
+
+
+NULL_ROOT = "ERROR: null root node returned by UiTestAutomationBridge.\n"
+
+
+def test_android_no_focused_window_wakes_screen_then_reads(android, monkeypatch):
+    # 재부팅 직후 실측: 초점 창이 없어 null root 가 연달아 나오다가 깨운 뒤 읽힌다
+    fake = FakeAdb([NULL_ROOT, NULL_ROOT, XML])
+    monkeypatch.setattr(android, "_adb", fake)
+    assert [n["text"] for n in android.nodes("emulator-5554")] == ["홈"]
+    assert sum(1 for c in fake.calls if c[0] == "shell" and "WAKEUP" in c[1]) == 2
+
+
+def test_android_no_focused_window_reported_after_three_tries(android, monkeypatch):
+    fake = FakeAdb([NULL_ROOT, NULL_ROOT, NULL_ROOT])
+    monkeypatch.setattr(android, "_adb", fake)
+    assert android.nodes("emulator-5554") == []
+    assert android.device_failure["code"] == "no_focused_window"
+    assert sum(1 for c in fake.calls if c[:2] == ("exec-out", "uiautomator")) == 3
 
 
 def test_android_tree_reports_the_cause_code(monkeypatch, tmp_path, capsys):

@@ -1,4 +1,4 @@
-"""`web hover` — 요소 위에 마우스를 올린다 (툴팁·펼침 메뉴, #891)."""
+"""`web hover` — 요소 위에 마우스를 올린다 (툴팁·펼침 메뉴, #892)."""
 from __future__ import annotations
 
 
