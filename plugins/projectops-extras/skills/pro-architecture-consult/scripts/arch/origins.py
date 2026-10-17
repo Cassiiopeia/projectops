@@ -4,6 +4,7 @@
 - production: 운영 코드 (감사 대상)
 - test: 테스트 코드 (따로 센다 — 운영 수치를 부풀리지 않게)
 - tooling: CI·에이전트 도구 설치물 (.github/, .claude/ 등 — 원본 레포에서 고칠 일)
+  예외: 그 안에 자체 테스트가 있는 .github/ 는 이 레포가 원본 (owned_tooling 에 근거)
 - generated: 생성물 (머리 표식, gen-l10n 출력)
 - vendored: 외부 라이브러리 사본 (vendor/, 버전 머리가 있는 큰 정적 JS, shadcn ui)
 """
@@ -18,6 +19,8 @@ from .source_files import (NOT_ANALYZED_LANGUAGE_BY_EXTENSION, is_generated_file
 
 OWNED_ORIGINS = ("production", "test")
 TOOLING_DIRECTORY_NAMES = {".github", ".cursor", ".claude", ".agents", ".codex", ".gemini", ".pi", ".husky"}
+# 자체 테스트가 있으면 원본으로 보는 도구 폴더 (설치본에는 테스트가 따라오지 않는다)
+SELF_TESTED_TOOLING_DIRECTORY_NAMES = {".github"}
 VENDORED_DIRECTORY_NAMES = {"vendor", "vendors", "third_party", "thirdparty", "bower_components"}
 # 정적 자원 폴더 (여기 있는 JS는 외부 라이브러리 사본일 가능성이 높다)
 STATIC_DIRECTORY_NAMES = {"static", "public", "assets", "wwwroot"}
@@ -49,6 +52,7 @@ class SourceInventory:
         self.files = []                # (상대경로, 언어, 본문, 출처)
         self.excluded = {}             # 출처 > {count, reasons, examples}
         self.not_analyzed_languages = {}  # CLI가 못 읽는 언어 > 파일 수 (도구·외부 폴더 제외)
+        self.owned_tooling = {}        # 원본으로 본 도구 폴더 접두사 > 근거 (자체 테스트)
         self._collect_markers()
         self._collect_files()
 
@@ -72,12 +76,29 @@ class SourceInventory:
                     self.vendored_prefixes.append(
                         (module_prefix + ("src/" if has_src else "") + ui_alias[2:].strip("/") + "/", "shadcn ui"))
                 self.shadcn_modules.append(module_prefix)
+            elif language_of(relative) and is_test_path(relative):
+                self._mark_self_tested_tooling(relative)
             elif name == "l10n.yaml":
                 text = _read_text(absolute)
                 output_directory = _yaml_value(text, "output-dir") or _yaml_value(text, "arb-dir") or "lib/l10n"
                 output_file = _yaml_value(text, "output-localization-file") or "app_localizations.dart"
                 self.generated_prefixes.append((module_prefix + output_directory.strip("/") + "/",
                                                 Path(output_file).stem, "gen-l10n"))
+
+    def _mark_self_tested_tooling(self, relative: str):
+        """도구 폴더 안 테스트 파일 > 그 폴더를 원본으로 (근거: 테스트 수·예시)"""
+        parts = relative.split("/")
+        for depth, directory in enumerate(parts[:-1]):
+            if directory in SELF_TESTED_TOOLING_DIRECTORY_NAMES:
+                prefix = "/".join(parts[:depth + 1]) + "/"
+                entry = self.owned_tooling.setdefault(prefix, {"reason": "폴더 안 자체 테스트", "test_files": 0, "examples": []})
+                entry["test_files"] += 1
+                if len(entry["examples"]) < 3:
+                    entry["examples"].append(relative)
+                return
+
+    def _is_owned_tooling(self, relative: str) -> bool:
+        return any(relative.startswith(prefix) for prefix in self.owned_tooling)
 
     def _collect_files(self):
         for relative, absolute in walk_files(self.root):
@@ -102,13 +123,14 @@ class SourceInventory:
     def _count_not_analyzed(self, relative: str):
         name = NOT_ANALYZED_LANGUAGE_BY_EXTENSION.get(Path(relative).suffix.lower())
         directories = set(relative.split("/")[:-1])
-        if name and not (TOOLING_DIRECTORY_NAMES | VENDORED_DIRECTORY_NAMES) & directories and not is_generated_file(relative):
+        is_tooling = bool(TOOLING_DIRECTORY_NAMES & directories) and not self._is_owned_tooling(relative)
+        if name and not is_tooling and not VENDORED_DIRECTORY_NAMES & directories and not is_generated_file(relative):
             self.not_analyzed_languages[name] = self.not_analyzed_languages.get(name, 0) + 1
 
     def _origin_of(self, relative: str, language: str, text: str):
         directories = relative.split("/")[:-1]
         name = relative.rsplit("/", 1)[-1]
-        if TOOLING_DIRECTORY_NAMES & set(directories):
+        if TOOLING_DIRECTORY_NAMES & set(directories) and not self._is_owned_tooling(relative):
             return "tooling", next(d for d in directories if d in TOOLING_DIRECTORY_NAMES) + "/"
         if is_generated_file(relative):
             return "generated", "생성 파일 확장자"

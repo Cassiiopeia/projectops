@@ -1,4 +1,4 @@
-"""arch_cli 계약 테스트 8개: 오류 JSON · audit 사실 · 실측 오탐·놓침 회귀 · check(diff) · ledger · init 설치 · 템플릿 판정 동등성
+"""arch_cli 계약 테스트 9개: 오류 JSON · audit 사실 · 실측 오탐·놓침 회귀 · 템플릿 원본 자기 감사 · check(diff) · ledger · init 설치 · 템플릿 판정 동등성
 임시 미니 모노레포(Flutter·Spring·Python·JS) 하나로 서브커맨드 전부를 본다
 """
 import json
@@ -252,6 +252,38 @@ def test_generic_false_positive_guards(tmp_path):
     copies = run_cli("assets", root)[0]["identical_copies"]
     assert all("docs/shots" not in path for group in copies for path in group["paths"])
     assert len(copies) == 1 and len(copies[0]["paths"]) == 2
+
+
+def test_template_repo_self_audit(tmp_path):
+    """템플릿 원본 레포 자기 감사 오판 회귀 (#912)"""
+    root = tmp_path / "repo"
+    # 일반 모듈 setup.py 는 패키지 표식 아님, setuptools 를 쓰는 것만
+    write(root, "tools/web/actions/setup.py", "import subprocess\n")
+    write(root, "lib/setup.py", "from setuptools import setup\nsetup(name='lib')\n")
+    # 스킬 설명서의 audit.md 보다 이 스킬 감사 폴더, 감사 보고서는 규칙 문서 아님
+    write(root, "skills/x/references/audit.md", "# audit\n")
+    write(root, "docs/architecture/audits/2026-01-01_a.md", "# a\n")
+    # 자체 테스트가 있는 .github/ 는 원본 (도구 설치물 아님)
+    write(root, ".github/scripts/release.py", "def run_tmp_job(flag: bool):\n    pass\n")
+    write(root, ".github/scripts/test/test_release.py", "def test_x():\n    pass\n")
+    # $HOME 자리표시자·확장자 없는 모듈 경로는 없는 경로 아님
+    write(root, "scripts/common/client.py", "")
+    write(root, "CLAUDE.md", "- `scripts/common/client` 경유\n```\nopen('$HOME/.tool/config/config.json')\n```\n")
+
+    detected = run_cli("detect", root)[0]
+    assert [s["module"] for s in detected["stacks"]] == ["lib"]
+    assert detected["prior_audits"] == ["docs/architecture/audits/2026-01-01_a.md"]
+    assert detected["rule_documents"] == ["CLAUDE.md"]
+    scanned = run_cli("scan", root)[0]
+    assert "tooling" not in scanned["excluded"] and scanned["owned_tooling"][".github/"]["test_files"] == 1
+    assert scanned["counts"]["boolean_names"] == 1
+    assert run_cli("rule-docs", root)[0]["documents"][0]["missing_references"] == []
+
+    # --all 로 넣은 도구 설치물은 test_counts 가 아니라 counts, 읽는 순서도 채운다
+    write(root, ".claude/hooks/hook.py", "def run_hook(flag: bool):\n    pass\n")
+    everything = run_cli("scan", root, "--all")[0]
+    assert everything["counts"]["boolean_names"] == 2 and "boolean_names" not in everything["test_counts"]
+    assert "boolean_names" in everything["review_order"][-1]["categories"]
 
 
 def test_check_diff(project):

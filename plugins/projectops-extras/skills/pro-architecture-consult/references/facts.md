@@ -4,8 +4,8 @@
 
 ## 읽는 순서 (scan)
 
-1. **`excluded`부터 본다.** 레포가 소유하지 않은 코드는 이미 빠져 있다: `tooling`(`.github/`·`.claude/` 등 설치물 — 원본 레포에서 고칠 일), `generated`(생성 머리 표식·gen-l10n), `vendored`(`vendor/`, 버전 머리가 있는 정적 JS, shadcn ui). 사람이 고친 shadcn 컴포넌트처럼 봐야 할 것이 섞였으면 `scan PATH --all`로 다시 본다 (항목에 `origin` 태그).
-2. **`counts`는 운영 코드만이다.** 테스트 쪽은 `test_counts`. 항목에 `origin: "test"`가 붙은 것은 운영 항목 뒤에 온다. 테스트 이름·상수는 우선순위를 낮춘다.
+1. **`excluded`부터 본다.** 레포가 소유하지 않은 코드는 이미 빠져 있다: `tooling`(`.github/`·`.claude/` 등 설치물 — 원본 레포에서 고칠 일), `generated`(생성 머리 표식·gen-l10n), `vendored`(`vendor/`, 버전 머리가 있는 정적 JS, shadcn ui). 자체 테스트가 있는 `.github/`는 이 레포가 원본이라 감사에 넣는다 (`owned_tooling`에 근거: 테스트 수·예시). 사람이 고친 shadcn 컴포넌트처럼 봐야 할 것이 섞였으면 `scan PATH --all`로 다시 본다 (항목에 `origin` 태그, 수치는 `counts`에 합산).
+2. **`counts`는 운영 코드만이다** (`--all`이면 넣은 출처까지). 테스트 쪽은 `test_counts`. 항목에 `origin: "test"`가 붙은 것은 운영 항목 뒤에 온다. 테스트 이름·상수는 우선순위를 낮춘다.
 3. **`review_order` 순서로 연다**: 동작 위험 > 공통화·단일 원본 > 구조 > 주석 > 이름·토큰. 수가 많은 범주가 큰 문제인 것이 아니다 (긴 주석 150건보다 다시 던지지 않는 catch 3건이 먼저다).
 4. **`hotspots`로 원인을 묶는다.** 한 파일에 여러 범주가 몰리면 그 파일 하나가 원인이다 (분리 대상).
 5. 목록은 심한 것 먼저, 같은 무게면 폴더마다 번갈아 나온다. `truncated`에 범주가 있으면 잘린 것이다 (값 = 전체 수). 범주 하나만 더 보려면 `--category X --limit 200`, 폴더 하나만 보려면 `--only app/` (하위 에이전트에 넘길 사실).

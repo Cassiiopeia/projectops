@@ -9,12 +9,16 @@ from .source_files import walk_files
 
 RULE_DOCUMENT_NAMES = {"CLAUDE.md", "claude.md", "AGENTS.md", "GEMINI.md", ".cursorrules", "copilot-instructions.md"}
 RULE_DOCUMENT_DIRECTORY_PARTS = ("/.claude/rules/", "/.cursor/rules/", "/docs/architecture/")
+# 이 스킬의 감사 보고서 폴더 (get-output-path 가 쓰는 곳 — 규칙 문서가 아니라 지난 감사)
+AUDITS_DIRECTORY = "docs/architecture/audits"
 # 에이전트 설정 폴더 바로 아래 문서도 팀 규칙 (.cursor/가이드.md 같은 자리)
 RULE_DOCUMENT_TOP_DIRECTORIES = {".cursor", ".claude", ".agents"}
 RULE_DOCUMENT_EXTENSIONS = (".md", ".mdc")
 # 설치한 스킬·플러그인·명령 문서는 레포 규칙이 아니다 (외부 도구 설명서)
 NOT_RULE_DOCUMENT_DIRECTORY_NAMES = {"skills", "plugins", "commands", "agents", "node_modules"}
 PRIOR_AUDIT_PATTERN = re.compile(r"audit", re.IGNORECASE)
+# setup.py 가 패키지 루트일 때의 본문 (같은 이름의 일반 모듈 제외)
+PACKAGING_SETUP_PATTERN = re.compile(r"^\s*(?:from|import)\s+(?:setuptools|distutils)\b", re.MULTILINE)
 ALLOWLIST_PATTERN = re.compile(r"(?:allow(?:ed|list)?|baseline|frozen)[\w.-]*\.(?:txt|allow|json)$|\.allow$", re.IGNORECASE)
 # 예외 목록이 아닌 같은 이름 파일 (projectops 설치 기록)
 NOT_ALLOWLIST_PATHS = (".github/.projectops/",)
@@ -25,7 +29,7 @@ MAXIMUM_LISTED = 40
 
 
 def detect_project(root: Path) -> dict:
-    stacks, rule_documents, prior_audits, allowlists, rule_tests = [], [], [], [], []
+    stacks, rule_documents, skill_audits, other_audits, allowlists, rule_tests = [], [], [], [], [], []
     gradle_settings_directories = set()
     for relative, absolute in walk_files(root):
         name = absolute.name
@@ -41,8 +45,10 @@ def detect_project(root: Path) -> dict:
         # 규칙 문서 · 이어받을 자료
         if _is_rule_document(relative, name, probe):
             rule_documents.append(relative)
-        if name.endswith(".md") and PRIOR_AUDIT_PATTERN.search(name):
-            prior_audits.append(relative)
+        if name.endswith(".md") and relative.startswith(AUDITS_DIRECTORY + "/"):
+            skill_audits.append(relative)
+        elif name.endswith(".md") and PRIOR_AUDIT_PATTERN.search(name) and not _is_tool_document(relative):
+            other_audits.append(relative)
         if ALLOWLIST_PATTERN.search(name) and not any(p in probe for p in NOT_ALLOWLIST_PATHS):
             allowlists.append(relative)
         if name in RULE_TEST_CONFIG_NAMES or RULE_TEST_PATH_PATTERN.search(relative) and _is_code(name):
@@ -51,6 +57,8 @@ def detect_project(root: Path) -> dict:
             if _mentions_rule_tool(absolute):
                 rule_tests.append(relative)
 
+    # 이 스킬이 남긴 감사 먼저 (최신순), 그 밖의 audit 문서는 뒤
+    prior_audits = sorted(skill_audits, reverse=True) + other_audits
     stacks = _collapse_gradle_submodules(stacks, gradle_settings_directories)
     # Flutter 앱의 android/ 는 별도 스택이 아니라 호스트 (감사 대상은 flutter 모듈)
     flutter_modules = {s["module"] for s in stacks if s["stack"] == "flutter"}
@@ -73,9 +81,13 @@ def detect_project(root: Path) -> dict:
     }
 
 
+def _is_tool_document(relative: str) -> bool:
+    return bool(NOT_RULE_DOCUMENT_DIRECTORY_NAMES & set(relative.split("/")[:-1]))
+
+
 def _is_rule_document(relative: str, name: str, probe: str) -> bool:
     directories = relative.split("/")[:-1]
-    if NOT_RULE_DOCUMENT_DIRECTORY_NAMES & set(directories):
+    if _is_tool_document(relative) or relative.startswith(AUDITS_DIRECTORY + "/"):
         return False
     if name in RULE_DOCUMENT_NAMES:
         return True
@@ -95,7 +107,9 @@ def _stack_of_marker(name: str, absolute: Path):
         sibling_app = absolute.parent / "app" / name
         is_android = "com.android" in text or (sibling_app.is_file() and "com.android" in _read(sibling_app))
         return ("spring" if "springframework" in text else "jvm"), {"is_android": is_android}
-    if name in ("pyproject.toml", "requirements.txt", "setup.py"):
+    if name in ("pyproject.toml", "requirements.txt"):
+        return "python", {}
+    if name == "setup.py" and PACKAGING_SETUP_PATTERN.search(_read(absolute)):
         return "python", {}
     if name == "package.json":
         try:

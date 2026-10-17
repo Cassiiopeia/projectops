@@ -11,6 +11,8 @@ import shutil
 from datetime import date
 from pathlib import Path
 
+from .detect import AUDITS_DIRECTORY
+
 SKILL_DIRECTORY = Path(__file__).resolve().parents[2]
 CONVENTIONS_SOURCE = SKILL_DIRECTORY / "references" / "conventions.md"
 STACK_SOURCES_DIRECTORY = SKILL_DIRECTORY / "references" / "stacks"
@@ -81,7 +83,7 @@ def install_rule_test(root: Path, stack: str, module: str, is_force: bool) -> di
 def audit_output_path(root: Path, title: str) -> dict:
     """경로 계산만 (폴더를 만들지 않는다 — 승인 전 호출해도 대상 레포가 바뀌지 않게, 폴더는 보고서를 쓸 때 생긴다)"""
     slug = OUTPUT_TITLE_ALLOWED_PATTERN.sub("_", title.strip()).strip("_")[:MAXIMUM_TITLE_LENGTH] or "audit"
-    audits = root / "docs" / "architecture" / "audits"
+    audits = root / AUDITS_DIRECTORY
     path = audits / f"{date.today().isoformat()}_{slug}.md"
     previous = sorted(p.relative_to(root).as_posix() for p in audits.glob("*.md")) if audits.is_dir() else []
     return {"path": str(path), "exists": path.exists(), "previous_audits": previous, "summary": str(path.relative_to(root))}

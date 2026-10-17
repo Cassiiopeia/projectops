@@ -12,8 +12,8 @@ from .detect import detect_project
 from .source_files import git_ignored_paths, walk_files
 
 BACKTICK_PATH_PATTERN = re.compile(r"`([\w.\-]+(?:/[\w.\-]+)+/?|[\w\-]+\.(?:md|py|js|mjs|ts|tsx|dart|java|kt|ya?ml|json|txt|gradle|toml))`")
-# 코드블록 안 경로 (트리 그림·예시 — 낮은 확신, in_code_block 태그)
-CODE_BLOCK_PATH_PATTERN = re.compile(r"(?<![\w./-])((?:[\w.\-]+/)+[\w.\-]*\.(?:md|py|js|ts|tsx|dart|java|kt|ya?ml|json)|(?:[\w.\-]+/){2,})(?![\w/])")
+# 코드블록 안 경로 (트리 그림·예시 — 낮은 확신, in_code_block 태그). 앞에 $ 면 환경변수 자리표시자($HOME/...)라 제외
+CODE_BLOCK_PATH_PATTERN = re.compile(r"(?<![\w./$-])((?:[\w.\-]+/)+[\w.\-]*\.(?:md|py|js|ts|tsx|dart|java|kt|ya?ml|json)|(?:[\w.\-]+/){2,})(?![\w/])")
 # 줄글 주석을 유도하는 문구 (주석은 한 줄 요약·단계 머리글로 — conventions §7)
 PROSE_COMMENT_INDUCING_PATTERN = re.compile(
     r"주석\s*(?:은|을|도)?\s*(?:필수|꼭|반드시|자세히|상세히|많이|충분히|풍부)|코드\s*주석\s*필수|"
@@ -22,6 +22,8 @@ PROSE_COMMENT_INDUCING_PATTERN = re.compile(
     re.IGNORECASE,
 )
 PLACEHOLDER_MARKERS = ("{", "<", "*", "$", "~", "...", "http")
+# 확장자 없는 모듈 경로(scripts/common/gh_client)를 파일로 맞춰 볼 확장자
+MODULE_EXTENSIONS = (".py", ".js", ".mjs", ".ts", ".tsx", ".dart", ".java", ".kt", ".sh")
 MAXIMUM_FINDINGS_PER_DOCUMENT = 30
 
 
@@ -112,7 +114,10 @@ def _exists(root: Path, document_directory: Path, reference: str, index: _PathIn
         directory = directory.parent
     if "/" not in reference.rstrip("/"):
         return reference in index.file_names
-    return index.has_suffix(reference)
+    if index.has_suffix(reference):
+        return True
+    last = reference.rsplit("/", 1)[-1]
+    return bool(last) and "." not in last and any(index.has_suffix(reference + e) for e in MODULE_EXTENSIONS)
 
 
 def _split_ignored(root: Path, document_directory: Path, entries: list):

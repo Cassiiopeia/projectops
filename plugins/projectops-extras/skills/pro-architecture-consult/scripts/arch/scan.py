@@ -14,9 +14,8 @@ from . import code_smells, naming_smells, scan_report, structure_smells
 from .origins import SourceInventory
 from .source_files import classify_lines, comment_blocks
 
-# 파일 줄 수 한도 (300 분리 검토, 500 반드시 분리 — conventions §3.3)
+# 파일 줄 수 한도 (300 분리 검토 — conventions §3.3, 반드시 분리 500 은 scan_report.MUST_SPLIT_LINES)
 REVIEW_SPLIT_LINES = 300
-MUST_SPLIT_LINES = 500
 # 운영 코드에 섞인 테스트·목 코드 (경로 폴더 이름 또는 파일 이름)
 TEST_CODE_DIRECTORY_NAMES = {"test", "tests", "mock", "mocks", "dummy", "fixture", "fixtures", "sample", "samples"}
 TEST_CODE_FILE_PATTERN = re.compile(r"^(?:Test|Mock|Dummy|Fake)\w*(?:Controller|Service|Api|Router|Resource)\.\w+$|^(?:mock|dummy|fake)_\w+\.py$")
@@ -39,7 +38,7 @@ def scan_project(root: Path, limit: int, is_including_all: bool = False,
         files_by_origin[origin] = files_by_origin.get(origin, 0) + 1
         files_by_language[language] = files_by_language.get(language, 0) + 1
         code_lines = _collect_file(relative, language, text, origin, findings)
-        if origin == "production":
+        if origin != "test":
             cross_file_inputs.append((relative, language, code_lines))
 
     # 파일을 넘는 냄새 (운영 코드만 — 테스트의 직접 호출·상수는 정상인 경우가 많다)
@@ -55,6 +54,7 @@ def scan_project(root: Path, limit: int, is_including_all: bool = False,
         "files_by_language": files_by_language,
         "not_analyzed_languages": inventory.not_analyzed_languages,
         "excluded": inventory.excluded_summary(),
+        "owned_tooling": inventory.owned_tooling,
         **report,
         "summary_text": scan_report.summary_text(files_by_origin, report["counts"], report["test_counts"],
                                                  inventory.excluded_summary(), inventory.not_analyzed_languages),
@@ -73,7 +73,7 @@ def record_metrics(root: Path, summary: dict, rule_counts: dict) -> Path:
 
 def _collect_file(relative: str, language: str, text: str, origin: str, findings: dict) -> list:
     """한 파일의 냄새를 findings 에 담고, 파일을 넘는 검사용 코드 줄 [(번호, 줄)]을 돌려준다"""
-    tag = {} if origin == "production" else {"origin": origin}
+    tag = {} if origin == "production" else {"origin": origin}  # test 만 test_counts 로 (scan_report)
     classified = classify_lines(text, language)
     lines = text.splitlines()
     comment_lines = sum(1 for _, kind, _ in classified if kind == "comment")
@@ -129,7 +129,7 @@ def _collect_file(relative: str, language: str, text: str, origin: str, findings
     marker = code_smells.lint_disabled_marker(text)
     if marker:
         findings["lint_disabled_files"].append({"path": relative, "marker": marker, **tag})
-    if origin == "production" and _is_test_code_in_production(relative):
+    if origin != "test" and _is_test_code_in_production(relative):
         findings["test_code_in_production"].append({"path": relative})
     return code_lines
 

@@ -30,6 +30,7 @@ SIZE_SORT_KEYS = {
                                   or f.get("has_passthrough_before", False),
                                   f["has_log"] and f["kind"] == "no_rethrow", not f["is_catch_all"], -f["body_lines"]),
 }
+# 반드시 분리할 파일 줄 수 (conventions §3.3)
 MUST_SPLIT_LINES = 500
 HOTSPOT_COUNT = 15
 # 파일별 집계에서 뺄 범주 (파일 단위 사실이라 중복 집계가 됨)
@@ -39,8 +40,9 @@ HOTSPOT_SKIPPED = {"long_files", "comment_heavy_files", "file_type_mismatch", "l
 def build_report(findings: dict, cross_file: dict, limit: int, categories: list | None) -> dict:
     counts, test_counts, ordered = {}, {}, {}
     for category, items in findings.items():
-        production = [f for f in items if "origin" not in f]
-        others = [f for f in items if "origin" in f]
+        # --all 로 넣은 tooling·generated·vendored 는 운영 쪽 수치 (test 만 따로)
+        production = [f for f in items if not _is_test_item(f)]
+        others = [f for f in items if _is_test_item(f)]
         counts[category] = len(production)
         if others:
             test_counts[category] = len(others)
@@ -48,7 +50,7 @@ def build_report(findings: dict, cross_file: dict, limit: int, categories: list 
     for category, items in cross_file.items():
         counts[category] = len(items)
         ordered[category] = items
-    counts["must_split_files"] = sum(1 for f in findings["long_files"] if "origin" not in f and f["lines"] > MUST_SPLIT_LINES)
+    counts["must_split_files"] = sum(1 for f in findings["long_files"] if not _is_test_item(f) and f["lines"] > MUST_SPLIT_LINES)
 
     selected = categories or list(ordered)
     limited = {c: ordered[c][:limit] for c in selected if c in ordered}
@@ -81,6 +83,10 @@ def summary_text(files_by_origin: dict, counts: dict, test_counts: dict, exclude
     return " | ".join(parts)
 
 
+def _is_test_item(item: dict) -> bool:
+    return item.get("origin") == "test"
+
+
 def _ordered(category: str, items: list) -> list:
     if category in SIZE_SORT_KEYS:
         return sorted(items, key=SIZE_SORT_KEYS[category])
@@ -103,7 +109,7 @@ def _hotspots(findings: dict) -> list:
         if category in HOTSPOT_SKIPPED:
             continue
         for item in items:
-            if "origin" in item:
+            if _is_test_item(item):
                 continue
             entry = by_file.setdefault(item["path"], {})
             entry[category] = entry.get(category, 0) + 1
