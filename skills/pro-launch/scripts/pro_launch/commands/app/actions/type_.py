@@ -8,7 +8,7 @@ from common.proc import sdk_tool
 
 import credentials
 
-from pro_launch.commands.app.gestures import backend_on, elapsed_seconds
+from pro_launch.commands.app.gestures import backend_on, elapsed_seconds, session_fields
 from pro_launch.registry import Action
 from pro_launch.runtime.creds import cred_field
 from pro_launch.runtime.devices import no_device_response, pick_device
@@ -77,8 +77,9 @@ def _type_with_backend(args, platform: str, dev_id: str, value: str) -> int:
     should_submit = bool(getattr(args, "submit", False))
     ok, detail = be.input_text(dev_id, value, submit=should_submit)
     entry = {"password": value, "token": value}
+    # 비밀 값은 상주 세션에 싣지 않는다 — 세션이 있으면 session_fallback=secret_input_per_call 로 보인다
     return out({"ok": ok, "code": "ok" if ok else "app_type_failed", "device": dev_id, "via": be.name,
-                "chars": len(value), "submitted": should_submit and ok,
+                **session_fields(be), "chars": len(value), "submitted": should_submit and ok,
                 "elapsed_seconds": elapsed_seconds(args),
                 "error": None if ok else credentials.mask(detail, entry)[-400:] or None,
                 "summary": f"{len(value)}자 입력" + (" + Enter" if should_submit and ok else ""),

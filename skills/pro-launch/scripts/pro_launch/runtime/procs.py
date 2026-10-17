@@ -118,3 +118,16 @@ def process_command_lines() -> str | None:
 def manual_kill_command(pid: int) -> str:
     """사용자가 직접 브라우저를 끝낼 때 칠 명령."""
     return f"taskkill /PID {pid} /T /F" if sys.platform == "win32" else f"kill -9 {pid}"
+
+
+def spawn_detached(command: list[str], working_folder: str, log_path) -> int:
+    """우리가 끝나도 살아 있는 백그라운드 프로세스를 띄운다 > pid. 표준오류는 log_path 로 (덮어쓴다)."""
+    with open(log_path, "w", encoding="utf-8") as log_file:
+        process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                   stderr=log_file, cwd=working_folder, **detach_options())
+    return process.pid
+
+
+def kill_process_group(pid: int, grace: float = 5.0) -> bool:
+    """새 세션으로 띄운 프로세스와 그 자식(예: 중계 > maestro mcp > java)을 함께 끝낸다. 살아 있으면 True."""
+    return kill_browser(pid, grace)

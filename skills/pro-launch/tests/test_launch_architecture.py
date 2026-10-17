@@ -81,7 +81,8 @@ def test_no_module_failed_to_load():
      {"setup", "open", "goto", "find", "click", "type", "text", "shot", "assert", "console", "close",
       "viewport", "route", "inspect", "select", "check", "press", "hover", "dialog", "download"}),
     ("pro_launch.commands.app.actions", {"shot", "launch", "type", "tap", "swipe", "tree", "terminate",
-                                         "relaunch", "location", "permission", "push", "openurl", "run"}),
+                                         "relaunch", "location", "permission", "push", "openurl", "run",
+                                         "session"}),
 ])
 def test_actions_are_discovered_from_their_folder(pkg_path, expected):
     import importlib

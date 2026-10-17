@@ -22,9 +22,12 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 from common.proc import sdk_tool
+
+import maestro_session
 
 BOUNDS = re.compile(r"\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]")
 # (시작, 끝) 비율 — 화면 가장자리 제스처(뒤로가기·알림 끌어내리기)를 피해 15% 안쪽에서 움직인다
@@ -35,6 +38,12 @@ SWIPE_DIRS = {
 SELECTOR_FIELDS = ("text", "id", "desc")
 # Maestro 가 flow 의 ${...} 로 읽는 환경변수 (MAESTRO_ 접두만 셸에서 넘어간다)
 INPUT_TEXT_ENV = "MAESTRO_PRO_LAUNCH_INPUT_TEXT"
+# Android 화면 구조 읽기: 한 번의 최대 대기 (초) · 시도 횟수 · 다시 시도 전 쉼 (초)
+UI_DUMP_TIMEOUT_SECONDS = 20
+UI_DUMP_ATTEMPT_COUNT = 2
+UI_DUMP_RETRY_DELAY_SECONDS = 1.5
+# uiautomator 가 UiAutomation 에 못 붙었을 때의 출력 (다른 자동화 도구가 쥐고 있거나 시스템이 재시작 중)
+UI_AUTOMATION_FAILURE_MARKERS = ("Killed", "UiAutomation", "TimeoutException", "already registered")
 
 
 # ── 공통 순수 함수 (기기 없이 테스트된다) ─────────────────────────────────
@@ -101,6 +110,11 @@ def maestro_nodes(json_text: str) -> list[dict]:
     return nodes
 
 
+def maestro_inspect_nodes(json_text: str) -> list[dict]:
+    """`maestro mcp` inspect_screen 응답 > 노드 목록 (hierarchy 모양으로 펼쳐 같은 길로 읽는다)."""
+    return maestro_nodes(maestro_session.inspect_screen_to_hierarchy(json_text) or "{}")
+
+
 def match_nodes(nodes: list[dict], field: str, value: str) -> list[dict]:
     """정확히 같은 것 → 포함하는 것 순. id 는 `pkg:id/name` 과 `name` 둘 다 받는다."""
     exact = [n for n in nodes if n[field] == value
@@ -149,6 +163,10 @@ class Backend:
     # 뒤로 버튼이 있는 플랫폼만 True (Android). iOS 는 화면마다 뒤로가기 방식이 달라 단계로 받지 않는다
     has_back_button = False
     install_hint: str | None = None
+    # 화면 구조를 못 읽었거나 시스템이 준비되지 않았을 때의 {code, reason} (Android) — tree·tap·run 응답의 code 가 된다
+    device_failure: dict | None = None
+    # 상주 세션을 탔는지 (iOS): {} 세션 없음 · {"transport": ...} — 응답에 그대로 붙는다
+    session_report: dict = {}
 
     def available(self) -> bool:
         return True
@@ -158,6 +176,10 @@ class Backend:
 
     def nodes(self, dev: str) -> list[dict] | None:
         """화면 요소. 읽을 수 없는 플랫폼이면 None."""
+        return None
+
+    def system_readiness_failure(self, dev: str) -> dict | None:
+        """기기 시스템이 조작을 받을 상태가 아니면 {code, reason}. 모르면 None."""
         return None
 
     def tap_xy(self, dev: str, x: int, y: int) -> tuple[bool, str]:
@@ -209,9 +231,44 @@ class AndroidBackend(Backend):
         return None
 
     def nodes(self, dev: str) -> list[dict]:
-        # 파일을 기기에 남기지 않도록 표준출력으로 받는다
-        r = self._adb(dev, "exec-out", "uiautomator", "dump", "/dev/tty", timeout=30)
-        return ui_nodes(r.stdout or "")
+        """화면 구조: 시간 제한 + 한 번 더 시도. 못 읽으면 [] 와 함께 device_failure 에 code·사유를 남긴다."""
+        self.device_failure = None
+        for attempt in range(UI_DUMP_ATTEMPT_COUNT):
+            try:
+                # 파일을 기기에 남기지 않도록 표준출력으로 받는다
+                r = self._adb(dev, "exec-out", "uiautomator", "dump", "/dev/tty", timeout=UI_DUMP_TIMEOUT_SECONDS)
+            except subprocess.TimeoutExpired:
+                self.device_failure = {"code": "ui_dump_timeout",
+                                        "reason": f"uiautomator dump 가 {UI_DUMP_TIMEOUT_SECONDS}초 안에 끝나지 않았다"}
+            else:
+                if "<hierarchy" in (r.stdout or ""):
+                    return ui_nodes(r.stdout)
+                self.device_failure = self._dump_failure(dev, (r.stdout or "") + (r.stderr or ""))
+            if self.device_failure["code"] == "android_system_not_ready" or attempt + 1 == UI_DUMP_ATTEMPT_COUNT:
+                break
+            time.sleep(UI_DUMP_RETRY_DELAY_SECONDS)
+        return []
+
+    def system_readiness_failure(self, dev: str) -> dict | None:
+        """부팅 애니메이션이 떠 있거나 window 서비스가 없으면 시스템이 (재)시작 중이다 (system_server 재시작 반복 실측)."""
+        try:
+            probe = self._adb(dev, "shell", "getprop init.svc.bootanim; service check window", timeout=10).stdout or ""
+        except subprocess.TimeoutExpired:
+            probe = ""
+        if probe.startswith("running") or "window: not found" in probe:
+            return {"code": "android_system_not_ready",
+                    "reason": "Android 시스템이 (재)시작 중이다 — 부팅 애니메이션이 떠 있거나 window 서비스가 없다"}
+        return None
+
+    def _dump_failure(self, dev: str, output: str) -> dict:
+        """dump 실패 원인 가르기: 시스템 재시작 중(부팅 애니메이션) > UiAutomation 연결 실패 > 그 밖."""
+        not_ready = self.system_readiness_failure(dev)
+        if not_ready:
+            return not_ready
+        if any(marker in output for marker in UI_AUTOMATION_FAILURE_MARKERS):
+            return {"code": "ui_automation_unavailable",
+                    "reason": "uiautomator 가 UiAutomation 에 붙지 못했다 (다른 자동화 도구가 쥐고 있거나 시스템이 불안정)"}
+        return {"code": "ui_dump_failed", "reason": (output.strip()[-200:] or "빈 출력")}
 
     def _size(self, dev: str) -> tuple[int, int] | None:
         """화면 크기. Override 가 있으면 그것이 실제 입력 좌표계라 마지막 값을 쓴다."""
@@ -266,6 +323,21 @@ class IOSMaestroBackend(Backend):
 
     def __init__(self, app_id: str | None = None, timeout: int = 90):
         self.app_id, self.timeout = app_id, timeout
+        # 상주 세션(app session start)을 탔나: {} 세션 없음 · {"transport": "session"} · 못 써서 내려감 + 사유
+        self.session_report: dict = {}
+
+    def has_session(self, dev: str) -> bool:
+        """이 기기에 준비된 상주 세션이 있나 (중계가 살아 있는지는 호출해 봐야 안다)."""
+        return maestro_session.is_ready(maestro_session.read_session(dev))
+
+    def _session_call(self, dev: str, tool: str, arguments: dict) -> dict | None:
+        """세션으로 부른다 > 결과. 세션이 없거나 못 쓰면 None (사유는 session_report 에)."""
+        result, fallback_reason = maestro_session.call(dev, tool, arguments, self.timeout)
+        if result is not None:
+            self.session_report = {"transport": "session", **({"session_reconnected": True} if result["reconnected"] else {})}
+        elif fallback_reason:
+            self.session_report = {"transport": "per_call", "session_fallback": fallback_reason}
+        return result
 
     @staticmethod
     def _maestro() -> str | None:
@@ -285,6 +357,11 @@ class IOSMaestroBackend(Backend):
         return m.group(1) if m else None
 
     def nodes(self, dev):
+        result = self._session_call(dev, "inspect", {})
+        if result is not None and not result["is_error"]:
+            return maestro_inspect_nodes(result["text"])
+        if result is not None:
+            self.session_report = {"transport": "per_call", "session_fallback": "session_inspect_failed"}
         try:
             r = subprocess.run(self._base(dev) + ["hierarchy"], capture_output=True, text=True,
                                timeout=self.timeout)
@@ -293,12 +370,25 @@ class IOSMaestroBackend(Backend):
         return maestro_nodes(r.stdout or "")
 
     def run_flow(self, dev: str, command: dict | list[dict], env: dict | None = None) -> tuple[bool | None, list[str]]:
-        """flow 한 번 실행 > (성공 여부, 출력 줄). 시간 초과면 (None, [사유]) — 단계별 결과를 읽는 쪽(app run)이 쓴다."""
+        """flow 한 번 실행 > (성공 여부, 출력 줄). 시간 초과면 (None, [사유]) — 단계별 결과를 읽는 쪽(app run)이 쓴다.
+
+        상주 세션이 있으면 그것으로 (env 가 있는 flow 는 제외 — 비밀 값은 세션에 싣지 않는다, maestro_session.py 참고).
+        """
+        if not env:
+            result = self._session_call(dev, "run", {"yaml": maestro_flow(command, self.app_id)})
+            if result is not None:
+                return maestro_session.flow_outcome(result)
+        elif self.has_session(dev):
+            # 호출마다 띄우는 maestro test 가 세션의 기기 연결을 끊는다 — 세션은 다음 호출에서 다시 붙는다
+            self.session_report = {"transport": "per_call", "session_fallback": "secret_input_per_call"}
         with tempfile.TemporaryDirectory() as d:
             f = Path(d) / "step.yaml"
             f.write_text(maestro_flow(command, self.app_id), encoding="utf-8")
+            # 비밀 값이 있는 flow: Maestro 는 maestro.log 에 inputText 의 실제 값을 남긴다(실측) —
+            # 기록을 이 임시 폴더로 돌려 함께 지운다 (기본 자리 ~/.maestro/tests 에 남지 않게)
+            debug_output = ["--debug-output", str(Path(d) / "debug"), "--flatten-debug-output"] if env else []
             try:
-                r = subprocess.run(self._base(dev) + ["test", str(f)], capture_output=True,
+                r = subprocess.run(self._base(dev) + ["test", *debug_output, str(f)], capture_output=True,
                                    text=True, timeout=self.timeout,
                                    env={**os.environ, **env} if env else None)
             except subprocess.TimeoutExpired:

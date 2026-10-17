@@ -4,6 +4,9 @@
     "adb_missing": [
       "android-adb-missing"
     ],
+    "android_system_not_ready": [
+      "android-system-restart-loop"
+    ],
     "android_tool_missing": [
       "android-adb-missing"
     ],
@@ -29,6 +32,9 @@
       "general-cred-field-missing"
     ],
     "element_disabled": [
+      "web-selector-guess-timeout"
+    ],
+    "element_not_actionable": [
       "web-selector-guess-timeout"
     ],
     "env_not_set": [
@@ -64,16 +70,46 @@
     "selector_not_found": [
       "web-selector-guess-timeout"
     ],
+    "session_start_failed": [
+      "ios-maestro-session-reconnect"
+    ],
     "sshpass_missing": [
       "ssh-sshpass-missing"
+    ],
+    "ui_automation_unavailable": [
+      "android-system-restart-loop"
+    ],
+    "ui_dump_timeout": [
+      "android-system-restart-loop"
     ]
   },
   "keywords": {
     "90초": [
       "ios-maestro-slow-cold-start"
     ],
+    "became": [
+      "ios-maestro-session-reconnect"
+    ],
     "cache": [
       "general-plugin-cache-version-drift"
+    ],
+    "can": [
+      "android-system-restart-loop"
+    ],
+    "connected": [
+      "android-system-restart-loop"
+    ],
+    "connecting": [
+      "android-system-restart-loop"
+    ],
+    "device": [
+      "ios-maestro-session-reconnect"
+    ],
+    "device_unreachable": [
+      "ios-maestro-session-reconnect"
+    ],
+    "endpoint": [
+      "android-system-restart-loop"
     ],
     "enter-frame": [
       "web-iframe-login-fields"
@@ -81,11 +117,23 @@
     "err_cert_authority_invalid": [
       "web-goto-failed"
     ],
+    "evaluatedcommand": [
+      "ios-maestro-log-keeps-input-text"
+    ],
+    "find": [
+      "android-system-restart-loop"
+    ],
     "for": [
       "web-selector-guess-timeout"
     ],
     "iframe": [
       "web-iframe-login-fields"
+    ],
+    "inputtextcommand": [
+      "ios-maestro-log-keeps-input-text"
+    ],
+    "is": [
+      "android-system-restart-loop"
     ],
     "locator": [
       "web-selector-guess-timeout"
@@ -93,8 +141,14 @@
     "maestro": [
       "ios-maestro-slow-cold-start"
     ],
+    "maestro.log": [
+      "ios-maestro-log-keeps-input-text"
+    ],
     "methodchannel": [
       "general-render-failed-first-error"
+    ],
+    "not": [
+      "android-system-restart-loop"
     ],
     "plugins": [
       "general-plugin-cache-version-drift"
@@ -111,8 +165,14 @@
     "root_warning": [
       "general-root-unknown-skill-folder"
     ],
+    "service": [
+      "android-system-restart-loop"
+    ],
     "services.dart": [
       "general-render-failed-first-error"
+    ],
+    "session_fallback": [
+      "ios-maestro-session-reconnect"
     ],
     "singletonlock": [
       "browser-start-stale-process-or-lock"
@@ -124,10 +184,23 @@
       "browser-start-stale-process-or-lock"
     ],
     "timeout": [
+      "android-system-restart-loop",
       "web-selector-guess-timeout"
+    ],
+    "transport": [
+      "android-system-restart-loop"
+    ],
+    "uiautomation": [
+      "android-system-restart-loop"
+    ],
+    "unreachable": [
+      "ios-maestro-session-reconnect"
     ],
     "waiting": [
       "web-selector-guess-timeout"
+    ],
+    "while": [
+      "android-system-restart-loop"
     ]
   },
   "entries": {
@@ -150,6 +223,16 @@
       ],
       "keyword_count": 0,
       "path": "android/android-non-ascii-text.json"
+    },
+    "android-system-restart-loop": {
+      "area": "android",
+      "title": "android_system_not_ready · ui_automation_unavailable — 에뮬레이터 시스템 재시작 반복",
+      "fix_short": [
+        "adb -s <시리얼> shell getprop init.svc.bootanim — running 이면 시스템이 아직 안 떴다",
+        "몇 분 기다려도 그대로면 사용자에게 에뮬레이터 cold boot 를 묻는다: emulator -avd <AVD> -no-snapshot-load (다른 세션이 쓰는 중일 수 있어 임의로 끄지 않는다)"
+      ],
+      "keyword_count": 12,
+      "path": "android/android-system-restart-loop.json"
     },
     "browser-start-stale-process-or-lock": {
       "area": "web",
@@ -231,6 +314,16 @@
       "keyword_count": 2,
       "path": "general/general-root-unknown-skill-folder.json"
     },
+    "ios-maestro-log-keeps-input-text": {
+      "area": "ios",
+      "title": "Maestro 기록(maestro.log)에 inputText 의 실제 값이 평문으로 남는다",
+      "fix_short": [
+        "pro-launch 의 app type · type 단계는 --debug-output <임시 폴더> --flatten-debug-output 으로 기록을 임시 폴더로 돌려 함께 지운다 — 직접 maestro test 를 부를 때도 같은 옵션을 쓴다",
+        "이미 남은 기록이 있으면 사용자에게 알리고 지울지 묻는다 (임의로 지우지 않는다)"
+      ],
+      "keyword_count": 3,
+      "path": "ios/ios-maestro-log-keeps-input-text.json"
+    },
     "ios-maestro-not-installed": {
       "area": "ios",
       "title": "iOS app tap·swipe·tree 가 ios_tool_missing — Maestro 미설치",
@@ -241,12 +334,22 @@
       "keyword_count": 0,
       "path": "ios/ios-maestro-not-installed.json"
     },
+    "ios-maestro-session-reconnect": {
+      "area": "ios",
+      "title": "상주 세션이 끊겼다 — 같은 기기에 다른 maestro test 가 붙었다",
+      "fix_short": [
+        "한 번 느린 것은 정상이다 — 그대로 이어서 쓴다",
+        "계속 device_unreachable 이면 다른 세션이 같은 기기로 maestro 를 돌리는 중인지 본다 (ps -ax | grep maestro)"
+      ],
+      "keyword_count": 5,
+      "path": "ios/ios-maestro-session-reconnect.json"
+    },
     "ios-maestro-slow-cold-start": {
       "area": "ios",
       "title": "iOS app tap·swipe·tree 가 수십 초 걸린다 — 호출마다 Maestro(JVM)가 뜬다",
       "fix_short": [
-        "느리다고 같은 명령을 겹쳐 부르지 않는다 — 앞 호출이 끝나길 기다린다",
-        "화면 확인은 따로 shot 을 부르지 말고 동작에 --shot 을 붙인다: launch_cli.py app tap --device <UDID> --text <글자> --shot <이름>"
+        "보고 → 판단 → 누르기를 여러 번 하면 상주 세션을 먼저 켠다: launch_cli.py app session start --device <UDID> (이후 tree 0.6초 · tap 1초)",
+        "느리다고 같은 명령을 겹쳐 부르지 않는다 — 앞 호출이 끝나길 기다린다"
       ],
       "keyword_count": 2,
       "path": "ios/ios-maestro-slow-cold-start.json"
@@ -343,9 +446,9 @@
     },
     "web-selector-guess-timeout": {
       "area": "web",
-      "title": "추측한 --selector 가 시간 초과 — web find 로 고르고 --ref 로 누른다",
+      "title": "추측한 --selector 가 빗나감 — 결과의 candidates 에서 골라 --ref 로 누른다",
       "fix_short": [
-        "launch_cli.py web find --text <버튼 글자>",
+        "실패 결과의 candidates 에서 맞는 것을 골라 next 대로 --ref 로 다시 부른다 (앞일수록 추측한 선택자에 가깝다)",
         "launch_cli.py web click --ref <번호> --expect-url <바뀔 주소 일부>"
       ],
       "keyword_count": 4,

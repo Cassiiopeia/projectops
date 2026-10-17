@@ -41,6 +41,25 @@ def backend_on(platform: str, args):
     return be, None
 
 
+def session_fields(be) -> dict:
+    """iOS 상주 세션을 탔는지 · 못 써서 내려갔는지 (세션이 없으면 빈 dict — 응답 모양 그대로)."""
+    return dict(getattr(be, "session_report", None) or {})
+
+
+def device_failure_response(be, dev_id, args=None) -> int:
+    """화면 구조를 못 읽었다 — 원인별 code (시스템 재시작 중 · UiAutomation 연결 실패 · 시간 초과 · 그 밖)."""
+    failure = getattr(be, "device_failure", None) or {"code": "ui_dump_failed", "reason": None}
+    next_hint = {
+        "android_system_not_ready": "app shot 으로 화면을 본다. 부팅 화면이 계속되면 에뮬레이터를 다시 켠다 (cold boot — 사용자에게 먼저 묻는다)",
+        "ui_automation_unavailable": "다른 자동화 도구(Maestro·Appium)가 기기를 쓰는 중인지 본다. 잠시 뒤 다시 시도하거나 --at 비율 좌표를 쓴다",
+        "ui_dump_timeout": "애니메이션이 계속되는 화면일 수 있다. app shot 으로 보고 --at 비율 좌표를 쓴다",
+    }.get(failure["code"], "잠시 뒤 다시 시도하거나 --at 비율 좌표를 쓴다")
+    return out({"ok": False, "code": failure["code"], "device": dev_id,
+                "error": failure.get("reason") or "화면 구조를 읽지 못했다 (애니메이션 중이거나 보안 화면일 수 있다)",
+                "elapsed_seconds": elapsed_seconds(args) if args is not None else None,
+                "next": next_hint})
+
+
 def before_shot(args, be, dev_id) -> bytes | None:
     """--shot 일 때만 동작 전 화면을 기억한다 — 나중에 '바뀐 뒤 멈춘 화면'을 고르는 기준."""
     return be.grab(dev_id) if getattr(args, "shot", None) else None
@@ -74,7 +93,7 @@ def after_shot(args, be, dev_id, before: bytes | None) -> dict:
 def gesture_result(args, be, dev_id, before, ok: bool, detail: str, fail_code: str,
                     summary: str, **extra) -> int:
     res = {"ok": ok, "code": "ok" if ok else fail_code, "device": dev_id, "via": be.name,
-           **extra, "error": None if ok else (detail or "")[-400:] or None,
+           **session_fields(be), **extra, "error": None if ok else (detail or "")[-400:] or None,
            "summary": summary if ok else f"실패 — {fail_code}",
            "next": "app shot  # 결과 화면 확인"}
     if ok:
@@ -110,6 +129,6 @@ def not_found_response(be, dev_id, field: str, value: str, nodes: list[dict] | N
     cands = list(dict.fromkeys(n[field] for n in nodes if n[field]))[:25]
     return out({"ok": False, "code": "not_found", "device": dev_id,
                 "error": f"{field}={value!r} 인 요소가 없다",
-                "locale": be.locale(dev_id), "candidates": cands,
+                "locale": be.locale(dev_id), "candidates": cands, **session_fields(be),
                 "elapsed_seconds": elapsed_seconds(args),
                 "next": "candidates 의 값으로 다시 app tap (문구는 화면 언어 그대로)"})

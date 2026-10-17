@@ -79,11 +79,56 @@ JSON
 | `step_unsupported_on_platform` | `next` 의 대안(뒤로 버튼 tap · 가장자리 swipe) |
 | `env_not_set` · `cred_field_missing` · `non_ascii_unsupported` | `step_index` 의 type 단계 값 출처를 고친다 |
 
+결과에 `cause`(예: `android_system_not_ready`)가 있으면 단계가 아니라 **기기 상태**가 원인이다 — 단계를 고치지 말고 기기부터 본다.
+
+### iOS 상주 세션 — `app session` (#893 2단계, 선택)
+
+호출마다 Maestro(JVM)를 띄우는 대신 `maestro mcp` 를 한 번 띄워 두고 쓴다. 보고 → 판단 → 누르기를 여러 번 할 때 켠다.
+
+```bash
+{PYTHON} {SCRIPTS}/launch_cli.py app session start  --device "$DEV"      # UDID 로 (booted 는 session_needs_udid)
+{PYTHON} {SCRIPTS}/launch_cli.py app tree           --device "$DEV"      # transport: session
+{PYTHON} {SCRIPTS}/launch_cli.py app session status --device "$DEV"
+{PYTHON} {SCRIPTS}/launch_cli.py app session stop   --device "$DEV"
+```
+
+| 실측 (iOS 18.3 시뮬레이터, Maestro 2.10.0) | 세션 없음 | 세션 |
+|---|---|---|
+| `session start` (기동 + 기기 연결 예열) | — | 7.8초 |
+| `app tree` | 11.5 · 11.7초 | 0.6초 |
+| `app tap --at` · `--text` | 16.8~17.5초 | 0.9~1.1초 |
+| `app swipe` | 14~22초 | 1.3초 |
+| `app run` 4단계 | 20초 | 단계당 0.1~1초 |
+
+- 켜져 있으면 `tap`·`swipe`·`tree`·`run` 이 **알아서** 세션을 탄다. 결과의 `transport: session`. 못 쓰면 지금의 길로 조용히
+  내려가고 `session_fallback`(`session_gone` · `session_timeout` · `session_not_ready` · `device_unreachable` 등)에 사유를 남긴다.
+- 세션의 `app run` 은 단계마다 run 을 따로 불러(단계당 1초 안팎) 어느 단계가 실패했는지 정확히 짚는다.
+- **`app type`(그리고 type 단계가 든 `app run`)은 세션을 타지 않는다** — `maestro mcp` 가 run 응답에 env 값을 평문으로
+  되돌려 주고, 상주 프로세스의 기록 자리는 호출마다 임시 폴더로 돌릴 수 없다. 대신 호출마다 띄우는 길에서 Maestro 기록을
+  임시 폴더로 돌려 함께 지운다(기본 자리 `~/.maestro/tests/*/maestro.log` 에 입력값이 평문으로 남는 것을 실측).
+- **같은 기기에 다른 `maestro test` 가 붙으면 세션의 기기 연결이 끊긴다**(type 포함). 다음 호출에서 중계가 다시 붙는다
+  (한 번 9초 안팎, `session_reconnected: true`).
+- 20분 동안 안 쓰면 스스로 끝난다(`--idle-minutes`로 1~240분). 중계가 강제로 죽었으면 다음 호출·`status` 가 남은 파일을 걷는다.
+- 웹 뷰어(기본 포트 9999)는 `--no-viewer` 로 끈다. 그 옵션이 없는 옛 Maestro 는 빈 포트로 띄우고 `viewer.url` 에 적는다
+  (9999 가 차 있으면 다음 빈 포트 — 실패하지 않는다).
+- 상태: `{PROJECTOPS_HOME 또는 ~/.projectops}/launch/maestro-sessions/<UDID>.json`(권한 600 — 접속 토큰) · 중계 기록 `<UDID>.log`.
+
+| code | 다음 행동 |
+|---|---|
+| `session_start_failed` | `reason`(`device_unreachable` · `maestro_mcp_start_failed` · `session_start_timeout`)을 본다. 세션 없이 그대로 써도 된다 |
+| `session_tools_missing` | 이 Maestro 버전의 MCP 도구 이름이 다르다(`tools_available`). 세션 없이 쓴다 |
+| `session_starting` | 다른 호출이 띄우는 중이다. 잠시 뒤 `status` |
+| `session_needs_udid` · `session_verb_required` · `bad_idle_minutes` | 인자를 고친다 |
+| `session_stop_failed` | `next` 의 kill 명령 |
+
 | code | 다음 행동 |
 |---|---|
 | `no_device` | `devices` 로 목록을 보고 `--device` 를 준다 |
 | `not_found` · `index_out_of_range` | `candidates` 에서 고른다. 화면 언어는 `locale` |
 | `ui_dump_failed` | 화면이 전환 중이거나 보안 화면이다. 잠시 뒤 `app tree` 를 다시 본다. 계속 실패하면 `--at` 비율 좌표 |
+| `android_system_not_ready` | 부팅 애니메이션이 떠 있다(system_server 재시작 반복 실측). 기다려도 그대로면 사용자에게 cold boot 를 묻는다 |
+| `ui_automation_unavailable` | uiautomator 가 UiAutomation 에 못 붙었다. 다른 자동화(Maestro·Appium)가 기기를 쥐고 있는지 본다 |
+| `ui_dump_timeout` | 20초 안에 안 끝났다(한 번 더 시도한 뒤). 애니메이션이 계속되는 화면이면 `--at` 비율 좌표 |
 | `tree_unsupported` | 이 기기 백엔드는 화면 구조를 못 읽는다. `app shot` 으로 보고 `--text` 로 누르거나 `--at` 비율 좌표 |
 | `ios_tool_missing` · `android_tool_missing` | `next` 의 설치 명령(iOS 는 Maestro)을 사용자에게 제안한다 |
 | `adb_missing` | 아래 PATH 를 잡거나 `doctor` 의 `adb_path` 를 쓴다 |
@@ -181,6 +226,7 @@ adb -s "$DEV" shell input keyevent KEYCODE_ENTER   # 완료 키
 - **`adb input text` 는 ASCII 만 된다**(한글 불가 → `non_ascii_unsupported`). 한글이 필요하면 IME 를 설치한다.
 - **iOS 는 Maestro `inputText` 로 넣는다(#894).** 값은 `MAESTRO_` 환경변수로만 넘겨 flow 파일·명령줄에 남지 않는다.
   Maestro 가 없으면 `ios_tool_missing`(`next` 에 설치 명령), 실패하면 `app_type_failed`(출력의 값은 `***`). 호출당 10~40초.
+  상주 세션이 있어도 type 은 타지 않는다(`session_fallback: secret_input_per_call`, 위 "iOS 상주 세션").
 - 저장된 로그인 정보가 없으면 사용자에게 묻고, **허락받은 것만 `cred set`** 한다(`references/web.md` 의 "로그인 정보를 저장할 때").
 
 ### 관측

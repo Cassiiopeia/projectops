@@ -17,7 +17,7 @@
 | `web-iframe-login-fields` | iframe 안의 로그인 칸(App Store Connect 등)을 못 찾는다 | — |
 | `web-playwright-or-browser-missing` | playwright_missing · browser_missing — web setup 이 필요하다 | `playwright_missing` · `browser_missing` |
 | `web-readonly-mutating-blocked` | 읽기 전용 세션에서 저장·제출 버튼이 mutating_blocked | `mutating_blocked` |
-| `web-selector-guess-timeout` | 추측한 --selector 가 시간 초과 — web find 로 고르고 --ref 로 누른다 | `selector_not_found` · `element_disabled` |
+| `web-selector-guess-timeout` | 추측한 --selector 가 빗나감 — 결과의 candidates 에서 골라 --ref 로 누른다 | `selector_not_found` · `element_not_actionable` · `element_disabled` |
 | `web-viewport-width-height` | web viewport --width --height 가 bad_viewport — 크기는 --preset 으로 | `bad_viewport` |
 
 ### `browser-start-stale-process-or-lock` — web open 이 browser_start_failed — 남은 브라우저 프로세스나 프로필 잠금
@@ -129,18 +129,21 @@
   3. 단순히 화면만 볼 거면 링크·탭으로 이동한다 — 버튼을 누를 필요가 없는지 먼저 본다
 - 근거: #825, #889 · 확인 2026-10-17
 
-### `web-selector-guess-timeout` — 추측한 --selector 가 시간 초과 — web find 로 고르고 --ref 로 누른다
+### `web-selector-guess-timeout` — 추측한 --selector 가 빗나감 — 결과의 candidates 에서 골라 --ref 로 누른다
 
-- 코드: `selector_not_found` · `element_disabled`
+- 코드: `selector_not_found` · `element_not_actionable` · `element_disabled`
 - 핵심어: waiting for locator, Timeout
-- 증상: web click·type 이 web_action_failed('Timeout 10000ms exceeded … waiting for locator')나 selector_not_found 로 끝난다. 선택자를 바꿔 가며 같은 실패를 되풀이한다
-- 원인: 화면을 읽지 않고 선택자를 추측했다. 맞는 요소가 없거나, 있어도 disabled 라 눌릴 수 없어 대기 시간(--timeout, 기본 10초)을 다 쓴다(오류의 'locator resolved to <button disabled' 가 그 표시)
+- 증상: web click·type 이 selector_not_found · element_not_actionable 이나 web_action_failed('Timeout … exceeded … waiting for locator')로 끝난다. 선택자를 바꿔 가며 같은 실패를 되풀이한다
+- 원인: 화면을 읽지 않고 선택자를 추측했다. 맞는 요소가 없거나, 있어도 숨김·가려짐이라 대상 대기 시간(--timeout, 조작 동작 기본 4초 — 이전 10초)을 다 쓴다. disabled 면 기다리지 않고 element_disabled 로 바로 끝난다
 - 해결:
-  1. launch_cli.py web find --text <버튼 글자>
+  1. 실패 결과의 candidates 에서 맞는 것을 골라 next 대로 --ref 로 다시 부른다 (앞일수록 추측한 선택자에 가깝다)
   2. launch_cli.py web click --ref <번호> --expect-url <바뀔 주소 일부>
-  3. find·inspect 결과의 disabled 가 true 거나 element_disabled 가 오면, 그 버튼을 켜는 조건(필수 칸 입력·체크)부터 채운다
-  4. launch_cli.py web inspect --role input
-  5. 입력칸은 web inspect --role input 으로 ref 를 받고 web type --ref <번호> --text <값> 으로 넣는다
+  3. candidates 가 없으면 web find --text <버튼 글자> 로 고른다
+  4. launch_cli.py web find --text <버튼 글자>
+  5. launch_cli.py web inspect --role input
+  6. 입력칸은 web inspect --role input 으로 ref 를 받고 web type --ref <번호> --text <값> 으로 넣는다
+  7. find·inspect·candidates 의 disabled 가 true 거나 element_disabled 가 오면, 그 버튼을 켜는 조건(필수 칸 입력·체크)부터 채운다
+  8. 느리게 그려지는 화면이 확실하면 --timeout 10 처럼 늘린다
 - 근거: #825, #889, #888 · 확인 2026-10-17
 
 ### `web-viewport-width-height` — web viewport --width --height 가 bad_viewport — 크기는 --preset 으로
@@ -160,6 +163,7 @@
 |---|---|---|
 | `android-adb-missing` | adb_missing · android_tool_missing — adb 를 찾지 못했다 | `adb_missing` · `android_tool_missing` |
 | `android-non-ascii-text` | Android app type 이 non_ascii_unsupported — adb 는 한글을 못 넣는다 | `non_ascii_unsupported` |
+| `android-system-restart-loop` | android_system_not_ready · ui_automation_unavailable — 에뮬레이터 시스템 재시작 반복 | `android_system_not_ready` · `ui_automation_unavailable` · `ui_dump_timeout` |
 
 ### `android-adb-missing` — adb_missing · android_tool_missing — adb 를 찾지 못했다
 
@@ -183,12 +187,36 @@
   3. 안 되면 사용자에게 직접 입력을 부탁한다
 - 근거: #889 · 확인 2026-10-17
 
+### `android-system-restart-loop` — android_system_not_ready · ui_automation_unavailable — 에뮬레이터 시스템 재시작 반복
+
+- 코드: `android_system_not_ready` · `ui_automation_unavailable` · `ui_dump_timeout`
+- 핵심어: Timeout while connecting UiAutomation, Can't find service, Transport endpoint is not connected
+- 증상: uiautomator dump 가 'Killed' 로 끝나거나 멈추고, 화면은 Google 부팅 로고에 머문다. adb shell dumpsys activity 가 'Can't find service: activity', /sdcard 가 'Transport endpoint is not connected'
+- 원인: system_server 가 몇 분마다 다시 뜬다(pidof system_server 가 바뀐다, getprop init.svc.bootanim = running). 오래 켜 둔 에뮬레이터(실측: 가동 1일 10시간 · 메모리 2GB 중 여유 100MB)에서 생겼다. sys.boot_completed 는 1 로 남아 부팅이 끝난 것처럼 보인다
+- 해결:
+  1. adb -s <시리얼> shell getprop init.svc.bootanim  — running 이면 시스템이 아직 안 떴다
+  2. 몇 분 기다려도 그대로면 사용자에게 에뮬레이터 cold boot 를 묻는다: emulator -avd <AVD> -no-snapshot-load (다른 세션이 쓰는 중일 수 있어 임의로 끄지 않는다)
+  3. ui_automation_unavailable 만 계속이면 다른 자동화(Maestro·Appium)가 UiAutomation 을 쥐고 있는지 본다
+- 근거: #893 · 확인 2026-10-17
+
 ## iOS (`ios`)
 
 | id | 제목 | 코드 |
 |---|---|---|
+| `ios-maestro-log-keeps-input-text` | Maestro 기록(maestro.log)에 inputText 의 실제 값이 평문으로 남는다 | — |
 | `ios-maestro-not-installed` | iOS app tap·swipe·tree 가 ios_tool_missing — Maestro 미설치 | `ios_tool_missing` |
+| `ios-maestro-session-reconnect` | 상주 세션이 끊겼다 — 같은 기기에 다른 maestro test 가 붙었다 | `session_start_failed` |
 | `ios-maestro-slow-cold-start` | iOS app tap·swipe·tree 가 수십 초 걸린다 — 호출마다 Maestro(JVM)가 뜬다 | — |
+
+### `ios-maestro-log-keeps-input-text` — Maestro 기록(maestro.log)에 inputText 의 실제 값이 평문으로 남는다
+
+- 핵심어: maestro.log, evaluatedCommand, InputTextCommand
+- 증상: ~/.maestro/tests/<시각>/maestro.log 에 InputTextCommand(text=<실제 값>) 이 남아 있다 — 환경변수(${...})로 넘겼는데도
+- 원인: maestro test 는 실행한 명령을 환경변수를 풀어 쓴 모양(evaluatedCommand)으로 기록한다. 기록 자리의 기본값이 ~/.maestro/tests 라 실행이 끝나도 남는다 (Maestro 2.10.0 실측)
+- 해결:
+  1. pro-launch 의 app type · type 단계는 --debug-output <임시 폴더> --flatten-debug-output 으로 기록을 임시 폴더로 돌려 함께 지운다 — 직접 maestro test 를 부를 때도 같은 옵션을 쓴다
+  2. 이미 남은 기록이 있으면 사용자에게 알리고 지울지 묻는다 (임의로 지우지 않는다)
+- 근거: #893, #894 · 확인 2026-10-17
 
 ### `ios-maestro-not-installed` — iOS app tap·swipe·tree 가 ios_tool_missing — Maestro 미설치
 
@@ -202,17 +230,31 @@
   3. 호출마다 Maestro(JVM)가 새로 떠 10~40초 걸린다 — 긴 시나리오는 프로젝트의 Maestro flow 로 한 번에 돌린다
 - 근거: #826 · 확인 2026-10-17
 
+### `ios-maestro-session-reconnect` — 상주 세션이 끊겼다 — 같은 기기에 다른 maestro test 가 붙었다
+
+- 코드: `session_start_failed`
+- 핵심어: Device became unreachable, session_fallback, device_unreachable
+- 증상: app session start 뒤 빠르던 tree·tap 이 한 번 9초쯤 걸리거나(session_reconnected: true), session_fallback: device_unreachable 로 호출마다 띄우는 길로 내려간다
+- 원인: maestro mcp 세션이 기기에 붙어 있는 동안 같은 시뮬레이터에 maestro test(app type 포함, 다른 세션의 테스트 포함)가 붙으면 세션의 드라이버 연결이 끊긴다 — 'Failed to run flow: Device became unreachable during deviceInfo' (Maestro 2.10.0 실측). 중계가 다음 호출에서 maestro mcp 를 다시 띄워 붙는다
+- 해결:
+  1. 한 번 느린 것은 정상이다 — 그대로 이어서 쓴다
+  2. 계속 device_unreachable 이면 다른 세션이 같은 기기로 maestro 를 돌리는 중인지 본다 (ps -ax | grep maestro)
+  3. launch_cli.py app session stop --device <UDID> 뒤 다시 start
+- 근거: #893 · 확인 2026-10-17
+- 함께 볼 것: `ios-maestro-slow-cold-start`
+
 ### `ios-maestro-slow-cold-start` — iOS app tap·swipe·tree 가 수십 초 걸린다 — 호출마다 Maestro(JVM)가 뜬다
 
 - 핵심어: maestro, 90초
 - 증상: iOS 시뮬레이터에서 app tap·swipe·tree 가 한 번에 20~50초 걸리거나 'maestro 응답 없음 (90초)'로 실패한다. Android 는 몇 초다
 - 원인: simctl 에는 탭·화면구조 명령이 없어 iOS 조작은 Maestro 에 맡기고, 호출마다 Maestro(JVM)가 새로 뜬다. 한 동작 제한은 90초다. 고장이 아니라 예상된 느림이다
 - 해결:
-  1. 느리다고 같은 명령을 겹쳐 부르지 않는다 — 앞 호출이 끝나길 기다린다
-  2. 화면 확인은 따로 shot 을 부르지 말고 동작에 --shot 을 붙인다: launch_cli.py app tap --device <UDID> --text <글자> --shot <이름>
-  3. 긴 시나리오는 프로젝트의 Maestro flow 로 한 번에 돌린다
-- 근거: #826, #889 · 확인 2026-10-17
-- 함께 볼 것: `ios-maestro-not-installed`
+  1. 보고 → 판단 → 누르기를 여러 번 하면 상주 세션을 먼저 켠다: launch_cli.py app session start --device <UDID> (이후 tree 0.6초 · tap 1초)
+  2. 느리다고 같은 명령을 겹쳐 부르지 않는다 — 앞 호출이 끝나길 기다린다
+  3. 화면 확인은 따로 shot 을 부르지 말고 동작에 --shot 을 붙인다: launch_cli.py app tap --device <UDID> --text <글자> --shot <이름>
+  4. 긴 시나리오는 프로젝트의 Maestro flow 로 한 번에 돌린다
+- 근거: #826, #889, #893 · 확인 2026-10-17
+- 함께 볼 것: `ios-maestro-not-installed`, `ios-maestro-session-reconnect`
 
 ## SSH (`ssh`)
 

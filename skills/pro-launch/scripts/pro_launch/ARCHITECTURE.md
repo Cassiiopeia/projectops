@@ -24,6 +24,8 @@ scripts/
   credentials.py            자격증명 저장 · 마스킹
   knowledge.py              이 컴퓨터에서 먹힌 방식의 기억
   app_input.py              앱 조작 플랫폼 백엔드 (Android · iOS)
+  maestro_session.py        iOS 상주 Maestro 세션 — 상태 파일 · 중계를 부르는 클라이언트 (#893)
+  maestro_session_relay.py  그 중계 프로세스 (`maestro mcp` 표준입출력 소유 · 127.0.0.1 TCP · 유휴 종료)
   browser_pick.py           어떤 브라우저로 띄울지
   stealth.py                자동화 표식 가리기
   pro_launch/
@@ -42,7 +44,7 @@ scripts/
       doctor.py detect.py device.py output_path.py
       http.py access.py db.py logs.py ssh.py cred.py local.py render.py shrink.py memory.py kb.py
       app/                  __init__ 디스패치 · gestures.py(조작) · app_control.py(기기·패키지·도구 실행) · steps.py(app run 단계 파일) · actions/ (동작 하나 = 모듈 하나)
-      web/                  __init__ 디스패치 · options.py 공통 옵션 표 · session.py · targets.py · element.py 대상 고르기 · actions/
+      web/                  __init__ 디스패치 · options.py 공통 옵션 표 · session.py · targets.py · element.py 대상 고르기 · candidates.py 실패 때 후보 · actions/
 ```
 
 ## 규칙 (테스트가 지킨다)
@@ -67,13 +69,16 @@ scripts/
 | `app` 동작을 새로 | `commands/app/actions/` 에 모듈 하나 |
 | 새 앱 플랫폼 | `scripts/app_input.py` 에 백엔드 하나 + 등록 |
 | 브라우저를 고르는 규칙 | `scripts/browser_pick.py` (환경변수 → 번들 → 설치된 것) |
-| OS 마다 다른 프로세스 처리 | `runtime/procs.py` |
+| OS 마다 다른 프로세스 처리 (백그라운드 띄우기 · 묶음 종료 포함) | `runtime/procs.py` |
+| iOS 상주 세션으로 보낼 동작 · 내려가는 조건 | `scripts/app_input.py` 의 `IOSMaestroBackend._session_call` |
 | 모든 결과에 붙는 공통 후처리 | `runtime/output.py` 의 `out()` |
 | 키 순서 · `--brief` · `--fields` 로 줄이기 | `runtime/output.py` 의 `shape_payload()` (옵션 꺼내기는 `cli.py` `_pop_output_options`) |
 | 붙어 있는 동안만 사는 브라우저 설정 | `commands/web/session.py` 의 `web_connect` |
 | 읽기 전용 세션이 막을 버튼 | `commands/web/targets.py` |
 | `web` 동작이 받는 공통 옵션 · 동작별 `--help` | 동작의 `Action(options=..., help=..., example=...)` · 공통 옵션 표는 `commands/web/options.py` |
 | 조작 대상 찾기 · 비활성 · 읽기 전용 막기 | `commands/web/element.py` 의 `locate_target` |
+| 조작 동작의 기본 대기(대상 4초 · 결과 10초) · 시간 초과를 후보 실패로 | `commands/web/element.py` 의 `*_wait_seconds` · `perform_on_target` |
+| 못 찾음 · 시간 초과 때 싣는 후보와 순위 | `commands/web/candidates.py` |
 | 캡처 이름 · 크기 규칙 | `runtime/shots.py` |
 | 도움말에서 보이는 서브커맨드 순서 | `cli.py` 의 `HELP_ORDER` |
 

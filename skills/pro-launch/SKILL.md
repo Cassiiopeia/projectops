@@ -29,6 +29,7 @@ description: "Capability skill that launches and drives apps, web and servers: e
 | 앱 띄우기 · 찍기 | `app launch` · `app shot [--clean-status]` | `references/app.md` |
 | 앱 화면 구조 · 누르기 · 밀기 | `app tree` · `app tap` · `app swipe` | `references/app.md` |
 | 앱 여러 단계 한 번에 (iOS 는 Maestro 1회) | `app run --steps steps.json` | `references/app.md` |
+| iOS 를 여러 번 보고 누를 때 — 상주 세션 (호출당 20초 > 1초) | `app session start\|stop\|status` | `references/app.md` |
 | 앱에 글자 넣기(저장된 로그인, iOS 는 Maestro) | `app type --cred 이름` | `references/app.md` |
 | 앱 끄기 · 다시 띄우기 · 위치 · 권한 · 푸시(iOS) · 딥링크 — **raw simctl/adb 대신** | `app terminate\|relaunch\|location\|permission\|push\|openurl` | `references/app.md` |
 | 브라우저 열기 · **화면 읽기 · 누를 것 고르기** · 확인하며 클릭 · 입력 · 캡처 | `web setup\|open\|goto\|text\|find\|click\|type\|shot\|assert\|console\|close` | `references/web.md` |
@@ -127,6 +128,9 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app openurl    --device 
 - **두 단계 이상은 `app run --steps steps.json`** 으로 묶는다 — iOS 는 Maestro 를 한 번만 띄운다(단계 모양은 `references/app.md`).
 - `--shot 이름` 을 붙이면 화면이 멈춘 뒤 찍어 준다. `screen_changed: false` 면 반응이 없었다 — 다른 요소를 고른다.
 - iOS 는 `app tap`·`app swipe` 뿐 아니라 **`app tree` 도 Maestro 를 쓴다**(호출당 10~40초). 긴 시나리오는 프로젝트의 E2E flow 로 한 번에 돌린다.
+- **iOS 에서 보고 → 판단 → 누르기를 여러 번 하면 `app session start --device $DEV` 를 먼저** 한다(시작 8초, 이후 tree 0.6초 · tap 1초 실측).
+  결과의 `transport: session` 이면 탔고, `session_fallback` 이면 호출마다 띄우는 길로 내려간 사유다. 끝나면 `app session stop`(안 해도 20분 유휴면 스스로 끝난다).
+  `app type` 은 비밀 값이라 세션을 타지 않는다(`session_fallback: secret_input_per_call`).
 - 화면 전환·로딩 직후 `not_found` 면 `app shot` 으로 지금 화면을 확인한 뒤 `--shot` 을 붙여 **1회만** 다시 누른다. 또 실패하면 `candidates` 에서 고른다.
 - iOS 번들 ID(시스템 앱 포함)는 `references/app.md` 의 iOS 절.
 - 앱 끄기·위치·권한·푸시·딥링크에 `xcrun simctl`·`adb shell am|pm` 를 직접 치지 않는다 — 위 `app` 동작이 기기 고르기·실패 code 를 맞춰 준다.
@@ -136,6 +140,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app openurl    --device 
 | `no_device` | `devices` 로 보고 `--device` 를 준다 |
 | `not_found` | `candidates` 에서 고른다 |
 | `ui_dump_failed` | 화면 구조를 못 읽었다(전환 중·보안 화면). 잠시 뒤 다시, 계속이면 `--at` 비율 좌표 |
+| `android_system_not_ready` · `ui_automation_unavailable` · `ui_dump_timeout` | 기기 쪽 문제다(시스템 재시작 중 · UiAutomation 연결 실패 · 시간 초과). `app shot` 으로 보고, 계속이면 사용자에게 에뮬레이터 cold boot 를 묻는다 |
+| `session_start_failed` · `session_tools_missing` | 세션 없이 그대로 쓴다(호출마다 Maestro). `reason` 을 본다 |
 | `tree_unsupported` | 이 기기는 화면 구조를 못 읽는다. `app shot` 으로 보고 `--text` 또는 `--at` 비율 좌표 |
 | `ios_tool_missing` · `android_tool_missing` · `adb_missing` | 결과의 설치 안내를 사용자에게 제안한다 |
 | `non_ascii_unsupported` · `ios_text_unsupported` | `app type` 이 못 넣는다. 영문 대체 또는 사용자에게 맡긴다 |
@@ -156,6 +162,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web shot --out 02_빈목
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web route --clear
 ```
 
+- **`type`·`click` 전에 `find`/`inspect` 를 먼저 부른다** — 선택자가 직전 `find`·`inspect` 결과에서 온 것이 아니면. 빗나간 추측은 4초 뒤 `candidates`(ref 포함)와 함께 실패한다.
 - **읽고 → 번호로 고르고 → 확인하며 누른다.** 선택자를 짐작하지 않는다. `click` 은 무엇을 눌렀고(`clicked`) 주소·제목이
   바뀌었는지(`changed`) 돌려준다. `changed: false` 면 엉뚱한 것을 누른 것이다 — `find` 로 다시 고른다. 정보는 `web text` 로 읽고 `shot` 은 모양을 볼 때만.
 - **관리 콘솔(Play Console · App Store Connect · 결제·관리자)은 `web open --readonly`.** 삭제·출시·제출 같은 **버튼**은
@@ -168,7 +175,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web route --clear
 
 | code | 다음 행동 |
 |---|---|
-| `nothing_found` · `selector_not_found` | `web text` 로 화면 글자를 읽고 그 글자로 `find` 를 다시 |
+| `nothing_found` · `selector_not_found` | 결과의 `candidates` 에서 골라 `next` 대로 `--ref` 로 다시. 후보가 없으면 `web text` 로 화면 글자를 읽고 `find` |
+| `element_not_actionable` | 요소는 있지만 숨김·가려짐이라 4초 안에 못 눌렀다. `candidates` 에서 다시 고른다 |
 | `ref_stale` | 화면이 바뀌었다. `find` 를 다시 |
 | `expect_not_met` | 기대한 결과가 안 왔다. `web text` 로 지금 화면을 보고 다른 후보를 고른다 |
 | `mutating_blocked` | 읽기 전용 세션이 위험 버튼을 막았다. 무엇이 바뀌는지 사용자에게 말하고 승인받는다 |

@@ -13,7 +13,7 @@ import credentials
 
 from pro_launch.commands.app import steps as steps_module
 from pro_launch.commands.app.gestures import (after_shot, auto_record_backend, backend_for, before_shot,
-                                              elapsed_seconds)
+                                              elapsed_seconds, session_fields)
 from pro_launch.registry import Action
 from pro_launch.runtime.creds import cred_field
 from pro_launch.runtime.output import out
@@ -45,7 +45,9 @@ def _app_run(args) -> int:
         return out(rejection)
 
     before = before_shot(args, be, dev_id)
-    if be.selects_itself:
+    if be.selects_itself and not secrets and be.has_session(dev_id):
+        is_success, results, detail = _run_each_step_in_session(be, dev_id, steps)
+    elif be.selects_itself:
         is_success, results, detail = _run_in_one_flow(be, dev_id, steps, secrets)
     else:
         is_success, results, detail = _run_step_by_step(be, dev_id, steps, secrets)
@@ -120,6 +122,30 @@ def _run_in_one_flow(be, dev_id: str, steps: list[dict],
     return False, results, "\n".join((reason or lines)[-FAILURE_DETAIL_LINE_COUNT:])
 
 
+# ── iOS 상주 세션: 단계마다 run 한 번 (#893 2단계) ─────────────────────────
+
+def _run_each_step_in_session(be, dev_id: str, steps: list[dict]) -> tuple[bool, list[dict], str]:
+    """세션의 run 은 단계별 상태를 주지 않는다 — 단계마다 따로 불러(호출당 1초 안팎) 어느 단계가 실패했는지 정확히 안다.
+
+    세션이 중간에 끊기면(그 단계는 이미 호출마다 띄우는 길로 돌았다) 나머지는 flow 하나로 몰아 돌린다.
+    """
+    results: list[dict] = []
+    for index, step in enumerate(steps):
+        started = time.monotonic()
+        be.timeout = MAESTRO_STARTUP_SECONDS + MAESTRO_SECONDS_PER_STEP + int(step.get("timeout", 0))
+        is_success, lines = be.run_flow(dev_id, steps_module.to_maestro_commands(step, index))
+        results.append({"status": "completed" if is_success else "failed",
+                        "elapsed_seconds": round(time.monotonic() - started, 1)})
+        if not is_success:
+            results += [{"status": "not_run"} for _ in steps[index + 1:]]
+            return False, results, "\n".join(lines[-FAILURE_DETAIL_LINE_COUNT:])
+        remaining = steps[index + 1:]
+        if remaining and be.session_report.get("session_fallback"):
+            is_rest_success, rest_results, detail = _run_in_one_flow(be, dev_id, remaining, {})
+            return is_rest_success, results + rest_results, detail
+    return True, results, ""
+
+
 # ── Android: 차례로 ──────────────────────────────────────────────────────
 
 def _run_step_by_step(be, dev_id: str, steps: list[dict],
@@ -133,6 +159,9 @@ def _run_step_by_step(be, dev_id: str, steps: list[dict],
                         "elapsed_seconds": round(time.monotonic() - started, 1)})
         if not is_success:
             results += [{"status": "not_run"} for _ in steps[index + 1:]]
+            # 단계 자체가 아니라 기기가 원인일 수 있다 (시스템 재시작 중이면 wm size·input 도 실패한다)
+            if not be.device_failure:
+                be.device_failure = be.system_readiness_failure(dev_id)
             return False, results, detail
     return True, results, ""
 
@@ -142,7 +171,10 @@ def _android_step(be, dev_id: str, step: dict, value: str | None) -> tuple[bool,
     if kind == "tap" and "point" in step:
         return be.tap_ratio(dev_id, *step["point"])
     if kind == "tap":
-        found = app_input.match_nodes(be.nodes(dev_id) or [], step["field"], step["value"])
+        nodes = be.nodes(dev_id) or []
+        if not nodes and be.device_failure:
+            return False, f"{be.device_failure['code']}: {be.device_failure['reason']}"
+        found = app_input.match_nodes(nodes, step["field"], step["value"])
         if len(found) <= step["index"]:
             return False, f"{step['field']}={step['value']!r} 인 요소가 없다 (맞은 수 {len(found)})"
         return be.tap_xy(dev_id, *found[step["index"]]["center"])
@@ -162,6 +194,9 @@ def _android_wait(be, dev_id: str, step: dict) -> tuple[bool, str]:
         if app_input.match_nodes(be.nodes(dev_id) or [], step["field"], step["value"]):
             return True, ""
         if time.monotonic() >= deadline:
+            # 화면 구조를 아예 못 읽은 것이면 '안 보였다'가 아니라 그 원인을 알린다
+            if be.device_failure:
+                return False, f"{be.device_failure['code']}: {be.device_failure['reason']}"
             return False, f"{step['timeout']}초 동안 {step['field']}={step['value']!r} 가 보이지 않았다"
         time.sleep(ANDROID_WAIT_POLL_SECONDS)
 
@@ -176,7 +211,7 @@ def _run_result(args, be, dev_id: str, before, steps: list[dict], is_success: bo
     completed_count = sum(1 for r in results if r["status"] == "completed")
     failed_step = next((r["index"] for r in results if r["status"] == "failed"), None)
     payload = {"ok": is_success, "code": "ok" if is_success else "step_failed", "device": dev_id,
-               "via": be.name, "steps_total": len(steps), "steps_completed": completed_count,
+               "via": be.name, **session_fields(be), **_cause_of(be, is_success), "steps_total": len(steps), "steps_completed": completed_count,
                "failed_step": failed_step,
                "steps": [{k: r[k] for k in ("index", "step", "status", "elapsed_seconds") if k in r}
                          for r in results],
@@ -192,11 +227,19 @@ def _run_result(args, be, dev_id: str, before, steps: list[dict], is_success: bo
     return out(payload)
 
 
+def _cause_of(be, is_success: bool) -> dict:
+    """Android 단계가 화면 구조를 못 읽어 실패했으면 그 code (android_system_not_ready 등)."""
+    failure = getattr(be, "device_failure", None)
+    return {"cause": failure["code"]} if failure and not is_success else {}
+
+
 def _next_hint(payload: dict, failed_step: int | None) -> str:
     if payload["ok"]:
         if payload.get("screen_changed") is False:
             return "화면이 그대로다 — app tree 로 다시 본다"
         return "shot 이미지를 읽어 결과를 확인한다" if payload.get("shot") else "app shot  # 결과 화면 확인"
+    if payload.get("cause"):
+        return f"단계가 아니라 기기 상태({payload['cause']})가 원인이다 — app shot 으로 기기 화면을 먼저 본다"
     if failed_step is None:
         return "error 를 본다 (단계에 닿기 전에 멈췄다) — app tree 로 기기·화면 상태를 확인한다"
     return f"app tree 로 화면을 보고 {failed_step}번 단계를 고친 뒤 그 단계부터 다시 run 한다"

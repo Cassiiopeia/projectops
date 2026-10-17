@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import app_input
 
-from pro_launch.commands.app.gestures import backend_for, before_shot, gesture_result, not_found_response
+from pro_launch.commands.app.gestures import (backend_for, before_shot, gesture_result, not_found_response,
+                                              device_failure_response)
 from pro_launch.registry import Action
 from pro_launch.runtime.output import out
 
@@ -40,9 +41,7 @@ def _app_tap(args) -> int:
 
     nodes = be.nodes(dev_id) or []
     if not nodes:
-        return out({"ok": False, "code": "ui_dump_failed", "device": dev_id,
-                    "error": "화면 구조를 읽지 못했다 (애니메이션 중이거나 보안 화면일 수 있다)",
-                    "next": "잠시 뒤 다시 시도하거나 --at 비율 좌표를 쓴다"})
+        return device_failure_response(be, dev_id, args)
     found = app_input.match_nodes(nodes, field, value)
     if not found:
         return not_found_response(be, dev_id, field, value, nodes, args)

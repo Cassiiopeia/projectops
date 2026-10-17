@@ -230,7 +230,9 @@ def test_android_stops_at_first_failure(fake_run, tmp_path, capsys):
     data = result_of(capsys)
     assert data["code"] == "step_failed" and data["failed_step"] == 0
     assert [s["status"] for s in data["steps"]] == ["failed", "not_run", "not_run", "not_run"]
-    assert len(fake_run.calls) == 1
+    # 실패 뒤에는 기기 상태 확인(부팅 애니메이션·window 서비스) 한 번만 — 다음 단계는 부르지 않는다
+    assert len(fake_run.calls) == 2 and "init.svc.bootanim" in fake_run.calls[1][-1]
+    assert "cause" not in data
 
 
 def test_android_wait_polls_until_visible(fake_run, tmp_path, capsys, monkeypatch):

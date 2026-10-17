@@ -1,0 +1,28 @@
+{
+  "id": "android-system-restart-loop",
+  "area": "android",
+  "title": "android_system_not_ready · ui_automation_unavailable — 에뮬레이터 시스템 재시작 반복",
+  "match": {
+    "codes": [
+      "android_system_not_ready",
+      "ui_automation_unavailable",
+      "ui_dump_timeout"
+    ],
+    "keywords": [
+      "Timeout while connecting UiAutomation",
+      "Can't find service",
+      "Transport endpoint is not connected"
+    ]
+  },
+  "symptom": "uiautomator dump 가 'Killed' 로 끝나거나 멈추고, 화면은 Google 부팅 로고에 머문다. adb shell dumpsys activity 가 'Can't find service: activity', /sdcard 가 'Transport endpoint is not connected'",
+  "cause": "system_server 가 몇 분마다 다시 뜬다(pidof system_server 가 바뀐다, getprop init.svc.bootanim = running). 오래 켜 둔 에뮬레이터(실측: 가동 1일 10시간 · 메모리 2GB 중 여유 100MB)에서 생겼다. sys.boot_completed 는 1 로 남아 부팅이 끝난 것처럼 보인다",
+  "fix": [
+    "adb -s <시리얼> shell getprop init.svc.bootanim  — running 이면 시스템이 아직 안 떴다",
+    "몇 분 기다려도 그대로면 사용자에게 에뮬레이터 cold boot 를 묻는다: emulator -avd <AVD> -no-snapshot-load (다른 세션이 쓰는 중일 수 있어 임의로 끄지 않는다)",
+    "ui_automation_unavailable 만 계속이면 다른 자동화(Maestro·Appium)가 UiAutomation 을 쥐고 있는지 본다"
+  ],
+  "refs": [
+    893
+  ],
+  "verified_at": "2026-10-17"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "ios-maestro-log-keeps-input-text",
+  "area": "ios",
+  "title": "Maestro 기록(maestro.log)에 inputText 의 실제 값이 평문으로 남는다",
+  "match": {
+    "codes": [],
+    "keywords": [
+      "maestro.log",
+      "evaluatedCommand",
+      "InputTextCommand"
+    ]
+  },
+  "symptom": "~/.maestro/tests/<시각>/maestro.log 에 InputTextCommand(text=<실제 값>) 이 남아 있다 — 환경변수(${...})로 넘겼는데도",
+  "cause": "maestro test 는 실행한 명령을 환경변수를 풀어 쓴 모양(evaluatedCommand)으로 기록한다. 기록 자리의 기본값이 ~/.maestro/tests 라 실행이 끝나도 남는다 (Maestro 2.10.0 실측)",
+  "fix": [
+    "pro-launch 의 app type · type 단계는 --debug-output <임시 폴더> --flatten-debug-output 으로 기록을 임시 폴더로 돌려 함께 지운다 — 직접 maestro test 를 부를 때도 같은 옵션을 쓴다",
+    "이미 남은 기록이 있으면 사용자에게 알리고 지울지 묻는다 (임의로 지우지 않는다)"
+  ],
+  "refs": [
+    893,
+    894
+  ],
+  "verified_at": "2026-10-17"
+}
