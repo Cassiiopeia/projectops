@@ -26,7 +26,8 @@ def _declared_skill_ids() -> set[str]:
     """스킬 CLI 들이 실제로 쓰는 skill_id 를 소스에서 긁는다."""
     found = set()
     pattern = re.compile(r"""resolve_output_path\(\s*["']([a-z0-9-]+)["']""")
-    for py in (_ROOT / "skills").glob("pro-*/scripts/*.py"):
+    # 진입 파일 옆 패키지(pro_github/ 등)에 있는 명령 모듈까지 본다
+    for py in (_ROOT / "skills").glob("pro-*/scripts/**/*.py"):
         found |= set(pattern.findall(py.read_text(encoding="utf-8")))
     return found
 

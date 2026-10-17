@@ -97,7 +97,10 @@ except GitHubAPIError as e:
 
 ## 6. 등록 + 테스트
 
-1. `build_parser()`에 `sub.add_parser(...)` + `set_defaults(func=cmd_xxx)`로 등록한다 (일부 구 CLI는 `_COMMANDS` dict — 그 파일의 기존 방식을 따른다).
+1. 등록 방식은 그 CLI의 기존 방식을 따른다.
+   - 한 파일 CLI: `build_parser()`에 `sub.add_parser(...)` + `set_defaults(func=cmd_xxx)` (일부 구 CLI는 `_COMMANDS` dict).
+   - 패키지로 나눈 CLI(`pro-github`의 `pro_github/`, `pro-launch`의 `pro_launch/` 등): 주제별 `commands/<주제>.py`에 핸들러와 `Command(name=..., ...)` 선언을 두고, 진입 파일의 `build_parser()`는 선언을 모아 조립만 한다. 서브커맨드를 하나의 `build_parser()` 본문에 다 적지 않아도 된다.
+   - 패키지 CLI에서 테스트가 진입 파일 속성(`get_github_pat`·gh_client 함수)을 mock 하면, 핸들러는 그 이름을 호출 시점에 진입 모듈에서 찾아야 한다 (`pro_github.registry.Dependencies`).
 2. `scripts/tests/`에 verdict/판정 로직 단위 테스트를 추가한다 (gh_client 함수를 mock, in-process 호출).
 3. `gh_client.py` 신규 헬퍼는 urllib mock 단위 테스트를 추가한다.
 
@@ -166,5 +169,5 @@ agent는 `code == "bad_args"`를 보면 `available_subcommands`로 정확한 서
 - [ ] `ok`/`next`/`summary` 필드를 담는가?
 - [ ] 데이터 조회는 common.gh_client, 판정은 `<scope>_cli`로 분리했는가?
 - [ ] `get_github_pat` 재사용 + `GitHubAPIError` JSON 변환했는가?
-- [ ] `build_parser()`에 등록 + 테스트 추가했는가?
+- [ ] `build_parser()`(패키지 CLI면 `commands/<주제>.py`의 `Command` 선언)에 등록 + 테스트 추가했는가?
 - [ ] SKILL.md에 인라인 Python 대신 호출법만 적었는가?
