@@ -68,7 +68,7 @@ def locate_target(page, args, state: dict, action: str, *, should_wait: bool = F
         try:
             locator.first.wait_for(state="attached", timeout=target_wait_seconds(args) * 1000)
         except Exception:
-            pass
+            pass  # 시간 안에 안 붙으면 아래 count() == 0 경로가 실패를 알린다
     if locator.count() == 0:
         if args.ref is not None:
             return None, None, attach_candidates(

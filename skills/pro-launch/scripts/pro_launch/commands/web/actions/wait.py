@@ -18,6 +18,16 @@ DEFAULT_WAIT_SECONDS = 120
 
 # 보이는 글자 전체 (innerText 는 숨긴 글자를 빼고 준다)
 VISIBLE_TEXT_JS = "() => document.body ? document.body.innerText : ''"
+# Playwright 선택자 문법 오류 문구 (css 파싱 · querySelectorAll · 없는 엔진) — 기다려도 안 풀린다
+SELECTOR_SYNTAX_ERROR_MARKERS = ("while parsing", "is not a valid selector", "Unknown engine")
+
+
+class InvalidSelectorError(Exception):
+    """선택자 문법 오류: '아직 안 보임' 이 아니라 즉시 실패할 일"""
+
+
+def is_selector_syntax_error(message: str) -> bool:
+    return any(marker in message for marker in SELECTOR_SYNTAX_ERROR_MARKERS)
 
 
 def wait_conditions(args) -> dict:
@@ -51,8 +61,10 @@ def _read_snapshot(page, scope, conditions: dict) -> tuple[str, str, bool]:
         try:
             locator = scope.locator(conditions["selector"])
             is_selector_visible = locator.count() > 0 and locator.first.is_visible()
-        except Exception:
-            pass
+        except Exception as error:
+            if is_selector_syntax_error(str(error)):
+                raise InvalidSelectorError(str(error)[:200]) from error
+            is_selector_visible = False   # 이동 중 문맥 파괴 등 — 다음 바퀴에 다시 본다
     return page.url, visible_text or "", is_selector_visible
 
 
@@ -69,7 +81,12 @@ def execute(page, args, state: dict) -> dict:
     deadline = started + args.timeout
     # 마지막 한 번은 시간이 지나도 본다 — 경계에서 맞은 것을 놓치지 않게
     while True:
-        url, visible_text, is_selector_visible = _read_snapshot(page, scope, conditions)
+        try:
+            url, visible_text, is_selector_visible = _read_snapshot(page, scope, conditions)
+        except InvalidSelectorError as error:
+            return {"ok": False, "code": "bad_selector", "action": "wait", "conditions": conditions,
+                    "error": f"선택자 문법 오류: {error}",
+                    "next": "web inspect  # 요소 후보와 선택자를 받아 --selector 를 고친다"}
         unmet = unmet_conditions(conditions, url, visible_text, is_selector_visible)
         waited_seconds = round(time.monotonic() - started, 1)
         if not unmet:

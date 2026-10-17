@@ -49,3 +49,45 @@ def sdk_tool(name: str) -> str | None:
             if cand.exists():
                 return str(cand)
     return None
+
+
+def pid_alive(pid) -> bool:
+    """프로세스 생존 확인 (OS 분기 단일 지점). 우리 자식 좀비는 거둬들이고 죽은 것으로 판정"""
+    try:
+        pid = int(pid)
+    except (TypeError, ValueError):
+        return False
+    # 윈도우의 os.kill(pid, 0) 은 확인이 아니라 종료
+    if sys.platform == "win32":
+        return _pid_alive_windows(pid)
+    try:
+        done, _ = os.waitpid(pid, os.WNOHANG)
+        if done:
+            return False
+    except OSError:  # 우리 자식이 아님 (ChildProcessError 포함) — 아래 신호 확인으로 판정
+        pass
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def _pid_alive_windows(pid: int) -> bool:
+    """핸들을 열어 종료 코드 확인 (STILL_ACTIVE 면 생존)"""
+    import ctypes
+    kernel32 = ctypes.windll.kernel32
+    handle = kernel32.OpenProcess(0x1000, False, int(pid))   # PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        return False
+    try:
+        code = ctypes.c_ulong()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+            return False
+        return code.value == 259   # STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(handle)

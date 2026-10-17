@@ -66,6 +66,20 @@ def test_evidence_folder_gets_gitignore_document_folder_does_not(tmp_path, monke
     assert "gitignore" not in doc, "문서 폴더에 추적 제외를 심었다 — 보고서가 사라진다"
 
 
+def test_broken_config_falls_back_to_default_root_and_says_so(tmp_path, monkeypatch):
+    """깨진 config.json 은 기본 위치로 동작하되, 설정이 무시됐다는 사실을 결과에 싣는다."""
+    home = tmp_path / "home"
+    (home / ".projectops" / "config").mkdir(parents=True)
+    (home / ".projectops" / "config" / "config.json").write_text('{"output": {"root": "x"', encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+    proj = _repo(tmp_path / "proj")
+    monkeypatch.chdir(proj)
+
+    result = resolve_output_path("report", "가")
+    assert Path(result["output_root"]).resolve() == (proj / "docs" / "projectops").resolve()
+    assert "config.json" in result["config_warning"]
+
+
 def test_evidence_really_is_not_staged_by_git_add_all(tmp_path, monkeypatch):
     """`.gitignore` 가 있다가 아니라, `git add -A` 로도 안 담기는지 본다."""
     proj = _repo(tmp_path / "proj")

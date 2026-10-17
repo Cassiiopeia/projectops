@@ -1,5 +1,2 @@
 # no-history-comment 동결 목록: 줄을 지울 수만 있고 더할 수 없다
 # 고친 파일은 이 목록에서 지운다 (규칙 테스트가 남은 줄을 잡는다)
-skills/pro-agent-test/tests/test_e2e_cli.py
-skills/pro-github/tests/test_github_cli.py
-skills/pro-launch/tests/conftest.py

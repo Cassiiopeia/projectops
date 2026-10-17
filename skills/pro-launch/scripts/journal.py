@@ -16,6 +16,7 @@ import json
 import os
 from pathlib import Path
 
+from common import memory
 from common.access import find_secrets
 from common.state import state_dir
 
@@ -110,22 +111,13 @@ def surface(path: Path, area: str, seen_file: Path, limit: int = SURFACE_LIMIT,
             today: str | None = None) -> list[dict]:
     """명령 응답에 실을 최근 일지. 레포·영역마다 하루 한 번만 돌려준다 (토큰 절약)."""
     now = today or dt.date.today().isoformat()
-    try:
-        seen = json.loads(seen_file.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        seen = {}
-    if seen.get(area) == now:
+    if memory.seen_today(seen_file, area, now, mark=False):
         return []
     rows = recent(path, limit, area=area)
     if not rows:
         # 보여 준 것이 없으면 '오늘 보여 줌'으로 치지 않는다 — 같은 날 나중에 적은 기록이 가려진다
         return []
-    seen[area] = now
-    try:
-        seen_file.parent.mkdir(parents=True, exist_ok=True)
-        seen_file.write_text(json.dumps(seen), encoding="utf-8")
-    except OSError:
-        pass
+    memory.seen_today(seen_file, area, now)
     out = []
     for r in rows:
         t = r["text"] if len(r["text"]) <= SURFACE_CHARS else r["text"][:SURFACE_CHARS] + " …"

@@ -130,7 +130,7 @@ def get_branch_name() -> str:
         if branch_name:
           return branch_name
       except Exception:
-        pass
+        pass  # stdin 을 못 읽으면 아래 argv 로 받는다
 
   # 기본: sys.argv에서 받기 (macOS/Linux 또는 Windows에서도 인자로 전달된 경우)
   if len(sys.argv) >= 2:

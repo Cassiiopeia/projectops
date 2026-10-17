@@ -1,4 +1,4 @@
-"""프로세스 확인 · 종료 — OS 마다 다른 것은 전부 여기서 갈린다 (`sys.platform` 분기는 이 파일에만 둔다)."""
+"""프로세스 확인 · 종료 — pro_launch 안의 OS 분기는 전부 여기서 갈린다 (생존 확인 원본은 common/proc.py)."""
 from __future__ import annotations
 
 import os
@@ -7,42 +7,8 @@ import subprocess
 import sys
 import time
 
-
-def pid_alive(pid: int) -> bool:
-    """프로세스가 살아 있나. 우리가 띄운 자식이 좀비로 남은 경우는 거둬들이고 죽은 것으로 본다."""
-    if sys.platform == "win32":
-        return _pid_alive_windows(pid)
-    try:
-        done, _ = os.waitpid(pid, os.WNOHANG)   # 자식이면 거둬들인다 (아니면 ChildProcessError)
-        if done:
-            return False
-    except ChildProcessError:
-        pass
-    except OSError:
-        pass
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
-
-
-def _pid_alive_windows(pid: int) -> bool:
-    """윈도우는 os.kill(pid, 0) 이 프로세스를 **종료**시킨다. 핸들을 열어 종료 코드를 본다."""
-    import ctypes
-    kernel32 = ctypes.windll.kernel32
-    handle = kernel32.OpenProcess(0x1000, False, int(pid))   # PROCESS_QUERY_LIMITED_INFORMATION
-    if not handle:
-        return False
-    try:
-        code = ctypes.c_ulong()
-        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
-            return False
-        return code.value == 259   # STILL_ACTIVE
-    finally:
-        kernel32.CloseHandle(handle)
+# 생존 확인은 scripts/common 단일 원본 (common/state.py 와 공용) — 여기서는 재노출
+from common.proc import _pid_alive_windows, pid_alive  # noqa: F401
 
 
 def _kill_browser_windows(pid: int, grace: float) -> bool:

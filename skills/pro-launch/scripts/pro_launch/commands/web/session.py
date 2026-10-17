@@ -100,7 +100,7 @@ def close_blank_tabs(ctx, keep) -> int:
                 pg.close()
                 closed += 1
         except Exception:
-            pass
+            pass  # 그새 닫힌 탭 — 건너뛴다
     return closed
 
 
@@ -141,7 +141,7 @@ def web_connect(state: dict, allow_missing_tab: bool = False):
         try:
             page.set_viewport_size({"width": int(vp[0]), "height": int(vp[1])})
         except Exception:
-            pass
+            pass  # 크기 적용 실패여도 세션은 기본 크기로 연다
     apply_routes(page, state.get("routes") or [])
     arm_dialog(page, state)
     return (pw, browser, page), None
@@ -230,7 +230,7 @@ def read_url_title(page, timeout: int = 10) -> tuple[str, str]:
         try:
             page.wait_for_load_state("load", timeout=timeout * 1000)
         except Exception:
-            pass
+            pass  # 로드가 늦어도 아래에서 읽기를 시도하고, 실패하면 다시 돈다
         try:
             return page.url, page.title()
         except Exception:
@@ -249,7 +249,7 @@ def settle(page, state: dict, timeout: int) -> None:
     try:
         page.wait_for_load_state("networkidle", timeout=min(timeout, 15) * 1000)
     except Exception:
-        pass
+        pass  # 롱폴링 등으로 networkidle 이 안 오는 페이지 — 상한까지 기다린 것으로 충분
 
 
 def done_payload(action: str, page) -> dict:

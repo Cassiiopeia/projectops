@@ -405,12 +405,9 @@ def surface(paths: dict[str, Path], area: str, seen_file: Path, limit: int = 3,
     fail 이 ok 보다 크게 앞서는 것은 싣지 않는다 — 틀린 기억을 매번 들이밀지 않는다.
     """
     now = _today(today)
-    try:
-        seen = json.loads(seen_file.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        seen = {}
     seen_key = f"{area}:{key_prefix}" if key_prefix else area
-    if seen.get(seen_key) == now:
+    # 확인과 동시에 오늘 실은 것으로 적는다 (실을 것이 없어도 하루 한 번만 계산)
+    if memory.seen_today(seen_file, seen_key, now):
         return []
     # 접두사 필터는 상한을 자르기 전에 건다 — 다른 서버 기억이 자리를 차지하면 안 된다
     rows = [r for r in recall(paths, area, limit=1000, today=now)
@@ -424,10 +421,4 @@ def surface(paths: dict[str, Path], area: str, seen_file: Path, limit: int = 3,
         out.append({k: r[k] for k in ("key", "how", "scope", "ok", "fail", "verify", "detail_path") if k in r})
         if len(out) >= limit:
             break
-    seen[seen_key] = now
-    try:
-        seen_file.parent.mkdir(parents=True, exist_ok=True)
-        seen_file.write_text(json.dumps(seen), encoding="utf-8")
-    except OSError:
-        pass
     return out

@@ -486,3 +486,21 @@ def test_guessed_selector_returns_candidates_quickly(tmp_path):
         hidden = web(r, "click", "--selector", "#tipbox")
         assert hidden["code"] == "element_not_actionable" and hidden["candidates"], hidden
         assert hidden["next"].startswith("web click --ref"), hidden
+
+
+# ── web wait: 선택자 문법 오류는 '안 보임' 이 아니다 ─────────────────────
+
+def test_wait_reports_bad_selector_instead_of_waiting_until_timeout(monkeypatch):
+    from types import SimpleNamespace
+
+    from pro_launch.commands.web.actions import wait as web_wait
+
+    class SyntaxBrokenScope:
+        def locator(self, selector):
+            raise RuntimeError(f'Locator.count: Unexpected token "" while parsing css selector "{selector}".')
+
+    page = SimpleNamespace(url="https://example.test/", wait_for_timeout=lambda ms: None)
+    monkeypatch.setattr(web_wait, "frame_scope", lambda page, args, action: (SyntaxBrokenScope(), None))
+    args = SimpleNamespace(url_contains=None, text=None, gone=None, selector="div[", timeout=60)
+    result = web_wait.execute(page, args, {})
+    assert result["ok"] is False and result["code"] == "bad_selector"

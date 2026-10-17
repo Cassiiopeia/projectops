@@ -285,7 +285,7 @@ def _data_uri(p: Path) -> str:
                 im.save(buf, "PNG", optimize=True)
                 raw, mime = buf.getvalue(), "image/png"
     except Exception:
-        pass
+        pass  # Pillow 없음·이미지 손상 — 줄이지 않고 원본을 싣는다
     return f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
 
 

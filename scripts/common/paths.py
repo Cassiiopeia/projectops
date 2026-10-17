@@ -50,14 +50,34 @@ def resolve_output_root(project_root: Union[str, Path]) -> Path:
     - 절대경로면 그대로 (저장소 밖에 모으고 싶을 때)
     - 미설정이면 docs/projectops — 즉 설정을 건드리지 않으면 동작이 바뀌지 않는다
     """
-    root = Path(project_root)
-    try:
-        from common.config import load
-        cfg = load() or {}
-        configured = ((cfg.get("output") or {}).get("root") or "").strip()
-    except Exception:
-        configured = ""
+    return _join_output_root(project_root, read_configured_output_root()[0])
 
+
+def read_configured_output_root() -> tuple[str, Optional[str]]:
+    """config.json 의 output.root > (값, 경고). 못 쓰는 설정이면 빈 값(기본 위치) + 무엇이 문제인지"""
+    from common.config import config_path, load_with_status
+    try:
+        data, status = load_with_status()
+        location = config_path()
+    except OSError as error:   # 옛 경로 이주 복사 실패 등
+        return "", f"config.json 을 열지 못해 output.root 를 무시하고 기본 위치({DEFAULT_OUTPUT_ROOT})를 씁니다: {error}"
+    if status == "unreadable":
+        return "", (f"config.json 이 깨져(JSON 문법·인코딩) output.root 를 무시하고 "
+                    f"기본 위치({DEFAULT_OUTPUT_ROOT})를 씁니다: {location}")
+    if not isinstance(data, dict):
+        return "", None
+    output = data.get("output")
+    if output is None:
+        return "", None
+    configured = output.get("root") if isinstance(output, dict) else None
+    if not isinstance(output, dict) or not isinstance(configured, (str, type(None))):
+        return "", f"config.json 의 output.root 형식이 문자열이 아니라 기본 위치({DEFAULT_OUTPUT_ROOT})를 씁니다"
+    return (configured or "").strip(), None
+
+
+def _join_output_root(project_root: Union[str, Path], configured: str) -> Path:
+    """설정값 > 산출물 루트 (빈 값이면 기본, 상대경로면 저장소 기준)"""
+    root = Path(project_root)
     if not configured:
         return root / DEFAULT_OUTPUT_ROOT
     p = Path(configured).expanduser()
@@ -168,7 +188,8 @@ def resolve_output_path(skill_id: str, forced_title: Optional[str] = None,
     except (subprocess.CalledProcessError, FileNotFoundError):
         return {"ok": False, "code": "git_not_found", "error": "git 저장소가 아닙니다"}
 
-    output_base = resolve_output_root(root_str)
+    configured_root, config_warning = read_configured_output_root()
+    output_base = _join_output_root(root_str, configured_root)
     skill_dir = output_base / skill_id
     number = issue_num if issue_num else get_next_seq(skill_dir, today)
 
@@ -185,6 +206,8 @@ def resolve_output_path(skill_id: str, forced_title: Optional[str] = None,
         "mismatch": mismatch,
         "output_root": str(output_base),
     }
+    if config_warning:
+        out["config_warning"] = config_warning
     # 증거를 내는 스킬이면 폴더를 만들면서 제외 규칙을 함께 심는다.
     # 각 스킬이 알아서 하게 두면 빠뜨리는 스킬이 반드시 생긴다.
     if skill_id in EVIDENCE_SKILLS:

@@ -18,6 +18,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from common.proc import pid_alive
+
 KINDS = ("launch", "agent-test")
 
 # launch 가 가져가는 몫. 나머지(learned.json · 시나리오 · flows)는 agent-test 에 남는다.
@@ -101,16 +103,6 @@ def state_dir(kind: str, root: Path) -> Path:
     return base_dir() / kind / repo_key(root)
 
 
-def _pid_alive(pid) -> bool:
-    try:
-        os.kill(int(pid), 0)
-        return True
-    except PermissionError:
-        return True
-    except (ProcessLookupError, ValueError, TypeError, OSError):
-        return False
-
-
 def migrate_launch(root: Path) -> dict:
     """옛 agent-test 폴더에 있는 launch 몫을 launch 폴더로 옮긴다.
 
@@ -129,7 +121,7 @@ def migrate_launch(root: Path) -> dict:
     bj = old / "browser.json"
     if bj.is_file():
         try:
-            browser_busy = _pid_alive(json.loads(bj.read_text(encoding="utf-8")).get("pid"))
+            browser_busy = pid_alive(json.loads(bj.read_text(encoding="utf-8")).get("pid"))
         except (OSError, json.JSONDecodeError, AttributeError):
             browser_busy = False
 

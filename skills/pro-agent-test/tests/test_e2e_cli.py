@@ -267,7 +267,7 @@ def test_server_target_rejects_screen_only_expectation():
 # ── 타겟 감지 (이슈 #586) ────────────────────────────────────────────────
 
 def test_detect_does_not_fail_without_flutter():
-    """예전에는 pubspec이 없으면 첫 명령부터 실패했다 — 웹·서버 레포가 막혔다."""
+    """pubspec 없는 레포(웹·서버)에서도 첫 명령이 실패하지 않는다."""
     with tempfile.TemporaryDirectory() as tmp:
         r = _git_repo(Path(tmp), "https://github.com/o/r.git")
         (r / "package.json").write_text('{"dependencies":{"express":"4"}}', encoding="utf-8")
@@ -930,7 +930,7 @@ def test_web_shot_can_keep_the_original_size():
 def test_doctor_tells_when_screens_cannot_be_shrunk(sandbox, monkeypatch):
     """수단이 없다는 사실이 드러나야 사용자가 조치할 수 있다."""
     import json as _json
-    proj, home = sandbox          # 예전엔 튜플을 통째로 넘겨 HOME 이 엉뚱한 문자열이 됐다
+    proj, home = sandbox          # 튜플을 통째로 넘기면 HOME 이 엉뚱한 문자열이 된다
     _, out, _ = run_cli("doctor", "--root", str(proj), home=home)
     d = _json.loads(out)
     assert "image_resize" in d
@@ -1245,8 +1245,8 @@ def test_skill_docs_always_say_which_device(tmp_path=None):
 # =========================================================================
 # 콘솔 오류는 **로드 중에** 난다 (#625)
 #
-# 예전에는 `web console` 이 불린 그 시점에 리스너를 달고 잠깐 들었다. 오류는
-# 대개 페이지가 열리는 동안 나므로 **정작 잡아야 할 것이 안 잡혔다.**
+# `web console` 이 불린 시점에야 리스너를 달면 놓친다. 오류는 대개 페이지가
+# 열리는 동안 나므로 **로드 전부터 듣고 있어야 잡힌다.**
 # 웹에서 가장 흔한 실패가 "화면은 멀쩡한데 자바스크립트가 죽어 버튼이 안 먹는 것"
 # 이라 이걸 놓치면 통과로 적게 된다.
 # =========================================================================

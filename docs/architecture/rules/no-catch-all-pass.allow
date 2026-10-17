@@ -1,9 +1,2 @@
 # no-catch-all-pass 동결 목록: 줄을 지울 수만 있고 더할 수 없다
 # 고친 파일은 이 목록에서 지운다 (규칙 테스트가 남은 줄을 잡는다)
-scripts/worktree_manager.py
-skills/pro-design-brief/scripts/design_brief_cli.py
-skills/pro-launch/scripts/pro_launch/commands/web/actions/click.py
-skills/pro-launch/scripts/pro_launch/commands/web/actions/press.py
-skills/pro-launch/scripts/pro_launch/commands/web/actions/wait.py
-skills/pro-launch/scripts/pro_launch/commands/web/element.py
-skills/pro-launch/scripts/pro_launch/commands/web/session.py

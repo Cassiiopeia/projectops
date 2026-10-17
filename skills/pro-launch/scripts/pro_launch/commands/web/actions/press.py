@@ -38,7 +38,7 @@ def execute(page, args, state: dict) -> dict:
     try:
         page.wait_for_load_state("domcontentloaded", timeout=3000)
     except Exception:
-        pass
+        pass  # 로드 신호가 늦어도 아래 짧은 대기로 넘어간다
     page.wait_for_timeout(300)
     settle(page, state, outcome_wait_seconds(args))
     after_url, after_title = page.url, safe_title(page)

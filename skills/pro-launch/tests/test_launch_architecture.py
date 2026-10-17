@@ -237,12 +237,14 @@ def test_manual_kill_command_per_platform(monkeypatch, platform, needle):
 
 def test_pid_alive_uses_the_windows_probe_not_os_kill_on_windows(monkeypatch):
     """윈도우에서 os.kill(pid, 0) 은 확인이 아니라 종료다 — 그 길로 가면 브라우저가 죽는다."""
+    from common import proc as common_proc   # 생존 확인 단일 원본 (procs 는 재노출)
     monkeypatch.setattr(sys, "platform", "win32")
-    monkeypatch.setattr(procs, "_pid_alive_windows", lambda pid: True)
+    monkeypatch.setattr(common_proc, "_pid_alive_windows", lambda pid: True)
 
     def forbidden(*a, **k):
         raise AssertionError("윈도우에서 os.kill 을 불렀다")
-    monkeypatch.setattr(procs.os, "kill", forbidden)
+    monkeypatch.setattr(common_proc.os, "kill", forbidden)
+    assert procs.pid_alive is common_proc.pid_alive
     assert procs.pid_alive(1234) is True
 
 

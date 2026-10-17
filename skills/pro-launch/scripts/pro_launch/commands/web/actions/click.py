@@ -92,7 +92,7 @@ def _web_click(page, args, state: dict) -> dict:
             try:
                 page.wait_for_load_state("domcontentloaded", timeout=3000)
             except Exception:
-                pass
+                pass  # 로드 신호가 늦어도 아래 짧은 대기로 넘어간다
             page.wait_for_timeout(800)
     except Exception:
         return {"ok": False, "code": "expect_not_met", "action": "click", "clicked": info,

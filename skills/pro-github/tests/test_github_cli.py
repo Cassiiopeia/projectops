@@ -119,10 +119,9 @@ def test_upload_image_requires_files():
 # =========================================================================
 # actions 진단 흐름 (#622)
 #
-# 예전에는 위치 인자를 run_id·job_id·pr_number·branch 넷으로 쪼개 두어,
-# argparse 가 값을 왼쪽부터 채우는 바람에 **문서에 적힌 그대로 불러도**
-# joblog·resolve-pr·resolve-branch 셋이 깨졌다. show-run 과 list-failed 만
-# 우연히 맞아서 오래 안 보였다.
+# 위치 인자는 하나다. run_id·job_id·pr_number·branch 처럼 칸을 쪼개면 argparse 가
+# 값을 왼쪽부터 채워 **문서에 적힌 그대로 불러도** joblog·resolve-pr·resolve-branch 가
+# 깨진다 (show-run·list-failed 만 우연히 맞아 드러나지 않는다).
 #
 # 네트워크를 타지 않고 **인자 해석만** 본다. PAT 가 없어도 돌아야 한다.
 # =========================================================================
