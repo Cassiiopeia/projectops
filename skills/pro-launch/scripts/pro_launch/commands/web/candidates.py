@@ -115,5 +115,5 @@ def attach_candidates(failure: dict, page, selector: str | None, action: str) ->
     iframe_count = child_frame_count(page)
     if iframe_count:
         failure["iframe_count"] = iframe_count
-        failure["hint"] = "후보는 최상위 문서에서만 골랐다. 대상이 iframe 안이면 web text 로 화면부터 확인한다"
+        failure["hint"] = "후보는 최상위 문서에서만 골랐다. 대상이 iframe 안이면 --frame <이름|iframe 선택자|주소 일부> 를 붙여 다시 부른다"
     return failure

@@ -31,6 +31,11 @@ def cmd_output_path(args) -> int:
             return out({"ok": False, "code": "not_found",
                         "error": f"--root 경로가 없습니다: {root_dir}"})
         os.chdir(root_dir)
+    else:
+        # 레포 밖에서 불려도 $PROJECT_ROOT·최근에 쓴 루트 기준으로 자리를 잡는다 (#885) — 아니면 git_not_found
+        resolved = project_root(args)
+        if resolved.is_dir() and resolved != Path.cwd().resolve():
+            os.chdir(resolved)
     skill = args.skill or "launch"
     if skill not in EVIDENCE_SKILLS:
         return out({"ok": False, "code": "not_evidence_skill",

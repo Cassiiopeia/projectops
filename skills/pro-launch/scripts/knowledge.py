@@ -23,7 +23,7 @@ import re
 from pathlib import Path
 
 from common import memory
-from common.access import find_secrets
+from common.access import find_secret_spans
 from common.state import base_dir, state_dir
 
 FILE = "knowledge.json"
@@ -32,6 +32,8 @@ AREAS = ("ios", "android", "web", "server")
 SCOPES = ("repo", "machine")
 MAX_ENTRIES = 30        # 범위별 상한 — 넘으면 점수 낮은 것부터 지운다
 MAX_HOW = 200           # 한 항목 글자 수 상한 (recall 한 번이 수백 토큰에 머물게)
+MAX_DETAIL = 4000       # --detail 노트 글자 수 상한 — 경위·이유처럼 한 줄에 안 들어가는 긴 교훈 (#863)
+NOTES_DIR = "notes"     # 노트 자리: <기억 파일 폴더>/notes/<key>.md
 MAX_KEY = 60
 DEFAULT_LIMIT = 5
 STALE_DAYS = memory.STALE_DAYS
@@ -66,9 +68,12 @@ def load(path: Path) -> list[dict]:
     out = []
     for r in rows or []:
         if isinstance(r, dict) and r.get("key") and r.get("how") and r.get("area") in AREAS:
-            out.append({"key": str(r["key"]), "area": r["area"], "how": str(r["how"]),
-                        "ok": int(r.get("ok") or 0), "fail": int(r.get("fail") or 0),
-                        "last_seen": str(r.get("last_seen") or "")})
+            row = {"key": str(r["key"]), "area": r["area"], "how": str(r["how"]),
+                   "ok": int(r.get("ok") or 0), "fail": int(r.get("fail") or 0),
+                   "last_seen": str(r.get("last_seen") or "")}
+            if r.get("detail"):
+                row["detail"] = str(r["detail"])
+            out.append(row)
     return out
 
 
@@ -93,9 +98,28 @@ def _stale(e: dict, today: str) -> bool:
     return memory.stale(e["last_seen"], today, STALE_DAYS)
 
 
+def note_path(store: Path, key: str) -> Path:
+    """긴 교훈 노트 > <기억 파일 폴더>/notes/<key>.md"""
+    return store.parent / NOTES_DIR / f"{norm_key(key)}.md"
+
+
+def _secret_error(text: str) -> dict | None:
+    """비밀값이 있으면 거절 결과 (어느 구간이 걸렸는지 가려서 싣는다 — agent 가 고쳐 쓰게, #882)."""
+    spans = find_secret_spans(text)
+    if not spans:
+        return None
+    return {"error": "secret_detected",
+            "message": "비밀값으로 보이는 것이 있어 저장하지 않았다: "
+                       + ", ".join(f"{s['label']}({s['matched_span']})" for s in spans),
+            "matched_span": [s["matched_span"] for s in spans]}
+
+
 def learn(path: Path, area: str, key: str, how: str, result: str,
-          today: str | None = None) -> dict:
-    """항목을 넣거나 갱신한다. 실패하면 {"error": 코드, "message": ...}."""
+          today: str | None = None, detail: str | None = None) -> dict:
+    """항목을 넣거나 갱신한다. 실패하면 {"error": 코드, "message": ...}.
+
+    how 가 상한을 넘으면 자르지 않고 too_long 으로 거절한다 — 조용히 자르면 결론이 문장 중간에서 사라진다 (#863).
+    """
     if area not in AREAS:
         return {"error": "bad_area", "message": f"area 는 {'/'.join(AREAS)} 중 하나"}
     if result not in ("ok", "fail"):
@@ -107,11 +131,17 @@ def learn(path: Path, area: str, key: str, how: str, result: str,
     if FORBIDDEN.search(how):
         return {"error": "forbidden_method",
                 "message": "호스트 마우스로 좌표를 누르는 방법은 기억하지 않는다 — 프로젝트 E2E 를 쓴다"}
-    secrets = find_secrets(k + " " + how)
-    if secrets:
-        return {"error": "secret_detected",
-                "message": "비밀값으로 보이는 것이 있어 저장하지 않았다: " + ", ".join(secrets)}
-    how = how[:MAX_HOW]
+    if len(how) > MAX_HOW:
+        return {"error": "too_long", "length": len(how), "limit": MAX_HOW,
+                "message": f"how 가 {len(how)}자로 상한 {MAX_HOW}자를 넘는다 — 한 줄 결론만 how 에 두고 "
+                           "경위·이유는 --detail 로 넘긴다"}
+    detail = (detail or "").strip()
+    if len(detail) > MAX_DETAIL:
+        return {"error": "too_long", "length": len(detail), "limit": MAX_DETAIL,
+                "message": f"detail 이 {len(detail)}자로 상한 {MAX_DETAIL}자를 넘는다 — 핵심만 남긴다"}
+    secret = _secret_error(k + " " + how + " " + detail)
+    if secret:
+        return secret
     now = _today(today)
     entries = load(path)
     cur = next((e for e in entries if e["key"] == k and e["area"] == area), None)
@@ -123,6 +153,12 @@ def learn(path: Path, area: str, key: str, how: str, result: str,
         cur.update(how=how, ok=0, fail=0)
     cur[result] += 1
     cur["last_seen"] = now
+    if detail:
+        # 노트는 덮어쓴다 — 같은 키의 최신 경위가 맞다
+        note = note_path(path, k)
+        note.parent.mkdir(parents=True, exist_ok=True)
+        note.write_text(f"# {k} ({area}, {now})\n\n{cur['how']}\n\n{detail}\n", encoding="utf-8")
+        cur["detail"] = note.name
     if len(entries) > MAX_ENTRIES:
         entries.sort(key=lambda e: (_score(e), e["last_seen"]), reverse=True)
         del entries[MAX_ENTRIES:]
@@ -139,9 +175,23 @@ def forget(path: Path, key: str, area: str | None = None) -> int:
     return len(entries) - len(keep)
 
 
+def _matches(entry: dict, note: Path | None, match: str) -> bool:
+    """키·방법·노트 본문에 낱말이 들어 있는가 (대소문자 무시)."""
+    needle = match.lower()
+    if needle in (entry["key"] + " " + entry["how"]).lower():
+        return True
+    try:
+        return bool(note) and needle in note.read_text(encoding="utf-8").lower()
+    except OSError:
+        return False
+
+
 def recall(paths: dict[str, Path], area: str | None, limit: int = DEFAULT_LIMIT,
-           today: str | None = None) -> list[dict]:
-    """상위 항목만 돌려준다. 금지된 방법은 걸러내고, 믿기 어려운 것은 verify 로 표시한다."""
+           today: str | None = None, match: str | None = None) -> list[dict]:
+    """상위 항목만 돌려준다. 금지된 방법은 걸러내고, 믿기 어려운 것은 verify 로 표시한다.
+
+    match: 키·방법·노트에 이 낱말이 든 것만 (예: swipe). 노트가 있으면 detail_path 로 경로를 준다.
+    """
     now = _today(today)
     rows = []
     for scope, p in paths.items():
@@ -150,6 +200,14 @@ def recall(paths: dict[str, Path], area: str | None, limit: int = DEFAULT_LIMIT,
                 continue
             if FORBIDDEN.search(e["how"]):
                 continue
+            note = note_path(p, e["key"]) if e.get("detail") else None
+            if note is not None and not note.is_file():
+                note = None
+            if match and not _matches(e, note, match):
+                continue
+            e = {k: v for k, v in e.items() if k != "detail"}
+            if note is not None:
+                e["detail_path"] = str(note)
             stale = _stale(e, now)
             rows.append({**e, "scope": scope,
                          "verify": bool(e["fail"] and e["fail"] >= e["ok"]) or stale,
@@ -158,6 +216,18 @@ def recall(paths: dict[str, Path], area: str | None, limit: int = DEFAULT_LIMIT,
     for r in rows:
         del r["_rank"]
     return rows[:max(1, limit)]
+
+
+def area_summary(paths: dict[str, Path]) -> dict[str, dict]:
+    """영역별 기억 건수와 마지막 사용일 > {area: {count, last_seen}} (doctor 한 줄 요약, #863)."""
+    summary = {area: {"count": 0, "last_seen": None} for area in AREAS}
+    for store in paths.values():
+        for entry in load(store):
+            row = summary[entry["area"]]
+            row["count"] += 1
+            if entry["last_seen"] and (row["last_seen"] or "") < entry["last_seen"]:
+                row["last_seen"] = entry["last_seen"]
+    return summary
 
 
 # ── 중복 통합 · 범위 승격 · 노출 기록 (#833) ──────────────────────────────
@@ -216,7 +286,7 @@ def _merge(into: dict, other: dict) -> None:
 
 
 def learn_smart(repo_path: Path | None, area: str, key: str, how: str, result: str,
-                scope: str = "repo", today: str | None = None) -> dict:
+                scope: str = "repo", today: str | None = None, detail: str | None = None) -> dict:
     """learn 의 기본 경로. 비슷한 항목을 찾아 합치고, 여러 레포에 걸치면 이 컴퓨터로 올린다.
 
     돌려주는 값: learn() 결과 + scope(실제로 쓴 범위) + promoted_from(합친 레포 파일 수).
@@ -226,10 +296,10 @@ def learn_smart(repo_path: Path | None, area: str, key: str, how: str, result: s
     # 이미 이 컴퓨터 범위에 있으면 거기를 강화한다
     if any(similar(e, probe) for e in load(machine)):
         hit = next(e for e in load(machine) if similar(e, probe))
-        r = learn(machine, area, hit["key"], how, result, today)
+        r = learn(machine, area, hit["key"], how, result, today, detail)
         return {**r, "scope": "machine", "promoted_from": 0}
     if scope == "machine" or repo_path is None:
-        return {**learn(machine, area, key, how, result, today), "scope": "machine", "promoted_from": 0}
+        return {**learn(machine, area, key, how, result, today, detail), "scope": "machine", "promoted_from": 0}
     # 다른 레포에 같은 지식이 있으면 이 컴퓨터 범위로 올린다
     others = []
     for p in all_repo_paths():
@@ -239,10 +309,10 @@ def learn_smart(repo_path: Path | None, area: str, key: str, how: str, result: s
         if hits:
             others.append((p, hits))
     if not others:
-        r = learn(repo_path, area, key, how, result, today)
+        r = learn(repo_path, area, key, how, result, today, detail)
         return {**r, "scope": "repo", "promoted_from": 0,
                 "related": related_entries(probe, exclude=repo_path) if "error" not in r else []}
-    r = learn(machine, area, key, how, result, today)
+    r = learn(machine, area, key, how, result, today, detail)
     if "error" in r:
         return r
     entries = load(machine)
@@ -351,7 +421,7 @@ def surface(paths: dict[str, Path], area: str, seen_file: Path, limit: int = 3,
         if any(similar(r, k) for k in kept):
             continue
         kept.append(r)
-        out.append({k: r[k] for k in ("key", "how", "scope", "ok", "fail", "verify")})
+        out.append({k: r[k] for k in ("key", "how", "scope", "ok", "fail", "verify", "detail_path") if k in r})
         if len(out) >= limit:
             break
     seen[seen_key] = now

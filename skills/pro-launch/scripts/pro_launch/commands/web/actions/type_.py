@@ -25,6 +25,6 @@ def execute(page, args, state: dict) -> dict:
     return payload
 
 
-ACTION = Action(name="type", run=execute, options=("selector", "ref", "text", "secret_text", "target_timeout"),
+ACTION = Action(name="type", run=execute, options=("selector", "ref", "text", "secret_text", "target_timeout", "frame"),
                 help="입력창에 글자를 넣는다 (비밀번호는 --text-env · --cred)",
                 example="web type --ref 2 --text-env APP_PW")

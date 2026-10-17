@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import time
 from pathlib import Path
 
@@ -13,7 +14,8 @@ from common.state import repo_unknown
 import journal
 import knowledge
 
-from pro_launch.runtime.context import ACCESS_CTX, MEMORY_CTX, MIGRATION, OUTPUT_CTX, ROOT_CTX
+from pro_launch.runtime.recent_roots import root_candidates
+from pro_launch.runtime.context import ACCESS_CTX, INPUT_CTX, MEMORY_CTX, MIGRATION, OUTPUT_CTX, ROOT_CTX
 
 # skills/pro-launch — 공식 트러블슈팅(troubleshooting/)이 있는 곳
 SKILL_DIR = Path(__file__).resolve().parents[3]
@@ -32,6 +34,7 @@ def out(payload: dict) -> int:
         act = payload.get("action")
         payload["summary"] = payload.get("error") or (f"{act} 완료" if act else "완료")
     _root_warning(payload)
+    _empty_value_warning(payload)
     _grade_access(payload)
     attach_known_fix(payload)
     _memory_hooks(payload)
@@ -41,7 +44,7 @@ def out(payload: dict) -> int:
 # 맨 앞 4필드 — 잘라 읽어도 다음 행동이 남게 언제나 먼저 · 언제나 남긴다
 HEAD_KEYS = ("ok", "code", "summary", "next")
 # 실패 원인 한 줄 (render 의 묻힌 첫 오류 등) — 머리 바로 뒤 · --brief 에도 남긴다
-CAUSE_KEYS = ("first_error",)
+CAUSE_KEYS = ("first_error", "unknown", "did_you_mean", "empty_values")
 # 이 실패·영역에 맞춘 해결과 기억 — 원인 뒤 · 줄여도 남긴다
 GUIDANCE_KEYS = ("known_fix", "known_fix_note", "memory", "memory_note", "learn_hint")
 # --brief 가 남기는 키: 머리 + error + 원인 + 안내
@@ -105,7 +108,29 @@ def attach_known_fix(payload: dict) -> None:
         pass
 
 
+def _empty_value_warning(payload: dict) -> None:
+    """실패했고 빈 값으로 넘어온 옵션이 있으면 그 옵션을 짚는다 (bad_viewport: unknown viewport '' 등, #886)."""
+    empty = INPUT_CTX.get("empty_values")
+    if not empty or payload.get("ok", True) is not False or "empty_values" in payload:
+        return
+    payload["empty_values"] = empty
+    payload["empty_values_note"] = (f"{', '.join(empty)} 의 값이 비어 있다 — $VAR 로 넘겼다면 그 환경변수가 "
+                                    "설정됐는지 확인한다")
+
+
+# 루트를 잘못 잡았을 때 흔한 실패 — 후보 루트와 다시 부를 명령을 싣는다 (#885)
+ROOT_SENSITIVE_CODES = {"browser_not_open", "git_not_found"}
+
+
 def _root_warning(payload: dict) -> None:
+    if ROOT_CTX.get("source") == "last_used":
+        payload["root_source"] = "last_used"
+        payload["root_note"] = (f"작업 폴더({ROOT_CTX.get('cwd')})가 레포가 아니라 최근에 쓴 {ROOT_CTX.get('path')} 를 썼다 — "
+                                "다른 레포면 --root <경로> 를 붙인다")
+    is_failed = payload.get("ok", True) is False
+    if is_failed and (ROOT_CTX.get("not_repo") or ROOT_CTX.get("unknown")
+                          or payload.get("code") in ROOT_SENSITIVE_CODES):
+        _attach_root_candidates(payload)
     if not ROOT_CTX.get("unknown"):
         return
     payload["root_unknown"] = True
@@ -117,6 +142,36 @@ def _root_warning(payload: dict) -> None:
         payload["next"] = fix
     elif isinstance(nxt, str) and fix not in nxt:
         payload["next"] = f"{fix}. 그 다음: {nxt}"
+
+
+def _attach_root_candidates(payload: dict) -> None:
+    """후보 루트(브라우저가 살아 있는 것이 앞)와 그대로 복사해 쓸 재시도 명령."""
+    try:
+        candidates = root_candidates()
+    except Exception:   # noqa: BLE001 — 후보는 보조다
+        return
+    current = ROOT_CTX.get("resolved")
+    candidates = [c for c in candidates if c["path"] != current]
+    if not candidates:
+        return
+    payload["root_candidates"] = candidates
+    payload["retry"] = retry_command_with_root(candidates[0]["path"])
+    payload["next"] = (f"레포 밖에서 불렸을 수 있다 — 다시: {payload['retry']}"
+                       + (f". 그 다음: {payload['next']}" if payload.get("next") else ""))
+
+
+def retry_command_with_root(root: str) -> str:
+    """이번 명령을 --root <root> 로 바꿔 다시 부르는 한 줄 (원래 --root 는 뺀다)."""
+    raw = list(INPUT_CTX.get("raw") or [])
+    kept, index = [], 0
+    while index < len(raw):
+        if raw[index] == "--root":
+            index += 2
+            continue
+        if not raw[index].startswith("--root="):
+            kept.append(raw[index])
+        index += 1
+    return "launch_cli.py " + " ".join(shlex.quote(token) for token in [*kept, "--root", root])
 
 
 _ACCESS_FAIL_CODES = {"db_query_failed", "db_timeout", "logs_failed", "logs_timeout",
@@ -207,10 +262,16 @@ def _journal_hooks(payload: dict, area: str, root: Path, unknown: bool, seen_dir
             "--site <주소 일부> 로 적는다. 사용자가 먼저 기록해 달라고 하면 묻지 않고 바로 적는다 (비밀값은 적지 않는다)")
 
 
+# 실패 > 성공 연쇄 기록 (#863) — session-check 가 "막혔다 풀렸는데 learn 안 한 영역"을 짚는다
+RESOLVED_FILE = "resolved.json"
+RESOLVED_KEEP = 20
+
+
 def _track_attempt(f: Path, area: str, payload: dict) -> str | None:
     """같은 영역에서 실패한 뒤 성공하면 '새로 알게 된 방식이면 기록하라'고 알려 준다.
 
     agent 가 기억을 남길 가장 좋은 순간은 막혔다 풀린 직후다. 그 순간을 도구가 짚어 준다.
+    실패 횟수를 세어 두고, 풀리면 resolved.json 에 연쇄(영역·횟수·마지막 실패 code)를 남긴다.
     """
     ok = payload.get("ok", True) is not False and payload.get("code") in (None, "ok")
     try:
@@ -222,14 +283,32 @@ def _track_attempt(f: Path, area: str, payload: dict) -> str | None:
     if ok:
         last.pop(area, None)
     else:
-        last[area] = {"code": payload.get("code"), "at": now}
+        # 창 밖의 옛 실패는 이번 연쇄가 아니다 — 처음부터 센다
+        earlier = int(prev.get("fails") or 1) if prev and now - prev.get("at", 0) < _FIX_WINDOW_SEC else 0
+        last[area] = {"code": payload.get("code"), "at": now, "fails": earlier + 1}
     try:
         f.parent.mkdir(parents=True, exist_ok=True)
         f.write_text(json.dumps(last), encoding="utf-8")
     except OSError:
         pass
-    if ok and prev and now - prev.get("at", 0) < _FIX_WINDOW_SEC:
-        return (f"방금 '{prev.get('code')}' 실패를 다른 방식으로 넘겼다. 다음에도 쓸 방식이면 "
-                f"learn --area {area} --key <짧은키> --how '<무엇을 어떻게>' --result ok 로 남긴다 "
-                "(미설치·일회성·비밀값은 남기지 않는다)")
-    return None
+    if not (ok and prev and now - prev.get("at", 0) < _FIX_WINDOW_SEC):
+        return None
+    fails = int(prev.get("fails") or 1)
+    _append_resolved(f.parent / RESOLVED_FILE, {"area": area, "fails": fails,
+                                                "last_code": prev.get("code"), "at": now})
+    times = f" {fails}번" if fails > 1 else ""
+    return (f"방금 '{prev.get('code')}'{times} 실패 끝에 넘겼다. 다음에도 쓸 방식이면 "
+            f"learn --area {area} --key <짧은키> --how '<무엇을 어떻게>' --result ok 로 남긴다 "
+            "(경위가 길면 --detail. 미설치·일회성·비밀값은 남기지 않는다)")
+
+
+def _append_resolved(f: Path, row: dict) -> None:
+    try:
+        rows = json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        rows = []
+    rows = [*(rows if isinstance(rows, list) else []), row][-RESOLVED_KEEP:]
+    try:
+        f.write_text(json.dumps(rows), encoding="utf-8")
+    except OSError:
+        pass

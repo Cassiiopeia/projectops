@@ -11,6 +11,7 @@ from common.proc import run, sdk_tool
 from common.state import launch_file
 
 from pro_launch.runtime.context import state_home
+from pro_launch.runtime.host_resources import critical_pressure_failure
 from pro_launch.runtime.output import out, set_area
 
 
@@ -169,6 +170,12 @@ def pick_device(want: str | None) -> tuple[str | None, str | None, dict]:
 
 
 def no_device_response(dev: dict, want: str | None) -> int:
+    is_boot_suggested = not (dev["android"] or dev["ios_booted"])
+    # 새 기기 부팅을 권하기 전에 호스트 메모리 확인 — critical 이면 부팅 대신 사용자 확인 (#883)
+    if is_boot_suggested:
+        pressure_failure = critical_pressure_failure("device boot")
+        if pressure_failure:
+            return out({**pressure_failure, "android_avds": dev["android_avds"]})
     return out({
         "ok": False, "code": "no_device",
         "error": (f"'{want}' 기기를 찾지 못했습니다" if want

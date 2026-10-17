@@ -16,7 +16,7 @@ agent 가 "모른다는 것을 모르는" 상태에서 꺼내 볼 생각을 하�
 | 응답에 오는 것 | 할 일 |
 |---|---|
 | `memory` | **먼저 읽고** 그 방식부터 쓴다. 썼으면 결과를 `learn --key <그 key> --result ok\|fail` |
-| `learn_hint` | 방금 실패를 다른 방식으로 넘겼다는 뜻. 다음에도 쓸 방식이면 `learn` 으로 남긴다 |
+| `learn_hint` | 방금 실패(N번)를 다른 방식으로 넘겼다는 뜻. 다음에도 쓸 방식이면 `learn` 으로 남긴다 |
 | `learn` 결과의 `related` | 비슷한 기억이 이미 있다. 같은 지식이면 새 항목을 `forget` 하고 그 key 로 다시 `learn --scope machine` |
 | `promoted_from` | 다른 레포에 같은 지식이 있어 이 컴퓨터 범위로 합쳤다 |
 
@@ -38,12 +38,20 @@ agent 가 "모른다는 것을 모르는" 상태에서 꺼내 볼 생각을 하�
 # 이 컴퓨터 전체에 해당하면 --scope machine (기본은 이 레포)
 {PYTHON} {SCRIPTS}/launch_cli.py forget --key ios.tap --area ios
 {PYTHON} {SCRIPTS}/launch_cli.py tidy                              # 흩어진 기억 정리
+{PYTHON} {SCRIPTS}/launch_cli.py recall --match swipe               # 키·방법·노트에 낱말이 든 것만
+# 경위가 길면 how 는 한 줄 결론, 긴 글은 --detail (또는 --detail-file) → notes/<key>.md, recall 이 detail_path 로 준다
+{PYTHON} {SCRIPTS}/launch_cli.py learn --area android --key android.swipe --result ok \
+    --how "app swipe 로 민다. 먼저 app shot 으로 줄 y 를 정한다" --detail "광고 배너로 y 가 87% → 80% 로 바뀌어 엉뚱한 카드를 밀었다 ..."
+{PYTHON} {SCRIPTS}/launch_cli.py session-check                      # 작업을 마칠 때: 막혔다 풀렸는데 learn 안 한 영역
 ```
 
 - **안전 규칙이 기억보다 위다.** 호스트 마우스로 좌표를 누르는 방법(`cliclick` 등)은 저장도, 꺼내기도 막힌다.
-- 비밀번호·토큰·이메일 같은 비밀값은 저장을 거절한다.
+- 비밀번호·토큰·이메일 같은 비밀**값**은 저장을 거절한다(`secret_detected` + 가린 `matched_span`). 낱말만으로는 막지 않는다 —
+  `#password_text_field` 같은 셀렉터는 저장된다 (#882).
+- `how` 는 200자 상한이다. 넘으면 **자르지 않고** `too_long`(길이·상한)으로 거절한다 — `--detail` 로 나눈다 (#863).
 - **앱 화면·좌표·함정은 여기가 아니다** — `pro-agent-test` 의 `note` 가 맡는다. 여기는 **도구·방식**만.
-- 여기에는 결론만 남긴다. 왜 막혔고 어떻게 풀었는지 같은 긴 사례는 레포 문서(`CLAUDE.md` 등)에 적는다.
+- `how` 에는 결론만 남기고, 왜 막혔고 어떻게 풀었는지는 `--detail` 노트에 둔다. 팀이 함께 봐야 하는 사례는 레포 문서(`CLAUDE.md` 등)에 적는다.
+- `adb`·Maestro·`simctl` 을 직접 쓰면 응답에 `memory` 가 실리지 않는다 — 작업 시작 때 `doctor`(영역별 기억 건수)나 `recall --area <영역>` 을 본다.
 - 계정은 `cred`(`credentials.md`), 방식은 `learn` 으로 나눈다.
 
 ## 공식 지식 vs 내 기억 (#889)
@@ -112,6 +120,10 @@ agent 가 "모른다는 것을 모르는" 상태에서 꺼내 볼 생각을 하�
 
 `PROJECTOPS_HOME` 환경변수가 있으면 `~/.projectops` 대신 그 자리를 쓴다(테스트 격리용). venv 는 설치물이라
 그 자리에 없으면 실제 홈의 것을 찾아 쓴다.
+
+**루트 찾는 순서 (#885)** — `--root` > `$PROJECT_ROOT` > 작업 폴더(git 이면) > 최근에 쓴 루트(`_machine/recent_roots.json`) > 작업 폴더.
+최근 루트를 썼으면 응답에 `root_source: "last_used"` 와 `root_note` 가 온다. 레포 밖이라 실패하면(`browser_not_open` 등)
+`root_candidates`(브라우저가 살아 있는 것이 앞)와 그대로 복사해 쓸 `retry` 명령이 온다.
 
 **레포를 알 수 없을 때** — 스킬·플러그인 캐시 폴더(경로에 `/skills/pro-` · `/plugins/cache/`)에서 불렸고 git 원격이
 없으면 폴더 이름(`scripts` 등)을 레포로 삼지 않는다. `$PROJECT_ROOT` 가 있으면 그것을 쓰고, 없으면 상태를

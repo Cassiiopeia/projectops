@@ -81,6 +81,54 @@ JSON
 
 결과에 `cause`(예: `android_system_not_ready`)가 있으면 단계가 아니라 **기기 상태**가 원인이다 — 단계를 고치지 말고 기기부터 본다.
 
+### 제스처 플레이북 — 밀다가 찍기 · 요소 기준 밀기 · 밀고 곧바로 탭 (#862)
+
+전용 옵션을 늘리지 않는다. **`tap`·`swipe`·`run` 으로 되는 것은 그것으로, 안 되는 것은 Maestro flow 를 `app flow` 로** 돌린다.
+
+```bash
+{PYTHON} {SCRIPTS}/launch_cli.py app flow --device "$DEV" --file .maestro/swipe_undo.yaml --shot undo [--timeout 300]
+```
+
+- 결과: `commands[]`(Maestro 명령별 `completed`·`failed`·`skipped`) · `failed_command` · `screenshots[]`(flow 의
+  `takeScreenshot` 결과를 `SHOT_DIR` 로 옮겨 `<--shot>_<이름>.webp`) · `driver_retried` · `elapsed_seconds`.
+  Maestro 기록(`maestro.log`)은 임시 폴더에 두었다가 지운다. 프로젝트 `.maestro/` flow 를 그대로 쓴다.
+- Android · iOS 둘 다 된다(Maestro 필요). `maestro test` 를 새로 띄우므로 iOS 상주 세션 연결이 끊긴다(다음 호출에서 다시 붙는다).
+
+| 하고 싶은 것 | 방법 |
+|---|---|
+| 밀고 **곧바로** 탭 (밀어서 삭제 > 4초 안 "되돌리기") | iOS: `app run` 의 `swipe` > `wait` > `tap` (Maestro 한 번). Android 는 단계마다 화면 구조를 다시 읽어 늦을 수 있다 — `app flow` 로 묶는다 (아래 예시) |
+| 시작점을 요소 기준으로 | 밀기 **직전에** `app tree` 를 다시 본다(배너가 뜨면 줄의 y 가 바뀐다 — 87% > 80% 실측). 줄 안의 **스위치·버튼(오른쪽 끝)을 피해** 문구 쪽에서 시작한다. flow 에서는 `swipe: {from: {text: "..."}, direction: LEFT}` 처럼 요소에서 시작한다 |
+| Maestro 시작 직후 첫 탭이 안 먹음 | `tapOn` 에 `retryTapIfNoChange: true`, 앞에 `extendedWaitUntil: {visible: ...}` |
+| **밀고 있는 도중** 화면 | 아래 "중간 장면" |
+
+```yaml
+appId: com.example.app
+---
+- extendedWaitUntil: {visible: "알림 1", timeout: 5000}
+- swipe: {from: {text: "알림 1"}, direction: LEFT, duration: 400}   # 문구에서 시작 — 오른쪽 스위치를 피한다
+- takeScreenshot: after_swipe
+- tapOn: {text: "되돌리기", retryTapIfNoChange: true}
+- takeScreenshot: after_undo
+```
+
+**중간 장면(누른 채 멈춘 화면)은 기기 조작으로 찍지 않는다.**
+
+- iOS 시뮬레이터: Maestro `swipe` 는 `duration` 을 늘려도 "길게 누른 뒤 빠르게 이동"이라 중간 장면이 없다(20·40초로 프레임 34장 모두 변화 없음 — 이슈 보고).
+- Android: `adb shell input motionevent DOWN/MOVE/UP` 은 명령마다 프로세스가 떠서 **부하 걸린 에뮬레이터에서 호출당 3.5초**였고,
+  첫 MOVE 전에 길게 누르기로 인식돼 홈 화면 메뉴가 떴다(실측 2026-10-17, API 36). 느린 `input swipe` 를 백그라운드로 걸고
+  `screencap` 을 찍는 방법도 검은 화면이 나와 확인하지 못했다 — 기기·부하에 따라 다르니 믿지 않는다.
+- **대신**: Flutter 는 해당 위젯을 테스트에서 드래그 중간 상태로 만들고 `RepaintBoundary` 의 `toImage()` 로 PNG 를 뽑는다
+  (`flutter test` 로 수 초, 기기 불필요). 실기기 느낌이 필요하면 `simctl io recordVideo` / `screenrecord` 로 녹화하고
+  사람이 직접 밀게 한 뒤 프레임을 뽑는다(아래 "움직임을 수치로 확인하기").
+
+| code (`app flow`) | 다음 행동 |
+|---|---|
+| `flow_file_required` · `bad_timeout` | 인자를 고친다 |
+| `flow_failed` | `failed_command` 를 `app tree` 로 보고 flow 를 고친다. `screenshots` 에 실패 직전까지의 캡처가 있다 |
+| `flow_timeout` | `--timeout` 을 늘리거나 flow 를 나눈다 |
+| `maestro_driver_timeout` | driver 가 시간 안에 안 떴다(`did not start up in time`). CLI 가 driver 앱(Android `dev.mobile.maestro*`)을 강제 종료하고 한 번 더 돌린 뒤에 낸다. **기계 과부하**다 — 빌드를 멈추거나 cold boot 를 사용자에게 묻는다 |
+| `maestro_tool_missing` | `next` 의 설치 명령을 사용자에게 제안한다 |
+
 ### iOS 상주 세션 — `app session` (#894 2단계, 선택)
 
 호출마다 Maestro(JVM)를 띄우는 대신 `maestro mcp` 를 한 번 띄워 두고 쓴다. 보고 → 판단 → 누르기를 여러 번 할 때 켠다.

@@ -4,7 +4,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from common.state import in_skill_path, migrate_launch, repo_unknown, state_dir
+from common.state import base_dir, in_skill_path, migrate_launch, repo_unknown, state_dir
+
+from pro_launch.runtime.recent_roots import is_git_work_tree, last_used_root, remember_root
 
 
 # 이 프로세스에서 이미 옮겼는지. 한 번만 본다.
@@ -49,20 +51,58 @@ MEMORY_CTX: dict = {}
 OUTPUT_CTX: dict = {}
 
 
-def project_root(args) -> Path:
-    """작업 대상 프로젝트 루트.
+# ── 입력 표시 (#886) ──────────────────────────────────────────────────────
+#
+# empty_values: 값이 빈 문자열로 넘어온 옵션. 실패 응답에 싣는다 — 원인이 $VAR 미설정인 경우가 많다
+INPUT_CTX: dict = {}
 
-    agent 가 스크립트 폴더로 `cd` 한 뒤 `--root .` 으로 부르면 그 폴더가 프로젝트로 잡힌다.
-    플러그인 캐시는 git 레포가 아니라 폴더 이름 `scripts` 가 레포 키가 되어, 기억과 상태가
-    엉뚱한 곳(~/.projectops/launch/scripts/)에 쌓였다(#833 실측). 그때는 $PROJECT_ROOT 를 쓴다.
+
+def project_root(args) -> Path:
+    """작업 대상 프로젝트 루트: --root > $PROJECT_ROOT > 작업 폴더(git 이면) > 최근에 쓴 루트 > 작업 폴더 (#885).
+
+    agent 셸은 호출마다 작업 폴더가 초기화돼, 레포 밖에서 불리면 git_not_found·browser_not_open 이 났다.
+    agent 가 스크립트 폴더로 `cd` 한 뒤 `--root .` 으로 부르면 플러그인 캐시가 레포로 잡혀 기억이
+    엉뚱한 곳(~/.projectops/launch/scripts/)에 쌓였다(#833 실측) — 그때도 $PROJECT_ROOT 를 쓴다.
     """
-    r = Path(getattr(args, "root", ".") or ".").resolve()
-    if repo_unknown(r):
-        if os.environ.get("PROJECT_ROOT"):
-            return Path(os.environ["PROJECT_ROOT"]).resolve()
-        # 상태는 state_dir 이 _machine 으로 돌린다. 응답에서 --root 를 요구하도록 표시만 한다
-        ROOT_CTX.update(unknown=True, path=str(r))
-    return r
+    raw = getattr(args, "root", ".") or "."
+    cache_key = (raw, os.getcwd(), os.environ.get("PROJECT_ROOT"), str(base_dir()))
+    if cache_key not in _RESOLVED_ROOTS:
+        _RESOLVED_ROOTS[cache_key] = _resolve_root(raw)
+    root, marks = _RESOLVED_ROOTS[cache_key]
+    ROOT_CTX.update(marks, resolved=str(root))
+    return root
+
+
+# (--root 값, 작업 폴더, $PROJECT_ROOT) > (루트, ROOT_CTX 표시). 한 명령이 project_root 를 여러 번 불러도 git 을 한 번만 본다
+_RESOLVED_ROOTS: dict = {}
+
+
+def _resolve_root(raw: str) -> tuple[Path, dict]:
+    env_root = os.environ.get("PROJECT_ROOT")
+    candidate = Path(raw).expanduser().resolve()
+    if raw != ".":
+        if repo_unknown(candidate):
+            if env_root:
+                return _remembered(Path(env_root).expanduser().resolve()), {}
+            # 상태는 state_dir 이 _machine 으로 돌린다. 응답에서 --root 를 요구하도록 표시만 한다
+            return candidate, {"unknown": True, "path": str(candidate)}
+        return _remembered(candidate), {}
+    if env_root:
+        return _remembered(Path(env_root).expanduser().resolve()), {}
+    if is_git_work_tree(candidate) and not repo_unknown(candidate):
+        return _remembered(candidate), {}
+    last = last_used_root()
+    if last is not None:
+        return last, {"source": "last_used", "path": str(last), "cwd": str(candidate)}
+    if repo_unknown(candidate):
+        return candidate, {"unknown": True, "path": str(candidate)}
+    # git 레포가 아닌 폴더 — 옛 동작대로 그 폴더를 쓰되, 실패하면 후보와 다시 부를 명령을 싣는다
+    return candidate, {"not_repo": True, "path": str(candidate)}
+
+
+def _remembered(root: Path) -> Path:
+    remember_root(root)
+    return root
 
 
 # scripts/ 폴더 — 이 파일은 scripts/pro_launch/runtime/ 아래에 있다

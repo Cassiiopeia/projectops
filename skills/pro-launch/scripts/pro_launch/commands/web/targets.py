@@ -54,7 +54,25 @@ FIND_JS = """(o) => {
   document.querySelectorAll('[' + ATTR + ']').forEach(e => e.removeAttribute(ATTR));
   const visible = e => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e);
     return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
-  const label = e => ((e.innerText || e.value || '') + ' ' + (e.getAttribute('aria-label') || '')).replace(/\\s+/g, ' ').trim();
+  // 이름: aria-label > aria-labelledby > title > 안의 img alt — 아이콘 버튼을 서로 가른다 (#879)
+  const nameOf = e => { const by = e.getAttribute('aria-labelledby');
+    const labelled = by ? by.split(/\\s+/).map(id => document.getElementById(id)).filter(Boolean).map(x => x.innerText).join(' ') : '';
+    const img = e.querySelector('img[alt]');
+    return (e.getAttribute('aria-label') || labelled || e.getAttribute('title') || (img && img.getAttribute('alt')) || '')
+      .replace(/\\s+/g, ' ').trim() || null; };
+  // 아이콘 글꼴 리거처(Material Icons 의 delete · close 등) — 글자로 보이지만 그림이다
+  const ICON_CLASS = /material-icons|material-symbols|(^|\\s)(icon|icons)(\\s|$)/i;
+  const isIconNode = n => { const c = typeof n.className === 'string' ? n.className : '';
+    return ICON_CLASS.test(c) || /material (icons|symbols)/i.test(getComputedStyle(n).fontFamily || ''); };
+  // 자손은 앞 20개만 — 큰 행마다 전부 스타일을 읽으면 느리다
+  const iconsOf = e => [e, ...[...e.querySelectorAll('*')].slice(0, 20)].filter(isIconNode)
+    .map(n => (n.innerText || '').trim()).filter(t => /^[a-z0-9_]+$/.test(t));
+  const textOf = e => { let t = (e.innerText || e.value || '').replace(/\\s+/g, ' ').trim();
+    const icons = iconsOf(e);
+    for (const name of icons) t = t.split(' ').filter(w => w !== name).join(' ');
+    if (!t && icons.length) t = icons.map(name => 'icon:' + name).join(' ');
+    return { text: t.slice(0, 120), icons }; };
+  const label = e => (textOf(e).text + ' ' + (nameOf(e) || '')).replace(/\\s+/g, ' ').trim();
   let els;
   if (o.selector) els = [...document.querySelectorAll(o.selector)];
   else if (o.role === 'link') els = [...document.querySelectorAll('a[href],[role=link]')];
@@ -86,11 +104,13 @@ FIND_JS = """(o) => {
     if (!visible(e)) continue;
     const ref = items.length + 1;
     e.setAttribute(ATTR, String(ref));
-    items.push({ ref, tag: e.tagName.toLowerCase(), role: e.getAttribute('role'),
-      text: (e.innerText || e.value || '').replace(/\\s+/g, ' ').trim().slice(0, 120),
-      aria: e.getAttribute('aria-label'), href: e.getAttribute('href'),
+    const shown = textOf(e);
+    const item = { ref, tag: e.tagName.toLowerCase(), role: e.getAttribute('role'),
+      text: shown.text, aria: nameOf(e), href: e.getAttribute('href'),
       clickable: e.matches(o.clickable),
-      disabled: !!e.disabled || e.getAttribute('aria-disabled') === 'true' });
+      disabled: !!e.disabled || e.getAttribute('aria-disabled') === 'true' };
+    if (shown.icons.length) item.icons = shown.icons;
+    items.push(item);
   }
   return { items, total: els.length, fallback };
 }"""

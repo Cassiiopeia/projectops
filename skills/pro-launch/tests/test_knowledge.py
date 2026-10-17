@@ -93,10 +93,12 @@ def test_cap_drops_lowest_scores(tmp_path):
     assert len(keys) == knowledge.MAX_ENTRIES and "best" in keys
 
 
-def test_how_is_truncated_to_keep_tokens_small(tmp_path):
+def test_long_how_is_refused_not_silently_truncated(tmp_path):
+    """조용히 자르면 결론이 문장 중간에서 사라진다 (#863) — 길이·상한과 함께 거절한다."""
     p = tmp_path / "k.json"
-    e = knowledge.learn(p, "web", "long", "가" * 1000, "ok", today="2026-09-29")["entry"]
-    assert len(e["how"]) == knowledge.MAX_HOW
+    r = knowledge.learn(p, "web", "long", "가" * 350, "ok", today="2026-09-29")
+    assert r["error"] == "too_long" and r["length"] == 350 and r["limit"] == knowledge.MAX_HOW
+    assert knowledge.load(p) == []
 
 
 @pytest.mark.parametrize("how", ["password: hunter2secret 로 로그인", "me@example.com 계정으로 로그인",

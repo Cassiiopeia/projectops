@@ -39,7 +39,9 @@ def _out_payload(payload: dict, capsys) -> dict:
 def test_failure_with_known_code_carries_known_fix(capsys):
     got = _out_payload({"ok": False, "code": "browser_start_failed", "error": "브라우저가 뜨지 않았습니다"}, capsys)
     assert got["known_fix"][0]["id"] == BROWSER_ENTRY
-    assert got["known_fix"][0]["fix"][0] == "launch_cli.py web close"
+    # 항목 문구는 바뀔 수 있다 — 응답의 해결 요약이 색인의 fix_short 와 같은지 본다
+    index = json.loads((SKILL_DIR / "troubleshooting" / "index.json").read_text(encoding="utf-8"))
+    assert got["known_fix"][0]["fix"] == index["entries"][BROWSER_ENTRY]["fix_short"]
     assert len(got["known_fix"]) <= troubleshoot.DEFAULT_FIND_LIMIT
     assert "kb show" in got["known_fix_note"]
 

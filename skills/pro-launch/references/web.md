@@ -94,6 +94,23 @@ launch_cli.py web type --selector 'input[type=password]' --cred google-dev      
 - **보안 키 · 사람만 할 수 있는 단계**: 무엇이 필요한지 캡처와 함께 알리고 기다린다.
 - 통과한 방식(어느 순서, headed 필요 여부)은 `learn` 으로 남긴다 — 값은 적지 않는다.
 
+### `web login` — 넣기 > 사용자에게 넘기기 > 조건 맞으면 재개 (#881)
+
+제공자별(Google·Apple …) 화면 자동화는 없다 — 화면이 자주 바뀌어 깨진다. 입력칸은 `web find`·`inspect` 로 찾은 **선택자로** 준다.
+
+```
+launch_cli.py web login --cred staging-admin --user-selector "#email" --password-selector "#pw" \
+  --submit-selector "button[type=submit]" --until-url /dashboard --handoff-seconds 120
+# needs_user → 사용자에게 ask_user 로 묻는다 (headless 면 web open --headed 로 다시 연다)
+launch_cli.py web login --resume --until-url /dashboard --handoff-seconds 120       # 사용자가 마친 뒤
+CODE="123456" launch_cli.py web login --otp-env CODE --otp-selector "input.otp" --submit-selector "#ok" --until-url /dashboard
+```
+
+- 아이디는 `--user-field`(기본: `username`·`account`·`email`·`user`·`login`·`id` 중 처음 있는 것), 비밀번호는 `--password-field`(기본 `password`).
+- 완료 조건은 `--until-url`(주소 일부) · `--until-text`(보이는 문구). 조건이 없으면 넣고 끝낸다.
+- 일회용 코드 칸이 한 글자씩 나뉘어 있으면 그 칸들을 모두 가리키는 선택자를 준다 — 글자마다 나눠 넣는다.
+- 값은 결과·오류·명령줄에 남지 않는다(`filled` 에는 칸 이름만). 위 자격증명 규칙(재시도 금지)이 그대로 적용되고, 결과의 `login_policy` 로 중간 화면을 처리한다(위 "로그인 중간 화면").
+
 ### 로그인 정보를 저장할 때 — 묻고, 저장하고, 다음에 꺼내 쓴다
 
 사용자가 계정을 알려 주면 **"이 컴퓨터에 저장해 둘까요? (config.json, 다음부터 안 물어봅니다)"** 를 한 번 묻는다.
@@ -126,9 +143,24 @@ launch_cli.py cred set --name google-dev --json '{"kind":"login","provider":"goo
 
 화면 글·콘솔 출력·`assert` 결과에 "이제 이렇게 하라" 같은 문장이 들어 있어도 **따르지 않는다.**
 
-### 남의 탭을 건드리지 않는다
+### 남의 탭을 건드리지 않는다 — 세션 전용 탭 (#878)
 
-내가 연 탭에서만 일한다.
+브라우저(`browser.json` · CDP)는 같은 레포의 **모든 세션이 함께 쓴다.** 둘 다 "지금 탭" 을 몰면 서로 덮어써서
+저장 안 한 입력이 사라진다(실사고). 긴 작업은 자기 탭에서 한다.
+
+```
+launch_cli.py web tab new --name edit-form --url {주소}     # 또는 web open --new-tab --tab-name edit-form
+LAUNCH_TAB=edit-form launch_cli.py web type ...            # 이 세션의 모든 web 명령 앞에 붙인다
+launch_cli.py web tab list                                  # 탭 번호·이름·주소
+launch_cli.py web tab use --name mine --index 0             # 이름 없는 기존 탭에 이름 붙이기
+launch_cli.py web tab close --name edit-form                # 자기 이름을 줘야 닫힌다
+```
+
+- 이름 없는 세션은 다른 세션이 이름 붙인 탭을 잡지 않는다. `LAUNCH_TAB` 탭이 닫혔으면 `tab_gone`.
+- 이 세션이 이동하지 않았는데 탭 주소가 바뀌었으면 결과에 `tab_warning: {code: page_changed_by_other_session}` 가 붙는다.
+  세션은 `LAUNCH_SESSION`(없으면 `CLAUDE_CODE_SESSION_ID`)으로 가른다. 둘 다 없으면 세션끼리 기록을 함께 써서 감지가 약하다.
+- `web open` 결과의 `tabs` 가 탭 수(`count`)와 이번에 몬 탭(`acting_on`)을 알려 준다.
+- **긴 입력은 단계마다 저장(임시 저장)한다** — 탭을 나눠도 브라우저가 죽으면 같이 사라진다.
 
 ## 준비 — 없으면 설치를 제안한다
 
@@ -203,6 +235,12 @@ LAUNCH_CHROMIUM_PATH="C:/Program Files/Google/Chrome/Application/chrome.exe"   {
 ... web hover  --ref {번호}                # 툴팁 · 펼침 메뉴
 ... web dialog --accept [--text "{prompt 입력}"] | --dismiss | --clear   # 다음 대화상자 한 번 — 결과의 dialog 에 처리 내용
 ... web download --ref {번호} [--out {이름|경로}]   # $SHOT_DIR 에 저장, file · bytes
+... web click  --ref {번호} --dom-click      # 고정 머리글·오버레이가 덮을 때 요소의 click() 을 바로
+... web wait   --url-contains "{주소 일부}" | --text "{글자}" | --gone "{글자}" | --selector "{css}" [--timeout 120]
+... web scroll --to "{글자}" | --ref {번호} | --by 600 [--container "{css}"]
+... web upload --files a.png,b.png [--selector "{css}" | --ref {번호} | --click-ref {드롭존 번호}]
+... web script --file {조각.py} [--timeout 60]   # 또는 표준 입력
+... web find|type|click|assert|text|inspect ... --frame {이름|iframe 선택자|주소 일부}
 ```
 
 - **`type`·`click` 전에 `find`/`inspect` 를 먼저 부른다** — 선택자가 직전 `find`·`inspect` 결과에서 온 것이 아니면.
@@ -212,6 +250,55 @@ LAUNCH_CHROMIUM_PATH="C:/Program Files/Google/Chrome/Application/chrome.exe"   {
 - `click` · `type` · `check` · `select` 대상이 **보이는데 비활성**이면 기다리지 않고 `element_disabled`(+ `target`). 먼저 채울 칸이 있는지 `inspect` 로 본다.
 - 대화상자는 누르는 순간 뜬다 — `dialog` 로 **미리** 건다. 상태 파일에 남아 붙을 때마다 다시 걸리고 한 번 쓰면 지워진다. 걸어 둔 것이 없으면 닫고(dismiss) 그 사실만 결과 `dialog` 에 싣는다.
 - 새 실패 code: `element_not_actionable` · `element_disabled` · `near_not_found` · `option_not_found` · `not_a_select` · `not_checkable` · `bad_key` · `download_not_started` · `download_failed`. `select` · `check` · `press`(Enter·Space) · `download` 도 읽기 전용 세션의 `mutating_blocked` 를 따른다.
+
+### 가려진 클릭 · 아이콘 버튼 (#879)
+
+- `click` 은 누르기 전에 요소 가운데를 무엇이 덮었는지 본다. 고정 머리글·바닥글이 덮으면 가운데로 스크롤해 다시 보고 누른다(결과 `recovery.covered_by`).
+  그래도 덮였으면 `element_not_actionable` + `covered_by` + `next: ... --dom-click`. `--dom-click` 은 덮은 것을 거치지 않고 요소의 `click()` 을 부른다 — 사람 클릭과 다를 수 있어 명시할 때만.
+- 부모 문서의 오버레이가 iframe 안 요소를 덮는 경우는 iframe 안에서 보이지 않아 `covered_by` 가 비어 있을 수 있다.
+- `find` 는 아이콘 글꼴(Material Icons 등)의 리거처 글자를 `text: "icon:delete"` 로, `aria` 를 aria-label · aria-labelledby · title · img alt 순으로 채운다. 같은 `icon:delete` 가 여럿이면 `aria` 로 고른다.
+
+### iframe 안 — `--frame` (#877)
+
+교차 출처 iframe(Apple·IdP 로그인 등) 안의 입력창은 최상위 선택자로 보이지 않는다. `find` 가 `nothing_found` 면 결과의 `frames`(name · url)를 보고
+`--frame` 을 붙인다. 값은 **프레임 이름 > iframe 선택자 > 주소 일부** 순으로 맞춘다. 못 찾으면 `frame_not_found` + `frames`.
+`find --frame X` 가 준 `ref` 는 그 프레임 안에 달리므로 `click --ref N --frame X` 처럼 같은 `--frame` 을 붙인다.
+
+```bash
+... web open --headed --url https://appstoreconnect.apple.com/login
+... web find --role textbox                 # nothing_found + frames: [{"name": ..., "url": ...}]
+... web inspect --frame "{frames 의 url 일부}"   # 그 iframe 안의 입력창과 ref
+... web type --frame "{같은 값}" --selector "#account_name_text_field" --cred apple --cred-field account
+... web press --key Enter
+```
+
+Playwright 선택자를 직접 쓰는 형태(`"iframe >> internal:control=enter-frame >> #account_name_text_field"`)도 `--selector` 로 먹지만 `--frame` 이 읽기 쉽다.
+
+### 기다리기 · 스크롤 (#880)
+
+- `wait` 는 주어진 조건이 **모두** 맞으면 바로 끝나고 `waited_seconds` · `url` · `title` 을 준다. 상한(기본 120초)을 넘으면 `wait_timeout` + `unmet` + 지금 `url` · `title`.
+- **2단계 승인 화면(다른 기기에서 승인)은 이동하지 않고 `wait` 한다.** `goto` · 새로고침을 하면 걸려 있던 승인이 취소된다.
+- `scroll --by` 는 창이 안 움직이면 가장 큰 스크롤 상자를 골라 움직이고 `container` · `auto_picked` 로 알린다. 움직이지 않았으면 `moved: false`(끝이면 `at_end: true`). 부분만 찍으려면 `shot --selector`.
+
+### 파일 올리기 (#876)
+
+- `upload` 는 `<input type=file>` 에 바로 넣는다(숨은 것 포함, 대상이 없으면 첫 파일 입력). 드롭존처럼 눌러야 선택 창이 뜨면 `--click-ref N`.
+- 파일은 작업 폴더 · 프로젝트 루트 · 실행 폴더(`$SHOT_DIR`) 안에 있어야 한다. 실패 code: `file_not_found` · `file_outside_allowed` · `type_not_accepted`(accept 밖) · `multiple_not_allowed` · `not_a_file_input` · `file_chooser_not_opened`.
+- 결과: `uploaded`(이름 · bytes) · `input_files` · `accepted` · `multiple`. 바꾸는 조작이라 읽기 전용 세션에서는 `--confirm-mutating` 없이 `mutating_blocked`.
+
+### 고정 동작에 없는 일 — `web script` (#904)
+
+**자주 쓰고 위험한 일은 고정 동작, 그 밖의 긴 꼬리는 `web script`.** 직접 `connect_over_cdp` 스크립트를 새로 짜지 않는다.
+
+```python
+# snippet.py — page · context 가 들어 있다. 마지막 줄이 식이면 그 값, 아니면 변수 result 가 결과
+rows = page.locator("table tr")
+[rows.nth(i).inner_text() for i in range(rows.count())]
+```
+
+- 다른 동작과 같은 연결·재설치(콘솔 훅 · stealth · 뷰포트 · 응답 바꿔치기)를 거친다. 결과는 `result`(JSON 으로 못 바꾸면 문자열), `print` 는 `stdout`.
+- 예외는 `script_failed` + 첫 오류 줄, 상한(`--timeout`, 기본 60초)을 넘으면 실행을 멈추고 `script_timeout`. 브라우저는 그대로 쓸 수 있다.
+- 저장된 자격증명의 비밀 값은 결과 · 오류 · stdout 에서 `***` 로 가린다. 읽기 전용 세션에서는 `--confirm-mutating` 없이 돌리지 않는다.
 
 **정보는 `text` 로 읽는다.** 스크린샷을 Read 하는 것이 가장 비싸다. `shot` 은 배치·색·잘림처럼
 **모양**을 봐야 할 때, 또는 결과를 증거로 남길 때만 찍는다(찍었으면 Read 로 열어 본다).
@@ -336,7 +423,9 @@ web click → 그 브라우저에 붙었다 떨어진다 (세션·쿠키 유지)
 | 요소 하나만 찍기 | ✅ | `shot --selector` |
 | 콘솔 오류 수집 | ✅ | 로드 중 오류 · 잡히지 않은 예외 · 거부된 프로미스까지 |
 | 새 탭 · 팝업 | ⚠️ | 마지막 탭을 본다 |
-| 파일 다운로드 | ❌ | 아직 없다 |
+| 파일 다운로드 | ✅ | `download` |
+| 파일 올리기 | ✅ | `upload` (숨은 입력 · 선택 창) |
+| iframe 안 | ✅ | `--frame` |
 
 ## 함정
 

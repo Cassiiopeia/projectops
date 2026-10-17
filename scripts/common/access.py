@@ -16,27 +16,56 @@ ACCESS_FILE = "access.json"
 
 # 기록에 들어가면 안 되는 것들. 파일은 평문으로 남고 다음 실행마다 다시 읽히므로,
 # 한 번 들어가면 계속 노출된다 — 쓰기 전에 막는 편이 유일하게 확실하다.
+# 막는 것은 '값'이다. 낱말(password)만으로는 막지 않는다 — 셀렉터 `#password_text_field`·
+# "password 칸을 누른다" 같은 설명이 막혀 로그인 지식을 못 남겼다 (#882).
+# 값 그룹(value)이 있는 패턴은 보고할 때 값만 가린다: `password=***`.
+
+# 값이 셀렉터·환경변수 참조로 시작하면 비밀값이 아니다 (#id, .class, [attr], $VAR, <placeholder>, {템플릿})
+_NOT_VALUE_START = r"(?![#.\[$<{])"
+_PASSWORD_WORD = r"(?:password|passwd|pwd|비밀번호|비번)"
+_SECRET_WORD = (r"(?:secret|client[_-]?secret|api[_-]?key|private[_-]?key|token|"
+                r"(?:access|refresh|auth|id|bearer)[_-]?token)")
+
 SECRET_PATTERNS = [
     (r'[\w.+-]+@[\w-]+\.[\w.]{2,}', "이메일 주소"),
     (r'01[016-9][-\s]?\d{3,4}[-\s]?\d{4}', "전화번호"),
     (r'eyJ[\w-]{10,}\.[\w-]{10,}', "JWT 토큰"),
-    # 따옴표를 허용해야 JSON도 잡힌다. 예전 패턴은 yaml(`password: x`)만 보고
-    # `{"password": "x"}` 를 놓쳤다 — 기록에 원문이 그대로 들어갔다 (#589).
-    (r'(?i)["\']?\b(password|passwd|비밀번호|비번)\b["\']?\s*[:=]?\s*["\']?\S{4,}', "비밀번호"),
-    (r'(?i)["\']?\b(secret|api[_-]?key|access[_-]?token)\b["\']?\s*[:=]\s*["\']?\S{8,}', "비밀 값"),
+    # key=value · key: value · JSON {"password": "x"} (#589)
+    (r'(?i)["\']?\b' + _PASSWORD_WORD + r'\b["\']?\s*[:=]\s*["\']?(?P<value>' + _NOT_VALUE_START
+     + r'[^\s"\',;]{4,})', "비밀번호"),
+    # 구분자 없이 바로 값이 붙은 경우(password hunter2) — 값은 글자와 숫자가 섞인 것만 (설명 문장은 통과)
+    (r'(?i)\b' + _PASSWORD_WORD + r'\s+(?P<value>(?=\S*\d)(?=\S*[a-z])[a-z0-9!@$%^&*_+-]{6,})(?!\S)',
+     "비밀번호"),
+    (r'(?i)["\']?\b' + _SECRET_WORD + r'\b["\']?\s*[:=]\s*["\']?(?P<value>' + _NOT_VALUE_START
+     + r'[^\s"\',;]{8,})', "비밀 값"),
+    # 서비스가 정한 모양의 키 (낱말 없이 값만 있어도 잡는다)
+    (r'\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|sk-[A-Za-z0-9_-]{20,}|'
+     r'AKIA[0-9A-Z]{16}|xox[abprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35})', "API 키"),
+    (r'-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----', "개인키"),
 ]
+
+
+def _mask(match: re.Match) -> str:
+    """값만 가린 일치 구간 > `password=***`. 값 그룹이 없으면 앞 3글자만 남긴다."""
+    if "value" in match.re.groupindex and match.group("value"):
+        return match.group(0)[:match.start("value") - match.start()] + "***"
+    sample = match.group(0)
+    return sample[:3] + "***" if len(sample) > 3 else "***"
+
+
+def find_secret_spans(text: str) -> list[dict]:
+    """비밀값으로 보이는 구간: [{label, matched_span(가린 것)}]. agent 가 어느 부분을 고칠지 알게 한다."""
+    spans = []
+    for pattern, label in SECRET_PATTERNS:
+        match = re.search(pattern, text)
+        if match:
+            spans.append({"label": label, "matched_span": _mask(match)})
+    return spans
 
 
 def find_secrets(text: str) -> list[str]:
     """비밀값으로 보이는 것. 보고할 때도 원문을 다 드러내지 않는다."""
-    found = []
-    for pattern, label in SECRET_PATTERNS:
-        m = re.search(pattern, text)
-        if m:
-            sample = m.group(0)
-            masked = sample[:3] + "***" if len(sample) > 3 else "***"
-            found.append(f"{label}({masked})")
-    return found
+    return [f"{span['label']}({span['matched_span']})" for span in find_secret_spans(text)]
 
 
 def access_path(root: Path) -> Path:

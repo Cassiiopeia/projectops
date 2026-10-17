@@ -3,6 +3,7 @@ from __future__ import annotations
 
 
 from pro_launch.registry import Command
+from pro_launch.runtime import host_resources
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.devices import build_info, build_mismatch, devices_path, ios_udids, list_devices, load_devices, save_devices
 from pro_launch.runtime.envfile import resolve_run_dir, write_env_sh
@@ -12,8 +13,12 @@ from pro_launch.runtime.output import out
 def cmd_devices(args) -> int:
     dev = list_devices()
     n = len(dev["android"]) + len(dev["ios_booted"])
-    return out({**dev, "summary": f"사용 가능한 기기 {n}대",
-                "next": None if n else "emulator -avd {AVD명} 으로 부팅하세요"})
+    # 호스트 메모리 압박 요약 — 기기를 더 띄우기 전에 보게 한다 (#883). 자세히는 doctor --resources
+    resources = host_resources.memory_summary()
+    advice = host_resources.pressure_advice(resources["pressure"])
+    return out({**dev, "resources": resources,
+                "summary": f"사용 가능한 기기 {n}대 · 메모리 압박 {resources['pressure']}",
+                "next": advice or (None if n else "emulator -avd {AVD명} 으로 부팅하세요")})
 
 
 def cmd_device(args) -> int:

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 
+from pro_launch.commands.web.frames import frame_scope
 from pro_launch.commands.web.session import safe_title
 from pro_launch.commands.web.targets import INSPECT_JS, MAXIMUM_OPTIONS, REF_ATTR, ROLE_CHOICES, ROLE_SELECTORS
 from pro_launch.registry import Action
@@ -17,7 +18,11 @@ MAXIMUM_LIMIT = 100
 
 def _web_inspect(page, args) -> dict:
     limit = max(1, min(args.limit, MAXIMUM_LIMIT))
-    res = page.evaluate(INSPECT_JS, {"attr": REF_ATTR, "roles": ROLE_SELECTORS, "role": args.role,
+    # --frame 이면 그 iframe 안의 폼 (#877)
+    scope, failure = frame_scope(page, args, "inspect")
+    if failure:
+        return failure
+    res = scope.evaluate(INSPECT_JS, {"attr": REF_ATTR, "roles": ROLE_SELECTORS, "role": args.role,
                                       "near": args.near, "limit": limit, "maxOptions": MAXIMUM_OPTIONS})
     items = res.get("items") or []
     total = res.get("total") or 0
@@ -46,6 +51,6 @@ def execute(page, args, state: dict) -> dict:
     return _web_inspect(page, args)
 
 
-ACTION = Action(name="inspect", run=execute, configure=configure, options=(),
+ACTION = Action(name="inspect", run=execute, configure=configure, options=("frame",),
                 help="입력창·버튼·체크·선택·링크를 이름·값·상태·ref 와 함께 읽는다 (읽기 전용)",
                 example='web inspect --role input --near "이메일"')

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 
+from pro_launch.commands.web.frames import frame_scope
 from pro_launch.commands.web.session import safe_title
 from pro_launch.registry import Action
 
@@ -24,8 +25,12 @@ def grep_lines(lines: list[str], needle: str, around: int) -> tuple[str, int]:
 
 
 def _web_text(page, args) -> dict:
-    loc = page.locator(args.selector).first if args.selector else page.locator("body")
-    if args.selector and page.locator(args.selector).count() == 0:
+    # --frame 이면 그 iframe 문서의 글자 (#877)
+    scope, failure = frame_scope(page, args, "text")
+    if failure:
+        return failure
+    loc = scope.locator(args.selector).first if args.selector else scope.locator("body")
+    if args.selector and scope.locator(args.selector).count() == 0:
         return {"ok": False, "code": "selector_not_found", "action": "text", "url": page.url,
                 "error": f"{args.selector} 에 맞는 요소가 없습니다", "next": "web find --text <글자>"}
     raw = loc.inner_text(timeout=args.timeout * 1000)
@@ -62,6 +67,6 @@ def execute(page, args, state: dict) -> dict:
     return _web_text(page, args)
 
 
-ACTION = Action(name="text", run=execute, configure=configure, options=("selector", "timeout"),
+ACTION = Action(name="text", run=execute, configure=configure, options=("selector", "timeout", "frame"),
                 help="보이는 글자를 읽는다 — 스크린샷보다 싸다",
                 example='web text --grep "error" --around 2')

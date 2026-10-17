@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from pro_launch.commands.web.candidates import attach_candidates
+from pro_launch.commands.web.frames import frame_scope
 from pro_launch.commands.web.targets import REF_ATTR, is_mutating_target
 
 # 대상 요소를 기다리는 기본 시간(초) — 추측이 빗나가면 이만큼만 쓴다 (#888, 이전 10)
@@ -18,7 +19,7 @@ OUTCOME_WAIT_SECONDS = 10
 DESCRIBE_STATE_JS = """(e) => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e);
   return { tag: e.tagName.toLowerCase(), role: e.getAttribute('role'), type: e.getAttribute('type'),
     text: (e.innerText || e.value || '').replace(/\\s+/g, ' ').trim().slice(0, 120),
-    aria: e.getAttribute('aria-label'), href: e.getAttribute('href'),
+    aria: e.getAttribute('aria-label') || e.getAttribute('title'), href: e.getAttribute('href'),
     visible: r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none',
     disabled: !!e.disabled || e.getAttribute('aria-disabled') === 'true' || !!e.closest('fieldset[disabled]') }; }"""
 
@@ -58,7 +59,11 @@ def locate_target(page, args, state: dict, action: str, *, should_wait: bool = F
         return None, None, {"ok": False, "code": "target_required", "action": action,
                             "error": "--ref 나 --selector 가 필요합니다",
                             "next": "web inspect  # 입력창·버튼 후보를 번호와 함께 받아 --ref 로 고른다"}
-    locator = page.locator(selector)
+    # --frame 이면 그 iframe 안에서만 찾는다 (#877). 후보도 그 안에서 고른다
+    scope, failure = frame_scope(page, args, action)
+    if failure:
+        return None, None, failure
+    locator = scope.locator(selector)
     if locator.count() == 0 and should_wait and args.ref is None:
         try:
             locator.first.wait_for(state="attached", timeout=target_wait_seconds(args) * 1000)
@@ -69,13 +74,15 @@ def locate_target(page, args, state: dict, action: str, *, should_wait: bool = F
             return None, None, attach_candidates(
                 {"ok": False, "code": "ref_stale", "action": action, "url": page.url,
                  "error": f"ref {args.ref} 이 화면에 없습니다 (이동·다시 그리기로 사라졌다)",
-                 "next": "web find  # 지금 화면에서 다시 고른다"}, page, None, action)
+                 "next": "web find  # 지금 화면에서 다시 고른다"}, scope, None, action)
         return None, None, attach_candidates(
             {"ok": False, "code": "selector_not_found", "action": action, "url": page.url,
              "error": f"{args.selector} 에 맞는 요소가 없습니다", "next": "web find --text <글자>"},
-            page, args.selector, action)
+            scope, args.selector, action)
     element = locator.first
     info = element.evaluate(DESCRIBE_STATE_JS)
+    if getattr(args, "frame", None):
+        info["frame"] = args.frame
     # 보이는데 비활성이면 타임아웃까지 기다려도 소용없다 — 바로 알린다 (#888)
     if info.get("visible") and info.get("disabled"):
         return None, info, {"ok": False, "code": "element_disabled", "action": action, "target": info,
@@ -108,7 +115,8 @@ def not_actionable_failure(page, args, action: str, info: dict | None, error: Ex
                "error": f"'{label}' 을 {target_wait_seconds(args)}초 안에 조작할 수 없었습니다 (숨김·가려짐·움직이는 중)",
                "detail": detail, "next": "web inspect  # 보이는 입력창·버튼을 ref 와 함께 다시 고른다"}
     selector = None if getattr(args, "ref", None) is not None else getattr(args, "selector", None)
-    return attach_candidates(failure, page, selector, action)
+    scope = frame_scope(page, args, action)[0] or page
+    return attach_candidates(failure, scope, selector, action)
 
 
 def perform_on_target(page, args, action: str, info: dict | None, operation) -> dict | None:

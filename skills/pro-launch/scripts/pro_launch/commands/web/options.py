@@ -48,6 +48,12 @@ def _target_timeout(p) -> None:
                    help="대기 제한(초). 기본: 대상 요소 4초 · 누른 뒤 결과(--expect-* · 내려받기) 10초. 주면 둘 다 이 값")
 
 
+def _frame(p) -> None:
+    # 교차 출처 iframe 안의 로그인 폼 등 — 최상위 문서 선택자로는 안이 안 보인다 (#877)
+    p.add_argument("--frame", default=None,
+                   help="iframe 안에서 한다: 프레임 이름 · iframe 선택자 · 주소 일부 (못 찾으면 frames 목록)")
+
+
 def _clear(p) -> None:
     p.add_argument("--clear", action="store_true", help="지정을 푼다")
 
@@ -73,6 +79,7 @@ SHARED_OPTIONS = {
     # 요소를 조작하는 동작(click · type · check · select · hover · press · download)의 --timeout.
     # timeout 과 같은 플래그라 한 동작에 둘 중 하나만 적는다. 위 timeout 보다 뒤에 둬야 미선언 동작의 기본값이 10 으로 남는다
     "target_timeout": _target_timeout,
+    "frame": _frame,
     "clear": _clear,
     "out": _out,
     "confirm_mutating": _confirm_mutating,

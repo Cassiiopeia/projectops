@@ -6,11 +6,15 @@ import sys
 
 from common.image import has_pillow, resize_tool
 from common.proc import sdk_tool
-from common.state import venv_dir
+from common.state import repo_unknown, venv_dir
+
+import knowledge
 
 from pro_launch.registry import Command
 from pro_launch.runtime.browser import browser_choice, open_browser_status, playwright_state, state_path
+from pro_launch.runtime import host_resources
 from pro_launch.runtime.context import project_root, state_home
+from pro_launch.runtime.devices import list_devices
 from pro_launch.runtime.output import out
 
 
@@ -42,7 +46,8 @@ def cmd_doctor(args) -> int:
     # Playwright 가 있어야 번들 경로를 알 수 있다. 없어도 환경변수·설치된 브라우저는 보인다
     chosen = browser_choice()
     open_browser = open_browser_status(state_path(root))
-    return out({
+    memory = _memory_counts(root)
+    payload = {
         "checks": checks,
         "browser": pw,
         "browser_choice": {k: chosen.get(k) for k in ("exe", "source", "label", "reason", "error")},
@@ -54,19 +59,42 @@ def cmd_doctor(args) -> int:
         "state_dir": str(home),
         "venv": str(venv_dir()),
         "platform": sys.platform,
+        "memory": memory,
         "summary": (f"{sys.platform}: "
                     + (", ".join(c["tool"] for c in checks if c["found"]) or "도구 없음"))
                    + f" · 브라우저 {'준비' if pw['ready'] else '없음'}"
                    + (f" ({chosen['label']})" if chosen.get("exe") else "")
-                   + f" · 이미지 축소 {shrink_by or '불가'}",
-    })
+                   + f" · 이미지 축소 {shrink_by or '불가'}"
+                   + " · 기억 " + ", ".join(f"{area} {row['count']}" for area, row in memory.items()),
+    }
+    if args.resources:
+        _attach_resources(payload)
+    return out(payload)
+
+
+def _memory_counts(root) -> dict:
+    """영역별 기억 건수·마지막 사용일 — launch_cli 를 안 거치는 작업(adb·Maestro 직접)에도 기억이 있음을 보이게 (#863)."""
+    scopes = ("machine",) if repo_unknown(root) else ("repo", "machine")
+    return knowledge.area_summary({scope: knowledge.store_path(scope, root) for scope in scopes})
+
+
+def _attach_resources(payload: dict) -> None:
+    """--resources: 메모리 압박 단계 · 큰 프로세스 · 켜진 가상 기기와 묶은 레포 (#883). 보고만 한다."""
+    report = host_resources.resource_report(list_devices())
+    payload["resources"] = report
+    payload["summary"] += f" · 메모리 압박 {report['pressure']}"
+    advice = host_resources.pressure_advice(report["pressure"])
+    if advice:
+        payload["next"] = advice
 
 
 def configure_doctor(p) -> None:
+    p.add_argument("--resources", action="store_true",
+                   help="메모리·스왑 압박, 큰 프로세스, 켜진 에뮬레이터·시뮬레이터와 묶은 레포 (보고만, 끄지 않는다)")
     p.add_argument("--root", default=".")
 
 
 COMMANDS = [
-    Command(name="doctor", help="도구 설치 여부 · 저장 위치", run=cmd_doctor,
+    Command(name="doctor", help="도구 설치 여부 · 저장 위치 · 기억 건수 (--resources 로 호스트 메모리 압박)", run=cmd_doctor,
             configure=configure_doctor),
 ]

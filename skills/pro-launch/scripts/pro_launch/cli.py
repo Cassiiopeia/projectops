@@ -12,12 +12,13 @@ import sys
 
 from pro_launch import registry
 from pro_launch.registry import Command
-from pro_launch.runtime.context import ACCESS_CTX, OUTPUT_CTX, ROOT_CTX
+from pro_launch.runtime.arg_diagnosis import diagnose, empty_value_options
+from pro_launch.runtime.context import ACCESS_CTX, INPUT_CTX, OUTPUT_CTX, ROOT_CTX
 from pro_launch.runtime.output import attach_known_fix, emit_shaped
 
 # 도움말에서 보이는 순서. 여기 없는 명령은 이름순으로 뒤에 붙는다 (등록 자체는 이 표와 무관하다)
 HELP_ORDER = ("doctor", "detect", "devices", "device", "app", "web", "render", "http", "access", "db",
-              "logs", "cred", "local", "ssh", "shrink", "recall", "learn", "tidy", "forget",
+              "logs", "cred", "local", "ssh", "shrink", "recall", "learn", "tidy", "forget", "session-check",
               "kb", "get-output-path")
 
 
@@ -111,6 +112,9 @@ def main(argv: list[str] | None = None) -> int:
         return emit_shaped({"ok": False, "code": "bad_args", "error": f"인자가 올바르지 않습니다: {option_error}",
                             "next": "launch_cli.py <서브커맨드> --help"})
     raw, tail = _split_tail(raw, load_commands())
+    # 빈 값('' — $VAR 미설정)은 파서를 통과해도 동작에서 엉뚱한 오류가 된다. 실패 응답에 원인 옵션을 싣는다 (#886)
+    INPUT_CTX.clear()
+    INPUT_CTX.update(raw=raw, empty_values=empty_value_options(raw))
     err = io.StringIO()
     try:
         # argparse 가 stderr 로 쓰는 원인 문구를 error 에 싣는다 (에이전트는 JSON 만 읽는다)
@@ -126,6 +130,16 @@ def main(argv: list[str] | None = None) -> int:
         payload = {"ok": False, "code": "bad_args",
                    "error": f"인자가 올바르지 않습니다: {reason}",
                    "next": "launch_cli.py <서브커맨드> --help"}
+        # 무엇이 틀렸는지 · 비슷한 이름 · 이 명령의 옵션 · 예시 (#886)
+        diagnosis = diagnose(parser, raw, reason)
+        payload.update(diagnosis)
+        payload["summary"] = ("인자 오류: " + " ".join(diagnosis["unknown"]) + " 를 모른다"
+                              if diagnosis.get("unknown") else payload["error"])
+        if diagnosis.get("did_you_mean"):
+            fixes = ", ".join(f"{wrong} > {right}" for wrong, right in diagnosis["did_you_mean"].items())
+            payload["next"] = f"이름을 고쳐 다시 부른다 ({fixes})"
+        elif diagnosis.get("example"):
+            payload["next"] = f"예: {diagnosis['example']}"
         if registry.LOAD_ERRORS:
             # 모듈이 깨져서 서브커맨드가 안 보이는 것일 수 있다 — 원인을 알려 준다
             payload["load_errors"] = dict(registry.LOAD_ERRORS)

@@ -20,27 +20,32 @@ description: "Capability skill that launches and drives apps, web and servers: e
 
 ## 무엇을 하려는가 → 명령 → 자세한 문서
 
-모든 명령은 `{PYTHON} {SCRIPTS}/launch_cli.py <명령>` 이다.
+모든 명령은 `{PYTHON} {SCRIPTS}/launch_cli.py <명령>` 이다. **레포 밖(셸 작업 폴더가 바뀐 뒤)에서 부르면 `--root <프로젝트>`를 붙인다** —
+없으면 `$PROJECT_ROOT` > 작업 폴더(git) > 최근에 쓴 루트 순으로 찾고, 실패 응답에 `root_candidates`·`retry` 가 온다 (#885).
 
 | 하려는 것 | 명령 | 자세히 |
 |---|---|---|
 | 도구(adb · simctl · Chromium · Pillow · cwebp · ffmpeg) · 무엇을 띄울 수 있나(app · web · server, 패키지명 · 번들 ID) · 붙은 기기 · 부팅된 시뮬레이터 · AVD | `doctor` · `detect --path .` · `devices` | — |
+| 호스트 메모리 압박(ok·high·critical) · 큰 프로세스 · 켜진 기기를 묶은 레포 — **가상 기기를 더 띄우기 전에** | `doctor --resources` | 아래 공통 규칙 |
 | 참가자가 둘 이상 — 역할을 기기에 묶기 | `device list\|bind\|unbind\|show` | `references/app.md` |
 | 앱 띄우기 · 찍기 | `app launch` · `app shot [--clean-status]` | `references/app.md` |
 | 앱 화면 구조 · 누르기 · 밀기 | `app tree` · `app tap` · `app swipe` | `references/app.md` |
 | 앱 여러 단계 한 번에 (iOS 는 Maestro 1회) | `app run --steps steps.json` | `references/app.md` |
+| 복잡한 제스처(밀고 곧바로 탭 · 요소에서 밀기) — 프로젝트 Maestro flow 실행 + 캡처 | `app flow --file x.yaml` | `references/app.md` 제스처 플레이북 |
 | iOS 를 여러 번 보고 누를 때 — 상주 세션 (호출당 20초 > 1초) | `app session start\|stop\|status` | `references/app.md` |
 | 앱에 글자 넣기(저장된 로그인, iOS 는 Maestro) | `app type --cred 이름` | `references/app.md` |
 | 앱 끄기 · 다시 띄우기 · 위치 · 권한 · 푸시(iOS) · 딥링크 — **raw simctl/adb 대신** | `app terminate\|relaunch\|location\|permission\|push\|openurl` | `references/app.md` |
 | 브라우저 열기 · **화면 읽기 · 누를 것 고르기** · 확인하며 클릭 · 입력 · 캡처 | `web setup\|open\|goto\|text\|find\|click\|type\|shot\|assert\|console\|close` | `references/web.md` |
 | 폭 바꾸기 · 응답 바꿔치기(빈 목록 · 500 · 지연) | `web viewport` · `web route` | `references/web.md` |
 | **폼 읽기**(입력·버튼·체크·선택 + 값·비활성·ref) · 줄만 골라 읽기 · 고르기 · 체크 · 키 · 올리기 · 대화상자 · 내려받기 — **raw CDP 스크립트 대신** | `web inspect` · `web text --grep` · `web select\|check\|press\|hover\|dialog\|download` | `references/web.md` |
+| 조건 기다리기(승인·토스트·주소) · 안쪽 상자 스크롤 · 파일 올리기 · iframe 안 조작 · **고정 동작에 없는 일** | `web wait\|scroll\|upload` · `--frame` · `web script` | `references/web.md` |
 | 코드로 상태를 그려 찍기 | `render snapshot` → `render run` | `references/render.md` |
 | 단건 HTTP · 붙는 법 기록 · SQL · 로그 | `http` · `access show\|set\|unset` · `db` · `logs` | `references/server.md` |
 | 자격증명 저장 · 원격 명령 · 이 맥 sudo | `cred list\|show\|set\|unset\|import-ssh` · `ssh` · `local sudo` | `references/credentials.md` |
 | 로그인 중간 화면(기기 신뢰 · 로그인 유지 · 권유) 정책 | `cred policy get\|set\|unset` | `references/web.md` "로그인 중간 화면" |
 | 이슈 첨부용 축소 | `shrink` | `references/memory.md` |
-| 이 컴퓨터에서 먹힌 방식 꺼내기 · 남기기 · 지우기 · 정리 | `recall` · `learn` · `forget` · `tidy` | `references/memory.md` |
+| 이 컴퓨터에서 먹힌 방식 꺼내기 · 남기기 · 지우기 · 정리 | `recall [--match 낱말]` · `learn [--detail]` · `forget` · `tidy` | `references/memory.md` |
+| 작업을 마칠 때 — 막혔다 풀렸는데 learn 안 한 영역 | `session-check` | `references/memory.md` |
 | 공식 트러블슈팅 찾기 · 보기 · 목록 · 내 기억에서 공식 항목 초안 | `kb search\|show\|list\|propose` | `references/troubleshooting.md` · `references/memory.md` |
 | 했던 작업을 자유롭게 적어 두고 다음에 다시 읽기 (작업 일지) | `journal [--add "..."] [--title] [--site]` | `references/memory.md` |
 | 이번 실행 자리 + `env.sh` | `get-output-path` | 아래 |
@@ -98,6 +103,10 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
   짧게 받으려면 어느 명령에든 `--brief`(ok·code·summary·next·error·known_fix·memory·learn_hint 만),
   특정 키만 원하면 `--fields path,url` 을 붙인다. 둘 다 그 안내 키들은 항상 남긴다. 키 순서는 언제나
   `ok`·`code`·`summary`·`next` → `known_fix`·`memory` → 나머지다.
+- **`bad_args` 면 `unknown`·`did_you_mean`·`valid_options`·`example` 을 읽고 고친다** — 짐작으로 다시 부르지 않는다.
+  `empty_values` 가 오면 그 옵션 값이 비었다(`$VAR` 미설정).
+- **`pressure: critical`(doctor --resources · devices 의 `resources`)이면 가상 기기를 새로 띄우기 전에 사용자에게 묻는다.**
+  다른 세션의 에뮬레이터·시뮬레이터·프로세스는 끄지 않는다 — `bound_by` 로 누가 쓰는지 보고만 한다.
 - 캡처는 기본 긴 변 1200px WebP. 픽셀 대조처럼 원본이 필요할 때만 `--keep-format`. **찍은 것은 Read 로 열어 본다.**
   텍스트로 확인되면(`web assert` · `app tree` · 로그) 이미지를 읽지 않는다 — 가장 비싼 것이 이미지다.
 - **호스트 마우스로 좌표를 누르지 않는다**(`cliclick` · AppleScript · CGEvent) — 사용자 커서를 빼앗는다. 앱은 `app tap`, 웹은 `web find` → `web click --ref`.
@@ -162,6 +171,13 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web route --match "**/ap
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web goto --url {그 화면}            # 규칙은 이동할 때 걸린다
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web shot --out 02_빈목록
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web route --clear
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web wait --url-contains /home --timeout 180   # 2단계 승인·저장 토스트 — 이동하지 말고 기다린다
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web scroll --to "결제 내역"           # 또는 --ref N · --by 600 [--container "#list"]
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web upload --files a.png,b.png       # 숨은 input[type=file] · 드롭존은 --click-ref N
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web type --frame login --selector "#account_name_text_field" --cred apple --cred-field account   # iframe 안
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web script --file snippet.py          # 고정 동작에 없는 일 — page · context 로 Playwright 조각
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web tab new --name edit --url {주소}  # 긴 작업은 자기 탭에서 — 이후 LAUNCH_TAB=edit 를 앞에 붙인다
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web login --cred {이름} --user-selector "#email" --password-selector "#pw" --submit-selector "#go" --until-url /home --handoff-seconds 120   # 2단계 인증은 사용자에게 넘기고 기다린다
 ```
 
 - **`type`·`click` 전에 `find`/`inspect` 를 먼저 부른다** — 선택자가 직전 `find`·`inspect` 결과에서 온 것이 아니면. 빗나간 추측은 4초 뒤 `candidates`(ref 포함)와 함께 실패한다.
@@ -173,15 +189,26 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web route --clear
 - Google·Apple 로그인이 막히면 먼저 `web open --headed`. 사이트가 이상하면 `--no-stealth` 로 비교한다.
 - `playwright_missing` 이면 사용자에게 묻고 `web setup`. `browser_not_open` · `browser_gone` 이면 `web open` 을 다시.
 - 폼은 `web inspect --role input --near "이메일"` 로 읽고 받은 `ref` 로 `type` · `check` · `select` 한다. 비활성이면 기다리지 않고 `element_disabled`.
+- **자주 쓰고 위험한 일은 고정 동작, 그 밖의 긴 꼬리는 `web script`.** 직접 CDP 에 붙는 스크립트를 새로 짜지 않는다 — `script` 는 같은 연결·재설치·시간 상한·비밀값 가림을 거친다.
+- 로그인 폼이 iframe 안이면(`find` 가 `nothing_found` + `frames`) `--frame <이름|iframe 선택자|주소 일부>` 를 `find` · `type` · `click` · `assert` · `text` · `inspect` 에 붙인다.
+- **브라우저는 같은 레포의 세션들이 함께 쓴다.** 저장 안 한 긴 입력은 `web tab new --name <이름>` 으로 만든 자기 탭에서 하고(`LAUNCH_TAB=<이름>`), 단계마다 저장한다.
+  다른 세션이 내 탭을 옮겼으면 결과에 `tab_warning`(`page_changed_by_other_session`)이 붙는다.
+- `web open` 은 멈춘 브라우저·남은 프로필 잠금을 스스로 치우고 `recovered` 로 알린다. 손으로 잠금을 지우지 않는다.
 - 옵션은 동작마다 다르다 — `web <동작> --help`. 그 동작이 안 받는 옵션은 `bad_args` 로 거절된다(쓸 수 있는 옵션이 error 에 실린다).
 
 | code | 다음 행동 |
 |---|---|
 | `nothing_found` · `selector_not_found` | 결과의 `candidates` 에서 골라 `next` 대로 `--ref` 로 다시. 후보가 없으면 `web text` 로 화면 글자를 읽고 `find` |
-| `element_not_actionable` | 요소는 있지만 숨김·가려짐이라 4초 안에 못 눌렀다. `candidates` 에서 다시 고른다 |
+| `element_not_actionable` | 요소는 있지만 숨김·가려짐이라 4초 안에 못 눌렀다. `covered_by` 가 있으면 고정 머리글·오버레이가 덮은 것 — `next` 대로 `--dom-click`. 아니면 `candidates` 에서 다시 고른다 |
+| `frame_not_found` | `frames` 의 name · url 일부를 `--frame` 에 넣는다 |
+| `wait_timeout` | 조건이 안 맞았다. `url` · `title` 로 판단한다. 승인 대기면 이동하지 말고 다시 `wait` |
+| `script_failed` · `script_timeout` | 조각의 첫 오류 줄을 보고 고친다 · `--timeout` 을 늘리거나 기다림을 줄인다 |
 | `ref_stale` | 화면이 바뀌었다. `find` 를 다시 |
 | `expect_not_met` | 기대한 결과가 안 왔다. `web text` 로 지금 화면을 보고 다른 후보를 고른다 |
 | `mutating_blocked` | 읽기 전용 세션이 위험 버튼을 막았다. 무엇이 바뀌는지 사용자에게 말하고 승인받는다 |
+| `needs_user` | 로그인 남은 단계(2단계 인증·기기 승인)를 사용자에게 넘긴다. `ask_user` 로 묻고, 마쳤다고 하면 `next` 의 `web login --resume ...` |
+| `tab_gone` | `LAUNCH_TAB` 탭이 닫혔다. `web tab new --name <같은 이름>` |
+| `browser_start_failed` | 자가 복구 뒤에도 실패. `stderr_tail` · `causes` 를 보고 판단한다 |
 - **처음 웹을 몰기 전에 `references/web.md` 의 안전 계약을 읽는다.**
 
 ## render · 서버 · 자격증명 · 기억 — 이럴 땐 이것

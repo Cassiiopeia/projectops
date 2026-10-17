@@ -8,30 +8,31 @@
 
 | id | 제목 | 코드 |
 |---|---|---|
-| `browser-start-stale-process-or-lock` | web open 이 browser_start_failed — 남은 브라우저 프로세스나 프로필 잠금 | `browser_start_failed` |
+| `browser-start-stale-process-or-lock` | web open 이 browser_start_failed — 자가 복구 뒤에도 남은 문제 | `browser_start_failed` · `browser_hung` |
 | `web-browser-gone` | web 명령이 browser_gone — 띄워 둔 브라우저에 붙지 못했다 | `browser_gone` |
 | `web-browser-not-open-other-root` | 방금 연 브라우저인데 browser_not_open — 다른 프로젝트 자리로 불렸다 | `browser_not_open` |
 | `web-click-wait-with-expect` | sleep 으로 기다리지 말고 click 의 --expect-url · --expect-text 로 | `expect_not_met` |
 | `web-find-nothing-found` | web find 가 nothing_found — 기본은 누를 수 있는 요소만 찾는다 | `nothing_found` |
 | `web-goto-failed` | web open·goto 이동 실패 — 주소·서버·인증서를 본다 | `goto_failed` |
 | `web-iframe-login-fields` | iframe 안의 로그인 칸(App Store Connect 등)을 못 찾는다 | — |
+| `web-page-changed-by-other-session` | 다른 세션이 같은 탭을 옮겨 입력이 사라진다 | `page_changed_by_other_session` · `tab_gone` |
 | `web-playwright-or-browser-missing` | playwright_missing · browser_missing — web setup 이 필요하다 | `playwright_missing` · `browser_missing` |
 | `web-readonly-mutating-blocked` | 읽기 전용 세션에서 저장·제출 버튼이 mutating_blocked | `mutating_blocked` |
 | `web-selector-guess-timeout` | 추측한 --selector 가 빗나감 — 결과의 candidates 에서 골라 --ref 로 누른다 | `selector_not_found` · `element_not_actionable` · `element_disabled` |
 | `web-viewport-width-height` | web viewport --width --height 가 bad_viewport — 크기는 --preset 으로 | `bad_viewport` |
 
-### `browser-start-stale-process-or-lock` — web open 이 browser_start_failed — 남은 브라우저 프로세스나 프로필 잠금
+### `browser-start-stale-process-or-lock` — web open 이 browser_start_failed — 자가 복구 뒤에도 남은 문제
 
-- 코드: `browser_start_failed`
-- 핵심어: SingletonLock, SingletonSocket, profile_locked, stale_pid
-- 증상: web open 이 browser_start_failed 로 끝나고 브라우저가 뜨지 않는다. 응답에 causes·stale_pid·profile_locked 가 온다
-- 원인: 이전에 띄운 브라우저가 아직 같은 프로필을 쓰고 있거나 프로필 잠금(SingletonLock·SingletonSocket)이 남아 새 브라우저가 그 프로필로 뜨지 못한다. web open 은 아무 프로세스도 프로필을 쓰지 않을 때만 잠금을 스스로 치운다
+- 코드: `browser_start_failed` · `browser_hung`
+- 핵심어: SingletonLock, SingletonSocket, profile_locked, stderr_tail, recovered
+- 증상: web open 이 browser_start_failed 로 끝나고 브라우저가 뜨지 않는다. 응답에 causes·recovered·stderr_tail 이 온다
+- 원인: web open 은 기록된 브라우저를 먼저 판정한다 — 죽었으면 남은 잠금을 치우고, 살아 있는데 CDP 가 3초 안에 답하지 않으면 끄고 새로 띄운다(recovered 에 dead_pid·stale_lock·hung_browser). 그래도 실패하면 기록에 없는 다른 프로세스가 같은 프로필을 쓰고 있거나(잠금은 그때 지우지 않는다) 브라우저 자체가 바로 죽은 것이다
 - 해결:
-  1. launch_cli.py web close
-  2. close 가 browser_still_alive 면 응답 next 의 종료 명령(kill -9 <pid> 또는 taskkill)으로 그 pid 를 끝낸다
+  1. 응답의 stderr_tail 을 읽는다 — 브라우저가 바로 죽은 이유가 거기 있다
+  2. profile_locked 가 true 면 응답 profile 폴더를 쓰는 브라우저 프로세스를 찾아(ps · 작업 관리자) 사용자에게 확인한 뒤 끝낸다
   3. launch_cli.py web open --url <주소>
-  4. 그래도 같으면 응답의 profile 폴더를 쓰는 브라우저가 없는지 확인한 뒤 SingletonLock·SingletonSocket 을 지운다
-- 근거: #711, #712 · 확인 2026-10-17
+  4. 응답이 browser_still_alive 면 next 의 종료 명령(kill -9 <pid> 또는 taskkill)으로 그 pid 를 끝낸다
+- 근거: #711, #712, #887 · 확인 2026-10-17
 
 ### `web-browser-gone` — web 명령이 browser_gone — 띄워 둔 브라우저에 붙지 못했다
 
@@ -107,6 +108,19 @@
   4. 읽기 전용(--readonly) 세션이면 로그인 버튼도 막힐 수 있다 — 사용자에게 알리고 --confirm-mutating 을 붙인다
 - 근거: #889 · 확인 2026-10-17
 
+### `web-page-changed-by-other-session` — 다른 세션이 같은 탭을 옮겨 입력이 사라진다
+
+- 코드: `page_changed_by_other_session` · `tab_gone`
+- 핵심어: tab_warning, LAUNCH_TAB
+- 증상: web 결과에 tab_warning(page_changed_by_other_session)이 붙거나, 하던 페이지가 엉뚱한 사이트로 바뀌어 있다
+- 원인: 같은 레포의 브라우저를 여러 세션이 함께 쓰고, 이름 없는 세션은 모두 같은 기본 탭을 몬다
+- 해결:
+  1. launch_cli.py web tab new --name <이름> --url <주소>
+  2. 이 세션의 모든 web 명령 앞에 LAUNCH_TAB=<이름> 을 붙인다
+  3. tab_gone 이면 web tab new --name <같은 이름> 으로 다시 만든다
+  4. 긴 입력은 단계마다 저장한다
+- 근거: #878 · 확인 2026-10-17
+
 ### `web-playwright-or-browser-missing` — playwright_missing · browser_missing — web setup 이 필요하다
 
 - 코드: `playwright_missing` · `browser_missing`
@@ -162,6 +176,7 @@
 | id | 제목 | 코드 |
 |---|---|---|
 | `android-adb-missing` | adb_missing · android_tool_missing — adb 를 찾지 못했다 | `adb_missing` · `android_tool_missing` |
+| `android-maestro-driver-start-timeout` | maestro_driver_timeout — Maestro Android driver 가 시간 안에 안 뜸 | `maestro_driver_timeout` |
 | `android-no-focused-window` | no_focused_window — 초점 창이 없어 화면 구조를 못 읽음 (null root node) | `no_focused_window` |
 | `android-non-ascii-text` | Android app type 이 non_ascii_unsupported — adb 는 한글을 못 넣는다 | `non_ascii_unsupported` |
 | `android-system-restart-loop` | android_system_not_ready · ui_automation_unavailable — 에뮬레이터 시스템 재시작 반복 | `android_system_not_ready` · `ui_automation_unavailable` · `ui_dump_timeout` |
@@ -176,6 +191,18 @@
   2. launch_cli.py doctor
   3. SDK platform-tools 설치는 사용자에게 먼저 묻는다
 - 근거: #889 · 확인 2026-10-17
+
+### `android-maestro-driver-start-timeout` — maestro_driver_timeout — Maestro Android driver 가 시간 안에 안 뜸
+
+- 코드: `maestro_driver_timeout`
+- 핵심어: did not start up in time
+- 증상: app flow(또는 직접 부른 maestro test)가 'Maestro Android driver did not start up in time' 으로 멈춘다. 같은 flow 가 다른 때에는 돈다
+- 원인: 에뮬레이터·호스트 과부하로 기기 안 driver 앱(dev.mobile.maestro, dev.mobile.maestro.test)이 기동 시간 안에 응답하지 못했다(이슈 보고: 3회, 빌드와 겹쳤을 때)
+- 해결:
+  1. app flow 는 이미 driver 앱을 force-stop 하고 한 번 더 돌린 뒤에 이 code 를 낸다 — 같은 명령을 바로 반복하지 않는다
+  2. 빌드(gradle·xcodebuild) 같은 무거운 작업이 도는지 보고 끝난 뒤 다시 돌린다
+  3. 그래도 계속이면 에뮬레이터 cold boot 를 사용자에게 묻는다(emulator -avd <이름> -no-snapshot-load)
+- 근거: #862 · 확인 2026-10-17
 
 ### `android-no-focused-window` — no_focused_window — 초점 창이 없어 화면 구조를 못 읽음 (null root node)
 

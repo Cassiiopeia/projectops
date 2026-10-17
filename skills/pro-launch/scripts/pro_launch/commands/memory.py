@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 
+from pathlib import Path
+
 from common.state import repo_unknown
 
 import knowledge
@@ -26,23 +28,33 @@ def _learn_scope(args) -> str:
 
 
 def cmd_recall(args) -> int:
-    rows = knowledge.recall(_knowledge_paths(args), args.area, args.limit)
+    rows = knowledge.recall(_knowledge_paths(args), args.area, args.limit, match=args.match)
     if not rows:
         return out({"ok": True, "code": "empty", "entries": [],
-                    "summary": "이 컴퓨터에서 쌓인 방법이 아직 없다",
+                    "summary": (f"'{args.match}' 가 든 기억이 없다" if args.match
+                                else "이 컴퓨터에서 쌓인 방법이 아직 없다"),
                     "next": "작업이 끝나면 launch_cli.py learn 으로 먹힌 방법을 남긴다"})
     return out({"ok": True, "code": "ok", "entries": rows,
-                "summary": f"{len(rows)}건 (verify:true 는 한 번 확인하고 쓴다)",
+                "summary": f"{len(rows)}건 (verify:true 는 한 번 확인하고 쓴다"
+                           + (", detail_path 는 긴 경위 노트 — 필요하면 읽는다)" if any("detail_path" in r for r in rows)
+                              else ")"),
                 "next": "먹혔는지 안 먹혔는지 learn --result ok|fail 로 알린다"})
 
 
 def cmd_learn(args) -> int:
     args.scope = _learn_scope(args)
     repo_path = None if args.scope == "machine" else knowledge.store_path("repo", project_root(args))
-    r = knowledge.learn_smart(repo_path, args.area, args.key, args.how, args.result, args.scope)
+    detail, err = _read_detail(args)
+    if err:
+        return out(err)
+    r = knowledge.learn_smart(repo_path, args.area, args.key, args.how, args.result, args.scope,
+                              detail=detail)
     if "error" in r:
-        return out({"ok": False, "code": r["error"], "error": r["message"],
-                    "next": "내용을 고쳐 다시 부른다"})
+        failure = {"ok": False, "code": r["error"], "error": r["message"],
+                   "next": _learn_retry_hint(r)}
+        # 무엇이 걸렸는지 그대로 싣는다 — too_long 은 길이·상한, secret_detected 는 가린 구간
+        failure.update({k: r[k] for k in ("length", "limit", "matched_span") if k in r})
+        return out(failure)
     e = r["entry"]
     note = (f" — 다른 레포의 같은 지식 {r['promoted_from']}건과 합쳐 이 컴퓨터 범위로 올렸다"
             if r.get("promoted_from") else "")
@@ -53,6 +65,27 @@ def cmd_learn(args) -> int:
                 # 비슷한 기억이 있으면 같은 지식인지 agent 가 판단한다 — 도구가 애매한 것을 멋대로 합치지 않는다
                 "next": (f"related 중 같은 지식이 있으면 forget --key <방금 key> 후 "
                          f"learn --scope machine --key <그 key> 로 합친다" if rel else None)})
+
+
+def _read_detail(args) -> tuple[str | None, dict | None]:
+    """--detail 글 또는 --detail-file 파일 내용 > (본문, 실패 결과)."""
+    if not getattr(args, "detail_file", None):
+        return args.detail, None
+    try:
+        return Path(args.detail_file).read_text(encoding="utf-8"), None
+    except OSError as e:
+        return None, {"ok": False, "code": "file_unreadable", "error": str(e),
+                      "next": "--detail 로 직접 넘기거나 파일 경로를 고친다"}
+
+
+def _learn_retry_hint(result: dict) -> str:
+    """거절 사유별 다음 행동."""
+    if result["error"] == "too_long":
+        return ("how 는 한 줄 결론만 남기고, 왜 막혔고 어떻게 풀었는지는 "
+                "--detail \"<긴 글>\" (또는 --detail-file <파일>) 로 같이 넘긴다")
+    if result["error"] == "secret_detected":
+        return "matched_span 의 값 부분을 빼거나 <비밀번호> 처럼 바꿔 다시 부른다 (계정은 cred 에 둔다)"
+    return "내용을 고쳐 다시 부른다"
 
 
 def cmd_tidy(args) -> int:
@@ -74,6 +107,7 @@ def cmd_forget(args) -> int:
 def configure_recall(p) -> None:
     p.add_argument("--area", choices=list(knowledge.AREAS), default=None)
     p.add_argument("--limit", type=int, default=knowledge.DEFAULT_LIMIT)
+    p.add_argument("--match", default=None, help="키·방법·노트에 이 낱말이 든 것만 (예: swipe)")
     p.add_argument("--scope", choices=["both", "repo", "machine"], default="both")
     p.add_argument("--root", default=".")
 
@@ -83,6 +117,9 @@ def configure_learn(p) -> None:
     p.add_argument("--key", required=True, help="한 줄 이름 (예: ios.tap)")
     p.add_argument("--how", required=True, help=f"방법 ({knowledge.MAX_HOW}자 이내, 비밀값 금지)")
     p.add_argument("--result", required=True, choices=["ok", "fail"])
+    p.add_argument("--detail", default=None,
+                   help=f"긴 경위·이유 ({knowledge.MAX_DETAIL}자 이내) — notes/<key>.md 에 두고 recall 이 경로를 준다")
+    p.add_argument("--detail-file", default=None, help="--detail 대신 UTF-8 파일 (줄바꿈이 많은 글)")
     p.add_argument("--scope", choices=list(knowledge.SCOPES), default="repo")
     p.add_argument("--root", default=".")
 

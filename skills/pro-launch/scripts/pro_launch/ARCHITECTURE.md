@@ -40,9 +40,12 @@ scripts/
       creds.py              저장된 자격증명을 명령에서 꺼내는 얇은 층
       browser.py            브라우저 상태 파일 · Playwright 준비 · 어떤 브라우저
       procs.py              프로세스 확인 · 종료 — OS 분기는 여기만
+      arg_diagnosis.py      bad_args 진단 — 모르는 이름 · 비슷한 이름 · 그 명령의 옵션 · 예시 (#886)
+      recent_roots.py       최근에 쓴 프로젝트 루트 · 후보 (레포 밖에서 불릴 때, #885)
+      host_resources.py     호스트 메모리 압박 · 큰 프로세스 · 켜진 기기와 묶은 레포 (#883)
     commands/               위층 — 서브커맨드
       doctor.py detect.py device.py output_path.py
-      http.py access.py db.py logs.py ssh.py cred.py local.py render.py shrink.py memory.py kb.py
+      http.py access.py db.py logs.py ssh.py cred.py local.py render.py shrink.py memory.py kb.py session_check.py
       app/                  __init__ 디스패치 · gestures.py(조작) · app_control.py(기기·패키지·도구 실행) · steps.py(app run 단계 파일) · actions/ (동작 하나 = 모듈 하나)
       web/                  __init__ 디스패치 · options.py 공통 옵션 표 · session.py · targets.py · element.py 대상 고르기 · candidates.py 실패 때 후보 · actions/
 ```

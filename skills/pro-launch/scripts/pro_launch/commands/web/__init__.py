@@ -21,6 +21,7 @@ import time
 from pro_launch.commands.web import actions as _actions
 from pro_launch.commands.web.options import ALWAYS_OPTIONS, SHARED_OPTIONS
 from pro_launch.commands.web.session import DIALOG_EVENT_KEY, web_connect
+from pro_launch.commands.web.tabs import drift_warning, mark_tab
 from pro_launch.registry import Command, action_usage_lines, add_action_parsers, discover_actions
 from pro_launch.runtime.browser import read_state, state_path, write_state
 from pro_launch.runtime.context import project_root
@@ -94,6 +95,8 @@ def cmd_web(args) -> int:
             write_state(state_f, state)
         return out(err)
     pw, _browser, page = conn
+    # 이 세션이 안 움직였는데 탭이 바뀌었으면 알린다 — 다른 세션과 같은 탭을 쓰는 중 (#878)
+    tab_warning = drift_warning(page, state)
     # 마지막 사용 시각 — 오래 방치된 브라우저와 지금 쓰는 브라우저를 가른다 (#825)
     state["last_used"] = time.strftime("%Y-%m-%d %H:%M:%S")
     write_state(state_f, state)
@@ -109,13 +112,28 @@ def cmd_web(args) -> int:
                    "error": msg[:400], "url": page.url if page else None,
                    "next": "web shot  # 지금 화면이 무엇인지 먼저 봅니다"}
     finally:
+        mark_tab(page, state)
         # 연결만 끊는다. browser.close()를 부르면 다음 호출이 붙을 곳이 없어진다.
         pw.stop()
+    _save_tab_mark(state_f, state)
+    if tab_warning and isinstance(payload, dict):
+        payload["tab_warning"] = tab_warning
     _attach_dialog_event(payload, state, state_f)
     # 로그인 입력이면 중간 화면 정책을 싣는다 (#905)
     if args.action == "type" and secret_value:
         with_login_policy(payload, getattr(args, "cred", None))
+    elif args.action == "login":
+        with_login_policy(payload, getattr(args, "login_cred", None))
     return out(payload)
+
+
+def _save_tab_mark(state_f, state: dict) -> None:
+    """탭 기록만 지금 파일에 합쳐 쓴다 — 동작 도중 다른 세션이 쓴 값(새 탭 등)을 덮지 않게."""
+    fresh = read_state(state_f) if state_f.is_file() else {}
+    if not fresh.get("cdp"):
+        return
+    fresh["tab_marks"] = {**(fresh.get("tab_marks") or {}), **(state.get("tab_marks") or {})}
+    write_state(state_f, fresh)
 
 
 def _attach_dialog_event(payload: dict, state: dict, state_f) -> None:

@@ -5,7 +5,10 @@ import time
 
 import stealth
 
+from pro_launch.commands.web import tabs
+from pro_launch.commands.web.recovery import HUNG_PROBE_SECONDS, cdp_responds
 from pro_launch.runtime.browser import require_playwright
+from pro_launch.runtime.procs import pid_alive
 
 
 # 콘솔 오류는 **페이지가 열리는 동안** 난다. 열린 뒤에 리스너를 달면 이미 늦다 (#625).
@@ -101,11 +104,21 @@ def close_blank_tabs(ctx, keep) -> int:
     return closed
 
 
-def web_connect(state: dict):
-    """열려 있는 브라우저에 붙고, 붙어 있는 동안만 사는 설정(훅·stealth·뷰포트·규칙·대화상자)을 다시 건다."""
+def web_connect(state: dict, allow_missing_tab: bool = False):
+    """열려 있는 브라우저에 붙고, 붙어 있는 동안만 사는 설정(훅·stealth·뷰포트·규칙·대화상자)을 다시 건다.
+
+    탭: LAUNCH_TAB 이 있으면 그 이름의 탭, 없으면 다른 세션이 가져가지 않은 마지막 탭 (#878).
+    allow_missing_tab: 이름 붙은 탭이 사라졌어도 기본 탭으로 붙는다 (web tab 이 목록을 보여 줄 때).
+    """
     sync_playwright, err = require_playwright()
     if err:
         return None, err
+    # 멈춘 브라우저 먼저 판정 — Playwright 연결은 응답 없는 CDP 앞에서 오래 기다린다 (#887)
+    is_process_alive = bool(state.get("pid")) and pid_alive(int(state["pid"]))
+    if is_process_alive and not cdp_responds(state["cdp"]):
+        return None, {"ok": False, "code": "browser_hung", "pid": state.get("pid"),
+                      "error": f"브라우저가 {HUNG_PROBE_SECONDS:g}초 안에 응답하지 않습니다 (프로세스는 있으나 멈춤)",
+                      "next": "web open  # 멈춘 브라우저를 끄고 다시 띄웁니다 (자가 복구)"}
     pw = sync_playwright().start()
     try:
         browser = pw.chromium.connect_over_cdp(state["cdp"])
@@ -115,9 +128,10 @@ def web_connect(state: dict):
                       "error": f"열린 브라우저에 붙지 못했습니다: {e}",
                       "next": "web open  # 다시 엽니다"}
     ctx = browser.contexts[0] if browser.contexts else browser.new_context()
-    # 마지막 탭을 본다. 프로필이 영속이라 Chromium 이 옛 탭을 되살리는데,
-    # pages[0] 을 잡으면 방금 연 탭이 아니라 그 옛 탭을 몰게 된다(실측).
-    page = work_page(ctx)
+    page, tab_error = _session_page(ctx, state, allow_missing_tab)
+    if tab_error:
+        pw.stop()
+        return None, tab_error
     # 옛 상태 파일(키 없음)은 켠 것으로 본다 — 끄는 것은 --no-stealth 로 명시할 때뿐이다
     if state.get("stealth", True):
         install_stealth(ctx, page)
@@ -131,6 +145,24 @@ def web_connect(state: dict):
     apply_routes(page, state.get("routes") or [])
     arm_dialog(page, state)
     return (pw, browser, page), None
+
+
+def _session_page(ctx, state: dict, allow_missing_tab: bool):
+    """이 세션이 몰 탭 > (page, 실패 결과)."""
+    name = tabs.session_tab_name()
+    if name:
+        page = tabs.named_tab_page(ctx, state, name)
+        if page is not None:
+            return page, None
+        if not allow_missing_tab:
+            return None, {"ok": False, "code": "tab_gone",
+                          "error": f"{tabs.TAB_ENV_VAR}={name} 탭이 없습니다 (닫혔거나 브라우저가 새로 떴다)",
+                          "next": f"web tab new --name {name}  # 같은 이름으로 새 탭을 만든다 (또는 web tab list)"}
+    if state.get("tabs"):
+        return tabs.default_tab_page(ctx, state), None
+    # 마지막 탭을 본다. 프로필이 영속이라 Chromium 이 옛 탭을 되살리는데,
+    # pages[0] 을 잡으면 방금 연 탭이 아니라 그 옛 탭을 몰게 된다(실측).
+    return work_page(ctx), None
 
 
 # 이번 호출 중에 뜬 대화상자 기록을 디스패처에 넘기는 상태 키 — 결과에 실린 뒤 지워진다
