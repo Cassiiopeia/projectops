@@ -1,14 +1,36 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-17T12:28:54Z",
-    "currentVersion": "4.56.1",
+    "lastUpdated": "2026-10-17T15:24:06Z",
+    "currentVersion": "4.57.0",
     "projectType": "basic",
-    "totalReleases": 320,
+    "totalReleases": 321,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.57.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-17",
+      "pr_number": 906,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **새 기능**\n  * 로그인 중 기기 신뢰 화면을 한 번 고르면 다음부터 알아서 처리\n  * 로그인 상태 유지·패스키 권유 화면도 저장한 선택대로 처리\n  * 계정별 또는 모든 사이트 기준으로 선택을 저장하고 바꿀 수 있음\n  * 원격으로 쓸 때 2단계 인증 안내를 대화로 전달",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "로그인 중 기기 신뢰 화면을 한 번 고르면 다음부터 알아서 처리",
+            "로그인 상태 유지·패스키 권유 화면도 저장한 선택대로 처리",
+            "계정별 또는 모든 사이트 기준으로 선택을 저장하고 바꿀 수 있음",
+            "원격으로 쓸 때 2단계 인증 안내를 대화로 전달"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.56.1",
       "project_type": "basic",
