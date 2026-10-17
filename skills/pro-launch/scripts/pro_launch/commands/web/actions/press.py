@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 
-from pro_launch.commands.web.element import locate_target
+from pro_launch.commands.web.element import locate_target, outcome_wait_seconds, perform_on_target, target_wait_seconds
 from pro_launch.commands.web.session import safe_title, settle
 from pro_launch.registry import Action
 
@@ -24,7 +24,10 @@ def execute(page, args, state: dict) -> dict:
     before_url, before_title = page.url, safe_title(page)
     try:
         if element is not None:
-            element.press(args.key, timeout=args.timeout * 1000)
+            failure = perform_on_target(page, args, "press", info, lambda: element.press(
+                args.key, timeout=target_wait_seconds(args) * 1000))
+            if failure:
+                return failure
         else:
             page.keyboard.press(args.key)
     except Exception as e:
@@ -37,7 +40,7 @@ def execute(page, args, state: dict) -> dict:
     except Exception:
         pass
     page.wait_for_timeout(300)
-    settle(page, state, args.timeout)
+    settle(page, state, outcome_wait_seconds(args))
     after_url, after_title = page.url, safe_title(page)
     changed = after_url != before_url or after_title != before_title
     return {"action": "press", "key": args.key, "target": info, "changed": changed,
@@ -51,6 +54,6 @@ def configure(p) -> None:
 
 
 ACTION = Action(name="press", run=execute, configure=configure,
-                options=("selector", "ref", "timeout", "confirm_mutating"),
+                options=("selector", "ref", "target_timeout", "confirm_mutating"),
                 help="키를 누른다 — 대상을 주면 그 요소에서, 없으면 지금 초점에서",
                 example="web press --ref 2 --key Enter")

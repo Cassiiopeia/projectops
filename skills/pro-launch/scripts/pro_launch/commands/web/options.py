@@ -42,6 +42,12 @@ def _timeout(p) -> None:
     p.add_argument("--timeout", type=int, default=10, help="대기 제한(초)")
 
 
+def _target_timeout(p) -> None:
+    # 추측한 선택자가 매번 10초를 다 쓰던 것을 줄인다 (#888). 기본값 계산은 element.py 의 *_wait_seconds
+    p.add_argument("--timeout", type=int, default=None,
+                   help="대기 제한(초). 기본: 대상 요소 4초 · 누른 뒤 결과(--expect-* · 내려받기) 10초. 주면 둘 다 이 값")
+
+
 def _clear(p) -> None:
     p.add_argument("--clear", action="store_true", help="지정을 푼다")
 
@@ -64,6 +70,9 @@ SHARED_OPTIONS = {
     "text": _text,
     "secret_text": _secret_text,
     "timeout": _timeout,
+    # 요소를 조작하는 동작(click · type · check · select · hover · press · download)의 --timeout.
+    # timeout 과 같은 플래그라 한 동작에 둘 중 하나만 적는다. 위 timeout 보다 뒤에 둬야 미선언 동작의 기본값이 10 으로 남는다
+    "target_timeout": _target_timeout,
     "clear": _clear,
     "out": _out,
     "confirm_mutating": _confirm_mutating,

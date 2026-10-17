@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 
-from pro_launch.commands.web.element import locate_target
+from pro_launch.commands.web.element import locate_target, perform_on_target, target_wait_seconds
 from pro_launch.commands.web.session import done_payload
 from pro_launch.registry import Action
 
@@ -18,7 +18,10 @@ def execute(page, args, state: dict) -> dict:
     before = element.evaluate(CHECKED_JS)
     should_check = not args.off
     try:
-        element.set_checked(should_check, timeout=args.timeout * 1000)
+        failure = perform_on_target(page, args, "check", info, lambda: element.set_checked(
+            should_check, timeout=target_wait_seconds(args) * 1000))
+        if failure:
+            return failure
     except Exception as e:
         message = str(e)
         # 체크박스가 아니거나 라디오를 끄려 했다 — 기다려도 안 되는 일이다
@@ -40,6 +43,6 @@ def configure(p) -> None:
 
 
 ACTION = Action(name="check", run=execute, configure=configure,
-                options=("selector", "ref", "timeout", "confirm_mutating"),
+                options=("selector", "ref", "target_timeout", "confirm_mutating"),
                 help="체크박스·라디오·스위치를 켠다 (--off 면 끈다)",
                 example="web check --ref 5 --off")

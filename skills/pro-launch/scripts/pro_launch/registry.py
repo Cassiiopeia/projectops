@@ -125,11 +125,17 @@ class ActionParser(argparse.ArgumentParser):
 
 
 def shared_option_defaults(shared: dict[str, Callable[[argparse.ArgumentParser], None]]) -> dict:
-    """공통 옵션 전부의 (dest → 기본값). 선언하지 않은 동작에도 속성은 있어야 디스패처가 getattr 없이 읽는다."""
-    scratch = argparse.ArgumentParser(add_help=False)
+    """공통 옵션 전부의 (dest → 기본값). 선언하지 않은 동작에도 속성은 있어야 디스패처가 getattr 없이 읽는다.
+
+    같은 플래그를 동작마다 다른 기본값으로 두는 옵션(--timeout)이 있어 하나씩 따로 읽고, 겹치면 표의 앞쪽이 이긴다.
+    """
+    defaults: dict = {}
     for add in shared.values():
+        scratch = argparse.ArgumentParser(add_help=False)
         add(scratch)
-    return vars(scratch.parse_args([]))
+        for dest, value in vars(scratch.parse_args([])).items():
+            defaults.setdefault(dest, value)
+    return defaults
 
 
 def add_action_parsers(parser: argparse.ArgumentParser, actions: dict[str, Action],

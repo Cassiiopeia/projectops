@@ -5,6 +5,7 @@
   · 폼을 읽는다(inspect) · 줄만 골라 읽는다(text --grep)
   · 고르기 · 체크 · 키 · 올리기 · 대화상자 · 내려받기
   · 비활성 요소는 타임아웃까지 기다리지 않고 바로 element_disabled
+  · 추측한 선택자가 빗나가면 4초 안에 후보(candidates)와 --ref 안내를 돌려준다
   · `web <동작> --help` 는 그 동작의 옵션만, 안 받는 옵션은 bad_args 로 거절
 """
 from __future__ import annotations
@@ -23,6 +24,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_launch_cli import _j, _repo, run_cli  # noqa: E402
 from pro_launch import registry  # noqa: E402
+from pro_launch.commands.web import candidates as web_candidates  # noqa: E402
 from pro_launch.commands.web import element as web_element  # noqa: E402
 from pro_launch.commands.web import session as web_session  # noqa: E402
 from pro_launch.commands.web.actions import dialog as web_dialog  # noqa: E402
@@ -150,11 +152,17 @@ class _FakeLocator:
 class _FakePage:
     url = "http://local/"
 
-    def __init__(self, info):
+    def __init__(self, info, scanned_items=None, frame_count=1):
         self._info = info
+        self._scanned_items = scanned_items or []
+        self.frames = [object()] * frame_count
 
     def locator(self, selector):
         return _FakeLocator(self._info)
+
+    def evaluate(self, js, options):
+        # 후보 스캔(INSPECT_JS) 흉내 — 화면 순서대로 돌려준다
+        return {"items": self._scanned_items[:options["limit"]]}
 
 
 def _args(**kw):
@@ -178,6 +186,120 @@ def test_readonly_session_blocks_mutating_target_unless_confirmed():
     page = _FakePage({"tag": "button", "text": "삭제", "visible": True, "disabled": False})
     assert web_element.locate_target(page, _args(), {"readonly": True}, "check")[2]["code"] == "mutating_blocked"
     assert web_element.locate_target(page, _args(confirm_mutating=True), {"readonly": True}, "check")[2] is None
+
+
+# ── 빗나간 선택자 → 후보 · 짧은 기본 대기 (#888) ───────────────────────────
+
+_SCANNED = [
+    {"ref": 1, "role": "link", "tag": "a", "label": "홈", "href": "/"},
+    {"ref": 2, "role": "input", "tag": "input", "label": "검색", "name": "q", "value": "지난 검색어"},
+    {"ref": 3, "role": "input", "tag": "input", "label": "이메일 주소", "id": "email", "name": "email",
+     "value": "me@private.example"},
+    {"ref": 4, "role": "button", "tag": "button", "label": "Next", "disabled": True},
+    {"ref": 5, "role": "button", "tag": "button", "label": "Sign in"},
+]
+
+
+def test_selector_words_drop_css_syntax():
+    assert web_candidates.selector_words("button:has-text('Next')") == ["button", "next"]
+    assert web_candidates.selector_words("input[type=email]") == ["input", "email"]
+    assert web_candidates.selector_words("text=로그인") == ["로그인"]
+    assert "a" in web_candidates.selector_words("a[href*=login]")
+
+
+def test_candidates_rank_by_guessed_selector_and_hide_values():
+    ranked = web_candidates.rank_candidates(_SCANNED, "input[type=email]", "type")
+    assert ranked[0]["ref"] == 3, ranked
+    assert all("value" not in c for c in ranked), "입력값이 후보에 새었다"
+    clicked = web_candidates.rank_candidates(_SCANNED, "button:has-text('Next')", "click")
+    assert clicked[0]["ref"] == 4 and clicked[0]["disabled"] is True, clicked
+
+
+def test_candidates_are_capped():
+    many = [{"ref": i, "role": "button", "tag": "button", "label": f"b{i}"} for i in range(1, 40)]
+    assert len(web_candidates.rank_candidates(many, None, "click")) == web_candidates.MAXIMUM_CANDIDATES
+
+
+def test_selector_not_found_keeps_its_code_and_gains_candidates():
+    page = _FakePage(None, _SCANNED)
+    _el, _info, failure = web_element.locate_target(page, _args(selector="input[type=email]"), {}, "type",
+                                                    should_wait=True)
+    assert failure["code"] == "selector_not_found", failure
+    assert failure["candidates"][0]["ref"] == 3
+    assert failure["next"].startswith("web type --ref 3 --text"), failure["next"]
+    assert "iframe_count" not in failure
+
+
+def test_next_skips_a_disabled_top_candidate():
+    page = _FakePage(None, _SCANNED)
+    failure = web_element.locate_target(page, _args(selector="button:has-text('Next')"), {}, "click")[2]
+    assert failure["candidates"][0]["ref"] == 4 and failure["candidates"][0]["disabled"] is True
+    assert failure["next"].startswith("web click --ref 5"), failure["next"]
+
+
+def test_ref_stale_gains_candidates_and_iframe_count():
+    page = _FakePage(None, _SCANNED, frame_count=3)
+    failure = web_element.locate_target(page, _args(ref=9, selector=None), {}, "click")[2]
+    assert failure["code"] == "ref_stale" and failure["candidates"], failure
+    assert failure["iframe_count"] == 2 and "iframe" in failure["hint"]
+
+
+def test_scan_failure_leaves_the_original_failure():
+    class Navigating(_FakePage):
+        def evaluate(self, js, options):
+            raise RuntimeError("Execution context was destroyed")
+    failure = web_element.locate_target(Navigating(None), _args(), {}, "click")[2]
+    assert failure["code"] == "selector_not_found" and "candidates" not in failure
+    assert failure["next"] == "web find --text <글자>"
+
+
+class TimeoutError(Exception):   # noqa: A001 — Playwright 예외 이름을 흉내 낸다
+    pass
+
+
+def test_timeout_while_acting_becomes_not_actionable_with_candidates():
+    page = _FakePage(None, _SCANNED)
+    args = _args(selector="#hidden", text="s3cret", text_env="PW", cred=None, timeout=None)
+
+    def fill():
+        raise TimeoutError('Locator.fill: Timeout 4000ms exceeded. value "s3cret"\nCall log:\n  - fill("s3cret")')
+    failure = web_element.perform_on_target(page, args, "type", {"tag": "input", "visible": False}, fill)
+    assert failure["code"] == "element_not_actionable" and failure["candidates"], failure
+    assert "s3cret" not in str(failure), "비밀값이 결과에 새었다"
+    assert "4초" in failure["error"]
+
+
+def test_other_errors_are_not_swallowed():
+    def boom():
+        raise ValueError("Not a checkbox or radio button")
+    with pytest.raises(ValueError):
+        web_element.perform_on_target(_FakePage(None), _args(), "check", {}, boom)
+    assert web_element.perform_on_target(_FakePage(None), _args(), "check", {}, lambda: None) is None
+
+
+TARGET_ACTIONS = ("click", "type", "check", "select", "hover", "press", "download")
+
+
+@pytest.mark.parametrize("action", TARGET_ACTIONS)
+def test_target_actions_wait_briefly_unless_told(action):
+    from pro_launch.cli import build_parser
+    args = build_parser().parse_args(["web", action, "--root", "."])
+    assert args.timeout is None
+    assert web_element.target_wait_seconds(args) == 4 and web_element.outcome_wait_seconds(args) == 10
+    raised = build_parser().parse_args(["web", action, "--timeout", "15", "--root", "."])
+    assert web_element.target_wait_seconds(raised) == 15 and web_element.outcome_wait_seconds(raised) == 15
+
+
+@pytest.mark.parametrize("action", ("open", "goto", "text", "assert", "find", "inspect"))
+def test_other_actions_keep_the_full_wait(action):
+    from pro_launch.cli import build_parser
+    assert build_parser().parse_args(["web", action, "--root", "."]).timeout == 10
+
+
+def test_shared_option_defaults_first_declaration_wins():
+    shared = {"long": lambda p: p.add_argument("--timeout", type=int, default=10),
+              "short": lambda p: p.add_argument("--timeout", type=int, default=None)}
+    assert registry.shared_option_defaults(shared)["timeout"] == 10
 
 
 # ── dialog (#891) — 상태 파일에 걸고, 붙을 때마다 다시 건다 ───────────────
@@ -347,3 +469,20 @@ def test_download_saves_into_the_run_folder(tmp_path):
         run_dir = tmp_path / "run"
         d = web(r, "download", "--selector", "#dl", env_extra={"SHOT_DIR": str(run_dir)})
         assert d["ok"] and Path(d["file"]).parent == run_dir and d["bytes"] == 8, d
+
+
+@pytest.mark.local_only
+def test_guessed_selector_returns_candidates_quickly(tmp_path):
+    import time
+    with _session(tmp_path) as (r, url):
+        web(r, "open", "--url", url)
+        started = time.monotonic()
+        missing = web(r, "type", "--selector", "input[type=email]", "--text", "x@y.z")
+        assert missing["code"] == "selector_not_found", missing
+        assert time.monotonic() - started < 8, "기본 대기가 짧아지지 않았다"
+        assert missing["candidates"][0]["name"] == "email", missing["candidates"]
+        typed = web(r, "type", "--ref", str(missing["candidates"][0]["ref"]), "--text", "x@y.z")
+        assert typed["ok"], typed
+        hidden = web(r, "click", "--selector", "#tipbox")
+        assert hidden["code"] == "element_not_actionable" and hidden["candidates"], hidden
+        assert hidden["next"].startswith("web click --ref"), hidden

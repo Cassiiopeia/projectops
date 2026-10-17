@@ -3,7 +3,7 @@ from __future__ import annotations
 
 
 from pro_launch.commands.web.session import safe_title, settle
-from pro_launch.commands.web.element import locate_target
+from pro_launch.commands.web.element import locate_target, outcome_wait_seconds, perform_on_target, target_wait_seconds
 from pro_launch.registry import Action
 
 
@@ -13,15 +13,18 @@ def _web_click(page, args, state: dict) -> dict:
     if failure:
         return failure
     before_url, before_title = page.url, safe_title(page)
-    el.click(timeout=args.timeout * 1000)
+    failure = perform_on_target(page, args, "click", info, lambda: el.click(timeout=target_wait_seconds(args) * 1000))
+    if failure:
+        return failure
+    outcome_seconds = outcome_wait_seconds(args)
     waited = None
     try:
         if args.expect_url:
             waited = "url"
-            page.wait_for_url(lambda u: args.expect_url in u, timeout=args.timeout * 1000)
+            page.wait_for_url(lambda u: args.expect_url in u, timeout=outcome_seconds * 1000)
         elif args.expect_text:
             waited = "text"
-            page.get_by_text(args.expect_text).first.wait_for(state="visible", timeout=args.timeout * 1000)
+            page.get_by_text(args.expect_text).first.wait_for(state="visible", timeout=outcome_seconds * 1000)
         else:
             # 기대를 안 줬으면 짧게만 기다린다 — SPA 는 주소가 늦게 바뀐다
             try:
@@ -34,9 +37,9 @@ def _web_click(page, args, state: dict) -> dict:
                 "expected": args.expect_url or args.expect_text,
                 "before": {"url": before_url, "title": before_title},
                 "url": page.url, "title": safe_title(page),
-                "error": f"눌렀지만 기대한 {'주소' if waited == 'url' else '글자'}가 {args.timeout}초 안에 나오지 않았습니다",
+                "error": f"눌렀지만 기대한 {'주소' if waited == 'url' else '글자'}가 {outcome_seconds}초 안에 나오지 않았습니다",
                 "next": "web text  # 지금 화면을 읽고, 엉뚱한 것을 눌렀으면 web find 로 다시 고른다"}
-    settle(page, state, args.timeout)
+    settle(page, state, outcome_seconds)
     after_url, after_title = page.url, safe_title(page)
     changed = after_url != before_url or after_title != before_title
     payload = {"action": "click", "clicked": info, "changed": changed,
@@ -60,6 +63,6 @@ def configure(p) -> None:
 
 
 ACTION = Action(name="click", run=_web_click, configure=configure,
-                options=("ref", "selector", "timeout", "confirm_mutating"),
+                options=("ref", "selector", "target_timeout", "confirm_mutating"),
                 help="고른 요소 하나만 누르고 무엇이 바뀌었는지 돌려준다",
                 example="web click --ref 3 --expect-url /home")

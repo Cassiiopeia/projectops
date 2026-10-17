@@ -5,7 +5,8 @@ import os
 import time
 from pathlib import Path
 
-from pro_launch.commands.web.element import locate_target
+from pro_launch.commands.web.element import (is_timeout_error, locate_target, not_actionable_failure,
+                                             outcome_wait_seconds, target_wait_seconds)
 from pro_launch.registry import Action
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.shots import shot_folder
@@ -33,15 +34,21 @@ def execute(page, args, state: dict) -> dict:
     element, info, failure = locate_target(page, args, state, "download")
     if failure:
         return failure
+    outcome_seconds = outcome_wait_seconds(args)
+    has_clicked = False
     try:
-        with page.expect_download(timeout=args.timeout * 1000) as download_info:
-            element.click(timeout=args.timeout * 1000)
+        with page.expect_download(timeout=outcome_seconds * 1000) as download_info:
+            element.click(timeout=target_wait_seconds(args) * 1000)
+            has_clicked = True
         download = download_info.value
     except Exception as e:
-        if "Timeout" not in type(e).__name__ and "timeout" not in str(e).lower():
+        if not is_timeout_error(e):
             raise
+        # 누르기 전에 시간이 다 됐다 — 내려받기 문제가 아니라 대상 문제다
+        if not has_clicked:
+            return not_actionable_failure(page, args, "download", info, e)
         return {"ok": False, "code": "download_not_started", "action": "download", "clicked": info,
-                "url": page.url, "error": f"눌렀지만 {args.timeout}초 안에 내려받기가 시작되지 않았습니다",
+                "url": page.url, "error": f"눌렀지만 {outcome_seconds}초 안에 내려받기가 시작되지 않았습니다",
                 "next": "web text  # 새 창·확인 대화상자가 떴는지 본다 (web dialog --accept)"}
     reason = download.failure()
     if reason:
@@ -58,6 +65,6 @@ def execute(page, args, state: dict) -> dict:
 
 
 ACTION = Action(name="download", run=execute,
-                options=("selector", "ref", "out", "timeout", "confirm_mutating"),
+                options=("selector", "ref", "out", "target_timeout", "confirm_mutating"),
                 help="눌러서 받은 파일을 실행 폴더($SHOT_DIR)에 저장하고 경로·크기를 돌려준다",
                 example="web download --ref 3 --out report.csv")

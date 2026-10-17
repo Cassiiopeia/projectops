@@ -1,4 +1,4 @@
-"""web 에서 요소를 고르고 읽기 전용 세션이 막을 것을 가르는 규칙 — find 와 click 이 함께 쓴다."""
+"""web 에서 요소를 고르고 읽기 전용 세션이 막을 것을 가르는 규칙 — find · inspect · 조작 동작이 함께 쓴다."""
 from __future__ import annotations
 
 import re
@@ -95,3 +95,84 @@ FIND_JS = """(o) => {
   return { items, total: els.length, fallback };
 }"""
 
+
+# ── 폼 읽기 (#899) — web inspect 와 조작 실패 때의 후보(element.py, #888)가 함께 쓴다 ──
+
+# 역할 이름 → 고를 요소. all 은 전부
+ROLE_SELECTORS = {
+    "input": ("input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=submit])"
+              ":not([type=button]):not([type=reset]):not([type=image]),textarea,[contenteditable=''],"
+              "[contenteditable=true],[role=textbox],[role=searchbox],[role=spinbutton]"),
+    "button": "button,[role=button],input[type=submit],input[type=button],input[type=reset],input[type=image]",
+    "checkbox": "input[type=checkbox],input[type=radio],[role=checkbox],[role=radio],[role=switch]",
+    "select": "select,[role=listbox],[role=combobox]",
+    "link": "a[href],[role=link]",
+}
+ROLE_CHOICES = (*ROLE_SELECTORS, "all")
+# select 하나에서 돌려줄 선택지 수
+MAXIMUM_OPTIONS = 30
+
+INSPECT_JS = """(o) => {
+  const ATTR = o.attr;
+  document.querySelectorAll('[' + ATTR + ']').forEach(e => e.removeAttribute(ATTR));
+  const clean = t => (t || '').replace(/\\s+/g, ' ').trim();
+  const visible = e => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e);
+    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
+  const kindOf = e => { for (const [k, sel] of Object.entries(o.roles)) if (e.matches(sel)) return k; return null; };
+  const labelOf = e => {
+    const aria = e.getAttribute('aria-label'); if (aria) return clean(aria);
+    const by = e.getAttribute('aria-labelledby');
+    if (by) { const t = by.split(/\\s+/).map(id => document.getElementById(id)).filter(Boolean)
+      .map(x => x.innerText).join(' '); if (clean(t)) return clean(t); }
+    if (e.id) { const l = document.querySelector('label[for="' + CSS.escape(e.id) + '"]'); if (l && clean(l.innerText)) return clean(l.innerText); }
+    const wrap = e.closest('label'); if (wrap && clean(wrap.innerText)) return clean(wrap.innerText);
+    if (['input', 'textarea', 'select'].includes(e.tagName.toLowerCase()))
+      return clean(e.getAttribute('placeholder') || e.getAttribute('title') || e.getAttribute('name'));
+    return clean(e.innerText || e.value || e.getAttribute('title'));
+  };
+  const selector = o.role === 'all' ? Object.values(o.roles).join(',') : o.roles[o.role];
+  let els = [...document.querySelectorAll(selector)].filter(visible);
+  let anchorFound = null;
+  if (o.near) {
+    const t = o.near.toLowerCase();
+    // 그 글자를 가진 가장 안쪽 요소들이 기준점이다
+    const anchors = [...document.querySelectorAll('body *')].filter(e => visible(e) &&
+      (e.innerText || '').toLowerCase().includes(t) &&
+      ![...e.children].some(c => (c.innerText || '').toLowerCase().includes(t)));
+    anchorFound = anchors.length > 0;
+    const center = e => { const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+    const distance = e => {
+      if (labelOf(e).toLowerCase().includes(t)) return 0;
+      const [x, y] = center(e);
+      return Math.min(...anchors.map(a => { const [ax, ay] = center(a); return Math.hypot(ax - x, ay - y); }), Infinity);
+    };
+    els = els.map(e => [e, distance(e)]).filter(x => x[1] !== Infinity).sort((a, b) => a[1] - b[1]).map(x => x[0]);
+  }
+  const items = [];
+  for (const e of els) {
+    if (items.length >= o.limit) break;
+    const ref = items.length + 1;
+    e.setAttribute(ATTR, String(ref));
+    const tag = e.tagName.toLowerCase(); const type = e.getAttribute('type');
+    const item = { ref, role: kindOf(e), tag, label: labelOf(e).slice(0, 120) };
+    if (type) item.type = type;
+    if (e.id) item.id = e.id;
+    if (e.getAttribute('name')) item.name = e.getAttribute('name');
+    const isCheck = item.role === 'checkbox';
+    if (isCheck) item.checked = ('checked' in e && typeof e.checked === 'boolean') ? e.checked
+      : e.getAttribute('aria-checked') === 'true';
+    else if (type === 'password') item.has_value = !!e.value;   // 비밀번호 값은 돌려주지 않는다
+    else if (tag === 'input' || tag === 'textarea') item.value = (e.value || '').slice(0, 200);
+    else if (tag === 'select') {
+      item.value = e.value;
+      item.options = [...e.options].slice(0, o.maxOptions).map(op => ({ value: op.value,
+        label: clean(op.label || op.text).slice(0, 80), selected: op.selected }));
+      if (e.options.length > o.maxOptions) item.options_truncated = true;
+    } else if (e.isContentEditable) item.value = clean(e.innerText).slice(0, 200);
+    if (item.role === 'link') item.href = e.getAttribute('href');
+    item.disabled = !!e.disabled || e.getAttribute('aria-disabled') === 'true' || !!e.closest('fieldset[disabled]');
+    if (e.required || e.getAttribute('aria-required') === 'true') item.required = true;
+    items.push(item);
+  }
+  return { items, total: els.length, anchor_found: anchorFound };
+}"""

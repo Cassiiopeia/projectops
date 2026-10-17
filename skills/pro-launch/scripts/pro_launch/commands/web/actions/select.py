@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 
-from pro_launch.commands.web.element import locate_target
+from pro_launch.commands.web.element import locate_target, perform_on_target, target_wait_seconds
 from pro_launch.commands.web.session import done_payload
 from pro_launch.registry import Action
 
@@ -38,7 +38,10 @@ def execute(page, args, state: dict) -> dict:
                 "options": options[:30], "error": f"'{args.value}' 에 맞는 선택지가 없습니다",
                 "next": "options 의 value 나 label 중 하나로 다시 부른다"}
     before = next((o for o in options if o["selected"]), None)
-    element.select_option(value=chosen["value"], timeout=args.timeout * 1000)
+    failure = perform_on_target(page, args, "select", info, lambda: element.select_option(
+        value=chosen["value"], timeout=target_wait_seconds(args) * 1000))
+    if failure:
+        return failure
     payload = done_payload("select", page)
     payload.update({"target": info, "selected": chosen, "before": before,
                     "summary": f"'{chosen['label']}' 선택 ({chosen['value']})"})
@@ -50,6 +53,6 @@ def configure(p) -> None:
 
 
 ACTION = Action(name="select", run=execute, configure=configure,
-                options=("selector", "ref", "timeout", "confirm_mutating"),
+                options=("selector", "ref", "target_timeout", "confirm_mutating"),
                 help="드롭다운(<select>)에서 값이나 보이는 이름으로 하나를 고른다",
                 example='web select --ref 4 --value "서울"')

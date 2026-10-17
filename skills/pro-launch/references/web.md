@@ -167,10 +167,13 @@ LAUNCH_CHROMIUM_PATH="C:/Program Files/Google/Chrome/Application/chrome.exe"   {
 ... web download --ref {번호} [--out {이름|경로}]   # $SHOT_DIR 에 저장, file · bytes
 ```
 
+- **`type`·`click` 전에 `find`/`inspect` 를 먼저 부른다** — 선택자가 직전 `find`·`inspect` 결과에서 온 것이 아니면.
+- 대상을 조작하는 동작(`click` · `type` · `check` · `select` · `hover` · `press` · `download`)은 대상 요소를 **4초**만 기다린다(누른 뒤 결과 `--expect-*` · 내려받기 시작은 10초). `--timeout N` 을 주면 둘 다 N초. `open` · `goto` · `text` 는 그대로 10초.
+- 빗나간 선택자(`selector_not_found` · `ref_stale`)와 시간 초과(`element_not_actionable` — 있지만 숨김·가려짐)는 `candidates` 를 싣는다: 지금 화면의 입력창·버튼·체크·선택·링크 최대 10개(`ref` · `role` · `label` · `name` · `id` · `disabled`, 값은 싣지 않음), 추측한 선택자에 가까운 순. `next` 가 쓸 수 있는 첫 후보의 `--ref` 를 알려 준다. 최상위 문서만 훑으므로 iframe 이 있으면 `iframe_count` 가 붙는다.
 - 옵션은 동작마다 다르다: `web <동작> --help` 는 그 동작의 옵션과 예시 한 줄만 보여 준다. 안 받는 옵션은 `bad_args`.
 - `click` · `type` · `check` · `select` 대상이 **보이는데 비활성**이면 기다리지 않고 `element_disabled`(+ `target`). 먼저 채울 칸이 있는지 `inspect` 로 본다.
 - 대화상자는 누르는 순간 뜬다 — `dialog` 로 **미리** 건다. 상태 파일에 남아 붙을 때마다 다시 걸리고 한 번 쓰면 지워진다. 걸어 둔 것이 없으면 닫고(dismiss) 그 사실만 결과 `dialog` 에 싣는다.
-- 새 실패 code: `element_disabled` · `near_not_found` · `option_not_found` · `not_a_select` · `not_checkable` · `bad_key` · `download_not_started` · `download_failed`. `select` · `check` · `press`(Enter·Space) · `download` 도 읽기 전용 세션의 `mutating_blocked` 를 따른다.
+- 새 실패 code: `element_not_actionable` · `element_disabled` · `near_not_found` · `option_not_found` · `not_a_select` · `not_checkable` · `bad_key` · `download_not_started` · `download_failed`. `select` · `check` · `press`(Enter·Space) · `download` 도 읽기 전용 세션의 `mutating_blocked` 를 따른다.
 
 **정보는 `text` 로 읽는다.** 스크린샷을 Read 하는 것이 가장 비싸다. `shot` 은 배치·색·잘림처럼
 **모양**을 봐야 할 때, 또는 결과를 증거로 남길 때만 찍는다(찍었으면 Read 로 열어 본다).

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 
-from pro_launch.commands.web.element import locate_target
+from pro_launch.commands.web.element import locate_target, perform_on_target, target_wait_seconds
 from pro_launch.commands.web.session import done_payload
 from pro_launch.registry import Action
 
@@ -16,12 +16,15 @@ def execute(page, args, state: dict) -> dict:
                                            should_guard_mutating=False)
     if failure:
         return failure
-    element.fill(args.text, timeout=args.timeout * 1000)
+    failure = perform_on_target(page, args, "type", info,
+                                lambda: element.fill(args.text, timeout=target_wait_seconds(args) * 1000))
+    if failure:
+        return failure
     payload = done_payload(args.action, page)
     payload["target"] = info
     return payload
 
 
-ACTION = Action(name="type", run=execute, options=("selector", "ref", "text", "secret_text", "timeout"),
+ACTION = Action(name="type", run=execute, options=("selector", "ref", "text", "secret_text", "target_timeout"),
                 help="입력창에 글자를 넣는다 (비밀번호는 --text-env · --cred)",
                 example="web type --ref 2 --text-env APP_PW")
