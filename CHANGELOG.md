@@ -1,7 +1,31 @@
 # Changelog
 
-**Current version:** 4.59.1  
-**Last updated:** 2026-10-17T20:53:57Z  
+**Current version:** 4.60.0  
+**Last updated:** 2026-10-17T21:59:26Z  
+
+---
+
+## [4.60.0] - 2026-10-17
+
+**PR:** #918  
+
+**새 기능**
+- `version.yml` 의 개발(릴리스 소스) 브랜치 키를 `development_branch` 로 정했습니다. 옛 이름 `deploy_branch` 도 같은 값으로 함께 기록하고, 둘 중 있는 것을 읽으므로 기존 레포는 그대로 동작합니다.
+- extras 스킬 `pro-architecture-consult` 의 이름이 `pro-code-consult` 로 바뀌었습니다. 옛 이름으로 저장한 개인 설정도 계속 읽습니다.
+
+**버그 수정**
+- 업데이트를 다시 돌릴 때마다 `version.yml` 에 `store_locales_ios`·`store_locales_play` 키가 한 줄씩 늘던 문제를 고쳤습니다.
+- `--mode version` 이 저장된 `ai_summary`·`intent` 값을 바꾸던 문제를 고쳤습니다.
+- Windows 에서 브라우저 생존 확인이 그 프로세스를 종료시키던 문제를 고쳤습니다.
+- 이슈 도우미 워크플로의 GitHub 호출에 시간 제한이 없어 멈출 수 있던 문제를 고쳤습니다.
+- Flutter 마법사에서 직접 추가한 텍스트 파일(.env·.json 등) Secret 이 Base64 로 저장되던 판정 오류를 고쳤습니다. 이제 원문으로 저장되고 화면 안내도 그에 맞게 나옵니다. 기존에 Base64 로 디코딩하던 워크플로가 있다면 같은 Secret 을 다시 올릴 때 디코딩 방식을 확인하세요.
+- `doctor` 가 주석에서 이름만 언급한 워크플로에 권한 누락 경고를 내던 오탐을 고쳤습니다.
+- pi 설정 파일이 깨져 있으면 덮어쓰지 않고 알려 줍니다.
+
+**개선**
+- `.github/scripts` 의 GitHub 호출을 공통 모듈 `github_api.py` 하나로 모았습니다(업데이트 시 함께 설치됩니다).
+- 큰 스킬 CLI 와 Flutter 마법사를 기능별 파일로 나눴습니다. 명령과 출력은 그대로입니다.
+- 감사 스킬이 템플릿 원본 레포의 `.github` 를 감사 범위에 넣고, 잘못 판정하던 7가지를 고쳤습니다.
 
 ---
 
