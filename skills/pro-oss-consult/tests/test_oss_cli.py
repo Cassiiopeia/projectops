@@ -25,6 +25,9 @@ _spec = importlib.util.spec_from_file_location("oss_cli", _CLI)
 oss_cli = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(oss_cli)
 gh = oss_cli.gh_client
+# 대체(monkeypatch)는 이름이 실제로 조회되는 모듈에 건다
+from oss_consult import github_api, local_git  # noqa: E402
+from oss_consult.commands import collect as collect_command  # noqa: E402
 
 PAT = "SECRETPAT123"
 
@@ -116,7 +119,7 @@ def collect_api(**over):
 
 @pytest.fixture(autouse=True)
 def fake_pat(monkeypatch):
-    monkeypatch.setattr(oss_cli, "_pat", lambda o, r: PAT)
+    monkeypatch.setattr(github_api, "_pat", lambda o, r: PAT)
 
 
 # ── 순수 함수: README·파일 탐지 ──────────────────────────────────────────
@@ -372,7 +375,7 @@ def test_request_json_keeps_response_headers_on_http_error(monkeypatch):
 # ── collect ──────────────────────────────────────────────────────────────
 
 def test_collect_happy_path_has_facts_untrusted_and_no_verdicts(monkeypatch, capsys):
-    monkeypatch.setattr(oss_cli, "_call", collect_api())
+    monkeypatch.setattr(github_api, "_call", collect_api())
     rc, out = run(["collect", "o/r"], capsys)
     assert rc == 0 and out["ok"] and out["code"] == "ok"
     d = out["data"]
@@ -398,7 +401,7 @@ def test_collect_template_repo_and_prerelease_flags(monkeypatch, capsys):
                       **{"/repos/o/r/releases": [
                           {"tag_name": "v2-rc", "prerelease": True, "draft": False, "published_at": "p", "assets": []},
                           {"tag_name": "v1", "prerelease": False, "draft": False, "published_at": "q", "assets": [1]}]})
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     _, out = run(["collect", "o/r"], capsys)
     d = out["data"]
     assert d["meta"]["is_template"] is True
@@ -409,7 +412,7 @@ def test_collect_template_repo_and_prerelease_flags(monkeypatch, capsys):
 
 
 def test_collect_issues_disabled_410_is_partial_not_failure(monkeypatch, capsys):
-    monkeypatch.setattr(oss_cli, "_call", collect_api(**{"/repos/o/r/issues": api_err(410, "Issues are disabled")}))
+    monkeypatch.setattr(github_api, "_call", collect_api(**{"/repos/o/r/issues": api_err(410, "Issues are disabled")}))
     rc, out = run(["collect", "o/r"], capsys)
     assert rc == 0 and out["ok"] and out["code"] == "partial"
     assert out["data"]["errors"] == [{"endpoint": "issues", "code": "http_410"}]
@@ -418,7 +421,7 @@ def test_collect_issues_disabled_410_is_partial_not_failure(monkeypatch, capsys)
 
 
 def test_collect_optional_403_and_rate_limit_are_recorded(monkeypatch, capsys):
-    monkeypatch.setattr(oss_cli, "_call", collect_api(**{
+    monkeypatch.setattr(github_api, "_call", collect_api(**{
         "/repos/o/r/releases": api_err(403, "forbidden"),
         "/repos/o/r/labels": api_err(403, "API rate limit exceeded", {"x-ratelimit-remaining": "0"})}))
     _, out = run(["collect", "o/r"], capsys)
@@ -430,13 +433,13 @@ def test_collect_required_meta_failures_fail_with_next(monkeypatch, capsys):
     for err, code in ((api_err(404), "http_404"), (api_err(401), "http_401"),
                       (api_err(403, "API rate limit exceeded", {"x-ratelimit-remaining": "0"}), "rate_limited"),
                       (gh.GitHubNetworkError("TimeoutError: x"), "network")):
-        monkeypatch.setattr(oss_cli, "_call", FakeAPI({("GET", "/repos/o/r"): err}))
+        monkeypatch.setattr(github_api, "_call", FakeAPI({("GET", "/repos/o/r"): err}))
         rc, out = run(["collect", "o/r"], capsys)
         assert rc == 1 and out["ok"] is False and out["code"] == code and out["next"]
 
 
 def test_collect_no_pat(monkeypatch, capsys):
-    monkeypatch.setattr(oss_cli, "_pat", lambda o, r: None)
+    monkeypatch.setattr(github_api, "_pat", lambda o, r: None)
     rc, out = run(["collect", "o/r"], capsys)
     assert rc == 1 and out["code"] == "no_pat" and out["next"]
 
@@ -445,7 +448,7 @@ def test_collect_empty_repo_and_missing_readme(monkeypatch, capsys):
     api = FakeAPI({("GET", "/repos/o/r"): repo_meta(), ("GET", "/repos/o/r/labels?per_page=100&page=1"): [],
                    ("GET", "/repos/o/r/releases?per_page=10"): [], ("GET", "/repos/o/r/tags?per_page=30"): [],
                    ("GET", "/repos/o/r/issues?state=all&per_page=30"): []})
-    monkeypatch.setattr(oss_cli, "_call", api)  # 나머지(contents·readme)는 전부 404
+    monkeypatch.setattr(github_api, "_call", api)  # 나머지(contents·readme)는 전부 404
     rc, out = run(["collect", "o/r"], capsys)
     d = out["data"]
     assert rc == 0 and d["readme"] == {"present": False} and d["root_entries"] == []
@@ -453,7 +456,7 @@ def test_collect_empty_repo_and_missing_readme(monkeypatch, capsys):
 
 
 def test_collect_network_error_on_optional_keeps_going(monkeypatch, capsys):
-    monkeypatch.setattr(oss_cli, "_call", collect_api(**{"/repos/o/r/tags": gh.GitHubNetworkError("URLError: x"),
+    monkeypatch.setattr(github_api, "_call", collect_api(**{"/repos/o/r/tags": gh.GitHubNetworkError("URLError: x"),
                                                         "/repos/o/r/releases": []}))
     _, out = run(["collect", "o/r"], capsys)
     assert {"endpoint": "tags", "code": "network"} in out["data"]["errors"]
@@ -464,7 +467,7 @@ def test_collect_reports_truncation(monkeypatch, capsys):
     labels = [{"name": f"l{i}", "color": "x", "description": ""} for i in range(100)]
     api = collect_api(**{"/repos/o/r/contents/": many, "/repos/o/r/labels": labels,
                         "/repos/o/r/readme": b64("\n".join(f"## h{i}" for i in range(80)))})
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     _, out = run(["collect", "o/r"], capsys)
     t = out["data"]["truncated"]
     assert t["root_entries"] == {"total": 100, "shown": 80} and len(out["data"]["root_entries"]) == 80
@@ -477,7 +480,7 @@ def test_collect_label_truncation_over_150(monkeypatch, capsys):
     pages = {f"/repos/o/r/labels?per_page=100&page={i}": [{"name": f"p{i}l{j}"} for j in range(100 if i < 3 else 30)]
              for i in (1, 2, 3)}
     api = collect_api(exact={("GET", k): v for k, v in pages.items()})
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     _, out = run(["collect", "o/r"], capsys)
     lab = out["data"]["labels"]
     assert lab["count"] == 230 and lab["truncated"] is True and lab["capped"] is False and len(lab["names"]) == 150
@@ -487,14 +490,14 @@ def test_collect_label_truncation_over_150(monkeypatch, capsys):
 def test_collect_privacy_policy_one_level_below(monkeypatch, capsys):
     api = collect_api(**{"/repos/o/r/contents/docs": listing(**{"store": "dir"}),
                         "/repos/o/r/contents/docs/store": listing(**{"privacy.md": "file"})})
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     _, out = run(["collect", "o/r"], capsys)
     assert out["data"]["files"]["privacy_policy"]["where"] == "docs/store"
 
 
 @pytest.mark.parametrize("n,ok", [(1, True), (400, True), (0, False), (401, False)])
 def test_readme_lines_boundaries(monkeypatch, capsys, n, ok):
-    monkeypatch.setattr(oss_cli, "_call", collect_api(**{"/repos/o/r/readme": b64("\n".join(str(i) for i in range(500)))}))
+    monkeypatch.setattr(github_api, "_call", collect_api(**{"/repos/o/r/readme": b64("\n".join(str(i) for i in range(500)))}))
     rc, out = run(["collect", "o/r", "--readme-lines", str(n)], capsys)
     if ok:
         assert rc == 0 and out["data"]["readme"]["top"].count("\n") == n - 1
@@ -503,7 +506,7 @@ def test_readme_lines_boundaries(monkeypatch, capsys, n, ok):
 
 
 def test_collect_rejects_slugs_that_could_alter_api_path(monkeypatch, capsys):
-    monkeypatch.setattr(oss_cli, "_call", collect_api())
+    monkeypatch.setattr(github_api, "_call", collect_api())
     for bad in ("not-a-slug", "o/r/extra", "o/..", "o/r?x=1", "o/r#f"):
         rc, out = run(["collect", bad], capsys)
         assert rc == 1 and out["code"] == "bad_args" and out["next"]
@@ -544,21 +547,21 @@ def _repos_api(base, query, pages, user_type="User"):
     ([99], 99, False), ([100, 0], 100, False), ([100, 1], 101, False)])
 def test_list_repos_page_boundaries(monkeypatch, capsys, counts, expected, capped):
     api = _repos_api("/users/me/repos", "type=all", _pages(counts))
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     rc, out = run(["list-repos", "me", "--limit", "0"], capsys)
     assert rc == 0 and out["data"]["total_before_limit"] == expected and out["data"]["capped"] is capped
 
 
 def test_list_repos_page_cap_is_reported(monkeypatch, capsys):
     api = _repos_api("/users/me/repos", "type=all", _pages([100] * 12))
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     _, out = run(["list-repos", "me", "--limit", "0"], capsys)
     assert out["data"]["pages_capped"] is True and out["data"]["capped"] is True
     assert out["data"]["total_before_limit"] == 1000
 
 
 def test_list_repos_default_limit_caps_and_says_so(monkeypatch, capsys):
-    monkeypatch.setattr(oss_cli, "_call", _repos_api("/users/me/repos", "type=all", _pages([100, 50])))
+    monkeypatch.setattr(github_api, "_call", _repos_api("/users/me/repos", "type=all", _pages([100, 50])))
     _, out = run(["list-repos", "me"], capsys)
     d = out["data"]
     assert d["count"] == 100 and d["total_before_limit"] == 150 and d["capped"] is True and d["limit"] == 100
@@ -567,7 +570,7 @@ def test_list_repos_default_limit_caps_and_says_so(monkeypatch, capsys):
 
 def test_list_repos_owner_filter_reports_other_owners(monkeypatch, capsys):
     pages = {1: [_repo(1, "me"), _repo(2, "me"), _repo(3, "TEAM-X"), _repo(4, "freeMates")]}
-    monkeypatch.setattr(oss_cli, "_call", _repos_api("/users/me/repos", "type=all", pages))
+    monkeypatch.setattr(github_api, "_call", _repos_api("/users/me/repos", "type=all", pages))
     _, out = run(["list-repos", "me"], capsys)
     d = out["data"]
     assert {r["repo"] for r in d["repos"]} == {"me/r1", "me/r2"}
@@ -581,7 +584,7 @@ def test_list_repos_org_uses_org_endpoint_and_include_all(monkeypatch, capsys):
     pages = {1: [_repo(1, "me"), _repo(2, "me", fork=True), _repo(3, "me", private=True), _repo(4, "me", archived=True)]}
     api = FakeAPI({("GET", "/users/me"): {"type": "Organization"}},
                   {"/orgs/me/repos?per_page=100": lambda p, d: pages.get(_page_of(p), [])})
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     _, out = run(["list-repos", "me"], capsys)
     assert out["data"]["count"] == 1
     _, out_all = run(["list-repos", "me", "--include-all"], capsys)
@@ -590,14 +593,14 @@ def test_list_repos_org_uses_org_endpoint_and_include_all(monkeypatch, capsys):
 
 def test_list_repos_without_owner_uses_user_repos(monkeypatch, capsys):
     api = FakeAPI({}, {"/user/repos?per_page=100": lambda p, d: _pages([3]).get(_page_of(p), [])})
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     _, out = run(["list-repos"], capsys)
     assert out["data"]["count"] == 3 and out["data"]["other_owner_count"] == 0
 
 
 def test_list_repos_errors_always_have_next(monkeypatch, capsys):
     for err in (api_err(404), api_err(401), gh.GitHubNetworkError("x")):
-        monkeypatch.setattr(oss_cli, "_call", FakeAPI({("GET", "/users/nobody"): err}))
+        monkeypatch.setattr(github_api, "_call", FakeAPI({("GET", "/users/nobody"): err}))
         rc, out = run(["list-repos", "nobody"], capsys)
         assert rc == 1 and out["ok"] is False and out["next"]
 
@@ -682,7 +685,7 @@ def test_git_failure_is_distinguished_from_no_commits(tmp_path, capsys, monkeypa
         if args and args[0] == "log":
             return 128, "", "fatal: something broke"
         return real(root, *args, **kw)
-    monkeypatch.setattr(oss_cli, "_git_raw", flaky)
+    monkeypatch.setattr(local_git, "_git_raw", flaky)
     rc, out = local_facts(tmp_path, capsys)
     assert rc == 0 and out["data"]["git_error"] == {"log": "fatal: something broke"}
     assert "git log 오류" in out["summary"]
@@ -744,10 +747,10 @@ def test_local_facts_excludes_tests_and_bulk_commits(tmp_path, capsys):
 def test_local_facts_read_caps_are_reported(tmp_path, capsys, monkeypatch):
     _init(tmp_path)
     _commit(tmp_path, {f"s{i}.py": "x = 1\n" for i in range(5)})
-    monkeypatch.setattr(oss_cli, "MAX_SOURCE_FILES", 3)
+    monkeypatch.setattr(local_git, "MAX_SOURCE_FILES", 3)
     # _Budget 기본값은 정의 시점에 묶이므로 생성자를 교체해 상한을 낮춘다
     real = oss_cli._Budget
-    monkeypatch.setattr(oss_cli, "_Budget", lambda: real(max_files=3))
+    monkeypatch.setattr(local_git, "_Budget", lambda: real(max_files=3))
     rc, out = local_facts(tmp_path, capsys)
     assert rc == 0 and out["data"]["capped"]["files"] is True and "capped" in out["summary"]
 
@@ -810,7 +813,7 @@ def _write_api(topics=("a",), desc="old", homepage="", discussions=False, **extr
 
 def test_repo_update_dry_run_writes_nothing(monkeypatch, capsys):
     api, state = _write_api()
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     rc, out = run(["repo-update", "o/r", "--description", "new", "--topics", "b,c", "--discussions", "on", "--dry-run"], capsys)
     d = out["data"]
     assert rc == 0 and d["dry_run"] is True and "승인" in out["next"]
@@ -821,7 +824,7 @@ def test_repo_update_dry_run_writes_nothing(monkeypatch, capsys):
 
 def test_repo_update_applies_and_reports_before_after(monkeypatch, capsys):
     api, state = _write_api()
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     rc, out = run(["repo-update", "o/r", "--description", "new", "--homepage", "https://x.dev", "--topics", "b", "--discussions", "on"], capsys)
     d = out["data"]
     assert rc == 0 and d["before"]["description"] == "old" and d["after"]["description"] == "new"
@@ -832,7 +835,7 @@ def test_repo_update_applies_and_reports_before_after(monkeypatch, capsys):
 
 def test_repo_update_topics_replace_vs_add(monkeypatch, capsys):
     api, _ = _write_api(topics=("a", "b"))
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     _, out = run(["repo-update", "o/r", "--topics", "c", "--topics-mode", "replace", "--dry-run"], capsys)
     assert out["data"]["planned"]["topics"] == ["c"]
     _, out = run(["repo-update", "o/r", "--topics", "c,A", "--dry-run"], capsys)
@@ -841,7 +844,7 @@ def test_repo_update_topics_replace_vs_add(monkeypatch, capsys):
 
 def test_repo_update_no_change_and_nothing_to_change(monkeypatch, capsys):
     api, _ = _write_api(desc="same")
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     rc, out = run(["repo-update", "o/r", "--description", "same"], capsys)
     assert rc == 0 and out["code"] == "no_change" and not any(c[0] != "GET" for c in api.calls)
     rc, out = run(["repo-update", "o/r"], capsys)
@@ -857,7 +860,7 @@ def test_repo_update_no_change_and_nothing_to_change(monkeypatch, capsys):
 ])
 def test_repo_update_validation_failures_do_not_write(monkeypatch, capsys, argv, needle):
     api, _ = _write_api(topics=())
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     rc, out = run(["repo-update", "o/r", *argv], capsys)
     assert rc == 1 and out["code"] == "invalid_input" and needle in out["summary"] and out["next"]
     assert not any(c[0] != "GET" for c in api.calls)
@@ -866,7 +869,7 @@ def test_repo_update_validation_failures_do_not_write(monkeypatch, capsys, argv,
 def test_repo_update_partial_failure_reports_before_and_applied(monkeypatch, capsys):
     api, _ = _write_api(**{})
     api.exact[("PUT", "/repos/o/r/topics")] = api_err(422, "bad topics")
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     rc, out = run(["repo-update", "o/r", "--description", "new", "--topics", "b"], capsys)
     assert rc == 1 and out["applied"] == ["description"] and out["before"]["description"] == "old" and out["next"]
 
@@ -874,7 +877,7 @@ def test_repo_update_partial_failure_reports_before_and_applied(monkeypatch, cap
 def test_repo_update_warns_when_discussions_not_applied(monkeypatch, capsys):
     api, state = _write_api()
     api.exact[("PATCH", "/repos/o/r")] = lambda p, d: {}  # 무시하는 서버
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     _, out = run(["repo-update", "o/r", "--discussions", "on"], capsys)
     assert out["data"]["warnings"] and "has_discussions" in out["data"]["warnings"][0]
 
@@ -900,7 +903,7 @@ def _label_api(existing=None):
 
 def test_label_create_rename_recolor(monkeypatch, capsys):
     api = _label_api()
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     rc, out = run(["label", "o/r", "create", "--name", "good first issue", "--color", "#7057FF", "--description", "쉬운 이슈"], capsys)
     assert rc == 0 and out["data"]["after"]["color"] == "7057ff" and out["data"]["before"] is None
     rc, out = run(["label", "o/r", "rename", "--name", "bug", "--new-name", "type: bug"], capsys)
@@ -912,7 +915,7 @@ def test_label_create_rename_recolor(monkeypatch, capsys):
 
 def test_label_dry_run_writes_nothing(monkeypatch, capsys):
     api = _label_api()
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     rc, out = run(["label", "o/r", "rename", "--name", "bug", "--new-name", "x", "--dry-run"], capsys)
     assert rc == 0 and out["data"]["dry_run"] is True and out["data"]["planned"]["method"] == "PATCH"
     assert not any(c[0] != "GET" for c in api.calls)
@@ -921,20 +924,20 @@ def test_label_dry_run_writes_nothing(monkeypatch, capsys):
 @pytest.mark.parametrize("action,extra", [("rename", ["--new-name", "x"]), ("recolor", ["--color", "000000"])])
 def test_label_protected_status_labels_are_refused_in_code(monkeypatch, capsys, action, extra):
     api = _label_api()
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     rc, out = run(["label", "o/r", action, "--name", "작업중", *extra], capsys)
     assert rc == 1 and out["code"] == "protected_label" and out["next"] and api.calls == []  # API 조차 부르지 않는다
 
 
 def test_label_rename_into_protected_name_is_refused(monkeypatch, capsys):
-    monkeypatch.setattr(oss_cli, "_call", _label_api())
+    monkeypatch.setattr(github_api, "_call", _label_api())
     rc, out = run(["label", "o/r", "rename", "--name", "bug", "--new-name", "작업완료"], capsys)
     assert rc == 1 and out["code"] == "protected_label"
 
 
 def test_label_conflicts_and_missing(monkeypatch, capsys):
     api = _label_api([{"name": "bug", "color": "x", "description": ""}, {"name": "Feature", "color": "x", "description": ""}])
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     _, out = run(["label", "o/r", "create", "--name", "BUG"], capsys)  # 라벨 이름은 대소문자 무관
     assert out["code"] == "label_exists" and out["before"]["name"] == "bug"
     _, out = run(["label", "o/r", "rename", "--name", "bug", "--new-name", "feature"], capsys)
@@ -946,7 +949,7 @@ def test_label_conflicts_and_missing(monkeypatch, capsys):
 
 def test_label_case_only_rename_is_allowed(monkeypatch, capsys):
     api = _label_api()
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     rc, out = run(["label", "o/r", "rename", "--name", "bug", "--new-name", "Bug", "--dry-run"], capsys)
     assert rc == 0
 
@@ -955,7 +958,7 @@ def test_label_case_only_rename_is_allowed(monkeypatch, capsys):
                                   ["create", "--name", "a", "--color", "zzz"],
                                   ["create", "--name", "a", "--description", "x" * 101]])
 def test_label_input_validation(monkeypatch, capsys, argv):
-    monkeypatch.setattr(oss_cli, "_call", _label_api())
+    monkeypatch.setattr(github_api, "_call", _label_api())
     rc, out = run(["label", "o/r", *argv], capsys)
     assert rc == 1 and out["code"] == "invalid_input" and out["next"]
 
@@ -986,11 +989,11 @@ def test_every_error_json_has_a_next(monkeypatch, capsys, tmp_path):
     scenarios.append((["label", "o/r", "rename", "--name", "작업중", "--new-name", "x"], _label_api()))
     for argv, api in scenarios:
         if api is not None:
-            monkeypatch.setattr(oss_cli, "_call", api)
+            monkeypatch.setattr(github_api, "_call", api)
         rc, out = run(argv, capsys)
         assert rc == 1 and out["ok"] is False, argv
         assert out.get("next"), f"next 가 비었다: {argv} -> {out}"
-    monkeypatch.setattr(oss_cli, "_pat", lambda o, r: None)
+    monkeypatch.setattr(github_api, "_pat", lambda o, r: None)
     rc, out = run(["collect", "o/r"], capsys)
     assert out["code"] == "no_pat" and out["next"]
     rc, out = run(["list-repos"], capsys)
@@ -1000,7 +1003,7 @@ def test_every_error_json_has_a_next(monkeypatch, capsys, tmp_path):
 def test_unexpected_exception_becomes_json_with_next(monkeypatch, capsys):
     def boom(args):
         raise RuntimeError("kaboom")
-    monkeypatch.setattr(oss_cli, "cmd_collect", boom)
+    monkeypatch.setattr(collect_command, "cmd_collect", boom)
     rc, out = run(["collect", "o/r"], capsys)
     assert rc == 1 and out["code"] == "handler_error" and "kaboom" in out["summary"] and out["next"]
 
@@ -1016,13 +1019,13 @@ def test_pat_never_appears_in_any_output(monkeypatch, capsys, tmp_path):
         (["label", "o/r", "create", "--name", "a"], FakeAPI({("GET", "/repos/o/r/labels?per_page=100&page=1"): leaky})),
         (["collect", "o/r"], collect_api()),
     ]:
-        monkeypatch.setattr(oss_cli, "_call", api)
+        monkeypatch.setattr(github_api, "_call", api)
         run(argv, capsys)
     _init(tmp_path)
     _commit(tmp_path, {"a.py": "1\n"})
     local_facts(tmp_path, capsys)
     # 위 호출의 출력은 run()/local_facts() 가 소비했으므로, 다시 한 번 수집해 직접 검사한다
-    monkeypatch.setattr(oss_cli, "_call", FakeAPI({("GET", "/repos/o/r"): leaky}))
+    monkeypatch.setattr(github_api, "_call", FakeAPI({("GET", "/repos/o/r"): leaky}))
     oss_cli.run_cli(oss_cli.build_parser(), ["collect", "o/r"])
     text = capsys.readouterr().out
     assert PAT not in text and "***" in text
@@ -1060,7 +1063,7 @@ def test_collect_output_is_bounded_against_hostile_strings(monkeypatch, capsys):
     hostile = "A" * 50000
     api = collect_api(**{"/repos/o/r/labels": [{"name": hostile, "color": "d73a4a", "description": ""}]})
     api.exact[("GET", "/repos/o/r")] = repo_meta(description=hostile + "‮", homepage="https://x.dev/" + hostile)
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     rc, out = run(["collect", "o/r"], capsys)
     text = json.dumps(out, ensure_ascii=False)
     assert rc == 0 and len(text) < 40000                     # 50KB 문자열이 그대로 나오지 않는다
@@ -1079,7 +1082,7 @@ def test_untrusted_covers_latest_stable():
 ])
 def test_repo_update_refuses_clearing_values(monkeypatch, capsys, argv):
     api, _ = _write_api(topics=("a",), desc="old", homepage="https://x.dev")
-    monkeypatch.setattr(oss_cli, "_call", api)
+    monkeypatch.setattr(github_api, "_call", api)
     rc, out = run(["repo-update", "o/r", *argv], capsys)
     assert rc == 1 and out["code"] == "invalid_input" and "지원하지 않는다" in out["summary"] and out["next"]
     assert not any(c[0] != "GET" for c in api.calls)
