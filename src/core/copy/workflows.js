@@ -173,11 +173,8 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   Object.defineProperty(counters, "onSkip", { value: onSkip, enumerable: false });
 
   // (1) common — 타입별과 동일한 판정·보호를 받는다 (#560).
-  //
-  // 종전에는 "unchanged면 스킵, 아니면 무조건 덮어쓰기"였다. 그런데 릴리스 파이프라인처럼
-  // 프로젝트마다 뒤에 붙일 일이 다른 워크플로우는 common에 있어도 사용자가 고쳐 쓸 수밖에
-  // 없다. 고치지 않고는 쓸 수 없는 파일을, 고치면 백업도 없이 날아가는 규칙으로 관리하고
-  // 있었다. common/deploy조차 .bak을 남기는데 본체만 아무것도 남기지 않았다.
+  // 릴리스 파이프라인처럼 프로젝트마다 뒤에 붙일 일이 다른 워크플로우는 common 이어도 사용자가 고쳐 쓴다.
+  // 그래서 수정본을 무조건 덮어쓰지 않고 타입별과 같은 충돌 판정·백업을 거친다.
   const commonDir = join(projectTypesDir, "common");
   if (exists(commonDir)) {
     const commonEnv = envOptsFor("common");

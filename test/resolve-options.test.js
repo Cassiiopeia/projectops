@@ -124,3 +124,20 @@ test("같은 레포에서 대화형과 비대화형이 같은 옵션을 기록�
     }
   } finally { cleanup(tpl, a, b); }
 });
+
+test("비대화형 version 모드가 저장된 ai_summary: false 와 intent 를 그대로 남긴다 (#909)", async () => {
+  const tpl = makeTemplate();
+  const tgt = makeTarget({
+    "package.json": '{"name":"app","version":"1.0.0"}\n',
+    "version.yml": [
+      'version: "1.0.0"', "version_code: 1", 'project_types: ["node"]', "metadata:", "  template:",
+      '    mode: "version"', "    options:", '      intent: "manual"', '      deploy: "none"', "      publish: []",
+      "      code_review:", "        ai_summary: false", "",
+    ].join("\n"),
+  });
+  try {
+    assert.equal(await runCli(["--mode", "version", "--force"], tgt, tpl), 0);
+    assert.equal(optionsOf(tgt).aiPrSummary, false);
+    assert.equal(optionsOf(tgt).intent, "manual");
+  } finally { cleanup(tpl, tgt); }
+});

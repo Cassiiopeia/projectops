@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { writeText } from "./fsutil.js";
 import { getLang } from "../i18n/index.js";
 
-// 진단 로그 위치 (#561). docs/ 아래(추적 대상)에서 옮겼다 — 이 기록은 사람이 읽는 문서가
+// 진단 로그 위치 (#561). 추적되는 docs/ 가 아닌 곳에 둔다 — 이 기록은 사람이 읽는 문서가
 // 아니라 Agent가 "지난 실행에서 무슨 일이 있었나"를 확인하는 자료다.
 // 폴더 안에 .gitignore를 함께 써서 폴더가 자기 규칙을 들고 다닌다(루트 .gitignore 무수정).
 // 형제인 .github/.projectops/baseline.json은 팀원 공유 자산이라 계속 추적된다.

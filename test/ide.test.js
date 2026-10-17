@@ -198,6 +198,20 @@ test("pi-harness: settings.json extensions 배열 add/remove", () => {
   } finally { rmSync(home, { recursive: true, force: true }); }
 });
 
+test("pi-harness: settings.json 을 해석하지 못하면 덮어쓰지 않는다 — 사용자 키 보존 (#911)", () => {
+  const home = mkdtempSync(join(tmpdir(), "pih-"));
+  try {
+    const loaderDir = join(home, ".pi/agent/git/github.com/Cassiiopeia/projectops/harness");
+    mkdirSync(loaderDir, { recursive: true });
+    writeFileSync(join(loaderDir, "harness-loader.ts"), "//");
+    const settings = join(home, ".pi/agent/settings.json");
+    const brokenSettings = '{ "theme": "dark", }';   // 끝 쉼표: JSON.parse 실패
+    writeFileSync(settings, brokenSettings);
+    assert.equal(adapterById("pi-harness").apply(stubIo({ present: { pi: 1 }, home })), false);
+    assert.equal(readFileSync(settings, "utf8"), brokenSettings);
+  } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
 test("pi-harness: loader 없으면 optional 항목이 상태 목록에서 제외", () => {
   const io = stubIo({ present: { pi: 1 } }); // loader 파일 없음
   const rows = collectStatuses(io);

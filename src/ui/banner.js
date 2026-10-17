@@ -1,6 +1,7 @@
 // Start screen banner (layer 1). Classic boxed title, kept from the original wizard.
 import { A, paint, visualWidth } from "./ansi.js";
 import { t, getLang, getLangSource } from "../i18n/index.js";
+import { TEMPLATE_REPO_WEB_URL } from "../core/paths.js";
 
 const INNER = 56; // inner width of the box
 
@@ -22,7 +23,7 @@ export function printBanner({ version, modeLabel }, out = (s) => process.stdout.
   out(`     🐵 Author  : Cassiiopeia\n`);
   out(`     🪐 Mode    : ${modeLabel}\n`);
   out(`     🌐 Language: ${getLang()} (${t(`cli.langSource.${getLangSource()}`)})\n`);
-  out(`     📦 Repo    : ${paint("github.com/Cassiiopeia/projectops", A.dim)}\n`);
+  out(`     📦 Repo    : ${paint(TEMPLATE_REPO_WEB_URL.replace("https://", ""), A.dim)}\n`);
   out("\n");
 }
 

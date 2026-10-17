@@ -332,9 +332,8 @@ export async function askAllOptionalWorkflows({
   }
 
   // ── pr_comment: PR에 달 리뷰·요약 (#566에서 통합) ──
-  // 종전에는 CodeRabbit 여부만 예/아니오로 물었고, AI 변경 요약은 물어보지도 않은 채
-  // 항상 복사된 뒤 런타임에 스스로 빠졌다. 그 결과 "CodeRabbit도 안 달고 요약도 안 다는"
-  // 저장소가 생겼다. 둘은 같은 자리(PR 댓글)를 놓고 경쟁하므로 한 번에 고르게 한다.
+  // CodeRabbit 과 AI 변경 요약은 같은 자리(PR 댓글)를 놓고 경쟁하므로 한 번에 고르게 한다
+  // (따로 물으면 둘 다 안 다는 저장소가 생긴다).
   if (ask("code-review") || codeReviewCoderabbit === null || aiPrSummary === null) {
     if (force || !tty || typeof io.select !== "function") {
       // 비대화형 기본값: CodeRabbit은 별도 앱 설치가 있어야 실제로 동작하므로

@@ -6,8 +6,9 @@ import { existsSync, readdirSync, mkdirSync, cpSync, rmSync } from "node:fs";
 import { compareCacheName } from "../util.js";
 import { migrateConfigRoot } from "../legacy.js";
 import { t } from "../../../i18n/index.js";
+import { TEMPLATE_REPO_SLUG } from "../../paths.js";
 
-const MARKETPLACE = "Cassiiopeia/projectops";
+const MARKETPLACE = TEMPLATE_REPO_SLUG;
 const PLUGIN = "projectops@projectops-marketplace";
 const LEGACY_PLUGINS = ["cassiiopeia@cassiiopeia-marketplace", "cassiiopeia"];
 const LEGACY_MARKETPLACES = ["cassiiopeia-marketplace"];

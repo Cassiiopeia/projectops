@@ -4,8 +4,9 @@
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { t } from "../../../i18n/index.js";
+import { TEMPLATE_REPO_OWNER, TEMPLATE_REPO_WEB_URL } from "../../paths.js";
 
-export const PI_PACKAGE_URL = "https://github.com/Cassiiopeia/projectops";
+export const PI_PACKAGE_URL = TEMPLATE_REPO_WEB_URL;
 
 // 'pi list' 출력에 우리 레포가 잡히면 설치됨. (구 레포명·프로젝트명 모두 허용)
 export function piInstalled(io) {
@@ -17,7 +18,7 @@ export function piInstalled(io) {
 
 // pi 클론 경로(harness loader가 사는 곳). 레포명 변경 전 구 경로 하위호환.
 export function piCloneDir(io) {
-  const base = join(io.home(), ".pi/agent/git/github.com/Cassiiopeia");
+  const base = join(io.home(), ".pi/agent/git/github.com", TEMPLATE_REPO_OWNER);
   const newDir = join(base, "projectops");
   const oldDir = join(base, "SUH-DEVOPS-TEMPLATE");
   return (!existsSync(newDir) && existsSync(oldDir)) ? oldDir : newDir;
@@ -41,8 +42,10 @@ export function harnessAdd(io) {
   const settings = piSettingsPath(io), loader = harnessLoaderPath(io);
   if (!existsSync(settings)) return { ok: false, reason: "no-settings" };
   if (!existsSync(loader)) return { ok: false, reason: "no-loader" };
-  let s = {};
-  try { s = JSON.parse(readFileSync(settings, "utf8")); } catch { s = {}; }
+  let s;
+  // 해석 실패 시 덮어쓰지 않음 ({} 로 쓰면 사용자 설정 키가 전부 지워진다)
+  try { s = JSON.parse(readFileSync(settings, "utf8")); } catch { return { ok: false, reason: "invalid-settings" }; }
+  if (s === null || typeof s !== "object" || Array.isArray(s)) return { ok: false, reason: "invalid-settings" };
   const exts = (Array.isArray(s.extensions) ? s.extensions : []).filter(Boolean);
   if (!exts.includes(loader)) exts.push(loader);
   s.extensions = exts;
@@ -66,7 +69,7 @@ export function harnessRemove(io) {
 // 신·구 clone 공존 시 옛 SUH-DEVOPS-TEMPLATE clone 제거 + settings.json에서 그 loader 경로 제거.
 // 공존일 때만 정리(옛것만 있으면 pi install이 신규를 만들 때까지 그대로 둔다). 실패 무해.
 export function migratePiLegacy(io) {
-  const base = join(io.home(), ".pi/agent/git/github.com/Cassiiopeia");
+  const base = join(io.home(), ".pi/agent/git/github.com", TEMPLATE_REPO_OWNER);
   const oldDir = join(base, "SUH-DEVOPS-TEMPLATE");
   const newDir = join(base, "projectops");
   if (!(existsSync(oldDir) && existsSync(newDir))) return;

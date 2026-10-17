@@ -89,3 +89,17 @@ export function resolveOptions({ flags = {}, existing = null, types = [], cwd = 
   };
   return { values, sources };
 }
+
+// version.yml options 로 기록되는 값 (resolveOptions 결과 이름 그대로)
+// 진입점(full·version)이 각자 고르면 빠진 옵션이 생성기 기본값으로 되돌아간다 (#909: version 모드 ai_summary false > true)
+const TEMPLATE_OPTION_FIELDS = [
+  "intent", "deployTarget", "publishTargets", "includeSecretBackup", "aiPrSummary", "projectsSync",
+  "changelogProvider", "changelogBaseUrl", "codeReviewCoderabbit", "semverAuto", "appRelease",
+  "excludedWorkflows", "storeLocales", "storeLocalesIos", "storeLocalesPlay", "closeOnRelease", "language", "labelStyle",
+];
+
+/** 실행 context(resolveOptions 값이 펼쳐진 것) > buildVersionYml templateOptions */
+export function toTemplateOptions(context, { mode, optionsDate }) {
+  const options = Object.fromEntries(TEMPLATE_OPTION_FIELDS.map((field) => [field, context[field]]));
+  return { ...options, templateVersion: context.templateVersion, mode, optionsDate };
+}

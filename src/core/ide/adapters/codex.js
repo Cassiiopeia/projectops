@@ -5,8 +5,9 @@ import { join } from "node:path";
 import { existsSync, lstatSync, rmSync } from "node:fs";
 import { migrateConfigRoot } from "../legacy.js";
 import { t } from "../../../i18n/index.js";
+import { TEMPLATE_REPO_SLUG } from "../../paths.js";
 
-const MARKETPLACE = "Cassiiopeia/projectops";
+const MARKETPLACE = TEMPLATE_REPO_SLUG;
 const PLUGIN = "projectops";
 const LEGACY_NATIVES = ["SUH-DEVOPS-TEMPLATE"];
 const LEGACY_MARKETPLACES = ["SUH-DEVOPS-TEMPLATE"];

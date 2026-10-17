@@ -13,7 +13,7 @@ import { installAgentGuide } from "../core/agent-guide.js";
 import { verifyInstall } from "../core/verify.js";
 
 export function runWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
-  const { types = [], force = true, labelStyle = "en" } = context;
+  const { types = [], force = true, labelStyle } = context;   // labelStyle 은 resolveOptions 가 정한다
   const wf = copyWorkflows(context, tempDir, targetRoot, hooks);
 
   const vy = join(targetRoot, PATHS.versionFile);

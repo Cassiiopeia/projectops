@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { extractCustomYml, buildVersionYml, customYml, parseTemplateOptions } from "../src/core/version-yml.js";
+import { extractCustomYml, buildVersionYml, customYml, parseTemplateOptions, OWNED_OPTION_KEYS } from "../src/core/version-yml.js";
 
 const base = { version: "1.0.0", types: ["node"], now: "2026-10-10 00:00:00", today: "2026-10-10" };
 const OPTS = { templateVersion: "4.40.0", language: "ko", deployTarget: "none", publishTargets: [] };
@@ -82,6 +82,17 @@ test("생성기가 쓰는 키(store_locales · excluded_workflows 등)는 보존
   const { optionBlocks } = extractCustomYml(withOwned);
   assert.ok(!optionBlocks.join("\n").includes("excluded_workflows"));
   assert.ok(!optionBlocks.join("\n").includes("store_locales"));
+});
+
+test("생성기가 쓰는 options 키는 전부 보존 제외 목록에 있다 — 빠지면 재실행마다 키가 중복된다 (#909)", () => {
+  // 생성기 소스에서 6칸 들여쓴 options 키를 모아 목록과 대조 (새 옵션 추가 시 목록 누락을 잡는다)
+  const source = readFileSync(new URL("../src/core/version-yml.js", import.meta.url), "utf8");
+  const emittedKeys = [...source.matchAll(/out \+= `      ([a-z_]+):/g)].map((match) => match[1]);
+  assert.ok(emittedKeys.includes("store_locales_ios"));
+  assert.deepEqual(emittedKeys.filter((key) => !OWNED_OPTION_KEYS.has(key)), []);
+  // 실제 왕복: 다국어 스토어 키를 쓴 결과를 다시 읽어도 보존할 덩어리가 없다
+  const options = { ...OPTS, storeLocales: ["ko-KR"], storeLocalesIos: ["ko"], storeLocalesPlay: ["ko-KR"] };
+  assert.deepEqual(extractCustomYml(buildVersionYml({ ...base, templateOptions: options })).optionBlocks, []);
 });
 
 test("보존한 결과도 파서가 그대로 읽는다", () => {

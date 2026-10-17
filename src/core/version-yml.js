@@ -422,9 +422,11 @@ export function parseExisting(content) {
 // project_type(단수)는 v4.1.0 에서 없앴다 — 남기면 version_manager 가 거부한다. 그래서 보존하지 않고 버린다.
 const OWNED_TOP = new Set(["version", "version_code", "project_types", "project_type", "project_paths", "metadata", "deploy"]);
 // metadata.template.options 아래에서 생성기가 직접 쓰는 키. 여기에 없는 것만 보존한다.
+// buildVersionYml 이 쓰는 6칸 키와 같아야 한다 — 빠지면 재실행마다 그 키가 두 번 쓰인다 (대조: test/version-yml-preserve.test.js).
 // nexus · npm_publish · synology 는 옛 키다 — 파서가 신형(publish · secret_backup)으로 바꿔 쓰므로 그대로 두면 이중 기록이 된다.
-const OWNED_OPTION = new Set(["intent", "deploy", "publish", "secret_backup", "semver_auto", "projects_sync", "close_on_release",
-  "language", "label_style", "app_release", "excluded_workflows", "store_locales", "code_review", "changelog",
+export const OWNED_OPTION_KEYS = new Set(["intent", "deploy", "publish", "secret_backup", "semver_auto", "projects_sync", "close_on_release",
+  "language", "label_style", "app_release", "excluded_workflows", "store_locales", "store_locales_ios", "store_locales_play",
+  "code_review", "changelog",
   "nexus", "npm_publish", "synology"]);
 
 // indent 칸으로 시작하는 키 한 줄과 그 자식(더 깊은 들여쓰기·빈 줄·그 아래의 주석)을 한 덩어리로 자른다.
@@ -476,7 +478,7 @@ export function extractCustomYml(content) {
     if (tp >= 0) {
       const tpEnd = end(tp, 2);
       const op = find(tp + 1, tpEnd, /^ {4}options:/);
-      if (op >= 0) optionBlocks = keyBlocks(lines.slice(op + 1, end(op, 4)), 6, (k) => OWNED_OPTION.has(k));
+      if (op >= 0) optionBlocks = keyBlocks(lines.slice(op + 1, end(op, 4)), 6, (k) => OWNED_OPTION_KEYS.has(k));
     }
   }
   return { optionBlocks, topBlocks };

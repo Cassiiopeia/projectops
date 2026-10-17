@@ -2,9 +2,10 @@
 // extension install/update/uninstall. 마켓플레이스 대신 git URL 확장.
 import { migrateConfigRoot } from "../legacy.js";
 import { t } from "../../../i18n/index.js";
+import { TEMPLATE_REPO_WEB_URL } from "../../paths.js";
 
 const EXT = "projectops";
-const URL = "https://github.com/Cassiiopeia/projectops";
+const URL = TEMPLATE_REPO_WEB_URL;
 const LEGACY_EXTS = ["SUH-DEVOPS-TEMPLATE"];
 
 function detect(io) {

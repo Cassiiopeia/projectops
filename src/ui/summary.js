@@ -3,7 +3,7 @@
 // All wording lives in src/i18n/summary.*.js so the screen follows the display language.
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { WORKFLOW_COMMON_PREFIX } from "../core/paths.js";
+import { WORKFLOW_COMMON_PREFIX, TEMPLATE_REPO_WEB_URL } from "../core/paths.js";
 import { t } from "../i18n/index.js";
 
 const SEPARATOR = "────────────────────────────────────────";
@@ -65,7 +65,7 @@ export function printSummary(ctx, targetRoot = ".", write = null) {
   // Skills mode adds no files or workflows, so the screen ends here.
   if (mode === "skills") {
     err("");
-    err(`  📖 TEMPLATE REPO: https://github.com/Cassiiopeia/projectops`);
+    err(`  📖 TEMPLATE REPO: ${TEMPLATE_REPO_WEB_URL}`);
     err("");
     err(SEPARATOR);
     err("");
@@ -188,7 +188,7 @@ export function printSummary(ctx, targetRoot = ".", write = null) {
     err("");
   }
 
-  err("  📖 TEMPLATE REPO: https://github.com/Cassiiopeia/projectops");
+  err(`  📖 TEMPLATE REPO: ${TEMPLATE_REPO_WEB_URL}`);
   err(`  📚 ${t("done.workflowGuide")}: .github/workflows/project-types/README.md`);
 
   // Post-install verification: expand only when something is wrong, one line otherwise.

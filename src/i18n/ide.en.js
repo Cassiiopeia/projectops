@@ -65,6 +65,7 @@ export default {
   "ide.harness.already": "  Persona Harness: already enabled (kept)",
   "ide.harness.enabledDone": "  Persona Harness enabled. Restart PI to apply.",
   "ide.harness.noSettings": "  PI settings.json is missing. Run PI once and try again.",
+  "ide.harness.invalidSettings": "  PI settings.json could not be parsed, so it was left untouched. Fix the JSON in {file} and try again.",
   "ide.harness.needPackage": "  The harness loader is missing. Install or update the PI package first.",
   "ide.harness.removeNone": "  Persona Harness is not enabled, skipping",
   "ide.harness.keepSkill": "  Leaving the PI skill as is and only unregistering the harness.",

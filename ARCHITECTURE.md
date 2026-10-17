@@ -66,13 +66,14 @@ These are parsed by other code. Changing them silently breaks installed projects
 1. Parse it in `src/cli/args.js` (`parseArgs`) and validate the value there. Value lists that other files also need (deploy, publish, intent, label style, providers) live in `src/core/constants.js` — add to that list, not to a local array.
 2. Describe it in **`src/core/options-schema.js`** (`FLAGS`). `npx projectops --mode options --json` prints this table for AI agents, and `test/options-schema.test.js` fails if a flag exists in `args.js` but not here.
 3. Add it to `--help` in `src/cli/help.js` (English and Korean) and to the option tables in `docs/CLI.md` and `docs/en/cli.md`. `test/cli-docs-sync.test.js` fails if one of them forgets it.
-4. Wire the value into `src/index.js` (non-interactive) **and** `src/commands/interactive.js`. The two paths pick defaults separately — keep them the same.
+4. Resolve the value in **`src/core/resolve-options.js`** (`resolveOptions`: flag > stored value > default) and pass the flag in from `src/index.js`. Both paths use that result — `src/index.js` as is, `src/commands/interactive.js` as the starting answer — so do not write a default anywhere else.
 
 ## How to add a `version.yml` option
 
 1. Read it in `parseTemplateOptions` and write it in `buildVersionYml` (`src/core/version-yml.js`). `version.yml` is regenerated on every update, so a key that is only read, never written back, disappears on the next update. Add the comment text to both languages in `COMMENTS`.
+   If it is a key under `metadata.template.options`, add it to `OWNED_OPTION_KEYS` in the same file, or every update writes it twice (once by the generator, once kept as an unknown key). `test/version-yml-preserve.test.js` compares the list with the keys `buildVersionYml` writes.
 2. Add it to `VERSION_YML` in `src/core/options-schema.js` with its default.
-3. Carry it through `src/context.js`, `src/index.js` and `src/commands/interactive.js`, then `full.js` / `version.js`.
+3. Decide its value in `resolveOptions` (`src/core/resolve-options.js`) and add its name to `TEMPLATE_OPTION_FIELDS` there. `full.js` and `version.js` write exactly those fields through `toTemplateOptions`, so they need no change. Declare it in `src/context.js` with `null`; `src/index.js` spreads the resolved values into the context, while `src/commands/interactive.js` lists each value when it builds the context, so add it there.
 4. If a workflow reads it, say what a **missing** key means and make the workflow and the wizard agree (`semver_auto` shipped with them disagreeing).
 
 ## How to add a release-note provider

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { existsSync, readFileSync, mkdirSync, cpSync, rmSync, writeFileSync, readdirSync } from "node:fs";
 import { migrateConfigRoot, isLegacyVersion } from "../legacy.js";
 import { t } from "../../../i18n/index.js";
+import { TEMPLATE_REPO_WEB_URL } from "../../paths.js";
 
 const LEGACY_NAMES = ["cassiiopeia", "suh-devops-template"];
 const LEGACY_MAX_VERSION = "4.2.4";
@@ -127,7 +128,7 @@ function writeMeta(io, destDir, templateVersion) {
   if (existsSync(file)) { try { installedAt = JSON.parse(readFileSync(file, "utf8")).installedAt || now; } catch { /* 무해 */ } }
   const meta = {
     name: "projectops", version, scope: "user",
-    source: "https://github.com/Cassiiopeia/projectops",
+    source: TEMPLATE_REPO_WEB_URL,
     installPath: destDir, installedAt, lastUpdated: now,
   };
   mkdirSync(destDir, { recursive: true });

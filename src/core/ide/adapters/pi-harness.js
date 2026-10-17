@@ -2,7 +2,7 @@
 // _pi_harness_add / _pi_harness_remove / _pi_harness_enabled 등가).
 // PI skill과 독립 — skill은 그대로 두고 harness 등록(settings.json extensions)만 켜고/끈다.
 import { existsSync } from "node:fs";
-import { harnessEnabled, harnessAdd, harnessRemove, harnessLoaderPath } from "./pi-common.js";
+import { harnessEnabled, harnessAdd, harnessRemove, harnessLoaderPath, piSettingsPath } from "./pi-common.js";
 import { t } from "../../../i18n/index.js";
 
 // 이 어댑터는 "설치 가능" 여부가 pi 존재 + loader 파일 존재에 달림.
@@ -20,7 +20,8 @@ function apply(io) {
   if (harnessEnabled(io)) { io.log(t("ide.harness.already")); return true; }
   const r = harnessAdd(io);
   if (r.ok) { io.log(t("ide.harness.enabledDone")); return true; }
-  io.log(t(r.reason === "no-settings" ? "ide.harness.noSettings" : "ide.harness.needPackage"));
+  const messageKeyByReason = { "no-settings": "ide.harness.noSettings", "invalid-settings": "ide.harness.invalidSettings" };
+  io.log(t(messageKeyByReason[r.reason] ?? "ide.harness.needPackage", { file: piSettingsPath(io) }));
   return false;
 }
 

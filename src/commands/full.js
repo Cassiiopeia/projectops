@@ -21,16 +21,16 @@ import { applyLabelStyle } from "../core/label-style.js";
 import { applyRepoLanguage } from "../core/repo-language.js";
 import { t } from "../i18n/index.js";
 import { verifyInstall } from "../core/verify.js";
+import { toTemplateOptions } from "../core/resolve-options.js";
 
 // context: { version, types, paths:Map, branch, versionCode, deployTarget, publishTargets, includeSecretBackup,
 //            force, repoName, resolvers, now, today }
 // tempDir: 획득된 템플릿. targetRoot: 통합 대상.
 export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
+  // 옵션 값은 resolveOptions 가 정해 context 에 넣는다 — 여기서 기본값을 다시 고르지 않는다
   const { version, types = [], paths = new Map(), branch = "main", versionCode = 1,
-    force = true, now, today, templateVersion = "unknown",
-    deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, aiPrSummary = true,
-    changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true,
-    deployBranch = "", intent = null, semverAuto = true , appRelease = null, labelStyle = "en", closeOnRelease = null, projectsSync = null, language = "en", excludedWorkflows = null, storeLocales = null, storeLocalesIos = null, storeLocalesPlay = null } = context;
+    force = true, now, today, templateVersion, deployBranch = "",
+    deployTarget, publishTargets, codeReviewCoderabbit, labelStyle, language } = context;
 
   // project_paths 마커 계산 (.sh existing_marker_in_dir 등가 — 대표 마커명)
   const pathMarkers = new Map();
@@ -54,16 +54,14 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
       // 생성기가 모르는 키(issue_helper 등)를 지킨다 — version.yml 을 매번 다시 쓰므로 안 그러면 업데이트마다 사라진다 (#835)
       ...customYml(vyFile),
       updatedBy: resolveUpdatedBy(existsSync(vyFile) ? readFileSync(vyFile, "utf8") : "", targetRoot), // #811
-      templateOptions: { templateVersion, deployTarget, publishTargets, includeSecretBackup, aiPrSummary, optionsDate: today,
-        changelogProvider, changelogBaseUrl, codeReviewCoderabbit, intent, mode: "full", semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync, language, excludedWorkflows, storeLocales, storeLocalesIos, storeLocalesPlay },
+      templateOptions: toTemplateOptions(context, { mode: "full", optionsDate: today }),
     })), { version, versionCode });
 
   // 2. README 버전 섹션
   step("update-readme", () => addVersionSectionToReadme(version, targetRoot), { version });
 
   // 5. scripts / config
-  //    워크플로우 밖 영역도 기록한다 (#561) — 종전에는 "내 스크립트가 갱신됐나"를
-  //    로그만 보고 알 수 없었다.
+  //    워크플로우 밖 영역도 기록한다 (#561) — "내 스크립트가 갱신됐나"를 로그만 보고 알 수 있게.
   step("copy-scripts", () => copyScripts(tempDir, targetRoot));
   step("copy-config", () => copyConfigFolder(tempDir, targetRoot));
 
