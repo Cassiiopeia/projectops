@@ -1,7 +1,23 @@
 # Changelog
 
-**Current version:** 4.55.0  
-**Last updated:** 2026-10-17T11:16:25Z  
+**Current version:** 4.56.0  
+**Last updated:** 2026-10-17T12:06:15Z  
+
+---
+
+## [4.56.0] - 2026-10-17
+
+**PR:** #902  
+
+**새 기능**
+- iOS 시뮬레이터용 상주 Maestro 세션 `app session start·stop·status`가 생겼습니다. 세션을 켜 두면 `app tree`가 약 12초에서 0.6초로, `app tap`이 약 17초에서 1초로 빨라집니다. 세션을 쓸 수 없으면 기존 방식으로 자동으로 돌아갑니다.
+- 웹에서 선택자를 추측해 실패하면 화면의 후보 목록(`candidates`)을 함께 돌려줍니다. 바로 `--ref`로 다시 누르면 됩니다.
+
+**개선**
+- 웹 대상 요소 기본 대기가 10초에서 4초로 줄었습니다. 숨겨지거나 가려진 요소는 `element_not_actionable`로 알립니다.
+- Android 화면 읽기에 시간 제한과 재시도를 넣고, 기기 상태 문제를 `android_system_not_ready` 등으로 구분해 알립니다.
+- iOS 글자 입력 값이 Maestro 기록 파일에 평문으로 남지 않게 했습니다.
+- 공식 트러블슈팅 항목을 26건으로 늘렸습니다.
 
 ---
 
