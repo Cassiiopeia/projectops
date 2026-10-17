@@ -1,0 +1,7 @@
+# 생존 확인에 os.kill(pid, 0) 금지: Windows 에서는 그 프로세스를 종료시킨다. OS 분기 단일 지점 procs.pid_alive 를 쓴다
+description=os.kill(pid, 0) 생존 확인 금지 (Windows 에서 프로세스 종료) — pro_launch/runtime/procs.py 만 허용
+paths=scripts/,skills/,plugins/,.github/scripts/
+extensions=.py
+# test_launch_architecture.py: 이 금지를 설명하는 docstring
+exclude=skills/pro-launch/scripts/pro_launch/runtime/procs.py,skills/pro-launch/tests/test_launch_architecture.py
+pattern=os\.kill\([^\n]+?,\s*0\)

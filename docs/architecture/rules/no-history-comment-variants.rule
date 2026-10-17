@@ -1,0 +1,7 @@
+# 경위 주석의 다른 표현: 이유(WHY)는 현재형으로, 경위는 커밋·이슈에 (conventions §7.5·7.6) — no-history-comment 를 우회한 표현
+description=코드 주석·docstring 에 "종전에는/에서 옮겼다" 경위 서술 금지
+paths=src/,scripts/,skills/,plugins/,.github/scripts/
+extensions=.js,.mjs,.py
+# stealth.py: 외부 코드(gstack) 이식 출처 표기 — 경위가 아니라 출처
+exclude=skills/pro-launch/scripts/stealth.py
+pattern=종전에는|에서 옮겼다

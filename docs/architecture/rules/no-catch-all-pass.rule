@@ -1,0 +1,5 @@
+# 이유 없는 catch-all 무시 금지: 정리용 무시와 진짜 오류 무시를 가르려면 같은 줄에 이유 주석을 단다
+description=이유 주석 없는 except (Exception): pass 금지
+paths=scripts/,skills/,plugins/
+extensions=.py
+pattern=^[ \t]*except(?:[ \t]+(?:Exception|BaseException)(?:[ \t]+as[ \t]+\w+)?)?[ \t]*:[ \t]*\n[ \t]*pass[ \t]*$
