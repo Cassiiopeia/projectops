@@ -1,0 +1,29 @@
+{
+  "id": "android-korean-ime-jamo",
+  "area": "android",
+  "title": "Android app type 이 ok 인데 한국어 키보드가 자모로 바꿔 넣는다",
+  "match": {
+    "codes": [
+      "typed_text_mismatch"
+    ],
+    "keywords": [
+      "자모",
+      "Gboard",
+      "IME"
+    ]
+  },
+  "symptom": "app type 으로 영문 아이디를 넣었는데 입력칸에 자모가 들어 있다",
+  "cause": "adb input text 는 키 이벤트라 Gboard 한국어 자판이 조합한다. 값이 ASCII 여도 결과가 달라진다",
+  "fix": [
+    "launch_cli.py app type --ime ascii --text <값> (입력 동안 Maestro IME 로 바꿨다 원복)",
+    "수동: adb shell ime set dev.mobile.maestro/.input.MaestroInputMethodService 후 입력하고 원래 IME 로 되돌린다",
+    "IME 는 기기 전역 설정이다 — 다른 세션이 쓰는 기기면 먼저 묻는다"
+  ],
+  "refs": [
+    926
+  ],
+  "verified_at": "2026-10-18",
+  "see_also": [
+    "android-non-ascii-text"
+  ]
+}

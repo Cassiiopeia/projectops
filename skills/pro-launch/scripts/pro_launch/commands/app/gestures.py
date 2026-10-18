@@ -6,11 +6,22 @@ import time
 
 import app_input
 import knowledge
+import maestro_drivers
+import maestro_runs
+import node_match
 
+from pro_launch.runtime import host_resources
+from pro_launch.commands.app.burst import finish_burst, start_burst
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.devices import no_device_response, pick_device
 from pro_launch.runtime.output import out
 from pro_launch.runtime.shots import finish_shot, shot_target
+
+# Maestro iOS 드라이버 기동 대기 환경변수 · 과부하일 때 값 (밀리초) — 사용자가 정한 값은 그대로 (#922)
+DRIVER_STARTUP_TIMEOUT_ENV = "MAESTRO_DRIVER_STARTUP_TIMEOUT"
+OVERLOADED_DRIVER_STARTUP_TIMEOUT_MILLISECONDS = 180000
+# 실패 응답에 호스트 상태를 붙이는 메모리 압박 단계
+REPORTED_MEMORY_PRESSURES = ("high", "critical")
 
 
 def elapsed_seconds(args) -> float | None:
@@ -24,11 +35,11 @@ def backend_for(args):
     platform, dev_id, dev = pick_device(args.device)
     if not platform:
         return None, None, no_device_response(dev, args.device)
-    be, err = backend_on(platform, args)
+    be, err = backend_on(platform, args, dev_id)
     return be, (dev_id if be else None), err
 
 
-def backend_on(platform: str, args):
+def backend_on(platform: str, args, dev_id: str | None = None):
     """(백엔드, 오류 응답) — 기기를 이미 고른 동작용. 백엔드가 없거나 도구가 없으면 오류 응답을 채운다."""
     be = app_input.get_backend(platform, getattr(args, "pkg", None) or os.environ.get("PKG"))
     if be is None:
@@ -38,12 +49,56 @@ def backend_on(platform: str, args):
     if not be.available():
         return None, out({"ok": False, "code": f"{be.name}_tool_missing",
                           "error": f"{be.name} 조작 도구가 없다", "next": be.install_hint})
+    if be.name == "ios":
+        prepare_ios_maestro(dev_id)
     return be, None
 
 
+def prepare_ios_maestro(dev_id: str | None) -> None:
+    """iOS 조작 전: 같은 기기의 고아 드라이버 정리 > 과부하면 드라이버 기동 대기 늘리기 (자식 maestro·중계가 물려받는다)."""
+    try:
+        maestro_drivers.clean_auto(dev_id)
+    except Exception:   # noqa: BLE001 — 정리는 보조다, 조작을 막지 않는다
+        pass
+    if DRIVER_STARTUP_TIMEOUT_ENV not in os.environ and host_resources.read_load()["is_overloaded"]:
+        os.environ[DRIVER_STARTUP_TIMEOUT_ENV] = str(OVERLOADED_DRIVER_STARTUP_TIMEOUT_MILLISECONDS)
+
+
 def session_fields(be) -> dict:
-    """iOS 상주 세션을 탔는지 · 못 써서 내려갔는지 (세션이 없으면 빈 dict — 응답 모양 그대로)."""
-    return dict(getattr(be, "session_report", None) or {})
+    """iOS 상주 세션을 탔는지 · 못 써서 내려갔는지 · Maestro 잠금 대기 · 자동 정리한 고아 드라이버 (없으면 키 없음)."""
+    fields = dict(getattr(be, "session_report", None) or {})
+    if getattr(be, "name", None) == "ios":
+        fields.update(maestro_runs.lock_wait_report())
+        if maestro_drivers.CLEANED_DRIVERS:
+            fields["cleaned_stale_drivers"] = list(maestro_drivers.CLEANED_DRIVERS)
+    return fields
+
+
+def ios_failure_fields(be, dev_id: str | None) -> dict:
+    """iOS Maestro 실패에 붙일 진단 4개: 남은 고아 드라이버 · 지금 도는 다른 Maestro · 호스트 부하 · Maestro 마지막 오류 줄."""
+    if getattr(be, "name", None) != "ios":
+        return {}
+    fields: dict = {}
+    try:
+        fields.update(maestro_drivers.failure_fields(dev_id))
+    except Exception:   # noqa: BLE001 — 진단이 실패 응답을 망치면 안 된다
+        pass
+    fields.update(host_load_fields())
+    last_error = maestro_runs.last_error_line()
+    if last_error:
+        fields["backend_last_error"] = last_error
+    return fields
+
+
+def host_load_fields() -> dict:
+    """부하가 코어 수 2배를 넘거나 메모리 압박이 high 이상이면 {host_load: ...}, 아니면 {}."""
+    load = host_resources.read_load()
+    memory_pressure = host_resources.memory_summary()["pressure"]
+    if not load["is_overloaded"] and memory_pressure not in REPORTED_MEMORY_PRESSURES:
+        return {}
+    return {"host_load": {"load_1m": load["load_1m"], "load_5m": load["load_5m"], "cpu_count": load["cpu_count"],
+                          "is_overloaded": load["is_overloaded"], "memory_pressure": memory_pressure,
+                          "driver_startup_timeout_ms": os.environ.get(DRIVER_STARTUP_TIMEOUT_ENV)}}
 
 
 def device_failure_response(be, dev_id, args=None) -> int:
@@ -61,7 +116,8 @@ def device_failure_response(be, dev_id, args=None) -> int:
 
 
 def before_shot(args, be, dev_id) -> bytes | None:
-    """--shot 일 때만 동작 전 화면을 기억한다 — 나중에 '바뀐 뒤 멈춘 화면'을 고르는 기준."""
+    """--shot 일 때만 동작 전 화면을 기억한다 — 나중에 '바뀐 뒤 멈춘 화면'을 고르는 기준. --burst 면 연속 캡처도 여기서 시작."""
+    start_burst(args, be, dev_id)
     return be.grab(dev_id) if getattr(args, "shot", None) else None
 
 
@@ -92,13 +148,20 @@ def after_shot(args, be, dev_id, before: bytes | None) -> dict:
 
 def gesture_result(args, be, dev_id, before, ok: bool, detail: str, fail_code: str,
                     summary: str, **extra) -> int:
+    diagnostics = {} if ok else ios_failure_fields(be, dev_id)
+    # 백엔드가 사유를 비워 두면 Maestro 마지막 오류 줄 > 그것도 없으면 사유 없음을 그대로 (error: null 금지)
+    error = None if ok else ((detail or "")[-400:] or diagnostics.get("backend_last_error")
+                             or f"{be.name} 백엔드가 사유를 남기지 않고 실패했다")
     res = {"ok": ok, "code": "ok" if ok else fail_code, "device": dev_id, "via": be.name,
-           **session_fields(be), **extra, "error": None if ok else (detail or "")[-400:] or None,
+           **session_fields(be), **extra, "error": error, **diagnostics,
            "summary": summary if ok else f"실패 — {fail_code}",
            "next": "app shot  # 결과 화면 확인"}
+    if diagnostics.get("stale_maestro_drivers"):
+        res["next"] = f"app session stop --device {dev_id} --kill-stale  # 남은 Maestro 드라이버 정리 후 다시"
     if ok:
         auto_record_backend(be)
         res.update(after_shot(args, be, dev_id, before))
+    res.update(finish_burst(args))
     # 조작 비용을 보이게 한다 — iOS 는 호출마다 Maestro(JVM)가 새로 떠서 수십 초다 (#894)
     res["elapsed_seconds"] = elapsed_seconds(args)
     if ok:
@@ -123,12 +186,13 @@ def auto_record_backend(be) -> None:
 
 
 def not_found_response(be, dev_id, field: str, value: str, nodes: list[dict] | None, args=None) -> int:
-    """못 찾았을 때 추측을 반복하지 않도록 화면 언어와 화면에 실제로 있는 값을 같이 준다."""
+    """못 찾았을 때 추측을 반복하지 않도록 화면 언어 · 화면에 실제로 있는 값(문구는 text·desc 둘 다) · 가장 비슷한 선택자."""
     if nodes is None:
         nodes = be.nodes(dev_id) or []
-    cands = list(dict.fromkeys(n[field] for n in nodes if n[field]))[:25]
+    suggestion = node_match.did_you_mean(nodes, value)
     return out({"ok": False, "code": "not_found", "device": dev_id,
-                "error": f"{field}={value!r} 인 요소가 없다",
-                "locale": be.locale(dev_id), "candidates": cands, **session_fields(be),
+                "error": f"{field}={value!r} 인 요소가 없다 (text·desc 모두, 겹친 라벨·부분 일치 포함)",
+                "locale": be.locale(dev_id), "candidates": node_match.candidate_values(nodes, field),
+                **({"did_you_mean": suggestion} if suggestion else {}), **session_fields(be),
                 "elapsed_seconds": elapsed_seconds(args),
                 "next": "candidates 의 값으로 다시 app tap (문구는 화면 언어 그대로)"})

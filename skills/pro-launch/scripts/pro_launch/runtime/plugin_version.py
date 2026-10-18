@@ -48,3 +48,18 @@ def _from_manifest(plugin_root: Path) -> str | None:
 def _from_path(here: Path) -> str | None:
     """경로에서 가장 안쪽의 x.y.z 폴더 이름 (캐시 폴더 구조만 남은 설치)."""
     return next((part for part in reversed(here.parts) if VERSION_FOLDER.match(part)), None)
+
+
+# 더 새 설치본 안내 {running, installed, use} — launch_cli 가 시작 때 넣고 첫 응답 하나가 가져간다 (#920)
+_NEWER_INSTALLED: dict = {}
+
+
+def set_newer_installed(info: dict | None) -> None:
+    """launch_resolver.newer_installed_info 결과 보관 (None 이면 아무것도 안 함)"""
+    if info:
+        _NEWER_INSTALLED["info"] = dict(info)
+
+
+def take_newer_installed() -> dict | None:
+    """보관한 안내를 꺼냄 — 프로세스당 1회 (두 번째부터 None)"""
+    return _NEWER_INSTALLED.pop("info", None)

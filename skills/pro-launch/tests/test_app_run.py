@@ -211,16 +211,17 @@ ANDROID_STEPS = [{"tap": {"text": "로그인"}}, {"type": {"env": "PL_TEST_SECRE
 
 
 def test_android_runs_steps_in_order_with_existing_backend(fake_run, tmp_path, capsys):
-    fake_run.results = [(0, ANDROID_XML, ""), (0, "", ""), (0, "", ""), (0, "", ""),
+    # tap · 입력 · 입력창 다시 읽기(빈 출력 = 대조 생략) · Enter · 화면 크기 · swipe · back
+    fake_run.results = [(0, ANDROID_XML, ""), (0, "", ""), (0, "", ""), (0, "", ""), (0, "", ""),
                         (0, "Physical size: 1080x2400", ""), (0, "", ""), (0, "", "")]
-    run._app_run(make_args(tmp_path, ANDROID_STEPS, device="emulator-5554"))
+    run._app_run(make_args(tmp_path, ANDROID_STEPS, device="emulator-5554", ime="keep"))
     data = result_of(capsys)
     assert data["ok"] and data["via"] == "android" and data["steps_completed"] == 4
     shell = [c[3:] for c in fake_run.calls]
     assert shell[1] == ["shell", "input", "tap", "50", "25"]
     assert SECRET not in " ".join(" ".join(c) for c in fake_run.calls), "값이 명령줄에 실렸다"
     assert fake_run.inputs[2] == SECRET.replace(" ", "%s") + "\n"
-    assert shell[3] == ["shell", "input", "keyevent", "66"] and shell[-1] == ["shell", "input", "keyevent", "4"]
+    assert shell[4] == ["shell", "input", "keyevent", "66"] and shell[-1] == ["shell", "input", "keyevent", "4"]
     assert all("elapsed_seconds" in s for s in data["steps"])
 
 

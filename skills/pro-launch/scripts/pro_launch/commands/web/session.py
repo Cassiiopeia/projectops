@@ -7,8 +7,12 @@ import stealth
 
 from pro_launch.commands.web import tabs
 from pro_launch.commands.web.recovery import HUNG_PROBE_SECONDS, cdp_responds
+from pro_launch.commands.web.watchdog import connect_phase
 from pro_launch.runtime.browser import require_playwright
 from pro_launch.runtime.procs import pid_alive
+
+# connect_over_cdp 자체의 시간 상한(초) — 감시의 붙기 상한(30초)보다 짧아 먼저 깔끔한 실패로 끝난다
+CONNECT_TIMEOUT_SECONDS = 20
 
 
 # 콘솔 오류는 **페이지가 열리는 동안** 난다. 열린 뒤에 리스너를 달면 이미 늦다 (#625).
@@ -116,19 +120,22 @@ def web_connect(state: dict, allow_missing_tab: bool = False):
     # 멈춘 브라우저 먼저 판정 — Playwright 연결은 응답 없는 CDP 앞에서 오래 기다린다 (#887)
     is_process_alive = bool(state.get("pid")) and pid_alive(int(state["pid"]))
     if is_process_alive and not cdp_responds(state["cdp"]):
-        return None, {"ok": False, "code": "browser_hung", "pid": state.get("pid"),
-                      "error": f"브라우저가 {HUNG_PROBE_SECONDS:g}초 안에 응답하지 않습니다 (프로세스는 있으나 멈춤)",
-                      "next": "web open  # 멈춘 브라우저를 끄고 다시 띄웁니다 (자가 복구)"}
-    pw = sync_playwright().start()
-    try:
-        browser = pw.chromium.connect_over_cdp(state["cdp"])
-    except Exception as e:
-        pw.stop()
-        return None, {"ok": False, "code": "browser_gone",
-                      "error": f"열린 브라우저에 붙지 못했습니다: {e}",
-                      "next": "web open  # 다시 엽니다"}
-    ctx = browser.contexts[0] if browser.contexts else browser.new_context()
-    page, tab_error = _session_page(ctx, state, allow_missing_tab)
+        return None, _hung_failure(state, f"브라우저가 {HUNG_PROBE_SECONDS:g}초 안에 응답하지 않습니다 (프로세스는 있으나 멈춤)")
+    # 붙기 단계는 감시가 따로 상한을 본다 — CDP 가 답해도 연결 · 탭 목록에서 멈춘 일이 있다 (#921)
+    with connect_phase():
+        pw = sync_playwright().start()
+        try:
+            browser = pw.chromium.connect_over_cdp(state["cdp"], timeout=CONNECT_TIMEOUT_SECONDS * 1000)
+        except Exception as e:
+            pw.stop()
+            # 살아 있는데 시간 초과면 멈춤이다 — browser_gone 으로 내면 디스패처가 pid 를 지워 고아가 된다
+            if is_process_alive and "timeout" in str(e).lower():
+                return None, _hung_failure(state, f"브라우저에 {CONNECT_TIMEOUT_SECONDS}초 안에 붙지 못했습니다 (연결 멈춤)")
+            return None, {"ok": False, "code": "browser_gone",
+                          "error": f"열린 브라우저에 붙지 못했습니다: {e}",
+                          "next": "web open  # 다시 엽니다"}
+        ctx = browser.contexts[0] if browser.contexts else browser.new_context()
+        page, tab_error = _session_page(ctx, state, allow_missing_tab)
     if tab_error:
         pw.stop()
         return None, tab_error
@@ -145,6 +152,13 @@ def web_connect(state: dict, allow_missing_tab: bool = False):
     apply_routes(page, state.get("routes") or [])
     arm_dialog(page, state)
     return (pw, browser, page), None
+
+
+def _hung_failure(state: dict, error: str) -> dict:
+    """멈춘 브라우저 결과 — 어느 프로세스 · 프로필인지 싣는다 (직접 끌 때 필요)"""
+    return {"ok": False, "code": "browser_hung", "pid": state.get("pid"), "profile": state.get("profile"),
+            "url": None, "error": error,
+            "next": "web open  # 멈춘 브라우저를 끄고 다시 띄웁니다 (자가 복구)"}
 
 
 def _session_page(ctx, state: dict, allow_missing_tab: bool):

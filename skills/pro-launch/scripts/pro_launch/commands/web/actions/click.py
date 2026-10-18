@@ -129,6 +129,6 @@ def configure(p) -> None:
 
 
 ACTION = Action(name="click", run=_web_click, configure=configure,
-                options=("ref", "selector", "target_timeout", "confirm_mutating", "frame"),
+                options=("ref", "selector", "target_timeout", "confirm_mutating", "frame", "capture_requests"),
                 help="고른 요소 하나만 누르고 무엇이 바뀌었는지 돌려준다",
                 example="web click --ref 3 --expect-url /home")

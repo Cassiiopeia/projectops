@@ -7,13 +7,16 @@ from __future__ import annotations
 
 import os
 import time
+from contextlib import ExitStack
 
 import app_input
 import credentials
 
+from pro_launch.commands.app import android_ime
 from pro_launch.commands.app import steps as steps_module
 from pro_launch.commands.app.gestures import (after_shot, auto_record_backend, backend_for, before_shot,
                                               elapsed_seconds, session_fields)
+from pro_launch.commands.app.burst import burst_spec, finish_burst
 from pro_launch.registry import Action
 from pro_launch.runtime.creds import cred_field
 from pro_launch.runtime.output import out
@@ -50,7 +53,8 @@ def _app_run(args) -> int:
     elif be.selects_itself:
         is_success, results, detail = _run_in_one_flow(be, dev_id, steps, secrets)
     else:
-        is_success, results, detail = _run_step_by_step(be, dev_id, steps, secrets)
+        is_success, results, detail = _run_step_by_step(be, dev_id, steps, secrets,
+                                                        getattr(args, "ime", None) or "auto")
     return _run_result(args, be, dev_id, before, steps, is_success, results, _mask(detail, secrets))
 
 
@@ -148,15 +152,27 @@ def _run_each_step_in_session(be, dev_id: str, steps: list[dict]) -> tuple[bool,
 
 # ── Android: 차례로 ──────────────────────────────────────────────────────
 
-def _run_step_by_step(be, dev_id: str, steps: list[dict],
-                      secrets: dict[int, str]) -> tuple[bool, list[dict], str]:
-    """단계를 하나씩 실행. 첫 실패에서 멈추고 나머지는 not_run."""
+def _run_step_by_step(be, dev_id: str, steps: list[dict], secrets: dict[int, str],
+                      ime_mode: str = "auto") -> tuple[bool, list[dict], str]:
+    """단계를 하나씩 실행. 첫 실패에서 멈추고 나머지는 not_run. 입력기 전환은 첫 type 단계에서 한 번, 끝나면 원복."""
+    with ExitStack() as input_method_stack:
+        return _run_steps_in_order(be, dev_id, steps, secrets, ime_mode, input_method_stack)
+
+
+def _run_steps_in_order(be, dev_id: str, steps: list[dict], secrets: dict[int, str], ime_mode: str,
+                        input_method_stack: ExitStack) -> tuple[bool, list[dict], str]:
     results: list[dict] = []
+    is_input_method_ready = False
     for index, step in enumerate(steps):
         started = time.monotonic()
-        is_success, detail = _android_step(be, dev_id, step, secrets.get(index))
+        if step["kind"] == "type" and not is_input_method_ready:
+            input_method_stack.enter_context(
+                android_ime.ascii_input_method(android_ime.android_shell(be, dev_id), ime_mode))
+            is_input_method_ready = True
+        is_success, detail, verification = _android_step(be, dev_id, step, secrets.get(index))
         results.append({"status": "completed" if is_success else "failed",
-                        "elapsed_seconds": round(time.monotonic() - started, 1)})
+                        "elapsed_seconds": round(time.monotonic() - started, 1),
+                        **({"verification": verification["verification"]} if verification else {})})
         if not is_success:
             results += [{"status": "not_run"} for _ in steps[index + 1:]]
             # 단계 자체가 아니라 기기가 원인일 수 있다 (시스템 재시작 중이면 wm size·input 도 실패한다)
@@ -166,7 +182,19 @@ def _run_step_by_step(be, dev_id: str, steps: list[dict],
     return True, results, ""
 
 
-def _android_step(be, dev_id: str, step: dict, value: str | None) -> tuple[bool, str]:
+def _android_step(be, dev_id: str, step: dict, value: str | None) -> tuple[bool, str, dict]:
+    """단계 하나 > (성공 여부, 사유, type 단계의 필드 대조 결과)."""
+    if step["kind"] == "type":
+        # 단계 파일의 값은 전부 비밀로 다룬다 — 대조 결과에 보이는 글자를 싣지 않는다
+        is_success, detail, verification = android_ime.type_and_verify(be, dev_id, value, True, step["submit"])
+        if detail == "typed_text_mismatch":
+            detail = (f"typed_text_mismatch: 입력창 글자가 넣은 값과 다르다 (기대 {verification['expected_length']}자, "
+                      f"보이는 {verification['visible_length']}자) — 입력창을 비우고 --ime ascii 로 다시 run 한다")
+        return is_success, detail, verification
+    return (*_android_non_type_step(be, dev_id, step), {})
+
+
+def _android_non_type_step(be, dev_id: str, step: dict) -> tuple[bool, str]:
     kind = step["kind"]
     if kind == "tap" and "point" in step:
         return be.tap_ratio(dev_id, *step["point"])
@@ -180,23 +208,27 @@ def _android_step(be, dev_id: str, step: dict, value: str | None) -> tuple[bool,
         return be.tap_xy(dev_id, *found[step["index"]]["center"])
     if kind == "swipe":
         return be.swipe_ratio(dev_id, step["start"], step["end"], step["ms"])
-    if kind == "type":
-        return be.input_text(dev_id, value, submit=step["submit"])
     if kind == "wait":
         return _android_wait(be, dev_id, step)
     return be.press_back(dev_id)
 
 
 def _android_wait(be, dev_id: str, step: dict) -> tuple[bool, str]:
-    """요소가 보일 때까지 화면 구조를 다시 읽는다 (최대 timeout 초)."""
+    """요소가 보일 때까지(gone 이면 사라질 때까지) 화면 구조를 다시 읽는다 (최대 timeout 초)."""
     deadline = time.monotonic() + step["timeout"]
+    should_be_gone = step.get("gone", False)
     while True:
-        if app_input.match_nodes(be.nodes(dev_id) or [], step["field"], step["value"]):
+        nodes = be.nodes(dev_id) or []
+        is_visible = bool(app_input.match_nodes(nodes, step["field"], step["value"]))
+        # 화면 구조를 못 읽은 것은 '사라졌다'가 아니다
+        if (is_visible and not should_be_gone) or (should_be_gone and nodes and not is_visible):
             return True, ""
         if time.monotonic() >= deadline:
             # 화면 구조를 아예 못 읽은 것이면 '안 보였다'가 아니라 그 원인을 알린다
             if be.device_failure:
                 return False, f"{be.device_failure['code']}: {be.device_failure['reason']}"
+            if should_be_gone:
+                return False, f"{step['timeout']}초 동안 {step['field']}={step['value']!r} 가 사라지지 않았다"
             return False, f"{step['timeout']}초 동안 {step['field']}={step['value']!r} 가 보이지 않았다"
         time.sleep(ANDROID_WAIT_POLL_SECONDS)
 
@@ -213,12 +245,13 @@ def _run_result(args, be, dev_id: str, before, steps: list[dict], is_success: bo
     payload = {"ok": is_success, "code": "ok" if is_success else "step_failed", "device": dev_id,
                "via": be.name, **session_fields(be), **_cause_of(be, is_success), "steps_total": len(steps), "steps_completed": completed_count,
                "failed_step": failed_step,
-               "steps": [{k: r[k] for k in ("index", "step", "status", "elapsed_seconds") if k in r}
+               "steps": [{k: r[k] for k in ("index", "step", "status", "elapsed_seconds", "verification") if k in r}
                          for r in results],
                "error": None if is_success else (detail or "실패")[-400:]}
     if is_success:
         auto_record_backend(be)
         payload.update(after_shot(args, be, dev_id, before))
+    payload.update(finish_burst(args))
     payload["elapsed_seconds"] = elapsed_seconds(args)
     payload["summary"] = (f"{len(steps)}단계 완료" if is_success
                           else f"{completed_count}/{len(steps)}단계 뒤 실패"
@@ -248,8 +281,11 @@ def _next_hint(payload: dict, failed_step: int | None) -> str:
 def configure(p) -> None:
     p.add_argument("--steps", default=None,
                    help='run: 단계 JSON 파일 (예: [{"tap": {"text": "로그인"}}, {"wait": {"text": "홈"}}])')
+    p.add_argument("--burst", type=burst_spec, default=None,
+                   help="tap·swipe·run: 동작 전부터 연속 캡처, 끝난 뒤 SECONDS 초 더 — 바뀐 프레임만 남긴다 "
+                        "(SECONDS[:INTERVAL], 예: 3 · 5:0.3)")
 
 
 ACTION = Action(name="run", run=_app_run, configure=configure,
-                help="단계 여러 개(tap·swipe·type·wait·back)를 한 번에 — iOS 는 Maestro 를 한 번만 띄운다",
+                help="단계 여러 개(tap·swipe·type·wait·gone·back)를 한 번에 — iOS 는 Maestro 를 한 번만 띄운다",
                 example="app run --device $DEV --steps login.json --shot after_login")

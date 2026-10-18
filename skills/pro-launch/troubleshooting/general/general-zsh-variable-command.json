@@ -1,0 +1,26 @@
+{
+  "id": "general-zsh-variable-command",
+  "area": "general",
+  "title": "zsh 에서 변수에 담은 명령이 한 단어로 취급되어 'no such file' 이 난다",
+  "match": {
+    "codes": [],
+    "keywords": [
+      "no such file or directory: python3",
+      "zsh"
+    ]
+  },
+  "symptom": "L=\"python3 …/launch_cli.py\"; $L web … 가 'no such file or directory: python3 /…/launch_cli.py' 로 실패한다",
+  "cause": "zsh 는 변수를 단어로 쪼개지 않는다 (bash 와 다름)",
+  "fix": [
+    "고정 진입점을 직접 부른다: python3 ~/.projectops/bin/launch_cli.py doctor",
+    "반복하면 함수로 감싼다: launch() { python3 \"$HOME/.projectops/bin/launch_cli.py\" \"$@\"; }",
+    "'web $a' 처럼 변수에 인자 여러 개를 담지 않는다 (필요하면 bash -c)"
+  ],
+  "refs": [
+    920
+  ],
+  "verified_at": "2026-10-18",
+  "see_also": [
+    "general-plugin-cache-version-drift"
+  ]
+}

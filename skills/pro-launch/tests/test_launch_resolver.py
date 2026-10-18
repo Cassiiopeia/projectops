@@ -5,12 +5,18 @@
   · PROJECTOPS_LAUNCH_SCRIPTS 가 모든 탐색보다 앞선다
   · 고정 진입점은 한 번만 쓰이고, 옛 버전이 새 진입점을 되돌리지 않는다
   · 고정 진입점이 인자와 종료 코드를 그대로 넘긴다
+  · CLAUDE_CONFIG_DIR · ~/.claude-b 같은 설정 폴더의 캐시도 본다, 진입점은 실행 가능 (#920)
+  · 옛 버전에서 돌면 응답 JSON 에 newer_installed 가 1회 실린다 — stderr 아님 (#920)
 """
 from __future__ import annotations
 
+import os
+import stat
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
@@ -32,8 +38,9 @@ def _make_scripts_dir(path: Path) -> Path:
     return path
 
 
-def _make_cache_version(home: Path, version: str, marketplace: str = "projectops-marketplace") -> Path:
-    return _make_scripts_dir(home / ".claude/plugins/cache" / marketplace / "projectops" / version
+def _make_cache_version(home: Path, version: str, marketplace: str = "projectops-marketplace",
+                        config_dir: str = ".claude") -> Path:
+    return _make_scripts_dir(home / config_dir / "plugins/cache" / marketplace / "projectops" / version
                              / "skills/pro-launch/scripts")
 
 
@@ -58,6 +65,27 @@ def test_versions_across_marketplaces_and_codex(tmp_path):
     _make_scripts_dir(home / ".codex/plugins/cache/m/projectops/4.60.0/skills/pro-launch/scripts")
     found = launch_resolver.resolve_scripts_dir(cwd=_outside_cwd(tmp_path), home=home, environment={})
     assert found.parts[-4] == "4.60.0"
+
+
+def test_claude_config_dir_and_alternate_config_folders_are_scanned(tmp_path):
+    # 실측: CLAUDE_CONFIG_DIR=~/.claude-b 의 새 버전을 두고 ~/.claude 의 옛 버전이 돌았다
+    home = tmp_path / "home"
+    _make_cache_version(home, "4.54.0")
+    _make_cache_version(home, "4.59.0", config_dir=".claude-b")
+    found = launch_resolver.resolve_scripts_dir(cwd=_outside_cwd(tmp_path), home=home, environment={})
+    assert found.parts[-4] == "4.59.0"
+    elsewhere = tmp_path / "custom-config"
+    _make_scripts_dir(elsewhere / "plugins/cache/m/projectops/4.60.0/skills/pro-launch/scripts")
+    environment = {launch_resolver.CLAUDE_CONFIG_DIR_ENV: str(elsewhere)}
+    assert launch_resolver.resolve_scripts_dir(cwd=_outside_cwd(tmp_path), home=home,
+                                               environment=environment).parts[-4] == "4.60.0"
+    # 환경변수와 glob 이 같은 폴더를 가리켜도 한 번만
+    same = {launch_resolver.CLAUDE_CONFIG_DIR_ENV: str(home / ".claude-b")}
+    assert len(launch_resolver.find_versioned_cache_scripts(home, same)) == 2
+    # 같은 버전이면 CLAUDE_CONFIG_DIR 쪽 (지금 세션이 읽는 SKILL.md 와 같은 사본)
+    _make_scripts_dir(home / ".codex/plugins/cache/m/projectops/4.59.0/skills/pro-launch/scripts")
+    chosen = launch_resolver.resolve_scripts_dir(cwd=_outside_cwd(tmp_path), home=home, environment=same)
+    assert ".claude-b" in chosen.parts
 
 
 def test_override_env_wins(tmp_path):
@@ -107,6 +135,18 @@ def test_stable_entrypoint_written_once(tmp_path):
     assert not list(entrypoint.parent.glob("*.tmp"))
 
 
+@pytest.mark.skipif(os.name != "posix", reason="실행 권한 비트는 POSIX 만")
+def test_stable_entrypoint_is_executable_even_when_revision_is_current(tmp_path):
+    projectops_home = tmp_path / ".projectops"
+    launch_resolver.refresh_stable_entrypoint(projectops_home)
+    entrypoint = projectops_home / "bin" / "launch_cli.py"
+    assert entrypoint.stat().st_mode & stat.S_IXUSR
+    # rev 1 시절처럼 644 로 남은 같은 번호 파일도 권한만 고친다
+    entrypoint.chmod(0o644)
+    assert launch_resolver.refresh_stable_entrypoint(projectops_home) is False
+    assert entrypoint.stat().st_mode & stat.S_IXUSR
+
+
 def test_older_revision_does_not_overwrite_newer(tmp_path):
     projectops_home = tmp_path / ".projectops"
     entrypoint = projectops_home / "bin" / "launch_cli.py"
@@ -144,11 +184,24 @@ def test_stable_entrypoint_reports_when_nothing_installed(tmp_path):
     assert '"code": "scripts_not_found"' in completed.stdout
 
 
-def test_stale_install_notice_only_for_older_cache_version(tmp_path):
+def test_newer_installed_info_only_for_older_cache_version(tmp_path):
     home = tmp_path / "home"
     old = _make_cache_version(home, "4.28.0")
     newest = _make_cache_version(home, "4.54.0")
-    notice = launch_resolver.stale_install_notice(old, home=home)
-    assert notice and "4.28.0" in notice and "4.54.0" in notice
-    assert launch_resolver.stale_install_notice(newest, home=home) is None
-    assert launch_resolver.stale_install_notice(SCRIPTS, home=home) is None
+    assert launch_resolver.newer_installed_info(old, home=home, environment={}) == {
+        "running": "4.28.0", "installed": "4.54.0", "use": "python3 ~/.projectops/bin/launch_cli.py"}
+    assert launch_resolver.newer_installed_info(newest, home=home, environment={}) is None
+    assert launch_resolver.newer_installed_info(SCRIPTS, home=home, environment={}) is None
+
+
+def test_newer_installed_rides_in_first_json_response_only(monkeypatch):
+    # stderr 로 내던 시절엔 `2>&1 | json.load` 가 깨지고 에이전트가 못 봤다 — 성공 응답에도 JSON 안에 1회
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+    from pro_launch.runtime import output, plugin_version
+    from pro_launch.runtime.context import OUTPUT_CTX
+    info = {"running": "4.49.0", "installed": "4.59.0", "use": "python3 ~/.projectops/bin/launch_cli.py"}
+    plugin_version.set_newer_installed(info)
+    monkeypatch.setitem(OUTPUT_CTX, "is_brief", True)
+    first = output.shape_payload({"ok": True, "summary": "완료", "items": [1]})
+    assert first["newer_installed"] == info and "items" not in first   # --brief 에도 남는다
+    assert "newer_installed" not in output.shape_payload({"ok": True, "summary": "완료"})

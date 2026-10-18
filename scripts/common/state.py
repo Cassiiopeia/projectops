@@ -34,6 +34,13 @@ MACHINE_BUCKET = "_machine"
 # 스킬·플러그인이 놓이는 자리. 여기서 불렸는데 git 원격이 없으면 사용자 프로젝트가 아니다.
 _SKILL_PATH_MARKERS = ("/skills/pro-", "/plugins/cache/")
 
+# git 도 프로젝트 마커도 없는 폴더(scratchpad·/tmp·jobs/tmp)의 버킷 자리: <kind>/_scratch/<폴더명>-<경로 해시 8자> (#932)
+SCRATCH_BUCKET = "_scratch"
+# 이 파일이 루트에 있으면 git 이 아니어도 사용자 프로젝트로 본다 (폴더명 키 유지)
+PROJECT_MARKER_FILES = ("pubspec.yaml", "package.json", "pyproject.toml", "build.gradle", "build.gradle.kts",
+                        "settings.gradle", "settings.gradle.kts", "pom.xml", "Podfile", "Cargo.toml", "go.mod",
+                        "version.yml")
+
 
 def base_dir() -> Path:
     """상태 루트. PROJECTOPS_HOME 이 있으면 그것 — 테스트가 실제 홈을 건드리지 않게 하는 탈출구다 (#836).
@@ -69,6 +76,27 @@ def repo_unknown(root: Path) -> bool:
     return in_skill_path(root) and not _origin_url(root)
 
 
+def is_inside_git_work_tree(root: Path) -> bool:
+    """root 또는 그 위 폴더에 .git(폴더·워크트리 파일)이 있나 — git 을 부르지 않는다 (명령마다 불림)."""
+    resolved = Path(root).resolve()
+    return any((folder / ".git").exists() for folder in (resolved, *resolved.parents))
+
+
+def is_scratch_root(root: Path) -> bool:
+    """git 도 프로젝트 마커도 없는 임시 폴더인가. 폴더 이름(tmp·root·site)이 버킷 키면 남의 상태와 섞인다 (#932)."""
+    resolved = Path(root).resolve()
+    if is_inside_git_work_tree(resolved) or in_skill_path(resolved):
+        return False
+    return not any((resolved / marker).exists() for marker in PROJECT_MARKER_FILES)
+
+
+def scratch_key(root: Path) -> str:
+    """임시 폴더 버킷 이름: <폴더명>-<절대경로 sha1 8자> — 같은 이름의 다른 폴더와 갈린다."""
+    resolved = Path(root).resolve()
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", resolved.name).strip("-") or "local"
+    return f"{slug}-{hashlib.sha1(str(resolved).encode('utf-8')).hexdigest()[:8]}"
+
+
 def repo_key(root: Path) -> str:
     """프로젝트를 가리키는 키. git remote의 owner/repo를 쓴다.
 
@@ -95,11 +123,14 @@ def state_dir(kind: str, root: Path) -> Path:
     """kind 별 상태 폴더. 만들지는 않는다 — 쓰는 쪽이 필요할 때 만든다.
 
     레포를 알 수 없으면 가짜 버킷 대신 이 컴퓨터 공용 자리(`_machine`)를 쓴다 (#836).
+    git·마커 없는 임시 폴더는 경로 해시 버킷(`_scratch/<이름>-<해시>`)을 쓴다 (#932).
     """
     if kind not in KINDS:
         raise ValueError(f"알 수 없는 kind: {kind}")
     if repo_unknown(root):
         return base_dir() / kind / MACHINE_BUCKET
+    if is_scratch_root(root):
+        return base_dir() / kind / SCRATCH_BUCKET / scratch_key(root)
     return base_dir() / kind / repo_key(root)
 
 

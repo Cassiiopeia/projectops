@@ -1,0 +1,23 @@
+{
+  "id": "ios-maestro-point-integer-percent",
+  "area": "ios",
+  "title": "Maestro flow 의 point 퍼센트는 정수만 받는다 (NumberFormatException)",
+  "match": {
+    "codes": [],
+    "keywords": [
+      "NumberFormatException",
+      "point"
+    ]
+  },
+  "symptom": "raw flow 의 tapOn point: \"38%,72.7%\" 가 재시도해도 계속 실패하고 드라이버 문제처럼 보인다",
+  "cause": "Maestro point 좌표의 퍼센트는 정수만 받아 72.7 에서 NumberFormatException 이 난다. 래퍼가 재시도만 하면 진짜 오류가 숨는다",
+  "fix": [
+    "maestro.log 의 마지막 오류 줄을 먼저 읽는다 (~/.maestro/tests/<시각>/maestro.log)",
+    "퍼센트를 정수로 반올림한다 (72.7% → 73%)",
+    "가능하면 raw flow 대신 app tap --at 비율 좌표를 쓴다 (pro-launch 가 반올림한다)"
+  ],
+  "refs": [
+    922
+  ],
+  "verified_at": "2026-10-18"
+}

@@ -15,7 +15,7 @@ from pro_launch.runtime.browser import browser_choice, open_browser_status, play
 from pro_launch.runtime import host_resources
 from pro_launch.runtime.context import project_root, state_home
 from pro_launch.runtime.devices import list_devices
-from pro_launch.runtime.output import out
+from pro_launch.runtime.output import SKILL_DIR, out
 from pro_launch.runtime.plugin_version import plugin_version
 
 
@@ -50,6 +50,8 @@ def cmd_doctor(args) -> int:
     memory = _memory_counts(root)
     payload = {
         "plugin_version": plugin_version(),
+        # 지금 도는 스크립트 버전의 SKILL.md · references 자리 — 다른 버전 문서를 읽고 있지 않은지 대조 (#920)
+        "docs_dir": str(SKILL_DIR),
         "checks": checks,
         "browser": pw,
         "browser_choice": {k: chosen.get(k) for k in ("exe", "source", "label", "reason", "error")},

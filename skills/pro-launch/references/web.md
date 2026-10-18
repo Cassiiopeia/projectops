@@ -304,6 +304,25 @@ rows = page.locator("table tr")
 **정보는 `text` 로 읽는다.** 스크린샷을 Read 하는 것이 가장 비싸다. `shot` 은 배치·색·잘림처럼
 **모양**을 봐야 할 때, 또는 결과를 증거로 남길 때만 찍는다(찍었으면 Read 로 열어 본다).
 
+### 저장 확인 · 비밀값 · 키 입력 · 조각 캡처 · 남은 브라우저 (#921 #930)
+
+```bash
+{PYTHON} {SCRIPTS}/launch_cli.py web click --ref 3 --capture-requests      # requests: [{method,status,url}] GET 제외, URL 의 token·key 류 쿼리는 ***
+{PYTHON} {SCRIPTS}/launch_cli.py web value --selector "#client-secret" --save-env NAVER_SECRET   # 값은 출력하지 않는다 (길이·sha256 앞 12자만)
+{PYTHON} {SCRIPTS}/launch_cli.py web clipboard --save-env KEY_HASH         # 복사 버튼 뒤의 값 — headed 에서 쓴다
+{PYTHON} {SCRIPTS}/launch_cli.py web type --keys "npm run build" --delay-ms 60   # xterm · Monaco 처럼 키 입력만 받는 곳
+{PYTHON} {SCRIPTS}/launch_cli.py web shot --container "#editor-scroll" --tiles 8 # 안쪽 상자가 스크롤되는 화면(Google Forms 등)을 조각으로
+{PYTHON} {SCRIPTS}/launch_cli.py web wait --text "병합됨" --reload-every 15 --timeout 300   # 자동 갱신 안 되는 화면
+{PYTHON} {SCRIPTS}/launch_cli.py web close --stale [--dry-run] [--idle-hours 12]   # 프로필이 사라졌거나 상태 파일이 가리키지 않는 고아 브라우저만
+```
+
+- 저장은 화면 문구 대신 **`--capture-requests` 의 POST/PUT 상태**로 판정한다. 비밀값 파일(`saved-values.env`, 0600)은 `web type --text-env NAME` 이 읽는다.
+- `web find --role textbox|searchbox|input` 은 실제 `<input>` 을 찾는다. `--all` 은 개수 제한을 푼다. `web viewport --width W --height H` 도 받는다.
+- `type`·`click` 은 실제로 고른 요소(`target`)와 `matches` 를 돌려준다. 선택자가 둘 이상에 맞으면 `warning: multiple_matches` — `find` 로 `--ref` 를 고른다.
+- 모든 web 명령에는 시간 상한이 있다. 브라우저가 CDP 에는 답하는데 붙는 단계에서 멈추면 `browser_hung`(pid·profile)로 끝나고, 다음 `web open` 이 그 브라우저를 끄고 같은 프로필로 다시 띄운다(로그인 유지).
+  새 `--root` 로 도망치지 않는다 — 로그인이 사라지고 가짜 버킷이 생긴다. `--timeout` 은 초 단위(최대 300).
+- 비밀번호 입력칸의 값은 `click`·`type` 의 대상 설명에 실리지 않는다.
+
 ### `click` 이 돌려주는 것
 
 | 필드 | 뜻 |

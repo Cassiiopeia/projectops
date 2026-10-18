@@ -27,24 +27,27 @@ description: "Capability skill that launches and drives apps, web and servers: e
 |---|---|---|
 | 도구(adb · simctl · Chromium · Pillow · cwebp · ffmpeg) · 무엇을 띄울 수 있나(app · web · server, 패키지명 · 번들 ID) · 붙은 기기 · 부팅된 시뮬레이터 · AVD | `doctor` · `detect --path .` · `devices` | — |
 | 호스트 메모리 압박(ok·high·critical) · 큰 프로세스 · 켜진 기기를 묶은 레포 — **가상 기기를 더 띄우기 전에** | `doctor --resources` | 아래 공통 규칙 |
-| 참가자가 둘 이상 — 역할을 기기에 묶기 | `device list\|bind\|unbind\|show` | `references/app.md` |
+| 참가자가 둘 이상 — 역할을 기기에 묶기 · 남이 쓰는 기기 표시 | `device list\|bind\|unbind\|show\|claim\|release` | `references/app.md` |
+| 에뮬레이터·시뮬레이터 띄우기(기본 창 없음, 창이 필요하면 작게) · 재부팅 · 언어 · 다크 모드 — **raw simctl/emulator 대신** | `device boot\|reboot [--cold]\|locale\|appearance` · `app install --path` | `references/app.md` |
 | 앱 띄우기 · 찍기 | `app launch` · `app shot [--clean-status]` | `references/app.md` |
 | 앱 화면 구조 · 누르기 · 밀기 | `app tree` · `app tap` · `app swipe` | `references/app.md` |
 | 앱 여러 단계 한 번에 (iOS 는 Maestro 1회) | `app run --steps steps.json` | `references/app.md` |
 | 복잡한 제스처(밀고 곧바로 탭 · 요소에서 밀기) — 프로젝트 Maestro flow 실행 + 캡처 | `app flow --file x.yaml` | `references/app.md` 제스처 플레이북 |
 | iOS 를 여러 번 보고 누를 때 — 상주 세션 (호출당 20초 > 1초) | `app session start\|stop\|status` | `references/app.md` |
 | 앱에 글자 넣기(저장된 로그인, iOS 는 Maestro) | `app type --cred 이름` | `references/app.md` |
+| 화면이 바뀔 때까지(사라질 때까지) 기다리기 · 화면 녹화 · 동작 직후 연속 캡처 | `app wait [--gone]` · `app record start\|stop` · `--burst` | `references/app.md` |
 | 앱 끄기 · 다시 띄우기 · 위치 · 권한 · 푸시(iOS) · 딥링크 — **raw simctl/adb 대신** | `app terminate\|relaunch\|location\|permission\|push\|openurl` | `references/app.md` |
 | 브라우저 열기 · **화면 읽기 · 누를 것 고르기** · 확인하며 클릭 · 입력 · 캡처 | `web setup\|open\|goto\|text\|find\|click\|type\|shot\|assert\|console\|close` | `references/web.md` |
 | 폭 바꾸기 · 응답 바꿔치기(빈 목록 · 500 · 지연) | `web viewport` · `web route` | `references/web.md` |
 | **폼 읽기**(입력·버튼·체크·선택 + 값·비활성·ref) · 줄만 골라 읽기 · 고르기 · 체크 · 키 · 올리기 · 대화상자 · 내려받기 — **raw CDP 스크립트 대신** | `web inspect` · `web text --grep` · `web select\|check\|press\|hover\|dialog\|download` | `references/web.md` |
-| 조건 기다리기(승인·토스트·주소) · 안쪽 상자 스크롤 · 파일 올리기 · iframe 안 조작 · **고정 동작에 없는 일** | `web wait\|scroll\|upload` · `--frame` · `web script` | `references/web.md` |
+| 조건 기다리기(승인·토스트·주소) · 안쪽 상자 스크롤·조각 캡처 · 파일 올리기 · iframe 안 조작 · **고정 동작에 없는 일** | `web wait\|scroll\|upload` · `web shot --container` · `--frame` · `web script` | `references/web.md` |
+| 저장이 갔는지 요청으로 확인 · 입력칸·복사 버튼의 비밀값을 출력 없이 저장 · 키를 하나씩 입력 · 남은 브라우저 정리 | `--capture-requests` · `web value\|clipboard --save-env` · `web type --keys` · `web close --stale` | `references/web.md` |
 | 코드로 상태를 그려 찍기 | `render snapshot` → `render run` | `references/render.md` |
 | 단건 HTTP · 붙는 법 기록 · SQL · 로그 | `http` · `access show\|set\|unset` · `db` · `logs` | `references/server.md` |
 | 자격증명 저장 · 원격 명령 · 이 맥 sudo | `cred list\|show\|set\|unset\|import-ssh` · `ssh` · `local sudo` | `references/credentials.md` |
 | 로그인 중간 화면(기기 신뢰 · 로그인 유지 · 권유) 정책 | `cred policy get\|set\|unset` | `references/web.md` "로그인 중간 화면" |
 | 이슈 첨부용 축소 | `shrink` | `references/memory.md` |
-| 이 컴퓨터에서 먹힌 방식 꺼내기 · 남기기 · 지우기 · 정리 | `recall [--match 낱말]` · `learn [--detail]` · `forget` · `tidy` | `references/memory.md` |
+| 이 컴퓨터에서 먹힌 방식 꺼내기 · 남기기 · 지우기 · 정리 | `recall [--match 낱말]` · `learn [--detail]` · `forget` · `tidy` (흩어진 기억) · `tidy --buckets` (용량·가짜 버킷, `--apply` 때만 삭제) | `references/memory.md` |
 | 작업을 마칠 때 — 막혔다 풀렸는데 learn 안 한 영역 | `session-check` | `references/memory.md` |
 | 공식 트러블슈팅 찾기 · 보기 · 목록 · 내 기억에서 공식 항목 초안 | `kb search\|show\|list\|propose` | `references/troubleshooting.md` · `references/memory.md` |
 | 했던 작업을 자유롭게 적어 두고 다음에 다시 읽기 (작업 일지) | `journal [--add "..."] [--title] [--site]` | `references/memory.md` |
@@ -63,6 +66,11 @@ description: "Capability skill that launches and drives apps, web and servers: e
 ```bash
 E="${PROJECTOPS_HOME:-$HOME/.projectops}/bin/launch_cli.py"; [ -f "$E" ] && echo "SCRIPTS 대신: {PYTHON} $E <명령>"
 ```
+
+- **zsh 에서 `L="python3 …/launch_cli.py"; $L web …` 처럼 명령을 변수에 담지 않는다** — 한 단어로 취급돼 `no such file` 이 난다. 고정 진입점은 실행 권한이 있어 `"$E" <명령>` 으로 바로 부르거나,
+  `launch() { python3 "$HOME/.projectops/bin/launch_cli.py" "$@"; }` 함수로 감싼다. 버전이 박힌 캐시 경로를 붙여 넣지 않는다.
+- 응답에 **`newer_installed`** 가 있으면 더 새 버전이 깔려 있다(JSON 안에 있고 성공 응답에도 온다) — 안내된 `use` 명령으로 바꿔 부른다.
+  `doctor` 의 `docs_dir` 이 지금 읽는 SKILL.md 폴더와 다르면 문서가 옛 버전이다.
 
 없으면(첫 실행) 아래로 찾는다.
 
@@ -114,6 +122,13 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
   명령 문자열에는 `$CRED_*` 환경변수. 결과·보고·이슈·커밋에 값을 옮기지 않는다. `access` 에는 비밀을 적지 않는다.
 - 바꾸는 조작(제출 · 삭제 · 결제 · 발송)은 **로컬만 그냥** 한다. 그 밖은 멈추고 묻는다 (`references/web.md` 안전 계약).
 - 캡처를 위해 AI 생성 API 를 부르지 않는다. 상태 관리 방식·프로젝트 구조를 추측하지 않는다.
+- **막히면 직접 만들기 전에 이 순서로 간다** (#934): 해당 동작의 `--help` > `kb search` > `web script`(웹) · `app flow`(앱).
+  raw Playwright·CDP 스크립트, `adb`·`simctl`·`maestro` 직접 호출, 대기 루프를 새로 짜지 않는다 — 같은 연결·시간 상한·비밀값 가림을 거치지 않는다.
+  **사용자 계정에 쓰는 우회**(Apps Script 같은 스크립트 프로젝트 만들기, API 직접 호출)는 먼저 묻는다.
+- **자격증명을 config 파일에서 직접 읽지 않는다** — 저장된 값은 `--cred` 로만 쓴다. 다른 에이전트에게 일을 맡길 때 raw Maestro·simctl·adb 를 쓰라고 지시하지 않고, 이 스킬을 쓰게 한다.
+- 인증 코드(OTP)를 기다리는 동안 **로그인 폼을 다시 제출하지 않는다** — 새 코드가 나가 앞 코드가 무효가 된다.
+- `--timeout` 은 **초** 단위다(최대 300). 3000 을 넣으면 `timeout_too_large` 로 거절한다.
+- 막혔다 우회로 풀었으면 끝내기 전에 `learn` 으로 남긴다 — 다음 세션이 같은 우회를 다시 만들지 않게.
 
 ## 앱 — 이럴 땐 이것
 
@@ -149,7 +164,11 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app openurl    --device 
 |---|---|
 | `no_device` | `devices` 로 보고 `--device` 를 준다 |
 | `not_found` | `candidates` 에서 고른다 |
-| `ui_dump_failed` | 화면 구조를 못 읽었다(전환 중·보안 화면). 잠시 뒤 다시, 계속이면 `--at` 비율 좌표 |
+| `ui_dump_failed` | 화면 구조를 못 읽었다(전환 중·보안 화면). 응답의 `foreground_package` 가 내 앱이 아니면 다른 앱이 덮은 것이다. 잠시 뒤 다시, 계속이면 `--at` 비율 좌표 |
+| `not_foreground` · `app_exited` | launch·relaunch 는 보냈지만 앱이 앞에 없다 / 곧바로 죽었다. `blocking_activity`·`crash_report`·`exception_line` 을 읽는다. 남의 기기면 먼저 묻는다 |
+| `device_unresponsive` | 기기가 응답하지 않는다(호스트 메모리 포함 `resources`). `device reboot --cold` 를 사용자에게 묻고 한다 |
+| `typed_text_mismatch` | 입력칸 글자가 넣은 값과 다르다(조합형 키보드). `app type --ime ascii` |
+| `device_owned_by_other`(필드) | 다른 세션이 쓰는 기기다. 조작 전에 확인한다 |
 | `no_focused_window` | 초점 창이 없다(화면 꺼짐·잠금·전환 중). 깨우고 세 번까지 다시 읽은 뒤다. `app shot` 으로 화면을 본다 |
 | `android_system_not_ready` · `ui_automation_unavailable` · `ui_dump_timeout` | 기기 쪽 문제다(시스템 재시작 중 · UiAutomation 연결 실패 · 시간 초과). `app shot` 으로 보고, 계속이면 사용자에게 에뮬레이터 cold boot 를 묻는다 |
 | `session_start_failed` · `session_tools_missing` | 세션 없이 그대로 쓴다(호출마다 Maestro). `reason` 을 본다 |

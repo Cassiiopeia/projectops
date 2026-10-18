@@ -15,9 +15,13 @@
 | `web-find-nothing-found` | web find 가 nothing_found — 기본은 누를 수 있는 요소만 찾는다 | `nothing_found` |
 | `web-goto-failed` | web open·goto 이동 실패 — 주소·서버·인증서를 본다 | `goto_failed` |
 | `web-iframe-login-fields` | iframe 안의 로그인 칸(App Store Connect 등)을 못 찾는다 | — |
+| `web-orphan-headless-chrome` | HTML 을 더블클릭해도 Chrome 이 안 열린다 — 고아 headless Chrome | `browser_hung` |
 | `web-page-changed-by-other-session` | 다른 세션이 같은 탭을 옮겨 입력이 사라진다 | `page_changed_by_other_session` · `tab_gone` |
 | `web-playwright-or-browser-missing` | playwright_missing · browser_missing — web setup 이 필요하다 | `playwright_missing` · `browser_missing` |
 | `web-readonly-mutating-blocked` | 읽기 전용 세션에서 저장·제출 버튼이 mutating_blocked | `mutating_blocked` |
+| `web-save-by-network` | 저장이 됐는지 화면 문구 대신 요청 응답으로 판정한다 | — |
+| `web-scroll-container-capture` | 내부 스크롤 화면(Google Forms 편집기 등)은 full-page 로 안 찍힌다 | — |
+| `web-secret-in-input` | 비밀값이 입력칸·복사 버튼 안에만 있다 | — |
 | `web-selector-guess-timeout` | 추측한 --selector 가 빗나감 — 결과의 candidates 에서 골라 --ref 로 누른다 | `selector_not_found` · `element_not_actionable` · `element_disabled` |
 | `web-viewport-width-height` | web viewport --width --height 가 bad_viewport — 크기는 --preset 으로 | `bad_viewport` |
 
@@ -108,6 +112,19 @@
   4. 읽기 전용(--readonly) 세션이면 로그인 버튼도 막힐 수 있다 — 사용자에게 알리고 --confirm-mutating 을 붙인다
 - 근거: #889 · 확인 2026-10-17
 
+### `web-orphan-headless-chrome` — HTML 을 더블클릭해도 Chrome 이 안 열린다 — 고아 headless Chrome
+
+- 코드: `browser_hung`
+- 핵심어: headless, chrome
+- 증상: 더블클릭한 html 이 아무 화면도 안 띄우거나 web open 이 멈춘다
+- 원인: 프로필이 사라진 headless Chrome(PPID 1)이 남아 기본 Chrome 요청을 받는다
+- 해결:
+  1. launch_cli.py web close --stale 로 고아를 정리한다 (남의 살아 있는 브라우저는 보고만 한다)
+  2. 직접: ps -axo pid,ppid,command | grep -- --headless 에서 PPID 1 인 것을 확인한다
+  3. 재접속이 멈추면 새 절대 경로 --root 로 열되 로그인이 사라진다는 점을 감안한다
+- 근거: #921 · 확인 2026-10-18
+- 함께 볼 것: `browser-start-stale-process-or-lock`
+
 ### `web-page-changed-by-other-session` — 다른 세션이 같은 탭을 옮겨 입력이 사라진다
 
 - 코드: `page_changed_by_other_session` · `tab_gone`
@@ -143,6 +160,37 @@
   3. 단순히 화면만 볼 거면 링크·탭으로 이동한다 — 버튼을 누를 필요가 없는지 먼저 본다
 - 근거: #825, #889 · 확인 2026-10-17
 
+### `web-save-by-network` — 저장이 됐는지 화면 문구 대신 요청 응답으로 판정한다
+
+- 핵심어: POST, 저장
+- 증상: 저장 버튼이 눌렸는데 성공 여부가 화면에 안 보인다
+- 원인: 콘솔 화면은 성공 문구가 없거나 사라진다
+- 해결:
+  1. launch_cli.py web click --capture-requests 로 POST/PUT 응답 상태를 본다
+  2. status 200 대 4xx 로 판정한다 (URL 쿼리는 가려진다)
+- 근거: #930 · 확인 2026-10-18
+
+### `web-scroll-container-capture` — 내부 스크롤 화면(Google Forms 편집기 등)은 full-page 로 안 찍힌다
+
+- 핵심어: full-page, container
+- 증상: web shot --full-page 가 첫 화면에서 잘린다
+- 원인: 문서가 아닌 안쪽 컨테이너가 스크롤된다
+- 해결:
+  1. launch_cli.py web shot --container <선택자> --tiles 5
+  2. 직접: web scroll --container <선택자> 후 web shot 을 반복한다
+- 근거: #930 · 확인 2026-10-18
+
+### `web-secret-in-input` — 비밀값이 입력칸·복사 버튼 안에만 있다
+
+- 핵심어: Client Secret, SHA-1
+- 증상: web text 에 값이 나오지 않는다
+- 원인: 값이 input.value 이거나 복사 버튼 뒤에만 있다
+- 해결:
+  1. launch_cli.py web value --selector <선택자> --save-env NAME (값을 출력하지 않고 저장)
+  2. 복사 버튼은 클릭 후 web clipboard --save-env NAME
+  3. 화면에 찍힌 값을 OCR 하지 않는다 (I/l 혼동)
+- 근거: #930 · 확인 2026-10-18
+
 ### `web-selector-guess-timeout` — 추측한 --selector 가 빗나감 — 결과의 candidates 에서 골라 --ref 로 누른다
 
 - 코드: `selector_not_found` · `element_not_actionable` · `element_disabled`
@@ -176,7 +224,12 @@
 | id | 제목 | 코드 |
 |---|---|---|
 | `android-adb-missing` | adb_missing · android_tool_missing — adb 를 찾지 못했다 | `adb_missing` · `android_tool_missing` |
+| `android-app-not-foreground` | app launch 가 ok 인데 다른 화면이 맨 위에 있다 | `not_foreground` |
+| `android-emulator-unresponsive-host-swap` | 에뮬레이터가 응답하지 않는다 — 호스트 메모리가 꽉 찼다 | `device_unresponsive` · `ui_dump_failed` |
+| `android-flutter-doubled-desc` | Android Flutter 버튼 desc 가 두 번 들어간다 | `not_found` |
+| `android-korean-ime-jamo` | Android app type 이 ok 인데 한국어 키보드가 자모로 바꿔 넣는다 | `typed_text_mismatch` |
 | `android-maestro-driver-start-timeout` | maestro_driver_timeout — Maestro Android driver 가 시간 안에 안 뜸 | `maestro_driver_timeout` |
+| `android-maps-locale` | Google Maps 라벨이 앱 언어를 따르지 않는다 | — |
 | `android-no-focused-window` | no_focused_window — 초점 창이 없어 화면 구조를 못 읽음 (null root node) | `no_focused_window` |
 | `android-non-ascii-text` | Android app type 이 non_ascii_unsupported — adb 는 한글을 못 넣는다 | `non_ascii_unsupported` |
 | `android-system-restart-loop` | android_system_not_ready · ui_automation_unavailable — 에뮬레이터 시스템 재시작 반복 | `android_system_not_ready` · `ui_automation_unavailable` · `ui_dump_timeout` |
@@ -192,6 +245,59 @@
   3. SDK platform-tools 설치는 사용자에게 먼저 묻는다
 - 근거: #889 · 확인 2026-10-17
 
+### `android-app-not-foreground` — app launch 가 ok 인데 다른 화면이 맨 위에 있다
+
+- 코드: `not_foreground`
+- 핵심어: mCurrentFocus, MinuteMaidActivity
+- 증상: launch·relaunch·back 이 성공인데 화면은 그대로다 (다른 세션의 Google 로그인 등)
+- 원인: 공용 에뮬레이터 맨 위를 다른 앱(예: com.google.android.gms 로그인)이 잡고 있다. back 이 통하지 않을 수 있다
+- 해결:
+  1. 응답의 blocking_activity 를 확인한다
+  2. adb shell dumpsys window | grep mCurrentFocus 로 직접 본다
+  3. 남이 쓰는 기기인지 device list 의 owner 로 확인하고, 맞으면 먼저 묻는다
+  4. 풀리지 않으면 launch_cli.py device reboot --cold (35초 안팎)
+- 근거: #923, #925 · 확인 2026-10-18
+- 함께 볼 것: `android-no-focused-window`
+
+### `android-emulator-unresponsive-host-swap` — 에뮬레이터가 응답하지 않는다 — 호스트 메모리가 꽉 찼다
+
+- 코드: `device_unresponsive` · `ui_dump_failed`
+- 핵심어: swap, offline, system_server
+- 증상: adb install·shell 이 시간 초과하고 ui_dump_failed(count 0) 나 offline 이 이어진다
+- 원인: 호스트 swap 이 거의 찼거나 AVD 가 1코어/2GB 라 system_server 가 watchdog 으로 반복 재시작한다
+- 해결:
+  1. launch_cli.py doctor --resources 로 메모리 압박을 본다
+  2. launch_cli.py device reboot --device <id> --cold 로 정리하고 다시 띄운다
+  3. AVD 가 작으면 emulator -avd <이름> -no-snapshot -cores 4 -memory 4096
+  4. 부팅 직후 'Broken pipe'/'Can't find service: package' 는 service check package 가 found 될 때까지 기다린 뒤 재시도
+  5. -no-snapshot-save 로 켜면 끈 사이 앱 데이터가 사라진다
+- 근거: #924 · 확인 2026-10-18
+- 함께 볼 것: `android-system-restart-loop`
+
+### `android-flutter-doubled-desc` — Android Flutter 버튼 desc 가 두 번 들어간다
+
+- 코드: `not_found`
+- 핵심어: desc, Semantics
+- 증상: app tap --text 가 not_found 인데 tree 의 desc 는 '라벨\n라벨' 이다
+- 원인: Flutter 가 Semantics 를 content-desc 에 합쳐 같은 줄이 반복된다
+- 해결:
+  1. launch_cli.py app tap --desc <라벨> (최신 버전은 줄 단위로 맞춘다)
+  2. 이전 버전은 개행 포함 전체 문자열을 --desc 로 준다
+- 근거: #927 · 확인 2026-10-18
+
+### `android-korean-ime-jamo` — Android app type 이 ok 인데 한국어 키보드가 자모로 바꿔 넣는다
+
+- 코드: `typed_text_mismatch`
+- 핵심어: 자모, Gboard, IME
+- 증상: app type 으로 영문 아이디를 넣었는데 입력칸에 자모가 들어 있다
+- 원인: adb input text 는 키 이벤트라 Gboard 한국어 자판이 조합한다. 값이 ASCII 여도 결과가 달라진다
+- 해결:
+  1. launch_cli.py app type --ime ascii --text <값> (입력 동안 Maestro IME 로 바꿨다 원복)
+  2. 수동: adb shell ime set dev.mobile.maestro/.input.MaestroInputMethodService 후 입력하고 원래 IME 로 되돌린다
+  3. IME 는 기기 전역 설정이다 — 다른 세션이 쓰는 기기면 먼저 묻는다
+- 근거: #926 · 확인 2026-10-18
+- 함께 볼 것: `android-non-ascii-text`
+
 ### `android-maestro-driver-start-timeout` — maestro_driver_timeout — Maestro Android driver 가 시간 안에 안 뜸
 
 - 코드: `maestro_driver_timeout`
@@ -203,6 +309,18 @@
   2. 빌드(gradle·xcodebuild) 같은 무거운 작업이 도는지 보고 끝난 뒤 다시 돌린다
   3. 그래도 계속이면 에뮬레이터 cold boot 를 사용자에게 묻는다(emulator -avd <이름> -no-snapshot-load)
 - 근거: #862 · 확인 2026-10-17
+
+### `android-maps-locale` — Google Maps 라벨이 앱 언어를 따르지 않는다
+
+- 핵심어: locale, Maps
+- 증상: Flutter 앱 언어를 바꿨는데 지도 라벨은 그대로다
+- 원인: 지도 라벨은 Activity locale 을 따른다. 시스템 언어를 바꾼 직후에는 GMS 가 locale 을 캐시한다
+- 해결:
+  1. launch_cli.py device locale --device <id> --lang ja --region JP --app <패키지>
+  2. 직접: adb shell cmd locale set-app-locales <pkg> --locales ja-JP (확인은 get-app-locales)
+  3. 타일이 비면 앱과 Play services 를 재시작한다
+  4. 끝나면 --restore 로 되돌린다
+- 근거: #929 · 확인 2026-10-18
 
 ### `android-no-focused-window` — no_focused_window — 초점 창이 없어 화면 구조를 못 읽음 (null root node)
 
@@ -244,10 +362,40 @@
 
 | id | 제목 | 코드 |
 |---|---|---|
+| `ios-app-vanishes-after-launch` | iOS 앱이 실행 직후 사라지는데 app shot 은 홈 화면을 찍는다 | `app_exited` |
+| `ios-label-in-desc-doubled` | iOS Flutter 버튼 라벨이 desc 에 겹쳐 나와 --text 로 못 누른다 | `not_found` |
 | `ios-maestro-log-keeps-input-text` | Maestro 기록(maestro.log)에 inputText 의 실제 값이 평문으로 남는다 | — |
 | `ios-maestro-not-installed` | iOS app tap·swipe·tree 가 ios_tool_missing — Maestro 미설치 | `ios_tool_missing` |
+| `ios-maestro-point-integer-percent` | Maestro flow 의 point 퍼센트는 정수만 받는다 (NumberFormatException) | — |
 | `ios-maestro-session-reconnect` | 상주 세션이 끊겼다 — 같은 기기에 다른 maestro test 가 붙었다 | `session_start_failed` |
 | `ios-maestro-slow-cold-start` | iOS app tap·swipe·tree 가 수십 초 걸린다 — 호출마다 Maestro(JVM)가 뜬다 | — |
+| `ios-maestro-stale-driver-or-overload` | iOS tap 이 90초 실패하고 app session start 도 실패한다 — 남은 Maestro 드라이버·부하 | `session_start_failed` |
+| `ios-status-bar-custom-time` | iOS 캡처 상태바 시각을 알림 시각에 맞춰야 한다 | — |
+
+### `ios-app-vanishes-after-launch` — iOS 앱이 실행 직후 사라지는데 app shot 은 홈 화면을 찍는다
+
+- 코드: `app_exited`
+- 핵심어: SIGABRT, crash
+- 증상: app launch 가 ok 인데 앱이 안 보이고 shot 이 홈 화면이다
+- 원인: 실행 직후 앱이 죽는다 (예: 워크트리에 Secrets.xcconfig 가 없어 GADInvalidInitializationException)
+- 해결:
+  1. launch_cli.py app launch 응답의 crash_report 와 exception 줄을 본다
+  2. 없으면 ~/Library/Logs/DiagnosticReports 의 최신 Runner-*.ips 를 연다
+  3. xcrun simctl launch --console-pty <UDID> <bundle> 로 콘솔 오류를 본다
+  4. 워크트리에 로컬 설정 파일(Secrets.xcconfig 등)이 복사됐는지 확인한다
+- 근거: #923 · 확인 2026-10-18
+
+### `ios-label-in-desc-doubled` — iOS Flutter 버튼 라벨이 desc 에 겹쳐 나와 --text 로 못 누른다
+
+- 코드: `not_found`
+- 핵심어: desc, Semantics
+- 증상: app tap --text 가 not_found 인데 tree 에는 그 글자가 있다 ('GitHub로 계속하기\nGitHub로 계속하기')
+- 원인: Flutter Semantics 라벨은 desc 로 나오고 같은 줄이 두 번 들어간다. 예전 버전은 text 칸만 봤다
+- 해결:
+  1. app tree 에서 해당 요소의 desc 를 확인한다
+  2. launch_cli.py app tap --desc <글자> 로 누른다 (최신 버전은 desc·겹친 라벨을 자동으로 맞춘다)
+  3. 웹뷰 안 버튼은 이름으로 안 잡히면 --at 비율 좌표를 쓴다
+- 근거: #927 · 확인 2026-10-18
 
 ### `ios-maestro-log-keeps-input-text` — Maestro 기록(maestro.log)에 inputText 의 실제 값이 평문으로 남는다
 
@@ -270,6 +418,17 @@
   2. launch_cli.py app tree --device <시뮬레이터 id>
   3. 호출마다 Maestro(JVM)가 새로 떠 10~40초 걸린다 — 긴 시나리오는 프로젝트의 Maestro flow 로 한 번에 돌린다
 - 근거: #826 · 확인 2026-10-17
+
+### `ios-maestro-point-integer-percent` — Maestro flow 의 point 퍼센트는 정수만 받는다 (NumberFormatException)
+
+- 핵심어: NumberFormatException, point
+- 증상: raw flow 의 tapOn point: "38%,72.7%" 가 재시도해도 계속 실패하고 드라이버 문제처럼 보인다
+- 원인: Maestro point 좌표의 퍼센트는 정수만 받아 72.7 에서 NumberFormatException 이 난다. 래퍼가 재시도만 하면 진짜 오류가 숨는다
+- 해결:
+  1. maestro.log 의 마지막 오류 줄을 먼저 읽는다 (~/.maestro/tests/<시각>/maestro.log)
+  2. 퍼센트를 정수로 반올림한다 (72.7% → 73%)
+  3. 가능하면 raw flow 대신 app tap --at 비율 좌표를 쓴다 (pro-launch 가 반올림한다)
+- 근거: #922 · 확인 2026-10-18
 
 ### `ios-maestro-session-reconnect` — 상주 세션이 끊겼다 — 같은 기기에 다른 maestro test 가 붙었다
 
@@ -297,11 +456,36 @@
 - 근거: #826, #889, #894 · 확인 2026-10-17
 - 함께 볼 것: `ios-maestro-not-installed`, `ios-maestro-session-reconnect`
 
+### `ios-maestro-stale-driver-or-overload` — iOS tap 이 90초 실패하고 app session start 도 실패한다 — 남은 Maestro 드라이버·부하
+
+- 코드: `session_start_failed`
+- 핵심어: tools/call timed out, maestro 응답 없음, xcodebuild
+- 증상: tap_failed 가 'maestro 응답 없음 (90초)' 로 반복되고, 권장대로 app session start 를 해도 'tools/call timed out after 120s' 로 실패한다
+- 원인: 이전 실행이 남긴 xcodebuild(maestro-driver-ios-config.xctestrun)·maestro JVM 이 살아 있거나 호스트 load 가 높아 드라이버가 뜨지 못한다. 세션을 켜는 것으로는 풀리지 않는다
+- 해결:
+  1. uptime 으로 load 를 본다 (코어 수의 2배 이상이면 과부하)
+  2. ps 에서 maestro-driver-ios-config · maestro/lib 가 pro-launch 세션 소유가 아닌지 확인한다
+  3. 남은 것만 끈다: pkill -f maestro-driver-ios-config; pkill -f maestro/lib 후 launch_cli.py app tree 로 확인
+  4. 부하가 높으면 MAESTRO_DRIVER_STARTUP_TIMEOUT=180000 으로 다시 시도한다 (iOS driver not ready in time)
+- 근거: #922 · 확인 2026-10-18
+- 함께 볼 것: `ios-maestro-slow-cold-start`, `ios-maestro-session-reconnect`
+
+### `ios-status-bar-custom-time` — iOS 캡처 상태바 시각을 알림 시각에 맞춰야 한다
+
+- 핵심어: status_bar, 상태바
+- 증상: 스토어 캡처에서 상태바 시각을 9:41 이 아닌 다른 시각으로 맞춰야 한다
+- 원인: app shot --clean-status 는 기본 9:41 로 고정한다. 임의 시각은 simctl status_bar 로 직접 지정한다
+- 해결:
+  1. launch_cli.py app shot --clean-status --time 7:42
+  2. 직접 할 때: xcrun simctl status_bar <UDID> override --time 7:42 후 찍고 status_bar clear 로 되돌린다
+- 근거: #928 · 확인 2026-10-18
+
 ## SSH (`ssh`)
 
 | id | 제목 | 코드 |
 |---|---|---|
 | `ssh-sshpass-missing` | 암호 ssh 가 sshpass_missing — 키 접속이나 호환 경로로 | `sshpass_missing` |
+| `ssh-windows-cmd-encoding` | Windows cmd(CP949) 호스트의 출력이 깨진다 | — |
 
 ### `ssh-sshpass-missing` — 암호 ssh 가 sshpass_missing — 키 접속이나 호환 경로로
 
@@ -314,6 +498,16 @@
   3. 설치가 안 되는 환경(Windows 등)은 pro-ssh 의 scripts/ssh_connect.py(paramiko)를 쓴다 — skills/pro-ssh/SKILL.md
 - 근거: #841, #889 · 확인 2026-10-17
 
+### `ssh-windows-cmd-encoding` — Windows cmd(CP949) 호스트의 출력이 깨진다
+
+- 핵심어: UnicodeDecodeError, chcp
+- 증상: ssh 응답에 깨진 글자가 있거나 예전 버전은 UnicodeDecodeError 로 끝난다
+- 원인: Windows cmd 는 CP949 로 출력한다
+- 해결:
+  1. 최신 버전은 UTF-8 > CP949 순으로 해석한다 (stdout_encoding 확인)
+  2. 옛 버전은 명령 앞에 'chcp 65001 >nul &' 를 붙인다
+- 근거: #933 · 확인 2026-10-18
+
 ## 공통 (`general`)
 
 | id | 제목 | 코드 |
@@ -321,11 +515,15 @@
 | `general-app-no-device` | app 명령이 no_device — 기기가 여러 대거나 시뮬레이터가 안 켜졌다 | `no_device` |
 | `general-bad-args-option-names` | bad_args — 옵션 이름을 착각했다 (--full-page · --field · 위치 인자) | `bad_args` |
 | `general-cred-field-missing` | --cred 가 cred_field_missing — 필드를 안 고르면 password 를 넣는다 | `cred_field_missing` |
+| `general-cred-never-read-config` | 자격증명을 config 파일에서 직접 읽지 않는다 | — |
 | `general-env-not-set` | --text-env 가 env_not_set — 값이 아니라 환경변수 이름을 넘긴다 | `env_not_set` |
 | `general-login-interstitial-policy` | 로그인 도중 기기 신뢰·로그인 유지·권유 화면에서 매번 멈춘다 | — |
+| `general-otp-no-resubmit` | 인증 코드를 기다리는 동안 로그인 폼을 다시 제출하지 않는다 | — |
 | `general-plugin-cache-version-drift` | 세션마다 다른 버전의 플러그인 캐시 경로로 스크립트를 부른다 | — |
 | `general-render-failed-first-error` | render run 이 render_failed — first_error 부터, 흔한 원인은 services.dart | `render_failed` |
 | `general-root-unknown-skill-folder` | 캡처·상태가 ~/.projectops/launch/scripts 등 엉뚱한 곳에 쌓인다 | — |
+| `general-timeout-unit-seconds` | --timeout 을 밀리초로 넣었다 — 단위는 초 | `timeout_too_large` |
+| `general-zsh-variable-command` | zsh 에서 변수에 담은 명령이 한 단어로 취급되어 'no such file' 이 난다 | — |
 
 ### `general-app-no-device` — app 명령이 no_device — 기기가 여러 대거나 시뮬레이터가 안 켜졌다
 
@@ -360,6 +558,17 @@
   2. 필드가 정말 없으면 사용자에게 값을 받아 cred set 으로 채운다 (값을 직접 적지 않는다)
 - 근거: #604, #889 · 확인 2026-10-17
 
+### `general-cred-never-read-config` — 자격증명을 config 파일에서 직접 읽지 않는다
+
+- 핵심어: config.json, password
+- 증상: raw 도구(maestro 등)에 비밀번호를 넘기려고 config.json 을 읽어 임시 파일을 만든다
+- 원인: 저장된 값은 --cred 로 쓰면 마스킹되고 기록에 남지 않는다. 직접 읽으면 평문이 파일·명령줄·대화에 남는다
+- 해결:
+  1. app type --cred <이름> --cred-field <필드> / web type --cred 를 쓴다
+  2. app run 단계에서도 cred 참조를 쓴다
+  3. 평문이 이미 남았으면 파일을 지우고 사용자에게 변경을 권한다
+- 근거: #934 · 확인 2026-10-18
+
 ### `general-env-not-set` — --text-env 가 env_not_set — 값이 아니라 환경변수 이름을 넘긴다
 
 - 코드: `env_not_set`
@@ -384,6 +593,17 @@
   4. web type --cred · app type --cred 결과의 login_policy 가 always·never 면 묻지 않고 그대로 누른다. ask 면 캡처와 함께 묻고 '이 계정만 / 모든 사이트 / 이번만' 답을 cred policy set 으로 저장한다
   5. 어느 종류인지 모르겠는 화면은 누르지 않는다 — 캡처를 대화로 보내고 묻는다. 2단계 인증 해제·계정 보안 설정 변경은 하지 않는다
 - 근거: #905 · 확인 2026-10-18
+
+### `general-otp-no-resubmit` — 인증 코드를 기다리는 동안 로그인 폼을 다시 제출하지 않는다
+
+- 핵심어: Invalid OTP, 인증 코드
+- 증상: 사용자가 코드를 보냈는데 입력하니 Invalid OTP 가 뜬다
+- 원인: 로그인을 다시 제출하면 새 코드가 나가 앞 코드가 무효가 된다
+- 해결:
+  1. 코드를 기다리는 동안 폼을 다시 제출하지 않는다
+  2. 먼저 web text 로 지금 OTP 화면인지 확인한다
+  3. 이미 다시 제출했으면 사용자에게 새 코드를 요청한다
+- 근거: #881, #934 · 확인 2026-10-18
 
 ### `general-plugin-cache-version-drift` — 세션마다 다른 버전의 플러그인 캐시 경로로 스크립트를 부른다
 
@@ -420,3 +640,26 @@
   3. 캡처 자리를 먼저 받는다: launch_cli.py get-output-path --root <프로젝트 경로> --title <제목> 뒤 env.sh 를 source
 - 근거: #833, #836, #889 · 확인 2026-10-17
 - 함께 볼 것: `web-browser-not-open-other-root`
+
+### `general-timeout-unit-seconds` — --timeout 을 밀리초로 넣었다 — 단위는 초
+
+- 코드: `timeout_too_large`
+- 핵심어: --timeout
+- 증상: web type --timeout 3000 이 50분 동안 멈춘다
+- 원인: --timeout 은 초 단위다. 3000 은 50분이다
+- 해결:
+  1. --timeout 은 초로 준다 (기본 10, 최대 300)
+  2. 이미 멈췄으면 web close 후 web open 으로 복구한다
+- 근거: #931 · 확인 2026-10-18
+
+### `general-zsh-variable-command` — zsh 에서 변수에 담은 명령이 한 단어로 취급되어 'no such file' 이 난다
+
+- 핵심어: no such file or directory: python3, zsh
+- 증상: L="python3 …/launch_cli.py"; $L web … 가 'no such file or directory: python3 /…/launch_cli.py' 로 실패한다
+- 원인: zsh 는 변수를 단어로 쪼개지 않는다 (bash 와 다름)
+- 해결:
+  1. 고정 진입점을 직접 부른다: python3 ~/.projectops/bin/launch_cli.py doctor
+  2. 반복하면 함수로 감싼다: launch() { python3 "$HOME/.projectops/bin/launch_cli.py" "$@"; }
+  3. 'web $a' 처럼 변수에 인자 여러 개를 담지 않는다 (필요하면 bash -c)
+- 근거: #920 · 확인 2026-10-18
+- 함께 볼 것: `general-plugin-cache-version-drift`

@@ -2,17 +2,23 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 
 from common.proc import sdk_tool
 
+import app_input
 import credentials
 
+from pro_launch.commands.app import android_ime
 from pro_launch.commands.app.gestures import backend_on, elapsed_seconds, session_fields
 from pro_launch.registry import Action
 from pro_launch.runtime.creds import cred_field, with_login_policy
 from pro_launch.runtime.devices import no_device_response, pick_device
 from pro_launch.runtime.output import out
+
+# 대조 결과에 보이는 글자를 싣지 않을 환경변수 이름 (비밀번호·토큰·코드류)
+SECRET_ENV_NAME_PATTERN = re.compile(r"PASS|PW|PWD|TOKEN|SECRET|KEY|OTP|PIN|CODE|AUTH|CRED", re.IGNORECASE)
 
 
 def _app_type(args) -> int:
@@ -46,29 +52,59 @@ def _app_type(args) -> int:
         return out({"ok": False, "code": "non_ascii_unsupported",
                     "error": "adb input text 는 ASCII 만 받는다 (한글 불가)",
                     "next": "영문·숫자 값으로 대체하거나 ADBKeyboard 같은 IME 를 설치한다"})
-    adb = sdk_tool("adb")
-    if not adb:
+    if not sdk_tool("adb"):
         return out({"ok": False, "code": "adb_missing", "error": "adb 를 찾지 못했습니다"})
-    # 공백은 `%s`. 값은 표준입력으로 읽어 따옴표 안에서만 쓴다 (셸 메타문자가 해석되지 않는다)
-    payload = value.replace(" ", "%s") + "\n"
+    return _type_on_android(args, dev_id, value)
+
+
+def _type_on_android(args, dev_id: str, value: str) -> int:
+    """Android: 입력기 확인·전환 > 입력(표준입력) > 필드 대조 > Enter > 원복 (#926)."""
+    be = app_input.get_backend("android")
+    mode = getattr(args, "ime", None) or "auto"
+    should_submit = bool(getattr(args, "submit", False))
+    is_secret = _is_secret_source(args)
+    verification: dict = {}
     try:
-        r = subprocess.run([adb, "-s", dev_id, "shell", 'IFS= read -r T; input text "$T"'],
-                           input=payload, capture_output=True, text=True, timeout=30)
-        if r.returncode == 0 and getattr(args, "submit", False):
-            subprocess.run([adb, "-s", dev_id, "shell", "input", "keyevent", "66"],
-                           capture_output=True, text=True, timeout=15)
+        with android_ime.ascii_input_method(android_ime.android_shell(be, dev_id), mode) as ime_report:
+            if mode == "ascii" and ime_report["reason"] in ("no_ascii_input_method_installed",
+                                                             "default_input_method_unknown"):
+                return out({"ok": False, "code": "ascii_input_method_missing", "device": dev_id, "ime": ime_report,
+                            "error": "글자를 그대로 넣는 입력기(Maestro IME · ADBKeyboard)가 없거나 되돌릴 기본 입력기를 모른다",
+                            "next": "Maestro 를 이 기기에서 한 번 돌리면(app flow · app tap) Maestro IME 가 깔린다. "
+                                    "또는 ADBKeyboard 를 설치한다"})
+            ok, detail, verification = android_ime.type_and_verify(be, dev_id, value, is_secret, should_submit)
     except subprocess.TimeoutExpired:
         return out({"ok": False, "code": "app_type_timeout", "error": "기기 응답 없음 (30초)"})
     entry = {"password": value, "token": value}
-    ok = r.returncode == 0
-    result = {"ok": ok, "code": "ok" if ok else "app_type_failed", "device": dev_id,
-              "chars": len(value), "submitted": bool(getattr(args, "submit", False)) and ok,
+    is_mismatch = detail == "typed_text_mismatch"
+    result = {"ok": ok, "code": "ok" if ok else ("typed_text_mismatch" if is_mismatch else "app_type_failed"),
+              "device": dev_id,
+              "chars": len(value), "submitted": should_submit and ok, "ime": ime_report, **verification,
               "elapsed_seconds": elapsed_seconds(args),
-              "error": credentials.mask((r.stderr or "").strip(), entry)[:300] or None,
-              "summary": f"{len(value)}자 입력" + (" + Enter" if getattr(args, "submit", False) and ok else ""),
-              "next": "app shot  # 입력됐는지 화면으로 확인한다 (비밀번호 칸은 가려져 보인다)"}
+              "error": None if ok else ("입력창에 보이는 글자가 넣은 값과 다르다 (조합형 자판이 ASCII 를 조합했을 수 있다)"
+                                        if is_mismatch else credentials.mask(detail or "", entry)[:300] or None),
+              "summary": f"{len(value)}자 입력" + (" + Enter" if should_submit and ok else ""),
+              "next": _next_after_android_type(ok, is_mismatch, ime_report)}
     # 로그인 입력이면 중간 화면 정책을 싣는다 (#905)
     return out(with_login_policy(result, getattr(args, "cred", None)))
+
+
+def _is_secret_source(args) -> bool:
+    """대조 결과에 보이는 글자를 실어도 되나 — 저장된 자격증명이거나 이름이 비밀 같은 환경변수면 비밀."""
+    if getattr(args, "cred", None):
+        return True
+    return bool(SECRET_ENV_NAME_PATTERN.search(getattr(args, "text_env", None) or ""))
+
+
+def _next_after_android_type(ok: bool, is_mismatch: bool, ime_report: dict) -> str:
+    if ok:
+        return "app shot  # 입력됐는지 화면으로 확인한다 (비밀번호 칸은 가려져 보인다)"
+    if is_mismatch:
+        if ime_report.get("switched_to"):
+            return "입력기를 바꿨는데도 다르다 — 입력창이 맞는지 app tree 로 본다"
+        return ("입력창을 비운 뒤 app type --ime ascii 로 다시 넣는다 "
+                "(입력 동안만 Maestro IME · ADBKeyboard 로 바꾸고 되돌린다)")
+    return "입력창을 app tap 으로 먼저 눌러 포커스를 준 뒤 다시 시도한다"
 
 
 def _type_with_backend(args, platform: str, dev_id: str, value: str) -> int:
@@ -96,6 +132,9 @@ def configure(p) -> None:
     p.add_argument("--cred-field", dest="cred_field", default=None, help="type: 넣을 필드 (기본 password, 예: account)")
     p.add_argument("--text-env", dest="text_env", default=None, help="type: 값을 읽을 환경변수 (일회용)")
     p.add_argument("--submit", action="store_true", help="type: 입력 뒤 Enter")
+    p.add_argument("--ime", choices=android_ime.IME_MODES, default="auto",
+                   help="type·run (Android): auto 조합형 자판(한국어 등)이면 입력 동안만 글자를 그대로 넣는 입력기로 바꾸고 되돌림 · "
+                        "keep 그대로 · ascii 항상 바꿈")
 
 
 ACTION = Action(name="type", run=_app_type, configure=configure)

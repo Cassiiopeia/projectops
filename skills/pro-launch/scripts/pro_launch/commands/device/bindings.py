@@ -1,28 +1,28 @@
-"""`devices` · `device` — 붙은 기기를 보고 역할을 기기에 묶는다."""
+"""`devices` · `device list|bind|unbind|show` — 붙은 기기를 보고 역할을 기기에 묶는다."""
 from __future__ import annotations
 
 
-from pro_launch.registry import Command
 from pro_launch.runtime import host_resources
 from pro_launch.runtime.context import project_root
+from pro_launch.runtime.device_claims import owners_by_device
 from pro_launch.runtime.devices import build_info, build_mismatch, devices_path, ios_udids, list_devices, load_devices, save_devices
 from pro_launch.runtime.envfile import resolve_run_dir, write_env_sh
 from pro_launch.runtime.output import out
 
 
-def cmd_devices(args) -> int:
+def run_devices(args) -> int:
     dev = list_devices()
     n = len(dev["android"]) + len(dev["ios_booted"])
     # 호스트 메모리 압박 요약 — 기기를 더 띄우기 전에 보게 한다 (#883). 자세히는 doctor --resources
     resources = host_resources.memory_summary()
     advice = host_resources.pressure_advice(resources["pressure"])
-    return out({**dev, "resources": resources,
+    return out({**dev, "resources": resources, "owners": owners_by_device(),
                 "summary": f"사용 가능한 기기 {n}대 · 메모리 압박 {resources['pressure']}",
                 "next": advice or (None if n else "emulator -avd {AVD명} 으로 부팅하세요")})
 
 
-def cmd_device(args) -> int:
-    """역할을 기기에 묶고, 무엇이 깔려 있는지 대조한다."""
+def run_binding_action(args) -> int:
+    """역할을 기기에 묶고, 무엇이 깔려 있는지 대조한다 (list · bind · unbind · show)."""
     root = project_root(args)
     known = load_devices(root)
     bindings = known["bindings"]
@@ -61,11 +61,13 @@ def cmd_device(args) -> int:
     # list — 붙어 있는 기기 + 역할 + 설치된 빌드
     dev = list_devices()
     by_role = {b["serial"]: b for b in bindings}
+    # 기기 소유(device claim) — 다른 세션이 쥔 기기를 목록에서 바로 본다 (#925)
+    owners = owners_by_device()
     rows = []
     for serial in dev["android"]:
         b = by_role.get(serial, {})
         rows.append({"serial": serial, "role": b.get("role"), "note": b.get("note"),
-                     "build": build_info(serial, package)})
+                     "owner": owners.get(serial), "build": build_info(serial, package)})
     unbound = [r["serial"] for r in rows if not r["role"]]
     mismatch = build_mismatch(rows)
     ios_ids = ios_udids(dev)
@@ -84,32 +86,10 @@ def cmd_device(args) -> int:
     env = write_env_sh(run_dir, package, bindings) if (run_dir and run_dir.is_dir()) else None
     return out({
         "devices": rows, "env_file": str(env) if env else None,
-        "ios_booted": dev["ios_booted"], "package": package,
+        "ios_booted": dev["ios_booted"], "owners": owners, "package": package,
         "build_mismatch": mismatch, "stale_bindings": stale,
         "summary": (f"기기 {len(rows)}대 · 역할 {len(bindings)}개"
                     + (f" · 빌드 불일치 {len(mismatch)}건" if mismatch else "")),
         "next": nxt, "ok": not mismatch,
         "code": "build_mismatch" if mismatch else "ok",
     })
-
-
-def configure_devices(p) -> None:
-    pass
-
-
-def configure_device(p) -> None:
-    p.add_argument("action", choices=["list", "bind", "unbind", "show"])
-    p.add_argument("--root", default=".")
-    p.add_argument("--role", default=None, help="역할 키. 시나리오 roles 의 키와 같아야 한다")
-    p.add_argument("--serial", default=None, help="기기 시리얼 (device list 에 나온다)")
-    p.add_argument("--note", default=None, help="사람이 읽을 설명. env.sh 에 주석으로 붙는다")
-    p.add_argument("--package", default=None, help="설치된 빌드를 대조할 패키지명")
-    p.add_argument("--run-dir", default=None, help="env.sh 를 쓸 실행 폴더. 없으면 $RUN_DIR")
-
-
-COMMANDS = [
-    Command(name="devices", help="붙은 기기 · 부팅된 시뮬레이터 · AVD", run=cmd_devices,
-            configure=configure_devices),
-    Command(name="device", help="역할을 기기에 묶는다 (참가자가 둘 이상일 때)", run=cmd_device,
-            configure=configure_device),
-]

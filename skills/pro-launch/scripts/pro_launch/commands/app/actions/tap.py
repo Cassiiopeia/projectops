@@ -3,6 +3,7 @@ from __future__ import annotations
 
 
 import app_input
+import node_match
 
 from pro_launch.commands.app.gestures import (backend_for, before_shot, gesture_result, not_found_response,
                                               device_failure_response)
@@ -33,27 +34,34 @@ def _app_tap(args) -> int:
         return gesture_result(args, be, dev_id, before, ok, detail, "tap_failed", f"탭 ({label})")
 
     field, value = sel
-    if be.selects_itself:
+    nodes = be.nodes(dev_id) or []
+    if not nodes and be.selects_itself:
+        # iOS 트리를 못 읽음: 예전처럼 Maestro 선택자에 값을 그대로 (빠른 길)
         ok, detail = be.tap_selector(dev_id, field, value)
         if not ok and "not found" in (detail or "").lower():
             return not_found_response(be, dev_id, field, value, None, args)
         return gesture_result(args, be, dev_id, before, ok, detail, "tap_failed", f"탭 ({label})")
-
-    nodes = be.nodes(dev_id) or []
     if not nodes:
         return device_failure_response(be, dev_id, args)
-    found = app_input.match_nodes(nodes, field, value)
+    # 플랫폼 공통 matcher: 정확 > 정규화(겹친 라벨·줄 단위) > 포함, text <-> desc 대체
+    found, matched_by, match_kind = node_match.find_nodes(nodes, field, value)
     if not found:
         return not_found_response(be, dev_id, field, value, nodes, args)
     idx = getattr(args, "index", 0) or 0
     if idx >= len(found):
         return out({"ok": False, "code": "index_out_of_range", "matches": len(found)})
     target = found[idx]
-    ok, detail = be.tap_xy(dev_id, *target["center"])
+    if be.selects_itself:
+        # iOS: 저장된 값 그대로 누르고, 선택자가 못 찾으면 중심 좌표
+        ok, detail = be.tap_selector(dev_id, "id" if matched_by == "id" else "text", target[matched_by])
+        if not ok and "not found" in (detail or "").lower():
+            ok, detail = be.tap_xy(dev_id, *target["center"])
+    else:
+        ok, detail = be.tap_xy(dev_id, *target["center"])
     return gesture_result(args, be, dev_id, before, ok, detail, "tap_failed",
                            f"탭 {target['center']} ({label})",
                            element={k: v for k, v in target.items() if v not in ("", None)},
-                           matches=len(found))
+                           matches=len(found), matched_by=matched_by, match_kind=match_kind)
 
 
 def configure(p) -> None:

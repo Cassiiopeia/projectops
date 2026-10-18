@@ -74,7 +74,9 @@ def build_payload(reply: dict, secrets: list[str]) -> dict:
                        "next": "조각을 고쳐 다시 부른다. 자주 쓰는 일이면 고정 동작이 있는지 web --help 로 본다"}
     result_text = mask_secrets(reply.get("result_text") or "null", secrets)
     is_truncated = len(result_text) > MAXIMUM_RESULT_CHARS
-    return base | {"result": result_text[:MAXIMUM_RESULT_CHARS] if is_truncated else json.loads(result_text),
+    captured = {"requests": reply["requests"]} if "requests" in reply else {}
+    return base | captured | {
+                   "result": result_text[:MAXIMUM_RESULT_CHARS] if is_truncated else json.loads(result_text),
                    "result_truncated": is_truncated, "title": reply.get("title"),
                    "summary": "조각을 실행했다" + (" (결과가 길어 잘랐다)" if is_truncated else ""),
                    "next": "web text  # 바뀐 화면을 읽는다"}
@@ -89,7 +91,8 @@ def execute(args, state: dict, state_file) -> int:
         return out({"ok": False, "code": "mutating_blocked", "action": "script",
                     "error": "읽기 전용 세션이라 조각을 실행하지 않았습니다 (무엇을 바꿀지 알 수 없다)",
                     "next": "읽기만 하는 조각이면 사용자에게 알리고 --confirm-mutating 을 붙인다"})
-    request = json.dumps({"state": state, "code": code, "timeout_seconds": args.timeout})
+    request = json.dumps({"state": state, "code": code, "timeout_seconds": args.timeout,
+                          "capture_requests": bool(args.capture_requests)})
     secrets = saved_secret_values()
     try:
         # 신호로는 Playwright 대기를 안전하게 끊을 수 없다 — 자식 프로세스째 죽인다
@@ -119,6 +122,6 @@ def configure(p) -> None:
 
 
 ACTION = Action(name="script", run=execute, needs="state_online", configure=configure,
-                options=("confirm_mutating",),
+                options=("confirm_mutating", "capture_requests"),
                 help="붙은 브라우저의 page · context 로 Playwright 조각을 실행한다 (고정 동작에 없는 일)",
                 example="web script --file count_rows.py")

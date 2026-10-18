@@ -10,6 +10,7 @@ import os
 import urllib.request
 from pathlib import Path
 
+from pro_launch.commands.web.watchdog import HUNG_MARK_KEY
 from pro_launch.runtime.procs import kill_browser, pid_alive, process_command_lines
 
 # Chromium 이 프로필에 남기는 잠금 3개 (macOS·Linux 는 SingletonLock 이 "호스트-pid" 를 가리키는 심볼릭 링크)
@@ -65,14 +66,15 @@ def cdp_responds(cdp: str, timeout: float = HUNG_PROBE_SECONDS) -> bool:
 def recover_recorded_browser(previous_state: dict, profile: Path) -> tuple[str, list[str]]:
     """기록된 브라우저 판정 > ("reuse" | "launch" | "blocked", 치운 것 목록).
 
-    살아 있고 CDP 응답 > reuse · 살아 있는데 무응답 > 멈춤으로 보고 종료 · 죽음 > 잠금만 정리.
+    살아 있고 CDP 응답 > reuse · 살아 있는데 무응답 · 멈춤 표시(hung_at) > 종료 · 죽음 > 잠금만 정리.
     blocked: 멈춘 브라우저를 끄지 못했다.
     """
     recovered: list[str] = []
     pid = previous_state.get("pid")
     cdp = previous_state.get("cdp")
     if pid and pid_alive(int(pid)):
-        if cdp and cdp_responds(cdp):
+        # hung_at: 지난 명령이 붙기·조작에서 멈췄다 — CDP 가 답해도 다시 붙으면 또 멈춘다 (#921)
+        if cdp and cdp_responds(cdp) and not previous_state.get(HUNG_MARK_KEY):
             return "reuse", recovered
         if kill_browser(int(pid), grace=HUNG_KILL_GRACE_SECONDS):
             return "blocked", recovered

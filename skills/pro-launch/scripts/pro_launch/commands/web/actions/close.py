@@ -5,7 +5,7 @@ from pathlib import Path
 
 from pro_launch.commands.web.session import web_connect
 from pro_launch.registry import Action
-from pro_launch.runtime.browser import write_state
+from pro_launch.runtime.browser import find_stale_browsers, write_state
 from pro_launch.runtime.output import out
 from pro_launch.runtime.procs import kill_browser, manual_kill_command
 
@@ -49,12 +49,42 @@ def _close_by_connection(state: dict, state_f: Path) -> int:
         pw.stop()
 
 
+def _close_stale(args) -> int:
+    """pro-launch 가 띄우고 버려진 브라우저만 끈다 (프로필 사라짐 · 상태 파일이 안 가리킴 · 오래 쉼). 쓰는 중인 것은 보고만"""
+    found = find_stale_browsers(maximum_idle_hours=args.idle_hours)
+    if not found["readable"]:
+        return out({"ok": False, "code": "process_list_unreadable", "action": "close", "stale": [], "kept": [],
+                    "error": "프로세스 목록을 읽지 못해 버려진 브라우저를 가를 수 없습니다"})
+    closed, still_alive = [], []
+    for entry in found["stale"]:
+        if not args.dry_run and kill_browser(int(entry["pid"]), grace=2.0):
+            still_alive.append(entry)
+        elif not args.dry_run:
+            closed.append(entry)
+    summary = (f"버려진 브라우저 {len(found['stale'])}개 (끄지 않음 --dry-run)" if args.dry_run else
+               f"버려진 브라우저 {len(closed)}개를 끄고 {len(found['kept'])}개는 쓰는 중이라 두었다")
+    return out({"ok": not still_alive, "code": "ok" if not still_alive else "browser_still_alive",
+                "action": "close", "stale": found["stale"], "closed": closed, "kept": found["kept"],
+                "still_alive": still_alive, "dry_run": args.dry_run, "summary": summary,
+                "next": "kept 는 다른 세션이 쓰는 중일 수 있다 — 그 세션의 web close 로 끈다"})
+
+
 def execute(args, state: dict, state_f: Path) -> int:
+    if args.stale:
+        return _close_stale(args)
     if state.get("pid"):
         # 연결부터 맺지 않는다 — 응답 없는 브라우저에서는 연결·close 가 모두 멈춘다 (#712)
         return _web_close(state, state_f)
     return _close_by_connection(state, state_f)
 
 
-ACTION = Action(name="close", needs="state_online", run=execute, options=(),
-                help="브라우저를 닫는다", example="web close")
+def configure(p) -> None:
+    p.add_argument("--stale", action="store_true",
+                   help="이 프로젝트가 아니라 버려진 pro-launch 브라우저(프로필 사라짐 · 상태 파일이 안 가리킴 · 오래 쉼)를 정리한다")
+    p.add_argument("--dry-run", dest="dry_run", action="store_true", help="--stale: 끄지 않고 목록만")
+    p.add_argument("--idle-hours", dest="idle_hours", type=float, default=12,
+                   help="--stale: 부모 없이 이만큼(시간) 안 쓴 브라우저를 버려진 것으로 본다 (기본 12)")
+
+
+ACTION = Action(name="close", needs="state_online", run=execute, configure=configure, options=(),
+                help="브라우저를 닫는다 (--stale: 버려진 브라우저 정리)", example="web close --stale --dry-run")

@@ -9,6 +9,7 @@
 ```bash
 {PYTHON} {SCRIPTS}/launch_cli.py cred list                     # 작업 시작 때 한 번 — 무엇을 쓸 수 있나
 {PYTHON} {SCRIPTS}/launch_cli.py cred show --name synology     # 값은 가려서 보여 준다 (--reveal 은 꼭 필요할 때만)
+{PYTHON} {SCRIPTS}/launch_cli.py cred show synology            # 이름을 위치 인자로 줘도 된다 (show·set·unset)
 {PYTHON} {SCRIPTS}/launch_cli.py cred set --name synology --json '{"kind":"ssh","host":"h","port":22,"user":"u",
   "use_when":"서버 배포 QA","scope":"test-only","notes":"운영 컨테이너가 있으니 pops-qa- 접두사만"}'
 {PYTHON} {SCRIPTS}/launch_cli.py cred unset --name synology

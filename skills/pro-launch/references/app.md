@@ -81,6 +81,20 @@ JSON
 
 결과에 `cause`(예: `android_system_not_ready`)가 있으면 단계가 아니라 **기기 상태**가 원인이다 — 단계를 고치지 말고 기기부터 본다.
 
+### 기다리기 · 녹화 · 연속 캡처 · 상태바 시각 (#928)
+
+```bash
+{PYTHON} {SCRIPTS}/launch_cli.py app wait --device "$DEV" --text "로드 중" --gone --timeout 30   # 사라질 때까지 (없으면 나타날 때까지)
+{PYTHON} {SCRIPTS}/launch_cli.py app record start --device "$DEV" --out login_flow                # iOS simctl recordVideo · Android screenrecord(180초 제한)
+{PYTHON} {SCRIPTS}/launch_cli.py app record stop  --device "$DEV" --gif                           # ffmpeg 가 있으면 poster · gif 도
+{PYTHON} {SCRIPTS}/launch_cli.py app tap --device "$DEV" --text "계속" --burst 6:0.4              # 동작 전후 6초, 0.4초 간격 — 변한 프레임만 돌려준다
+{PYTHON} {SCRIPTS}/launch_cli.py app shot --device "$DEV" --out store_01 --time 7:42              # 상태바 시각을 알림 시각에 맞춘다 (--clean-status 포함)
+```
+
+- `app wait` 는 읽지 못한 화면을 "사라졌다"로 세지 않는다. `app run` 단계에서는 `{"gone": {...}}` 또는 `{"wait": {...}, "gone": true}`.
+- `--burst` 는 바이트 해시로 중복을 걷는다(시계·애니메이션 변화도 변경으로 센다). 최대 150장 · 30초.
+- `app shot --shot 이름` 은 `--out` 의 별칭이다.
+
 ### 제스처 플레이북 — 밀다가 찍기 · 요소 기준 밀기 · 밀고 곧바로 탭 (#862)
 
 전용 옵션을 늘리지 않는다. **`tap`·`swipe`·`run` 으로 되는 것은 그것으로, 안 되는 것은 Maestro flow 를 `app flow` 로** 돌린다.
@@ -139,6 +153,12 @@ appId: com.example.app
 {PYTHON} {SCRIPTS}/launch_cli.py app session status --device "$DEV"
 {PYTHON} {SCRIPTS}/launch_cli.py app session stop   --device "$DEV"
 ```
+
+- **`tap_failed` 가 90초로 반복되고 `session start` 도 실패하면** 응답의 `stale_maestro_drivers`(남은 Maestro 드라이버)·`host_load`(부하)를 본다.
+  남은 것은 `app session stop --device "$DEV" --kill-stale` 로 끈다(살아 있는 부모가 있는 것은 건드리지 않고 `other_maestro_processes` 로 알리기만 한다). 부하가 높으면 `MAESTRO_DRIVER_STARTUP_TIMEOUT=180000` 이 자동으로 걸린다.
+  Maestro 시작은 컴퓨터 단위 잠금으로 직렬화된다(`maestro_lock.waited_seconds`).
+- **라벨로 누를 때** `--text` 는 text · desc · label 을 모두 본다. 순서는 정확 일치 > 정규화(Flutter 가 겹쳐 넣는 `"X\nX"`, 보이지 않는 표식, 공백) > 부분 일치.
+  응답의 `matched_by` 로 어느 칸이 맞았는지 알 수 있고, 못 찾으면 `did_you_mean`(예: `--desc '홈 탭'`)과 text · desc 후보가 온다.
 
 | 실측 (iOS 18.3 시뮬레이터, Maestro 2.10.0) | 세션 없음 | 세션 |
 |---|---|---|
@@ -216,6 +236,29 @@ raw `xcrun simctl` · `adb shell am|pm` 대신 쓴다. 패키지는 `--pkg` → 
 
 ---
 
+## 기기 띄우기 · 소유 · 언어·외관 (#923 · #924 · #925 · #929)
+
+```bash
+{PYTHON} {SCRIPTS}/launch_cli.py device boot    --device "{UDID|이름|AVD}" [--window headless|small|normal] [--scale 0.4] [--cold]
+{PYTHON} {SCRIPTS}/launch_cli.py device reboot  --device "$DEV" [--cold] [--yes]   # 소프트 · cold(emu kill > 강제 종료 > -no-snapshot-load)
+{PYTHON} {SCRIPTS}/launch_cli.py device claim   --device "$DEV"                    # 이 세션이 쥔다 (30분 안 쓰면 풀림)
+{PYTHON} {SCRIPTS}/launch_cli.py device release --device "$DEV"                    # 놓으면서 바꾼 언어·외관을 되돌린다
+{PYTHON} {SCRIPTS}/launch_cli.py device locale  --device "$DEV" --lang en --region US [--app "$PKG"]   # --restore 로 원복
+{PYTHON} {SCRIPTS}/launch_cli.py device appearance dark --device "$DEV"            # light|dark, --restore 로 원복
+```
+
+- **창 크기와 캡처 크기는 무관하다.** 캡처는 기기 화면을 그대로 읽고 `--max-side` 로 줄인다. 창은 사람이 디버깅할 때만 필요하므로 에이전트가 띄울 때는 **headless 가 기본**이다.
+  iOS 에서 `--window small|normal` 은 Simulator.app 이 **꺼져 있을 때** 그 기기의 창 배율(`DevicePreferences.<UDID>.SimulatorWindowGeometry.<화면>.WindowScale`)을 쓰고 그 기기 창만 연다.
+  Simulator.app 이 이미 떠 있으면(다른 세션 것일 수 있다) 끄지 않고 `window_scale_pending: true` + `window_hint` 만 낸다. 이미 켜져 있는 기기는 바꾸지 않는다(`already_booted`).
+- **앞에 나왔나 (#923).** `app launch|relaunch` 는 띄운 뒤 확인한다. Android 는 초점 창·재개된 액티비티가 대상 패키지인지 최대 ~5초 본다 — 아니면 `not_foreground`(`foreground_package` · `blocking_activity`).
+  iOS 는 ~2.5초 뒤 `launchctl list` 에 `UIKitApplication:<번들>` 이 있는지 본다 — 없으면 `app_exited` + 가장 새 크래시 리포트(`crash_report.path` · `exception_line`). 확인을 못 하면(`dumpsys` 시간 초과) 성공을 뒤집지 않는다.
+- **소유 (#925).** 다른 살아 있는 세션이 쥔 기기에서 launch·relaunch·install 하면 응답에 `device_owned_by_other` 경고가 붙는다. `device reboot`·시스템 `locale`·`appearance`·`claim`·`release` 는 `--yes` 없이 멈춘다 — **사용자에게 먼저 묻는다.**
+  세션은 `LAUNCH_SESSION` > `CLAUDE_CODE_SESSION_ID` 로 가른다. `device list`·`devices` 의 `owners` 에서 소유자를 본다.
+- **언어 한계.** iOS 시스템 언어는 `defaults write -g AppleLanguages/AppleLocale` 후 재부팅(그 시뮬레이터의 앱 상태가 사라진다). `--app` 은 앱 도메인만 바꾸고 재시작이면 된다.
+  Android 는 API 33+ 만: 앱별은 `cmd locale set-app-locales`(Google Maps 같은 라벨이 앱 언어를 따를 때), 시스템은 `cmd locale set-device-locale` 이 있는 이미지에서만 된다.
+
+---
+
 ## Android
 
 ### 기기 준비
@@ -224,13 +267,13 @@ raw `xcrun simctl` · `adb shell am|pm` 대신 쓴다. 패키지는 `--pkg` → 
 adb devices                       # 연결 확인
 emulator -list-avds               # 쓸 수 있는 AVD 목록
 
-# 부팅 (백그라운드) — 완료까지 기다린다
-nohup emulator -avd {AVD명} -no-snapshot-load >/dev/null 2>&1 &
-for i in $(seq 1 40); do
-  [ "$(adb -s "$DEV" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
-  sleep 10
-done
+# 부팅 — 창 없이 띄우고 쓸 수 있을 때까지 기다린다 (raw emulator / nohup 루프 대신)
+{PYTHON} {SCRIPTS}/launch_cli.py device boot --device {AVD명}                  # 기본 headless(-no-window)
+{PYTHON} {SCRIPTS}/launch_cli.py device boot --device {AVD명} --window small   # 창이 필요할 때 (-scale 0.4)
+{PYTHON} {SCRIPTS}/launch_cli.py device boot --device {AVD명} --cold           # -no-snapshot-load
 ```
+
+준비 완료 = 셸 응답 + `sys.boot_completed` + 패키지 서비스 + 초점 창이 "Not Responding" 아님(연속 3회). `init.svc.bootanim` 은 보지 않는다.
 
 기기를 나중에 띄웠으면 `device list` 를 한 번 더 돌린다 — `env.sh` 의 `$DEV` 를 채운다.
 
@@ -241,10 +284,13 @@ done
 ### 설치
 
 ```bash
-adb -s "$DEV" install -r {apk}              # 덮어쓰기 (데이터 유지)
+{PYTHON} {SCRIPTS}/launch_cli.py app install --device "$DEV" --path {apk}   # 준비 확인 > push > pm install -r -t (단계별 시간 한도)
 adb -s "$DEV" uninstall {패키지} && adb -s "$DEV" install {apk}   # 서명이 다르면 이 순서
 adb -s "$DEV" shell pm clear {패키지}        # 데이터만 초기화 (앱은 유지)
 ```
+
+`app install` 은 부팅 직후 `Broken pipe` / `Can't find service: package` 를 만나면 서비스가 돌아오길 기다려 **한 번** 다시 한다.
+기기가 안 답하면 `device_unresponsive` + 호스트 메모리 수치(`resources`)와 `next: device reboot --device <id> --cold` 를 낸다.
 
 `INSTALL_FAILED_UPDATE_INCOMPATIBLE` 은 서명 불일치다. CI 빌드와 로컬 빌드는 키가 다르다.
 
@@ -273,6 +319,8 @@ adb -s "$DEV" shell input keyevent KEYCODE_ENTER   # 완료 키
 - 값은 **명령줄이 아니라 표준입력**으로만 기기에 간다(호스트 `ps` 에 남지 않는다). `--text` 로 값을 직접 주는 방식은 없다.
 - 포커스된 입력창에 들어간다 — 입력창은 먼저 `app tap --text|--id`(요소 기준)로 눌러 포커스를 준다. 입력 뒤에는 `app shot` 으로 확인한다.
 - **`adb input text` 는 ASCII 만 된다**(한글 불가 → `non_ascii_unsupported`). 한글이 필요하면 IME 를 설치한다.
+- **ASCII 라도 한국어·일본어·중국어 키보드에서는 자모로 조합된다.** `--ime auto`(기본)가 조합형 키보드를 알아보면 입력하는 동안만 글자를 그대로 넣는 입력기(Maestro IME · ADBKeyboard)로 바꿨다가 되돌린다.
+  입력 뒤 입력칸을 다시 읽어 다르면 `typed_text_mismatch`(비밀이면 길이만, 값은 싣지 않음 · 비밀번호 칸은 `verification: skipped_password_field`). `--ime keep` 은 바꾸지 않는다, `--ime ascii` 는 강제로 바꾼다. 입력기는 기기 전역 설정이라 남의 기기면 먼저 묻는다.
 - **iOS 는 Maestro `inputText` 로 넣는다(#895).** 값은 `MAESTRO_` 환경변수로만 넘겨 flow 파일·명령줄에 남지 않는다.
   Maestro 가 없으면 `ios_tool_missing`(`next` 에 설치 명령), 실패하면 `app_type_failed`(출력의 값은 `***`). 호출당 10~40초.
   상주 세션이 있어도 type 은 타지 않는다(`session_fallback: secret_input_per_call`, 위 "iOS 상주 세션").
@@ -313,10 +361,11 @@ ffmpeg -i rec.mp4 -vf "fps=60,crop={w}:{h}:{x}:{y}" frames/f%03d.png
 
 ```bash
 xcrun simctl list devices                      # 목록
-xcrun simctl boot "{기기명}"                    # 부팅
-open -a Simulator                              # 창 띄우기
+{PYTHON} {SCRIPTS}/launch_cli.py device boot --device "{기기명 또는 UDID}"            # 창 없이 부팅 (기본 headless)
+{PYTHON} {SCRIPTS}/launch_cli.py device boot --device "{기기명}" --window small      # 창 배율 0.4 로 연다
+{PYTHON} {SCRIPTS}/launch_cli.py device boot --device "{기기명}" --scale 0.5         # 배율을 직접 (0.3~1.0, 주면 창을 연다)
 
-xcrun simctl install {UDID} {앱.app}
+{PYTHON} {SCRIPTS}/launch_cli.py app install --device {UDID} --path {Runner.app}   # .app 폴더 (.ipa 는 실기기용)
 {PYTHON} {SCRIPTS}/launch_cli.py app launch --device {UDID} --pkg {번들ID}
 {PYTHON} {SCRIPTS}/launch_cli.py app terminate --device {UDID} --pkg {번들ID}
 xcrun simctl uninstall {UDID} {번들ID}

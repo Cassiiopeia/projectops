@@ -10,6 +10,7 @@ OS 분기는 '도구가 있는가'로 가른다 — sys.platform 분기는 procs
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 from pathlib import Path
@@ -30,6 +31,8 @@ HIGH_AVAILABLE_PERCENT = 10
 # macOS kern.memorystatus_vm_pressure_level: 1 정상, 2 경고, 4 위험
 MACOS_PRESSURE_LEVELS = {1: "ok", 2: "high", 4: "critical"}
 PRESSURE_ORDER = ("unknown", "ok", "high", "critical")
+# 과부하: 1분 평균 부하가 코어 수의 이 배수를 넘는다 (실측 load 46·128 에서 Maestro iOS 드라이버 기동이 시간 안에 못 끝났다)
+OVERLOAD_LOAD_PER_CORE = 2
 
 
 def read_memory() -> dict:
@@ -146,8 +149,19 @@ def memory_summary() -> dict:
             "swap_used_percent": _percent(memory.get("swap_used_mb"), memory.get("swap_total_mb"))}
 
 
+def read_load() -> dict:
+    """{load_1m, load_5m, load_15m, cpu_count, is_overloaded} — 부하 평균이 없는 OS(윈도우)면 값이 None."""
+    cpu_count = os.cpu_count()
+    try:
+        load_1m, load_5m, load_15m = (round(value, 1) for value in os.getloadavg())
+    except (AttributeError, OSError):
+        return {"load_1m": None, "load_5m": None, "load_15m": None, "cpu_count": cpu_count, "is_overloaded": False}
+    return {"load_1m": load_1m, "load_5m": load_5m, "load_15m": load_15m, "cpu_count": cpu_count,
+            "is_overloaded": bool(cpu_count) and load_1m > OVERLOAD_LOAD_PER_CORE * cpu_count}
+
+
 def resource_report(devices: dict) -> dict:
-    """doctor --resources 전체 보고: 메모리 > 압박 단계 > 큰 프로세스 > 켜진 가상 기기와 묶은 레포."""
+    """doctor --resources 전체 보고: 메모리 > 압박 단계 > 부하 > 큰 프로세스 > 켜진 가상 기기와 묶은 레포."""
     memory = read_memory()
     owners = device_owners()
     booted = [{"platform": "android", "id": serial, "bound_by": owners.get(serial, [])}
@@ -157,7 +171,8 @@ def resource_report(devices: dict) -> dict:
         udid = udid_match.group(1) if udid_match else label
         booted.append({"platform": "ios", "id": udid, "name": label.split(" [")[0],
                        "bound_by": owners.get(udid, [])})
-    return {**memory, **memory_summary(), "top_processes": top_processes(), "booted_devices": booted}
+    return {**memory, **memory_summary(), "load": read_load(), "top_processes": top_processes(),
+            "booted_devices": booted}
 
 
 def pressure_advice(level: str) -> str | None:

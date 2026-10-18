@@ -136,6 +136,9 @@ def _emitted_code_patterns() -> list[re.Pattern]:
     def add(node):
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
             patterns.append(re.compile(re.escape(node.value) + r"\Z"))
+        elif isinstance(node, ast.IfExp):   # "a" if ok else "b" — 두 갈래 모두 나올 수 있는 code
+            add(node.body)
+            add(node.orelse)
         elif isinstance(node, ast.JoinedStr):
             parts = [re.escape(v.value) if isinstance(v, ast.Constant) else r"[a-z0-9_]+" for v in node.values]
             patterns.append(re.compile("".join(parts) + r"\Z"))

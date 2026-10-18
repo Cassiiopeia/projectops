@@ -189,3 +189,14 @@ def test_cred_와_함께_준_값은_저장된_값보다_우선한다(home, tmp_p
             path_prepend=_recording_ssh(tmp_path), env_extra={"REC": str(rec)})
     assert r["ok"] is True and "-p 2022" in rec.read_text() and "u@h.example" in rec.read_text()
     assert r["summary"].startswith("nas")
+
+
+def test_CP949_로_찍는_Windows_원격도_디코드하고_stderr_는_늘_문자열이다(home, tmp_path):
+    # 실측: 한국어 Windows cmd 출력에 UnicodeDecodeError 로 handler_error, 성공 때 stderr null 로 호출부 TypeError
+    b = tmp_path / "cpbin"
+    b.mkdir()
+    (b / "ssh").write_text("#!/bin/bash\ncat > /dev/null\nprintf '\\xbc\\xad\\xb9\\xf6 C:\\\\'\n")
+    (b / "ssh").chmod(0o755)
+    r = run(home, "ssh", "--host", "win", "--user", "u", "--command", "dir", path_prepend=b)
+    assert r["ok"] is True and r["stdout"].startswith("서버")
+    assert r["stdout_encoding"] == "cp949" and r["stderr"] == ""

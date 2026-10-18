@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from common.state import base_dir, in_skill_path, migrate_launch, repo_unknown, state_dir
+from common.state import base_dir, in_skill_path, is_scratch_root, migrate_launch, repo_unknown, state_dir
 
 from pro_launch.runtime.recent_roots import is_git_work_tree, last_used_root, remember_root
 
@@ -86,6 +86,9 @@ def _resolve_root(raw: str) -> tuple[Path, dict]:
                 return _remembered(Path(env_root).expanduser().resolve()), {}
             # 상태는 state_dir 이 _machine 으로 돌린다. 응답에서 --root 를 요구하도록 표시만 한다
             return candidate, {"unknown": True, "path": str(candidate)}
+        if is_scratch_root(candidate):
+            # git·마커 없는 명시 root (scratchpad 등) — 경로 해시 버킷, 최근 루트에 남기지 않는다 (#932)
+            return candidate, {"scratch": True, "path": str(candidate)}
         return _remembered(candidate), {}
     if env_root:
         return _remembered(Path(env_root).expanduser().resolve()), {}
@@ -97,11 +100,13 @@ def _resolve_root(raw: str) -> tuple[Path, dict]:
     if repo_unknown(candidate):
         return candidate, {"unknown": True, "path": str(candidate)}
     # git 레포가 아닌 폴더 — 옛 동작대로 그 폴더를 쓰되, 실패하면 후보와 다시 부를 명령을 싣는다
-    return candidate, {"not_repo": True, "path": str(candidate)}
+    return candidate, {"not_repo": True, "path": str(candidate), "scratch": is_scratch_root(candidate)}
 
 
 def _remembered(root: Path) -> Path:
-    remember_root(root)
+    # 임시 폴더는 최근 루트가 되면 레포 밖 호출이 그 폴더를 쓴다 (#932)
+    if not is_scratch_root(root):
+        remember_root(root)
     return root
 
 

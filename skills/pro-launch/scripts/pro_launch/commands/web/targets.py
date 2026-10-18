@@ -129,6 +129,28 @@ ROLE_SELECTORS = {
     "link": "a[href],[role=link]",
 }
 ROLE_CHOICES = (*ROLE_SELECTORS, "all")
+# 흔히 짐작하는 역할 이름 > ROLE_SELECTORS 키. ARIA textbox 만 보면 그냥 <input> 이 안 잡혔다 (#930, npm OTP 실측)
+ROLE_ALIASES = {"textbox": "input", "searchbox": "input", "textarea": "input", "combobox": "select",
+                "radio": "checkbox", "switch": "checkbox"}
+
+
+def role_selector(role: str | None) -> str | None:
+    """역할 이름 > 실제 요소 선택자. link · button 은 find 가 따로 고르므로 None (그 밖의 모르는 이름도 None)"""
+    key = ROLE_ALIASES.get(role or "", role)
+    if key in ("link", "button"):
+        return None
+    return ROLE_SELECTORS.get(key)
+
+
+# ── 선택자 문법 오류 (#931) — 모든 동작이 같은 안내를 쓴다 ──
+# Playwright 선택자 문법 오류 문구 (css 파싱 · querySelectorAll · 없는 엔진) — 기다려도 안 풀린다
+SELECTOR_SYNTAX_ERROR_MARKERS = ("while parsing", "is not a valid selector", "Unknown engine")
+SELECTOR_SYNTAX_HINT = ("선택자 문법 오류다. CSS 와 text= 는 한 선택자에 섞지 않는다 — 글자는 text=로그인 또는 "
+                        "button:has-text('로그인'), 쉼표 목록은 CSS 끼리만. 추측보다 web find · web inspect 의 --ref 가 확실하다")
+
+
+def is_selector_syntax_error(message: str) -> bool:
+    return any(marker in message for marker in SELECTOR_SYNTAX_ERROR_MARKERS)
 # select 하나에서 돌려줄 선택지 수
 MAXIMUM_OPTIONS = 30
 

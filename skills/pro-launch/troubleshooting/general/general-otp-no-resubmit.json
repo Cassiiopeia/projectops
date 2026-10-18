@@ -1,0 +1,24 @@
+{
+  "id": "general-otp-no-resubmit",
+  "area": "general",
+  "title": "인증 코드를 기다리는 동안 로그인 폼을 다시 제출하지 않는다",
+  "match": {
+    "codes": [],
+    "keywords": [
+      "Invalid OTP",
+      "인증 코드"
+    ]
+  },
+  "symptom": "사용자가 코드를 보냈는데 입력하니 Invalid OTP 가 뜬다",
+  "cause": "로그인을 다시 제출하면 새 코드가 나가 앞 코드가 무효가 된다",
+  "fix": [
+    "코드를 기다리는 동안 폼을 다시 제출하지 않는다",
+    "먼저 web text 로 지금 OTP 화면인지 확인한다",
+    "이미 다시 제출했으면 사용자에게 새 코드를 요청한다"
+  ],
+  "refs": [
+    881,
+    934
+  ],
+  "verified_at": "2026-10-18"
+}

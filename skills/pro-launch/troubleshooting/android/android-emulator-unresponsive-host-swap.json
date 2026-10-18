@@ -1,0 +1,32 @@
+{
+  "id": "android-emulator-unresponsive-host-swap",
+  "area": "android",
+  "title": "에뮬레이터가 응답하지 않는다 — 호스트 메모리가 꽉 찼다",
+  "match": {
+    "codes": [
+      "device_unresponsive",
+      "ui_dump_failed"
+    ],
+    "keywords": [
+      "swap",
+      "offline",
+      "system_server"
+    ]
+  },
+  "symptom": "adb install·shell 이 시간 초과하고 ui_dump_failed(count 0) 나 offline 이 이어진다",
+  "cause": "호스트 swap 이 거의 찼거나 AVD 가 1코어/2GB 라 system_server 가 watchdog 으로 반복 재시작한다",
+  "fix": [
+    "launch_cli.py doctor --resources 로 메모리 압박을 본다",
+    "launch_cli.py device reboot --device <id> --cold 로 정리하고 다시 띄운다",
+    "AVD 가 작으면 emulator -avd <이름> -no-snapshot -cores 4 -memory 4096",
+    "부팅 직후 'Broken pipe'/'Can't find service: package' 는 service check package 가 found 될 때까지 기다린 뒤 재시도",
+    "-no-snapshot-save 로 켜면 끈 사이 앱 데이터가 사라진다"
+  ],
+  "refs": [
+    924
+  ],
+  "verified_at": "2026-10-18",
+  "see_also": [
+    "android-system-restart-loop"
+  ]
+}

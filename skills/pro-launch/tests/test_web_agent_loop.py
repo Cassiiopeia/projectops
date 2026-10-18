@@ -19,6 +19,8 @@ from pathlib import Path
 
 import pytest
 
+from browser_cleanup import close_browser_for_test
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_launch_cli import run_cli, _j, _repo  # noqa: E402
 from pro_launch.commands.web import targets as web_targets  # noqa: E402
@@ -72,7 +74,7 @@ def _session(tmp_path):
     try:
         yield str(proj), f"http://127.0.0.1:{srv.server_port}/"
     finally:
-        run_cli("web", "close", "--root", str(proj))
+        close_browser_for_test(run_cli, proj, state)
         srv.shutdown()
         shutil.rmtree(state, ignore_errors=True)
 

@@ -8,6 +8,7 @@
   {"swipe": {"direction": "up"}} · {"swipe": {"from": "0.5,0.8", "to": "0.5,0.2", "ms": 300}}
   {"type": {"env": "PW", "submit": true}} · {"type": {"cred": "staging", "field": "account"}}
   {"wait": {"text": "홈", "timeout": 10}}           — 보일 때까지 (초)
+  {"gone": {"text": "로드 중"}} · {"wait": {"text": "로드 중", "gone": true}} — 사라질 때까지 (#928)
   {"back": true}                                    — Android 만
 """
 from __future__ import annotations
@@ -35,7 +36,8 @@ STEP_FIELDS = {
     "tap": {"text", "id", "desc", "point", "index"},
     "swipe": {"direction", "from", "to", "ms"},
     "type": {"env", "cred", "field", "submit"},
-    "wait": {"text", "id", "desc", "timeout"},
+    "wait": {"text", "id", "desc", "timeout", "gone"},
+    "gone": {"text", "id", "desc", "timeout"},
     "back": set(),
 }
 
@@ -81,6 +83,9 @@ def _normalize_step(raw_step, index: int) -> dict:
     unknown = set(params) - STEP_FIELDS[kind]
     if unknown:
         raise StepsError(f"{kind} 에 모르는 키 {sorted(unknown)} — 받는 것: {sorted(STEP_FIELDS[kind])}", index)
+    if kind == "gone":
+        # gone 은 wait + gone 의 줄임 — 실행·Maestro 변환은 wait 한 갈래로 간다
+        return {"kind": "wait", **_wait({**params, "gone": True}, index)}
     return {"kind": kind, **_NORMALIZERS[kind](params, index)}
 
 
@@ -161,7 +166,9 @@ def _wait(params: dict, index: int) -> dict:
     if (not isinstance(timeout, (int, float)) or isinstance(timeout, bool)
             or not 0 < timeout <= MAXIMUM_WAIT_SECONDS):
         raise StepsError(f"wait: timeout 은 0 초과 {MAXIMUM_WAIT_SECONDS} 이하의 초다", index)
-    return {"field": selector[0], "value": selector[1], "timeout": timeout}
+    if not isinstance(params.get("gone", False), bool):
+        raise StepsError("wait: gone 은 true/false 다", index)
+    return {"field": selector[0], "value": selector[1], "timeout": timeout, "gone": params.get("gone", False)}
 
 
 _NORMALIZERS = {"tap": _tap, "swipe": _swipe, "type": _type, "wait": _wait}
@@ -170,6 +177,8 @@ _NORMALIZERS = {"tap": _tap, "swipe": _swipe, "type": _type, "wait": _wait}
 def step_label(step: dict) -> str:
     """사람이 읽을 단계 이름. type 은 값이 아니라 출처 이름만 보인다."""
     kind = step["kind"]
+    if kind == "wait" and step.get("gone"):
+        return f"wait gone {step['field']}={step['value']!r}"
     if kind in ("tap", "wait") and "field" in step:
         return f"{kind} {step['field']}={step['value']!r}"
     if kind == "tap":
@@ -203,7 +212,8 @@ def to_maestro_commands(step: dict, index: int) -> list[dict]:
         commands = [{"inputText": "${" + STEP_TEXT_ENV_FORMAT.format(index=index) + "}"}]
         return commands + ([{"pressKey": "Enter"}] if step["submit"] else [])
     if kind == "wait":
-        return [{"extendedWaitUntil": {"visible": maestro_selector(step["field"], step["value"]),
+        condition = "notVisible" if step.get("gone") else "visible"
+        return [{"extendedWaitUntil": {condition: maestro_selector(step["field"], step["value"]),
                                        "timeout": int(step["timeout"] * 1000)}}]
     raise ValueError(f"Maestro 로 옮길 수 없는 단계: {kind}")
 

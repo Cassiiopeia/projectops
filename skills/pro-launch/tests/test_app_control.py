@@ -19,6 +19,7 @@ from pro_launch.commands.app import app_control  # noqa: E402
 from pro_launch.commands.app.actions import (location, openurl, permission, push, relaunch,  # noqa: E402
                                              terminate, type_)
 from pro_launch.runtime import devices as rt_devices  # noqa: E402
+from pro_launch.runtime import foreground  # noqa: E402
 
 IOS_UDID = "3F328F1A-16D1-453B-A0D3-94CDC21C4189"
 DEVICES = {"android": ["emulator-5554", "R5CT1234"],
@@ -52,6 +53,9 @@ class FakeRun:
 def fake_run(monkeypatch, tmp_path):
     monkeypatch.setattr(rt_devices, "list_devices", lambda: DEVICES)
     monkeypatch.setattr(app_control, "sdk_tool", lambda name: "/x/adb")
+    # 띄운 뒤 앞에 있는지 확인(#923)도 같은 가짜 도구를 쓰고, iOS 대기는 건너뛴다
+    monkeypatch.setattr(foreground, "sdk_tool", lambda name: "/x/adb")
+    monkeypatch.setattr(foreground, "IOS_SETTLE_SECONDS", 0)
     monkeypatch.delenv("DEV", raising=False)
     monkeypatch.delenv("PKG", raising=False)
     runner = FakeRun()

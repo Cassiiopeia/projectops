@@ -1,0 +1,22 @@
+{
+  "id": "ios-status-bar-custom-time",
+  "area": "ios",
+  "title": "iOS 캡처 상태바 시각을 알림 시각에 맞춰야 한다",
+  "match": {
+    "codes": [],
+    "keywords": [
+      "status_bar",
+      "상태바"
+    ]
+  },
+  "symptom": "스토어 캡처에서 상태바 시각을 9:41 이 아닌 다른 시각으로 맞춰야 한다",
+  "cause": "app shot --clean-status 는 기본 9:41 로 고정한다. 임의 시각은 simctl status_bar 로 직접 지정한다",
+  "fix": [
+    "launch_cli.py app shot --clean-status --time 7:42",
+    "직접 할 때: xcrun simctl status_bar <UDID> override --time 7:42 후 찍고 status_bar clear 로 되돌린다"
+  ],
+  "refs": [
+    928
+  ],
+  "verified_at": "2026-10-18"
+}

@@ -29,6 +29,21 @@ _SYNO_DOCKER = "/var/packages/ContainerManager/target/usr/bin/docker"
 
 _KNOWN_OS = ("Linux", "Darwin", "FreeBSD")
 
+# 원격 출력 디코드 순서: UTF-8 > CP949(한국어 Windows cmd) > UTF-8 대체문자 (#933)
+_STRICT_ENCODINGS = ("utf-8", "cp949")
+_FALLBACK_ENCODING = "utf-8-replace"
+
+
+def decode_remote_output(raw: bytes | None) -> tuple[str, str]:
+    """원격 출력 바이트 > (문자열, 쓴 인코딩). 디코드 실패로 명령 결과를 잃지 않게"""
+    raw = raw or b""
+    for encoding in _STRICT_ENCODINGS:
+        try:
+            return raw.decode(encoding), encoding
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", errors="replace"), _FALLBACK_ENCODING
+
 
 def _record_server_facts(name: str, base_cmd: list[str], env: dict) -> None:
     """처음 접속 성공 때 확인된 사실(OS · 시놀로지 docker 절대경로)만 이 컴퓨터 범위에 남긴다.
@@ -43,7 +58,7 @@ def _record_server_facts(name: str, base_cmd: list[str], env: dict) -> None:
         if any(e["key"] == prefix + "os" for e in knowledge.load(knowledge.store_path("machine", Path(".")))
                if e["area"] == "server"):
             return
-        r = subprocess.run(base_cmd + [_PROBE], env=env, capture_output=True, text=True, timeout=15)
+        r = subprocess.run(base_cmd + [_PROBE], env=env, capture_output=True, text=True, errors="replace", timeout=15)
         lines = [ln.strip() for ln in r.stdout.splitlines() if ln.strip()]
         if r.returncode != 0 or not lines or lines[0] not in _KNOWN_OS:
             return
@@ -128,12 +143,15 @@ def cmd_ssh(args) -> int:
                   'SUDO() { echo "$PW" | sudo -S -p "" "$@"; }; ' + args.command)
         stdin = str(password) + "\n"
     try:
-        r = subprocess.run(argv_prefix + ssh + [dest, remote], input=stdin, env=env,
-                           capture_output=True, text=True, timeout=args.timeout)
+        # 바이트로 받음 — 원격이 UTF-8 이 아닐 수 있음 (CP949 Windows cmd)
+        r = subprocess.run(argv_prefix + ssh + [dest, remote], input=stdin.encode("utf-8") if stdin else None,
+                           env=env, capture_output=True, timeout=args.timeout)
     except subprocess.TimeoutExpired:
         return out({"ok": False, "code": "ssh_timeout", "error": f"응답 없음 ({args.timeout}초)"})
-    stdout = credentials.mask(r.stdout, cred)
-    stderr = credentials.mask(r.stderr, cred)
+    stdout_text, stdout_encoding = decode_remote_output(r.stdout)
+    stderr_text, _stderr_encoding = decode_remote_output(r.stderr)
+    stdout = credentials.mask(stdout_text, cred)
+    stderr = credentials.mask(stderr_text, cred)
     ok = r.returncode == 0
     if ok and args.cred and not adhoc:
         _record_server_facts(args.cred, argv_prefix + ssh + [dest], env)
@@ -142,7 +160,9 @@ def cmd_ssh(args) -> int:
         hint = ("자주 쓰는 서버면 cred set --name <이름> --json "
                 "'{\"kind\":\"ssh\",\"host\":…,\"port\":…,\"user\":…,\"use_when\":…}' 로 저장해 두면 다음부터 이름만 쓴다")
     return out({"ok": ok, "code": "ok" if ok else "ssh_failed", "exit_code": r.returncode,
-                "stdout": stdout[:args.max_output], "stderr": stderr.strip()[:1000] or None,
+                "stdout": stdout[:args.max_output], "stdout_encoding": stdout_encoding,
+                # stderr 는 언제나 문자열 — None 이면 부르는 쪽 슬라이싱이 깨짐 (#933)
+                "stderr": stderr.strip()[:1000],
                 "truncated": len(stdout) > args.max_output,
                 "summary": f"{label}: " + ("실행 완료" if ok else f"실패 (종료코드 {r.returncode})"),
                 "next": hint if (not ok or adhoc) else None})

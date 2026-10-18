@@ -1,0 +1,25 @@
+{
+  "id": "ios-label-in-desc-doubled",
+  "area": "ios",
+  "title": "iOS Flutter 버튼 라벨이 desc 에 겹쳐 나와 --text 로 못 누른다",
+  "match": {
+    "codes": [
+      "not_found"
+    ],
+    "keywords": [
+      "desc",
+      "Semantics"
+    ]
+  },
+  "symptom": "app tap --text 가 not_found 인데 tree 에는 그 글자가 있다 ('GitHub로 계속하기\\nGitHub로 계속하기')",
+  "cause": "Flutter Semantics 라벨은 desc 로 나오고 같은 줄이 두 번 들어간다. 예전 버전은 text 칸만 봤다",
+  "fix": [
+    "app tree 에서 해당 요소의 desc 를 확인한다",
+    "launch_cli.py app tap --desc <글자> 로 누른다 (최신 버전은 desc·겹친 라벨을 자동으로 맞춘다)",
+    "웹뷰 안 버튼은 이름으로 안 잡히면 --at 비율 좌표를 쓴다"
+  ],
+  "refs": [
+    927
+  ],
+  "verified_at": "2026-10-18"
+}

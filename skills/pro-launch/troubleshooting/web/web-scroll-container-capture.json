@@ -1,0 +1,22 @@
+{
+  "id": "web-scroll-container-capture",
+  "area": "web",
+  "title": "내부 스크롤 화면(Google Forms 편집기 등)은 full-page 로 안 찍힌다",
+  "match": {
+    "codes": [],
+    "keywords": [
+      "full-page",
+      "container"
+    ]
+  },
+  "symptom": "web shot --full-page 가 첫 화면에서 잘린다",
+  "cause": "문서가 아닌 안쪽 컨테이너가 스크롤된다",
+  "fix": [
+    "launch_cli.py web shot --container <선택자> --tiles 5",
+    "직접: web scroll --container <선택자> 후 web shot 을 반복한다"
+  ],
+  "refs": [
+    930
+  ],
+  "verified_at": "2026-10-18"
+}

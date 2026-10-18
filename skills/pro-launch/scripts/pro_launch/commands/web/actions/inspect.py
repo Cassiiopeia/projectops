@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from pro_launch.commands.web.frames import frame_scope
 from pro_launch.commands.web.session import safe_title
-from pro_launch.commands.web.targets import INSPECT_JS, MAXIMUM_OPTIONS, REF_ATTR, ROLE_CHOICES, ROLE_SELECTORS
+from pro_launch.commands.web.targets import (INSPECT_JS, MAXIMUM_OPTIONS, REF_ATTR, ROLE_ALIASES, ROLE_CHOICES,
+                                             ROLE_SELECTORS)
 from pro_launch.registry import Action
 
 # 한 번에 돌려줄 최대 개수 — 넘으면 truncated 로 알린다
@@ -17,6 +18,7 @@ MAXIMUM_LIMIT = 100
 
 
 def _web_inspect(page, args) -> dict:
+    args.role = ROLE_ALIASES.get(args.role, args.role)   # textbox · searchbox 같은 흔한 이름 (#930)
     limit = max(1, min(args.limit, MAXIMUM_LIMIT))
     # --frame 이면 그 iframe 안의 폼 (#877)
     scope, failure = frame_scope(page, args, "inspect")
@@ -31,8 +33,8 @@ def _web_inspect(page, args) -> dict:
                 "error": f"'{args.near}' 글자가 화면에 없습니다",
                 "next": f'web text --grep "{args.near}"  # 화면에 실제로 있는 글자를 확인한다'}
     if not items:
-        return {"ok": False, "code": "nothing_found", "action": "inspect", "url": page.url,
-                "title": safe_title(page), "error": f"보이는 {args.role} 요소가 없습니다",
+        return {"ok": False, "code": "nothing_found", "action": "inspect", "items": [], "total": 0, "shown": 0,
+                "url": page.url, "title": safe_title(page), "error": f"보이는 {args.role} 요소가 없습니다",
                 "next": "web inspect --role all"}
     return {"action": "inspect", "role": args.role, "near": args.near, "items": items,
             "shown": len(items), "total": total, "truncated": total > len(items),
@@ -42,7 +44,8 @@ def _web_inspect(page, args) -> dict:
 
 
 def configure(p) -> None:
-    p.add_argument("--role", choices=ROLE_CHOICES, default="all", help="읽을 종류 (기본 all)")
+    p.add_argument("--role", choices=(*ROLE_CHOICES, *ROLE_ALIASES), default="all",
+                   help="읽을 종류 (기본 all). textbox · searchbox 는 input, radio · switch 는 checkbox")
     p.add_argument("--near", default=None, help="이 글자 가까이 있는 것부터 (라벨에 그 글자가 있으면 맨 앞)")
     p.add_argument("--limit", type=int, default=40, help=f"돌려줄 최대 개수 (최대 {MAXIMUM_LIMIT})")
 

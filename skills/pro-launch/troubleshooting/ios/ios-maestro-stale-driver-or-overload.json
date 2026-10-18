@@ -1,0 +1,31 @@
+{
+  "id": "ios-maestro-stale-driver-or-overload",
+  "area": "ios",
+  "title": "iOS tap 이 90초 실패하고 app session start 도 실패한다 — 남은 Maestro 드라이버·부하",
+  "match": {
+    "codes": [
+      "session_start_failed"
+    ],
+    "keywords": [
+      "tools/call timed out",
+      "maestro 응답 없음",
+      "xcodebuild"
+    ]
+  },
+  "symptom": "tap_failed 가 'maestro 응답 없음 (90초)' 로 반복되고, 권장대로 app session start 를 해도 'tools/call timed out after 120s' 로 실패한다",
+  "cause": "이전 실행이 남긴 xcodebuild(maestro-driver-ios-config.xctestrun)·maestro JVM 이 살아 있거나 호스트 load 가 높아 드라이버가 뜨지 못한다. 세션을 켜는 것으로는 풀리지 않는다",
+  "fix": [
+    "uptime 으로 load 를 본다 (코어 수의 2배 이상이면 과부하)",
+    "ps 에서 maestro-driver-ios-config · maestro/lib 가 pro-launch 세션 소유가 아닌지 확인한다",
+    "남은 것만 끈다: pkill -f maestro-driver-ios-config; pkill -f maestro/lib 후 launch_cli.py app tree 로 확인",
+    "부하가 높으면 MAESTRO_DRIVER_STARTUP_TIMEOUT=180000 으로 다시 시도한다 (iOS driver not ready in time)"
+  ],
+  "refs": [
+    922
+  ],
+  "verified_at": "2026-10-18",
+  "see_also": [
+    "ios-maestro-slow-cold-start",
+    "ios-maestro-session-reconnect"
+  ]
+}

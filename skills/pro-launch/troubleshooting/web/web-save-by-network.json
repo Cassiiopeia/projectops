@@ -1,0 +1,22 @@
+{
+  "id": "web-save-by-network",
+  "area": "web",
+  "title": "저장이 됐는지 화면 문구 대신 요청 응답으로 판정한다",
+  "match": {
+    "codes": [],
+    "keywords": [
+      "POST",
+      "저장"
+    ]
+  },
+  "symptom": "저장 버튼이 눌렸는데 성공 여부가 화면에 안 보인다",
+  "cause": "콘솔 화면은 성공 문구가 없거나 사라진다",
+  "fix": [
+    "launch_cli.py web click --capture-requests 로 POST/PUT 응답 상태를 본다",
+    "status 200 대 4xx 로 판정한다 (URL 쿼리는 가려진다)"
+  ],
+  "refs": [
+    930
+  ],
+  "verified_at": "2026-10-18"
+}

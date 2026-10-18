@@ -26,7 +26,10 @@ scripts/
   app_input.py              앱 조작 플랫폼 백엔드 (Android · iOS)
   maestro_session.py        iOS 상주 Maestro 세션 — 상태 파일 · 중계를 부르는 클라이언트 (#894)
   maestro_session_relay.py  그 중계 프로세스 (`maestro mcp` 표준입출력 소유 · 127.0.0.1 TCP · 유휴 종료)
-  maestro_runs.py           pro-launch 가 Maestro 를 띄운 구간 기록 · 그 밖의 실행 세기 (session-check)
+  maestro_runs.py           pro-launch 가 Maestro 를 띄운 구간 기록 · 그 밖의 실행 세기 (session-check) · 컴퓨터 단위 시작 잠금 (#922)
+  maestro_drivers.py        남은 Maestro iOS 드라이버 찾기 · 분류(session·orphan·active) · 정리 (#922)
+  node_match.py            화면 요소 고르기 공통 — 정확 > 정규화(겹친 라벨) > 부분, text·desc·label (#927)
+  knowledge_stale.py       낡은 기억 표 (대체 표시 · 테스트 오염 삭제) (#932)
   browser_pick.py           어떤 브라우저로 띄울지
   stealth.py                자동화 표식 가리기
   pro_launch/
@@ -40,16 +43,24 @@ scripts/
       devices.py            붙은 기기 · 역할 묶기 · 고르기
       creds.py              저장된 자격증명을 명령에서 꺼내는 얇은 층
       browser.py            브라우저 상태 파일 · Playwright 준비 · 어떤 브라우저
-      procs.py              프로세스 확인 · 종료 — OS 분기는 여기만
+      procs.py              프로세스 확인 · 종료 · 목록 · 클립보드 — OS 분기는 여기만
+      foreground.py · crash_reports.py   맨 앞 앱 확인 · 크래시 리포트 읽기 (#923)
+      device_claims.py · session_identity.py   기기 점유 기록 · 전역 설정 복구 · 세션 식별 (#925)
+      device_boot.py · android_device.py       기기 띄우기·재부팅·준비 대기 · 호스트 압박 필드 (#924)
+      app_identity.py       프로젝트 파일에서 패키지·번들 ID 읽기 (#932)
       arg_diagnosis.py      bad_args 진단 — 모르는 이름 · 비슷한 이름 · 그 명령의 옵션 · 예시 (#886)
       recent_roots.py       최근에 쓴 프로젝트 루트 · 후보 (레포 밖에서 불릴 때, #885)
+      device_claims.py      기기 소유 · 바꾼 전역 설정 기록 (이 컴퓨터 공용 자리, #925) · session_identity.py 세션 가르기
+      device_boot.py        시뮬레이터·에뮬레이터 띄우기 · 창 모드(headless·small·normal)
+      android_device.py     Android 준비 상태 · 기다리기 · APK 설치 · foreground.py 맨 앞 앱 · crash_reports.py iOS 크래시 리포트
       host_resources.py     호스트 메모리 압박 · 큰 프로세스 · 켜진 기기와 묶은 레포 (#883)
       plugin_version.py     실행 중인 projectops 버전 (실패 응답 · doctor, 프로세스당 1회)
     commands/               위층 — 서브커맨드
-      doctor.py detect.py device.py output_path.py
+      doctor.py detect.py output_path.py
+      device/               __init__ 디스패치 · bindings.py(list·bind) · claims.py(claim·release) · boot.py(boot·reboot) · settings.py(locale·appearance)
       http.py access.py db.py logs.py ssh.py cred.py local.py render.py shrink.py memory.py kb.py session_check.py
-      app/                  __init__ 디스패치 · gestures.py(조작) · app_control.py(기기·패키지·도구 실행) · steps.py(app run 단계 파일) · actions/ (동작 하나 = 모듈 하나)
-      web/                  __init__ 디스패치 · options.py 공통 옵션 표 · session.py · targets.py · element.py 대상 고르기 · candidates.py 실패 때 후보 · actions/
+      app/                  __init__ 디스패치 · gestures.py(조작) · app_control.py(기기·패키지·도구 실행) · steps.py(app run 단계 파일) · android_ime.py(Android 입력기 전환·입력 대조) · burst.py(연속 캡처) · launch_check.py(띄운 뒤 앞 화면 확인) · actions/ (동작 하나 = 모듈 하나)
+      web/                  __init__ 디스패치 · options.py 공통 옵션 표 · session.py · targets.py · element.py 대상 고르기 · watchdog.py 시간 상한 · request_capture.py 요청 기록 · saved_values.py 비밀값 저장 · candidates.py 실패 때 후보 · actions/
 ```
 
 ## 규칙 (테스트가 지킨다)

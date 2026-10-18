@@ -1,0 +1,23 @@
+{
+  "id": "general-cred-never-read-config",
+  "area": "general",
+  "title": "자격증명을 config 파일에서 직접 읽지 않는다",
+  "match": {
+    "codes": [],
+    "keywords": [
+      "config.json",
+      "password"
+    ]
+  },
+  "symptom": "raw 도구(maestro 등)에 비밀번호를 넘기려고 config.json 을 읽어 임시 파일을 만든다",
+  "cause": "저장된 값은 --cred 로 쓰면 마스킹되고 기록에 남지 않는다. 직접 읽으면 평문이 파일·명령줄·대화에 남는다",
+  "fix": [
+    "app type --cred <이름> --cred-field <필드> / web type --cred 를 쓴다",
+    "app run 단계에서도 cred 참조를 쓴다",
+    "평문이 이미 남았으면 파일을 지우고 사용자에게 변경을 권한다"
+  ],
+  "refs": [
+    934
+  ],
+  "verified_at": "2026-10-18"
+}

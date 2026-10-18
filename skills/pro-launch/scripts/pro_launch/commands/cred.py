@@ -90,9 +90,18 @@ def _cred_import_ssh(args) -> int:
                          else "use_when · scope 를 cred set 으로 채운다. 옛 ssh 섹션은 지우지 않았다")})
 
 
+# cred policy 의 하위 동작 3개 / 이름을 위치 인자로 받는 동작 3개
+POLICY_ACTIONS = ("get", "set", "unset")
+NAME_POSITIONAL_ACTIONS = ("show", "set", "unset")
+
+
 def _cred_policy(args) -> int:
     """로그인 중간 화면 정책 조회·변경 (#905). --name 이 있으면 그 계정, 없으면 전체 기본값"""
     # 입력 확인 (동작, 키, 값)
+    if args.policy_action and args.policy_action not in POLICY_ACTIONS:
+        return out({"ok": False, "code": "policy_action_required",
+                    "error": f"'{args.policy_action}' 는 policy 동작이 아닙니다 ({' · '.join(POLICY_ACTIONS)} 중 하나)",
+                    "next": "cred policy get [--name 이름]"})
     if not args.policy_action:
         return out({"ok": False, "code": "policy_action_required", "error": "get · set · unset 중 하나가 필요합니다",
                     "next": "cred policy get [--name 이름]"})
@@ -132,6 +141,13 @@ def _cred_policy(args) -> int:
 
 def cmd_cred(args) -> int:
     """자격증명을 저장하고 꺼낸다. 값은 config.json 에만 남고 목록·조회에서는 가려진다."""
+    # show · set · unset 뒤의 위치 인자는 이름이다 (cred show <이름> == --name, #931)
+    if args.policy_action and args.action in NAME_POSITIONAL_ACTIONS and not args.name:
+        args.name, args.policy_action = args.policy_action, None
+    elif args.policy_action and args.action in NAME_POSITIONAL_ACTIONS:
+        return out({"ok": False, "code": "unexpected_argument",
+                    "error": f"이름이 두 번 주어졌습니다: {args.policy_action} 와 --name {args.name}",
+                    "next": f"cred {args.action} --name {args.name}"})
     # get · set · unset 은 policy 전용 하위 동작 (다른 동작에 붙으면 조용히 무시하지 않는다)
     if args.policy_action and args.action != "policy":
         return out({"ok": False, "code": "unexpected_argument",
@@ -202,8 +218,8 @@ def cmd_cred(args) -> int:
 
 def configure_cred(p) -> None:
     p.add_argument("action", choices=["list", "show", "set", "unset", "import-ssh", "policy"])
-    # policy 전용: get · set · unset (로그인 중간 화면 정책, #905)
-    p.add_argument("policy_action", nargs="?", choices=["get", "set", "unset"], default=None)
+    # policy 전용: get · set · unset (로그인 중간 화면 정책, #905). show·set·unset 에서는 이름으로 읽는다 (#931)
+    p.add_argument("policy_action", nargs="?", default=None, metavar="policy_action|name")
     p.add_argument("--name", default=None)
     p.add_argument("--dry-run", dest="dry_run", action="store_true",
                    help="import-ssh 때 아무것도 쓰지 않고 옮길 목록만 보여 준다 (비밀 값은 가려서)")

@@ -15,11 +15,12 @@ TARGET_WAIT_SECONDS = 4
 OUTCOME_WAIT_SECONDS = 10
 
 
-# 요소 설명 + 보이는가 · 비활성인가. 비활성은 disabled 속성 · aria-disabled · 비활성 fieldset 안 셋 다 본다
+# 요소 설명 + 보이는가 · 비활성인가 (비밀번호 칸의 값은 싣지 않는다). 비활성은 disabled 속성 · aria-disabled · 비활성 fieldset 안 셋 다 본다
 DESCRIBE_STATE_JS = """(e) => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e);
   return { tag: e.tagName.toLowerCase(), role: e.getAttribute('role'), type: e.getAttribute('type'),
-    text: (e.innerText || e.value || '').replace(/\\s+/g, ' ').trim().slice(0, 120),
+    text: (e.type === 'password' ? '' : (e.innerText || e.value || '')).replace(/\\s+/g, ' ').trim().slice(0, 120),
     aria: e.getAttribute('aria-label') || e.getAttribute('title'), href: e.getAttribute('href'),
+    name: e.getAttribute('name'), aria_label: e.getAttribute('aria-label'), placeholder: e.getAttribute('placeholder'),
     visible: r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none',
     disabled: !!e.disabled || e.getAttribute('aria-disabled') === 'true' || !!e.closest('fieldset[disabled]') }; }"""
 
@@ -81,6 +82,10 @@ def locate_target(page, args, state: dict, action: str, *, should_wait: bool = F
             scope, args.selector, action)
     element = locator.first
     info = element.evaluate(DESCRIBE_STATE_JS)
+    # 실제로 고른 요소와 맞은 개수 — 쉼표 선택자가 엉뚱한 첫 요소에 들어가도 ok 가 나던 것을 드러낸다 (#931)
+    info["matches"] = locator.count()
+    if args.ref is not None:
+        info["ref"] = args.ref
     if getattr(args, "frame", None):
         info["frame"] = args.frame
     # 보이는데 비활성이면 타임아웃까지 기다려도 소용없다 — 바로 알린다 (#888)
@@ -128,3 +133,16 @@ def perform_on_target(page, args, action: str, info: dict | None, operation) -> 
             raise
         return not_actionable_failure(page, args, action, info, error)
     return None
+
+
+def attach_match_warning(payload: dict) -> None:
+    """조작 결과의 대상이 선택자 여러 개에 맞았으면 최상위에 matches · warning 을 싣는다 (ref 는 하나라 해당 없음)"""
+    for key in ("target", "clicked"):
+        info = payload.get(key)
+        if isinstance(info, dict) and (info.get("matches") or 0) > 1 and "ref" not in info:
+            payload["matches"] = info["matches"]
+            payload.setdefault("warning", "multiple_matches")
+            payload.setdefault("warning_detail", (
+                f"선택자가 {info['matches']}개에 맞았고 첫 번째({info.get('tag')} "
+                f"'{target_label(info)}')를 썼다 — 의도한 요소가 아니면 web find · web inspect 의 --ref 로 고른다"))
+            return

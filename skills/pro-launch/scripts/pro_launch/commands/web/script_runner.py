@@ -56,6 +56,9 @@ def main() -> int:
         return 0
     playwright, _browser, page = connection
     captured = io.StringIO()
+    # 조각이 일으킨 GET 이 아닌 요청 (--capture-requests, #930)
+    from pro_launch.commands.web.request_capture import RequestCapture
+    capture = RequestCapture().attach(page) if request.get("capture_requests") else None
     try:
         # 조각 안의 Playwright 대기도 상한을 넘지 않게
         page.set_default_timeout(request["timeout_seconds"] * 1000)
@@ -67,7 +70,11 @@ def main() -> int:
     except Exception as error:
         reply = {"ok": False, "error": first_error_line(error), "url": page.url}
     finally:
+        if capture is not None:
+            reply_requests = capture.finish()
         playwright.stop()
+    if capture is not None:
+        reply["requests"] = reply_requests
     reply["stdout"] = captured.getvalue()
     print(json.dumps(reply, ensure_ascii=False))
     return 0

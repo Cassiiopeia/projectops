@@ -54,6 +54,6 @@ def configure(p) -> None:
 
 
 ACTION = Action(name="press", run=execute, configure=configure,
-                options=("selector", "ref", "target_timeout", "confirm_mutating"),
+                options=("selector", "ref", "target_timeout", "confirm_mutating", "capture_requests"),
                 help="키를 누른다 — 대상을 주면 그 요소에서, 없으면 지금 초점에서",
                 example="web press --ref 2 --key Enter")

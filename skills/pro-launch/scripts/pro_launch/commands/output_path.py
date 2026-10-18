@@ -5,10 +5,12 @@ import os
 from pathlib import Path
 
 from pro_launch.registry import Command
+from pro_launch.runtime.app_identity import detected_app_package
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.devices import load_devices, save_devices
 from pro_launch.runtime.envfile import write_env_sh
 from pro_launch.runtime.output import out
+from pro_launch.runtime.shots import record_last_run
 
 
 def cmd_output_path(args) -> int:
@@ -55,19 +57,36 @@ def cmd_output_path(args) -> int:
 
     root = project_root(args)
     known = load_devices(root)
-    package = args.package or known["package"]
+    package, package_changed = _resolve_package(args.package, known["package"], root)
     if package and package != known["package"]:
         save_devices(root, package, known["bindings"])
     env = write_env_sh(run_dir, package, known["bindings"], skill=skill)
+    # env.sh 를 안 부른 Bash 호출의 캡처도 이 실행 폴더로 오게 (#931)
+    record_last_run(root, run_dir, run_dir / "screenshots")
     state = r.get("gitignore")
     return out({
         "skill": skill, "run": md.stem, "run_dir": str(run_dir),
         "screenshots": str(run_dir / "screenshots"), "env_file": str(env),
         "output_root": r.get("output_root"), "gitignore": state,
-        "mismatch": r.get("mismatch"),
+        "mismatch": r.get("mismatch"), "package": package,
+        **({"package_changed": package_changed} if package_changed else {}),
         "summary": f"산출물 자리 {run_dir} (추적 제외 {state})",
         "next": f'source "{env}" 로 SHOT_DIR 을 불러 쓰세요. 캡처·증거는 전부 그 아래에 둡니다',
     })
+
+
+def _resolve_package(given: str | None, stored: str | None, root: Path) -> tuple[str | None, str | None]:
+    """앱 패키지: --package > 프로젝트 파일(applicationId·bundle id) > devices.json 저장값.
+
+    저장값이 프로젝트 파일과 다르면 프로젝트 파일이 이긴다 — 옛 패키지로 env.sh 를 쓴 적이 있다 (#931).
+    > (패키지, 바뀌었으면 "옛 -> 새")
+    """
+    if given:
+        return given, None
+    detected = detected_app_package(root)
+    if detected and stored and detected != stored:
+        return detected, f"{stored} -> {detected}"
+    return stored or detected, None
 
 
 def configure_get_output_path(p) -> None:

@@ -21,12 +21,19 @@ def _web_viewport(args, state: dict, state_f: Path) -> int:
         return out({"action": "viewport", "viewport": None,
                     "summary": "뷰포트 지정을 풀었습니다 (창 크기를 따른다)"})
     preset = args.preset or ""
+    # --width/--height 는 자주 짐작해서 쓰는 형태 — 390x844 와 같은 뜻이다 (#931)
+    if args.width or args.height:
+        if not (args.width and args.height):
+            return out({"ok": False, "code": "bad_viewport", "viewport": None,
+                        "error": "--width 와 --height 는 함께 줘야 합니다",
+                        "hint": "web viewport --width 1280 --height 800 (또는 --preset 1280x800)"})
+        preset = f"{args.width}x{args.height}"
     if preset in VIEWPORT_PRESETS:
         w, h = VIEWPORT_PRESETS[preset]
     else:
         m = re.fullmatch(r"(\d{2,5})x(\d{2,5})", preset)
         if not m:
-            return out({"ok": False, "code": "bad_viewport",
+            return out({"ok": False, "code": "bad_viewport", "viewport": None,
                         "error": f"뷰포트 '{preset}' 을 모릅니다",
                         "hint": f"{' · '.join(VIEWPORT_PRESETS)} 또는 390x844 처럼 폭x높이"})
         w, h = int(m.group(1)), int(m.group(2))
@@ -39,6 +46,8 @@ def _web_viewport(args, state: dict, state_f: Path) -> int:
 
 def configure(p) -> None:
     p.add_argument("--preset", default=None, help="viewport: mobile · tablet · desktop 또는 390x844")
+    p.add_argument("--width", type=int, default=None, help="viewport: 폭(px) — --height 와 함께 (--preset 1280x800 과 같다)")
+    p.add_argument("--height", type=int, default=None, help="viewport: 높이(px)")
 
 
 ACTION = Action(name="viewport", needs="state_offline", run=_web_viewport, configure=configure,

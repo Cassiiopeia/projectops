@@ -28,6 +28,8 @@ from pathlib import Path
 from common.proc import sdk_tool
 
 import maestro_session
+# 노드 고르기는 플랫폼 공통 matcher 한 곳 (정확 > 정규화 · 줄 단위 > 포함, text <-> desc)
+from node_match import match_nodes  # noqa: F401
 
 BOUNDS = re.compile(r"\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]")
 # (시작, 끝) 비율 — 화면 가장자리 제스처(뒤로가기·알림 끌어내리기)를 피해 15% 안쪽에서 움직인다
@@ -116,15 +118,6 @@ def maestro_nodes(json_text: str) -> list[dict]:
 def maestro_inspect_nodes(json_text: str) -> list[dict]:
     """`maestro mcp` inspect_screen 응답 > 노드 목록 (hierarchy 모양으로 펼쳐 같은 길로 읽는다)."""
     return maestro_nodes(maestro_session.inspect_screen_to_hierarchy(json_text) or "{}")
-
-
-def match_nodes(nodes: list[dict], field: str, value: str) -> list[dict]:
-    """정확히 같은 것 → 포함하는 것 순. id 는 `pkg:id/name` 과 `name` 둘 다 받는다."""
-    exact = [n for n in nodes if n[field] == value
-             or (field == "id" and n[field].endswith(":id/" + value))]
-    if exact:
-        return exact
-    return [n for n in nodes if value and value in n[field]]
 
 
 def slim(nodes: list[dict], limit: int = 80) -> list[dict]:
@@ -429,6 +422,10 @@ class IOSMaestroBackend(Backend):
         # Maestro 의 text·id 는 정규식이다. 괄호·물음표가 든 문구가 엉뚱하게 맞지 않도록 그대로 맞춘다
         key = "id" if field == "id" else "text"
         return self._run(dev, {"tapOn": {key: re.escape(value)}})
+
+    def tap_xy(self, dev, x, y):
+        # 트리 좌표는 포인트 단위 — Maestro 절대 좌표와 같다
+        return self._run(dev, {"tapOn": {"point": f"{x},{y}"}})
 
     def tap_ratio(self, dev, rx, ry):
         return self._run(dev, {"tapOn": {"point": pct((rx, ry))}})

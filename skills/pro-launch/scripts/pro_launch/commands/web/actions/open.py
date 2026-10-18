@@ -17,6 +17,7 @@ from pro_launch.commands.web import tabs
 from pro_launch.commands.web.recovery import (
     BROWSER_STDERR_FILE, has_profile_lock, recover_recorded_browser, stderr_tail)
 from pro_launch.commands.web.session import close_blank_tabs, read_url_title, settle, web_connect
+from pro_launch.commands.web.watchdog import HUNG_MARK_KEY
 from pro_launch.registry import Action
 from pro_launch.runtime.browser import read_state, require_playwright, write_state
 from pro_launch.runtime.context import state_home
@@ -55,9 +56,12 @@ def _pick_tab(ctx, page, state: dict, args):
     return page, name
 
 
-def _reuse(args, prev: dict, state_f: Path, recovered: list[str]) -> int:
+def _reuse(args, prev: dict, state_f: Path, recovered: list[str]) -> int | None:
+    """떠 있는 브라우저에 붙는다. 붙기에서 멈췄으면 None — 호출부가 끄고 새로 띄운다 (#921)"""
     conn, connect_error = web_connect(prev, allow_missing_tab=True)
     if connect_error:
+        if connect_error.get("code") == "browser_hung":
+            return None
         return out(connect_error)
     pw, _browser, page = conn
     try:
@@ -146,7 +150,11 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     decision, recovered = recover_recorded_browser(prev, profile)
     # 이미 떠 있으면 새로 띄우지 않고 붙는다 (#825). 새로 띄우면 프로필 잠금으로 실패한다
     if decision == "reuse":
-        return _reuse(args, prev, state_f, recovered)
+        reused = _reuse(args, prev, state_f, recovered)
+        if reused is not None:
+            return reused
+        # CDP 는 답하는데 붙기가 멈췄다 — 끄고 같은 프로필로 새로 띄운다 (로그인 쿠키는 프로필에 남는다)
+        decision, recovered = recover_recorded_browser({**prev, HUNG_MARK_KEY: "connect"}, profile)
     if decision == "blocked":
         pid = prev.get("pid")
         return out({"ok": False, "code": "browser_still_alive", "pid": pid,

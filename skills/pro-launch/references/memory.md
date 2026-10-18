@@ -24,6 +24,11 @@ agent 가 "모른다는 것을 모르는" 상태에서 꺼내 볼 생각을 하�
   이 컴퓨터 범위에 하루 한 번 올라간다. **실패·미설치는 자동 기록하지 않는다** — 환경 따라 바뀌어 쓰레기가 된다.
 - `verify:true` 는 실패가 앞서거나 90일이 지난 것이니 **한 번 확인하고** 쓴다. 잘못 배운 것은 `forget`.
 - 흩어진 기억(여러 레포에 같은 것, 잘못된 버킷)은 `tidy` 로 정리한다 — 확실한 것만 자동으로 합친다.
+- **낡은 기억은 지우지 않고 대체 표시한다**: `learn --supersede <key> --by kb:<id>|feature:<명령>` (또는 `forget --by`). `recall` 은 대체된 항목을 맨 뒤에 `verify: true` 로 준다. 새 항목에는 쓴 시점의 `plugin_version` 이 저장된다.
+- **용량·가짜 버킷**: `tidy --buckets` 가 버킷별 크기·마지막 사용·가짜(scratch) 여부·고아 브라우저 프로필·`~/.maestro/tests` 를 **보고만** 한다. `--apply [--days N]` 일 때만 지우며,
+  실제 레포(`owner__repo`)의 브라우저 프로필은 오래 안 썼어도 `keep:real_repo_profile` 로 남긴다(로그인이 사라진다). 브라우저가 살아 있는 프로필도 건드리지 않는다.
+- git 도 프로젝트 파일도 없는 폴더(스크래치 경로)를 `--root` 로 주면 `_scratch/<폴더>-<해시>` 버킷을 쓰고 최근 루트에 기록하지 않는다(`root_scratch: true`).
+- `recall --platform` 은 `--area` 의 별칭이다.
 
 **남기지 않는 것** (Hermes Agent 의 저장 금지 목록을 따랐다): 미설치·미인증 같은 환경 의존 실패,
 "X 는 안 된다" 같은 부정 단정, 해결 안 된 시행착오, 일회성 이야기, 비밀값, 호스트 마우스 방식.
@@ -38,6 +43,7 @@ agent 가 "모른다는 것을 모르는" 상태에서 꺼내 볼 생각을 하�
 # 이 컴퓨터 전체에 해당하면 --scope machine (기본은 이 레포)
 {PYTHON} {SCRIPTS}/launch_cli.py forget --key ios.tap --area ios
 {PYTHON} {SCRIPTS}/launch_cli.py tidy                              # 흩어진 기억 정리
+{PYTHON} {SCRIPTS}/launch_cli.py tidy --buckets [--apply --days 7]   # 상태 폴더 용량 보고 (지우는 건 --apply 일 때만)
 {PYTHON} {SCRIPTS}/launch_cli.py recall --match swipe               # 키·방법·노트에 낱말이 든 것만
 # 경위가 길면 how 는 한 줄 결론, 긴 글은 --detail (또는 --detail-file) → notes/<key>.md, recall 이 detail_path 로 준다
 {PYTHON} {SCRIPTS}/launch_cli.py learn --area android --key android.swipe --result ok \

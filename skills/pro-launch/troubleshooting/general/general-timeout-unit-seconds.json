@@ -1,0 +1,23 @@
+{
+  "id": "general-timeout-unit-seconds",
+  "area": "general",
+  "title": "--timeout 을 밀리초로 넣었다 — 단위는 초",
+  "match": {
+    "codes": [
+      "timeout_too_large"
+    ],
+    "keywords": [
+      "--timeout"
+    ]
+  },
+  "symptom": "web type --timeout 3000 이 50분 동안 멈춘다",
+  "cause": "--timeout 은 초 단위다. 3000 은 50분이다",
+  "fix": [
+    "--timeout 은 초로 준다 (기본 10, 최대 300)",
+    "이미 멈췄으면 web close 후 web open 으로 복구한다"
+  ],
+  "refs": [
+    931
+  ],
+  "verified_at": "2026-10-18"
+}

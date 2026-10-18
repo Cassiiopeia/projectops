@@ -37,16 +37,17 @@ if str(_HERE.parent) not in sys.path:
 from pro_launch.cli import build_parser, main  # noqa: E402,F401
 
 
-
 def _refresh_stable_entrypoint() -> None:
-    """~/.projectops/bin/launch_cli.py(버전 무관 진입점) 갱신 + 옛 캐시 버전 경고 (#897). 실패해도 명령은 돈다"""
+    """~/.projectops/bin/launch_cli.py(버전 무관 진입점) 갱신 + 옛 캐시 버전이면 응답 JSON 에 newer_installed (#897·#920).
+
+    stderr 가 아니라 JSON 에 싣는다 — `2>&1 | json.load` 파이프가 깨지지 않게. 실패해도 명령은 돈다
+    """
     try:
         import launch_resolver
         from common.state import base_dir
+        from pro_launch.runtime.plugin_version import set_newer_installed
         launch_resolver.refresh_stable_entrypoint(base_dir())
-        notice = launch_resolver.stale_install_notice(_HERE.parent)
-        if notice:
-            print(notice, file=sys.stderr)
+        set_newer_installed(launch_resolver.newer_installed_info(_HERE.parent))
     except Exception:  # noqa: BLE001 — 부가 기능이 본 명령을 막지 않게
         pass
 

@@ -16,12 +16,12 @@ import os
 import time
 from urllib.parse import urlsplit
 
+# 세션 가르기 원본은 runtime (기기 소유와 공용) — 여기서는 재노출
+from pro_launch.runtime.session_identity import ANONYMOUS_SESSION, SESSION_ENV_VARS, session_identity  # noqa: F401
+
 # 세션이 몰 탭 이름을 담는 환경변수
 TAB_ENV_VAR = "LAUNCH_TAB"
 DEFAULT_TAB_KEY = "default"
-# 세션을 가르는 환경변수 (앞쪽 우선). 직접 주는 값 > Claude Code 가 세션마다 주는 값
-SESSION_ENV_VARS = ("LAUNCH_SESSION", "CLAUDE_CODE_SESSION_ID")
-ANONYMOUS_SESSION = "anonymous"
 # Chrome 이 스스로 띄우는 안내 탭. 작업 탭이 아니다
 BROWSER_INTERNAL_PREFIXES = ("chrome://", "chrome-untrusted://", "devtools://", "edge://")
 
@@ -29,11 +29,6 @@ BROWSER_INTERNAL_PREFIXES = ("chrome://", "chrome-untrusted://", "devtools://", 
 def session_tab_name() -> str | None:
     name = (os.environ.get(TAB_ENV_VAR) or "").strip()
     return name or None
-
-
-def session_identity() -> str:
-    return next((os.environ[var].strip() for var in SESSION_ENV_VARS if (os.environ.get(var) or "").strip()),
-                ANONYMOUS_SESSION)
 
 
 def mark_key(tab_name: str | None = None) -> str:

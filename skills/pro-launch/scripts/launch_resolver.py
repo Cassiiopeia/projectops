@@ -7,7 +7,7 @@
 찾는 순서 4단계:
   1. PROJECTOPS_LAUNCH_SCRIPTS (직접 지정)
   2. 현재 폴더가 projectops 체크아웃 안이면 그 체크아웃
-  3. 플러그인 캐시(Claude · Codex) 중 가장 높은 버전 폴더
+  3. 플러그인 캐시(Claude · Codex, CLAUDE_CONFIG_DIR · ~/.claude* 포함) 중 가장 높은 버전 폴더
   4. 버전 없는 설치본 (Cursor · Gemini · pi)
 """
 from __future__ import annotations
@@ -19,12 +19,18 @@ import sys
 from pathlib import Path
 
 # 고정 진입점 내용 번호: 깔린 번호보다 높을 때만 덮어씀 (이 파일을 고치면 +1 — 안 올리면 퍼지지 않음)
-RESOLVER_REVISION = 1
+RESOLVER_REVISION = 2
 STABLE_ENTRYPOINT_NAME = "launch_cli.py"
 SCRIPTS_OVERRIDE_ENV = "PROJECTOPS_LAUNCH_SCRIPTS"
+# Claude Code 설정 폴더 바꾸기 (예: ~/.claude-b) — 그 아래 plugins/cache 에도 설치본이 있다 (#920)
+CLAUDE_CONFIG_DIR_ENV = "CLAUDE_CONFIG_DIR"
+STABLE_ENTRYPOINT_COMMAND = "python3 ~/.projectops/bin/launch_cli.py"
+# 고정 진입점 권한: 직접 실행 가능 (rwxr-xr-x)
+STABLE_ENTRYPOINT_MODE = 0o755
 
 # 플러그인 캐시: {base}/{마켓플레이스}/projectops/{버전}/skills/pro-launch/scripts
-_VERSIONED_CACHE_BASES = (".claude/plugins/cache", ".codex/plugins/cache")
+# ~/.claude* glob 은 ~/.claude 자신과 ~/.claude-b 같은 설정 폴더를 함께 잡는다
+_VERSIONED_CACHE_GLOBS = (".claude*/plugins/cache", ".codex/plugins/cache")
 # 버전 폴더가 없는 설치본 (best effort — 폴더 모양이 설치 도구마다 다름)
 _UNVERSIONED_BASES = (".cursor/skills", ".gemini/extensions", ".pi/agent/git")
 _SKILL_SCRIPTS_PARTS = ("skills", "pro-launch", "scripts")
@@ -53,11 +59,30 @@ def find_repo_checkout_scripts(start: Path) -> Path | None:
     return None
 
 
-def find_versioned_cache_scripts(home: Path) -> list[tuple[tuple[int, int, int], Path]]:
+def versioned_cache_roots(home: Path, environment: dict | None = None) -> list[Path]:
+    """플러그인 캐시 폴더 후보 (CLAUDE_CONFIG_DIR > ~/.claude* > ~/.codex), 같은 실제 경로는 한 번만"""
+    environment = os.environ if environment is None else environment
+    candidates = []
+    config_dir = environment.get(CLAUDE_CONFIG_DIR_ENV)
+    if config_dir:
+        candidates.append(Path(config_dir).expanduser() / "plugins" / "cache")
+    for pattern in _VERSIONED_CACHE_GLOBS:
+        candidates.extend(sorted(home.glob(pattern)))
+    roots, seen = [], set()
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if candidate.is_dir() and resolved not in seen:
+            seen.add(resolved)
+            roots.append(candidate)
+    return roots
+
+
+def find_versioned_cache_scripts(home: Path, environment: dict | None = None
+                                 ) -> list[tuple[tuple[int, int, int], Path]]:
     """플러그인 캐시의 (버전, 스크립트 폴더) 전부. 버전 모양이 아닌 폴더는 제외"""
     found = []
-    for base in _VERSIONED_CACHE_BASES:
-        for candidate in (home / base).glob("*/projectops/*/" + "/".join(_SKILL_SCRIPTS_PARTS)):
+    for cache_root in versioned_cache_roots(home, environment):
+        for candidate in cache_root.glob("*/projectops/*/" + "/".join(_SKILL_SCRIPTS_PARTS)):
             version = parse_version(candidate.parents[2].name)
             if version and is_launch_scripts_dir(candidate):
                 found.append((version, candidate))
@@ -78,9 +103,9 @@ def _walk_unversioned(base: Path) -> Path | None:
     return None
 
 
-def find_newest_installed_version(home: Path) -> tuple[int, int, int] | None:
+def find_newest_installed_version(home: Path, environment: dict | None = None) -> tuple[int, int, int] | None:
     """플러그인 캐시에 깔린 가장 높은 버전 (없으면 None)"""
-    versions = find_versioned_cache_scripts(home)
+    versions = find_versioned_cache_scripts(home, environment)
     return max(versions)[0] if versions else None
 
 
@@ -101,9 +126,10 @@ def resolve_scripts_dir(cwd: Path | None = None, home: Path | None = None,
     if checkout:
         return checkout
     # 3. 캐시 최고 버전
-    versioned = find_versioned_cache_scripts(home)
+    versioned = find_versioned_cache_scripts(home, environment)
     if versioned:
-        return max(versioned)[1]
+        # 같은 버전이면 먼저 훑은 쪽 (CLAUDE_CONFIG_DIR > ~/.claude* > ~/.codex) — 경로 사전순이 아니라
+        return max(versioned, key=lambda version_and_path: version_and_path[0])[1]
     # 4. 버전 없는 설치본
     for base in _UNVERSIONED_BASES:
         found = _walk_unversioned(home / base)
@@ -112,19 +138,19 @@ def resolve_scripts_dir(cwd: Path | None = None, home: Path | None = None,
     return None
 
 
-def stale_install_notice(running_scripts_dir: Path, home: Path | None = None) -> str | None:
-    """캐시의 옛 버전에서 돌고 있으면 안내 한 줄, 아니면 None (체크아웃·Cursor 는 비교하지 않음)"""
+def newer_installed_info(running_scripts_dir: Path, home: Path | None = None,
+                         environment: dict | None = None) -> dict | None:
+    """캐시의 옛 버전에서 돌고 있으면 {running, installed, use}, 아니면 None (체크아웃·Cursor 는 비교하지 않음)"""
     running_parts = running_scripts_dir.resolve().parts
     # 캐시 모양: .../projectops/{버전}/skills/pro-launch/scripts
     if len(running_parts) < 5 or running_parts[-5] != "projectops":
         return None
     running_version = parse_version(running_parts[-4])
-    newest_version = find_newest_installed_version(Path.home() if home is None else home)
+    newest_version = find_newest_installed_version(Path.home() if home is None else home, environment)
     if not running_version or not newest_version or newest_version <= running_version:
         return None
-    return ("[launch] stale_install : running {} but {} is installed. Use the stable entrypoint: "
-            "python3 ~/.projectops/bin/launch_cli.py".format(
-                ".".join(map(str, running_version)), ".".join(map(str, newest_version))))
+    return {"running": ".".join(map(str, running_version)), "installed": ".".join(map(str, newest_version)),
+            "use": STABLE_ENTRYPOINT_COMMAND}
 
 
 def _installed_revision(entrypoint: Path) -> int:
@@ -143,13 +169,24 @@ def refresh_stable_entrypoint(projectops_home: Path) -> bool:
     """
     entrypoint = projectops_home / "bin" / STABLE_ENTRYPOINT_NAME
     if _installed_revision(entrypoint) >= RESOLVER_REVISION:
+        _ensure_executable(entrypoint)
         return False
     entrypoint.parent.mkdir(parents=True, exist_ok=True)
-    # 임시 파일 > 교체 (다른 세션이 동시에 읽어도 반쯤 쓴 파일을 보지 않게)
+    # 임시 파일 > 권한 > 교체 (다른 세션이 동시에 읽어도 반쯤 쓴 파일을 보지 않게)
     temporary = entrypoint.with_name(entrypoint.name + ".{}.tmp".format(os.getpid()))
     temporary.write_text(Path(__file__).read_text(encoding="utf-8"), encoding="utf-8")
+    os.chmod(temporary, STABLE_ENTRYPOINT_MODE)
     os.replace(temporary, entrypoint)
     return True
+
+
+def _ensure_executable(entrypoint: Path) -> None:
+    """번호가 같아도 실행 권한이 없으면 붙임 (rev 1 은 644 로 깔림, #920). stat 한 번이라 매 실행 괜찮음"""
+    try:
+        if not entrypoint.stat().st_mode & 0o100:
+            os.chmod(entrypoint, STABLE_ENTRYPOINT_MODE)
+    except OSError:
+        pass
 
 
 def main(arguments: list[str]) -> int:

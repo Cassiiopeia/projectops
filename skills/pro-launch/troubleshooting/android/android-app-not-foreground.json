@@ -1,0 +1,30 @@
+{
+  "id": "android-app-not-foreground",
+  "area": "android",
+  "title": "app launch 가 ok 인데 다른 화면이 맨 위에 있다",
+  "match": {
+    "codes": [
+      "not_foreground"
+    ],
+    "keywords": [
+      "mCurrentFocus",
+      "MinuteMaidActivity"
+    ]
+  },
+  "symptom": "launch·relaunch·back 이 성공인데 화면은 그대로다 (다른 세션의 Google 로그인 등)",
+  "cause": "공용 에뮬레이터 맨 위를 다른 앱(예: com.google.android.gms 로그인)이 잡고 있다. back 이 통하지 않을 수 있다",
+  "fix": [
+    "응답의 blocking_activity 를 확인한다",
+    "adb shell dumpsys window | grep mCurrentFocus 로 직접 본다",
+    "남이 쓰는 기기인지 device list 의 owner 로 확인하고, 맞으면 먼저 묻는다",
+    "풀리지 않으면 launch_cli.py device reboot --cold (35초 안팎)"
+  ],
+  "refs": [
+    923,
+    925
+  ],
+  "verified_at": "2026-10-18",
+  "see_also": [
+    "android-no-focused-window"
+  ]
+}

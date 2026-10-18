@@ -13,7 +13,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from common.state import MACHINE_BUCKET, base_dir, launch_file
+from common.state import MACHINE_BUCKET, base_dir, is_scratch_root, launch_file
 
 from pro_launch.runtime.procs import pid_alive
 
@@ -45,7 +45,9 @@ def load_recent_roots() -> list[dict]:
     except (OSError, json.JSONDecodeError):
         return []
     rows = data.get("roots") if isinstance(data, dict) else None
-    return [r for r in rows or [] if isinstance(r, dict) and r.get("path") and Path(r["path"]).is_dir()]
+    # 예전에 적힌 임시 폴더(jobs/tmp/formedit 등)는 후보에서 뺀다 (#932)
+    return [r for r in rows or [] if isinstance(r, dict) and r.get("path") and Path(r["path"]).is_dir()
+            and not is_scratch_root(Path(r["path"]))]
 
 
 def remember_root(root: Path) -> None:

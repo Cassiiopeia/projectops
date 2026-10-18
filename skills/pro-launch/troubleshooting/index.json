@@ -10,6 +10,9 @@
     "android_tool_missing": [
       "android-adb-missing"
     ],
+    "app_exited": [
+      "ios-app-vanishes-after-launch"
+    ],
     "bad_args": [
       "general-bad-args-option-names"
     ],
@@ -20,7 +23,8 @@
       "web-browser-gone"
     ],
     "browser_hung": [
-      "browser-start-stale-process-or-lock"
+      "browser-start-stale-process-or-lock",
+      "web-orphan-headless-chrome"
     ],
     "browser_missing": [
       "web-playwright-or-browser-missing"
@@ -33,6 +37,9 @@
     ],
     "cred_field_missing": [
       "general-cred-field-missing"
+    ],
+    "device_unresponsive": [
+      "android-emulator-unresponsive-host-swap"
     ],
     "element_disabled": [
       "web-selector-guess-timeout"
@@ -67,6 +74,13 @@
     "non_ascii_unsupported": [
       "android-non-ascii-text"
     ],
+    "not_foreground": [
+      "android-app-not-foreground"
+    ],
+    "not_found": [
+      "android-flutter-doubled-desc",
+      "ios-label-in-desc-doubled"
+    ],
     "nothing_found": [
       "web-find-nothing-found"
     ],
@@ -83,7 +97,8 @@
       "web-selector-guess-timeout"
     ],
     "session_start_failed": [
-      "ios-maestro-session-reconnect"
+      "ios-maestro-session-reconnect",
+      "ios-maestro-stale-driver-or-overload"
     ],
     "sshpass_missing": [
       "ssh-sshpass-missing"
@@ -91,14 +106,26 @@
     "tab_gone": [
       "web-page-changed-by-other-session"
     ],
+    "timeout_too_large": [
+      "general-timeout-unit-seconds"
+    ],
+    "typed_text_mismatch": [
+      "android-korean-ime-jamo"
+    ],
     "ui_automation_unavailable": [
       "android-system-restart-loop"
+    ],
+    "ui_dump_failed": [
+      "android-emulator-unresponsive-host-swap"
     ],
     "ui_dump_timeout": [
       "android-system-restart-loop"
     ]
   },
   "keywords": {
+    "--timeout": [
+      "general-timeout-unit-seconds"
+    ],
     "90초": [
       "ios-maestro-slow-cold-start"
     ],
@@ -111,14 +138,39 @@
     "cache": [
       "general-plugin-cache-version-drift"
     ],
+    "call": [
+      "ios-maestro-stale-driver-or-overload"
+    ],
     "can": [
       "android-system-restart-loop"
+    ],
+    "chcp": [
+      "ssh-windows-cmd-encoding"
+    ],
+    "chrome": [
+      "web-orphan-headless-chrome"
+    ],
+    "client": [
+      "web-secret-in-input"
+    ],
+    "config.json": [
+      "general-cred-never-read-config"
     ],
     "connected": [
       "android-system-restart-loop"
     ],
     "connecting": [
       "android-system-restart-loop"
+    ],
+    "container": [
+      "web-scroll-container-capture"
+    ],
+    "crash": [
+      "ios-app-vanishes-after-launch"
+    ],
+    "desc": [
+      "android-flutter-doubled-desc",
+      "ios-label-in-desc-doubled"
     ],
     "device": [
       "general-login-interstitial-policy",
@@ -129,6 +181,9 @@
     ],
     "did": [
       "android-maestro-driver-start-timeout"
+    ],
+    "directory": [
+      "general-zsh-variable-command"
     ],
     "endpoint": [
       "android-system-restart-loop"
@@ -142,14 +197,29 @@
     "evaluatedcommand": [
       "ios-maestro-log-keeps-input-text"
     ],
+    "file": [
+      "general-zsh-variable-command"
+    ],
     "find": [
       "android-system-restart-loop"
     ],
     "for": [
       "web-selector-guess-timeout"
     ],
+    "full-page": [
+      "web-scroll-container-capture"
+    ],
+    "gboard": [
+      "android-korean-ime-jamo"
+    ],
+    "headless": [
+      "web-orphan-headless-chrome"
+    ],
     "iframe": [
       "web-iframe-login-fields"
+    ],
+    "ime": [
+      "android-korean-ime-jamo"
     ],
     "in": [
       "android-maestro-driver-start-timeout",
@@ -158,23 +228,42 @@
     "inputtextcommand": [
       "ios-maestro-log-keeps-input-text"
     ],
+    "invalid": [
+      "general-otp-no-resubmit"
+    ],
     "is": [
       "android-system-restart-loop"
     ],
     "launch_tab": [
       "web-page-changed-by-other-session"
     ],
+    "locale": [
+      "android-maps-locale"
+    ],
     "locator": [
       "web-selector-guess-timeout"
     ],
     "maestro": [
-      "ios-maestro-slow-cold-start"
+      "ios-maestro-slow-cold-start",
+      "ios-maestro-stale-driver-or-overload"
     ],
     "maestro.log": [
       "ios-maestro-log-keeps-input-text"
     ],
+    "maps": [
+      "android-maps-locale"
+    ],
+    "mcurrentfocus": [
+      "android-app-not-foreground"
+    ],
     "methodchannel": [
       "general-render-failed-first-error"
+    ],
+    "minutemaidactivity": [
+      "android-app-not-foreground"
+    ],
+    "no": [
+      "general-zsh-variable-command"
     ],
     "node": [
       "android-no-focused-window"
@@ -186,17 +275,44 @@
     "null": [
       "android-no-focused-window"
     ],
+    "numberformatexception": [
+      "ios-maestro-point-integer-percent"
+    ],
+    "offline": [
+      "android-emulator-unresponsive-host-swap"
+    ],
+    "or": [
+      "general-zsh-variable-command"
+    ],
+    "otp": [
+      "general-otp-no-resubmit"
+    ],
+    "out": [
+      "ios-maestro-stale-driver-or-overload"
+    ],
     "passkey": [
       "general-login-interstitial-policy"
     ],
+    "password": [
+      "general-cred-never-read-config"
+    ],
     "plugins": [
       "general-plugin-cache-version-drift"
+    ],
+    "point": [
+      "ios-maestro-point-integer-percent"
+    ],
+    "post": [
+      "web-save-by-network"
     ],
     "profile_locked": [
       "browser-start-stale-process-or-lock"
     ],
     "projectops-marketplace": [
       "general-plugin-cache-version-drift"
+    ],
+    "python3": [
+      "general-zsh-variable-command"
     ],
     "recovered": [
       "browser-start-stale-process-or-lock"
@@ -213,6 +329,13 @@
     "root_warning": [
       "general-root-unknown-skill-folder"
     ],
+    "secret": [
+      "web-secret-in-input"
+    ],
+    "semantics": [
+      "android-flutter-doubled-desc",
+      "ios-label-in-desc-doubled"
+    ],
     "service": [
       "android-system-restart-loop"
     ],
@@ -221,6 +344,12 @@
     ],
     "session_fallback": [
       "ios-maestro-session-reconnect"
+    ],
+    "sha-1": [
+      "web-secret-in-input"
+    ],
+    "sigabrt": [
+      "ios-app-vanishes-after-launch"
     ],
     "signed": [
       "general-login-interstitial-policy"
@@ -234,11 +363,23 @@
     "start": [
       "android-maestro-driver-start-timeout"
     ],
+    "status_bar": [
+      "ios-status-bar-custom-time"
+    ],
     "stay": [
       "general-login-interstitial-policy"
     ],
     "stderr_tail": [
       "browser-start-stale-process-or-lock"
+    ],
+    "such": [
+      "general-zsh-variable-command"
+    ],
+    "swap": [
+      "android-emulator-unresponsive-host-swap"
+    ],
+    "system_server": [
+      "android-emulator-unresponsive-host-swap"
     ],
     "tab_warning": [
       "web-page-changed-by-other-session"
@@ -249,9 +390,15 @@
     "time": [
       "android-maestro-driver-start-timeout"
     ],
+    "timed": [
+      "ios-maestro-stale-driver-or-overload"
+    ],
     "timeout": [
       "android-system-restart-loop",
       "web-selector-guess-timeout"
+    ],
+    "tools": [
+      "ios-maestro-stale-driver-or-overload"
     ],
     "transport": [
       "android-system-restart-loop"
@@ -265,6 +412,9 @@
     "uitestautomationbridge": [
       "android-no-focused-window"
     ],
+    "unicodedecodeerror": [
+      "ssh-windows-cmd-encoding"
+    ],
     "unreachable": [
       "ios-maestro-session-reconnect"
     ],
@@ -276,6 +426,12 @@
     ],
     "while": [
       "android-system-restart-loop"
+    ],
+    "xcodebuild": [
+      "ios-maestro-stale-driver-or-overload"
+    ],
+    "zsh": [
+      "general-zsh-variable-command"
     ],
     "기기": [
       "general-login-interstitial-policy"
@@ -289,11 +445,32 @@
     "상태": [
       "general-login-interstitial-policy"
     ],
+    "상태바": [
+      "ios-status-bar-custom-time"
+    ],
     "신뢰": [
       "general-login-interstitial-policy"
     ],
+    "없음": [
+      "ios-maestro-stale-driver-or-overload"
+    ],
     "유지": [
       "general-login-interstitial-policy"
+    ],
+    "응답": [
+      "ios-maestro-stale-driver-or-overload"
+    ],
+    "인증": [
+      "general-otp-no-resubmit"
+    ],
+    "자모": [
+      "android-korean-ime-jamo"
+    ],
+    "저장": [
+      "web-save-by-network"
+    ],
+    "코드": [
+      "general-otp-no-resubmit"
     ],
     "패스키": [
       "general-login-interstitial-policy"
@@ -310,6 +487,46 @@
       "keyword_count": 0,
       "path": "android/android-adb-missing.json"
     },
+    "android-app-not-foreground": {
+      "area": "android",
+      "title": "app launch 가 ok 인데 다른 화면이 맨 위에 있다",
+      "fix_short": [
+        "응답의 blocking_activity 를 확인한다",
+        "adb shell dumpsys window | grep mCurrentFocus 로 직접 본다"
+      ],
+      "keyword_count": 2,
+      "path": "android/android-app-not-foreground.json"
+    },
+    "android-emulator-unresponsive-host-swap": {
+      "area": "android",
+      "title": "에뮬레이터가 응답하지 않는다 — 호스트 메모리가 꽉 찼다",
+      "fix_short": [
+        "launch_cli.py doctor --resources 로 메모리 압박을 본다",
+        "launch_cli.py device reboot --device <id> --cold 로 정리하고 다시 띄운다"
+      ],
+      "keyword_count": 3,
+      "path": "android/android-emulator-unresponsive-host-swap.json"
+    },
+    "android-flutter-doubled-desc": {
+      "area": "android",
+      "title": "Android Flutter 버튼 desc 가 두 번 들어간다",
+      "fix_short": [
+        "launch_cli.py app tap --desc <라벨> (최신 버전은 줄 단위로 맞춘다)",
+        "이전 버전은 개행 포함 전체 문자열을 --desc 로 준다"
+      ],
+      "keyword_count": 2,
+      "path": "android/android-flutter-doubled-desc.json"
+    },
+    "android-korean-ime-jamo": {
+      "area": "android",
+      "title": "Android app type 이 ok 인데 한국어 키보드가 자모로 바꿔 넣는다",
+      "fix_short": [
+        "launch_cli.py app type --ime ascii --text <값> (입력 동안 Maestro IME 로 바꿨다 원복)",
+        "수동: adb shell ime set dev.mobile.maestro/.input.MaestroInputMethodService 후 입력하고 원래 IME 로 되돌린다"
+      ],
+      "keyword_count": 3,
+      "path": "android/android-korean-ime-jamo.json"
+    },
     "android-maestro-driver-start-timeout": {
       "area": "android",
       "title": "maestro_driver_timeout — Maestro Android driver 가 시간 안에 안 뜸",
@@ -319,6 +536,16 @@
       ],
       "keyword_count": 6,
       "path": "android/android-maestro-driver-start-timeout.json"
+    },
+    "android-maps-locale": {
+      "area": "android",
+      "title": "Google Maps 라벨이 앱 언어를 따르지 않는다",
+      "fix_short": [
+        "launch_cli.py device locale --device <id> --lang ja --region JP --app <패키지>",
+        "직접: adb shell cmd locale set-app-locales <pkg> --locales ja-JP (확인은 get-app-locales)"
+      ],
+      "keyword_count": 2,
+      "path": "android/android-maps-locale.json"
     },
     "android-no-focused-window": {
       "area": "android",
@@ -390,6 +617,16 @@
       "keyword_count": 0,
       "path": "general/general-cred-field-missing.json"
     },
+    "general-cred-never-read-config": {
+      "area": "general",
+      "title": "자격증명을 config 파일에서 직접 읽지 않는다",
+      "fix_short": [
+        "app type --cred <이름> --cred-field <필드> / web type --cred 를 쓴다",
+        "app run 단계에서도 cred 참조를 쓴다"
+      ],
+      "keyword_count": 2,
+      "path": "general/general-cred-never-read-config.json"
+    },
     "general-env-not-set": {
       "area": "general",
       "title": "--text-env 가 env_not_set — 값이 아니라 환경변수 이름을 넘긴다",
@@ -409,6 +646,16 @@
       ],
       "keyword_count": 14,
       "path": "general/general-login-interstitial-policy.json"
+    },
+    "general-otp-no-resubmit": {
+      "area": "general",
+      "title": "인증 코드를 기다리는 동안 로그인 폼을 다시 제출하지 않는다",
+      "fix_short": [
+        "코드를 기다리는 동안 폼을 다시 제출하지 않는다",
+        "먼저 web text 로 지금 OTP 화면인지 확인한다"
+      ],
+      "keyword_count": 4,
+      "path": "general/general-otp-no-resubmit.json"
     },
     "general-plugin-cache-version-drift": {
       "area": "general",
@@ -440,6 +687,46 @@
       "keyword_count": 2,
       "path": "general/general-root-unknown-skill-folder.json"
     },
+    "general-timeout-unit-seconds": {
+      "area": "general",
+      "title": "--timeout 을 밀리초로 넣었다 — 단위는 초",
+      "fix_short": [
+        "--timeout 은 초로 준다 (기본 10, 최대 300)",
+        "이미 멈췄으면 web close 후 web open 으로 복구한다"
+      ],
+      "keyword_count": 1,
+      "path": "general/general-timeout-unit-seconds.json"
+    },
+    "general-zsh-variable-command": {
+      "area": "general",
+      "title": "zsh 에서 변수에 담은 명령이 한 단어로 취급되어 'no such file' 이 난다",
+      "fix_short": [
+        "고정 진입점을 직접 부른다: python3 ~/.projectops/bin/launch_cli.py doctor",
+        "반복하면 함수로 감싼다: launch() { python3 \"$HOME/.projectops/bin/launch_cli.py\" \"$@\"; }"
+      ],
+      "keyword_count": 7,
+      "path": "general/general-zsh-variable-command.json"
+    },
+    "ios-app-vanishes-after-launch": {
+      "area": "ios",
+      "title": "iOS 앱이 실행 직후 사라지는데 app shot 은 홈 화면을 찍는다",
+      "fix_short": [
+        "launch_cli.py app launch 응답의 crash_report 와 exception 줄을 본다",
+        "없으면 ~/Library/Logs/DiagnosticReports 의 최신 Runner-*.ips 를 연다"
+      ],
+      "keyword_count": 2,
+      "path": "ios/ios-app-vanishes-after-launch.json"
+    },
+    "ios-label-in-desc-doubled": {
+      "area": "ios",
+      "title": "iOS Flutter 버튼 라벨이 desc 에 겹쳐 나와 --text 로 못 누른다",
+      "fix_short": [
+        "app tree 에서 해당 요소의 desc 를 확인한다",
+        "launch_cli.py app tap --desc <글자> 로 누른다 (최신 버전은 desc·겹친 라벨을 자동으로 맞춘다)"
+      ],
+      "keyword_count": 2,
+      "path": "ios/ios-label-in-desc-doubled.json"
+    },
     "ios-maestro-log-keeps-input-text": {
       "area": "ios",
       "title": "Maestro 기록(maestro.log)에 inputText 의 실제 값이 평문으로 남는다",
@@ -459,6 +746,16 @@
       ],
       "keyword_count": 0,
       "path": "ios/ios-maestro-not-installed.json"
+    },
+    "ios-maestro-point-integer-percent": {
+      "area": "ios",
+      "title": "Maestro flow 의 point 퍼센트는 정수만 받는다 (NumberFormatException)",
+      "fix_short": [
+        "maestro.log 의 마지막 오류 줄을 먼저 읽는다 (~/.maestro/tests/<시각>/maestro.log)",
+        "퍼센트를 정수로 반올림한다 (72.7% → 73%)"
+      ],
+      "keyword_count": 2,
+      "path": "ios/ios-maestro-point-integer-percent.json"
     },
     "ios-maestro-session-reconnect": {
       "area": "ios",
@@ -480,6 +777,26 @@
       "keyword_count": 2,
       "path": "ios/ios-maestro-slow-cold-start.json"
     },
+    "ios-maestro-stale-driver-or-overload": {
+      "area": "ios",
+      "title": "iOS tap 이 90초 실패하고 app session start 도 실패한다 — 남은 Maestro 드라이버·부하",
+      "fix_short": [
+        "uptime 으로 load 를 본다 (코어 수의 2배 이상이면 과부하)",
+        "ps 에서 maestro-driver-ios-config · maestro/lib 가 pro-launch 세션 소유가 아닌지 확인한다"
+      ],
+      "keyword_count": 8,
+      "path": "ios/ios-maestro-stale-driver-or-overload.json"
+    },
+    "ios-status-bar-custom-time": {
+      "area": "ios",
+      "title": "iOS 캡처 상태바 시각을 알림 시각에 맞춰야 한다",
+      "fix_short": [
+        "launch_cli.py app shot --clean-status --time 7:42",
+        "직접 할 때: xcrun simctl status_bar <UDID> override --time 7:42 후 찍고 status_bar clear 로 되돌린다"
+      ],
+      "keyword_count": 2,
+      "path": "ios/ios-status-bar-custom-time.json"
+    },
     "ssh-sshpass-missing": {
       "area": "ssh",
       "title": "암호 ssh 가 sshpass_missing — 키 접속이나 호환 경로로",
@@ -489,6 +806,16 @@
       ],
       "keyword_count": 0,
       "path": "ssh/ssh-sshpass-missing.json"
+    },
+    "ssh-windows-cmd-encoding": {
+      "area": "ssh",
+      "title": "Windows cmd(CP949) 호스트의 출력이 깨진다",
+      "fix_short": [
+        "최신 버전은 UTF-8 > CP949 순으로 해석한다 (stdout_encoding 확인)",
+        "옛 버전은 명령 앞에 'chcp 65001 >nul &' 를 붙인다"
+      ],
+      "keyword_count": 2,
+      "path": "ssh/ssh-windows-cmd-encoding.json"
     },
     "web-browser-gone": {
       "area": "web",
@@ -550,6 +877,16 @@
       "keyword_count": 2,
       "path": "web/web-iframe-login-fields.json"
     },
+    "web-orphan-headless-chrome": {
+      "area": "web",
+      "title": "HTML 을 더블클릭해도 Chrome 이 안 열린다 — 고아 headless Chrome",
+      "fix_short": [
+        "launch_cli.py web close --stale 로 고아를 정리한다 (남의 살아 있는 브라우저는 보고만 한다)",
+        "직접: ps -axo pid,ppid,command | grep -- --headless 에서 PPID 1 인 것을 확인한다"
+      ],
+      "keyword_count": 2,
+      "path": "web/web-orphan-headless-chrome.json"
+    },
     "web-page-changed-by-other-session": {
       "area": "web",
       "title": "다른 세션이 같은 탭을 옮겨 입력이 사라진다",
@@ -579,6 +916,36 @@
       ],
       "keyword_count": 0,
       "path": "web/web-readonly-mutating-blocked.json"
+    },
+    "web-save-by-network": {
+      "area": "web",
+      "title": "저장이 됐는지 화면 문구 대신 요청 응답으로 판정한다",
+      "fix_short": [
+        "launch_cli.py web click --capture-requests 로 POST/PUT 응답 상태를 본다",
+        "status 200 대 4xx 로 판정한다 (URL 쿼리는 가려진다)"
+      ],
+      "keyword_count": 2,
+      "path": "web/web-save-by-network.json"
+    },
+    "web-scroll-container-capture": {
+      "area": "web",
+      "title": "내부 스크롤 화면(Google Forms 편집기 등)은 full-page 로 안 찍힌다",
+      "fix_short": [
+        "launch_cli.py web shot --container <선택자> --tiles 5",
+        "직접: web scroll --container <선택자> 후 web shot 을 반복한다"
+      ],
+      "keyword_count": 2,
+      "path": "web/web-scroll-container-capture.json"
+    },
+    "web-secret-in-input": {
+      "area": "web",
+      "title": "비밀값이 입력칸·복사 버튼 안에만 있다",
+      "fix_short": [
+        "launch_cli.py web value --selector <선택자> --save-env NAME (값을 출력하지 않고 저장)",
+        "복사 버튼은 클릭 후 web clipboard --save-env NAME"
+      ],
+      "keyword_count": 3,
+      "path": "web/web-secret-in-input.json"
     },
     "web-selector-guess-timeout": {
       "area": "web",

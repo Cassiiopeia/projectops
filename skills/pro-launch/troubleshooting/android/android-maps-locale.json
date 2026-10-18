@@ -1,0 +1,24 @@
+{
+  "id": "android-maps-locale",
+  "area": "android",
+  "title": "Google Maps 라벨이 앱 언어를 따르지 않는다",
+  "match": {
+    "codes": [],
+    "keywords": [
+      "locale",
+      "Maps"
+    ]
+  },
+  "symptom": "Flutter 앱 언어를 바꿨는데 지도 라벨은 그대로다",
+  "cause": "지도 라벨은 Activity locale 을 따른다. 시스템 언어를 바꾼 직후에는 GMS 가 locale 을 캐시한다",
+  "fix": [
+    "launch_cli.py device locale --device <id> --lang ja --region JP --app <패키지>",
+    "직접: adb shell cmd locale set-app-locales <pkg> --locales ja-JP (확인은 get-app-locales)",
+    "타일이 비면 앱과 Play services 를 재시작한다",
+    "끝나면 --restore 로 되돌린다"
+  ],
+  "refs": [
+    929
+  ],
+  "verified_at": "2026-10-18"
+}

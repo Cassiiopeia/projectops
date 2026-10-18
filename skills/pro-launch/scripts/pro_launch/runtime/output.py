@@ -14,7 +14,7 @@ from common.state import repo_unknown
 import journal
 import knowledge
 
-from pro_launch.runtime.plugin_version import plugin_version
+from pro_launch.runtime.plugin_version import plugin_version, take_newer_installed
 from pro_launch.runtime.recent_roots import root_candidates
 from pro_launch.runtime.context import ACCESS_CTX, INPUT_CTX, MEMORY_CTX, MIGRATION, OUTPUT_CTX, ROOT_CTX
 
@@ -48,8 +48,8 @@ HEAD_KEYS = ("ok", "code", "summary", "next")
 CAUSE_KEYS = ("first_error", "unknown", "did_you_mean", "empty_values")
 # 이 실패·영역에 맞춘 해결과 기억 — 원인 뒤 · 줄여도 남긴다
 GUIDANCE_KEYS = ("known_fix", "known_fix_note", "memory", "memory_note", "learn_hint")
-# 실패 · doctor 에만 싣는 버전 — 어느 버전에서 난 문제인지 보고에 남게 · 줄여도 남긴다
-VERSION_KEYS = ("plugin_version",)
+# 실패 · doctor 에만 싣는 버전 + 옛 설치본 경고(성공 포함, 1회) — 보고에 남게 · 줄여도 남긴다
+VERSION_KEYS = ("plugin_version", "newer_installed")
 # --brief 가 남기는 키: 머리 + error + 원인 + 안내 + 버전
 BRIEF_KEYS = (*HEAD_KEYS, "error", *CAUSE_KEYS, *GUIDANCE_KEYS, *VERSION_KEYS)
 
@@ -67,13 +67,25 @@ def shape_payload(payload: dict) -> dict:
     # 성공 응답에는 싣지 않는다 (응답 줄이기, #897)
     if payload["ok"] is False:
         payload.setdefault("plugin_version", plugin_version())
+    newer_installed = take_newer_installed()
+    if newer_installed:
+        payload.setdefault("newer_installed", newer_installed)
     leading = [k for k in (*HEAD_KEYS, *CAUSE_KEYS, *GUIDANCE_KEYS, *VERSION_KEYS) if k in payload]
     ordered = {k: payload[k] for k in leading}
     ordered.update((k, v) for k, v in payload.items() if k not in ordered)
     kept_names = _kept_key_names()
     if kept_names is None:
         return ordered
-    return {k: v for k, v in ordered.items() if k in kept_names}
+    return {**{k: v for k, v in ordered.items() if k in kept_names}, **_unknown_field_report(ordered)}
+
+
+def _unknown_field_report(ordered: dict) -> dict:
+    """--fields 에 없는 키가 있으면 {unknown_fields, available_fields} — 조용히 빈 결과를 내지 않는다 (#931)."""
+    field_names = OUTPUT_CTX.get("field_names") or []
+    unknown = [name for name in field_names if name not in ordered]
+    if not unknown:
+        return {}
+    return {"unknown_fields": unknown, "available_fields": list(ordered)}
 
 
 def _kept_key_names() -> set[str] | None:
@@ -133,6 +145,10 @@ def _root_warning(payload: dict) -> None:
         payload["root_source"] = "last_used"
         payload["root_note"] = (f"작업 폴더({ROOT_CTX.get('cwd')})가 레포가 아니라 최근에 쓴 {ROOT_CTX.get('path')} 를 썼다 — "
                                 "다른 레포면 --root <경로> 를 붙인다")
+    if ROOT_CTX.get("scratch"):
+        payload["root_scratch"] = True
+        payload["root_note"] = (f"{ROOT_CTX.get('path')} 는 git 도 프로젝트 마커도 없는 폴더다 — 상태는 임시 버킷"
+                                "(_scratch/<이름>-<해시>)에 쓰고 최근 루트로 기억하지 않는다. 프로젝트면 레포 절대경로를 --root 로")
     is_failed = payload.get("ok", True) is False
     if is_failed and (ROOT_CTX.get("not_repo") or ROOT_CTX.get("unknown")
                           or payload.get("code") in ROOT_SENSITIVE_CODES):

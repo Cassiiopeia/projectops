@@ -73,6 +73,10 @@ def load(path: Path) -> list[dict]:
                    "last_seen": str(r.get("last_seen") or "")}
             if r.get("detail"):
                 row["detail"] = str(r["detail"])
+            # 기록 당시 버전 · 대체 표시 (#932)
+            for extra in ("plugin_version", "superseded_by", "superseded_reason"):
+                if r.get(extra):
+                    row[extra] = str(r[extra])
             out.append(row)
     return out
 
@@ -84,6 +88,16 @@ def save(path: Path, entries: list[dict]) -> None:
     tmp.write_text(json.dumps({"schema": SCHEMA, "entries": entries},
                               ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     os.replace(tmp, path)
+
+
+def current_plugin_version() -> str | None:
+    """기록에 남길 스킬 버전. pro_launch 밖(테스트·다른 스킬)에서는 None."""
+    try:
+        from pro_launch.runtime.plugin_version import UNKNOWN_VERSION, plugin_version
+    except ImportError:
+        return None
+    version = plugin_version()
+    return None if version == UNKNOWN_VERSION else version
 
 
 def norm_key(key: str) -> str:
@@ -151,8 +165,14 @@ def learn(path: Path, area: str, key: str, how: str, result: str,
     elif cur["how"] != how:
         # 방법이 바뀌었으면 옛 방법의 성적을 물려받지 않는다
         cur.update(how=how, ok=0, fail=0)
+        # 새 방법이면 옛 대체 표시는 무효
+        cur.pop("superseded_by", None)
+        cur.pop("superseded_reason", None)
     cur[result] += 1
     cur["last_seen"] = now
+    version = current_plugin_version()
+    if version:
+        cur["plugin_version"] = version
     if detail:
         # 노트는 덮어쓴다 — 같은 키의 최신 경위가 맞다
         note = note_path(path, k)
@@ -209,9 +229,11 @@ def recall(paths: dict[str, Path], area: str | None, limit: int = DEFAULT_LIMIT,
             if note is not None:
                 e["detail_path"] = str(note)
             stale = _stale(e, now)
+            is_superseded = bool(e.get("superseded_by"))
+            # 대체된 항목은 맨 뒤 (-1), 오래된 것은 그 앞 (0)
             rows.append({**e, "scope": scope,
-                         "verify": bool(e["fail"] and e["fail"] >= e["ok"]) or stale,
-                         "_rank": (0 if stale else 1, _score(e), e["last_seen"])})
+                         "verify": bool(e["fail"] and e["fail"] >= e["ok"]) or stale or is_superseded,
+                         "_rank": (-1 if is_superseded else 0 if stale else 1, _score(e), e["last_seen"])})
     rows.sort(key=lambda r: r["_rank"], reverse=True)
     for r in rows:
         del r["_rank"]
@@ -411,7 +433,7 @@ def surface(paths: dict[str, Path], area: str, seen_file: Path, limit: int = 3,
         return []
     # 접두사 필터는 상한을 자르기 전에 건다 — 다른 서버 기억이 자리를 차지하면 안 된다
     rows = [r for r in recall(paths, area, limit=1000, today=now)
-            if r["fail"] < r["ok"] + HIDE_FAILS_OVER
+            if r["fail"] < r["ok"] + HIDE_FAILS_OVER and not r.get("superseded_by")
             and (not key_prefix or r["key"].startswith(key_prefix))]
     out, kept = [], []
     for r in rows:

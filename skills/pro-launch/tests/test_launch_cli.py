@@ -24,6 +24,8 @@ from pathlib import Path
 
 import pytest
 
+from browser_cleanup import close_browser_for_test
+
 CLI = Path(__file__).resolve().parents[1] / "scripts" / "launch_cli.py"
 sys.path.insert(0, str(CLI.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
@@ -860,7 +862,7 @@ def _browser_session(tmp_path):
     try:
         yield proj, f"http://127.0.0.1:{srv.server_port}/"
     finally:
-        run_cli("web", "close", "--root", str(proj))
+        close_browser_for_test(run_cli, proj, state)
         srv.shutdown()
         shutil.rmtree(state, ignore_errors=True)
 

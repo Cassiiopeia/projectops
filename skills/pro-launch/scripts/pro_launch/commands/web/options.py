@@ -67,6 +67,12 @@ def _confirm_mutating(p) -> None:
                    help="읽기 전용 세션에서도 한다 (사용자 승인을 받은 뒤에만)")
 
 
+def _capture_requests(p) -> None:
+    # 저장이 정말 서버로 갔는지 page.on("response") 를 손으로 걸던 것 (#930)
+    p.add_argument("--capture-requests", dest="capture_requests", action="store_true",
+                   help="이 조작이 일으킨 GET 이 아닌 요청(method · status · url)을 결과 requests 에 싣는다")
+
+
 # 공통 옵션 이름 → 파서에 다는 함수. 이름은 Action.options 에 적는 값이다
 SHARED_OPTIONS = {
     "root": _root,
@@ -84,7 +90,25 @@ SHARED_OPTIONS = {
     "out": _out,
     "confirm_mutating": _confirm_mutating,
     "shot_format": add_shot_args,
+    "capture_requests": _capture_requests,
 }
 
 # 모든 동작이 받는 것
 ALWAYS_OPTIONS = ("root",)
+
+
+# --timeout 상한(초). 넘으면 밀리초로 잘못 준 것으로 본다 — 3000 은 50분 (#931 실측: 공유 브라우저를 50분 붙잡았다)
+MAXIMUM_TIMEOUT_SECONDS = 300
+
+
+def timeout_failure(args) -> dict | None:
+    """--timeout 이 상한을 넘으면 timeout_too_large 결과, 아니면 None. 모든 web 동작이 붙기 전에 본다."""
+    timeout = getattr(args, "timeout", None)
+    if timeout is None or timeout <= MAXIMUM_TIMEOUT_SECONDS:
+        return None
+    return {"ok": False, "code": "timeout_too_large", "action": getattr(args, "action", None),
+            "timeout": timeout, "maximum_seconds": MAXIMUM_TIMEOUT_SECONDS,
+            "error": f"--timeout {timeout} 은 너무 깁니다 (단위는 초 — {timeout}초는 약 {round(timeout / 60)}분)",
+            "hint": (f"밀리초가 아니라 초로 준다 (예: 5000ms → --timeout 5). 최대 {MAXIMUM_TIMEOUT_SECONDS}초. "
+                     "더 오래 기다려야 하면 web wait 를 다시 부른다"),
+            "next": f"web {getattr(args, 'action', '<동작>')} --timeout {min(max(timeout // 1000, 1), MAXIMUM_TIMEOUT_SECONDS)}"}
