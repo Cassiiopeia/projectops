@@ -245,6 +245,7 @@ raw `xcrun simctl` · `adb shell am|pm` 대신 쓴다. 패키지는 `--pkg` → 
 {PYTHON} {SCRIPTS}/launch_cli.py device release --device "$DEV"                    # 놓으면서 바꾼 언어·외관을 되돌린다
 {PYTHON} {SCRIPTS}/launch_cli.py device locale  --device "$DEV" --lang en --region US [--app "$PKG"]   # --restore 로 원복
 {PYTHON} {SCRIPTS}/launch_cli.py device appearance dark --device "$DEV"            # light|dark, --restore 로 원복
+{PYTHON} {SCRIPTS}/launch_cli.py device text-size largest --device "$DEV"           # default|large|largest (또는 1.3), --restore 로 원복 (큰 글씨 QA)
 ```
 
 - **창 크기와 캡처 크기는 무관하다.** 캡처는 기기 화면을 그대로 읽고 `--max-side` 로 줄인다. 창은 사람이 디버깅할 때만 필요하므로 에이전트가 띄울 때는 **headless 가 기본**이다.

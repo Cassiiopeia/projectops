@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
 from pro_launch.commands.app import launch_check  # noqa: E402
 from pro_launch.commands.app.actions import install, launch  # noqa: E402
-from pro_launch.commands.device import claims, settings  # noqa: E402
+from pro_launch.commands.device import claims, settings, text_size  # noqa: E402
 from pro_launch.runtime import android_device, crash_reports, device_boot, device_claims, foreground  # noqa: E402
 from pro_launch.runtime import devices as rt_devices  # noqa: E402
 
@@ -315,3 +315,34 @@ def test_running_simulator_app_is_reported_pending_not_restarted(monkeypatch):
     result = device_boot.boot_ios(IOS_UDID, "small", 0.4)
     assert result["window_scale_pending"] is True and "Window" in result["window_hint"]
     assert not any(c[0] in ("open", "killall", "pkill") for c in calls)
+
+
+# ── device text-size (#947) ──
+
+def test_text_size_ios_sets_category_and_restore_returns_original(monkeypatch, tmp_path, capsys, no_waiting):
+    ran: list[list[str]] = []
+
+    def fake_run(command):
+        ran.append(command)
+        return True, "large" if command[-1] == "content_size" else ""
+    monkeypatch.setattr(text_size, "run_command", fake_run)
+    real_run = subprocess.run
+
+    def run_restore(command, **kwargs):
+        if command and command[0] == "xcrun":
+            ran.append(command)
+            return subprocess.CompletedProcess(command, 0, "", "")
+        return real_run(command, **kwargs)
+    monkeypatch.setattr(claims.subprocess, "run", run_restore)
+    text_size.run_text_size(make_args(tmp_path, mode="largest", device=IOS_UDID))
+    data = result_of(capsys)
+    assert data["ok"] and data["before"] == "large" and ran[-1][-1] == "accessibility-extra-extra-extra-large"
+    text_size.run_text_size(make_args(tmp_path, restore=True, device=IOS_UDID))
+    assert result_of(capsys)["restored"] is True and ran[-1][-1] == "large"
+
+
+def test_text_size_values():
+    assert text_size._target_values("largest") == ("accessibility-extra-extra-extra-large", "2.0")
+    assert text_size._target_values("1.3") == ("large", "1.3")
+    assert text_size._target_values("9") is None
+    assert text_size._target_values("extra-large") == ("extra-large", "1.0")

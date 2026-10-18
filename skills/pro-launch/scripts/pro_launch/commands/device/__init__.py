@@ -4,7 +4,7 @@
 """
 from __future__ import annotations
 
-from pro_launch.commands.device import bindings, boot, claims, settings
+from pro_launch.commands.device import bindings, boot, claims, settings, text_size
 from pro_launch.registry import Command
 from pro_launch.runtime.device_boot import WINDOW_MODES
 
@@ -13,7 +13,8 @@ _RUNNERS = {"list": bindings.run_binding_action, "bind": bindings.run_binding_ac
             "unbind": bindings.run_binding_action, "show": bindings.run_binding_action,
             "claim": claims.run_claim, "release": claims.run_release,
             "boot": boot.run_boot, "reboot": boot.run_reboot,
-            "locale": settings.run_locale, "appearance": settings.run_appearance}
+            "locale": settings.run_locale, "appearance": settings.run_appearance,
+            "text-size": text_size.run_text_size}
 
 
 def cmd_device(args) -> int:
@@ -26,7 +27,7 @@ def configure_devices(p) -> None:
 
 def configure_device(p) -> None:
     p.add_argument("action", choices=list(_RUNNERS))
-    p.add_argument("mode", nargs="?", default=None, help="appearance: light 또는 dark")
+    p.add_argument("mode", nargs="?", default=None, help="appearance: light 또는 dark · text-size: default · large · largest (또는 1.3 같은 배율)")
     p.add_argument("--root", default=".")
     p.add_argument("--device", default=None,
                    help="claim·release·reboot·locale·appearance: Android 시리얼 · iOS UDID. boot: UDID · 시뮬레이터 이름 · AVD 이름")
@@ -43,13 +44,13 @@ def configure_device(p) -> None:
     p.add_argument("--lang", default=None, help="locale: 언어 코드 (en · ko · ja)")
     p.add_argument("--region", default=None, help="locale: 지역 코드 (US · KR)")
     p.add_argument("--app", default=None, help="locale: 앱별 언어로 바꿀 패키지명·번들 ID")
-    p.add_argument("--restore", action="store_true", help="locale·appearance: 바꾸기 전 값으로 되돌린다")
+    p.add_argument("--restore", action="store_true", help="locale·appearance·text-size: 바꾸기 전 값으로 되돌린다")
 
 
 COMMANDS = [
     Command(name="devices", help="붙은 기기 · 부팅된 시뮬레이터 · AVD", run=bindings.run_devices,
             configure=configure_devices),
     Command(name="device",
-            help="기기를 묶고(list·bind) 쥐고(claim·release) 띄우고(boot·reboot) 언어·외관을 바꾼다(locale·appearance)",
+            help="기기를 묶고(list·bind) 쥐고(claim·release) 띄우고(boot·reboot) 언어·외관·글자 크기를 바꾼다(locale·appearance·text-size)",
             run=cmd_device, configure=configure_device),
 ]

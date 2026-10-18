@@ -6,53 +6,21 @@ iOS 시스템 언어는 기기를 다시 켜야 반영된다(그 시뮬레이터
 from __future__ import annotations
 
 import re
-import subprocess
 
 from common.proc import sdk_tool
 
-from pro_launch.commands.device.claims import refuse_other_session_owner, resolve_device, run_restore_commands
+from pro_launch.commands.device.claims import refuse_other_session_owner, resolve_device
+from pro_launch.commands.device.setting_support import (
+    fail as _fail, record_change as _recorded, restore_recorded as _restore, run_command as _run,
+)
 from pro_launch.runtime import device_boot
-from pro_launch.runtime.context import project_root
-from pro_launch.runtime.device_claims import pop_device_setting, record_device_setting
+from pro_launch.runtime.device_claims import pop_device_setting
 from pro_launch.runtime.output import out
 
-COMMAND_TIMEOUT_SECONDS = 60
 # Android 앱별 언어(cmd locale set-app-locales)가 생긴 API
 APP_LOCALE_MINIMUM_SDK = 33
 APPEARANCE_MODES = ("light", "dark")
 _ANDROID_NIGHT_BY_MODE = {"light": "no", "dark": "yes"}
-
-
-def _run(command: list[str]) -> tuple[bool, str]:
-    try:
-        r = subprocess.run(command, capture_output=True, text=True, timeout=COMMAND_TIMEOUT_SECONDS)
-    except subprocess.TimeoutExpired:
-        return False, f"응답 없음 ({COMMAND_TIMEOUT_SECONDS}초)"
-    except OSError as error:
-        return False, str(error)
-    return r.returncode == 0, ((r.stdout or "") + (r.stderr or "")).replace("\r", "").strip()
-
-
-def _fail(code: str, error: str, next_hint: str | None = None, **extra) -> int:
-    return out({"ok": False, "code": code, "error": error, "next": next_hint, **extra})
-
-
-def _recorded(key: str, dev_id: str, before, restore_commands: list[list[str]], args) -> None:
-    record_device_setting(dev_id, key, before, restore_commands, str(project_root(args)))
-
-
-def _restore(dev_id: str, platform: str, key: str, action: str) -> int:
-    """--restore: 기록한 원래 값으로 되돌린다."""
-    setting = pop_device_setting(dev_id, key)
-    if setting is None:
-        return out({"action": action, "platform": platform, "device": dev_id, "restored": False,
-                    "summary": f"되돌릴 기록이 없다 ({key})", "next": None})
-    result = run_restore_commands(setting)
-    return out({"ok": result["is_ok"], "code": "ok" if result["is_ok"] else "restore_failed", "action": action,
-                "platform": platform, "device": dev_id, "restored": result["is_ok"], "key": key,
-                "before": setting.get("before"), "error": result["detail"],
-                "summary": f"{key} 원래 값으로 되돌림" if result["is_ok"] else f"{key} 되돌리지 못함",
-                "next": None if result["is_ok"] else f"직접 실행: {result['failed_command']}"})
 
 
 # ── appearance ───────────────────────────────────────────────────────────

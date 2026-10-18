@@ -195,18 +195,21 @@ catch · rescue · except · \.catch\( · onError · fallback · ?? · orElse
 | 목록 0건 | 데이터를 비운 계정으로. **웹이면 `web route --status 200 --body "[]"`** | 로딩과 구분되는 빈 상태 화면이 있는가 |
 | 느린 응답 | **웹이면 `web route --delay 5000`** | 로딩 표시가 있는가 · 두 번 눌러지지 않는가 |
 
-**축 3 — 환경 조건.** 접근성과 표시 설정을 바꿔 레이아웃이 버티는지 본다.
+**축 3 — 환경 조건.** 접근성과 표시 설정을 바꿔 레이아웃이 버티는지 본다. **두 플랫폼 모두** 아래 pro-launch 명령으로 바꾼다:
+바꾸기 전 값이 자동으로 기록되고 `--restore` 나 `device release` 가 되돌리므로 "바꿔 놓고 잊은" 상태가 남지 않는다.
 
-| 조건 | 명령 | 봐야 할 것 |
+| 조건 | Android · iOS 공통 명령 | 봐야 할 것 |
 | --- | --- | --- |
-| 큰 글씨 | `settings put system font_scale 1.3` | 글자가 잘리거나 버튼을 밀어내지 않는가 |
-| 다크모드 | `cmd uimode night yes` | 대비가 무너지거나 보이지 않는 글자가 없는가 |
-| 동작 줄이기 | `settings put global transition_animation_scale 0` | 애니메이션에 기대던 화면이 멈추지 않는가 |
-| 가로 회전 | `settings put system user_rotation 1` | 오버플로가 나지 않는가 |
+| 큰 글씨 | `launch_cli.py device text-size largest --device $DEV` (되돌리기 `--restore`) | 글자가 잘리거나 버튼을 밀어내지 않는가 |
+| 다크모드 | `launch_cli.py device appearance dark --device $DEV` (`--restore`) | 대비가 무너지거나 보이지 않는 글자가 없는가 |
+| 언어 | `launch_cli.py device locale --lang ja --device $DEV` (`--restore`) | 번역 누락·긴 문구 잘림 |
+| 동작 줄이기 (Android) | `settings put global transition_animation_scale 0` | 애니메이션에 기대던 화면이 멈추지 않는가 |
+| 가로 회전 (Android) | `settings put system user_rotation 1` | 오버플로가 나지 않는가 |
+| 오프라인 (Android) | `svc wifi disable && svc data disable` | 재시도 경로가 있는가 |
+| 오프라인 (iOS) | 시뮬레이터는 호스트 네트워크를 쓴다 — 호스트 Wi-Fi 를 끄지 말고 `web route` 가 아닌 앱이면 API 주소를 막힌 주소로 바꾼 빌드·설정으로 본다. 못 만들면 건너뛰지 말고 **`blocked`(만들 수 없는 조건)로 보고에 적는다** | 무한 로딩이 아닌가 |
 
-> **되돌리는 것을 잊지 않는다.** 바꾼 설정은 다음 테스트에 그대로 영향을 준다.
-> 각 조건을 끝낸 직후 원래대로 돌린다 (`font_scale 1.0`, `night no`, `user_rotation 0`,
-> `transition_animation_scale 1`, `svc wifi enable`).
+> **바꾼 설정은 결과에 영향을 준다.** 조건 하나를 끝낼 때마다 `--restore` 하고, 다음 항목을 시작하기 전에 원래 값으로 돌아왔는지 `app shot` 으로 눈으로 확인한다.
+> **캡처한 증거에 어떤 조건에서 찍었는지(`text-size largest` 등) 적는다** — 조건을 모르면 거짓 양성이 나온다.
 
 > **이 세 축은 "무엇을 밟을지" 고르는 것이다.** "밟으면서 무엇을 볼지"는 별개이고
 > `looks-wrong.md` 의 축 4·5·6·7 이 그것이다 — 기능이 도는 것만 보면

@@ -28,7 +28,7 @@ description: "Capability skill that launches and drives apps, web and servers: e
 | 도구(adb · simctl · Chromium · Pillow · cwebp · ffmpeg) · 무엇을 띄울 수 있나(app · web · server, 패키지명 · 번들 ID) · 붙은 기기 · 부팅된 시뮬레이터 · AVD | `doctor` · `detect --path .` · `devices` | — |
 | 호스트 메모리 압박(ok·high·critical) · 큰 프로세스 · 켜진 기기를 묶은 레포 — **가상 기기를 더 띄우기 전에** | `doctor --resources` | 아래 공통 규칙 |
 | 참가자가 둘 이상 — 역할을 기기에 묶기 · 남이 쓰는 기기 표시 | `device list\|bind\|unbind\|show\|claim\|release` | `references/app.md` |
-| 에뮬레이터·시뮬레이터 띄우기(기본 창 없음, 창이 필요하면 작게) · 재부팅 · 언어 · 다크 모드 — **raw simctl/emulator 대신** | `device boot\|reboot [--cold]\|locale\|appearance` · `app install --path` | `references/app.md` |
+| 에뮬레이터·시뮬레이터 띄우기(기본 창 없음, 창이 필요하면 작게) · 재부팅 · 언어 · 다크 모드 — **raw simctl/emulator 대신** | `device boot\|reboot [--cold]\|locale\|appearance\|text-size` · `app install --path` | `references/app.md` |
 | 앱 띄우기 · 찍기 | `app launch` · `app shot [--clean-status]` | `references/app.md` |
 | 앱 화면 구조 · 누르기 · 밀기 | `app tree` · `app tap` · `app swipe` | `references/app.md` |
 | 앱 여러 단계 한 번에 (iOS 는 Maestro 1회) | `app run --steps steps.json` | `references/app.md` |
