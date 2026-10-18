@@ -50,7 +50,8 @@ def build_parser() -> JSONArgumentParser:
     p = sub.add_parser("get-output-path", help="컨설팅 보고서 저장 경로")
     p.add_argument("skill_id", nargs="?", default="oss-consult")
     p.add_argument("--title")
-    p.add_argument("--cwd", help="보고서를 둘 레포 경로 (스크립트 폴더에서 실행할 때 작업 레포를 가리킨다)")
+    p.add_argument("--cwd", "--root", dest="cwd",
+                   help="보고서를 둘 레포 경로 (스크립트 폴더에서 실행할 때 작업 레포를 가리킨다)")
     p.set_defaults(func=get_output_path.cmd_get_output_path)
 
     p = sub.add_parser("repo-update", help="레포 About·topics·Discussions 변경 (승인 후, --dry-run 으로 계획 먼저)")

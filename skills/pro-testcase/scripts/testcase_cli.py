@@ -25,7 +25,7 @@ from common.cli_parser import JSONArgumentParser, run_cli  # noqa: E402
 
 def cmd_get_output_path(args) -> int:
     from common.paths import resolve_output_path
-    return emit(resolve_output_path(args.skill_id, args.title))
+    return emit(resolve_output_path(args.skill_id, args.title, root=args.root, issue=args.issue))
 
 
 def build_parser() -> JSONArgumentParser:
@@ -35,6 +35,8 @@ def build_parser() -> JSONArgumentParser:
     p_gop = sub.add_parser("get-output-path", help="QA 테스트케이스 문서 출력 경로")
     p_gop.add_argument("skill_id", nargs="?", default="testcase")
     p_gop.add_argument("--title")
+    from common.paths import add_root_and_issue_args
+    add_root_and_issue_args(p_gop)
     p_gop.set_defaults(func=cmd_get_output_path)
 
     return parser

@@ -43,8 +43,8 @@ SKILL=pro-review; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
-cd "$SCRIPTS" || exit 1
-PYTHONIOENCODING=utf-8 "$PYTHON" review_cli.py get-output-path review
+PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/review_cli.py" get-output-path review --title "{제목}"
+# 프로젝트 밖이면: --root <프로젝트 경로>, 이슈 번호를 직접 주려면 --issue N
 ```
 
 출력 JSON의 `path` 필드를 추출해 사용한다.

@@ -140,12 +140,33 @@ def ensure_untracked(dir_path: Union[str, Path], skill_id: str) -> str:
     return "created"
 
 
+def add_root_and_issue_args(parser, with_issue: bool = True) -> None:
+    """get-output-path 공통 인자: --root(프로젝트), --issue(이슈 번호 직접 지정) (#943)"""
+    parser.add_argument("--root", default=None,
+                        help="프로젝트 루트 (생략하면 $PROJECT_ROOT > 현재 폴더의 git 루트)")
+    if with_issue:
+        parser.add_argument("--issue", type=int, default=None,
+                            help="이슈 번호를 직접 지정 (생략하면 worktree 경로 > 브랜치명에서 찾는다)")
+
+
+def _project_dir(root: Optional[str]) -> Optional[str]:
+    """프로젝트 폴더: --root > $PROJECT_ROOT > None(=현재 폴더). 없는 폴더면 None 대신 ValueError"""
+    chosen = root or os.environ.get("PROJECT_ROOT") or None
+    if chosen and not os.path.isdir(chosen):
+        raise ValueError(chosen)
+    return chosen
+
+
 def resolve_output_path(skill_id: str, forced_title: Optional[str] = None,
-                        use_issue_number: bool = True) -> dict:
+                        use_issue_number: bool = True,
+                        root: Optional[str] = None, issue: Optional[int] = None) -> dict:
     """산출물 md 경로를 계산해 dict로 반환한다 (CLI가 그대로 emit한다).
 
     이슈 번호는 worktree 경로 → 브랜치명 순으로 찾고, 둘 다 없으면
     그날의 일련번호를 붙인다. 제목은 인자 우선, 없으면 경로에서 추출한다.
+
+    root: 프로젝트 루트. 없으면 $PROJECT_ROOT, 그다음 현재 폴더 (셸 폴더가 바뀐 뒤에도 맞게, #943).
+    issue: 이슈 번호를 직접 지정 (worktree·브랜치에서 찾은 값보다 우선).
 
     use_issue_number=False 면 브랜치·worktree 번호를 쓰지 않고 일련번호만 붙인다.
     새 이슈 문서처럼 **아직 번호가 없는 산출물**이 지금 브랜치의 이슈 번호를
@@ -170,23 +191,31 @@ def resolve_output_path(skill_id: str, forced_title: Optional[str] = None,
     )
     from common.title import normalize, extract_from_path as title_extract_from_path
 
-    cwd = os.getcwd()
+    try:
+        project_dir = _project_dir(root)
+    except ValueError as bad:
+        return {"ok": False, "code": "root_not_found", "error": f"프로젝트 폴더가 없습니다: {bad}",
+                "next": "--root 에 실제 프로젝트 경로를 준다"}
+    cwd = project_dir or os.getcwd()
     today = date.today().strftime("%Y%m%d")
 
     wt_number = in_extract_from_path(cwd)
-    branch = get_current_branch()
+    branch = get_current_branch(project_dir)
     br_number = extract_from_branch(branch) if branch else None
     issue_num, mismatch = resolve(wt_number, br_number)
+    if issue is not None:
+        issue_num, mismatch = str(issue), False
     if not use_issue_number:
         issue_num, mismatch = None, False
 
     try:
         root_str = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, check=True,
+            cwd=project_dir, capture_output=True, text=True, check=True,
         ).stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
-        return {"ok": False, "code": "git_not_found", "error": "git 저장소가 아닙니다"}
+        return {"ok": False, "code": "git_not_found", "error": "git 저장소가 아닙니다",
+                "next": "프로젝트 폴더에서 부르거나 --root <프로젝트 경로> 를 준다 ($PROJECT_ROOT 도 된다)"}
 
     configured_root, config_warning = read_configured_output_root()
     output_base = _join_output_root(root_str, configured_root)

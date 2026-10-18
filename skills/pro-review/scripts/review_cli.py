@@ -23,7 +23,7 @@ from common.cli_parser import JSONArgumentParser, run_cli  # noqa: E402
 def cmd_get_output_path(args) -> int:
     # 경로 규칙은 Layer 1(common/paths.py)이 단일 소유 — 여기서 재구현하지 않는다 (#525)
     from common.paths import resolve_output_path
-    return emit(resolve_output_path(args.skill_id, args.title))
+    return emit(resolve_output_path(args.skill_id, args.title, root=args.root, issue=args.issue))
 
 def build_parser() -> JSONArgumentParser:
     parser = JSONArgumentParser(prog="review_cli", description="review skill CLI")
@@ -32,6 +32,8 @@ def build_parser() -> JSONArgumentParser:
     p_gop = sub.add_parser("get-output-path", help="리뷰 결과 출력 경로")
     p_gop.add_argument("skill_id", nargs="?", default="review")
     p_gop.add_argument("--title")
+    from common.paths import add_root_and_issue_args
+    add_root_and_issue_args(p_gop)
     p_gop.set_defaults(func=cmd_get_output_path)
 
     return parser

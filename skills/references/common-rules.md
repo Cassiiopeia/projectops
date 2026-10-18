@@ -144,7 +144,8 @@ echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS PROJECT_ROOT=$PROJECT_ROOT"
 ```
 
 한 블록에서 찾기와 호출을 함께 하려면(self-contained) `echo` 줄 대신
-`cd "$SCRIPTS" || exit 1` 다음 줄에 `PYTHONIOENCODING=utf-8 "$PYTHON" <scope>_cli.py <subcommand> [args]`를 둔다.
+`PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/<scope>_cli.py" <subcommand> [args]`를 둔다.
+**스크립트 폴더로 `cd` 하지 않는다** — 프로젝트 폴더를 떠나면 git 루트와 이슈 번호를 못 찾는다 (#943). 프로젝트 밖에서 부르면 `--root <프로젝트>` 또는 `$PROJECT_ROOT`.
 
 ### 스크립트 탐색
 

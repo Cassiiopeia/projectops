@@ -22,7 +22,7 @@ def cmd_get_output_path(args, api) -> int:
     from common.paths import resolve_output_path
     # 파일명에는 이모지·[태그]를 넣지 않는다 — 태그가 제목에 붙어 `BugSkills_...` 가 되는 것을 막는다
     title = strip_issue_decorations(args.title) if args.title else None
-    return emit(resolve_output_path("issue", title, use_issue_number=False))
+    return emit(resolve_output_path("issue", title, use_issue_number=False, root=args.root))
 
 
 def cmd_normalize_title(args, api) -> int:
@@ -53,6 +53,8 @@ def cmd_get_commit_template(args, api) -> int:
 def _configure_get_output_path(parser) -> None:
     parser.add_argument("skill_id", nargs="?", default="issue", choices=["issue"])
     parser.add_argument("--title", help="이슈 제목 (이모지·태그 포함 가능, 정규화된다)")
+    from common.paths import add_root_and_issue_args
+    add_root_and_issue_args(parser, with_issue=False)
 
 
 def _configure_normalize_title(parser) -> None:
