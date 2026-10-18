@@ -158,6 +158,17 @@ def find_open_pr_by_base(owner: str, repo: str, base: str, pat: str, head: str |
     return None
 
 
+def get_ahead_by(owner: str, repo: str, base: str, head: str, pat: str) -> int | None:
+    """base 보다 head 가 앞선 커밋 수 (릴리스할 것이 있는지). 비교 못 하면 None (#945)"""
+    pair = f"{urllib.parse.quote(base, safe='/')}...{urllib.parse.quote(head, safe='/')}"
+    try:
+        data = client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}/compare/{pair}", None, pat)
+    except GitHubAPIError:
+        return None
+    ahead = data.get("ahead_by")
+    return ahead if isinstance(ahead, int) else None
+
+
 def get_branch_head(owner: str, repo: str, branch: str, pat: str) -> str | None:
     """브랜치 HEAD SHA를 반환한다. 브랜치가 없으면 None (404를 None으로 흡수)."""
     enc = urllib.parse.quote(branch, safe="/")

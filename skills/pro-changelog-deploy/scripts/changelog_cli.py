@@ -2,7 +2,7 @@
 """changelog_cli — changelog-deploy skill 전용 CLI.
 
 deploy PR 자동화 + Actions/CodeRabbit 상태 종합.
-서브커맨드: actions, deploy-status, list-prs, update-pr, create-pr, detect-release-context
+서브커맨드: actions, deploy-status, list-prs, update-pr, create-pr, sync-base, detect-release-context
 
 사용법:
     cd skills/pro-changelog-deploy/scripts
@@ -28,8 +28,13 @@ from common.gh_client import (  # noqa: E402
     GitHubAPIError,
     list_pulls, update_pull_request, create_pull_request,
     get_run, get_job_log, list_failed_runs, resolve_pr_runs, resolve_branch_runs,
-    get_pull_detail, find_open_pr_by_base, get_branch_head,
+    get_pull_detail, get_ahead_by,
 )
+
+# 파일 경로로 불러와도(테스트·하네스) 옆 모듈을 찾게 한다
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from deploy_status import cmd_deploy_status  # noqa: E402,F401
+from release_tools import branches_check, cmd_sync_base, wrap_release_notes  # noqa: E402,F401
 
 
 def cmd_actions(args) -> int:
@@ -72,121 +77,6 @@ def cmd_actions(args) -> int:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
     except ValueError as e:
         return emit({"ok": False, "code": "invalid_argument", "error": str(e)})
-
-
-def cmd_deploy_status(args) -> int:
-    pat = get_github_pat(args.owner, args.repo)
-    if not pat:
-        return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
-    try:
-        if args.pr:
-            pr = get_pull_detail(args.owner, args.repo, args.pr, pat)
-        else:
-            pr = find_open_pr_by_base(args.owner, args.repo, args.base, pat, head=args.head)
-        branch_head = get_branch_head(args.owner, args.repo, args.base, pat)
-        deploy_branch = {"name": args.base, "head_sha": branch_head}
-
-        if pr is None:
-            return emit({
-                "pr": None,
-                "workflow": None,
-                "deploy_branch": deploy_branch,
-                "verdict": "no_pr",
-                "summary": f"base={args.base}로 들어오는 open PR 없음",
-            })
-
-        # 워크플로우 매칭 — name이 아니라 path로 매칭한다.
-        # name 필드는 사람이 보는 라벨(예: "RELEASE CHANGELOG")이라 언제든 바뀌고,
-        # 실제 파일 path(`.github/workflows/PROJECT-COMMON-RELEASE-CHANGELOG.yaml`)가 식별자다.
-        # #455에서 구 PROJECT-COMMON-AUTO-CHANGELOG-CONTROL → RELEASE-CHANGELOG로 리네임됨.
-        # 구 path도 폴백 지원(아직 리네임 안 된 레포 호환). name 매칭은 라벨이 바뀌어 실패한 이력 있어 path 우선.
-        workflow = None
-        try:
-            run_data = resolve_pr_runs(args.owner, args.repo, pr["number"], pat)
-            for r in run_data.get("runs", []):
-                path = (r.get("path") or "").lower()
-                name = (r.get("name") or "").upper()
-                # 1순위: 파일 path(신·구 둘 다). 2순위(legacy fallback): name에 키워드.
-                if path.endswith("project-common-release-changelog.yaml") \
-                        or path.endswith("project-common-auto-changelog-control.yaml") \
-                        or ("CHANGELOG" in name and ("AUTO" in name or "DEPLOY" in name or "RELEASE" in name)):
-                    workflow = {
-                        "name": r.get("name"),
-                        "path": r.get("path"),
-                        "status": r.get("status"),
-                        "conclusion": r.get("conclusion"),
-                        "run_url": r.get("url"),
-                    }
-                    break
-        except GitHubAPIError:
-            workflow = None
-
-        body = pr.get("body") or ""
-        has_summary = "Summary by CodeRabbit" in body
-        pr_out = {
-            "number": pr["number"],
-            "state": pr["state"],
-            "merged": pr["merged"],
-            "mergeable_state": pr["mergeable_state"],
-            "has_coderabbit_summary": has_summary,
-            "head_sha": pr["head_sha"],
-            "url": pr["url"],
-            "created_at": pr.get("created_at"),
-        }
-
-        workflow_status = (workflow or {}).get("status")
-        workflow_conclusion = (workflow or {}).get("conclusion")
-        workflow_running = workflow_status in ("in_progress", "queued", "waiting", "requested")
-
-        # PR 생성 후 얼마 안 지났으면(120초 이내) 워크플로우가 막 trigger되어 아직 API에
-        # 반영되지 않았을 가능성을 가드한다. workflow=null이라도 PR이 갓 만들어진 상태면
-        # missing 판정 대신 waiting으로 양보한다.
-        import datetime as _dt
-        pr_age_sec = None
-        if pr.get("created_at"):
-            try:
-                created = _dt.datetime.fromisoformat(pr["created_at"].replace("Z", "+00:00"))
-                now = _dt.datetime.now(_dt.timezone.utc)
-                pr_age_sec = (now - created).total_seconds()
-            except Exception:
-                pr_age_sec = None
-        pr_young = (pr_age_sec is not None and pr_age_sec < 120)
-
-        next_hint = f"deploy-status {args.owner} {args.repo} --pr {pr['number']}"
-        if pr["merged"]:
-            verdict, summary, next_hint = "merged", f"PR #{pr['number']} automerge 완료", None
-        elif pr["mergeable_state"] in ("dirty", "blocked", "behind"):
-            verdict = "conflict"
-            summary = f"PR #{pr['number']} mergeable_state={pr['mergeable_state']} — 충돌/차단"
-        elif workflow and workflow_conclusion == "failure":
-            verdict = "workflow_failed"
-            summary = "RELEASE-CHANGELOG 워크플로우 실패"
-        elif workflow_running:
-            # 워크플로우 진행 중이면 body·has_summary가 일시적으로 비어 보여도 정상 대기로 본다 (race 가드)
-            verdict = "waiting_for_automerge"
-            summary = f"PR #{pr['number']} 워크플로우 진행 중({workflow_status}), automerge 대기"
-        elif workflow is None and pr_young:
-            # 워크플로우 매칭 못 했지만 PR이 갓 만들어진 상태 — API 반영 lag 가능, race 가드
-            verdict = "waiting_for_automerge"
-            summary = f"PR #{pr['number']} 생성 직후({int(pr_age_sec)}s), 워크플로우 trigger 대기"
-        elif not has_summary:
-            # 워크플로우가 진행 중이 아니고 PR도 갓 생성된 게 아니면 진짜 body 초기화 사고로 판정
-            verdict = "missing_coderabbit_summary"
-            summary = f"PR #{pr['number']} 본문에 'Summary by CodeRabbit' 없음 — fix 모드로 재작성"
-        else:
-            verdict = "waiting_for_automerge"
-            summary = f"PR #{pr['number']} open·{pr['mergeable_state']}, automerge 대기"
-
-        return emit({
-            "pr": pr_out,
-            "workflow": workflow,
-            "deploy_branch": deploy_branch,
-            "verdict": verdict,
-            "summary": summary,
-            "next": next_hint,
-        })
-    except GitHubAPIError as e:
-        return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
 
 
 def cmd_list_prs(args) -> int:
@@ -268,6 +158,17 @@ def cmd_create_pr(args) -> int:
             ),
         })
     body = body_path.read_text(encoding="utf-8") if body_path else ""
+    # 릴리스할 커밋이 없으면 PR 을 만들지 않는다 (--allow-empty 로만 강행)
+    try:
+        ahead_by = get_ahead_by(args.owner, args.repo, args.base, args.head, pat)
+    except GitHubAPIError:
+        ahead_by = None
+    if ahead_by == 0 and not args.allow_empty:
+        return emit({"ok": False, "code": "nothing_to_release",
+                     "error": f"{args.head} 에 {args.base} 보다 앞선 커밋이 없다",
+                     "next": "push 가 됐는지, 브랜치 쌍이 맞는지 detect-release-context 의 branches_check 로 확인"})
+    # 표식 블록은 도구가 씌운다 — 손으로 쓰면 틀려 본문이 지워진다
+    body, wrapped = wrap_release_notes(body)
     try:
         result = create_pull_request(args.owner, args.repo, args.title, body, args.head, args.base, pat)
         pr_number = result.get("number")
@@ -297,6 +198,8 @@ def cmd_create_pr(args) -> int:
             "summary": f"PR #{pr_number} 생성 완료" + (f" / {guard_summary}" if guard_summary else ""),
             "next": f"deploy-status {args.owner} {args.repo} --pr {pr_number}",
         }
+        if wrapped:
+            out["notes_wrapped"] = True
         if guard_summary:
             out["body_guard"] = guard_summary
         return emit(out)
@@ -566,6 +469,7 @@ def cmd_detect_release_context(args) -> int:
             "ignored_global_keys": view["ignored_global_keys"],
         },
         "hint": hint,
+        "branches_check": branches_check(project_root, branches["head"], branches["base"]),
         "next": next_hint,
     })
 
@@ -589,6 +493,8 @@ def build_parser() -> JSONArgumentParser:
     p_ds.add_argument("repo")
     p_ds.add_argument("--pr", type=int)
     p_ds.add_argument("--base", default="main")
+    p_ds.add_argument("--wait", type=int, default=0, metavar="SECONDS",
+                      help="automerge 대기 중이면 최대 이 초만큼 도구 안에서 폴링 (최대 540). sleep 대신 쓴다")
     p_ds.add_argument("--head", default=None, help="릴리스 PR의 head 브랜치 (없으면 의존성 봇 PR만 제외)")
     p_ds.set_defaults(func=cmd_deploy_status)
 
@@ -614,7 +520,15 @@ def build_parser() -> JSONArgumentParser:
     p_cp.add_argument("body_file")
     p_cp.add_argument("head")
     p_cp.add_argument("base")
+    p_cp.add_argument("--allow-empty", action="store_true",
+                      help="head 가 base 보다 앞선 커밋이 없어도 PR 을 만든다 (기본은 nothing_to_release 로 거절)")
     p_cp.set_defaults(func=cmd_create_pr)
+
+    p_sb = sub.add_parser("sync-base", help="배포 전 base 를 head 에 병합 (fetch > 차이 확인 > merge, 충돌은 멈춤)")
+    p_sb.add_argument("--head", required=True, help="릴리스 head 브랜치 (현재 체크아웃돼 있어야 한다)")
+    p_sb.add_argument("--base", required=True, help="릴리스 base 브랜치")
+    p_sb.add_argument("--project-root", help="레포 루트 (생략 시 cwd)")
+    p_sb.set_defaults(func=cmd_sync_base)
 
     # 앱 스토어 심사 연관 레포인지 '신호'를 수집한다 (판단·확인은 agent). PAT 불필요 — 로컬 파일만 스캔.
     p_drc = sub.add_parser("detect-release-context", help="앱 심사 연관 레포 신호 수집 (signals/hint JSON)")

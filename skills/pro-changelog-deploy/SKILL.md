@@ -106,8 +106,9 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 **1-1단계 base 최신화 (생략 금지)** — 순서가 계약이다:
 1. `git pull --rebase origin {HEAD}` 로 head를 원격과 먼저 맞춘다 (merge 커밋을 만든 뒤 pull --rebase 하면 merge가 풀린다).
    작업트리에 **남의 미커밋 변경**이 있어 pull --rebase 가 거부되면 stash 하지 않고 `git fetch origin` → `git merge --ff-only origin/{HEAD}` 로 맞춘다(겹치는 파일이 없으면 더러운 트리에서도 된다). ff 가 안 되면(내 로컬 커밋과 갈라짐) 멈추고 묻는다.
-2. `git log origin/{HEAD}..origin/{BASE}` 로 역방향 차이를 본다. 비었으면 2단계로.
-3. 있으면 목록을 보여주고 `git merge --no-edit origin/{BASE}`. **충돌이 나면 멈추고** 사용자와 해소 방향을 정한다 — `merge --abort`·`reset`·한쪽 버리기를 임의로 하지 않는다.
+2~3. `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/changelog_cli.py sync-base --head {HEAD} --base {BASE} --project-root {PROJECT_ROOT}` — fetch > 역방향 차이 확인 > 있으면 병합까지 한 번에 한다.
+   `in_sync`(차이 없음)·`merged`면 다음 단계로. `merge_conflict` 면 **멈추고** 사용자와 해소 방향을 정한다 — `merge --abort`·`reset`·한쪽 버리기를 임의로 하지 않는다. `wrong_branch` 면 브랜치를 바꾸지 않고 알린다.
+   - 시작 전 `detect-release-context` 의 `branches_check` 를 본다: `warning` 이 있으면(브랜치 없음, 앞선 커밋 0개) 설정된 head/base 쌍이 이 레포의 실제 릴리스 흐름과 다른 것일 수 있으니 사용자에게 확인한다.
 
 **1.5단계 릴리스 컨텍스트 인지** — `hint` × `APP_RELEASE`:
 
@@ -156,10 +157,13 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 | verdict | 의미 | 행동 |
 |---------|------|------|
 | `merged` | automerge 완료 | 결과 안내, 종료 |
-| `waiting_for_automerge` | 정상 대기 중 (워크플로우 in_progress 포함) | **sleep 금지.** `ScheduleWakeup(delaySeconds=60)`으로 60초 간격 재확인 (보통 60초 안에 끝난다. 60초가 ScheduleWakeup 최소값). **PR 생성 후 10분이 지나도 이 verdict면** 멈추고 fix 모드를 안내한다. ScheduleWakeup 이 없는 하네스면 대기하지 말고 PR 링크와 재확인 명령(`deploy-status --pr N`)을 알리고 끝낸다 |
+| `waiting_for_automerge` | 정상 대기 중 (워크플로우 in_progress 포함) | **sleep 금지.** `deploy-status --pr N --wait 540` 으로 도구 안에서 기다린다(끝나면 바로 돌아온다, `waited_seconds`). 그래도 이 verdict 면 ScheduleWakeup 으로 다시. 10분이 넘으면 도구가 스스로 `stuck` 으로 바꾼다 |
+| `stuck` | 10분 넘게 automerge 안 됨 (`stuck_reason`: `no_workflow_on_head` = 현재 head SHA 에서 돈 워크플로우 없음 · `workflow_done_not_merged` = 워크플로우는 끝났는데 머지 안 됨) | 더 기다리지 않는다. 사용자에게 알리고 fix 모드로 PR 을 닫고 다시 만든다 |
 | `missing_coderabbit_summary` | 워크플로우는 끝났는데 본문에 `Summary by CodeRabbit`이 없음 | **즉시 fix 모드로 가지 않고 즉시 `update-pr`도 하지 않는다.** 60초 후 `deploy-status`로 한 번 더 확인하고, **두 번 연속 같은 verdict일 때만** fix 모드 안내. 한 번이면 race를 우선 가정한다 (#331 — 워크플로우 PATCH와 겹쳐 본문 사라짐이 반복된 실사고) |
 | `workflow_failed` | 워크플로우 실패 | `workflow.run_url` 안내 + fix 모드로 재실행 |
-| `conflict` | 머지 충돌/차단 | 충돌 상태 안내, 수동 확인 요청 |
+| `conflict` | 병합 충돌(dirty) | 충돌 상태 안내, 수동 확인 요청 |
+| `behind` | base 보다 뒤처짐 | `sync-base` 로 base 를 head 에 병합하고 push |
+| `blocked` | 머지가 막힘 (필수 검사·리뷰·보호 규칙 대기) | 무엇이 막는지 PR 화면에서 확인해 사용자에게 알린다 |
 | `no_pr` | open deploy PR 없음 | `deploy_branch.head_sha`로 이미 머지됐는지 확인 후 안내 |
 
 ## fix 모드 — 단계와 판단 (명령·문구는 `references/fix-steps.md`)

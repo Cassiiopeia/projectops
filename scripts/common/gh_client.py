@@ -31,7 +31,7 @@ from common.github_rest.actions_secrets import (  # noqa: F401
 )
 from common.github_rest.pulls import (  # noqa: F401
     list_pulls, update_pull_request, create_pull_request, merge_pull_request,
-    get_pull_detail, find_open_pr_by_base, get_branch_head,
+    get_pull_detail, find_open_pr_by_base, get_branch_head, get_ahead_by,
     _PR_HEAD_RETRIES, _PR_HEAD_WAIT, _sleep, _BOT_HEAD_PREFIXES,
 )
 from common.github_rest.actions import (  # noqa: F401
