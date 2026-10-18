@@ -80,6 +80,20 @@ def _error_message(e: urllib.error.HTTPError, body_bytes: bytes) -> str:
 # 요청 timeout(초) — 망이 끊겼을 때 무한 대기하지 않도록 모든 요청에 건다 (#700)
 _DEFAULT_TIMEOUT = 30
 
+# 일시 오류 재시도 (#941): 몇 번 더 시도하고 각 회차 전에 몇 초 기다리는지
+_TRANSIENT_RETRY_WAITS_SECONDS = (1, 3)
+# 서버 쪽 일시 오류 상태 코드
+_TRANSIENT_HTTP_STATUS = (500, 502, 503, 504)
+# 같은 요청을 다시 보내도 결과가 같은 메서드 — POST 는 중복 생성될 수 있어 제외한다
+_IDEMPOTENT_METHODS = ("GET", "HEAD", "PUT", "PATCH", "DELETE")
+
+
+def is_transient_error(error: BaseException) -> bool:
+    """5xx 와 네트워크 단절은 일시 오류, 4xx 는 영구 오류 (#941)"""
+    if isinstance(error, GitHubAPIError):
+        return error.status_code in _TRANSIENT_HTTP_STATUS
+    return isinstance(error, (urllib.error.URLError, TimeoutError, ConnectionError))
+
 
 def _request(method: str, url: str, data: dict | None, pat: str, raw: bool = False) -> Any:
     """GitHub API 요청을 보내고 응답을 반환한다.
@@ -87,6 +101,19 @@ def _request(method: str, url: str, data: dict | None, pat: str, raw: bool = Fal
     raw=False: 응답 본문을 JSON으로 파싱해 반환.
     raw=True: 디코딩한 텍스트(str)를 그대로 반환 (로그 등 비 JSON 응답용).
     """
+    waits = _TRANSIENT_RETRY_WAITS_SECONDS if method in _IDEMPOTENT_METHODS else ()
+    attempt = 0
+    while True:
+        try:
+            return _send_once(method, url, data, pat, raw)
+        except (GitHubAPIError, urllib.error.URLError, TimeoutError, ConnectionError) as error:
+            if attempt >= len(waits) or not is_transient_error(error):
+                raise
+            client._sleep(waits[attempt])
+            attempt += 1
+
+
+def _send_once(method: str, url: str, data: dict | None, pat: str, raw: bool) -> Any:
     body = json.dumps(data).encode() if data is not None else None
     req = urllib.request.Request(
         url,

@@ -11,7 +11,7 @@
 
 ## PAT · repo 확인
 
-1. **PAT 확인**: `../../references/config-rules.md` §2~3 절차로 config 읽기. 파일이 없으면 로컬 저장만 하고 종료. 해당 repo의 `pat`(non-null) 또는 `global_pat` 사용.
+1. **PAT 확인**: PAT 를 직접 읽지 않는다 (Read 로 config 를 열면 PAT 가 세션 기록에 남는다). 바로 `add-comment` 를 부르고 `missing_pat` 이 오면 로컬 저장만 하고 종료한다. CLI 가 repo 의 `pat` → `global_pat` 순으로 자동 로드한다.
 
    > ⚠️ **config는 탐색 금지.** config.json은 고정 경로 `{HOME}/.projectops/config/config.json` 한 곳뿐 — Read tool로 바로 읽는다. 스크립트(`report_cli.py`) 탐색용 `ls ~/.claude/plugins/cache/...` 패턴을 config 찾기에 쓰지 마라. config는 그 캐시 안에 없다.
 

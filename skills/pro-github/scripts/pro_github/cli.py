@@ -5,14 +5,14 @@ import functools
 
 from common.cli_parser import JSONArgumentParser
 from pro_github.commands import (
-    actions, actions_secrets, assignees, comments, conventions, images, issues, labels, pulls,
+    actions, actions_secrets, assignees, comments, conventions, finish, images, issues, labels, pulls,
     repository,
 )
 from pro_github.registry import Command
 
 # 도움말·invalid choice 목록에 보이는 순서. 여기 없는 명령은 이름순으로 뒤에 붙는다
 HELP_ORDER = (
-    "get-issue", "get-issues", "create-issue", "list-issues", "update-issue", "close-issue", "reopen-issue",
+    "get-issue", "get-issues", "create-issue", "list-issues", "update-issue", "close-issue", "reopen-issue", "finish-issue",
     "add-comment", "list-comments", "edit-comment", "delete-comment",
     "list-labels", "add-labels", "remove-label", "set-labels", "add-assignees", "remove-assignees",
     "create-pr", "list-prs", "update-pr", "get-pr", "add-pr-comment", "close-pr", "reopen-pr", "merge-pr",
@@ -20,7 +20,7 @@ HELP_ORDER = (
     "explore", "upload-image", "delete-image", "secrets", "actions",
 )
 
-_MODULES = (issues, comments, labels, assignees, pulls, conventions, repository, images,
+_MODULES = (issues, finish, comments, labels, assignees, pulls, conventions, repository, images,
             actions_secrets, actions)
 
 

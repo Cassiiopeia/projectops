@@ -31,7 +31,7 @@ description: "All GitHub work: create, read, edit, close issues and PRs, comment
 | 새 이슈 작성+등록 | `search-issues` → `get-output-path issue` → `create-issue` | `../references/issue-creation.md` |
 | 이슈 조회 · 여러 개 · 목록 · 검색 | `get-issue [--with-comments]` · `get-issues` · `list-issues` · `search-issues` | `references/issues.md` |
 | 이슈 수정 (제목·라벨·담당자·본문) | `update-issue` | `references/issues.md` |
-| 이슈 닫기 · 다시 열기 | `close-issue [--reason completed\|not_planned]` · `reopen-issue` | 아래 §이슈 완료 처리 |
+| 이슈 닫기 · 다시 열기 · 완료 처리 한 번에 | `close-issue [--reason completed\|not_planned]` · `reopen-issue` · `finish-issue` | 아래 §이슈 완료 처리 |
 | 댓글 추가 · 목록 · 수정 · 삭제 | `add-comment` · `list-comments` · `edit-comment` · `delete-comment` | `references/issues.md` |
 | 라벨 목록 · 추가 · 하나 제거 · 전체 교체 | `list-labels` · `add-labels` · `remove-label` · `set-labels` | `references/issues.md` |
 | 담당자 추가 · 제거 | `add-assignees` · `remove-assignees` | `references/issues.md` |
@@ -82,12 +82,16 @@ git remote get-url origin
 - **MCP-style 서브커맨드 표준**(`../references/mcp-subcommand-rules.md`). 출력은 언제나 JSON — `ok`로 성패, `code`로 갈래(문구가 아니라 code로 판단), `summary`, `next`(이어서 부를 명령)를 읽는다.
 - 긴 Python heredoc · 임시 Python 파일 · curl 파이프 Python · 일회용 Python 생성 금지. 인자는 명령행/환경변수로 넘긴다 (Windows Git Bash에서 깨진다).
 - **본문(이슈·댓글·PR)은 파일로 저장한 뒤 경로를 넘긴다** — 한국어·이모지·줄바꿈 보존.
+- **일시 오류**: 5xx·네트워크 단절은 도구가 멱등 호출(조회·수정·삭제·교체)을 알아서 재시도한다. `add-comment` 는 실패 응답을 받아도 실제로 올라갔는지 확인해 `reconciled: true` 로 돌려주니, 응답을 못 받았다고 같은 댓글을 다시 달지 않는다.
 - 파괴적 작업(PR 머지·닫기, 남의 이슈 닫기·다시 열기, 파이프라인 밖 라벨 변경)은 **사용자가 명시적으로 요청할 때만** 한다. 작업 파이프라인의 상태 전환(시작 `status: in progress`, 완료 `status: done`, 취소 `status: cancelled`)은 확인 없이 해도 된다.
 - 상태 라벨은 영문 표준(`status: todo` 등)과 한글(`작업전` 등)을 둘 다 쓴다. 어느 표기로 넘겨도 CLI가 레포에 있는 쪽으로 바꿔 붙인다 (#776). 전체 대응표는 `references/issues.md`.
 
 ## 이슈 완료 처리 (작업 끝 — 라벨 교체 후 close)
 
 작업이 끝나면 상태 라벨을 **교체**하고 닫는다. `pro-report`가 보고서를 올린 뒤 이 레시피를 따른다 (#819).
+
+한 번에: `finish-issue {owner} {repo} {번호} [--outcome done|cancelled|in-progress]` — 상태 라벨만 교체하고(다른 라벨 유지) 닫는다.
+어느 단계가 실패했는지 `steps`·`failed_steps` 로 알려 주니, 실패한 단계만 아래 명령으로 다시 한다. 단계를 나눠 직접 하려면:
 
 ```bash
 # 1) 상태 라벨 교체 — add-labels 가 아니라 set-labels (더하기만 하면 status: todo 가 남는다)

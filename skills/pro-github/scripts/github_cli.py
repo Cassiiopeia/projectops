@@ -38,7 +38,7 @@ from common.gh_client import (  # noqa: E402,F401  (핸들러 의존 — 테스�
     GitHubAPIError, PyNaClMissingError,
     get_issue, get_issue_comments, update_issue, create_issue, list_issues,
     add_comment, update_comment, delete_comment,
-    list_labels, add_issue_labels, remove_issue_label, set_issue_labels,
+    list_labels, get_issue_labels, add_issue_labels, remove_issue_label, set_issue_labels,
     add_assignees, remove_assignees,
     list_pulls, update_pull_request, create_pull_request,
     get_pull_detail, merge_pull_request, get_branch_head,

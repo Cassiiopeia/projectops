@@ -81,7 +81,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 
 | § | 값 | 규칙 |
 |---|---|---|
-| 2 | `PAT` | **agent가 Read 도구로** `~/.projectops/config/config.json`을 직접 읽는다 (bash Python 추출 금지 — Windows `$HOME` 경로 버그). 고정 경로만, 캐시 탐색 금지. repo별 `pat` → `global_pat`. 없으면 "`/pro-github`로 PAT 먼저 등록" 안내 후 종료 |
+| 2 | `PAT` | **PAT 를 읽거나 기억하지 않는다** — CLI 가 자동 로드한다 (Read 로 config 를 열면 PAT 가 세션 기록에 남는다). `missing_pat` 이 나오면 "`/pro-github`로 PAT 먼저 등록" 안내 후 종료. 자동 승인 등 다른 설정을 읽어야 할 때도 고정 경로 `~/.projectops/config/config.json` 만, 값을 옮겨 적지 않는다 |
 | 3 | `AUTO_APPROVE`, `CONFIG_HAS_KEY` | `changelog_deploy.auto_approve`: 레포별 → 글로벌 → 없으면 `false`(수동). 옛 키 `auto_approve_release_notes`는 무시 |
 | 4 | `APP_RELEASE` | `changelog_deploy.app_release`: **레포별만** → 없으면 `unset` |
 | 5 | `HEAD_BRANCH`, `BASE_BRANCH`, `PROVIDER`, `BRANCH_SOURCE` | **`detect-release-context`의 `branches`를 그대로 쓴다.** CLI 판정 순서: version.yml(있으면 항상) → 레포별 config(version.yml 없을 때만) → 폴백. 전역 키는 읽지 않는다. `conflict`가 있으면 version.yml로 진행하고 한 줄 안내. `branches_source == fallback`이고 version.yml이 없을 때만 최초 판정(애매하면 질문 → 레포별 config 기록) |

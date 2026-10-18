@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import urllib.error
 import urllib.parse
 
 from common import gh_client as client
-from common.github_rest.transport import _API_BASE
+from common.github_rest.transport import _API_BASE, GitHubAPIError, is_transient_error
 
 
 def create_issue(
@@ -113,13 +114,46 @@ def add_comment(
 
     PR도 GitHub API에서는 issue로 다뤄지므로 PR 번호로도 호출 가능하다.
     """
-    data = client._request(
-        "POST",
-        f"{_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}/comments",
-        {"body": body},
-        pat,
-    )
+    try:
+        data = client._request(
+            "POST",
+            f"{_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}/comments",
+            {"body": body},
+            pat,
+        )
+    except (GitHubAPIError, urllib.error.URLError, TimeoutError, ConnectionError) as error:
+        # POST 는 다시 보내면 중복되므로 재시도 대신, 실패 응답을 받았어도 실제로는 올라갔는지 본다 (#941)
+        posted = _find_just_posted_comment(owner, repo, issue_number, body, pat) \
+            if is_transient_error(error) else None
+        if posted is None:
+            raise
+        return {**posted, "reconciled": True}
     return {"id": data["id"], "url": data["html_url"]}
+
+
+# 실패 응답 직전에 올라간 같은 본문 댓글로 인정하는 시간 (초)
+_JUST_POSTED_WINDOW_SECONDS = 180
+
+
+def _find_just_posted_comment(owner, repo, issue_number, body, pat) -> dict | None:
+    """같은 본문의 댓글이 방금(180초 안) 올라가 있으면 {id, url}. 조회 실패는 못 찾은 것으로 본다"""
+    import datetime as dt
+    try:
+        items = client._request(
+            "GET", f"{_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}/comments?per_page=100", None, pat)
+    except (GitHubAPIError, urllib.error.URLError, TimeoutError, ConnectionError):
+        return None
+    now = dt.datetime.now(dt.timezone.utc)
+    for item in reversed(items):
+        if (item.get("body") or "").strip() != body.strip():
+            continue
+        try:
+            created = dt.datetime.fromisoformat(item["created_at"].replace("Z", "+00:00"))
+        except (KeyError, ValueError):
+            continue
+        if (now - created).total_seconds() <= _JUST_POSTED_WINDOW_SECONDS:
+            return {"id": item["id"], "url": item["html_url"]}
+    return None
 
 
 def update_comment(
