@@ -94,5 +94,7 @@
 | `cred_field_missing` | 그 자격증명에 필드가 없다. `cred show` 로 있는 필드를 본다 |
 | `cred_not_local` | `kind: local` 인 자격증명만 `local sudo` 에 쓴다 |
 | `no_tty` | 사용자가 `!` 접두사나 별도 터미널에서 `cred set --prompt` 를 직접 친다 |
-| `sudo_failed` · `ssh_failed` | 다시 시도하지 말고 사용자에게 값이 바뀌었는지 묻는다 |
+| `sudo_failed` · `auth_failed` | 다시 시도하지 말고 사용자에게 값이 바뀌었는지 묻는다 |
 | `sshpass_missing` | `brew install sshpass` 등 설치를 제안한다 |
+| `remote_exit_nonzero` | 연결·인증은 성공했고 원격 명령이 0 이 아니게 끝났다. grep 결과 없음처럼 정상일 수 있다 — 출력으로 판단하고 접속 정보를 의심하지 않는다 |
+| `connect_failed` · `host_key_unknown` · `host_key_changed` | 접속 자체 실패. `host_key_changed` 는 서버가 바뀐 것일 수 있으니 known_hosts 를 임의로 지우지 않고 사용자에게 알린다 |

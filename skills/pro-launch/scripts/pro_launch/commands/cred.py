@@ -194,11 +194,16 @@ def cmd_cred(args) -> int:
                                 "error": "비밀번호는 터미널에서 직접 입력해야 합니다 (채팅·파이프로는 받지 않습니다)",
                                 "next": f"사용자가 터미널에서: launch_cli.py cred set --name {name} --prompt"})
                 import getpass
-                pw = getpass.getpass("이 맥의 sudo 비밀번호: ")
+                # kind: ssh 면 서버 접속 비밀번호(#946), 아니면 이 맥의 sudo 비밀번호
+                is_ssh_server = (fields or {}).get("kind") == "ssh"
+                pw = getpass.getpass("서버 SSH 비밀번호: " if is_ssh_server else "이 맥의 sudo 비밀번호: ")
                 if not pw:
                     return out({"ok": False, "code": "empty_password", "error": "비밀번호가 비었습니다"})
-                fields = {"kind": "local", "use_when": "이 맥에서 관리자 권한(sudo)이 필요할 때",
-                          **(fields or {}), "sudo_password": pw}
+                if is_ssh_server:
+                    fields = {**fields, "password": pw}
+                else:
+                    fields = {"kind": "local", "use_when": "이 맥에서 관리자 권한(sudo)이 필요할 때",
+                              **(fields or {}), "sudo_password": pw}
             f = credentials.save_credential(name, fields or {}, replace=args.replace)
             saved = credentials.load_all().get(name, {})
             missing = [k for k in ("kind", "use_when") if not saved.get(k)]
@@ -237,7 +242,7 @@ def configure_cred(p) -> None:
     p.add_argument("--value", default=None, help="policy set: ask · always · never")
     p.add_argument("--reveal", action="store_true", help="show 때 비밀 값도 그대로 보여 준다 (꼭 필요할 때만)")
     p.add_argument("--prompt", action="store_true",
-                   help="set 때 이 맥의 sudo 비밀번호를 터미널에서 직접 입력받아 저장한다 (화면에 안 보임, TTY 필요)")
+                   help="set 때 비밀번호를 터미널에서 직접 입력받아 저장한다 (화면에 안 보임, TTY 필요). --json 의 kind 가 ssh 면 서버 비밀번호, 아니면 이 맥의 sudo 비밀번호")
 
 
 COMMANDS = [

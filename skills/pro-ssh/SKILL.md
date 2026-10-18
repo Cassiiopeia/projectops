@@ -35,13 +35,14 @@ version: 2.1.0
 | 상황 | 명령 |
 |---|---|
 | 저장된 서버 | `ssh --cred <서버> --command '…'` (비밀번호 sudo 는 `--sudo` + `SUDO <명령>`) |
-| 저장 없이 · 비밀번호 | `ssh --host H --port P --user U --password-env 변수 --command '…'` (`--password '…'` 로 직접 줘도 된다) |
+| 저장 없이 · 비밀번호 | `ssh --host H --port P --user U --password-env 변수 --command '…'` (**비밀번호를 명령줄에 쓰지 않는다** — 권한 분류기가 막고 기록에 남는다) |
 | 저장 없이 · PEM 키 | `ssh --host H --port P --user U --key-path ~/k.pem --command '…'` |
 | 저장된 서버의 포트·계정만 바꿔 시도 | `ssh --cred <서버> --port 2022 --command '…'` (직접 준 값이 우선) |
-| 새 서버 저장 | 저장해도 되는지 묻고 `cred set --name <서버> --json '{"kind":"ssh","host":…,"port":…,"user":…,"password":…,"use_when":…,"scope":…}'` |
+| 새 서버 저장 | 저장해도 되는지 묻고, 비밀번호는 사용자가 직접 넣게 한다: `! {PYTHON} {SCRIPTS}/launch_cli.py cred set --name <서버> --prompt --json '{"kind":"ssh","host":…,"port":…,"user":…,"use_when":…,"scope":…}'` (비밀번호는 `--json` 에 싣지 않는다). 키 접속이면 `--prompt` 없이 `key_path` 를 `--json` 에 넣는다 |
 | 옛 `ssh` 섹션 서버 가져오기 | `cred import-ssh --dry-run` 으로 목록 확인 → 빼고 실행(값까지 복사) → 접속 확인 후 `--prune` |
 | 로그 · DB | `logs --cred …` · `db --cred …` (`../pro-launch/references/server.md`) |
 
+- **결과 code 읽기**: `remote_exit_nonzero` 는 연결은 됐고 원격 명령이 0 이 아니게 끝난 것이다(grep 결과 없음 등 — 접속 정보를 의심하지 않는다). `auth_failed`·`connect_failed`·`host_key_*` 가 접속 실패다. Windows(cmd) 서버는 `&` 로 이은 명령의 종료코드가 마지막 것만 남으니 단계마다 따로 부르거나 PowerShell 로 감싼다.
 - 출력에 비밀번호가 섞이면 `***` 로 가려진다. 비밀번호 접속에는 `sshpass` 가 필요하다(없으면 `sshpass_missing`) — 키 접속을 쓰거나 아래 호환 경로를 쓴다.
 - 저장된 서버로 접속하면 응답의 `memory` 에 그 서버에서 알아낸 사실(OS · docker 경로 · 컨테이너 · 로그 위치)이 실린다. 새로 알아낸 것은
   `learn --area server --scope machine --key server.<서버>.<주제> --how '…' --result ok` 로 남긴다 (계정·비밀 금지). 저장 없는 접속은 기억하지 않는다.

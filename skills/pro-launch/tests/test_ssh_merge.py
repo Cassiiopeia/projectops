@@ -200,3 +200,33 @@ def test_CP949_로_찍는_Windows_원격도_디코드하고_stderr_는_늘_문�
     r = run(home, "ssh", "--host", "win", "--user", "u", "--command", "dir", path_prepend=b)
     assert r["ok"] is True and r["stdout"].startswith("서버")
     assert r["stdout_encoding"] == "cp949" and r["stderr"] == ""
+
+
+# ── #946: 연결 실패와 원격 명령 실패를 가른다 ──
+
+def test_ssh_실패_분류_원격_종료코드는_접속_실패가_아니다():
+    from pro_launch.runtime.ssh_failure import classify_ssh_failure
+    assert classify_ssh_failure(1, "")[0] == "remote_exit_nonzero"
+    # sshpass 의 비밀번호 오류(5)는 원격 명령의 5 와 겹치니 종료코드가 아니라 문구로 가른다
+    assert classify_ssh_failure(5, "")[0] == "remote_exit_nonzero"
+    assert classify_ssh_failure(5, "Permission denied, please try again.")[0] == "auth_failed"
+    assert classify_ssh_failure(255, "ssh: connect to host h port 22: Connection refused")[0] == "connect_failed"
+    assert classify_ssh_failure(255, "")[0] == "connect_failed"
+    assert classify_ssh_failure(255, "WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!")[0] == "host_key_changed"
+
+
+def test_cred_set_prompt_kind_ssh_는_서버_비밀번호를_password_로_저장한다(home, monkeypatch):
+    """--prompt 가 sudo 전용이 아니다 — 서버 비밀번호도 채팅·인자 없이 터미널 입력으로 (#946)."""
+    import getpass
+    from pro_launch.commands import cred as cred_command
+    saved = {}
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(getpass, "getpass", lambda prompt: "typed-secret")
+    monkeypatch.setattr(cred_command.credentials, "save_credential",
+                        lambda name, fields, replace=False: saved.update(fields) or Path("x"))
+    monkeypatch.setattr(cred_command.credentials, "load_all", lambda: {})
+    args = type("A", (), {"action": "set", "name": "srv", "json_value": '{"kind":"ssh","host":"h","user":"u"}',
+                          "prompt": True, "replace": False, "reveal": False, "key": None, "value": None,
+                          "policy_action": None})()
+    cred_command.cmd_cred(args)
+    assert saved["password"] == "typed-secret" and saved["kind"] == "ssh" and "sudo_password" not in saved

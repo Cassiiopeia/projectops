@@ -13,6 +13,7 @@ from pro_launch.registry import Command
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.creds import load_cred
 from pro_launch.runtime.output import out, set_area
+from pro_launch.runtime.ssh_failure import classify_ssh_failure
 
 
 def _server_prefix(name: str) -> str:
@@ -155,16 +156,16 @@ def cmd_ssh(args) -> int:
     ok = r.returncode == 0
     if ok and args.cred and not adhoc:
         _record_server_facts(args.cred, argv_prefix + ssh + [dest], env)
-    hint = ("stderr 를 보고 명령·접속 정보를 고친다" + (" (cred show --name)" if args.cred else ""))
+    code, hint = ("ok", None) if ok else classify_ssh_failure(r.returncode, stderr_text)
     if ok and adhoc and not args.cred:
         hint = ("자주 쓰는 서버면 cred set --name <이름> --json "
                 "'{\"kind\":\"ssh\",\"host\":…,\"port\":…,\"user\":…,\"use_when\":…}' 로 저장해 두면 다음부터 이름만 쓴다")
-    return out({"ok": ok, "code": "ok" if ok else "ssh_failed", "exit_code": r.returncode,
+    return out({"ok": ok, "code": code, "exit_code": r.returncode,
                 "stdout": stdout[:args.max_output], "stdout_encoding": stdout_encoding,
                 # stderr 는 언제나 문자열 — None 이면 부르는 쪽 슬라이싱이 깨짐 (#933)
                 "stderr": stderr.strip()[:1000],
                 "truncated": len(stdout) > args.max_output,
-                "summary": f"{label}: " + ("실행 완료" if ok else f"실패 (종료코드 {r.returncode})"),
+                "summary": f"{label}: " + ("실행 완료" if ok else f"{code} (종료코드 {r.returncode})"),
                 "next": hint if (not ok or adhoc) else None})
 
 
