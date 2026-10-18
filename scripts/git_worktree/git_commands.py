@@ -136,17 +136,19 @@ def fetch_remote(remote: str = 'origin') -> bool:
   return success
 
 
-def create_branch(branch_name: str) -> bool:
+def create_branch(branch_name: str, base_ref: Optional[str] = None) -> bool:
   """
-  새 브랜치 생성 (현재 브랜치에서 분기)
+  새 브랜치 생성 (base_ref 에서 분기, 없으면 현재 브랜치). base_ref 는 upstream 을 달지 않는다 (#944)
 
   Args:
       branch_name: 생성할 브랜치명
+      base_ref: 분기할 ref (예: origin/develop)
 
   Returns:
       bool: 성공 여부
   """
-  success, _, stderr = run_git_command(['branch', branch_name], check=False)
+  command = ['branch', '--no-track', branch_name, base_ref] if base_ref else ['branch', branch_name]
+  success, _, stderr = run_git_command(command, check=False)
   if not success:
     print_error(f"브랜치 생성 실패: {stderr}")
   return success

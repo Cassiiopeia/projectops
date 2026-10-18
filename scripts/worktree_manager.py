@@ -47,7 +47,7 @@ if _SCRIPTS_DIR not in sys.path:
 from git_worktree.console import (  # noqa: E402,F401
   VERSION, IS_WINDOWS, print_header, print_step, print_error, print_success, print_info, print_warning,
 )
-from git_worktree.branch_input import get_branch_name  # noqa: E402,F401
+from git_worktree.branch_input import get_base_ref, get_branch_name  # noqa: E402,F401
 from git_worktree.git_commands import (  # noqa: E402,F401
   run_git_command, check_and_enable_longpaths, is_git_repository, get_git_root, get_current_branch,
   branch_exists, remote_branch_exists, fetch_remote, create_branch, create_branch_from_remote,
@@ -141,13 +141,16 @@ def main() -> int:
       print_success(f"리모트 브랜치(origin/{branch_name})를 기반으로 로컬 브랜치 생성 완료!")
     else:
       # 리모트에도 없으면 현재 브랜치에서 새로 생성
+      base_ref = get_base_ref()
       current_branch = get_current_branch()
-      if current_branch:
+      if base_ref:
+        print_step("🔄", f"{base_ref} 에서 새 브랜치 생성 중...")
+      elif current_branch:
         print_step("🔄", f"현재 브랜치({current_branch})에서 새 브랜치 생성 중...")
       else:
         print_step("🔄", "새 브랜치 생성 중...")
 
-      if not create_branch(branch_name):
+      if not create_branch(branch_name, base_ref):
         print_error("브랜치 생성에 실패했습니다.")
         return 1
 

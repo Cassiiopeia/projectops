@@ -6,6 +6,9 @@ worktree 를 만들 때마다 gitignore 된 로컬 파일 후보를 처음부터
 
     recall --root <레포>                       지난 세트 + 지금 후보와의 차이
     record --root <레포> --copied a,b --skipped c   복사 직후 세트 기록 (경로만)
+    create --root <레포> --branch B [--base origin/develop]   worktree 생성
+    copy   --root <레포> --to <worktree> [--files a,b]        기억한 세트 복사
+    remove --root <레포> --path|--branch B [--force]          안전 제거
 
 저장 위치: ~/.projectops/worktree/<owner__repo>.json (기억 원칙 §5 — 로컬 홈, 레포에 커밋되지 않음)
 키는 `repo_key` 라서 원본·워크트리 어디서 불러도 같은 기억을 본다.
@@ -33,6 +36,9 @@ if str(_SCRIPTS_ROOT) not in sys.path:
 from common.cli_parser import JSONArgumentParser, run_cli  # noqa: E402
 from common.emit import emit  # noqa: E402
 from common.state import base_dir, repo_key  # noqa: E402
+
+sys.path.insert(0, str(_HERE.parent))
+import worktree_ops  # noqa: E402
 
 SCHEMA = 1
 MAX_BYTES = 1024 * 1024  # 1MB 초과 파일은 설정 파일이 아닐 가능성이 높다 (local-files.md 4-3)
@@ -279,6 +285,18 @@ def cmd_record(args) -> int:
     })
 
 
+def cmd_create(args) -> int:
+    return worktree_ops.cmd_create(args, _toplevel)
+
+
+def cmd_copy(args) -> int:
+    return worktree_ops.cmd_copy(args, _toplevel, _split, _clean, memory_file, _load)
+
+
+def cmd_remove(args) -> int:
+    return worktree_ops.cmd_remove(args, _toplevel)
+
+
 # ── argparse ────────────────────────────────────────────────────────────
 
 def build_parser() -> JSONArgumentParser:
@@ -294,6 +312,26 @@ def build_parser() -> JSONArgumentParser:
     p.add_argument("--copied", default="", help="복사한 상대 경로, 쉼표 구분")
     p.add_argument("--skipped", default="", help="건너뛴 상대 경로, 쉼표 구분")
     p.set_defaults(func=cmd_record)
+
+    p = sub.add_parser("create", help="브랜치명으로 worktree 생성 (없으면 --base 에서 분기)")
+    p.add_argument("--root", default=".", help="원본 레포 경로 (기본: 현재 폴더)")
+    p.add_argument("--branch", required=True, help="브랜치명 (한글·# 그대로)")
+    p.add_argument("--base", default=None, help="새 브랜치를 딸 ref (예: origin/develop). 생략하면 현재 HEAD")
+    p.set_defaults(func=cmd_create)
+
+    p = sub.add_parser("copy", help="기억한 복사 세트(또는 --files)를 worktree 로 복사")
+    p.add_argument("--root", default=".", help="원본 레포 경로 (기본: 현재 폴더)")
+    p.add_argument("--to", required=True, help="대상 worktree 경로")
+    p.add_argument("--files", default="", help="복사할 상대 경로, 쉼표 구분 (생략하면 기억한 세트)")
+    p.add_argument("--overwrite", action="store_true", help="대상에 이미 있는 파일도 덮어쓴다")
+    p.set_defaults(func=cmd_copy)
+
+    p = sub.add_parser("remove", help="worktree 제거 (미커밋 변경이 있으면 거절)")
+    p.add_argument("--root", default=".", help="원본 레포 경로 (기본: 현재 폴더)")
+    p.add_argument("--path", default=None, help="제거할 worktree 경로")
+    p.add_argument("--branch", default=None, help="체크아웃된 브랜치명 (경로 대신)")
+    p.add_argument("--force", action="store_true", help="미커밋 변경을 버리고 제거 (사용자가 정한 뒤에만)")
+    p.set_defaults(func=cmd_remove)
     return parser
 
 

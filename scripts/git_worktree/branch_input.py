@@ -7,6 +7,20 @@ import sys
 from git_worktree.console import IS_WINDOWS, print_warning
 
 
+def get_base_ref() -> str:
+  """새 브랜치를 딸 ref: GIT_BASE_REF 환경 변수 > `--base <ref>` 인자. 없으면 빈 문자열 (#944)"""
+  from_env = os.environ.get('GIT_BASE_REF', '').strip()
+  if from_env:
+    return from_env
+  args = sys.argv[1:]
+  for position, arg in enumerate(args):
+    if arg == '--base' and position + 1 < len(args):
+      return args[position + 1].strip()
+    if arg.startswith('--base='):
+      return arg.split('=', 1)[1].strip()
+  return ''
+
+
 def get_branch_name() -> str:
   """
   브랜치명을 안전하게 받기 (Windows 인코딩 문제 해결)
@@ -17,6 +31,12 @@ def get_branch_name() -> str:
   Returns:
       str: 브랜치명 (비어있을 수 있음)
   """
+  # 환경 변수는 플랫폼과 무관하게 먼저 본다 (macOS/Linux 에서도 argv 를 비운 호출이 있다, #944)
+  if not IS_WINDOWS:
+    branch_name = os.environ.get('GIT_BRANCH_NAME', '').strip()
+    if branch_name:
+      return branch_name
+
   if IS_WINDOWS:
     # 방법 1: 환경 변수에서 읽기 (가장 간단하고 안전)
     # Windows에서 환경 변수는 시스템 기본 인코딩을 사용하므로 UTF-8로 디코딩 시도
@@ -73,7 +93,8 @@ def get_branch_name() -> str:
         pass  # stdin 을 못 읽으면 아래 argv 로 받는다
 
   # 기본: sys.argv에서 받기 (macOS/Linux 또는 Windows에서도 인자로 전달된 경우)
-  if len(sys.argv) >= 2:
-    return sys.argv[1].strip()
+  positional = [arg for arg in sys.argv[1:] if not arg.startswith('--')]
+  if positional:
+    return positional[0].strip()
 
   return ''

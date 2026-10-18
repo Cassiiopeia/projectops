@@ -38,50 +38,16 @@ cd [프로젝트_루트]
 git config --global core.longpaths true
 ```
 
-### 3단계: 임시 Python 스크립트 생성 및 실행
+### 3단계: worktree 생성
 
-**인코딩 문제 해결을 위해 브랜치명을 코드에 직접 포함**시킨 임시 파일을 생성한다.
+임시 Python 스크립트를 만들지 않는다. 브랜치명(`#`·한글 그대로)을 `--branch` 로 넘기면 된다 (스크립트 찾기는 `../references/common-rules.md` §표준 호출 패턴, `SKILL=pro-init-worktree`).
 
-파일명: `init_worktree_temp_{timestamp}.py`
-
-```python
-# -*- coding: utf-8 -*-
-import sys, os, shutil, glob
-
-os.chdir('프로젝트_루트_경로')
-
-branch_name = '브랜치명_원본_그대로'
-
-# worktree_manager 실행
-sys.path.insert(0, 'scripts')  # 플러그인 루트 scripts/
-import worktree_manager
-os.environ['GIT_BRANCH_NAME'] = branch_name
-os.environ['PYTHONIOENCODING'] = 'utf-8'
-sys.argv = ['worktree_manager.py']
-exit_code = worktree_manager.main()
-
-if exit_code == 0:
-    import subprocess
-    result = subprocess.run(['git', 'worktree', 'list', '--porcelain'],
-                            capture_output=True, text=True, encoding='utf-8')
-    lines = result.stdout.split('\n')
-    worktree_path = None
-    for i, line in enumerate(lines):
-        if line.startswith(f'branch refs/heads/{branch_name}'):
-            worktree_path = lines[i-1].replace('worktree ', '')
-            break
-    if worktree_path:
-        print(f'WORKTREE_PATH={worktree_path}')
-
-sys.exit(exit_code)
-```
-
-**실행** (Windows에서는 `-X utf8` 필수):
 ```bash
-python -X utf8 init_worktree_temp_{timestamp}.py
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/worktree_cli.py create --root {원본_루트} --branch "{브랜치명}" --base origin/develop
 ```
 
-실행 후 임시 파일 삭제.
+- **새 브랜치는 `--base` 에서 딴다.** 생략하면 지금 체크아웃된 HEAD 에서 따므로, 다른 작업 브랜치 위에서 부르면 엉뚱한 커밋이 딸려 온다. 개발 브랜치(`origin/develop` 등)를 명시한다. 이미 있는 로컬·리모트 브랜치는 `--base` 와 무관하게 그대로 쓴다.
+- 결과 JSON 의 `worktree` 가 새 폴더 경로다. 실패하면 `output_tail` 의 첫 오류를 본다.
 
 ### 4단계: Gitignored 로컬 파일 후보 조사 및 선택 복사
 
@@ -89,6 +55,7 @@ python -X utf8 init_worktree_temp_{timestamp}.py
 
 - **먼저 기억을 꺼낸다** — `{PYTHON} {SCRIPTS}/worktree_cli.py recall --root {원본_루트}` (스크립트 찾기는 `../references/common-rules.md` §표준 호출 패턴, `SKILL=pro-init-worktree`).
   지난번 세트가 있으면 `copy_now` 는 그대로 복사하고 **`new_candidates` 만 판단**한다. 처음이면(`first_time`) 전부 판단한다.
+- **기억한 세트는 손으로 `cp` 하지 않는다** — `{PYTHON} {SCRIPTS}/worktree_cli.py copy --root {원본_루트} --to {worktree_경로}` (대상에 이미 있는 파일은 `--overwrite` 없이는 건드리지 않는다. 새로 판단한 파일은 `--files a,b`).
 - **복사가 끝나면 바로 기록한다** — `{PYTHON} {SCRIPTS}/worktree_cli.py record --root {원본_루트} --copied a,b --skipped c`.
   상대 경로만 넘긴다(파일 내용·값은 넘기지 않는다). 이 호출을 빼먹으면 다음 worktree 에서 같은 판단을 다시 한다.
 - `.gitignore` 에서 **원본에 실제로 있는 후보 inventory** 를 먼저 만든다 — 익숙한 파일명만 골라 복사하지 않는다.
@@ -130,3 +97,13 @@ python -X utf8 init_worktree_temp_{timestamp}.py
 Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start: run the snippet in `../references/preferences.md` with `SKILL_ID=pro-init-worktree`.
 Keys for this skill: the common `language`, `tone`, `rules` only.
 Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.
+
+## 작업이 끝난 worktree 제거
+
+`git worktree remove --force` 를 직접 치지 않는다. 이슈가 실제로 닫혔는지 먼저 확인한 뒤:
+
+```bash
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/worktree_cli.py remove --root {원본_루트} --branch "{브랜치명}"
+```
+
+미커밋 변경이 있으면 `dirty` 와 변경 목록을 돌려주고 멈춘다. 버려도 된다고 사용자가 정한 뒤에만 `--force`. 브랜치와 커밋은 남는다.
