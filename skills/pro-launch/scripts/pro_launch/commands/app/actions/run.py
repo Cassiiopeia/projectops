@@ -167,7 +167,7 @@ def _run_steps_in_order(be, dev_id: str, steps: list[dict], secrets: dict[int, s
         started = time.monotonic()
         if step["kind"] == "type" and not is_input_method_ready:
             input_method_stack.enter_context(
-                android_ime.ascii_input_method(android_ime.android_shell(be, dev_id), ime_mode))
+                android_ime.ascii_input_method(android_ime.android_shell(be, dev_id), ime_mode, dev_id))
             is_input_method_ready = True
         is_success, detail, verification = _android_step(be, dev_id, step, secrets.get(index))
         results.append({"status": "completed" if is_success else "failed",

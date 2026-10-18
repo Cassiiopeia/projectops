@@ -12,6 +12,10 @@ import time
 import xml.etree.ElementTree as ET
 from contextlib import contextmanager
 
+from common.proc import sdk_tool
+
+from pro_launch.runtime.device_claims import pop_device_setting, record_device_setting
+
 # --ime 값: auto 조합형이면 바꿈 · keep 그대로 · ascii 항상 바꿈
 IME_MODES = ("auto", "keep", "ascii")
 # 글자를 조합 없이 그대로 넣는 IME (설치된 것 중 앞의 것을 쓴다). Maestro IME 는 Maestro 를 한 번 돌린 기기에 깔린다
@@ -89,11 +93,33 @@ def _quiet(shell, command: str) -> str:
         return ""
 
 
+def _record_ime_change(dev_id: str | None, before_ime: str) -> None:
+    """바꾸기 전 IME 와 되돌리는 명령을 점유 기록에 남긴다. 기록 실패가 입력을 막지 않는다."""
+    if not dev_id:
+        return
+    try:
+        record_device_setting(dev_id, "ime", before_ime,
+                              [[sdk_tool("adb"), "-s", dev_id, "shell", "ime", "set", before_ime]])
+    except (OSError, ValueError, KeyError):
+        return  # 기록은 보조 안전망 — 못 남겨도 try/finally 복원이 먼저 일한다
+
+
+def _forget_ime_change(dev_id: str | None) -> None:
+    """정상 복원됐으니 점유 기록의 IME 항목을 지운다."""
+    if not dev_id:
+        return
+    try:
+        pop_device_setting(dev_id, "ime")
+    except (OSError, ValueError, KeyError):
+        return  # 지우지 못해도 다음 device release 가 이미 복원된 값으로 다시 설정할 뿐이다
+
+
 @contextmanager
-def ascii_input_method(shell, mode: str):
+def ascii_input_method(shell, mode: str, dev_id: str | None = None):
     """입력 동안만 ASCII IME 로 바꾸고 원복 > report dict (with 블록이 끝난 뒤 restored 가 채워진다).
 
     shell(명령 문자열) > 표준출력. report: mode · default · reason · switched_to · restored.
+    dev_id 를 주면 바꾼 IME 를 기기 점유 기록에 남긴다 — 도중에 프로세스가 죽어도 device release 가 되돌린다 (#925).
     """
     report: dict = {"mode": mode}
     if mode == "keep":
@@ -115,6 +141,7 @@ def ascii_input_method(shell, mode: str):
     _quiet(shell, f"ime set {target}")
     time.sleep(SWITCH_SETTLE_SECONDS)
     report["switched_to"] = target
+    _record_ime_change(dev_id, state["default"])
     try:
         yield report
     finally:
@@ -124,6 +151,8 @@ def ascii_input_method(shell, mode: str):
             _quiet(shell, f"ime disable {target}")
         restored = _quiet(shell, "settings get secure default_input_method").strip()
         report["restored"] = restored == state["default"] if restored else None
+        if report["restored"]:
+            _forget_ime_change(dev_id)
 
 
 def focused_field(xml_text: str) -> dict | None:

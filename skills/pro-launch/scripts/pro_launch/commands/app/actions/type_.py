@@ -65,7 +65,7 @@ def _type_on_android(args, dev_id: str, value: str) -> int:
     is_secret = _is_secret_source(args)
     verification: dict = {}
     try:
-        with android_ime.ascii_input_method(android_ime.android_shell(be, dev_id), mode) as ime_report:
+        with android_ime.ascii_input_method(android_ime.android_shell(be, dev_id), mode, dev_id) as ime_report:
             if mode == "ascii" and ime_report["reason"] in ("no_ascii_input_method_installed",
                                                              "default_input_method_unknown"):
                 return out({"ok": False, "code": "ascii_input_method_missing", "device": dev_id, "ime": ime_report,

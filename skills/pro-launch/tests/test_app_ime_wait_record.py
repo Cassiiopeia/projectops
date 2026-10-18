@@ -67,6 +67,19 @@ def test_switches_to_maestro_ime_while_typing_and_restores_it():
     assert f"ime enable {MAESTRO_IME}" in shell.commands and f"ime disable {MAESTRO_IME}" in shell.commands
 
 
+def test_ime_change_is_recorded_for_device_release_and_forgotten_after_restore(monkeypatch):
+    calls = []
+    monkeypatch.setattr(android_ime, "record_device_setting", lambda *a, **k: calls.append(("record", a)))
+    monkeypatch.setattr(android_ime, "pop_device_setting", lambda *a, **k: calls.append(("pop", a)))
+    shell = FakeShell(KOREAN_GBOARD, "ko_KR", (KOREAN_GBOARD, MAESTRO_IME))
+    with android_ime.ascii_input_method(shell, "auto", "emulator-5554"):
+        # 입력 중에는 되돌리는 명령이 기록돼 있다 (프로세스가 죽어도 device release 가 되돌린다)
+        kind, args = calls[0]
+        assert kind == "record" and args[0] == "emulator-5554" and args[1] == "ime" and args[2] == KOREAN_GBOARD
+        assert args[3][0][-3:] == ["shell", "ime", "set"] or args[3][0][-1] == KOREAN_GBOARD
+    assert calls[-1][0] == "pop"   # 정상 복원되면 기록을 지운다
+
+
 def test_restores_even_when_typing_raises():
     shell = FakeShell(KOREAN_GBOARD, "ko_KR", (MAESTRO_IME,), enabled=(MAESTRO_IME,))
     with pytest.raises(RuntimeError):
