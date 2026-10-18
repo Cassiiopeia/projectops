@@ -75,7 +75,7 @@ def process_command_lines() -> str | None:
                  "| ForEach-Object { $_.CommandLine }) -join \"`n\""],
                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15)
         else:
-            r = subprocess.run(["ps", "-ax", "-o", "command="], capture_output=True, text=True,
+            r = subprocess.run(["ps", "-ax", "-ww", "-o", "command="], capture_output=True, text=True,
                                encoding="utf-8", errors="replace", timeout=5)
     except Exception:
         return None
@@ -151,7 +151,7 @@ def process_table() -> list[dict] | None:
     if sys.platform == "win32":
         return _process_table_windows()
     try:
-        r = subprocess.run(["ps", "-ax", "-o", "pid=,ppid=,etime=,command="], capture_output=True, text=True,
+        r = subprocess.run(["ps", "-ax", "-ww", "-o", "pid=,ppid=,etime=,command="], capture_output=True, text=True,
                            encoding="utf-8", errors="replace", timeout=5)
     except Exception:
         return None
@@ -202,7 +202,7 @@ def process_ids_with_arguments(*arguments: str) -> list[int]:
                  "| ForEach-Object { \"$($_.ProcessId) $($_.CommandLine)\" }"],
                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15)
         else:
-            r = subprocess.run(["ps", "-ax", "-o", "pid=,command="], capture_output=True, text=True,
+            r = subprocess.run(["ps", "-ax", "-ww", "-o", "pid=,command="], capture_output=True, text=True,
                                encoding="utf-8", errors="replace", timeout=5)
     except Exception:
         return []
