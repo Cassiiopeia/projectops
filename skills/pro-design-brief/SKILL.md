@@ -143,6 +143,9 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py board --data {run_
 
 **PNG 를 Read 로 열어 본다.** **`preflight` 가 비어야 게시한다.** 조립 규칙은 `references/publishing.md`.
 
+**미리보기만 하고 싶을 때** (게시 전에 사람이 먼저 본다): `board` 는 게시하지 않는다 — `--png` 로 만든 주제별 PNG 와 `brief.md` 를 `Read` 로 열어
+사용자에게 보여주고 승인받은 뒤에 6단계로 간다. PIL 로 컨택트 시트를 따로 만들지 않는다. 보여줄 때 **ASCII 로 대체한 그림이 있으면 개수를 같이 말한다**.
+
 ## 6. 게시 — 디자이너에게는 한 형식만
 
 게시 직전 승인 게이트(`approval-and-questions.md` §4 A/B/C) — 제목·담당자·첨부 장수를 보이고 승인받는다.

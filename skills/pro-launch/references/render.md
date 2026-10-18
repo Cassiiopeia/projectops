@@ -104,6 +104,7 @@ void main() {
 | `pumpAndSettle` 이 끝나지 않는다 | 무한 애니메이션 (로딩 스피너 · 반복 효과) | `pump(Duration)` 로 한 프레임만, 또는 "동작 줄이기"(`MediaQuery(disableAnimations: true)`)를 켠다 |
 | 건드리지 않은 줄까지 diff | `dart format` 이 파일 전체를 다시 썼다 | 임시 파일에만 돌린다. 레포 파일에 포맷터를 돌리지 않는다 |
 | 한글이 □ | 폰트를 안 실었다 | 위 "먼저 확인할 것" |
+| **아이콘이 □ (네모)** | `MaterialIcons` 폰트를 안 실었다 — 위에서 한글 폰트만 실으면 `Icons.*` 가 상자로 나온다 | `flutter_test_config.dart` 의 `FontLoader('MaterialIcons')` 에 SDK 의 `bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf` 를 같이 싣는다. 커스텀 아이콘 폰트(`fonts:` 항목)도 `pubspec.yaml` 에 적힌 이름 그대로 싣는다. 앱 패키지가 `uses-material-design: true` 인지도 본다 |
 | `render_failed` + `first_error` 가 `Error: Undefined name 'MethodChannel'` (또는 `SystemChrome` 등) | `package:flutter/services.dart` import 누락 — 렌더 실패의 가장 흔한 원인이었다 (#901) | 레시피의 import 세 줄을 그대로 둔다. 화면 위젯·가짜 모델을 쓰면 **그 파일의 `package:{앱}/...` import 도** 함께 넣는다 |
 | `render_failed` + 오버플로 | 레포의 테스트 설정이 오버플로를 실패로 만든다 | **그 자체가 발견이다.** 그 상태에서 화면이 깨진다는 뜻 — 보고에 적는다 |
 
