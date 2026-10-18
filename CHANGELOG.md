@@ -1,7 +1,17 @@
 # Changelog
 
-**Current version:** 4.63.0  
-**Last updated:** 2026-10-18T15:58:32Z  
+**Current version:** 4.63.1  
+**Last updated:** 2026-10-18T16:05:23Z  
+
+---
+
+## [4.63.1] - 2026-10-18
+
+**PR:** #952  
+
+**버그 수정**
+- `sync-base`가 충돌이 아닌 병합 실패(커밋 작성자 미설정 등)를 `merge_failed`로 구분해 알림
+- CI 러너처럼 git 작성자 설정이 없는 환경에서도 `sync-base` 테스트가 통과하도록 수정
 
 ---
 
