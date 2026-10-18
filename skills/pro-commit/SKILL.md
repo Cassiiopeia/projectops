@@ -156,17 +156,17 @@ PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/commit_cli.py" get-issue {owner} {r
 **AI 서명/푸터를 절대 추가하지 않는다.** `--author`·trailer 없이 사용자 git 설정 그대로 커밋한다.
 메시지 끝 mention trailer는 `sanitize-message` 로 강제 제거한다(셸 `sed` 금지 — #523, 이유는 `references/message-rules.md`).
 
+메시지를 파일로 저장한 뒤 한 명령으로 정리·스테이징·커밋한다 (JSON 을 셸에서 풀 필요 없다):
+
 ```bash
-RAW_MSG="{최종 커밋 메시지}"
-SANITIZED=$(PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/commit_cli.py" sanitize-message "$RAW_MSG") \
-  || { echo "❌ 커밋 메시지 정리 실패 — 커밋을 중단합니다"; exit 1; }
-CLEAN_MSG=$(SANITIZED="$SANITIZED" PYTHONIOENCODING=utf-8 "{PYTHON}" -c 'import json,os,sys; m=json.loads(os.environ["SANITIZED"])["message"]; sys.exit(1) if not m.strip() else print(m, end="")') \
-  || { echo "❌ 커밋 메시지가 비었습니다 — 원문을 확인하세요"; exit 1; }
-cd "{PROJECT_ROOT}" && git commit -m "$CLEAN_MSG"
+PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/commit_cli.py" commit --message-file "{메시지 파일}" --root "{PROJECT_ROOT}" --paths "{경로1}" "{경로2}"
 ```
 
-- 정리 실패·빈 결과면 **커밋을 중단**한다. 정제 규칙을 문서에 fallback으로 복제하지 않는다.
-- `removed: true` 면 mention이 들어간 경위를 4단계에서 되짚는다. 본문 중간 mention은 보존된다.
+- `--paths` 에는 1단계에서 정한 **이번 작업에서 건드린 경로만** 준다. 이미 스테이징돼 있으면 생략한다.
+- 정리한 메시지만 따로 필요하면 `sanitize-message "$RAW_MSG" --raw`.
+
+- 정리 실패·빈 결과면(`empty_message`) **커밋을 중단**한다. 정제 규칙을 문서에 fallback으로 복제하지 않는다.
+- `mention_removed: true` 면 mention이 들어간 경위를 4단계에서 되짚는다. 본문 중간 mention은 보존된다.
 
 커밋 성공 후:
 

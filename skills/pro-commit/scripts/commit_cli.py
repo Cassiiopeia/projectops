@@ -3,7 +3,7 @@
 
 브랜치명 → 이슈 번호 추출, 이슈 제목 조회, 커밋 템플릿 생성.
 서브커맨드: get-issue-number, get-issue, normalize-title, get-commit-template,
-resolve-style, sanitize-message
+resolve-style, sanitize-message, commit
 
 사용법:
     cd skills/pro-commit/scripts
@@ -54,6 +54,7 @@ def cmd_get_issue(args) -> int:
             "issue": issue,
             "title": issue["title"],
             "url": issue["url"],
+            "html_url": issue["url"],  # 에이전트가 GitHub 원본 키 이름으로 짐작하는 별칭
             "summary": f"#{issue['number']} — {issue['title']}",
         })
     except GitHubAPIError as e:
@@ -107,18 +108,60 @@ def cmd_sanitize_message(args) -> int:
     본문 어디에 있든이 아니라 **끝에 붙은** mention만 제거한다 —
     "@projectops build app 관련 수정" 처럼 본문에 의미 있게 등장한 mention은 보존해야 한다.
     """
-    import re
-
-    raw = args.message
-    # 끝에 연속으로 붙은 @mention 들 (+ 그 앞뒤 공백/개행)만 제거
-    cleaned = re.sub(r"\s*(@[A-Za-z0-9_-]+(?:\s+@[A-Za-z0-9_-]+)*)\s*$", "", raw)
-    cleaned = cleaned.rstrip()
-    removed = raw.rstrip() != cleaned
+    cleaned, removed = _strip_trailing_mentions(args.message)
+    if getattr(args, "raw", False):
+        # 셸이 JSON 을 풀지 않아도 되게 정리된 메시지만 그대로 (#940)
+        sys.stdout.write(cleaned)
+        return 0
     return emit({
         "message": cleaned,
         "removed": removed,
         "summary": "mention trailer 제거됨" if removed else "제거할 mention 없음",
     })
+
+
+def _strip_trailing_mentions(raw: str) -> tuple:
+    """(정리된 메시지, 제거했는지). 끝에 연속으로 붙은 @mention 들 (+ 그 앞뒤 공백/개행)만 제거"""
+    import re
+    cleaned = re.sub(r"\s*(@[A-Za-z0-9_-]+(?:\s+@[A-Za-z0-9_-]+)*)\s*$", "", raw).rstrip()
+    return cleaned, raw.rstrip() != cleaned
+
+
+def cmd_commit(args) -> int:
+    """커밋 한 번에: 메시지 정리 > 내가 지정한 경로만 스테이징 > 커밋. push 는 하지 않는다 (#940)."""
+    import subprocess
+    root = args.root or os.getcwd()
+    if args.message_file:
+        try:
+            raw = Path(args.message_file).read_text(encoding="utf-8")
+        except OSError as error:
+            return emit({"ok": False, "code": "message_file_not_found", "error": str(error)})
+    else:
+        raw = args.message or ""
+    message, removed = _strip_trailing_mentions(raw)
+    if not message.strip():
+        return emit({"ok": False, "code": "empty_message", "error": "정리한 커밋 메시지가 비었다",
+                     "next": "--message-file 또는 --message 로 메시지를 준다"})
+
+    def git(*git_args):
+        return subprocess.run(["git", "-C", root, *git_args], capture_output=True, text=True,
+                              encoding="utf-8", errors="replace")
+
+    if args.paths:
+        staged = git("add", "--", *args.paths)  # git add -A 는 쓰지 않는다: 다른 세션의 변경이 섞인다
+        if staged.returncode != 0:
+            return emit({"ok": False, "code": "stage_failed", "error": staged.stderr.strip()[:300],
+                         "next": "경로 철자를 확인한다"})
+    if not git("diff", "--cached", "--name-only").stdout.strip():
+        return emit({"ok": False, "code": "nothing_staged", "error": "스테이징된 변경이 없다",
+                     "next": "--paths 로 이번 작업에서 건드린 경로를 준다"})
+    done = git("commit", "-m", message)
+    if done.returncode != 0:
+        return emit({"ok": False, "code": "commit_failed", "error": (done.stderr or done.stdout).strip()[:400],
+                     "next": "훅이나 git 설정 오류를 읽고 고친다 (--no-verify 로 우회하지 않는다)"})
+    sha = git("rev-parse", "--short", "HEAD").stdout.strip()
+    return emit({"commit": sha, "message": message, "mention_removed": removed,
+                 "summary": f"커밋 {sha}", "next": "push 는 사용자가 요청할 때만"})
 
 
 def build_parser() -> JSONArgumentParser:
@@ -140,7 +183,15 @@ def build_parser() -> JSONArgumentParser:
 
     p_sm = sub.add_parser("sanitize-message", help="커밋 메시지 끝의 @mention trailer 제거")
     p_sm.add_argument("message")
+    p_sm.add_argument("--raw", action="store_true", help="JSON 대신 정리된 메시지 글자만 출력")
     p_sm.set_defaults(func=cmd_sanitize_message)
+
+    p_cm = sub.add_parser("commit", help="메시지 정리 + 지정한 경로만 스테이징 + 커밋 (push 안 함)")
+    p_cm.add_argument("--message-file", dest="message_file", default=None, help="커밋 메시지 파일")
+    p_cm.add_argument("--message", default=None, help="커밋 메시지 (파일 대신)")
+    p_cm.add_argument("--paths", nargs="*", default=[], help="이번 작업에서 건드린 경로 (이미 스테이징돼 있으면 생략)")
+    p_cm.add_argument("--root", default=None, help="레포 루트 (생략하면 cwd)")
+    p_cm.set_defaults(func=cmd_commit)
 
     p_gct = sub.add_parser("get-commit-template", help="커밋 메시지 템플릿")
     p_gct.add_argument("issue_title")

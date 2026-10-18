@@ -15,7 +15,10 @@ import argparse
 import sys
 from typing import Optional, Sequence
 
-from common.emit import emit
+import difflib
+import re
+
+from common.emit import configure_output, emit
 
 
 class _BadArgsExit(SystemExit):
@@ -65,6 +68,29 @@ def _make_hint(parser: argparse.ArgumentParser) -> str:
     return f"{parser.prog} --help"
 
 
+def _extract_output_options(argv: list) -> tuple:
+    """argv 에서 전역 출력 옵션(--brief, --field X)을 꺼낸다. (남은 argv, brief, field)"""
+    rest, brief, field, skip_next = [], False, None, False
+    for position, token in enumerate(argv):
+        if skip_next:
+            skip_next = False
+        elif token == "--brief":
+            brief = True
+        elif token == "--field" and position + 1 < len(argv):
+            field, skip_next = argv[position + 1], True
+        elif token.startswith("--field="):
+            field = token.split("=", 1)[1]
+        else:
+            rest.append(token)
+    return rest, brief, field
+
+
+def _did_you_mean(message: str, parser: argparse.ArgumentParser) -> list:
+    """invalid choice 오류면 가장 비슷한 서브커맨드 후보"""
+    found = re.search(r"invalid choice: '([^']*)'", message)
+    return difflib.get_close_matches(found.group(1), _list_subcommands(parser), n=3, cutoff=0.5) if found else []
+
+
 def run_cli(parser: JSONArgumentParser, argv: Optional[Sequence[str]] = None) -> int:
     """argparse 실행 + JSON 변환 래퍼.
 
@@ -72,13 +98,18 @@ def run_cli(parser: JSONArgumentParser, argv: Optional[Sequence[str]] = None) ->
     실패: stdout에 JSON emit 후 1 반환.
     --help: argparse 기본 동작 그대로 (SystemExit 0).
     """
+    argv, brief, field = _extract_output_options(list(sys.argv[1:] if argv is None else argv))
+    configure_output(brief=brief, field=field)
     try:
         args = parser.parse_args(argv)
     except _BadArgsExit as e:
+        # 사용법을 응답 안에 넣는다: 에이전트는 stdout JSON 만 읽어서 --help 를 따로 불러야 했다
         return emit({
             "ok": False,
             "code": "bad_args",
             "error": e.message,
+            "usage": e.parser.format_usage().strip(),
+            "did_you_mean": _did_you_mean(e.message, e.parser),
             "hint": _make_hint(e.parser),
             "available_subcommands": _list_subcommands(e.parser),
             "next": f"`{e.parser.prog} --help` 로 인자를 확인하고 고쳐 다시 실행한다",

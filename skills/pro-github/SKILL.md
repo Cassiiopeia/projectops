@@ -81,6 +81,7 @@ git remote get-url origin
 
 ## 공통 규칙
 
+- **응답 키는 짐작하지 않는다** — `--field a.b` 로 값 하나만 받거나 `--brief` 로 줄인다. 자주 읽는 키 표와 전역 옵션: `../references/output-schemas.md`.
 - **MCP-style 서브커맨드 표준**(`../references/mcp-subcommand-rules.md`). 출력은 언제나 JSON — `ok`로 성패, `code`로 갈래(문구가 아니라 code로 판단), `summary`, `next`(이어서 부를 명령)를 읽는다.
 - 긴 Python heredoc · 임시 Python 파일 · curl 파이프 Python · 일회용 Python 생성 금지. 인자는 명령행/환경변수로 넘긴다 (Windows Git Bash에서 깨진다).
 - **본문(이슈·댓글·PR)은 파일로 저장한 뒤 경로를 넘긴다** — 한국어·이모지·줄바꿈 보존.

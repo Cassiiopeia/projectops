@@ -212,7 +212,8 @@ def _configure_create_issue(parser) -> None:
     parser.add_argument("repo")
     parser.add_argument("title")
     parser.add_argument("body_file")
-    parser.add_argument("labels", help="csv")
+    # 라벨을 생략해도 된다 (템플릿 기본 라벨만 붙는다): 필수 위치 인자라 빠뜨리면 bad_args 가 났다 (#940)
+    parser.add_argument("labels", nargs="?", default="", help="csv")
     parser.add_argument("--assignees", help="담당자 csv")
 
 
