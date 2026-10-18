@@ -89,6 +89,20 @@ def _shift_probe(design, render, threshold, span):
             "before": round(base * 100, 2), "after": round(best * 100, 2)}
 
 
+def _size_mismatch_report(render_size, design_size) -> dict:
+    """크기가 다를 때의 경고: 가로세로 비율까지 다르면 비교가 사실상 무의미하다"""
+    render_ratio = render_size[0] / render_size[1]
+    design_ratio = design_size[0] / design_size[1]
+    return {
+        "render": f"{render_size[0]}x{render_size[1]}",
+        "design": f"{design_size[0]}x{design_size[1]}",
+        "scale_x": round(design_size[0] / render_size[0], 3),
+        "aspect_changed": abs(render_ratio - design_ratio) / design_ratio > 0.01,
+        "warning": ("렌더를 디자인 크기로 맞춰 비교했다. 기기 폭이 다르면(예: 440 대 393) 글자·간격 차이가 "
+                    "가짜로 나오니 같은 폭으로 다시 렌더하는 것이 정확하다"),
+    }
+
+
 def cmd_diff(args) -> int:
     missing = _require_imaging()
     if missing is not None:
@@ -124,7 +138,13 @@ def cmd_diff(args) -> int:
         return np.asarray(Image.alpha_composite(base, img).convert("RGB"), dtype=np.int16)
 
     design = flatten(design_img)
+    size_mismatch = None
     if render_img.size != design_img.size:
+        size_mismatch = _size_mismatch_report(render_img.size, design_img.size)
+        if args.strict_size:
+            return emit({"ok": False, "code": "size_mismatch", **size_mismatch,
+                         "error": "렌더와 디자인 크기가 다릅니다 (--strict-size)",
+                         "next": "같은 기기 폭·배율로 다시 렌더하거나 디자인 프레임 크기에 맞춘다"})
         render_img = render_img.resize(design_img.size, Image.LANCZOS)
     render = flatten(render_img)
 
@@ -165,6 +185,8 @@ def cmd_diff(args) -> int:
         out_path = str(args.out)
 
     return emit({
+        # 크기가 달라 렌더를 디자인 크기로 늘이거나 줄인 채 비교했다 — 글자 크기·간격 차이가 가짜로 생길 수 있다 (#949)
+        **({"size_mismatch": size_mismatch} if size_mismatch else {}),
         "size": f"{design.shape[1]}x{design.shape[0]}",
         "background": bg_src,
         "threshold": args.threshold,

@@ -51,6 +51,8 @@ def build_parser() -> JSONArgumentParser:
     d.add_argument("--render", required=True, help="앱이 그린 PNG")
     d.add_argument("--design", required=True, help="Figma export PNG")
     d.add_argument("--out", default=None, help="차이를 칠한 PNG 저장 경로")
+    d.add_argument("--strict-size", dest="strict_size", action="store_true",
+                   help="렌더와 디자인 크기가 다르면 조용히 맞추지 말고 size_mismatch 로 멈춘다")
     d.add_argument("--bg", default="auto",
                    help="합성 배경색 RRGGBB. 기본 auto = 시안 모서리에서 읽는다")
     d.add_argument("--threshold", type=int, default=24,

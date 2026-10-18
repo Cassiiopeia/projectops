@@ -1090,3 +1090,24 @@ def test_diff_mask_beyond_image_height_is_rejected(tmp_path, top, bottom):
                    f"--mask-top={top}", f"--mask-bottom={bottom}")
     d = out(o)
     assert rc == 1 and d["code"] == "bad_mask", d
+
+
+def test_size_mismatch_is_reported_not_silently_resized(tmp_path):
+    """기기 폭이 다른 렌더(440)를 디자인(393)에 맞춰 비교하면 가짜 차이가 난다 — 조용히 맞추지 않는다 (#949)."""
+    from PIL import Image
+    design = tmp_path / "design.png"
+    render = tmp_path / "render.png"
+    Image.new("RGBA", (393, 852), (255, 255, 255, 255)).save(design)
+    Image.new("RGBA", (440, 956), (255, 255, 255, 255)).save(render)
+    _, o, _ = run("diff", "--render", str(render), "--design", str(design))
+    d = out(o)
+    assert d["size_mismatch"]["render"] == "440x956" and d["size_mismatch"]["design"] == "393x852"
+    assert "warning" in d["size_mismatch"]
+    rc, o, _ = run("diff", "--render", str(render), "--design", str(design), "--strict-size")
+    assert rc == 1 and out(o)["code"] == "size_mismatch"
+
+
+def test_matching_sizes_have_no_size_mismatch_key(tmp_path):
+    p = _pill(tmp_path / "a.png", inner_ring=False)
+    _, o, _ = run("diff", "--render", str(p), "--design", str(p))
+    assert "size_mismatch" not in out(o)
