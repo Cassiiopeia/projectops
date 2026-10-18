@@ -18,7 +18,7 @@ git fetch origin
 
 ```bash
 # 현재 브랜치가 릴리스 head 인지 확인 — 다른 브랜치에서 merge·push 하면 엉뚱한 곳이 바뀐다
-git rev-parse --abbrev-ref HEAD
+git branch --show-current
 ```
 
 ```bash

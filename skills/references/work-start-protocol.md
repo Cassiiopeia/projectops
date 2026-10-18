@@ -6,7 +6,7 @@
 ## 1단계: 현재 브랜치 확인
 
 ```bash
-git rev-parse --abbrev-ref HEAD
+git branch --show-current
 ```
 
 - **main**(프로덕션·default branch, 레포에 따라 master 등) → **즉시 멈추고** 사용자에게 확인한다. main은

@@ -91,7 +91,7 @@ git diff --cached --stat
 ### 2단계: 이슈 번호 추출
 
 ```bash
-BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+BRANCH=$(git branch --show-current 2>/dev/null || echo "")
 ISSUE_NUMBER=$(echo "$BRANCH" | grep -oE '#[0-9]+' | grep -oE '[0-9]+' | head -1)
 REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
 OWNER=$(echo "$REMOTE_URL" | sed -E 's|.*github\.com[:/]([^/]+)/.*|\1|')

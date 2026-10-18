@@ -38,17 +38,21 @@ def extract_from_branch(branch: str) -> Optional[str]:
     return m.group(1) if m else None
 
 
-def get_current_branch() -> Optional[str]:
-    """현재 git 브랜치명을 반환한다. git 저장소가 아니면 None."""
+def get_current_branch(cwd: Optional[str] = None) -> Optional[str]:
+    """현재 git 브랜치명을 반환한다. git 저장소가 아니면 None, detached HEAD면 "HEAD".
+
+    rev-parse 약식 출력은 비ASCII 브랜치명을 글자 중간에서 자르므로(Apple Git 2.39) --show-current 를 쓴다 (#938).
+    """
     try:
         result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            ["git", "branch", "--show-current"],
+            cwd=cwd,
             capture_output=True,
             text=True,
             errors='replace',
             check=True,
         )
-        return result.stdout.strip()
+        return result.stdout.strip() or "HEAD"
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
 

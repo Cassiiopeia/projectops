@@ -9,10 +9,40 @@ from pro_github.registry import Command
 from pro_github.responses import api_error, missing_pat
 
 
+def _preflight_head_branch(args, api, pat) -> int | None:
+    """head 브랜치 사전 점검: 글자 깨짐 > origin 존재. 문제 있으면 응답 코드, 없으면 None (#938)"""
+    owner, _, branch = args.head.rpartition(":")
+    if "\ufffd" in branch:
+        return emit({
+            "ok": False,
+            "code": "head_branch_truncated",
+            "error": f"head 브랜치명이 글자 중간에서 잘렸습니다: {branch}",
+            "next": "git branch --show-current 로 브랜치명을 다시 읽어 head 로 넘긴다",
+        })
+    # 포크(다른 owner)의 브랜치는 이 레포 API 로 볼 수 없으니 점검하지 않는다
+    if owner and owner != args.owner:
+        return None
+    try:
+        sha = api.get_branch_head(args.owner, args.repo, branch, pat)
+    except GitHubAPIError:
+        return None
+    if sha is None:
+        return emit({
+            "ok": False,
+            "code": "head_branch_not_on_origin",
+            "error": f"origin 에 head 브랜치가 없습니다: {branch}",
+            "next": f"git push -u origin {branch} 후 다시 부른다",
+        })
+    return None
+
+
 def cmd_create_pr(args, api) -> int:
     pat = api.get_github_pat(args.owner, args.repo)
     if not pat:
         return missing_pat()
+    blocked = _preflight_head_branch(args, api, pat)
+    if blocked is not None:
+        return blocked
     body_path = Path(args.body_file)
     body = body_path.read_text(encoding="utf-8") if body_path.exists() else ""
     try:

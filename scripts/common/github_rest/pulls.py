@@ -160,7 +160,7 @@ def find_open_pr_by_base(owner: str, repo: str, base: str, pat: str, head: str |
 
 def get_branch_head(owner: str, repo: str, branch: str, pat: str) -> str | None:
     """브랜치 HEAD SHA를 반환한다. 브랜치가 없으면 None (404를 None으로 흡수)."""
-    enc = urllib.parse.quote(branch, safe="")
+    enc = urllib.parse.quote(branch, safe="/")
     try:
         ref = client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}/git/ref/heads/{enc}", None, pat)
     except GitHubAPIError as e:

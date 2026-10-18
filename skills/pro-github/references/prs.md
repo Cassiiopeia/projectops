@@ -11,7 +11,7 @@
 **PR 생성 전 반드시 remote 브랜치 존재 여부를 확인한다 (한글 브랜치명 422 오류 방지):**
 
 ```bash
-HEAD_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+HEAD_BRANCH=$(git branch --show-current)
 git ls-remote --heads origin "$HEAD_BRANCH" | grep -q "$HEAD_BRANCH" || echo "브랜치가 remote에 없습니다. git push 먼저 실행하세요."
 ```
 

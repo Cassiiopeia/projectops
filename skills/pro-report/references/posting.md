@@ -5,7 +5,7 @@
 ## 이슈 번호 자동 감지 순서
 
 1. 현재 작업 디렉토리 경로(worktree 폴더명)에서 `YYYYMMDD_숫자_제목` 패턴 추출
-2. git 브랜치명에서 추출 (`git rev-parse --abbrev-ref HEAD`의 `YYYYMMDD_#번호_제목`)
+2. git 브랜치명에서 추출 (`git branch --show-current`의 `YYYYMMDD_#번호_제목`)
 3. 대화에서 사용자가 말한 이슈 번호 (develop 직행처럼 브랜치명에 번호가 없을 때)
 4. 위 방법 모두 실패 시 사용자에게 이슈 번호 질문
 
