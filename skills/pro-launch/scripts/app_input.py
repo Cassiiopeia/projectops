@@ -383,7 +383,7 @@ class IOSMaestroBackend(Backend):
         if result is not None:
             self.session_report = {"transport": "per_call", "session_fallback": "session_inspect_failed"}
         try:
-            r = subprocess.run(self._base(dev) + ["hierarchy"], capture_output=True, text=True,
+            r = maestro_session.run_recorded(self._base(dev) + ["hierarchy"], capture_output=True, text=True,
                                timeout=self.timeout)
         except subprocess.TimeoutExpired:
             return []
@@ -408,7 +408,7 @@ class IOSMaestroBackend(Backend):
             # 기록을 이 임시 폴더로 돌려 함께 지운다 (기본 자리 ~/.maestro/tests 에 남지 않게)
             debug_output = ["--debug-output", str(Path(d) / "debug"), "--flatten-debug-output"] if env else []
             try:
-                r = subprocess.run(self._base(dev) + ["test", *debug_output, str(f)], capture_output=True,
+                r = maestro_session.run_recorded(self._base(dev) + ["test", *debug_output, str(f)], capture_output=True,
                                    text=True, timeout=self.timeout,
                                    env={**os.environ, **env} if env else None)
             except subprocess.TimeoutExpired:

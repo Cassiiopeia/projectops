@@ -11,6 +11,7 @@ import tempfile
 from pathlib import Path
 
 import app_input
+import maestro_runs
 
 from pro_launch.commands.app import steps as steps_module
 from pro_launch.commands.app.gestures import auto_record_backend, backend_for, elapsed_seconds
@@ -94,7 +95,7 @@ def _run_maestro(maestro: str, dev_id: str, flow_file: Path, output_folder: Path
     command = [maestro, *(["--device", dev_id] if dev_id != "booted" else []),
                "test", "--test-output-dir", str(output_folder), str(flow_file)]
     try:
-        r = subprocess.run(command, capture_output=True, text=True, timeout=timeout_seconds)
+        r = maestro_runs.run_recorded(command, capture_output=True, text=True, timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
         return None, [f"maestro 응답 없음 ({timeout_seconds}초)"]
     # 끝의 광고 상자(│ ╭ ╰)를 걷어야 실패 원인 줄이 보인다

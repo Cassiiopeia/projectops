@@ -22,6 +22,10 @@ import re
 import socket
 from pathlib import Path
 
+import maestro_runs
+# app_input 이 maestro_session 으로만 부른다 (app_input 줄 수 동결 — 새 import 자리가 없다)
+from maestro_runs import run_recorded  # noqa: F401
+
 # 상태 파일 폴더 이름 (launch 상태 루트 아래, 기기 하나에 파일 하나)
 SESSION_FOLDER_NAME = "maestro-sessions"
 DEFAULT_IDLE_MINUTES = 20
@@ -94,8 +98,9 @@ def call(device: str, tool: str, arguments: dict, timeout_seconds: float) -> tup
     if not is_ready(session):
         return None, "session_not_ready"
     try:
-        reply = request(session, {"op": "call", "tool": tool, "arguments": arguments,
-                                  "timeout_seconds": timeout_seconds}, timeout_seconds + 30)
+        with maestro_runs.recording():
+            reply = request(session, {"op": "call", "tool": tool, "arguments": arguments,
+                                      "timeout_seconds": timeout_seconds}, timeout_seconds + 30)
     except ConnectionRefusedError:
         # 중계가 없다 (강제 종료·재부팅) — 남은 상태 파일을 걷는다
         try:

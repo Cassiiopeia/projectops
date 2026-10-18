@@ -14,6 +14,7 @@ from common.state import repo_unknown
 import journal
 import knowledge
 
+from pro_launch.runtime.plugin_version import plugin_version
 from pro_launch.runtime.recent_roots import root_candidates
 from pro_launch.runtime.context import ACCESS_CTX, INPUT_CTX, MEMORY_CTX, MIGRATION, OUTPUT_CTX, ROOT_CTX
 
@@ -47,21 +48,26 @@ HEAD_KEYS = ("ok", "code", "summary", "next")
 CAUSE_KEYS = ("first_error", "unknown", "did_you_mean", "empty_values")
 # 이 실패·영역에 맞춘 해결과 기억 — 원인 뒤 · 줄여도 남긴다
 GUIDANCE_KEYS = ("known_fix", "known_fix_note", "memory", "memory_note", "learn_hint")
-# --brief 가 남기는 키: 머리 + error + 원인 + 안내
-BRIEF_KEYS = (*HEAD_KEYS, "error", *CAUSE_KEYS, *GUIDANCE_KEYS)
+# 실패 · doctor 에만 싣는 버전 — 어느 버전에서 난 문제인지 보고에 남게 · 줄여도 남긴다
+VERSION_KEYS = ("plugin_version",)
+# --brief 가 남기는 키: 머리 + error + 원인 + 안내 + 버전
+BRIEF_KEYS = (*HEAD_KEYS, "error", *CAUSE_KEYS, *GUIDANCE_KEYS, *VERSION_KEYS)
 
 
 def shape_payload(payload: dict) -> dict:
-    """출력 모양 정리: 4필드 기본값 > 순서(머리 > 원인 > 안내 > 나머지) > --brief · --fields 거르기.
+    """출력 모양 정리: 4필드 기본값 > 실패면 plugin_version > 순서(머리 > 원인 > 안내 > 나머지) > --brief · --fields 거르기.
 
-    값은 바꾸지 않는다. 플래그가 없으면 키 집합은 그대로이고 순서만 바뀐다.
+    값은 바꾸지 않는다. 플래그가 없으면 키 집합은 (실패의 plugin_version 말고) 그대로이고 순서만 바뀐다.
     """
     # 기본값 (emit 과 같은 규칙) — emit 이 뒤에 붙이면 순서가 다시 어긋난다
     payload.setdefault("ok", True)
     payload.setdefault("code", "ok" if payload["ok"] else "error")
     payload.setdefault("summary", None)
     payload.setdefault("next", None)
-    leading = [k for k in (*HEAD_KEYS, *CAUSE_KEYS, *GUIDANCE_KEYS) if k in payload]
+    # 성공 응답에는 싣지 않는다 (응답 줄이기, #897)
+    if payload["ok"] is False:
+        payload.setdefault("plugin_version", plugin_version())
+    leading = [k for k in (*HEAD_KEYS, *CAUSE_KEYS, *GUIDANCE_KEYS, *VERSION_KEYS) if k in payload]
     ordered = {k: payload[k] for k in leading}
     ordered.update((k, v) for k, v in payload.items() if k not in ordered)
     kept_names = _kept_key_names()
@@ -76,7 +82,7 @@ def _kept_key_names() -> set[str] | None:
     field_names = OUTPUT_CTX.get("field_names")
     if not is_brief and not field_names:
         return None
-    kept_names = {*HEAD_KEYS, *GUIDANCE_KEYS}
+    kept_names = {*HEAD_KEYS, *GUIDANCE_KEYS, *VERSION_KEYS}
     if is_brief:
         kept_names.update(BRIEF_KEYS)
     if field_names:

@@ -31,7 +31,7 @@ def reset_output_shape():
 def _sample_failure() -> dict:
     return {"ok": False, "code": "boom", "error": "실패", "path": "/x", "url": "u",
             "learn_hint": "h", "summary": "요약", "known_fix": [{"id": "k"}], "next": "다음",
-            "memory": [{"key": "m"}]}
+            "memory": [{"key": "m"}], "plugin_version": "9.9.9"}
 
 
 def _run_main(*argv: str) -> tuple[int, dict]:
@@ -45,8 +45,8 @@ def _run_main(*argv: str) -> tuple[int, dict]:
 def test_order_puts_head_then_guidance_then_rest():
     payload = _sample_failure()
     shaped = rt_output.shape_payload(dict(payload))
-    assert list(shaped)[:7] == ["ok", "code", "summary", "next", "known_fix", "memory", "learn_hint"]
-    assert list(shaped)[7:] == ["error", "path", "url"]
+    assert list(shaped)[:8] == ["ok", "code", "summary", "next", "known_fix", "memory", "learn_hint", "plugin_version"]
+    assert list(shaped)[8:] == ["error", "path", "url"]
     assert shaped == payload
 
 
@@ -65,13 +65,23 @@ def test_missing_head_keys_get_defaults_in_front():
 def test_fields_keeps_named_keys_and_always_kept_keys():
     OUTPUT_CTX.update(field_names=["path"])
     shaped = rt_output.shape_payload(_sample_failure())
-    assert list(shaped) == ["ok", "code", "summary", "next", "known_fix", "memory", "learn_hint", "path"]
+    assert list(shaped) == ["ok", "code", "summary", "next", "known_fix", "memory", "learn_hint", "plugin_version", "path"]
 
 
 def test_brief_keeps_core_and_error_only():
     OUTPUT_CTX.update(is_brief=True)
     shaped = rt_output.shape_payload(_sample_failure())
-    assert set(shaped) == {"ok", "code", "summary", "next", "error", "known_fix", "memory", "learn_hint"}
+    assert set(shaped) == {"ok", "code", "summary", "next", "error", "known_fix", "memory", "learn_hint",
+                           "plugin_version"}
+
+
+# 실패에만 plugin_version (성공은 줄인다, #897) · --brief 에도 남는다 (#863)
+def test_plugin_version_only_on_failure_and_kept_by_brief():
+    from pro_launch.runtime.plugin_version import plugin_version
+    assert "plugin_version" not in rt_output.shape_payload({"path": "/x"})
+    OUTPUT_CTX.update(is_brief=True)
+    shaped = rt_output.shape_payload({"ok": False, "code": "boom", "path": "/x"})
+    assert shaped["plugin_version"] == plugin_version() != "unknown"
 
 
 def test_brief_and_fields_union():

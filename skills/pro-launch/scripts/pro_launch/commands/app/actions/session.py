@@ -9,6 +9,7 @@ import sys
 import time
 from pathlib import Path
 
+import maestro_runs
 import maestro_session
 
 from pro_launch.commands.app.gestures import backend_for, elapsed_seconds
@@ -84,7 +85,9 @@ def _start(args, be, dev_id: str) -> int:
     command = [sys.executable, str(RELAY_SCRIPT), "serve", "--device", dev_id,
                "--idle-minutes", str(idle_minutes), "--maestro", be._maestro(), "--state-file", str(state_path)]
     relay_pid = procs.spawn_detached(command, str(state_path.parent), state_path.with_suffix(".log"))
-    session = _wait_until_settled(dev_id, relay_pid)
+    # 예열 동안 maestro mcp 가 기기에 붙는다 — 이 구간도 pro-launch 실행으로 기록
+    with maestro_runs.recording():
+        session = _wait_until_settled(dev_id, relay_pid)
     if maestro_session.is_ready(session):
         return out(_session_payload(args, dev_id, session, summary="세션 시작 — 이후 iOS tap·swipe·tree·run 이 이 세션을 쓴다"))
     procs.kill_process_group(relay_pid, grace=2.0)

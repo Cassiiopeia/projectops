@@ -42,7 +42,7 @@ agent 가 "모른다는 것을 모르는" 상태에서 꺼내 볼 생각을 하�
 # 경위가 길면 how 는 한 줄 결론, 긴 글은 --detail (또는 --detail-file) → notes/<key>.md, recall 이 detail_path 로 준다
 {PYTHON} {SCRIPTS}/launch_cli.py learn --area android --key android.swipe --result ok \
     --how "app swipe 로 민다. 먼저 app shot 으로 줄 y 를 정한다" --detail "광고 배너로 y 가 87% → 80% 로 바뀌어 엉뚱한 카드를 밀었다 ..."
-{PYTHON} {SCRIPTS}/launch_cli.py session-check                      # 작업을 마칠 때: 막혔다 풀렸는데 learn 안 한 영역
+{PYTHON} {SCRIPTS}/launch_cli.py session-check                      # 작업을 마칠 때: 막혔다 풀렸는데 learn 안 한 영역 · pro-launch 밖 Maestro 실행 수
 ```
 
 - **안전 규칙이 기억보다 위다.** 호스트 마우스로 좌표를 누르는 방법(`cliclick` 등)은 저장도, 꺼내기도 막힌다.
@@ -52,6 +52,7 @@ agent 가 "모른다는 것을 모르는" 상태에서 꺼내 볼 생각을 하�
 - **앱 화면·좌표·함정은 여기가 아니다** — `pro-agent-test` 의 `note` 가 맡는다. 여기는 **도구·방식**만.
 - `how` 에는 결론만 남기고, 왜 막혔고 어떻게 풀었는지는 `--detail` 노트에 둔다. 팀이 함께 봐야 하는 사례는 레포 문서(`CLAUDE.md` 등)에 적는다.
 - `adb`·Maestro·`simctl` 을 직접 쓰면 응답에 `memory` 가 실리지 않는다 — 작업 시작 때 `doctor`(영역별 기억 건수)나 `recall --area <영역>` 을 본다.
+- `session-check` 의 `outside_launch.maestro_runs`: 최근 24시간 `~/.maestro/tests/<시각>/` 폴더 중 pro-launch 가 띄운 구간(`launch/maestro_runs.json`)과 시각이 안 맞는 수. 폴더 이름·시각만 보고 내용은 읽지 않는다(비밀 입력 로그). `adb`·`simctl` 은 흔적을 남기지 않아 세지 않는다.
 - 계정은 `cred`(`credentials.md`), 방식은 `learn` 으로 나눈다.
 
 ## 공식 지식 vs 내 기억 (#889)

@@ -16,6 +16,7 @@ from pro_launch.runtime import host_resources
 from pro_launch.runtime.context import project_root, state_home
 from pro_launch.runtime.devices import list_devices
 from pro_launch.runtime.output import out
+from pro_launch.runtime.plugin_version import plugin_version
 
 
 _TOOLS = [
@@ -48,6 +49,7 @@ def cmd_doctor(args) -> int:
     open_browser = open_browser_status(state_path(root))
     memory = _memory_counts(root)
     payload = {
+        "plugin_version": plugin_version(),
         "checks": checks,
         "browser": pw,
         "browser_choice": {k: chosen.get(k) for k in ("exe", "source", "label", "reason", "error")},
@@ -60,7 +62,7 @@ def cmd_doctor(args) -> int:
         "venv": str(venv_dir()),
         "platform": sys.platform,
         "memory": memory,
-        "summary": (f"{sys.platform}: "
+        "summary": (f"projectops {plugin_version()} · {sys.platform}: "
                     + (", ".join(c["tool"] for c in checks if c["found"]) or "도구 없음"))
                    + f" · 브라우저 {'준비' if pw['ready'] else '없음'}"
                    + (f" ({chosen['label']})" if chosen.get("exe") else "")

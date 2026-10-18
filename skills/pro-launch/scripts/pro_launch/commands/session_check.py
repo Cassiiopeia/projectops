@@ -1,4 +1,5 @@
-"""`session-check` — 긴 작업을 마칠 때 한 번: 아직 실패 중인 영역 · 막혔다 풀렸는데 learn 하지 않은 영역 (#863)."""
+"""`session-check` — 긴 작업을 마칠 때 한 번: 아직 실패 중인 영역 · 막혔다 풀렸는데 learn 하지 않은 영역 ·
+pro-launch 밖에서 돈 Maestro 실행 (#863)."""
 from __future__ import annotations
 
 import datetime as dt
@@ -9,6 +10,7 @@ from pathlib import Path
 from common.state import repo_unknown
 
 import knowledge
+import maestro_runs
 
 from pro_launch.registry import Command
 from pro_launch.runtime.context import project_root
@@ -17,6 +19,8 @@ from pro_launch.runtime.output import RESOLVED_FILE, out
 ATTEMPTS_FILE = "attempts.json"
 # 이 시간 안의 기록만 '이번 세션'으로 본다
 SESSION_WINDOW_HOURS = 12
+# 이 시간 안의 ~/.maestro/tests 폴더만 센다
+OUTSIDE_LAUNCH_WINDOW_HOURS = 24
 
 
 def _read_json(path: Path, default):
@@ -52,16 +56,33 @@ def cmd_session_check(args) -> int:
         resolved_day = dt.date.fromtimestamp(at).isoformat()
         if at >= since and (learned.get(row.get("area")) or "") < resolved_day:
             unlearned.append({"area": row.get("area"), "fails": row.get("fails"), "last_code": row.get("last_code")})
-    if not still_failing and not unlearned:
-        return out({"ok": True, "code": "ok", "still_failing": [], "unlearned": [],
+    # launch_cli 를 안 거친 Maestro 직접 실행 — 그 사이 알게 된 방식은 기억에 안 남는다 (adb 는 흔적이 없어 못 센다)
+    outside_launch = {"maestro_runs": maestro_runs.count_outside_runs(OUTSIDE_LAUNCH_WINDOW_HOURS * 3600)}
+    outside_count = outside_launch["maestro_runs"]
+    if not still_failing and not unlearned and not outside_count:
+        return out({"ok": True, "code": "ok", "still_failing": [], "unlearned": [], "outside_launch": outside_launch,
                     "summary": f"최근 {SESSION_WINDOW_HOURS}시간 동안 남길 교훈 후보가 없다", "next": None})
     areas = sorted({row["area"] for row in unlearned})
     return out({"ok": True, "code": "learn_candidates", "still_failing": still_failing, "unlearned": unlearned,
-                "summary": (f"막혔다 풀린 영역 {len(unlearned)}건이 아직 learn 되지 않았다"
-                            + (f" · 아직 실패 중 {len(still_failing)}건" if still_failing else "")),
-                "next": (f"먹힌 방식을 learn --area {areas[0]} --key <짧은키> --how '<한 줄 결론>' --result ok "
-                         "--detail '<왜 막혔고 어떻게 풀었나>' 로 남긴다" if areas
-                         else "실패 중인 영역은 해결된 뒤에 남긴다 (해결 안 된 시행착오는 남기지 않는다)")})
+                "outside_launch": outside_launch,
+                "summary": "남길 교훈 후보 ("
+                           + " · ".join(part for part in (
+                               f"learn 안 한 영역 {len(unlearned)}건" if unlearned else "",
+                               f"아직 실패 중 {len(still_failing)}건" if still_failing else "",
+                               f"pro-launch 밖 Maestro 실행 {outside_count}건 ({OUTSIDE_LAUNCH_WINDOW_HOURS}시간)"
+                               if outside_count else "") if part) + ")",
+                "next": _next_step(areas, outside_count)})
+
+
+def _next_step(areas: list[str], outside_count: int) -> str:
+    """learn 할 영역 > 직접 실행한 Maestro > 실패 중만 남음 순."""
+    if areas:
+        return (f"먹힌 방식을 learn --area {areas[0]} --key <짧은키> --how '<한 줄 결론>' --result ok "
+                "--detail '<왜 막혔고 어떻게 풀었나>' 로 남긴다")
+    if outside_count:
+        return (f"pro-launch 밖에서 Maestro 를 {outside_count}번 직접 돌렸다 — 거기서 먹힌 방식이 있으면 "
+                "learn --area ios|android --key <짧은키> --how '<한 줄 결론>' --result ok 로 남긴다")
+    return "실패 중인 영역은 해결된 뒤에 남긴다 (해결 안 된 시행착오는 남기지 않는다)"
 
 
 def configure(p) -> None:

@@ -115,15 +115,29 @@ def test_detail_note_is_saved_and_recall_match_finds_it(tmp_path):
 
 def test_session_check_lists_unlearned_resolved_area(tmp_path):
     project = _repo(tmp_path)
+    # 이 컴퓨터의 실제 ~/.maestro/tests 를 세지 않게
+    isolated_home = {"HOME": str(tmp_path / "empty-home")}
     folder = knowledge.store_path("repo", project).parent
     folder.mkdir(parents=True, exist_ok=True)
     (folder / rt_output.RESOLVED_FILE).write_text(json.dumps(
         [{"area": "ios", "fails": 4, "last_code": "tap_failed", "at": time.time()}]), encoding="utf-8")
-    got = run_cli("session-check", "--root", str(project))
+    got = run_cli("session-check", "--root", str(project), env_extra=isolated_home)
     assert got["code"] == "learn_candidates" and got["unlearned"][0]["area"] == "ios", got
     run_cli("learn", "--area", "ios", "--key", "ios.tap", "--result", "ok",
             "--how", "app tap 으로 누른다", "--root", str(project))
-    assert run_cli("session-check", "--root", str(project))["code"] == "ok"
+    assert run_cli("session-check", "--root", str(project), env_extra=isolated_home)["code"] == "ok"
+
+
+def test_maestro_folders_outside_launch_runs_are_counted(tmp_path):
+    # 기록 구간 안이면 제외 · 밖이면 셈 · 기록 시작 전과 창 밖(옛날)은 안 센다
+    import maestro_runs
+    tests_folder = tmp_path / "maestro-tests"
+    now = time.time()
+    for seconds_ago in (60, 3600, 4 * 3600, 3 * 86400):
+        (tests_folder / time.strftime(maestro_runs.FOLDER_NAME_FORMAT, time.localtime(now - seconds_ago))).mkdir(parents=True)
+    maestro_runs.record_run(now - 7200, now - 7100)
+    maestro_runs.record_run(now - 65, now - 50)
+    assert maestro_runs.count_outside_runs(86400, tests_folder, now) == 1
 
 
 def test_no_device_stops_boot_advice_under_critical_memory(monkeypatch, capsys):

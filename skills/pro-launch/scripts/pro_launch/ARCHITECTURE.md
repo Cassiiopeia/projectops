@@ -26,6 +26,7 @@ scripts/
   app_input.py              앱 조작 플랫폼 백엔드 (Android · iOS)
   maestro_session.py        iOS 상주 Maestro 세션 — 상태 파일 · 중계를 부르는 클라이언트 (#894)
   maestro_session_relay.py  그 중계 프로세스 (`maestro mcp` 표준입출력 소유 · 127.0.0.1 TCP · 유휴 종료)
+  maestro_runs.py           pro-launch 가 Maestro 를 띄운 구간 기록 · 그 밖의 실행 세기 (session-check)
   browser_pick.py           어떤 브라우저로 띄울지
   stealth.py                자동화 표식 가리기
   pro_launch/
@@ -43,6 +44,7 @@ scripts/
       arg_diagnosis.py      bad_args 진단 — 모르는 이름 · 비슷한 이름 · 그 명령의 옵션 · 예시 (#886)
       recent_roots.py       최근에 쓴 프로젝트 루트 · 후보 (레포 밖에서 불릴 때, #885)
       host_resources.py     호스트 메모리 압박 · 큰 프로세스 · 켜진 기기와 묶은 레포 (#883)
+      plugin_version.py     실행 중인 projectops 버전 (실패 응답 · doctor, 프로세스당 1회)
     commands/               위층 — 서브커맨드
       doctor.py detect.py device.py output_path.py
       http.py access.py db.py logs.py ssh.py cred.py local.py render.py shrink.py memory.py kb.py session_check.py
