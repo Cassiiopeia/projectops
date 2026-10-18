@@ -88,8 +88,12 @@ def test_릴리스_노트_표식_블록을_도구가_씌운다():
     assert tools.wrap_release_notes(already) == (already, False)
 
 
-def test_sync_base_와_branches_check(tmp_path):
+def test_sync_base_와_branches_check(tmp_path, monkeypatch):
     import subprocess
+    # CI 러너에는 git 작성자 설정이 없다 — 병합 커밋을 만들 수 있게 환경으로 준다
+    for key, value in (("GIT_AUTHOR_NAME", "a"), ("GIT_AUTHOR_EMAIL", "a@a"),
+                       ("GIT_COMMITTER_NAME", "a"), ("GIT_COMMITTER_EMAIL", "a@a")):
+        monkeypatch.setenv(key, value)
     tools = _release_tools()
     origin = tmp_path / "o.git"
     subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(origin)], check=True)

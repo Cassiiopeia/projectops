@@ -80,5 +80,10 @@ def cmd_sync_base(args) -> int:
         return emit({"ok": True, "code": "merged", "behind": behind[:20],
                      "summary": f"origin/{args.base} 커밋 {len(behind)}개를 병합했다", "next": "push 후 deploy 절차 계속"})
     conflicted = _git(root, "diff", "--name-only", "--diff-filter=U").stdout.split()
+    if not conflicted:
+        # 충돌 파일이 없는데 실패했다면 충돌이 아니라 다른 원인(커밋 작성자 미설정, 훅, 더러운 작업트리 등)이다
+        return emit({"ok": False, "code": "merge_failed", "behind": behind[:20],
+                     "error": (merged.stderr or merged.stdout).strip()[:400],
+                     "next": "원인을 읽고 고친다 (git config user.name/email, 겹치는 미커밋 변경 등). 충돌이 아니니 abort 할 것이 없다"})
     return emit({"ok": False, "code": "merge_conflict", "conflicted_files": conflicted[:30], "behind": behind[:20],
                  "error": "병합 충돌", "next": "충돌을 양쪽 의도를 살려 해소하거나 사용자와 정한다 (merge --abort·reset 을 임의로 하지 않는다)"})
