@@ -75,7 +75,7 @@ def cmd_actions(args, api) -> int:
                 "next": None if result.get("matched_count") else "일치가 없다 — --grep 을 바꾸거나 --out 파일로 전체를 받아 직접 본다",
             })
         elif args.sub == "runs":
-            result = api.list_runs(args.owner, args.repo, pat, workflow=args.arg, branch=args.branch,
+            result = api.list_runs(args.owner, args.repo, pat, workflow=args.arg, branch=args.on_branch,
                                    status=args.status, limit=args.limit)
             return emit({"runs": result, "count": len(result),
                          "summary": f"run {len(result)}개" + (f" ({args.arg})" if args.arg else ""),
@@ -89,7 +89,7 @@ def cmd_actions(args, api) -> int:
                 return emit({"ok": False, "code": "bad_argument", "error": f"--input 은 key=value 형식이다: {bad}"})
             result = api.dispatch_workflow(args.owner, args.repo, args.arg, args.ref, inputs, pat)
             return emit({**result, "summary": f"{args.arg} 실행 요청 ({args.ref})",
-                         "next": f"actions runs {args.owner} {args.repo} {args.arg} --branch {args.ref}  # 새 run 이 보일 때까지 몇 초"})
+                         "next": f"actions runs {args.owner} {args.repo} {args.arg} --on-branch {args.ref}  # 새 run 이 보일 때까지 몇 초"})
         elif args.sub == "rerun":
             run_id, err = read_numeric_argument(args, "run_id")
             if err is not None:
@@ -159,7 +159,7 @@ def _configure_actions(parser) -> None:
     parser.add_argument("--grep", default="error", help="Filter logs (정규식 가능: 'error|failed', 대소문자 무시)")
     parser.add_argument("--out", default=None, help="joblog: 전체 로그를 이 파일에 저장")
     parser.add_argument("--workflow", default=None, help="list-failed: 이 워크플로우 파일의 run 만")
-    parser.add_argument("--branch", default=None, help="runs: 이 브랜치의 run 만")
+    parser.add_argument("--on-branch", dest="on_branch", default=None, help="runs: 이 브랜치의 run 만")
     parser.add_argument("--status", default=None, help="runs: queued · in_progress · completed · failure ...")
     parser.add_argument("--ref", default="develop", help="dispatch: 실행할 브랜치/태그")
     parser.add_argument("--input", action="append", default=None, metavar="KEY=VALUE", help="dispatch: workflow 입력 (여러 번 가능)")

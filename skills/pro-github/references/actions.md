@@ -58,7 +58,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py actions resolve-branch {
 ```bash
 # 실행 (workflow_dispatch). run id 는 돌려주지 않으니 runs 로 새 run 을 찾는다
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py actions dispatch {owner} {repo} build.yaml --ref develop --input env=test
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py actions runs {owner} {repo} build.yaml --branch develop --limit 3
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py actions runs {owner} {repo} build.yaml --on-branch develop --limit 3
 # 끝날 때까지 도구 안에서 기다린다 (최대 540초, 못 끝나면 finished: false 와 같은 명령을 next 로). sleep 을 쓰지 않는다
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py actions wait {owner} {repo} {run_id} --timeout 300
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py actions rerun {owner} {repo} {run_id} --failed-only
