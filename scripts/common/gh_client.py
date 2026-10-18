@@ -36,6 +36,7 @@ from common.github_rest.pulls import (  # noqa: F401
 )
 from common.github_rest.actions import (  # noqa: F401
     _run_summary, get_run, get_job_log, list_failed_runs, resolve_pr_runs, resolve_branch_runs,
+    list_runs, dispatch_workflow, rerun_run, wait_for_run,
 )
 from common.github_rest.evidence import (  # noqa: F401
     EVIDENCE_TAG, _RENDERABLE,

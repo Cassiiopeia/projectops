@@ -41,6 +41,8 @@ description: "All GitHub work: create, read, edit, close issues and PRs, comment
 | PR 댓글 · 닫기 · 다시 열기 · 머지 | `add-pr-comment` · `close-pr` · `reopen-pr` · `merge-pr` | `references/prs.md` |
 | 릴리스 PR 본문에 릴리스 노트 채우기 (CodeRabbit 폴백) | `update-pr` | `references/prs.md` |
 | Actions 실패 진단 | `actions show-run\|joblog\|list-failed\|resolve-pr\|resolve-branch` | 아래 라우팅 + `references/actions.md` |
+| 워크플로우 실행 · 재실행 · 끝날 때까지 기다리기 · run 목록 | `actions dispatch\|rerun\|wait\|runs` | `references/actions.md` |
+| 전용 명령이 없는 REST 호출 (**curl·PAT 직접 읽기 대신**) | `api GET\|POST\|PUT\|PATCH\|DELETE {owner} {repo} /repos/{owner}/{repo}/...` | `references/actions.md` |
 | 레포 목록 · 상세 · README · 언어 · 커밋 | `explore list-repos\|repo-detail\|readme\|languages\|commits` | `references/explore.md` |
 | Actions Secret 목록 · 등록/갱신 | `secrets list\|set` | `references/secrets.md` |
 

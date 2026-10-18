@@ -5,7 +5,7 @@ import functools
 
 from common.cli_parser import JSONArgumentParser
 from pro_github.commands import (
-    actions, actions_secrets, assignees, comments, conventions, finish, images, issues, labels, pulls,
+    actions, actions_secrets, api_call, assignees, comments, conventions, finish, images, issues, labels, pulls,
     repository,
 )
 from pro_github.registry import Command
@@ -17,11 +17,11 @@ HELP_ORDER = (
     "list-labels", "add-labels", "remove-label", "set-labels", "add-assignees", "remove-assignees",
     "create-pr", "list-prs", "update-pr", "get-pr", "add-pr-comment", "close-pr", "reopen-pr", "merge-pr",
     "search-issues", "get-output-path", "normalize-title", "create-branch-name", "get-commit-template",
-    "explore", "upload-image", "delete-image", "secrets", "actions",
+    "explore", "upload-image", "delete-image", "secrets", "actions", "api",
 )
 
 _MODULES = (issues, finish, comments, labels, assignees, pulls, conventions, repository, images,
-            actions_secrets, actions)
+            actions_secrets, actions, api_call)
 
 
 def load_commands() -> list[Command]:

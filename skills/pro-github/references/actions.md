@@ -49,3 +49,24 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py actions resolve-branch {
  "failed_job_ids": [78222159478],
  "ok": true, "next": "actions joblog acme-org acme-app 78222159478"}
 ```
+
+
+## 실행 · 재실행 · 대기 · 목록 (#939)
+
+워크플로우를 돌리거나 끝날 때까지 기다리려고 curl 을 쓰지 않는다. PAT 를 설정 파일에서 읽어 오는 것이 세션 기록에 남는 가장 큰 이유였다.
+
+```bash
+# 실행 (workflow_dispatch). run id 는 돌려주지 않으니 runs 로 새 run 을 찾는다
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py actions dispatch {owner} {repo} build.yaml --ref develop --input env=test
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py actions runs {owner} {repo} build.yaml --branch develop --limit 3
+# 끝날 때까지 도구 안에서 기다린다 (최대 540초, 못 끝나면 finished: false 와 같은 명령을 next 로). sleep 을 쓰지 않는다
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py actions wait {owner} {repo} {run_id} --timeout 300
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py actions rerun {owner} {repo} {run_id} --failed-only
+```
+
+- `joblog --grep` 은 정규식이다 (`'error|failed'`, 대소문자 무시). 틀린 정규식은 글자 그대로 찾는다. 응답의 `regex` 로 어느 쪽으로 해석됐는지 본다.
+  전체 로그가 필요하면 `--out 파일` 로 저장해 직접 본다. 보존 기간이 지난 로그는 `log_expired`.
+- `list-failed --workflow build.yaml` 은 그 워크플로우의 실패 run 만 남긴다.
+- 위 명령으로 안 되는 REST 호출은 `api` 로: `api GET {owner} {repo} /repos/{owner}/{repo}/releases/latest`.
+  이 레포 경로만 받고, 상태를 바꾸는 메서드(POST·PUT·PATCH·DELETE)는 사용자가 요청한 작업일 때만 `--write` 를 붙인다.
+- Secret 값이 여러 줄이면 `secrets set {owner} {repo} {이름} --value-file 파일` 로 넘긴다 (`SECRET_VALUE` 환경변수도 된다).
