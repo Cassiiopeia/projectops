@@ -1,7 +1,39 @@
 # Changelog
 
-**Current version:** 4.62.0  
-**Last updated:** 2026-10-18T07:40:30Z  
+**Current version:** 4.63.0  
+**Last updated:** 2026-10-18T15:58:32Z  
+
+---
+
+## [4.63.0] - 2026-10-18
+
+**PR:** #951  
+
+**새 기능**
+- 모든 스킬 CLI가 쓰는 고정 진입점 `projectops_cli.py`와 옛 버전 실행 경고(`newer_installed`) 추가
+- GitHub Actions 워크플로우 실행·재실행·대기·목록(`actions dispatch/rerun/wait/runs`)과 이 레포 경로만 받는 `api` 통과 명령 추가
+- 이슈 완료 처리를 한 번에 하는 `finish-issue`, 커밋을 한 번에 하는 `commit_cli commit` 추가
+- 배포 보조: `deploy-status --wait`, 막힌 대기를 알리는 `stuck` 판정, 배포 전 base 병합 `sync-base`, 릴리스할 커밋이 없을 때 거절하는 `nothing_to_release`
+- worktree 생성 시 분기할 기준을 정하는 `--base`와 로컬 파일 복사·안전 제거(`worktree_cli.py create/copy/remove`)
+- 기기 글자 크기를 바꾸고 되돌리는 `device text-size`
+- 모든 CLI에 `--brief`, `--field` 출력 옵션과 `bad_args`의 사용법·비슷한 명령 안내
+
+**버그 수정**
+- 한글 브랜치명이 글자 중간에서 잘려 PR 생성이 422로 실패하던 문제 수정 (`git branch --show-current` 사용, `create-pr`이 head 브랜치를 먼저 점검)
+- `get-output-path`가 프로젝트 밖에서 `git_not_found`로 실패하고 `--issue`, `--root`를 못 받던 문제 수정
+- macOS/Linux에서 worktree 생성이 "브랜치명이 제공되지 않았습니다"로 실패하던 문제 수정
+- ssh 실패에서 원격 명령 종료 코드와 접속 실패를 구분하고, 비밀번호를 명령줄로 넘기라던 안내 제거
+- `add-comment`가 5xx 뒤 중복되거나 유실되던 문제를 줄이고, 멱등 호출의 일시 오류를 자동 재시도
+- figma `diff`가 크기가 다른 렌더를 조용히 늘여 가짜 차이를 내던 문제를 `size_mismatch`로 알림
+
+**개선**
+- `joblog --grep` 정규식 지원, `--out` 저장, 만료된 로그는 `log_expired`
+- 응답 맨 앞에 `ok`, `code`, `summary`, `next`를 고정
+- pro-agent-test에 iOS 환경 조건 표와 결함 게시 전 재확인 게이트 추가
+
+**문서**
+- 하네스 공통 패턴 24개 정리(`docs/HARNESS-PATTERNS.md`), 출력 키 표 추가
+- pro-design-brief 충실도 사다리·아이콘 폰트 함정, pro-oss-consult 수집 키 안내 보강
 
 ---
 
