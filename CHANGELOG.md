@@ -1,7 +1,17 @@
 # Changelog
 
-**Current version:** 4.60.0  
-**Last updated:** 2026-10-17T21:59:26Z  
+**Current version:** 4.60.1  
+**Last updated:** 2026-10-18T02:01:16Z  
+
+---
+
+## [4.60.1] - 2026-10-18
+
+**PR:** #919  
+
+**개선**
+- pro-launch 의 실패 응답과 `doctor` 결과에 실행 중인 projectops 버전(`plugin_version`)을 함께 보여 줍니다. 문서와 스크립트 버전이 어긋났는지 바로 알 수 있습니다.
+- `session-check` 가 pro-launch 를 거치지 않고 직접 돌린 Maestro 실행 수를 알려 주고, 알아낸 방법을 `learn` 으로 남기라고 안내합니다. Maestro 기록은 폴더 이름과 시각만 보고 내용은 읽지 않습니다.
 
 ---
 
