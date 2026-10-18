@@ -48,6 +48,9 @@ description: "All GitHub work: create, read, edit, close issues and PRs, comment
 
 ## 스크립트 찾기
 
+> **고정 진입점이 있으면 아래 탐색을 건너뛴다** (#942): `~/.projectops/bin/projectops_cli.py` 는 한 번이라도 CLI 를 실행하면 생기고, 부를 때마다 설치된 가장 새 스크립트를 찾아 인자를 그대로 넘긴다. 세션 도중 플러그인이 업데이트돼도 옛 경로에 묶이지 않는다.
+> `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py github <서브커맨드> ...` (없거나 `scripts_not_found` 면 아래 탐색). 응답에 `newer_installed` 가 오면 이 진입점으로 다시 부른다.
+
 스크립트는 **하네스 설치 경로**에 있다 — 사용자 프로젝트에는 `skills/` 폴더가 없다(통합 시 제외). 로컬(이 저장소) 우선 → 설치 경로 폴백으로 한 번 찾는다 (`../references/common-rules.md` §"스크립트 탐색").
 **Bash 도구는 호출마다 상태가 초기화된다.** 출력된 실제 경로를 이후 블록의 `{PYTHON}` · `{SCRIPTS}` · `{PROJECT_ROOT}` 자리에 값으로 써넣는다.
 

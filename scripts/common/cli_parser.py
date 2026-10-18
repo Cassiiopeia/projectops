@@ -99,7 +99,8 @@ def run_cli(parser: JSONArgumentParser, argv: Optional[Sequence[str]] = None) ->
     --help: argparse 기본 동작 그대로 (SystemExit 0).
     """
     argv, brief, field = _extract_output_options(list(sys.argv[1:] if argv is None else argv))
-    configure_output(brief=brief, field=field)
+    from common.stable_entry import refresh_and_check
+    configure_output(brief=brief, field=field, extra={"newer_installed": info} if (info := refresh_and_check(sys.argv[0])) else None)
     try:
         args = parser.parse_args(argv)
     except _BadArgsExit as e:

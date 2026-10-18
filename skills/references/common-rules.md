@@ -149,6 +149,10 @@ echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS PROJECT_ROOT=$PROJECT_ROOT"
 
 ### 스크립트 탐색
 
+**먼저 고정 진입점** (#942): `~/.projectops/bin/projectops_cli.py <skill> <서브커맨드> ...` 는 설치된 가장 새 스크립트를 찾아 인자를 그대로 넘긴다
+(skill: github · commit · report · review · testcase · changelog-deploy · init-worktree · figma · agent-test · design-brief · oss-consult · launch).
+아래 탐색 블록은 이 파일이 아직 없을 때(첫 실행)나 `scripts_not_found` 일 때의 대체 경로다. 응답의 `newer_installed` 는 옛 버전에서 돌고 있다는 뜻이다.
+
 위 블록은 **로컬(projectops 레포의 `skills/`) → 하네스 설치 경로(Claude Code·Codex·Gemini·pi)** 순으로 플러그인 루트를 찾는다.
 **형태를 바꾸지 않는다** — 하네스를 `for`로 하나씩 `find`하는 것(zsh `no matches found` 회피, #542)과 마지막 `[ -d "$SCRIPTS" ]`
 가드는 실사고로 생긴 것이다. 근거: `script-invocation.md` §스크립트 탐색.

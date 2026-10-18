@@ -18,15 +18,17 @@ from typing import Any, Optional
 # 응답 맨 앞에 두는 키 — 잘라 읽어도 판단에 필요한 것이 남는다
 _HEAD_KEYS = ("ok", "code", "summary", "next")
 # --brief 에서도 남기는 안내 키
-_GUIDE_KEYS = _HEAD_KEYS + ("error", "hint", "usage", "example", "did_you_mean", "available_subcommands")
+_GUIDE_KEYS = _HEAD_KEYS + ("error", "hint", "usage", "example", "did_you_mean", "available_subcommands",
+                              "newer_installed")
 
-_output_options: dict = {"brief": False, "field": None}
+_output_options: dict = {"brief": False, "field": None, "extra": {}}
 
 
-def configure_output(brief: bool = False, field: Optional[str] = None) -> None:
-    """--brief / --field 를 켠다 (run_cli 가 호출)"""
+def configure_output(brief: bool = False, field: Optional[str] = None, extra: Optional[dict] = None) -> None:
+    """--brief / --field 를 켠다 (run_cli 가 호출). extra: 첫 응답에 덧붙일 키 (예: newer_installed)"""
     _output_options["brief"] = brief
     _output_options["field"] = field
+    _output_options["extra"] = dict(extra or {})
 
 
 def _lookup(payload: Any, dotted_path: str) -> Any:
@@ -56,6 +58,10 @@ def emit(payload: dict) -> int:
     payload.setdefault("summary", None)
     payload.setdefault("next", None)
     payload = {**{key: payload[key] for key in _HEAD_KEYS}, **{k: v for k, v in payload.items() if k not in _HEAD_KEYS}}
+    # 한 번만 싣는 안내 (옛 버전에서 돌고 있다는 경고 등)
+    for key, value in _output_options["extra"].items():
+        payload.setdefault(key, value)
+    _output_options["extra"] = {}
     ok = payload["ok"]
 
     field = _output_options["field"]

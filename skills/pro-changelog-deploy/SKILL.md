@@ -55,6 +55,9 @@ projectops 전용 스킬. `PROJECT-COMMON-RELEASE-CHANGELOG` 워크플로우와 
 
 ### 1) 스크립트 · OWNER · REPO · PYTHON · PROJECT_ROOT (한 번)
 
+> **고정 진입점이 있으면 아래 탐색을 건너뛴다** (#942): `~/.projectops/bin/projectops_cli.py` 는 한 번이라도 CLI 를 실행하면 생기고, 부를 때마다 설치된 가장 새 스크립트를 찾아 인자를 그대로 넘긴다. 세션 도중 플러그인이 업데이트돼도 옛 경로에 묶이지 않는다.
+> `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py changelog-deploy <서브커맨드> ...` (없거나 `scripts_not_found` 면 아래 탐색). 응답에 `newer_installed` 가 오면 이 진입점으로 다시 부른다.
+
 **Bash는 stateless다** — 변수·`export`가 호출 간 유지되지 않는다. 아래에서 나온 값을 **기억해 두고 이후 모든 블록에 실제 값으로 써넣는다**(`{PYTHON}` 자리 등, 또는 블록 첫 줄에 `OWNER="..."; ...`로 재선언). 이전 호출의 변수가 살아 있다고 가정하지 않는다.
 
 ```bash
