@@ -1,7 +1,23 @@
 # Changelog
 
-**Current version:** 4.63.1  
-**Last updated:** 2026-10-18T16:05:23Z  
+**Current version:** 4.64.0  
+**Last updated:** 2026-10-20T12:38:04Z  
+
+---
+
+## [4.64.0] - 2026-10-20
+
+**PR:** #957  
+
+**새 기능**
+- pro-launch 기기를 조건으로 빌리고 반납하는 `device acquire` · `device release` · `device shutdown` 추가 — 켜져 있는 빈 기기를 먼저 쓰고, 이 빌림이 켠 기기는 반납할 때 끈다
+- 기기 소유가 세션과 agent 프로세스에 묶여, 세션이 죽으면 바로 풀리고 살아 있어도 30분 안 쓰면 풀린다
+- 다른 세션이 쓰는 기기를 누르거나 설치하는 등 바꾸는 조작은 거부하고, 화면 캡처·구조 읽기는 경고만 붙인다
+- Claude Code 세션이 끝나면 그 세션이 빌린 기기를 자동으로 반납한다
+- 사람이 직접 띄운 기기(기록 없음)는 가져가지 않고, 메모리가 위험 수준이면 새 기기를 켜기 전에 사용자에게 묻는다
+
+**문서**
+- pro-launch · pro-agent-test · pro-design-brief · pro-figma 흐름을 "빌리기로 시작, 반납으로 끝"으로 정리
 
 ---
 
