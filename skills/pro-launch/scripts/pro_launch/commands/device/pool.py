@@ -9,7 +9,7 @@ import hashlib
 import time
 
 from pro_launch.commands.device.claims import refuse_other_session_owner, resolve_device, run_restore_commands
-from pro_launch.runtime import device_backends, device_claims, device_ledger, host_resources
+from pro_launch.runtime import android_device, device_backends, device_claims, device_ledger, host_resources
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.device_boot import resolve_window
 from pro_launch.runtime.device_pool import AcquireRequest, Candidate, PoolContext, decide
@@ -84,17 +84,17 @@ def _take(decision, candidates: list[Candidate], request: AcquireRequest, args) 
     unrestored = (_restore_dead_session_settings(candidate.facts.key, decision.reclaimed_from)
                   if decision.reclaimed_from else [])
     instance, is_booted_now = candidate.facts.instance, False
-    if decision.needs_boot:
+    if decision.is_boot_needed:
         window, scale = resolve_window(getattr(args, "window", None), getattr(args, "scale", None))
         booted = backend.boot(candidate.facts.key, window, scale)
         if not booted["is_ok"]:
             return out({"ok": False, "code": "boot_failed", "verdict": decision.verdict, "device": candidate.facts.key,
                         "error": booted.get("detail"), "reasons": list(decision.reasons),
-                        **host_resources_fields(),
+                        **android_device.host_pressure_fields(),
                         "next": "device list 로 상태를 본다. 메모리 압박이면 다른 기기를 끄기 전에 사용자에게 묻는다"}), None
         instance, is_booted_now = booted["instance"], not booted.get("already_booted")
     claimed = device_claims.claim_device(instance or candidate.facts.key, str(project_root(args)),
-                                         purpose=request.purpose, booted_by_lease=is_booted_now,
+                                         purpose=request.purpose, is_booted_by_lease=is_booted_now,
                                          backend=backend.name, is_free_required=request.device is None)
     if claimed is None:
         return None, None
@@ -102,10 +102,6 @@ def _take(decision, candidates: list[Candidate], request: AcquireRequest, args) 
         device_claims.set_pool_booted(instance or candidate.facts.key, True)
     return None, {"candidate": candidate, "instance": instance, "booted": is_booted_now, "lease": claimed["lease"],
                   "unrestored_settings": unrestored}
-
-
-def host_resources_fields() -> dict:
-    return {"resources": host_resources.memory_summary()}
 
 
 def _decide_with_wait(request: AcquireRequest, wait_seconds: float):
@@ -163,7 +159,7 @@ def run_acquire(args) -> int:
                         "next": _identity_next("device acquire 를 --wait 90 으로 다시 부르거나 다른 일을 먼저 한다")})
         if decision.verdict == "ask":
             return out({"ok": False, "code": "needs_user", **base, "owners": list(decision.busy_owners),
-                        **host_resources_fields(), "next": "reasons 를 사용자에게 그대로 보여 주고 어떻게 할지 묻는다"})
+                        **android_device.host_pressure_fields(), "next": "reasons 를 사용자에게 그대로 보여 주고 어떻게 할지 묻는다"})
         return out({"ok": False, "code": "no_matching_device", **base,
                     "next": "devices 로 목록을 확인하고 조건(--form · --os · --device)을 넓힌다"})
     return out({"ok": False, "code": "device_busy", "verdict": "wait", "reasons": ["고른 기기를 다른 세션이 연달아 먼저 쥐었다"],
@@ -178,7 +174,7 @@ def _release_one(dev_id: str, lease_id: str | None, is_keep_booted: bool) -> dic
     restored = [run_restore_commands(setting) for setting in released["settings"]]
     lease, key = released["lease"], released["owner"]["key"]
     entry = device_ledger.read_ledger()["devices"].get(key) or {}
-    is_pool_booted = bool(lease.get("booted_by_lease") or entry.get("pool_booted_at"))
+    is_pool_booted = bool(lease.get("is_booted_by_lease") or entry.get("pool_booted_at"))
     reason = ("keep_booted" if is_keep_booted else "another_lease" if released["remaining_live_leases"]
               else "not_booted_by_lease" if not is_pool_booted or not lease.get("backend") else None)
     is_shut = False

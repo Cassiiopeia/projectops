@@ -30,6 +30,8 @@ export const PLUGIN_ITEMS_TO_REMOVE = [
   "package.json",
   "harness",
   "plugins",
+  // Claude Code 플러그인 훅 (#953) — 사용자 레포의 hooks/ 와 섞이지 않게
+  "hooks",
   "bin",
   "src",
   "site",

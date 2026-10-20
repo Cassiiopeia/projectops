@@ -30,9 +30,9 @@ def ios(**kwargs):
 def test_reuse_prefers_booted_then_recent():
     decision = decide(ios(), [cand("A", last_used=50), cand("B", booted=True, pool_booted=True, last_used=10),
                               cand("C", last_used=90)])
-    assert (decision.verdict, decision.device_key, decision.needs_boot) == ("reuse", "B", False)
+    assert (decision.verdict, decision.device_key, decision.is_boot_needed) == ("reuse", "B", False)
     shut_only = decide(ios(), [cand("A", last_used=50), cand("C", last_used=90)])
-    assert (shut_only.device_key, shut_only.needs_boot) == ("C", True)
+    assert (shut_only.device_key, shut_only.is_boot_needed) == ("C", True)
 
 
 def test_booted_unleased_unrecorded_device_is_not_a_candidate():

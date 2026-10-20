@@ -20,7 +20,7 @@ class Capabilities:
     can_shutdown: bool = False
     can_create: bool = False
     can_clone: bool = False
-    clone_preserves_marks: bool = False
+    can_clone_keep_marks: bool = False
     can_readonly_instance: bool = False
     is_physical: bool = False
 

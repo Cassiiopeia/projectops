@@ -41,7 +41,8 @@ QA 판단은 이 스킬(`{SCRIPTS}/e2e_cli.py`), **실행·캡처는 pro-launch*
 | 서버 시나리오를 끝까지 밟기 | `e2e_cli.py api --name` | `references/target-server.md` |
 | 앱·웹·서버가 아닌 것(CI·CLI·라이브러리) 돌리고 산출물 보기 | `e2e_cli.py other run` | `references/target-other.md` |
 | 산출물 자리 + `env.sh` | `launch_cli.py get-output-path --skill agent-test` | 아래 |
-| 기기 고르기 · 역할 묶기(참가자 둘 이상) | `launch_cli.py devices` · `device list\|bind` | `references/devices.md` |
+| 기기 빌리기 · 반납 (모든 앱 실행의 처음과 끝) | `launch_cli.py device acquire --platform ios\|android --purpose "#이슈"` · `device release --device "$DEV"` | pro-launch 의 app 문서 |
+| 역할 묶기(참가자 둘 이상) | `launch_cli.py device list\|bind` | `references/devices.md` |
 | 앱 띄우기 · 화면 구조 · 누르기 · 밀기 · 찍기 | `launch_cli.py app launch\|tree\|tap\|swipe\|shot` | `references/stepping.md` · `references/target-app.md` |
 | 브라우저 · 빈 목록/500/지연 연출 | `launch_cli.py web …` · `web route` | `references/target-web.md` |
 | 서버 DB · 로그 대조 | `launch_cli.py access` · `db` · `logs` | `references/target-server.md` |
@@ -103,7 +104,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py get-output-path --skill a
 를 받는다. 앱·웹·서버가 아니면 `other`. `target_source` 가 `version.yml` 이고 **`confirm`** 이 붙으면 선언일 뿐이다 —
 서버가 화면을 직접 뿌리는지(템플릿 폴더 · 뷰 반환 컨트롤러) 코드를 보고 판단해 `note target --targets server,web --why "…"` 로 적는다.
 타겟이 정해지면 **그 문서 하나만** 읽는다: `references/target-app.md` · `references/target-web.md` · `references/target-server.md` · `references/target-other.md`.
-앱이면 `device list` 로 기기를 확정한다 — `build_mismatch` 면 거기서 멈춘다(`references/devices.md`).
+앱이면 `device acquire --platform <ios|android> --purpose "#이슈"` 로 기기를 빌리고(새 시뮬레이터·AVD 를 만들지 않는다),
+`device list` 로 빌드를 확인한다 — `build_mismatch` 면 거기서 멈춘다(`references/devices.md`). 끝나면 `device release`.
 
 **Phase 0.5 — 구조를 읽는다.** 화면·라우트·엔드포인트·인증·자원 소유는 **네가 Grep·Read 로** 읽고 `note screen` · `access set` 에 남긴다.
 

@@ -27,7 +27,8 @@ description: "Capability skill that launches and drives apps, web and servers: e
 |---|---|---|
 | 도구(adb · simctl · Chromium · Pillow · cwebp · ffmpeg) · 무엇을 띄울 수 있나(app · web · server, 패키지명 · 번들 ID) · 붙은 기기 · 부팅된 시뮬레이터 · AVD | `doctor` · `detect --path .` · `devices` | — |
 | 호스트 메모리 압박(ok·high·critical) · 큰 프로세스 · 켜진 기기를 묶은 레포 — **가상 기기를 더 띄우기 전에** | `doctor --resources` | 아래 공통 규칙 |
-| 참가자가 둘 이상 — 역할을 기기에 묶기 · 남이 쓰는 기기 표시 | `device list\|bind\|unbind\|show\|claim\|release` | `references/app.md` |
+| **기기 빌리기 · 반납 — 모든 앱 작업의 시작과 끝** (조건으로 빈 기기를 받고, 끝나면 켠 것을 끈다) | `device acquire --platform ios\|android [--form tablet] [--purpose "#이슈"] [--wait 90]` · `device release --device $DEV` · `device shutdown` | `references/app.md` |
+| 역할을 기기에 묶기(참가자가 둘 이상) · 소유자 보기 · 특정 기기 쥐기 | `device list\|bind\|unbind\|show\|claim` | `references/app.md` |
 | 에뮬레이터·시뮬레이터 띄우기(기본 창 없음, 창이 필요하면 작게) · 재부팅 · 언어 · 다크 모드 — **raw simctl/emulator 대신** | `device boot\|reboot [--cold]\|locale\|appearance\|text-size` · `app install --path` | `references/app.md` |
 | 앱 띄우기 · 찍기 | `app launch` · `app shot [--clean-status]` | `references/app.md` |
 | 앱 화면 구조 · 누르기 · 밀기 | `app tree` · `app tap` · `app swipe` | `references/app.md` |
@@ -102,7 +103,13 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
 
 ## 공통 규칙
 
-- **기기는 `--device` 로 고른다.** 없으면 `$DEV` → 붙은 기기가 한 대뿐이면 그것. 여러 대인데 안 고르면 `no_device` 로 멈춘다.
+- **기기는 이름을 골라 쓰지 않고 빌린다 (#953).** 앱 작업의 처음은 `device acquire --platform <ios|android> --purpose "#이슈"`,
+  받은 `device` 를 `$DEV` 로 쓰고, 끝은 **반드시** `device release --device "$DEV"` (이 빌림이 켠 기기면 끈다).
+  여러 세션이 한 컴퓨터의 기기를 나눠 쓴다 — 새 시뮬레이터·AVD 를 `simctl create`·`avdmanager` 로 만들지 않는다.
+  `verdict` 별 행동: `reuse`·`reclaim` 진행 · `wait`(`device_busy`) 는 `--wait 90` 으로 다시 부르거나 다른 일을 먼저 ·
+  `ask`(`needs_user`) 는 `reasons` 를 그대로 사용자에게 보여 주고 묻는다 · `no_match` 는 `devices` 로 보고 조건을 넓힌다.
+  켜져 있지만 원장 기록이 없는 기기(사람이 쓰는 것일 수 있다)는 받지 않는다 — 꼭 그 기기여야 하면 사용자에게 묻고 `--device`.
+- **조작 명령의 기기는 `--device` 로 준다.** 없으면 `$DEV` → 붙은 기기가 한 대뿐이면 그것. 여러 대인데 안 고르면 `no_device` 로 멈춘다.
 - **JSON 하나를 돌려준다.** `ok` 로 성패, `code` 로 갈래(문구가 아니라 code 로 판단), `next` 를 다음 명령 후보로 읽는다.
   요소를 못 찾으면 `candidates`(화면에 실제로 있는 값)와 `locale` 이 온다 — **추측을 반복하지 말고 거기서 고른다.**
 - **실패 응답에 `known_fix` 가 오면 그 해결부터 시도한다** — 검증된 공식 지식의 요약(최대 2건)이다. 전체 증상·원인은
@@ -114,7 +121,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
 - **`bad_args` 면 `unknown`·`did_you_mean`·`valid_options`·`example` 을 읽고 고친다** — 짐작으로 다시 부르지 않는다.
   `empty_values` 가 오면 그 옵션 값이 비었다(`$VAR` 미설정).
 - **`pressure: critical`(doctor --resources · devices 의 `resources`)이면 가상 기기를 새로 띄우기 전에 사용자에게 묻는다.**
-  다른 세션의 에뮬레이터·시뮬레이터·프로세스는 끄지 않는다 — `bound_by` 로 누가 쓰는지 보고만 한다.
+  다른 세션의 에뮬레이터·시뮬레이터·프로세스는 끄지 않는다 — `owners` 로 누가 쓰는지 보고만 한다. `acquire` 는 이 경우 새로 켜지 않고 `ask` 를 낸다.
 - 캡처는 기본 긴 변 1200px WebP. 픽셀 대조처럼 원본이 필요할 때만 `--keep-format`. **찍은 것은 Read 로 열어 본다.**
   텍스트로 확인되면(`web assert` · `app tree` · 로그) 이미지를 읽지 않는다 — 가장 비싼 것이 이미지다.
 - **호스트 마우스로 좌표를 누르지 않는다**(`cliclick` · AppleScript · CGEvent) — 사용자 커서를 빼앗는다. 앱은 `app tap`, 웹은 `web find` → `web click --ref`.
@@ -168,7 +175,9 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app openurl    --device 
 | `not_foreground` · `app_exited` | launch·relaunch 는 보냈지만 앱이 앞에 없다 / 곧바로 죽었다. `blocking_activity`·`crash_report`·`exception_line` 을 읽는다. 남의 기기면 먼저 묻는다 |
 | `device_unresponsive` | 기기가 응답하지 않는다(호스트 메모리 포함 `resources`). `device reboot --cold` 를 사용자에게 묻고 한다 |
 | `typed_text_mismatch` | 입력칸 글자가 넣은 값과 다르다(조합형 키보드). `app type --ime ascii` |
-| `device_owned_by_other`(필드) | 다른 세션이 쓰는 기기다. 조작 전에 확인한다 |
+| `device_owned_by_other` | 다른 세션이 빌린 기기다. 바꾸는 조작(tap·type·install 등)은 거부되고, 읽기(shot·tree·wait)는 경고 필드만 붙는다. `device acquire` 로 다른 기기를 받거나, 꼭 그 기기여야 하면 사용자에게 묻고 `--yes` |
+| `device_busy` · `needs_user` · `no_matching_device` | `device acquire` 의 wait · ask · no_match — 위 공통 규칙의 verdict 별 행동 |
+| `ledger_busy` | 기기 원장 잠금을 10초 안에 못 얻었다. 잠시 뒤 다시 부른다 |
 | `no_focused_window` | 초점 창이 없다(화면 꺼짐·잠금·전환 중). 깨우고 세 번까지 다시 읽은 뒤다. `app shot` 으로 화면을 본다 |
 | `android_system_not_ready` · `ui_automation_unavailable` · `ui_dump_timeout` | 기기 쪽 문제다(시스템 재시작 중 · UiAutomation 연결 실패 · 시간 초과). `app shot` 으로 보고, 계속이면 사용자에게 에뮬레이터 cold boot 를 묻는다 |
 | `session_start_failed` · `session_tools_missing` | 세션 없이 그대로 쓴다(호출마다 Maestro). `reason` 을 본다 |

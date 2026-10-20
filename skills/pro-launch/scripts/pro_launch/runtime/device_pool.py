@@ -52,7 +52,7 @@ class Decision:
     verdict: str
     device_key: str | None = None
     reasons: tuple[str, ...] = ()
-    needs_boot: bool = False
+    is_boot_needed: bool = False
     reclaimed_from: dict | None = None
     busy_owners: tuple[dict, ...] = field(default_factory=tuple)
 
@@ -130,15 +130,15 @@ def _choose_free(request: AcquireRequest, candidates: list[Candidate], working: 
     if not free:
         return None
     chosen = sorted(free, key=lambda c: (c.facts.is_booted, c.last_used or 0), reverse=True)[0]
-    needs_boot = not chosen.facts.is_booted
-    reasons = [*working.reasons, f"{chosen.facts.name}: 비어 있다" + (" (꺼져 있어 켠다)" if needs_boot else " (켜져 있다)")]
-    if needs_boot and context.pressure == "critical":
+    is_boot_needed = not chosen.facts.is_booted
+    reasons = [*working.reasons, f"{chosen.facts.name}: 비어 있다" + (" (꺼져 있어 켠다)" if is_boot_needed else " (켜져 있다)")]
+    if is_boot_needed and context.pressure == "critical":
         return Decision("ask", reasons=tuple(reasons + ["호스트 메모리가 위험 수준이라 새로 켜기 전에 사용자 확인이 필요하다"]))
     if chosen.dead_other_leases:
         dead = max(chosen.dead_other_leases, key=lambda lease: lease.get("last_used") or 0)
         reasons.append(f"{chosen.facts.name}: {_owner_phrase(dead)} 의 소유는 끝났다(호스트 종료 또는 유휴) — 넘겨받는다")
-        return Decision("reclaim", chosen.facts.key, tuple(reasons), needs_boot, reclaimed_from=dead)
-    return Decision("reuse", chosen.facts.key, tuple(reasons), needs_boot)
+        return Decision("reclaim", chosen.facts.key, tuple(reasons), is_boot_needed, reclaimed_from=dead)
+    return Decision("reuse", chosen.facts.key, tuple(reasons), is_boot_needed)
 
 
 def _wait_or_ask(request: AcquireRequest, candidates: list[Candidate], working: _Working,

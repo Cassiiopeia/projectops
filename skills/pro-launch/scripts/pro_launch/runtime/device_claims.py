@@ -102,7 +102,7 @@ def lease_view(key: str, lease: dict, entry: dict, now: float, probe: _HostProbe
             "last_used": lease.get("last_used"),
             "idle_seconds": round(now - float(lease.get("last_used") or now)),
             "is_live": is_lease_live(lease, now, probe), "host_alive": probe.is_alive(lease.get("host")),
-            "booted_by_lease": bool(lease.get("booted_by_lease")),
+            "is_booted_by_lease": bool(lease.get("is_booted_by_lease")),
             "is_auto_claimed": bool(lease.get("is_auto_claimed")),
             "changed_settings": [s.get("key") for s in entry.get("settings") or []
                                  if s.get("session") == lease.get("session")]}
@@ -163,16 +163,16 @@ def owner_warning_fields(dev_id: str | None) -> dict:
     return {"device_owned_by_other": warning} if warning else {}
 
 
-def _new_lease(instance: str, project_root: str | None, purpose: str | None, booted_by_lease: bool,
+def _new_lease(instance: str, project_root: str | None, purpose: str | None, is_booted_by_lease: bool,
                is_auto_claimed: bool, backend: str | None, now: float) -> dict:
     return {"lease_id": uuid.uuid4().hex[:12], "session": session_identity(), "host": current_host(),
             "project_root": project_root, "purpose": purpose, "instance": instance, "backend": backend,
-            "acquired_at": now, "last_used": now, "booted_by_lease": booted_by_lease,
+            "acquired_at": now, "last_used": now, "is_booted_by_lease": is_booted_by_lease,
             "is_auto_claimed": is_auto_claimed}
 
 
 def claim_device(dev_id: str, project_root: str | None, is_auto_claimed: bool = False,
-                 purpose: str | None = None, booted_by_lease: bool = False, backend: str | None = None,
+                 purpose: str | None = None, is_booted_by_lease: bool = False, backend: str | None = None,
                  is_free_required: bool = False) -> dict | None:
     """이 세션이 쥔다 > {owner, previous_owner, lease}. 같은 실행 인스턴스의 남의 lease 는 넘겨받는다.
 
@@ -199,14 +199,14 @@ def claim_device(dev_id: str, project_root: str | None, is_auto_claimed: bool = 
                 if setting.get("session") == lease.get("session"):
                     setting["session"] = session_identity()
         if own is None:
-            own = _new_lease(dev_id, project_root, purpose, booted_by_lease, is_auto_claimed, backend, now)
+            own = _new_lease(dev_id, project_root, purpose, is_booted_by_lease, is_auto_claimed, backend, now)
             entry["leases"].append(own)
         else:
             own["last_used"] = now
             own["backend"] = backend or own.get("backend")
             own["project_root"] = project_root or own.get("project_root")
             own["purpose"] = purpose or own.get("purpose")
-            own["booted_by_lease"] = bool(own.get("booted_by_lease") or booted_by_lease)
+            own["is_booted_by_lease"] = bool(own.get("is_booted_by_lease") or is_booted_by_lease)
             # 명시 claim 이 한 번이라도 있으면 자동 소유가 아니다
             own["is_auto_claimed"] = bool(own.get("is_auto_claimed")) and is_auto_claimed
         return {"owner": lease_view(key, own, entry, now, probe), "previous_owner": previous_view, "lease": dict(own)}

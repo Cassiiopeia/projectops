@@ -1,14 +1,7 @@
-"""기기 원장 파일: 읽기(schema 1 받아들임) · 잠금 > 읽기 > 고치기 > 저장 (#925 · #953).
+"""기기 원장 파일 `{base}/launch/_machine/device-claims.json`: 읽기(schema 1 받아들임) · 잠금 > 읽기 > 고치기 > 저장 (#953).
 
-파일: {base}/launch/_machine/device-claims.json
-    {"schema": 2,
-     "devices": {기기 키: {"leases": [lease...], "settings": [{key, before, restore_commands, changed_at, session}],
-                           "pool_booted_at": acquire 가 켠 시각 (끄면 지운다)}},
-     "waits": {대기 키: {started_at, updated_at}}}
-기기 키: iOS UDID · Android AVD 이름 · 실기기 시리얼. 실행 중 id(Android 시리얼)는 lease 의 instance.
-
-잠금: 읽고-고치고-쓰는 사이에 다른 세션 기록이 사라지지 않게 `{파일}.lock` 을 쥔다 (macOS·Linux fcntl, Windows msvcrt).
-저장은 임시 파일 > 바꿔치기 (읽는 쪽이 반쯤 쓴 파일을 보지 않게).
+모양: {"schema": 2, "devices": {키: {leases, settings, pool_booted_at}}, "waits": {대기 키: {started_at, updated_at}}}
+키: iOS UDID · Android AVD 이름 · 실기기 시리얼 (Android 시리얼은 lease 의 instance). 저장은 임시 파일 > 바꿔치기.
 """
 from __future__ import annotations
 
@@ -55,7 +48,7 @@ def _from_schema1(claims: dict) -> dict:
         lease = {"lease_id": f"legacy-{key}", "session": claim.get("session"), "host": None,
                  "project_root": claim.get("project_root"), "purpose": None, "instance": key,
                  "acquired_at": claim.get("claimed_at"), "last_used": claim.get("last_used") or claim.get("claimed_at"),
-                 "booted_by_lease": False, "is_auto_claimed": bool(claim.get("is_auto_claimed"))}
+                 "is_booted_by_lease": False, "is_auto_claimed": bool(claim.get("is_auto_claimed"))}
         settings = [{**s, "session": claim.get("session")} for s in claim.get("settings") or [] if isinstance(s, dict)]
         devices[key] = {"leases": [lease], "settings": settings}
     return {**empty_ledger(), "devices": devices}

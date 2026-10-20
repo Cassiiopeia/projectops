@@ -74,7 +74,7 @@ def test_acquire_boots_shutdown_device_and_records_booted_by_lease(monkeypatch, 
     data = result_of(capsys)
     assert data["verdict"] == "reuse" and data["booted"] is True and data["lease_id"]
     assert ("boot", data["device"]) in backend.calls
-    assert device_claims.device_owner(data["device"])["booted_by_lease"] is True
+    assert device_claims.device_owner(data["device"])["is_booted_by_lease"] is True
 
 
 def test_second_session_gets_the_other_device(monkeypatch, tmp_path, capsys, backend):
@@ -123,7 +123,7 @@ def test_release_does_not_shutdown_when_another_lease_remains(monkeypatch, tmp_p
     # 같은 기기에 다른 세션 lease 가 하나 더 있다 (예: --yes 로 함께 쓰는 중)
     monkeypatch.setattr(device_claims, "release_device",
                         lambda dev_id, lease_id=None: {"owner": {"key": device}, "settings": [],
-                                                       "lease": {"booted_by_lease": True, "backend": "fake_ios",
+                                                       "lease": {"is_booted_by_lease": True, "backend": "fake_ios",
                                                                  "instance": device},
                                                        "remaining_live_leases": 1})
     pool.run_release(args(tmp_path, device=device))

@@ -123,7 +123,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py conform --dump {덤프} -
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py render snapshot --root {레포}
 PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py render run --root {레포} --cmd "{렌더 명령}" --collect "{렌더 결과 글롭}" --cleanup {임시 폴더}
-PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV" --keep-format --out render   # 또는 기기에서 그대로
+PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV" --keep-format --out render   # 또는 기기에서 그대로 (기기는 device acquire 로 빌리고 끝나면 release)
 PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py web shot --keep-format --out render
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py diff --render {앱 렌더.png} --design {시안 export.png} --out {차이.png} \
   --mask-top {상태바 높이} --mask-bottom {홈 인디케이터 높이}

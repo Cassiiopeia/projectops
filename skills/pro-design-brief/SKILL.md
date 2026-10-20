@@ -104,6 +104,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py config set --root 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py get-output-path --skill design-brief --title "{화면 이름}"
 source "{env_file 값}"          # $SHOT_DIR · $RUN_DIR · $DEV
+PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py device acquire --platform ios --purpose "디자인 요청 {화면}"   # 앱이면 빌린다 · 끝나면 device release
 PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV" --out 01_현재 --clean-status
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py ascii --spec '{"title":"…","rows":["…","---"],"width":24}'
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py copy-lint --file {보드 데이터.json} --banned "아이,기기,서버"

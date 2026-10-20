@@ -236,13 +236,16 @@ raw `xcrun simctl` · `adb shell am|pm` 대신 쓴다. 패키지는 `--pkg` → 
 
 ---
 
-## 기기 띄우기 · 소유 · 언어·외관 (#923 · #924 · #925 · #929)
+## 기기 빌리기 · 띄우기 · 소유 · 언어·외관 (#923 · #924 · #925 · #929 · #953)
 
 ```bash
 {PYTHON} {SCRIPTS}/launch_cli.py device boot    --device "{UDID|이름|AVD}" [--window headless|small|normal] [--scale 0.4] [--cold]
 {PYTHON} {SCRIPTS}/launch_cli.py device reboot  --device "$DEV" [--cold] [--yes]   # 소프트 · cold(emu kill > 강제 종료 > -no-snapshot-load)
-{PYTHON} {SCRIPTS}/launch_cli.py device claim   --device "$DEV"                    # 이 세션이 쥔다 (30분 안 쓰면 풀림)
-{PYTHON} {SCRIPTS}/launch_cli.py device release --device "$DEV"                    # 놓으면서 바꾼 언어·외관을 되돌린다
+{PYTHON} {SCRIPTS}/launch_cli.py device acquire --platform ios --purpose "#953 로그인" [--form tablet] [--os ">=17"] [--wait 90]
+{PYTHON} {SCRIPTS}/launch_cli.py device release --device "$DEV" [--keep-booted]    # 바꾼 언어·외관 되돌림 > 이 빌림이 켰으면 끈다
+{PYTHON} {SCRIPTS}/launch_cli.py device release --all                              # 이 세션의 모든 lease (세션 종료 훅도 이것)
+{PYTHON} {SCRIPTS}/launch_cli.py device shutdown --device "$DEV" [--yes]            # 끈다 (남이 빌린 기기는 --yes 없이 거부)
+{PYTHON} {SCRIPTS}/launch_cli.py device claim   --device "$DEV"                    # 특정 기기를 이 세션이 쥔다
 {PYTHON} {SCRIPTS}/launch_cli.py device locale  --device "$DEV" --lang en --region US [--app "$PKG"]   # --restore 로 원복
 {PYTHON} {SCRIPTS}/launch_cli.py device appearance dark --device "$DEV"            # light|dark, --restore 로 원복
 {PYTHON} {SCRIPTS}/launch_cli.py device text-size largest --device "$DEV"           # default|large|largest (또는 1.3), --restore 로 원복 (큰 글씨 QA)
@@ -253,8 +256,14 @@ raw `xcrun simctl` · `adb shell am|pm` 대신 쓴다. 패키지는 `--pkg` → 
   Simulator.app 이 이미 떠 있으면(다른 세션 것일 수 있다) 끄지 않고 `window_scale_pending: true` + `window_hint` 만 낸다. 이미 켜져 있는 기기는 바꾸지 않는다(`already_booted`).
 - **앞에 나왔나 (#923).** `app launch|relaunch` 는 띄운 뒤 확인한다. Android 는 초점 창·재개된 액티비티가 대상 패키지인지 최대 ~5초 본다 — 아니면 `not_foreground`(`foreground_package` · `blocking_activity`).
   iOS 는 ~2.5초 뒤 `launchctl list` 에 `UIKitApplication:<번들>` 이 있는지 본다 — 없으면 `app_exited` + 가장 새 크래시 리포트(`crash_report.path` · `exception_line`). 확인을 못 하면(`dumpsys` 시간 초과) 성공을 뒤집지 않는다.
-- **소유 (#925).** 다른 살아 있는 세션이 쥔 기기에서 launch·relaunch·install 하면 응답에 `device_owned_by_other` 경고가 붙는다. `device reboot`·시스템 `locale`·`appearance`·`claim`·`release` 는 `--yes` 없이 멈춘다 — **사용자에게 먼저 묻는다.**
-  세션은 `LAUNCH_SESSION` > `CLAUDE_CODE_SESSION_ID` 로 가른다. `device list`·`devices` 의 `owners` 에서 소유자를 본다.
+- **빌리기 · 반납 (#953).** `acquire` 는 조건(플랫폼 · 폼팩터 · OS)에 맞는 빈 기기를 고른다: 켜져 있는 것 > 최근 쓴 것, 꺼져 있으면 켠다.
+  켜져 있지만 원장 기록이 없는 기기는 사람이 쓰는 것일 수 있어 고르지 않는다. 같은 세션이 다시 부르면 **다른** 기기를 준다(병렬 하위 agent).
+  남이 다 쓰는 중이면 `wait`, 합친 대기가 10분(`launch.devices.wait_limit_minutes`)을 넘거나 메모리 `critical` 에서 새로 켜야 하면 `ask`.
+  `--wait` 한 번은 최대 90초 — 도구 명령 시간 상한 안이다. Claude Code 는 세션이 끝나면 훅이 `release --all` 을 부른다.
+- **소유 (#925 · #953).** 소유 주인은 lease = (세션, agent 호스트 pid). 호스트가 죽으면 즉시, 살아 있어도 30분(`launch.devices.lease_idle_minutes`) 안 쓰면 풀린다.
+  다른 살아 있는 세션의 기기에서 **바꾸는 조작**(install · launch · tap · type · swipe · run · flow · permission · push · locale · appearance 등)은 `device_owned_by_other` 로 거부된다 — 사용자에게 묻고 `--yes`.
+  읽기(shot · tree · wait)는 경고 필드만 붙는다. `device reboot`·`release`·`shutdown`·`claim` 도 `--yes` 없이 멈춘다.
+  세션은 `LAUNCH_SESSION` > `CLAUDE_CODE_SESSION_ID`, 둘 다 없으면 호스트 pid 로 가른다(`owner_identity: weak` 면 `LAUNCH_SESSION` 을 정한다). `device list`·`devices` 의 `owners` 에서 소유자를 본다.
 - **언어 한계.** iOS 시스템 언어는 `defaults write -g AppleLanguages/AppleLocale` 후 재부팅(그 시뮬레이터의 앱 상태가 사라진다). `--app` 은 앱 도메인만 바꾸고 재시작이면 된다.
   Android 는 API 33+ 만: 앱별은 `cmd locale set-app-locales`(Google Maps 같은 라벨이 앱 언어를 따를 때), 시스템은 `cmd locale set-device-locale` 이 있는 이미지에서만 된다.
 
