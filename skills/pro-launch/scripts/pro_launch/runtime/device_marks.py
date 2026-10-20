@@ -47,8 +47,12 @@ def mark_views(entry: dict, now: float | None = None) -> list[dict]:
     """응답용 mark 목록 (is_stale 포함)."""
     current = now or time.time()
     limit = mark_stale_seconds()
-    return [{**mark, "label": mark_label(mark),
-             "is_stale": current - float(mark.get("verified_at") or mark.get("recorded_at") or 0) > limit}
+    def last_verified(mark: dict) -> float:
+        # verified_at 0 은 "확인 전"(복제본) — recorded_at 로 대신하지 않는다
+        value = mark.get("verified_at")
+        return float(value if value is not None else mark.get("recorded_at") or 0)
+
+    return [{**mark, "label": mark_label(mark), "is_stale": current - last_verified(mark) > limit}
             for mark in entry.get("marks") or []]
 
 
@@ -127,6 +131,20 @@ def record_created(key: str, reason: str, ttl_days: float, backend: str) -> dict
         entry = _entry(ledger, key)
         entry.update({"origin": ORIGIN_RECORDED, "temporary": temporary, "is_pristine": True})
         return temporary
+
+    return device_ledger.update_ledger(mutate)
+
+
+def copy_marks_as_unverified(source_key: str, target_key: str) -> list[dict]:
+    """복제본에 원본 mark 를 옮긴다 — 확인 시각을 0 으로 두어 stale (복제본에서 로그인이 살아 있는지 확인 전)."""
+    def mutate(ledger: dict) -> list[dict]:
+        source = ledger["devices"].get(source_key) or {}
+        copied = [{**mark, "verified_at": 0, "note": f"{mark.get('note') or ''} (복제본 — 확인 전)".strip(),
+                   "recorded_by_session": session_identity()} for mark in source.get("marks") or []]
+        target = _entry(ledger, target_key)
+        target["marks"] = copied
+        target.pop("is_pristine", None)
+        return copied
 
     return device_ledger.update_ledger(mutate)
 

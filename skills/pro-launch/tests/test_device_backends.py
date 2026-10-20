@@ -62,11 +62,13 @@ def test_backend_registry_covers_ios_android_physical():
     assert all(backend.platform in ("ios", "android") for backend in device_backends.BACKENDS)
 
 
-def test_capabilities_virtual_create_but_no_clone_yet():
+def test_capabilities_follow_experiment_results():
+    # 실측 (#955): iOS 복제는 데이터·키체인 유지 · Android 읽기전용 동시 실행은 실험 보류
+    ios = device_backends.backend_named("ios_simulator").capabilities
+    assert ios.can_create and ios.can_clone and ios.can_clone_keep_marks
     for backend in device_backends.BACKENDS:
-        capabilities = backend.capabilities
-        assert not (capabilities.can_clone or capabilities.can_readonly_instance)
-    assert device_backends.backend_named("ios_simulator").capabilities.can_create
+        assert not backend.capabilities.can_readonly_instance
+    assert not device_backends.backend_named("android_emulator").capabilities.can_clone
     assert device_backends.backend_named("android_emulator").capabilities.can_create
     physical = device_backends.backend_named("physical_android").capabilities
     assert physical.is_physical and not (physical.can_boot or physical.can_create)
@@ -158,3 +160,25 @@ def test_android_create_falls_back_to_next_template(monkeypatch):
     created = backend.create("pro-launch x", "phone", None)
     assert created["is_ok"] and created["system_image"].endswith("android-34;google_apis;arm64-v8a")
     assert len(tried) == 2
+
+
+def test_emulator_without_acceleration_is_reported_from_log(tmp_path):
+    from pro_launch.runtime import device_boot
+    log = tmp_path / "emulator.log"
+    log.write_text("WARNING | hvf is not enabled on this aarch64 host.\n", encoding="utf-8")
+    assert "HVF" in device_boot.emulator_start_problem(log)
+    log.write_text("INFO | boot completed\n", encoding="utf-8")
+    assert device_boot.emulator_start_problem(log) is None
+    assert device_boot.emulator_start_problem(tmp_path / "missing.log") is None
+
+
+def test_wait_for_emulator_stops_early_on_problem(monkeypatch, tmp_path):
+    from pro_launch.runtime import device_boot
+    log = tmp_path / "emulator.log"
+    log.write_text("qemu-system-aarch64-headless: qemu_mprotect__osdep: mprotect failed: Permission denied\n",
+                   encoding="utf-8")
+    monkeypatch.setattr(device_boot, "sdk_tool", lambda name: "/x/adb")
+    monkeypatch.setattr(device_boot, "_run", lambda command, timeout: (True, "List of devices attached\nemulator-5570\toffline\n"))
+    monkeypatch.setattr(device_boot.time, "sleep", lambda seconds: (_ for _ in ()).throw(AssertionError("기다리면 안 된다")))
+    result = device_boot.wait_for_emulator("emulator-5570", log, timeout_seconds=60)
+    assert result["is_ok"] is False and result["problem"]

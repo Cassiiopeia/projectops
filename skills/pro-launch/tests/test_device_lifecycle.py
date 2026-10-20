@@ -21,7 +21,8 @@ from pro_launch.runtime.device_backends.base import Capabilities, DeviceFacts  #
 class CreatingBackend:
     name = "fake_ios"
     platform = "ios"
-    capabilities = Capabilities(can_boot=True, can_shutdown=True, can_create=True)
+    capabilities = Capabilities(can_boot=True, can_shutdown=True, can_create=True, can_clone=True,
+                                can_clone_keep_marks=True)
 
     def __init__(self):
         self.keys, self.booted, self.calls = ["A"], set(), []
@@ -47,6 +48,12 @@ class CreatingBackend:
         self.calls.append(("create", name))
         return {"is_ok": True, "key": key, "detail": None}
 
+    def clone(self, key, name):
+        new_key = f"CLONE{len(self.keys)}"
+        self.keys.append(new_key)
+        self.calls.append(("clone", key))
+        return {"is_ok": True, "key": new_key, "detail": None}
+
     def erase(self, key):
         self.calls.append(("erase", key))
         return {"is_ok": True, "detail": None}
@@ -65,9 +72,8 @@ def backend(monkeypatch):
     fake = CreatingBackend()
     monkeypatch.setattr(device_backends, "BACKENDS", (fake,))
     monkeypatch.setattr(device_pool_facts.host_resources, "memory_summary", lambda: {"pressure": "ok"})
-    monkeypatch.setattr(lifecycle.host_resources, "memory_summary", lambda: {"pressure": "ok"})
     monkeypatch.setattr(device_pool_facts, "disk_status",
-                        lambda path=None: {"free_gb": 100.0, "free_ratio": 0.5, "minimum_gb": 20, "is_low": False})
+                        lambda path=None: {"free_gb": 100.0, "minimum_gb": 20, "is_low": False})
     monkeypatch.setattr(device_pool_facts, "max_booted_limit", lambda: (4, "default"))
     monkeypatch.setattr(device_claims, "current_host", lambda: None)
     monkeypatch.setattr(claims, "pick_device", lambda want: ("ios", want, {}))
@@ -127,7 +133,7 @@ def test_create_command_needs_reason_and_respects_low_disk(monkeypatch, tmp_path
     lifecycle.run_create(args(tmp_path))
     assert result_of(capsys)["code"] == "args_required"
     monkeypatch.setattr(device_pool_facts, "disk_status",
-                        lambda path=None: {"free_gb": 5.0, "free_ratio": 0.02, "minimum_gb": 20, "is_low": True})
+                        lambda path=None: {"free_gb": 5.0, "minimum_gb": 20, "is_low": True})
     lifecycle.run_create(args(tmp_path, reason="두 대 테스트"))
     assert result_of(capsys)["code"] == "resources_low"
     lifecycle.run_create(args(tmp_path, reason="두 대 테스트", yes=True, ttl_days=1))
@@ -173,3 +179,26 @@ def test_records_and_adopt(tmp_path, capsys, backend):
 def test_unknown_device_name_is_reported(tmp_path, capsys, backend):
     lifecycle.run_mark(args(tmp_path, device="nothing", kind="login", name="x"))
     assert result_of(capsys)["code"] == "no_device"
+
+
+def test_clone_copies_marks_as_unverified_and_records_temporary(tmp_path, capsys, backend):
+    device_marks.add_mark("A", "login", "kakao")
+    lifecycle.run_clone(args(tmp_path, device="A", reason="#955 두 대 로그인"))
+    data = result_of(capsys)
+    assert data["action"] == "clone" and data["marks"] == ["login:kakao"]
+    record = device_marks.record_views()[data["device"]]
+    assert record["marks"][0]["is_stale"] is True and record["temporary"]["reason"] == "#955 두 대 로그인"
+
+
+def test_clone_refuses_booted_source(tmp_path, capsys, backend):
+    backend.booted.add("A")
+    lifecycle.run_clone(args(tmp_path, device="A", reason="x"))
+    assert result_of(capsys)["code"] == "source_booted"
+
+
+def test_count_with_need_clones_the_only_marked_device_first(tmp_path, capsys, backend):
+    device_marks.add_mark("A", "login", "kakao")
+    acquire.run_acquire(args(tmp_path, count=2, need=["login:kakao"]))
+    data = result_of(capsys)
+    assert data["ok"] is True and len(data["clones"]) == 1 and ("clone", "A") in backend.calls
+    assert len(set(data["devices"])) == 2

@@ -1,6 +1,7 @@
 """`device acquire` — 조건으로 기기를 빌린다: 판정 > (죽은 세션 설정 되돌림) > (만들기) > (켜기) > 잠금 안에서 확인하고 lease (#953 · #954).
 
 --count N 은 같은 조건으로 서로 다른 기기 N 대 (같은 세션이 쥔 기기는 다음 판정에서 빠진다).
+--need 와 함께면 그 상태가 있는 꺼진 기기를 모자란 만큼 먼저 복제한다 (iOS — 복제본의 상태는 확인 전으로 표시).
 """
 from __future__ import annotations
 
@@ -151,6 +152,24 @@ def acquire_once(request: AcquireRequest, args) -> dict:
             "next": "잠시 뒤 다시 device acquire"}
 
 
+def _clone_for_count(request: AcquireRequest, count: int, args) -> list[dict]:
+    """--count N --need: 그 상태가 있는 빈 기기가 N 대보다 적으면, 꺼진 원본을 모자란 만큼 복제한다 > 복제 결과 목록.
+
+    원본이 켜져 있으면 복제할 수 없다(simctl 제약) — 그때는 복제하지 않고 acquire 가 wait 를 낸다.
+    """
+    from pro_launch.commands.device.lifecycle import clone_device
+    candidates = device_pool_facts.build_candidates(request.platform)
+    free = [c for c in candidates if all(need in c.marks for need in request.needs)
+            and not c.live_other_leases and not c.own_leases]
+    source = next((c for c in free if not c.facts.is_booted and c.capabilities.can_clone
+                   and c.capabilities.can_clone_keep_marks), None)
+    if source is None or len(free) >= count:
+        return []
+    backend = device_backends.backend_named(source.facts.backend)
+    reason = getattr(args, "reason", None) or f"acquire --count {count} --need {','.join(request.needs)}"
+    return [clone_device(source.facts, backend, None, reason, None) for _ in range(count - len(free))]
+
+
 def run_acquire(args) -> int:
     if args.platform not in ("ios", "android"):
         return out({"ok": False, "code": "args_required", "error": "--platform ios 또는 android 가 필요하다",
@@ -161,6 +180,7 @@ def run_acquire(args) -> int:
     count = max(1, min(int(getattr(args, "count", 1) or 1), ACQUIRE_COUNT_MAXIMUM))
     if count == 1:
         return out(acquire_once(request, args))
+    clones = _clone_for_count(request, count, args) if request.needs else []
     results = []
     for _ in range(count):
         results.append(acquire_once(request, args))
@@ -169,6 +189,7 @@ def run_acquire(args) -> int:
     is_all_taken = len(results) == count and all(r.get("ok") is not False for r in results)
     return out({"ok": is_all_taken, "code": "ok" if is_all_taken else "partial", "action": "acquire", "count": count,
                 "devices": [r.get("device") for r in results if r.get("ok") is not False], "results": results,
+                "clones": clones,
                 "summary": f"{sum(r.get('ok') is not False for r in results)}/{count} 대 빌림",
                 "next": "빌린 기기마다 끝나면 device release (또는 device release --all)"
                         if is_all_taken else "빌린 것은 쓰거나 release 하고, 실패 결과의 next 를 본다"})

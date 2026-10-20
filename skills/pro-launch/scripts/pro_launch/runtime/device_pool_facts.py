@@ -14,9 +14,9 @@ from pro_launch.runtime.device_pool import Candidate, PoolContext
 
 # 합친 대기 한도 기본값 (분) — launch.devices.wait_limit_minutes
 WAIT_LIMIT_DEFAULT_MINUTES = 10
-# 디스크 여유 하한: 이보다 적으면(GB) 또는 이 비율보다 적으면 새 기기를 만들지 않는다 (launch.devices.min_free_disk_gb)
+# 디스크 여유 하한 (GB): 이보다 적으면 새 기기를 만들지 않는다 (launch.devices.min_free_disk_gb)
+# 비율은 쓰지 않는다 — 큰 디스크에서 45GB 남아도 "부족"이 됐다 (실측)
 MIN_FREE_DISK_GB_DEFAULT = 20
-MIN_FREE_DISK_RATIO = 0.15
 # 동시 켜짐 한도 계산: (RAM GB - 호스트 몫) / 기기당 GB, 1~6 대 (launch.devices.max_booted 로 덮어쓴다)
 HOST_RESERVED_RAM_GB = 8
 RAM_GB_PER_BOOTED_DEVICE = 3
@@ -45,12 +45,11 @@ def max_booted_limit() -> tuple[int, str]:
 
 
 def disk_status(path: Path | None = None) -> dict:
-    """{free_gb, free_ratio, minimum_gb, is_low} — 가상 기기가 쌓이는 홈 디스크 기준."""
+    """{free_gb, minimum_gb, is_low} — 가상 기기가 쌓이는 홈 디스크 기준."""
     minimum_gb = _positive(devices_config().get("min_free_disk_gb")) or MIN_FREE_DISK_GB_DEFAULT
     usage = shutil.disk_usage(path or Path.home())
-    free_gb, free_ratio = usage.free / BYTES_PER_GB, usage.free / usage.total if usage.total else 1.0
-    return {"free_gb": round(free_gb, 1), "free_ratio": round(free_ratio, 3), "minimum_gb": minimum_gb,
-            "is_low": free_gb < minimum_gb or free_ratio < MIN_FREE_DISK_RATIO}
+    free_gb = usage.free / BYTES_PER_GB
+    return {"free_gb": round(free_gb, 1), "minimum_gb": minimum_gb, "is_low": free_gb < minimum_gb}
 
 
 def wait_limit_minutes() -> tuple[float, str]:

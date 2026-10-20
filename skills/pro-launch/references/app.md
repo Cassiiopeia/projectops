@@ -254,6 +254,8 @@ raw `xcrun simctl` · `adb shell am|pm` 대신 쓴다. 패키지는 `--pkg` → 
 {PYTHON} {SCRIPTS}/launch_cli.py device records [--platform ios]                    # 출처 · mark · 임시 기한 · 빌린 세션 · 한도
 {PYTHON} {SCRIPTS}/launch_cli.py device create  --platform ios --reason "#954 두 대 동시" [--form tablet] [--os ">=17"] [--ttl-days 3] [--name ...]
 {PYTHON} {SCRIPTS}/launch_cli.py device erase|delete --device "{키}" [--yes]          # mark · 남의 빌림 · 사람이 켠 기기는 --yes 없이 거부
+{PYTHON} {SCRIPTS}/launch_cli.py device clone   --device "{꺼진 iOS 기기}" --reason "#955 로그인된 두 대"   # 상태 기록은 확인 전으로 복사
+{PYTHON} {SCRIPTS}/launch_cli.py device gc [--sizes]                                 # 보고만 · --apply 로 실행
 {PYTHON} {SCRIPTS}/launch_cli.py device locale  --device "$DEV" --lang en --region US [--app "$PKG"]   # --restore 로 원복
 {PYTHON} {SCRIPTS}/launch_cli.py device appearance dark --device "$DEV"            # light|dark, --restore 로 원복
 {PYTHON} {SCRIPTS}/launch_cli.py device text-size largest --device "$DEV"           # default|large|largest (또는 1.3), --restore 로 원복 (큰 글씨 QA)
@@ -271,9 +273,16 @@ raw `xcrun simctl` · `adb shell am|pm` 대신 쓴다. 패키지는 `--pkg` → 
 - **공들인 상태 · 만들기 (#954).** 기기에서 읽을 수 없는 상태(로그인 · 테스트 데이터 · 권한 · 설정)는 `device mark` 로 남긴다. kind·name 은 자유 문자열(권장 kind: login · data · permission · config · other).
   mark 는 14일(`launch.devices.mark_stale_days`)이 지나면 `is_stale` — 로그인이 살아 있는지 보고 `mark --verify`. `--need` 는 stale 이어도 그 기기를 고른다.
   `acquire` 는 빈 기기가 없고 `--need`·`--device` 가 아닐 때만 임시 기기를 만든다(`verdict: create`). 한도 3개에 걸리면 만들지 않는다:
-  메모리 `critical` · 디스크 여유 20GB(`min_free_disk_gb`) 또는 15% 미만 · 켜진 가상 기기 수 `max_booted`(RAM 에서 계산, 16GB 2대 · 32GB 6대).
+  메모리 `critical` · 디스크 여유 20GB(`min_free_disk_gb`) 미만 · 켜진 가상 기기 수 `max_booted`(RAM 에서 계산, 16GB 2대 · 32GB 6대).
   만든 기기는 이유·기한(`temp_ttl_days`, 기본 3일)과 함께 원장에 남는다. 초기화(`erase`)는 mark·설정 기록도 지우고 새 폰으로 표시한다.
   iOS 는 가장 새 런타임의 첫 기기 종류(폼팩터별)로, Android 는 같은 폼팩터 AVD 를 본으로(시스템 이미지·하드웨어 프로필) 만든다 — 본 AVD 가 없으면 `create_failed`.
+- **복제 · 정리 (#955).** iOS 복제는 꺼진 원본만 된다(simctl 제약). 실측: 데이터·키체인 파일이 그대로 넘어가고, APFS 복제라 디스크는 10MB 정도, 8초.
+  복제본의 mark 는 "확인 전"(stale)이다 — 로그인 토큰이 기기에 묶이는 서비스도 있어 복제본에서 살아 있는지 보고 `mark --verify`.
+  `acquire --count 2 --need login:X` 는 그 상태가 있는 꺼진 기기가 모자라면 먼저 복제한다. Android 복제·읽기전용 동시 실행은 아직 없다.
+  `gc` 가 지우는 것은 기한 지난 임시 기기(빌린 세션 없음 · mark 없음)뿐이고, 원장이 켜 둔 채 20분 넘게 버려진 기기는 끈다.
+  기록 없는 기기 · mark 있는 기기는 보고만 한다. 크기는 정리 대상만 센다 — 전부는 `--sizes`(수십 GB 를 훑어 수십 초).
+- **에뮬레이터가 offline 에 멈추면** 로그에 `hvf is not enabled` · `mprotect failed` 가 있는지 본다 — 호스트 스왑이 거의 차면 하드웨어 가속을 못 얻어
+  소프트웨어 모드로 떨어지고 끝나지 않는다(실측: 스왑 28.9/29.7GB). `boot`·`acquire` 는 이 징후를 보면 기다리지 않고 끈 뒤 `emulator_no_acceleration` 으로 알린다.
 - **소유 (#925 · #953).** 소유 주인은 lease = (세션, agent 호스트 pid). 호스트가 죽으면 즉시, 살아 있어도 30분(`launch.devices.lease_idle_minutes`) 안 쓰면 풀린다.
   다른 살아 있는 세션의 기기에서 **바꾸는 조작**(install · launch · tap · type · swipe · run · flow · permission · push · locale · appearance 등)은 `device_owned_by_other` 로 거부된다 — 사용자에게 묻고 `--yes`.
   읽기(shot · tree · wait)는 경고 필드만 붙는다. `device reboot`·`release`·`shutdown`·`claim` 도 `--yes` 없이 멈춘다.

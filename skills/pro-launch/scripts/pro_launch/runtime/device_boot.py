@@ -32,6 +32,8 @@ SIMCTL_QUICK_TIMEOUT_SECONDS = 30
 # 에뮬레이터가 adb 에 나타나기를 기다리는 한도 (초)
 EMULATOR_APPEAR_TIMEOUT_SECONDS = 120
 EMULATOR_PORT_FIRST, EMULATOR_PORT_LAST = 5554, 5584
+# 에뮬레이터 로그의 "가속 없음" 징후 — 이 상태는 부팅이 끝나지 않는다
+EMULATOR_NO_ACCELERATION_MARKERS = ("hvf is not enabled", "qemu_mprotect__osdep: mprotect failed")
 SIMULATOR_WINDOW_HINT = ("Simulator 의 Window 메뉴 > Physical Size / Fit Screen 으로 줄인다 "
                          "(이미 떠 있는 Simulator.app 은 다른 세션이 쓸 수 있어 끄지 않는다)")
 _UDID_PATTERN = re.compile(r"^[0-9A-Fa-f]{8}-(?:[0-9A-Fa-f]{4}-){3}[0-9A-Fa-f]{12}$")
@@ -228,16 +230,35 @@ def launch_emulator(avd: str, window: str, scale: float | None, is_cold: bool,
     return {"is_ok": True, "serial": f"emulator-{chosen_port}", "pid": pid, "command": command, "log": str(log)}
 
 
-def wait_for_adb_device(serial: str, timeout_seconds: float = EMULATOR_APPEAR_TIMEOUT_SECONDS) -> bool:
-    """adb 가 그 시리얼을 device 상태로 볼 때까지."""
+def emulator_start_problem(log_path: str | Path | None) -> str | None:
+    """에뮬레이터 로그에서 부팅이 끝나지 않을 징후 > 설명. 없으면 None.
+
+    하드웨어 가속(HVF)을 못 얻으면 소프트웨어 모드로 떨어져 mprotect 실패를 반복하며 offline 에 멈춘다 —
+    실측: 스왑이 거의 찬 호스트(28.9/29.7GB)에서 새 VM 메모리를 못 받았다. 기다려도 끝나지 않는다.
+    """
+    try:
+        text = Path(log_path).read_text(encoding="utf-8", errors="replace") if log_path else ""
+    except OSError:
+        return None
+    if any(marker in text for marker in EMULATOR_NO_ACCELERATION_MARKERS):
+        return ("에뮬레이터가 하드웨어 가속(HVF)을 얻지 못해 소프트웨어 모드로 멈췄다 — 호스트 메모리·스왑이 부족할 때 생긴다. "
+                "다른 가상 기기를 줄이거나 메모리를 확보한 뒤 다시 띄운다")
+    return None
+
+
+def wait_for_emulator(serial: str, log_path: str | Path | None = None,
+                      timeout_seconds: float = EMULATOR_APPEAR_TIMEOUT_SECONDS) -> dict:
+    """adb 가 그 시리얼을 device 상태로 볼 때까지 > {is_ok, problem}. 로그에 멈춤 징후가 보이면 바로 끝낸다."""
     adb = sdk_tool("adb")
     deadline = time.monotonic() + timeout_seconds
     while adb and time.monotonic() < deadline:
         _, text = _run([adb, "devices"], SIMCTL_QUICK_TIMEOUT_SECONDS)
         if any(line.split()[:2] == [serial, "device"] for line in text.splitlines()[1:]):
-            return True
+            return {"is_ok": True, "problem": None}
+        if (problem := emulator_start_problem(log_path)):
+            return {"is_ok": False, "problem": problem}
         time.sleep(2)
-    return False
+    return {"is_ok": False, "problem": emulator_start_problem(log_path)}
 
 
 def kill_emulator(serial: str, avd: str) -> dict:

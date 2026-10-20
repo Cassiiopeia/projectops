@@ -4,7 +4,9 @@
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 FORM_PHONE = "phone"
@@ -62,6 +64,21 @@ class RawCommandPattern:
     instead: str
 
 
+def folder_bytes(folder: Path | None) -> int:
+    """폴더가 디스크에서 실제로 차지하는 바이트 (블록 기준 — 희소 파일·APFS 복제를 부풀리지 않는다). 없으면 0."""
+    if not folder or not folder.is_dir():
+        return 0
+    total = 0
+    for root, _, files in os.walk(folder):
+        for name in files:
+            try:
+                stat = os.lstat(os.path.join(root, name))
+            except OSError:
+                continue
+            total += getattr(stat, "st_blocks", 0) * 512 or stat.st_size
+    return total
+
+
 def default_device_name(now_text: str) -> str:
     """create 에 이름을 안 주면: pro-launch YYYYMMDD-HHMM (사람이 목록에서 알아보게)."""
     return f"pro-launch {now_text}"
@@ -88,6 +105,10 @@ class DeviceBackend(Protocol):
     def create(self, name: str, form: str, os_minimum: str | None) -> dict:
         """> {is_ok, key, detail}"""
 
+    # can_clone 일 때만 — 원본이 꺼져 있어야 한다
+    def clone(self, key: str, name: str) -> dict:
+        """> {is_ok, key, detail}"""
+
     def erase(self, key: str) -> dict:
         """꺼진 기기의 데이터를 지운다 > {is_ok, detail}"""
 
@@ -95,3 +116,6 @@ class DeviceBackend(Protocol):
         """기기를 지운다 > {is_ok, detail}"""
 
     def raw_command_patterns(self) -> tuple[RawCommandPattern, ...]: ...
+
+    def disk_bytes(self, key: str) -> int:
+        """기기 데이터가 디스크에서 차지하는 바이트 (정리 보고용)."""

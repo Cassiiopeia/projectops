@@ -4,10 +4,11 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+from pathlib import Path
 
 from pro_launch.runtime import device_boot
 from pro_launch.runtime.device_backends.base import (FORM_PHONE, FORM_TABLET, Capabilities, DeviceFacts,
-                                                    RawCommandPattern, is_os_satisfied)
+                                                    RawCommandPattern, folder_bytes, is_os_satisfied)
 
 # simctl 런타임 id > OS 버전: com.apple.CoreSimulator.SimRuntime.iOS-18-3 > 18.3
 _RUNTIME_VERSION_PATTERN = re.compile(r"\.(?:iOS|iPadOS)-(\d+(?:-\d+)*)$")
@@ -15,6 +16,8 @@ TABLET_NAME_PREFIX = "iPad"
 # 폼팩터 > simctl 기기 종류의 productFamily
 PRODUCT_FAMILY_BY_FORM = {FORM_PHONE: "iPhone", FORM_TABLET: "iPad"}
 SIMCTL_TIMEOUT_SECONDS = 120
+# 시뮬레이터 데이터 폴더: {이 폴더}/{UDID}
+SIMULATOR_DEVICES_FOLDER = Path.home() / "Library" / "Developer" / "CoreSimulator" / "Devices"
 
 
 def os_version_of_runtime(runtime: str) -> str | None:
@@ -29,7 +32,9 @@ def form_of_name(name: str) -> str:
 class IosSimulatorBackend:
     name = "ios_simulator"
     platform = "ios"
-    capabilities = Capabilities(can_boot=True, can_shutdown=True, can_create=True)
+    # 복제 실측 (#955): 꺼진 원본만 된다 · 데이터·키체인 파일이 같다 · APFS 복제라 디스크 10MB · 8초
+    capabilities = Capabilities(can_boot=True, can_shutdown=True, can_create=True, can_clone=True,
+                                can_clone_keep_marks=True)
 
     def list_devices(self) -> list[DeviceFacts]:
         # iOS 런타임만 (watchOS·tvOS·visionOS 는 이 백엔드가 다루지 않는다)
@@ -86,6 +91,12 @@ class IosSimulatorBackend:
         return {"is_ok": bool(is_ok and udid and device_boot.is_udid(udid)), "key": udid,
                 "detail": None if is_ok else text[-300:]}
 
+    def clone(self, key: str, name: str) -> dict:
+        is_ok, text = self._simctl("clone", key, name)
+        udid = text.strip().splitlines()[-1] if is_ok and text.strip() else None
+        return {"is_ok": bool(is_ok and udid and device_boot.is_udid(udid)), "key": udid,
+                "detail": None if is_ok else text[-300:]}
+
     def erase(self, key: str) -> dict:
         is_ok, text = self._simctl("erase", key)
         return {"is_ok": is_ok, "detail": None if is_ok else text[-300:]}
@@ -98,3 +109,20 @@ class IosSimulatorBackend:
         return (RawCommandPattern(r"\bsimctl\s+(create|clone)\b", "launch_cli.py device create --platform ios --reason '<왜 새 기기가 필요한가>'"),
                 RawCommandPattern(r"\bsimctl\s+(delete|erase)\b", "launch_cli.py device delete|erase --device <UDID>"),
                 RawCommandPattern(r"\bsimctl\s+shutdown\s+all\b", "launch_cli.py device shutdown --device <UDID>  (남의 기기를 함께 끈다)"))
+
+    def disk_bytes(self, key: str) -> int:
+        return folder_bytes(SIMULATOR_DEVICES_FOLDER / key)
+
+    def unavailable_devices(self) -> list[dict]:
+        """런타임이 사라져 쓸 수 없게 된 시뮬레이터 > [{udid, name, bytes}] (정리 대상)."""
+        is_ok, text = self._simctl("list", "devices", "unavailable", "-j")
+        try:
+            groups = json.loads(text).get("devices", {}) if is_ok else {}
+        except json.JSONDecodeError:
+            return []
+        return [{"udid": d["udid"], "name": d.get("name"), "bytes": self.disk_bytes(d["udid"])}
+                for devices in groups.values() for d in devices if d.get("udid")]
+
+    def delete_unavailable(self) -> dict:
+        is_ok, text = self._simctl("delete", "unavailable")
+        return {"is_ok": is_ok, "detail": None if is_ok else text[-300:]}

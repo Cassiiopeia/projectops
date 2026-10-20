@@ -35,3 +35,9 @@ class PhysicalAndroidBackend:
 
     def raw_command_patterns(self) -> tuple[RawCommandPattern, ...]:
         return ()
+
+    def disk_bytes(self, key: str) -> int:
+        return 0
+
+    def clone(self, key: str, name: str) -> dict:
+        return {"is_ok": False, "key": None, "detail": "실기기는 복제할 수 없다"}

@@ -1,4 +1,4 @@
-"""`device create · erase · delete · mark · unmark · adopt · records` — 기기 수명과 공들인 상태 기록 (#954).
+"""`device create · clone · erase · delete · mark · unmark · adopt · records` — 기기 수명과 공들인 상태 기록 (#954 · #955).
 
 raw simctl·avdmanager 대신 여기를 거친다: 만든 기기는 이유·기한과 함께 원장에 남고(정리 대상),
 mark 가 있는 기기·남이 빌린 기기·사람이 켠 기기는 --yes 없이 지우거나 초기화하지 않는다.
@@ -8,7 +8,7 @@ from __future__ import annotations
 import time
 
 from pro_launch.commands.device.claims import refuse_other_session_owner
-from pro_launch.runtime import android_device, device_backends, device_claims, device_marks, device_pool_facts, host_resources
+from pro_launch.runtime import device_backends, device_claims, device_marks, device_pool_facts
 from pro_launch.runtime.device_backends.base import default_device_name
 from pro_launch.runtime.output import out
 
@@ -30,17 +30,17 @@ def _resolve_any(args):
 
 
 def _resource_refusal(action: str, args) -> int | None:
-    """만들기 전 자원 확인 (메모리 critical · 디스크 부족) — --yes 로만 넘는다."""
+    """만들기·복제 전 디스크 확인 — --yes 로만 넘는다.
+
+    켜지 않으므로 메모리는 보지 않는다 (켤 때 acquire 가 메모리 압박을 따로 본다).
+    """
     if args.yes:
         return None
-    pressure = host_resources.memory_summary().get("pressure")
     disk = device_pool_facts.disk_status()
-    if pressure == "critical" or disk["is_low"]:
-        reason = "호스트 메모리가 위험 수준이다" if pressure == "critical" else \
-            f"디스크 여유가 {disk['free_gb']}GB 다 (하한 {disk['minimum_gb']}GB 또는 15%)"
-        return out({"ok": False, "code": "resources_low", "action": action, "error": reason, "disk": disk,
-                    **android_device.host_pressure_fields(),
-                    "next": "먼저 device acquire 로 있는 기기를 빌릴 수 있는지 본다. 그래도 필요하면 사용자에게 묻고 --yes"})
+    if disk["is_low"]:
+        return out({"ok": False, "code": "resources_low", "action": action, "disk": disk,
+                    "error": f"디스크 여유가 {disk['free_gb']}GB 다 (하한 {disk['minimum_gb']}GB)",
+                    "next": "device gc 로 정리할 것이 있는지 본다. 그래도 필요하면 사용자에게 묻고 --yes"})
     return None
 
 
@@ -62,6 +62,41 @@ def run_create(args) -> int:
     return out({"action": "create", "platform": args.platform, "device": created["key"], "name": name, "temporary": temporary,
                 "summary": f"{name} ({created['key']}) 을 만들었다 — {ttl_days:g}일 뒤 정리 대상",
                 "next": f"device acquire --platform {args.platform} --device {created['key']} --purpose '...'"})
+
+
+def clone_device(facts, backend, name: str | None, reason: str, ttl_days: float | None) -> dict:
+    """꺼진 원본 복제 > 응답 dict: 새 기기 기록(임시) + 원본 mark 를 확인 전 상태로 복사."""
+    if not backend.capabilities.can_clone:
+        return {"ok": False, "code": "not_supported", "device": facts.key, "error": f"{facts.platform} 기기는 복제할 수 없다",
+                "next": "device acquire --count 2 로 다른 기기를 받는다"}
+    if facts.is_booted:
+        return {"ok": False, "code": "source_booted", "device": facts.key,
+                "error": "켜져 있는 기기는 복제할 수 없다 (simctl 제약)",
+                "next": "원본을 쓰는 세션이 끝나 꺼진 뒤 다시 부른다 (내 것이면 device shutdown 후)"}
+    clone_name = name or f"{facts.name} 복제 {time.strftime('%m%d-%H%M')}"
+    cloned = backend.clone(facts.key, clone_name)
+    if not cloned["is_ok"]:
+        return {"ok": False, "code": "clone_failed", "device": facts.key, "error": cloned["detail"], "next": None}
+    temporary = device_marks.record_created(cloned["key"], reason, ttl_days or device_marks.temporary_ttl_days(),
+                                            backend.name)
+    marks = device_marks.copy_marks_as_unverified(facts.key, cloned["key"])
+    return {"action": "clone", "platform": facts.platform, "source": facts.key, "device": cloned["key"],
+            "name": clone_name, "temporary": temporary, "marks": [device_marks.mark_label(m) for m in marks],
+            "summary": f"{facts.name} 를 복제했다 > {clone_name}" + (f" (상태 {len(marks)}개는 확인 전)" if marks else ""),
+            "next": ("복제본을 빌려 로그인이 살아 있는지 보고 device mark --verify" if marks
+                     else f"device acquire --platform {facts.platform} --device {cloned['key']}")}
+
+
+def run_clone(args) -> int:
+    facts, backend, err = _resolve_any(args)
+    if err is not None:
+        return err
+    if not args.reason:
+        return out({"ok": False, "code": "args_required", "error": "--reason(왜 복제가 필요한가)이 필요하다",
+                    "next": "device clone --device <원본> --reason '#955 로그인된 기기 두 대'"})
+    if (refusal := _resource_refusal("clone", args)) is not None:
+        return refusal
+    return out(clone_device(facts, backend, args.name, args.reason, args.ttl_days))
 
 
 def _destructive_refusal(action: str, facts, args) -> int | None:

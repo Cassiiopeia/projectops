@@ -11,7 +11,7 @@ from common.proc import sdk_tool
 
 from pro_launch.runtime import android_device, device_boot
 from pro_launch.runtime.device_backends.base import (FORM_PHONE, FORM_TABLET, Capabilities, DeviceFacts,
-                                                    RawCommandPattern, is_os_satisfied)
+                                                    RawCommandPattern, folder_bytes, is_os_satisfied)
 from pro_launch.runtime.devices import list_devices as list_attached_devices
 
 # 태블릿 판정 기준: 가장 짧은 변의 dp (Android 표준 sw600dp)
@@ -118,9 +118,12 @@ class AndroidEmulatorBackend:
         if not launched["is_ok"]:
             return {"is_ok": False, "instance": None, "already_booted": False, "detail": launched["detail"]}
         serial = launched["serial"]
-        if not device_boot.wait_for_adb_device(serial):
+        appeared = device_boot.wait_for_emulator(serial, launched["log"])
+        if not appeared["is_ok"]:
+            if appeared["problem"]:
+                device_boot.kill_emulator(serial, key)
             return {"is_ok": False, "instance": serial, "already_booted": False,
-                    "detail": f"에뮬레이터가 adb 에 나타나지 않았다 (로그: {launched['log']})"}
+                    "detail": appeared["problem"] or f"에뮬레이터가 adb 에 나타나지 않았다 (로그: {launched['log']})"}
         ready = android_device.wait_until_ready(serial)
         return {"is_ok": bool(ready["is_ready"]), "instance": serial, "already_booted": False,
                 "detail": None if ready["is_ready"] else ready.get("detail") or "부팅 완료를 기다리다 멈췄다"}
@@ -219,3 +222,26 @@ class AndroidEmulatorBackend:
                 RawCommandPattern(r"\bavdmanager\b.*\bdelete\s+avd\b", "launch_cli.py device delete --device <AVD 이름>"),
                 RawCommandPattern(r"\bemulator\b.*\s-wipe-data\b", "launch_cli.py device erase --device <AVD 이름>"),
                 RawCommandPattern(r"\badb\b.*\bemu\s+kill\b", "launch_cli.py device shutdown --device <시리얼>"))
+
+    def disk_bytes(self, key: str) -> int:
+        return folder_bytes(avd_folder(key))
+
+    def orphan_avd_entries(self) -> list[dict]:
+        """짝이 깨진 AVD: 폴더만 있거나(.ini 없음) .ini 만 있음(폴더 없음) > [{name, path, bytes}] — 보고만 한다."""
+        home, orphans = avd_home(), []
+        if not home.is_dir():
+            return []
+        declared_folders = set()
+        for ini in home.glob("*.ini"):
+            folder = avd_folder(ini.stem, home)
+            declared_folders.add(folder.resolve())
+            if not folder.is_dir():
+                orphans.append({"name": ini.stem, "path": str(ini), "kind": "ini_without_folder", "bytes": 0})
+        for folder in home.glob("*.avd"):
+            if folder.resolve() not in declared_folders:
+                orphans.append({"name": folder.stem, "path": str(folder), "kind": "folder_without_ini",
+                                "bytes": folder_bytes(folder)})
+        return orphans
+
+    def clone(self, key: str, name: str) -> dict:
+        return {"is_ok": False, "key": None, "detail": "Android 복제는 아직 지원하지 않는다 (읽기전용 동시 실행 실험 보류, #955)"}
