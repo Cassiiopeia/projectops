@@ -1,14 +1,42 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-20T14:27:40Z",
-    "currentVersion": "4.65.0",
+    "lastUpdated": "2026-10-20T15:19:12Z",
+    "currentVersion": "4.66.0",
     "projectType": "basic",
-    "totalReleases": 333,
+    "totalReleases": 334,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.66.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-20",
+      "pr_number": 960,
+      "raw_summary": "## Summary by CodeRabbit\n## 릴리스 노트\n* **새 기능**\n  * 기한이 지난 임시 기기를 정리하고 버려진 기기를 끄는 정리 명령\n  * 로그인된 iOS 기기를 복제해 같은 상태로 한 대 더 쓰기\n  * 같은 로그인이 필요한 기기 두 대를 요청하면 자동으로 복제\n* **버그 수정**\n  * 메모리 부족으로 멈춘 에뮬레이터를 오래 기다리지 않고 바로 알림\n  * 디스크가 넉넉한데도 부족하다고 판단하던 문제 해결",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "기한이 지난 임시 기기를 정리하고 버려진 기기를 끄는 정리 명령",
+            "로그인된 iOS 기기를 복제해 같은 상태로 한 대 더 쓰기",
+            "같은 로그인이 필요한 기기 두 대를 요청하면 자동으로 복제"
+          ]
+        },
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "메모리 부족으로 멈춘 에뮬레이터를 오래 기다리지 않고 바로 알림",
+            "디스크가 넉넉한데도 부족하다고 판단하던 문제 해결"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.65.0",
       "project_type": "basic",
