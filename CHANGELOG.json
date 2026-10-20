@@ -1,14 +1,39 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-20T15:49:07Z",
-    "currentVersion": "4.67.0",
+    "lastUpdated": "2026-10-20T15:58:58Z",
+    "currentVersion": "4.68.0",
     "projectType": "basic",
-    "totalReleases": 335,
+    "totalReleases": 336,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.68.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-20",
+      "pr_number": 962,
+      "raw_summary": "## Summary by CodeRabbit\n## 릴리스 노트\n* **새 기능**\n  * 로그인된 Android 기기를 같은 상태로 한 대 더 만들기\n* **버그 수정**\n  * 꺼진 기기를 반납하지 못하던 문제 해결",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "로그인된 Android 기기를 같은 상태로 한 대 더 만들기"
+          ]
+        },
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "꺼진 기기를 반납하지 못하던 문제 해결"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.67.0",
       "project_type": "basic",
