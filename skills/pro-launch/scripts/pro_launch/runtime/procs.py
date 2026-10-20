@@ -116,7 +116,7 @@ def kill_process_group(pid: int, grace: float = 5.0) -> bool:
     return kill_browser(pid, grace)
 
 
-def _elapsed_seconds_from_ps(etime: str) -> int | None:
+def elapsed_seconds_from_ps(etime: str) -> int | None:
     """ps etime([[일-]시:]분:초) > 초. 못 읽으면 None."""
     try:
         days, _, clock = etime.strip().rpartition("-")
@@ -161,8 +161,51 @@ def process_table() -> list[dict] | None:
         if len(fields) < 4 or not fields[0].isdigit() or not fields[1].isdigit():
             continue
         rows.append({"pid": int(fields[0]), "ppid": int(fields[1]),
-                     "elapsed_seconds": _elapsed_seconds_from_ps(fields[2]), "command": fields[3]})
+                     "elapsed_seconds": elapsed_seconds_from_ps(fields[2]), "command": fields[3]})
     return rows or None
+
+
+def read_process(pid: int) -> dict | None:
+    """프로세스 하나 > {pid, ppid, elapsed_seconds, command}. 없거나 못 읽으면 None (전체 목록보다 빠르다)."""
+    if sys.platform == "win32":
+        return next((row for row in process_table() or [] if row["pid"] == pid), None)
+    try:
+        result = subprocess.run(["ps", "-ww", "-o", "pid=,ppid=,etime=,command=", "-p", str(pid)],
+                                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    fields = (result.stdout or "").strip().split(None, 3)
+    if len(fields) < 4 or not fields[0].isdigit() or not fields[1].isdigit():
+        return None
+    return {"pid": int(fields[0]), "ppid": int(fields[1]),
+            "elapsed_seconds": elapsed_seconds_from_ps(fields[2]), "command": fields[3]}
+
+
+def try_lock_file(handle) -> bool:
+    """열린 파일에 배타 잠금을 시도한다 (기다리지 않음). macOS·Linux flock · Windows msvcrt (기기 원장, #953)."""
+    try:
+        if sys.platform == "win32":
+            import msvcrt
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except OSError:
+        return False
+
+
+def unlock_file(handle) -> None:
+    try:
+        if sys.platform == "win32":
+            import msvcrt
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    except OSError:
+        pass   # 파일을 닫으면 OS 가 잠금을 푼다
 
 
 # 클립보드 읽기 명령 — OS 별, 위에서부터 있는 것

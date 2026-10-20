@@ -286,6 +286,6 @@ def configure(p) -> None:
                         "(SECONDS[:INTERVAL], 예: 3 · 5:0.3)")
 
 
-ACTION = Action(name="run", run=_app_run, configure=configure,
+ACTION = Action(name="run", device_use="mutate", run=_app_run, configure=configure,
                 help="단계 여러 개(tap·swipe·type·wait·gone·back)를 한 번에 — iOS 는 Maestro 를 한 번만 띄운다",
                 example="app run --device $DEV --steps login.json --shot after_login")

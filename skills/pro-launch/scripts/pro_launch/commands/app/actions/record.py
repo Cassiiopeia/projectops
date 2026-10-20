@@ -163,6 +163,6 @@ def configure(p) -> None:
     p.add_argument("--gif", action="store_true", help="record stop: gif 도 만든다 (ffmpeg 필요)")
 
 
-ACTION = Action(name="record", run=_app_record, configure=configure,
+ACTION = Action(name="record", device_use="mutate", run=_app_record, configure=configure,
                 help="화면 녹화 start·stop (iOS simctl · Android screenrecord) — stop 에서 poster(·--gif) 도 만든다",
                 example="app record start --device $DEV --out demo  →  app record stop --device $DEV --gif")

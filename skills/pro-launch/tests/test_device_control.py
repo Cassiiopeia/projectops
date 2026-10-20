@@ -190,9 +190,9 @@ def test_other_session_gets_owner_warning_and_same_session_does_not(monkeypatch)
 def test_idle_claim_expires_and_can_be_taken_over(monkeypatch):
     monkeypatch.setenv("LAUNCH_SESSION", "session-a")
     device_claims.claim_device("emulator-5554", "/work/a")
-    claims_on_disk = json.loads(device_claims.claims_path().read_text(encoding="utf-8"))
-    claims_on_disk["claims"]["emulator-5554"]["last_used"] = time.time() - device_claims.CLAIM_IDLE_EXPIRY_SECONDS - 5
-    device_claims.claims_path().write_text(json.dumps(claims_on_disk), encoding="utf-8")
+    ledger_on_disk = json.loads(device_claims.claims_path().read_text(encoding="utf-8"))
+    ledger_on_disk["devices"]["emulator-5554"]["leases"][0]["last_used"] = time.time() - device_claims.CLAIM_IDLE_EXPIRY_SECONDS - 5
+    device_claims.claims_path().write_text(json.dumps(ledger_on_disk), encoding="utf-8")
     monkeypatch.setenv("LAUNCH_SESSION", "session-b")
     assert device_claims.check_device_owner("emulator-5554") is None
     device_claims.touch_device("emulator-5554", "/work/b")

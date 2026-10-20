@@ -77,10 +77,14 @@ def ios_simulators() -> list[dict]:
             for runtime, devices in groups.items() for d in devices if d.get("udid")]
 
 
+def is_udid(value: str | None) -> bool:
+    return bool(_UDID_PATTERN.match(value or ""))
+
+
 def find_ios_simulators(value: str) -> list[dict]:
     """UDID 정확히, 아니면 이름 정확히 일치하는 시뮬레이터들 (이름은 여러 개일 수 있다)."""
     simulators = ios_simulators()
-    if _UDID_PATTERN.match(value or ""):
+    if is_udid(value):
         return [s for s in simulators if s["udid"].lower() == value.lower()]
     return [s for s in simulators if s["name"] == value]
 

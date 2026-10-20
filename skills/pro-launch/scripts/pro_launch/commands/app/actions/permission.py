@@ -80,4 +80,4 @@ def configure(p) -> None:
     p.add_argument("--revoke", action="store_true", help="permission: 거부")
 
 
-ACTION = Action(name="permission", run=_app_permission, configure=configure)
+ACTION = Action(name="permission", device_use="mutate", run=_app_permission, configure=configure)

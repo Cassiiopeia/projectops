@@ -53,4 +53,4 @@ def configure(p) -> None:
     p.add_argument("--payload", default=None, help="push: APNs payload JSON 파일 (iOS 시뮬레이터만)")
 
 
-ACTION = Action(name="push", run=_app_push, configure=configure)
+ACTION = Action(name="push", device_use="mutate", run=_app_push, configure=configure)

@@ -39,4 +39,4 @@ def configure(p) -> None:
     p.add_argument("--url", default=None, help="openurl: 열 딥링크·URL (예: myapp://home)")
 
 
-ACTION = Action(name="openurl", run=_app_openurl, configure=configure)
+ACTION = Action(name="openurl", device_use="mutate", run=_app_openurl, configure=configure)

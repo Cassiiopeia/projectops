@@ -22,6 +22,11 @@ from typing import Callable
 #   state_online   run(args, state, state_file)   — 떠 있는 브라우저의 정보가 있어야 하나 연결은 맺지 않는다
 #   page           run(page, args, state) -> dict — 붙어서 한 페이지를 조작한다. 결과 dict 를 돌려준다
 NEEDS = ("nothing", "launch", "state_offline", "state_online", "page")
+# 동작이 기기를 어떻게 쓰는지 (#953). 디스패처가 이 값으로 소유 확인·기록을 한다
+#   mutate  기기·앱 상태를 바꾼다 — 다른 세션 소유면 --yes 없이 거부
+#   read    읽기만 한다 — 다른 세션 소유면 경고만
+#   none    기기를 쓰지 않거나 동작이 직접 판정한다
+DEVICE_USES = ("mutate", "read", "none")
 
 
 @dataclass(frozen=True)
@@ -49,10 +54,14 @@ class Action:
     example: str = ""
     # 이 동작이 쓰는 공통 옵션 이름. None 이면 공통 옵션을 전부 받는다 (동작별로 나누지 않은 명령 — app)
     options: tuple[str, ...] | None = None
+    # 기기를 쓰는 명령(app)의 동작은 반드시 선언한다 (DEVICE_USES) — 테스트가 빠진 것을 잡는다
+    device_use: str | None = None
 
     def __post_init__(self) -> None:
         if self.needs not in NEEDS:
             raise ValueError(f"needs 는 {NEEDS} 중 하나여야 한다: {self.needs!r}")
+        if self.device_use is not None and self.device_use not in DEVICE_USES:
+            raise ValueError(f"device_use 는 {DEVICE_USES} 중 하나여야 한다: {self.device_use!r}")
         if self.options is not None and not isinstance(self.options, tuple):
             raise ValueError(f"options 는 tuple 이어야 한다: {self.options!r}")
 

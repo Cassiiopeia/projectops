@@ -5,10 +5,8 @@ import subprocess
 from pathlib import Path
 
 from pro_launch.commands.app.app_control import resolve_target
-from pro_launch.commands.app.launch_check import device_use_fields
 from pro_launch.registry import Action
 from pro_launch.runtime.android_device import host_pressure_fields, install_apk
-from pro_launch.runtime.context import project_root
 from pro_launch.runtime.output import out
 
 # simctl install 한 번의 최대 대기 (초)
@@ -52,10 +50,9 @@ def _app_install(args) -> int:
         expected = ".apk 파일" if platform == "android" else ".app 폴더 (시뮬레이터용 빌드 — .ipa 는 실기기용이라 설치하지 못한다)"
         return _invalid_path("install_path_invalid", f"{platform} 에는 {expected}를 설치한다: {build_path}",
                              "flutter build apk --debug / xcodebuild -sdk iphonesimulator 의 산출물을 쓴다")
-    owner = device_use_fields(dev_id, str(project_root(args)))
     result = install_apk(dev_id, build_path.resolve()) if platform == "android" else \
         _install_ios(dev_id, build_path.resolve())
-    common = {"action": "install", "platform": platform, "device": dev_id, "path": str(build_path), **owner}
+    common = {"action": "install", "platform": platform, "device": dev_id, "path": str(build_path)}
     if result["is_ok"]:
         return out({"ok": True, "code": "ok", **common, "retried": result.get("retried", False),
                     "summary": f"{build_path.name} 설치 완료", "next": "app launch  # 설치한 앱을 띄운다"})
@@ -71,4 +68,4 @@ def _configure(p) -> None:
     p.add_argument("--path", default=None, help="install: 설치할 빌드 — Android .apk 파일 · iOS 시뮬레이터 .app 폴더")
 
 
-ACTION = Action(name="install", run=_app_install, configure=_configure)
+ACTION = Action(name="install", device_use="mutate", run=_app_install, configure=_configure)

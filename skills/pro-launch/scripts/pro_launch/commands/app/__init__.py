@@ -10,6 +10,7 @@ import time
 from pro_launch.commands.app import actions as _actions
 from pro_launch.registry import Command, discover_actions
 from pro_launch.runtime.context import MEMORY_CTX, project_root
+from pro_launch.runtime.device_gate import gate_device_use
 from pro_launch.runtime.shots import add_shot_args
 
 ACTIONS = discover_actions(_actions)
@@ -22,6 +23,8 @@ def configure(p) -> None:
     p.add_argument("--root", default=".")
     p.add_argument("--device", default=None,
                    help="Android 시리얼 또는 iOS UDID. 없으면 $DEV → 붙은 기기가 한 대면 그것")
+    p.add_argument("--yes", action="store_true",
+                   help="다른 세션이 쥔 기기에서도 진행한다 (사용자에게 물은 뒤에만)")
     p.add_argument("--pkg", default=None, help="launch·terminate·relaunch·permission·push: 패키지명·번들 ID (없으면 $PKG → device bind 의 package)")
     add_shot_args(p)
     for action in ACTIONS.values():
@@ -33,7 +36,12 @@ def cmd_app(args) -> int:
     MEMORY_CTX["root"] = project_root(args)
     # 동작이 결과에 elapsed_seconds 를 붙이는 기준점 (기기 고르기·도구 실행 전부 포함)
     args.started_monotonic = time.monotonic()
-    return ACTIONS.get(args.action, ACTIONS["launch"]).run(args)
+    action = ACTIONS.get(args.action, ACTIONS["launch"])
+    # 소유 확인·기록은 여기 한 곳 (동작 선언 device_use)
+    refusal = gate_device_use(action.device_use, args.device, str(MEMORY_CTX["root"]), bool(getattr(args, "yes", False)))
+    if refusal is not None:
+        return refusal
+    return action.run(args)
 
 
 COMMANDS = [Command(name="app",

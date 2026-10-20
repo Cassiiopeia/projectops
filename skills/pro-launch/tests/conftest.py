@@ -74,3 +74,12 @@ def _real_machine_knowledge_untouched():
     yield
     after = target.read_bytes() if target.is_file() else None
     assert before == after, "테스트가 실제 ~/.projectops/launch/_machine/knowledge.json 을 바꿨다"
+
+
+@pytest.fixture(autouse=True)
+def _no_real_device_key_lookup(monkeypatch):
+    """원장 키를 얻으려고 실제 adb 에 묻지 않는다 · 이 프로세스의 호스트 판별 캐시를 테스트마다 비운다 (#953)."""
+    from pro_launch.runtime import device_claims
+    monkeypatch.setattr(device_claims, "resolve_instance_key", lambda dev_id: dev_id)
+    monkeypatch.setattr(device_claims, "_CURRENT_HOST", {})
+    monkeypatch.setattr(device_claims, "_KEY_BY_INSTANCE", {})

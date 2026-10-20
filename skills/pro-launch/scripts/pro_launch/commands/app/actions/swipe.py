@@ -36,4 +36,4 @@ def configure(p) -> None:
     p.add_argument("--ms", type=int, default=300, help="swipe: 걸리는 시간(ms)")
 
 
-ACTION = Action(name="swipe", run=_app_swipe, configure=configure)
+ACTION = Action(name="swipe", device_use="mutate", run=_app_swipe, configure=configure)

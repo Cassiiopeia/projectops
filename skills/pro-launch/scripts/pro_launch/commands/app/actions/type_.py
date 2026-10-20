@@ -137,4 +137,4 @@ def configure(p) -> None:
                         "keep 그대로 · ascii 항상 바꿈")
 
 
-ACTION = Action(name="type", run=_app_type, configure=configure)
+ACTION = Action(name="type", device_use="mutate", run=_app_type, configure=configure)

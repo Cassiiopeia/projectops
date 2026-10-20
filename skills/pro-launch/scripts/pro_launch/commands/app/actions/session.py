@@ -209,6 +209,6 @@ def configure(p) -> None:
                    help=f"session start: 이만큼 안 쓰면 스스로 끝난다 (기본 {maestro_session.DEFAULT_IDLE_MINUTES}분)")
 
 
-ACTION = Action(name="session", run=_app_session, configure=configure,
+ACTION = Action(name="session", device_use="mutate", run=_app_session, configure=configure,
                 help="iOS 상주 Maestro 세션 (start·stop·status) — 떠 있으면 tap·swipe·tree·run 이 1초 안팎",
                 example="app session start --device $DEV")

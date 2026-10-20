@@ -34,4 +34,4 @@ def _app_tree(args) -> int:
                 "summary": f"요소 {len(els)}개", "next": "app tap --text '<elements 의 text>'"})
 
 
-ACTION = Action(name="tree", run=_app_tree)
+ACTION = Action(name="tree", device_use="read", run=_app_tree)

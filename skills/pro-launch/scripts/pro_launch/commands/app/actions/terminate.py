@@ -16,4 +16,4 @@ def _app_terminate(args) -> int:
                           package=package, was_running=was_running)
 
 
-ACTION = Action(name="terminate", run=_app_terminate)
+ACTION = Action(name="terminate", device_use="mutate", run=_app_terminate)

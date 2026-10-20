@@ -9,7 +9,6 @@ from __future__ import annotations
 import time
 
 from pro_launch.runtime import crash_reports, foreground
-from pro_launch.runtime.device_claims import owner_warning_fields, touch_device
 from pro_launch.runtime.output import out
 
 # iOS 크래시 리포트가 디스크에 쓰이기를 더 기다리는 횟수 · 간격 (초)
@@ -57,7 +56,6 @@ def _check_ios(udid: str, bundle_id: str, launched_epoch: float) -> dict:
 def launch_failure_response(action: str, platform: str, dev_id: str, package: str, check: dict,
                             **extra) -> int:
     """not_foreground · app_exited 실패 응답. 기존 code 는 건드리지 않는다."""
-    owner = owner_warning_fields(dev_id)
     if check["state"] == "not_foreground":
         blocker = check.get("blocking_activity") or "(초점 창 없음)"
         return out({"ok": False, "code": "not_foreground", "action": action, "platform": platform,
@@ -68,7 +66,7 @@ def launch_failure_response(action: str, platform: str, dev_id: str, package: st
                     "summary": f"{package} {action} 했지만 다른 화면이 앞에 있다",
                     "next": "app shot 으로 가리는 화면을 본다. 다른 세션 소유(device_owned_by_other)면 사용자에게 묻고, "
                             "아니면 app relaunch 를 다시 하거나 device reboot",
-                    **owner, **extra})
+                    **extra})
     report = check.get("crash_report")
     return out({"ok": False, "code": "app_exited", "action": action, "platform": platform, "device": dev_id,
                 "package": package, "crash_report": report,
@@ -77,11 +75,4 @@ def launch_failure_response(action: str, platform: str, dev_id: str, package: st
                 "summary": f"{package} {action} 직후 종료",
                 "next": (f"크래시 리포트를 읽는다: {report['path']}" if report else
                          "리포트가 없다 — xcrun simctl launch --console-pty 로 시작 로그를 본다"),
-                **owner, **extra})
-
-
-def device_use_fields(dev_id: str, project_root: str | None) -> dict:
-    """조작 전에 부른다: 다른 세션 소유 경고 필드를 만들고 이 세션의 마지막 사용을 기록한다."""
-    warning = owner_warning_fields(dev_id)
-    touch_device(dev_id, project_root)
-    return warning
+                **extra})

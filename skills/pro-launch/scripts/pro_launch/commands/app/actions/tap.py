@@ -72,4 +72,4 @@ def configure(p) -> None:
     p.add_argument("--at", default=None, help="tap: 요소로 못 찾을 때만 — 0~1 비율 좌표 (예: 0.5,0.8)")
 
 
-ACTION = Action(name="tap", run=_app_tap, configure=configure)
+ACTION = Action(name="tap", device_use="mutate", run=_app_tap, configure=configure)

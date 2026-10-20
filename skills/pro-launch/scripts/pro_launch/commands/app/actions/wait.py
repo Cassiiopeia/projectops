@@ -68,6 +68,6 @@ def configure(p) -> None:
                    help=f"wait: 화면을 다시 읽는 간격 초 (기본 {DEFAULT_POLL_INTERVAL_SECONDS:g})")
 
 
-ACTION = Action(name="wait", run=_app_wait, configure=configure,
+ACTION = Action(name="wait", device_use="read", run=_app_wait, configure=configure,
                 help="요소(--text·--id·--desc)가 나타날 때까지, --gone 이면 사라질 때까지 기다린다 (--timeout 초)",
                 example='app wait --device $DEV --text "로드 중" --gone --timeout 40')

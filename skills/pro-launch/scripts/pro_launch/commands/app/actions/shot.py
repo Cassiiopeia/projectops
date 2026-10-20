@@ -130,4 +130,4 @@ def configure(p) -> None:
                    help="shot: 상태바 시각을 이 값으로 고정 (H:MM, 예: 7:42 — --clean-status 를 함께 켠다)")
 
 
-ACTION = Action(name="shot", run=_app_shot, configure=configure)
+ACTION = Action(name="shot", device_use="read", run=_app_shot, configure=configure)

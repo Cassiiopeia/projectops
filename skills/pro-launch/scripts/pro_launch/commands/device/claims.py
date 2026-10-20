@@ -1,4 +1,7 @@
-"""`device claim` · `device release` — 이 세션이 기기를 쥐었다고 알린다 · 놓으면서 바꾼 전역 설정을 되돌린다 (#925)."""
+"""`device claim` — 이 세션이 특정 기기를 쥐었다고 알린다 (#925). 반납은 pool.run_release (#953).
+
+공용 도우미: 기기 해석 · 남의 소유 거부 · 기록된 설정 되돌리기 명령 실행.
+"""
 from __future__ import annotations
 
 import subprocess
@@ -59,25 +62,3 @@ def run_claim(args) -> int:
                 "summary": f"{dev_id} 를 이 세션({session_identity()})이 쥐었다 — 30분 안 쓰면 풀린다",
                 "next": "작업이 끝나면 device release  # 바꾼 전역 설정(언어·외관)도 함께 되돌린다",
                 "taken_over_from": previous["session"] if previous and previous["is_live"] else None})
-
-
-def run_release(args) -> int:
-    platform, dev_id, err = resolve_device(args)
-    if err is not None:
-        return err
-    existing = device_claims.device_owner(dev_id)
-    if existing is None:
-        return out({"action": "release", "platform": platform, "device": dev_id, "released": False,
-                    "summary": "쥔 기록이 없다", "next": None})
-    is_other_live = existing["is_live"] and existing["session"] != session_identity()
-    if is_other_live and not args.yes:
-        return refuse_other_session_owner(dev_id, "release")
-    released = device_claims.release_device(dev_id)
-    # 나중에 바꾼 것부터 되돌린다
-    restored = [run_restore_commands(s) for s in released["settings"]]
-    failed = [r for r in restored if not r["is_ok"]]
-    return out({"ok": not failed, "code": "restore_failed" if failed else "ok", "action": "release",
-                "platform": platform, "device": dev_id, "released": True, "restored": restored,
-                "summary": f"{dev_id} 놓음 · 되돌린 설정 {len(restored) - len(failed)}/{len(restored)}",
-                "error": failed[0]["detail"] if failed else None,
-                "next": "되돌리지 못한 설정은 failed_command 를 직접 실행한다" if failed else None})

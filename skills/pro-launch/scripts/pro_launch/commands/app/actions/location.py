@@ -42,4 +42,4 @@ def configure(p) -> None:
     p.add_argument("--lon", type=float, default=None, help="location: 경도 (-180~180)")
 
 
-ACTION = Action(name="location", run=_app_location, configure=configure)
+ACTION = Action(name="location", device_use="mutate", run=_app_location, configure=configure)

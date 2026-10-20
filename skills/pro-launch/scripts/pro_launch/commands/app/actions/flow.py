@@ -150,6 +150,6 @@ def configure(p) -> None:
                    help=f"flow: 최대 대기 초 (기본 {DEFAULT_FLOW_TIMEOUT_SECONDS}, 최대 {MAXIMUM_FLOW_TIMEOUT_SECONDS})")
 
 
-ACTION = Action(name="flow", run=_app_flow, configure=configure,
+ACTION = Action(name="flow", device_use="mutate", run=_app_flow, configure=configure,
                 help="프로젝트의 Maestro flow 를 돌리고 명령별 결과 · takeScreenshot 캡처를 JSON 으로 — 복잡한 제스처용",
                 example="app flow --device $DEV --file .maestro/swipe_undo.yaml --shot undo")

@@ -22,8 +22,18 @@ from pro_launch.runtime.context import ACCESS_CTX, INPUT_CTX, MEMORY_CTX, MIGRAT
 SKILL_DIR = Path(__file__).resolve().parents[3]
 
 
+# 이 프로세스의 다음 응답에 붙일 필드 (디스패처 게이트의 남의 기기 경고 등) — 동작 코드가 몰라도 실린다
+PENDING_RESPONSE_FIELDS: dict = {}
+
+
+def add_response_fields(fields: dict) -> None:
+    PENDING_RESPONSE_FIELDS.update(fields)
+
+
 def out(payload: dict) -> int:
     """emit 에 이전 결과를 덧붙인다. 옮긴 것이 있으면 사용자가 알아야 한다."""
+    for key, value in PENDING_RESPONSE_FIELDS.items():
+        payload.setdefault(key, value)
     moved = [m for r in MIGRATION.values() for m in r.get("moved", [])]
     warns = [w for r in MIGRATION.values() for w in r.get("warnings", [])]
     if moved:
