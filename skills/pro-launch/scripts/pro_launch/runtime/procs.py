@@ -219,6 +219,26 @@ def unlock_file(handle) -> None:
         pass   # 파일을 닫으면 OS 가 잠금을 푼다
 
 
+def clone_tree(source: str, target: str) -> tuple[bool, str]:
+    """폴더 복제 > (성공, 오류). macOS 는 APFS 복제(cp -c, 블록 공유) · Linux 는 reflink 가능하면 · 그 밖은 일반 복사 (#959)."""
+    if sys.platform == "darwin":
+        command = ["cp", "-c", "-R", source, target]
+    elif sys.platform.startswith("linux"):
+        command = ["cp", "-R", "--reflink=auto", source, target]
+    else:
+        import shutil
+        try:
+            shutil.copytree(source, target)
+        except OSError as error:
+            return False, str(error)
+        return True, ""
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=600)
+    except (OSError, subprocess.SubprocessError) as error:
+        return False, str(error)
+    return result.returncode == 0, (result.stderr or "").strip()[-300:]
+
+
 # 클립보드 읽기 명령 — OS 별, 위에서부터 있는 것
 _CLIPBOARD_COMMANDS = {
     "darwin": (["pbpaste"],),

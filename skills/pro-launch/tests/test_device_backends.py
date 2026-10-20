@@ -63,12 +63,12 @@ def test_backend_registry_covers_ios_android_physical():
 
 
 def test_capabilities_follow_experiment_results():
-    # 실측 (#955): iOS 복제는 데이터·키체인 유지 · Android 읽기전용 동시 실행은 실험 보류
-    ios = device_backends.backend_named("ios_simulator").capabilities
-    assert ios.can_create and ios.can_clone and ios.can_clone_keep_marks
+    # 실측: iOS 복제는 데이터·키체인 유지 (#955) · Android 는 AVD 폴더 복제 (#959), 읽기전용 동시 실행은 쓰지 않는다
+    for name in ("ios_simulator", "android_emulator"):
+        capabilities = device_backends.backend_named(name).capabilities
+        assert capabilities.can_create and capabilities.can_clone and capabilities.can_clone_keep_marks
     for backend in device_backends.BACKENDS:
         assert not backend.capabilities.can_readonly_instance
-    assert not device_backends.backend_named("android_emulator").capabilities.can_clone
     assert device_backends.backend_named("android_emulator").capabilities.can_create
     physical = device_backends.backend_named("physical_android").capabilities
     assert physical.is_physical and not (physical.can_boot or physical.can_create)
@@ -182,3 +182,41 @@ def test_wait_for_emulator_stops_early_on_problem(monkeypatch, tmp_path):
     monkeypatch.setattr(device_boot.time, "sleep", lambda seconds: (_ for _ in ()).throw(AssertionError("기다리면 안 된다")))
     result = device_boot.wait_for_emulator("emulator-5570", log, timeout_seconds=60)
     assert result["is_ok"] is False and result["problem"]
+
+
+def _fake_avd(home, name: str) -> Path:
+    folder = home / f"{name}.avd"
+    folder.mkdir(parents=True)
+    (folder / "config.ini").write_text(f"AvdId={name}\navd.ini.displayname={name}\nhw.lcd.width=1080\n", encoding="utf-8")
+    for file_name in ("userdata-qemu.img.qcow2", "userdata-qemu.img", "hardware-qemu.ini", "multiinstance.lock"):
+        (folder / file_name).write_bytes(b"data-" + file_name.encode())
+    (home / f"{name}.ini").write_text(f"avd.ini.encoding=UTF-8\npath={folder}\npath.rel=avd/{name}.avd\ntarget=android-34\n",
+                                       encoding="utf-8")
+    return folder
+
+
+def test_android_clone_copies_folder_and_rewrites_names(monkeypatch, tmp_path):
+    monkeypatch.setenv("ANDROID_AVD_HOME", str(tmp_path))
+    monkeypatch.setattr(android_emulator.device_boot, "running_emulators", lambda: {})
+    source = _fake_avd(tmp_path, "Tablet")
+    result = android_emulator.AndroidEmulatorBackend().clone("Tablet", "pro-launch copy")
+    assert result["is_ok"] and result["key"] == "pro-launch_copy"
+    target = tmp_path / "pro-launch_copy.avd"
+    assert (target / "userdata-qemu.img.qcow2").read_bytes() == b"data-userdata-qemu.img.qcow2"
+    assert not (target / "hardware-qemu.ini").exists() and not (target / "multiinstance.lock").exists()
+    assert "AvdId=pro-launch_copy" in (target / "config.ini").read_text(encoding="utf-8")
+    ini = (tmp_path / "pro-launch_copy.ini").read_text(encoding="utf-8")
+    assert f"path={target}" in ini and "path.rel=avd/pro-launch_copy.avd" in ini and "target=android-34" in ini
+    assert (source / "hardware-qemu.ini").exists() and "AvdId=Tablet" in (source / "config.ini").read_text(encoding="utf-8")
+    assert android_emulator.avd_folder("pro-launch_copy", tmp_path) == target
+
+
+def test_android_clone_refuses_running_or_existing(monkeypatch, tmp_path):
+    monkeypatch.setenv("ANDROID_AVD_HOME", str(tmp_path))
+    _fake_avd(tmp_path, "Tablet")
+    backend = android_emulator.AndroidEmulatorBackend()
+    monkeypatch.setattr(android_emulator.device_boot, "running_emulators", lambda: {"emulator-5554": "Tablet"})
+    assert backend.clone("Tablet", "copy")["is_ok"] is False
+    monkeypatch.setattr(android_emulator.device_boot, "running_emulators", lambda: {})
+    _fake_avd(tmp_path, "copy")
+    assert "이미 있다" in backend.clone("Tablet", "copy")["detail"]

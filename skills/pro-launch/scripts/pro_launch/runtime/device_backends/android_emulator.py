@@ -9,7 +9,7 @@ from pathlib import Path
 
 from common.proc import sdk_tool
 
-from pro_launch.runtime import android_device, device_boot
+from pro_launch.runtime import android_device, device_boot, procs
 from pro_launch.runtime.device_backends.base import (FORM_PHONE, FORM_TABLET, Capabilities, DeviceFacts,
                                                     RawCommandPattern, folder_bytes, is_os_satisfied)
 from pro_launch.runtime.devices import list_devices as list_attached_devices
@@ -22,6 +22,9 @@ AVDMANAGER_TIMEOUT_SECONDS = 120
 # AVD 이름에 쓸 수 있는 글자 밖은 _ 로
 _AVD_NAME_INVALID_PATTERN = re.compile(r"[^A-Za-z0-9._-]")
 # 데이터 초기화(-wipe-data 와 같은 효과)로 지우는 것: 사용자 데이터 · 캐시 · 스냅샷
+# 복제본에 가져가지 않는 실행 흔적 (에뮬레이터가 띄울 때마다 다시 만든다)
+CLONE_SKIP_NAMES = ("hardware-qemu.ini", "emu-launch-params.txt", "multiinstance.lock", "read-snapshot.txt")
+CLONE_SKIP_SUFFIXES = (".lock",)
 # 본 AVD 가 없을 때 쓰는 하드웨어 프로필 (오래된 avdmanager 도 아는 id)
 DEFAULT_DEVICE_PROFILE_BY_FORM = {FORM_PHONE: "pixel_6", FORM_TABLET: "pixel_c"}
 WIPE_FILE_NAMES = ("userdata-qemu.img", "userdata-qemu.img.qcow2", "cache.img", "cache.img.qcow2")
@@ -43,6 +46,20 @@ def _read_ini(path: Path) -> dict[str, str]:
     except OSError:
         return {}
     return {k.strip(): v.strip() for k, _, v in (line.partition("=") for line in text.splitlines()) if _}
+
+
+def _rewrite_ini(path: Path, values: dict[str, str]) -> None:
+    """ini 의 키 값을 바꾼다 (없으면 끝에 더한다). 다른 줄은 그대로."""
+    lines, seen = [], set()
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        key = line.partition("=")[0].strip()
+        if key in values:
+            lines.append(f"{key}={values[key]}")
+            seen.add(key)
+        else:
+            lines.append(line)
+    lines += [f"{key}={value}" for key, value in values.items() if key not in seen]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def avd_folder(name: str, home: Path | None = None) -> Path:
@@ -98,7 +115,10 @@ def api_level_of_config(config: dict[str, str]) -> str | None:
 class AndroidEmulatorBackend:
     name = "android_emulator"
     platform = "android"
-    capabilities = Capabilities(can_boot=True, can_shutdown=True, can_create=True)
+    # 복제 (#959): AVD 폴더 통째 복제 — qcow2 백업 경로가 상대 경로라 원본과 묶이지 않고, 로그인은 userdata 에 있어
+    # 스냅샷이 안 맞아 처음부터 부팅해도 남는다. 복제본 mark 는 확인 전으로 넘긴다
+    capabilities = Capabilities(can_boot=True, can_shutdown=True, can_create=True, can_clone=True,
+                                can_clone_keep_marks=True)
 
     def list_devices(self) -> list[DeviceFacts]:
         serial_by_avd = {avd: serial for serial, avd in device_boot.running_emulators().items()}
@@ -244,4 +264,26 @@ class AndroidEmulatorBackend:
         return orphans
 
     def clone(self, key: str, name: str) -> dict:
-        return {"is_ok": False, "key": None, "detail": "Android 복제는 아직 지원하지 않는다 (읽기전용 동시 실행 실험 보류, #955)"}
+        """꺼진 AVD 폴더를 복제 > 새 .ini · config 의 AVD 이름 갱신 · 실행 흔적 제거."""
+        if key in device_boot.running_emulators().values():
+            return {"is_ok": False, "key": None, "detail": "켜져 있는 에뮬레이터는 복제하지 않는다"}
+        home, clone_name = avd_home(), avd_name_of(name)
+        source_folder, target_folder = avd_folder(key, home), home / f"{clone_name}.avd"
+        if target_folder.exists() or (home / f"{clone_name}.ini").exists():
+            return {"is_ok": False, "key": None, "detail": f"같은 이름의 AVD 가 이미 있다: {clone_name}"}
+        is_copied, detail = procs.clone_tree(str(source_folder), str(target_folder))
+        if not is_copied:
+            shutil.rmtree(target_folder, ignore_errors=True)
+            return {"is_ok": False, "key": None, "detail": detail or "AVD 폴더를 복제하지 못했다"}
+        for path in list(target_folder.rglob("*")):
+            if path.name not in CLONE_SKIP_NAMES and path.suffix not in CLONE_SKIP_SUFFIXES:
+                continue
+            if path.is_dir():
+                shutil.rmtree(path, ignore_errors=True)
+            else:
+                path.unlink(missing_ok=True)
+        _rewrite_ini(target_folder / "config.ini", {"AvdId": clone_name, "avd.ini.displayname": clone_name})
+        source_ini = _read_ini(home / f"{key}.ini")
+        ini_lines = {**source_ini, "path": str(target_folder), "path.rel": f"avd/{clone_name}.avd"}
+        (home / f"{clone_name}.ini").write_text("".join(f"{k}={v}\n" for k, v in ini_lines.items()), encoding="utf-8")
+        return {"is_ok": True, "key": clone_name, "detail": None}

@@ -276,9 +276,10 @@ raw `xcrun simctl` · `adb shell am|pm` 대신 쓴다. 패키지는 `--pkg` → 
   메모리 `critical` · 디스크 여유 20GB(`min_free_disk_gb`) 미만 · 켜진 가상 기기 수 `max_booted`(RAM 에서 계산, 16GB 2대 · 32GB 6대).
   만든 기기는 이유·기한(`temp_ttl_days`, 기본 3일)과 함께 원장에 남는다. 초기화(`erase`)는 mark·설정 기록도 지우고 새 폰으로 표시한다.
   iOS 는 가장 새 런타임의 첫 기기 종류(폼팩터별)로, Android 는 같은 폼팩터 AVD 를 본으로(시스템 이미지·하드웨어 프로필) 만든다 — 본 AVD 가 없으면 `create_failed`.
-- **복제 · 정리 (#955).** iOS 복제는 꺼진 원본만 된다(simctl 제약). 실측: 데이터·키체인 파일이 그대로 넘어가고, APFS 복제라 디스크는 10MB 정도, 8초.
+- **복제 · 정리 (#955 · #959).** 복제는 꺼진 원본만 된다. iOS(simctl) 실측: 데이터·키체인 파일이 그대로 넘어가고, APFS 복제라 디스크는 10MB 정도, 8초.
+  Android 는 AVD 폴더를 통째로 복제한다(macOS `cp -c`) — 디스크 백업 경로가 상대 경로라 원본과 묶이지 않고, 로그인은 userdata 에 있어 스냅샷이 안 맞아 처음부터 부팅해도 남는다.
   복제본의 mark 는 "확인 전"(stale)이다 — 로그인 토큰이 기기에 묶이는 서비스도 있어 복제본에서 살아 있는지 보고 `mark --verify`.
-  `acquire --count 2 --need login:X` 는 그 상태가 있는 꺼진 기기가 모자라면 먼저 복제한다. Android 복제·읽기전용 동시 실행은 아직 없다.
+  `acquire --count 2 --need login:X` 는 그 상태가 있는 꺼진 기기가 모자라면 먼저 복제한다. Android 읽기전용 동시 실행(`-read-only`)은 쓰지 않는다 — 복제로 같은 일을 한다.
   `gc` 가 지우는 것은 기한 지난 임시 기기(빌린 세션 없음 · mark 없음)뿐이고, 원장이 켜 둔 채 20분 넘게 버려진 기기는 끈다.
   기록 없는 기기 · mark 있는 기기는 보고만 한다. 크기는 정리 대상만 센다 — 전부는 `--sizes`(수십 GB 를 훑어 수십 초).
 - **에뮬레이터가 offline 에 멈추면** 로그에 `hvf is not enabled` · `mprotect failed` 가 있는지 본다 — 호스트 스왑이 거의 차면 하드웨어 가속을 못 얻어

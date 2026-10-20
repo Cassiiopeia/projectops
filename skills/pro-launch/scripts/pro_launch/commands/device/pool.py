@@ -31,6 +31,16 @@ def _release_one(dev_id: str, lease_id: str | None, is_keep_booted: bool) -> dic
             "shutdown_reason": reason}
 
 
+def _resolve_for_release(args):
+    """반납할 기기: 붙은 기기 > 원장 키 그대로 (끈 기기는 adb·simctl 목록에 없지만 lease 는 남아 있다)."""
+    platform, dev_id, err = resolve_device(args)
+    if err is None:
+        return platform, dev_id, None
+    if args.device and device_claims.device_owner(args.device) is not None:
+        return None, args.device, None
+    return platform, dev_id, err
+
+
 def run_release(args) -> int:
     if getattr(args, "all", False):
         rows = [_release_one(lease.get("instance") or key, lease.get("lease_id"), args.keep_booted)
@@ -39,7 +49,7 @@ def run_release(args) -> int:
         return out({"ok": not failed, "code": "restore_failed" if failed else "ok", "action": "release", "all": True,
                     "released": rows, "summary": f"이 세션 lease {len(rows)}개 반납 · 끈 기기 {sum(r['shutdown'] for r in rows)}",
                     "next": "되돌리지 못한 설정은 failed_command 를 직접 실행한다" if failed else None})
-    platform, dev_id, err = resolve_device(args)
+    platform, dev_id, err = _resolve_for_release(args)
     if err is not None:
         return err
     existing = device_claims.device_owner(dev_id)

@@ -189,3 +189,14 @@ def test_reclaim_restores_dead_session_settings_and_reports_failures(monkeypatch
 def test_acquire_without_platform_is_rejected(tmp_path, capsys, backend):
     acquire.run_acquire(args(tmp_path, platform=None))
     assert result_of(capsys)["code"] == "args_required"
+
+
+def test_release_works_for_shut_down_device_by_ledger_key(monkeypatch, tmp_path, capsys, backend):
+    monkeypatch.setenv("LAUNCH_SESSION", "s1")
+    acquire.run_acquire(args(tmp_path, device="A"))
+    result_of(capsys)
+    # 끈 기기는 붙은 기기 목록에 없다
+    monkeypatch.setattr(claims, "pick_device", lambda want: (None, want, {"android": [], "ios_booted": []}))
+    monkeypatch.setattr(claims, "no_device_response", lambda dev, want: claims.out({"ok": False, "code": "no_device"}))
+    pool.run_release(args(tmp_path, device="A"))
+    assert result_of(capsys)["released"] is True

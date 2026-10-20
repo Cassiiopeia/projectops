@@ -29,7 +29,7 @@ description: "Capability skill that launches and drives apps, web and servers: e
 | 호스트 메모리 압박(ok·high·critical) · 큰 프로세스 · 켜진 기기를 묶은 레포 — **가상 기기를 더 띄우기 전에** | `doctor --resources` | 아래 공통 규칙 |
 | **기기 빌리기 · 반납 — 모든 앱 작업의 시작과 끝** (조건으로 빈 기기를 받고, 끝나면 켠 것을 끈다) | `device acquire --platform ios\|android [--form tablet] [--purpose "#이슈"] [--wait 90]` · `device release --device $DEV` · `device shutdown` | `references/app.md` |
 | 공들인 상태(로그인 · 테스트 데이터 · 권한) 기록 — 정리·초기화에서 보호되고 다음에 `--need` 로 그 기기를 받는다 · 기기 기록 보기 | `device mark\|unmark --kind login --name kakao` · `device adopt` · `device records` | `references/app.md` |
-| 새 기기가 꼭 필요할 때(두 대 동시 · 완전 새 폰 · 다른 폼팩터) — **raw simctl create/avdmanager 대신** · 로그인된 기기 복제(iOS) · 초기화 · 삭제 | `device acquire --fresh\|--count 2` · `device create\|clone --reason "..."` · `device erase\|delete` | `references/app.md` |
+| 새 기기가 꼭 필요할 때(두 대 동시 · 완전 새 폰 · 다른 폼팩터) — **raw simctl create/avdmanager 대신** · 로그인된 기기 복제 · 초기화 · 삭제 | `device acquire --fresh\|--count 2` · `device create\|clone --reason "..."` · `device erase\|delete` | `references/app.md` |
 | 쌓인 기기 정리 — 기한 지난 임시 기기 삭제 · 버려진 켜진 기기 끄기 (기본은 보고만) | `device gc [--apply] [--sizes]` | `references/app.md` |
 | 역할을 기기에 묶기(참가자가 둘 이상) · 소유자 보기 · 특정 기기 쥐기 | `device list\|bind\|unbind\|show\|claim` | `references/app.md` |
 | 에뮬레이터·시뮬레이터 띄우기(기본 창 없음, 창이 필요하면 작게) · 재부팅 · 언어 · 다크 모드 — **raw simctl/emulator 대신** | `device boot\|reboot [--cold]\|locale\|appearance\|text-size` · `app install --path` | `references/app.md` |
