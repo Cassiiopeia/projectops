@@ -1,14 +1,37 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-20T12:38:04Z",
-    "currentVersion": "4.64.0",
+    "lastUpdated": "2026-10-20T14:27:40Z",
+    "currentVersion": "4.65.0",
     "projectType": "basic",
-    "totalReleases": 332,
+    "totalReleases": 333,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.65.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-20",
+      "pr_number": 958,
+      "raw_summary": "## Summary by CodeRabbit\n## 릴리스 노트\n* **새 기능**\n  * 로그인·테스트 데이터를 기기에 기록해 지우지 않게 보호\n  * 필요한 로그인이 된 기기를 골라 빌릴 수 있음\n  * 빈 기기가 없을 때만 새 기기를 만들고 기한 뒤 정리 대상으로 표시\n  * 새 폰 테스트와 두 대 동시 테스트 지원\n  * 기기를 직접 만들고 지우는 명령을 막아 기기가 쌓이지 않게 함",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "로그인·테스트 데이터를 기기에 기록해 지우지 않게 보호",
+            "필요한 로그인이 된 기기를 골라 빌릴 수 있음",
+            "빈 기기가 없을 때만 새 기기를 만들고 기한 뒤 정리 대상으로 표시",
+            "새 폰 테스트와 두 대 동시 테스트 지원",
+            "기기를 직접 만들고 지우는 명령을 막아 기기가 쌓이지 않게 함"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.64.0",
       "project_type": "basic",
