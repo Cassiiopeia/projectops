@@ -1,11 +1,11 @@
 """`devices` · `device` — 붙은 기기를 보고, 역할을 묶고, 소유를 알리고, 띄우고 다시 띄우고, 언어·외관을 바꾼다.
 
-동작마다 모듈 하나: bindings(list·bind·unbind·show) · claims(claim) · pool(acquire·release·shutdown) · boot(boot·reboot) ·
-settings(locale·appearance).
+동작마다 모듈 하나: bindings(list·bind·unbind·show) · claims(claim) · acquire(acquire) · pool(release·shutdown) ·
+lifecycle(create·erase·delete·mark·unmark·adopt·records) · boot(boot·reboot) · settings(locale·appearance).
 """
 from __future__ import annotations
 
-from pro_launch.commands.device import bindings, boot, claims, pool, settings, text_size
+from pro_launch.commands.device import acquire, bindings, boot, claims, lifecycle, pool, settings, text_size
 from pro_launch.registry import Command
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.device_boot import WINDOW_MODES
@@ -14,8 +14,11 @@ from pro_launch.runtime.device_gate import gate_device_use
 # device <동작> → 실행 함수
 _RUNNERS = {"list": bindings.run_binding_action, "bind": bindings.run_binding_action,
             "unbind": bindings.run_binding_action, "show": bindings.run_binding_action,
-            "claim": claims.run_claim, "acquire": pool.run_acquire, "release": pool.run_release,
+            "claim": claims.run_claim, "acquire": acquire.run_acquire, "release": pool.run_release,
             "shutdown": pool.run_shutdown,
+            "create": lifecycle.run_create, "erase": lifecycle.run_erase, "delete": lifecycle.run_delete,
+            "mark": lifecycle.run_mark, "unmark": lifecycle.run_unmark, "adopt": lifecycle.run_adopt,
+            "records": lifecycle.run_records,
             "boot": boot.run_boot, "reboot": boot.run_reboot,
             "locale": settings.run_locale, "appearance": settings.run_appearance,
             "text-size": text_size.run_text_size}
@@ -24,6 +27,8 @@ _RUNNERS = {"list": bindings.run_binding_action, "bind": bindings.run_binding_ac
 # device <동작> → 기기 사용 선언 (registry.DEVICE_USES). none 은 동작이 직접 소유를 판정한다
 DEVICE_USE_BY_ACTION = {"list": "none", "bind": "none", "unbind": "none", "show": "none",
                         "claim": "none", "acquire": "none", "release": "none", "shutdown": "none",
+                        "create": "none", "erase": "none", "delete": "none", "mark": "none", "unmark": "none",
+                        "adopt": "none", "records": "none",
                         "boot": "none", "reboot": "none",
                         "locale": "mutate", "appearance": "mutate", "text-size": "mutate"}
 
@@ -67,13 +72,23 @@ def configure_device(p) -> None:
     p.add_argument("--lease", default=None, help="release: 반납할 lease_id (acquire 응답에 있다)")
     p.add_argument("--all", action="store_true", help="release: 이 세션의 모든 lease 반납 (세션 종료 훅이 쓴다)")
     p.add_argument("--keep-booted", action="store_true", help="release: 켠 기기를 끄지 않고 반납한다")
+    p.add_argument("--need", action="append", default=None,
+                   help="acquire: 있어야 하는 공들인 상태 kind:name (여러 번, 예: --need login:kakao)")
+    p.add_argument("--fresh", action="store_true", help="acquire: 아무도 쓰지 않은 새 폰 (없으면 임시 기기를 만든다)")
+    p.add_argument("--count", type=int, default=1, help="acquire: 서로 다른 기기 N 대 (최대 4)")
+    p.add_argument("--reason", default=None, help="create: 왜 새 기기가 필요한가 (필수 — 정리 때 보인다)")
+    p.add_argument("--name", default=None, help="create: 기기 이름 · mark·unmark: 상태 이름 (예: kakao)")
+    p.add_argument("--ttl-days", type=float, default=None, help="create: 보관 기한 (일, 기본 3) — 지나면 정리 대상")
+    p.add_argument("--kind", default=None, help="mark·unmark: 상태 종류 (권장 login · data · permission · config · other)")
+    p.add_argument("--verify", action="store_true", help="mark: 기록한 상태가 아직 살아 있음을 확인했다 (확인 시각 갱신)")
 
 
 COMMANDS = [
     Command(name="devices", help="붙은 기기 · 부팅된 시뮬레이터 · AVD", run=bindings.run_devices,
             configure=configure_devices),
     Command(name="device",
-            help="기기를 빌리고·반납하고(acquire·release·shutdown) 묶고(list·bind) 쥐고(claim) 띄우고(boot·reboot) "
+            help="기기를 빌리고·반납하고(acquire·release·shutdown) 만들고·지우고(create·erase·delete) "
+                 "공들인 상태를 기록하고(mark·unmark·adopt·records) 묶고(list·bind) 쥐고(claim) 띄우고(boot·reboot) "
                  "언어·외관·글자 크기를 바꾼다(locale·appearance·text-size)",
             run=cmd_device, configure=configure_device),
 ]

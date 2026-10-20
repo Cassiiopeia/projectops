@@ -28,6 +28,8 @@ description: "Capability skill that launches and drives apps, web and servers: e
 | 도구(adb · simctl · Chromium · Pillow · cwebp · ffmpeg) · 무엇을 띄울 수 있나(app · web · server, 패키지명 · 번들 ID) · 붙은 기기 · 부팅된 시뮬레이터 · AVD | `doctor` · `detect --path .` · `devices` | — |
 | 호스트 메모리 압박(ok·high·critical) · 큰 프로세스 · 켜진 기기를 묶은 레포 — **가상 기기를 더 띄우기 전에** | `doctor --resources` | 아래 공통 규칙 |
 | **기기 빌리기 · 반납 — 모든 앱 작업의 시작과 끝** (조건으로 빈 기기를 받고, 끝나면 켠 것을 끈다) | `device acquire --platform ios\|android [--form tablet] [--purpose "#이슈"] [--wait 90]` · `device release --device $DEV` · `device shutdown` | `references/app.md` |
+| 공들인 상태(로그인 · 테스트 데이터 · 권한) 기록 — 정리·초기화에서 보호되고 다음에 `--need` 로 그 기기를 받는다 · 기기 기록 보기 | `device mark\|unmark --kind login --name kakao` · `device adopt` · `device records` | `references/app.md` |
+| 새 기기가 꼭 필요할 때(두 대 동시 · 완전 새 폰 · 다른 폼팩터) — **raw simctl create/avdmanager 대신** · 초기화 · 삭제 | `device acquire --fresh\|--count 2` · `device create --reason "..."` · `device erase\|delete` | `references/app.md` |
 | 역할을 기기에 묶기(참가자가 둘 이상) · 소유자 보기 · 특정 기기 쥐기 | `device list\|bind\|unbind\|show\|claim` | `references/app.md` |
 | 에뮬레이터·시뮬레이터 띄우기(기본 창 없음, 창이 필요하면 작게) · 재부팅 · 언어 · 다크 모드 — **raw simctl/emulator 대신** | `device boot\|reboot [--cold]\|locale\|appearance\|text-size` · `app install --path` | `references/app.md` |
 | 앱 띄우기 · 찍기 | `app launch` · `app shot [--clean-status]` | `references/app.md` |
@@ -109,6 +111,10 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
   `verdict` 별 행동: `reuse`·`reclaim` 진행 · `wait`(`device_busy`) 는 `--wait 90` 으로 다시 부르거나 다른 일을 먼저 ·
   `ask`(`needs_user`) 는 `reasons` 를 그대로 사용자에게 보여 주고 묻는다 · `no_match` 는 `devices` 로 보고 조건을 넓힌다.
   켜져 있지만 원장 기록이 없는 기기(사람이 쓰는 것일 수 있다)는 받지 않는다 — 꼭 그 기기여야 하면 사용자에게 묻고 `--device`.
+- **사람이 로그인·2단계 인증·데이터 준비를 마치면 바로 `device mark --device "$DEV" --kind login --name <공급자>`** (#954).
+  다음 세션은 `device acquire --need login:<공급자>` 로 그 기기를 받는다 — 새 기기를 만들면 그 상태가 없다.
+  mark 가 있는 기기는 `erase`·`delete` 가 `--yes` 없이 거부한다. 새 기기는 `acquire` 가 필요할 때 만들고(이유·기한 기록), 한도(켜진 기기 수 · 디스크 · 메모리)에 걸리면 만들지 않는다.
+  Claude Code 에서는 Bash 의 raw `simctl create|delete|erase`·`avdmanager create|delete`·`-wipe-data`·`emu kill` 이 훅으로 막힌다.
 - **조작 명령의 기기는 `--device` 로 준다.** 없으면 `$DEV` → 붙은 기기가 한 대뿐이면 그것. 여러 대인데 안 고르면 `no_device` 로 멈춘다.
 - **JSON 하나를 돌려준다.** `ok` 로 성패, `code` 로 갈래(문구가 아니라 code 로 판단), `next` 를 다음 명령 후보로 읽는다.
   요소를 못 찾으면 `candidates`(화면에 실제로 있는 값)와 `locale` 이 온다 — **추측을 반복하지 말고 거기서 고른다.**
@@ -178,6 +184,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app openurl    --device 
 | `device_owned_by_other` | 다른 세션이 빌린 기기다. 바꾸는 조작(tap·type·install 등)은 거부되고, 읽기(shot·tree·wait)는 경고 필드만 붙는다. `device acquire` 로 다른 기기를 받거나, 꼭 그 기기여야 하면 사용자에게 묻고 `--yes` |
 | `device_busy` · `needs_user` · `no_matching_device` | `device acquire` 의 wait · ask · no_match — 위 공통 규칙의 verdict 별 행동 |
 | `ledger_busy` | 기기 원장 잠금을 10초 안에 못 얻었다. 잠시 뒤 다시 부른다 |
+| `device_protected` · `device_in_use_unrecorded` | 지우거나 초기화하려는 기기에 공들인 상태가 있다 / 사람이 쓰는 기기일 수 있다. `marks` 를 사용자에게 보여 주고 묻는다 — 그렇다면 `--yes` |
+| `resources_low` · `create_failed` | 새 기기를 만들 여유가 없다(메모리 · 디스크) / 만들지 못했다. 먼저 `device acquire` 로 있는 기기를 쓴다 |
 | `no_focused_window` | 초점 창이 없다(화면 꺼짐·잠금·전환 중). 깨우고 세 번까지 다시 읽은 뒤다. `app shot` 으로 화면을 본다 |
 | `android_system_not_ready` · `ui_automation_unavailable` · `ui_dump_timeout` | 기기 쪽 문제다(시스템 재시작 중 · UiAutomation 연결 실패 · 시간 초과). `app shot` 으로 보고, 계속이면 사용자에게 에뮬레이터 cold boot 를 묻는다 |
 | `session_start_failed` · `session_tools_missing` | 세션 없이 그대로 쓴다(호출마다 Maestro). `reason` 을 본다 |

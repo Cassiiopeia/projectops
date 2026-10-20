@@ -12,6 +12,18 @@ FORM_TABLET = "tablet"
 FORMS = (FORM_PHONE, FORM_TABLET)
 
 
+def _version_tuple(version: str | None) -> tuple[int, ...]:
+    return tuple(int(part) for part in (version or "").split(".") if part.isdigit())
+
+
+def is_os_satisfied(os_version: str | None, os_minimum: str | None) -> bool:
+    """os_minimum 예: "17" · ">=17.2". 버전을 모르면 조건이 있을 때 통과시키지 않는다."""
+    if not os_minimum:
+        return True
+    minimum = _version_tuple(os_minimum.lstrip(">= "))
+    return bool(os_version) and _version_tuple(os_version) >= minimum
+
+
 @dataclass(frozen=True)
 class Capabilities:
     """백엔드가 할 수 있는 것. 판정은 이 값만 본다 (3단계 실험 결과도 여기 한 줄로 반영)."""
@@ -42,6 +54,19 @@ class DeviceFacts:
     instance: str | None
 
 
+@dataclass(frozen=True)
+class RawCommandPattern:
+    """raw 명령 차단 훅이 막을 명령 (정규식) · 대신 쓸 launch_cli 명령 (#954)."""
+
+    pattern: str
+    instead: str
+
+
+def default_device_name(now_text: str) -> str:
+    """create 에 이름을 안 주면: pro-launch YYYYMMDD-HHMM (사람이 목록에서 알아보게)."""
+    return f"pro-launch {now_text}"
+
+
 class DeviceBackend(Protocol):
     """플랫폼 하나의 기기 수명 동작. 지원하지 않는 동작은 capabilities 로 막는다."""
 
@@ -58,3 +83,15 @@ class DeviceBackend(Protocol):
         """> {is_ok, detail}"""
 
     def key_of_instance(self, instance: str) -> str | None: ...
+
+    # can_create 일 때만
+    def create(self, name: str, form: str, os_minimum: str | None) -> dict:
+        """> {is_ok, key, detail}"""
+
+    def erase(self, key: str) -> dict:
+        """꺼진 기기의 데이터를 지운다 > {is_ok, detail}"""
+
+    def delete(self, key: str) -> dict:
+        """기기를 지운다 > {is_ok, detail}"""
+
+    def raw_command_patterns(self) -> tuple[RawCommandPattern, ...]: ...

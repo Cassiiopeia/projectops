@@ -1,7 +1,7 @@
 """실기기 백엔드 (USB Android): 빌리기·반납만. 켜고 끄고 만들지 않는다."""
 from __future__ import annotations
 
-from pro_launch.runtime.device_backends.base import FORM_PHONE, Capabilities, DeviceFacts
+from pro_launch.runtime.device_backends.base import FORM_PHONE, Capabilities, DeviceFacts, RawCommandPattern
 from pro_launch.runtime.devices import list_devices as list_attached_devices
 
 
@@ -23,3 +23,15 @@ class PhysicalAndroidBackend:
 
     def key_of_instance(self, instance: str) -> str | None:
         return instance if not instance.startswith("emulator-") else None
+
+    def create(self, name: str, form: str, os_minimum: str | None) -> dict:
+        return {"is_ok": False, "key": None, "detail": "실기기는 만들 수 없다"}
+
+    def erase(self, key: str) -> dict:
+        return {"is_ok": False, "detail": "실기기는 초기화하지 않는다"}
+
+    def delete(self, key: str) -> dict:
+        return {"is_ok": False, "detail": "실기기는 지울 수 없다"}
+
+    def raw_command_patterns(self) -> tuple[RawCommandPattern, ...]:
+        return ()

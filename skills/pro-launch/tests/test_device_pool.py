@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
@@ -88,3 +89,41 @@ def test_every_decision_has_reasons():
     cases = [decide(ios(), []), decide(ios(), [cand("A")]), decide(ios(), [cand("A", booted=True, live=[OTHER])]),
              decide(ios(), [cand("A", booted=True)])]
     assert all(decision.reasons for decision in cases)
+
+
+# ── #954 공들인 상태 · 새 폰 · 만들기 ───────────────────────────────────
+
+
+def test_need_picks_only_devices_with_that_mark():
+    candidates = [cand("A", last_used=90), replace(cand("B", last_used=10), marks=("login:kakao",))]
+    decision = decide(ios(needs=("login:kakao",)), candidates)
+    assert decision.device_key == "B"
+
+
+def test_need_without_any_marked_device_never_creates():
+    decision = decide(ios(needs=("login:kakao",)), [cand("A")], PoolContext(can_create=True))
+    assert decision.verdict == "no_match"
+    assert any("새로 만들어도 그 상태는 없다" in reason for reason in decision.reasons)
+
+
+def test_fresh_creates_when_no_pristine_device():
+    decision = decide(ios(is_fresh_required=True), [cand("A")], PoolContext(can_create=True))
+    assert decision.verdict == "create" and decision.is_boot_needed
+
+
+def test_all_busy_creates_under_limit_and_waits_at_limit():
+    busy = [cand("A", booted=True, live=[OTHER])]
+    assert decide(ios(), busy, PoolContext(can_create=True, booted_count=1, max_booted=4)).verdict == "create"
+    at_limit = decide(ios(), busy, PoolContext(can_create=True, booted_count=4, max_booted=4))
+    assert at_limit.verdict == "wait" and any("한도" in reason for reason in at_limit.reasons)
+
+
+def test_nothing_usable_and_resources_low_asks():
+    decision = decide(ios(), [cand("A", booted=True)], PoolContext(can_create=True, is_disk_low=True))
+    assert decision.verdict == "ask" and any("디스크" in reason for reason in decision.reasons)
+    critical = decide(ios(), [], PoolContext(can_create=True, pressure="critical"))
+    assert critical.verdict == "ask"
+
+
+def test_explicit_device_never_creates():
+    assert decide(ios(device="Z"), [cand("A")], PoolContext(can_create=True)).verdict == "no_match"

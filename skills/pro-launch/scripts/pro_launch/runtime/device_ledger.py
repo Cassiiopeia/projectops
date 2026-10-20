@@ -1,6 +1,6 @@
 """기기 원장 파일 `{base}/launch/_machine/device-claims.json`: 읽기(schema 1 받아들임) · 잠금 > 읽기 > 고치기 > 저장 (#953).
 
-모양: {"schema": 2, "devices": {키: {leases, settings, pool_booted_at}}, "waits": {대기 키: {started_at, updated_at}}}
+모양: {"schema": 2, "devices": {키: {leases, settings, pool_booted_at, marks, origin, temporary}}, "waits": {대기 키: {started_at, updated_at}}}
 키: iOS UDID · Android AVD 이름 · 실기기 시리얼 (Android 시리얼은 lease 의 instance). 저장은 임시 파일 > 바꿔치기.
 """
 from __future__ import annotations
@@ -23,6 +23,9 @@ LOCK_TIMEOUT_SECONDS = 10.0
 LOCK_RETRY_SECONDS = 0.05
 # 대기 기록 보관 (초) — 이보다 오래된 것은 저장할 때 버린다 (1시간)
 WAIT_RECORD_KEEP_SECONDS = 60 * 60
+
+# 이 중 하나라도 있으면 기기 항목을 남긴다 (lease · 설정 기록 · 켠 표시 · 공들인 상태 · 출처 · 임시 기기 기록)
+KEPT_ENTRY_FIELDS = ("leases", "settings", "pool_booted_at", "marks", "origin", "temporary")
 
 ResultType = TypeVar("ResultType")
 
@@ -75,7 +78,7 @@ def read_ledger() -> dict:
 def _prune(ledger: dict, now: float) -> dict:
     """빈 기기 항목 · 오래된 대기 기록을 뺀다."""
     devices = {k: v for k, v in ledger["devices"].items()
-               if v.get("leases") or v.get("settings") or v.get("pool_booted_at")}
+               if any(v.get(field) for field in KEPT_ENTRY_FIELDS)}
     waits = {k: v for k, v in ledger.get("waits", {}).items()
              if now - float(v.get("updated_at") or 0) < WAIT_RECORD_KEEP_SECONDS}
     return {"schema": LEDGER_SCHEMA, "devices": devices, "waits": waits}

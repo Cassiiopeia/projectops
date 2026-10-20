@@ -656,7 +656,7 @@ docs/, .github/scripts/test/
 .claude-plugin/, .codex-plugin/, .agents/, .cursor/, skills/, scripts/
 package.json, harness/         # pi 패키지 매니페스트 + Persona Harness
 plugins/                       # extras 선택 플러그인 (projectops-extras)
-hooks/                         # Claude Code 플러그인 훅 (세션 종료 시 pro-launch 기기 반납, #953)
+hooks/                         # Claude Code 플러그인 훅 (세션 종료 시 pro-launch 기기 반납 #953 · raw 기기 명령 차단 #954)
 ```
 
 #### ⚠️ 레포 루트에 "마켓플레이스/템플릿 전용" 파일·폴더를 추가할 때 (agent 필독)

@@ -62,9 +62,99 @@ def test_backend_registry_covers_ios_android_physical():
     assert all(backend.platform in ("ios", "android") for backend in device_backends.BACKENDS)
 
 
-def test_capabilities_phase1_have_no_create_or_clone():
+def test_capabilities_virtual_create_but_no_clone_yet():
     for backend in device_backends.BACKENDS:
         capabilities = backend.capabilities
-        assert not (capabilities.can_create or capabilities.can_clone or capabilities.can_readonly_instance)
-    assert device_backends.backend_named("physical_android").capabilities.is_physical
-    assert not device_backends.backend_named("physical_android").capabilities.can_boot
+        assert not (capabilities.can_clone or capabilities.can_readonly_instance)
+    assert device_backends.backend_named("ios_simulator").capabilities.can_create
+    assert device_backends.backend_named("android_emulator").capabilities.can_create
+    physical = device_backends.backend_named("physical_android").capabilities
+    assert physical.is_physical and not (physical.can_boot or physical.can_create)
+
+
+def test_ios_create_picks_newest_runtime_and_family(monkeypatch):
+    backend = ios_simulator.IosSimulatorBackend()
+    runtimes = {"runtimes": [
+        {"identifier": "com.apple.CoreSimulator.SimRuntime.iOS-17-5", "version": "17.5", "isAvailable": True,
+         "supportedDeviceTypes": [{"identifier": "iPhone-15", "productFamily": "iPhone"}]},
+        {"identifier": "com.apple.CoreSimulator.SimRuntime.iOS-18-3", "version": "18.3.1", "isAvailable": True,
+         "supportedDeviceTypes": [{"identifier": "iPad-Air", "productFamily": "iPad"},
+                                  {"identifier": "iPhone-16", "productFamily": "iPhone"}]}]}
+    import json as json_module
+    calls = []
+
+    def fake_simctl(*arguments):
+        calls.append(arguments)
+        if arguments[:2] == ("list", "runtimes"):
+            return True, json_module.dumps(runtimes)
+        return True, "3F328F1A-16D1-453B-A0D3-94CDC21C4189"
+    monkeypatch.setattr(backend, "_simctl", fake_simctl)
+    assert backend.choose_device_type("phone", None) == ("iPhone-16", "com.apple.CoreSimulator.SimRuntime.iOS-18-3")
+    assert backend.choose_device_type("tablet", ">=19") is None
+    created = backend.create("pro-launch test", "phone", "17")
+    assert created["is_ok"] and calls[-1][0] == "create"
+
+
+def test_android_system_image_package_and_avd_name():
+    config = {"image.sysdir.1": "system-images/android-36.1/google_apis_playstore/arm64-v8a/"}
+    assert android_emulator.system_image_package(config) == "system-images;android-36.1;google_apis_playstore;arm64-v8a"
+    assert android_emulator.avd_name_of("pro-launch 20261020-1530") == "pro-launch_20261020-1530"
+
+
+def test_avd_folder_follows_ini_path(tmp_path):
+    folder = tmp_path / "Medium_Phone.avd"
+    folder.mkdir()
+    (tmp_path / "Medium_Phone_API_36.1.ini").write_text(f"path={folder}\n", encoding="utf-8")
+    assert android_emulator.avd_folder("Medium_Phone_API_36.1", tmp_path) == folder
+
+
+def test_android_erase_removes_user_data_but_not_config(monkeypatch, tmp_path):
+    monkeypatch.setenv("ANDROID_AVD_HOME", str(tmp_path))
+    folder = tmp_path / "Phone.avd"
+    (folder / "snapshots").mkdir(parents=True)
+    for name in ("config.ini", "userdata-qemu.img", "cache.img"):
+        (folder / name).write_text("x", encoding="utf-8")
+    monkeypatch.setattr(android_emulator.device_boot, "running_emulators", lambda: {})
+    assert android_emulator.AndroidEmulatorBackend().erase("Phone")["is_ok"]
+    assert sorted(p.name for p in folder.iterdir()) == ["config.ini"]
+
+
+def test_raw_command_patterns_come_from_backends():
+    import re
+    patterns = device_backends.raw_command_patterns()
+    blocked = ["xcrun simctl create x y z", "xcrun simctl delete ABC", "avdmanager create avd -n X -k p",
+               "emulator -avd X -wipe-data", "adb -s emulator-5554 emu kill"]
+    allowed = ["xcrun simctl boot ABC", "xcrun simctl io booted screenshot a.png", "adb shell am start x"]
+    assert all(any(re.search(p.pattern, command) for p in patterns) for command in blocked)
+    assert not any(re.search(p.pattern, command) for p in patterns for command in allowed)
+
+
+def test_avdmanager_comes_from_the_emulator_sdk_not_path(monkeypatch, tmp_path):
+    sdk = tmp_path / "sdk"
+    (sdk / "emulator").mkdir(parents=True)
+    (sdk / "emulator" / "emulator").write_text("", encoding="utf-8")
+    for version in ("9.0", "latest"):
+        tool = sdk / "cmdline-tools" / version / "bin" / "avdmanager"
+        tool.parent.mkdir(parents=True)
+        tool.write_text("", encoding="utf-8")
+    monkeypatch.setattr(android_emulator, "sdk_tool",
+                        lambda name: str(sdk / "emulator" / "emulator") if name == "emulator" else "/opt/homebrew/bin/avdmanager")
+    path, root = android_emulator.avdmanager_of_emulator_sdk()
+    assert path.endswith("cmdline-tools/latest/bin/avdmanager") and root == sdk.resolve()
+
+
+def test_android_create_falls_back_to_next_template(monkeypatch):
+    backend = android_emulator.AndroidEmulatorBackend()
+    monkeypatch.setattr(backend, "choose_templates", lambda form, os_minimum: [
+        {"package": "system-images;android-36.1;x;arm64-v8a", "device_name": "medium_phone"}])
+    monkeypatch.setattr(backend, "installed_image_templates", lambda form, os_minimum: [
+        {"package": "system-images;android-34;google_apis;arm64-v8a", "device_name": "pixel_6"}])
+    tried = []
+
+    def fake_avdmanager(*arguments):
+        tried.append(arguments[arguments.index("-k") + 1])
+        return ("android-34" in tried[-1]), "Error: Package path is not valid."
+    monkeypatch.setattr(backend, "_avdmanager", fake_avdmanager)
+    created = backend.create("pro-launch x", "phone", None)
+    assert created["is_ok"] and created["system_image"].endswith("android-34;google_apis;arm64-v8a")
+    assert len(tried) == 2

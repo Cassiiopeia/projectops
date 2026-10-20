@@ -246,6 +246,14 @@ raw `xcrun simctl` · `adb shell am|pm` 대신 쓴다. 패키지는 `--pkg` → 
 {PYTHON} {SCRIPTS}/launch_cli.py device release --all                              # 이 세션의 모든 lease (세션 종료 훅도 이것)
 {PYTHON} {SCRIPTS}/launch_cli.py device shutdown --device "$DEV" [--yes]            # 끈다 (남이 빌린 기기는 --yes 없이 거부)
 {PYTHON} {SCRIPTS}/launch_cli.py device claim   --device "$DEV"                    # 특정 기기를 이 세션이 쥔다
+{PYTHON} {SCRIPTS}/launch_cli.py device acquire --platform ios --need login:kakao   # 그 상태가 기록된 기기 (#954)
+{PYTHON} {SCRIPTS}/launch_cli.py device acquire --platform ios --fresh | --count 2  # 아무도 안 쓴 새 폰 · 서로 다른 두 대 (없으면 만든다)
+{PYTHON} {SCRIPTS}/launch_cli.py device mark    --device "$DEV" --kind login --name kakao --note "guardian 계정"   # --verify 로 확인 시각 갱신
+{PYTHON} {SCRIPTS}/launch_cli.py device unmark  --device "$DEV" --kind login --name kakao
+{PYTHON} {SCRIPTS}/launch_cli.py device adopt   --device "{UDID|AVD 이름|기기 이름}"   # 원장에 없던 기기를 올린다
+{PYTHON} {SCRIPTS}/launch_cli.py device records [--platform ios]                    # 출처 · mark · 임시 기한 · 빌린 세션 · 한도
+{PYTHON} {SCRIPTS}/launch_cli.py device create  --platform ios --reason "#954 두 대 동시" [--form tablet] [--os ">=17"] [--ttl-days 3] [--name ...]
+{PYTHON} {SCRIPTS}/launch_cli.py device erase|delete --device "{키}" [--yes]          # mark · 남의 빌림 · 사람이 켠 기기는 --yes 없이 거부
 {PYTHON} {SCRIPTS}/launch_cli.py device locale  --device "$DEV" --lang en --region US [--app "$PKG"]   # --restore 로 원복
 {PYTHON} {SCRIPTS}/launch_cli.py device appearance dark --device "$DEV"            # light|dark, --restore 로 원복
 {PYTHON} {SCRIPTS}/launch_cli.py device text-size largest --device "$DEV"           # default|large|largest (또는 1.3), --restore 로 원복 (큰 글씨 QA)
@@ -260,6 +268,12 @@ raw `xcrun simctl` · `adb shell am|pm` 대신 쓴다. 패키지는 `--pkg` → 
   켜져 있지만 원장 기록이 없는 기기는 사람이 쓰는 것일 수 있어 고르지 않는다. 같은 세션이 다시 부르면 **다른** 기기를 준다(병렬 하위 agent).
   남이 다 쓰는 중이면 `wait`, 합친 대기가 10분(`launch.devices.wait_limit_minutes`)을 넘거나 메모리 `critical` 에서 새로 켜야 하면 `ask`.
   `--wait` 한 번은 최대 90초 — 도구 명령 시간 상한 안이다. Claude Code 는 세션이 끝나면 훅이 `release --all` 을 부른다.
+- **공들인 상태 · 만들기 (#954).** 기기에서 읽을 수 없는 상태(로그인 · 테스트 데이터 · 권한 · 설정)는 `device mark` 로 남긴다. kind·name 은 자유 문자열(권장 kind: login · data · permission · config · other).
+  mark 는 14일(`launch.devices.mark_stale_days`)이 지나면 `is_stale` — 로그인이 살아 있는지 보고 `mark --verify`. `--need` 는 stale 이어도 그 기기를 고른다.
+  `acquire` 는 빈 기기가 없고 `--need`·`--device` 가 아닐 때만 임시 기기를 만든다(`verdict: create`). 한도 3개에 걸리면 만들지 않는다:
+  메모리 `critical` · 디스크 여유 20GB(`min_free_disk_gb`) 또는 15% 미만 · 켜진 가상 기기 수 `max_booted`(RAM 에서 계산, 16GB 2대 · 32GB 6대).
+  만든 기기는 이유·기한(`temp_ttl_days`, 기본 3일)과 함께 원장에 남는다. 초기화(`erase`)는 mark·설정 기록도 지우고 새 폰으로 표시한다.
+  iOS 는 가장 새 런타임의 첫 기기 종류(폼팩터별)로, Android 는 같은 폼팩터 AVD 를 본으로(시스템 이미지·하드웨어 프로필) 만든다 — 본 AVD 가 없으면 `create_failed`.
 - **소유 (#925 · #953).** 소유 주인은 lease = (세션, agent 호스트 pid). 호스트가 죽으면 즉시, 살아 있어도 30분(`launch.devices.lease_idle_minutes`) 안 쓰면 풀린다.
   다른 살아 있는 세션의 기기에서 **바꾸는 조작**(install · launch · tap · type · swipe · run · flow · permission · push · locale · appearance 등)은 `device_owned_by_other` 로 거부된다 — 사용자에게 묻고 `--yes`.
   읽기(shot · tree · wait)는 경고 필드만 붙는다. `device reboot`·`release`·`shutdown`·`claim` 도 `--yes` 없이 멈춘다.
