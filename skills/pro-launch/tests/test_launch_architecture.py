@@ -80,7 +80,7 @@ def test_no_module_failed_to_load():
     ("pro_launch.commands.web.actions",
      {"setup", "open", "goto", "find", "click", "type", "text", "shot", "assert", "console", "close",
       "viewport", "route", "inspect", "select", "check", "press", "hover", "dialog", "download",
-      "wait", "scroll", "upload", "script", "tab", "login", "value", "clipboard"}),
+      "wait", "scroll", "upload", "script", "tab", "login", "value", "clipboard", "profile"}),
     ("pro_launch.commands.app.actions", {"shot", "launch", "type", "tap", "swipe", "tree", "terminate",
                                          "relaunch", "location", "permission", "push", "openurl", "run",
                                          "session", "flow", "wait", "record", "install"}),

@@ -80,6 +80,21 @@ launch_cli.py web type --selector 'input[type=password]' --cred google-dev      
 5. 셋 중 어느 것인지 모르겠는 화면은 누르지 않는다 — 캡처를 보내고 묻는다.
 
 `trust_device: always` 는 프로필(`.browser-profile`)이 유지되는 동안 다음 로그인의 2단계 인증을 줄인다.
+
+### 프로필 — 로그인을 다시 하지 않게 (#956)
+
+```bash
+{PYTHON} {SCRIPTS}/launch_cli.py web open --profile work --url "$URL"      # 이 컴퓨터 공용 프로필 (레포마다 기억, repo 면 레포 프로필로)
+{PYTHON} {SCRIPTS}/launch_cli.py web open --need login:google --url "$URL" # 그 로그인이 기록된 프로필 (레포 프로필 > 공용 프로필)
+{PYTHON} {SCRIPTS}/launch_cli.py web profile mark --kind login --name google --note "사내 계정"   # 로그인 마치면 바로
+{PYTHON} {SCRIPTS}/launch_cli.py web profile list                          # 프로필 · 기록 · 떠 있는 브라우저
+```
+
+- 기본은 지금처럼 레포 프로필이다. 같은 계정을 여러 레포에서 쓰면 공용 프로필 하나에 로그인하고 `mark` 한다.
+- 한 프로필 폴더는 브라우저 하나만 열 수 있다 — 같은 프로필을 쓰는 세션들은 그 브라우저에 CDP 로 붙고 탭을 나눠 쓴다(`--new-tab` · `LAUNCH_TAB`).
+- 로그인 기록이 있는 프로필은 `tidy --buckets --apply` 가 지우지 않는다.
+- `web close` 는 Chrome 본 프로세스에 정상 종료를 먼저 보낸다 — 그룹 전체를 바로 끄면 방금 받은 쿠키가 디스크에 안 남아 로그인이 사라졌다(실측). 세션 종료 훅은 `web close --session-end` 로 이 세션이 띄웠고 다른 세션 탭이 없는 브라우저만 닫는다.
+- 프로필을 고르는 순서: `LAUNCH_WEB_PROFILE` 환경변수 > 레포 기억(`web profile use`) > 레포 프로필.
 사용자에게 말할 때는 키 이름·설정 파일 경로를 쓰지 않고 자연어로 말한다.
 
 **하지 않는 것**: 계정 보안 설정 변경 · 2단계 인증 해제 · 인증 앱(TOTP) 비밀키 저장. 로그인 흐름 안에 뜨는 화면만 다룬다.

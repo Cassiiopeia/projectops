@@ -53,7 +53,9 @@ def open_browser_status(state_f: Path) -> dict | None:
 #
 # ⚠️ 붙어 있는 동안에만 사는 것이 있다 — 콘솔 훅·뷰포트·응답 바꿔치기. 연결이 끊기면
 # 같이 사라진다(#625 실측). 그래서 상태 파일에 적어 두고 **붙을 때마다 다시 건다.**
-_WEB_STATE = "browser.json"
+# 브라우저 상태 파일 이름 — 레포 버킷 · 공용 프로필 폴더 공통 (#956)
+WEB_STATE_FILE_NAME = "browser.json"
+_WEB_STATE = WEB_STATE_FILE_NAME
 
 
 def state_path(root: Path) -> Path:

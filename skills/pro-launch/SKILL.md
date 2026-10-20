@@ -42,6 +42,7 @@ description: "Capability skill that launches and drives apps, web and servers: e
 | 화면이 바뀔 때까지(사라질 때까지) 기다리기 · 화면 녹화 · 동작 직후 연속 캡처 | `app wait [--gone]` · `app record start\|stop` · `--burst` | `references/app.md` |
 | 앱 끄기 · 다시 띄우기 · 위치 · 권한 · 푸시(iOS) · 딥링크 — **raw simctl/adb 대신** | `app terminate\|relaunch\|location\|permission\|push\|openurl` | `references/app.md` |
 | 브라우저 열기 · **화면 읽기 · 누를 것 고르기** · 확인하며 클릭 · 입력 · 캡처 | `web setup\|open\|goto\|text\|find\|click\|type\|shot\|assert\|console\|close` | `references/web.md` |
+| 로그인된 브라우저 프로필을 레포를 넘어 다시 쓰기 · 로그인 기록 (다시 로그인 · 2단계 인증을 안 하게) | `web open --profile <이름>\|--need login:google` · `web profile list\|use\|mark\|unmark` | `references/web.md` |
 | 폭 바꾸기 · 응답 바꿔치기(빈 목록 · 500 · 지연) | `web viewport` · `web route` | `references/web.md` |
 | **폼 읽기**(입력·버튼·체크·선택 + 값·비활성·ref) · 줄만 골라 읽기 · 고르기 · 체크 · 키 · 올리기 · 대화상자 · 내려받기 — **raw CDP 스크립트 대신** | `web inspect` · `web text --grep` · `web select\|check\|press\|hover\|dialog\|download` | `references/web.md` |
 | 조건 기다리기(승인·토스트·주소) · 안쪽 상자 스크롤·조각 캡처 · 파일 올리기 · iframe 안 조작 · **고정 동작에 없는 일** | `web wait\|scroll\|upload` · `web shot --container` · `--frame` · `web script` | `references/web.md` |
@@ -186,6 +187,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app openurl    --device 
 | `device_busy` · `needs_user` · `no_matching_device` | `device acquire` 의 wait · ask · no_match — 위 공통 규칙의 verdict 별 행동 |
 | `ledger_busy` | 기기 원장 잠금을 10초 안에 못 얻었다. 잠시 뒤 다시 부른다 |
 | `device_protected` · `device_in_use_unrecorded` | 지우거나 초기화하려는 기기에 공들인 상태가 있다 / 사람이 쓰는 기기일 수 있다. `marks` 를 사용자에게 보여 주고 묻는다 — 그렇다면 `--yes` |
+| `no_matching_profile` | `--need` 상태가 기록된 브라우저 프로필이 없다. 사람이 로그인한 뒤 `web profile mark` |
 | `emulator_no_acceleration` | 에뮬레이터가 하드웨어 가속을 못 얻어 멈췄다(호스트 메모리·스왑 부족). 기다려도 끝나지 않는다 — 이미 껐다. 사용자에게 메모리 확보를 묻는다 |
 | `source_booted` | 켜진 기기는 복제할 수 없다. 원본이 꺼진 뒤 다시 |
 | `resources_low` · `create_failed` | 새 기기를 만들 여유가 없다(메모리 · 디스크) / 만들지 못했다. 먼저 `device acquire` 로 있는 기기를 쓴다 |
@@ -226,6 +228,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web login --cred {이름
   `mutating_blocked` 로 막힌다(링크·탭·표 행은 이동이라 열린다). 승인받은 경우에만 `--confirm-mutating`.
 - 빈 목록 · 실패 · 로딩은 **서버를 건드리지 않고** `route` 로 연출한다(`--status 500` · `--delay 5000`). 끝나면 `--clear`.
 - Google·Apple 로그인이 막히면 먼저 `web open --headed`. 사이트가 이상하면 `--no-stealth` 로 비교한다.
+- **사람이 브라우저에서 로그인을 마치면 바로 `web profile mark --kind login --name <공급자>`** (#956). 다른 레포에서는 `web open --need login:<공급자>` 로 그 프로필을 연다.
+  끝나면 `web close` — 이 세션이 띄운 브라우저는 세션 종료 훅도 닫는다(다른 세션 탭이 있으면 둔다). 닫아도 로그인(쿠키)은 프로필에 남는다.
 - `playwright_missing` 이면 사용자에게 묻고 `web setup`. `browser_not_open` · `browser_gone` 이면 `web open` 을 다시.
 - 폼은 `web inspect --role input --near "이메일"` 로 읽고 받은 `ref` 로 `type` · `check` · `select` 한다. 비활성이면 기다리지 않고 `element_disabled`.
 - **자주 쓰고 위험한 일은 고정 동작, 그 밖의 긴 꼬리는 `web script`.** 직접 CDP 에 붙는 스크립트를 새로 짜지 않는다 — `script` 는 같은 연결·재설치·시간 상한·비밀값 가림을 거친다.

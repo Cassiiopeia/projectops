@@ -36,21 +36,32 @@ def kill_browser(pid: int, grace: float = 5.0) -> bool:
     """
     if sys.platform == "win32":
         return _kill_browser_windows(pid, grace)
-    for sig, wait in ((signal.SIGTERM, grace), (signal.SIGKILL, 3.0)):
-        try:
-            # 새 세션으로 띄웠으므로 pid 가 프로세스 그룹 id 이기도 하다 — 자식 렌더러까지 함께 정리
+    # 정상 종료는 본 프로세스에만 — 그룹 전체에 보내면 쿠키·로그인을 디스크에 쓰기 전에 끝난다 (실측, #956)
+    # 안 죽으면 그룹 전체를 강제 종료 (새 세션으로 띄웠으므로 pid 가 프로세스 그룹 id 이기도 하다)
+    for sig, wait, is_group in ((signal.SIGTERM, grace, False), (signal.SIGKILL, 3.0, True)):
+        _send_signal(pid, sig, is_group)
+        end = time.time() + wait
+        while time.time() < end:
+            if not pid_alive(pid):
+                if not is_group:
+                    _send_signal(pid, signal.SIGKILL, True)   # 남은 렌더러 정리
+                return False
+            time.sleep(0.1)
+    return pid_alive(pid)
+
+
+def _send_signal(pid: int, sig, is_group: bool) -> None:
+    try:
+        if is_group:
             os.killpg(pid, sig)
-        except (ProcessLookupError, PermissionError, OSError):
+        else:
+            os.kill(pid, sig)
+    except (ProcessLookupError, PermissionError, OSError):
+        if is_group:
             try:
                 os.kill(pid, sig)
             except (ProcessLookupError, PermissionError, OSError):
                 pass
-        end = time.time() + wait
-        while time.time() < end:
-            if not pid_alive(pid):
-                return False
-            time.sleep(0.1)
-    return pid_alive(pid)
 
 
 def detach_options() -> dict:

@@ -28,7 +28,8 @@ from pro_launch.commands.web.tabs import drift_warning, mark_tab
 from pro_launch.commands.web.targets import SELECTOR_SYNTAX_HINT, is_selector_syntax_error
 from pro_launch.commands.web.watchdog import HUNG_MARK_KEY, Watchdog, deadline_seconds
 from pro_launch.registry import Command, action_usage_lines, add_action_parsers, discover_actions
-from pro_launch.runtime.browser import read_state, state_path, write_state
+from pro_launch.runtime import browser_profiles
+from pro_launch.runtime.browser import read_state, write_state
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.creds import cred_field, with_login_policy
 from pro_launch.runtime.output import out, set_area
@@ -69,6 +70,24 @@ def _resolve_secret_text(args) -> tuple[str | None, dict | None]:
     return None, None
 
 
+def apply_profile_choice(args, root) -> dict | None:
+    """open --profile <이름|repo> · --need kind:name > 프로필 기억. 고를 수 없으면 실패 응답."""
+    wanted, needs = getattr(args, "profile", None), getattr(args, "need", None) or []
+    if needs and not wanted:
+        wanted = browser_profiles.profile_with_marks(root, needs)
+        if wanted is None:
+            return {"ok": False, "code": "no_matching_profile", "needs": needs,
+                    "error": f"{', '.join(needs)} 가 기록된 브라우저 프로필이 없다",
+                    "next": "로그인한 뒤 web profile mark --kind login --name <공급자> 로 기록한다 (web profile list)"}
+    if wanted is None:
+        return None
+    if wanted != browser_profiles.REPO_PROFILE_NAME and not browser_profiles.is_valid_profile_name(wanted):
+        return {"ok": False, "code": "bad_args", "error": f"프로필 이름은 영문·숫자·._- 40자 이내: {wanted}",
+                "next": "web open --profile work"}
+    browser_profiles.choose_profile(root, wanted)
+    return None
+
+
 def cmd_web(args) -> int:
     """웹 화면을 조작한다. 한 번에 한 동작 — agent가 화면을 보고 다음을 정한다."""
     set_area("web", project_root(args))
@@ -86,7 +105,10 @@ def cmd_web(args) -> int:
         return action.run(args)
 
     root = project_root(args)
-    state_f = state_path(root)
+    # web open --profile · --need: 이 레포가 쓸 프로필을 먼저 정한다 (#956) — 상태 파일 자리가 프로필을 따른다
+    if args.action == "open" and (choice_error := apply_profile_choice(args, root)):
+        return out(choice_error)
+    state_f = browser_profiles.web_state_path(root)
     # 명령 전체 시간 상한 — 붙기 · 조작이 멈추면 browser_hung 을 내고 끝낸다 (#921)
     watchdog = Watchdog(args.action, deadline_seconds(args, action.needs), state_f).start()
     try:

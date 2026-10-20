@@ -25,6 +25,7 @@ import knowledge_stale
 import maestro_runs
 
 from pro_launch.registry import Command
+from pro_launch.runtime import browser_profiles, device_ledger
 from pro_launch.runtime.output import out
 from pro_launch.runtime.procs import pid_alive, process_command_lines
 from pro_launch.runtime.recent_roots import load_recent_roots
@@ -129,6 +130,7 @@ def _bucket_rows(command_lines: str | None, now: float) -> list[dict]:
                 candidates += [(grand, SCRATCH_BUCKET) for grand in sorted(child.iterdir()) if grand.is_dir()]
             else:
                 candidates.append((child, kind))
+        marked_bucket_names = _buckets_with_profile_marks()
         for path, parent_name in candidates:
             profile = path / PROFILE_NAME
             has_profile = profile.is_dir()
@@ -145,14 +147,26 @@ def _bucket_rows(command_lines: str | None, now: float) -> list[dict]:
                 # 상태(데이터) 없이 프로필만 남은 버킷의 프로필
                 "is_orphan_profile": has_profile and not _bucket_has_data(path),
                 "is_browser_alive": live_pid is not None or (has_profile and _is_profile_in_use(profile, command_lines)),
+                # 로그인 같은 공들인 상태가 기록된 프로필 (#956)
+                "has_profile_marks": has_profile and path.name in marked_bucket_names,
             })
     return rows
+
+
+def _buckets_with_profile_marks() -> set[str]:
+    """레포 프로필에 mark 가 있는 버킷 이름들 (원장 키 browser-profile:repo:<버킷>)."""
+    prefix = f"{browser_profiles.MARK_KEY_PREFIX}repo:"
+    return {key[len(prefix):] for key, entry in device_ledger.read_ledger()["devices"].items()
+            if key.startswith(prefix) and entry.get("marks")}
 
 
 def _decide_bucket_action(row: dict, idle_days: float) -> str:
     """버킷 한 건의 처리: delete_bucket | delete_profile | keep (이유는 skipped_reason)."""
     if row["is_browser_alive"]:
         return "keep:browser_alive"
+    # 로그인이 기록된 프로필은 지우면 다시 로그인·2단계 인증을 해야 한다
+    if row.get("has_profile_marks"):
+        return "keep:profile_has_marks"
     # 실제 레포는 로그인 프로필도 사용자 자산이다 — 보고만 한다
     if row["classification"] == "real" and row["is_orphan_profile"]:
         return "keep:real_repo_profile"

@@ -19,10 +19,11 @@ from pro_launch.commands.web.recovery import (
 from pro_launch.commands.web.session import close_blank_tabs, read_url_title, settle, web_connect
 from pro_launch.commands.web.watchdog import HUNG_MARK_KEY
 from pro_launch.registry import Action
+from pro_launch.runtime import browser_profiles
 from pro_launch.runtime.browser import read_state, require_playwright, write_state
-from pro_launch.runtime.context import state_home
 from pro_launch.runtime.output import out
 from pro_launch.runtime.procs import detach_options, manual_kill_command
+from pro_launch.runtime.session_identity import session_identity
 
 # 새로 띄운 브라우저의 CDP 포트가 열리길 기다리는 횟수 · 간격 (약 15초)
 _PORT_WAIT_TRIES = 60
@@ -146,7 +147,8 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     if err:
         return out(err)
     prev = read_state(state_f)
-    profile = state_home(root) / ".browser-profile"
+    # 레포 프로필 또는 고른 공용 프로필 (#956)
+    profile = browser_profiles.profile_home(root) / browser_profiles.PROFILE_FOLDER_NAME
     decision, recovered = recover_recorded_browser(prev, profile)
     # 이미 떠 있으면 새로 띄우지 않고 붙는다 (#825). 새로 띄우면 프로필 잠금으로 실패한다
     if decision == "reuse":
@@ -179,7 +181,7 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     profile.mkdir(parents=True, exist_ok=True)
     port = _free_port()
     use_stealth = not args.no_stealth
-    stderr_log = state_home(root) / BROWSER_STDERR_FILE
+    stderr_log = browser_profiles.profile_home(root) / BROWSER_STDERR_FILE
     with open(stderr_log, "w", encoding="utf-8") as stderr_file:
         # 우리가 끝나도 살아 있어야 한다. 표준오류는 실패 원인으로 싣는다
         proc = subprocess.Popen(_launch_command(exe, port, profile, args, use_stealth),
@@ -194,6 +196,8 @@ def _web_open(args, root: Path, state_f: Path) -> int:
              "stealth": use_stealth, "profile": str(profile), "opened_at": now,
              "browser": pick["label"], "browser_source": pick["source"],
              "last_used": now, "readonly": bool(args.readonly),
+             # 세션 종료 때 이 세션이 띄운 브라우저만 닫는다 (#956)
+             "opened_by_session": session_identity(), "profile_name": browser_profiles.chosen_profile(root),
              "viewport": prev.get("viewport"), "routes": prev.get("routes") or []}
     write_state(state_f, state)
 
@@ -224,6 +228,7 @@ def _web_open(args, root: Path, state_f: Path) -> int:
                 "stealth": use_stealth, "readonly": bool(args.readonly), "reused": False,
                 "recovered": recovered, "tabs": tab_summary,
                 "browser": pick["label"], "browser_source": pick["source"], "browser_reason": pick["reason"],
+                "profile": browser_profiles.chosen_profile(root) or browser_profiles.REPO_PROFILE_NAME,
                 "summary": f"브라우저를 열었습니다 ({args.url or '빈 탭'})"
                            + (" — 읽기 전용" if args.readonly else "")
                            + (f" — 치운 것: {', '.join(recovered)}" if recovered else ""),
@@ -245,6 +250,10 @@ def configure(p) -> None:
                    help="open: 떠 있는 브라우저에 새 탭을 만들어 연다 — 다른 세션과 탭을 나눠 쓸 때")
     p.add_argument("--tab-name", dest="tab_name", default=None,
                    help="open: 이 탭에 이름을 붙인다. 이후 LAUNCH_TAB=<이름> 으로 이 탭만 몬다")
+    p.add_argument("--profile", default=None,
+                   help="open: 이 컴퓨터 공용 프로필 이름 — 레포를 넘어 같은 로그인을 쓴다 (repo 면 레포 프로필로). 레포마다 기억된다")
+    p.add_argument("--need", action="append", default=None,
+                   help="open: 이 상태(kind:name, 예: login:google)가 기록된 프로필을 고른다 (web profile mark)")
 
 
 ACTION = Action(name="open", needs="launch", run=_web_open, configure=configure, options=("url", "timeout"),

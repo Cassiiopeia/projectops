@@ -11,7 +11,8 @@ from common.state import repo_unknown, venv_dir
 import knowledge
 
 from pro_launch.registry import Command
-from pro_launch.runtime.browser import browser_choice, open_browser_status, playwright_state, state_path
+from pro_launch.runtime import browser_profiles
+from pro_launch.runtime.browser import browser_choice, open_browser_status, playwright_state
 from pro_launch.runtime import host_resources
 from pro_launch.runtime.context import project_root, state_home
 from pro_launch.runtime.devices import list_devices
@@ -46,7 +47,7 @@ def cmd_doctor(args) -> int:
     pw = playwright_state()
     # Playwright 가 있어야 번들 경로를 알 수 있다. 없어도 환경변수·설치된 브라우저는 보인다
     chosen = browser_choice()
-    open_browser = open_browser_status(state_path(root))
+    open_browser = open_browser_status(browser_profiles.web_state_path(root))
     memory = _memory_counts(root)
     payload = {
         "plugin_version": plugin_version(),
