@@ -1,71 +1,71 @@
-# 보드 조립 · 게시
+# Board assembly · publishing
 
-> 언제 읽나: 5~6단계 — `board` 로 조립한 결과를 점검할 때, 이슈 본문을 쓸 때, 게시 뒤 틀린 것을 발견했을 때.
+> When to read: Steps 5–6, when checking what `board` assembled, when writing the issue body, and when you find a mistake after publishing.
 
-## 5. 보드 — 조립 규칙
+## 5. Board: assembly rules
 
-- 데이터에 없는 주제는 보드에 만들지 않는다. `states[].design` 을 적으면 "시안" 칸이 생긴다 (Figma 빈틈 표).
-- **주제별로 PNG 를 나눈다** — 한 장에 다 넣으면 GitHub 에서 안 읽힌다. 폭은 2,900px 안팎(상한 3,400, `--scale` 기본 2).
-- 그림은 HTML 에 **한 번만** 실린다(같은 캡처를 여러 칸에 써도). 표시에 충분한 크기로 줄여 싣는다.
-- 그림 경로는 데이터 파일 기준 상대경로로 쓴다.
-- PNG 는 **pro-launch 가 받아 둔 Chromium** 으로 찍는다. 없으면 `browser_missing` — 멈추지 않고
-  HTML 또는 원본 캡처 + md 표로 낸다. 브라우저가 필요하면 먼저 사용자에게 묻고 `launch_cli.py web setup`.
-- **PNG 를 Read 로 열어 본다.** 글자가 잘리거나 겹친 곳이 있으면 데이터를 고쳐 다시 조립한다.
-- 결과의 **`preflight` 가 비어야 게시한다.** 출처 없는 캡처 · 도달 가능성을 안 적은 상태 · 렌더만 근거인
-  사실을 짚는다. 게시 직전에는 `--strict` 로 조립하면 남은 것이 있을 때 `ok:false`(`preflight_failed`)로 멈춘다.
-- 보드 HTML 의 모양은 `../assets/board.html` 이 정본이다.
+- Topics not in the data are not created on the board. If you fill `states[].design`, a "design" column appears (the Figma gap table).
+- **Split PNGs by topic.** One image with everything is unreadable on GitHub. Width is about 2,900px (max 3,400, `--scale` default 2).
+- Each image is embedded **only once** in the HTML (even if the same capture is used in several slots). It is scaled down to a size sufficient for display.
+- Write image paths relative to the data file.
+- PNGs are captured with **the Chromium that pro-launch downloaded**. If it is missing you get `browser_missing`; do not stop, deliver
+  HTML or raw captures plus an md table. If a browser is needed, ask the user first, then `launch_cli.py web setup`.
+- **Open the PNGs with Read.** If text is cut off or overlaps anywhere, fix the data and assemble again.
+- **Publish only when `preflight` in the result is empty.** It flags captures without a source, states without reachability,
+  and facts backed only by renders. Right before publishing, assemble with `--strict`; if anything remains it stops with `ok:false` (`preflight_failed`).
+- The source of truth for the board HTML layout is `../assets/board.html`.
 
-## 6. 게시 — 디자이너에게는 한 형식만
+## 6. Publish: only one format for the designer
 
-게시 직전 **승인 게이트**(`../../references/approval-and-questions.md` §4 A/B/C)를 그대로 쓴다.
-무엇을 어디에 올릴지(이슈 제목·담당자·첨부 장수)를 보여 주고 승인받는다. 자동 모드면 요약만 보이고 진행한다.
+Use the **approval gate** (`../../references/approval-and-questions.md` §4 A/B/C) right before publishing.
+Show what goes where (issue title, assignee, number of attachments) and get approval. In auto mode, show only a summary and proceed.
 
-| 출력 | 디자이너가 받는 것 | 방법 |
+| Output | What the designer receives | How |
 |---|---|---|
-| `issue` | 이슈 본문 + PNG | `SKILL.md` 의 6단계 블록 |
-| `html` | `board/board.html` 한 파일 (그림 내장 · 탭으로 넘겨 본다) | 경로를 알려준다 |
-| `markdown` | `board/brief.md` + PNG 폴더 | `board --md` 로 만든 것. 경로를 알려준다 |
+| `issue` | Issue body + PNGs | The Step 6 block in `SKILL.md` |
+| `html` | One file, `board/board.html` (images embedded, browse by tabs) | Give the path |
+| `markdown` | `board/brief.md` + PNG folder | Built with `board --md`. Give the path |
 
-**둘 다 주지 않는다** — 어느 쪽을 볼지 헷갈린다.
+**Never give both.** The designer would not know which one to look at.
 
-### 이슈 본문의 그림 경로 — `rewrite-images` 로만 바꾼다
+### Image paths in the issue body: change them only with `rewrite-images`
 
-본문 md 는 로컬 경로(`board/states.png`)로 쓰고, 올린 뒤 CLI 로 URL 을 끼운다. 인라인 파이썬으로 치환하지 않는다.
+Write the body md with local paths (`board/states.png`), and after uploading insert the URLs with the CLI. Do not substitute them with inline Python.
 
-1. `upload-image ... > {run_dir}/uploads.json` — 출력 JSON 을 그대로 파일로 남긴다
-2. `design_brief_cli.py rewrite-images --md {본문} --uploads {run_dir}/uploads.json` → `<본문>.issue.md` (원본 md 는 그대로)
-3. `create-issue` 에는 `.issue.md` 를 넘긴다
+1. `upload-image ... > {run_dir}/uploads.json`: keep the output JSON as a file as is
+2. `design_brief_cli.py rewrite-images --md {body} --uploads {run_dir}/uploads.json` → `<body>.issue.md` (the original md is untouched)
+3. Pass the `.issue.md` to `create-issue`
 
-- 짝 찾기: upload-image 출력이면 파일 이름(stem), `{"board/a.png": "https://…"}` 대응표면 md 기준 경로·이름. 같은 이름이 둘이면 대응표로 준다.
-- 못 찾은 그림이 하나라도 있으면 `unmatched_images` 로 **쓰지 않는다** — 깨진 그림이 디자이너 알림으로 나가지 않게.
-  빠진 것만 다시 올리고 `--uploads` 를 하나 더 붙여 부른다(여러 번 줄 수 있다).
+- Matching: with upload-image output, by file name (stem); with a `{"board/a.png": "https://…"}` mapping, by path or name relative to the md. If two files share a name, give a mapping.
+- If even one image cannot be matched, you get `unmatched_images` and **nothing is written**, so broken images never reach the designer's notification.
+  Upload only the missing ones again and call it with one more `--uploads` (it can be given several times).
 
-### 이슈 본문 뼈대 — 보드와 같은 이름·같은 순서로
+### Issue body skeleton: same names and order as the board
 
-레포의 디자인 요청 템플릿 섹션에 맞춘다. 제목은 레포 이슈 제목 규칙을 따른다.
+Match the sections of the repo's design request template. The title follows the repo's issue title rules.
 
-| 섹션 | 들어갈 것 |
+| Section | Contents |
 |---|---|
-| 🖌️ 요청 내용 | 무엇을·왜·지금 상태 표, **꼭 지킬 것**(출처와 함께), 현재 구현 PNG |
-| 🎯 기대 결과 | 어떤 시안이 나오면 개발이 무엇을 하는지 |
-| 📋 참고 자료 | 상태 PNG · 대안 PNG(A·B·C) · 문구표 · UI 요소. 개발 쪽 추천은 **한 줄** |
-| 💡 추가 요청 사항 | 고르면 개발이 따로 드는 안 · 질문(원칙과 부딪히는 것, 시안끼리 어긋난 것) |
-| 🙋 담당자 | 디자이너 |
+| 🖌️ Request (`🖌️ 요청 내용`) | What and why, a current-state table, **must-keep rules** (with sources), current implementation PNG |
+| 🎯 Expected result (`🎯 기대 결과`) | What development does once a given design arrives |
+| 📋 References (`📋 참고 자료`) | State PNGs · alternative PNGs (A · B · C) · copy table · UI elements. The dev side's recommendation in **one line** |
+| 💡 Additional requests (`💡 추가 요청 사항`) | Options that cost extra development if chosen · questions (conflicts with principles, disagreements between design frames) |
+| 🙋 Assignees (`🙋 담당자`) | Designer |
 
-### 게시한 뒤 틀린 것을 발견하면
+### If you find a mistake after publishing
 
-본문을 고치고 **정정 댓글을 따로 단다.** 디자이너는 알림으로 옛 본문을 이미 봤을 수 있다 — 본문만 고치면
-무엇이 바뀌었는지 모른다. 정정 댓글에는 "처음에 쓴 것 → 실제 → 근거"를 표로 적고, 실기기 캡처를 붙인다.
+Edit the body and **add a separate correction comment.** The designer may already have seen the old body through a notification; editing only the body
+does not tell them what changed. In the correction comment, put a table of "initially written → actual → evidence" and attach a real-device capture.
 
-### private 레포
+### Private repos
 
-**private 레포는 그림이 렌더링되지 않는다** (`upload-image` 의 `private_warning`). 그때는 사용자에게
-알리고 `html` 출력으로 바꿀지 묻는다.
+**Images do not render in private repos** (`private_warning` from `upload-image`). Tell the user
+and ask whether to switch to `html` output.
 
-## 하지 않는 것
+## Not done
 
-- 캡처를 위해 AI 생성 API 호출 — 가짜 데이터로
-- Figma 에 그리기 — MCP 는 읽기 전용이다
-- 디자이너 대신 결정 — 추천은 한 줄, 선택은 디자이너
-- 법적 문구 후보 제안
-- 요청 대상과 별개로 발견한 화면 결함을 요청서에서 고치기 — 상태 표에 "별개"로 적고 개발 쪽에 알린다
+- Calling AI generation APIs for captures (use fake data instead)
+- Drawing in Figma (the MCP is read-only)
+- Deciding for the designer (the recommendation is one line; the choice is the designer's)
+- Proposing candidates for legal text
+- Fixing, inside the brief, screen defects found apart from the request (list them as "separate" in the state table and tell the dev side)

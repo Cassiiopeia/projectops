@@ -1,83 +1,83 @@
-# 입력 · 상태 목록 · 캡처
+# Input · state list · capture
 
-> 언제 읽나: 1~3단계 — Figma 링크나 이미지를 받았을 때, 상태 목록을 뽑을 때, 무엇을 렌더·실기기·ASCII 로 찍을지 정할 때.
+> When to read: Steps 1–3, when you receive a Figma link or images, when you list states, and when you decide what to capture by render, real device or ASCII.
 
-## 1. 입력 파악
+## 1. Understand the input
 
-| 사용자가 준 것 | 하는 일 |
+| What the user gave | What to do |
 |---|---|
-| 없음 | 코드 · 캡처 · 대화만으로 만든다 |
-| **Figma 링크** | `../../references/figma-mcp.md` 규칙으로 읽는다 (두 번 나눠 받기 · 공통 컴포넌트 먼저). 읽기에 실패하면 Figma 없이 진행하고 요약에 적는다 |
-| 이미지 (스크린샷 · 참고 앱) | 보드 "현재 구현" 칸 옆에 넣고 무엇을 참고했는지 한 줄 적는다 |
+| Nothing | Build it from the code, captures and conversation only |
+| **Figma link** | Read it with the rules in `../../references/figma-mcp.md` (fetch in two passes · shared components first). If reading fails, continue without Figma and note it in the summary |
+| Images (screenshots · reference apps) | Put them next to the board's "current implementation" slot and write one line on what was referenced |
 
-구현 여부를 정한다: **구현됨 / 일부 / 아직 없음.** 아직 없으면 캡처 대신 **실제 컴포넌트로 렌더한 목업**이 중심이 된다. 텍스트 그림(ASCII)은 중심이 아니다.
+Decide implementation status: **implemented / partial / not yet.** If not yet, the center of the brief is **mockups rendered with real components** instead of captures. Text drawings (ASCII) are not the center.
 
-**Figma 가 있으면 얻는 것**: 그려진 상태 vs 빠진 상태 **빈틈 표**(`../../references/design-states.md` §4 —
-빠진 상태가 곧 요청 목록), 토큰·컴포넌트(대안을 시안 언어로), 시안 export(보드에 `시안 | 현재 | 대안`).
-덤프를 셀 때는 pro-figma 의 `coverage` 를 상태별 노드마다 돌린다. **시안끼리 어긋난 곳은 고치지 않고 질문으로 올린다.**
+**What a Figma file gives you**: the **gap table** of drawn vs missing states (`../../references/design-states.md` §4;
+the missing states are the request list), tokens and components (to express alternatives in the design's language), and design exports (`design | current | alternative` on the board).
+To count the dump, run pro-figma's `coverage` for each state node. **Do not fix places where design frames disagree; raise them as questions.**
 
-## 2. 상태 목록 — 디자이너가 안 그리는 화면
+## 2. State list: the screens designers do not draw
 
-`../../references/design-states.md` 의 **5축**(데이터 · 입력 · 환경 · 사람 · 표시)에서 뽑는다.
-**스크립트가 분기를 스캔하지 않는다 — 네가 코드를 읽고 적는다.**
+Pick from the **5 axes** in `../../references/design-states.md` (data · input · environment · person · display).
+**No script scans the branches. You read the code and list them.**
 
-- 상태마다 **구현됨 / 화면 임시 / 미구현** 을 적는다 (보드 데이터 `status`: `done` · `temp` · `none`).
-- 상태마다 **지금 흐름에서 나오는가**를 적는다 (`reachable`: `yes` · `old_data` · `unknown`). 그 상태를 만드는
-  **입력 경로(고르는 UI, 저장되는 값)가 지금도 있는지 코드로 본다.** 스펙·주석의 "임시", "나중에 교체"는
-  쓴 시점의 이야기다. 예전 데이터에만 나오는 상태는 요청에서 빼거나 "예전 데이터에만"으로 따로 표시한다.
-  > 실제로 고르는 UI 가 이미 없어진 상태를 스펙 문장만 믿고 요청해, 디자이너가 나오지도 않는 화면을 받았다.
-- **서버가 내려주는 문구도 상태다** — 공지 팝업 · 약관 · 서버 오류 문구. 코드 검색에는 안 걸리므로
-  운영 API·관리 화면에서 확인한다. (코드만 보고 "보이는 곳 6군데"라고 썼는데 공지 팝업까지 7군데였다.)
-- **그 화면에 실제로 해당하는 축만** 넣는다. 억지로 채우지 않는다 (버전 표시에 "0건"은 없다).
-- 표시 축(글자 200% · 작은 폰)은 거의 모든 화면에 해당한다. **여기서 깨지는 것이 자주 나온다** —
-  요청 대상과 별개 문제면 "별개"라고 적어 섞지 않는다.
+- For each state, record **implemented / temporary screen / not implemented** (board data `status`: `done` · `temp` · `none`).
+- For each state, record **whether the current flow produces it** (`reachable`: `yes` · `old_data` · `unknown`). **Check in the code whether the
+  input path that creates the state (the UI that selects it, the stored value) still exists.** "Temporary" or "replace later" in specs and comments
+  describe the time they were written. Drop states that appear only with old data, or mark them separately as "old data only".
+  > A state whose selection UI was already gone was requested based on a spec sentence alone, and the designer got a screen that never appears.
+- **Text the server sends is also a state**: notice popups, terms, server error messages. Code search does not find them,
+  so check the production API or admin screens. (Reading only the code gave "shown in 6 places"; with the notice popup it was 7.)
+- Include **only the axes that really apply to that screen.** Do not force them (a version label has no "0 items" state).
+- The display axis (200% text, small phones) applies to almost every screen. **Breakage shows up here often.**
+  If it is a separate problem from the request, mark it "separate" and keep it apart.
 
-## 3. 캡처 — pro-launch 로
+## 3. Capture: with pro-launch
 
-**렌더는 상태를 연출하는 수단이고, "지금 앱은 이렇다"의 근거는 실기기다.** ⚠️
+**Rendering is a way to stage states; evidence for "this is how the app is now" is the real device.** ⚠️
 
-위젯 렌더만 보고 쓴 주장이 실기기와 7건 달랐다. 렌더 하네스에는 모달 가림막이 안 그려지고, 가짜
-실패 객체는 실제 실패와 모양이 다르고, 가짜 provider 는 오프라인 우선 경로와 자동 재시도를 건너뛰고,
-렌더 폭은 기기 폭과 다르고, 픽스처 값은 운영 값이 아니다. 반대로 실기기에서만 나오는 결함도 있다.
+Claims written from widget renders alone differed from the real device in 7 places. The render harness does not draw the modal scrim, fake
+failure objects look different from real failures, fake providers skip the offline-first path and automatic retries,
+render width differs from device width, and fixture values are not production values. Some defects also appear only on real devices.
 
-| 무엇을 보이려는가 | 무엇으로 |
+| What you want to show | With what |
 |---|---|
-| 지금 앱의 모습 · 동작 · 수치 (사실) | **실기기 · 운영 API · 운영 설정** — 렌더로 대신하지 않는다 |
-| 만들기 어려운 상태 (빈 목록 · 실패 · 긴 글자) | 렌더 · 응답 바꿔치기 — 캡처에 **"렌더 · 가짜 데이터"** 표시 |
-| 아직 없는 안 | 실제 컴포넌트 렌더. 렌더가 안 될 때만 ASCII — **사용자가 보고 허락한 경우에만** 게시한다 |
+| How the app looks, behaves and what numbers it shows now (facts) | **Real device · production API · production settings**; never substitute a render |
+| States that are hard to create (empty list, failure, long text) | Render · response swapping; label the capture **"render · fake data"** |
+| Options that do not exist yet | Render real components. Use ASCII only when rendering fails, and publish it **only if the user has seen and allowed it** |
 
-- 지급량·한도 같은 **수치는 픽스처가 아니라 운영 API·설정에서** 읽는다.
-- 캡처마다 출처를 적는다 (`source`: `render` · `device` · `server` · `design`). 보드가 표시를 단다.
-- 요청서에 적는 "지금 앱은 이렇다" 문장은 `facts[]` 에 **근거와 함께** 적는다. 렌더만 근거인 문장은
-  게시 전에 실기기로 확인하거나 뺀다 (`board` 의 `preflight` 가 짚는다).
+- Read **numbers** such as grant amounts and limits **from the production API or settings, not fixtures**.
+- Record the source of each capture (`source`: `render` · `device` · `server` · `design`). The board adds a label.
+- Put "this is how the app is now" statements in `facts[]` **with evidence**. Statements backed only by a render
+  must be checked on a real device before publishing, or dropped (`preflight` in `board` flags them).
 
-**충실도 사다리 (한 곳에서 못 박는다)**: 실제 컴포넌트 렌더 > 기기·브라우저 캡처 > 텍스트 그림(ASCII). 요청서는 디자이너가 앱처럼 보고 판단하는 것이라
-텍스트 그림은 "그릴 수 없는 상태를 설명하는 최후 수단"이다. 게시 승인 화면에 **가장 약한 산출물이 무엇인지**(예: "ASCII 2장") 적어 사용자가 보고 결정하게 한다 —
-ASCII 가 섞인 채 이슈에 올라간 뒤 "실제 앱처럼 그려 달라"고 반려된 적이 있다.
+**Fidelity ladder (fixed in one place)**: real component render > device / browser capture > text drawing (ASCII). Designers judge the brief as if it were the app,
+so a text drawing is "the last resort for explaining a state that cannot be drawn". On the publish approval screen, state **what the weakest output is** (for example "2 ASCII drawings") so the user can decide.
+An issue once went up with ASCII mixed in and was sent back with "draw it like the real app".
 
-순서: **코드 렌더 → 실기기·브라우저 → ASCII.** 연출한 상태 중 실기기로 재현할 수 있는 것은 실기기로도 한 번 찍는다.
+Order: **code render → real device / browser → ASCII.** For staged states that a real device can reproduce, also capture them once on the device.
 
-| 무엇으로 | 명령 | 언제 |
+| With what | Command | When |
 |---|---|---|
-| 코드 렌더 | `render snapshot` → 임시 렌더 코드 → `render run` | 엣지 상태·대안 목업. 레시피는 `../../pro-launch/references/render.md` |
-| 기기 | `app shot --clean-status` (화면 이동은 `app tap --text` · `app swipe`) | 실제 화면 그대로 |
-| 브라우저 | `web viewport` · `web route` · `web shot` | 웹 — 빈 목록·실패를 서버 없이 연출 |
-| ASCII | `design_brief_cli.py ascii --spec '{...}'` | 렌더할 수 없는 상태·아직 코드가 없는 안. "렌더 실패" 라고 표시한다 |
+| Code render | `render snapshot` → temporary render code → `render run` | Edge states and alternative mockups. Recipe: `../../pro-launch/references/render.md` |
+| Device | `app shot --clean-status` (navigate with `app tap --text` · `app swipe`) | The real screen as is |
+| Browser | `web viewport` · `web route` · `web shot` | Web: stage empty lists and failures without a server |
+| ASCII | `design_brief_cli.py ascii --spec '{...}'` | States that cannot be rendered, options with no code yet. Label it "render failed" |
 
 ```bash
-source "{env_file 값}"          # $SHOT_DIR · $RUN_DIR · $DEV
-PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py app tap  --device "$DEV" --text "{화면으로 가는 문구}" --shot 02_목록
-PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV" --out 03_빈목록 --clean-status
+source "{env_file value}"          # $SHOT_DIR · $RUN_DIR · $DEV
+PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py app tap  --device "$DEV" --text "{text that leads to the screen}" --shot 02_list
+PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV" --out 03_empty_list --clean-status
 PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py web route --match "**/api/items*" --status 200 --body "[]"
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py ascii --spec '{"title":"빈 목록","rows":["아직 없어요","---",{"text":"추가","align":"center"}],"width":24}'
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py ascii --spec '{"title":"Empty list","rows":["Nothing yet","---",{"text":"Add","align":"center"}],"width":24}'
 ```
 
-- **화면 이동은 요소로 누른다**(`app tap --text|--id|--desc`). 좌표를 눈대중하지 않는다 — 문구를 모르면 `app tree`.
-- **ascii 스펙** — `{"title": "제목(선택)", "rows": ["글자", {"text": "글자", "align": "left|center|right"}, "---"],
-  "width": 24, "caption": "아래 설명(선택)"}`. `width` 는 1 이상 정수(기본 30), `rows` 의 `"---"` 는 구분선.
-  이 네 키 밖의 키(`boxes` 등)는 무시되고 `warnings` 로 알려 준다. 한글은 두 칸으로 세어 오른쪽 선을 맞춘다. `--out` 으로 파일 저장.
-- **대안 목업도 실제 컴포넌트로 렌더한다.** HTML 로 다시 그리면 글꼴·간격이 달라 디자이너가 헷갈린다.
-  실제 화면 위에 실제 글자 토큰으로 자리만 옮기는 식이 가장 정확하다.
-- **작은 요소는 확대 조각을 만든다** (4배, 가장 가까운 픽셀로). 10px 글자는 전체 화면에서 안 보인다.
-- 캡처를 위해 **AI 생성 API 를 부르지 않는다** — 가짜 데이터로 채운다.
-- `render run` 이 `residue` 를 내면 **지우지 않는다.** 네가 만든 것이면 네가 지우고, 모르는 변경이면 보고만 한다.
+- **Navigate by element** (`app tap --text|--id|--desc`). Do not guess coordinates; if you do not know the text, use `app tree`.
+- **ascii spec**: `{"title": "title (optional)", "rows": ["text", {"text": "text", "align": "left|center|right"}, "---"],
+  "width": 24, "caption": "caption below (optional)"}`. `width` is an integer of 1 or more (default 30); `"---"` in `rows` is a divider.
+  Keys outside these four (`boxes` and so on) are ignored and reported in `warnings`. Wide characters (such as Korean) count as two columns so the right border lines up. Save to a file with `--out`.
+- **Render alternative mockups with real components too.** Redrawing them in HTML changes fonts and spacing and confuses the designer.
+  Moving elements on the real screen with the real text tokens is the most accurate.
+- **Make zoomed crops of small elements** (4x, nearest-neighbor). 10px text is invisible in a full-screen capture.
+- **Do not call AI generation APIs** to make captures. Fill them with fake data.
+- If `render run` reports `residue`, **do not delete it** unless you created it. If you made it, clean it up; if it is a change you do not know, only report it.

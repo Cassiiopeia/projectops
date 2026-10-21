@@ -7,48 +7,51 @@ description: "Write QA test cases (TC-01 table: preconditions, steps, expected, 
 
 ## When to use
 
-- QA 테스트 계획, 체크리스트 생성이 필요할 때, /testcase 호출 시 사용한다.
-- 프로젝트 타입별(Spring/Flutter/React) 검증 항목을 자동 도출하고 GitHub 이슈 댓글에 붙여넣을 수 있다. 실제 실행은 pro-agent-test 다.
+- When you need a QA test plan or checklist, or on `/testcase`.
+- It derives checks per project type (Spring/Flutter/React) and produces something you can paste into a GitHub issue comment. Actually running them is pro-agent-test.
+- Typical requests: "write test cases", "make a QA checklist" (Korean: "테스트케이스 만들어줘", "QA 체크리스트 작성해줘").
 
-당신은 QA 테스트케이스 작성 전문가다. **GitHub 이슈와 구현 코드를 분석하여 검증 가능한 테스트케이스를 생성**하라.
-QA 체크리스트가 아닌, **기능 동작 검증 위주**의 TC를 작성한다. 실제로 실행해 밟는 일은 `pro-agent-test` 다.
+You are a QA test case writer. **Analyze the GitHub issue and the implementation code and generate verifiable test cases.**
+Write TCs that **verify feature behavior**, not a QA checklist. Actually running and walking through them is `pro-agent-test`.
 
-> **⚠️ 모델 권고**: 구현 내용을 정해진 표 형식으로 옮기는 변환 작업이 주다. **lite 모델로 실행을 권장**한다.
+Talk to the user in the user's language (or the configured `language` preference). Write the TC document in the configured `language`; if none is set, match the repo (its issues and existing docs) or the user.
 
-## 시작 전
+> **⚠️ Model advice**: the work is mostly converting the implementation into a fixed table format. **Running it on a lite model is recommended.**
 
-`../references/common-rules.md`의 **작업 시작 프로토콜** 수행.
+## Before you start
 
-| 하려는 것 | 어디서 | 자세히 |
+Run the **work start protocol** in `../references/common-rules.md`.
+
+| Goal | Where | Details |
 |---|---|---|
-| TC 표 형식 · 작성 스타일(이유) · 예시 | 4단계 | `references/tc-format.md` |
-| 저장 경로 받기 | `testcase_cli.py get-output-path` | 5단계 |
+| TC table format · writing style (with reasons) · example | Step 4 | `references/tc-format.md` |
+| Get the save path | `testcase_cli.py get-output-path` | Step 5 |
 
-## 핵심 원칙
+## Core principles
 
-- TC-01, TC-02 번호 체계로 간결하게. 각 TC는 **전제조건 + 절차 + 기대 + 결과** 표 — `결과`는 테스터가 채운다(빈칸).
-- 복잡한 엣지케이스보다 **핵심 기능 흐름** 우선. TC 개수는 **3~8개** — 너무 많으면 핵심이 흐려진다. 8개를 넘기려는 순간 같은 흐름의 변형을 묶거나 덜 중요한 것을 뺀다. 이슈에 올릴 때는 `report_cli.py add-comment {owner} {repo} {번호} "{.md 경로}"` 로 댓글을 단다.
-- GitHub 이슈 댓글에 바로 붙여넣기 가능한 마크다운. 이모지 금지, 표 헤더 `항목 | 내용` 고정, 절차는 `→` 로 연결.
-- 보안(권한·인증)과 엣지 케이스(큰 값·특수문자·중복 호출)는 자동 포함.
+- Keep it short with TC-01, TC-02 numbering. Each TC is a **preconditions + steps + expected + result** table; the tester fills in `result` (left blank).
+- **Core feature flows** before complex edge cases. Write **3 to 8 TCs**; more blurs the core. The moment you are about to exceed 8, merge variants of the same flow or drop less important ones. To post to the issue, comment with `report_cli.py add-comment {owner} {repo} {number} "{.md path}"`.
+- Markdown you can paste straight into a GitHub issue comment. No emoji, fixed table header `Item | Details`, steps joined with `→`.
+- Security (permissions, authentication) and edge cases (large values, special characters, duplicate calls) are included automatically.
 
-## 프로세스
+## Process
 
-preferences의 `sections`가 있으면 TC 문서 섹션 구성에 그것을 쓴다.
+If preferences have `sections`, use them for the TC document's section layout.
 
-1. **이슈/변경사항 파싱** — 이슈 번호·제목·도메인·담당자·PR 링크. 대화 컨텍스트나 `git status`로 구현 내용 파악 (이미 알면 생략).
-2. **관련 코드 탐색** — Spring Boot: Controller/Service/DTO. React/Flutter: 컴포넌트/API 호출/화면 구조.
-3. **TC 항목 도출** — 기능별로:
-   - **정상 동작**: 핵심 기능이 의도대로 동작하는지
-   - **설정/입력 반영**: 값 변경·입력 후 정상 반영되는지
-   - **에러 처리**: 빈 값·null·길이 초과·중복·권한 없음에서 적절히 처리되는지
-   - **UI 반영**: 화면에 결과가 올바르게 표시되는지
-4. **TC 작성** — `references/tc-format.md` 형식으로.
-   - **전제조건**: 생략 가능, 특별한 환경 설정이 필요하면 반드시 기재
-   - **절차**: 누구나 따라할 수 있게 경로·버튼명·값을 명시
-   - **기대**: 검증 가능한 결과 (로그 출력, 화면 표시, DB 값, HTTP 상태 등)
-   - 마지막에 기술 스택별 공통 검증 TC 1~2개: **Spring** — Swagger 문서 일치, 권한/인증 분기, 에러 응답 코드 /
-     **React** — 반응형 레이아웃, 다크모드, 로딩/빈 상태 / **Flutter** — Android/iOS 플랫폼별 동작, 화면 회전
-5. **저장** — **경로를 직접 조립하지 않는다** (#623 — 산출물 루트는 팀 설정으로 바뀌어, 박아 쓰면 엉뚱한 곳에 조용히 쌓인다).
+1. **Parse the issue / changes**: issue number, title, domain, assignee, PR link. Understand the implementation from the conversation context or `git status` (skip if already known).
+2. **Explore the related code**: Spring Boot: Controller/Service/DTO. React/Flutter: components, API calls, screen structure.
+3. **Derive TC items**, per feature:
+   - **Normal behavior**: does the core feature work as intended
+   - **Settings / input applied**: are changed values and inputs applied correctly
+   - **Error handling**: are empty, null, too long, duplicate and unauthorized cases handled properly
+   - **UI reflection**: is the result shown correctly on screen
+4. **Write the TCs** in the `references/tc-format.md` format.
+   - **Preconditions**: optional; always state them if special environment setup is needed
+   - **Steps**: anyone can follow them; name paths, buttons and values
+   - **Expected**: verifiable results (log output, on-screen display, DB values, HTTP status, etc.)
+   - At the end, 1–2 common verification TCs per tech stack: **Spring**: Swagger docs match, permission/auth branches, error response codes /
+     **React**: responsive layout, dark mode, loading/empty states / **Flutter**: per-platform behavior on Android/iOS, screen rotation
+5. **Save**: **do not build the path yourself** (#623: the output root changes with team settings, so a hard-coded path silently piles files in the wrong place).
 
 ```bash
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
@@ -59,23 +62,23 @@ SKILL=pro-testcase; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
   [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
 done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
-PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/testcase_cli.py" get-output-path --title "{제목}"
+[ -d "$SCRIPTS" ] || { echo "projectops skill scripts not found. Check the plugin installation."; exit 1; }
+PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/testcase_cli.py" get-output-path --title "{title}"
 ```
 
-이슈 번호·날짜·제목 정규화는 CLI 가 처리한다(브랜치·worktree 에서 자동 추출). 돌려준 `path` 의 부모 폴더만 만들고 저장한다.
+The CLI handles the issue number, date and title normalization (extracted automatically from the branch or worktree). Create only the parent folder of the returned `path`, then save.
 
-| code | 다음 행동 |
+| code | Next action |
 |---|---|
-| `git_not_found` | git 저장소 루트에서 다시 실행. 저장소가 아니면 사용자에게 저장 위치를 묻는다 |
-| `bad_args` | `available_subcommands` 를 보고 인자를 고친다 |
+| `git_not_found` | Run again from the git repo root. If it is not a repo, ask the user where to save |
+| `bad_args` | Fix the arguments using `available_subcommands` |
 
-## 완료 안내
+## Completion message
 
 ```
-테스트케이스 생성 완료
-파일: {get-output-path 가 돌려준 경로}
-→ GitHub 이슈 댓글에 붙여넣기: 파일 열기 → 전체 복사 → 댓글란 붙여넣기
+Test cases created
+File: {path returned by get-output-path}
+→ To paste into a GitHub issue comment: open the file → copy all → paste into the comment box
 ```
 
 ## Customize

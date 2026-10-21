@@ -1,19 +1,19 @@
-# 이미지 첨부 (이슈 본문 · 댓글 · PR 본문 공통)
+# Image attachments (issue body · comments · PR body)
 
-> 언제 읽나: 스크린샷·증적 이미지를 이슈·댓글·PR에 넣을 때.
+> When to read: when putting screenshots or evidence images into an issue, comment or PR.
 
-명령은 `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py ...` 형태다 (SKILL.md "스크립트 찾기").
+Commands have the form `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py ...` (SKILL.md "Find the scripts").
 
-글로만 남기던 테스트 결과에 화면을 함께 붙인다. GitHub 공식 첨부 업로드는 **브라우저 세션이 필요해 PAT로 쓸 수 없다.** 그래서 증적 전용 릴리스(`qa-evidence`)에 자산으로 올리고 그 URL을 마크다운에 넣는다 — 이슈 본문과 댓글 양쪽에서 `<img>`로 렌더링되는 것을 실측으로 확인했다.
+Attach screens to test results that used to be text only. GitHub's official attachment upload **needs a browser session, so it cannot be used with a PAT.** Instead, upload the images as assets to an evidence-only release (`qa-evidence`) and put those URLs in the markdown. Measured in practice: they render as `<img>` in both issue bodies and comments.
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py upload-image {owner} {repo} {파일...} --prefix issue585
-# --tag {태그} : 증적 릴리스 태그 (기본 qa-evidence)
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py upload-image {owner} {repo} {files...} --prefix issue585
+# --tag {tag} : evidence release tag (default qa-evidence)
 ```
 
-릴리스 하나에는 자산이 1000개까지만 들어간다. 꽉 차면 `qa-evidence-2`, `-3` … 순으로 다음 릴리스에 자동으로 이어 올린다 (없으면 만든다). 실제로 쓴 태그는 응답 `tag`·`images[].tag`. 20개까지 모두 차면 `code: release_asset_limit` 과 `next`(오래된 증적 삭제 또는 새 `--tag`).
+One release holds up to 1000 assets. When it is full, uploads continue automatically to the next release, `qa-evidence-2`, `-3` and so on (created if missing). The tag actually used is in `tag` and `images[].tag` of the response. When all 20 are full you get `code: release_asset_limit` and a `next` (delete old evidence or use a new `--tag`).
 
-출력 JSON의 **`markdown` 필드를 본문 파일에 그대로 붙여넣는다.** 여러 장을 한 번에 올릴 수 있다.
+**Paste the `markdown` field of the output JSON into the body file as is.** You can upload several images at once.
 
 ```json
 {"count": 2, "markdown": "![step1](https://...)\n![step2](https://...)", "tag": "qa-evidence",
@@ -21,19 +21,19 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py upload-image {owner} {re
  "private_warning": null}
 ```
 
-한 장만 올리면 최상위 `url` 에도 그 주소가 있다 (`--field url`).
+If you upload only one image, its address is also in the top-level `url` (`--field url`).
 
-**쓰는 순서**: `upload-image`로 URL을 받는다 → 그 마크다운을 본문 `.md` 파일에 넣는다 → `create-issue` / `add-comment` / `update-pr`로 올린다. 순서를 뒤집으면 이미지 없는 본문이 먼저 올라간다.
+**Order**: get the URLs with `upload-image` → put that markdown into the body `.md` file → post with `create-issue` / `add-comment` / `update-pr`. If you reverse the order, the body goes up without images first.
 
-| 알아둘 것 | 내용 |
+| Know this | Details |
 |---|---|
-| **private 레포** | 익명 접근이 막혀 **렌더링되지 않는다.** `private_warning`으로 미리 알려준다 |
-| 렌더링되는 형식 | `.png` `.jpg` `.gif` `.webp` `.svg` — 그 밖(mp4 등)은 링크로만 남는다 |
-| 파일 이름 | 한글·공백은 URL에서 깨지므로 자동으로 영숫자로 정리하고 시각을 붙여 고유화한다 |
-| 되돌리기 | `delete-image {owner} {repo} {asset_id}` — 검증용으로 올린 것을 치울 때 |
+| **Private repos** | Anonymous access is blocked, so images **do not render.** `private_warning` tells you in advance |
+| Formats that render | `.png` `.jpg` `.gif` `.webp` `.svg`; others (mp4 etc.) stay as links only |
+| File names | Non-ASCII characters and spaces break in URLs, so names are converted to alphanumerics automatically and a timestamp makes them unique |
+| Undo | `delete-image {owner} {repo} {asset_id}`, for cleaning up uploads made for verification |
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py delete-image {owner} {repo} {asset_id}
 ```
 
-> 레포에 커밋하는 방식은 쓰지 않는다 — 이미지가 git 히스토리에 영구히 남아 레포가 무거워진다.
+> Do not commit images to the repo. They stay in git history forever and make the repo heavy.

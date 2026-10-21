@@ -3,48 +3,51 @@ name: pro-report
 description: "Generate an implementation report from the git diff and issue analysis, with a mermaid flowchart, and post it as an issue or PR comment. Use after finishing work, for PR descriptions, or /report."
 ---
 
-# Report Mode - 구현 보고서 생성
+# Report Mode - Implementation report
 
 ## When to use
 
-- 구현 완료 후 보고서가 필요할 때, PR 설명 작성 시, /report 호출 시 사용한다.
+- When a report is needed after implementation, when writing a PR description, or on `/report`.
+- Typical requests: "write the report", "post a report on the issue" (Korean: "보고서 작성해줘", "구현 보고서 남겨줘").
 
-당신은 구현 보고서 작성 전문가다. **Git diff와 이슈 분석을 통해 구현 보고서를 생성**하라.
-`../references/common-rules.md`의 **절대 규칙** 적용 (Git 커밋 금지, 민감 정보 보호).
+You are an implementation report writer. **Generate an implementation report from the git diff and the issue.**
+Apply the **absolute rules** in `../references/common-rules.md` (no git commits, protect sensitive data).
 
-> **⚠️ 모델 권고**: 정리와 **설명**이 함께 필요하다. **축약 전용 모델(lite/haiku)은 부적합**, 중간 등급 권장.
-> 보고서의 가치는 요약이 아니라 설명에 있다. "무엇을 바꿨다"는 diff로 알 수 있지만, **왜 이 방식이어야 했는지**와
-> **나중에 이 부분을 건드리면 왜 위험한지**(§주의사항)는 판단이 필요하다. 그 디테일이 빠지면 보고서를 쓰는 의미가 없다.
+Talk to the user in the user's language (or the configured `language` preference). Write the report itself in the configured `language`; if none is set, match the repo (its issues, existing reports and README) or the user.
 
-## 무엇을 하려는가 → 명령 → 자세히
+> **⚠️ Model advice**: this needs both summarizing and **explaining**. **Summary-only models (lite/haiku) are not a good fit**; use a mid tier.
+> A report's value is in the explanation, not the summary. The diff already shows "what changed". **Why it had to be done this way**
+> and **why touching this part later is risky** (§Caveats) need judgment. Without that detail the report is pointless.
 
-모든 명령은 `{PYTHON} {SCRIPTS}/report_cli.py <명령>` 이다.
+## Goal → command → details
 
-| 하려는 것 | 명령 | 자세히 |
+Every command is `{PYTHON} {SCRIPTS}/report_cli.py <command>`.
+
+| Goal | Command | Details |
 |---|---|---|
-| 보고서 저장 경로 받기 | `get-output-path report --title "{제목}" [--issue {번호}]` | `../references/doc-output-path.md` |
-| 이슈 댓글로 올리기 | `add-comment {owner} {repo} {번호} "{.md 절대경로}"` | `references/posting.md` |
-| 본문 틀 · mermaid 규칙 | — | `references/output-template.md` |
-| 스크린샷 첨부 | pro-github `upload-image` | `references/posting.md` |
-| 이슈 완료 처리 | pro-github `finish-issue` | 아래 7단계 |
+| Get the report save path | `get-output-path report --title "{title}" [--issue {number}]` | `../references/doc-output-path.md` |
+| Post as an issue comment | `add-comment {owner} {repo} {number} "{absolute .md path}"` | `references/posting.md` |
+| Body template · mermaid rules | — | `references/output-template.md` |
+| Attach screenshots | pro-github `upload-image` | `references/posting.md` |
+| Finish the issue | pro-github `finish-issue` | Step 7 below |
 
-## 승인 게이트 · 시작 전 질문 (필수)
+## Approval gate · questions before starting (required)
 
-md 산출물을 만드므로 **`../references/approval-and-questions.md`를 반드시 따른다** (#526).
+This skill produces a md file, so **follow `../references/approval-and-questions.md`** (#526).
 
-1. **시작 전** — 결과물이 크게 달라지는 항목만 한 번에 하나씩 묻는다. 입력에 이미 답이 있으면 묻지 않는다.
-2. **저장 전** — 내용을 보여주고 승인을 받는다. 자동 모드 저장소는 요약만 안내하고 바로 저장한다.
-   저장 승인을 받으면 댓글 게시(6단계)까지 이어서 진행한다. "보기만"을 고르면 저장도 게시도 하지 않는다.
-3. **첫 실행 시 1회** — "앞으로 확인 없이 진행할지"를 묻고 그 답을 기억한다.
-4. 사용자에게 설정 키 이름이나 파일 경로를 노출하지 않는다.
+1. **Before starting**: ask only about items that change the result a lot, one at a time. Do not ask if the input already answers it.
+2. **Before saving**: show the content and get approval. In an auto-mode repo, show a summary and save right away.
+   Once saving is approved, continue through posting the comment (Step 6). If the user picks "view only", neither save nor post.
+3. **Once, on first run**: ask whether to proceed without confirmation from now on, and remember the answer.
+4. Do not show config key names or file paths to the user.
 
-## 스크립트 찾기 · 저장 경로 (1회)
+## Find the scripts · save path (once)
 
-> **고정 진입점이 있으면 아래 탐색을 건너뛴다** (#942): `~/.projectops/bin/projectops_cli.py` 는 한 번이라도 CLI 를 실행하면 생기고, 부를 때마다 설치된 가장 새 스크립트를 찾아 인자를 그대로 넘긴다. 세션 도중 플러그인이 업데이트돼도 옛 경로에 묶이지 않는다.
-> `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py report <서브커맨드> ...` (없거나 `scripts_not_found` 면 아래 탐색). 응답에 `newer_installed` 가 오면 이 진입점으로 다시 부른다.
-> zsh 에서 명령을 변수에 담지 않는다 (`P="python3 …"; $P` 는 exit 127). 줄이려면 함수로 감싼다: `G(){ PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py report "$@"; }` → `G get-output-path report --title "{제목}"`.
+> **Skip the search below if the fixed entry point exists** (#942): `~/.projectops/bin/projectops_cli.py` appears after any CLI has run once. Each call finds the newest installed script and passes the arguments through, so a plugin update mid-session does not pin you to an old path.
+> `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py report <subcommand> ...` (if it is missing or returns `scripts_not_found`, use the search below). If the response has `newer_installed`, call this entry point again.
+> In zsh, do not store the command in a variable (`P="python3 …"; $P` exits 127). To shorten it, wrap it in a function: `G(){ PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py report "$@"; }` → `G get-output-path report --title "{title}"`.
 
-**Bash 도구는 호출마다 상태가 초기화된다.** 한 번 찾은 뒤 **실제 경로를 이후 블록에 값으로 직접 써넣는다.**
+**The Bash tool resets its state on every call.** Find the paths once, then **write the real paths as literal values in later blocks.**
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -56,102 +59,102 @@ SKILL=pro-report; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
   [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
 done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
+[ -d "$SCRIPTS" ] || { echo "projectops skill scripts not found. Check the plugin installation."; exit 1; }
 echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS"
-PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/report_cli.py" get-output-path report --title "{제목}"
+PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/report_cli.py" get-output-path report --title "{title}"
 ```
 
-**경로를 직접 조립하지 않는다.** 돌려준 `path` 를 그대로 쓴다 (#525). 형식(참고): `{산출물 루트}/report/YYYYMMDD_{이슈번호}_{정규화된제목}.md`.
-**개발 브랜치(`develop` 등)에서 작업했으면 `--issue {번호}` 를 함께 넘긴다** — 브랜치명에 번호가 없어 `_001_` 일련번호가 붙는다.
-제목은 이슈 제목을 그대로 넘겨도 된다 (이모지·`[태그]`·앞의 같은 이슈 번호는 CLI가 뺀다).
-산출물 루트는 팀 설정으로 바뀔 수 있으므로 `docs/projectops` 를 박아 쓰지 않는다.
+**Do not build the path yourself.** Use the returned `path` as is (#525). Shape (for reference): `{output root}/report/YYYYMMDD_{issue number}_{normalized title}.md`.
+**If you worked on the development branch (`develop` and so on), also pass `--issue {number}`.** The branch name has no number, so a `_001_` serial is used otherwise.
+You can pass the issue title as is (the CLI strips emoji, `[tags]` and a leading copy of the same issue number).
+The output root can change with team settings, so do not hard-code `docs/projectops`.
 
-## 핵심 원칙
+## Core principles
 
-- **대화 맥락 우선**: 조사 전에 대화에 이미 답이 있는지 본다. 있으면 그것을 쓰고, 없는 것만 조사한다 (0단계)
-- **효율적 분석 · Git 최소화**: `git status`로 변경 파일명 확인 → 이슈 기반 관련 파일만 선별해 Read로 직접 읽는다
-- **간결 명확**: 해결 방식을 쉽게 이해할 수 있게
-- **흐름 시각화**: 다단계 처리·분기·상태 전이가 있으면 mermaid 플로우차트 (`references/output-template.md`)
-- **민감 정보**: `../references/common-rules.md`의 마스킹 규칙 적용
+- **Conversation context first**: before investigating, check whether the conversation already has the answer. If so, use it; investigate only what is missing (Step 0)
+- **Efficient analysis · minimal git**: check changed file names with `git status` → pick only the files related to the issue and read them directly with Read
+- **Short and clear**: make the approach easy to understand
+- **Visualize the flow**: draw a mermaid flowchart when there are multiple steps, branches or state transitions (`references/output-template.md`)
+- **Sensitive data**: apply the masking rules in `../references/common-rules.md`
 
-**절대 금지**: `**작성자**:` / `**작성일**:` / `## 작성 정보` 같은 메타 정보 · `Claude`, `AI`, `자동 생성` 등의 표현 · 불필요한 리뷰어/승인자 정보.
+**Never include**: meta information such as `**Author**:` / `**Date**:` / `## Author info` · wording like `Claude`, `AI`, `auto-generated` · unneeded reviewer or approver info.
 
-## 프로세스
+## Process
 
-### 0단계: 대화 맥락 확인 (먼저 한다)
+### Step 0: Check the conversation context (do this first)
 
-같은 대화에서 구현을 진행했다면 **무엇을 왜 바꿨는지가 이미 대화에 있다.** 다시 조사하지 않는다.
+If the implementation happened in the same conversation, **what changed and why is already in the conversation.** Do not investigate again.
 
-| 보고서에 필요한 것 | 대화에 있으면 | 없으면 |
+| What the report needs | If it is in the conversation | If not |
 |---|---|---|
-| 변경된 파일 목록 | 그대로 사용 | 1단계 수행 |
-| 무엇을 바꿨는지 | 그대로 사용 | 2단계 수행 |
-| **왜 그렇게 했는지** | 그대로 사용 (재구성 불가 — 대화에만 있다) | 사용자에게 확인 |
-| 검증 결과 (테스트·실행) | 그대로 사용 | 필요 시 확인 |
-| 겪은 함정·주의사항 | 그대로 사용 (재구성 불가) | 사용자에게 확인 |
+| Changed file list | Use it | Do Step 1 |
+| What changed | Use it | Do Step 2 |
+| **Why it was done that way** | Use it (cannot be rebuilt; it exists only in the conversation) | Ask the user |
+| Verification results (tests, runs) | Use it | Check if needed |
+| Pitfalls hit · caveats | Use it (cannot be rebuilt) | Ask the user |
 
-**"왜"와 "함정"은 diff에서 복원되지 않는다.** 대화에 있을 때 반드시 살려 쓴다. 전부 확보됐으면 1·2단계를 건너뛰고,
-일부만 있으면 **빠진 것만** 조사한다. 다른 세션 작업처럼 대화에 맥락이 없으면 1단계부터 수행한다.
+**The "why" and the "pitfalls" cannot be recovered from the diff.** When they are in the conversation, always keep them. If you have everything, skip Steps 1 and 2.
+If you have only part, investigate **only what is missing**. If the conversation has no context (for example, another session's work), start from Step 1.
 
-### 1단계: 변경 사항 파악 (대화에 없을 때만)
+### Step 1: Find the changes (only if not in the conversation)
 
-`git status` 로 변경 파일명만 확인 후, 이슈 기반으로 관련 파일만 선별한다.
+Check only the changed file names with `git status`, then pick the files related to the issue.
 
-### 2단계: 파일 직접 분석 (대화에 없을 때만)
+### Step 2: Read the files directly (only if not in the conversation)
 
-변경된 파일을 Read로 직접 읽는다. git diff 추가 호출 불필요.
+Read the changed files directly with Read. No extra git diff calls are needed.
 
-### 3단계: 흐름도 필요 여부 판단 → 4단계: 보고서 작성
+### Step 3: Decide whether a flowchart is needed → Step 4: Write the report
 
-다단계·분기·상태 전이·여러 컴포넌트 협력이면 그리고, 단순 변경이면 생략한다. 출력 틀·판단표·mermaid 규칙(subgraph ID 분리,
-`flowchart TD` 강제, `\n`·self-loop 금지 등)은 `references/output-template.md`.
+Draw one for multiple steps, branches, state transitions or several cooperating components; skip it for simple changes. Output template, decision table and mermaid rules (separate subgraph IDs,
+`flowchart TD` only, no `\n` or self-loops, and so on) are in `references/output-template.md`.
 
-preferences의 `sections`·`template`이 있으면 보고서 섹션 구성에 그것을 쓴다.
+If preferences have `sections` or `template`, use them for the report's section layout.
 
-### 5단계: 저장 직전 민감정보 자체검토 → 저장
+### Step 5: Self-check for sensitive data right before saving → save
 
-`../references/common-rules.md`의 **파일 저장 직전 자체검토 프로토콜**로 본문 전체를 검토하고, 발견되면 마스킹 후
-`get-output-path` 가 준 `path` 에 저장한다 (`../references/doc-output-path.md`).
+Review the whole body with the **self-check protocol before saving files** in `../references/common-rules.md`. Mask anything found, then
+save to the `path` from `get-output-path` (`../references/doc-output-path.md`).
 
-### 6단계: GitHub 댓글 포스팅 (PAT가 있을 때만)
+### Step 6: Post a GitHub comment (only when a PAT exists)
 
-이슈 번호 감지 순서(worktree 폴더명 → 브랜치명 → 대화 → 질문), PAT·repo 판정, 이미지 첨부 순서는 `references/posting.md`.
-config 는 고정 경로 `{HOME}/.projectops/config/config.json` 만 Read 한다 — 플러그인 캐시를 뒤지지 않는다. 없으면 로컬 저장만 하고 종료.
+Issue number detection order (worktree folder name → branch name → conversation → ask), PAT and repo checks, and image attachment order are in `references/posting.md`.
+Read only the fixed config path `{HOME}/.projectops/config/config.json`. Do not dig through plugin caches. If it is missing, save locally and stop.
 
 ```bash
-PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/report_cli.py" add-comment {owner} {repo} {이슈번호} "{보고서 .md 파일 절대경로}"
+PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/report_cli.py" add-comment {owner} {repo} {issue_number} "{absolute path of the report .md file}"
 ```
 
-PAT는 report_cli가 config.json에서 자동 로드한다(환경변수 우선). 출력의 `url` 을 완료 메시지에 쓴다.
+report_cli loads the PAT from config.json automatically (an environment variable wins). Use `url` from the output in the completion message.
 
-| 실패 `code` | 다음 행동 |
+| Failure `code` | Next action |
 |---|---|
-| `github_api_401` | PAT 만료 안내 → `/pro-github` 에서 재등록 유도. 로컬 저장만으로 마친다 |
-| `github_api_404` | 이슈 번호·repo 재확인 후 사용자에게 묻는다 |
-| `bad_args` / 파일 없음 | `body_file` 절대경로와 인자 순서(`owner repo number body_file`) 확인 |
+| `github_api_401` | Tell the user the PAT expired → point them to re-register it in `/pro-github`. Finish with the local save only |
+| `github_api_404` | Recheck the issue number and repo, then ask the user |
+| `bad_args` / file missing | Check the absolute `body_file` path and the argument order (`owner repo number body_file`) |
 
-### 7단계: 이슈 완료 처리 (보고서 포스팅 후)
+### Step 7: Finish the issue (after posting the report)
 
-보고서 댓글이 올라갔으면 이슈를 완료 처리한다. 절차는 `pro-github` SKILL.md의 §"이슈 완료 처리" 레시피를 그대로 따른다 — 여기서 따로 정하지 않는다.
+Once the report comment is posted, finish the issue. Follow the "Finish an issue" recipe in the `pro-github` SKILL.md exactly; do not define a separate procedure here.
 
-- **작업이 끝났으면**: pro-github `finish-issue {owner} {repo} {번호}` — 상태 라벨만 `status: done`(`작업완료`)으로 바꾸고 닫는다 (`type:`·`area:` 등 다른 라벨은 유지).
-  `set-labels {…} "status: done"` 으로 대신하지 않는다 — `set-labels` 는 라벨 **전체를 교체**해 다른 라벨이 전부 지워진다
-- **남은 작업이 있으면**(후속 커밋·배포 후 검증 대기·사용자가 "아직"이라고 한 경우): 이 단계를 **생략**하고 `status: in progress`로 둔다. 무엇이 남았는지 완료 메시지에 적는다
-- 레포 `CLAUDE.md`가 다른 규칙을 정했으면 그쪽을 따른다
-- PAT가 없어 댓글을 못 올렸으면 이 단계도 건너뛴다
+- **If the work is done**: pro-github `finish-issue {owner} {repo} {number}`. It changes only the status label to `status: done` (`작업완료`) and closes the issue (other labels such as `type:` and `area:` stay).
+  Do not use `set-labels {…} "status: done"` instead. `set-labels` **replaces all labels**, so every other label is removed
+- **If work remains** (follow-up commits, waiting for verification after deploy, or the user said "not yet"): **skip** this step and keep `status: in progress`. State what remains in the completion message
+- If the repo `CLAUDE.md` sets a different rule, follow it
+- If no comment was posted because there is no PAT, skip this step too
 
-### 완료 메시지
+### Completion message
 
 ```
-보고서 저장: {get-output-path 가 돌려준 경로}
-GitHub 댓글: https://github.com/{owner}/{repo}/issues/{번호}#issuecomment-{id}
-이슈 상태: status: done 으로 교체 후 닫음 (또는: 남은 작업 {무엇} — 열어 둠)
+Report saved: {path returned by get-output-path}
+GitHub comment: https://github.com/{owner}/{repo}/issues/{number}#issuecomment-{id}
+Issue status: replaced with status: done and closed (or: remaining work {what}, left open)
 ```
 
-PAT 미설정 시:
+Without a PAT:
 ```
-보고서 저장: {get-output-path 가 돌려준 경로}
-(GitHub PAT 미설정 — 로컬 저장만 완료)
+Report saved: {path returned by get-output-path}
+(No GitHub PAT set; saved locally only)
 ```
 
 ## Customize

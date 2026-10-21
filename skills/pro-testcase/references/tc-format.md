@@ -1,85 +1,87 @@
-# TC 형식 · 작성 스타일 · 예시
+# TC format · writing style · example
 
-> 언제 읽나: 4단계에서 TC 를 실제로 쓰기 직전.
+> When to read: in Step 4, right before actually writing the TCs.
 
-## TC 형식
+## TC format
+
+Write labels and text in the output language (the `language` preference, else the repo's or user's language). Keep the structure: a header table, then one `TC-NN` table per case with the same four rows.
 
 ```markdown
-## 테스트케이스: [기능명]
+## Test cases: [feature name]
 
-| 구분 | 내용 |
+| Field | Details |
 |------|------|
-| 이슈 번호 | #XXXXX |
-| 대상 | [모듈/화면명] |
-| 담당자 | @[담당자] |
-| 작성일 | YYYY-MM-DD |
+| Issue | #XXXXX |
+| Target | [module / screen] |
+| Assignee | @[assignee] |
+| Date | YYYY-MM-DD |
 
 ---
 
-### TC-01: [테스트 제목]
+### TC-01: [test title]
 
-| 항목 | 내용 |
+| Item | Details |
 |------|------|
-| 전제조건 | [필요한 사전 조건] |
-| 절차 | [구체적인 실행 단계] |
-| 기대 | [예상되는 결과] |
-| 결과 | |
+| Preconditions | [required preconditions] |
+| Steps | [concrete steps] |
+| Expected | [expected result] |
+| Result | |
 
-### TC-02: [테스트 제목]
+### TC-02: [test title]
 
-| 항목 | 내용 |
+| Item | Details |
 |------|------|
-| 전제조건 | [필요한 사전 조건] |
-| 절차 | [구체적인 실행 단계] |
-| 기대 | [예상되는 결과] |
-| 결과 | |
+| Preconditions | [required preconditions] |
+| Steps | [concrete steps] |
+| Expected | [expected result] |
+| Result | |
 ```
 
-## 작성 스타일 (이유 포함)
+## Writing style (with reasons)
 
-- 이모지 사용하지 않음 (이유: 테스터가 표 결과란에 텍스트만 채우는데 이모지가 섞이면 복붙·정렬이 깨진다)
-- 간결한 문체 (키워드 기반), 장황한 설명 지양 (이유: 절차가 길면 테스터가 단계를 건너뛴다)
-- 표 헤더는 `항목 | 내용` 고정 (이유: GitHub 마크다운에서 헤더가 일정해야 여러 TC를 이어 붙여도 렌더링이 안 깨진다)
-- 절차 단계는 화살표(`→`)로 연결
-- 설정값/경로/명령어는 코드 블록(`` ` ``)으로 감싸기 (이유: 오타 없이 그대로 따라할 수 있게)
-- 보안 관련 테스트(권한, 인증)와 엣지 케이스(큰 값, 특수문자, 중복 호출)는 자동 포함 (이유: 정상 동작만 검증하면 실제 결함 대부분을 놓친다)
+- No emoji (reason: testers fill only text into the result cell, and emoji break copy-paste and alignment)
+- Short, keyword-based wording; avoid long explanations (reason: long steps make testers skip steps)
+- Fixed table header `Item | Details` (reason: GitHub markdown needs a consistent header so many TCs stacked together still render)
+- Join steps with an arrow (`→`)
+- Wrap settings, paths and commands in code spans (`` ` ``) (reason: so they can be followed exactly, without typos)
+- Security tests (permissions, authentication) and edge cases (large values, special characters, duplicate calls) are included automatically (reason: checking only normal behavior misses most real defects)
 
-## 예시
+## Example
 
 ```markdown
-## 테스트케이스: 프로필 이미지 업로드
+## Test cases: Profile image upload
 
-| 구분 | 내용 |
+| Field | Details |
 |------|------|
-| 이슈 번호 | #427 |
-| 대상 | 프로필 > 이미지 업로드 |
-| 담당자 | @chan |
-| 작성일 | 2026-06-02 |
+| Issue | #427 |
+| Target | Profile > Image upload |
+| Assignee | @chan |
+| Date | 2026-06-02 |
 
 ---
 
-### TC-01: 정상 업로드
+### TC-01: Normal upload
 
-| 항목 | 내용 |
+| Item | Details |
 |------|------|
-| 절차 | 프로필 진입 → `이미지 변경` 클릭 → JPG 5MB 미만 선택 → `저장` |
-| 기대 | 미리보기 표시 후 저장 시 새 이미지 반영, `200 OK` |
-| 결과 | |
+| Steps | Open profile → click `Change image` → pick a JPG under 5MB → `Save` |
+| Expected | Preview shows; on save the new image is applied, `200 OK` |
+| Result | |
 
-### TC-02: 용량 초과 거부
+### TC-02: Reject oversized file
 
-| 항목 | 내용 |
+| Item | Details |
 |------|------|
-| 전제조건 | 6MB 이미지 파일 준비 |
-| 절차 | `이미지 변경` 클릭 → 6MB 파일 선택 |
-| 기대 | "5MB 이하만 가능" 유효성 에러, 업로드 차단 |
-| 결과 | |
+| Preconditions | Prepare a 6MB image file |
+| Steps | Click `Change image` → pick the 6MB file |
+| Expected | Validation error "Up to 5MB only", upload blocked |
+| Result | |
 
-### TC-03: 미지원 형식
+### TC-03: Unsupported format
 
-| 항목 | 내용 |
+| Item | Details |
 |------|------|
-| 절차 | `.bmp` 파일 선택 |
-| 기대 | "JPG/PNG/GIF만 지원" 에러 표시 |
-| 결과 | |
+| Steps | Pick a `.bmp` file |
+| Expected | Error "Only JPG/PNG/GIF are supported" shown |
+| Result | |
 ```

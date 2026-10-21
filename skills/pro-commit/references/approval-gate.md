@@ -1,105 +1,105 @@
-# 승인 게이트 · 자동 승인 설정
+# Approval gate · auto-approve setting
 
-> 언제 읽나: SKILL.md 5단계(메시지 제안 후 승인)에 들어갈 때, 또는 사용자가 "자동으로 진행해줘" / "확인받게 해줘"라고 할 때.
+> When to read: when you reach Step 5 of SKILL.md (approval after proposing the message), or when the user says "go ahead automatically" / "ask me first" (Korean: "자동으로 진행해줘" / "확인받게 해줘").
 
-## 자동 승인 모드 판정 — Read 도구로 config에서 직접 추출
+## Decide auto-approve mode: read the value from config with the Read tool
 
-`Read` 도구로 config 파일을 읽는다. **이 고정 경로 한 곳만 본다 — `ls`·glob으로 탐색하거나 플러그인 캐시(`~/.claude/plugins/cache/...`)를 뒤지지 마라.**
-- Windows: `C:\Users\<사용자>\.projectops\config\config.json`
+Read the config file with the `Read` tool. **Look only at this one fixed path. Do not search with `ls` or globs, and do not dig through plugin caches (`~/.claude/plugins/cache/...`).**
+- Windows: `C:\Users\<user>\.projectops\config\config.json`
 - macOS/Linux: `~/.projectops/config/config.json`
 
-`github` 섹션에서 `auto_approve` 값을 결정한다. 해석 우선순위 (위→아래로 검사, 먼저 발견되는 값 채택):
+Decide `auto_approve` from the `github` section. Precedence (check top to bottom, take the first value found):
 
-1. `github.repos[]` 중 `owner == 현 OWNER && repo == 현 REPO`인 항목의 `commit.auto_approve`
-2. `github.commit.auto_approve` (글로벌 기본값)
-3. 어디에도 없으면 `false` (안전 default — 수동 승인)
+1. `commit.auto_approve` of the `github.repos[]` entry with `owner == current OWNER && repo == current REPO`
+2. `github.commit.auto_approve` (global default)
+3. If neither exists, `false` (safe default: manual approval)
 
-판정 결과를 두 값으로 **기억**한다:
+**Remember** the result as two values:
 
-- `AUTO_APPROVE` — boolean (`true` / `false`)
-- `CONFIG_HAS_KEY` — boolean (`true`면 위 우선순위 1 또는 2에서 키 발견. `false`면 둘 다 없어 첫 실행 케이스)
+- `AUTO_APPROVE`: boolean (`true` / `false`)
+- `CONFIG_HAS_KEY`: boolean (`true` if the key was found at level 1 or 2; `false` if neither exists, which is the first-run case)
 
-`CONFIG_HAS_KEY=false`인 경우는 아래 **C. 첫 실행 자동화 제안** 트리거로 사용한다.
+`CONFIG_HAS_KEY=false` triggers **C. First-run automation offer** below.
 
-> **승인 설정을 쓰는 모든 경로(A·C, 그리고 언제든 "자동으로 바꿔줘" / "확인받게 해줘" 요청)는 쓰기 직전에 아래 규칙 D를 적용한다.**
+> **Every path that writes the approval setting (A, C, and any "switch to automatic" / "ask me first" request at any time) applies Rule D below right before writing.**
 
-> **사용자에게 노출하는 안내는 자연어로만 한다.** "auto_approve", "config.json", "commit 섹션" 같은 키 이름·파일 경로를 사용자 메시지에 절대 쓰지 않는다. 사용자는 "자동으로 진행" / "매번 확인" 같은 자연어로 의사 표시하며 agent가 config를 직접 갱신한다.
+> **Speak to the user only in natural language.** Never write key names or file paths such as "auto_approve", "config.json" or "commit section" in messages to the user. The user expresses intent in natural language ("go ahead automatically" / "ask every time") and the agent updates the config itself.
 
-## A. 자동 모드 (`AUTO_APPROVE == true`)
+## A. Auto mode (`AUTO_APPROVE == true`)
 
-메시지를 사용자에게 표시만 하고 즉시 6단계로 진행한다. 응답을 기다리지 않는다.
-
-```
-🤖 이 레포는 확인 없이 바로 커밋되도록 설정돼 있어 메시지만 안내드리고 커밋합니다.
-   (다시 매번 확인받고 싶으시면 "확인받게 해줘"라고 말씀해주세요.)
-
-📝 커밋 메시지:
-{완성된 커밋 메시지}
-
-커밋을 실행합니다.
-```
-
-> 사용자가 메시지를 보고 "확인받게 해줘", "수동으로 바꿔줘", "다음부턴 확인받아줘" 같은 자연어로 응답하면, 6단계를 진행하기 **전에** Read/Write 도구로 `config.json`을 갱신한다. 우선순위 1(레포별)에 키가 있었다면 그 값을 `false`로, 없었다면 우선순위 2(글로벌)를 `false`로 설정한다(규칙 D 적용). 갱신 후 메시지는 그대로 두고 다시 사용자 승인을 받는다(B 분기로 전환).
-
-## B. 수동 모드 (`AUTO_APPROVE == false`)
+Only show the message to the user, then go straight to Step 6. Do not wait for a reply.
 
 ```
-📝 제안 커밋 메시지:
+🤖 This repo is set to commit without asking, so here is the message and I'm committing now.
+   (To be asked every time again, say "ask me first".)
 
-{완성된 커밋 메시지}
+📝 Commit message:
+{final commit message}
 
-이 메시지로 커밋할까요?
-1. 네, 커밋합니다
-2. 타입을 바꾸고 싶어요 (feat/fix/refactor/docs/chore/test/style, 호환성 깨짐이면 `feat!`처럼 `!` 추가)
-3. 설명을 직접 수정할게요
-4. 취소
+Committing.
 ```
 
-사용자 응답을 기다린다. **응답 전까지 커밋을 절대 실행하지 않는다.**
+> If the user sees the message and replies in natural language such as "ask me first", "switch to manual" or "confirm with me next time" (Korean: "확인받게 해줘", "수동으로 바꿔줘", "다음부턴 확인받아줘"), update `config.json` with Read/Write **before** running Step 6. If the key existed at level 1 (per repo), set that value to `false`; otherwise set level 2 (global) to `false` (apply Rule D). After the update keep the message as is and ask for approval again (switch to branch B).
 
-- **1 선택** → 6단계 진행. 단, `CONFIG_HAS_KEY == false`(첫 실행)이면 6단계 **직전**에 아래 C를 한 번만 실행한다
-- **2 선택** → 타입 목록 출력 후 입력받아 메시지 재구성 → 게이트 처음으로
-- **3 선택** → 설명 부분만 입력받아 메시지 재구성 → 게이트 처음으로
-- **4 선택** → 종료
-
-## C. 첫 실행 자동화 제안 (B에서 1 선택 + `CONFIG_HAS_KEY == false`일 때만, 한 번)
+## B. Manual mode (`AUTO_APPROVE == false`)
 
 ```
-💡 다음 커밋부터 어떻게 진행할까요?
+📝 Proposed commit message:
 
-매번 커밋 직전에 메시지를 보여드리고 확인받는 방식이 기본입니다.
-원하시면 이 확인 단계를 건너뛰고 곧바로 커밋이 진행되도록 바꿀 수 있습니다.
+{final commit message}
 
-1. 이 레포 커밋은 앞으로 확인 없이 바로 진행해주세요
-2. 모든 레포 커밋을 앞으로 확인 없이 바로 진행해주세요
-3. 지금처럼 매번 커밋 메시지 확인받겠습니다
-
-(언제든 "다시 확인받게 해줘" / "자동으로 바꿔줘"라고 말씀하시면 바꿀 수 있습니다)
+Commit with this message?
+1. Yes, commit
+2. Change the type (feat/fix/refactor/docs/chore/test/style; add `!` such as `feat!` for a breaking change)
+3. I'll edit the description
+4. Cancel
 ```
 
-응답에 따라 agent가 Read/Write 도구로 `config.json`을 갱신한다:
+Wait for the reply. **Never commit before the reply.**
 
-- **1 선택** → `github.repos[]`에서 현 OWNER/REPO 매칭 항목에 `commit.auto_approve: true` 추가
-- **2 선택** → `github.commit.auto_approve: true` 추가 (객체 없으면 생성)
-- **3 선택** → `github.commit.auto_approve: false` 추가 (다음 실행부터 묻지 않도록 키 자체는 남긴다)
-- **1·2·3 공통** → 규칙 D 적용.
+- **1** → go to Step 6. If `CONFIG_HAS_KEY == false` (first run), run C below once, **right before** Step 6
+- **2** → show the type list, take the input, rebuild the message → back to the start of the gate
+- **3** → take only the description, rebuild the message → back to the start of the gate
+- **4** → stop
 
-갱신 후 안내:
+## C. First-run automation offer (only when 1 was chosen in B and `CONFIG_HAS_KEY == false`, once)
 
-- 1: "✅ 이 레포는 다음 커밋부터 확인 없이 바로 진행합니다."
-- 2: "✅ 모든 레포에서 다음 커밋부터 확인 없이 바로 진행합니다."
-- 3: "✅ 앞으로도 매번 커밋 메시지 확인받습니다."
+```
+💡 How should I handle commits from now on?
 
-이후 6단계 진행.
+By default I show the message and ask you right before every commit.
+If you like, I can skip this check and commit directly.
 
-## D. 형식 고정 규칙 (승인 설정을 쓸 때마다)
+1. Commit in this repo without asking from now on
+2. Commit in all repos without asking from now on
+3. Keep asking me to confirm every commit message
 
-`github.commit` 또는 `github.repos[].commit` 을 **쓰는 모든 경우**(A의 수동 전환, C의 첫 실행 제안, 사용자가 언제든 "자동으로 바꿔줘" / "확인받게 해줘"라고 한 경우) 같은 Write 에서 함께 처리한다:
+(You can change this any time by saying "ask me first again" / "switch to automatic")
+```
 
-- 사용자가 형식을 정한 적이 없으면 — config 의 `skills.pro-commit` 과 현 레포 `repos[].skills.pro-commit` 어디에도 `preset`·`template` 이 없고, 이번 `resolve-style` 의 `source` 가 `legacy-default` 가 아니면 — `skills.pro-commit.preset: "conventional"` 을 함께 적는다.
-  `source` 가 `default` 든 팀 형식(`team-default` / `version.yml`)이든 같다. 팀 형식 레포에서는 이 값이 쓰이지 않지만, 적지 않으면 승인 키 때문에 다음부터 "기존 사용자"(`legacy-default` → `projectops`)로 판정돼 **다른 레포에서** 형식이 conventional 에서 projectops 로 바뀐다.
-- `source` 가 `legacy-default`(예전부터 쓰던 사람)면 아무것도 적지 않는다 — 지금처럼 `projectops` 를 유지한다.
-- `source` 가 `preferences` 이거나 이미 `preset`/`template` 이 있으면 건드리지 않는다.
-- 사용자에게 이 키를 언급하지 않는다(위 자연어 원칙).
+Depending on the reply, the agent updates `config.json` with Read/Write:
 
-> **갱신 시 주의**: `../../references/config-rules.md` §4 규칙대로 전체 파일을 Read로 먼저 읽고 다른 섹션을 보존한 채 해당 키만 추가/수정해 Write한다. PAT·다른 repos 항목을 절대 날리지 않는다.
+- **1** → add `commit.auto_approve: true` to the `github.repos[]` entry matching the current OWNER/REPO
+- **2** → add `github.commit.auto_approve: true` (create the object if missing)
+- **3** → add `github.commit.auto_approve: false` (keep the key itself so the next run does not ask again)
+- **1, 2 and 3** → apply Rule D.
+
+Then tell the user:
+
+- 1: "✅ From the next commit, this repo commits without asking."
+- 2: "✅ From the next commit, all repos commit without asking."
+- 3: "✅ I'll keep asking you to confirm every commit message."
+
+Then go to Step 6.
+
+## D. Format lock rule (every time you write the approval setting)
+
+**Whenever you write** `github.commit` or `github.repos[].commit` (the manual switch in A, the first-run offer in C, or any time the user says "switch to automatic" / "ask me first"), handle this in the same Write:
+
+- If the user never chose a format (no `preset` or `template` in `skills.pro-commit` of the config or in `repos[].skills.pro-commit` of the current repo, and this run's `resolve-style` `source` is not `legacy-default`), also write `skills.pro-commit.preset: "conventional"`.
+  This holds whether `source` is `default` or a team format (`team-default` / `version.yml`). A team-format repo does not use this value, but without it the approval key makes the next run classify the user as an "existing user" (`legacy-default` → `projectops`), so the format changes from conventional to projectops **in other repos**.
+- If `source` is `legacy-default` (a long-time user), write nothing. Keep `projectops` as it is now.
+- If `source` is `preferences`, or a `preset`/`template` already exists, leave it alone.
+- Do not mention this key to the user (natural-language rule above).
+
+> **When updating**: follow §4 of `../../references/config-rules.md`. Read the whole file first, keep the other sections, add or change only the key, then Write. Never drop the PAT or other repos entries.

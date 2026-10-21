@@ -1,46 +1,46 @@
-# 대안 · 문구 · UI 요소 · 꼭 지킬 것
+# Alternatives · copy · UI elements · must-keep rules
 
-> 언제 읽나: 4단계 — 보드 데이터의 `alternatives` · `copy` · `ui` · `summary.must_keep` 을 채울 때.
+> When to read: Step 4, when filling `alternatives` · `copy` · `ui` · `summary.must_keep` in the board data.
 
-## ① 배치 대안 — 모양이 아니라 축이 달라야 한다
+## ① Layout alternatives: differ in axis, not in looks
 
-- 3~5안. 갈라지는 축: 위치 · 밀도 · 표현(글자·아이콘·배지) · 진입(그 자리·새 화면·시트).
-- **항상 "현재 구현" 안과 "최소" 안을 포함한다.**
-- 안마다 `장점 · 약점 · 개발 영향`. 개발 영향은 "이 안은 새 화면이 필요해 개발이 따로 든다" 같은 것.
-- 추천은 **근거와 함께 한 줄.** 안 이름은 A·B·C 로 통일하고 이슈 본문과 같은 이름을 쓴다.
+- 3 to 5 options. Axes that split them: position · density · representation (text, icon, badge) · entry (in place, new screen, sheet).
+- **Always include a "current implementation" option and a "minimal" option.**
+- For each option: `pros · cons · dev impact`. Dev impact means things like "this option needs a new screen, so it costs extra development".
+- The recommendation is **one line with its reason.** Name options A · B · C, and use the same names as the issue body.
 
-## ② 문구 — `현재 → 후보 2~3 → 이유`
+## ② Copy: `current → 2–3 candidates → reason`
 
-| 짚는 것 | 예 |
+| What to flag | Examples |
 |---|---|
-| 번역투 · 딱딱함 | "~하실 수 있습니다", "~되었습니다" |
-| 장황 · 반복 | 제목과 본문이 같은 말 |
-| AI 문장부호 | em dash(—) · 가운뎃점(·) 남발 |
-| 과장 | "혁신적인", "완벽한" |
-| 레포 용어·말투 규칙 위반 | 루트·모듈 `CLAUDE.md`, `docs/*design*` 의 용어표 — **자동으로 읽는다** |
+| Translated-sounding or stiff phrasing | "You are able to …", "… has been completed" (Korean: "~하실 수 있습니다", "~되었습니다") |
+| Wordy · repetitive | Title and body say the same thing |
+| AI punctuation | Overuse of em dashes (—) and middle dots (·) |
+| Hype | "revolutionary", "perfect" |
+| Violates repo terms or voice rules | Glossaries in root/module `CLAUDE.md` and `docs/*design*`; **read them automatically** |
 
-- **법적 문구(약관·동의)는 "바꾸면 안 됨"만 표시**하고 후보를 내지 않는다 (`legal: true`).
-- 상태별 문구가 없으면 **"문구 필요"** (`needed: true`).
-- 후보를 쓴 뒤 `copy-lint` 로 기계 검사를 돌린다(`--file` 은 `copy` 배열 또는 보드 데이터 전체,
-  `--banned` 는 레포 용어표의 "쓰지 않는다" 칸 — 쉼표 목록 또는 한 줄에 하나인 파일). 걸리면 `candidate_issues` 가 온다.
-  **좋은 문구를 만들어 주지는 않는다** — 걸린 것을 고치는 것은 네 일이다.
+- **For legal text (terms, consent), mark only "must not change"** and offer no candidates (`legal: true`).
+- If a state has no copy, mark **"copy needed"** (`needed: true`).
+- After writing candidates, run the mechanical check with `copy-lint` (`--file` takes the `copy` array or the whole board data;
+  `--banned` takes the "do not use" column of the repo glossary, as a comma list or a file with one per line). Flagged items come back as `candidate_issues`.
+  **It does not write good copy for you.** Fixing the flagged ones is your job.
 
-## ③ UI 요소 후보 — 데이터 모양에서 고른다
+## ③ UI element candidates: pick from the data shape
 
-| 데이터 모양 | 후보 |
+| Data shape | Candidates |
 |---|---|
-| 하나 고르기 | 라디오 · 세그먼트 · 드롭다운 · 카드 선택 |
-| 여러 개 고르기 | 체크박스 · 칩 · 토글 목록 |
-| 긴 내용 | 아코디언 · 더보기 · 바텀시트 |
-| 확인 · 알림 | 팝업 · 토스트 · 그 자리 안내 |
-| 목록 | 리스트 · 그리드 · 카드 |
-| 읽기 전용 한 값 | 목록 줄 오른쪽 값 · 새 화면 · 길게 눌러 복사 |
+| Pick one | Radio · segmented control · dropdown · card selection |
+| Pick several | Checkboxes · chips · toggle list |
+| Long content | Accordion · "show more" · bottom sheet |
+| Confirmation · notice | Popup · toast · inline message |
+| Collection | List · grid · cards |
+| One read-only value | Value on the right of a list row · new screen · long-press to copy |
 
-**레포에 이미 있는 컴포넌트를 먼저** 쓴다 (`existing`). 없는 것은 "새 컴포넌트" (`new`).
+Use **components the repo already has first** (`existing`). Anything else is a "new component" (`new`).
 
-## ④ 꼭 지킬 것 — 자동 수집, 출처와 함께
+## ④ Must-keep rules: collect automatically, with sources
 
-브랜드 규격(예: Apple 로그인 버튼), 최소 터치 크기·글자 크기(레포 디자인 원칙 문서), **이미 합의된 예외**.
-합의된 예외는 **코드 주석에 있는 경우가 많다** — 요청 대상 화면 파일의 주석을 읽는다 ("일부러 뺐다",
-"되살리지 않는다" 같은 말). 레포 원칙과 요청 대상이 부딪히면(예: 10px 글자 vs 최소 14) **결함이 아니라
-질문으로** 올린다.
+Brand specs (for example the Sign in with Apple button), minimum touch size and font size (the repo's design principles doc), and **exceptions already agreed on**.
+Agreed exceptions **often live in code comments**. Read the comments in the target screen's files (phrases like "left out on purpose",
+"do not bring back"). If a repo principle conflicts with the target (for example 10px text vs a 14px minimum), raise it **as a question,
+not as a defect**.

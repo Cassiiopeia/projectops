@@ -1,36 +1,36 @@
-# 레포 탐색 (explore)
+# Repo exploration (explore)
 
-> 언제 읽나: "내 레포 보여줘", "레포 목록 탐색해줘", "README 가져와줘", "{레포명} 정보 봐줘", "Org 레포 탐색해줘" 같은 요청일 때.
+> When to read: for requests such as "show my repos", "explore the repo list", "fetch the README", "show {repo name} info", "explore org repos" (Korean: "내 레포 보여줘", "레포 목록 탐색해줘", "README 가져와줘", "{레포명} 정보 봐줘", "Org 레포 탐색해줘").
 
-명령은 `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py explore <sub> ...` 형태다 (SKILL.md "스크립트 찾기"). 출력 JSON을 그대로 파싱해 판단한다.
+Commands have the form `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py explore <sub> ...` (SKILL.md "Find the scripts"). Parse the output JSON as is and decide from it.
 
-## Phase 0 — Owner 결정
+## Phase 0: Decide the owner
 
-1. "내 레포", owner 미명시 → config의 기본 repo owner 또는 현재 git remote owner를 사용한다. 사용자가 실제 PAT 소유자 레포 목록을 원하면 owner를 명시하게 한다.
-2. owner 명시 ("acme-org", "acme-user" 등) → 해당 owner 사용. 기본 `--type auto`로 user/org를 자동 판별한다.
+1. "My repos" or no owner given → use the owner of the default repo in the config or of the current git remote. If the user wants the repo list of the actual PAT owner, ask them to name the owner.
+2. Owner given ("acme-org", "acme-user", etc.) → use that owner. The default `--type auto` detects user vs org automatically.
 
-## Phase 1 — 레포 목록
+## Phase 1: Repo list
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py explore list-repos {owner} --type auto
-# user/org가 확실하면: --type user 또는 --type org
+# If you know it is a user or an org: --type user or --type org
 ```
 
-**필터링**: 사용자가 "fork 제외", "Java만", "stars 높은 순" 등을 요청하면 별도 API 재호출 없이 위 결과에서 agent가 직접 필터링한다.
+**Filtering**: if the user asks for "exclude forks", "Java only", "highest stars first" and so on, filter the result above yourself without another API call.
 
-## Phase 2 — 단일 레포 상세
+## Phase 2: Single repo details
 
-특정 레포명이 언급되면 아래 4개를 순서대로 수집한다. 각 호출은 독립적이며, 하나가 실패해도 나머지는 계속 진행한다.
+When a specific repo is named, collect the four items below in order. Each call is independent; if one fails, continue with the rest.
 
 ```bash
-# 2-1. 기본 메타정보 (공개 여부: repo.private · repo.visibility)
+# 2-1. Basic metadata (visibility: repo.private · repo.visibility)
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py explore repo-detail {owner} {repo}
 # 2-2. README
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py explore readme {owner} {repo}
-# 2-3. 언어 구성
+# 2-3. Languages
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py explore languages {owner} {repo}
-# 2-4. 최근 커밋 10개
+# 2-4. Last 10 commits
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py explore commits {owner} {repo} --limit 10
 ```
 
-`next` 값이 있으면 그대로 이어서 실행해 탐색 흐름을 연결한다.
+If there is a `next` value, run it as is to continue the exploration.

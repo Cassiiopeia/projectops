@@ -1,92 +1,95 @@
-# PR 생성 · 조회 · 머지 · 릴리스 노트 폴백
+# PR create · read · merge · release notes fallback
 
-> 언제 읽나: PR을 만들거나 조회·댓글·닫기·머지할 때, 릴리스 PR 본문에 릴리스 노트를 직접 채울 때.
+> When to read: when creating, reading, commenting on, closing or merging a PR, or when filling release notes into a release PR body yourself.
 
-명령은 `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py ...` 형태다 (SKILL.md "스크립트 찾기").
+Commands have the form `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py ...` (SKILL.md "Find the scripts").
 
-## PR 생성
+## Create a PR
 
-현재 브랜치 이름을 자동 감지하여 PR을 생성한다.
+Detect the current branch name automatically and create the PR.
 
-**PR 생성 전 반드시 remote 브랜치 존재 여부를 확인한다 (한글 브랜치명 422 오류 방지):**
+**Before creating the PR, always check that the branch exists on the remote (prevents 422 errors with non-ASCII branch names):**
 
 ```bash
 HEAD_BRANCH=$(git branch --show-current)
-git ls-remote --heads origin "$HEAD_BRANCH" | grep -q "$HEAD_BRANCH" || echo "브랜치가 remote에 없습니다. git push 먼저 실행하세요."
+git ls-remote --heads origin "$HEAD_BRANCH" | grep -q "$HEAD_BRANCH" || echo "Branch not on the remote. Run git push first."
 ```
 
-`head`는 반드시 `owner:branch` 형식으로 지정한다 (한글 포함 브랜치명의 422 오류 방지):
+Always give `head` as `owner:branch` (prevents 422 errors with branch names that contain non-ASCII text):
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-pr {owner} {repo} "{제목}" "{PR 본문 파일 경로}" --head "{owner}:{head_branch}" --base {base_branch}
-# 위치 인자(… "{제목}" "{본문}" "{owner}:{head}" {base})도 받지만 순서가 자주 틀려 플래그를 권한다
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-pr {owner} {repo} "{title}" "{PR body file path}" --head "{owner}:{head_branch}" --base {base_branch}
+# Positional arguments (… "{title}" "{body}" "{owner}:{head}" {base}) also work, but the order is often wrong, so prefer the flags
 ```
 
-head·base 에 공백이 있으면 제목이 브랜치 자리에 들어간 것이라 `code: argument_order` 로 거절한다.
+If head or base contains a space, the title landed in a branch slot, so it is rejected with `code: argument_order`.
 
-`{base_branch}`는 작업 PR이면 **개발(릴리스 소스) 브랜치**다 — `version.yml`의 `metadata.development_branch`(구 이름 `deploy_branch`), 없으면 `develop` (원격에 개발 브랜치가 아예 없는 단일 브랜치 레포면 기본 브랜치). 기본(배포) 브랜치(`main`)로 가는 릴리스 PR은 이 레시피가 아니라 `/pro-changelog-deploy`가 만든다. 사용자가 base를 명시하면 그것을 따른다.
+For a work PR, `{base_branch}` is the **development (release source) branch**: `metadata.development_branch` in `version.yml` (old name `deploy_branch`), else `develop` (or the default branch for a single-branch repo with no development branch on the remote). Release PRs to the default (deploy) branch (`main`) are created by `/pro-changelog-deploy`, not by this recipe. If the user names a base, use it.
 
-### PR 제목 규칙 (필수)
+### PR title rule (required)
 
-브랜치명이 `YYYYMMDD_#번호_제목` 형식이면 번호를 추출해 이슈 API(`get-issue`)로 제목을 조회한다. 조회한 이슈 제목에서 **앞에 붙은 이모지와 `[태그]` 형식을 모두 제거**한 순수 텍스트만 PR 제목으로 사용한다.
+If the branch name has the form `YYYYMMDD_#number_title`, extract the number and read the title through the issue API (`get-issue`). Use as the PR title only the plain text left after **removing the leading emoji and every `[tag]`** from the issue title.
 
-예) 이슈 제목이 `❗[버그][개발자도구] SSE 서버 로그 스트리밍 연결 즉시 종료 및 구독자 누적 문제`이면
-→ PR 제목: `SSE 서버 로그 스트리밍 연결 즉시 종료 및 구독자 누적 문제`
+Example: issue title `❗[Bug][DevTools] SSE log stream closes at once and subscribers pile up`
+→ PR title: `SSE log stream closes at once and subscribers pile up`
+(Korean tags such as `[버그]` are stripped the same way.)
 
-### PR 본문 규칙 (필수)
+### PR body rule (required)
 
-PR 본문에는 반드시 관련 이슈 링크를 포함한다. 이슈 번호는 브랜치명(`YYYYMMDD_#번호_...`)에서 자동 추출한다.
+The PR body must include the related issue link. Extract the issue number from the branch name (`YYYYMMDD_#number_...`) automatically.
 
 ```
-- https://github.com/{owner}/{repo}/issues/{이슈번호}
+- https://github.com/{owner}/{repo}/issues/{issue_number}
 ```
 
-## PR 목록 조회
+## List PRs
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py list-prs {owner} {repo} --state open
-# 닫힌 PR 포함: --state closed 또는 --state all
+# Include closed PRs: --state closed or --state all
 ```
 
-출력 JSON: `{"count":N,"prs":[{number,title,url,state,head,base,merged_at}]}`. 닫힌 PR 이 머지됐는지는 `merged_at`(머지 안 됐으면 null)으로 본다.
+Output JSON: `{"count":N,"prs":[{number,title,url,state,head,base,merged_at}]}`. Whether a closed PR was merged shows in `merged_at` (null if not merged).
 
-## PR 상세 / 댓글 / 상태 / 머지
+## PR details / comments / state / merge
 
-`get-pr`는 `verdict`(mergeable/blocked/computing/merged/closed)를 반환하니 머지 전 상태 확인에 쓴다.
+`get-pr` returns a `verdict` (mergeable/blocked/computing/merged/closed); use it to check state before merging.
 
 ```bash
-# PR 상세 (mergeable_state 등) — verdict로 머지 가능 판단
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py get-pr {owner} {repo} {PR번호}
-# PR에 댓글 추가 (본문 파일)
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py add-pr-comment {owner} {repo} {PR번호} "{댓글 본문 파일}"
-# PR 본문·제목·상태 수정 (본문 파일은 선택)
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py update-pr {owner} {repo} {PR번호} "{본문 파일}" --title "새 제목"
-# PR 닫기 / 다시 열기
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py close-pr {owner} {repo} {PR번호}
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py reopen-pr {owner} {repo} {PR번호}
-# PR 머지 (merge|squash|rebase, 기본 merge). --message 로 머지 커밋 본문
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py merge-pr {owner} {repo} {PR번호} --method squash --title "머지 제목"
+# PR details (mergeable_state etc.); decide mergeability from verdict
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py get-pr {owner} {repo} {pr_number}
+# Add a PR comment (body file)
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py add-pr-comment {owner} {repo} {pr_number} "{comment body file}"
+# Edit PR body, title, state (body file optional)
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py update-pr {owner} {repo} {pr_number} "{body file}" --title "New title"
+# Close / reopen a PR
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py close-pr {owner} {repo} {pr_number}
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py reopen-pr {owner} {repo} {pr_number}
+# Merge a PR (merge|squash|rebase, default merge). --message sets the merge commit body
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py merge-pr {owner} {repo} {pr_number} --method squash --title "Merge title"
 ```
 
-`get-pr`의 `verdict`가 `computing`(mergeable_state 계산 전)이면 잠시 후 재조회한다. `merge-pr` 실패 시 `verdict`로 원인을 구분한다 (SKILL.md 실패 code 표). **PR 머지·닫기는 파괴적 작업이므로 사용자가 명시적으로 요청할 때만 실행한다.**
+If the `get-pr` `verdict` is `computing` (mergeable_state not computed yet), query again shortly. If `merge-pr` fails, tell the cause from `verdict` (failure code table in SKILL.md). **Merging and closing PRs are destructive, so run them only when the user explicitly asks.**
 
-## PR 릴리스 노트 업데이트 (CodeRabbit 폴백)
+## Update PR release notes (CodeRabbit fallback)
 
-릴리스 PR(develop→main)에 CodeRabbit Summary가 없을 때 직접 커밋을 분석하여 한국어 릴리스 노트를 작성하고 PR 본문에 업데이트한다. "릴리스 노트 업데이트해줘", "changelog 폴백", "PR 본문 업데이트" 등의 요청 시 실행.
+When a release PR (develop→main) has no CodeRabbit Summary, analyze the commits yourself, write release notes and update the PR body. Run this for requests such as "update the release notes", "changelog fallback", "update the PR body" (Korean: "릴리스 노트 업데이트해줘", "PR 본문 업데이트").
 
-1. PR 번호 확인 (사용자 입력 또는 `list-prs`로 최근 릴리스 PR 조회)
-2. main(프로덕션) 대비 커밋 목록 수집
+Write the release notes in the configured `language` preference; if none is set, match the repo's existing release notes or the user's language.
+
+1. Find the PR number (from the user, or the latest release PR via `list-prs`)
+2. Collect the commits ahead of main (production)
 
    ```bash
    git fetch origin main 2>/dev/null || true
    git log origin/main..HEAD --pretty=format:"%H %s" | grep -v "\[skip ci\]" | head -60
    ```
 
-3. 커밋 메시지를 분석하여 한국어 릴리스 노트 작성
-   - `feat:` → 새 기능 / `fix:` → 버그 수정 / `refactor:`·`perf:`·`style:` → 개선 / `docs:` → 문서 / 나머지 → 기타
-   - 커밋 메시지를 그대로 쓰지 말고 사용자가 이해하기 쉬운 한국어 문장으로 재작성
-4. 릴리스 노트 본문을 파일로 저장한 뒤 `update-pr`로 PATCH 전송:
+3. Analyze the commit messages and write the release notes
+   - `feat:` → New features / `fix:` → Bug fixes / `refactor:`·`perf:`·`style:` → Improvements / `docs:` → Docs / the rest → Other
+   - Do not copy commit messages as is; rewrite them as sentences users can easily understand
+4. Save the release notes body to a file, then send it as a PATCH with `update-pr`:
 
    ```bash
-   PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py update-pr {owner} {repo} {pr_number} "{릴리스 노트 파일 경로}"
+   PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py update-pr {owner} {repo} {pr_number} "{release notes file path}"
    ```

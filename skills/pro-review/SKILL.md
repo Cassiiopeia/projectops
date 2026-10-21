@@ -7,40 +7,43 @@ description: "Code review across security, performance, bugs and quality, with C
 
 ## When to use
 
-- PR 리뷰, 파일 리뷰, 구현 후 셀프 검증이 필요할 때, /review 호출 시 사용한다.
+- When you need a PR review, file review or self-check after implementing, or on `/review`.
+- Typical requests: "review this code", "review the PR" (Korean: "코드 리뷰해줘", "PR 리뷰해줘").
 
-코드 리뷰 전문가로서 **코드의 품질, 보안, 성능을 철저히 검토**한다.
+As a code review expert, **review the code's quality, security and performance thoroughly.**
 
-## 시작 전
+Talk to the user in the user's language (or the configured `language` preference). Write the review document in the configured `language`; if none is set, match the repo or the user.
 
-1. `../references/common-rules.md`의 **작업 시작 프로토콜** 수행
-2. 이 skill은 md 산출물을 만든다 — **`../references/approval-and-questions.md`를 따른다** (#526):
-   - 시작 전: 결과가 크게 달라지는 항목만 한 번에 하나씩 묻는다 (입력에 답이 있으면 묻지 않음)
-   - 저장 전: 내용을 보여주고 승인. **사용자가 "채팅으로만"이라고 하면 파일을 만들지 않는다** — 승인 게이트를 건너뛰지 말고 "저장할까요?"를 묻는 단계에서 답으로 받아 저장 없이 끝낸다. 자동 모드 저장소는 요약만 안내하고 바로 저장
-   - 첫 실행 1회: "앞으로 확인 없이 진행할지" 묻고 기억
-   - 설정 키 이름·파일 경로를 사용자에게 노출하지 않는다
+## Before you start
 
-## 리뷰 프로세스
+1. Run the **work start protocol** in `../references/common-rules.md`
+2. This skill produces a md file, so **follow `../references/approval-and-questions.md`** (#526):
+   - Before starting: ask only about items that change the result a lot, one at a time (do not ask if the input already answers it)
+   - Before saving: show the content and get approval. **If the user says "chat only", do not create a file.** Do not skip the approval gate; take that answer at the "Save it?" step and finish without saving. In an auto-mode repo, show a summary and save right away
+   - Once, on first run: ask whether to proceed without confirmation from now on, and remember the answer
+   - Do not show config key names or file paths to the user
 
-preferences의 `sections`가 있으면 리뷰 결과 섹션 구성에 그것을 쓴다.
+## Review process
 
-| 단계 | 하는 일 | 자세히 |
+If preferences have `sections`, use them for the review result's section layout.
+
+| Step | What to do | Details |
 |---|---|---|
-| 1 범위 파악 | 타입(PR/파일/전체), 변경 라인 수, 주요 변경 영역 | — |
-| 2 6관점 리뷰 | 보안 · 성능 · 버그/로직 · 코드 품질 · 아키텍처 · 테스트 | `references/review-checklist.md` |
-| 3 우선순위 분류 | 🚨 Critical(즉시) · ⚠️ Major(배포 전) · 💡 Minor(권장) · ✅ Positive | `references/review-checklist.md` |
-| 4 종합 평가 | Approve / Request Changes / Comment + 이슈 통계 + 핵심 개선 3가지 | `references/review-checklist.md` |
-| 5 저장 | `get-output-path` 로 받은 경로에 저장 | 아래 |
+| 1 Scope | Type (PR / file / whole), changed line count, main changed areas | — |
+| 2 Six-angle review | Security · performance · bugs/logic · code quality · architecture · tests | `references/review-checklist.md` |
+| 3 Prioritize | 🚨 Critical (now) · ⚠️ Major (before deploy) · 💡 Minor (recommended) · ✅ Positive | `references/review-checklist.md` |
+| 4 Overall verdict | Approve / Request Changes / Comment + issue counts + top 3 improvements | `references/review-checklist.md` |
+| 5 Save | Save to the path from `get-output-path` | Below |
 
-## 피드백 원칙
+## Feedback principles
 
-- 건설적 피드백 (비난 X, 개선 O)
-- 구체적이고 실행 가능한 제안 (현재 코드 + 제안 코드), 항목마다 **파일:라인**
-- 프로젝트 기존 스타일 기준으로 리뷰
+- Constructive feedback (improve, do not blame)
+- Concrete, actionable suggestions (current code + suggested code), with **file:line** for each item
+- Review against the project's existing style
 
-## 산출물 저장
+## Save the output
 
-저장 경로는 직접 조립하지 않고 CLI 에게 받는다 (`../references/doc-output-path.md`, self-contained 5줄 표준 호출):
+Do not build the save path yourself; get it from the CLI (`../references/doc-output-path.md`, standard self-contained 5-line call):
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -52,11 +55,11 @@ SKILL=pro-review; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
   [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
 done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
-PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/review_cli.py" get-output-path review --title "{제목}"
+[ -d "$SCRIPTS" ] || { echo "projectops skill scripts not found. Check the plugin installation."; exit 1; }
+PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/review_cli.py" get-output-path review --title "{title}"
 ```
 
-출력 JSON의 `path` 필드 경로에 파일을 저장한다. `ok: false` 면 `code`·`next` 를 보고 멈춘다 — 경로를 지어내지 않는다.
+Save the file at the path in the `path` field of the output JSON. If `ok: false`, read `code` and `next` and stop. Do not make up a path.
 
 ## Customize
 

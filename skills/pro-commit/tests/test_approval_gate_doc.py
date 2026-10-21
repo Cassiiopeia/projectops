@@ -28,6 +28,6 @@ def test_rule_covers_team_sources_and_writes_conventional():
 def test_every_write_path_references_rule():
     # 승인 키를 쓰는 A(수동 전환)·C(첫 실행)·SKILL.md 의 자연어 토글이 모두 규칙 D 를 가리켜야 한다
     for name in ("A.", "C."):
-        assert "규칙 D" in _section(GATE, name), name
-    assert "규칙 D" in GATE[:GATE.index("## A.")]  # 자연어 토글 안내(판정 절)
-    assert "approval-gate.md" in SKILL and "규칙 D" in SKILL
+        assert "Rule D" in _section(GATE, name), name
+    assert "Rule D" in GATE[:GATE.index("## A.")]  # 자연어 토글 안내(판정 절)
+    assert "approval-gate.md" in SKILL and "Rule D" in SKILL
