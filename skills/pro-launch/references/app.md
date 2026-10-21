@@ -256,6 +256,7 @@ raw `xcrun simctl` · `adb shell am|pm` 대신 쓴다. 패키지는 `--pkg` → 
 {PYTHON} {SCRIPTS}/launch_cli.py device erase|delete --device "{키}" [--yes]          # mark · 남의 빌림 · 사람이 켠 기기는 --yes 없이 거부
 {PYTHON} {SCRIPTS}/launch_cli.py device clone   --device "{꺼진 iOS 기기}" --reason "#955 로그인된 두 대"   # 상태 기록은 확인 전으로 복사
 {PYTHON} {SCRIPTS}/launch_cli.py device gc [--sizes]                                 # 보고만 · --apply 로 실행
+{PYTHON} {SCRIPTS}/launch_cli.py device benchmark [--platform ios] [--full] [--yes]  # 이 컴퓨터의 기기 수용량을 재서 설정에 넣는다
 {PYTHON} {SCRIPTS}/launch_cli.py device locale  --device "$DEV" --lang en --region US [--app "$PKG"]   # --restore 로 원복
 {PYTHON} {SCRIPTS}/launch_cli.py device appearance dark --device "$DEV"            # light|dark, --restore 로 원복
 {PYTHON} {SCRIPTS}/launch_cli.py device text-size largest --device "$DEV"           # default|large|largest (또는 1.3), --restore 로 원복 (큰 글씨 QA)
@@ -282,6 +283,13 @@ raw `xcrun simctl` · `adb shell am|pm` 대신 쓴다. 패키지는 `--pkg` → 
   `acquire --count 2 --need login:X` 는 그 상태가 있는 꺼진 기기가 모자라면 먼저 복제한다. Android 읽기전용 동시 실행(`-read-only`)은 쓰지 않는다 — 복제로 같은 일을 한다.
   `gc` 가 지우는 것은 기한 지난 임시 기기(빌린 세션 없음 · mark 없음)뿐이고, 원장이 켜 둔 채 20분 넘게 버려진 기기는 끈다.
   기록 없는 기기 · mark 있는 기기는 보고만 한다. 크기는 정리 대상만 센다 — 전부는 `--sizes`(수십 GB 를 훑어 수십 초).
+- **수용량 · 메모리 예산 (#964).** 몇 대까지 켜도 되는지는 컴퓨터(맥·윈도우·리눅스)와 같이 도는 프로그램마다 다르다. `device benchmark` 가 실험용 기기를 종류마다 한 대 켜서
+  기기당 메모리(macOS 는 top footprint — RSS 는 압축·스왑된 몫이 빠져 에뮬레이터 5.6GB 가 245MB 로 보였다) · 부팅 · 캡처 시간을 재고, 설정 `launch.devices` 에
+  `boot_cost_mb` · `memory_budget_mb` · `memory_reserve_mb` 를 넣는다. `--full` 은 멈춤 신호까지 한 대씩 늘린다(느리다).
+  - 켜기 판정 2가지: 켜진 가상 기기(어느 세션이 켰든) 비용 합 + 새 기기 비용 <= 예산 · 지금 남은 메모리 >= 새 기기 비용 + 여유분
+  - 잰 적이 없으면 기본값(iOS 1500MB · Android 6000MB · 예산 = RAM - 8GB)
+  - 켜기는 이 컴퓨터 전체에서 한 번에 하나씩(켜기 차례 잠금) — 차례를 얻은 세션이 최신 메모리로 다시 판정한 뒤 켠다. `device boot` 도 같은 차례 · 예산을 거친다(`--yes` 로만 넘는다)
+  - 측정은 다른 세션이 기기를 쓰는 중이면 시작하지 않고, 멈춤 신호(메모리 critical · 스왑 여유 1GB 미만 · 부팅 2.5배·캡처 3배 느려짐 · 가속 실패)가 보이면 멈춘다. 실험 기기는 어떤 경우든 끄고 지운다
 - **에뮬레이터가 offline 에 멈추면** 로그에 `hvf is not enabled` · `mprotect failed` 가 있는지 본다 — 호스트 스왑이 거의 차면 하드웨어 가속을 못 얻어
   소프트웨어 모드로 떨어지고 끝나지 않는다(실측: 스왑 28.9/29.7GB). `boot`·`acquire` 는 이 징후를 보면 기다리지 않고 끈 뒤 `emulator_no_acceleration` 으로 알린다.
 - **소유 (#925 · #953).** 소유 주인은 lease = (세션, agent 호스트 pid). 호스트가 죽으면 즉시, 살아 있어도 30분(`launch.devices.lease_idle_minutes`) 안 쓰면 풀린다.

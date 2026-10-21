@@ -49,10 +49,10 @@ class FakeBackend:
 def backend(monkeypatch):
     fake = FakeBackend()
     monkeypatch.setattr(device_backends, "BACKENDS", (fake,))
-    monkeypatch.setattr(device_pool_facts.host_resources, "memory_summary", lambda: {"pressure": "ok"})
+    monkeypatch.setattr(device_pool_facts.host_resources, "read_memory", lambda: {"total_mb": 16384, "available_mb": 12000, "swap_total_mb": 0, "swap_used_mb": 0, "os_pressure": "ok"})
     monkeypatch.setattr(device_pool_facts, "disk_status",
                         lambda path=None: {"free_gb": 100.0, "minimum_gb": 20, "is_low": False})
-    monkeypatch.setattr(device_pool_facts, "max_booted_limit", lambda: (4, "default"))
+    monkeypatch.setattr(device_pool_facts.device_capacity, "boot_block_reason", lambda platform, counts, memory=None: None)
     monkeypatch.setattr(device_claims, "current_host", lambda: None)
     # resolve_device 가 실제 adb·simctl 을 보지 않게 — 지정한 기기를 그대로 쓴다
     monkeypatch.setattr(claims, "pick_device", lambda want: ("ios", want, {}))

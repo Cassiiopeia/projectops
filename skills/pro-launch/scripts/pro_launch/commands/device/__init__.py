@@ -1,11 +1,11 @@
 """`devices` · `device` — 붙은 기기를 보고, 역할을 묶고, 소유를 알리고, 띄우고 다시 띄우고, 언어·외관을 바꾼다.
 
 동작마다 모듈 하나: bindings(list·bind·unbind·show) · claims(claim) · acquire(acquire) · pool(release·shutdown) ·
-lifecycle(create·clone·erase·delete·mark·unmark·adopt·records) · gc(gc) · boot(boot·reboot) · settings(locale·appearance).
+lifecycle(create·clone·erase·delete·mark·unmark·adopt·records) · gc(gc) · benchmark(benchmark) · boot(boot·reboot) · settings(locale·appearance).
 """
 from __future__ import annotations
 
-from pro_launch.commands.device import acquire, bindings, boot, claims, gc, lifecycle, pool, settings, text_size
+from pro_launch.commands.device import acquire, benchmark, bindings, boot, claims, gc, lifecycle, pool, settings, text_size
 from pro_launch.registry import Command
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.device_boot import WINDOW_MODES
@@ -18,7 +18,7 @@ _RUNNERS = {"list": bindings.run_binding_action, "bind": bindings.run_binding_ac
             "shutdown": pool.run_shutdown,
             "create": lifecycle.run_create, "clone": lifecycle.run_clone, "erase": lifecycle.run_erase, "delete": lifecycle.run_delete,
             "mark": lifecycle.run_mark, "unmark": lifecycle.run_unmark, "adopt": lifecycle.run_adopt,
-            "records": lifecycle.run_records, "gc": gc.run_gc,
+            "records": lifecycle.run_records, "gc": gc.run_gc, "benchmark": benchmark.run_benchmark,
             "boot": boot.run_boot, "reboot": boot.run_reboot,
             "locale": settings.run_locale, "appearance": settings.run_appearance,
             "text-size": text_size.run_text_size}
@@ -28,7 +28,7 @@ _RUNNERS = {"list": bindings.run_binding_action, "bind": bindings.run_binding_ac
 DEVICE_USE_BY_ACTION = {"list": "none", "bind": "none", "unbind": "none", "show": "none",
                         "claim": "none", "acquire": "none", "release": "none", "shutdown": "none",
                         "create": "none", "clone": "none", "erase": "none", "delete": "none", "mark": "none", "unmark": "none",
-                        "adopt": "none", "records": "none", "gc": "none",
+                        "adopt": "none", "records": "none", "gc": "none", "benchmark": "none",
                         "boot": "none", "reboot": "none",
                         "locale": "mutate", "appearance": "mutate", "text-size": "mutate"}
 
@@ -81,6 +81,8 @@ def configure_device(p) -> None:
     p.add_argument("--ttl-days", type=float, default=None, help="create: 보관 기한 (일, 기본 3) — 지나면 정리 대상")
     p.add_argument("--kind", default=None, help="mark·unmark: 상태 종류 (권장 login · data · permission · config · other)")
     p.add_argument("--apply", action="store_true", help="gc: 보고한 계획대로 지우고 끈다 (없으면 보고만)")
+    p.add_argument("--full", action="store_true",
+                   help="benchmark: 멈춤 신호가 보일 때까지 한 대씩 늘려 잰다 (느리다 · 다른 세션이 없을 때만)")
     p.add_argument("--sizes", action="store_true", help="gc: 모든 기기의 디스크 크기를 센다 (느리다 — 수십 GB 를 훑는다)")
     p.add_argument("--verify", action="store_true", help="mark: 기록한 상태가 아직 살아 있음을 확인했다 (확인 시각 갱신)")
 

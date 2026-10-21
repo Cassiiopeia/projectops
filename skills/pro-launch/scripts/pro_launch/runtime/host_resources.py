@@ -18,6 +18,8 @@ from pathlib import Path
 from common.proc import run
 from common.state import base_dir
 
+from pro_launch.runtime import procs
+
 PROC_MEMINFO = Path("/proc/meminfo")
 MEBIBYTE = 1024 * 1024
 TOP_PROCESS_COUNT = 5
@@ -41,6 +43,9 @@ def read_memory() -> dict:
         return _read_proc_meminfo()
     if shutil.which("vm_stat"):
         return _read_vm_stat()
+    windows = procs.read_windows_memory()
+    if windows:
+        return {**windows, "os_pressure": None}
     return {"total_mb": None, "available_mb": None, "swap_total_mb": None, "swap_used_mb": None,
             "os_pressure": None}
 

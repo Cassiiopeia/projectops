@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -237,6 +238,109 @@ def clone_tree(source: str, target: str) -> tuple[bool, str]:
     except (OSError, subprocess.SubprocessError) as error:
         return False, str(error)
     return result.returncode == 0, (result.stderr or "").strip()[-300:]
+
+
+def read_windows_memory() -> dict | None:
+    """Windows 메모리 > {total_mb, available_mb, swap_total_mb, swap_used_mb}. Windows 가 아니면 None (#964).
+
+    GlobalMemoryStatusEx — 페이지 파일(commit) 중 물리 메모리를 뺀 몫을 스왑으로 본다.
+    """
+    if sys.platform != "win32":
+        return None
+    import ctypes
+
+    class MemoryStatus(ctypes.Structure):
+        _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+
+    status = MemoryStatus()
+    status.dwLength = ctypes.sizeof(MemoryStatus)
+    if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+        return None
+    mebibyte = 1024 * 1024
+    swap_total = max(0, status.ullTotalPageFile - status.ullTotalPhys)
+    swap_free = max(0, status.ullAvailPageFile - status.ullAvailPhys)
+    return {"total_mb": status.ullTotalPhys // mebibyte, "available_mb": status.ullAvailPhys // mebibyte,
+            "swap_total_mb": swap_total // mebibyte, "swap_used_mb": max(0, swap_total - swap_free) // mebibyte}
+
+
+def process_memory_mb(pids: list[int]) -> int:
+    """프로세스들의 상주 메모리 합 (MB). 못 읽은 것은 0 — 기기 비용 측정용 (#964)."""
+    if not pids:
+        return 0
+    try:
+        if sys.platform == "win32":
+            pid_list = ",".join(str(pid) for pid in pids)
+            r = subprocess.run(["powershell", "-NoProfile", "-Command",
+                                f"(Get-Process -Id {pid_list} -ErrorAction SilentlyContinue | "
+                                "Measure-Object WorkingSet64 -Sum).Sum"],
+                               capture_output=True, text=True, timeout=15)
+            total_bytes = int(float((r.stdout or "0").strip() or 0))
+            return total_bytes // (1024 * 1024)
+        if sys.platform == "darwin":
+            # RSS 는 압축·스왑된 몫을 빼서 크게 줄어든다 (실측: 에뮬레이터 RSS 245MB, top MEM 5.6GB) — top 의 footprint
+            command = ["top", "-l", "1", "-stats", "pid,mem"]
+            for pid in pids:
+                command += ["-pid", str(pid)]
+            r = subprocess.run(command, capture_output=True, text=True, timeout=20)
+            return sum(_size_to_mb(fields[1]) for fields in (line.split() for line in (r.stdout or "").splitlines())
+                       if len(fields) == 2 and fields[0].isdigit() and int(fields[0]) in pids)
+        r = subprocess.run(["ps", "-o", "rss=", "-p", ",".join(str(pid) for pid in pids)],
+                           capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return 0
+    return sum(int(line) for line in (r.stdout or "").split() if line.isdigit()) // 1024
+
+
+def _size_to_mb(text: str) -> int:
+    """top 크기 표기 (512K · 5611M · 1.2G, 끝의 +/- 무시) > MB."""
+    match = re.match(r"^([\d.]+)([KMGT]?)", text.rstrip("+-"))
+    if not match:
+        return 0
+    scale = {"": 1 / (1024 * 1024), "K": 1 / 1024, "M": 1, "G": 1024, "T": 1024 * 1024}[match.group(2)]
+    return int(float(match.group(1)) * scale)
+
+
+def top_memory_processes(count: int) -> list[dict]:
+    """메모리를 가장 많이 쓰는 프로세스 > [{pid, name, memory_mb}] (#964).
+
+    macOS 는 top footprint(압축·스왑 포함 — RSS 는 VM·에뮬레이터를 크게 줄여 보인다), Windows 는 WorkingSet, 그 밖은 RSS.
+    """
+    try:
+        if sys.platform == "darwin":
+            r = subprocess.run(["top", "-l", "1", "-o", "mem", "-n", str(count), "-stats", "pid,mem,command"],
+                               capture_output=True, text=True, timeout=20)
+            rows = []
+            for line in (r.stdout or "").splitlines():
+                fields = line.split(None, 2)
+                if len(fields) == 3 and fields[0].isdigit():
+                    rows.append({"pid": int(fields[0]), "name": fields[2].strip(), "memory_mb": _size_to_mb(fields[1])})
+            return rows[:count]
+        if sys.platform == "win32":
+            r = subprocess.run(["powershell", "-NoProfile", "-Command",
+                                f"Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First {count} "
+                                "| ForEach-Object { \"$($_.Id) $([int]($_.WorkingSet64/1MB)) $($_.ProcessName)\" }"],
+                               capture_output=True, text=True, timeout=20)
+        else:
+            r = subprocess.run(["ps", "-axo", "pid=,rss=,comm=", "--sort=-rss"], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    rows = []
+    for line in (r.stdout or "").splitlines():
+        fields = line.split(None, 2)
+        if len(fields) == 3 and fields[0].isdigit() and fields[1].isdigit():
+            size = int(fields[1]) if sys.platform == "win32" else int(fields[1]) // 1024
+            rows.append({"pid": int(fields[0]), "name": os.path.basename(fields[2].strip()), "memory_mb": size})
+    return rows[:count]
+
+
+def process_ids_with_text(text: str) -> list[int]:
+    """명령줄에 text 가 들어 있는 프로세스 pid (예: 시뮬레이터 UDID — 그 기기의 프로세스 묶음). 우리 프로세스는 뺀다."""
+    rows = process_table() or []
+    return [row["pid"] for row in rows if text in (row.get("command") or "") and row["pid"] != os.getpid()]
 
 
 # 클립보드 읽기 명령 — OS 별, 위에서부터 있는 것

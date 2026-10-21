@@ -31,6 +31,7 @@ description: "Capability skill that launches and drives apps, web and servers: e
 | 공들인 상태(로그인 · 테스트 데이터 · 권한) 기록 — 정리·초기화에서 보호되고 다음에 `--need` 로 그 기기를 받는다 · 기기 기록 보기 | `device mark\|unmark --kind login --name kakao` · `device adopt` · `device records` | `references/app.md` |
 | 새 기기가 꼭 필요할 때(두 대 동시 · 완전 새 폰 · 다른 폼팩터) — **raw simctl create/avdmanager 대신** · 로그인된 기기 복제 · 초기화 · 삭제 | `device acquire --fresh\|--count 2` · `device create\|clone --reason "..."` · `device erase\|delete` | `references/app.md` |
 | 쌓인 기기 정리 — 기한 지난 임시 기기 삭제 · 버려진 켜진 기기 끄기 (기본은 보고만) | `device gc [--apply] [--sizes]` | `references/app.md` |
+| **이 컴퓨터가 기기를 몇 대까지 감당하나 재서 설정에 넣기** — 처음 쓰는 컴퓨터 · 여러 세션이 켜다 멈출 때 | `device benchmark [--platform ios\|android] [--full]` | `references/app.md` |
 | 역할을 기기에 묶기(참가자가 둘 이상) · 소유자 보기 · 특정 기기 쥐기 | `device list\|bind\|unbind\|show\|claim` | `references/app.md` |
 | 에뮬레이터·시뮬레이터 띄우기(기본 창 없음, 창이 필요하면 작게) · 재부팅 · 언어 · 다크 모드 — **raw simctl/emulator 대신** | `device boot\|reboot [--cold]\|locale\|appearance\|text-size` · `app install --path` | `references/app.md` |
 | 앱 띄우기 · 찍기 | `app launch` · `app shot [--clean-status]` | `references/app.md` |
@@ -130,6 +131,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
   `empty_values` 가 오면 그 옵션 값이 비었다(`$VAR` 미설정).
 - **`pressure: critical`(doctor --resources · devices 의 `resources`)이면 가상 기기를 새로 띄우기 전에 사용자에게 묻는다.**
   다른 세션의 에뮬레이터·시뮬레이터·프로세스는 끄지 않는다 — `owners` 로 누가 쓰는지 보고만 한다. `acquire` 는 이 경우 새로 켜지 않고 `ask` 를 낸다.
+- **기기 켜기는 메모리 예산 안에서, 이 컴퓨터 전체에서 한 번에 하나씩** (#964). 예산·기기당 비용은 `device benchmark` 가 재서 설정에 넣는다.
+  `doctor --resources` 가 `device benchmark` 를 권하면(잰 적 없음 · 30일 지남 · RAM 바뀜) 다른 세션이 없을 때 한 번 잰다.
 - 캡처는 기본 긴 변 1200px WebP. 픽셀 대조처럼 원본이 필요할 때만 `--keep-format`. **찍은 것은 Read 로 열어 본다.**
   텍스트로 확인되면(`web assert` · `app tree` · 로그) 이미지를 읽지 않는다 — 가장 비싼 것이 이미지다.
 - **호스트 마우스로 좌표를 누르지 않는다**(`cliclick` · AppleScript · CGEvent) — 사용자 커서를 빼앗는다. 앱은 `app tap`, 웹은 `web find` → `web click --ref`.
@@ -185,6 +188,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app openurl    --device 
 | `typed_text_mismatch` | 입력칸 글자가 넣은 값과 다르다(조합형 키보드). `app type --ime ascii` |
 | `device_owned_by_other` | 다른 세션이 빌린 기기다. 바꾸는 조작(tap·type·install 등)은 거부되고, 읽기(shot·tree·wait)는 경고 필드만 붙는다. `device acquire` 로 다른 기기를 받거나, 꼭 그 기기여야 하면 사용자에게 묻고 `--yes` |
 | `device_busy` · `needs_user` · `no_matching_device` | `device acquire` 의 wait · ask · no_match — 위 공통 규칙의 verdict 별 행동 |
+| `device_budget_exceeded` | 새로 켜면 이 컴퓨터의 기기 메모리 예산을 넘는다(`reasons` · `non_device_consumers`). 안 쓰는 기기를 반납·종료하거나 사용자에게 묻는다 — 예산을 잰 적이 없으면 `device benchmark` |
+| `devices_in_use` · `benchmark_no_room` | 측정 중 다른 세션이 멈출 수 있어 시작하지 않았다 / 여유가 없어 실험 기기를 하나도 못 켰다(설정은 그대로) |
 | `ledger_busy` | 기기 원장 잠금을 10초 안에 못 얻었다. 잠시 뒤 다시 부른다 |
 | `device_protected` · `device_in_use_unrecorded` | 지우거나 초기화하려는 기기에 공들인 상태가 있다 / 사람이 쓰는 기기일 수 있다. `marks` 를 사용자에게 보여 주고 묻는다 — 그렇다면 `--yes` |
 | `no_matching_profile` | `--need` 상태가 기록된 브라우저 프로필이 없다. 사람이 로그인한 뒤 `web profile mark` |

@@ -7,7 +7,7 @@ from __future__ import annotations
 import time
 
 from pro_launch.commands.device.claims import refuse_other_session_owner, resolve_device
-from pro_launch.runtime import android_device, device_boot
+from pro_launch.runtime import android_device, boot_turn, device_boot, device_capacity, device_pool_facts
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.device_claims import touch_device
 from pro_launch.runtime.devices import list_devices
@@ -90,7 +90,11 @@ def run_boot(args) -> int:
                     "next": "--device <UDID> 로 하나를 고른다"})
     if simulators:
         udid = simulators[0]["udid"]
-        return _ios_result("boot", udid, device_boot.boot_ios(udid, mode, scale), name=simulators[0]["name"])
+        if simulators[0]["state"] != "Booted" and (refusal := _budget_refusal("ios", args)) is not None:
+            return refusal
+        with boot_turn.boot_turn():
+            booted = device_boot.boot_ios(udid, mode, scale)
+        return _ios_result("boot", udid, booted, name=simulators[0]["name"])
     avds = list_devices()["android_avds"]
     if args.device not in avds:
         return out({"ok": False, "code": "no_device", "error": f"'{args.device}' 시뮬레이터·AVD 를 찾지 못했습니다",
@@ -99,12 +103,27 @@ def run_boot(args) -> int:
     if args.device in running:
         return out({"action": "boot", "platform": "android", "device": running[args.device], "avd": args.device,
                     "already_booted": True, "summary": "이미 켜져 있다 (바꾸지 않았다)", "next": None})
-    launched = device_boot.launch_emulator(args.device, mode, scale, args.cold)
-    if not launched["is_ok"]:
-        return out({"ok": False, "code": "emulator_start_failed", "error": launched["detail"],
-                    "next": "doctor 로 emulator_path 를 확인한다"})
-    touch_device(launched["serial"], str(project_root(args)))
-    return _android_started("boot", args.device, launched, mode, scale, already_booted=False)
+    if (refusal := _budget_refusal("android", args)) is not None:
+        return refusal
+    with boot_turn.boot_turn():
+        launched = device_boot.launch_emulator(args.device, mode, scale, args.cold)
+        if not launched["is_ok"]:
+            return out({"ok": False, "code": "emulator_start_failed", "error": launched["detail"],
+                        "next": "doctor 로 emulator_path 를 확인한다"})
+        touch_device(launched["serial"], str(project_root(args)))
+        return _android_started("boot", args.device, launched, mode, scale, already_booted=False)
+
+
+def _budget_refusal(platform: str, args) -> int | None:
+    """새로 켜기 전 메모리 예산 (#964) — 넘으면 --yes 없이 멈춘다."""
+    if args.yes:
+        return None
+    reason = device_capacity.boot_block_reason(platform, device_pool_facts.booted_virtual_counts())
+    if reason is None:
+        return None
+    return out({"ok": False, "code": "device_budget_exceeded", "error": reason,
+                "capacity": device_capacity.capacity_view(), **android_device.host_pressure_fields(),
+                "next": "켜져 있는 기기 중 안 쓰는 것을 반납·종료하거나(device records), 사용자에게 묻고 --yes"})
 
 
 def run_reboot(args) -> int:

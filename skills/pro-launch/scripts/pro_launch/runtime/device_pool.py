@@ -58,8 +58,8 @@ class PoolContext:
     wait_limit_seconds: float = 600.0
     can_create: bool = False
     is_disk_low: bool = False
-    booted_count: int = 0
-    max_booted: int = 6
+    # 새 기기를 켜면 안 되는 이유 (메모리 예산 초과 · 지금 여유 부족, device_capacity) — 없으면 None
+    boot_block: str | None = None
 
 
 @dataclass(frozen=True)
@@ -147,6 +147,8 @@ def _choose_free(request: AcquireRequest, candidates: list[Candidate], working: 
     reasons = [*working.reasons, f"{chosen.facts.name}: 비어 있다" + (" (꺼져 있어 켠다)" if is_boot_needed else " (켜져 있다)")]
     if is_boot_needed and context.pressure == "critical":
         return Decision("ask", reasons=tuple(reasons + ["호스트 메모리가 위험 수준이라 새로 켜기 전에 사용자 확인이 필요하다"]))
+    if is_boot_needed and context.boot_block:
+        return Decision("ask", reasons=tuple(reasons + [context.boot_block]))
     if chosen.dead_other_leases:
         dead = max(chosen.dead_other_leases, key=lambda lease: lease.get("last_used") or 0)
         reasons.append(f"{chosen.facts.name}: {_owner_phrase(dead)} 의 소유는 끝났다(호스트 종료 또는 유휴) — 넘겨받는다")
@@ -158,7 +160,7 @@ def _create_if_allowed(request: AcquireRequest, candidates: list[Candidate], wor
                        context: PoolContext) -> Decision | None:
     """빈 기기가 없을 때 임시 기기 만들기 — 특정 기기·공들인 상태 조건이면 만들지 않는다 (만들어도 소용없다).
 
-    자원 한도 3개: 메모리 critical · 디스크 부족 · 켜진 가상 기기 수 한도. 걸리면 이유를 남기고 다음 단계로.
+    자원 한도 3개: 메모리 critical · 디스크 부족 · 메모리 예산(device_capacity). 걸리면 이유를 남기고 다음 단계로.
     """
     if request.device or request.needs or not context.can_create:
         return None
@@ -166,8 +168,8 @@ def _create_if_allowed(request: AcquireRequest, candidates: list[Candidate], wor
         working.create_block = "호스트 메모리가 위험 수준이라 새 기기를 만들어 켜지 않는다"
     elif context.is_disk_low:
         working.create_block = "디스크 여유가 부족해 새 기기를 만들지 않는다 (device gc 로 정리할 것이 있는지 본다)"
-    elif context.booted_count >= context.max_booted:
-        working.create_block = f"켜진 가상 기기가 {context.booted_count}대로 한도({context.max_booted})에 닿았다"
+    elif context.boot_block:
+        working.create_block = context.boot_block
     if working.create_block:
         return None
     return Decision("create", reasons=tuple([*working.reasons, "조건에 맞는 빈 기기가 없어 임시 기기를 만들어 켠다"]),

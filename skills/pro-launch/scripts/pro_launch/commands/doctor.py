@@ -13,7 +13,7 @@ import knowledge
 from pro_launch.registry import Command
 from pro_launch.runtime import browser_profiles
 from pro_launch.runtime.browser import browser_choice, open_browser_status, playwright_state
-from pro_launch.runtime import host_resources
+from pro_launch.runtime import device_capacity, host_resources
 from pro_launch.runtime.context import project_root, state_home
 from pro_launch.runtime.devices import list_devices
 from pro_launch.runtime.output import SKILL_DIR, out
@@ -87,10 +87,15 @@ def _attach_resources(payload: dict) -> None:
     """--resources: 메모리 압박 단계 · 큰 프로세스 · 켜진 가상 기기와 묶은 레포 (#883). 보고만 한다."""
     report = host_resources.resource_report(list_devices())
     payload["resources"] = report
-    payload["summary"] += f" · 메모리 압박 {report['pressure']}"
+    # 기기 켜기 예산 (#964) — 측정 전이면 기본값과 측정 권고
+    capacity = device_capacity.capacity_view()
+    payload["capacity"] = capacity
+    payload["summary"] += f" · 메모리 압박 {report['pressure']} · 기기 예산 {capacity['memory_budget_mb']}MB"
     advice = host_resources.pressure_advice(report["pressure"])
     if advice:
         payload["next"] = advice
+    elif capacity["should_benchmark"]:
+        payload["next"] = "device benchmark  # 이 컴퓨터가 기기를 몇 대까지 감당하나 재서 설정에 넣는다"
 
 
 def configure_doctor(p) -> None:

@@ -9,7 +9,8 @@ import hashlib
 import time
 
 from pro_launch.commands.device.claims import run_restore_commands
-from pro_launch.runtime import android_device, device_backends, device_claims, device_marks, device_pool_facts
+from pro_launch.runtime import (android_device, boot_turn, device_backends, device_benchmark, device_claims, device_marks,
+                                device_pool_facts)
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.device_backends.base import default_device_name
 from pro_launch.runtime.device_boot import resolve_window
@@ -113,9 +114,22 @@ def identity_next(next_step: str) -> str:
 
 
 def acquire_once(request: AcquireRequest, args) -> dict:
-    """한 대 빌리기 > 응답 dict (출력하지 않는다)."""
+    """한 대 빌리기 > 응답 dict (출력하지 않는다). 켜야 하면 켜기 차례를 얻은 뒤 최신 상태로 다시 판정한다."""
+    decision, _, _ = _decide_with_wait(request, getattr(args, "wait", 0) or 0)
+    if decision.verdict in ("reuse", "reclaim", "create") and decision.is_boot_needed:
+        try:
+            with boot_turn.boot_turn():
+                return _acquire_attempts(request, args, wait_seconds=0)
+        except boot_turn.BootTurnBusyError:
+            return {"ok": False, "code": "device_busy", "verdict": "wait",
+                    "reasons": ["다른 세션이 기기를 켜는 중이다 — 한 번에 하나씩 켠다"],
+                    "next": identity_next("잠시 뒤 device acquire 를 다시 부른다")}
+    return _acquire_attempts(request, args, wait_seconds=getattr(args, "wait", 0) or 0)
+
+
+def _acquire_attempts(request: AcquireRequest, args, wait_seconds: float) -> dict:
     for _ in range(CLAIM_RACE_RETRIES):
-        decision, candidates, waited_total = _decide_with_wait(request, getattr(args, "wait", 0) or 0)
+        decision, candidates, waited_total = _decide_with_wait(request, wait_seconds)
         base = {"verdict": decision.verdict, "reasons": list(decision.reasons), "limits": device_pool_facts.limits_view(),
                 "owner_identity": device_claims.owner_identity_strength()}
         if decision.verdict in ("reuse", "reclaim", "create"):
@@ -144,7 +158,10 @@ def acquire_once(request: AcquireRequest, args) -> dict:
                     "next": identity_next("device acquire 를 --wait 90 으로 다시 부르거나 다른 일을 먼저 한다")}
         if decision.verdict == "ask":
             return {"ok": False, "code": "needs_user", **base, "owners": list(decision.busy_owners),
-                    **android_device.host_pressure_fields(), "next": "reasons 를 사용자에게 그대로 보여 주고 어떻게 할지 묻는다"}
+                    **android_device.host_pressure_fields(),
+                    # 메모리 때문에 멈췄으면 기기 밖 큰 소비자를 함께 보여 준다 (#964)
+                    "non_device_consumers": device_benchmark.non_device_consumers(),
+                    "next": "reasons 를 사용자에게 그대로 보여 주고 어떻게 할지 묻는다"}
         next_step = ("그 상태를 사람이 기기에 만든 뒤 device mark 로 기록한다" if request.needs
                      else "devices 로 목록을 확인하고 조건(--form · --os · --device)을 넓힌다")
         return {"ok": False, "code": "no_matching_device", **base, "next": next_step}

@@ -1,4 +1,4 @@
-"""판정 재료 모으기: 기기 사실 + 원장 > Candidate · 호스트 자원 > PoolContext · 한도와 출처 (#953 · #954).
+"""판정 재료 모으기: 기기 사실 + 원장 > Candidate · 호스트 자원·메모리 예산 > PoolContext · 한도와 출처 (#953 · #954 · #964).
 
 판정(device_pool)은 순수 함수로 두고, 기기·원장·호스트를 읽는 일은 여기서 한다.
 """
@@ -8,7 +8,7 @@ import shutil
 import time
 from pathlib import Path
 
-from pro_launch.runtime import device_backends, device_claims, device_ledger, host_resources
+from pro_launch.runtime import device_backends, device_capacity, device_claims, device_ledger, host_resources
 from pro_launch.runtime.device_marks import mark_label
 from pro_launch.runtime.device_pool import Candidate, PoolContext
 
@@ -17,10 +17,6 @@ WAIT_LIMIT_DEFAULT_MINUTES = 10
 # 디스크 여유 하한 (GB): 이보다 적으면 새 기기를 만들지 않는다 (launch.devices.min_free_disk_gb)
 # 비율은 쓰지 않는다 — 큰 디스크에서 45GB 남아도 "부족"이 됐다 (실측)
 MIN_FREE_DISK_GB_DEFAULT = 20
-# 동시 켜짐 한도 계산: (RAM GB - 호스트 몫) / 기기당 GB, 1~6 대 (launch.devices.max_booted 로 덮어쓴다)
-HOST_RESERVED_RAM_GB = 8
-RAM_GB_PER_BOOTED_DEVICE = 3
-MAX_BOOTED_FLOOR, MAX_BOOTED_CEILING = 1, 6
 BYTES_PER_GB = 1024 ** 3
 
 
@@ -30,18 +26,6 @@ def devices_config() -> dict:
 
 def _positive(value) -> float | None:
     return float(value) if isinstance(value, (int, float)) and value > 0 else None
-
-
-def max_booted_limit() -> tuple[int, str]:
-    """(동시 켜짐 한도, 출처 config|computed|default)."""
-    configured = _positive(devices_config().get("max_booted"))
-    if configured:
-        return int(configured), "config"
-    total_mb = host_resources.read_memory().get("total_mb")
-    if not total_mb:
-        return MAX_BOOTED_FLOOR + 1, "default"
-    computed = int((total_mb / 1024 - HOST_RESERVED_RAM_GB) // RAM_GB_PER_BOOTED_DEVICE)
-    return max(MAX_BOOTED_FLOOR, min(MAX_BOOTED_CEILING, computed)), "computed"
 
 
 def disk_status(path: Path | None = None) -> dict:
@@ -60,12 +44,11 @@ def wait_limit_minutes() -> tuple[float, str]:
 def limits_view() -> dict:
     """판정에 쓴 한도와 출처 (응답 limits 필드)."""
     wait_minutes, wait_source = wait_limit_minutes()
-    max_booted, max_booted_source = max_booted_limit()
     disk = disk_status()
     return {"wait_limit_minutes": {"value": wait_minutes, "source": wait_source},
             "lease_idle_minutes": {"value": device_claims.lease_idle_seconds() / 60,
                                    "source": "config" if _positive(devices_config().get("lease_idle_minutes")) else "default"},
-            "max_booted": {"value": max_booted, "source": max_booted_source},
+            "capacity": device_capacity.capacity_view(),
             "min_free_disk_gb": {"value": disk["minimum_gb"], "free_gb": disk["free_gb"],
                                  "source": "config" if _positive(devices_config().get("min_free_disk_gb")) else "default"}}
 
@@ -95,12 +78,20 @@ def build_candidates(platform: str) -> list[Candidate]:
 
 
 def build_context(platform: str, waited_seconds: float) -> PoolContext:
-    """호스트 메모리 · 디스크 · 켜진 가상 기기 수 · 만들기 가능 여부 > PoolContext."""
-    booted_count = sum(1 for facts in device_backends.all_device_facts()
-                       if facts.is_booted and not device_backends.backend_named(facts.backend).capabilities.is_physical)
-    max_booted, _ = max_booted_limit()
+    """호스트 메모리 · 디스크 · 켜진 가상 기기의 메모리 예산 · 만들기 가능 여부 > PoolContext."""
+    memory = host_resources.read_memory()
     wait_minutes, _ = wait_limit_minutes()
-    return PoolContext(pressure=host_resources.memory_summary().get("pressure") or "unknown",
+    return PoolContext(pressure=host_resources.pressure_level(memory),
                        waited_seconds=waited_seconds, wait_limit_seconds=wait_minutes * 60,
                        can_create=any(b.capabilities.can_create for b in device_backends.backends_for(platform)),
-                       is_disk_low=disk_status()["is_low"], booted_count=booted_count, max_booted=max_booted)
+                       is_disk_low=disk_status()["is_low"],
+                       boot_block=device_capacity.boot_block_reason(platform, booted_virtual_counts(), memory))
+
+
+def booted_virtual_counts() -> dict[str, int]:
+    """켜진 가상 기기 수 > {플랫폼: 대수} (실기기는 메모리를 쓰지 않으므로 뺀다). 어느 세션이 켰든 센다."""
+    counts: dict[str, int] = {}
+    for facts in device_backends.all_device_facts():
+        if facts.is_booted and not device_backends.backend_named(facts.backend).capabilities.is_physical:
+            counts[facts.platform] = counts.get(facts.platform, 0) + 1
+    return counts

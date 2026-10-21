@@ -47,10 +47,10 @@ class CreatingBackend:
 def backend(monkeypatch):
     fake = CreatingBackend()
     monkeypatch.setattr(device_backends, "BACKENDS", (fake,))
-    monkeypatch.setattr(device_pool_facts.host_resources, "memory_summary", lambda: {"pressure": "ok"})
+    monkeypatch.setattr(device_pool_facts.host_resources, "read_memory", lambda: {"total_mb": 16384, "available_mb": 12000, "swap_total_mb": 0, "swap_used_mb": 0, "os_pressure": "ok"})
     monkeypatch.setattr(device_pool_facts, "disk_status",
                         lambda path=None: {"free_gb": 100.0, "minimum_gb": 20, "is_low": False})
-    monkeypatch.setattr(device_pool_facts, "max_booted_limit", lambda: (4, "default"))
+    monkeypatch.setattr(device_pool_facts.device_capacity, "boot_block_reason", lambda platform, counts, memory=None: None)
     monkeypatch.setattr(device_claims, "current_host", lambda: None)
     monkeypatch.setattr(claims, "pick_device", lambda want: ("ios", want, {}))
     monkeypatch.setenv("LAUNCH_SESSION", "s1")
