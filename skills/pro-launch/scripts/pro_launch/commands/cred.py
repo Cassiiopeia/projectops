@@ -56,10 +56,10 @@ def _cred_import_ssh(args) -> int:
     for srv in credentials.ssh_servers():
         name = srv.get("name")
         if not name or not credentials.NAME_RE.match(str(name)):
-            plan.append({"name": name, "status": "skipped", "reason": "이름이 없거나 형식이 맞지 않음"})
+            plan.append({"name": name, "status": "skipped", "reason": "name missing or malformed"})
             continue
         if name in existing:
-            plan.append({"name": name, "status": "exists", "reason": "이미 같은 이름의 자격증명이 있음"})
+            plan.append({"name": name, "status": "exists", "reason": "a credential with this name already exists"})
             continue
         if getattr(args, "ref", False):
             fields = {"kind": "ssh", "ssh_server": name}
@@ -83,11 +83,11 @@ def _cred_import_ssh(args) -> int:
     n = sum(1 for p in plan if p["status"] in ("would_import", "imported"))
     return out({"ok": True, "code": "ok", "dry_run": bool(args.dry_run), "servers": plan, "count": n,
                 "pruned": pruned,
-                "summary": (f"{n}개 가져올 수 있음 (dry-run, 아무것도 쓰지 않음)" if args.dry_run
-                            else f"{n}개 가져옴") if plan else "옛 ssh 섹션에 서버가 없습니다",
-                "next": ("실제로 옮기려면 --dry-run 을 빼고 다시 부른다. 그다음 cred set --name 이름 --json "
-                         "'{\"use_when\":\"...\",\"scope\":\"...\"}' 로 허용 범위를 채운다" if args.dry_run and n
-                         else "use_when · scope 를 cred set 으로 채운다. 옛 ssh 섹션은 지우지 않았다")})
+                "summary": (f"{n} can be imported (dry-run, nothing written)" if args.dry_run
+                            else f"{n} imported") if plan else "No servers in the old ssh section",
+                "next": ("To import for real, run again without --dry-run. Then fill the allowed scope with cred set --name <name> --json "
+                         "'{\"use_when\":\"...\",\"scope\":\"...\"}'" if args.dry_run and n
+                         else "Fill use_when · scope with cred set. The old ssh section was not removed")})
 
 
 # cred policy 의 하위 동작 3개 / 이름을 위치 인자로 받는 동작 3개
@@ -100,43 +100,43 @@ def _cred_policy(args) -> int:
     # 입력 확인 (동작, 키, 값)
     if args.policy_action and args.policy_action not in POLICY_ACTIONS:
         return out({"ok": False, "code": "policy_action_required",
-                    "error": f"'{args.policy_action}' 는 policy 동작이 아닙니다 ({' · '.join(POLICY_ACTIONS)} 중 하나)",
-                    "next": "cred policy get [--name 이름]"})
+                    "error": f"'{args.policy_action}' is not a policy action (one of {' · '.join(POLICY_ACTIONS)})",
+                    "next": "cred policy get [--name <name>]"})
     if not args.policy_action:
-        return out({"ok": False, "code": "policy_action_required", "error": "get · set · unset 중 하나가 필요합니다",
-                    "next": "cred policy get [--name 이름]"})
+        return out({"ok": False, "code": "policy_action_required", "error": "One of get · set · unset is required",
+                    "next": "cred policy get [--name <name>]"})
     if args.policy_action in ("set", "unset") and not args.key:
         return out({"ok": False, "code": "key_required",
-                    "error": f"--key 가 필요합니다 ({', '.join(credentials.LOGIN_POLICY_KEYS)})",
-                    "next": "cred policy get [--name 이름]"})
+                    "error": f"--key is required ({', '.join(credentials.LOGIN_POLICY_KEYS)})",
+                    "next": "cred policy get [--name <name>]"})
     if args.policy_action == "set" and not args.value:
         return out({"ok": False, "code": "value_required",
-                    "error": f"--value 가 필요합니다 ({', '.join(credentials.LOGIN_POLICY_VALUES)})",
-                    "next": "cred policy get [--name 이름]"})
+                    "error": f"--value is required ({', '.join(credentials.LOGIN_POLICY_VALUES)})",
+                    "next": "cred policy get [--name <name>]"})
     scope = "credential" if args.name else "global"
     try:
         if args.policy_action == "set":
             credentials.set_login_policy(args.name, args.key, args.value)
             return out({"ok": True, "code": "ok", "name": args.name, "scope": scope,
                         "login_policy": credentials.resolve_login_policy(args.name),
-                        "summary": f"{args.key} = {args.value} 저장 ({args.name or '모든 사이트'})",
+                        "summary": f"Saved {args.key} = {args.value} ({args.name or 'all sites'})",
                         "next": "cred policy get" + (f" --name {args.name}" if args.name else "")})
         if args.policy_action == "unset":
             is_removed = credentials.unset_login_policy(args.name, args.key)
             return out({"ok": is_removed, "code": "ok" if is_removed else "not_found", "name": args.name,
                         "scope": scope, "login_policy": credentials.resolve_login_policy(args.name),
-                        "summary": f"{args.key} 지움" if is_removed else f"{args.key} 는 이 층에 저장돼 있지 않습니다",
+                        "summary": f"Removed {args.key}" if is_removed else f"{args.key} is not stored at this level",
                         "next": "cred policy get" + (f" --name {args.name}" if args.name else "")})
         if args.name and not credentials.has_credential(args.name):
-            raise credentials.CredError("cred_not_found", f"'{args.name}' 자격증명이 없습니다")
+            raise credentials.CredError("cred_not_found", f"No credential named '{args.name}'")
         return out({"ok": True, "code": "ok", "name": args.name,
                     "login_policy": credentials.resolve_login_policy(args.name),
-                    "summary": "로그인 중간 화면 정책" + (f" ({args.name})" if args.name else " (모든 사이트)"),
-                    "next": ("value 가 always·never 인 화면은 묻지 않고 그대로 누른다. "
-                             "ask 면 사용자에게 묻고 답을 cred policy set 으로 저장한다")})
+                    "summary": "Login interstitial policy" + (f" ({args.name})" if args.name else " (all sites)"),
+                    "next": ("Screens whose value is always·never are answered without asking. "
+                             "For ask, ask the user and save the answer with cred policy set")})
     except credentials.CredError as error:
         return out({"ok": False, "code": error.code, "error": error.message,
-                    "next": "cred policy get  # 또는 cred list 로 계정 이름을 본다"})
+                    "next": "cred policy get  # or see account names with cred list"})
 
 
 def cmd_cred(args) -> int:
@@ -146,13 +146,13 @@ def cmd_cred(args) -> int:
         args.name, args.policy_action = args.policy_action, None
     elif args.policy_action and args.action in NAME_POSITIONAL_ACTIONS:
         return out({"ok": False, "code": "unexpected_argument",
-                    "error": f"이름이 두 번 주어졌습니다: {args.policy_action} 와 --name {args.name}",
+                    "error": f"Name given twice: {args.policy_action} and --name {args.name}",
                     "next": f"cred {args.action} --name {args.name}"})
     # get · set · unset 은 policy 전용 하위 동작 (다른 동작에 붙으면 조용히 무시하지 않는다)
     if args.policy_action and args.action != "policy":
         return out({"ok": False, "code": "unexpected_argument",
-                    "error": f"'{args.policy_action}' 는 cred policy 에서만 쓰는 하위 동작입니다",
-                    "next": f"cred {args.action}  # 또는 cred policy {args.policy_action}"})
+                    "error": f"'{args.policy_action}' is a sub-action used only with cred policy",
+                    "next": f"cred {args.action}  # or cred policy {args.policy_action}"})
     if args.action == "list":
         allc = credentials.load_all()
         items = []
@@ -161,9 +161,9 @@ def cmd_cred(args) -> int:
                           "use_when": e.get("use_when"), "has_secret": bool(credentials.secret_values(e))
                           or bool(e.get("ssh_server"))})
         return out({"credentials": items, "count": len(items),
-                    "summary": (f"{len(items)}개 저장됨" if items else "저장된 자격증명이 없습니다"),
-                    "next": ("use_when · scope 가 지금 하려는 일에 맞는 것만 쓴다. cred show --name 이름"
-                             if items else "cred set --name 이름 --json '{\"kind\":\"ssh\",...}'")})
+                    "summary": (f"{len(items)} saved" if items else "No saved credentials"),
+                    "next": ("Use only those whose use_when · scope fit the task at hand. cred show --name <name>"
+                             if items else "cred set --name <name> --json '{\"kind\":\"ssh\",...}'")})
 
     if args.action == "import-ssh":
         return _cred_import_ssh(args)
@@ -175,47 +175,47 @@ def cmd_cred(args) -> int:
         if args.action == "show":
             entry = credentials.resolve(args.name) if args.name else None
             if not entry:
-                return out({"ok": False, "code": "name_required", "error": "--name 이 필요합니다"})
+                return out({"ok": False, "code": "name_required", "error": "--name is required"})
             return out({"name": args.name, "credential": credentials.public_view(entry, args.reveal),
-                        "summary": f"{args.name} ({entry.get('kind') or 'kind 없음'})",
-                        "notes": "값은 가려서 보여 준다. 실행에는 --cred 로 넘기면 된다" if not args.reveal else None})
+                        "summary": f"{args.name} ({entry.get('kind') or 'no kind'})",
+                        "notes": "Values are masked. Pass it to commands with --cred" if not args.reveal else None})
 
         if args.action == "set":
             name = credentials.validate_name(args.name)
             try:
                 fields = json.loads(args.json_value) if args.json_value else None
             except json.JSONDecodeError as e:
-                return out({"ok": False, "code": "bad_json", "error": f"--json 이 올바르지 않습니다: {e}"})
+                return out({"ok": False, "code": "bad_json", "error": f"Invalid --json: {e}"})
             if args.prompt:
                 # 이 맥의 sudo 비밀번호(#784). 채팅이나 파이프로 받지 않는다 — 세션 기록에 평문이 남기 때문이다.
                 # 사용자가 터미널에서 직접 치게 하고(입력은 화면에 보이지 않는다) 그 값만 저장한다.
                 if not sys.stdin.isatty():
                     return out({"ok": False, "code": "no_tty",
-                                "error": "비밀번호는 터미널에서 직접 입력해야 합니다 (채팅·파이프로는 받지 않습니다)",
-                                "next": f"사용자가 터미널에서: launch_cli.py cred set --name {name} --prompt"})
+                                "error": "The password must be typed in a terminal (not accepted via chat or pipe)",
+                                "next": f"User, in a terminal: launch_cli.py cred set --name {name} --prompt"})
                 import getpass
                 # kind: ssh 면 서버 접속 비밀번호(#946), 아니면 이 맥의 sudo 비밀번호
                 is_ssh_server = (fields or {}).get("kind") == "ssh"
-                pw = getpass.getpass("서버 SSH 비밀번호: " if is_ssh_server else "이 맥의 sudo 비밀번호: ")
+                pw = getpass.getpass("Server SSH password: " if is_ssh_server else "sudo password for this Mac: ")
                 if not pw:
-                    return out({"ok": False, "code": "empty_password", "error": "비밀번호가 비었습니다"})
+                    return out({"ok": False, "code": "empty_password", "error": "Password is empty"})
                 if is_ssh_server:
                     fields = {**fields, "password": pw}
                 else:
-                    fields = {"kind": "local", "use_when": "이 맥에서 관리자 권한(sudo)이 필요할 때",
+                    fields = {"kind": "local", "use_when": "When admin rights (sudo) are needed on this Mac",
                               **(fields or {}), "sudo_password": pw}
             f = credentials.save_credential(name, fields or {}, replace=args.replace)
             saved = credentials.load_all().get(name, {})
             missing = [k for k in ("kind", "use_when") if not saved.get(k)]
             return out({"file": str(f), "name": name, "credential": credentials.public_view(saved),
-                        "summary": f"{name} 저장 완료",
-                        "hint": (f"{'·'.join(missing)} 를 채워 두면 agent 가 언제 써도 되는지 판단할 수 있다"
+                        "summary": f"Saved {name}",
+                        "hint": (f"Fill {'·'.join(missing)} so agents can judge when it may be used"
                                  if missing else None)})
 
         if args.action == "unset":
             ok = credentials.delete_credential(credentials.validate_name(args.name))
             return out({"name": args.name, "ok": ok, "code": "ok" if ok else "not_found",
-                        "summary": f"{args.name} 지움" if ok else f"{args.name} 가 없습니다"})
+                        "summary": f"Removed {args.name}" if ok else f"{args.name} not found"})
     except credentials.CredError as e:
         return out({"ok": False, "code": e.code, "error": e.message, "next": e.next_hint})
     return out({"ok": False, "code": "unknown_action", "error": args.action})
@@ -227,25 +227,25 @@ def configure_cred(p) -> None:
     p.add_argument("policy_action", nargs="?", default=None, metavar="policy_action|name")
     p.add_argument("--name", default=None)
     p.add_argument("--dry-run", dest="dry_run", action="store_true",
-                   help="import-ssh 때 아무것도 쓰지 않고 옮길 목록만 보여 준다 (비밀 값은 가려서)")
+                   help="import-ssh: write nothing, only list what would be imported (secrets masked)")
     p.add_argument("--inline", action="store_true",
-                   help="(기본 동작) import-ssh 때 host·user·password 값까지 복사한다")
+                   help="(default) import-ssh: copy host·user·password values too")
     p.add_argument("--ref", action="store_true",
-                   help="import-ssh 때 값을 복사하지 않고 옛 ssh 섹션을 참조만 한다 (비밀번호가 두 곳에 남는다)")
+                   help="import-ssh: only reference the old ssh section instead of copying (password stays in two places)")
     p.add_argument("--prune", action="store_true",
-                   help="import-ssh 뒤에 가져온 서버를 옛 ssh 섹션에서 지운다 (config 를 먼저 백업)")
+                   help="after import-ssh, remove the imported servers from the old ssh section (config is backed up first)")
     p.add_argument("--json", dest="json_value", default=None,
-                   help='저장할 내용(JSON). 예: {"kind":"ssh","host":"h","port":22,"user":"u","use_when":"..."}')
-    p.add_argument("--replace", action="store_true", help="set 때 기존 항목을 합치지 않고 통째로 바꾼다")
+                   help='Content to save (JSON). e.g. {"kind":"ssh","host":"h","port":22,"user":"u","use_when":"..."}')
+    p.add_argument("--replace", action="store_true", help="set: replace the entry instead of merging")
     # --key · --value 는 choices 를 두지 않는다 — 잘못된 값도 JSON code 로 돌려주기 위해
     p.add_argument("--key", default=None, help="policy: trust_device · keep_signed_in · skip_nags")
     p.add_argument("--value", default=None, help="policy set: ask · always · never")
-    p.add_argument("--reveal", action="store_true", help="show 때 비밀 값도 그대로 보여 준다 (꼭 필요할 때만)")
+    p.add_argument("--reveal", action="store_true", help="show: reveal secret values too (only when really needed)")
     p.add_argument("--prompt", action="store_true",
-                   help="set 때 비밀번호를 터미널에서 직접 입력받아 저장한다 (화면에 안 보임, TTY 필요). --json 의 kind 가 ssh 면 서버 비밀번호, 아니면 이 맥의 sudo 비밀번호")
+                   help="set: read the password typed in the terminal and save it (hidden, needs a TTY). Server password if --json kind is ssh, otherwise the sudo password for this Mac")
 
 
 COMMANDS = [
-    Command(name="cred", help="이름 붙은 자격증명을 저장하고 꺼낸다 (다음 실행에서 다시 묻지 않는다)", run=cmd_cred,
+    Command(name="cred", help="Save and retrieve named credentials (not asked again on the next run)", run=cmd_cred,
             configure=configure_cred),
 ]

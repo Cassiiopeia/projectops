@@ -32,13 +32,13 @@ def test_budget_counts_every_booted_device_by_its_platform_cost(settings):
     settings["launch"]["devices"].update({"boot_cost_mb": {"ios": 1000, "android": 5000}, "memory_budget_mb": 12000})
     assert device_capacity.boot_block_reason("ios", {"android": 2}, ROOMY) is None          # 10000 + 1000 <= 12000
     blocked = device_capacity.boot_block_reason("android", {"android": 2}, ROOMY)          # 10000 + 5000 > 12000
-    assert blocked and "예산 초과" in blocked
+    assert blocked and "budget exceeded" in blocked
 
 
 def test_live_memory_shortage_blocks_even_within_budget(settings):
     tight = {**ROOMY, "available_mb": 2000}
     reason = device_capacity.boot_block_reason("ios", {}, tight)
-    assert reason and "남은 메모리" in reason
+    assert reason and "available memory" in reason
 
 
 def test_benchmark_refuses_while_other_sessions_use_devices(monkeypatch, capsys, settings):

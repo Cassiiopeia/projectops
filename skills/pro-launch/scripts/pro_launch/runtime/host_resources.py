@@ -186,21 +186,21 @@ def resource_report(devices: dict) -> dict:
 def pressure_advice(level: str) -> str | None:
     """압박 단계별 다음 행동. 끄는 일은 사용자 몫이다."""
     if level == "critical":
-        return ("호스트 메모리가 위험 수준이다 — 가상 기기를 새로 띄우거나 빌드를 돌리기 전에 사용자에게 먼저 묻는다. "
-                "다른 세션의 기기·프로세스는 끄지 않는다 (bound_by 로 누가 쓰는지 본다)")
+        return ("host memory is critical — ask the user before booting another virtual device or running a build. "
+                "Do not stop other sessions' devices or processes (bound_by shows who uses them)")
     if level == "high":
-        return "메모리가 빠듯하다 — 가상 기기를 하나 더 띄우면 기기 안 앱이 죽거나 캡처가 실패할 수 있다"
+        return "memory is tight — booting another virtual device may kill apps on it or make captures fail"
     return None
 
 
 # 메모리 위험 게이트(critical · 기기 예산)를 넘는 유일한 플래그 — --yes 로는 넘지 않는다 (#972)
 USER_APPROVED_FLAG = "--user-approved"
 # 위험 게이트에 걸렸을 때의 다음 행동 (acquire · boot 공용 문구)
-MEMORY_RISK_NEXT = (f"사용자에게 reasons(와 non_device_consumers)를 보여 주고 답을 받은 뒤 {USER_APPROVED_FLAG} 를 붙여 "
-                    "다시 부른다. 압박이 풀리기를 doctor --resources 로 폴링하며 기다리지 않는다")
+MEMORY_RISK_NEXT = (f"Show the user reasons (and non_device_consumers), and after they answer call again with {USER_APPROVED_FLAG}. "
+                    "Do not poll doctor --resources waiting for the pressure to ease")
 # 부를 플래그가 없는 동작(기기 없음 안내 등)의 다음 행동
-MEMORY_RISK_ASK_NEXT = ("사용자에게 reasons(와 non_device_consumers)를 보여 주고 무엇을 끌지 묻는다 — 다른 세션의 기기·빌드는 "
-                        "사용자가 정한다. 압박이 풀리기를 doctor --resources 로 폴링하며 기다리지 않는다")
+MEMORY_RISK_ASK_NEXT = ("Show the user reasons (and non_device_consumers) and ask what to stop — the user decides about other sessions' "
+                        "devices and builds. Do not poll doctor --resources waiting for the pressure to ease")
 
 
 def memory_risk_fields() -> dict:
@@ -221,8 +221,8 @@ def critical_pressure_failure(action: str, is_user_approvable: bool = False) -> 
     summary = memory_summary()
     if summary["pressure"] != "critical":
         return None
-    error = (f"호스트 메모리가 위험 수준이다 (남은 {summary['available_percent']}%, "
-             f"스왑 {summary['swap_used_percent']}% 사용)")
+    error = (f"host memory is critical ({summary['available_percent']}% available, "
+             f"swap {summary['swap_used_percent']}% used)")
     return {"ok": False, "code": "host_memory_pressure", "action": action, "resources": summary,
             "error": error, "reasons": [error], **memory_risk_fields(),
             "next": MEMORY_RISK_NEXT if is_user_approvable else MEMORY_RISK_ASK_NEXT}

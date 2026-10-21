@@ -106,7 +106,7 @@ def test_web_reports_missing_playwright_with_install_hint():
     assert err["code"] == "playwright_missing"
     assert err["fix"].startswith("web setup"), err
     assert "venv" in err["manual"], err
-    assert "설치할까요" in err["ask_user"], err
+    assert "Install it?" in err["ask_user"], err
 
 
 # ── 저장 자리 · 이전 ──────────────────────────────────────────────────────

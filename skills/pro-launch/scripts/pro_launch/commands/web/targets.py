@@ -145,8 +145,8 @@ def role_selector(role: str | None) -> str | None:
 # ── 선택자 문법 오류 (#931) — 모든 동작이 같은 안내를 쓴다 ──
 # Playwright 선택자 문법 오류 문구 (css 파싱 · querySelectorAll · 없는 엔진) — 기다려도 안 풀린다
 SELECTOR_SYNTAX_ERROR_MARKERS = ("while parsing", "is not a valid selector", "Unknown engine")
-SELECTOR_SYNTAX_HINT = ("선택자 문법 오류다. CSS 와 text= 는 한 선택자에 섞지 않는다 — 글자는 text=로그인 또는 "
-                        "button:has-text('로그인'), 쉼표 목록은 CSS 끼리만. 추측보다 web find · web inspect 의 --ref 가 확실하다")
+SELECTOR_SYNTAX_HINT = ("Selector syntax error. Do not mix CSS and text= in one selector — for text use text=Login or "
+                        "button:has-text('Login'); comma lists are CSS only. --ref from web find or web inspect beats guessing")
 
 
 def is_selector_syntax_error(message: str) -> bool:

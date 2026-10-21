@@ -33,14 +33,14 @@ def _app_type(args) -> int:
             return out(err)
     elif getattr(args, "text_env", None):
         if args.text_env not in os.environ:
-            return out({"ok": False, "code": "env_not_set", "error": f"환경변수 {args.text_env} 가 비어 있습니다"})
+            return out({"ok": False, "code": "env_not_set", "error": f"Environment variable {args.text_env} is empty"})
         value = os.environ[args.text_env]
     else:
         # 비밀 아닌 값도 --text-env 로 — 명령줄 값은 세션 기록·호스트 ps 에 평문으로 남는다
         return out({"ok": False, "code": "text_required",
-                    "error": "--cred 또는 --text-env 가 필요합니다 (값을 --text 로 적지 않는다 — 기록에 평문으로 남는다)",
-                    "next": "SEARCH_TEXT='coffee' app type --text-env SEARCH_TEXT  # 일반 값 (Android 는 ASCII 만)",
-                    "hint": "로그인 정보면 app type --cred <이름> (cred list 로 저장된 이름을 본다)"})
+                    "error": "--cred or --text-env is required (do not pass the value as --text — it stays in the records in plain text)",
+                    "next": "SEARCH_TEXT='coffee' app type --text-env SEARCH_TEXT  # a plain value (Android accepts ASCII only)",
+                    "hint": "For login details use app type --cred <name> (cred list shows saved names)"})
     platform, dev_id, dev = pick_device(args.device)
     if not platform:
         return no_device_response(dev, args.device)
@@ -48,14 +48,14 @@ def _app_type(args) -> int:
         return _type_with_backend(args, platform, dev_id, value)
     if platform != "android":
         return out({"ok": False, "code": "ios_text_unsupported",
-                    "error": f"{platform} 에는 텍스트를 넣는 방법이 없다",
-                    "next": "사용자에게 직접 입력을 부탁한다"})
+                    "error": f"{platform} has no way to type text",
+                    "next": "Ask the user to type it themselves"})
     if not value.isascii():
         return out({"ok": False, "code": "non_ascii_unsupported",
-                    "error": "adb input text 는 ASCII 만 받는다 (한글 불가)",
-                    "next": "영문·숫자 값으로 대체하거나 ADBKeyboard 같은 IME 를 설치한다"})
+                    "error": "adb input text accepts ASCII only (no Korean)",
+                    "next": "Use a letters/digits value instead, or install an IME such as ADBKeyboard"})
     if not sdk_tool("adb"):
-        return out({"ok": False, "code": "adb_missing", "error": "adb 를 찾지 못했습니다"})
+        return out({"ok": False, "code": "adb_missing", "error": "adb not found"})
     return _type_on_android(args, dev_id, value)
 
 
@@ -71,21 +71,21 @@ def _type_on_android(args, dev_id: str, value: str) -> int:
             if mode == "ascii" and ime_report["reason"] in ("no_ascii_input_method_installed",
                                                              "default_input_method_unknown"):
                 return out({"ok": False, "code": "ascii_input_method_missing", "device": dev_id, "ime": ime_report,
-                            "error": "글자를 그대로 넣는 입력기(Maestro IME · ADBKeyboard)가 없거나 되돌릴 기본 입력기를 모른다",
-                            "next": "Maestro 를 이 기기에서 한 번 돌리면(app flow · app tap) Maestro IME 가 깔린다. "
-                                    "또는 ADBKeyboard 를 설치한다"})
+                            "error": "No IME that types characters as-is (Maestro IME · ADBKeyboard), or the default IME to restore is unknown",
+                            "next": "Running Maestro once on this device (app flow · app tap) installs the Maestro IME. "
+                                    "Or install ADBKeyboard"})
             ok, detail, verification = android_ime.type_and_verify(be, dev_id, value, is_secret, should_submit)
     except subprocess.TimeoutExpired:
-        return out({"ok": False, "code": "app_type_timeout", "error": "기기 응답 없음 (30초)"})
+        return out({"ok": False, "code": "app_type_timeout", "error": "Device did not respond (30s)"})
     entry = {"password": value, "token": value}
     is_mismatch = detail == "typed_text_mismatch"
     result = {"ok": ok, "code": "ok" if ok else ("typed_text_mismatch" if is_mismatch else "app_type_failed"),
               "device": dev_id,
               "chars": len(value), "submitted": should_submit and ok, "ime": ime_report, **verification,
               "elapsed_seconds": elapsed_seconds(args),
-              "error": None if ok else ("입력창에 보이는 글자가 넣은 값과 다르다 (조합형 자판이 ASCII 를 조합했을 수 있다)"
+              "error": None if ok else ("The text shown in the field differs from the typed value (a composing keyboard may have composed the ASCII)"
                                         if is_mismatch else credentials.mask(detail or "", entry)[:300] or None),
-              "summary": f"{len(value)}자 입력" + (" + Enter" if should_submit and ok else ""),
+              "summary": f"Typed {len(value)} chars" + (" + Enter" if should_submit and ok else ""),
               "next": _next_after_android_type(ok, is_mismatch, ime_report)}
     # 로그인 입력이면 중간 화면 정책을 싣는다 (#905)
     return out(with_login_policy(result, getattr(args, "cred", None)))
@@ -100,13 +100,13 @@ def _is_secret_source(args) -> bool:
 
 def _next_after_android_type(ok: bool, is_mismatch: bool, ime_report: dict) -> str:
     if ok:
-        return "app shot  # 입력됐는지 화면으로 확인한다 (비밀번호 칸은 가려져 보인다)"
+        return "app shot  # check on screen that it was typed (password fields show masked)"
     if is_mismatch:
         if ime_report.get("switched_to"):
-            return "입력기를 바꿨는데도 다르다 — 입력창이 맞는지 app tree 로 본다"
-        return ("입력창을 비운 뒤 app type --ime ascii 로 다시 넣는다 "
-                "(입력 동안만 Maestro IME · ADBKeyboard 로 바꾸고 되돌린다)")
-    return "입력창을 app tap 으로 먼저 눌러 포커스를 준 뒤 다시 시도한다"
+            return "Still different after switching the IME — check with app tree that this is the right field"
+        return ("Clear the field, then type again with app type --ime ascii "
+                "(switches to Maestro IME · ADBKeyboard only while typing, then restores)")
+    return "Tap the field first with app tap to focus it, then try again"
 
 
 def _type_with_backend(args, platform: str, dev_id: str, value: str) -> int:
@@ -122,22 +122,22 @@ def _type_with_backend(args, platform: str, dev_id: str, value: str) -> int:
               **session_fields(be), "chars": len(value), "submitted": should_submit and ok,
               "elapsed_seconds": elapsed_seconds(args),
               "error": None if ok else credentials.mask(detail, entry)[-400:] or None,
-              "summary": f"{len(value)}자 입력" + (" + Enter" if should_submit and ok else ""),
-              "next": "app shot  # 입력됐는지 화면으로 확인한다 (비밀번호 칸은 가려져 보인다)" if ok
-                      else "입력창을 app tap 으로 먼저 눌러 포커스를 준 뒤 다시 시도한다"}
+              "summary": f"Typed {len(value)} chars" + (" + Enter" if should_submit and ok else ""),
+              "next": "app shot  # check on screen that it was typed (password fields show masked)" if ok
+                      else "Tap the field first with app tap to focus it, then try again"}
     with_session_advice(result, be, dev_id, args)
     # 로그인 입력이면 중간 화면 정책을 싣는다 (#905)
     return out(with_login_policy(result, getattr(args, "cred", None)))
 
 
 def configure(p) -> None:
-    p.add_argument("--cred", default=None, help="type: 저장된 로그인 정보 이름 (cred list)")
-    p.add_argument("--cred-field", dest="cred_field", default=None, help="type: 넣을 필드 (기본 password, 예: account)")
-    p.add_argument("--text-env", dest="text_env", default=None, help="type: 값을 읽을 환경변수 (일회용)")
-    p.add_argument("--submit", action="store_true", help="type: 입력 뒤 Enter")
+    p.add_argument("--cred", default=None, help="type: saved login name (cred list)")
+    p.add_argument("--cred-field", dest="cred_field", default=None, help="type: field to type (default password, e.g. account)")
+    p.add_argument("--text-env", dest="text_env", default=None, help="type: environment variable to read the value from (one-time)")
+    p.add_argument("--submit", action="store_true", help="type: press Enter after typing")
     p.add_argument("--ime", choices=android_ime.IME_MODES, default="auto",
-                   help="type·run (Android): auto 조합형 자판(한국어 등)이면 입력 동안만 글자를 그대로 넣는 입력기로 바꾸고 되돌림 · "
-                        "keep 그대로 · ascii 항상 바꿈")
+                   help="type·run (Android): auto = with a composing keyboard (Korean etc.) switch to an as-is IME only while typing, then restore · "
+                        "keep = leave as is · ascii = always switch")
 
 
 ACTION = Action(name="type", device_use="mutate", run=_app_type, configure=configure)

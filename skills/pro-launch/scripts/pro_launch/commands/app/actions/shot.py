@@ -48,7 +48,7 @@ def _status_time(args) -> tuple[str | None, str | None]:
         return DEFAULT_STATUS_TIME, None
     match = STATUS_TIME_PATTERN.match(given.strip())
     if not match:
-        return None, f"--time 은 H:MM 또는 HH:MM 이다 (받은 값 {given!r})"
+        return None, f"--time must be H:MM or HH:MM (got {given!r})"
     return f"{int(match.group(1))}:{match.group(2)}", None
 
 
@@ -56,7 +56,7 @@ def _app_shot(args) -> int:
     root = project_root(args)
     status_time, time_error = _status_time(args)
     if time_error:
-        return out({"ok": False, "code": "bad_time", "error": time_error, "next": "예: app shot --time 7:42"})
+        return out({"ok": False, "code": "bad_time", "error": time_error, "next": "e.g. app shot --time 7:42"})
     # --time 은 상태바 고정을 뜻한다
     should_clean_status = bool(args.clean_status or getattr(args, "time", None))
     hhmm = "".join(part.zfill(2) for part in status_time.split(":"))
@@ -93,8 +93,8 @@ def _app_shot(args) -> int:
             if not data.startswith(b"\x89PNG"):
                 return out({"ok": False, "code": "capture_failed", "device": dev_id,
                             "error": (r.stderr or b"").decode("utf-8", "replace")[:300]
-                                     or "PNG 가 아닌 응답",
-                            "hint": "화면이 잠겨 있거나 보안 화면(FLAG_SECURE)일 수 있습니다"})
+                                     or "Response is not a PNG",
+                            "hint": "The screen may be locked or a secure screen (FLAG_SECURE)"})
             raw.write_bytes(data)
         else:
             if should_clean_status:
@@ -117,17 +117,17 @@ def _app_shot(args) -> int:
     return out({"action": "shot", "platform": platform, "device": dev_id,
                 "file": str(final), "clean_status": should_clean_status,
                 **({"status_time": status_time} if should_clean_status else {}),
-                "summary": f"{platform} 화면을 찍었습니다: {final.name}",
-                "next": "이미지를 읽어 다음 조작을 정하세요"})
+                "summary": f"Captured the {platform} screen: {final.name}",
+                "next": "Read the image to decide the next action"})
 
 
 def configure(p) -> None:
     p.add_argument("--out", default=None,
-                   help="shot: 이름(→ $SHOT_DIR 아래) 또는 경로(그대로 저장). --shot 도 같은 뜻")
+                   help="shot: a name (→ under $SHOT_DIR) or a path (saved as is). --shot means the same")
     p.add_argument("--clean-status", action="store_true",
-                   help="shot: 상태바 시각·배터리를 고정해 찍고 되돌린다 (기본 시각 9:41)")
+                   help="shot: pin the status bar time and battery while capturing, then restore (default time 9:41)")
     p.add_argument("--time", default=None,
-                   help="shot: 상태바 시각을 이 값으로 고정 (H:MM, 예: 7:42 — --clean-status 를 함께 켠다)")
+                   help="shot: pin the status bar time to this value (H:MM, e.g. 7:42 — also turns on --clean-status)")
 
 
 ACTION = Action(name="shot", device_use="read", run=_app_shot, configure=configure)

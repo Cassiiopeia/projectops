@@ -71,9 +71,9 @@ def save_value(root: Path, name: str, value: str) -> dict:
 
 def invalid_name_failure(action: str, name: str) -> dict:
     return {"ok": False, "code": "bad_env_name", "action": action, "name": name,
-            "error": f"'{name}' 은 환경변수 이름으로 쓸 수 없습니다 (영문 · 숫자 · _ , 숫자로 시작 못 함)",
+            "error": f"'{name}' cannot be an environment variable name (letters, digits and _ only, not starting with a digit)",
             "next": f"web {action} --save-env CLIENT_SECRET"}
 
 
 def saved_next(name: str) -> str:
-    return f"web type --ref <번호> --text-env {name}  # 값은 명령줄 · 출력에 남지 않는다"
+    return f"web type --ref <number> --text-env {name}  # the value never appears on the command line or in output"

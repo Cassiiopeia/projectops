@@ -4,7 +4,7 @@
 
 Once saved, the next run does not ask again.
 This works the same way `pro-ssh` and `pro-github` keep servers and PATs in `~/.projectops/config/config.json`.
-Values are saved **under a name** in `launch.credentials` (the file is mode 600). In list and show output, values are masked as `<저장됨>` ("saved").
+Values are saved **under a name** in `launch.credentials` (the file is mode 600). In list and show output, values are masked as `<saved>`.
 
 ```bash
 {PYTHON} {SCRIPTS}/launch_cli.py cred list                     # once at the start of a task — what can you use

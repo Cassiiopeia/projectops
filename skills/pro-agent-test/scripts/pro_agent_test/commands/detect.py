@@ -35,7 +35,7 @@ def cmd_detect(args) -> int:
     data, raw, _ = _launch(["detect", "--path", str(start)])
     if data is None:
         return emit({"ok": False, "code": "launch_unavailable",
-                     "error": "pro-launch detect 를 부르지 못했습니다", "output": raw[-400:]})
+                     "error": "Could not call pro-launch detect", "output": raw[-400:]})
     root = Path(data.get("root") or start)
 
     targets = list(data.get("kinds") or [])
@@ -46,8 +46,8 @@ def cmd_detect(args) -> int:
     if getattr(args, "target", None):
         if args.target not in TARGETS:
             return emit({"ok": False, "code": "unknown_target",
-                         "error": f"target '{args.target}' 을 모릅니다",
-                         "hint": f"{'·'.join(TARGETS)} 중 하나"})
+                         "error": f"Unknown target '{args.target}'",
+                         "hint": f"one of {'·'.join(TARGETS)}"})
         targets = [args.target]
 
     # 감지와 다른 타겟으로 정해졌으면 그 타겟의 정보(기기·브라우저·접속)를 다시 모은다.
@@ -70,29 +70,29 @@ def cmd_detect(args) -> int:
     # 서버가 화면을 직접 뿌리는 구조면 web 도 밟아야 한다 — 판단은 agent 의 일이다.
     if source == "version.yml" and not getattr(args, "target", None):
         payload["confirm"] = {
-            "why": ("이 targets 는 version.yml 선언에서 나왔습니다 — 확인된 것이 아닙니다. "
-                    "서버가 화면을 직접 뿌리면 web 도 밟아야 합니다"),
-            "check": ("코드를 보고 판단하세요: 템플릿 폴더(templates·views·resources/templates)·"
-                      "정적 파일·라우트가 HTML을 돌려주는지. 앱·웹 클라이언트가 한 레포에 "
-                      "같이 있는 경우도 마찬가지입니다"),
+            "why": ("These targets come from the version.yml declaration — they are not confirmed. "
+                    "If the server renders pages itself, web must be walked too"),
+            "check": ("Decide from the code: do template folders (templates·views·resources/templates), "
+                      "static files or routes return HTML? The same applies when an app or "
+                      "web client lives in the same repo"),
             "record": (f"note target --root {root} --targets {','.join(targets) or 'server'}"
-                       ",web --why \"{판단 근거}\"   # 맞으면 그대로 두면 됩니다"),
+                       ",web --why \"{reason}\"   # leave it as is if it is right"),
         }
 
     nxt = None
     if not targets:
-        nxt = "무엇을 밟을지 알 수 없습니다 — --target app|web|server|other 로 직접 알려주세요"
+        nxt = "Cannot tell what to walk — set it with --target app|web|server|other"
     elif "app" in targets:
         dev = (payload.get("app") or {}).get("devices") or {}
         if not (dev.get("android") or dev.get("ios_booted")):
-            nxt = "pro-launch devices  # 기기가 없습니다. AVD 나 시뮬레이터를 부팅하세요"
+            nxt = "pro-launch devices  # no device. Boot an AVD or a simulator"
     if not nxt and "web" in targets and not ((payload.get("web") or {}).get("playwright") or {}).get("ready"):
-        nxt = "pro-launch web setup  # 웹을 밟으려면 브라우저가 필요합니다 (먼저 사용자에게 묻는다)"
+        nxt = "pro-launch web setup  # walking web needs a browser (ask the user first)"
     # 이 앱에서 알아낸 규칙·함정을 몇 건 싣는다 — note show 를 부르지 않아도 보이게 (#837)
     mem = _surface(root, "detect:" + ",".join(targets),
                    " ".join([*targets, *(_TARGET_WORDS.get(t, "") for t in targets)]))
     if mem:
         payload["memory"] = mem
-    payload["summary"] = f"{root.name}: 타겟={'·'.join(targets) if targets else '없음'} ({source})"
+    payload["summary"] = f"{root.name}: targets={'·'.join(targets) if targets else 'none'} ({source})"
     payload["next"] = nxt
     return emit(payload)

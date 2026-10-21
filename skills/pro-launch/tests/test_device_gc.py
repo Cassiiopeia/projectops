@@ -84,7 +84,7 @@ def test_only_expired_unleased_unmarked_temporary_is_deleted(setup):
     plan = device_gc.build_plan()
     assert actions_by_key(plan) == {"OLD": "delete", "MARKED": "keep", "FRESH": "keep", "HUMAN": "keep"}
     reasons = {row["key"]: row["reason"] for row in plan.rows}
-    assert "공들인 상태" in reasons["MARKED"] and "기록 없는" in reasons["HUMAN"]
+    assert "marked state" in reasons["MARKED"] and "not in the ledger" in reasons["HUMAN"]
 
 
 def test_report_changes_nothing_and_apply_deletes_and_forgets(setup, capsys):

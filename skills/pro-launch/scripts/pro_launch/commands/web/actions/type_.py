@@ -26,8 +26,8 @@ def _type_keys(page, args, state: dict) -> dict:
     page.keyboard.type(args.keys, delay=delay)
     payload = done_payload("type", page)
     payload.update({"target": info, "mode": "keys", "typed_characters": len(args.keys), "delay_ms": delay,
-                    "summary": f"키 {len(args.keys)}자를 쳤다 (간격 {delay}ms)",
-                    "next": "web text  # 입력이 반영됐는지 읽는다 (Enter 는 web press --key Enter)"})
+                    "summary": f"Typed {len(args.keys)} keys ({delay}ms apart)",
+                    "next": "web text  # check the input took effect (Enter: web press --key Enter)"})
     return payload
 
 
@@ -36,7 +36,7 @@ def execute(page, args, state: dict) -> dict:
         return _type_keys(page, args, state)
     if not ((args.selector or args.ref is not None) and args.text is not None):
         return {"ok": False, "code": "missing_argument", "url": None,
-                "error": "--selector(또는 --ref) 와 --text 가 필요합니다 (키를 하나씩 치려면 --keys)"}
+                "error": "--selector (or --ref) and --text are required (to type key by key, use --keys)"}
     # 입력창이 늦게 그려지는 화면이 있어 선택자는 붙기를 기다린다. 입력은 바꾸는 조작이 아니라 막지 않는다
     element, info, failure = locate_target(page, args, state, "type", should_wait=True,
                                            should_guard_mutating=False)
@@ -53,12 +53,12 @@ def execute(page, args, state: dict) -> dict:
 
 def configure(p) -> None:
     p.add_argument("--keys", default=None,
-                   help="키를 하나씩 쳐 넣는다 (대상 없으면 지금 초점). xterm · 웹 터미널 · 편집기용 — 비밀번호는 쓰지 않는다")
+                   help="Type key by key (current focus if no target). For xterm · web terminals · editors — never for passwords")
     p.add_argument("--delay-ms", dest="delay_ms", type=int, default=None,
-                   help=f"--keys: 키 사이 간격(ms, 기본 {DEFAULT_KEY_DELAY_MILLISECONDS})")
+                   help=f"--keys: delay between keys (ms, default {DEFAULT_KEY_DELAY_MILLISECONDS})")
 
 
 ACTION = Action(name="type", run=execute, configure=configure,
                 options=("selector", "ref", "text", "secret_text", "target_timeout", "frame", "capture_requests"),
-                help="입력창에 글자를 넣는다 (비밀번호는 --text-env · --cred, 키 단위는 --keys)",
+                help="Fill text into an input (passwords via --text-env · --cred, key by key via --keys)",
                 example="web type --ref 2 --text-env APP_PW")

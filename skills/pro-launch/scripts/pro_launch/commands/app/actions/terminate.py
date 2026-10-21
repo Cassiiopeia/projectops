@@ -11,8 +11,8 @@ def _app_terminate(args) -> int:
         return err
     ok, was_running, detail = terminate_package(platform, dev_id, package)
     return control_result("terminate", platform, dev_id, ok, detail, "terminate_failed",
-                          f"{package} 종료", "app launch  # 다시 띄운다",
-                          "device list 로 기기·설치 상태를 확인한다",
+                          f"terminate {package}", "app launch  # start it again",
+                          "Check the device and install state with device list",
                           package=package, was_running=was_running)
 
 

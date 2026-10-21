@@ -33,14 +33,14 @@ _PORT_WAIT_INTERVAL_SECONDS = 0.25
 def _cert_hint(msg: str) -> str | None:
     """자체서명·사설 인증서면 고칠 길을 준다. 사내 서버는 대부분 이 경우다."""
     if "ERR_CERT" in msg or "ERR_SSL" in msg:
-        return ("사설/자체서명 인증서로 막혔다 — web close 후 `web open --ignore-cert-errors --url ...` "
-                "로 다시 연다 (테스트 서버 전용, 새로 띄울 때만 적용)")
+        return ("Blocked by a private/self-signed certificate — run web close, then reopen with "
+                "`web open --ignore-cert-errors --url ...` (test servers only; applies to a fresh launch)")
     return None
 
 
 def _goto_failed(error: Exception) -> dict:
     return {"ok": False, "code": "goto_failed", "error": str(error)[:300],
-            "hint": _cert_hint(str(error)) or "주소가 맞는지, 서버가 떠 있는지 확인하세요"}
+            "hint": _cert_hint(str(error)) or "Check that the URL is right and the server is up"}
 
 
 def _pick_tab(ctx, page, state: dict, args):
@@ -82,13 +82,13 @@ def _reuse(args, prev: dict, state_f: Path, recovered: list[str]) -> int | None:
     write_state(state_f, prev)
     warn = None
     if bool(args.headed) != bool(prev.get("headed")):
-        warn = "headed 여부는 새로 띄울 때만 바뀐다 — 바꾸려면 web close 후 다시 open"
+        warn = "headed only changes on a fresh launch — to change it, run web close, then open again"
     return out({"action": "open", "reused": True, "pid": prev["pid"], "url": url, "title": title,
                 "browser": prev.get("browser"), "browser_source": prev.get("browser_source"),
                 "readonly": prev["readonly"], "opened_at": prev.get("opened_at"), "warning": warn,
                 "tabs": tab_summary, "recovered": recovered,
-                "summary": f"떠 있던 브라우저에 붙었습니다 ({prev.get('opened_at')}부터, 탭 {tab_summary['count']}개)",
-                "next": "web text  # 화면 글자를 먼저 읽는다"})
+                "summary": f"Attached to the running browser (since {prev.get('opened_at')}, {tab_summary['count']} tabs)",
+                "next": "web text  # read the screen text first"})
 
 
 def _free_port() -> int:
@@ -117,14 +117,14 @@ def _start_failed(proc, profile: Path, stderr_log: Path, recovered: list[str]) -
     locked = has_profile_lock(profile)
     causes = []
     if locked:
-        causes.append("프로필 잠금이 남아 있고 이 프로필을 쓰는 다른 프로세스가 있다 → 그 브라우저를 끝낸 뒤 다시 연다")
+        causes.append("The profile lock is still held and another process uses this profile → end that browser, then reopen")
     if exit_code is not None:
-        causes.append(f"브라우저가 바로 종료됐다 (종료코드 {exit_code})")
-    return {"ok": False, "code": "browser_start_failed", "error": "브라우저가 뜨지 않았습니다",
+        causes.append(f"The browser exited immediately (exit code {exit_code})")
+    return {"ok": False, "code": "browser_start_failed", "error": "Browser did not start",
             "causes": causes or None, "profile_locked": locked, "profile": str(profile),
             "recovered": recovered, "stderr_tail": stderr_tail(stderr_log),
             "hint": ("; ".join(causes) if causes else
-                     "stderr_tail 을 먼저 보고, 그래도 모르겠으면 web setup 으로 브라우저를 다시 받아 보세요")}
+                     "Read stderr_tail first; if that does not explain it, re-download the browser with web setup")}
 
 
 def _launch_command(exe: str, port: int, profile: Path, args, use_stealth: bool) -> list[str]:
@@ -160,8 +160,8 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     if decision == "blocked":
         pid = prev.get("pid")
         return out({"ok": False, "code": "browser_still_alive", "pid": pid,
-                    "error": f"응답 없는 브라우저(pid {pid})를 끄지 못했습니다",
-                    "next": f"{manual_kill_command(pid)}  # 직접 종료한 뒤 다시 여세요"})
+                    "error": f"Could not stop the unresponsive browser (pid {pid})",
+                    "next": f"{manual_kill_command(pid)}  # end it yourself, then reopen"})
 
     # ⚠️ Playwright의 launch()로 띄우면 **드라이버가 죽을 때 브라우저도 함께 죽는다.**
     # 호출이 여러 번으로 쪼개지므로 브라우저를 Playwright 밖에서 독립 프로세스로 띄우고 CDP로 붙는다.
@@ -171,13 +171,13 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     # 환경변수가 틀렸으면 다른 브라우저로 넘어가지 않고 멈춘다 — 지정한 사람이 원한 것은 그것이다
     if pick.get("error"):
         return out({"ok": False, "code": "browser_env_invalid", "error": pick["error"],
-                    "next": f"{browser_pick.ENV_VAR} 를 고치거나 지우세요"})
+                    "next": f"Fix or unset {browser_pick.ENV_VAR}"})
     exe = pick["exe"]
     if not exe:
-        return out({"ok": False, "code": "browser_missing", "error": "Chromium 이 설치돼 있지 않습니다",
+        return out({"ok": False, "code": "browser_missing", "error": "Chromium is not installed",
                     "path": bundled,
-                    "next": ("web setup  # 브라우저(약 100MB)를 받습니다. 내부망이면 Chrome 또는 Edge 를 "
-                             f"설치하거나 {browser_pick.ENV_VAR}=<chrome.exe 경로> 로 지정하세요")})
+                    "next": ("web setup  # downloads the browser (about 100MB). On an internal network, install Chrome or Edge "
+                             f"or set {browser_pick.ENV_VAR}=<path to chrome.exe>")})
     profile.mkdir(parents=True, exist_ok=True)
     port = _free_port()
     use_stealth = not args.no_stealth
@@ -229,33 +229,33 @@ def _web_open(args, root: Path, state_f: Path) -> int:
                 "recovered": recovered, "tabs": tab_summary,
                 "browser": pick["label"], "browser_source": pick["source"], "browser_reason": pick["reason"],
                 "profile": browser_profiles.chosen_profile(root) or browser_profiles.REPO_PROFILE_NAME,
-                "summary": f"브라우저를 열었습니다 ({args.url or '빈 탭'})"
-                           + (" — 읽기 전용" if args.readonly else "")
-                           + (f" — 치운 것: {', '.join(recovered)}" if recovered else ""),
-                "next": "web text  # 화면 글자를 먼저 읽는다 (모양을 봐야 할 때만 web shot)"})
+                "summary": f"Opened the browser ({args.url or 'blank tab'})"
+                           + (" — read-only" if args.readonly else "")
+                           + (f" — cleaned up: {', '.join(recovered)}" if recovered else ""),
+                "next": "web text  # read the screen text first (web shot only when you need to see the layout)"})
 
 
 def configure(p) -> None:
     p.add_argument("--headed", action="store_true",
-                   help="open: 눈에 보이게 연다 — 소셜 로그인이 막히면 이것이 먼저다(#604 실측)")
+                   help="open: open a visible window — try this first when social login is blocked (#604)")
     p.add_argument("--no-stealth", action="store_true",
-                   help="open: 자동화 표식 가리기를 끈다 (사이트가 깨질 때 비교용)")
+                   help="open: turn off hiding of automation markers (to compare when a site breaks)")
     p.add_argument("--ignore-cert-errors", action="store_true",
-                   help="open: 자체서명·사설 인증서 오류를 무시한다 — 사내 테스트 서버용, 새로 띄울 때만 적용")
+                   help="open: ignore self-signed/private certificate errors — for internal test servers; applies to a fresh launch")
     p.add_argument("--width", type=int, default=1280)
     p.add_argument("--height", type=int, default=800)
     p.add_argument("--readonly", action="store_true",
-                   help="open: 읽기 전용 세션 — 삭제·출시·제출 같은 버튼은 --confirm-mutating 없이 누르지 않는다")
+                   help="open: read-only session — buttons like delete, release or submit are not pressed without --confirm-mutating")
     p.add_argument("--new-tab", dest="new_tab", action="store_true",
-                   help="open: 떠 있는 브라우저에 새 탭을 만들어 연다 — 다른 세션과 탭을 나눠 쓸 때")
+                   help="open: open in a new tab of the running browser — to keep tabs apart from other sessions")
     p.add_argument("--tab-name", dest="tab_name", default=None,
-                   help="open: 이 탭에 이름을 붙인다. 이후 LAUNCH_TAB=<이름> 으로 이 탭만 몬다")
+                   help="open: name this tab. Then LAUNCH_TAB=<name> drives only this tab")
     p.add_argument("--profile", default=None,
-                   help="open: 이 컴퓨터 공용 프로필 이름 — 레포를 넘어 같은 로그인을 쓴다 (repo 면 레포 프로필로). 레포마다 기억된다")
+                   help="open: shared profile name on this computer — reuses the same login across repos (repo = the repo profile). Remembered per repo")
     p.add_argument("--need", action="append", default=None,
-                   help="open: 이 상태(kind:name, 예: login:google)가 기록된 프로필을 고른다 (web profile mark)")
+                   help="open: pick the profile marked with this state (kind:name, e.g. login:google) (web profile mark)")
 
 
 ACTION = Action(name="open", needs="launch", run=_web_open, configure=configure, options=("url", "timeout"),
-                help="브라우저를 독립 프로세스로 띄운다 (떠 있으면 다시 붙고, 멈췄거나 잠금이 남았으면 스스로 정리)",
+                help="Launch the browser as a separate process (reattaches if running; cleans up by itself if hung or locked)",
                 example="web open --url http://localhost:3000 --headed")

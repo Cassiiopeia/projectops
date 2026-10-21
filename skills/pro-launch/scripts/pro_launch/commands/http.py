@@ -26,7 +26,7 @@ def cmd_http(args) -> int:
         base = bu.get("url") if isinstance(bu, dict) else bu
         if not base:
             return out({"ok": False, "code": "base_url_required",
-                        "error": f"'{url}' 는 전체 주소가 아니고, 적어 둔 base_url 도 없습니다",
+                        "error": f"'{url}' is not a full URL and no base_url is recorded",
                         "next": "access set --key base_url --json '{\"url\":\"http://...\"}'"})
         url = base.rstrip("/") + "/" + url.lstrip("/")
         use_access(root, "base_url")
@@ -46,7 +46,7 @@ def cmd_http(args) -> int:
     for h in args.header or []:
         if ":" not in h:
             return out({"ok": False, "code": "bad_header",
-                        "error": f"헤더 '{h}' 는 '이름: 값' 형식이어야 합니다"})
+                        "error": f"Header '{h}' must be in 'Name: value' form"})
         k, v = h.split(":", 1)
         headers[k.strip()] = v.strip()
     data = None
@@ -55,8 +55,8 @@ def cmd_http(args) -> int:
             data_f = Path(args.data[1:])
             if not data_f.is_file():
                 return out({"ok": False, "code": "data_file_not_found",
-                            "error": f"--data 파일이 없습니다: {data_f}",
-                            "next": "@ 뒤 경로를 확인한다 (본문 자체가 @ 로 시작하면 파일에 담아 @파일 로 넘긴다)"})
+                            "error": f"--data file not found: {data_f}",
+                            "next": "Check the path after @ (if the body itself starts with @, put it in a file and pass @file)"})
             text = data_f.read_text(encoding="utf-8")
         else:
             text = args.data
@@ -93,17 +93,17 @@ def cmd_http(args) -> int:
 
 def configure_http(p) -> None:
     p.add_argument("--method", default="GET")
-    p.add_argument("--url", required=True, help="전체 주소 또는 경로(→ access 의 base_url 에 붙인다)")
-    p.add_argument("--header", action="append", default=None, help="'이름: 값' — 여러 번")
-    p.add_argument("--cred", default=None, help="저장된 토큰·계정으로 Authorization 을 만든다 (cred list)")
-    p.add_argument("--data", default=None, help="본문. @파일 로 파일을 읽는다")
-    p.add_argument("--save", default=None, help="응답 본문을 저장 (이름이면 $RUN_DIR/http/ 아래)")
-    p.add_argument("--expect-status", type=int, default=None, help="다르면 ok:false")
+    p.add_argument("--url", required=True, help="Full URL or a path (appended to the base_url in access)")
+    p.add_argument("--header", action="append", default=None, help="'Name: value' — repeatable")
+    p.add_argument("--cred", default=None, help="Build Authorization from a saved token or account (cred list)")
+    p.add_argument("--data", default=None, help="Body. @file reads a file")
+    p.add_argument("--save", default=None, help="Save the response body (a bare name goes under $RUN_DIR/http/)")
+    p.add_argument("--expect-status", type=int, default=None, help="ok:false if it differs")
     p.add_argument("--timeout", type=int, default=30)
     p.add_argument("--root", default=".")
 
 
 COMMANDS = [
-    Command(name="http", help="단건 HTTP 요청", run=cmd_http,
+    Command(name="http", help="Single HTTP request", run=cmd_http,
             configure=configure_http),
 ]

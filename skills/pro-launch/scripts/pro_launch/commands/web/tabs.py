@@ -116,8 +116,8 @@ def drift_warning(page, state: dict) -> dict | None:
         return None
     return {"code": "page_changed_by_other_session", "tab": tab_of_mark_key(key),
             "previous_url": mark.get("url"), "current_url": current_url,
-            "hint": ("이 세션이 이동하지 않았는데 화면이 바뀌었다 — 다른 세션이 같은 탭을 쓴다. "
-                     f"web tab new --name <이름> 후 {TAB_ENV_VAR}=<이름> 으로 자기 탭에서 일한다")}
+            "hint": ("The screen changed although this session did not navigate — another session is using the same tab. "
+                     f"Run web tab new --name <name>, then work in your own tab with {TAB_ENV_VAR}=<name>")}
 
 
 def mark_tab(page, state: dict) -> None:

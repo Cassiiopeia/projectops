@@ -56,13 +56,13 @@ def _create_device(request: AcquireRequest, args) -> tuple[dict | None, Candidat
     created = backend.create(name, request.form, request.os_minimum)
     if not created["is_ok"]:
         return _failure("create_failed", "create", None, created["detail"], [],
-                        "devices 로 기존 기기를 보고 조건을 넓히거나, 도구(Xcode 런타임 · Android SDK)를 확인한다"), None
-    reason = getattr(args, "reason", None) or request.purpose or "acquire: 조건에 맞는 빈 기기 없음"
+                        "See existing devices with devices and widen the conditions, or check the tools (Xcode runtimes · Android SDK)"), None
+    reason = getattr(args, "reason", None) or request.purpose or "acquire: no free device matched the conditions"
     device_marks.record_created(created["key"], reason, device_marks.temporary_ttl_days(), backend.name)
     facts = next((f for f in backend.list_devices() if f.key == created["key"]), None)
     if facts is None:
-        return _failure("create_failed", "create", created["key"], "만든 기기가 목록에 보이지 않는다", [],
-                        "devices 로 확인한다"), None
+        return _failure("create_failed", "create", created["key"], "The created device does not appear in the list", [],
+                        "Check with devices"), None
     return None, Candidate(facts, backend.capabilities)
 
 
@@ -77,7 +77,7 @@ def _take(decision, candidate: Candidate, request: AcquireRequest, args) -> tupl
         booted = backend.boot(candidate.facts.key, window, scale)
         if not booted["is_ok"]:
             return _failure("boot_failed", decision.verdict, candidate.facts.key, booted.get("detail"), decision.reasons,
-                            "device list 로 상태를 본다. 메모리 압박이면 다른 기기를 끄기 전에 사용자에게 묻는다"), None
+                            "Check the state with device list. Under memory pressure, ask the user before shutting down other devices"), None
         instance, is_booted_now = booted["instance"], not booted.get("already_booted")
     claimed = device_claims.claim_device(instance or candidate.facts.key, str(project_root(args)),
                                          purpose=request.purpose, is_booted_by_lease=is_booted_now,
@@ -110,7 +110,7 @@ def _decide_with_wait(request: AcquireRequest, wait_seconds: float):
 
 def identity_next(next_step: str) -> str:
     if device_claims.owner_identity_strength() == "weak":
-        return f"LAUNCH_SESSION 환경변수로 세션 이름을 정한다 (지금은 다른 세션과 구분되지 않는다) · {next_step}"
+        return f"Set a session name with the LAUNCH_SESSION environment variable (right now this session is indistinguishable from others) · {next_step}"
     return next_step
 
 
@@ -123,8 +123,8 @@ def acquire_once(request: AcquireRequest, args) -> dict:
                 return _acquire_attempts(request, args, wait_seconds=0)
         except boot_turn.BootTurnBusyError:
             return {"ok": False, "code": "device_busy", "verdict": "wait",
-                    "reasons": ["다른 세션이 기기를 켜는 중이다 — 한 번에 하나씩 켠다"],
-                    "next": identity_next("잠시 뒤 device acquire 를 다시 부른다")}
+                    "reasons": ["Another session is booting a device — devices boot one at a time"],
+                    "next": identity_next("Call device acquire again shortly")}
     return _acquire_attempts(request, args, wait_seconds=getattr(args, "wait", 0) or 0)
 
 
@@ -150,13 +150,13 @@ def _acquire_attempts(request: AcquireRequest, args, wait_seconds: float) -> dic
             return {**base, "action": "acquire", "platform": facts.platform, "device": dev_id, "key": facts.key,
                     "name": facts.name, "lease_id": taken["lease"]["lease_id"], "booted": taken["booted"],
                     "created": decision.verdict == "create", "unrestored_settings": taken["unrestored_settings"],
-                    "summary": f"{facts.name} ({dev_id}) 를 빌렸다" + (" — 새로 만들었다" if decision.verdict == "create"
-                                                                       else " — 켰다" if taken["booted"] else ""),
-                    "next": identity_next(f"DEV={dev_id} 로 작업 > 끝나면 device release --device {dev_id}")}
+                    "summary": f"Borrowed {facts.name} ({dev_id})" + (" — newly created" if decision.verdict == "create"
+                                                                       else " — booted" if taken["booted"] else ""),
+                    "next": identity_next(f"Work with DEV={dev_id} > when done, device release --device {dev_id}")}
         if decision.verdict == "wait":
             return {"ok": False, "code": "device_busy", **base, "waited_total_seconds": round(waited_total),
                     "owners": list(decision.busy_owners),
-                    "next": identity_next("device acquire 를 --wait 90 으로 다시 부르거나 다른 일을 먼저 한다")}
+                    "next": identity_next("Call device acquire again with --wait 90, or do other work first")}
         if decision.verdict == "ask":
             # 메모리 위험이면 --user-approved 로만 넘는다 (--yes 는 넘지 않는다, #972)
             return {"ok": False, "code": "needs_user", **base, "owners": list(decision.busy_owners),
@@ -164,12 +164,12 @@ def _acquire_attempts(request: AcquireRequest, args, wait_seconds: float) -> dic
                     # 메모리 때문에 멈췄으면 기기 밖 큰 소비자를 함께 보여 준다 (#964)
                     "non_device_consumers": device_benchmark.non_device_consumers(),
                     "next": (MEMORY_RISK_NEXT if decision.is_memory_risk
-                             else "reasons 를 사용자에게 그대로 보여 주고 어떻게 할지 묻는다")}
-        next_step = ("그 상태를 사람이 기기에 만든 뒤 device mark 로 기록한다" if request.needs
-                     else "devices 로 목록을 확인하고 조건(--form · --os · --device)을 넓힌다")
+                             else "Show the reasons to the user as is and ask what to do")}
+        next_step = ("Have a person set up that state on a device, then record it with device mark" if request.needs
+                     else "Check the list with devices and widen the conditions (--form · --os · --device)")
         return {"ok": False, "code": "no_matching_device", **base, "next": next_step}
-    return {"ok": False, "code": "device_busy", "verdict": "wait", "reasons": ["고른 기기를 다른 세션이 연달아 먼저 쥐었다"],
-            "next": "잠시 뒤 다시 device acquire"}
+    return {"ok": False, "code": "device_busy", "verdict": "wait", "reasons": ["Other sessions kept claiming the chosen devices first"],
+            "next": "Run device acquire again shortly"}
 
 
 def _clone_for_count(request: AcquireRequest, count: int, args) -> list[dict]:
@@ -192,8 +192,8 @@ def _clone_for_count(request: AcquireRequest, count: int, args) -> list[dict]:
 
 def run_acquire(args) -> int:
     if args.platform not in ("ios", "android"):
-        return out({"ok": False, "code": "args_required", "error": "--platform ios 또는 android 가 필요하다",
-                    "next": "device acquire --platform ios --purpose '#이슈'"})
+        return out({"ok": False, "code": "args_required", "error": "--platform ios or android is required",
+                    "next": "device acquire --platform ios --purpose '#issue'"})
     # --reason 은 --purpose 의 별칭 (create 와 헷갈려 쓴다, #972)
     request = AcquireRequest(platform=args.platform, form=args.form or "phone", os_minimum=args.os,
                              device=args.device, purpose=args.purpose or getattr(args, "reason", None),
@@ -213,6 +213,6 @@ def run_acquire(args) -> int:
     return out({"ok": is_all_taken, "code": "ok" if is_all_taken else "partial", "action": "acquire", "count": count,
                 "devices": [r.get("device") for r in results if r.get("ok") is not False], "results": results,
                 "clones": clones,
-                "summary": f"{sum(r.get('ok') is not False for r in results)}/{count} 대 빌림",
-                "next": "빌린 기기마다 끝나면 device release (또는 device release --all)"
-                        if is_all_taken else "빌린 것은 쓰거나 release 하고, 실패 결과의 next 를 본다"})
+                "summary": f"Borrowed {sum(r.get('ok') is not False for r in results)}/{count} devices",
+                "next": "When done with each borrowed device, device release (or device release --all)"
+                        if is_all_taken else "Use or release what was borrowed, and follow next in the failed results"})

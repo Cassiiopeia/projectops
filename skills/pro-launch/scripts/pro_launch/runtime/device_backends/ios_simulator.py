@@ -85,7 +85,7 @@ class IosSimulatorBackend:
     def create(self, name: str, form: str, os_minimum: str | None) -> dict:
         chosen = self.choose_device_type(form, os_minimum)
         if chosen is None:
-            return {"is_ok": False, "key": None, "detail": f"{form} · OS {os_minimum or '아무거나'} 에 맞는 iOS 런타임·기기 종류가 없다"}
+            return {"is_ok": False, "key": None, "detail": f"no iOS runtime or device type matches {form} · OS {os_minimum or 'any'}"}
         is_ok, text = self._simctl("create", name, *chosen)
         udid = text.strip().splitlines()[-1] if is_ok and text.strip() else None
         return {"is_ok": bool(is_ok and udid and device_boot.is_udid(udid)), "key": udid,
@@ -106,9 +106,9 @@ class IosSimulatorBackend:
         return {"is_ok": is_ok, "detail": None if is_ok else text[-300:]}
 
     def raw_command_patterns(self) -> tuple[RawCommandPattern, ...]:
-        return (RawCommandPattern(r"\bsimctl\s+(create|clone)\b", "launch_cli.py device create --platform ios --reason '<왜 새 기기가 필요한가>'"),
+        return (RawCommandPattern(r"\bsimctl\s+(create|clone)\b", "launch_cli.py device create --platform ios --reason '<why a new device is needed>'"),
                 RawCommandPattern(r"\bsimctl\s+(delete|erase)\b", "launch_cli.py device delete|erase --device <UDID>"),
-                RawCommandPattern(r"\bsimctl\s+shutdown\s+all\b", "launch_cli.py device shutdown --device <UDID>  (남의 기기를 함께 끈다)"))
+                RawCommandPattern(r"\bsimctl\s+shutdown\s+all\b", "launch_cli.py device shutdown --device <UDID>  (also shuts down other sessions' devices)"))
 
     def disk_bytes(self, key: str) -> int:
         return folder_bytes(SIMULATOR_DEVICES_FOLDER / key)

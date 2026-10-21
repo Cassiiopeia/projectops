@@ -363,7 +363,7 @@ def read_system_clipboard() -> tuple[str | None, str | None]:
             continue
         if r.returncode == 0:
             return r.stdout, None
-    return None, f"이 OS({sys.platform})에서 클립보드를 읽을 명령이 없습니다"
+    return None, f"No command to read the clipboard on this OS ({sys.platform})"
 
 
 def process_ids_with_arguments(*arguments: str) -> list[int]:

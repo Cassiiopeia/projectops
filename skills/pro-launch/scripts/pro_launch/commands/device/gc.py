@@ -46,12 +46,12 @@ def run_gc(args) -> int:
                                 if is_every_size_counted else None)}
     if not args.apply:
         return out({"action": "gc", "applied": False, **report,
-                    "summary": (f"기기 {len(plan.rows)}대 · 지울 임시 기기 {summary_counts['delete']} · "
-                                f"끌 기기 {summary_counts['shutdown']} · 쓸 수 없는 시뮬레이터 {summary_counts['unavailable']} · "
-                                f"정리하면 {report['reclaimable_gb']}GB"
-                                + (f" · 기록 없는 기기 {report['unrecorded_gb']}GB(손대지 않음)" if is_every_size_counted
-                                   else " · 전체 크기는 --sizes")),
-                    "next": "device gc --apply  # 위 계획대로 지우고 끈다" if actionable or plan.unavailable else None})
+                    "summary": (f"{len(plan.rows)} devices · temporary to delete {summary_counts['delete']} · "
+                                f"to shut down {summary_counts['shutdown']} · unavailable simulators {summary_counts['unavailable']} · "
+                                f"cleanup frees {report['reclaimable_gb']}GB"
+                                + (f" · unrecorded devices {report['unrecorded_gb']}GB (left alone)" if is_every_size_counted
+                                   else " · full sizes with --sizes")),
+                    "next": "device gc --apply  # delete and shut down per the plan above" if actionable or plan.unavailable else None})
     results = [_apply_row(row) for row in actionable]
     unavailable_result = None
     if plan.unavailable:
@@ -63,5 +63,5 @@ def run_gc(args) -> int:
     failed = [r for r in results if not r["is_done"]]
     return out({"ok": not failed, "code": "partial" if failed else "ok", "action": "gc", "applied": True, **report,
                 "results": results, "unavailable_result": unavailable_result, "freed_gb": _gb(freed),
-                "summary": f"정리 {len(results) - len(failed)}/{len(results)} · 확보 {_gb(freed)}GB",
-                "next": "실패한 항목의 detail 을 본다" if failed else None})
+                "summary": f"Cleaned {len(results) - len(failed)}/{len(results)} · freed {_gb(freed)}GB",
+                "next": "Read detail of the failed items" if failed else None})

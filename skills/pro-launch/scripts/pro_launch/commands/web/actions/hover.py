@@ -19,10 +19,10 @@ def execute(page, args, state: dict) -> dict:
         return failure
     page.wait_for_timeout(300)   # 툴팁·메뉴가 그려질 틈
     payload = done_payload("hover", page)
-    payload.update({"target": info, "next": "web text  # 펼쳐진 메뉴·툴팁 글자를 읽는다"})
+    payload.update({"target": info, "next": "web text  # read the opened menu or tooltip text"})
     return payload
 
 
 ACTION = Action(name="hover", run=execute, options=("selector", "ref", "target_timeout"),
-                help="요소 위에 마우스를 올린다 — 툴팁·펼침 메뉴",
+                help="Hover over an element — tooltips and dropdown menus",
                 example="web hover --selector '#menu'")

@@ -16,16 +16,16 @@ PAYLOAD_BUNDLE_KEY = "Simulator Target Bundle"
 def _read_payload(raw_path: str | None) -> tuple[dict | None, str]:
     """(payload, 거부 사유). 파일이 없거나 JSON 객체가 아니면 사유를 돌려준다."""
     if not raw_path:
-        return None, "--payload <json 파일> 이 필요하다"
+        return None, "--payload <json file> is required"
     path = Path(raw_path)
     if not path.is_file():
-        return None, f"파일이 없다: {raw_path}"
+        return None, f"File not found: {raw_path}"
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
-        return None, f"JSON 이 아니다: {e}"
+        return None, f"Not JSON: {e}"
     if not isinstance(payload, dict) or "aps" not in payload:
-        return None, "최상위가 객체이고 aps 키가 있어야 한다 (APNs 형식)"
+        return None, "The top level must be an object with an aps key (APNs format)"
     return payload, ""
 
 
@@ -33,24 +33,24 @@ def _app_push(args) -> int:
     payload, reason = _read_payload(getattr(args, "payload", None))
     if payload is None:
         return out({"ok": False, "code": "payload_invalid", "error": reason,
-                    "next": "{\"aps\": {\"alert\": {\"title\": \"t\", \"body\": \"b\"}}} 형식의 파일을 --payload 로 준다"})
+                    "next": "{\"aps\": {\"alert\": {\"title\": \"t\", \"body\": \"b\"}}} — pass a file in this shape with --payload"})
     is_package_required = PAYLOAD_BUNDLE_KEY not in payload
     platform, dev_id, package, err = resolve_target(args, is_package_required=is_package_required)
     if err is not None:
         return err
     if platform != "ios":
         return unsupported_response(platform, dev_id, "push",
-                                    "Android 는 adb 로 푸시를 흉내 낼 공식 방법이 없다 (FCM 서버 경유)",
-                                    "FCM 테스트 메시지(Firebase 콘솔 · 서버 API)로 보낸다")
+                                    "Android has no official way to fake a push via adb (it goes through the FCM server)",
+                                    "Send an FCM test message (Firebase console · server API)")
     command = ["xcrun", "simctl", "push", dev_id] + ([package] if package else []) + [str(args.payload)]
     ok, detail = run_tool(command)
     return control_result("push", platform, dev_id, ok, detail, "push_failed",
-                          "푸시 전송", "app shot  # 알림 배너를 확인한다",
-                          "번들 ID 가 설치된 앱과 같은지 확인한다", package=package)
+                          "send push", "app shot  # check the notification banner",
+                          "Check that the bundle ID matches the installed app", package=package)
 
 
 def configure(p) -> None:
-    p.add_argument("--payload", default=None, help="push: APNs payload JSON 파일 (iOS 시뮬레이터만)")
+    p.add_argument("--payload", default=None, help="push: APNs payload JSON file (iOS simulator only)")
 
 
 ACTION = Action(name="push", device_use="mutate", run=_app_push, configure=configure)

@@ -59,11 +59,11 @@ class Action:
 
     def __post_init__(self) -> None:
         if self.needs not in NEEDS:
-            raise ValueError(f"needs 는 {NEEDS} 중 하나여야 한다: {self.needs!r}")
+            raise ValueError(f"needs must be one of {NEEDS}: {self.needs!r}")
         if self.device_use is not None and self.device_use not in DEVICE_USES:
-            raise ValueError(f"device_use 는 {DEVICE_USES} 중 하나여야 한다: {self.device_use!r}")
+            raise ValueError(f"device_use must be one of {DEVICE_USES}: {self.device_use!r}")
         if self.options is not None and not isinstance(self.options, tuple):
-            raise ValueError(f"options 는 tuple 이어야 한다: {self.options!r}")
+            raise ValueError(f"options must be a tuple: {self.options!r}")
 
 
 # 모듈 이름 → 오류. 한 모듈이 깨져도 나머지 명령은 돈다
@@ -87,7 +87,7 @@ def discover_commands(package) -> list[Command]:
     for mod_name, mod in _modules(package):
         for cmd in getattr(mod, "COMMANDS", []):
             if cmd.name in found:
-                raise ValueError(f"서브커맨드 이름이 겹친다: {cmd.name} ({mod_name})")
+                raise ValueError(f"Duplicate subcommand name: {cmd.name} ({mod_name})")
             found[cmd.name] = cmd
     return list(found.values())
 
@@ -100,7 +100,7 @@ def discover_actions(package) -> dict[str, Action]:
         if act is None:
             continue
         if act.name in found:
-            raise ValueError(f"동작 이름이 겹친다: {act.name} ({mod_name})")
+            raise ValueError(f"Duplicate action name: {act.name} ({mod_name})")
         found[act.name] = act
     return dict(sorted(found.items()))
 
@@ -120,8 +120,8 @@ class ActionParser(argparse.ArgumentParser):
         if unsupported:
             # cli.main 이 stderr 마지막 줄을 bad_args 의 error 에 싣는다 — 한 줄로 쓴다
             # 앞에 prog(예: launch_cli web type)가 붙으므로 동작 이름은 다시 쓰지 않는다
-            self.error(f"이 동작은 {' '.join(unsupported)} 를 받지 않습니다 (unsupported option). "
-                       f"쓸 수 있는 옵션: {' '.join(self.option_names())}")
+            self.error(f"This action does not take {' '.join(unsupported)} (unsupported option). "
+                       f"Available options: {' '.join(self.option_names())}")
         return namespace, extras
 
     def option_names(self) -> list[str]:
@@ -155,15 +155,15 @@ def add_action_parsers(parser: argparse.ArgumentParser, actions: dict[str, Actio
     선언하지 않은 공통 옵션은 명령줄에서 받지 않고 기본값만 채운다.
     """
     defaults = shared_option_defaults(shared)
-    sub = parser.add_subparsers(dest="action", required=True, metavar="<동작>",
+    sub = parser.add_subparsers(dest="action", required=True, metavar="<action>",
                                 parser_class=ActionParser)
     for name, action in actions.items():
         chosen = tuple(shared) if action.options is None else always + action.options
         unknown = [o for o in chosen if o not in shared]
         if unknown:
-            raise ValueError(f"{name}: 모르는 공통 옵션 {unknown} (있는 것: {sorted(shared)})")
+            raise ValueError(f"{name}: unknown shared option {unknown} (available: {sorted(shared)})")
         p = sub.add_parser(name, help=action.help or None, description=action.help or None,
-                           epilog=f"예: {action.example}" if action.example else None,
+                           epilog=f"e.g. {action.example}" if action.example else None,
                            formatter_class=argparse.RawDescriptionHelpFormatter)
         p.set_defaults(**defaults)
         for option in dict.fromkeys(chosen):

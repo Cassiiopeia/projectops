@@ -41,8 +41,8 @@ def configure(p) -> None:
     # 동작별 하위 파서 — `web <동작> --help` 는 그 동작이 쓰는 옵션만 보여 준다 (#896)
     add_action_parsers(p, ACTIONS, SHARED_OPTIONS, always=ALWAYS_OPTIONS)
     p.formatter_class = argparse.RawDescriptionHelpFormatter
-    p.description = "브라우저를 조작한다. 한 번에 한 동작 — 자세한 옵션은 web <동작> --help"
-    p.epilog = "동작별 옵션:\n" + "\n".join(action_usage_lines(p))
+    p.description = "Drive the browser, one action per call — options per action: web <action> --help"
+    p.epilog = "Options per action:\n" + "\n".join(action_usage_lines(p))
 
 
 def _resolve_secret_text(args) -> tuple[str | None, dict | None]:
@@ -56,8 +56,8 @@ def _resolve_secret_text(args) -> tuple[str | None, dict | None]:
             value = read_saved_values(project_root(args)).get(args.text_env)
         if value is None:
             return None, {"ok": False, "code": "env_not_set",
-                          "error": f"환경변수 {args.text_env} 가 비어 있습니다 (저장한 값에도 없음)",
-                          "hint": f'{args.text_env}="..." 를 같은 명령 앞에 붙이거나 web value --save-env {args.text_env} 로 저장하세요'}
+                          "error": f"Environment variable {args.text_env} is empty (not in saved values either)",
+                          "hint": f'Prefix the same command with {args.text_env}="..." or save it with web value --save-env {args.text_env}'}
         args.text = value
         return args.text, None
     if getattr(args, "cred", None):
@@ -77,12 +77,12 @@ def apply_profile_choice(args, root) -> dict | None:
         wanted = browser_profiles.profile_with_marks(root, needs)
         if wanted is None:
             return {"ok": False, "code": "no_matching_profile", "needs": needs,
-                    "error": f"{', '.join(needs)} 가 기록된 브라우저 프로필이 없다",
-                    "next": "로그인한 뒤 web profile mark --kind login --name <공급자> 로 기록한다 (web profile list)"}
+                    "error": f"No browser profile has {', '.join(needs)} recorded",
+                    "next": "After logging in, record it with web profile mark --kind login --name <provider> (web profile list)"}
     if wanted is None:
         return None
     if wanted != browser_profiles.REPO_PROFILE_NAME and not browser_profiles.is_valid_profile_name(wanted):
-        return {"ok": False, "code": "bad_args", "error": f"프로필 이름은 영문·숫자·._- 40자 이내: {wanted}",
+        return {"ok": False, "code": "bad_args", "error": f"Profile names must be letters, digits or ._- and at most 40 characters: {wanted}",
                 "next": "web open --profile work"}
     browser_profiles.choose_profile(root, wanted)
     return None
@@ -133,8 +133,8 @@ def _dispatch(args, action, root, state_f, secret_value: str | None) -> int:
     if not state.get("cdp"):
         # 주 키는 실패에도 둔다 — json.load(...)["url"] 파이프가 KeyError 로 죽었다 (#931)
         return out({"ok": False, "code": "browser_not_open", "action": args.action, "url": None,
-                    "error": "열린 브라우저가 없습니다",
-                    "next": f"web open --root {root} --url <주소>"})
+                    "error": "No browser is open",
+                    "next": f"web open --root {root} --url <url>"})
     if action.needs == "state_online":
         return action.run(args, state, state_f)
 
@@ -192,10 +192,10 @@ def _action_failure(args, error: Exception, page, secret_value: str | None) -> d
         message = message.replace(secret_value, "***")
     payload = {"ok": False, "code": "web_action_failed", "action": args.action,
                "error": message[:400], "url": page.url if page else None,
-               "next": "web shot  # 지금 화면이 무엇인지 먼저 봅니다"}
+               "next": "web shot  # look at the current screen first"}
     if is_selector_syntax_error(message):
         payload.update({"selector_syntax_error": True, "hint": SELECTOR_SYNTAX_HINT,
-                        "next": "web find --text <글자>  # 번호(ref)로 고르면 선택자를 짓지 않아도 된다"})
+                        "next": "web find --text <text>  # pick by number (ref) instead of writing a selector"})
     return payload
 
 
@@ -217,4 +217,4 @@ def _attach_dialog_event(payload: dict, state: dict, state_f) -> None:
     write_state(state_f, state)
 
 
-COMMANDS = [Command(name="web", help="브라우저를 조작한다", run=cmd_web, configure=configure)]
+COMMANDS = [Command(name="web", help="Drive the browser", run=cmd_web, configure=configure)]

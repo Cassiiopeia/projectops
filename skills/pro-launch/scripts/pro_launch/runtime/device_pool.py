@@ -90,13 +90,13 @@ def _memory_block(request: AcquireRequest, context: PoolContext) -> str | None:
     if request.is_memory_risk_user_approved:
         return None
     if context.pressure == "critical":
-        return "호스트 메모리가 위험 수준이라 새로 켜기 전에 사용자 확인이 필요하다"
+        return "host memory is critical; the user must confirm before booting another device"
     return context.boot_block
 
 
 def _owner_phrase(lease: dict) -> str:
     purpose = f", {lease['purpose']}" if lease.get("purpose") else ""
-    return f"세션 {str(lease.get('session'))[:8]}{purpose}"
+    return f"session {str(lease.get('session'))[:8]}{purpose}"
 
 
 def _filter_matching(request: AcquireRequest, candidates: list[Candidate], working: _Working) -> Decision | None:
@@ -120,11 +120,11 @@ def _filter_matching(request: AcquireRequest, candidates: list[Candidate], worki
     if not working.matching:
         wanted = request.device or f"{request.platform} {request.form}" + (f" OS {request.os_minimum}" if request.os_minimum else "")
         if request.needs:
-            working.reasons.append(f"{', '.join(request.needs)} 가 기록된 {wanted} 기기가 없다 — 새로 만들어도 그 상태는 없다")
+            working.reasons.append(f"no {wanted} device has {', '.join(request.needs)} recorded — a new device would not have that state either")
         elif request.is_fresh_required:
-            working.reasons.append(f"아무도 쓰지 않은 새 {wanted} 기기가 없다")
+            working.reasons.append(f"no unused fresh {wanted} device")
         else:
-            working.reasons.append(f"조건({wanted})에 맞는 기기가 없다")
+            working.reasons.append(f"no device matches ({wanted})")
     return None
 
 
@@ -135,13 +135,13 @@ def _filter_eligible(request: AcquireRequest, candidates: list[Candidate], worki
         is_unrecorded_booted = (facts.is_booted and not candidate.capabilities.is_physical and not candidate.is_pool_booted
                                 and not candidate.live_other_leases and not candidate.own_leases)
         if not request.device and is_unrecorded_booted:
-            working.reasons.append(f"{name}: 켜져 있지만 원장 기록이 없어 사람이 쓰는 기기일 수 있다 — 제외")
+            working.reasons.append(f"{name}: running but not in the ledger, so a person may be using it — skipped")
             continue
         if not request.device and candidate.own_leases:
-            working.reasons.append(f"{name}: 이 세션이 이미 쥔 기기 — 다른 기기를 찾는다")
+            working.reasons.append(f"{name}: already held by this session — looking for another device")
             continue
         if not facts.is_booted and not candidate.capabilities.can_boot:
-            working.reasons.append(f"{name}: 꺼져 있고 켤 수 없다 — 제외")
+            working.reasons.append(f"{name}: off and cannot be booted — skipped")
             continue
         working.eligible.append(candidate)
     return None
@@ -155,13 +155,13 @@ def _choose_free(request: AcquireRequest, candidates: list[Candidate], working: 
         return None
     chosen = sorted(free, key=lambda c: (c.facts.is_booted, c.last_used or 0), reverse=True)[0]
     is_boot_needed = not chosen.facts.is_booted
-    reasons = [*working.reasons, f"{chosen.facts.name}: 비어 있다" + (" (꺼져 있어 켠다)" if is_boot_needed else " (켜져 있다)")]
+    reasons = [*working.reasons, f"{chosen.facts.name}: free" + (" (off, will boot)" if is_boot_needed else " (running)")]
     memory_block = _memory_block(request, context) if is_boot_needed else None
     if memory_block:
         return Decision("ask", reasons=tuple(reasons + [memory_block]), is_memory_risk=True)
     if chosen.dead_other_leases:
         dead = max(chosen.dead_other_leases, key=lambda lease: lease.get("last_used") or 0)
-        reasons.append(f"{chosen.facts.name}: {_owner_phrase(dead)} 의 소유는 끝났다(호스트 종료 또는 유휴) — 넘겨받는다")
+        reasons.append(f"{chosen.facts.name}: ownership by {_owner_phrase(dead)} ended (host exited or idle) — taking it over")
         return Decision("reclaim", chosen.facts.key, tuple(reasons), is_boot_needed, reclaimed_from=dead)
     return Decision("reuse", chosen.facts.key, tuple(reasons), is_boot_needed)
 
@@ -176,14 +176,14 @@ def _create_if_allowed(request: AcquireRequest, candidates: list[Candidate], wor
         return None
     memory_block = _memory_block(request, context)
     if memory_block and context.pressure == "critical":
-        working.create_block, working.is_create_block_memory = "호스트 메모리가 위험 수준이라 새 기기를 만들어 켜지 않는다", True
+        working.create_block, working.is_create_block_memory = "host memory is critical; not creating and booting a new device", True
     elif context.is_disk_low:
-        working.create_block = "디스크 여유가 부족해 새 기기를 만들지 않는다 (device gc 로 정리할 것이 있는지 본다)"
+        working.create_block = "not enough free disk; not creating a new device (check device gc for things to clean up)"
     elif memory_block:
         working.create_block, working.is_create_block_memory = memory_block, True
     if working.create_block:
         return None
-    return Decision("create", reasons=tuple([*working.reasons, "조건에 맞는 빈 기기가 없어 임시 기기를 만들어 켠다"]),
+    return Decision("create", reasons=tuple([*working.reasons, "no free matching device; creating and booting a temporary device"]),
                     is_boot_needed=True)
 
 
@@ -196,12 +196,12 @@ def _wait_or_ask(request: AcquireRequest, candidates: list[Candidate], working: 
         if working.create_block:
             return Decision("ask", reasons=tuple([*working.reasons, working.create_block]),
                             is_memory_risk=working.is_create_block_memory)
-        return Decision("no_match", reasons=tuple(working.reasons) or ("빌릴 수 있는 기기가 없다",))
-    reasons = [*working.reasons, *(f"{o['device']}: {_owner_phrase(o)} 사용 중" for o in owners),
+        return Decision("no_match", reasons=tuple(working.reasons) or ("no device available to borrow",))
+    reasons = [*working.reasons, *(f"{o['device']}: in use by {_owner_phrase(o)}" for o in owners),
                *([working.create_block] if working.create_block else [])]
     if context.waited_seconds >= context.wait_limit_seconds:
         minutes = round(context.waited_seconds / 60)
-        return Decision("ask", reasons=tuple(reasons + [f"{minutes}분 기다렸다 — 사용자에게 물어 정한다"]), busy_owners=owners)
+        return Decision("ask", reasons=tuple(reasons + [f"waited {minutes} min — ask the user to decide"]), busy_owners=owners)
     return Decision("wait", reasons=tuple(reasons), busy_owners=owners)
 
 
@@ -221,4 +221,4 @@ def decide(request: AcquireRequest, candidates: list[Candidate], context: PoolCo
         decision = step(request, candidates, working, chosen_context)
         if decision is not None:
             return decision
-    return Decision("no_match", reasons=("판정 단계가 결과를 내지 않았다",))
+    return Decision("no_match", reasons=("no decision step returned a result",))

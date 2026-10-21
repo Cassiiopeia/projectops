@@ -36,37 +36,37 @@ def _web_profile(args) -> int:
         current = browser_profiles.chosen_profile(root) or browser_profiles.REPO_PROFILE_NAME
         return out({"action": "profile", "operation": "list", "current": current,
                     "profiles": [_profile_row(root, name, devices) for name in names],
-                    "summary": f"지금 프로필 {current} · 공용 프로필 {len(names) - 1}개",
-                    "next": "web open --profile <이름> 으로 레포를 넘어 같은 로그인을 쓴다"})
+                    "summary": f"Current profile {current} · {len(names) - 1} shared profiles",
+                    "next": "web open --profile <name> reuses the same login across repos"})
     if operation == "use":
         name = args.profile or browser_profiles.REPO_PROFILE_NAME
         if name != browser_profiles.REPO_PROFILE_NAME and not browser_profiles.is_valid_profile_name(name):
-            return out({"ok": False, "code": "bad_args", "error": f"프로필 이름은 영문·숫자·._- 40자 이내: {name}"})
+            return out({"ok": False, "code": "bad_args", "error": f"Profile names use letters, digits and ._- (40 chars max): {name}"})
         browser_profiles.choose_profile(root, name)
         return out({"action": "profile", "operation": "use", "current": name,
-                    "summary": f"이 레포는 이제 {name} 프로필을 쓴다", "next": "web open"})
+                    "summary": f"This repo now uses the {name} profile", "next": "web open"})
     if not args.kind or not args.mark_name:
-        return out({"ok": False, "code": "args_required", "error": "--kind 와 --name 이 필요하다",
-                    "next": "web profile mark --kind login --name google --note '사내 계정'"})
+        return out({"ok": False, "code": "args_required", "error": "--kind and --name are required",
+                    "next": "web profile mark --kind login --name google --note 'work account'"})
     key = browser_profiles.profile_mark_key(root, args.profile)
     if operation == "mark":
         mark = device_marks.add_mark(key, args.kind, args.mark_name, args.note)
         return out({"action": "profile", "operation": "mark", "key": key, "mark": mark,
-                    "summary": f"{key} 에 {args.kind}:{args.mark_name} 기록 — 정리에서 보호되고 open --need 가 고른다",
-                    "next": f"다른 레포에서는 web open --need {args.kind}:{args.mark_name}"})
+                    "summary": f"Recorded {args.kind}:{args.mark_name} on {key} — protected from cleanup and picked by open --need",
+                    "next": f"In another repo: web open --need {args.kind}:{args.mark_name}"})
     is_removed = device_marks.remove_mark(key, args.kind, args.mark_name)
     return out({"action": "profile", "operation": "unmark", "key": key, "removed": is_removed,
-                "summary": f"{args.kind}:{args.mark_name} " + ("지움" if is_removed else "기록이 없다")})
+                "summary": f"{args.kind}:{args.mark_name} " + ("removed" if is_removed else "not recorded")})
 
 
 def configure(p) -> None:
     p.add_argument("operation", choices=PROFILE_OPERATIONS, help="list · use · mark · unmark")
-    p.add_argument("--profile", default=None, help="공용 프로필 이름 (repo 면 레포 프로필). mark 는 없으면 지금 프로필")
-    p.add_argument("--kind", default=None, help="mark: 상태 종류 (권장 login · data · config)")
-    p.add_argument("--name", dest="mark_name", default=None, help="mark: 상태 이름 (예: google · github · 사내SSO)")
-    p.add_argument("--note", default=None, help="mark: 사람이 읽을 설명 (어느 계정인지 — 비밀번호는 적지 않는다)")
+    p.add_argument("--profile", default=None, help="Shared profile name (repo means the repo profile). mark defaults to the current profile")
+    p.add_argument("--kind", default=None, help="mark: state kind (recommended login · data · config)")
+    p.add_argument("--name", dest="mark_name", default=None, help="mark: state name (e.g. google · github · corp-sso)")
+    p.add_argument("--note", default=None, help="mark: human-readable note (which account — never the password)")
 
 
 ACTION = Action(name="profile", needs="nothing", run=_web_profile, configure=configure, options=(),
-                help="브라우저 프로필 보기 · 고르기 · 로그인 상태 기록 (레포를 넘어 같은 로그인 쓰기)",
+                help="List, choose and mark browser profiles (reuse the same login across repos)",
                 example="web profile mark --kind login --name google")

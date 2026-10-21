@@ -16,7 +16,7 @@ def _app_location(args) -> int:
     latitude, longitude = getattr(args, "lat", None), getattr(args, "lon", None)
     if not _is_valid_coordinate(latitude, longitude):
         return out({"ok": False, "code": "bad_coordinates",
-                    "error": "--lat(-90~90) 와 --lon(-180~180) 이 둘 다 필요하다",
+                    "error": "Both --lat (-90..90) and --lon (-180..180) are required",
                     "next": "app location --lat 37.5665 --lon 126.9780"})
     platform, dev_id, _, err = resolve_target(args, is_package_required=False)
     if err is not None:
@@ -25,21 +25,21 @@ def _app_location(args) -> int:
         # geo fix 는 에뮬레이터 콘솔 명령 — 실기기에는 없다. 인자 순서는 경도 먼저
         if not dev_id.startswith("emulator-"):
             return unsupported_response(platform, dev_id, "location",
-                                        "실기기 Android 는 adb 로 위치를 바꿀 수 없다 (에뮬레이터만)",
-                                        "에뮬레이터를 쓰거나 기기에 모의 위치 앱을 설정한다")
+                                        "adb cannot change the location of a real Android device (emulators only)",
+                                        "Use an emulator or set up a mock location app on the device")
         ok, detail = run_tool(adb_command(dev_id, "emu", "geo", "fix", str(longitude), str(latitude)))
         ok = ok and "KO" not in detail
     else:
         ok, detail = run_tool(["xcrun", "simctl", "location", dev_id, "set", f"{latitude},{longitude}"])
     return control_result("location", platform, dev_id, ok, detail, "location_failed",
-                          f"위치 {latitude},{longitude}", "app shot  # 지도·위치 화면을 확인한다",
-                          "Xcode 14 이상(simctl location) · 에뮬레이터 콘솔이 열려 있는지 확인한다",
+                          f"location {latitude},{longitude}", "app shot  # check the map / location screen",
+                          "Check for Xcode 14+ (simctl location) · that the emulator console is open",
                           latitude=latitude, longitude=longitude)
 
 
 def configure(p) -> None:
-    p.add_argument("--lat", type=float, default=None, help="location: 위도 (-90~90)")
-    p.add_argument("--lon", type=float, default=None, help="location: 경도 (-180~180)")
+    p.add_argument("--lat", type=float, default=None, help="location: latitude (-90..90)")
+    p.add_argument("--lon", type=float, default=None, help="location: longitude (-180..180)")
 
 
 ACTION = Action(name="location", device_use="mutate", run=_app_location, configure=configure)

@@ -53,36 +53,36 @@ class StepsError(Exception):
 def load_steps(path: str | None) -> list[dict]:
     """단계 파일 > 정규화된 단계 목록. 무엇이든 어긋나면 StepsError (몇 번째인지 포함)."""
     if not path:
-        raise StepsError("--steps <JSON 파일> 이 필요하다")
+        raise StepsError("--steps <JSON file> is required")
     try:
         raw_steps = json.loads(Path(path).read_text(encoding="utf-8"))
     except OSError as e:
-        raise StepsError(f"단계 파일을 읽지 못했다: {e}") from e
+        raise StepsError(f"Could not read the steps file: {e}") from e
     except ValueError as e:
-        raise StepsError(f"JSON 이 아니다: {e}") from e
+        raise StepsError(f"Not JSON: {e}") from e
     if not isinstance(raw_steps, list) or not raw_steps:
-        raise StepsError("단계 파일은 비어 있지 않은 JSON 배열이어야 한다")
+        raise StepsError("The steps file must be a non-empty JSON array")
     if len(raw_steps) > MAXIMUM_STEP_COUNT:
-        raise StepsError(f"단계는 {MAXIMUM_STEP_COUNT}개까지다 (받은 수 {len(raw_steps)})")
+        raise StepsError(f"At most {MAXIMUM_STEP_COUNT} steps (got {len(raw_steps)})")
     return [_normalize_step(raw_step, index) for index, raw_step in enumerate(raw_steps)]
 
 
 def _normalize_step(raw_step, index: int) -> dict:
     """단계 하나 검증 > {"kind": ..., 정리된 값}."""
     if not isinstance(raw_step, dict) or len(raw_step) != 1:
-        raise StepsError('단계는 키 하나짜리 객체다 (예: {"tap": {"text": "로그인"}})', index)
+        raise StepsError('A step is an object with one key (e.g. {"tap": {"text": "Log in"}})', index)
     (kind, params), = raw_step.items()
     if kind not in STEP_FIELDS:
-        raise StepsError(f"모르는 단계 {kind!r} — 받는 것: {', '.join(STEP_FIELDS)}", index)
+        raise StepsError(f"Unknown step {kind!r} — accepted: {', '.join(STEP_FIELDS)}", index)
     if kind == "back":
         if params not in (True, {}, None):
-            raise StepsError('back 은 {"back": true} 로 쓴다', index)
+            raise StepsError('Write back as {"back": true}', index)
         return {"kind": "back"}
     if not isinstance(params, dict):
-        raise StepsError(f"{kind} 의 값은 객체다", index)
+        raise StepsError(f"The value of {kind} must be an object", index)
     unknown = set(params) - STEP_FIELDS[kind]
     if unknown:
-        raise StepsError(f"{kind} 에 모르는 키 {sorted(unknown)} — 받는 것: {sorted(STEP_FIELDS[kind])}", index)
+        raise StepsError(f"Unknown keys in {kind}: {sorted(unknown)} — accepted: {sorted(STEP_FIELDS[kind])}", index)
     if kind == "gone":
         # gone 은 wait + gone 의 줄임 — 실행·Maestro 변환은 wait 한 갈래로 간다
         return {"kind": "wait", **_wait({**params, "gone": True}, index)}
@@ -93,9 +93,9 @@ def _selector_of(params: dict, index: int, kind: str) -> tuple[str, str] | None:
     """text·id·desc 중 정확히 하나 > (필드, 값). 하나도 없으면 None."""
     given = [(f, params[f]) for f in app_input.SELECTOR_FIELDS if f in params]
     if len(given) > 1:
-        raise StepsError(f"{kind}: text·id·desc 중 하나만 쓴다", index)
+        raise StepsError(f"{kind}: use only one of text · id · desc", index)
     if given and (not isinstance(given[0][1], str) or not given[0][1]):
-        raise StepsError(f"{kind}: {given[0][0]} 은 빈 문자열이 아닌 문자열이다", index)
+        raise StepsError(f"{kind}: {given[0][0]} must be a non-empty string", index)
     return given[0] if given else None
 
 
@@ -104,7 +104,7 @@ def _ratio_of(raw, index: int, label: str) -> tuple[float, float]:
     text = ",".join(str(v) for v in raw) if isinstance(raw, list) else raw
     ratio = app_input.parse_ratio(text) if isinstance(text, str) else None
     if not ratio:
-        raise StepsError(f"{label} 는 0~1 비율 좌표다 (예: \"0.5,0.8\"). 픽셀은 받지 않는다", index)
+        raise StepsError(f"{label} is a 0–1 ratio coordinate (e.g. \"0.5,0.8\"). Pixels are not accepted", index)
     return ratio
 
 
@@ -112,13 +112,13 @@ def _tap(params: dict, index: int) -> dict:
     selector = _selector_of(params, index, "tap")
     has_point = "point" in params
     if bool(selector) == has_point:
-        raise StepsError("tap: text·id·desc 중 하나, 또는 point 하나가 필요하다", index)
+        raise StepsError("tap: needs one of text · id · desc, or one point", index)
     tap_index = params.get("index", 0)
     if not isinstance(tap_index, int) or isinstance(tap_index, bool) or tap_index < 0:
-        raise StepsError("tap: index 는 0 이상의 정수다", index)
+        raise StepsError("tap: index must be an integer of 0 or more", index)
     if has_point:
         if "index" in params:
-            raise StepsError("tap: index 는 text·id·desc 와만 쓴다", index)
+            raise StepsError("tap: index is only used with text · id · desc", index)
         return {"point": _ratio_of(params["point"], index, "tap.point")}
     return {"field": selector[0], "value": selector[1], "index": tap_index}
 
@@ -127,16 +127,16 @@ def _swipe(params: dict, index: int) -> dict:
     milliseconds = params.get("ms", 300)
     if (not isinstance(milliseconds, int) or isinstance(milliseconds, bool)
             or not MINIMUM_SWIPE_MILLISECONDS <= milliseconds <= MAXIMUM_SWIPE_MILLISECONDS):
-        raise StepsError(f"swipe: ms 는 {MINIMUM_SWIPE_MILLISECONDS}~{MAXIMUM_SWIPE_MILLISECONDS} 정수다", index)
+        raise StepsError(f"swipe: ms must be an integer from {MINIMUM_SWIPE_MILLISECONDS} to {MAXIMUM_SWIPE_MILLISECONDS}", index)
     if "direction" in params:
         if "from" in params or "to" in params:
-            raise StepsError("swipe: direction 과 from/to 는 함께 쓰지 않는다", index)
+            raise StepsError("swipe: do not use direction together with from/to", index)
         if params["direction"] not in app_input.SWIPE_DIRS:
-            raise StepsError(f"swipe: direction 은 {sorted(app_input.SWIPE_DIRS)} 중 하나다", index)
+            raise StepsError(f"swipe: direction must be one of {sorted(app_input.SWIPE_DIRS)}", index)
         start, end = app_input.SWIPE_DIRS[params["direction"]]
         return {"start": start, "end": end, "ms": milliseconds, "label": params["direction"]}
     if "from" not in params or "to" not in params:
-        raise StepsError("swipe: direction 또는 from+to 가 필요하다", index)
+        raise StepsError("swipe: needs direction or from+to", index)
     start, end = _ratio_of(params["from"], index, "swipe.from"), _ratio_of(params["to"], index, "swipe.to")
     return {"start": start, "end": end, "ms": milliseconds, "label": f"{params['from']}→{params['to']}"}
 
@@ -145,15 +145,15 @@ def _type(params: dict, index: int) -> dict:
     # 값은 파일에 적지 않는다 — 환경변수 이름이나 저장된 자격증명 이름만 받는다
     has_env, has_cred = "env" in params, "cred" in params
     if has_env == has_cred:
-        raise StepsError("type: env(환경변수 이름) 또는 cred(저장된 자격증명 이름) 중 하나가 필요하다 "
-                         "— 값을 단계 파일에 직접 적지 않는다", index)
+        raise StepsError("type: needs env (environment variable name) or cred (saved credential name) "
+                         "— do not write the value into the steps file", index)
     source = params["env"] if has_env else params["cred"]
     if not isinstance(source, str) or not source:
-        raise StepsError("type: env·cred 는 빈 문자열이 아닌 이름이다", index)
+        raise StepsError("type: env · cred must be a non-empty name", index)
     if has_env and "field" in params:
-        raise StepsError("type: field 는 cred 와만 쓴다", index)
+        raise StepsError("type: field is only used with cred", index)
     if not isinstance(params.get("submit", False), bool):
-        raise StepsError("type: submit 은 true/false 다", index)
+        raise StepsError("type: submit must be true/false", index)
     return {"env": source if has_env else None, "cred": None if has_env else source,
             "field": params.get("field"), "submit": params.get("submit", False)}
 
@@ -161,13 +161,13 @@ def _type(params: dict, index: int) -> dict:
 def _wait(params: dict, index: int) -> dict:
     selector = _selector_of(params, index, "wait")
     if not selector:
-        raise StepsError("wait: text·id·desc 중 하나가 필요하다", index)
+        raise StepsError("wait: needs one of text · id · desc", index)
     timeout = params.get("timeout", DEFAULT_WAIT_SECONDS)
     if (not isinstance(timeout, (int, float)) or isinstance(timeout, bool)
             or not 0 < timeout <= MAXIMUM_WAIT_SECONDS):
-        raise StepsError(f"wait: timeout 은 0 초과 {MAXIMUM_WAIT_SECONDS} 이하의 초다", index)
+        raise StepsError(f"wait: timeout must be seconds above 0 and at most {MAXIMUM_WAIT_SECONDS}", index)
     if not isinstance(params.get("gone", False), bool):
-        raise StepsError("wait: gone 은 true/false 다", index)
+        raise StepsError("wait: gone must be true/false", index)
     return {"field": selector[0], "value": selector[1], "timeout": timeout, "gone": params.get("gone", False)}
 
 
@@ -215,7 +215,7 @@ def to_maestro_commands(step: dict, index: int) -> list[dict]:
         condition = "notVisible" if step.get("gone") else "visible"
         return [{"extendedWaitUntil": {condition: maestro_selector(step["field"], step["value"]),
                                        "timeout": int(step["timeout"] * 1000)}}]
-    raise ValueError(f"Maestro 로 옮길 수 없는 단계: {kind}")
+    raise ValueError(f"Step cannot be converted to Maestro: {kind}")
 
 
 def maestro_statuses(lines: list[str]) -> list[tuple[str, str]]:

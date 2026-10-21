@@ -79,16 +79,16 @@ def execute(page, args, state: dict) -> dict:
     conditions = wait_conditions(args)
     if not conditions:
         return {"ok": False, "code": "nothing_to_wait_for", "action": "wait",
-                "error": "--url-contains · --text · --gone · --selector 중 하나는 있어야 합니다",
-                "next": 'web wait --text "저장됨" --timeout 30'}
+                "error": "Give at least one of --url-contains · --text · --gone · --selector",
+                "next": 'web wait --text "Saved" --timeout 30'}
     scope, failure = frame_scope(page, args, "wait")
     if failure:
         return failure
     reload_seconds = getattr(args, "reload_every", None)
     if reload_seconds is not None and reload_seconds < MINIMUM_RELOAD_SECONDS:
         return {"ok": False, "code": "reload_too_frequent", "action": "wait", "reload_every": reload_seconds,
-                "error": f"--reload-every 는 {MINIMUM_RELOAD_SECONDS}초 이상이어야 합니다",
-                "next": f"web wait --text <글자> --reload-every 15 --timeout {args.timeout}"}
+                "error": f"--reload-every must be at least {MINIMUM_RELOAD_SECONDS}s",
+                "next": f"web wait --text <text> --reload-every 15 --timeout {args.timeout}"}
     started = time.monotonic()
     deadline = started + args.timeout
     last_reload = started
@@ -99,20 +99,20 @@ def execute(page, args, state: dict) -> dict:
             url, visible_text, is_selector_visible = _read_snapshot(page, scope, conditions)
         except InvalidSelectorError as error:
             return {"ok": False, "code": "bad_selector", "action": "wait", "conditions": conditions,
-                    "error": f"선택자 문법 오류: {error}", "hint": SELECTOR_SYNTAX_HINT,
-                    "next": "web inspect  # 요소 후보와 선택자를 받아 --selector 를 고친다"}
+                    "error": f"Selector syntax error: {error}", "hint": SELECTOR_SYNTAX_HINT,
+                    "next": "web inspect  # get element candidates and selectors, then fix --selector"}
         unmet = unmet_conditions(conditions, url, visible_text, is_selector_visible)
         waited_seconds = round(time.monotonic() - started, 1)
         if not unmet:
             return {"action": "wait", "conditions": conditions, "waited_seconds": waited_seconds,
                     "reloads": reload_count, "url": url, "title": safe_title(page),
-                    "summary": f"{waited_seconds}초 만에 조건이 맞았다", "next": "web text  # 바뀐 화면을 읽는다"}
+                    "summary": f"Conditions met after {waited_seconds}s", "next": "web text  # read the changed screen"}
         if time.monotonic() >= deadline:
             return {"ok": False, "code": "wait_timeout", "action": "wait", "conditions": conditions,
                     "unmet": unmet, "waited_seconds": waited_seconds, "reloads": reload_count,
                     "url": url, "title": safe_title(page),
-                    "error": f"{args.timeout}초 안에 조건이 맞지 않았습니다: {', '.join(unmet)}",
-                    "next": "web text  # 지금 화면을 본다. 승인 대기 화면이면 이동하지 말고 web wait 를 다시 부른다"}
+                    "error": f"Conditions not met within {args.timeout}s: {', '.join(unmet)}",
+                    "next": "web text  # look at the current screen. If it is waiting for approval, do not navigate; call web wait again"}
         page.wait_for_timeout(POLL_INTERVAL_MILLISECONDS)
         # 새로고침해야 바뀌는 화면(PR 상태 · 배포 결과) — 정한 간격마다 다시 받는다 (#930)
         if reload_seconds and time.monotonic() - last_reload >= reload_seconds and time.monotonic() < deadline:
@@ -124,14 +124,14 @@ def execute(page, args, state: dict) -> dict:
 
 
 def configure(p) -> None:
-    p.add_argument("--url-contains", dest="url_contains", default=None, help="주소에 이 글자가 들어올 때까지")
-    p.add_argument("--gone", default=None, help="이 글자가 화면에서 사라질 때까지 (로딩·업로드 중 문구)")
+    p.add_argument("--url-contains", dest="url_contains", default=None, help="Until the URL contains this text")
+    p.add_argument("--gone", default=None, help="Until this text disappears from the screen (loading or uploading messages)")
     p.add_argument("--timeout", type=int, default=DEFAULT_WAIT_SECONDS,
-                   help=f"대기 상한(초, 기본 {DEFAULT_WAIT_SECONDS})")
+                   help=f"Wait limit (seconds, default {DEFAULT_WAIT_SECONDS})")
     p.add_argument("--reload-every", dest="reload_every", type=int, default=None,
-                   help=f"이 초마다 새로고침하며 기다린다 (최소 {MINIMUM_RELOAD_SECONDS}) — 새로고침해야 바뀌는 화면")
+                   help=f"Reload every N seconds while waiting (min {MINIMUM_RELOAD_SECONDS}) — for screens that change only on reload")
 
 
 ACTION = Action(name="wait", run=execute, configure=configure, options=("text", "selector", "frame"),
-                help="주소·글자·사라짐·요소 조건이 맞을 때까지 기다린다 (주어진 조건 모두)",
+                help="Wait until the URL, text, gone and element conditions are all met (every condition given)",
                 example='web wait --text "Merged" --reload-every 15 --timeout 180')

@@ -31,11 +31,11 @@ ANDROID_MAESTRO_DRIVER_PACKAGES = ("dev.mobile.maestro", "dev.mobile.maestro.tes
 FAILURE_DETAIL_LINE_COUNT = 8
 # 응답 code 4개 > 다음 행동
 FLOW_OUTCOMES = (
-    {"code": "ok", "next": "screenshots 이미지를 읽어 결과를 확인한다"},
-    {"code": "flow_failed", "next": "failed_command 를 app tree 로 보고 flow 를 고쳐 다시 app flow"},
-    {"code": "flow_timeout", "next": "--timeout 을 늘리거나 flow 를 나눈다"},
+    {"code": "ok", "next": "Read the screenshots images to check the result"},
+    {"code": "flow_failed", "next": "Check failed_command with app tree, fix the flow and run app flow again"},
+    {"code": "flow_timeout", "next": "Raise --timeout or split the flow"},
     {"code": "maestro_driver_timeout",
-     "next": "기계 과부하다 — 빌드 등 무거운 작업을 멈추거나 에뮬레이터를 cold boot 한다 (사용자에게 먼저 묻는다)"},
+     "next": "The machine is overloaded — stop heavy work such as builds, or cold boot the emulator (ask the user first)"},
 )
 NEXT_HINT_BY_CODE = {outcome["code"]: outcome["next"] for outcome in FLOW_OUTCOMES}
 
@@ -54,18 +54,18 @@ def _app_flow(args) -> int:
     flow_file = Path(getattr(args, "file", None) or "")
     if not getattr(args, "file", None) or not flow_file.is_file():
         return out({"ok": False, "code": "flow_file_required",
-                    "error": f"--file 에 Maestro flow(yaml) 경로가 필요하다 (받은 값: {getattr(args, 'file', None)!r})",
-                    "next": "references/app.md 의 '제스처 플레이북' 예시 flow 를 본다"})
+                    "error": f"--file needs a Maestro flow (yaml) path (got: {getattr(args, 'file', None)!r})",
+                    "next": "See the example flows in the gesture playbook in references/app.md"})
     timeout_seconds = getattr(args, "timeout", None) or DEFAULT_FLOW_TIMEOUT_SECONDS
     if not 0 < timeout_seconds <= MAXIMUM_FLOW_TIMEOUT_SECONDS:
         return out({"ok": False, "code": "bad_timeout",
-                    "error": f"--timeout 은 1~{MAXIMUM_FLOW_TIMEOUT_SECONDS} 초다"})
+                    "error": f"--timeout must be 1-{MAXIMUM_FLOW_TIMEOUT_SECONDS} seconds"})
     be, dev_id, err = backend_for(args)
     if err is not None:
         return err
     maestro = app_input.IOSMaestroBackend._maestro()
     if not maestro:
-        return out({"ok": False, "code": "maestro_tool_missing", "error": "Maestro 가 없다",
+        return out({"ok": False, "code": "maestro_tool_missing", "error": "Maestro is not installed",
                     "next": app_input.IOSMaestroBackend.install_hint})
 
     with tempfile.TemporaryDirectory() as output_folder:
@@ -97,7 +97,7 @@ def _run_maestro(maestro: str, dev_id: str, flow_file: Path, output_folder: Path
     try:
         r = maestro_runs.run_recorded(command, capture_output=True, text=True, timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
-        return None, [f"maestro 응답 없음 ({timeout_seconds}초)"]
+        return None, [f"maestro did not respond ({timeout_seconds}s)"]
     # 끝의 광고 상자(│ ╭ ╰)를 걷어야 실패 원인 줄이 보인다
     lines = [l for l in ((r.stdout or "") + (r.stderr or "")).splitlines()
              if l.strip() and not l.lstrip().startswith(("│", "╭", "╰"))]
@@ -130,7 +130,7 @@ def _flow_result(args, be, dev_id: str, flow_file: Path, is_success: bool | None
                 for description, status in steps_module.maestro_statuses(lines)]
     failed_command = next((c["command"] for c in commands if c["status"] == "failed"), None)
     code = _result_code(is_success, lines)
-    reason = [l for l in lines if "FAILED" in l or "Error" in l or "not found" in l.lower() or "응답 없음" in l]
+    reason = [l for l in lines if "FAILED" in l or "Error" in l or "not found" in l.lower() or "did not respond" in l]
     payload = {"ok": bool(is_success), "code": code, "device": dev_id, "via": be.name, "flow": str(flow_file),
                "commands": commands, "failed_command": failed_command, "screenshots": screenshots,
                "driver_retried": retried,
@@ -138,18 +138,18 @@ def _flow_result(args, be, dev_id: str, flow_file: Path, is_success: bool | None
                "elapsed_seconds": elapsed_seconds(args)}
     if is_success:
         auto_record_backend(be)
-    payload["summary"] = (f"flow 완료 — 명령 {len(commands)}개, 캡처 {len(screenshots)}장" if is_success
-                          else f"실패 — {code}" + (f" ({failed_command})" if failed_command else ""))
+    payload["summary"] = (f"flow done — {len(commands)} commands, {len(screenshots)} screenshots" if is_success
+                          else f"failed — {code}" + (f" ({failed_command})" if failed_command else ""))
     payload["next"] = NEXT_HINT_BY_CODE[code]
     return out(payload)
 
 
 def configure(p) -> None:
-    p.add_argument("--file", default=None, help="flow: 실행할 Maestro flow(yaml) 경로")
+    p.add_argument("--file", default=None, help="flow: Maestro flow (yaml) path to run")
     p.add_argument("--timeout", type=int, default=None,
-                   help=f"flow: 최대 대기 초 (기본 {DEFAULT_FLOW_TIMEOUT_SECONDS}, 최대 {MAXIMUM_FLOW_TIMEOUT_SECONDS})")
+                   help=f"flow: maximum wait in seconds (default {DEFAULT_FLOW_TIMEOUT_SECONDS}, max {MAXIMUM_FLOW_TIMEOUT_SECONDS})")
 
 
 ACTION = Action(name="flow", device_use="mutate", run=_app_flow, configure=configure,
-                help="프로젝트의 Maestro flow 를 돌리고 명령별 결과 · takeScreenshot 캡처를 JSON 으로 — 복잡한 제스처용",
+                help="Run the project's Maestro flow and return per-command results and takeScreenshot captures as JSON — for complex gestures",
                 example="app flow --device $DEV --file .maestro/swipe_undo.yaml --shot undo")

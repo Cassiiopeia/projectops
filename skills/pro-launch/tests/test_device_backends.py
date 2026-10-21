@@ -57,4 +57,4 @@ def test_android_clone_refuses_running_or_existing(monkeypatch, tmp_path):
     assert backend.clone("Tablet", "copy")["is_ok"] is False
     monkeypatch.setattr(android_emulator.device_boot, "running_emulators", lambda: {})
     _fake_avd(tmp_path, "copy")
-    assert "이미 있다" in backend.clone("Tablet", "copy")["detail"]
+    assert "already exists" in backend.clone("Tablet", "copy")["detail"]

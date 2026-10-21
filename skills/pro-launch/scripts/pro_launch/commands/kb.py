@@ -29,32 +29,32 @@ PROPOSE_TODO_FIELDS = ["title", "match.codes", "symptom", "cause", "refs"]
 def _search(args) -> int:
     text = args.query or ""
     if not text.strip() and not args.code:
-        return out({"ok": False, "code": "query_required", "error": "찾을 문구나 --code 가 필요하다",
-                    "next": "kb search \"<오류 문구>\" --code <실패 code>"})
+        return out({"ok": False, "code": "query_required", "error": "Give a text to search for or --code",
+                    "next": "kb search \"<error text>\" --code <failure code>"})
     rows = troubleshoot.find_known_fixes(SKILL_DIR, args.code, text, limit=args.limit)
     if not rows:
         return out({"ok": True, "code": "empty", "matches": [],
-                    "summary": "맞는 공식 항목이 없다", "next": "kb list  # 전체 목록"})
-    return out({"ok": True, "code": "ok", "matches": rows, "summary": f"{len(rows)}건",
-                "next": f"kb show {rows[0]['id']}  # 증상·원인·해결 전체"})
+                    "summary": "No matching official entry", "next": "kb list  # all entries"})
+    return out({"ok": True, "code": "ok", "matches": rows, "summary": f"{len(rows)} match(es)",
+                "next": f"kb show {rows[0]['id']}  # full symptom, cause and fix"})
 
 
 def _show(args) -> int:
     if not args.query:
-        return out({"ok": False, "code": "id_required", "error": "항목 id 가 필요하다",
-                    "next": "kb list  # id 를 고른다"})
+        return out({"ok": False, "code": "id_required", "error": "An entry id is required",
+                    "next": "kb list  # pick an id"})
     entry = troubleshoot.load_entry(SKILL_DIR, args.query)
     if entry is None:
-        return out({"ok": False, "code": "not_found", "error": f"그런 항목이 없다: {args.query}",
-                    "next": "kb search \"<오류 문구>\"  # 또는 kb list"})
+        return out({"ok": False, "code": "not_found", "error": f"No such entry: {args.query}",
+                    "next": "kb search \"<error text>\"  # or kb list"})
     return out({"ok": True, "code": "ok", "entry": entry, "summary": entry.get("title"),
-                "next": "fix 를 순서대로 시도한다"})
+                "next": "Try the fix steps in order"})
 
 
 def _list(args) -> int:
     rows = troubleshoot.list_entries(SKILL_DIR, args.area)
     return out({"ok": True, "code": "ok" if rows else "empty", "entries": rows,
-                "summary": f"{len(rows)}건", "next": "kb show <id>" if rows else None})
+                "summary": f"{len(rows)} entries", "next": "kb show <id>" if rows else None})
 
 
 def _knowledge_paths(args) -> dict:
@@ -99,12 +99,12 @@ def _propose(args) -> int:
                            "draft": draft, "todo": PROPOSE_TODO_FIELDS})
     if not drafts:
         return out({"ok": True, "code": "empty", "drafts": [], "skipped": skipped or None,
-                    "summary": f"공식으로 올릴 만한 기억이 없다 (ok>={PROPOSE_MIN_OK}, fail<ok)",
+                    "summary": f"No memory worth proposing as official (ok>={PROPOSE_MIN_OK}, fail<ok)",
                     "next": None})
     return out({"ok": True, "code": "ok", "drafts": drafts, "skipped": skipped or None,
-                "summary": f"초안 {len(drafts)}건 — 파일에 쓰지 않았다",
-                "next": ("todo 칸을 채우고 사용자 확인 뒤 skills/pro-launch/<path> 로 이슈나 PR 로 올린다 "
-                         "(관리자가 검토해 넣는다. 작성 규칙: skills/references/memory-principles.md §6)")})
+                "summary": f"{len(drafts)} draft(s) — nothing written to disk",
+                "next": ("Fill the todo fields, confirm with the user, then submit skills/pro-launch/<path> as an issue or PR "
+                         "(a maintainer reviews it. Writing rules: skills/references/memory-principles.md §6)")})
 
 
 _HANDLERS = {"search": _search, "show": _show, "list": _list, "propose": _propose}
@@ -117,15 +117,15 @@ def cmd_kb(args) -> int:
 def configure_kb(p) -> None:
     p.add_argument("action", choices=list(KB_ACTIONS))
     # 위치 인자는 하나 (#622): search 는 찾을 문구, show 는 항목 id
-    p.add_argument("query", nargs="?", default=None, help="search: 오류 문구 · show: 항목 id")
-    p.add_argument("--code", default=None, help="search: 실패 응답의 code")
-    p.add_argument("--area", choices=list(troubleshoot.AREAS), default=None, help="list·propose: 영역")
-    p.add_argument("--key", default=None, help="propose: 이 기억 key 만")
-    p.add_argument("--limit", type=int, default=DEFAULT_SEARCH_LIMIT, help="search: 최대 건수")
+    p.add_argument("query", nargs="?", default=None, help="search: error text · show: entry id")
+    p.add_argument("--code", default=None, help="search: the code of the failed response")
+    p.add_argument("--area", choices=list(troubleshoot.AREAS), default=None, help="list·propose: area")
+    p.add_argument("--key", default=None, help="propose: only this memory key")
+    p.add_argument("--limit", type=int, default=DEFAULT_SEARCH_LIMIT, help="search: maximum matches")
     p.add_argument("--root", default=".")
 
 
 COMMANDS = [
-    Command(name="kb", help="공식 트러블슈팅 찾기·보기·목록, 내 기억에서 공식 항목 초안 뽑기",
+    Command(name="kb", help="Search, show and list official troubleshooting; draft official entries from your memory",
             run=cmd_kb, configure=configure_kb),
 ]

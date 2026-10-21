@@ -42,7 +42,7 @@ PREFERRED_ROLES_BY_ACTION = {
     "hover": ("link", "button"), "press": ("input", "button", "link"),
 }
 # next 에 붙일 그 동작의 필수 인자
-REQUIRED_ARGUMENT_BY_ACTION = {"type": " --text <값>", "select": " --value <값>", "press": " --key <키>"}
+REQUIRED_ARGUMENT_BY_ACTION = {"type": " --text <value>", "select": " --value <value>", "press": " --key <key>"}
 
 # 점수: 선택자 낱말이 이름·속성에 있음 3 · 선택자가 가리킨 종류 2 · 동작이 다루는 종류 1 · 비활성 -1
 WORD_MATCH_SCORE, SELECTOR_ROLE_SCORE, ACTION_ROLE_SCORE, DISABLED_PENALTY = 3, 2, 1, 1
@@ -111,9 +111,9 @@ def attach_candidates(failure: dict, page, selector: str | None, action: str) ->
         suggested = next((c for c in candidates if not c["disabled"]), candidates[0])
         failure["next"] = (f"web {action} --ref {suggested['ref']}"
                            f"{REQUIRED_ARGUMENT_BY_ACTION.get(action, '')}"
-                           "  # candidates 에서 고른다 (앞일수록 추측한 선택자에 가깝다)")
+                           "  # picked from candidates (earlier ones are closer to the guessed selector)")
     iframe_count = child_frame_count(page)
     if iframe_count:
         failure["iframe_count"] = iframe_count
-        failure["hint"] = "후보는 최상위 문서에서만 골랐다. 대상이 iframe 안이면 --frame <이름|iframe 선택자|주소 일부> 를 붙여 다시 부른다"
+        failure["hint"] = "Candidates come from the top-level document only. If the target is inside an iframe, call again with --frame <name|iframe selector|part of url>"
     return failure

@@ -19,13 +19,13 @@ ACTIONS = discover_actions(_actions)
 def configure(p) -> None:
     # 여러 동작이 함께 쓰는 옵션. 한 동작만 쓰는 옵션은 그 동작의 configure 에 둔다
     p.add_argument("action", choices=sorted(ACTIONS))
-    p.add_argument("--shot", default=None, help="tap·swipe·back·run: 끝나면 바로 찍는다 (이름 또는 경로) — 확인용 shot 호출을 아낀다")
+    p.add_argument("--shot", default=None, help="tap·swipe·back·run: take a shot right after (name or path) — saves a separate shot call")
     p.add_argument("--root", default=".")
     p.add_argument("--device", default=None,
-                   help="Android 시리얼 또는 iOS UDID. 없으면 $DEV → 붙은 기기가 한 대면 그것")
+                   help="Android serial or iOS UDID. Default: $DEV → the only attached device")
     p.add_argument("--yes", action="store_true",
-                   help="다른 세션이 쥔 기기에서도 진행한다 (사용자에게 물은 뒤에만)")
-    p.add_argument("--pkg", default=None, help="launch·terminate·relaunch·permission·push: 패키지명·번들 ID (없으면 $PKG → device bind 의 package)")
+                   help="proceed even on a device held by another session (only after asking the user)")
+    p.add_argument("--pkg", default=None, help="launch·terminate·relaunch·permission·push: package name / bundle ID (default: $PKG → device bind package)")
     add_shot_args(p)
     for action in ACTIONS.values():
         if action.configure:
@@ -45,6 +45,6 @@ def cmd_app(args) -> int:
 
 
 COMMANDS = [Command(name="app",
-                    help="앱 화면을 찍고(shot) 띄우고·끄고(launch·terminate·relaunch) 글자를 넣고(type) 누르고(tap) 민다(swipe) · 뒤로(back). 여러 단계는 한 번에(run). "
-                         "위치·권한·푸시·딥링크(location·permission·push·openurl)",
+                    help="Capture (shot), start/stop (launch·terminate·relaunch), type, tap, swipe and go back in an app. Several steps at once (run). "
+                         "Location, permissions, push, deep links (location·permission·push·openurl)",
                     run=cmd_app, configure=configure)]

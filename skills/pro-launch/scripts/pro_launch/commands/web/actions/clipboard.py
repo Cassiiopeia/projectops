@@ -22,29 +22,29 @@ def execute(args) -> int:
     value, reason = read_system_clipboard()
     if value is None:
         return out({"ok": False, "code": "clipboard_unreadable", "action": "clipboard", "error": reason,
-                    "next": "web value --selector <값이 보이는 칸> --save-env NAME  # 화면에 값이 있으면 이쪽"})
+                    "next": "web value --selector <box showing the value> --save-env NAME  # use this if the value is on screen"})
     value = value.strip("\r\n")
     if not value:
         return out({"ok": False, "code": "clipboard_empty", "action": "clipboard", "length": 0,
-                    "error": "클립보드가 비어 있습니다 (복사가 안 됐다)",
-                    "hint": "headless 브라우저의 복사는 시스템 클립보드에 닿지 않는다 — web open --headed 로 다시 열고 복사 버튼을 누른다",
-                    "next": "web click --ref <복사 버튼>  # 누른 뒤 다시 web clipboard"})
+                    "error": "The clipboard is empty (nothing was copied)",
+                    "hint": "Copying in a headless browser does not reach the system clipboard — reopen with web open --headed and press the copy button",
+                    "next": "web click --ref <copy button>  # then run web clipboard again"})
     if not args.save_env:
         return out({"action": "clipboard", "length": len(value),
                     "sha256_prefix": hashlib.sha256(value.encode("utf-8")).hexdigest()[:HASH_PREFIX_CHARS],
-                    "summary": f"클립보드 {len(value)}자 (저장하지 않음)",
-                    "next": "web clipboard --save-env NAME  # 값을 출력 없이 저장한다"})
+                    "summary": f"Clipboard holds {len(value)} chars (not saved)",
+                    "next": "web clipboard --save-env NAME  # save the value without printing it"})
     saved = save_value(project_root(args), args.save_env, value)
     return out({"action": "clipboard", **saved,
-                "summary": f"클립보드 {len(value)}자를 {args.save_env} 로 저장했다 (출력하지 않음)",
+                "summary": f"Saved {len(value)} clipboard chars as {args.save_env} (not printed)",
                 "next": saved_next(args.save_env)})
 
 
 def configure(p) -> None:
     p.add_argument("--save-env", dest="save_env", default=None,
-                   help="클립보드 값을 이 이름으로 저장한다 (출력하지 않음). web type --text-env 이름 으로 다시 쓴다")
+                   help="Save the clipboard value under this name (not printed). Reuse it with web type --text-env NAME")
 
 
 ACTION = Action(name="clipboard", needs="nothing", run=execute, configure=configure, options=(),
-                help="복사 버튼을 누른 뒤 클립보드 값을 출력 없이 저장한다 (길이 · 해시만 보여 준다)",
+                help="After pressing a copy button, save the clipboard value without printing it (shows only length · hash)",
                 example="web clipboard --save-env SHA1_FINGERPRINT")

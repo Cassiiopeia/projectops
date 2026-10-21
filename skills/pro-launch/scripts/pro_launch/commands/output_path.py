@@ -24,14 +24,14 @@ def cmd_output_path(args) -> int:
         from common.paths import EVIDENCE_SKILLS, resolve_output_path
     except ImportError:
         return out({"ok": False, "code": "common_not_found",
-                    "error": "scripts/common/paths.py 를 찾지 못했습니다",
-                    "hint": "projectops 설치가 온전한지 확인하세요"})
+                    "error": "scripts/common/paths.py not found",
+                    "hint": "Check that the projectops installation is complete"})
     # --root 가 가리키는 저장소 기준으로 자리를 계산한다. 없는 경로는 조용히 무시하지 않는다 (#713)
     if args.root and args.root != ".":
         root_dir = Path(args.root).expanduser()
         if not root_dir.is_dir():
             return out({"ok": False, "code": "not_found",
-                        "error": f"--root 경로가 없습니다: {root_dir}"})
+                        "error": f"--root path does not exist: {root_dir}"})
         os.chdir(root_dir)
     else:
         # 레포 밖에서 불려도 $PROJECT_ROOT·최근에 쓴 루트 기준으로 자리를 잡는다 (#885) — 아니면 git_not_found
@@ -41,9 +41,9 @@ def cmd_output_path(args) -> int:
     skill = args.skill or "launch"
     if skill not in EVIDENCE_SKILLS:
         return out({"ok": False, "code": "not_evidence_skill",
-                    "error": f"'{skill}' 은 증거 스킬로 등록돼 있지 않습니다",
-                    "hint": ("scripts/common/paths.py 의 EVIDENCE_SKILLS 에 넣어야 폴더에 "
-                             "추적 제외가 심깁니다. 등록된 것: " + ", ".join(sorted(EVIDENCE_SKILLS)))})
+                    "error": f"'{skill}' is not registered as an evidence skill",
+                    "hint": ("Add it to EVIDENCE_SKILLS in scripts/common/paths.py so the folder gets "
+                             "a tracking exclusion. Registered: " + ", ".join(sorted(EVIDENCE_SKILLS)))})
 
     r = resolve_output_path(skill, args.title)
     if r.get("ok") is False:
@@ -70,8 +70,8 @@ def cmd_output_path(args) -> int:
         "output_root": r.get("output_root"), "gitignore": state,
         "mismatch": r.get("mismatch"), "package": package,
         **({"package_changed": package_changed} if package_changed else {}),
-        "summary": f"산출물 자리 {run_dir} (추적 제외 {state})",
-        "next": f'source "{env}" 로 SHOT_DIR 을 불러 쓰세요. 캡처·증거는 전부 그 아래에 둡니다',
+        "summary": f"Output location {run_dir} (git exclusion {state})",
+        "next": f'source "{env}" to load SHOT_DIR. Put all captures and evidence under it',
     })
 
 
@@ -91,13 +91,13 @@ def _resolve_package(given: str | None, stored: str | None, root: Path) -> tuple
 
 def configure_get_output_path(p) -> None:
     p.add_argument("--skill", default=None,
-                   help="자리를 받을 작업 스킬 id (기본 launch). 증거 스킬만 된다")
-    p.add_argument("--title", default=None, help="제목. 없으면 워크트리 경로·브랜치명에서 뽑는다")
-    p.add_argument("--package", default=None, help="앱 패키지명 — env.sh 에 PKG 로 넣는다")
+                   help="Skill id to get a location for (default launch). Evidence skills only")
+    p.add_argument("--title", default=None, help="Title. Defaults to one derived from the worktree path or branch name")
+    p.add_argument("--package", default=None, help="App package name — written to env.sh as PKG")
     p.add_argument("--root", default=".")
 
 
 COMMANDS = [
-    Command(name="get-output-path", help="이번 실행의 산출물 자리 + env.sh", run=cmd_output_path,
+    Command(name="get-output-path", help="Output location for this run + env.sh", run=cmd_output_path,
             configure=configure_get_output_path),
 ]

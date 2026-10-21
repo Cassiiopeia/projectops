@@ -24,16 +24,16 @@ def _app_wait(args) -> int:
     is_settle = bool(getattr(args, "settle", False))
     if is_settle and selector:
         return out({"ok": False, "code": "settle_with_target",
-                    "error": "--settle 은 요소 없이 화면이 멈출 때까지 기다린다 — --text · --id · --desc 와 같이 쓰지 않는다",
-                    "next": "app wait --settle  또는  app wait --text <문구>"})
+                    "error": "--settle waits until the screen stops changing, without an element — do not combine it with --text · --id · --desc",
+                    "next": "app wait --settle  or  app wait --text <text>"})
     if not selector and not is_settle:
         return out({"ok": False, "code": "target_required",
-                    "error": "--text · --id · --desc 중 하나, 또는 화면이 멈출 때까지 --settle 이 필요하다",
-                    "next": "app wait --settle  # 전환·로딩이 끝날 때까지 (요소를 모르면)"})
+                    "error": "Needs one of --text · --id · --desc, or --settle to wait until the screen stops",
+                    "next": "app wait --settle  # until transitions and loading finish (when you do not know the element)"})
     timeout = getattr(args, "timeout", None) or DEFAULT_WAIT_TIMEOUT_SECONDS
     if not 0 < timeout <= MAXIMUM_WAIT_TIMEOUT_SECONDS:
         return out({"ok": False, "code": "timeout_too_large",
-                    "error": f"--timeout 은 초 단위 1~{MAXIMUM_WAIT_TIMEOUT_SECONDS} 이다 (받은 값 {timeout})"})
+                    "error": f"--timeout is 1–{MAXIMUM_WAIT_TIMEOUT_SECONDS} seconds (got {timeout})"})
     interval = max(getattr(args, "interval", None) or DEFAULT_POLL_INTERVAL_SECONDS, MINIMUM_POLL_INTERVAL_SECONDS)
     be, dev_id, err = backend_for(args)
     if err is not None:
@@ -55,8 +55,8 @@ def _app_wait(args) -> int:
             return out({"ok": True, "code": "ok", "device": dev_id, "via": be.name, "condition": condition,
                         "polls": polls, "waited_seconds": round(time.monotonic() - started, 1),
                         "elapsed_seconds": elapsed_seconds(args),
-                        "summary": f"{field}={value!r} " + ("사라짐" if should_be_gone else "나타남"),
-                        "next": "app shot  # 화면 확인"})
+                        "summary": f"{field}={value!r} " + ("gone" if should_be_gone else "appeared"),
+                        "next": "app shot  # check the screen"})
         if time.monotonic() >= deadline:
             break
         time.sleep(interval)
@@ -65,8 +65,8 @@ def _app_wait(args) -> int:
     return out({"ok": False, "code": "wait_timeout", "device": dev_id, "via": be.name,
                 "condition": condition, "polls": polls, "timeout_seconds": timeout,
                 "elapsed_seconds": elapsed_seconds(args),
-                "error": f"{timeout}초 동안 {field}={value!r} 가 " + ("사라지지 않았다" if should_be_gone else "나타나지 않았다"),
-                "next": "app shot 으로 화면을 보고 문구를 확인한다 (app tree)"})
+                "error": f"{field}={value!r} " + ("did not disappear" if should_be_gone else "did not appear") + f" within {timeout}s",
+                "next": "Look at the screen with app shot and check the text (app tree)"})
 
 
 def _screen_signature(nodes: list[dict]) -> str:
@@ -88,8 +88,8 @@ def _wait_until_settled(args, be, dev_id: str, timeout: float, interval: float) 
                                             "condition": "settle", "polls": polls, "elements": len(nodes),
                                             "waited_seconds": round(time.monotonic() - started, 1),
                                             "elapsed_seconds": elapsed_seconds(args),
-                                            "summary": "화면이 멈췄다 (연속 두 번 같은 구조)",
-                                            "next": "app tree  # 또는 app shot"}, be, dev_id, args))
+                                            "summary": "Screen settled (same structure twice in a row)",
+                                            "next": "app tree  # or app shot"}, be, dev_id, args))
         previous_signature = signature
         if time.monotonic() >= deadline:
             break
@@ -98,19 +98,19 @@ def _wait_until_settled(args, be, dev_id: str, timeout: float, interval: float) 
         return device_failure_response(be, dev_id, args)
     return out({"ok": False, "code": "wait_timeout", "device": dev_id, "via": be.name, "condition": "settle",
                 "polls": polls, "timeout_seconds": timeout, "elapsed_seconds": elapsed_seconds(args),
-                "error": f"{timeout}초 동안 화면 구조가 계속 바뀌었다 (애니메이션 · 시계 · 자동 넘김 화면일 수 있다)",
-                "next": "app shot 으로 보고, 기다릴 요소를 정해 app wait --text <문구>"})
+                "error": f"Screen structure kept changing for {timeout}s (may be an animation · clock · auto-advancing screen)",
+                "next": "Look with app shot, pick the element to wait for, then app wait --text <text>"})
 
 
 def configure(p) -> None:
     # --text · --id · --desc 는 tap 이, --timeout 은 flow 가 이미 정의했다 (app 은 파서 하나를 같이 쓴다)
-    p.add_argument("--gone", action="store_true", help="wait: 나타날 때가 아니라 사라질 때까지")
+    p.add_argument("--gone", action="store_true", help="wait: until it disappears instead of appears")
     p.add_argument("--settle", action="store_true",
-                   help="wait: 요소 대신 화면 구조가 연속 두 번 같을 때까지 (전환·로딩 끝 대기)")
+                   help="wait: instead of an element, until the screen structure is the same twice in a row (waits for transitions and loading)")
     p.add_argument("--interval", type=float, default=None,
-                   help=f"wait: 화면을 다시 읽는 간격 초 (기본 {DEFAULT_POLL_INTERVAL_SECONDS:g})")
+                   help=f"wait: seconds between screen reads (default {DEFAULT_POLL_INTERVAL_SECONDS:g})")
 
 
 ACTION = Action(name="wait", device_use="read", run=_app_wait, configure=configure,
-                help="요소(--text·--id·--desc)가 나타날 때까지, --gone 이면 사라질 때까지, --settle 이면 화면이 멈출 때까지 (--timeout 초)",
-                example='app wait --device $DEV --text "로드 중" --gone --timeout 40')
+                help="Wait until an element (--text·--id·--desc) appears, with --gone until it disappears, with --settle until the screen stops (--timeout seconds)",
+                example='app wait --device $DEV --text "Loading" --gone --timeout 40')

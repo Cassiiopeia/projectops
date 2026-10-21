@@ -341,6 +341,7 @@
       "general-login-interstitial-policy"
     ],
     "password": [
+      "general-cred-field-missing",
       "general-cred-never-read-config"
     ],
     "plugins": [
@@ -363,6 +364,9 @@
     ],
     "recovered": [
       "browser-start-stale-process-or-lock"
+    ],
+    "respond": [
+      "ios-maestro-stale-driver-or-overload"
     ],
     "returned": [
       "android-no-focused-window"
@@ -499,6 +503,9 @@
     "zsh": [
       "general-zsh-variable-command"
     ],
+    "값이": [
+      "general-cred-field-missing"
+    ],
     "기기": [
       "general-login-interstitial-policy"
     ],
@@ -508,8 +515,29 @@
     "대량": [
       "web-script-browser-memory-exceeded"
     ],
+    "뜨지": [
+      "browser-start-stale-process-or-lock"
+    ],
+    "렌더": [
+      "general-render-failed-first-error"
+    ],
+    "명령": [
+      "general-render-failed-first-error"
+    ],
+    "모릅니다": [
+      "web-viewport-width-height"
+    ],
     "묻지": [
       "general-login-interstitial-policy"
+    ],
+    "뷰포트": [
+      "web-viewport-width-height"
+    ],
+    "브라우저가": [
+      "browser-start-stale-process-or-lock"
+    ],
+    "비어": [
+      "general-env-not-set"
     ],
     "상태": [
       "general-login-interstitial-policy"
@@ -526,14 +554,32 @@
     "신뢰": [
       "general-login-interstitial-policy"
     ],
+    "실패": [
+      "general-render-failed-first-error"
+    ],
+    "않습니다": [
+      "general-bad-args-option-names"
+    ],
+    "않았습니다": [
+      "browser-start-stale-process-or-lock"
+    ],
+    "없습니다": [
+      "general-cred-field-missing"
+    ],
     "없음": [
       "ios-maestro-stale-driver-or-overload"
+    ],
+    "올바르지": [
+      "general-bad-args-option-names"
     ],
     "유지": [
       "general-login-interstitial-policy"
     ],
     "응답": [
       "ios-maestro-stale-driver-or-overload"
+    ],
+    "인자가": [
+      "general-bad-args-option-names"
     ],
     "인증": [
       "general-otp-no-resubmit"
@@ -549,6 +595,9 @@
     ],
     "패스키": [
       "general-login-interstitial-policy"
+    ],
+    "환경변수": [
+      "general-env-not-set"
     ]
   },
   "entries": {
@@ -659,7 +708,7 @@
         "Read stderr_tail in the response — it holds the reason the browser died immediately",
         "If profile_locked is true, find the browser process using the response's profile folder (ps · Task Manager), confirm with the user, then end it"
       ],
-      "keyword_count": 5,
+      "keyword_count": 8,
       "path": "web/browser-start-stale-process-or-lock.json"
     },
     "general-app-no-device": {
@@ -679,7 +728,7 @@
         "Read the unrecognized arguments · invalid choice part of error first",
         "launch_cli.py web --help"
       ],
-      "keyword_count": 0,
+      "keyword_count": 3,
       "path": "general/general-bad-args-option-names.json"
     },
     "general-cred-field-missing": {
@@ -689,7 +738,7 @@
         "For the username box: launch_cli.py web type --selector <box> --cred <name> --cred-field account",
         "If the field really is missing, get the value from the user and fill it with cred set (do not write the value yourself)"
       ],
-      "keyword_count": 0,
+      "keyword_count": 3,
       "path": "general/general-cred-field-missing.json"
     },
     "general-cred-never-read-config": {
@@ -709,7 +758,7 @@
         "Prefix it on the same command line: CODE=<value> launch_cli.py web type --selector <box> --text-env CODE",
         "The command line stays in the session record — pass only values that may stay there this way, such as one-time codes"
       ],
-      "keyword_count": 0,
+      "keyword_count": 2,
       "path": "general/general-env-not-set.json"
     },
     "general-login-interstitial-policy": {
@@ -749,7 +798,7 @@
         "Read first_error in the response first (or output_tail if absent)",
         "On Undefined name · Couldn't find constructor 'MethodChannel', add import 'package:flutter/services.dart';"
       ],
-      "keyword_count": 2,
+      "keyword_count": 5,
       "path": "general/general-render-failed-first-error.json"
     },
     "general-root-unknown-skill-folder": {
@@ -869,7 +918,7 @@
         "Check load with uptime (2x the core count or more means overload)",
         "In ps, check that maestro-driver-ios-config · maestro/lib are not owned by a pro-launch session"
       ],
-      "keyword_count": 9,
+      "keyword_count": 10,
       "path": "ios/ios-maestro-stale-driver-or-overload.json"
     },
     "ios-status-bar-custom-time": {
@@ -1059,7 +1108,7 @@
         "launch_cli.py web viewport --preset 1280x900",
         "launch_cli.py web viewport --preset mobile"
       ],
-      "keyword_count": 0,
+      "keyword_count": 2,
       "path": "web/web-viewport-width-height.json"
     }
   }

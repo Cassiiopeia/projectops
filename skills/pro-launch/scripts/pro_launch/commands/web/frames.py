@@ -64,9 +64,9 @@ def frame_scope(page, args, action: str):
     frame = find_frame(page, spec)
     if frame is None:
         return None, {"ok": False, "code": "frame_not_found", "action": action, "url": page.url,
-                      "error": f"--frame '{spec}' 에 맞는 iframe 이 없습니다",
+                      "error": f"No iframe matches --frame '{spec}'",
                       "frames": describe_frames(page),
-                      "next": "frames 의 name 이나 url 일부를 --frame 에 넣는다"}
+                      "next": "Pass a name or part of a url from frames to --frame"}
     return frame, None
 
 
@@ -76,4 +76,4 @@ def frames_hint(page) -> dict:
     if not frames:
         return {}
     return {"frames": frames,
-            "hint": "이 페이지에 iframe 이 있다. 대상이 그 안이면 --frame <이름|iframe 선택자|주소 일부> 를 붙인다"}
+            "hint": "This page has iframes. If the target is inside one, add --frame <name|iframe selector|part of url>"}

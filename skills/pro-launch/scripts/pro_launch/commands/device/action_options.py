@@ -58,9 +58,9 @@ def unused_options_failure(action: str, unused: list[str]) -> dict:
     """bad_args 응답: 무시될 옵션 · 이 동작이 받는 옵션 · 메모리 위험에 --yes 를 쓴 경우의 안내."""
     valid = sorted(option_label(dest) for dest in OPTIONS_BY_ACTION[action] | COMMON_OPTIONS)
     payload = {"ok": False, "code": "bad_args", "action": action, "unused_options": unused, "valid_options": valid,
-               "error": f"device {action} 는 {', '.join(unused)} 를 읽지 않는다 — 그대로 두면 조용히 무시된다",
-               "next": f"device {action} 가 받는 옵션만 남겨 다시 부른다: {' '.join(valid)}"}
+               "error": f"device {action} does not read {', '.join(unused)} — left as is, it would be silently ignored",
+               "next": f"Call again with only the options device {action} accepts: {' '.join(valid)}"}
     if "--yes" in unused and "--user-approved" in valid:
-        payload["next"] = ("--yes 를 빼고 다시 부른다 — --yes 는 메모리 위험 게이트를 넘지 않는다. 메모리 위험으로 멈추면 "
-                           "사용자에게 reasons 를 보여 주고 답을 받은 뒤 --user-approved 를 붙인다")
+        payload["next"] = ("Call again without --yes — --yes does not pass the memory risk gate. If it stops on memory risk, "
+                           "show the reasons to the user and, once they answer, add --user-approved")
     return payload

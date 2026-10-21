@@ -30,24 +30,24 @@ def _web_inspect(page, args) -> dict:
     total = res.get("total") or 0
     if args.near and res.get("anchor_found") is False:
         return {"ok": False, "code": "near_not_found", "action": "inspect", "url": page.url,
-                "error": f"'{args.near}' 글자가 화면에 없습니다",
-                "next": f'web text --grep "{args.near}"  # 화면에 실제로 있는 글자를 확인한다'}
+                "error": f"Text '{args.near}' is not on the screen",
+                "next": f'web text --grep "{args.near}"  # check the text that is really on the screen'}
     if not items:
         return {"ok": False, "code": "nothing_found", "action": "inspect", "items": [], "total": 0, "shown": 0,
-                "url": page.url, "title": safe_title(page), "error": f"보이는 {args.role} 요소가 없습니다",
+                "url": page.url, "title": safe_title(page), "error": f"No visible {args.role} element",
                 "next": "web inspect --role all"}
     return {"action": "inspect", "role": args.role, "near": args.near, "items": items,
             "shown": len(items), "total": total, "truncated": total > len(items),
             "url": page.url, "title": safe_title(page),
-            "summary": f"{args.role} {len(items)}개 (전체 {total})",
-            "next": "web type --ref <번호> --text <값> · web check --ref <번호> · web select --ref <번호> --value <값>"}
+            "summary": f"{len(items)} {args.role} (of {total})",
+            "next": "web type --ref <number> --text <value> · web check --ref <number> · web select --ref <number> --value <value>"}
 
 
 def configure(p) -> None:
     p.add_argument("--role", choices=(*ROLE_CHOICES, *ROLE_ALIASES), default="all",
-                   help="읽을 종류 (기본 all). textbox · searchbox 는 input, radio · switch 는 checkbox")
-    p.add_argument("--near", default=None, help="이 글자 가까이 있는 것부터 (라벨에 그 글자가 있으면 맨 앞)")
-    p.add_argument("--limit", type=int, default=40, help=f"돌려줄 최대 개수 (최대 {MAXIMUM_LIMIT})")
+                   help="Kind to read (default all). textbox · searchbox mean input, radio · switch mean checkbox")
+    p.add_argument("--near", default=None, help="Closest to this text first (labels containing it come first)")
+    p.add_argument("--limit", type=int, default=40, help=f"Maximum number to return (max {MAXIMUM_LIMIT})")
 
 
 def execute(page, args, state: dict) -> dict:
@@ -55,5 +55,5 @@ def execute(page, args, state: dict) -> dict:
 
 
 ACTION = Action(name="inspect", run=execute, configure=configure, options=("frame",),
-                help="입력창·버튼·체크·선택·링크를 이름·값·상태·ref 와 함께 읽는다 (읽기 전용)",
-                example='web inspect --role input --near "이메일"')
+                help="Read inputs, buttons, checkboxes, selects and links with name, value, state and ref (read-only)",
+                example='web inspect --role input --near "Email"')

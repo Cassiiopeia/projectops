@@ -143,17 +143,17 @@ class AndroidEmulatorBackend:
             if appeared["problem"]:
                 device_boot.kill_emulator(serial, key)
             return {"is_ok": False, "instance": serial, "already_booted": False,
-                    "detail": appeared["problem"] or f"에뮬레이터가 adb 에 나타나지 않았다 (로그: {launched['log']})"}
+                    "detail": appeared["problem"] or f"emulator did not appear in adb (log: {launched['log']})"}
         ready = android_device.wait_until_ready(serial)
         return {"is_ok": bool(ready["is_ready"]), "instance": serial, "already_booted": False,
-                "detail": None if ready["is_ready"] else ready.get("detail") or "부팅 완료를 기다리다 멈췄다"}
+                "detail": None if ready["is_ready"] else ready.get("detail") or "stopped while waiting for boot to complete"}
 
     def shutdown(self, key: str, instance: str | None) -> dict:
         serial = instance or {avd: s for s, avd in device_boot.running_emulators().items()}.get(key)
         if not serial:
             return {"is_ok": True, "detail": None}
         killed = device_boot.kill_emulator(serial, key)
-        return {"is_ok": killed["is_gone"], "detail": None if killed["is_gone"] else f"남은 프로세스 {killed['forced_pids']}"}
+        return {"is_ok": killed["is_gone"], "detail": None if killed["is_gone"] else f"processes left: {killed['forced_pids']}"}
 
     def key_of_instance(self, instance: str) -> str | None:
         return device_boot.emulator_avd_name(instance) if instance.startswith("emulator-") else None
@@ -164,7 +164,7 @@ class AndroidEmulatorBackend:
         """avdmanager 실행 > (성공, 오류 줄 또는 출력). 에뮬레이터와 같은 SDK 의 것을 쓴다 (PATH 의 Homebrew 것은 다른 SDK 를 본다, 실측)."""
         avdmanager, sdk_root = avdmanager_of_emulator_sdk()
         if not avdmanager:
-            return False, "avdmanager 를 찾지 못했다 (Android SDK cmdline-tools 설치 확인)"
+            return False, "avdmanager not found (check the Android SDK cmdline-tools install)"
         environment = {**os.environ, **({"ANDROID_SDK_ROOT": str(sdk_root), "ANDROID_HOME": str(sdk_root)} if sdk_root else {})}
         try:
             # 사용자 하드웨어 프로필을 만들지 묻는 질문에 no
@@ -208,7 +208,7 @@ class AndroidEmulatorBackend:
         templates += [t for t in self.installed_image_templates(form, os_minimum) if t["package"] not in tried]
         if not templates:
             return {"is_ok": False, "key": None,
-                    "detail": f"본으로 쓸 {form} AVD(시스템 이미지)가 없다 — Android Studio 에서 하나 만든 뒤 다시"}
+                    "detail": f"no {form} AVD (system image) to use as a template — create one in Android Studio, then retry"}
         avd_name, failures = avd_name_of(name), []
         for template in templates:
             arguments = ["create", "avd", "-n", avd_name, "-k", template["package"]]
@@ -217,16 +217,16 @@ class AndroidEmulatorBackend:
             is_ok, text = self._avdmanager(*arguments)
             if is_ok:
                 return {"is_ok": True, "key": avd_name, "detail": None, "system_image": template["package"]}
-            failures.append(f"{template['package']}: {text or '실패'}")
+            failures.append(f"{template['package']}: {text or 'failed'}")
         return {"is_ok": False, "key": None,
-                "detail": (" / ".join(failures)[-400:] + " — avdmanager 가 오래됐으면 sdkmanager 'cmdline-tools;latest' 로 올린다")}
+                "detail": (" / ".join(failures)[-400:] + " — if avdmanager is old, update it with sdkmanager 'cmdline-tools;latest'")}
 
     def erase(self, key: str) -> dict:
         if key in device_boot.running_emulators().values():
-            return {"is_ok": False, "detail": "켜져 있는 에뮬레이터는 초기화하지 않는다 — device shutdown 먼저"}
+            return {"is_ok": False, "detail": "a running emulator is not erased — run device shutdown first"}
         folder = avd_folder(key)
         if not folder.is_dir():
-            return {"is_ok": False, "detail": f"AVD 폴더가 없다: {folder}"}
+            return {"is_ok": False, "detail": f"AVD folder not found: {folder}"}
         for file_name in WIPE_FILE_NAMES:
             (folder / file_name).unlink(missing_ok=True)
         for folder_name in WIPE_FOLDER_NAMES:
@@ -238,10 +238,10 @@ class AndroidEmulatorBackend:
         return {"is_ok": is_ok, "detail": None if is_ok else text[-300:]}
 
     def raw_command_patterns(self) -> tuple[RawCommandPattern, ...]:
-        return (RawCommandPattern(r"\bavdmanager\b.*\bcreate\s+avd\b", "launch_cli.py device create --platform android --reason '<왜 새 기기가 필요한가>'"),
-                RawCommandPattern(r"\bavdmanager\b.*\bdelete\s+avd\b", "launch_cli.py device delete --device <AVD 이름>"),
-                RawCommandPattern(r"\bemulator\b.*\s-wipe-data\b", "launch_cli.py device erase --device <AVD 이름>"),
-                RawCommandPattern(r"\badb\b.*\bemu\s+kill\b", "launch_cli.py device shutdown --device <시리얼>"))
+        return (RawCommandPattern(r"\bavdmanager\b.*\bcreate\s+avd\b", "launch_cli.py device create --platform android --reason '<why a new device is needed>'"),
+                RawCommandPattern(r"\bavdmanager\b.*\bdelete\s+avd\b", "launch_cli.py device delete --device <AVD name>"),
+                RawCommandPattern(r"\bemulator\b.*\s-wipe-data\b", "launch_cli.py device erase --device <AVD name>"),
+                RawCommandPattern(r"\badb\b.*\bemu\s+kill\b", "launch_cli.py device shutdown --device <serial>"))
 
     def disk_bytes(self, key: str) -> int:
         return folder_bytes(avd_folder(key))
@@ -266,15 +266,15 @@ class AndroidEmulatorBackend:
     def clone(self, key: str, name: str) -> dict:
         """꺼진 AVD 폴더를 복제 > 새 .ini · config 의 AVD 이름 갱신 · 실행 흔적 제거."""
         if key in device_boot.running_emulators().values():
-            return {"is_ok": False, "key": None, "detail": "켜져 있는 에뮬레이터는 복제하지 않는다"}
+            return {"is_ok": False, "key": None, "detail": "a running emulator is not cloned"}
         home, clone_name = avd_home(), avd_name_of(name)
         source_folder, target_folder = avd_folder(key, home), home / f"{clone_name}.avd"
         if target_folder.exists() or (home / f"{clone_name}.ini").exists():
-            return {"is_ok": False, "key": None, "detail": f"같은 이름의 AVD 가 이미 있다: {clone_name}"}
+            return {"is_ok": False, "key": None, "detail": f"an AVD with the same name already exists: {clone_name}"}
         is_copied, detail = procs.clone_tree(str(source_folder), str(target_folder))
         if not is_copied:
             shutil.rmtree(target_folder, ignore_errors=True)
-            return {"is_ok": False, "key": None, "detail": detail or "AVD 폴더를 복제하지 못했다"}
+            return {"is_ok": False, "key": None, "detail": detail or "could not clone the AVD folder"}
         for path in list(target_folder.rglob("*")):
             if path.name not in CLONE_SKIP_NAMES and path.suffix not in CLONE_SKIP_SUFFIXES:
                 continue

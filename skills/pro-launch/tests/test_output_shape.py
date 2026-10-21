@@ -52,7 +52,7 @@ def test_failure_summary_never_says_done():
     assert rt_output.default_summary({"ok": False, "action": "acquire", "code": "needs_user",
                                       "reasons": ["메모리 위험"]}) == "메모리 위험"
     summary = rt_output.default_summary({"ok": False, "action": "boot", "code": "boot_failed"})
-    assert "완료" not in summary and "boot_failed" in summary
+    assert "done" not in summary and summary.startswith("boot failed") and "boot_failed" in summary
 
 
 def test_brief_keeps_failure_evidence_that_next_points_to():

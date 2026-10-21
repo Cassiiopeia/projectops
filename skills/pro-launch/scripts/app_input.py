@@ -207,7 +207,7 @@ class AndroidBackend(Backend):
     """adb + uiautomator. 기기 내장이라 추가 설치가 없다."""
     name = "android"
     has_back_button = True
-    install_hint = "Android SDK platform-tools(adb)를 설치하거나 ANDROID_HOME 을 맞춘다"
+    install_hint = "Install Android SDK platform-tools (adb) or set ANDROID_HOME"
 
     def _adb(self, dev: str, *args: str, timeout: int = 15, binary: bool = False,
              input_text: str | None = None):
@@ -237,7 +237,7 @@ class AndroidBackend(Backend):
                 r = self._adb(dev, "exec-out", "uiautomator", "dump", "/dev/tty", timeout=UI_DUMP_TIMEOUT_SECONDS)
             except subprocess.TimeoutExpired:
                 self.device_failure = {"code": "ui_dump_timeout",
-                                        "reason": f"uiautomator dump 가 {UI_DUMP_TIMEOUT_SECONDS}초 안에 끝나지 않았다"}
+                                        "reason": f"uiautomator dump did not finish within {UI_DUMP_TIMEOUT_SECONDS}s"}
             else:
                 if "<hierarchy" in (r.stdout or ""):
                     return ui_nodes(r.stdout)
@@ -267,7 +267,7 @@ class AndroidBackend(Backend):
             probe = ""
         if probe.startswith("running") or "window: not found" in probe:
             return {"code": "android_system_not_ready",
-                    "reason": "Android 시스템이 (재)시작 중이다 — 부팅 애니메이션이 떠 있거나 window 서비스가 없다"}
+                    "reason": "Android system is (re)starting — the boot animation is showing or the window service is missing"}
         return None
 
     def _dump_failure(self, dev: str, output: str) -> dict:
@@ -277,11 +277,11 @@ class AndroidBackend(Backend):
             return not_ready
         if NO_FOCUSED_WINDOW_MARKER in output:
             return {"code": "no_focused_window",
-                    "reason": "초점을 가진 창이 없다 (화면 꺼짐·잠금·화면 전환 중) — 깨운 뒤에도 계속이면 app shot 으로 화면을 본다"}
+                    "reason": "No focused window (screen off, locked or switching) — if it persists after waking, look at the screen with app shot"}
         if any(marker in output for marker in UI_AUTOMATION_FAILURE_MARKERS):
             return {"code": "ui_automation_unavailable",
-                    "reason": "uiautomator 가 UiAutomation 에 붙지 못했다 (다른 자동화 도구가 쥐고 있거나 시스템이 불안정)"}
-        return {"code": "ui_dump_failed", "reason": (output.strip()[-200:] or "빈 출력")}
+                    "reason": "uiautomator could not attach to UiAutomation (another automation tool holds it, or the system is unstable)"}
+        return {"code": "ui_dump_failed", "reason": (output.strip()[-200:] or "empty output")}
 
     def _size(self, dev: str) -> tuple[int, int] | None:
         """화면 크기. Override 가 있으면 그것이 실제 입력 좌표계라 마지막 값을 쓴다."""
@@ -295,13 +295,13 @@ class AndroidBackend(Backend):
     def tap_ratio(self, dev, rx, ry):
         size = self._size(dev)
         if not size:
-            return False, "wm size 를 읽지 못했다"
+            return False, "Could not read wm size"
         return self.tap_xy(dev, round(rx * size[0]), round(ry * size[1]))
 
     def swipe_ratio(self, dev, start, end, ms):
         size = self._size(dev)
         if not size:
-            return False, "wm size 를 읽지 못했다"
+            return False, "Could not read wm size"
         pts = [round(start[0] * size[0]), round(start[1] * size[1]),
                round(end[0] * size[0]), round(end[1] * size[1])]
         r = self._adb(dev, "shell", "input", "swipe", *map(str, pts), str(ms))
@@ -405,7 +405,7 @@ class IOSMaestroBackend(Backend):
                                    text=True, timeout=self.timeout,
                                    env={**os.environ, **env} if env else None)
             except subprocess.TimeoutExpired:
-                return None, [f"maestro 응답 없음 ({self.timeout}초)"]
+                return None, [f"maestro did not respond ({self.timeout}s)"]
         # Maestro 는 끝에 광고 상자(│ ╭ ╰)를 찍는다. 걷어내야 실패 원인 줄이 보인다
         lines = [l for l in ((r.stdout or "") + (r.stderr or "")).splitlines()
                  if l.strip() and not l.lstrip().startswith(("│", "╭", "╰"))]

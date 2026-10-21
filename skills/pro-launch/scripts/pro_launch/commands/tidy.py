@@ -242,12 +242,12 @@ def _apply(buckets: list[dict], maestro: dict, tmp: dict, idle_days: float) -> t
 def cmd_tidy(args) -> int:
     if not args.buckets:
         if args.apply:
-            return out({"ok": False, "code": "bad_args", "error": "--apply 는 --buckets 와 함께 쓴다",
+            return out({"ok": False, "code": "bad_args", "error": "--apply is used together with --buckets",
                         "next": "tidy --buckets [--apply] [--days N]"})
         merged = knowledge.tidy()
         return out({"ok": True, "code": "ok", **merged,
-                    "summary": f"{merged['moved_to_machine']}건을 이 컴퓨터 범위로 옮김 (합친 것 {merged['merged']}건)",
-                    "next": "recall --scope machine  # 결과를 본다"})
+                    "summary": f"Moved {merged['moved_to_machine']} entries to the machine scope ({merged['merged']} merged)",
+                    "next": "recall --scope machine  # see the result"})
     now = time.time()
     command_lines = process_command_lines()
     buckets = _bucket_rows(command_lines, now)
@@ -263,29 +263,29 @@ def cmd_tidy(args) -> int:
         stale_knowledge = [m for rows in applied_knowledge for m in rows]
     deletable = [r for r in buckets if r["action"].startswith("delete")]
     total_mb = _megabytes(int(sum(r["size_mb"] for r in buckets) * 1_000_000))
-    summary = (f"{len(removed)}건 정리함" if args.apply else
-               f"버킷 {len(buckets)}개 {total_mb}MB · 정리 후보 {len(deletable)}개 · Maestro {maestro['count']}개 "
-               f"{maestro['size_mb']}MB (보고만 — 지우려면 --apply)")
+    summary = (f"Cleaned up {len(removed)} item(s)" if args.apply else
+               f"{len(buckets)} bucket(s) {total_mb}MB · {len(deletable)} cleanup candidate(s) · Maestro {maestro['count']} "
+               f"{maestro['size_mb']}MB (report only — use --apply to delete)")
     return out({"ok": True, "code": "ok", "mode": "apply" if args.apply else "dry", "idle_days": args.days,
                 "buckets": sorted(buckets, key=lambda r: -r["size_mb"]), "total_mb": total_mb,
                 "maestro_tests": {k: v for k, v in maestro.items() if k != "_old"},
                 "projectops_tmp": {k: v for k, v in tmp.items() if k != "_old"},
                 "stale_knowledge": stale_knowledge, "removed": removed, "skipped": skipped,
                 "summary": summary,
-                "next": ("tidy --buckets --apply  # 정리 후보(action: delete_*)와 오래된 Maestro 출력만 지운다"
+                "next": ("tidy --buckets --apply  # deletes only cleanup candidates (action: delete_*) and old Maestro output"
                          if not args.apply and (deletable or maestro["old_count"]) else None)})
 
 
 def configure_tidy(p) -> None:
     p.add_argument("--buckets", action="store_true",
-                   help="기억 통합 대신 쌓인 상태(버킷 · 프로필 · Maestro 출력 · tmp · 낡은 기억)를 보고한다")
-    p.add_argument("--apply", action="store_true", help="--buckets 와 함께: 보고만 하지 않고 정리한다")
+                   help="Instead of merging memory, report accumulated state (buckets · profiles · Maestro output · tmp · stale memory)")
+    p.add_argument("--apply", action="store_true", help="With --buckets: clean up instead of only reporting")
     p.add_argument("--days", type=float, default=DEFAULT_IDLE_DAYS,
-                   help=f"이 일수보다 오래 안 쓴 것만 정리 대상 (기본 {DEFAULT_IDLE_DAYS})")
+                   help=f"Only clean up items unused for longer than this many days (default {DEFAULT_IDLE_DAYS})")
     p.add_argument("--root", default=".")
 
 
 COMMANDS = [
-    Command(name="tidy", help="흩어진 기억 정리 (--buckets: 쌓인 상태 보고 · --apply 때만 정리)",
+    Command(name="tidy", help="Tidy scattered memory (--buckets: report accumulated state · cleans up only with --apply)",
             run=cmd_tidy, configure=configure_tidy),
 ]

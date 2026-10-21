@@ -16,7 +16,7 @@ def load_cred(name: str | None):
         return credentials.resolve(name), None
     except credentials.CredError as e:
         return None, {"ok": False, "code": e.code, "error": e.message,
-                      "next": "cred list  # 저장된 자격증명과 use_when 을 본다"}
+                      "next": "cred list  # shows saved credentials and their use_when"}
 
 
 def cred_name_for(args, saved) -> str | None:
@@ -38,8 +38,8 @@ def cred_field(name: str, field: str | None) -> tuple[str | None, dict | None]:
         keys = sorted(k for k, x in cred.items() if isinstance(x, (str, int, float)) and x != ""
                       and k not in ("name", "kind"))
         return None, {"ok": False, "code": "cred_field_missing",
-                      "error": f"'{name}' 에 '{f}' 값이 없습니다", "fields": keys,
-                      "next": f"cred set --name {name} --json '{{\"{f}\": \"...\"}}'  # 또는 --cred-field 로 다른 필드를 고른다"}
+                      "error": f"'{name}' has no '{f}' value", "fields": keys,
+                      "next": f"cred set --name {name} --json '{{\"{f}\": \"...\"}}'  # or pick another field with --cred-field"}
     return str(v), None
 
 

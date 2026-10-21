@@ -17,28 +17,28 @@ def execute(args, state: dict, state_f: Path) -> int:
         state.pop("dialog", None)
         write_state(state_f, state)
         return out({"action": "dialog", "armed": None,
-                    "summary": "대화상자 처리를 풀었습니다 (뜨면 닫는다)"})
+                    "summary": "Dialog handling cleared (dialogs get dismissed)"})
     if not (args.accept or args.dismiss):
         return out({"action": "dialog", "armed": state.get("dialog"),
-                    "summary": "걸어 둔 처리: " + (state["dialog"]["action"] if state.get("dialog") else "없음 (뜨면 닫는다)"),
-                    "hint": "web dialog --accept [--text <prompt 입력>] 또는 --dismiss"})
+                    "summary": "Armed handling: " + (state["dialog"]["action"] if state.get("dialog") else "none (dialogs get dismissed)"),
+                    "hint": "web dialog --accept [--text <prompt input>] or --dismiss"})
     plan = {"action": "accept" if args.accept else "dismiss"}
     if args.accept and args.text is not None:
         plan["text"] = args.text
     state["dialog"] = plan
     write_state(state_f, state)
     return out({"action": "dialog", "armed": plan,
-                "summary": f"다음 대화상자를 {'수락' if args.accept else '거절'}합니다 (한 번)",
-                "next": "web click --ref <번호>  # 대화상자를 띄우는 조작. 결과의 dialog 에 처리 내용이 실린다"})
+                "summary": f"The next dialog will be {'accepted' if args.accept else 'dismissed'} (once)",
+                "next": "web click --ref <number>  # the action that opens the dialog. Its result carries what was done in dialog"})
 
 
 def configure(p) -> None:
     group = p.add_mutually_exclusive_group()
-    group.add_argument("--accept", action="store_true", help="수락 (confirm 확인 · prompt 는 --text 를 넣는다)")
-    group.add_argument("--dismiss", action="store_true", help="거절 (취소)")
+    group.add_argument("--accept", action="store_true", help="Accept (OK on confirm · prompt gets --text)")
+    group.add_argument("--dismiss", action="store_true", help="Dismiss (Cancel)")
 
 
 ACTION = Action(name="dialog", needs="state_offline", run=execute, configure=configure,
                 options=("text", "clear"),
-                help="다음 대화상자(alert·confirm·prompt)를 수락·거절하도록 미리 건다 (한 번)",
-                example='web dialog --accept --text "새 이름"')
+                help="Arm the next dialog (alert · confirm · prompt) to be accepted or dismissed (once)",
+                example='web dialog --accept --text "New name"')

@@ -6,9 +6,11 @@
     "codes": [
       "cred_field_missing"
     ],
-    "keywords": []
+    "keywords": [
+      "password 값이 없습니다"
+    ]
   },
-  "symptom": "web type · app type --cred end with cred_field_missing ('<name>' 에 'password' 값이 없습니다 = '<name>' has no 'password' value)",
+  "symptom": "web type · app type --cred end with cred_field_missing (\"'<name>' has no 'password' value\")",
   "cause": "Without --cred-field, --cred types the password field. You meant to fill the username box, or that credential lacks the field. The response's fields lists the fields that exist",
   "fix": [
     "For the username box: launch_cli.py web type --selector <box> --cred <name> --cred-field account",

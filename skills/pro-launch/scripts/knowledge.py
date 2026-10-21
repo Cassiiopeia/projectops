@@ -123,7 +123,7 @@ def _secret_error(text: str) -> dict | None:
     if not spans:
         return None
     return {"error": "secret_detected",
-            "message": "비밀값으로 보이는 것이 있어 저장하지 않았다: "
+            "message": "Not saved: it contains what looks like a secret: "
                        + ", ".join(f"{s['label']}({s['matched_span']})" for s in spans),
             "matched_span": [s["matched_span"] for s in spans]}
 
@@ -135,24 +135,24 @@ def learn(path: Path, area: str, key: str, how: str, result: str,
     how 가 상한을 넘으면 자르지 않고 too_long 으로 거절한다 — 조용히 자르면 결론이 문장 중간에서 사라진다 (#863).
     """
     if area not in AREAS:
-        return {"error": "bad_area", "message": f"area 는 {'/'.join(AREAS)} 중 하나"}
+        return {"error": "bad_area", "message": f"area must be one of {'/'.join(AREAS)}"}
     if result not in ("ok", "fail"):
-        return {"error": "bad_result", "message": "result 는 ok 또는 fail"}
+        return {"error": "bad_result", "message": "result must be ok or fail"}
     k = norm_key(key)
     how = " ".join((how or "").split())
     if not k or not how:
-        return {"error": "empty", "message": "key 와 how 가 비어 있다"}
+        return {"error": "empty", "message": "key and how are empty"}
     if FORBIDDEN.search(how):
         return {"error": "forbidden_method",
-                "message": "호스트 마우스로 좌표를 누르는 방법은 기억하지 않는다 — 프로젝트 E2E 를 쓴다"}
+                "message": "Methods that click coordinates with the host mouse are not remembered — use the project E2E"}
     if len(how) > MAX_HOW:
         return {"error": "too_long", "length": len(how), "limit": MAX_HOW,
-                "message": f"how 가 {len(how)}자로 상한 {MAX_HOW}자를 넘는다 — 한 줄 결론만 how 에 두고 "
-                           "경위·이유는 --detail 로 넘긴다"}
+                "message": f"how is {len(how)} chars, over the {MAX_HOW}-char limit — keep only the one-line conclusion in how "
+                           "and pass the background·reason with --detail"}
     detail = (detail or "").strip()
     if len(detail) > MAX_DETAIL:
         return {"error": "too_long", "length": len(detail), "limit": MAX_DETAIL,
-                "message": f"detail 이 {len(detail)}자로 상한 {MAX_DETAIL}자를 넘는다 — 핵심만 남긴다"}
+                "message": f"detail is {len(detail)} chars, over the {MAX_DETAIL}-char limit — keep only the essentials"}
     secret = _secret_error(k + " " + how + " " + detail)
     if secret:
         return secret

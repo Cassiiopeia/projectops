@@ -29,8 +29,8 @@
 ### `browser-start-stale-process-or-lock` — web open fails with browser_start_failed — a problem left after self-recovery
 
 - Codes: `browser_start_failed` · `browser_hung`
-- Keywords: SingletonLock, SingletonSocket, profile_locked, stderr_tail, recovered
-- Symptom: web open ends with browser_start_failed and no browser appears (error: "브라우저가 뜨지 않았습니다" — the browser did not start). The response carries causes · recovered · stderr_tail
+- Keywords: SingletonLock, SingletonSocket, profile_locked, stderr_tail, recovered, 브라우저가 뜨지 않았습니다
+- Symptom: web open ends with browser_start_failed and no browser appears (error: "Browser did not start"). The response carries causes · recovered · stderr_tail
 - Cause: web open first checks the recorded browser: if it is dead, it clears leftover locks; if it is alive but CDP does not answer within 3 s, it kills it and starts a new one (recovered lists dead_pid · stale_lock · hung_browser). If it still fails, an unrecorded process is using the same profile (locks are not deleted then), or the browser itself dies immediately
 - Fix:
   1. Read stderr_tail in the response — it holds the reason the browser died immediately
@@ -226,7 +226,8 @@
 ### `web-viewport-width-height` — web viewport --width --height returns bad_viewport — set the size with --preset
 
 - Codes: `bad_viewport`
-- Symptom: web viewport --width 1280 --height 900 ends with bad_viewport (error: "뷰포트 '' 을 모릅니다" — unknown viewport '')
+- Keywords: 뷰포트 모릅니다
+- Symptom: web viewport --width 1280 --height 900 ends with bad_viewport (error: "Unknown viewport ''")
 - Cause: viewport reads only --preset. --width · --height are window-size options for when web open starts a new window, so viewport does not use them
 - Fix:
   1. launch_cli.py web viewport --preset 1280x900
@@ -476,7 +477,7 @@
 ### `ios-maestro-slow-cold-start` — iOS app tap · swipe · tree take tens of seconds — Maestro JVM starts per call
 
 - Keywords: maestro, 90초, 90s
-- Symptom: On an iOS simulator, app tap · swipe · tree take 20–50 s each or fail with 'maestro 응답 없음 (90초)' (maestro unresponsive, 90 s). On Android they take a few seconds
+- Symptom: On an iOS simulator, app tap · swipe · tree take 20–50 s each or fail with 'maestro did not respond (90s)'. On Android they take a few seconds
 - Cause: simctl has no tap or screen-structure commands, so iOS control goes to Maestro, and a new Maestro (JVM) starts on every call. The per-action limit is 90 s. This is expected slowness, not a fault
 - Fix:
   1. If you look → decide → tap many times, start the resident session first: launch_cli.py app session start --device <UDID> (then tree 0.6 s · tap 1 s)
@@ -489,8 +490,8 @@
 ### `ios-maestro-stale-driver-or-overload` — iOS tap fails at 90 s and session start fails too — leftover driver or load
 
 - Codes: `session_start_failed`
-- Keywords: tools/call timed out, maestro 응답 없음, xcodebuild, maestro unresponsive
-- Symptom: tap_failed repeats with 'maestro 응답 없음 (90초)' (maestro unresponsive, 90 s), and app session start, as advised, fails with 'tools/call timed out after 120s'
+- Keywords: tools/call timed out, maestro 응답 없음, xcodebuild, maestro unresponsive, respond
+- Symptom: tap_failed repeats with 'maestro did not respond (90s)', and app session start, as advised, fails with 'tools/call timed out after 120s'
 - Cause: An xcodebuild (maestro-driver-ios-config.xctestrun) or maestro JVM left by an earlier run is still alive, or host load is high, so the driver cannot start. Starting a session does not fix this
 - Fix:
   1. Check load with uptime (2x the core count or more means overload)
@@ -569,7 +570,8 @@
 ### `general-bad-args-option-names` — bad_args — wrong option name (--full-page · --field · positional argument)
 
 - Codes: `bad_args`
-- Symptom: The command ends with bad_args (인자가 올바르지 않습니다 = invalid arguments: unrecognized arguments …)
+- Keywords: 인자가 올바르지 않습니다
+- Symptom: The command ends with bad_args ("Invalid arguments: unrecognized arguments …")
 - Cause: You passed an option or positional argument that does not exist. Common mistakes: web shot takes --full (not --full-page), the credential field is --cred-field (not --field), cred show takes --name <name> (not positional), cred actions are only list · show · set · unset · import-ssh (no add)
 - Fix:
   1. Read the unrecognized arguments · invalid choice part of error first
@@ -581,7 +583,8 @@
 ### `general-cred-field-missing` — --cred returns cred_field_missing — without a field choice it types password
 
 - Codes: `cred_field_missing`
-- Symptom: web type · app type --cred end with cred_field_missing ('<name>' 에 'password' 값이 없습니다 = '<name>' has no 'password' value)
+- Keywords: password 값이 없습니다
+- Symptom: web type · app type --cred end with cred_field_missing ("'<name>' has no 'password' value")
 - Cause: Without --cred-field, --cred types the password field. You meant to fill the username box, or that credential lacks the field. The response's fields lists the fields that exist
 - Fix:
   1. For the username box: launch_cli.py web type --selector <box> --cred <name> --cred-field account
@@ -602,7 +605,8 @@
 ### `general-env-not-set` — --text-env returns env_not_set — pass the variable name, not the value
 
 - Codes: `env_not_set`
-- Symptom: web type · app type end with env_not_set (환경변수 … 가 비어 있습니다 = environment variable … is empty)
+- Keywords: 환경변수 비어
+- Symptom: web type · app type end with env_not_set ("Environment variable … is empty")
 - Cause: --text-env takes an environment variable name. No variable with that name is in the launch_cli process environment: the value itself was passed, or it was set in another Bash call and is gone (Bash resets on every call)
 - Fix:
   1. Prefix it on the same command line: CODE=<value> launch_cli.py web type --selector <box> --text-env CODE
@@ -649,8 +653,8 @@
 ### `general-render-failed-first-error` — render run returns render_failed — start from first_error; usually services.dart
 
 - Codes: `render_failed`
-- Keywords: MethodChannel, services.dart
-- Symptom: render run ends with render_failed (렌더 명령 실패 = render command failed) and collects nothing. The same failure repeats
+- Keywords: MethodChannel, services.dart, 렌더 명령 실패
+- Symptom: render run ends with render_failed ("Render command failed") and collects nothing. The same failure repeats
 - Cause: The render command (flutter test, etc.) failed to compile or run. The most common cause: the render skeleton lacks the package:flutter/services.dart import, so MethodChannel · SystemChrome are not found
 - Fix:
   1. Read first_error in the response first (or output_tail if absent)

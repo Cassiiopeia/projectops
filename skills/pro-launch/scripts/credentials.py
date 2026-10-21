@@ -86,14 +86,14 @@ def resolve(name: str) -> dict:
     """이름으로 자격증명을 꺼낸다. `ssh_server` 참조가 있으면 pro-ssh 서버 값을 바탕으로 합친다."""
     entry = load_all().get(name)
     if not isinstance(entry, dict):
-        known = ", ".join(sorted(load_all())) or "(없음)"
-        raise CredError("cred_not_found", f"'{name}' 자격증명이 없습니다. 있는 것: {known}")
+        known = ", ".join(sorted(load_all())) or "(none)"
+        raise CredError("cred_not_found", f"No credential named '{name}'. Available: {known}")
     merged: dict = {}
     ref = entry.get("ssh_server")
     if ref:
         srv = _ssh_server(ref)
         if not srv:
-            raise CredError("ssh_server_not_found", f"pro-ssh 에 '{ref}' 서버가 없습니다")
+            raise CredError("ssh_server_not_found", f"pro-ssh has no server '{ref}'")
         for k in ("host", "port", "user", "password", "key_path", "auth"):
             if srv.get(k) not in (None, ""):
                 merged[k] = srv[k]
@@ -103,10 +103,10 @@ def resolve(name: str) -> dict:
 
 
 def public_view(entry: dict, reveal: bool = False) -> dict:
-    """사람·agent 에게 보여 줄 모양. 비밀 값은 `<저장됨>` 으로 가린다."""
+    """사람·agent 에게 보여 줄 모양. 비밀 값은 `<saved>` 로 가린다."""
     if reveal:
         return dict(entry)
-    return {k: ("<저장됨>" if (_is_secret_key(k) and v) else v) for k, v in entry.items()}
+    return {k: ("<saved>" if (_is_secret_key(k) and v) else v) for k, v in entry.items()}
 
 
 def secret_values(entry: dict) -> list[str]:
@@ -138,7 +138,7 @@ def env_for(entry: dict) -> dict:
 
 def validate_name(name: str | None) -> str:
     if not name or not NAME_RE.match(name):
-        raise CredError("bad_name", "--name 은 영문·숫자로 시작하고 영문·숫자·._- 만 쓸 수 있습니다 (64자 이하)")
+        raise CredError("bad_name", "--name must start with a letter or digit and use only letters, digits and ._- (64 chars max)")
     return name
 
 
@@ -165,15 +165,15 @@ def save_credential(name: str, fields: dict, replace: bool = False) -> Path:
     """다른 섹션(github · ssh ...)을 건드리지 않고 launch.credentials[name] 만 갱신한다."""
     validate_name(name)
     if not isinstance(fields, dict) or not fields:
-        raise CredError("value_required", "--json 은 비어 있지 않은 객체(JSON)여야 합니다")
+        raise CredError("value_required", "--json must be a non-empty JSON object")
     data = cfg.load()
     if data is None and cfg.config_path().exists():
         # 파일은 있는데 읽지 못했다 = 깨졌다. 덮어쓰면 PAT·서버 정보가 전부 사라진다.
-        raise CredError("config_unreadable", "config.json 을 읽지 못했습니다 (깨졌을 수 있습니다). 덮어쓰지 않았습니다")
+        raise CredError("config_unreadable", "Could not read config.json (it may be corrupted). It was not overwritten")
     if "login_policy" in fields:
         # 정책은 키·값 검증과 키 단위 병합이 필요하다 > 전용 경로로만 (#905)
-        raise CredError("use_cred_policy", "login_policy 는 cred set 으로 바꾸지 않습니다",
-                        next_hint=f"cred policy set --name {name} --key <키> --value <ask|always|never>")
+        raise CredError("use_cred_policy", "login_policy is not changed with cred set",
+                        next_hint=f"cred policy set --name {name} --key <key> --value <ask|always|never>")
     data = data or {}
     creds = _section(data, create=True)
     existing = dict(creds.get(name) or {})
@@ -206,9 +206,9 @@ LOGIN_POLICY_DEFAULT_VALUE = "ask"
 
 def _validate_login_policy(key: str, value: str | None = None) -> None:
     if key not in LOGIN_POLICY_KEYS:
-        raise CredError("invalid_policy_key", f"'{key}' 는 정책 키가 아닙니다. 쓸 수 있는 것: {', '.join(LOGIN_POLICY_KEYS)}")
+        raise CredError("invalid_policy_key", f"'{key}' is not a policy key. Allowed: {', '.join(LOGIN_POLICY_KEYS)}")
     if value is not None and value not in LOGIN_POLICY_VALUES:
-        raise CredError("invalid_policy_value", f"'{value}' 는 정책 값이 아닙니다. 쓸 수 있는 것: {', '.join(LOGIN_POLICY_VALUES)}")
+        raise CredError("invalid_policy_value", f"'{value}' is not a policy value. Allowed: {', '.join(LOGIN_POLICY_VALUES)}")
 
 
 def _policy_of(holder) -> dict:
@@ -241,7 +241,7 @@ def _load_for_policy_write() -> dict:
     """정책을 쓸 config 를 읽는다. 깨진 파일은 덮어쓰지 않는다 (PAT·서버 정보 보호)"""
     data = cfg.load()
     if (data is None and cfg.config_path().exists()) or (data is not None and not isinstance(data, dict)):
-        raise CredError("config_unreadable", "config.json 을 읽지 못했습니다 (깨졌을 수 있습니다). 덮어쓰지 않았습니다")
+        raise CredError("config_unreadable", "Could not read config.json (it may be corrupted). It was not overwritten")
     return data or {}
 
 
@@ -250,8 +250,8 @@ def _policy_holder(data: dict, name: str | None, create: bool) -> dict | None:
     if name:
         entry = _section(data).get(name)
         if not isinstance(entry, dict):
-            known = ", ".join(sorted(_section(data))) or "(없음)"
-            raise CredError("cred_not_found", f"'{name}' 자격증명이 없습니다. 있는 것: {known}")
+            known = ", ".join(sorted(_section(data))) or "(none)"
+            raise CredError("cred_not_found", f"No credential named '{name}'. Available: {known}")
         return entry
     launch = data.get("launch")
     if not isinstance(launch, dict):

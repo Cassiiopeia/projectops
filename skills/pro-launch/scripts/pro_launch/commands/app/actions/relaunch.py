@@ -18,7 +18,7 @@ def _app_relaunch(args) -> int:
     ok, was_running, detail = terminate_package(platform, dev_id, package)
     if not ok:
         return control_result("relaunch", platform, dev_id, ok, detail, "terminate_failed",
-                              f"{package} 재시작", None, "device list 로 기기·설치 상태를 확인한다",
+                              f"relaunch {package}", None, "Check the device and install state with device list",
                               package=package, **foreground_fields)
     launched_epoch = time.time()
     ok, detail = launch_package(platform, dev_id, package)
@@ -29,9 +29,9 @@ def _app_relaunch(args) -> int:
             return launch_failure_response("relaunch", platform, dev_id, package, check, was_running=was_running)
         if check.get("foreground_package"):
             foreground_fields = {"foreground_package": check["foreground_package"]}
-    return control_result("relaunch", platform, dev_id, ok, detail or "앱을 띄우지 못했습니다",
-                          "launch_failed", f"{package} 재시작", "app shot  # 뜬 화면을 봅니다",
-                          "설치돼 있는지 확인하세요 (device list 의 installed)",
+    return control_result("relaunch", platform, dev_id, ok, detail or "Could not start the app",
+                          "launch_failed", f"relaunch {package}", "app shot  # look at the screen that came up",
+                          "Check that it is installed (installed in device list)",
                           package=package, was_running=was_running, **foreground_fields)
 
 

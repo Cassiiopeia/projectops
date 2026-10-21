@@ -65,7 +65,7 @@ def _snapshot(paths: list[Path], digest: bool = False) -> tuple[dict, str | None
             continue
         for f in base.rglob("*"):
             if len(seen) >= _SNAP_MAX:
-                return seen, f"파일이 {_SNAP_MAX}개를 넘어 관찰을 멈췄습니다 — --watch 를 좁히세요"
+                return seen, f"Stopped watching after more than {_SNAP_MAX} files — narrow --watch"
             if any(part in _SNAP_SKIP for part in f.parts):
                 continue
             try:
@@ -110,25 +110,25 @@ def _judge(step: dict, run: dict, cwd: Path) -> list[str]:
     """기대 결과와 대조한다. 조건을 주지 않았으면 아무 말도 하지 않는다."""
     bad: list[str] = []
     if run["timed_out"]:
-        return ["제한 시간 안에 끝나지 않았습니다"]
+        return ["did not finish within the time limit"]
 
     want_exit = step.get("expect_exit")
     if want_exit is not None and run["exit_code"] != want_exit:
-        bad.append(f"종료코드가 {run['exit_code']} 입니다 (기대: {want_exit})")
+        bad.append(f"exit code is {run['exit_code']} (expected: {want_exit})")
 
     want_out = step.get("expect_output")
     if want_out:
         if want_out not in (run["stdout"] + run["stderr"]):
-            bad.append(f"출력에 '{want_out}' 이 없습니다")
+            bad.append(f"output does not contain '{want_out}'")
 
     # 존재 여부는 **실행 뒤** 기준이다. 변화가 아니다 — 변화는 files 를 본다.
     want_file = step.get("expect_file")
     if want_file and not (cwd / want_file).exists():
-        bad.append(f"'{want_file}' 이 만들어지지 않았습니다")
+        bad.append(f"'{want_file}' was not created")
 
     absent = step.get("expect_absent")
     if absent and (cwd / absent).exists():
-        bad.append(f"'{absent}' 이 남아 있습니다 — 나오면 안 되는 것입니다")
+        bad.append(f"'{absent}' is still there — it must not exist")
     return bad
 
 
@@ -174,16 +174,16 @@ def _run_other_step(step: dict, root: Path, cwd: Path, watch: list[Path],
         # 멱등이 깨진 것이 곧 결함은 아니다 — 로그·타임스탬프가 섞였을 수도 있다.
         # 판단은 agent 가 한다. 여기서는 "달랐다"는 사실만 올린다.
         if run2["exit_code"] != run["exit_code"]:
-            problems.append(f"두 번째 실행의 종료코드가 다릅니다 ({run['exit_code']} → {run2['exit_code']})")
+            problems.append(f"the second run's exit code differs ({run['exit_code']} → {run2['exit_code']})")
         elif settled is False:
             d = out["second_run"]["changed_again"]["counts"]
             # **단정하지 않는다.** 실측해 보니 세 건 다 타임스탬프와 append-only 로그
             # 때문이었다. 매번 "멱등이 아니다"라고 외치면 사람이 곧 무시하게 된다.
             # 사실만 올리고 어디를 보면 되는지 알려준다 — 판단은 agent 가 한다.
             problems.append(
-                f"두 번 돌리자 상태가 또 바뀌었습니다 (생성 {d['created']} · 수정 {d['modified']} "
-                f"· 삭제 {d['deleted']}) — second_run.changed_again 의 파일을 열어 "
-                f"시간·로그 때문인지, 진짜로 멱등이 아닌지 보세요")
+                f"the state changed again on the second run (created {d['created']} · modified {d['modified']} "
+                f"· deleted {d['deleted']}) — open the files in second_run.changed_again and see "
+                f"whether it is timestamps or logs, or truly not idempotent")
 
     out["problems"] = problems
     out["ok"] = not problems
@@ -195,13 +195,13 @@ def cmd_other(args) -> int:
     root = Path(args.root).resolve()
     cwd = Path(args.cwd).resolve() if args.cwd else root
     if not cwd.is_dir():
-        return emit({"ok": False, "code": "cwd_not_found", "error": f"{cwd} 가 없습니다"})
+        return emit({"ok": False, "code": "cwd_not_found", "error": f"{cwd} does not exist"})
 
     env = dict(os.environ)
     for kv in (args.env or []):
         if "=" not in kv:
             return emit({"ok": False, "code": "bad_env",
-                         "error": f"--env 는 K=V 형태여야 합니다: {kv}"})
+                         "error": f"--env must be K=V: {kv}"})
         k, v = kv.split("=", 1)
         env[k] = v
 
@@ -214,7 +214,7 @@ def cmd_other(args) -> int:
         f = _resolve_scenario(d, args.name)
         if f is None:
             return emit({"ok": False, "code": "scenario_not_found",
-                         "error": f"시나리오 '{args.name}' 을 찾지 못했습니다",
+                         "error": f"Scenario '{args.name}' not found",
                          "next": f"scenario list --root {root}"})
         data, pre = _expand(d, f)
         problems = _validate(data) + pre
@@ -222,8 +222,8 @@ def cmd_other(args) -> int:
             return emit({"ok": False, "code": "scenario_invalid", "problems": problems})
         if scenario_target(data) != "other":
             return emit({"ok": False, "code": "wrong_target",
-                         "error": f"이 시나리오의 target은 '{scenario_target(data)}' 입니다",
-                         "hint": "other run --name 은 other 타겟 전용입니다"})
+                         "error": f"This scenario's target is '{scenario_target(data)}'",
+                         "hint": "other run --name is only for the other target"})
 
         results, failed_at = [], None
         for i, st in enumerate(data["steps"], 1):
@@ -243,17 +243,17 @@ def cmd_other(args) -> int:
             "scenario": data.get("name"),
             "steps": results,
             "failed_at": failed_at,
-            "summary": ("끝까지 밟았습니다" if failed_at is None
-                        else f"{failed_at}번째 단계에서 멈춤"),
+            "summary": ("walked to the end" if failed_at is None
+                        else f"stopped at step {failed_at}"),
             "next": (None if failed_at is None else
-                     "stderr_tail 과 files 를 읽고 원인을 짚으세요"),
+                     "read stderr_tail and files to pin down the cause"),
         })
 
     # ── 한 번만 돌리는 경우
     if not args.command:
         return emit({"ok": False, "code": "args_required",
-                     "error": "--command 또는 --name 중 하나가 필요합니다",
-                     "hint": "--command 는 한 번 돌리고, --name 은 시나리오를 끝까지 밟습니다"})
+                     "error": "one of --command or --name is required",
+                     "hint": "--command runs once; --name walks a scenario to the end"})
 
     step = {"do": args.command}
     for k, v in (("expect_exit", args.expect_exit), ("expect_output", args.expect_output),
@@ -266,9 +266,9 @@ def cmd_other(args) -> int:
         "code": "ok" if r["ok"] else "expectation_failed",
         "cwd": str(cwd),
         "judged": judged,
-        "summary": (f"종료코드 {r['exit_code']} · {r['elapsed_ms']}ms"
-                    + (f" · 문제 {len(r['problems'])}건" if r["problems"] else "")),
+        "summary": (f"exit code {r['exit_code']} · {r['elapsed_ms']}ms"
+                    + (f" · {len(r['problems'])} problem(s)" if r["problems"] else "")),
         "next": (None if judged else
-                 "기대 결과를 주지 않았습니다 — 출력과 files 를 읽고 직접 판단하세요"),
+                 "no expected result given — read the output and files and judge yourself"),
     })
     return emit(r)

@@ -67,16 +67,16 @@ def add(path: Path, text: str, title: str = "", area: str = "", site: str = "",
     text = (text or "").strip()
     title = " ".join((title or "").split())[:MAX_TITLE]
     if not text:
-        return {"error": "empty", "message": "적을 내용이 비어 있다"}
+        return {"error": "empty", "message": "Nothing to write: the text is empty"}
     if area and area not in knowledge.AREAS:
-        return {"error": "bad_area", "message": f"area 는 {'/'.join(knowledge.AREAS)} 중 하나"}
+        return {"error": "bad_area", "message": f"area must be one of {'/'.join(knowledge.AREAS)}"}
     if knowledge.FORBIDDEN.search(text):
         return {"error": "forbidden_method",
-                "message": "호스트 마우스로 좌표를 누르는 방법은 기억하지 않는다 — 프로젝트 E2E 를 쓴다"}
+                "message": "Methods that click coordinates with the host mouse are not remembered — use the project E2E"}
     secrets = find_secrets(title + " " + text)
     if secrets:
         return {"error": "secret_detected",
-                "message": "비밀값으로 보이는 것이 있어 저장하지 않았다: " + ", ".join(secrets)}
+                "message": "Not saved: it contains what looks like a secret: " + ", ".join(secrets)}
     row = {"at": now or dt.datetime.now().strftime("%Y-%m-%d %H:%M"), "title": title,
            "area": area, "site": " ".join((site or "").split()), "text": text[:MAX_TEXT]}
     rows = load(path)

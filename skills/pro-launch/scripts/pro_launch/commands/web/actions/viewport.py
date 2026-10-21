@@ -19,14 +19,14 @@ def _web_viewport(args, state: dict, state_f: Path) -> int:
         state["viewport"] = None
         write_state(state_f, state)
         return out({"action": "viewport", "viewport": None,
-                    "summary": "뷰포트 지정을 풀었습니다 (창 크기를 따른다)"})
+                    "summary": "Viewport cleared (follows the window size)"})
     preset = args.preset or ""
     # --width/--height 는 자주 짐작해서 쓰는 형태 — 390x844 와 같은 뜻이다 (#931)
     if args.width or args.height:
         if not (args.width and args.height):
             return out({"ok": False, "code": "bad_viewport", "viewport": None,
-                        "error": "--width 와 --height 는 함께 줘야 합니다",
-                        "hint": "web viewport --width 1280 --height 800 (또는 --preset 1280x800)"})
+                        "error": "--width and --height must be given together",
+                        "hint": "web viewport --width 1280 --height 800 (or --preset 1280x800)"})
         preset = f"{args.width}x{args.height}"
     if preset in VIEWPORT_PRESETS:
         w, h = VIEWPORT_PRESETS[preset]
@@ -34,22 +34,22 @@ def _web_viewport(args, state: dict, state_f: Path) -> int:
         m = re.fullmatch(r"(\d{2,5})x(\d{2,5})", preset)
         if not m:
             return out({"ok": False, "code": "bad_viewport", "viewport": None,
-                        "error": f"뷰포트 '{preset}' 을 모릅니다",
-                        "hint": f"{' · '.join(VIEWPORT_PRESETS)} 또는 390x844 처럼 폭x높이"})
+                        "error": f"Unknown viewport '{preset}'",
+                        "hint": f"{' · '.join(VIEWPORT_PRESETS)} or widthxheight such as 390x844"})
         w, h = int(m.group(1)), int(m.group(2))
     state["viewport"] = [w, h]
     write_state(state_f, state)
     return out({"action": "viewport", "viewport": [w, h],
-                "summary": f"뷰포트 {w}x{h}",
-                "next": "web shot  # 이 폭으로 찍습니다 (필요하면 web goto 로 다시 그리게 하세요)"})
+                "summary": f"Viewport {w}x{h}",
+                "next": "web shot  # captures at this width (redraw with web goto if needed)"})
 
 
 def configure(p) -> None:
-    p.add_argument("--preset", default=None, help="viewport: mobile · tablet · desktop 또는 390x844")
-    p.add_argument("--width", type=int, default=None, help="viewport: 폭(px) — --height 와 함께 (--preset 1280x800 과 같다)")
-    p.add_argument("--height", type=int, default=None, help="viewport: 높이(px)")
+    p.add_argument("--preset", default=None, help="viewport: mobile · tablet · desktop or 390x844")
+    p.add_argument("--width", type=int, default=None, help="viewport: width (px) — with --height (same as --preset 1280x800)")
+    p.add_argument("--height", type=int, default=None, help="viewport: height (px)")
 
 
 ACTION = Action(name="viewport", needs="state_offline", run=_web_viewport, configure=configure,
-                options=("clear",), help="폭을 바꾼다 — 다음 연결부터 걸린다",
+                options=("clear",), help="Change the width — applies from the next connection",
                 example="web viewport --preset mobile")

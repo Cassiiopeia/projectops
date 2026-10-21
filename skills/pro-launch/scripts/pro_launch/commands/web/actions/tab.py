@@ -31,15 +31,15 @@ def _tab_list(ctx, state: dict) -> dict:
             tabs.forget_tab(state, name)
     return {"action": "tab", "tab_command": "list", "tabs": rows, "count": len(rows),
             "session_tab": tabs.session_tab_name(),
-            "summary": f"탭 {len(rows)}개 (이름 붙은 것 {len(live_names)}개)",
-            "next": f"web tab new --name <이름>  # 그 뒤 {tabs.TAB_ENV_VAR}=<이름> 으로 부른다"}
+            "summary": f"{len(rows)} tabs ({len(live_names)} named)",
+            "next": f"web tab new --name <name>  # then call with {tabs.TAB_ENV_VAR}=<name>"}
 
 
 def _tab_new(ctx, args, state: dict) -> dict:
     name = args.name or f"tab-{time.strftime('%H%M%S')}"
     if tabs.named_tab_page(ctx, state, name) is not None:
-        return {"ok": False, "code": "tab_name_taken", "error": f"'{name}' 탭이 이미 있습니다",
-                "next": f"{tabs.TAB_ENV_VAR}={name} launch_cli.py web text  # 그 탭을 쓰거나 다른 이름을 준다"}
+        return {"ok": False, "code": "tab_name_taken", "error": f"Tab '{name}' already exists",
+                "next": f"{tabs.TAB_ENV_VAR}={name} launch_cli.py web text  # use that tab or pick another name"}
     page = ctx.new_page()
     tabs.register_tab(state, name, page)
     if args.url:
@@ -47,8 +47,8 @@ def _tab_new(ctx, args, state: dict) -> dict:
     url, title = read_url_title(page)
     state.setdefault("tab_marks", {})[tabs.mark_key(name)] = {"target_id": tabs.target_id(page), "url": url}
     return {"action": "tab", "tab_command": "new", "name": name, "url": url, "title": title,
-            "summary": f"'{name}' 탭을 만들었습니다",
-            "next": f"{tabs.TAB_ENV_VAR}={name} launch_cli.py web text  # 이 세션의 모든 web 명령 앞에 붙인다"}
+            "summary": f"Created tab '{name}'",
+            "next": f"{tabs.TAB_ENV_VAR}={name} launch_cli.py web text  # prefix every web command in this session"}
 
 
 def _tab_use(ctx, args, state: dict) -> dict:
@@ -56,19 +56,19 @@ def _tab_use(ctx, args, state: dict) -> dict:
     if args.index is not None:
         pages = tabs.usable_pages(ctx)
         if not 0 <= args.index < len(pages):
-            return {"ok": False, "code": "tab_not_found", "error": f"{args.index}번 탭이 없습니다",
+            return {"ok": False, "code": "tab_not_found", "error": f"No tab at index {args.index}",
                     "next": "web tab list"}
         page = pages[args.index]
         owned = {e.get("target_id") for e in (state.get("tabs") or {}).values()}
         if tabs.target_id(page) in owned:
-            return {"ok": False, "code": "tab_owned", "error": f"{args.index}번 탭은 이미 다른 이름이 붙어 있습니다",
+            return {"ok": False, "code": "tab_owned", "error": f"Tab {args.index} already has another name",
                     "next": "web tab list"}
         tabs.register_tab(state, args.name, page)
     elif tabs.named_tab_page(ctx, state, args.name) is None:
-        return {"ok": False, "code": "tab_not_found", "error": f"'{args.name}' 탭이 없습니다",
+        return {"ok": False, "code": "tab_not_found", "error": f"No tab named '{args.name}'",
                 "next": f"web tab new --name {args.name}"}
     return {"action": "tab", "tab_command": "use", "name": args.name,
-            "summary": f"'{args.name}' 탭을 쓸 수 있습니다",
+            "summary": f"Tab '{args.name}' is ready to use",
             "next": f"{tabs.TAB_ENV_VAR}={args.name} launch_cli.py web text"}
 
 
@@ -77,15 +77,15 @@ def _tab_close(ctx, args, state: dict) -> dict:
     tabs.forget_tab(state, args.name)
     if page is None:
         return {"action": "tab", "tab_command": "close", "name": args.name, "already_closed": True,
-                "summary": f"'{args.name}' 탭은 이미 없습니다", "next": None}
+                "summary": f"Tab '{args.name}' is already gone", "next": None}
     page.close()
     return {"action": "tab", "tab_command": "close", "name": args.name,
-            "summary": f"'{args.name}' 탭을 닫았습니다", "next": None}
+            "summary": f"Closed tab '{args.name}'", "next": None}
 
 
 def execute(args, state: dict, state_f: Path) -> int:
     if args.tab_command in ("use", "close") and not args.name:
-        return out({"ok": False, "code": "bad_args", "error": f"web tab {args.tab_command} 은 --name 이 필요합니다",
+        return out({"ok": False, "code": "bad_args", "error": f"web tab {args.tab_command} needs --name",
                     "next": "web tab list"})
     conn, err = web_connect(state, allow_missing_tab=True)
     if err:
@@ -123,11 +123,11 @@ def _save_tab_records(state_f: Path, state: dict, tab_names_before: set) -> None
 
 
 def configure(p) -> None:
-    p.add_argument("tab_command", choices=TAB_COMMANDS, help="new 만들기 · list 목록 · use 확인/이름 붙이기 · close 닫기")
-    p.add_argument("--name", default=None, help="탭 이름 (LAUNCH_TAB 에 넣는 값)")
-    p.add_argument("--index", type=int, default=None, help="use: 이름 없는 기존 탭 번호 (web tab list 의 index)")
+    p.add_argument("tab_command", choices=TAB_COMMANDS, help="new create · list show · use check/name an existing tab · close close")
+    p.add_argument("--name", default=None, help="Tab name (the value for LAUNCH_TAB)")
+    p.add_argument("--index", type=int, default=None, help="use: index of an existing unnamed tab (index in web tab list)")
 
 
 ACTION = Action(name="tab", needs="state_online", run=execute, configure=configure, options=("url", "timeout"),
-                help="세션 전용 탭을 만들고·보고·닫는다 (LAUNCH_TAB=<이름> 으로 그 탭만 몬다)",
+                help="Create, list and close session-owned tabs (LAUNCH_TAB=<name> drives only that tab)",
                 example="web tab new --name edit-form --url http://localhost:3000/form")

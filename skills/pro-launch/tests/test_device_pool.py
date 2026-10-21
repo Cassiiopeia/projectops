@@ -29,13 +29,13 @@ def ios(**kwargs):
 def test_booted_unleased_unrecorded_device_is_not_a_candidate():
     decision = decide(ios(), [cand("A", booted=True)])
     assert decision.verdict == "no_match"
-    assert any("사람이 쓰는 기기일 수 있다" in reason for reason in decision.reasons)
+    assert any("a person may be using it" in reason for reason in decision.reasons)
 
 
 def test_dead_lease_is_reclaimed_with_reason():
     decision = decide(ios(), [cand("A", booted=True, pool_booted=True, dead=[OTHER])])
     assert decision.verdict == "reclaim" and decision.reclaimed_from == OTHER
-    assert any("넘겨받는다" in reason for reason in decision.reasons)
+    assert any("taking it over" in reason for reason in decision.reasons)
 
 
 def test_wait_then_ask_after_limit():
@@ -51,7 +51,7 @@ def test_wait_then_ask_after_limit():
 def test_need_without_any_marked_device_never_creates():
     decision = decide(ios(needs=("login:kakao",)), [cand("A")], PoolContext(can_create=True))
     assert decision.verdict == "no_match"
-    assert any("새로 만들어도 그 상태는 없다" in reason for reason in decision.reasons)
+    assert any("a new device would not have that state either" in reason for reason in decision.reasons)
 
 
 # 메모리 위험은 사용자 승인(--user-approved)으로만 넘는다 — 디스크 부족은 승인으로 넘지 않는다 (#972)

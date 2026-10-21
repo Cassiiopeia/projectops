@@ -10,10 +10,11 @@
       "tools/call timed out",
       "maestro 응답 없음",
       "xcodebuild",
-      "maestro unresponsive"
+      "maestro unresponsive",
+      "respond"
     ]
   },
-  "symptom": "tap_failed repeats with 'maestro 응답 없음 (90초)' (maestro unresponsive, 90 s), and app session start, as advised, fails with 'tools/call timed out after 120s'",
+  "symptom": "tap_failed repeats with 'maestro did not respond (90s)', and app session start, as advised, fails with 'tools/call timed out after 120s'",
   "cause": "An xcodebuild (maestro-driver-ios-config.xctestrun) or maestro JVM left by an earlier run is still alive, or host load is high, so the driver cannot start. Starting a session does not fix this",
   "fix": [
     "Check load with uptime (2x the core count or more means overload)",

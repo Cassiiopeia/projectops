@@ -34,18 +34,18 @@ def resolve_upload_files(raw: str, root: Path) -> tuple[list[Path], dict | None]
     """--files 쉼표 목록 > 실제 경로. 없거나 허용 폴더 밖이면 (빈 목록, 실패 결과)"""
     names = [name.strip() for name in (raw or "").split(FILE_LIST_DELIMITER) if name.strip()]
     if not names:
-        return [], {"ok": False, "code": "files_required", "error": "--files 에 올릴 파일을 적어 주세요"}
+        return [], {"ok": False, "code": "files_required", "error": "Give the files to upload in --files"}
     folders = allowed_folders(root)
     paths = []
     for name in names:
         path = Path(name).expanduser().resolve()
         if not path.is_file():
-            return [], {"ok": False, "code": "file_not_found", "file": name, "error": f"{name} 파일이 없습니다"}
+            return [], {"ok": False, "code": "file_not_found", "file": name, "error": f"File not found: {name}"}
         if not any(path.is_relative_to(folder) for folder in folders):
             return [], {"ok": False, "code": "file_outside_allowed", "file": name,
                         "allowed": [str(folder) for folder in folders],
-                        "error": f"{name} 은 작업 폴더·프로젝트·실행 폴더 밖입니다",
-                        "next": "파일을 작업 폴더나 $SHOT_DIR 로 옮긴 뒤 다시 부른다"}
+                        "error": f"{name} is outside the working folder, project and run folder",
+                        "next": "Move the file into the working folder or $SHOT_DIR, then call again"}
         paths.append(path)
     return paths, None
 
@@ -71,11 +71,11 @@ def check_files_fit(paths: list[Path], accept: str | None, is_multiple: bool) ->
     """입력이 받을 수 있는 파일인가 (개수 · 종류). 맞으면 None"""
     if len(paths) > 1 and not is_multiple:
         return {"ok": False, "code": "multiple_not_allowed", "files": [p.name for p in paths],
-                "error": "이 입력은 파일 하나만 받습니다 (multiple 아님)", "next": "파일을 하나씩 올린다"}
+                "error": "This input takes only one file (not multiple)", "next": "Upload the files one at a time"}
     rejected = [p.name for p in paths if not is_type_accepted(p, accept)]
     if rejected:
         return {"ok": False, "code": "type_not_accepted", "rejected": rejected, "accepted": accept,
-                "error": f"accept='{accept}' 이 받지 않는 파일: {', '.join(rejected)}"}
+                "error": f"Files not allowed by accept='{accept}': {', '.join(rejected)}"}
     return None
 
 
@@ -93,8 +93,8 @@ def _upload_via_chooser(page, args, state: dict, paths: list[Path]) -> dict:
         if not is_timeout_error(error):
             raise
         return {"ok": False, "code": "file_chooser_not_opened", "action": "upload", "clicked": info,
-                "error": "눌렀지만 파일 선택 창이 뜨지 않았습니다",
-                "next": "web upload --files <파일>  # 숨은 input[type=file] 에 바로 넣는다"}
+                "error": "Clicked, but no file chooser opened",
+                "next": "web upload --files <file>  # put it straight into the hidden input[type=file]"}
     input_state = chooser.element.evaluate(FILE_INPUT_JS)
     failure = check_files_fit(paths, input_state["accept"], chooser.is_multiple())
     if failure:
@@ -114,8 +114,8 @@ def _upload_into_input(page, args, state: dict, paths: list[Path]) -> dict:
     input_state = element.evaluate(FILE_INPUT_JS)
     if not input_state["is_file_input"]:
         return {"ok": False, "code": "not_a_file_input", "action": "upload", "target": info,
-                "error": "대상이 <input type=file> 이 아닙니다",
-                "next": "web upload --files <파일> --click-ref <드롭존 ref>  # 눌러서 뜬 선택 창에 답한다"}
+                "error": "The target is not an <input type=file>",
+                "next": "web upload --files <file> --click-ref <dropzone ref>  # answer the chooser that opens on click"}
     failure = check_files_fit(paths, input_state["accept"], input_state["multiple"])
     if failure:
         return failure | {"action": "upload"}
@@ -128,8 +128,8 @@ def _uploaded_payload(page, paths: list[Path], after: dict, target: dict | None,
     return {"action": "upload", "via": via, "target": target,
             "uploaded": [{"name": p.name, "bytes": p.stat().st_size} for p in paths],
             "input_files": after["files"], "accepted": after["accept"], "multiple": after["multiple"],
-            "url": page.url, "summary": f"파일 {len(paths)}개를 넣었다 ({via})",
-            "next": "web wait --gone \"업로드 중\"  # 또는 web text 로 올라갔는지 확인한다"}
+            "url": page.url, "summary": f"Put {len(paths)} files ({via})",
+            "next": "web wait --gone \"Uploading\"  # or check with web text that it went up"}
 
 
 def execute(page, args, state: dict) -> dict:
@@ -139,20 +139,20 @@ def execute(page, args, state: dict) -> dict:
     # 파일을 올리는 것 자체가 바꾸는 조작이다 — 버튼 문구와 상관없이 막는다
     if state.get("readonly") and not args.confirm_mutating:
         return {"ok": False, "code": "mutating_blocked", "action": "upload", "url": page.url,
-                "error": "읽기 전용 세션이라 파일을 올리지 않았습니다",
-                "next": "정말 해야 하면 사용자에게 무엇이 올라가는지 말하고 승인받은 뒤 --confirm-mutating 을 붙인다"}
+                "error": "Read-only session, so the files were not uploaded",
+                "next": "If it really must happen, tell the user what will be uploaded, get approval, then add --confirm-mutating"}
     if args.click_ref is not None:
         return _upload_via_chooser(page, args, state, paths)
     return _upload_into_input(page, args, state, paths)
 
 
 def configure(p) -> None:
-    p.add_argument("--files", required=True, help="올릴 파일 쉼표 목록 (작업 폴더·프로젝트·$SHOT_DIR 안)")
+    p.add_argument("--files", required=True, help="Comma-separated files to upload (inside the working folder, project or $SHOT_DIR)")
     p.add_argument("--click-ref", dest="click_ref", type=int, default=None,
-                   help="이 ref 를 눌러 뜬 파일 선택 창에 답한다 (드롭존)")
+                   help="Click this ref and answer the file chooser that opens (dropzone)")
 
 
 ACTION = Action(name="upload", run=execute, configure=configure,
                 options=("selector", "ref", "target_timeout", "confirm_mutating", "frame"),
-                help="파일 입력(숨은 것 포함)이나 눌러서 뜬 선택 창에 파일을 넣는다",
+                help="Put files into a file input (hidden ones too) or into the chooser opened by a click",
                 example="web upload --files shots/a.png,shots/b.png")

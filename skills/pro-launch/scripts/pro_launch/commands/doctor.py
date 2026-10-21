@@ -21,15 +21,15 @@ from pro_launch.runtime.plugin_version import plugin_version
 
 
 _TOOLS = [
-    ("adb", False, "Android 기기 제어",
+    ("adb", False, "Android device control",
      "Android Studio → SDK Manager → SDK Tools → Android SDK Platform-Tools"),
-    ("emulator", False, "AVD 부팅 (이미 켜져 있으면 불필요)",
+    ("emulator", False, "AVD boot (not needed if already running)",
      "Android Studio → SDK Manager → SDK Tools → Android Emulator"),
-    ("xcrun", False, "iOS 시뮬레이터 (macOS 전용)",
-     "Xcode 설치 후 xcode-select --install"),
-    ("cwebp", False, "캡처를 WebP 로 줄이기 (Pillow 가 없을 때)",
+    ("xcrun", False, "iOS simulator (macOS only)",
+     "Install Xcode, then xcode-select --install"),
+    ("cwebp", False, "Shrink captures to WebP (when Pillow is missing)",
      "brew install webp / apt install webp"),
-    ("ffmpeg", False, "녹화에서 프레임 추출 · 축소 폴백",
+    ("ffmpeg", False, "Frame extraction from recordings · shrink fallback",
      "brew install ffmpeg / apt install ffmpeg / winget install ffmpeg"),
 ]
 
@@ -57,20 +57,20 @@ def cmd_doctor(args) -> int:
         "browser": pw,
         "browser_choice": {k: chosen.get(k) for k in ("exe", "source", "label", "reason", "error")},
         "open_browser": open_browser,
-        "image_resize": shrink_by or "없음 — 캡처가 원본 크기로 남아 토큰·전송량이 커진다",
+        "image_resize": shrink_by or "none — captures stay full size, costing more tokens and transfer",
         "image_hint": None if shrink_by else
-            "web setup 을 돌리면 전용 venv 에 Pillow 가 함께 깔립니다 (시스템은 건드리지 않습니다)",
+            "web setup installs Pillow into a dedicated venv (the system is not touched)",
         "pillow": has_pillow(),
         "state_dir": str(home),
         "venv": str(venv_dir()),
         "platform": sys.platform,
         "memory": memory,
         "summary": (f"projectops {plugin_version()} · {sys.platform}: "
-                    + (", ".join(c["tool"] for c in checks if c["found"]) or "도구 없음"))
-                   + f" · 브라우저 {'준비' if pw['ready'] else '없음'}"
+                    + (", ".join(c["tool"] for c in checks if c["found"]) or "no tools"))
+                   + f" · browser {'ready' if pw['ready'] else 'missing'}"
                    + (f" ({chosen['label']})" if chosen.get("exe") else "")
-                   + f" · 이미지 축소 {shrink_by or '불가'}"
-                   + " · 기억 " + ", ".join(f"{area} {row['count']}" for area, row in memory.items()),
+                   + f" · image shrink {shrink_by or 'unavailable'}"
+                   + " · memory " + ", ".join(f"{area} {row['count']}" for area, row in memory.items()),
     }
     if args.resources:
         _attach_resources(payload)
@@ -90,7 +90,7 @@ def _attach_resources(payload: dict) -> None:
     # 기기 켜기 예산 (#964) — 측정 전이면 기본값과 측정 권고
     capacity = device_capacity.capacity_view()
     payload["capacity"] = capacity
-    payload["summary"] += f" · 메모리 압박 {report['pressure']} · 기기 예산 {capacity['memory_budget_mb']}MB"
+    payload["summary"] += f" · memory pressure {report['pressure']} · device budget {capacity['memory_budget_mb']}MB"
     advice = host_resources.pressure_advice(report["pressure"])
     if report["pressure"] == "critical":
         # 압박이 풀리기를 폴링하며 기다리지 않게 — 기기 밖 소비자를 보여 주고 사용자에게 묻는다 (#972)
@@ -99,16 +99,16 @@ def _attach_resources(payload: dict) -> None:
     elif advice:
         payload["next"] = advice
     elif capacity["should_benchmark"]:
-        payload["next"] = "device benchmark  # 이 컴퓨터가 기기를 몇 대까지 감당하나 재서 설정에 넣는다"
+        payload["next"] = "device benchmark  # measure how many devices this computer can handle and save it to the settings"
 
 
 def configure_doctor(p) -> None:
     p.add_argument("--resources", action="store_true",
-                   help="메모리·스왑 압박, 큰 프로세스, 켜진 에뮬레이터·시뮬레이터와 묶은 레포 (보고만, 끄지 않는다)")
+                   help="Memory and swap pressure, large processes, running emulators and simulators with their bound repos (report only, nothing is stopped)")
     p.add_argument("--root", default=".")
 
 
 COMMANDS = [
-    Command(name="doctor", help="도구 설치 여부 · 저장 위치 · 기억 건수 (--resources 로 호스트 메모리 압박)", run=cmd_doctor,
+    Command(name="doctor", help="Installed tools · storage locations · memory counts (--resources for host memory pressure)", run=cmd_doctor,
             configure=configure_doctor),
 ]

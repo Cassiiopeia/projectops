@@ -72,7 +72,7 @@ def test_validate_rejects_step_without_any_expectation():
         "name": "x",
         "steps": [{"screen": "홈", "do": "누른다"}],
     })
-    assert any("기대 결과가 없습니다" in p for p in problems), problems
+    assert any("has no expected result" in p for p in problems), problems
 
 
 def test_validate_accepts_server_only_expectation():
@@ -86,12 +86,12 @@ def test_validate_accepts_server_only_expectation():
 
 def test_validate_rejects_empty_steps():
     problems = e2e_cli._validate({"name": "x", "steps": []})
-    assert any("steps가 비었습니다" in p for p in problems), problems
+    assert any("steps is empty" in p for p in problems), problems
 
 
 def test_validate_rejects_missing_name():
     problems = e2e_cli._validate({"steps": [_step()]})
-    assert any("name이 비었습니다" in p for p in problems), problems
+    assert any("name is empty" in p for p in problems), problems
 
 
 # ── 전제 상속 ────────────────────────────────────────────────────────────
@@ -130,7 +130,7 @@ def test_expand_detects_circular_precondition():
         _write(d / "flows", "a", {"name": "a", "precondition": "b", "steps": [_step()]})
         f = _write(d / "flows", "b", {"name": "b", "precondition": "a", "steps": [_step()]})
         _, problems = e2e_cli._expand(d, f)
-        assert any("순환" in p for p in problems), problems
+        assert any("cycle" in p for p in problems), problems
 
 
 def test_expand_reports_missing_precondition():
@@ -139,7 +139,7 @@ def test_expand_reports_missing_precondition():
         f = _write(d / "flows", "a", {
             "name": "a", "precondition": "없는것", "steps": [_step()]})
         _, problems = e2e_cli._expand(d, f)
-        assert any("찾지 못했습니다" in p for p in problems), problems
+        assert any("not found" in p for p in problems), problems
 
 
 def test_resolve_scenario_finds_in_subfolder():
@@ -261,7 +261,7 @@ def test_server_target_rejects_screen_only_expectation():
         "name": "x", "target": "server",
         "steps": [{"screen": "-", "do": "POST /api/x", "expect_screen": "홈"}],
     })
-    assert any("기대 결과가 없습니다" in p for p in problems), problems
+    assert any("has no expected result" in p for p in problems), problems
 
 
 # ── 타겟 감지 (이슈 #586) ────────────────────────────────────────────────
@@ -301,7 +301,7 @@ def test_parse_do_rejects_garbage():
         e2e_cli._parse_do("아무 말")
         assert False, "거절했어야 한다"
     except ValueError as e:
-        assert "형식" in str(e)
+        assert "must look like" in str(e)
 
 
 def test_fill_substitutes_saved_values():
@@ -776,7 +776,7 @@ def test_other_twice_changing_content_is_not_idempotent(sandbox):
     d = _other(sandbox, "--command", "echo $RANDOM > out/t.txt", "--watch", ".", "--twice")
     assert d["second_run"]["settled"] is False
     assert d["ok"] is False
-    assert any("또 바뀌었습니다" in p for p in d["problems"]), d["problems"]
+    assert any("changed again on the second run" in p for p in d["problems"]), d["problems"]
 
 
 def test_other_expect_absent_catches_what_should_not_be_there(sandbox):
@@ -786,14 +786,14 @@ def test_other_expect_absent_catches_what_should_not_be_there(sandbox):
     """
     d = _other(sandbox, "--command", "mkdir -p tests", "--expect-absent", "tests")
     assert d["ok"] is False and d["code"] == "expectation_failed"
-    assert any("남아 있습니다" in p for p in d["problems"])
+    assert any("is still there" in p for p in d["problems"])
 
 
 def test_other_expectations_are_optional(sandbox):
     """조건을 주지 않으면 판정하지 않고 읽으라고 넘긴다 — 판단은 agent 몫이다."""
     d = _other(sandbox, "--command", "echo hello")
     assert d["ok"] is True and d["judged"] is False
-    assert "직접 판단" in (d["next"] or "")
+    assert "judge yourself" in (d["next"] or "")
 
 
 def test_other_expect_output_is_substring(sandbox):
@@ -852,7 +852,7 @@ def test_other_step_without_any_expectation_is_rejected():
         "name": "x", "target": "other",
         "steps": [{"screen": "빌드", "do": "make"}],
     })
-    assert any("기대 결과" in p for p in problems), problems
+    assert any("expected result" in p for p in problems), problems
 
 
 # ── 소셜 로그인 관문 (이슈 #604) ──────────────────────────────────────────

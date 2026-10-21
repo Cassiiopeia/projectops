@@ -6,9 +6,11 @@
     "codes": [
       "env_not_set"
     ],
-    "keywords": []
+    "keywords": [
+      "환경변수 비어"
+    ]
   },
-  "symptom": "web type · app type end with env_not_set (환경변수 … 가 비어 있습니다 = environment variable … is empty)",
+  "symptom": "web type · app type end with env_not_set (\"Environment variable … is empty\")",
   "cause": "--text-env takes an environment variable name. No variable with that name is in the launch_cli process environment: the value itself was passed, or it was set in another Bash call and is gone (Bash resets on every call)",
   "fix": [
     "Prefix it on the same command line: CODE=<value> launch_cli.py web type --selector <box> --text-env CODE",

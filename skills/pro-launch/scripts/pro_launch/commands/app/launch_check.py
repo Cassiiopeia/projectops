@@ -57,22 +57,22 @@ def launch_failure_response(action: str, platform: str, dev_id: str, package: st
                             **extra) -> int:
     """not_foreground · app_exited 실패 응답. 기존 code 는 건드리지 않는다."""
     if check["state"] == "not_foreground":
-        blocker = check.get("blocking_activity") or "(초점 창 없음)"
+        blocker = check.get("blocking_activity") or "(no focused window)"
         return out({"ok": False, "code": "not_foreground", "action": action, "platform": platform,
                     "device": dev_id, "package": package, "foreground_package": check.get("foreground_package"),
                     "blocking_activity": check.get("blocking_activity"),
                     "is_not_responding": check.get("is_not_responding", False),
-                    "error": f"{package} 가 앞으로 나오지 않았다 — 맨 위: {blocker}",
-                    "summary": f"{package} {action} 했지만 다른 화면이 앞에 있다",
-                    "next": "app shot 으로 가리는 화면을 본다. 다른 세션 소유(device_owned_by_other)면 사용자에게 묻고, "
-                            "아니면 app relaunch 를 다시 하거나 device reboot",
+                    "error": f"{package} did not come to the front — on top: {blocker}",
+                    "summary": f"{package} {action} done, but another screen is in front",
+                    "next": "Look at the covering screen with app shot. If another session owns it (device_owned_by_other) ask the user, "
+                            "otherwise run app relaunch again or device reboot",
                     **extra})
     report = check.get("crash_report")
     return out({"ok": False, "code": "app_exited", "action": action, "platform": platform, "device": dev_id,
                 "package": package, "crash_report": report,
-                "error": f"{package} 가 띄운 직후 종료됐다" + (f" — {report['exception_line']}" if report
+                "error": f"{package} exited right after launch" + (f" — {report['exception_line']}" if report
                                                                    and report.get("exception_line") else ""),
-                "summary": f"{package} {action} 직후 종료",
-                "next": (f"크래시 리포트를 읽는다: {report['path']}" if report else
-                         "리포트가 없다 — xcrun simctl launch --console-pty 로 시작 로그를 본다"),
+                "summary": f"{package} exited right after {action}",
+                "next": (f"Read the crash report: {report['path']}" if report else
+                         "No report — see the startup log with xcrun simctl launch --console-pty"),
                 **extra})

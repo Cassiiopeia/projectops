@@ -35,14 +35,14 @@ def stop_signal(memory: dict, cost_mb: int) -> str | None:
     """더 켜면 안 되는 신호 > 이유. 없으면 None."""
     pressure = host_resources.pressure_level(memory)
     if pressure == "critical":
-        return "메모리 압박이 위험 수준이다"
+        return "memory pressure is critical"
     swap_total, swap_used = memory.get("swap_total_mb"), memory.get("swap_used_mb")
     if swap_total and swap_used is not None and swap_total - swap_used < MINIMUM_SWAP_FREE_MB \
             and (memory.get("available_mb") or 0) < cost_mb * 2:
-        return f"스왑 여유가 {swap_total - swap_used}MB 뿐이다"
+        return f"only {swap_total - swap_used}MB of swap left"
     available = memory.get("available_mb")
     if available is not None and available < cost_mb + BENCHMARK_MINIMUM_FREE_MB:
-        return f"남은 메모리 {available}MB 가 기기 하나({cost_mb}MB) + {BENCHMARK_MINIMUM_FREE_MB}MB 보다 적다"
+        return f"available memory {available}MB is less than one device ({cost_mb}MB) + {BENCHMARK_MINIMUM_FREE_MB}MB"
     return None
 
 
@@ -107,10 +107,10 @@ def _boot_and_sample(backend, platform: str, key: str) -> dict:
 
 def _is_slowed(sample: dict, first: dict) -> str | None:
     if sample["boot_seconds"] > first["boot_seconds"] * SLOW_BOOT_FACTOR:
-        return f"부팅이 처음({first['boot_seconds']}초)보다 크게 느려졌다 ({sample['boot_seconds']}초)"
+        return f"boot got much slower than the first ({first['boot_seconds']}s -> {sample['boot_seconds']}s)"
     if sample.get("shot_seconds") and first.get("shot_seconds") \
             and sample["shot_seconds"] > first["shot_seconds"] * SLOW_SHOT_FACTOR:
-        return f"캡처가 처음({first['shot_seconds']}초)보다 크게 느려졌다 ({sample['shot_seconds']}초)"
+        return f"capture got much slower than the first ({first['shot_seconds']}s -> {sample['shot_seconds']}s)"
     return None
 
 
@@ -133,7 +133,7 @@ def measure_platform(platform: str, is_full: bool) -> dict:
     """한 종류 측정 > {platform, samples, cost_mb, healthy_count, stop_reason, skipped}. 실험 기기는 끝나면 지운다."""
     backend = next((b for b in device_backends.backends_for(platform) if b.capabilities.can_create), None)
     if backend is None:
-        return {"platform": platform, "skipped": f"{platform} 기기를 만들 수 없다"}
+        return {"platform": platform, "skipped": f"cannot create a {platform} device"}
     created, samples, stop_reason = [], [], None
     default_cost, _ = device_capacity.boot_cost_mb(platform)
     try:
@@ -143,7 +143,7 @@ def measure_platform(platform: str, is_full: bool) -> dict:
                 break
             made = backend.create(f"pro-launch benchmark {platform} {index + 1}", "phone", None)
             if not made["is_ok"]:
-                stop_reason = f"실험 기기를 만들지 못했다: {made['detail']}"
+                stop_reason = f"could not create a test device: {made['detail']}"
                 break
             created.append(made["key"])
             device_marks.record_created(made["key"], "device benchmark (#964)", BENCHMARK_DEVICE_TTL_DAYS, backend.name)
@@ -164,7 +164,7 @@ def measure_platform(platform: str, is_full: bool) -> dict:
             device_marks.forget_device(key)
     if not samples:
         return {"platform": platform, "samples": [], "stop_reason": stop_reason,
-                "skipped": stop_reason or "측정하지 못했다"}
+                "skipped": stop_reason or "could not measure"}
     cost = int(max(sample["cost_mb"] for sample in samples) * (1 + COST_MARGIN_RATIO))
     return {"platform": platform, "samples": samples, "cost_mb": cost, "healthy_count": len(samples),
             "stop_reason": stop_reason, "boot_seconds": samples[0]["boot_seconds"],

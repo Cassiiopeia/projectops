@@ -10,7 +10,7 @@
       "90s"
     ]
   },
-  "symptom": "On an iOS simulator, app tap · swipe · tree take 20–50 s each or fail with 'maestro 응답 없음 (90초)' (maestro unresponsive, 90 s). On Android they take a few seconds",
+  "symptom": "On an iOS simulator, app tap · swipe · tree take 20–50 s each or fail with 'maestro did not respond (90s)'. On Android they take a few seconds",
   "cause": "simctl has no tap or screen-structure commands, so iOS control goes to Maestro, and a new Maestro (JVM) starts on every call. The per-action limit is 90 s. This is expected slowness, not a fault",
   "fix": [
     "If you look → decide → tap many times, start the resident session first: launch_cli.py app session start --device <UDID> (then tree 0.6 s · tap 1 s)",

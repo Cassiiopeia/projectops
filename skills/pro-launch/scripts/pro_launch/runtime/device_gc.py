@@ -43,23 +43,23 @@ def _decide_row(facts, entry: dict, live_leases: list[dict], now: float) -> tupl
     temporary = entry.get("temporary") or {}
     is_expired = bool(temporary) and now > float(temporary.get("expires_at") or 0)
     if live_leases:
-        return ACTION_KEEP, f"세션 {str(live_leases[0].get('session'))[:8]} 이 빌려 쓰는 중"
+        return ACTION_KEEP, f"borrowed by session {str(live_leases[0].get('session'))[:8]}"
     if is_expired and is_protected(entry):
-        return ACTION_KEEP, "임시 기기 기한이 지났지만 공들인 상태가 생겼다 — 남길지 사용자에게 묻는다 (adopt 또는 delete --yes)"
+        return ACTION_KEEP, "temporary device expired but has a marked state now — ask the user whether to keep it (adopt or delete --yes)"
     if is_expired:
-        return ACTION_DELETE, f"임시 기기 기한 지남 (만든 이유: {temporary.get('reason')})"
+        return ACTION_DELETE, f"temporary device expired (created for: {temporary.get('reason')})"
     last_used = max([float(lease.get("last_used") or 0) for lease in entry.get("leases") or []]
                     + [float(entry.get("pool_booted_at") or 0)])
     if facts.is_booted and entry.get("pool_booted_at") and now - last_used > POOL_BOOTED_IDLE_SHUTDOWN_SECONDS:
-        return ACTION_SHUTDOWN, f"원장이 켰고 {round((now - last_used) / 60)}분째 아무도 안 쓴다"
+        return ACTION_SHUTDOWN, f"booted by the pool, unused for {round((now - last_used) / 60)} min"
     if temporary:
         days_left = (float(temporary.get("expires_at") or now) - now) / 86400
-        return ACTION_KEEP, f"임시 기기 — {days_left:.1f}일 뒤 정리 대상"
+        return ACTION_KEEP, f"temporary device — cleaned up in {days_left:.1f} days"
     if is_protected(entry):
-        return ACTION_KEEP, "공들인 상태가 기록된 기기 (보호)"
+        return ACTION_KEEP, "device with a marked state (protected)"
     if not entry.get("origin"):
-        return ACTION_KEEP, "원장 기록 없는 기기 — 손대지 않는다 (필요 없으면 사용자 확인 뒤 device delete --yes)"
-    return ACTION_KEEP, "원장에 올린 기기"
+        return ACTION_KEEP, "device not in the ledger — left alone (if unneeded, confirm with the user, then device delete --yes)"
+    return ACTION_KEEP, "device registered in the ledger"
 
 
 def build_plan(is_every_size_counted: bool = False) -> GcPlan:

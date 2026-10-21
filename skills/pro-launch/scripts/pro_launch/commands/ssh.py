@@ -63,11 +63,11 @@ def _record_server_facts(name: str, base_cmd: list[str], env: dict) -> None:
         lines = [ln.strip() for ln in r.stdout.splitlines() if ln.strip()]
         if r.returncode != 0 or not lines or lines[0] not in _KNOWN_OS:
             return
-        knowledge.auto_record("server", prefix + "os", f"OS {lines[0]} (uname -s 로 확인)")
+        knowledge.auto_record("server", prefix + "os", f"OS {lines[0]} (checked with uname -s)")
         if "SYNO_DOCKER" in lines:
             knowledge.auto_record("server", prefix + "docker",
-                                  f"docker 는 PATH 에 없다 — 절대경로 {_SYNO_DOCKER} 로 부른다 "
-                                  "(컨테이너 안 curl 이 없으면 wget)")
+                                  f"docker is not on PATH — call it by absolute path {_SYNO_DOCKER} "
+                                  "(use wget if the container has no curl)")
     except Exception:   # noqa: BLE001 — 기억은 보조다
         pass
 
@@ -90,7 +90,7 @@ def cmd_ssh(args) -> int:
     if args.password_env:
         if args.password_env not in os.environ:
             return out({"ok": False, "code": "env_not_set",
-                        "error": f"환경변수 {args.password_env} 가 비어 있습니다"})
+                        "error": f"Environment variable {args.password_env} is empty"})
         adhoc["password"] = os.environ[args.password_env]
     elif args.password:
         adhoc["password"] = args.password
@@ -101,19 +101,19 @@ def cmd_ssh(args) -> int:
             base.pop("key_path", None)
         if "key_path" in adhoc:
             base.pop("password", None)
-        cred = {**base, **adhoc, "name": (cred or {}).get("name") or "(저장 안 함)"}
+        cred = {**base, **adhoc, "name": (cred or {}).get("name") or "(not saved)"}
     if not cred:
         return out({"ok": False, "code": "cred_required",
-                    "error": "저장된 서버(--cred) 나 접속 정보(--host --user …)가 필요합니다",
-                    "next": "cred list  # 또는 ssh --host <호스트> --port <포트> --user <계정> "
-                            "--password-env <변수> | --key-path <키 파일> --command '…'"})
+                    "error": "A saved server (--cred) or connection details (--host --user …) are required",
+                    "next": "cred list  # or ssh --host <host> --port <port> --user <account> "
+                            "--password-env <variable> | --key-path <key file> --command '…'"})
     if not args.command:
-        return out({"ok": False, "code": "command_required", "error": "--command 가 필요합니다"})
+        return out({"ok": False, "code": "command_required", "error": "--command is required"})
     host, user = cred.get("host"), cred.get("user")
-    label = args.cred or host or "(저장 안 함)"
+    label = args.cred or host or "(not saved)"
     if not host:
         return out({"ok": False, "code": "host_missing",
-                    "error": f"'{label}' 에 host 가 없습니다 (--host 를 주거나 cred set 으로 host·user 를 적는다)"})
+                    "error": f"'{label}' has no host (give --host, or record host and user with cred set)"})
     password = cred.get("password")
     key_path = cred.get("key_path")
     dest = f"{user}@{host}" if user else host
@@ -126,8 +126,8 @@ def cmd_ssh(args) -> int:
         argv_prefix = []
     elif password:
         if not shutil.which("sshpass"):
-            return out({"ok": False, "code": "sshpass_missing", "error": "비밀번호 접속에는 sshpass 가 필요합니다",
-                        "install": "brew install hudochenkov/sshpass/sshpass  (또는 key_path 로 키 접속)"})
+            return out({"ok": False, "code": "sshpass_missing", "error": "Password login needs sshpass",
+                        "install": "brew install hudochenkov/sshpass/sshpass  (or use a key via key_path)"})
         env["SSHPASS"] = str(password)
         argv_prefix = ["sshpass", "-e"]
     else:
@@ -138,7 +138,7 @@ def cmd_ssh(args) -> int:
     if args.sudo:
         if not password:
             return out({"ok": False, "code": "sudo_password_missing",
-                        "error": "--sudo 에는 저장된 password 가 필요합니다"})
+                        "error": "--sudo needs a saved password"})
         # 비밀번호는 표준입력으로만 넘긴다 — 원격 명령줄(ps)에 남지 않는다
         remote = ('export PATH=$PATH:/usr/local/bin; IFS= read -r PW; '
                   'SUDO() { echo "$PW" | sudo -S -p "" "$@"; }; ' + args.command)
@@ -148,7 +148,7 @@ def cmd_ssh(args) -> int:
         r = subprocess.run(argv_prefix + ssh + [dest, remote], input=stdin.encode("utf-8") if stdin else None,
                            env=env, capture_output=True, timeout=args.timeout)
     except subprocess.TimeoutExpired:
-        return out({"ok": False, "code": "ssh_timeout", "error": f"응답 없음 ({args.timeout}초)"})
+        return out({"ok": False, "code": "ssh_timeout", "error": f"No response ({args.timeout}s)"})
     stdout_text, stdout_encoding = decode_remote_output(r.stdout)
     stderr_text, _stderr_encoding = decode_remote_output(r.stderr)
     stdout = credentials.mask(stdout_text, cred)
@@ -158,32 +158,32 @@ def cmd_ssh(args) -> int:
         _record_server_facts(args.cred, argv_prefix + ssh + [dest], env)
     code, hint = ("ok", None) if ok else classify_ssh_failure(r.returncode, stderr_text)
     if ok and adhoc and not args.cred:
-        hint = ("자주 쓰는 서버면 cred set --name <이름> --json "
-                "'{\"kind\":\"ssh\",\"host\":…,\"port\":…,\"user\":…,\"use_when\":…}' 로 저장해 두면 다음부터 이름만 쓴다")
+        hint = ("For a server you use often, save it with cred set --name <name> --json "
+                "'{\"kind\":\"ssh\",\"host\":…,\"port\":…,\"user\":…,\"use_when\":…}' and use just the name next time")
     return out({"ok": ok, "code": code, "exit_code": r.returncode,
                 "stdout": stdout[:args.max_output], "stdout_encoding": stdout_encoding,
                 # stderr 는 언제나 문자열 — None 이면 부르는 쪽 슬라이싱이 깨짐 (#933)
                 "stderr": stderr.strip()[:1000],
                 "truncated": len(stdout) > args.max_output,
-                "summary": f"{label}: " + ("실행 완료" if ok else f"{code} (종료코드 {r.returncode})"),
+                "summary": f"{label}: " + ("succeeded" if ok else f"{code} (exit code {r.returncode})"),
                 "next": hint if (not ok or adhoc) else None})
 
 
 def configure_ssh(p) -> None:
-    p.add_argument("--cred", default=None, help="저장된 서버 자격증명 이름 (cred list)")
-    p.add_argument("--host", default=None, help="저장 없이 직접 접속: 호스트 (--cred 와 함께 주면 그 값을 덮어쓴다)")
-    p.add_argument("--port", type=int, default=None, help="SSH 포트")
-    p.add_argument("--user", default=None, help="계정")
-    p.add_argument("--password", default=None, help="비밀번호 (기록에 남아도 되는 환경일 때. 아니면 --password-env)")
-    p.add_argument("--password-env", dest="password_env", default=None, help="비밀번호를 읽을 환경변수 이름")
-    p.add_argument("--key-path", dest="key_path", default=None, help="개인키(PEM) 파일 경로 — 비밀번호 대신")
-    p.add_argument("--command", default=None, help="원격에서 실행할 명령")
-    p.add_argument("--sudo", action="store_true", help="원격에서 SUDO <명령> 을 쓸 수 있게 한다 (비밀번호 sudo)")
+    p.add_argument("--cred", default=None, help="Saved server credential name (cred list)")
+    p.add_argument("--host", default=None, help="Direct connection without saving: host (overrides the saved value when given with --cred)")
+    p.add_argument("--port", type=int, default=None, help="SSH port")
+    p.add_argument("--user", default=None, help="Account")
+    p.add_argument("--password", default=None, help="Password (only where it may appear in logs; otherwise --password-env)")
+    p.add_argument("--password-env", dest="password_env", default=None, help="Name of the environment variable holding the password")
+    p.add_argument("--key-path", dest="key_path", default=None, help="Private key (PEM) file path — instead of a password")
+    p.add_argument("--command", default=None, help="Command to run on the remote host")
+    p.add_argument("--sudo", action="store_true", help="Allow SUDO <command> on the remote host (password sudo)")
     p.add_argument("--timeout", type=int, default=60)
     p.add_argument("--max-output", dest="max_output", type=int, default=20000)
 
 
 COMMANDS = [
-    Command(name="ssh", help="원격 명령을 실행한다 (저장된 서버 --cred, 또는 저장 없이 --host 로 직접)", run=cmd_ssh,
+    Command(name="ssh", help="Run a remote command (saved server via --cred, or directly via --host without saving)", run=cmd_ssh,
             configure=configure_ssh),
 ]

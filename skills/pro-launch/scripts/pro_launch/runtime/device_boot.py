@@ -34,8 +34,8 @@ EMULATOR_APPEAR_TIMEOUT_SECONDS = 120
 EMULATOR_PORT_FIRST, EMULATOR_PORT_LAST = 5554, 5584
 # 에뮬레이터 로그의 "가속 없음" 징후 — 이 상태는 부팅이 끝나지 않는다
 EMULATOR_NO_ACCELERATION_MARKERS = ("hvf is not enabled", "qemu_mprotect__osdep: mprotect failed")
-SIMULATOR_WINDOW_HINT = ("Simulator 의 Window 메뉴 > Physical Size / Fit Screen 으로 줄인다 "
-                         "(이미 떠 있는 Simulator.app 은 다른 세션이 쓸 수 있어 끄지 않는다)")
+SIMULATOR_WINDOW_HINT = ("Shrink it with Simulator's Window menu > Physical Size / Fit Screen "
+                         "(an already open Simulator.app may be used by another session, so it is not quit)")
 _UDID_PATTERN = re.compile(r"^[0-9A-Fa-f]{8}-(?:[0-9A-Fa-f]{4}-){3}[0-9A-Fa-f]{12}$")
 
 
@@ -57,7 +57,7 @@ def _run(command: list[str], timeout: int) -> tuple[bool, str]:
     try:
         r = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
-        return False, f"응답 없음 ({timeout}초)"
+        return False, f"no response ({timeout}s)"
     except OSError as error:
         return False, str(error)
     return r.returncode == 0, ((r.stdout or "") + (r.stderr or "")).replace("\r", "").strip()
@@ -117,7 +117,7 @@ def write_window_scale(udid: str, scale: float) -> tuple[bool, str]:
         (next(iter(other.get("SimulatorWindowGeometry") or {}), None) for other in device_preferences.values()
          if isinstance(other, dict) and other.get("SimulatorWindowGeometry")), None)
     if screen_id is None:
-        return False, "화면 id 를 알 수 없다 (Simulator.app 을 한 번도 안 연 맥)"
+        return False, "screen id unknown (Simulator.app has never been opened on this Mac)"
     geometry[screen_id] = {**(geometry.get(screen_id) or {}), "WindowScale": float(scale)}
     entry["SimulatorWindowGeometry"] = geometry
     return _run(["defaults", "write", SIMULATOR_PREFERENCES_DOMAIN, "DevicePreferences", "-dict-add", udid,
@@ -220,10 +220,10 @@ def launch_emulator(avd: str, window: str, scale: float | None, is_cold: bool,
     """에뮬레이터를 백그라운드로 띄운다 > {is_ok, serial, pid, command, log}. 준비 완료 대기는 부르는 쪽이 한다."""
     emulator = sdk_tool("emulator")
     if not emulator:
-        return {"is_ok": False, "detail": "emulator 를 찾지 못했다 (doctor 의 emulator_path 확인)"}
+        return {"is_ok": False, "detail": "emulator not found (check emulator_path in doctor)"}
     chosen_port = port or _free_emulator_port()
     if chosen_port is None:
-        return {"is_ok": False, "detail": "빈 에뮬레이터 포트가 없다 (5554~5584)"}
+        return {"is_ok": False, "detail": "no free emulator port (5554-5584)"}
     command = emulator_command(emulator, avd, window, scale, is_cold, chosen_port)
     log = emulator_log_path(avd)
     pid = procs.spawn_detached(command, str(Path(emulator).parent), log)
@@ -241,8 +241,8 @@ def emulator_start_problem(log_path: str | Path | None) -> str | None:
     except OSError:
         return None
     if any(marker in text for marker in EMULATOR_NO_ACCELERATION_MARKERS):
-        return ("에뮬레이터가 하드웨어 가속(HVF)을 얻지 못해 소프트웨어 모드로 멈췄다 — 호스트 메모리·스왑이 부족할 때 생긴다. "
-                "다른 가상 기기를 줄이거나 메모리를 확보한 뒤 다시 띄운다")
+        return ("the emulator got no hardware acceleration (HVF) and stalled in software mode — this happens when host memory or swap runs low. "
+                "Run fewer virtual devices or free memory, then start it again")
     return None
 
 

@@ -48,11 +48,11 @@ def backend_on(platform: str, args, dev_id: str | None = None):
     be = app_input.get_backend(platform, getattr(args, "pkg", None) or os.environ.get("PKG"))
     if be is None:
         return None, out({"ok": False, "code": "platform_unsupported",
-                          "error": f"{platform} 은 조작 백엔드가 없다",
-                          "next": "references/extending.md 를 보고 백엔드를 추가한다"})
+                          "error": f"{platform} has no control backend",
+                          "next": "Add a backend following references/extending.md"})
     if not be.available():
         return None, out({"ok": False, "code": f"{be.name}_tool_missing",
-                          "error": f"{be.name} 조작 도구가 없다", "next": be.install_hint})
+                          "error": f"{be.name} control tool is missing", "next": be.install_hint})
     if be.name == "ios":
         prepare_ios_maestro(dev_id)
     return be, None
@@ -89,9 +89,9 @@ def with_session_advice(result: dict, be, dev_id: str | None, args) -> dict:
         return result
     previous_next = result.get("next")
     result["next"] = (f"app session start --device {dev_id}  "
-                      f"# 이번 {elapsed}초 — 세션이면 tap 1초 · tree 0.6초 (조작을 더 할 때)")
-    result["hint"] = ("상주 세션 없이 iOS 조작은 호출마다 Maestro(JVM)를 새로 띄운다"
-                      + (f" — 세션을 켠 뒤: {previous_next}" if previous_next else ""))
+                      f"# this took {elapsed}s — with a session tap is 1s · tree 0.6s (when doing more actions)")
+    result["hint"] = ("Without a resident session every iOS action starts a new Maestro (JVM)"
+                      + (f" — after starting the session: {previous_next}" if previous_next else ""))
     return result
 
 
@@ -126,12 +126,12 @@ def device_failure_response(be, dev_id, args=None) -> int:
     """화면 구조를 못 읽었다 — 원인별 code (시스템 재시작 중 · UiAutomation 연결 실패 · 시간 초과 · 그 밖)."""
     failure = getattr(be, "device_failure", None) or {"code": "ui_dump_failed", "reason": None}
     next_hint = {
-        "android_system_not_ready": "app shot 으로 화면을 본다. 부팅 화면이 계속되면 에뮬레이터를 다시 켠다 (cold boot — 사용자에게 먼저 묻는다)",
-        "ui_automation_unavailable": "다른 자동화 도구(Maestro·Appium)가 기기를 쓰는 중인지 본다. 잠시 뒤 다시 시도하거나 --at 비율 좌표를 쓴다",
-        "ui_dump_timeout": "애니메이션이 계속되는 화면일 수 있다. app shot 으로 보고 --at 비율 좌표를 쓴다",
-    }.get(failure["code"], "잠시 뒤 다시 시도하거나 --at 비율 좌표를 쓴다")
+        "android_system_not_ready": "Look at the screen with app shot. If the boot screen persists, restart the emulator (cold boot — ask the user first)",
+        "ui_automation_unavailable": "Check whether another automation tool (Maestro · Appium) is using the device. Retry shortly or use an --at ratio coordinate",
+        "ui_dump_timeout": "The screen may be animating continuously. Look with app shot and use an --at ratio coordinate",
+    }.get(failure["code"], "Retry shortly or use an --at ratio coordinate")
     return out({"ok": False, "code": failure["code"], "device": dev_id,
-                "error": failure.get("reason") or "화면 구조를 읽지 못했다 (애니메이션 중이거나 보안 화면일 수 있다)",
+                "error": failure.get("reason") or "Could not read the screen structure (it may be animating or a secure screen)",
                 "elapsed_seconds": elapsed_seconds(args) if args is not None else None,
                 "next": next_hint})
 
@@ -172,13 +172,13 @@ def gesture_result(args, be, dev_id, before, ok: bool, detail: str, fail_code: s
     diagnostics = {} if ok else ios_failure_fields(be, dev_id)
     # 백엔드가 사유를 비워 두면 Maestro 마지막 오류 줄 > 그것도 없으면 사유 없음을 그대로 (error: null 금지)
     error = None if ok else ((detail or "")[-400:] or diagnostics.get("backend_last_error")
-                             or f"{be.name} 백엔드가 사유를 남기지 않고 실패했다")
+                             or f"{be.name} backend failed without giving a reason")
     res = {"ok": ok, "code": "ok" if ok else fail_code, "device": dev_id, "via": be.name,
            **session_fields(be), **extra, "error": error, **diagnostics,
-           "summary": summary if ok else f"실패 — {fail_code}",
-           "next": "app shot  # 결과 화면 확인"}
+           "summary": summary if ok else f"Failed — {fail_code}",
+           "next": "app shot  # check the resulting screen"}
     if diagnostics.get("stale_maestro_drivers"):
-        res["next"] = f"app session stop --device {dev_id} --kill-stale  # 남은 Maestro 드라이버 정리 후 다시"
+        res["next"] = f"app session stop --device {dev_id} --kill-stale  # clean up leftover Maestro drivers, then retry"
     if ok:
         auto_record_backend(be)
         res.update(after_shot(args, be, dev_id, before))
@@ -187,16 +187,16 @@ def gesture_result(args, be, dev_id, before, ok: bool, detail: str, fail_code: s
     res["elapsed_seconds"] = elapsed_seconds(args)
     if ok:
         if res.get("shot"):
-            res["next"] = ("shot 이미지를 읽어 결과를 확인한다" if res.get("screen_changed") is not False
-                           else "화면이 그대로다 — 다른 요소를 고르거나 app tree 로 다시 본다")
+            res["next"] = ("Read the shot image to check the result" if res.get("screen_changed") is not False
+                           else "The screen did not change — pick another element or look again with app tree")
     # 남은 Maestro 드라이버 정리 안내가 우선 — 세션을 켜도 안 풀린다
     if not diagnostics.get("stale_maestro_drivers"):
         with_session_advice(res, be, dev_id, args)
     return out(res)
 
 
-_BACKEND_HOW = {"android": "앱 누르기·밀기는 launch_cli app tap/swipe (uiautomator + adb input, 화면 요소 기준)로 된다",
-                "ios": "앱 누르기·밀기는 launch_cli app tap/swipe (Maestro, 화면 요소 기준)로 된다"}
+_BACKEND_HOW = {"android": "App taps and swipes work with launch_cli app tap/swipe (uiautomator + adb input, by screen element)",
+                "ios": "App taps and swipes work with launch_cli app tap/swipe (Maestro, by screen element)"}
 
 
 def auto_record_backend(be) -> None:
@@ -215,8 +215,8 @@ def not_found_response(be, dev_id, field: str, value: str, nodes: list[dict] | N
         nodes = be.nodes(dev_id) or []
     suggestion = node_match.did_you_mean(nodes, value)
     return out(with_session_advice({"ok": False, "code": "not_found", "device": dev_id,
-                "error": f"{field}={value!r} 인 요소가 없다 (text·desc 모두, 겹친 라벨·부분 일치 포함)",
+                "error": f"No element with {field}={value!r} (checked text and desc, incl. doubled labels and partial matches)",
                 "locale": be.locale(dev_id), "candidates": node_match.candidate_values(nodes, field),
                 **({"did_you_mean": suggestion} if suggestion else {}), **session_fields(be),
                 "elapsed_seconds": elapsed_seconds(args),
-                "next": "candidates 의 값으로 다시 app tap (문구는 화면 언어 그대로)"}, be, dev_id, args))
+                "next": "app tap again with a value from candidates (text in the screen language as is)"}, be, dev_id, args))

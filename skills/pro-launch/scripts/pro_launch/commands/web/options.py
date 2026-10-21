@@ -8,69 +8,69 @@ from pro_launch.runtime.shots import add_shot_args
 
 
 def _root(p) -> None:
-    p.add_argument("--root", default=".", help="프로젝트 루트 (상태 파일 위치)")
+    p.add_argument("--root", default=".", help="Project root (where the state file lives)")
 
 
 def _url(p) -> None:
-    p.add_argument("--url", default=None, help="주소")
+    p.add_argument("--url", default=None, help="URL")
 
 
 def _selector(p) -> None:
     p.add_argument("--selector", default=None,
-                   help="대상 선택자. text=로그인 · #id · button:has-text('x')")
+                   help="Target selector. text=Login · #id · button:has-text('x')")
 
 
 def _ref(p) -> None:
     p.add_argument("--ref", type=int, default=None,
-                   help="web find · web inspect 가 준 번호. 선택자 추측 대신 이것을 쓴다")
+                   help="Number given by web find or web inspect. Use it instead of guessing a selector")
 
 
 def _text(p) -> None:
-    p.add_argument("--text", default=None, help="입력할 값 또는 찾을·확인할 문구")
+    p.add_argument("--text", default=None, help="Value to type, or text to find or check")
 
 
 def _secret_text(p) -> None:
     # 비밀번호를 --text 에 적으면 세션 기록에 평문으로 남는다(#604)
-    p.add_argument("--cred", default=None, help="저장된 로그인 정보로 입력한다 (cred list). 값은 명령줄에 남지 않는다")
+    p.add_argument("--cred", default=None, help="Type from a saved login (cred list). The value never appears on the command line")
     p.add_argument("--cred-field", dest="cred_field", default=None,
-                   help="--cred 에서 넣을 필드 (기본 password, 예: account)")
+                   help="Field to type from --cred (default password, e.g. account)")
     p.add_argument("--text-env", dest="text_env", default=None,
-                   help="입력값을 환경변수에서 읽는다 — 비밀번호는 반드시 이쪽")
+                   help="Read the value from an environment variable — always use this for passwords")
 
 
 def _timeout(p) -> None:
-    p.add_argument("--timeout", type=int, default=10, help="대기 제한(초)")
+    p.add_argument("--timeout", type=int, default=10, help="Wait limit (seconds)")
 
 
 def _target_timeout(p) -> None:
     # 추측한 선택자가 매번 10초를 다 쓰던 것을 줄인다 (#888). 기본값 계산은 element.py 의 *_wait_seconds
     p.add_argument("--timeout", type=int, default=None,
-                   help="대기 제한(초). 기본: 대상 요소 4초 · 누른 뒤 결과(--expect-* · 내려받기) 10초. 주면 둘 다 이 값")
+                   help="Wait limit (seconds). Default: 4 s for the target element, 10 s for the result after the press (--expect-*, downloads). If given, both use this value")
 
 
 def _frame(p) -> None:
     # 교차 출처 iframe 안의 로그인 폼 등 — 최상위 문서 선택자로는 안이 안 보인다 (#877)
     p.add_argument("--frame", default=None,
-                   help="iframe 안에서 한다: 프레임 이름 · iframe 선택자 · 주소 일부 (못 찾으면 frames 목록)")
+                   help="Act inside an iframe: frame name, iframe selector or part of its url (lists frames if not found)")
 
 
 def _clear(p) -> None:
-    p.add_argument("--clear", action="store_true", help="지정을 푼다")
+    p.add_argument("--clear", action="store_true", help="Clear the setting")
 
 
 def _out(p) -> None:
-    p.add_argument("--out", default=None, help="이름(→ $SHOT_DIR 아래) 또는 경로")
+    p.add_argument("--out", default=None, help="Name (saved under $SHOT_DIR) or path")
 
 
 def _confirm_mutating(p) -> None:
     p.add_argument("--confirm-mutating", dest="confirm_mutating", action="store_true",
-                   help="읽기 전용 세션에서도 한다 (사용자 승인을 받은 뒤에만)")
+                   help="Act even in a read-only session (only after the user approves)")
 
 
 def _capture_requests(p) -> None:
     # 저장이 정말 서버로 갔는지 page.on("response") 를 손으로 걸던 것 (#930)
     p.add_argument("--capture-requests", dest="capture_requests", action="store_true",
-                   help="이 조작이 일으킨 GET 이 아닌 요청(method · status · url)을 결과 requests 에 싣는다")
+                   help="Add the non-GET requests this action caused (method · status · url) to the result's requests")
 
 
 # 공통 옵션 이름 → 파서에 다는 함수. 이름은 Action.options 에 적는 값이다
@@ -108,7 +108,7 @@ def timeout_failure(args) -> dict | None:
         return None
     return {"ok": False, "code": "timeout_too_large", "action": getattr(args, "action", None),
             "timeout": timeout, "maximum_seconds": MAXIMUM_TIMEOUT_SECONDS,
-            "error": f"--timeout {timeout} 은 너무 깁니다 (단위는 초 — {timeout}초는 약 {round(timeout / 60)}분)",
-            "hint": (f"밀리초가 아니라 초로 준다 (예: 5000ms → --timeout 5). 최대 {MAXIMUM_TIMEOUT_SECONDS}초. "
-                     "더 오래 기다려야 하면 web wait 를 다시 부른다"),
-            "next": f"web {getattr(args, 'action', '<동작>')} --timeout {min(max(timeout // 1000, 1), MAXIMUM_TIMEOUT_SECONDS)}"}
+            "error": f"--timeout {timeout} is too long (the unit is seconds — {timeout} s is about {round(timeout / 60)} min)",
+            "hint": (f"Give seconds, not milliseconds (e.g. 5000ms → --timeout 5). Maximum {MAXIMUM_TIMEOUT_SECONDS} s. "
+                     "To wait longer, call web wait again"),
+            "next": f"web {getattr(args, 'action', '<action>')} --timeout {min(max(timeout // 1000, 1), MAXIMUM_TIMEOUT_SECONDS)}"}

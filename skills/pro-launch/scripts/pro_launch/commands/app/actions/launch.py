@@ -22,9 +22,9 @@ def _app_launch(args) -> int:
             return launch_failure_response("launch", platform, dev_id, package, check)
         if check.get("foreground_package"):
             foreground_fields = {"foreground_package": check["foreground_package"]}
-    return control_result("launch", platform, dev_id, ok, detail or "앱을 띄우지 못했습니다", "launch_failed",
-                          f"{package} 실행", "app shot  # 뜬 화면을 봅니다",
-                          "설치돼 있는지 확인하세요 (device list 의 installed)", package=package, **foreground_fields)
+    return control_result("launch", platform, dev_id, ok, detail or "Could not start the app", "launch_failed",
+                          f"launch {package}", "app shot  # look at the screen that came up",
+                          "Check that it is installed (installed in device list)", package=package, **foreground_fields)
 
 
 ACTION = Action(name="launch", device_use="mutate", run=_app_launch)

@@ -62,9 +62,9 @@ def click_with_cover_recovery(page, element, args, info: dict) -> tuple[dict, di
         cover = covered_by or ("intercepts pointer events" in str(error) and covering_element(element, True))
         if cover:
             failure.update({"reason": "covered", "covered_by": cover,
-                            "hint": f"'{cover}' 이 클릭을 가로챈다 (고정 머리글·오버레이). "
-                                    "사람 클릭과 같지 않아도 되면 --dom-click 으로 요소의 click() 을 바로 부른다",
-                            "next": f"{covered_retry_command(args)}  # 덮은 것을 거치지 않고 누른다"})
+                            "hint": f"'{cover}' intercepts the click (sticky header or overlay). "
+                                    "If it need not match a real user click, --dom-click calls the element's click() directly",
+                            "next": f"{covered_retry_command(args)}  # click without going through the cover"})
         return recovery, failure
     return recovery, None
 
@@ -99,36 +99,36 @@ def _web_click(page, args, state: dict) -> dict:
                 "expected": args.expect_url or args.expect_text,
                 "before": {"url": before_url, "title": before_title},
                 "url": page.url, "title": safe_title(page),
-                "error": f"눌렀지만 기대한 {'주소' if waited == 'url' else '글자'}가 {outcome_seconds}초 안에 나오지 않았습니다",
-                "next": "web text  # 지금 화면을 읽고, 엉뚱한 것을 눌렀으면 web find 로 다시 고른다"}
+                "error": f"Clicked, but the expected {'URL' if waited == 'url' else 'text'} did not appear within {outcome_seconds}s",
+                "next": "web text  # read the current screen; if the wrong thing was clicked, pick again with web find"}
     settle(page, state, outcome_seconds)
     after_url, after_title = page.url, safe_title(page)
     changed = after_url != before_url or after_title != before_title
     payload = {"action": "click", "clicked": info, "changed": changed,
                "before": {"url": before_url, "title": before_title},
                "url": after_url, "title": after_title,
-               "summary": f"'{(info.get('text') or info.get('aria') or info.get('tag'))[:40]}' 클릭 → "
-                          + ("주소·제목이 바뀌었다" if changed else "주소·제목 그대로")}
+               "summary": f"Clicked '{(info.get('text') or info.get('aria') or info.get('tag'))[:40]}' → "
+                          + ("URL or title changed" if changed else "URL and title unchanged")}
     if recovery:
         payload["recovery"] = recovery
     if not changed and not (args.expect_url or args.expect_text):
         # 체크박스·펼치기처럼 제자리에서 바뀌는 것일 수도 있다 — 실패로 단정하지 않고 확인을 시킨다
-        payload["next"] = "의도한 결과가 맞는지 web text / web assert 로 확인한다. 아니면 web find 로 다시 고른다"
+        payload["next"] = "Check with web text / web assert that it did what you intended. If not, pick again with web find"
     else:
-        payload["next"] = "web text  # 바뀐 화면을 읽는다"
+        payload["next"] = "web text  # read the changed screen"
     return payload
 
 
 def configure(p) -> None:
     p.add_argument("--expect-url", dest="expect_url", default=None,
-                   help="누른 뒤 주소에 이 글자가 들어올 때까지 기다린다. 안 오면 실패")
+                   help="After clicking, wait until the URL contains this text. Fails otherwise")
     p.add_argument("--expect-text", dest="expect_text", default=None,
-                   help="누른 뒤 이 글자가 보일 때까지 기다린다. 안 오면 실패")
+                   help="After clicking, wait until this text is visible. Fails otherwise")
     p.add_argument("--dom-click", dest="dom_click", action="store_true",
-                   help="고정 머리글·오버레이가 덮고 있으면 요소의 click() 을 바로 부른다 (#879)")
+                   help="If a sticky header or overlay covers it, call the element's click() directly (#879)")
 
 
 ACTION = Action(name="click", run=_web_click, configure=configure,
                 options=("ref", "selector", "target_timeout", "confirm_mutating", "frame", "capture_requests"),
-                help="고른 요소 하나만 누르고 무엇이 바뀌었는지 돌려준다",
+                help="Click exactly one chosen element and report what changed",
                 example="web click --ref 3 --expect-url /home")

@@ -12,10 +12,11 @@
       "SingletonSocket",
       "profile_locked",
       "stderr_tail",
-      "recovered"
+      "recovered",
+      "브라우저가 뜨지 않았습니다"
     ]
   },
-  "symptom": "web open ends with browser_start_failed and no browser appears (error: \"브라우저가 뜨지 않았습니다\" — the browser did not start). The response carries causes · recovered · stderr_tail",
+  "symptom": "web open ends with browser_start_failed and no browser appears (error: \"Browser did not start\"). The response carries causes · recovered · stderr_tail",
   "cause": "web open first checks the recorded browser: if it is dead, it clears leftover locks; if it is alive but CDP does not answer within 3 s, it kills it and starts a new one (recovered lists dead_pid · stale_lock · hung_browser). If it still fails, an unrecorded process is using the same profile (locks are not deleted then), or the browser itself dies immediately",
   "fix": [
     "Read stderr_tail in the response — it holds the reason the browser died immediately",

@@ -38,7 +38,7 @@ def _shoot_container(page, args, root) -> dict:
     container = page.locator(args.container).first
     if page.locator(args.container).count() == 0:
         return {"ok": False, "code": "selector_not_found", "action": "shot", "url": page.url,
-                "error": f"{args.container} 에 맞는 요소가 없습니다", "next": "web find --selector <선택자>"}
+                "error": f"No element matches {args.container}", "next": "web find --selector <selector>"}
     container.evaluate("(e) => { e.scrollTop = 0; }")
     limit = args.tiles or DEFAULT_MAXIMUM_TILES
     files, last_scroll = [], {}
@@ -56,15 +56,15 @@ def _shoot_container(page, args, root) -> dict:
             "container": {"selector": args.container, "scroll_height": last_scroll.get("scroll_height"),
                           "client_height": last_scroll.get("client_height")},
             "url": page.url, "title": safe_title(page),
-            "summary": f"{args.container} 를 {len(files)}조각으로 찍었다" + ("" if is_complete else " (바닥 전에 멈춤 — --tiles 를 늘린다)"),
-            "next": "이미지를 위에서부터 읽어 다음 조작을 정하세요"}
+            "summary": f"Captured {args.container} in {len(files)} tiles" + ("" if is_complete else " (stopped before the bottom — raise --tiles)"),
+            "next": "Read the images from the top and decide the next action"}
 
 
 def configure(p) -> None:
-    p.add_argument("--full", action="store_true", help="페이지 전체")
+    p.add_argument("--full", action="store_true", help="Whole page")
     p.add_argument("--container", default=None,
-                   help="안쪽에서 스크롤되는 영역의 선택자 — 위에서부터 내려가며 조각(_01, _02 …)으로 찍는다 (--full 이 잘리는 편집기용)")
-    p.add_argument("--tiles", type=int, default=None, help=f"--container: 조각 수 상한 (기본 바닥까지, 최대 {DEFAULT_MAXIMUM_TILES})")
+                   help="Selector of an inner scrolling area — captured top-down in tiles (_01, _02 …) (for editors where --full gets cut)")
+    p.add_argument("--tiles", type=int, default=None, help=f"--container: tile limit (default to the bottom, max {DEFAULT_MAXIMUM_TILES})")
 
 
 def execute(page, args, state: dict) -> dict:
@@ -82,10 +82,10 @@ def execute(page, args, state: dict) -> dict:
     return {"action": "shot", "file": str(final), "url": page.url,
             "title": safe_title(page), "viewport": state.get("viewport"),
             "routes": len(state.get("routes") or []),
-            "summary": f"화면을 찍었습니다: {final.name}",
-            "next": "이미지를 읽어 다음 조작을 정하세요"}
+            "summary": f"Captured the screen: {final.name}",
+            "next": "Read the image and decide the next action"}
 
 
 ACTION = Action(name="shot", run=execute, configure=configure, options=("selector", "out", "shot_format"),
-                help="화면을 찍는다 (기본 WebP 로 줄인다, --container 는 안쪽 스크롤 영역을 조각으로)",
+                help="Capture the screen (shrunk to WebP by default; --container captures an inner scroll area in tiles)",
                 example="web shot --out 02_empty --full")

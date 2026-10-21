@@ -48,8 +48,8 @@ def execute(page, args, state: dict) -> dict:
         if not has_clicked:
             return not_actionable_failure(page, args, "download", info, e)
         return {"ok": False, "code": "download_not_started", "action": "download", "clicked": info,
-                "url": page.url, "error": f"눌렀지만 {outcome_seconds}초 안에 내려받기가 시작되지 않았습니다",
-                "next": "web text  # 새 창·확인 대화상자가 떴는지 본다 (web dialog --accept)"}
+                "url": page.url, "error": f"Clicked, but no download started within {outcome_seconds}s",
+                "next": "web text  # check whether a new window or confirm dialog opened (web dialog --accept)"}
     reason = download.failure()
     if reason:
         return {"ok": False, "code": "download_failed", "action": "download", "clicked": info,
@@ -60,11 +60,11 @@ def execute(page, args, state: dict) -> dict:
     return {"action": "download", "file": str(target), "bytes": size,
             "suggested_filename": download.suggested_filename, "source_url": download.url,
             "clicked": info, "url": page.url,
-            "summary": f"내려받음: {target.name} ({size} bytes)",
-            "next": "파일을 열어 내용을 확인한다"}
+            "summary": f"Downloaded: {target.name} ({size} bytes)",
+            "next": "Open the file and check its content"}
 
 
 ACTION = Action(name="download", run=execute,
                 options=("selector", "ref", "out", "target_timeout", "confirm_mutating"),
-                help="눌러서 받은 파일을 실행 폴더($SHOT_DIR)에 저장하고 경로·크기를 돌려준다",
+                help="Click to download, save the file in the run folder ($SHOT_DIR), and return its path and size",
                 example="web download --ref 3 --out report.csv")

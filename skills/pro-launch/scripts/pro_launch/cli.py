@@ -34,12 +34,12 @@ def load_commands() -> list[Command]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="launch_cli",
-                                     description="앱·웹·서버를 띄우고 조작하고 찍는다")
+                                     description="Launch, drive and capture apps, web and servers")
     # 출력 모양 옵션 (#898) — 실제로는 _pop_output_options 가 파서 전에 꺼낸다. 여기 둔 것은 도움말용
     parser.add_argument("--brief", action="store_true",
-                        help="핵심 키만 낸다: ok·code·summary·next·error·known_fix·memory·learn_hint")
+                        help="Output only the core keys: ok·code·summary·next·error·known_fix·memory·learn_hint")
     parser.add_argument("--fields", metavar="a,b,c",
-                        help="이 최상위 키만 남긴다 (ok·code·summary·next·known_fix·memory·learn_hint 는 항상)")
+                        help="Keep only these top-level keys (ok·code·summary·next·known_fix·memory·learn_hint are always kept)")
     sub = parser.add_subparsers(dest="command", required=True)
     for cmd in load_commands():
         p = sub.add_parser(cmd.name, help=cmd.help)
@@ -87,13 +87,13 @@ def _pop_output_options(raw: list[str]) -> tuple[list[str], bool, list[str] | No
             if token == FIELDS_OPTION:
                 index += 1
                 if index >= len(head) or head[index].startswith("--"):
-                    return raw, is_brief, field_names, "--fields 에 키 이름이 없습니다 (예: --fields path,url)"
+                    return raw, is_brief, field_names, "--fields has no key names (e.g. --fields path,url)"
                 value = head[index]
             else:
                 value = token.split("=", 1)[1]
             names = [name.strip() for name in value.split(",") if name.strip()]
             if not names:
-                return raw, is_brief, field_names, "--fields 에 키 이름이 없습니다 (예: --fields path,url)"
+                return raw, is_brief, field_names, "--fields has no key names (e.g. --fields path,url)"
             field_names = [*(field_names or []), *names]
         else:
             kept.append(token)
@@ -109,8 +109,8 @@ def main(argv: list[str] | None = None) -> int:
     OUTPUT_CTX.clear()
     OUTPUT_CTX.update(is_brief=is_brief, field_names=field_names)
     if option_error:
-        return emit_shaped({"ok": False, "code": "bad_args", "error": f"인자가 올바르지 않습니다: {option_error}",
-                            "next": "launch_cli.py <서브커맨드> --help"})
+        return emit_shaped({"ok": False, "code": "bad_args", "error": f"Invalid arguments: {option_error}",
+                            "next": "launch_cli.py <subcommand> --help"})
     raw, tail = _split_tail(raw, load_commands())
     # 빈 값('' — $VAR 미설정)은 파서를 통과해도 동작에서 엉뚱한 오류가 된다. 실패 응답에 원인 옵션을 싣는다 (#886)
     INPUT_CTX.clear()
@@ -128,18 +128,18 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(err.getvalue())
         reason = err.getvalue().strip().splitlines()[-1] if err.getvalue().strip() else ""
         payload = {"ok": False, "code": "bad_args",
-                   "error": f"인자가 올바르지 않습니다: {reason}",
-                   "next": "launch_cli.py <서브커맨드> --help"}
+                   "error": f"Invalid arguments: {reason}",
+                   "next": "launch_cli.py <subcommand> --help"}
         # 무엇이 틀렸는지 · 비슷한 이름 · 이 명령의 옵션 · 예시 (#886)
         diagnosis = diagnose(parser, raw, reason)
         payload.update(diagnosis)
-        payload["summary"] = ("인자 오류: " + " ".join(diagnosis["unknown"]) + " 를 모른다"
+        payload["summary"] = ("Argument error: unknown " + " ".join(diagnosis["unknown"])
                               if diagnosis.get("unknown") else payload["error"])
         if diagnosis.get("did_you_mean"):
             fixes = ", ".join(f"{wrong} > {right}" for wrong, right in diagnosis["did_you_mean"].items())
-            payload["next"] = f"이름을 고쳐 다시 부른다 ({fixes})"
+            payload["next"] = f"Fix the name and call again ({fixes})"
         elif diagnosis.get("example"):
-            payload["next"] = f"예: {diagnosis['example']}"
+            payload["next"] = f"e.g. {diagnosis['example']}"
         if registry.LOAD_ERRORS:
             # 모듈이 깨져서 서브커맨드가 안 보이는 것일 수 있다 — 원인을 알려 준다
             payload["load_errors"] = dict(registry.LOAD_ERRORS)
@@ -152,6 +152,6 @@ def main(argv: list[str] | None = None) -> int:
         return args.func(args)
     except Exception as e:   # 예상 못 한 입력이 트레이스백으로 끝나지 않게 — 에이전트는 JSON 만 읽는다 (#705)
         payload = {"ok": False, "code": "handler_error", "error": f"{type(e).__name__}: {e}",
-                   "next": "입력(경로·값)을 확인하고 다시 부른다"}
+                   "next": "Check the input (paths, values) and call again"}
         attach_known_fix(payload)
         return emit_shaped(payload)

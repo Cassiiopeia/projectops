@@ -28,21 +28,21 @@ def execute(page, args, state: dict) -> dict:
         if "checkbox" in message.lower() or "radio" in message.lower():
             return {"ok": False, "code": "not_checkable", "action": "check", "target": info,
                     "url": page.url, "error": message[:300],
-                    "next": "web inspect --role checkbox  # 체크할 수 있는 요소를 고른다"}
+                    "next": "web inspect --role checkbox  # pick an element that can be checked"}
         raise
     after = element.evaluate(CHECKED_JS)
     payload = done_payload("check", page)
     payload.update({"target": info, "checked_before": before, "checked": after,
                     "summary": f"'{(info.get('text') or info.get('aria') or info.get('tag'))[:40]}' "
-                               + ("켬" if after else "끔")})
+                               + ("on" if after else "off")})
     return payload
 
 
 def configure(p) -> None:
-    p.add_argument("--off", action="store_true", help="끈다 (기본은 켠다)")
+    p.add_argument("--off", action="store_true", help="Turn off (default turns on)")
 
 
 ACTION = Action(name="check", run=execute, configure=configure,
                 options=("selector", "ref", "target_timeout", "confirm_mutating"),
-                help="체크박스·라디오·스위치를 켠다 (--off 면 끈다)",
+                help="Turn a checkbox, radio or switch on (--off turns it off)",
                 example="web check --ref 5 --off")

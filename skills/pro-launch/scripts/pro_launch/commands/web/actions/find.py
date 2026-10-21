@@ -29,10 +29,10 @@ def _web_find(page, args) -> dict:
         # 주 키는 실패에도 둔다 — json.load(...)["items"] 파이프가 KeyError 로 죽었다 (#931)
         failure = {"ok": False, "code": "nothing_found", "action": "find", "items": [], "total": 0, "shown": 0,
                    "url": page.url, "title": safe_title(page),
-                   "error": "조건에 맞는 보이는 요소가 없습니다",
-                   "next": "web text  # 화면 글자를 먼저 읽고 --text 를 그 글자로 다시 찾는다"}
+                   "error": "No visible element matches",
+                   "next": "web text  # read the screen text first, then search again with that text in --text"}
         if args.role in ("textbox", "searchbox", "input"):
-            failure["next"] = "web inspect --role input  # 입력칸을 이름 · 값과 함께 읽는다"
+            failure["next"] = "web inspect --role input  # read input boxes with their names and values"
         # 최상위에서 못 찾았는데 iframe 이 있으면 그 안일 수 있다 — 목록과 --frame 안내
         if not args.frame:
             failure.update(frames_hint(page))
@@ -40,15 +40,15 @@ def _web_find(page, args) -> dict:
     frame_flag = f" --frame '{args.frame}'" if args.frame else ""
     return {"action": "find", "items": items, "frame": args.frame, "total": res.get("total"), "shown": len(items),
             "fallback": res.get("fallback"), "url": page.url, "title": safe_title(page),
-            "summary": f"후보 {len(items)}개 (전체 {res.get('total')})",
-            "next": f"web click --ref <번호>{frame_flag} --expect-url <바뀔 주소 일부>  # 고른 것만 누른다"}
+            "summary": f"{len(items)} candidates (of {res.get('total')})",
+            "next": f"web click --ref <number>{frame_flag} --expect-url <part of the new URL>  # click only the chosen one"}
 
 
 def configure(p) -> None:
     p.add_argument("--role", default=None,
-                   help="find: link · button · row · tab · textbox(입력칸) 처럼 역할로 좁힌다")
-    p.add_argument("--limit", type=int, default=20, help="find: 돌려줄 후보 수")
-    p.add_argument("--all", action="store_true", help=f"find: 개수 제한 없이 전부 (최대 {ALL_LIMIT})")
+                   help="find: narrow by role such as link · button · row · tab · textbox (input box)")
+    p.add_argument("--limit", type=int, default=20, help="find: number of candidates to return")
+    p.add_argument("--all", action="store_true", help=f"find: everything, no count limit (max {ALL_LIMIT})")
 
 
 def execute(page, args, state: dict) -> dict:
@@ -56,5 +56,5 @@ def execute(page, args, state: dict) -> dict:
 
 
 ACTION = Action(name="find", run=execute, configure=configure, options=("text", "selector", "frame"),
-                help="누를 만한 요소를 번호(ref)와 함께 돌려준다",
-                example='web find --text "로그인"')
+                help="Return clickable elements with numbers (ref)",
+                example='web find --text "Sign in"')

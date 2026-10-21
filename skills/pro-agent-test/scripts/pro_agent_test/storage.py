@@ -75,7 +75,7 @@ def _expand(d: Path, path: Path, seen: list[str] | None = None) -> tuple[dict, l
     seen = seen or []
     key = str(path)
     if key in seen:
-        return {}, [f"전제가 순환합니다: {' → '.join(seen + [key])}"]
+        return {}, [f"Precondition cycle: {' → '.join(seen + [key])}"]
     data = json.loads(path.read_text(encoding="utf-8"))
     pre = data.get("precondition")
     if not pre:
@@ -83,7 +83,7 @@ def _expand(d: Path, path: Path, seen: list[str] | None = None) -> tuple[dict, l
 
     target = _resolve_scenario(d, pre)
     if target is None:
-        return data, [f"전제 '{pre}' 를 찾지 못했습니다"]
+        return data, [f"Precondition '{pre}' not found"]
     base, problems = _expand(d, target, seen + [key])
     merged = dict(data)
     merged["steps"] = list(base.get("steps", [])) + list(data.get("steps", []))

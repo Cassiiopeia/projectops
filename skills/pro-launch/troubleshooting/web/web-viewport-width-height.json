@@ -6,9 +6,11 @@
     "codes": [
       "bad_viewport"
     ],
-    "keywords": []
+    "keywords": [
+      "뷰포트 모릅니다"
+    ]
   },
-  "symptom": "web viewport --width 1280 --height 900 ends with bad_viewport (error: \"뷰포트 '' 을 모릅니다\" — unknown viewport '')",
+  "symptom": "web viewport --width 1280 --height 900 ends with bad_viewport (error: \"Unknown viewport ''\")",
   "cause": "viewport reads only --preset. --width · --height are window-size options for when web open starts a new window, so viewport does not use them",
   "fix": [
     "launch_cli.py web viewport --preset 1280x900",

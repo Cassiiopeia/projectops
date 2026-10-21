@@ -170,7 +170,7 @@ def cmd_detect(args) -> int:
         bad = [k for k in want if k not in KINDS]
         if bad:
             return out({"ok": False, "code": "unknown_kind",
-                        "error": f"모르는 종류: {', '.join(bad)}", "hint": " · ".join(KINDS)})
+                        "error": f"Unknown kind: {', '.join(bad)}", "hint": " · ".join(KINDS)})
         det = {**det, "kinds": want, "source": "given"}
     kinds = det["kinds"]
     payload: dict = {"root": str(root), "kinds": kinds, "source": det["source"],
@@ -200,29 +200,29 @@ def cmd_detect(args) -> int:
         }
 
     if det["source"] == "version.yml":
-        payload["confirm"] = ("이 kinds 는 version.yml 선언에서 나왔습니다 — 서버가 화면을 직접 "
-                              "뿌리면 web 도 띄울 수 있습니다. 코드를 보고 판단하세요")
+        payload["confirm"] = ("These kinds come from the version.yml declaration — if the server renders "
+                              "pages itself, web can be launched too. Check the code to decide")
 
     nxt = None
     if not kinds:
-        nxt = "무엇을 띄울지 알 수 없습니다 — 코드를 보고 app·web·server 중 무엇인지 판단하세요"
+        nxt = "Cannot tell what to launch — read the code to decide between app, web and server"
     elif "app" in kinds and not (payload["app"]["devices"]["android"]
                                  or payload["app"]["devices"]["ios_booted"]):
-        nxt = "devices  # 기기가 없습니다. AVD 나 시뮬레이터를 부팅하세요"
+        nxt = "devices  # no device. Boot an AVD or a simulator"
     elif "web" in kinds and not payload["web"]["playwright"]["ready"]:
-        nxt = "web setup  # 브라우저(약 100MB)를 받습니다. 먼저 사용자에게 물어보세요"
-    payload["summary"] = f"{root.name}: {'·'.join(kinds) if kinds else '없음'} ({det['source']})"
+        nxt = "web setup  # downloads a browser (about 100MB). Ask the user first"
+    payload["summary"] = f"{root.name}: {'·'.join(kinds) if kinds else 'none'} ({det['source']})"
     payload["next"] = nxt
     return out(payload)
 
 
 def configure_detect(p) -> None:
-    p.add_argument("--path", default=".", help="탐색 시작 경로")
+    p.add_argument("--path", default=".", help="Path to start searching from")
     p.add_argument("--kinds", default=None,
-                   help="app,web,server 중 정보를 모을 것 (감지 대신 — 부르는 쪽이 이미 알 때)")
+                   help="Which of app,web,server to gather info for (instead of detecting — when the caller already knows)")
 
 
 COMMANDS = [
-    Command(name="detect", help="무엇을 띄울 수 있는지 (마커 파일 · 기기 · 브라우저)", run=cmd_detect,
+    Command(name="detect", help="What can be launched (marker files · devices · browser)", run=cmd_detect,
             configure=configure_detect),
 ]

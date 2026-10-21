@@ -120,7 +120,7 @@ def web_connect(state: dict, allow_missing_tab: bool = False):
     # 멈춘 브라우저 먼저 판정 — Playwright 연결은 응답 없는 CDP 앞에서 오래 기다린다 (#887)
     is_process_alive = bool(state.get("pid")) and pid_alive(int(state["pid"]))
     if is_process_alive and not cdp_responds(state["cdp"]):
-        return None, _hung_failure(state, f"브라우저가 {HUNG_PROBE_SECONDS:g}초 안에 응답하지 않습니다 (프로세스는 있으나 멈춤)")
+        return None, _hung_failure(state, f"Browser did not respond within {HUNG_PROBE_SECONDS:g}s (the process exists but is hung)")
     # 붙기 단계는 감시가 따로 상한을 본다 — CDP 가 답해도 연결 · 탭 목록에서 멈춘 일이 있다 (#921)
     with connect_phase():
         pw = sync_playwright().start()
@@ -130,10 +130,10 @@ def web_connect(state: dict, allow_missing_tab: bool = False):
             pw.stop()
             # 살아 있는데 시간 초과면 멈춤이다 — browser_gone 으로 내면 디스패처가 pid 를 지워 고아가 된다
             if is_process_alive and "timeout" in str(e).lower():
-                return None, _hung_failure(state, f"브라우저에 {CONNECT_TIMEOUT_SECONDS}초 안에 붙지 못했습니다 (연결 멈춤)")
+                return None, _hung_failure(state, f"Could not attach to the browser within {CONNECT_TIMEOUT_SECONDS}s (connection hung)")
             return None, {"ok": False, "code": "browser_gone",
-                          "error": f"열린 브라우저에 붙지 못했습니다: {e}",
-                          "next": "web open  # 다시 엽니다"}
+                          "error": f"Could not attach to the open browser: {e}",
+                          "next": "web open  # open it again"}
         ctx = browser.contexts[0] if browser.contexts else browser.new_context()
         page, tab_error = _session_page(ctx, state, allow_missing_tab)
     if tab_error:
@@ -158,7 +158,7 @@ def _hung_failure(state: dict, error: str) -> dict:
     """멈춘 브라우저 결과 — 어느 프로세스 · 프로필인지 싣는다 (직접 끌 때 필요)"""
     return {"ok": False, "code": "browser_hung", "pid": state.get("pid"), "profile": state.get("profile"),
             "url": None, "error": error,
-            "next": "web open  # 멈춘 브라우저를 끄고 다시 띄웁니다 (자가 복구)"}
+            "next": "web open  # kills the hung browser and starts it again (self-recovery)"}
 
 
 def _session_page(ctx, state: dict, allow_missing_tab: bool):
@@ -170,8 +170,8 @@ def _session_page(ctx, state: dict, allow_missing_tab: bool):
             return page, None
         if not allow_missing_tab:
             return None, {"ok": False, "code": "tab_gone",
-                          "error": f"{tabs.TAB_ENV_VAR}={name} 탭이 없습니다 (닫혔거나 브라우저가 새로 떴다)",
-                          "next": f"web tab new --name {name}  # 같은 이름으로 새 탭을 만든다 (또는 web tab list)"}
+                          "error": f"Tab {tabs.TAB_ENV_VAR}={name} does not exist (closed, or the browser restarted)",
+                          "next": f"web tab new --name {name}  # create a new tab with the same name (or web tab list)"}
     if state.get("tabs"):
         return tabs.default_tab_page(ctx, state), None
     # 마지막 탭을 본다. 프로필이 영속이라 Chromium 이 옛 탭을 되살리는데,
@@ -273,5 +273,5 @@ def done_payload(action: str, page) -> dict:
     """
     url, title = read_url_title(page)
     return {"action": action, "url": url, "title": title,
-            "summary": f"{action} 완료 — {url}",
-            "next": "web text  # 결과 화면의 글자를 읽는다"}
+            "summary": f"{action} done — {url}",
+            "next": "web text  # read the text of the resulting screen"}

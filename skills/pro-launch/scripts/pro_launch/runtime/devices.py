@@ -159,8 +159,8 @@ def build_mismatch(rows: list[dict]) -> list[dict]:
     if len(known) < 2 or len({apk for _, apk, _ in known}) == 1:
         return []
     vers = {ver for _, _, ver in known}
-    detail = ("버전은 같은데 APK 가 다릅니다 — 한쪽만 다시 설치됐을 수 있습니다"
-              if len(vers) == 1 else "설치된 버전 자체가 다릅니다")
+    detail = ("Same version but different APKs — only one side may have been reinstalled"
+              if len(vers) == 1 else "The installed versions differ")
     return [{"roles": [role for role, _, _ in known], "field": "apk", "detail": detail}]
 
 
@@ -193,12 +193,12 @@ def shutdown_device_fields(target: str | None, dev: dict) -> dict | None:
         simulator = simulators[0]
         return {"ok": False, "code": "device_shutdown", "platform": "ios", "device": simulator["udid"],
                 "name": simulator["name"], "state": simulator["state"],
-                "error": f"'{target}' 시뮬레이터가 꺼져 있다 ({simulator['state']})",
-                "next": f"device boot --device {simulator['udid']}  # 켠 뒤 다시 부른다 (빌려 쓰려면 device acquire --platform ios)"}
+                "error": f"Simulator '{target}' is shut down ({simulator['state']})",
+                "next": f"device boot --device {simulator['udid']}  # boot it, then call again (to borrow one: device acquire --platform ios)"}
     if target in dev.get("android_avds", []) and target not in device_boot.running_emulators().values():
         return {"ok": False, "code": "device_shutdown", "platform": "android", "device": target,
-                "error": f"'{target}' AVD 가 꺼져 있다",
-                "next": f"device boot --device {target}  # 켠 뒤 나온 시리얼(emulator-NNNN)로 다시 부른다"}
+                "error": f"AVD '{target}' is shut down",
+                "next": f"device boot --device {target}  # boot it, then call again with the serial it prints (emulator-NNNN)"}
     return None
 
 
@@ -214,10 +214,10 @@ def no_device_response(dev: dict, want: str | None) -> int:
             return out({**pressure_failure, "android_avds": dev["android_avds"]})
     return out({
         "ok": False, "code": "no_device",
-        "error": (f"'{want}' 기기를 찾지 못했습니다" if want
-                  else "어느 기기인지 정할 수 없습니다 (붙은 기기가 없거나 여러 대)"),
+        "error": (f"Device '{want}' not found" if want
+                  else "Cannot tell which device to use (none attached, or several)"),
         "android": dev["android"], "ios_booted": dev["ios_booted"],
         "android_avds": dev["android_avds"],
-        "next": ("emulator -avd {AVD명}  또는  xcrun simctl boot {UDID}" if not
-                 (dev["android"] or dev["ios_booted"]) else "--device 로 하나를 고르세요"),
+        "next": ("emulator -avd {AVD_NAME}  or  xcrun simctl boot {UDID}" if not
+                 (dev["android"] or dev["ios_booted"]) else "Pick one with --device"),
     })

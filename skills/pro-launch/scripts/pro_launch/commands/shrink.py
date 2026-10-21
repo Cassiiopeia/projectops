@@ -17,13 +17,13 @@ def cmd_shrink(args) -> int:
 def configure_shrink(p) -> None:
     p.add_argument("paths", nargs="+")
     p.add_argument("--max-side", type=int, default=SHOT_MAX_SIDE,
-                   help=f"긴 변 상한 (기본 {SHOT_MAX_SIDE}) — 캡처와 같은 기준")
+                   help=f"Longest side cap (default {SHOT_MAX_SIDE}) — same as captures")
     p.add_argument("--quality", type=int, default=WEBP_QUALITY,
-                   help=f"WebP 품질 (기본 {WEBP_QUALITY})")
-    p.add_argument("--keep-format", action="store_true", help="WebP 로 바꾸지 않는다")
+                   help=f"WebP quality (default {WEBP_QUALITY})")
+    p.add_argument("--keep-format", action="store_true", help="Do not convert to WebP")
 
 
 COMMANDS = [
-    Command(name="shrink", help="이슈 첨부용으로 이미지 축소 · WebP", run=cmd_shrink,
+    Command(name="shrink", help="Shrink images for issue attachments · WebP", run=cmd_shrink,
             configure=configure_shrink),
 ]

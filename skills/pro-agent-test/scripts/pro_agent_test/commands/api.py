@@ -34,13 +34,13 @@ def _parse_do(do: str) -> tuple[str, str, dict | None]:
     m = re.match(r"\s*([A-Z]+)\s+(\S+)\s*(\{.*\}|\[.*\])?\s*$", do, re.S)
     if not m:
         raise ValueError(
-            f'단계를 읽을 수 없습니다: {do!r} — "POST /api/x {{...}}" 형식이어야 합니다')
+            f'Cannot read the step: {do!r} — it must look like "POST /api/x {{...}}"')
     body = None
     if m.group(3):
         try:
             body = json.loads(m.group(3))
         except json.JSONDecodeError as e:
-            raise ValueError(f"본문이 올바른 JSON이 아닙니다: {e}") from e
+            raise ValueError(f"The body is not valid JSON: {e}") from e
     return m.group(1).upper(), m.group(2), body
 
 
@@ -50,7 +50,7 @@ def _fill(value, saved: dict):
         def sub(m):
             key = m.group(1)
             if key not in saved:
-                raise ValueError(f"{{{key}}} 를 채울 값이 없습니다 — 앞 단계의 save를 확인하세요")
+                raise ValueError(f"No value to fill {{{key}}} — check save in an earlier step")
             return str(saved[key])
         return re.sub(r"\{([A-Za-z_][A-Za-z0-9_]*)\}", sub, value)
     if isinstance(value, dict):
@@ -101,7 +101,7 @@ def cmd_api(args) -> int:
     f = _resolve_scenario(d, args.name)
     if f is None:
         return emit({"ok": False, "code": "scenario_not_found",
-                     "error": f"시나리오 '{args.name}' 을 찾지 못했습니다",
+                     "error": f"Scenario '{args.name}' not found",
                      "next": f"scenario list --root {root}"})
 
     data, problems = _expand(d, f)
@@ -112,8 +112,8 @@ def cmd_api(args) -> int:
         return emit({"ok": False, "code": "scenario_invalid", "problems": problems})
     if scenario_target(data) != "server":
         return emit({"ok": False, "code": "wrong_target",
-                     "error": f"이 시나리오의 target은 '{scenario_target(data)}' 입니다",
-                     "hint": "api 는 server 타겟 전용입니다"})
+                     "error": f"This scenario's target is '{scenario_target(data)}'",
+                     "hint": "api is only for the server target"})
 
     base = args.base_url or data.get("base_url") or ""
     if not base or base.startswith("{"):
@@ -122,14 +122,14 @@ def cmd_api(args) -> int:
         base = (rec.get("url") if isinstance(rec, dict) else rec) or ""
     if not base:
         return emit({"ok": False, "code": "base_url_required",
-                     "error": "API 주소를 알 수 없습니다",
-                     "next": ("--base-url 로 넘기거나, 코드를 읽어 알아낸 뒤 "
+                     "error": "API address is unknown",
+                     "next": ("pass --base-url, or find it in the code, then "
                               "access set --key base_url --json '{\"url\":\"http://...\"}'")})
 
     if not re.match(r"https?://[^\s/]+", base):
         return emit({"ok": False, "code": "bad_base_url",
-                     "error": f"API 주소 '{base}' 는 http(s):// 로 시작해야 합니다",
-                     "next": "--base-url http://127.0.0.1:8080 처럼 전체 주소를 넘긴다"})
+                     "error": f"API address '{base}' must start with http(s)://",
+                     "next": "pass the full address, e.g. --base-url http://127.0.0.1:8080"})
 
     saved: dict = {}
     results = []
@@ -175,7 +175,7 @@ def cmd_api(args) -> int:
         for key, expr in (st.get("save") or {}).items():
             val = _jsonpath(res["json"], expr) if res["json"] is not None else None
             saved[key] = val
-            checks.append({"save": key, "from": expr, "got": None if val is None else "받음",
+            checks.append({"save": key, "from": expr, "got": None if val is None else "received",
                            "ok": val is not None})
 
         row["checks"] = checks
@@ -192,8 +192,8 @@ def cmd_api(args) -> int:
         "base_url": base,
         "steps": results,
         "saved_keys": sorted(saved),
-        "summary": (f"{len(results)}단계 전부 통과" if done
-                    else f"{failed_at}번째 단계에서 멈춤"),
+        "summary": (f"all {len(results)} step(s) passed" if done
+                    else f"stopped at step {failed_at}"),
         "next": (None if done else
-                 "logs --root <루트>  # 서버 로그로 원인을 좁히세요. 없으면 access set --key logs"),
+                 "logs --root <root>  # narrow the cause with server logs. If none, access set --key logs"),
     })

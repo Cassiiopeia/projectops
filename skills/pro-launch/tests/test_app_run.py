@@ -107,4 +107,4 @@ def test_ios_failure_points_at_the_failing_step(fake_run, tmp_path, capsys):
     data = result_of(capsys)
     assert data["code"] == "step_failed" and data["failed_step"] == 2 and data["steps_completed"] == 2
     assert [s["status"] for s in data["steps"]] == ["completed", "completed", "failed", "not_run"]
-    assert "Assertion is false" in data["error"] and "2번" in data["next"]
+    assert "Assertion is false" in data["error"] and "step 2" in data["next"]

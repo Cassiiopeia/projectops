@@ -139,7 +139,7 @@ def _read_notes(f: Path) -> tuple[dict, str | None]:
     try:
         data = json.loads(f.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
-            raise ValueError("최상위가 객체가 아닙니다")
+            raise ValueError("top level is not an object")
     except (json.JSONDecodeError, ValueError, OSError) as e:
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         backup = f.with_suffix(f".broken-{stamp}.json")
@@ -147,8 +147,8 @@ def _read_notes(f: Path) -> tuple[dict, str | None]:
             backup.write_bytes(f.read_bytes())
             where = str(backup.name)
         except OSError:
-            where = "(백업 실패)"
-        return empty, f"{f.name}을 읽지 못했습니다({e}). 원본을 {where}로 옮겼습니다"
+            where = "(backup failed)"
+        return empty, f"Could not read {f.name} ({e}). Moved the original to {where}"
 
     # 모르는 필드는 건드리지 않는다 — 다른 하네스나 다음 버전이 쓴 것일 수 있다
     for k, v in empty.items():

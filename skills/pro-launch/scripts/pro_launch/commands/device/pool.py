@@ -47,25 +47,25 @@ def run_release(args) -> int:
                 for key, lease in device_claims.leases_of_session(session_identity())]
         failed = [r for row in rows for r in row["restored"] if not r["is_ok"]]
         return out({"ok": not failed, "code": "restore_failed" if failed else "ok", "action": "release", "all": True,
-                    "released": rows, "summary": f"이 세션 lease {len(rows)}개 반납 · 끈 기기 {sum(r['shutdown'] for r in rows)}",
-                    "next": "되돌리지 못한 설정은 failed_command 를 직접 실행한다" if failed else None})
+                    "released": rows, "summary": f"Returned {len(rows)} leases of this session · shut down {sum(r['shutdown'] for r in rows)}",
+                    "next": "For settings that could not be restored, run failed_command yourself" if failed else None})
     platform, dev_id, err = _resolve_for_release(args)
     if err is not None:
         return err
     existing = device_claims.device_owner(dev_id)
     if existing is None:
         return out({"action": "release", "platform": platform, "device": dev_id, "released": False,
-                    "summary": "쥔 기록이 없다", "next": None})
+                    "summary": "No claim recorded", "next": None})
     if existing["is_live"] and existing["session"] != session_identity() and not args.yes:
         return refuse_other_session_owner(dev_id, "release")
     row = _release_one(dev_id, getattr(args, "lease", None), args.keep_booted)
     failed = [r for r in row["restored"] if not r["is_ok"]]
     return out({"ok": not failed, "code": "restore_failed" if failed else "ok", "action": "release",
                 "platform": platform, **row,
-                "summary": f"{dev_id} 반납 · 되돌린 설정 {len(row['restored']) - len(failed)}/{len(row['restored'])}"
-                           + (" · 껐다" if row["shutdown"] else ""),
+                "summary": f"Returned {dev_id} · restored settings {len(row['restored']) - len(failed)}/{len(row['restored'])}"
+                           + (" · shut down" if row["shutdown"] else ""),
                 "error": failed[0]["detail"] if failed else None,
-                "next": "되돌리지 못한 설정은 failed_command 를 직접 실행한다" if failed else None})
+                "next": "For settings that could not be restored, run failed_command yourself" if failed else None})
 
 
 def run_shutdown(args) -> int:
@@ -77,16 +77,16 @@ def run_shutdown(args) -> int:
     key = device_claims.resolve_instance_key(dev_id)
     facts = next((f for f in device_backends.all_device_facts(platform) if dev_id in (f.key, f.instance)), None)
     if facts is None:
-        return out({"ok": False, "code": "no_device", "device": dev_id, "next": "devices 로 목록을 본다"})
+        return out({"ok": False, "code": "no_device", "device": dev_id, "next": "See the list with devices"})
     backend = device_backends.backend_named(facts.backend)
     if not backend.capabilities.can_shutdown:
-        return out({"ok": False, "code": "not_supported", "device": dev_id, "error": "이 기기는 끌 수 없다 (실기기)",
+        return out({"ok": False, "code": "not_supported", "device": dev_id, "error": "This device cannot be shut down (physical device)",
                     "next": None})
     result = backend.shutdown(facts.key, facts.instance)
     if not result["is_ok"]:
         return out({"ok": False, "code": "shutdown_failed", "device": dev_id, "error": result["detail"],
-                    "next": "device list 로 상태를 본다"})
+                    "next": "Check the state with device list"})
     # lease 는 남긴다 — 설정 되돌리기 기록을 잃지 않게 (반납은 device release)
     device_claims.set_pool_booted(key, False)
     return out({"action": "shutdown", "platform": platform, "device": dev_id, "key": facts.key,
-                "summary": f"{facts.name} 를 껐다", "next": None})
+                "summary": f"Shut down {facts.name}", "next": None})

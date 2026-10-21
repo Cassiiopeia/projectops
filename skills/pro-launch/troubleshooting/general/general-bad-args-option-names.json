@@ -6,9 +6,11 @@
     "codes": [
       "bad_args"
     ],
-    "keywords": []
+    "keywords": [
+      "인자가 올바르지 않습니다"
+    ]
   },
-  "symptom": "The command ends with bad_args (인자가 올바르지 않습니다 = invalid arguments: unrecognized arguments …)",
+  "symptom": "The command ends with bad_args (\"Invalid arguments: unrecognized arguments …\")",
   "cause": "You passed an option or positional argument that does not exist. Common mistakes: web shot takes --full (not --full-page), the credential field is --cred-field (not --field), cred show takes --name <name> (not positional), cred actions are only list · show · set · unset · import-ssh (no add)",
   "fix": [
     "Read the unrecognized arguments · invalid choice part of error first",

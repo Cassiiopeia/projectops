@@ -17,8 +17,8 @@ def run_devices(args) -> int:
     resources = host_resources.memory_summary()
     advice = host_resources.pressure_advice(resources["pressure"])
     return out({**dev, "resources": resources, "owners": owners_by_device(),
-                "summary": f"사용 가능한 기기 {n}대 · 메모리 압박 {resources['pressure']}",
-                "next": advice or (None if n else "emulator -avd {AVD명} 으로 부팅하세요")})
+                "summary": f"{n} devices available · memory pressure {resources['pressure']}",
+                "next": advice or (None if n else "Boot one with emulator -avd {AVD_NAME}")})
 
 
 def run_binding_action(args) -> int:
@@ -30,14 +30,14 @@ def run_binding_action(args) -> int:
 
     if args.action in ("bind", "unbind"):
         if not args.role:
-            return out({"ok": False, "code": "args_required", "error": "--role 이 필요합니다",
-                        "hint": "시나리오 roles 의 키와 같은 값을 쓰세요"})
+            return out({"ok": False, "code": "args_required", "error": "--role is required",
+                        "hint": "Use the same value as a key in the scenario's roles"})
         bindings = [b for b in bindings if b["role"] != args.role]
         if args.action == "bind":
             if not args.serial:
                 return out({"ok": False, "code": "args_required",
-                            "error": "--serial 이 필요합니다",
-                            "hint": "device list 로 붙어 있는 기기를 먼저 보세요"})
+                            "error": "--serial is required",
+                            "hint": "See the attached devices with device list first"})
             entry = {"role": args.role, "serial": args.serial}
             if args.note:
                 entry["note"] = args.note
@@ -48,15 +48,15 @@ def run_binding_action(args) -> int:
         return out({
             "bindings": bindings, "file": str(devices_path(root)),
             "env_file": str(env) if env else None,
-            "summary": f"역할 {len(bindings)}개" + ("" if env else " (env.sh 는 아직 안 씀)"),
+            "summary": f"{len(bindings)} roles" + ("" if env else " (env.sh not written yet)"),
             "next": (None if env else
-                     "get-output-path 로 실행 자리를 먼저 만들고 $RUN_DIR 을 세운 뒤 "
-                     "다시 부르면 env.sh 에 반영됩니다"),
+                     "Create a run folder with get-output-path first, set $RUN_DIR, "
+                     "then call again to write env.sh"),
         })
 
     if args.action == "show":
         return out({"bindings": bindings, "package": package,
-                    "file": str(devices_path(root)), "summary": f"역할 {len(bindings)}개"})
+                    "file": str(devices_path(root)), "summary": f"{len(bindings)} roles"})
 
     # list — 붙어 있는 기기 + 역할 + 설치된 빌드
     dev = list_devices()
@@ -75,12 +75,12 @@ def run_binding_action(args) -> int:
              if b["serial"] not in dev["android"] and b["serial"] not in ios_ids]
     nxt = None
     if mismatch:
-        nxt = "양쪽에 같은 빌드를 설치한 뒤 다시 확인하세요 — 한쪽만 재설치되면 밟는 화면이 달라집니다"
+        nxt = "Install the same build on both and check again — if only one is reinstalled, the screens you step through will differ"
     elif stale:
-        nxt = f"묶어 둔 기기가 붙어 있지 않습니다: {', '.join(stale)}"
+        nxt = f"Bound devices are not attached: {', '.join(stale)}"
     elif len(rows) > 1 and unbound:
-        nxt = ("device bind --role {키} --serial {시리얼} 로 역할을 잡으세요 — "
-               "안 잡으면 adb 가 어느 기기로 갈지 정해지지 않습니다")
+        nxt = ("Bind roles with device bind --role {KEY} --serial {SERIAL} — "
+               "otherwise adb cannot tell which device to target")
     # 기기는 get-output-path 뒤에 부팅되기도 한다. 환경을 새로 고쳐 두지 않으면 DEV 가 빈다.
     run_dir = resolve_run_dir(args)
     env = write_env_sh(run_dir, package, bindings) if (run_dir and run_dir.is_dir()) else None
@@ -88,8 +88,8 @@ def run_binding_action(args) -> int:
         "devices": rows, "env_file": str(env) if env else None,
         "ios_booted": dev["ios_booted"], "owners": owners, "package": package,
         "build_mismatch": mismatch, "stale_bindings": stale,
-        "summary": (f"기기 {len(rows)}대 · 역할 {len(bindings)}개"
-                    + (f" · 빌드 불일치 {len(mismatch)}건" if mismatch else "")),
+        "summary": (f"{len(rows)} devices · {len(bindings)} roles"
+                    + (f" · {len(mismatch)} build mismatches" if mismatch else "")),
         "next": nxt, "ok": not mismatch,
         "code": "build_mismatch" if mismatch else "ok",
     })

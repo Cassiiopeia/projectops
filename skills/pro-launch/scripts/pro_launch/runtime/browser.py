@@ -41,7 +41,7 @@ def open_browser_status(state_f: Path) -> dict | None:
     stale = alive and idle_h is not None and idle_h >= _STALE_BROWSER_HOURS
     return {"pid": pid, "alive": alive, "opened_at": st.get("opened_at"), "last_used": used,
             "idle_hours": idle_h, "readonly": bool(st.get("readonly")), "stale": stale,
-            "hint": (f"{idle_h}시간째 안 쓴 브라우저다 — 다른 세션이 쓰는 중이 아니면 web close 로 정리하거나 web open 으로 다시 붙는다"
+            "hint": (f"Browser idle for {idle_h} hours — unless another session is using it, clean up with web close or reattach with web open"
                      if stale else None)}
 
 
@@ -92,14 +92,14 @@ def require_playwright() -> tuple[object | None, dict | None]:
         vd = venv_dir()
         return None, {
             "ok": False, "code": "playwright_missing",
-            "error": "웹을 띄우려면 Playwright가 필요합니다",
-            "fix": "web setup  # 전용 환경을 만들고 브라우저까지 받습니다 (약 100MB)",
+            "error": "Playwright is required to open the web",
+            "fix": "web setup  # creates a dedicated environment and downloads the browser (about 100MB)",
             "manual": f"{sys.executable} -m venv {vd} && "
                       f"{vd}/bin/pip install playwright pillow && "
                       f"{vd}/bin/python -m playwright install chromium",
-            "why": ("별도 설치물에 기대지 않으려고 Playwright를 직접 씁니다. "
-                    "시스템 파이썬을 건드리지 않도록 전용 환경에 깝니다"),
-            "ask_user": "웹을 띄우려면 브라우저(약 100MB)를 받아야 합니다. 설치할까요?",
+            "why": ("Playwright is used directly to avoid depending on separate installs. "
+                    "It goes into a dedicated environment so the system Python is untouched"),
+            "ask_user": "Opening the web needs a browser download (about 100MB). Install it?",
         }
 
 
@@ -120,7 +120,7 @@ def playwright_state() -> dict:
     if err:
         return {"ready": False, "reason": err["error"], "fix": err["fix"],
                 "ask_user": err["ask_user"]}
-    return {"ready": True, "venv": str(venv_dir()) if venv_python() else "시스템"}
+    return {"ready": True, "venv": str(venv_dir()) if venv_python() else "system"}
 
 
 def browser_choice() -> dict:

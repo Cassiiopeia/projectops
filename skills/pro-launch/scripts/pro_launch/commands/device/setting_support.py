@@ -15,7 +15,7 @@ def run_command(command: list[str]) -> tuple[bool, str]:
     try:
         r = subprocess.run(command, capture_output=True, text=True, timeout=COMMAND_TIMEOUT_SECONDS)
     except subprocess.TimeoutExpired:
-        return False, f"응답 없음 ({COMMAND_TIMEOUT_SECONDS}초)"
+        return False, f"No response ({COMMAND_TIMEOUT_SECONDS}s)"
     except OSError as error:
         return False, str(error)
     return r.returncode == 0, ((r.stdout or "") + (r.stderr or "")).replace("\r", "").strip()
@@ -34,10 +34,10 @@ def restore_recorded(dev_id: str, platform: str, key: str, action: str) -> int:
     setting = pop_device_setting(dev_id, key)
     if setting is None:
         return out({"action": action, "platform": platform, "device": dev_id, "restored": False,
-                    "summary": f"되돌릴 기록이 없다 ({key})", "next": None})
+                    "summary": f"Nothing recorded to restore ({key})", "next": None})
     result = run_restore_commands(setting)
     return out({"ok": result["is_ok"], "code": "ok" if result["is_ok"] else "restore_failed", "action": action,
                 "platform": platform, "device": dev_id, "restored": result["is_ok"], "key": key,
                 "before": setting.get("before"), "error": result["detail"],
-                "summary": f"{key} 원래 값으로 되돌림" if result["is_ok"] else f"{key} 되돌리지 못함",
-                "next": None if result["is_ok"] else f"직접 실행: {result['failed_command']}"})
+                "summary": f"{key} restored to its original value" if result["is_ok"] else f"{key} could not be restored",
+                "next": None if result["is_ok"] else f"Run it yourself: {result['failed_command']}"})

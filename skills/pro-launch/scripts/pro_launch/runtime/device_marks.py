@@ -139,7 +139,7 @@ def copy_marks_as_unverified(source_key: str, target_key: str) -> list[dict]:
     """복제본에 원본 mark 를 옮긴다 — 확인 시각을 0 으로 두어 stale (복제본에서 로그인이 살아 있는지 확인 전)."""
     def mutate(ledger: dict) -> list[dict]:
         source = ledger["devices"].get(source_key) or {}
-        copied = [{**mark, "verified_at": 0, "note": f"{mark.get('note') or ''} (복제본 — 확인 전)".strip(),
+        copied = [{**mark, "verified_at": 0, "note": f"{mark.get('note') or ''} (clone — not verified)".strip(),
                    "recorded_by_session": session_identity()} for mark in source.get("marks") or []]
         target = _entry(ledger, target_key)
         target["marks"] = copied

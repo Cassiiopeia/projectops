@@ -58,9 +58,9 @@ def cmd_note(args) -> int:
             }
         nxt = []
         if not args.all and (len(cons) > _SHOW_MAX or len(pits) > _SHOW_MAX):
-            nxt.append("note show --all  # 전부 본다")
+            nxt.append("note show --all  # see everything")
         if to_tidy:
-            nxt.append(f"note tidy  # flutter/platform 범위 {to_tidy}건을 이 컴퓨터 범위로 옮길 계획을 본다")
+            nxt.append(f"note tidy  # see the plan to move {to_tidy} flutter/platform-scope entry(ies) to this machine's scope")
         return emit({
             "file": str(_note_path(root)),
             "schema": notes.get("schema", _NOTE_SCHEMA),
@@ -68,10 +68,10 @@ def cmd_note(args) -> int:
             "targets": notes.get("targets"),
             "full": bool(args.all),
             **({"warning": warning} if warning else {}),
-            "summary": (f"제약 {len(cons)}개 · 화면 {len(notes.get('screens', {}))}개 · "
-                        f"함정 {len(pits)}건 · 이 컴퓨터 함정 {len(machine.get('pitfalls', []))}건 · "
-                        f"기록된 실행 {len(notes.get('runs', []))}회"
-                        + ("" if args.all else " (요약)")),
+            "summary": (f"{len(cons)} constraint(s) · {len(notes.get('screens', {}))} screen(s) · "
+                        f"{len(pits)} pitfall(s) · {len(machine.get('pitfalls', []))} machine pitfall(s) · "
+                        f"{len(notes.get('runs', []))} recorded run(s)"
+                        + ("" if args.all else " (summary)")),
             "next": " · ".join(nxt) or None,
         })
 
@@ -102,28 +102,28 @@ def cmd_note(args) -> int:
             # 이미 있는 항목의 성적 — 다시 겪었으면 ok, 틀린 기억이었으면 fail
             if args.index is None or not (0 <= args.index < len(entries)):
                 return emit({"ok": False, "code": "bad_index",
-                             "error": f"--result 에는 {kind} 의 --index(0~{len(entries) - 1})가 필요합니다",
-                             "next": "note show --all  # index 를 본다"})
+                             "error": f"--result needs a {kind} --index (0~{len(entries) - 1})",
+                             "next": "note show --all  # see the index"})
             e = entries[args.index]
             counted = _memory.bump(e, args.result, today)
             _save_notes(target_file, target)
             return emit({"file": str(target_file), "entry": e, "counted": counted,
                          "verify": _memory.needs_verify(e, today),
                          "summary": f"{args.action} #{args.index} ok={e['ok']} fail={e['fail']}"
-                                    + ("" if counted else " (오늘 이미 센 결과)"),
+                                    + ("" if counted else " (already counted today)"),
                          "next": None})
 
         if not args.text:
             return emit({"ok": False, "code": "args_required",
-                         "error": "--text 가 필요합니다" if args.action == "pitfall"
-                         else "--text 에 지켜야 할 것을 적으세요"})
+                         "error": "--text is required" if args.action == "pitfall"
+                         else "write what must hold in --text"})
         secrets = _find_secrets(args.text + " " + (args.check or ""))
         if secrets:
             return emit({
                 "ok": False, "code": "secret_detected",
-                "error": f"기록하려는 내용에 {', '.join(secrets)}이(가) 들어 있습니다",
-                "hint": ("이 파일은 평문으로 디스크에 남고 다음 실행마다 다시 읽힙니다. "
-                         "구체적인 값 대신 '테스트 계정으로'처럼 바꿔 적으세요"),
+                "error": f"The text to record contains {', '.join(secrets)}",
+                "hint": ("This file stays on disk in plain text and is read again on every run. "
+                         "Write something like 'with the test account' instead of the actual value"),
             })
         fields = {"scope": args.scope} if args.action == "pitfall" else {"check": args.check}
 
@@ -131,14 +131,14 @@ def cmd_note(args) -> int:
             # agent 가 같은 지식이라고 판단한 것 — 문장을 새것으로 바꾸고 성적은 이어 간다
             if not (0 <= args.merge_into < len(entries)):
                 return emit({"ok": False, "code": "bad_index",
-                             "error": f"--merge-into 는 0~{len(entries) - 1} 이어야 합니다"})
+                             "error": f"--merge-into must be 0~{len(entries) - 1}"})
             e = entries[args.merge_into]
             e["text"] = args.text
             e.update({k: v for k, v in fields.items() if v is not None})
             _memory.bump(e, "ok", today)
             _save_notes(target_file, target)
             return emit({"file": str(target_file), "entry": e,
-                         "summary": f"#{args.merge_into} 에 합쳤습니다 (ok={e['ok']})", "next": None})
+                         "summary": f"merged into #{args.merge_into} (ok={e['ok']})", "next": None})
 
         # 쓰기 전에 비슷한 것을 찾는다 — 이 범위 먼저, 그다음 다른 범위 (원칙 3)
         docs = {("machine" if machine_scope else "repo"): (target, target_file)}
@@ -157,8 +157,8 @@ def cmd_note(args) -> int:
             return emit({
                 "file": str(hit_file), "merged_into": {"scope": scope_name, "index": i, "text": e["text"]},
                 "entry": e, "counted": counted,
-                "summary": f"같은 내용이 이미 있어 새로 쓰지 않고 합쳤습니다 ({scope_name} #{i}, ok={e['ok']})",
-                "next": (f"새 문장이 더 정확하면 note {args.action} --merge-into {i} --text \"…\""
+                "summary": f"the same content already exists, so it was merged instead of added ({scope_name} #{i}, ok={e['ok']})",
+                "next": (f"if the new text is more accurate: note {args.action} --merge-into {i} --text \"…\""
                          + ((" --scope " + ("project" if scope_name == "repo" else e.get("scope", "platform")))
                             if args.action == "pitfall" else "")),
             })
@@ -167,16 +167,16 @@ def cmd_note(args) -> int:
         _save_notes(target_file, target)
         nxt = None
         if related:
-            nxt = (f"related 에 같은 지식이 있으면 note forget --kind {args.action} --index {new_index}"
+            nxt = (f"if related holds the same knowledge: note forget --kind {args.action} --index {new_index}"
                    + (f" --scope {args.scope}" if machine_scope else "")
-                   + f" 후 note {args.action} --merge-into <그 index> --text \"…\" 로 합친다")
+                   + f", then merge with note {args.action} --merge-into <that index> --text \"…\"")
         return emit({
             "file": str(target_file), "index": new_index,
             **({"scope": "machine"} if machine_scope else {}),
             **({"related": related} if related else {}),
             **({"warning": warning} if warning else {}),
-            "summary": (f"{args.action} 기록 완료"
-                        + (" — 이 컴퓨터 범위(모든 레포)에 남겼습니다" if machine_scope else "")),
+            "summary": (f"{args.action} recorded"
+                        + (" — kept at this machine's scope (all repos)" if machine_scope else "")),
             "next": nxt,
         })
 
@@ -184,19 +184,19 @@ def cmd_note(args) -> int:
         # 지우는 것은 agent·사람의 명시적 판단으로만 (원칙 4) — 번호를 꼭 받는다
         if args.kind not in ("pitfall", "constraint") or args.index is None:
             return emit({"ok": False, "code": "args_required",
-                         "error": "--kind pitfall|constraint 와 --index 가 필요합니다",
-                         "next": "note show --all  # index 를 본다"})
+                         "error": "--kind pitfall|constraint and --index are required",
+                         "next": "note show --all  # see the index"})
         machine_scope = args.kind == "pitfall" and args.scope in _MACHINE_SCOPES
         mf = _machine_note_path()
         doc, doc_file = (_read_notes(mf)[0], mf) if machine_scope else (notes, f)
         entries = doc.get(args.kind + "s", [])
         if not (0 <= args.index < len(entries)):
             return emit({"ok": False, "code": "bad_index",
-                         "error": f"--index 는 0~{len(entries) - 1} 이어야 합니다"})
+                         "error": f"--index must be 0~{len(entries) - 1}"})
         removed = entries.pop(args.index)
         _save_notes(doc_file, doc)
         return emit({"file": str(doc_file), "removed": removed,
-                     "summary": f"{args.kind} #{args.index} 를 지웠습니다", "next": None})
+                     "summary": f"deleted {args.kind} #{args.index}", "next": None})
 
     elif args.action == "target":
         vals = [t.strip() for t in (args.targets or "").split(",") if t.strip()]
@@ -204,16 +204,16 @@ def cmd_note(args) -> int:
         if not vals or unknown:
             return emit({
                 "ok": False, "code": "bad_targets",
-                "error": (f"모르는 타겟: {', '.join(unknown)}" if unknown
-                          else "--targets 에 무엇을 밟을 수 있는지 적으세요"),
-                "hint": f"{'·'.join(TARGETS)} 중에서 쉼표로 구분 (예: server,web)",
+                "error": (f"unknown target(s): {', '.join(unknown)}" if unknown
+                          else "write what can be walked in --targets"),
+                "hint": f"comma-separated, from {'·'.join(TARGETS)} (e.g. server,web)",
             })
         if not args.why:
             return emit({
                 "ok": False, "code": "why_required",
-                "error": "--why 에 그렇게 판단한 근거를 적으세요",
-                "hint": ("다음에 이 기록을 보는 사람이 맞는지 다시 볼 수 있어야 합니다. "
-                         "예: \"Thymeleaf 템플릿으로 화면을 직접 뿌린다\""),
+                "error": "write the evidence for that judgment in --why",
+                "hint": ("Whoever reads this record next must be able to re-check it. "
+                         "e.g. \"pages are rendered directly with Thymeleaf templates\""),
             })
         notes["targets"] = {"value": vals, "why": args.why, "added": today}
 
@@ -221,11 +221,11 @@ def cmd_note(args) -> int:
         if not (args.name or args.text):
             # 인자 없이 부르면 "(지정 안 함)/(기록 없음)" 쓰레기 줄만 쌓인다 (#706)
             return emit({"ok": False, "code": "args_required",
-                         "error": "--name(시나리오)이나 --text(결과 요약)가 필요합니다"})
+                         "error": "--name (scenario) or --text (result summary) is required"})
         notes.setdefault("runs", []).append({
             "date": today,
-            "scenario": args.name or "(지정 안 함)",
-            "result": args.text or "(기록 없음)",
+            "scenario": args.name or "(not set)",
+            "result": args.text or "(not recorded)",
         })
         notes["runs"] = notes["runs"][-30:]   # 오래된 것은 버린다
 
@@ -234,7 +234,7 @@ def cmd_note(args) -> int:
         "file": str(f),
         **extra,
         **({"warning": warning} if warning else {}),
-        "summary": f"{args.action} 기록 완료 — {f.name}",
-        "next": ("app tap 결과(screen_changed)를 보고 note screen --name … --target 라벨 --result ok|fail"
+        "summary": f"{args.action} recorded — {f.name}",
+        "next": ("check the app tap result (screen_changed), then note screen --name … --target <label> --result ok|fail"
                  if args.action == "screen" and "graded" not in extra and args.target else None),
     })

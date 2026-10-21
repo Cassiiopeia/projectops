@@ -51,10 +51,10 @@ def delegate(argv: list[str]) -> int:
         return 0
     if data is None:
         return emit({"ok": False, "code": "launch_unavailable",
-                     "error": f"pro-launch 의 launch_cli.py 를 부르지 못했습니다 ({_LAUNCH_CLI})",
+                     "error": f"Could not call pro-launch's launch_cli.py ({_LAUNCH_CLI})",
                      "output": raw[-400:],
-                     "hint": "projectops 설치가 온전한지 확인하세요 — pro-launch 가 함께 깔려 있어야 합니다"})
-    moved = f"pro-launch 의 launch_cli.py {cmd} 를 쓴다 (e2e_cli {cmd} 는 다음 마이너에서 제거)"
+                     "hint": "Check that projectops is fully installed — pro-launch must be installed with it"})
+    moved = f"use pro-launch's launch_cli.py {cmd} (e2e_cli {cmd} is removed in the next minor)"
     data["moved_to"] = f"launch_cli.py {cmd}"
     data["next"] = f"{data['next']} · {moved}" if data.get("next") else moved
     return emit(data)

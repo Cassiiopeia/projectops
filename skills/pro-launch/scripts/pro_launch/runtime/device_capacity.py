@@ -58,13 +58,13 @@ def boot_block_reason(platform: str, booted_counts: dict[str, int], memory: dict
     budget, _ = memory_budget_mb(memory.get("total_mb"))
     used = sum(boot_cost_mb(kind)[0] * count for kind, count in booted_counts.items())
     if budget is not None and used + cost > budget:
-        counts = ", ".join(f"{kind} {count}대" for kind, count in booted_counts.items() if count) or "없음"
-        return (f"기기 예산 초과 — 켜진 기기({counts}) {used}MB + 새 {platform} {cost}MB > 예산 {budget}MB "
-                f"(device benchmark 로 이 컴퓨터 값을 잴 수 있다)")
+        counts = ", ".join(f"{kind} {count}" for kind, count in booted_counts.items() if count) or "none"
+        return (f"device budget exceeded — running devices ({counts}) {used}MB + new {platform} {cost}MB > budget {budget}MB "
+                f"(device benchmark measures this computer's values)")
     available = memory.get("available_mb")
     reserve = memory_reserve_mb()
     if available is not None and available < cost + reserve:
-        return f"지금 남은 메모리 {available}MB 가 새 {platform} 기기({cost}MB) + 여유분({reserve}MB) 보다 적다"
+        return f"available memory {available}MB is less than a new {platform} device ({cost}MB) + reserve ({reserve}MB)"
     return None
 
 

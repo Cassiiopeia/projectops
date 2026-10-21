@@ -55,20 +55,20 @@ def _tidy_plan(notes: dict, overrides: dict[int, str]) -> dict:
         text, scope = p["text"], p.get("scope", "project")
         if _NEGATIVE.search(text):
             review.append({"index": i, "text": _memory.clip(text, _SHOW_CHARS),
-                           "reason": "부정 단정 — 지금도 맞는지 확인하고, 아니면 note forget 또는 --result fail"})
+                           "reason": "negative claim — check it still holds; if not, note forget or --result fail"})
         is_tool, area = _tool_area(text)
         if i in overrides:
             is_tool, area = True, overrides[i]
         if is_tool:
             if not area:
                 skipped.append({"index": i, "text": _memory.clip(text, _SHOW_CHARS),
-                                "reason": "도구 사용법으로 보이나 영역을 못 정했다 — --launch "
-                                          f"{i}=web|ios|android|server 로 지정하거나 그대로 둔다"})
+                                "reason": "looks like tool usage but no area could be decided — set it with --launch "
+                                          f"{i}=web|ios|android|server or leave it"})
                 continue
             if len(" ".join(text.split())) > _LAUNCH_HOW_MAX:
                 skipped.append({"index": i, "text": _memory.clip(text, _SHOW_CHARS),
-                                "reason": f"{_LAUNCH_HOW_MAX}자를 넘어 launch 에 그대로 못 옮긴다 — 줄여서 "
-                                          f"launch_cli learn --area {area} 로 남기고 note forget --index {i}"})
+                                "reason": f"over {_LAUNCH_HOW_MAX} characters, cannot move to launch as is — shorten it, "
+                                          f"record with launch_cli learn --area {area}, then note forget --index {i}"})
                 continue
             to_launch.append({"index": i, "area": area, "key": _launch_key(text),
                               "scope": "repo" if scope == "project" else "machine",
@@ -84,15 +84,15 @@ def _note_tidy(args, root: Path, notes: dict, today: str) -> dict:
         i, sep, area = o.partition("=")
         if not (sep and i.strip().isdigit() and area.strip() in ("ios", "android", "web", "server")):
             return {"ok": False, "code": "bad_launch",
-                    "error": f"--launch '{o}' 는 '번호=영역' 형식이어야 합니다", "hint": "예: 28=web"}
+                    "error": f"--launch '{o}' must look like 'number=area'", "hint": "e.g. 28=web"}
         overrides[int(i)] = area.strip()
     plan = _tidy_plan(notes, overrides)
     if not args.apply:
         n = len(plan["to_machine"]) + len(plan["to_launch"])
         return {"ok": True, "applied": False, **plan,
-                "summary": (f"옮길 것 {n}건 (이 컴퓨터 {len(plan['to_machine'])} · "
-                            f"launch {len(plan['to_launch'])}) · 남길 것 {len(plan['skipped'])}건 — 아직 안 옮겼다"),
-                "next": f"note tidy --apply --root {root}  # 계획대로 옮긴다" if n else None}
+                "summary": (f"{n} to move (this machine {len(plan['to_machine'])} · "
+                            f"launch {len(plan['to_launch'])}) · {len(plan['skipped'])} to keep — not moved yet"),
+                "next": f"note tidy --apply --root {root}  # move per the plan" if n else None}
 
     pits = notes.get("pitfalls") or []
     moved: set[int] = set()
@@ -135,6 +135,6 @@ def _note_tidy(args, root: Path, notes: dict, today: str) -> dict:
         _save_notes(_note_path(root, create=True), notes)
     return {"ok": not failed, "code": "ok" if not failed else "partly_moved", "applied": True,
             **plan, "failed": failed, "machine_file": str(mf), "merged_in_machine": merged,
-            "summary": (f"{len(moved)}건 옮김 (이 컴퓨터 {len(plan['to_machine'])} · launch "
-                        f"{len(plan['to_launch']) - len(failed)}, 합침 {merged}) · 남김 {len(plan['skipped'])}"),
-            "next": "note show  # 결과를 본다" if not failed else "failed 의 error 를 보고 고친다"}
+            "summary": (f"moved {len(moved)} (this machine {len(plan['to_machine'])} · launch "
+                        f"{len(plan['to_launch']) - len(failed)}, merged {merged}) · kept {len(plan['skipped'])}"),
+            "next": "note show  # see the result" if not failed else "read the errors in failed and fix them"}

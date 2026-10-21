@@ -32,33 +32,33 @@ def cmd_scenario(args) -> int:
             elif len(rel.parts) > 1:
                 group = rel.parts[0]
             else:
-                group = "(미분류)"
+                group = "(ungrouped)"
             rows.append({"file": str(rel), "name": _safe_name(f), "group": group})
         return emit({
             "dir": str(d),
             "scenarios": rows,
-            "summary": f"{len(files)}개" if files else "시나리오 없음",
-            "next": None if files else f"bootstrap --path {root} 로 폴더부터 만드세요",
+            "summary": f"{len(files)} scenario(s)" if files else "no scenarios",
+            "next": None if files else f"create the folder first with bootstrap --path {root}",
         })
 
     if args.action == "init":
         if not args.name:
             return emit({"ok": False, "code": "name_required",
-                         "error": "--name 으로 파일 이름을 정하세요"})
+                         "error": "set the file name with --name"})
         if args.target not in TARGETS:
             return emit({"ok": False, "code": "unknown_target",
-                         "error": f"target '{args.target}' 을 모릅니다",
-                         "hint": f"{'·'.join(TARGETS)} 중 하나"})
+                         "error": f"Unknown target '{args.target}'",
+                         "hint": f"one of {'·'.join(TARGETS)}"})
         # 이름이 경로가 되면 시나리오 폴더 밖에 파일이 써진다 (#707)
         if not _SAFE_NAME.fullmatch(args.name) or ".." in args.name:
             return emit({"ok": False, "code": "bad_name",
-                         "error": f"--name '{args.name}' 에 쓸 수 없는 문자가 있습니다",
-                         "hint": "글자·숫자·밑줄·하이픈·점·공백만 쓰고 '/' '\\' '..' 는 쓸 수 없습니다. "
-                                 "하위 폴더는 --group 으로 정합니다"})
+                         "error": f"--name '{args.name}' contains characters that are not allowed",
+                         "hint": "use only letters, digits, underscores, hyphens, dots and spaces; '/' '\\' '..' are "
+                                 "not allowed. Set a subfolder with --group"})
         if args.group and (args.group.startswith(("/", "\\")) or ".." in Path(args.group).parts
                            or "\\" in args.group):
             return emit({"ok": False, "code": "bad_group",
-                         "error": f"--group '{args.group}' 은 폴더 밖을 가리킬 수 없습니다"})
+                         "error": f"--group '{args.group}' cannot point outside the folder"})
         # --group 을 주면 flows/{그룹}/ 아래, _shared 면 전제로 둔다
         if args.group == _SHARED_DIR:
             target_dir = d / _SHARED_DIR
@@ -70,27 +70,27 @@ def cmd_scenario(args) -> int:
         # 마지막 방어선 — 어떤 경로로든 시나리오 폴더 아래가 아니면 쓰지 않는다
         if d.resolve() not in f.resolve().parents:
             return emit({"ok": False, "code": "bad_name",
-                         "error": "시나리오 폴더 밖에는 만들 수 없습니다"})
+                         "error": "cannot create outside the scenario folder"})
         target_dir.mkdir(parents=True, exist_ok=True)
         if f.exists() and not args.force:
             return emit({"ok": False, "code": "already_exists",
-                         "error": f"{f} 가 이미 있습니다", "hint": "--force 로 덮어씁니다"})
+                         "error": f"{f} already exists", "hint": "overwrite with --force"})
         import json
         f.write_text(json.dumps(_template_for(args.target), ensure_ascii=False, indent=2) + "\n",
                      encoding="utf-8")
         return emit({
             "file": str(f),
-            "summary": f"템플릿 생성: {f.relative_to(d)}",
-            "next": "중괄호로 표시된 자리를 채운 뒤 scenario show 로 검증하세요",
+            "summary": f"template created: {f.relative_to(d)}",
+            "next": "fill in the {braced} placeholders, then validate with scenario show",
         })
 
     # show
     if not args.name:
-        return emit({"ok": False, "code": "name_required", "error": "--name 을 지정하세요"})
+        return emit({"ok": False, "code": "name_required", "error": "--name is required"})
     f = _resolve_scenario(d, args.name)
     if f is None:
         return emit({"ok": False, "code": "not_found",
-                     "error": f"'{args.name}' 을 찾지 못했습니다",
+                     "error": f"'{args.name}' not found",
                      "next": f"scenario list --root {root}"})
     import json
     try:
@@ -104,7 +104,7 @@ def cmd_scenario(args) -> int:
                     if k.startswith("{") and k.endswith("}")]
     if placeholders:
         problems.append(
-            f"채우지 않은 자리가 {len(placeholders)}개 있습니다 — 템플릿 그대로면 실행할 수 없습니다")
+            f"{len(placeholders)} unfilled placeholder(s) — a scenario left as the template cannot run")
 
     # 이 시나리오와 겹치는 규칙·함정을 몇 건 싣는다 (시나리오마다 하루 한 번, #837)
     target = scenario_target(data)
@@ -120,9 +120,9 @@ def cmd_scenario(args) -> int:
         "precondition_steps": data.get("_precondition_steps", 0),
         "problems": problems,
         "unfilled_placeholders": placeholders[:10],
-        "summary": (f"{data.get('name','?')} — {len(data.get('steps',[]))}단계"
-                    + (f", 문제 {len(problems)}건" if problems else "")),
-        "next": None if not problems else "problems를 고친 뒤 다시 확인하세요",
+        "summary": (f"{data.get('name','?')} — {len(data.get('steps',[]))} step(s)"
+                    + (f", {len(problems)} problem(s)" if problems else "")),
+        "next": None if not problems else "fix the problems, then check again",
     })
 
 
@@ -131,4 +131,4 @@ def _safe_name(f: Path) -> str:
     try:
         return json.loads(f.read_text(encoding="utf-8")).get("name", "?")
     except Exception:
-        return "(읽기 실패)"
+        return "(unreadable)"

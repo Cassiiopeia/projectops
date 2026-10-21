@@ -62,8 +62,8 @@ def _proc_result(r, via: str, engine: str | None = None) -> int:
         "code": "ok" if r.returncode == 0 else "db_query_failed",
         "rows": _db_rows(r.stdout), "raw": r.stdout[:4000],
         "error": (r.stderr or "").strip()[:500] or None,
-        "summary": "실행 완료" if r.returncode == 0 else "실행 실패",
-        "hint": ("비밀번호 없이 붙는 키가 있어야 합니다(BatchMode)"
+        "summary": "Query succeeded" if r.returncode == 0 else "Query failed",
+        "hint": ("A key that connects without a password is required (BatchMode)"
                  if (via == "ssh" and r.returncode != 0) else None),
     })
 
@@ -78,7 +78,7 @@ def cmd_db(args) -> int:
     set_area("server", project_root(args))
     sql = args.sql
     if not sql:
-        return out({"ok": False, "code": "sql_required", "error": "--sql 이 필요합니다"})
+        return out({"ok": False, "code": "sql_required", "error": "--sql is required"})
 
     cred_env: dict = {}
     cred_entry = None
@@ -89,7 +89,7 @@ def cmd_db(args) -> int:
         saved = load_access(root).get(args.profile)
         if not saved:
             return out({"ok": False, "code": "profile_not_found",
-                        "error": f"'{args.profile}' 기록이 없습니다",
+                        "error": f"No record named '{args.profile}'",
                         "next": f"access show --root {args.root}"})
         use_access(root, args.profile)
         if isinstance(saved, dict):
@@ -109,8 +109,8 @@ def cmd_db(args) -> int:
                 args.password = os.environ.get(env_key)
                 if not args.password:
                     return out({"ok": False, "code": "password_env_empty",
-                                "error": f"환경변수 {env_key} 가 비어 있습니다",
-                                "hint": f"{env_key}=... 를 주고 다시 부르세요"})
+                                "error": f"Environment variable {env_key} is empty",
+                                "hint": f"Set {env_key}=... and call again"})
 
     if getattr(args, "cred", None):
         cred_entry, err = load_cred(args.cred)
@@ -135,9 +135,9 @@ def cmd_db(args) -> int:
         engine = (args.engine or "").lower()
         if engine not in _DB_CLIENTS:
             return out({"ok": False, "code": "unsupported_engine",
-                        "error": f"engine '{args.engine}' 은 다루지 않습니다",
+                        "error": f"engine '{args.engine}' is not supported",
                         "supported": sorted(set(_DB_CLIENTS)),
-                        "hint": "--command 로 직접 실행할 명령을 주면 어떤 DB든 됩니다"})
+                        "hint": "Any DB works if you give the command to run with --command"})
         db = {"host": args.host, "port": args.port, "name": args.db, "user": args.user,
               "password": args.password or os.environ.get("DB_PASSWORD")}
         argv, env = _db_argv(engine, db, sql)
@@ -145,7 +145,7 @@ def cmd_db(args) -> int:
         if args.via == "ssh":
             if not args.ssh_host:
                 return out({"ok": False, "code": "ssh_host_required",
-                            "error": "--ssh-host 가 필요합니다"})
+                            "error": "--ssh-host is required"})
             remote = " ".join(f"{k}={_shq(v)}" for k, v in env.items() if v)
             remote += " " + " ".join(_shq(a) for a in argv)
             dest = f"{args.ssh_user}@{args.ssh_host}" if args.ssh_user else args.ssh_host
@@ -159,40 +159,40 @@ def cmd_db(args) -> int:
         exe = shutil.which(argv[0])
         if not exe:
             return out({"ok": False, "code": "client_missing",
-                        "error": f"{argv[0]} 가 없습니다",
+                        "error": f"{argv[0]} is not installed",
                         "install": ("brew install libpq" if argv[0] == "psql"
                                     else "brew install mysql-client"),
-                        "hint": "--via ssh 로 서버 안에서 실행하거나 --command 로 직접 명령을 주세요"})
+                        "hint": "Run it on the server with --via ssh, or give the command directly with --command"})
         r = subprocess.run([exe] + argv[1:], env=dict(os.environ, **env),
                            capture_output=True, text=True, timeout=args.timeout)
         return _proc_result(r, "direct", engine)
     except subprocess.TimeoutExpired:
-        return out({"ok": False, "code": "db_timeout", "error": f"응답 없음 ({args.timeout}초)"})
+        return out({"ok": False, "code": "db_timeout", "error": f"No response ({args.timeout}s)"})
 
 
 def configure_db(p) -> None:
     p.add_argument("--sql", required=True)
-    p.add_argument("--engine", default=None, help="postgres · mysql (--command 면 불필요)")
+    p.add_argument("--engine", default=None, help="postgres · mysql (not needed with --command)")
     p.add_argument("--host", default=None)
     p.add_argument("--port", default=None)
-    p.add_argument("--db", default=None, help="데이터베이스 이름")
+    p.add_argument("--db", default=None, help="Database name")
     p.add_argument("--user", default=None)
-    p.add_argument("--password", default=None, help="생략하면 DB_PASSWORD 환경변수 (권장)")
+    p.add_argument("--password", default=None, help="Defaults to the DB_PASSWORD environment variable (recommended)")
     p.add_argument("--via", choices=["direct", "ssh"], default="direct")
     p.add_argument("--ssh-host", dest="ssh_host", default=None)
     p.add_argument("--ssh-user", dest="ssh_user", default=None)
     p.add_argument("--ssh-port", dest="ssh_port", default=None)
     p.add_argument("--command", default=None,
-                   help="접속을 통째로 지정한다. 예: \"docker exec -i pg psql -U root -d appdb -c\"")
+                   help="Give the whole connection command. e.g. \"docker exec -i pg psql -U root -d appdb -c\"")
     p.add_argument("--append-sql", dest="append_sql", action="store_true",
-                   help="--command 뒤에 SQL을 인자로 붙인다 (기본은 표준입력)")
-    p.add_argument("--profile", default=None, help="access 에 적어 둔 기록을 쓴다 (예: db)")
-    p.add_argument("--cred", default=None, help="저장된 자격증명으로 host·user·password 를 채운다 (cred list)")
+                   help="Append the SQL as an argument after --command (default: standard input)")
+    p.add_argument("--profile", default=None, help="Use a record saved with access (e.g. db)")
+    p.add_argument("--cred", default=None, help="Fill host, user and password from a saved credential (cred list)")
     p.add_argument("--root", default=".")
     p.add_argument("--timeout", type=int, default=40)
 
 
 COMMANDS = [
-    Command(name="db", help="SQL을 실행한다 (접속 방법은 호출하는 쪽이 정한다)", run=cmd_db,
+    Command(name="db", help="Run SQL (the caller decides how to connect)", run=cmd_db,
             configure=configure_db),
 ]

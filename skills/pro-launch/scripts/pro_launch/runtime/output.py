@@ -57,9 +57,9 @@ def default_summary(payload: dict) -> str:
     if payload.get("ok", True) is False:
         reasons = payload.get("reasons") if isinstance(payload.get("reasons"), list) else []
         cause = payload.get("error") or (reasons[0] if reasons else None)
-        label = f"{act} 실패" if act else "실패"
+        label = f"{act} failed" if act else "failed"
         return str(cause) if cause else f"{label}: {payload.get('code') or 'error'}"
-    return payload.get("error") or (f"{act} 완료" if act else "완료")
+    return payload.get("error") or (f"{act} done" if act else "done")
 
 
 # 맨 앞 4필드 — 잘라 읽어도 다음 행동이 남게 언제나 먼저 · 언제나 남긴다
@@ -154,7 +154,7 @@ def attach_known_fix(payload: dict) -> None:
         fixes = troubleshoot.find_known_fixes(SKILL_DIR, payload.get("code"), text, areas=_failure_areas(payload))
         if fixes:
             payload["known_fix"] = fixes
-            payload["known_fix_note"] = "검증된 공식 해결이다. 먼저 시도하고, 전체는 kb show <id>"
+            payload["known_fix_note"] = "Verified official fix. Try it first; full entry: kb show <id>"
     except Exception:   # noqa: BLE001 — 공식 지식은 보조다
         pass
 
@@ -171,8 +171,8 @@ def _empty_value_warning(payload: dict) -> None:
     if not empty or payload.get("ok", True) is not False or "empty_values" in payload:
         return
     payload["empty_values"] = empty
-    payload["empty_values_note"] = (f"{', '.join(empty)} 의 값이 비어 있다 — $VAR 로 넘겼다면 그 환경변수가 "
-                                    "설정됐는지 확인한다")
+    payload["empty_values_note"] = (f"{', '.join(empty)} has an empty value — if you passed $VAR, check that "
+                                    "the environment variable is set")
 
 
 # 루트를 잘못 잡았을 때 흔한 실패 — 후보 루트와 다시 부를 명령을 싣는다 (#885)
@@ -182,12 +182,12 @@ ROOT_SENSITIVE_CODES = {"browser_not_open", "git_not_found"}
 def _root_warning(payload: dict) -> None:
     if ROOT_CTX.get("source") == "last_used":
         payload["root_source"] = "last_used"
-        payload["root_note"] = (f"작업 폴더({ROOT_CTX.get('cwd')})가 레포가 아니라 최근에 쓴 {ROOT_CTX.get('path')} 를 썼다 — "
-                                "다른 레포면 --root <경로> 를 붙인다")
+        payload["root_note"] = (f"Working folder ({ROOT_CTX.get('cwd')}) is not a repo, so the last used {ROOT_CTX.get('path')} was used — "
+                                "for another repo add --root <path>")
     if ROOT_CTX.get("scratch"):
         payload["root_scratch"] = True
-        payload["root_note"] = (f"{ROOT_CTX.get('path')} 는 git 도 프로젝트 마커도 없는 폴더다 — 상태는 임시 버킷"
-                                "(_scratch/<이름>-<해시>)에 쓰고 최근 루트로 기억하지 않는다. 프로젝트면 레포 절대경로를 --root 로")
+        payload["root_note"] = (f"{ROOT_CTX.get('path')} has no git and no project marker — state goes to a scratch bucket "
+                                "(_scratch/<name>-<hash>) and is not remembered as a recent root. For a project, pass the repo absolute path with --root")
     is_failed = payload.get("ok", True) is False
     if is_failed and (ROOT_CTX.get("not_repo") or ROOT_CTX.get("unknown")
                           or payload.get("code") in ROOT_SENSITIVE_CODES):
@@ -195,14 +195,14 @@ def _root_warning(payload: dict) -> None:
     if not ROOT_CTX.get("unknown"):
         return
     payload["root_unknown"] = True
-    payload["root_warning"] = (f"프로젝트를 알 수 없는 폴더({ROOT_CTX.get('path')})에서 불렸다 — "
-                               "상태는 이 컴퓨터 공용 자리에 쓰고, 레포 기억은 쓰지 않는다")
-    fix = "--root <프로젝트 경로> 를 붙여 다시 부른다 (또는 PROJECT_ROOT 환경변수)"
+    payload["root_warning"] = (f"Called from a folder with no known project ({ROOT_CTX.get('path')}) — "
+                               "state goes to this machine's shared location and no repo memory is written")
+    fix = "Call again with --root <project path> (or the PROJECT_ROOT environment variable)"
     nxt = payload.get("next")
     if not nxt:
         payload["next"] = fix
     elif isinstance(nxt, str) and fix not in nxt:
-        payload["next"] = f"{fix}. 그 다음: {nxt}"
+        payload["next"] = f"{fix}. Then: {nxt}"
 
 
 def _attach_root_candidates(payload: dict) -> None:
@@ -217,8 +217,8 @@ def _attach_root_candidates(payload: dict) -> None:
         return
     payload["root_candidates"] = candidates
     payload["retry"] = retry_command_with_root(candidates[0]["path"])
-    payload["next"] = (f"레포 밖에서 불렸을 수 있다 — 다시: {payload['retry']}"
-                       + (f". 그 다음: {payload['next']}" if payload.get("next") else ""))
+    payload["next"] = (f"May have been called outside the repo — retry: {payload['retry']}"
+                       + (f". Then: {payload['next']}" if payload.get("next") else ""))
 
 
 def retry_command_with_root(root: str) -> str:
@@ -264,9 +264,9 @@ def _grade_access(payload: dict) -> None:
     if needs_verify(prev):
         lf = prev.get("last_fail") or {}
         payload["verify"] = True
-        payload["verify_note"] = (f"access '{key}' 는 지난번({lf.get('date')}, {lf.get('code')}) 실패했던 방법이다 — "
-                                  + ("이번에는 먹혔다" if ok else
-                                     "이번에도 실패했다. 코드를 다시 읽어 access set 으로 고친다"))
+        payload["verify_note"] = (f"access '{key}' failed last time ({lf.get('date')}, {lf.get('code')}) — "
+                                  + ("it worked this time" if ok else
+                                     "it failed again. Re-read the code and fix it with access set"))
 
 
 _FIX_WINDOW_SEC = 30 * 60   # 실패 뒤 이 안에 같은 영역이 성공하면 '새로 알게 된 방식'일 수 있다
@@ -296,8 +296,8 @@ def _memory_hooks(payload: dict) -> None:
                                 key_prefix=MEMORY_CTX.get("key_prefix"))
         if mem:
             payload["memory"] = mem
-            payload["memory_note"] = ("이 컴퓨터에서 먹혔던 방식이다. 쓴 것이 있으면 결과를 "
-                                      f"learn --area {area} --key <key> --how <how> --result ok|fail 로 남긴다")
+            payload["memory_note"] = ("Methods that worked on this machine. If you used one, record the result with "
+                                      f"learn --area {area} --key <key> --how <how> --result ok|fail")
         hint = _track_attempt(seen_dir / "attempts.json", area, payload)
         if hint:
             payload["learn_hint"] = hint
@@ -312,15 +312,15 @@ def _journal_hooks(payload: dict, area: str, root: Path, unknown: bool, seen_dir
     rows = journal.surface(path, area, seen_dir / "journal_seen.json")
     if rows:
         payload["journal"] = rows
-        payload["journal_note"] = ("전에 이 영역에서 했던 작업 기록이다. 참고만 한다 — 같은 작업을 다시 할 때 "
-                                   "순서와 판단 기준을 이어 쓰되, 변경하는 동작은 사용자 확인을 거친다. "
-                                   "달라진 점은 journal --add 로 덧붙인다")
+        payload["journal_note"] = ("Earlier work records in this area. Reference only — when repeating the work, reuse "
+                                   "the order and decision criteria, but confirm changing actions with the user. "
+                                   "Add what changed with journal --add")
     # 작업을 마치는 순간(창을 닫는 때)이 적어 둘 가장 좋은 때다 — 사용자에게 먼저 묻는다
     if payload.get("action") == "close" and payload.get("ok", True) is not False and not unknown:
         payload["journal_hint"] = (
-            "이번에 한 작업이 다음에도 반복될 만하면 사용자에게 \"이 작업을 기록해 둘까요?\" 라고 묻고, 동의하면 "
-            f"journal --add \"<무엇을 왜 했는지·순서·판단 기준·결과·다음에 헷갈릴 점>\" --title <제목> --area {area} "
-            "--site <주소 일부> 로 적는다. 사용자가 먼저 기록해 달라고 하면 묻지 않고 바로 적는다 (비밀값은 적지 않는다)")
+            "If this work is likely to be repeated, ask the user \"Shall I record this work?\" and, if they agree, write it with "
+            f"journal --add \"<what and why · order · decision criteria · result · what will be confusing next time>\" --title <title> --area {area} "
+            "--site <part of the address>. If the user asked for a record first, write it without asking (never write secrets)")
 
 
 # 실패 > 성공 연쇄 기록 (#863) — session-check 가 "막혔다 풀렸는데 learn 안 한 영역"을 짚는다
@@ -365,10 +365,10 @@ def _track_attempt(f: Path, area: str, payload: dict) -> str | None:
     fails = int(prev.get("fails") or 1)
     _append_resolved(f.parent / RESOLVED_FILE, {"area": area, "fails": fails,
                                                 "last_code": prev.get("code"), "at": now})
-    times = f" {fails}번" if fails > 1 else ""
-    return (f"방금 '{prev.get('code')}'{times} 실패 끝에 넘겼다. 다음에도 쓸 방식이면 "
-            f"learn --area {area} --key <짧은키> --how '<무엇을 어떻게>' --result ok 로 남긴다 "
-            "(경위가 길면 --detail. 미설치·일회성·비밀값은 남기지 않는다)")
+    times = f" {fails} times" if fails > 1 else ""
+    return (f"Just got past '{prev.get('code')}' after failing{times}. If the method is reusable, record it with "
+            f"learn --area {area} --key <short-key> --how '<what and how>' --result ok "
+            "(long story: --detail. Do not record missing installs, one-offs or secrets)")
 
 
 def _append_resolved(f: Path, row: dict) -> None:

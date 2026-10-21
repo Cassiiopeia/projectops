@@ -88,8 +88,8 @@ def _fill_credentials(page, args, timeout_ms: int, filled: list[str], secret_val
         if value in (None, ""):
             return {
                 "ok": False, "code": "cred_field_missing",
-                "error": f"'{args.login_cred}' 에 아이디로 쓸 값이 없습니다 (찾은 필드: {IDENTIFIER_FIELD_CANDIDATES})",
-                "next": "web login ... --user-field <필드 이름>  # cred list 로 필드를 본다"}
+                "error": f"'{args.login_cred}' has no value to use as the user id (fields tried: {IDENTIFIER_FIELD_CANDIDATES})",
+                "next": "web login ... --user-field <field name>  # see the fields with cred list"}
         secret_values.append(str(value))
         page.locator(args.user_selector).first.fill(str(value), timeout=timeout_ms)
         filled.append(f"user:{field}")
@@ -98,8 +98,8 @@ def _fill_credentials(page, args, timeout_ms: int, filled: list[str], secret_val
         if value in (None, ""):
             return {
                 "ok": False, "code": "cred_field_missing",
-                "error": f"'{args.login_cred}' 에 '{args.password_field}' 값이 없습니다",
-                "next": "web login ... --password-field <필드 이름>"}
+                "error": f"'{args.login_cred}' has no '{args.password_field}' value",
+                "next": "web login ... --password-field <field name>"}
         secret_values.append(str(value))
         page.locator(args.password_selector).first.fill(str(value), timeout=timeout_ms)
         filled.append(f"password:{args.password_field}")
@@ -108,11 +108,11 @@ def _fill_credentials(page, args, timeout_ms: int, filled: list[str], secret_val
         if not code or not args.otp_selector:
             return {
                 "ok": False, "code": "otp_missing",
-                "error": "일회용 코드는 --otp-env <환경변수> 와 --otp-selector 가 둘 다 필요합니다",
+                "error": "A one-time code needs both --otp-env <env var> and --otp-selector",
                 "next": f'{args.otp_env or "CODE"}="123456" launch_cli.py web login --otp-env ... --otp-selector ...'}
         secret_values.append(code)
         boxes = _fill_otp(page, args.otp_selector, code, timeout_ms)
-        filled.append(f"otp:{boxes}칸")
+        filled.append(f"otp:{boxes} boxes")
     if args.submit_selector:
         page.locator(args.submit_selector).first.click(timeout=timeout_ms)
         filled.append("submit")
@@ -126,24 +126,24 @@ def _handoff_payload(page, args, state: dict, filled: list[str]) -> dict:
     condition = " ".join(f"--{flag} '{value}'" for flag, value in
                          (("until-url", args.until_url), ("until-text", args.until_text)) if value)
     return {"ok": False, "code": "needs_user", "action": "login", "url": url, "title": title, "filled": filled,
-            "summary": "남은 로그인 단계를 사용자에게 넘깁니다 (완료 조건 아직 안 맞음)",
+            "summary": "Handing the remaining login steps to the user (completion condition not met yet)",
             "needs_user": {"kind": "user_action", "is_headed": is_headed,
-                           "message": "브라우저에서 2단계 인증·기기 승인 등 남은 단계를 사용자가 마쳐야 한다"},
+                           "message": "The user must finish the remaining steps in the browser (two-factor auth, device approval, etc.)"},
             "hint": (None if is_headed else
-                     "보이지 않는 브라우저다 — 사용자가 조작하려면 web close 후 web open --headed 로 다시 연다"),
-            "ask_user": "브라우저에서 남은 로그인 단계(인증 코드·기기 승인)를 마친 뒤 알려 주세요",
-            "next": f"web login --resume {condition} --handoff-seconds 120  # 사용자가 마친 뒤 이어간다"}
+                     "The browser is headless — for the user to act, run web close, then reopen with web open --headed"),
+            "ask_user": "Please finish the remaining login steps in the browser (verification code, device approval) and tell me when done",
+            "next": f"web login --resume {condition} --handoff-seconds 120  # continue after the user is done"}
 
 
 def execute(page, args, state: dict) -> dict:
     timeout_ms = args.timeout * 1000
     if not args.resume and not (args.user_selector or args.password_selector or args.otp_env):
         return {"ok": False, "code": "missing_argument",
-                "error": "--user-selector · --password-selector · --otp-env 중 하나는 필요합니다 (재개는 --resume)",
-                "next": "web find  # 입력칸 ref·선택자를 먼저 찾는다"}
+                "error": "One of --user-selector, --password-selector or --otp-env is required (use --resume to resume)",
+                "next": "web find  # find the input refs/selectors first"}
     if (args.user_selector or args.password_selector) and not args.login_cred:
-        return {"ok": False, "code": "missing_argument", "error": "--cred 가 필요합니다",
-                "next": "cred list  # 저장된 자격증명과 use_when 을 본다"}
+        return {"ok": False, "code": "missing_argument", "error": "--cred is required",
+                "next": "cred list  # see saved credentials and their use_when"}
     filled: list[str] = []
     secret_values: list[str] = []
     try:
@@ -157,35 +157,35 @@ def execute(page, args, state: dict) -> dict:
     except Exception as e:
         return {"ok": False, "code": "web_action_failed", "action": "login", "filled": filled,
                 "error": _mask(str(e), secret_values)[:400],
-                "next": "web find  # 입력칸 선택자가 맞는지 본다"}
+                "next": "web find  # check the input selectors are right"}
     url, title = read_url_title(page)
     result = {"action": "login", "url": url, "title": title, "filled": filled, "resumed": bool(args.resume),
-              "summary": "로그인 단계를 마쳤습니다" + (" (조건 확인됨)" if (args.until_url or args.until_text) else ""),
-              "next": "web text  # 로그인 뒤 화면을 읽는다"}
+              "summary": "Login steps done" + (" (condition confirmed)" if (args.until_url or args.until_text) else ""),
+              "next": "web text  # read the screen after login"}
     # 로그인 결과에 중간 화면 정책을 싣는다 (#905)
     return with_login_policy(result, args.login_cred)
 
 
 def configure(p) -> None:
     # dest 를 따로 둔다 — web 디스패처가 args.cred 를 보면 password 필드를 미리 꺼내려 한다
-    p.add_argument("--cred", dest="login_cred", metavar="NAME", default=None, help="저장된 자격증명 이름 (cred list). 값은 출력에 남지 않는다")
-    p.add_argument("--user-selector", dest="user_selector", default=None, help="아이디 입력칸 선택자")
+    p.add_argument("--cred", dest="login_cred", metavar="NAME", default=None, help="Saved credential name (cred list). Values never appear in output")
+    p.add_argument("--user-selector", dest="user_selector", default=None, help="Selector of the user id input")
     p.add_argument("--user-field", dest="user_field", default=None,
-                   help=f"아이디로 넣을 필드 (기본: {'·'.join(IDENTIFIER_FIELD_CANDIDATES)} 중 처음 있는 것)")
-    p.add_argument("--password-selector", dest="password_selector", default=None, help="비밀번호 입력칸 선택자")
-    p.add_argument("--password-field", dest="password_field", default="password", help="비밀번호로 넣을 필드")
-    p.add_argument("--submit-selector", dest="submit_selector", default=None, help="넣은 뒤 누를 버튼 선택자")
-    p.add_argument("--otp-env", dest="otp_env", default=None, help="일회용 코드를 담은 환경변수 이름")
+                   help=f"Field to enter as the user id (default: the first present of {'·'.join(IDENTIFIER_FIELD_CANDIDATES)})")
+    p.add_argument("--password-selector", dest="password_selector", default=None, help="Selector of the password input")
+    p.add_argument("--password-field", dest="password_field", default="password", help="Field to enter as the password")
+    p.add_argument("--submit-selector", dest="submit_selector", default=None, help="Selector of the button to press after filling")
+    p.add_argument("--otp-env", dest="otp_env", default=None, help="Name of the env var holding the one-time code")
     p.add_argument("--otp-selector", dest="otp_selector", default=None,
-                   help="코드 입력칸 선택자. 한 글자씩 나뉜 칸이면 그 칸들 모두를 가리키는 선택자")
-    p.add_argument("--until-url", dest="until_url", default=None, help="완료 조건: 주소에 이 문자열이 들어 있다")
-    p.add_argument("--until-text", dest="until_text", default=None, help="완료 조건: 이 문구가 화면에 보인다")
+                   help="Selector of the code input. For one-box-per-digit inputs, a selector matching all the boxes")
+    p.add_argument("--until-url", dest="until_url", default=None, help="Completion condition: the URL contains this string")
+    p.add_argument("--until-text", dest="until_text", default=None, help="Completion condition: this text is visible on screen")
     p.add_argument("--handoff-seconds", dest="handoff_seconds", type=int, default=0,
-                   help=f"완료 조건을 기다릴 시간(초, 최대 {MAXIMUM_HANDOFF_SECONDS}). 넘으면 needs_user 로 넘긴다")
-    p.add_argument("--resume", action="store_true", help="입력은 건너뛰고 완료 조건만 다시 기다린다 (사용자 인계 뒤)")
+                   help=f"Seconds to wait for the completion condition (max {MAXIMUM_HANDOFF_SECONDS}). Past that, hands off as needs_user")
+    p.add_argument("--resume", action="store_true", help="Skip input and only wait for the completion condition again (after a user handoff)")
 
 
 ACTION = Action(name="login", run=execute, configure=configure, options=("timeout",),
-                help="자격증명을 지정한 칸에 넣고, 2단계 인증은 사용자에게 넘긴 뒤 조건(URL·문구)이 맞으면 이어간다",
+                help="Fill saved credentials into the given inputs, hand two-factor auth to the user, and continue once the condition (URL/text) holds",
                 example="web login --cred staging-admin --user-selector '#email' --password-selector '#pw' "
                         "--submit-selector 'button[type=submit]' --until-url /dashboard --handoff-seconds 120")

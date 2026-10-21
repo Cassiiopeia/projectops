@@ -27,8 +27,8 @@ def _others_using_devices() -> list[dict]:
 
 
 def _summary(budget_mb: int, costs: dict[str, int]) -> str:
-    parts = [f"{platform} 최대 {budget_mb // cost}대 (한 대 {cost}MB)" for platform, cost in costs.items() if cost]
-    return f"기기 예산 {budget_mb}MB — " + " · ".join(parts) + " (섞어 켜면 예산 안에서 합산)"
+    parts = [f"{platform} up to {budget_mb // cost} (each {cost}MB)" for platform, cost in costs.items() if cost]
+    return f"Device budget {budget_mb}MB — " + " · ".join(parts) + " (mixed devices share the budget)"
 
 
 def run_benchmark(args) -> int:
@@ -40,8 +40,8 @@ def run_benchmark(args) -> int:
     # 새로 켜는 측정만 다른 세션을 멈추게 할 수 있다 — 켜진 기기만 재는 측정은 그대로 한다
     if others and to_boot and not args.yes:
         return out({"ok": False, "code": "devices_in_use", "others": others, "would_boot": to_boot,
-                    "error": "다른 세션이 기기를 쓰는 중이다 — 실험 기기를 켜면 그 세션을 멈추게 할 수 있다",
-                    "next": "그 세션들이 끝난 뒤 다시 하거나, 사용자에게 묻고 --yes"})
+                    "error": "Another session is using devices — booting test devices could stall that session",
+                    "next": "Retry after those sessions end, or ask the user and pass --yes"})
     baseline = host_resources.read_memory()
     booted_at_start = device_pool_facts.booted_virtual_counts()
     consumers = device_benchmark.non_device_consumers()
@@ -51,8 +51,8 @@ def run_benchmark(args) -> int:
     if not measured:
         return out({"ok": False, "code": "benchmark_no_room", "results": results, "baseline": baseline,
                     "non_device_consumers": consumers,
-                    "error": "실험 기기를 하나도 켜지 못했다 — " + "; ".join(r.get("skipped") or "" for r in results),
-                    "next": "메모리를 쓰는 프로그램(non_device_consumers)이나 켜진 기기를 줄인 뒤 다시 잰다. 설정은 바꾸지 않았다"})
+                    "error": "Could not boot any test device — " + "; ".join(r.get("skipped") or "" for r in results),
+                    "next": "Reduce memory-heavy programs (non_device_consumers) or booted devices, then measure again. Settings were not changed"})
     costs = {platform: measured.get(platform) or device_capacity.boot_cost_mb(platform)[0] for platform in PLATFORMS}
     reserve = device_capacity.memory_reserve_mb()
     # 기기 예산 = 시작 때 남은 메모리 + 이미 켜져 있던 기기들이 쓰던 몫 - 여유분
@@ -66,4 +66,4 @@ def run_benchmark(args) -> int:
     return out({"action": "benchmark", "costs_mb": costs, "measured": list(measured), "memory_budget_mb": budget,
                 "memory_reserve_mb": reserve, "results": results, "non_device_consumers": consumers,
                 "summary": _summary(budget, costs),
-                "next": "이제 acquire · boot 가 이 예산으로 판단한다. 메모리 사정이 크게 바뀌면 다시 잰다"})
+                "next": "acquire · boot now decide with this budget. Measure again if memory conditions change a lot"})

@@ -141,8 +141,8 @@ values — record only which environment variable to read from.
 
 ```
 {"ok": false, "code": "secret_detected",
- "error": "이메일이 들어 있습니다",
- "hint": "이 파일은 평문으로 디스크에 남고 다음 실행마다 다시 읽힙니다"}
+ "error": "The text to record contains <kind of secret>",
+ "hint": "This file stays on disk in plain text and is read again on every run. Write something like 'with the test account' instead of the actual value"}
 ```
 
 (The script prints these messages in Korean: `error` says the content contains an email, and `hint` says the file stays on disk in plain text and is read again on every run.)

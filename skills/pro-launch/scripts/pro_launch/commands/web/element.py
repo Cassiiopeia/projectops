@@ -58,8 +58,8 @@ def locate_target(page, args, state: dict, action: str, *, should_wait: bool = F
     selector = target_selector(args)
     if not selector:
         return None, None, {"ok": False, "code": "target_required", "action": action,
-                            "error": "--ref 나 --selector 가 필요합니다",
-                            "next": "web inspect  # 입력창·버튼 후보를 번호와 함께 받아 --ref 로 고른다"}
+                            "error": "--ref or --selector is required",
+                            "next": "web inspect  # get numbered input and button candidates, then pick one with --ref"}
     # --frame 이면 그 iframe 안에서만 찾는다 (#877). 후보도 그 안에서 고른다
     scope, failure = frame_scope(page, args, action)
     if failure:
@@ -74,11 +74,11 @@ def locate_target(page, args, state: dict, action: str, *, should_wait: bool = F
         if args.ref is not None:
             return None, None, attach_candidates(
                 {"ok": False, "code": "ref_stale", "action": action, "url": page.url,
-                 "error": f"ref {args.ref} 이 화면에 없습니다 (이동·다시 그리기로 사라졌다)",
-                 "next": "web find  # 지금 화면에서 다시 고른다"}, scope, None, action)
+                 "error": f"ref {args.ref} is not on the screen (gone after navigation or re-render)",
+                 "next": "web find  # pick again from the current screen"}, scope, None, action)
         return None, None, attach_candidates(
             {"ok": False, "code": "selector_not_found", "action": action, "url": page.url,
-             "error": f"{args.selector} 에 맞는 요소가 없습니다", "next": "web find --text <글자>"},
+             "error": f"No element matches {args.selector}", "next": "web find --text <text>"},
             scope, args.selector, action)
     element = locator.first
     info = element.evaluate(DESCRIBE_STATE_JS)
@@ -92,14 +92,14 @@ def locate_target(page, args, state: dict, action: str, *, should_wait: bool = F
     if info.get("visible") and info.get("disabled"):
         return None, info, {"ok": False, "code": "element_disabled", "action": action, "target": info,
                             "url": page.url,
-                            "error": f"'{target_label(info)}' 이 비활성 상태입니다",
-                            "next": "web inspect  # 먼저 채워야 할 입력이나 체크가 있는지 본다"}
+                            "error": f"'{target_label(info)}' is disabled",
+                            "next": "web inspect  # check for inputs or checkboxes that must be filled first"}
     if (should_guard_mutating and state.get("readonly") and is_mutating_target(info)
             and not getattr(args, "confirm_mutating", False)):
         return None, info, {"ok": False, "code": "mutating_blocked", "action": action, "clicked": None,
                             "target": info, "url": page.url,
-                            "error": f"읽기 전용 세션이라 '{target_label(info)}' 을 건드리지 않았습니다",
-                            "next": "정말 해야 하면 사용자에게 무엇이 바뀌는지 말하고 승인받은 뒤 --confirm-mutating 을 붙인다"}
+                            "error": f"Read-only session: did not touch '{target_label(info)}'",
+                            "next": "If it really must be done, tell the user what will change, get approval, then add --confirm-mutating"}
     return element, info, None
 
 
@@ -117,8 +117,8 @@ def not_actionable_failure(page, args, action: str, info: dict | None, error: Ex
         detail = detail.replace(args.text, "***")
     label = target_label(info or {}) or (getattr(args, "selector", None) or "")
     failure = {"ok": False, "code": "element_not_actionable", "action": action, "target": info, "url": page.url,
-               "error": f"'{label}' 을 {target_wait_seconds(args)}초 안에 조작할 수 없었습니다 (숨김·가려짐·움직이는 중)",
-               "detail": detail, "next": "web inspect  # 보이는 입력창·버튼을 ref 와 함께 다시 고른다"}
+               "error": f"Could not act on '{label}' within {target_wait_seconds(args)}s (hidden, covered or moving)",
+               "detail": detail, "next": "web inspect  # pick a visible input or button again by ref"}
     selector = None if getattr(args, "ref", None) is not None else getattr(args, "selector", None)
     scope = frame_scope(page, args, action)[0] or page
     return attach_candidates(failure, scope, selector, action)
@@ -143,6 +143,6 @@ def attach_match_warning(payload: dict) -> None:
             payload["matches"] = info["matches"]
             payload.setdefault("warning", "multiple_matches")
             payload.setdefault("warning_detail", (
-                f"선택자가 {info['matches']}개에 맞았고 첫 번째({info.get('tag')} "
-                f"'{target_label(info)}')를 썼다 — 의도한 요소가 아니면 web find · web inspect 의 --ref 로 고른다"))
+                f"Selector matched {info['matches']} elements and used the first ({info.get('tag')} "
+                f"'{target_label(info)}') — if that is not the intended element, pick one with --ref from web find or web inspect"))
             return

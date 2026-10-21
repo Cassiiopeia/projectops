@@ -96,11 +96,11 @@ class Watchdog:
                    "pid": state.get("pid"), "profile": state.get("profile"), "cdp": state.get("cdp"),
                    "elapsed_seconds": round(now - self.started, 1), "deadline_seconds": limit,
                    "url": None,
-                   "error": (f"브라우저에 붙는 단계가 {limit}초 안에 끝나지 않았습니다 (CDP 는 답해도 연결이 멈춤)"
+                   "error": (f"Attaching to the browser did not finish within {limit}s (CDP answers but the connection is hung)"
                              if self.phase == "connect" else
-                             f"web {self.action} 이 {limit}초 안에 끝나지 않아 멈췄습니다"),
-                   "hint": "멈춘 브라우저로 표시했다 — 다음 web open 은 다시 붙지 않고 끄고 새로 띄운다 (프로필·로그인은 남는다)",
-                   "next": "web open  # 멈춘 브라우저를 끄고 같은 프로필로 다시 띄운다"}
+                             f"web {self.action} did not finish within {limit}s and was stopped"),
+                   "hint": "Marked the browser as hung — the next web open kills it and starts a new one instead of reattaching (profile and logins are kept)",
+                   "next": "web open  # kills the hung browser and restarts it with the same profile"}
         try:
             exit_code = out(payload)
         except Exception:

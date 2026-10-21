@@ -80,7 +80,7 @@ def test_android_driver_timeout_force_stops_driver_and_retries_once(fake_run, tm
     flow._app_flow(make_args(tmp_path, device="emulator-5554"))
     result = result_of(capsys)
     assert result["code"] == "maestro_driver_timeout" and result["driver_retried"] is True
-    assert "과부하" in result["next"]
+    assert "overloaded" in result["next"]
     force_stopped = [c[-1] for c in fake_run.calls if c[0] == "/x/adb" and "force-stop" in c]
     assert force_stopped == list(flow.ANDROID_MAESTRO_DRIVER_PACKAGES)
     assert sum(1 for c in fake_run.calls if c[0] == "/x/maestro") == 2

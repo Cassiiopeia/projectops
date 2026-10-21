@@ -16,14 +16,14 @@ def _app_back(args) -> int:
         return err
     if not be.has_back_button:
         return out({"ok": False, "code": "back_unsupported_on_platform", "device": dev_id, "platform": be.name,
-                    "error": f"{be.name} 에는 뒤로 버튼이 없다",
-                    "next": f"화면의 뒤로 버튼을 app tap --desc|--text 로 누르거나 {IOS_EDGE_SWIPE_COMMAND} (가장자리 밀기)",
-                    "hint": "app tree 로 뒤로 버튼의 desc · text 를 본다 (보통 이전 화면 제목 또는 'Back')"})
+                    "error": f"{be.name} has no back button",
+                    "next": f"Press the on-screen back button with app tap --desc|--text, or {IOS_EDGE_SWIPE_COMMAND} (edge swipe)",
+                    "hint": "Use app tree to find the back button's desc · text (usually the previous screen title or 'Back')"})
     before = before_shot(args, be, dev_id)
     ok, detail = be.press_back(dev_id)
-    return gesture_result(args, be, dev_id, before, ok, detail, "back_failed", "뒤로")
+    return gesture_result(args, be, dev_id, before, ok, detail, "back_failed", "back")
 
 
 ACTION = Action(name="back", device_use="mutate", run=_app_back,
-                help="뒤로가기 — Android 뒤로 키 (키보드 내리기 포함). iOS 는 대안을 안내한다",
+                help="Go back — Android back key (also hides the keyboard). On iOS it suggests alternatives",
                 example="app back --device $DEV --shot after_back")

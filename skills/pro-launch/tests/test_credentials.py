@@ -52,7 +52,7 @@ def home(tmp_path):
 def test_show_는_비밀을_가리고_reveal_일_때만_보여_준다(home):
     run(home, "cred", "set", "--name", "n", "--json", json.dumps({"password": "pw-12345", "token": "tok-abcdef", "user": "u"}))
     shown = run(home, "cred", "show", "--name", "n")
-    assert shown["credential"]["password"] == "<저장됨>" and shown["credential"]["token"] == "<저장됨>"
+    assert shown["credential"]["password"] == "<saved>" and shown["credential"]["token"] == "<saved>"
     assert shown["credential"]["user"] == "u"
     assert "pw-12345" not in json.dumps(shown)
     assert run(home, "cred", "show", "--name", "n", "--reveal")["credential"]["password"] == "pw-12345"

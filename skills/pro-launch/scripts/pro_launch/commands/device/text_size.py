@@ -41,11 +41,11 @@ def run_text_size(args) -> int:
     if args.restore:
         return restore_recorded(dev_id, platform, SETTING_KEY, "text-size")
     if not args.mode:
-        return fail("args_required", "크기를 준다: default · large · largest (또는 Android 배율 1.3, iOS 범주 이름)",
+        return fail("args_required", "Give a size: default · large · largest (or an Android scale such as 1.3, or an iOS category name)",
                     "device text-size large --device $DEV")
     target = _target_values(args.mode)
     if target is None:
-        return fail("bad_args", f"배율은 {ANDROID_FONT_SCALE_RANGE[0]}~{ANDROID_FONT_SCALE_RANGE[1]} 이다: {args.mode}")
+        return fail("bad_args", f"Scale must be {ANDROID_FONT_SCALE_RANGE[0]}–{ANDROID_FONT_SCALE_RANGE[1]}: {args.mode}")
     if not args.yes and (refusal := refuse_other_session_owner(dev_id, "text-size")) is not None:
         return refusal
     ios_category, android_scale = target
@@ -58,7 +58,7 @@ def run_text_size(args) -> int:
     else:
         adb = sdk_tool("adb")
         if not adb:
-            return fail("tool_missing", "adb 를 찾지 못했다", "doctor 의 adb_path 확인")
+            return fail("tool_missing", "adb not found", "Check adb_path with doctor")
         scale_setting = [adb, "-s", dev_id, "shell", "settings"]
         is_read, before = run_command([*scale_setting, "get", "system", "font_scale"])
         before = before.strip() if is_read and before.strip() not in ("", "null") else "1.0"
@@ -70,8 +70,8 @@ def run_text_size(args) -> int:
     is_changed, detail = run_command(change)
     if not is_changed:
         pop_device_setting(dev_id, SETTING_KEY)
-        return fail("text_size_failed", detail[-300:] or "글자 크기를 바꾸지 못했다", "device list 로 기기 상태를 확인한다")
+        return fail("text_size_failed", detail[-300:] or "Could not change the text size", "Check the device state with device list")
     return out({"action": "text-size", "platform": platform, "device": dev_id, "size": applied,
                 "before": before, "is_restorable": bool(restore),
-                "summary": f"글자 크기 {applied} (원래: {before.strip()})",
-                "next": "device text-size --restore  # 또는 device release. 끝낸 직후 되돌린다"})
+                "summary": f"Text size {applied} (was: {before.strip()})",
+                "next": "device text-size --restore  # or device release. Restore right after you finish"})

@@ -88,12 +88,12 @@ def run(skill_dir: Path, is_check_only: bool) -> int:
     # 입력 검증 (폴더, 항목 스키마)
     if not troubleshoot.troubleshooting_dir(skill_dir).is_dir():
         return emit({"ok": False, "code": "no_troubleshooting_dir",
-                     "error": f"{troubleshoot.troubleshooting_dir(skill_dir)} 가 없다",
-                     "next": "troubleshooting/<area>/<id>.json 항목을 먼저 만든다"})
+                     "error": f"{troubleshoot.troubleshooting_dir(skill_dir)} does not exist",
+                     "next": "Create troubleshooting/<area>/<id>.json entries first"})
     problems = troubleshoot.validate_entries(skill_dir)
     if problems:
         return emit({"ok": False, "code": "invalid_entries", "problems": problems,
-                     "summary": f"항목 문제 {len(problems)}건", "next": "항목을 고친 뒤 다시 실행"})
+                     "summary": f"{len(problems)} entry problems", "next": "Fix the entries and run again"})
     # 생성물 비교 > 검사만 하거나 쓴다
     outputs = expected_outputs(skill_dir)
     stale = [path for path, text in outputs.items() if _read(path) != text]
@@ -102,20 +102,20 @@ def run(skill_dir: Path, is_check_only: bool) -> int:
     if is_check_only:
         if stale:
             return emit({"ok": False, "code": "stale", "stale": relative,
-                         "error": "생성물이 항목과 다르다 (손으로 고쳤거나 다시 만들지 않았다)",
+                         "error": "Generated files differ from the entries (edited by hand or not regenerated)",
                          "next": f"python3 scripts/build_troubleshooting.py {skill_dir}"})
-        return emit({"ok": True, "code": "ok", "entries": count, "summary": f"최신 (항목 {count}건)"})
+        return emit({"ok": True, "code": "ok", "entries": count, "summary": f"Up to date ({count} entries)"})
     for path in stale:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(outputs[path], encoding="utf-8")
     return emit({"ok": True, "code": "ok", "entries": count, "written": relative,
-                 "summary": f"항목 {count}건, 다시 쓴 파일 {len(relative)}개"})
+                 "summary": f"{count} entries, {len(relative)} files rewritten"})
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="build_troubleshooting", description=__doc__.splitlines()[0])
-    parser.add_argument("skill_dir", help="스킬 폴더 (예: skills/pro-launch)")
-    parser.add_argument("--check", action="store_true", help="쓰지 않고 최신인지만 검사")
+    parser = argparse.ArgumentParser(prog="build_troubleshooting", description="Build the official troubleshooting outputs: validate entries > troubleshooting/index.json + references/troubleshooting.md")
+    parser.add_argument("skill_dir", help="skill folder (e.g. skills/pro-launch)")
+    parser.add_argument("--check", action="store_true", help="only check that outputs are up to date, without writing")
     args = parser.parse_args(argv)
     return run(Path(args.skill_dir).resolve(), args.check)
 

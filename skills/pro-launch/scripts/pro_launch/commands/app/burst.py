@@ -31,9 +31,9 @@ def burst_spec(raw: str) -> tuple[float, float]:
         seconds = float(seconds_text)
         interval = float(interval_text) if interval_text else DEFAULT_BURST_INTERVAL_SECONDS
     except ValueError as e:
-        raise argparse.ArgumentTypeError("SECONDS[:INTERVAL] 모양이다 (예: 3 · 5:0.3)") from e
+        raise argparse.ArgumentTypeError("Must be SECONDS[:INTERVAL] (e.g. 3 · 5:0.3)") from e
     if not 0 < seconds <= MAXIMUM_BURST_SECONDS:
-        raise argparse.ArgumentTypeError(f"SECONDS 는 0 초과 {MAXIMUM_BURST_SECONDS:g} 이하다")
+        raise argparse.ArgumentTypeError(f"SECONDS must be above 0 and at most {MAXIMUM_BURST_SECONDS:g}")
     return seconds, max(interval, MINIMUM_BURST_INTERVAL_SECONDS)
 
 

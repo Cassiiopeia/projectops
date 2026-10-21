@@ -27,34 +27,34 @@ def _parse_target(spec: str, size: str | None) -> tuple[str, dict]:
     label, sep, rest = spec.partition("=")
     label = label.strip()
     if not (sep and label and rest.strip()):
-        raise _TargetError("bad_target", f"--target '{spec}' 는 '라벨=종류:값' 형식이어야 합니다",
-                           "예: 로그인=text:로그인하기 / 메뉴=id:menu_btn / 지도핀=at:0.5,0.8")
+        raise _TargetError("bad_target", f"--target '{spec}' must look like 'label=kind:value'",
+                           "e.g. login=text:Log in / menu=id:menu_btn / map_pin=at:0.5,0.8")
     rest = rest.strip()
     px = re.fullmatch(r"(?:at:)?\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*", rest)
     if px and (float(px.group(1)) > 1 or float(px.group(2)) > 1):
         conv = _px_to_at(f"{int(float(px.group(1)))},{int(float(px.group(2)))}", size)
         raise _TargetError(
-            "pixels_rejected", f"--target '{spec}' 는 픽셀 좌표입니다 — 저장하지 않습니다",
-            (f"비율로 적으세요: --target \"{label}=at:{conv}\" ({size} 기준). " if conv else
-             "화면 크기로 나눈 0~1 비율로 적으세요(--screen-size 를 주면 바꿔 드립니다). ")
-            + "요소가 보이면 text:/id:/desc: 가 먼저입니다")
+            "pixels_rejected", f"--target '{spec}' is a pixel coordinate — not saved",
+            (f"write it as a ratio: --target \"{label}=at:{conv}\" (for {size}). " if conv else
+             "write it as a 0~1 ratio of the screen size (pass --screen-size to have it converted). ")
+            + "If the element is visible, prefer text:/id:/desc:")
     kind, colon, val = rest.partition(":")
     kind = kind.strip().lower()
     if not colon or kind not in (*_LOCATORS, "at"):
-        raise _TargetError("bad_target", f"--target '{spec}' 의 종류를 모릅니다",
-                           "text: · id: · desc: · at: 중 하나 (예: 시작=text:시작하기)")
+        raise _TargetError("bad_target", f"--target '{spec}' has an unknown kind",
+                           "one of text: · id: · desc: · at: (e.g. start=text:Start)")
     if kind == "at":
         m = re.fullmatch(r"\s*(\d*\.?\d+)\s*,\s*(\d*\.?\d+)\s*", val)
         if not m or not all(0 <= float(g) <= 1 for g in m.groups()):
-            raise _TargetError("bad_target", f"--target '{spec}' 의 at 은 0~1 비율 두 개여야 합니다",
-                               "예: 시작=at:0.5,0.815")
+            raise _TargetError("bad_target", f"--target '{spec}' at must be two 0~1 ratios",
+                               "e.g. start=at:0.5,0.815")
         return label, {"at": f"{_fmt_ratio(float(m.group(1)))},{_fmt_ratio(float(m.group(2)))}"}
     idx = None
     m = re.search(r"\|index=(\d+)\s*$", val)
     if m:
         idx, val = int(m.group(1)), val[:m.start()]
     if not val.strip():
-        raise _TargetError("bad_target", f"--target '{spec}' 의 값이 비었습니다")
+        raise _TargetError("bad_target", f"--target '{spec}' has an empty value")
     t = {kind: val.strip()}
     if idx is not None:
         t["index"] = idx
@@ -74,12 +74,12 @@ def _tap_hint(t: dict) -> str:
 def _note_screen(args, notes: dict, today: str) -> dict:
     """화면 기록을 쓰거나(--target 라벨=…) 성적을 남긴다(--result + --target 라벨). 실패면 ok=False 결과."""
     if not args.name:
-        return {"ok": False, "code": "args_required", "error": "--name 이 필요합니다"}
+        return {"ok": False, "code": "args_required", "error": "--name is required"}
     # 쓰레기 값이 learned.json 에 남으면 다음 실행마다 그대로 읽힌다 — 쓰기 전에 거른다 (#706)
     if args.screen_size and not _SIZE.fullmatch(args.screen_size):
         return {"ok": False, "code": "bad_screen_size",
-                "error": f"--screen-size '{args.screen_size}' 는 가로x세로 숫자여야 합니다",
-                "hint": "예: 1080x2400"}
+                "error": f"--screen-size '{args.screen_size}' must be widthxheight in numbers",
+                "hint": "e.g. 1080x2400"}
     screens = notes.setdefault("screens", {})
     existing = screens.get(args.name)
 
@@ -88,10 +88,10 @@ def _note_screen(args, notes: dict, today: str) -> dict:
         labels = [t.split("=", 1)[0].strip() for t in (args.target or []) if t.strip()]
         if not labels:
             return {"ok": False, "code": "args_required",
-                    "error": "--result 에는 --target 라벨(누른 대상 이름)이 필요합니다"}
+                    "error": "--result needs a --target label (the name of what was pressed)"}
         if not existing:
             return {"ok": False, "code": "screen_not_found",
-                    "error": f"화면 '{args.name}' 기록이 없습니다", "next": "note show --all"}
+                    "error": f"No record of screen '{args.name}'", "next": "note show --all"}
         variants = existing.get("variants") or {}
         want = (_variant_key(args.role, args.screen_size)
                 if (args.role or args.screen_size) else None)
@@ -103,9 +103,9 @@ def _note_screen(args, notes: dict, today: str) -> dict:
             if len(cands) != 1:
                 return {"ok": False,
                         "code": "target_not_found" if not cands else "ambiguous_variant",
-                        "error": (f"'{args.name}' 에 '{label}' 대상이 없습니다" if not cands else
-                                  f"'{label}' 이 여러 기기 기록에 있습니다: {', '.join(k for k, _ in cands)}"),
-                        "hint": "--role · --screen-size 로 어느 기록인지 고릅니다"}
+                        "error": (f"'{args.name}' has no '{label}' target" if not cands else
+                                  f"'{label}' is in several device records: {', '.join(k for k, _ in cands)}"),
+                        "hint": "pick the record with --role · --screen-size"}
             k, v = cands[0]
             t = v["targets"][label]
             counted = _memory.bump(t, args.result, today)
@@ -118,12 +118,12 @@ def _note_screen(args, notes: dict, today: str) -> dict:
         conv = [f"{t.split('=', 1)[0]}=at:{_px_to_at(t.split('=', 1)[1], args.screen_size)}"
                 for t in args.taps if "=" in t and _px_to_at(t.split("=", 1)[1], args.screen_size)]
         return {"ok": False, "code": "pixels_rejected",
-                "error": "--taps 는 픽셀 좌표라 더는 받지 않습니다 — app tap 이 픽셀을 거절합니다",
-                "hint": ("--target 으로 적으세요" + (f": {' '.join(repr(c) for c in conv)}" if conv else
-                         " (요소면 '라벨=text:문구', 캔버스면 '라벨=at:0.5,0.8')"))}
+                "error": "--taps takes pixel coordinates and is no longer accepted — app tap rejects pixels",
+                "hint": ("use --target" + (f": {' '.join(repr(c) for c in conv)}" if conv else
+                         " ('label=text:copy' for an element, 'label=at:0.5,0.8' for a canvas)"))}
     if not existing and not args.anchor:
         return {"ok": False, "code": "args_required",
-                "error": "새 화면에는 --anchor(이 화면임을 알아보는 단서)가 필요합니다"}
+                "error": "a new screen needs --anchor (a clue that identifies this screen)"}
 
     key = _variant_key(args.role, args.screen_size)
     size = args.screen_size or ((existing or {}).get("variants", {}).get(key) or {}).get("measured_on")

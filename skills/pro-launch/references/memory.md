@@ -76,7 +76,7 @@ stay in the default (repo) scope. If the same knowledge exists in another repo, 
 
 ```bash
 # the search text is the literal error message the CLI emits (browser_start_failed)
-{PYTHON} {SCRIPTS}/launch_cli.py kb search "브라우저가 뜨지 않았습니다" --code browser_start_failed
+{PYTHON} {SCRIPTS}/launch_cli.py kb search "Browser did not start" --code browser_start_failed
 {PYTHON} {SCRIPTS}/launch_cli.py kb show browser-start-stale-process-or-lock
 {PYTHON} {SCRIPTS}/launch_cli.py kb list --area ios
 {PYTHON} {SCRIPTS}/launch_cli.py kb propose --key web.google-login     # → {"drafts":[{"path":..., "draft":{...}, "todo":[...]}]}

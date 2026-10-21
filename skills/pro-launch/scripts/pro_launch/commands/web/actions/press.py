@@ -12,7 +12,7 @@ ACTIVATING_KEYS = {"enter", "space", " "}
 
 def execute(page, args, state: dict) -> dict:
     if not args.key:
-        return {"ok": False, "code": "missing_argument", "error": "--key 가 필요합니다 (Enter · Escape · Tab …)"}
+        return {"ok": False, "code": "missing_argument", "error": "--key is required (Enter · Escape · Tab …)"}
     has_target = args.ref is not None or bool(args.selector)
     element, info = None, None
     if has_target:
@@ -33,7 +33,7 @@ def execute(page, args, state: dict) -> dict:
     except Exception as e:
         if "Unknown key" in str(e):
             return {"ok": False, "code": "bad_key", "action": "press", "error": str(e)[:200],
-                    "hint": "Enter · Escape · Tab · ArrowDown · Backspace · Control+A 처럼 Playwright 키 이름"}
+                    "hint": "Playwright key names such as Enter · Escape · Tab · ArrowDown · Backspace · Control+A"}
         raise
     try:
         page.wait_for_load_state("domcontentloaded", timeout=3000)
@@ -45,15 +45,15 @@ def execute(page, args, state: dict) -> dict:
     changed = after_url != before_url or after_title != before_title
     return {"action": "press", "key": args.key, "target": info, "changed": changed,
             "before": {"url": before_url, "title": before_title}, "url": after_url, "title": after_title,
-            "summary": f"{args.key} 누름 → " + ("주소·제목이 바뀌었다" if changed else "주소·제목 그대로"),
-            "next": "web text  # 결과 화면을 읽는다"}
+            "summary": f"Pressed {args.key} → " + ("URL or title changed" if changed else "URL and title unchanged"),
+            "next": "web text  # read the resulting screen"}
 
 
 def configure(p) -> None:
-    p.add_argument("--key", default=None, help="Enter · Escape · Tab · ArrowDown · Control+A 처럼 키 이름")
+    p.add_argument("--key", default=None, help="Key name such as Enter · Escape · Tab · ArrowDown · Control+A")
 
 
 ACTION = Action(name="press", run=execute, configure=configure,
                 options=("selector", "ref", "target_timeout", "confirm_mutating", "capture_requests"),
-                help="키를 누른다 — 대상을 주면 그 요소에서, 없으면 지금 초점에서",
+                help="Press a key — on the target if given, otherwise at the current focus",
                 example="web press --ref 2 --key Enter")

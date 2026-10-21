@@ -27,6 +27,6 @@ def gate_device_use(device_use: str | None, want_device: str | None, project_roo
     if device_use == "mutate" and not is_forced:
         return out({"ok": False, "code": "device_owned_by_other", "device": dev_id, "owner": owner,
                     "error": owner["message"],
-                    "next": "다른 기기를 device acquire 로 빌린다. 이 기기를 꼭 써야 하면 사용자에게 묻고 --yes 를 붙인다"})
+                    "next": "Borrow another device with device acquire. If you must use this one, ask the user and add --yes"})
     add_response_fields({"device_owned_by_other": owner})
     return None

@@ -111,7 +111,7 @@ def cmd_render(args) -> int:
     if args.action == "snapshot":
         return _render_snapshot(root)
     if not args.cmd:
-        return out({"ok": False, "code": "cmd_required", "error": "--cmd 가 필요합니다"})
+        return out({"ok": False, "code": "cmd_required", "error": "--cmd is required"})
 
     # 기준은 **임시 파일을 만들기 전**의 상태여야 한다. run 직전에 뜨면 이미 만든 임시
     # 파일이 기준에 들어가, --cleanup 에서 빠뜨린 것이 남아도 흔적으로 안 잡힌다 (실측으로 짜 보다 발견).
@@ -129,8 +129,8 @@ def cmd_render(args) -> int:
     cwd = (root / args.cwd) if args.cwd else root
     if not cwd.is_dir():
         return out({"ok": False, "code": "cwd_not_found",
-                    "error": f"--cwd 폴더가 없습니다: {cwd}",
-                    "next": "--cwd 는 레포 루트(--root) 기준 상대 경로다"})
+                    "error": f"--cwd folder does not exist: {cwd}",
+                    "next": "--cwd is a path relative to the repo root (--root)"})
     try:
         r = subprocess.run(["bash", "-lc", args.cmd], cwd=str(cwd), capture_output=True,
                            text=True, timeout=args.timeout, stdin=subprocess.DEVNULL)
@@ -138,7 +138,7 @@ def cmd_render(args) -> int:
     except subprocess.TimeoutExpired as e:
         rc = -1
         output = ((e.stdout or b"").decode("utf-8", "replace") if isinstance(e.stdout, bytes)
-                  else (e.stdout or "")) + f"\n[제한 시간 {args.timeout}초 초과]"
+                  else (e.stdout or "")) + f"\n[time limit of {args.timeout}s exceeded]"
     tail = "\n".join(output.splitlines()[-40:])
 
     collected: list[str] = []
@@ -165,63 +165,63 @@ def cmd_render(args) -> int:
                "git_checked": before is not None, "baseline": baseline_from}
     if rc != 0:
         first_error = find_first_error(output)
-        summary = f"렌더 명령 실패 (종료코드 {rc}) — 수집하지 않고 청소만 했다"
+        summary = f"Render command failed (exit code {rc}) — cleaned up without collecting"
         if first_error:
-            summary += f" · 첫 오류: {first_error.splitlines()[0][:_SUMMARY_ERROR_MAX_CHARS]}"
+            summary += f" · first error: {first_error.splitlines()[0][:_SUMMARY_ERROR_MAX_CHARS]}"
         # first_error 를 앞쪽 키로 — 긴 output_tail 보다 먼저 읽히게
         payload = {"ok": False, "code": "render_failed", "summary": summary,
                    "first_error": first_error, **payload, "output_tail": tail,
-                   "next": ("first_error 부터 고친다 (import 누락이면 레시피의 import 를 본다). "
-                            if first_error else "output_tail 을 읽고 렌더 코드를 고친다. ")
-                           + "레시피의 함정 표를 먼저 본다"}
+                   "next": ("Fix first_error first (for a missing import, see the recipe's imports). "
+                            if first_error else "Read output_tail and fix the render code. ")
+                           + "Check the recipe's pitfalls table first"}
     elif residue:
         # 지우지 않는다 — 다른 세션의 변경일 수 있다
         payload.update({"ok": False, "code": "residue",
-                        "summary": f"렌더 뒤 레포에 흔적 {len(residue)}건이 남았다",
-                        "next": "남은 경로를 보고 네가 만든 것이면 --cleanup 에 넣어 다시 돌리거나 직접 지운다. "
-                                "모르는 변경이면 건드리지 않는다"})
+                        "summary": f"Render left {len(residue)} leftover path(s) in the repo",
+                        "next": "Check the leftover paths: if you created them, add them to --cleanup and run again, or delete them yourself. "
+                                "Leave changes you do not recognize alone"})
     elif not collected:
         payload.update({"ok": False, "code": "nothing_collected",
-                        "summary": "명령은 성공했는데 모은 그림이 없다",
-                        "next": "--collect 글롭이 렌더 결과 경로와 맞는지 본다 (레포 루트 기준)"})
+                        "summary": "The command succeeded but no images were collected",
+                        "next": "Check that the --collect glob matches the render output paths (relative to the repo root)"})
     else:
-        payload.update({"summary": f"{len(collected)}장 수집 · 흔적 없음"
-                                   + ("" if before is not None else " (git 레포가 아니라 흔적 검사 못 함)"),
-                        "next": "Read 로 열어 본다. 이슈에 붙일 거면 shrink 로 줄인다"})
+        payload.update({"summary": f"Collected {len(collected)} image(s) · no leftovers"
+                                   + ("" if before is not None else " (not a git repo, so leftovers were not checked)"),
+                        "next": "Open them with Read. Shrink them with shrink before attaching to an issue"})
     if refused:
-        payload["warning"] = f"레포 밖이라 지우지 않은 경로: {', '.join(refused)}"
+        payload["warning"] = f"Not deleted because outside the repo: {', '.join(refused)}"
     return out(payload)
 
 
 def _render_snapshot(root: Path) -> int:
     status = _git_status(root)
     if status is None:
-        return out({"ok": False, "code": "not_git", "error": "git 레포가 아니라 흔적 검사 기준을 뜰 수 없습니다",
-                    "hint": "그래도 render run 은 돈다 — 청소만 하고 흔적 검사는 건너뛴다"})
+        return out({"ok": False, "code": "not_git", "error": "Not a git repo, so no baseline for the leftover check can be taken",
+                    "hint": "render run still works — it cleans up and skips the leftover check"})
     f = _baseline_path(root)
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text(json.dumps({"root": str(root), "status": status,
                              "at": time.strftime("%Y-%m-%d %H:%M:%S")}, ensure_ascii=False),
                  encoding="utf-8")
     return out({"baseline": str(f), "changed_now": len(status),
-                "summary": f"기준을 떴다 (지금 바뀐 경로 {len(status)}건 — 이것들은 흔적으로 보지 않는다)",
-                "next": "이제 임시 렌더 코드를 만들고 render run 을 부른다"})
+                "summary": f"Baseline taken ({len(status)} path(s) already changed — these are not counted as leftovers)",
+                "next": "Now write the temporary render code and call render run"})
 
 
 def configure_render(p) -> None:
     p.add_argument("action", choices=["snapshot", "run"],
-                   help="snapshot: 임시 파일을 만들기 **전에** 흔적 검사 기준을 뜬다 · run: 돌리고 모은다")
-    p.add_argument("--cmd", default=None, help="run: 렌더 명령 (agent 가 짠 임시 테스트를 돌리는 것)")
+                   help="snapshot: take the leftover-check baseline **before** creating temporary files · run: run and collect")
+    p.add_argument("--cmd", default=None, help="run: render command (runs the temporary test the agent wrote)")
     p.add_argument("--collect", action="append", default=None,
-                   help="모을 그림 글롭 (레포 루트 기준, 여러 번). 예 client/test/_launch_render/**/*.png")
+                   help="Glob of images to collect (relative to the repo root, repeatable). e.g. client/test/_launch_render/**/*.png")
     p.add_argument("--cleanup", action="append", default=None,
-                   help="끝나고 지울 경로 (레포 안만, 여러 번). 임시 테스트 파일·폴더")
-    p.add_argument("--cwd", default=None, help="명령을 돌릴 곳 (레포 루트 기준, 예 client)")
+                   help="Path to delete afterwards (inside the repo only, repeatable). Temporary test files and folders")
+    p.add_argument("--cwd", default=None, help="Where to run the command (relative to the repo root, e.g. client)")
     p.add_argument("--timeout", type=int, default=600)
-    p.add_argument("--root", default=".", help="대상 레포 루트 — 흔적 검사 기준")
+    p.add_argument("--root", default=".", help="Target repo root — the base for the leftover check")
 
 
 COMMANDS = [
-    Command(name="render", help="렌더 명령을 돌리고 그림을 모으고 흔적을 검사한다", run=cmd_render,
+    Command(name="render", help="Run a render command, collect images and check for leftovers", run=cmd_render,
             configure=configure_render),
 ]

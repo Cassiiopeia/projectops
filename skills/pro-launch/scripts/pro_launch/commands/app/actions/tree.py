@@ -18,7 +18,7 @@ def _app_tree(args) -> int:
         return err
     nodes = be.nodes(dev_id)
     if nodes is None:
-        return out({"ok": False, "code": "tree_unsupported", "error": f"{be.name} 은 화면 구조를 읽지 못한다"})
+        return out({"ok": False, "code": "tree_unsupported", "error": f"{be.name} cannot read the screen structure"})
     if not nodes and be.device_failure:
         return device_failure_response(be, dev_id, args)
     diagnostics = ios_failure_fields(be, dev_id) if not nodes else {}
@@ -31,7 +31,7 @@ def _app_tree(args) -> int:
     result = {"ok": bool(els), "code": "ok" if els else "ui_dump_failed", "device": dev_id,
               "platform": be.name, "locale": be.locale(dev_id), "count": len(els), "elements": els,
               "elapsed_seconds": elapsed_seconds(args), **session_fields(be), **diagnostics,
-              "summary": f"요소 {len(els)}개", "next": "app tap --text '<elements 의 text>'"}
+              "summary": f"{len(els)} elements", "next": "app tap --text '<text from elements>'"}
     return out(with_session_advice(result, be, dev_id, args))
 
 

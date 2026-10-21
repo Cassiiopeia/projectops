@@ -61,15 +61,15 @@ def cmd_session_check(args) -> int:
     outside_count = outside_launch["maestro_runs"]
     if not still_failing and not unlearned and not outside_count:
         return out({"ok": True, "code": "ok", "still_failing": [], "unlearned": [], "outside_launch": outside_launch,
-                    "summary": f"최근 {SESSION_WINDOW_HOURS}시간 동안 남길 교훈 후보가 없다", "next": None})
+                    "summary": f"No lesson candidates to record in the last {SESSION_WINDOW_HOURS} hours", "next": None})
     areas = sorted({row["area"] for row in unlearned})
     return out({"ok": True, "code": "learn_candidates", "still_failing": still_failing, "unlearned": unlearned,
                 "outside_launch": outside_launch,
-                "summary": "남길 교훈 후보 ("
+                "summary": "Lesson candidates to record ("
                            + " · ".join(part for part in (
-                               f"learn 안 한 영역 {len(unlearned)}건" if unlearned else "",
-                               f"아직 실패 중 {len(still_failing)}건" if still_failing else "",
-                               f"pro-launch 밖 Maestro 실행 {outside_count}건 ({OUTSIDE_LAUNCH_WINDOW_HOURS}시간)"
+                               f"{len(unlearned)} area(s) not learned" if unlearned else "",
+                               f"{len(still_failing)} still failing" if still_failing else "",
+                               f"{outside_count} Maestro run(s) outside pro-launch ({OUTSIDE_LAUNCH_WINDOW_HOURS}h)"
                                if outside_count else "") if part) + ")",
                 "next": _next_step(areas, outside_count)})
 
@@ -77,12 +77,12 @@ def cmd_session_check(args) -> int:
 def _next_step(areas: list[str], outside_count: int) -> str:
     """learn 할 영역 > 직접 실행한 Maestro > 실패 중만 남음 순."""
     if areas:
-        return (f"먹힌 방식을 learn --area {areas[0]} --key <짧은키> --how '<한 줄 결론>' --result ok "
-                "--detail '<왜 막혔고 어떻게 풀었나>' 로 남긴다")
+        return (f"Record what worked with learn --area {areas[0]} --key <short-key> --how '<one-line conclusion>' --result ok "
+                "--detail '<why it was blocked and how it was solved>'")
     if outside_count:
-        return (f"pro-launch 밖에서 Maestro 를 {outside_count}번 직접 돌렸다 — 거기서 먹힌 방식이 있으면 "
-                "learn --area ios|android --key <짧은키> --how '<한 줄 결론>' --result ok 로 남긴다")
-    return "실패 중인 영역은 해결된 뒤에 남긴다 (해결 안 된 시행착오는 남기지 않는다)"
+        return (f"Maestro ran {outside_count} time(s) directly outside pro-launch — if something worked there, "
+                "record it with learn --area ios|android --key <short-key> --how '<one-line conclusion>' --result ok")
+    return "Record still-failing areas once they are solved (do not record unsolved trial and error)"
 
 
 def configure(p) -> None:
@@ -91,6 +91,6 @@ def configure(p) -> None:
 
 COMMANDS = [
     Command(name="session-check",
-            help="작업을 마칠 때: 아직 실패 중인 영역 · 막혔다 풀렸는데 learn 안 한 영역",
+            help="When finishing work: areas still failing · areas that got unblocked but were not learned",
             run=cmd_session_check, configure=configure),
 ]

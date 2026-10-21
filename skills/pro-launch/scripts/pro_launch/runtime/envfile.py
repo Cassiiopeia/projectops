@@ -47,8 +47,8 @@ def write_env_sh(run_dir: Path, package: str | None,
         var = _run_var(skill or "launch")
 
     lines = [
-        "# 실행 환경 — `source env.sh` 로 불러 쓴다.",
-        "# 경로를 손으로 짓지 않는다. 여기 없는 자리에는 아무것도 만들지 않는다.",
+        "# Run environment — load it with `source env.sh`.",
+        "# Do not build paths by hand. Create nothing outside the places listed here.",
         "export %s=%s" % (var, _sh_quote(run_dir.name)),
         "export RUN_DIR=%s" % _sh_quote(str(run_dir)),
         "export SHOT_DIR=%s" % _sh_quote(str(shots)),
@@ -59,23 +59,23 @@ def write_env_sh(run_dir: Path, package: str | None,
     bindings = bindings or []
     if bindings:
         lines += ["",
-                  "# 역할 ↔ 기기. ROLE{n} 값은 시나리오 roles 의 키와 같은 문자열이다.",
-                  "# 시나리오가 \"device\": \"B\" 라고 적으면 ROLE2==B 를 보고 $DEV2 를 쓴다.",
+                  "# Role <-> device. Each ROLE{n} value is the same string as a key in the scenario roles.",
+                  "# If the scenario says \"device\": \"B\", find ROLE2==B and use $DEV2.",
                   "export DEV_COUNT=%d" % len(bindings)]
         for n, b in enumerate(bindings, 1):
             note = b.get("note")
             tail = "   # %s" % note if note else ""
             lines.append("export ROLE%d=%s; export DEV%d=%s%s"
                          % (n, _sh_quote(b["role"]), n, _sh_quote(b["serial"]), tail))
-        lines += ["", "# 역할을 쓰지 않는 명령의 기본 기기", 'export DEV="$DEV1"']
+        lines += ["", "# Default device for commands that do not use roles", 'export DEV="$DEV1"']
     else:
         # DEV 는 **반드시 정의한다.** 비어 있으면 `adb -s ` 가 되어 사용법 오류로 죽는다.
         # 다른 세션이 쥔 기기는 후보에서 뺀다 — 정해지지 않으면 비워 두고 acquire 를 안내한다 (#972)
         one = sole_device()
-        lines += ["", "# 다른 세션이 쓰지 않는 기기가 한 대뿐이라 그것을 기본으로 둔다"
+        lines += ["", "# Only one device is free of other sessions, so it is the default"
                       if one else
-                      "# 기기를 정하지 않았다 (다른 세션 기기는 넣지 않는다). device acquire --platform ios|android 로"
-                      "\n# 빌린 뒤 DEV=<받은 id> 로 쓰거나, device bind 로 역할을 잡으세요",
+                      "# No device chosen (devices held by other sessions are left out). Borrow one with"
+                      "\n# device acquire --platform ios|android and use DEV=<id>, or bind roles with device bind",
                   "export DEV=%s" % _sh_quote(one or "")]
     lines.append("")
     env.write_text("\n".join(lines), encoding="utf-8")

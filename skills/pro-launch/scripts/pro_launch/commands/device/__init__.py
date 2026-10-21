@@ -56,61 +56,61 @@ def configure_devices(p) -> None:
 
 def configure_device(p) -> None:
     p.add_argument("action", choices=list(_RUNNERS))
-    p.add_argument("mode", nargs="?", default=None, help="appearance: light 또는 dark · text-size: default · large · largest (또는 1.3 같은 배율)")
+    p.add_argument("mode", nargs="?", default=None, help="appearance: light or dark · text-size: default · large · largest (or a scale such as 1.3)")
     p.add_argument("--root", default=".")
     p.add_argument("--device", default=None,
-                   help="claim·release·reboot·locale·appearance: Android 시리얼 · iOS UDID. boot: UDID · 시뮬레이터 이름 · AVD 이름")
-    p.add_argument("--role", default=None, help="bind·unbind: 역할 키. 시나리오 roles 의 키와 같아야 한다")
-    p.add_argument("--serial", default=None, help="bind: 기기 시리얼 (device list 에 나온다)")
-    p.add_argument("--note", default=None, help="bind: 사람이 읽을 설명. env.sh 에 주석으로 붙는다")
-    p.add_argument("--package", default=None, help="list: 설치된 빌드를 대조할 패키지명")
-    p.add_argument("--run-dir", default=None, help="list·bind: env.sh 를 쓸 실행 폴더. 없으면 $RUN_DIR")
+                   help="claim·release·reboot·locale·appearance: Android serial · iOS UDID. boot: UDID · simulator name · AVD name")
+    p.add_argument("--role", default=None, help="bind·unbind: role key. Must match a key in the scenario's roles")
+    p.add_argument("--serial", default=None, help="bind: device serial (shown by device list)")
+    p.add_argument("--note", default=None, help="bind: human-readable note. Added to env.sh as a comment")
+    p.add_argument("--package", default=None, help="list: package name to check the installed build against")
+    p.add_argument("--run-dir", default=None, help="list·bind: run folder to write env.sh into. Defaults to $RUN_DIR")
     p.add_argument("--window", choices=WINDOW_MODES, default=None,
-                   help="boot·reboot: headless(창 없음, 기본) · small(배율 0.4) · normal(기본 크기). 캡처 크기와는 무관하다")
-    p.add_argument("--scale", type=float, default=None, help="boot·reboot: 창 배율 0.3~1.0 (주면 창을 연다)")
-    p.add_argument("--cold", action="store_true", help="boot·reboot: 에뮬레이터를 스냅샷 없이 처음부터 (reboot 은 강제 종료 후)")
+                   help="boot·reboot: headless (no window, default) · small (scale 0.4) · normal (default size). Does not affect capture size")
+    p.add_argument("--scale", type=float, default=None, help="boot·reboot: window scale 0.3–1.0 (opens a window when given)")
+    p.add_argument("--cold", action="store_true", help="boot·reboot: start the emulator from scratch without a snapshot (reboot force-stops it first)")
     p.add_argument("--yes", action="store_true",
-                   help="다른 세션이 쥔 기기 · 공들인 상태 · 디스크 부족에서도 진행한다 (사용자에게 물은 뒤에만). 메모리 위험은 넘지 않는다")
+                   help="Proceed even on a device held by another session, with prepared state, or low disk (only after asking the user). Does not bypass memory risk")
     p.add_argument("--user-approved", action="store_true",
-                   help="acquire·boot: 메모리 위험(needs_user · host_memory_pressure · device_budget_exceeded)을 사용자에게 "
-                        "보여 주고 진행하라는 답을 받았다 — 이것만 위험 게이트를 넘는다")
-    p.add_argument("--lang", default=None, help="locale: 언어 코드 (en · ko · ja)")
-    p.add_argument("--region", default=None, help="locale: 지역 코드 (US · KR)")
-    p.add_argument("--app", default=None, help="locale: 앱별 언어로 바꿀 패키지명·번들 ID")
-    p.add_argument("--restore", action="store_true", help="locale·appearance·text-size: 바꾸기 전 값으로 되돌린다")
-    p.add_argument("--platform", choices=("ios", "android"), default=None, help="acquire: 빌릴 기기 플랫폼 (필수)")
-    p.add_argument("--form", choices=("phone", "tablet"), default=None, help="acquire: 폼팩터 (기본 phone)")
-    p.add_argument("--os", default=None, help="acquire: 최소 OS 버전 (예: 17 · >=17.2, Android 는 API 레벨)")
+                   help="acquire·boot: the memory risk (needs_user · host_memory_pressure · device_budget_exceeded) was shown "
+                        "to the user and they said to proceed — only this passes the risk gate")
+    p.add_argument("--lang", default=None, help="locale: language code (en · ko · ja)")
+    p.add_argument("--region", default=None, help="locale: region code (US · KR)")
+    p.add_argument("--app", default=None, help="locale: package name or bundle ID to set a per-app language for")
+    p.add_argument("--restore", action="store_true", help="locale·appearance·text-size: restore the value from before the change")
+    p.add_argument("--platform", choices=("ios", "android"), default=None, help="acquire: platform of the device to borrow (required)")
+    p.add_argument("--form", choices=("phone", "tablet"), default=None, help="acquire: form factor (default phone)")
+    p.add_argument("--os", default=None, help="acquire: minimum OS version (e.g. 17 · >=17.2; API level on Android)")
     p.add_argument("--purpose", default=None,
-                   help="acquire: 다른 세션에게 보일 용도 (이슈 번호 권장, 예: #953 로그인 화면) · create·clone 에서는 --reason 별칭")
-    p.add_argument("--wait", type=float, default=0, help="acquire: 남이 쓰는 중이면 이만큼(초, 최대 90) 기다리며 다시 본다")
-    p.add_argument("--lease", default=None, help="release: 반납할 lease_id (acquire 응답에 있다)")
-    p.add_argument("--all", action="store_true", help="release: 이 세션의 모든 lease 반납 (세션 종료 훅이 쓴다)")
-    p.add_argument("--keep-booted", action="store_true", help="release: 켠 기기를 끄지 않고 반납한다")
+                   help="acquire: purpose shown to other sessions (issue number recommended, e.g. #953 login screen) · alias of --reason in create·clone")
+    p.add_argument("--wait", type=float, default=0, help="acquire: if someone else is using it, wait this long (seconds, max 90) and check again")
+    p.add_argument("--lease", default=None, help="release: lease_id to return (in the acquire response)")
+    p.add_argument("--all", action="store_true", help="release: return every lease of this session (used by the session-end hook)")
+    p.add_argument("--keep-booted", action="store_true", help="release: return the device without shutting it down")
     p.add_argument("--need", action="append", default=None,
-                   help="acquire: 있어야 하는 공들인 상태 kind:name (여러 번, 예: --need login:kakao)")
-    p.add_argument("--fresh", action="store_true", help="acquire: 아무도 쓰지 않은 새 폰 (없으면 임시 기기를 만든다)")
-    p.add_argument("--count", type=int, default=1, help="acquire: 서로 다른 기기 N 대 (최대 4)")
+                   help="acquire: required prepared state kind:name (repeatable, e.g. --need login:kakao)")
+    p.add_argument("--fresh", action="store_true", help="acquire: a fresh phone nobody has used (creates a temporary device if none)")
+    p.add_argument("--count", type=int, default=1, help="acquire: N distinct devices (max 4)")
     p.add_argument("--reason", default=None,
-                   help="create·clone: 왜 새 기기가 필요한가 (필수 — 정리 때 보인다) · acquire 에서는 --purpose 별칭")
-    p.add_argument("--name", default=None, help="create·clone: 기기 이름 · mark·unmark: 상태 이름 (예: kakao)")
-    p.add_argument("--ttl-days", type=float, default=None, help="create: 보관 기한 (일, 기본 3) — 지나면 정리 대상")
-    p.add_argument("--kind", default=None, help="mark·unmark: 상태 종류 (권장 login · data · permission · config · other)")
-    p.add_argument("--apply", action="store_true", help="gc: 보고한 계획대로 지우고 끈다 (없으면 보고만)")
+                   help="create·clone: why a new device is needed (required — shown at cleanup) · alias of --purpose in acquire")
+    p.add_argument("--name", default=None, help="create·clone: device name · mark·unmark: state name (e.g. kakao)")
+    p.add_argument("--ttl-days", type=float, default=None, help="create: retention period (days, default 3) — eligible for cleanup after that")
+    p.add_argument("--kind", default=None, help="mark·unmark: state kind (recommended login · data · permission · config · other)")
+    p.add_argument("--apply", action="store_true", help="gc: delete and shut down per the reported plan (otherwise report only)")
     p.add_argument("--full", action="store_true",
-                   help="benchmark: 멈춤 신호가 보일 때까지 한 대씩 늘려 잰다 (느리다 · 다른 세션이 없을 때만)")
-    p.add_argument("--sizes", action="store_true", help="gc: 모든 기기의 디스크 크기를 센다 (느리다 — 수십 GB 를 훑는다)")
-    p.add_argument("--verify", action="store_true", help="mark: 기록한 상태가 아직 살아 있음을 확인했다 (확인 시각 갱신)")
+                   help="benchmark: add devices one at a time until stall signals appear (slow · only when no other session is active)")
+    p.add_argument("--sizes", action="store_true", help="gc: measure the disk size of every device (slow — scans tens of GB)")
+    p.add_argument("--verify", action="store_true", help="mark: confirmed the recorded state is still valid (updates the verified time)")
     option_dests = {dest for dests in OPTIONS_BY_ACTION.values() for dest in dests}
     DEVICE_OPTION_DEFAULTS.update({dest: p.get_default(dest) for dest in sorted(option_dests)})
 
 
 COMMANDS = [
-    Command(name="devices", help="붙은 기기 · 부팅된 시뮬레이터 · AVD", run=bindings.run_devices,
+    Command(name="devices", help="Attached devices · booted simulators · AVDs", run=bindings.run_devices,
             configure=configure_devices),
     Command(name="device",
-            help="기기를 빌리고·반납하고(acquire·release·shutdown) 만들고·복제하고·지우고(create·clone·erase·delete·gc) "
-                 "공들인 상태를 기록하고(mark·unmark·adopt·records) 묶고(list·bind) 쥐고(claim) 띄우고(boot·reboot) "
-                 "언어·외관·글자 크기를 바꾼다(locale·appearance·text-size)",
+            help="Borrow and return devices (acquire·release·shutdown), create, clone and delete them (create·clone·erase·delete·gc), "
+                 "record prepared state (mark·unmark·adopt·records), bind roles (list·bind), claim (claim), boot (boot·reboot), "
+                 "and change language, appearance and text size (locale·appearance·text-size)",
             run=cmd_device, configure=configure_device),
 ]

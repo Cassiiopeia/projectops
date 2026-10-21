@@ -17,8 +17,8 @@ _FLOWS_DIR = "flows"
 def _template_for(target: str) -> dict:
     """타겟에 맞는 시나리오 본보기. 타겟마다 밟는 단위와 판정 근거가 다르다."""
     base = {
-        "name": "{무엇을 밟는지 한 줄}",
-        "description": "{왜 이 경로가 중요한지}",
+        "name": "{one line on what this walks}",
+        "description": "{why this path matters}",
         "target": target,
         "precondition": None,   # 예: "_shared/login-kakao" — 앞에 붙일 흐름
         "steps": [dict(_STEP_TEMPLATES[target])],
@@ -29,27 +29,27 @@ def _template_for(target: str) -> dict:
         base["roles"] = {}
         base["reset"] = {
             "device": "pm clear",
-            "server": "{테스트 계정을 지우는 명령. 없으면 null}",
+            "server": "{command that deletes the test account. null if none}",
         }
         # 환경 조건은 기기에서만 바꿀 수 있다
         base["conditions"] = [
-            {"name": "큰 글씨", "apply": "settings put system font_scale 1.3",
+            {"name": "Large text", "apply": "settings put system font_scale 1.3",
              "revert": "settings put system font_scale 1.0"},
-            {"name": "다크모드", "apply": "cmd uimode night yes",
+            {"name": "Dark mode", "apply": "cmd uimode night yes",
              "revert": "cmd uimode night no"},
         ]
     elif target == "web":
         base["reset"] = {
-            "browser": "{쿠키·로컬스토리지를 비우는 방법. 보통 새 컨텍스트}",
-            "server": "{테스트 계정을 지우는 명령. 없으면 null}",
+            "browser": "{how to clear cookies and local storage. Usually a new context}",
+            "server": "{command that deletes the test account. null if none}",
         }
         base["conditions"] = [
-            {"name": "좁은 화면", "apply": "viewport 390x844", "revert": "viewport 1280x800"},
-            {"name": "다크모드", "apply": "colorScheme dark", "revert": "colorScheme light"},
+            {"name": "Narrow screen", "apply": "viewport 390x844", "revert": "viewport 1280x800"},
+            {"name": "Dark mode", "apply": "colorScheme dark", "revert": "colorScheme light"},
         ]
     else:  # server
-        base["base_url"] = "{API 주소. 비우면 detect가 찾은 값을 쓴다}"
-        base["reset"] = {"server": "{테스트 데이터를 지우는 명령. 없으면 null}"}
+        base["base_url"] = "{API address. Empty uses the value detect found}"
+        base["reset"] = {"server": "{command that deletes test data. null if none}"}
     return base
 
 
@@ -58,38 +58,38 @@ _REQUIRED_STEP_KEYS = ("screen", "do")
 # 타겟별 단계 본보기. 같은 틀을 주면 웹·서버 쓰는 사람이 절반을 지우고 다시 써야 한다.
 _STEP_TEMPLATES = {
     "app": {
-        "screen": "{화면 이름}",
-        "do": "{무엇을 하는지 — tap '시작하기' / input '값' / back}",
-        "expect_screen": "{다음에 보여야 할 것}",
-        "expect_device": ["{로그에서 확인할 키. 예: app.refreshToken}"],
-        "expect_server": "{서버에서 확인할 쿼리. 없으면 null}",
+        "screen": "{screen name}",
+        "do": "{what to do — tap 'Start' / input 'value' / back}",
+        "expect_screen": "{what should show next}",
+        "expect_device": ["{key to check in the log, e.g. app.refreshToken}"],
+        "expect_server": "{query to check on the server. null if none}",
         "human": None,
     },
     "web": {
-        "screen": "{페이지 이름}",
-        "do": "{click '로그인' / type #email '값' / goto /signup}",
-        "expect_url": "{이동해야 할 경로. 예: /home}",
-        "expect_text": "{화면에 보여야 할 문구}",
-        "expect_server": "{서버에서 확인할 쿼리. 없으면 null}",
+        "screen": "{page name}",
+        "do": "{click 'Log in' / type #email 'value' / goto /signup}",
+        "expect_url": "{path it should go to, e.g. /home}",
+        "expect_text": "{text that should show on screen}",
+        "expect_server": "{query to check on the server. null if none}",
         "human": None,
     },
     "other": {
-        "screen": "{이 단계 이름}",
-        "do": "{돌릴 명령 그대로. 예: npx projectops --type spring --yes}",
+        "screen": "{name of this step}",
+        "do": "{the exact command to run, e.g. npx projectops --type spring --yes}",
         "expect_exit": 0,
-        "expect_output": "{출력에 들어 있어야 할 문구. 없으면 null}",
-        "expect_file": "{실행 뒤 있어야 할 경로. 없으면 null}",
-        "expect_absent": "{실행 뒤 **없어야** 할 경로. 없으면 null}",
+        "expect_output": "{text the output must contain. null if none}",
+        "expect_file": "{path that must exist after the run. null if none}",
+        "expect_absent": "{path that must **not** exist after the run. null if none}",
         "human": None,
     },
     "server": {
         "screen": "-",
         "do": "{POST /api/auth/login {\"id\":\"...\"}}",
-        "auth": "{앞 단계에서 받은 토큰을 쓰려면 {token}. 없으면 null}",
+        "auth": "{{token} to use the token from an earlier step. null if none}",
         "expect_status": 200,
-        "expect_json": "{응답에서 확인할 것. 예: $.accessToken 이 비지 않는다}",
+        "expect_json": "{what to check in the response, e.g. $.accessToken is not empty}",
         "save": {"token": "$.accessToken"},
-        "expect_server": "{DB에서 확인할 쿼리. 없으면 null}",
+        "expect_server": "{query to check in the DB. null if none}",
         "human": None,
     },
 }
@@ -124,35 +124,35 @@ def _validate(data: dict) -> list[str]:
     """시나리오가 실행 가능한 모양인지 본다. 밟기 전에 걸러야 중간에 안 멈춘다."""
     problems = []
     if not data.get("name"):
-        problems.append("name이 비었습니다")
+        problems.append("name is empty")
 
     # 축을 먼저 확정한다. 모르는 값이면 조용히 기본값으로 밟지 않고 여기서 막는다 —
     # 오타 하나로 웹 시나리오가 adb를 타면 원인을 찾기 어렵다.
     target = scenario_target(data)
     if target not in TARGETS:
-        problems.append(f"target '{target}' 을 모릅니다 — {'·'.join(TARGETS)} 중 하나여야 합니다")
+        problems.append(f"Unknown target '{target}' — must be one of {'·'.join(TARGETS)}")
         target = DEFAULT_TARGET
     expect_keys = _EXPECT_KEYS[target]
 
     steps = data.get("steps")
     if not isinstance(steps, list) or not steps:
-        problems.append("steps가 비었습니다 — 무엇을 밟을지 한 단계라도 있어야 합니다")
+        problems.append("steps is empty — at least one step to walk is needed")
         return problems
     for i, st in enumerate(steps, 1):
         if not isinstance(st, dict):
-            problems.append(f"{i}번째 step이 객체가 아닙니다")
+            problems.append(f"step {i} is not an object")
             continue
         for k in _REQUIRED_STEP_KEYS:
             if not st.get(k):
-                problems.append(f"{i}번째 step에 {k}가 없습니다")
+                problems.append(f"step {i} has no {k}")
         # ⚠️ falsy 검사를 하면 안 된다. `expect_exit: 0` 은 **가장 흔한 기대값**인데
         #    0 은 falsy 라 "기대 결과가 없다"로 읽혀 멀쩡한 시나리오가 거부된다.
         #    빈 문자열·빈 목록은 안 적은 것으로 본다.
         if not any(st.get(k) not in (None, "", [], {}) for k in expect_keys):
             problems.append(
-                f"{i}번째 step({st.get('screen','?')})에 기대 결과가 없습니다 — "
-                f"{'·'.join(k.replace('expect_', '') for k in expect_keys)} 중 하나는 "
-                "있어야 통과 판정을 할 수 있습니다")
+                f"step {i} ({st.get('screen','?')}) has no expected result — "
+                f"one of {'·'.join(k.replace('expect_', '') for k in expect_keys)} "
+                "is needed to judge a pass")
 
     problems += _validate_roles(data, steps, target)
     return problems
@@ -173,21 +173,21 @@ def _validate_roles(data: dict, steps: list, target: str) -> list[str]:
     problems: list[str] = []
     roles = data.get("roles") or {}
     if roles and not isinstance(roles, dict):
-        return ["roles 는 {역할키: {...}} 모양이어야 합니다"]
+        return ["roles must be shaped {role_key: {...}}"]
 
     used = {st.get("device") for st in steps
             if isinstance(st, dict) and st.get("device")}
     unknown = sorted(d for d in used if d not in roles)
     if unknown:
         problems.append(
-            f"step 의 device 가 roles 에 없습니다: {', '.join(unknown)} — "
-            f"roles 에 선언하거나 device 를 지우세요 "
-            f"(선언된 역할: {', '.join(roles) or '없음'})")
+            f"step device is not in roles: {', '.join(unknown)} — "
+            f"declare it in roles or remove device "
+            f"(declared roles: {', '.join(roles) or 'none'})")
 
     if len(roles) > 1 and target != "app":
         problems.append(
-            f"roles 가 {len(roles)}개인데 target 이 '{target}' 입니다 — "
-            "기기를 여러 대 쓰는 것은 아직 app 에서만 됩니다")
+            f"{len(roles)} roles but target is '{target}' — "
+            "multiple devices only work for app so far")
 
     produced: set[str] = set()
     for i, st in enumerate(steps, 1):
@@ -197,8 +197,8 @@ def _validate_roles(data: dict, steps: list, target: str) -> list[str]:
             for ref in _CAPTURE_REF.findall(str(st.get(field) or "")):
                 if ref not in produced:
                     problems.append(
-                        f"{i}번째 step 이 ${{{ref}}} 를 쓰는데 앞선 단계에 "
-                        f"capture: \"{ref}\" 가 없습니다 — 빈 값으로 밟게 됩니다")
+                        f"step {i} uses ${{{ref}}} but no earlier step has "
+                        f"capture: \"{ref}\" — it would be walked with an empty value")
         cap = st.get("capture")
         if cap:
             produced.add(cap)

@@ -53,10 +53,10 @@ If you booted a device later, run `device list` once more — it refreshes the e
 
 ```json
 {"build_mismatch": [{"roles": ["A", "B"], "field": "apk",
-  "detail": "버전은 같은데 APK 가 다릅니다 — 한쪽만 다시 설치됐을 수 있습니다"}]}
+  "detail": "Same version but different APKs — only one side may have been reinstalled"}]}
 ```
 
-(`detail` is printed in Korean by the script: "the version is the same but the APK differs — only one side may have been reinstalled".)
+(When the installed versions differ, `detail` is "The installed versions differ" instead.)
 
 > **Do not measure by version.** A rebuild that only changed compile-time flags has **identical**
 > `versionName` and `versionCode`. If only one side was reinstalled and the dev tools are on for only that side,

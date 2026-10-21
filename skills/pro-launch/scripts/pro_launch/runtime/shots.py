@@ -70,8 +70,8 @@ def _last_run_screenshots(root: Path) -> Path | None:
     if own is not None and (folder := _fresh_run(own)) is not None:
         return folder
     if any(_fresh_run(row) is not None for name, row in sessions.items() if name != session_identity()):
-        add_response_fields({"shot_dir_note": "최근 get-output-path 는 다른 세션의 실행이라 그 폴더에 쓰지 않았다 — "
-                                              "이 세션에서 get-output-path 를 부르고 source env.sh 한다"})
+        add_response_fields({"shot_dir_note": "The latest get-output-path run belongs to another session, so its folder was not used — "
+                                              "call get-output-path in this session and source env.sh"})
     return None
 
 
@@ -121,8 +121,8 @@ def finish_shot(raw: Path, explicit: bool, args) -> Path:
 def add_shot_args(p) -> None:
     # 세션 토큰은 해상도에서만 줄어든다. 0 을 주면 원본 크기 그대로 둔다.
     p.add_argument("--max-side", type=int, default=SHOT_MAX_SIDE,
-                   help=f"긴 변 상한 (기본 {SHOT_MAX_SIDE}, 0이면 원본)")
+                   help=f"Longest side limit (default {SHOT_MAX_SIDE}, 0 keeps the original)")
     p.add_argument("--quality", type=int, default=WEBP_QUALITY,
-                   help=f"WebP 품질 (기본 {WEBP_QUALITY})")
+                   help=f"WebP quality (default {WEBP_QUALITY})")
     p.add_argument("--keep-format", action="store_true",
-                   help="PNG 원본 그대로 둔다 — 픽셀 대조처럼 원본이 필요할 때")
+                   help="Keep the original PNG — when the original is needed, e.g. pixel comparison")

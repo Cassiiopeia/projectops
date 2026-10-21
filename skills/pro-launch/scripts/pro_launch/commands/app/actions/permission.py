@@ -35,7 +35,7 @@ def _app_permission(args) -> int:
     should_grant, should_revoke = bool(getattr(args, "grant", False)), bool(getattr(args, "revoke", False))
     if not service or should_grant == should_revoke:
         return out({"ok": False, "code": "permission_mode_required",
-                    "error": "--service 와 --grant · --revoke 중 하나가 필요하다",
+                    "error": "--service and one of --grant · --revoke are required",
                     "next": "app permission --service location --grant"})
     platform, dev_id, package, err = resolve_target(args)
     if err is not None:
@@ -57,8 +57,8 @@ def _app_permission(args) -> int:
             if not ok:
                 break
     return control_result("permission", platform, dev_id, ok, detail, "permission_failed",
-                          f"{package} {service} {mode}", "app relaunch  # 바뀐 권한으로 다시 띄운다",
-                          "앱 매니페스트·Info.plist 에 그 권한이 선언돼 있는지 확인한다",
+                          f"{package} {service} {mode}", "app relaunch  # restart with the changed permission",
+                          "Check that the permission is declared in the app manifest / Info.plist",
                           package=package, service=service, mode=mode)
 
 
@@ -67,17 +67,17 @@ def _unknown_service(platform: str, dev_id: str, service: str, known) -> int:
     other_known = (ANDROID_PERMISSIONS_BY_SERVICE if platform == "ios" else IOS_PRIVACY_SERVICES)
     if service in other_known:
         return unsupported_response(platform, dev_id, "permission",
-                                    f"{platform} 에서는 {service} 권한을 이 명령으로 바꿀 수 없다",
-                                    f"지원 서비스: {', '.join(known)}")
+                                    f"This command cannot change the {service} permission on {platform}",
+                                    f"Supported services: {', '.join(known)}")
     return out({"ok": False, "code": "unknown_permission_service", "platform": platform,
-                "error": f"알 수 없는 서비스: {service}", "candidates": list(known),
-                "next": "candidates 의 이름으로 다시 부른다 (Android 는 android.permission.X 원문도 된다)"})
+                "error": f"Unknown service: {service}", "candidates": list(known),
+                "next": "Call again with a name from candidates (Android also accepts a raw android.permission.X)"})
 
 
 def configure(p) -> None:
-    p.add_argument("--service", default=None, help="permission: 서비스 (location · camera · photos ...)")
-    p.add_argument("--grant", action="store_true", help="permission: 허용")
-    p.add_argument("--revoke", action="store_true", help="permission: 거부")
+    p.add_argument("--service", default=None, help="permission: service (location · camera · photos ...)")
+    p.add_argument("--grant", action="store_true", help="permission: grant")
+    p.add_argument("--revoke", action="store_true", help="permission: revoke")
 
 
 ACTION = Action(name="permission", device_use="mutate", run=_app_permission, configure=configure)

@@ -151,9 +151,9 @@ def check_device_owner(dev_id: str | None) -> dict | None:
         view = lease_view(key, lease, entry, now, probe)
         purpose = f", {view['purpose']}" if view["purpose"] else ""
         return {"code": "device_owned_by_other", **view,
-                "message": (f"다른 세션({view['session']}, {view['project_root']}{purpose})이 쓰는 기기다 "
-                            f"({view['idle_seconds']}초 전 사용)"),
-                "next": "그 세션의 작업을 덮을 수 있다 — 사용자에게 묻거나 다른 기기를 쓴다 (device list 로 소유자 확인)"}
+                "message": (f"device is used by another session ({view['session']}, {view['project_root']}{purpose}) "
+                            f"(last used {view['idle_seconds']}s ago)"),
+                "next": "this may overwrite that session's work — ask the user or use another device (device list shows the owner)"}
     return None
 
 

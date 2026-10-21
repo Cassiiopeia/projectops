@@ -38,33 +38,33 @@ def _scroll_to_text(scope, args) -> dict:
     locator = scope.get_by_text(args.to)
     if locator.count() == 0:
         return {"ok": False, "code": "text_not_found", "action": "scroll", "to": args.to,
-                "error": f"'{args.to}' 글자가 화면 문서에 없습니다",
-                "next": "web text --grep <낱말>  # 실제 글자를 확인한다"}
+                "error": f"Text '{args.to}' is not in the page document",
+                "next": "web text --grep <word>  # check the actual text"}
     position = locator.first.evaluate(CENTER_JS)
     return {"action": "scroll", "to": args.to, "position": position,
-            "summary": f"'{args.to}' 가 보이게 옮겼다", "next": "web shot  # 또는 web find 로 그 주변을 고른다"}
+            "summary": f"Scrolled '{args.to}' into view", "next": "web shot  # or pick nearby elements with web find"}
 
 
 def _scroll_by(scope, args) -> dict:
     moved = scope.evaluate(SCROLL_BY_JS, {"by": args.by, "container": args.container})
     if moved.get("missing"):
         return {"ok": False, "code": "container_not_found", "action": "scroll", "container": args.container,
-                "error": f"{args.container} 에 맞는 상자가 없습니다", "next": "web inspect  # 화면 구조를 본다"}
+                "error": f"No container matches {args.container}", "next": "web inspect  # see the page structure"}
     has_moved = moved["after"] != moved["before"]
     is_at_end = moved["after"] >= moved["max"] - 1 if args.by > 0 else moved["after"] <= 0
     return {"action": "scroll", "by": args.by, **moved, "moved": has_moved, "at_end": is_at_end,
             "summary": scroll_summary(moved, has_moved, is_at_end),
-            "next": "web find  # 새로 보이는 것을 고른다" if (has_moved or is_at_end)
-                    else "--container <css> 로 스크롤 상자를 지정한다"}
+            "next": "web find  # pick what is newly visible" if (has_moved or is_at_end)
+                    else "Specify the scroll container with --container <css>"}
 
 
 def scroll_summary(moved: dict, has_moved: bool, is_at_end: bool) -> str:
     """움직임 > 한 줄. 안 움직였으면 끝인지 · 스크롤 상자가 아닌지 가른다"""
     if has_moved:
-        return f"{moved['container']} 를 {moved['after'] - moved['before']}px 옮겼다" + (" (끝에 닿음)" if is_at_end else "")
+        return f"Moved {moved['container']} by {moved['after'] - moved['before']}px" + (" (reached the end)" if is_at_end else "")
     if is_at_end and moved["max"] > 0:
-        return f"{moved['container']} 는 이미 끝이다"
-    return "움직이지 않았다 (스크롤 상자가 아니다)"
+        return f"{moved['container']} is already at the end"
+    return "Did not move (not a scroll container)"
 
 
 def execute(page, args, state: dict) -> dict:
@@ -78,22 +78,22 @@ def execute(page, args, state: dict) -> dict:
         if failure:
             return failure
         payload = {"action": "scroll", "target": info, "position": element.evaluate(CENTER_JS),
-                   "summary": "요소가 보이게 옮겼다", "next": "web shot  # 또는 web click --ref"}
+                   "summary": "Scrolled the element into view", "next": "web shot  # or web click --ref"}
     elif args.by is not None:
         payload = _scroll_by(scope, args)
     else:
         return {"ok": False, "code": "scroll_target_required", "action": "scroll",
-                "error": "--to · --ref · --by 중 하나가 필요합니다", "next": "web scroll --by 600"}
+                "error": "One of --to, --ref or --by is required", "next": "web scroll --by 600"}
     payload.setdefault("url", page.url)
     return payload
 
 
 def configure(p) -> None:
-    p.add_argument("--to", default=None, help="이 글자가 화면 가운데 오게")
-    p.add_argument("--by", type=int, default=None, help="이만큼(px) 내린다. 음수면 올린다")
-    p.add_argument("--container", default=None, help="--by: 움직일 스크롤 상자 선택자 (없으면 창, 창이 안 움직이면 가장 큰 상자)")
+    p.add_argument("--to", default=None, help="Bring this text to the middle of the screen")
+    p.add_argument("--by", type=int, default=None, help="Scroll down this many px. Negative scrolls up")
+    p.add_argument("--container", default=None, help="--by: selector of the scroll container to move (default: the window, or the largest container if the window does not move)")
 
 
 ACTION = Action(name="scroll", run=execute, configure=configure, options=("ref", "frame"),
-                help="글자·ref 가 보이게, 또는 정한 거리만큼 내린다 (안쪽 상자도)",
-                example='web scroll --to "결제 내역"')
+                help="Scroll text or a ref into view, or by a set distance (inner containers too)",
+                example='web scroll --to "Payment history"')

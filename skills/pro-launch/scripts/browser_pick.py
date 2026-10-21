@@ -58,19 +58,19 @@ def resolve(bundled: str | None, env: dict | None = None) -> dict:
     if override:
         if Path(override).is_file():
             return {"exe": override, "source": "env", "label": Path(override).stem,
-                    "reason": f"환경변수 {ENV_VAR} 로 지정됨"}
+                    "reason": f"set by environment variable {ENV_VAR}"}
         return {"exe": None, "source": "env", "label": ENV_VAR,
-                "error": f"{ENV_VAR} 가 가리키는 파일이 없습니다: {override}",
-                "reason": "환경변수 경로가 틀림 — 다른 브라우저로 조용히 넘어가지 않는다"}
+                "error": f"The file {ENV_VAR} points to does not exist: {override}",
+                "reason": "wrong environment variable path — does not silently fall back to another browser"}
     if bundled and Path(bundled).is_file():
         return {"exe": bundled, "source": "bundled", "label": "Playwright Chromium",
-                "reason": "Playwright 번들 Chromium"}
+                "reason": "Playwright bundled Chromium"}
     for label, path in system_candidates():
         if path.is_file():
             return {"exe": str(path), "source": "system", "label": label,
-                    "reason": f"번들 Chromium 이 없어 설치된 브라우저({label})를 씁니다"}
+                    "reason": f"No bundled Chromium; using the installed browser ({label})"}
     return {"exe": None, "source": None, "label": None,
-            "reason": "번들 Chromium 도, 설치된 Chrome·Edge 도 찾지 못했다"}
+            "reason": "Found neither bundled Chromium nor an installed Chrome·Edge"}
 
 
 def download_host() -> str:

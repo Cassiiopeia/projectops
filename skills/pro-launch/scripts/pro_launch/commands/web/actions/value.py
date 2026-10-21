@@ -28,26 +28,26 @@ def execute(page, args, state: dict) -> dict:
     info["text"] = ""   # 입력칸 설명의 text 에는 값이 그대로 들어 있다 — 결과에 값이 새지 않게 비운다
     if value is None or value == "":
         return {"ok": False, "code": "value_empty", "action": "value", "target": info, "url": page.url,
-                "error": "값이 비어 있습니다", "next": "web inspect  # 값이 든 입력칸을 다시 고른다"}
+                "error": "The value is empty", "next": "web inspect  # pick the input box that holds the value"}
     payload = done_payload("value", page)
     payload["target"] = info
     if args.save_env:
         payload.update(save_value(project_root(args), args.save_env, value))
-        payload["summary"] = f"값 {len(value)}자를 {args.save_env} 로 저장했다 (출력하지 않음)"
+        payload["summary"] = f"Saved {len(value)} chars as {args.save_env} (not printed)"
         payload["next"] = saved_next(args.save_env)
     else:
         # 저장 이름이 없으면 값은 어디에도 두지 않고 모양만 알린다
         payload.update({"length": len(value), "sha256_prefix": hashlib.sha256(value.encode("utf-8")).hexdigest()[:12],
-                        "summary": f"값 {len(value)}자 (저장하지 않음)",
-                        "next": "web value --ref <번호> --save-env NAME  # 값을 출력 없이 저장한다"})
+                        "summary": f"Value has {len(value)} chars (not saved)",
+                        "next": "web value --ref <number> --save-env NAME  # save the value without printing it"})
     return payload
 
 
 def configure(p) -> None:
     p.add_argument("--save-env", dest="save_env", default=None,
-                   help="값을 이 이름으로 저장한다 (출력하지 않음). web type --text-env 이름 으로 다시 쓴다")
+                   help="Save the value under this name (not printed). Reuse it with web type --text-env NAME")
 
 
 ACTION = Action(name="value", run=execute, configure=configure, options=("selector", "ref", "target_timeout", "frame"),
-                help="입력칸 · 요소의 값을 출력하지 않고 저장한다 (길이 · 해시만 보여 준다)",
+                help="Save an input or element value without printing it (shows only length · hash)",
                 example="web value --selector '#client-secret' --save-env CLIENT_SECRET")

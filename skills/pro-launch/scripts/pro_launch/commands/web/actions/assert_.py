@@ -23,13 +23,13 @@ def execute(page, args, state: dict) -> dict:
                        "ok": scope.locator(args.selector).count() > 0})
     if not checks:
         return {"ok": False, "code": "nothing_to_assert",
-                "error": "--url · --text · --selector 중 하나는 있어야 합니다"}
+                "error": "Give at least one of --url · --text · --selector"}
     passed = all(c["ok"] for c in checks)
     return {"action": "assert", "checks": checks, "ok": passed, "url": page.url,
             "code": "ok" if passed else "assert_failed",
-            "summary": "확인 통과" if passed else "확인 실패"}
+            "summary": "Check passed" if passed else "Check failed"}
 
 
 ACTION = Action(name="assert", run=execute, options=("url", "text", "selector", "frame"),
-                help="주소·글자·요소가 있는지 확인한다",
-                example='web assert --url /home --text "환영"')
+                help="Check that a URL, text or element is present",
+                example='web assert --url /home --text "Welcome"')

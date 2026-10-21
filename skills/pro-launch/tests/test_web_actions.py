@@ -120,4 +120,4 @@ def test_timeout_while_acting_becomes_not_actionable_with_candidates():
     failure = web_element.perform_on_target(page, args, "type", {"tag": "input", "visible": False}, fill)
     assert failure["code"] == "element_not_actionable" and failure["candidates"], failure
     assert "s3cret" not in str(failure), "비밀값이 결과에 새었다"
-    assert "4초" in failure["error"]
+    assert "4s" in failure["error"]

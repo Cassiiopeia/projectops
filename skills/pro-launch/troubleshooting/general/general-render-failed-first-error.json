@@ -8,10 +8,11 @@
     ],
     "keywords": [
       "MethodChannel",
-      "services.dart"
+      "services.dart",
+      "렌더 명령 실패"
     ]
   },
-  "symptom": "render run ends with render_failed (렌더 명령 실패 = render command failed) and collects nothing. The same failure repeats",
+  "symptom": "render run ends with render_failed (\"Render command failed\") and collects nothing. The same failure repeats",
   "cause": "The render command (flutter test, etc.) failed to compile or run. The most common cause: the render skeleton lacks the package:flutter/services.dart import, so MethodChannel · SystemChrome are not found",
   "fix": [
     "Read first_error in the response first (or output_tail if absent)",

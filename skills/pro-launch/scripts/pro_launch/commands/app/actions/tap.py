@@ -18,11 +18,11 @@ def _app_tap(args) -> int:
     at = app_input.parse_ratio(getattr(args, "at", None))
     if getattr(args, "at", None) and not at:
         return out({"ok": False, "code": "bad_ratio",
-                    "error": "--at 은 0~1 비율이다 (예: 0.5,0.8). 픽셀은 받지 않는다 — 캡처가 축소돼 있어 빗나간다"})
+                    "error": "--at is a 0–1 ratio (e.g. 0.5,0.8). Pixels are not accepted — captures are scaled down, so they miss"})
     if not sel and not at:
         return out({"ok": False, "code": "target_required",
-                    "error": "--text · --id · --desc 중 하나, 또는 --at 비율 좌표가 필요하다",
-                    "next": "app tree  # 누를 수 있는 요소와 화면 언어를 본다"})
+                    "error": "Needs one of --text · --id · --desc, or an --at ratio coordinate",
+                    "next": "app tree  # see tappable elements and the screen language"})
     be, dev_id, err = backend_for(args)
     if err is not None:
         return err
@@ -31,7 +31,7 @@ def _app_tap(args) -> int:
 
     if not sel:
         ok, detail = be.tap_ratio(dev_id, *at)
-        return gesture_result(args, be, dev_id, before, ok, detail, "tap_failed", f"탭 ({label})")
+        return gesture_result(args, be, dev_id, before, ok, detail, "tap_failed", f"Tap ({label})")
 
     field, value = sel
     nodes = be.nodes(dev_id) or []
@@ -40,7 +40,7 @@ def _app_tap(args) -> int:
         ok, detail = be.tap_selector(dev_id, field, value)
         if not ok and "not found" in (detail or "").lower():
             return not_found_response(be, dev_id, field, value, None, args)
-        return gesture_result(args, be, dev_id, before, ok, detail, "tap_failed", f"탭 ({label})")
+        return gesture_result(args, be, dev_id, before, ok, detail, "tap_failed", f"Tap ({label})")
     if not nodes:
         return device_failure_response(be, dev_id, args)
     # 플랫폼 공통 matcher: 정확 > 정규화(겹친 라벨·줄 단위) > 포함, text <-> desc 대체
@@ -50,7 +50,7 @@ def _app_tap(args) -> int:
     idx = getattr(args, "index", 0) or 0
     if idx >= len(found):
         return out({"ok": False, "code": "index_out_of_range", "device": dev_id, "matches": len(found),
-                    "error": f"{field}={value!r} 에 맞는 요소는 {len(found)}개다 (--index {idx} 는 범위 밖)",
+                    "error": f"{len(found)} elements match {field}={value!r} (--index {idx} is out of range)",
                     "next": f"app tap --{field} {value!r} --index <0..{len(found) - 1}>"})
     target = found[idx]
     if be.selects_itself:
@@ -61,17 +61,17 @@ def _app_tap(args) -> int:
     else:
         ok, detail = be.tap_xy(dev_id, *target["center"])
     return gesture_result(args, be, dev_id, before, ok, detail, "tap_failed",
-                           f"탭 {target['center']} ({label})",
+                           f"Tap {target['center']} ({label})",
                            element={k: v for k, v in target.items() if v not in ("", None)},
                            matches=len(found), matched_by=matched_by, match_kind=match_kind)
 
 
 def configure(p) -> None:
-    p.add_argument("--text", dest="sel_text", default=None, help="tap: 보이는 문구로 찾는다")
+    p.add_argument("--text", dest="sel_text", default=None, help="tap: find by visible text")
     p.add_argument("--id", dest="sel_id", default=None, help="tap: resource-id(Android) · accessibilityIdentifier(iOS)")
-    p.add_argument("--desc", dest="sel_desc", default=None, help="tap: 접근성 설명(content-desc)으로 찾는다")
-    p.add_argument("--index", type=int, default=0, help="tap: 여러 개 맞으면 몇 번째 (0부터)")
-    p.add_argument("--at", default=None, help="tap: 요소로 못 찾을 때만 — 0~1 비율 좌표 (예: 0.5,0.8)")
+    p.add_argument("--desc", dest="sel_desc", default=None, help="tap: find by accessibility description (content-desc)")
+    p.add_argument("--index", type=int, default=0, help="tap: which match when several match (from 0)")
+    p.add_argument("--at", default=None, help="tap: only when no element can be found — 0–1 ratio coordinate (e.g. 0.5,0.8)")
 
 
 ACTION = Action(name="tap", device_use="mutate", run=_app_tap, configure=configure)

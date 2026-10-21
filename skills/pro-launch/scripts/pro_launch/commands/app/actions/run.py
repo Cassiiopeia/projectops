@@ -36,7 +36,7 @@ def _app_run(args) -> int:
         steps = steps_module.load_steps(getattr(args, "steps", None))
     except steps_module.StepsError as e:
         return out({"ok": False, "code": "bad_steps", "step_index": e.step_index, "error": str(e),
-                    "next": "단계 모양은 references/app.md 의 'app run' 을 본다"})
+                    "next": "See 'app run' in references/app.md for the step shape"})
     be, dev_id, err = backend_for(args)
     if err is not None:
         return err
@@ -63,9 +63,9 @@ def _platform_rejection(be, steps: list[dict]) -> dict | None:
     for index, step in enumerate(steps):
         if step["kind"] == "back" and not be.has_back_button:
             return {"ok": False, "code": "step_unsupported_on_platform", "step_index": index,
-                    "platform": be.name, "error": f"{be.name} 에는 뒤로 버튼이 없다 (back 단계 불가)",
-                    "next": '화면의 뒤로 버튼을 {"tap": {...}} 으로 누르거나 '
-                            '{"swipe": {"from": "0.02,0.5", "to": "0.8,0.5"}} (가장자리 밀기)'}
+                    "platform": be.name, "error": f"{be.name} has no back button (no back step)",
+                    "next": 'Press the on-screen back button with {"tap": {...}} or '
+                            '{"swipe": {"from": "0.02,0.5", "to": "0.8,0.5"}} (edge swipe)'}
     return None
 
 
@@ -78,7 +78,7 @@ def _resolve_secrets(steps: list[dict], be) -> tuple[dict[int, str], dict | None
         if step["env"]:
             if step["env"] not in os.environ:
                 return {}, {"ok": False, "code": "env_not_set", "step_index": index,
-                            "error": f"환경변수 {step['env']} 가 비어 있습니다"}
+                            "error": f"Environment variable {step['env']} is empty"}
             value = os.environ[step["env"]]
         else:
             value, err = cred_field(step["cred"], step["field"])
@@ -86,8 +86,8 @@ def _resolve_secrets(steps: list[dict], be) -> tuple[dict[int, str], dict | None
                 return {}, {**err, "step_index": index}
         if be.name == "android" and not value.isascii():
             return {}, {"ok": False, "code": "non_ascii_unsupported", "step_index": index,
-                        "error": "adb input text 는 ASCII 만 받는다 (한글 불가)",
-                        "next": "영문·숫자 값으로 대체하거나 ADBKeyboard 같은 IME 를 설치한다"}
+                        "error": "adb input text accepts ASCII only (no Korean)",
+                        "next": "Use an ASCII letters/digits value, or install an IME such as ADBKeyboard"}
         secrets[index] = value
     return secrets, None
 
@@ -122,7 +122,7 @@ def _run_in_one_flow(be, dev_id: str, steps: list[dict],
     if is_success:
         return True, results, ""
     reason = [l for l in lines if "FAILED" in l or "not found" in l.lower() or "Error" in l
-              or "Assertion" in l or "응답 없음" in l]
+              or "Assertion" in l or "did not respond" in l]
     return False, results, "\n".join((reason or lines)[-FAILURE_DETAIL_LINE_COUNT:])
 
 
@@ -188,8 +188,8 @@ def _android_step(be, dev_id: str, step: dict, value: str | None) -> tuple[bool,
         # 단계 파일의 값은 전부 비밀로 다룬다 — 대조 결과에 보이는 글자를 싣지 않는다
         is_success, detail, verification = android_ime.type_and_verify(be, dev_id, value, True, step["submit"])
         if detail == "typed_text_mismatch":
-            detail = (f"typed_text_mismatch: 입력창 글자가 넣은 값과 다르다 (기대 {verification['expected_length']}자, "
-                      f"보이는 {verification['visible_length']}자) — 입력창을 비우고 --ime ascii 로 다시 run 한다")
+            detail = (f"typed_text_mismatch: the field text differs from the typed value (expected {verification['expected_length']} chars, "
+                      f"visible {verification['visible_length']}) — clear the field and run again with --ime ascii")
         return is_success, detail, verification
     return (*_android_non_type_step(be, dev_id, step), {})
 
@@ -204,7 +204,7 @@ def _android_non_type_step(be, dev_id: str, step: dict) -> tuple[bool, str]:
             return False, f"{be.device_failure['code']}: {be.device_failure['reason']}"
         found = app_input.match_nodes(nodes, step["field"], step["value"])
         if len(found) <= step["index"]:
-            return False, f"{step['field']}={step['value']!r} 인 요소가 없다 (맞은 수 {len(found)})"
+            return False, f"No element with {step['field']}={step['value']!r} (matches: {len(found)})"
         return be.tap_xy(dev_id, *found[step["index"]]["center"])
     if kind == "swipe":
         return be.swipe_ratio(dev_id, step["start"], step["end"], step["ms"])
@@ -228,8 +228,8 @@ def _android_wait(be, dev_id: str, step: dict) -> tuple[bool, str]:
             if be.device_failure:
                 return False, f"{be.device_failure['code']}: {be.device_failure['reason']}"
             if should_be_gone:
-                return False, f"{step['timeout']}초 동안 {step['field']}={step['value']!r} 가 사라지지 않았다"
-            return False, f"{step['timeout']}초 동안 {step['field']}={step['value']!r} 가 보이지 않았다"
+                return False, f"{step['field']}={step['value']!r} did not disappear within {step['timeout']}s"
+            return False, f"{step['field']}={step['value']!r} did not appear within {step['timeout']}s"
         time.sleep(ANDROID_WAIT_POLL_SECONDS)
 
 
@@ -247,15 +247,15 @@ def _run_result(args, be, dev_id: str, before, steps: list[dict], is_success: bo
                "failed_step": failed_step,
                "steps": [{k: r[k] for k in ("index", "step", "status", "elapsed_seconds", "verification") if k in r}
                          for r in results],
-               "error": None if is_success else (detail or "실패")[-400:]}
+               "error": None if is_success else (detail or "failed")[-400:]}
     if is_success:
         auto_record_backend(be)
         payload.update(after_shot(args, be, dev_id, before))
     payload.update(finish_burst(args))
     payload["elapsed_seconds"] = elapsed_seconds(args)
-    payload["summary"] = (f"{len(steps)}단계 완료" if is_success
-                          else f"{completed_count}/{len(steps)}단계 뒤 실패"
-                               + (f" — {failed_step}번 {results[failed_step]['step']}" if failed_step is not None else ""))
+    payload["summary"] = (f"{len(steps)} steps done" if is_success
+                          else f"failed after {completed_count}/{len(steps)} steps"
+                               + (f" — step {failed_step} {results[failed_step]['step']}" if failed_step is not None else ""))
     payload["next"] = _next_hint(payload, failed_step)
     return out(payload)
 
@@ -269,23 +269,23 @@ def _cause_of(be, is_success: bool) -> dict:
 def _next_hint(payload: dict, failed_step: int | None) -> str:
     if payload["ok"]:
         if payload.get("screen_changed") is False:
-            return "화면이 그대로다 — app tree 로 다시 본다"
-        return "shot 이미지를 읽어 결과를 확인한다" if payload.get("shot") else "app shot  # 결과 화면 확인"
+            return "The screen did not change — look again with app tree"
+        return "Read the shot image to check the result" if payload.get("shot") else "app shot  # check the result screen"
     if payload.get("cause"):
-        return f"단계가 아니라 기기 상태({payload['cause']})가 원인이다 — app shot 으로 기기 화면을 먼저 본다"
+        return f"The cause is the device state ({payload['cause']}), not the step — look at the device screen with app shot first"
     if failed_step is None:
-        return "error 를 본다 (단계에 닿기 전에 멈췄다) — app tree 로 기기·화면 상태를 확인한다"
-    return f"app tree 로 화면을 보고 {failed_step}번 단계를 고친 뒤 그 단계부터 다시 run 한다"
+        return "Read error (it stopped before reaching a step) — check the device and screen state with app tree"
+    return f"Look at the screen with app tree, fix step {failed_step} and run again from that step"
 
 
 def configure(p) -> None:
     p.add_argument("--steps", default=None,
-                   help='run: 단계 JSON 파일 (예: [{"tap": {"text": "로그인"}}, {"wait": {"text": "홈"}}])')
+                   help='run: steps JSON file (e.g. [{"tap": {"text": "Log in"}}, {"wait": {"text": "Home"}}])')
     p.add_argument("--burst", type=burst_spec, default=None,
-                   help="tap·swipe·run: 동작 전부터 연속 캡처, 끝난 뒤 SECONDS 초 더 — 바뀐 프레임만 남긴다 "
-                        "(SECONDS[:INTERVAL], 예: 3 · 5:0.3)")
+                   help="tap·swipe·run: capture continuously from before the action until SECONDS after — keeps only changed frames "
+                        "(SECONDS[:INTERVAL], e.g. 3 · 5:0.3)")
 
 
 ACTION = Action(name="run", device_use="mutate", run=_app_run, configure=configure,
-                help="단계 여러 개(tap·swipe·type·wait·gone·back)를 한 번에 — iOS 는 Maestro 를 한 번만 띄운다",
+                help="Several steps (tap·swipe·type·wait·gone·back) at once — on iOS Maestro starts only once",
                 example="app run --device $DEV --steps login.json --shot after_login")

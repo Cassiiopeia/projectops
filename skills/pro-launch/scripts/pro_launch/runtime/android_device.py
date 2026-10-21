@@ -45,11 +45,11 @@ def adb(serial: str, *arguments: str, timeout: int) -> AdbResult:
     """adb -s <serial> ... 한 번. 도구 없음 · 시간 초과도 결과로 돌려준다 (예외를 올리지 않는다)."""
     tool = sdk_tool("adb")
     if not tool:
-        return AdbResult(False, "adb 를 찾지 못했다 (doctor 의 adb_path 확인)", False)
+        return AdbResult(False, "adb not found (check adb_path in doctor)", False)
     try:
         r = subprocess.run([tool, "-s", serial, *arguments], capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
-        return AdbResult(False, f"응답 없음 ({timeout}초)", True)
+        return AdbResult(False, f"no response ({timeout}s)", True)
     except OSError as error:
         return AdbResult(False, str(error), False)
     text = ((r.stdout or "") + (r.stderr or "")).replace("\r", "").strip()
@@ -116,7 +116,7 @@ def host_pressure_fields() -> dict:
 def _unresponsive(serial: str, step: str, detail: str) -> dict:
     return {"is_ok": False, "code": "device_unresponsive", "step": step, "detail": detail,
             **host_pressure_fields(),
-            "next": f"device reboot --device {serial} --cold  # 에뮬레이터를 강제로 끄고 다시 띄운다 (다른 세션이 쓰는 기기면 --yes 전에 묻는다)"}
+            "next": f"device reboot --device {serial} --cold  # force-stops the emulator and starts it again (if another session uses this device, ask before --yes)"}
 
 
 def _device_file_name(apk_path: Path) -> str:
@@ -130,9 +130,9 @@ def install_apk(serial: str, apk_path: Path) -> dict:
     """
     # 준비 확인 (셸 응답 · 패키지 서비스) — 답 없는 기기에 200MB 를 밀어 넣지 않는다
     if not is_shell_answering(serial):
-        return _unresponsive(serial, "ready_check", "adb shell echo 가 답하지 않는다")
+        return _unresponsive(serial, "ready_check", "adb shell echo does not answer")
     if not is_package_service_found(serial) and not wait_for_package_service(serial):
-        return _unresponsive(serial, "ready_check", "패키지 서비스(service check package)가 보이지 않는다")
+        return _unresponsive(serial, "ready_check", "package service (service check package) not found")
 
     remote = f"{DEVICE_TEMPORARY_FOLDER}/{_device_file_name(apk_path)}"
     pushed = adb(serial, "push", str(apk_path), remote, timeout=PUSH_TIMEOUT_SECONDS)
@@ -148,7 +148,7 @@ def install_apk(serial: str, apk_path: Path) -> dict:
         # 부팅 직후 서비스가 아직 안 떴다 — 돌아올 때까지 기다린 뒤 한 번만 다시
         retried = True
         if not wait_for_package_service(serial):
-            return _unresponsive(serial, "install_retry", "Broken pipe 뒤 패키지 서비스가 돌아오지 않는다")
+            return _unresponsive(serial, "install_retry", "package service did not come back after Broken pipe")
         installed = adb(serial, "shell", "pm", "install", "-r", "-t", remote, timeout=INSTALL_TIMEOUT_SECONDS)
     # 실패해도 임시 파일은 지운다 (성공·실패 공통)
     adb(serial, "shell", "rm", "-f", remote, timeout=CLEANUP_TIMEOUT_SECONDS)

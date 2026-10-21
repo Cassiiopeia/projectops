@@ -121,8 +121,8 @@ def _surface(root: Path, slot: str, context: str, now: str | None = None) -> dic
         out["constraints"] = constraints
     if pitfalls:
         out["pitfalls"] = pitfalls
-    out["note"] = ("이 앱에서 알아낸 규칙·함정 일부다(하루 한 번). 전부는 note show --all. "
-                   "다시 확인했으면 note pitfall|constraint --index N --result ok|fail 로 남긴다")
+    out["note"] = ("Some rules and pitfalls learned about this app (once a day). All of them: note show --all. "
+                   "If you re-checked one, record it with note pitfall|constraint --index N --result ok|fail")
     return out
 
 

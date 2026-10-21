@@ -22,8 +22,8 @@ def resolve_device(args):
     if not platform:
         return None, None, no_device_response(dev, args.device)
     if dev_id == "booted":
-        return None, None, out({"ok": False, "code": "args_required", "error": "booted 는 어느 기기인지 정할 수 없다",
-                                "next": "--device <UDID> 로 지정한다 (device list)"})
+        return None, None, out({"ok": False, "code": "args_required", "error": "booted does not identify a specific device",
+                                "next": "Specify it with --device <UDID> (device list)"})
     return platform, dev_id, None
 
 
@@ -34,7 +34,7 @@ def refuse_other_session_owner(dev_id: str, action: str) -> int | None:
         return None
     return out({"ok": False, "code": "device_owned_by_other", "action": action, "device": dev_id,
                 "owner": owner, "error": owner["message"],
-                "next": "사용자에게 먼저 묻는다. 그 세션의 작업을 끊어도 된다고 하면 --yes 를 붙여 다시 부른다"})
+                "next": "Ask the user first. If they agree to interrupt that session's work, call again with --yes"})
 
 
 def run_restore_commands(setting: dict) -> dict:
@@ -59,6 +59,6 @@ def run_claim(args) -> int:
     result = device_claims.claim_device(dev_id, str(project_root(args)))
     previous = result["previous_owner"]
     return out({"action": "claim", "platform": platform, "device": dev_id, **result,
-                "summary": f"{dev_id} 를 이 세션({session_identity()})이 쥐었다 — 30분 안 쓰면 풀린다",
-                "next": "작업이 끝나면 device release  # 바꾼 전역 설정(언어·외관)도 함께 되돌린다",
+                "summary": f"This session ({session_identity()}) claimed {dev_id} — released after 30 minutes unused",
+                "next": "When done, device release  # also restores changed global settings (language · appearance)",
                 "taken_over_from": previous["session"] if previous and previous["is_live"] else None})

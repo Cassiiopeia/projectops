@@ -64,7 +64,7 @@ def empty_value_options(raw: list[str]) -> list[str]:
 
 def _example(parser: argparse.ArgumentParser) -> str:
     """동작 파서는 선언한 예시(epilog 의 '예: ...'), 없으면 usage 한 줄."""
-    match = re.search(r"예:\s*(.+)", parser.epilog or "")
+    match = re.search(r"e\.g\.\s*(.+)", parser.epilog or "")
     if match:
         return match.group(1).strip()
     return " ".join(parser.format_usage().split())[len("usage: "):].replace("[-h] ", "")
@@ -98,8 +98,8 @@ def diagnose(parser: argparse.ArgumentParser, raw: list[str], reason: str) -> di
     empty = empty_value_options(raw)
     if empty:
         found["empty_values"] = empty
-        found["empty_values_note"] = (f"{', '.join(empty)} 의 값이 비어 있다 — 값을 넣거나, "
-                                      "$VAR 로 넘겼다면 그 환경변수가 설정됐는지 확인한다")
+        found["empty_values_note"] = (f"{', '.join(empty)} has an empty value — pass a value, or "
+                                      "if you passed $VAR, check that the environment variable is set")
     return found
 
 
@@ -121,5 +121,5 @@ def _diagnose_options(found: dict, target: argparse.ArgumentParser, tokens: list
         found["did_you_mean"] = suggestions
     name_option = next((o for o in NAME_OPTIONS if o in valid), None)
     if positionals and name_option:
-        found["positional_hint"] = f"옵션 이름 없이 값만 넘긴 것 같다 — {name_option} {positionals[0]} 처럼 넘긴다"
+        found["positional_hint"] = f"Looks like a value was passed without its option name — pass it as {name_option} {positionals[0]}"
     found["valid_options"] = valid
