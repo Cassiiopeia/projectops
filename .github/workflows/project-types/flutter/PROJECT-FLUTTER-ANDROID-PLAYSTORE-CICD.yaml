@@ -345,8 +345,8 @@ jobs:
           keyAlias=$KEY_ALIAS
           keyPassword=$KEY_PASSWORD
           EOF
+          # 서명 비밀번호가 담긴 파일 — 내용 출력 금지 (#785)
           echo "✅ key.properties 생성 완료"
-          cat android/key.properties
 
       # Google-services.json 생성
       - name: Create Google-services.json
