@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.71.0  
-**Last updated:** 2026-10-21T15:46:53Z  
+**Current version:** 4.71.1  
+**Last updated:** 2026-10-21T15:52:58Z  
+
+---
+
+## [4.71.1] - 2026-10-21
+
+**PR:** #980  
+
+**Bug fixes**
+- Closing an issue no longer warns that the report is missing after you post one
 
 ---
 

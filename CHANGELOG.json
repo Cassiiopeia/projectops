@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-21T15:46:53Z",
-    "currentVersion": "4.71.0",
+    "lastUpdated": "2026-10-21T15:52:58Z",
+    "currentVersion": "4.71.1",
     "projectType": "basic",
-    "totalReleases": 343,
+    "totalReleases": 344,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.71.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-21",
+      "pr_number": 980,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * Closing an issue no longer warns that the report is missing after you post one",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Closing an issue no longer warns that the report is missing after you post one"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.71.0",
       "project_type": "basic",
