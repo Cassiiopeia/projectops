@@ -833,16 +833,14 @@ jobs:
           uuid=$(grep -A1 -a "UUID" profile.mobileprovision | grep string | sed -e "s/<string>//" -e "s/<\/string>//" -e "s/[[:space:]]//g")
           cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$uuid.mobileprovision
 
+      # 마법사가 만드는 앱별 파일 — 없으면 무엇을 어떻게 만들지 안내하고 중단 (#785)
       - name: Verify ExportOptions.plist
         run: |
-          cd ios
-          if [ ! -f "ExportOptions.plist" ]; then
-            echo "❌ ios/ExportOptions.plist이 없습니다!"
-            echo "웹 마법사를 실행하여 설정 파일을 생성하세요:"
-            echo "  브라우저에서 .github/util/flutter/testflight-wizard/testflight-wizard.html 열기"
+          if [ ! -f "ios/ExportOptions.plist" ]; then
+            echo "::error title=Missing ios/ExportOptions.plist::${APP_ROOT}/ios/ExportOptions.plist is required to export the IPA (export method, team ID, provisioning profile). Generate it once and commit it: open .github/util/flutter/testflight-wizard/testflight-wizard.html in a browser, or run: python3 .github/util/flutter/testflight-wizard/testflight-wizard.py setup <flutter project path> <bundle id> <team id> \"<provisioning profile name>\""
             exit 1
           fi
-          echo "✅ ExportOptions.plist 확인됨"
+          echo "✅ ExportOptions.plist found: ${APP_ROOT}/ios/ExportOptions.plist"
 
       - name: Flutter build (no codesign)
         id: flutter_build
@@ -887,12 +885,14 @@ jobs:
       - name: Verify Fastfile exists
         run: |
           if [ ! -f "ios/fastlane/Fastfile" ]; then
-            echo "❌ ios/fastlane/Fastfile이 없습니다!"
-            echo "웹 마법사를 실행하여 설정 파일을 생성하세요:"
-            echo "  브라우저에서 .github/util/flutter/testflight-wizard/testflight-wizard.html 열기"
+            echo "::error title=Missing ios/fastlane/Fastfile::${APP_ROOT}/ios/fastlane/Fastfile is required to upload to TestFlight (lane: deploy). Generate it once and commit it: open .github/util/flutter/testflight-wizard/testflight-wizard.html in a browser, or run: python3 .github/util/flutter/testflight-wizard/testflight-wizard.py setup <flutter project path> <bundle id> <team id> \"<provisioning profile name>\""
             exit 1
           fi
-          echo "✅ Fastfile 확인됨: ios/fastlane/Fastfile"
+          # 옛 마법사 Fastfile 은 upload_testflight 만 있어 업로드 단계에서야 실패한다 (직접 만든 Fastfile 오탐 대비 경고만)
+          if ! grep -qE '^[[:space:]]*lane[[:space:](]*:deploy([[:space:],)]|$)' ios/fastlane/Fastfile; then
+            echo "::warning title=Fastfile has no deploy lane::${APP_ROOT}/ios/fastlane/Fastfile does not define 'lane :deploy', which this workflow calls. If upload fails with \"Could not find lane 'ios deploy'\", regenerate the Fastfile with the TestFlight wizard (.github/util/flutter/testflight-wizard/)."
+          fi
+          echo "✅ Fastfile found: ${APP_ROOT}/ios/fastlane/Fastfile"
 
       - name: Install Fastlane
         working-directory: ${{ env.APP_ROOT }}/ios
