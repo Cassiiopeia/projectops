@@ -77,4 +77,4 @@ CREATE Phase 6 보고 표준은 이 표준에 종속된다 — 신규 skill 생�
 - `skills/<skill>/troubleshooting/<area>/<id>.json` 에 항목을 둔다 (스키마·작성 규칙: `skills/references/memory-principles.md` §6).
 - `python3 scripts/build_troubleshooting.py skills/<skill>` 로 색인·`references/troubleshooting.md` 를 만든다 — 손으로 고치지 않는다.
 - CLI 의 실패 출력 한 곳에서 `common.troubleshoot.find_known_fixes(<스킬 폴더>, code, 오류문구)` 결과를 `known_fix` 로 싣는다 (예외는 삼킨다 — 보조다). 예: `pro-launch` 의 `runtime/output.py` `attach_known_fix`.
-- 테스트에 `--check`(생성물 최신)와 "항목의 `match.codes` 가 CLI 가 실제로 내는 code 인가" 검사를 넣는다 (예: `skills/pro-launch/tests/test_troubleshooting_kb.py`).
+- 테스트에 `--check`(생성물 최신)와 "항목의 `match.codes` 가 CLI 가 실제로 내는 code 인가" 검사를 넣는다 (`match.codes` 검사 예: `skills/pro-launch/tests/test_troubleshooting_kb.py`).

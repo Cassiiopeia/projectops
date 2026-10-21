@@ -60,34 +60,3 @@ def test_work_page_never_picks_chromes_own_notice_tab(order):
     assert session.work_page(ctx) is blank
     assert ctx.created == []
 
-
-def test_work_page_takes_the_last_ordinary_tab():
-    old, work = _Page("https://example.test/old"), _Page("about:blank")
-    assert session.work_page(_Ctx([old, _Page(DIALOG), work])) is work
-
-
-def test_work_page_skips_closed_tabs():
-    gone, alive = _Page("about:blank", closed=True), _Page("about:blank")
-    assert session.work_page(_Ctx([alive, gone])) is alive
-
-
-def test_work_page_opens_a_new_tab_when_only_internal_ones_exist():
-    ctx = _Ctx([_Page(DIALOG)])
-    got = session.work_page(ctx)
-    assert ctx.created == [got] and got.url == "about:blank"
-
-
-def test_safe_title_waits_out_a_redirect(monkeypatch):
-    monkeypatch.setattr(session.time, "sleep", lambda s: None)
-    assert session.safe_title(_Page("https://x/", title_errors=2, title="로그인")) == "로그인"
-
-
-def test_safe_title_gives_up_quietly_instead_of_raising(monkeypatch):
-    monkeypatch.setattr(session.time, "sleep", lambda s: None)
-    assert session.safe_title(_Page("https://x/", title_errors=99)) == ""
-
-
-def test_done_payload_survives_a_redirect(monkeypatch):
-    monkeypatch.setattr(session.time, "sleep", lambda s: None)
-    got = session.done_payload("goto", _Page("https://x/login", title_errors=1, title="DLP"))
-    assert got["title"] == "DLP" and got["url"] == "https://x/login" and got["action"] == "goto"

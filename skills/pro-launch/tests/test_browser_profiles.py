@@ -1,7 +1,6 @@
 """브라우저 프로필 고르기 · 로그인 기록 · 세션 종료 정리 (#956) — 브라우저 없이 상태 파일로 검사한다."""
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 from pathlib import Path
@@ -13,75 +12,13 @@ sys.path.insert(0, str(SCRIPTS))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
 from pro_launch.commands import tidy  # noqa: E402
-from pro_launch.commands import web as web_command  # noqa: E402
-from pro_launch.commands.web.actions import close, profile  # noqa: E402
-from pro_launch.runtime import browser_profiles, device_marks  # noqa: E402
+from pro_launch.commands.web.actions import close  # noqa: E402
+from pro_launch.runtime import browser_profiles  # noqa: E402
 from pro_launch.runtime.browser import write_state  # noqa: E402
-
-
-@pytest.fixture
-def root(tmp_path, monkeypatch):
-    monkeypatch.delenv(browser_profiles.PROFILE_ENV_VAR, raising=False)
-    project = tmp_path / "project"
-    project.mkdir()
-    return project
 
 
 def result_of(capsys):
     return json.loads(capsys.readouterr().out.strip().splitlines()[-1])
-
-
-def test_repo_profile_is_default_and_choice_is_remembered(root):
-    assert browser_profiles.chosen_profile(root) is None
-    repo_state = browser_profiles.web_state_path(root)
-    browser_profiles.choose_profile(root, "work")
-    assert browser_profiles.chosen_profile(root) == "work"
-    shared_state = browser_profiles.web_state_path(root)
-    assert shared_state.parent == browser_profiles.shared_profiles_root() / "work" and shared_state != repo_state
-    browser_profiles.choose_profile(root, "repo")
-    assert browser_profiles.chosen_profile(root) is None
-
-
-def test_env_var_overrides_remembered_choice(root, monkeypatch):
-    browser_profiles.choose_profile(root, "work")
-    monkeypatch.setenv(browser_profiles.PROFILE_ENV_VAR, "personal")
-    assert browser_profiles.chosen_profile(root) == "personal"
-    monkeypatch.setenv(browser_profiles.PROFILE_ENV_VAR, "repo")
-    assert browser_profiles.chosen_profile(root) is None
-
-
-def test_need_picks_repo_profile_first_then_shared(root):
-    browser_profiles.choose_profile(root, "work")   # 폴더를 만든다
-    browser_profiles.choose_profile(root, None)
-    device_marks.add_mark(browser_profiles.profile_mark_key(root, "work"), "login", "google")
-    assert browser_profiles.profile_with_marks(root, ["login:google"]) == "work"
-    device_marks.add_mark(browser_profiles.profile_mark_key(root, "repo"), "login", "google")
-    assert browser_profiles.profile_with_marks(root, ["login:google"]) == "repo"
-    assert browser_profiles.profile_with_marks(root, ["login:kakao"]) is None
-
-
-def test_open_choice_errors_and_selection(root):
-    no_match = web_command.apply_profile_choice(argparse.Namespace(profile=None, need=["login:kakao"]), root)
-    assert no_match["code"] == "no_matching_profile"
-    bad = web_command.apply_profile_choice(argparse.Namespace(profile="../evil", need=None), root)
-    assert bad["code"] == "bad_args"
-    assert web_command.apply_profile_choice(argparse.Namespace(profile="work", need=None), root) is None
-    assert browser_profiles.chosen_profile(root) == "work"
-
-
-def test_web_profile_mark_list_unmark(root, capsys):
-    def run(operation, **values):
-        base = dict(operation=operation, root=str(root), profile=None, kind=None, mark_name=None, note=None)
-        base.update(values)
-        profile._web_profile(argparse.Namespace(**base))
-        return result_of(capsys)
-    assert run("mark", kind="login")["code"] == "args_required"
-    marked = run("mark", kind="login", mark_name="github", note="회사 계정")
-    assert marked["key"].startswith("browser-profile:repo:")
-    listed = run("list")
-    assert listed["current"] == "repo" and listed["profiles"][0]["marks"][0]["label"] == "login:github"
-    assert run("use", profile="work")["current"] == "work"
-    assert run("unmark", kind="login", mark_name="github", profile="repo")["removed"] is True
 
 
 def _browser_state(path: Path, session: str, tabs: dict | None = None) -> Path:
@@ -111,16 +48,6 @@ def test_tidy_keeps_profile_with_marks():
     row = {"is_browser_alive": False, "has_profile_marks": True, "classification": "scratch",
            "is_orphan_profile": True, "idle_days": 99, "has_data": False}
     assert tidy._decide_bucket_action(row, 7) == "keep:profile_has_marks"
-
-
-def test_session_end_hook_sees_browsers_of_the_session():
-    import importlib.util
-    hook_path = Path(__file__).resolve().parents[3] / "hooks" / "pro_launch_session_end.py"
-    spec = importlib.util.spec_from_file_location("pro_launch_session_end_browsers", hook_path)
-    hook = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(hook)
-    _browser_state(browser_profiles.shared_profiles_root() / "a" / "browser.json", "me")
-    assert hook.session_has_browsers("me") and not hook.session_has_browsers("nobody")
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX 신호")

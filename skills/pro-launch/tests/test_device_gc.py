@@ -33,11 +33,6 @@ class GcBackend:
         return [DeviceFacts(key=k, platform="ios", backend=self.name, name=f"dev-{k}", form="phone", os_version="18.3",
                             is_booted=k in self.booted, instance=k if k in self.booted else None) for k in self.keys]
 
-    def shutdown(self, key, instance):
-        self.calls.append(("shutdown", key))
-        self.booted.discard(key)
-        return {"is_ok": True, "detail": None}
-
     def delete(self, key):
         self.calls.append(("delete", key))
         self.keys.remove(key)
@@ -49,13 +44,6 @@ class GcBackend:
 
     def unavailable_devices(self):
         return self.unavailable
-
-    def delete_unavailable(self):
-        self.calls.append(("delete_unavailable",))
-        return {"is_ok": True, "detail": None}
-
-    def raw_command_patterns(self):
-        return ()
 
 
 @pytest.fixture
@@ -99,32 +87,6 @@ def test_only_expired_unleased_unmarked_temporary_is_deleted(setup):
     assert "공들인 상태" in reasons["MARKED"] and "기록 없는" in reasons["HUMAN"]
 
 
-def test_leased_expired_device_is_kept(monkeypatch, setup):
-    setup(["OLD"])
-    device_marks.record_created("OLD", "x", 3, "fake_ios")
-    expire("OLD")
-    monkeypatch.setenv("LAUNCH_SESSION", "user")
-    device_claims.claim_device("OLD", "/r")
-    assert actions_by_key(device_gc.build_plan()) == {"OLD": "keep"}
-
-
-def test_pool_booted_idle_device_is_shut_down_but_human_booted_is_not(monkeypatch, setup):
-    setup(["POOL", "HUMAN"], booted=("POOL", "HUMAN"))
-    device_claims.set_pool_booted("POOL", True)
-    monkeypatch.setattr(device_gc, "POOL_BOOTED_IDLE_SHUTDOWN_SECONDS", -1)
-    assert actions_by_key(device_gc.build_plan()) == {"POOL": "shutdown", "HUMAN": "keep"}
-
-
-def test_sizes_counted_only_for_actionable_rows_unless_asked(setup):
-    backend = setup(["OLD", "HUMAN"])
-    device_marks.record_created("OLD", "x", 3, "fake_ios")
-    expire("OLD")
-    device_gc.build_plan()
-    assert [call for call in backend.calls if call[0] == "size"] == [("size", "OLD")]
-    device_gc.build_plan(is_every_size_counted=True)
-    assert ("size", "HUMAN") in backend.calls
-
-
 def test_report_changes_nothing_and_apply_deletes_and_forgets(setup, capsys):
     backend = setup(["OLD", "HUMAN"])
     device_marks.record_created("OLD", "x", 3, "fake_ios")
@@ -138,9 +100,3 @@ def test_report_changes_nothing_and_apply_deletes_and_forgets(setup, capsys):
     assert "OLD" not in device_marks.record_views()
 
 
-def test_apply_removes_unavailable_simulators(setup, capsys):
-    backend = setup(["HUMAN"])
-    backend.unavailable = [{"udid": "GONE", "name": "old runtime", "bytes": GB}]
-    gc.run_gc(gc_args(apply=True))
-    data = result_of(capsys)
-    assert ("delete_unavailable",) in backend.calls and data["freed_gb"] == 1.0

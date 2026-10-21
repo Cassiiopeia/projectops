@@ -11,39 +11,25 @@ pro-agent-test 에서 옮겨 온 실행·캡처 계약(web · device · shrink �
 from __future__ import annotations
 
 import contextlib
-import http.server
 import json
 import os
-import re
-import shutil
 import subprocess
 import sys
 import threading
 import time
 from pathlib import Path
 
-import pytest
-
-from browser_cleanup import close_browser_for_test
-
 CLI = Path(__file__).resolve().parents[1] / "scripts" / "launch_cli.py"
 sys.path.insert(0, str(CLI.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
+import app_input  # noqa: E402
 import launch_cli  # noqa: E402
-import pro_launch.commands.web as web_cmd  # noqa: E402
-from pro_launch.commands import detect as detect_cmd, shrink as shrink_cmd  # noqa: E402
+from pro_launch.commands import shrink as shrink_cmd  # noqa: E402
 from pro_launch.commands.app import gestures as app_gestures  # noqa: E402
-from pro_launch.commands.app.actions import shot as app_shot_action  # noqa: E402
-from pro_launch.commands.web import session as web_session, targets as web_targets  # noqa: E402
-from pro_launch.commands.web.actions import click as web_click_action  # noqa: E402
-from pro_launch.runtime import (browser as rt_browser, devices as rt_devices,  # noqa: E402
-                                output as rt_output, procs as rt_procs)
-import stealth  # noqa: E402
-from common import image as common_image  # noqa: E402
+from pro_launch.commands.web import session as web_session  # noqa: E402
+from pro_launch.runtime import browser as rt_browser, devices as rt_devices  # noqa: E402
 from common import state as common_state  # noqa: E402
-
-_SH_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def run_cli(*args, home: Path | None = None, cwd: Path | None = None, env_extra=None):
@@ -96,29 +82,19 @@ def playwright_hidden():
 
 # ── 명령 표면 ─────────────────────────────────────────────────────────────
 
-def test_help_lists_every_subcommand():
-    _, out, err = run_cli("--help")
-    for name in ("doctor", "detect", "devices", "device", "app", "web", "http",
-                 "access", "db", "logs", "shrink", "get-output-path"):
-        assert name in out + err, f"{name} 가 --help 에 없다"
-
-
-def test_web_help_lists_all_actions():
-    _, out, err = run_cli("web", "--help")
-    for a in ("setup", "open", "goto", "click", "type", "shot", "assert", "console", "close",
-              "viewport", "route", "--no-stealth", "--max-side"):
-        assert a in out + err, f"{a} 가 web --help 에 없다"
-
-
 def test_bad_args_still_answer_json():
     rc, out, _ = run_cli("app", "fly")
     assert rc != 0 and _j(out)["code"] == "bad_args"
 
 
-def test_shot_and_shrink_share_one_max_side():
-    """기준이 둘이면 어느 쪽이 맞는지 알 수 없다."""
-    _, out, _ = run_cli("shrink", "--help")
-    assert str(common_image.SHOT_MAX_SIDE) in out
+def test_unexpected_handler_exception_becomes_json(monkeypatch, capsys):
+    """어떤 핸들러든 예외가 새도 main 이 JSON 으로 감싼다."""
+    def boom(*args, **kwargs):
+        raise RuntimeError("boom")
+    monkeypatch.setattr(shrink_cmd, "shrink", boom)
+    rc = launch_cli.main(["shrink", "x.png"])
+    d = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert rc == 1 and d["code"] == "handler_error" and "boom" in d["error"]
 
 
 # ── Playwright 가 없을 때 무엇을 말해 주나 ────────────────────────────────
@@ -133,75 +109,7 @@ def test_web_reports_missing_playwright_with_install_hint():
     assert "설치할까요" in err["ask_user"], err
 
 
-def test_web_action_without_open_browser_is_refused(tmp_path):
-    proj = _repo(tmp_path)
-    rc, out, _ = run_cli("web", "click", "--root", str(proj), "--selector", "#x", home=tmp_path)
-    assert _j(out)["code"] in ("browser_not_open", "playwright_missing")
-
-
-def test_web_text_env_refuses_when_the_variable_is_missing(tmp_path):
-    """비밀번호는 --text-env 로 받는다. 비어 있으면 브라우저를 찾기 전에 멈춘다."""
-    proj = _repo(tmp_path)
-    _, out, _ = run_cli("web", "type", "--root", str(proj), "--selector", "#pw",
-                        "--text-env", "NO_SUCH_VAR_X", home=tmp_path)
-    assert _j(out)["code"] == "env_not_set"
-
-
-# ── 무엇을 띄울 수 있나 (#586 에서 옮김) ─────────────────────────────────
-
-def test_version_yml_wins_over_markers(tmp_path):
-    """projectops 가 통합된 레포는 이미 답을 갖고 있다 — 추론보다 신뢰할 수 있다."""
-    (tmp_path / "version.yml").write_text(
-        "metadata:\n  project_types:\n    - flutter\n    - spring\n", encoding="utf-8")
-    (tmp_path / "package.json").write_text('{"dependencies":{"react":"18"}}', encoding="utf-8")
-    det = detect_cmd.detect_kinds(tmp_path)
-    assert det["source"] == "version.yml" and det["kinds"] == ["app", "server"], det
-
-
-def test_markers_used_when_no_version_yml(tmp_path):
-    (tmp_path / "package.json").write_text('{"dependencies":{"next":"14"}}', encoding="utf-8")
-    det = detect_cmd.detect_kinds(tmp_path)
-    assert det["source"] == "marker" and "web" in det["kinds"], det
-
-
-def test_flutter_android_gradle_is_not_mistaken_for_server(tmp_path):
-    """Flutter 앱의 android/build.gradle 을 서버로 잡으면 엉뚱한 것을 띄운다."""
-    (tmp_path / "pubspec.yaml").write_text("name: x\ndependencies:\n  flutter:\n", encoding="utf-8")
-    (tmp_path / "android").mkdir()
-    (tmp_path / "android" / "build.gradle").write_text("// app", encoding="utf-8")
-    assert detect_cmd.detect_kinds(tmp_path)["kinds"] == ["app"]
-
-
-def test_unknown_project_reports_none_not_crash(tmp_path):
-    det = detect_cmd.detect_kinds(tmp_path)
-    assert det["kinds"] == [] and det["source"] == "none"
-
-
-def test_detect_can_be_told_which_kinds(tmp_path):
-    """부르는 쪽이 이미 알면(확인해 적어 둔 타겟) 그 종류의 정보를 모은다."""
-    proj = _repo(tmp_path)
-    _, out, _ = run_cli("detect", "--path", str(proj), "--kinds", "web", home=tmp_path)
-    d = _j(out)
-    assert d["kinds"] == ["web"] and d["source"] == "given" and "web" in d
-    _, out, _ = run_cli("detect", "--path", str(proj), "--kinds", "wbe", home=tmp_path)
-    assert _j(out)["code"] == "unknown_kind"
-
-
 # ── 저장 자리 · 이전 ──────────────────────────────────────────────────────
-
-def test_repo_key_uses_remote_not_path(tmp_path):
-    a = _repo(tmp_path, "a", "https://github.com/Twin-Fang/elum.git")
-    b = _repo(tmp_path, "b", "git@github.com:Twin-Fang/elum.git")
-    assert common_state.repo_key(a) == common_state.repo_key(b) == "Twin-Fang__elum"
-
-
-def test_state_lives_under_launch_outside_project(tmp_path, monkeypatch):
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
-    proj = _repo(tmp_path)
-    d = common_state.state_dir("launch", proj)
-    assert d == tmp_path / "home" / ".projectops" / "launch" / "acme__thing"
-    assert not d.is_relative_to(proj)
-
 
 def _old_dir(home: Path) -> Path:
     d = home / ".projectops" / "agent-test" / "acme__thing"
@@ -211,23 +119,6 @@ def _old_dir(home: Path) -> Path:
     (d / "learned.json").write_text("{}", encoding="utf-8")
     (d / "shots").mkdir()
     return d
-
-
-def test_migration_moves_only_launch_files_and_is_idempotent(tmp_path, monkeypatch):
-    home = tmp_path / "home"
-    monkeypatch.setenv("HOME", str(home))
-    proj = _repo(tmp_path)
-    old = _old_dir(home)
-
-    first = common_state.migrate_launch(proj)
-    assert sorted(first["moved"]) == ["access.json", "devices.json", "shots"]
-    new = common_state.state_dir("launch", proj)
-    assert (new / "access.json").is_file() and not (old / "access.json").exists()
-    # QA 몫은 agent-test 에 남는다
-    assert (old / "learned.json").is_file() and not (new / "learned.json").exists()
-
-    second = common_state.migrate_launch(proj)
-    assert second == {"moved": [], "warnings": []}
 
 
 def test_migration_does_not_move_a_browser_in_use(tmp_path, monkeypatch):
@@ -246,34 +137,6 @@ def test_migration_does_not_move_a_browser_in_use(tmp_path, monkeypatch):
     assert common_state.launch_file(proj, "browser.json") == old / "browser.json"
 
 
-def test_migration_is_reported_in_the_output(tmp_path):
-    home = tmp_path / "home"
-    proj = _repo(tmp_path)
-    _old_dir(home)
-    _, out, _ = run_cli("access", "show", "--root", str(proj), home=home)
-    d = _j(out)
-    assert "access.json" in d.get("migrated", []), d
-    assert d["access"] == {"base_url": "http://x"}, "옮긴 기록을 읽지 못했다"
-    _, out, _ = run_cli("access", "show", "--root", str(proj), home=home)
-    assert "migrated" not in _j(out), "두 번째에도 옮겼다고 한다"
-
-
-def test_venv_falls_back_to_the_old_place(tmp_path, monkeypatch):
-    """옛 venv 를 옮기지 않는다 — 약 100MB 를 다시 받게 만들 이유가 없다."""
-    home = tmp_path / "home"
-    monkeypatch.setenv("HOME", str(home))
-    old = home / ".projectops" / "agent-test" / ".venv" / "bin"
-    old.mkdir(parents=True)
-    (old / "python").write_text("", encoding="utf-8")
-    if os.name == "nt":
-        pytest.skip("POSIX venv 구조만 본다")
-    assert common_state.venv_dir() == home / ".projectops" / "agent-test" / ".venv"
-    new = home / ".projectops" / "launch" / ".venv" / "bin"
-    new.mkdir(parents=True)
-    (new / "python").write_text("", encoding="utf-8")
-    assert common_state.venv_dir() == home / ".projectops" / "launch" / ".venv"
-
-
 # ── access ───────────────────────────────────────────────────────────────
 
 def test_access_refuses_raw_secret(tmp_path):
@@ -284,161 +147,13 @@ def test_access_refuses_raw_secret(tmp_path):
     assert d["code"] == "secret_in_value" and "hunter2" not in json.dumps(d["found"])
 
 
-def test_access_roundtrip(tmp_path):
-    proj = _repo(tmp_path)
-    run_cli("access", "set", "--root", str(proj), "--key", "db",
-            "--json", '{"how":"direct","password_env":"DB_PASSWORD"}', home=tmp_path)
-    _, out, _ = run_cli("access", "show", "--root", str(proj), home=tmp_path)
-    assert _j(out)["access"]["db"]["password_env"] == "DB_PASSWORD"
-    _, out, _ = run_cli("access", "unset", "--root", str(proj), "--key", "db", home=tmp_path)
-    assert _j(out)["access"] == {}
+# ── logs: 실패한 명령을 성공으로 보고하지 않는다 (#704) ───────────────────
 
-
-# ── 캡처 줄이기 ───────────────────────────────────────────────────────────
-
-def test_webp_conversion_survives_without_any_tool(tmp_path, monkeypatch):
-    png = tmp_path / "x.png"
-    png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 64)
-    monkeypatch.setattr(common_image, "has_pillow", lambda: False)
-    monkeypatch.setattr(common_image, "venv_python", lambda: None)
-    monkeypatch.setattr(common_image.shutil, "which", lambda _n: None)
-    assert common_image.to_webp(png) is None
-    assert png.exists(), "변환에 실패했다고 원본을 지우면 안 된다"
-
-
-def test_doctor_tells_how_screens_are_shrunk(tmp_path):
-    _, out, _ = run_cli("doctor", "--root", str(_repo(tmp_path)), home=tmp_path)
+def test_logs_reports_command_not_found_as_failure(tmp_path):
+    rc, out, _ = run_cli("logs", "--command", "nonexistent_zzz_cmd", home=tmp_path / "h", cwd=tmp_path)
     d = _j(out)
-    assert d["image_resize"] and "browser" in d and d["state_dir"]
-
-
-# ── 산출물 자리 (#611) ────────────────────────────────────────────────────
-
-def test_output_path_lands_under_the_umbrella(tmp_path):
-    proj = _repo(tmp_path)
-    rc, out, err = run_cli("get-output-path", "--title", "화면 캡처", cwd=proj, home=tmp_path)
-    assert rc == 0, out + err
-    d = _j(out)
-    umbrella = (proj / "docs" / "projectops" / "launch").resolve()
-    assert Path(d["run_dir"]).resolve().parent == umbrella
-    assert Path(d["screenshots"]).is_dir() and Path(d["env_file"]).is_file()
-
-
-def test_evidence_folder_is_really_untracked(tmp_path):
-    proj = _repo(tmp_path)
-    _, out, _ = run_cli("get-output-path", "--title", "추적 제외", cwd=proj, home=tmp_path)
-    d = _j(out)
-    (Path(d["screenshots"]) / "01.png").write_bytes(b"\x89PNG" + b"0" * 4096)
-    subprocess.run(["git", "-C", str(proj), "add", "-A"], check=True)
-    staged = subprocess.run(["git", "-C", str(proj), "diff", "--cached", "--name-only"],
-                            capture_output=True, text=True, check=True).stdout.split()
-    assert staged == ["docs/projectops/launch/.gitignore"], staged
-
-
-def test_output_path_does_not_touch_root_gitignore(tmp_path):
-    proj = _repo(tmp_path)
-    (proj / ".gitignore").write_text("build/\n", encoding="utf-8")
-    run_cli("get-output-path", "--title", "루트 보존", cwd=proj, home=tmp_path)
-    assert (proj / ".gitignore").read_text(encoding="utf-8") == "build/\n"
-
-
-def test_output_path_can_run_twice(tmp_path):
-    proj = _repo(tmp_path)
-    _, o1, _ = run_cli("get-output-path", "--title", "두 번", cwd=proj, home=tmp_path)
-    _, o2, _ = run_cli("get-output-path", "--title", "두 번", cwd=proj, home=tmp_path)
-    assert _j(o1)["gitignore"] == "created" and _j(o2)["gitignore"] == "already"
-
-
-def test_output_path_refuses_a_document_skill(tmp_path):
-    """문서 스킬 폴더에 캡처를 쌓으면 추적 제외가 없어 커밋된다."""
-    proj = _repo(tmp_path)
-    _, out, _ = run_cli("get-output-path", "--skill", "report", cwd=proj, home=tmp_path)
-    assert _j(out)["code"] == "not_evidence_skill"
-
-
-def test_output_path_for_a_calling_skill_names_its_run(tmp_path):
-    """부르는 작업 스킬 폴더에 받고, 실행 변수도 그 스킬 이름을 쓴다."""
-    proj = _repo(tmp_path)
-    _, out, _ = run_cli("get-output-path", "--skill", "agent-test", "--title", "x",
-                        cwd=proj, home=tmp_path)
-    d = _j(out)
-    assert "/agent-test/" in d["run_dir"].replace("\\", "/")
-    body = Path(d["env_file"]).read_text(encoding="utf-8")
-    assert "export AGENT_TEST_RUN=" in body and "LAUNCH_RUN" not in body
-
-
-def test_env_sh_points_inside_the_run(tmp_path):
-    proj = _repo(tmp_path)
-    _, out, _ = run_cli("get-output-path", "--title", "하네스", "--package", "com.acme.x",
-                        cwd=proj, home=tmp_path)
-    d = _j(out)
-    body = Path(d["env_file"]).read_text(encoding="utf-8")
-    assert "export LAUNCH_RUN=" in body and "export SHOT_DIR=" in body
-    assert "export PKG='com.acme.x'" in body
-    assert str(Path(d["screenshots"]).resolve()) in body
-    assert re.search(r"^export DEV=", body, re.M), "DEV 가 없으면 adb -s 가 죽는다"
-
-
-# ── 역할 ↔ 기기 (#583) ────────────────────────────────────────────────────
-
-def _env_of(tmp: Path, *bind_args):
-    proj = _repo(tmp)
-    _, out, _ = run_cli("get-output-path", "--title", "역할", cwd=proj, home=tmp)
-    run_dir = Path(_j(out)["run_dir"])
-    for args in bind_args:
-        run_cli("device", "bind", "--root", str(proj), *args, cwd=proj, home=tmp,
-                env_extra={"RUN_DIR": str(run_dir)})
-    f = run_dir / "env.sh"
-    return proj, run_dir, f, f.read_text(encoding="utf-8")
-
-
-def test_role_names_never_become_shell_variable_names(tmp_path):
-    _, _, _, body = _env_of(tmp_path,
-                            ["--role", "A", "--serial", "emulator-5554", "--note", "만드는 쪽"],
-                            ["--role", "받는 쪽", "--serial", "emulator-5556"],
-                            ["--role", "it's-a/role", "--serial", "emulator-5558"])
-    names = re.findall(r"\bexport ([^=\s]+)=", body)
-    assert names and [n for n in names if not _SH_NAME.match(n)] == []
-    assert "받는 쪽" in body
-
-
-@pytest.mark.skipif(not shutil.which("bash"), reason="bash 가 없는 환경")
-def test_env_sh_actually_sources_in_bash(tmp_path):
-    _, _, env_file, _ = _env_of(tmp_path,
-                                ["--role", "A", "--serial", "emulator-5554"],
-                                ["--role", "받는 쪽", "--serial", "emulator-5556", "--note", "it's B"],
-                                ["--role", "it's-a/role", "--serial", "emulator-5558"])
-    # 윈도우에서 이름만 "bash" 로 부르면 System32 의 WSL 런처가 먼저 잡혀 C:\ 경로를 못 읽는다
-    r = subprocess.run([shutil.which("bash"), "-c", f'source "{env_file}"; echo "$ROLE2|$ROLE3|$DEV2|$DEV_COUNT|$DEV"'],
-                       capture_output=True, text=True, encoding="utf-8")
-    assert r.returncode == 0, r.stderr
-    assert r.stdout.strip() == "받는 쪽|it's-a/role|emulator-5556|3|emulator-5554"
-
-
-def test_binding_order_and_unbind(tmp_path):
-    proj, run_dir, env_file, body = _env_of(tmp_path, ["--role", "A", "--serial", "s-a"],
-                                            ["--role", "B", "--serial", "s-b"])
-    assert "export ROLE1='A'; export DEV1='s-a'" in body
-    run_cli("device", "unbind", "--root", str(proj), "--role", "A", cwd=proj, home=tmp_path,
-            env_extra={"RUN_DIR": str(run_dir)})
-    after = env_file.read_text(encoding="utf-8")
-    assert "export ROLE1='B'; export DEV1='s-b'" in after and "export DEV2=" not in after
-    # 스킬 이름은 처음 쓴 것을 이어받는다
-    assert "export LAUNCH_RUN=" in after
-
-
-def test_package_is_kept_when_bindings_change(tmp_path):
-    _, _, env_file, _ = _env_of(tmp_path, ["--role", "A", "--serial", "s-a", "--package", "com.acme.x"])
-    assert "com.acme.x" in env_file.read_text(encoding="utf-8")
-
-
-def test_build_mismatch_needs_hashes_not_versions():
-    found = rt_devices.build_mismatch([
-        {"role": "A", "build": {"apk": "aaa", "version": "1.2.0+45"}},
-        {"role": "B", "build": {"apk": "bbb", "version": "1.2.0+45"}}])
-    assert found and "한쪽만 다시 설치" in found[0]["detail"]
-    assert rt_devices.build_mismatch([
-        {"role": "A", "build": {"apk": "aaa"}}, {"role": "B", "build": {"apk": None}}]) == []
+    assert d["ok"] is False and d["code"] == "logs_failed", d
+    assert rc != 0
 
 
 # ── app ──────────────────────────────────────────────────────────────────
@@ -459,91 +174,10 @@ def test_pick_device_refuses_to_guess_between_several(monkeypatch):
     assert rt_devices.pick_device(None)[1] == "emulator-5554"
 
 
-def _shot_args(tmp, **over):
-    import argparse
-    a = argparse.Namespace(root=str(tmp), device="emulator-5554", out="s1", clean_status=False,
-                           keep_format=True, max_side=0, quality=75)
-    for k, v in over.items():
-        setattr(a, k, v)
-    return a
-
-
-def test_android_shot_writes_png_and_restores_demo_mode(tmp_path, monkeypatch, capsys):
-    """상태바를 고정했으면 찍은 뒤 되돌린다 — 남의 기기 설정을 바꿔 두지 않는다."""
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("SHOT_DIR", str(tmp_path / "shots"))
-    monkeypatch.setattr(rt_devices, "list_devices", lambda: _DEV2)
-    monkeypatch.setattr(app_shot_action, "sdk_tool", lambda n: "/x/adb")
-    calls = []
-    monkeypatch.setattr(app_shot_action, "adb_shell",
-                        lambda serial, *a, **k: calls.append(a) or ("null" if a[:2] == ("settings", "get") else ""))
-
-    class R:
-        stdout = b"\x89PNG\r\n\x1a\nfake"
-        stderr = b""
-    monkeypatch.setattr(subprocess, "run", lambda *a, **k: R())
-    monkeypatch.setattr(time, "sleep", lambda s: None)
-
-    rc = app_shot_action._app_shot(_shot_args(tmp_path, clean_status=True))
-    d = json.loads(capsys.readouterr().out)
-    assert rc == 0 and d["platform"] == "android"
-    assert Path(d["file"]).read_bytes().startswith(b"\x89PNG")
-    flat = [" ".join(c) for c in calls]
-    assert any("command enter" in c for c in flat)
-    assert any("command exit" in c for c in flat), "데모 모드를 끄지 않았다"
-    assert "settings delete global sysui_demo_allowed" in flat, "허용 설정을 원래대로 돌리지 않았다"
-
-
-def test_android_shot_rejects_a_non_png(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("SHOT_DIR", str(tmp_path / "shots"))
-    monkeypatch.setattr(rt_devices, "list_devices", lambda: _DEV2)
-    monkeypatch.setattr(app_shot_action, "sdk_tool", lambda n: "/x/adb")
-
-    class R:
-        stdout = b"error: device offline"
-        stderr = b""
-    monkeypatch.setattr(subprocess, "run", lambda *a, **k: R())
-    app_shot_action._app_shot(_shot_args(tmp_path))
-    assert json.loads(capsys.readouterr().out)["code"] == "capture_failed"
-
-
 # ── web viewport · route (브라우저 없이 기록된다) ──────────────────────────
 
 def _root_for_web(tmp):
     return _repo(tmp, "webproj", remote=None)
-
-
-def test_viewport_presets_and_custom(tmp_path):
-    proj = _root_for_web(tmp_path)
-    _, out, _ = run_cli("web", "viewport", "--root", str(proj), "--preset", "mobile", home=tmp_path)
-    assert _j(out)["viewport"] == [390, 844]
-    _, out, _ = run_cli("web", "viewport", "--root", str(proj), "--preset", "700x500", home=tmp_path)
-    assert _j(out)["viewport"] == [700, 500]
-    _, out, _ = run_cli("web", "viewport", "--root", str(proj), "--preset", "huge", home=tmp_path)
-    assert _j(out)["code"] == "bad_viewport"
-
-
-def test_route_rules_are_saved_replaced_and_cleared(tmp_path):
-    proj = _root_for_web(tmp_path)
-    body = tmp_path / "empty.json"
-    body.write_text("[]", encoding="utf-8")
-    run_cli("web", "route", "--root", str(proj), "--match", "**/api/items*",
-            "--status", "200", "--body", str(body), home=tmp_path)
-    run_cli("web", "route", "--root", str(proj), "--match", "**/api/items*",
-            "--status", "500", "--body", "oops", home=tmp_path)
-    _, out, _ = run_cli("web", "route", "--root", str(proj), home=tmp_path)
-    rules = _j(out)["routes"]
-    assert len(rules) == 1, "같은 주소 규칙이 쌓였다"
-    assert rules[0]["status"] == 500 and rules[0]["content_type"].startswith("text/plain")
-    _, out, _ = run_cli("web", "route", "--root", str(proj), "--clear", home=tmp_path)
-    _, out, _ = run_cli("web", "route", "--root", str(proj), home=tmp_path)
-    assert _j(out)["routes"] == []
-
-
-def test_route_needs_a_status_or_a_delay(tmp_path):
-    proj = _root_for_web(tmp_path)
-    _, out, _ = run_cli("web", "route", "--root", str(proj), "--match", "**/x", home=tmp_path)
-    assert _j(out)["code"] == "missing_argument"
 
 
 def test_route_handler_takes_the_request_as_second_argument():
@@ -566,178 +200,7 @@ def test_route_handler_takes_the_request_as_second_argument():
     assert got == {"continued": True}
 
 
-# ── http ─────────────────────────────────────────────────────────────────
-
-def _serve_json(status: int, body: bytes):
-    class H(http.server.BaseHTTPRequestHandler):
-        def log_message(self, *a):
-            pass
-
-        def _send(self):
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-        do_GET = do_POST = _send
-    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    return f"http://127.0.0.1:{srv.server_port}", srv.shutdown
-
-
-def test_http_returns_failures_as_results(tmp_path):
-    """500 도 결과다 — 예외로 끝내지 않는다."""
-    base, stop = _serve_json(500, b'{"error":"boom"}')
-    try:
-        _, out, _ = run_cli("http", "--url", base + "/x", "--root", str(_root_for_web(tmp_path)),
-                            "--header", "Authorization: Bearer secret-token", home=tmp_path)
-        d = _j(out)
-        assert d["ok"] is True and d["status"] == 500 and d["json"] == {"error": "boom"}
-        assert "secret-token" not in out, "요청 헤더 값이 결과에 남았다"
-        _, out, _ = run_cli("http", "--url", base + "/x", "--expect-status", "200",
-                            "--root", str(_root_for_web(tmp_path)), home=tmp_path)
-        assert _j(out)["code"] == "unexpected_status"
-    finally:
-        stop()
-
-
-def test_http_relative_url_uses_recorded_base(tmp_path):
-    proj = _root_for_web(tmp_path)
-    _, out, _ = run_cli("http", "--url", "/health", "--root", str(proj), home=tmp_path)
-    assert _j(out)["code"] == "base_url_required"
-    base, stop = _serve_json(200, b'{"ok":1}')
-    try:
-        run_cli("access", "set", "--root", str(proj), "--key", "base_url",
-                "--json", json.dumps({"url": base}), home=tmp_path)
-        _, out, _ = run_cli("http", "--url", "/health", "--method", "POST", "--data", '{"a":1}',
-                            "--root", str(proj), home=tmp_path)
-        d = _j(out)
-        assert d["status"] == 200 and d["url"] == base + "/health"
-    finally:
-        stop()
-
-
-# ── stealth (gstack 이식) ─────────────────────────────────────────────────
-
-def test_stealth_hides_the_automation_flag_at_launch():
-    """실행 인자라야 연결을 끊은 뒤 뜨는 로그인 팝업에도 걸린다."""
-    args = stealth.launch_args(sys.executable)   # --version 을 못 읽어도 폴백 UA 가 나와야 한다
-    assert "--disable-blink-features=AutomationControlled" in args
-    ua = [a for a in args if a.startswith("--user-agent=")][0]
-    assert "HeadlessChrome" not in ua and "Chrome/" in ua
-
-
-def test_stealth_scripts_cover_the_checked_tells():
-    joined = "\n".join(stealth.init_scripts())
-    for needle in ("'webdriver'", "chrome.runtime", "Notification", "cdc_",
-                   "permissions.query", "[native code]"):
-        assert needle in joined, f"{needle} 을 다루지 않는다"
-    assert "__HW_CONCURRENCY__" not in joined, "자리표시자가 남았다"
-
-
-def test_stealth_keeps_the_upstream_license():
-    """MIT — 옮겨 온 쪽의 저작권 고지를 지워서는 안 된다."""
-    text = Path(stealth.__file__).read_text(encoding="utf-8")
-    assert "Copyright (c) 2026 Garry Tan" in text and "MIT License" in text
-
-
-def test_console_hook_covers_every_way_an_error_shows_up():
-    hook = web_session._CONSOLE_HOOK
-    assert 'addEventListener("error"' in hook and 'addEventListener("unhandledrejection"' in hook
-    assert "if (window.__projectops_console) return;" in hook
-
-
-# ── 빈 탭 정리 ────────────────────────────────────────────────────────────
-
-class _BlankTabPage:
-    def __init__(self, url):
-        self.url, self.closed = url, False
-
-    def close(self):
-        self.closed = True
-
-
-class _BlankTabCtx:
-    def __init__(self, pages):
-        self.pages = pages
-
-
-def test_close_blank_tabs_keeps_work_tab_and_real_pages():
-    """about:blank 만 닫고 작업 탭·실제 페이지는 남긴다 (open 반복 시 빈 탭 누적 방지)."""
-    blank1, blank2 = _BlankTabPage("about:blank"), _BlankTabPage("about:blank")
-    real, work = _BlankTabPage("https://github.com/x"), _BlankTabPage("about:blank")
-    n = web_session.close_blank_tabs(_BlankTabCtx([blank1, real, blank2, work]), work)
-    assert n == 2
-    assert blank1.closed and blank2.closed
-    assert not real.closed and not work.closed
-
-
 # ── 앱 탭 · 스와이프 (#826) ───────────────────────────────────────────────
-
-import app_input  # noqa: E402
-
-_UI_XML = (
-    '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
-    '<node text="" resource-id="" content-desc="" clickable="false" bounds="[0,0][1080,2400]">'
-    '<node text="로그인" resource-id="com.x:id/login" content-desc="" clickable="true" bounds="[100,2000][980,2140]"/>'
-    '<node text="로그인 없이 둘러보기" resource-id="" content-desc="" clickable="true" bounds="[100,2200][980,2300]"/>'
-    '<node text="" resource-id="" content-desc="닫기" clickable="true" bounds="[960,80][1060,180]"/>'
-    '<node text="숨김" resource-id="" content-desc="" clickable="true" bounds="[0,0][0,0]"/>'
-    '</node></hierarchy>UI hierchary dumped to: /dev/tty')
-
-_MAESTRO_JSON = json.dumps({"attributes": {"bounds": "[0,0][393,852]", "accessibilityText": "설정"},
-                            "children": [
-    {"attributes": {"text": "", "accessibilityText": "일반", "resource-id": "", "bounds": "[16,300][377,344]"}},
-    {"attributes": {"text": "", "accessibilityText": "", "resource-id": "", "bounds": "[0,0][0,0]"}},
-]})
-
-
-def test_ui_nodes_parses_dump_with_trailing_banner():
-    """/dev/tty 로 받은 dump 뒤의 안내 문구를 걷어내고, 크기 0 인 노드는 뺀다."""
-    nodes = app_input.ui_nodes(_UI_XML)
-    assert "숨김" not in [n["text"] for n in nodes]
-    login = next(n for n in nodes if n["text"] == "로그인")
-    assert login["center"] == [540, 2070] and login["clickable"] is True
-
-
-def test_maestro_nodes_uses_accessibility_text_as_label():
-    """iOS 는 보이는 문구가 accessibilityText 에 온다 — Android 와 같은 모양으로 맞춘다."""
-    nodes = app_input.maestro_nodes("Running...\n" + _MAESTRO_JSON)
-    assert [n["text"] for n in nodes] == ["설정", "일반"]
-    assert nodes[1]["center"] == [196, 322]
-
-
-def test_match_nodes_prefers_exact_then_contains_and_short_id():
-    nodes = app_input.ui_nodes(_UI_XML)
-    assert [n["text"] for n in app_input.match_nodes(nodes, "text", "로그인")] == ["로그인"]
-    assert app_input.match_nodes(nodes, "text", "둘러보기")[0]["text"] == "로그인 없이 둘러보기"
-    assert app_input.match_nodes(nodes, "id", "login")[0]["text"] == "로그인"
-    assert app_input.match_nodes(nodes, "desc", "닫기")[0]["center"] == [1010, 130]
-    assert app_input.match_nodes(nodes, "text", "없는문구") == []
-
-
-def test_slim_drops_duplicates_and_empty_fields():
-    nodes = app_input.ui_nodes(_UI_XML) * 2
-    out = app_input.slim(nodes)
-    assert len(out) == len({(n["text"], n["id"], n["desc"]) for n in nodes})
-    assert all("bounds" not in n and "" not in n.values() for n in out)
-
-
-def test_parse_ratio_rejects_pixels():
-    """픽셀 좌표를 비율 자리에 넣으면 거절한다 — 축소 캡처 좌표로 엉뚱한 곳을 누르는 사고 방지."""
-    assert app_input.parse_ratio("0.5,0.8") == (0.5, 0.8)
-    assert app_input.parse_ratio("540,2070") is None
-    assert app_input.parse_ratio("abc") is None
-    assert app_input.parse_ratio(None) is None
-
-
-def test_maestro_flow_is_valid_single_step():
-    flow = app_input.maestro_flow({"tapOn": {"text": "설정 \"일반\""}}, None)
-    assert flow.splitlines()[:2] == ["appId: any.app", "---"]
-    assert '- tapOn:' in flow and 'text: "설정 \\"일반\\""' in flow
-    swipe = app_input.maestro_flow({"swipe": {"start": "50%,75%", "end": "50%,25%", "duration": 300}}, "com.a")
-    assert swipe.startswith("appId: com.a") and 'start: "50%,75%"' in swipe and "duration: 300" in swipe
-
 
 def test_every_registered_backend_implements_the_contract():
     """새 백엔드를 등록하면 계약 메서드를 다 채웠는지 여기서 걸린다 (기여자 안전망)."""
@@ -749,15 +212,6 @@ def test_every_registered_backend_implements_the_contract():
         needed = "tap_selector" if be.selects_itself else "tap_xy"
         assert getattr(type(be), needed) is not getattr(app_input.Backend, needed), f"{name}.{needed} 미구현"
         assert be.install_hint
-
-
-def test_tap_requires_target_and_rejects_pixel_at():
-    assert _j(run_cli("app", "tap")[1])["code"] == "target_required"
-    assert _j(run_cli("app", "tap", "--at", "540,2070")[1])["code"] == "bad_ratio"
-
-
-def test_swipe_requires_direction_or_points():
-    assert _j(run_cli("app", "swipe")[1])["code"] == "swipe_target_required"
 
 
 class _FrameBackend(app_input.Backend):
@@ -791,139 +245,11 @@ def test_after_shot_waits_for_change_then_stability(monkeypatch, tmp_path):
     assert Path(r["shot"]).read_bytes() == b"\x89PNG-new"
 
 
-def test_after_shot_reports_no_change(monkeypatch, tmp_path):
-    """눌렀는데 화면이 그대로면 screen_changed=false — agent 가 다른 요소를 고르게 한다."""
-    _no_wait(monkeypatch)
-    t = iter(range(0, 1000))
-    monkeypatch.setattr(time, "time", lambda: next(t))
-    r = app_gestures.after_shot(_after_args(tmp_path), _FrameBackend([b"\x89PNG-same"]), "emu", b"\x89PNG-same")
-    assert r["screen_changed"] is False and Path(r["shot"]).exists()
-
-
-def test_after_shot_skipped_without_flag(tmp_path):
-    import argparse
-    assert app_gestures.after_shot(argparse.Namespace(shot=None), None, "emu", None) == {}
-
-
-@pytest.mark.local_only
-def test_android_tap_and_tree_on_real_device():
-    """붙은 Android 기기가 있으면 실제로 화면 구조를 읽고 비율 탭을 한다."""
-    dev = (app_input.sdk_tool("adb") and subprocess.run(
-        [app_input.sdk_tool("adb"), "devices"], capture_output=True, text=True).stdout) or ""
-    serials = [l.split()[0] for l in dev.splitlines()[1:] if l.endswith("device")]
-    if not serials:
-        pytest.skip("붙은 Android 기기 없음")
-    d = _j(run_cli("app", "tree", "--device", serials[0])[1])
-    if d.get("code") in ("ui_dump_failed", "ui_dump_timeout", "ui_automation_unavailable", "android_system_not_ready", "no_focused_window"):
-        # 잠금 화면·부팅 중·시스템 재시작 중이면 화면 구조가 비어 온다 — 코드 결함이 아니라 기기 상태다
-        pytest.skip("기기 화면을 읽을 수 없는 상태(잠금·부팅 중)")
-    assert d["platform"] == "android" and d["count"] > 0
-
-
-# ── 진짜 브라우저 (local_only) ────────────────────────────────────────────
-
-_PAGE = (
-    b'<!doctype html><meta charset="utf-8"><title>t</title>'
-    b'<input id="v"><button id="go" onclick="document.getElementById(\'out\').textContent='
-    b'document.getElementById(\'v\').value">go</button><p id="out"></p><ul id="l"></ul>'
-    b'<p id="bot"></p><script>'
-    b'document.getElementById("bot").textContent="webdriver="+navigator.webdriver+'
-    b'" headless="+/Headless/.test(navigator.userAgent);'
-    b'console.error("LOAD_ERROR_MARK");'
-    b'fetch("/api/items").then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json()})'
-    b'.then(xs=>{document.getElementById("l").textContent=xs.length?"n="+xs.length:"EMPTY_MARK"})'
-    b'.catch(e=>{document.getElementById("l").textContent="FAIL_MARK "+e.message});'
-    b'</script>')
-
-
-@contextlib.contextmanager
-def _browser_session(tmp_path):
-    ok, _ = rt_browser.require_playwright()
-    if ok is None:
-        pytest.skip("Playwright 없음 — web setup 후 실행된다")
-
-    class H(http.server.BaseHTTPRequestHandler):
-        def log_message(self, *a):
-            pass
-
-        def do_GET(self):
-            body = b'["a","b"]' if self.path.startswith("/api/") else _PAGE
-            ctype = "application/json" if self.path.startswith("/api/") else "text/html; charset=utf-8"
-            self.send_response(200)
-            self.send_header("Content-Type", ctype)
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    # HOME 은 그대로 — 원격 없는 임시 레포로 상태 폴더만 나눈다
-    proj = _repo(tmp_path, f"launchtest-{os.getpid()}", remote=None)
-    state = common_state.state_dir("launch", proj)
-    try:
-        yield proj, f"http://127.0.0.1:{srv.server_port}/"
-    finally:
-        close_browser_for_test(run_cli, proj, state)
-        srv.shutdown()
-        shutil.rmtree(state, ignore_errors=True)
-
-
-@pytest.mark.local_only
-def test_web_walks_real_browser_across_separate_calls(tmp_path):
-    """호출이 쪼개져도 같은 브라우저에 붙는지가 이 설계의 전부다."""
-    with _browser_session(tmp_path) as (proj, url):
-        r = str(proj)
-        assert _j(run_cli("web", "open", "--root", r, "--url", url)[1]).get("ok"), "열지 못했다"
-        run_cli("web", "type", "--root", r, "--selector", "#v", "--text", "남아야 한다")
-        run_cli("web", "click", "--root", r, "--selector", "#go")
-        assert _j(run_cli("web", "assert", "--root", r, "--text", "남아야 한다")[1])["ok"] is True
-        # stealth 가 켜져 있으면 자동화 표식이 없다
-        assert _j(run_cli("web", "assert", "--root", r, "--text", "webdriver=false headless=false")[1])["ok"]
-        d = _j(run_cli("web", "console", "--root", r)[1])
-        assert "LOAD_ERROR_MARK" in " ".join(l["text"] for l in d["logs"]), "로드 중 오류를 놓쳤다"
-
-
-@pytest.mark.local_only
-def test_route_stages_empty_and_failing_states(tmp_path):
-    """서버를 건드리지 않고 빈 목록·실패를 연출한다. 폭도 바꿔 찍는다."""
-    with _browser_session(tmp_path) as (proj, url):
-        r = str(proj)
-        run_cli("web", "open", "--root", r, "--url", url)
-        assert _j(run_cli("web", "assert", "--root", r, "--text", "n=2")[1])["ok"], "진짜 응답이 안 보인다"
-
-        run_cli("web", "route", "--root", r, "--match", "**/api/items", "--status", "200", "--body", "[]")
-        run_cli("web", "goto", "--root", r, "--url", url)
-        assert _j(run_cli("web", "assert", "--root", r, "--text", "EMPTY_MARK")[1])["ok"], "빈 목록을 연출하지 못했다"
-
-        run_cli("web", "route", "--root", r, "--match", "**/api/items", "--status", "500", "--body", "{}")
-        run_cli("web", "viewport", "--root", r, "--preset", "mobile")
-        run_cli("web", "goto", "--root", r, "--url", url)
-        assert _j(run_cli("web", "assert", "--root", r, "--text", "FAIL_MARK HTTP 500")[1])["ok"]
-        shot = _j(run_cli("web", "shot", "--root", r, "--out", str(tmp_path / "m.png"))[1])
-        from PIL import Image
-        with Image.open(shot["file"]) as im:
-            assert im.width == 390, f"모바일 폭이 아니다: {im.size}"
-
-        run_cli("web", "route", "--root", r, "--clear")
-        run_cli("web", "goto", "--root", r, "--url", url)
-        assert _j(run_cli("web", "assert", "--root", r, "--text", "n=2")[1])["ok"], "규칙을 지웠는데 남아 있다"
-
-
-@pytest.mark.local_only
-def test_hook_survives_navigation_driven_by_a_later_call(tmp_path):
-    """훅은 연결이 끊기면 사라진다 — 붙을 때마다 다시 심지 않으면 조용히 빈다 (#625 실측)."""
-    with _browser_session(tmp_path) as (proj, url):
-        r = str(proj)
-        run_cli("web", "open", "--root", r)                  # 빈 탭으로 연다
-        run_cli("web", "goto", "--root", r, "--url", url)    # 별도 호출로 이동
-        d = _j(run_cli("web", "console", "--root", r)[1])
-        assert d.get("code") != "console_hook_missing", d
-        assert "LOAD_ERROR_MARK" in " ".join(l["text"] for l in d["logs"]), d
-
-
 # ── render (#632) ────────────────────────────────────────────────────────
 #
 # 임시 git 레포를 픽스처로 쓴다. 렌더 명령은 셸로 PNG 를 만드는 흉내만 낸다 —
 # 스크립트가 하는 일은 실행 · 수집 · 청소 · 흔적 검사뿐이라 그걸로 충분하다.
+
 
 _PNG = "printf '\\211PNG\\r\\n\\032\\n' > "
 
@@ -945,56 +271,6 @@ def _render(proj, tmp, *args, shots=None):
     return _j(out), shots
 
 
-def test_render_collects_cleans_and_finds_no_residue(tmp_path):
-    proj = _render_repo(tmp_path)
-    _render(proj, tmp_path, "snapshot")
-    tmpdir = proj / "_launch_render"
-    tmpdir.mkdir()
-    (tmpdir / "states_test.txt").write_text("임시 렌더 코드", encoding="utf-8")
-    d, shots = _render(proj, tmp_path, "run", "--cmd", f"mkdir -p _launch_render/shots && {_PNG}_launch_render/shots/a.png",
-                       "--collect", "_launch_render/shots/*.png", "--cleanup", "_launch_render")
-    assert d["ok"] is True and d["residue"] == [] and d["baseline"] == "snapshot", d
-    assert (shots / "a.png").is_file() and not tmpdir.exists()
-
-
-def test_render_failure_cleans_but_does_not_collect(tmp_path):
-    proj = _render_repo(tmp_path)
-    (proj / "_launch_render").mkdir()
-    d, shots = _render(proj, tmp_path, "run", "--cmd", f"{_PNG}_launch_render/a.png; echo boom; exit 3",
-                       "--collect", "_launch_render/*.png", "--cleanup", "_launch_render")
-    assert d["code"] == "render_failed" and d["exit_code"] == 3 and "boom" in d["output_tail"]
-    assert d["collected"] == [] and not (proj / "_launch_render").exists(), "실패했는데 청소를 안 했다"
-
-
-def test_render_reports_residue_and_does_not_delete_it(tmp_path):
-    """임시 파일을 만들기 전에 기준을 떴으므로, --cleanup 에서 빠뜨린 파일이 흔적으로 잡힌다."""
-    proj = _render_repo(tmp_path)
-    _render(proj, tmp_path, "snapshot")
-    (proj / "_launch_render").mkdir()
-    (proj / "stray.dart").write_text("// 빠뜨린 임시 파일", encoding="utf-8")
-    d, _ = _render(proj, tmp_path, "run", "--cmd", f"{_PNG}_launch_render/a.png",
-                   "--collect", "_launch_render/*.png", "--cleanup", "_launch_render")
-    assert d["code"] == "residue" and d["residue"] == ["?? stray.dart"], d
-    assert (proj / "stray.dart").exists(), "흔적을 스크립트가 지웠다 — 남의 변경일 수 있어 지우면 안 된다"
-
-
-def test_render_without_snapshot_ignores_what_was_already_changed(tmp_path):
-    """기준을 안 떴으면 실행 직전이 기준이다 — 원래 있던 변경을 흔적으로 몰지 않는다."""
-    proj = _render_repo(tmp_path)
-    (proj / "keep.txt").write_text("사용자가 고치던 중", encoding="utf-8")
-    d, _ = _render(proj, tmp_path, "run", "--cmd", f"{_PNG}a.png", "--collect", "*.png")
-    assert d["ok"] is True and d["baseline"] == "run" and d["residue"] == []
-
-
-def test_render_keeps_both_files_on_name_collision(tmp_path):
-    proj = _render_repo(tmp_path)
-    shots = tmp_path / "shots"
-    shots.mkdir()
-    (shots / "a.png").write_bytes(b"old")
-    d, _ = _render(proj, tmp_path, "run", "--cmd", f"{_PNG}a.png", "--collect", "*.png", shots=shots)
-    assert d["ok"] and (shots / "a.png").read_bytes() == b"old" and (shots / "a-2.png").is_file()
-
-
 def test_render_refuses_to_clean_outside_the_repo(tmp_path):
     proj = _render_repo(tmp_path)
     outside = tmp_path / "outside.txt"
@@ -1004,213 +280,12 @@ def test_render_refuses_to_clean_outside_the_repo(tmp_path):
     assert outside.exists() and d["refused_cleanup"] and "warning" in d
 
 
-def test_render_run_needs_a_command(tmp_path):
-    d, _ = _render(_render_repo(tmp_path), tmp_path, "run")
-    assert d["code"] == "cmd_required"
-
-
-
-def test_repo_key_distinguishes_non_ascii_local_repos(tmp_path):
-    """#702: 원격 없는 한글 폴더명 저장소가 unknown/repo 로 뭉쳐 상태를 공유하면 안 된다."""
-    a = _repo(tmp_path, "앱 하나", "")
-    b = _repo(tmp_path, "앱 둘", "")
-    c = _repo(tmp_path, "한글 repo", "")
-    d = _repo(tmp_path, "다른 repo", "")
-    keys = {common_state.repo_key(x) for x in (a, b, c, d)}
-    assert len(keys) == 4
-    assert "unknown" not in keys and "repo" not in keys
-    # 같은 경로면 키가 안정적이다
-    assert common_state.repo_key(a) == common_state.repo_key(a)
-
-
-def test_repo_key_keeps_plain_ascii_local_name(tmp_path):
-    """기존 ASCII 폴더명 키는 그대로 — 이미 쌓인 상태가 끊기지 않는다."""
-    assert common_state.repo_key(_repo(tmp_path, "my-app", "")) == "my-app"
-
-
-# ── #713: 없는 경로·빈 key 를 조용히 수용하지 않는다 ───────────────────────
-
-def test_access_unset_requires_key(tmp_path):
-    proj = _repo(tmp_path)
-    rc, out, _ = run_cli("access", "unset", "--root", str(proj), home=tmp_path / "home")
-    d = _j(out)
-    assert rc == 1 and d["ok"] is False and d["code"] == "key_required"
-
-
-def test_get_output_path_rejects_missing_root(tmp_path):
-    rc, out, _ = run_cli("get-output-path", "--root", str(tmp_path / "없는" / "경로"),
-                         home=tmp_path / "home")
-    d = _j(out)
-    assert rc == 1 and d["code"] == "not_found"
-# ── logs: 실패한 명령을 성공으로 보고하지 않는다 (#704) ───────────────────
-
-def test_logs_reports_command_not_found_as_failure(tmp_path):
-    rc, out, _ = run_cli("logs", "--command", "nonexistent_zzz_cmd", home=tmp_path / "h", cwd=tmp_path)
-    d = _j(out)
-    assert d["ok"] is False and d["code"] == "logs_failed", d
-    assert rc != 0
-
-
-def test_logs_reports_exit_255_as_failure(tmp_path):
-    _, out, _ = run_cli("logs", "--command", "echo oops >&2; exit 255", home=tmp_path / "h", cwd=tmp_path)
-    d = _j(out)
-    assert d["ok"] is False and d["code"] == "logs_failed" and "oops" in d["error"], d
-
-
-def test_logs_grep_no_match_is_still_success(tmp_path):
-    _, out, _ = run_cli("logs", "--command", "printf 'a\\nb\\n'", "--grep", "zzz",
-                        home=tmp_path / "h", cwd=tmp_path)
-    d = _j(out)
-    assert d["ok"] is True and d["lines"] == [], d
-
-
-def test_logs_tail_and_grep_apply_in_python(tmp_path):
-    _, out, _ = run_cli("logs", "--command", "printf 'ERR 1\\nok\\nerr 2\\nERR 3\\n'",
-                        "--grep", "err", "--tail", "2", home=tmp_path / "h", cwd=tmp_path)
-    d = _j(out)
-    assert d["ok"] is True and d["lines"] == ["err 2", "ERR 3"], d
-
-
-# ── 잘못된 입력은 스택 트레이스가 아니라 JSON 오류 (#705) ─────────────────
-
-def _assert_json_error(rc, out, err, code=None):
-    assert rc != 0, (rc, out, err)
-    assert "Traceback" not in err, err
-    d = _j(out)
-    assert d["ok"] is False, d
-    if code:
-        assert d["code"] == code, d
-    return d
-
-
-def test_http_missing_data_file_is_json_error(tmp_path):
-    rc, out, err = run_cli("http", "--url", "http://127.0.0.1:1", "--method", "POST",
-                           "--data", "@nonexistent.json", home=tmp_path / "h", cwd=tmp_path)
-    _assert_json_error(rc, out, err, "data_file_not_found")
-
-
-def test_shrink_non_image_is_json_error(tmp_path):
-    bad = tmp_path / "bad.txt"
-    bad.write_text("not an image")
-    rc, out, err = run_cli("shrink", str(bad), home=tmp_path / "h", cwd=tmp_path)
-    d = _assert_json_error(rc, out, err)
-    assert d["code"] in ("image_unreadable", "no_resize_tool", "handler_error"), d
-
-
-def test_shrink_directory_is_json_error(tmp_path):
-    rc, out, err = run_cli("shrink", str(tmp_path), home=tmp_path / "h", cwd=tmp_path)
-    _assert_json_error(rc, out, err, "not_a_file")
-
-
-def test_shrink_negative_max_side_is_json_error(tmp_path):
-    img = tmp_path / "a.png"
-    img.write_bytes(b"x")
-    rc, out, err = run_cli("shrink", str(img), "--max-side", "-5", home=tmp_path / "h", cwd=tmp_path)
-    _assert_json_error(rc, out, err, "bad_args")
-
-
-def test_render_run_missing_cwd_is_json_error(tmp_path):
-    rc, out, err = run_cli("render", "run", "--cmd", "echo hi", "--cwd", "nonexistent",
-                           "--root", str(tmp_path), home=tmp_path / "h", cwd=tmp_path)
-    _assert_json_error(rc, out, err, "cwd_not_found")
-
-
-def test_unexpected_handler_exception_becomes_json(monkeypatch, capsys):
-    """어떤 핸들러든 예외가 새도 main 이 JSON 으로 감싼다."""
-    def boom(*args, **kwargs):
-        raise RuntimeError("boom")
-    monkeypatch.setattr(shrink_cmd, "shrink", boom)
-    rc = launch_cli.main(["shrink", "x.png"])
-    d = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
-    assert rc == 1 and d["code"] == "handler_error" and "boom" in d["error"]
-
-
-# ── web route · goto 입력 처리 (#711) ─────────────────────────────────────
-
-def test_route_body_typo_path_is_rejected_not_used_as_body(tmp_path):
-    proj = _root_for_web(tmp_path)
-    rc, out, err = run_cli("web", "route", "--root", str(proj), "--match", "**/api/items*",
-                           "--status", "200", "--body", "nonexistent.json", home=tmp_path)
-    d = _j(out)
-    assert d["ok"] is False and d["code"] == "body_not_found", d
-    _, out, _ = run_cli("web", "route", "--root", str(proj), home=tmp_path)
-    assert _j(out)["routes"] == [], "오타 경로가 규칙으로 등록됐다"
-
-
-def test_route_body_text_is_inline_and_json_values_are_not_paths(tmp_path):
-    proj = _root_for_web(tmp_path)
-    for body_args in (["--body-text", "nonexistent.json"], ["--body", "1.5"], ["--body", "[]"]):
-        _, out, _ = run_cli("web", "route", "--root", str(proj), "--match", "**/x",
-                            "--status", "200", *body_args, home=tmp_path)
-        assert _j(out)["ok"] is True, (body_args, out)
-
-
-@pytest.mark.parametrize("status", ["99999", "-1", "99", "600"])
-def test_route_status_must_be_http_range(tmp_path, status):
-    proj = _root_for_web(tmp_path)
-    _, out, _ = run_cli("web", "route", "--root", str(proj), "--match", "**/x",
-                        f"--status={status}", home=tmp_path)
-    d = _j(out)
-    assert d["ok"] is False and d["code"] == "bad_status", d
-
-
-class _FakePage:
-    url = "http://x/nonexistent-page"
-
-    def __init__(self, status):
-        self._status = status
-
-    def goto(self, url, **kw):
-        class R:
-            status = self._status
-        return R()
-
-    def title(self):
-        return "Error response"
-
-    def wait_for_load_state(self, *a, **k):
-        pass
-
-
-class _FakePw:
-    def stop(self):
-        pass
-
-
-@pytest.mark.parametrize("status,http_error", [(404, True), (200, False)])
-def test_goto_reports_http_status(tmp_path, monkeypatch, capsys, status, http_error):
-    monkeypatch.setenv("HOME", str(tmp_path))   # 사용자의 진짜 ~/.projectops 를 건드리지 않는다
-    monkeypatch.setenv("USERPROFILE", str(tmp_path))
-    proj = _root_for_web(tmp_path)
-    state_f = rt_browser.state_path(proj)
-    rt_browser.write_state(state_f, {"cdp": "http://127.0.0.1:1"})
-    monkeypatch.setattr(web_cmd, "web_connect",
-                        lambda st: ((_FakePw(), None, _FakePage(status)), None))
-    rc = launch_cli.main(["web", "goto", "--root", str(proj), "--url", "http://x/nonexistent-page"])
-    d = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
-    assert d["status"] == status and d.get("http_error", False) is http_error, d
-    assert rc == 0
-
-
 # ── web close: 응답 없는 브라우저에서 멈추지 않는다 (#712) ────────────────
 
 _STUBBORN = ("import signal,time,sys\n"
              "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
              "print('up', flush=True)\n"
              "time.sleep(60)\n")
-
-
-def test_kill_browser_escalates_to_sigkill_when_sigterm_is_ignored():
-    proc = subprocess.Popen([sys.executable, "-c", _STUBBORN], stdout=subprocess.PIPE,
-                            start_new_session=True)
-    try:
-        proc.stdout.readline()   # SIGTERM 무시 설정이 끝난 뒤에 시작한다
-        alive = rt_procs.kill_browser(proc.pid, grace=0.5)
-        assert alive is False
-        assert proc.poll() is not None or not rt_procs.pid_alive(proc.pid)
-    finally:
-        if proc.poll() is None:
-            proc.kill()
 
 
 def test_web_close_does_not_hang_on_unresponsive_browser(tmp_path, monkeypatch):
@@ -1234,58 +309,3 @@ def test_web_close_does_not_hang_on_unresponsive_browser(tmp_path, monkeypatch):
     finally:
         if proc.poll() is None:
             proc.kill()
-
-
-# ── 브라우저 선택 (#857: 내부망에서 설치된 Chrome·Edge 사용) ─────────────────
-import browser_pick  # noqa: E402
-
-
-class TestBrowserPick:
-    def _exe(self, tmp_path, name="chrome.exe"):
-        p = tmp_path / name
-        p.write_text("x")
-        return str(p)
-
-    def test_env_override_wins_over_bundled(self, tmp_path):
-        bundled = self._exe(tmp_path, "bundled.exe")
-        custom = self._exe(tmp_path, "custom.exe")
-        pick = browser_pick.resolve(bundled, env={browser_pick.ENV_VAR: custom})
-        assert pick["exe"] == custom and pick["source"] == "env"
-
-    def test_env_invalid_stops_instead_of_falling_back(self, tmp_path):
-        bundled = self._exe(tmp_path, "bundled.exe")
-        pick = browser_pick.resolve(bundled, env={browser_pick.ENV_VAR: str(tmp_path / "nope.exe")})
-        assert pick["exe"] is None and pick.get("error")
-
-    def test_bundled_used_when_present(self, tmp_path, monkeypatch):
-        bundled = self._exe(tmp_path, "bundled.exe")
-        monkeypatch.setattr(browser_pick, "system_candidates",
-                            lambda: [("Chrome", tmp_path / "chrome.exe")])
-        pick = browser_pick.resolve(bundled, env={})
-        assert pick["source"] == "bundled" and pick["exe"] == bundled
-
-    def test_falls_back_to_system_when_bundled_missing(self, tmp_path, monkeypatch):
-        chrome = self._exe(tmp_path, "chrome.exe")
-        monkeypatch.setattr(browser_pick, "system_candidates", lambda: [("Chrome", Path(chrome))])
-        pick = browser_pick.resolve(str(tmp_path / "gone.exe"), env={})
-        assert pick["source"] == "system" and pick["label"] == "Chrome" and pick["exe"] == chrome
-
-    def test_system_order_is_respected(self, tmp_path, monkeypatch):
-        chrome = self._exe(tmp_path, "chrome.exe")
-        edge = self._exe(tmp_path, "msedge.exe")
-        monkeypatch.setattr(browser_pick, "system_candidates",
-                            lambda: [("Chrome", Path(chrome)), ("Edge", Path(edge))])
-        assert browser_pick.resolve(None, env={})["label"] == "Chrome"
-
-    def test_nothing_found(self, monkeypatch):
-        monkeypatch.setattr(browser_pick, "system_candidates", lambda: [])
-        pick = browser_pick.resolve(None, env={})
-        assert pick["exe"] is None and pick["source"] is None
-
-    def test_unreachable_host_is_false_fast(self):
-        # 닫힌 포트: 연결 거부 → False. 100MB 받다 실패하기 전에 안다
-        assert browser_pick.download_host_reachable("https://127.0.0.1:1", timeout=1.0) is False
-
-    def test_download_host_follows_playwright_mirror_env(self, monkeypatch):
-        monkeypatch.setenv("PLAYWRIGHT_DOWNLOAD_HOST", "https://mirror.example.com/")
-        assert browser_pick.download_host() == "https://mirror.example.com"

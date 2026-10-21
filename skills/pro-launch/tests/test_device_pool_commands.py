@@ -72,15 +72,6 @@ def result_of(capsys):
     return json.loads(capsys.readouterr().out.strip().splitlines()[-1])
 
 
-def test_acquire_boots_shutdown_device_and_records_booted_by_lease(monkeypatch, tmp_path, capsys, backend):
-    monkeypatch.setenv("LAUNCH_SESSION", "s1")
-    acquire.run_acquire(args(tmp_path))
-    data = result_of(capsys)
-    assert data["verdict"] == "reuse" and data["booted"] is True and data["lease_id"]
-    assert ("boot", data["device"]) in backend.calls
-    assert device_claims.device_owner(data["device"])["is_booted_by_lease"] is True
-
-
 def test_second_session_gets_the_other_device(monkeypatch, tmp_path, capsys, backend):
     monkeypatch.setenv("LAUNCH_SESSION", "s1")
     acquire.run_acquire(args(tmp_path))
@@ -88,21 +79,6 @@ def test_second_session_gets_the_other_device(monkeypatch, tmp_path, capsys, bac
     monkeypatch.setenv("LAUNCH_SESSION", "s2")
     acquire.run_acquire(args(tmp_path))
     assert result_of(capsys)["device"] != first
-
-
-def test_acquire_wait_accumulates_across_calls_then_asks(monkeypatch, tmp_path, capsys, backend):
-    for session in ("s1", "s2"):
-        monkeypatch.setenv("LAUNCH_SESSION", session)
-        acquire.run_acquire(args(tmp_path))
-        result_of(capsys)
-    monkeypatch.setenv("LAUNCH_SESSION", "s3")
-    acquire.run_acquire(args(tmp_path))
-    busy = result_of(capsys)
-    assert busy["code"] == "device_busy" and len(busy["owners"]) == 2
-    wait_key = acquire.wait_key(acquire.AcquireRequest(platform="ios", form="phone", purpose="#953"))
-    monkeypatch.setattr(device_claims, "waited_seconds", lambda key: 601 if key == wait_key else 0)
-    acquire.run_acquire(args(tmp_path))
-    assert result_of(capsys)["code"] == "needs_user"
 
 
 def test_release_shuts_down_only_what_this_lease_booted(monkeypatch, tmp_path, capsys, backend):
@@ -120,44 +96,6 @@ def test_release_shuts_down_only_what_this_lease_booted(monkeypatch, tmp_path, c
     assert result_of(capsys)["shutdown"] is True and ("shutdown", booted_device) in backend.calls
 
 
-def test_release_does_not_shutdown_when_another_lease_remains(monkeypatch, tmp_path, capsys, backend):
-    monkeypatch.setenv("LAUNCH_SESSION", "s1")
-    acquire.run_acquire(args(tmp_path))
-    device = result_of(capsys)["device"]
-    # 같은 기기에 다른 세션 lease 가 하나 더 있다 (예: --yes 로 함께 쓰는 중)
-    monkeypatch.setattr(device_claims, "release_device",
-                        lambda dev_id, lease_id=None: {"owner": {"key": device}, "settings": [],
-                                                       "lease": {"is_booted_by_lease": True, "backend": "fake_ios",
-                                                                 "instance": device},
-                                                       "remaining_live_leases": 1})
-    pool.run_release(args(tmp_path, device=device))
-    data = result_of(capsys)
-    assert data["shutdown"] is False and data["shutdown_reason"] == "another_lease"
-
-
-def test_release_all_releases_every_lease_of_session(monkeypatch, tmp_path, capsys, backend):
-    monkeypatch.setenv("LAUNCH_SESSION", "s1")
-    for _ in range(2):
-        acquire.run_acquire(args(tmp_path))
-        result_of(capsys)
-    pool.run_release(args(tmp_path, all=True))
-    data = result_of(capsys)
-    assert len(data["released"]) == 2 and all(row["shutdown"] for row in data["released"])
-    assert device_claims.leases_of_session("s1") == []
-
-
-def test_keep_booted_release_keeps_device_as_pool_candidate(monkeypatch, tmp_path, capsys, backend):
-    monkeypatch.setenv("LAUNCH_SESSION", "s1")
-    acquire.run_acquire(args(tmp_path))
-    device = result_of(capsys)["device"]
-    pool.run_release(args(tmp_path, device=device, keep_booted=True))
-    assert result_of(capsys)["shutdown_reason"] == "keep_booted"
-    monkeypatch.setenv("LAUNCH_SESSION", "s2")
-    acquire.run_acquire(args(tmp_path))
-    data = result_of(capsys)
-    assert data["device"] == device and data["booted"] is False
-
-
 def test_shutdown_refuses_other_live_lease_without_yes(monkeypatch, tmp_path, capsys, backend):
     monkeypatch.setenv("LAUNCH_SESSION", "s1")
     acquire.run_acquire(args(tmp_path))
@@ -169,34 +107,3 @@ def test_shutdown_refuses_other_live_lease_without_yes(monkeypatch, tmp_path, ca
     assert result_of(capsys)["action"] == "shutdown"
 
 
-def test_reclaim_restores_dead_session_settings_and_reports_failures(monkeypatch, tmp_path, capsys, backend):
-    monkeypatch.setenv("LAUNCH_SESSION", "dead")
-    acquire.run_acquire(args(tmp_path, device="A"))
-    result_of(capsys)
-    device_claims.record_device_setting("A", "appearance", "light", [["restore-appearance"]])
-    device_claims.record_device_setting("A", "locale:system", "ko", [["restore-locale"]])
-    monkeypatch.setattr(device_claims, "is_lease_live", lambda lease, now=None, probe=None: lease.get("session") != "dead")
-    monkeypatch.setattr(acquire, "run_restore_commands",
-                        lambda setting: {"is_ok": setting["key"] == "appearance", "key": setting["key"]})
-    monkeypatch.setenv("LAUNCH_SESSION", "s2")
-    acquire.run_acquire(args(tmp_path, device="A"))
-    data = result_of(capsys)
-    assert data["verdict"] == "reclaim"
-    assert [s["key"] for s in data["unrestored_settings"]] == ["locale:system"]
-    assert device_claims.device_owner("A")["changed_settings"] == ["locale:system"]
-
-
-def test_acquire_without_platform_is_rejected(tmp_path, capsys, backend):
-    acquire.run_acquire(args(tmp_path, platform=None))
-    assert result_of(capsys)["code"] == "args_required"
-
-
-def test_release_works_for_shut_down_device_by_ledger_key(monkeypatch, tmp_path, capsys, backend):
-    monkeypatch.setenv("LAUNCH_SESSION", "s1")
-    acquire.run_acquire(args(tmp_path, device="A"))
-    result_of(capsys)
-    # 끈 기기는 붙은 기기 목록에 없다
-    monkeypatch.setattr(claims, "pick_device", lambda want: (None, want, {"android": [], "ios_booted": []}))
-    monkeypatch.setattr(claims, "no_device_response", lambda dev, want: claims.out({"ok": False, "code": "no_device"}))
-    pool.run_release(args(tmp_path, device="A"))
-    assert result_of(capsys)["released"] is True

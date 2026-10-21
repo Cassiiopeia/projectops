@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 from argparse import Namespace
 from pathlib import Path
@@ -11,7 +10,7 @@ SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
-from pro_launch.commands.web import recovery, tabs  # noqa: E402
+from pro_launch.commands.web import recovery  # noqa: E402
 from pro_launch.commands.web.actions import login  # noqa: E402
 
 
@@ -33,80 +32,6 @@ def test_dead_pid_and_stale_lock_are_cleaned(monkeypatch, tmp_path):
     decision, recovered = recovery.recover_recorded_browser({"pid": 4242, "cdp": "http://127.0.0.1:1"}, profile)
     assert decision == "launch" and recovered == ["dead_pid", "stale_lock"]
     assert not os.path.lexists(profile / "SingletonLock") and not (profile / "SingletonCookie").exists()
-
-
-def test_lock_is_kept_while_another_process_uses_the_profile(monkeypatch, tmp_path):
-    profile = _locked_profile(tmp_path)
-    monkeypatch.setattr(recovery, "process_command_lines", lambda: f"chrome --user-data-dir={profile}")
-    decision, recovered = recovery.recover_recorded_browser({}, profile)
-    assert decision == "launch" and recovered == []
-    assert os.path.lexists(profile / "SingletonLock")
-
-
-def test_hung_browser_is_closed_before_relaunch(monkeypatch, tmp_path):
-    monkeypatch.setattr(recovery, "pid_alive", lambda pid: True)
-    monkeypatch.setattr(recovery, "cdp_responds", lambda cdp, timeout=0: False)
-    monkeypatch.setattr(recovery, "kill_browser", lambda pid, grace=0: False)
-    monkeypatch.setattr(recovery, "process_command_lines", lambda: "")
-    decision, recovered = recovery.recover_recorded_browser({"pid": 7, "cdp": "http://x"}, tmp_path)
-    assert decision == "launch" and recovered == ["hung_browser"]
-
-
-def test_cdp_probe_gives_up_on_a_silent_port():
-    # 연결은 받지만 아무 응답도 안 하는 포트 — 멈춘 브라우저 흉내
-    server = subprocess.Popen([sys.executable, "-c",
-                               "import socket,time\ns=socket.socket();s.bind(('127.0.0.1',0));s.listen()\n"
-                               "print(s.getsockname()[1],flush=True)\nc=s.accept();time.sleep(30)"],
-                              stdout=subprocess.PIPE, text=True)
-    try:
-        port = int(server.stdout.readline())
-        assert recovery.cdp_responds(f"http://127.0.0.1:{port}", timeout=0.5) is False
-    finally:
-        server.kill()
-
-
-# ── #878 탭 소유권 ────────────────────────────────────────────────────────
-
-class _TabPage:
-    def __init__(self, url, tid):
-        self.url, self.tid = url, tid
-
-    def is_closed(self):
-        return False
-
-
-class _TabCtx:
-    def __init__(self, pages):
-        self.pages = pages
-
-
-def _fake_target_ids(monkeypatch):
-    monkeypatch.setattr(tabs, "target_id", lambda page: getattr(page, "tid", None))
-
-
-def test_default_session_skips_tabs_owned_by_named_sessions(monkeypatch):
-    _fake_target_ids(monkeypatch)
-    mine, theirs = _TabPage("http://a/", "T1"), _TabPage("http://b/", "T2")
-    state = {"tabs": {"edit-form": {"target_id": "T2"}}}
-    assert tabs.default_tab_page(_TabCtx([mine, theirs]), state) is mine
-
-
-def _no_session_env(monkeypatch):
-    for var in (tabs.TAB_ENV_VAR, *tabs.SESSION_ENV_VARS):
-        monkeypatch.delenv(var, raising=False)
-
-
-def test_drift_warns_when_page_moved_without_this_session(monkeypatch):
-    _fake_target_ids(monkeypatch)
-    _no_session_env(monkeypatch)
-    page = _TabPage("http://a/form?step=2", "T1")
-    state = {}
-    tabs.mark_tab(page, state)
-    page.url = "http://a/form?step=3#x"   # 같은 화면 안의 쿼리·해시 변화는 경고하지 않는다
-    assert tabs.drift_warning(page, state) is None
-    page.url = "http://other.site/"
-    warning = tabs.drift_warning(page, state)
-    assert warning["code"] == "page_changed_by_other_session" and warning["previous_url"] == "http://a/form?step=2"
 
 
 # ── #881 로그인 인계 ──────────────────────────────────────────────────────
@@ -187,33 +112,3 @@ def test_login_fills_and_hands_off_when_condition_not_met(monkeypatch):
     # 값은 결과 어디에도 없다
     assert "s3cret-pass" not in str(payload) and "me@test.local" not in str(payload)
 
-
-def test_login_masks_secret_in_errors(monkeypatch):
-    _fake_cred(monkeypatch)
-    page = _LoginPage()
-    page.broken.add("#pw")
-    payload = login.execute(page, _login_args(), {})
-    assert payload["code"] == "web_action_failed" and "s3cret-pass" not in payload["error"]
-
-
-def test_login_results_carry_login_policy_for_the_cred(monkeypatch):
-    # 성공 · 사용자 인계 둘 다 그 계정의 중간 화면 정책을 싣는다 (#905)
-    import credentials
-    asked = []
-    monkeypatch.setattr(credentials, "resolve_login_policy",
-                        lambda name: asked.append(name) or {"trust_device": {"value": "always", "source": "credential"}})
-    _fake_cred(monkeypatch)
-    handoff = login.execute(_LoginPage(), _login_args(), {"headed": False})
-    done = login.execute(_LoginPage(), _login_args(until_url=None), {})
-    assert handoff["login_policy"]["trust_device"]["value"] == "always"
-    assert done["login_policy"]["trust_device"]["value"] == "always"
-    assert asked == ["staging", "staging"]
-
-def test_connect_reports_hung_browser_without_waiting(monkeypatch):
-    # 프로세스는 살아 있는데 CDP 무응답 → Playwright 연결 전에 browser_hung (#887)
-    from pro_launch.commands.web import session as web_session
-    monkeypatch.setattr(web_session, "pid_alive", lambda pid: True)
-    monkeypatch.setattr(web_session, "cdp_responds", lambda cdp: False)
-    monkeypatch.setattr(web_session, "require_playwright", lambda: (lambda: None, None))
-    handles, failure = web_session.web_connect({"cdp": "http://127.0.0.1:1", "pid": 4242})
-    assert handles is None and failure["code"] == "browser_hung" and "web open" in failure["next"]

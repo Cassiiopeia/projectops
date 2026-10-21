@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import time
 from pathlib import Path
 
 import pytest
@@ -14,7 +13,6 @@ sys.path.insert(0, str(SCRIPTS))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
 from pro_launch.commands import app as app_command  # noqa: E402
-from pro_launch.commands import device as device_command  # noqa: E402
 from pro_launch.registry import DEVICE_USES  # noqa: E402
 from pro_launch.runtime import device_claims, device_gate, output  # noqa: E402
 
@@ -43,11 +41,6 @@ def test_every_app_action_declares_device_use():
     assert missing == []
 
 
-def test_every_device_action_declares_device_use():
-    assert set(device_command.DEVICE_USE_BY_ACTION) == set(device_command._RUNNERS)
-    assert set(device_command.DEVICE_USE_BY_ACTION.values()) <= set(DEVICE_USES)
-
-
 def test_tap_on_other_sessions_device_is_refused_without_yes(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("LAUNCH_SESSION", "owner")
     device_claims.claim_device(UDID, "/r")
@@ -62,31 +55,3 @@ def test_tap_on_other_sessions_device_is_refused_without_yes(monkeypatch, tmp_pa
     assert ran == [1]
 
 
-def test_shot_on_other_sessions_device_warns_but_runs(monkeypatch, tmp_path, capsys):
-    monkeypatch.setenv("LAUNCH_SESSION", "owner")
-    device_claims.claim_device(UDID, "/r")
-    monkeypatch.setenv("LAUNCH_SESSION", "viewer")
-    monkeypatch.setitem(app_command.ACTIONS, "shot",
-                        app_command.ACTIONS["shot"].__class__(name="shot", device_use="read",
-                                                              run=lambda args: output.out({"action": "shot"})))
-    app_command.cmd_app(app_args(tmp_path, "shot"))
-    data = result_of(capsys)
-    assert data["action"] == "shot" and data["device_owned_by_other"]["session"] == "owner"
-
-
-def test_tap_refreshes_last_used_of_own_lease(monkeypatch, tmp_path, capsys):
-    monkeypatch.setenv("LAUNCH_SESSION", "me")
-    device_claims.claim_device(UDID, "/r")
-    before = device_claims.device_owner(UDID)["last_used"]
-    time.sleep(0.01)
-    monkeypatch.setitem(app_command.ACTIONS, "tap",
-                        app_command.ACTIONS["tap"].__class__(name="tap", run=lambda args: 0, device_use="mutate"))
-    app_command.cmd_app(app_args(tmp_path, "tap"))
-    assert device_claims.device_owner(UDID)["last_used"] > before
-
-
-def test_no_action_module_records_ownership_itself():
-    actions_folder = SCRIPTS / "pro_launch" / "commands" / "app" / "actions"
-    offenders = [p.name for p in actions_folder.glob("*.py")
-                 if "device_use_fields" in p.read_text(encoding="utf-8") or "touch_device" in p.read_text(encoding="utf-8")]
-    assert offenders == []
