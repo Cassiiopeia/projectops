@@ -80,6 +80,7 @@ env:
   ENABLE_IOS: "true"        # iOS 빌드 활성화 (true/false)
 
   # 🔧 프로젝트별 설정
+  # 레포 변수 FLUTTER_VERSION·JAVA_VERSION 이 있으면 아래 값보다 먼저 쓴다 (템플릿 업데이트에도 유지, #758)
   FLUTTER_VERSION: "3.38.9"
   JAVA_VERSION: "__JAVA_VERSION__"  # @wizard ask:17
   XCODE_VERSION: ""  # 빈 값 = 러너 최신 Xcode 자동 선택, 고정할 때만 "26.6" 처럼 입력 (#758)
@@ -306,6 +307,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      # 템플릿 고정 Flutter·Java 버전 <-> 레포(pubspec·.fvmrc·Gradle) 대조 — 어긋나면 경고만 (#758)
+      - name: Check toolchain versions
+        continue-on-error: true
+        env:
+          FLUTTER_VERSION: ${{ vars.FLUTTER_VERSION || env.FLUTTER_VERSION }}
+          JAVA_VERSION: ${{ vars.JAVA_VERSION || env.JAVA_VERSION }}
+        run: python3 "$GITHUB_WORKSPACE/.github/scripts/toolchain_versions.py" check --app-root .
+
       # .env 파일 생성
       - name: Create .env file
         env:
@@ -318,7 +327,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version: ${{ vars.FLUTTER_VERSION || env.FLUTTER_VERSION }}
           cache: true
 
       - name: Verify Flutter version
@@ -434,7 +443,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version: ${{ vars.FLUTTER_VERSION || env.FLUTTER_VERSION }}
           cache: true
 
       - name: Verify Flutter version
@@ -472,7 +481,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: "temurin"
-          java-version: ${{ env.JAVA_VERSION }}
+          java-version: ${{ vars.JAVA_VERSION || env.JAVA_VERSION }}
 
       - name: Verify Java version
         run: |
@@ -622,7 +631,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version: ${{ vars.FLUTTER_VERSION || env.FLUTTER_VERSION }}
           cache: true
 
       - name: Verify Flutter version

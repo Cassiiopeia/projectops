@@ -37,6 +37,7 @@ permissions:
 env:
   # 프로젝트 이름 (APK 파일명, 아티팩트명, 히스토리 파일명에 사용)
   APP_ARTIFACT_NAME: "__APP_ARTIFACT_NAME__"  # @wizard ask:@repo
+  # 레포 변수 FLUTTER_VERSION·JAVA_VERSION 이 있으면 아래 값보다 먼저 쓴다 (템플릿 업데이트에도 유지, #758)
   FLUTTER_VERSION: "3.38.9"
   JAVA_VERSION: "__JAVA_VERSION__"  # @wizard ask:17
   # SMB 서버 설정 (자체 서버 — Synology NAS·Linux 등)
@@ -224,9 +225,9 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version: ${{ vars.FLUTTER_VERSION || env.FLUTTER_VERSION }}
           cache: true
-          cache-key: flutter-${{ runner.os }}-${{ env.FLUTTER_VERSION }}
+          cache-key: flutter-${{ runner.os }}-${{ vars.FLUTTER_VERSION || env.FLUTTER_VERSION }}
 
       - name: Verify Flutter version
         run: |
@@ -276,7 +277,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: "temurin"
-          java-version: ${{ env.JAVA_VERSION }}
+          java-version: ${{ vars.JAVA_VERSION || env.JAVA_VERSION }}
 
       - name: Verify Java version
         run: |
