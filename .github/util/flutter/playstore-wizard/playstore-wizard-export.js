@@ -29,14 +29,14 @@ function copyAllSecrets() {
     const configuredSecrets = secrets.filter(s => s.value);
 
     if (configuredSecrets.length === 0) {
-        showToast('⚠️ 복사할 설정값이 없습니다');
+        showToast(translate('export.nothingToCopy'));
         return;
     }
 
     const lines = [
         '===== GitHub Secrets for Play Store =====',
-        `생성일: ${new Date().toLocaleString('ko-KR')}`,
-        `Application ID: ${state.applicationId || '(미설정)'}`,
+        translate('export.generatedAt', { date: formatExportDate() }),
+        `Application ID: ${state.applicationId || translate('export.notSet')}`,
         '',
         ...configuredSecrets.map(s => `${s.key}=${s.value}`),
         '',
@@ -46,9 +46,9 @@ function copyAllSecrets() {
     const text = lines.join('\n');
 
     navigator.clipboard.writeText(text).then(() => {
-        showToast(`✅ ${configuredSecrets.length}개 Secret 전체 복사 완료!`);
+        showToast(translate('export.allCopied', { count: configuredSecrets.length }));
     }).catch(() => {
-        showToast('❌ 클립보드 복사 실패');
+        showToast(translate('common.clipboardFailed'));
     });
 }
 
@@ -83,46 +83,46 @@ function downloadAsJson() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast('✅ JSON 파일 다운로드 완료!');
+    showToast(translate('export.jsonDownloaded'));
 }
 
 function downloadAsTxt() {
     const lines = [
         '# GitHub Secrets for Play Store Deployment',
-        '# 생성일: ' + new Date().toLocaleString('ko-KR'),
+        '# ' + translate('export.generatedAt', { date: formatExportDate() }),
         '',
         '===== GitHub Repository Secrets =====',
         '',
         'RELEASE_KEYSTORE_BASE64:',
-        state.keystoreBase64 || '(미입력)',
+        state.keystoreBase64 || translate('export.notEntered'),
         '',
         'RELEASE_KEYSTORE_PASSWORD:',
-        state.storePassword || '(미입력)',
+        state.storePassword || translate('export.notEntered'),
         '',
         'RELEASE_KEY_ALIAS:',
-        state.keyAlias || '(미입력)',
+        state.keyAlias || translate('export.notEntered'),
         '',
         'RELEASE_KEY_PASSWORD:',
-        state.keyPassword || '(미입력)',
+        state.keyPassword || translate('export.notEntered'),
         '',
         'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64:',
-        state.serviceAccountBase64 || '(미입력)',
+        state.serviceAccountBase64 || translate('export.notEntered'),
         '',
         'GOOGLE_SERVICES_JSON:',
-        state.googleServicesJson ? '[설정됨]' : '(미입력)',
+        state.googleServicesJson ? translate('export.setMarker') : translate('export.notEntered'),
         '',
         'ENV_FILE:',
-        state.envFileContent || '(미입력)',
+        state.envFileContent || translate('export.notEntered'),
         ''
     ];
 
     // 커스텀 Secrets 추가
     const customSecrets = getCustomSecretsForExport();
     if (customSecrets.length > 0) {
-        lines.push('===== 사용자 추가 Secrets =====');
+        lines.push(translate('export.customSecretsHeader'));
         lines.push('');
         customSecrets.forEach(cs => {
-            const typeLabel = cs.type === 'text' ? '[텍스트]' : '[Base64]';
+            const typeLabel = cs.type === 'text' ? translate('export.textTypeLabel') : '[Base64]';
             lines.push(`${cs.key}: ${typeLabel}`);
             lines.push(cs.value.substring(0, 100) + (cs.value.length > 100 ? '...' : ''));
             lines.push('');
@@ -141,7 +141,7 @@ function downloadAsTxt() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast('✅ TXT 파일 다운로드 완료!');
+    showToast(translate('export.txtDownloaded'));
 }
 
 function downloadConfig() {
@@ -154,11 +154,11 @@ function downloadConfig() {
         },
         generatedAt: new Date().toISOString(),
         secrets: {
-            RELEASE_KEYSTORE_BASE64: state.keystoreBase64 ? '[설정됨]' : null,
-            RELEASE_KEYSTORE_PASSWORD: state.storePassword ? '[설정됨]' : null,
+            RELEASE_KEYSTORE_BASE64: state.keystoreBase64 ? translate('export.setMarker') : null,
+            RELEASE_KEYSTORE_PASSWORD: state.storePassword ? translate('export.setMarker') : null,
             RELEASE_KEY_ALIAS: state.keyAlias || null,
-            RELEASE_KEY_PASSWORD: state.keyPassword ? '[설정됨]' : null,
-            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64: state.serviceAccountBase64 ? '[설정됨]' : null
+            RELEASE_KEY_PASSWORD: state.keyPassword ? translate('export.setMarker') : null,
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64: state.serviceAccountBase64 ? translate('export.setMarker') : null
         }
     };
 
@@ -169,7 +169,7 @@ function downloadConfig() {
     a.download = 'playstore-cicd-config.json';
     a.click();
     URL.revokeObjectURL(url);
-    showToast('✅ 설정 JSON 다운로드 완료!');
+    showToast(translate('export.configDownloaded'));
 }
 
 // ============================================
@@ -177,43 +177,21 @@ function downloadConfig() {
 // ============================================
 
 function generateReadme() {
-    return `# Play Store 배포 설정 백업
+    return translate('export.readme', {
+        generatedAt: formatExportDate(),
+        applicationId: state.applicationId || translate('export.notSet')
+    });
+}
 
-생성일: ${new Date().toLocaleString('ko-KR')}
-Application ID: ${state.applicationId || '(미설정)'}
-
-## 📁 파일 구조
-
-\`\`\`
-├── release-key.jks          # Android 서명 키스토어 (Base64 디코딩됨)
-├── service-account.json     # Google Play Service Account (Base64 디코딩됨)
-├── github-secrets/          # GitHub Secrets용 값들
-│   ├── RELEASE_KEYSTORE_BASE64.txt
-│   ├── RELEASE_KEYSTORE_PASSWORD.txt
-│   ├── RELEASE_KEY_ALIAS.txt
-│   ├── RELEASE_KEY_PASSWORD.txt
-│   └── GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64.txt
-└── README.md
-\`\`\`
-
-## 🔐 GitHub Secrets 등록 방법
-
-1. GitHub 저장소 → Settings → Secrets and variables → Actions
-2. \`github-secrets/\` 폴더 내 각 파일의 내용을 Secret으로 등록
-3. Secret 이름은 파일명에서 .txt를 제외한 이름 사용
-
-## ⚠️ 주의사항
-
-- 이 파일들에는 민감한 정보가 포함되어 있습니다
-- 안전한 장소에 보관하고, Git에 커밋하지 마세요
-- 필요한 경우 암호화하여 보관하세요
-`;
+/** 내보내기 파일의 생성 시각 (ko 는 기존 ko-KR 표기 유지) */
+function formatExportDate() {
+    return new Date().toLocaleString(getWizardLanguage() === 'ko' ? 'ko-KR' : 'en-US');
 }
 
 async function downloadAsZip() {
     // JSZip 로드 확인
     if (typeof JSZip === 'undefined') {
-        showToast('❌ ZIP 라이브러리 로드 실패. 페이지를 새로고침해주세요.');
+        showToast(translate('export.zipLibraryFailed'));
         return;
     }
 
@@ -229,7 +207,7 @@ async function downloadAsZip() {
             }
             zip.file("release-key.jks", bytes);
         } catch (e) {
-            console.error('Keystore 디코딩 실패:', e);
+            console.error('[playstore export] keystore decode failed:', e);
         }
     }
 
@@ -238,7 +216,7 @@ async function downloadAsZip() {
             const jsonContent = atob(state.serviceAccountBase64);
             zip.file("service-account.json", jsonContent);
         } catch (e) {
-            console.error('Service Account 디코딩 실패:', e);
+            console.error('[playstore export] service account decode failed:', e);
         }
     }
 
@@ -270,7 +248,7 @@ async function downloadAsZip() {
                 const ext = cs.fileName.split('.').pop() || 'bin';
                 zip.file(`custom-files/${cs.fileName}`, bytes);
             } catch (e) {
-                console.error(`커스텀 파일 디코딩 실패 (${cs.key}):`, e);
+                console.error(`[playstore export] custom file decode failed (${cs.key}):`, e);
             }
         } else {
             // 텍스트 파일은 그대로 저장
@@ -289,7 +267,7 @@ async function downloadAsZip() {
 
     // 파일이 하나도 없으면 경고
     if (fileCount === 0) {
-        showToast('⚠️ 내보낼 설정값이 없습니다');
+        showToast(translate('export.nothingToExport'));
         return;
     }
 
@@ -309,10 +287,10 @@ async function downloadAsZip() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        showToast(`✅ ZIP 파일 다운로드 완료! (${fileCount}개 설정 포함)`);
+        showToast(translate('export.zipDownloaded', { count: fileCount }));
     } catch (e) {
-        console.error('ZIP 생성 실패:', e);
-        showToast('❌ ZIP 파일 생성 실패');
+        console.error('[playstore export] zip build failed:', e);
+        showToast(translate('export.zipFailed'));
     }
 }
 
@@ -326,7 +304,7 @@ function importFromJson(event) {
 
     // 파일 확장자 확인
     if (!file.name.endsWith('.json')) {
-        showToast('❌ JSON 파일만 업로드 가능합니다');
+        showToast(translate('export.jsonOnly'));
         event.target.value = '';
         return;
     }
@@ -350,7 +328,7 @@ function importFromJson(event) {
 
             const hasValidKey = knownKeys.some(key => key in data);
             if (!hasValidKey) {
-                showToast('❌ 올바른 PlayStore Secrets JSON 파일이 아닙니다');
+                showToast(translate('export.invalidSecretsJson'));
                 event.target.value = '';
                 return;
             }
@@ -393,11 +371,11 @@ function importFromJson(event) {
             // 테이블 갱신
             generateFinalResult();
 
-            showToast(`✅ ${importedCount}개 설정값 가져오기 완료!`);
+            showToast(translate('export.imported', { count: importedCount }));
 
         } catch (error) {
-            console.error('JSON 파싱 오류:', error);
-            showToast('❌ JSON 파일 읽기 실패: 형식이 올바르지 않습니다');
+            console.error('[playstore import] json parse failed:', error);
+            showToast(translate('export.jsonReadFailed'));
         }
 
         // 파일 입력 초기화 (같은 파일 다시 선택 가능하도록)
@@ -405,7 +383,7 @@ function importFromJson(event) {
     };
 
     reader.onerror = function() {
-        showToast('❌ 파일 읽기 오류');
+        showToast(translate('export.fileReadError'));
         event.target.value = '';
     };
 

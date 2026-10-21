@@ -1,9 +1,19 @@
 {
   "name": "GitHub Projects Sync Wizard",
-  "version": "2.4.0",
-  "description": "GitHub Organization Projects Status와 Issue Label 간 양방향 동기화를 위한 Cloudflare Worker 설정 마법사",
-  "lastUpdated": "2026-01-22",
+  "version": "2.5.0",
+  "description": "Cloudflare Worker setup wizard for two-way sync between GitHub Organization Projects status and issue labels",
+  "lastUpdated": "2026-10-22",
   "changelog": [
+    {
+      "version": "2.5.0",
+      "date": "2026-10-22",
+      "changes": [
+        "English is now the default; a language toggle switches to Korean and the choice is saved in this browser (projectops#769)",
+        "Uses the shared language engine flutter/_shared/wizard-i18n.js; Korean text lives in projects-sync-wizard-i18n.js",
+        "Starts in Korean when there is no saved choice and the browser language is Korean; ?lang=en|ko in the address overrides",
+        "Generated worker code, setup scripts and commands are identical in both languages"
+      ]
+    },
     {
       "version": "2.4.0",
       "date": "2026-01-22",

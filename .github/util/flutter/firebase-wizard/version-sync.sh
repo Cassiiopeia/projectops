@@ -20,25 +20,25 @@ INDEX_FILE="$SCRIPT_DIR/firebase-wizard.html"
 
 # 파일 존재 확인
 if [ ! -f "$VERSION_FILE" ]; then
-    echo "❌ version.json 파일을 찾을 수 없습니다: $VERSION_FILE"
+    echo "❌ version.json not found: $VERSION_FILE"
     exit 1
 fi
 
 if [ ! -f "$INDEX_FILE" ]; then
-    echo "❌ firebase-wizard.html 파일을 찾을 수 없습니다: $INDEX_FILE"
+    echo "❌ firebase-wizard.html not found: $INDEX_FILE"
     exit 1
 fi
 
 # Python 탐색 — Windows Git Bash에는 python3가 없고 python만 있는 경우가 많다
 PYTHON=$(command -v python3 2>/dev/null || command -v python 2>/dev/null)
 if [ -z "$PYTHON" ]; then
-    echo "❌ Python을 찾을 수 없습니다. python3 또는 python이 PATH에 있어야 합니다."
+    echo "❌ Python not found. python3 or python must be on PATH."
     exit 1
 fi
 
 # 현재 버전 출력 (grep -P 등 GNU 전용 옵션 사용 금지 — macOS는 BSD grep)
 CURRENT_VERSION=$(grep '"version"' "$VERSION_FILE" | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-echo "📦 동기화할 버전: v$CURRENT_VERSION"
+echo "📦 Syncing version: v$CURRENT_VERSION"
 
 "$PYTHON" - "$VERSION_FILE" "$INDEX_FILE" << 'EOF'
 import json
@@ -54,7 +54,7 @@ with open(version_file, encoding='utf-8') as f:
 try:
     json.loads(version_content)
 except json.JSONDecodeError as e:
-    print(f"❌ version.json이 올바른 JSON이 아닙니다: {e}")
+    print(f"❌ version.json is not valid JSON: {e}")
     sys.exit(1)
 
 with open(index_file, encoding='utf-8') as f:
@@ -62,7 +62,7 @@ with open(index_file, encoding='utf-8') as f:
 
 pattern = r'(<script type="application/json" id="versionJson">)[\s\S]*?(</script>)'
 if not re.search(pattern, index_content):
-    print("❌ HTML에서 versionJson 블록을 찾을 수 없습니다.")
+    print("❌ versionJson block not found in the HTML.")
     sys.exit(1)
 
 # 치환값의 백슬래시가 re.sub의 이스케이프로 해석되지 않도록 함수 형태로 넘긴다
@@ -76,6 +76,6 @@ new_content = re.sub(
 with open(index_file, 'w', encoding='utf-8') as f:
     f.write(new_content)
 
-print("✅ 버전 정보 동기화 완료!")
+print("✅ Version info synced!")
 print(f"   - version.json → {index_file.split('/')[-1]}")
 EOF

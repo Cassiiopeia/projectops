@@ -17,6 +17,7 @@
 6. 낡은 링크           — 구 레포명·존재하지 않는 경로를 가리키고 있지 않은가
 7. 첫 사용자 안내      — 준비물/소요시간/문서링크/재개안내가 3종에 모두 있는가
 8. Python 공통 블록    — testflight·playstore .py의 쓰기 게이트·인자 계약 블록이 글자 단위로 같은가
+9. 언어 전환(i18n)     — 엔진 로드 순서·en/ko 사전 키 누락·HTML 한글 잔존 (check_i18n.py, common 마법사 포함)
 
 사용법
 ------
@@ -32,6 +33,9 @@ import json
 import re
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import check_i18n  # noqa: E402  같은 폴더 모듈 (파일명에 하이픈이 있어 이 파일은 import 불가)
 
 WIZARDS = ("testflight", "playstore", "firebase")
 SHARED_DIR = Path(__file__).resolve().parent
@@ -77,6 +81,7 @@ REQUIRED_MARKERS = (
     ("소요시간·준비물 배너", 'class="wizard-meta"'),
     ("재개 안내", 'class="resume-hint"'),
     ("문서 링크", "docs/FLUTTER-"),
+    ("언어 전환 버튼", "data-lang-toggle"),
 )
 
 
@@ -106,13 +111,14 @@ def check() -> list[str]:
 
     shared_css = SHARED_DIR / "wizard.css"
     shared_js = SHARED_DIR / "wizard-common.js"
-    for p in (shared_css, shared_js):
+    shared_i18n_js = SHARED_DIR / "wizard-i18n.js"
+    for p in (shared_css, shared_js, shared_i18n_js):
         if not p.exists():
             problems.append(f"[공통자산] {p.name} 이 없습니다")
     if problems:
         return problems
 
-    shared_funcs = set(SHARED_FUNCS_RE.findall(read(shared_js)))
+    shared_funcs = set(SHARED_FUNCS_RE.findall(read(shared_js) + "\n" + read(shared_i18n_js)))
     # 공통 CSS에 정의된 클래스
     shared_classes = set(re.findall(r"^\.([a-zA-Z][\w-]*)", read(shared_css), re.M))
 
@@ -165,7 +171,7 @@ def check() -> list[str]:
         project_prefixes = ("tooltip-", "code-", "file-", "custom-", "secret-", "type-",
                             "usage-", "dependency-", "result-", "copy-btn", "add-secret",
                             "remove-secret", "step-", "modal-", "wizard-", "resume-",
-                            "skip-", "input-", "error-", "success-", "toast", "fade-in")
+                            "skip-", "input-", "error-", "success-", "toast", "fade-in", "lang-")
         undefined = sorted(
             c for c in used_classes
             if c.startswith(project_prefixes) and c not in known
@@ -228,6 +234,7 @@ def check() -> list[str]:
             problems.append(f"{tag} --dry-run을 받지만 실제 동작에 연결되어 있지 않습니다")
 
     problems.extend(check_python_shared_blocks())
+    problems.extend(check_i18n.check())
     return problems
 
 

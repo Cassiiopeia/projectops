@@ -1,6 +1,6 @@
 /* ===================================================================
  * testflight 마법사 — 내보내기·가져오기 (Secret 일괄 복사, ZIP 다운로드, JSON 가져오기)
- * 로드 순서: ../_shared/wizard-common.js > testflight-wizard.js > 이 파일
+ * 로드 순서: ../_shared/wizard-i18n.js > ../_shared/wizard-common.js > testflight-wizard-i18n.js > testflight-wizard.js > 이 파일
  * 함수 선언만 둔다 (상태·초기화 코드는 본 파일)
  * =================================================================== */
 
@@ -34,14 +34,14 @@ function copyAllSecrets() {
     const configuredSecrets = secrets.filter(s => s.value);
 
     if (configuredSecrets.length === 0) {
-        showToast('⚠️ 복사할 설정값이 없습니다');
+        showToast(translate('export.nothingToCopy'));
         return;
     }
 
     const lines = [
         '===== GitHub Secrets for iOS TestFlight =====',
-        `생성일: ${new Date().toLocaleString('ko-KR')}`,
-        `Bundle ID: ${state.bundleId || '(미설정)'}`,
+        translate('export.generatedAt', { date: new Date().toLocaleString(getExportDateLocale()) }),
+        `Bundle ID: ${state.bundleId || translate('export.notSet')}`,
         '',
         ...configuredSecrets.map(s => `${s.key}=${s.value}`),
         '',
@@ -51,9 +51,9 @@ function copyAllSecrets() {
     const text = lines.join('\n');
 
     navigator.clipboard.writeText(text).then(() => {
-        showToast(`✅ ${configuredSecrets.length}개 Secret 전체 복사 완료!`);
+        showToast(translate('export.copyAllDone', { count: configuredSecrets.length }));
     }).catch(() => {
-        showToast('❌ 클립보드 복사 실패');
+        showToast(translate('export.clipboardFailed'));
     });
 }
 
@@ -62,51 +62,18 @@ function copyAllSecrets() {
 // ============================================
 
 function generateReadme() {
-    return `# iOS TestFlight 배포 설정 백업
-
-생성일: ${new Date().toLocaleString('ko-KR')}
-Bundle ID: ${state.bundleId || '(미설정)'}
-Team ID: ${state.teamId || '(미설정)'}
-
-## 📁 파일 구조
-
-\`\`\`
-├── certificate.p12              # 배포 인증서 (Base64 디코딩됨)
-├── provisioning.mobileprovision # 프로비저닝 프로파일 (Base64 디코딩됨)
-├── api-key.p8                   # App Store Connect API Key (Base64 디코딩됨)
-├── github-secrets/              # GitHub Secrets용 값들
-│   ├── APPLE_CERTIFICATE_BASE64.txt
-│   ├── APPLE_CERTIFICATE_PASSWORD.txt
-│   ├── APPLE_PROVISIONING_PROFILE_BASE64.txt
-│   ├── IOS_PROVISIONING_PROFILE_NAME.txt
-│   ├── APP_STORE_CONNECT_API_KEY_BASE64.txt
-│   ├── APP_STORE_CONNECT_API_KEY_ID.txt
-│   ├── APP_STORE_CONNECT_ISSUER_ID.txt
-│   ├── APPLE_TEAM_ID.txt
-│   └── IOS_BUNDLE_ID.txt
-└── README.md
-\`\`\`
-
-## 🔐 GitHub Secrets 등록 방법
-
-1. GitHub 저장소 → Settings → Secrets and variables → Actions
-2. \`github-secrets/\` 폴더 내 각 파일의 내용을 Secret으로 등록
-3. Secret 이름은 파일명에서 .txt를 제외한 이름 사용
-4. Secret 등록이 끝나면 다운로드한 github-secrets 파일과 폴더를 반드시 삭제하세요. 인증서와 키가 그대로 들어 있습니다
-
-## ⚠️ 주의사항
-
-- 이 파일들에는 민감한 정보가 포함되어 있습니다
-- Secret 등록이 끝나면 github-secrets 파일을 삭제하세요. 인증서와 키가 그대로 들어 있습니다
-- 안전한 장소에 보관하고, Git에 커밋하지 마세요
-- 필요한 경우 암호화하여 보관하세요
-`;
+    // 템플릿 전체를 사전에 둔다 (ko 출력은 기존과 같은 바이트)
+    return translate('export.readme', {
+        date: new Date().toLocaleString(getExportDateLocale()),
+        bundleId: state.bundleId || translate('export.notSet'),
+        teamId: state.teamId || translate('export.notSet')
+    });
 }
 
 async function downloadAsZip() {
     // JSZip 로드 확인
     if (typeof JSZip === 'undefined') {
-        showToast('❌ ZIP 라이브러리 로드 실패. 페이지를 새로고침해주세요.');
+        showToast(translate('export.zipLibraryMissing'));
         return;
     }
 
@@ -122,7 +89,7 @@ async function downloadAsZip() {
             }
             zip.file("certificate.p12", bytes);
         } catch (e) {
-            console.error('P12 디코딩 실패:', e);
+            console.error('[testflight export] p12 decode failed:', e);
         }
     }
 
@@ -135,7 +102,7 @@ async function downloadAsZip() {
             }
             zip.file("provisioning.mobileprovision", bytes);
         } catch (e) {
-            console.error('Provisioning Profile 디코딩 실패:', e);
+            console.error('[testflight export] provisioning profile decode failed:', e);
         }
     }
 
@@ -144,7 +111,7 @@ async function downloadAsZip() {
             const p8Content = atob(state.p8Base64);
             zip.file("api-key.p8", p8Content);
         } catch (e) {
-            console.error('P8 디코딩 실패:', e);
+            console.error('[testflight export] p8 decode failed:', e);
         }
     }
 
@@ -181,7 +148,7 @@ async function downloadAsZip() {
 
     // 파일이 하나도 없으면 경고
     if (fileCount === 0) {
-        showToast('⚠️ 내보낼 설정값이 없습니다');
+        showToast(translate('export.nothingToExport'));
         return;
     }
 
@@ -201,10 +168,10 @@ async function downloadAsZip() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        showToast(`✅ ZIP 파일 다운로드 완료! (${fileCount}개 설정 포함)`);
+        showToast(translate('export.zipDone', { count: fileCount }));
     } catch (e) {
-        console.error('ZIP 생성 실패:', e);
-        showToast('❌ ZIP 파일 생성 실패');
+        console.error('[testflight export] zip generation failed:', e);
+        showToast(translate('export.zipFailed'));
     }
 }
 
@@ -218,7 +185,7 @@ function importFromJson(event) {
 
     // 파일 확장자 확인
     if (!file.name.endsWith('.json')) {
-        showToast('❌ JSON 파일만 업로드 가능합니다');
+        showToast(translate('import.jsonOnly'));
         event.target.value = '';
         return;
     }
@@ -244,7 +211,7 @@ function importFromJson(event) {
 
             const hasValidKey = knownKeys.some(key => key in data);
             if (!hasValidKey) {
-                showToast('❌ 올바른 iOS Secrets JSON 파일이 아닙니다');
+                showToast(translate('import.invalidFile'));
                 event.target.value = '';
                 return;
             }
@@ -295,11 +262,11 @@ function importFromJson(event) {
             // 결과 테이블 갱신
             generateFinalResult();
 
-            showToast(`✅ ${importedCount}개 설정값 가져오기 완료!`);
+            showToast(translate('import.done', { count: importedCount }));
 
         } catch (error) {
-            console.error('JSON 파싱 오류:', error);
-            showToast('❌ JSON 파일 읽기 실패: 형식이 올바르지 않습니다');
+            console.error('[testflight import] json parse failed:', error);
+            showToast(translate('import.parseFailed'));
         }
 
         // 파일 입력 초기화 (같은 파일 다시 선택 가능하도록)
@@ -307,7 +274,7 @@ function importFromJson(event) {
     };
 
     reader.onerror = function() {
-        showToast('❌ 파일 읽기 오류');
+        showToast(translate('import.readError'));
         event.target.value = '';
     };
 

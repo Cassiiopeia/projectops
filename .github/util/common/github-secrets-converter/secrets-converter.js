@@ -70,7 +70,7 @@ async function processFile(file) {
             reader.onload = () => resolve({
                 value: reader.result,
                 type: 'text',
-                hint: 'cat <<EOF 로 파일 생성'
+                hint: translate('hint.text')
             });
             reader.onerror = reject;
             reader.readAsText(file);
@@ -102,8 +102,8 @@ function renderFileList() {
         container.innerHTML = `
             <div class="empty-state">
                 <div class="empty-icon">📁</div>
-                <p>파일을 추가하여 GitHub Secrets 값을 생성하세요</p>
-                <p class="hint">바이너리 파일은 Base64로, 텍스트 파일은 원본 그대로 변환됩니다</p>
+                <p>${translate('empty.title')}</p>
+                <p class="hint">${translate('empty.hint')}</p>
             </div>
         `;
         return;
@@ -121,10 +121,10 @@ function renderFileList() {
             <div class="file-slot" data-index="${index}">
                 <div class="slot-header">
                     <span class="type-badge ${typeClass}">${typeIcon} ${typeBadge}</span>
-                    <button class="remove-btn" onclick="removeFile(${index})" title="삭제">×</button>
+                    <button class="remove-btn" onclick="removeFile(${index})" title="${translate('slot.remove')}">×</button>
                 </div>
                 <div class="key-input-wrapper">
-                    <label>Secret 키 이름</label>
+                    <label>${translate('slot.keyName')}</label>
                     <input type="text"
                            class="key-input"
                            value="${file.key || ''}"
@@ -132,7 +132,7 @@ function renderFileList() {
                            placeholder="SECRET_NAME">
                 </div>
                 <div class="file-info">
-                    <span class="file-name">${file.fileName || '(파일 없음)'}</span>
+                    <span class="file-name">${file.fileName || translate('slot.noFile')}</span>
                     ${file.value ? `<span class="file-size">(${formatSize(file.value.length)})</span>` : ''}
                 </div>
                 ${file.hint ? `<div class="usage-hint">💡 ${file.hint}</div>` : ''}
@@ -140,7 +140,7 @@ function renderFileList() {
                     <div class="value-preview">
                         <code>${escapeHtml(valuePreview)}</code>
                     </div>
-                    <button class="copy-btn" onclick="copyValue(${index})">📋 값 복사</button>
+                    <button class="copy-btn" onclick="copyValue(${index})">${translate('slot.copyValue')}</button>
                 ` : ''}
             </div>
         `;
@@ -191,7 +191,7 @@ function removeFile(index) {
     state.files.splice(index, 1);
     renderFileList();
     saveState();
-    showToast('파일이 삭제되었습니다');
+    showToast(translate('toast.fileRemoved'));
 }
 
 function updateKey(index, newKey) {
@@ -218,11 +218,41 @@ async function handleFileSelect(index, file) {
 
         renderFileList();
         saveState();
-        showToast(`✅ ${file.name} 처리 완료 (${result.type === 'text' ? '텍스트' : 'Base64'})`);
+        showToast(translate('toast.fileProcessed', {
+            fileName: file.name,
+            fileType: result.type === 'text' ? translate('fileType.text') : 'Base64'
+        }));
     } catch (error) {
-        console.error('파일 처리 실패:', error);
-        showToast('❌ 파일 처리 실패');
+        console.error('[secrets converter] file processing failed:', error);
+        showToast(translate('toast.fileFailed'));
     }
+}
+
+// 여러 파일 한번에 처리
+async function handleMultipleFiles(files) {
+    for (const file of files) {
+        try {
+            const result = await processFile(file);
+            const suggestedKey = generateKeyName(file.name, result.type);
+
+            state.files.push({
+                key: suggestedKey,
+                value: result.value,
+                fileName: file.name,
+                type: result.type,
+                hint: result.hint
+            });
+        } catch (error) {
+            console.error('[secrets converter] file processing failed:', file.name, error);
+        }
+    }
+    renderFileList();
+    saveState();
+    if (files.length > 0) {
+        showToast(translate('toast.filesProcessed', { count: files.length }));
+    }
+    // input 초기화
+    document.getElementById('fileInput').value = '';
 }
 
 // ============================================
@@ -269,12 +299,12 @@ function setupDragAndDrop() {
                     hint: result.hint
                 });
             } catch (error) {
-                console.error('파일 처리 실패:', file.name, error);
+                console.error('[secrets converter] file processing failed:', file.name, error);
             }
         }
         renderFileList();
         saveState();
-        showToast(`✅ ${files.length}개 파일 처리 완료`);
+        showToast(translate('toast.filesProcessed', { count: files.length }));
     });
 }
 
@@ -285,21 +315,21 @@ function setupDragAndDrop() {
 function copyValue(index) {
     const file = state.files[index];
     if (!file || !file.value) {
-        showToast('❌ 복사할 값이 없습니다');
+        showToast(translate('toast.noValue'));
         return;
     }
 
     navigator.clipboard.writeText(file.value).then(() => {
-        showToast(`✅ ${file.key} 값 복사 완료!`);
+        showToast(translate('toast.valueCopied', { key: file.key }));
     }).catch(() => {
-        showToast('❌ 클립보드 복사 실패');
+        showToast(translate('toast.clipboardFailed'));
     });
 }
 
 function copyAllAsJson() {
     const validFiles = state.files.filter(f => f.key && f.value);
     if (validFiles.length === 0) {
-        showToast('⚠️ 복사할 데이터가 없습니다');
+        showToast(translate('toast.noDataToCopy'));
         return;
     }
 
@@ -309,16 +339,16 @@ function copyAllAsJson() {
     });
 
     navigator.clipboard.writeText(JSON.stringify(result, null, 2)).then(() => {
-        showToast(`✅ ${validFiles.length}개 Secret JSON 복사 완료!`);
+        showToast(translate('toast.jsonCopied', { count: validFiles.length }));
     }).catch(() => {
-        showToast('❌ 클립보드 복사 실패');
+        showToast(translate('toast.clipboardFailed'));
     });
 }
 
 function downloadAsJson() {
     const validFiles = state.files.filter(f => f.key && f.value);
     if (validFiles.length === 0) {
-        showToast('⚠️ 내보낼 데이터가 없습니다');
+        showToast(translate('toast.noDataToExport'));
         return;
     }
 
@@ -337,27 +367,27 @@ function downloadAsJson() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast('✅ JSON 파일 다운로드 완료!');
+    showToast(translate('toast.jsonDownloaded'));
 }
 
 function downloadAsTxt() {
     const validFiles = state.files.filter(f => f.key && f.value);
     if (validFiles.length === 0) {
-        showToast('⚠️ 내보낼 데이터가 없습니다');
+        showToast(translate('toast.noDataToExport'));
         return;
     }
 
     const lines = [
         '# GitHub Secrets',
-        '# 생성일: ' + new Date().toLocaleString('ko-KR'),
+        translate('txt.createdAt') + new Date().toLocaleString(getWizardLanguage() === 'ko' ? 'ko-KR' : 'en-US'),
         ''
     ];
 
     validFiles.forEach(f => {
-        const typeLabel = f.type === 'text' ? '[텍스트]' : '[Base64]';
+        const typeLabel = f.type === 'text' ? translate('txt.textLabel') : '[Base64]';
         lines.push(`===== ${f.key} ${typeLabel} =====`);
-        lines.push(`# 원본 파일: ${f.fileName}`);
-        lines.push(`# 사용법: ${f.hint}`);
+        lines.push(translate('txt.sourceFile', { fileName: f.fileName }));
+        lines.push(translate('txt.usage', { hint: f.hint }));
         lines.push('');
         lines.push(f.value);
         lines.push('');
@@ -373,7 +403,7 @@ function downloadAsTxt() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast('✅ TXT 파일 다운로드 완료!');
+    showToast(translate('toast.txtDownloaded'));
 }
 
 function getDateString() {
@@ -389,7 +419,7 @@ function saveState() {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
-        console.error('상태 저장 실패:', e);
+        console.error('[secrets converter] state save failed:', e);
     }
 }
 
@@ -400,17 +430,17 @@ function loadState() {
             state = JSON.parse(saved);
         }
     } catch (e) {
-        console.error('상태 복원 실패:', e);
+        console.error('[secrets converter] state restore failed:', e);
         state = { files: [] };
     }
 }
 
 function clearAll() {
-    if (confirm('모든 데이터를 삭제하시겠습니까?')) {
+    if (confirm(translate('confirm.clearAll'))) {
         state = { files: [] };
         saveState();
         renderFileList();
-        showToast('모든 데이터가 삭제되었습니다');
+        showToast(translate('toast.allCleared'));
     }
 }
 
@@ -449,3 +479,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderFileList();
     setupDragAndDrop();
 });
+
+// 언어 전환 시 파일 목록 다시 그리기 (빈 상태 안내·버튼 문구)
+document.addEventListener('wizardlanguagechange', () => renderFileList());

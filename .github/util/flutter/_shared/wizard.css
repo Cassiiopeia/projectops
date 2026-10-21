@@ -460,6 +460,28 @@
     margin-top: 0.5rem;
 }
 
+/* 언어 전환 버튼 (#769) — wizard-i18n.js 가 라벨을 채우고 hidden 을 푼다 */
+.lang-toggle {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.625rem;
+    border: 1px solid #475569;
+    border-radius: 9999px;
+    background: rgba(30, 41, 59, 0.6);
+    color: #cbd5e1;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+.lang-toggle:hover {
+    background: rgba(51, 65, 85, 0.8);
+    color: #fff;
+}
+/* 엔진이 없으면(폴더만 떼어간 경우) 버튼을 숨긴 채 영문으로 둔다 */
+.lang-toggle.hidden {
+    display: none;
+}
+
 /* ===================================================================
  * JS가 참조하는 동작용 클래스 (스타일은 Tailwind가 담당)
  * ===================================================================

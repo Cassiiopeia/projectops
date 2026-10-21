@@ -10,18 +10,18 @@ INDEX_FILE="$SCRIPT_DIR/projects-sync-wizard.html"
 
 # 파일 존재 확인
 if [ ! -f "$VERSION_FILE" ]; then
-    echo "❌ version.json 파일을 찾을 수 없습니다: $VERSION_FILE"
+    echo "❌ version.json not found: $VERSION_FILE"
     exit 1
 fi
 
 if [ ! -f "$INDEX_FILE" ]; then
-    echo "❌ projects-sync-wizard.html 파일을 찾을 수 없습니다: $INDEX_FILE"
+    echo "❌ projects-sync-wizard.html not found: $INDEX_FILE"
     exit 1
 fi
 
 # 현재 버전 출력
 CURRENT_VERSION=$(grep '"version"' "$VERSION_FILE" | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-echo "📦 동기화할 버전: v$CURRENT_VERSION"
+echo "📦 Syncing version: v$CURRENT_VERSION"
 
 # Python을 사용해 안전하게 교체
 python3 - "$VERSION_FILE" "$INDEX_FILE" << 'EOF'
@@ -49,6 +49,6 @@ new_content = re.sub(pattern, replacement, index_content, count=1)
 with open(index_file, 'w', encoding='utf-8') as f:
     f.write(new_content)
 
-print("✅ 버전 정보 동기화 완료!")
+print("✅ Version info synced!")
 print("   - version.json → projects-sync-wizard.html")
 EOF

@@ -74,21 +74,21 @@ _enable_windows_vt()
 
 PROG = os.path.basename(sys.argv[0]) if sys.argv else "firebase-wizard.py"
 
-SETUP_USAGE = """사용법: {prog} setup --project-path <path> --app-id <id> --tester-group <group> [옵션]
+SETUP_USAGE = """Usage: {prog} setup --project-path <path> --app-id <id> --tester-group <group> [options]
 
-옵션:
-  --dry-run             실제 파일 수정 없이 변경 미리보기
-  --non-interactive     충돌 시 자동 SKIP (프롬프트 안 띄움)
-  --no-backup           백업 파일 자동 생성 비활성화
-  -h, --help            이 도움말 출력
+Options:
+  --dry-run             Preview the changes without modifying any file
+  --non-interactive     SKIP conflicts automatically (no prompt)
+  --no-backup           Don't create backup files
+  -h, --help            Show this help
 """
 
-TOP_USAGE = """사용법: {prog} <command> [옵션]
+TOP_USAGE = """Usage: {prog} <command> [options]
 
 commands:
-  setup    워크플로우 파일의 FIREBASE_APP_ID/FIREBASE_TESTER_GROUP placeholder 치환
+  setup    Replace the FIREBASE_APP_ID/FIREBASE_TESTER_GROUP placeholders in workflow files
 
-자세한 옵션: {prog} setup --help
+More options: {prog} setup --help
 """
 
 # ---- regex 매칭용 키 패턴 (단어 경계 보장: 키 직후에 공백 또는 콜론) ----
@@ -152,7 +152,7 @@ def process_file(file_path, project_path, app_id, tester_group,
         lines.pop()  # 마지막 개행 뒤 빈 조각은 라인이 아님 (sh read 루프 동일)
 
     if not any(PRECHECK_RE.match(line) for line in lines):
-        ctx.summary.append("⏭  %s — 대상 키 없음, SKIP" % rel)
+        ctx.summary.append("⏭  %s — no target keys, SKIP" % rel)
         return 0
 
     # 백업
@@ -181,42 +181,42 @@ def process_file(file_path, project_path, app_id, tester_group,
             elif stripped == new_value:
                 out_lines.append(line)
                 file_skipped += 1
-                print("  %sℹ%s %s — %s: 이미 같은 값, SKIP" % (BLUE, NC, rel, key))
+                print("  %sℹ%s %s — %s: already the same value, SKIP" % (BLUE, NC, rel, key))
             else:
                 if non_interactive:
                     out_lines.append(line)
                     file_skipped += 1
                     file_conflicts += 1
-                    print("  %s⚠%s %s — %s: 다른 값 ('%s'), 비대화형 SKIP"
+                    print("  %s⚠%s %s — %s: different value ('%s'), non-interactive SKIP"
                           % (YELLOW, NC, rel, key, stripped))
                 else:
                     print()
-                    print("%s⚠ 충돌 감지: %s%s" % (YELLOW, rel, NC))
-                    print("  키: %s" % key)
-                    print("  현재값: %s" % stripped)
-                    print("  새 값:  %s" % new_value)
+                    print("%s⚠ Conflict detected: %s%s" % (YELLOW, rel, NC))
+                    print("  key: %s" % key)
+                    print("  current value: %s" % stripped)
+                    print("  new value:     %s" % new_value)
                     try:
-                        choice = input("  덮어쓸까? (y/n/abort): ")
+                        choice = input("  Overwrite? (y/n/abort): ")
                     except EOFError:
                         choice = ""
                     if choice in ("y", "Y"):
                         out_lines.append('%s%s%s"%s"' % (indent, key, sep, new_value))
                         file_replaced += 1
-                        print("  %s✓%s 덮어씀" % (GREEN, NC))
+                        print("  %s✓%s overwritten" % (GREEN, NC))
                     elif choice in ("n", "N"):
                         out_lines.append(line)
                         file_skipped += 1
                         print("  %sℹ%s SKIP" % (BLUE, NC))
                     elif choice == "A" or choice.startswith("a"):
                         # sh case 패턴 `abort|A|a*` 동일 판정
-                        print("%s❌ 사용자 abort 요청%s" % (RED, NC))
+                        print("%s❌ Aborted by user%s" % (RED, NC))
                         if not no_backup and not dry_run:
                             shutil.move(backup_path, file_path)
                         return 99
                     else:
                         out_lines.append(line)
                         file_skipped += 1
-                        print("  %sℹ%s 알 수 없는 입력 → SKIP" % (BLUE, NC))
+                        print("  %sℹ%s unknown input → SKIP" % (BLUE, NC))
         else:
             out_lines.append(line)
 
@@ -229,13 +229,13 @@ def process_file(file_path, project_path, app_id, tester_group,
     ctx.total_replaced += file_replaced
     ctx.total_skipped += file_skipped
     ctx.total_conflicts += file_conflicts
-    ctx.summary.append("📝 %s — 치환 %d, SKIP %d, 충돌 %d"
+    ctx.summary.append("📝 %s — replaced %d, SKIP %d, conflicts %d"
                        % (rel, file_replaced, file_skipped, file_conflicts))
     return 0
 
 
 class SetupArgumentParser(argparse.ArgumentParser):
-    """sh와 동일한 한국어 에러 문구/exit code(2)를 유지하는 파서."""
+    """sh와 동일한 에러 문구 형식/exit code(2)를 유지하는 파서."""
 
     def error(self, message):
         print("%s❌ %s%s" % (RED, message, NC))
@@ -259,7 +259,7 @@ def cmd_setup(argv):
         return 0
 
     if unknown:
-        print("%s❌ 알 수 없는 인자: %s%s" % (RED, unknown[0], NC))
+        print("%s❌ Unknown argument: %s%s" % (RED, unknown[0], NC))
         print_setup_usage()
         return 2
 
@@ -272,18 +272,18 @@ def cmd_setup(argv):
 
     # ---- 인자 검증 ----
     if not project_path or not app_id or not tester_group:
-        print("%s❌ --project-path, --app-id, --tester-group 모두 필요합니다%s" % (RED, NC))
+        print("%s❌ --project-path, --app-id and --tester-group are all required%s" % (RED, NC))
         print_setup_usage()
         return 2
 
     if not os.path.isdir(project_path):
-        print("%s❌ project-path 디렉터리가 존재하지 않음: %s%s" % (RED, project_path, NC))
+        print("%s❌ project-path directory does not exist: %s%s" % (RED, project_path, NC))
         return 2
 
     workflows_dir = os.path.join(project_path, ".github", "workflows")
     if not os.path.isdir(workflows_dir):
-        print("%s❌ .github/workflows 폴더가 없음. 템플릿이 적용되지 않은 프로젝트입니다.%s" % (RED, NC))
-        print("%s   확인 경로: %s%s" % (YELLOW, workflows_dir, NC))
+        print("%s❌ No .github/workflows folder. The template has not been applied to this project.%s" % (RED, NC))
+        print("%s   checked path: %s%s" % (YELLOW, workflows_dir, NC))
         return 3
 
     # ---- 대상 파일 탐지 (maxdepth 1, 이름순 정렬 — sh find 동일) ----
@@ -295,7 +295,7 @@ def cmd_setup(argv):
     )
 
     if not yaml_files:
-        print("%s⚠️ workflows 폴더에 yaml/yml 파일이 없음%s" % (YELLOW, NC))
+        print("%s⚠️ No yaml/yml files in the workflows folder%s" % (YELLOW, NC))
         return 0
 
     timestamp = int(time.time())
@@ -323,14 +323,14 @@ def cmd_setup(argv):
     for line in ctx.summary:
         print("  %s" % line)
     print()
-    print("총 치환: %d | SKIP: %d | 충돌(SKIP): %d"
+    print("Total replaced: %d | SKIP: %d | conflicts (SKIP): %d"
           % (ctx.total_replaced, ctx.total_skipped, ctx.total_conflicts))
 
     if dry_run:
-        print("%s※ --dry-run: 실제 파일은 수정되지 않았습니다%s" % (YELLOW, NC))
+        print("%s※ --dry-run: no files were modified%s" % (YELLOW, NC))
 
     if aborted:
-        print("%s❌ 사용자 abort로 중단됨%s" % (RED, NC))
+        print("%s❌ Stopped: aborted by user%s" % (RED, NC))
         return 4
     return 0
 
@@ -340,7 +340,7 @@ def main(argv):
         print(TOP_USAGE.format(prog=PROG), end="")
         return 0
     if argv[0] != "setup":
-        print("%s❌ 알 수 없는 커맨드: %s%s" % (RED, argv[0], NC))
+        print("%s❌ Unknown command: %s%s" % (RED, argv[0], NC))
         print(TOP_USAGE.format(prog=PROG), end="")
         return 2
     return cmd_setup(argv[1:])

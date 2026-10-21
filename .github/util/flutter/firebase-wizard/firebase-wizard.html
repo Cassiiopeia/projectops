@@ -1,16 +1,27 @@
 <!DOCTYPE html>
-<html lang="ko" class="dark">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Firebase App Distribution 배포 마법사</title>
+    <title data-i18n="page.title">Firebase App Distribution Deployment Wizard</title>
     <script type="application/json" id="versionJson">
 {
   "name": "Firebase App Distribution Setup Wizard",
-  "version": "1.3.0",
-  "description": "Flutter Android 앱을 Firebase App Distribution에 배포하기 위한 설정 마법사",
-  "lastUpdated": "2026-07-27",
+  "version": "1.4.0",
+  "description": "Setup wizard for deploying a Flutter Android app to Firebase App Distribution",
+  "lastUpdated": "2026-10-22",
   "changelog": [
+    {
+      "version": "1.4.0",
+      "date": "2026-10-22",
+      "changes": [
+        "English is now the default; a language toggle switches to Korean and the choice is saved in this browser (projectops#769)",
+        "Korean text moved to firebase-wizard-i18n.js; the shared engine is _shared/wizard-i18n.js",
+        "Starts in Korean when there is no saved choice and the browser language is Korean; ?lang=en|ko in the address overrides",
+        "Generated files, commands and secret names are identical in both languages",
+        "Python CLI messages are now English"
+      ]
+    },
     {
       "version": "1.3.0",
       "date": "2026-07-27",
@@ -113,10 +124,10 @@
             }
         }
     </script>
+    <!-- Firebase 마법사 고유 스타일 — 공통 컴포넌트는 ../_shared/wizard.css 참조 -->
+    <!-- .file-upload: 브랜드 색을 입힌 파일 업로드 (공통 .file-upload 위에 덮어쓴다) -->
     <style>
-        /* Firebase 마법사 고유 스타일 — 공통 컴포넌트는 ../_shared/wizard.css 참조 */
         body { background: #0f172a; color: #e2e8f0; font-family: 'Pretendard Variable', sans-serif; }
-        /* 브랜드 색을 입힌 파일 업로드 (공통 .file-upload 위에 덮어쓴다) */
         .file-upload:hover { border-color: #FFA000; background: rgba(255, 160, 0, 0.05); }
         .file-upload.dragover { border-color: #FFA000; background: rgba(255, 160, 0, 0.1); }
     </style>
@@ -129,7 +140,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
             </svg>
             <div class="flex-1">
-                <p class="text-sm font-medium">이 페이지를 닫으면 입력한 데이터가 사라집니다 (localStorage에 임시 저장됨)</p>
+                <p class="text-sm font-medium" data-i18n="security.warning">If you close this page, the data you entered is lost (temporarily stored in localStorage)</p>
             </div>
             <button onclick="closeSecurityWarning()" class="text-yellow-400 hover:text-yellow-200">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -143,9 +154,9 @@
         <!-- 헤더 -->
         <header class="mb-8 text-center">
             <h1 class="text-3xl md:text-4xl font-bold mb-3">
-                🔥 <span class="bg-gradient-to-r from-firebase-primary to-firebase-accent bg-clip-text text-transparent">Firebase App Distribution 배포 마법사</span>
+                🔥 <span class="bg-gradient-to-r from-firebase-primary to-firebase-accent bg-clip-text text-transparent" data-i18n="header.title">Firebase App Distribution Deployment Wizard</span>
             </h1>
-            <p class="text-slate-400 mb-3">Flutter Android 테스트 빌드를 Firebase로 자동 배포하는 5단계 설정</p>
+            <p class="text-slate-400 mb-3" data-i18n="header.subtitle">A 5-step setup that ships Flutter Android test builds to Firebase automatically</p>
             <p class="text-zinc-400 text-sm flex items-center justify-center gap-3">
                 <a href="https://github.com/Cassiiopeia/projectops" target="_blank" rel="noopener"
                    class="text-xs text-slate-500 hover:text-slate-300">projectops GitHub →</a>
@@ -154,23 +165,25 @@
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
                     <span id="versionBadge">v1.2.0</span>
                 </button>
+                <span class="text-slate-600">|</span>
+                <button type="button" class="lang-toggle hidden" data-lang-toggle onclick="toggleWizardLanguage()">한국어</button>
             </p>
         </header>
 
         <!-- 첫 사용자 안내 — 시작 전에 규모·준비물·산출물을 먼저 보여준다 -->
         <div class="wizard-meta">
-            <span>⏱️ 예상 소요 <strong>15~25분</strong></span>
+            <span data-i18n="meta.duration">⏱️ Estimated time <strong>15–25 min</strong></span>
             <span class="text-slate-600">·</span>
-            <span>📑 <strong>5단계</strong></span>
+            <span data-i18n="meta.stepCount">📑 <strong>5 steps</strong></span>
             <span class="text-slate-600">·</span>
-            <span>🎒 준비물 <strong>Firebase 프로젝트(무료) · Flutter 프로젝트 · 서명 키스토어</strong></span>
+            <span data-i18n="meta.requirements">🎒 You need <strong>a Firebase project (free) · a Flutter project · a signing keystore</strong></span>
         </div>
         <div class="wizard-meta" style="margin-top:-0.5rem">
-            <span>🎁 완료하면 <strong>Service Account base64 + GitHub Secrets 2종, 워크플로우 값 치환 명령</strong>을 받습니다</span>
+            <span data-i18n="meta.outputs">🎁 When done, you get <strong>the Service Account base64 + 2 GitHub Secrets, and a command that fills in the workflow values</strong></span>
             <span class="text-slate-600">·</span>
-            <a href="../../../../docs/FLUTTER-FIREBASE-WIZARD.md" target="_blank" rel="noopener" class="text-firebase-accent hover:underline">📖 문서로 자세히 보기 →</a>
+            <a href="../../../../docs/FLUTTER-FIREBASE-WIZARD.md" target="_blank" rel="noopener" class="text-firebase-accent hover:underline" data-i18n="meta.docsLink">📖 Read the full guide →</a>
         </div>
-        <p class="resume-hint">진행 상황은 이 브라우저에 자동 저장됩니다. 창을 닫았다가 다시 열면 이어서 진행할 수 있어요.</p>
+        <p class="resume-hint" data-i18n="meta.resumeHint">Your progress is saved in this browser automatically. Close the window and reopen it to pick up where you left off.</p>
 
         <!-- Progress Steps (5단계) — 구조는 3종 공통 계약이다. _shared/wizard.css 참조 -->
         <div class="flex justify-between mb-8 px-2 overflow-x-auto">
@@ -180,15 +193,15 @@
             </div>
             <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="2">
                 <div class="step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10">2</div>
-                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block">SA 발급</span>
+                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block" data-i18n="steps.serviceAccount">Service account</span>
             </div>
             <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="3">
                 <div class="step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10">3</div>
-                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block">앱 정보</span>
+                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block" data-i18n="steps.appInfo">App info</span>
             </div>
             <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="4">
                 <div class="step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10">4</div>
-                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block">파일 업로드</span>
+                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block" data-i18n="steps.fileUpload">Upload files</span>
             </div>
             <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="5">
                 <div class="step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10">5</div>
@@ -202,12 +215,12 @@
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content fade-in" data-step="1">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
                 <span class="w-8 h-8 bg-firebase-primary rounded-lg flex items-center justify-center text-sm text-slate-900">1</span>
-                Firebase Console 설정
+                <span data-i18n="step1.title">Firebase Console setup</span>
             </h2>
 
             <div class="bg-firebase-primary/10 border border-firebase-primary/30 rounded-lg p-4 mb-6">
-                <p class="text-sm text-firebase-accent">
-                    🔥 <strong>이 단계의 목표:</strong> Firebase 프로젝트에 Android 앱을 등록하고 App Distribution을 활성화한 뒤, 테스터 그룹을 만들어 둡니다.
+                <p class="text-sm text-firebase-accent" data-i18n="step1.goal">
+                    🔥 <strong>Goal of this step:</strong> register your Android app in a Firebase project, turn on App Distribution, and create a tester group.
                 </p>
             </div>
 
@@ -217,105 +230,105 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                     </svg>
-                    Firebase Console 열기
+                    <span data-i18n="step1.openConsole">Open Firebase Console</span>
                 </a>
             </div>
 
             <div class="space-y-4">
                 <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
-                    <p class="text-sm font-medium text-firebase-accent mb-2">1) 프로젝트 생성 또는 선택</p>
+                    <p class="text-sm font-medium text-firebase-accent mb-2" data-i18n="step1.createProjectTitle">1) Create or select a project</p>
                     <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
-                        <li>"프로젝트 추가" 또는 기존 프로젝트 선택</li>
-                        <li>프로젝트 이름 입력 → 약관 동의 → "계속"</li>
-                        <li>Google Analytics는 선택 사항 (켜도 무방)</li>
+                        <li data-i18n="step1.createProject1">Click "Add project" or pick an existing one</li>
+                        <li data-i18n="step1.createProject2">Enter a project name → accept the terms → "Continue"</li>
+                        <li data-i18n="step1.createProject3">Google Analytics is optional (fine to leave on)</li>
                     </ol>
                 </div>
 
                 <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
-                    <p class="text-sm font-medium text-firebase-accent mb-2">2) Android 앱 등록</p>
+                    <p class="text-sm font-medium text-firebase-accent mb-2" data-i18n="step1.registerAppTitle">2) Register the Android app</p>
                     <div class="mb-3 p-3 bg-red-900/30 border border-red-700 rounded">
-                        <p class="text-xs text-red-300 font-bold mb-1">⚠️ Flutter 아이콘이 아니라 Android 아이콘을 고르세요</p>
-                        <p class="text-[11px] text-slate-400">
-                            앱 추가 화면에 <span class="text-slate-300">Flutter</span> 항목이 보이지만, 이걸 누르면
-                            <code class="text-slate-300">flutterfire configure</code> CLI로 Firebase SDK를 앱에 통합하는 절차로 넘어갑니다.
+                        <p class="text-xs text-red-300 font-bold mb-1" data-i18n="step1.pickAndroidTitle">⚠️ Pick the Android icon, not the Flutter one</p>
+                        <p class="text-[11px] text-slate-400" data-i18n="step1.pickAndroidBody1">
+                            The add-app screen shows a <span class="text-slate-300">Flutter</span> option, but it leads to the
+                            <code class="text-slate-300">flutterfire configure</code> CLI flow that integrates the Firebase SDK into your app.
                         </p>
-                        <p class="text-[11px] text-slate-400 mt-1">
-                            <span class="text-green-400 font-bold">App Distribution은 APK만 업로드하면 되므로 SDK 통합이 필요 없습니다.</span>
-                            Android 아이콘(🤖)으로 등록하세요.
+                        <p class="text-[11px] text-slate-400 mt-1" data-i18n="step1.pickAndroidBody2">
+                            <span class="text-green-400 font-bold">App Distribution only needs the APK upload, so no SDK integration is required.</span>
+                            Register with the Android icon (🤖).
                         </p>
                     </div>
                     <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
-                        <li>좌측 상단 <span class="text-yellow-400">프로젝트 개요</span> 클릭</li>
-                        <li>앱 추가 아이콘 중 <span class="text-green-400 font-bold">Android(🤖)</span> 선택</li>
-                        <li>Android 패키지 이름 (예: <code class="text-yellow-400">kr.mycompany.myapp</code>)
+                        <li data-i18n="step1.registerApp1">Click <span class="text-yellow-400">Project Overview</span> at the top left</li>
+                        <li data-i18n="step1.registerApp2">Among the add-app icons, choose <span class="text-green-400 font-bold">Android (🤖)</span></li>
+                        <li data-i18n="step1.registerApp3">Android package name (e.g. <code class="text-yellow-400">kr.mycompany.myapp</code>)
                             <div class="text-slate-500 text-[10px] mt-0.5">
-                                <code class="text-slate-400">android/app/build.gradle.kts</code>의 <code class="text-slate-400">applicationId</code>와 동일해야 합니다
+                                Must match <code class="text-slate-400">applicationId</code> in <code class="text-slate-400">android/app/build.gradle.kts</code>
                             </div>
                         </li>
-                        <li>SHA-1 인증서 지문은 <span class="text-slate-400">비워도 됩니다</span> (App Distribution에 불필요)</li>
-                        <li><span class="text-yellow-400">앱 등록</span> 클릭 → <strong class="text-green-400">google-services.json</strong> 다운로드 → Step 4에서 업로드</li>
+                        <li data-i18n="step1.registerApp4">You can <span class="text-slate-400">leave the SHA-1 certificate fingerprint empty</span> (not needed for App Distribution)</li>
+                        <li data-i18n="step1.registerApp5">Click <span class="text-yellow-400">Register app</span> → download <strong class="text-green-400">google-services.json</strong> → upload it in Step 4</li>
                         <li class="pl-4">
                             <div class="mt-1 p-2 bg-slate-800/50 rounded border-l-4 border-emerald-500">
-                                <span class="text-emerald-400 font-bold text-[11px]">이후 SDK 설치 단계는 건너뛰세요</span>
-                                <div class="text-slate-500 text-[10px] mt-0.5">
-                                    "Firebase SDK 추가" · "다음 단계로 이동" 화면은 App Distribution만 쓸 경우 불필요합니다.
+                                <span class="text-emerald-400 font-bold text-[11px]" data-i18n="step1.skipSdkTitle">Skip the SDK setup screens that follow</span>
+                                <div class="text-slate-500 text-[10px] mt-0.5" data-i18n="step1.skipSdkBody">
+                                    The "Add Firebase SDK" and "Next steps" screens aren't needed if you only use App Distribution.
                                 </div>
                             </div>
                         </li>
-                        <li>좌측 하단 "톱니바퀴 → 프로젝트 설정"에서 <strong class="text-yellow-400">앱 ID</strong> (예: <code>1:905...:android:abc</code>) 복사 → Step 3에서 사용</li>
+                        <li data-i18n="step1.registerApp6">From "gear icon → Project settings" at the bottom left, copy the <strong class="text-yellow-400">App ID</strong> (e.g. <code>1:905...:android:abc</code>) → used in Step 3</li>
                     </ol>
                 </div>
 
                 <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
-                    <p class="text-sm font-medium text-firebase-accent mb-2">3) App Distribution 활성화</p>
+                    <p class="text-sm font-medium text-firebase-accent mb-2" data-i18n="step1.enableTitle">3) Turn on App Distribution</p>
                     <div class="mb-3 p-3 bg-red-900/30 border border-red-700 rounded">
-                        <p class="text-xs text-red-300 font-bold mb-1">⚠️ 이 단계를 건너뛰면 배포가 404로 실패합니다</p>
-                        <p class="text-[11px] text-slate-400">
-                            앱 등록과 권한 부여를 모두 마쳐도, App Distribution 자체를 활성화하지 않으면
-                            업로드 API가 <code class="text-slate-300">404 Requested entity was not found</code>를 반환합니다.
-                            권한 문제로 오인하기 쉬우니 반드시 확인하세요.
+                        <p class="text-xs text-red-300 font-bold mb-1" data-i18n="step1.enableWarningTitle">⚠️ Skip this and deployments fail with 404</p>
+                        <p class="text-[11px] text-slate-400" data-i18n="step1.enableWarningBody">
+                            Even with the app registered and permissions granted, the upload API returns
+                            <code class="text-slate-300">404 Requested entity was not found</code> until App Distribution itself is turned on.
+                            It is easy to mistake for a permission problem, so check it.
                         </p>
                     </div>
                     <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
-                        <li>좌측 메뉴 → <span class="text-yellow-400">"출시 및 모니터링"</span> → <span class="text-yellow-400">"App Distribution"</span></li>
-                        <li><span class="text-green-400 font-bold">"시작하기"</span> 클릭 → 활성화 완료</li>
-                        <li>활성화되면 "테스터 및 그룹" 탭이 나타납니다 — 이게 성공 신호입니다</li>
+                        <li data-i18n="step1.enable1">Left menu → <span class="text-yellow-400">"Release &amp; Monitor"</span> → <span class="text-yellow-400">"App Distribution"</span></li>
+                        <li data-i18n="step1.enable2">Click <span class="text-green-400 font-bold">"Get started"</span> → it's on</li>
+                        <li data-i18n="step1.enable3">Once it's on, the "Testers &amp; Groups" tab appears — that is the success signal</li>
                     </ol>
                 </div>
 
                 <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
-                    <p class="text-sm font-medium text-firebase-accent mb-2">4) 테스터 그룹 생성</p>
+                    <p class="text-sm font-medium text-firebase-accent mb-2" data-i18n="step1.groupTitle">4) Create a tester group</p>
                     <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
-                        <li>App Distribution → 상단 탭 <span class="text-yellow-400">"테스터 및 그룹"</span></li>
-                        <li>좌측 <span class="text-yellow-400">"그룹 추가"</span> 클릭 → 그룹명 입력 (예: <code class="text-yellow-400">testers</code>)</li>
-                        <li>그룹에 테스터 이메일 추가
+                        <li data-i18n="step1.group1">App Distribution → top tab <span class="text-yellow-400">"Testers &amp; Groups"</span></li>
+                        <li data-i18n="step1.group2">Click <span class="text-yellow-400">"Add group"</span> on the left → enter a group name (e.g. <code class="text-yellow-400">testers</code>)</li>
+                        <li data-i18n="step1.group3">Add tester emails to the group
                             <div class="text-slate-500 text-[10px] mt-0.5">
-                                "모든 테스터"에만 추가하면 그룹 배포가 되지 않습니다. 반드시 <span class="text-slate-400">그룹 안에</span> 넣으세요.
+                                Adding them only to "All testers" won't reach the group. Put them <span class="text-slate-400">inside the group</span>.
                             </div>
                         </li>
                     </ol>
                     <div class="mt-3 p-3 bg-red-900/30 border border-red-700 rounded">
-                        <p class="text-[11px] text-red-300 font-bold mb-1">⚠️ Step 3에 넣을 값은 "표시 이름"이 아니라 "그룹 별칭"입니다</p>
-                        <p class="text-[11px] text-slate-400">
-                            Firebase는 그룹을 만들 때 입력한 이름을 <span class="text-slate-300">소문자 별칭(alias)</span>으로 따로 저장합니다.
-                            배포에 쓰이는 값은 이 별칭입니다.
+                        <p class="text-[11px] text-red-300 font-bold mb-1" data-i18n="step1.aliasTitle">⚠️ Step 3 needs the "group alias", not the "display name"</p>
+                        <p class="text-[11px] text-slate-400" data-i18n="step1.aliasBody">
+                            Firebase stores the name you typed as a separate <span class="text-slate-300">lowercase alias</span>.
+                            Deployments use the alias.
                         </p>
                         <div class="bg-slate-900 rounded p-2 mt-2 font-mono text-[10px]">
-                            <div class="text-slate-500">화면 표시 이름 : <span class="text-slate-400">AcmeTeam</span></div>
-                            <div class="text-slate-500">실제 별칭     : <span class="text-green-400">acmeteam</span>  ← 이 값을 사용</div>
+                            <div class="text-slate-500" data-i18n="step1.aliasDisplay">Display name   : <span class="text-slate-400">AcmeTeam</span></div>
+                            <div class="text-slate-500" data-i18n="step1.aliasActual">Actual alias   : <span class="text-green-400">acmeteam</span>  ← use this</div>
                         </div>
-                        <p class="text-[11px] text-slate-400 mt-2">
-                            그룹을 클릭했을 때 주소창 URL 끝에 보이는 값이 별칭입니다.
-                            대소문자·공백이 다르면 <code class="text-slate-300">group not found</code>로 배포가 실패합니다.
+                        <p class="text-[11px] text-slate-400 mt-2" data-i18n="step1.aliasFind">
+                            Click the group: the value at the end of the address bar URL is the alias.
+                            If case or spaces differ, deployment fails with <code class="text-slate-300">group not found</code>.
                         </p>
                     </div>
                 </div>
             </div>
 
             <div class="flex justify-between items-center mt-8">
-                <span class="skip-btn" onclick="nextStep()">이미 다 했어요 →</span>
-                <button class="px-6 py-2.5 bg-gradient-to-r from-firebase-primary to-firebase-accent text-slate-900 hover:opacity-90 rounded-lg font-medium transition" onclick="nextStep()">
-                    다음: Service Account →
+                <span class="skip-btn" onclick="nextStep()" data-i18n="step1.skip">Already done →</span>
+                <button class="px-6 py-2.5 bg-gradient-to-r from-firebase-primary to-firebase-accent text-slate-900 hover:opacity-90 rounded-lg font-medium transition" onclick="nextStep()" data-i18n="step1.next">
+                    Next: Service Account →
                 </button>
             </div>
         </div>
@@ -324,114 +337,114 @@
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="2">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
                 <span class="w-8 h-8 bg-firebase-primary rounded-lg flex items-center justify-center text-sm text-slate-900">2</span>
-                Service Account 발급 + 권한 부여
-                <span class="text-xs font-normal text-firebase-accent bg-firebase-primary/20 px-2 py-1 rounded">중요</span>
+                <span data-i18n="step2.title">Create the service account + grant access</span>
+                <span class="text-xs font-normal text-firebase-accent bg-firebase-primary/20 px-2 py-1 rounded" data-i18n="step2.important">Important</span>
             </h2>
 
             <div class="bg-firebase-primary/10 border border-firebase-primary/30 rounded-lg p-4 mb-6">
-                <p class="text-sm text-firebase-accent">
-                    🔑 <strong>왜 필요한가?</strong> GitHub Actions가 Firebase에 빌드를 업로드하려면 인증이 필요합니다. Service Account JSON 키가 그 역할을 합니다.
+                <p class="text-sm text-firebase-accent" data-i18n="step2.why">
+                    🔑 <strong>Why?</strong> GitHub Actions needs credentials to upload builds to Firebase. The Service Account JSON key provides them.
                 </p>
             </div>
 
             <div class="mb-4 flex flex-wrap gap-2">
                 <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener"
                    class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition">
-                    Cloud Console — Service Accounts 열기
+                    <span data-i18n="step2.openServiceAccounts">Open Cloud Console — Service Accounts</span>
                 </a>
                 <a href="https://console.cloud.google.com/iam-admin/iam" target="_blank" rel="noopener"
                    class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition">
-                    Cloud Console — IAM 열기
+                    <span data-i18n="step2.openIam">Open Cloud Console — IAM</span>
                 </a>
             </div>
 
             <div class="space-y-4">
                 <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4">
-                    <p class="text-sm text-yellow-200 font-medium mb-2">1) Service Account 생성</p>
+                    <p class="text-sm text-yellow-200 font-medium mb-2" data-i18n="step2.createTitle">1) Create the service account</p>
                     <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
-                        <li>위 "Service Accounts" 버튼 클릭</li>
-                        <li>상단 프로젝트 선택 → Firebase 프로젝트와 동일한 프로젝트인지 확인</li>
-                        <li>"+ 서비스 계정 만들기" 클릭</li>
-                        <li>이름: <code class="text-yellow-400">firebase-app-distribution-uploader</code> (예시)</li>
-                        <li>"만들고 계속하기" → 역할은 일단 비워도 OK → "완료"</li>
+                        <li data-i18n="step2.create1">Click the "Service Accounts" button above</li>
+                        <li data-i18n="step2.create2">Select the project at the top → make sure it's the same project as Firebase</li>
+                        <li data-i18n="step2.create3">Click "+ Create service account"</li>
+                        <li data-i18n="step2.create4">Name: <code class="text-yellow-400">firebase-app-distribution-uploader</code> (example)</li>
+                        <li data-i18n="step2.create5">"Create and continue" → you can leave the role empty for now → "Done"</li>
                     </ol>
                     <div class="mt-3 p-3 bg-slate-800/50 rounded border-l-4 border-blue-500">
-                        <p class="text-[11px] text-blue-300 font-bold mb-1">💡 Firebase Console에서 받은 키도 쓸 수 있습니다</p>
-                        <p class="text-[11px] text-slate-400">
-                            Firebase Console → 프로젝트 설정 → <span class="text-slate-300">서비스 계정</span> 탭 →
-                            "새 비공개 키 생성"으로 받은 <code class="text-slate-300">firebase-adminsdk-*</code> 키도 사용 가능합니다.
+                        <p class="text-[11px] text-blue-300 font-bold mb-1" data-i18n="step2.firebaseKeyTitle">💡 A key from the Firebase Console works too</p>
+                        <p class="text-[11px] text-slate-400" data-i18n="step2.firebaseKeyBody">
+                            A <code class="text-slate-300">firebase-adminsdk-*</code> key from Firebase Console → Project settings → <span class="text-slate-300">Service accounts</span> tab →
+                            "Generate new private key" also works.
                         </p>
-                        <p class="text-[11px] text-red-300 mt-1">
-                            ⚠️ 단, 그 키에는 App Distribution 권한이 <span class="font-bold">자동 부여되지 않습니다.</span>
-                            아래 3번 IAM 단계를 반드시 수행하세요.
+                        <p class="text-[11px] text-red-300 mt-1" data-i18n="step2.firebaseKeyWarning">
+                            ⚠️ But that key <span class="font-bold">does not get App Distribution access automatically.</span>
+                            Be sure to do the IAM step (3) below.
                         </p>
                     </div>
                     <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-orange-500">
-                        <p class="text-[11px] text-orange-300 font-bold mb-1">⚠️ 다른 프로젝트의 키는 재사용할 수 없습니다</p>
-                        <p class="text-[11px] text-slate-400">
-                            Play Store 배포용 키가 있어도 Firebase 프로젝트가 다르면 쓸 수 없습니다.
-                            Service Account는 소속 프로젝트에 종속되며, 다른 프로젝트 리소스에는 접근 권한이 없습니다.
+                        <p class="text-[11px] text-orange-300 font-bold mb-1" data-i18n="step2.otherProjectTitle">⚠️ You can't reuse a key from another project</p>
+                        <p class="text-[11px] text-slate-400" data-i18n="step2.otherProjectBody">
+                            Even if you have a Play Store deployment key, it won't work for a different Firebase project.
+                            A service account belongs to its project and has no access to other projects' resources.
                         </p>
                     </div>
                 </div>
 
                 <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4">
-                    <p class="text-sm text-yellow-200 font-medium mb-2">2) JSON 키 발급</p>
+                    <p class="text-sm text-yellow-200 font-medium mb-2" data-i18n="step2.keyTitle">2) Create the JSON key</p>
                     <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
-                        <li>방금 만든 Service Account 행 클릭</li>
-                        <li>상단 탭 "키" → "키 추가" → "새 키 만들기" → JSON 선택 → "만들기"</li>
-                        <li><strong class="text-green-400">JSON 파일이 자동 다운로드됨</strong> (Step 4에서 업로드)</li>
+                        <li data-i18n="step2.key1">Click the service account row you just created</li>
+                        <li data-i18n="step2.key2">Top tab "Keys" → "Add key" → "Create new key" → choose JSON → "Create"</li>
+                        <li data-i18n="step2.key3"><strong class="text-green-400">The JSON file downloads automatically</strong> (upload it in Step 4)</li>
                         <li class="pl-4 mt-2">
-                            <div class="p-2 bg-slate-800/50 rounded border-l-4 border-red-500 text-red-300 text-[11px]">
-                                ⚠️ 다운로드된 JSON은 <strong>매우 민감</strong>합니다. Git에 커밋하지 마세요. 저장 위치를 잘 기억해두세요.
+                            <div class="p-2 bg-slate-800/50 rounded border-l-4 border-red-500 text-red-300 text-[11px]" data-i18n="step2.keyWarning">
+                                ⚠️ The downloaded JSON is <strong>highly sensitive</strong>. Don't commit it to Git. Remember where you saved it.
                             </div>
                         </li>
                     </ol>
                 </div>
 
                 <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4">
-                    <p class="text-sm text-yellow-200 font-medium mb-2">3) IAM 권한 부여</p>
+                    <p class="text-sm text-yellow-200 font-medium mb-2" data-i18n="step2.iamTitle">3) Grant IAM access</p>
                     <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
-                        <li>위 "IAM" 버튼 클릭</li>
-                        <li>방금 만든 Service Account 이메일 (<code>...@PROJECT.iam.gserviceaccount.com</code>) 행 우측 연필 아이콘 클릭</li>
-                        <li>"+ 다른 역할 추가" → 역할 검색 → <strong class="text-green-400">"Firebase App Distribution Admin"</strong> 선택</li>
-                        <li>"저장" → 권한 부여 완료</li>
+                        <li data-i18n="step2.iam1">Click the "IAM" button above</li>
+                        <li data-i18n="step2.iam2">On the row of the service account email you just created (<code>...@PROJECT.iam.gserviceaccount.com</code>), click the pencil icon on the right</li>
+                        <li data-i18n="step2.iam3">"+ Add another role" → search roles → choose <strong class="text-green-400">"Firebase App Distribution Admin"</strong></li>
+                        <li data-i18n="step2.iam4">"Save" → access granted</li>
                     </ol>
                 </div>
 
                 <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
-                    <p class="text-sm font-medium text-blue-400 mb-2">✅ 검증 체크리스트</p>
+                    <p class="text-sm font-medium text-blue-400 mb-2" data-i18n="step2.checklistTitle">✅ Verification checklist</p>
                     <div class="text-xs text-slate-300 space-y-1">
-                        <label class="flex items-center gap-2"><input type="checkbox" class="accent-firebase-primary"> Service Account 생성 완료</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" class="accent-firebase-primary"> JSON 키 다운로드 완료 (저장 위치 확인)</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" class="accent-firebase-primary"> "Firebase App Distribution Admin" 역할 부여 완료</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" class="accent-firebase-primary"> App Distribution 활성화 완료 (Step 1의 3번)</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="accent-firebase-primary"> <span data-i18n="step2.check1">Service account created</span></label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="accent-firebase-primary"> <span data-i18n="step2.check2">JSON key downloaded (you know where it is)</span></label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="accent-firebase-primary"> <span data-i18n="step2.check3">"Firebase App Distribution Admin" role granted</span></label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="accent-firebase-primary"> <span data-i18n="step2.check4">App Distribution turned on (Step 1, item 3)</span></label>
                     </div>
 
                     <div class="mt-3 pt-3 border-t border-slate-600">
-                        <p class="text-xs text-slate-300 font-medium mb-2">🔍 배포 전에 미리 확인하기 (권장)</p>
-                        <p class="text-[11px] text-slate-500 mb-2">
-                            아래 명령으로 실제 접근 권한을 확인할 수 있습니다. 여기서 실패하면 배포도 실패합니다.
+                        <p class="text-xs text-slate-300 font-medium mb-2" data-i18n="step2.precheckTitle">🔍 Check before deploying (recommended)</p>
+                        <p class="text-[11px] text-slate-500 mb-2" data-i18n="step2.precheckBody">
+                            The commands below check the actual access. If they fail here, deployment fails too.
                         </p>
                         <div class="bg-slate-900 rounded p-2 font-mono text-[10px] overflow-x-auto">
-                            <div class="text-slate-500"># gcloud CLI가 있는 경우</div>
-                            <div class="text-green-400 break-all">gcloud auth activate-service-account --key-file=키파일.json</div>
-                            <div class="text-green-400 break-all">gcloud projects get-iam-policy 프로젝트ID --flatten="bindings[].members" \</div>
-                            <div class="text-green-400 break-all">&nbsp;&nbsp;--filter="bindings.members:$(python3 -c "import json,sys;print(json.load(open('키파일.json'))['client_email'])")"</div>
+                            <div class="text-slate-500" data-i18n="step2.precheckComment"># If you have the gcloud CLI</div>
+                            <div class="text-green-400 break-all" data-i18n="step2.precheckCommand1">gcloud auth activate-service-account --key-file=key-file.json</div>
+                            <div class="text-green-400 break-all" data-i18n="step2.precheckCommand2">gcloud projects get-iam-policy PROJECT_ID --flatten="bindings[].members" \</div>
+                            <div class="text-green-400 break-all" data-i18n="step2.precheckCommand3">&nbsp;&nbsp;--filter="bindings.members:$(python3 -c "import json,sys;print(json.load(open('key-file.json'))['client_email'])")"</div>
                         </div>
                         <div class="mt-2 p-2 bg-slate-800/50 rounded text-[10px] text-slate-400">
-                            <div class="text-slate-300 mb-1">응답 코드로 원인 구분:</div>
-                            <div>• <code class="text-red-400">403 permission denied</code> → IAM 역할 미부여 (위 3번)</div>
-                            <div>• <code class="text-orange-400">404 not found</code> → App Distribution 미활성화 (Step 1의 3번)</div>
-                            <div>• <code class="text-green-400">200 OK</code> → 정상, 배포 가능</div>
+                            <div class="text-slate-300 mb-1" data-i18n="step2.responseTitle">Tell the cause from the response code:</div>
+                            <div data-i18n="step2.response403">• <code class="text-red-400">403 permission denied</code> → IAM role not granted (item 3 above)</div>
+                            <div data-i18n="step2.response404">• <code class="text-orange-400">404 not found</code> → App Distribution not turned on (Step 1, item 3)</div>
+                            <div data-i18n="step2.response200">• <code class="text-green-400">200 OK</code> → all good, ready to deploy</div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div class="flex justify-between mt-8">
-                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()">← 이전</button>
-                <button class="px-6 py-2.5 bg-gradient-to-r from-firebase-primary to-firebase-accent text-slate-900 hover:opacity-90 rounded-lg font-medium transition" onclick="nextStep()">다음: 앱 정보 →</button>
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="step2.previous">← Back</button>
+                <button class="px-6 py-2.5 bg-gradient-to-r from-firebase-primary to-firebase-accent text-slate-900 hover:opacity-90 rounded-lg font-medium transition" onclick="nextStep()" data-i18n="step2.next">Next: App info →</button>
             </div>
         </div>
 
@@ -439,45 +452,45 @@
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="3">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
                 <span class="w-8 h-8 bg-firebase-primary rounded-lg flex items-center justify-center text-sm text-slate-900">3</span>
-                앱 정보 입력
+                <span data-i18n="step3.title">Enter app info</span>
             </h2>
 
             <div class="bg-firebase-primary/10 border border-firebase-primary/30 rounded-lg p-4 mb-6">
-                <p class="text-sm text-firebase-accent">
-                    📋 Step 1에서 확인한 <strong>앱 ID</strong>와 <strong>테스터 그룹명</strong>을 입력하세요. 이 값들로 워크플로우 파일의 placeholder를 자동 치환합니다.
+                <p class="text-sm text-firebase-accent" data-i18n="step3.intro">
+                    📋 Enter the <strong>App ID</strong> and <strong>tester group</strong> you found in Step 1. They are used to fill in the placeholders in your workflow files.
                 </p>
             </div>
 
             <div class="space-y-4 mb-6">
                 <div>
                     <label class="block text-sm font-medium mb-2 text-slate-300">FIREBASE_APP_ID <span class="text-red-400">*</span></label>
-                    <input type="text" id="firebaseAppIdInput" placeholder="예: 1:905325245238:android:86db75164e0df29a1f3997"
+                    <input type="text" id="firebaseAppIdInput" placeholder="e.g. 1:905325245238:android:86db75164e0df29a1f3997" data-i18n-placeholder="step3.appIdPlaceholder"
                         class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm font-mono focus:border-firebase-primary outline-none"
                         oninput="onFirebaseAppIdChange(this.value)">
-                    <p class="text-xs text-slate-500 mt-1">Firebase Console → 프로젝트 설정 → 내 앱 → 앱 ID</p>
+                    <p class="text-xs text-slate-500 mt-1" data-i18n="step3.appIdHint">Firebase Console → Project settings → Your apps → App ID</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-2 text-slate-300">FIREBASE_TESTER_GROUP <span class="text-red-400">*</span></label>
-                    <input type="text" id="firebaseTesterGroupInput" placeholder="예: testers"
+                    <input type="text" id="firebaseTesterGroupInput" placeholder="e.g. testers" data-i18n-placeholder="step3.testerGroupPlaceholder"
                         class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm font-mono focus:border-firebase-primary outline-none"
                         oninput="onFirebaseTesterGroupChange(this.value)">
-                    <p class="text-xs text-slate-500 mt-1">App Distribution → 테스터 및 그룹 → 그룹 별칭</p>
-                    <p class="text-xs text-red-400 mt-1">
-                        ⚠️ 화면에 보이는 표시 이름이 아니라 <span class="font-bold">소문자 별칭</span>입니다
-                        (예: 표시 <code class="text-slate-400">AcmeTeam</code> → 입력 <code class="text-green-400">acmeteam</code>)
+                    <p class="text-xs text-slate-500 mt-1" data-i18n="step3.testerGroupHint">App Distribution → Testers &amp; Groups → group alias</p>
+                    <p class="text-xs text-red-400 mt-1" data-i18n="step3.testerGroupWarning">
+                        ⚠️ It's the <span class="font-bold">lowercase alias</span>, not the display name you see on screen
+                        (e.g. display <code class="text-slate-400">AcmeTeam</code> → enter <code class="text-green-400">acmeteam</code>)
                     </p>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-2 text-slate-300">프로젝트 경로 (setup 스크립트 실행 위치)</label>
-                    <input type="text" id="projectPathInput" value="." placeholder="예: . 또는 /path/to/project"
+                    <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="step3.projectPathLabel">Project path (where you run the setup script)</label>
+                    <input type="text" id="projectPathInput" value="." placeholder="e.g. . or /path/to/project" data-i18n-placeholder="step3.projectPathPlaceholder"
                         class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm font-mono focus:border-firebase-primary outline-none"
                         oninput="onProjectPathChange(this.value)">
                 </div>
             </div>
 
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
-                <p class="text-sm font-medium text-blue-400 mb-3">⚙️ 워크플로우 placeholder 자동 치환 명령</p>
-                <p class="text-xs text-slate-400 mb-3">아래 명령을 OS에 맞게 복사 → 프로젝트 루트에서 실행하세요. setup 스크립트는 Step 5의 ZIP에 포함됩니다.</p>
+                <p class="text-sm font-medium text-blue-400 mb-3" data-i18n="step3.commandTitle">⚙️ Command that fills in the workflow placeholders</p>
+                <p class="text-xs text-slate-400 mb-3" data-i18n="step3.commandHint">Copy the command for your OS → run it from the project root. The setup script is included in the Step 5 ZIP.</p>
 
                 <div class="flex gap-2 mb-3">
                     <button id="osTabBash" class="px-4 py-1.5 rounded text-xs font-medium bg-slate-900 border border-slate-600 hover:border-firebase-primary" onclick="selectOsTab('bash')">macOS / Linux</button>
@@ -486,18 +499,18 @@
 
                 <div id="osCmdBash" class="hidden">
                     <pre class="bg-slate-900 rounded p-3 text-xs font-mono text-green-400 overflow-x-auto" id="cmdBashCode">python3 .github/util/flutter/firebase-wizard/firebase-wizard.py setup --project-path . --app-id "" --tester-group ""</pre>
-                    <button class="mt-2 px-3 py-1 bg-firebase-primary text-slate-900 rounded text-xs hover:opacity-90" onclick="copyCode(this)">복사</button>
+                    <button class="mt-2 px-3 py-1 bg-firebase-primary text-slate-900 rounded text-xs hover:opacity-90" onclick="copyCode(this)" data-i18n="step3.copyBash">Copy</button>
                 </div>
 
                 <div id="osCmdPs" class="hidden">
                     <pre class="bg-slate-900 rounded p-3 text-xs font-mono text-green-400 overflow-x-auto" id="cmdPsCode">python .github\util\flutter\firebase-wizard\firebase-wizard.py setup --project-path . --app-id "" --tester-group ""</pre>
-                    <button class="mt-2 px-3 py-1 bg-firebase-primary text-slate-900 rounded text-xs hover:opacity-90" onclick="copyCode(this)">복사</button>
+                    <button class="mt-2 px-3 py-1 bg-firebase-primary text-slate-900 rounded text-xs hover:opacity-90" onclick="copyCode(this)" data-i18n="step3.copyPowerShell">Copy</button>
                 </div>
             </div>
 
             <div class="flex justify-between mt-8">
-                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()">← 이전</button>
-                <button class="px-6 py-2.5 bg-gradient-to-r from-firebase-primary to-firebase-accent text-slate-900 hover:opacity-90 rounded-lg font-medium transition" onclick="onStep3Next()">다음: 파일 업로드 →</button>
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="step3.previous">← Back</button>
+                <button class="px-6 py-2.5 bg-gradient-to-r from-firebase-primary to-firebase-accent text-slate-900 hover:opacity-90 rounded-lg font-medium transition" onclick="onStep3Next()" data-i18n="step3.next">Next: Upload files →</button>
             </div>
         </div>
 
@@ -505,12 +518,12 @@
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="4">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
                 <span class="w-8 h-8 bg-firebase-primary rounded-lg flex items-center justify-center text-sm text-slate-900">4</span>
-                파일 업로드 + 변환
+                <span data-i18n="step4.title">Upload + convert files</span>
             </h2>
 
             <div class="bg-firebase-primary/10 border border-firebase-primary/30 rounded-lg p-4 mb-6">
-                <p class="text-sm text-firebase-accent">
-                    📦 Step 2에서 다운받은 <strong>Service Account JSON</strong>과 (선택) Step 1에서 받은 <strong>google-services.json</strong>을 업로드하세요. 모든 변환은 브라우저 내에서 수행되며 외부 서버로 전송되지 않습니다.
+                <p class="text-sm text-firebase-accent" data-i18n="step4.intro">
+                    📦 Upload the <strong>Service Account JSON</strong> from Step 2 and (optionally) the <strong>google-services.json</strong> from Step 1. Everything is converted in your browser and never sent to an outside server.
                 </p>
             </div>
 
@@ -519,22 +532,22 @@
                 <h3 class="text-base font-semibold mb-3 text-slate-200">🔑 Service Account JSON <span class="text-red-400">*</span></h3>
                 <div class="file-upload" id="saUpload" onclick="document.getElementById('saInput').click()">
                     <div class="icon">📄</div>
-                    <div class="text-slate-300" id="saUploadText">.json 파일을 드래그하거나 클릭하세요</div>
+                    <div class="text-slate-300" id="saUploadText">Drag a .json file here or click</div>
                     <input type="file" id="saInput" accept=".json" class="hidden" onchange="handleServiceAccountUpload(event)">
                     <div class="text-xs text-slate-500 mt-2" id="saInfo" style="display:none"></div>
                 </div>
                 <div id="saPreview" class="mt-3 hidden">
-                    <p class="text-xs text-slate-400 mb-1">base64 인코딩 결과 (앞 100자)</p>
+                    <p class="text-xs text-slate-400 mb-1" data-i18n="step4.base64Preview">base64 result (first 100 characters)</p>
                     <pre class="bg-slate-900 rounded p-2 text-xs font-mono text-green-400 overflow-x-auto" id="saPreviewText"></pre>
                 </div>
             </div>
 
             <!-- google-services.json -->
             <div class="mb-6">
-                <h3 class="text-base font-semibold mb-3 text-slate-200">📱 google-services.json <span class="text-slate-500 text-sm font-normal">(선택)</span></h3>
+                <h3 class="text-base font-semibold mb-3 text-slate-200">📱 google-services.json <span class="text-slate-500 text-sm font-normal" data-i18n="step4.optional">(optional)</span></h3>
                 <div class="file-upload" id="gsUpload" onclick="document.getElementById('gsInput').click()">
                     <div class="icon">📄</div>
-                    <div class="text-slate-300" id="gsUploadText">.json 파일을 드래그하거나 클릭하세요</div>
+                    <div class="text-slate-300" id="gsUploadText">Drag a .json file here or click</div>
                     <input type="file" id="gsInput" accept=".json" class="hidden" onchange="handleGoogleServicesUpload(event)">
                     <div class="text-xs text-slate-500 mt-2" id="gsInfo" style="display:none"></div>
                 </div>
@@ -543,16 +556,16 @@
             <!-- Custom Secrets -->
             <div id="customSecretsSection" class="mb-6">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-base font-semibold text-slate-200">➕ 추가 Secrets <span class="text-slate-500 text-sm font-normal">(선택, 사용자 정의)</span></h3>
-                    <button class="px-3 py-1.5 bg-firebase-primary text-slate-900 rounded text-xs hover:opacity-90" onclick="addCustomSecret()">+ 항목 추가</button>
+                    <h3 class="text-base font-semibold text-slate-200"><span data-i18n="step4.customTitle">➕ Extra secrets</span> <span class="text-slate-500 text-sm font-normal" data-i18n="step4.customOptional">(optional, your own)</span></h3>
+                    <button class="px-3 py-1.5 bg-firebase-primary text-slate-900 rounded text-xs hover:opacity-90" onclick="addCustomSecret()" data-i18n="step4.addItem">+ Add item</button>
                 </div>
-                <p class="text-xs text-slate-500 mb-3">예: <code>ENV_FILE</code>, <code>FIREBASE_API_KEY</code> 등 워크플로우에서 참조하는 추가 secret. 텍스트 파일은 원본 그대로, 바이너리 파일은 자동 base64 변환됩니다.</p>
+                <p class="text-xs text-slate-500 mb-3" data-i18n="step4.customHint">e.g. <code>ENV_FILE</code>, <code>FIREBASE_API_KEY</code> — extra secrets your workflows reference. Text files are kept as is; binary files are converted to base64 automatically.</p>
                 <div id="customSecretsContent"></div>
             </div>
 
             <div class="flex justify-between mt-8">
-                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()">← 이전</button>
-                <button class="px-6 py-2.5 bg-gradient-to-r from-firebase-primary to-firebase-accent text-slate-900 hover:opacity-90 rounded-lg font-medium transition" onclick="onStep4Next()">다음: Secrets 등록 →</button>
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="step4.previous">← Back</button>
+                <button class="px-6 py-2.5 bg-gradient-to-r from-firebase-primary to-firebase-accent text-slate-900 hover:opacity-90 rounded-lg font-medium transition" onclick="onStep4Next()" data-i18n="step4.next">Next: Register secrets →</button>
             </div>
         </div>
 
@@ -560,42 +573,42 @@
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="5">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
                 <span class="w-8 h-8 bg-firebase-primary rounded-lg flex items-center justify-center text-sm text-slate-900">5</span>
-                GitHub Secrets 등록 + 다운로드
+                <span data-i18n="step5.title">Register GitHub Secrets + download</span>
             </h2>
 
             <div class="bg-firebase-primary/10 border border-firebase-primary/30 rounded-lg p-4 mb-6">
-                <p class="text-sm text-firebase-accent">
-                    🚀 <strong>거의 다 왔습니다!</strong> 아래 Secret들을 GitHub Repository Secrets에 등록하고, Step 3의 setup 명령을 실행하면 끝입니다.
+                <p class="text-sm text-firebase-accent" data-i18n="step5.intro">
+                    🚀 <strong>Almost there!</strong> Register the secrets below in your GitHub repository secrets, then run the setup command from Step 3. That's it.
                 </p>
             </div>
 
             <!-- Repo 정보 입력 (선택) -->
             <div class="grid grid-cols-2 gap-3 mb-4">
-                <input type="text" id="repoOwnerInput" placeholder="GitHub owner (예: Cassiiopeia)" value=""
+                <input type="text" id="repoOwnerInput" placeholder="GitHub owner (e.g. Cassiiopeia)" data-i18n-placeholder="step5.ownerPlaceholder" value=""
                     class="bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-sm font-mono"
                     oninput="onRepoOwnerChange(this.value)">
-                <input type="text" id="repoNameInput" placeholder="레포 이름 (예: my-flutter-app)" value=""
+                <input type="text" id="repoNameInput" placeholder="Repository name (e.g. my-flutter-app)" data-i18n-placeholder="step5.repoPlaceholder" value=""
                     class="bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-sm font-mono"
                     oninput="onRepoNameChange(this.value)">
             </div>
             <div class="mb-6">
                 <a id="secretsPageLink" href="https://github.com" target="_blank" rel="noopener"
                    class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition">
-                    🔐 GitHub Secrets 페이지 열기
+                    <span data-i18n="step5.openSecrets">🔐 Open the GitHub Secrets page</span>
                 </a>
-                <p class="text-xs text-slate-500 mt-1">owner/repo를 입력하면 정확한 Secrets 페이지로 이동합니다. 입력값은 어디에도 저장·전송되지 않습니다.</p>
+                <p class="text-xs text-slate-500 mt-1" data-i18n="step5.openSecretsHint">Enter owner/repo to jump straight to the right Secrets page. Nothing you enter is stored or sent anywhere.</p>
             </div>
 
             <!-- Secrets 매핑표 -->
             <div class="mb-6">
-                <h3 class="text-base font-semibold mb-3 text-slate-200">🔑 등록할 GitHub Secrets</h3>
+                <h3 class="text-base font-semibold mb-3 text-slate-200" data-i18n="step5.secretsTitle">🔑 GitHub Secrets to register</h3>
                 <table class="w-full text-xs">
                     <thead>
                         <tr class="border-b border-slate-700 text-slate-400">
-                            <th class="text-left py-2 px-2">Secret 이름</th>
-                            <th class="text-left py-2 px-2">출처</th>
-                            <th class="text-left py-2 px-2">크기</th>
-                            <th class="text-right py-2 px-2">동작</th>
+                            <th class="text-left py-2 px-2" data-i18n="step5.columnName">Secret name</th>
+                            <th class="text-left py-2 px-2" data-i18n="step5.columnSource">Source</th>
+                            <th class="text-left py-2 px-2" data-i18n="step5.columnSize">Size</th>
+                            <th class="text-right py-2 px-2" data-i18n="step5.columnAction">Action</th>
                         </tr>
                     </thead>
                     <tbody id="secretsTableBody"></tbody>
@@ -604,17 +617,17 @@
 
             <!-- 다운로드 버튼 -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
-                <p class="text-sm font-medium text-blue-400 mb-3">📥 산출물 다운로드</p>
+                <p class="text-sm font-medium text-blue-400 mb-3" data-i18n="step5.downloadTitle">📥 Download outputs</p>
                 <div class="flex flex-wrap gap-2">
                     <button class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-xs" onclick="downloadAsJson()">📋 JSON</button>
                     <button class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-xs" onclick="downloadAsTxt()">📝 TXT</button>
-                    <button class="px-4 py-2 bg-firebase-primary text-slate-900 hover:opacity-90 rounded text-xs font-bold" onclick="downloadAsZip()">📦 ZIP (setup 스크립트 포함, 권장)</button>
+                    <button class="px-4 py-2 bg-firebase-primary text-slate-900 hover:opacity-90 rounded text-xs font-bold" onclick="downloadAsZip()" data-i18n="step5.downloadZip">📦 ZIP (includes the setup script, recommended)</button>
                 </div>
             </div>
 
             <div class="flex justify-between mt-8">
-                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()">← 이전</button>
-                <button class="px-6 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-medium transition" onclick="resetWizard()">처음부터 다시</button>
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="step5.previous">← Back</button>
+                <button class="px-6 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-medium transition" onclick="resetWizard()" data-i18n="step5.restart">Start over</button>
             </div>
         </div>
 
@@ -651,7 +664,9 @@
         </div>
     </div>
 
+    <script src="../_shared/wizard-i18n.js"></script>
     <script src="../_shared/wizard-common.js"></script>
+    <script src="firebase-wizard-i18n.js"></script>
     <script src="firebase-wizard.js"></script>
 </body>
 </html>

@@ -30,8 +30,10 @@
 | 파일 | 역할 |
 |------|------|
 | `wizard.css` | 3종 공통 컴포넌트 스타일 (툴팁·코드블록·모달·토스트·업로드·커스텀 Secret 등) |
+| `wizard-i18n.js` | 언어 전환 엔진 (en 기본·ko 전환, 선택 저장) + 공통 문구 사전. common 마법사도 이 파일을 로드한다 (#769) |
 | `wizard-common.js` | 3종 공통 유틸 (이스케이프·클립보드·파일 변환·OS 감지·상태 저장·변경 이력 모달) + testflight·playstore에 같던 흐름 기본 구현(`showStep`·`prevStep`·`saveState`·`clearState`·커스텀 Secret) |
 | `check-consistency.py` | 3종이 다시 갈라지면 검출하는 정합성 검증기 |
+| `check_i18n.py` | 사전 키 누락(en·ko)·안 쓰는 키·HTML 한글 잔존 검사 (check-consistency.py 가 함께 실행) |
 | `test_wizard_cli.py` | Python CLI 계약과 `--dry-run` 안전성 회귀 테스트 |
 
 ---
@@ -43,7 +45,9 @@
 ```html
 <link rel="stylesheet" href="../_shared/wizard.css">
 ...
+<script src="../_shared/wizard-i18n.js"></script>     <!-- 언어 엔진: 공통 유틸보다 먼저 -->
 <script src="../_shared/wizard-common.js"></script>
+<script src="testflight-wizard-i18n.js"></script>     <!-- 마법사 문구 사전 -->
 <script src="testflight-wizard.js"></script>          <!-- 공통보다 뒤 -->
 <script src="testflight-wizard-export.js"></script>   <!-- 단계별 분할 파일: 본 파일 뒤 -->
 ```
@@ -87,7 +91,19 @@
 </div>
 ```
 
-### 5. Python CLI는 명명 플래그가 정본이다
+### 5. 화면 문구는 영문이 기본이고 한국어는 사전에 둔다 (#769)
+
+- **정적 마크업**: HTML 본문은 영문으로 쓰고 `data-i18n="키"`를 단다. 한국어는 `<name>-wizard-i18n.js`의 `ko`에 둔다.
+  placeholder·title은 `data-i18n-placeholder`·`data-i18n-title`.
+- **JS 문구**(토스트·동적 렌더): `translate('키', {값})` — 사전 `en`·`ko` 둘 다 둔다.
+- **복사해 쓰는 산출물**(명령어·yaml·Fastfile·Secret 이름·JSON 키)은 번역하지 않는다. 두 언어에서 바이트 단위로 같다.
+- `data-i18n`은 글자·인라인 태그만 든 요소에 단다. 입력칸·버튼·JS가 고쳐 쓰는 요소를 감싸면 언어 전환 때 지워진다.
+- 키는 문자열 그대로 쓴다(조립 금지) — 검증기가 안 쓰는 키를 잡는다.
+- 사전은 JSON 형식이다(`check_i18n.py`가 파싱). 블록 안 주석·후행 쉼표 금지.
+- 언어 결정: 주소 `?lang=` > 저장된 선택 > 브라우저 언어가 `ko*`면 한국어 > 영문.
+  바꾸면 `wizardlanguagechange` 이벤트가 나가고, 동적 영역은 각 마법사가 다시 그린다.
+
+### 6. Python CLI는 명명 플래그가 정본이다
 
 ```bash
 python3 testflight-wizard.py setup --project-path . --bundle-id com.x.y ... --dry-run
@@ -96,7 +112,7 @@ python3 testflight-wizard.py setup --project-path . --bundle-id com.x.y ... --dr
 구 위치인자 호출도 계속 받습니다 — 마법사 HTML이 이미 배포한 명령어가 그 형식이기 때문입니다.
 공통 옵션 `--dry-run` / `--no-backup` / `--non-interactive` 는 3종 모두 지원해야 합니다.
 
-### 6. `.py` 공통 블록은 글자 단위로 같게 둔다
+### 7. `.py` 공통 블록은 글자 단위로 같게 둔다
 
 testflight·playstore `.py`의 `# >>> 공통 블록: 쓰기 게이트`·`# >>> 공통 블록: 인자 계약` 구간은
 두 파일이 같아야 하고, 검증기가 비교한다. 공용 모듈로 빼지 않는 이유: `.py`는 단일 파일로

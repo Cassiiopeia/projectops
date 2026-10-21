@@ -107,7 +107,7 @@ function loadState() {
             return true;
         }
     } catch (e) {
-        console.warn('localStorage 로드 실패:', e);
+        console.warn('[playstore wizard] localStorage load failed:', e);
     }
     return false;
 }
@@ -175,7 +175,7 @@ function restoreUIFromState() {
         if (upload) {
             upload.classList.add('has-file');
             const p = upload.querySelector('p');
-            if (p) p.textContent = '✅ Keystore 파일 로드됨';
+            if (p) p.textContent = translate('step2.keystoreLoaded');
         }
         const result = document.getElementById('keystoreBase64Result');
         if (result) {
@@ -190,7 +190,7 @@ function restoreUIFromState() {
         if (upload) {
             upload.classList.add('has-file');
             const p = upload.querySelector('p');
-            if (p) p.textContent = '✅ Service Account 파일 로드됨';
+            if (p) p.textContent = translate('step6.serviceAccountLoaded');
         }
     }
 
@@ -225,7 +225,7 @@ async function handleKeystoreUpload(input) {
     if (!file) return;
 
     if (!file.name.endsWith('.jks') && !file.name.endsWith('.keystore')) {
-        showToast('⚠️ .jks 또는 .keystore 파일만 업로드 가능합니다');
+        showToast(translate('step2.keystoreFileTypeOnly'));
         return;
     }
 
@@ -237,9 +237,9 @@ async function handleKeystoreUpload(input) {
         document.getElementById('keystoreUpload').querySelector('p').textContent = `✅ ${file.name} (${(file.size/1024).toFixed(1)}KB)`;
 
         saveState();
-        showToast('✅ Keystore 파일 업로드 완료');
+        showToast(translate('step2.keystoreUploaded'));
     } catch (error) {
-        showToast('❌ 파일 읽기 실패: ' + error.message);
+        showToast(translate('common.uploadFailed', { message: error.message }));
     }
 }
 
@@ -249,7 +249,7 @@ async function handleServiceAccountUpload(input) {
     if (!file) return;
 
     if (!file.name.endsWith('.json')) {
-        showToast('⚠️ .json 파일만 업로드 가능합니다');
+        showToast(translate('step6.jsonFileOnly'));
         return;
     }
 
@@ -262,11 +262,11 @@ async function handleServiceAccountUpload(input) {
             document.getElementById('serviceAccountUpload').querySelector('p').textContent = `✅ ${file.name}`;
 
             saveState();
-            showToast('✅ Service Account 파일 업로드 완료');
+            showToast(translate('step6.serviceAccountUploaded'));
         };
         reader.readAsText(file);
     } catch (error) {
-        showToast('❌ 파일 읽기 실패: ' + error.message);
+        showToast(translate('common.uploadFailed', { message: error.message }));
     }
 }
 
@@ -277,15 +277,15 @@ function copyServiceAccountEmail() {
 
     if (email) {
         navigator.clipboard.writeText(email).then(() => {
-            showToast('📋 이메일이 복사되었습니다!');
+            showToast(translate('step6.emailCopied'));
         }).catch(() => {
             // Fallback for older browsers
             emailInput.select();
             document.execCommand('copy');
-            showToast('📋 이메일이 복사되었습니다!');
+            showToast(translate('step6.emailCopied'));
         });
     } else {
-        showToast('⚠️ 이메일을 먼저 입력하세요');
+        showToast(translate('step6.enterEmailFirst'));
     }
 }
 
@@ -316,7 +316,7 @@ function handleGoogleServicesUpload(input) {
         state.googleServicesJson = e.target.result;
         document.getElementById('googleServicesResult').classList.remove('hidden');
         saveState();
-        showToast('✅ google-services.json 업로드 완료');
+        showToast(translate('step7.googleServicesUploaded'));
     };
     reader.readAsText(file);
 }
@@ -336,7 +336,7 @@ function copyPathCommand() {
     }
     
     navigator.clipboard.writeText(command).then(() => {
-        showToast(`✅ "${command}" 명령어가 클립보드에 복사되었습니다!`);
+        showToast(translate('step1.commandCopied', { command }));
     }).catch(() => {
         // Fallback
         const textarea = document.createElement('textarea');
@@ -345,7 +345,7 @@ function copyPathCommand() {
         textarea.select();
         document.execCommand('copy');
         document.body.removeChild(textarea);
-        showToast(`✅ "${command}" 명령어가 클립보드에 복사되었습니다!`);
+        showToast(translate('step1.commandCopied', { command }));
     });
 }
 
@@ -356,7 +356,7 @@ function validateProjectPath(path) {
     
     // "선택된 폴더:"로 시작하는 경우 무시
     if (path.startsWith('선택된 폴더:')) {
-        return { valid: false, message: '실제 절대 경로를 입력해주세요.' };
+        return { valid: false, message: translate('step1.enterRealAbsolutePath') };
     }
     
     // 경로 형식 검증
@@ -364,7 +364,7 @@ function validateProjectPath(path) {
     const isUnixPath = path.startsWith('/');
     
     if (!isWindowsPath && !isUnixPath) {
-        return { valid: false, message: '올바른 절대 경로 형식이 아닙니다. (예: /Users/... 또는 C:\\Users\\...)' };
+        return { valid: false, message: translate('step1.invalidAbsolutePath') };
     }
     
     return { valid: true, message: '' };
@@ -386,7 +386,7 @@ function updatePathValidation(path) {
     validationDiv.classList.remove('hidden');
     
     if (validation.valid) {
-        validationMessage.textContent = '✅ 올바른 경로 형식입니다.';
+        validationMessage.textContent = translate('step1.validPathFormat');
         validationMessage.className = 'text-xs text-green-400';
     } else {
         validationMessage.textContent = `⚠️ ${validation.message}`;
@@ -517,12 +517,12 @@ function updateOSBadge() {
 function copySecret(name) {
     const value = state[name] || '';
     if (!value) {
-        showToast('⚠️ 값이 비어있습니다');
+        showToast(translate('secrets.valueEmpty'));
         return;
     }
 
     navigator.clipboard.writeText(value).then(() => {
-        showToast(`✅ ${name} 복사 완료!`);
+        showToast(translate('secrets.copiedName', { name }));
     });
 }
 
@@ -760,14 +760,14 @@ function nextStep() {
     if (state.currentStep === 1) {
         const applicationId = state.applicationId;
         if (!applicationId || applicationId.trim() === '') {
-            showToast('⚠️ Application ID를 먼저 감지하세요!\n\n1. 프로젝트 경로 입력\n2. 생성된 명령어를 터미널에서 실행\n3. 결과를 붙여넣고 "적용" 클릭');
+            showToast(translate('step1.detectApplicationIdFirst'));
             return;
         }
 
         // 프로젝트 경로 검증
         const projectPath = state.projectPath;
         if (!projectPath || projectPath.trim() === '') {
-            showToast('⚠️ 프로젝트 경로를 먼저 입력하세요.');
+            showToast(translate('step1.enterProjectPathFirst'));
             return;
         }
     }
@@ -801,7 +801,7 @@ function goToStep(stepNumber) {
 }
 
 function resetWizard() {
-    if (confirm('모든 데이터를 초기화하시겠습니까?\n\n모든 입력값과 localStorage가 완전히 삭제됩니다.')) {
+    if (confirm(translate('reset.confirm'))) {
         // State 초기화
         Object.keys(state).forEach(key => {
             if (key === 'currentStep') state[key] = 1;
@@ -825,7 +825,7 @@ function resetWizard() {
                 }
             });
         } catch (e) {
-            console.warn('localStorage 삭제 실패:', e);
+            console.warn('[playstore wizard] localStorage clear failed:', e);
         }
 
         // UI 초기화
@@ -844,7 +844,7 @@ function resetWizard() {
         // Application ID 입력 필드 placeholder 복원
         const applicationIdInput = document.getElementById('applicationId');
         if (applicationIdInput) {
-            applicationIdInput.placeholder = '예: kr.mycompany.myapp';
+            applicationIdInput.placeholder = translate('step1.applicationIdPlaceholder');
         }
         
         // 유효기간 초기화
@@ -866,11 +866,8 @@ function resetWizard() {
         // 파일 업로드 상태 초기화
         document.querySelectorAll('.file-upload').forEach(el => {
             el.classList.remove('has-file');
-            const p = el.querySelector('p');
-            if (p && p.textContent.includes('✅')) {
-                p.textContent = '클릭하거나 파일을 드래그하세요';
-            }
         });
+        renderUploadLabels();
 
         // 결과 영역 숨기기
         document.querySelectorAll('[id$="Result"]').forEach(el => {
@@ -889,7 +886,7 @@ function resetWizard() {
 
         showStep(1);
         updateProgress();
-        showToast('모든 설정이 초기화되었습니다.');
+        showToast(translate('reset.done'));
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 }
@@ -1012,7 +1009,7 @@ function autoDetectApplicationIdOnPathInput() {
         if (commandContainer) {
             const cmdEl = document.getElementById('detectAppIdCommand');
             if (cmdEl) {
-                cmdEl.textContent = '프로젝트 경로를 입력하면 명령어가 여기에 표시됩니다...';
+                cmdEl.textContent = translate('step1.commandShownHere');
             }
         }
         return;
@@ -1066,27 +1063,27 @@ function detectApplicationId() {
     const projectPath = state.projectPath || getInputValue('projectPath');
     
     if (!projectPath || projectPath.trim() === '') {
-        showToast('⚠️ 프로젝트 경로를 먼저 입력하세요.');
+        showToast(translate('step1.enterProjectPathFirst'));
         return;
     }
     
     // 경로 검증
     const validation = validateProjectPath(projectPath);
     if (!validation.valid) {
-        showToast('⚠️ 올바른 프로젝트 경로를 입력하세요.');
+        showToast(translate('step1.enterValidProjectPath'));
         return;
     }
     
     // 명령어 생성 및 표시
     generateApplicationIdDetectionCommand(projectPath);
-    showToast('📋 아래 명령어를 복사하여 터미널에서 실행하세요. 결과를 붙여넣으면 자동으로 채워집니다.');
+    showToast(translate('step1.copyAndRunCommand'));
 }
 
 function parseDetectedApplicationId() {
     const resultText = getInputValue('detectAppIdResult');
     
     if (!resultText || resultText.trim() === '') {
-        showToast('⚠️ 명령어 실행 결과를 붙여넣으세요.');
+        showToast(translate('step1.pasteCommandOutput'));
         return;
     }
     
@@ -1101,7 +1098,7 @@ function parseDetectedApplicationId() {
             if (match) {
                 jsonData = { applicationId: match[1] };
             } else {
-                throw new Error('JSON 형식이 아닙니다.');
+                throw new Error('detect-app-id output is not JSON');
             }
         }
         
@@ -1130,9 +1127,9 @@ function parseDetectedApplicationId() {
                 resultArea.value = '';
             }
             
-            showToast('✅ Application ID가 자동으로 감지되었습니다: ' + jsonData.applicationId);
+            showToast(translate('step1.applicationIdDetectedToast', { applicationId: jsonData.applicationId }));
         } else {
-            showToast('⚠️ applicationId를 찾을 수 없습니다.');
+            showToast(translate('step1.applicationIdNotFound'));
             // 수동 입력 옵션 표시
             const manualContainer = document.getElementById('manualApplicationIdContainer');
             if (manualContainer) {
@@ -1140,7 +1137,7 @@ function parseDetectedApplicationId() {
             }
         }
     } catch (e) {
-        showToast('⚠️ 결과 파싱 실패. JSON 형식을 확인하세요.');
+        showToast(translate('step1.parseFailed'));
         console.error('Parse error:', e);
         // 수동 입력 옵션 표시
         const manualContainer = document.getElementById('manualApplicationIdContainer');
@@ -1171,7 +1168,7 @@ function parseProjectInfo() {
             state.versionCode = info.versionCode?.toString() || '1';
             state.gradleType = info.gradleType || 'kts';
         } catch (e) {
-            showToast('JSON 파싱 실패. 형식을 확인해주세요.');
+            showToast(translate('step1.jsonParseFailed'));
             return;
         }
     }
@@ -1193,7 +1190,7 @@ function parseProjectInfo() {
     }
 
     saveState();
-    showToast('✅ 프로젝트 정보 파싱 완료');
+    showToast(translate('step1.projectInfoParsed'));
 }
 
 // ============================================
@@ -1208,14 +1205,14 @@ function generateKeystoreCreationCommand() {
     // 프로젝트 경로나 Application ID가 없으면 placeholder 표시
     if (!projectPath || projectPath.trim() === '') {
         if (commandTextEl) {
-            commandTextEl.textContent = '⚠️ Step 1에서 프로젝트 경로를 먼저 입력하세요.';
+            commandTextEl.textContent = translate('step2.enterPathInStep1');
         }
         return;
     }
 
     if (!applicationId || applicationId.trim() === '') {
         if (commandTextEl) {
-            commandTextEl.textContent = '⚠️ Step 1에서 Application ID를 먼저 감지하세요.';
+            commandTextEl.textContent = translate('step2.detectIdInStep1');
         }
         return;
     }
@@ -1298,7 +1295,7 @@ function generateKeystoreCreationCommand() {
 function generateKeytoolCommand() {
     // 레거시 함수 - 더 이상 사용하지 않지만 호환성을 위해 유지
     // 실제로는 generateKeystoreCreationCommand()를 사용
-    showToast('💡 "Keystore 생성 명령어 생성" 버튼을 사용하세요.');
+    showToast(translate('step2.useGenerateButton'));
     generateKeystoreCreationCommand();
     return;
     
@@ -1423,13 +1420,13 @@ end`;
 
 function generateFinalResult() {
     const secrets = [
-        { key: 'RELEASE_KEYSTORE_BASE64', value: state.keystoreBase64, desc: 'Keystore 파일 (Base64)' },
-        { key: 'RELEASE_KEYSTORE_PASSWORD', value: state.storePassword, desc: 'Keystore 비밀번호' },
-        { key: 'RELEASE_KEY_ALIAS', value: state.keyAlias, desc: '키 별칭' },
-        { key: 'RELEASE_KEY_PASSWORD', value: state.keyPassword, desc: '키 비밀번호' },
+        { key: 'RELEASE_KEYSTORE_BASE64', value: state.keystoreBase64, desc: translate('secrets.keystoreDescription') },
+        { key: 'RELEASE_KEYSTORE_PASSWORD', value: state.storePassword, desc: translate('secrets.keystorePasswordDescription') },
+        { key: 'RELEASE_KEY_ALIAS', value: state.keyAlias, desc: translate('secrets.keyAliasDescription') },
+        { key: 'RELEASE_KEY_PASSWORD', value: state.keyPassword, desc: translate('secrets.keyPasswordDescription') },
         { key: 'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64', value: state.serviceAccountBase64, desc: 'Service Account (Base64)' },
-        { key: 'GOOGLE_SERVICES_JSON', value: state.googleServicesJson, desc: 'Firebase 설정 (선택)' },
-        { key: 'ENV_FILE', value: state.envFileContent, desc: '환경 변수 (선택)' }
+        { key: 'GOOGLE_SERVICES_JSON', value: state.googleServicesJson, desc: translate('secrets.googleServicesDescription') },
+        { key: 'ENV_FILE', value: state.envFileContent, desc: translate('secrets.envFileDescription') }
     ];
 
     const tbody = document.getElementById('secretsTableBody');
@@ -1445,7 +1442,7 @@ function generateFinalResult() {
                 </td>
                 <td class="px-4 py-3">
                     <span class="${hasValue ? 'text-green-400' : 'text-red-400'}">
-                        ${hasValue ? '✓ 설정됨' : '✗ 미설정'}
+                        ${hasValue ? translate('secrets.statusSet') : translate('secrets.statusNotSet')}
                     </span>
                 </td>
                 <td class="px-4 py-3 text-right">
@@ -1453,7 +1450,7 @@ function generateFinalResult() {
                         class="px-3 py-1 ${hasValue ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 cursor-not-allowed'} rounded text-xs transition"
                         onclick="copySecretValue('${s.key}')"
                         ${!hasValue ? 'disabled' : ''}>
-                        복사
+                        ${translate('shared.copy')}
                     </button>
                 </td>
             </tr>
@@ -1508,12 +1505,12 @@ function copySecretValue(key) {
 
     const value = mapping[key];
     if (!value) {
-        showToast('⚠️ 값이 비어있습니다');
+        showToast(translate('secrets.valueEmpty'));
         return;
     }
 
     navigator.clipboard.writeText(value).then(() => {
-        showToast(`✅ ${key} 복사 완료!`);
+        showToast(translate('secrets.copiedName', { name: key }));
     });
 }
 
@@ -1656,7 +1653,7 @@ function initialize() {
     if (hasState) {
         showStep(state.currentStep);
         updateProgress();
-        showToast('이전 진행 상태를 복원했습니다');
+        showToast(translate('page.stateRestored'));
     } else {
         showStep(1);
         updateProgress();
@@ -1674,6 +1671,7 @@ function initialize() {
     setupInputHandlers();
     setupDragAndDrop();
     showSecurityWarning();
+    renderLanguageDependentText();
 
     // 버전 배지 업데이트
     const data = getVersionData();
@@ -1688,10 +1686,50 @@ function initialize() {
 // DOM 로드 완료 시 초기화
 document.addEventListener('DOMContentLoaded', initialize);
 
+// ============================================
+// 언어 전환 (#769)
+// ============================================
+
+/** 업로드 영역 안내 문구: 파일 있으면 로드됨, 없으면 선택 안내 */
+function renderUploadLabels() {
+    const keystoreLabel = document.getElementById('keystoreUpload')?.querySelector('p');
+    if (keystoreLabel) {
+        keystoreLabel.textContent = state.keystoreBase64 ? translate('step2.keystoreLoaded') : translate('step2.keystoreDropPrompt');
+    }
+    const serviceAccountLabel = document.getElementById('serviceAccountUpload')?.querySelector('p');
+    if (serviceAccountLabel) {
+        serviceAccountLabel.textContent = state.serviceAccountBase64
+            ? translate('step6.serviceAccountLoaded')
+            : translate('step6.serviceAccountDropPrompt');
+    }
+}
+
+/** JS가 채우는 문구 (업로드 안내, 경로 입력 전 명령어 자리) */
+function renderLanguageDependentText() {
+    renderUploadLabels();
+    // 경로가 있으면 단계 초기화가 실제 명령어로 채운다
+    if (!state.projectPath) {
+        setElementText('detectAppIdCommand', translate('step1.commandPlaceholder'));
+        setElementText('aabBuildCommandStep3', translate('step3.commandPlaceholder'));
+        setElementText('aabCheckCommand', translate('step3.commandPlaceholder'));
+        setElementText('aabOutputPathStep3', translate('step3.outputPathPlaceholder'));
+        setElementText('aabUploadPath', translate('step3.outputPathPlaceholder'));
+    }
+}
+
+// 정적 문구는 엔진이 바꾸고, 동적 영역(현재 단계·커스텀 Secret·경로 검증)은 여기서 다시 그린다
+document.addEventListener('wizardlanguagechange', () => {
+    renderLanguageDependentText();
+    showStep(state.currentStep);
+    updateProgress();
+    renderCustomSecrets();
+    if (state.projectPath) updatePathValidation(state.projectPath);
+});
+
 // 페이지 언로드 시 경고 (데이터 손실 방지)
 window.addEventListener('beforeunload', (e) => {
     if (state.currentStep > 1 || state.keystoreBase64 || state.serviceAccountBase64) {
         e.preventDefault();
-        e.returnValue = '입력한 데이터가 사라질 수 있습니다. 정말 나가시겠습니까?';
+        e.returnValue = translate('page.leaveWarning');
     }
 });

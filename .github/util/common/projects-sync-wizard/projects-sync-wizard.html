@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -115,10 +115,20 @@
     <script type="application/json" id="versionJson">
 {
   "name": "GitHub Projects Sync Wizard",
-  "version": "2.4.0",
-  "description": "GitHub Organization Projects Status와 Issue Label 간 양방향 동기화를 위한 Cloudflare Worker 설정 마법사",
-  "lastUpdated": "2026-01-22",
+  "version": "2.5.0",
+  "description": "Cloudflare Worker setup wizard for two-way sync between GitHub Organization Projects status and issue labels",
+  "lastUpdated": "2026-10-22",
   "changelog": [
+    {
+      "version": "2.5.0",
+      "date": "2026-10-22",
+      "changes": [
+        "English is now the default; a language toggle switches to Korean and the choice is saved in this browser (projectops#769)",
+        "Uses the shared language engine flutter/_shared/wizard-i18n.js; Korean text lives in projects-sync-wizard-i18n.js",
+        "Starts in Korean when there is no saved choice and the browser language is Korean; ?lang=en|ko in the address overrides",
+        "Generated worker code, setup scripts and commands are identical in both languages"
+      ]
+    },
     {
       "version": "2.4.0",
       "date": "2026-01-22",
@@ -239,7 +249,8 @@
         <header class="text-center mb-10 relative">
             <!-- 우측 상단 버튼 -->
             <div class="absolute right-0 top-0 flex items-center gap-2">
-                <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors" title="다크 모드 전환">
+                <button type="button" class="hidden px-3 py-1.5 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors" data-lang-toggle onclick="toggleWizardLanguage()">한국어</button>
+                <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors" title="Toggle dark mode" data-i18n-title="header.darkModeTitle">
                     <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
                     </svg>
@@ -247,7 +258,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
                     </svg>
                 </button>
-                <button onclick="resetWizard()" class="p-2 rounded-lg bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 transition-colors" title="초기화">
+                <button onclick="resetWizard()" class="p-2 rounded-lg bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 transition-colors" title="Reset" data-i18n-title="header.resetTitle">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                     </svg>
@@ -275,8 +286,8 @@
         <!-- 메인 컨텐츠 섹션 -->
         <section id="mainContent" class="main-content">
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">프로젝트 정보 입력</h2>
-                <p class="text-gray-600 dark:text-gray-400 mb-6">GitHub Projects와 Worker 설정 정보를 입력하세요.</p>
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2" data-i18n="main.title">Project details</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-6" data-i18n="main.subtitle">Enter your GitHub Projects and Worker settings.</p>
 
                 <!-- 사전 요구사항 -->
                 <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-4 mb-6">
@@ -285,11 +296,11 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                         </svg>
                         <div>
-                            <p class="text-amber-800 dark:text-amber-200 font-medium">사전 요구사항</p>
+                            <p class="text-amber-800 dark:text-amber-200 font-medium" data-i18n="prereq.title">Prerequisites</p>
                             <ul class="text-sm text-amber-700 dark:text-amber-300 mt-2 space-y-1">
-                                <li>• <strong>Node.js 18.0.0 이상</strong> - <code class="bg-amber-100 dark:bg-amber-800/50 px-1 rounded text-xs">node -v</code>로 확인</li>
-                                <li>• <strong>npm</strong> - Node.js와 함께 설치됨</li>
-                                <li>• <strong>Cloudflare 계정</strong> - <a href="https://dash.cloudflare.com/sign-up" target="_blank" class="underline hover:text-amber-900 dark:hover:text-amber-100">무료 가입</a></li>
+                                <li data-i18n="prereq.node">• <strong>Node.js 18.0.0 or later</strong> - check with <code class="bg-amber-100 dark:bg-amber-800/50 px-1 rounded text-xs">node -v</code></li>
+                                <li data-i18n="prereq.npm">• <strong>npm</strong> - installed with Node.js</li>
+                                <li data-i18n="prereq.cloudflare">• <strong>Cloudflare account</strong> - <a href="https://dash.cloudflare.com/sign-up" target="_blank" class="underline hover:text-amber-900 dark:hover:text-amber-100">sign up free</a></li>
                             </ul>
                         </div>
                     </div>
@@ -297,18 +308,18 @@
 
                 <!-- 전체 프로세스 흐름 -->
                 <div class="info-box-blue rounded-lg p-4 mb-6">
-                    <p class="text-sm text-blue-700 dark:text-blue-300 mb-3 font-medium">전체 설정 프로세스</p>
+                    <p class="text-sm text-blue-700 dark:text-blue-300 mb-3 font-medium" data-i18n="flow.title">Setup at a glance</p>
                     <div class="dependency-flow">
-                        <div class="dependency-item bg-blue-600 text-white">① Projects 설정</div>
+                        <div class="dependency-item bg-blue-600 text-white" data-i18n="flow.projects">① Set up Projects</div>
                         <span class="dependency-arrow">→</span>
-                        <div class="dependency-item bg-green-600 text-white">② Worker 배포</div>
+                        <div class="dependency-item bg-green-600 text-white" data-i18n="flow.worker">② Deploy the Worker</div>
                         <span class="dependency-arrow">→</span>
-                        <div class="dependency-item bg-yellow-600 text-white">③ Webhook 설정</div>
+                        <div class="dependency-item bg-yellow-600 text-white" data-i18n="flow.webhook">③ Set up the webhook</div>
                         <span class="dependency-arrow">→</span>
-                        <div class="dependency-item bg-purple-600 text-white">④ 완료</div>
+                        <div class="dependency-item bg-purple-600 text-white" data-i18n="flow.done">④ Done</div>
                     </div>
-                    <p class="text-xs text-green-600 dark:text-green-400 text-center mt-3">
-                        ✓ 처음 설정하는 분도 이 마법사를 따라하면 됩니다!
+                    <p class="text-xs text-green-600 dark:text-green-400 text-center mt-3" data-i18n="flow.firstTime">
+                        ✓ Setting this up for the first time? Just follow this wizard.
                     </p>
                 </div>
 
@@ -316,7 +327,7 @@
                 <div class="mb-8">
                     <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
                         <span class="section-badge bg-green-600">A</span>
-                        GitHub Projects 생성 가이드
+                        <span data-i18n="sectionA.title">Creating GitHub Projects</span>
                     </h3>
 
                     <!-- 건너뛰기 체크박스 -->
@@ -324,32 +335,32 @@
                         <label class="flex items-center gap-3 cursor-pointer">
                             <input type="checkbox" id="skipProjectsGuide" onchange="toggleProjectsGuide()"
                                 class="w-5 h-5 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500">
-                            <span class="text-sm text-gray-700 dark:text-gray-300">이미 GitHub Projects를 생성했습니다 (가이드 건너뛰기)</span>
+                            <span class="text-sm text-gray-700 dark:text-gray-300" data-i18n="sectionA.skip">I already created GitHub Projects (skip the guide)</span>
                         </label>
                     </div>
 
                     <!-- 가이드 내용 -->
                     <div id="projectsGuideContent">
                         <div class="info-box-amber rounded-lg p-4 mb-4">
-                            <p class="text-sm text-amber-700 dark:text-amber-300 mb-3 font-medium">GitHub Projects 생성 방법</p>
+                            <p class="text-sm text-amber-700 dark:text-amber-300 mb-3 font-medium" data-i18n="sectionA.howTo">How to create GitHub Projects</p>
                             <ol class="text-sm text-gray-700 dark:text-gray-300 list-decimal list-inside space-y-3">
-                                <li>
-                                    <a href="https://github.com/new/project" target="_blank"
-                                        class="text-blue-600 dark:text-blue-400 hover:underline font-medium">GitHub Projects 생성 페이지</a>로 이동
+                                <li data-i18n="sectionA.step1">
+                                    Go to the <a href="https://github.com/new/project" target="_blank"
+                                        class="text-blue-600 dark:text-blue-400 hover:underline font-medium">GitHub Projects creation page</a>
                                 </li>
-                                <li>
-                                    <span class="text-green-600 dark:text-green-400 font-bold">"Board"</span> 또는
-                                    <span class="text-green-600 dark:text-green-400 font-bold">"Kanban"</span> 템플릿 선택
+                                <li data-i18n="sectionA.step2">
+                                    Choose the <span class="text-green-600 dark:text-green-400 font-bold">"Board"</span> or
+                                    <span class="text-green-600 dark:text-green-400 font-bold">"Kanban"</span> template
                                 </li>
-                                <li>
-                                    프로젝트 이름 입력 후 <span class="text-green-600 dark:text-green-400 font-medium">"Create project"</span> 클릭
+                                <li data-i18n="sectionA.step3">
+                                    Enter a project name and click <span class="text-green-600 dark:text-green-400 font-medium">"Create project"</span>
                                 </li>
                             </ol>
                         </div>
 
                         <!-- Status 컬럼 기본값 안내 -->
                         <div class="info-box-green rounded-lg p-4">
-                            <p class="text-sm text-green-700 dark:text-green-300 mb-2 font-medium">✓ Board/Kanban 템플릿의 기본 Status 컬럼</p>
+                            <p class="text-sm text-green-700 dark:text-green-300 mb-2 font-medium" data-i18n="sectionA.defaultColumns">✓ Default Status columns of the Board/Kanban template</p>
                             <div class="flex flex-wrap gap-2 mt-3">
                                 <span class="px-2 py-1 bg-gray-500 text-white rounded text-xs">No Status</span>
                                 <span class="px-2 py-1 bg-gray-600 text-white rounded text-xs">Backlog</span>
@@ -358,8 +369,8 @@
                                 <span class="px-2 py-1 bg-purple-600 text-white rounded text-xs">In review</span>
                                 <span class="px-2 py-1 bg-green-600 text-white rounded text-xs">Done</span>
                             </div>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">
-                                <strong>중요:</strong> 아래 Label 설정과 동일하게 Status 컬럼 이름을 맞춰주세요. (예: "작업전", "작업중" 등)
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-3" data-i18n="sectionA.matchColumns">
+                                <strong>Important:</strong> Rename your Status columns to match the labels configured below.
                             </p>
                         </div>
                     </div>
@@ -384,19 +395,19 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                                 </svg>
                                 <div>
-                                    <p class="text-red-800 dark:text-red-200 font-medium">User Projects는 지원되지 않습니다</p>
-                                    <p class="text-sm text-red-700 dark:text-red-300 mt-2">
-                                        GitHub API 제한으로 인해 <strong>User Projects</strong>는 Webhook 기반 동기화를 사용할 수 없습니다.
+                                    <p class="text-red-800 dark:text-red-200 font-medium" data-i18n="userProjects.title">User Projects are not supported</p>
+                                    <p class="text-sm text-red-700 dark:text-red-300 mt-2" data-i18n="userProjects.reason">
+                                        Because of a GitHub API limitation, <strong>User Projects</strong> cannot use webhook-based sync.
                                     </p>
                                     <div class="mt-3 p-3 bg-red-100 dark:bg-red-900/40 rounded">
-                                        <p class="text-xs text-red-800 dark:text-red-200 font-medium mb-1">이유:</p>
-                                        <p class="text-xs text-red-700 dark:text-red-300">
-                                            Repository Webhook 설정에는 <code class="bg-red-200 dark:bg-red-800 px-1 rounded">Projects v2 items</code> 이벤트가 없습니다.
-                                            이 이벤트는 <strong>Organization Webhook</strong>에서만 사용 가능합니다.
+                                        <p class="text-xs text-red-800 dark:text-red-200 font-medium mb-1" data-i18n="userProjects.whyTitle">Why:</p>
+                                        <p class="text-xs text-red-700 dark:text-red-300" data-i18n="userProjects.why">
+                                            Repository webhooks have no <code class="bg-red-200 dark:bg-red-800 px-1 rounded">Projects v2 items</code> event.
+                                            That event is only available on <strong>Organization webhooks</strong>.
                                         </p>
                                     </div>
-                                    <p class="text-sm text-red-700 dark:text-red-300 mt-3">
-                                        → <strong>Organization Projects</strong> URL을 입력해주세요.
+                                    <p class="text-sm text-red-700 dark:text-red-300 mt-3" data-i18n="userProjects.action">
+                                        → Please enter an <strong>Organization Projects</strong> URL.
                                     </p>
                                 </div>
                             </div>
@@ -405,11 +416,11 @@
 
                     <!-- 지원 형식 안내 -->
                     <div class="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">지원 형식:</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-2" data-i18n="urlFormat.title">Supported formats:</p>
                         <ul class="text-xs text-gray-500 dark:text-gray-400 space-y-1 ml-2">
                             <li>• <strong>Organization Projects:</strong> <code class="bg-gray-200 dark:bg-gray-600 px-1 rounded">github.com/orgs/{org}/projects/{number}</code></li>
-                            <li class="text-gray-400">※ /views/N 경로는 자동으로 무시됩니다</li>
-                            <li class="text-red-400">※ User Projects (<code class="px-1">github.com/users/...</code>)는 지원되지 않습니다</li>
+                            <li class="text-gray-400" data-i18n="urlFormat.views">※ A /views/N suffix is ignored automatically</li>
+                            <li class="text-red-400" data-i18n="urlFormat.userUnsupported">※ User Projects (<code class="px-1">github.com/users/...</code>) are not supported</li>
                         </ul>
                     </div>
 
@@ -417,7 +428,7 @@
                     <div id="parseResult" class="mt-4 hidden">
                         <div class="grid grid-cols-3 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">타입</label>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" data-i18n="parse.type">Type</label>
                                 <span id="projectTypeBadge" class="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">-</span>
                             </div>
                             <div>
@@ -441,13 +452,13 @@
                 <div class="mb-8">
                     <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
                         <span class="section-badge bg-purple-600">C</span>
-                        Label-Status 매핑 가이드
+                        <span data-i18n="sectionC.title">Label-Status mapping guide</span>
                     </h3>
 
                     <div class="info-box-purple rounded-lg p-4">
-                        <p class="text-sm text-purple-700 dark:text-purple-300 mb-3 font-medium">Projects Status와 Issue Label 매핑 규칙</p>
-                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-4">
-                            Projects Board에서 카드를 이동하면 해당 Status와 <strong>동일한 이름의 Label</strong>이 Issue에 자동 적용됩니다.
+                        <p class="text-sm text-purple-700 dark:text-purple-300 mb-3 font-medium" data-i18n="sectionC.rule">How Projects Status maps to Issue Labels</p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-4" data-i18n="sectionC.ruleDetail">
+                            When you move a card on the Projects board, the <strong>label with the same name</strong> as its Status is applied to the issue automatically.
                         </p>
 
                         <!-- 매핑 테이블 -->
@@ -458,60 +469,60 @@
                                         <th class="py-2 px-3 text-left text-gray-700 dark:text-gray-300">Projects Status</th>
                                         <th class="py-2 px-3 text-center text-gray-500">→</th>
                                         <th class="py-2 px-3 text-left text-gray-700 dark:text-gray-300">Issue Label</th>
-                                        <th class="py-2 px-3 text-left text-gray-700 dark:text-gray-300">설명</th>
+                                        <th class="py-2 px-3 text-left text-gray-700 dark:text-gray-300" data-i18n="sectionC.description">Description</th>
                                     </tr>
                                 </thead>
                                 <tbody class="text-gray-600 dark:text-gray-400">
                                     <tr class="border-b border-gray-100 dark:border-gray-700/50">
-                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-gray-800 dark:text-gray-200">작업전</span></td>
+                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-gray-800 dark:text-gray-200" data-default-label-index="0"></span></td>
                                         <td class="py-2 px-3 text-center text-gray-400">=</td>
-                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded">작업전</span></td>
-                                        <td class="py-2 px-3 text-gray-500">작업 시작 전 준비 상태</td>
+                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded" data-default-label-index="0"></span></td>
+                                        <td class="py-2 px-3 text-gray-500" data-i18n="sectionC.labelTodo">Ready, not started yet</td>
                                     </tr>
                                     <tr class="border-b border-gray-100 dark:border-gray-700/50">
-                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-gray-800 dark:text-gray-200">작업중</span></td>
+                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-gray-800 dark:text-gray-200" data-default-label-index="1"></span></td>
                                         <td class="py-2 px-3 text-center text-gray-400">=</td>
-                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-teal-100 dark:bg-teal-900/50 text-teal-800 dark:text-teal-200 rounded">작업중</span></td>
-                                        <td class="py-2 px-3 text-gray-500">작업이 진행 중인 상태</td>
+                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-teal-100 dark:bg-teal-900/50 text-teal-800 dark:text-teal-200 rounded" data-default-label-index="1"></span></td>
+                                        <td class="py-2 px-3 text-gray-500" data-i18n="sectionC.labelInProgress">Work in progress</td>
                                     </tr>
                                     <tr class="border-b border-gray-100 dark:border-gray-700/50">
-                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-gray-800 dark:text-gray-200">담당자확인</span></td>
+                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-gray-800 dark:text-gray-200" data-default-label-index="2"></span></td>
                                         <td class="py-2 px-3 text-center text-gray-400">=</td>
-                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 rounded">담당자확인</span></td>
-                                        <td class="py-2 px-3 text-gray-500">담당자 확인 필요</td>
+                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 rounded" data-default-label-index="2"></span></td>
+                                        <td class="py-2 px-3 text-gray-500" data-i18n="sectionC.labelReview">Needs owner review</td>
                                     </tr>
                                     <tr class="border-b border-gray-100 dark:border-gray-700/50">
-                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-gray-800 dark:text-gray-200">피드백</span></td>
+                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-gray-800 dark:text-gray-200" data-default-label-index="3"></span></td>
                                         <td class="py-2 px-3 text-center text-gray-400">=</td>
-                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 rounded">피드백</span></td>
-                                        <td class="py-2 px-3 text-gray-500">수정 필요</td>
+                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 rounded" data-default-label-index="3"></span></td>
+                                        <td class="py-2 px-3 text-gray-500" data-i18n="sectionC.labelFeedback">Needs changes</td>
                                     </tr>
                                     <tr class="border-b border-gray-100 dark:border-gray-700/50">
-                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-gray-800 dark:text-gray-200">작업완료</span></td>
+                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-gray-800 dark:text-gray-200" data-default-label-index="4"></span></td>
                                         <td class="py-2 px-3 text-center text-gray-400">=</td>
-                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-blue-500 text-white rounded">작업완료</span></td>
-                                        <td class="py-2 px-3 text-gray-500">작업 완료 상태</td>
+                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-blue-500 text-white rounded" data-default-label-index="4"></span></td>
+                                        <td class="py-2 px-3 text-gray-500" data-i18n="sectionC.labelDone">Work completed</td>
                                     </tr>
                                     <tr class="border-b border-gray-100 dark:border-gray-700/50">
-                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-gray-800 dark:text-gray-200">보류</span></td>
+                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-gray-800 dark:text-gray-200" data-default-label-index="5"></span></td>
                                         <td class="py-2 px-3 text-center text-gray-400">=</td>
-                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-300 dark:bg-gray-500 text-gray-700 dark:text-gray-200 rounded">보류</span></td>
-                                        <td class="py-2 px-3 text-gray-500">작업 일시 중단</td>
+                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-300 dark:bg-gray-500 text-gray-700 dark:text-gray-200 rounded" data-default-label-index="5"></span></td>
+                                        <td class="py-2 px-3 text-gray-500" data-i18n="sectionC.labelOnHold">Paused</td>
                                     </tr>
                                     <tr>
-                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-gray-800 dark:text-gray-200">취소</span></td>
+                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-gray-800 dark:text-gray-200" data-default-label-index="6"></span></td>
                                         <td class="py-2 px-3 text-center text-gray-400">=</td>
-                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200 rounded">취소</span></td>
-                                        <td class="py-2 px-3 text-gray-500">작업 취소됨</td>
+                                        <td class="py-2 px-3"><span class="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200 rounded" data-default-label-index="6"></span></td>
+                                        <td class="py-2 px-3 text-gray-500" data-i18n="sectionC.labelCancelled">Cancelled</td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
 
                         <div class="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded">
-                            <p class="text-xs text-amber-800 dark:text-amber-200">
-                                <strong>중요:</strong> Projects의 Status 컬럼 이름과 Issue Label 이름이 <strong>정확히 일치</strong>해야 합니다.
-                                아래에서 Label을 수정하면 Projects의 Status 컬럼 이름도 동일하게 변경해주세요.
+                            <p class="text-xs text-amber-800 dark:text-amber-200" data-i18n="sectionC.exactMatch">
+                                <strong>Important:</strong> Projects Status column names and issue label names must <strong>match exactly</strong>.
+                                If you change a label below, rename the matching Status column in Projects too.
                             </p>
                         </div>
                     </div>
@@ -521,8 +532,8 @@
                 <div class="mb-8">
                     <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
                         <span class="section-badge bg-yellow-500">D</span>
-                        Status Labels 설정
-                        <span class="text-gray-500 font-normal text-sm">(issue-label.yml 기본값)</span>
+                        <span data-i18n="sectionD.title">Status labels</span>
+                        <span class="text-gray-500 font-normal text-sm" data-i18n="sectionD.defaultsFrom">(defaults from issue-label.yml)</span>
                     </h3>
                     <div id="labelsContainer" class="space-y-2 mb-4">
                         <!-- JavaScript로 동적 생성 -->
@@ -532,10 +543,10 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                             </svg>
-                            Label 추가
+                            <span data-i18n="sectionD.addLabel">Add label</span>
                         </button>
-                        <button onclick="resetLabels()" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-4 py-2">
-                            기본값 복원
+                        <button onclick="resetLabels()" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-4 py-2" data-i18n="sectionD.resetLabels">
+                            Restore defaults
                         </button>
                     </div>
                 </div>
@@ -544,28 +555,28 @@
                 <div class="mb-8">
                     <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
                         <span class="section-badge bg-orange-500">E</span>
-                        Worker 설정
+                        <span data-i18n="sectionE.title">Worker settings</span>
                     </h3>
 
                     <!-- Worker 이름 -->
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Worker 이름
-                            <span class="text-gray-500 font-normal">(Cloudflare Worker 이름)</span>
+                            <span data-i18n="sectionE.workerName">Worker name</span>
+                            <span class="text-gray-500 font-normal" data-i18n="sectionE.workerNameHint">(Cloudflare Worker name)</span>
                         </label>
                         <input type="text" id="workerName" placeholder="github-projects-sync-worker" value="github-projects-sync-worker"
                             class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         <!-- Cloudflare 이름 규칙 가이드 -->
                         <div class="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                            <p class="text-xs text-blue-700 dark:text-blue-300">
-                                <strong>📌 Cloudflare 이름 규칙:</strong> 소문자, 숫자, 하이픈(-)만 사용 가능
+                            <p class="text-xs text-blue-700 dark:text-blue-300" data-i18n="sectionE.nameRule">
+                                <strong>📌 Cloudflare naming rule:</strong> lowercase letters, digits and hyphens (-) only
                             </p>
-                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                                입력 시 자동으로 소문자로 변환됩니다. Projects URL 입력 시 기본값이 자동 생성됩니다.
+                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-1" data-i18n="sectionE.nameAuto">
+                                Input is lowercased automatically. A default is generated when you enter the Projects URL.
                             </p>
                         </div>
-                        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                            배포 시 이름이 충돌하면 스크립트에서 새 이름을 입력할 수 있습니다.
+                        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400" data-i18n="sectionE.nameConflict">
+                            If the name is taken at deploy time, the script lets you enter a new one.
                         </p>
                     </div>
 
@@ -573,25 +584,25 @@
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Webhook Secret
-                            <span class="text-gray-500 font-normal">(자동 생성)</span>
+                            <span class="text-gray-500 font-normal" data-i18n="sectionE.autoGenerated">(auto-generated)</span>
                         </label>
                         <!-- Webhook Secret 용도 설명 -->
                         <div class="mb-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                            <p class="text-xs text-amber-700 dark:text-amber-300">
-                                <strong>🔐 용도:</strong> GitHub Webhook → Cloudflare Worker 요청 인증용 비밀키
+                            <p class="text-xs text-amber-700 dark:text-amber-300" data-i18n="sectionE.secretPurpose">
+                                <strong>🔐 Purpose:</strong> secret key that authenticates GitHub webhook → Cloudflare Worker requests
                             </p>
-                            <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                                마법사에서 보안 해시값으로 자동 생성됩니다. 원하는 값으로 수정해도 됩니다.
+                            <p class="text-xs text-amber-600 dark:text-amber-400 mt-1" data-i18n="sectionE.secretAuto">
+                                The wizard generates a secure random value. You can replace it with your own.
                             </p>
                         </div>
                         <div class="flex gap-2">
                             <input type="text" id="webhookSecret"
                                 class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm">
-                            <button onclick="generateWebhookSecret()" class="px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors">
-                                재생성
+                            <button onclick="generateWebhookSecret()" class="px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors" data-i18n="sectionE.regenerate">
+                                Regenerate
                             </button>
-                            <button onclick="copyToClipboard(document.getElementById('webhookSecret').value)" class="px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors">
-                                복사
+                            <button onclick="copyToClipboard(document.getElementById('webhookSecret').value)" class="px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors" data-i18n="sectionE.copy">
+                                Copy
                             </button>
                         </div>
                     </div>
@@ -604,12 +615,12 @@
                         </label>
                         <!-- 권한 가이드 -->
                         <div class="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                            <p class="text-xs text-blue-700 dark:text-blue-300 mb-2">
-                                <strong>🔑 필요 권한:</strong>
+                            <p class="text-xs text-blue-700 dark:text-blue-300 mb-2" data-i18n="sectionE.scopesTitle">
+                                <strong>🔑 Required scopes:</strong>
                             </p>
                             <ul class="text-xs text-blue-600 dark:text-blue-400 space-y-1 ml-3">
-                                <li>• <strong>repo</strong> - Issue/PR Label 읽기/쓰기</li>
-                                <li>• <strong>project</strong> - Projects 읽기 (read:project)</li>
+                                <li data-i18n="sectionE.scopeRepo">• <strong>repo</strong> - read/write issue and PR labels</li>
+                                <li data-i18n="sectionE.scopeProject">• <strong>project</strong> - read Projects (read:project)</li>
                             </ul>
                             <div class="mt-2 pt-2 border-t border-blue-200 dark:border-blue-700">
                                 <a href="https://github.com/settings/tokens/new?scopes=repo,read:project&description=GitHub%20Projects%20Sync%20Worker"
@@ -618,14 +629,14 @@
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                                     </svg>
-                                    권한이 미리 선택된 토큰 생성 페이지 열기
+                                    <span data-i18n="sectionE.tokenLink">Open the token page with scopes preselected</span>
                                 </a>
                             </div>
                         </div>
                         <input type="password" id="githubToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                             class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm">
-                        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                            ⚠️ 토큰은 명령어에 포함되어 터미널 히스토리에 남을 수 있습니다.
+                        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400" data-i18n="sectionE.tokenHistory">
+                            ⚠️ The token is part of the command and may stay in your terminal history.
                         </p>
                     </div>
                 </div>
@@ -634,8 +645,8 @@
                 <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                     <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
                         <span class="section-badge bg-indigo-600">F</span>
-                        설치 명령어
-                        <span class="text-gray-500 font-normal text-sm">(자동 생성)</span>
+                        <span data-i18n="sectionF.title">Install command</span>
+                        <span class="text-gray-500 font-normal text-sm" data-i18n="sectionE.autoGenerated">(auto-generated)</span>
                     </h3>
 
                     <div class="info-box-green rounded-lg p-4 mb-4">
@@ -644,9 +655,9 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                             </svg>
                             <div>
-                                <p class="text-green-800 dark:text-green-200 font-medium">원클릭 설치</p>
-                                <p class="text-sm text-green-700 dark:text-green-300 mt-1">
-                                    아래 명령어를 복사하여 터미널에서 실행하면 자동으로 Worker가 배포됩니다.
+                                <p class="text-green-800 dark:text-green-200 font-medium" data-i18n="sectionF.oneClick">One-click install</p>
+                                <p class="text-sm text-green-700 dark:text-green-300 mt-1" data-i18n="sectionF.oneClickDetail">
+                                    Copy the command below and run it in a terminal to deploy the Worker automatically.
                                 </p>
                             </div>
                         </div>
@@ -654,10 +665,10 @@
 
                     <!-- 입력 대기 메시지 -->
                     <div id="commandWaitingMessage" class="p-4 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg text-center">
-                        <p class="text-gray-500 dark:text-gray-400">
-                            <span class="text-lg">⏳</span> 위 정보를 입력하면 설치 명령어가 자동으로 생성됩니다.
+                        <p class="text-gray-500 dark:text-gray-400" data-i18n="sectionF.waiting">
+                            <span class="text-lg">⏳</span> Fill in the details above and the install command is generated automatically.
                         </p>
-                        <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">필수: Projects URL, Webhook Secret, GitHub Token</p>
+                        <p class="text-xs text-gray-400 dark:text-gray-500 mt-2" data-i18n="sectionF.required">Required: Projects URL, Webhook Secret, GitHub Token</p>
                     </div>
 
                     <!-- 생성된 명령어 (Mac/Linux + Windows) -->
@@ -669,11 +680,11 @@
                                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Mac / Linux</span>
                             </div>
                             <div class="code-block relative">
-                                <button onclick="copyCommand('bash')" class="absolute top-2 right-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded transition-colors flex items-center gap-1" title="명령어 복사">
+                                <button onclick="copyCommand('bash')" class="absolute top-2 right-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded transition-colors flex items-center gap-1" title="Copy command" data-i18n-title="sectionF.copyCommandTitle">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                                     </svg>
-                                    복사
+                                    <span data-i18n="sectionF.copy">Copy</span>
                                 </button>
                                 <code id="bashCommandCode" class="text-sm whitespace-pre-wrap break-all"></code>
                             </div>
@@ -686,18 +697,18 @@
                                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Windows (PowerShell)</span>
                             </div>
                             <div class="code-block relative">
-                                <button onclick="copyCommand('powershell')" class="absolute top-2 right-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors flex items-center gap-1" title="명령어 복사">
+                                <button onclick="copyCommand('powershell')" class="absolute top-2 right-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors flex items-center gap-1" title="Copy command" data-i18n-title="sectionF.copyCommandTitle">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                                     </svg>
-                                    복사
+                                    <span data-i18n="sectionF.copy">Copy</span>
                                 </button>
                                 <code id="powershellCommandCode" class="text-sm whitespace-pre-wrap break-all"></code>
                             </div>
                         </div>
 
-                        <p class="text-xs text-gray-500 dark:text-gray-400">
-                            ※ 스크립트가 자동으로: npm 설치 → Cloudflare 로그인 → Worker 배포 → Secrets 설정을 진행합니다.
+                        <p class="text-xs text-gray-500 dark:text-gray-400" data-i18n="sectionF.scriptSteps">
+                            ※ The script runs automatically: npm install → Cloudflare login → Worker deploy → Secrets setup.
                         </p>
                     </div>
                 </div>
@@ -741,6 +752,8 @@
         </div>
     </div>
 
+    <script src="../../flutter/_shared/wizard-i18n.js"></script>
+    <script src="projects-sync-wizard-i18n.js"></script>
     <script src="projects-sync-wizard.js"></script>
 </body>
 </html>

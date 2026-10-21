@@ -228,7 +228,8 @@ def test_web_walks_real_browser():
 |------|------|
 | `_shared/wizard.css` | 공통 컴포넌트 스타일 (툴팁·모달·토스트·코드블록·커스텀 Secret 등) |
 | `_shared/wizard-common.js` | 공통 유틸 (이스케이프·클립보드·파일 변환·OS 감지·상태 저장·변경 이력 모달) |
-| `_shared/check-consistency.py` | 3종 정합성 검증 — **CI(`PROJECT-TEMPLATE-CI`)가 실행한다** |
+| `_shared/wizard-i18n.js` | 언어 전환 엔진 (영문 기본·한국어 전환, #769). common 마법사도 로드한다. 한국어는 `<name>-wizard-i18n.js` 사전에 |
+| `_shared/check-consistency.py` | 3종 정합성 검증 — **CI(`PROJECT-TEMPLATE-CI`)가 실행한다** (`check_i18n.py`로 사전 키 누락·한글 잔존도 검사) |
 | `_shared/test_wizard_cli.py` | CLI 계약 · `--dry-run` 안전성 회귀 테스트 |
 
 **마법사를 건드렸으면 반드시 통과시킬 것:**

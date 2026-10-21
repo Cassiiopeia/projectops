@@ -62,7 +62,7 @@ function copySecret(name) {
         'GOOGLE_SERVICES_JSON': state.googleServicesJson
     };
     const value = map[name] || '';
-    if (!value) { showToast(`⚠️ ${name} 값이 비어있습니다`); return; }
+    if (!value) { showToast(translate('toast.secretEmpty', { name })); return; }
     copyToClipboard(value);
 }
 
@@ -127,7 +127,7 @@ function goToStep(step) {
 }
 
 function resetWizard() {
-    if (!confirm('모든 입력 정보를 초기화할까요?')) return;
+    if (!confirm(translate('confirm.reset'))) return;
     clearState();
     Object.assign(state, {
         currentStep: 1, maxReachedStep: 1, totalSteps: 5, detectedOS: detectOS(),
@@ -137,7 +137,7 @@ function resetWizard() {
         repoOwner: '', repoName: '', customSecrets: []
     });
     showStep(1);
-    showToast('🔄 초기화되었습니다');
+    showToast(translate('toast.reset'));
 }
 
 function updateSetupCommands() {
@@ -178,8 +178,8 @@ function onFirebaseTesterGroupChange(v) { state.firebaseTesterGroup = v.trim(); 
 function onProjectPathChange(v) { state.projectPath = v.trim() || '.'; updateSetupCommands(); saveState(); }
 
 function onStep3Next() {
-    if (!state.firebaseAppId) { showToast('⚠️ FIREBASE_APP_ID를 입력해주세요'); return; }
-    if (!state.firebaseTesterGroup) { showToast('⚠️ FIREBASE_TESTER_GROUP을 입력해주세요'); return; }
+    if (!state.firebaseAppId) { showToast(translate('toast.appIdRequired')); return; }
+    if (!state.firebaseTesterGroup) { showToast(translate('toast.testerGroupRequired')); return; }
     nextStep();
 }
 
@@ -209,14 +209,14 @@ async function handleServiceAccountUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
     if (!file.name.endsWith('.json')) {
-        showToast('⚠️ .json 파일만 업로드 가능합니다');
+        showToast(translate('toast.jsonOnly'));
         return;
     }
     try {
         const text = await fileToText(file);
         const parsed = JSON.parse(text);
         if (!parsed.client_email || !parsed.private_key) {
-            showToast('⚠️ Service Account JSON 형식이 아닐 수 있습니다 (client_email/private_key 누락)');
+            showToast(translate('toast.notServiceAccount'));
         }
         const b64 = btoa(unescape(encodeURIComponent(text)));
         state.serviceAccountBase64 = b64;
@@ -225,14 +225,14 @@ async function handleServiceAccountUpload(event) {
         document.getElementById('saUploadText').textContent = `✅ ${file.name} (${(file.size/1024).toFixed(1)}KB)`;
         const info = document.getElementById('saInfo');
         info.style.display = 'block';
-        info.textContent = `client_email: ${parsed.client_email || '(누락)'}`;
+        info.textContent = `client_email: ${parsed.client_email || translate('upload.missing')}`;
         const preview = document.getElementById('saPreview');
         preview.classList.remove('hidden');
         document.getElementById('saPreviewText').textContent = b64.substring(0, 100) + '...';
         saveState();
-        showToast('✅ Service Account 업로드 완료');
+        showToast(translate('toast.serviceAccountUploaded'));
     } catch (e) {
-        showToast('❌ JSON 파싱 실패: ' + e.message);
+        showToast(translate('toast.jsonParseFailed', { message: e.message }));
     }
 }
 
@@ -240,7 +240,7 @@ async function handleGoogleServicesUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
     if (!file.name.endsWith('.json')) {
-        showToast('⚠️ .json 파일만 업로드 가능합니다');
+        showToast(translate('toast.jsonOnly'));
         return;
     }
     try {
@@ -253,15 +253,15 @@ async function handleGoogleServicesUpload(event) {
         info.style.display = 'block';
         info.textContent = `${file.size} bytes`;
         saveState();
-        showToast('✅ google-services.json 업로드 완료');
+        showToast(translate('toast.googleServicesUploaded'));
     } catch (e) {
-        showToast('❌ JSON 파싱 실패: ' + e.message);
+        showToast(translate('toast.jsonParseFailed', { message: e.message }));
     }
 }
 
 function onStep4Next() {
     if (!state.serviceAccountBase64) {
-        showToast('⚠️ Service Account JSON을 업로드해주세요');
+        showToast(translate('toast.serviceAccountRequired'));
         return;
     }
     nextStep();
@@ -274,7 +274,7 @@ showStep = function (step) {
     if (step === 4) {
         if (state.serviceAccountFileName) {
             const t = document.getElementById('saUploadText');
-            if (t) t.textContent = `✅ ${state.serviceAccountFileName} (복원됨)`;
+            if (t) t.textContent = translate('upload.restored', { fileName: state.serviceAccountFileName });
             const preview = document.getElementById('saPreview');
             if (preview && state.serviceAccountBase64) {
                 preview.classList.remove('hidden');
@@ -283,11 +283,18 @@ showStep = function (step) {
         }
         if (state.googleServicesFileName) {
             const t = document.getElementById('gsUploadText');
-            if (t) t.textContent = `✅ ${state.googleServicesFileName} (복원됨)`;
+            if (t) t.textContent = translate('upload.restored', { fileName: state.googleServicesFileName });
         }
+        renderUploadDropHints();
         setupDragAndDrop();
     }
 };
+
+/** 아직 안 올린 업로드 칸의 안내 문구 (올린 칸은 파일명 표시 유지) */
+function renderUploadDropHints() {
+    if (!state.serviceAccountFileName) setElementText('saUploadText', translate('upload.dropHint'));
+    if (!state.googleServicesFileName) setElementText('gsUploadText', translate('upload.dropHint'));
+}
 
 // ============================================
 // Custom Secrets
@@ -347,7 +354,7 @@ function renderCustomSecrets() {
     const container = document.getElementById('customSecretsContent');
     if (!container) return;
     if (state.customSecrets.length === 0) {
-        container.innerHTML = '<p class="text-xs text-slate-500 italic">추가된 항목이 없습니다.</p>';
+        container.innerHTML = `<p class="text-xs text-slate-500 italic">${translate('custom.empty')}</p>`;
         return;
     }
     container.innerHTML = state.customSecrets.map((s, i) => {
@@ -368,10 +375,10 @@ function renderCustomSecrets() {
             <div class="flex gap-2">
                 <input type="file" id="csFile${i}" class="hidden" onchange="handleCustomSecretFile(${i}, event)">
                 <button class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs" onclick="document.getElementById('csFile${i}').click()">
-                    ${safeFileName ? `📎 ${safeFileName}` : '📁 파일 선택'}
+                    ${safeFileName ? `📎 ${safeFileName}` : translate('custom.chooseFile')}
                 </button>
-                <span class="text-xs text-slate-500 self-center">또는</span>
-                <input type="text" placeholder="값 직접 입력" value="${safeValuePreview}"
+                <span class="text-xs text-slate-500 self-center">${translate('custom.or')}</span>
+                <input type="text" placeholder="${escapeHtml(translate('custom.valuePlaceholder'))}" value="${safeValuePreview}"
                     class="flex-1 bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-xs font-mono"
                     oninput="updateCustomSecretValue(${i}, this.value)">
             </div>
@@ -399,7 +406,7 @@ function buildSecretsArray() {
     }
     state.customSecrets.forEach(s => {
         if (s.key && s.value) {
-            list.push({ key: s.key, value: s.value, source: s.fileName || '직접 입력', type: s.type });
+            list.push({ key: s.key, value: s.value, source: s.fileName || translate('secrets.manualEntry'), type: s.type });
         }
     });
     return list;
@@ -410,7 +417,7 @@ function renderSecretsTable() {
     if (!tbody) return;
     const list = buildSecretsArray();
     if (list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="py-3 text-center text-slate-500 italic">등록할 Secret이 없습니다. Step 4를 먼저 완료해주세요.</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="4" class="py-3 text-center text-slate-500 italic">${translate('secrets.empty')}</td></tr>`;
         return;
     }
     tbody.innerHTML = list.map(s => {
@@ -423,7 +430,7 @@ function renderSecretsTable() {
             <td class="py-2 px-2 text-slate-400">${safeSource}</td>
             <td class="py-2 px-2 text-slate-400">${(s.value.length / 1024).toFixed(1)} KB</td>
             <td class="py-2 px-2 text-right">
-                <button class="px-3 py-1 bg-firebase-primary text-slate-900 rounded text-xs hover:opacity-90" onclick="copySecretValue('${safeJsKey}')">복사</button>
+                <button class="px-3 py-1 bg-firebase-primary text-slate-900 rounded text-xs hover:opacity-90" onclick="copySecretValue('${safeJsKey}')">${translate('secrets.copy')}</button>
             </td>
         </tr>
         `;
@@ -433,9 +440,9 @@ function renderSecretsTable() {
 function copySecretValue(key) {
     const list = buildSecretsArray();
     const item = list.find(x => x.key === key);
-    if (!item) { showToast('⚠️ 항목을 찾을 수 없습니다'); return; }
+    if (!item) { showToast(translate('toast.itemNotFound')); return; }
     copyToClipboard(item.value);
-    showToast(`✅ ${key} 복사됨`);
+    showToast(translate('toast.secretCopied', { key }));
 }
 
 function onRepoOwnerChange(v) {
@@ -462,27 +469,27 @@ function updateSecretsPageLink() {
 
 function downloadAsJson() {
     const list = buildSecretsArray();
-    if (list.length === 0) { showToast('⚠️ 등록할 Secret이 없습니다'); return; }
+    if (list.length === 0) { showToast(translate('toast.noSecrets')); return; }
     const out = {};
     list.forEach(s => { out[s.key] = s.value; });
     const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
     triggerDownload(blob, `firebase-secrets-${(state.firebaseAppId || 'app').slice(0,12)}-${getDateStamp()}.json`);
-    showToast('✅ JSON 다운로드');
+    showToast(translate('toast.jsonDownloaded'));
 }
 
 function downloadAsTxt() {
     const list = buildSecretsArray();
-    if (list.length === 0) { showToast('⚠️ 등록할 Secret이 없습니다'); return; }
+    if (list.length === 0) { showToast(translate('toast.noSecrets')); return; }
     const lines = list.map(s => `=== ${s.key} ===\n${s.value}\n`);
     const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
     triggerDownload(blob, `firebase-secrets-${(state.firebaseAppId || 'app').slice(0,12)}-${getDateStamp()}.txt`);
-    showToast('✅ TXT 다운로드');
+    showToast(translate('toast.txtDownloaded'));
 }
 
 async function downloadAsZip() {
     const list = buildSecretsArray();
-    if (list.length === 0) { showToast('⚠️ 등록할 Secret이 없습니다'); return; }
-    if (typeof JSZip === 'undefined') { showToast('❌ JSZip 라이브러리 로드 실패'); return; }
+    if (list.length === 0) { showToast(translate('toast.noSecrets')); return; }
+    if (typeof JSZip === 'undefined') { showToast(translate('toast.jszipFailed')); return; }
 
     const zip = new JSZip();
     const folder = zip.folder('github-secrets');
@@ -494,27 +501,28 @@ async function downloadAsZip() {
         const pyResp = await fetch(`${wizardBaseUrl}/firebase-wizard.py`).then(r => r.ok ? r.text() : null).catch(() => null);
         if (pyResp) zip.file('firebase-wizard.py', pyResp);
     } catch (e) {
-        console.warn('setup 스크립트 fetch 실패:', e);
+        console.warn('[firebase wizard] setup script fetch failed:', e);
     }
 
-    const readme = `# Firebase App Distribution Secrets 패키지
+    const notEntered = translate('zip.notEntered');
+    const readme = `${translate('zip.readmeTitle')}
 
-생성 시각: ${new Date().toISOString()}
-앱 ID: ${state.firebaseAppId || '(미입력)'}
-테스터 그룹: ${state.firebaseTesterGroup || '(미입력)'}
+${translate('zip.generatedAt', { value: new Date().toISOString() })}
+${translate('zip.appId', { value: state.firebaseAppId || notEntered })}
+${translate('zip.testerGroup', { value: state.firebaseTesterGroup || notEntered })}
 
-## 폴더 구조
+${translate('zip.folderTitle')}
 
-- github-secrets/         GitHub Repository Secrets에 등록할 값 파일들
-- firebase-wizard.py      워크플로우 placeholder 안전 치환 (Python, macOS/Windows 공용)
+${translate('zip.folderSecrets')}
+${translate('zip.folderScript')}
 
-## 등록 절차
+${translate('zip.registerTitle')}
 
-1. https://github.com/<owner>/<repo>/settings/secrets/actions 접속
-2. github-secrets/ 폴더의 각 파일명을 Secret 이름으로 사용
-3. 파일 내용을 Secret 값으로 붙여넣기
+${translate('zip.register1')}
+${translate('zip.register2')}
+${translate('zip.register3')}
 
-## setup 스크립트 실행 (워크플로우 placeholder 치환)
+${translate('zip.runTitle')}
 
 ### macOS / Linux
 \`\`\`bash
@@ -532,17 +540,17 @@ python firebase-wizard.py setup \`
   --tester-group "${state.firebaseTesterGroup}"
 \`\`\`
 
-## 옵션
+${translate('zip.optionsTitle')}
 
-- --dry-run             실제 변경 없이 미리보기
-- --non-interactive     충돌 시 자동 SKIP
-- --no-backup           백업 파일 생성 비활성화
+${translate('zip.optionDryRun')}
+${translate('zip.optionNonInteractive')}
+${translate('zip.optionNoBackup')}
 `;
     zip.file('README.md', readme);
 
     const blob = await zip.generateAsync({ type: 'blob' });
     triggerDownload(blob, `firebase-setup-${(state.firebaseAppId || 'app').slice(0,12)}-${getDateStamp()}.zip`);
-    showToast('✅ ZIP 다운로드');
+    showToast(translate('toast.zipDownloaded'));
 }
 
 // Step 5 진입 시 렌더 (Task 11 wrap)
@@ -556,6 +564,17 @@ showStep = function (step) {
         updateSecretsPageLink();
     }
 };
+
+// ============================================
+// 언어 전환 (#769) — JS 가 그리는 영역만 다시 그린다 (정적 문구는 엔진이 처리)
+// ============================================
+document.addEventListener('wizardlanguagechange', () => {
+    renderUploadDropHints();
+    if (state.serviceAccountFileName) setElementText('saUploadText', `✅ ${state.serviceAccountFileName}`);
+    if (state.googleServicesFileName) setElementText('gsUploadText', `✅ ${state.googleServicesFileName}`);
+    renderCustomSecrets();
+    renderSecretsTable();
+});
 
 // ============================================
 // Init

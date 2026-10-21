@@ -55,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Labels 렌더링
     renderLabels();
+    renderDefaultLabelNames();
 
     // Worker 이름 입력 이벤트 - 자동 소문자 변환 + 명령어 업데이트
     document.getElementById('workerName').addEventListener('input', (e) => {
@@ -96,7 +97,7 @@ function displayVersion() {
             versionBadge.textContent = `v${versionJson.version}`;
         }
     } catch (e) {
-        console.error('버전 정보 로드 실패:', e);
+        console.error('[projects sync] version load failed:', e);
     }
 }
 
@@ -111,7 +112,7 @@ function getVersionData() {
             return JSON.parse(versionEl.textContent);
         }
     } catch (e) {
-        console.error('버전 정보 파싱 실패:', e);
+        console.error('[projects sync] version parse failed:', e);
     }
     return null;
 }
@@ -127,7 +128,7 @@ function openChangelogModal() {
 
     const data = getVersionData();
     if (!data) {
-        content.innerHTML = '<div class="text-center text-red-500 py-4">버전 정보를 불러올 수 없습니다.</div>';
+        content.innerHTML = `<div class="text-center text-red-500 py-4">${escapeHtml(translate('toast.versionLoadFailed'))}</div>`;
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         return;
@@ -241,12 +242,12 @@ function loadState() {
             updateInstallCommands();
         }
     } catch (e) {
-        console.error('상태 복원 실패:', e);
+        console.error('[projects sync] state restore failed:', e);
     }
 }
 
 function resetWizard() {
-    if (confirm('모든 설정을 초기화하시겠습니까?')) {
+    if (confirm(translate('confirm.reset'))) {
         localStorage.removeItem('projectsSyncWizardState');
         state = {
             projectUrl: '',
@@ -293,7 +294,7 @@ function resetWizard() {
         toggleProjectsGuide();
         updateInstallCommands();
 
-        showToast('설정이 초기화되었습니다.');
+        showToast(translate('toast.resetDone'));
     }
 }
 
@@ -465,6 +466,13 @@ function toggleProjectsGuide() {
 // Labels 관리
 // ============================================
 
+/** 매핑 가이드 표의 Label 이름 = DEFAULT_STATUS_LABELS (HTML 에 사본을 두지 않음) */
+function renderDefaultLabelNames() {
+    document.querySelectorAll('[data-default-label-index]').forEach((element) => {
+        element.textContent = DEFAULT_STATUS_LABELS[Number(element.dataset.defaultLabelIndex)] || '';
+    });
+}
+
 function renderLabels() {
     const container = document.getElementById('labelsContainer');
     container.innerHTML = state.statusLabels.map((label, index) => `
@@ -482,7 +490,7 @@ function renderLabels() {
 }
 
 function addLabel() {
-    state.statusLabels.push('새 Label');
+    state.statusLabels.push(translate('labels.newLabel'));
     renderLabels();
     saveState();
     scheduleCommandUpdate();
@@ -501,7 +509,7 @@ function removeLabel(index) {
         saveState();
         scheduleCommandUpdate();
     } else {
-        showToast('최소 1개의 Label이 필요합니다.', 'error');
+        showToast(translate('toast.minimumOneLabel'), 'error');
     }
 }
 
@@ -510,7 +518,7 @@ function resetLabels() {
     renderLabels();
     saveState();
     scheduleCommandUpdate();
-    showToast('기본값으로 복원되었습니다.');
+    showToast(translate('toast.labelsRestored'));
 }
 
 // ============================================
@@ -1153,7 +1161,7 @@ async function downloadAllAsZip() {
     const projectNumber = document.getElementById('projectNumber').value.trim();
 
     if (!orgName || !projectNumber) {
-        showToast('Organization Name과 Project Number를 입력하세요.', 'error');
+        showToast(translate('toast.ownerAndNumberRequired'), 'error');
         return;
     }
 
@@ -1188,10 +1196,10 @@ async function downloadAllAsZip() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        showToast('ZIP 파일이 다운로드되었습니다.');
+        showToast(translate('toast.zipDownloaded'));
     } catch (error) {
-        console.error('ZIP 생성 실패:', error);
-        showToast('ZIP 생성에 실패했습니다.', 'error');
+        console.error('[projects sync] ZIP creation failed:', error);
+        showToast(translate('toast.zipFailed'), 'error');
     }
 }
 
@@ -1207,9 +1215,9 @@ function escapeHtml(text) {
 
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(() => {
-        showToast('클립보드에 복사되었습니다.');
+        showToast(translate('toast.copied'));
     }).catch(() => {
-        showToast('복사에 실패했습니다.', 'error');
+        showToast(translate('toast.copyFailed'), 'error');
     });
 }
 

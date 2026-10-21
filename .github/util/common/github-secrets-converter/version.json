@@ -1,6 +1,6 @@
 {
   "name": "GitHub Secrets Converter",
-  "version": "1.0.0",
-  "description": "파일을 업로드하면 자동으로 최적의 형식(Base64/텍스트)으로 변환하는 범용 도구",
-  "lastUpdated": "2026-01-20"
+  "version": "1.1.0",
+  "description": "General tool that converts uploaded files into the best GitHub Secret format (Base64 or text)",
+  "lastUpdated": "2026-10-22"
 }

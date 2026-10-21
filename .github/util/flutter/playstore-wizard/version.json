@@ -1,9 +1,20 @@
 {
   "name": "Android Play Store Setup Wizard",
-  "version": "1.6.2",
-  "description": "Flutter Android 앱을 Play Store에 배포하기 위한 설정 마법사",
-  "lastUpdated": "2026-10-10",
+  "version": "1.7.0",
+  "description": "Setup wizard for deploying a Flutter Android app to the Play Store",
+  "lastUpdated": "2026-10-22",
   "changelog": [
+    {
+      "version": "1.7.0",
+      "date": "2026-10-22",
+      "changes": [
+        "English is now the default; a language toggle switches to Korean and the choice is saved in this browser (projectops#769)",
+        "Korean text moved to playstore-wizard-i18n.js; the shared engine is _shared/wizard-i18n.js",
+        "Starts in Korean when there is no saved choice and the browser language is Korean; ?lang=en|ko in the address overrides",
+        "Generated files, commands and secret names are identical in both languages",
+        "Python CLI messages are now English"
+      ]
+    },
     {
       "version": "1.6.2",
       "date": "2026-10-10",

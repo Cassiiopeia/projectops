@@ -1,17 +1,28 @@
 <!DOCTYPE html>
-<html lang="ko" class="dark">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>iOS TestFlight 배포 마법사</title>
+    <title data-i18n="page.title">iOS TestFlight Deployment Wizard</title>
     <!-- 버전 정보 (version.json과 동기화 필요) -->
     <script type="application/json" id="versionJson">
 {
   "name": "iOS TestFlight Setup Wizard",
-  "version": "1.5.2",
-  "description": "Flutter iOS 앱을 TestFlight에 배포하기 위한 설정 마법사",
-  "lastUpdated": "2026-10-10",
+  "version": "1.6.0",
+  "description": "Setup wizard for deploying a Flutter iOS app to TestFlight",
+  "lastUpdated": "2026-10-22",
   "changelog": [
+    {
+      "version": "1.6.0",
+      "date": "2026-10-22",
+      "changes": [
+        "English is now the default; a language toggle switches to Korean and the choice is saved in this browser (projectops#769)",
+        "Korean text moved to testflight-wizard-i18n.js; the shared engine is _shared/wizard-i18n.js",
+        "Starts in Korean when there is no saved choice and the browser language is Korean; ?lang=en|ko in the address overrides",
+        "Generated files, commands and secret names are identical in both languages",
+        "Python CLI messages are now English"
+      ]
+    },
     {
       "version": "1.5.2",
       "date": "2026-10-10",
@@ -174,7 +185,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
             </svg>
             <div class="flex-1">
-                <p class="text-sm font-medium">이 페이지를 닫으면 입력한 데이터가 사라집니다 (localStorage에 임시 저장됨)</p>
+                <p class="text-sm font-medium" data-i18n="security.warning">If you close this page, the data you entered is lost (temporarily stored in localStorage)</p>
             </div>
             <button onclick="closeSecurityWarning()" class="text-yellow-400 hover:text-yellow-200">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -187,8 +198,8 @@
     <div class="max-w-4xl mx-auto p-4 md:p-6">
         <!-- Header -->
         <header class="text-center mb-10">
-            <h1 class="text-3xl md:text-4xl font-bold mb-3" style="background: linear-gradient(90deg, #60a5fa, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                🚀 iOS TestFlight 배포 마법사
+            <h1 class="text-3xl md:text-4xl font-bold mb-3" style="background: linear-gradient(90deg, #60a5fa, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;" data-i18n="header.title">
+                🚀 iOS TestFlight Deployment Wizard
             </h1>
             <p class="text-zinc-400 text-base md:text-lg flex items-center justify-center gap-3">
                 <a href="https://github.com/Cassiiopeia/projectops" target="_blank" rel="noopener"
@@ -201,33 +212,35 @@
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
                     <span id="versionBadge">v1.2.0</span>
                 </button>
+                <span class="text-slate-600">|</span>
+                <button type="button" class="lang-toggle hidden" data-lang-toggle onclick="toggleWizardLanguage()">한국어</button>
             </p>
         </header>
 
         <!-- 첫 사용자 안내 — 시작 전에 규모·준비물·산출물을 먼저 보여준다 -->
         <div class="wizard-meta">
-            <span>⏱️ 예상 소요 <strong>40~60분</strong></span>
+            <span data-i18n="meta.duration">⏱️ Estimated time <strong>40–60 min</strong></span>
             <span class="text-slate-600">·</span>
-            <span>📑 <strong>9단계</strong></span>
+            <span data-i18n="meta.stepCount">📑 <strong>9 steps</strong></span>
             <span class="text-slate-600">·</span>
-            <span>🎒 준비물 <strong>Apple Developer Program($99/년) · Mac · Flutter 프로젝트</strong></span>
+            <span data-i18n="meta.requirements">🎒 You need <strong>Apple Developer Program ($99/year) · a Mac · a Flutter project</strong></span>
         </div>
         <div class="wizard-meta" style="margin-top:-0.5rem">
-            <span>🎁 완료하면 <strong>ExportOptions.plist, Fastfile, Gemfile + GitHub Secrets 7종</strong>을 받습니다</span>
+            <span data-i18n="meta.outputs">🎁 When done, you get <strong>ExportOptions.plist, Fastfile, Gemfile + 7 GitHub Secrets</strong></span>
             <span class="text-slate-600">·</span>
-            <a href="../../../../docs/FLUTTER-TESTFLIGHT-WIZARD.md" target="_blank" rel="noopener" class="text-blue-400 hover:underline">📖 문서로 자세히 보기 →</a>
+            <a href="../../../../docs/FLUTTER-TESTFLIGHT-WIZARD.md" target="_blank" rel="noopener" class="text-blue-400 hover:underline" data-i18n="meta.docsLink">📖 Read the full guide →</a>
         </div>
-        <p class="resume-hint">진행 상황은 이 브라우저에 자동 저장됩니다. 창을 닫았다가 다시 열면 이어서 진행할 수 있어요.</p>
+        <p class="resume-hint" data-i18n="meta.resumeHint">Your progress is saved in this browser automatically. Close the window and reopen it to pick up where you left off.</p>
 
         <!-- Progress Steps (9단계) -->
         <div class="flex justify-between mb-8 px-2 overflow-x-auto">
             <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="1">
                 <div class="step-circle w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white flex items-center justify-center font-bold text-xs z-10 shadow-lg shadow-blue-500/30">1</div>
-                <span class="text-[9px] mt-1 text-slate-400 text-center hidden md:block">시작</span>
+                <span class="text-[9px] mt-1 text-slate-400 text-center hidden md:block" data-i18n="steps.start">Start</span>
             </div>
             <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="2">
                 <div class="step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10">2</div>
-                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block">인증서</span>
+                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block" data-i18n="steps.certificate">Certificate</span>
             </div>
             <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="3">
                 <div class="step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10">3</div>
@@ -239,11 +252,11 @@
             </div>
             <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="5">
                 <div class="step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10">5</div>
-                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block">ASC등록</span>
+                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block" data-i18n="steps.ascRegistration">ASC app</span>
             </div>
             <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="6">
                 <div class="step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10">6</div>
-                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block">앱정보</span>
+                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block" data-i18n="steps.appInfo">App info</span>
             </div>
             <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="7">
                 <div class="step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10">7</div>
@@ -255,7 +268,7 @@
             </div>
             <div class="step-indicator flex flex-col items-center flex-1 min-w-[40px]" data-step="9">
                 <div class="step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10">9</div>
-                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block">완료</span>
+                <span class="text-[9px] mt-1 text-slate-500 text-center hidden md:block" data-i18n="steps.done">Done</span>
             </div>
         </div>
 
@@ -265,67 +278,67 @@
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content fade-in" data-step="1">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
                 <span class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-sm">1</span>
-                시작하기
+                <span data-i18n="step1.title">Getting started</span>
             </h2>
 
             <!-- 의존성 흐름 설명 -->
             <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-blue-200 mb-3">📋 iOS 배포를 위해 필요한 것들과 순서</p>
+                <p class="text-sm text-blue-200 mb-3" data-i18n="step1.flowTitle">📋 What iOS deployment needs, in order</p>
                 <div class="dependency-flow">
-                    <div class="dependency-item bg-purple-600 text-white text-[11px]">① 인증서</div>
+                    <div class="dependency-item bg-purple-600 text-white text-[11px]" data-i18n="step1.flowCertificate">① Certificate</div>
                     <span class="dependency-arrow">→</span>
                     <div class="dependency-item bg-blue-600 text-white text-[11px]">② App ID</div>
                     <span class="dependency-arrow">→</span>
                     <div class="dependency-item bg-green-600 text-white text-[11px]">③ Profile</div>
                     <span class="dependency-arrow">→</span>
-                    <div class="dependency-item bg-pink-600 text-white text-[11px]">④ ASC 등록</div>
+                    <div class="dependency-item bg-pink-600 text-white text-[11px]" data-i18n="step1.flowAsc">④ ASC app</div>
                     <span class="dependency-arrow">→</span>
                     <div class="dependency-item bg-purple-600 text-white text-[11px]">⑤ API Key</div>
                 </div>
-                <p class="text-xs text-slate-400 text-center mt-2">
-                    순서대로 진행해야 합니다! <span class="text-pink-400">App Store Connect 앱 등록</span>이 있어야 TestFlight 업로드가 가능해요.
+                <p class="text-xs text-slate-400 text-center mt-2" data-i18n="step1.flowNote">
+                    Go in this order. TestFlight uploads need the <span class="text-pink-400">app registered in App Store Connect</span> first.
                 </p>
             </div>
 
             <!-- 준비물 체크리스트 -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
-                <p class="text-sm font-medium text-slate-300 mb-3">✅ 시작 전 확인사항</p>
+                <p class="text-sm font-medium text-slate-300 mb-3" data-i18n="step1.checklistTitle">✅ Before you start</p>
                 <ul class="text-xs text-slate-300 space-y-2">
                     <li class="flex items-center gap-2">
                         <input type="checkbox" id="check-apple-dev" class="w-4 h-4 rounded">
-                        <label for="check-apple-dev">Apple Developer Program 가입 완료 ($99/년)</label>
+                        <label for="check-apple-dev" data-i18n="step1.checkAppleDev">Joined the Apple Developer Program ($99/year)</label>
                     </li>
                     <li class="flex items-center gap-2">
                         <input type="checkbox" id="check-mac" class="w-4 h-4 rounded">
-                        <label for="check-mac">Mac 컴퓨터 (키체인 접근용)</label>
+                        <label for="check-mac" data-i18n="step1.checkMac">A Mac (for Keychain Access)</label>
                     </li>
                     <li class="flex items-center gap-2">
                         <input type="checkbox" id="check-flutter" class="w-4 h-4 rounded">
-                        <label for="check-flutter">Flutter 프로젝트 준비됨</label>
+                        <label for="check-flutter" data-i18n="step1.checkFlutter">A Flutter project is ready</label>
                     </li>
                     <li class="flex items-start gap-2">
                         <input type="checkbox" id="check-flutter-version" class="w-4 h-4 rounded mt-0.5">
                         <div>
-                            <label for="check-flutter-version">CI의 Flutter 버전이 로컬과 맞는지 확인</label>
+                            <label for="check-flutter-version" data-i18n="step1.checkFlutterVersion">CI uses the same Flutter version as your machine</label>
                             <div class="mt-2 p-3 bg-red-900/30 border border-red-700 rounded">
-                                <p class="text-[11px] text-red-300 font-bold mb-1">⚠️ 가장 흔한 빌드 실패 원인입니다</p>
-                                <p class="text-[11px] text-slate-400">
-                                    <code class="text-slate-300">flutter create</code>는 <span class="text-slate-300">로컬 Flutter 버전</span> 기준으로
-                                    pubspec.yaml에 Dart SDK 요구사항을 씁니다. CI의 Flutter가 더 낮으면
-                                    의존성 설치 단계에서 <code class="text-slate-300">version solving failed</code>로 실패합니다.
+                                <p class="text-[11px] text-red-300 font-bold mb-1" data-i18n="step1.versionWarningTitle">⚠️ This is the most common cause of build failures</p>
+                                <p class="text-[11px] text-slate-400" data-i18n="step1.versionWarningBody">
+                                    <code class="text-slate-300">flutter create</code> writes the Dart SDK requirement into pubspec.yaml
+                                    based on <span class="text-slate-300">your local Flutter version</span>. If CI runs an older Flutter,
+                                    dependency install fails with <code class="text-slate-300">version solving failed</code>.
                                 </p>
                                 <div class="bg-slate-900 rounded p-2 mt-2 font-mono text-[10px] space-y-1 overflow-x-auto">
-                                    <div class="text-slate-500"># 1) 내 Flutter/Dart 버전</div>
+                                    <div class="text-slate-500" data-i18n="step1.versionCommentLocal"># 1) Your Flutter/Dart version</div>
                                     <div class="text-green-400">flutter --version</div>
-                                    <div class="text-slate-500 mt-1"># 2) pubspec이 요구하는 Dart 버전</div>
+                                    <div class="text-slate-500 mt-1" data-i18n="step1.versionCommentPubspec"># 2) Dart version pubspec requires</div>
                                     <div class="text-green-400">grep -A2 '^environment:' pubspec.yaml</div>
-                                    <div class="text-slate-500 mt-1"># 3) CI에 설정된 버전</div>
+                                    <div class="text-slate-500 mt-1" data-i18n="step1.versionCommentCi"># 3) Version set in CI</div>
                                     <div class="text-green-400">grep -rn 'FLUTTER_VERSION:' .github/workflows/</div>
                                 </div>
-                                <p class="text-[11px] text-slate-400 mt-2">
-                                    3번 값이 1번보다 낮으면 워크플로우의
-                                    <code class="text-yellow-400">FLUTTER_VERSION</code>을 로컬과 동일하게 맞추세요.
-                                    <span class="text-slate-500">(Android 워크플로우도 함께 수정)</span>
+                                <p class="text-[11px] text-slate-400 mt-2" data-i18n="step1.versionFix">
+                                    If 3 is lower than 1, set the workflow's
+                                    <code class="text-yellow-400">FLUTTER_VERSION</code> to match your local version.
+                                    <span class="text-slate-500">(update the Android workflows too)</span>
                                 </p>
                             </div>
                         </div>
@@ -335,35 +348,35 @@
 
             <!-- 프로젝트 경로 -->
             <div class="mb-6">
-                <label class="block text-sm font-medium mb-2 text-slate-300">
-                    Flutter 프로젝트 루트 절대 경로 <span class="text-red-400">*</span>
+                <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="step1.projectPathLabel">
+                    Absolute path to the Flutter project root <span class="text-red-400">*</span>
                 </label>
                 <div class="mb-3 p-3 bg-blue-900/30 border border-blue-700 rounded-lg">
-                    <p class="text-xs text-blue-200 font-bold mb-1">📍 "Flutter 루트"란 — pubspec.yaml이 있는 폴더</p>
-                    <p class="text-[11px] text-slate-400">
-                        Git 레포 루트와 다를 수 있습니다. <code class="text-slate-300">pubspec.yaml</code>과
-                        <code class="text-slate-300">ios/</code> 폴더가 함께 있는 위치를 입력하세요.
+                    <p class="text-xs text-blue-200 font-bold mb-1" data-i18n="step1.flutterRootTitle">📍 "Flutter root" means the folder with pubspec.yaml</p>
+                    <p class="text-[11px] text-slate-400" data-i18n="step1.flutterRootBody">
+                        It can differ from the Git repo root. Enter the folder that holds both <code class="text-slate-300">pubspec.yaml</code>
+                        and the <code class="text-slate-300">ios/</code> folder.
                     </p>
                     <div class="bg-slate-900 rounded p-2 mt-2 font-mono text-[10px] space-y-0.5">
-                        <div class="text-slate-500">my-repo/            <span class="text-red-400">← ❌ 레포 루트 (pubspec.yaml 없음)</span></div>
+                        <div class="text-slate-500">my-repo/            <span class="text-red-400" data-i18n="step1.treeRepoRoot">← ❌ repo root (no pubspec.yaml)</span></div>
                         <div class="text-slate-500">├─ .github/</div>
-                        <div class="text-slate-500">└─ client/          <span class="text-green-400">← ✅ 여기! Flutter 루트</span></div>
+                        <div class="text-slate-500">└─ client/          <span class="text-green-400" data-i18n="step1.treeFlutterRoot">← ✅ here! Flutter root</span></div>
                         <div class="text-slate-500">&nbsp;&nbsp;&nbsp;├─ pubspec.yaml</div>
                         <div class="text-slate-500">&nbsp;&nbsp;&nbsp;└─ ios/</div>
                     </div>
-                    <p class="text-[11px] text-slate-500 mt-2">
-                        레포 루트에 pubspec.yaml이 바로 있는 일반 구조라면 레포 루트가 곧 Flutter 루트입니다.
+                    <p class="text-[11px] text-slate-500 mt-2" data-i18n="step1.flutterRootSame">
+                        In the usual layout, with pubspec.yaml right at the repo root, the repo root is the Flutter root.
                     </p>
                 </div>
                 <div class="flex gap-3">
                     <input type="text" id="projectPath"
                         class="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm text-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
-                        placeholder="/Users/username/my-flutter-project (절대 경로로 입력)">
+                        data-i18n-placeholder="step1.projectPathPlaceholder" placeholder="/Users/username/my-flutter-project (absolute path)">
                     <button class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-medium transition flex items-center gap-2" onclick="selectProjectFolder()">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
                         </svg>
-                        폴더
+                        <span data-i18n="step1.folderButton">Folder</span>
                     </button>
                 </div>
                 <!-- 폴더 선택 결과 표시 — 입력칸을 덮어쓰지 않고 여기에만 안내한다 -->
@@ -371,31 +384,31 @@
 
                 <!-- OS별 경로 확인법: 구분자와 명령이 달라 나눠서 안내한다 -->
                 <div class="mt-3 bg-slate-700/50 border border-slate-600 rounded-lg p-3">
-                    <p class="text-xs font-medium text-blue-400 mb-2">🔍 절대경로 확인하는 법</p>
-                    <p class="text-[11px] text-slate-500 mb-2">
-                        브라우저는 보안상 폴더의 절대경로를 알 수 없어 직접 입력해야 합니다.
+                    <p class="text-xs font-medium text-blue-400 mb-2" data-i18n="step1.absolutePathTitle">🔍 How to find the absolute path</p>
+                    <p class="text-[11px] text-slate-500 mb-2" data-i18n="step1.absolutePathWhy">
+                        For security, the browser can't read a folder's absolute path, so type it in.
                     </p>
                     <div class="grid md:grid-cols-2 gap-2">
                         <div class="bg-slate-900 rounded p-2">
                             <div class="text-[11px] text-slate-300 font-bold mb-1">🍎 macOS / Linux</div>
-                            <div class="font-mono text-[10px] text-green-400 break-all">cd 프로젝트폴더 && pwd</div>
-                            <div class="text-[10px] text-slate-500 mt-1.5">결과 예시:</div>
+                            <div class="font-mono text-[10px] text-green-400 break-all" data-i18n="step1.macPathCommand">cd your-project-folder && pwd</div>
+                            <div class="text-[10px] text-slate-500 mt-1.5" data-i18n="step1.exampleOutput">Example output:</div>
                             <div class="font-mono text-[10px] text-slate-400 break-all">/Users/hong/projects/myapp</div>
-                            <div class="text-[10px] text-slate-600 mt-1">구분자 <span class="text-slate-400">/</span> · <span class="text-slate-400">/</span>로 시작</div>
+                            <div class="text-[10px] text-slate-600 mt-1" data-i18n="step1.macSeparator">Separator <span class="text-slate-400">/</span> · starts with <span class="text-slate-400">/</span></div>
                         </div>
                         <div class="bg-slate-900 rounded p-2">
                             <div class="text-[11px] text-slate-300 font-bold mb-1">🪟 Windows</div>
-                            <div class="font-mono text-[10px] text-green-400 break-all">cd 프로젝트폴더 && cd</div>
-                            <div class="text-[10px] text-slate-500 mt-1.5">결과 예시:</div>
+                            <div class="font-mono text-[10px] text-green-400 break-all" data-i18n="step1.windowsPathCommand">cd your-project-folder && cd</div>
+                            <div class="text-[10px] text-slate-500 mt-1.5" data-i18n="step1.exampleOutput">Example output:</div>
                             <div class="font-mono text-[10px] text-slate-400 break-all">C:\Users\hong\projects\myapp</div>
-                            <div class="text-[10px] text-slate-600 mt-1">구분자 <span class="text-slate-400">\</span> · <span class="text-slate-400">드라이브문자:</span>로 시작</div>
+                            <div class="text-[10px] text-slate-600 mt-1" data-i18n="step1.windowsSeparator">Separator <span class="text-slate-400">\</span> · starts with <span class="text-slate-400">drive letter:</span></div>
                         </div>
                     </div>
                     <div class="mt-2 p-2 bg-orange-900/30 border border-orange-700/50 rounded">
-                        <p class="text-[10px] text-orange-300">
-                            ⚠️ <span class="font-bold">iOS 빌드·서명은 macOS에서만 가능합니다.</span>
-                            Windows에서는 이 마법사로 설정 파일 생성과 GitHub Secrets 등록까지만 하고,
-                            실제 빌드는 GitHub Actions(macOS 러너)가 수행합니다.
+                        <p class="text-[10px] text-orange-300" data-i18n="step1.macOnlyNote">
+                            ⚠️ <span class="font-bold">iOS builds and signing only work on macOS.</span>
+                            On Windows, use this wizard to generate the config files and register GitHub Secrets;
+                            GitHub Actions (macOS runner) does the actual build.
                         </p>
                     </div>
                 </div>
@@ -403,22 +416,22 @@
 
             <!-- 모노레포 대응: 레포 루트가 Flutter 루트와 다를 때만 필요 -->
             <div class="mb-6">
-                <label class="block text-sm font-medium mb-2 text-slate-300">
-                    Git 레포 루트 절대 경로
-                    <span class="text-xs text-slate-500 font-normal">(선택 — 위와 같으면 비워두세요)</span>
+                <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="step1.repoRootLabel">
+                    Absolute path to the Git repo root
+                    <span class="text-xs text-slate-500 font-normal">(optional — leave empty if same as above)</span>
                 </label>
                 <input type="text" id="repoRoot"
                     class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm text-slate-300 focus:border-blue-500 outline-none transition"
-                    placeholder="/Users/username/my-repo (.github 폴더가 있는 위치)">
-                <p class="text-xs text-slate-500 mt-1">
-                    <code class="text-slate-400">.github/</code> 폴더가 있는 위치입니다.
-                    모노레포(Flutter가 <code class="text-slate-400">client/</code> 등 하위에 있는 구조)에서만 입력하세요.
+                    data-i18n-placeholder="step1.repoRootPlaceholder" placeholder="/Users/username/my-repo (where the .github folder is)">
+                <p class="text-xs text-slate-500 mt-1" data-i18n="step1.repoRootHint">
+                    The folder that contains <code class="text-slate-400">.github/</code>.
+                    Fill this in only for a monorepo (Flutter lives in a subfolder such as <code class="text-slate-400">client/</code>).
                 </p>
             </div>
 
             <div class="flex justify-end mt-8">
-                <button class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition" onclick="nextStep()">
-                    다음: 인증서 만들기 →
+                <button class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition" onclick="nextStep()" data-i18n="step1.next">
+                    Next: create the certificate →
                 </button>
             </div>
         </div>
@@ -429,14 +442,14 @@
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="2">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
                 <span class="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center text-sm">2</span>
-                Distribution 인증서 만들기
-                <span class="text-xs font-normal text-purple-400 bg-purple-500/20 px-2 py-1 rounded">가장 먼저!</span>
+                <span data-i18n="step2.title">Create a Distribution certificate</span>
+                <span class="text-xs font-normal text-purple-400 bg-purple-500/20 px-2 py-1 rounded" data-i18n="step2.titleBadge">Do this first!</span>
             </h2>
 
             <!-- 왜 먼저인지 설명 -->
             <div class="bg-purple-900/30 border border-purple-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-purple-200">
-                    🔑 <strong>인증서가 가장 먼저인 이유:</strong> Provisioning Profile을 만들 때 인증서가 필요합니다!
+                <p class="text-sm text-purple-200" data-i18n="step2.whyFirst">
+                    🔑 <strong>Why the certificate comes first:</strong> you need it to create the Provisioning Profile!
                 </p>
             </div>
 
@@ -449,389 +462,389 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
                     </svg>
-                    Apple Developer Certificates 페이지 열기
+                    <span data-i18n="step2.openCertificatesPage">Open the Apple Developer Certificates page</span>
                 </a>
             </div>
 
             <!-- 전체 흐름 안내 -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
-                <p class="text-sm font-medium text-blue-400 mb-3">🗺️ 전체 흐름 (순서대로 진행하세요)</p>
+                <p class="text-sm font-medium text-blue-400 mb-3" data-i18n="step2.flowTitle">🗺️ Overall flow (go in order)</p>
                 <div class="flex flex-wrap items-center gap-2 text-xs">
-                    <span class="bg-slate-800 px-2 py-1 rounded text-slate-300">2-0. 이미 있는지 확인</span>
+                    <span class="bg-slate-800 px-2 py-1 rounded text-slate-300" data-i18n="step2.flowCheck">2-0. Check what you have</span>
                     <span class="text-slate-500">→</span>
-                    <span class="bg-slate-800 px-2 py-1 rounded text-slate-300">2-1. CSR 생성</span>
+                    <span class="bg-slate-800 px-2 py-1 rounded text-slate-300" data-i18n="step2.flowCsr">2-1. Create a CSR</span>
                     <span class="text-slate-500">→</span>
-                    <span class="bg-slate-800 px-2 py-1 rounded text-slate-300">2-2. 인증서 발급</span>
+                    <span class="bg-slate-800 px-2 py-1 rounded text-slate-300" data-i18n="step2.flowIssue">2-2. Issue the certificate</span>
                     <span class="text-slate-500">→</span>
-                    <span class="bg-slate-800 px-2 py-1 rounded text-slate-300">2-3. .p12 내보내기</span>
+                    <span class="bg-slate-800 px-2 py-1 rounded text-slate-300" data-i18n="step2.flowExport">2-3. Export the .p12</span>
                 </div>
-                <p class="text-[11px] text-slate-500 mt-2">이미 유효한 인증서가 있다면 2-0에서 바로 2-3으로 건너뜁니다.</p>
+                <p class="text-[11px] text-slate-500 mt-2" data-i18n="step2.flowSkip">If you already have a valid certificate, jump from 2-0 straight to 2-3.</p>
             </div>
 
             <!-- 2-0. 이미 있는지 확인 -->
             <div class="bg-emerald-900/30 border border-emerald-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-emerald-300 mb-2">✅ 2-0. 먼저 확인: 이미 인증서가 있나요?</p>
-                <p class="text-xs text-slate-400 mb-2">터미널에서 아래 명령을 실행하세요.</p>
+                <p class="text-sm text-emerald-300 mb-2" data-i18n="step2.checkTitle">✅ 2-0. Check first: do you already have a certificate?</p>
+                <p class="text-xs text-slate-400 mb-2" data-i18n="step2.checkRunCommand">Run this command in a terminal.</p>
                 <div class="bg-slate-900 rounded-lg p-3 font-mono text-xs mb-3">
                     <div class="text-green-400">security find-identity -v -p codesigning</div>
                 </div>
                 <div class="text-xs text-slate-300 space-y-2">
                     <div class="p-2 bg-slate-800/50 rounded border-l-4 border-green-500">
-                        <span class="text-green-400 font-bold">"Apple Distribution: ..." 이 보이면</span>
-                        <div class="text-slate-400 mt-1">이미 있습니다! <span class="text-yellow-400">2-1 · 2-2를 건너뛰고 아래 2-3(.p12 내보내기)</span>으로 바로 가세요.</div>
+                        <span class="text-green-400 font-bold" data-i18n="step2.checkFoundTitle">If you see "Apple Distribution: ..."</span>
+                        <div class="text-slate-400 mt-1" data-i18n="step2.checkFoundBody">You already have one! <span class="text-yellow-400">Skip 2-1 · 2-2 and go straight to 2-3 (.p12 export)</span> below.</div>
                     </div>
                     <div class="p-2 bg-slate-800/50 rounded border-l-4 border-orange-500">
-                        <span class="text-orange-400 font-bold">"Apple Development"만 보이거나 아무것도 없으면</span>
-                        <div class="text-slate-400 mt-1">배포용 인증서가 없습니다. <span class="text-yellow-400">2-1부터 진행</span>하세요. (Development 인증서로는 배포 불가)</div>
+                        <span class="text-orange-400 font-bold" data-i18n="step2.checkMissingTitle">If you only see "Apple Development", or nothing</span>
+                        <div class="text-slate-400 mt-1" data-i18n="step2.checkMissingBody">You have no distribution certificate. <span class="text-yellow-400">Start from 2-1</span>. (A Development certificate can't distribute.)</div>
                     </div>
                 </div>
                 <div class="mt-3 p-3 bg-red-900/30 border border-red-700 rounded">
-                    <p class="text-xs text-red-300 font-bold mb-1">⚠️ 개수 제한: Apple Distribution 인증서는 계정당 최대 3개</p>
-                    <p class="text-[11px] text-slate-400">
-                        이미 3개라면 새로 만들 수 없습니다.
-                        <a href="https://developer.apple.com/account/resources/certificates/list" target="_blank" rel="noopener" class="text-blue-400 underline">Certificates 페이지</a>에서
-                        만료됐거나 안 쓰는 인증서를 클릭 → <span class="text-yellow-400">Revoke</span> 한 뒤 다시 시도하세요.
+                    <p class="text-xs text-red-300 font-bold mb-1" data-i18n="step2.limitTitle">⚠️ Limit: at most 3 Apple Distribution certificates per account</p>
+                    <p class="text-[11px] text-slate-400" data-i18n="step2.limitBody">
+                        If you already have 3, you can't create a new one.
+                        On the <a href="https://developer.apple.com/account/resources/certificates/list" target="_blank" rel="noopener" class="text-blue-400 underline">Certificates page</a>,
+                        click an expired or unused certificate → <span class="text-yellow-400">Revoke</span> it, then try again.
                     </p>
-                    <p class="text-[11px] text-slate-500 mt-1">
-                        Revoke 전 주의: 그 인증서로 서명된 Provisioning Profile은 무효가 되어 재생성이 필요합니다.
-                        단, <span class="text-slate-400">이미 App Store에 출시된 앱은 영향받지 않습니다.</span>
+                    <p class="text-[11px] text-slate-500 mt-1" data-i18n="step2.limitRevokeNote">
+                        Before you revoke: Provisioning Profiles signed with that certificate become invalid and must be recreated.
+                        However, <span class="text-slate-400">apps already released on the App Store are not affected.</span>
                     </p>
                 </div>
             </div>
 
             <!-- 2-1. CSR 파일 만들기 -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
-                <p class="text-sm font-medium text-blue-400 mb-1">📝 2-1. CSR(인증서 서명 요청) 파일 만들기</p>
-                <p class="text-[11px] text-slate-500 mb-3">
-                    CSR을 만든 Mac에 개인키가 생성됩니다. <span class="text-yellow-400">반드시 .p12를 내보낼 Mac에서</span> 만드세요.
+                <p class="text-sm font-medium text-blue-400 mb-1" data-i18n="step2.csrTitle">📝 2-1. Create a CSR (Certificate Signing Request) file</p>
+                <p class="text-[11px] text-slate-500 mb-3" data-i18n="step2.csrKeyNote">
+                    Creating the CSR generates a private key on that Mac. <span class="text-yellow-400">Create it on the same Mac you'll export the .p12 from.</span>
                 </p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-2">
-                    <li><span class="text-yellow-400">"키체인 접근"</span> 앱 열기 (⌘+Space → "키체인")</li>
-                    <li>상단 메뉴바: <span class="text-yellow-400">키체인 접근 → 인증서 지원 → 인증 기관에서 인증서 요청...</span></li>
+                    <li data-i18n="step2.csrOpenKeychain">Open the <span class="text-yellow-400">"Keychain Access"</span> app (⌘+Space → "Keychain")</li>
+                    <li data-i18n="step2.csrMenu">Menu bar: <span class="text-yellow-400">Keychain Access → Certificate Assistant → Request a Certificate From a Certificate Authority...</span></li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-orange-500 space-y-2">
-                            <span class="text-orange-400 font-bold">다이얼로그 입력값</span>
+                            <span class="text-orange-400 font-bold" data-i18n="step2.csrDialogTitle">Dialog values</span>
                             <div class="space-y-1.5 font-mono text-[11px]">
-                                <div><span class="text-slate-400">사용자 이메일 주소:</span> <span class="text-white">Apple Developer 계정 이메일</span></div>
-                                <div><span class="text-slate-400">일반 이름:</span> <span class="text-white">[본인이름] Distribution</span> <span class="text-slate-600">(예: HONG GILDONG Distribution)</span></div>
-                                <div><span class="text-slate-400">CA 이메일 주소:</span> <span class="text-red-400 font-bold">반드시 비워둘 것</span></div>
+                                <div data-i18n="step2.csrEmail"><span class="text-slate-400">User Email Address:</span> <span class="text-white">your Apple Developer account email</span></div>
+                                <div data-i18n="step2.csrCommonName"><span class="text-slate-400">Common Name:</span> <span class="text-white">[Your Name] Distribution</span> <span class="text-slate-600">(e.g. HONG GILDONG Distribution)</span></div>
+                                <div data-i18n="step2.csrCaEmail"><span class="text-slate-400">CA Email Address:</span> <span class="text-red-400 font-bold">leave it empty</span></div>
                             </div>
                             <div class="mt-2 pt-2 border-t border-slate-700">
-                                <div class="text-red-400 font-bold text-[11px] mb-1">⚠️ 요청 항목 — 기본값이 틀립니다!</div>
+                                <div class="text-red-400 font-bold text-[11px] mb-1" data-i18n="step2.csrRequestTitle">⚠️ Request is — the default is wrong!</div>
                                 <div class="flex items-center gap-2 text-[11px] text-slate-500">
                                     <span class="text-red-400">❌</span>
-                                    <span>CA로 이메일 보냄 <span class="text-slate-600">(기본 선택 — 이거 아님!)</span></span>
+                                    <span data-i18n="step2.csrEmailedToCa">Emailed to the CA <span class="text-slate-600">(default — not this one!)</span></span>
                                 </div>
                                 <div class="flex items-center gap-2 text-[11px]">
                                     <span class="text-green-400">✅</span>
-                                    <span class="text-green-400 font-bold">디스크에 저장됨</span>
-                                    <span class="text-slate-400">← 이걸로 바꾸세요</span>
+                                    <span class="text-green-400 font-bold" data-i18n="step2.csrSavedToDisk">Saved to disk</span>
+                                    <span class="text-slate-400" data-i18n="step2.csrSwitchToThis">← switch to this</span>
                                 </div>
                                 <div class="flex items-center gap-2 text-[11px] text-slate-500 mt-1">
                                     <span class="text-slate-600">☐</span>
-                                    <span>본인이 키 페어 정보 지정 <span class="text-slate-600">(체크 안 함)</span></span>
+                                    <span data-i18n="step2.csrKeyPairInfo">Let me specify key pair information <span class="text-slate-600">(leave unchecked)</span></span>
                                 </div>
                             </div>
                         </div>
                     </li>
-                    <li><span class="text-yellow-400">계속</span> → 저장 위치는 <span class="text-yellow-400">다운로드 폴더</span> 권장 → 저장
-                        <div class="text-slate-500 text-[10px] mt-1">
-                            파일명은 기본값(<code class="text-slate-400">CertificateSigningRequest</code>) 그대로 두세요. 아래 명령들이 이 이름을 씁니다.
+                    <li><span data-i18n="step2.csrContinue"><span class="text-yellow-400">Continue</span> → save to the <span class="text-yellow-400">Downloads folder</span> (recommended) → Save</span>
+                        <div class="text-slate-500 text-[10px] mt-1" data-i18n="step2.csrKeepFileName">
+                            Keep the default file name (<code class="text-slate-400">CertificateSigningRequest</code>). The commands below use it.
                         </div>
                     </li>
                 </ol>
                 <div class="bg-slate-900 rounded-lg p-3 font-mono text-xs mt-3">
-                    <div class="text-green-400">→ ~/Downloads/CertificateSigningRequest.certSigningRequest 생성됨</div>
+                    <div class="text-green-400" data-i18n="step2.csrCreated">→ creates ~/Downloads/CertificateSigningRequest.certSigningRequest</div>
                 </div>
                 <div class="bg-slate-900 rounded-lg p-3 font-mono text-[11px] mt-2">
-                    <div class="text-slate-500 mb-1"># 제대로 만들어졌는지 검증 (선택)</div>
+                    <div class="text-slate-500 mb-1" data-i18n="step2.csrVerifyComment"># Check that it was created correctly (optional)</div>
                     <div class="text-green-400 break-all">openssl req -in ~/Downloads/CertificateSigningRequest.certSigningRequest -noout -subject -verify</div>
                 </div>
-                <p class="text-[11px] text-slate-500 mt-2">
-                    <span class="text-green-400">verify OK</span>와 함께
-                    <code class="text-slate-400">CN=..., C=KR</code> 형태의 Subject가 보이면 정상입니다.
+                <p class="text-[11px] text-slate-500 mt-2" data-i18n="step2.csrVerifyResult">
+                    It's fine if you see <span class="text-green-400">verify OK</span> and a Subject like
+                    <code class="text-slate-400">CN=..., C=KR</code>.
                 </p>
-                <div class="mt-3 p-2 bg-slate-800/50 rounded text-[11px] text-slate-400">
-                    💡 다음 단계 업로드 창에서 파일이 안 보이면 → Finder에서 <span class="text-yellow-400">⌘+Shift+G</span> 누르고
-                    <code class="text-slate-300">~/Downloads/CertificateSigningRequest.certSigningRequest</code> 붙여넣으면 바로 선택됩니다.
+                <div class="mt-3 p-2 bg-slate-800/50 rounded text-[11px] text-slate-400" data-i18n="step2.csrFinderTip">
+                    💡 If the file doesn't show up in the next step's upload dialog → in Finder, press <span class="text-yellow-400">⌘+Shift+G</span> and paste
+                    <code class="text-slate-300">~/Downloads/CertificateSigningRequest.certSigningRequest</code> to select it directly.
                 </div>
             </div>
 
             <!-- 2-2. 인증서 발급받기 -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-yellow-200 mb-3">📋 2-2. Apple에서 인증서 발급받기</p>
+                <p class="text-sm text-yellow-200 mb-3" data-i18n="step2.issueTitle">📋 2-2. Get the certificate from Apple</p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-2">
-                    <li>위의 <span class="text-blue-400">Certificates 페이지 열기</span> 버튼 클릭</li>
-                    <li><span class="text-blue-400 font-bold text-sm">+</span> 버튼 클릭</li>
+                    <li data-i18n="step2.issueOpenPage">Click the <span class="text-blue-400">Open the Certificates page</span> button above</li>
+                    <li data-i18n="step2.issuePlus">Click the <span class="text-blue-400 font-bold text-sm">+</span> button</li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-red-500">
-                            <span class="text-red-400 font-bold">⚠️ 중요! 올바른 타입 선택:</span>
+                            <span class="text-red-400 font-bold" data-i18n="step2.issueTypeTitle">⚠️ Important! Pick the right type:</span>
                             <div class="mt-2 space-y-2">
                                 <div class="flex items-center gap-2">
                                     <span class="text-green-400 text-lg">✅</span>
                                     <span class="text-green-400 font-bold">Apple Distribution</span>
-                                    <span class="text-slate-400">- App Store 배포용 (이것 선택!)</span>
+                                    <span class="text-slate-400" data-i18n="step2.issueTypeDistribution">- for App Store distribution (pick this!)</span>
                                 </div>
                                 <div class="flex items-center gap-2 text-slate-500">
                                     <span class="text-red-400">❌</span>
-                                    <span>iOS Distribution - 구버전 (선택 금지)</span>
+                                    <span data-i18n="step2.issueTypeIosDistribution">iOS Distribution - legacy (don't pick)</span>
                                 </div>
                                 <div class="flex items-center gap-2 text-slate-500">
                                     <span class="text-red-400">❌</span>
-                                    <span>Apple Development - 개발용 (배포 불가)</span>
+                                    <span data-i18n="step2.issueTypeDevelopment">Apple Development - for development (can't distribute)</span>
                                 </div>
                             </div>
                         </div>
                     </li>
-                    <li><span class="text-yellow-400">Choose File</span> → 2-1에서 만든 <span class="text-orange-400">.certSigningRequest</span> 업로드 → Continue</li>
-                    <li><span class="text-yellow-400">Download</span> 클릭 → <code class="text-orange-400">apple_distribution.cer</code> 저장 (기본 파일명 그대로)</li>
+                    <li data-i18n="step2.issueUploadCsr"><span class="text-yellow-400">Choose File</span> → upload the <span class="text-orange-400">.certSigningRequest</span> from 2-1 → Continue</li>
+                    <li data-i18n="step2.issueDownload">Click <span class="text-yellow-400">Download</span> → save <code class="text-orange-400">apple_distribution.cer</code> (keep the default file name)</li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-red-500">
-                            <span class="text-red-400 font-bold">⚠️ 다운로드만으로는 끝이 아닙니다 — 반드시 설치하세요!</span>
-                            <div class="text-slate-400 mt-2 text-[11px]">
-                                다운로드한 .cer 파일을 <span class="text-yellow-400 font-bold">더블클릭</span>하세요.
-                                (또는 터미널에서 <code class="text-slate-300">open ~/Downloads/apple_distribution.cer</code>)
+                            <span class="text-red-400 font-bold" data-i18n="step2.installTitle">⚠️ Downloading isn't enough — you must install it!</span>
+                            <div class="text-slate-400 mt-2 text-[11px]" data-i18n="step2.installDoubleClick">
+                                <span class="text-yellow-400 font-bold">Double-click</span> the downloaded .cer file.
+                                (Or run <code class="text-slate-300">open ~/Downloads/apple_distribution.cer</code> in a terminal.)
                             </div>
                             <div class="mt-2 pt-2 border-t border-slate-700">
-                                <div class="text-orange-400 font-bold text-[11px] mb-1">"인증서 추가" 창이 뜨면 — 키체인 선택</div>
+                                <div class="text-orange-400 font-bold text-[11px] mb-1" data-i18n="step2.installKeychainTitle">When the "Add Certificates" window opens — choose the keychain</div>
                                 <div class="flex items-center gap-2 text-[11px]">
                                     <span class="text-green-400">✅</span>
-                                    <span class="text-green-400 font-bold">로그인</span>
-                                    <span class="text-slate-400">← 기본값 그대로 두고 "추가" 클릭</span>
+                                    <span class="text-green-400 font-bold" data-i18n="step2.installLogin">login</span>
+                                    <span class="text-slate-400" data-i18n="step2.installKeepDefault">← keep the default and click "Add"</span>
                                 </div>
                                 <div class="flex items-center gap-2 text-[11px] text-slate-500 mt-1">
                                     <span class="text-red-400">❌</span>
-                                    <span>iCloud / 시스템 / 시스템 루트 <span class="text-slate-600">(선택 금지)</span></span>
+                                    <span data-i18n="step2.installOtherKeychains">iCloud / System / System Roots <span class="text-slate-600">(don't pick)</span></span>
                                 </div>
-                                <div class="text-slate-500 text-[10px] mt-2">
-                                    개인키가 <span class="text-slate-400">로그인 키체인</span>에 저장돼 있어서, 인증서도 같은 키체인에 넣어야
-                                    짝이 맞아 .p12로 내보낼 수 있습니다.
+                                <div class="text-slate-500 text-[10px] mt-2" data-i18n="step2.installWhyLogin">
+                                    The private key lives in the <span class="text-slate-400">login keychain</span>, so the certificate has to go into the same keychain
+                                    to pair up and export as a .p12.
                                 </div>
                             </div>
                         </div>
                     </li>
-                    <li>설치 확인: 터미널에서 <code class="text-slate-300">security find-identity -v -p codesigning</code> → <span class="text-green-400">Apple Distribution</span>이 보이면 성공</li>
+                    <li data-i18n="step2.installVerify">Check the install: run <code class="text-slate-300">security find-identity -v -p codesigning</code> in a terminal → success if you see <span class="text-green-400">Apple Distribution</span></li>
                 </ol>
-                <div class="mt-3 p-2 bg-slate-800/50 rounded text-[11px] text-slate-400">
-                    "maximum number of certificates" 에러가 뜨면 → 2-0의 개수 제한 안내대로 기존 인증서를 Revoke하세요.
+                <div class="mt-3 p-2 bg-slate-800/50 rounded text-[11px] text-slate-400" data-i18n="step2.maxCertificatesError">
+                    If you get a "maximum number of certificates" error → revoke an existing certificate as described in the 2-0 limit note.
                 </div>
             </div>
 
             <!-- 2-3. 키체인에서 .p12 내보내기 -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-yellow-200 mb-2">📤 2-3. 키체인에서 .p12 파일 내보내기</p>
+                <p class="text-sm text-yellow-200 mb-2" data-i18n="step2.exportTitle">📤 2-3. Export the .p12 file from the keychain</p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
-                    <li>Mac에서 <span class="text-yellow-400">"키체인 접근"</span> 앱 열기 (⌘+Space → "키체인")</li>
-                    <li>왼쪽: <span class="text-yellow-400">"로그인"</span> 키체인 → 상단: <span class="text-yellow-400">"내 인증서"</span> 카테고리
-                        <span class="text-slate-500 text-[10px]">("인증서" 탭은 Apple CA까지 섞여 나와 헷갈립니다)</span>
+                    <li data-i18n="step2.exportOpenKeychain">Open the <span class="text-yellow-400">"Keychain Access"</span> app on your Mac (⌘+Space → "Keychain")</li>
+                    <li><span data-i18n="step2.exportMyCertificates">Left: the <span class="text-yellow-400">"login"</span> keychain → top: the <span class="text-yellow-400">"My Certificates"</span> category</span>
+                        <span class="text-slate-500 text-[10px]" data-i18n="step2.exportCertificatesTabNote">(the "Certificates" tab mixes in Apple CAs and gets confusing)</span>
                     </li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-red-500">
-                            <span class="text-red-400 font-bold">⚠️ 목록에 인증서가 10개쯤 보여도 당황하지 마세요</span>
-                            <div class="text-slate-400 mt-2 text-[11px]">
-                                대부분은 Apple이 자동 설치한 <span class="text-slate-300">중간 CA 인증서</span>입니다.
-                                <span class="text-red-400">건드리지 마세요.</span>
+                            <span class="text-red-400 font-bold" data-i18n="step2.exportManyCertificates">⚠️ Don't panic if the list shows about 10 certificates</span>
+                            <div class="text-slate-400 mt-2 text-[11px]" data-i18n="step2.exportIntermediateCa">
+                                Most are <span class="text-slate-300">intermediate CA certificates</span> Apple installed automatically.
+                                <span class="text-red-400">Leave them alone.</span>
                             </div>
                             <div class="bg-slate-900 rounded p-2 mt-2 font-mono text-[10px] space-y-0.5">
                                 <div class="text-slate-600">Developer ID Certification Authority</div>
                                 <div class="text-slate-600">Apple Worldwide Developer Relations CA</div>
-                                <div class="text-slate-600">Apple Root CA <span class="text-slate-700">… ❌ 전부 무시</span></div>
-                                <div class="text-green-400 mt-1">▶ Apple Distribution: 이름 (TEAMID) <span class="text-yellow-400">← ✅ 이것!</span></div>
-                                <div class="text-slate-500">▶ Apple Development: 이름 (TEAMID) <span class="text-slate-600">← ❌ 개발용, 배포 불가</span></div>
+                                <div class="text-slate-600" data-i18n="step2.exportIgnoreAll">Apple Root CA <span class="text-slate-700">… ❌ ignore all of these</span></div>
+                                <div class="text-green-400 mt-1" data-i18n="step2.exportDistributionRow">▶ Apple Distribution: Name (TEAMID) <span class="text-yellow-400">← ✅ this one!</span></div>
+                                <div class="text-slate-500" data-i18n="step2.exportDevelopmentRow">▶ Apple Development: Name (TEAMID) <span class="text-slate-600">← ❌ for development, can't distribute</span></div>
                             </div>
-                            <div class="text-slate-500 text-[10px] mt-2">
-                                구분법: 이름이 <span class="text-slate-400">"Apple Distribution:"</span>으로 시작하고,
-                                왼쪽에 <span class="text-yellow-400">▶ 삼각형</span>이 붙어 있습니다(= 개인키 보유).
-                                CA 인증서에는 삼각형이 없습니다.
+                            <div class="text-slate-500 text-[10px] mt-2" data-i18n="step2.exportHowToTell">
+                                How to tell: the name starts with <span class="text-slate-400">"Apple Distribution:"</span>,
+                                and there's a <span class="text-yellow-400">▶ triangle</span> on the left (= it has a private key).
+                                CA certificates have no triangle.
                             </div>
                         </div>
                     </li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-orange-500">
-                            <span class="text-orange-400 font-bold">⚠️ 개인키가 있는지 먼저 확인!</span>
-                            <div class="text-slate-400 mt-1 text-[11px]">
-                                인증서 왼쪽 <span class="text-yellow-400">▶ 삼각형</span>을 펼쳐서 그 아래 <span class="text-yellow-400">🔑 개인키</span>가 보여야 합니다.
+                            <span class="text-orange-400 font-bold" data-i18n="step2.exportPrivateKeyTitle">⚠️ First check that the private key is there!</span>
+                            <div class="text-slate-400 mt-1 text-[11px]" data-i18n="step2.exportPrivateKeyExpand">
+                                Expand the <span class="text-yellow-400">▶ triangle</span> left of the certificate; you should see a <span class="text-yellow-400">🔑 private key</span> under it.
                             </div>
-                            <div class="text-slate-500 mt-1 text-[11px]">
-                                개인키가 없으면 .p12 포맷 자체가 안 뜹니다 → 다른 Mac에서 만든 인증서입니다.
-                                해당 Mac에서 .p12를 받아오거나, 2-1부터 새로 진행하세요.
+                            <div class="text-slate-500 mt-1 text-[11px]" data-i18n="step2.exportNoPrivateKey">
+                                Without a private key the .p12 format won't even appear → the certificate was created on another Mac.
+                                Get the .p12 from that Mac, or start over from 2-1.
                             </div>
                         </div>
                     </li>
-                    <li>인증서 우클릭 → <span class="text-yellow-400">"Apple Distribution: ... 내보내기..."</span></li>
+                    <li data-i18n="step2.exportRightClick">Right-click the certificate → <span class="text-yellow-400">"Export "Apple Distribution: ..."..."</span></li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-orange-500 space-y-2">
-                            <span class="text-orange-400 font-bold">저장 다이얼로그</span>
+                            <span class="text-orange-400 font-bold" data-i18n="step2.exportSaveDialog">Save dialog</span>
                             <div class="space-y-1.5 font-mono text-[11px]">
-                                <div><span class="text-slate-400">이름:</span> <code class="text-orange-400">apple_distribution.p12</code></div>
-                                <div><span class="text-slate-400">위치:</span> <span class="text-white">다운로드</span></div>
-                                <div><span class="text-slate-400">파일 포맷:</span> <span class="text-green-400 font-bold">개인 정보 교환 (.p12)</span></div>
+                                <div data-i18n="step2.exportSaveName"><span class="text-slate-400">Save As:</span> <code class="text-orange-400">apple_distribution.p12</code></div>
+                                <div data-i18n="step2.exportSaveWhere"><span class="text-slate-400">Where:</span> <span class="text-white">Downloads</span></div>
+                                <div data-i18n="step2.exportSaveFormat"><span class="text-slate-400">File Format:</span> <span class="text-green-400 font-bold">Personal Information Exchange (.p12)</span></div>
                             </div>
-                            <div class="text-slate-500 text-[10px]">
-                                포맷 드롭다운에 <span class="text-slate-400">.p12</span>가 없으면 개인키가 없는 인증서를 고른 것입니다 → 위 단계로 돌아가세요.
+                            <div class="text-slate-500 text-[10px]" data-i18n="step2.exportNoP12Format">
+                                If the format dropdown has no <span class="text-slate-400">.p12</span>, you picked a certificate without a private key → go back to the step above.
                             </div>
                         </div>
                     </li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-red-500">
-                            <span class="text-red-400 font-bold">🔑 비밀번호 2번 입력 (암호 · 확인)</span>
-                            <div class="text-slate-400 mt-1 text-[11px]">
-                                여기서 정한 비밀번호가 곧 GitHub Secret
-                                <code class="text-yellow-400">APPLE_CERTIFICATE_PASSWORD</code> 값이 됩니다.
-                                <span class="text-red-400">반드시 기록해두세요.</span>
+                            <span class="text-red-400 font-bold" data-i18n="step2.exportPasswordTitle">🔑 Enter the password twice (Password · Verify)</span>
+                            <div class="text-slate-400 mt-1 text-[11px]" data-i18n="step2.exportPasswordIsSecret">
+                                The password you set here becomes the GitHub Secret
+                                <code class="text-yellow-400">APPLE_CERTIFICATE_PASSWORD</code>.
+                                <span class="text-red-400">Write it down.</span>
                             </div>
-                            <div class="text-slate-500 text-[10px] mt-1">
-                                잊으면 .p12를 다시 내보내야 합니다(인증서 재발급은 불필요).
+                            <div class="text-slate-500 text-[10px] mt-1" data-i18n="step2.exportPasswordForgot">
+                                If you forget it, export the .p12 again (no need to reissue the certificate).
                             </div>
                         </div>
                     </li>
-                    <li><span class="text-yellow-400">macOS 로그인 암호</span> 입력 → 허용
-                        <span class="text-slate-500 text-[10px]">(키체인이 개인키 반출을 확인하는 절차)</span>
+                    <li><span data-i18n="step2.exportMacPassword">Enter your <span class="text-yellow-400">macOS login password</span> → Allow
+                        <span class="text-slate-500 text-[10px]">(Keychain confirming the private key export)</span></span>
                     </li>
                 </ol>
 
                 <!-- 검증 -->
                 <div class="bg-slate-900 rounded-lg p-3 font-mono text-[11px] mt-3">
-                    <div class="text-slate-500 mb-1"># 개인키가 실제로 담겼는지 검증 (권장)</div>
-                    <div class="text-green-400 break-all">openssl pkcs12 -in ~/Downloads/apple_distribution.p12 -nodes -passin pass:설정한비밀번호 | grep -c "PRIVATE KEY"</div>
+                    <div class="text-slate-500 mb-1" data-i18n="step2.exportVerifyComment"># Check that the private key is really inside (recommended)</div>
+                    <div class="text-green-400 break-all" data-i18n="step2.exportVerifyCommand">openssl pkcs12 -in ~/Downloads/apple_distribution.p12 -nodes -passin pass:YOUR_PASSWORD | grep -c "PRIVATE KEY"</div>
                 </div>
-                <p class="text-[11px] text-slate-500 mt-1">
-                    결과가 <span class="text-green-400">1</span>이면 정상입니다.
-                    <span class="text-slate-400">0</span>이거나 <span class="text-slate-400">Mac verify error</span>가 나오면 비밀번호가 틀렸거나 개인키가 없는 것입니다.
+                <p class="text-[11px] text-slate-500 mt-1" data-i18n="step2.exportVerifyResult">
+                    A result of <span class="text-green-400">1</span> means it's fine.
+                    <span class="text-slate-400">0</span> or <span class="text-slate-400">Mac verify error</span> means the password is wrong or there's no private key.
                 </p>
 
                 <!-- 백업 경고 -->
                 <div class="mt-3 p-3 bg-red-900/30 border border-red-700 rounded">
-                    <p class="text-xs text-red-300 font-bold mb-1">🔒 .p12는 개인키를 담고 있습니다 — 취급 주의</p>
+                    <p class="text-xs text-red-300 font-bold mb-1" data-i18n="step2.p12CautionTitle">🔒 The .p12 holds your private key — handle with care</p>
                     <ul class="text-[11px] text-slate-400 list-disc list-inside space-y-0.5">
-                        <li><span class="text-red-400">Git에 절대 커밋하지 마세요.</span> 유출되면 누구나 본인 이름으로 앱에 서명할 수 있습니다</li>
-                        <li>비밀번호와 함께 안전한 곳(비밀번호 관리자 등)에 <span class="text-slate-300">백업</span>하세요</li>
-                        <li>이 파일만 있으면 Mac이 바뀌어도 복구됩니다 — 잃으면 인증서를 재발급해야 하고 3개 한도를 또 씁니다</li>
+                        <li data-i18n="step2.p12CautionNoGit"><span class="text-red-400">Never commit it to Git.</span> If it leaks, anyone can sign apps in your name</li>
+                        <li data-i18n="step2.p12CautionBackup"><span class="text-slate-300">Back it up</span> with its password somewhere safe (e.g. a password manager)</li>
+                        <li data-i18n="step2.p12CautionRecover">This file alone recovers you on a new Mac — lose it and you must reissue the certificate, using up another of the 3 slots</li>
                     </ul>
                 </div>
             </div>
 
             <!-- 키체인 시각화 -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
-                <p class="text-sm font-medium text-blue-400 mb-3">📍 키체인 접근 앱에서 찾는 위치</p>
+                <p class="text-sm font-medium text-blue-400 mb-3" data-i18n="step2.keychainWhereTitle">📍 Where to look in Keychain Access</p>
 
                 <!-- 공통: 사이드바 + 카테고리 위치 -->
                 <div class="bg-slate-900 rounded-lg p-3 font-mono text-xs overflow-x-auto mb-3">
                     <div class="flex gap-4">
                         <div class="border-r border-slate-700 pr-4">
-                            <div class="text-slate-500 text-[10px] mb-1">기본 키체인</div>
-                            <div class="text-yellow-400 bg-yellow-900/30 px-2 py-0.5 rounded">로그인</div>
+                            <div class="text-slate-500 text-[10px] mb-1" data-i18n="step2.keychainDefault">Default Keychains</div>
+                            <div class="text-yellow-400 bg-yellow-900/30 px-2 py-0.5 rounded" data-i18n="step2.keychainLogin">login</div>
                             <div class="text-slate-500 px-2 py-0.5">iCloud</div>
-                            <div class="text-slate-500 text-[10px] mt-2 mb-1">시스템 키체인</div>
-                            <div class="text-slate-500 px-2 py-0.5">시스템</div>
-                            <div class="text-slate-500 px-2 py-0.5">시스템 루트</div>
+                            <div class="text-slate-500 text-[10px] mt-2 mb-1" data-i18n="step2.keychainSystemKeychains">System Keychains</div>
+                            <div class="text-slate-500 px-2 py-0.5" data-i18n="step2.keychainSystem">System</div>
+                            <div class="text-slate-500 px-2 py-0.5" data-i18n="step2.keychainSystemRoots">System Roots</div>
                         </div>
                         <div class="flex-1">
-                            <div class="text-slate-500 text-[10px] mb-1">상단 카테고리 탭</div>
+                            <div class="text-slate-500 text-[10px] mb-1" data-i18n="step2.keychainCategoryTabs">Category tabs at the top</div>
                             <div class="flex gap-2 flex-wrap">
-                                <span class="text-slate-500 px-2 py-0.5">모든 항목</span>
-                                <span class="text-slate-500 px-2 py-0.5">암호</span>
-                                <span class="text-slate-500 px-2 py-0.5">보안 메모</span>
-                                <span class="text-slate-500 px-2 py-0.5">내 인증서</span>
-                                <span class="text-slate-500 px-2 py-0.5">키</span>
-                                <span class="text-yellow-400 bg-yellow-900/30 px-2 py-0.5 rounded">인증서</span>
+                                <span class="text-slate-500 px-2 py-0.5" data-i18n="step2.keychainAllItems">All Items</span>
+                                <span class="text-slate-500 px-2 py-0.5" data-i18n="step2.keychainPasswords">Passwords</span>
+                                <span class="text-slate-500 px-2 py-0.5" data-i18n="step2.keychainSecureNotes">Secure Notes</span>
+                                <span class="text-slate-500 px-2 py-0.5" data-i18n="step2.keychainMyCertificates">My Certificates</span>
+                                <span class="text-slate-500 px-2 py-0.5" data-i18n="step2.keychainKeys">Keys</span>
+                                <span class="text-yellow-400 bg-yellow-900/30 px-2 py-0.5 rounded" data-i18n="step2.keychainCertificates">Certificates</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- 두 가지 상태 비교 -->
-                <p class="text-xs text-slate-400 mb-2">여기서 화면이 둘 중 하나로 보입니다:</p>
+                <p class="text-xs text-slate-400 mb-2" data-i18n="step2.keychainTwoStates">At this point you'll see one of two screens:</p>
                 <div class="grid md:grid-cols-2 gap-3">
                     <!-- 비어있는 경우 -->
                     <div class="bg-slate-900 rounded-lg p-3 font-mono text-xs border-l-4 border-orange-500">
-                        <div class="text-orange-400 font-bold mb-2 text-[11px]">A. 목록이 비어있음 😰</div>
+                        <div class="text-orange-400 font-bold mb-2 text-[11px]" data-i18n="step2.keychainEmptyTitle">A. The list is empty 😰</div>
                         <div class="border border-slate-700 rounded p-3 text-center text-slate-600 mb-2">
-                            <div class="text-[10px]">(항목 없음)</div>
+                            <div class="text-[10px]" data-i18n="step2.keychainNoItems">(no items)</div>
                         </div>
                         <div class="text-slate-300 text-[11px] leading-relaxed">
-                            <span class="text-green-400 font-bold">정상입니다!</span> 고장난 게 아닙니다.
-                            아직 인증서를 발급받은 적이 없다는 뜻이에요.
-                            <div class="mt-2 text-yellow-400">→ 위의 2-1(CSR 생성)부터 진행하세요.</div>
-                            <div class="mt-1 text-slate-500 text-[10px]">
-                                CSR을 만들어도 이 목록은 그대로입니다.
-                                <span class="text-slate-400">2-2에서 .cer을 더블클릭한 뒤에야</span> 항목이 생깁니다.
+                            <span data-i18n="step2.keychainEmptyNormal"><span class="text-green-400 font-bold">That's normal!</span> Nothing is broken.
+                            It just means you haven't been issued a certificate yet.</span>
+                            <div class="mt-2 text-yellow-400" data-i18n="step2.keychainEmptyNext">→ Start from 2-1 (create a CSR) above.</div>
+                            <div class="mt-1 text-slate-500 text-[10px]" data-i18n="step2.keychainEmptyAfterCer">
+                                Creating a CSR doesn't change this list.
+                                Items appear only <span class="text-slate-400">after you double-click the .cer in 2-2</span>.
                             </div>
                         </div>
                     </div>
 
                     <!-- 있는 경우 -->
                     <div class="bg-slate-900 rounded-lg p-3 font-mono text-xs border-l-4 border-green-500">
-                        <div class="text-green-400 font-bold mb-2 text-[11px]">B. 인증서가 보임 🎉</div>
+                        <div class="text-green-400 font-bold mb-2 text-[11px]" data-i18n="step2.keychainFoundTitle">B. A certificate shows up 🎉</div>
                         <div class="border border-slate-700 rounded mb-2">
                             <div class="p-2 bg-green-900/20 flex items-start gap-1">
                                 <span class="text-slate-500">▼</span>
                                 <span>📜</span>
                                 <div class="min-w-0">
                                     <div class="text-green-400 font-bold text-[11px] truncate">Apple Distribution: Team</div>
-                                    <div class="text-slate-500 text-[10px]">만료: 2027년 6월 8일</div>
+                                    <div class="text-slate-500 text-[10px]" data-i18n="step2.keychainExpires">Expires: June 8, 2027</div>
                                 </div>
                             </div>
                             <div class="pl-7 py-1 flex items-center gap-1 border-t border-slate-800">
                                 <span>🔑</span>
-                                <span class="text-slate-400 text-[10px]">개인키</span>
-                                <span class="text-green-400 text-[10px]">← 필수!</span>
+                                <span class="text-slate-400 text-[10px]" data-i18n="step2.keychainPrivateKey">private key</span>
+                                <span class="text-green-400 text-[10px]" data-i18n="step2.keychainRequired">← required!</span>
                             </div>
                         </div>
                         <div class="text-slate-300 text-[11px] leading-relaxed">
-                            <span class="text-yellow-400">▼ 삼각형을 펼쳐</span> 개인키가 있는지 확인하세요.
-                            <div class="mt-2 text-yellow-400">→ 2-3(.p12 내보내기)으로 가세요.</div>
+                            <span data-i18n="step2.keychainFoundExpand"><span class="text-yellow-400">Expand the ▼ triangle</span> and check that the private key is there.</span>
+                            <div class="mt-2 text-yellow-400" data-i18n="step2.keychainFoundNext">→ Go to 2-3 (.p12 export).</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="mt-3 p-2 bg-slate-800/50 rounded text-[11px] text-slate-400">
-                    💡 <span class="text-slate-300">"내 인증서" 탭</span>은 개인키가 있는 인증서만 보여줍니다.
-                    <span class="text-slate-300">"인증서" 탭</span>에는 보이는데 <span class="text-slate-300">"내 인증서"</span>에 없다면 개인키가 없는 것 → .p12로 내보낼 수 없습니다.
+                <div class="mt-3 p-2 bg-slate-800/50 rounded text-[11px] text-slate-400" data-i18n="step2.keychainTabTip">
+                    💡 The <span class="text-slate-300">"My Certificates" tab</span> shows only certificates that have a private key.
+                    If it shows under <span class="text-slate-300">"Certificates"</span> but not under <span class="text-slate-300">"My Certificates"</span>, there's no private key → you can't export it as a .p12.
                 </div>
             </div>
 
             <!-- 완료 체크리스트 -->
             <div class="bg-emerald-900/30 border border-emerald-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-emerald-300 mb-3">🎯 여기까지 왔다면 — 최종 확인</p>
+                <p class="text-sm text-emerald-300 mb-3" data-i18n="step2.finalCheckTitle">🎯 Made it this far? — final check</p>
                 <div class="bg-slate-900 rounded-lg p-3 font-mono text-[11px] mb-3">
                     <div class="text-green-400">security find-identity -v -p codesigning</div>
                 </div>
-                <p class="text-[11px] text-slate-400 mb-2">아래처럼 <span class="text-green-400">Apple Distribution</span>이 보이면 Step 2 완료입니다:</p>
+                <p class="text-[11px] text-slate-400 mb-2" data-i18n="step2.finalCheckBody">Step 2 is done if you see <span class="text-green-400">Apple Distribution</span> like below:</p>
                 <div class="bg-slate-900 rounded-lg p-3 font-mono text-[10px] text-slate-400 mb-3 overflow-x-auto">
-                    <div>1) 88BE0B2E... "Apple Development: 이름 (TEAMID)"</div>
-                    <div class="text-green-400">2) A278F54B... "Apple Distribution: 이름 (TEAMID)"</div>
+                    <div data-i18n="step2.finalCheckDevelopment">1) 88BE0B2E... "Apple Development: Name (TEAMID)"</div>
+                    <div class="text-green-400" data-i18n="step2.finalCheckDistribution">2) A278F54B... "Apple Distribution: Name (TEAMID)"</div>
                     <div class="text-slate-500">&nbsp;&nbsp;&nbsp;2 valid identities found</div>
                 </div>
                 <div class="text-[11px] text-slate-300 space-y-1">
-                    <div>✅ <span class="text-slate-400">키체인에 Apple Distribution 인증서 설치됨</span></div>
-                    <div>✅ <span class="text-slate-400">~/Downloads/apple_distribution.p12 생성됨</span></div>
-                    <div>✅ <span class="text-slate-400">.p12 비밀번호 기록해둠</span></div>
+                    <div data-i18n="step2.finalCheckInstalled">✅ <span class="text-slate-400">Apple Distribution certificate installed in the keychain</span></div>
+                    <div data-i18n="step2.finalCheckP12Created">✅ <span class="text-slate-400">~/Downloads/apple_distribution.p12 created</span></div>
+                    <div data-i18n="step2.finalCheckPasswordNoted">✅ <span class="text-slate-400">.p12 password written down</span></div>
                 </div>
             </div>
 
             <!-- 파일 업로드 -->
             <div class="file-upload" id="p12-upload" onclick="document.getElementById('p12-input').click()">
                 <div class="icon">📄</div>
-                <div class="text-slate-300">.p12 파일을 드래그하거나 클릭하세요</div>
+                <div class="text-slate-300" data-i18n="step2.p12Drop">Drag a .p12 file here or click</div>
                 <input type="file" id="p12-input" accept=".p12" onchange="handleP12Upload(event)">
                 <div class="file-info" id="p12-info" style="display:none"></div>
             </div>
 
             <div class="mb-6">
-                <label class="block text-sm font-medium mb-2 text-slate-300">.p12 비밀번호</label>
-                <input type="password" id="p12-password" placeholder="2-3에서 내보낼 때 설정한 비밀번호"
+                <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="step2.p12PasswordLabel">.p12 password</label>
+                <input type="password" id="p12-password" data-i18n-placeholder="step2.p12PasswordPlaceholder" placeholder="the password you set when exporting in 2-3"
                     class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 outline-none">
-                <p class="text-xs text-slate-500 mt-1">
-                    GitHub Secret <code class="text-yellow-400">APPLE_CERTIFICATE_PASSWORD</code>로 등록됩니다
+                <p class="text-xs text-slate-500 mt-1" data-i18n="step2.p12PasswordSecret">
+                    Registered as the GitHub Secret <code class="text-yellow-400">APPLE_CERTIFICATE_PASSWORD</code>
                 </p>
             </div>
 
             <div class="flex justify-between items-center mt-8">
-                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()">← 이전</button>
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="nav.prev">← Back</button>
                 <div class="flex gap-2 items-center">
-                    <span class="skip-btn" onclick="skipStep(2)">이미 있어요 →</span>
-                    <button class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition" onclick="nextStep()">다음: App ID →</button>
+                    <span class="skip-btn" onclick="skipStep(2)" data-i18n="nav.alreadyHave">Already have it →</span>
+                    <button class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition" onclick="nextStep()" data-i18n="step2.next">Next: App ID →</button>
                 </div>
             </div>
         </div>
@@ -842,13 +855,13 @@
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="3">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
                 <span class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-sm">3</span>
-                App ID (Bundle ID) 등록
+                <span data-i18n="step3.title">Register the App ID (Bundle ID)</span>
             </h2>
 
             <!-- 설명 -->
             <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-blue-200">
-                    📱 <strong>App ID란?</strong> 앱의 고유 식별자입니다. Flutter의 Bundle ID와 동일하게 설정해야 합니다!
+                <p class="text-sm text-blue-200" data-i18n="step3.whatIsAppId">
+                    📱 <strong>What's an App ID?</strong> It's your app's unique identifier. It must match your Flutter Bundle ID!
                 </p>
             </div>
 
@@ -861,48 +874,48 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
                     </svg>
-                    Apple Developer Identifiers 페이지 열기
+                    <span data-i18n="step3.openIdentifiersPage">Open the Apple Developer Identifiers page</span>
                 </a>
             </div>
 
             <!-- 생성 가이드 -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-yellow-200 mb-3">📋 App ID 등록 방법</p>
+                <p class="text-sm text-yellow-200 mb-3" data-i18n="step3.howToTitle">📋 How to register the App ID</p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-2">
-                    <li>위 버튼 클릭 → Identifiers 페이지 열기</li>
-                    <li><span class="text-blue-400 font-bold text-sm">+</span> 버튼 클릭</li>
+                    <li data-i18n="step3.openPage">Click the button above → open the Identifiers page</li>
+                    <li data-i18n="step3.clickPlus">Click the <span class="text-blue-400 font-bold text-sm">+</span> button</li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-green-500">
-                            <span class="text-green-400 font-bold">1단계: Register a new identifier</span>
+                            <span class="text-green-400 font-bold" data-i18n="step3.phase1">Step 1: Register a new identifier</span>
                             <div class="mt-2 flex items-center gap-2">
                                 <span class="text-green-400">◉</span>
                                 <span class="text-green-400 font-bold">App IDs</span>
-                                <span class="text-slate-400">← 이것 선택!</span>
+                                <span class="text-slate-400" data-i18n="step3.pickThis">← pick this!</span>
                             </div>
                         </div>
                     </li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-green-500">
-                            <span class="text-green-400 font-bold">2단계: Select a type</span>
+                            <span class="text-green-400 font-bold" data-i18n="step3.phase2">Step 2: Select a type</span>
                             <div class="mt-2 flex items-center gap-2">
                                 <span class="text-green-400">◉</span>
                                 <span class="text-green-400 font-bold">App</span>
-                                <span class="text-slate-400">← 이것 선택! (App Clip 아님)</span>
+                                <span class="text-slate-400" data-i18n="step3.pickThisNotAppClip">← pick this! (not App Clip)</span>
                             </div>
                         </div>
                     </li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-orange-500">
-                            <span class="text-orange-400 font-bold">3단계: Bundle ID 설정</span>
+                            <span class="text-orange-400 font-bold" data-i18n="step3.phase3">Step 3: Set the Bundle ID</span>
                             <div class="mt-2 space-y-2">
                                 <div>
                                     <span class="text-slate-400">Description:</span>
-                                    <span class="text-white">앱 이름 (예: My Flutter App)</span>
+                                    <span class="text-white" data-i18n="step3.descriptionExample">app name (e.g. My Flutter App)</span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <span class="text-green-400">◉</span>
                                     <span class="text-green-400 font-bold">Explicit</span>
-                                    <span class="text-slate-400">← 이것 선택!</span>
+                                    <span class="text-slate-400" data-i18n="step3.pickThis">← pick this!</span>
                                 </div>
                                 <div class="text-slate-400">Bundle ID: <span class="text-orange-400 font-bold">kr.mycompany.myapp</span></div>
                             </div>
@@ -910,48 +923,48 @@
                     </li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-orange-500">
-                            <span class="text-orange-400 font-bold">4단계: Capabilities — 목록이 150개쯤 나옵니다</span>
-                            <div class="text-slate-400 mt-2 text-[11px]">
-                                <span class="text-green-400 font-bold">대부분 체크할 필요 없습니다.</span>
-                                Capabilities는 <span class="text-slate-300">Apple 서버 인프라를 쓰거나 샌드박스를 넘는 기능</span>만 해당됩니다.
+                            <span class="text-orange-400 font-bold" data-i18n="step3.phase4">Step 4: Capabilities — the list has about 150 entries</span>
+                            <div class="text-slate-400 mt-2 text-[11px]" data-i18n="step3.capabilitiesMostlyNone">
+                                <span class="text-green-400 font-bold">You don't need to check most of them.</span>
+                                Capabilities only cover <span class="text-slate-300">features that use Apple server infrastructure or go beyond the sandbox</span>.
                             </div>
                             <div class="mt-2 pt-2 border-t border-slate-700">
-                                <div class="text-[11px] text-slate-300 mb-1">✅ 해당되면 체크:</div>
+                                <div class="text-[11px] text-slate-300 mb-1" data-i18n="step3.capabilitiesCheckIf">✅ Check if it applies:</div>
                                 <ul class="text-[10px] text-slate-400 list-disc list-inside space-y-0.5">
-                                    <li><span class="text-slate-300">Push Notifications</span> — 푸시 알림 (별도 .p8 키 필요)</li>
-                                    <li><span class="text-slate-300">Sign In with Apple</span> — 애플 로그인</li>
-                                    <li><span class="text-slate-300">In-App Purchase</span> — 인앱 결제</li>
-                                    <li><span class="text-slate-300">Associated Domains</span> — 딥링크/유니버설 링크</li>
-                                    <li><span class="text-slate-300">HealthKit · iCloud · Maps</span> — 해당 프레임워크 사용 시</li>
+                                    <li data-i18n="step3.capabilityPush"><span class="text-slate-300">Push Notifications</span> — push notifications (needs a separate .p8 key)</li>
+                                    <li data-i18n="step3.capabilitySignInWithApple"><span class="text-slate-300">Sign In with Apple</span> — Apple login</li>
+                                    <li data-i18n="step3.capabilityInAppPurchase"><span class="text-slate-300">In-App Purchase</span> — in-app payments</li>
+                                    <li data-i18n="step3.capabilityAssociatedDomains"><span class="text-slate-300">Associated Domains</span> — deep links / universal links</li>
+                                    <li data-i18n="step3.capabilityFrameworks"><span class="text-slate-300">HealthKit · iCloud · Maps</span> — if you use those frameworks</li>
                                 </ul>
                             </div>
                             <div class="mt-2 pt-2 border-t border-slate-700">
-                                <div class="text-[11px] text-red-400 font-bold mb-1">❌ 체크하지 마세요 — Info.plist로 처리되는 것들</div>
-                                <div class="text-[10px] text-slate-400">
-                                    카메라 · 마이크 녹음 · 음성인식(STT) · TTS · 위치 · 사진앨범 · 블루투스
+                                <div class="text-[11px] text-red-400 font-bold mb-1" data-i18n="step3.capabilitiesDontCheck">❌ Don't check these — Info.plist handles them</div>
+                                <div class="text-[10px] text-slate-400" data-i18n="step3.capabilitiesPermissionList">
+                                    Camera · microphone recording · speech recognition (STT) · TTS · location · photo library · Bluetooth
                                 </div>
-                                <div class="text-[10px] text-slate-500 mt-1">
-                                    이들은 런타임에 사용자 허락을 받는 방식이라 프로비저닝과 무관합니다.
-                                    <code class="text-slate-400">Info.plist</code>의 <code class="text-slate-400">NS...UsageDescription</code> 문자열만 넣으면 됩니다.
+                                <div class="text-[10px] text-slate-500 mt-1" data-i18n="step3.capabilitiesPermissionWhy">
+                                    These ask the user for permission at runtime, so they have nothing to do with provisioning.
+                                    Just add the <code class="text-slate-400">NS...UsageDescription</code> strings to <code class="text-slate-400">Info.plist</code>.
                                 </div>
-                                <div class="text-[10px] text-orange-400 mt-2">
-                                    ⚠️ <span class="font-bold">Siri</span>는 "내 앱을 Siri로 호출"(SiriKit)용입니다.
-                                    앱 안에서 음성인식하는 것과 <span class="text-slate-400">무관하니 체크하지 마세요.</span>
+                                <div class="text-[10px] text-orange-400 mt-2" data-i18n="step3.capabilitiesSiri">
+                                    ⚠️ <span class="font-bold">Siri</span> is for "invoke my app with Siri" (SiriKit).
+                                    It's <span class="text-slate-400">unrelated to in-app speech recognition, so don't check it.</span>
                                 </div>
                             </div>
-                            <div class="mt-2 pt-2 border-t border-slate-700 text-[10px] text-slate-500">
-                                💡 나중에 추가할 수 있지만, 추가하면 <span class="text-slate-400">Provisioning Profile을 재생성</span>해야 합니다(Step 4 반복).
-                                계획이 확실한 기능은 지금 함께 체크하세요.
+                            <div class="mt-2 pt-2 border-t border-slate-700 text-[10px] text-slate-500" data-i18n="step3.capabilitiesLater">
+                                💡 You can add them later, but then you must <span class="text-slate-400">recreate the Provisioning Profile</span> (repeat step 4).
+                                Check features you're sure about now.
                             </div>
                         </div>
                     </li>
-                    <li><span class="text-green-400 font-bold">Register</span> 클릭!</li>
+                    <li data-i18n="step3.clickRegister">Click <span class="text-green-400 font-bold">Register</span>!</li>
                 </ol>
             </div>
 
             <!-- 시각화 -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
-                <p class="text-sm font-medium text-blue-400 mb-3">📍 Identifiers 페이지 미리보기</p>
+                <p class="text-sm font-medium text-blue-400 mb-3" data-i18n="step3.previewTitle">📍 Identifiers page preview</p>
                 <div class="bg-slate-900 rounded-lg p-3 font-mono text-xs overflow-x-auto">
                     <div class="flex gap-4">
                         <div class="border-r border-slate-700 pr-4 text-slate-500">
@@ -964,7 +977,7 @@
                             <div class="flex items-center gap-2 mb-3">
                                 <span class="text-slate-300 font-bold">Identifiers</span>
                                 <span class="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs">+</span>
-                                <span class="text-green-400 text-[10px]">← 클릭!</span>
+                                <span class="text-green-400 text-[10px]" data-i18n="step3.clickHere">← click!</span>
                             </div>
                             <div class="border border-slate-700 rounded">
                                 <div class="grid grid-cols-2 gap-2 p-2 bg-slate-800 text-slate-500 text-[10px]">
@@ -983,11 +996,11 @@
 
             <!-- Bundle ID 네이밍 가이드 -->
             <div class="bg-gradient-to-r from-emerald-900/30 to-blue-900/30 border border-emerald-700 rounded-lg p-4 mb-6">
-                <p class="text-sm font-medium text-emerald-400 mb-3">💡 Bundle ID 네이밍 가이드</p>
+                <p class="text-sm font-medium text-emerald-400 mb-3" data-i18n="step3.namingTitle">💡 Bundle ID naming guide</p>
                 <div class="text-xs text-slate-300 space-y-2">
                     <div class="p-2 bg-slate-800/50 rounded">
-                        <span class="text-slate-400">권장 형식:</span>
-                        <span class="text-orange-400 font-mono">[역도메인].[앱이름]</span>
+                        <span class="text-slate-400" data-i18n="step3.namingRecommended">Recommended format:</span>
+                        <span class="text-orange-400 font-mono" data-i18n="step3.namingFormat">[reverse-domain].[app-name]</span>
                     </div>
                     <div class="space-y-1">
                         <div class="flex items-center gap-2">
@@ -1004,11 +1017,11 @@
                         </div>
                         <div class="flex items-center gap-2 text-slate-500">
                             <span class="text-red-400">❌</span>
-                            <code>myapp</code> - 너무 짧음
+                            <span data-i18n="step3.namingTooShort"><code>myapp</code> - too short</span>
                         </div>
                         <div class="flex items-center gap-2 text-slate-500">
                             <span class="text-red-400">❌</span>
-                            <code>MyApp</code> - 대문자 비권장
+                            <span data-i18n="step3.namingUppercase"><code>MyApp</code> - uppercase not recommended</span>
                         </div>
                     </div>
                 </div>
@@ -1016,34 +1029,34 @@
 
             <!-- Bundle ID 입력 -->
             <div class="mb-6">
-                <label class="block text-sm font-medium mb-2 text-slate-300">
-                    등록한 Bundle ID 입력 <span class="text-red-400">*</span>
+                <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="step3.bundleIdLabel">
+                    Enter the registered Bundle ID <span class="text-red-400">*</span>
                 </label>
                 <input type="text" id="bundleId"
                     class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 outline-none"
                     placeholder="kr.mycompany.myapp">
-                <p class="text-xs text-slate-500 mt-1">Flutter 프로젝트의 ios/Runner.xcodeproj Bundle Identifier와 동일해야 합니다</p>
+                <p class="text-xs text-slate-500 mt-1" data-i18n="step3.bundleIdHint">Must match the Bundle Identifier in your Flutter project's ios/Runner.xcodeproj</p>
                 <div class="mt-3 p-3 bg-red-900/30 border border-red-700 rounded">
-                    <p class="text-xs text-red-300 font-bold mb-2">⚠️ 등록 전 Xcode 프로젝트 값과 대조하세요</p>
+                    <p class="text-xs text-red-300 font-bold mb-2" data-i18n="step3.xcodeCompareTitle">⚠️ Compare with your Xcode project before registering</p>
                     <div class="bg-slate-900 rounded p-2 font-mono text-[10px] overflow-x-auto">
                         <div class="text-green-400 break-all">grep PRODUCT_BUNDLE_IDENTIFIER ios/Runner.xcodeproj/project.pbxproj</div>
                     </div>
-                    <p class="text-[11px] text-slate-400 mt-2">
-                        Flutter가 만든 기본값(<code class="text-slate-300">com.example.앱이름</code> 등)이 그대로 남아 있는 경우가 많습니다.
-                        Apple에 등록할 값과 다르면 <span class="text-red-400">서명 단계에서 실패</span>합니다.
+                    <p class="text-[11px] text-slate-400 mt-2" data-i18n="step3.xcodeDefaultLeft">
+                        Flutter's default (<code class="text-slate-300">com.example.appname</code> etc.) is often still there.
+                        If it differs from what you register with Apple, <span class="text-red-400">signing fails</span>.
                     </p>
-                    <p class="text-[11px] text-slate-500 mt-1">
-                        다르면 지금 맞추세요. <code class="text-slate-400">RunnerTests</code> 항목까지 함께 바꿔야 합니다.
-                        <span class="text-yellow-400">App Store 출시 후에는 Bundle ID를 변경할 수 없습니다.</span>
+                    <p class="text-[11px] text-slate-500 mt-1" data-i18n="step3.xcodeFixNow">
+                        If they differ, fix it now. Change the <code class="text-slate-400">RunnerTests</code> entries too.
+                        <span class="text-yellow-400">You can't change the Bundle ID after the App Store release.</span>
                     </p>
                 </div>
             </div>
 
             <div class="flex justify-between items-center mt-8">
-                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()">← 이전</button>
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="nav.prev">← Back</button>
                 <div class="flex gap-2 items-center">
-                    <span class="skip-btn" onclick="skipStep(3)">이미 있어요 →</span>
-                    <button class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition" onclick="nextStep()">다음: Profile →</button>
+                    <span class="skip-btn" onclick="skipStep(3)" data-i18n="nav.alreadyHave">Already have it →</span>
+                    <button class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition" onclick="nextStep()" data-i18n="step3.next">Next: Profile →</button>
                 </div>
             </div>
         </div>
@@ -1054,16 +1067,16 @@
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="4">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
                 <span class="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center text-sm">4</span>
-                Provisioning Profile 생성
+                <span data-i18n="step4.title">Create the Provisioning Profile</span>
             </h2>
 
             <!-- 설명 -->
             <div class="bg-green-900/30 border border-green-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-green-200">
-                    🔗 <strong>Provisioning Profile이란?</strong> 인증서 + App ID를 묶어서 "이 앱은 이 인증서로 서명됨"을 증명하는 파일입니다.
+                <p class="text-sm text-green-200" data-i18n="step4.whatIsProfile">
+                    🔗 <strong>What's a Provisioning Profile?</strong> A file that bundles the certificate + App ID to prove "this app is signed with this certificate".
                 </p>
-                <p class="text-xs text-slate-400 mt-2">
-                    ⚠️ Step 2 인증서 + Step 3 App ID가 있어야 만들 수 있습니다!
+                <p class="text-xs text-slate-400 mt-2" data-i18n="step4.needsPrevious">
+                    ⚠️ You need the step 2 certificate + step 3 App ID first!
                 </p>
             </div>
 
@@ -1076,19 +1089,19 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
                     </svg>
-                    Apple Developer Profiles 페이지 열기
+                    <span data-i18n="step4.openProfilesPage">Open the Apple Developer Profiles page</span>
                 </a>
             </div>
 
             <!-- 생성 가이드 -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-yellow-200 mb-3">📋 Provisioning Profile 생성 방법</p>
+                <p class="text-sm text-yellow-200 mb-3" data-i18n="step4.howToTitle">📋 How to create the Provisioning Profile</p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-2">
-                    <li>위 버튼 클릭 → Profiles 페이지 열기</li>
-                    <li><span class="text-blue-400 font-bold text-sm">+</span> 버튼 클릭</li>
+                    <li data-i18n="step4.openPage">Click the button above → open the Profiles page</li>
+                    <li data-i18n="step4.clickPlus">Click the <span class="text-blue-400 font-bold text-sm">+</span> button</li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-red-500">
-                            <span class="text-red-400 font-bold">⚠️ Distribution 타입 선택 (Development 아님!)</span>
+                            <span class="text-red-400 font-bold" data-i18n="step4.pickDistribution">⚠️ Pick the Distribution type (not Development!)</span>
                             <div class="mt-2 space-y-1">
                                 <div class="text-slate-500">Development</div>
                                 <div class="text-slate-500 pl-4">○ iOS App Development</div>
@@ -1096,7 +1109,7 @@
                                 <div class="flex items-center gap-2 pl-4">
                                     <span class="text-green-400">◉</span>
                                     <span class="text-green-400 font-bold">App Store Connect</span>
-                                    <span class="text-slate-400">← 이것 선택!</span>
+                                    <span class="text-slate-400" data-i18n="step4.pickThis">← pick this!</span>
                                 </div>
                                 <div class="text-slate-500 pl-4">○ Ad Hoc</div>
                             </div>
@@ -1104,52 +1117,52 @@
                     </li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-blue-500">
-                            <span class="text-blue-400 font-bold">App ID 선택</span>
+                            <span class="text-blue-400 font-bold" data-i18n="step4.pickAppId">Choose the App ID</span>
                             <div class="mt-2">
-                                <span class="text-slate-400">Step 3에서 만든</span>
+                                <span class="text-slate-400" data-i18n="step4.madeInStep3">the one from step 3</span>
                                 <span class="text-orange-400 font-bold" id="display-bundle-id">kr.mycompany.myapp</span>
-                                <span class="text-slate-400">선택</span>
+                                <span class="text-slate-400" data-i18n="step4.select">select</span>
                             </div>
                         </div>
                     </li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-purple-500">
-                            <span class="text-purple-400 font-bold">Certificate 선택</span>
+                            <span class="text-purple-400 font-bold" data-i18n="step4.pickCertificate">Choose the Certificate</span>
                             <div class="mt-2">
-                                <span class="text-slate-400">Step 2에서 만든</span>
+                                <span class="text-slate-400" data-i18n="step4.madeInStep2">the one from step 2</span>
                                 <span class="text-purple-400 font-bold">Apple Distribution</span>
-                                <span class="text-slate-400">인증서 체크</span>
+                                <span class="text-slate-400" data-i18n="step4.checkCertificate">check the certificate</span>
                             </div>
                         </div>
                     </li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-orange-500">
-                            <span class="text-orange-400 font-bold">Profile 이름 입력</span>
-                            <div class="mt-2 text-slate-400">
-                                예: <span class="text-orange-400">MyApp AppStore Distribution</span>
+                            <span class="text-orange-400 font-bold" data-i18n="step4.enterProfileName">Enter the profile name</span>
+                            <div class="mt-2 text-slate-400" data-i18n="step4.profileNameExample">
+                                e.g. <span class="text-orange-400">MyApp AppStore Distribution</span>
                             </div>
                         </div>
                     </li>
-                    <li><span class="text-green-400 font-bold">Generate</span> → <span class="text-blue-400 font-bold">Download</span> → <code class="text-orange-400">.mobileprovision</code> 저장
-                        <span class="text-slate-500 text-[10px]">(Step 2의 .p12와 달리 키체인 설치 불필요 — 파일만 있으면 됩니다)</span>
+                    <li><span data-i18n="step4.generateDownload"><span class="text-green-400 font-bold">Generate</span> → <span class="text-blue-400 font-bold">Download</span> → save the <code class="text-orange-400">.mobileprovision</code>
+                        <span class="text-slate-500 text-[10px]">(unlike the step 2 .p12, no keychain install needed — just keep the file)</span></span>
                     </li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-emerald-500">
-                            <span class="text-emerald-400 font-bold">✅ 제대로 만들어졌는지 검증 (권장)</span>
-                            <div class="text-slate-400 mt-1 text-[11px]">
-                                프로파일은 텍스트가 아니라 서명된 바이너리라 그냥 열면 깨져 보입니다. 아래 명령으로 내용을 확인하세요.
+                            <span class="text-emerald-400 font-bold" data-i18n="step4.verifyTitle">✅ Check that it was created correctly (recommended)</span>
+                            <div class="text-slate-400 mt-1 text-[11px]" data-i18n="step4.verifyWhy">
+                                A profile is a signed binary, not text, so it looks garbled if you just open it. Check its contents with the command below.
                             </div>
                             <div class="bg-slate-900 rounded p-2 mt-2 font-mono text-[10px] overflow-x-auto">
-                                <div class="text-green-400 break-all">security cms -D -i ~/Downloads/파일명.mobileprovision | plutil -p - | grep -E "Name|application-identifier|ExpirationDate|aps-environment"</div>
+                                <div class="text-green-400 break-all" data-i18n="step4.verifyCommand">security cms -D -i ~/Downloads/your-file.mobileprovision | plutil -p - | grep -E "Name|application-identifier|ExpirationDate|aps-environment"</div>
                             </div>
-                            <div class="text-slate-400 mt-2 text-[11px]">확인할 것:</div>
+                            <div class="text-slate-400 mt-2 text-[11px]" data-i18n="step4.verifyWhatToCheck">What to check:</div>
                             <ul class="text-[10px] text-slate-400 list-disc list-inside mt-1 space-y-0.5">
-                                <li><span class="text-slate-300">application-identifier</span>가 <span class="text-yellow-400">팀ID.본인BundleID</span> 형태인지</li>
-                                <li><span class="text-slate-300">aps-environment</span>가 <span class="text-green-400">production</span>인지 (푸시 켠 경우)</li>
-                                <li><span class="text-slate-300">ExpirationDate</span>가 1년 뒤인지</li>
+                                <li data-i18n="step4.verifyAppIdentifier"><span class="text-slate-300">application-identifier</span> looks like <span class="text-yellow-400">TEAMID.yourBundleID</span></li>
+                                <li data-i18n="step4.verifyApsEnvironment"><span class="text-slate-300">aps-environment</span> is <span class="text-green-400">production</span> (if push is on)</li>
+                                <li data-i18n="step4.verifyExpiration"><span class="text-slate-300">ExpirationDate</span> is a year from now</li>
                             </ul>
-                            <div class="text-slate-500 text-[10px] mt-2">
-                                ⚠️ <span class="text-slate-400">get-task-allow</span>가 <span class="text-red-400">true</span>면 개발용 프로파일을 잘못 만든 것입니다 → Distribution으로 다시 생성하세요.
+                            <div class="text-slate-500 text-[10px] mt-2" data-i18n="step4.verifyTaskAllow">
+                                ⚠️ If <span class="text-slate-400">get-task-allow</span> is <span class="text-red-400">true</span>, you made a development profile by mistake → recreate it as Distribution.
                             </div>
                         </div>
                     </li>
@@ -1158,11 +1171,11 @@
 
             <!-- Profile 이름 네이밍 가이드 -->
             <div class="bg-gradient-to-r from-emerald-900/30 to-blue-900/30 border border-emerald-700 rounded-lg p-4 mb-6">
-                <p class="text-sm font-medium text-emerald-400 mb-3">💡 Profile 이름 네이밍 가이드</p>
+                <p class="text-sm font-medium text-emerald-400 mb-3" data-i18n="step4.namingTitle">💡 Profile naming guide</p>
                 <div class="text-xs text-slate-300 space-y-2">
                     <div class="p-2 bg-slate-800/50 rounded">
-                        <span class="text-slate-400">권장 형식:</span>
-                        <span class="text-orange-400 font-mono">[앱이름] [용도] [타입]</span>
+                        <span class="text-slate-400" data-i18n="step4.namingRecommended">Recommended format:</span>
+                        <span class="text-orange-400 font-mono" data-i18n="step4.namingFormat">[app name] [purpose] [type]</span>
                     </div>
                     <div class="space-y-1">
                         <div class="flex items-center gap-2">
@@ -1178,35 +1191,35 @@
                             <code class="text-green-400">ProjectName-AppStore-2024</code>
                         </div>
                     </div>
-                    <p class="text-yellow-400 mt-2">⚠️ 이 이름을 정확히 기억하세요! GitHub Secrets에 입력해야 합니다.</p>
-                    <p class="text-red-400 mt-1">🚨 <strong>띄어쓰기까지 완벽히 일치해야 합니다!</strong> 한 글자라도 다르면 빌드 실패!</p>
+                    <p class="text-yellow-400 mt-2" data-i18n="step4.rememberName">⚠️ Remember this exact name! You'll enter it into GitHub Secrets.</p>
+                    <p class="text-red-400 mt-1" data-i18n="step4.exactMatch">🚨 <strong>It must match exactly, spaces included!</strong> One character off and the build fails!</p>
                 </div>
             </div>
 
             <!-- 파일 업로드 -->
             <div class="file-upload" id="provision-upload" onclick="document.getElementById('provision-input').click()">
                 <div class="icon">📄</div>
-                <div class="text-slate-300">.mobileprovision 파일을 드래그하거나 클릭하세요</div>
+                <div class="text-slate-300" data-i18n="step4.provisionDrop">Drag a .mobileprovision file here or click</div>
                 <input type="file" id="provision-input" accept=".mobileprovision" onchange="handleProvisionUpload(event)">
                 <div class="file-info" id="provision-info" style="display:none"></div>
             </div>
 
             <!-- Profile 이름 입력 -->
             <div class="mb-6">
-                <label class="block text-sm font-medium mb-2 text-slate-300">
-                    Provisioning Profile 이름 <span class="text-red-400">*</span>
+                <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="step4.profileNameLabel">
+                    Provisioning Profile name <span class="text-red-400">*</span>
                 </label>
                 <input type="text" id="profileName"
                     class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 outline-none"
                     placeholder="MyApp AppStore Distribution">
-                <p class="text-xs text-slate-500 mt-1">Apple Developer에서 입력한 이름과 정확히 동일하게!</p>
+                <p class="text-xs text-slate-500 mt-1" data-i18n="step4.profileNameHint">Exactly the same as the name you entered in Apple Developer!</p>
             </div>
 
             <div class="flex justify-between items-center mt-8">
-                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()">← 이전</button>
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="nav.prev">← Back</button>
                 <div class="flex gap-2 items-center">
-                    <span class="skip-btn" onclick="skipStep(4)">이미 있어요 →</span>
-                    <button class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition" onclick="nextStep()">다음: ASC 앱등록 →</button>
+                    <span class="skip-btn" onclick="skipStep(4)" data-i18n="nav.alreadyHave">Already have it →</span>
+                    <button class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition" onclick="nextStep()" data-i18n="step4.next">Next: register in ASC →</button>
                 </div>
             </div>
         </div>
@@ -1217,18 +1230,18 @@
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="5">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
                 <span class="w-8 h-8 bg-pink-500 rounded-lg flex items-center justify-center text-sm">5</span>
-                App Store Connect 앱 등록
-                <span class="text-xs font-normal text-pink-400 bg-pink-500/20 px-2 py-1 rounded">TestFlight 필수!</span>
+                <span data-i18n="step5.title">Register the app in App Store Connect</span>
+                <span class="text-xs font-normal text-pink-400 bg-pink-500/20 px-2 py-1 rounded" data-i18n="step5.titleBadge">Required for TestFlight!</span>
             </h2>
 
             <!-- 왜 필요한지 설명 -->
             <div class="bg-pink-900/30 border border-pink-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-pink-200">
-                    🎯 <strong>이 단계가 필수인 이유:</strong> App Store Connect에 앱이 등록되어 있어야 TestFlight에 업로드할 수 있습니다!
+                <p class="text-sm text-pink-200" data-i18n="step5.whyRequired">
+                    🎯 <strong>Why this step is required:</strong> the app must be registered in App Store Connect before you can upload to TestFlight!
                 </p>
-                <p class="text-xs text-slate-400 mt-2">
-                    Fastlane의 <code class="text-pink-400">pilot</code>/<code class="text-pink-400">upload_to_testflight</code>가 Bundle ID로 앱을 찾습니다.
-                    <span class="text-red-400 font-bold">앱이 없으면 "App not found" 에러 발생!</span>
+                <p class="text-xs text-slate-400 mt-2" data-i18n="step5.whyAppNotFound">
+                    Fastlane's <code class="text-pink-400">pilot</code>/<code class="text-pink-400">upload_to_testflight</code> finds the app by Bundle ID.
+                    <span class="text-red-400 font-bold">Without the app you get an "App not found" error!</span>
                 </p>
             </div>
 
@@ -1241,22 +1254,22 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
                     </svg>
-                    App Store Connect - My Apps 열기
+                    <span data-i18n="step5.openMyApps">Open App Store Connect - My Apps</span>
                 </a>
             </div>
 
             <!-- 생성 가이드 -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-yellow-200 mb-3">📋 새 앱 등록 방법</p>
+                <p class="text-sm text-yellow-200 mb-3" data-i18n="step5.howToTitle">📋 How to register a new app</p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-2">
-                    <li>위 버튼 클릭 → App Store Connect 열기</li>
-                    <li>
-                        <span class="text-blue-400 font-bold text-sm">+</span> 버튼 클릭 →
-                        <span class="text-pink-400 font-bold">New App</span> 선택
+                    <li data-i18n="step5.openPage">Click the button above → open App Store Connect</li>
+                    <li data-i18n="step5.clickPlusNewApp">
+                        Click the <span class="text-blue-400 font-bold text-sm">+</span> button →
+                        choose <span class="text-pink-400 font-bold">New App</span>
                     </li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-blue-500">
-                            <span class="text-blue-400 font-bold">New App 다이얼로그 입력</span>
+                            <span class="text-blue-400 font-bold" data-i18n="step5.newAppDialog">New App dialog values</span>
                             <div class="mt-3 space-y-3">
                                 <!-- Platforms -->
                                 <div class="flex items-center gap-2">
@@ -1272,21 +1285,21 @@
                                 <div class="flex items-start gap-2">
                                     <span class="text-slate-400 w-28">Name:</span>
                                     <div>
-                                        <span class="text-orange-400 font-bold">앱 표시 이름</span>
-                                        <div class="text-slate-500 text-[10px]">App Store에 표시됨 (예: 귀 위치 알림)</div>
+                                        <span class="text-orange-400 font-bold" data-i18n="step5.appDisplayName">app display name</span>
+                                        <div class="text-slate-500 text-[10px]" data-i18n="step5.appDisplayNameHint">Shown on the App Store (e.g. Ear Location Alert)</div>
                                     </div>
                                 </div>
                                 <!-- Primary Language -->
                                 <div class="flex items-center gap-2">
                                     <span class="text-slate-400 w-28">Primary Language:</span>
-                                    <span class="text-white">Korean (한국어)</span>
+                                    <span class="text-white" data-i18n="step5.primaryLanguage">English (or your app's main language)</span>
                                 </div>
                                 <!-- Bundle ID -->
                                 <div class="flex items-start gap-2">
                                     <span class="text-slate-400 w-28">Bundle ID:</span>
                                     <div>
                                         <span class="text-green-400 font-bold" id="display-bundle-id-asc">kr.mycompany.myapp</span>
-                                        <div class="text-green-400 text-[10px]">↑ Step 3에서 등록한 Bundle ID 드롭다운에서 선택!</div>
+                                        <div class="text-green-400 text-[10px]" data-i18n="step5.pickBundleId">↑ pick the Bundle ID you registered in step 3 from the dropdown!</div>
                                     </div>
                                 </div>
                                 <!-- SKU -->
@@ -1294,7 +1307,7 @@
                                     <span class="text-slate-400 w-28">SKU:</span>
                                     <div>
                                         <span class="text-yellow-400 font-bold">MYAPP2026</span>
-                                        <div class="text-slate-500 text-[10px]">내부 식별용 (아무 고유값, 다른 앱과 겹치면 안됨)</div>
+                                        <div class="text-slate-500 text-[10px]" data-i18n="step5.skuHint">for internal identification (any unique value; must not clash with your other apps)</div>
                                     </div>
                                 </div>
                                 <!-- User Access -->
@@ -1309,13 +1322,13 @@
                             </div>
                         </div>
                     </li>
-                    <li><span class="text-pink-400 font-bold">Create</span> 버튼 클릭!</li>
+                    <li data-i18n="step5.clickCreate">Click the <span class="text-pink-400 font-bold">Create</span> button!</li>
                 </ol>
             </div>
 
             <!-- 페이지 시각화 -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
-                <p class="text-sm font-medium text-blue-400 mb-3">📍 App Store Connect 페이지 미리보기</p>
+                <p class="text-sm font-medium text-blue-400 mb-3" data-i18n="step5.previewTitle">📍 App Store Connect page preview</p>
                 <div class="bg-slate-900 rounded-lg p-3 font-mono text-xs overflow-x-auto">
                     <div class="border border-slate-600 rounded">
                         <!-- Header -->
@@ -1328,7 +1341,7 @@
                         <div class="p-4">
                             <div class="flex items-center gap-3 mb-4">
                                 <span class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white text-lg">+</span>
-                                <span class="text-green-400 text-[10px]">← 이 버튼 클릭 → "New App"</span>
+                                <span class="text-green-400 text-[10px]" data-i18n="step5.previewClickPlus">← click this button → "New App"</span>
                             </div>
                             <div class="text-slate-400 mb-2">Your Apps</div>
                             <div class="grid grid-cols-3 gap-3">
@@ -1342,7 +1355,7 @@
                                 </div>
                                 <div class="p-3 border-2 border-dashed border-pink-500 rounded-lg text-center bg-pink-900/20">
                                     <div class="w-12 h-12 border-2 border-dashed border-pink-400 rounded-xl mx-auto mb-2 flex items-center justify-center text-pink-400 text-2xl">+</div>
-                                    <div class="text-pink-400 text-[11px] font-bold">새 앱 추가!</div>
+                                    <div class="text-pink-400 text-[11px] font-bold" data-i18n="step5.previewAddNewApp">Add a new app!</div>
                                 </div>
                             </div>
                         </div>
@@ -1356,19 +1369,19 @@
                 <ul class="text-xs text-slate-300 space-y-2">
                     <li class="flex items-start gap-2">
                         <span class="text-emerald-400">✓</span>
-                        <span><strong class="text-emerald-300">Name은 나중에 변경 가능!</strong> App Store Connect에서 언제든 수정할 수 있어요.</span>
+                        <span data-i18n="step5.tipNameChangeable"><strong class="text-emerald-300">You can change the Name later!</strong> Edit it anytime in App Store Connect.</span>
                     </li>
                     <li class="flex items-start gap-2">
                         <span class="text-yellow-400">⚠️</span>
-                        <span><strong class="text-yellow-300">Bundle ID는 변경 불가!</strong> 한번 연결하면 앱 삭제 전까지 바꿀 수 없어요.</span>
+                        <span data-i18n="step5.tipBundleIdFixed"><strong class="text-yellow-300">The Bundle ID can't be changed!</strong> Once linked, it stays until you delete the app.</span>
                     </li>
                     <li class="flex items-start gap-2">
                         <span class="text-emerald-400">✓</span>
-                        <span><strong class="text-emerald-300">SKU는 내부용!</strong> 사용자에게 보이지 않아요. 고유값이기만 하면 됩니다.</span>
+                        <span data-i18n="step5.tipSkuInternal"><strong class="text-emerald-300">The SKU is internal!</strong> Users never see it. It just has to be unique.</span>
                     </li>
                     <li class="flex items-start gap-2">
                         <span class="text-emerald-400">✓</span>
-                        <span><strong class="text-emerald-300">앱 정보 입력은 나중에!</strong> 지금은 앱 "껍데기"만 만들면 됩니다. 아이콘, 스크린샷은 나중에.</span>
+                        <span data-i18n="step5.tipAppInfoLater"><strong class="text-emerald-300">Fill in app info later!</strong> For now you only need the app "shell". Icons and screenshots come later.</span>
                     </li>
                 </ul>
             </div>
@@ -1377,15 +1390,15 @@
             <div class="p-4 bg-slate-700/50 border border-slate-600 rounded-lg mb-6">
                 <label class="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" id="asc-app-created" class="w-5 h-5 rounded text-pink-500 bg-slate-900 border-slate-600 focus:ring-pink-500">
-                    <span class="text-sm text-slate-200">App Store Connect에 앱을 등록했습니다</span>
+                    <span class="text-sm text-slate-200" data-i18n="step5.registeredCheck">I registered the app in App Store Connect</span>
                 </label>
             </div>
 
             <div class="flex justify-between items-center mt-8">
-                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()">← 이전</button>
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="nav.prev">← Back</button>
                 <div class="flex gap-2 items-center">
-                    <span class="skip-btn" onclick="skipStep(5)">이미 등록함 →</span>
-                    <button class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition" onclick="nextStep()">다음: 앱 정보 →</button>
+                    <span class="skip-btn" onclick="skipStep(5)" data-i18n="step5.alreadyRegistered">Already registered →</span>
+                    <button class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition" onclick="nextStep()" data-i18n="step5.next">Next: app info →</button>
                 </div>
             </div>
         </div>
@@ -1396,13 +1409,13 @@
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="6">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
                 <span class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-sm">6</span>
-                앱 정보 확인 및 추가 설정
+                <span data-i18n="step6.title">Review app info and extra settings</span>
             </h2>
 
             <!-- 설명 -->
             <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-blue-200">
-                    ✅ 앞 단계에서 입력한 정보를 확인하고, 추가 정보를 입력하세요.
+                <p class="text-sm text-blue-200" data-i18n="step6.intro">
+                    ✅ Review what you entered in the earlier steps, then fill in the rest.
                 </p>
             </div>
 
@@ -1411,7 +1424,7 @@
                 <div>
                     <label class="block text-sm font-medium mb-2 text-slate-300">
                         Bundle ID
-                        <span class="text-xs text-green-400">(Step 3에서 입력됨)</span>
+                        <span class="text-xs text-green-400" data-i18n="step6.fromStep3">(entered in step 3)</span>
                     </label>
                     <input type="text" id="bundleId-confirm"
                         class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 outline-none"
@@ -1429,10 +1442,10 @@
                                           d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                 </svg>
                             </span>
-                            <div class="tooltip-content" style="width: 280px;">
-                                <strong class="text-yellow-400">📍 찾는 방법</strong><br>
+                            <div class="tooltip-content" style="width: 280px;" data-i18n="step6.teamIdTooltip">
+                                <strong class="text-yellow-400">📍 Where to find it</strong><br>
                                 Apple Developer → Membership → Team ID<br>
-                                <span class="text-slate-400 text-[11px]">10자리 영문+숫자 (예: ABC1234DEF)</span>
+                                <span class="text-slate-400 text-[11px]">10 letters and digits (e.g. ABC1234DEF)</span>
                             </div>
                         </span>
                     </label>
@@ -1447,8 +1460,8 @@
                 <!-- Profile Name (자동 채워짐) -->
                 <div>
                     <label class="block text-sm font-medium mb-2 text-slate-300">
-                        Provisioning Profile 이름
-                        <span class="text-xs text-green-400">(Step 4에서 입력됨)</span>
+                        <span data-i18n="step6.profileNameLabel">Provisioning Profile name</span>
+                        <span class="text-xs text-green-400" data-i18n="step6.fromStep4">(entered in step 4)</span>
                     </label>
                     <input type="text" id="profileName-confirm"
                         class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 outline-none"
@@ -1457,7 +1470,7 @@
 
                 <!-- 앱 이름 -->
                 <div>
-                    <label class="block text-sm font-medium mb-2 text-slate-300">앱 이름 (선택)</label>
+                    <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="step6.appNameLabel">App name (optional)</label>
                     <input type="text" id="appName"
                         class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 outline-none"
                         placeholder="My App">
@@ -1466,33 +1479,33 @@
 
             <!-- Team ID 찾기 가이드 -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
-                <p class="text-sm font-medium text-blue-400 mb-2">📍 Team ID 찾는 방법</p>
+                <p class="text-sm font-medium text-blue-400 mb-2" data-i18n="step6.teamIdHowTitle">📍 How to find your Team ID</p>
                 <div class="flex gap-2 items-center mb-2">
                     <a href="https://developer.apple.com/account#MembershipDetailsCard"
                        target="_blank" rel="noopener"
                        class="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium transition">
-                        Apple Developer Membership 페이지 열기
+                        <span data-i18n="step6.openMembershipPage">Open the Apple Developer Membership page</span>
                     </a>
                 </div>
-                <p class="text-xs text-slate-400">페이지에서 "Team ID" 항목을 찾으세요 (10자리 영문+숫자)</p>
+                <p class="text-xs text-slate-400" data-i18n="step6.teamIdOnPage">Find the "Team ID" entry on the page (10 letters and digits)</p>
                 <div class="mt-3 pt-3 border-t border-slate-600">
-                    <p class="text-xs text-slate-400 mb-2">또는 Step 4에서 받은 프로파일에서 바로 확인:</p>
+                    <p class="text-xs text-slate-400 mb-2" data-i18n="step6.teamIdFromProfile">Or read it straight from the profile you got in step 4:</p>
                     <div class="bg-slate-900 rounded p-2 font-mono text-[10px] overflow-x-auto">
-                        <div class="text-green-400 break-all">security cms -D -i ~/Downloads/파일명.mobileprovision | plutil -p - | grep -A2 TeamIdentifier</div>
+                        <div class="text-green-400 break-all" data-i18n="step6.teamIdCommand">security cms -D -i ~/Downloads/your-file.mobileprovision | plutil -p - | grep -A2 TeamIdentifier</div>
                     </div>
                 </div>
             </div>
 
             <!-- 암호화 설정 -->
             <div class="p-4 bg-slate-700/50 border border-slate-600 rounded-lg mb-6">
-                <label class="block text-sm font-medium mb-3 text-slate-300">🔐 앱 암호화 설정</label>
+                <label class="block text-sm font-medium mb-3 text-slate-300" data-i18n="step6.encryptionLabel">🔐 App encryption</label>
                 <div class="space-y-2">
                     <label class="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-slate-600/50 transition">
                         <input type="radio" name="encryptionType" value="none" checked
                             class="w-4 h-4 text-blue-500 bg-slate-900 border-slate-600 focus:ring-blue-500">
                         <div>
-                            <span class="text-sm font-medium text-slate-200">None - HTTPS만 사용 (권장)</span>
-                            <p class="text-xs text-slate-400">일반적인 앱</p>
+                            <span class="text-sm font-medium text-slate-200" data-i18n="step6.encryptionNone">None - HTTPS only (recommended)</span>
+                            <p class="text-xs text-slate-400" data-i18n="step6.encryptionNoneHint">Most apps</p>
                         </div>
                     </label>
                     <label class="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-slate-600/50 transition">
@@ -1500,15 +1513,15 @@
                             class="w-4 h-4 text-blue-500 bg-slate-900 border-slate-600 focus:ring-blue-500">
                         <div>
                             <span class="text-sm font-medium text-slate-200">Standard encryption</span>
-                            <p class="text-xs text-slate-400">표준 암호화 사용 앱</p>
+                            <p class="text-xs text-slate-400" data-i18n="step6.encryptionStandardHint">Apps that use standard encryption</p>
                         </div>
                     </label>
                 </div>
             </div>
 
             <div class="flex justify-between mt-8">
-                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()">← 이전</button>
-                <button class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition" onclick="nextStep()">다음: API Key →</button>
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="nav.prev">← Back</button>
+                <button class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition" onclick="nextStep()" data-i18n="step6.next">Next: API Key →</button>
             </div>
         </div>
 
@@ -1523,8 +1536,8 @@
 
             <!-- 설명 -->
             <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-blue-200">
-                    🔑 <strong>API Key란?</strong> Fastlane이 자동으로 TestFlight에 업로드할 때 사용하는 인증 키입니다.
+                <p class="text-sm text-blue-200" data-i18n="step7.whatIsApiKey">
+                    🔑 <strong>What's an API Key?</strong> The key Fastlane uses to upload to TestFlight automatically.
                 </p>
             </div>
 
@@ -1537,39 +1550,39 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
                     </svg>
-                    App Store Connect API Keys 페이지 열기
+                    <span data-i18n="step7.openApiKeysPage">Open the App Store Connect API Keys page</span>
                 </a>
             </div>
 
             <!-- 생성 가이드 -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-yellow-200 mb-2">📋 API Key 생성 방법</p>
+                <p class="text-sm text-yellow-200 mb-2" data-i18n="step7.howToTitle">📋 How to create the API Key</p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
-                    <li>위 버튼 클릭 → App Store Connect 열기</li>
-                    <li>Team Keys 탭에서 <span class="text-blue-400 font-bold">+</span> 버튼 클릭</li>
-                    <li>Name: 알아보기 쉬운 이름 (예: MY-PROJECT-KEY)</li>
-                    <li>Access: <span class="text-orange-400 font-bold">Admin</span> 선택 (권장)</li>
-                    <li>Generate → <span class="text-red-400 font-bold">.p8 파일 즉시 다운로드!</span>
+                    <li data-i18n="step7.openPage">Click the button above → open App Store Connect</li>
+                    <li data-i18n="step7.clickPlus">On the Team Keys tab, click the <span class="text-blue-400 font-bold">+</span> button</li>
+                    <li data-i18n="step7.enterName">Name: something easy to recognize (e.g. MY-PROJECT-KEY)</li>
+                    <li data-i18n="step7.pickAdmin">Access: choose <span class="text-orange-400 font-bold">Admin</span> (recommended)</li>
+                    <li><span data-i18n="step7.generateDownload">Generate → <span class="text-red-400 font-bold">download the .p8 file right away!</span></span>
                         <div class="mt-2 p-2 bg-slate-800/50 rounded border-l-4 border-emerald-500 text-[11px]">
-                            <span class="text-emerald-400 font-bold">💡 Key ID는 파일명에 들어 있습니다</span>
+                            <span class="text-emerald-400 font-bold" data-i18n="step7.keyIdInFileName">💡 The Key ID is in the file name</span>
                             <div class="text-slate-400 mt-1 font-mono">
                                 AuthKey_<span class="text-yellow-400">9S3Y25UVZN</span>.p8 → Key ID = <span class="text-yellow-400">9S3Y25UVZN</span>
                             </div>
-                            <div class="text-slate-500 mt-1">따로 적어두지 않았어도 파일명만 보면 됩니다.</div>
+                            <div class="text-slate-500 mt-1" data-i18n="step7.keyIdNoNeedToNote">Even if you didn't write it down, the file name tells you.</div>
                         </div>
                     </li>
                     <li class="pl-4">
                         <div class="mt-2 p-3 bg-slate-800/50 rounded border-l-4 border-orange-500">
-                            <span class="text-orange-400 font-bold">이미 발급받은 .p8이 있다면</span>
-                            <div class="text-slate-400 mt-1 text-[11px]">
-                                새로 만들지 말고 기존 것을 재사용하세요. 단, App Store Connect의
-                                <span class="text-slate-300">Active Keys</span> 목록에 그 Key ID가 남아 있는지 확인해야 합니다.
+                            <span class="text-orange-400 font-bold" data-i18n="step7.existingP8Title">If you already have a .p8</span>
+                            <div class="text-slate-400 mt-1 text-[11px]" data-i18n="step7.existingP8Reuse">
+                                Reuse it instead of creating a new one. But check that its Key ID is still in the
+                                <span class="text-slate-300">Active Keys</span> list in App Store Connect.
                             </div>
-                            <div class="text-slate-500 text-[10px] mt-1">
-                                Revoked 된 키는 목록에서 사라지며, 파일이 있어도 업로드가 실패합니다.
+                            <div class="text-slate-500 text-[10px] mt-1" data-i18n="step7.existingP8Revoked">
+                                Revoked keys disappear from the list, and uploads fail even if you have the file.
                             </div>
                             <div class="bg-slate-900 rounded p-2 mt-2 font-mono text-[10px] overflow-x-auto">
-                                <div class="text-slate-500"># 파일이 정상 규격인지 확인 (EC P-256이면 정상)</div>
+                                <div class="text-slate-500" data-i18n="step7.existingP8CheckComment"># Check the file format (EC P-256 means it's fine)</div>
                                 <div class="text-green-400 break-all">openssl pkcs8 -in ~/Downloads/AuthKey_XXXXXXXXXX.p8 -nocrypt | openssl ec -noout -text | grep NIST</div>
                             </div>
                         </div>
@@ -1579,13 +1592,13 @@
 
             <!-- 페이지 구조 시각화 -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
-                <p class="text-sm font-medium text-blue-400 mb-3">📍 App Store Connect 페이지에서 찾는 위치</p>
+                <p class="text-sm font-medium text-blue-400 mb-3" data-i18n="step7.previewTitle">📍 Where to find it on the App Store Connect page</p>
                 <div class="bg-slate-900 rounded-lg p-4 font-mono text-xs overflow-x-auto">
                     <div class="text-slate-500 mb-2">Users and Access → Integrations → App Store Connect API</div>
                     <div class="border border-slate-600 rounded p-3">
                         <!-- Issuer ID 섹션 -->
                         <div class="border-l-4 border-yellow-500 pl-3 mb-4 py-2 bg-yellow-900/20 rounded-r">
-                            <div class="text-slate-400 text-[10px] mb-1">⬇️ 페이지 중간에 별도로 표시됨</div>
+                            <div class="text-slate-400 text-[10px] mb-1" data-i18n="step7.previewIssuerSeparate">⬇️ shown separately in the middle of the page</div>
                             <div class="flex items-center gap-2">
                                 <span class="text-slate-400">Issuer ID</span>
                                 <span class="text-slate-500">ⓘ</span>
@@ -1594,7 +1607,7 @@
                                 <span class="text-yellow-400 font-bold">xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</span>
                                 <span class="text-blue-400 text-[10px] border border-blue-400 rounded px-1">Copy</span>
                             </div>
-                            <div class="text-green-400 text-[10px] mt-1">↑ 여기서 Copy 버튼 클릭!</div>
+                            <div class="text-green-400 text-[10px] mt-1" data-i18n="step7.previewCopyIssuer">↑ click the Copy button here!</div>
                         </div>
 
                         <!-- Active Keys 테이블 -->
@@ -1608,11 +1621,11 @@
                             </div>
                             <div class="border-l-4 border-orange-500 grid grid-cols-4 gap-2 p-2 text-slate-300 bg-orange-900/20">
                                 <span>MY-PROJECT-KEY</span>
-                                <span class="text-slate-500">홍길동</span>
+                                <span class="text-slate-500" data-i18n="step7.previewUserName">Jane Doe</span>
                                 <span class="text-orange-400 font-bold">XXXXXXXXXX</span>
                                 <span class="text-purple-400">Admin</span>
                             </div>
-                            <div class="text-green-400 text-[10px] pl-6 py-1">↑ Key ID는 테이블에서 복사!</div>
+                            <div class="text-green-400 text-[10px] pl-6 py-1" data-i18n="step7.previewCopyKeyId">↑ copy the Key ID from the table!</div>
                         </div>
                     </div>
                 </div>
@@ -1624,15 +1637,15 @@
                 <ul class="text-xs text-slate-300 space-y-2">
                     <li class="flex items-start gap-2">
                         <span class="text-emerald-400">✓</span>
-                        <span><strong class="text-emerald-300">Admin Key 하나로 모든 프로젝트 관리!</strong> 여러 앱에 동일한 API Key를 사용할 수 있어요.</span>
+                        <span data-i18n="step7.tipOneAdminKey"><strong class="text-emerald-300">One Admin key manages every project!</strong> You can use the same API Key for multiple apps.</span>
                     </li>
                     <li class="flex items-start gap-2">
                         <span class="text-emerald-400">✓</span>
-                        <span><strong class="text-emerald-300">Issuer ID는 팀 전체 공유!</strong> 모든 API Key가 동일한 Issuer ID를 사용합니다.</span>
+                        <span data-i18n="step7.tipIssuerShared"><strong class="text-emerald-300">The Issuer ID is shared by the whole team!</strong> Every API Key uses the same Issuer ID.</span>
                     </li>
                     <li class="flex items-start gap-2">
                         <span class="text-yellow-400">⚠️</span>
-                        <span><strong class="text-yellow-300">.p8 파일은 딱 한 번만 다운로드 가능!</strong> 생성 직후 반드시 백업하세요.</span>
+                        <span data-i18n="step7.tipP8Once"><strong class="text-yellow-300">The .p8 file can be downloaded only once!</strong> Back it up right after creating it.</span>
                     </li>
                 </ul>
             </div>
@@ -1640,7 +1653,7 @@
             <!-- 파일 업로드 -->
             <div class="file-upload" id="p8-upload" onclick="document.getElementById('p8-input').click()">
                 <div class="icon">📄</div>
-                <div class="text-slate-300">.p8 파일을 드래그하거나 클릭하세요</div>
+                <div class="text-slate-300" data-i18n="step7.p8Drop">Drag a .p8 file here or click</div>
                 <input type="file" id="p8-input" accept=".p8" onchange="handleP8Upload(event)">
                 <div class="file-info" id="p8-info" style="display:none"></div>
             </div>
@@ -1656,10 +1669,10 @@
                                           d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                 </svg>
                             </span>
-                            <div class="tooltip-content" style="width: 260px;">
-                                <strong class="text-orange-400">📍 위치</strong><br>
-                                Active Keys 테이블의 <span class="text-orange-400">"KEY ID"</span> 열<br>
-                                <span class="text-slate-400 text-[11px]">예: XXXXXXXXXX (10자리)</span>
+                            <div class="tooltip-content" style="width: 260px;" data-i18n="step7.keyIdTooltip">
+                                <strong class="text-orange-400">📍 Where</strong><br>
+                                The <span class="text-orange-400">"KEY ID"</span> column of the Active Keys table<br>
+                                <span class="text-slate-400 text-[11px]">e.g. XXXXXXXXXX (10 characters)</span>
                             </div>
                         </span>
                     </label>
@@ -1676,10 +1689,10 @@
                                           d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                 </svg>
                             </span>
-                            <div class="tooltip-content" style="width: 300px;">
-                                <strong class="text-yellow-400">📍 위치 (주의!)</strong><br>
-                                테이블 <span class="text-yellow-400 font-bold">위쪽</span>에 별도로 표시됨!<br>
-                                <span class="text-slate-400 text-[11px]">"Issuer ID" 라벨 옆의 Copy 버튼 클릭</span>
+                            <div class="tooltip-content" style="width: 300px;" data-i18n="step7.issuerIdTooltip">
+                                <strong class="text-yellow-400">📍 Where (careful!)</strong><br>
+                                Shown separately <span class="text-yellow-400 font-bold">above</span> the table!<br>
+                                <span class="text-slate-400 text-[11px]">Click the Copy button next to the "Issuer ID" label</span>
                             </div>
                         </span>
                     </label>
@@ -1689,10 +1702,10 @@
             </div>
 
             <div class="flex justify-between items-center mt-8">
-                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()">← 이전</button>
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="nav.prev">← Back</button>
                 <div class="flex gap-2 items-center">
-                    <span class="skip-btn" onclick="skipStep(7)">이미 있어요 →</span>
-                    <button class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition" onclick="nextStep()">다음: Fastlane →</button>
+                    <span class="skip-btn" onclick="skipStep(7)" data-i18n="nav.alreadyHave">Already have it →</span>
+                    <button class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition" onclick="nextStep()" data-i18n="step7.next">Next: Fastlane →</button>
                 </div>
             </div>
         </div>
@@ -1703,62 +1716,62 @@
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="8">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
                 <span class="w-8 h-8 bg-pink-500 rounded-lg flex items-center justify-center text-sm">8</span>
-                Fastlane 파일 생성
+                <span data-i18n="step8.title">Generate the Fastlane files</span>
             </h2>
 
             <div class="bg-pink-900/30 border border-pink-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-pink-200">
-                    🚀 <strong>Fastlane이란?</strong> iOS 빌드 & 배포를 자동화하는 도구입니다. GitHub Actions에서 사용합니다.
+                <p class="text-sm text-pink-200" data-i18n="step8.whatIsFastlane">
+                    🚀 <strong>What's Fastlane?</strong> A tool that automates iOS builds & deployment. GitHub Actions uses it.
                 </p>
             </div>
 
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-yellow-200 mb-1">새로 생성되는 파일:</p>
+                <p class="text-sm text-yellow-200 mb-1" data-i18n="step8.newFilesTitle">New files:</p>
                 <ul class="text-xs text-slate-300 list-disc list-inside">
-                    <li><code class="text-slate-400">ios/Gemfile</code> — Fastlane 의존성</li>
-                    <li><code class="text-slate-400">ios/fastlane/Fastfile</code> — TestFlight 업로드 lane</li>
-                    <li><code class="text-slate-400">ios/ExportOptions.plist</code> — IPA 익스포트 설정</li>
+                    <li data-i18n="step8.fileGemfile"><code class="text-slate-400">ios/Gemfile</code> — Fastlane dependencies</li>
+                    <li data-i18n="step8.fileFastfile"><code class="text-slate-400">ios/fastlane/Fastfile</code> — TestFlight upload lane</li>
+                    <li data-i18n="step8.fileExportOptions"><code class="text-slate-400">ios/ExportOptions.plist</code> — IPA export settings</li>
                 </ul>
-                <p class="text-sm text-yellow-200 mt-3 mb-1">수정되는 기존 파일:</p>
+                <p class="text-sm text-yellow-200 mt-3 mb-1" data-i18n="step8.modifiedFilesTitle">Existing files that change:</p>
                 <ul class="text-xs text-slate-300 list-disc list-inside">
                     <li><code class="text-slate-400">ios/Runner.xcodeproj/project.pbxproj</code> — Bundle ID, Manual Signing, Team ID</li>
-                    <li><code class="text-slate-400">ios/Runner/Info.plist</code> — 암호화 설정(ITSAppUsesNonExemptEncryption)</li>
-                    <li><code class="text-slate-400">ios/.gitignore</code> — Gemfile.lock 추가</li>
+                    <li data-i18n="step8.fileInfoPlist"><code class="text-slate-400">ios/Runner/Info.plist</code> — encryption setting (ITSAppUsesNonExemptEncryption)</li>
+                    <li data-i18n="step8.fileGitignore"><code class="text-slate-400">ios/.gitignore</code> — adds Gemfile.lock</li>
                 </ul>
-                <p class="text-[11px] text-slate-500 mt-2">
-                    ⚠️ Bundle ID가 Step 3에서 입력한 값과 다르면 <span class="text-slate-400">자동으로 변경</span>됩니다.
-                    Appfile은 만들지 않습니다 — 앱 식별자를 GitHub Actions 환경변수로 주입하는 방식이라 불필요합니다.
+                <p class="text-[11px] text-slate-500 mt-2" data-i18n="step8.bundleIdAutoChange">
+                    ⚠️ If the Bundle ID differs from what you entered in step 3, it's <span class="text-slate-400">changed automatically</span>.
+                    No Appfile is created — app identifiers are injected as GitHub Actions environment variables, so it isn't needed.
                 </p>
             </div>
 
             <div class="mb-6">
-                <label class="block text-sm font-medium mb-2 text-slate-300">터미널에서 실행:</label>
+                <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="step8.runInTerminal">Run in a terminal:</label>
                 <!-- 경로 미입력 시 cd 실패로 이어지므로 복사 전에 경고 -->
                 <div id="initCmd-warning" class="hidden mb-2 p-3 bg-red-900/30 border border-red-700 rounded-lg">
-                    <p class="text-xs text-red-300 font-bold">⚠️ 프로젝트 경로가 비어 있습니다</p>
-                    <p class="text-[11px] text-slate-400 mt-1">
-                        Step 1로 돌아가 Flutter 프로젝트의 절대경로를 입력하세요. 이대로 실행하면
-                        <code class="text-slate-300">cd: no such file or directory</code> 오류가 납니다.
+                    <p class="text-xs text-red-300 font-bold" data-i18n="step8.pathEmptyTitle">⚠️ The project path is empty</p>
+                    <p class="text-[11px] text-slate-400 mt-1" data-i18n="step8.pathEmptyBody">
+                        Go back to step 1 and enter the Flutter project's absolute path. Running it as is fails with
+                        <code class="text-slate-300">cd: no such file or directory</code>.
                     </p>
                 </div>
                 <!-- 모노레포일 때 cd 대상과 인자가 다른 이유를 설명 -->
                 <div id="initCmd-mono" class="hidden mb-2 p-3 bg-blue-900/30 border border-blue-700 rounded-lg">
-                    <p class="text-xs text-blue-200 font-bold">📌 경로가 두 개인 이유</p>
-                    <p class="text-[11px] text-slate-400 mt-1">
-                        <code class="text-slate-300">cd</code>는 스크립트가 있는 <span class="text-yellow-400">레포 루트</span>로,
-                        인자는 pubspec.yaml이 있는 <span class="text-yellow-400">Flutter 루트</span>로 지정됩니다.
-                        모노레포라 두 위치가 달라 이렇게 나눠야 동작합니다.
+                    <p class="text-xs text-blue-200 font-bold" data-i18n="step8.twoPathsTitle">📌 Why there are two paths</p>
+                    <p class="text-[11px] text-slate-400 mt-1" data-i18n="step8.twoPathsBody">
+                        <code class="text-slate-300">cd</code> goes to the <span class="text-yellow-400">repo root</span> where the script lives,
+                        and the argument points to the <span class="text-yellow-400">Flutter root</span> with pubspec.yaml.
+                        In a monorepo the two differ, so they have to be split like this.
                     </p>
                 </div>
                 <div class="code-block">
-                    <button class="copy-btn absolute top-2 right-2 px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-slate-300 transition" onclick="copyCode(this)">복사</button>
+                    <button class="copy-btn absolute top-2 right-2 px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-slate-300 transition" onclick="copyCode(this)" data-i18n="step8.copy">Copy</button>
                     <pre id="initCmd">cd "/path/to/project" && python3 ".github/util/flutter/testflight-wizard/testflight-wizard.py" setup ...</pre>
                 </div>
             </div>
 
             <div class="flex justify-between mt-8">
-                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()">← 이전</button>
-                <button class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition" onclick="nextStep()">다음: 완료! →</button>
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="nav.prev">← Back</button>
+                <button class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition" onclick="nextStep()" data-i18n="step8.next">Next: finish! →</button>
             </div>
         </div>
 
@@ -1768,35 +1781,35 @@
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="9">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
                 <span class="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center text-sm">✓</span>
-                완료! GitHub Secrets 설정값
+                <span data-i18n="step9.title">Done! GitHub Secrets values</span>
             </h2>
 
             <div class="bg-green-900/30 border border-green-700 rounded-lg p-4 mb-6">
-                <p class="text-sm text-green-200">🎉 모든 설정이 완료되었습니다! 아래 값들을 GitHub Secrets에 등록하세요.</p>
+                <p class="text-sm text-green-200" data-i18n="step9.intro">🎉 All set! Register the values below as GitHub Secrets.</p>
             </div>
 
             <!-- GitHub Secrets 등록 방법 -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
-                <p class="text-sm font-medium text-blue-400 mb-2">📍 GitHub Secrets 등록 방법</p>
+                <p class="text-sm font-medium text-blue-400 mb-2" data-i18n="step9.howToTitle">📍 How to register GitHub Secrets</p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
-                    <li>GitHub 저장소 → Settings → Secrets and variables → Actions</li>
-                    <li>"New repository secret" 클릭</li>
-                    <li>아래 각 항목의 Name과 Value를 입력</li>
-                    <li class="text-red-300 font-semibold">등록이 끝나면 다운로드한 github-secrets 파일을 반드시 삭제</li>
+                    <li data-i18n="step9.howToSettings">GitHub repository → Settings → Secrets and variables → Actions</li>
+                    <li data-i18n="step9.howToNewSecret">Click "New repository secret"</li>
+                    <li data-i18n="step9.howToNameValue">Enter the Name and Value of each item below</li>
+                    <li class="text-red-300 font-semibold" data-i18n="step9.howToDelete">When you're done, delete the downloaded github-secrets files</li>
                 </ol>
             </div>
 
-            <h3 class="text-lg font-semibold mb-4 text-slate-200">등록할 Secrets 목록</h3>
+            <h3 class="text-lg font-semibold mb-4 text-slate-200" data-i18n="step9.secretsListTitle">Secrets to register</h3>
             <div id="results-container"></div>
 
             <!-- 내보내기 / 가져오기 섹션 -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
-                <p class="text-sm font-semibold text-slate-300 mb-4">📦 설정 내보내기 / 가져오기</p>
+                <p class="text-sm font-semibold text-slate-300 mb-4" data-i18n="step9.exportImportTitle">📦 Export / import settings</p>
 
                 <!-- 다운로드 파일 삭제 경고 -->
                 <div class="bg-red-900/30 border border-red-700 rounded-lg p-3 mb-4">
-                    <p class="text-xs text-red-300 font-semibold">🗑️ Secret 등록이 끝나면 다운로드한 github-secrets 파일을 반드시 삭제하세요. 인증서와 키가 그대로 들어 있습니다.</p>
-                    <p class="text-xs text-red-200/80 mt-1">JSON/TXT/ZIP 내보내기 파일이 다운로드 폴더에 남아 있으면 누구나 배포 인증서와 App Store Connect 키를 꺼내 쓸 수 있습니다.</p>
+                    <p class="text-xs text-red-300 font-semibold" data-i18n="step9.exportDeleteWarning">🗑️ Once the secrets are registered, delete the downloaded github-secrets files. They contain your certificate and keys as is.</p>
+                    <p class="text-xs text-red-200/80 mt-1" data-i18n="step9.exportLeftoverRisk">If JSON/TXT/ZIP exports stay in your Downloads folder, anyone can pull out your distribution certificate and App Store Connect key.</p>
                 </div>
 
                 <!-- 내보내기 버튼들 -->
@@ -1805,36 +1818,36 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
                         </svg>
-                        전체 복사
+                        <span data-i18n="step9.copyAll">Copy all</span>
                     </button>
                     <button onclick="downloadAsJson()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                         </svg>
-                        JSON 내보내기
+                        <span data-i18n="step9.exportJson">Export JSON</span>
                     </button>
                     <button onclick="downloadAsTxt()" class="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm font-medium transition flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
-                        TXT 내보내기
+                        <span data-i18n="step9.exportTxt">Export TXT</span>
                     </button>
                     <button onclick="downloadAsZip()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg text-sm font-medium transition flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
                         </svg>
-                        ZIP 내보내기
+                        <span data-i18n="step9.exportZip">Export ZIP</span>
                     </button>
                 </div>
 
                 <!-- 가져오기 -->
                 <div class="border-t border-slate-600 pt-4">
-                    <p class="text-xs text-slate-400 mb-3">이전에 내보낸 JSON 파일로 설정을 복원할 수 있습니다.</p>
+                    <p class="text-xs text-slate-400 mb-3" data-i18n="step9.importHint">Restore your settings from a JSON file you exported earlier.</p>
                     <label class="flex items-center justify-center gap-2 px-4 py-3 bg-purple-600/20 hover:bg-purple-600/30 border-2 border-dashed border-purple-500 rounded-lg cursor-pointer transition">
                         <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
                         </svg>
-                        <span class="text-purple-300 text-sm font-medium">JSON 파일로 설정 가져오기</span>
+                        <span class="text-purple-300 text-sm font-medium" data-i18n="step9.importJson">Import settings from a JSON file</span>
                         <input type="file" accept=".json" onchange="importFromJson(event)" class="hidden">
                     </label>
                 </div>
@@ -1842,43 +1855,43 @@
 
             <!-- 필수 Secrets 설명 -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
-                <p class="text-sm font-semibold text-yellow-300 mb-3">📝 각 Secret 설명</p>
+                <p class="text-sm font-semibold text-yellow-300 mb-3" data-i18n="step9.secretDescriptionsTitle">📝 What each secret is</p>
                 <div class="space-y-3 text-xs text-slate-300">
                     <div class="p-2 bg-slate-800/50 rounded">
                         <code class="text-green-400 font-bold">APPLE_CERTIFICATE_BASE64</code>
-                        <p class="text-slate-400 mt-1">배포 인증서 (.p12)를 Base64로 인코딩한 값</p>
+                        <p class="text-slate-400 mt-1" data-i18n="step9.descCertificateBase64">The distribution certificate (.p12), Base64-encoded</p>
                     </div>
                     <div class="p-2 bg-slate-800/50 rounded">
                         <code class="text-green-400 font-bold">APPLE_CERTIFICATE_PASSWORD</code>
-                        <p class="text-slate-400 mt-1">.p12 파일 내보내기 시 설정한 비밀번호</p>
+                        <p class="text-slate-400 mt-1" data-i18n="step9.descCertificatePassword">The password you set when exporting the .p12</p>
                     </div>
                     <div class="p-2 bg-slate-800/50 rounded">
                         <code class="text-green-400 font-bold">APPLE_PROVISIONING_PROFILE_BASE64</code>
-                        <p class="text-slate-400 mt-1">프로비저닝 프로파일 (.mobileprovision)을 Base64로 인코딩한 값</p>
+                        <p class="text-slate-400 mt-1" data-i18n="step9.descProfileBase64">The provisioning profile (.mobileprovision), Base64-encoded</p>
                     </div>
                     <div class="p-2 bg-slate-800/50 rounded">
                         <code class="text-green-400 font-bold">APP_STORE_CONNECT_API_KEY_BASE64</code>
-                        <p class="text-slate-400 mt-1">App Store Connect API Key (.p8)를 Base64로 인코딩한 값</p>
+                        <p class="text-slate-400 mt-1" data-i18n="step9.descApiKeyBase64">The App Store Connect API Key (.p8), Base64-encoded</p>
                     </div>
                     <div class="p-2 bg-slate-800/50 rounded">
                         <code class="text-green-400 font-bold">APP_STORE_CONNECT_API_KEY_ID</code>
-                        <p class="text-slate-400 mt-1">API Key ID (10자리)</p>
+                        <p class="text-slate-400 mt-1" data-i18n="step9.descApiKeyId">API Key ID (10 characters)</p>
                     </div>
                     <div class="p-2 bg-slate-800/50 rounded">
                         <code class="text-green-400 font-bold">APP_STORE_CONNECT_ISSUER_ID</code>
-                        <p class="text-slate-400 mt-1">App Store Connect Issuer ID (UUID 형식)</p>
+                        <p class="text-slate-400 mt-1" data-i18n="step9.descIssuerId">App Store Connect Issuer ID (UUID format)</p>
                     </div>
                     <div class="p-2 bg-slate-800/50 rounded">
                         <code class="text-green-400 font-bold">IOS_PROVISIONING_PROFILE_NAME</code>
-                        <p class="text-slate-400 mt-1">Step 4에서 입력한 프로파일 이름 (예: MyApp AppStore Distribution)</p>
+                        <p class="text-slate-400 mt-1" data-i18n="step9.descProfileName">The profile name from step 4 (e.g. MyApp AppStore Distribution)</p>
                     </div>
                     <div class="p-2 bg-slate-800/50 rounded">
                         <code class="text-green-400 font-bold">IOS_BUNDLE_ID</code>
-                        <p class="text-slate-400 mt-1">Step 3에서 등록한 Bundle ID (예: kr.mycompany.myapp)</p>
+                        <p class="text-slate-400 mt-1" data-i18n="step9.descBundleId">The Bundle ID registered in step 3 (e.g. kr.mycompany.myapp)</p>
                     </div>
                     <div class="p-2 bg-slate-800/50 rounded">
                         <code class="text-green-400 font-bold">APPLE_TEAM_ID</code>
-                        <p class="text-slate-400 mt-1">Apple Team ID (10자리 영문+숫자)</p>
+                        <p class="text-slate-400 mt-1" data-i18n="step9.descTeamId">Apple Team ID (10 letters and digits)</p>
                     </div>
                 </div>
             </div>
@@ -1886,62 +1899,62 @@
             <!-- ➕ 추가 Secrets (커스텀) -->
             <div class="custom-secrets-section">
                 <h4 class="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
-                    <span>➕ 추가 Secrets (선택)</span>
+                    <span data-i18n="step9.customSecretsTitle">➕ Extra secrets (optional)</span>
                     <a href="https://github.com/Cassiiopeia/projectops/tree/main/.github/util/common/github-secrets-converter"
                        target="_blank"
                        class="text-xs text-blue-400 hover:text-blue-300 font-normal">
-                        (별도 도구 열기 →)
+                        <span data-i18n="step9.openSeparateTool">(open the separate tool →)</span>
                     </a>
                 </h4>
-                <p class="text-xs text-slate-400 mb-4">
-                    추가 Provisioning Profile, 환경 변수 파일 등을 자유롭게 추가하세요.<br>
-                    <span class="text-blue-400">📄 .json/.yml/.env</span> 등 텍스트 파일은 원본 그대로,
-                    <span class="text-orange-400">🔐 .p12/.mobileprovision/.p8</span> 등 바이너리 파일은 Base64로 자동 변환됩니다.
+                <p class="text-xs text-slate-400 mb-4" data-i18n="step9.customSecretsHint">
+                    Add anything else you need, such as extra provisioning profiles or env files.<br>
+                    Text files like <span class="text-blue-400">📄 .json/.yml/.env</span> are kept as is,
+                    binary files like <span class="text-orange-400">🔐 .p12/.mobileprovision/.p8</span> are converted to Base64 automatically.
                 </p>
 
                 <div id="customSecretsList">
                     <!-- 동적으로 생성됨 -->
                 </div>
 
-                <button class="add-secret-btn" onclick="addCustomSecret()">
-                    + 새 Secret 추가
+                <button class="add-secret-btn" onclick="addCustomSecret()" data-i18n="step9.addSecret">
+                    + Add a secret
                 </button>
             </div>
 
             <div class="deploy-mode-card" style="margin-top:16px;padding:14px;border:1px solid #d0d7de;border-radius:8px;background:#f6f8fa;">
-              <h4 style="margin:0 0 8px;">🎛️ 배포 모드 &amp; 출시 로드맵 (iOS)</h4>
-              <p style="margin:0 0 8px;">GitHub repo <b>Variables → IOS_DEPLOY_MODE</b> 로 기본 배포 범위를 정합니다. 워크플로우 수동 실행 시 <code>deploy_mode</code> 입력이 우선합니다.</p>
+              <h4 style="margin:0 0 8px;" data-i18n="step9.deployModeTitle">🎛️ Deploy mode &amp; release roadmap (iOS)</h4>
+              <p style="margin:0 0 8px;" data-i18n="step9.deployModeIntro">The GitHub repo <b>Variables → IOS_DEPLOY_MODE</b> sets the default deploy scope. A <code>deploy_mode</code> input on a manual workflow run takes precedence.</p>
               <ul style="margin:0;padding-left:18px;">
-                <li><b>store_only</b> — TestFlight 업로드까지만 (기본)</li>
-                <li><b>store_prepare</b> — App Store 제출 직전까지 (ASC에서 사람이 'Add for Review')</li>
-                <li><b>store_submit</b> — App Store 심사 자동 제출</li>
+                <li data-i18n="step9.deployModeStoreOnly"><b>store_only</b> — up to the TestFlight upload (default)</li>
+                <li data-i18n="step9.deployModeStorePrepare"><b>store_prepare</b> — up to just before App Store submission (a person clicks 'Add for Review' in ASC)</li>
+                <li data-i18n="step9.deployModeStoreSubmit"><b>store_submit</b> — submits for App Store review automatically</li>
               </ul>
-              <p style="margin:8px 0 0;color:#57606a;">⚠️ 신규 앱은 최초 1회 App Store Connect에서 수동 제출이 필요하고, 이후 업데이트부터 store_submit으로 자동화됩니다.</p>
-              <p style="margin:8px 0 0;"><b>'새로운 기능' 문구</b> — 기본은 CHANGELOG 해당 버전 항목입니다. 심사자에게 변경 내용을 자세히 보이고 싶지 않으면 워크플로 파일 <code>env</code>의 <code>STORE_WHATS_NEW_OVERRIDE</code>에 한 줄 문구를 적으세요. TestFlight 'What to Test'에는 영향이 없습니다.</p>
-              <p style="margin:8px 0 0;"><b>언어별 노트</b> — 스토어에 언어가 여럿이면 <code>version.yml</code>의 <code>metadata.template.options.store_locales</code>에 언어를 적으세요(예: <code>["ko-KR", "en-US", "ja-JP", "zh-CN"]</code>, 첫 항목이 기본 언어). 번역은 <code>/pro-changelog-deploy</code>가 릴리스 노트를 쓸 때 초안을 만들어 승인받고, 번역이 없는 언어는 기본 언어 문구로 채웁니다(빈 칸은 스토어가 거부합니다). 키가 없으면 지금처럼 한 문구만 올라갑니다.</p>
-              <p style="margin:6px 0 0;color:#57606a;">App Store만 언어 구성이 다르면 <code>store_locales_ios</code>로 이 스토어 목록만 따로 적으세요(예: <code>["ko-KR", "en-US"]</code>). App Store에 없는 언어 코드는 올리지 않고 건너뜁니다.</p>
-              <p style="margin:6px 0 0;color:#57606a;">⚠️ App Store에 없는 언어를 목록에 두면 deliver가 그 언어를 앱에 새로 활성화합니다. App Store 언어가 다르면 반드시 <code>store_locales_ios</code>로 좁히세요.</p>
-              <p style="margin:6px 0 0;"><b>심사 메모(Notes)</b> — <code>ios/fastlane/review_notes.txt</code>가 있으면 매번 그 내용을 넣고, 없으면 App Store Connect 기존값을 그대로 둡니다.</p>
+              <p style="margin:8px 0 0;color:#57606a;" data-i18n="step9.deployModeFirstRelease">⚠️ A new app needs one manual submission in App Store Connect first; updates after that are automated with store_submit.</p>
+              <p style="margin:8px 0 0;" data-i18n="step9.whatsNewNote"><b>'What's New' text</b> — defaults to that version's CHANGELOG entry. If you'd rather not show reviewers the details, put a one-line text in <code>STORE_WHATS_NEW_OVERRIDE</code> under the workflow file's <code>env</code>. TestFlight 'What to Test' is not affected.</p>
+              <p style="margin:8px 0 0;" data-i18n="step9.localesNote"><b>Per-language notes</b> — if the store has several languages, list them in <code>metadata.template.options.store_locales</code> in <code>version.yml</code> (e.g. <code>["ko-KR", "en-US", "ja-JP", "zh-CN"]</code>; the first is the default language). <code>/pro-changelog-deploy</code> drafts the translations for approval when it writes the release notes, and languages without a translation get the default-language text (the store rejects empty fields). Without the key, a single text is uploaded as today.</p>
+              <p style="margin:6px 0 0;color:#57606a;" data-i18n="step9.localesIosNote">If only the App Store has a different language set, list just this store in <code>store_locales_ios</code> (e.g. <code>["ko-KR", "en-US"]</code>). Language codes the App Store doesn't have are skipped, not uploaded.</p>
+              <p style="margin:6px 0 0;color:#57606a;" data-i18n="step9.localesIosWarning">⚠️ If the list has a language the App Store doesn't have, deliver enables that language for the app. If your App Store languages differ, narrow it with <code>store_locales_ios</code>.</p>
+              <p style="margin:6px 0 0;" data-i18n="step9.reviewNotes"><b>Review notes</b> — if <code>ios/fastlane/review_notes.txt</code> exists its contents are sent every time; otherwise the existing App Store Connect value is kept.</p>
             </div>
 
             <div class="flex justify-between mt-8">
-                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()">← 이전</button>
-                <button class="px-6 py-2.5 bg-slate-600 hover:bg-slate-500 rounded-lg font-medium transition" onclick="resetWizard()">🔄 처음부터 다시</button>
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="nav.prev">← Back</button>
+                <button class="px-6 py-2.5 bg-slate-600 hover:bg-slate-500 rounded-lg font-medium transition" onclick="resetWizard()" data-i18n="step9.startOver">🔄 Start over</button>
             </div>
 
             <!-- Star 부탁 -->
             <div class="mt-6 flex items-center justify-center gap-3 text-slate-400 text-sm">
-                <span>도움이 되셨다면 소중한 ⭐️를 눌러주세요!!</span>
+                <span data-i18n="step9.starRequest">If this helped, please leave a ⭐️!!</span>
                 <a href="https://github.com/Cassiiopeia/projectops" target="_blank" rel="noopener"
                    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 rounded-lg transition">
                     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279-7.416-3.967-7.417 3.967 1.481-8.279-6.064-5.828 8.332-1.151z"/></svg>
-                    누르러가기
+                    <span data-i18n="step9.starButton">Give a star</span>
                 </a>
             </div>
         </div>
 
         <footer class="text-center text-slate-500 text-sm py-8">
-            <p>🔒 로컬 실행 전용 - 서버에 데이터가 전송되지 않습니다</p>
+            <p data-i18n="footer.localOnly">🔒 Runs locally only - no data is sent to a server</p>
         </footer>
     </div>
 
@@ -1949,7 +1962,7 @@
     <div id="guideModal" class="modal-backdrop hidden" onclick="closeGuideModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold" id="guideTitle">가이드</h3>
+                <h3 class="text-lg font-bold" id="guideTitle">Guide</h3>
                 <button class="text-slate-400 hover:text-slate-200" onclick="closeGuideModal()">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -1989,7 +2002,9 @@
         </div>
     </div>
 
+    <script src="../_shared/wizard-i18n.js"></script>
     <script src="../_shared/wizard-common.js"></script>
+    <script src="testflight-wizard-i18n.js"></script>
     <script src="testflight-wizard.js"></script>
     <script src="testflight-wizard-export.js"></script>
 </body>

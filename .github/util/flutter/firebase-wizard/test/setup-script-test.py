@@ -105,7 +105,7 @@ print("=== 시나리오 3: 이미 같은 값은 SKIP ===")
 ws = setup_workspace()
 out = run_setup("--project-path", ws, "--app-id", NEW_APP_ID,
                 "--tester-group", NEW_TESTER, "--non-interactive", "--no-backup")
-assert_contains("이미", out, "같은 값 SKIP 메시지 출력")
+assert_contains("already the same value", out, "같은 값 SKIP 메시지 출력")
 content = read_file(os.path.join(ws, ".github", "workflows", "workflow-mixed.yaml"))
 assert_contains(NEW_APP_ID, content, "mixed fixture APP_ID는 치환됨")
 cleanup_workspace(ws)

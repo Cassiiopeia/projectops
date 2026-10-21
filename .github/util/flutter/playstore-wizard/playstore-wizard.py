@@ -117,22 +117,22 @@ def patch_build_gradle(gradle_file_path):
         with open(gradle_file_path, 'r', encoding='utf-8') as f:
             content = f.read()
     except FileNotFoundError:
-        print(f"❌ 파일을 찾을 수 없습니다: {gradle_file_path}")
+        print(f"❌ File not found: {gradle_file_path}")
         return False
     except Exception as e:
-        print(f"❌ 파일 읽기 오류: {e}")
+        print(f"❌ Could not read the file: {e}")
         return False
 
     # 백업 생성 (게이트 경유 — dry-run/--no-backup 반영)
     backup_path = f"{gradle_file_path}.bak"
     if NO_BACKUP:
-        print("ℹ️  --no-backup: 백업을 건너뜁니다")
+        print("ℹ️  --no-backup: skipping the backup")
     else:
         try:
             write_text(backup_path, content)
-            print(f"✅ 백업 생성: {backup_path}")
+            print(f"✅ Backup created: {backup_path}")
         except Exception as e:
-            print(f"⚠️  백업 생성 실패 (계속 진행): {e}")
+            print(f"⚠️  Backup failed (continuing): {e}")
 
     original_content = content
 
@@ -152,9 +152,9 @@ if (keystorePropertiesFile.exists()) {
         pattern = r'(plugins\s*\{[^}]*\})'
         replacement = r'\1\n' + key_properties_code
         content = re.sub(pattern, replacement, content, count=1, flags=re.DOTALL)
-        print("✅ key.properties 로드 코드 추가")
+        print("✅ Added the key.properties loading code")
     else:
-        print("ℹ️  key.properties 로드 코드 이미 존재")
+        print("ℹ️  key.properties loading code already present")
 
     # 3. signingConfigs 블록 추가/업데이트
     if 'signingConfigs {' not in content and 'signingConfigs{' not in content:
@@ -174,16 +174,16 @@ if (keystorePropertiesFile.exists()) {
         pattern = r'(android\s*\{)'
         replacement = r'\1\n' + signing_configs_code
         content = re.sub(pattern, replacement, content, count=1)
-        print("✅ signingConfigs 블록 추가")
+        print("✅ Added the signingConfigs block")
     else:
-        print("ℹ️  signingConfigs 블록 이미 존재")
+        print("ℹ️  signingConfigs block already present")
         # 기존 storeFile 경로 수정 (file(it) → rootProject.file(it))
         if 'storeFile = keystoreProperties["storeFile"]?.let { file(it) }' in content:
             content = content.replace(
                 'storeFile = keystoreProperties["storeFile"]?.let { file(it) }',
                 'storeFile = keystoreProperties["storeFile"]?.let { rootProject.file(it) }'
             )
-            print("✅ 기존 storeFile 경로 수정 (file(it) → rootProject.file(it))")
+            print("✅ Fixed the existing storeFile path (file(it) → rootProject.file(it))")
 
     # 4. buildTypes.release에 signingConfig 설정
     # 기존 debug signingConfig 제거
@@ -202,11 +202,11 @@ if (keystorePropertiesFile.exists()) {
         if re.search(pattern, content, re.DOTALL):
             replacement = r'\1\n            signingConfig = signingConfigs.getByName("release")'
             content = re.sub(pattern, replacement, content, count=1, flags=re.DOTALL)
-            print("✅ release buildType에 signingConfig 추가")
+            print("✅ Added signingConfig to the release buildType")
         else:
-            print("⚠️  release buildType 블록을 찾을 수 없습니다")
+            print("⚠️  Could not find the release buildType block")
     else:
-        print("ℹ️  release buildType에 signingConfig 이미 존재")
+        print("ℹ️  The release buildType already has signingConfig")
 
     # 5. flutter.source 설정 추가/수정
     if 'flutter {' in content or 'flutter{' in content:
@@ -234,26 +234,26 @@ if (keystorePropertiesFile.exists()) {
         else:
             print("ℹ️  flutter.source already set to '../..'")
     else:
-        print("ℹ️  flutter 블록이 없습니다 (추가 필요 시 수동으로 추가하세요)")
+        print("ℹ️  No flutter block (add it by hand if you need it)")
 
     # 6. 파일 저장 (변경사항이 있는 경우에만)
     if content != original_content:
         try:
             write_text(gradle_file_path, content)
-            print("✅ build.gradle.kts 패치 완료!")
+            print("✅ build.gradle.kts patched!")
             return True
         except Exception as e:
-            print(f"❌ 파일 저장 오류: {e}")
+            print(f"❌ Could not save the file: {e}")
             # 백업에서 복원 시도
             if path_exists(backup_path):
                 try:
                     write_text(gradle_file_path, read_text(backup_path))
-                    print("✅ 백업에서 복원 완료")
+                    print("✅ Restored from the backup")
                 except Exception:
                     pass
             return False
     else:
-        print("ℹ️  변경사항 없음 (이미 설정되어 있습니다)")
+        print("ℹ️  No changes (already configured)")
         return True
 
 
@@ -268,7 +268,7 @@ def stop_processes_using_file(file_path):
     if not os.path.isfile(file_path):
         return False
 
-    print_info(f"파일을 사용 중인 프로세스 찾는 중: {file_path}")
+    print_info(f"Looking for processes using the file: {file_path}")
 
     processes_killed = False
 
@@ -298,7 +298,7 @@ def stop_processes_using_file(file_path):
                     ).stdout.strip() or "unknown"
                 except OSError:
                     proc_name = "unknown"
-                print_warning(f"프로세스 종료 중: {proc_name} (PID: {pid})")
+                print_warning(f"Stopping process: {proc_name} (PID: {pid})")
                 try:
                     os.kill(pid, 9)
                     processes_killed = True
@@ -308,7 +308,7 @@ def stop_processes_using_file(file_path):
 
         # 모든 Java/Gradle 프로세스 종료 (파일이 잠겨있을 때)
         if not processes_killed:
-            print_warning("파일을 사용하는 프로세스를 찾지 못했습니다. 모든 Java/Gradle 프로세스 종료 시도 중...")
+            print_warning("No process using the file was found. Trying to stop all Java/Gradle processes...")
             for proc_name in ("java", "javaw", "gradle", "gradlew"):
                 try:
                     out = subprocess.run(
@@ -322,7 +322,7 @@ def stop_processes_using_file(file_path):
                         pid = int(pid_s)
                     except ValueError:
                         continue
-                    print_warning(f"프로세스 종료 중: {proc_name} (PID: {pid})")
+                    print_warning(f"Stopping process: {proc_name} (PID: {pid})")
                     try:
                         os.kill(pid, 9)
                         processes_killed = True
@@ -331,7 +331,7 @@ def stop_processes_using_file(file_path):
                     time.sleep(0.5)
     else:
         # Windows (ps1 방식): java/gradle 프로세스 강제 종료
-        print_warning("파일을 사용하는 프로세스를 찾지 못했습니다. 모든 Java/Gradle 프로세스 종료 시도 중...")
+        print_warning("No process using the file was found. Trying to stop all Java/Gradle processes...")
         for proc_name in ("java", "javaw", "gradle", "gradlew"):
             try:
                 rc = subprocess.run(
@@ -341,12 +341,12 @@ def stop_processes_using_file(file_path):
             except OSError:
                 rc = 1
             if rc == 0:
-                print_warning(f"프로세스 종료 중: {proc_name}")
+                print_warning(f"Stopping process: {proc_name}")
                 processes_killed = True
                 time.sleep(0.5)
 
     if processes_killed:
-        print_info("프로세스 종료 완료. 파일 핸들이 해제될 때까지 5초 대기 중...")
+        print_info("Processes stopped. Waiting 5 seconds for file handles to be released...")
         time.sleep(5)
         return True
 
@@ -362,17 +362,17 @@ KEYSTORE_SKIPPED = False
 
 
 def show_help():
-    print(f"""{CYAN}Flutter Android Play Store 초기화 스크립트{NC}
+    print(f"""{CYAN}Flutter Android Play Store setup script{NC}
 
-{YELLOW}★ 마법사 우선 아키텍처 ★{NC}
-  모든 설정 파일은 이 마법사가 생성하고,
-  GitHub Actions 워크플로우는 생성된 파일을 그대로 사용합니다.
+{YELLOW}★ Wizard-first architecture ★{NC}
+  This wizard generates every config file,
+  and the GitHub Actions workflows use the generated files as they are.
 
-{BLUE}빌드 파이프라인:{NC}
-  1. flutter build appbundle (AAB 생성)
-  2. fastlane deploy_internal (Play Store 업로드)
+{BLUE}Build pipeline:{NC}
+  1. flutter build appbundle (create the AAB)
+  2. fastlane deploy_internal (upload to the Play Store)
 
-{BLUE}사용법 (권장 — 명명 플래그):{NC}
+{BLUE}Usage (recommended — named flags):{NC}
   python playstore-wizard.py setup \\
     --project-path /path/to/project \\
     --application-id com.example.app \\
@@ -381,39 +381,39 @@ def show_help():
     --validity-days 99999 \\
     --cert-cn "My Name" --cert-o "My Company" --cert-l "Seoul" --cert-c "KR"
 
-{BLUE}사용법 (구형 — 위치인자 10개, 계속 지원):{NC}
+{BLUE}Usage (legacy — 10 positional arguments, still supported):{NC}
   python playstore-wizard.py setup PROJECT_PATH APPLICATION_ID KEY_ALIAS STORE_PASSWORD KEY_PASSWORD VALIDITY_DAYS CERT_CN CERT_O CERT_L CERT_C
-  ⚠️ 순서가 하나만 어긋나도 비밀번호가 잘못 저장됩니다. 명명 플래그를 권장합니다.
+  ⚠️ If a single argument is out of order, a password is saved wrong. Named flags are recommended.
 
-{BLUE}매개변수:{NC}
-  --project-path      Flutter 프로젝트 루트 경로
-  --application-id    Android 앱 Application ID (예: com.example.app)
-  --key-alias         Keystore alias 이름
-  --store-password    Keystore 비밀번호
-  --key-password      Key 비밀번호
-  --validity-days     유효기간 (일 단위, 예: 99999)
-  --cert-cn           인증서 Common Name (예: "My Name")
-  --cert-o            인증서 Organization (예: "My Company")
-  --cert-l            인증서 Locality (예: "Seoul")
-  --cert-c            인증서 Country Code (예: "KR")
+{BLUE}Parameters:{NC}
+  --project-path      Flutter project root path
+  --application-id    Android Application ID (e.g. com.example.app)
+  --key-alias         Keystore alias name
+  --store-password    Keystore password
+  --key-password      Key password
+  --validity-days     Validity in days (e.g. 99999)
+  --cert-cn           Certificate Common Name (e.g. "My Name")
+  --cert-o            Certificate Organization (e.g. "My Company")
+  --cert-l            Certificate Locality (e.g. "Seoul")
+  --cert-c            Certificate Country Code (e.g. "KR")
 
-{BLUE}공통 옵션 (3종 마법사 동일):{NC}
-  --dry-run           무엇을 바꿀지만 출력하고 파일·keystore를 만들지 않음
-  --no-backup         기존 파일 백업(.bak)을 만들지 않음
-  --non-interactive   확인 프롬프트 없이 진행 (CI용)
+{BLUE}Common options (same in all three wizards):{NC}
+  --dry-run           Print what would change without creating files or the keystore
+  --no-backup         Do not create backups (.bak) of existing files
+  --non-interactive   Run without confirmation prompts (for CI)
 
-{BLUE}예시:{NC}
+{BLUE}Examples:{NC}
   python playstore-wizard.py setup --project-path . --application-id com.example.app \\
     --key-alias my-release-key --store-password MyPass123 --key-password MyPass123 \\
     --validity-days 99999 --cert-cn "My Name" --cert-o "My Company" --cert-l "Seoul" --cert-c "KR" --dry-run
 
-{BLUE}생성/수정되는 파일:{NC}
-  - android/.gitignore                    .gitignore 업데이트 ★ 먼저 실행
-  - android/app/keystore/key.jks         Keystore 생성 ★
-  - android/key.properties               서명 정보 ★
-  - android/app/build.gradle.kts         서명 설정 패치 ★
-  - android/fastlane/Fastfile.playstore  Play Store 업로드 설정 ★
-  - android/Gemfile                      Fastlane 의존성
+{BLUE}Files created or modified:{NC}
+  - android/.gitignore                    .gitignore update ★ runs first
+  - android/app/keystore/key.jks         Keystore ★
+  - android/key.properties               Signing info ★
+  - android/app/build.gradle.kts         Signing config patch ★
+  - android/fastlane/Fastfile.playstore  Play Store upload setup ★
+  - android/Gemfile                      Fastlane dependencies
 """)
 
 
@@ -421,7 +421,7 @@ def validate_params(params):
     # sh/ps1 분기: ps1은 param() 필수 바인딩 + Application ID 정규식 검증이었지만,
     #   sh 기준(개수 검증 + '.' 포함 여부만)으로 통일.
     if len(params) < 10:
-        print_error("매개변수가 부족합니다.")
+        print_error("Not enough parameters.")
         print("")
         show_help()
         sys.exit(1)
@@ -441,43 +441,43 @@ def validate_params(params):
 
     # 프로젝트 경로 확인
     if not os.path.isdir(ctx["PROJECT_PATH"]):
-        print_error(f"프로젝트 경로가 존재하지 않습니다: {ctx['PROJECT_PATH']}")
+        print_error(f"Project path does not exist: {ctx['PROJECT_PATH']}")
         sys.exit(1)
 
     # pubspec.yaml 확인 (Flutter 프로젝트)
     if not os.path.isfile(os.path.join(ctx["PROJECT_PATH"], "pubspec.yaml")):
-        print_error("Flutter 프로젝트가 아닙니다 (pubspec.yaml 없음)")
+        print_error("Not a Flutter project (no pubspec.yaml)")
         sys.exit(1)
 
     # android 폴더 확인
     if not os.path.isdir(os.path.join(ctx["PROJECT_PATH"], "android")):
-        print_error("Android 폴더가 없습니다. 'flutter create .' 명령을 먼저 실행하세요.")
+        print_error("No android folder. Run 'flutter create .' first.")
         sys.exit(1)
 
     # Application ID 형식 확인
     if "." not in ctx["APPLICATION_ID"]:
-        print_error(f"Application ID 형식이 올바르지 않습니다: {ctx['APPLICATION_ID']}")
-        print_error("예시: com.example.app")
+        print_error(f"Invalid Application ID format: {ctx['APPLICATION_ID']}")
+        print_error("Example: com.example.app")
         sys.exit(1)
 
     # 비밀번호 확인
     if not ctx["STORE_PASSWORD"] or not ctx["KEY_PASSWORD"]:
-        print_error("Keystore 비밀번호와 Key 비밀번호는 필수입니다.")
+        print_error("The keystore password and key password are required.")
         sys.exit(1)
 
     # 유효기간 확인
     if not re.match(r"^[0-9]+$", ctx["VALIDITY_DAYS"]):
-        print_error(f"유효기간은 숫자여야 합니다: {ctx['VALIDITY_DAYS']}")
+        print_error(f"Validity must be a number: {ctx['VALIDITY_DAYS']}")
         sys.exit(1)
 
     # 인증서 정보 확인
     if not ctx["CERT_CN"] or not ctx["CERT_O"] or not ctx["CERT_L"] or not ctx["CERT_C"]:
-        print_error("인증서 정보(CN, O, L, C)는 모두 필수입니다.")
+        print_error("All certificate fields (CN, O, L, C) are required.")
         sys.exit(1)
 
     # Country Code 길이 확인
     if len(ctx["CERT_C"]) != 2:
-        print_error(f"Country Code는 2자리여야 합니다: {ctx['CERT_C']}")
+        print_error(f"Country Code must be 2 letters: {ctx['CERT_C']}")
         sys.exit(1)
 
     return ctx
@@ -489,10 +489,10 @@ def find_template_dir():
     template_dir = os.path.join(script_dir, "templates")
 
     if not os.path.isdir(template_dir):
-        print_error(f"템플릿 디렉토리를 찾을 수 없습니다: {template_dir}")
+        print_error(f"Template directory not found: {template_dir}")
         sys.exit(1)
 
-    print_info(f"템플릿 디렉토리: {template_dir}")
+    print_info(f"Template directory: {template_dir}")
     return template_dir
 
 
@@ -522,7 +522,7 @@ def _dry(msg):
 def copy_file(src, dst):
     """shutil.copyfile 대체 — dry-run이면 계획만 출력하고 오버레이에 반영한다."""
     if DRY_RUN:
-        _dry(f"복사: {src} → {dst}")
+        _dry(f"copy: {src} → {dst}")
         try:
             _DRY_FS[dst] = read_text(src)
             _DRY_DELETED.discard(dst)
@@ -542,7 +542,7 @@ def backup_file(path, suffix=".bak"):
 def remove_file(path):
     """삭제 — dry-run이면 계획만. 없으면 조용히 통과."""
     if DRY_RUN:
-        _dry(f"삭제: {path}")
+        _dry(f"delete: {path}")
         _DRY_FS.pop(path, None)
         _DRY_DELETED.add(path)
         return
@@ -553,7 +553,7 @@ def remove_file(path):
 def move_file(src, dst):
     """이동(주로 백업 복원) — dry-run이면 계획만."""
     if DRY_RUN:
-        _dry(f"이동: {src} → {dst}")
+        _dry(f"move: {src} → {dst}")
         try:
             _DRY_FS[dst] = read_text(src)
             _DRY_DELETED.discard(dst)
@@ -567,7 +567,7 @@ def move_file(src, dst):
 
 def make_dirs(path):
     if DRY_RUN:
-        _dry(f"디렉터리 생성: {path}")
+        _dry(f"create directory: {path}")
         return
     os.makedirs(path, exist_ok=True)
 
@@ -594,7 +594,7 @@ def read_text(path):
 
 def write_text(path, content):
     if DRY_RUN:
-        _dry(f"쓰기: {path} ({len(content)} bytes)")
+        _dry(f"write: {path} ({len(content)} bytes)")
         _DRY_FS[path] = content
         _DRY_DELETED.discard(path)
         return
@@ -604,7 +604,7 @@ def write_text(path, content):
 
 def append_text(path, content):
     if DRY_RUN:
-        _dry(f"추가: {path}")
+        _dry(f"append: {path}")
         base = read_text(path) if (path in _DRY_FS or path_exists(path)) else ""
         _DRY_FS[path] = base + content
         _DRY_DELETED.discard(path)
@@ -622,7 +622,7 @@ DEPLOY_MODES = ("store_only", "store_prepare", "store_submit")
 def validate_deploy_config(ctx):
     mode, rollout = ctx.get("DEPLOY_MODE", ""), ctx.get("PRODUCTION_ROLLOUT", "")
     if mode and mode not in DEPLOY_MODES:
-        print_error(f"--deploy-mode 값 '{mode}' 이 올바르지 않습니다. {' | '.join(DEPLOY_MODES)} 중 하나여야 합니다.")
+        print_error(f"Invalid --deploy-mode value '{mode}'. It must be one of {' | '.join(DEPLOY_MODES)}.")
         sys.exit(1)
     if rollout:
         try:
@@ -630,7 +630,7 @@ def validate_deploy_config(ctx):
         except ValueError:
             ok = False
         if not ok:
-            print_error(f"--production-rollout 값 '{rollout}' 은 0 초과 1.0 이하의 숫자여야 합니다 (예: 1.0, 0.1).")
+            print_error(f"--production-rollout value '{rollout}' must be a number greater than 0 and at most 1.0 (e.g. 1.0, 0.1).")
             sys.exit(1)
 
 
@@ -643,7 +643,7 @@ def create_store_deploy_config(ctx):
     mode, rollout = ctx.get("DEPLOY_MODE", ""), ctx.get("PRODUCTION_ROLLOUT", "")
     if not mode and not rollout:
         return
-    print_step("store-deploy.json 기록 중...")
+    print_step("Writing store-deploy.json...")
     cfg_dir = os.path.join(ctx["PROJECT_PATH"], ".github", "config")
     cfg_path = os.path.join(cfg_dir, "store-deploy.json")
     data = {}
@@ -651,10 +651,10 @@ def create_store_deploy_config(ctx):
         try:
             data = json.loads(read_text(cfg_path))
         except ValueError:
-            print_error(f"{cfg_path} 가 올바른 JSON 이 아닙니다. 직접 고친 뒤 다시 실행하세요.")
+            print_error(f"{cfg_path} is not valid JSON. Fix it by hand and run again.")
             sys.exit(1)
         if not isinstance(data, dict):
-            print_error(f"{cfg_path} 의 최상위는 객체여야 합니다.")
+            print_error(f"The top level of {cfg_path} must be an object.")
             sys.exit(1)
         backup_file(cfg_path)
     android = data.get("android") if isinstance(data.get("android"), dict) else {}
@@ -665,17 +665,17 @@ def create_store_deploy_config(ctx):
     data["android"] = android
     make_dirs(cfg_dir)
     write_text(cfg_path, json.dumps(data, ensure_ascii=False, indent=2) + "\n")
-    print_success(f"store-deploy.json 기록 완료 (android: {', '.join(f'{k}={v}' for k, v in android.items())})")
+    print_success(f"store-deploy.json written (android: {', '.join(f'{k}={v}' for k, v in android.items())})")
 
 
 def update_gitignore(ctx):
-    print_step(".gitignore 업데이트 중...")
+    print_step("Updating .gitignore...")
 
     project_path = ctx["PROJECT_PATH"]
 
     # Git 저장소 확인
     if not os.path.isdir(os.path.join(project_path, ".git")):
-        print_info("Git 저장소가 아닙니다. .gitignore 업데이트를 건너뜁니다.")
+        print_info("Not a Git repository. Skipping the .gitignore update.")
         return
 
     gitignore_path = os.path.join(project_path, ".gitignore")
@@ -701,7 +701,7 @@ def update_gitignore(ctx):
                 appended = f"\n# Play Store CI/CD - 민감한 파일 (자동 생성됨)\n{entry}\n"
                 append_text(gitignore_path, appended)
                 content += appended
-                print_info(f"루트 .gitignore에 추가: {entry}")
+                print_info(f"Added to the root .gitignore: {entry}")
                 gitignore_updated = True
     # 루트 .gitignore가 없으면 생성하지 않음 (Git 미사용 프로젝트 가능성)
 
@@ -713,7 +713,7 @@ def update_gitignore(ctx):
                 android_gitignore_path,
                 "\n# Play Store Keystore (자동 생성됨)\nkey.properties\nkeystore/\n",
             )
-            print_info("android/.gitignore에 추가됨")
+            print_info("Added to android/.gitignore")
             gitignore_updated = True
     else:
         # android/.gitignore가 없으면 생성
@@ -729,13 +729,13 @@ keystore/
 .env.local
 .env.*.local
 """)
-        print_info("android/.gitignore 생성됨")
+        print_info("Created android/.gitignore")
         gitignore_updated = True
 
     if gitignore_updated:
-        print_success(".gitignore 업데이트 완료")
+        print_success(".gitignore updated")
     else:
-        print_info(".gitignore에 이미 모든 항목이 포함되어 있습니다.")
+        print_info(".gitignore already has every entry.")
 
 
 def _git(project_path, args, quiet_stdout=False, quiet_stderr=True):
@@ -752,18 +752,18 @@ def _git(project_path, args, quiet_stdout=False, quiet_stderr=True):
 
 
 def commit_gitignore(ctx):
-    print_step(".gitignore 변경사항 커밋 중...")
+    print_step("Committing the .gitignore changes...")
 
     project_path = ctx["PROJECT_PATH"]
 
     # Git 저장소 확인
     if not os.path.isdir(os.path.join(project_path, ".git")):
-        print_info("Git 저장소가 아닙니다. 커밋을 건너뜁니다.")
+        print_info("Not a Git repository. Skipping the commit.")
         return
 
     # Git 명령어 사용 가능 여부 확인
     if shutil.which("git") is None:
-        print_warning("Git이 설치되어 있지 않습니다. 커밋을 건너뜁니다.")
+        print_warning("Git is not installed. Skipping the commit.")
         return
 
     gitignore_path = os.path.join(project_path, ".gitignore")
@@ -786,12 +786,12 @@ def commit_gitignore(ctx):
 
         if _git(project_path, ["ls-files", "--error-unmatch", key_properties],
                 quiet_stdout=True) == 0:
-            print_warning("이미 추적 중인 key.properties를 Git에서 제거합니다...")
+            print_warning("Removing the already tracked key.properties from Git...")
             _git(project_path, ["rm", "--cached", key_properties])
 
         if _git(project_path, ["ls-files", "--error-unmatch", keystore_jks],
                 quiet_stdout=True) == 0:
-            print_warning("이미 추적 중인 keystore 파일을 Git에서 제거합니다...")
+            print_warning("Removing the already tracked keystore files from Git...")
             _git(project_path, ["rm", "--cached", keystore_jks])
 
         # .gitignore 커밋
@@ -801,20 +801,20 @@ def commit_gitignore(ctx):
             _git(project_path, ["add", android_gitignore_path])
 
         if _git(project_path, ["diff", "--cached", "--quiet"]) == 0:
-            print_info(".gitignore에 변경사항이 없습니다 (이미 커밋됨).")
+            print_info("No .gitignore changes (already committed).")
         else:
             # sh/ps1 분기: 커밋 메시지가 달랐다
             #   (ps1: "chore: Update .gitignore for Android signing files") — sh 문구 채택.
             if _git(project_path, ["commit", "-m", "chore: Add keystore files to .gitignore"]) == 0:
-                print_success(".gitignore 변경사항 커밋 완료")
+                print_success(".gitignore changes committed")
             else:
-                print_warning("커밋 실패 (이미 커밋되었거나 변경사항 없음)")
+                print_warning("Commit failed (already committed or nothing to commit)")
     else:
-        print_info(".gitignore에 변경사항이 없습니다.")
+        print_info("No .gitignore changes.")
 
 
 def create_keystore(ctx):
-    print_step("Keystore 생성 중...")
+    print_step("Creating the keystore...")
 
     project_path = ctx["PROJECT_PATH"]
     keystore_dir = os.path.join(project_path, "android", "app", "keystore")
@@ -825,11 +825,11 @@ def create_keystore(ctx):
 
     # 기존 keystore 확인
     if path_exists(keystore_path):
-        print_info(f"기존 keystore가 존재합니다: {keystore_path}")
-        print_info("기존 keystore 덮어쓰기 중...")
+        print_info(f"A keystore already exists: {keystore_path}")
+        print_info("Overwriting the existing keystore...")
 
         # 기존 keystore에서 alias 삭제 시도 (파일 삭제 전에)
-        print_info("기존 keystore에서 alias 삭제 시도 중...")
+        print_info("Trying to delete the alias from the existing keystore...")
         try:
             delete_rc = subprocess.run(
                 ["keytool", "-delete",
@@ -841,10 +841,10 @@ def create_keystore(ctx):
         except OSError:
             delete_rc = 1
         if delete_rc == 0:
-            print_info("기존 alias가 keystore에서 삭제되었습니다")
+            print_info("The existing alias was deleted from the keystore")
         else:
-            print_warning("keystore에서 alias 삭제 실패 (존재하지 않거나 비밀번호가 다를 수 있음)")
-            print_warning("파일 삭제/교체를 시도합니다...")
+            print_warning("Could not delete the alias from the keystore (it may not exist or the password may differ)")
+            print_warning("Trying to delete or replace the file...")
 
         # 백업 파일이 있으면 삭제
         backup_path = keystore_path + ".bak"
@@ -854,32 +854,32 @@ def create_keystore(ctx):
         # 파일 백업 시도
         try:
             move_file(keystore_path, backup_path)
-            print_info(f"기존 keystore 백업: {backup_path}")
+            print_info(f"Backed up the existing keystore: {backup_path}")
         except OSError:
             # 파일이 잠겨있으면 프로세스 종료 후 재시도
-            print_warning("keystore 파일 이동 실패. 파일을 사용 중인 프로세스 종료 시도 중...")
+            print_warning("Could not move the keystore file. Trying to stop processes using the file...")
 
             if stop_processes_using_file(keystore_path):
                 try:
                     remove_file(keystore_path)
-                    print_info("기존 keystore 삭제됨 (프로세스 종료 후)")
+                    print_info("Deleted the existing keystore (after stopping processes)")
                 except OSError:
-                    print_error(f"프로세스 종료 후에도 keystore 파일 삭제 실패: {keystore_path}")
-                    print_error("파일을 수동으로 삭제하거나 파일을 사용하는 프로그램을 닫으세요.")
+                    print_error(f"Still could not delete the keystore file after stopping processes: {keystore_path}")
+                    print_error("Delete the file by hand or close the program that is using it.")
                     sys.exit(1)
             else:
-                print_error(f"keystore 파일 삭제 실패: {keystore_path}")
-                print_error("파일을 수동으로 삭제하거나 파일을 사용하는 프로그램을 닫으세요.")
+                print_error(f"Could not delete the keystore file: {keystore_path}")
+                print_error("Delete the file by hand or close the program that is using it.")
                 sys.exit(1)
 
     # keytool 명령어 생성
     dname = f"CN={ctx['CERT_CN']}, O={ctx['CERT_O']}, L={ctx['CERT_L']}, C={ctx['CERT_C']}"
 
-    print_info("Keystore 정보:")
-    print_info(f"  • 경로: {keystore_path}")
+    print_info("Keystore details:")
+    print_info(f"  • Path: {keystore_path}")
     print_info(f"  • Alias: {ctx['KEY_ALIAS']}")
-    print_info(f"  • 유효기간: {ctx['VALIDITY_DAYS']} days")
-    print_info(f"  • 인증서: {dname}")
+    print_info(f"  • Validity: {ctx['VALIDITY_DAYS']} days")
+    print_info(f"  • Certificate: {dname}")
 
     # keytool 실행 (비밀번호는 stdin으로 전달)
     # sh/ps1 분기: ps1은 -genkeypair + stdin 미사용이었지만 sh의 -genkey + stdin 전달을 채택.
@@ -889,10 +889,10 @@ def create_keystore(ctx):
         f"{ctx['KEY_PASSWORD']}\n{ctx['KEY_PASSWORD']}\n{dname}\ny\n\n"
     )
     if DRY_RUN:
-        _dry(f"keystore 생성(keytool): {keystore_path} (alias={ctx['KEY_ALIAS']}, {ctx['VALIDITY_DAYS']}일)")
+        _dry(f"create keystore (keytool): {keystore_path} (alias={ctx['KEY_ALIAS']}, {ctx['VALIDITY_DAYS']} days)")
         _DRY_FS[keystore_path] = "<dry-run keystore>"
         _DRY_DELETED.discard(keystore_path)
-        print_success("keystore 생성 완료 (dry-run — 실제 파일 없음)")
+        print_success("Keystore created (dry-run — no real file)")
         return
 
     try:
@@ -921,28 +921,28 @@ def create_keystore(ctx):
         print(str(e))
 
     if path_exists(keystore_path):
-        print_success(f"Keystore 생성 완료: {keystore_path}")
+        print_success(f"Keystore created: {keystore_path}")
     else:
-        print_error("Keystore 생성 실패!")
+        print_error("Failed to create the keystore!")
         sys.exit(1)
 
 
 def create_key_properties(ctx):
-    print_step("key.properties 생성 중...")
+    print_step("Creating key.properties...")
 
     # keystore 생성이 스킵되었으면 key.properties도 스킵
     if KEYSTORE_SKIPPED:
-        print_warning("key.properties 생성 스킵 (keystore가 덮어쓰기되지 않음)")
-        print_warning("⚠️ 기존 keystore를 사용하므로 key.properties의 비밀번호를 수동으로 확인하세요!")
-        print_warning("   기존 keystore의 비밀번호를 android/key.properties에 입력해야 합니다.")
-        print_warning("   또는 Step 2로 돌아가서 keystore를 덮어쓰기(y)로 다시 생성하세요.")
+        print_warning("Skipping key.properties (the keystore was not overwritten)")
+        print_warning("⚠️ The existing keystore is used, so check the passwords in key.properties by hand!")
+        print_warning("   Enter the existing keystore passwords in android/key.properties.")
+        print_warning("   Or go back to Step 2 and create the keystore again with overwrite (y).")
         return
 
     key_properties_path = os.path.join(ctx["PROJECT_PATH"], "android", "key.properties")
 
     # 기존 파일 백업 및 삭제
     if path_exists(key_properties_path):
-        print_info("기존 key.properties 발견. 덮어쓰기 중...")
+        print_info("Found an existing key.properties. Overwriting...")
         backup_path = key_properties_path + ".bak"
 
         # 백업 파일이 있으면 삭제
@@ -953,22 +953,22 @@ def create_key_properties(ctx):
         try:
             copy_file(key_properties_path, backup_path)
             remove_file(key_properties_path)
-            print_info(f"기존 key.properties 백업: {backup_path}")
+            print_info(f"Backed up the existing key.properties: {backup_path}")
         except OSError:
             # 파일이 잠겨있으면 프로세스 종료 후 재시도
-            print_warning("key.properties 파일 백업/삭제 실패. 파일을 사용 중인 프로세스 종료 시도 중...")
+            print_warning("Could not back up or delete key.properties. Trying to stop processes using the file...")
 
             if stop_processes_using_file(key_properties_path):
                 try:
                     remove_file(key_properties_path)
-                    print_info("기존 key.properties 삭제됨 (프로세스 종료 후)")
+                    print_info("Deleted the existing key.properties (after stopping processes)")
                 except OSError:
-                    print_error(f"프로세스 종료 후에도 key.properties 파일 삭제 실패: {key_properties_path}")
-                    print_error("파일을 수동으로 삭제하거나 파일을 사용하는 프로그램을 닫으세요.")
+                    print_error(f"Still could not delete key.properties after stopping processes: {key_properties_path}")
+                    print_error("Delete the file by hand or close the program that is using it.")
                     sys.exit(1)
             else:
-                print_error(f"key.properties 파일 삭제 실패: {key_properties_path}")
-                print_error("파일을 수동으로 삭제하거나 파일을 사용하는 프로그램을 닫으세요.")
+                print_error(f"Could not delete key.properties: {key_properties_path}")
+                print_error("Delete the file by hand or close the program that is using it.")
                 sys.exit(1)
 
     # sh/ps1 분기: ps1은 주석 없이 storePassword부터 쓰는 다른 내용이었다 — sh 내용 채택.
@@ -987,44 +987,44 @@ keyPassword={ctx['KEY_PASSWORD']}
         write_text(key_properties_path, key_properties_content)
     except OSError:
         # 파일이 잠겨있으면 프로세스 종료 후 재시도
-        print_warning("key.properties 파일 쓰기 실패. 파일을 사용 중인 프로세스 종료 시도 중...")
+        print_warning("Could not write key.properties. Trying to stop processes using the file...")
 
         if stop_processes_using_file(key_properties_path):
             try:
                 write_text(key_properties_path, key_properties_content)
-                print_info("프로세스 종료 후 key.properties 쓰기 성공")
+                print_info("Wrote key.properties after stopping processes")
             except OSError:
-                print_error("프로세스 종료 후에도 key.properties 파일 쓰기 실패")
-                print_error("파일이 여전히 잠겨있을 수 있습니다. 파일을 사용하는 프로그램을 수동으로 닫고 다시 시도하세요.")
+                print_error("Still could not write key.properties after stopping processes")
+                print_error("The file may still be locked. Close the program that is using it and try again.")
                 sys.exit(1)
         else:
-            print_error("key.properties 파일 쓰기 실패")
-            print_error("파일이 다른 프로세스에서 사용 중일 수 있습니다. 파일을 사용하는 프로그램을 닫고 다시 시도하세요.")
+            print_error("Could not write key.properties")
+            print_error("Another process may be using the file. Close the program that is using it and try again.")
             sys.exit(1)
 
     # 파일이 제대로 생성되었는지 확인
     if not path_exists(key_properties_path):
-        print_error(f"key.properties 파일이 생성되지 않았습니다: {key_properties_path}")
+        print_error(f"key.properties was not created: {key_properties_path}")
         sys.exit(1)
 
     # 파일 내용 확인
     if "storePassword" not in read_text(key_properties_path):
-        print_error(f"key.properties 파일이 존재하지만 내용이 유효하지 않습니다: {key_properties_path}")
+        print_error(f"key.properties exists but its content is invalid: {key_properties_path}")
         sys.exit(1)
 
-    print_success(f"key.properties 생성 완료: {key_properties_path}")
+    print_success(f"key.properties created: {key_properties_path}")
     print_info(f"  • Store Password: {ctx['STORE_PASSWORD']}")
     print_info(f"  • Key Alias: {ctx['KEY_ALIAS']}")
     print_info(f"  • Key Password: {ctx['KEY_PASSWORD']}")
 
 
 def patch_build_gradle_step(ctx):
-    print_step("build.gradle.kts에 서명 설정 추가 중...")
+    print_step("Adding the signing config to build.gradle.kts...")
 
     gradle_file = os.path.join(ctx["PROJECT_PATH"], "android", "app", "build.gradle.kts")
 
     if not path_exists(gradle_file):
-        print_error(f"build.gradle.kts 파일을 찾을 수 없습니다: {gradle_file}")
+        print_error(f"build.gradle.kts not found: {gradle_file}")
         sys.exit(1)
 
     # 구 sh의 패치 스크립트 존재 확인 + Python 실행 파일 탐지는 내부 함수 흡수로 불필요해짐.
@@ -1033,7 +1033,7 @@ def patch_build_gradle_step(ctx):
     try:
         success = patch_build_gradle(gradle_file)
     except Exception as e:
-        print(f"❌ 오류 발생: {e}")
+        print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()
         success = False
@@ -1042,11 +1042,11 @@ def patch_build_gradle_step(ctx):
         # 구 sh는 set -e 때문에 패치 실패 시 추가 메시지 없이 종료 코드 1로 끝났다 — 동일하게 유지.
         sys.exit(1)
 
-    print_success("build.gradle.kts 자동 설정 완료!")
+    print_success("build.gradle.kts configured!")
 
 
 def create_fastfile(ctx, template_dir):
-    print_step("Fastfile.playstore 생성 중...")
+    print_step("Creating Fastfile.playstore...")
 
     fastlane_dir = os.path.join(ctx["PROJECT_PATH"], "android", "fastlane")
     fastfile_path = os.path.join(fastlane_dir, "Fastfile.playstore")
@@ -1057,7 +1057,7 @@ def create_fastfile(ctx, template_dir):
 
     # 기존 파일 백업
     if path_exists(fastfile_path):
-        print_warning(f"기존 Fastfile.playstore 백업: {fastfile_path}.bak")
+        print_warning(f"Backing up existing Fastfile.playstore: {fastfile_path}.bak")
         backup_file(fastfile_path)
 
     # 템플릿 파일 존재 확인
@@ -1067,7 +1067,7 @@ def create_fastfile(ctx, template_dir):
             fastfile_path,
             read_text(template_fastfile).replace("{{APPLICATION_ID}}", ctx["APPLICATION_ID"]),
         )
-        print_info("템플릿에서 생성됨")
+        print_info("Created from the template")
     else:
         # 템플릿이 없으면 직접 생성
         # 주의: 구 sh 헤레독은 \#{...}의 백슬래시를 그대로 출력했다 (bash 실측 확인) — 바이트 동일 유지.
@@ -1126,18 +1126,18 @@ platform :android do
 end
 """)
 
-    print_success(f"Fastfile.playstore 생성 완료: {fastfile_path}")
-    print_info("  → GitHub Actions 워크플로우에서 이 파일을 직접 사용합니다")
+    print_success(f"Fastfile.playstore created: {fastfile_path}")
+    print_info("  → The GitHub Actions workflow uses this file directly")
 
 
 def create_gemfile(ctx):
-    print_step("Gemfile 생성 중...")
+    print_step("Creating Gemfile...")
 
     gemfile_path = os.path.join(ctx["PROJECT_PATH"], "android", "Gemfile")
 
     # 기존 파일 백업
     if path_exists(gemfile_path):
-        print_warning(f"기존 Gemfile 백업: {gemfile_path}.bak")
+        print_warning(f"Backing up existing Gemfile: {gemfile_path}.bak")
         backup_file(gemfile_path)
 
     # sh/ps1 분기: ps1에는 "# frozen_string_literal: true" 줄이 없었다 — sh 내용 채택.
@@ -1152,68 +1152,68 @@ gem "fastlane", "~> 2.225"
 gem "multi_json"
 """)
 
-    print_success(f"Gemfile 생성 완료: {gemfile_path}")
+    print_success(f"Gemfile created: {gemfile_path}")
 
 
 def print_completion(ctx):
     # sh/ps1 분기: ps1은 영어 요약 + base64 안내 등 다른 내용이었다 — sh 문구 채택.
     print("")
     print(f"{GREEN}╔════════════════════════════════════════════════════════════════╗{NC}")
-    print(f"{GREEN}║          🎉 Android Play Store 배포 설정 완료! 🎉             ║{NC}")
+    print(f"{GREEN}║          🎉 Android Play Store deployment setup complete! 🎉  ║{NC}")
     print(f"{GREEN}╚════════════════════════════════════════════════════════════════╝{NC}")
     print("")
-    print(f"{YELLOW}★ 마법사 우선 아키텍처 ★{NC}")
-    print("  모든 설정이 완료되었습니다. 워크플로우는 이 파일들을 그대로 사용합니다.")
+    print(f"{YELLOW}★ Wizard-first architecture ★{NC}")
+    print("  Setup is complete. The workflows use these files as they are.")
     print("")
-    print(f"{CYAN}생성/수정된 파일:{NC}")
-    print("  ✅ android/.gitignore                    (.gitignore 업데이트)")
-    print("  ✅ android/app/keystore/key.jks         (Keystore 생성) ★")
-    print("  ✅ android/key.properties               (서명 정보) ★")
-    print("  ✅ android/app/build.gradle.kts         (서명 설정 패치) ★")
-    print("  ✅ android/fastlane/Fastfile.playstore  (Play Store 업로드) ★")
-    print("  ✅ android/Gemfile                      (Fastlane 의존성)")
+    print(f"{CYAN}Files created or modified:{NC}")
+    print("  ✅ android/.gitignore                    (.gitignore update)")
+    print("  ✅ android/app/keystore/key.jks         (keystore) ★")
+    print("  ✅ android/key.properties               (signing info) ★")
+    print("  ✅ android/app/build.gradle.kts         (signing config patch) ★")
+    print("  ✅ android/fastlane/Fastfile.playstore  (Play Store upload) ★")
+    print("  ✅ android/Gemfile                      (Fastlane dependencies)")
     print("")
-    print(f"{CYAN}설정된 정보:{NC}")
+    print(f"{CYAN}Configured values:{NC}")
     print(f"  • Application ID: {ctx['APPLICATION_ID']}")
     print(f"  • Key Alias: {ctx['KEY_ALIAS']}")
-    print(f"  • Keystore 유효기간: {ctx['VALIDITY_DAYS']} days")
+    print(f"  • Keystore validity: {ctx['VALIDITY_DAYS']} days")
     print("")
-    print(f"{CYAN}빌드 파이프라인:{NC}")
-    print("  1. flutter build appbundle (AAB 생성)")
-    print("  2. fastlane deploy_internal (Fastfile.playstore 사용)")
+    print(f"{CYAN}Build pipeline:{NC}")
+    print("  1. flutter build appbundle (create the AAB)")
+    print("  2. fastlane deploy_internal (uses Fastfile.playstore)")
     print("")
-    print(f"{YELLOW}다음 단계:{NC}")
-    print("  1. GitHub Secrets 설정:")
-    print("     • RELEASE_KEYSTORE_BASE64 (keystore 파일을 base64 인코딩)")
+    print(f"{YELLOW}Next steps:{NC}")
+    print("  1. Set up GitHub Secrets:")
+    print("     • RELEASE_KEYSTORE_BASE64 (the keystore file, base64-encoded)")
     print("     • RELEASE_KEYSTORE_PASSWORD")
     print("     • RELEASE_KEY_ALIAS")
     print("     • RELEASE_KEY_PASSWORD")
     print("     • GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64")
     print("")
-    print("  2. 추가 변경사항 커밋 (필요시):")
+    print("  2. Commit the other changes (if needed):")
     print("     git add android/")
-    print("     git commit -m \"chore: Android Play Store 배포 설정\"")
-    print("     (참고: .gitignore는 이미 자동으로 커밋되었습니다)")
+    print("     git commit -m \"chore: set up Android Play Store deployment\"")
+    print("     (Note: .gitignore was already committed automatically)")
     print("")
-    print("  3. deploy 브랜치로 푸시하여 빌드 테스트")
+    print("  3. Push to the deploy branch to test the build")
     print("")
-    print("🎛️  배포 모드 설정 (선택):")
-    print("   GitHub repo Variables에 ANDROID_DEPLOY_MODE 를 설정하면 기본 배포 범위를 정할 수 있습니다.")
-    print("     store_only    : 내부 테스트(internal) 업로드까지만 (기본)")
-    print("     store_prepare : production draft 승급 (콘솔에서 '출시 시작' 대기)")
-    print("     store_submit  : production 심사 자동 등록 (정식 출시 1회 수동 이후부터 가능)")
-    print("   워크플로우 수동 실행 시 deploy_mode 입력이 이 변수보다 우선합니다.")
+    print("🎛️  Deploy mode (optional):")
+    print("   Set ANDROID_DEPLOY_MODE in the GitHub repo Variables to choose the default deploy scope.")
+    print("     store_only    : upload to internal testing only (default)")
+    print("     store_prepare : promote to a production draft (waits for 'Start rollout' in the console)")
+    print("     store_submit  : send to production review automatically (available after the first release is done by hand)")
+    print("   When you run the workflow manually, the deploy_mode input overrides this variable.")
     print("")
-    print("🛤️  테스트 트랙 승급 (선택 · 배포 모드와 독립):")
-    print("     ANDROID_PROMOTE_TO_CLOSED_TESTING=true  비공개 테스트 트랙에도 올립니다")
-    print("     ANDROID_PROMOTE_TO_OPEN_TESTING=true    공개 테스트 트랙에도 올립니다")
-    print("     ANDROID_CLOSED_TESTING_TRACK            비공개 트랙 이름 (기본 alpha)")
-    print("     ANDROID_OPEN_TESTING_TRACK              공개 트랙 이름 (기본 beta)")
+    print("🛤️  Testing track promotion (optional · independent of the deploy mode):")
+    print("     ANDROID_PROMOTE_TO_CLOSED_TESTING=true  also release to the closed testing track")
+    print("     ANDROID_PROMOTE_TO_OPEN_TESTING=true    also release to the open testing track")
+    print("     ANDROID_CLOSED_TESTING_TRACK            closed track name (default alpha)")
+    print("     ANDROID_OPEN_TESTING_TRACK              open track name (default beta)")
     print("")
-    print("   ⚠️  2023-11-13 이후에 만든 개인 개발자 계정이라면 비공개 테스트가 사실상 필수입니다.")
-    print("      테스터 12명 이상이 14일 이상 참여한 비공개 테스트를 마쳐야 프로덕션 액세스를 받는데,")
-    print("      기본 배포가 닿는 내부 테스트 트랙은 그 조건에 잡히지 않습니다.")
-    print("      (그 이전에 만든 계정과 조직 계정은 해당하지 않습니다.)")
+    print("   ⚠️  For personal developer accounts created after 2023-11-13, closed testing is effectively required.")
+    print("      You get production access only after a closed test with at least 12 testers for at least 14 days,")
+    print("      and the internal testing track that the default deploy reaches does not count toward it.")
+    print("      (Accounts created before that date and organization accounts are not affected.)")
 
 
 # >>> 공통 블록: 인자 계약 (testflight·playstore 동일 — _shared/check-consistency.py 가 비교)
@@ -1263,13 +1263,13 @@ def normalize_params(params, order):
                 i += 1
             else:
                 if i + 1 >= len(params):
-                    print_error(f"--{key} 값이 없습니다.")
+                    print_error(f"--{key} needs a value.")
                     sys.exit(1)
                 named[key] = params[i + 1]
                 i += 2
             if key not in order:
-                print_error(f"알 수 없는 옵션입니다: --{key}")
-                print(f"사용 가능: {', '.join('--' + k for k in order)}")
+                print_error(f"Unknown option: --{key}")
+                print(f"Available: {', '.join('--' + k for k in order)}")
                 sys.exit(1)
             continue
         positional.append(tok)
@@ -1294,7 +1294,7 @@ def normalize_params(params, order):
 def cmd_setup(params):
     print("")
     print(f"{CYAN}╔════════════════════════════════════════════════════════════════╗{NC}")
-    print(f"{CYAN}║       Flutter Android Play Store 초기화 스크립트               ║{NC}")
+    print(f"{CYAN}║       Flutter Android Play Store setup script                  ║{NC}")
     print(f"{CYAN}╚════════════════════════════════════════════════════════════════╝{NC}")
     print("")
 
@@ -1309,7 +1309,7 @@ def cmd_setup(params):
     DRY_RUN = cli_opts["dry_run"]
     NO_BACKUP = not cli_opts["backup"]
     if DRY_RUN:
-        print(f"{YELLOW}⚠️  dry-run 모드 — 실제 파일은 만들거나 고치지 않습니다.{NC}")
+        print(f"{YELLOW}⚠️  dry-run mode — no files are created or changed.{NC}")
         print("")
 
     # 매개변수 검증
@@ -1320,10 +1320,10 @@ def cmd_setup(params):
     ctx["PRODUCTION_ROLLOUT"] = (params[11] if len(params) > 11 else "").strip()
     validate_deploy_config(ctx)   # 부수효과(키스토어 생성 등)보다 먼저 — 오타는 여기서 멈춘다
 
-    print(f"{BLUE}프로젝트 경로:{NC} {ctx['PROJECT_PATH']}")
+    print(f"{BLUE}Project path:{NC} {ctx['PROJECT_PATH']}")
     print(f"{BLUE}Application ID:{NC} {ctx['APPLICATION_ID']}")
     print(f"{BLUE}Key Alias:{NC} {ctx['KEY_ALIAS']}")
-    print(f"{BLUE}유효기간:{NC} {ctx['VALIDITY_DAYS']} days")
+    print(f"{BLUE}Validity:{NC} {ctx['VALIDITY_DAYS']} days")
     print("")
 
     # 템플릿 디렉토리 찾기
@@ -1598,7 +1598,7 @@ def _detect_android_env_posix():
                     "export PATH=\"$PATH:$ANDROID_HOME/platform-tools\"\n"
                     "export PATH=\"$PATH:$ANDROID_HOME/cmdline-tools/latest/bin\"\n",
                 )
-                env_message = f"ANDROID_HOME을 {shell_rc}에 자동 추가했습니다. 터미널을 다시 열거나 source {shell_rc} 실행"
+                env_message = f"Added ANDROID_HOME to {shell_rc}. Reopen the terminal or run source {shell_rc}"
 
         # 현재 세션에도 적용
         os.environ["ANDROID_HOME"] = android_home
@@ -1609,7 +1609,7 @@ def _detect_android_env_posix():
         )
     else:
         env_status = "warning"
-        env_message = "Android SDK를 찾을 수 없습니다. Android Studio에서 SDK Manager를 열어 설치하세요."
+        env_message = "Android SDK not found. Open SDK Manager in Android Studio and install it."
 
     return env_status, env_message
 
@@ -1652,12 +1652,12 @@ def _detect_android_env_windows():
                     has_user_var = False
                 if not has_user_var:
                     winreg.SetValueEx(key, "ANDROID_HOME", 0, winreg.REG_SZ, android_home)
-                    env_message = "ANDROID_HOME을 사용자 환경 변수에 추가했습니다. 터미널을 다시 열어주세요."
+                    env_message = "Added ANDROID_HOME to your user environment variables. Reopen the terminal."
         except OSError:
             pass
     else:
         env_status = "warning"
-        env_message = "Android SDK를 찾을 수 없습니다. Android Studio에서 SDK Manager를 열어 설치하세요."
+        env_message = "Android SDK not found. Open SDK Manager in Android Studio and install it."
 
     return env_status, env_message
 
@@ -1665,11 +1665,11 @@ def _detect_android_env_windows():
 def cmd_detect_app_id(project_path):
     # 프로젝트 경로 확인
     if not project_path:
-        print('{"error": "프로젝트 경로를 입력하세요", "env": "error"}')
+        print('{"error": "Enter the project path", "env": "error"}')
         sys.exit(1)
 
     if not os.path.isdir(project_path):
-        print('{"error": "프로젝트 경로가 존재하지 않습니다", "env": "error"}')
+        print('{"error": "The project path does not exist", "env": "error"}')
         sys.exit(1)
 
     # 1. Android SDK 환경 검사 및 자동 설정
@@ -1687,9 +1687,9 @@ def cmd_detect_app_id(project_path):
             env_status = "error"
             if os.name == "nt":
                 # sh/ps1 분기: sh 메시지의 brew 안내는 mac 전용이라 Windows는 ps1 문구 채택
-                env_message = "Java가 설치되어 있지 않습니다. JDK를 설치하세요."
+                env_message = "Java is not installed. Install a JDK."
             else:
-                env_message = "Java가 설치되어 있지 않습니다. JDK를 설치하세요: brew install openjdk"
+                env_message = "Java is not installed. Install a JDK: brew install openjdk"
         else:
             keytool_status = "warning"
 
@@ -1701,7 +1701,7 @@ def cmd_detect_app_id(project_path):
         gradle_file = os.path.join(project_path, "android", "app", "build.gradle")
         gradle_type = "groovy"
     else:
-        print('{"error": "build.gradle 파일을 찾을 수 없습니다", "env": "error"}')
+        print('{"error": "build.gradle not found", "env": "error"}')
         sys.exit(1)
 
     gradle_lines = read_text(gradle_file).splitlines()
@@ -1730,7 +1730,7 @@ def cmd_detect_app_id(project_path):
             application_id = re.sub(r'.*"([^"]*)".*', r'\1', matched[0], count=1)
 
     if not application_id:
-        print('{"error": "applicationId를 찾을 수 없습니다", "env": "error"}')
+        print('{"error": "applicationId not found", "env": "error"}')
         sys.exit(1)
 
     # 4. 결과 출력 (JSON) — 구 sh와 동일한 수동 포맷 유지
@@ -1748,26 +1748,26 @@ def cmd_detect_app_id(project_path):
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="playstore-wizard.py",
-        description="Flutter Android Play Store 마법사 로컬 실행 스크립트",
+        description="Flutter Android Play Store wizard local script",
     )
     sub = parser.add_subparsers(dest="command")
 
     # setup은 구 sh처럼 -h/--help와 위치 인자를 자체 처리한다 (argparse 개입 차단)
     p_setup = sub.add_parser(
         "setup", add_help=False,
-        help="Play Store 배포 초기 설정 (keystore, key.properties, build.gradle.kts, Fastfile, Gemfile)",
+        help="Initial Play Store deployment setup (keystore, key.properties, build.gradle.kts, Fastfile, Gemfile)",
     )
     p_setup.add_argument("params", nargs=argparse.REMAINDER)
 
     p_apply = sub.add_parser(
         "apply", add_help=False,
-        help="생성된 설정을 Flutter 프로젝트에 적용 (프로젝트 루트에서 실행)",
+        help="Apply the generated setup to the Flutter project (run from the project root)",
     )
     p_apply.add_argument("params", nargs=argparse.REMAINDER)
 
     p_detect = sub.add_parser(
         "detect-app-id", add_help=False,
-        help="환경 검사 + applicationId 자동 감지 (JSON 출력)",
+        help="Check the environment and detect applicationId (JSON output)",
     )
     p_detect.add_argument("params", nargs=argparse.REMAINDER)
 

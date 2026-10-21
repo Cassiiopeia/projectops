@@ -18,6 +18,7 @@
  *    의도적 오버라이드는 check-consistency.py INTENTIONAL_OVERRIDES 에 등록한다.
  *    (그 외 중복 정의는 검증기가 잡아낸다)
  * 3. 함수 시그니처를 바꾸면 3종 전부 영향을 받는다. 반드시 3종을 함께 확인한다.
+ * 4. 화면 문구는 translate(키) 로 (wizard-i18n.js — 이 파일보다 먼저 로드, #769)
  *
  * 구현 선택 근거 — 3종에 갈라져 있던 구현 중 가장 안전한 것을 채택했다:
  *   escapeHtml   : firebase판 (null 안전 + 따옴표까지 이스케이프)
@@ -121,7 +122,7 @@ function showToast(message) {
  * 클립보드 복사. navigator.clipboard가 없거나(구형 브라우저·비보안 컨텍스트)
  * 실패하면 execCommand로 폴백한다. file://로 열어도 동작해야 하므로 폴백이 필수다.
  */
-async function copyToClipboard(text, successMessage = '복사되었습니다') {
+async function copyToClipboard(text, successMessage = translate('common.copied')) {
     const value = String(text == null ? '' : text);
     try {
         if (navigator.clipboard && window.isSecureContext) {
@@ -140,10 +141,10 @@ async function copyToClipboard(text, successMessage = '복사되었습니다') {
             ta.select();
             const ok = document.execCommand('copy');
             document.body.removeChild(ta);
-            showToast(ok ? successMessage : '복사에 실패했습니다. 직접 선택해 복사해주세요.');
+            showToast(ok ? successMessage : translate('common.copyFailed'));
             return ok;
         } catch (fallbackErr) {
-            showToast('복사에 실패했습니다. 직접 선택해 복사해주세요.');
+            showToast(translate('common.copyFailed'));
             return false;
         }
     }
@@ -153,10 +154,10 @@ async function copyToClipboard(text, successMessage = '복사되었습니다') {
 async function copyCode(elementId, buttonEl) {
     const el = document.getElementById(elementId);
     if (!el) return false;
-    const ok = await copyToClipboard(el.textContent, '명령어가 복사되었습니다');
+    const ok = await copyToClipboard(el.textContent, translate('common.commandCopied'));
     if (ok && buttonEl) {
         const original = buttonEl.textContent;
-        buttonEl.textContent = '✅ 복사됨';
+        buttonEl.textContent = translate('common.copiedButton');
         buttonEl.classList.add('copied');
         setTimeout(() => {
             buttonEl.textContent = original;
@@ -188,7 +189,7 @@ function fileToBase64(file) {
             const result = String(reader.result || '');
             resolve(result.includes(',') ? result.split(',')[1] : result);
         };
-        reader.onerror = () => reject(reader.error || new Error('파일을 읽지 못했습니다'));
+        reader.onerror = () => reject(reader.error || new Error(translate('common.fileReadFailed')));
         reader.readAsDataURL(file);
     });
 }
@@ -198,7 +199,7 @@ function fileToText(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(reader.error || new Error('파일을 읽지 못했습니다'));
+        reader.onerror = () => reject(reader.error || new Error(translate('common.fileReadFailed')));
         reader.readAsText(file);
     });
 }
@@ -286,7 +287,7 @@ function readWizardState(key, legacyKeys = []) {
         }
         return raw ? JSON.parse(raw) : null;
     } catch (err) {
-        console.warn('저장된 진행 상황을 읽지 못했습니다:', err);
+        console.warn('[wizard state] read failed:', err);
         return null;
     }
 }
@@ -297,8 +298,8 @@ function writeWizardState(key, state) {
         return true;
     } catch (err) {
         // 용량 초과(대용량 인증서를 여러 개 올린 경우)에도 마법사가 죽지 않게 한다
-        console.warn('진행 상황 저장 실패:', err);
-        showToast('진행 상황을 저장하지 못했습니다 (브라우저 저장 공간 부족)');
+        console.warn('[wizard state] save failed:', err);
+        showToast(translate('common.stateSaveFailed'));
         return false;
     }
 }
@@ -308,7 +309,7 @@ function clearWizardState(key, legacyKeys = []) {
         localStorage.removeItem(key);
         legacyKeys.forEach((k) => localStorage.removeItem(k));
     } catch (err) {
-        console.warn('진행 상황 삭제 실패:', err);
+        console.warn('[wizard state] clear failed:', err);
     }
 }
 
@@ -322,7 +323,7 @@ function getVersionData() {
         const el = document.getElementById('versionJson');
         return el ? JSON.parse(el.textContent) : null;
     } catch (err) {
-        console.warn('버전 정보를 읽지 못했습니다:', err);
+        console.warn('[wizard version] read failed:', err);
         return null;
     }
 }
@@ -349,7 +350,7 @@ function openChangelogModal() {
 
     const data = getVersionData();
     if (!data) {
-        content.innerHTML = '<div class="text-center text-red-400 py-4">버전 정보를 불러올 수 없습니다.</div>';
+        content.innerHTML = `<div class="text-center text-red-400 py-4">${escapeHtml(translate('common.versionLoadFailed'))}</div>`;
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         return;
@@ -456,7 +457,7 @@ function saveState() {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
-        console.warn('localStorage 저장 실패:', e);
+        console.warn('[wizard state] localStorage save failed:', e);
     }
 }
 
@@ -464,7 +465,7 @@ function clearState() {
     try {
         localStorage.removeItem(STORAGE_KEY);
     } catch (e) {
-        console.warn('localStorage 삭제 실패:', e);
+        console.warn('[wizard state] localStorage clear failed:', e);
     }
 }
 
@@ -503,9 +504,9 @@ function prevStep() {
 /** 파일 > Secret 값 (텍스트는 원문, 바이너리는 Base64) */
 async function processFile(file) {
     if (getFileType(file) === 'text') {
-        return { value: await fileToText(file), type: 'text', hint: 'cat <<EOF > file 로 사용' };
+        return { value: await fileToText(file), type: 'text', hint: translate('common.textHint') };
     }
-    return { value: await fileToBase64(file), type: 'binary', hint: 'echo $SECRET | base64 -d > file 로 사용' };
+    return { value: await fileToBase64(file), type: 'binary', hint: translate('common.binaryHint') };
 }
 
 function addCustomSecret() {
@@ -552,9 +553,12 @@ async function handleCustomFileUpload(index, file) {
 
         renderCustomSecrets();
         saveState();
-        showToast(`✅ ${file.name} 업로드 완료 (${result.type === 'text' ? '텍스트' : 'Base64'})`);
+        showToast(translate('common.uploadDone', {
+            fileName: file.name,
+            fileType: result.type === 'text' ? translate('common.fileTypeText') : 'Base64'
+        }));
     } catch (error) {
-        showToast('❌ 파일 읽기 실패: ' + error.message);
+        showToast(translate('common.uploadFailed', { message: error.message }));
     }
 }
 
@@ -562,9 +566,9 @@ function copyCustomSecretValue(index) {
     const secret = state.customSecrets[index];
     if (secret && secret.value) {
         navigator.clipboard.writeText(secret.value).then(() => {
-            showToast(`✅ ${secret.key} 값 복사됨`);
+            showToast(translate('common.secretValueCopied', { key: secret.key }));
         }).catch(() => {
-            showToast('❌ 클립보드 복사 실패');
+            showToast(translate('common.clipboardFailed'));
         });
     }
 }
@@ -588,11 +592,11 @@ function renderCustomSecrets() {
             <div class="custom-secret-item">
                 <div class="flex items-center justify-between gap-3 mb-3">
                     ${hasFile ? `<span class="type-badge ${typeClass}">${typeIcon} ${typeBadge}</span>` : '<span></span>'}
-                    <button class="remove-secret-btn" onclick="removeCustomSecret(${index})">✕ 삭제</button>
+                    <button class="remove-secret-btn" onclick="removeCustomSecret(${index})">${translate('common.remove')}</button>
                 </div>
 
                 <div class="mb-3">
-                    <label class="block text-xs text-slate-400 mb-1">Secret 이름</label>
+                    <label class="block text-xs text-slate-400 mb-1">${translate('common.secretName')}</label>
                     <input type="text"
                            class="secret-key-input"
                            placeholder="SECRET_NAME"
@@ -606,14 +610,14 @@ function renderCustomSecrets() {
                     <input type="file" id="customFile${index}" onchange="handleCustomFileUpload(${index}, this.files[0])">
                     ${hasFile
                         ? `<div class="text-green-400 text-sm">✅ ${escapeHtml(secret.fileName)}</div>`
-                        : `<div class="text-slate-400 text-sm">📁 파일 선택 또는 클릭</div>`
+                        : `<div class="text-slate-400 text-sm">${translate('common.chooseFile')}</div>`
                     }
                 </div>
 
                 ${hasFile ? `
                     <div class="usage-hint">💡 ${escapeHtml(secret.hint)}</div>
                     <div class="flex justify-end mt-2">
-                        <button class="copy-btn-small" onclick="copyCustomSecretValue(${index})">값 복사</button>
+                        <button class="copy-btn-small" onclick="copyCustomSecretValue(${index})">${translate('common.copyValue')}</button>
                     </div>
                 ` : ''}
             </div>
@@ -628,7 +632,7 @@ function getCustomSecretsForExport() {
         .map(cs => ({
             key: cs.key,
             value: cs.value,
-            desc: `사용자 추가 (${cs.fileName})`,
+            desc: translate('common.customSecretDescription', { fileName: cs.fileName }),
             type: cs.type,
             hint: cs.hint
         }));

@@ -61,7 +61,7 @@ function loadState() {
             return true;
         }
     } catch (e) {
-        console.warn('localStorage 로드 실패:', e);
+        console.warn('[testflight state] localStorage load failed:', e);
     }
     return false;
 }
@@ -109,7 +109,7 @@ function restoreUIFromState() {
         const info = document.getElementById('p12-info');
         if (info) {
             info.style.display = 'block';
-            info.textContent = '✅ 인증서 파일 로드됨';
+            info.textContent = translate('upload.certificateLoaded');
         }
     }
 
@@ -118,7 +118,7 @@ function restoreUIFromState() {
         const info = document.getElementById('provision-info');
         if (info) {
             info.style.display = 'block';
-            info.textContent = '✅ 프로비저닝 프로파일 로드됨';
+            info.textContent = translate('upload.profileLoaded');
         }
     }
 
@@ -127,7 +127,7 @@ function restoreUIFromState() {
         const info = document.getElementById('p8-info');
         if (info) {
             info.style.display = 'block';
-            info.textContent = '✅ API Key 파일 로드됨';
+            info.textContent = translate('upload.apiKeyLoaded');
         }
     }
 
@@ -160,13 +160,13 @@ function validateTeamId(input) {
     }
 
     if (value.length < 10) {
-        warning.textContent = `⚠️ ${value.length}자리 - Team ID는 10자리입니다. 마지막 글자가 빠지지 않았는지 확인하세요.`;
+        warning.textContent = translate('teamId.tooShort', { length: value.length });
         warning.className = 'text-xs mt-1 text-red-400';
     } else if (!/^[A-Z0-9]{10}$/.test(value)) {
-        warning.textContent = '⚠️ Team ID는 영문 대문자와 숫자 10자리입니다.';
+        warning.textContent = translate('teamId.invalid');
         warning.className = 'text-xs mt-1 text-red-400';
     } else {
-        warning.textContent = '✅ 형식이 올바릅니다';
+        warning.textContent = translate('teamId.valid');
         warning.className = 'text-xs mt-1 text-green-400';
     }
 }
@@ -183,7 +183,7 @@ async function handleP12Upload(event) {
 
 async function handleP12File(file) {
     if (!file.name.endsWith('.p12')) {
-        showToast('⚠️ .p12 파일만 업로드 가능합니다');
+        showToast(translate('upload.p12Only'));
         return;
     }
 
@@ -194,9 +194,9 @@ async function handleP12File(file) {
         info.style.display = 'block';
         info.textContent = `✅ ${file.name} (${(file.size/1024).toFixed(1)}KB)`;
         saveState();
-        showToast('✅ 인증서 파일 업로드 완료');
+        showToast(translate('upload.certificateDone'));
     } catch (error) {
-        showToast('❌ 파일 읽기 실패: ' + error.message);
+        showToast(translate('upload.readFailed', { message: error.message }));
     }
 }
 
@@ -208,7 +208,7 @@ async function handleProvisionUpload(event) {
 
 async function handleProvisionFile(file) {
     if (!file.name.endsWith('.mobileprovision')) {
-        showToast('⚠️ .mobileprovision 파일만 업로드 가능합니다');
+        showToast(translate('upload.provisionOnly'));
         return;
     }
 
@@ -219,9 +219,9 @@ async function handleProvisionFile(file) {
         info.style.display = 'block';
         info.textContent = `✅ ${file.name} (${(file.size/1024).toFixed(1)}KB)`;
         saveState();
-        showToast('✅ 프로비저닝 프로파일 업로드 완료');
+        showToast(translate('upload.profileDone'));
     } catch (error) {
-        showToast('❌ 파일 읽기 실패: ' + error.message);
+        showToast(translate('upload.readFailed', { message: error.message }));
     }
 }
 
@@ -233,7 +233,7 @@ async function handleP8Upload(event) {
 
 async function handleP8File(file) {
     if (!file.name.endsWith('.p8')) {
-        showToast('⚠️ .p8 파일만 업로드 가능합니다');
+        showToast(translate('upload.p8Only'));
         return;
     }
 
@@ -252,9 +252,9 @@ async function handleP8File(file) {
         }
 
         saveState();
-        showToast('✅ API Key 파일 업로드 완료');
+        showToast(translate('upload.apiKeyDone'));
     } catch (error) {
-        showToast('❌ 파일 읽기 실패: ' + error.message);
+        showToast(translate('upload.readFailed', { message: error.message }));
     }
 }
 
@@ -273,22 +273,22 @@ async function selectProjectFolder() {
             // 입력칸은 건드리지 않고 힌트 영역에만 폴더명을 표시한다.
             const hint = document.getElementById('projectPath-hint');
             if (hint) {
-                hint.innerHTML = `선택한 폴더: <span class="text-yellow-400 font-mono">${folderName}</span> — 아래 칸에 이 폴더의 <span class="text-yellow-400">절대경로</span>를 입력하세요 (터미널에서 <code class="text-slate-300">pwd</code>)`;
+                hint.innerHTML = translate('folder.selectedHint', { folderName });
                 hint.classList.remove('hidden');
             }
 
             const input = document.getElementById('projectPath');
             if (input) input.focus();
 
-            showToast(`폴더 "${folderName}" 선택됨 - 절대경로를 입력해주세요`);
+            showToast(translate('folder.selectedToast', { folderName }));
         } catch (err) {
             if (err.name !== 'AbortError') {
-                console.error('폴더 선택 오류:', err);
-                showToast('폴더 선택에 실패했습니다. 경로를 직접 입력해주세요.');
+                console.error('[testflight folder] picker failed:', err);
+                showToast(translate('folder.pickFailed'));
             }
         }
     } else {
-        showToast('이 브라우저는 폴더 선택을 지원하지 않습니다.');
+        showToast(translate('folder.unsupported'));
         const input = document.getElementById('projectPath');
         if (input) input.focus();
     }
@@ -456,12 +456,12 @@ function skipStep(stepNumber) {
         updateProgress();
         saveState();
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        showToast(`Step ${stepNumber} 건너뛰기`);
+        showToast(translate('nav.skipped', { stepNumber }));
     }
 }
 
 function resetWizard() {
-    if (confirm('모든 데이터를 초기화하시겠습니까?')) {
+    if (confirm(translate('nav.resetConfirm'))) {
         state.currentStep = 1;
         state.projectPath = '';
         state.repoRoot = '';
@@ -488,9 +488,9 @@ function resetWizard() {
 
         // Display 요소 초기화
         const displayBundleId = document.getElementById('display-bundle-id');
-        if (displayBundleId) displayBundleId.textContent = '(미입력)';
+        if (displayBundleId) displayBundleId.textContent = translate('value.notEntered');
         const displayProfileName = document.getElementById('display-profile-name');
-        if (displayProfileName) displayProfileName.textContent = '(미입력)';
+        if (displayProfileName) displayProfileName.textContent = translate('value.notEntered');
 
         // 파일 업로드 상태 초기화
         document.querySelectorAll('.file-upload').forEach(el => {
@@ -502,7 +502,7 @@ function resetWizard() {
 
         showStep(1);
         updateProgress();
-        showToast('마법사가 초기화되었습니다.');
+        showToast(translate('nav.resetDone'));
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 }
@@ -522,13 +522,13 @@ function saveCurrentStepData() {
             }
             // 상대경로는 Step 8 명령어에서 cd 실패로 이어지므로 미리 걸러낸다
             if (state.projectPath && !isAbsolutePath(state.projectPath)) {
-                showToast('절대경로를 입력해주세요 (예: /Users/이름/projects/myapp)');
+                showToast(translate('step1.absolutePathRequired'));
                 state.projectPath = '';
             }
             // 모노레포에서만 채우는 선택 입력 — 비어 있으면 Flutter 루트를 그대로 쓴다
             state.repoRoot = getInputValue('repoRoot');
             if (state.repoRoot && !isAbsolutePath(state.repoRoot)) {
-                showToast('레포 루트도 절대경로로 입력해주세요');
+                showToast(translate('step1.repoRootAbsoluteRequired'));
                 state.repoRoot = '';
             }
             break;
@@ -578,7 +578,7 @@ function generateInitCommand() {
     // 경로 미입력 시 placeholder가 그대로 나가면 cd 실패로 이어진다.
     // 명령어를 감추는 대신 배너로 무엇을 채워야 하는지 알린다.
     const pathMissing = !state.projectPath;
-    const projectPath = state.projectPath || '<<Step 1에서 프로젝트 절대경로를 입력하세요>>';
+    const projectPath = state.projectPath || translate('step8.projectPathPlaceholder');
     const bundleId = state.bundleId || 'com.example.app';
     const teamId = state.teamId || 'TEAM_ID';
     const profileName = state.profileName || 'Profile Name';
@@ -611,10 +611,10 @@ function generateInitCommand() {
 
 function generateResults() {
     const secrets = [
-        { key: 'APPLE_CERTIFICATE_BASE64', value: state.p12Base64, desc: 'Distribution 인증서 (.p12)' },
-        { key: 'APPLE_CERTIFICATE_PASSWORD', value: state.p12Password, desc: '인증서 비밀번호' },
+        { key: 'APPLE_CERTIFICATE_BASE64', value: state.p12Base64, desc: translate('results.descCertificate') },
+        { key: 'APPLE_CERTIFICATE_PASSWORD', value: state.p12Password, desc: translate('results.descCertificatePassword') },
         { key: 'APPLE_PROVISIONING_PROFILE_BASE64', value: state.provisionBase64, desc: 'Provisioning Profile' },
-        { key: 'IOS_PROVISIONING_PROFILE_NAME', value: state.profileName, desc: '프로파일 이름' },
+        { key: 'IOS_PROVISIONING_PROFILE_NAME', value: state.profileName, desc: translate('results.descProfileName') },
         { key: 'APP_STORE_CONNECT_API_KEY_BASE64', value: state.p8Base64, desc: 'API Key (.p8)' },
         { key: 'APP_STORE_CONNECT_API_KEY_ID', value: state.apiKeyId, desc: 'API Key ID' },
         { key: 'APP_STORE_CONNECT_ISSUER_ID', value: state.issuerId, desc: 'Issuer ID' },
@@ -627,25 +627,25 @@ function generateResults() {
         <div class="result-item">
             <div class="key">
                 <span>${s.key} <small style="color:#71717a">(${s.desc})</small></span>
-                <button class="copy-btn-small" onclick="copyValue(this, '${s.key}')">복사</button>
+                <button class="copy-btn-small" onclick="copyValue(this, '${s.key}')">${translate('results.copy')}</button>
             </div>
-            <div class="value" id="value-${s.key}">${s.value || '(비어있음)'}</div>
+            <div class="value" id="value-${s.key}">${s.value || translate('results.empty')}</div>
         </div>
     `).join('');
 }
 
 function copyValue(btn, key) {
     const value = document.getElementById(`value-${key}`).textContent;
-    if (value === '(비어있음)') {
-        showToast('⚠️ 값이 비어있습니다');
+    if (value === translate('results.empty')) {
+        showToast(translate('results.valueEmpty'));
         return;
     }
 
     navigator.clipboard.writeText(value).then(() => {
-        btn.textContent = '복사됨!';
+        btn.textContent = translate('results.copied');
         btn.classList.add('copied');
         setTimeout(() => {
-            btn.textContent = '복사';
+            btn.textContent = translate('results.copy');
             btn.classList.remove('copied');
         }, 2000);
     });
@@ -683,52 +683,52 @@ function downloadAsJson() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast('✅ JSON 파일 다운로드 완료! Secret 등록 후 이 파일은 반드시 삭제하세요.');
+    showToast(translate('export.jsonDone'));
 }
 
 function downloadAsTxt() {
     const lines = [
         '# GitHub Secrets for iOS TestFlight Deployment',
-        '# 생성일: ' + new Date().toLocaleString('ko-KR'),
+        translate('export.txtGeneratedAt', { date: new Date().toLocaleString(getExportDateLocale()) }),
         '',
         '===== GitHub Repository Secrets =====',
         '',
         'APPLE_CERTIFICATE_BASE64:',
-        state.p12Base64 || '(미입력)',
+        state.p12Base64 || translate('value.notEntered'),
         '',
         'APPLE_CERTIFICATE_PASSWORD:',
-        state.p12Password || '(미입력)',
+        state.p12Password || translate('value.notEntered'),
         '',
         'APPLE_PROVISIONING_PROFILE_BASE64:',
-        state.provisionBase64 || '(미입력)',
+        state.provisionBase64 || translate('value.notEntered'),
         '',
         'IOS_PROVISIONING_PROFILE_NAME:',
-        state.profileName || '(미입력)',
+        state.profileName || translate('value.notEntered'),
         '',
         'APP_STORE_CONNECT_API_KEY_BASE64:',
-        state.p8Base64 || '(미입력)',
+        state.p8Base64 || translate('value.notEntered'),
         '',
         'APP_STORE_CONNECT_API_KEY_ID:',
-        state.apiKeyId || '(미입력)',
+        state.apiKeyId || translate('value.notEntered'),
         '',
         'APP_STORE_CONNECT_ISSUER_ID:',
-        state.issuerId || '(미입력)',
+        state.issuerId || translate('value.notEntered'),
         '',
         'APPLE_TEAM_ID:',
-        state.teamId || '(미입력)',
+        state.teamId || translate('value.notEntered'),
         '',
         'IOS_BUNDLE_ID:',
-        state.bundleId || '(미입력)'
+        state.bundleId || translate('value.notEntered')
     ];
 
     // 커스텀 Secrets 추가
     if (state.customSecrets && state.customSecrets.length > 0) {
         lines.push('');
-        lines.push('===== 사용자 추가 Secrets =====');
+        lines.push(translate('export.customSecretsHeader'));
         lines.push('');
         state.customSecrets.forEach(cs => {
             if (cs.key && cs.value) {
-                const typeLabel = cs.type === 'text' ? '[텍스트]' : '[Base64]';
+                const typeLabel = cs.type === 'text' ? translate('export.typeText') : '[Base64]';
                 lines.push(`${cs.key}: ${typeLabel}`);
                 lines.push(cs.value);
                 lines.push('');
@@ -748,64 +748,67 @@ function downloadAsTxt() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast('✅ TXT 파일 다운로드 완료! Secret 등록 후 이 파일은 반드시 삭제하세요.');
+    showToast(translate('export.txtDone'));
 }
 
 // ============================================
 // Secret Guide Modal Functions
 // ============================================
 
-const secretGuides = {
-    certificate: {
-        title: '📜 배포 인증서 (.p12) 생성 가이드',
-        steps: [
-            '1. Mac에서 "키체인 접근" 앱을 엽니다.',
-            '2. "로그인" 키체인에서 "Apple Distribution" 인증서를 찾습니다.',
-            '3. 인증서를 우클릭 → "내보내기"를 선택합니다.',
-            '4. 파일 형식을 ".p12"로 선택합니다.',
-            '5. 안전한 비밀번호를 설정합니다.',
-            '6. 아래 명령어로 Base64 인코딩합니다:'
-        ],
-        commands: [
-            'base64 -i ~/Desktop/Certificates.p12 | pbcopy',
-            '# 클립보드에 복사됨'
-        ]
-    },
-    profile: {
-        title: '📋 프로비저닝 프로파일 생성 가이드',
-        steps: [
-            '1. Apple Developer Console 접속',
-            '2. Certificates, Identifiers & Profiles → Profiles',
-            '3. "App Store" Distribution 타입 선택',
-            '4. 앱의 Bundle ID 선택',
-            '5. Distribution Certificate 선택',
-            '6. 프로파일 다운로드',
-            '7. 아래 명령어로 Base64 인코딩:'
-        ],
-        commands: [
-            'base64 -i ~/Downloads/YourProfile.mobileprovision | pbcopy'
-        ]
-    },
-    apikey: {
-        title: '🔑 App Store Connect API Key 생성 가이드',
-        steps: [
-            '1. App Store Connect 접속',
-            '2. Users and Access → Keys 탭',
-            '3. "+" 버튼으로 새 API Key 생성',
-            '4. Access: "App Manager" 또는 "Admin" 선택',
-            '5. Key ID 복사',
-            '6. Issuer ID 복사 (상단에 표시됨)',
-            '7. API Key 다운로드 (.p8 파일)',
-            '8. 아래 명령어로 Base64 인코딩:'
-        ],
-        commands: [
-            'base64 -i ~/Downloads/AuthKey_XXXXXX.p8 | pbcopy'
-        ]
-    }
-};
+/** 가이드 문구 — 언어 전환 반영 위해 열 때마다 조립 */
+function getSecretGuides() {
+    return {
+        certificate: {
+            title: translate('guide.certificateTitle'),
+            steps: [
+                translate('guide.certificateStep1'),
+                translate('guide.certificateStep2'),
+                translate('guide.certificateStep3'),
+                translate('guide.certificateStep4'),
+                translate('guide.certificateStep5'),
+                translate('guide.certificateStep6')
+            ],
+            commands: [
+                'base64 -i ~/Desktop/Certificates.p12 | pbcopy',
+                translate('guide.copiedComment')
+            ]
+        },
+        profile: {
+            title: translate('guide.profileTitle'),
+            steps: [
+                translate('guide.profileStep1'),
+                '2. Certificates, Identifiers & Profiles → Profiles',
+                translate('guide.profileStep3'),
+                translate('guide.profileStep4'),
+                translate('guide.profileStep5'),
+                translate('guide.profileStep6'),
+                translate('guide.profileStep7')
+            ],
+            commands: [
+                'base64 -i ~/Downloads/YourProfile.mobileprovision | pbcopy'
+            ]
+        },
+        apikey: {
+            title: translate('guide.apiKeyTitle'),
+            steps: [
+                translate('guide.apiKeyStep1'),
+                translate('guide.apiKeyStep2'),
+                translate('guide.apiKeyStep3'),
+                translate('guide.apiKeyStep4'),
+                translate('guide.apiKeyStep5'),
+                translate('guide.apiKeyStep6'),
+                translate('guide.apiKeyStep7'),
+                translate('guide.apiKeyStep8')
+            ],
+            commands: [
+                'base64 -i ~/Downloads/AuthKey_XXXXXX.p8 | pbcopy'
+            ]
+        }
+    };
+}
 
 function showSecretGuide(type) {
-    const guide = secretGuides[type];
+    const guide = getSecretGuides()[type];
     if (!guide) return;
 
     const modal = document.getElementById('guideModal');
@@ -829,7 +832,7 @@ function showSecretGuide(type) {
         guide.commands.forEach(cmd => {
             html += `
                 <div class="code-block">
-                    <button class="copy-btn absolute top-2 right-2 px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-slate-300 transition" onclick="copyCode(this)">복사</button>
+                    <button class="copy-btn absolute top-2 right-2 px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-slate-300 transition" onclick="copyCode(this)">${translate('results.copy')}</button>
                     <pre>${cmd}</pre>
                 </div>
             `;
@@ -888,7 +891,7 @@ function setupInputHandlers() {
         bundleIdInput.addEventListener('input', (e) => {
             state.bundleId = e.target.value.trim();
             const displayEl = document.getElementById('display-bundle-id');
-            if (displayEl) displayEl.textContent = e.target.value.trim() || '(미입력)';
+            if (displayEl) displayEl.textContent = e.target.value.trim() || translate('value.notEntered');
         });
     }
 
@@ -898,7 +901,7 @@ function setupInputHandlers() {
         profileNameInput.addEventListener('input', (e) => {
             state.profileName = e.target.value.trim();
             const displayEl = document.getElementById('display-profile-name');
-            if (displayEl) displayEl.textContent = e.target.value.trim() || '(미입력)';
+            if (displayEl) displayEl.textContent = e.target.value.trim() || translate('value.notEntered');
         });
     }
 
@@ -919,7 +922,7 @@ function initialize() {
     if (hasState) {
         showStep(state.currentStep);
         updateProgress();
-        showToast('이전 진행 상태를 복원했습니다');
+        showToast(translate('nav.restored'));
     } else {
         showStep(1);
         updateProgress();
@@ -933,11 +936,36 @@ function initialize() {
 // DOM 로드 완료 시 초기화
 document.addEventListener('DOMContentLoaded', initialize);
 
+/** 내보내기 날짜 표기 — ko 는 기존 출력과 같게 ko-KR */
+function getExportDateLocale() {
+    return getWizardLanguage() === 'ko' ? 'ko-KR' : 'en-US';
+}
+
+/** 미입력 표시칸 — 이미 미입력 문구(en·ko)를 보이는 칸만 현재 언어로 (예시 값은 유지) */
+function refreshNotEnteredLabels() {
+    const notEnteredTexts = ['(not entered)', '(미입력)'];
+    ['display-bundle-id', 'display-profile-name'].forEach((id) => {
+        const element = document.getElementById(id);
+        if (element && notEnteredTexts.includes(element.textContent)) {
+            element.textContent = translate('value.notEntered');
+        }
+    });
+}
+
+// 언어 전환: JS 가 그린 영역(현재 단계·커스텀 Secret·Team ID 경고) 다시 그리기
+document.addEventListener('wizardlanguagechange', () => {
+    showStep(state.currentStep);
+    renderCustomSecrets();
+    refreshNotEnteredLabels();
+    const teamIdInput = document.getElementById('teamId');
+    if (teamIdInput) validateTeamId(teamIdInput);
+});
+
 // 페이지 언로드 시 경고 (데이터 손실 방지)
 window.addEventListener('beforeunload', (e) => {
     if (state.currentStep > 1 || state.bundleId || state.p12Base64) {
         e.preventDefault();
-        e.returnValue = '입력한 데이터가 사라질 수 있습니다. 정말 나가시겠습니까?';
+        e.returnValue = translate('nav.leaveWarning');
     }
 });
 

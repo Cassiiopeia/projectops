@@ -1,9 +1,20 @@
 {
   "name": "iOS TestFlight Setup Wizard",
-  "version": "1.5.2",
-  "description": "Flutter iOS 앱을 TestFlight에 배포하기 위한 설정 마법사",
-  "lastUpdated": "2026-10-10",
+  "version": "1.6.0",
+  "description": "Setup wizard for deploying a Flutter iOS app to TestFlight",
+  "lastUpdated": "2026-10-22",
   "changelog": [
+    {
+      "version": "1.6.0",
+      "date": "2026-10-22",
+      "changes": [
+        "English is now the default; a language toggle switches to Korean and the choice is saved in this browser (projectops#769)",
+        "Korean text moved to testflight-wizard-i18n.js; the shared engine is _shared/wizard-i18n.js",
+        "Starts in Korean when there is no saved choice and the browser language is Korean; ?lang=en|ko in the address overrides",
+        "Generated files, commands and secret names are identical in both languages",
+        "Python CLI messages are now English"
+      ]
+    },
     {
       "version": "1.5.2",
       "date": "2026-10-10",
