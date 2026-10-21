@@ -20,6 +20,7 @@
 | `web-playwright-or-browser-missing` | playwright_missing · browser_missing — web setup 이 필요하다 | `playwright_missing` · `browser_missing` |
 | `web-readonly-mutating-blocked` | 읽기 전용 세션에서 저장·제출 버튼이 mutating_blocked | `mutating_blocked` |
 | `web-save-by-network` | 저장이 됐는지 화면 문구 대신 요청 응답으로 판정한다 | — |
+| `web-script-browser-memory-exceeded` | web script 대량 수집이 브라우저 메모리를 수백 GB 로 키운다 — 쿠키만 꺼내 HTTP 로 | `browser_memory_exceeded` |
 | `web-scroll-container-capture` | 내부 스크롤 화면(Google Forms 편집기 등)은 full-page 로 안 찍힌다 | — |
 | `web-secret-in-input` | 비밀값이 입력칸·복사 버튼 안에만 있다 | — |
 | `web-selector-guess-timeout` | 추측한 --selector 가 빗나감 — 결과의 candidates 에서 골라 --ref 로 누른다 | `selector_not_found` · `element_not_actionable` · `element_disabled` |
@@ -169,6 +170,20 @@
   1. launch_cli.py web click --capture-requests 로 POST/PUT 응답 상태를 본다
   2. status 200 대 4xx 로 판정한다 (URL 쿼리는 가려진다)
 - 근거: #930 · 확인 2026-10-18
+
+### `web-script-browser-memory-exceeded` — web script 대량 수집이 브라우저 메모리를 수백 GB 로 키운다 — 쿠키만 꺼내 HTTP 로
+
+- 코드: `browser_memory_exceeded`
+- 핵심어: 스왑, swap, 대량 수집
+- 증상: web script 로 페이지 수천 개를 돌던 중 browser_memory_exceeded 가 나오거나, 그 전에 browser_hung 이 반복되고 컴퓨터가 스왑으로 느려진다
+- 원인: 브라우저 안에서 페이지를 열 때마다 렌더러·캐시가 쌓인다. 실측: 조각 하나가 Chrome 을 275GB · 스왑 40GB 까지 키웠다. 브라우저는 로그인 도구이지 수집 엔진이 아니다
+- 해결:
+  1. 로그인만 브라우저로 하고, web script 로 context.cookies() 를 실행 폴더의 파일에 쓴다 (결과로 출력하지 않는다 — 기록에 남는다)
+  2. 수집은 그 쿠키를 Cookie 헤더로 실어 HTTP(urllib · requests)로 한다. 목록 API 가 있으면 화면 대신 API 를 부른다
+  3. 브라우저 안에서 돌아야 하면 페이지를 수십 개 묶음으로 나눠 web script 를 여러 번 부르고, 연 탭은 page.close() 로 닫는다
+  4. 상한은 web script --memory-limit-mb 또는 PRO_LAUNCH_BROWSER_MEMORY_LIMIT_MB (기본 8192). 넘으면 브라우저를 끄므로 web open 으로 다시 띄운다
+- 근거: #973 · 확인 2026-10-21
+- 함께 볼 것: `web-orphan-headless-chrome`
 
 ### `web-scroll-container-capture` — 내부 스크롤 화면(Google Forms 편집기 등)은 full-page 로 안 찍힌다
 
@@ -364,6 +379,7 @@
 |---|---|---|
 | `ios-app-vanishes-after-launch` | iOS 앱이 실행 직후 사라지는데 app shot 은 홈 화면을 찍는다 | `app_exited` |
 | `ios-label-in-desc-doubled` | iOS Flutter 버튼 라벨이 desc 에 겹쳐 나와 --text 로 못 누른다 | `not_found` |
+| `ios-maestro-driver-port-conflict` | 시뮬레이터 여러 대에서 iOS tree 가 요소 0개 — Maestro 드라이버 포트 22087 충돌 | `ui_dump_failed` |
 | `ios-maestro-log-keeps-input-text` | Maestro 기록(maestro.log)에 inputText 의 실제 값이 평문으로 남는다 | — |
 | `ios-maestro-not-installed` | iOS app tap·swipe·tree 가 ios_tool_missing — Maestro 미설치 | `ios_tool_missing` |
 | `ios-maestro-point-integer-percent` | Maestro flow 의 point 퍼센트는 정수만 받는다 (NumberFormatException) | — |
@@ -396,6 +412,20 @@
   2. launch_cli.py app tap --desc <글자> 로 누른다 (최신 버전은 desc·겹친 라벨을 자동으로 맞춘다)
   3. 웹뷰 안 버튼은 이름으로 안 잡히면 --at 비율 좌표를 쓴다
 - 근거: #927 · 확인 2026-10-18
+
+### `ios-maestro-driver-port-conflict` — 시뮬레이터 여러 대에서 iOS tree 가 요소 0개 — Maestro 드라이버 포트 22087 충돌
+
+- 코드: `ui_dump_failed`
+- 핵심어: 22087, count 0, Address already in use
+- 증상: 시뮬레이터를 두 대 이상 띄운 채 app tree·tap 을 부르면 ui_dump_failed(count 0)가 나오거나, 다른 시뮬레이터의 화면 요소가 읽힌다
+- 원인: Maestro iOS 드라이버(XCTest 러너)가 호스트 포트 22087 을 고정으로 쓴다. 다른 시뮬레이터용 드라이버(다른 세션 포함)가 그 포트를 쥐고 있으면 이 기기의 드라이버가 못 뜨거나 엉뚱한 기기에 붙는다
+- 해결:
+  1. lsof -nP -iTCP:22087 -sTCP:LISTEN 으로 포트를 쥔 프로세스를 보고, ps -p <PID> -o command= 로 어느 UDID 의 드라이버인지 확인한다
+  2. 다른 세션이 쓰는 드라이버면 끄지 않는다 — 그 작업이 끝나길 기다리거나 사용자에게 묻는다 (Maestro 조작은 한 번에 한 시뮬레이터)
+  3. pro-launch 가 남긴 드라이버면 launch_cli.py app session stop --device <그 UDID> --kill-stale 로 정리한다
+  4. 정리한 뒤 launch_cli.py app tree --device <UDID> 로 요소가 읽히는지 보고, 조작을 이어갈 거면 app session start --device <UDID>
+- 근거: #973 · 확인 2026-10-21
+- 함께 볼 것: `ios-maestro-stale-driver-or-overload`, `ios-maestro-session-reconnect`
 
 ### `ios-maestro-log-keeps-input-text` — Maestro 기록(maestro.log)에 inputText 의 실제 값이 평문으로 남는다
 

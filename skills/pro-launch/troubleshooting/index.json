@@ -26,6 +26,9 @@
       "browser-start-stale-process-or-lock",
       "web-orphan-headless-chrome"
     ],
+    "browser_memory_exceeded": [
+      "web-script-browser-memory-exceeded"
+    ],
     "browser_missing": [
       "web-playwright-or-browser-missing"
     ],
@@ -116,7 +119,8 @@
       "android-system-restart-loop"
     ],
     "ui_dump_failed": [
-      "android-emulator-unresponsive-host-swap"
+      "android-emulator-unresponsive-host-swap",
+      "ios-maestro-driver-port-conflict"
     ],
     "ui_dump_timeout": [
       "android-system-restart-loop"
@@ -126,8 +130,17 @@
     "--timeout": [
       "general-timeout-unit-seconds"
     ],
+    "22087": [
+      "ios-maestro-driver-port-conflict"
+    ],
     "90초": [
       "ios-maestro-slow-cold-start"
+    ],
+    "address": [
+      "ios-maestro-driver-port-conflict"
+    ],
+    "already": [
+      "ios-maestro-driver-port-conflict"
     ],
     "became": [
       "ios-maestro-session-reconnect"
@@ -164,6 +177,9 @@
     ],
     "container": [
       "web-scroll-container-capture"
+    ],
+    "count": [
+      "ios-maestro-driver-port-conflict"
     ],
     "crash": [
       "ios-app-vanishes-after-launch"
@@ -223,7 +239,8 @@
     ],
     "in": [
       "android-maestro-driver-start-timeout",
-      "general-login-interstitial-policy"
+      "general-login-interstitial-policy",
+      "ios-maestro-driver-port-conflict"
     ],
     "inputtextcommand": [
       "ios-maestro-log-keeps-input-text"
@@ -376,7 +393,8 @@
       "general-zsh-variable-command"
     ],
     "swap": [
-      "android-emulator-unresponsive-host-swap"
+      "android-emulator-unresponsive-host-swap",
+      "web-script-browser-memory-exceeded"
     ],
     "system_server": [
       "android-emulator-unresponsive-host-swap"
@@ -421,6 +439,9 @@
     "up": [
       "android-maestro-driver-start-timeout"
     ],
+    "use": [
+      "ios-maestro-driver-port-conflict"
+    ],
     "waiting": [
       "web-selector-guess-timeout"
     ],
@@ -439,6 +460,9 @@
     "다시": [
       "general-login-interstitial-policy"
     ],
+    "대량": [
+      "web-script-browser-memory-exceeded"
+    ],
     "묻지": [
       "general-login-interstitial-policy"
     ],
@@ -447,6 +471,12 @@
     ],
     "상태바": [
       "ios-status-bar-custom-time"
+    ],
+    "수집": [
+      "web-script-browser-memory-exceeded"
+    ],
+    "스왑": [
+      "web-script-browser-memory-exceeded"
     ],
     "신뢰": [
       "general-login-interstitial-policy"
@@ -727,6 +757,16 @@
       "keyword_count": 2,
       "path": "ios/ios-label-in-desc-doubled.json"
     },
+    "ios-maestro-driver-port-conflict": {
+      "area": "ios",
+      "title": "시뮬레이터 여러 대에서 iOS tree 가 요소 0개 — Maestro 드라이버 포트 22087 충돌",
+      "fix_short": [
+        "lsof -nP -iTCP:22087 -sTCP:LISTEN 으로 포트를 쥔 프로세스를 보고, ps -p <PID> -o command= 로 어느 UDID 의 드라이버인지 확인한다",
+        "다른 세션이 쓰는 드라이버면 끄지 않는다 — 그 작업이 끝나길 기다리거나 사용자에게 묻는다 (Maestro 조작은 한 번에 한 시뮬레이터)"
+      ],
+      "keyword_count": 6,
+      "path": "ios/ios-maestro-driver-port-conflict.json"
+    },
     "ios-maestro-log-keeps-input-text": {
       "area": "ios",
       "title": "Maestro 기록(maestro.log)에 inputText 의 실제 값이 평문으로 남는다",
@@ -926,6 +966,16 @@
       ],
       "keyword_count": 2,
       "path": "web/web-save-by-network.json"
+    },
+    "web-script-browser-memory-exceeded": {
+      "area": "web",
+      "title": "web script 대량 수집이 브라우저 메모리를 수백 GB 로 키운다 — 쿠키만 꺼내 HTTP 로",
+      "fix_short": [
+        "로그인만 브라우저로 하고, web script 로 context.cookies() 를 실행 폴더의 파일에 쓴다 (결과로 출력하지 않는다 — 기록에 남는다)",
+        "수집은 그 쿠키를 Cookie 헤더로 실어 HTTP(urllib · requests)로 한다. 목록 API 가 있으면 화면 대신 API 를 부른다"
+      ],
+      "keyword_count": 4,
+      "path": "web/web-script-browser-memory-exceeded.json"
     },
     "web-scroll-container-capture": {
       "area": "web",

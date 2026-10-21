@@ -49,7 +49,9 @@ def _app_tap(args) -> int:
         return not_found_response(be, dev_id, field, value, nodes, args)
     idx = getattr(args, "index", 0) or 0
     if idx >= len(found):
-        return out({"ok": False, "code": "index_out_of_range", "matches": len(found)})
+        return out({"ok": False, "code": "index_out_of_range", "device": dev_id, "matches": len(found),
+                    "error": f"{field}={value!r} 에 맞는 요소는 {len(found)}개다 (--index {idx} 는 범위 밖)",
+                    "next": f"app tap --{field} {value!r} --index <0..{len(found) - 1}>"})
     target = found[idx]
     if be.selects_itself:
         # iOS: 저장된 값 그대로 누르고, 선택자가 못 찾으면 중심 좌표

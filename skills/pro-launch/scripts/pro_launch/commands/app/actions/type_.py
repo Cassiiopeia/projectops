@@ -11,7 +11,7 @@ import app_input
 import credentials
 
 from pro_launch.commands.app import android_ime
-from pro_launch.commands.app.gestures import backend_on, elapsed_seconds, session_fields
+from pro_launch.commands.app.gestures import backend_on, elapsed_seconds, session_fields, with_session_advice
 from pro_launch.registry import Action
 from pro_launch.runtime.creds import cred_field, with_login_policy
 from pro_launch.runtime.devices import no_device_response, pick_device
@@ -36,9 +36,11 @@ def _app_type(args) -> int:
             return out({"ok": False, "code": "env_not_set", "error": f"환경변수 {args.text_env} 가 비어 있습니다"})
         value = os.environ[args.text_env]
     else:
+        # 비밀 아닌 값도 --text-env 로 — 명령줄 값은 세션 기록·호스트 ps 에 평문으로 남는다
         return out({"ok": False, "code": "text_required",
                     "error": "--cred 또는 --text-env 가 필요합니다 (값을 --text 로 적지 않는다 — 기록에 평문으로 남는다)",
-                    "next": "cred list  # 저장된 로그인 정보"})
+                    "next": "SEARCH_TEXT='coffee' app type --text-env SEARCH_TEXT  # 일반 값 (Android 는 ASCII 만)",
+                    "hint": "로그인 정보면 app type --cred <이름> (cred list 로 저장된 이름을 본다)"})
     platform, dev_id, dev = pick_device(args.device)
     if not platform:
         return no_device_response(dev, args.device)
@@ -123,6 +125,7 @@ def _type_with_backend(args, platform: str, dev_id: str, value: str) -> int:
               "summary": f"{len(value)}자 입력" + (" + Enter" if should_submit and ok else ""),
               "next": "app shot  # 입력됐는지 화면으로 확인한다 (비밀번호 칸은 가려져 보인다)" if ok
                       else "입력창을 app tap 으로 먼저 눌러 포커스를 준 뒤 다시 시도한다"}
+    with_session_advice(result, be, dev_id, args)
     # 로그인 입력이면 중간 화면 정책을 싣는다 (#905)
     return out(with_login_policy(result, getattr(args, "cred", None)))
 

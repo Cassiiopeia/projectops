@@ -22,6 +22,10 @@ DRIVER_STARTUP_TIMEOUT_ENV = "MAESTRO_DRIVER_STARTUP_TIMEOUT"
 OVERLOADED_DRIVER_STARTUP_TIMEOUT_MILLISECONDS = 180000
 # 실패 응답에 호스트 상태를 붙이는 메모리 압박 단계
 REPORTED_MEMORY_PRESSURES = ("high", "critical")
+# 상주 세션 없이 iOS 조작이 이보다 오래 걸리면 세션을 권한다 (초, 세션이면 1초 안팎)
+SLOW_IOS_WITHOUT_SESSION_SECONDS = 15
+# 세션이 아예 없다는 뜻의 session_fallback (그 밖의 사유는 세션이 있으나 못 쓴 것 — 다시 켜라고 하지 않는다)
+SESSION_MISSING_FALLBACKS = ("session_gone",)
 
 
 def elapsed_seconds(args) -> float | None:
@@ -72,6 +76,23 @@ def session_fields(be) -> dict:
         if maestro_drivers.CLEANED_DRIVERS:
             fields["cleaned_stale_drivers"] = list(maestro_drivers.CLEANED_DRIVERS)
     return fields
+
+
+def with_session_advice(result: dict, be, dev_id: str | None, args) -> dict:
+    """iOS 이고 상주 세션 없이 15초를 넘겼으면 next 를 app session start 로 바꾸고 원래 next 는 hint 로 옮긴다."""
+    if getattr(be, "name", None) != "ios":
+        return result
+    report = getattr(be, "session_report", None) or {}
+    has_no_session = not report or report.get("session_fallback") in SESSION_MISSING_FALLBACKS
+    elapsed = elapsed_seconds(args)
+    if not has_no_session or elapsed is None or elapsed <= SLOW_IOS_WITHOUT_SESSION_SECONDS:
+        return result
+    previous_next = result.get("next")
+    result["next"] = (f"app session start --device {dev_id}  "
+                      f"# 이번 {elapsed}초 — 세션이면 tap 1초 · tree 0.6초 (조작을 더 할 때)")
+    result["hint"] = ("상주 세션 없이 iOS 조작은 호출마다 Maestro(JVM)를 새로 띄운다"
+                      + (f" — 세션을 켠 뒤: {previous_next}" if previous_next else ""))
+    return result
 
 
 def ios_failure_fields(be, dev_id: str | None) -> dict:
@@ -168,6 +189,9 @@ def gesture_result(args, be, dev_id, before, ok: bool, detail: str, fail_code: s
         if res.get("shot"):
             res["next"] = ("shot 이미지를 읽어 결과를 확인한다" if res.get("screen_changed") is not False
                            else "화면이 그대로다 — 다른 요소를 고르거나 app tree 로 다시 본다")
+    # 남은 Maestro 드라이버 정리 안내가 우선 — 세션을 켜도 안 풀린다
+    if not diagnostics.get("stale_maestro_drivers"):
+        with_session_advice(res, be, dev_id, args)
     return out(res)
 
 
@@ -190,9 +214,9 @@ def not_found_response(be, dev_id, field: str, value: str, nodes: list[dict] | N
     if nodes is None:
         nodes = be.nodes(dev_id) or []
     suggestion = node_match.did_you_mean(nodes, value)
-    return out({"ok": False, "code": "not_found", "device": dev_id,
+    return out(with_session_advice({"ok": False, "code": "not_found", "device": dev_id,
                 "error": f"{field}={value!r} 인 요소가 없다 (text·desc 모두, 겹친 라벨·부분 일치 포함)",
                 "locale": be.locale(dev_id), "candidates": node_match.candidate_values(nodes, field),
                 **({"did_you_mean": suggestion} if suggestion else {}), **session_fields(be),
                 "elapsed_seconds": elapsed_seconds(args),
-                "next": "candidates 의 값으로 다시 app tap (문구는 화면 언어 그대로)"})
+                "next": "candidates 의 값으로 다시 app tap (문구는 화면 언어 그대로)"}, be, dev_id, args))

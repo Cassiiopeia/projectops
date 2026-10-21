@@ -4,7 +4,7 @@ CDP `/json/version` 은 답하는데 `connect_over_cdp` · `ctx.pages` 가 끝�
 Playwright 동기 API 는 신호로 안전하게 끊기지 않는다(script_runner 실측) — 그래서 감시 스레드가 시간을 보고
 상한을 넘으면 결과를 직접 내고 `os._exit` 로 끝낸다. 드라이버(node)는 파이프가 닫히면 스스로 끝난다.
 
-상한 2개: 붙기 단계(CONNECT_DEADLINE_SECONDS) · 명령 전체(동작 대기 + 여유, 최소 90초 · 최대 420초).
+상한 2개: 붙기 단계(CONNECT_DEADLINE_SECONDS) · 명령 전체(동작 대기 + 여유, 최소 90초 · 최대 420초 + 사용자 인계 시간).
 멈춘 브라우저는 상태 파일에 hung_at 을 남겨 다음 web open 이 다시 붙지 않고 끄고 새로 띄우게 한다.
 """
 from __future__ import annotations
@@ -26,6 +26,8 @@ ACTION_MARGIN_SECONDS = 60
 # 명령 전체 상한의 하한 · 상한(초). 하한은 Bash 도구 120초 제한보다 먼저 끝나게
 MINIMUM_DEADLINE_SECONDS = 90
 MAXIMUM_DEADLINE_SECONDS = 420
+# web login 사용자 인계 대기 상한(초) — CLI 한 번이 무한히 붙잡지 않게 (login.py 가 같은 값을 쓴다)
+MAXIMUM_HANDOFF_SECONDS = 600
 # 새로 띄우는 open 의 포트 대기 몫(초)
 LAUNCH_EXTRA_SECONDS = 20
 # 감시 간격(초)
@@ -37,9 +39,11 @@ _ACTIVE: dict = {}
 
 
 def deadline_seconds(args, needs: str) -> int:
-    """명령 전체 상한: max(하한, 동작 대기 + 여유) + 동작별 추가(키 입력 · 연속 캡처 · 새로 띄우기), 최대 상한."""
+    """명령 전체 상한: max(하한, 동작 대기 + 여유) + 동작별 추가(키 입력 · 연속 캡처 · 새로 띄우기 · 사용자 인계), 최대 상한."""
     timeout = getattr(args, "timeout", None) or 0
-    extra = 0
+    # web login --handoff-seconds: 사용자가 2단계 인증을 마치는 시간 — 상한에도 그만큼 더한다 (90초에 끊기던 것)
+    handoff_seconds = min(max(getattr(args, "handoff_seconds", None) or 0, 0), MAXIMUM_HANDOFF_SECONDS)
+    extra = handoff_seconds
     keys_text = getattr(args, "keys", None) or ""
     delay_milliseconds = getattr(args, "delay_ms", None) or 0
     extra += len(keys_text or getattr(args, "text", None) or "") * delay_milliseconds / 1000
@@ -47,7 +51,7 @@ def deadline_seconds(args, needs: str) -> int:
     if needs == "launch":
         extra += LAUNCH_EXTRA_SECONDS
     total = max(MINIMUM_DEADLINE_SECONDS, timeout + ACTION_MARGIN_SECONDS) + extra
-    return int(min(total, MAXIMUM_DEADLINE_SECONDS))
+    return int(min(total, MAXIMUM_DEADLINE_SECONDS + handoff_seconds))
 
 
 class Watchdog:

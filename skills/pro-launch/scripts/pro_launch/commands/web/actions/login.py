@@ -10,13 +10,13 @@ import os
 import time
 
 from pro_launch.commands.web.session import read_url_title
+# 사용자 인계 대기 상한 — 명령 전체 시간 상한도 이 값을 더하므로 한 곳에 둔다
+from pro_launch.commands.web.watchdog import MAXIMUM_HANDOFF_SECONDS
 from pro_launch.registry import Action
 from pro_launch.runtime.creds import load_cred, with_login_policy
 
 # 아이디로 쓸 필드를 자동으로 고를 때 보는 순서
 IDENTIFIER_FIELD_CANDIDATES = ("username", "account", "email", "user", "login", "id")
-# 사용자 인계 대기 상한 (초) — CLI 한 번이 무한히 붙잡지 않게
-MAXIMUM_HANDOFF_SECONDS = 600
 # 완료 조건을 다시 보는 간격 (초)
 CONDITION_POLL_SECONDS = 1.0
 

@@ -28,6 +28,7 @@ source "{env_file 값}"
 {PYTHON} {SCRIPTS}/launch_cli.py app tap    --device "$DEV" --at 0.5,0.8           # 요소로 못 찾을 때만 — 비율 좌표
 {PYTHON} {SCRIPTS}/launch_cli.py app swipe  --device "$DEV" --dir up --shot list_scrolled
 {PYTHON} {SCRIPTS}/launch_cli.py app swipe  --device "$DEV" --from 0.5,0.8 --to 0.5,0.2 --ms 500
+{PYTHON} {SCRIPTS}/launch_cli.py app back   --device "$DEV"                       # 뒤로 (Android 뒤로 키 · 키보드 내리기)
 ```
 
 - `--device` 는 Android 시리얼이나 iOS UDID. 없으면 `$DEV` → 붙은 기기가 한 대뿐이면 그것.
@@ -45,8 +46,11 @@ source "{env_file 값}"
   캡처는 축소돼 있어 그 좌표로 누르면 빗나간다.
 - `swipe --dir up|down|left|right` 는 화면 가장자리 제스처를 피하려고 15% 안쪽에서 움직인다.
   정확한 궤적이 필요하면 `--from`·`--to` 비율 좌표와 `--ms`(기본 300).
+- `app back` 은 Android 뒤로 키다. iOS 에는 뒤로 버튼이 없어 `back_unsupported_on_platform` 과 함께 대안
+  (화면의 뒤로 버튼을 `app tap --desc|--text`, 또는 `app swipe --from 0.02,0.5 --to 0.8,0.5` 가장자리 밀기)을 준다.
 - Android 는 기기 내장 `uiautomator` 라 설치가 필요 없다. **iOS 는 Maestro 가 필요하다**(simctl 에 탭 명령이
   없다). 호출마다 Maestro 가 새로 떠서 10~40초 걸린다 — 결과의 `elapsed_seconds` 에 보인다.
+  상주 세션 없이 한 호출이 15초를 넘으면 `next` 가 `app session start --device <UDID>` 로 바뀌고 원래 다음 행동은 `hint` 로 간다.
   **두 단계 이상이면 `app run` 으로 묶는다**(아래). 더 긴 시나리오는 프로젝트의 Maestro flow 로 돌린다.
 
 ### 여러 단계를 한 번에 — `app run` (#894)
@@ -85,12 +89,15 @@ JSON
 
 ```bash
 {PYTHON} {SCRIPTS}/launch_cli.py app wait --device "$DEV" --text "로드 중" --gone --timeout 30   # 사라질 때까지 (없으면 나타날 때까지)
+{PYTHON} {SCRIPTS}/launch_cli.py app wait --device "$DEV" --settle --timeout 20                  # 화면 구조가 연속 두 번 같을 때까지 (전환·로딩 끝)
 {PYTHON} {SCRIPTS}/launch_cli.py app record start --device "$DEV" --out login_flow                # iOS simctl recordVideo · Android screenrecord(180초 제한)
 {PYTHON} {SCRIPTS}/launch_cli.py app record stop  --device "$DEV" --gif                           # ffmpeg 가 있으면 poster · gif 도
 {PYTHON} {SCRIPTS}/launch_cli.py app tap --device "$DEV" --text "계속" --burst 6:0.4              # 동작 전후 6초, 0.4초 간격 — 변한 프레임만 돌려준다
 {PYTHON} {SCRIPTS}/launch_cli.py app shot --device "$DEV" --out store_01 --time 7:42              # 상태바 시각을 알림 시각에 맞춘다 (--clean-status 포함)
 ```
 
+- **기다릴 요소를 모르면 `--settle`** 을 쓴다. `--text "."` 처럼 아무 문구나 기다리는 것은 대기가 아니다(타임아웃마다 30~60초).
+  계속 움직이는 화면(애니메이션 · 자동 넘김)은 `wait_timeout` — 그때는 기다릴 문구를 정해 `--text` 로.
 - `app wait` 는 읽지 못한 화면을 "사라졌다"로 세지 않는다. `app run` 단계에서는 `{"gone": {...}}` 또는 `{"wait": {...}, "gone": true}`.
 - `--burst` 는 바이트 해시로 중복을 걷는다(시계·애니메이션 변화도 변경으로 센다). 최대 150장 · 30초.
 - `app shot --shot 이름` 은 `--out` 의 별칭이다.
@@ -192,8 +199,10 @@ appId: com.example.app
 | code | 다음 행동 |
 |---|---|
 | `no_device` | `devices` 로 목록을 보고 `--device` 를 준다 |
-| `not_found` · `index_out_of_range` | `candidates` 에서 고른다. 화면 언어는 `locale` |
-| `ui_dump_failed` | 화면이 전환 중이거나 보안 화면이다. 잠시 뒤 `app tree` 를 다시 본다. 계속 실패하면 `--at` 비율 좌표 |
+| `not_found` | `candidates` 에서 고른다. 화면 언어는 `locale` |
+| `index_out_of_range` | `matches`(맞은 수)를 보고 `--index 0..matches-1` 로 고른다 (`next` 에 범위) |
+| `back_unsupported_on_platform` | iOS — `next` 의 대안(화면 뒤로 버튼 탭 · 가장자리 밀기) |
+| `ui_dump_failed` | 화면이 전환 중이거나 보안 화면이다. 잠시 뒤 `app tree` 를 다시 본다. 계속 실패하면 `--at` 비율 좌표. iOS 시뮬레이터가 여러 대면 Maestro 드라이버 포트(22087) 충돌을 의심한다(`kb show ios-maestro-driver-port-conflict`) |
 | `no_focused_window` | Android 에 초점을 가진 창이 없다(화면 꺼짐·잠금·재부팅 직후). CLI 가 화면을 깨우고(`WAKEUP`·잠금 해제) 세 번까지 다시 읽은 뒤에 낸다. 비밀번호 잠금이면 사용자에게 풀어 달라고 한다 |
 | `android_system_not_ready` | 부팅 애니메이션이 떠 있다(system_server 재시작 반복 실측). 기다려도 그대로면 사용자에게 cold boot 를 묻는다 |
 | `ui_automation_unavailable` | uiautomator 가 UiAutomation 에 못 붙었다. 다른 자동화(Maestro·Appium)가 기기를 쥐고 있는지 본다 |
@@ -348,11 +357,11 @@ adb -s "$DEV" shell pm clear {패키지}        # 데이터만 초기화 (앱은
 
 {PYTHON} {SCRIPTS}/launch_cli.py app tap   --device "$DEV" --text "{화면 문구}" --shot {이름}
 {PYTHON} {SCRIPTS}/launch_cli.py app swipe --device "$DEV" --dir up
-adb -s "$DEV" shell input text "{문자열}"          # 공백은 %s, 한글은 입력되지 않는 기기가 있다
-adb -s "$DEV" shell input keyevent KEYCODE_BACK    # 키보드 내리기 / 뒤로
-adb -s "$DEV" shell input keyevent KEYCODE_ENTER   # 완료 키
+{PYTHON} {SCRIPTS}/launch_cli.py app back  --device "$DEV" --shot after_back   # 키보드 내리기 / 뒤로
+{PYTHON} {SCRIPTS}/launch_cli.py app type  --device "$DEV" --text-env QUERY --submit   # 글자 + 완료 키 (아래 "글자 입력")
 ```
 
+raw `adb shell input keyevent` · `input text` 를 쓰지 않는다 — 기기 소유 확인·기록을 건너뛰고, 값이 명령줄에 남는다.
 한글이 입력되지 않으면 영문으로 대체하고 그 사실을 기록한다.
 
 ### 글자 입력 — 로그인 정보는 저장된 것으로 (Android · iOS)
@@ -360,6 +369,7 @@ adb -s "$DEV" shell input keyevent KEYCODE_ENTER   # 완료 키
 ```bash
 {PYTHON} {SCRIPTS}/launch_cli.py app type --device "$DEV" --cred naver-test --cred-field account
 {PYTHON} {SCRIPTS}/launch_cli.py app type --device "$DEV" --cred naver-test --submit      # 비밀번호 + Enter
+QUERY='coffee' {PYTHON} {SCRIPTS}/launch_cli.py app type --device "$DEV" --text-env QUERY  # 비밀 아닌 값도 환경변수로
 ```
 
 - 값은 **명령줄이 아니라 표준입력**으로만 기기에 간다(호스트 `ps` 에 남지 않는다). `--text` 로 값을 직접 주는 방식은 없다.

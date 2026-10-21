@@ -54,7 +54,7 @@ def _imported_modules(path: Path) -> set[str]:
       "wait", "scroll", "upload", "script", "tab", "login", "value", "clipboard", "profile"}),
     ("pro_launch.commands.app.actions", {"shot", "launch", "type", "tap", "swipe", "tree", "terminate",
                                          "relaunch", "location", "permission", "push", "openurl", "run",
-                                         "session", "flow", "wait", "record", "install"}),
+                                         "session", "flow", "wait", "record", "install", "back"}),
 ])
 def test_actions_are_discovered_from_their_folder(pkg_path, expected):
     import importlib

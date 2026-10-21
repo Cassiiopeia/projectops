@@ -103,3 +103,43 @@ def test_type_reports_mismatch_without_leaking_secret_and_does_not_submit(androi
     data = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert data["ok"] is False and data["code"] == "typed_text_mismatch" and data["expected_length"] == len(SECRET)
     assert SECRET not in json.dumps(data) and "visible_value" not in data and backend.submitted is False
+
+
+# ── app wait --settle · iOS 세션 권유 (#973) ───────────────────────────────
+
+def test_wait_settle_ends_on_two_identical_dumps_and_ignores_empty_ones(monkeypatch, capsys):
+    """빈 덤프는 멈춘 것으로 세지 않고, 연속 두 번 같은 구조일 때 끝난다 (고정 sleep · --text '.' 대기 대신)"""
+    from pro_launch.commands.app.actions import wait
+
+    loading = [{"text": "로드 중", "id": "", "desc": "", "clickable": False, "center": [5, 5]}]
+    loaded = [{"text": "홈", "id": "", "desc": "", "clickable": True, "center": [5, 5]}]
+    dumps = iter([[], [], loading, loaded, loaded])
+
+    class SettlingBackend:
+        name = "android"
+        device_failure = None
+
+        def nodes(self, dev):
+            return next(dumps)
+
+    monkeypatch.setattr(wait, "backend_for", lambda args: (SettlingBackend(), "EMU1", None))
+    monkeypatch.setattr(wait.time, "sleep", lambda seconds: None)
+    args = argparse.Namespace(settle=True, sel_text=None, sel_id=None, sel_desc=None, timeout=5, interval=None)
+    wait._app_wait(args)
+    result = json.loads(capsys.readouterr().out)
+    assert result["ok"] is True and result["condition"] == "settle" and result["polls"] == 5
+
+
+def test_slow_ios_call_without_session_recommends_session_start():
+    """세션 없이 15초를 넘긴 iOS 조작만 next 를 session start 로 — 세션이 있거나 Android 면 그대로"""
+    from pro_launch.commands.app.gestures import with_session_advice
+
+    def backend(name, report):
+        return type("Backend", (), {"name": name, "session_report": report})()
+
+    slow = argparse.Namespace(started_monotonic=time.monotonic() - 20)
+    advised = with_session_advice({"next": "app shot"}, backend("ios", {}), "UDID1", slow)
+    assert advised["next"].startswith("app session start --device UDID1") and "app shot" in advised["hint"]
+    with_session = with_session_advice({"next": "app shot"}, backend("ios", {"transport": "session"}), "UDID1", slow)
+    android = with_session_advice({"next": "app shot"}, backend("android", {}), "EMU1", slow)
+    assert with_session["next"] == android["next"] == "app shot"

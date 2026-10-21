@@ -5,7 +5,7 @@ from __future__ import annotations
 import app_input
 
 from pro_launch.commands.app.gestures import (backend_for, elapsed_seconds, ios_failure_fields, session_fields,
-                                              device_failure_response)
+                                              device_failure_response, with_session_advice)
 from pro_launch.registry import Action
 from pro_launch.runtime.foreground import read_android_foreground
 from pro_launch.runtime.output import out
@@ -28,10 +28,11 @@ def _app_tree(args) -> int:
         if foreground["is_readable"]:
             diagnostics["foreground_package"] = foreground["package"]
     els = app_input.slim([n for n in nodes if n["text"] or n["desc"] or (n["clickable"] and n["id"])])
-    return out({"ok": bool(els), "code": "ok" if els else "ui_dump_failed", "device": dev_id,
-                "platform": be.name, "locale": be.locale(dev_id), "count": len(els), "elements": els,
-                "elapsed_seconds": elapsed_seconds(args), **session_fields(be), **diagnostics,
-                "summary": f"요소 {len(els)}개", "next": "app tap --text '<elements 의 text>'"})
+    result = {"ok": bool(els), "code": "ok" if els else "ui_dump_failed", "device": dev_id,
+              "platform": be.name, "locale": be.locale(dev_id), "count": len(els), "elements": els,
+              "elapsed_seconds": elapsed_seconds(args), **session_fields(be), **diagnostics,
+              "summary": f"요소 {len(els)}개", "next": "app tap --text '<elements 의 text>'"}
+    return out(with_session_advice(result, be, dev_id, args))
 
 
 ACTION = Action(name="tree", device_use="read", run=_app_tree)

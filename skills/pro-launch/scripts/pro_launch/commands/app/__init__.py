@@ -19,7 +19,7 @@ ACTIONS = discover_actions(_actions)
 def configure(p) -> None:
     # 여러 동작이 함께 쓰는 옵션. 한 동작만 쓰는 옵션은 그 동작의 configure 에 둔다
     p.add_argument("action", choices=sorted(ACTIONS))
-    p.add_argument("--shot", default=None, help="tap·swipe·run: 끝나면 바로 찍는다 (이름 또는 경로) — 확인용 shot 호출을 아낀다")
+    p.add_argument("--shot", default=None, help="tap·swipe·back·run: 끝나면 바로 찍는다 (이름 또는 경로) — 확인용 shot 호출을 아낀다")
     p.add_argument("--root", default=".")
     p.add_argument("--device", default=None,
                    help="Android 시리얼 또는 iOS UDID. 없으면 $DEV → 붙은 기기가 한 대면 그것")
@@ -45,6 +45,6 @@ def cmd_app(args) -> int:
 
 
 COMMANDS = [Command(name="app",
-                    help="앱 화면을 찍고(shot) 띄우고·끄고(launch·terminate·relaunch) 글자를 넣고(type) 누르고(tap) 민다(swipe). 여러 단계는 한 번에(run). "
+                    help="앱 화면을 찍고(shot) 띄우고·끄고(launch·terminate·relaunch) 글자를 넣고(type) 누르고(tap) 민다(swipe) · 뒤로(back). 여러 단계는 한 번에(run). "
                          "위치·권한·푸시·딥링크(location·permission·push·openurl)",
                     run=cmd_app, configure=configure)]

@@ -125,6 +125,7 @@ CODE="123456" launch_cli.py web login --otp-env CODE --otp-selector "input.otp" 
 - 아이디는 `--user-field`(기본: `username`·`account`·`email`·`user`·`login`·`id` 중 처음 있는 것), 비밀번호는 `--password-field`(기본 `password`).
 - 완료 조건은 `--until-url`(주소 일부) · `--until-text`(보이는 문구). 조건이 없으면 넣고 끝낸다.
 - 일회용 코드 칸이 한 글자씩 나뉘어 있으면 그 칸들을 모두 가리키는 선택자를 준다 — 글자마다 나눠 넣는다.
+- 명령 전체 시간 상한(`browser_hung`)에 `--handoff-seconds` 가 더해진다(최대 600초) — 사용자를 기다리는 동안 끊기지 않는다.
 - 값은 결과·오류·명령줄에 남지 않는다(`filled` 에는 칸 이름만). 위 자격증명 규칙(재시도 금지)이 그대로 적용되고, 결과의 `login_policy` 로 중간 화면을 처리한다(위 "로그인 중간 화면").
 
 ### 로그인 정보를 저장할 때 — 묻고, 저장하고, 다음에 꺼내 쓴다
@@ -315,6 +316,26 @@ rows = page.locator("table tr")
 - 다른 동작과 같은 연결·재설치(콘솔 훅 · stealth · 뷰포트 · 응답 바꿔치기)를 거친다. 결과는 `result`(JSON 으로 못 바꾸면 문자열), `print` 는 `stdout`.
 - 예외는 `script_failed` + 첫 오류 줄, 상한(`--timeout`, 기본 60초)을 넘으면 실행을 멈추고 `script_timeout`. 브라우저는 그대로 쓸 수 있다.
 - 저장된 자격증명의 비밀 값은 결과 · 오류 · stdout 에서 `***` 로 가린다. 읽기 전용 세션에서는 `--confirm-mutating` 없이 돌리지 않는다.
+- 실행 중 브라우저(렌더러 포함) 메모리를 2초마다 잰다. 상한(기본 8192MB, `--memory-limit-mb` 또는
+  `PRO_LAUNCH_BROWSER_MEMORY_LIMIT_MB`)을 넘으면 조각을 멈추고 **브라우저를 끈 뒤** `browser_memory_exceeded`
+  (`rss_megabytes` · `limit_megabytes` · `browser_closed`). 다시 쓰려면 `web open`(같은 프로필이라 로그인은 남는다).
+  `ps` 가 없는 곳(Windows)은 재지 않고 시간 상한만 본다.
+
+**대량 수집 — 브라우저 안에서 페이지를 수천 개 열지 않는다.** 브라우저는 로그인 도구다. 조각 하나가 Chrome 을
+275GB · 스왑 40GB 까지 키우고 `browser_hung` 을 다섯 번 낸 실측이 있다. 로그인만 브라우저로 하고, 쿠키를 파일로 꺼내 HTTP 로 모은다.
+
+```python
+# export_cookies.py — 쿠키는 결과로 내지 않는다 (대화·기록에 남는다). 실행 폴더의 파일로만
+import json, os, pathlib
+path = pathlib.Path(os.environ.get("SHOT_DIR", ".")) / "cookies.json"
+path.write_text(json.dumps(context.cookies()))
+os.chmod(path, 0o600)
+str(path)
+```
+
+수집 스크립트는 그 파일을 읽어 `Cookie` 헤더를 실은 HTTP 요청(urllib · requests)으로 돈다. 목록 API 가 보이면
+(`web click --capture-requests` 로 확인) 화면 대신 API 를 부른다. 끝나면 쿠키 파일을 지운다.
+브라우저 안에서 꼭 돌아야 하면 수십 개씩 나눠 `web script` 를 여러 번 부르고, 연 탭은 `page.close()` 로 닫는다.
 
 **정보는 `text` 로 읽는다.** 스크린샷을 Read 하는 것이 가장 비싸다. `shot` 은 배치·색·잘림처럼
 **모양**을 봐야 할 때, 또는 결과를 증거로 남길 때만 찍는다(찍었으면 Read 로 열어 본다).
