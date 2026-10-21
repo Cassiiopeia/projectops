@@ -55,7 +55,7 @@ project_paths:
 ```
 
 - A type with no key works relative to the **repo root** (existing behavior is fully preserved).
-- During `npx projectops` integration, marker files (`pubspec.yaml`, `package.json`, `pyproject.toml`, `build.gradle`, etc.) are detected automatically and offered as candidates. In non-interactive mode, set them with `--paths "flutter=app,react=client"` (see the [NPX wizard guide](../NPX-WIZARD.md)).
+- During `npx projectops` integration, marker files (`pubspec.yaml`, `package.json`, `pyproject.toml`, `build.gradle`, etc.) are detected automatically and offered as candidates. In non-interactive mode, set them with `--paths "flutter=app,react=client"` (see the [NPX wizard guide](./npx-wizard.md)).
 - `version_manager.sh` follows these paths to sync version files in subfolders, so the `PROJECT-COMMON-VERSION-CONTROL` workflow supports monorepos without changes.
 
 ---

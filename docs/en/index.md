@@ -4,39 +4,45 @@ layout: home
 hero:
   name: Projectops
   text: From issue to deploy, automated
+  tagline: GitHub Actions handle versions, changelogs and deployment; Agent Skills handle issues, commits and reports.
   image:
     src: /images/hero-card-en.webp
     alt: npx projectops --mode doctor output
-  tagline: GitHub Actions handle versions, changelogs and CI/CD; Agent Skills handle issues, commits and reports.
   actions:
     - theme: brand
       text: Getting started
-      link: /en/getting-started
+      link: /getting-started
     - theme: alt
       text: CLI reference
-      link: /en/cli
+      link: /cli
     - theme: alt
       text: GitHub
       link: https://github.com/Cassiiopeia/projectops
 
 features:
   - title: Issue to deploy
-    details: From issue creation to release PR, auto-merge and deployment in one flow.
+    details: From opening an issue to the release PR, auto-merge and deployment, everything runs as one flow.
+    link: /issue-automation
   - title: Versions and changelog
-    details: Commit titles decide major/minor/patch, and release notes are generated automatically.
+    details: Commit titles decide major/minor/patch, and release notes are generated automatically. It finishes even without an AI key.
+    link: /version-control
   - title: Agent Skills
-    details: /pro-* Skills for Claude Code, Cursor, Gemini CLI and Codex CLI.
+    details: /pro-* Skills for Claude Code, Cursor, Gemini CLI and Codex CLI create issues, commits and reports.
+    link: /skills
   - title: npx wizard
-    details: Integrate or update the workflows in an existing project with npx projectops.
+    details: Integrate and update the workflows in an existing project with a single npx projectops command.
+    link: /npx-wizard
   - title: PR Preview
-    details: Deploy a temporary server from a PR comment; it is cleaned up when the PR closes.
+    details: Deploy a temporary server with a one-line comment; it is cleaned up automatically when the PR closes.
+    link: /pr-preview
   - title: SSH + Docker deployment
-    details: Deploy Docker containers to any server reachable over SSH, including zero-downtime options.
+    details: Docker deployment to any server reachable over SSH, including Traefik/Nginx zero-downtime deployment.
+    link: /ssh-docker-deployment-guide
 ---
 
 ## What it looks like
 
-Run `npx projectops` in your project folder. This is a **real run** on a sample Spring project (the wizard UI itself is currently Korean).
+Run `npx projectops` in your project folder. This is a **real run** on a sample Spring project.
 
 ![npx projectops interactive wizard](../images/cli-wizard.gif)
 

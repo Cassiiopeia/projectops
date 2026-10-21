@@ -25,7 +25,7 @@
 
 ![npx projectops 対話型ウィザード](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
 
-> 上の画面はサンプルの Spring プロジェクトで**実際に実行した画面**です（ウィザードの UI は現在韓国語です）。画面のバージョン表記は録画時点のものです。非対話型の実行と全オプションは [CLI リファレンス](https://cassiiopeia.github.io/projectops/en/cli)（英語）を参照してください。
+> 上の画面はサンプルの Spring プロジェクトで**実際に実行した画面**です（ウィザードはシステムの言語に従います。`--lang en|ko` で指定できます）。画面のバージョン表記は録画時点のものです。非対話型の実行と全オプションは [CLI リファレンス](https://cassiiopeia.github.io/projectops/cli)（英語）を参照してください。
 
 ---
 
@@ -97,7 +97,6 @@ Issue を開くと GitHub Actions が自動で動き、**ブランチ名とコ�
 
 **エージェントで進める：** `/pro-changelog-deploy` が develop を push してリリース PR を開きます。
 
-> 韓国語のブランチ名に GitHub が表示する警告バナーは、画面上では隠しています。それ以外は加工していない実際の画面です。
 
 ---
 
@@ -133,9 +132,9 @@ Skill は自分のスタイルで書きます。好みは `~/.projectops/config/
 
 | 構成 | できること | ドキュメント |
 |---|---|---|
-| **GitHub Actions** | main へ一度 push するだけで、バージョン管理、変更履歴、CI/CD デプロイまで自動で処理 | [バージョン管理](https://cassiiopeia.github.io/projectops/VERSION-CONTROL)（韓国語） |
-| **Agent Skills**（14 種） | `/pro-github`、`/pro-commit`、`/pro-report` などで、AI が各ステップ（Issue、自分のスタイルのコミット、レポート、リリース PR）を代わりに進める | [Skills ガイド](https://cassiiopeia.github.io/projectops/SKILLS)（韓国語） |
-| **npx CLI** | 既存プロジェクトにワークフローを導入・更新し、状態を診断 | [CLI リファレンス](https://cassiiopeia.github.io/projectops/en/cli)（英語） |
+| **GitHub Actions** | main へ一度 push するだけで、バージョン管理、変更履歴、CI/CD デプロイまで自動で処理 | [バージョン管理](https://cassiiopeia.github.io/projectops/version-control)（英語） |
+| **Agent Skills**（14 種） | `/pro-github`、`/pro-commit`、`/pro-report` などで、AI が各ステップ（Issue、自分のスタイルのコミット、レポート、リリース PR）を代わりに進める | [Skills ガイド](https://cassiiopeia.github.io/projectops/skills)（英語） |
+| **npx CLI** | 既存プロジェクトにワークフローを導入・更新し、状態を診断 | [CLI リファレンス](https://cassiiopeia.github.io/projectops/cli)（英語） |
 
 <details>
 <summary>Agent Skills 14 種をすべて見る</summary>
@@ -206,7 +205,7 @@ flowchart TD
     K --> L["/pro-changelog-deploy<br/>リリース PR + automerge"]
 ```
 
-> Skills の全一覧と詳しい使い方：**[docs/SKILLS.md](../SKILLS.md)**（韓国語）
+> Skills の全一覧と詳しい使い方：**[docs/en/skills.md](../en/skills.md)**（英語）
 
 ### GitHub Actions 自動化パイプライン
 
@@ -243,14 +242,14 @@ codex plugin marketplace add Cassiiopeia/projectops
 
 `--mode skills` ウィザードは Codex marketplace を登録したうえで、ネイティブ skills のフォールバックも自動で準備します。`/plugins` はインストールの確認・管理にのみ使ってください。
 
-Codex plugin marketplace が使えない環境では、[Skills ガイド](../SKILLS.md)のフォールバックのインストール方法を使ってください。
+Codex plugin marketplace が使えない環境では、[Skills ガイド](../en/skills.md)のフォールバックのインストール方法を使ってください。
 
 ```bash
 # Cursor / すべての Agent Skills のインストールメニュー（推奨：npx）
 npx projectops --mode skills
 ```
 
-> Claude Code は `/pro-` の自動補完、Gemini は extension、Codex は plugin marketplace を優先して使います。詳しくは [Skills ガイド](../SKILLS.md)を参照してください。
+> Claude Code は `/pro-` の自動補完、Gemini は extension、Codex は plugin marketplace を優先して使います。詳しくは [Skills ガイド](../en/skills.md)を参照してください。
 
 </details>
 
@@ -285,7 +284,7 @@ Issue や PR へのコメントで自動化を実行します。
 | `@projectops ios build` | iOS のみビルド | Flutter |
 | `@projectops create qa` | QA Issue を自動作成 | すべてのプロジェクト |
 
-> 詳細：[PR Preview](../PR-PREVIEW.md) | [Flutter ビルド](../FLUTTER-TEST-BUILD-TRIGGER.md) | [Issue 自動化](../ISSUE-AUTOMATION.md)
+> 詳細：[PR Preview](../en/pr-preview.md) | [Flutter ビルド](../en/flutter-test-build-trigger.md) | [Issue 自動化](../en/issue-automation.md)
 
 ---
 
@@ -335,18 +334,18 @@ Settings → Actions → General
 
 ## ドキュメント
 
-すべての内容を**[ドキュメントサイト](https://cassiiopeia.github.io/projectops/en/)** で検索しながら見られます。ガイドの多くは現在韓国語のみです。
+すべての内容を**[ドキュメントサイト](https://cassiiopeia.github.io/projectops/)** で検索しながら見られます。ガイドは英語と[韓国語](https://cassiiopeia.github.io/projectops/ko/)で読めます。
 
-- [はじめに（英語）](https://cassiiopeia.github.io/projectops/en/getting-started)
-- [CLI リファレンス（英語）](https://cassiiopeia.github.io/projectops/en/cli)
-- [Agent Skills ガイド（韓国語）](https://cassiiopeia.github.io/projectops/SKILLS)
-- [バージョン管理（韓国語）](https://cassiiopeia.github.io/projectops/VERSION-CONTROL)
-- [変更履歴の自動化（韓国語）](https://cassiiopeia.github.io/projectops/CHANGELOG-AUTOMATION)
-- [PR Preview（韓国語）](https://cassiiopeia.github.io/projectops/PR-PREVIEW)
-- [Issue 自動化（韓国語）](https://cassiiopeia.github.io/projectops/ISSUE-AUTOMATION)
-- [SSH + Docker デプロイ（韓国語）](https://cassiiopeia.github.io/projectops/SSH-DOCKER-DEPLOYMENT-GUIDE)
-- [Flutter CI/CD（韓国語）](https://cassiiopeia.github.io/projectops/FLUTTER-CICD-OVERVIEW)
-- [トラブルシューティング（韓国語）](https://cassiiopeia.github.io/projectops/TROUBLESHOOTING)
+- [はじめに（英語）](https://cassiiopeia.github.io/projectops/getting-started)
+- [CLI リファレンス（英語）](https://cassiiopeia.github.io/projectops/cli)
+- [Agent Skills ガイド（英語）](https://cassiiopeia.github.io/projectops/skills)
+- [バージョン管理（英語）](https://cassiiopeia.github.io/projectops/version-control)
+- [変更履歴の自動化（英語）](https://cassiiopeia.github.io/projectops/changelog-automation)
+- [PR Preview（英語）](https://cassiiopeia.github.io/projectops/pr-preview)
+- [Issue 自動化（英語）](https://cassiiopeia.github.io/projectops/issue-automation)
+- [SSH + Docker デプロイ（英語）](https://cassiiopeia.github.io/projectops/ssh-docker-deployment-guide)
+- [Flutter CI/CD（英語）](https://cassiiopeia.github.io/projectops/flutter-cicd-overview)
+- [トラブルシューティング（英語）](https://cassiiopeia.github.io/projectops/troubleshooting)
 
 ---
 
@@ -354,7 +353,7 @@ Settings → Actions → General
 
 - [Issues](https://github.com/Cassiiopeia/projectops/issues)：バグ報告、機能リクエスト
   - このリポジトリは完了した Issue を閉じず、`작업완료`（完了）ラベルで示します。未解決の Issue 数が多く見える理由です。
-- [CONTRIBUTING.md](../../CONTRIBUTING.md)：コントリビューションガイド（韓国語）
+- [CONTRIBUTING.md](../../CONTRIBUTING.md)：コントリビューションガイド（英語）
 - [SECURITY.md](../../SECURITY.md)：セキュリティ上の脆弱性は、公開 Issue ではなく非公開で報告してください
 
 ---

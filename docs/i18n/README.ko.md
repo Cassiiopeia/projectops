@@ -6,7 +6,7 @@
 
 **한국어** | [English](../../README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md)
 
-[![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/)
+[![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/ko/)
 
 **상태: 활발히 유지보수 중.** 새 버전이 자주, 하루에 여러 번 나가기도 합니다. 검증한 버전에 머물려면 `npx projectops@<버전>`으로 실행하세요 ([릴리스 목록](https://github.com/Cassiiopeia/projectops/releases)).
 
@@ -25,9 +25,9 @@
 
 > Node.js 20.12 이상만 있으면 됩니다. 별도 설치 없이 대화형 마법사가 실행됩니다.
 
-![npx projectops 대화형 마법사 실행 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
+![npx projectops 대화형 마법사 실행 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.ko.gif)
 
-> 위 화면은 샘플 Spring 프로젝트에서 **실제로 실행한 화면**입니다. 화면에 보이는 버전 표기는 녹화 시점 기준입니다. 비대화형 실행과 옵션 전체는 [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/CLI)를 보세요.
+> 위 화면은 샘플 Spring 프로젝트에서 **실제로 실행한 화면**입니다. 화면에 보이는 버전 표기는 녹화 시점 기준입니다. 비대화형 실행과 옵션 전체는 [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/ko/cli)를 보세요.
 
 ---
 
@@ -77,7 +77,7 @@
 
 ### ① 이슈를 열면 브랜치명과 커밋 메시지가 자동으로 달립니다
 
-![이슈를 열면 자동 안내 댓글이 달리는 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-issue.gif)
+![이슈를 열면 자동 안내 댓글이 달리는 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-issue.ko.gif)
 
 이슈를 열면 GitHub Actions가 스스로 실행되어 **브랜치명과 커밋 메시지 템플릿**을 댓글로 알려 줍니다. 이 브랜치명으로 작업하면 이슈 번호가 커밋·보고서에 자동으로 연동됩니다.
 
@@ -85,7 +85,7 @@
 
 ### ② PR을 열면 변경 요약이 자동으로 달립니다
 
-![PR을 열면 변경 요약 댓글이 달리는 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-pr-summary.gif)
+![PR을 열면 변경 요약 댓글이 달리는 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-pr-summary.ko.gif)
 
 작업 브랜치로 PR을 열면 커밋을 분석한 **변경 요약**이 댓글로 달립니다. 커밋을 더 올리면 새 댓글을 쌓지 않고 같은 댓글을 갱신합니다.
 
@@ -93,7 +93,7 @@
 
 ### ③ 릴리스 PR을 열면 버전 확정부터 머지, 태그까지 자동입니다
 
-![릴리스 PR이 자동으로 머지되고 태그가 생기는 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-release.gif)
+![릴리스 PR이 자동으로 머지되고 태그가 생기는 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-release.ko.gif)
 
 개발 브랜치에서 `main`으로 PR을 열면 릴리스 노트를 쓰고, 커밋 제목(`feat`, `fix` 등)으로 버전을 정해 PR 제목에 반영한 뒤, 자동으로 머지하고 **버전 태그**까지 만듭니다. 위 예시는 `feat` 커밋이라 minor 버전이 올랐습니다.
 
@@ -135,9 +135,9 @@ Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json
 
 | 구성 | 하는 일 | 문서 |
 |---|---|---|
-| **GitHub Actions** | main 푸시 한 번으로 버전 관리, 체인지로그, CI/CD 배포를 자동 처리합니다 | [버전 관리](https://cassiiopeia.github.io/projectops/VERSION-CONTROL) |
-| **Agent Skills** (14종) | `/pro-github`, `/pro-commit`, `/pro-report` 등으로 AI가 단계마다 이슈·내 스타일 커밋·보고서·릴리스 PR을 대신 진행합니다 | [Skills 가이드](https://cassiiopeia.github.io/projectops/SKILLS) |
-| **npx CLI** | 기존 프로젝트에 워크플로우를 설치·업데이트하고 상태를 진단합니다 | [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/CLI) |
+| **GitHub Actions** | main 푸시 한 번으로 버전 관리, 체인지로그, CI/CD 배포를 자동 처리합니다 | [버전 관리](https://cassiiopeia.github.io/projectops/ko/version-control) |
+| **Agent Skills** (14종) | `/pro-github`, `/pro-commit`, `/pro-report` 등으로 AI가 단계마다 이슈·내 스타일 커밋·보고서·릴리스 PR을 대신 진행합니다 | [Skills 가이드](https://cassiiopeia.github.io/projectops/ko/skills) |
+| **npx CLI** | 기존 프로젝트에 워크플로우를 설치·업데이트하고 상태를 진단합니다 | [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/ko/cli) |
 
 <details>
 <summary>Agent Skills 14종 전체 보기</summary>
@@ -339,18 +339,18 @@ Settings → Actions → General
 
 ## 문서
 
-전체 문서는 **[문서 사이트](https://cassiiopeia.github.io/projectops/)** 에서 검색하며 볼 수 있습니다.
+전체 문서는 **[문서 사이트](https://cassiiopeia.github.io/projectops/ko/)** 에서 검색하며 볼 수 있습니다.
 
-- [시작하기](https://cassiiopeia.github.io/projectops/GETTING-STARTED)
-- [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/CLI)
-- [Agent Skills 가이드](https://cassiiopeia.github.io/projectops/SKILLS)
-- [버전 관리](https://cassiiopeia.github.io/projectops/VERSION-CONTROL)
-- [체인지로그 자동화](https://cassiiopeia.github.io/projectops/CHANGELOG-AUTOMATION)
-- [PR Preview](https://cassiiopeia.github.io/projectops/PR-PREVIEW)
-- [이슈 자동화](https://cassiiopeia.github.io/projectops/ISSUE-AUTOMATION)
-- [SSH + Docker 배포](https://cassiiopeia.github.io/projectops/SSH-DOCKER-DEPLOYMENT-GUIDE)
-- [Flutter CI/CD](https://cassiiopeia.github.io/projectops/FLUTTER-CICD-OVERVIEW)
-- [트러블슈팅](https://cassiiopeia.github.io/projectops/TROUBLESHOOTING)
+- [시작하기](https://cassiiopeia.github.io/projectops/ko/getting-started)
+- [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/ko/cli)
+- [Agent Skills 가이드](https://cassiiopeia.github.io/projectops/ko/skills)
+- [버전 관리](https://cassiiopeia.github.io/projectops/ko/version-control)
+- [체인지로그 자동화](https://cassiiopeia.github.io/projectops/ko/changelog-automation)
+- [PR Preview](https://cassiiopeia.github.io/projectops/ko/pr-preview)
+- [이슈 자동화](https://cassiiopeia.github.io/projectops/ko/issue-automation)
+- [SSH + Docker 배포](https://cassiiopeia.github.io/projectops/ko/ssh-docker-deployment-guide)
+- [Flutter CI/CD](https://cassiiopeia.github.io/projectops/ko/flutter-cicd-overview)
+- [트러블슈팅](https://cassiiopeia.github.io/projectops/ko/troubleshooting)
 
 ---
 

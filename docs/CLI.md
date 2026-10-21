@@ -16,7 +16,7 @@
 
 프로젝트 폴더에서 `npx projectops`만 실행하면 됩니다. 아래는 샘플 Spring 프로젝트에서 **실제로 실행한 화면**입니다.
 
-![npx projectops 대화형 마법사 실행 화면](./images/cli-wizard.gif)
+![npx projectops 대화형 마법사 실행 화면](./images/cli-wizard.ko.gif)
 
 마법사는 이 순서로 묻습니다. 대부분 기본값이 추천값이라 Enter만 눌러도 끝납니다.
 
@@ -38,7 +38,7 @@
 
 CI나 스크립트에서는 `--force`로 모든 확인을 건너뛰고 기본값을 씁니다. 설치가 끝난 뒤 `--mode doctor`로 상태를 확인하는 흐름입니다.
 
-![비대화형 설치와 doctor 진단 실행 화면](./images/cli-oneshot.gif)
+![비대화형 설치와 doctor 진단 실행 화면](./images/cli-oneshot.ko.gif)
 
 ```bash
 npx projectops --mode full --type spring,react --force
@@ -87,7 +87,7 @@ npx projectops --intent library
 
 `--nexus`, `--npm-publish`(와 `--no-nexus`, `--no-npm-publish`)는 더 이상 쓰지 않는 옵션입니다. 각각 `--publish nexus`, `--publish npm`을 쓰세요.
 
-> 모바일 앱 타입(`flutter`, `react-native`, `react-native-expo`)은 스토어 배포 워크플로우가 타입에 이미 포함돼 있어서 배포·publish 질문 자체를 건너뜁니다. 자세한 규칙은 [NPX 마법사 가이드](/NPX-WIZARD)를 보세요.
+> 모바일 앱 타입(`flutter`, `react-native`, `react-native-expo`)은 스토어 배포 워크플로우가 타입에 이미 포함돼 있어서 배포·publish 질문 자체를 건너뜁니다. 자세한 규칙은 [NPX 마법사 가이드](./NPX-WIZARD.md)를 보세요.
 
 ## 진단 — `doctor`
 
@@ -110,6 +110,6 @@ GITHUB_TOKEN=ghp_... npx projectops --mode doctor
 
 - **내가 고친 워크플로우는 덮어쓰지 않습니다.** 건너뛰고, 새 템플릿을 `.github/.projectops/incoming/`에 저장한 뒤 비교 명령을 안내합니다.
 - **실행 기록이 남습니다.** `.github/.projectops/logs/`에 로그와 이벤트, 마이그레이션 가이드가 쌓이고 이 폴더는 git 추적에서 자동으로 제외됩니다. 문제가 생기면 AI 에이전트에게 "실행 로그 확인해줘"라고 요청하면 됩니다.
-- 이름이 바뀐 옛 워크플로우는 자동으로 정리됩니다. 자세한 정책은 [NPX 마법사 가이드](/NPX-WIZARD)의 마이그레이션 절을 보세요.
+- 이름이 바뀐 옛 워크플로우는 자동으로 정리됩니다. 자세한 정책은 [NPX 마법사 가이드](./NPX-WIZARD.md)의 마이그레이션 절을 보세요.
 
-> 구 `template_integrator.sh` / `.ps1`은 지원이 종료되어 저장소에서 제거됐습니다. `npx projectops`를 쓰세요. ([상세](/TEMPLATE-INTEGRATOR))
+> 구 `template_integrator.sh` / `.ps1`은 지원이 종료되어 저장소에서 제거됐습니다. `npx projectops`를 쓰세요. ([상세](./TEMPLATE-INTEGRATOR.md))

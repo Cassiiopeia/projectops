@@ -39,7 +39,7 @@ When one repository holds several types (for example a Spring backend plus a Pyt
 | `PROJECT_NAME` | `myapp-back` | `myapp-ai` |
 | `DEPLOY_PORT` | `8096` | `8092` |
 
-> With multiple types, the CI workflows (`*-CI.yaml`) all fire on a single develop push. Comment out the trigger or delete the file for any type whose CI you do not need. For type and path settings, see the [NPX wizard guide](../NPX-WIZARD.md).
+> With multiple types, the CI workflows (`*-CI.yaml`) all fire on a single develop push. Comment out the trigger or delete the file for any type whose CI you do not need. For type and path settings, see the [NPX wizard guide](./npx-wizard.md).
 
 ---
 
@@ -560,18 +560,17 @@ npx projectops --nexus --secret-backup
 npx projectops --publish nexus --secret-backup
 ```
 
-If you run it without options, it asks interactively when the matching folder exists. The prompts are Korean wizard output, shown here with English glosses:
+If you run it without options, the wizard asks (library publish only for project kinds that publish, Secret backup when the folder exists):
 
 ```
-📦 Nexus 라이브러리 publish 워크플로우를 발견했습니다. (2개 파일)
-   (Found the Nexus library publish workflows. (2 files))
-   Nexus 라이브러리 publish 워크플로우를 포함할까요? (예/아니오)
-   (Include the Nexus library publish workflows? (yes/no))
+(2) Do you also publish this project as a library that others consume?
+◆  Library publish targets (select nothing and press Enter = no publish)
+│  ◻ Internal Maven (Nexus) library publish
+│  ◻ GitHub Packages library publish
 
-🔐 Secret 서버 백업 워크플로우를 발견했습니다. (1개 파일)
-   (Found the Secret server backup workflow. (1 file))
-   Secret 서버 백업 워크플로우를 포함할까요? (예/아니오)
-   (Include the Secret server backup workflow? (yes/no))
+🔐 Found the Secret server backup workflow (1 files).
+◆  Include the Secret server backup workflow?
+│  ○ Yes / ● No
 ```
 
 ### Saved settings
@@ -592,7 +591,7 @@ On re-integration, the previous settings are detected and applied automatically.
 
 ## Related documents
 
-- [TEMPLATE-INTEGRATOR.md](../TEMPLATE-INTEGRATOR.md) - Template integration script guide
+- [template-integrator.md](./template-integrator.md) - Integration script guide (end of support)
 - [flutter-cicd-overview.md](./flutter-cicd-overview.md) - Full Flutter CI/CD guide
 
 ---

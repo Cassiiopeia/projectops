@@ -245,6 +245,6 @@ Four issue templates are installed automatically.
 
 ## Related docs
 
-- [PR Preview](../PR-PREVIEW.md) - the `@projectops server` command
-- [Flutter build trigger](../FLUTTER-TEST-BUILD-TRIGGER.md) - the `@projectops build app/apk build/ios build` commands
+- [PR Preview](./pr-preview.md) - the `@projectops server` command
+- [Flutter build trigger](./flutter-test-build-trigger.md) - the `@projectops build app/apk build/ios build` commands
 - [Troubleshooting](./troubleshooting.md)

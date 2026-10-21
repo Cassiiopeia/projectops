@@ -11,7 +11,7 @@
 
 Node.js 20.12 이상이 필요합니다. 비대화형 실행 예: `npx projectops --mode full --type spring,react --force`
 
-옵션 전체는 `npx projectops --help`, 마법사 동작은 [NPX 마법사 가이드](/NPX-WIZARD)를 참고하세요.
+옵션 전체는 `npx projectops --help`, 마법사 동작은 [NPX 마법사 가이드](./NPX-WIZARD.md)를 참고하세요.
 
 ## 최소 설정
 
@@ -54,11 +54,11 @@ gemini extensions install https://github.com/Cassiiopeia/projectops
 npx projectops --mode skills
 ```
 
-도구별 설치 방식과 Skill 목록은 [Agent Skills 가이드](/SKILLS)에 있습니다.
+도구별 설치 방식과 Skill 목록은 [Agent Skills 가이드](./SKILLS.md)에 있습니다.
 
 ## 다음에 볼 문서
 
-- [버전 관리](/VERSION-CONTROL) — `version.yml`과 자동 버전 증가
-- [체인지로그 자동화](/CHANGELOG-AUTOMATION) — 릴리스 PR 흐름
-- [이슈 자동화](/ISSUE-AUTOMATION) — 브랜치명·커밋 메시지 안내
-- [문제 해결](/TROUBLESHOOTING)
+- [버전 관리](./VERSION-CONTROL.md) — `version.yml`과 자동 버전 증가
+- [체인지로그 자동화](./CHANGELOG-AUTOMATION.md) — 릴리스 PR 흐름
+- [이슈 자동화](./ISSUE-AUTOMATION.md) — 브랜치명·커밋 메시지 안내
+- [문제 해결](./TROUBLESHOOTING.md)
