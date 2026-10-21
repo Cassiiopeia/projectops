@@ -26,6 +26,7 @@ from common.emit import emit  # noqa: E402
 from common.config import get_github_pat  # noqa: E402
 from common.gh_client import GitHubAPIError, add_comment  # noqa: E402
 from common.cli_parser import JSONArgumentParser, run_cli  # noqa: E402
+from common.report_comment import with_report_marker  # noqa: E402
 
 
 def _resolve_output_path(skill_id: str, forced_title: str | None,
@@ -48,7 +49,8 @@ def cmd_add_comment(args) -> int:
     body_path = Path(args.body_file)
     if not body_path.exists():
         return emit({"ok": False, "code": "body_file_not_found", "error": f"{args.body_file} 없음"})
-    body = body_path.read_text(encoding="utf-8")
+    # 표식 — finish-issue 가 제목 언어·형식과 상관없이 보고서 댓글을 찾게
+    body = with_report_marker(body_path.read_text(encoding="utf-8"))
     try:
         result = add_comment(args.owner, args.repo, args.number, body, pat)
         return emit({**result, "summary": f"#{args.number}에 댓글 추가"})

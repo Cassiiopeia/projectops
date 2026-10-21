@@ -137,3 +137,21 @@ def test_finish_issue_라벨_실패여도_닫고_부분_성공을_알린다(monk
 def test_finish_issue_닫기가_실패하면_그_단계만_실패로_보고한다(monkeypatch):
     out, _ = _finish(monkeypatch, {"labels": ["status: done"]}, update_error=gh_client.GitHubAPIError(500, "x"))
     assert out["failed_steps"] == ["close"]
+
+
+def test_pro_report_로_올린_보고서는_제목_언어와_상관없이_보고서로_본다(monkeypatch, tmp_path):
+    """영문 제목 보고서를 올려도 finish-issue 가 '보고서 없음' 경고를 내던 문제 (#969 표식 미기록)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "report_cli_marker", Path(__file__).resolve().parents[2] / "skills" / "pro-report" / "scripts" / "report_cli.py")
+    report_cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(report_cli)
+    posted = {}
+    monkeypatch.setattr(report_cli, "get_github_pat", lambda o, r: "pat")
+    monkeypatch.setattr(report_cli, "add_comment", lambda o, r, n, body, pat: posted.update(body=body) or {"id": 9})
+    report_file = tmp_path / "report.md"
+    report_file.write_text("### 📌 Summary\n\nEnglish report\n", encoding="utf-8")
+    monkeypatch.setattr(sys, "stdout", io.StringIO())
+    run_cli(report_cli.build_parser(), ["add-comment", "o", "r", "5", str(report_file)])
+    out, _ = _finish(monkeypatch, {"labels": ["status: done"]}, comments=({"id": 9, "body": posted["body"]},))
+    assert out["warnings"] == []
