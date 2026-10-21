@@ -904,9 +904,9 @@ def test_social_login_reference_exists_and_marks_what_is_unverified():
     doc = CLI.parents[1] / "references" / "social-login.md"
     assert doc.exists()
     text = doc.read_text(encoding="utf-8")
-    assert "미확인" in text          # 애플·카카오 등
+    assert "Unverified" in text      # 애플·카카오 등
     assert "--text-env" in text      # 비밀값 취급 수단을 문서도 안내한다
-    assert "테스트 계정" in text      # 소셜 로그인보다 먼저 볼 것
+    assert "Test account" in text    # 소셜 로그인보다 먼저 볼 것
 
 
 def test_social_login_reference_is_linked_from_the_skill():

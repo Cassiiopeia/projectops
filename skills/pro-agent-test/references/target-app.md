@@ -1,49 +1,49 @@
-# 앱을 밟는다 (target: app)
+# Walk an app (target: app)
 
-> 언제 읽나: Phase 0 에서 타겟이 `app` 으로 정해졌을 때.
+> When to read: when Phase 0 sets the target to `app`.
 
-**기기를 띄우고·설치하고·조작하고·찍는 법은 pro-launch 로 옮겼다** →
-`../../pro-launch/references/app.md` (Android 에뮬레이터 · iOS 시뮬레이터 · 실기기 · 녹화 · iOS 좌표 조작의 제약).
+**How to boot, install, operate and capture devices has moved to pro-launch** →
+`../../pro-launch/references/app.md` (Android emulator · iOS simulator · real devices · recording · limits of iOS coordinate input).
 
-여기에는 **QA 로 밟을 때만 필요한 것**만 남긴다.
+Only **what you need when walking as QA** stays here.
 
 ```bash
-source "{env_file 값}"
+source "{env_file value}"
 {PYTHON} {LAUNCH}/launch_cli.py app launch --device "$DEV" --pkg "$PKG"
 {PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV" --out step_N
-{PYTHON} {LAUNCH}/launch_cli.py app tap --device "$DEV" --text "{화면 문구}" --shot step_N_after   # 요소로 누른다 (좌표 아님)
+{PYTHON} {LAUNCH}/launch_cli.py app tap --device "$DEV" --text "{on-screen text}" --shot step_N_after   # tap by element (not coordinates)
 {PYTHON} {LAUNCH}/launch_cli.py app swipe --device "$DEV" --dir up
 ```
 
-> **Google Play 이미지는 `adb root`가 안 된다.** 앱 내부 파일(`/data/data/...`)을 직접 열
-> 수 없으므로 상태 확인은 **앱 로그**로 한다 (`stepping.md` Phase 2).
+> **Google Play images do not allow `adb root`.** You cannot open the app's internal files (`/data/data/...`)
+> directly, so check state through **app logs** (`stepping.md` Phase 2).
 
-## 앱에서만 나는 함정
+## Pitfalls that only happen in apps
 
-### 화면
+### Screens
 
-| 함정 | 대응 |
+| Pitfall | What to do |
 |---|---|
-| **큰 글씨로 바꿨는데 글자가 안 커진다** | 앱 전체가 무시한다고 단정하기 전에 **그 화면이 스케일 단위를 쓰는지** 본다 (Flutter 라면 `flutter_screenutil` 의 `.sp` 같은 것). 일부 화면만 고정 크기를 쓰는 경우가 흔하다 — 일반 화면에서 다시 재 본다 |
-| **뒤로가기가 안 되는 화면이 있다** | 라우터가 화면을 **교체**하며 열었는지 **쌓으며** 열었는지 본다 (`go_router` 의 `go` vs `push`). 교체였으면 돌아갈 자리가 없다. 화살표만 고치면 **기기 뒤로가기는 여전히 막힌다** — 둘을 따로 밟는다 |
+| **Text does not grow after switching to large text** | Before concluding the whole app ignores it, check **whether that screen uses scaled units** (in Flutter, things like `.sp` from `flutter_screenutil`). It is common for only some screens to use fixed sizes — measure again on an ordinary screen |
+| **Some screen cannot go back** | Check whether the router opened the screen by **replacing** or by **pushing** (`go` vs `push` in `go_router`). If it replaced, there is nothing to go back to. Fixing only the arrow **still leaves the device back button blocked** — walk the two separately |
 
-### 빌드 플래그 ⚠️
+### Build flags ⚠️
 
-개발 스위치가 안 먹을 때 가장 많이 헤매는 자리다. 표는 `../../pro-launch/references/app.md` 의
-"빌드 플래그" 절에 있다. QA 로 밟을 때 덧붙일 것은 하나다.
+This is where people get lost most when a dev switch does not take effect. The table is in the "Build flags"
+section of `../../pro-launch/references/app.md`. There is one thing to add when walking as QA.
 
-> **테스트용 플래그를 켠 빌드로 밟았으면 보고에 적는다.** 그 결과는 배포 빌드의 결과가 아니다.
-> 되돌리는 것까지가 한 단위다 — 기기가 여러 대면 켠 기기를 전부 되돌린다 (`devices.md`).
+> **If you walked with a build that has test flags on, note it in the report.** Those results are not results of the release build.
+> Reverting is part of the same unit — with several devices, revert every device you turned it on for (`devices.md`).
 
-## 서버 데이터 대조
+## Cross-checking server data
 
-접속 정보를 **하드코딩하지 않는다.** 코드를 읽어 붙는 법을 알아낸 뒤 pro-launch `access` 에 적고,
-그 기록으로 조회한다 (`../../pro-launch/references/server.md`).
+**Do not hard-code connection details.** Read the code to learn how to connect, record it in pro-launch `access`,
+and query through that record (`../../pro-launch/references/server.md`).
 
 ```bash
 {PYTHON} {LAUNCH}/launch_cli.py access set --root {ROOT} --key db --json '{"how":"direct","engine":"postgres","host":"...","db":"...","user":"...","password_env":"DB_PASSWORD"}'
 DB_PASSWORD=... {PYTHON} {LAUNCH}/launch_cli.py db --profile db --root {ROOT} --sql "select ..."
 ```
 
-> 설정 파일은 대개 gitignore 대상이다. **값을 출력하거나 커밋하지 않는다.**
-> 보고에는 호스트·DB명 정도만 적는다.
+> Config files are usually gitignored. **Do not print or commit their values.**
+> In the report, write only the host and DB name.

@@ -1,30 +1,30 @@
-# 서버를 밟는다 (target: server)
+# Walk a server (target: server)
 
-> 언제 읽나: Phase 0 에서 타겟이 `server` 로 정해졌을 때, `access` 에 붙는 법을 적을 때.
+> When to read: when Phase 0 sets the target to `server`, and when you record how to connect in `access`.
 
-`pro-agent-test`가 **화면 없이 API를 밟을 때** 쓰는 문서. 앱(`target-app.md`)·웹
-(`target-web.md`)을 밟을 때는 읽을 필요가 없다.
+This document is for when `pro-agent-test` **walks an API without a screen**. You do not need it when walking an app
+(`target-app.md`) or web (`target-web.md`).
 
-백엔드만 있는 저장소도 이 타겟으로 검증한다. 앱·웹을 밟으면서 서버를 **대조**하는 것과는
-다르다 — 그건 어느 타겟에서나 `expect_server`로 한다.
+Repos with only a backend are verified with this target too. This is different from **cross-checking** the server
+while walking an app or web — that is done with `expect_server` on any target.
 
-## 밟기
+## Walking
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py api --name {시나리오} --root {ROOT}
-#   --base-url http://localhost:8080   # 시나리오에도 access 에도 없을 때
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py api --name {scenario} --root {ROOT}
+#   --base-url http://localhost:8080   # when neither the scenario nor access has it
 #   --timeout 30
 ```
 
-앱·웹과 달리 **한 번의 호출로 시나리오 전체를 밟는다.** 화면을 보고 판단할 것이 없으므로
-쪼갤 이유가 없고, 토큰 체이닝이 한 프로세스 안에서 끝나야 단순하다.
+Unlike app and web, **one call walks the whole scenario.** There is no screen to judge, so there is no reason
+to split it, and token chaining stays simple when it finishes inside one process.
 
-멈추면 그 단계까지의 결과를 돌려준다. 뒤 단계는 실행하지 않는다 — 앞이 실패했는데 계속
-밟으면 진짜 원인이 뒤 실패에 묻힌다.
+If it stops, it returns results up to that step. Later steps do not run — if you keep walking after an earlier
+step failed, the real cause is buried under later failures.
 
-## 시나리오 — 핵심은 값을 물려주는 것
+## Scenario — the key is passing values along
 
-로그인 없이는 그다음 요청이 전부 401이다. **앞 응답에서 값을 뽑아 다음 요청에 끼운다.**
+Without login, every following request is a 401. **Extract a value from an earlier response and insert it into the next request.**
 
 ```json
 {
@@ -39,182 +39,182 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py api --name {시나리오} -
     },
     {
       "screen": "-",
-      "do": "POST /api/routines {\"title\": \"아침 준비\"}",
+      "do": "POST /api/routines {\"title\": \"Morning routine\"}",
       "auth": "{token}",
       "expect_status": 201,
-      "expect_json": "$.id 가 비어 있지 않다",
-      "expect_server": "select count(*) from routine where title = '아침 준비'"
+      "expect_json": "$.id is not empty",
+      "expect_server": "select count(*) from routine where title = 'Morning routine'"
     }
   ]
 }
 ```
 
-| 필드 | 무엇 |
+| Field | What |
 |---|---|
-| `do` | `{메서드} {경로} {본문JSON}` — 본문은 없어도 된다 |
-| `auth` | `Authorization: Bearer` 에 넣을 값. `{token}` 처럼 앞에서 저장한 것을 쓴다 |
-| `save` | 응답에서 꺼내 다음 단계에 물려줄 값. `$.a.b[0]` 정도의 경로를 읽는다 |
-| `expect_status` | 기대 상태 코드. **자동 판정된다** |
-| `expect_json` | 사람이 읽는 설명. 실제 응답을 함께 남기므로 agent가 눈으로 대조한다 |
-| `expect_server` | DB 대조 쿼리. 실제 조회는 `db` 서브커맨드로 한다 |
+| `do` | `{method} {path} {body JSON}` — the body is optional |
+| `auth` | Value for `Authorization: Bearer`. Use a value saved earlier, like `{token}` |
+| `save` | Values taken from the response and passed to the next step. Reads paths like `$.a.b[0]` |
+| `expect_status` | Expected status code. **Judged automatically** |
+| `expect_json` | A human-readable description. The real response is saved alongside, so the agent compares it by eye |
+| `expect_server` | DB cross-check query. The actual query runs through the `db` subcommand |
 
-`{이름}` 자리를 채울 값이 없으면 **거기서 멈추고 알려준다.** 조용히 빈 문자열로 채우면
-401만 받고 원인을 못 찾는다.
+If there is no value for a `{name}` slot, it **stops there and tells you.** Silently filling it with an empty string
+would only get a 401 and hide the cause.
 
-## 백엔드에서 놓치지 말아야 할 것 — 순서대로
+## What not to miss on a backend — in order
 
-화면이 없으니 **상태 변화**가 판정 근거다. 그런데 **응답 201을 받아도 DB에 없을 수 있다.**
-그래서 언제나 세 곳을 함께 본다.
+With no screen, **state change** is the basis for judgment. But **a 201 response does not mean the row is in the DB.**
+So always look at three places together.
 
 ```
-응답 (status · body)  +  저장소 (DB · 캐시 · 파일)  +  흔적 (로그 · 외부 호출)
+response (status · body)  +  storage (DB · cache · files)  +  traces (logs · external calls)
 ```
 
-| 순위 | 무엇 | 왜 이 순서인가 |
+| Rank | What | Why this order |
 |---|---|---|
-| 1 | **권한 경계** | 프론트에서 버튼을 숨겨도 API는 열려 있다. 그리고 **거의 아무도 안 밟아본다** |
-| 2 | **상태 대조** | 응답과 실제 저장이 어긋난다. 트랜잭션 롤백·비동기에서 흔하다 |
-| 3 | **관측성** | 실패했을 때 추적할 수 있는가 |
-| 4 | **실패 구분** | 400/401/403/404/409를 구분해 주나. 전부 500이면 클라이언트가 대응 못 한다 |
-| 5 | **멱등·중복** | 같은 요청 두 번. 네트워크 재시도로 실제로 자주 일어난다 |
-| 6 | **동시성** | 같은 자원을 동시에. 재고·포인트·좌석에서 터진다 |
-| 7 | **정리** | 테스트가 남긴 데이터. 안 지우면 두 번째 실행이 깨진다 |
+| 1 | **Permission boundaries** | Hiding a button in the frontend does not close the API. And **almost nobody walks it** |
+| 2 | **State cross-check** | The response and what was actually stored disagree. Common with transaction rollbacks and async work |
+| 3 | **Observability** | Can you trace it when it fails |
+| 4 | **Failure distinction** | Does it distinguish 400/401/403/404/409. If everything is 500, the client cannot react |
+| 5 | **Idempotency · duplicates** | The same request twice. Network retries make this happen often |
+| 6 | **Concurrency** | The same resource at the same time. Breaks with stock, points and seats |
+| 7 | **Cleanup** | Data left by the test. If not removed, the second run breaks |
 
-### 1. 권한은 이렇게 깨뜨려 본다
+### 1. How to break permissions
 
-**가장 중요하고 가장 안 밟아보는 자리다.**
+**The most important spot and the least walked one.**
 
-먼저 코드에서 **자원에 주인이 있는지** 확인한다 — `userId` 비교 · `@PreAuthorize` ·
-쿼리의 `where owner_id = ?` · 미들웨어. 있으면 **계정 두 개로 밟는다.**
+First check in the code **whether resources have owners** — `userId` comparison · `@PreAuthorize` ·
+`where owner_id = ?` in queries · middleware. If they do, **walk with two accounts.**
 
-| 밟는 것 | 기대 | 200이 오면 |
+| What to walk | Expected | If you get 200 |
 |---|---|---|
-| A로 만들고 **B로 조회** | 403 또는 404 | **치명** — 남의 데이터가 보인다 |
-| A로 만들고 **B로 수정·삭제** | 403 | **치명** — 남의 데이터를 바꾼다 |
-| 토큰 없이 요청 | 401 | 인증이 없는 엔드포인트다 |
-| 탈퇴한 계정의 토큰으로 요청 | 401 | **자주 빠진다** — 탈퇴해도 토큰이 산다 |
-| 일반 계정으로 관리자 API | 403 | **치명** |
+| Create with A, **read with B** | 403 or 404 | **Critical** — someone else's data is visible |
+| Create with A, **update/delete with B** | 403 | **Critical** — someone else's data changes |
+| Request without a token | 401 | The endpoint has no authentication |
+| Request with a withdrawn account's token | 401 | **Often missed** — the token survives withdrawal |
+| Admin API with a regular account | 403 | **Critical** |
 
-`404`로 감추는 것도 맞는 설계다(자원의 존재 자체를 숨긴다). **403이든 404든 상관없고,
-200이 오는 것이 결함이다.**
+Hiding with `404` is also a valid design (it hides the very existence of the resource). **403 or 404 does not matter;
+a 200 is the defect.**
 
-### 2. 상태는 이렇게 대조한다
+### 2. How to cross-check state
 
-응답만 믿지 않는다.
+Do not trust the response alone.
 
 ```bash
-... api --name {시나리오} --root {ROOT}      # 밟는다
-{PYTHON} {LAUNCH}/launch_cli.py db --profile db --sql "select ..."   # 진짜 들어갔나 본다
+... api --name {scenario} --root {ROOT}      # walk
+{PYTHON} {LAUNCH}/launch_cli.py db --profile db --sql "select ..."   # check it really went in
 ```
 
-| 어긋나는 자리 | 어떻게 드러나나 |
+| Where it diverges | How it shows |
 |---|---|
-| 201인데 DB에 없다 | 트랜잭션이 롤백됐는데 응답을 먼저 만들었다 |
-| DB엔 있는데 조회가 안 된다 | 캐시가 낡았거나 인덱스·조건이 어긋났다 |
-| 지웠는데 남아 있다 | soft delete인데 조회에서 안 거른다 |
-| 하나 만들었는데 두 개 | 재시도로 중복 생성 |
+| 201 but not in the DB | The transaction rolled back after the response was built |
+| In the DB but not returned by reads | Stale cache, or mismatched index or condition |
+| Deleted but still there | Soft delete, but reads do not filter it |
+| Created one, got two | Duplicate creation from a retry |
 
-### 3. 관측성 — 나중에 추적할 수 있는가
+### 3. Observability — can you trace it later
 
-**이건 통과/실패와 별개로 본다.** 기능은 되는데 추적이 안 되는 상태가 가장 흔하고,
-그게 다음 장애 때 원인을 못 찾는 이유가 된다.
+**Judge this separately from pass/fail.** "Works but cannot be traced" is the most common state,
+and it is why the cause cannot be found in the next outage.
 
-| 보는 것 | 결함 |
+| What to check | Defect |
 |---|---|
-| 요청 추적 | 로그가 있어도 어느 요청인지 못 잇는다 (요청 식별자 없음) |
-| 실패 기록 | 스택트레이스만 있고 **입력값이 없다** |
-| 사용자 노출 | "오류가 발생했습니다"만 — 제보받아도 못 찾는다 |
-| 민감정보 | 비밀번호·토큰이 로그에 **원문으로** 남는다 ← 결함으로 보고한다 |
+| Request tracing | Logs exist but cannot be tied to a request (no request ID) |
+| Failure records | Only a stack trace, **no input values** |
+| What the user sees | Only "An error occurred" — even with a report you cannot find it |
+| Sensitive data | Passwords or tokens stay in logs **in plain text** ← report as a defect |
 
-### 5. 멱등 — 같은 요청을 두 번
+### 5. Idempotency — the same request twice
 
-네트워크 재시도로 **실제로 자주 일어난다.** 사용자가 버튼을 두 번 누르는 것도 같다.
+**This really happens often** through network retries. A user tapping a button twice is the same.
 
 ```bash
-... api --name {시나리오} --root {ROOT}   # 한 번
-... api --name {시나리오} --root {ROOT}   # 또 한 번
+... api --name {scenario} --root {ROOT}   # once
+... api --name {scenario} --root {ROOT}   # once more
 {PYTHON} {LAUNCH}/launch_cli.py db --profile db --sql "select count(*) from ... where ..."
 ```
 
-두 번째가 409(중복)든 200(같은 결과)든 **설계에 달렸다.** 결함은 **두 개가 생기는 것**이다.
+Whether the second one is 409 (duplicate) or 200 (same result) **depends on the design.** The defect is **ending up with two.**
 
-### 6. 동시성
+### 6. Concurrency
 
-같은 자원을 동시에 건드린다. 재고·포인트·좌석·잔액에서 터진다.
+Touch the same resource at the same time. It breaks with stock, points, seats and balances.
 
-두 번 나눠 보내면 안 잡힌다 — **겹쳐서** 보내야 한다. 시나리오를 두 셸에서 동시에 돌리거나,
-같은 요청을 겹쳐 보낼 수단을 쓴다. 그리고 DB에서 **합이 맞는지** 본다
-(재고 10에서 동시에 10개 주문 → 10개만 나가야 한다).
+Sending twice in sequence does not catch it — you must send them **overlapping**. Run the scenario in two shells at once,
+or use a tool that sends the same request concurrently. Then check in the DB **that the totals add up**
+(10 concurrent orders against stock of 10 → exactly 10 go out).
 
-### 7. 정리 — 두 번째 실행이 깨지지 않게
+### 7. Cleanup — so the second run does not break
 
-백엔드 테스트는 **실제 데이터를 만든다.** 프론트와 결정적으로 다른 점이다.
+Backend tests **create real data.** That is the decisive difference from the frontend.
 
-- 시나리오의 `reset`에 지우는 방법을 적는다
-- 유니크 제약이 걸리는 값(이메일·닉네임)은 **매번 다르게 만든다** — 시각·난수를 붙인다
-- 지우지 못했으면 **보고에 남긴다.** 조용히 두면 다음 사람이 원인 모를 실패를 겪는다
+- Write how to delete it in the scenario's `reset`
+- Values under unique constraints (email, nickname) **must differ every time** — append a timestamp or random number
+- If you could not delete it, **record it in the report.** If you leave it silently, the next person hits failures with no known cause
 
-## 한 엔드포인트만 보지 않는다
+## Do not look at only one endpoint
 
-**서버에서 가장 흔한 결함은 "여기는 되는데 저기는 안 되는 것"이다.** 요청받은 API 하나만
-밟으면 전부 통과로 보인다.
+**The most common server defect is "this one works but that one does not".** If you walk only the one API you were asked about,
+everything looks like a pass.
 
-| 한 곳에 있으면 | 나머지도 확인한다 | 없으면 |
+| If one place has it | Also check | If missing |
 |---|---|---|
-| 생성에 자원 주인 확인 | **조회·수정·삭제 전부** | 남의 것을 보거나 지운다 — **치명** |
-| 한 API가 요청 식별자를 로그에 남김 | 나머지 API 전부 | 장애 때 그 구간만 추적된다 |
-| 한 목록에 페이지 상한 | 나머지 목록 전부 | 데이터가 늘면 그때 터진다 |
-| 한 입력에 길이·형식 검증 | 같은 값을 받는 다른 입력 | 우회 경로가 생긴다 |
-| 생성에 중복 방지 | **수정으로 같은 값을 만들 수 있나** | 유니크가 뚫린다 |
-| 한 곳이 비밀번호를 마스킹 | 나머지 로그 전부 | 한 줄만 새도 새는 것이다 |
+| Owner check on create | **All of read, update, delete** | Others' data can be seen or deleted — **Critical** |
+| One API logs a request ID | All other APIs | Only that stretch can be traced during an outage |
+| Page limit on one list | All other lists | It breaks once the data grows |
+| Length/format validation on one input | Other inputs that take the same value | A bypass path appears |
+| Duplicate prevention on create | **Can update produce the same value** | Uniqueness is broken |
+| One place masks passwords | All other logs | Leaking in one line is still a leak |
 
-찾는 법: 이번에 확인한 규칙을 한 문장으로 뽑고, **같은 성격의 엔드포인트를 전부 찾아**
-하나씩 밟는다. `@PreAuthorize`·미들웨어·`where owner_id` 같은 것이 **어디에는 있고 어디에는
-없는지**를 보는 것이 가장 빠르다.
+How to find them: state the rule you just checked in one sentence, **find every endpoint of the same kind**,
+and walk each one. The fastest way is to see **where things like `@PreAuthorize`, middleware or `where owner_id`
+are present and where they are not.**
 
-> 이건 화면이 있는 서비스만의 이야기가 아니다. **API만 있는 서버가 오히려 더 잘 빠진다** —
-> 화면이 없으니 아무도 눈으로 보지 않는다.
+> This is not only about services with screens. **API-only servers miss it even more often** —
+> with no screen, nobody ever looks at it.
 
-## 생애주기로 본다 — 회원가입을 예로
+## Look at the life cycle — sign-up as an example
 
-단발 API 호출이 아니다. **가입 → 사용 → 탈퇴 → 재가입**까지가 한 덩어리다.
+It is not a single API call. **Sign-up → use → withdrawal → sign-up again** is one unit.
 
 ```
-가입 → 중복가입 시도 → 로그인 → 사용 → 탈퇴 → 탈퇴 후 토큰 → 재가입
+sign up → try duplicate sign-up → log in → use → withdraw → token after withdrawal → sign up again
 ```
 
-| 밟는 것 | 볼 것 |
+| What to walk | What to check |
 |---|---|
-| 가입 | DB 적재 · 로그 · 비밀번호가 평문으로 저장되지 않는가 |
-| **같은 정보로 또 가입** | 막히는가. 통과하면 결함 |
-| 탈퇴 | 진짜 지우는가, 플래그만 바꾸는가 |
-| **탈퇴 후 남은 토큰으로 API** | 401이어야 한다 — **자주 빠진다** |
-| **재가입** | 신규인가, 예전 데이터가 딸려오는가 |
+| Sign up | Stored in the DB · logs · the password is not stored in plain text |
+| **Sign up again with the same info** | Is it blocked? A pass is a defect |
+| Withdraw | Does it really delete, or only flip a flag |
+| **Call the API with the token left after withdrawal** | Must be 401 — **often missed** |
+| **Sign up again** | Is it a new account, or does old data come along |
 
-**재가입에서 드러나는 것들**: 유니크 제약이 탈퇴한 계정을 붙잡고 있어 재가입이 막히거나,
-반대로 예전 데이터가 새 계정에 딸려온다(개인정보 문제가 될 수 있다). **둘 중 무엇이 맞는지는
-이 서비스가 정한다** — 코드와 정책을 보고 판단하고, 판단이 안 서면 사용자에게 묻는다.
+**What sign-up-again reveals**: a unique constraint holds on to the withdrawn account and blocks re-registration,
+or the opposite, old data comes along with the new account (this can be a privacy problem). **Which one is correct
+is up to this service** — judge from the code and policy, and ask the user if you cannot decide.
 
-## 실패를 일부러 만든다
+## Create failures on purpose
 
-정상 경로는 개발자가 이미 수십 번 밟아 봤다. 서버에서 버그가 나오는 자리는 대개 여기다.
+Developers have already walked the normal path dozens of times. On a server, bugs are usually found here.
 
-| 상황 | 만드는 법 | 봐야 할 것 |
+| Situation | How to create it | What to check |
 |---|---|---|
-| 토큰 없음 | `auth` 를 빼고 보낸다 | 401인가, 500인가 (500이면 처리가 빠진 것이다) |
-| 토큰 만료·위조 | `auth`에 아무 문자열 | 메시지가 원인을 구분해 주는가 |
-| 남의 자원 접근 | 다른 계정 토큰으로 조회 | **403이 아니라 200이 오면 권한 검사가 없는 것이다** |
-| 필수값 누락 | 본문에서 한 필드를 뺀다 | 400인가, DB 제약 위반 500인가 |
-| 같은 요청 두 번 | 같은 단계를 반복 | 중복 생성되는가, 멱등한가 |
-| 없는 자원 | 있을 리 없는 id | 404인가, 빈 200인가 |
+| No token | Send without `auth` | 401 or 500 (500 means handling is missing) |
+| Expired or forged token | Any string in `auth` | Does the message tell the cause apart |
+| Access to someone else's resource | Read with another account's token | **If you get 200 instead of 403, there is no permission check** |
+| Missing required field | Remove one field from the body | 400, or a 500 from a DB constraint violation |
+| The same request twice | Repeat the same step | Is a duplicate created, or is it idempotent |
+| Nonexistent resource | An id that cannot exist | 404, or an empty 200 |
 
-`expect_status`에 실패 코드를 적으면 **그게 통과 기준이 된다.** 401을 기대하는 단계는 401이
-와야 통과다.
+If you put a failure code in `expect_status`, **that becomes the pass criterion.** A step that expects 401 passes only
+when it gets 401.
 
-## DB·로그에 붙는 법은 네가 정한다
+## You decide how to connect to the DB and logs
 
-**설정이 사는 곳과 붙는 길은 프로젝트마다 다르다.** skill 이 맞히지 않는다 — 코드를 읽고 네가
-판단해 pro-launch `access` 에 적는다. 적는 법·붙는 길(`direct`·`ssh`·`command`)·로그 보는 법은
+**Where settings live and how to reach them differ per project.** The skill does not guess — read the code,
+decide, and record it in pro-launch `access`. How to record it, the connection routes (`direct` · `ssh` · `command`) and how to read logs are in
 `../../pro-launch/references/server.md`.
 
 ```bash
@@ -223,18 +223,18 @@ DB_PASSWORD=... {PYTHON} {LAUNCH}/launch_cli.py db --profile db --root {ROOT} --
 {PYTHON} {LAUNCH}/launch_cli.py logs --root {ROOT} --tail 100 --grep ERROR
 ```
 
-> **비밀번호는 값을 적지 않는다.** `password_env` 로 **어디서 읽을지**만 적는다. 값을 적으면 거절한다.
+> **Do not write the password value.** Use `password_env` to record only **where to read it from**. Writing the value is rejected.
 
-`api` 는 시나리오를 끝까지 밟는다. 한 요청만 확인하려면 pro-launch `http` 를 쓴다
-(`--expect-status` 로 판정까지). 요청 헤더 값은 결과에 남지 않는다.
+`api` walks the scenario to the end. To check a single request, use pro-launch `http`
+(`--expect-status` judges it too). Request header values are not kept in the result.
 
-## 알아둘 것
+## Good to know
 
-- **테스트 데이터를 지우는 방법을 `reset`에 적는다.** 두 번째 실행에서 "이미 있음" 때문에
-  실패하면 시나리오가 한 번만 쓸 수 있는 것이 된다.
-- **운영 서버에 밟지 않는다.** `base_url`이 어디를 가리키는지 매번 확인한다. 계정을 만들고
-  지우는 시나리오가 운영에서 돌면 실제 사용자 데이터가 사라질 수 있다.
-- **비밀번호·토큰을 시나리오 파일에 적지 않는다.** 산출물은 홈에 남지만 공유될 수 있다.
-  사용자에게 받아 그 실행에만 쓰고 파일에는 남기지 않는다.
-- 응답이 JSON이 아니면(HTML 오류 페이지 등) `text`에 앞부분만 담긴다. 그것만으로 원인이
-  안 보이면 서버 로그를 본다.
+- **Write how to delete test data in `reset`.** If the second run fails with "already exists",
+  the scenario becomes single-use.
+- **Do not walk against a production server.** Check where `base_url` points every time. If a scenario that creates and
+  deletes accounts runs in production, real user data can disappear.
+- **Do not write passwords or tokens in scenario files.** Outputs stay in the home directory but can be shared.
+  Take them from the user, use them for that run only, and keep them out of files.
+- If the response is not JSON (an HTML error page, etc.), only the beginning goes into `text`. If the cause is not
+  visible from that, read the server logs.

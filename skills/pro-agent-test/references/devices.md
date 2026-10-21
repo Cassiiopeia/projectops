@@ -1,127 +1,129 @@
-# 기기가 여러 대일 때 (target: app)
+# When you use more than one device (target: app)
 
-> 언제 읽나: 참가자가 둘 이상이라 기기를 두 대 이상 써야 할 때(연결·공유·초대), `build_mismatch` 가 났을 때.
+> When to read: when there are two or more participants and you need two or more devices (connect, share, invite), or when you get `build_mismatch`.
 
-연결·공유·초대는 **참가자가 둘**이라 기기 한 대로는 밟을 수 없다. 한쪽에서 만든 것을
-다른 쪽이 받아야 비로소 확인되는 흐름이다.
+Connect, share and invite flows have **two participants**, so one device cannot walk them. They are confirmed only when
+what one side creates is received by the other side.
 
-기기를 한 대만 쓴다면 이 문서는 필요 없다. `$DEV` 가 그 한 대를 가리키고 있다.
+If you use only one device, you do not need this document. `$DEV` already points to that device.
 
-기기는 역할마다 `device acquire` 로 빌린다 — 같은 세션이 두 번 부르면 서로 다른 기기를 준다. 끝나면 둘 다 `device release`.
+Borrow a device per role with `device acquire` — when the same session calls it twice, it gives different devices. When done, `device release` both.
 
-## 1. 역할을 기기에 묶는다
+## 1. Bind roles to devices
 
-역할 이름은 **네가 짓는다.** 시나리오에서 쓸 키와 같은 값을 쓴다.
+**You name the roles.** Use the same value as the key you will use in the scenario.
 
 ```bash
 {PYTHON} {LAUNCH}/launch_cli.py device list --root {PROJECT_ROOT}
 {PYTHON} {LAUNCH}/launch_cli.py device bind --root {PROJECT_ROOT} \
-  --role A --serial {시리얼} --note "{이 역할이 무엇인지}"
+  --role A --serial {serial} --note "{what this role is}"
 ```
 
-`env.sh` 에 이렇게 들어간다.
+`env.sh` gets this:
 
 ```sh
 export DEV_COUNT=2
-export ROLE1='A'; export DEV1='{시리얼1}'   # {설명}
-export ROLE2='B'; export DEV2='{시리얼2}'   # {설명}
+export ROLE1='A'; export DEV1='{serial1}'   # {description}
+export ROLE2='B'; export DEV2='{serial2}'   # {description}
 export DEV="$DEV1"
 ```
 
-> ⚠️ **역할 이름을 셸 변수명에 쓰지 않는다.** 변수명은 `[A-Za-z_][A-Za-z0-9_]*` 뿐이라
-> 한글·공백·하이픈이 든 이름은 `export DEV_{이름}=...` 이 `not a valid identifier` 로
-> 거부되고, **쓰는 쪽 `$DEV_{이름}` 은 터지지 않고 엉뚱한 값으로 전개된다.** 그래서
-> 번호로 고정하고 이름은 값으로 담는다. `ROLE{n}` 을 보고 어느 번호인지 정한다.
+> ⚠️ **Do not use role names in shell variable names.** Variable names allow only `[A-Za-z_][A-Za-z0-9_]*`, so
+> a name with Korean letters, spaces or hyphens makes `export DEV_{name}=...` fail with `not a valid identifier`,
+> and **the reader `$DEV_{name}` does not fail but expands to a wrong value.** So the slot is fixed
+> by number and the name is stored as a value. Look at `ROLE{n}` to decide which number.
 
-## 2. 명령마다 어느 기기인지 적는다
+## 2. Name the device in every command
 
 ```bash
-source "{env_file 값}"
+source "{env_file value}"
 
-{PYTHON} {LAUNCH}/launch_cli.py app tap --device "$DEV1" --text "{버튼}"   # A 가 조작
-{PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV2" --out {이름}   # B 화면을 본다
+{PYTHON} {LAUNCH}/launch_cli.py app tap --device "$DEV1" --text "{button}"   # A acts
+{PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV2" --out {name}   # look at B's screen
 ```
 
-**`-s` 를 빠뜨리면 기기가 여러 대일 때 adb 가 거부하거나 엉뚱한 쪽으로 간다.** 문서의
-모든 예시에 `-s` 가 붙어 있는 이유다. 지우지 말 것.
+**If you leave out `-s` with several devices, adb refuses or goes to the wrong device.** That is why every
+example in these docs has `-s`. Do not remove it.
 
-기기를 나중에 띄웠으면 `device list` 를 한 번 더 돌린다 — 환경을 새로 고쳐 `$DEV` 를 채운다.
+If you booted a device later, run `device list` once more — it refreshes the environment and fills `$DEV`.
 
-## 3. 양쪽에 같은 빌드가 깔려 있는지 본다 ⚠️
+## 3. Check that both sides have the same build ⚠️
 
-`device list` 가 역할마다 설치된 빌드를 대조해 다르면 알려 준다.
+`device list` compares the build installed for each role and tells you if they differ.
 
 ```json
 {"build_mismatch": [{"roles": ["A", "B"], "field": "apk",
   "detail": "버전은 같은데 APK 가 다릅니다 — 한쪽만 다시 설치됐을 수 있습니다"}]}
 ```
 
-> **버전으로 재면 안 된다.** 컴파일타임 플래그만 바꾼 재빌드는 `versionName`·`versionCode`
-> 가 **똑같다.** 한쪽만 재설치돼서 개발 도구가 한쪽에만 켜져 있는 상태를, 버전만 보면
-> 절대 구분하지 못한다. 그래서 APK 해시로 잰다.
+(`detail` is printed in Korean by the script: "the version is the same but the APK differs — only one side may have been reinstalled".)
 
-불일치가 보고되면 **거기서 멈추고 양쪽을 맞춘다.** 그대로 밟으면 "한쪽에서만 재현된다"는
-가짜 결함을 만들게 된다.
+> **Do not measure by version.** A rebuild that only changed compile-time flags has **identical**
+> `versionName` and `versionCode`. If only one side was reinstalled and the dev tools are on for only that side,
+> you can never tell from the version alone. That is why it is measured by APK hash.
 
-## 4. 시나리오에 누가 무엇을 하는지 적는다
+If a mismatch is reported, **stop there and align both sides.** If you walk anyway, you create fake defects
+that "reproduce on one side only".
+
+## 4. Write who does what in the scenario
 
 ```json
 { "target": "app",
-  "roles": { "A": {"note": "{만드는 쪽}"}, "B": {"note": "{받는 쪽}"} },
+  "roles": { "A": {"note": "{creating side}"}, "B": {"note": "{receiving side}"} },
   "steps": [
-    {"device": "A", "screen": "{화면}", "do": "tap '{버튼}'",
-     "expect_screen": "{결과}", "capture": "handoff"},
-    {"device": "B", "screen": "{화면}", "do": "input ${handoff}",
-     "expect_screen": "{결과}", "expect_server": "{확인 쿼리}"}
+    {"device": "A", "screen": "{screen}", "do": "tap '{button}'",
+     "expect_screen": "{result}", "capture": "handoff"},
+    {"device": "B", "screen": "{screen}", "do": "input ${handoff}",
+     "expect_screen": "{result}", "expect_server": "{check query}"}
   ]}
 ```
 
-| 무엇 | 하는 일 |
+| What | What it does |
 |---|---|
-| `roles` | 어떤 역할이 있는지. 키가 `device` 와 `--role` 에서 쓰는 이름이다 |
-| `device` | 이 단계를 **누가** 하는가. `roles` 에 없으면 `scenario show` 가 막는다 |
-| `capture` | 이 단계에서 **얻은 값에 이름을 붙인다** |
-| `${이름}` | 앞 단계가 얻은 값을 꺼내 쓴다. 앞에 `capture` 가 없으면 막는다 |
+| `roles` | Which roles exist. The keys are the names used in `device` and `--role` |
+| `device` | **Who** does this step. If it is not in `roles`, `scenario show` blocks it |
+| `capture` | **Names the value obtained** in this step |
+| `${name}` | Uses a value an earlier step obtained. Blocked if no earlier `capture` exists |
 
-> **`${이름}` 이다. `{이름}` 이 아니다.** 시나리오 틀은 `{중괄호}` 를 "여기를 채워라"
-> 표시로 이미 쓰고 있어서, 같은 기호를 쓰면 둘을 구분할 수 없다.
+> **It is `${name}`, not `{name}`.** The scenario skeleton already uses `{braces}` to mean "fill this in",
+> so using the same symbol would make the two indistinguishable.
 
-`roles` 를 비워 두면 예전처럼 기기 한 대로 밟는다. 기존 시나리오는 그대로 유효하다.
+If you leave `roles` empty, it walks with one device as before. Existing scenarios stay valid.
 
-## 5. 누를 대상은 기기마다 따로 기억한다
+## 5. Remember tap targets separately per device
 
 ```bash
 {PYTHON} {SCRIPTS}/e2e_cli.py note screen --root {PROJECT_ROOT} \
-  --name "{화면}" --anchor "{알아보는 단서}" \
-  --target "{라벨}=text:{문구}" "{라벨2}=at:{0~1 가로},{0~1 세로}" \
-  --screen-size {가로}x{세로} --role A --build {apk값}
+  --name "{screen}" --anchor "{clue that identifies it}" \
+  --target "{label}=text:{text}" "{label2}=at:{0~1 horizontal},{0~1 vertical}" \
+  --screen-size {width}x{height} --role A --build {apk value}
 
-# 그 대상을 눌러 본 결과 (app tap --shot 의 screen_changed 가 true 면 ok, not_found·false 면 fail)
+# result of tapping that target (ok if app tap --shot gives screen_changed true; fail if not_found or false)
 {PYTHON} {SCRIPTS}/e2e_cli.py note screen --root {PROJECT_ROOT} \
-  --name "{화면}" --target "{라벨}" --result ok --role A --screen-size {가로}x{세로}
+  --name "{screen}" --target "{label}" --result ok --role A --screen-size {width}x{height}
 ```
 
-**해상도가 같아도 빌드가 다르면 화면이 다르다.** 역할별로 다른 빌드가 깔리는 일이 흔해서
-대상을 한 벌만 기억하면 엉뚱한 자리를 누른다. `--role` 을 붙이면 따로 쌓인다.
-픽셀(`라벨=540,1200`)은 거절된다 — `app tap` 이 받지 않는다. 요소가 보이면 `text:`·`id:`·`desc:`, 아니면 `at:` 비율.
+**Even at the same resolution, a different build means a different screen.** Different builds per role are common, so
+if you remember only one set of targets you tap the wrong spot. With `--role`, they are stored separately.
+Pixels (`label=540,1200`) are rejected — `app tap` does not accept them. If the element is visible use `text:` · `id:` · `desc:`, otherwise an `at:` ratio.
 
-예전 기록(픽셀 좌표 한 벌)은 읽는 순간 비율로 바뀌고 `verify` 가 붙는다(원본은 `legacy_taps`).
-한 번 눌러 보고 `--result ok` 를 남기면 `verify` 가 내려간다.
+Old records (one set of pixel coordinates) are converted to ratios when read and get `verify` (the original is in `legacy_taps`).
+Tap once and record `--result ok`, and `verify` is cleared.
 
-## 6. 테스트용 빌드 플래그는 되돌리는 것까지 한 단위다 ⚠️
+## 6. A test build flag is one unit together with reverting it ⚠️
 
-개발 스위치를 켠 빌드를 설치했으면 **밟기가 끝나는 즉시 되돌린다.** 미루면 그 상태로
-커밋되거나, 다음 빌드가 어긋난 채 나간다.
+If you installed a build with a dev switch on, **revert it as soon as walking ends.** If you put it off, it gets
+committed in that state, or the next build ships misaligned.
 
-기기가 여러 대면 **켠 기기를 전부** 되돌려야 한다. 한쪽만 되돌리면 다음 밟기에서
-"한쪽에서만 재현된다"가 또 나온다.
+With several devices, revert **every device you turned it on for.** If you revert only one, the next walk
+again produces "reproduces on one side only".
 
-플래그가 어디에 있는지는 두 층으로 갈린다.
+Where the flag lives splits into two layers.
 
-| 층 | 어디에 | 확인 |
+| Layer | Where | How to check |
 |---|---|---|
-| 런타임 | 설정 파일(dotenv 등) | 파일을 직접 본다 |
-| 컴파일타임 | 빌드 인자로 박힌다 | **파일에는 안 보인다.** 설치해서 눌러 봐야 안다 |
+| Runtime | Config files (dotenv, etc.) | Read the file directly |
+| Compile time | Baked in as build arguments | **Not visible in files.** You only know after installing and tapping |
 
-**한 층만 맞아도 빌드는 통과한다.** 로그가 "적용 완료"라고 해도 실제로는 꺼져 있을 수 있다.
-설치한 뒤 그 기능이 화면에 실제로 있는지 눌러서 확인한다.
+**The build passes even when only one layer is right.** Even if the log says "applied", it may actually be off.
+After installing, tap to confirm that the feature is really on screen.

@@ -1,170 +1,170 @@
-# 로그인 관문을 통과한다 · 사람이 해야 하는 지점
+# Getting through the login gate · points where a person must act
 
-> 언제 읽나: 로그인 화면을 만났을 때, 2단계 인증·결제·캡차처럼 사람이 해야 하는 화면에 닿았을 때 (Phase 4).
+> When to read: when you hit a login screen, and when you reach a screen a person must handle, such as 2-step verification, payment or a captcha (Phase 4).
 
-## 사람이 해야 하는 지점 — 즉시 멈추고 알린다
+## Points where a person must act — stop at once and tell the user
 
-우회하거나 추측하지 않는다.
+Do not bypass or guess.
 
-| 상황 | 화면에서 알아보는 법 |
+| Situation | How to recognize it on screen |
 | --- | --- |
-| 2단계 인증 | "인증", "2-Step", "확인 버튼을 눌러주세요", 남은 시간 표시 |
-| 생체 인증 | 지문·Face ID 안내 (시뮬레이터는 메뉴로 대체 가능 — `../../pro-launch/references/app.md`) |
-| 결제 | 카드 입력, 스토어 결제 시트 |
-| 외부 앱 전환 | `mCurrentFocus`가 우리 패키지가 아님 |
-| 캡차 | 이미지 선택·문자 입력 |
+| 2-step verification | "Verify", "2-Step", "tap the confirm button", a countdown |
+| Biometrics | Fingerprint or Face ID prompt (the simulator can substitute via menu — `../../pro-launch/references/app.md`) |
+| Payment | Card entry, store payment sheet |
+| Switch to an external app | `mCurrentFocus` is not our package |
+| Captcha | Image selection, text entry |
 
-> **로그인 화면 자체는 이 표에 없다.** 보자마자 넘기면 그 뒤가 한 번도 검증되지 않는다 —
-> 아래를 따라 **네가 통과시키고**, 2단계 인증에 닿았을 때만 멈춘다.
+> **The login screen itself is not in this table.** If you hand it over on sight, nothing after it is ever verified —
+> follow the steps below and **get through it yourself**; stop only when you reach 2-step verification.
 
-알릴 때 **반드시 포함할 것**:
+What the message **must include** (write it in the user's language, or the configured `language` preference):
 
 ```
-지금 해주셔야 합니다 — {무엇을}
+You need to do this now — {what}
 
-{어느 앱·어디에서} {무엇을 누르면} 되는지 한 줄.
-{제한 시간이 있으면 남은 시간}. 지나가도 다시 시도하면 되니 괜찮습니다.
+One line on {which app / where} and {what to tap}.
+{Time left, if there is a time limit}. If it runs out, retrying is fine.
 ```
 
-계정 잠금 위험이 있으므로 **비밀번호를 두 번 이상 자동 재시도하지 않는다.**
+Because of the risk of locking the account, **never auto-retry a password more than once.**
 
 ---
 
-> 로그인은 **밟기의 시작점이지 끝이 아니다.** 여기서 멈추면 그 뒤의 화면은
-> 한 번도 검증되지 않는다. 실제로 대부분의 앱·웹이 첫 화면부터 로그인을 요구하므로,
-> 이 문서가 다루는 것은 "부가 기능"이 아니라 **밟을 수 있느냐 없느냐**다.
+> Login is **the start of the walk, not the end.** If you stop here, the screens after it
+> are never verified. Most apps and webs require login from the first screen,
+> so what this document covers is not an "extra feature" but **whether you can walk at all.**
 
-> **저장된 로그인 정보부터 본다.** `pro-launch` 의 `cred list` 에 `kind: login` 으로 이 앱·제공자의 계정이 있으면 그것을
-> 쓴다(`web type --cred` · `app type --cred`). 없으면 묻고, **허락받은 것만** 저장한다 — `pro-launch/references/web.md` 의
-> "로그인 정보를 저장할 때". 계정은 `cred`, 통과한 방식은 `learn` 에 남긴다.
+> **Check saved login info first.** If `pro-launch`'s `cred list` has an account for this app or provider with `kind: login`,
+> use it (`web type --cred` · `app type --cred`). If not, ask, and save **only what you are allowed to** — see
+> "When saving login info" in `pro-launch/references/web.md`. Keep the account in `cred` and the method that worked in `learn`.
 
-## 먼저: 로그인하지 않고 되는 길이 있는지 본다
+## First: check whether there is a way in without logging in
 
-순서를 지킨다. 아래로 갈수록 비싸고 잘 깨진다.
+Follow the order. The further down, the more expensive and fragile.
 
-| 순서 | 방법 | 언제 |
+| Order | Method | When |
 | --- | --- | --- |
-| 1 | **테스트 계정 · 시드 데이터** | 프로젝트가 제공하면 무조건 이것 |
-| 2 | **개발용 우회 플래그** (`SKIP_AUTH` 등) | 로컬·스테이징에 흔히 있다 |
-| 3 | **토큰 직접 주입** — 서버에서 발급받아 스토리지에 넣는다 | API 가 열려 있을 때 |
-| 4 | **자체 계정 로그인** (이메일+비밀번호) | 소셜보다 훨씬 안정적이다 |
-| 5 | 소셜 로그인 | 위가 전부 없을 때 |
+| 1 | **Test account · seed data** | Always this if the project provides it |
+| 2 | **Dev bypass flag** (`SKIP_AUTH`, etc.) | Common in local and staging |
+| 3 | **Inject a token directly** — issue it from the server and put it into storage | When the API is open |
+| 4 | **Own-account login** (email + password) | Much more stable than social login |
+| 5 | Social login | When none of the above exist |
 
-**1~3을 확인하지 않고 5로 가지 않는다.** 프로젝트의 `CLAUDE.md`·`README`·`docker-compose`·
-시드 스크립트에 대개 적혀 있다. 없으면 사용자에게 **먼저 묻는다** — "테스트 계정이 있나요"
-한 줄이 30분을 아낀다.
+**Do not go to 5 without checking 1–3.** They are usually written in the project's `CLAUDE.md`, `README`, `docker-compose`
+or seed scripts. If not, **ask the user first** — one line, "is there a test account?",
+saves 30 minutes.
 
-## 소셜 로그인이 자동화를 거부하는 원리
+## Why social login rejects automation
 
-제공자(구글·애플·카카오 등)는 자동화 브라우저를 **로그인 화면에 닿기도 전에** 판별해
-저사양 플로우로 강등시키거나 거부한다. 그래서 **거부는 비밀번호 단계가 아니라
-이메일 단계에서 일어난다.**
+Providers (Google, Apple, Kakao, etc.) detect automated browsers **before you even reach the login screen**
+and downgrade them to a low-end flow or reject them. So **the rejection happens at the email step,
+not the password step.**
 
-여기서 중요한 것은 **시도하기 전에 판정할 수 있다**는 점이다. 주소·화면이 이미
-"강등된 플로우"임을 말해 준다. 그걸 읽고 나서 시도 여부를 정한다.
+The important point is that **you can tell before you try.** The address and screen already say
+"this is a downgraded flow". Read that, then decide whether to try.
 
-### 구글 — 실측
+### Google — measured
 
-| 신호 | 뜻 |
+| Signal | Meaning |
 | --- | --- |
-| 주소에 `flowName=WebLiteSignIn` | 자동화로 인식됨 → **시도하면 `/signin/rejected`** |
-| 주소에 `flowName=GlifWebSignIn` | 정상 플로우 → 진행 가능 |
+| `flowName=WebLiteSignIn` in the address | Detected as automation → **trying leads to `/signin/rejected`** |
+| `flowName=GlifWebSignIn` in the address | Normal flow → you can proceed |
 
-거부 문구는 `Couldn't sign you in / This browser or app may not be secure.` 이며
-**비밀번호를 묻지 않는다.**
+The rejection text is `Couldn't sign you in / This browser or app may not be secure.` and
+**it never asks for the password.**
 
-### 통과 방법 — 눈에 보이게 띄운다
+### How to get through — open it visibly
 
 ```bash
 {PYTHON} {LAUNCH}/launch_cli.py web open --headed --root {PROJECT_ROOT}
 {PYTHON} {LAUNCH}/launch_cli.py web goto --url "https://accounts.google.com/ServiceLogin" --root {PROJECT_ROOT}
 ```
 
-> **실측 (projectops, 2026-09-18)** — 같은 Chromium, 같은 주소, `--headed` 만 다르게:
+> **Measured (projectops, 2026-09-18)** — same Chromium, same address, only `--headed` differs:
 >
-> | 모드 | 도달한 flowName |
+> | Mode | flowName reached |
 > | --- | --- |
-> | 기본(headless) | `WebLiteSignIn` |
+> | Default (headless) | `WebLiteSignIn` |
 > | `--headed` | **`GlifWebSignIn`** |
 >
-> anti-bot 확장이나 별도 브라우저 없이 **headed 여부만으로 갈렸다.**
-> 이 스킬의 `web` 명령만으로 충분하다는 뜻이다.
+> **Headed or not was the only difference** — no anti-bot extension or separate browser.
+> This means this skill's `web` commands are enough.
 >
-> pro-launch 는 자동화 표식 가리기(stealth, gstack 에서 옮김)를 기본으로 켜 headless 에서도 덜 막히지만,
-> **로그인이 필요하면 여전히 `--headed` 가 먼저다.** 로그인 버튼을 누르기 전에 주소의 `flowName` 부터 읽는다.
+> pro-launch turns on hiding of automation markers (stealth, moved from gstack) by default, so headless gets blocked less,
+> but **if login is needed, `--headed` still comes first.** Read `flowName` in the address before pressing the login button.
 
-화면이 없는 환경(CI·원격 SSH)에서는 이 경로를 쓸 수 없다. 그때는 위의 1~4로 돌아간다.
+You cannot use this path in an environment without a display (CI, remote SSH). Then go back to 1–4 above.
 
-## 되지 않았던 것들 — 다시 시도하지 않는다
+## What did not work — do not retry
 
-| 시도 | 결과 |
+| Attempt | Result |
 | --- | --- |
-| headless 로 직접 로그인 | 이메일 단계에서 `/signin/rejected`. 비밀번호를 묻지도 않는다 |
-| 설치된 Chrome 쿠키 임포트 (macOS) | "Chrome Safe Storage" Keychain 승인 대화상자가 뜨고 **명령은 그대로 반환**된다. 재실행해도 쿠키 0개 — 화면을 볼 수 없는 원격에서는 통과 불가 |
-| 로그인 없는 공개 페이지 우회 | 비공개 테스트 옵트인 페이지(`play.google.com/apps/testing/{package}`)도 로그인을 요구한다 |
+| Direct login in headless | `/signin/rejected` at the email step. It does not even ask for the password |
+| Import cookies from installed Chrome (macOS) | A "Chrome Safe Storage" Keychain approval dialog appears and **the command returns immediately**. Rerunning still gives 0 cookies — impossible from a remote session that cannot see the screen |
+| Bypass via public pages without login | Even the closed-testing opt-in page (`play.google.com/apps/testing/{package}`) requires login |
 
-## Android 네이티브 Google 로그인 — 계정 선택 창
+## Native Android Google login — the account picker
 
-앱의 "Google로 로그인"이 띄우는 Play Services 계정 선택 창은 **앱 밖 화면**이다(웹 로그인과 다르다).
+The Play Services account picker that the app's "Sign in with Google" opens is **a screen outside the app** (unlike web login).
 
-- 기기에 테스트 계정이 **이미 있으면** `app tap --text "{계정 이메일}" --shot` 으로 고른다 — 화면 요소로 잡힌다.
-  이메일은 화면에 보이는 식별자라 `--text` 로 넘겨도 된다(비밀번호·토큰은 절대 아니다 — 그건 `app type --cred`). 보고서·이슈에서는 가린다.
-- 계정이 **없거나**(계정 추가 화면이 뜬다) 2단계 인증이 나오면 **멈추고 사용자에게 넘긴다.** 기기에 계정을 임의로 추가하지 않는다.
+- If the device **already has** a test account, pick it with `app tap --text "{account email}" --shot` — it is found as a screen element.
+  The email is an identifier visible on screen, so passing it with `--text` is fine (never a password or token — those go through `app type --cred`). Mask it in reports and issues.
+- If there is **no** account (an add-account screen appears) or 2-step verification appears, **stop and hand over to the user.** Do not add accounts to the device on your own.
 
-## 2단계 인증 — 여기서 멈춘다
+## 2-step verification — stop here
 
-본인 확인 화면에 닿으면 자동화의 끝이다. **화면을 읽고 거기 적힌 것을 그대로 전달한다.**
+Reaching an identity check screen is the end of automation. **Read the screen and pass on exactly what it says.**
 
-무엇이 적혀 있는지는 계정마다 다르다. 실측으로 본 것만 해도 이렇게 갈렸다.
+What it says differs per account. Even in our measurements it split like this.
 
-| 화면 | 사용자가 할 일 |
+| Screen | What the user does |
 | --- | --- |
-| 기기 알림 + 숫자 | 알림에서 "예" → 화면의 숫자를 탭 |
-| 기기 알림만 | 알림에서 "예"를 탭 (숫자 없음) |
-| 대체 수단 안내 | 다른 기기에서 특정 앱을 열어 확인 |
+| Device notification + number | "Yes" on the notification → tap the number shown on screen |
+| Device notification only | Tap "Yes" on the notification (no number) |
+| Alternative method prompt | Open a specific app on another device to confirm |
 
-**형식을 외워 쓰지 않는다.** 없는 숫자를 요구하거나, 적혀 있는 대체 수단을 빠뜨리면
-사용자가 폰을 들고도 헤맨다. 화면에 있는 그대로 — 어느 기기, 무엇을 누름, 숫자가 있으면 숫자.
+**Do not reuse a memorized format.** If you ask for a number that is not there, or leave out the alternative method shown,
+the user is lost even with the phone in hand. Pass on exactly what is on screen — which device, what to tap, and the number if there is one.
 
-- 통과 뒤 **복구 정보 설정 화면이 끼어들면 "취소"** — 계정 설정을 임의로 바꾸지 않는다
-- 한 번 통과하면 세션이 브라우저에 남아 **이후 재확인은 로그인 없이 된다**
-- 브라우저를 `web close` 로 닫으면 세션도 사라진다. 연속 작업 중에는 열어 둔다
+- If a **recovery-info setup screen** pops up after passing, press **"Cancel"** — do not change account settings on your own
+- Once passed, the session stays in the browser, so **later rechecks work without logging in**
+- Closing the browser with `web close` also ends the session. Keep it open during continuous work
 
-## 비밀값 취급 ⚠️
+## Handling secrets ⚠️
 
-**명령어 인자에 비밀번호를 적으면 세션 기록 파일에 평문으로 남는다.**
-환경변수로 넘기면 기록에는 변수 이름만 남는다.
+**A password written in command arguments stays in plain text in the session history file.**
+If you pass it through an environment variable, only the variable name stays in the history.
 
 ```bash
 APP_PW="..." {PYTHON} {LAUNCH}/launch_cli.py web type \
   --selector 'input[type=password]' --text-env APP_PW --root {PROJECT_ROOT}
 ```
 
-- `--text-env` 로 넘긴 값은 실패 응답에서도 `***` 로 가려진다
-- **보고 문장·스크린샷·노트에 옮기지 않는다.** 로그인 직후 스크린샷은 주소창에
-  토큰이 실려 있을 수 있으니 필요한 영역만 찍는다
-- 자격증명을 대화로 받았으면 **작업이 끝난 뒤 변경을 권고한다**
-- 계정 잠금 위험 — **자동 재시도는 한 번까지.** 두 번째 실패는 사용자에게 넘긴다
+- Values passed with `--text-env` are masked as `***` even in failure responses
+- **Do not copy them into report text, screenshots or notes.** A screenshot right after login can carry
+  a token in the address bar, so capture only the area you need
+- If you received credentials in the conversation, **recommend changing them after the work is done**
+- Account lock risk — **auto-retry at most once.** Hand the second failure to the user
 
-## 아직 확인하지 못한 것
+## Not yet verified
 
-| 제공자 | 상태 |
+| Provider | Status |
 | --- | --- |
-| 구글 | **실측 완료** (위 표) |
-| 애플 | **미확인.** 같은 방식(headed)이 통할 가능성이 높지만 확인 전까지 단정하지 않는다 |
-| 카카오 · 네이버 · GitHub 등 | **미확인.** 판정 신호는 제공자마다 다르다 |
+| Google | **Measured** (table above) |
+| Apple | **Unverified.** The same approach (headed) likely works, but do not assume so until confirmed |
+| Kakao · Naver · GitHub, etc. | **Unverified.** Detection signals differ per provider |
 
-**미확인 제공자를 만나면 추측하지 말고 순서대로 한다.**
+**When you meet an unverified provider, do not guess; follow the order.**
 
-1. headed 로 열어 로그인 화면까지 간다
-2. **주소와 화면 문구를 먼저 기록한다** — 이것이 다음 사람의 판정 신호가 된다
-3. 거부되면 그 신호를 `note` 로 남기고 사용자에게 넘긴다
+1. Open headed and go as far as the login screen
+2. **Record the address and screen text first** — this becomes the detection signal for the next person
+3. If rejected, keep that signal with `note` and hand over to the user
 
 ```bash
 {PYTHON} {SCRIPTS}/e2e_cli.py note pitfall \
-  --text "카카오 로그인: headed 로도 {관측한 신호} 가 떠 거부됨" \
+  --text "Kakao login: rejected even headed, with {observed signal}" \
   --scope platform --root {PROJECT_ROOT}
 ```
 
-`scope`를 `platform`으로 두면 **이 프로젝트가 아니라 스킬로 올리라**는 신호가 된다.
-다음 사람이 같은 벽 앞에서 다시 헤매지 않게 하는 것이 이 문서가 자라는 방식이다.
+Setting `scope` to `platform` signals that **this belongs in the skill, not in this project.**
+Keeping the next person from getting lost at the same wall is how this document grows.

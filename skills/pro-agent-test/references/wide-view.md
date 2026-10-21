@@ -1,153 +1,153 @@
-# 넓게 본다 — 횡단 · 대칭 · 남의 환경 · 파급 · 제안
+# Look wide — cross-cutting · symmetry · other people's environments · ripple effects · proposals
 
-> 언제 읽나: 요청받은 흐름을 다 밟은 직후(Phase 4.5 ~ 4.8). 보고서를 쓰기 전에 반드시.
+> When to read: right after walking the requested flow (Phase 4.5 – 4.8). Always before writing the report.
 
-`SKILL.md` 의 Phase 4.5 · 4.6 · 4.7 · 4.8 을 펼친 것이다.
+This expands Phase 4.5 · 4.6 · 4.7 · 4.8 of `SKILL.md`.
 
-## Phase 4.5 — 같은 성격의 다른 자리 ⚠️
+## Phase 4.5 — Other places of the same kind ⚠️
 
-**기능 하나가 통과했다고 끝이 아니다.** 같은 성격의 다른 자리도 그런지 본다.
-여기서 나오는 결함이 가장 오래 살아남는다 — 요청받은 화면 하나만 보면 영원히 안 보인다.
+**One feature passing is not the end.** Check whether other places of the same kind behave the same.
+Defects found here survive the longest — if you look only at the one requested screen, you never see them.
 
-### 실제로 이런 것이 빠진다 — 타겟을 가리지 않는다
+### What actually gets missed — on any target
 
-| 타겟 | 요청받은 곳은 통과하는데 | 다른 곳은 |
+| Target | The requested spot passes | But elsewhere |
 | --- | --- | --- |
-| **앱** | 회원가입 비밀번호 재입력에 "틀리면 흔들림"을 넣었다 | 같은 앱의 다른 비밀번호 입력 화면은 안 흔들린다 |
-| **서버** | 생성 API에 자원 주인 확인을 넣었다 | **수정·삭제 API에는 없다** — 남의 것을 지울 수 있다 |
-| **서버** | 로그인 API가 요청 식별자를 로그에 남긴다 | 나머지 API는 안 남긴다 — 장애 때 그 구간만 추적된다 |
-| **웹** | 한 폼에 중복 제출 방지를 넣었다 | 다른 폼은 두 번 눌리면 두 번 보낸다 |
-| **웹** | 목록 하나에 페이지 상한이 있다 | 다른 목록은 무제한 — 데이터가 늘면 그때 터진다 |
+| **App** | Sign-up password confirmation got "shake on mismatch" | Other password entry screens in the same app do not shake |
+| **Server** | The create API got an owner check | **The update and delete APIs do not have it** — you can delete someone else's data |
+| **Server** | The login API logs a request ID | The other APIs do not — only that stretch can be traced in an outage |
+| **Web** | One form got double-submit protection | Other forms send twice when clicked twice |
+| **Web** | One list has a page limit | Other lists are unlimited — they break once data grows |
 
-**요청받은 자리만 보면 전부 "통과"다.** 프로젝트 전체를 봐야 결함이다.
+**If you look only at the requested spot, everything is a "pass".** It is a defect only when you look at the whole project.
 
-이걸 잡으려면 "이 프로젝트는 실패를 흔들림으로 알린다" · "자원에는 주인이 있다" 같은
-**규칙을 알고 있어야 한다.** 그래서 이 단계는 프로젝트를 아는 QA만 할 수 있고,
-정확히 그래서 값어치가 있다.
+To catch this you **must know rules** such as "this project signals failure with a shake" or "resources have owners".
+So only a QA who knows the project can do this step, and
+that is exactly why it is valuable.
 
-### 세 개의 렌즈
+### Three lenses
 
-| 렌즈 | 묻는 것 | 찾는 법 |
+| Lens | Question | How to find |
 |---|---|---|
-| **횡단** | 같은 성격의 자리가 **전부** 같게 동작하나 | 이번에 확인한 동작을 규칙 한 문장으로 뽑고, 그 규칙이 닿아야 할 자리를 코드에서 전부 찾는다 |
-| **대칭** | 짝이 되는 동작도 같은 대접을 받나 | 아래 짝 목록 |
-| **파급** | 이걸 건드리면 어디가 영향받나 | **Phase 4.7에서 따로 센다** — 코드뿐 아니라 문서·테스트·복사본까지 |
+| **Cross-cutting** | Do **all** places of the same kind behave the same | State the behavior you just checked as a one-sentence rule, then find every place in the code that rule should reach |
+| **Symmetry** | Does the paired action get the same treatment | The pair list below |
+| **Ripple effect** | If this is touched, what is affected | **Counted separately in Phase 4.7** — not only code but docs, tests and copies |
 
-### 대칭 짝 — 한쪽에 있으면 다른 쪽에도 있어야 한다
+### Symmetric pairs — if one side has it, the other should too
 
-| 이쪽에 있으면 | 저쪽도 확인한다 |
+| If this side has it | Check the other side too |
 |---|---|
-| 가입할 때 입력 검증 | **정보 수정할 때**도 같은 검증 |
-| 만들 때 권한 확인 | **조회·수정·삭제할 때**도 권한 확인 |
-| 삭제 전 확인 창 | 되돌릴 수 없는 **다른 동작**에도 |
-| 가입할 때 만들어지는 것 | **탈퇴할 때** 정리되는가 |
-| 켜기 | 끄기 |
-| 로그인 후 상태 | **로그아웃 후** 정리 (토큰·캐시·화면) |
-| 성공했을 때 안내 | **실패했을 때** 안내 |
+| Input validation on sign-up | The same validation **on profile edit** |
+| Permission check on create | Permission check **on read, update, delete** |
+| Confirmation dialog before delete | On **other** irreversible actions too |
+| What is created on sign-up | Is it cleaned up **on withdrawal** |
+| Turn on | Turn off |
+| State after login | Cleanup **after logout** (tokens, cache, screens) |
+| Message on success | Message **on failure** |
 
-### 하는 순서
+### Order of work
 
-1. 이번에 밟은 것에서 **규칙을 한 문장으로 뽑는다**
+1. From what you just walked, **state the rule in one sentence**
 
-   | 타겟 | 뽑은 규칙의 예 |
+   | Target | Example rules |
    | --- | --- |
-   | 앱·웹 | "실패는 색이 아니라 흔들림으로 알린다" · "되돌릴 수 없는 동작은 확인을 받는다" |
-   | 서버 | "자원에는 주인이 있고 모든 동사(조회·수정·삭제)가 그것을 확인한다" |
-   | 서버 | "모든 요청은 식별자와 함께 로그에 남는다" |
-   | 공통 | "목록을 주는 곳에는 상한이 있다" |
-2. 그 규칙이 닿아야 할 자리를 **코드에서 전부 찾는다**
-   — 이건 agent만 할 수 있다. "이것들이 같은 성격"이라는 판단이 필요하다
-3. 하나씩 확인한다. **안 되는 곳이 결함이다**
-4. 규칙을 기록에 남긴다
+   | App · web | "Failures are signaled by a shake, not by color" · "Irreversible actions require confirmation" |
+   | Server | "Resources have owners, and every verb (read, update, delete) checks it" |
+   | Server | "Every request is logged with an identifier" |
+   | Common | "Anything that returns a list has a limit" |
+2. **Find every place in the code** that the rule should reach
+   — only the agent can do this. It needs the judgment that "these are the same kind"
+3. Check them one by one. **The places that fail are the defects**
+4. Record the rule
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py note constraint --root {ROOT} --text "{지켜야 하는 것}" --check "{무엇을 보면 위반인지}"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py note constraint --root {ROOT} --text "{what must hold}" --check "{what you see that means a violation}"
 ```
 
-**규칙이 쌓일수록 이 단계가 빨라진다.** 시작할 때 `note show`로 읽고, 쌓인 규칙을 그대로
-대조하면 된다. 새 화면이 생기면 자동으로 검사 대상이 된다 — 이것이 이 skill이 쓸수록
-똑똑해지는 자리다.
+**The more rules accumulate, the faster this step gets.** Read them with `note show` at the start and compare against the accumulated rules
+as they are. New screens automatically become check targets — this is where this skill
+gets smarter the more you use it.
 
-여기서 나온 것은 **따로 보고한다.** 요청받은 기능은 통과했는데 다른 곳이 안 되는 상태다.
-섞어 적으면 "이번 작업이 실패했다"로 읽힌다 (`reporting.md` 의 "일관성 결함").
+**Report what comes out of here separately.** It is a state where the requested feature passed but another place does not work.
+If you mix them, it reads as "this work failed" ("consistency defect" in `reporting.md`).
 
-## Phase 4.6 — 남의 환경에서 처음 돌 때 ⚠️
+## Phase 4.6 — The first run in someone else's environment ⚠️
 
-**타겟을 가리지 않는다.** 앱도 "내 폰에선 되는데"가 있고, 서버도 "내 로컬 DB에선
-되는데"가 있다. Phase 4.5가 **같은 성격의 다른 곳**을 본다면, 여기서는 **같은 것의 다른 환경**을 본다.
+**This applies to any target.** Apps have "works on my phone", and servers have "works on my local
+DB". If Phase 4.5 looks at **other places of the same kind**, this looks at **the same thing in a different environment**.
 
-| 렌즈 | 묻는 것 | 어떻게 밟나 |
+| Lens | Question | How to walk it |
 | --- | --- | --- |
-| **기본값** | 설정을 명시 안 하고 환경 기본값에 기대나 | 기본값이 다른 환경을 만들어 돌린다 |
-| **설치물** | 내 기계에만 있는 것에 기대나 | 그것을 숨기고 돌린다 |
-| **첫 상태** | 처음 쓰는 사람의 빈 상태에서 시작하나 | 설정·기록을 지운 곳에서 돌린다 |
-| **안 밟은 분기** | 조건이 맞아야만 타는 경로가 있나 | 코드에서 분기를 세고 안 밟은 것을 밟는다 |
-| **결과물** | 만들어진 것을 눈으로 봤나 | 산출물을 열어본다 |
+| **Defaults** | Does it rely on environment defaults without setting them explicitly | Create an environment with different defaults and run |
+| **Installed tools** | Does it rely on something only on my machine | Hide it and run |
+| **First state** | Does it start from the empty state of a first-time user | Run where settings and records are cleared |
+| **Unwalked branches** | Are there paths taken only when conditions match | Count branches in the code and walk the ones not walked |
+| **Outputs** | Did you look at what was produced | Open the outputs |
 
-### 이 스킬 자신이 다섯 번 다 걸렸다
+### This skill itself fell into all five
 
-| 무엇이 | 왜 여기선 안 터졌나 |
+| What | Why it did not blow up here |
 | --- | --- |
-| 워크플로 토큰 권한 누락 | 이 레포는 기본값이 `write`. 남의 레포는 신규라 `read` |
-| 셸 문법 오류 | 이슈 댓글로 트리거할 때만 타는 분기라 안 밟음 |
-| 안내 문구가 옛 키를 봄 | 내 기계엔 브라우저가 깔려 있어 그 검사가 **항상 skip** |
-| 테스트 코드 921줄이 남의 홈으로 | 복사 **결과**를 아무도 열어보지 않음 |
-| 기록·시나리오 명령 전멸 | 테스트가 이름만 보고 **실행하지 않음** |
+| Missing workflow token permission | This repo's default is `write`. Other people's repos are new, so `read` |
+| Shell syntax error | A branch taken only when triggered by an issue comment, so never walked |
+| Instruction text looked at an old key | My machine had a browser installed, so that check was **always skipped** |
+| 921 lines of test code copied into other people's home | Nobody opened the **result** of the copy |
+| Record and scenario commands all broken | Tests only checked names and **never ran them** |
 
-전부 **"내 환경에서는 통과하는데 남의 환경에서 터진다"**였다. 다섯 개 중 하나도
-기존 축으로는 걸리지 않았다.
+All of them were **"passes in my environment, blows up in someone else's"**. Not one of the five
+was caught by the existing axes.
 
 ```bash
-# 설치물을 숨기고 돌려본다
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py other run --command "{명령}" --env PATH=/usr/bin:/bin
+# hide installed tools and run
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py other run --command "{command}" --env PATH=/usr/bin:/bin
 
-# 빈 상태에서 돌려본다
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py other run --command "{명령}" --env HOME={빈 디렉터리}
+# run from an empty state
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py other run --command "{command}" --env HOME={empty directory}
 
-# 만들어진 것을 실제로 본다
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py other run --command "{명령}" --watch {예상 경로} --twice
+# actually look at what was produced
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py other run --command "{command}" --watch {expected path} --twice
 ```
 
-## Phase 4.7 — 파급을 센다 ⚠️
+## Phase 4.7 — Count the ripple effects ⚠️
 
-결함을 찾는 것만큼 중요한 것이 **고친 뒤에 무엇이 조용히 깨지는가**다.
+As important as finding the defect is **what breaks silently after it is fixed**.
 
-| 단계 | 하는 일 |
+| Step | What to do |
 | --- | --- |
-| ① | 고칠 자리가 **무엇을 약속하고 있었나**(계약)를 한 문장으로 적는다 |
-| ② | 그 약속을 **읽는 쪽**을 전부 센다 — 호출부·문서·테스트·복사본·사람의 습관 |
-| ③ | 새 약속에서도 각각이 성립하는지 하나씩 본다 |
-| ④ | 성립하지 않는 것을 결함과 함께 보고한다. 고치든 안 고치든 **세었다는 사실**이 남아야 한다 |
+| ① | Write in one sentence **what the spot to fix was promising** (its contract) |
+| ② | Count everything that **reads** that promise — call sites, docs, tests, copies, people's habits |
+| ③ | Check one by one whether each still holds under the new promise |
+| ④ | Report those that no longer hold along with the defect. Fixed or not, **the fact that you counted** must remain |
 
-**②가 핵심이다.** 코드 호출부만 세면 절반을 놓친다. 문서·테스트·복사본·전제도 그
-약속을 읽고 있다.
+**② is the key.** If you count only code call sites, you miss half. Docs, tests, copies and assumptions also
+read that promise.
 
-### 실제로 이렇게 번졌다 — 이 스킬 이야기다
+### How it actually spread — the story of this skill
 
-> **결정**: 쌓인 기록을 프로젝트 안에서 홈으로 옮긴다 (워크트리마다 사라져서)
-> **깨진 약속**: "기록은 프로젝트 안에 있다"
+> **Decision**: move accumulated records from inside the project to the home directory (they disappeared with each worktree)
+> **Broken promise**: "records are inside the project"
 
-| 그 약속을 읽던 곳 | 무슨 일이 났나 |
+| Where that promise was read | What happened |
 | --- | --- |
-| 완료 문구의 상대경로 계산 | `ValueError` — **명령 5개가 100% 크래시** |
-| 산출물 보호 점검 | 죽은 경로를 지키고 있었다 |
-| 보고 문서의 "레포에 커밋하라" | 커밋되지 않는데 커밋하라고 안내 |
-| 학습 문서의 예시 출력 | 나오지 않는 화면을 보여줌 |
-| 비밀 차단 사유 "히스토리에 남는다" | 사실이 아님 |
-| 팀 공유 전제 | 동료가 더는 받지 못함 |
+| Relative path computation in the completion message | `ValueError` — **5 commands crashed 100% of the time** |
+| Output protection check | It was guarding a dead path |
+| "Commit to the repo" in the reporting doc | Told users to commit what is no longer committed |
+| Example output in the learning doc | Showed a screen that never appears |
+| Secret-block reason "stays in history" | No longer true |
+| The team-sharing assumption | Teammates no longer received it |
 
-**여섯 자리가 닿았는데 그때 아무도 세지 않았다.** 한 번에 끝났을 일이 세 릴리스에
-걸쳐 드러났다. 세는 것은 기계가 못 한다 — 무엇이 "그 약속을 읽고 있는지"는 의미의 문제다. 네가 센다.
+**Six places were affected, and nobody counted them at the time.** What could have been finished at once came out over three
+releases. A machine cannot do the counting — what "reads that promise" is a question of meaning. You count it.
 
-## Phase 4.8 — 이게 맞는지 묻는다
+## Phase 4.8 — Ask whether this is right
 
-결함은 아닌데 **더 나은 방식이 있어 보이는 것**을 적는다. 고치지 않는다 — 의견만 낸다.
+Write down things that are **not defects but seem to have a better approach**. Do not fix them — only give an opinion.
 
-| 볼 것 | 예 |
+| What to check | Example |
 |---|---|
-| 사용자가 다음에 뭘 해야 할지 아나 | 실패만 알리고 무엇을 하라는 말이 없다 |
-| 되돌릴 수 있나 | 실수로 눌렀을 때 빠져나갈 길이 있나 |
-| 같은 일을 두 방법으로 하고 있지 않나 | 어떤 화면은 시트, 어떤 화면은 다이얼로그 |
-| 기다리는 동안 알 수 있나 | 오래 걸리는데 진행 표시가 없다 |
+| Does the user know what to do next | It only says it failed, with no word on what to do |
+| Can it be undone | Is there a way out after an accidental tap |
+| Is the same thing done in two ways | Some screens use a sheet, others a dialog |
+| Can you tell while waiting | It takes long, with no progress indicator |
 
-**"제 취향"은 적지 않는다.** 사용자가 겪을 문제로 설명되지 않으면 쓰지 않는다.
+**Do not write "my taste".** If it cannot be explained as a problem the user will hit, do not write it.

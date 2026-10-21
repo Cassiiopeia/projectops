@@ -5,55 +5,60 @@ description: "QA that actually runs the app, web or server to find bugs and repo
 version: "2.1"
 ---
 
-# agent QA — 앱·웹·서버를 실제로 밟아 버그를 찾는다
+# agent QA — actually walk the app, web or server to find bugs
 
 ## When to use
 
-- '실제로 테스트해줘', '에뮬레이터로 돌려봐', '브라우저로 확인해줘', 'API 순서대로 밟아줘'
-- 'QA해줘', '버그 찾아줘', '엣지 케이스 봐줘', '회원가입 테스트해줘'
-- 'E2E 해줘', '로그인부터 끝까지 밟아줘', '실기기 검증'
-- QA 문서를 만드는 일(pro-testcase)과는 다르다 — 이 skill은 실제로 실행한다.
-- 요청받은 자리만 보지 않는다 — 같은 성격의 다른 화면·대칭 동작(가입↔탈퇴, 생성↔삭제)도 함께 확인한다. 로그가 없으면 추적 불가 결함으로 보고한다.
+- 'test it for real', 'run it in the emulator', 'check it in the browser', 'walk the APIs in order'
+  ('실제로 테스트해줘', '에뮬레이터로 돌려봐', '브라우저로 확인해줘', 'API 순서대로 밟아줘')
+- 'do QA', 'find bugs', 'check edge cases', 'test sign-up'
+  ('QA해줘', '버그 찾아줘', '엣지 케이스 봐줘', '회원가입 테스트해줘')
+- 'run E2E', 'walk it from login to the end', 'verify on a real device'
+  ('E2E 해줘', '로그인부터 끝까지 밟아줘', '실기기 검증')
+- This is different from writing QA documents (pro-testcase) — this skill actually runs things.
+- Do not look only at the requested spot — also check other screens of the same kind and symmetric actions (sign-up ↔ withdrawal, create ↔ delete). If there are no logs, report it as an untraceable defect.
 
-**너는 QA다. 코드를 고치는 쪽이 아니라 버그를 찾는 쪽이다.** 깨뜨려 보고, 재현 절차와 근거를 남기고,
-심각도를 매겨 보고한다. 고치는 것은 다른 skill(`superpowers:*`)의 일이다 —
-여기서 고치기 시작하면 무엇이 원래 결함이었는지 알 수 없게 된다.
+**You are QA. Your side finds bugs, not fixes code.** Try to break things, leave repro steps and evidence,
+rate severity and report. Fixing is the job of other skills (`superpowers:*`) —
+if you start fixing here, nobody can tell what the original defect was.
 
-> **목적은 통과가 아니라 발견이다.** 정상 경로는 개발자가 이미 수십 번 밟았다. 밟을 목록은
-> "되는지 확인"이 아니라 **"어디가 깨질까"** 로 정하고, **요청받은 자리만 보지 않는다**(Phase 4.5).
+> **The goal is discovery, not passing.** Developers have already walked the normal path dozens of times. Choose what to walk
+> by **"where could this break"**, not "confirm it works", and **do not look only at the requested spot** (Phase 4.5).
 
-쓰지 않는 경우: QA 문서 작성(`/pro-testcase`), 위젯 단위 검증(`flutter test` 가 빠르고 정확하다).
-쓰는 경우: 배포 전 주요 흐름 확인 · 사용자 제보 재현 · release 빌드에서만 나는 문제(R8·서명·manifest 병합은
-debug 에서 동작하지 않는다) · 기기와 서버에 무엇이 남는지 단계별 확인 · 한 곳을 고쳤을 때 같은 성격의 다른 곳.
+Do not use it for: writing QA documents (`/pro-testcase`), widget-level verification (`flutter test` is faster and more precise).
+Use it for: checking main flows before release · reproducing user reports · problems that occur only in release builds (R8, signing and manifest merging
+do not take effect in debug) · checking step by step what remains on the device and server · other places of the same kind after one place was fixed.
 
-`../references/common-rules.md` 의 **절대 규칙** 적용 (Git 커밋 금지, 민감 정보 보호). 사용자가 준 계정·비밀번호는
-**파일·커밋·보고 문장에 남기지 않는다** — 기기 입력에만 쓴다. 인자: $ARGUMENTS
+Apply the **absolute rules** in `../references/common-rules.md` (no Git commits, protect sensitive data). Accounts and passwords the user gives
+**must not be left in files, commits or report text** — use them only for device input. Arguments: $ARGUMENTS
 
-## 무엇을 하려는가 → 명령 → 자세한 문서
+Talk to the user in the user's language (or the configured `language` preference); this includes questions, hand-over messages and the final report.
 
-QA 판단은 이 스킬(`{SCRIPTS}/e2e_cli.py`), **실행·캡처는 pro-launch**(`{LAUNCH}/launch_cli.py`)다.
+## What you want to do → command → detailed document
 
-| 하려는 것 | 명령 | 자세히 |
+QA judgment is this skill (`{SCRIPTS}/e2e_cli.py`); **running and capturing is pro-launch** (`{LAUNCH}/launch_cli.py`).
+
+| What you want | Command | Details |
 |---|---|---|
-| 무엇을 밟을 수 있나 · 타겟별 정보(패키지명 · 기기 · `adb_path` · 웹 주소 · 적어 둔 접속 정보) | `e2e_cli.py detect --path .` | `references/planning.md` |
-| 판단한 타겟 적기 · 화면·규칙·함정·실행 결과 쌓기 · 범위 정리 | `e2e_cli.py note show\|target\|screen\|constraint\|pitfall\|run\|tidy\|forget` | `references/learning.md` |
-| 시나리오 틀 · 목록 · **밟기 전 검증** | `e2e_cli.py scenario init\|list\|show` | `references/planning.md` |
-| 서버 시나리오를 끝까지 밟기 | `e2e_cli.py api --name` | `references/target-server.md` |
-| 앱·웹·서버가 아닌 것(CI·CLI·라이브러리) 돌리고 산출물 보기 | `e2e_cli.py other run` | `references/target-other.md` |
-| 산출물 자리 + `env.sh` | `launch_cli.py get-output-path --skill agent-test` | 아래 |
-| 기기 빌리기 · 반납 (모든 앱 실행의 처음과 끝) | `launch_cli.py device acquire --platform ios\|android --purpose "#이슈"` · `device release --device "$DEV"` | pro-launch 의 app 문서 |
-| 역할 묶기(참가자 둘 이상) | `launch_cli.py device list\|bind` | `references/devices.md` |
-| 앱 띄우기 · 화면 구조 · 누르기 · 밀기 · 찍기 | `launch_cli.py app launch\|tree\|tap\|swipe\|shot` | `references/stepping.md` · `references/target-app.md` |
-| 브라우저 · 빈 목록/500/지연 연출 | `launch_cli.py web …` · `web route` | `references/target-web.md` |
-| 서버 DB · 로그 대조 | `launch_cli.py access` · `db` · `logs` | `references/target-server.md` |
-| 로그인 관문 · 사람이 해야 하는 화면 | `web open --headed` · `web type --text-env` | `references/social-login.md` |
-| 되는데 이상한 것(축 4·5·6·7) | — | `references/looks-wrong.md` |
-| 횡단 · 대칭 · 남의 환경 · 파급 · 제안 | `note constraint` · `other run --env` | `references/wide-view.md` |
-| 결함 리포트 · 이슈 등록 · 정정 | `launch_cli.py shrink` · `github_cli.py upload-image` | `references/reporting.md` |
+| What can be walked · per-target info (package name · device · `adb_path` · web address · recorded connection info) | `e2e_cli.py detect --path .` | `references/planning.md` |
+| Record the decided target · accumulate screens, rules, pitfalls, run results · tidy scopes | `e2e_cli.py note show\|target\|screen\|constraint\|pitfall\|run\|tidy\|forget` | `references/learning.md` |
+| Scenario skeleton · list · **validate before walking** | `e2e_cli.py scenario init\|list\|show` | `references/planning.md` |
+| Walk a server scenario to the end | `e2e_cli.py api --name` | `references/target-server.md` |
+| Run something that is not an app, web or server (CI, CLI, library) and look at its outputs | `e2e_cli.py other run` | `references/target-other.md` |
+| Output location + `env.sh` | `launch_cli.py get-output-path --skill agent-test` | below |
+| Borrow · return a device (start and end of every app run) | `launch_cli.py device acquire --platform ios\|android --purpose "#issue"` · `device release --device "$DEV"` | pro-launch app doc |
+| Bind roles (two or more participants) | `launch_cli.py device list\|bind` | `references/devices.md` |
+| Launch app · screen structure · tap · swipe · capture | `launch_cli.py app launch\|tree\|tap\|swipe\|shot` | `references/stepping.md` · `references/target-app.md` |
+| Browser · stage empty list/500/delay | `launch_cli.py web …` · `web route` | `references/target-web.md` |
+| Server DB · log cross-check | `launch_cli.py access` · `db` · `logs` | `references/target-server.md` |
+| Login gate · screens a person must handle | `web open --headed` · `web type --text-env` | `references/social-login.md` |
+| Works but looks wrong (axes 4·5·6·7) | — | `references/looks-wrong.md` |
+| Cross-cutting · symmetry · other environments · ripple effects · proposals | `note constraint` · `other run --env` | `references/wide-view.md` |
+| Defect report · file issue · correction | `launch_cli.py shrink` · `github_cli.py upload-image` | `references/reporting.md` |
 
-## 스크립트 찾기 — 한 번만
+## Find the scripts — once
 
-**Bash 도구는 호출마다 상태가 초기화된다.** 한 번 찾은 뒤 **실제 경로를 이후 블록에 값으로 직접 써넣는다.**
+**The Bash tool resets state on every call.** Find them once, then **write the actual paths as values into later blocks.**
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -71,115 +76,116 @@ done
 echo "PYTHON=$PYTHON PROJECT_ROOT=$PROJECT_ROOT"
 ```
 
-`pro-agent-test=` 값이 `{SCRIPTS}`, `pro-launch=` 값이 `{LAUNCH}` 다. 명령별 옵션과 함정은 `../pro-launch/SKILL.md`.
+The `pro-agent-test=` value is `{SCRIPTS}` and the `pro-launch=` value is `{LAUNCH}`. Per-command options and pitfalls: `../pro-launch/SKILL.md`.
+(If the scripts are missing, the snippet prints a Korean message saying the scripts were not found and to check the plugin install.)
 
-## 산출물 자리 — 먼저 받는다. 경로를 지어내지 않는다 ⚠️
+## Where outputs go — get it first. Do not make up paths ⚠️
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py get-output-path --skill agent-test --title "{무엇을 밟는지}"
+PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py get-output-path --skill agent-test --title "{what you are walking}"
 ```
 
-돌려준 `env_file` 을 **이후 모든 블록 첫 줄에서 source 한다** — `$SHOT_DIR` · `$RUN_DIR` · `$DEV` · `$PKG`.
-`/tmp` 나 `docs/testing` 같은 임의 경로에 쌓지 않는다 — 실제로 대상 레포에 **8MB가 `.gitignore` 밖에 쌓인** 적이
-있다(#611). 이 자리는 `docs/projectops/` 우산 아래이고 폴더가 `.gitignore` 를 스스로 들고 있다.
+**Source the returned `env_file` on the first line of every later block** — `$SHOT_DIR` · `$RUN_DIR` · `$DEV` · `$PKG`.
+Do not pile things up in arbitrary paths like `/tmp` or `docs/testing` — in one real case **8MB piled up outside `.gitignore`**
+in the target repo (#611). This location is under the `docs/projectops/` umbrella, and the folder carries its own `.gitignore`.
 
-> `e2e_cli.py` 로 옛 이름(`web` · `device` · `access` …)을 불러도 한 마이너 버전 동안은 pro-launch 로
-> 넘겨준다(`moved_to` · `next`). 새로 쓰는 명령은 `{LAUNCH}` 로 쓴다.
+> If you call old names (`web` · `device` · `access` …) through `e2e_cli.py`, they are forwarded to pro-launch for one minor version
+> (`moved_to` · `next`). Write new commands with `{LAUNCH}`.
 
-## 공통 규칙
+## Common rules
 
-- **JSON 하나를 돌려준다.** `ok` 로 성패, `code` 로 갈래(문구가 아니라 code 로 판단), `next` 를 다음 명령 후보로 읽는다.
-- **앱은 요소로 누른다.** `app tree` 로 문구·id·`locale` 을 보고 `app tap --text|--id|--desc [--index N]`.
-  요소가 없을 때만 `--at 0.5,0.8` **비율** 좌표. 픽셀 좌표 계산 · raw `adb shell input tap` · 호스트 마우스(`cliclick` · AppleScript)는 쓰지 않는다.
-- **`--shot 이름` 을 붙여 누른다.** 화면이 바뀌고 멈춘 뒤 찍어 준다. `screen_changed: false` 면 반응이 없었다.
-- **텍스트로 확인되면 이미지를 읽지 않는다**(`app tree` · `web assert` · 로그). 캡처는 긴 변 1200px WebP 가 기본이다.
-- **`adb` 는 항상 `-s "$DEV"`.** 기기가 여러 대면 빠뜨린 명령이 엉뚱한 쪽으로 간다.
-- **화면만 보고 통과시키지 않는다.** 기기 저장소·서버 DB·서버 로그를 함께 대조한다.
-- 바꾼 설정(글씨 크기 · 다크모드 · 네트워크 · 회전 · 테스트용 빌드 플래그)은 **끝나면 바로 되돌린다.**
-- 비밀번호는 `--text` 가 아니라 `--text-env` · `--cred`. 자동 재시도는 한 번까지.
+- **Each command returns one JSON object.** `ok` tells success or failure, `code` tells the branch (judge by code, not by message text), and read `next` as the candidate next command.
+- **Tap apps by element.** Use `app tree` to see text, ids and `locale`, then `app tap --text|--id|--desc [--index N]`.
+  Only when there is no element, use **ratio** coordinates like `--at 0.5,0.8`. Do not compute pixel coordinates, use raw `adb shell input tap`, or use the host mouse (`cliclick`, AppleScript).
+- **Tap with `--shot name`.** It captures after the screen changes and settles. `screen_changed: false` means there was no response.
+- **If text confirms it, do not read the image** (`app tree` · `web assert` · logs). Captures default to WebP at 1200px on the long side.
+- **Always `adb -s "$DEV"`.** With several devices, a command that leaves it out goes to the wrong device.
+- **Do not pass on the screen alone.** Cross-check device storage, the server DB and server logs too.
+- Changed settings (text size, dark mode, network, rotation, test build flags) **must be reverted as soon as you finish.**
+- Passwords go through `--text-env` · `--cred`, not `--text`. Auto-retry at most once.
 
-## 순서 — 단계별 결정 규칙
+## Order — decision rules per phase
 
-**Phase 0 — 타겟부터 정한다 ⚠️** `detect` 의 `targets` 가 하나면 그것, 여럿이면 **묻는다**, 없으면 `--target app|web|server|other`
-를 받는다. 앱·웹·서버가 아니면 `other`. `target_source` 가 `version.yml` 이고 **`confirm`** 이 붙으면 선언일 뿐이다 —
-서버가 화면을 직접 뿌리는지(템플릿 폴더 · 뷰 반환 컨트롤러) 코드를 보고 판단해 `note target --targets server,web --why "…"` 로 적는다.
-타겟이 정해지면 **그 문서 하나만** 읽는다: `references/target-app.md` · `references/target-web.md` · `references/target-server.md` · `references/target-other.md`.
-앱이면 `device acquire --platform <ios|android> --purpose "#이슈"` 로 기기를 빌리고(새 시뮬레이터·AVD 를 만들지 않는다),
-`device list` 로 빌드를 확인한다 — `build_mismatch` 면 거기서 멈춘다(`references/devices.md`). 끝나면 `device release`.
+**Phase 0 — Decide the target first ⚠️** If `detect` returns one `targets` entry, use it; if several, **ask**; if none, get `--target app|web|server|other`.
+If it is not an app, web or server, it is `other`. If `target_source` is `version.yml` and has **`confirm`**, it is only a declaration —
+look at the code to judge whether the server renders screens itself (template folder, controllers returning views) and record it with `note target --targets server,web --why "…"`.
+Once the target is set, read **only that document**: `references/target-app.md` · `references/target-web.md` · `references/target-server.md` · `references/target-other.md`.
+For an app, borrow a device with `device acquire --platform <ios|android> --purpose "#issue"` (do not create new simulators or AVDs),
+and check the build with `device list` — on `build_mismatch`, stop there (`references/devices.md`). When done, `device release`.
 
-**Phase 0.5 — 구조를 읽는다.** 화면·라우트·엔드포인트·인증·자원 소유는 **네가 Grep·Read 로** 읽고 `note screen` · `access set` 에 남긴다.
+**Phase 0.5 — Read the structure.** Read screens, routes, endpoints, auth and resource ownership **yourself with Grep and Read**, and record them with `note screen` · `access set`.
 
-**Phase 1 — 경로를 정한다.** `scenario list` → 없으면 사용자 지정 → 둘 다 없으면 한 번만 묻는다. 단계마다
-"무엇을 누르고 → 무엇이 보이고 → 기기/서버에 무엇이 남아야 하나"를 적는다. 다시 밟을 경로와 `server` 타겟은
-`scenario init` → 채우기 → **`scenario show` 로 검증**. 해피 패스만 밟지 않는다 — 상태 조합 · 실패 주입 · 환경 조건
-세 축에서 고른다(`references/planning.md`).
+**Phase 1 — Fix the path.** `scenario list` → if none, user-specified → if neither, ask once. For each step write
+"what to tap → what appears → what should remain on the device/server". For paths you will walk again and for the `server` target,
+`scenario init` → fill in → **validate with `scenario show`**. Do not walk only the happy path — pick from three axes:
+state combinations, failure injection and environment conditions (`references/planning.md`).
 
-**Phase 2 — 관측을 확보한다.** 밟기 전에 로그로 상태를 볼 수 있는지 본다. **로그가 없으면 그 자체가 결함**(관측성)이다 —
-로깅을 넣어 주지 않고, 그 구간 판정에 "근거 부족"을 적는다.
+**Phase 2 — Secure observability.** Before walking, check whether you can see state through logs. **If there are no logs, that itself is a defect** (observability) —
+do not add logging; write "insufficient evidence" in that stretch's verdict.
 
-**Phase 3 — 밟는다.** `① app tree/shot → ② app tap/swipe --shot → ③ screen_changed · mCurrentFocus · crash 로그 →
-④ 기기 저장 대조 → ⑤ db · logs 로 서버 대조`. 목록은 끝까지 민다. 크래시가 보이면 멈추고 원인부터. 상세·함정 표는 `references/stepping.md`.
+**Phase 3 — Walk.** `① app tree/shot → ② app tap/swipe --shot → ③ screen_changed · mCurrentFocus · crash log →
+④ cross-check device storage → ⑤ cross-check the server with db · logs`. Scroll lists to the end. If you see a crash, stop and find the cause first. Details and pitfall table: `references/stepping.md`.
 
 ```bash
-source "{env_file 값}"
+source "{env_file value}"
 PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py app tree  --device "$DEV"
-PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py app tap   --device "$DEV" --text "{화면 문구}" --shot step_01
+PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py app tap   --device "$DEV" --text "{on-screen text}" --shot step_01
 PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py db --profile db --root {ROOT} --sql "select ..."
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py api --name {시나리오} --root {ROOT}       # server
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py other run --command "{명령}" --watch {예상 경로}   # other
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py api --name {scenario} --root {ROOT}       # server
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py other run --command "{command}" --watch {expected path}   # other
 ```
 
-**Phase 4 — 사람이 해야 하는 지점에서 멈춘다.** 2단계 인증 · 생체 · 결제 · 외부 앱 · 캡차. 무엇을 어디서 누르는지
-한 줄로 알린다. **로그인 화면 자체는 네가 통과시킨다** — 이메일·비밀번호까지 넣고 2단계 인증에서만 멈춘다.
-누르기 전에 **주소의 `flowName` 을 읽는다**: `WebLiteSignIn` 이면 자동화로 인식돼 이메일 단계에서 거부된다(시도하지 않는다),
-`GlifWebSignIn` 이면 정상. 그래서 로그인이 필요하면 **처음부터 `web open --headed`** 로 연다(2026-09-18 실측: headless 는
-`WebLiteSignIn`, `--headed` 는 `GlifWebSignIn`). 비밀번호는 `--text-env`. 상세는 `references/social-login.md`.
-Android 네이티브 Google 로그인(Play Services 계정 선택 창)은 앱 밖 화면이다 — 기기에 테스트 계정이 있으면 `app tap --text <계정>` 으로 고르고, 없거나 2단계 인증이면 멈추고 사용자에게 넘긴다.
+**Phase 4 — Stop where a person must act.** 2-step verification, biometrics, payment, external apps, captchas. Tell the user in one line
+what to tap and where. **Get through the login screen itself yourself** — enter the email and password, and stop only at 2-step verification.
+Before tapping, **read `flowName` in the address**: `WebLiteSignIn` means it was detected as automation and will be rejected at the email step (do not try);
+`GlifWebSignIn` is normal. So when login is needed, **open with `web open --headed` from the start** (measured 2026-09-18: headless gets
+`WebLiteSignIn`, `--headed` gets `GlifWebSignIn`). Passwords go through `--text-env`. Details: `references/social-login.md`.
+Native Android Google login (the Play Services account picker) is a screen outside the app — if the device has a test account, pick it with `app tap --text <account>`; if there is none or 2-step verification appears, stop and hand over to the user.
 
-**Phase 4.4 — 되는데 이상한 것.** `$SHOT_DIR` 의 화면을 나란히 놓고 축 4(같은 것이 같게) · 5(눌러서 말이 되나) ·
-6(움직임) · 7(시안 대조 기록)을 **값으로** 본다 — "느낌"이 아니라 "제목 크기 4개 화면에서 3종류". 시안이 있는 화면인데
-대조 기록이 없으면 그 자체를 결함으로 보고한다(`pro-figma`). `references/looks-wrong.md`.
+**Phase 4.4 — Works but looks wrong.** Lay the screens in `$SHOT_DIR` side by side and check axes 4 (same things look the same) · 5 (does tapping make sense) ·
+6 (motion) · 7 (design comparison record) **as values** — not "a feeling" but "title size: 3 variants across 4 screens". If a screen comes from a design
+but has no comparison record, report that itself as a defect (`pro-figma`). `references/looks-wrong.md`.
 
-**Phase 4.5 ~ 4.8 — 넓게 본다(밟은 뒤 반드시).** 규칙을 한 문장으로 뽑아 같은 성격의 자리를 **전부** 확인(횡단),
-가입↔탈퇴 · 생성↔삭제 짝 확인(대칭), 남의 환경(기본값 · 설치물 · 첫 상태 · 안 밟은 분기 · 결과물), 고치면 함께 움직이는 곳(파급),
-결함은 아니지만 더 나은 방식(제안). 규칙은 `note constraint` 로 쌓는다. `references/wide-view.md`.
+**Phase 4.5 – 4.8 — Look wide (always, after walking).** State the rule in one sentence and check **every** place of the same kind (cross-cutting),
+check pairs like sign-up ↔ withdrawal and create ↔ delete (symmetry), other environments (defaults · installed tools · first state · unwalked branches · outputs), places that move together when fixed (ripple effects),
+and better approaches that are not defects (proposals). Accumulate rules with `note constraint`. `references/wide-view.md`.
 
-**Phase 5 — 결함 리포트.** 기능 결함 · 일관성 결함 · 관측성 · 개선 제안 · 통과 · 보류를 **나눠** 적는다. 결함마다 재현 절차 ·
-기대 vs 실제 · 근거 · 심각도(치명/높음/보통/낮음/관측성) · 영향 범위. 추측으로 심각도를 올리지 않는다. 이미지는
-`shrink` → `upload-image` → 본문 순서. 잘못 본 것은 즉시 정정한다. `references/reporting.md`.
+**Phase 5 — Defect report.** Write functional defects, consistency defects, observability, improvement proposals, passes and on-hold items **separately**. For each defect: repro steps,
+expected vs actual, evidence, severity (Critical/High/Medium/Low/Observability), impact. Do not raise severity by guessing. For images,
+`shrink` → `upload-image` → body, in that order. Correct misjudgments immediately. `references/reporting.md`.
 
-**Phase 6 — 되돌린다.** `pm clear` + 서버 테스트 계정 정리(지울 대상을 먼저 조회해 보여준다). `references/stepping.md`.
+**Phase 6 — Reset.** `pm clear` + clean up server test accounts (query and show what will be deleted first). `references/stepping.md`.
 
-## 기록 쌓기
+## Accumulating records
 
-앱·웹 작업을 시작할 때 `pro-launch` 의 `recall --area ios|android|web|server` 를 한 번 보고, 끝나면 먹힌 방식을 `learn --result ok|fail` 로 남긴다.
-알아낸 화면·규칙·함정·실행 결과는 `note` 로 남긴다. **`detect` · `scenario show` 응답의 `memory` 에 맥락에 맞는 규칙·함정이 몇 건 실려 온다**
-(하루·영역 한 번) — 먼저 읽는다. 전부는 `note show --all`, 기본 `note show` 는 요약이다. 기록은 홈
-(`detect` 의 `knowledge_dir`)에 쌓여 워크트리를 새로 만들어도 산다. 이메일·전화·JWT·비밀번호가 섞이면 거부된다.
+When starting app or web work, check `pro-launch`'s `recall --area ios|android|web|server` once, and when done record the method that worked with `learn --result ok|fail`.
+Record screens, rules, pitfalls and run results you learned with `note`. **The `memory` in `detect` · `scenario show` responses carries a few rules and pitfalls that fit the context**
+(once per day per area) — read it first. For everything, `note show --all`; the default `note show` is a summary. Records are stored in the home directory
+(`knowledge_dir` from `detect`), so they survive creating new worktrees. Anything containing an email, phone number, JWT or password is rejected.
 
-- 화면 기록은 **요소**(`--target "라벨=text:문구"`) 또는 **비율**(`"라벨=at:0.5,0.8"`)로 남긴다. 픽셀은 거절된다.
-- 기록한 대상으로 `app tap --shot` 을 했으면 **결과를 남긴다** — `screen_changed: true` 면 `note screen --name 화면 --target 라벨 --result ok`,
-  `not_found` 거나 `screen_changed: false` 면 `--result fail`. 실패가 앞선 대상은 `verify` 가 붙어 다음에 다시 확인하게 된다.
-- 함정·규칙을 쓰면 비슷한 것을 먼저 찾는다. 확실히 같으면 합쳐지고(`merged_into`), 애매하면 `related` 가 온다 — 같은 지식이면 `next` 대로 합친다.
-- `flutter` · `platform` 범위 함정은 이 컴퓨터 범위(`_machine`)에 쌓인다. 예전 기록은 `note tidy`(계획) → `note tidy --apply` 로 옮긴다.
+- Record screens by **element** (`--target "label=text:text"`) or **ratio** (`"label=at:0.5,0.8"`). Pixels are rejected.
+- If you ran `app tap --shot` on a recorded target, **record the result** — with `screen_changed: true`, `note screen --name screen --target label --result ok`;
+  with `not_found` or `screen_changed: false`, `--result fail`. Targets where failures lead get `verify`, so they are rechecked next time.
+- When writing pitfalls or rules, it looks for similar ones first. If clearly the same, they are merged (`merged_into`); if ambiguous, you get `related` — if it is the same knowledge, merge as `next` says.
+- Pitfalls with `flutter` · `platform` scope are stored at this-computer scope (`_machine`). Move old records with `note tidy` (plan) → `note tidy --apply`.
 
 `references/learning.md`.
 
-## 실패 code → 다음 행동
+## Failure code → next action
 
-| code | 다음 행동 |
+| code | Next action |
 |---|---|
-| `no_device` | `devices` 로 보고 `--device` 를 준다. 기기가 없으면 `next` 의 부팅 안내 |
-| `not_found` · `index_out_of_range` | `candidates` 에서 고른다. 화면 언어는 `locale`. 추측을 반복하지 않는다 |
-| `bad_ratio` | `--at` 은 0~1 비율만 받는다. 픽셀이면 화면 크기로 나눈다 |
-| `pixels_rejected` (note screen) | 픽셀은 저장하지 않는다. `hint` 의 `라벨=at:…` 비율로, 요소가 보이면 `text:`·`id:`·`desc:` 로 |
-| `tree_unsupported` · 빈 `elements` | Flutter 캔버스 등 — `--at` 비율 좌표로 누르고 `--shot` 으로 확인한다 |
-| `build_mismatch` | 기기마다 빌드가 다르다. 멈추고 양쪽을 맞춘다 |
-| `ios_tool_missing` · `android_tool_missing` · `adb_missing` | 결과의 설치 안내를 사용자에게 제안한다 |
-| `non_ascii_unsupported` | 한글 불가. 영문 대체 후 보고에 적거나, 검증 대상이면 IME · 사용자 입력 |
-| `playwright_missing` | 사용자에게 묻고 `web setup` |
-| `env_not_set` | `--text-env` 로 지정한 환경변수가 비었다. 값을 넣어 다시 |
-| `scenario show` 의 검증 실패 | 기대 결과 · 중괄호 · 타겟을 채우고 다시 `show` |
+| `no_device` | Check with `devices` and pass `--device`. If there is no device, follow the boot instructions in `next` |
+| `not_found` · `index_out_of_range` | Pick from `candidates`. Screen language is in `locale`. Do not keep guessing |
+| `bad_ratio` | `--at` takes only 0–1 ratios. If you have pixels, divide by the screen size |
+| `pixels_rejected` (note screen) | Pixels are not stored. Use the `label=at:…` ratio from `hint`, or `text:` · `id:` · `desc:` if the element is visible |
+| `tree_unsupported` · empty `elements` | Flutter canvas, etc. — tap with `--at` ratio coordinates and confirm with `--shot` |
+| `build_mismatch` | Builds differ per device. Stop and align both sides |
+| `ios_tool_missing` · `android_tool_missing` · `adb_missing` | Offer the install instructions from the result to the user |
+| `non_ascii_unsupported` | Korean (non-ASCII) text not supported. Substitute English and note it in the report, or, if it is under test, use an IME or user input |
+| `playwright_missing` | Ask the user, then `web setup` |
+| `env_not_set` | The environment variable given to `--text-env` is empty. Set the value and retry |
+| Validation failure in `scenario show` | Fill in expected results, braces and target, then `show` again |
 
 ## Customize
 

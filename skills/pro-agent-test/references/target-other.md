@@ -1,99 +1,98 @@
-# 앱·웹·서버가 아닌 것을 밟는다 (target: other)
+# Walk something that is not an app, web or server (target: other)
 
-> 언제 읽나: Phase 0 에서 타겟이 `other`(CI 워크플로·CLI·라이브러리·템플릿·배치)로 정해졌을 때.
+> When to read: when Phase 0 sets the target to `other` (CI workflows, CLIs, libraries, templates, batch jobs).
 
-`pro-agent-test`가 **CI 워크플로·CLI 툴·라이브러리·템플릿·배치·마이그레이션 스크립트**를
-밟을 때 쓰는 문서. 앱(`target-app.md`)·웹(`target-web.md`)·서버(`target-server.md`)를
-밟을 때는 읽을 필요가 없다.
+This document is for when `pro-agent-test` walks **CI workflows, CLI tools, libraries, templates, batch jobs and migration scripts**.
+You do not need it when walking an app (`target-app.md`), web (`target-web.md`) or server (`target-server.md`).
 
-## 종류를 나누지 않는다
+## Do not split into kinds
 
-`pipeline`·`cli`·`library` 로 쪼개 두지 않았다. **쪼개면 목록에 없는 것은 또 못 한다.**
-프로젝트를 미리 정해둔 틀에 끼워 맞추는 것이 이 스킬이 걷어낸 병이다 (#589).
+It is deliberately not split into `pipeline` · `cli` · `library`. **Once split, anything not on the list cannot be done again.**
+Forcing projects into predefined boxes is the illness this skill got rid of (#589).
 
-대신 네가 먼저 정한다.
+Instead, you decide first.
 
-## 먼저 정할 것 — 이 프로젝트의 산출물은 무엇인가
+## Decide first — what is this project's output
 
-앱은 화면, 서버는 응답이 산출물이다. `other`는 **정해져 있지 않다.** 여기부터 정해야
-무엇을 판정 근거로 삼을지가 나온다.
+For an app the output is a screen; for a server, a response. For `other`, it is **not fixed.** Only once you decide this
+do you know what to base the verdict on.
 
-| 이런 프로젝트면 | 산출물은 | 밟는다는 것은 |
+| If the project is | The output is | Walking it means |
 | --- | --- | --- |
-| CLI 툴 · 스크립트 | 만들어진 파일 · 바뀐 설정 · 종료코드 | 명령을 실제 인자로 돌린다 |
-| 빌드 · 번들러 | `dist/` 안의 것 | 빌드를 돌리고 나온 것을 연다 |
-| 템플릿 · 스캐폴더 | 남의 프로젝트에 복사된 것 | 빈 프로젝트를 만들어 통합해 본다 |
-| CI 워크플로 | run 결론 · job 상태 · 아티팩트 | 트리거하고 로그를 읽는다 |
-| 라이브러리 | 공개 API의 동작 | 쓰는 쪽 코드를 한 줄 써서 돌린다 |
-| 마이그레이션 | DB 스키마·데이터 | 돌리고 되돌리고 또 돌린다 |
+| CLI tool · script | Files created · settings changed · exit code | Run the command with real arguments |
+| Build · bundler | What is inside `dist/` | Run the build and open what comes out |
+| Template · scaffolder | What gets copied into someone else's project | Create an empty project and integrate into it |
+| CI workflow | Run conclusion · job status · artifacts | Trigger it and read the logs |
+| Library | Behavior of the public API | Write one line of consumer code and run it |
+| Migration | DB schema and data | Run it, roll it back, run it again |
 
-**"테스트 코드가 있으니 됐다"가 아니다.** 테스트가 통과해도 남의 손에 들어갔을 때
-깨지는 일이 이 스킬 자신에게 여러 번 있었다. 실제로 돌려서 나온 것을 봐야 한다.
+**"There is test code, so it is fine" does not hold.** This skill itself has broken several times in someone else's hands
+while its tests passed. You must actually run it and look at what comes out.
 
-## 밟기
+## Walking
 
 ```bash
-... other run --root {ROOT} --command "{명령}"
-#   --cwd {디렉터리}         어디서 돌릴지 (기본: --root)
-#   --watch {경로} ...        실행 전후 파일 변화를 본다
-#   --twice                   두 번 돌려 상태가 그대로인지
-#   --env K=V ...             환경변수를 넣는다
-#   --timeout N               기본 120초
+... other run --root {ROOT} --command "{command}"
+#   --cwd {directory}         where to run (default: --root)
+#   --watch {path} ...        watch file changes before and after the run
+#   --twice                   run twice to see whether the state stays the same
+#   --env K=V ...             set environment variables
+#   --timeout N               default 120 seconds
 #   --expect-exit N
-#   --expect-output "{문구}"   부분 일치
-#   --expect-file "{경로}"     실행 뒤 있어야 한다
-#   --expect-absent "{경로}"   실행 뒤 **없어야** 한다
+#   --expect-output "{text}"   partial match
+#   --expect-file "{path}"     must exist after the run
+#   --expect-absent "{path}"   must **not** exist after the run
 ```
 
-시나리오를 끝까지 밟으려면:
+To walk a scenario to the end:
 
 ```bash
-... other run --root {ROOT} --name {시나리오}
+... other run --root {ROOT} --name {scenario}
 ```
 
-앱·웹과 달리 **한 번의 호출로 시나리오 전체를 밟는다.** 화면을 보고 판단할 것이
-없으므로 쪼갤 이유가 없다. 앞이 실패하면 뒤는 밟지 않는다 — 진짜 원인이 묻힌다.
+Unlike app and web, **one call walks the whole scenario.** There is no screen to judge,
+so there is no reason to split it. If an earlier step fails, later steps are not walked — the real cause would be buried.
 
-### 기대 결과를 주지 않아도 된다
+### You do not have to give expected results
 
-`--expect-*` 는 전부 선택이다. 주지 않으면 그냥 돌리고 결과를 돌려준다. **무엇이
-맞는지 판단하는 것은 네 일이다.** 조건을 주면 기계가 대신 대조해 준다.
+All `--expect-*` options are optional. Without them it just runs and returns the result. **Judging what is
+correct is your job.** If you give conditions, the machine compares them for you.
 
-## 기계가 대신 봐 주는 것 — 이것 때문에 쓴다
+## What the machine watches for you — the reason to use it
 
-| 보는 것 | 왜 사람이 못 보나 |
+| What it watches | Why people miss it |
 | --- | --- |
-| **`files` — 실행 전후 파일 변화** | 출력만 보고 **부작용을 보지 않는다** |
-| **`second_run.settled` — 두 번 돌려도 그대로인가** | 멱등은 중요한데 손으로는 거의 안 해본다 |
-| 종료코드·출력·소요시간 | 기본 |
+| **`files` — file changes before and after the run** | People look at output and **do not look at side effects** |
+| **`second_run.settled` — does it stay the same when run twice** | Idempotency matters, but almost nobody tries it by hand |
+| Exit code, output, duration | The basics |
 
-> **실측**: 이 스킬의 테스트 코드 921줄이 사용자 홈으로 복사되고 있었다. 복사 명령은
-> 종료코드 0으로 잘 끝났고, 아무도 **복사된 결과를 열어보지 않았다.** `--watch` 가 있는
-> 이유가 이것이다.
+> **Measured**: 921 lines of this skill's test code were being copied into users' home directories. The copy command
+> finished fine with exit code 0, and nobody **opened the copied result.** This is why `--watch`
+> exists.
 
-### `--watch` 는 좁게 준다
+### Keep `--watch` narrow
 
-주지 않으면 파일을 보지 않는다. 레포 전체(`.`)를 주면 `node_modules`·`.git` 같은 것이
-섞여 느리고 알려주는 것이 없다. **네가 바뀔 것으로 예상한 곳만** 준다.
+Without it, files are not watched. If you pass the whole repo (`.`), things like `node_modules` and `.git`
+get mixed in, it is slow, and it tells you nothing. Pass **only the places you expect to change.**
 
-### `settled` 는 내용 기준이다
+### `settled` is based on content
 
-"두 번 돌려도 상태가 같은가"는 **내용**으로 본다. 덮어써서 수정시각이 바뀌어도 내용이
-같으면 멱등이다. `files` 쪽은 반대로 수정시각으로 본다 — "건드렸나"와 "상태가 같은가"는
-답이 다른 질문이라 기준도 다르다.
+"Is the state the same after running twice" is judged by **content**. If a file is overwritten and its modification time changes but the content
+is the same, it is idempotent. `files`, on the other hand, uses modification time — "was it touched" and "is the state the same"
+are different questions, so they use different criteria.
 
-멱등이 깨진 것이 곧 결함은 아니다. 로그·타임스탬프가 섞였을 수도 있다. **판단은 네가
-한다.** 기계는 "달랐다"는 사실만 올린다.
+Broken idempotency is not automatically a defect. Logs or timestamps may be mixed in. **You
+judge it.** The machine only reports the fact that "it differed".
 
-## `expect_absent` — 나오면 안 되는 것
+## `expect_absent` — what must not appear
 
-지금까지 이 스킬은 **"있어야 할 것"만** 봤다. 그런데 실제로 터진 것들은 반대쪽이었다.
+Until now this skill only looked at **"what should be there"**. But what actually blew up was on the other side.
 
-| 나오면 안 되는데 나온 것 | 어떻게 드러났나 |
+| Appeared when it should not | How it surfaced |
 | --- | --- |
-| 테스트 코드가 사용자 홈에 | 몇 달 뒤 우연히 |
-| 임시 파일이 안 지워짐 | 디스크가 찰 때 |
-| 지워졌어야 할 구 워크플로 | 껐는데 계속 돌아서 |
+| Test code in users' home directories | By chance, months later |
+| Temp files not deleted | When the disk filled up |
+| An old workflow that should have been removed | It kept running after being turned off |
 
 ```json
 {"do": "npx projectops --type spring --yes",
@@ -101,61 +100,60 @@
  "expect_absent": "skills"}
 ```
 
-## CI 워크플로를 밟을 때
+## Walking a CI workflow
 
-`other run` 이 트리거·추적을 직접 하지 않는다. `pro-github` 의 `actions` 가 이미 한다 —
-같은 일을 두 곳에 두면 어긋난다.
+`other run` does not trigger or track runs itself. `actions` in `pro-github` already does —
+putting the same job in two places makes them drift apart.
 
 ```bash
-# ① 돌리기 전에 정적으로 본다 — 제일 싸다
+# ① check statically before running — cheapest
 ... other run --command "python3 -m pytest .github/scripts/test/ -q" --expect-exit 0
 
-# ② 트리거 (사용자 승인을 받는다 — 러너 시간이 든다)
-... github_cli.py add-comment {owner} {repo} {이슈} {본문파일}
+# ② trigger (get user approval — it uses runner time)
+... github_cli.py add-comment {owner} {repo} {issue} {body file}
 
-# ③ 추적·원인
-... github_cli.py actions resolve-branch {owner} {repo} {브랜치}
+# ③ tracking and cause
+... github_cli.py actions resolve-branch {owner} {repo} {branch}
 ... github_cli.py actions show-run {owner} {repo} {run_id}
 ... github_cli.py actions joblog {owner} {repo} {job_id} --grep error
 ```
 
-### `skipped` 를 통과로 치지 않는다 ⚠️
+### Do not count `skipped` as a pass ⚠️
 
-**이번에 두 번 연속 당한 자리다.** 앞 job 이 죽으면 뒤 job 은 `skipped` 가 되는데,
-겉보기에는 "빌드가 도는데 결과가 없다"로 보인다.
+**We were caught here twice in a row.** When an earlier job dies, later jobs become `skipped`, and
+on the surface it looks like "the build runs but there is no result".
 
-| 보이는 것 | 실제 |
+| What you see | What is real |
 | --- | --- |
-| 트리거 워크플로 ✅ 성공 | 트리거만 성공했다 |
-| 빌드 job ❌ | 첫 댓글에서 권한 부족으로 죽었다 |
-| 나머지 job ⏭ skipped | **아무것도 안 만들어졌다** |
+| Trigger workflow ✅ success | Only the trigger succeeded |
+| Build job ❌ | It died at the first comment for lack of permission |
+| Remaining jobs ⏭ skipped | **Nothing was produced** |
 
-**산출물이 실제로 나왔는지를 판정 근거로 삼는다.** `conclusion: success` 만으로는
-부족하다 — APK 가 없는 성공은 성공이 아니다.
+**Base the verdict on whether the output was actually produced.** `conclusion: success` alone is
+not enough — a success without an APK is not a success.
 
-### 실행되지 않는 브랜치를 고치고 있지 않은지
+### Make sure you are not fixing a branch that is not run
 
-`repository_dispatch` 로 도는 워크플로는 **기본 브랜치의 정의**로 실행된다. 개발
-브랜치에서 고치고 다시 걸면 여전히 옛 정의가 돈다. "수정이 안 먹었다"고 오해하기
-쉬운 자리다.
+Workflows run through `repository_dispatch` execute **the definition on the default branch**. If you fix it on the development
+branch and trigger again, the old definition still runs. It is easy to misread this as "the fix did not take".
 
-## 되는 것 · 안 되는 것
+## What works and what does not
 
-| | 되나 | 비고 |
+| | Works | Notes |
 | --- | :-: | --- |
-| 명령 실행·종료코드·출력 | ✅ | |
-| 파일 변화 관찰 | ✅ | `--watch` 를 준 경로만 |
-| 멱등 확인 | ✅ | `--twice`, 내용 기준 |
-| 환경변수 주입 | ✅ | `--env` |
-| 대화형 입력이 필요한 명령 | ❌ | `--yes` 같은 비대화형 플래그를 쓴다 |
-| 실행 중 화면을 보고 판단 | ❌ | 그건 `app`·`web` 이다 |
-| CI 트리거·아티팩트 확인 | ⚠️ | `pro-github` 의 `actions` 와 엮는다 (위) |
+| Run commands · exit code · output | ✅ | |
+| Observe file changes | ✅ | Only paths given to `--watch` |
+| Check idempotency | ✅ | `--twice`, by content |
+| Inject environment variables | ✅ | `--env` |
+| Commands that need interactive input | ❌ | Use a non-interactive flag like `--yes` |
+| Judge by watching the screen while running | ❌ | That is `app` · `web` |
+| CI trigger · artifact check | ⚠️ | Combine with `actions` in `pro-github` (above) |
 
-## 밟기 전에 확인할 것
+## What to check before walking
 
-**종료코드 0 이 통과가 아니다.** `other` 는 특히 이 착각이 쉽다.
+**Exit code 0 is not a pass.** This illusion is especially easy with `other`.
 
-1. 만들어진 것을 **열어 본다** — `files.created` 에 있는 파일을 실제로 읽는다
-2. **두 번 돌려 본다** (`--twice`) — 처음만 되는 것이 흔하다
-3. **빈 상태에서 시작해 본다** — 내 기계에 남아 있는 것에 기대고 있지 않은지
-4. **나오면 안 되는 것**을 `expect_absent` 로 적는다
+1. **Open** what was produced — actually read the files in `files.created`
+2. **Run it twice** (`--twice`) — working only the first time is common
+3. **Start from an empty state** — make sure it does not rely on leftovers on your machine
+4. Write **what must not appear** with `expect_absent`

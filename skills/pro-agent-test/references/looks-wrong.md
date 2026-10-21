@@ -1,58 +1,58 @@
-# 되는데 이상한 것을 본다 — 보는 축 4·5·6·7
+# Look for what works but looks wrong — viewing axes 4·5·6·7
 
-> 언제 읽나: Phase 4.4 — 밟기가 끝나고 찍어 둔 화면을 나란히 놓고 "되는데 이상한 것"을 훑을 때.
+> When to read: Phase 4.4 — after walking, when you lay the captured screens side by side and scan for "works but looks wrong".
 
-**축 1·2·3은 "무엇을 밟을지" 고르는 것이고, 이 문서는 "밟으면서 무엇을 볼지"다.**
-성격이 다르다. 기능이 도는 것만 보면 아래 것들은 전부 통과로 끝난다.
+**Axes 1·2·3 choose "what to walk"; this document is about "what to look at while walking".**
+They are different in kind. If you only check that features run, everything below ends as a pass.
 
-| 통과로 끝나는 것 | 실제로는 |
+| Ends as a pass | What is really true |
 |---|---|
-| 버튼이 눌리고 다음 화면이 뜬다 | 그 버튼만 다른 화면보다 20px 낮다 |
-| 위험한 동작에 경고 색이 있다 | 그 색이 **비활성**에도 쓰여서 못 누르는 줄 안다 |
-| 화살표를 누르면 돌아간다 | **기기 뒤로가기**는 막혀 있다 |
-| 화면이 뜨고 값이 맞다 | 누를 것이 하나뿐이라 그 화면이 있을 이유가 없다 |
-| 시안대로 만들었고 에셋도 시안 것 그대로다 | **그리는 쪽이 효과를 버려서** 전혀 다르게 보인다 |
+| The button responds and the next screen appears | Only that button sits 20px lower than on other screens |
+| Dangerous actions have a warning color | The same color is also used for **disabled**, so users think it cannot be tapped |
+| Tapping the arrow goes back | The **device back button** is blocked |
+| The screen appears and the values are right | There is only one thing to tap, so the screen has no reason to exist |
+| Built to the design, with the design's own assets | **The renderer dropped the effects**, so it looks completely different |
 
-이런 것은 **찾으라고 시키지 않으면 안 찾는다.** 운으로 걸린 것은 다음에 안 걸린다.
+**Nobody finds these unless told to look.** What was caught by luck will not be caught next time.
 
-## 언제 하나
+## When to do it
 
-밟기가 끝난 직후, **화면을 아직 기억할 때** 한 번. 찍어 둔 스크린샷(`$SHOT_DIR`)을
-나란히 놓고 본다. 넓게 보는 단계(횡단·대칭·파급)보다 **먼저** 한다 — 그쪽은 "다른
-자리도 그런가"를 묻고, 여기는 "이 자리가 말이 되는가"를 묻는다.
+Once, right after walking, **while you still remember the screens.** Lay the captured screenshots (`$SHOT_DIR`)
+side by side. Do it **before** the wide-view step (cross-cutting, symmetry, ripple effects) — that step asks "are other
+places like this too", while this one asks "does this place make sense".
 
-## 근거를 적는 방식 ⚠️
+## How to write evidence ⚠️
 
-**다시 셀 수 있는 것만 근거다.** "어색하다" · "좀 이상하다" 는 근거가 아니다.
+**Only what can be counted again is evidence.** "Awkward" or "a bit off" is not evidence.
 
-| 근거가 되는 것 | 근거가 아닌 것 |
+| Counts as evidence | Does not |
 |---|---|
-| 개수 — "제목 글자 크기가 4개 화면에서 3종류" | "폰트가 통일 안 된 느낌" |
-| 좌표·치수 — "버튼 높이 48 / 44 / 52" | "버튼이 들쭉날쭉" |
-| 화면·로그 — "눌렀는데 화면 변화 0, 로그 0줄" | "반응이 없는 것 같다" |
-| 설정값 — "동작 줄이기 0인데 280ms 동안 움직임" | "애니메이션이 과하다" |
+| Counts — "title font size has 3 variants across 4 screens" | "Fonts feel inconsistent" |
+| Coordinates and dimensions — "button heights 48 / 44 / 52" | "Buttons are uneven" |
+| Screen and logs — "tapped, 0 screen change, 0 log lines" | "It seems unresponsive" |
+| Setting values — "moves for 280ms with reduce motion at 0" | "Animation is excessive" |
 
-숫자로 적으면 **판정한 사람이 누구든 같은 답이 나온다.** 이 축들은 특히 "이 정도면
-됐다"가 사람마다 달라서, 근거를 값으로 묶어 두지 않으면 논쟁으로 끝난다.
+When written as numbers, **anyone who judges gets the same answer.** On these axes in particular, "good enough"
+differs from person to person, so without pinning evidence to values, it ends in argument.
 
 ---
 
-## 축 4 — 같은 것이 같게 생겼나
+## Axis 4 — Do the same things look the same
 
-화면을 옮겨 다니며 **같은 역할의 것이 같은 모습인지** 본다. 한 화면만 보면 절대 안 보인다.
+Move between screens and check **whether things with the same role look the same.** You never see this looking at one screen.
 
-| 무엇 | 세는 법 | 결함 후보 |
+| What | How to count | Defect candidate |
 |---|---|---|
-| 글자 | 같은 역할(제목·본문·버튼 글자)에 **몇 종류**의 크기·굵기가 쓰였나 | 2종류 이상 |
-| 버튼 | 높이·모서리 둥글기·좌우 여백이 화면마다 같나 | 값이 갈리면 |
-| 색 | **같은 의미에 다른 색**을 쓰나. 반대로 **다른 의미에 같은 색**을 쓰나 | 둘 다 결함 |
-| 여백 | 제목-본문 간격이 화면마다 같나 | 값이 갈리면 |
+| Text | **How many variants** of size and weight are used for the same role (title, body, button text) | 2 or more variants |
+| Buttons | Are height, corner radius and horizontal padding the same on every screen | If values differ |
+| Color | Is **a different color used for the same meaning**? Conversely, **the same color for different meanings**? | Both are defects |
+| Spacing | Is the title-to-body gap the same on every screen | If values differ |
 
-> **의미와 색이 어긋난 것이 가장 위험하다.** 위험을 알리려고 비활성 색을 쓰면
-> 사용자는 "못 누르는 버튼"으로 읽는다. 기능은 완벽히 동작하므로 "기능이 도는가"로는
-> 절대 안 잡힌다.
+> **A mismatch between meaning and color is the most dangerous.** If a disabled color is used to signal danger,
+> users read it as "a button I cannot tap". The feature works perfectly, so "does the feature run" will
+> never catch it.
 
-**코드에서 후보를 먼저 뽑는다.** 공용 스타일을 두고도 그때그때 덮어쓴 자리가 후보다.
+**Pull candidates from the code first.** Places that override styles ad hoc despite shared styles are candidates.
 
 ```
 fontSize · font-size · fontWeight · font-weight · copyWith( · textStyle
@@ -60,25 +60,25 @@ fontSize · font-size · fontWeight · font-weight · copyWith( · textStyle
 padding: · margin: · EdgeInsets. · gap:
 ```
 
-덮어쓴 곳이 많을수록 갈라져 있을 가능성이 크다. **많이 나온 화면부터 본다.**
+The more overrides, the more likely things have diverged. **Start with the screens that have the most hits.**
 
 ---
 
-## 축 5 — 눌러서 말이 되나
+## Axis 5 — Does tapping make sense
 
-| 무엇 | 보는 법 | 근거로 적을 것 |
+| What | How to check | What to write as evidence |
 |---|---|---|
-| **누를 수 있는데 반응이 없다** | 눌러 보고 화면·로그 양쪽을 본다 | "변화 0 · 로그 0줄" |
-| **비활성인데 이유를 모른다** | 흐린 버튼 옆에 왜 못 누르는지 적혀 있나 | 문구 유무 |
-| **되돌아갈 길이 없다** | 화살표와 **기기 뒤로가기를 따로** 밟는다 | 각각의 결과 |
-| **단계가 하나 더 있다** | 그 화면에서 누를 것이 하나뿐인가 | 누를 수 있는 것의 개수 |
-| **탭 영역이 작다** | 손가락이 닿는 대상이 48dp 미만인가 | 잰 치수 |
+| **Tappable but no response** | Tap it and check both screen and logs | "0 change · 0 log lines" |
+| **Disabled without a reason** | Is there text next to the dimmed button saying why it cannot be tapped | Whether the text exists |
+| **No way back** | Walk the arrow and **the device back button separately** | The result of each |
+| **One step too many** | Is there only one thing to tap on that screen | The number of tappable things |
+| **Tap area too small** | Is a finger target smaller than 48dp | The measured dimension |
 
-> **화살표와 기기 뒤로가기는 반드시 따로 밟는다.** 한쪽만 고쳐 두고 다른 쪽은 막힌 채
-> 남는 경우가 흔하다. 라우터가 화면을 **교체**하며 열었으면 돌아갈 자리 자체가 없다.
+> **Always walk the arrow and the device back button separately.** It is common for one to be fixed while the other
+> stays blocked. If the router opened the screen by **replacing**, there is no place to go back to at all.
 
-> **누를 것이 하나뿐인 화면은 그 화면이 있을 이유를 묻는다.** 대개는 앞이나 뒤 화면에
-> 합칠 수 있다. 이건 결함이 아니라 제안으로 적는다.
+> **For a screen with only one thing to tap, ask why the screen exists.** It can usually be merged into the screen before or after.
+> Write this as a proposal, not a defect.
 
 ```
 onPressed: null · onTap: null · disabled · pointer-events: none
@@ -88,20 +88,20 @@ WillPopScope · PopScope · onWillPop · history.back · router.back
 
 ---
 
-## 축 6 — 움직임이 맞나 (있을 때만)
+## Axis 6 — Is the motion right (only if there is any)
 
-연출이 없는 제품이면 이 축은 건너뛴다.
+If the product has no motion, skip this axis.
 
-| 무엇 | 보는 법 |
+| What | How to check |
 |---|---|
-| 있어야 할 곳에 없다 | 화면 전환·실패 알림에 연출이 빠졌나. **다른 곳에는 있는데 여기만 없나** |
-| 끝나고 남는다 | 움직임이 끝난 뒤 위치·투명도가 **원래대로 돌아왔나** |
-| 동작 줄이기를 무시한다 | 접근성 설정으로 애니메이션을 끈 상태에서도 계속 움직이나 |
+| Missing where it should be | Is motion missing from screen transitions or failure alerts? **Is it present elsewhere and missing only here** |
+| Leftover after it ends | After motion ends, did position and opacity **return to the original** |
+| Ignores reduce motion | Does it keep moving with animations turned off in accessibility settings |
 
-> **끝나고 남는 것은 눈으로 안 보인다.** 감쇠 운동은 수학적으로만 0에 가까워져서,
-> 끝난 뒤에도 미세하게 어긋난 채 멈춘다. 눈으로는 통과하고 수치로만 잡힌다 —
-> 녹화해서 마지막 프레임의 위치를 처음과 비교한다 (`target-app.md` 의 "움직임을 수치로
-> 확인하기").
+> **Leftovers after motion are invisible to the eye.** Damped motion only approaches 0 mathematically,
+> so it stops slightly off even after it ends. It passes by eye and is caught only by numbers —
+> record it and compare the position in the last frame with the first ("Checking motion with numbers" in
+> `target-app.md`).
 
 ```
 Animation · AnimationController · Tween · Curves. · transition: · @keyframes · animate(
@@ -109,64 +109,64 @@ Animation · AnimationController · Tween · Curves. · transition: · @keyframe
 
 ---
 
-## 축 7 — 시안에서 온 화면인가 (시안이 있을 때만)
+## Axis 7 — Is this screen from a design (only if there is a design)
 
-앞 축들은 **"이 제품 안에서 말이 되나"**를 묻는다. 이 축만 밖에 정답이 있다.
+The earlier axes ask **"does it make sense within this product"**. Only this axis has the correct answer outside.
 
-**세는 일 자체는 `pro-figma` 가 한다.** 덤프의 `fills`·`strokes`·`effects` 를 하나도
-빠짐없이 분류하고, 시안 export 와 앱 렌더를 픽셀로 맞댄다. 여기서는 **밟다가 "시안에서 온
-화면인데 대조한 기록이 없다"를 발견하는 것**까지가 일이다 — 그 사실 자체가 결함이다.
-접근성 트리에는 그림자·색·굵기가 없어서 이 스킬로는 시안 값이 전부 왔는지 볼 수 없다.
-실제로 효과 네 줄 중 세 줄이 빠진 채 배포되고, 디자이너가 배포 후에 발견한 적이 있다.
+**`pro-figma` does the counting itself.** It classifies every `fills` · `strokes` · `effects` entry in the dump without missing one,
+and compares the design export with the app render pixel by pixel. Here, the job is to **notice while walking that "this screen
+came from a design but there is no comparison record"** — that fact itself is a defect.
+The accessibility tree has no shadows, colors or weights, so this skill cannot see whether all design values made it.
+In one real case, three of four effect lines shipped missing, and the designer found it after release.
 
-아래는 밟는 동안 **눈에 걸리면 즉시 의심할 신호**다. 대조를 돌리기 전에도 잡힌다.
+Below are **signals to suspect at once when they catch your eye** while walking. They show even before running a comparison.
 
-### 에셋이 시안 것 그대로인데 다르게 보인다 ⚠️
+### The asset is the design's own file but looks different ⚠️
 
-**"시안에서 받은 파일을 그대로 넣었으니 같겠지"가 함정이다.** 그리는 쪽이 파일의 일부를
-못 그리고 **조용히 버리는** 경우가 있다.
+**"I put in the file from the design as is, so it must be the same" is the trap.** The renderer can fail to draw part of the file
+and **silently drop it**.
 
-| 시안이 쓴 것 | 그리는 쪽 | 보이는 모습 |
+| What the design used | The renderer | What it looks like |
 |---|---|---|
-| SVG `<filter>` (블러·그림자·안쪽 빛) | flutter_svg 가 **통째로 무시** | 후광용 반투명 도형이 흐려지지 않고 그대로 깔려 **탁한 띠**가 생긴다 |
-| 레이어 블러 | 앱에는 그런 개념이 없다 | 후광이 통째로 빠진다 |
+| SVG `<filter>` (blur, shadow, inner glow) | flutter_svg **ignores it entirely** | The translucent shape for the halo is not blurred and lies flat, leaving a **muddy band** |
+| Layer blur | Apps have no such concept | The halo disappears entirely |
 
-> 실제로 별 화면이 이 이유로 **21% 달랐다.** 에셋을 열어 보니 시안에서 받은 것과
-> **바이트까지 같았다.** 프레임워크가 지원하지 않아 구현자가 근사한 경우
-> (`pro-figma` 의 `framework-gaps.md`)와 **종류가 다르다** — 이쪽은 구현자가
-> 판단할 기회조차 없었다. 넣었고, 될 줄 알았다.
+> In a real case, a star screen **differed by 21%** for this reason. Opening the asset showed it was
+> **byte-identical** to what came from the design. This is **a different kind** from the case where the framework does not support something
+> and the implementer approximated it (`framework-gaps.md` in `pro-figma`) — here the implementer
+> never even had a chance to judge. They put it in and expected it to work.
 
-**콘솔이 대개 먼저 알린다.** 위 사고에서는 `unhandled element <filter/>` 가 처음부터
-떠 있었다. **화면을 밟는 동안 콘솔 경고를 함께 읽는다.**
+**The console usually tells you first.** In that incident, `unhandled element <filter/>` was there
+from the start. **Read console warnings while walking screens.**
 
 ```
 unhandled element · unsupported · not supported · ignoring · failed to decode
 ```
 
-### 시안이 알려주는 크기가 실제 그림 크기가 아니다
+### The size the design reports is not the actual drawing size
 
-효과가 붙은 요소는 **효과가 번지는 만큼 상자가 커진다.** 그 값을 그대로 쓰면 그림이
-늘어나 뭉툭해진다 — 큰 별이 `299×299`로 나오지만 실제 그림은 `264×255`였다.
+For an element with effects, **the box grows as far as the effect spreads.** If you use that value as is, the drawing
+stretches and looks blunt — a large star came out as `299×299`, but the actual drawing was `264×255`.
 
-받은 에셋의 **실제 크기**와 시안 그림에서 잰 크기를 맞대 본다. 다르면 **잰 값**을 쓴다.
+Compare the **actual size** of the received asset with the size measured from the design drawing. If they differ, use the **measured value**.
 
-### 시안은 한 기기 기준으로만 그려져 있다 ⚠️
+### The design is drawn for one device only ⚠️
 
-시안은 보통 **아이폰 한 기종**(예: 393×852)으로 그린다. 그 기기에서만 맞으면 되는 것이
-아니다 — **화면비가 달라도 같아 보여야 한다.**
+Designs are usually drawn for **one iPhone model** (e.g. 393×852). Matching only on that device is not enough —
+**it must look the same at other aspect ratios.**
 
-| 봐야 할 것 | 어긋나는 모습 |
+| What to check | What goes wrong |
 |---|---|
-| 가로가 좁은/넓은 기기 | 글자가 시안과 다른 자리에서 줄바꿈된다 |
-| 세로가 짧은/긴 기기 | 아래 요소가 잘리거나 빈 공간이 생긴다 |
-| 정사각형 요소 | 가로세로에 다른 배율을 쓰면 원이 타원이 된다 |
-| **안전영역 높이** | 한 값을 박아 두면 그만큼 화면이 통째로 밀린다 |
+| Narrower / wider devices | Text wraps at a different point than in the design |
+| Shorter / taller devices | Lower elements get cut off or empty space appears |
+| Square elements | Using different scales for width and height turns circles into ellipses |
+| **Safe area height** | Hard-coding one value shifts the whole screen by that much |
 
-> **안전영역을 숫자로 박아 둔 것이 특히 잘 어긋난다.** 상태바를 52로 가정하고 시안
-> 좌표에서 뺐는데 실제 기기가 59라, 화면 전체가 7씩 위로 떠 있었다. 한 기기에서만 보면
-> "조금 위인가?" 수준이라 통과한다.
+> **Hard-coded safe area numbers are especially prone to drift.** The status bar was assumed to be 52 and subtracted from the design
+> coordinates, but the real device was 59, so the whole screen floated up by 7. Looking at one device only, it is at the level of
+> "is it a bit high?" and passes.
 
-**최소한 두 기기에서 본다.** 기준 기기 하나와, 화면비가 가장 다른 기기 하나
+**Look on at least two devices.** The reference device and the device with the most different aspect ratio
 (`references/devices.md`).
 
 ```
@@ -175,33 +175,33 @@ MediaQuery.of · padding.top · viewPadding · SafeArea · statusBarHeight
 
 ---
 
-## 판정을 만든 사람이 한다 ⚠️
+## The person who built it is the one judging ⚠️
 
-지금은 **구현한 쪽이 그대로 판정**한다. 통과시키고 싶은 방향으로 읽게 된다.
-축 4·5·7은 특히 그렇다 — "이 정도면 됐다"가 사람마다 다르다.
+Right now, **the implementer judges their own work.** They read it in the direction they want it to pass.
+This is especially true for axes 4·5·7 — "good enough" differs from person to person.
 
-두 가지를 같이 쓴다. 배타적이지 않다.
+Use both of the following. They are not exclusive.
 
-**B. 근거를 값으로만 적는다 — 지금 바로 할 수 있다**
+**B. Write evidence only as values — you can do this right now**
 
-위 "근거를 적는 방식"이 그것이다. 숫자로 적으면 나중에 남이 다시 세어 확인할 수 있고,
-확인할 수 있으면 봐주기가 어렵다.
+That is the "How to write evidence" section above. Written as numbers, someone else can recount and verify later,
+and once it is verifiable, it is hard to go easy on it.
 
-**A. 구현 맥락을 모르는 자리에서 판정한다 — 구조가 필요하다**
+**A. Judge from a position that does not know the implementation context — needs structure**
 
-`$SHOT_DIR` 의 스크린샷과 이 문서만 주고, **코드도 이번 작업 내용도 알려주지 않은 채**
-"이상한 곳을 찾아라"를 시킨다. 새 세션에 넘기면 된다.
+Give only the screenshots in `$SHOT_DIR` and this document, **without the code or what this work changed**, and
+ask it to "find what looks wrong". Hand it to a new session.
 
 ```
-아래 스크린샷들은 한 제품의 여러 화면이다.
-references/looks-wrong.md 의 축 4·5·6·7 로만 보고 이상한 곳을 찾아라.
-근거는 개수·치수·화면 변화로만 적는다.
+The screenshots below are several screens of one product.
+Look only through axes 4·5·6·7 of references/looks-wrong.md and find what looks wrong.
+Write evidence only as counts, dimensions and screen changes.
 ```
 
-무엇을 만들었는지 모르므로 "이건 원래 이런 거야"가 나오지 않는다. **A 를 못 하는
-상황이면 B 만이라도 반드시 지킨다.**
+Since it does not know what was built, "this is how it is supposed to be" never comes up. **If you cannot do A,
+at least always keep B.**
 
-## 여기서 나온 것은 따로 보고한다
+## Report what comes out of here separately
 
-요청받은 기능은 통과했는데 **보기에 이상한 상태**다. 섞어 적으면 "이번 작업이
-실패했다"로 읽힌다. 결함과 제안도 나눈다 — "단계가 하나 더 있다"는 제안이지 결함이 아니다.
+The requested feature passed, but it **looks wrong**. If you mix them, it reads as "this work
+failed". Separate defects from proposals too — "one step too many" is a proposal, not a defect.

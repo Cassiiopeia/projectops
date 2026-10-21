@@ -1,171 +1,172 @@
-# 결과 보고와 이슈 등록
+# Reporting results and filing issues
 
-> 언제 읽나: Phase 5 — 결함 리포트를 쓰거나 이슈로 올릴 때, 잘못 본 것을 정정할 때.
+> When to read: Phase 5 — when you write a defect report or file it as an issue, and when you correct something you misjudged.
 
-**"몇 개 통과"가 아니라 무엇이 잘못됐는지가 결과물이다.** 통과했다고 보고할 때보다
-**결함을 하나 찾았을 때 제 역할을 한 것이다.**
+**The deliverable is what went wrong, not "how many passed".** You did your job when you
+**found a defect**, more than when you report a pass.
 
-## 항목을 나눠 적는다
+Write the report in the user's language (or the configured `language` preference).
 
-| 항목 | 무엇 |
+## Separate the categories
+
+| Category | What |
 | --- | --- |
-| **기능 결함** | 요청받은 것이 기대대로 동작하지 않음 |
-| **일관성 결함** | 요청받은 곳은 되는데 **같은 성격의 다른 곳이 안 됨** (Phase 4.5 — `wide-view.md`) |
-| **관측성** | 기능은 되는데 **나중에 추적할 수 없음** |
-| **개선 제안** | 결함은 아니지만 더 나은 방식이 있어 보임 (Phase 4.8) |
-| 통과 | 밟아서 확인된 것 |
-| 보류 | 사람 개입이 필요해 진행하지 못함 |
+| **Functional defect** | What was requested does not behave as expected |
+| **Consistency defect** | The requested spot works, but **another spot of the same kind does not** (Phase 4.5 — `wide-view.md`) |
+| **Observability** | The feature works, but **cannot be traced later** |
+| **Improvement proposal** | Not a defect, but a better approach seems to exist (Phase 4.8) |
+| Pass | Walked and confirmed |
+| On hold | Could not proceed because a person must step in |
 
-섞어 적으면 안 된다. 일관성 결함을 기능 결함에 섞으면 **"이번 작업이 실패했다"로 읽힌다.**
+Do not mix them. If you mix consistency defects into functional defects, the report **reads as "this work failed".**
 
-## 보고가 갖춰야 할 것
+## What a report must have
 
-하나라도 비면 보고가 아니다.
+If any one is missing, it is not a report.
 
-| 갖출 것 | 없으면 |
+| Must have | If missing |
 | --- | --- |
-| **무엇을 실제로 밟았나** (명령·응답·화면·쿼리 결과) | 추측으로 읽힌다 |
-| **무엇이 깨졌나** | 결함 없이 "잘 됩니다"로 끝난다 |
-| **왜 지금까지 안 걸렸나** | 같은 종류를 또 놓친다 |
-| **같은 성격의 다른 곳은** (4.5) | 한 자리만 고치고 나머지는 남는다 |
-| **이걸 고치면 어디가 함께 움직이나** (4.7) | 고친 뒤에 다른 데가 조용히 깨진다 |
-| **고치지 않으면 언제 터지나** | 무엇부터 할지 정할 수 없다 |
+| **What you actually walked** (commands, responses, screens, query results) | It reads as a guess |
+| **What broke** | It ends as "it works" without a defect |
+| **Why it was not caught until now** | You miss the same kind again |
+| **Other places of the same kind** (4.5) | One spot gets fixed and the rest remain |
+| **What moves together if this is fixed** (4.7) | Something else breaks silently after the fix |
+| **When it blows up if not fixed** | Nobody can decide what to do first |
 
-**근거 없는 판단을 적지 않는다.** "될 것 같다"는 보고가 아니다. 밟았으면 밟은 것을,
-못 밟았으면 못 밟았다고 적는다.
+**Do not write judgments without evidence.** "It will probably work" is not a report. If you walked it, write what you walked;
+if you could not, write that you could not.
 
-## 올리기 전 재확인 게이트 (거짓 양성 방지)
+## Recheck gate before posting (preventing false positives)
 
-결함 후보마다 **게시 전에** 아래 셋을 지운다. 하나라도 못 지우면 결함이 아니라 "의심"으로 적는다.
+For each defect candidate, clear the three below **before posting**. If you cannot clear even one, write it as a "suspicion", not a defect.
 
-1. **남은 설정이 아닌가** — 글자 크기·다크 모드·언어·방향을 이 테스트 전에 바꿨다면 `--restore` 한 뒤 다시 재현한다.
-2. **도구 탓이 아닌가** — 시뮬레이터의 탭이 화면 가장자리에서 안 먹는 것처럼 입력 도구의 한계일 수 있다. **다른 입력 경로로 한 번 더** 누른다(요소 선택 `--text` ↔ 비율 좌표, 또는 프로젝트 E2E).
-3. **같은 기기를 다른 세션이 쓰고 있지 않은가** — `devices` 의 `owners` 를 본다.
+1. **Is it a leftover setting** — if text size, dark mode, language or orientation was changed before this test, `--restore` and reproduce again.
+2. **Is it the tool's fault** — it can be a limit of the input tool, like simulator taps not registering at the screen edge. **Tap once more through a different input path** (element selection `--text` ↔ ratio coordinates, or the project's E2E).
+3. **Is another session using the same device** — check `owners` in `devices`.
 
-두 번째 재현에서도 같으면 결함으로 올린다. 한 번 올린 뒤 철회하는 일을 줄이는 것이 목적이다.
+If the second reproduction gives the same result, post it as a defect. The goal is fewer posts that get retracted later.
 
-## 결함 하나에 담을 것
+## What one defect should contain
 
-| 담는 것 | 왜 |
+| Contains | Why |
 | --- | --- |
-| **재현 절차** | 그대로 따라 하면 다시 나야 한다. 안 나면 고쳤는지 확인할 수 없다 |
-| **기대 vs 실제** | "이상하다"가 아니라 "403이어야 하는데 200이 왔다" |
-| **근거** | 응답 원문 · DB 조회 결과 · 로그 · 스크린샷 |
-| **심각도** | 아래 기준 |
-| **영향 범위** | 이 결함으로 무엇이 가능해지는가 · 어디까지 번지는가 |
+| **Repro steps** | Following them exactly must trigger it again. If not, nobody can confirm the fix |
+| **Expected vs actual** | Not "it is weird" but "expected 403, got 200" |
+| **Evidence** | Raw response · DB query result · logs · screenshots |
+| **Severity** | Criteria below |
+| **Impact** | What this defect makes possible · how far it spreads |
 
-## 심각도
+## Severity
 
-| 등급 | 기준 |
+| Level | Criteria |
 | --- | --- |
-| **치명** | 데이터가 새거나 망가진다 (남의 자원 접근, 비밀번호 로그 노출) |
-| **높음** | 주요 흐름이 막힌다 (가입·결제·로그인 실패) |
-| **보통** | 우회할 수 있다 (원인 모를 에러 메시지, 중복 생성) |
-| **낮음** | 불편하다 |
-| **관측성** | 기능은 되는데 추적이 안 된다 |
+| **Critical** | Data leaks or gets corrupted (access to others' resources, passwords exposed in logs) |
+| **High** | A main flow is blocked (sign-up, payment or login fails) |
+| **Medium** | There is a workaround (unexplained error message, duplicate creation) |
+| **Low** | Inconvenient |
+| **Observability** | The feature works but cannot be traced |
 
-**추측으로 심각도를 올리지 않는다.** "털릴 수도 있다"가 아니라 **실제로 밟아서 된 것**만
-치명으로 적는다. 밟아보지 못했으면 그렇다고 적는다.
+**Do not raise severity by guessing.** Mark as Critical only **what you actually walked and saw happen**, not
+"it could be breached". If you could not walk it, say so.
 
-## 보고의 최소 형태
+## Minimum report shape
 
-밟은 결과는 **단계별 표**로 남긴다. "잘 됩니다"는 보고가 아니다.
+Record walk results as a **per-step table**. "It works" is not a report.
 
 ```markdown
-| 단계 | 화면 | 기기에 저장된 것 | 서버에 저장된 것 | 판정 |
+| Step | Screen | Stored on device | Stored on server | Verdict |
 |---|---|---|---|---|
-| 로그인 | 홈 진입 | refreshToken, provider | member 생성, login_count=1 | 통과 |
-| 약관 동의 | 동의 화면 | — | terms_agreed=t, consented_at | 통과 |
-| 이름 입력 | 다음 화면 | (아직 없음 — 마지막에 일괄 저장) | nickname 비어 있음 | 통과 |
+| Login | Home reached | refreshToken, provider | member created, login_count=1 | Pass |
+| Accept terms | Consent screen | — | terms_agreed=t, consented_at | Pass |
+| Enter name | Next screen | (nothing yet — saved in one batch at the end) | nickname empty | Pass |
 ```
 
-세 번째 행처럼 **비어 있는 것이 정상인 경우 그 이유를 적는다.** 적지 않으면 다음에 보는
-사람이 버그로 오해한다.
+As in the third row, **when empty is correct, write why.** Otherwise the next reader
+mistakes it for a bug.
 
-## 스크린샷을 이슈에 넣기
+## Putting screenshots in an issue
 
-GitHub 이슈는 외부 이미지 링크만 렌더링한다. **레포에 커밋하지 않는다** — QA 증적은
-제품 코드가 아니고, 한 번 커밋하면 지워도 히스토리에 남아 레포가 계속 무거워진다.
-`pro-github`의 `upload-image`가 릴리스 자산으로 올려 URL을 돌려준다 (#585).
+GitHub issues render only external image links. **Do not commit them to the repo** — QA evidence
+is not product code, and once committed it stays in history even after deletion, making the repo keep growing.
+`upload-image` in `pro-github` uploads them as release assets and returns URLs (#585).
 
-먼저 줄인다. 이슈용이라 원본 해상도가 필요 없다.
+Shrink first. An issue does not need the original resolution.
 
 ```bash
-# Pillow → sips(macOS) → ffmpeg 중 있는 것을 알아서 쓴다 (pro-launch).
-PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py shrink {스크린샷...} --max-side 700
+# uses whichever of Pillow → sips (macOS) → ffmpeg is available (pro-launch).
+PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py shrink {screenshots...} --max-side 700
 ```
 
-> `sips`는 macOS에만 있다. 직접 부르지 말고 위 스크립트를 쓴다 — 다른 사람의 Linux·
-> Windows에서 그대로 실패한다.
+> `sips` exists only on macOS. Do not call it directly; use the script above — calling it directly fails on other people's Linux
+> or Windows.
 
-그다음 올려서 URL을 받는다.
+Then upload to get URLs.
 
 ```bash
-... github_cli.py upload-image {owner} {repo} {이미지...} --prefix qa{이슈번호}
+... github_cli.py upload-image {owner} {repo} {images...} --prefix qa{issue number}
 ```
 
-출력의 `markdown` 필드를 본문에 그대로 붙여넣는다. **순서를 지킨다** — 이미지를 먼저
-올리고 본문을 나중에 올린다. 반대로 하면 이미지 없는 글이 게시된다.
+Paste the output's `markdown` field into the body as is. **Keep the order** — upload images first,
+then post the body. If you do it the other way round, a post without images goes up.
 
-`web shot`으로 찍은 파일은 프로젝트가 아니라 기록 폴더(`knowledge_dir`/shots)에 쌓인다.
-`detect`의 `knowledge_dir` 값에서 찾는다.
+Files captured with `web shot` are stored in the record folder (`knowledge_dir`/shots), not in the project.
+Find it from the `knowledge_dir` value of `detect`.
 
-## 이슈로 올릴 때
+## Filing as an issue
 
-`/pro-github`을 쓴다. 제목·본문은 해당 레포의 이슈 템플릿 규칙을 따른다.
+Use `/pro-github`. Title and body follow the target repo's issue template rules.
 
-버그 이슈에 **반드시 들어가야 하는 것**:
+What a bug issue **must include**:
 
-| 항목 | 없으면 생기는 일 |
+| Item | What happens without it |
 | --- | --- |
-| 재현 절차 | 다른 사람이 확인할 수 없어 방치된다 |
-| 왜 지금까지 안 걸렸나 | 같은 종류를 또 놓친다 |
-| 영향 범위 | 긴급한지 아닌지 판단이 안 된다 |
-| 근거 (로그·스크린샷) | 추측으로 읽힌다 |
+| Repro steps | Others cannot confirm it, so it is left alone |
+| Why it was not caught until now | You miss the same kind again |
+| Impact | Nobody can tell whether it is urgent |
+| Evidence (logs · screenshots) | It reads as a guess |
 
-"왜 지금까지 안 걸렸나"는 특히 중요하다. 예를 들어 *"카카오톡이 설치된 기기는 다른
-경로를 타서 이 화면을 거치지 않는다"* 같은 문장이 있어야, 테스트 환경을 어떻게 바꿔야
-하는지가 드러난다.
+"Why it was not caught until now" matters most. For example, a sentence like *"devices with KakaoTalk installed
+take a different path and never pass this screen"* shows how the test environment
+has to change.
 
-## 틀렸을 때
+## When you were wrong
 
-**잘못 본 것을 발견하면 즉시 정정한다.** 이미 올린 이슈가 있으면:
+**Correct a misjudgment as soon as you find it.** If an issue is already filed:
 
-1. 정정 댓글 — 무엇을 잘못 봤는지, 실제로는 어떤지, 근거 이미지
-2. 라벨을 `status: cancelled`(`취소`)로 교체하고 `close-issue --reason not_planned`로 닫는다
-3. 그 과정에서 **진짜로 남은 문제**가 있으면 분리해서 적는다
+1. A correction comment — what you misjudged, what is actually true, evidence image
+2. Replace the label with `status: cancelled` (`취소`) and close with `close-issue --reason not_planned`
+3. If a **real remaining problem** turned up along the way, write it up separately
 
-예: "잘려 보인다"고 올렸는데 실제로는 스크롤을 덜 한 것이었다 → 이슈는 취소하되,
-"스크롤이 더 남았다는 단서가 없어 실제로 오판했다"는 점은 남길 가치가 있다.
+Example: you filed "it looks cut off", but you had just not scrolled far enough → cancel the issue, but
+"there was no cue that more content was below, which actually caused the misjudgment" is worth keeping.
 
-## UX 문제를 함께 다루기
+## Handling UX problems too
 
-기능이 되더라도 **쓰기 불편한 지점**은 따로 적는다. E2E를 밟다 보면 agent 자신이 막히는
-곳이 생기는데, 그 지점이 곧 사용자가 막히는 곳이다.
+Even if a feature works, write up **places that are awkward to use** separately. While walking E2E, the agent itself gets stuck
+in places, and those are exactly where users get stuck.
 
-| 겪은 일 | 적어야 할 것 |
+| What happened | What to write |
 | --- | --- |
-| 다음에 뭘 눌러야 할지 찾지 못함 | 무엇이 가려졌는지, 무엇을 해야 보이는지 |
-| 같은 조작을 매번 반복해야 함 | 몇 번째 반복인지, 자동화 가능한지 |
-| 되돌릴 방법을 못 찾음 | 어디서 막혔고 어떤 경로가 필요한지 |
+| Could not find what to press next | What was hidden, and what makes it visible |
+| Had to repeat the same action every time | Which repetition it was, whether it can be automated |
+| Could not find a way to undo | Where it got stuck, and which path is needed |
 
-이런 이슈는 **선택지를 함께 제시한다.** 레이아웃 전반에 영향을 주는 수정과 최소 변경은
-판단이 다르므로, 결정은 사람이 해야 한다.
+For these issues, **present options.** A fix that affects the whole layout and a minimal change
+need different judgment, so a person must decide.
 
-## 보기에 이상한 것은 근거를 값으로 적는다 ⚠️
+## Write evidence for "looks wrong" as values ⚠️
 
-"되는데 이상한 것"(`references/looks-wrong.md` 의 축 4·5·6)은 **판정이 사람마다 갈린다.**
-근거를 값으로 묶어 두지 않으면 보고가 취향 다툼이 된다.
+"Works but looks wrong" (axes 4·5·6 of `references/looks-wrong.md`) **is judged differently by different people.**
+If you do not pin the evidence to values, the report turns into an argument about taste.
 
-| 이렇게 적는다 | 이렇게 적지 않는다 |
+| Write it like this | Not like this |
 |---|---|
-| 제목 글자 크기가 4개 화면에서 **3종류**(20 · 22 · 24) | 폰트가 통일 안 된 느낌 |
-| 버튼 높이 **48 / 44 / 52** | 버튼이 들쭉날쭉 |
-| 눌렀으나 **화면 변화 없음 · 로그 0줄** | 반응이 없는 것 같다 |
-| 동작 줄이기 0인데 **280ms 동안 이동** | 애니메이션이 과하다 |
+| Title font size has **3 variants** (20 · 22 · 24) across 4 screens | Fonts feel inconsistent |
+| Button heights **48 / 44 / 52** | Buttons are uneven |
+| Tapped but **no screen change · 0 log lines** | It seems unresponsive |
+| **Moves for 280ms** with reduce motion at 0 | Animation is excessive |
 
-**다시 셀 수 있어야 근거다.** 나중에 남이 같은 화면을 보고 같은 숫자에 도달할 수 있으면,
-그 판정은 통과시키고 싶은 방향으로 휘지 않는다.
+**It is evidence only if it can be counted again.** If someone else can look at the same screen later and reach the same numbers,
+the verdict does not bend toward the result you wanted.
 
-결함과 제안을 나눈다 — "누를 것이 하나뿐인 화면"은 **제안**이지 결함이 아니다.
-
+Separate defects from proposals — "a screen with only one thing to press" is a **proposal**, not a defect.
