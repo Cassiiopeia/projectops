@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.71.1  
-**Last updated:** 2026-10-21T15:52:58Z  
+**Current version:** 4.71.2  
+**Last updated:** 2026-10-21T22:10:03Z  
+
+---
+
+## [4.71.2] - 2026-10-21
+
+**PR:** #981  
+
+**문서**
+- 한국어 README와 문서의 데모 영상을 최신 화면으로 교체
 
 ---
 

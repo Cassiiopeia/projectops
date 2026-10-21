@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-21T15:52:58Z",
-    "currentVersion": "4.71.1",
+    "lastUpdated": "2026-10-21T22:10:03Z",
+    "currentVersion": "4.71.2",
     "projectType": "basic",
-    "totalReleases": 344,
+    "totalReleases": 345,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.71.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-21",
+      "pr_number": 981,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **문서**\n  * 한국어 README와 문서의 데모 영상을 최신 화면으로 교체",
+      "parsed_changes": {
+        "문서": {
+          "title": "문서",
+          "items": [
+            "한국어 README와 문서의 데모 영상을 최신 화면으로 교체"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.71.1",
       "project_type": "basic",
