@@ -31,12 +31,20 @@ def _read_last_runs(root: Path) -> dict:
     return {k: v for k, v in sessions.items() if isinstance(v, dict)} if isinstance(sessions, dict) else {}
 
 
+def _is_recent_row(row: dict, now: float) -> bool:
+    """기록이 유효 시간 안인지. at 이 깨진 행은 만료로 본다 (get-output-path 를 죽이지 않게)"""
+    try:
+        return now - float(row.get("at") or 0) < LAST_RUN_VALID_SECONDS
+    except (TypeError, ValueError):
+        return False
+
+
 def record_last_run(root: Path, run_dir: Path, screenshots: Path) -> None:
     """get-output-path 가 부른다 — 이 세션 칸만 바꾼다. 기록 실패는 명령을 막지 않는다."""
     target = state_home(root) / LAST_RUN_FILE
     sessions = _read_last_runs(root)
     now = time.time()
-    sessions = {k: v for k, v in sessions.items() if now - float(v.get("at") or 0) < LAST_RUN_VALID_SECONDS}
+    sessions = {k: v for k, v in sessions.items() if _is_recent_row(v, now)}
     sessions[session_identity()] = {"run_dir": str(run_dir), "screenshots": str(screenshots), "at": now}
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
