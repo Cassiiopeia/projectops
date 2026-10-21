@@ -90,7 +90,7 @@ env:
   APP_ROOT: "."  # @wizard auto:flutter-root
 jobs:
   prepare-test-build:
-    name: 테스트 빌드 준비
+    name: Prepare test build
     runs-on: ubuntu-latest
 
     outputs:
@@ -111,7 +111,30 @@ jobs:
       run:
         working-directory: ${{ env.APP_ROOT }}
     steps:
-      - name: 브랜치 존재 여부 사전 확인
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js test_apk. comment. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
+      - name: Check that the branch exists first
         id: verify_branch
         if: github.event_name == 'repository_dispatch'
         uses: actions/github-script@v7
@@ -121,12 +144,13 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const branchName = process.env.BRANCH_NAME;
             const prNumber = '${{ github.event.client_payload.pr_number }}';
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
 
-            console.log(`🔍 브랜치 존재 여부 확인: ${branchName}`);
+            console.log(`🔍 Checking that the branch exists: ${branchName}`);
 
             try {
               await github.rest.repos.getBranch({
@@ -134,27 +158,16 @@ jobs:
                 repo: context.repo.repo,
                 branch: branchName
               });
-              console.log(`✅ 브랜치 존재 확인됨: ${branchName}`);
+              console.log(`✅ Branch exists: ${branchName}`);
             } catch (error) {
               if (error.status === 404) {
-                console.log(`❌ 브랜치를 찾을 수 없음: ${branchName}`);
+                console.log(`❌ Branch not found: ${branchName}`);
 
                 // 에러 댓글 작성
-                const body = [
-                  '🤖 ❌ **Android 테스트 APK 빌드 실패 - 브랜치를 찾을 수 없습니다**',
-                  '',
-                  '| 항목 | 값 |',
-                  '|------|-----|',
-                  `| **요청된 브랜치** | \`${branchName}\` |`,
-                  `| **이슈/PR** | #${prNumber} |`,
-                  '',
-                  '### 💡 확인 사항',
-                  '1. 브랜치가 원격 저장소에 push되었는지 확인하세요',
-                  '2. "Guide by ProjectOps" 댓글의 브랜치명이 올바른지 확인하세요',
-                  '3. 브랜치명에 오타가 없는지 확인하세요',
-                  '',
-                  `🔗 [워크플로우 로그](${runUrl})`
-                ].join('\n');
+                // 서명은 구버전 소비자가 읽는 계약 문자열이라 값으로 넣는다 (contracts.py)
+                const body = t('test_apk.branch_missing.body', {
+                  branch: branchName, number: prNumber, signature: 'Guide by ProjectOps', url: runUrl
+                });
 
                 await github.rest.issues.createComment({
                   owner: context.repo.owner,
@@ -163,9 +176,9 @@ jobs:
                   body: body
                 });
 
-                core.setFailed(`브랜치를 찾을 수 없습니다: ${branchName}`);
+                core.setFailed(`Branch not found: ${branchName}`);
               } else {
-                core.setFailed(`브랜치 확인 중 오류: ${error.message}`);
+                core.setFailed(`Error while checking the branch: ${error.message}`);
               }
             }
 
@@ -179,22 +192,23 @@ jobs:
         run: |
           if [ -n "$FIREBASE_SECRET" ]; then
             echo "available=true" >> $GITHUB_OUTPUT
-            echo "✅ Firebase 서비스 계정 감지 - App Distribution 업로드 예정"
+            echo "✅ Firebase service account found - App Distribution upload will run"
           else
             echo "available=false" >> $GITHUB_OUTPUT
-            echo "⚠️ Firebase 서비스 계정 없음 - App Distribution 업로드 건너뜀"
+            echo "⚠️ No Firebase service account - skipping the App Distribution upload"
           fi
 
       # ===================================================================
       # 진행 상황 댓글 시스템
       # ===================================================================
-      - name: 진행 상황 댓글 생성
+      - name: Create the progress comment
         id: progress_comment
         if: github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != ''
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const prNumber = parseInt('${{ github.event.client_payload.pr_number }}');
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
@@ -202,22 +216,22 @@ jobs:
             const firebaseAvailable = '${{ steps.firebase_check.outputs.available }}' === 'true';
 
             const rows = [
-              '| 🔧 준비 | ⏳ 진행 중... | - |',
-              '| 🔨 APK 빌드 | ⏸️ 대기 | - |',
-              '| 📤 GitHub 아티팩트 업로드 | ⏸️ 대기 | - |',
+              `| ${t('test_apk.stage.prepare')} | ${t('test_apk.status.in_progress')} | - |`,
+              `| ${t('test_apk.stage.build')} | ${t('test_apk.status.waiting')} | - |`,
+              `| ${t('test_apk.stage.artifact')} | ${t('test_apk.status.waiting')} | - |`,
             ];
             if (firebaseAvailable) {
-              rows.push('| 🔥 Firebase App Distribution | ⏸️ 대기 | - |');
+              rows.push(`| 🔥 Firebase App Distribution | ${t('test_apk.status.waiting')} | - |`);
             }
 
             const body = [
-              '## 🤖 Android APK 빌드 중...',
+              t('test_apk.heading.in_progress'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_apk.table.header'),
               '|------|------|----------|',
               ...rows,
               '',
-              `📋 **[실시간 로그 보기](${runUrl})**`
+              t('test_apk.live_log', { url: runUrl })
             ].join('\n');
 
             const { data: comment } = await github.rest.issues.createComment({
@@ -227,7 +241,7 @@ jobs:
               body: body
             });
 
-            console.log(`✅ 진행상황 댓글 생성 완료 (ID: ${comment.id})`);
+            console.log(`✅ Progress comment created (ID: ${comment.id})`);
             core.setOutput('comment_id', comment.id.toString());
             core.setOutput('start_time', startTime.toString());
 
@@ -241,11 +255,11 @@ jobs:
         env:
           BRANCH_NAME: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}
         run: |
-          echo "🌿 브랜치: $BRANCH_NAME"
-          git pull origin "$BRANCH_NAME" || echo "⚠️ Pull 실패 (이미 최신 상태일 수 있음)"
+          echo "🌿 Branch: $BRANCH_NAME"
+          git pull origin "$BRANCH_NAME" || echo "⚠️ Pull failed (the branch may already be up to date)"
 
       # 브랜치명에서 이슈 번호 추출 및 GitHub API로 이슈 정보 가져오기
-      - name: 브랜치명에서 이슈 정보 추출
+      - name: Read issue information from the branch name
         id: issue_info
         env:
           # 브랜치명은 스크립트 소스에 직접 넣지 않고 env 로 받는다 (#646)
@@ -263,51 +277,51 @@ jobs:
             ISSUE_NUMBER=$(echo "$BRANCH_NAME" | sed -n 's/^[^#]*#\([0-9][0-9]*\).*/\1/p')
           fi
 
-          echo "🌿 브랜치명: $BRANCH_NAME"
+          echo "🌿 Branch: $BRANCH_NAME"
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
           if [ -z "$ISSUE_NUMBER" ]; then
-            echo "⚠️ 브랜치명에서 이슈 번호를 찾을 수 없습니다."
+            echo "⚠️ No issue number found in the branch name."
             echo "issue_url=" >> $GITHUB_OUTPUT
             echo "issue_title=" >> $GITHUB_OUTPUT
             echo "issue_number=" >> $GITHUB_OUTPUT
           else
-            echo "✅ 추출된 이슈 번호: #$ISSUE_NUMBER"
+            echo "✅ Issue number: #$ISSUE_NUMBER"
             ISSUE_URL="https://github.com/${{ github.repository }}/issues/$ISSUE_NUMBER"
             echo "issue_url=$ISSUE_URL" >> $GITHUB_OUTPUT
             echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
 
             # GitHub API로 이슈 정보 가져오기
-            echo "🔍 GitHub API로 이슈 정보 조회 중..."
+            echo "🔍 Reading the issue through the GitHub API..."
             ISSUE_RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/${{ github.repository }}/issues/$ISSUE_NUMBER")
 
-            ISSUE_TITLE=$(echo "$ISSUE_RESPONSE" | jq -r '.title // "이슈 정보 없음"')
+            ISSUE_TITLE=$(echo "$ISSUE_RESPONSE" | jq -r '.title // "No issue info"')
             ISSUE_STATE=$(echo "$ISSUE_RESPONSE" | jq -r '.state // "unknown"')
 
-            if [ "$ISSUE_TITLE" = "null" ] || [ "$ISSUE_TITLE" = "이슈 정보 없음" ]; then
-              echo "⚠️ 이슈 #$ISSUE_NUMBER를 찾을 수 없습니다."
+            if [ "$ISSUE_TITLE" = "null" ] || [ "$ISSUE_TITLE" = "No issue info" ]; then
+              echo "⚠️ Issue #$ISSUE_NUMBER was not found."
               echo "issue_title=" >> $GITHUB_OUTPUT
             else
-              echo "📋 이슈 제목: $ISSUE_TITLE"
-              echo "📌 이슈 상태: $ISSUE_STATE"
+              echo "📋 Issue title: $ISSUE_TITLE"
+              echo "📌 Issue state: $ISSUE_STATE"
               echo "issue_title=$ISSUE_TITLE" >> $GITHUB_OUTPUT
             fi
           fi
 
       # 버전 관리 스크립트 권한 설정
-      - name: 버전 관리 스크립트 권한 설정
+      - name: Make the version script executable
         working-directory: ${{ github.workspace }}   # 레포 루트 자산(.github/scripts·version.yml)은 APP_ROOT가 아닌 레포 루트 기준
         run: chmod +x ./.github/scripts/version_manager.sh
 
       # 빌드 번호는 build_number.py 한 곳에서만 정한다 (시각 기반, 1초 단위 단조 증가)
-      - name: 빌드 번호 결정
+      - name: Decide the build number
         id: build_no
         working-directory: ${{ github.workspace }}   # build_number.py는 레포 루트 자산
         run: python3 .github/scripts/build_number.py next
 
       # 빌드 정보 생성
-      - name: 빌드 정보 생성
+      - name: Collect build information
         working-directory: ${{ github.workspace }}   # 레포 루트 자산(.github/scripts·version.yml)은 APP_ROOT가 아닌 레포 루트 기준
         id: build_info
         run: |
@@ -324,11 +338,11 @@ jobs:
           # repository_dispatch 이벤트인 경우 진행 댓글을 달 PR 번호를 받는다 (빌드 번호와 무관)
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
             PR_NUMBER="${{ github.event.client_payload.pr_number }}"
-            echo "📋 repository_dispatch 이벤트 감지"
-            echo "  PR 번호: #$PR_NUMBER"
+            echo "📋 repository_dispatch event"
+            echo "  PR number: #$PR_NUMBER"
           else
             PR_NUMBER=""
-            echo "📋 workflow_dispatch 이벤트 감지"
+            echo "📋 workflow_dispatch event"
           fi
 
           echo "commit_hash=$COMMIT_SHORT" >> $GITHUB_OUTPUT
@@ -337,16 +351,16 @@ jobs:
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
           echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
 
-          echo "📋 빌드 정보:"
-          echo "  빌드 번호: #$BUILD_NUMBER"
+          echo "📋 Build information:"
+          echo "  Build number: #$BUILD_NUMBER"
           if [ -n "$PR_NUMBER" ]; then
-            echo "  PR 번호: #$PR_NUMBER"
+            echo "  PR number: #$PR_NUMBER"
           fi
-          echo "  커밋 해시: $COMMIT_SHORT"
-          echo "  빌드 날짜: $BUILD_DATE"
+          echo "  Commit: $COMMIT_SHORT"
+          echo "  Build date: $BUILD_DATE"
 
       # 취소 처리 (#648): 댓글을 만든 준비 job 이 실행 중일 때 취소된 경우. 준비 job 은 needs 가 없어 같은 job 의 스텝 출력으로 ID 를 읽는다. 이 스텝이 뒤의 스텝들 끝에 있어야 어느 시점에 취소돼도 잡힌다.
-      - name: 진행 상황 업데이트 - 취소 (준비 job)
+      - name: Update progress - cancelled (prepare job)
         if: cancelled() && github.event_name == 'repository_dispatch' && steps.progress_comment.outputs.comment_id != ''
         continue-on-error: true
         uses: actions/github-script@v7
@@ -359,6 +373,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: formatElapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = parseInt(process.env.COMMENT_ID, 10);
             const startTime = parseInt(process.env.START_TIME, 10);
             const branchName = process.env.BRANCH_NAME;
@@ -370,8 +385,8 @@ jobs:
               repo: context.repo.repo,
               comment_id: commentId
             });
-            if (!(current.body || '').startsWith('## 🤖 Android APK 빌드 중...')) {
-              console.log('이미 최종 상태 댓글이라 취소 갱신을 건너뜀');
+            if (!(current.body || '').startsWith(t('test_apk.heading.in_progress'))) {
+              console.log('The comment already shows a final state, skipping the cancel update');
               return;
             }
 
@@ -380,25 +395,20 @@ jobs:
               const elapsed = Date.now() - startTime;
               const minutes = Math.floor(elapsed / 60000);
               const seconds = Math.floor((elapsed % 60000) / 1000);
-              duration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+              duration = formatElapsed(minutes, seconds);
             }
 
             const body = [
-              '## 🤖 🚫 Android APK 빌드 취소됨',
+              t('test_apk.heading.cancelled'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_apk.table.header'),
               '|------|------|----------|',
-              '| 🔧 준비 | ⏸️ 취소됨 | - |',
-              '| 🔨 APK 빌드 | ⏸️ 취소됨 | - |',
-              '| 📤 GitHub 아티팩트 업로드 | ⏸️ 취소됨 | - |',
-              ...(firebaseAvailable ? ['| 🔥 Firebase App Distribution | ⏸️ 취소됨 | - |'] : []),
+              `| ${t('test_apk.stage.prepare')} | ${t('test_apk.status.cancelled')} | - |`,
+              `| ${t('test_apk.stage.build')} | ${t('test_apk.status.cancelled')} | - |`,
+              `| ${t('test_apk.stage.artifact')} | ${t('test_apk.status.cancelled')} | - |`,
+              ...(firebaseAvailable ? [`| 🔥 Firebase App Distribution | ${t('test_apk.status.cancelled')} | - |`] : []),
               '',
-              `- 브랜치: \`${branchName}\``,
-              `- 총 소요 시간: ${duration}`,
-              '',
-              '🚫 **빌드가 취소되었습니다.** 새 빌드가 시작되었거나 수동으로 취소된 것입니다.',
-              '',
-              `🔗 [워크플로우 실행 로그 확인](${runUrl})`
+              t('test_apk.cancelled.details', { branch: branchName, duration, url: runUrl })
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -408,10 +418,10 @@ jobs:
               body: body
             });
 
-            console.log('🚫 진행 상황 업데이트 완료: 취소됨');
+            console.log('🚫 Progress updated: cancelled');
 
   build-android-test:
-    name: Android 테스트 APK 빌드
+    name: Build Android test APK
     runs-on: ubuntu-latest
     needs: prepare-test-build
 
@@ -419,6 +429,29 @@ jobs:
       run:
         working-directory: ${{ env.APP_ROOT }}
     steps:
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js test_apk. comment. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
@@ -441,7 +474,7 @@ jobs:
       # 디버깅 도구가 없었다. 로그만 봐서는 알 수 없었다.
       #
       # 설정(.github/config/build-profile.json)이 없는 저장소에서는 아무 일도 하지 않는다.
-      - name: 빌드 프로파일 적용 (test)
+      - name: Apply build profile (test)
         id: build_profile
         run: |
           python3 "${{ github.workspace }}/.github/scripts/apply_build_profile.py" \
@@ -454,7 +487,7 @@ jobs:
         run: |
           mkdir -p android/keystore
           echo "$KEYSTORE_BASE64" | base64 -d > android/keystore/key.jks
-          echo "✅ Release Keystore 생성 완료"
+          echo "✅ Release keystore created"
           ls -la android/keystore/
 
       - name: Create key.properties
@@ -469,7 +502,7 @@ jobs:
           keyAlias=$KEY_ALIAS
           keyPassword=$KEY_PASSWORD
           EOF
-          echo "✅ key.properties 생성 완료"
+          echo "✅ key.properties created"
 
       # google-services.json 생성 (선택적)
       - name: Create google-services.json
@@ -531,7 +564,7 @@ jobs:
             chmod +x gradlew
             echo "✅ Gradle wrapper permissions set"
           else
-            echo "ℹ️ gradlew 없음 - Flutter 내장 Gradle을 사용합니다"
+            echo "ℹ️ No gradlew - using the Gradle bundled with Flutter"
           fi
 
       # Java 설정
@@ -569,13 +602,14 @@ jobs:
           bundle exec fastlane --version
 
       # 진행상황 - 준비 완료
-      - name: 진행상황 - 준비 완료
+      - name: Progress - prepare done
         id: progress_step1
         if: github.event_name == 'repository_dispatch' && needs.prepare-test-build.outputs.progress_comment_id != ''
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: formatElapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = parseInt('${{ needs.prepare-test-build.outputs.progress_comment_id }}');
             const startTime = parseInt('${{ needs.prepare-test-build.outputs.progress_start_time }}');
             const runId = '${{ github.run_id }}';
@@ -585,26 +619,26 @@ jobs:
             const elapsed = Math.round((now - startTime) / 1000);
             const minutes = Math.floor(elapsed / 60);
             const seconds = elapsed % 60;
-            const elapsedStr = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            const elapsedStr = formatElapsed(minutes, seconds);
             const firebaseAvailable = '${{ needs.prepare-test-build.outputs.firebase_available }}' === 'true';
 
             const rows = [
-              `| 🔧 준비 | ✅ 완료 | ${elapsedStr} |`,
-              '| 🔨 APK 빌드 | ⏳ 진행 중... | - |',
-              '| 📤 GitHub 아티팩트 업로드 | ⏸️ 대기 | - |',
+              `| ${t('test_apk.stage.prepare')} | ${t('test_apk.status.done')} | ${elapsedStr} |`,
+              `| ${t('test_apk.stage.build')} | ${t('test_apk.status.in_progress')} | - |`,
+              `| ${t('test_apk.stage.artifact')} | ${t('test_apk.status.waiting')} | - |`,
             ];
             if (firebaseAvailable) {
-              rows.push('| 🔥 Firebase App Distribution | ⏸️ 대기 | - |');
+              rows.push(`| 🔥 Firebase App Distribution | ${t('test_apk.status.waiting')} | - |`);
             }
 
             const body = [
-              '## 🤖 Android APK 빌드 중...',
+              t('test_apk.heading.in_progress'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_apk.table.header'),
               '|------|------|----------|',
               ...rows,
               '',
-              `📋 **[실시간 로그 보기](${runUrl})**`
+              t('test_apk.live_log', { url: runUrl })
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -614,7 +648,7 @@ jobs:
               body: body
             });
 
-            console.log(`✅ 진행상황 업데이트: 준비 완료 (${elapsedStr})`);
+            console.log(`✅ Progress updated: prepare done (${elapsedStr})`);
             core.setOutput('elapsed', elapsedStr);
             core.setOutput('end_time', now.toString());
 
@@ -664,15 +698,15 @@ jobs:
           ARTIFACT_NAME="${APK_NAME%.apk}"
           echo "artifact_name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
           echo "apk_name=$APK_NAME" >> $GITHUB_OUTPUT
-          echo "📦 APK 파일명: $APK_NAME"
+          echo "📦 APK file name: $APK_NAME"
 
       - name: Set test build version
         run: |
           VERSION="${{ needs.prepare-test-build.outputs.version }}"
           BUILD_NUMBER="${{ needs.prepare-test-build.outputs.build_number }}"
-          echo "📋 테스트 빌드 버전 설정: ${VERSION}+${BUILD_NUMBER}"
+          echo "📋 Test build version: ${VERSION}+${BUILD_NUMBER}"
           sed -i "s/^version: .*/version: ${VERSION}+${BUILD_NUMBER}/" pubspec.yaml
-          echo "✅ pubspec.yaml 버전 변경 완료:"
+          echo "✅ pubspec.yaml version updated:"
           grep "^version:" pubspec.yaml
 
       # APK 빌드 (Fastlane 또는 직접 빌드)
@@ -688,15 +722,15 @@ jobs:
             # fastlane lane 은 빌드 명령을 자기가 만든다 — 여기서 dart-define 을 넘길 자리가 없다.
             # 조용히 빠뜨리면 이 스텝이 고치려던 바로 그 사고("한쪽만 적용")가 다시 난다.
             if [ -n "$BUILD_FLAGS" ]; then
-              echo "::error::빌드 프로파일이 컴파일타임 플래그를 지정했는데 fastlane build lane 으로 빌드하려 합니다."
-              echo "::error::lane 안에서 flutter build 에 \$BUILD_FLAGS 를 넘기도록 Fastfile 을 고치거나, build lane 을 지워 Flutter 직접 빌드를 쓰세요."
+              echo "::error::The build profile sets compile-time flags, but the build would run through the fastlane build lane."
+              echo "::error::Change the Fastfile so the lane passes \$BUILD_FLAGS to flutter build, or remove the build lane to build with Flutter directly."
               exit 1
             fi
-            echo "📦 Fastlane build lane 으로 빌드..."
+            echo "📦 Building with the fastlane build lane..."
             # 서브셸로 감싼다 — cd 가 새어 나가면 뒤 명령이 엉뚱한 곳에서 돈다
             ( cd android && bundle exec fastlane build --verbose )
           else
-            echo "📦 Flutter 직접 빌드... ${BUILD_FLAGS:+(플래그: $BUILD_FLAGS)}"
+            echo "📦 Building with Flutter directly... ${BUILD_FLAGS:+(flags: $BUILD_FLAGS)}"
             # shellcheck disable=SC2086  # 플래그는 공백으로 갈라져야 한다
             flutter build apk --release $BUILD_FLAGS
           fi
@@ -715,23 +749,24 @@ jobs:
           # APK 파일 크기 확인
           APK_SIZE=$(stat -c%s "./android/app/build/outputs/apk/release/${APK_NAME}" 2>/dev/null || stat -f%z "./android/app/build/outputs/apk/release/${APK_NAME}" 2>/dev/null || echo "0")
           APK_SIZE_MB=$(echo "scale=2; $APK_SIZE / 1024 / 1024" | bc)
-          echo "📦 APK 파일 크기: ${APK_SIZE_MB}MB"
+          echo "📦 APK size: ${APK_SIZE_MB}MB"
 
           # 아티팩트 용량 제한 확인 (500MB)
           if [ "$APK_SIZE" -gt 524288000 ]; then
-            echo "⚠️ 경고: APK 파일 크기가 500MB를 초과합니다 (${APK_SIZE_MB}MB)"
+            echo "⚠️ Warning: the APK is larger than 500MB (${APK_SIZE_MB}MB)"
           else
-            echo "✅ APK 파일 크기가 아티팩트 제한 내입니다 (${APK_SIZE_MB}MB / 500MB)"
+            echo "✅ The APK fits the artifact limit (${APK_SIZE_MB}MB / 500MB)"
           fi
 
       # 진행상황 - APK 빌드 완료
-      - name: 진행상황 - APK 빌드 완료
+      - name: Progress - APK build done
         id: progress_step2
         if: github.event_name == 'repository_dispatch' && needs.prepare-test-build.outputs.progress_comment_id != ''
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: formatElapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = parseInt('${{ needs.prepare-test-build.outputs.progress_comment_id }}');
             const step1EndTime = parseInt('${{ steps.progress_step1.outputs.end_time }}');
             const step1Elapsed = '${{ steps.progress_step1.outputs.elapsed }}';
@@ -742,26 +777,26 @@ jobs:
             const elapsed = Math.round((now - step1EndTime) / 1000);
             const minutes = Math.floor(elapsed / 60);
             const seconds = elapsed % 60;
-            const elapsedStr = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            const elapsedStr = formatElapsed(minutes, seconds);
             const firebaseAvailable = '${{ needs.prepare-test-build.outputs.firebase_available }}' === 'true';
 
             const rows = [
-              `| 🔧 준비 | ✅ 완료 | ${step1Elapsed || '-'} |`,
-              `| 🔨 APK 빌드 | ✅ 완료 | ${elapsedStr} |`,
-              '| 📤 GitHub 아티팩트 업로드 | ⏳ 진행 중... | - |',
+              `| ${t('test_apk.stage.prepare')} | ${t('test_apk.status.done')} | ${step1Elapsed || '-'} |`,
+              `| ${t('test_apk.stage.build')} | ${t('test_apk.status.done')} | ${elapsedStr} |`,
+              `| ${t('test_apk.stage.artifact')} | ${t('test_apk.status.in_progress')} | - |`,
             ];
             if (firebaseAvailable) {
-              rows.push('| 🔥 Firebase App Distribution | ⏸️ 대기 | - |');
+              rows.push(`| 🔥 Firebase App Distribution | ${t('test_apk.status.waiting')} | - |`);
             }
 
             const body = [
-              '## 🤖 Android APK 빌드 중...',
+              t('test_apk.heading.in_progress'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_apk.table.header'),
               '|------|------|----------|',
               ...rows,
               '',
-              `📋 **[실시간 로그 보기](${runUrl})**`
+              t('test_apk.live_log', { url: runUrl })
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -771,7 +806,7 @@ jobs:
               body: body
             });
 
-            console.log(`✅ 진행상황 업데이트: APK 빌드 완료 (${elapsedStr})`);
+            console.log(`✅ Progress updated: APK build done (${elapsedStr})`);
             core.setOutput('elapsed', elapsedStr);
             core.setOutput('end_time', now.toString());
 
@@ -797,36 +832,38 @@ jobs:
           BRANCH_NAME="$BUILD_BRANCH"
           COMMIT_SHA="${{ needs.prepare-test-build.outputs.commit_sha }}"
           BUILD_DATE=$(date '+%Y-%m-%d %H:%M:%S')
+          # 문구는 레포 언어를 따른다 (#769). 카탈로그는 레포 루트 기준이라 거기서 조회
+          msg() { (cd "$GITHUB_WORKSPACE" && python3 .github/scripts/i18n/messages.py get "$@" 2>/dev/null); }
 
           {
-            echo "테스트 APK 빌드 정보"
+            msg test_apk.build_info.title; echo
             echo ""
-            echo "빌드 번호: #$BUILD_NUMBER"
+            msg test_apk.build_info.build_number --var build_number="$BUILD_NUMBER"; echo
           } > build-info.txt
 
           if [ -n "$PR_NUMBER" ]; then
-            echo "PR 번호: #$PR_NUMBER" >> build-info.txt
+            { msg test_apk.build_info.pr_number --var pr_number="$PR_NUMBER"; echo; } >> build-info.txt
           fi
 
           {
-            echo "브랜치: $BRANCH_NAME"
-            echo "커밋: $COMMIT_SHORT"
-            echo "전체 커밋 해시: $COMMIT_SHA"
-            echo "빌드 날짜: $BUILD_DATE"
+            msg test_apk.build_info.branch --var branch="$BRANCH_NAME"; echo
+            msg test_apk.build_info.commit --var commit="$COMMIT_SHORT"; echo
+            msg test_apk.build_info.full_sha --var sha="$COMMIT_SHA"; echo
+            msg test_apk.build_info.date --var date="$BUILD_DATE"; echo
             echo ""
           } >> build-info.txt
 
           # 이슈 정보가 있으면 추가
           if [ -n "$ISSUE_NUMBER" ]; then
             {
-              echo "관련 이슈:"
+              msg test_apk.build_info.related_issue; echo
               echo "- #$ISSUE_NUMBER: $ISSUE_TITLE"
               echo "- URL: $ISSUE_URL"
               echo ""
             } >> build-info.txt
           fi
 
-          echo "📋 빌드 정보 파일 생성 완료:"
+          echo "📋 Build info file created:"
           cat build-info.txt
 
       # 빌드 메타데이터 파일 생성 (댓글 작성 워크플로우용)
@@ -864,12 +901,13 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const { elapsed: formatElapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const step2EndTime = parseInt('${{ steps.progress_step2.outputs.end_time }}');
             const now = Date.now();
             const elapsed = Math.round((now - step2EndTime) / 1000);
             const minutes = Math.floor(elapsed / 60);
             const seconds = elapsed % 60;
-            const elapsedStr = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            const elapsedStr = formatElapsed(minutes, seconds);
             core.setOutput('elapsed', elapsedStr);
             core.setOutput('end_time', now.toString());
 
@@ -880,7 +918,30 @@ jobs:
           FIREBASE_SA_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}
         run: |
           echo "$FIREBASE_SA_BASE64" | base64 --decode > firebase-service-account.json
-          echo "✅ Firebase 서비스 계정 JSON 파일 생성 완료"
+          echo "✅ Firebase service account JSON file created"
+
+      # 테스터가 보는 릴리스 노트도 레포 언어를 따른다 (#769). 조회 실패 시 영문
+      - name: Compose Firebase release notes
+        id: firebase_notes
+        if: needs.prepare-test-build.outputs.firebase_available == 'true'
+        working-directory: ${{ github.workspace }}
+        env:
+          BUILD_NUMBER: ${{ needs.prepare-test-build.outputs.build_number }}
+          BRANCH_NAME: ${{ needs.prepare-test-build.outputs.branch_name }}
+          COMMIT_HASH: ${{ needs.prepare-test-build.outputs.commit_hash }}
+          ISSUE_NUMBER: ${{ needs.prepare-test-build.outputs.issue_number }}
+          ISSUE_TITLE: ${{ needs.prepare-test-build.outputs.issue_title }}
+        run: |
+          NOTES=$(python3 .github/scripts/i18n/messages.py get test_apk.firebase.release_notes \
+            --var build_number="$BUILD_NUMBER" --var branch="$BRANCH_NAME" --var commit="$COMMIT_HASH" \
+            --var issue_number="$ISSUE_NUMBER" --var issue_title="$ISSUE_TITLE" 2>/dev/null) \
+            || NOTES=$(printf 'Test build #%s\nBranch: %s\nCommit: %s\nIssue: #%s %s' \
+                 "$BUILD_NUMBER" "$BRANCH_NAME" "$COMMIT_HASH" "$ISSUE_NUMBER" "$ISSUE_TITLE")
+          {
+            echo "notes<<__PROJECTOPS_NOTES__"
+            echo "$NOTES"
+            echo "__PROJECTOPS_NOTES__"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Upload to Firebase App Distribution
         id: firebase_upload
@@ -895,11 +956,7 @@ jobs:
           serviceCredentialsFile: ${{ env.APP_ROOT }}/firebase-service-account.json
           groups: ${{ env.FIREBASE_TESTER_GROUP }}
           file: ${{ env.APP_ROOT }}/android/app/build/outputs/apk/release/${{ steps.apk_filename.outputs.apk_name }}
-          releaseNotes: |
-            테스트 빌드 #${{ needs.prepare-test-build.outputs.build_number }}
-            브랜치: ${{ needs.prepare-test-build.outputs.branch_name }}
-            커밋: ${{ needs.prepare-test-build.outputs.commit_hash }}
-            이슈: #${{ needs.prepare-test-build.outputs.issue_number }} ${{ needs.prepare-test-build.outputs.issue_title }}
+          releaseNotes: ${{ steps.firebase_notes.outputs.notes }}
 
       - name: Cleanup Firebase credentials
         if: always() && needs.prepare-test-build.outputs.firebase_available == 'true'
@@ -911,10 +968,10 @@ jobs:
         run: |
           if [ "${{ steps.firebase_upload.outcome }}" == "success" ]; then
             echo "status=success" >> $GITHUB_OUTPUT
-            echo "✅ Firebase App Distribution 업로드 성공"
+            echo "✅ Firebase App Distribution upload succeeded"
           else
             echo "status=failure" >> $GITHUB_OUTPUT
-            echo "❌ Firebase App Distribution 업로드 실패 - APK 아티팩트는 정상 업로드됨"
+            echo "❌ Firebase App Distribution upload failed - the APK artifact was uploaded"
           fi
 
       - name: Record Firebase upload time
@@ -923,16 +980,17 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const { elapsed: formatElapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const artifactEndTime = parseInt('${{ steps.artifact_time.outputs.end_time }}');
             const now = Date.now();
             const elapsed = Math.round((now - artifactEndTime) / 1000);
             const minutes = Math.floor(elapsed / 60);
             const seconds = elapsed % 60;
-            const elapsedStr = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            const elapsedStr = formatElapsed(minutes, seconds);
             core.setOutput('elapsed', elapsedStr);
 
       # 진행 상황 최종 업데이트 - 성공
-      - name: 진행 상황 최종 업데이트 - 성공
+      - name: Final progress update - success
         if: success() && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.prepare-test-build.outputs.progress_comment_id != ''
         uses: actions/github-script@v7
         env:
@@ -940,6 +998,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: formatElapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = parseInt('${{ needs.prepare-test-build.outputs.progress_comment_id }}');
             const startTime = parseInt('${{ needs.prepare-test-build.outputs.progress_start_time }}');
             const step1Elapsed = '${{ steps.progress_step1.outputs.elapsed }}';
@@ -960,26 +1019,26 @@ jobs:
             const totalElapsed_s = Math.round((now - startTime) / 1000);
             const totalMin = Math.floor(totalElapsed_s / 60);
             const totalSec = totalElapsed_s % 60;
-            const totalElapsed = totalMin > 0 ? `${totalMin}분 ${totalSec}초` : `${totalSec}초`;
+            const totalElapsed = formatElapsed(totalMin, totalSec);
 
             const firebaseAvailable = '${{ needs.prepare-test-build.outputs.firebase_available }}' === 'true';
             const firebaseSuccess = '${{ steps.firebase_result.outputs.status }}' === 'success';
 
             const lines = [
-              '## 🤖 ✅ Android APK 빌드 완료!',
+              t('test_apk.heading.success'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_apk.table.header'),
               '|------|------|----------|',
-              `| 🔧 준비 | ✅ 완료 | ${step1Elapsed || '-'} |`,
-              `| 🔨 APK 빌드 | ✅ 완료 | ${step2Elapsed || '-'} |`,
-              `| 📤 GitHub 아티팩트 업로드 | ✅ 완료 | ${step3Elapsed || '-'} |`,
+              `| ${t('test_apk.stage.prepare')} | ${t('test_apk.status.done')} | ${step1Elapsed || '-'} |`,
+              `| ${t('test_apk.stage.build')} | ${t('test_apk.status.done')} | ${step2Elapsed || '-'} |`,
+              `| ${t('test_apk.stage.artifact')} | ${t('test_apk.status.done')} | ${step3Elapsed || '-'} |`,
             ];
 
             if (firebaseAvailable) {
               if (firebaseSuccess) {
-                lines.push(`| 🔥 Firebase App Distribution | ✅ 완료 | ${step4Elapsed || '-'} |`);
+                lines.push(`| 🔥 Firebase App Distribution | ${t('test_apk.status.done')} | ${step4Elapsed || '-'} |`);
               } else {
-                lines.push(`| 🔥 Firebase App Distribution | ❌ 실패 | ${step4Elapsed || '-'} |`);
+                lines.push(`| 🔥 Firebase App Distribution | ${t('test_apk.status.failed')} | ${step4Elapsed || '-'} |`);
               }
             }
 
@@ -987,25 +1046,21 @@ jobs:
 
             lines.push(
               '',
-              '### 📦 빌드 결과',
-              '| 항목 | 값 |',
-              '|------|-----|',
-              `| **앱 버전** | \`${version}(${buildNumber})\` |`,
-              `| **브랜치** | \`${branchName}\` |`,
-              `| **커밋** | \`${commitHash}\` |`,
-              `| **총 소요 시간** | ${totalElapsed} |`,
+              t('test_apk.success.result', {
+                version, build_number: buildNumber, branch: branchName, commit: commitHash, total: totalElapsed
+              }),
               '',
             );
 
             if (firebaseAvailable && firebaseSuccess) {
-              lines.push('🔥 **Firebase App Tester 앱에서 설치 가능합니다**');
+              lines.push(t('test_apk.firebase.installable'));
             } else if (firebaseAvailable && !firebaseSuccess) {
-              lines.push('⚠️ **Firebase 업로드 실패 - 아티팩트에서 APK를 다운로드해주세요**');
+              lines.push(t('test_apk.firebase.upload_failed'));
             }
 
             lines.push(
-              `📦 **[아티팩트 다운로드](${artifactUrl})**`,
-              `🔗 **[워크플로우 실행 로그](${runUrl})**`
+              t('test_apk.artifact_download', { url: artifactUrl }),
+              t('test_apk.run_log', { url: runUrl })
             );
 
             const body = lines.join('\n');
@@ -1017,25 +1072,25 @@ jobs:
               body: body
             });
 
-            console.log(`✅ 진행상황 업데이트: 빌드 성공 (총 ${totalElapsed})`);
+            console.log(`✅ Progress updated: build succeeded (total ${totalElapsed})`);
 
             // PR과 연결된 이슈가 있고, PR 번호와 다른 경우 이슈에도 댓글
             if (issueNumber && issueNumber !== '' && parseInt(issueNumber) !== prNumber) {
               const issueLines = [
-                '🤖 ✅ **Android APK 빌드 완료**',
+                t('test_apk.issue_success.heading'),
                 '',
-                `- 앱 버전: \`${version}(${buildNumber})\``,
-                `- 커밋: \`${commitHash}\``,
+                t('test_apk.issue.app_version', { version, build_number: buildNumber }),
+                t('test_apk.issue.commit', { commit: commitHash }),
                 '',
               ];
 
               if (firebaseAvailable && firebaseSuccess) {
-                issueLines.push('🔥 **Firebase App Tester 앱에서 설치 가능합니다**');
+                issueLines.push(t('test_apk.firebase.installable'));
               } else if (firebaseAvailable && !firebaseSuccess) {
-                issueLines.push('⚠️ **Firebase 업로드 실패 - 아티팩트에서 APK를 다운로드해주세요**');
+                issueLines.push(t('test_apk.firebase.upload_failed'));
               }
 
-              issueLines.push(`📦 **[아티팩트 다운로드](${artifactUrl})**`);
+              issueLines.push(t('test_apk.artifact_download', { url: artifactUrl }));
 
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -1043,11 +1098,11 @@ jobs:
                 issue_number: parseInt(issueNumber),
                 body: issueLines.join('\n')
               });
-              console.log(`✅ 이슈 #${issueNumber}에도 빌드 성공 댓글 작성 완료`);
+              console.log(`✅ Posted the build success comment on issue #${issueNumber} too`);
             }
 
       # 진행 상황 최종 업데이트 - 실패
-      - name: 진행 상황 최종 업데이트 - 실패
+      - name: Final progress update - failure
         if: failure() && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.prepare-test-build.outputs.progress_comment_id != ''
         uses: actions/github-script@v7
         env:
@@ -1055,6 +1110,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: formatElapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = parseInt('${{ needs.prepare-test-build.outputs.progress_comment_id }}');
             const startTime = parseInt('${{ needs.prepare-test-build.outputs.progress_start_time }}');
             const step1EndTime = parseInt('${{ steps.progress_step1.outputs.end_time }}') || 0;
@@ -1074,39 +1130,35 @@ jobs:
               const step2_s = Math.round((now - step1EndTime) / 1000);
               const s2Min = Math.floor(step2_s / 60);
               const s2Sec = step2_s % 60;
-              step2ElapsedStr = s2Min > 0 ? `${s2Min}분 ${s2Sec}초` : `${s2Sec}초`;
+              step2ElapsedStr = formatElapsed(s2Min, s2Sec);
             }
 
             const total_s = Math.round((now - startTime) / 1000);
             const tMin = Math.floor(total_s / 60);
             const tSec = total_s % 60;
-            const totalElapsed = tMin > 0 ? `${tMin}분 ${tSec}초` : `${tSec}초`;
+            const totalElapsed = formatElapsed(tMin, tSec);
 
             const firebaseAvailable = '${{ needs.prepare-test-build.outputs.firebase_available }}' === 'true';
 
             const rows = [
-              `| 🔧 준비 | ✅ 완료 | ${step1Elapsed || '-'} |`,
-              `| 🔨 APK 빌드 | ❌ 실패 | ${step2ElapsedStr} |`,
-              '| 📤 GitHub 아티팩트 업로드 | ⏸️ 건너뜀 | - |',
+              `| ${t('test_apk.stage.prepare')} | ${t('test_apk.status.done')} | ${step1Elapsed || '-'} |`,
+              `| ${t('test_apk.stage.build')} | ${t('test_apk.status.failed')} | ${step2ElapsedStr} |`,
+              `| ${t('test_apk.stage.artifact')} | ${t('test_apk.status.skipped')} | - |`,
             ];
             if (firebaseAvailable) {
-              rows.push('| 🔥 Firebase App Distribution | ⏸️ 건너뜀 | - |');
+              rows.push(`| 🔥 Firebase App Distribution | ${t('test_apk.status.skipped')} | - |`);
             }
 
             const body = [
-              '## 🤖 ❌ Android APK 빌드 실패',
+              t('test_apk.heading.failure'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_apk.table.header'),
               '|------|------|----------|',
               ...rows,
               '',
-              `- 앱 버전: \`${version}(${buildNumber})\``,
-              `- 브랜치: \`${branchName}\``,
-              `- 총 소요 시간: ${totalElapsed}`,
-              '',
-              '❌ 빌드 중 오류가 발생했습니다.',
-              '',
-              `🔗 **[워크플로우 실행 로그 확인](${runUrl})**`
+              t('test_apk.failure.details', {
+                version, build_number: buildNumber, branch: branchName, total: totalElapsed, url: runUrl
+              })
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -1116,18 +1168,10 @@ jobs:
               body: body
             });
 
-            console.log(`❌ 진행상황 업데이트: 빌드 실패 (${totalElapsed})`);
+            console.log(`❌ Progress updated: build failed (${totalElapsed})`);
 
             if (issueNumber && issueNumber !== '' && parseInt(issueNumber) !== prNumber) {
-              const issueBody = [
-                '🤖 ❌ **Android APK 빌드 실패**',
-                '',
-                `- 앱 버전: \`${version}(${buildNumber})\``,
-                '',
-                '❌ 빌드 중 오류가 발생했습니다.',
-                '',
-                `🔗 **[워크플로우 실행 로그 확인](${runUrl})**`
-              ].join('\n');
+              const issueBody = t('test_apk.issue_failure.body', { version, build_number: buildNumber, url: runUrl });
 
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -1135,7 +1179,7 @@ jobs:
                 issue_number: parseInt(issueNumber),
                 body: issueBody
               });
-              console.log(`❌ 이슈 #${issueNumber}에도 빌드 실패 댓글 작성 완료`);
+              console.log(`❌ Posted the build failure comment on issue #${issueNumber} too`);
             }
 
       # 콘솔 알림
@@ -1144,27 +1188,27 @@ jobs:
         env:
           BUILD_BRANCH: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}
         run: |
-          echo "✅ Android 테스트 APK 빌드 성공!"
-          echo "빌드 번호: ${{ needs.prepare-test-build.outputs.build_number }}"
+          echo "✅ Android test APK build succeeded!"
+          echo "Build number: ${{ needs.prepare-test-build.outputs.build_number }}"
           if [ -n "${{ needs.prepare-test-build.outputs.pr_number }}" ]; then
-            echo "PR 번호: ${{ needs.prepare-test-build.outputs.pr_number }}"
+            echo "PR number: ${{ needs.prepare-test-build.outputs.pr_number }}"
           fi
-          echo "브랜치: $BUILD_BRANCH"
-          echo "커밋: ${{ needs.prepare-test-build.outputs.commit_hash }}"
+          echo "Branch: $BUILD_BRANCH"
+          echo "Commit: ${{ needs.prepare-test-build.outputs.commit_hash }}"
           if [ -n "${{ needs.prepare-test-build.outputs.issue_url }}" ]; then
-            echo "관련 이슈: ${{ needs.prepare-test-build.outputs.issue_url }}"
+            echo "Related issue: ${{ needs.prepare-test-build.outputs.issue_url }}"
           fi
           echo ""
-          echo "📦 아티팩트에서 APK 파일을 다운로드할 수 있습니다."
+          echo "📦 Download the APK from the artifact."
 
       - name: Notify on Failure
         if: failure()
         run: |
-          echo "❌ Android 테스트 APK 빌드 실패!"
-          echo "로그를 확인해주세요."
+          echo "❌ Android test APK build failed!"
+          echo "Check the log."
 
       # 취소 처리 (#648): 빌드 job 이 실행 중일 때 취소된 경우. success()/failure() 스텝은 취소 시 돌지 않아 이 스텝이 유일한 정리 경로다. 준비 job 은 이미 끝났으므로 준비는 완료로 표시한다.
-      - name: 진행 상황 업데이트 - 취소 (빌드 job)
+      - name: Update progress - cancelled (build job)
         if: cancelled() && github.event_name == 'repository_dispatch' && needs.prepare-test-build.outputs.progress_comment_id != ''
         continue-on-error: true
         uses: actions/github-script@v7
@@ -1178,6 +1222,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: formatElapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = parseInt(process.env.COMMENT_ID, 10);
             const startTime = parseInt(process.env.START_TIME, 10);
             const branchName = process.env.BRANCH_NAME;
@@ -1190,8 +1235,8 @@ jobs:
               repo: context.repo.repo,
               comment_id: commentId
             });
-            if (!(current.body || '').startsWith('## 🤖 Android APK 빌드 중...')) {
-              console.log('이미 최종 상태 댓글이라 취소 갱신을 건너뜀');
+            if (!(current.body || '').startsWith(t('test_apk.heading.in_progress'))) {
+              console.log('The comment already shows a final state, skipping the cancel update');
               return;
             }
 
@@ -1200,25 +1245,20 @@ jobs:
               const elapsed = Date.now() - startTime;
               const minutes = Math.floor(elapsed / 60000);
               const seconds = Math.floor((elapsed % 60000) / 1000);
-              duration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+              duration = formatElapsed(minutes, seconds);
             }
 
             const body = [
-              '## 🤖 🚫 Android APK 빌드 취소됨',
+              t('test_apk.heading.cancelled'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_apk.table.header'),
               '|------|------|----------|',
-              `| 🔧 준비 | ✅ 완료 | ${step1Elapsed || '-'} |`,
-              '| 🔨 APK 빌드 | ⏸️ 취소됨 | - |',
-              '| 📤 GitHub 아티팩트 업로드 | ⏸️ 취소됨 | - |',
-              ...(firebaseAvailable ? ['| 🔥 Firebase App Distribution | ⏸️ 취소됨 | - |'] : []),
+              `| ${t('test_apk.stage.prepare')} | ${t('test_apk.status.done')} | ${step1Elapsed || '-'} |`,
+              `| ${t('test_apk.stage.build')} | ${t('test_apk.status.cancelled')} | - |`,
+              `| ${t('test_apk.stage.artifact')} | ${t('test_apk.status.cancelled')} | - |`,
+              ...(firebaseAvailable ? [`| 🔥 Firebase App Distribution | ${t('test_apk.status.cancelled')} | - |`] : []),
               '',
-              `- 브랜치: \`${branchName}\``,
-              `- 총 소요 시간: ${duration}`,
-              '',
-              '🚫 **빌드가 취소되었습니다.** 새 빌드가 시작되었거나 수동으로 취소된 것입니다.',
-              '',
-              `🔗 [워크플로우 실행 로그 확인](${runUrl})`
+              t('test_apk.cancelled.details', { branch: branchName, duration, url: runUrl })
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -1228,4 +1268,4 @@ jobs:
               body: body
             });
 
-            console.log('🚫 진행 상황 업데이트 완료: 취소됨');
+            console.log('🚫 Progress updated: cancelled');

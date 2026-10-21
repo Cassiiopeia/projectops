@@ -62,7 +62,7 @@ export function copyScripts(tempDir, targetRoot = ".") {
   const i18nSrc = join(tempDir, PATHS.scriptsDir, "i18n");
   if (exists(i18nSrc)) {
     for (const f of readdirSync(i18nSrc)) {
-      if (!/\.(py|json)$/.test(f)) continue; // __pycache__ 등은 제외
+      if (!/\.(py|json|cjs)$/.test(f)) continue; // __pycache__ 등은 제외 (cjs: 워크플로우 댓글 런타임)
       copyFileSync(join(i18nSrc, f), join(targetRoot, PATHS.scriptsDir, "i18n", f));
       copied++;
     }

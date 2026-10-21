@@ -67,7 +67,7 @@ on:
   workflow_dispatch:
     inputs:
       deploy_mode:
-        description: "배포 모드 (store_only=TestFlight까지 / store_prepare=ASC 제출직전 / store_submit=심사 자동제출)"
+        description: "Deploy mode (store_only = up to TestFlight / store_prepare = ready to submit in App Store Connect / store_submit = submit for review automatically)"
         required: false
         default: "store_only"
         type: choice
@@ -76,7 +76,7 @@ on:
           - store_prepare
           - store_submit
       whats_new_override:
-        description: "이번 실행만 App Store '새로운 기능' 문구를 이 값으로 (비우면 env STORE_WHATS_NEW_OVERRIDE 규칙을 따른다)"
+        description: "Use this App Store \"What's New\" text for this run only (empty = follow the STORE_WHATS_NEW_OVERRIDE env rule)"
         required: false
         default: ""
         type: string
@@ -134,7 +134,7 @@ env:
 
 jobs:
   prepare-build:
-    name: 환경 설정 및 준비
+    name: Set up and prepare
     runs-on: macos-26
     defaults:
       run:
@@ -155,7 +155,7 @@ jobs:
       # 신규 설치 직후에는 배포용 Secret 이 없는 것이 정상이다. 그대로 두면 빌드를 끝까지 돌린 뒤
       # 서명, 업로드 단계에서 원인을 짚기 어려운 에러로 실패하므로, 빌드 전에 무엇이 없는지 알린다.
       # Secret 이 모두 있으면 이 step 은 그대로 통과하며 이후 동작은 달라지지 않는다.
-      - name: 배포 Secret 사전 점검
+      - name: Preflight check of deploy secrets
         working-directory: ${{ github.workspace }}   # 체크아웃 전이라 APP_ROOT 가 아직 없을 수 있다
         env:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
@@ -168,12 +168,12 @@ jobs:
           fail=0
           for name in APPLE_CERTIFICATE_BASE64 APPLE_CERTIFICATE_PASSWORD APPLE_PROVISIONING_PROFILE_BASE64 APP_STORE_CONNECT_API_KEY_BASE64 APP_STORE_CONNECT_API_KEY_ID APP_STORE_CONNECT_ISSUER_ID; do
             if [ -z "${!name}" ]; then
-              echo "::error title=배포 사전 점검::Secret ${name} 이(가) 없습니다. iOS 서명 및 업로드에 필요합니다. .github/util/flutter/testflight-wizard 의 안내로 만들어 Settings > Secrets and variables > Actions 에 등록하세요."
+              echo "::error title=Deploy preflight check::Secret ${name} is missing. It is required for iOS signing and upload. Create it with the guide in .github/util/flutter/testflight-wizard and add it under Settings > Secrets and variables > Actions."
               fail=1
             fi
           done
           [ "$fail" = "0" ] || exit 1
-          echo "✅ 사전 점검 통과"
+          echo "✅ Preflight check passed"
 
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -185,12 +185,12 @@ jobs:
         run: git pull origin main
 
       # pull 이후의 HEAD 를 고정한다. 뒤 job 은 브랜치명이 아니라 이 SHA 로 체크아웃한다.
-      - name: HEAD SHA 고정
+      - name: Pin HEAD SHA
         id: commit
         run: |
           SHA=$(git rev-parse HEAD)
           echo "commit_sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "📌 빌드 대상 커밋: $SHA"
+          echo "📌 Commit to build: $SHA"
 
       # 빈 값이면 러너에 설치된 최신 정식 Xcode, 고정한 버전이 러너에 없으면 설치 목록을 찍고 실패 (#758)
       # 레포 변수 XCODE_VERSION 으로도 고정 가능 (템플릿 업데이트에도 유지)
@@ -210,7 +210,7 @@ jobs:
       # 빌드 프로파일 — 런타임(.env)과 컴파일타임(dart-define)을 한 곳에서 정한다 (#603)
       # 고쳐진 .env 는 아티팩트로, 플래그는 job output 으로 빌드 job 에 간다.
       # 설정(.github/config/build-profile.json)이 없는 저장소에서는 아무 일도 하지 않는다.
-      - name: 빌드 프로파일 적용 (release)
+      - name: Apply build profile (release)
         id: build_profile
         run: |
           python3 "${{ github.workspace }}/.github/scripts/apply_build_profile.py" \
@@ -229,7 +229,7 @@ jobs:
             echo "// No secrets provided" > ios/Flutter/Secrets.xcconfig
           fi
 
-      - name: 버전 관리 스크립트 권한 설정
+      - name: Make the version script executable
         working-directory: ${{ github.workspace }}   # 레포 루트 자산(.github/scripts)은 APP_ROOT가 아닌 레포 루트 기준
         run: |
           chmod +x ./.github/scripts/version_manager.sh
@@ -248,13 +248,13 @@ jobs:
             if echo "$API_KEY_BASE64" | base64 --decode > "$KEY_PATH"; then
               echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
             else
-              echo "::warning::App Store Connect 키를 해석하지 못해 version.yml 버전으로 진행합니다"
+              echo "::warning::Could not decode the App Store Connect key, continuing with the version.yml version"
             fi
           else
-            echo "ℹ️ App Store Connect 키 시크릿이 없어 version.yml 버전으로 진행합니다"
+            echo "ℹ️ No App Store Connect key secret, continuing with the version.yml version"
           fi
 
-      - name: 현재 버전 정보 가져오기
+      - name: Get the current version
         id: current_version
         working-directory: ${{ github.workspace }}   # version_manager.sh가 레포 루트 version.yml을 읽어야 함
         env:
@@ -266,18 +266,21 @@ jobs:
 
           echo "project_type=${{ env.PROJECT_TYPE }}" >> $GITHUB_OUTPUT
 
-          echo "📋 버전: $VERSION"
+          echo "📋 Version: $VERSION"
 
           # 이미 출시되어 닫힌 버전이면 이 스텝이 실패해 job 을 멈춘다 (12~18분 빌드 뒤 Apple 거부를 피한다).
           # 릴리스는 버전을 대신 올리지 않는다. 빌드 번호는 여기서 정하지 않고 아카이브 직전에 정해진다.
           python3 .github/scripts/ios_release.py precheck-version --mode release \
             --version "$VERSION" --bundle-id "$APP_IDENTIFIER"
 
-      - name: 릴리즈 노트 생성
+      - name: Create release notes
         id: release_notes
         working-directory: ${{ github.workspace }}   # CHANGELOG.json·changelog_manager.py·final_release_notes.txt(upload 짝)는 레포 루트 기준
         run: |
           VERSION="${{ steps.current_version.outputs.version }}"
+          # 스토어·테스터에게 보이는 기본 문구라 레포 언어를 따른다 (#769). 카탈로그를 못 읽으면 영문
+          DEFAULT_NOTES=$(python3 .github/scripts/i18n/messages.py get test_testflight.notes.version_update --var "version=$VERSION" 2>/dev/null) \
+            || DEFAULT_NOTES="v$VERSION update"
 
           if [ -f "CHANGELOG.json" ]; then
             python3 ./.github/scripts/changelog_manager.py generate-md
@@ -285,10 +288,10 @@ jobs:
 
             # 추출 결과가 비면 기본 문구로 대체
             if [ ! -s final_release_notes.txt ]; then
-              echo "v$VERSION 업데이트" > final_release_notes.txt
+              echo "$DEFAULT_NOTES" > final_release_notes.txt
             fi
           else
-            echo "v$VERSION 업데이트" > final_release_notes.txt
+            echo "$DEFAULT_NOTES" > final_release_notes.txt
           fi
 
       - name: Upload release notes
@@ -321,7 +324,7 @@ jobs:
   # ============================================
   # 번호 거부 시 아카이브부터 다시 해야 하므로 빌드와 배포를 한 job 에 둔다 (#643).
   build-upload-ios:
-    name: iOS 빌드 및 TestFlight 배포
+    name: iOS build and TestFlight upload
     runs-on: macos-26
     defaults:
       run:
@@ -365,7 +368,7 @@ jobs:
           #    기기 빌드용 디바이스 플랫폼은 별개). 조건 없이 항상 다운로드한다.
           for i in 1 2 3; do
             xcodebuild -downloadPlatform iOS && break
-            echo "⚠️ 시도 $i 실패 - 재시도"
+            echo "⚠️ Attempt $i failed - retrying"
             sleep 15
           done
 
@@ -415,7 +418,7 @@ jobs:
           if [ -f ios/Podfile ]; then
             cd ios && pod install
           else
-            echo "ℹ️ ios/Podfile 없음 - CocoaPods 의존성이 없는 프로젝트이므로 건너뜁니다"
+            echo "ℹ️ No ios/Podfile - the project has no CocoaPods dependencies, skipping"
           fi
 
       - name: Import Code-Signing Certificates
@@ -451,7 +454,7 @@ jobs:
         run: |
           set -o pipefail   # tee 뒤에서도 빌드 실패를 그대로 전달
           BUILD_FLAGS="${{ needs.prepare-build.outputs.build_flags }}"
-          echo "📦 Flutter 빌드... ${BUILD_FLAGS:+(플래그: $BUILD_FLAGS)}"
+          echo "📦 Flutter build... ${BUILD_FLAGS:+(flags: $BUILD_FLAGS)}"
           # 빌드 번호 1 은 임시값이다. 최종 번호는 archive-upload 가 아카이브 시점에 정해 주입한다.
           # shellcheck disable=SC2086  # 플래그는 공백으로 갈라져야 한다
           flutter build ios --release --no-codesign \
@@ -503,7 +506,7 @@ jobs:
 
       # 아카이브, IPA export, 번들 번호 검증까지. 빌드 번호는 여기서 정해진다 (build_number.py 규칙).
       # APP_ROOT 가 레포 루트 기준 상대 경로라 스크립트는 레포 루트에서 실행한다.
-      - name: IPA 빌드
+      - name: Build IPA
         id: build_phase
         working-directory: ${{ github.workspace }}
         env:
@@ -554,8 +557,10 @@ jobs:
             echo "📝 Release Notes:"
             echo "$RELEASE_NOTES"
           else
-            RELEASE_NOTES="v${{ needs.prepare-build.outputs.version }} 업데이트"
-            echo "📝 기본 Release Notes: $RELEASE_NOTES"
+            # 스토어에 보이는 기본 문구라 레포 언어 (#769)
+            RELEASE_NOTES=$(cd "$GITHUB_WORKSPACE" && python3 .github/scripts/i18n/messages.py get test_testflight.notes.version_update --var "version=${{ needs.prepare-build.outputs.version }}" 2>/dev/null) \
+              || RELEASE_NOTES="v${{ needs.prepare-build.outputs.version }} update"
+            echo "📝 Default release notes: $RELEASE_NOTES"
           fi
 
           # IPA_PATH, BUILD_NUMBER, APP_VERSION 은 스크립트가 최종값으로 채운다.
@@ -581,7 +586,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/.github/scripts/store_notes.py" write --platform ios \
             --workspace "$GITHUB_WORKSPACE" --version "${{ needs.prepare-build.outputs.version }}" \
             --out-dir "$NOTES_OUT" --default-file "$RUNNER_TEMP/store-default-notes.txt" \
-            --override "${STORE_WHATS_NEW_OVERRIDE:-}" || echo "⚠️ 언어별 What's New 준비 실패 — 기본 문구로 진행"
+            --override "${STORE_WHATS_NEW_OVERRIDE:-}" || echo "⚠️ Could not prepare per-language What's New, continuing with the default text"
           if [ -n "$(ls -A "$NOTES_OUT" 2>/dev/null)" ]; then
             export STORE_NOTES_DIR="$NOTES_OUT"
           fi
@@ -593,27 +598,27 @@ jobs:
       - name: Notify TestFlight Upload Success
         if: success()
         run: |
-          echo "✅ TestFlight 업로드 성공!"
-          echo "📱 버전: ${{ steps.upload_phase.outputs.version || needs.prepare-build.outputs.version }}"
-          echo "🔢 빌드번호: ${{ steps.upload_phase.outputs.build_number || steps.build_phase.outputs.build_number }}"
-          echo "📝 커밋: ${{ needs.prepare-build.outputs.commit_sha }}"
+          echo "✅ TestFlight upload succeeded!"
+          echo "📱 Version: ${{ steps.upload_phase.outputs.version || needs.prepare-build.outputs.version }}"
+          echo "🔢 Build number: ${{ steps.upload_phase.outputs.build_number || steps.build_phase.outputs.build_number }}"
+          echo "📝 Commit: ${{ needs.prepare-build.outputs.commit_sha }}"
 
       - name: Notify on Failure
         if: failure()
         run: |
-          echo "❌ TestFlight 업로드 실패!"
-          echo "로그를 확인해주세요."
+          echo "❌ TestFlight upload failed!"
+          echo "Check the log."
 
       # 이 워크플로우는 댓글을 달지 않으므로 실패 사유를 실행 요약과 에러 주석에 남긴다.
       # 사유는 env 로 받는다 (스크립트 소스에 직접 넣으면 값 안의 따옴표 등이 셸을 깨뜨린다).
-      - name: 실패 사유 요약
+      - name: Summarize the failure reason
         if: failure()
         env:
           REASON: ${{ steps.upload_phase.outputs.reason_line || steps.build_phase.outputs.reason_line }}
         run: |
           if [ -n "$REASON" ]; then
             {
-              echo "## iOS 릴리스 실패"
+              echo "## iOS release failed"
               echo ""
               echo "$REASON"
             } >> "$GITHUB_STEP_SUMMARY"

@@ -6,6 +6,8 @@
 import json
 import shutil
 import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -48,8 +50,19 @@ def step_script(name):
     raise AssertionError(name)
 
 
+def _messages_dir(tmp=Path(tempfile.mkdtemp(prefix="trigger-msg-"))):
+    """워크플로우의 Load comment messages 스텝이 만드는 문구 모듈 (#769)"""
+    module = tmp / "projectops-messages.cjs"
+    if not module.exists():
+        js = subprocess.run([sys.executable, str(ROOT / ".github/scripts/i18n/messages.py"), "js", "build_trigger.",
+                             "--lang", "ko"], capture_output=True, text=True, check=True).stdout
+        module.write_text(js, encoding="utf-8")
+    return str(tmp)
+
+
 def run(script, ctx, env=None, gh=None):
-    r = subprocess.run(["node", "-e", RUNNER, script, json.dumps(ctx), json.dumps(env or {}),
+    env = {"RUNNER_TEMP": _messages_dir(), **(env or {})}
+    r = subprocess.run(["node", "-e", RUNNER, script, json.dumps(ctx), json.dumps(env),
                         json.dumps(gh or {"pulls": [{"err": {"status": 404}}]})],
                        capture_output=True, text=True, timeout=30)
     assert r.returncode == 0, r.stderr
@@ -57,7 +70,7 @@ def run(script, ctx, env=None, gh=None):
 
 
 def build_type(body):
-    script, _ = step_script("빌드 타입 판별")
+    script, _ = step_script("Detect build type")
     ctx = {"payload": {"comment": {"body": body}, "issue": {"number": 1}}, "repo": {"owner": "o", "repo": "r"}}
     return run(script, ctx)["outputs"]
 
@@ -83,15 +96,15 @@ def test_non_commands_are_ignored(body):
 
 
 def test_steps_after_detection_are_gated_on_command():
-    for name in ("댓글에 👀 리액션 추가", "PR/이슈 정보 확인 및 추출"):
+    for name in ("Add 👀 reaction to the comment", "Read PR/issue information"):
         _, st = step_script(name)
         assert "steps.build_type.outputs.buildType != ''" in st["if"], name
-    _, st = step_script("브랜치 정보를 찾을 수 없는 경우 에러 댓글 작성")
+    _, st = step_script("Comment when the branch information is missing")
     assert "steps.build_type.outputs.buildType != ''" in st["if"]
 
 
 def source_info(gh, custom=""):
-    script, _ = step_script("PR/이슈 정보 확인 및 추출")
+    script, _ = step_script("Read PR/issue information")
     ctx = {"payload": {"issue": {"number": 7}}, "repo": {"owner": "o", "repo": "r"}}
     return run(script, ctx, {"CUSTOM_BRANCH": custom}, gh)
 

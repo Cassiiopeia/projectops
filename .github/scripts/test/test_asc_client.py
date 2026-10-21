@@ -83,7 +83,7 @@ def test_token_from_env_none_when_signing_fails(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("ASC_ISSUER_ID", "I")
     monkeypatch.setenv("ASC_KEY_PATH", str(tmp_path / "missing.p8"))
     assert asc.token_from_env() is None
-    assert "경고" in capsys.readouterr().err
+    assert "warning: could not create the App Store Connect token" in capsys.readouterr().err
 
 
 def test_get_all_follows_next(monkeypatch):

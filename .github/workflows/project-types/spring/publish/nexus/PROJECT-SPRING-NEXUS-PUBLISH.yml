@@ -47,12 +47,12 @@ jobs:
             # 태그에서 버전 추출
             TAG_NAME=${GITHUB_REF#refs/tags/}
             VERSION=${TAG_NAME#v}
-            echo "🏷️ 태그에서 버전 추출: $VERSION"
+            echo "🏷️ Version from tag: $VERSION"
           else
             # main 브랜치에서 version.yml로부터 버전 추출
             chmod +x .github/scripts/version_manager.sh
             VERSION=$(./.github/scripts/version_manager.sh get | tail -n 1)
-            echo "📄 version.yml에서 버전 추출: $VERSION"
+            echo "📄 Version from version.yml: $VERSION"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Publishing version $VERSION"

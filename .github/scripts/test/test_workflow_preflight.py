@@ -34,20 +34,20 @@ def test_setup_java_v3_not_used():
 # ── #666 사전 점검 ──────────────────────────────────────────────
 # (파일, job, 점검 step 이름 일부, 반드시 언급해야 하는 항목)
 PREFLIGHT = [
-    (PT / "spring/server-deploy/PROJECT-SPRING-SIMPLE-CICD.yaml", "build", "사전 점검",
+    (PT / "spring/server-deploy/PROJECT-SPRING-SIMPLE-CICD.yaml", "build", "Preflight",
      ["gradlew", "DOCKERFILE_PATH", "DOCKERHUB_TOKEN", "SERVER_HOST", "SSH_KEY", "SERVER_PASSWORD"]),
-    (PT / "python/server-deploy/PROJECT-PYTHON-SIMPLE-CICD.yaml", "build", "사전 점검",
+    (PT / "python/server-deploy/PROJECT-PYTHON-SIMPLE-CICD.yaml", "build", "Preflight",
      ["Dockerfile", "DOCKERHUB_TOKEN", "SERVER_HOST", "SSH_KEY", "SERVER_PASSWORD"]),
-    (PT / "react/PROJECT-REACT-CICD.yaml", "build", "사전 점검",
+    (PT / "react/PROJECT-REACT-CICD.yaml", "build", "Preflight",
      ["Dockerfile", "DOCKERHUB_USERNAME", "DOCKERHUB_TOKEN", "SERVER_HOST", "SERVER_USER", "SERVER_PASSWORD"]),
-    (PT / "python/PROJECT-PYTHON-CI.yaml", "build-check", "사전 점검", ["Dockerfile"]),
-    (PT / "flutter/PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD.yaml", "build-android", "사전 점검",
+    (PT / "python/PROJECT-PYTHON-CI.yaml", "build-check", "Preflight", ["Dockerfile"]),
+    (PT / "flutter/PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD.yaml", "build-android", "Preflight",
      ["SERVER_HOST", "SERVER_USER", "SERVER_PASSWORD"]),
-    (PT / "flutter/PROJECT-FLUTTER-ANDROID-FIREBASE-CICD.yaml", "prepare-build", "사전 점검",
+    (PT / "flutter/PROJECT-FLUTTER-ANDROID-FIREBASE-CICD.yaml", "prepare-build", "Preflight",
      ["FIREBASE_SERVICE_ACCOUNT_JSON_BASE64"]),
-    (PT / "flutter/PROJECT-FLUTTER-ANDROID-PLAYSTORE-CICD.yaml", "prepare-build", "사전 점검",
+    (PT / "flutter/PROJECT-FLUTTER-ANDROID-PLAYSTORE-CICD.yaml", "prepare-build", "Preflight",
      ["GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64"]),
-    (PT / "flutter/PROJECT-FLUTTER-IOS-TESTFLIGHT.yaml", "prepare-build", "사전 점검",
+    (PT / "flutter/PROJECT-FLUTTER-IOS-TESTFLIGHT.yaml", "prepare-build", "Preflight",
      ["APPLE_CERTIFICATE_BASE64", "APPLE_PROVISIONING_PROFILE_BASE64", "APP_STORE_CONNECT_API_KEY_BASE64"]),
 ]
 
@@ -61,7 +61,7 @@ def test_preflight_step_is_first_expensive_step(path, job, key, items):
     for st in steps[:idx]:
         assert "uses" in st and "checkout" in st["uses"], \
             f"{path.name}: 사전 점검 앞에 체크아웃 외 step 이 있다: {st.get('name')}"
-    body = yaml.dump(steps[idx], allow_unicode=True)
+    body = yaml.dump(steps[idx], allow_unicode=True, width=10**6)  # 줄바꿈 접기로 exit 1 이 갈라지지 않게
     for it in items:
         assert it in body, f"{path.name}: 점검 항목 {it} 누락"
     # 실패는 ::error:: 로 알리고 비정상 종료해야 한다
@@ -71,7 +71,7 @@ def test_preflight_step_is_first_expensive_step(path, job, key, items):
 def test_selfhosted_preflight_only_on_main():
     # 배포 job 이 main 에서만 도므로, 다른 브랜치 수동 실행(빌드만)을 막으면 안 된다
     steps = _jobs(PT / "flutter/PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD.yaml")["build-android"]["steps"]
-    st = next(s for s in steps if "사전 점검" in s.get("name", ""))
+    st = next(s for s in steps if "Preflight" in s.get("name", ""))
     assert "refs/heads/main" in st.get("if", "")
 
 
@@ -120,21 +120,21 @@ def test_react_detects_package_manager(name):
     text = p.read_text(encoding="utf-8")
     steps = _jobs(p)["build"]["steps"]
     names = _step_names(_jobs(p)["build"])
-    assert names.index("패키지 매니저 감지") < names.index("Node.js 설정")
-    node = next(s for s in steps if s.get("name") == "Node.js 설정")
+    assert names.index("Detect package manager") < names.index("Set up Node.js")
+    node = next(s for s in steps if s.get("name") == "Set up Node.js")
     # 하드코딩된 cache: npm 이 lock 없는 레포에서 첫 step 부터 죽이던 원인
     assert node["with"]["cache"] == "${{ steps.pm.outputs.cache }}"
     for cmd in ("npm ci", "pnpm install --frozen-lockfile", "yarn install", "npm install"):
         assert cmd in text
     # 기존 npm(package-lock.json) 경로가 최우선이어야 기존 동작이 안 바뀐다
-    detect = next(s for s in steps if s.get("name") == "패키지 매니저 감지")["run"]
+    detect = next(s for s in steps if s.get("name") == "Detect package manager")["run"]
     assert detect.index("package-lock.json") < detect.index("pnpm-lock.yaml") < detect.index("yarn.lock")
 
 
 def test_react_detect_script_runs(tmp_path):
     """감지 스크립트를 실제로 돌려 lock 종류별 결과를 본다."""
     steps = _jobs(PT / "react/PROJECT-REACT-CI.yaml")["build"]["steps"]
-    script = next(s for s in steps if s.get("name") == "패키지 매니저 감지")["run"]
+    script = next(s for s in steps if s.get("name") == "Detect package manager")["run"]
     cases = {
         "package-lock.json": ("npm", "npm"),
         "pnpm-lock.yaml": ("pnpm", "pnpm"),
@@ -162,7 +162,7 @@ def _run_step(step: dict, cwd: Path, env: dict):
 
 def test_spring_preflight_reports_missing_and_passes_when_complete(tmp_path):
     steps = _jobs(PT / "spring/server-deploy/PROJECT-SPRING-SIMPLE-CICD.yaml")["build"]["steps"]
-    st = next(s for s in steps if "사전 점검" in s.get("name", ""))
+    st = next(s for s in steps if "Preflight" in s.get("name", ""))
     r = _run_step(st, tmp_path, {"DOCKERFILE_PATH": "./Dockerfile", "SSH_AUTH_METHOD": "password"})
     assert r.returncode == 1
     for needle in ("gradlew", "Dockerfile", "DOCKERHUB_USERNAME", "SERVER_PASSWORD"):
@@ -182,7 +182,7 @@ def test_spring_preflight_reports_missing_and_passes_when_complete(tmp_path):
 
 def test_react_cicd_preflight_reports_missing_and_passes_when_complete(tmp_path):
     steps = _jobs(PT / "react/PROJECT-REACT-CICD.yaml")["build"]["steps"]
-    st = next(s for s in steps if "사전 점검" in s.get("name", ""))
+    st = next(s for s in steps if "Preflight" in s.get("name", ""))
     r = _run_step(st, tmp_path, {})
     assert r.returncode == 1
     for needle in ("Dockerfile", "DOCKERHUB_USERNAME", "DOCKERHUB_TOKEN", "SERVER_HOST", "SERVER_USER", "SERVER_PASSWORD"):

@@ -112,7 +112,7 @@ jobs:
       # 신규 설치 직후에는 배포용 Secret 이 없는 것이 정상이다. 그대로 두면 빌드를 끝까지 돌린 뒤
       # 서명, 업로드 단계에서 원인을 짚기 어려운 에러로 실패하므로, 빌드 전에 무엇이 없는지 알린다.
       # Secret 이 모두 있으면 이 step 은 그대로 통과하며 이후 동작은 달라지지 않는다.
-      - name: 배포 Secret 사전 점검
+      - name: Preflight check of deploy secrets
         if: github.ref == 'refs/heads/main'
         working-directory: ${{ github.workspace }}   # 체크아웃 전이라 APP_ROOT 가 아직 없을 수 있다
         env:
@@ -123,12 +123,12 @@ jobs:
           fail=0
           for name in SERVER_HOST SERVER_USER SERVER_PASSWORD; do
             if [ -z "${!name}" ]; then
-              echo "::error title=배포 사전 점검::Secret ${name} 이(가) 없습니다. 자체 서버(SMB) 업로드에 필요합니다. Settings > Secrets and variables > Actions 에서 등록하세요."
+              echo "::error title=Deploy preflight::Secret ${name} is missing. It is required for the self-hosted (SMB) upload. Add it under Settings > Secrets and variables > Actions."
               fail=1
             fi
           done
           [ "$fail" = "0" ] || exit 1
-          echo "✅ 사전 점검 통과"
+          echo "✅ Preflight check passed"
 
       - name: Check out repository
         uses: actions/checkout@v5
@@ -163,7 +163,7 @@ jobs:
       # 빌드 프로파일 — 런타임(.env)과 컴파일타임(dart-define)을 한 곳에서 정한다 (#603)
       # 배포 빌드라 개발 키가 켜진 채 나가지 않는지 양쪽 층을 함께 확인한다.
       # 설정(.github/config/build-profile.json)이 없는 저장소에서는 아무 일도 하지 않는다.
-      - name: 빌드 프로파일 적용 (release)
+      - name: Apply build profile (release)
         id: build_profile
         run: |
           python3 "${{ github.workspace }}/.github/scripts/apply_build_profile.py" \
@@ -190,7 +190,7 @@ jobs:
           if [ "$ANDROID_SELFHOSTED_RELEASE_SIGNING" = "true" ]; then
             if [ -z "$RELEASE_KEYSTORE_BASE64" ] || [ -z "$RELEASE_KEYSTORE_PASSWORD" ] \
                || [ -z "$RELEASE_KEY_ALIAS" ] || [ -z "$RELEASE_KEY_PASSWORD" ]; then
-              echo "::error::ANDROID_SELFHOSTED_RELEASE_SIGNING=true 인데 RELEASE_KEYSTORE_BASE64, RELEASE_KEYSTORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD 중 비어 있는 시크릿이 있습니다. 4개를 모두 등록하거나 변수를 제거하세요."
+              echo "::error::ANDROID_SELFHOSTED_RELEASE_SIGNING=true but one of RELEASE_KEYSTORE_BASE64, RELEASE_KEYSTORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD is empty. Add all 4 secrets or remove the variable."
               exit 1
             fi
             echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > android/app/keystore/key.jks
@@ -198,9 +198,9 @@ jobs:
             printf 'storePassword=%s\n' "$RELEASE_KEYSTORE_PASSWORD" >> android/key.properties
             printf 'keyAlias=%s\n' "$RELEASE_KEY_ALIAS" >> android/key.properties
             printf 'keyPassword=%s\n' "$RELEASE_KEY_PASSWORD" >> android/key.properties
-            echo "Release 키로 서명합니다 (key.properties 생성 완료)"
+            echo "Signing with the release key (key.properties created)"
           else
-            echo "::warning::디버그 키로 서명합니다. 릴리스 키로 바꾸려면 저장소 변수 ANDROID_SELFHOSTED_RELEASE_SIGNING=true 와 RELEASE_* 시크릿을 등록하세요. 서명 키가 바뀌면 이미 설치된 앱 위에 업데이트 설치가 되지 않을 수 있습니다."
+            echo "::warning::Signing with the debug key. To use the release key, set the repository variable ANDROID_SELFHOSTED_RELEASE_SIGNING=true and add the RELEASE_* secrets. If the signing key changes, the app may not install as an update over an existing install."
             echo "$DEBUG_KEYSTORE" | base64 -d > android/app/keystore/key.jks || echo "Base64 decoding failed"
             echo "Keystore created from DEBUG_KEYSTORE"
             echo "storeFile=app/keystore/key.jks" > android/key.properties
@@ -217,7 +217,7 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           printf '%s\n' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
-          echo "✅ Google-services.json 생성 완료"
+          echo "✅ google-services.json created"
           ls -la android/app/
 
       # Flutter 설정 및 버전 확인
@@ -268,7 +268,7 @@ jobs:
             chmod +x gradlew
             echo "Gradle wrapper permissions set"
           else
-            echo "gradlew 없음 - Flutter 내장 Gradle을 사용합니다"
+            echo "No gradlew - using the Gradle bundled with Flutter"
           fi
 
       # Java 설정 및 버전 확인
@@ -318,8 +318,8 @@ jobs:
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
           echo "SHORT_COMMIT_HASH=$SHORT_COMMIT_HASH" >> $GITHUB_ENV
 
-          echo "현재 버전: $CURRENT_VERSION"
-          echo "짧은 커밋 해시: $SHORT_COMMIT_HASH"
+          echo "Current version: $CURRENT_VERSION"
+          echo "Short commit hash: $SHORT_COMMIT_HASH"
 
       # APK 빌드 (릴리스 빌드 유지)
       - name: Build APK
@@ -334,15 +334,15 @@ jobs:
             # fastlane lane 은 빌드 명령을 자기가 만든다 — 여기서 dart-define 을 넘길 자리가 없다.
             # 조용히 빠뜨리면 이 스텝이 고치려던 바로 그 사고("한쪽만 적용")가 다시 난다.
             if [ -n "$BUILD_FLAGS" ]; then
-              echo "::error::빌드 프로파일이 컴파일타임 플래그를 지정했는데 fastlane build lane 으로 빌드하려 합니다."
-              echo "::error::lane 안에서 flutter build 에 \$BUILD_FLAGS 를 넘기도록 Fastfile 을 고치거나, build lane 을 지워 Flutter 직접 빌드를 쓰세요."
+              echo "::error::The build profile sets compile-time flags, but the build is about to run through the fastlane build lane."
+              echo "::error::Change the Fastfile so the lane passes \$BUILD_FLAGS to flutter build, or remove the build lane to build with Flutter directly."
               exit 1
             fi
-            echo "📦 Fastlane build lane 으로 빌드..."
+            echo "📦 Building with the fastlane build lane..."
             # 서브셸로 감싼다 — cd 가 새어 나가면 뒤 명령이 엉뚱한 곳에서 돈다
             ( cd android && bundle exec fastlane build --verbose )
           else
-            echo "📦 Flutter 직접 빌드... ${BUILD_FLAGS:+(플래그: $BUILD_FLAGS)}"
+            echo "📦 Building with Flutter directly... ${BUILD_FLAGS:+(flags: $BUILD_FLAGS)}"
             # shellcheck disable=SC2086  # 플래그는 공백으로 갈라져야 한다
             flutter build apk --release $BUILD_FLAGS
           fi

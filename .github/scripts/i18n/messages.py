@@ -12,6 +12,7 @@ CLI (bash 와 JS 단계가 파이썬을 한 번 부르면 된다)
   messages.py lang                         현재 언어
   messages.py get KEY [--var k=v ...]      한 문구
   messages.py bundle PREFIX                PREFIX 로 시작하는 키를 JSON 으로 (JS 단계용, 자리표시자는 그대로)
+  messages.py js PREFIX... [--version-yml P] github-script 가 require 할 모듈 (comment_runtime.cjs + 문구)
 """
 from __future__ import annotations
 
@@ -98,6 +99,18 @@ def bundle(prefix: str, lang: str | None = None) -> dict:
     return base
 
 
+RUNTIME_JS = CATALOG_DIR / "comment_runtime.cjs"
+
+
+def render_js(prefixes, lang: str) -> str:
+    """접두사 여러 개 문구 + 런타임 > CommonJS 모듈 문자열 (타입 워크플로우 댓글용, #769)."""
+    merged = {}
+    for prefix in prefixes:
+        merged.update(bundle(prefix, lang))
+    data = json.dumps({"lang": lang, "messages": merged}, ensure_ascii=False)
+    return f"const DATA = {data};\n" + RUNTIME_JS.read_text(encoding="utf-8")
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -109,6 +122,10 @@ def main(argv=None) -> int:
     b = sub.add_parser("bundle")
     b.add_argument("prefix")
     b.add_argument("--lang", default=None)
+    j = sub.add_parser("js")
+    j.add_argument("prefix", nargs="+")
+    j.add_argument("--version-yml", default="version.yml")
+    j.add_argument("--lang", default=None)
     a = ap.parse_args(argv)
     if a.cmd == "lang":
         print(resolve_language())
@@ -120,6 +137,8 @@ def main(argv=None) -> int:
             return 3
         values = dict(v.split("=", 1) for v in a.var if "=" in v)
         sys.stdout.write(t(a.key, a.lang, **values))
+    elif a.cmd == "js":
+        sys.stdout.write(render_js(a.prefix, a.lang or resolve_language(a.version_yml)))
     else:
         print(json.dumps(bundle(a.prefix, a.lang), ensure_ascii=False))
     return 0

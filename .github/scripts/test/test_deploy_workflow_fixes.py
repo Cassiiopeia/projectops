@@ -122,7 +122,7 @@ def test_교체_중_실패하면_실패한_컨테이너를_지우고_이전_이�
     assert r.returncode == 1                       # 배포는 실패로 남는다
     assert "docker rm -f app" in log
     assert "docker run -d" in log and "sha256:OLD" in log and "--restart unless-stopped" in log
-    assert "복구 완료" in r.stdout
+    assert "Previous version restored" in r.stdout
 
 
 @pytest.mark.parametrize("rel", SIMPLE)
@@ -151,7 +151,7 @@ def test_복구_장치가_교체보다_먼저_정의되고_성공_표시가_성�
     assert sc.index("trap rollback_on_failure EXIT") < cleanup
     assert sc.index("REPLACING=true") < cleanup
     assert sc.index("PREV_IMAGE=$(") < cleanup
-    assert sc.index("DEPLOY_OK=true") < sc.index("배포가 성공적으로 완료되었습니다")
+    assert sc.index("DEPLOY_OK=true") < sc.index("Deploy completed successfully")
     assert sc.index("start_container() {") < sc.index("start_container ${{")
 
 

@@ -102,6 +102,7 @@ jobs:
   # Job 1: 명령어 파싱 (PR 댓글 + Issue 댓글 모두 지원)
   # -----------------------------------------------------------------
   check-command:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: 명령어 확인
     if: github.event_name == 'issue_comment'
     runs-on: ubuntu-latest
@@ -112,7 +113,7 @@ jobs:
       custom_branch: ${{ steps.parse.outputs.custom_branch }}
       is_custom_branch: ${{ steps.parse.outputs.is_custom_branch }}
     steps:
-      - name: 댓글에 👀 리액션 추가
+      - name: Add 👀 reaction to the comment
         # 봇 안내 댓글은 제외한다 (#576) — 안내문 문구가 조건을 만족해 오발동한 전례가 있다
         if: ${{ !contains(github.event.comment.body, '<!-- SUH-ISSUE-HELPER -->') && contains(github.event.comment.body, '@projectops') && contains(github.event.comment.body, 'server') }}
         uses: actions/github-script@v7
@@ -126,7 +127,7 @@ jobs:
               content: 'eyes'
             });
 
-      - name: 커맨드 파싱
+      - name: Parse the command
         id: parse
         env:
           COMMENT: ${{ github.event.comment.body }}
@@ -135,10 +136,10 @@ jobs:
           # PR인지 Issue인지 확인
           if [[ "$IS_PR" == "true" ]]; then
             echo "is_pr=true" >> $GITHUB_OUTPUT
-            echo "ℹ️ PR 댓글에서 명령어 감지"
+            echo "ℹ️ Command detected in a PR comment"
           else
             echo "is_pr=false" >> $GITHUB_OUTPUT
-            echo "ℹ️ Issue 댓글에서 명령어 감지"
+            echo "ℹ️ Command detected in an issue comment"
           fi
 
           # 명령어 파싱 (브랜치 파라미터 지원)
@@ -149,10 +150,10 @@ jobs:
             if [[ -n "${BASH_REMATCH[2]}" ]]; then
               echo "custom_branch=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
               echo "is_custom_branch=true" >> $GITHUB_OUTPUT
-              echo "✅ 명령어 감지: build (브랜치: ${BASH_REMATCH[2]})"
+              echo "✅ Command detected: build (branch: ${BASH_REMATCH[2]})"
             else
               echo "is_custom_branch=false" >> $GITHUB_OUTPUT
-              echo "✅ 명령어 감지: build"
+              echo "✅ Command detected: build"
             fi
           elif [[ "$COMMENT" =~ @projectops[[:space:]]+server[[:space:]]+destroy([[:space:]]+([^[:space:]]+))? ]]; then
             echo "command=destroy" >> $GITHUB_OUTPUT
@@ -160,10 +161,10 @@ jobs:
             if [[ -n "${BASH_REMATCH[2]}" ]]; then
               echo "custom_branch=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
               echo "is_custom_branch=true" >> $GITHUB_OUTPUT
-              echo "✅ 명령어 감지: destroy (브랜치: ${BASH_REMATCH[2]})"
+              echo "✅ Command detected: destroy (branch: ${BASH_REMATCH[2]})"
             else
               echo "is_custom_branch=false" >> $GITHUB_OUTPUT
-              echo "✅ 명령어 감지: destroy"
+              echo "✅ Command detected: destroy"
             fi
           elif [[ "$COMMENT" =~ @projectops[[:space:]]+server[[:space:]]+status([[:space:]]+([^[:space:]]+))? ]]; then
             echo "command=status" >> $GITHUB_OUTPUT
@@ -171,20 +172,21 @@ jobs:
             if [[ -n "${BASH_REMATCH[2]}" ]]; then
               echo "custom_branch=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
               echo "is_custom_branch=true" >> $GITHUB_OUTPUT
-              echo "✅ 명령어 감지: status (브랜치: ${BASH_REMATCH[2]})"
+              echo "✅ Command detected: status (branch: ${BASH_REMATCH[2]})"
             else
               echo "is_custom_branch=false" >> $GITHUB_OUTPUT
-              echo "✅ 명령어 감지: status"
+              echo "✅ Command detected: status"
             fi
           else
             echo "is_valid=false" >> $GITHUB_OUTPUT
-            echo "ℹ️ @projectops server 명령어가 아님"
+            echo "ℹ️ Not an @projectops server command"
           fi
 
   # -----------------------------------------------------------------
   # Job 2-1: 빌드 & 배포 (PR 댓글에서 실행)
   # -----------------------------------------------------------------
   build-preview-pr:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: Preview 빌드 & 배포 (PR)
     needs: check-command
     if: |
@@ -194,7 +196,30 @@ jobs:
       needs.check-command.outputs.is_custom_branch != 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: PR 정보 가져오기
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js python_preview. comment. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
+      - name: Get PR info
         id: pr
         uses: actions/github-script@v7
         with:
@@ -211,27 +236,28 @@ jobs:
       # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       # 진행 상황 댓글 시스템
       # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      - name: 진행 상황 댓글 생성
+      - name: Create progress comment
         id: progress
         uses: actions/github-script@v7
         with:
           script: |
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const prNumber = context.issue.number;
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const startTime = Date.now();
 
             const body = [
-              '## 🚀 PR Preview 빌드 중...',
+              t('python_preview.heading.building', { kind: 'PR' }),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('python_preview.table.steps_header'),
               '|------|------|----------|',
-              '| 🐳 Docker 이미지 빌드 & Push | ⏳ 진행 중... | - |',
-              '| 🚀 서버 배포 & Health Check | ⏸️ 대기 | - |',
+              t('python_preview.row.docker_in_progress'),
+              t('python_preview.row.deploy_waiting'),
               '',
-              `**[📋 실시간 로그 보기](${runUrl})**`,
+              t('python_preview.live_log', { url: runUrl }),
               '',
               '---',
-              '*🤖 이 댓글은 자동으로 업데이트됩니다.*'
+              t('python_preview.footer.auto_update')
             ].join('\n');
 
             const { data: comment } = await github.rest.issues.createComment({
@@ -245,7 +271,7 @@ jobs:
             core.setOutput('start_time', startTime);
             core.setOutput('docker_start', startTime);
 
-      - name: 코드 체크아웃
+      - name: Check out code
         uses: actions/checkout@v5
         with:
           ref: ${{ steps.pr.outputs.ref }}
@@ -253,7 +279,7 @@ jobs:
       # =================================================================
       # ⚠️ [영역 2] 환경변수 파일 생성
       # =================================================================
-      - name: "[필수] .env 파일 생성"
+      - name: "[Required] Create .env file"
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE }}
         run: |
@@ -262,16 +288,16 @@ jobs:
       # ⚠️ [영역 2 끝] 환경변수 파일 생성 끝
       # =================================================================
 
-      - name: Docker 로그인
+      - name: Docker login
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Docker Buildx 설정
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - name: Docker 이미지 빌드 & Push
+      - name: Build & push Docker image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: .
@@ -281,32 +307,33 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: 진행 상황 - Docker 완료
+      - name: Progress - Docker done
         id: docker_progress
         uses: actions/github-script@v7
         with:
           script: |
+            const { t, elapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = ${{ steps.progress.outputs.comment_id }};
             const dockerStart = ${{ steps.progress.outputs.docker_start }};
             const now = Date.now();
             const dockerElapsed = now - dockerStart;
             const minutes = Math.floor(dockerElapsed / 60000);
             const seconds = Math.floor((dockerElapsed % 60000) / 1000);
-            const dockerDuration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            const dockerDuration = elapsed(minutes, seconds);
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
             const body = [
-              '## 🚀 PR Preview 빌드 중...',
+              t('python_preview.heading.building', { kind: 'PR' }),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('python_preview.table.steps_header'),
               '|------|------|----------|',
-              `| 🐳 Docker 이미지 빌드 & Push | ✅ 완료 | ${dockerDuration} |`,
-              '| 🚀 서버 배포 & Health Check | ⏳ 진행 중... | - |',
+              t('python_preview.row.docker_done', { duration: dockerDuration }),
+              t('python_preview.row.deploy_in_progress'),
               '',
-              `**[📋 실시간 로그 보기](${runUrl})**`,
+              t('python_preview.live_log', { url: runUrl }),
               '',
               '---',
-              '*🤖 이 댓글은 자동으로 업데이트됩니다.*'
+              t('python_preview.footer.auto_update')
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -319,7 +346,7 @@ jobs:
             core.setOutput('docker_duration', dockerDuration);
             core.setOutput('deploy_start', now);
 
-      - name: 서버에 배포
+      - name: Deploy to server
         uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         env:
           SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
@@ -345,7 +372,7 @@ jobs:
             else
               SUDO() { echo "$PW" | sudo -S "$@"; }
             fi
-            echo "🔐 SSH 인증 방식: ${SSH_AUTH_METHOD}"
+            echo "🔐 SSH auth method: ${SSH_AUTH_METHOD}"
 
             # 변수 설정
             PR_NUMBER=${{ github.event.issue.number }}
@@ -357,20 +384,20 @@ jobs:
             TRAEFIK_NETWORK="${{ env.TRAEFIK_NETWORK }}"
 
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "🚀 PR Preview 배포 시작"
+            echo "🚀 Starting PR Preview deployment"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "📦 프로젝트: ${PROJECT_NAME}"
-            echo "🔢 PR 번호: #${PR_NUMBER}"
-            echo "📛 컨테이너: ${CONTAINER_NAME}"
-            echo "🌐 도메인: ${DOMAIN}"
+            echo "📦 Project: ${PROJECT_NAME}"
+            echo "🔢 PR number: #${PR_NUMBER}"
+            echo "📛 Container: ${CONTAINER_NAME}"
+            echo "🌐 Domain: ${DOMAIN}"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
             # 이미지 Pull
-            echo "📥 Docker 이미지 Pull 중..."
+            echo "📥 Pulling Docker image..."
             SUDO docker pull "${IMAGE}"
 
             # 기존 컨테이너 삭제
-            echo "🗑️ 기존 컨테이너 정리 중..."
+            echo "🗑️ Removing the existing container..."
             SUDO docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
 
             # 볼륨 마운트 옵션 구성
@@ -380,7 +407,7 @@ jobs:
             fi
 
             # 새 컨테이너 실행
-            echo "🐳 새 컨테이너 실행 중..."
+            echo "🐳 Starting the new container..."
             SUDO docker run -d \
               --name "${CONTAINER_NAME}" \
               --network "${TRAEFIK_NETWORK}" \
@@ -399,7 +426,7 @@ jobs:
             # 2. 폴백: 로그 패턴 매칭 (HEALTH_CHECK_LOG_PATTERN)
             # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             echo ""
-            echo "⏳ Health Check 시작 (최대 120초 대기)..."
+            echo "⏳ Starting health check (waiting up to 120s)..."
             HEALTH_PATH="${{ env.HEALTH_CHECK_PATH }}"
             LOG_PATTERN="${{ env.HEALTH_CHECK_LOG_PATTERN }}"
             MAX_RETRIES=24
@@ -415,9 +442,9 @@ jobs:
               STATUS=$(SUDO docker inspect --format='{{.State.Status}}' "${CONTAINER_NAME}" 2>/dev/null || echo "not_found")
 
               if [ "$STATUS" = "exited" ]; then
-                echo "❌ 컨테이너 비정상 종료!"
+                echo "❌ Container exited unexpectedly!"
                 echo ""
-                echo "📋 컨테이너 로그 (최근 100줄):"
+                echo "📋 Container logs (last 100 lines):"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 SUDO docker logs --tail 100 "${CONTAINER_NAME}"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -430,7 +457,7 @@ jobs:
                   HEALTH=$(SUDO docker exec "${CONTAINER_NAME}" curl -sf "http://localhost:${INTERNAL_PORT}${HEALTH_PATH}" 2>/dev/null || echo "")
 
                   if [ -n "$HEALTH" ]; then
-                    echo "✅ 정상 기동 확인! (HTTP 응답: ${HEALTH_PATH})"
+                    echo "✅ Startup confirmed! (HTTP response: ${HEALTH_PATH})"
                     HEALTH_CHECK_PASSED=true
                     HEALTH_CHECK_METHOD="HTTP"
                     break
@@ -442,7 +469,7 @@ jobs:
                   STARTED=$(SUDO docker logs --tail 50 "${CONTAINER_NAME}" 2>&1 | grep -E "$LOG_PATTERN" || echo "")
 
                   if [ -n "$STARTED" ]; then
-                    echo "✅ 정상 기동 확인! (로그 패턴)"
+                    echo "✅ Startup confirmed! (log pattern)"
                     echo "   $STARTED"
                     HEALTH_CHECK_PASSED=true
                     HEALTH_CHECK_METHOD="Log"
@@ -451,14 +478,14 @@ jobs:
                 fi
               fi
 
-              echo "⏳ 대기 중... ($RETRY_COUNT/$MAX_RETRIES) - 상태: $STATUS"
+              echo "⏳ Waiting... ($RETRY_COUNT/$MAX_RETRIES) - status: $STATUS"
             done
 
             if [ "$HEALTH_CHECK_PASSED" = "false" ]; then
               echo ""
-              echo "❌ Health Check 타임아웃 (120초)"
+              echo "❌ Health check timed out (120s)"
               echo ""
-              echo "📋 컨테이너 로그 (최근 100줄):"
+              echo "📋 Container logs (last 100 lines):"
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
               SUDO docker logs --tail 100 "${CONTAINER_NAME}"
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -466,13 +493,14 @@ jobs:
             fi
 
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "✅ 배포 및 Health Check 완료! (방식: ${HEALTH_CHECK_METHOD})"
+            echo "✅ Deployment and health check complete! (method: ${HEALTH_CHECK_METHOD})"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-      - name: 배포 완료 코멘트
+      - name: Deployment complete comment
         uses: actions/github-script@v7
         with:
           script: |
+            const { t, elapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = ${{ steps.progress.outputs.comment_id }};
             const dockerDuration = '${{ steps.docker_progress.outputs.docker_duration }}';
             const deployStart = ${{ steps.docker_progress.outputs.deploy_start }};
@@ -480,7 +508,7 @@ jobs:
             const deployElapsed = now - deployStart;
             const minutes = Math.floor(deployElapsed / 60000);
             const seconds = Math.floor((deployElapsed % 60000) / 1000);
-            const deployDuration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            const deployDuration = elapsed(minutes, seconds);
 
             const projectName = '${{ env.PROJECT_NAME }}';
             const domainSuffix = '${{ env.PREVIEW_DOMAIN_SUFFIX }}';
@@ -498,33 +526,33 @@ jobs:
             if (apiDocsPath) {
               envRows.push(`| **API Docs** | ${previewUrl}${apiDocsPath} |`);
             }
-            envRows.push(`| **컨테이너** | \`${projectName}-pr-${prNumber}\` |`);
-            envRows.push(`| **커밋** | \`${sha}\` |`);
+            envRows.push(t('python_preview.row.container', { container: `${projectName}-pr-${prNumber}` }));
+            envRows.push(t('python_preview.row.commit', { sha }));
 
             const branchName = '${{ steps.pr.outputs.ref }}';
 
             const body = [
-              '## ✅ PR Preview 배포 완료!',
+              t('python_preview.heading.deployed', { kind: 'PR' }),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('python_preview.table.steps_header'),
               '|------|------|----------|',
-              `| 🐳 Docker 이미지 빌드 & Push | ✅ 완료 | ${dockerDuration} |`,
-              `| 🚀 서버 배포 & Health Check | ✅ 완료 | ${deployDuration} |`,
+              t('python_preview.row.docker_done', { duration: dockerDuration }),
+              t('python_preview.row.deploy_done', { duration: deployDuration }),
               '',
-              '### 🌐 Preview 환경',
-              '| 항목 | 값 |',
+              t('python_preview.env_heading'),
+              t('python_preview.table.item_header'),
               '|------|-----|',
               ...envRows,
               '',
-              '### 📋 명령어',
-              '| 명령어 | 설명 |',
+              t('python_preview.commands.heading'),
+              t('python_preview.commands.header'),
               '|--------|------|',
-              '| `@projectops server build` | 최신 커밋으로 재배포 |',
-              '| `@projectops server destroy` | Preview 환경 삭제 |',
-              '| `@projectops server status` | 현재 상태 확인 |',
+              t('python_preview.commands.redeploy', { command: '@projectops server build' }),
+              t('python_preview.commands.destroy', { command: '@projectops server destroy' }),
+              t('python_preview.commands.status', { command: '@projectops server status' }),
               '',
               '<details>',
-              '<summary>🔧 고급 명령어 (다른 Issue/PR에서 제어)</summary>',
+              t('python_preview.commands.advanced_summary'),
               '',
               '```',
               `@projectops server build ${branchName}`,
@@ -534,7 +562,7 @@ jobs:
               '</details>',
               '',
               '---',
-              '*🤖 이 댓글은 PR Preview 시스템에 의해 자동 생성되었습니다.*'
+              t('python_preview.footer.generated', { kind: 'PR' })
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -544,11 +572,12 @@ jobs:
               body: body
             });
 
-      - name: 빌드/배포 실패 시 에러 코멘트
+      - name: Error comment on build/deploy failure
         if: failure()
         uses: actions/github-script@v7
         with:
           script: |
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = ${{ steps.progress.outputs.comment_id || 0 }};
             const projectName = '${{ env.PROJECT_NAME }}';
             const prNumber = context.issue.number;
@@ -563,41 +592,41 @@ jobs:
 
             if (!commentId) {
               // 진행 상황 댓글 생성 전 실패 (초기화 단계)
-              dockerStatus = '⚠️ 초기화 실패';
+              dockerStatus = t('python_preview.status.init_failed');
               deployStatus = '-';
             } else if (!dockerDuration || dockerDuration === '') {
               // Docker 빌드 단계에서 실패
-              dockerStatus = '❌ 실패';
-              deployStatus = '⏸️ 대기';
+              dockerStatus = t('python_preview.status.failed');
+              deployStatus = t('python_preview.status.waiting');
             } else {
               // 배포 단계에서 실패
-              dockerStatus = '✅ 완료';
-              deployStatus = '❌ 실패';
+              dockerStatus = t('python_preview.status.done');
+              deployStatus = t('python_preview.status.failed');
               dockerTime = dockerDuration;
             }
 
             const body = [
-              '## ❌ PR Preview 배포 실패!',
+              t('python_preview.heading.deploy_failed', { kind: 'PR' }),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('python_preview.table.steps_header'),
               '|------|------|----------|',
-              `| 🐳 Docker 이미지 빌드 & Push | ${dockerStatus} | ${dockerTime} |`,
-              `| 🚀 서버 배포 & Health Check | ${deployStatus} | - |`,
+              t('python_preview.row.docker_status', { status: dockerStatus, duration: dockerTime }),
+              t('python_preview.row.deploy_status', { status: deployStatus }),
               '',
-              `**[📋 빌드/배포 로그 확인](${runUrl})**`,
+              t('python_preview.failure.log_link', { url: runUrl }),
               '',
-              '### 🔍 가능한 원인',
-              '- Docker 이미지 빌드 실패 (Python 의존성 문제)',
-              '- 컨테이너 시작 실패 (FastAPI/Uvicorn 기동 오류)',
-              '- Health Check 타임아웃 (120초 내 기동 완료 안됨)',
-              '- 환경변수 누락 (.env 파일 설정 확인)',
+              t('python_preview.failure.causes_heading'),
+              t('python_preview.failure.cause_build'),
+              t('python_preview.failure.cause_start'),
+              t('python_preview.failure.cause_timeout'),
+              t('python_preview.failure.cause_env'),
               '',
-              '### 💡 다음 단계',
-              '1. 위 링크에서 빌드/배포 로그를 확인하세요',
-              '2. 문제를 수정한 후 다시 시도하세요: `@projectops server build`',
+              t('python_preview.failure.next_heading'),
+              t('python_preview.failure.next_check_log'),
+              t('python_preview.failure.next_retry', { command: '@projectops server build' }),
               '',
               '---',
-              '*🤖 이 댓글은 PR Preview 시스템에 의해 자동 생성되었습니다.*'
+              t('python_preview.footer.generated', { kind: 'PR' })
             ].join('\n');
 
             // 진행 상황 댓글이 있으면 업데이트, 없으면 새로 생성
@@ -621,6 +650,7 @@ jobs:
   # Job 2-2: Issue에서 브랜치명 추출
   # -----------------------------------------------------------------
   get-branch-from-issue:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: Issue에서 브랜치 추출
     needs: check-command
     if: |
@@ -633,7 +663,30 @@ jobs:
       found: ${{ steps.extract.outputs.found }}
       issue_number: ${{ steps.extract.outputs.issue_number }}
     steps:
-      - name: Issue 댓글에서 브랜치명 추출
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js python_preview. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
+      - name: Extract branch name from issue comments
         id: extract
         uses: actions/github-script@v7
         with:
@@ -641,8 +694,8 @@ jobs:
             const issueNumber = context.issue.number;
             const marker = '${{ env.ISSUE_HELPER_MARKER }}';
 
-            console.log(`🔍 Issue #${issueNumber}에서 브랜치 검색 중...`);
-            console.log(`📝 마커: ${marker}`);
+            console.log(`🔍 Searching issue #${issueNumber} for a branch...`);
+            console.log(`📝 Marker: ${marker}`);
 
             // Issue의 모든 댓글 조회
             const comments = await github.rest.issues.listComments({
@@ -664,7 +717,7 @@ jobs:
                   core.setOutput('branch', branchName);
                   core.setOutput('found', 'true');
                   core.setOutput('issue_number', issueNumber);
-                  console.log(`✅ 브랜치 발견: ${branchName}`);
+                  console.log(`✅ Branch found: ${branchName}`);
                   return;
                 }
               }
@@ -673,31 +726,33 @@ jobs:
             // 브랜치를 찾지 못한 경우 - 에러가 아님, graceful하게 처리
             core.setOutput('found', 'false');
             core.setOutput('issue_number', issueNumber);
-            console.log('⚠️ Issue Helper 댓글에서 브랜치를 찾을 수 없습니다.');
+            console.log('⚠️ No branch found in the Issue Helper comments.');
 
-      - name: 브랜치 없음 알림
+      - name: Notify missing branch
         if: steps.extract.outputs.found == 'false'
         uses: actions/github-script@v7
         with:
           script: |
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const issueNumber = context.issue.number;
             const marker = '${{ env.ISSUE_HELPER_MARKER }}';
 
             const body = [
-              '## ⚠️ 브랜치를 찾을 수 없습니다',
+              t('python_preview.no_branch.heading'),
               '',
-              '| 항목 | 값 |',
+              t('python_preview.table.item_header'),
               '|------|-----|',
               `| **Issue** | #${issueNumber} |`,
-              `| **마커** | \`${marker}\` |`,
+              t('python_preview.no_branch.marker_row', { marker }),
               '',
-              '### 💡 확인 사항',
-              '1. Issue Helper 댓글이 존재하는지 확인하세요',
-              '2. 댓글에 `### 브랜치` 섹션이 있는지 확인하세요',
-              '3. `ISSUE_HELPER_MARKER` 환경변수가 올바른지 확인하세요',
+              t('python_preview.checks.heading'),
+              t('python_preview.no_branch.check_comment'),
+              // 계약 문자열(contracts.BRANCH_HEADING)은 카탈로그에 넣지 않고 값으로 붙인다
+              t('python_preview.no_branch.check_section', { heading: '### 브랜치' }),
+              t('python_preview.no_branch.check_marker'),
               '',
               '---',
-              '*🤖 이 댓글은 Preview 시스템에 의해 자동 생성되었습니다.*'
+              t('python_preview.footer.generated_plain')
             ].join('\n');
 
             await github.rest.issues.createComment({
@@ -711,6 +766,7 @@ jobs:
   # Job 2-3: 빌드 & 배포 (Issue 댓글에서 실행)
   # -----------------------------------------------------------------
   build-preview-issue:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: Preview 빌드 & 배포 (Issue)
     needs: [check-command, get-branch-from-issue]
     if: |
@@ -721,17 +777,41 @@ jobs:
       needs.get-branch-from-issue.outputs.found == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: 브랜치 존재 확인
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js python_preview. comment. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
+      - name: Check branch exists
         id: check_branch
         uses: actions/github-script@v7
         env:
           BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         with:
           script: |
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const branchName = process.env.BRANCH_NAME;
             const issueNumber = ${{ needs.get-branch-from-issue.outputs.issue_number }};
 
-            console.log(`🔍 브랜치 존재 확인: ${branchName}`);
+            console.log(`🔍 Checking branch exists: ${branchName}`);
 
             try {
               await github.rest.repos.getBranch({
@@ -740,28 +820,28 @@ jobs:
                 branch: branchName
               });
               core.setOutput('exists', 'true');
-              console.log(`✅ 브랜치 존재: ${branchName}`);
+              console.log(`✅ Branch exists: ${branchName}`);
             } catch (error) {
               if (error.status === 404) {
                 core.setOutput('exists', 'false');
-                console.log(`❌ 브랜치 없음: ${branchName}`);
+                console.log(`❌ Branch not found: ${branchName}`);
 
                 // 브랜치 없음 알림 댓글
                 const body = [
-                  '## ❌ 브랜치를 찾을 수 없습니다',
+                  t('python_preview.branch_missing.heading'),
                   '',
-                  '| 항목 | 값 |',
+                  t('python_preview.table.item_header'),
                   '|------|-----|',
                   `| **Issue** | #${issueNumber} |`,
-                  `| **브랜치** | \`${branchName}\` |`,
+                  t('python_preview.row.branch', { branch: branchName }),
                   '',
-                  '### 💡 확인 사항',
-                  '1. 브랜치가 push되었는지 확인하세요',
-                  '2. 브랜치명이 정확한지 확인하세요',
-                  '3. 브랜치가 삭제되지 않았는지 확인하세요',
+                  t('python_preview.checks.heading'),
+                  t('python_preview.branch_missing.check_pushed', { n: 1 }),
+                  t('python_preview.branch_missing.check_name', { n: 2 }),
+                  t('python_preview.branch_missing.check_deleted', { n: 3 }),
                   '',
                   '---',
-                  '*🤖 이 댓글은 Preview 시스템에 의해 자동 생성되었습니다.*'
+                  t('python_preview.footer.generated_plain')
                 ].join('\n');
 
                 await github.rest.issues.createComment({
@@ -775,13 +855,13 @@ jobs:
               }
             }
 
-      - name: 브랜치 없으면 중단
+      - name: Stop if the branch is missing
         if: steps.check_branch.outputs.exists == 'false'
         run: |
-          echo "⚠️ 브랜치가 존재하지 않아 빌드를 건너뜁니다."
+          echo "⚠️ The branch does not exist, skipping the build."
           exit 0
 
-      - name: Issue 정보 설정
+      - name: Set issue info
         if: steps.check_branch.outputs.exists == 'true'
         id: issue
         env:
@@ -795,7 +875,7 @@ jobs:
       # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       # 진행 상황 댓글 시스템
       # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      - name: 진행 상황 댓글 생성
+      - name: Create progress comment
         if: steps.check_branch.outputs.exists == 'true'
         id: progress
         uses: actions/github-script@v7
@@ -803,25 +883,26 @@ jobs:
           BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         with:
           script: |
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const issueNumber = ${{ needs.get-branch-from-issue.outputs.issue_number }};
             const branchName = process.env.BRANCH_NAME;
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const startTime = Date.now();
 
             const body = [
-              '## 🚀 Issue Preview 빌드 중...',
+              t('python_preview.heading.building', { kind: 'Issue' }),
               '',
-              `**브랜치**: \`${branchName}\``,
+              t('python_preview.branch_line', { branch: branchName }),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('python_preview.table.steps_header'),
               '|------|------|----------|',
-              '| 🐳 Docker 이미지 빌드 & Push | ⏳ 진행 중... | - |',
-              '| 🚀 서버 배포 & Health Check | ⏸️ 대기 | - |',
+              t('python_preview.row.docker_in_progress'),
+              t('python_preview.row.deploy_waiting'),
               '',
-              `**[📋 실시간 로그 보기](${runUrl})**`,
+              t('python_preview.live_log', { url: runUrl }),
               '',
               '---',
-              '*🤖 이 댓글은 자동으로 업데이트됩니다.*'
+              t('python_preview.footer.auto_update')
             ].join('\n');
 
             const { data: comment } = await github.rest.issues.createComment({
@@ -835,7 +916,7 @@ jobs:
             core.setOutput('start_time', startTime);
             core.setOutput('docker_start', startTime);
 
-      - name: 코드 체크아웃
+      - name: Check out code
         if: steps.check_branch.outputs.exists == 'true'
         uses: actions/checkout@v5
         with:
@@ -844,7 +925,7 @@ jobs:
       # =================================================================
       # ⚠️ [영역 2] 환경변수 파일 생성
       # =================================================================
-      - name: "[필수] .env 파일 생성"
+      - name: "[Required] Create .env file"
         if: steps.check_branch.outputs.exists == 'true'
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE }}
@@ -854,18 +935,18 @@ jobs:
       # ⚠️ [영역 2 끝] 환경변수 파일 생성 끝
       # =================================================================
 
-      - name: Docker 로그인
+      - name: Docker login
         if: steps.check_branch.outputs.exists == 'true'
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Docker Buildx 설정
+      - name: Set up Docker Buildx
         if: steps.check_branch.outputs.exists == 'true'
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - name: Docker 이미지 빌드 & Push
+      - name: Build & push Docker image
         if: steps.check_branch.outputs.exists == 'true'
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
@@ -876,7 +957,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: 진행 상황 - Docker 완료
+      - name: Progress - Docker done
         if: steps.check_branch.outputs.exists == 'true'
         id: docker_progress
         uses: actions/github-script@v7
@@ -884,6 +965,7 @@ jobs:
           BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         with:
           script: |
+            const { t, elapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = ${{ steps.progress.outputs.comment_id }};
             const branchName = process.env.BRANCH_NAME;
             const dockerStart = ${{ steps.progress.outputs.docker_start }};
@@ -891,23 +973,23 @@ jobs:
             const dockerElapsed = now - dockerStart;
             const minutes = Math.floor(dockerElapsed / 60000);
             const seconds = Math.floor((dockerElapsed % 60000) / 1000);
-            const dockerDuration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            const dockerDuration = elapsed(minutes, seconds);
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
             const body = [
-              '## 🚀 Issue Preview 빌드 중...',
+              t('python_preview.heading.building', { kind: 'Issue' }),
               '',
-              `**브랜치**: \`${branchName}\``,
+              t('python_preview.branch_line', { branch: branchName }),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('python_preview.table.steps_header'),
               '|------|------|----------|',
-              `| 🐳 Docker 이미지 빌드 & Push | ✅ 완료 | ${dockerDuration} |`,
-              '| 🚀 서버 배포 & Health Check | ⏳ 진행 중... | - |',
+              t('python_preview.row.docker_done', { duration: dockerDuration }),
+              t('python_preview.row.deploy_in_progress'),
               '',
-              `**[📋 실시간 로그 보기](${runUrl})**`,
+              t('python_preview.live_log', { url: runUrl }),
               '',
               '---',
-              '*🤖 이 댓글은 자동으로 업데이트됩니다.*'
+              t('python_preview.footer.auto_update')
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -920,7 +1002,7 @@ jobs:
             core.setOutput('docker_duration', dockerDuration);
             core.setOutput('deploy_start', now);
 
-      - name: 서버에 배포
+      - name: Deploy to server
         if: steps.check_branch.outputs.exists == 'true'
         uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         env:
@@ -947,7 +1029,7 @@ jobs:
             else
               SUDO() { echo "$PW" | sudo -S "$@"; }
             fi
-            echo "🔐 SSH 인증 방식: ${SSH_AUTH_METHOD}"
+            echo "🔐 SSH auth method: ${SSH_AUTH_METHOD}"
 
             # 변수 설정
             ISSUE_NUMBER=${{ needs.get-branch-from-issue.outputs.issue_number }}
@@ -959,20 +1041,20 @@ jobs:
             TRAEFIK_NETWORK="${{ env.TRAEFIK_NETWORK }}"
 
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "🚀 Issue Preview 배포 시작"
+            echo "🚀 Starting Issue Preview deployment"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "📦 프로젝트: ${PROJECT_NAME}"
-            echo "🔢 Issue 번호: #${ISSUE_NUMBER}"
-            echo "📛 컨테이너: ${CONTAINER_NAME}"
-            echo "🌐 도메인: ${DOMAIN}"
+            echo "📦 Project: ${PROJECT_NAME}"
+            echo "🔢 Issue number: #${ISSUE_NUMBER}"
+            echo "📛 Container: ${CONTAINER_NAME}"
+            echo "🌐 Domain: ${DOMAIN}"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
             # 이미지 Pull
-            echo "📥 Docker 이미지 Pull 중..."
+            echo "📥 Pulling Docker image..."
             SUDO docker pull "${IMAGE}"
 
             # 기존 컨테이너 삭제
-            echo "🗑️ 기존 컨테이너 정리 중..."
+            echo "🗑️ Removing the existing container..."
             SUDO docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
 
             # 볼륨 마운트 옵션 구성
@@ -982,7 +1064,7 @@ jobs:
             fi
 
             # 새 컨테이너 실행
-            echo "🐳 새 컨테이너 실행 중..."
+            echo "🐳 Starting the new container..."
             SUDO docker run -d \
               --name "${CONTAINER_NAME}" \
               --network "${TRAEFIK_NETWORK}" \
@@ -1001,7 +1083,7 @@ jobs:
             # 2. 폴백: 로그 패턴 매칭 (HEALTH_CHECK_LOG_PATTERN)
             # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             echo ""
-            echo "⏳ Health Check 시작 (최대 120초 대기)..."
+            echo "⏳ Starting health check (waiting up to 120s)..."
             HEALTH_PATH="${{ env.HEALTH_CHECK_PATH }}"
             LOG_PATTERN="${{ env.HEALTH_CHECK_LOG_PATTERN }}"
             MAX_RETRIES=24
@@ -1017,9 +1099,9 @@ jobs:
               STATUS=$(SUDO docker inspect --format='{{.State.Status}}' "${CONTAINER_NAME}" 2>/dev/null || echo "not_found")
 
               if [ "$STATUS" = "exited" ]; then
-                echo "❌ 컨테이너 비정상 종료!"
+                echo "❌ Container exited unexpectedly!"
                 echo ""
-                echo "📋 컨테이너 로그 (최근 100줄):"
+                echo "📋 Container logs (last 100 lines):"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 SUDO docker logs --tail 100 "${CONTAINER_NAME}"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -1032,7 +1114,7 @@ jobs:
                   HEALTH=$(SUDO docker exec "${CONTAINER_NAME}" curl -sf "http://localhost:${INTERNAL_PORT}${HEALTH_PATH}" 2>/dev/null || echo "")
 
                   if [ -n "$HEALTH" ]; then
-                    echo "✅ 정상 기동 확인! (HTTP 응답: ${HEALTH_PATH})"
+                    echo "✅ Startup confirmed! (HTTP response: ${HEALTH_PATH})"
                     HEALTH_CHECK_PASSED=true
                     HEALTH_CHECK_METHOD="HTTP"
                     break
@@ -1044,7 +1126,7 @@ jobs:
                   STARTED=$(SUDO docker logs --tail 50 "${CONTAINER_NAME}" 2>&1 | grep -E "$LOG_PATTERN" || echo "")
 
                   if [ -n "$STARTED" ]; then
-                    echo "✅ 정상 기동 확인! (로그 패턴)"
+                    echo "✅ Startup confirmed! (log pattern)"
                     echo "   $STARTED"
                     HEALTH_CHECK_PASSED=true
                     HEALTH_CHECK_METHOD="Log"
@@ -1053,14 +1135,14 @@ jobs:
                 fi
               fi
 
-              echo "⏳ 대기 중... ($RETRY_COUNT/$MAX_RETRIES) - 상태: $STATUS"
+              echo "⏳ Waiting... ($RETRY_COUNT/$MAX_RETRIES) - status: $STATUS"
             done
 
             if [ "$HEALTH_CHECK_PASSED" = "false" ]; then
               echo ""
-              echo "❌ Health Check 타임아웃 (120초)"
+              echo "❌ Health check timed out (120s)"
               echo ""
-              echo "📋 컨테이너 로그 (최근 100줄):"
+              echo "📋 Container logs (last 100 lines):"
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
               SUDO docker logs --tail 100 "${CONTAINER_NAME}"
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -1068,16 +1150,17 @@ jobs:
             fi
 
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "✅ 배포 및 Health Check 완료! (방식: ${HEALTH_CHECK_METHOD})"
+            echo "✅ Deployment and health check complete! (method: ${HEALTH_CHECK_METHOD})"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-      - name: 배포 완료 코멘트
+      - name: Deployment complete comment
         if: steps.check_branch.outputs.exists == 'true'
         uses: actions/github-script@v7
         env:
           BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         with:
           script: |
+            const { t, elapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = ${{ steps.progress.outputs.comment_id }};
             const branchName = process.env.BRANCH_NAME;
             const dockerDuration = '${{ steps.docker_progress.outputs.docker_duration }}';
@@ -1086,7 +1169,7 @@ jobs:
             const deployElapsed = now - deployStart;
             const minutes = Math.floor(deployElapsed / 60000);
             const seconds = Math.floor((deployElapsed % 60000) / 1000);
-            const deployDuration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            const deployDuration = elapsed(minutes, seconds);
 
             const projectName = '${{ env.PROJECT_NAME }}';
             const domainSuffix = '${{ env.PREVIEW_DOMAIN_SUFFIX }}';
@@ -1104,34 +1187,34 @@ jobs:
             if (apiDocsPath) {
               envRows.push(`| **API Docs** | ${previewUrl}${apiDocsPath} |`);
             }
-            envRows.push(`| **컨테이너** | \`${projectName}-pr-${issueNumber}\` |`);
-            envRows.push(`| **브랜치** | \`${branchName}\` |`);
-            envRows.push(`| **커밋** | \`${sha}\` |`);
+            envRows.push(t('python_preview.row.container', { container: `${projectName}-pr-${issueNumber}` }));
+            envRows.push(t('python_preview.row.branch', { branch: branchName }));
+            envRows.push(t('python_preview.row.commit', { sha }));
 
             const body = [
-              '## ✅ Issue Preview 배포 완료!',
+              t('python_preview.heading.deployed', { kind: 'Issue' }),
               '',
-              `**브랜치**: \`${branchName}\``,
+              t('python_preview.branch_line', { branch: branchName }),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('python_preview.table.steps_header'),
               '|------|------|----------|',
-              `| 🐳 Docker 이미지 빌드 & Push | ✅ 완료 | ${dockerDuration} |`,
-              `| 🚀 서버 배포 & Health Check | ✅ 완료 | ${deployDuration} |`,
+              t('python_preview.row.docker_done', { duration: dockerDuration }),
+              t('python_preview.row.deploy_done', { duration: deployDuration }),
               '',
-              '### 🌐 Preview 환경',
-              '| 항목 | 값 |',
+              t('python_preview.env_heading'),
+              t('python_preview.table.item_header'),
               '|------|-----|',
               ...envRows,
               '',
-              '### 📋 명령어',
-              '| 명령어 | 설명 |',
+              t('python_preview.commands.heading'),
+              t('python_preview.commands.header'),
               '|--------|------|',
-              '| `@projectops server build` | 최신 커밋으로 재배포 |',
-              '| `@projectops server destroy` | Preview 환경 삭제 |',
-              '| `@projectops server status` | 현재 상태 확인 |',
+              t('python_preview.commands.redeploy', { command: '@projectops server build' }),
+              t('python_preview.commands.destroy', { command: '@projectops server destroy' }),
+              t('python_preview.commands.status', { command: '@projectops server status' }),
               '',
               '<details>',
-              '<summary>🔧 고급 명령어 (다른 Issue/PR에서 제어)</summary>',
+              t('python_preview.commands.advanced_summary'),
               '',
               '```',
               `@projectops server build ${branchName}`,
@@ -1141,7 +1224,7 @@ jobs:
               '</details>',
               '',
               '---',
-              '*🤖 이 댓글은 Issue Preview 시스템에 의해 자동 생성되었습니다.*'
+              t('python_preview.footer.generated', { kind: 'Issue' })
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -1151,13 +1234,14 @@ jobs:
               body: body
             });
 
-      - name: 빌드/배포 실패 시 에러 코멘트
+      - name: Error comment on build/deploy failure
         if: failure() && steps.check_branch.outputs.exists == 'true'
         uses: actions/github-script@v7
         env:
           BRANCH_NAME: ${{ needs.get-branch-from-issue.outputs.branch_name }}
         with:
           script: |
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = ${{ steps.progress.outputs.comment_id || 0 }};
             const projectName = '${{ env.PROJECT_NAME }}';
             const issueNumber = ${{ needs.get-branch-from-issue.outputs.issue_number }};
@@ -1170,41 +1254,41 @@ jobs:
             let dockerTime = '-';
 
             if (!commentId) {
-              dockerStatus = '⚠️ 초기화 실패';
+              dockerStatus = t('python_preview.status.init_failed');
               deployStatus = '-';
             } else if (!dockerDuration || dockerDuration === '') {
-              dockerStatus = '❌ 실패';
-              deployStatus = '⏸️ 대기';
+              dockerStatus = t('python_preview.status.failed');
+              deployStatus = t('python_preview.status.waiting');
             } else {
-              dockerStatus = '✅ 완료';
-              deployStatus = '❌ 실패';
+              dockerStatus = t('python_preview.status.done');
+              deployStatus = t('python_preview.status.failed');
               dockerTime = dockerDuration;
             }
 
             const body = [
-              '## ❌ Issue Preview 배포 실패!',
+              t('python_preview.heading.deploy_failed', { kind: 'Issue' }),
               '',
-              `**브랜치**: \`${branchName}\``,
+              t('python_preview.branch_line', { branch: branchName }),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('python_preview.table.steps_header'),
               '|------|------|----------|',
-              `| 🐳 Docker 이미지 빌드 & Push | ${dockerStatus} | ${dockerTime} |`,
-              `| 🚀 서버 배포 & Health Check | ${deployStatus} | - |`,
+              t('python_preview.row.docker_status', { status: dockerStatus, duration: dockerTime }),
+              t('python_preview.row.deploy_status', { status: deployStatus }),
               '',
-              `**[📋 빌드/배포 로그 확인](${runUrl})**`,
+              t('python_preview.failure.log_link', { url: runUrl }),
               '',
-              '### 🔍 가능한 원인',
-              '- Docker 이미지 빌드 실패 (Python 의존성 문제)',
-              '- 컨테이너 시작 실패 (FastAPI/Uvicorn 기동 오류)',
-              '- Health Check 타임아웃 (120초 내 기동 완료 안됨)',
-              '- 환경변수 누락 (.env 파일 설정 확인)',
+              t('python_preview.failure.causes_heading'),
+              t('python_preview.failure.cause_build'),
+              t('python_preview.failure.cause_start'),
+              t('python_preview.failure.cause_timeout'),
+              t('python_preview.failure.cause_env'),
               '',
-              '### 💡 다음 단계',
-              '1. 위 링크에서 빌드/배포 로그를 확인하세요',
-              '2. 문제를 수정한 후 다시 시도하세요: `@projectops server build`',
+              t('python_preview.failure.next_heading'),
+              t('python_preview.failure.next_check_log'),
+              t('python_preview.failure.next_retry', { command: '@projectops server build' }),
               '',
               '---',
-              '*🤖 이 댓글은 Issue Preview 시스템에 의해 자동 생성되었습니다.*'
+              t('python_preview.footer.generated', { kind: 'Issue' })
             ].join('\n');
 
             if (commentId) {
@@ -1227,6 +1311,7 @@ jobs:
   # Job 3: Preview 삭제 (PR/Issue 닫힘 또는 destroy 명령)
   # -----------------------------------------------------------------
   destroy-preview:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: Preview 삭제
     # needs 의존성 제거: PR/Issue 닫힘 이벤트에서도 독립적으로 실행되도록 함
     if: |
@@ -1235,7 +1320,30 @@ jobs:
       (github.event_name == 'issue_comment' && !contains(github.event.comment.body, '<!-- SUH-ISSUE-HELPER -->') && contains(github.event.comment.body, '@projectops') && contains(github.event.comment.body, 'server destroy'))
     runs-on: ubuntu-latest
     steps:
-      - name: PR/Issue 번호 가져오기
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js python_preview. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
+      - name: Get PR/issue number
         id: pr_number
         run: |
           if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
@@ -1252,7 +1360,7 @@ jobs:
       # 닫힘 이벤트마다 무조건 SSH·댓글을 돌리면 프리뷰를 쓴 적 없는 레포에서
       # secret 없음 실패와 댓글 폭주(secondary rate limit)가 난다 (#808).
       # 배포 완료 댓글이 남아 있을 때만 지우고, secret 이 없으면 조용히 건너뛴다.
-      - name: 삭제 대상 확인
+      - name: Check what to delete
         id: target
         uses: actions/github-script@v7
         env:
@@ -1264,7 +1372,7 @@ jobs:
           script: |
             const number = Number(process.env.NUMBER);
             if (!process.env.SERVER_HOST) {
-              core.notice('SERVER_HOST secret 이 없어 Preview 삭제를 건너뜁니다.');
+              core.notice('No SERVER_HOST secret, skipping Preview deletion.');
               core.setOutput('should_destroy', 'false');
               return;
             }
@@ -1281,18 +1389,21 @@ jobs:
               per_page: 100,
             });
             // 마지막 배포 완료 댓글이 마지막 삭제 완료 댓글보다 뒤에 있어야 살아 있는 Preview 다.
+            // 두 언어 문구를 모두 찾는다 (이관 전 한국어 댓글, 영문 레포 댓글). 완료·삭제 제목 키와 짝 (#769)
+            const deployMarkers = ['Preview 배포 완료', 'Preview deployed'];
+            const destroyMarkers = ['Preview 환경 삭제 완료', 'Preview environment deleted'];
             let lastDeploy = -1, lastDestroy = -1;
             comments.forEach((c, i) => {
               const body = c.body || '';
               if (!body.includes(`\`${container}\``)) return;
-              if (body.includes('Preview 배포 완료')) lastDeploy = i;
-              if (body.includes('Preview 환경 삭제 완료')) lastDestroy = i;
+              if (deployMarkers.some((marker) => body.includes(marker))) lastDeploy = i;
+              if (destroyMarkers.some((marker) => body.includes(marker))) lastDestroy = i;
             });
             const alive = lastDeploy > lastDestroy;
-            if (!alive) core.notice(`#${number} 에 배포된 Preview 가 없어 삭제를 건너뜁니다.`);
+            if (!alive) core.notice(`No Preview deployed for #${number}, skipping deletion.`);
             core.setOutput('should_destroy', alive ? 'true' : 'false');
 
-      - name: 컨테이너 & 이미지 삭제
+      - name: Delete container & image
         if: steps.target.outputs.should_destroy == 'true'
         uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         env:
@@ -1317,7 +1428,7 @@ jobs:
             else
               SUDO() { echo "$PW" | sudo -S "$@"; }
             fi
-            echo "🔐 SSH 인증 방식: ${SSH_AUTH_METHOD}"
+            echo "🔐 SSH auth method: ${SSH_AUTH_METHOD}"
 
             PR_NUMBER=${{ steps.pr_number.outputs.number }}
             PROJECT_NAME="${{ env.PROJECT_NAME }}"
@@ -1325,43 +1436,44 @@ jobs:
             IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}:pr-${PR_NUMBER}"
 
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "🗑️ PR Preview 삭제"
+            echo "🗑️ Deleting PR Preview"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "📦 프로젝트: ${PROJECT_NAME}"
-            echo "🔢 PR 번호: #${PR_NUMBER}"
+            echo "📦 Project: ${PROJECT_NAME}"
+            echo "🔢 PR number: #${PR_NUMBER}"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
             # 컨테이너 삭제
-            echo "🐳 컨테이너 삭제 중..."
+            echo "🐳 Deleting container..."
             SUDO docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
 
             # 이미지 삭제
-            echo "🖼️ 이미지 삭제 중..."
+            echo "🖼️ Deleting image..."
             SUDO docker rmi "${IMAGE}" 2>/dev/null || true
 
-            echo "✅ 삭제 완료!"
+            echo "✅ Deleted!"
 
-      - name: 삭제 완료 코멘트
+      - name: Deletion complete comment
         # 실제로 지웠을 때만 남긴다 — 지운 게 없는데 '삭제 완료'를 다는 것이 댓글 폭주의 원인이었다 (#808)
         if: steps.target.outputs.should_destroy == 'true'
         uses: actions/github-script@v7
         with:
           script: |
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const number = ${{ steps.pr_number.outputs.number }};
             const projectName = '${{ env.PROJECT_NAME }}';
 
             const body = [
-              '## 🗑️ Preview 환경 삭제 완료!',
+              t('python_preview.destroyed.heading'),
               '',
-              '| 항목 | 값 |',
+              t('python_preview.table.item_header'),
               '|------|-----|',
-              `| **컨테이너** | \`${projectName}-pr-${number}\` |`,
-              '| **상태** | 삭제됨 |',
+              t('python_preview.row.container', { container: `${projectName}-pr-${number}` }),
+              t('python_preview.row.state_deleted'),
               '',
-              '다시 배포하려면: `@projectops server build`',
+              t('python_preview.destroyed.redeploy_hint', { command: '@projectops server build' }),
               '',
               '---',
-              '*🤖 이 댓글은 PR/Issue Preview 시스템에 의해 자동 생성되었습니다.*'
+              t('python_preview.footer.generated', { kind: 'PR/Issue' })
             ].join('\n');
 
             await github.rest.issues.createComment({
@@ -1375,12 +1487,36 @@ jobs:
   # Job 4: 상태 확인 (PR/Issue 모두 지원)
   # -----------------------------------------------------------------
   check-status:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: Preview 상태 확인
     needs: check-command
     if: needs.check-command.outputs.is_valid == 'true' && needs.check-command.outputs.command == 'status'
     runs-on: ubuntu-latest
     steps:
-      - name: 컨테이너 상태 확인
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js python_preview. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
+      - name: Check container status
         id: status
         uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         with:
@@ -1398,19 +1534,19 @@ jobs:
             CONTAINER_NAME="${PROJECT_NAME}-pr-${NUMBER}"
 
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "🔍 Preview 상태 확인"
+            echo "🔍 Checking Preview status"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
             if docker ps --filter "name=${CONTAINER_NAME}" --format "{{.Names}}" | grep -q "${CONTAINER_NAME}"; then
               echo "STATUS=running"
-              echo "✅ 컨테이너 실행 중"
+              echo "✅ Container is running"
               docker ps --filter "name=${CONTAINER_NAME}" --format "table {{.Names}}\t{{.Status}}\t{{.RunningFor}}"
             else
               echo "STATUS=not_found"
-              echo "❌ 컨테이너 없음"
+              echo "❌ Container not found"
             fi
 
-      - name: 상태 코멘트 (실행 중)
+      - name: Status comment (running)
         uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         id: check_running
         continue-on-error: true
@@ -1429,10 +1565,11 @@ jobs:
             CONTAINER_NAME="${PROJECT_NAME}-pr-${NUMBER}"
             docker ps --filter "name=${CONTAINER_NAME}" --format "{{.Names}}" | grep -q "${CONTAINER_NAME}"
 
-      - name: 상태 코멘트 작성
+      - name: Post status comment
         uses: actions/github-script@v7
         with:
           script: |
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const number = context.issue.number;
             const projectName = '${{ env.PROJECT_NAME }}';
             const domainSuffix = '${{ env.PREVIEW_DOMAIN_SUFFIX }}';
@@ -1446,36 +1583,36 @@ jobs:
             let body;
             if (isRunning) {
               body = [
-                '## ✅ Preview 환경 실행 중',
+                t('python_preview.status.running_heading'),
                 '',
-                '| 항목 | 값 |',
+                t('python_preview.table.item_header'),
                 '|------|-----|',
                 `| **Preview URL** | ${previewUrl} |`,
-                `| **컨테이너** | \`${projectName}-pr-${number}\` |`,
-                '| **상태** | 🟢 Running |',
+                t('python_preview.row.container', { container: `${projectName}-pr-${number}` }),
+                t('python_preview.row.state_running'),
                 '',
-                '### 📋 명령어',
-                '| 명령어 | 설명 |',
+                t('python_preview.commands.heading'),
+                t('python_preview.commands.header'),
                 '|--------|------|',
-                '| `@projectops server build` | 최신 커밋으로 재배포 |',
-                '| `@projectops server destroy` | Preview 환경 삭제 |',
+                t('python_preview.commands.redeploy', { command: '@projectops server build' }),
+                t('python_preview.commands.destroy', { command: '@projectops server destroy' }),
                 '',
                 '---',
-                `*🤖 이 댓글은 ${contextType} Preview 시스템에 의해 자동 생성되었습니다.*`
+                t('python_preview.footer.generated', { kind: contextType })
               ].join('\n');
             } else {
               body = [
-                '## ❌ Preview 환경 없음',
+                t('python_preview.status.missing_heading'),
                 '',
-                '| 항목 | 값 |',
+                t('python_preview.table.item_header'),
                 '|------|-----|',
-                `| **컨테이너** | \`${projectName}-pr-${number}\` |`,
-                '| **상태** | 🔴 Not Found |',
+                t('python_preview.row.container', { container: `${projectName}-pr-${number}` }),
+                t('python_preview.row.state_not_found'),
                 '',
-                '배포하려면: `@projectops server build`',
+                t('python_preview.status.deploy_hint', { command: '@projectops server build' }),
                 '',
                 '---',
-                `*🤖 이 댓글은 ${contextType} Preview 시스템에 의해 자동 생성되었습니다.*`
+                t('python_preview.footer.generated', { kind: contextType })
               ].join('\n');
             }
 
@@ -1490,6 +1627,7 @@ jobs:
   # Job 5: 커스텀 브랜치 빌드 & 배포
   # -----------------------------------------------------------------
   build-preview-custom-branch:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: Preview 빌드 & 배포 (Custom Branch)
     needs: check-command
     if: |
@@ -1498,17 +1636,41 @@ jobs:
       needs.check-command.outputs.is_custom_branch == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: 브랜치 존재 확인 및 정보 추출
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js python_preview. comment. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
+      - name: Check branch and extract info
         id: branch_info
         uses: actions/github-script@v7
         env:
           BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const branchName = process.env.BRANCH_NAME;
             const issueNumber = context.issue.number;
 
-            console.log(`🔍 브랜치 확인: ${branchName}`);
+            console.log(`🔍 Checking branch: ${branchName}`);
 
             // 브랜치 존재 여부 확인
             try {
@@ -1517,26 +1679,26 @@ jobs:
                 repo: context.repo.repo,
                 branch: branchName
               });
-              console.log(`✅ 브랜치 존재: ${branchName}`);
+              console.log(`✅ Branch exists: ${branchName}`);
             } catch (error) {
               if (error.status === 404) {
-                console.log(`❌ 브랜치 없음: ${branchName}`);
+                console.log(`❌ Branch not found: ${branchName}`);
 
                 // 에러 댓글 작성
                 const body = [
-                  '## ❌ 브랜치를 찾을 수 없습니다',
+                  t('python_preview.branch_missing.heading'),
                   '',
-                  '| 항목 | 값 |',
+                  t('python_preview.table.item_header'),
                   '|------|-----|',
-                  `| **브랜치** | \`${branchName}\` |`,
+                  t('python_preview.row.branch', { branch: branchName }),
                   '',
-                  '### 💡 확인 사항',
-                  '1. 브랜치명이 정확한지 확인하세요',
-                  '2. 브랜치가 push되었는지 확인하세요',
-                  '3. 브랜치가 삭제되지 않았는지 확인하세요',
+                  t('python_preview.checks.heading'),
+                  t('python_preview.branch_missing.check_name', { n: 1 }),
+                  t('python_preview.branch_missing.check_pushed', { n: 2 }),
+                  t('python_preview.branch_missing.check_deleted', { n: 3 }),
                   '',
                   '---',
-                  '*🤖 이 댓글은 Preview 시스템에 의해 자동 생성되었습니다.*'
+                  t('python_preview.footer.generated_plain')
                 ].join('\n');
 
                 await github.rest.issues.createComment({
@@ -1546,7 +1708,7 @@ jobs:
                   body: body
                 });
 
-                core.setFailed('브랜치를 찾을 수 없습니다');
+                core.setFailed('Branch not found');
                 return;
               }
               throw error;
@@ -1559,7 +1721,7 @@ jobs:
               // 번호 추출 성공
               core.setOutput('container_number', issueMatch[1]);
               core.setOutput('use_hash', 'false');
-              console.log(`✅ Issue 번호 추출: #${issueMatch[1]}`);
+              console.log(`✅ Issue number extracted: #${issueMatch[1]}`);
             } else {
               // 해시 생성
               let hash = 0;
@@ -1571,13 +1733,13 @@ jobs:
               const hashStr = Math.abs(hash).toString(16).slice(-6).padStart(6, '0');
               core.setOutput('container_suffix', `custom-${hashStr}`);
               core.setOutput('use_hash', 'true');
-              console.log(`✅ 해시 생성: custom-${hashStr}`);
+              console.log(`✅ Hash generated: custom-${hashStr}`);
             }
 
             core.setOutput('branch_name', branchName);
             core.setOutput('branch_exists', 'true');
 
-      - name: 브랜치의 최신 커밋 SHA 가져오기
+      - name: Get the branch's latest commit SHA
         if: steps.branch_info.outputs.branch_exists == 'true'
         id: get_sha
         env:
@@ -1587,7 +1749,7 @@ jobs:
           echo "sha=$SHA" >> $GITHUB_OUTPUT
 
       # 진행 상황 댓글 생성
-      - name: 진행 상황 댓글 생성
+      - name: Create progress comment
         if: steps.branch_info.outputs.branch_exists == 'true'
         id: progress
         uses: actions/github-script@v7
@@ -1595,25 +1757,26 @@ jobs:
           BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const issueNumber = context.issue.number;
             const branchName = process.env.BRANCH_NAME;
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const startTime = Date.now();
 
             const body = [
-              '## 🚀 Custom Branch Preview 빌드 중...',
+              t('python_preview.heading.building', { kind: 'Custom Branch' }),
               '',
-              `**브랜치**: \`${branchName}\``,
+              t('python_preview.branch_line', { branch: branchName }),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('python_preview.table.steps_header'),
               '|------|------|----------|',
-              '| 🐳 Docker 이미지 빌드 & Push | ⏳ 진행 중... | - |',
-              '| 🚀 서버 배포 & Health Check | ⏸️ 대기 | - |',
+              t('python_preview.row.docker_in_progress'),
+              t('python_preview.row.deploy_waiting'),
               '',
-              `**[📋 실시간 로그 보기](${runUrl})**`,
+              t('python_preview.live_log', { url: runUrl }),
               '',
               '---',
-              '*🤖 이 댓글은 자동으로 업데이트됩니다.*'
+              t('python_preview.footer.auto_update')
             ].join('\n');
 
             const { data: comment } = await github.rest.issues.createComment({
@@ -1627,32 +1790,32 @@ jobs:
             core.setOutput('start_time', startTime);
             core.setOutput('docker_start', startTime);
 
-      - name: 코드 체크아웃
+      - name: Check out code
         if: steps.branch_info.outputs.branch_exists == 'true'
         uses: actions/checkout@v5
         with:
           ref: ${{ needs.check-command.outputs.custom_branch }}
 
       # 환경변수 파일 생성
-      - name: "[필수] .env 파일 생성"
+      - name: "[Required] Create .env file"
         if: steps.branch_info.outputs.branch_exists == 'true'
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE }}
         run: |
           printf '%s\n' "$ENV_CONTENT" > .env
 
-      - name: Docker 로그인
+      - name: Docker login
         if: steps.branch_info.outputs.branch_exists == 'true'
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Docker Buildx 설정
+      - name: Set up Docker Buildx
         if: steps.branch_info.outputs.branch_exists == 'true'
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - name: 컨테이너 이름 결정
+      - name: Decide container name
         if: steps.branch_info.outputs.branch_exists == 'true'
         id: container
         run: |
@@ -1664,7 +1827,7 @@ jobs:
           echo "suffix=$SUFFIX" >> $GITHUB_OUTPUT
           echo "name=${{ env.PROJECT_NAME }}-${SUFFIX}" >> $GITHUB_OUTPUT
 
-      - name: Docker 이미지 빌드 & Push
+      - name: Build & push Docker image
         if: steps.branch_info.outputs.branch_exists == 'true'
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
@@ -1675,7 +1838,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: 진행 상황 - Docker 완료
+      - name: Progress - Docker done
         if: steps.branch_info.outputs.branch_exists == 'true'
         id: docker_progress
         uses: actions/github-script@v7
@@ -1683,6 +1846,7 @@ jobs:
           BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
+            const { t, elapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = ${{ steps.progress.outputs.comment_id }};
             const branchName = process.env.BRANCH_NAME;
             const dockerStart = ${{ steps.progress.outputs.docker_start }};
@@ -1690,23 +1854,23 @@ jobs:
             const dockerElapsed = now - dockerStart;
             const minutes = Math.floor(dockerElapsed / 60000);
             const seconds = Math.floor((dockerElapsed % 60000) / 1000);
-            const dockerDuration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            const dockerDuration = elapsed(minutes, seconds);
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
             const body = [
-              '## 🚀 Custom Branch Preview 빌드 중...',
+              t('python_preview.heading.building', { kind: 'Custom Branch' }),
               '',
-              `**브랜치**: \`${branchName}\``,
+              t('python_preview.branch_line', { branch: branchName }),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('python_preview.table.steps_header'),
               '|------|------|----------|',
-              `| 🐳 Docker 이미지 빌드 & Push | ✅ 완료 | ${dockerDuration} |`,
-              '| 🚀 서버 배포 & Health Check | ⏳ 진행 중... | - |',
+              t('python_preview.row.docker_done', { duration: dockerDuration }),
+              t('python_preview.row.deploy_in_progress'),
               '',
-              `**[📋 실시간 로그 보기](${runUrl})**`,
+              t('python_preview.live_log', { url: runUrl }),
               '',
               '---',
-              '*🤖 이 댓글은 자동으로 업데이트됩니다.*'
+              t('python_preview.footer.auto_update')
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -1719,7 +1883,7 @@ jobs:
             core.setOutput('docker_duration', dockerDuration);
             core.setOutput('deploy_start', now);
 
-      - name: 서버에 배포
+      - name: Deploy to server
         if: steps.branch_info.outputs.branch_exists == 'true'
         uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         env:
@@ -1746,7 +1910,7 @@ jobs:
             else
               SUDO() { echo "$PW" | sudo -S "$@"; }
             fi
-            echo "🔐 SSH 인증 방식: ${SSH_AUTH_METHOD}"
+            echo "🔐 SSH auth method: ${SSH_AUTH_METHOD}"
 
             # 변수 설정
             PROJECT_NAME="${{ env.PROJECT_NAME }}"
@@ -1758,19 +1922,19 @@ jobs:
             TRAEFIK_NETWORK="${{ env.TRAEFIK_NETWORK }}"
 
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "🚀 Custom Branch Preview 배포 시작"
+            echo "🚀 Starting Custom Branch Preview deployment"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "📦 프로젝트: ${PROJECT_NAME}"
-            echo "📛 컨테이너: ${CONTAINER_NAME}"
-            echo "🌐 도메인: ${DOMAIN}"
+            echo "📦 Project: ${PROJECT_NAME}"
+            echo "📛 Container: ${CONTAINER_NAME}"
+            echo "🌐 Domain: ${DOMAIN}"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
             # 이미지 Pull
-            echo "📥 Docker 이미지 Pull 중..."
+            echo "📥 Pulling Docker image..."
             SUDO docker pull "${IMAGE}"
 
             # 기존 컨테이너 삭제
-            echo "🗑️ 기존 컨테이너 정리 중..."
+            echo "🗑️ Removing the existing container..."
             SUDO docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
 
             # 볼륨 마운트 옵션 구성
@@ -1780,7 +1944,7 @@ jobs:
             fi
 
             # 새 컨테이너 실행
-            echo "🐳 새 컨테이너 실행 중..."
+            echo "🐳 Starting the new container..."
             SUDO docker run -d \
               --name "${CONTAINER_NAME}" \
               --network "${TRAEFIK_NETWORK}" \
@@ -1795,7 +1959,7 @@ jobs:
 
             # Health Check
             echo ""
-            echo "⏳ Health Check 시작 (최대 120초 대기)..."
+            echo "⏳ Starting health check (waiting up to 120s)..."
             HEALTH_PATH="${{ env.HEALTH_CHECK_PATH }}"
             LOG_PATTERN="${{ env.HEALTH_CHECK_LOG_PATTERN }}"
             MAX_RETRIES=24
@@ -1810,9 +1974,9 @@ jobs:
               STATUS=$(SUDO docker inspect --format='{{.State.Status}}' "${CONTAINER_NAME}" 2>/dev/null || echo "not_found")
 
               if [ "$STATUS" = "exited" ]; then
-                echo "❌ 컨테이너 비정상 종료!"
+                echo "❌ Container exited unexpectedly!"
                 echo ""
-                echo "📋 컨테이너 로그 (최근 100줄):"
+                echo "📋 Container logs (last 100 lines):"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 SUDO docker logs --tail 100 "${CONTAINER_NAME}"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -1824,7 +1988,7 @@ jobs:
                   HEALTH=$(SUDO docker exec "${CONTAINER_NAME}" curl -sf "http://localhost:${INTERNAL_PORT}${HEALTH_PATH}" 2>/dev/null || echo "")
 
                   if [ -n "$HEALTH" ]; then
-                    echo "✅ 정상 기동 확인! (HTTP 응답: ${HEALTH_PATH})"
+                    echo "✅ Startup confirmed! (HTTP response: ${HEALTH_PATH})"
                     HEALTH_CHECK_PASSED=true
                     HEALTH_CHECK_METHOD="HTTP"
                     break
@@ -1835,7 +1999,7 @@ jobs:
                   STARTED=$(SUDO docker logs --tail 50 "${CONTAINER_NAME}" 2>&1 | grep -E "$LOG_PATTERN" || echo "")
 
                   if [ -n "$STARTED" ]; then
-                    echo "✅ 정상 기동 확인! (로그 패턴)"
+                    echo "✅ Startup confirmed! (log pattern)"
                     echo "   $STARTED"
                     HEALTH_CHECK_PASSED=true
                     HEALTH_CHECK_METHOD="Log"
@@ -1844,14 +2008,14 @@ jobs:
                 fi
               fi
 
-              echo "⏳ 대기 중... ($RETRY_COUNT/$MAX_RETRIES) - 상태: $STATUS"
+              echo "⏳ Waiting... ($RETRY_COUNT/$MAX_RETRIES) - status: $STATUS"
             done
 
             if [ "$HEALTH_CHECK_PASSED" = "false" ]; then
               echo ""
-              echo "❌ Health Check 타임아웃 (120초)"
+              echo "❌ Health check timed out (120s)"
               echo ""
-              echo "📋 컨테이너 로그 (최근 100줄):"
+              echo "📋 Container logs (last 100 lines):"
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
               SUDO docker logs --tail 100 "${CONTAINER_NAME}"
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -1859,16 +2023,17 @@ jobs:
             fi
 
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "✅ 배포 및 Health Check 완료! (방식: ${HEALTH_CHECK_METHOD})"
+            echo "✅ Deployment and health check complete! (method: ${HEALTH_CHECK_METHOD})"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-      - name: 배포 완료 코멘트
+      - name: Deployment complete comment
         if: steps.branch_info.outputs.branch_exists == 'true'
         uses: actions/github-script@v7
         env:
           BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
+            const { t, elapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = ${{ steps.progress.outputs.comment_id }};
             const branchName = process.env.BRANCH_NAME;
             const dockerDuration = '${{ steps.docker_progress.outputs.docker_duration }}';
@@ -1877,7 +2042,7 @@ jobs:
             const deployElapsed = now - deployStart;
             const minutes = Math.floor(deployElapsed / 60000);
             const seconds = Math.floor((deployElapsed % 60000) / 1000);
-            const deployDuration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            const deployDuration = elapsed(minutes, seconds);
 
             const projectName = '${{ env.PROJECT_NAME }}';
             const domainSuffix = '${{ env.PREVIEW_DOMAIN_SUFFIX }}';
@@ -1895,34 +2060,34 @@ jobs:
             if (apiDocsPath) {
               envRows.push(`| **API Docs** | ${previewUrl}${apiDocsPath} |`);
             }
-            envRows.push(`| **컨테이너** | \`${containerName}\` |`);
-            envRows.push(`| **브랜치** | \`${branchName}\` |`);
-            envRows.push(`| **커밋** | \`${sha}\` |`);
+            envRows.push(t('python_preview.row.container', { container: containerName }));
+            envRows.push(t('python_preview.row.branch', { branch: branchName }));
+            envRows.push(t('python_preview.row.commit', { sha }));
 
             const body = [
-              '## ✅ Custom Branch Preview 배포 완료!',
+              t('python_preview.heading.deployed', { kind: 'Custom Branch' }),
               '',
-              `**브랜치**: \`${branchName}\``,
+              t('python_preview.branch_line', { branch: branchName }),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('python_preview.table.steps_header'),
               '|------|------|----------|',
-              `| 🐳 Docker 이미지 빌드 & Push | ✅ 완료 | ${dockerDuration} |`,
-              `| 🚀 서버 배포 & Health Check | ✅ 완료 | ${deployDuration} |`,
+              t('python_preview.row.docker_done', { duration: dockerDuration }),
+              t('python_preview.row.deploy_done', { duration: deployDuration }),
               '',
-              '### 🌐 Preview 환경',
-              '| 항목 | 값 |',
+              t('python_preview.env_heading'),
+              t('python_preview.table.item_header'),
               '|------|-----|',
               ...envRows,
               '',
-              '### 📋 명령어',
-              '| 명령어 | 설명 |',
+              t('python_preview.commands.heading'),
+              t('python_preview.commands.header'),
               '|--------|------|',
-              '| `@projectops server build` | 최신 커밋으로 재배포 |',
-              '| `@projectops server destroy` | Preview 환경 삭제 |',
-              '| `@projectops server status` | 현재 상태 확인 |',
+              t('python_preview.commands.redeploy', { command: '@projectops server build' }),
+              t('python_preview.commands.destroy', { command: '@projectops server destroy' }),
+              t('python_preview.commands.status', { command: '@projectops server status' }),
               '',
               '<details>',
-              '<summary>🔧 고급 명령어 (다른 Issue/PR에서 제어)</summary>',
+              t('python_preview.commands.advanced_summary'),
               '',
               '```',
               `@projectops server build ${branchName}`,
@@ -1932,7 +2097,7 @@ jobs:
               '</details>',
               '',
               '---',
-              '*🤖 이 댓글은 Custom Branch Preview 시스템에 의해 자동 생성되었습니다.*'
+              t('python_preview.footer.generated', { kind: 'Custom Branch' })
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -1942,13 +2107,14 @@ jobs:
               body: body
             });
 
-      - name: 빌드/배포 실패 시 에러 코멘트
+      - name: Error comment on build/deploy failure
         if: failure() && steps.branch_info.outputs.branch_exists == 'true'
         uses: actions/github-script@v7
         env:
           BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = ${{ steps.progress.outputs.comment_id || 0 }};
             const branchName = process.env.BRANCH_NAME;
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
@@ -1959,41 +2125,41 @@ jobs:
             let dockerTime = '-';
 
             if (!commentId) {
-              dockerStatus = '⚠️ 초기화 실패';
+              dockerStatus = t('python_preview.status.init_failed');
               deployStatus = '-';
             } else if (!dockerDuration || dockerDuration === '') {
-              dockerStatus = '❌ 실패';
-              deployStatus = '⏸️ 대기';
+              dockerStatus = t('python_preview.status.failed');
+              deployStatus = t('python_preview.status.waiting');
             } else {
-              dockerStatus = '✅ 완료';
-              deployStatus = '❌ 실패';
+              dockerStatus = t('python_preview.status.done');
+              deployStatus = t('python_preview.status.failed');
               dockerTime = dockerDuration;
             }
 
             const body = [
-              '## ❌ Custom Branch Preview 배포 실패!',
+              t('python_preview.heading.deploy_failed', { kind: 'Custom Branch' }),
               '',
-              `**브랜치**: \`${branchName}\``,
+              t('python_preview.branch_line', { branch: branchName }),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('python_preview.table.steps_header'),
               '|------|------|----------|',
-              `| 🐳 Docker 이미지 빌드 & Push | ${dockerStatus} | ${dockerTime} |`,
-              `| 🚀 서버 배포 & Health Check | ${deployStatus} | - |`,
+              t('python_preview.row.docker_status', { status: dockerStatus, duration: dockerTime }),
+              t('python_preview.row.deploy_status', { status: deployStatus }),
               '',
-              `**[📋 빌드/배포 로그 확인](${runUrl})**`,
+              t('python_preview.failure.log_link', { url: runUrl }),
               '',
-              '### 🔍 가능한 원인',
-              '- Docker 이미지 빌드 실패 (Python 의존성 문제)',
-              '- 컨테이너 시작 실패 (FastAPI/Uvicorn 기동 오류)',
-              '- Health Check 타임아웃 (120초 내 기동 완료 안됨)',
-              '- 환경변수 누락 (.env 파일 설정 확인)',
+              t('python_preview.failure.causes_heading'),
+              t('python_preview.failure.cause_build'),
+              t('python_preview.failure.cause_start'),
+              t('python_preview.failure.cause_timeout'),
+              t('python_preview.failure.cause_env'),
               '',
-              '### 💡 다음 단계',
-              '1. 위 링크에서 빌드/배포 로그를 확인하세요',
-              `2. 문제를 수정한 후 다시 시도하세요: \`@projectops server build ${branchName}\``,
+              t('python_preview.failure.next_heading'),
+              t('python_preview.failure.next_check_log'),
+              t('python_preview.failure.next_retry', { command: `@projectops server build ${branchName}` }),
               '',
               '---',
-              '*🤖 이 댓글은 Custom Branch Preview 시스템에 의해 자동 생성되었습니다.*'
+              t('python_preview.footer.generated', { kind: 'Custom Branch' })
             ].join('\n');
 
             if (commentId) {
@@ -2016,6 +2182,7 @@ jobs:
   # Job 6: 커스텀 브랜치 Preview 삭제
   # -----------------------------------------------------------------
   destroy-preview-custom-branch:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: Preview 삭제 (Custom Branch)
     needs: check-command
     if: |
@@ -2024,7 +2191,30 @@ jobs:
       needs.check-command.outputs.is_custom_branch == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: 브랜치명에서 컨테이너 정보 추출
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js python_preview. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
+      - name: Extract container info from branch name
         id: container_info
         uses: actions/github-script@v7
         env:
@@ -2040,7 +2230,7 @@ jobs:
             let containerName;
             if (issueMatch) {
               containerName = `${projectName}-pr-${issueMatch[1]}`;
-              console.log(`✅ Issue 번호 추출: #${issueMatch[1]}`);
+              console.log(`✅ Issue number extracted: #${issueMatch[1]}`);
             } else {
               // 해시 생성
               let hash = 0;
@@ -2051,13 +2241,13 @@ jobs:
               }
               const hashStr = Math.abs(hash).toString(16).slice(-6).padStart(6, '0');
               containerName = `${projectName}-custom-${hashStr}`;
-              console.log(`✅ 해시 생성: custom-${hashStr}`);
+              console.log(`✅ Hash generated: custom-${hashStr}`);
             }
 
             core.setOutput('container_name', containerName);
             core.setOutput('branch_name', branchName);
 
-      - name: 컨테이너 & 이미지 삭제
+      - name: Delete container & image
         uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         env:
           SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
@@ -2081,7 +2271,7 @@ jobs:
             else
               SUDO() { echo "$PW" | sudo -S "$@"; }
             fi
-            echo "🔐 SSH 인증 방식: ${SSH_AUTH_METHOD}"
+            echo "🔐 SSH auth method: ${SSH_AUTH_METHOD}"
 
             CONTAINER_NAME="${{ steps.container_info.outputs.container_name }}"
             PROJECT_NAME="${{ env.PROJECT_NAME }}"
@@ -2091,44 +2281,45 @@ jobs:
             IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}:${SUFFIX}"
 
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "🗑️ Custom Branch Preview 삭제"
+            echo "🗑️ Deleting Custom Branch Preview"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "📦 프로젝트: ${PROJECT_NAME}"
-            echo "📛 컨테이너: ${CONTAINER_NAME}"
+            echo "📦 Project: ${PROJECT_NAME}"
+            echo "📛 Container: ${CONTAINER_NAME}"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
             # 컨테이너 삭제
-            echo "🐳 컨테이너 삭제 중..."
+            echo "🐳 Deleting container..."
             SUDO docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
 
             # 이미지 삭제
-            echo "🖼️ 이미지 삭제 중..."
+            echo "🖼️ Deleting image..."
             SUDO docker rmi "${IMAGE}" 2>/dev/null || true
 
-            echo "✅ 삭제 완료!"
+            echo "✅ Deleted!"
 
-      - name: 삭제 완료 코멘트
+      - name: Deletion complete comment
         uses: actions/github-script@v7
         env:
           BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const branchName = process.env.BRANCH_NAME;
             const containerName = '${{ steps.container_info.outputs.container_name }}';
 
             const body = [
-              '## 🗑️ Custom Branch Preview 환경 삭제 완료!',
+              t('python_preview.destroyed.heading_custom'),
               '',
-              '| 항목 | 값 |',
+              t('python_preview.table.item_header'),
               '|------|-----|',
-              `| **브랜치** | \`${branchName}\` |`,
-              `| **컨테이너** | \`${containerName}\` |`,
-              '| **상태** | 삭제됨 |',
+              t('python_preview.row.branch', { branch: branchName }),
+              t('python_preview.row.container', { container: containerName }),
+              t('python_preview.row.state_deleted'),
               '',
-              `다시 배포하려면: \`@projectops server build ${branchName}\``,
+              t('python_preview.destroyed.redeploy_hint', { command: `@projectops server build ${branchName}` }),
               '',
               '---',
-              '*🤖 이 댓글은 Custom Branch Preview 시스템에 의해 자동 생성되었습니다.*'
+              t('python_preview.footer.generated', { kind: 'Custom Branch' })
             ].join('\n');
 
             await github.rest.issues.createComment({
@@ -2142,6 +2333,7 @@ jobs:
   # Job 7: 커스텀 브랜치 Preview 상태 확인
   # -----------------------------------------------------------------
   check-status-custom-branch:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: Preview 상태 확인 (Custom Branch)
     needs: check-command
     if: |
@@ -2150,7 +2342,30 @@ jobs:
       needs.check-command.outputs.is_custom_branch == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: 브랜치명에서 컨테이너 정보 추출
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js python_preview. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
+      - name: Extract container info from branch name
         id: container_info
         uses: actions/github-script@v7
         env:
@@ -2181,7 +2396,7 @@ jobs:
             core.setOutput('container_name', containerName);
             core.setOutput('branch_name', branchName);
 
-      - name: 컨테이너 상태 확인
+      - name: Check container status
         uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         id: check_running
         continue-on-error: true
@@ -2197,25 +2412,26 @@ jobs:
             CONTAINER_NAME="${{ steps.container_info.outputs.container_name }}"
 
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "🔍 Custom Branch Preview 상태 확인"
+            echo "🔍 Checking Custom Branch Preview status"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
             if docker ps --filter "name=${CONTAINER_NAME}" --format "{{.Names}}" | grep -q "${CONTAINER_NAME}"; then
               echo "STATUS=running"
-              echo "✅ 컨테이너 실행 중"
+              echo "✅ Container is running"
               docker ps --filter "name=${CONTAINER_NAME}" --format "table {{.Names}}\t{{.Status}}\t{{.RunningFor}}"
             else
               echo "STATUS=not_found"
-              echo "❌ 컨테이너 없음"
+              echo "❌ Container not found"
               exit 1
             fi
 
-      - name: 상태 코멘트 작성
+      - name: Post status comment
         uses: actions/github-script@v7
         env:
           BRANCH_NAME: ${{ needs.check-command.outputs.custom_branch }}
         with:
           script: |
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const branchName = process.env.BRANCH_NAME;
             const containerName = '${{ steps.container_info.outputs.container_name }}';
             const projectName = '${{ env.PROJECT_NAME }}';
@@ -2228,38 +2444,38 @@ jobs:
             let body;
             if (isRunning) {
               body = [
-                '## ✅ Custom Branch Preview 환경 실행 중',
+                t('python_preview.status.running_heading_custom'),
                 '',
-                '| 항목 | 값 |',
+                t('python_preview.table.item_header'),
                 '|------|-----|',
-                `| **브랜치** | \`${branchName}\` |`,
+                t('python_preview.row.branch', { branch: branchName }),
                 `| **Preview URL** | ${previewUrl} |`,
-                `| **컨테이너** | \`${containerName}\` |`,
-                '| **상태** | 🟢 Running |',
+                t('python_preview.row.container', { container: containerName }),
+                t('python_preview.row.state_running'),
                 '',
-                '### 📋 명령어',
-                '| 명령어 | 설명 |',
+                t('python_preview.commands.heading'),
+                t('python_preview.commands.header'),
                 '|--------|------|',
-                `| \`@projectops server build ${branchName}\` | 최신 커밋으로 재배포 |`,
-                `| \`@projectops server destroy ${branchName}\` | Preview 환경 삭제 |`,
+                t('python_preview.commands.redeploy', { command: `@projectops server build ${branchName}` }),
+                t('python_preview.commands.destroy', { command: `@projectops server destroy ${branchName}` }),
                 '',
                 '---',
-                '*🤖 이 댓글은 Custom Branch Preview 시스템에 의해 자동 생성되었습니다.*'
+                t('python_preview.footer.generated', { kind: 'Custom Branch' })
               ].join('\n');
             } else {
               body = [
-                '## ❌ Custom Branch Preview 환경 없음',
+                t('python_preview.status.missing_heading_custom'),
                 '',
-                '| 항목 | 값 |',
+                t('python_preview.table.item_header'),
                 '|------|-----|',
-                `| **브랜치** | \`${branchName}\` |`,
-                `| **컨테이너** | \`${containerName}\` |`,
-                '| **상태** | 🔴 Not Found |',
+                t('python_preview.row.branch', { branch: branchName }),
+                t('python_preview.row.container', { container: containerName }),
+                t('python_preview.row.state_not_found'),
                 '',
-                `배포하려면: \`@projectops server build ${branchName}\``,
+                t('python_preview.status.deploy_hint', { command: `@projectops server build ${branchName}` }),
                 '',
                 '---',
-                '*🤖 이 댓글은 Custom Branch Preview 시스템에 의해 자동 생성되었습니다.*'
+                t('python_preview.footer.generated', { kind: 'Custom Branch' })
               ].join('\n');
             }
 

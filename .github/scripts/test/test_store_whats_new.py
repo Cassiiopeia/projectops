@@ -136,11 +136,11 @@ def test_android_release_notes_source(override, changelog, text, source, tmp_pat
     got, log = _android(tmp_path, override, changelog)
     if source == "STORE_WHATS_NEW_OVERRIDE 덮어쓰기":
         assert got == OVERRIDE
-        assert "출처: STORE_WHATS_NEW_OVERRIDE 덮어쓰기" in log
+        assert "Release notes source: STORE_WHATS_NEW_OVERRIDE override" in log
     else:
         # 덮어쓰지 않으면 CHANGELOG 파일을 그대로 둔다 (없으면 뒤 단계가 기본 문구를 만든다)
         assert got == changelog
-        assert "출처: CHANGELOG" in log
+        assert "Release notes source: CHANGELOG" in log
 
 
 def test_android_dispatch_input_wins(tmp_path):

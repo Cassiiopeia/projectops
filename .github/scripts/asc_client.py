@@ -25,6 +25,11 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+# AscError 문구는 사유로 PR 댓글까지 가므로 레포 언어를 따른다 (#769). 경고 로그는 영문
+from i18n.messages import t as message  # noqa: E402
 
 BASE_URL = "https://api.appstoreconnect.apple.com"
 _PAGE_LIMIT = 200
@@ -41,7 +46,7 @@ class AscError(Exception):
 
 
 def _warn(msg: str) -> None:
-    print(f"경고: {msg}", file=sys.stderr)
+    print(f"warning: {msg}", file=sys.stderr)
 
 
 def _b64url(data: bytes) -> str:
@@ -60,18 +65,18 @@ def _read_der_len(buf: bytes, pos: int) -> tuple[int, int]:
 def der_to_raw(der: bytes) -> bytes:
     """DER ECDSA 서명을 64바이트 r||s로 바꾼다 (각 32바이트, 좌측 0 패딩)."""
     if not der or der[0] != 0x30:
-        raise ValueError("DER 서명 형식이 아닙니다")
+        raise ValueError("not a DER signature")
     _, pos = _read_der_len(der, 1)
     parts = []
     for _ in range(2):
         if der[pos] != 0x02:
-            raise ValueError("DER 정수가 아닙니다")
+            raise ValueError("not a DER integer")
         ln, pos = _read_der_len(der, pos + 1)
         # 양수 표기용 선행 0x00 제거 후 32바이트로 좌측 패딩
         parts.append(der[pos:pos + ln].lstrip(b"\x00").rjust(32, b"\x00"))
         pos += ln
     if any(len(p) != 32 for p in parts):
-        raise ValueError("r 또는 s가 32바이트를 넘습니다")
+        raise ValueError("r or s is longer than 32 bytes")
     return parts[0] + parts[1]
 
 
@@ -100,7 +105,7 @@ def token_from_env() -> str | None:
     try:
         return make_jwt(key_id, issuer, key_path)
     except Exception as e:  # openssl 없음, 키 파일 없음/손상 등 어떤 실패든 폴백
-        _warn(f"ASC 토큰 생성 실패, ASC 조회 없이 진행합니다: {e}")
+        _warn(f"could not create the App Store Connect token, continuing without App Store Connect lookups: {e}")
         return None
 
 
@@ -117,7 +122,7 @@ def request(url: str, token: str, timeout: int = _HTTP_TIMEOUT) -> dict:
         # 연결 리셋, 읽는 도중 끊김, TLS 오류, 잘못된 응답 본문까지 전부 AscError 로 바꿔야
         # 호출자가 폴백한다 (AscError 만 잡는 곳에서 트레이스백으로 죽지 않게).
         # JSONDecodeError 와 UnicodeDecodeError 는 ValueError 의 하위 클래스다.
-        raise AscError(f"ASC 호출 실패: {e}") from e
+        raise AscError(message("ios_release.asc.call_failed", error=e)) from e
 
 
 def _url(path: str, params: dict) -> str:
@@ -188,7 +193,7 @@ def recent_max_build(app_id: str, token: str) -> int | None:
             nums += _numbers(request(_url(path, params), token).get("data") or [], *keys)
             ok = True
         except AscError as e:
-            _warn(f"ASC 최근 빌드 조회 일부 실패 ({path}): {e}")
+            _warn(f"part of the latest build lookup failed ({path}): {e}")
     return max(nums) if ok and nums else None
 
 

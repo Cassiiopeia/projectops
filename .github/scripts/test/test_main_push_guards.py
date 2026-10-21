@@ -112,12 +112,12 @@ def test_preview_destroy_only_when_something_was_deployed():
     for path in PREVIEWS:
         steps = _steps(path, "destroy-preview")
         names = [s.get("name") for s in steps]
-        assert names.index("삭제 대상 확인") < names.index("컨테이너 & 이미지 삭제"), path.name
-        target = _step(path, "destroy-preview", "삭제 대상 확인")
+        assert names.index("Check what to delete") < names.index("Delete container & image"), path.name
+        target = _step(path, "destroy-preview", "Check what to delete")
         assert target.get("id") == "target"
         # secret 이 없으면 실패가 아니라 건너뛰어야 한다
         assert "secrets.SERVER_HOST" in str(target.get("env"))
-        for name in ("컨테이너 & 이미지 삭제", "삭제 완료 코멘트"):
+        for name in ("Delete container & image", "Deletion complete comment"):
             cond = _step(path, "destroy-preview", name).get("if", "")
             assert "steps.target.outputs.should_destroy == 'true'" in cond, (path.name, name)
 

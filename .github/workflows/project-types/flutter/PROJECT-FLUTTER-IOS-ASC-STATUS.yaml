@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       bundle_id:
-        description: "번들 ID (비우면 IOS_BUNDLE_ID 시크릿 또는 변수를 사용)"
+        description: "Bundle ID (empty = use the IOS_BUNDLE_ID secret or variable)"
         required: false
         default: ""
 
@@ -39,7 +39,7 @@ concurrency:
 
 jobs:
   asc-status:
-    name: App Store Connect 상태 조회
+    name: App Store Connect status
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -61,11 +61,11 @@ jobs:
             if echo "$API_KEY_BASE64" | base64 --decode > "$KEY_PATH"; then
               echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
             else
-              echo "::warning::App Store Connect 키를 해석하지 못했습니다"
+              echo "::warning::Could not decode the App Store Connect key"
             fi
           fi
 
-      - name: App Store Connect 상태 조회
+      - name: Look up App Store Connect status
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
@@ -75,7 +75,7 @@ jobs:
         run: |
           BUNDLE_ID="${INPUT_BUNDLE_ID:-$SECRET_BUNDLE_ID}"
           if [ -z "$BUNDLE_ID" ]; then
-            echo "::error::번들 ID가 없습니다. 입력하거나 IOS_BUNDLE_ID 시크릿(또는 변수)을 등록하세요"
+            echo "::error::No bundle ID. Enter one, or add the IOS_BUNDLE_ID secret (or variable)"
             exit 1
           fi
           python3 .github/scripts/ios_release.py asc-status --bundle-id "$BUNDLE_ID"

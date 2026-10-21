@@ -52,15 +52,15 @@ on:
   workflow_dispatch:
     inputs:
       analyze_only:
-        description: 'Analyze Only 모드 (빌드 없이 코드 분석만)'
+        description: 'Analyze Only mode (code analysis only, no builds)'
         type: boolean
         default: false
       enable_android:
-        description: 'Android 빌드 활성화 (Analyze Only=false일 때)'
+        description: 'Enable the Android build (when Analyze Only=false)'
         type: boolean
         default: true
       enable_ios:
-        description: 'iOS 빌드 활성화 (Analyze Only=false일 때)'
+        description: 'Enable the iOS build (when Analyze Only=false)'
         type: boolean
         default: true
 
@@ -98,6 +98,7 @@ jobs:
   # Job 1: 준비 단계
   # ===================================================================
   prepare:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: CI 준비
     runs-on: ubuntu-latest
 
@@ -111,9 +112,32 @@ jobs:
       enable_ios: ${{ steps.config.outputs.enable_ios }}
 
     steps:
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js flutter_ci. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
       # 설정 값 outputs으로 전달
       # workflow_dispatch 입력값이 있으면 우선 사용, 없으면 env 값 사용
-      - name: 설정 값 전달
+      - name: Pass settings to outputs
         id: config
         run: |
           # workflow_dispatch 입력값 확인
@@ -130,14 +154,14 @@ jobs:
           echo "analyze_only=$ANALYZE_ONLY" >> $GITHUB_OUTPUT
           echo "enable_android=$ENABLE_ANDROID" >> $GITHUB_OUTPUT
           echo "enable_ios=$ENABLE_IOS" >> $GITHUB_OUTPUT
-          echo "📋 CI 설정:"
+          echo "📋 CI settings:"
           echo "  Analyze Only: $ANALYZE_ONLY"
           echo "  Android: $ENABLE_ANDROID"
           echo "  iOS: $ENABLE_IOS"
-          echo "  트리거: ${{ github.event_name }}"
+          echo "  Trigger: ${{ github.event_name }}"
 
       # 빌드 정보 수집
-      - name: 빌드 정보 수집
+      - name: Collect build info
         id: info
         env:
           REF_NAME: ${{ github.ref_name }}
@@ -153,12 +177,12 @@ jobs:
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "commit_hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
 
-          echo "📋 빌드 정보:"
-          echo "  브랜치: $BRANCH_NAME"
-          echo "  커밋: $COMMIT_HASH"
+          echo "📋 Build info:"
+          echo "  Branch: $BRANCH_NAME"
+          echo "  Commit: $COMMIT_HASH"
 
       # PR인 경우 진행 상황 댓글 생성
-      - name: 진행 상황 댓글 생성
+      - name: Create progress comment
         id: comment
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
@@ -176,47 +200,48 @@ jobs:
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
             const startTime = Date.now();
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
 
             // 헤더 결정
             const header = analyzeOnly
-              ? '## 🔍 Flutter CI (Analyze Only) 진행 중...'
-              : '## 🔨 Flutter CI 진행 중...';
+              ? t('flutter_ci.progress.heading_analyze_only')
+              : t('flutter_ci.progress.heading');
 
             // 플랫폼 상태 결정
             let androidStatus, iosStatus;
             if (analyzeOnly) {
-              androidStatus = '⏸️ 스킵';
-              iosStatus = '⏸️ 스킵';
+              androidStatus = t('flutter_ci.status.skipped');
+              iosStatus = t('flutter_ci.status.skipped');
             } else {
-              androidStatus = enableAndroid ? '⏳ 진행 중...' : '⏸️ 비활성화';
-              iosStatus = enableIos ? '⏳ 진행 중...' : '⏸️ 비활성화';
+              androidStatus = enableAndroid ? t('flutter_ci.status.in_progress') : t('flutter_ci.status.disabled');
+              iosStatus = enableIos ? t('flutter_ci.status.in_progress') : t('flutter_ci.status.disabled');
             }
 
             const bodyParts = [
               header,
               '',
-              '| 검사 항목 | 상태 | 소요 시간 |',
+              t('flutter_ci.table.checks_header'),
               '|----------|------|----------|',
-              '| 🔍 Analyze | ⏳ 진행 중... | - |',
-              `| 🤖 Android 빌드 | ${androidStatus} | - |`,
-              `| 🍎 iOS 빌드 | ${iosStatus} | - |`,
+              t('flutter_ci.table.row_analyze', { status: t('flutter_ci.status.in_progress'), duration: '-' }),
+              t('flutter_ci.table.row_android', { status: androidStatus, duration: '-' }),
+              t('flutter_ci.table.row_ios', { status: iosStatus, duration: '-' }),
               '',
-              '| 항목 | 값 |',
+              t('flutter_ci.table.info_header'),
               '|------|-----|',
-              `| **브랜치** | \`${branchName}\` |`,
-              `| **커밋** | \`${commitHash}\` |`
+              t('flutter_ci.table.branch', { branch: branchName }),
+              t('flutter_ci.table.commit', { commit: commitHash })
             ];
 
             if (analyzeOnly) {
               bodyParts.push('');
-              bodyParts.push('ℹ️ **Analyze Only 모드**: 빌드 없이 코드 분석만 실행됩니다.');
+              bodyParts.push(t('flutter_ci.progress.analyze_only_note'));
             }
 
             bodyParts.push('');
-            bodyParts.push(`**[📋 실시간 로그 보기](${runUrl})**`);
+            bodyParts.push(t('flutter_ci.progress.live_log', { url: runUrl }));
             bodyParts.push('');
             bodyParts.push('---');
-            bodyParts.push('*🤖 이 댓글은 자동으로 업데이트됩니다.*');
+            bodyParts.push(t('flutter_ci.progress.auto_update'));
 
             const body = bodyParts.join('\n');
 
@@ -227,7 +252,7 @@ jobs:
               body: body
             });
 
-            console.log(`✅ 진행 상황 댓글 생성 완료: #${comment.id}`);
+            console.log(`✅ Progress comment created: #${comment.id}`);
             core.setOutput('comment_id', comment.id);
             core.setOutput('start_time', startTime);
 
@@ -235,6 +260,7 @@ jobs:
   # Job 2: 코드 분석 (병렬)
   # ===================================================================
   analyze:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: 코드 분석
     runs-on: ubuntu-latest
     needs: prepare
@@ -247,7 +273,30 @@ jobs:
       run:
         working-directory: ${{ env.APP_ROOT }}
     steps:
-      - name: 분석 시작 시간 기록
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js comment. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
+      - name: Record analyze start time
         id: analyze_start
         uses: actions/github-script@v7
         with:
@@ -295,34 +344,36 @@ jobs:
       - name: Run Flutter Analyze
         id: analyze
         run: |
-          echo "🔍 Flutter 코드 분석 시작..."
+          echo "🔍 Starting Flutter code analysis..."
           flutter analyze --no-fatal-infos
-          echo "✅ 코드 분석 완료"
+          echo "✅ Code analysis done"
 
       # 분석 결과 기록
-      - name: 분석 결과 기록
+      - name: Record analyze result
         id: result
         if: always()
         uses: actions/github-script@v7
         with:
           script: |
+            const { elapsed: formatElapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const analyzeStart = parseInt('${{ steps.analyze_start.outputs.time }}');
             const now = Date.now();
             const elapsed = now - analyzeStart;
             const minutes = Math.floor(elapsed / 60000);
             const seconds = Math.floor((elapsed % 60000) / 1000);
-            const duration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            const duration = formatElapsed(minutes, seconds);
 
             const status = '${{ steps.analyze.outcome }}' === 'success' ? 'success' : 'failure';
 
             core.setOutput('status', status);
             core.setOutput('duration', duration);
-            console.log(`📋 코드 분석 결과: ${status} (${duration})`);
+            console.log(`📋 Code analysis result: ${status} (${duration})`);
 
   # ===================================================================
   # Job 3: Android 빌드 (조건부, 병렬)
   # ===================================================================
   build-android:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: Android 빌드
     if: |
       needs.prepare.outputs.analyze_only != 'true' &&
@@ -338,7 +389,30 @@ jobs:
       run:
         working-directory: ${{ env.APP_ROOT }}
     steps:
-      - name: 빌드 시작 시간 기록
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js comment. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
+      - name: Record build start time
         id: build_start
         uses: actions/github-script@v7
         with:
@@ -415,46 +489,48 @@ jobs:
             chmod +x gradlew
             echo "✅ Gradle wrapper permissions set"
           else
-            echo "ℹ️ gradlew 없음 - Flutter 내장 Gradle을 사용합니다"
+            echo "ℹ️ No gradlew - using the Gradle bundled with Flutter"
           fi
 
       # APK 빌드
       - name: Build APK
         id: build
         run: |
-          echo "📦 Flutter APK 빌드 시작..."
+          echo "📦 Starting the Flutter APK build..."
           # CI는 컴파일 검증이 목적이라 서명이 필요 없다.
           # --release는 signingConfig(keystore)를 요구하는데 CI에는 keystore가 없어
           # 'SigningConfig release is missing storeFile'로 실패한다.
           # iOS의 --no-codesign에 해당하는 옵션이 Android에는 없으므로 --debug를 쓴다.
           flutter build apk --debug
-          echo "✅ APK 빌드 완료"
+          echo "✅ APK build done"
           ls -la ./build/app/outputs/flutter-apk/ || true
 
       # 빌드 결과 기록
-      - name: 빌드 결과 기록
+      - name: Record build result
         id: result
         if: always()
         uses: actions/github-script@v7
         with:
           script: |
+            const { elapsed: formatElapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const buildStart = parseInt('${{ steps.build_start.outputs.time }}');
             const now = Date.now();
             const elapsed = now - buildStart;
             const minutes = Math.floor(elapsed / 60000);
             const seconds = Math.floor((elapsed % 60000) / 1000);
-            const duration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            const duration = formatElapsed(minutes, seconds);
 
             const status = '${{ steps.build.outcome }}' === 'success' ? 'success' : 'failure';
 
             core.setOutput('status', status);
             core.setOutput('duration', duration);
-            console.log(`📋 Android 빌드 결과: ${status} (${duration})`);
+            console.log(`📋 Android build result: ${status} (${duration})`);
 
   # ===================================================================
   # Job 4: iOS 빌드 (조건부, 병렬)
   # ===================================================================
   build-ios:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: iOS 빌드
     if: |
       needs.prepare.outputs.analyze_only != 'true' &&
@@ -470,7 +546,30 @@ jobs:
       run:
         working-directory: ${{ env.APP_ROOT }}
     steps:
-      - name: 빌드 시작 시간 기록
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js comment. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
+      - name: Record build start time
         id: build_start
         uses: actions/github-script@v7
         with:
@@ -506,7 +605,7 @@ jobs:
           xcrun simctl list >/dev/null 2>&1 || true
           for i in 1 2 3; do
             xcodebuild -downloadPlatform iOS && break
-            echo "⚠️ 시도 $i 실패 - 재시도"
+            echo "⚠️ Attempt $i failed - retrying"
             sleep 15
           done
           xcodebuild -showsdks | grep iphoneos || true
@@ -560,7 +659,7 @@ jobs:
             cd ios && pod install --repo-update || pod install
             echo "✅ CocoaPods installed"
           else
-            echo "ℹ️ ios/Podfile 없음 - CocoaPods 의존성이 없는 프로젝트이므로 건너뜁니다"
+            echo "ℹ️ No ios/Podfile - the project has no CocoaPods dependencies, skipping"
           fi
 
       # iOS 빌드 (서명 없이)
@@ -573,9 +672,9 @@ jobs:
           DEVELOPER_DIR: ${{ env.XCODE_DEVELOPER_DIR }}
         run: |
           set -o pipefail   # tee 뒤에서도 빌드 실패를 그대로 전달
-          echo "📦 Flutter iOS 빌드 시작..."
+          echo "📦 Starting the Flutter iOS build..."
           flutter build ios --release --no-codesign 2>&1 | tee "$RUNNER_TEMP/flutter-ios-build.log"
-          echo "✅ iOS 빌드 완료"
+          echo "✅ iOS build done"
 
       # SDK 심볼 누락 오류면 Xcode 가 낡았을 가능성 안내 (#758)
       - name: Diagnose iOS build failure
@@ -584,42 +683,68 @@ jobs:
         run: python3 .github/scripts/select_xcode.py hint --log "$RUNNER_TEMP/flutter-ios-build.log"
 
       # 빌드 결과 기록
-      - name: 빌드 결과 기록
+      - name: Record build result
         id: result
         if: always()
         uses: actions/github-script@v7
         with:
           script: |
+            const { elapsed: formatElapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const buildStart = parseInt('${{ steps.build_start.outputs.time }}');
             const now = Date.now();
             const elapsed = now - buildStart;
             const minutes = Math.floor(elapsed / 60000);
             const seconds = Math.floor((elapsed % 60000) / 1000);
-            const duration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            const duration = formatElapsed(minutes, seconds);
 
             const status = '${{ steps.build.outcome }}' === 'success' ? 'success' : 'failure';
 
             core.setOutput('status', status);
             core.setOutput('duration', duration);
-            console.log(`📋 iOS 빌드 결과: ${status} (${duration})`);
+            console.log(`📋 iOS build result: ${status} (${duration})`);
 
   # ===================================================================
   # Job 5: 결과 보고
   # ===================================================================
   report:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: 결과 보고
     if: always() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     needs: [prepare, analyze, build-android, build-ios]
 
     steps:
-      - name: 최종 결과 댓글 업데이트
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js flutter_ci. comment. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
+      - name: Update the final result comment
         uses: actions/github-script@v7
         env:
           BRANCH_NAME: ${{ needs.prepare.outputs.branch_name }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = parseInt('${{ needs.prepare.outputs.comment_id }}');
             const startTime = parseInt('${{ needs.prepare.outputs.start_time }}');
             const branchName = process.env.BRANCH_NAME;
@@ -643,7 +768,7 @@ jobs:
             const totalElapsed = now - startTime;
             const totalMin = Math.floor(totalElapsed / 60000);
             const totalSec = Math.floor((totalElapsed % 60000) / 1000);
-            const totalDuration = totalMin > 0 ? `${totalMin}분 ${totalSec}초` : `${totalSec}초`;
+            const totalDuration = elapsed(totalMin, totalSec);
 
             // 상태 결정
             let overallSuccess = true;
@@ -651,33 +776,33 @@ jobs:
 
             // Analyze 상태
             if (analyzeStatus === 'success') {
-              analyzeDisplay = '✅ 성공';
+              analyzeDisplay = t('flutter_ci.status.success');
             } else {
-              analyzeDisplay = '❌ 실패';
+              analyzeDisplay = t('flutter_ci.status.failure');
               overallSuccess = false;
             }
 
             // Android 상태
             if (analyzeOnly) {
-              androidDisplay = '⏸️ 스킵';
+              androidDisplay = t('flutter_ci.status.skipped');
             } else if (!enableAndroid) {
-              androidDisplay = '⏸️ 비활성화';
+              androidDisplay = t('flutter_ci.status.disabled');
             } else if (androidStatus === 'success') {
-              androidDisplay = '✅ 성공';
+              androidDisplay = t('flutter_ci.status.success');
             } else {
-              androidDisplay = '❌ 실패';
+              androidDisplay = t('flutter_ci.status.failure');
               overallSuccess = false;
             }
 
             // iOS 상태
             if (analyzeOnly) {
-              iosDisplay = '⏸️ 스킵';
+              iosDisplay = t('flutter_ci.status.skipped');
             } else if (!enableIos) {
-              iosDisplay = '⏸️ 비활성화';
+              iosDisplay = t('flutter_ci.status.disabled');
             } else if (iosStatus === 'success') {
-              iosDisplay = '✅ 성공';
+              iosDisplay = t('flutter_ci.status.success');
             } else {
-              iosDisplay = '❌ 실패';
+              iosDisplay = t('flutter_ci.status.failure');
               overallSuccess = false;
             }
 
@@ -685,68 +810,62 @@ jobs:
             let header;
             if (analyzeOnly) {
               header = overallSuccess
-                ? '## ✅ Flutter CI (Analyze Only) 성공!'
-                : '## ❌ Flutter CI (Analyze Only) 실패';
+                ? t('flutter_ci.result.heading_analyze_only_success')
+                : t('flutter_ci.result.heading_analyze_only_failure');
             } else {
               header = overallSuccess
-                ? '## ✅ Flutter CI 성공!'
-                : '## ❌ Flutter CI 실패';
+                ? t('flutter_ci.result.heading_success')
+                : t('flutter_ci.result.heading_failure');
             }
 
             // 댓글 본문 생성
             const bodyParts = [
               header,
               '',
-              '| 검사 항목 | 상태 | 소요 시간 |',
+              t('flutter_ci.table.checks_header'),
               '|----------|------|----------|',
-              `| 🔍 Analyze | ${analyzeDisplay} | ${analyzeDuration} |`,
-              `| 🤖 Android 빌드 | ${androidDisplay} | ${analyzeOnly || !enableAndroid ? '-' : androidDuration} |`,
-              `| 🍎 iOS 빌드 | ${iosDisplay} | ${analyzeOnly || !enableIos ? '-' : iosDuration} |`,
+              t('flutter_ci.table.row_analyze', { status: analyzeDisplay, duration: analyzeDuration }),
+              t('flutter_ci.table.row_android', { status: androidDisplay, duration: analyzeOnly || !enableAndroid ? '-' : androidDuration }),
+              t('flutter_ci.table.row_ios', { status: iosDisplay, duration: analyzeOnly || !enableIos ? '-' : iosDuration }),
               '',
-              '| 항목 | 값 |',
+              t('flutter_ci.table.info_header'),
               '|------|-----|',
-              `| **브랜치** | \`${branchName}\` |`,
-              `| **커밋** | \`${commitHash}\` |`,
-              `| **총 소요 시간** | ${totalDuration} |`,
+              t('flutter_ci.table.branch', { branch: branchName }),
+              t('flutter_ci.table.commit', { commit: commitHash }),
+              t('flutter_ci.table.total', { duration: totalDuration }),
               ''
             ];
 
             // Analyze Only 모드 안내
             if (analyzeOnly && overallSuccess) {
-              bodyParts.push('ℹ️ **Analyze Only 모드**: 빌드 없이 코드 분석만 실행되었습니다.');
+              bodyParts.push(t('flutter_ci.result.analyze_only_note'));
               bodyParts.push('');
             }
 
             // 실패 시 추가 안내
             if (!overallSuccess) {
               bodyParts.push(
-                '### 💡 확인 사항',
+                t('flutter_ci.result.check_heading'),
                 ''
               );
 
               if (analyzeStatus !== 'success') {
-                bodyParts.push('**Analyze 실패 시:**');
-                bodyParts.push('- `flutter analyze` 로컬에서 실행하여 lint 오류 확인');
-                bodyParts.push('- 코드 스타일 및 타입 오류 수정');
+                bodyParts.push(t('flutter_ci.result.analyze_failed'));
                 bodyParts.push('');
               }
 
               if (!analyzeOnly && enableAndroid && androidStatus !== 'success') {
-                bodyParts.push('**Android 빌드 실패 시:**');
-                bodyParts.push('- Gradle 빌드 로그에서 에러 확인');
-                bodyParts.push('- 의존성 버전 호환성 확인');
+                bodyParts.push(t('flutter_ci.result.android_failed'));
                 bodyParts.push('');
               }
 
               if (!analyzeOnly && enableIos && iosStatus !== 'success') {
-                bodyParts.push('**iOS 빌드 실패 시:**');
-                bodyParts.push('- Xcode 빌드 로그에서 에러 확인');
-                bodyParts.push('- CocoaPods 의존성 확인');
+                bodyParts.push(t('flutter_ci.result.ios_failed'));
                 bodyParts.push('');
               }
             }
 
-            bodyParts.push(`**[📋 워크플로우 로그](${runUrl})**`);
+            bodyParts.push(t('flutter_ci.result.workflow_log', { url: runUrl }));
 
             const body = bodyParts.join('\n');
 
@@ -758,7 +877,7 @@ jobs:
                 comment_id: commentId,
                 body: body
               });
-              console.log(`✅ 결과 댓글 업데이트 완료`);
+              console.log(`✅ Result comment updated`);
             } else {
-              console.log('⚠️ 댓글 ID가 없어 업데이트를 건너뜁니다.');
+              console.log('⚠️ No comment ID, skipping the update.');
             }

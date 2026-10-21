@@ -79,7 +79,7 @@ env:
   APP_ROOT: "."  # @wizard auto:flutter-root
 jobs:
   prepare-build:
-    name: 환경 설정 및 준비
+    name: Prepare environment
     runs-on: ubuntu-latest
     # CHANGELOG 워크플로우가 성공한 경우에만 실행
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
@@ -97,7 +97,7 @@ jobs:
       # 신규 설치 직후에는 배포용 Secret 이 없는 것이 정상이다. 그대로 두면 빌드를 끝까지 돌린 뒤
       # 서명, 업로드 단계에서 원인을 짚기 어려운 에러로 실패하므로, 빌드 전에 무엇이 없는지 알린다.
       # Secret 이 모두 있으면 이 step 은 그대로 통과하며 이후 동작은 달라지지 않는다.
-      - name: 배포 Secret 사전 점검
+      - name: Preflight check of deploy secrets
         working-directory: ${{ github.workspace }}   # 체크아웃 전이라 APP_ROOT 가 아직 없을 수 있다
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}
@@ -105,12 +105,12 @@ jobs:
           fail=0
           for name in FIREBASE_SERVICE_ACCOUNT_JSON_BASE64; do
             if [ -z "${!name}" ]; then
-              echo "::error title=배포 사전 점검::Secret ${name} 이(가) 없습니다. Firebase 서비스 계정 JSON(base64)입니다. .github/util/flutter/firebase-wizard 의 안내로 만들어 Settings > Secrets and variables > Actions 에 등록하세요."
+              echo "::error title=Deploy preflight::Secret ${name} is missing. It is the Firebase service account JSON (base64). Create it with the .github/util/flutter/firebase-wizard guide and add it under Settings > Secrets and variables > Actions."
               fail=1
             fi
           done
           [ "$fail" = "0" ] || exit 1
-          echo "✅ 사전 점검 통과"
+          echo "✅ Preflight check passed"
 
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -145,14 +145,14 @@ jobs:
         run: flutter pub get
 
       # 버전 관리 스크립트 권한 설정
-      - name: 버전 관리 스크립트 권한 설정
+      - name: Make version scripts executable
         working-directory: ${{ github.workspace }}   # 레포 루트 자산(.github/scripts·version.yml)은 APP_ROOT가 아닌 레포 루트 기준
         run: |
           chmod +x ./.github/scripts/version_manager.sh
           chmod +x ./.github/scripts/changelog_manager.py
 
       # version_manager.sh를 사용하여 현재 버전 정보 가져오기
-      - name: 현재 버전 정보 가져오기
+      - name: Read current version
         working-directory: ${{ github.workspace }}   # 레포 루트 자산(.github/scripts·version.yml)은 APP_ROOT가 아닌 레포 루트 기준
         id: current_version
         run: |
@@ -165,7 +165,7 @@ jobs:
           # 결과 출력
           echo "✅ VERSION: $VERSION"
           echo "✅ VERSION_CODE: $VERSION_CODE"
-          echo "🔧 프로젝트 타입: ${{ env.PROJECT_TYPE }}"
+          echo "🔧 Project type: ${{ env.PROJECT_TYPE }}"
 
           # GitHub outputs 설정
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -180,14 +180,14 @@ jobs:
           echo "PROJECT_TYPE=${{ env.PROJECT_TYPE }}" >> $GITHUB_ENV
 
       # CHANGELOG.json에서 릴리즈 노트 추출 - changelog_manager.py 사용
-      - name: 릴리즈 노트 생성
+      - name: Generate release notes
         working-directory: ${{ github.workspace }}   # 레포 루트 자산(.github/scripts·version.yml)은 APP_ROOT가 아닌 레포 루트 기준
         id: release_notes
         run: |
           VERSION="${{ steps.current_version.outputs.version }}"
 
           if [ -f "CHANGELOG.json" ]; then
-            echo "📄 CHANGELOG.json에서 v$VERSION 릴리즈 노트 추출 중..."
+            echo "📄 Extracting v$VERSION release notes from CHANGELOG.json..."
             # CHANGELOG.md 생성
             python3 ./.github/scripts/changelog_manager.py generate-md
 
@@ -195,21 +195,24 @@ jobs:
             python3 ./.github/scripts/changelog_manager.py export --version $VERSION --output final_release_notes.txt
 
             if [ -s final_release_notes.txt ]; then
-              echo "✅ 릴리즈 노트 추출 성공!"
-              echo "📋 추출된 릴리즈 노트:"
+              echo "✅ Release notes extracted"
+              echo "📋 Extracted release notes:"
               echo "----------------------------------------"
               cat final_release_notes.txt
               echo "----------------------------------------"
               echo "RELEASE_NOTES_FOUND=true" >> $GITHUB_ENV
             else
-              echo "❌ 릴리즈 노트 추출 실패"
+              echo "❌ Could not extract release notes"
               echo "RELEASE_NOTES_FOUND=false" >> $GITHUB_ENV
-              echo "v$VERSION 업데이트" > final_release_notes.txt
+              # 테스터가 보는 기본 문구라 레포 언어를 따른다 (#769)
+              NOTE=$(python3 ./.github/scripts/i18n/messages.py get flutter_ci.release_notes.fallback --var version="$VERSION" 2>/dev/null) || NOTE="v$VERSION update"
+              echo "$NOTE" > final_release_notes.txt
             fi
           else
-            echo "⚠️ CHANGELOG.json 파일이 없습니다. 기본 릴리즈 노트를 사용합니다."
+            echo "⚠️ No CHANGELOG.json file. Using the default release notes."
             echo "RELEASE_NOTES_FOUND=false" >> $GITHUB_ENV
-            echo "v$VERSION 업데이트" > final_release_notes.txt
+            NOTE=$(python3 ./.github/scripts/i18n/messages.py get flutter_ci.release_notes.fallback --var version="$VERSION" 2>/dev/null) || NOTE="v$VERSION update"
+            echo "$NOTE" > final_release_notes.txt
           fi
 
       # 릴리즈 노트를 아티팩트로 업로드
@@ -234,7 +237,7 @@ jobs:
           retention-days: 1
 
   build-android:
-    name: Android APK 빌드
+    name: Build Android APK
     runs-on: ubuntu-latest
     needs: prepare-build
 
@@ -264,7 +267,7 @@ jobs:
           ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
         run: |
           printf '%s\n' "$ENV_CONTENT" > .env
-          echo "✅ .env 파일 생성됨 (크기: $(wc -c < .env) bytes)"
+          echo "✅ .env file created (size: $(wc -c < .env) bytes)"
 
       # 빌드 프로파일 — 런타임(.env)과 컴파일타임(dart-define)을 한 곳에서 정한다 (#603)
       #
@@ -272,7 +275,7 @@ jobs:
       # 양쪽 층이 모두 꺼진 것을 확인한다 — 한쪽이라도 뚫려 있으면 빌드를 세운다.
       #
       # 설정(.github/config/build-profile.json)이 없는 저장소에서는 아무 일도 하지 않는다.
-      - name: 빌드 프로파일 적용 (release)
+      - name: Apply build profile (release)
         id: build_profile
         run: |
           python3 "${{ github.workspace }}/.github/scripts/apply_build_profile.py" \
@@ -286,7 +289,7 @@ jobs:
         run: |
           mkdir -p android/app/keystore
           echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore/key.jks
-          echo "✅ Release Keystore 생성 완료"
+          echo "✅ Release keystore created"
           ls -la android/app/keystore/
 
       # key.properties 생성 (Release 서명 정보)
@@ -303,7 +306,7 @@ jobs:
           keyPassword=$KEY_PASSWORD
           EOF
           # 서명 비밀번호가 담긴 파일 — 내용 출력 금지 (#785)
-          echo "✅ key.properties 생성 완료"
+          echo "✅ key.properties created"
 
       # Google-services.json 생성
       - name: Create Google-services.json
@@ -311,7 +314,7 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           printf '%s\n' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
-          echo "✅ Google-services.json 생성 완료"
+          echo "✅ google-services.json created"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
@@ -350,10 +353,10 @@ jobs:
         run: |
           # build.gradle.kts에 release 서명 설정이 없으면 추가
           if ! grep -q "signingConfigs" android/app/build.gradle.kts; then
-            echo "⚠️ build.gradle.kts에 서명 설정 추가 필요"
+            echo "⚠️ build.gradle.kts needs a signing config"
             # 서명 설정은 이미 되어있다고 가정 (수동으로 미리 설정해야 함)
           fi
-          echo "✅ Android 빌드 설정 확인 완료"
+          echo "✅ Android build settings checked"
 
       # pubspec.yaml은 x.y.z 형식 그대로 유지
       # Flutter build 명령어의 --build-name, --build-number 플래그가 pubspec.yaml을 오버라이드함
@@ -366,34 +369,34 @@ jobs:
           VERSION_CODE="${{ needs.prepare-build.outputs.version_code }}"
 
           echo "=========================================="
-          echo "🚀 APK 빌드 시작"
+          echo "🚀 Starting the APK build"
           echo "=========================================="
-          echo "🎯 빌드 버전: $VERSION_NAME"
-          echo "🎯 빌드 코드: $VERSION_CODE"
+          echo "🎯 Build version: $VERSION_NAME"
+          echo "🎯 Build code: $VERSION_CODE"
 
           # 입력 검증
           if [ -z "$VERSION_NAME" ] || [ -z "$VERSION_CODE" ]; then
-            echo "❌ VERSION_NAME 또는 VERSION_CODE가 비어있습니다!"
+            echo "❌ VERSION_NAME or VERSION_CODE is empty!"
             exit 1
           fi
 
           # Flutter 환경 정보 출력
-          echo "🔍 Flutter 환경 정보:"
+          echo "🔍 Flutter environment:"
           flutter --version
           flutter doctor -v | head -20
 
           # 빌드 디렉토리 정리
-          echo "🧹 이전 빌드 결과물 정리..."
+          echo "🧹 Cleaning previous build outputs..."
           rm -rf build/app/outputs/flutter-apk/
           mkdir -p build/app/outputs/flutter-apk/
 
           # Flutter clean 및 pub get
-          echo "🔄 Flutter clean 및 의존성 재설치..."
+          echo "🔄 Running flutter clean and reinstalling dependencies..."
           flutter clean
           flutter pub get
 
           # local.properties에 버전 정보 추가 (Flutter 플래그가 무시되는 문제 해결)
-          echo "🔧 local.properties에 버전 정보 설정..."
+          echo "🔧 Writing version info to local.properties..."
 
           # 기존 local.properties가 있으면 버전 정보 제거
           if [ -f "android/local.properties" ]; then
@@ -407,20 +410,20 @@ jobs:
           echo "flutter.versionName=$VERSION_NAME" >> android/local.properties
           echo "flutter.versionCode=$VERSION_CODE" >> android/local.properties
 
-          echo "✅ local.properties 업데이트 완료"
-          echo "📋 버전 정보: VERSION_NAME=$VERSION_NAME, VERSION_CODE=$VERSION_CODE"
+          echo "✅ local.properties updated"
+          echo "📋 Version info: VERSION_NAME=$VERSION_NAME, VERSION_CODE=$VERSION_CODE"
 
           # Gradle 성능 최적화 설정
           export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=4"
           export JAVA_OPTS="-Xmx4g"
-          echo "✅ Gradle 최적화 설정 완료"
+          echo "✅ Gradle optimization settings applied"
 
           # Flutter build 명령어에 버전 정보 전달
           # --build-name과 --build-number 플래그가 pubspec.yaml의 version을 오버라이드함
           # pubspec.yaml은 x.y.z 형식 유지, VERSION_CODE는 version.yml에서 자동 관리
-          echo "🔨 Flutter build 실행..."
-          echo "📋 명령어: flutter build apk --release --build-name=$VERSION_NAME --build-number=$VERSION_CODE --verbose"
-          echo "⏱️ 빌드 시작 시간: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "🔨 Running flutter build..."
+          echo "📋 Command: flutter build apk --release --build-name=$VERSION_NAME --build-number=$VERSION_CODE --verbose"
+          echo "⏱️ Build start time: $(date '+%Y-%m-%d %H:%M:%S')"
 
           BUILD_FLAGS="${{ steps.build_profile.outputs.build_flags }}"
           # shellcheck disable=SC2086  # 플래그는 공백으로 갈라져야 한다
@@ -433,126 +436,126 @@ jobs:
           BUILD_EXIT_CODE=$?
 
           if [ $BUILD_EXIT_CODE -ne 0 ]; then
-            echo "❌ Flutter build 실패! Exit code: $BUILD_EXIT_CODE"
-            echo "🔍 빌드 디렉토리 상태:"
-            find build/ -name "*.aab" -o -name "*.apk" 2>/dev/null || echo "AAB/APK 파일을 찾을 수 없습니다"
+            echo "❌ flutter build failed! Exit code: $BUILD_EXIT_CODE"
+            echo "🔍 Build directory state:"
+            find build/ -name "*.aab" -o -name "*.apk" 2>/dev/null || echo "No AAB/APK file found"
             exit 1
           fi
 
-          echo "✅ Flutter build 성공!"
+          echo "✅ flutter build succeeded!"
 
           # 빌드 결과 확인
-          echo "🔍 빌드 결과 확인:"
+          echo "🔍 Checking build output:"
           ls -lah build/app/outputs/flutter-apk/
 
           # APK 파일 존재 확인
           APK_FILE="build/app/outputs/flutter-apk/app-release.apk"
           if [ ! -f "$APK_FILE" ]; then
-            echo "❌ APK 파일이 생성되지 않았습니다!"
-            echo "🔍 전체 빌드 디렉토리 내용:"
-            find build/ -type f -name "*.aab" -o -name "*.apk" 2>/dev/null || echo "AAB/APK 파일을 찾을 수 없습니다"
-            echo "🔍 outputs 디렉토리 구조:"
-            find build/app/outputs/ -type f 2>/dev/null || echo "outputs 디렉토리가 없습니다"
+            echo "❌ The APK file was not created!"
+            echo "🔍 Full build directory contents:"
+            find build/ -type f -name "*.aab" -o -name "*.apk" 2>/dev/null || echo "No AAB/APK file found"
+            echo "🔍 outputs directory tree:"
+            find build/app/outputs/ -type f 2>/dev/null || echo "No outputs directory"
             exit 1
           fi
 
-          echo "✅ APK 파일 생성 확인"
-          echo "📱 APK 파일 크기: $(du -h "$APK_FILE" | cut -f1)"
-          echo "📋 APK 파일 정보: $(ls -lah "$APK_FILE")"
+          echo "✅ APK file created"
+          echo "📱 APK file size: $(du -h "$APK_FILE" | cut -f1)"
+          echo "📋 APK file info: $(ls -lah "$APK_FILE")"
 
           # APK 매니페스트 검증에는 Android SDK의 aapt2를 사용한다
           # (AAB용 bundletool과 달리 별도 다운로드 불필요 — 러너에 이미 설치됨)
           AAPT2=$(find "$ANDROID_HOME/build-tools" -name aapt2 -type f 2>/dev/null | sort -V | tail -1)
           if [ -z "$AAPT2" ]; then
-            echo "❌ aapt2를 찾을 수 없습니다"; exit 1
+            echo "❌ aapt2 not found"; exit 1
           fi
-          echo "✅ aapt2 확인: $AAPT2"
+          echo "✅ aapt2 found: $AAPT2"
 
           # APK 파일 내부의 실제 버전 정보 확인
           # Flutter CLI 플래그로 전달한 VERSION_CODE가 제대로 적용되었는지 검증
           echo "=========================================="
-          echo "🔍 APK 파일 내부 버전 정보 검증"
+          echo "🔍 Verifying the version inside the APK file"
           echo "=========================================="
 
           # AndroidManifest.xml에서 버전 정보 추출
-          echo "📋 APK에서 실제 버전 정보 추출 중..."
-          echo "📋 실행할 명령어: $AAPT2 dump badging '$APK_FILE'"
+          echo "📋 Extracting the actual version from the APK..."
+          echo "📋 Command to run: $AAPT2 dump badging '$APK_FILE'"
 
           MANIFEST_OUTPUT=$("$AAPT2" dump badging "$APK_FILE" 2>&1)
           MANIFEST_EXIT_CODE=$?
 
-          echo "📋 aapt2 실행 결과 (Exit code: $MANIFEST_EXIT_CODE):"
+          echo "📋 aapt2 output (exit code: $MANIFEST_EXIT_CODE):"
           echo "$MANIFEST_OUTPUT"
 
           if [ $MANIFEST_EXIT_CODE -eq 0 ]; then
-            echo "✅ Manifest 추출 성공"
+            echo "✅ Manifest extracted"
 
             # 실제 버전 코드와 버전 이름 추출
             ACTUAL_VERSION_CODE=$(echo "$MANIFEST_OUTPUT" | grep -o "versionCode='[0-9]*'" | grep -o '[0-9]*' | head -1)
             ACTUAL_VERSION_NAME=$(echo "$MANIFEST_OUTPUT" | grep -o "versionName='[^']*'" | sed "s/versionName='//;s/'//" | head -1)
 
-            echo "🎯 버전 정보 비교:"
-            echo "  예상 VERSION_CODE: '$VERSION_CODE'"
-            echo "  실제 VERSION_CODE: '$ACTUAL_VERSION_CODE'"
-            echo "  예상 VERSION_NAME: '$VERSION_NAME'"
-            echo "  실제 VERSION_NAME: '$ACTUAL_VERSION_NAME'"
+            echo "🎯 Version comparison:"
+            echo "  Expected VERSION_CODE: '$VERSION_CODE'"
+            echo "  Actual VERSION_CODE: '$ACTUAL_VERSION_CODE'"
+            echo "  Expected VERSION_NAME: '$VERSION_NAME'"
+            echo "  Actual VERSION_NAME: '$ACTUAL_VERSION_NAME'"
 
             # VERSION_CODE 검증 - version.yml에서 관리되는 단순 증가 번호
             if [ -z "$ACTUAL_VERSION_CODE" ]; then
-              echo "❌ 치명적 오류: APK에서 VERSION_CODE를 추출할 수 없습니다!"
-              echo "🔍 전체 Manifest 내용:"
+              echo "❌ Fatal: could not extract VERSION_CODE from the APK!"
+              echo "🔍 Full manifest:"
               echo "$MANIFEST_OUTPUT"
               exit 1
             elif [ "$ACTUAL_VERSION_CODE" != "$VERSION_CODE" ]; then
-              echo "❌ 치명적 오류: APK의 VERSION_CODE가 예상과 다릅니다!"
-              echo "   이는 Google Play에서 '이미 사용된 버전 코드' 오류를 발생시킵니다."
+              echo "❌ Fatal: the APK VERSION_CODE does not match the expected value!"
+              echo "   Google Play rejects this with a 'version code already used' error."
               echo ""
-              echo "🔍 디버깅 정보:"
-              echo "   version.yml의 VERSION_CODE: $VERSION_CODE"
-              echo "   APK 파일 내부의 VERSION_CODE: $ACTUAL_VERSION_CODE"
+              echo "🔍 Debug info:"
+              echo "   VERSION_CODE in version.yml: $VERSION_CODE"
+              echo "   VERSION_CODE inside the APK: $ACTUAL_VERSION_CODE"
               echo ""
-              echo "   Flutter build 명령어에 전달된 플래그:"
+              echo "   Flags passed to flutter build:"
               echo "   --build-name='$VERSION_NAME'"
               echo "   --build-number='$VERSION_CODE'"
               echo ""
-              echo "   전체 Manifest 내용:"
+              echo "   Full manifest:"
               echo "$MANIFEST_OUTPUT" | grep -E "versionCode|versionName|package"
               exit 1
             else
-              echo "✅ VERSION_CODE 검증 성공: $ACTUAL_VERSION_CODE"
+              echo "✅ VERSION_CODE verified: $ACTUAL_VERSION_CODE"
             fi
 
             # 버전 이름도 확인 (경고만)
             if [ -z "$ACTUAL_VERSION_NAME" ]; then
-              echo "⚠️ 경고: APK에서 VERSION_NAME을 추출할 수 없습니다"
+              echo "⚠️ Warning: could not extract VERSION_NAME from the APK"
             elif [ "$ACTUAL_VERSION_NAME" != "$VERSION_NAME" ]; then
-              echo "⚠️ 경고: VERSION_NAME이 예상과 다릅니다 (치명적이지 않음)"
-              echo "   예상: '$VERSION_NAME', 실제: '$ACTUAL_VERSION_NAME'"
+              echo "⚠️ Warning: VERSION_NAME does not match the expected value (not fatal)"
+              echo "   Expected: '$VERSION_NAME', actual: '$ACTUAL_VERSION_NAME'"
             else
-              echo "✅ VERSION_NAME 검증 성공: $ACTUAL_VERSION_NAME"
+              echo "✅ VERSION_NAME verified: $ACTUAL_VERSION_NAME"
             fi
 
           else
-            echo "❌ aapt2로 Manifest 추출 실패"
-            echo "🔄 대체 방법으로 검증 시도..."
+            echo "❌ aapt2 could not extract the manifest"
+            echo "🔄 Trying a fallback check..."
 
             # unzip으로 직접 확인 시도
-            echo "📋 unzip을 사용한 직접 추출 시도..."
+            echo "📋 Trying direct extraction with unzip..."
             UNZIP_OUTPUT=$(unzip -p "$APK_FILE" base/manifest/AndroidManifest.xml 2>/dev/null | strings | grep -E "versionCode|versionName")
 
             if [ -n "$UNZIP_OUTPUT" ]; then
-              echo "✅ unzip으로 버전 정보 추출 성공:"
+              echo "✅ Version extracted with unzip:"
               echo "$UNZIP_OUTPUT"
             else
-              echo "❌ unzip을 사용한 직접 추출도 실패"
-              echo "⚠️ APK 검증을 건너뛰고 계속 진행합니다."
+              echo "❌ Direct extraction with unzip also failed"
+              echo "⚠️ Skipping APK verification and continuing."
             fi
           fi
 
           echo "=========================================="
-          echo "✅ APK 빌드 및 검증 완료"
-          echo "🎯 최종 APK: $APK_FILE"
-          echo "📱 파일 크기: $(du -h "$APK_FILE" | cut -f1)"
+          echo "✅ APK built and verified"
+          echo "🎯 Final APK: $APK_FILE"
+          echo "📱 File size: $(du -h "$APK_FILE" | cut -f1)"
           echo "=========================================="
 
       # APK 파일을 아티팩트로 업로드
@@ -565,7 +568,7 @@ jobs:
           retention-days: 1
 
   deploy-firebase:
-    name: Firebase App Distribution 배포
+    name: Deploy to Firebase App Distribution
     runs-on: ubuntu-latest
     needs: [prepare-build, build-android]
 
@@ -601,7 +604,7 @@ jobs:
           SERVICE_ACCOUNT_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}
         run: |
           echo "$SERVICE_ACCOUNT_BASE64" | base64 --decode > firebase-service-account.json
-          echo "✅ Firebase 서비스 계정 JSON 파일 생성 완료"
+          echo "✅ Firebase service account JSON file created"
 
       # Firebase App Distribution release notes 길이 제한 (안전망)
       - name: Truncate release notes
@@ -635,17 +638,17 @@ jobs:
       - name: Notify Firebase Upload Success
         if: success()
         run: |
-          echo "✅ Firebase App Distribution 배포 성공!"
-          echo "버전: ${{ needs.prepare-build.outputs.version }} (${{ needs.prepare-build.outputs.version_code }})"
-          echo "커밋: ${{ github.sha }}"
+          echo "✅ Deployed to Firebase App Distribution!"
+          echo "Version: ${{ needs.prepare-build.outputs.version }} (${{ needs.prepare-build.outputs.version_code }})"
+          echo "Commit: ${{ github.sha }}"
           echo ""
-          echo "📱 테스터 확인 방법:"
-          echo "1. Firebase App Tester 앱 실행"
-          echo "2. 앱 선택"
-          echo "3. 최신 빌드 다운로드"
+          echo "📱 How testers get it:"
+          echo "1. Open the Firebase App Tester app"
+          echo "2. Select the app"
+          echo "3. Download the latest build"
 
       - name: Notify on Failure
         if: failure()
         run: |
-          echo "❌ Firebase App Distribution 배포 실패!"
-          echo "로그를 확인해주세요."
+          echo "❌ Firebase App Distribution deploy failed!"
+          echo "Check the logs."

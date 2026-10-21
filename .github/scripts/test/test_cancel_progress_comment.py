@@ -19,23 +19,23 @@ CASES = {
     "PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT.yaml": {
         "creator": "notify-start",
         "existing": [
-            "진행 상황 댓글 생성",
-            "진행 상황 업데이트 - 준비 실패",
-            "진행 상황 업데이트 - 준비 완료",
-            "진행 상황 업데이트 - IPA 빌드 완료",
-            "빌드 실패 시 progress 댓글 업데이트",
-            "진행 상황 최종 업데이트 - 성공",
-            "진행 상황 최종 업데이트 - 실패",
+            "Create progress comment",
+            "Update progress - preparation failed",
+            "Update progress - preparation done",
+            "Update progress - IPA build done",
+            "Update progress comment on build failure",
+            "Final progress update - success",
+            "Final progress update - failure",
         ],
     },
     "PROJECT-FLUTTER-ANDROID-TEST-APK.yaml": {
         "creator": "prepare-test-build",
         "existing": [
-            "진행 상황 댓글 생성",
-            "진행상황 - 준비 완료",
-            "진행상황 - APK 빌드 완료",
-            "진행 상황 최종 업데이트 - 성공",
-            "진행 상황 최종 업데이트 - 실패",
+            "Create the progress comment",
+            "Progress - prepare done",
+            "Progress - APK build done",
+            "Final progress update - success",
+            "Final progress update - failure",
         ],
     },
 }
@@ -87,7 +87,8 @@ def test_cancelled_steps_update_the_comment_without_clobbering_final(name):
     for jname, _job, step in _cancel_steps(_load(name)):
         assert step["uses"].startswith("actions/github-script@")
         script = step["with"]["script"]
-        assert "updateComment" in script and "취소" in script
+        # 취소 문구는 카탈로그 키(heading.cancelled 등)로 쓴다 (#769)
+        assert "updateComment" in script and "cancelled" in script
         # 이미 최종 상태(완료/실패)로 쓰인 댓글은 덮어쓰지 않는다
         assert "getComment" in script, (jname, step["name"])
         # 스크립트 소스에 외부 입력을 넣지 않고 env 로 읽는다
@@ -107,7 +108,7 @@ def test_existing_progress_steps_untouched(name):
             if s.get("name") in CASES[name]["existing"]:
                 assert not re.search(r"(?<!!)\bcancelled\(\)", str(s.get("if", "")))
     finals = [s for j in doc["jobs"].values() for s in j.get("steps", [])
-              if s.get("name") == "진행 상황 최종 업데이트 - 성공"]
+              if s.get("name") == "Final progress update - success"]
     assert str(finals[0]["if"]).startswith("success()")
 
 

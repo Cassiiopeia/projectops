@@ -52,7 +52,7 @@ def test_승급_실패_메시지가_최초_수동_출시_요건을_원인_후보
 
 def test_Fastfile_무시_감지가_복사_단계에_있다():
     w = WF.read_text(encoding="utf-8")
-    assert "Fastfile 이 $name 을 읽지 않습니다" in w
+    assert "title=Fastfile does not read $name::" in w
 
 
 @pytest.mark.local_only

@@ -67,6 +67,17 @@ def test_decide_version_reasons():
     assert "version.yml" in ir.decide_version("2.1.2", "2.1.2", "release")["reason"]
 
 
+# PR 댓글에 실리는 사유는 레포 언어를 따른다 (#769). 기본(conftest)은 ko, en 은 한글 없이
+def test_reasons_follow_repo_language(monkeypatch):
+    monkeypatch.setenv("REPO_LANG", "en")
+    assert ir.decide_version("2.1.2", "2.1.2", "test")["reason"] == "2.1.2 was released and is closed, building 2.1.3"
+    assert ir.classify_upload_error("")["reason_line"] == "Upload failed (no reason found in the log)"
+    assert ir._last_error_line("") == "no output"
+    for reason in (ir.decide_version("2.1.0", "2.1.2", "test")["reason"],
+                   ir.decide_version("2.1.2", "2.1.2", "release")["reason"]):
+        assert not any("\uac00" <= ch <= "\ud7a3" for ch in reason), reason
+
+
 # ── 업로드 오류 분류 (Apple 실제 문구 샘플) ──────────────────────────
 CLASSIFY_CASES = [
     ("[altool] Invalid Pre-Release Train. The train version '2.1.2' is closed for new build submissions (90186)",
@@ -658,7 +669,7 @@ def test_asc_status_without_token_fails_loudly(monkeypatch, capsys):
     rc = ir.main(["asc-status", "--bundle-id", "com.a.b"])
     out = json.loads(capsys.readouterr().out.strip())
     # 조회가 목적인 명령이라 사전 점검과 달리 조용히 폴백하지 않는다
-    assert rc == 1 and out["ok"] is False and "인증 정보" in out["reason"]
+    assert rc == 1 and out["ok"] is False and "No App Store Connect credentials" in out["reason"]
 
 
 def test_asc_status_app_not_found_and_api_error(monkeypatch, capsys):

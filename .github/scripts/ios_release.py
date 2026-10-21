@@ -12,6 +12,7 @@ Apple 오류 해석의 유일한 위치다. 새 오류 코드는 여기 패턴�
 
   - 커맨드: precheck-version | classify-error | archive-upload
   - 출력: 언제나 JSON (ok / 데이터 / summary / next), 로그와 ::error:: 는 stderr
+  - 사유(reason, reason_line)는 PR 댓글에 그대로 실리므로 레포 언어(카탈로그 ios_release.*), 로그는 영문 (#769)
   - ASC 조회가 안 되는 환경(시크릿 누락, 권한 부족)은 version.yml 버전으로 진행한다
 
 사용 예:
@@ -37,6 +38,7 @@ from xml.parsers.expat import ExpatError
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import asc_client  # noqa: E402
 import build_number  # noqa: E402
+from i18n.messages import t as message  # noqa: E402
 
 # 대기는 모듈 수준으로 두어 테스트에서 0초로 바꾼다
 sleep = time.sleep
@@ -53,7 +55,6 @@ CLOSED_STORE_STATES = CLOSED_VERSION_STATES | {
 }
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
-_NO_REASON = "업로드 실패 (사유를 로그에서 찾지 못함)"
 
 
 # ── 버전 ──────────────────────────────────────────────────────────────
@@ -76,7 +77,7 @@ def next_patch(s: str) -> str:
     """다음 패치 버전. 파싱할 수 없는 문자열이면 ValueError."""
     t = parse_version(s)
     if t is None:
-        raise ValueError(f"버전 형식을 해석할 수 없습니다: {s!r}")
+        raise ValueError(message("ios_release.version_unparsable", value=repr(s)))
     return format_version((t[0], t[1], t[2] + 1))
 
 
@@ -97,21 +98,21 @@ def decide_version(current: str, closed: str | None, mode: str) -> dict:
     cur_t, closed_t = parse_version(current), parse_version(closed)
     base = {"ok": True, "version": current, "changed": False, "closed_max": closed}
     if closed_t is None:
-        return {**base, "reason": "출시되어 닫힌 버전 없음"}
+        return {**base, "reason": message("ios_release.reason.no_closed")}
     if cur_t is None:
         # 판단할 수 없는 버전 문자열은 손대지 않는다 (사후 복구가 받쳐준다)
-        return {**base, "reason": f"현재 버전 {current!r}을 해석할 수 없어 그대로 진행"}
+        return {**base, "reason": message("ios_release.reason.unparsable", current=repr(current))}
     if cur_t > closed_t:
-        return {**base, "reason": f"{current}는 열려 있음 (출시 최대 {closed})"}
+        return {**base, "reason": message("ios_release.reason.open", current=current, closed=closed)}
     if mode == "release":
         return {**base, "ok": False,
-                "reason": f"{current}는 이미 출시되어 닫힌 버전입니다. version.yml 버전을 올리세요"}
+                "reason": message("ios_release.reason.release_closed", current=current)}
     nxt = next_patch(closed)
     # 숫자 뒤 조사(는/은, 로/으로)는 받침에 따라 달라지므로 조사 없는 문구로 쓴다
-    why = (f"{current} 출시되어 닫힘" if cur_t == closed_t
-           else f"{current}이(가) 출시된 {closed}보다 낮음")
+    why = (message("ios_release.reason.closed_same", current=current) if cur_t == closed_t
+           else message("ios_release.reason.closed_lower", current=current, closed=closed))
     return {"ok": True, "version": nxt, "changed": True, "closed_max": closed,
-            "reason": f"{why}, 빌드 버전 {nxt}"}
+            "reason": message("ios_release.reason.changed", why=why, next=nxt)}
 
 
 # ── 업로드 오류 분류 ──────────────────────────────────────────────────
@@ -182,7 +183,7 @@ def classify_upload_error(log: str) -> dict:
         hits = [l for l in lines if _FALLBACK_LINE.search(l)]
         reason = _clean_line(hits[-1]) if hits else ""
     return {"kind": kind, "required_build": required, "closed_version": closed_version,
-            "reason_line": reason or _NO_REASON}
+            "reason_line": reason or message("ios_release.no_reason")}
 
 
 # ── CLI ───────────────────────────────────────────────────────────────
@@ -201,8 +202,8 @@ def _emit(payload: dict) -> None:
 
 
 def _precheck_fallback(version: str, why: str) -> int:
-    reason = f"ASC 조회 불가: {why} (version.yml 버전으로 진행)"
-    print(f"경고: {reason}", file=sys.stderr)
+    reason = message("ios_release.precheck.fallback", why=why)
+    print(f"warning: {reason}", file=sys.stderr)
     _write_github_output({"version": version, "changed": "false", "reason": reason})
     _emit({"ok": True, "version": version, "changed": False, "closed_max": None,
            "reason": reason, "fallback": True, "summary": reason, "next": None})
@@ -212,11 +213,11 @@ def _precheck_fallback(version: str, why: str) -> int:
 def cmd_precheck(args: argparse.Namespace) -> int:
     token = asc_client.token_from_env()
     if not token:
-        return _precheck_fallback(args.version, "ASC 인증 정보 없음")
+        return _precheck_fallback(args.version, message("ios_release.asc.no_credentials"))
     try:
         app_id = asc_client.find_app_id(args.bundle_id, token)
         if not app_id:
-            return _precheck_fallback(args.version, f"번들 ID {args.bundle_id} 앱을 찾지 못함")
+            return _precheck_fallback(args.version, message("ios_release.asc.app_not_found", bundle_id=args.bundle_id))
         closed = closed_max(asc_client.list_app_store_versions(app_id, token))
     except asc_client.AscError as e:
         return _precheck_fallback(args.version, str(e))
@@ -224,7 +225,7 @@ def cmd_precheck(args: argparse.Namespace) -> int:
     d = decide_version(args.version, closed, args.mode)
     _write_github_output({"version": d["version"], "changed": str(d["changed"]).lower(), "reason": d["reason"]})
     _emit({**d, "fallback": False, "summary": d["reason"],
-           "next": None if d["ok"] else "version.yml 버전을 올린 뒤 다시 실행"})
+           "next": None if d["ok"] else "bump the version in version.yml and run again"})
     if not d["ok"]:
         print(f"::error::{d['reason']}", file=sys.stderr)
         return 1
@@ -235,7 +236,7 @@ def cmd_classify(args: argparse.Namespace) -> int:
     try:
         log = Path(args.log).read_text(encoding="utf-8", errors="replace")
     except OSError as e:
-        print(f"경고: 로그를 읽지 못했습니다: {e}", file=sys.stderr)
+        print(f"warning: could not read the log: {e}", file=sys.stderr)
         log = ""
     r = classify_upload_error(log)
     _emit({"ok": True, **r, "summary": f"{r['kind']}: {r['reason_line']}", "next": None})
@@ -280,7 +281,7 @@ def run_cmd(cmd: list[str], cwd: str, env: dict) -> tuple[int, str]:
         proc = subprocess.Popen(cmd, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 text=True, encoding="utf-8", errors="replace", bufsize=1)
     except OSError as e:
-        return 127, f"실행 실패: {cmd[0]}: {e}"
+        return 127, message("ios_release.run_failed", cmd=cmd[0], error=e)
     lines: list[str] = []
     assert proc.stdout is not None
     for line in proc.stdout:
@@ -307,22 +308,22 @@ def verify_ipa(ipa: Path, version: str, build: int) -> list[str]:
     try:
         zf = zipfile.ZipFile(ipa)
     except (OSError, zipfile.BadZipFile) as e:
-        return [f"{ipa.name}: IPA를 열 수 없습니다 ({e})"]
+        return [message("ios_release.ipa.cannot_open", name=ipa.name, error=e)]
     with zf:
         names = [n for n in zf.namelist() if _BUNDLE_PLIST.match(n)]
         if not any(n.count("/") == 2 for n in names):  # Payload/X.app/Info.plist
-            return ["Payload/*.app/Info.plist를 IPA에서 찾지 못했습니다"]
+            return [message("ios_release.ipa.no_info_plist")]
         for n in sorted(names):
             rel = n[len("Payload/"):-len("/Info.plist")]
             try:
                 info = plistlib.loads(zf.read(n))
             except (ExpatError, plistlib.InvalidFileException, ValueError, KeyError) as e:
-                problems.append(f"{rel}: Info.plist를 읽을 수 없습니다 ({e})")
+                problems.append(message("ios_release.ipa.unreadable_plist", bundle=rel, error=e))
                 continue
             got_b, got_v = info.get("CFBundleVersion"), info.get("CFBundleShortVersionString")
             if str(got_b) != str(build) or str(got_v) != str(version):
-                problems.append(f"{rel}: CFBundleVersion={got_b} (기대 {build}), "
-                                f"CFBundleShortVersionString={got_v} (기대 {version})")
+                problems.append(message("ios_release.ipa.mismatch", bundle=rel, got_build=got_b, build=build,
+                                        got_version=got_v, version=version))
     return problems
 
 
@@ -334,8 +335,9 @@ def _last_error_line(out: str) -> str:
     if errors:
         # 앞의 파일 경로는 떼고 원인 문장만 남긴다
         return _clean_line(errors[-1].split("error:", 1)[1])
-    hits = [l for l in lines if re.search(r"\*\* .* FAILED|실행 실패", l)]
-    return _clean_line((hits or lines or ["출력 없음"])[-1])
+    # run_cmd 실패 문구는 언어별 (ko 실행 실패 / en failed to run)
+    hits = [l for l in lines if re.search(r"\*\* .* FAILED|실행 실패|failed to run", l)]
+    return _clean_line((hits or lines or [message("ios_release.no_output")])[-1])
 
 
 def _int_env(name: str, default: int | None) -> int | None:
@@ -345,7 +347,7 @@ def _int_env(name: str, default: int | None) -> int | None:
     try:
         return int(raw)
     except ValueError:
-        print(f"경고: {name}={raw!r}은 정수가 아니어서 무시합니다", file=sys.stderr)
+        print(f"warning: {name}={raw!r} is not an integer, ignoring it", file=sys.stderr)
         return default
 
 
@@ -368,21 +370,21 @@ class _Cfg:
 
     def validate(self) -> None:
         if not self.version:
-            raise _Fail("VERSION 환경변수가 필요합니다")
+            raise _Fail(message("ios_release.fail.version_required"))
         if self.mode not in ("test", "release"):
-            raise _Fail("MODE는 test 또는 release여야 합니다")
+            raise _Fail(message("ios_release.fail.mode_invalid"))
 
 
 def _asc_context(cfg: _Cfg) -> tuple[str, str]:
     """(토큰, 앱 ID). 하나라도 못 구하면 _Fail이 아니라 AscError로 알린다."""
     token = asc_client.token_from_env()
     if not token:
-        raise asc_client.AscError("ASC 인증 정보 없음")
+        raise asc_client.AscError(message("ios_release.asc.no_credentials"))
     if not cfg.app_identifier:
-        raise asc_client.AscError("APP_IDENTIFIER 없음")
+        raise asc_client.AscError(message("ios_release.asc.no_app_identifier"))
     app_id = asc_client.find_app_id(cfg.app_identifier, token)
     if not app_id:
-        raise asc_client.AscError(f"번들 ID {cfg.app_identifier} 앱을 찾지 못함")
+        raise asc_client.AscError(message("ios_release.asc.app_not_found", bundle_id=cfg.app_identifier))
     return token, app_id
 
 
@@ -392,7 +394,7 @@ def _asc_floor(cfg: _Cfg) -> int | None:
         token, app_id = _asc_context(cfg)
         latest = asc_client.recent_max_build(app_id, token)
     except asc_client.AscError as e:
-        print(f"경고: ASC 최근 번호 조회 불가, 시각 번호로 진행합니다: {e}", file=sys.stderr)
+        print(f"warning: could not look up the latest App Store Connect build number, using the time-based number: {e}", file=sys.stderr)
         return None
     return latest + 1 if latest else None
 
@@ -416,29 +418,28 @@ def _archive_and_export(cfg: _Cfg, version: str, number: int) -> Path:
         f"FLUTTER_BUILD_NAME={version}", f"MARKETING_VERSION={version}",
     ], ios, env)
     if rc != 0:
-        raise _Fail(_reason(f"xcodebuild archive 실패 (종료 코드 {rc}): {_last_error_line(out)}"))
+        raise _Fail(_reason(message("ios_release.fail.archive", code=rc, line=_last_error_line(out))))
 
     try:
         write_runtime_export_options(cfg.ios_dir / "ExportOptions.plist", build_dir / "ExportOptions.runtime.plist")
     except (OSError, plistlib.InvalidFileException, ExpatError, ValueError) as e:
-        raise _Fail(_reason(f"ios/ExportOptions.plist를 읽지 못했습니다: {e}"))
+        raise _Fail(_reason(message("ios_release.fail.export_options", error=e)))
     rc, out = run_cmd([
         "xcodebuild", "-exportArchive", "-archivePath", "build/Runner.xcarchive",
         "-exportPath", "build/ipa", "-exportOptionsPlist", "build/ExportOptions.runtime.plist",
     ], ios, env)
     if rc != 0:
-        raise _Fail(_reason(f"xcodebuild -exportArchive 실패 (종료 코드 {rc}): {_last_error_line(out)}"))
+        raise _Fail(_reason(message("ios_release.fail.export", code=rc, line=_last_error_line(out))))
 
     ipas = sorted((build_dir / "ipa").glob("*.ipa"))
     if not ipas:
-        raise _Fail("export 결과에서 IPA를 찾지 못했습니다")
+        raise _Fail(message("ios_release.fail.no_ipa"))
     if len(ipas) > 1:
-        print(f"경고: IPA가 {len(ipas)}개여서 {ipas[0].name}을 사용합니다", file=sys.stderr)
+        print(f"warning: found {len(ipas)} IPAs, using {ipas[0].name}", file=sys.stderr)
     problems = verify_ipa(ipas[0], version, number)
     if problems:
-        more = f" 외 {len(problems) - 1}건" if len(problems) > 1 else ""
-        raise _Fail(_reason(f"번들 번호 불일치, 업로드하지 않습니다: {problems[0]}{more}. "
-                            "앱 확장의 버전/빌드 번호가 본체와 달라 Apple이 거부합니다"))
+        more = message("ios_release.fail.bundle_mismatch_more", count=len(problems) - 1) if len(problems) > 1 else ""
+        raise _Fail(_reason(message("ios_release.fail.bundle_mismatch", problem=problems[0], more=more)))
     return ipas[0].resolve()
 
 
@@ -455,28 +456,26 @@ def _load_state(cfg: _Cfg) -> dict:
         state = {"version": str(st["version"]), "build_number": int(st["build_number"]),
                  "attempt": int(st["attempt"]), "ipa_path": str(st["ipa_path"])}
     except FileNotFoundError:
-        raise _Fail(f"상태 파일이 없습니다: {cfg.state_path}. 먼저 --phase build를 실행해야 합니다")
+        raise _Fail(message("ios_release.fail.state_missing", path=cfg.state_path))
     except (OSError, ValueError, KeyError, TypeError) as e:
-        raise _Fail(f"상태 파일이 손상되었습니다: {cfg.state_path} ({type(e).__name__}). --phase build부터 다시 실행하세요")
+        raise _Fail(message("ios_release.fail.state_corrupt", path=cfg.state_path, error=type(e).__name__))
     if not Path(state["ipa_path"]).is_file():
-        raise _Fail(f"상태 파일이 가리키는 IPA가 없습니다: {state['ipa_path']}")
+        raise _Fail(message("ios_release.fail.state_no_ipa", path=state["ipa_path"]))
     return state
 
 
 def _confirm_not_uploaded(cfg: _Cfg, number: int, reason: str) -> None:
     """재업로드 직전 ASC에 이번 번호가 이미 있는지 확인한다. 못 믿겠으면 재시도하지 않는다."""
-    unknown = "ASC 조회 불가로 재업로드 여부를 확인할 수 없어 중단"
     try:
         token, app_id = _asc_context(cfg)
         for i in range(_REEXIST_CHECKS):
             if asc_client.build_exists(app_id, number, token):
                 # 업로드 후 단계 실패일 수도, 같은 초에 번호가 겹친 동시 빌드일 수도 있어 둘을 구분하지 않고 멈춘다
-                raise _Fail(_reason("같은 번호의 빌드가 이미 App Store Connect에 있어 재업로드하지 않습니다"
-                                    f"(업로드 후 단계 실패 또는 동시 빌드와 번호 충돌). 다시 실행하면 새 번호를 씁니다: {reason}"))
+                raise _Fail(_reason(message("ios_release.fail.already_uploaded", reason=reason)))
             if i < _REEXIST_CHECKS - 1:
                 sleep(_REEXIST_INTERVAL)  # 방금 올린 빌드는 목록 반영이 늦을 수 있다
     except asc_client.AscError as e:
-        raise _Fail(_reason(f"{unknown} ({e}). 원래 사유: {reason}"))
+        raise _Fail(_reason(message("ios_release.fail.reupload_unknown", error=e, reason=reason)))
 
 
 def _next_closed_version(cfg: _Cfg, closed_version: str | None, reason: str) -> str:
@@ -486,13 +485,13 @@ def _next_closed_version(cfg: _Cfg, closed_version: str | None, reason: str) -> 
             token, app_id = _asc_context(cfg)
             closed_version = closed_max(asc_client.list_app_store_versions(app_id, token))
         except asc_client.AscError as e:
-            raise _Fail(_reason(f"닫힌 버전을 알 수 없어 재시도하지 않습니다 ({e}). 원래 사유: {reason}"))
+            raise _Fail(_reason(message("ios_release.fail.closed_unknown_error", error=e, reason=reason)))
     if not closed_version:
-        raise _Fail(_reason(f"닫힌 버전을 알 수 없어 재시도하지 않습니다. 원래 사유: {reason}"))
+        raise _Fail(_reason(message("ios_release.fail.closed_unknown", reason=reason)))
     try:
         return next_patch(closed_version)
     except ValueError as e:
-        raise _Fail(_reason(f"{e}. 원래 사유: {reason}"))
+        raise _Fail(_reason(message("ios_release.fail.with_reason", error=e, reason=reason)))
 
 
 def _phase_build(cfg: _Cfg, info: dict) -> None:
@@ -520,7 +519,7 @@ def _phase_upload(cfg: _Cfg, info: dict) -> None:
         try:
             (cfg.ios_dir / "build" / f"upload_attempt_{attempt}.log").write_text(_scrub(out), encoding="utf-8")
         except OSError as e:
-            print(f"경고: 업로드 로그를 저장하지 못했습니다: {e}", file=sys.stderr)
+            print(f"warning: could not save the upload log: {e}", file=sys.stderr)
         if rc == 0:
             return
 
@@ -530,9 +529,9 @@ def _phase_upload(cfg: _Cfg, info: dict) -> None:
         if kind == "other":
             raise _Fail(reason)
         if kind == "train_closed" and cfg.mode == "release":
-            raise _Fail(_reason(f"이미 닫힌 버전이라 릴리스는 재시도하지 않습니다: {reason}"))
+            raise _Fail(_reason(message("ios_release.fail.release_closed", reason=reason)))
         if attempt >= cfg.max_attempts:
-            raise _Fail(_reason(f"{cfg.max_attempts}회 시도 후 실패: {reason}"))
+            raise _Fail(_reason(message("ios_release.fail.attempts", count=cfg.max_attempts, reason=reason)))
 
         new_version = _next_closed_version(cfg, r["closed_version"], reason) if kind == "train_closed" else version
         _confirm_not_uploaded(cfg, number, reason)
@@ -562,10 +561,10 @@ def cmd_archive_upload(args: argparse.Namespace) -> int:
         print(f"::error::{reason}", file=sys.stderr)
         _write_github_output({**info, "reason_line": reason})
         _emit({"ok": False, **info, "reason_line": reason, "summary": reason,
-               "next": "사유를 확인하고 필요하면 워크플로를 다시 실행"})
+               "next": "check the reason and rerun the workflow if needed"})
         return 1
-    done = "빌드 완료" if args.phase == "build" else "업로드 완료"
-    summary = f"{done}: 빌드 번호 {info.get('build_number')}, 버전 {info.get('version')}, 시도 {info.get('attempts')}회"
+    done = "build done" if args.phase == "build" else "upload done"
+    summary = f"{done}: build number {info.get('build_number')}, version {info.get('version')}, attempts {info.get('attempts')}"
     _write_github_output(info)
     _emit({"ok": True, **info, "summary": summary,
            "next": "archive-upload --phase upload" if args.phase == "build" else None})
@@ -580,13 +579,13 @@ def _status_fail(reason: str) -> int:
 
 def _status_markdown(bundle_id: str, versions: list[dict], closed: str | None, recent: int | None) -> str:
     """실행 요약용 표. 값은 버전 문자열과 상태 이름뿐이라 비밀값이 섞일 수 없다."""
-    lines = [f"## App Store Connect 상태 ({bundle_id})", "",
-             f"- 닫힌 버전 중 최대: `{closed or '없음'}`",
-             f"- 최근 올라간 빌드 번호: `{recent if recent is not None else '조회 안 됨'}`", "",
-             "| 버전 | 상태 | 닫힘 |", "|---|---|---|"]
+    lines = [f"## App Store Connect status ({bundle_id})", "",
+             f"- Highest closed version: `{closed or 'none'}`",
+             f"- Latest uploaded build number: `{recent if recent is not None else 'unavailable'}`", "",
+             "| Version | State | Closed |", "|---|---|---|"]
     for v in versions:
         state = v.get("appVersionState") or v.get("appStoreState") or "-"
-        lines.append(f"| {v['version']} | {state} | {'예' if v['closed'] else '아니오'} |")
+        lines.append(f"| {v['version']} | {state} | {'yes' if v['closed'] else 'no'} |")
     return "\n".join(lines) + "\n"
 
 
@@ -595,18 +594,18 @@ def cmd_asc_status(args: argparse.Namespace) -> int:
     사전 점검과 달리 조회가 목적이라 조회가 안 되면 폴백하지 않고 실패로 알린다."""
     token = asc_client.token_from_env()
     if not token:
-        return _status_fail("ASC 인증 정보 없음 (APP_STORE_CONNECT_API_KEY_ID, ISSUER_ID, API_KEY_BASE64 시크릿 확인)")
+        return _status_fail("No App Store Connect credentials (check the APP_STORE_CONNECT_API_KEY_ID, ISSUER_ID and API_KEY_BASE64 secrets)")
     try:
         app_id = asc_client.find_app_id(args.bundle_id, token)
         if not app_id:
-            return _status_fail(f"번들 ID {args.bundle_id} 앱을 찾지 못함")
+            return _status_fail(f"No app found for bundle ID {args.bundle_id}")
         rows = asc_client.list_app_store_versions(app_id, token)
     except asc_client.AscError as e:
-        return _status_fail(f"ASC 조회 실패: {e}")
+        return _status_fail(f"App Store Connect lookup failed: {e}")
     try:
         recent = asc_client.recent_max_build(app_id, token)
     except asc_client.AscError as e:
-        print(f"경고: 최근 빌드 번호 조회 실패: {e}", file=sys.stderr)
+        print(f"warning: could not look up the latest build number: {e}", file=sys.stderr)
         recent = None
 
     closed = closed_max(rows)
@@ -627,22 +626,22 @@ def cmd_asc_status(args: argparse.Namespace) -> int:
             f.write(_status_markdown(args.bundle_id, versions, closed, recent))
     _write_github_output({"closed_max": closed or "", "recent_max_build": "" if recent is None else recent})
     _emit({"ok": True, "app_id": app_id, "versions": versions, "closed_max": closed,
-           "recent_max_build": recent, "summary": f"닫힌 버전 최대 {closed or '없음'}, 최근 빌드 번호 {recent}", "next": None})
+           "recent_max_build": recent, "summary": f"highest closed version {closed or 'none'}, latest build number {recent}", "next": None})
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="iOS 릴리스 판단 로직")
+    p = argparse.ArgumentParser(description="iOS release decisions: version precheck, upload error classification, archive and upload")
     sub = p.add_subparsers(dest="cmd", required=True)
-    pc = sub.add_parser("precheck-version", help="닫힌 버전 사전 점검")
+    pc = sub.add_parser("precheck-version", help="check for a closed (released) version before building")
     pc.add_argument("--mode", choices=["test", "release"], required=True)
     pc.add_argument("--version", required=True)
     pc.add_argument("--bundle-id", required=True)
-    ce = sub.add_parser("classify-error", help="업로드 로그 분류")
+    ce = sub.add_parser("classify-error", help="classify an upload log")
     ce.add_argument("--log", required=True)
-    st = sub.add_parser("asc-status", help="앱 버전 상태와 최근 빌드 번호 조회 (조회 전용)")
+    st = sub.add_parser("asc-status", help="show app version states and the latest build number (read only)")
     st.add_argument("--bundle-id", required=True)
-    au = sub.add_parser("archive-upload", help="아카이브, 검증, 업로드와 재시도")
+    au = sub.add_parser("archive-upload", help="archive, verify, upload and retry")
     au.add_argument("--phase", choices=["build", "upload"], required=True)
     args = p.parse_args(argv)
     if args.cmd == "archive-upload":

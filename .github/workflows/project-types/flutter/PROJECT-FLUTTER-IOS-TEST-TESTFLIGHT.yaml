@@ -94,7 +94,7 @@ jobs:
   # 즉시 댓글 생성 (ubuntu-latest로 빠르게 실행)
   # ===================================================================
   notify-start:
-    name: 진행 상황 알림
+    name: Progress notification
     runs-on: ubuntu-latest
     if: github.event_name == 'repository_dispatch'
 
@@ -104,7 +104,30 @@ jobs:
       branch_valid: ${{ steps.verify_branch.outputs.valid }}
 
     steps:
-      - name: 브랜치 존재 여부 사전 확인
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js test_testflight. comment. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
+      - name: Check that the branch exists
         id: verify_branch
         uses: actions/github-script@v7
         env:
@@ -112,12 +135,13 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: elapsedText } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const branchName = process.env.BRANCH_NAME;
             const prNumber = '${{ github.event.client_payload.pr_number }}';
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
 
-            console.log(`🔍 브랜치 존재 여부 확인: ${branchName}`);
+            console.log(`🔍 Checking that the branch exists: ${branchName}`);
 
             try {
               await github.rest.repos.getBranch({
@@ -125,26 +149,27 @@ jobs:
                 repo: context.repo.repo,
                 branch: branchName
               });
-              console.log(`✅ 브랜치 존재 확인됨: ${branchName}`);
+              console.log(`✅ Branch exists: ${branchName}`);
               core.setOutput('valid', 'true');
             } catch (error) {
               if (error.status === 404) {
-                console.log(`❌ 브랜치를 찾을 수 없음: ${branchName}`);
+                console.log(`❌ Branch not found: ${branchName}`);
 
                 const body = [
-                  '🍎 ❌ **iOS TestFlight 빌드 실패 - 브랜치를 찾을 수 없습니다**',
+                  t('test_testflight.branch_missing.title'),
                   '',
-                  '| 항목 | 값 |',
+                  t('test_testflight.table.item_header'),
                   '|------|-----|',
-                  `| **요청된 브랜치** | \`${branchName}\` |`,
-                  `| **이슈/PR** | #${prNumber} |`,
+                  t('test_testflight.row.requested_branch', { branch: branchName }),
+                  t('test_testflight.row.issue_pr', { number: prNumber }),
                   '',
-                  '### 💡 확인 사항',
-                  '1. 브랜치가 원격 저장소에 push되었는지 확인하세요',
-                  '2. "Guide by ProjectOps" 댓글의 브랜치명이 올바른지 확인하세요',
-                  '3. 브랜치명에 오타가 없는지 확인하세요',
+                  t('test_testflight.branch_missing.check_heading'),
+                  t('test_testflight.branch_missing.check_pushed'),
+                  // 서명은 계약 문자열이라 카탈로그에 넣지 않고 값으로 넘긴다
+                  t('test_testflight.branch_missing.check_guide', { signature: 'Guide by ProjectOps' }),
+                  t('test_testflight.branch_missing.check_typo'),
                   '',
-                  `🔗 [워크플로우 로그](${runUrl})`
+                  t('test_testflight.link.workflow_log', { url: runUrl })
                 ].join('\n');
 
                 await github.rest.issues.createComment({
@@ -154,13 +179,13 @@ jobs:
                   body: body
                 });
 
-                core.setFailed(`브랜치를 찾을 수 없습니다: ${branchName}`);
+                core.setFailed(`Branch not found: ${branchName}`);
               } else {
-                core.setFailed(`브랜치 확인 중 오류: ${error.message}`);
+                core.setFailed(`Error while checking the branch: ${error.message}`);
               }
             }
 
-      - name: 진행 상황 댓글 생성
+      - name: Create progress comment
         id: progress
         if: github.event.client_payload.pr_number != ''
         continue-on-error: true
@@ -170,6 +195,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: elapsedText } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const prNumber = parseInt('${{ github.event.client_payload.pr_number }}');
             const branchName = process.env.BRANCH_NAME;
             const runId = '${{ github.run_id }}';
@@ -177,23 +203,23 @@ jobs:
             const startTime = Date.now();
 
             const body = [
-              '## 🍎 iOS TestFlight 빌드 진행 중...',
+              t('test_testflight.heading.in_progress'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_testflight.table.stage_header'),
               '|------|------|----------|',
-              '| 🔧 준비 | ⏳ 진행 중... | - |',
-              '| 🔨 IPA 빌드 | ⏸️ 대기 | - |',
-              '| 📤 TestFlight 배포 | ⏸️ 대기 | - |',
+              t('test_testflight.row.prepare', { status: t('test_testflight.status.in_progress'), elapsed: '-' }),
+              t('test_testflight.row.build', { status: t('test_testflight.status.waiting'), elapsed: '-' }),
+              t('test_testflight.row.deploy', { status: t('test_testflight.status.waiting'), elapsed: '-' }),
               '',
-              '| 항목 | 값 |',
+              t('test_testflight.table.item_header'),
               '|------|-----|',
-              '| **빌드 번호** | `빌드 시 결정` |',
-              `| **브랜치** | \`${branchName}\` |`,
+              t('test_testflight.row.build_number_pending'),
+              t('test_testflight.row.branch', { branch: branchName }),
               '',
-              `**[📋 실시간 로그 보기](${runUrl})**`,
+              t('test_testflight.link.live_log', { url: runUrl }),
               '',
               '---',
-              '*🤖 이 댓글은 자동으로 업데이트됩니다.*'
+              t('test_testflight.footer.auto_update')
             ].join('\n');
 
             const { data: comment } = await github.rest.issues.createComment({
@@ -203,12 +229,12 @@ jobs:
               body: body
             });
 
-            console.log(`✅ 진행 상황 댓글 생성 완료: #${comment.id}`);
+            console.log(`✅ Progress comment created: #${comment.id}`);
             core.setOutput('comment_id', comment.id);
             core.setOutput('start_time', startTime);
 
       # 취소 처리 (#648): 댓글을 만든 job 이 아직 실행 중일 때 취소된 경우. cancelled() 스텝은 그 job 이 취소돼야 돈다.
-      - name: 진행 상황 업데이트 - 취소 (알림 job)
+      - name: Update progress - cancelled (notify job)
         if: cancelled() && github.event_name == 'repository_dispatch' && steps.progress.outputs.comment_id != ''
         continue-on-error: true
         uses: actions/github-script@v7
@@ -220,6 +246,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: elapsedText } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = parseInt(process.env.COMMENT_ID, 10);
             const startTime = parseInt(process.env.START_TIME, 10);
             const branchName = process.env.BRANCH_NAME;
@@ -231,8 +258,8 @@ jobs:
               repo: context.repo.repo,
               comment_id: commentId
             });
-            if (!(current.body || '').startsWith('## 🍎 iOS TestFlight 빌드 진행 중...')) {
-              console.log('이미 최종 상태 댓글이라 취소 갱신을 건너뜀');
+            if (!(current.body || '').startsWith(t('test_testflight.heading.in_progress'))) {
+              console.log('The comment already shows a final state, skipping the cancel update');
               return;
             }
 
@@ -241,24 +268,24 @@ jobs:
               const elapsed = Date.now() - startTime;
               const minutes = Math.floor(elapsed / 60000);
               const seconds = Math.floor((elapsed % 60000) / 1000);
-              duration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+              duration = elapsedText(minutes, seconds);
             }
 
             const body = [
-              '## 🍎 🚫 iOS TestFlight 빌드 취소됨',
+              t('test_testflight.heading.cancelled'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_testflight.table.stage_header'),
               '|------|------|----------|',
-              '| 🔧 준비 | ⏸️ 취소됨 | - |',
-              '| 🔨 IPA 빌드 | ⏸️ 취소됨 | - |',
-              '| 📤 TestFlight 배포 | ⏸️ 취소됨 | - |',
+              t('test_testflight.row.prepare', { status: t('test_testflight.status.cancelled'), elapsed: '-' }),
+              t('test_testflight.row.build', { status: t('test_testflight.status.cancelled'), elapsed: '-' }),
+              t('test_testflight.row.deploy', { status: t('test_testflight.status.cancelled'), elapsed: '-' }),
               '',
-              `- 브랜치: \`${branchName}\``,
-              `- 총 소요 시간: ${duration}`,
+              t('test_testflight.cancelled.branch', { branch: branchName }),
+              t('test_testflight.cancelled.total', { duration }),
               '',
-              '🚫 **빌드가 취소되었습니다.** 새 빌드가 시작되었거나 수동으로 취소된 것입니다.',
+              t('test_testflight.cancelled.message'),
               '',
-              `🔗 [워크플로우 실행 로그 확인](${runUrl})`
+              t('test_testflight.link.run_log_check', { url: runUrl })
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -268,13 +295,13 @@ jobs:
               body: body
             });
 
-            console.log('🚫 진행 상황 업데이트 완료: 취소됨');
+            console.log('🚫 Progress updated: cancelled');
 
   # ===================================================================
   # 테스트 빌드 준비 (macOS 환경 설정)
   # ===================================================================
   prepare-test-build:
-    name: 테스트 빌드 준비
+    name: Prepare test build
     runs-on: macos-26
     defaults:
       run:
@@ -302,6 +329,29 @@ jobs:
       build_flags: ${{ steps.build_profile.outputs.build_flags }}
 
     steps:
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js test_testflight. comment. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
@@ -315,13 +365,13 @@ jobs:
         run: git pull origin "$BRANCH_NAME"
 
       # pull 이후의 HEAD 를 고정한다. 뒤 job 은 브랜치명이 아니라 이 SHA 로 체크아웃한다.
-      - name: HEAD SHA 고정
+      - name: Pin HEAD SHA
         id: commit
         run: |
           SHA=$(git rev-parse HEAD)
           echo "commit_sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "commit_hash=${SHA:0:7}" >> "$GITHUB_OUTPUT"
-          echo "📌 빌드 대상 커밋: $SHA"
+          echo "📌 Commit to build: $SHA"
 
       # 빈 값이면 러너에 설치된 최신 정식 Xcode, 고정한 버전이 러너에 없으면 설치 목록을 찍고 실패 (#758)
       # 레포 변수 XCODE_VERSION 으로도 고정 가능 (템플릿 업데이트에도 유지)
@@ -341,7 +391,7 @@ jobs:
       # 빌드 프로파일 — 런타임(.env)과 컴파일타임(dart-define)을 한 곳에서 정한다 (#603)
       # 고쳐진 .env 는 project-files 아티팩트로, 플래그는 job output 으로 빌드 job 에 간다.
       # 설정(.github/config/build-profile.json)이 없는 저장소에서는 아무 일도 하지 않는다.
-      - name: 빌드 프로파일 적용 (test)
+      - name: Apply build profile (test)
         id: build_profile
         run: |
           python3 "${{ github.workspace }}/.github/scripts/apply_build_profile.py" \
@@ -362,7 +412,7 @@ jobs:
           fi
 
       # 테스트 빌드 버전 설정 (version.yml에서 동적 읽기)
-      - name: 버전 관리 스크립트 권한 설정
+      - name: Make the version script executable
         working-directory: ${{ github.workspace }}   # 레포 루트 자산(.github/scripts)은 APP_ROOT가 아닌 레포 루트 기준
         run: chmod +x ./.github/scripts/version_manager.sh
 
@@ -379,13 +429,13 @@ jobs:
             if echo "$API_KEY_BASE64" | base64 --decode > "$KEY_PATH"; then
               echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
             else
-              echo "::warning::App Store Connect 키를 해석하지 못해 version.yml 버전으로 진행합니다"
+              echo "::warning::Could not decode the App Store Connect key, continuing with the version.yml version"
             fi
           else
-            echo "ℹ️ App Store Connect 키 시크릿이 없어 version.yml 버전으로 진행합니다"
+            echo "ℹ️ No App Store Connect key secret, continuing with the version.yml version"
           fi
 
-      - name: 테스트 빌드 버전 설정
+      - name: Set test build version
         id: test_version
         working-directory: ${{ github.workspace }}   # version_manager.sh가 레포 루트 version.yml을 읽어야 함
         env:
@@ -399,11 +449,11 @@ jobs:
           # repository_dispatch 이벤트인 경우 진행 댓글을 달 PR 번호를 받는다
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
             PR_NUMBER="${{ github.event.client_payload.pr_number }}"
-            echo "📋 repository_dispatch 이벤트 감지"
-            echo "  PR 번호: #$PR_NUMBER"
+            echo "📋 repository_dispatch event"
+            echo "  PR number: #$PR_NUMBER"
           else
             PR_NUMBER=""
-            echo "📋 workflow_dispatch 이벤트 감지"
+            echo "📋 workflow_dispatch event"
           fi
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
 
@@ -413,7 +463,7 @@ jobs:
             --version "$VERSION" --bundle-id "$APP_IDENTIFIER"
 
       # 브랜치명에서 이슈 번호 추출 및 GitHub API로 이슈 정보 가져오기
-      - name: 브랜치명에서 이슈 정보 추출
+      - name: Extract issue info from the branch name
         id: issue_info
         env:
           # 브랜치명은 스크립트 소스에 직접 넣지 않고 env 로 받는다 (#646)
@@ -431,40 +481,40 @@ jobs:
             ISSUE_NUMBER=$(echo "$BRANCH_NAME" | sed -n 's/^[^#]*#\([0-9][0-9]*\).*/\1/p')
           fi
 
-          echo "🌿 브랜치명: $BRANCH_NAME"
+          echo "🌿 Branch: $BRANCH_NAME"
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
           if [ -z "$ISSUE_NUMBER" ]; then
-            echo "⚠️ 브랜치명에서 이슈 번호를 찾을 수 없습니다."
+            echo "⚠️ No issue number found in the branch name."
             echo "issue_url=" >> $GITHUB_OUTPUT
             echo "issue_title=" >> $GITHUB_OUTPUT
             echo "issue_number=" >> $GITHUB_OUTPUT
           else
-            echo "✅ 추출된 이슈 번호: #$ISSUE_NUMBER"
+            echo "✅ Issue number: #$ISSUE_NUMBER"
             ISSUE_URL="https://github.com/${{ github.repository }}/issues/$ISSUE_NUMBER"
             echo "issue_url=$ISSUE_URL" >> $GITHUB_OUTPUT
             echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
 
             # GitHub API로 이슈 정보 가져오기
-            echo "🔍 GitHub API로 이슈 정보 조회 중..."
+            echo "🔍 Fetching the issue from the GitHub API..."
             ISSUE_RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/${{ github.repository }}/issues/$ISSUE_NUMBER")
 
-            ISSUE_TITLE=$(echo "$ISSUE_RESPONSE" | jq -r '.title // "이슈 정보 없음"')
+            ISSUE_TITLE=$(echo "$ISSUE_RESPONSE" | jq -r '.title // "no issue info"')
             ISSUE_STATE=$(echo "$ISSUE_RESPONSE" | jq -r '.state // "unknown"')
 
-            if [ "$ISSUE_TITLE" = "null" ] || [ "$ISSUE_TITLE" = "이슈 정보 없음" ]; then
-              echo "⚠️ 이슈 #$ISSUE_NUMBER를 찾을 수 없습니다."
+            if [ "$ISSUE_TITLE" = "null" ] || [ "$ISSUE_TITLE" = "no issue info" ]; then
+              echo "⚠️ Issue #$ISSUE_NUMBER not found."
               echo "issue_title=" >> $GITHUB_OUTPUT
             else
-              echo "📋 이슈 제목: $ISSUE_TITLE"
-              echo "📌 이슈 상태: $ISSUE_STATE"
+              echo "📋 Issue title: $ISSUE_TITLE"
+              echo "📌 Issue state: $ISSUE_STATE"
               echo "issue_title=$ISSUE_TITLE" >> $GITHUB_OUTPUT
             fi
           fi
 
       # 릴리즈 노트 생성
-      - name: 릴리즈 노트 생성
+      - name: Create release notes
         id: release_notes
         # ⚠️ heredoc 을 쓰지 않는다 (#597).
         #    `<< EOF` 의 종료자는 **컬럼 0** 이어야 하는데, if 블록 안에 두면 들여쓰게 된다.
@@ -484,27 +534,35 @@ jobs:
           COMMIT_SHORT=$(echo "$COMMIT_SHA" | cut -c1-7)
           BUILD_DATE=$(date '+%Y-%m-%d %H:%M:%S')
 
+          # 테스터에게 보이는 문구라 레포 언어를 따른다 (#769). version.yml 은 레포 루트 기준, 못 읽으면 영문
+          msg() { (cd "$GITHUB_WORKSPACE" && python3 .github/scripts/i18n/messages.py get "$@" 2>/dev/null); }
+          NOTES_TITLE=$(msg test_testflight.notes.title) || NOTES_TITLE="Test build"
+          NOTES_BRANCH=$(msg test_testflight.notes.branch --var "branch=$BRANCH_NAME") || NOTES_BRANCH="Branch: $BRANCH_NAME"
+          NOTES_COMMIT=$(msg test_testflight.notes.commit --var "commit=$COMMIT_SHORT") || NOTES_COMMIT="Commit: $COMMIT_SHORT"
+          NOTES_DATE=$(msg test_testflight.notes.date --var "date=$BUILD_DATE") || NOTES_DATE="Date: $BUILD_DATE"
+          NOTES_ISSUE=$(msg test_testflight.notes.related_issue) || NOTES_ISSUE="Related issue:"
+
           # 빌드 번호는 아카이브 시점에 정해지므로 여기에 적지 않는다 (TestFlight 가 번호를 자체 표시)
           {
-            echo "테스트 빌드"
+            echo "$NOTES_TITLE"
             echo ""
-            echo "브랜치: $BRANCH_NAME"
-            echo "커밋: $COMMIT_SHORT"
-            echo "날짜: $BUILD_DATE"
+            echo "$NOTES_BRANCH"
+            echo "$NOTES_COMMIT"
+            echo "$NOTES_DATE"
             echo ""
           } > final_release_notes.txt
 
           # 이슈 정보가 있으면 추가
           if [ -n "$ISSUE_NUMBER" ]; then
             {
-              echo "관련 이슈:"
+              echo "$NOTES_ISSUE"
               echo "- #$ISSUE_NUMBER: $ISSUE_TITLE"
               echo "- URL: $ISSUE_URL"
               echo ""
             } >> final_release_notes.txt
           fi
 
-          echo "📋 생성된 릴리즈 노트:"
+          echo "📋 Release notes:"
           echo "----------------------------------------"
           cat final_release_notes.txt
           echo "----------------------------------------"
@@ -535,7 +593,7 @@ jobs:
           if-no-files-found: warn
 
       # 진행 상황 업데이트 - 준비 실패
-      - name: 진행 상황 업데이트 - 준비 실패
+      - name: Update progress - preparation failed
         if: failure() && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
         uses: actions/github-script@v7
         env:
@@ -543,6 +601,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: elapsedText } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = parseInt('${{ needs.notify-start.outputs.comment_id }}');
             const startTime = parseInt('${{ needs.notify-start.outputs.start_time }}');
             const branchName = process.env.BRANCH_NAME;
@@ -553,24 +612,24 @@ jobs:
             const elapsed = now - startTime;
             const minutes = Math.floor(elapsed / 60000);
             const seconds = Math.floor((elapsed % 60000) / 1000);
-            const duration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            const duration = elapsedText(minutes, seconds);
 
             const body = [
-              '## 🍎 ❌ iOS TestFlight 빌드 실패',
+              t('test_testflight.heading.build_failed'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_testflight.table.stage_header'),
               '|------|------|----------|',
-              `| 🔧 준비 | ❌ 실패 | ${duration} |`,
-              '| 🔨 IPA 빌드 | ⏸️ 취소됨 | - |',
-              '| 📤 TestFlight 배포 | ⏸️ 취소됨 | - |',
+              t('test_testflight.row.prepare', { status: t('test_testflight.status.failed'), elapsed: duration }),
+              t('test_testflight.row.build', { status: t('test_testflight.status.cancelled'), elapsed: '-' }),
+              t('test_testflight.row.deploy', { status: t('test_testflight.status.cancelled'), elapsed: '-' }),
               '',
-              '| 항목 | 값 |',
+              t('test_testflight.table.item_header'),
               '|------|-----|',
-              `| **브랜치** | \`${branchName}\` |`,
+              t('test_testflight.row.branch', { branch: branchName }),
               '',
-              '❌ **환경 준비 중 오류가 발생했습니다.**',
+              t('test_testflight.failed.prepare_message'),
               '',
-              `🔗 [워크플로우 실행 로그 확인](${runUrl})`
+              t('test_testflight.link.run_log_check', { url: runUrl })
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -580,10 +639,10 @@ jobs:
               body: body
             });
 
-            console.log(`❌ 진행 상황 업데이트 완료: 준비 실패`);
+            console.log(`❌ Progress updated: preparation failed`);
 
       # 취소 처리 (#648): 준비 job 은 댓글을 만든 job 이 아니라 needs 출력으로 ID 를 받는다. 준비 job 이 취소되면 뒤의 빌드 job 은 시작조차 못 한다.
-      - name: 진행 상황 업데이트 - 취소 (준비 job)
+      - name: Update progress - cancelled (prepare job)
         if: cancelled() && github.event_name == 'repository_dispatch' && needs.notify-start.outputs.comment_id != ''
         continue-on-error: true
         uses: actions/github-script@v7
@@ -595,6 +654,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: elapsedText } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = parseInt(process.env.COMMENT_ID, 10);
             const startTime = parseInt(process.env.START_TIME, 10);
             const branchName = process.env.BRANCH_NAME;
@@ -606,8 +666,8 @@ jobs:
               repo: context.repo.repo,
               comment_id: commentId
             });
-            if (!(current.body || '').startsWith('## 🍎 iOS TestFlight 빌드 진행 중...')) {
-              console.log('이미 최종 상태 댓글이라 취소 갱신을 건너뜀');
+            if (!(current.body || '').startsWith(t('test_testflight.heading.in_progress'))) {
+              console.log('The comment already shows a final state, skipping the cancel update');
               return;
             }
 
@@ -616,24 +676,24 @@ jobs:
               const elapsed = Date.now() - startTime;
               const minutes = Math.floor(elapsed / 60000);
               const seconds = Math.floor((elapsed % 60000) / 1000);
-              duration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+              duration = elapsedText(minutes, seconds);
             }
 
             const body = [
-              '## 🍎 🚫 iOS TestFlight 빌드 취소됨',
+              t('test_testflight.heading.cancelled'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_testflight.table.stage_header'),
               '|------|------|----------|',
-              '| 🔧 준비 | ⏸️ 취소됨 | - |',
-              '| 🔨 IPA 빌드 | ⏸️ 취소됨 | - |',
-              '| 📤 TestFlight 배포 | ⏸️ 취소됨 | - |',
+              t('test_testflight.row.prepare', { status: t('test_testflight.status.cancelled'), elapsed: '-' }),
+              t('test_testflight.row.build', { status: t('test_testflight.status.cancelled'), elapsed: '-' }),
+              t('test_testflight.row.deploy', { status: t('test_testflight.status.cancelled'), elapsed: '-' }),
               '',
-              `- 브랜치: \`${branchName}\``,
-              `- 총 소요 시간: ${duration}`,
+              t('test_testflight.cancelled.branch', { branch: branchName }),
+              t('test_testflight.cancelled.total', { duration }),
               '',
-              '🚫 **빌드가 취소되었습니다.** 새 빌드가 시작되었거나 수동으로 취소된 것입니다.',
+              t('test_testflight.cancelled.message'),
               '',
-              `🔗 [워크플로우 실행 로그 확인](${runUrl})`
+              t('test_testflight.link.run_log_check', { url: runUrl })
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -643,7 +703,7 @@ jobs:
               body: body
             });
 
-            console.log('🚫 진행 상황 업데이트 완료: 취소됨');
+            console.log('🚫 Progress updated: cancelled');
 
   # ===================================================================
   # iOS 빌드 + TestFlight 배포 (한 job)
@@ -653,7 +713,7 @@ jobs:
   #   job 이 나뉘어 있으면 IPA 를 아티팩트로 넘긴 뒤라 재시도할 수 없다.
   #   아카이브부터 업로드까지를 ios_release.py 가 맡아 번호 결정, 번들 번호 검증, 재시도를 한다.
   build-upload-ios-test:
-    name: iOS 테스트 빌드 및 TestFlight 배포
+    name: iOS test build and TestFlight upload
     runs-on: macos-26
     defaults:
       run:
@@ -666,8 +726,31 @@ jobs:
       needs.prepare-test-build.result == 'success'
 
     steps:
+      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      - name: Check out the message catalog
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/scripts/i18n
+            version.yml
+          sparse-checkout-cone-mode: false
+          path: .projectops-messages
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Load comment messages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js test_testflight. comment. \
+            --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || { echo "::warning::Message catalog not found, comments show message keys"
+                 echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+          rm -rf .projectops-messages
+
       # 진행 상황 업데이트 - 준비 완료 (job 시작 시점에 업데이트해야 준비 시간이 정확히 표시됨)
-      - name: 진행 상황 업데이트 - 준비 완료
+      - name: Update progress - preparation done
         id: progress_step1
         if: github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
         uses: actions/github-script@v7
@@ -679,6 +762,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: elapsedText } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = parseInt('${{ needs.notify-start.outputs.comment_id }}');
             const startTime = parseInt('${{ needs.notify-start.outputs.start_time }}');
             const branchName = process.env.BRANCH_NAME;
@@ -690,33 +774,33 @@ jobs:
             const elapsed = Math.round((now - startTime) / 1000);
             const minutes = Math.floor(elapsed / 60);
             const seconds = elapsed % 60;
-            const elapsedStr = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+            const elapsedStr = elapsedText(minutes, seconds);
 
             // 출시되어 닫힌 버전을 피해 version.yml 과 다른 버전으로 빌드하면 이유를 알린다
             const versionNote = process.env.VERSION_CHANGED === 'true'
-              ? ['', `ℹ️ 버전 조정: ${process.env.VERSION_REASON}`]
+              ? ['', t('test_testflight.version_note', { reason: process.env.VERSION_REASON })]
               : [];
 
             const body = [
-              '## 🍎 iOS TestFlight 빌드 진행 중...',
+              t('test_testflight.heading.in_progress'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_testflight.table.stage_header'),
               '|------|------|----------|',
-              `| 🔧 준비 | ✅ 완료 | ${elapsedStr} |`,
-              '| 🔨 IPA 빌드 | ⏳ 진행 중... | - |',
-              '| 📤 TestFlight 배포 | ⏸️ 대기 | - |',
+              t('test_testflight.row.prepare', { status: t('test_testflight.status.done'), elapsed: elapsedStr }),
+              t('test_testflight.row.build', { status: t('test_testflight.status.in_progress'), elapsed: '-' }),
+              t('test_testflight.row.deploy', { status: t('test_testflight.status.waiting'), elapsed: '-' }),
               '',
-              '| 항목 | 값 |',
+              t('test_testflight.table.item_header'),
               '|------|-----|',
-              `| **앱 버전** | \`${version}\` |`,
-              '| **빌드 번호** | `빌드 시 결정` |',
-              `| **브랜치** | \`${branchName}\` |`,
+              t('test_testflight.row.app_version', { version }),
+              t('test_testflight.row.build_number_pending'),
+              t('test_testflight.row.branch', { branch: branchName }),
               ...versionNote,
               '',
-              `**[📋 실시간 로그 보기](${runUrl})**`,
+              t('test_testflight.link.live_log', { url: runUrl }),
               '',
               '---',
-              '*🤖 이 댓글은 자동으로 업데이트됩니다.*'
+              t('test_testflight.footer.auto_update')
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -726,7 +810,7 @@ jobs:
               body: body
             });
 
-            console.log(`✅ 진행 상황 업데이트 완료: 준비 완료 (${elapsedStr})`);
+            console.log(`✅ Progress updated: preparation done (${elapsedStr})`);
             core.setOutput('elapsed', elapsedStr);
             core.setOutput('end_time', now.toString());
 
@@ -765,7 +849,7 @@ jobs:
           #    기기 빌드용 디바이스 플랫폼은 별개). 조건 없이 항상 다운로드한다.
           for i in 1 2 3; do
             xcodebuild -downloadPlatform iOS && break
-            echo "⚠️ 시도 $i 실패 - 재시도"
+            echo "⚠️ Attempt $i failed - retrying"
             sleep 15
           done
 
@@ -814,7 +898,7 @@ jobs:
           if [ -f ios/Podfile ]; then
             cd ios && pod install
           else
-            echo "ℹ️ ios/Podfile 없음 - CocoaPods 의존성이 없는 프로젝트이므로 건너뜁니다"
+            echo "ℹ️ No ios/Podfile - the project has no CocoaPods dependencies, skipping"
           fi
 
       - name: Import Code-Signing Certificates
@@ -850,7 +934,7 @@ jobs:
         run: |
           set -o pipefail   # tee 뒤에서도 빌드 실패를 그대로 전달
           BUILD_FLAGS="${{ needs.prepare-test-build.outputs.build_flags }}"
-          echo "📦 Flutter 빌드... ${BUILD_FLAGS:+(플래그: $BUILD_FLAGS)}"
+          echo "📦 Flutter build... ${BUILD_FLAGS:+(flags: $BUILD_FLAGS)}"
           # 빌드 번호 1 은 임시값이다. 최종 번호는 archive-upload 가 아카이브 시점에 정해 주입한다.
           # shellcheck disable=SC2086  # 플래그는 공백으로 갈라져야 한다
           flutter build ios --release --no-codesign \
@@ -904,7 +988,7 @@ jobs:
 
       # 아카이브, IPA export, 번들 번호 검증까지. 빌드 번호는 여기서 정해진다 (build_number.py 규칙).
       # APP_ROOT 가 레포 루트 기준 상대 경로라 스크립트는 레포 루트에서 실행한다.
-      - name: IPA 빌드
+      - name: Build IPA
         id: build_phase
         working-directory: ${{ github.workspace }}
         env:
@@ -919,7 +1003,7 @@ jobs:
         run: python3 "$GITHUB_WORKSPACE/.github/scripts/ios_release.py" archive-upload --phase build
 
       # 진행 상황 업데이트 - IPA 빌드 완료
-      - name: 진행 상황 업데이트 - IPA 빌드 완료
+      - name: Update progress - IPA build done
         id: progress_step2
         if: success() && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
         uses: actions/github-script@v7
@@ -928,6 +1012,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: elapsedText } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = parseInt('${{ needs.notify-start.outputs.comment_id }}');
             const step1EndTime = parseInt('${{ steps.progress_step1.outputs.end_time }}');
             const step1Elapsed = '${{ steps.progress_step1.outputs.elapsed }}';
@@ -943,26 +1028,26 @@ jobs:
             const elapsed = Math.round((now - step1EndTime) / 1000);
             const buildMin = Math.floor(elapsed / 60);
             const buildSec = elapsed % 60;
-            const elapsedStr = buildMin > 0 ? `${buildMin}분 ${buildSec}초` : `${buildSec}초`;
+            const elapsedStr = elapsedText(buildMin, buildSec);
 
             const body = [
-              '## 🍎 ✅ iOS 빌드 완료',
+              t('test_testflight.heading.build_done'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_testflight.table.stage_header'),
               '|------|------|----------|',
-              `| 🔧 준비 | ✅ 완료 | ${step1Elapsed || '-'} |`,
-              `| 🔨 IPA 빌드 | ✅ 완료 | ${elapsedStr} |`,
-              '| 📤 TestFlight 배포 | ⏳ 진행 중... | - |',
+              t('test_testflight.row.prepare', { status: t('test_testflight.status.done'), elapsed: step1Elapsed || '-' }),
+              t('test_testflight.row.build', { status: t('test_testflight.status.done'), elapsed: elapsedStr }),
+              t('test_testflight.row.deploy', { status: t('test_testflight.status.in_progress'), elapsed: '-' }),
               '',
-              '| 항목 | 값 |',
+              t('test_testflight.table.item_header'),
               '|------|-----|',
-              `| **앱 버전** | \`${version}(${buildNumber})\` |`,
-              `| **브랜치** | \`${branchName}\` |`,
+              t('test_testflight.row.app_version', { version: `${version}(${buildNumber})` }),
+              t('test_testflight.row.branch', { branch: branchName }),
               '',
-              `**[📋 실시간 로그 보기](${runUrl})**`,
+              t('test_testflight.link.live_log', { url: runUrl }),
               '',
               '---',
-              '*🤖 이 댓글은 자동으로 업데이트됩니다.*'
+              t('test_testflight.footer.auto_update')
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -972,13 +1057,13 @@ jobs:
               body: body
             });
 
-            console.log(`✅ 진행 상황 업데이트 완료: IPA 빌드 완료 (${elapsedStr})`);
+            console.log(`✅ Progress updated: IPA build done (${elapsedStr})`);
             core.setOutput('elapsed', elapsedStr);
             core.setOutput('end_time', now.toString());
 
       # IPA 빌드 단계(또는 그 앞)에서 실패했을 때만. 이 스텝은 업로드 스텝보다 앞이라
       # 아직 실행 전인 upload_phase 대신 이미 결과가 나온 build_phase 로 판단한다.
-      - name: 빌드 실패 시 progress 댓글 업데이트
+      - name: Update progress comment on build failure
         if: failure() && steps.build_phase.outcome != 'success' && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
         uses: actions/github-script@v7
         env:
@@ -987,6 +1072,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: elapsedText } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = parseInt('${{ needs.notify-start.outputs.comment_id }}');
             const startTime = parseInt('${{ needs.notify-start.outputs.start_time }}');
             const step1EndTime = parseInt('${{ steps.progress_step1.outputs.end_time }}') || 0;
@@ -1007,31 +1093,31 @@ jobs:
               const step2_s = Math.round((now - step1EndTime) / 1000);
               const s2Min = Math.floor(step2_s / 60);
               const s2Sec = step2_s % 60;
-              step2ElapsedStr = s2Min > 0 ? `${s2Min}분 ${s2Sec}초` : `${s2Sec}초`;
+              step2ElapsedStr = elapsedText(s2Min, s2Sec);
             }
 
             // 번호는 아카이브 직전에 정해지므로 그 전에 실패하면 아직 없다
             const appVersion = buildNumber ? `${version}(${buildNumber})` : version;
 
             const body = [
-              '## 🍎 ❌ iOS TestFlight 빌드 실패',
+              t('test_testflight.heading.build_failed'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_testflight.table.stage_header'),
               '|------|------|----------|',
-              `| 🔧 준비 | ✅ 완료 | ${step1Elapsed || '-'} |`,
-              `| 🔨 IPA 빌드 | ❌ 실패 | ${step2ElapsedStr} |`,
-              '| 📤 TestFlight 배포 | ⏸️ 취소됨 | - |',
+              t('test_testflight.row.prepare', { status: t('test_testflight.status.done'), elapsed: step1Elapsed || '-' }),
+              t('test_testflight.row.build', { status: t('test_testflight.status.failed'), elapsed: step2ElapsedStr }),
+              t('test_testflight.row.deploy', { status: t('test_testflight.status.cancelled'), elapsed: '-' }),
               '',
-              '| 항목 | 값 |',
+              t('test_testflight.table.item_header'),
               '|------|-----|',
-              `| **앱 버전** | \`${appVersion}\` |`,
-              `| **브랜치** | \`${branchName}\` |`,
-              `| **커밋** | \`${commitHash}\` |`,
+              t('test_testflight.row.app_version', { version: appVersion }),
+              t('test_testflight.row.branch', { branch: branchName }),
+              t('test_testflight.row.commit', { commit: commitHash }),
               '',
-              '❌ **IPA 빌드 중 오류가 발생했습니다.**',
-              ...(reason ? ['', `**사유**: ${reason}`] : []),
+              t('test_testflight.failed.build_message'),
+              ...(reason ? ['', t('test_testflight.reason', { reason })] : []),
               '',
-              `🔗 [워크플로우 실행 로그 확인](${runUrl})`
+              t('test_testflight.link.run_log_check', { url: runUrl })
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -1041,11 +1127,11 @@ jobs:
               body: body
             });
 
-            console.log(`❌ 진행 상황 업데이트 완료: IPA 빌드 실패`);
+            console.log(`❌ Progress updated: IPA build failed`);
 
       # TestFlight 업로드 (마법사 생성 Fastfile 의 deploy lane). 번호나 버전이 거부되면
       # ios_release.py 가 원인을 분류해 새 번호로 아카이브부터 다시 한다 (최대 5회).
-      - name: TestFlight 업로드
+      - name: Upload to TestFlight
         id: upload_phase
         working-directory: ${{ github.workspace }}
         env:
@@ -1066,8 +1152,9 @@ jobs:
             echo "📝 Release Notes:"
             echo "$RELEASE_NOTES"
           else
-            RELEASE_NOTES="테스트 빌드"
-            echo "📝 기본 Release Notes: $RELEASE_NOTES"
+            # 테스터에게 보이는 기본 문구라 레포 언어 (#769)
+            RELEASE_NOTES=$(python3 .github/scripts/i18n/messages.py get test_testflight.notes.title 2>/dev/null) || RELEASE_NOTES="Test build"
+            echo "📝 Default release notes: $RELEASE_NOTES"
           fi
 
           # 환경변수 설정 (Fastfile에서 사용). IPA_PATH, BUILD_NUMBER, APP_VERSION 은 스크립트가 최종값으로 채운다.
@@ -1097,26 +1184,26 @@ jobs:
         env:
           BUILD_BRANCH: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}
         run: |
-          echo "✅ TestFlight 테스트 빌드 업로드 성공!"
-          echo "버전: ${{ steps.upload_phase.outputs.version || needs.prepare-test-build.outputs.version }}"
-          echo "빌드 번호: ${{ steps.upload_phase.outputs.build_number || steps.build_phase.outputs.build_number }}"
+          echo "✅ TestFlight test build uploaded!"
+          echo "Version: ${{ steps.upload_phase.outputs.version || needs.prepare-test-build.outputs.version }}"
+          echo "Build number: ${{ steps.upload_phase.outputs.build_number || steps.build_phase.outputs.build_number }}"
           if [ -n "${{ needs.prepare-test-build.outputs.pr_number }}" ]; then
-            echo "PR 번호: ${{ needs.prepare-test-build.outputs.pr_number }}"
+            echo "PR number: ${{ needs.prepare-test-build.outputs.pr_number }}"
           fi
-          echo "브랜치: $BUILD_BRANCH"
-          echo "커밋: ${{ needs.prepare-test-build.outputs.commit_sha }}"
+          echo "Branch: $BUILD_BRANCH"
+          echo "Commit: ${{ needs.prepare-test-build.outputs.commit_sha }}"
           if [ -n "${{ needs.prepare-test-build.outputs.issue_url }}" ]; then
-            echo "관련 이슈: ${{ needs.prepare-test-build.outputs.issue_url }}"
+            echo "Related issue: ${{ needs.prepare-test-build.outputs.issue_url }}"
           fi
 
       - name: Notify on Failure
         if: failure()
         run: |
-          echo "❌ TestFlight 테스트 빌드 업로드 실패!"
-          echo "로그를 확인해주세요."
+          echo "❌ TestFlight test build upload failed!"
+          echo "Check the log."
 
       # 진행 상황 최종 업데이트 - 성공
-      - name: 진행 상황 최종 업데이트 - 성공
+      - name: Final progress update - success
         if: success() && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
         uses: actions/github-script@v7
         env:
@@ -1124,6 +1211,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: elapsedText } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = parseInt('${{ needs.notify-start.outputs.comment_id }}');
             const startTime = parseInt('${{ needs.notify-start.outputs.start_time }}');
             const step2EndTime = parseInt('${{ steps.progress_step2.outputs.end_time }}');
@@ -1142,33 +1230,33 @@ jobs:
             const step3_s = Math.round((now - step2EndTime) / 1000);
             const s3Min = Math.floor(step3_s / 60);
             const s3Sec = step3_s % 60;
-            const step3Elapsed = s3Min > 0 ? `${s3Min}분 ${s3Sec}초` : `${s3Sec}초`;
+            const step3Elapsed = elapsedText(s3Min, s3Sec);
 
             // 전체 소요 시간
             const total_s = Math.round((now - startTime) / 1000);
             const tMin = Math.floor(total_s / 60);
             const tSec = total_s % 60;
-            const totalElapsed = tMin > 0 ? `${tMin}분 ${tSec}초` : `${tSec}초`;
+            const totalElapsed = elapsedText(tMin, tSec);
 
             const body = [
-              '## 🍎 ✅ iOS TestFlight 배포 완료',
+              t('test_testflight.heading.deployed'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_testflight.table.stage_header'),
               '|------|------|----------|',
-              `| 🔧 준비 | ✅ 완료 | ${step1Elapsed || '-'} |`,
-              `| 🔨 IPA 빌드 | ✅ 완료 | ${step2Elapsed || '-'} |`,
-              `| 📤 TestFlight 배포 | ✅ 완료 | ${step3Elapsed} |`,
+              t('test_testflight.row.prepare', { status: t('test_testflight.status.done'), elapsed: step1Elapsed || '-' }),
+              t('test_testflight.row.build', { status: t('test_testflight.status.done'), elapsed: step2Elapsed || '-' }),
+              t('test_testflight.row.deploy', { status: t('test_testflight.status.done'), elapsed: step3Elapsed }),
               '',
-              '| 항목 | 값 |',
+              t('test_testflight.table.item_header'),
               '|------|-----|',
-              `| **앱 버전** | \`${version}(${buildNumber})\` |`,
-              `| **브랜치** | \`${branchName}\` |`,
-              `| **커밋** | \`${commitHash}\` |`,
-              `| **총 소요 시간** | ${totalElapsed} |`,
+              t('test_testflight.row.app_version', { version: `${version}(${buildNumber})` }),
+              t('test_testflight.row.branch', { branch: branchName }),
+              t('test_testflight.row.commit', { commit: commitHash }),
+              t('test_testflight.row.total_elapsed', { elapsed: totalElapsed }),
               '',
-              '📱 **TestFlight에서 테스트 앱을 다운로드할 수 있습니다.**',
+              t('test_testflight.deployed.message'),
               '',
-              `🔗 [워크플로우 실행 로그](${runUrl})`
+              t('test_testflight.link.run_log', { url: runUrl })
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -1178,10 +1266,10 @@ jobs:
               body: body
             });
 
-            console.log(`✅ 진행 상황 최종 업데이트 완료: 전체 성공 (${totalElapsed})`);
+            console.log(`✅ Final progress update: all steps succeeded (${totalElapsed})`);
 
       # 진행 상황 최종 업데이트 - 실패 (업로드 단계에서 실패한 경우)
-      - name: 진행 상황 최종 업데이트 - 실패
+      - name: Final progress update - failure
         if: failure() && steps.upload_phase.outcome == 'failure' && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.notify-start.outputs.comment_id != ''
         uses: actions/github-script@v7
         env:
@@ -1190,6 +1278,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: elapsedText } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = parseInt('${{ needs.notify-start.outputs.comment_id }}');
             const startTime = parseInt('${{ needs.notify-start.outputs.start_time }}');
             const step2EndTime = parseInt('${{ steps.progress_step2.outputs.end_time }}') || 0;
@@ -1211,28 +1300,28 @@ jobs:
               const step3_s = Math.round((now - step2EndTime) / 1000);
               const s3Min = Math.floor(step3_s / 60);
               const s3Sec = step3_s % 60;
-              step3Elapsed = s3Min > 0 ? `${s3Min}분 ${s3Sec}초` : `${s3Sec}초`;
+              step3Elapsed = elapsedText(s3Min, s3Sec);
             }
 
             const body = [
-              '## 🍎 ❌ iOS TestFlight 배포 실패',
+              t('test_testflight.heading.deploy_failed'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_testflight.table.stage_header'),
               '|------|------|----------|',
-              `| 🔧 준비 | ✅ 완료 | ${step1Elapsed || '-'} |`,
-              `| 🔨 IPA 빌드 | ✅ 완료 | ${step2Elapsed || '-'} |`,
-              `| 📤 TestFlight 배포 | ❌ 실패 | ${step3Elapsed} |`,
+              t('test_testflight.row.prepare', { status: t('test_testflight.status.done'), elapsed: step1Elapsed || '-' }),
+              t('test_testflight.row.build', { status: t('test_testflight.status.done'), elapsed: step2Elapsed || '-' }),
+              t('test_testflight.row.deploy', { status: t('test_testflight.status.failed'), elapsed: step3Elapsed }),
               '',
-              '| 항목 | 값 |',
+              t('test_testflight.table.item_header'),
               '|------|-----|',
-              `| **앱 버전** | \`${version}(${buildNumber})\` |`,
-              `| **브랜치** | \`${branchName}\` |`,
-              `| **커밋** | \`${commitHash}\` |`,
+              t('test_testflight.row.app_version', { version: `${version}(${buildNumber})` }),
+              t('test_testflight.row.branch', { branch: branchName }),
+              t('test_testflight.row.commit', { commit: commitHash }),
               '',
-              '❌ **TestFlight 배포 중 오류가 발생했습니다.**',
-              ...(reason ? ['', `**사유**: ${reason}`] : []),
+              t('test_testflight.failed.deploy_message'),
+              ...(reason ? ['', t('test_testflight.reason', { reason })] : []),
               '',
-              `🔗 [워크플로우 실행 로그 확인](${runUrl})`
+              t('test_testflight.link.run_log_check', { url: runUrl })
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -1242,10 +1331,10 @@ jobs:
               body: body
             });
 
-            console.log(`❌ 진행 상황 최종 업데이트 완료: TestFlight 배포 실패`);
+            console.log(`❌ Final progress update: TestFlight upload failed`);
 
       # 취소 처리 (#648): 빌드 job 이 실행 중일 때 취소된 경우. success()/failure() 스텝은 취소 시 돌지 않아 이 스텝이 유일한 정리 경로다. 준비 job 은 이미 끝났으므로 준비는 완료로 표시한다.
-      - name: 진행 상황 업데이트 - 취소 (빌드 job)
+      - name: Update progress - cancelled (build job)
         if: cancelled() && github.event_name == 'repository_dispatch' && needs.notify-start.outputs.comment_id != ''
         continue-on-error: true
         uses: actions/github-script@v7
@@ -1258,6 +1347,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { t, elapsed: elapsedText } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
             const commentId = parseInt(process.env.COMMENT_ID, 10);
             const startTime = parseInt(process.env.START_TIME, 10);
             const branchName = process.env.BRANCH_NAME;
@@ -1269,8 +1359,8 @@ jobs:
               repo: context.repo.repo,
               comment_id: commentId
             });
-            if (!(current.body || '').startsWith('## 🍎 iOS TestFlight 빌드 진행 중...')) {
-              console.log('이미 최종 상태 댓글이라 취소 갱신을 건너뜀');
+            if (!(current.body || '').startsWith(t('test_testflight.heading.in_progress'))) {
+              console.log('The comment already shows a final state, skipping the cancel update');
               return;
             }
 
@@ -1279,24 +1369,24 @@ jobs:
               const elapsed = Date.now() - startTime;
               const minutes = Math.floor(elapsed / 60000);
               const seconds = Math.floor((elapsed % 60000) / 1000);
-              duration = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+              duration = elapsedText(minutes, seconds);
             }
 
             const body = [
-              '## 🍎 🚫 iOS TestFlight 빌드 취소됨',
+              t('test_testflight.heading.cancelled'),
               '',
-              '| 단계 | 상태 | 소요 시간 |',
+              t('test_testflight.table.stage_header'),
               '|------|------|----------|',
-              `| 🔧 준비 | ✅ 완료 | ${step1Elapsed || '-'} |`,
-              '| 🔨 IPA 빌드 | ⏸️ 취소됨 | - |',
-              '| 📤 TestFlight 배포 | ⏸️ 취소됨 | - |',
+              t('test_testflight.row.prepare', { status: t('test_testflight.status.done'), elapsed: step1Elapsed || '-' }),
+              t('test_testflight.row.build', { status: t('test_testflight.status.cancelled'), elapsed: '-' }),
+              t('test_testflight.row.deploy', { status: t('test_testflight.status.cancelled'), elapsed: '-' }),
               '',
-              `- 브랜치: \`${branchName}\``,
-              `- 총 소요 시간: ${duration}`,
+              t('test_testflight.cancelled.branch', { branch: branchName }),
+              t('test_testflight.cancelled.total', { duration }),
               '',
-              '🚫 **빌드가 취소되었습니다.** 새 빌드가 시작되었거나 수동으로 취소된 것입니다.',
+              t('test_testflight.cancelled.message'),
               '',
-              `🔗 [워크플로우 실행 로그 확인](${runUrl})`
+              t('test_testflight.link.run_log_check', { url: runUrl })
             ].join('\n');
 
             await github.rest.issues.updateComment({
@@ -1306,4 +1396,4 @@ jobs:
               body: body
             });
 
-            console.log('🚫 진행 상황 업데이트 완료: 취소됨');
+            console.log('🚫 Progress updated: cancelled');

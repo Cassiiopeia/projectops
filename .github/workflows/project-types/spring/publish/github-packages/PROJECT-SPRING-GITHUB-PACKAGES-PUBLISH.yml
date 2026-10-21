@@ -65,11 +65,11 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             TAG_NAME=${GITHUB_REF#refs/tags/}
             VERSION=${TAG_NAME#v}
-            echo "🏷️ 태그에서 버전 추출: $VERSION"
+            echo "🏷️ Version from tag: $VERSION"
           else
             chmod +x .github/scripts/version_manager.sh
             VERSION=$(./.github/scripts/version_manager.sh get | tail -n 1)
-            echo "📄 version.yml에서 버전 추출: $VERSION"
+            echo "📄 Version from version.yml: $VERSION"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Publishing version $VERSION"

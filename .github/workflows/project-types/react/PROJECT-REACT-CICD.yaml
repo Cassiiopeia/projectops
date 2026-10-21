@@ -38,19 +38,19 @@ env:
 
 jobs:
   build:
-    name: React/Next.js 애플리케이션 빌드
+    name: Build React/Next.js application
     runs-on: ubuntu-latest
 
     steps:
       # 1. 소스코드 체크아웃
-      - name: 코드 체크아웃
+      - name: Check out code
         uses: actions/checkout@v5
 
       # 사전 점검 (#666)
       # 신규 설치 직후에는 Secret, Dockerfile 이 없는 것이 정상이다. 그대로 두면 빌드가 끝난 뒤
       # 로그인, docker build, SSH 접속 단계에서 원인을 짚기 어려운 한 줄로 실패하므로 첫 step 에서 알린다.
       # deploy job 은 build 에 의존하므로 SERVER_* 도 여기서 함께 본다. 전제가 갖춰진 레포는 그대로 통과한다.
-      - name: 배포 전제 사전 점검
+      - name: Preflight check
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -61,24 +61,24 @@ jobs:
           fail=0
           # Dockerfile 점검: 없으면 docker build 단계에서 "failed to read dockerfile" 로만 알려준다
           if [ ! -f "./Dockerfile" ]; then
-            echo "::error title=배포 사전 점검::Dockerfile(./Dockerfile)이 없습니다. 프로젝트 루트에 Dockerfile 을 추가하고 커밋하세요."
+            echo "::error title=Preflight check::Dockerfile (./Dockerfile) is missing. Add a Dockerfile to the project root and commit it."
             fail=1
           fi
           # Secret 점검: 빈 값이면 로그인, SSH 접속 단계에서 원인 불명 에러가 난다 (이 워크플로는 비밀번호 방식 SSH 만 쓴다)
           for name in DOCKERHUB_USERNAME DOCKERHUB_TOKEN SERVER_HOST SERVER_USER SERVER_PASSWORD; do
             if [ -z "${!name}" ]; then
-              echo "::error title=배포 사전 점검::Secret ${name} 이(가) 없습니다. Settings > Secrets and variables > Actions > New repository secret 에서 등록하세요"
+              echo "::error title=Preflight check::Secret ${name} is missing. Add it under Settings > Secrets and variables > Actions > New repository secret"
               fail=1
             fi
           done
           [ "$fail" = "0" ] || exit 1
-          echo "✅ 사전 점검 통과"
+          echo "✅ Preflight check passed"
 
       # 패키지 매니저 감지 (#669)
       # setup-node 의 cache 는 lock 파일이 없거나 pnpm 이면 "Dependencies lock file is not found" 로
       # 첫 step 부터 실패한다. 기존에 동작하던 npm(package-lock.json) 경로가 최우선이고,
       # 그 다음 pnpm, yarn 순으로 보며 lock 이 전혀 없으면 캐시 없이 npm install 로 폴백한다.
-      - name: 패키지 매니저 감지
+      - name: Detect package manager
         id: pm
         run: |
           if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
@@ -89,34 +89,34 @@ jobs:
             manager=yarn; cache=yarn
           else
             manager=none; cache=""
-            echo "::notice::lock 파일(package-lock.json, pnpm-lock.yaml, yarn.lock)이 없어 npm install 로 설치합니다. 재현 가능한 빌드를 위해 lock 파일을 커밋하세요."
+            echo "::notice::No lock file (package-lock.json, pnpm-lock.yaml, yarn.lock), installing with npm install. Commit a lock file for reproducible builds."
           fi
           echo "manager=$manager" >> "$GITHUB_OUTPUT"
           echo "cache=$cache" >> "$GITHUB_OUTPUT"
-          echo "📦 패키지 매니저: $manager"
+          echo "📦 Package manager: $manager"
 
       # pnpm, yarn 은 setup-node 의 캐시 설정보다 먼저 사용 가능해야 한다 (Node 번들 corepack 사용)
-      - name: Corepack 활성화
+      - name: Enable Corepack
         if: steps.pm.outputs.manager == 'pnpm' || steps.pm.outputs.manager == 'yarn'
         run: corepack enable
 
       # 2. Node.js 개발 환경 설정
-      - name: Node.js 설정
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: ${{ steps.pm.outputs.cache }}
 
       # 3. 환경변수 파일 생성
-      - name: 환경변수 파일 생성 (${{ env.ENV_FILE_NAME }})
+      - name: Create environment file (${{ env.ENV_FILE_NAME }})
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
         run: |
           printf '%s\n' "$ENV_CONTENT" > ./${{ env.ENV_FILE_NAME }}
-          echo "✅ ${{ env.ENV_FILE_NAME }} 파일 생성 완료"
+          echo "✅ ${{ env.ENV_FILE_NAME }} file created"
 
       # 4. npm 의존성 캐싱
-      - name: npm 의존성 캐싱
+      - name: Cache npm dependencies
         if: steps.pm.outputs.manager == 'npm' || steps.pm.outputs.manager == 'none'
         uses: actions/cache@v4
         with:
@@ -126,7 +126,7 @@ jobs:
             ${{ runner.os }}-npm-
 
       # 5. node_modules 캐싱
-      - name: node_modules 캐싱
+      - name: Cache node_modules
         id: node-modules-cache
         uses: actions/cache@v4
         with:
@@ -137,12 +137,12 @@ jobs:
             ${{ runner.os }}-node-modules-
 
       # 6. 의존성 설치
-      - name: 의존성 설치
+      - name: Install dependencies
         if: steps.node-modules-cache.outputs.cache-hit != 'true'
         env:
           PM: ${{ steps.pm.outputs.manager }}
         run: |
-          echo "📦 의존성 설치 중... ($PM)"
+          echo "📦 Installing dependencies... ($PM)"
           case "$PM" in
             npm)  npm ci ;;
             pnpm) pnpm install --frozen-lockfile ;;
@@ -151,10 +151,10 @@ jobs:
               if [ -f .yarnrc.yml ]; then yarn install --immutable; else yarn install --frozen-lockfile; fi ;;
             *)    npm install ;;
           esac
-          echo "✅ 의존성 설치 완료"
+          echo "✅ Dependencies installed"
 
       # 7. Next.js 빌드 캐싱
-      - name: Next.js 빌드 캐싱
+      - name: Cache Next.js build
         uses: actions/cache@v4
         with:
           path: .next/cache
@@ -168,11 +168,11 @@ jobs:
         run: npm run build
 
       # 9. Docker 빌드 환경 설정
-      - name: Docker 빌드환경 설정
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       # 10. DockerHub 로그인
-      - name: DockerHub 로그인
+      - name: Log in to DockerHub
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -188,7 +188,7 @@ jobs:
             ${{ runner.os }}-buildx-
 
       # 12. Docker 이미지 빌드 및 푸시
-      - name: Docker 이미지 빌드 및 푸시
+      - name: Build and push Docker image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: .
@@ -205,7 +205,7 @@ jobs:
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
   deploy:
-    name: 원격 서버 배포
+    name: Deploy to remote server
     needs: build
     runs-on: ubuntu-latest
 
@@ -226,7 +226,7 @@ jobs:
             # ============================================================
             # 배포 환경 변수 설정
             # ============================================================
-            echo "🔧 환경변수 설정.."
+            echo "🔧 Setting environment variables.."
             export PATH=$PATH:/usr/local/bin
             export PW="${SERVER_PASSWORD}"
             SUDO() { echo "$PW" | sudo -S "$@"; }
@@ -251,28 +251,28 @@ jobs:
               # 설정되어 있지 않으면 기본값 3000 사용
               PORT=${{ secrets.PROJECT_DEPLOY_PORT || '3000' }}
               CONTAINER_NAME="${PROJECT_NAME}-front-deploy"
-              echo "🚀 배포 환경으로 배포합니다 (브랜치: $BRANCH)"
+              echo "🚀 Deploying to the deploy environment (branch: $BRANCH)"
 
             else
               # ⚠️ 기타 브랜치 (예상치 못한 브랜치)
-              echo "⚠️ 지원하지 않는 브랜치입니다: $BRANCH"
-              echo "이 워크플로우는 main 브랜치만 지원합니다."
-              echo "on.push.branches에서 지원할 브랜치를 설정하세요."
+              echo "⚠️ Unsupported branch: $BRANCH"
+              echo "This workflow supports the main branch only."
+              echo "Set the branches to support in on.push.branches."
               exit 1
             fi
 
             # 설정 정보 출력
-            echo "📋 배포 설정 정보:"
-            echo "  - 브랜치: $BRANCH"
-            echo "  - 프로젝트: $PROJECT_NAME"
-            echo "  - 컨테이너 이름: $CONTAINER_NAME"
-            echo "  - 포트: $PORT"
-            echo "  - Docker 이미지: ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}-${{ env.DOCKER_IMAGE_PREFIX }}:${BRANCH}"
+            echo "📋 Deploy settings:"
+            echo "  - Branch: $BRANCH"
+            echo "  - Project: $PROJECT_NAME"
+            echo "  - Container name: $CONTAINER_NAME"
+            echo "  - Port: $PORT"
+            echo "  - Docker image: ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}-${{ env.DOCKER_IMAGE_PREFIX }}:${BRANCH}"
 
             # ============================================================
             # Docker 이미지 풀 (Pull)
             # ============================================================
-            echo "⬇️ Docker 이미지 풀: ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}-${{ env.DOCKER_IMAGE_PREFIX }}:${BRANCH}"
+            echo "⬇️ Pulling Docker image: ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}-${{ env.DOCKER_IMAGE_PREFIX }}:${BRANCH}"
             echo $PW | sudo -S docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}-${{ env.DOCKER_IMAGE_PREFIX }}:${BRANCH}
 
             # 컨테이너 시작을 함수로 둬서 배포 실패 시 이전 이미지로 같은 옵션으로 복구할 수 있게 한다 (#730)
@@ -295,17 +295,17 @@ jobs:
             rollback_on_failure() {
               status=$?
               if [ "$REPLACING" = "true" ] && [ "$DEPLOY_OK" != "true" ]; then
-                echo "⚠️ 배포 실패: 실패한 컨테이너를 정리합니다"
+                echo "⚠️ Deploy failed: removing the failed container"
                 SUDO docker rm -f $CONTAINER_NAME >/dev/null 2>&1 || true
                 if [ -n "$PREV_IMAGE" ]; then
-                  echo "↩️ 이전 버전으로 복구합니다: $PREV_IMAGE"
+                  echo "↩️ Restoring the previous version: $PREV_IMAGE"
                   if start_container "$PREV_IMAGE"; then
-                    echo "✅ 이전 버전 복구 완료 (이번 배포는 실패로 처리됩니다)"
+                    echo "✅ Previous version restored (this deploy is still marked as failed)"
                   else
-                    echo "❌ 이전 버전 복구에 실패했습니다"
+                    echo "❌ Failed to restore the previous version"
                   fi
                 else
-                  echo "ℹ️ 이전에 실행 중이던 컨테이너가 없어 복구할 버전이 없습니다"
+                  echo "ℹ️ No container was running before, so there is no version to restore"
                 fi
               fi
               exit $status
@@ -315,52 +315,52 @@ jobs:
             # ============================================================
             # 기존 컨테이너 정리
             # ============================================================
-            echo "🧹 컨테이너 $CONTAINER_NAME 존재 여부 확인 중..."
+            echo "🧹 Checking whether container $CONTAINER_NAME exists..."
 
             # 동일한 이름의 컨테이너가 존재하는지 확인
             # 이전 이미지 ID 를 기억해 둔다 (태그가 새 이미지로 옮겨가도 ID 로 복구할 수 있다)
             PREV_IMAGE=$(SUDO docker inspect --format '{{.Image}}' $CONTAINER_NAME 2>/dev/null || true)
             REPLACING=true
             if sudo docker ps -a --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
-              echo "⚠️ 컨테이너 $CONTAINER_NAME 이(가) 존재합니다. 중지 및 삭제 중..."
+              echo "⚠️ Container $CONTAINER_NAME exists. Stopping and removing it..."
               echo $PW | sudo -S docker rm -f $CONTAINER_NAME
-              echo "✅ 컨테이너 $CONTAINER_NAME 이(가) 삭제되었습니다."
+              echo "✅ Container $CONTAINER_NAME removed."
             else
-              echo "ℹ️ 존재하는 컨테이너 $CONTAINER_NAME 이(가) 없습니다."
+              echo "ℹ️ No existing container $CONTAINER_NAME."
             fi
 
             # ============================================================
             # 새 컨테이너 실행
             # ============================================================
-            echo "🚀 새로운 컨테이너 $CONTAINER_NAME 실행 중..."
+            echo "🚀 Starting new container $CONTAINER_NAME..."
 
             start_container ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}-${{ env.DOCKER_IMAGE_PREFIX }}:${BRANCH}
 
             # 기동 확인: 컨테이너가 바로 죽거나 재시작을 반복하면 배포를 실패로 처리하고 복구한다 (#730)
-            echo "⏳ 컨테이너 기동 확인 중... (10초)"
+            echo "⏳ Checking that the container started... (10s)"
             sleep 10
             if [ "$(SUDO docker inspect -f '{{.State.Running}}' $CONTAINER_NAME 2>/dev/null)" != "true" ] \
                || [ "$(SUDO docker inspect -f '{{.State.Restarting}}' $CONTAINER_NAME 2>/dev/null)" = "true" ]; then
-              echo "❌ 컨테이너 $CONTAINER_NAME 이(가) 정상적으로 실행되지 않았습니다"
+              echo "❌ Container $CONTAINER_NAME did not start correctly"
               SUDO docker logs --tail 50 $CONTAINER_NAME || true
               exit 1
             fi
-            echo "✅ 컨테이너 실행 확인 완료"
+            echo "✅ Container is running"
 
             # ============================================================
             # 배포 완료 확인
             # ============================================================
             DEPLOY_OK=true
-            echo "✅ 배포가 성공적으로 완료되었습니다!"
+            echo "✅ Deploy completed successfully!"
             echo ""
-            echo "📋 배포 결과 요약:"
-            echo "  🎯 프로젝트: $PROJECT_NAME"
-            echo "  🌿 브랜치: $BRANCH"
-            echo "  🐳 컨테이너: $CONTAINER_NAME"
-            echo "  🌐 포트: $PORT"
-            echo "  ⏰ 배포 시간: $(date '+%Y-%m-%d %H:%M:%S')"
+            echo "📋 Deploy summary:"
+            echo "  🎯 Project: $PROJECT_NAME"
+            echo "  🌿 Branch: $BRANCH"
+            echo "  🐳 Container: $CONTAINER_NAME"
+            echo "  🌐 Port: $PORT"
+            echo "  ⏰ Deployed at: $(date '+%Y-%m-%d %H:%M:%S')"
             echo ""
-            echo "🔗 접속 URL: http://${{ secrets.SERVER_HOST }}:${PORT}"
+            echo "🔗 URL: http://${{ secrets.SERVER_HOST }}:${PORT}"
 
 # ===================================================================
 # 사용 예시 - main 브랜치 사용

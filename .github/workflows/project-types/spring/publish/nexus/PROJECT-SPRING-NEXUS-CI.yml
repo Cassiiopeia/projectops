@@ -29,6 +29,29 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+    # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
+    # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
+    # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+    - name: Check out the message catalog
+      continue-on-error: true
+      uses: actions/checkout@v5
+      with:
+        sparse-checkout: |
+          .github/scripts/i18n
+          version.yml
+        sparse-checkout-cone-mode: false
+        path: .projectops-messages
+        ref: ${{ github.event.repository.default_branch }}
+
+    - name: Load comment messages
+      working-directory: ${{ github.workspace }}
+      run: |
+        python3 .projectops-messages/.github/scripts/i18n/messages.py js nexus_ci. \
+          --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+          || { echo "::warning::Message catalog not found, comments show message keys"
+               echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
+        rm -rf .projectops-messages
+
     - name: Checkout Repository
       uses: actions/checkout@v5
       with:
@@ -89,6 +112,7 @@ jobs:
       id: report
       if: always()
       run: |
+        # 상태 값은 뒤 스텝의 if: 조건이 비교하는 출력값이라 번역하지 않는다 (댓글에서만 언어별로 바꿔 보여 준다, #769)
         # 빌드 상태 확인 (exit code 기반)
         COMPILE_STATUS="✅ 성공"
         TEST_STATUS="✅ 성공"
@@ -127,13 +151,16 @@ jobs:
       id: errors
       if: always()
       run: |
+        # 댓글에 들어가는 제목·안내는 레포 언어를 따른다 (#769). 카탈로그가 없으면 영문
+        msg() { python3 .github/scripts/i18n/messages.py get "$1" 2>/dev/null || printf '%s' "$2"; }
+
         # 컴파일 에러 추출
         if [ -f compile_output.txt ] && [ "${{ steps.compile.outputs.compile_exit_code }}" != "0" ]; then
           echo "compile_errors<<EOF" >> $GITHUB_OUTPUT
-          echo "## 🚨 컴파일 에러" >> $GITHUB_OUTPUT
+          echo "$(msg nexus_ci.errors.compile_heading '## 🚨 Compile errors')" >> $GITHUB_OUTPUT
           echo "" >> $GITHUB_OUTPUT
           echo '```' >> $GITHUB_OUTPUT
-          grep -A 15 -B 15 "error\|Error\|ERROR\|FAILED\|Failed\|failed" compile_output.txt | head -60 >> $GITHUB_OUTPUT || echo "에러 로그를 찾을 수 없습니다." >> $GITHUB_OUTPUT
+          grep -A 15 -B 15 "error\|Error\|ERROR\|FAILED\|Failed\|failed" compile_output.txt | head -60 >> $GITHUB_OUTPUT || echo "$(msg nexus_ci.errors.compile_log_missing 'Could not find the error log.')" >> $GITHUB_OUTPUT
           echo '```' >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
         fi
@@ -141,10 +168,10 @@ jobs:
         # 테스트 에러 추출
         if [ -f test_output.txt ] && [ "${{ steps.test.outputs.test_exit_code }}" != "0" ]; then
           echo "test_errors<<EOF" >> $GITHUB_OUTPUT
-          echo "## 🧪 테스트 실패" >> $GITHUB_OUTPUT
+          echo "$(msg nexus_ci.errors.test_heading '## 🧪 Test failures')" >> $GITHUB_OUTPUT
           echo "" >> $GITHUB_OUTPUT
           echo '```' >> $GITHUB_OUTPUT
-          grep -A 15 -B 15 "FAILED\|Failed\|failed\|error\|Error\|ERROR" test_output.txt | head -60 >> $GITHUB_OUTPUT || echo "테스트 에러 로그를 찾을 수 없습니다." >> $GITHUB_OUTPUT
+          grep -A 15 -B 15 "FAILED\|Failed\|failed\|error\|Error\|ERROR" test_output.txt | head -60 >> $GITHUB_OUTPUT || echo "$(msg nexus_ci.errors.test_log_missing 'Could not find the test error log.')" >> $GITHUB_OUTPUT
           echo '```' >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
         fi
@@ -152,10 +179,10 @@ jobs:
         # 빌드 에러 추출
         if [ -f build_output.txt ] && [ "${{ steps.build.outputs.build_exit_code }}" != "0" ]; then
           echo "build_errors<<EOF" >> $GITHUB_OUTPUT
-          echo "## 📦 빌드 에러" >> $GITHUB_OUTPUT
+          echo "$(msg nexus_ci.errors.build_heading '## 📦 Build errors')" >> $GITHUB_OUTPUT
           echo "" >> $GITHUB_OUTPUT
           echo '```' >> $GITHUB_OUTPUT
-          grep -A 15 -B 15 "FAILED\|Failed\|failed\|error\|Error\|ERROR" build_output.txt | head -60 >> $GITHUB_OUTPUT || echo "빌드 에러 로그를 찾을 수 없습니다." >> $GITHUB_OUTPUT
+          grep -A 15 -B 15 "FAILED\|Failed\|failed\|error\|Error\|ERROR" build_output.txt | head -60 >> $GITHUB_OUTPUT || echo "$(msg nexus_ci.errors.build_log_missing 'Could not find the build error log.')" >> $GITHUB_OUTPUT
           echo '```' >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
         fi
@@ -166,6 +193,9 @@ jobs:
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
+          const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
+          // 상태 출력값(한국어 고정)을 댓글 언어로 바꿔 보여 준다
+          const showStatus = (value) => ({ '✅ 성공': t('nexus_ci.status.success'), '❌ 실패': t('nexus_ci.status.failure') })[value] ?? value;
           const { data: comments } = await github.rest.issues.listComments({
             owner: context.repo.owner,
             repo: context.repo.repo,
@@ -178,20 +208,23 @@ jobs:
             comment.body.includes('🔧 CI Build Check')
           );
           
-          const successMessage = `## 🔧 CI Build Check 결과
-          
-          ### ✅ 빌드 성공!
-          
-          | 단계 | 상태 |
-          |------|------|
-          | 컴파일 | ${{ steps.report.outputs.compile_status }} |
-          | 테스트 | ${{ steps.report.outputs.test_status }} |
-          | 빌드 | ${{ steps.report.outputs.build_status }} |
-          
-          **전체 상태**: ${{ steps.report.outputs.overall_status }}
-          
-          ---
-          *🤖 GitHub Actions에 의해 자동 생성됨 - ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}*`;
+          // 기존 댓글을 찾는 표식 '🔧 CI Build Check' 는 언어와 상관없이 제목에 넣는다
+          const successMessage = [
+            t('nexus_ci.comment.heading', { marker: '🔧 CI Build Check' }),
+            '',
+            t('nexus_ci.comment.build_succeeded'),
+            '',
+            t('nexus_ci.comment.table_header'),
+            '|------|------|',
+            `| ${t('nexus_ci.label.compile')} | ${showStatus('${{ steps.report.outputs.compile_status }}')} |`,
+            `| ${t('nexus_ci.label.test')} | ${showStatus('${{ steps.report.outputs.test_status }}')} |`,
+            `| ${t('nexus_ci.label.build')} | ${showStatus('${{ steps.report.outputs.build_status }}')} |`,
+            '',
+            t('nexus_ci.comment.overall', { status: showStatus('${{ steps.report.outputs.overall_status }}') }),
+            '',
+            '---',
+            t('nexus_ci.comment.footer', { time: new Date().toLocaleString(t('nexus_ci.time.locale'), { timeZone: t('nexus_ci.time.zone') }) }),
+          ].join('\n');
           
           if (botComment) {
             await github.rest.issues.updateComment({
@@ -215,6 +248,9 @@ jobs:
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
+          const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
+          // 상태 출력값(한국어 고정)을 댓글 언어로 바꿔 보여 준다
+          const showStatus = (value) => ({ '✅ 성공': t('nexus_ci.status.success'), '❌ 실패': t('nexus_ci.status.failure') })[value] ?? value;
           const { data: comments } = await github.rest.issues.listComments({
             owner: context.repo.owner,
             repo: context.repo.repo,
@@ -244,29 +280,32 @@ jobs:
             errorDetails += '${{ steps.errors.outputs.build_errors }}\n\n';
           }
           
-          const failureMessage = `## 🔧 CI Build Check 결과
-          
-          ### ❌ 빌드 실패!
-          
-          | 단계 | 상태 |
-          |------|------|
-          | 컴파일 | ${{ steps.report.outputs.compile_status }} |
-          | 테스트 | ${{ steps.report.outputs.test_status }} |
-          | 빌드 | ${{ steps.report.outputs.build_status }} |
-          
-          **전체 상태**: ${{ steps.report.outputs.overall_status }}
-          
-          ### 📋 에러 상세 정보
-          
-          ${errorDetails}
-          
-          ### 🔧 해결 방법
-          - 로컬에서 \`./gradlew clean build\` 명령어로 빌드를 확인해보세요
-          - 에러 메시지를 참고하여 코드를 수정해주세요
-          - 테스트가 실패한 경우 \`./gradlew test\` 명령어로 테스트를 실행해보세요
-          
-          ---
-          *🤖 GitHub Actions에 의해 자동 생성됨 - ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}*`;
+          // 기존 댓글을 찾는 표식 '🔧 CI Build Check' 는 언어와 상관없이 제목에 넣는다
+          const failureMessage = [
+            t('nexus_ci.comment.heading', { marker: '🔧 CI Build Check' }),
+            '',
+            t('nexus_ci.comment.build_failed'),
+            '',
+            t('nexus_ci.comment.table_header'),
+            '|------|------|',
+            `| ${t('nexus_ci.label.compile')} | ${showStatus('${{ steps.report.outputs.compile_status }}')} |`,
+            `| ${t('nexus_ci.label.test')} | ${showStatus('${{ steps.report.outputs.test_status }}')} |`,
+            `| ${t('nexus_ci.label.build')} | ${showStatus('${{ steps.report.outputs.build_status }}')} |`,
+            '',
+            t('nexus_ci.comment.overall', { status: showStatus('${{ steps.report.outputs.overall_status }}') }),
+            '',
+            t('nexus_ci.comment.error_details_heading'),
+            '',
+            errorDetails,
+            '',
+            t('nexus_ci.comment.fix_heading'),
+            t('nexus_ci.comment.fix_build'),
+            t('nexus_ci.comment.fix_errors'),
+            t('nexus_ci.comment.fix_tests'),
+            '',
+            '---',
+            t('nexus_ci.comment.footer', { time: new Date().toLocaleString(t('nexus_ci.time.locale'), { timeZone: t('nexus_ci.time.zone') }) }),
+          ].join('\n');
           
           if (botComment) {
             await github.rest.issues.updateComment({
@@ -290,8 +329,11 @@ jobs:
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
+          const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
+          // 상태 출력값(한국어 고정)을 체크 결과 언어로 바꿔 보여 준다
+          const showStatus = (value) => ({ '✅ 성공': t('nexus_ci.status.success'), '❌ 실패': t('nexus_ci.status.failure') })[value] ?? value;
           const conclusion = '${{ steps.report.outputs.overall_status }}' === '✅ 성공' ? 'success' : 'failure';
-          const summary = `빌드 검증이 ${conclusion === 'success' ? '성공' : '실패'}했습니다.`;
+          const summary = t(conclusion === 'success' ? 'nexus_ci.check.summary_success' : 'nexus_ci.check.summary_failure');
           
           await github.rest.checks.create({
             owner: context.repo.owner,
@@ -304,9 +346,9 @@ jobs:
               title: '🔧 CI Build Check',
               summary: summary,
               text: `
-              컴파일: ${{ steps.report.outputs.compile_status }}
-              테스트: ${{ steps.report.outputs.test_status }}  
-              빌드: ${{ steps.report.outputs.build_status }}
+              ${t('nexus_ci.label.compile')}: ${showStatus('${{ steps.report.outputs.compile_status }}')}
+              ${t('nexus_ci.label.test')}: ${showStatus('${{ steps.report.outputs.test_status }}')}  
+              ${t('nexus_ci.label.build')}: ${showStatus('${{ steps.report.outputs.build_status }}')}
               `
             }
           });
@@ -314,5 +356,5 @@ jobs:
     - name: Fail Job on Build Failure
       if: steps.report.outputs.overall_status == '❌ 실패'
       run: |
-        echo "❌ 빌드가 실패했습니다. 위의 에러 메시지를 확인해주세요."
+        echo "❌ The build failed. Check the error messages above."
         exit 1

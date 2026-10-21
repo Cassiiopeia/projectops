@@ -135,38 +135,38 @@ jobs:
   # 빌드 작업
   # ===================================================================
   build:
-    name: Spring Boot 애플리케이션 빌드
+    name: Build Spring Boot application
     runs-on: ubuntu-latest
 
     steps:
-      - name: 코드 체크아웃
+      - name: Check out code
         uses: actions/checkout@v5
 
-      - name: Java 설정
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
           cache: 'gradle'
 
-      - name: Gradle Wrapper 실행권한 부여
+      - name: Make Gradle Wrapper executable
         run: chmod +x gradlew
 
-      - name: application-prod.yml 생성
+      - name: Create application-prod.yml
         env:
           APPLICATION_PROD_YML: ${{ secrets.APPLICATION_PROD_YML }}
         run: |
           mkdir -p ${{ env.APPLICATION_YML_DIR }}
           printf '%s\n' "$APPLICATION_PROD_YML" > ./${{ env.APPLICATION_YML_DIR }}/application-prod.yml
-          echo "✅ application-prod.yml 파일 생성 완료 (${{ env.APPLICATION_YML_DIR }})"
+          echo "✅ application-prod.yml file created (${{ env.APPLICATION_YML_DIR }})"
 
       - name: Build with Gradle
         run: ./gradlew clean build -x test ${{ env.GRADLE_OPTS }}
 
-      - name: Docker 빌드환경 설정
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - name: DockerHub 로그인
+      - name: Log in to DockerHub
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -180,7 +180,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      - name: Docker 이미지 빌드 및 푸시
+      - name: Build and push Docker image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: .
@@ -199,7 +199,7 @@ jobs:
   # 배포 작업 (Blue-Green 무중단)
   # ===================================================================
   deploy:
-    name: Blue-Green 무중단 배포
+    name: Blue-Green zero-downtime deploy
     needs: build
     runs-on: ubuntu-latest
 
@@ -250,18 +250,18 @@ jobs:
             else
               SUDO() { echo "$PW" | sudo -S "$@"; }
             fi
-            echo "🔐 SSH 인증 방식: ${SSH_AUTH_METHOD}"
+            echo "🔐 SSH auth method: ${SSH_AUTH_METHOD}"
 
             IMAGE="${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BRANCH_REF}"
             BLUE_CONTAINER_NAME="${PROJECT_NAME}-blue"
             GREEN_CONTAINER_NAME="${PROJECT_NAME}-green"
 
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "🚀 Nginx Blue-Green 무중단 배포 시작"
+            echo "🚀 Starting Nginx Blue-Green zero-downtime deploy"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "📦 프로젝트: ${PROJECT_NAME}"
-            echo "🌐 도메인: ${SERVICE_DOMAIN}"
-            echo "🖼️ 이미지: ${IMAGE}"
+            echo "📦 Project: ${PROJECT_NAME}"
+            echo "🌐 Domain: ${SERVICE_DOMAIN}"
+            echo "🖼️ Image: ${IMAGE}"
             echo "🎨 Blue=${BLUE_PORT} | Green=${GREEN_PORT}"
             echo "🔧 Nginx config: ${NGINX_RP_CONF}"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -269,23 +269,23 @@ jobs:
             # ============================================================
             # 1. 최신 이미지 Pull
             # ============================================================
-            echo "📥 이미지 Pull: ${IMAGE}"
+            echo "📥 Pulling image: ${IMAGE}"
             SUDO docker pull "${IMAGE}"
 
             # ============================================================
             # 2. nginx 설정 백업
             # ============================================================
-            echo "📁 nginx 백업 디렉토리 생성: ${NGINX_BACKUP_DIR}"
+            echo "📁 Creating nginx backup directory: ${NGINX_BACKUP_DIR}"
             SUDO mkdir -p "${NGINX_BACKUP_DIR}"
 
             BACKUP_FILE="${NGINX_BACKUP_DIR}/server.ReverseProxy.conf.$(date +%Y%m%d_%H%M%S).bak"
-            echo "💾 nginx config 백업: ${BACKUP_FILE}"
+            echo "💾 Backing up nginx config: ${BACKUP_FILE}"
             SUDO cp "${NGINX_RP_CONF}" "${BACKUP_FILE}"
 
             # ============================================================
             # 3. 현재 활성 포트 판별 (nginx config proxy_pass 파싱)
             # ============================================================
-            echo "🔍 nginx config 의 현재 활성 포트 탐색"
+            echo "🔍 Finding the active port in the nginx config"
             ACTIVE_PORT=$(
               SUDO awk -v dom="${SERVICE_DOMAIN}" '
                 BEGIN {
@@ -319,10 +319,10 @@ jobs:
             )
 
             if [ -z "${ACTIVE_PORT}" ]; then
-              echo "⚠️ 활성 포트를 찾지 못함 → 기본값(BLUE=${BLUE_PORT})을 활성으로 간주"
+              echo "⚠️ No active port found → treating the default (BLUE=${BLUE_PORT}) as active"
               ACTIVE_PORT="${BLUE_PORT}"
             fi
-            echo "🎨 현재 활성 포트: ${ACTIVE_PORT}"
+            echo "🎨 Active port: ${ACTIVE_PORT}"
 
             if [ "${ACTIVE_PORT}" = "${BLUE_PORT}" ]; then
               NEW_PORT="${GREEN_PORT}"
@@ -334,14 +334,14 @@ jobs:
               OLD_CONTAINER_NAME="${GREEN_CONTAINER_NAME}"
             fi
 
-            echo "🐳 신규 배포 → 포트=${NEW_PORT} 컨테이너=${NEW_CONTAINER_NAME}"
-            echo "🗑️ 이전 컨테이너 (제거 예정) = ${OLD_CONTAINER_NAME}"
+            echo "🐳 New deploy → port=${NEW_PORT} container=${NEW_CONTAINER_NAME}"
+            echo "🗑️ Previous container (to be removed) = ${OLD_CONTAINER_NAME}"
 
             # ============================================================
             # 4. 동일 슬롯(idle 쪽) 잔존 컨테이너 정리
             # ============================================================
             if SUDO docker ps -a --format '{{.Names}}' | grep -Eq "^${NEW_CONTAINER_NAME}\$"; then
-              echo "🗑️ idle 슬롯 정리: ${NEW_CONTAINER_NAME}"
+              echo "🗑️ Cleaning up idle slot: ${NEW_CONTAINER_NAME}"
               SUDO docker rm -f "${NEW_CONTAINER_NAME}"
             fi
 
@@ -351,19 +351,19 @@ jobs:
             VOLUME_MOUNT_OPTION="-v /etc/localtime:/etc/localtime:ro"
             if [ "${ENABLE_VOLUME_MOUNT}" = "true" ]; then
               if [ ! -d "${VOLUME_HOST_PATH}" ]; then
-                echo "📁 볼륨 마운트 디렉토리 생성: ${VOLUME_HOST_PATH}"
+                echo "📁 Creating volume mount directory: ${VOLUME_HOST_PATH}"
                 SUDO mkdir -p "${VOLUME_HOST_PATH}"
               fi
               VOLUME_MOUNT_OPTION="${VOLUME_MOUNT_OPTION} -v ${VOLUME_HOST_PATH}:${VOLUME_CONTAINER_PATH}"
-              echo "📦 볼륨 마운트 활성화: ${VOLUME_HOST_PATH} → ${VOLUME_CONTAINER_PATH}"
+              echo "📦 Volume mount enabled: ${VOLUME_HOST_PATH} → ${VOLUME_CONTAINER_PATH}"
             else
-              echo "ℹ️ 볼륨 마운트 비활성화됨"
+              echo "ℹ️ Volume mount disabled"
             fi
 
             # ============================================================
             # 6. 새 컨테이너 기동
             # ============================================================
-            echo "🐳 새 컨테이너 기동: ${NEW_CONTAINER_NAME} (포트 ${NEW_PORT})"
+            echo "🐳 Starting new container: ${NEW_CONTAINER_NAME} (port ${NEW_PORT})"
               # 서버 재부팅·Docker 재시작 뒤에도 서비스가 자동으로 올라오도록 한다 (#727)
             SUDO docker run -d \
               -p ${NEW_PORT}:${CONTAINER_INTERNAL_PORT} \
@@ -377,23 +377,23 @@ jobs:
             # ============================================================
             # 7. 컨테이너 헬스체크 (로컬 포트 직접 호출)
             # ============================================================
-            echo "⏳ 헬스체크 시작 (최대 ${HEALTHCHECK_MAX_RETRIES}회 × ${HEALTHCHECK_RETRY_INTERVAL}초)"
+            echo "⏳ Starting health check (up to ${HEALTHCHECK_MAX_RETRIES} tries × ${HEALTHCHECK_RETRY_INTERVAL}s)"
             HEALTHCHECK_SUCCESS=false
             for i in $(seq 1 ${HEALTHCHECK_MAX_RETRIES}); do
               if curl -fsS "http://127.0.0.1:${NEW_PORT}${HEALTHCHECK_PATH}" >/dev/null 2>&1 || \
                  curl -fsS "http://127.0.0.1:${NEW_PORT}/" >/dev/null 2>&1 ; then
-                echo "✅ 헬스체크 성공 (시도 ${i})"
+                echo "✅ Health check passed (attempt ${i})"
                 HEALTHCHECK_SUCCESS=true
                 break
               fi
-              echo "⏳ 헬스체크 진행중... (${i}/${HEALTHCHECK_MAX_RETRIES})"
+              echo "⏳ Health check in progress... (${i}/${HEALTHCHECK_MAX_RETRIES})"
               sleep ${HEALTHCHECK_RETRY_INTERVAL}
             done
 
             if [ "${HEALTHCHECK_SUCCESS}" != "true" ]; then
-              echo "❌ 헬스체크 실패 → 배포 중단"
+              echo "❌ Health check failed → stopping the deploy"
               SUDO docker logs --tail 200 "${NEW_CONTAINER_NAME}" || true
-              echo "🗑️ 신규 컨테이너 정리: ${NEW_CONTAINER_NAME}"
+              echo "🗑️ Removing the new container: ${NEW_CONTAINER_NAME}"
               SUDO docker rm -f "${NEW_CONTAINER_NAME}" || true
               exit 1
             fi
@@ -401,7 +401,7 @@ jobs:
             # ============================================================
             # 8. nginx config 포트 토글 (proxy_pass 포트 치환)
             # ============================================================
-            echo "🔧 nginx config 포트 토글: ${ACTIVE_PORT} → ${NEW_PORT}"
+            echo "🔧 Switching the nginx config port: ${ACTIVE_PORT} → ${NEW_PORT}"
             TMP_FILE="$(mktemp)"
             SUDO awk -v dom="${SERVICE_DOMAIN}" -v new_port="${NEW_PORT}" '
               BEGIN {
@@ -437,29 +437,29 @@ jobs:
             # ============================================================
             # 9. nginx 설정 검증 + reload (실패 시 백업 복구)
             # ============================================================
-            echo "🔧 nginx 설정 적용 및 검증"
+            echo "🔧 Applying and validating the nginx config"
             SUDO cp "${TMP_FILE}" "${NGINX_RP_CONF}"
             if ! (SUDO nginx -t); then
-              echo "❌ nginx 설정 검증 실패 → 백업 파일로 복구"
+              echo "❌ nginx config validation failed → restoring the backup"
               SUDO cp "${BACKUP_FILE}" "${NGINX_RP_CONF}"
               SUDO rm -f "${BACKUP_FILE}"
               rm -f "${TMP_FILE}"
-              echo "🗑️ 신규 컨테이너 정리: ${NEW_CONTAINER_NAME}"
+              echo "🗑️ Removing the new container: ${NEW_CONTAINER_NAME}"
               SUDO docker rm -f "${NEW_CONTAINER_NAME}" || true
               exit 1
             fi
-            echo "✅ nginx 설정 검증 성공"
+            echo "✅ nginx config is valid"
             rm -f "${TMP_FILE}"
 
             echo "🔄 nginx reload"
             if ! (SUDO systemctl reload nginx); then
-              echo "⚠️ reload 실패 → restart 시도"
+              echo "⚠️ reload failed → trying restart"
               if ! (SUDO systemctl restart nginx); then
-                echo "❌ nginx reload/restart 실패 → 백업 복구"
+                echo "❌ nginx reload/restart failed → restoring the backup"
                 SUDO cp "${BACKUP_FILE}" "${NGINX_RP_CONF}"
                 SUDO systemctl restart nginx
                 SUDO rm -f "${BACKUP_FILE}"
-                echo "🗑️ 신규 컨테이너 정리: ${NEW_CONTAINER_NAME}"
+                echo "🗑️ Removing the new container: ${NEW_CONTAINER_NAME}"
                 SUDO docker rm -f "${NEW_CONTAINER_NAME}" || true
                 exit 1
               fi
@@ -468,43 +468,43 @@ jobs:
             # ============================================================
             # 10. 도메인 접근 검증
             # ============================================================
-            echo "🌐 도메인 접근 검증 (${SERVICE_DOMAIN})"
+            echo "🌐 Checking domain access (${SERVICE_DOMAIN})"
             DOMAIN_OK=false
             for i in $(seq 1 ${DOMAIN_CHECK_RETRIES}); do
               if curl -fsS "https://${SERVICE_DOMAIN}${HEALTHCHECK_PATH}" >/dev/null 2>&1 || \
                  curl -fsS "https://${SERVICE_DOMAIN}/" >/dev/null 2>&1 ; then
-                echo "✅ 도메인 접근 검증 성공 (시도 ${i})"
+                echo "✅ Domain is reachable (attempt ${i})"
                 DOMAIN_OK=true
                 break
               fi
-              echo "⏳ 도메인 접근 검증 중... (${i}/${DOMAIN_CHECK_RETRIES})"
+              echo "⏳ Checking domain access... (${i}/${DOMAIN_CHECK_RETRIES})"
               sleep ${DOMAIN_CHECK_INTERVAL}
             done
 
             if [ "${DOMAIN_OK}" != "true" ]; then
-              echo "⚠️ 도메인 접근 검증 실패: 배포 진행 (DNS 전파 지연 가능성)"
+              echo "⚠️ Domain check failed: continuing the deploy (DNS propagation may be delayed)"
             fi
 
             # ============================================================
             # 11. 이전 컨테이너 제거
             # ============================================================
-            echo "⏱️ in-flight 요청 처리 대기 (${IN_FLIGHT_WAIT}초)"
+            echo "⏱️ Waiting for in-flight requests (${IN_FLIGHT_WAIT}s)"
             sleep ${IN_FLIGHT_WAIT}
 
             if SUDO docker ps -a --format '{{.Names}}' | grep -Eq "^${OLD_CONTAINER_NAME}\$"; then
-              echo "🗑️ old=${OLD_CONTAINER_NAME} 제거"
+              echo "🗑️ Removing old=${OLD_CONTAINER_NAME}"
               # 이 배포의 이전 이미지 ID — 아래에서 이것만 지운다 (서버 전체 prune 은 다른 프로젝트 이미지를 지운다, #734)
               OLD_IMAGE_ID=$(SUDO docker inspect --format '{{.Image}}' "${OLD_CONTAINER_NAME}" 2>/dev/null || true)
               SUDO docker rm -f "${OLD_CONTAINER_NAME}" || true
               if [ -n "${OLD_IMAGE_ID}" ]; then
                 if SUDO docker rmi "${OLD_IMAGE_ID}" >/dev/null 2>&1; then
-                  echo "🧹 이전 이미지 삭제: ${OLD_IMAGE_ID}"
+                  echo "🧹 Removing the previous image: ${OLD_IMAGE_ID}"
                 else
-                  echo "ℹ️ 이전 이미지는 다른 컨테이너가 쓰고 있어 유지합니다"
+                  echo "ℹ️ Keeping the previous image, another container uses it"
                 fi
               fi
             else
-              echo "ℹ️ old=${OLD_CONTAINER_NAME} 없음 — 정리 생략"
+              echo "ℹ️ No old=${OLD_CONTAINER_NAME} — skipping cleanup"
             fi
 
             # ============================================================
@@ -513,13 +513,13 @@ jobs:
             # 서버 전체 prune(docker image prune -af)은 같은 서버의 다른 프로젝트 이미지를 지우므로 하지 않는다 (#734).
             # 이 배포의 이전 이미지는 위에서 이미 지웠다.
 
-            echo "🧹 백업 파일 최신 ${NGINX_BACKUP_KEEP}개 보존"
+            echo "🧹 Keeping the latest ${NGINX_BACKUP_KEEP} backup files"
             KEEP_PLUS_ONE=$((NGINX_BACKUP_KEEP + 1))
             SUDO /bin/bash -c "ls -1t '${NGINX_BACKUP_DIR}'/server.ReverseProxy.conf.*.bak 2>/dev/null | tail -n +${KEEP_PLUS_ONE} | xargs -r rm -f"
 
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "✅ 무중단 배포 완료. active=${NEW_CONTAINER_NAME} (포트 ${NEW_PORT})"
-            echo "🌐 도메인: https://${SERVICE_DOMAIN}"
+            echo "✅ Zero-downtime deploy complete. active=${NEW_CONTAINER_NAME} (port ${NEW_PORT})"
+            echo "🌐 Domain: https://${SERVICE_DOMAIN}"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # ===================================================================

@@ -43,27 +43,27 @@ permissions:
 
 jobs:
   build:
-    name: React/Next.js 애플리케이션 빌드
+    name: Build React/Next.js application
     runs-on: ubuntu-latest
 
     steps:
       # 1. 소스코드 체크아웃
-      - name: 코드 체크아웃
+      - name: Check out code
         uses: actions/checkout@v5
 
       # 2. 환경변수 파일 생성
-      - name: 환경변수 파일 생성 (${{ env.ENV_FILE }})
+      - name: Create environment file (${{ env.ENV_FILE }})
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
         run: |
           echo -e "$ENV_CONTENT" > ${{ env.ENV_FILE }}
-          echo "✅ ${{ env.ENV_FILE }} 파일 생성 완료"
+          echo "✅ ${{ env.ENV_FILE }} file created"
 
       # 패키지 매니저 감지 (#669)
       # setup-node 의 cache 는 lock 파일이 없거나 pnpm 이면 "Dependencies lock file is not found" 로
       # 첫 step 부터 실패한다. 기존에 동작하던 npm(package-lock.json) 경로가 최우선이고,
       # 그 다음 pnpm, yarn 순으로 보며 lock 이 전혀 없으면 캐시 없이 npm install 로 폴백한다.
-      - name: 패키지 매니저 감지
+      - name: Detect package manager
         id: pm
         run: |
           if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
@@ -74,26 +74,26 @@ jobs:
             manager=yarn; cache=yarn
           else
             manager=none; cache=""
-            echo "::notice::lock 파일(package-lock.json, pnpm-lock.yaml, yarn.lock)이 없어 npm install 로 설치합니다. 재현 가능한 빌드를 위해 lock 파일을 커밋하세요."
+            echo "::notice::No lock file (package-lock.json, pnpm-lock.yaml, yarn.lock), installing with npm install. Commit a lock file for reproducible builds."
           fi
           echo "manager=$manager" >> "$GITHUB_OUTPUT"
           echo "cache=$cache" >> "$GITHUB_OUTPUT"
-          echo "📦 패키지 매니저: $manager"
+          echo "📦 Package manager: $manager"
 
       # pnpm, yarn 은 setup-node 의 캐시 설정보다 먼저 사용 가능해야 한다 (Node 번들 corepack 사용)
-      - name: Corepack 활성화
+      - name: Enable Corepack
         if: steps.pm.outputs.manager == 'pnpm' || steps.pm.outputs.manager == 'yarn'
         run: corepack enable
 
       # 3. Node.js 설정
-      - name: Node.js 설정
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: ${{ steps.pm.outputs.cache }}
 
       # 4. npm 의존성 캐싱
-      - name: npm 의존성 캐싱
+      - name: Cache npm dependencies
         if: steps.pm.outputs.manager == 'npm' || steps.pm.outputs.manager == 'none'
         uses: actions/cache@v4
         with:
@@ -104,7 +104,7 @@ jobs:
 
       # 5. node_modules 캐싱
       # package-lock.json이 변경되지 않으면 npm ci 건너뛰기
-      - name: node_modules 캐싱
+      - name: Cache node_modules
         id: node-modules-cache
         uses: actions/cache@v4
         with:
@@ -116,12 +116,12 @@ jobs:
 
       # 6. 의존성 설치
       # 캐시가 없을 때만 실행 (npm ci는 package-lock.json 기준 정확한 버전 설치)
-      - name: 의존성 설치
+      - name: Install dependencies
         if: steps.node-modules-cache.outputs.cache-hit != 'true'
         env:
           PM: ${{ steps.pm.outputs.manager }}
         run: |
-          echo "📦 의존성 설치 중... ($PM)"
+          echo "📦 Installing dependencies... ($PM)"
           case "$PM" in
             npm)  npm ci ;;
             pnpm) pnpm install --frozen-lockfile ;;
@@ -130,11 +130,11 @@ jobs:
               if [ -f .yarnrc.yml ]; then yarn install --immutable; else yarn install --frozen-lockfile; fi ;;
             *)    npm install ;;
           esac
-          echo "✅ 의존성 설치 완료"
+          echo "✅ Dependencies installed"
 
       # 7. Next.js 빌드 캐싱 (Next.js 프로젝트인 경우)
       # .next/cache 폴더를 캐싱하여 증분 빌드 속도 향상
-      - name: Next.js 빌드 캐싱
+      - name: Cache Next.js build
         uses: actions/cache@v4
         with:
           path: .next/cache
@@ -145,11 +145,11 @@ jobs:
 
       # 8. 프로젝트 빌드
       # 빌드 실패 시에도 워크플로우를 중단하지 않고 에러 로그 수집
-      - name: 프로젝트 빌드
+      - name: Build project
         id: build
         run: |
-          echo "🔨 빌드 시작..."
-          echo "프로젝트: ${{ env.PROJECT_NAME }}"
+          echo "🔨 Starting build..."
+          echo "Project: ${{ env.PROJECT_NAME }}"
           echo "Node.js: ${{ env.NODE_VERSION }}"
           echo ""
           
@@ -159,21 +159,21 @@ jobs:
             echo "build_failed=true" >> $GITHUB_OUTPUT
             echo "status=failed" >> $GITHUB_OUTPUT
             echo ""
-            echo "❌ 빌드 실패"
+            echo "❌ Build failed"
             exit 0
           }
           
           echo "build_failed=false" >> $GITHUB_OUTPUT
           echo "status=success" >> $GITHUB_OUTPUT
-          echo "✅ 빌드 완료"
+          echo "✅ Build complete"
 
       # 9. 빌드 실패 시 에러 로그 출력
       # 빌드가 실패한 경우에만 실행
-      - name: 빌드 에러 로그 출력
+      - name: Print build error log
         if: steps.build.outputs.build_failed == 'true'
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "❌ 빌드 실패 - 에러 로그"
+          echo "❌ Build failed - error log"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           
@@ -181,7 +181,7 @@ jobs:
           if [ -f "build_log.txt" ]; then
             tail -n 50 build_log.txt
           else
-            echo "에러 로그 파일을 찾을 수 없습니다."
+            echo "Could not find the error log file."
           fi
           
           echo ""
@@ -192,7 +192,7 @@ jobs:
 
       # 10. 빌드 로그 아티팩트 업로드
       # 빌드 성공/실패 여부와 관계없이 로그 저장
-      - name: 빌드 로그 업로드
+      - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -202,32 +202,32 @@ jobs:
 
       # 11. 빌드 결과 요약
       # 워크플로우 실행 결과를 보기 쉽게 요약
-      - name: 빌드 결과 요약
+      - name: Build summary
         if: always()
         run: |
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           if [ "${{ steps.build.outputs.status }}" = "success" ]; then
-            echo "🎉 빌드 워크플로우 완료!"
+            echo "🎉 Build workflow complete!"
           else
-            echo "❌ 빌드 워크플로우 실패"
+            echo "❌ Build workflow failed"
           fi
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "📊 빌드 결과:"
-          echo "  📦 프로젝트: ${{ env.PROJECT_NAME }}"
-          echo "  📌 Node.js 버전: ${{ env.NODE_VERSION }}"
-          echo "  🆙 빌드 상태: ${{ steps.build.outputs.status }}"
-          echo "  🌿 브랜치: $GITHUB_REF_NAME"
-          echo "  📝 커밋: ${{ github.sha }}"
-          echo "  🕐 시간: $(date '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "📊 Build result:"
+          echo "  📦 Project: ${{ env.PROJECT_NAME }}"
+          echo "  📌 Node.js version: ${{ env.NODE_VERSION }}"
+          echo "  🆙 Build status: ${{ steps.build.outputs.status }}"
+          echo "  🌿 Branch: $GITHUB_REF_NAME"
+          echo "  📝 Commit: ${{ github.sha }}"
+          echo "  🕐 Time: $(date '+%Y-%m-%d %H:%M:%S UTC')"
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           
           if [ "${{ steps.build.outputs.status }}" = "success" ]; then
-            echo "✅ 모든 단계가 성공적으로 완료되었습니다."
+            echo "✅ All steps completed successfully."
           else
-            echo "❌ 빌드 중 오류가 발생했습니다."
-            echo "💡 Actions 탭에서 'build-log' 아티팩트를 다운로드하여 전체 로그를 확인하세요."
+            echo "❌ An error occurred during the build."
+            echo "💡 Download the 'build-log' artifact from the Actions tab to see the full log."
           fi
