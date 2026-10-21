@@ -35,6 +35,8 @@ export function copyScripts(tempDir, targetRoot = ".") {
     "asc_client.py",
     // iOS 버전 사전 점검, 업로드 거부 분류, 아카이브부터 업로드까지 재시도 (#643).
     "ios_release.py",
+    // Flutter iOS 빌드의 Xcode 선택(빈 값 = 러너 최신)과 SDK 누락 진단 (#758). 선택 규칙의 유일한 위치.
+    "select_xcode.py",
     // 릴리스 머지 때 완료 라벨이 붙은 이슈를 닫는다 (#771). close_on_release 옵션이 켜진 레포에서만 동작한다.
     "close_issues_on_release.py",
     // Play Store/TestFlight 배포 모드를 코드 설정(.github/config/store-deploy.json)에서 읽는다 (#767).

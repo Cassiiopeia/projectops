@@ -390,9 +390,11 @@ permissions:
 ```yaml
 env:
   FLUTTER_VERSION: "3.24.5"      # Flutter 버전
-  XCODE_VERSION: "16.4"          # Xcode 버전 (iOS만)
+  XCODE_VERSION: ""              # Xcode 버전 (iOS만). 빈 값이면 러너에 설치된 최신 정식 버전
   ENV_FILE_PATH: ".env"          # 환경 파일 경로
 ```
+
+`XCODE_VERSION`을 비워 두면 러너의 `/Applications/Xcode_*.app` 중 가장 높은 정식 버전을 씁니다. 특정 버전을 고정하려면 이 값이나 레포 변수 `XCODE_VERSION`(Settings > Secrets and variables > Actions > Variables)을 지정합니다. 레포 변수는 템플릿을 업데이트해도 유지됩니다. 고정한 버전이 러너에 없으면 설치된 버전 목록을 출력하고 실패합니다.
 
 ---
 
