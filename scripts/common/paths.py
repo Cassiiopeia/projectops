@@ -254,8 +254,10 @@ def resolve_output_path(skill_id: str, forced_title: Optional[str] = None,
         final_title = normalize(raw) if raw else "untitled"
     final_title = _drop_repeated_issue_number(final_title, issue_num)
 
-    # 번호: 이슈 번호 > 오늘 같은 제목의 일련번호 재사용 > 새 일련번호
-    number = issue_num if issue_num else get_next_seq(skill_dir, today, title=final_title)
+    # 번호: 이슈 번호 > 오늘 같은 제목의 일련번호 재사용(증거물만) > 새 일련번호
+    # 문서(issue·report 등)는 재사용하면 같은 제목의 앞 문서를 덮으므로 항상 새 번호
+    reuse_title = final_title if skill_id in EVIDENCE_SKILLS else None
+    number = issue_num if issue_num else get_next_seq(skill_dir, today, title=reuse_title)
 
     path = build_output_path(output_base, skill_id, today, number, final_title)
     out = {
