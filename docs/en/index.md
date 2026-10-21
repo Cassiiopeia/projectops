@@ -64,4 +64,3 @@ Open a PR from a work branch and a **change summary** built from the commits is 
 
 Open a PR from the development branch to `main` and it writes the release notes, decides the version from commit titles (`feat`, `fix`, ...) and puts it in the PR title, merges automatically, and creates the **version tag**. This example had `feat` commits, so the minor version went up.
 
-> The warning banner GitHub shows for Korean branch names is hidden in the recording. Everything else is the unedited screen.
