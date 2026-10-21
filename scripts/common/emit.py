@@ -22,7 +22,7 @@ _HEAD_KEYS = ("ok", "code", "summary", "next")
 # --brief 에서도 남기는 안내 키
 _GUIDE_KEYS = _HEAD_KEYS + ("error", "hint", "usage", "example", "did_you_mean", "available_subcommands",
                               "newer_installed", "count", "warning", "warnings")
-# --brief 에서 목록 행마다 남기는 식별 키 (번호·제목·상태): 목록이 통째로 사라져 재호출하던 문제
+# --brief 에서 목록 행마다 남기는 식별 키 (번호·제목·상태) — 목록을 버리지 않아 재호출이 필요 없게
 _BRIEF_ROW_KEYS = ("number", "id", "run_id", "job_id", "title", "name", "state", "status", "conclusion")
 # field_not_found 후보로 펼칠 중첩 깊이
 _CANDIDATE_PATH_DEPTH = 3

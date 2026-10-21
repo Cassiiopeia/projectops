@@ -66,7 +66,7 @@ def get_job_log(
     """job 로그를 받아 grep 매칭 라인의 끝 tail개를 반환한다.
 
     grep 없음(기본): ##[error] 줄과 그 앞 출력 줄. `##[group]Run` 스크립트 원문 구간은 빼고 본다
-    (원문의 `error` 글자·브랜치명이 걸려 재시도하던 문제). grep 지정: 정규식으로 전체 줄 검색.
+    (원문의 `error` 글자·브랜치명이 걸리지 않게). grep 지정: 정규식으로 전체 줄 검색.
     job logs 엔드포인트는 Azure로 redirect되므로 _request의 strip 핸들러가 필수.
     """
     text = client._request(
@@ -247,11 +247,11 @@ def rerun_run(owner: str, repo: str, run_id: int, pat: str, failed_only: bool = 
     return {"run_id": run_id, "failed_only": failed_only}
 
 
-def cancel_run(owner: str, repo: str, run_id: int, pat: str, force: bool = False) -> dict:
-    """run 을 취소한다. force 면 always() step 까지 멈추는 강제 취소"""
-    suffix = "force-cancel" if force else "cancel"
+def cancel_run(owner: str, repo: str, run_id: int, pat: str, is_force_cancel: bool = False) -> dict:
+    """run 을 취소한다. is_force_cancel 이면 always() step 까지 멈추는 강제 취소"""
+    suffix = "force-cancel" if is_force_cancel else "cancel"
     client._request("POST", f"{_API_BASE}/repos/{owner}/{repo}/actions/runs/{run_id}/{suffix}", {}, pat)
-    return {"run_id": run_id, "force": force}
+    return {"run_id": run_id, "force": is_force_cancel}
 
 
 def wait_for_runs(owner: str, repo: str, run_ids: list[int], pat: str, timeout_seconds: int) -> dict:
@@ -268,12 +268,5 @@ def wait_for_runs(owner: str, repo: str, run_ids: list[int], pat: str, timeout_s
 
 def wait_for_run(owner: str, repo: str, run_id: int, pat: str, timeout_seconds: int) -> dict:
     """run 이 끝날 때까지(최대 timeout_seconds) 도구 안에서 폴링한다. 끝났으면 get_run 결과 + finished"""
-    started = time.monotonic()
-    while True:
-        result = client.get_run(owner, repo, run_id, pat)
-        waited = int(time.monotonic() - started)
-        if result.get("status") == "completed":
-            return {**result, "finished": True, "waited_seconds": waited}
-        if waited + _RUN_POLL_SECONDS > timeout_seconds:
-            return {**result, "finished": False, "waited_seconds": waited}
-        client._sleep(_RUN_POLL_SECONDS)
+    waited = wait_for_runs(owner, repo, [run_id], pat, timeout_seconds)
+    return {**waited["runs"][0], "finished": waited["finished"], "waited_seconds": waited["waited_seconds"]}

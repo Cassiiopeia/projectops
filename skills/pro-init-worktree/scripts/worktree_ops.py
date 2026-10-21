@@ -88,11 +88,15 @@ def cmd_copy(args, toplevel, split, clean, memory_file, load) -> int:
                  "next": f"새로 판단한 파일이 있으면 record --root {root} --copied ... 로 기록"})
 
 
-def _is_untouched_local_copy(rel: str, root: Path, target: Path, copied: list[str]) -> bool:
+def _is_untouched_local_copy(relative_path: str, root: Path, target: Path, copied: list[str]) -> bool:
     """미추적 파일이 기억한 복사 세트(파일·`폴더/`) 안에 있고 원본과 내용이 같은가"""
-    in_copied_set = any(rel == c.rstrip("/") or (c.endswith("/") and rel.startswith(c)) for c in copied)
-    source, copy = root / rel, target / rel
-    return in_copied_set and source.is_file() and copy.is_file() and filecmp.cmp(source, copy, shallow=False)
+    is_in_copied_set = any(
+        relative_path == copied_entry.rstrip("/")
+        or (copied_entry.endswith("/") and relative_path.startswith(copied_entry))
+        for copied_entry in copied)
+    source_file, copied_file = root / relative_path, target / relative_path
+    return (is_in_copied_set and source_file.is_file() and copied_file.is_file()
+            and filecmp.cmp(source_file, copied_file, shallow=False))
 
 
 def _split_dirty(root: Path, target: Path, copied: list[str]) -> tuple[list[str], list[str]]:
@@ -100,13 +104,13 @@ def _split_dirty(root: Path, target: Path, copied: list[str]) -> tuple[list[str]
     # -z: 한글 경로가 따옴표·8진수로 바뀌지 않게, untracked=all: 폴더 대신 파일 단위로 비교
     status = _git(target, "status", "--porcelain", "-z", "--untracked-files=all").stdout
     changes, local_copies = [], []
-    entries = iter(e for e in status.split("\0") if e.strip())
+    entries = iter(status_entry for status_entry in status.split("\0") if status_entry.strip())
     for entry in entries:
-        code, rel = entry[:2], entry[3:]
-        if code[0] in "RC":
+        status_code, relative_path = entry[:2], entry[3:]
+        if status_code[0] in "RC":
             next(entries, None)  # -z 의 rename·copy 는 원래 경로가 다음 칸에 따로 온다
-        if code == "??" and _is_untouched_local_copy(rel, root, target, copied):
-            local_copies.append(rel)
+        if status_code == "??" and _is_untouched_local_copy(relative_path, root, target, copied):
+            local_copies.append(relative_path)
         else:
             changes.append(entry)
     return changes, local_copies

@@ -163,7 +163,7 @@ def cmd_actions(args, api) -> int:
             run_id, err = read_numeric_argument(args, "run_id")
             if err is not None:
                 return err
-            result = api.cancel_run(args.owner, args.repo, run_id, pat, force=args.force)
+            result = api.cancel_run(args.owner, args.repo, run_id, pat, is_force_cancel=args.force)
             return emit({**result, "summary": f"Run {run_id} {'강제 ' if args.force else ''}취소 요청",
                          "next": f"actions wait {args.owner} {args.repo} {run_id}  # 취소가 반영됐는지 확인"})
         elif args.sub == "list-failed":

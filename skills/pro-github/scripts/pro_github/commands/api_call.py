@@ -20,7 +20,7 @@ MAX_RESPONSE_CHARS = 20000
 # 레포 밖이지만 읽기 전용으로 허용하는 경로 (남은 호출 한도 확인)
 READ_ONLY_GLOBAL_PATHS = ("/rate_limit",)
 # 쓰기를 막는 레포 관리 경로 (공개 전환·삭제·이전·비밀·권한) — 통과 경로로 되돌리기 어려운 사고를 내지 않게
-REPO_ADMIN_SUBPATHS = ("transfer", "actions/secrets", "collaborators", "keys", "hooks")
+REPOSITORY_ADMIN_SUBPATHS = ("transfer", "actions/secrets", "collaborators", "keys", "hooks")
 
 
 def resolve_api_path(owner: str, repo: str, path: str) -> str:
@@ -39,7 +39,7 @@ def is_path_in_scope(method: str, path: str, prefix: str) -> bool:
     return path.startswith(prefix)
 
 
-def is_repo_admin_write(method: str, path: str, prefix: str) -> bool:
+def is_repository_admin_write(method: str, path: str, prefix: str) -> bool:
     """레포 자체(/repos/o/r) 수정·삭제 또는 관리 경로 쓰기인지"""
     if method not in WRITE_METHODS:
         return False
@@ -47,7 +47,7 @@ def is_repo_admin_write(method: str, path: str, prefix: str) -> bool:
     if bare.rstrip("/") == prefix.rstrip("/"):
         return True
     rest = bare[len(prefix):] if bare.startswith(prefix) else ""
-    return any(rest == sub or rest.startswith(sub + "/") for sub in REPO_ADMIN_SUBPATHS)
+    return any(rest == sub or rest.startswith(sub + "/") for sub in REPOSITORY_ADMIN_SUBPATHS)
 
 
 def fit_response_data(data, max_chars: int = MAX_RESPONSE_CHARS) -> tuple:
@@ -95,7 +95,7 @@ def cmd_api(args, api) -> int:
     path = resolve_api_path(args.owner, args.repo, args.path)
     if method not in READ_METHODS + WRITE_METHODS:
         return emit({"ok": False, "code": "bad_argument", "error": f"지원하지 않는 메서드: {method}"})
-    if is_repo_admin_write(method, path, prefix):
+    if is_repository_admin_write(method, path, prefix):
         return emit({"ok": False, "code": "repo_admin_blocked",
                      "error": f"레포 설정·삭제·이전·비밀·권한 쓰기는 이 통과 경로로 하지 않는다: {method} {path}",
                      "next": "Secret 은 secrets set 을 쓰고, 레포 설정 변경은 사용자가 GitHub 화면에서 직접 한다"})
