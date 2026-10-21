@@ -1,20 +1,20 @@
 {
   "id": "general-bad-args-option-names",
   "area": "general",
-  "title": "bad_args — 옵션 이름을 착각했다 (--full-page · --field · 위치 인자)",
+  "title": "bad_args — wrong option name (--full-page · --field · positional argument)",
   "match": {
     "codes": [
       "bad_args"
     ],
     "keywords": []
   },
-  "symptom": "명령이 bad_args(인자가 올바르지 않습니다: unrecognized arguments …)로 끝난다",
-  "cause": "없는 옵션이나 위치 인자를 넘겼다. 자주 틀리는 것: web shot 은 --full(--full-page 아님), 자격증명 필드는 --cred-field(--field 아님), cred show 는 --name <이름>(위치 인자 아님), cred 동작은 list·show·set·unset·import-ssh 뿐(add 없음)",
+  "symptom": "The command ends with bad_args (인자가 올바르지 않습니다 = invalid arguments: unrecognized arguments …)",
+  "cause": "You passed an option or positional argument that does not exist. Common mistakes: web shot takes --full (not --full-page), the credential field is --cred-field (not --field), cred show takes --name <name> (not positional), cred actions are only list · show · set · unset · import-ssh (no add)",
   "fix": [
-    "error 의 unrecognized arguments·invalid choice 부분을 먼저 읽는다",
+    "Read the unrecognized arguments · invalid choice part of error first",
     "launch_cli.py web --help",
-    "launch_cli.py cred show --name <이름>",
-    "응답에 load_errors 가 있으면 모듈이 깨져 서브커맨드가 안 보이는 것이다 — 플러그인 버전을 확인한다"
+    "launch_cli.py cred show --name <name>",
+    "If the response has load_errors, a module is broken and its subcommand is hidden — check the plugin version"
   ],
   "refs": [
     889

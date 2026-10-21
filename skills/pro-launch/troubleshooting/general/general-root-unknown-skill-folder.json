@@ -1,7 +1,7 @@
 {
   "id": "general-root-unknown-skill-folder",
   "area": "general",
-  "title": "캡처·상태가 ~/.projectops/launch/scripts 등 엉뚱한 곳에 쌓인다",
+  "title": "Captures and state pile up in the wrong place, e.g. ~/.projectops/launch/scripts",
   "match": {
     "codes": [],
     "keywords": [
@@ -9,12 +9,12 @@
       "root_warning"
     ]
   },
-  "symptom": "캡처가 프로젝트가 아니라 ~/.projectops/launch/scripts/shots 나 공용 자리에 생긴다. 응답에 root_unknown·root_warning 이 붙는다. 앞에서 연 브라우저·기억이 안 보인다",
-  "cause": "스크립트 폴더로 cd 한 뒤 --root . 로(또는 --root 없이) 불렀다. 상태·캡처 자리는 --root 의 git 원격으로 정한다. 플러그인 캐시는 프로젝트가 아니라 이 컴퓨터 공용 자리로 돌린다(예전 버전은 폴더 이름 scripts 로 갈렸다)",
+  "symptom": "Captures land in ~/.projectops/launch/scripts/shots or a shared location instead of the project. Responses carry root_unknown · root_warning. Browsers and memory opened earlier are not visible",
+  "cause": "It was called with --root . (or without --root) after cd into the scripts folder. The state and capture location comes from the git remote of --root. A plugin cache maps to this computer's shared location, not a project (older versions split by the folder name scripts)",
   "fix": [
-    "프로젝트 폴더에서 스크립트를 절대경로로 부르고 --root <프로젝트 경로> 를 붙인다",
-    "또는 PROJECT_ROOT=<프로젝트 경로> 를 앞에 붙인다 (스크립트·캐시 폴더에서 불렸을 때 이 값을 쓴다)",
-    "캡처 자리를 먼저 받는다: launch_cli.py get-output-path --root <프로젝트 경로> --title <제목> 뒤 env.sh 를 source"
+    "Call the script by absolute path from the project folder and add --root <project path>",
+    "Or prefix PROJECT_ROOT=<project path> (used when called from a scripts or cache folder)",
+    "Get the capture location first: launch_cli.py get-output-path --root <project path> --title <title>, then source env.sh"
   ],
   "refs": [
     833,

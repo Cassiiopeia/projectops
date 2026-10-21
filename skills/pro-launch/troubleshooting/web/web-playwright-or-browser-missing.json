@@ -1,7 +1,7 @@
 {
   "id": "web-playwright-or-browser-missing",
   "area": "web",
-  "title": "playwright_missing · browser_missing — web setup 이 필요하다",
+  "title": "playwright_missing · browser_missing — web setup is needed",
   "match": {
     "codes": [
       "playwright_missing",
@@ -9,12 +9,12 @@
     ],
     "keywords": []
   },
-  "symptom": "web open 이 playwright_missing(Playwright 없음) 또는 browser_missing(Chromium 이 설치돼 있지 않다)으로 끝난다",
-  "cause": "웹 조작은 전용 가상환경(~/.projectops 아래)의 Playwright 와 브라우저를 쓴다. 아직 준비하지 않았거나, 패키지는 있는데 브라우저 파일이 없다",
+  "symptom": "web open ends with playwright_missing (no Playwright) or browser_missing (Chromium is not installed)",
+  "cause": "Web control uses Playwright and a browser in a dedicated virtual environment (under ~/.projectops). It is not set up yet, or the package exists but the browser files are missing",
   "fix": [
-    "설치(약 100MB)는 사용자에게 먼저 묻는다: launch_cli.py web setup",
-    "내부망이면 설치된 Chrome·Edge 를 쓴다: LAUNCH_CHROMIUM_PATH=<브라우저 실행 파일 경로> 를 앞에 붙여 web open",
-    "web setup 이 pip_failed 면 사내 PyPI 미러로 playwright pillow 를 먼저 깔아 둔다 (사용자에게 먼저 묻는다)"
+    "Ask the user before installing (about 100 MB): launch_cli.py web setup",
+    "On an internal network, use an installed Chrome · Edge: prefix web open with LAUNCH_CHROMIUM_PATH=<browser executable path>",
+    "If web setup fails with pip_failed, install playwright pillow from the internal PyPI mirror first (ask the user first)"
   ],
   "refs": [
     857,

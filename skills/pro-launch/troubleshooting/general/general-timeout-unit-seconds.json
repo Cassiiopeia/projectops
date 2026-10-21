@@ -1,7 +1,7 @@
 {
   "id": "general-timeout-unit-seconds",
   "area": "general",
-  "title": "--timeout 을 밀리초로 넣었다 — 단위는 초",
+  "title": "--timeout given in milliseconds — the unit is seconds",
   "match": {
     "codes": [
       "timeout_too_large"
@@ -10,11 +10,11 @@
       "--timeout"
     ]
   },
-  "symptom": "web type --timeout 3000 이 50분 동안 멈춘다",
-  "cause": "--timeout 은 초 단위다. 3000 은 50분이다",
+  "symptom": "web type --timeout 3000 hangs for 50 minutes",
+  "cause": "--timeout is in seconds. 3000 is 50 minutes",
   "fix": [
-    "--timeout 은 초로 준다 (기본 10, 최대 300)",
-    "이미 멈췄으면 web close 후 web open 으로 복구한다"
+    "Give --timeout in seconds (default 10, max 300)",
+    "If it already hung, recover with web close, then web open"
   ],
   "refs": [
     931

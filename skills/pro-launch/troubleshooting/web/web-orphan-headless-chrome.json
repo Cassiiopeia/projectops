@@ -1,7 +1,7 @@
 {
   "id": "web-orphan-headless-chrome",
   "area": "web",
-  "title": "HTML 을 더블클릭해도 Chrome 이 안 열린다 — 고아 headless Chrome",
+  "title": "Double-clicking an HTML file does not open Chrome — orphan headless Chrome",
   "match": {
     "codes": [
       "browser_hung"
@@ -11,12 +11,12 @@
       "chrome"
     ]
   },
-  "symptom": "더블클릭한 html 이 아무 화면도 안 띄우거나 web open 이 멈춘다",
-  "cause": "프로필이 사라진 headless Chrome(PPID 1)이 남아 기본 Chrome 요청을 받는다",
+  "symptom": "A double-clicked html file shows nothing, or web open hangs",
+  "cause": "A headless Chrome whose profile is gone (PPID 1) is left running and receives the default Chrome requests",
   "fix": [
-    "launch_cli.py web close --stale 로 고아를 정리한다 (남의 살아 있는 브라우저는 보고만 한다)",
-    "직접: ps -axo pid,ppid,command | grep -- --headless 에서 PPID 1 인 것을 확인한다",
-    "재접속이 멈추면 새 절대 경로 --root 로 열되 로그인이 사라진다는 점을 감안한다"
+    "Clean up orphans with launch_cli.py web close --stale (other people's live browsers are only reported)",
+    "By hand: in ps -axo pid,ppid,command | grep -- --headless, look for entries with PPID 1",
+    "If reconnecting hangs, open with a new absolute --root, keeping in mind the login will be gone"
   ],
   "refs": [
     921

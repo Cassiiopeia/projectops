@@ -1,19 +1,19 @@
 {
   "id": "web-readonly-mutating-blocked",
   "area": "web",
-  "title": "읽기 전용 세션에서 저장·제출 버튼이 mutating_blocked",
+  "title": "Save · submit buttons return mutating_blocked in a read-only session",
   "match": {
     "codes": [
       "mutating_blocked"
     ],
     "keywords": []
   },
-  "symptom": "web click 이 mutating_blocked(읽기 전용 세션이라 누르지 않았다)로 끝난다",
-  "cause": "web open --readonly 로 연 세션에서는 문구가 삭제·제출·저장·게시 같은 버튼을 --confirm-mutating 없이 누르지 않는다. 링크·탭·행은 이동이라 막지 않는다",
+  "symptom": "web click ends with mutating_blocked (not pressed because the session is read-only)",
+  "cause": "In a session opened with web open --readonly, buttons whose text means delete · submit · save · publish (matched words include 삭제·제출·저장·게시) are not pressed without --confirm-mutating. Links, tabs and rows are navigation and are not blocked",
   "fix": [
-    "무엇이 바뀌는지 사용자에게 말하고 승인을 받는다 (되돌리기 어려운 조작)",
-    "승인 뒤: launch_cli.py web click --ref <번호> --confirm-mutating",
-    "단순히 화면만 볼 거면 링크·탭으로 이동한다 — 버튼을 누를 필요가 없는지 먼저 본다"
+    "Tell the user what will change and get approval (hard to undo)",
+    "After approval: launch_cli.py web click --ref <number> --confirm-mutating",
+    "If you only need to look, navigate with links · tabs — first check whether you need to press the button at all"
   ],
   "refs": [
     825,

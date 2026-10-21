@@ -1,7 +1,7 @@
 {
   "id": "android-flutter-doubled-desc",
   "area": "android",
-  "title": "Android Flutter 버튼 desc 가 두 번 들어간다",
+  "title": "Android Flutter button desc appears twice",
   "match": {
     "codes": [
       "not_found"
@@ -11,11 +11,11 @@
       "Semantics"
     ]
   },
-  "symptom": "app tap --text 가 not_found 인데 tree 의 desc 는 '라벨\\n라벨' 이다",
-  "cause": "Flutter 가 Semantics 를 content-desc 에 합쳐 같은 줄이 반복된다",
+  "symptom": "app tap --text returns not_found, but the desc in tree is 'label\\nlabel'",
+  "cause": "Flutter merges Semantics into content-desc, so the same line repeats",
   "fix": [
-    "launch_cli.py app tap --desc <라벨> (최신 버전은 줄 단위로 맞춘다)",
-    "이전 버전은 개행 포함 전체 문자열을 --desc 로 준다"
+    "launch_cli.py app tap --desc <label> (newer versions match line by line)",
+    "On older versions, pass the whole string including the newline to --desc"
   ],
   "refs": [
     927

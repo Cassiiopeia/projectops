@@ -1,7 +1,7 @@
 {
   "id": "android-app-not-foreground",
   "area": "android",
-  "title": "app launch 가 ok 인데 다른 화면이 맨 위에 있다",
+  "title": "app launch is ok but another screen is on top",
   "match": {
     "codes": [
       "not_foreground"
@@ -11,13 +11,13 @@
       "MinuteMaidActivity"
     ]
   },
-  "symptom": "launch·relaunch·back 이 성공인데 화면은 그대로다 (다른 세션의 Google 로그인 등)",
-  "cause": "공용 에뮬레이터 맨 위를 다른 앱(예: com.google.android.gms 로그인)이 잡고 있다. back 이 통하지 않을 수 있다",
+  "symptom": "launch · relaunch · back succeed but the screen does not change (e.g. another session's Google login)",
+  "cause": "Another app (e.g. the com.google.android.gms login) holds the top of a shared emulator. back may not work",
   "fix": [
-    "응답의 blocking_activity 를 확인한다",
-    "adb shell dumpsys window | grep mCurrentFocus 로 직접 본다",
-    "남이 쓰는 기기인지 device list 의 owner 로 확인하고, 맞으면 먼저 묻는다",
-    "풀리지 않으면 launch_cli.py device reboot --cold (35초 안팎)"
+    "Check blocking_activity in the response",
+    "Check directly with adb shell dumpsys window | grep mCurrentFocus",
+    "Check owner in device list to see if someone else uses the device; if so, ask first",
+    "If it does not clear, launch_cli.py device reboot --cold (about 35 s)"
   ],
   "refs": [
     923,

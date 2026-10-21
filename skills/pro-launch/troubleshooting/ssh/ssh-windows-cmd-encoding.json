@@ -1,7 +1,7 @@
 {
   "id": "ssh-windows-cmd-encoding",
   "area": "ssh",
-  "title": "Windows cmd(CP949) 호스트의 출력이 깨진다",
+  "title": "Output from a Windows cmd (CP949) host is garbled",
   "match": {
     "codes": [],
     "keywords": [
@@ -9,11 +9,11 @@
       "chcp"
     ]
   },
-  "symptom": "ssh 응답에 깨진 글자가 있거나 예전 버전은 UnicodeDecodeError 로 끝난다",
-  "cause": "Windows cmd 는 CP949 로 출력한다",
+  "symptom": "The ssh response has garbled characters, or older versions fail with UnicodeDecodeError",
+  "cause": "Windows cmd outputs in CP949",
   "fix": [
-    "최신 버전은 UTF-8 > CP949 순으로 해석한다 (stdout_encoding 확인)",
-    "옛 버전은 명령 앞에 'chcp 65001 >nul &' 를 붙인다"
+    "Newer versions decode UTF-8 > CP949 in that order (check stdout_encoding)",
+    "On older versions, prefix the command with 'chcp 65001 >nul &'"
   ],
   "refs": [
     933

@@ -1,20 +1,20 @@
 {
   "id": "web-click-wait-with-expect",
   "area": "web",
-  "title": "sleep 으로 기다리지 말고 click 의 --expect-url · --expect-text 로",
+  "title": "Do not wait with sleep — use click's --expect-url · --expect-text",
   "match": {
     "codes": [
       "expect_not_met"
     ],
     "keywords": []
   },
-  "symptom": "클릭 뒤 sleep 5 같은 고정 대기를 넣고 web text 로 결과를 확인한다. 느린 화면에서는 아직 안 바뀐 화면을 읽고, 빠른 화면에서는 시간을 버린다. expect_not_met 이 나기도 한다",
-  "cause": "web click 은 --expect-url·--expect-text 를 주면 그것이 나올 때까지(--timeout 초) 기다리고, 안 나오면 expect_not_met 으로 알려 준다. 주지 않으면 짧게만(몇 초) 기다린다. web type 은 칸이 나타날 때까지 --timeout 만큼 스스로 기다린다",
+  "symptom": "A fixed wait such as sleep 5 follows the click, then web text checks the result. Slow screens get read before they change; fast screens waste time. Sometimes expect_not_met appears",
+  "cause": "Given --expect-url · --expect-text, web click waits until it appears (--timeout seconds) and reports expect_not_met if it does not. Without them it waits only briefly (a few seconds). web type waits by itself up to --timeout for the field to appear",
   "fix": [
-    "launch_cli.py web click --ref <번호> --expect-text <다음 화면 글자> --timeout 30",
-    "launch_cli.py web click --ref <번호> --expect-url <바뀔 주소 일부>",
-    "expect_not_met 이면 web text 로 지금 화면을 읽는다 — 엉뚱한 것을 눌렀으면 web find 로 다시 고른다",
-    "web text·assert 의 --selector 는 기다리지 않는다 — 바로 읽을 것이면 click 의 expect 로 먼저 기다린다"
+    "launch_cli.py web click --ref <number> --expect-text <text on the next screen> --timeout 30",
+    "launch_cli.py web click --ref <number> --expect-url <part of the new URL>",
+    "On expect_not_met, read the current screen with web text — if you pressed the wrong thing, pick again with web find",
+    "--selector on web text · assert does not wait — if you will read right away, wait first with click's expect"
   ],
   "refs": [
     825,

@@ -1,7 +1,7 @@
 {
   "id": "android-adb-missing",
   "area": "android",
-  "title": "adb_missing · android_tool_missing — adb 를 찾지 못했다",
+  "title": "adb_missing · android_tool_missing — adb not found",
   "match": {
     "codes": [
       "adb_missing",
@@ -9,12 +9,12 @@
     ],
     "keywords": []
   },
-  "symptom": "Android 기기 조작이 adb_missing 이나 android_tool_missing 으로 끝난다",
-  "cause": "adb 가 PATH 에도, 표준 SDK 자리(~/Library/Android/sdk, ~/Android/Sdk, $ANDROID_HOME, $ANDROID_SDK_ROOT 의 platform-tools)에도 없다",
+  "symptom": "Android device actions end with adb_missing or android_tool_missing",
+  "cause": "adb is neither on PATH nor in a standard SDK location (platform-tools under ~/Library/Android/sdk, ~/Android/Sdk, $ANDROID_HOME, $ANDROID_SDK_ROOT)",
   "fix": [
-    "SDK 가 다른 곳에 있으면 ANDROID_HOME=<SDK 경로> 를 앞에 붙여 다시 부른다",
+    "If the SDK is elsewhere, call again with ANDROID_HOME=<SDK path> in front",
     "launch_cli.py doctor",
-    "SDK platform-tools 설치는 사용자에게 먼저 묻는다"
+    "Ask the user before installing SDK platform-tools"
   ],
   "refs": [
     889

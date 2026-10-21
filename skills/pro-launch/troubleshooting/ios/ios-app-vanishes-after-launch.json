@@ -1,7 +1,7 @@
 {
   "id": "ios-app-vanishes-after-launch",
   "area": "ios",
-  "title": "iOS 앱이 실행 직후 사라지는데 app shot 은 홈 화면을 찍는다",
+  "title": "iOS app vanishes right after launch, and app shot captures the home screen",
   "match": {
     "codes": [
       "app_exited"
@@ -11,13 +11,13 @@
       "crash"
     ]
   },
-  "symptom": "app launch 가 ok 인데 앱이 안 보이고 shot 이 홈 화면이다",
-  "cause": "실행 직후 앱이 죽는다 (예: 워크트리에 Secrets.xcconfig 가 없어 GADInvalidInitializationException)",
+  "symptom": "app launch returns ok, but the app is not visible and shot shows the home screen",
+  "cause": "The app crashes right after launch (e.g. Secrets.xcconfig is missing in the worktree, causing GADInvalidInitializationException)",
   "fix": [
-    "launch_cli.py app launch 응답의 crash_report 와 exception 줄을 본다",
-    "없으면 ~/Library/Logs/DiagnosticReports 의 최신 Runner-*.ips 를 연다",
-    "xcrun simctl launch --console-pty <UDID> <bundle> 로 콘솔 오류를 본다",
-    "워크트리에 로컬 설정 파일(Secrets.xcconfig 등)이 복사됐는지 확인한다"
+    "Read crash_report and the exception line in the launch_cli.py app launch response",
+    "If absent, open the latest Runner-*.ips in ~/Library/Logs/DiagnosticReports",
+    "See console errors with xcrun simctl launch --console-pty <UDID> <bundle>",
+    "Check that local config files (Secrets.xcconfig, etc.) were copied into the worktree"
   ],
   "refs": [
     923

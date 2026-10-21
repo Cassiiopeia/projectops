@@ -1,19 +1,19 @@
 {
   "id": "web-browser-gone",
   "area": "web",
-  "title": "web 명령이 browser_gone — 띄워 둔 브라우저에 붙지 못했다",
+  "title": "web commands fail with browser_gone — could not attach to the running browser",
   "match": {
     "codes": [
       "browser_gone"
     ],
     "keywords": []
   },
-  "symptom": "web text·shot·click 이 browser_gone(열린 브라우저에 붙지 못했다)으로 끝난다",
-  "cause": "상태 파일에 적힌 브라우저(CDP 포트)에 연결하지 못했다 — 그 브라우저가 닫혔거나 응답하지 않는다. CLI 는 상태 파일에서 죽은 브라우저 정보(cdp·pid)만 지우고 뷰포트·바꿔치기 규칙은 남긴다",
+  "symptom": "web text · shot · click end with browser_gone (could not attach to the open browser)",
+  "cause": "It could not connect to the browser (CDP port) recorded in the state file — that browser was closed or does not respond. The CLI removes only the dead browser's info (cdp · pid) from the state file and keeps the viewport and route rules",
   "fix": [
-    "launch_cli.py web open --url <주소>",
-    "open 이 browser_start_failed 면 kb show browser-start-stale-process-or-lock",
-    "로그인이 필요한 사이트면 다시 연 뒤 로그인 상태부터 web text 로 확인한다"
+    "launch_cli.py web open --url <url>",
+    "If open fails with browser_start_failed: kb show browser-start-stale-process-or-lock",
+    "For sites that need a login, reopen and first check the login state with web text"
   ],
   "refs": [
     825,

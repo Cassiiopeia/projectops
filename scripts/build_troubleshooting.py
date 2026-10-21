@@ -19,8 +19,8 @@ from common import troubleshoot  # noqa: E402
 from common.emit import emit  # noqa: E402
 
 DOC_PATH = Path("references") / "troubleshooting.md"
-AREA_TITLES = {"web": "웹", "android": "Android", "ios": "iOS", "server": "서버",
-               "ssh": "SSH", "general": "공통"}
+AREA_TITLES = {"web": "Web", "android": "Android", "ios": "iOS", "server": "Server",
+               "ssh": "SSH", "general": "General"}
 
 
 def _cell(text: str) -> str:
@@ -31,18 +31,18 @@ def _render_entry(entry: dict) -> list[str]:
     match = entry["match"]
     lines = [f"### `{entry['id']}` — {entry['title']}", ""]
     if match.get("codes"):
-        lines.append("- 코드: " + " · ".join(f"`{c}`" for c in match["codes"]))
+        lines.append("- Codes: " + " · ".join(f"`{c}`" for c in match["codes"]))
     if match.get("keywords"):
-        lines.append("- 핵심어: " + ", ".join(match["keywords"]))
+        lines.append("- Keywords: " + ", ".join(match["keywords"]))
     if entry.get("applies_to"):
         applies = entry["applies_to"]
-        lines.append("- 해당: " + (", ".join(applies) if isinstance(applies, list) else applies))
-    lines += [f"- 증상: {entry['symptom']}", f"- 원인: {entry['cause']}", "- 해결:"]
+        lines.append("- Applies to: " + (", ".join(applies) if isinstance(applies, list) else applies))
+    lines += [f"- Symptom: {entry['symptom']}", f"- Cause: {entry['cause']}", "- Fix:"]
     lines += [f"  {n}. {f}" for n, f in enumerate(entry["fix"], 1)]
     refs = ", ".join(f"#{r}" for r in entry["refs"]) or "—"
-    lines.append(f"- 근거: {refs} · 확인 {entry['verified_at']}")
+    lines.append(f"- Refs: {refs} · verified {entry['verified_at']}")
     if entry.get("see_also"):
-        lines.append("- 함께 볼 것: " + ", ".join(f"`{s}`" for s in entry["see_also"]))
+        lines.append("- See also: " + ", ".join(f"`{s}`" for s in entry["see_also"]))
     return lines + [""]
 
 
@@ -51,18 +51,18 @@ def render_markdown(skill_dir: Path) -> str:
     rows, _ = troubleshoot.read_entries(skill_dir)
     entries = sorted((e for _, e in rows if not troubleshoot.validate_entry(e)),
                      key=lambda e: (troubleshoot.AREAS.index(e["area"]), e["id"]))
-    lines = ["# 공식 트러블슈팅", "",
-             "> 생성물이다 — 손으로 고치지 않는다. 원본은 `troubleshooting/<area>/<id>.json`,",
-             "> 다시 만들기: `python3 scripts/build_troubleshooting.py skills/<skill>` (레포 루트에서).",
-             "> 작성 규칙: `skills/references/memory-principles.md` §6. 실패 응답의 `known_fix` 가 이 항목들의 요약이다.", ""]
+    lines = ["# Official troubleshooting", "",
+             "> Generated file — do not edit by hand. Source: `troubleshooting/<area>/<id>.json`.",
+             "> Rebuild: `python3 scripts/build_troubleshooting.py skills/<skill>` (from the repo root).",
+             "> Writing rules: `skills/references/memory-principles.md` §6. The `known_fix` in failure responses summarizes these entries.", ""]
     if not entries:
-        return "\n".join(lines + ["아직 항목이 없다.", ""])
+        return "\n".join(lines + ["No entries yet.", ""])
     for area in troubleshoot.AREAS:
         in_area = [e for e in entries if e["area"] == area]
         if not in_area:
             continue
         lines += [f"## {AREA_TITLES.get(area, area)} (`{area}`)", "",
-                  "| id | 제목 | 코드 |", "|---|---|---|"]
+                  "| id | Title | Codes |", "|---|---|---|"]
         lines += [f"| `{e['id']}` | {_cell(e['title'])} | "
                   f"{' · '.join(f'`{c}`' for c in e['match'].get('codes', [])) or '—'} |" for e in in_area]
         lines.append("")

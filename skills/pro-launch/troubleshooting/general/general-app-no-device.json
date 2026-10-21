@@ -1,19 +1,19 @@
 {
   "id": "general-app-no-device",
   "area": "general",
-  "title": "app 명령이 no_device — 기기가 여러 대거나 시뮬레이터가 안 켜졌다",
+  "title": "app command returns no_device — several devices attached or simulator not booted",
   "match": {
     "codes": [
       "no_device"
     ],
     "keywords": []
   },
-  "symptom": "app shot·tap·type 이 no_device 로 끝난다. 응답에 android·ios_booted 목록이 온다",
-  "cause": "--device 가 없고 $DEV 도 없는데 붙은 기기가 한 대가 아니다(여러 대면 엉뚱한 기기를 찍지 않으려고 멈춘다). 또는 --device 로 준 UDID 가 부팅된 시뮬레이터가 아니다(목록은 Booted 만 본다)",
+  "symptom": "app shot · tap · type end with no_device. The response lists android · ios_booted devices",
+  "cause": "No --device and no $DEV, and the number of attached devices is not exactly one (with several, it stops rather than capture the wrong device). Or the UDID given with --device is not a booted simulator (the list shows only Booted)",
   "fix": [
-    "응답의 android·ios_booted 에서 하나를 골라 --device <시리얼 또는 UDID> 로 다시 부른다",
-    "역할을 묶어 두면 env.sh 의 $DEV 로 고정된다: launch_cli.py device bind --role <역할> --serial <시리얼>",
-    "목록이 비었으면 부팅부터: emulator -avd <AVD명> 또는 xcrun simctl boot <UDID>"
+    "Pick one from android · ios_booted in the response and call again with --device <serial or UDID>",
+    "Bind a role to pin it as $DEV in env.sh: launch_cli.py device bind --role <role> --serial <serial>",
+    "If the list is empty, boot first: emulator -avd <AVD name> or xcrun simctl boot <UDID>"
   ],
   "refs": [
     583,

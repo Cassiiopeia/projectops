@@ -133,17 +133,32 @@
     "22087": [
       "ios-maestro-driver-port-conflict"
     ],
+    "90s": [
+      "ios-maestro-slow-cold-start"
+    ],
     "90초": [
       "ios-maestro-slow-cold-start"
     ],
     "address": [
       "ios-maestro-driver-port-conflict"
     ],
+    "again": [
+      "general-login-interstitial-policy"
+    ],
     "already": [
       "ios-maestro-driver-port-conflict"
     ],
+    "ask": [
+      "general-login-interstitial-policy"
+    ],
+    "bar": [
+      "ios-status-bar-custom-time"
+    ],
     "became": [
       "ios-maestro-session-reconnect"
+    ],
+    "bulk": [
+      "web-script-browser-memory-exceeded"
     ],
     "by": [
       "android-no-focused-window"
@@ -165,6 +180,9 @@
     ],
     "client": [
       "web-secret-in-input"
+    ],
+    "code": [
+      "general-otp-no-resubmit"
     ],
     "config.json": [
       "general-cred-never-read-config"
@@ -200,6 +218,9 @@
     ],
     "directory": [
       "general-zsh-variable-command"
+    ],
+    "don": [
+      "general-login-interstitial-policy"
     ],
     "endpoint": [
       "android-system-restart-loop"
@@ -251,6 +272,12 @@
     "is": [
       "android-system-restart-loop"
     ],
+    "jamo": [
+      "android-korean-ime-jamo"
+    ],
+    "keep": [
+      "general-login-interstitial-policy"
+    ],
     "launch_tab": [
       "web-page-changed-by-other-session"
     ],
@@ -272,6 +299,9 @@
     ],
     "mcurrentfocus": [
       "android-app-not-foreground"
+    ],
+    "me": [
+      "general-login-interstitial-policy"
     ],
     "methodchannel": [
       "general-render-failed-first-error"
@@ -346,6 +376,12 @@
     "root_warning": [
       "general-root-unknown-skill-folder"
     ],
+    "save": [
+      "web-save-by-network"
+    ],
+    "scraping": [
+      "web-script-browser-memory-exceeded"
+    ],
     "secret": [
       "web-secret-in-input"
     ],
@@ -379,6 +415,9 @@
     ],
     "start": [
       "android-maestro-driver-start-timeout"
+    ],
+    "status": [
+      "ios-status-bar-custom-time"
     ],
     "status_bar": [
       "ios-status-bar-custom-time"
@@ -436,11 +475,17 @@
     "unreachable": [
       "ios-maestro-session-reconnect"
     ],
+    "unresponsive": [
+      "ios-maestro-stale-driver-or-overload"
+    ],
     "up": [
       "android-maestro-driver-start-timeout"
     ],
     "use": [
       "ios-maestro-driver-port-conflict"
+    ],
+    "verification": [
+      "general-otp-no-resubmit"
     ],
     "waiting": [
       "web-selector-guess-timeout"
@@ -509,9 +554,9 @@
   "entries": {
     "android-adb-missing": {
       "area": "android",
-      "title": "adb_missing · android_tool_missing — adb 를 찾지 못했다",
+      "title": "adb_missing · android_tool_missing — adb not found",
       "fix_short": [
-        "SDK 가 다른 곳에 있으면 ANDROID_HOME=<SDK 경로> 를 앞에 붙여 다시 부른다",
+        "If the SDK is elsewhere, call again with ANDROID_HOME=<SDK path> in front",
         "launch_cli.py doctor"
       ],
       "keyword_count": 0,
@@ -519,119 +564,119 @@
     },
     "android-app-not-foreground": {
       "area": "android",
-      "title": "app launch 가 ok 인데 다른 화면이 맨 위에 있다",
+      "title": "app launch is ok but another screen is on top",
       "fix_short": [
-        "응답의 blocking_activity 를 확인한다",
-        "adb shell dumpsys window | grep mCurrentFocus 로 직접 본다"
+        "Check blocking_activity in the response",
+        "Check directly with adb shell dumpsys window | grep mCurrentFocus"
       ],
       "keyword_count": 2,
       "path": "android/android-app-not-foreground.json"
     },
     "android-emulator-unresponsive-host-swap": {
       "area": "android",
-      "title": "에뮬레이터가 응답하지 않는다 — 호스트 메모리가 꽉 찼다",
+      "title": "Emulator does not respond — host memory is full",
       "fix_short": [
-        "launch_cli.py doctor --resources 로 메모리 압박을 본다",
-        "launch_cli.py device reboot --device <id> --cold 로 정리하고 다시 띄운다"
+        "Check memory pressure with launch_cli.py doctor --resources",
+        "Clean up and boot again with launch_cli.py device reboot --device <id> --cold"
       ],
       "keyword_count": 3,
       "path": "android/android-emulator-unresponsive-host-swap.json"
     },
     "android-flutter-doubled-desc": {
       "area": "android",
-      "title": "Android Flutter 버튼 desc 가 두 번 들어간다",
+      "title": "Android Flutter button desc appears twice",
       "fix_short": [
-        "launch_cli.py app tap --desc <라벨> (최신 버전은 줄 단위로 맞춘다)",
-        "이전 버전은 개행 포함 전체 문자열을 --desc 로 준다"
+        "launch_cli.py app tap --desc <label> (newer versions match line by line)",
+        "On older versions, pass the whole string including the newline to --desc"
       ],
       "keyword_count": 2,
       "path": "android/android-flutter-doubled-desc.json"
     },
     "android-korean-ime-jamo": {
       "area": "android",
-      "title": "Android app type 이 ok 인데 한국어 키보드가 자모로 바꿔 넣는다",
+      "title": "Android app type is ok but the Korean keyboard turns input into jamo",
       "fix_short": [
-        "launch_cli.py app type --ime ascii --text <값> (입력 동안 Maestro IME 로 바꿨다 원복)",
-        "수동: adb shell ime set dev.mobile.maestro/.input.MaestroInputMethodService 후 입력하고 원래 IME 로 되돌린다"
+        "launch_cli.py app type --ime ascii --text <value> (switches to the Maestro IME while typing, then restores)",
+        "Manual: adb shell ime set dev.mobile.maestro/.input.MaestroInputMethodService, type, then restore the original IME"
       ],
-      "keyword_count": 3,
+      "keyword_count": 4,
       "path": "android/android-korean-ime-jamo.json"
     },
     "android-maestro-driver-start-timeout": {
       "area": "android",
-      "title": "maestro_driver_timeout — Maestro Android driver 가 시간 안에 안 뜸",
+      "title": "maestro_driver_timeout — Maestro Android driver did not start in time",
       "fix_short": [
-        "app flow 는 이미 driver 앱을 force-stop 하고 한 번 더 돌린 뒤에 이 code 를 낸다 — 같은 명령을 바로 반복하지 않는다",
-        "빌드(gradle·xcodebuild) 같은 무거운 작업이 도는지 보고 끝난 뒤 다시 돌린다"
+        "app flow already force-stops the driver apps and retries once before returning this code. Do not repeat the same command right away",
+        "Check whether heavy work such as a build (gradle · xcodebuild) is running, and retry after it ends"
       ],
       "keyword_count": 6,
       "path": "android/android-maestro-driver-start-timeout.json"
     },
     "android-maps-locale": {
       "area": "android",
-      "title": "Google Maps 라벨이 앱 언어를 따르지 않는다",
+      "title": "Google Maps labels do not follow the app language",
       "fix_short": [
-        "launch_cli.py device locale --device <id> --lang ja --region JP --app <패키지>",
-        "직접: adb shell cmd locale set-app-locales <pkg> --locales ja-JP (확인은 get-app-locales)"
+        "launch_cli.py device locale --device <id> --lang ja --region JP --app <package>",
+        "Directly: adb shell cmd locale set-app-locales <pkg> --locales ja-JP (verify with get-app-locales)"
       ],
       "keyword_count": 2,
       "path": "android/android-maps-locale.json"
     },
     "android-no-focused-window": {
       "area": "android",
-      "title": "no_focused_window — 초점 창이 없어 화면 구조를 못 읽음 (null root node)",
+      "title": "no_focused_window — no focused window, screen structure unreadable (null root)",
       "fix_short": [
-        "CLI 가 이미 화면을 깨우고(WAKEUP · 잠금 해제) 세 번까지 다시 읽은 뒤에 이 code 를 낸다 — 몇 초 뒤 app tree 를 한 번 더 부른다",
-        "app shot 으로 지금 화면을 본다. 비밀번호 잠금 화면이면 사용자에게 풀어 달라고 한다"
+        "The CLI already wakes the screen (WAKEUP · unlock) and reads up to three times before returning this code. Call app tree once more after a few seconds",
+        "Look at the current screen with app shot. If it is a password lock screen, ask the user to unlock it"
       ],
       "keyword_count": 6,
       "path": "android/android-no-focused-window.json"
     },
     "android-non-ascii-text": {
       "area": "android",
-      "title": "Android app type 이 non_ascii_unsupported — adb 는 한글을 못 넣는다",
+      "title": "Android app type returns non_ascii_unsupported — adb cannot type Korean",
       "fix_short": [
-        "영문·숫자 값으로 바꿔 넣을 수 있으면 그렇게 한다",
-        "한글이 꼭 필요하면 ADBKeyboard 같은 IME 설치를 사용자에게 먼저 묻는다"
+        "If an English or numeric value works instead, use it",
+        "If Korean text is required, ask the user before installing an IME such as ADBKeyboard"
       ],
       "keyword_count": 0,
       "path": "android/android-non-ascii-text.json"
     },
     "android-system-restart-loop": {
       "area": "android",
-      "title": "android_system_not_ready · ui_automation_unavailable — 에뮬레이터 시스템 재시작 반복",
+      "title": "android_system_not_ready · ui_automation_unavailable — emulator restart loop",
       "fix_short": [
-        "adb -s <시리얼> shell getprop init.svc.bootanim — running 이면 시스템이 아직 안 떴다",
-        "사용자 확인 뒤 adb -s <시리얼> reboot (소프트 재부팅, 데이터 유지) — 실측: 52초 만에 부팅이 끝나고 app run 이 정상으로 돌았다"
+        "adb -s <serial> shell getprop init.svc.bootanim — if running, the system is not up yet",
+        "After the user confirms, adb -s <serial> reboot (soft reboot, keeps data). Measured: boot finished in 52 s and app run worked"
       ],
       "keyword_count": 12,
       "path": "android/android-system-restart-loop.json"
     },
     "browser-start-stale-process-or-lock": {
       "area": "web",
-      "title": "web open 이 browser_start_failed — 자가 복구 뒤에도 남은 문제",
+      "title": "web open fails with browser_start_failed — a problem left after self-recovery",
       "fix_short": [
-        "응답의 stderr_tail 을 읽는다 — 브라우저가 바로 죽은 이유가 거기 있다",
-        "profile_locked 가 true 면 응답 profile 폴더를 쓰는 브라우저 프로세스를 찾아(ps · 작업 관리자) 사용자에게 확인한 뒤 끝낸다"
+        "Read stderr_tail in the response — it holds the reason the browser died immediately",
+        "If profile_locked is true, find the browser process using the response's profile folder (ps · Task Manager), confirm with the user, then end it"
       ],
       "keyword_count": 5,
       "path": "web/browser-start-stale-process-or-lock.json"
     },
     "general-app-no-device": {
       "area": "general",
-      "title": "app 명령이 no_device — 기기가 여러 대거나 시뮬레이터가 안 켜졌다",
+      "title": "app command returns no_device — several devices attached or simulator not booted",
       "fix_short": [
-        "응답의 android·ios_booted 에서 하나를 골라 --device <시리얼 또는 UDID> 로 다시 부른다",
-        "역할을 묶어 두면 env.sh 의 $DEV 로 고정된다: launch_cli.py device bind --role <역할> --serial <시리얼>"
+        "Pick one from android · ios_booted in the response and call again with --device <serial or UDID>",
+        "Bind a role to pin it as $DEV in env.sh: launch_cli.py device bind --role <role> --serial <serial>"
       ],
       "keyword_count": 0,
       "path": "general/general-app-no-device.json"
     },
     "general-bad-args-option-names": {
       "area": "general",
-      "title": "bad_args — 옵션 이름을 착각했다 (--full-page · --field · 위치 인자)",
+      "title": "bad_args — wrong option name (--full-page · --field · positional argument)",
       "fix_short": [
-        "error 의 unrecognized arguments·invalid choice 부분을 먼저 읽는다",
+        "Read the unrecognized arguments · invalid choice part of error first",
         "launch_cli.py web --help"
       ],
       "keyword_count": 0,
@@ -639,377 +684,377 @@
     },
     "general-cred-field-missing": {
       "area": "general",
-      "title": "--cred 가 cred_field_missing — 필드를 안 고르면 password 를 넣는다",
+      "title": "--cred returns cred_field_missing — without a field choice it types password",
       "fix_short": [
-        "아이디 칸이면: launch_cli.py web type --selector <칸> --cred <이름> --cred-field account",
-        "필드가 정말 없으면 사용자에게 값을 받아 cred set 으로 채운다 (값을 직접 적지 않는다)"
+        "For the username box: launch_cli.py web type --selector <box> --cred <name> --cred-field account",
+        "If the field really is missing, get the value from the user and fill it with cred set (do not write the value yourself)"
       ],
       "keyword_count": 0,
       "path": "general/general-cred-field-missing.json"
     },
     "general-cred-never-read-config": {
       "area": "general",
-      "title": "자격증명을 config 파일에서 직접 읽지 않는다",
+      "title": "Never read credentials straight from the config file",
       "fix_short": [
-        "app type --cred <이름> --cred-field <필드> / web type --cred 를 쓴다",
-        "app run 단계에서도 cred 참조를 쓴다"
+        "Use app type --cred <name> --cred-field <field> / web type --cred",
+        "Use cred references in app run steps too"
       ],
       "keyword_count": 2,
       "path": "general/general-cred-never-read-config.json"
     },
     "general-env-not-set": {
       "area": "general",
-      "title": "--text-env 가 env_not_set — 값이 아니라 환경변수 이름을 넘긴다",
+      "title": "--text-env returns env_not_set — pass the variable name, not the value",
       "fix_short": [
-        "같은 명령줄 앞에 붙인다: CODE=<값> launch_cli.py web type --selector <칸> --text-env CODE",
-        "명령줄은 세션 기록에 남는다 — 일회용 인증 코드처럼 남아도 되는 값만 이렇게 넘긴다"
+        "Prefix it on the same command line: CODE=<value> launch_cli.py web type --selector <box> --text-env CODE",
+        "The command line stays in the session record — pass only values that may stay there this way, such as one-time codes"
       ],
       "keyword_count": 0,
       "path": "general/general-env-not-set.json"
     },
     "general-login-interstitial-policy": {
       "area": "general",
-      "title": "로그인 도중 기기 신뢰·로그인 유지·권유 화면에서 매번 멈춘다",
+      "title": "Login stops every time at trust-device · stay-signed-in · upsell screens",
       "fix_short": [
-        "launch_cli.py cred policy get --name <이름>",
-        "launch_cli.py cred policy set --name <이름> --key trust_device --value always"
+        "launch_cli.py cred policy get --name <name>",
+        "launch_cli.py cred policy set --name <name> --key trust_device --value always"
       ],
-      "keyword_count": 14,
+      "keyword_count": 19,
       "path": "general/general-login-interstitial-policy.json"
     },
     "general-otp-no-resubmit": {
       "area": "general",
-      "title": "인증 코드를 기다리는 동안 로그인 폼을 다시 제출하지 않는다",
+      "title": "Do not resubmit the login form while waiting for a verification code",
       "fix_short": [
-        "코드를 기다리는 동안 폼을 다시 제출하지 않는다",
-        "먼저 web text 로 지금 OTP 화면인지 확인한다"
+        "Do not resubmit the form while waiting for the code",
+        "First check with web text that the OTP screen is showing"
       ],
-      "keyword_count": 4,
+      "keyword_count": 6,
       "path": "general/general-otp-no-resubmit.json"
     },
     "general-plugin-cache-version-drift": {
       "area": "general",
-      "title": "세션마다 다른 버전의 플러그인 캐시 경로로 스크립트를 부른다",
+      "title": "Scripts called from a different plugin cache version path each session",
       "fix_short": [
-        "세션을 시작할 때 SKILL.md '스크립트 찾기' 블록을 다시 돌려 SCRIPTS 를 받는다 — 옛 버전 경로를 붙여 넣지 않는다",
-        "문서도 같은 버전 폴더의 것(SCRIPTS 의 상위 references/)을 읽는다"
+        "At session start, rerun the 'Find the scripts' block in SKILL.md to get SCRIPTS — do not paste an old version path",
+        "Read the docs from the same version folder too (references/ above SCRIPTS)"
       ],
       "keyword_count": 3,
       "path": "general/general-plugin-cache-version-drift.json"
     },
     "general-render-failed-first-error": {
       "area": "general",
-      "title": "render run 이 render_failed — first_error 부터, 흔한 원인은 services.dart",
+      "title": "render run returns render_failed — start from first_error; usually services.dart",
       "fix_short": [
-        "응답의 first_error 를 먼저 읽는다 (없으면 output_tail)",
-        "Undefined name·Couldn't find constructor 'MethodChannel' 이면 import 'package:flutter/services.dart'; 를 넣는다"
+        "Read first_error in the response first (or output_tail if absent)",
+        "On Undefined name · Couldn't find constructor 'MethodChannel', add import 'package:flutter/services.dart';"
       ],
       "keyword_count": 2,
       "path": "general/general-render-failed-first-error.json"
     },
     "general-root-unknown-skill-folder": {
       "area": "general",
-      "title": "캡처·상태가 ~/.projectops/launch/scripts 등 엉뚱한 곳에 쌓인다",
+      "title": "Captures and state pile up in the wrong place, e.g. ~/.projectops/launch/scripts",
       "fix_short": [
-        "프로젝트 폴더에서 스크립트를 절대경로로 부르고 --root <프로젝트 경로> 를 붙인다",
-        "또는 PROJECT_ROOT=<프로젝트 경로> 를 앞에 붙인다 (스크립트·캐시 폴더에서 불렸을 때 이 값을 쓴다)"
+        "Call the script by absolute path from the project folder and add --root <project path>",
+        "Or prefix PROJECT_ROOT=<project path> (used when called from a scripts or cache folder)"
       ],
       "keyword_count": 2,
       "path": "general/general-root-unknown-skill-folder.json"
     },
     "general-timeout-unit-seconds": {
       "area": "general",
-      "title": "--timeout 을 밀리초로 넣었다 — 단위는 초",
+      "title": "--timeout given in milliseconds — the unit is seconds",
       "fix_short": [
-        "--timeout 은 초로 준다 (기본 10, 최대 300)",
-        "이미 멈췄으면 web close 후 web open 으로 복구한다"
+        "Give --timeout in seconds (default 10, max 300)",
+        "If it already hung, recover with web close, then web open"
       ],
       "keyword_count": 1,
       "path": "general/general-timeout-unit-seconds.json"
     },
     "general-zsh-variable-command": {
       "area": "general",
-      "title": "zsh 에서 변수에 담은 명령이 한 단어로 취급되어 'no such file' 이 난다",
+      "title": "In zsh a command stored in a variable is one word and fails with 'no such file'",
       "fix_short": [
-        "고정 진입점을 직접 부른다: python3 ~/.projectops/bin/launch_cli.py doctor",
-        "반복하면 함수로 감싼다: launch() { python3 \"$HOME/.projectops/bin/launch_cli.py\" \"$@\"; }"
+        "Call the fixed entry point directly: python3 ~/.projectops/bin/launch_cli.py doctor",
+        "To repeat it, wrap it in a function: launch() { python3 \"$HOME/.projectops/bin/launch_cli.py\" \"$@\"; }"
       ],
       "keyword_count": 7,
       "path": "general/general-zsh-variable-command.json"
     },
     "ios-app-vanishes-after-launch": {
       "area": "ios",
-      "title": "iOS 앱이 실행 직후 사라지는데 app shot 은 홈 화면을 찍는다",
+      "title": "iOS app vanishes right after launch, and app shot captures the home screen",
       "fix_short": [
-        "launch_cli.py app launch 응답의 crash_report 와 exception 줄을 본다",
-        "없으면 ~/Library/Logs/DiagnosticReports 의 최신 Runner-*.ips 를 연다"
+        "Read crash_report and the exception line in the launch_cli.py app launch response",
+        "If absent, open the latest Runner-*.ips in ~/Library/Logs/DiagnosticReports"
       ],
       "keyword_count": 2,
       "path": "ios/ios-app-vanishes-after-launch.json"
     },
     "ios-label-in-desc-doubled": {
       "area": "ios",
-      "title": "iOS Flutter 버튼 라벨이 desc 에 겹쳐 나와 --text 로 못 누른다",
+      "title": "iOS Flutter button label appears doubled in desc, so --text cannot tap it",
       "fix_short": [
-        "app tree 에서 해당 요소의 desc 를 확인한다",
-        "launch_cli.py app tap --desc <글자> 로 누른다 (최신 버전은 desc·겹친 라벨을 자동으로 맞춘다)"
+        "Check the element's desc in app tree",
+        "Tap with launch_cli.py app tap --desc <text> (the latest version matches desc and doubled labels automatically)"
       ],
       "keyword_count": 2,
       "path": "ios/ios-label-in-desc-doubled.json"
     },
     "ios-maestro-driver-port-conflict": {
       "area": "ios",
-      "title": "시뮬레이터 여러 대에서 iOS tree 가 요소 0개 — Maestro 드라이버 포트 22087 충돌",
+      "title": "iOS tree finds 0 elements with several simulators — driver port 22087 conflict",
       "fix_short": [
-        "lsof -nP -iTCP:22087 -sTCP:LISTEN 으로 포트를 쥔 프로세스를 보고, ps -p <PID> -o command= 로 어느 UDID 의 드라이버인지 확인한다",
-        "다른 세션이 쓰는 드라이버면 끄지 않는다 — 그 작업이 끝나길 기다리거나 사용자에게 묻는다 (Maestro 조작은 한 번에 한 시뮬레이터)"
+        "Find the process holding the port with lsof -nP -iTCP:22087 -sTCP:LISTEN, and check which UDID's driver it is with ps -p <PID> -o command=",
+        "If another session's driver holds it, do not kill it — wait for that work to finish or ask the user (Maestro drives one simulator at a time)"
       ],
       "keyword_count": 6,
       "path": "ios/ios-maestro-driver-port-conflict.json"
     },
     "ios-maestro-log-keeps-input-text": {
       "area": "ios",
-      "title": "Maestro 기록(maestro.log)에 inputText 의 실제 값이 평문으로 남는다",
+      "title": "Maestro's record (maestro.log) keeps the real inputText value in plain text",
       "fix_short": [
-        "pro-launch 의 app type · type 단계는 --debug-output <임시 폴더> --flatten-debug-output 으로 기록을 임시 폴더로 돌려 함께 지운다 — 직접 maestro test 를 부를 때도 같은 옵션을 쓴다",
-        "이미 남은 기록이 있으면 사용자에게 알리고 지울지 묻는다 (임의로 지우지 않는다)"
+        "pro-launch's app type and type steps send the record to a temp folder (--debug-output <temp folder> --flatten-debug-output) and delete it; use the same options…",
+        "If records already remain, tell the user and ask whether to delete them (do not delete them on your own)"
       ],
       "keyword_count": 3,
       "path": "ios/ios-maestro-log-keeps-input-text.json"
     },
     "ios-maestro-not-installed": {
       "area": "ios",
-      "title": "iOS app tap·swipe·tree 가 ios_tool_missing — Maestro 미설치",
+      "title": "iOS app tap · swipe · tree return ios_tool_missing — Maestro is not installed",
       "fix_short": [
-        "설치는 사용자에게 먼저 묻는다: curl -fsSL \"https://get.maestro.mobile.dev\" | bash",
-        "launch_cli.py app tree --device <시뮬레이터 id>"
+        "Ask the user before installing: curl -fsSL \"https://get.maestro.mobile.dev\" | bash",
+        "launch_cli.py app tree --device <simulator id>"
       ],
       "keyword_count": 0,
       "path": "ios/ios-maestro-not-installed.json"
     },
     "ios-maestro-point-integer-percent": {
       "area": "ios",
-      "title": "Maestro flow 의 point 퍼센트는 정수만 받는다 (NumberFormatException)",
+      "title": "Maestro flow point percentages accept integers only (NumberFormatException)",
       "fix_short": [
-        "maestro.log 의 마지막 오류 줄을 먼저 읽는다 (~/.maestro/tests/<시각>/maestro.log)",
-        "퍼센트를 정수로 반올림한다 (72.7% → 73%)"
+        "Read the last error line in maestro.log first (~/.maestro/tests/<timestamp>/maestro.log)",
+        "Round the percentage to an integer (72.7% → 73%)"
       ],
       "keyword_count": 2,
       "path": "ios/ios-maestro-point-integer-percent.json"
     },
     "ios-maestro-session-reconnect": {
       "area": "ios",
-      "title": "상주 세션이 끊겼다 — 같은 기기에 다른 maestro test 가 붙었다",
+      "title": "The resident session dropped — another maestro test attached to the same device",
       "fix_short": [
-        "한 번 느린 것은 정상이다 — 그대로 이어서 쓴다",
-        "계속 device_unreachable 이면 다른 세션이 같은 기기로 maestro 를 돌리는 중인지 본다 (ps -ax | grep maestro)"
+        "One slow call is normal — keep going",
+        "If device_unreachable persists, check whether another session is running maestro on the same device (ps -ax | grep maestro)"
       ],
       "keyword_count": 5,
       "path": "ios/ios-maestro-session-reconnect.json"
     },
     "ios-maestro-slow-cold-start": {
       "area": "ios",
-      "title": "iOS app tap·swipe·tree 가 수십 초 걸린다 — 호출마다 Maestro(JVM)가 뜬다",
+      "title": "iOS app tap · swipe · tree take tens of seconds — Maestro JVM starts per call",
       "fix_short": [
-        "보고 → 판단 → 누르기를 여러 번 하면 상주 세션을 먼저 켠다: launch_cli.py app session start --device <UDID> (이후 tree 0.6초 · tap 1초)",
-        "느리다고 같은 명령을 겹쳐 부르지 않는다 — 앞 호출이 끝나길 기다린다"
+        "If you look → decide → tap many times, start the resident session first: launch_cli.py app session start --device <UDID> (then tree 0.6 s · tap 1 s)",
+        "Do not fire the same command again because it is slow — wait for the previous call to finish"
       ],
-      "keyword_count": 2,
+      "keyword_count": 3,
       "path": "ios/ios-maestro-slow-cold-start.json"
     },
     "ios-maestro-stale-driver-or-overload": {
       "area": "ios",
-      "title": "iOS tap 이 90초 실패하고 app session start 도 실패한다 — 남은 Maestro 드라이버·부하",
+      "title": "iOS tap fails at 90 s and session start fails too — leftover driver or load",
       "fix_short": [
-        "uptime 으로 load 를 본다 (코어 수의 2배 이상이면 과부하)",
-        "ps 에서 maestro-driver-ios-config · maestro/lib 가 pro-launch 세션 소유가 아닌지 확인한다"
+        "Check load with uptime (2x the core count or more means overload)",
+        "In ps, check that maestro-driver-ios-config · maestro/lib are not owned by a pro-launch session"
       ],
-      "keyword_count": 8,
+      "keyword_count": 9,
       "path": "ios/ios-maestro-stale-driver-or-overload.json"
     },
     "ios-status-bar-custom-time": {
       "area": "ios",
-      "title": "iOS 캡처 상태바 시각을 알림 시각에 맞춰야 한다",
+      "title": "iOS capture status bar time must match the notification time",
       "fix_short": [
         "launch_cli.py app shot --clean-status --time 7:42",
-        "직접 할 때: xcrun simctl status_bar <UDID> override --time 7:42 후 찍고 status_bar clear 로 되돌린다"
+        "By hand: xcrun simctl status_bar <UDID> override --time 7:42, capture, then restore with status_bar clear"
       ],
-      "keyword_count": 2,
+      "keyword_count": 4,
       "path": "ios/ios-status-bar-custom-time.json"
     },
     "ssh-sshpass-missing": {
       "area": "ssh",
-      "title": "암호 ssh 가 sshpass_missing — 키 접속이나 호환 경로로",
+      "title": "Password ssh returns sshpass_missing — use a key or the fallback path",
       "fix_short": [
-        "키가 있으면: launch_cli.py ssh --cred <서버> --key-path <키 파일> --command '<명령>'",
-        "sshpass 설치는 사용자에게 먼저 묻는다: brew install hudochenkov/sshpass/sshpass"
+        "With a key: launch_cli.py ssh --cred <server> --key-path <key file> --command '<command>'",
+        "Ask the user before installing sshpass: brew install hudochenkov/sshpass/sshpass"
       ],
       "keyword_count": 0,
       "path": "ssh/ssh-sshpass-missing.json"
     },
     "ssh-windows-cmd-encoding": {
       "area": "ssh",
-      "title": "Windows cmd(CP949) 호스트의 출력이 깨진다",
+      "title": "Output from a Windows cmd (CP949) host is garbled",
       "fix_short": [
-        "최신 버전은 UTF-8 > CP949 순으로 해석한다 (stdout_encoding 확인)",
-        "옛 버전은 명령 앞에 'chcp 65001 >nul &' 를 붙인다"
+        "Newer versions decode UTF-8 > CP949 in that order (check stdout_encoding)",
+        "On older versions, prefix the command with 'chcp 65001 >nul &'"
       ],
       "keyword_count": 2,
       "path": "ssh/ssh-windows-cmd-encoding.json"
     },
     "web-browser-gone": {
       "area": "web",
-      "title": "web 명령이 browser_gone — 띄워 둔 브라우저에 붙지 못했다",
+      "title": "web commands fail with browser_gone — could not attach to the running browser",
       "fix_short": [
-        "launch_cli.py web open --url <주소>",
-        "open 이 browser_start_failed 면 kb show browser-start-stale-process-or-lock"
+        "launch_cli.py web open --url <url>",
+        "If open fails with browser_start_failed: kb show browser-start-stale-process-or-lock"
       ],
       "keyword_count": 0,
       "path": "web/web-browser-gone.json"
     },
     "web-browser-not-open-other-root": {
       "area": "web",
-      "title": "방금 연 브라우저인데 browser_not_open — 다른 프로젝트 자리로 불렸다",
+      "title": "browser_not_open right after opening — called from another project's location",
       "fix_short": [
-        "launch_cli.py web text --root <프로젝트 경로>",
-        "open 부터 같은 --root 로 부른다. cd 로 스크립트 폴더에 들어가지 말고 절대경로로 스크립트를 부른다"
+        "launch_cli.py web text --root <project path>",
+        "Call open with the same --root too. Do not cd into the scripts folder; call the script by absolute path"
       ],
       "keyword_count": 0,
       "path": "web/web-browser-not-open-other-root.json"
     },
     "web-click-wait-with-expect": {
       "area": "web",
-      "title": "sleep 으로 기다리지 말고 click 의 --expect-url · --expect-text 로",
+      "title": "Do not wait with sleep — use click's --expect-url · --expect-text",
       "fix_short": [
-        "launch_cli.py web click --ref <번호> --expect-text <다음 화면 글자> --timeout 30",
-        "launch_cli.py web click --ref <번호> --expect-url <바뀔 주소 일부>"
+        "launch_cli.py web click --ref <number> --expect-text <text on the next screen> --timeout 30",
+        "launch_cli.py web click --ref <number> --expect-url <part of the new URL>"
       ],
       "keyword_count": 0,
       "path": "web/web-click-wait-with-expect.json"
     },
     "web-find-nothing-found": {
       "area": "web",
-      "title": "web find 가 nothing_found — 기본은 누를 수 있는 요소만 찾는다",
+      "title": "web find returns nothing_found — by default it finds only clickable elements",
       "fix_short": [
         "launch_cli.py web text --max-chars 3000",
-        "launch_cli.py web find --text <text 에서 본 글자 그대로>"
+        "launch_cli.py web find --text <text exactly as seen in web text>"
       ],
       "keyword_count": 0,
       "path": "web/web-find-nothing-found.json"
     },
     "web-goto-failed": {
       "area": "web",
-      "title": "web open·goto 이동 실패 — 주소·서버·인증서를 본다",
+      "title": "web open · goto navigation fails — check the URL, the server, the certificate",
       "fix_short": [
-        "로컬 서버면 먼저 떠 있는지 본다: launch_cli.py http --url <주소>",
-        "인증서 오류(테스트 서버 전용): launch_cli.py web close"
+        "For a local server, first check it is up: launch_cli.py http --url <url>",
+        "Certificate error (test servers only): launch_cli.py web close"
       ],
       "keyword_count": 1,
       "path": "web/web-goto-failed.json"
     },
     "web-iframe-login-fields": {
       "area": "web",
-      "title": "iframe 안의 로그인 칸(App Store Connect 등)을 못 찾는다",
+      "title": "Cannot find login fields inside an iframe (App Store Connect, etc.)",
       "fix_short": [
-        "launch_cli.py web type --selector \"iframe >> internal:control=enter-frame >> input#account_name_text_field\" --cred <이름> --cred-field account",
-        "launch_cli.py web click --selector \"iframe >> internal:control=enter-frame >> #sign-in\" --expect-text <로그인 뒤 보일 글자>"
+        "launch_cli.py web type --selector \"iframe >> internal:control=enter-frame >> input#account_name_text_field\" --cred <name> --cred-field account",
+        "launch_cli.py web click --selector \"iframe >> internal:control=enter-frame >> #sign-in\" --expect-text <text shown after login>"
       ],
       "keyword_count": 2,
       "path": "web/web-iframe-login-fields.json"
     },
     "web-orphan-headless-chrome": {
       "area": "web",
-      "title": "HTML 을 더블클릭해도 Chrome 이 안 열린다 — 고아 headless Chrome",
+      "title": "Double-clicking an HTML file does not open Chrome — orphan headless Chrome",
       "fix_short": [
-        "launch_cli.py web close --stale 로 고아를 정리한다 (남의 살아 있는 브라우저는 보고만 한다)",
-        "직접: ps -axo pid,ppid,command | grep -- --headless 에서 PPID 1 인 것을 확인한다"
+        "Clean up orphans with launch_cli.py web close --stale (other people's live browsers are only reported)",
+        "By hand: in ps -axo pid,ppid,command | grep -- --headless, look for entries with PPID 1"
       ],
       "keyword_count": 2,
       "path": "web/web-orphan-headless-chrome.json"
     },
     "web-page-changed-by-other-session": {
       "area": "web",
-      "title": "다른 세션이 같은 탭을 옮겨 입력이 사라진다",
+      "title": "Another session moves the same tab and your input is lost",
       "fix_short": [
-        "launch_cli.py web tab new --name <이름> --url <주소>",
-        "이 세션의 모든 web 명령 앞에 LAUNCH_TAB=<이름> 을 붙인다"
+        "launch_cli.py web tab new --name <name> --url <url>",
+        "Prefix every web command in this session with LAUNCH_TAB=<name>"
       ],
       "keyword_count": 2,
       "path": "web/web-page-changed-by-other-session.json"
     },
     "web-playwright-or-browser-missing": {
       "area": "web",
-      "title": "playwright_missing · browser_missing — web setup 이 필요하다",
+      "title": "playwright_missing · browser_missing — web setup is needed",
       "fix_short": [
-        "설치(약 100MB)는 사용자에게 먼저 묻는다: launch_cli.py web setup",
-        "내부망이면 설치된 Chrome·Edge 를 쓴다: LAUNCH_CHROMIUM_PATH=<브라우저 실행 파일 경로> 를 앞에 붙여 web open"
+        "Ask the user before installing (about 100 MB): launch_cli.py web setup",
+        "On an internal network, use an installed Chrome · Edge: prefix web open with LAUNCH_CHROMIUM_PATH=<browser executable path>"
       ],
       "keyword_count": 0,
       "path": "web/web-playwright-or-browser-missing.json"
     },
     "web-readonly-mutating-blocked": {
       "area": "web",
-      "title": "읽기 전용 세션에서 저장·제출 버튼이 mutating_blocked",
+      "title": "Save · submit buttons return mutating_blocked in a read-only session",
       "fix_short": [
-        "무엇이 바뀌는지 사용자에게 말하고 승인을 받는다 (되돌리기 어려운 조작)",
-        "승인 뒤: launch_cli.py web click --ref <번호> --confirm-mutating"
+        "Tell the user what will change and get approval (hard to undo)",
+        "After approval: launch_cli.py web click --ref <number> --confirm-mutating"
       ],
       "keyword_count": 0,
       "path": "web/web-readonly-mutating-blocked.json"
     },
     "web-save-by-network": {
       "area": "web",
-      "title": "저장이 됐는지 화면 문구 대신 요청 응답으로 판정한다",
+      "title": "Judge whether a save worked by the request response, not on-screen text",
       "fix_short": [
-        "launch_cli.py web click --capture-requests 로 POST/PUT 응답 상태를 본다",
-        "status 200 대 4xx 로 판정한다 (URL 쿼리는 가려진다)"
+        "Check the POST/PUT response status with launch_cli.py web click --capture-requests",
+        "Judge by status 2xx vs 4xx (URL query strings are masked)"
       ],
-      "keyword_count": 2,
+      "keyword_count": 3,
       "path": "web/web-save-by-network.json"
     },
     "web-script-browser-memory-exceeded": {
       "area": "web",
-      "title": "web script 대량 수집이 브라우저 메모리를 수백 GB 로 키운다 — 쿠키만 꺼내 HTTP 로",
+      "title": "Bulk scraping in web script bloats browser memory — use cookies + HTTP",
       "fix_short": [
-        "로그인만 브라우저로 하고, web script 로 context.cookies() 를 실행 폴더의 파일에 쓴다 (결과로 출력하지 않는다 — 기록에 남는다)",
-        "수집은 그 쿠키를 Cookie 헤더로 실어 HTTP(urllib · requests)로 한다. 목록 API 가 있으면 화면 대신 API 를 부른다"
+        "Use the browser only to log in, and have web script write context.cookies() to a file in the run folder (do not print it as the result — it would stay in the r…",
+        "Scrape over HTTP (urllib · requests) with those cookies in a Cookie header. If a list API exists, call the API instead of the screens"
       ],
-      "keyword_count": 4,
+      "keyword_count": 6,
       "path": "web/web-script-browser-memory-exceeded.json"
     },
     "web-scroll-container-capture": {
       "area": "web",
-      "title": "내부 스크롤 화면(Google Forms 편집기 등)은 full-page 로 안 찍힌다",
+      "title": "Inner-scroll screens (Google Forms editor, etc.) are not captured by full-page",
       "fix_short": [
-        "launch_cli.py web shot --container <선택자> --tiles 5",
-        "직접: web scroll --container <선택자> 후 web shot 을 반복한다"
+        "launch_cli.py web shot --container <selector> --tiles 5",
+        "By hand: repeat web scroll --container <selector>, then web shot"
       ],
       "keyword_count": 2,
       "path": "web/web-scroll-container-capture.json"
     },
     "web-secret-in-input": {
       "area": "web",
-      "title": "비밀값이 입력칸·복사 버튼 안에만 있다",
+      "title": "A secret value exists only inside an input or behind a copy button",
       "fix_short": [
-        "launch_cli.py web value --selector <선택자> --save-env NAME (값을 출력하지 않고 저장)",
-        "복사 버튼은 클릭 후 web clipboard --save-env NAME"
+        "launch_cli.py web value --selector <selector> --save-env NAME (saves without printing the value)",
+        "For a copy button, click it, then web clipboard --save-env NAME"
       ],
       "keyword_count": 3,
       "path": "web/web-secret-in-input.json"
     },
     "web-selector-guess-timeout": {
       "area": "web",
-      "title": "추측한 --selector 가 빗나감 — 결과의 candidates 에서 골라 --ref 로 누른다",
+      "title": "A guessed --selector misses — pick from candidates in the result, press by --ref",
       "fix_short": [
-        "실패 결과의 candidates 에서 맞는 것을 골라 next 대로 --ref 로 다시 부른다 (앞일수록 추측한 선택자에 가깝다)",
-        "launch_cli.py web click --ref <번호> --expect-url <바뀔 주소 일부>"
+        "Pick the right one from candidates in the failure result and call again with --ref as next says (earlier entries are closer to the guessed selector)",
+        "launch_cli.py web click --ref <number> --expect-url <part of the new URL>"
       ],
       "keyword_count": 4,
       "path": "web/web-selector-guess-timeout.json"
     },
     "web-viewport-width-height": {
       "area": "web",
-      "title": "web viewport --width --height 가 bad_viewport — 크기는 --preset 으로",
+      "title": "web viewport --width --height returns bad_viewport — set the size with --preset",
       "fix_short": [
         "launch_cli.py web viewport --preset 1280x900",
         "launch_cli.py web viewport --preset mobile"

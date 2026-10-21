@@ -1,19 +1,20 @@
 {
   "id": "web-save-by-network",
   "area": "web",
-  "title": "저장이 됐는지 화면 문구 대신 요청 응답으로 판정한다",
+  "title": "Judge whether a save worked by the request response, not on-screen text",
   "match": {
     "codes": [],
     "keywords": [
       "POST",
-      "저장"
+      "저장",
+      "save"
     ]
   },
-  "symptom": "저장 버튼이 눌렸는데 성공 여부가 화면에 안 보인다",
-  "cause": "콘솔 화면은 성공 문구가 없거나 사라진다",
+  "symptom": "The save button was pressed, but success is not visible on screen",
+  "cause": "Console screens have no success message, or it disappears",
   "fix": [
-    "launch_cli.py web click --capture-requests 로 POST/PUT 응답 상태를 본다",
-    "status 200 대 4xx 로 판정한다 (URL 쿼리는 가려진다)"
+    "Check the POST/PUT response status with launch_cli.py web click --capture-requests",
+    "Judge by status 2xx vs 4xx (URL query strings are masked)"
   ],
   "refs": [
     930

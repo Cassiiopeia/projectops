@@ -1,7 +1,7 @@
 {
   "id": "web-selector-guess-timeout",
   "area": "web",
-  "title": "추측한 --selector 가 빗나감 — 결과의 candidates 에서 골라 --ref 로 누른다",
+  "title": "A guessed --selector misses — pick from candidates in the result, press by --ref",
   "match": {
     "codes": [
       "selector_not_found",
@@ -13,17 +13,17 @@
       "Timeout"
     ]
   },
-  "symptom": "web click·type 이 selector_not_found · element_not_actionable 이나 web_action_failed('Timeout … exceeded … waiting for locator')로 끝난다. 선택자를 바꿔 가며 같은 실패를 되풀이한다",
-  "cause": "화면을 읽지 않고 선택자를 추측했다. 맞는 요소가 없거나, 있어도 숨김·가려짐이라 대상 대기 시간(--timeout, 조작 동작 기본 4초 — 이전 10초)을 다 쓴다. disabled 면 기다리지 않고 element_disabled 로 바로 끝난다",
+  "symptom": "web click · type end with selector_not_found · element_not_actionable or web_action_failed ('Timeout … exceeded … waiting for locator'). The same failure repeats as selectors are swapped",
+  "cause": "The selector was guessed without reading the screen. No element matches, or it exists but is hidden or covered, so the target wait (--timeout; 4 s by default for actions, formerly 10 s) runs out. A disabled element ends at once with element_disabled",
   "fix": [
-    "실패 결과의 candidates 에서 맞는 것을 골라 next 대로 --ref 로 다시 부른다 (앞일수록 추측한 선택자에 가깝다)",
-    "launch_cli.py web click --ref <번호> --expect-url <바뀔 주소 일부>",
-    "candidates 가 없으면 web find --text <버튼 글자> 로 고른다",
-    "launch_cli.py web find --text <버튼 글자>",
+    "Pick the right one from candidates in the failure result and call again with --ref as next says (earlier entries are closer to the guessed selector)",
+    "launch_cli.py web click --ref <number> --expect-url <part of the new URL>",
+    "If there are no candidates, pick with web find --text <button text>",
+    "launch_cli.py web find --text <button text>",
     "launch_cli.py web inspect --role input",
-    "입력칸은 web inspect --role input 으로 ref 를 받고 web type --ref <번호> --text <값> 으로 넣는다",
-    "find·inspect·candidates 의 disabled 가 true 거나 element_disabled 가 오면, 그 버튼을 켜는 조건(필수 칸 입력·체크)부터 채운다",
-    "느리게 그려지는 화면이 확실하면 --timeout 10 처럼 늘린다"
+    "For inputs, get a ref with web inspect --role input and enter it with web type --ref <number> --text <value>",
+    "If disabled is true in find · inspect · candidates, or element_disabled comes back, first meet the condition that enables the button (required fields · checkboxes)",
+    "If the screen is clearly slow to render, raise it, e.g. --timeout 10"
   ],
   "refs": [
     825,

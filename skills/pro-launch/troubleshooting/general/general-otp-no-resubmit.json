@@ -1,20 +1,21 @@
 {
   "id": "general-otp-no-resubmit",
   "area": "general",
-  "title": "인증 코드를 기다리는 동안 로그인 폼을 다시 제출하지 않는다",
+  "title": "Do not resubmit the login form while waiting for a verification code",
   "match": {
     "codes": [],
     "keywords": [
       "Invalid OTP",
-      "인증 코드"
+      "인증 코드",
+      "verification code"
     ]
   },
-  "symptom": "사용자가 코드를 보냈는데 입력하니 Invalid OTP 가 뜬다",
-  "cause": "로그인을 다시 제출하면 새 코드가 나가 앞 코드가 무효가 된다",
+  "symptom": "The user sent the code, but entering it shows Invalid OTP",
+  "cause": "Resubmitting the login sends a new code and invalidates the previous one",
   "fix": [
-    "코드를 기다리는 동안 폼을 다시 제출하지 않는다",
-    "먼저 web text 로 지금 OTP 화면인지 확인한다",
-    "이미 다시 제출했으면 사용자에게 새 코드를 요청한다"
+    "Do not resubmit the form while waiting for the code",
+    "First check with web text that the OTP screen is showing",
+    "If you already resubmitted, ask the user for the new code"
   ],
   "refs": [
     881,

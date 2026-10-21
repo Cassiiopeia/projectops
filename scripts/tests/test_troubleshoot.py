@@ -139,7 +139,7 @@ def test_build_script_refuses_invalid_entries(tmp_path, capsys):
 
 def test_markdown_groups_by_area(skill):
     text = build_troubleshooting.render_markdown(skill)
-    assert text.index("## 웹") < text.index("## iOS")
+    assert text.index("## Web") < text.index("## iOS")
     assert "`browser-lock`" in text and "#712" in text
 
 

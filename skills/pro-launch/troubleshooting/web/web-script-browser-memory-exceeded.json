@@ -1,7 +1,7 @@
 {
   "id": "web-script-browser-memory-exceeded",
   "area": "web",
-  "title": "web script 대량 수집이 브라우저 메모리를 수백 GB 로 키운다 — 쿠키만 꺼내 HTTP 로",
+  "title": "Bulk scraping in web script bloats browser memory — use cookies + HTTP",
   "match": {
     "codes": [
       "browser_memory_exceeded"
@@ -9,16 +9,17 @@
     "keywords": [
       "스왑",
       "swap",
-      "대량 수집"
+      "대량 수집",
+      "bulk scraping"
     ]
   },
-  "symptom": "web script 로 페이지 수천 개를 돌던 중 browser_memory_exceeded 가 나오거나, 그 전에 browser_hung 이 반복되고 컴퓨터가 스왑으로 느려진다",
-  "cause": "브라우저 안에서 페이지를 열 때마다 렌더러·캐시가 쌓인다. 실측: 조각 하나가 Chrome 을 275GB · 스왑 40GB 까지 키웠다. 브라우저는 로그인 도구이지 수집 엔진이 아니다",
+  "symptom": "While web script walks thousands of pages, browser_memory_exceeded appears, or browser_hung repeats before that and the computer slows down from swapping",
+  "cause": "Every page opened inside the browser piles up renderers and cache. Measured: one snippet grew Chrome to 275 GB with 40 GB of swap. The browser is a login tool, not a scraping engine",
   "fix": [
-    "로그인만 브라우저로 하고, web script 로 context.cookies() 를 실행 폴더의 파일에 쓴다 (결과로 출력하지 않는다 — 기록에 남는다)",
-    "수집은 그 쿠키를 Cookie 헤더로 실어 HTTP(urllib · requests)로 한다. 목록 API 가 있으면 화면 대신 API 를 부른다",
-    "브라우저 안에서 돌아야 하면 페이지를 수십 개 묶음으로 나눠 web script 를 여러 번 부르고, 연 탭은 page.close() 로 닫는다",
-    "상한은 web script --memory-limit-mb 또는 PRO_LAUNCH_BROWSER_MEMORY_LIMIT_MB (기본 32768). 넘으면 브라우저를 끄므로 web open 으로 다시 띄운다"
+    "Use the browser only to log in, and have web script write context.cookies() to a file in the run folder (do not print it as the result — it would stay in the records)",
+    "Scrape over HTTP (urllib · requests) with those cookies in a Cookie header. If a list API exists, call the API instead of the screens",
+    "If it must run in the browser, split pages into batches of a few dozen, call web script several times, and close opened tabs with page.close()",
+    "The limit is web script --memory-limit-mb or PRO_LAUNCH_BROWSER_MEMORY_LIMIT_MB (default 32768). Going over kills the browser, so start it again with web open"
   ],
   "refs": [
     973

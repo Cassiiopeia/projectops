@@ -1,19 +1,19 @@
 {
   "id": "ssh-sshpass-missing",
   "area": "ssh",
-  "title": "암호 ssh 가 sshpass_missing — 키 접속이나 호환 경로로",
+  "title": "Password ssh returns sshpass_missing — use a key or the fallback path",
   "match": {
     "codes": [
       "sshpass_missing"
     ],
     "keywords": []
   },
-  "symptom": "launch_cli.py ssh 가 sshpass_missing(암호 접속에는 sshpass 가 필요하다)으로 끝난다",
-  "cause": "저장된 서버가 암호 접속인데 sshpass 가 설치돼 있지 않다. 키(key_path)로 접속하면 sshpass 가 필요 없다",
+  "symptom": "launch_cli.py ssh ends with sshpass_missing (password logins need sshpass)",
+  "cause": "The saved server uses password login, but sshpass is not installed. Key login (key_path) does not need sshpass",
   "fix": [
-    "키가 있으면: launch_cli.py ssh --cred <서버> --key-path <키 파일> --command '<명령>'",
-    "sshpass 설치는 사용자에게 먼저 묻는다: brew install hudochenkov/sshpass/sshpass",
-    "설치가 안 되는 환경(Windows 등)은 pro-ssh 의 scripts/ssh_connect.py(paramiko)를 쓴다 — skills/pro-ssh/SKILL.md"
+    "With a key: launch_cli.py ssh --cred <server> --key-path <key file> --command '<command>'",
+    "Ask the user before installing sshpass: brew install hudochenkov/sshpass/sshpass",
+    "Where it cannot be installed (Windows, etc.), use pro-ssh's scripts/ssh_connect.py (paramiko) — skills/pro-ssh/SKILL.md"
   ],
   "refs": [
     841,

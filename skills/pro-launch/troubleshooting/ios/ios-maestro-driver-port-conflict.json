@@ -1,7 +1,7 @@
 {
   "id": "ios-maestro-driver-port-conflict",
   "area": "ios",
-  "title": "시뮬레이터 여러 대에서 iOS tree 가 요소 0개 — Maestro 드라이버 포트 22087 충돌",
+  "title": "iOS tree finds 0 elements with several simulators — driver port 22087 conflict",
   "match": {
     "codes": [
       "ui_dump_failed"
@@ -12,13 +12,13 @@
       "Address already in use"
     ]
   },
-  "symptom": "시뮬레이터를 두 대 이상 띄운 채 app tree·tap 을 부르면 ui_dump_failed(count 0)가 나오거나, 다른 시뮬레이터의 화면 요소가 읽힌다",
-  "cause": "Maestro iOS 드라이버(XCTest 러너)가 호스트 포트 22087 을 고정으로 쓴다. 다른 시뮬레이터용 드라이버(다른 세션 포함)가 그 포트를 쥐고 있으면 이 기기의 드라이버가 못 뜨거나 엉뚱한 기기에 붙는다",
+  "symptom": "With two or more simulators booted, app tree · tap return ui_dump_failed (count 0), or read another simulator's screen elements",
+  "cause": "The Maestro iOS driver (XCTest runner) always uses host port 22087. If a driver for another simulator (including other sessions) holds that port, this device's driver cannot start or attaches to the wrong device",
   "fix": [
-    "lsof -nP -iTCP:22087 -sTCP:LISTEN 으로 포트를 쥔 프로세스를 보고, ps -p <PID> -o command= 로 어느 UDID 의 드라이버인지 확인한다",
-    "다른 세션이 쓰는 드라이버면 끄지 않는다 — 그 작업이 끝나길 기다리거나 사용자에게 묻는다 (Maestro 조작은 한 번에 한 시뮬레이터)",
-    "pro-launch 가 남긴 드라이버면 launch_cli.py app session stop --device <그 UDID> --kill-stale 로 정리한다",
-    "정리한 뒤 launch_cli.py app tree --device <UDID> 로 요소가 읽히는지 보고, 조작을 이어갈 거면 app session start --device <UDID>"
+    "Find the process holding the port with lsof -nP -iTCP:22087 -sTCP:LISTEN, and check which UDID's driver it is with ps -p <PID> -o command=",
+    "If another session's driver holds it, do not kill it — wait for that work to finish or ask the user (Maestro drives one simulator at a time)",
+    "If pro-launch left the driver behind, clean it up with launch_cli.py app session stop --device <that UDID> --kill-stale",
+    "Then check that launch_cli.py app tree --device <UDID> reads elements; to keep driving, run app session start --device <UDID>"
   ],
   "refs": [
     973

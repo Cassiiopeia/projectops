@@ -1,19 +1,19 @@
 {
   "id": "general-env-not-set",
   "area": "general",
-  "title": "--text-env 가 env_not_set — 값이 아니라 환경변수 이름을 넘긴다",
+  "title": "--text-env returns env_not_set — pass the variable name, not the value",
   "match": {
     "codes": [
       "env_not_set"
     ],
     "keywords": []
   },
-  "symptom": "web type·app type 이 env_not_set(환경변수 … 가 비어 있다)으로 끝난다",
-  "cause": "--text-env 는 환경변수 이름을 받는다. 그 이름의 변수가 launch_cli 프로세스 환경에 없다 — 값 자체를 넘겼거나, 다른 Bash 호출에서 설정해 사라졌다(Bash 는 호출마다 초기화된다)",
+  "symptom": "web type · app type end with env_not_set (환경변수 … 가 비어 있습니다 = environment variable … is empty)",
+  "cause": "--text-env takes an environment variable name. No variable with that name is in the launch_cli process environment: the value itself was passed, or it was set in another Bash call and is gone (Bash resets on every call)",
   "fix": [
-    "같은 명령줄 앞에 붙인다: CODE=<값> launch_cli.py web type --selector <칸> --text-env CODE",
-    "명령줄은 세션 기록에 남는다 — 일회용 인증 코드처럼 남아도 되는 값만 이렇게 넘긴다",
-    "저장된 로그인이면 값을 다루지 말고 --cred <이름> 을 쓴다 (값이 명령줄·기록에 남지 않는다)"
+    "Prefix it on the same command line: CODE=<value> launch_cli.py web type --selector <box> --text-env CODE",
+    "The command line stays in the session record — pass only values that may stay there this way, such as one-time codes",
+    "For a saved login, do not handle the value; use --cred <name> (the value never reaches the command line or records)"
   ],
   "refs": [
     604,

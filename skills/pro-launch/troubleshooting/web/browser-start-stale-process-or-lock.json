@@ -1,7 +1,7 @@
 {
   "id": "browser-start-stale-process-or-lock",
   "area": "web",
-  "title": "web open 이 browser_start_failed — 자가 복구 뒤에도 남은 문제",
+  "title": "web open fails with browser_start_failed — a problem left after self-recovery",
   "match": {
     "codes": [
       "browser_start_failed",
@@ -15,13 +15,13 @@
       "recovered"
     ]
   },
-  "symptom": "web open 이 browser_start_failed 로 끝나고 브라우저가 뜨지 않는다. 응답에 causes·recovered·stderr_tail 이 온다",
-  "cause": "web open 은 기록된 브라우저를 먼저 판정한다 — 죽었으면 남은 잠금을 치우고, 살아 있는데 CDP 가 3초 안에 답하지 않으면 끄고 새로 띄운다(recovered 에 dead_pid·stale_lock·hung_browser). 그래도 실패하면 기록에 없는 다른 프로세스가 같은 프로필을 쓰고 있거나(잠금은 그때 지우지 않는다) 브라우저 자체가 바로 죽은 것이다",
+  "symptom": "web open ends with browser_start_failed and no browser appears (error: \"브라우저가 뜨지 않았습니다\" — the browser did not start). The response carries causes · recovered · stderr_tail",
+  "cause": "web open first checks the recorded browser: if it is dead, it clears leftover locks; if it is alive but CDP does not answer within 3 s, it kills it and starts a new one (recovered lists dead_pid · stale_lock · hung_browser). If it still fails, an unrecorded process is using the same profile (locks are not deleted then), or the browser itself dies immediately",
   "fix": [
-    "응답의 stderr_tail 을 읽는다 — 브라우저가 바로 죽은 이유가 거기 있다",
-    "profile_locked 가 true 면 응답 profile 폴더를 쓰는 브라우저 프로세스를 찾아(ps · 작업 관리자) 사용자에게 확인한 뒤 끝낸다",
-    "launch_cli.py web open --url <주소>",
-    "응답이 browser_still_alive 면 next 의 종료 명령(kill -9 <pid> 또는 taskkill)으로 그 pid 를 끝낸다"
+    "Read stderr_tail in the response — it holds the reason the browser died immediately",
+    "If profile_locked is true, find the browser process using the response's profile folder (ps · Task Manager), confirm with the user, then end it",
+    "launch_cli.py web open --url <url>",
+    "If the response is browser_still_alive, end that pid with the kill command in next (kill -9 <pid> or taskkill)"
   ],
   "refs": [
     711,

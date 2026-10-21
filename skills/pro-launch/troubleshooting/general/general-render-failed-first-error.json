@@ -1,7 +1,7 @@
 {
   "id": "general-render-failed-first-error",
   "area": "general",
-  "title": "render run 이 render_failed — first_error 부터, 흔한 원인은 services.dart",
+  "title": "render run returns render_failed — start from first_error; usually services.dart",
   "match": {
     "codes": [
       "render_failed"
@@ -11,13 +11,13 @@
       "services.dart"
     ]
   },
-  "symptom": "render run 이 render_failed(렌더 명령 실패)로 끝나고 아무것도 모으지 않는다. 같은 실패가 여러 번 이어진다",
-  "cause": "렌더 명령(flutter test 등)이 컴파일·실행에 실패했다. 가장 흔한 원인은 렌더 뼈대에 package:flutter/services.dart import 가 빠져 MethodChannel·SystemChrome 을 못 찾는 것이다",
+  "symptom": "render run ends with render_failed (렌더 명령 실패 = render command failed) and collects nothing. The same failure repeats",
+  "cause": "The render command (flutter test, etc.) failed to compile or run. The most common cause: the render skeleton lacks the package:flutter/services.dart import, so MethodChannel · SystemChrome are not found",
   "fix": [
-    "응답의 first_error 를 먼저 읽는다 (없으면 output_tail)",
-    "Undefined name·Couldn't find constructor 'MethodChannel' 이면 import 'package:flutter/services.dart'; 를 넣는다",
-    "화면 위젯·가짜 모델을 쓰면 그 파일의 package:<앱>/... import 도 함께 넣는다",
-    "references/render.md 의 함정 표를 본다"
+    "Read first_error in the response first (or output_tail if absent)",
+    "On Undefined name · Couldn't find constructor 'MethodChannel', add import 'package:flutter/services.dart';",
+    "If you use screen widgets or fake models, also add their package:<app>/... imports",
+    "See the pitfalls table in references/render.md"
   ],
   "refs": [
     901,
