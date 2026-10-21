@@ -109,3 +109,11 @@ def test_commit_paths_skips_already_staged_deletion(tmp_path):
     assert json.loads(out.stdout).get("commit"), out.stdout
     tracked = subprocess.run([*git, "ls-files"], capture_output=True, text=True, env=env).stdout.split()
     assert tracked == ["new.txt"]
+    # 실사고: .gitignore 대상 경로가 섞이면 이유 없이 stage_failed — 원인 code 로 돌려준다
+    (repo / ".gitignore").write_text("docs/\n", encoding="utf-8")
+    (repo / "docs").mkdir()
+    (repo / "docs" / "spec.md").write_text("z", encoding="utf-8")
+    out = subprocess.run([sys.executable, str(CLI), "commit", "--message", "m", "--root", str(repo),
+                          "--paths", ".gitignore", "docs/spec.md"], capture_output=True, text=True, cwd=repo, env=env)
+    result = json.loads(out.stdout)
+    assert result["code"] == "path_ignored" and result["paths"] == ["docs/spec.md"], out.stdout

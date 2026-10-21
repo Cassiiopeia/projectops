@@ -163,6 +163,11 @@ def cmd_commit(args) -> int:
                               encoding="utf-8", errors="replace")
 
     to_add = _paths_to_add(git, root, args.paths)
+    # .gitignore 대상 경로 (예: docs/superpowers/) — add 가 "ignored" 로 전체를 멈추므로 원인을 짚어 준다
+    ignored = [line for line in git("check-ignore", "--", *to_add).stdout.splitlines() if line] if to_add else []
+    if ignored:
+        return emit({"ok": False, "code": "path_ignored", "error": "이 레포가 추적하지 않는 경로(.gitignore)",
+                     "paths": ignored, "next": "이 경로들을 --paths 에서 빼고 다시 부른다"})
     if to_add:
         staged = git("add", "--", *to_add)  # git add -A 는 쓰지 않는다: 다른 세션의 변경이 섞인다
         if staged.returncode != 0:
