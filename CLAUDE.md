@@ -300,7 +300,7 @@ fi
 **`.github/scripts/apply_build_profile.py` 가 한 곳에서 두 층을 모두 정한다.**
 
 ```yaml
-- name: 빌드 프로파일 적용 (test)
+- name: Apply build profile (test)
   id: build_profile
   run: python3 .github/scripts/apply_build_profile.py test .env
 
