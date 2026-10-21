@@ -60,6 +60,36 @@ def branches_check(project_root: Path, head: str, base: str) -> dict:
     return out
 
 
+# deploy 브랜치형 레포의 배포 브랜치 이름 (개발은 기본 브랜치, 배포는 이 브랜치로 PR)
+DEPLOY_BRANCH_NAME = "deploy"
+
+
+def detect_release_shape(project_root: Path, branches: dict, check: dict) -> dict:
+    """릴리스 구조 판정: standard(개발 > 기본) | deploy_branch(기본 > deploy, #970)
+
+    개발 브랜치가 origin 에 없고 origin/deploy 가 있으면 deploy 브랜치형. 그 외는 standard 그대로
+    """
+    is_deploy_branch_shape = (not check.get("head_exists")
+                              and branches["head"] != DEPLOY_BRANCH_NAME
+                              and _ref_exists(project_root, f"origin/{DEPLOY_BRANCH_NAME}"))
+    if not is_deploy_branch_shape:
+        return {"release_shape": "standard"}
+    # 개발은 기본 브랜치에서, 릴리스 PR 은 기본 브랜치 > deploy
+    head = branches["base"] if branches["base"] != DEPLOY_BRANCH_NAME else "main"
+    return {
+        "release_shape": "deploy_branch",
+        "release_branches": {"head": head, "base": DEPLOY_BRANCH_NAME},
+        "release_steps": [
+            f"HEAD_BRANCH={head}, BASE_BRANCH={DEPLOY_BRANCH_NAME} 로 deploy 모드 절차를 그대로 따른다 "
+            f"(없는 {branches['head']} 를 head 로 쓰지 않는다)",
+            f"1-1단계: sync-base --head {head} --base {DEPLOY_BRANCH_NAME}",
+            f"6단계: create-pr ... {head} {DEPLOY_BRANCH_NAME} (본문에 릴리스 노트)",
+            f"7단계: deploy-status --pr N --base {DEPLOY_BRANCH_NAME}",
+            "이 쌍이 맞는지 사용자에게 한 번 확인한다 (version.yml 이 없으면 레포별 config 에 기록)",
+        ],
+    }
+
+
 def cmd_sync_base(args) -> int:
     """배포 전 base > head 역방향 병합: fetch > 차이 확인 > merge. 충돌은 되돌리지 않고 멈춘다."""
     root = Path(args.project_root).resolve() if args.project_root else Path.cwd()

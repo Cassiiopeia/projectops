@@ -144,16 +144,18 @@ NOTES_FILE="$HOME/.projectops/tmp/{OWNER}__{REPO}__release_notes.md"
 
 # 6-2a. 기존 PR 재사용 — 닫지 않는다 (새로 열면 워크플로우가 재트리거돼 본문 초기화 위험). 본문만 갱신.
 GITHUB_PAT="{PAT}" PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/changelog_cli.py" \
-  update-pr "{OWNER}" "{REPO}" {EXISTING_PR} "$NOTES_FILE"
+  update-pr "{OWNER}" "{REPO}" {EXISTING_PR} "$NOTES_FILE" && rm -f "$NOTES_FILE"
 
 # 6-2b. 신규 — body_file 에 노트 절대경로를 넘겨 본문 포함 PR 생성. 제목은 "🚀 Deploy {YYYYMMDD}".
+# 앱 심사 레포는 사용자가 이번 대화에서 노트를 보고 승인했을 때만 끝에 --user-approved 를 붙인다.
 GITHUB_PAT="{PAT}" PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/changelog_cli.py" \
-  create-pr "{OWNER}" "{REPO}" "🚀 Deploy $(date '+%Y%m%d')" "$NOTES_FILE" "{HEAD_BRANCH}" "{BASE_BRANCH}"
-
-rm -f "$NOTES_FILE"   # 6-2a·6-2b 중 하나를 실행한 뒤 같은 블록에서 지운다
+  create-pr "{OWNER}" "{REPO}" "🚀 Deploy $(date '+%Y%m%d')" "$NOTES_FILE" "{HEAD_BRANCH}" "{BASE_BRANCH}" \
+  --project-root "{PROJECT_ROOT}" && rm -f "$NOTES_FILE"
+# 노트 파일은 성공했을 때만 지운다 — 거절(needs_user_approval 등)되면 같은 파일로 다시 부른다
 ```
 
-6-2a·6-2b 중 **하나만** 실행한다. 출력 JSON의 `number`를 PR 번호로 기억한다(7단계 `--pr`). `number`가 없으면
+6-2a·6-2b 중 **하나만** 실행한다. 출력 JSON의 `number`를 PR 번호로 기억한다(7단계 `--pr`). 거절 code
+(`needs_user_approval`·`pr_exists`·`nothing_to_deploy`)는 SKILL.md 6단계 표대로 처리하고, 그 밖에 `number`가 없으면
 "❌ PR 생성/업데이트 실패"와 응답 JSON을 보여주고 멈춘다.
 
 ## 7단계: automerge 검증 (deploy-status)

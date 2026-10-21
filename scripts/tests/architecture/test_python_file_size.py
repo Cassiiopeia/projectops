@@ -11,8 +11,6 @@ SKIPPED_DIRECTORY_NAMES = {"__pycache__", "venv", ".venv", "tests"}
 
 # 동결 목록: 상한을 넘는 기존 파일 > 이 줄 수보다 늘면 실패, 나누면 목록에서 지운다
 FROZEN_LINE_COUNT_BY_PATH = {
-    # 서브커맨드 6개가 한 파일 — 패키지 분할 전
-    "skills/pro-changelog-deploy/scripts/changelog_cli.py": 636,
     # 플랫폼 백엔드(Android adb·iOS maestro)가 한 모듈 — 백엔드별 분할 전
     "skills/pro-launch/scripts/app_input.py": 461,
 }

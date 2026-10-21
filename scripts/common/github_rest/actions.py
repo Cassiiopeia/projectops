@@ -101,21 +101,56 @@ def list_failed_runs(owner: str, repo: str, pat: str, limit: int = 10) -> list[d
     return [client._run_summary(r) for r in data.get("workflow_runs", [])]
 
 
+# head SHA 가 바뀐 뒤에도 PR 의 run 을 찾는 이벤트 (옛 SHA 에서 돈 RELEASE run, #970)
+_PR_RUN_EVENTS = ("pull_request", "pull_request_target")
+
+
 def resolve_pr_runs(owner: str, repo: str, pr_number: int, pat: str) -> dict:
-    """PR 번호 → head SHA → 연결된 run 목록을 반환한다."""
+    """PR 번호 > run 목록: 현재 head SHA run + head 브랜치의 PR 이벤트 run (최신순, 중복 제거)
+
+    run 마다 head_sha·is_current_head 를 붙인다. 브랜치 보강 조회 실패는 무시 (SHA run 만 반환)
+    """
     pr = client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}/pulls/{pr_number}", None, pat)
     head_sha = pr["head"]["sha"]
     head_ref = pr["head"]["ref"]
-    runs = client._request(
+    pr_created_at = pr.get("created_at") or ""
+    by_sha = client._request(
         "GET",
         f"{_API_BASE}/repos/{owner}/{repo}/actions/runs?head_sha={head_sha}&per_page=30",
         None, pat,
     )
+    raw_runs = list(by_sha.get("workflow_runs", []))
+    # 같은 head 브랜치의 PR 이벤트 run (옛 SHA 포함)
+    encoded_ref = urllib.parse.quote(head_ref, safe="")
+    for event in _PR_RUN_EVENTS:
+        try:
+            by_branch = client._request(
+                "GET",
+                f"{_API_BASE}/repos/{owner}/{repo}/actions/runs?branch={encoded_ref}&event={event}&per_page=20",
+                None, pat,
+            )
+        except client.GitHubAPIError:
+            continue
+        for run in by_branch.get("workflow_runs", []):
+            linked_numbers = [linked.get("number") for linked in run.get("pull_requests") or []]
+            # 다른 PR 의 run 제외 (연결 정보 없으면 이 PR 생성 이후 run 만)
+            is_this_pr = (pr_number in linked_numbers if linked_numbers
+                          else (run.get("created_at") or "") >= pr_created_at)
+            if is_this_pr:
+                raw_runs.append(run)
+    seen_run_ids: set = set()
+    runs = []
+    for run in sorted(raw_runs, key=lambda item: item.get("created_at") or "", reverse=True):
+        if run["id"] in seen_run_ids:
+            continue
+        seen_run_ids.add(run["id"])
+        runs.append({**client._run_summary(run), "head_sha": run.get("head_sha"),
+                     "is_current_head": run.get("head_sha") == head_sha})
     return {
         "pr_number": pr_number,
         "head_sha": head_sha,
         "head_ref": head_ref,
-        "runs": [client._run_summary(r) for r in runs.get("workflow_runs", [])],
+        "runs": runs,
     }
 
 

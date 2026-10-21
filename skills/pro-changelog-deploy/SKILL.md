@@ -21,7 +21,7 @@ projectops 전용 스킬. `PROJECT-COMMON-RELEASE-CHANGELOG` 워크플로우와 
 ## 이때는 쓰지 마라
 
 - 배포가 아닌 일반 커밋/PR 작업
-- 릴리스 head 브랜치([시작 전 §5]에서 확정한 개발 브랜치, 표준 `develop`)가 원격에 없는 프로젝트 — head → base 릴리스 PR 구조 전용이다. 브랜치 이름 자체는 고정이 아니다
+- 릴리스 head 브랜치([시작 전 §5]에서 확정한 개발 브랜치, 표준 `develop`)가 원격에 없는 프로젝트 — head → base 릴리스 PR 구조 전용이다. 브랜치 이름 자체는 고정이 아니다. **예외**: `detect-release-context`가 `release_shape: deploy_branch`(개발 브랜치 없이 `main` → `deploy`)를 주면 그 `release_branches`·`release_steps`로 진행한다 — 없는 `develop`을 head로 쓰지 않는다
 - `PROJECT-COMMON-RELEASE-CHANGELOG` 워크플로우가 설정되지 않은 저장소
 
 ## 핵심 원칙 (안전 규칙 — 의미를 바꾸지 않는다)
@@ -44,7 +44,7 @@ projectops 전용 스킬. `PROJECT-COMMON-RELEASE-CHANGELOG` 워크플로우와 
 |---|---|---|
 | 릴리스 브랜치·provider·앱 심사 신호 읽기 (PAT 불필요) | `detect-release-context --project-root {PROJECT_ROOT}` | `references/config.md` |
 | deploy PR 상태 종합 판정 (머지·본문·워크플로우·HEAD) | `deploy-status {OWNER} {REPO} [--pr N] --base B [--head H]` | 아래 verdict 표 |
-| 노트를 본문에 담아 릴리스 PR 생성 | `create-pr {OWNER} {REPO} "{제목}" "{노트 파일}" {HEAD} {BASE}` | `references/deploy-steps.md` 6단계 |
+| 노트를 본문에 담아 릴리스 PR 생성 | `create-pr {OWNER} {REPO} "{제목}" "{노트 파일}" {HEAD} {BASE} --project-root {PROJECT_ROOT} [--user-approved]` | 아래 6단계 · `references/deploy-steps.md` |
 | 기존 PR 본문 갱신 · 닫기 | `update-pr {OWNER} {REPO} {N} "{노트 파일}"` · `update-pr ... "-" --state closed` | `references/deploy-steps.md` · `references/fix-steps.md` |
 | PR 목록 | `list-prs {OWNER} {REPO} --state open` | — |
 | 워크플로우 실패 로그 | `actions show-run\|joblog\|list-failed\|resolve-pr\|resolve-branch {OWNER} {REPO} [arg]` | `../pro-github/references/actions.md` |
@@ -57,6 +57,8 @@ projectops 전용 스킬. `PROJECT-COMMON-RELEASE-CHANGELOG` 워크플로우와 
 
 > **고정 진입점이 있으면 아래 탐색을 건너뛴다** (#942): `~/.projectops/bin/projectops_cli.py` 는 한 번이라도 CLI 를 실행하면 생기고, 부를 때마다 설치된 가장 새 스크립트를 찾아 인자를 그대로 넘긴다. 세션 도중 플러그인이 업데이트돼도 옛 경로에 묶이지 않는다.
 > `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py changelog-deploy <서브커맨드> ...` (없거나 `scripts_not_found` 면 아래 탐색). 응답에 `newer_installed` 가 오면 이 진입점으로 다시 부른다.
+
+> **⚠️ 명령을 변수에 담아 부르지 않는다 (zsh).** `P="python3 …/changelog_cli.py"; $P deploy-status …` 는 zsh 에서 단어 분리가 안 돼 명령 전체가 파일 이름 하나로 해석되고 `exit 127`(command not found)로 끝난다. 줄일 거면 함수로 감싼다: `cl() { PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" "$@"; }; cl deploy-status …`
 
 **Bash는 stateless다** — 변수·`export`가 호출 간 유지되지 않는다. 아래에서 나온 값을 **기억해 두고 이후 모든 블록에 실제 값으로 써넣는다**(`{PYTHON}` 자리 등, 또는 블록 첫 줄에 `OWNER="..."; ...`로 재선언). 이전 호출의 변수가 살아 있다고 가정하지 않는다.
 
@@ -78,7 +80,7 @@ echo "PROJECT_ROOT=$PROJECT_ROOT PYTHON=$PYTHON SCRIPTS=$SCRIPTS OWNER=$OWNER RE
 PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-context --project-root "$PROJECT_ROOT"
 ```
 
-`detect-release-context` 출력의 `branches`(브랜치·provider)·`branches_source`·`conflict`와 `signals`·`hint`(앱 심사 신호)를 기억한다. owner/repo는 origin URL에서, config는 고정 경로에서 CLI가 알아서 읽는다(읽기 전용). 다른 레포를 볼 때만 `detect-release-context --project-root {PROJECT_ROOT} --owner {OWNER} --repo {REPO}`처럼 지정한다.
+`detect-release-context` 출력의 `branches`(브랜치·provider)·`branches_source`·`conflict`와 `signals`·`hint`(앱 심사 신호), `release_shape`를 기억한다. `release_shape == deploy_branch`(origin에 개발 브랜치가 없고 `deploy`가 있음)면 `HEAD_BRANCH`/`BASE_BRANCH`를 `branches` 대신 `release_branches`(보통 `main` → `deploy`)로 정하고 `release_steps`대로 진행한다 — 이 쌍이 맞는지 사용자에게 한 번 확인한다. `standard`면 지금까지와 같다. owner/repo는 origin URL에서, config는 고정 경로에서 CLI가 알아서 읽는다(읽기 전용). 다른 레포를 볼 때만 `detect-release-context --project-root {PROJECT_ROOT} --owner {OWNER} --repo {REPO}`처럼 지정한다.
 
 ### 2)~5) config에서 값 정하기 — 상세 `references/config.md`
 
@@ -138,7 +140,28 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 | `commit` (기본) | **한 번 묻는다**: "릴리스 노트를 제가 다듬어 드릴까요, 아니면 커밋 내역 자동 생성에 맡길까요?" → **다듬기**면 선제 작성, **맡기기**면 노트 파일 없이 6단계(빈 본문 PR — 워크플로우 fallback job이 커밋 분석으로 채움) | 다듬기=진입 / 맡기기=건너뜀 |
 
 선제 작성이 provider와 무관하게 안전한 이유: 워크플로우는 skill이 미리 넣은 `Summary by CodeRabbit`을(`already_found`) provider 무관하게 그대로 존중한다. 유일한 예외가 `commit` "맡기기"다.
-노트는 `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md`에 고정 구조로 Write한다 (`references/release-notes.md`).
+노트는 `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md`에 아래 뼈대로 Write한다 (tmp 폴더가 없으면 먼저 만든다). 표식 주석·`## Summary by CodeRabbit` 머리는 `create-pr`/`update-pr`가 없으면 씌우므로 적지 않아도 된다. 카테고리명은 이 다섯 개만, 빈 카테고리는 지운다. 좋은 예·나쁜 예와 승인 문구가 필요할 때만 `references/release-notes.md`를 연다.
+
+```
+## 릴리스 노트
+
+* **새 기능**
+  * (feat — 사용자가 느끼는 변화, 한 줄 40자 이내)
+
+* **버그 수정**
+  * (fix)
+
+* **개선**
+  * (refactor·perf·style)
+
+* **문서**
+  * (docs)
+
+* **기타**
+  * (나머지)
+```
+
+재작성 규칙: 커밋 메시지를 옮기지 않는다 — 파일·클래스·함수명, `feat:` 같은 prefix, 이슈 번호·URL, 라이브러리·API 같은 내부 구현을 빼고 사용자 관점 한 줄로 쓴다. `APP_RELEASE == true`면 내부·CICD·테스트·빌드 성격 항목은 통째로 뺀다(노트가 곧 스토어 출시노트).
 **5단계 후속 — 스토어 언어별 번역 초안** — 노트 파일을 쓴 직후 `version.yml`의 `metadata.template.options.store_locales`를 Read로 확인한다. **언어가 둘 이상이면** `references/store-translations.md`를 읽고 번역 초안을 노트 파일 끝에 덧붙인다(외부 AI 호출 없이 직접 번역). 키가 없거나 하나면 이 단계는 없는 것과 같다.
 > **⚠️ AGENT 필독: 노트 파일을 만든 뒤 반드시 6단계(PR 생성)까지 실행한다. 단, 곧바로 가지 않고 5.5단계부터 거친다.**
 
@@ -150,6 +173,14 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 - **C. 첫 실행 자동화 제안** — B에서 승인 + `CONFIG_HAS_KEY == false` + `APP_RELEASE != true`일 때만, 6단계 직전에 한 번.
 
 **6단계 deploy PR 생성** — `deploy-status --head`로 open deploy PR을 먼저 찾는다. **있으면 닫지 않고 재사용**해 `update-pr`로 본문만 갱신하고(새로 열면 워크플로우가 재트리거돼 본문 초기화 위험), 없으면 `create-pr`에 노트 파일 절대경로를 body로 넘긴다(맡기기면 빈 문자열). 끝나면 노트 파일을 지운다.
+`create-pr`에는 항상 `--project-root {PROJECT_ROOT}`를 준다. 거절 code별 행동:
+
+| code | 뜻 | 행동 |
+|---|---|---|
+| `needs_user_approval` | 앱 심사 신호가 있고 앱 심사 기록이 "일반 배포"가 아니다 | 심사 경고 배너 + 노트 본문을 보여주고 승인을 받는다. **사용자가 이번 대화에서 실제로 승인했을 때만** 같은 명령에 `--user-approved`를 붙여 다시 실행한다 — 승인 없이 붙이거나 "승인받았다"고 보고하지 않는다 |
+| `pr_exists` | 같은 head → base로 열린 PR이 이미 있다 (`number`·`url`) | 새로 만들지 않는다. 노트를 바꿀 거면 `update-pr {N}`, 아니면 `next`(`deploy-status --pr N`)로 진행 |
+| `nothing_to_deploy` | base보다 앞선 커밋이 없다 | PR을 만들지 않고 알린다. push 여부·브랜치 쌍(`branches_check`)을 확인 |
+| `body_file_not_found` | 노트 파일 경로가 틀렸다 | 5단계에서 Write한 절대경로로 다시 |
 
 **7단계 automerge 검증** — `deploy-status --pr {N} --base {BASE}` 한 번으로 판정한다 (`/tmp` 즉석 Python 금지). 아래 verdict 표.
 
@@ -159,11 +190,12 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 
 | verdict | 의미 | 행동 |
 |---------|------|------|
-| `merged` | automerge 완료 | 결과 안내, 종료 |
-| `waiting_for_automerge` | 정상 대기 중 (워크플로우 in_progress 포함) | **sleep 금지.** `deploy-status --pr N --wait 540` 으로 도구 안에서 기다린다(끝나면 바로 돌아온다, `waited_seconds`). 그래도 이 verdict 면 ScheduleWakeup 으로 다시. 10분이 넘으면 도구가 스스로 `stuck` 으로 바꾼다 |
-| `stuck` | 10분 넘게 automerge 안 됨 (`stuck_reason`: `no_workflow_on_head` = 현재 head SHA 에서 돈 워크플로우 없음 · `workflow_done_not_merged` = 워크플로우는 끝났는데 머지 안 됨) | 더 기다리지 않는다. 사용자에게 알리고 fix 모드로 PR 을 닫고 다시 만든다 |
+| `merged` | automerge 완료 | 결과 안내 후 **마무리**: 릴리스에 포함된 이슈마다(PR 커밋 메시지의 이슈 URL) `pro-report`로 보고서 댓글 → `pro-github finish-issue`로 완료 처리. 이 단계를 건너뛰고 종료하지 않는다 |
+| `waiting_for_workflow` | RELEASE-CHANGELOG run 이 queued·in_progress 이거나, PR 생성 직후·레포 대기열 지연으로 아직 시작 전 | **PR 을 닫거나 다시 열지 않는다** (대기열 지연은 재오픈으로 안 풀리고 run 만 하나 더 쌓인다). `next`대로 `deploy-status --pr N --wait 540` 으로 기다린다. 이 verdict 는 `stuck` 이 되지 않는다 |
+| `waiting_for_automerge` | 워크플로우는 끝났고 automerge 대기 | **sleep 금지.** `deploy-status --pr N --wait 540` 으로 도구 안에서 기다린다(끝나면 바로 돌아온다, `waited_seconds`). 그래도 이 verdict 면 ScheduleWakeup 으로 다시. 10분이 넘으면 도구가 스스로 `stuck` 으로 바꾼다 |
+| `stuck` | 10분 넘게 automerge 안 됨 (`stuck_reason`: `no_workflow_on_head` = head 브랜치 어디에도 이 PR 의 RELEASE run 이 없고 대기열도 비었음 · `workflow_done_not_merged` = 워크플로우는 끝났는데 머지 안 됨) | 더 기다리지 않는다. 사용자에게 알리고 **확인받은 뒤** fix 모드로 PR 을 닫고 다시 만든다 |
 | `missing_coderabbit_summary` | 워크플로우는 끝났는데 본문에 `Summary by CodeRabbit`이 없음 | **즉시 fix 모드로 가지 않고 즉시 `update-pr`도 하지 않는다.** 60초 후 `deploy-status`로 한 번 더 확인하고, **두 번 연속 같은 verdict일 때만** fix 모드 안내. 한 번이면 race를 우선 가정한다 (#331 — 워크플로우 PATCH와 겹쳐 본문 사라짐이 반복된 실사고) |
-| `workflow_failed` | 워크플로우 실패 | `workflow.run_url` 안내 + fix 모드로 재실행 |
+| `workflow_failed` | 이 PR 의 최신 RELEASE run 이 실패 (`workflow.is_current_head == false` 면 push 전 옛 head SHA 의 run) | `workflow.run_url` 안내 + fix 모드로 재실행 |
 | `conflict` | 병합 충돌(dirty) | 충돌 상태 안내, 수동 확인 요청 |
 | `behind` | base 보다 뒤처짐 | `sync-base` 로 base 를 head 에 병합하고 push |
 | `blocked` | 머지가 막힘 (필수 검사·리뷰·보호 규칙 대기) | 무엇이 막는지 PR 화면에서 확인해 사용자에게 알린다 |
@@ -184,7 +216,7 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 - **PR 생성/재시도 후 반드시 `deploy-status`로 검증한다.** 상태 확인용 Python을 `/tmp`에 즉석 생성하지 않는다.
 - **PR은 노트를 본문에 담아 생성한다.** 빈 본문으로 먼저 만든 뒤 채우면 레이스컨디션으로 노트가 사라진다.
 - **승인 게이트를 건너뛰지 않는다.** 자동 모드로 명시 설정된 경우만 표시 후 진행하고, 앱 심사 레포는 자동 모드여도 승인을 받는다. 안내는 자연어로만, config 키·경로를 표면화하지 않는다.
-- fix 모드로 넘어가는 기준은 위 verdict 표 하나다(`missing_coderabbit_summary` 2회 연속 · `workflow_failed` · `waiting_for_automerge` 10분 초과).
+- fix 모드로 넘어가는 기준은 위 verdict 표 하나다(`missing_coderabbit_summary` 2회 연속 · `workflow_failed` · `waiting_for_automerge` 10분 초과 = `stuck`). `waiting_for_workflow`(대기열 지연)는 기준이 아니다 — 닫고 다시 열지 않는다.
 - deploy PR이 이미 있으면 닫지 않고 재사용한다.
 - **Windows 내부망에서 curl exit 35 (SSL 오류)**: curl 호출에 `--ssl-no-revoke` 추가 (`../references/common-rules.md` Windows 내부망 환경 섹션).
 

@@ -16,7 +16,8 @@ GITHUB_PAT="{PAT}" PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/changelog_cli.py \
 `verdict`로 분기한다:
 
 - `no_pr` → open PR 없음. fix 3단계(새 PR 생성 준비)로 이동
-- `merged` → 이미 머지됨. 재시도 불필요, 안내 후 종료
+- `merged` → 이미 머지됨. 재시도 불필요, 안내 후 `next`대로 포함 이슈별 보고서·완료 처리
+- `waiting_for_workflow` → 워크플로우가 대기열에 있거나 도는 중. **닫지 않는다** — `next`의 `--wait`로 기다린다
 - 그 외(`waiting_for_automerge`/`missing_coderabbit_summary`/`workflow_failed`/`conflict`) → `pr.number`를 `EXISTING_PR`로 기억하고 fix 2단계로
 
 ## fix 2단계: 기존 PR 닫기 (사용자 확인 후)
@@ -75,8 +76,9 @@ NOTES_FILE="$HOME/.projectops/tmp/{OWNER}__{REPO}__release_notes.md"
 
 # create-pr의 body_file에 릴리스 노트 절대경로를 넘겨 본문 포함 PR 생성 (deploy 6-2b와 동일 패턴).
 GITHUB_PAT="{PAT}" PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/changelog_cli.py" \
-  create-pr "{OWNER}" "{REPO}" "🚀 Deploy $(date '+%Y%m%d') (재시도)" "$NOTES_FILE" "{HEAD_BRANCH}" "{BASE_BRANCH}"
-rm -f "$NOTES_FILE"
+  create-pr "{OWNER}" "{REPO}" "🚀 Deploy $(date '+%Y%m%d') (재시도)" "$NOTES_FILE" "{HEAD_BRANCH}" "{BASE_BRANCH}" \
+  --project-root "{PROJECT_ROOT}" && rm -f "$NOTES_FILE"
+# 앱 심사 레포는 승인을 받은 뒤에만 --user-approved 를 붙인다 (needs_user_approval). 거절되면 노트 파일이 남는다
 ```
 
 출력 JSON의 `number`를 새 PR 번호로 읽는다. 없으면 "❌ PR 생성 실패"와 응답 JSON을 보여주고 멈춘다.

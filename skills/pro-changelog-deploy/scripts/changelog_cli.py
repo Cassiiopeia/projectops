@@ -10,7 +10,6 @@ deploy PR 자동화 + Actions/CodeRabbit 상태 종합.
 """
 from __future__ import annotations
 
-import os
 import re
 import sys
 from pathlib import Path
@@ -26,15 +25,16 @@ from common.emit import emit  # noqa: E402
 from common.config import get_github_pat  # noqa: E402
 from common.gh_client import (  # noqa: E402
     GitHubAPIError,
-    list_pulls, update_pull_request, create_pull_request,
+    list_pulls, update_pull_request,
     get_run, get_job_log, list_failed_runs, resolve_pr_runs, resolve_branch_runs,
-    get_pull_detail, get_ahead_by,
 )
 
 # 파일 경로로 불러와도(테스트·하네스) 옆 모듈을 찾게 한다
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from deploy_status import cmd_deploy_status  # noqa: E402,F401
-from release_tools import branches_check, cmd_sync_base, wrap_release_notes  # noqa: E402,F401
+from release_tools import branches_check, cmd_sync_base, detect_release_shape, wrap_release_notes  # noqa: E402,F401
+from release_context import collect_app_signals, load_config as _load_config  # noqa: E402
+from release_pr import cmd_create_pr, _resolve_body_file  # noqa: E402,F401
 
 
 def cmd_actions(args) -> int:
@@ -94,31 +94,6 @@ def cmd_list_prs(args) -> int:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
 
 
-def _resolve_body_file(body_file: str | None) -> Path | None:
-    """본문 파일 경로 해석 — 절대 경로면 그대로, 상대 경로면 여러 위치를 순서대로 탐색.
-
-    SKILL.md 절차는 `~/.projectops/tmp/{owner}__{repo}__release_notes.md`(홈, 절대경로)에
-    저장하고 cli에 그 절대경로를 넘긴다. 다만 누군가 파일명만(상대경로) 넘겨도 찾을 수 있도록
-    홈 tmp → PROJECT_ROOT/scripts(구버전 하위호환) → cwd 순으로 보강 탐색한다.
-    찾지 못하면 None을 반환한다 (호출자가 본문 없음을 판단).
-    """
-    if not body_file:
-        return None
-    raw = Path(body_file)
-    if raw.is_absolute():
-        return raw if raw.exists() else None
-    for candidate in (
-        raw,
-        Path.home() / ".projectops" / "tmp" / raw.name,
-        Path.home() / ".suh-template" / "tmp" / raw.name,  # 구 경로 과도기 폴백(#459 이주)
-        _PROJECT_ROOT / "scripts" / raw.name,
-        Path.cwd() / raw,
-    ):
-        if candidate.exists():
-            return candidate
-    return None
-
-
 def cmd_update_pr(args) -> int:
     pat = get_github_pat(args.owner, args.repo)
     if not pat:
@@ -142,97 +117,6 @@ def cmd_update_pr(args) -> int:
         return emit({**result, "summary": f"PR #{args.number} 수정 완료"})
     except GitHubAPIError as e:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
-
-
-def cmd_create_pr(args) -> int:
-    pat = get_github_pat(args.owner, args.repo)
-    if not pat:
-        return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
-    body_path = _resolve_body_file(args.body_file)
-    if args.body_file and not body_path:
-        return emit({
-            "ok": False, "code": "body_file_not_found",
-            "error": (
-                f"본문 파일을 찾을 수 없습니다: {args.body_file} "
-                f"(탐색: 절대경로 | ~/.projectops/tmp/ | {_PROJECT_ROOT / 'scripts'} | cwd={Path.cwd()})"
-            ),
-        })
-    body = body_path.read_text(encoding="utf-8") if body_path else ""
-    # 릴리스할 커밋이 없으면 PR 을 만들지 않는다 (--allow-empty 로만 강행)
-    try:
-        ahead_by = get_ahead_by(args.owner, args.repo, args.base, args.head, pat)
-    except GitHubAPIError:
-        ahead_by = None
-    if ahead_by == 0 and not args.allow_empty:
-        return emit({"ok": False, "code": "nothing_to_release",
-                     "error": f"{args.head} 에 {args.base} 보다 앞선 커밋이 없다",
-                     "next": "push 가 됐는지, 브랜치 쌍이 맞는지 detect-release-context 의 branches_check 로 확인"})
-    # 표식 블록은 도구가 씌운다 — 손으로 쓰면 틀려 본문이 지워진다
-    body, wrapped = wrap_release_notes(body)
-    try:
-        result = create_pull_request(args.owner, args.repo, args.title, body, args.head, args.base, pat)
-        pr_number = result.get("number")
-
-        # PR 생성 직후엔 RELEASE-CHANGELOG 워크플로우 step 2가 본문을 초기화할 수 있다.
-        # step 2는 PR opened 후 보통 3~10초 안에 실행되므로, 워크플로우 본문 초기화가 끝난 뒤
-        # (대기 후) 본문을 다시 확인해 비어 있으면 update-pr로 재주입한다. 이렇게 하면 step 8
-        # (CodeRabbit Summary 폴링)이 첫 attempt(5초 간격)에서 즉시 본문을 잡고 빠르게 머지된다.
-        # 본문이 비어 있지 않으면(워크플로우가 보존했거나 CodeRabbit이 자기 Summary 작성한 경우) skip.
-        guard_summary = None
-        if pr_number and body:
-            import time
-            time.sleep(15)
-            try:
-                detail = get_pull_detail(args.owner, args.repo, pr_number, pat)
-                cur_body = detail.get("body") or ""
-                if "Summary by CodeRabbit" not in cur_body:
-                    update_pull_request(args.owner, args.repo, pr_number, pat, body=body)
-                    guard_summary = "본문 재주입 (워크플로우 step 2 race 회복)"
-                else:
-                    guard_summary = "본문 보존 확인 — 재주입 불필요"
-            except GitHubAPIError:
-                guard_summary = "본문 재확인 실패 — 무시하고 진행"
-
-        out = {
-            **result,
-            "summary": f"PR #{pr_number} 생성 완료" + (f" / {guard_summary}" if guard_summary else ""),
-            "next": f"deploy-status {args.owner} {args.repo} --pr {pr_number}",
-        }
-        if wrapped:
-            out["notes_wrapped"] = True
-        if guard_summary:
-            out["body_guard"] = guard_summary
-        return emit(out)
-    except GitHubAPIError as e:
-        return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
-
-
-# 앱 스토어 심사로 직결되는 워크플로우 파일명 키워드 (대소문자 무시 부분일치).
-# 새 스토어/플랫폼이 생기면 이 목록에 키워드만 추가하면 감지가 확장된다 (SKILL.md·판단 로직 무수정).
-_STORE_WORKFLOW_KEYWORDS = ("PLAYSTORE", "TESTFLIGHT", "APPSTORE", "APP-STORE")
-# 앱(스토어 배포) 성격이 강한 프로젝트 타입.
-_APP_PROJECT_TYPES = ("flutter", "react-native", "react-native-expo")
-
-
-def _read_project_types(project_root: Path) -> list[str]:
-    """version.yml에서 project_types 배열을 추출한다 (yaml 의존성 없이 정규식).
-
-    폐쇄망·표준 라이브러리 우선 원칙: PyYAML을 import하지 않고 `project_types: [...]` 라인을
-    문자열로 파싱한다. 파일이 없거나 키가 없으면 빈 리스트를 반환한다 (오류 아님)."""
-    vy = project_root / "version.yml"
-    if not vy.exists():
-        return []
-    try:
-        text = vy.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return []
-    # `project_types: ["spring", "react"]` 형태의 한 줄을 찾아 따옴표 안 토큰만 추출.
-    m = re.search(r"^\s*project_types\s*:\s*\[([^\]]*)\]", text, re.MULTILINE)
-    if m:
-        return [t.strip().strip("\"'") for t in m.group(1).split(",") if t.strip()]
-    # 배열이 아닌 단수 `project_type: "flutter"` 폴백.
-    m2 = re.search(r"^\s*project_type\s*:\s*[\"']?([A-Za-z0-9_-]+)", text, re.MULTILINE)
-    return [m2.group(1)] if m2 else []
 
 
 def _normalize_provider(provider: str, project_root: Path) -> str:
@@ -310,26 +194,6 @@ def _detect_owner_repo(project_root: Path) -> tuple[str | None, str | None]:
     return (m.group(1), m.group(2)) if m else (None, None)
 
 
-def _load_config(config_arg: str | None) -> dict | None:
-    """config.json을 읽기 전용으로 연다. 경로를 안 주면 PAT 자동 로드와 같은 고정 경로를 쓴다.
-
-    CLI가 config를 읽는 것은 PAT 자동 로드(common.config)와 같은 선례다 — 쓰기는 하지 않는다.
-    경로를 Python이 Path.home()으로 직접 풀기 때문에 Windows Git Bash `$HOME` 경로 문제가 없다."""
-    import json
-    if config_arg:
-        path = Path(config_arg).expanduser()
-    else:
-        from common.config import config_path
-        path = config_path()
-    if not path.is_file():
-        return None
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return None
-    return data if isinstance(data, dict) else None
-
-
 def _release_config_view(config: dict | None, owner: str | None, repo: str | None) -> dict:
     """config에서 이 레포의 브랜치·provider 기록과, 더는 읽지 않는 전역 키를 뽑는다 (#842).
 
@@ -357,22 +221,6 @@ def _release_config_view(config: dict | None, owner: str | None, repo: str | Non
     }
 
 
-def _scan_store_workflows(project_root: Path) -> list[str]:
-    """.github/workflows 내 파일명을 스캔해 스토어 심사 워크플로우 파일명을 반환한다."""
-    wf_dir = project_root / ".github" / "workflows"
-    if not wf_dir.is_dir():
-        return []
-    found = []
-    try:
-        for entry in sorted(os.listdir(wf_dir)):
-            upper = entry.upper()
-            if any(kw in upper for kw in _STORE_WORKFLOW_KEYWORDS):
-                found.append(entry)
-    except OSError:
-        return []
-    return found
-
-
 def cmd_detect_release_context(args) -> int:
     """이 레포가 앱 스토어 심사에 직결되는지 '신호'를 모아 JSON으로 반환한다.
 
@@ -382,25 +230,10 @@ def cmd_detect_release_context(args) -> int:
     if not project_root.is_dir():
         # 없는 경로를 빈 신호로 성공 처리하면 "앱 심사 레포 아님" 으로 오판한다 (#713)
         return emit({"ok": False, "code": "not_found",
+                     "summary": "--project-root 경로가 없습니다",
                      "error": f"--project-root 경로가 없습니다: {project_root}"})
 
-    project_types = _read_project_types(project_root)
-    store_workflows = _scan_store_workflows(project_root)
-    has_store_workflow = bool(store_workflows)
-    has_app_type = any(t.lower() in _APP_PROJECT_TYPES for t in project_types)
-    # version.yml·workflows를 둘 다 못 읽었으면 신호가 없는 unknown 상태.
-    no_signals = not project_types and not (project_root / ".github" / "workflows").is_dir()
-
-    if no_signals:
-        hint = "unknown"
-    elif has_store_workflow and has_app_type:
-        hint = "strong_app"          # 앱 타입 + 스토어 워크플로우 → 앱 심사 거의 확실
-    elif has_store_workflow:
-        hint = "app_release_likely"  # 스토어 워크플로우는 있으나 타입 신호 약함
-    elif has_app_type:
-        hint = "app_release_likely"  # 앱 타입은 있으나 스토어 워크플로우 미발견 (TEST 빌드만 등)
-    else:
-        hint = "backend_only"        # 앱 신호 전무 → 백엔드로 간주
+    signals, hint = collect_app_signals(project_root)
 
     next_hint = (
         "agent: app_release 기록 없으면 사용자에게 한 번 확인 후 config에 저장"
@@ -448,15 +281,22 @@ def cmd_detect_release_context(args) -> int:
         next_hint = ("agent: version.yml 없음 — 브랜치를 확정(애매하면 질문)해 레포별 config 에 기록한다. "
                      + next_hint)
 
+    check = branches_check(project_root, branches["head"], branches["base"])
+    # 개발 브랜치 없이 main > deploy 로 릴리스하는 레포 (#970)
+    shape = detect_release_shape(project_root, branches, check)
+    if shape["release_shape"] == "deploy_branch":
+        next_hint = ("agent: deploy 브랜치형 레포 — branches 대신 release_branches 의 head/base 로 "
+                     "release_steps 를 따른다. 이 쌍이 맞는지 사용자에게 한 번 확인. " + next_hint)
+
     return emit({
         "ok": True,
+        # 항상 문자열 (#970)
+        "summary": (f"릴리스 {branches['head']} > {branches['base']} ({source}), 앱 심사 hint={hint}"
+                    if shape["release_shape"] == "standard" else
+                    f"deploy 브랜치형: {shape['release_branches']['head']} > "
+                    f"{shape['release_branches']['base']}, 앱 심사 hint={hint}"),
         "project_root": str(project_root),
-        "signals": {
-            "project_types": project_types,
-            "store_workflows": store_workflows,
-            "has_store_workflow": has_store_workflow,
-            "has_app_type": has_app_type,
-        },
+        "signals": signals,
         "branches": branches,   # {head, base, provider} — head→base로 릴리스 PR 생성
         # version.yml(정본) | config(version.yml 없는 레포의 레포별 기록) | fallback(아무것도 없음)
         "branches_source": source,
@@ -469,7 +309,8 @@ def cmd_detect_release_context(args) -> int:
             "ignored_global_keys": view["ignored_global_keys"],
         },
         "hint": hint,
-        "branches_check": branches_check(project_root, branches["head"], branches["base"]),
+        "branches_check": check,
+        **shape,
         "next": next_hint,
     })
 
@@ -521,7 +362,11 @@ def build_parser() -> JSONArgumentParser:
     p_cp.add_argument("head")
     p_cp.add_argument("base")
     p_cp.add_argument("--allow-empty", action="store_true",
-                      help="head 가 base 보다 앞선 커밋이 없어도 PR 을 만든다 (기본은 nothing_to_release 로 거절)")
+                      help="head 가 base 보다 앞선 커밋이 없어도 PR 을 만든다 (기본은 nothing_to_deploy 로 거절)")
+    # 앱 심사 승인 게이트 (#970): 앱 신호 판정 위치와 사용자 승인 표시
+    p_cp.add_argument("--project-root", help="앱 심사 신호를 볼 레포 루트 (생략 시 cwd)")
+    p_cp.add_argument("--user-approved", action="store_true",
+                      help="앱 심사 레포에서 사용자가 릴리스 노트를 보고 승인했을 때만 붙인다 (없으면 needs_user_approval)")
     p_cp.set_defaults(func=cmd_create_pr)
 
     p_sb = sub.add_parser("sync-base", help="배포 전 base 를 head 에 병합 (fetch > 차이 확인 > merge, 충돌은 멈춤)")

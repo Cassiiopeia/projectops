@@ -26,14 +26,62 @@ def _args(wait=0):
     return SimpleNamespace(owner="o", repo="r", pr=7, base="main", head=None, wait=wait)
 
 
-def _patch(monkeypatch, pr, runs):
+def _patch(monkeypatch, pr, runs, repo_queued_runs=()):
     monkeypatch.setattr(deploy_status, "get_pull_detail", lambda *a: pr)
     monkeypatch.setattr(deploy_status, "get_branch_head", lambda *a: "b")
     monkeypatch.setattr(deploy_status, "resolve_pr_runs", lambda *a: {"runs": runs})
+    monkeypatch.setattr(deploy_status, "list_runs", lambda *a, **k: list(repo_queued_runs))
 
 
 RELEASE_RUN = {"name": "x", "path": ".github/workflows/PROJECT-COMMON-RELEASE-CHANGELOG.yaml",
                "status": "completed", "conclusion": "success", "url": "ru"}
+
+
+def test_대기열_지연은_waiting_for_workflow_이고_PR_닫기를_권하지_않는다(monkeypatch):
+    # 실사고 (#970): queued 를 "워크플로우 없음" 으로 보고 PR 을 닫았다 다시 열라고 권함
+    queued_run = {**RELEASE_RUN, "status": "queued", "conclusion": None}
+    for runs, repo_queue in (([queued_run], ()), ([], ({"run_id": 1},))):
+        _patch(monkeypatch, _pr(4000), runs, repo_queue)
+        out = deploy_status._deploy_status_once(_args(), "pat")
+        assert out["verdict"] == "waiting_for_workflow"
+        assert "--wait" in out["next"] and "닫거나 다시 열지 않는다" in out["next"]
+
+
+def test_옛_head_SHA_의_실패한_RELEASE_run_은_workflow_failed(monkeypatch):
+    # 실사고 (#970): head SHA 가 바뀌어 이전 run 을 못 찾고 workflow=null 로 30분 대기
+    failed_old_run = {**RELEASE_RUN, "conclusion": "failure", "url": "https://run/1",
+                      "head_sha": "old", "is_current_head": False}
+    _patch(monkeypatch, _pr(4000), [failed_old_run])
+    out = deploy_status._deploy_status_once(_args(), "pat")
+    assert out["verdict"] == "workflow_failed" and out["workflow"]["run_url"] == "https://run/1"
+    assert "https://run/1" in out["summary"]
+
+
+def test_머지되면_next_가_보고서와_완료처리를_안내한다(monkeypatch):
+    _patch(monkeypatch, _pr(30, merged=True), [RELEASE_RUN])
+    next_hint = deploy_status._deploy_status_once(_args(), "pat")["next"]
+    assert "pro-report" in next_hint and "finish-issue" in next_hint
+
+
+def test_resolve_pr_runs_는_head_브랜치의_옛_SHA_run_도_최신순으로_찾는다(monkeypatch):
+    from common import gh_client
+    from common.github_rest import actions
+    pr = {"head": {"sha": "new", "ref": "develop"}, "created_at": "2026-10-21T00:00:00Z"}
+    old_run = {"id": 1, "head_sha": "old", "created_at": "2026-10-21T00:05:00Z", "pull_requests": [{"number": 7}]}
+    other_pr_run = {"id": 2, "head_sha": "x", "created_at": "2026-10-21T00:06:00Z", "pull_requests": [{"number": 8}]}
+    new_run = {"id": 3, "head_sha": "new", "created_at": "2026-10-21T00:09:00Z", "pull_requests": []}
+
+    def fake_request(method, url, payload, pat, **kwargs):
+        if "/pulls/" in url:
+            return pr
+        if "head_sha=" in url:
+            return {"workflow_runs": [new_run]}
+        return {"workflow_runs": [new_run, other_pr_run, old_run]}
+
+    monkeypatch.setattr(gh_client, "_request", fake_request)
+    runs = actions.resolve_pr_runs("o", "r", 7, "pat")["runs"]
+    assert [run["run_id"] for run in runs] == [3, 1]
+    assert [run["is_current_head"] for run in runs] == [True, False]
 
 
 def test_오래_대기했는데_현재_head_에서_돈_워크플로우가_없으면_stuck(monkeypatch):
