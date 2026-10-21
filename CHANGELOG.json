@@ -1,14 +1,39 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-21T10:22:33Z",
-    "currentVersion": "4.69.1",
+    "lastUpdated": "2026-10-21T10:30:34Z",
+    "currentVersion": "4.69.2",
     "projectType": "basic",
-    "totalReleases": 338,
+    "totalReleases": 339,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.69.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-21",
+      "pr_number": 967,
+      "raw_summary": "## Summary by CodeRabbit\n## 릴리스 노트\n* **버그 수정**\n  * iOS 시뮬레이터 메모리를 실제보다 훨씬 작게 재던 문제 해결\n* **개선**\n  * 메모리가 빠듯한 컴퓨터에서도 기기 한 대 수용량은 잴 수 있게 함",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "iOS 시뮬레이터 메모리를 실제보다 훨씬 작게 재던 문제 해결"
+          ]
+        },
+        "개선": {
+          "title": "개선",
+          "items": [
+            "메모리가 빠듯한 컴퓨터에서도 기기 한 대 수용량은 잴 수 있게 함"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.69.1",
       "project_type": "basic",
