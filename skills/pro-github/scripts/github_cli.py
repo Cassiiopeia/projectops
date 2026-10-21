@@ -47,7 +47,8 @@ from common.gh_client import (  # noqa: E402,F401  (핸들러 의존 — 테스�
     upload_evidence_image, delete_release_asset, is_repo_private, EVIDENCE_TAG,
     list_secrets, set_secret,
     _request, get_run, get_job_log, list_failed_runs, resolve_pr_runs, resolve_branch_runs,
-    list_runs, dispatch_workflow, rerun_run, wait_for_run,
+    list_runs, dispatch_workflow, rerun_run, wait_for_run, wait_for_runs, cancel_run,
+    ReleaseAssetLimitError,
 )
 
 

@@ -5,6 +5,7 @@
 ## 출력 틀
 
 ```markdown
+<!-- projectops:report -->
 # [이슈 제목]
 
 ## 개요

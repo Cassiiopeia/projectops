@@ -45,10 +45,12 @@ def test_응답은_ok_code_summary_next_순서로_시작한다(monkeypatch):
     assert list(json.loads(buf.getvalue()))[:4] == ["ok", "code", "summary", "next"]
 
 
-def test_brief_는_안내_키만_남긴다(monkeypatch):
+def test_brief_는_안내_키와_목록의_최소_행만_남긴다(monkeypatch):
+    """목록까지 지우면 다시 불러야 했다 (#969 A20): 행은 번호·제목·상태 식별 키만."""
     buf = _capture(monkeypatch)
     run_cli(_parser(), ["list-runs", "--brief"])
-    assert set(json.loads(buf.getvalue())) == {"ok", "code", "summary", "next"}
+    out = json.loads(buf.getvalue())
+    assert set(out) == {"ok", "code", "summary", "next", "items"} and out["items"] == [{"id": 7, "name": "x"}]
 
 
 def test_field_는_그_값만_글자_그대로_준다(monkeypatch):
@@ -65,6 +67,20 @@ def test_없는_field_는_가능한_키를_알려준다(monkeypatch):
     assert run_cli(_parser(), ["list-runs", "--field", "nope"]) == 1
     out = json.loads(buf.getvalue())
     assert out["code"] == "field_not_found" and "items" in out["available_keys"]
+
+
+def test_fields_표기도_받고_없으면_중첩_경로를_제안하며_summary_는_문자열이다(monkeypatch):
+    """--field/--fields 표기 차이·최상위 키만 제안·summary null (#969 A21·A22)."""
+    buf = _capture(monkeypatch)
+    parser = _parser()
+    parser._subparsers._group_actions[0].choices["list-runs"].set_defaults(
+        func=lambda a: emit({"issue": {"labels": ["bug"]}}))
+    assert run_cli(parser, ["list-runs", "--fields", "labels"]) == 1
+    out = json.loads(buf.getvalue())
+    assert out["code"] == "field_not_found" and "issue.labels" in out["did_you_mean"]
+    buf = _capture(monkeypatch)
+    run_cli(parser, ["list-runs"])
+    assert json.loads(buf.getvalue())["summary"] == "완료"
 
 
 def test_오류_응답에는_field_를_적용하지_않는다(monkeypatch):

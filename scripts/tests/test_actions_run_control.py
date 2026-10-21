@@ -99,3 +99,41 @@ def test_secrets_set_value_file_은_여러_줄을_그대로_읽는다(monkeypatc
     out = _run(monkeypatch, ["secrets", "set", "o", "r", "BACKEND_ENV", "--value-file", str(value_file)],
                set_secret=lambda o, r, n, v, pat: seen.update(v=v) or {"name": n})
     assert seen["v"] == "A=1\nB=2\n" and out["ok"] is not False
+
+
+def test_api_는_상대_경로에_레포_접두를_붙이고_잘라도_유효한_JSON_이다(monkeypatch, tmp_path):
+    """잘린 문자열 data·경로 접두 재요구 (#969 A4·A5)."""
+    calls = []
+    many = [{"id": index, "body": "x" * 500} for index in range(100)]
+    fake = lambda m, url, data, pat: calls.append(url) or many
+    out = _run(monkeypatch, ["api", "GET", "o", "r", "issues/comments", "--out", str(tmp_path / "all.json")], _request=fake)
+    assert calls == ["https://api.github.com/repos/o/r/issues/comments"]
+    assert isinstance(out["data"], list) and out["truncated_items"] == 100 - len(out["data"]) > 0
+    assert len(json.loads((tmp_path / "all.json").read_text(encoding="utf-8"))) == 100
+    assert _run(monkeypatch, ["api", "GET", "o", "r", "/rate_limit"], _request=lambda *a: {"rate": {}})["ok"] is True
+
+
+def test_actions_인자_순서가_틀리면_올바른_순서를_안내한다(monkeypatch):
+    """`invalid choice: 'Cassiiopeia'` 로 끝나던 호출 (#969 A6)."""
+    out = _run(monkeypatch, ["actions", "Cassiiopeia", "projectops", "show-run", "123"])
+    assert out["code"] == "bad_args" and out["next"] == "actions show-run Cassiiopeia projectops 123"
+
+
+def test_joblog_기본_검색은_error_표식만_보고_스크립트_원문은_뺀다(monkeypatch):
+    """스크립트 원문의 `error` 글자·브랜치명이 걸려 재시도하던 문제 (#969 A8)."""
+    log = ("##[group]Run grep -q error build.log || echo error-branch\n"
+           "echo error\n##[endgroup]\nCompiling...\nerror: lib.rs:3 mismatched types\n"
+           "##[error]Process completed with exit code 1.\n")
+    monkeypatch.setattr(gh_client, "_request", lambda *a, **k: log)
+    out = rest_actions.get_job_log("o", "r", 1, "p")
+    assert out["mode"] == "error_markers" and not any("grep -q" in line or line == "echo error" for line in out["lines"])
+    assert out["lines"][-1].startswith("##[error]") and "error: lib.rs:3 mismatched types" in out["lines"]
+
+
+def test_joblog_에_run_id_를_넣으면_show_run_으로_안내한다(monkeypatch):
+    """run id 를 log_expired 로 오진하던 문제 (#969 A9)."""
+    def missing(*a, **k):
+        raise gh_client.GitHubAPIError(404, "Not Found")
+    out = _run(monkeypatch, ["actions", "joblog", "o", "r", "77"], get_job_log=missing,
+               get_run=lambda *a: {"run_id": 77})
+    assert out["code"] == "run_id_given" and out["next"].startswith("actions show-run o r 77")

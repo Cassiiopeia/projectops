@@ -23,7 +23,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py explore list-repos {owne
 특정 레포명이 언급되면 아래 4개를 순서대로 수집한다. 각 호출은 독립적이며, 하나가 실패해도 나머지는 계속 진행한다.
 
 ```bash
-# 2-1. 기본 메타정보
+# 2-1. 기본 메타정보 (공개 여부: repo.private · repo.visibility)
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py explore repo-detail {owner} {repo}
 # 2-2. README
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py explore readme {owner} {repo}

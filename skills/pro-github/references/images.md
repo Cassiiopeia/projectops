@@ -11,13 +11,17 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py upload-image {owner} {re
 # --tag {태그} : 증적 릴리스 태그 (기본 qa-evidence)
 ```
 
+릴리스 하나에는 자산이 1000개까지만 들어간다. 꽉 차면 `qa-evidence-2`, `-3` … 순으로 다음 릴리스에 자동으로 이어 올린다 (없으면 만든다). 실제로 쓴 태그는 응답 `tag`·`images[].tag`. 20개까지 모두 차면 `code: release_asset_limit` 과 `next`(오래된 증적 삭제 또는 새 `--tag`).
+
 출력 JSON의 **`markdown` 필드를 본문 파일에 그대로 붙여넣는다.** 여러 장을 한 번에 올릴 수 있다.
 
 ```json
-{"count": 2, "markdown": "![step1](https://...)\n![step2](https://...)",
- "images": [{"name": "...", "url": "...", "asset_id": 123, "renderable": true}],
+{"count": 2, "markdown": "![step1](https://...)\n![step2](https://...)", "tag": "qa-evidence",
+ "images": [{"name": "...", "url": "...", "asset_id": 123, "renderable": true, "tag": "qa-evidence"}],
  "private_warning": null}
 ```
+
+한 장만 올리면 최상위 `url` 에도 그 주소가 있다 (`--field url`).
 
 **쓰는 순서**: `upload-image`로 URL을 받는다 → 그 마크다운을 본문 `.md` 파일에 넣는다 → `create-issue` / `add-comment` / `update-pr`로 올린다. 순서를 뒤집으면 이미지 없는 본문이 먼저 올라간다.
 

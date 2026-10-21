@@ -21,6 +21,9 @@ LABEL_ALIAS_GROUPS = [
     ("문서", "documentation"),
 ]
 
+# 상태 라벨 이름 전부 (한글·영문, 위 표의 앞 7묶음): 완료 처리·라벨 교체 경고가 이것만 상태로 본다
+STATUS_LABEL_NAMES = frozenset(name for group in LABEL_ALIAS_GROUPS[:7] for name in group)
+
 
 def resolve_label_aliases(requested: list[str], existing) -> list[str]:
     """요청한 라벨 중 레포에 없는 것은 별칭(한글/영문) 중 레포에 있는 이름으로 바꿔 돌려준다.

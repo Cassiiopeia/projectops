@@ -19,8 +19,11 @@ def list_pulls(
         None,
         pat,
     )
+    # head·base·merged_at: 어느 브랜치 사이 PR 인지, 닫힌 PR 이 머지됐는지 바로 판단
     return [
-        {"number": i["number"], "title": i["title"], "url": i["html_url"], "state": i["state"]}
+        {"number": i["number"], "title": i["title"], "url": i["html_url"], "state": i["state"],
+         "head": (i.get("head") or {}).get("ref"), "base": (i.get("base") or {}).get("ref"),
+         "merged_at": i.get("merged_at")}
         for i in items
     ]
 

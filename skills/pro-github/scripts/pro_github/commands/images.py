@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 from common.emit import emit
-from common.gh_client import EVIDENCE_TAG, GitHubAPIError
+from common.gh_client import EVIDENCE_TAG, GitHubAPIError, ReleaseAssetLimitError
 from pro_github.registry import Command
 from pro_github.responses import api_error, missing_pat
 
@@ -51,29 +51,54 @@ def cmd_upload_image(args, api) -> int:
                        "URL은 발급되지만 이슈에서는 깨져 보입니다.")
 
         images, failed = [], []
-        for f in args.files:
+        # 한도로 이월된 태그를 다음 파일에도 쓴다 (매 파일 꽉 찬 릴리스부터 다시 두드리지 않게)
+        current_tag = args.tag
+        limit_error = None
+        for position, f in enumerate(args.files):
             try:
-                images.append(api.upload_evidence_image(
-                    args.owner, args.repo, f, pat, tag=args.tag, prefix=args.prefix))
+                image = api.upload_evidence_image(args.owner, args.repo, f, pat, tag=current_tag, prefix=args.prefix)
             except FileNotFoundError as e:
                 failed.append({"file": f, "error": str(e)})
+                continue
+            except ReleaseAssetLimitError as e:
+                # 이미 올린 것은 살려 보고하고, 남은 파일은 실패로 남긴다
+                limit_error = e
+                failed.extend({"file": rest, "error": "release_asset_limit"} for rest in args.files[position:])
+                break
+            # 로컬 경로 — design-brief rewrite-images 가 파일 이름 대신 경로로 짝을 맞춘다 (#974)
+            images.append({**image, "file": str(Path(f).expanduser().resolve())})
+            current_tag = image.get("tag", current_tag)
 
+        if not images and limit_error is not None:
+            return _asset_limit_response(args, limit_error)
         if not images:
             return emit({"ok": False, "code": "no_image_uploaded",
                          "error": "올린 이미지가 없습니다", "failed": failed})
 
-        return emit({
+        out = {
             "count": len(images),
             "images": images,
             # 그대로 본문·댓글 파일에 붙여넣을 수 있게 합쳐서 준다
             "markdown": "\n".join(i["markdown"] for i in images),
+            "tag": current_tag,
             "failed": failed or None,
             "private_warning": warning,
-            "summary": f"이미지 {len(images)}개 업로드 완료",
+            "summary": f"이미지 {len(images)}개 업로드 완료 (릴리스 {current_tag})",
             "next": f"add-comment {args.owner} {args.repo} <이슈번호> <본문파일>",
-        })
+        }
+        # 1개면 images.0.url 을 짐작하지 않게 최상위에 둔다
+        if len(images) == 1:
+            out["url"] = images[0]["url"]
+        return emit(out)
     except GitHubAPIError as e:
         return api_error(e)
+
+
+def _asset_limit_response(args, error) -> int:
+    """이어 쓸 증적 릴리스까지 모두 찬 경우: 시도한 태그와 다음 행동"""
+    return emit({"ok": False, "code": "release_asset_limit", "error": str(error), "tried_tags": error.tried_tags,
+                 "next": (f"delete-image {args.owner} {args.repo} <asset_id> 로 오래된 증적을 지우거나 "
+                          f"upload-image {args.owner} {args.repo} <파일> --tag <새 태그> 로 다시 올린다")})
 
 
 def cmd_delete_image(args, api) -> int:

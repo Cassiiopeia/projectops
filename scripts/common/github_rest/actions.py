@@ -51,25 +51,39 @@ def get_run(owner: str, repo: str, run_id: int, pat: str) -> dict:
     return result
 
 
+# 기본 로그 검색: 실패 표시 줄 (GitHub 이 실패 step 에 남기는 표식)
+ERROR_MARKER = "##[error]"
+# ##[error] 줄 앞에 함께 보여 줄 출력 줄 수 (실패 step 주변)
+_ERROR_CONTEXT_LINES = 8
+# ##[error] 가 없을 때 기본 검색
+_FALLBACK_PATTERN = "error|failed"
+
+
 def get_job_log(
     owner: str, repo: str, job_id: int, pat: str,
-    grep: str = "error", tail: int = 30, save_to: str | None = None,
+    grep: str | None = None, tail: int = 30, save_to: str | None = None,
 ) -> dict:
     """job 로그를 받아 grep 매칭 라인의 끝 tail개를 반환한다.
 
+    grep 없음(기본): ##[error] 줄과 그 앞 출력 줄. `##[group]Run` 스크립트 원문 구간은 빼고 본다
+    (원문의 `error` 글자·브랜치명이 걸려 재시도하던 문제). grep 지정: 정규식으로 전체 줄 검색.
     job logs 엔드포인트는 Azure로 redirect되므로 _request의 strip 핸들러가 필수.
     """
     text = client._request(
         "GET", f"{_API_BASE}/repos/{owner}/{repo}/actions/jobs/{job_id}/logs", None, pat, raw=True
     )
     all_lines = text.splitlines()
-    matches_line, is_regex = _line_matcher(grep)
-    matched = [l for l in all_lines if matches_line(l)]
+    if grep is None:
+        matched, mode, is_regex = _error_marker_lines(all_lines), "error_markers", False
+    else:
+        matches_line, is_regex = _line_matcher(grep)
+        matched, mode = [l for l in all_lines if matches_line(l)], "grep"
     result = {
         "job_id": job_id,
         "total_lines": len(all_lines),
         "matched_count": len(matched),
         "grep": grep,
+        "mode": mode,
         "regex": is_regex,
         "lines": [l[:300] for l in matched[-tail:]],
     }
@@ -79,6 +93,36 @@ def get_job_log(
         Path(save_to).write_text(text, encoding="utf-8")
         result["saved_to"] = save_to
     return result
+
+
+def _output_line_indexes(lines: list[str]) -> list[int]:
+    """`##[group]Run …` ~ `##[endgroup]` (실행 스크립트 원문) 밖의 줄 번호"""
+    indexes, is_inside_run_source = [], False
+    for index, line in enumerate(lines):
+        if "##[group]Run " in line:
+            is_inside_run_source = True
+            continue
+        if is_inside_run_source:
+            if "##[endgroup]" in line:
+                is_inside_run_source = False
+            continue
+        indexes.append(index)
+    return indexes
+
+
+def _error_marker_lines(lines: list[str]) -> list[str]:
+    """##[error] 줄 + 그 앞 출력 줄 (스크립트 원문 제외). ##[error] 가 없으면 error|failed 로 대신 찾는다"""
+    output_indexes = _output_line_indexes(lines)
+    marker_positions = [position for position, index in enumerate(output_indexes) if ERROR_MARKER in lines[index]]
+    if not marker_positions:
+        matches_line, _ = _line_matcher(_FALLBACK_PATTERN)
+        return [lines[index] for index in output_indexes if matches_line(lines[index])]
+    picked: list[int] = []
+    for position in marker_positions:
+        for neighbor in output_indexes[max(0, position - _ERROR_CONTEXT_LINES):position + 1]:
+            if neighbor not in picked:
+                picked.append(neighbor)
+    return [lines[index] for index in sorted(picked)]
 
 
 def _line_matcher(grep: str):
@@ -201,6 +245,25 @@ def rerun_run(owner: str, repo: str, run_id: int, pat: str, failed_only: bool = 
     suffix = "rerun-failed-jobs" if failed_only else "rerun"
     client._request("POST", f"{_API_BASE}/repos/{owner}/{repo}/actions/runs/{run_id}/{suffix}", {}, pat)
     return {"run_id": run_id, "failed_only": failed_only}
+
+
+def cancel_run(owner: str, repo: str, run_id: int, pat: str, force: bool = False) -> dict:
+    """run 을 취소한다. force 면 always() step 까지 멈추는 강제 취소"""
+    suffix = "force-cancel" if force else "cancel"
+    client._request("POST", f"{_API_BASE}/repos/{owner}/{repo}/actions/runs/{run_id}/{suffix}", {}, pat)
+    return {"run_id": run_id, "force": force}
+
+
+def wait_for_runs(owner: str, repo: str, run_ids: list[int], pat: str, timeout_seconds: int) -> dict:
+    """여러 run 이 모두 끝날 때까지(최대 timeout_seconds) 폴링 > {runs, finished, pending_run_ids, waited_seconds}"""
+    started = time.monotonic()
+    while True:
+        results = [client.get_run(owner, repo, run_id, pat) for run_id in run_ids]
+        waited = int(time.monotonic() - started)
+        pending = [run_id for run_id, result in zip(run_ids, results) if result.get("status") != "completed"]
+        if not pending or waited + _RUN_POLL_SECONDS > timeout_seconds:
+            return {"runs": results, "finished": not pending, "pending_run_ids": pending, "waited_seconds": waited}
+        client._sleep(_RUN_POLL_SECONDS)
 
 
 def wait_for_run(owner: str, repo: str, run_id: int, pat: str, timeout_seconds: int) -> dict:

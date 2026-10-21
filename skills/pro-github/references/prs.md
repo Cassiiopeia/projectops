@@ -18,8 +18,11 @@ git ls-remote --heads origin "$HEAD_BRANCH" | grep -q "$HEAD_BRANCH" || echo "�
 `head`는 반드시 `owner:branch` 형식으로 지정한다 (한글 포함 브랜치명의 422 오류 방지):
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-pr {owner} {repo} "{제목}" "{PR 본문 파일 경로}" "{owner}:{head_branch}" {base_branch}
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-pr {owner} {repo} "{제목}" "{PR 본문 파일 경로}" --head "{owner}:{head_branch}" --base {base_branch}
+# 위치 인자(… "{제목}" "{본문}" "{owner}:{head}" {base})도 받지만 순서가 자주 틀려 플래그를 권한다
 ```
+
+head·base 에 공백이 있으면 제목이 브랜치 자리에 들어간 것이라 `code: argument_order` 로 거절한다.
 
 `{base_branch}`는 작업 PR이면 **개발(릴리스 소스) 브랜치**다 — `version.yml`의 `metadata.development_branch`(구 이름 `deploy_branch`), 없으면 `develop` (원격에 개발 브랜치가 아예 없는 단일 브랜치 레포면 기본 브랜치). 기본(배포) 브랜치(`main`)로 가는 릴리스 PR은 이 레시피가 아니라 `/pro-changelog-deploy`가 만든다. 사용자가 base를 명시하면 그것을 따른다.
 
@@ -44,6 +47,8 @@ PR 본문에는 반드시 관련 이슈 링크를 포함한다. 이슈 번호는
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py list-prs {owner} {repo} --state open
 # 닫힌 PR 포함: --state closed 또는 --state all
 ```
+
+출력 JSON: `{"count":N,"prs":[{number,title,url,state,head,base,merged_at}]}`. 닫힌 PR 이 머지됐는지는 `merged_at`(머지 안 됐으면 null)으로 본다.
 
 ## PR 상세 / 댓글 / 상태 / 머지
 

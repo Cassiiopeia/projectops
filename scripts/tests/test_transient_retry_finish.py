@@ -92,10 +92,15 @@ def test_댓글_POST_가_500_이고_안_올라갔으면_오류를_그대로_올�
         issues.add_comment("o", "r", 1, "hello", "p")
 
 
-def _finish(monkeypatch, set_result, update_error=None, labels=("bug", "작업중")):
+# pro-report 출력 틀 제목이 있는 댓글
+_REPORT_COMMENT = {"id": 1, "body": "# 제목\n\n## 개요\n요약\n\n## 변경 사항\n- a"}
+
+
+def _finish(monkeypatch, set_result, update_error=None, labels=("bug", "작업중"), comments=(_REPORT_COMMENT,)):
     import github_cli
     monkeypatch.setattr(github_cli, "get_github_pat", lambda o, r: "pat")
     monkeypatch.setattr(github_cli, "get_issue_labels", lambda *a: list(labels))
+    monkeypatch.setattr(github_cli, "get_issue_comments", lambda *a: list(comments))
     seen = {}
     monkeypatch.setattr(github_cli, "set_issue_labels", lambda o, r, n, wanted, pat: seen.update(w=wanted) or set_result)
 
@@ -114,6 +119,13 @@ def _finish(monkeypatch, set_result, update_error=None, labels=("bug", "작업�
 def test_finish_issue_는_상태_라벨만_바꾸고_닫는다(monkeypatch):
     out, seen = _finish(monkeypatch, {"labels": ["bug", "status: done"]})
     assert seen["w"] == ["bug", "status: done"] and out["code"] == "finished" and out["ok"] is True
+    assert out["warnings"] == []
+
+
+def test_finish_issue_는_보고서_댓글이_없으면_경고한다(monkeypatch):
+    """보고서 없이 40개를 일괄로 닫은 일 (#969 A24): 막지 않고 warnings 로 알린다."""
+    out, _ = _finish(monkeypatch, {"labels": ["status: done"]}, comments=({"id": 2, "body": "확인했습니다"},))
+    assert out["ok"] is True and len(out["warnings"]) == 1 and "보고서" in out["warnings"][0]
 
 
 def test_finish_issue_라벨_실패여도_닫고_부분_성공을_알린다(monkeypatch):

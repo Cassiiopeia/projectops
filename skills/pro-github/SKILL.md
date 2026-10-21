@@ -31,9 +31,9 @@ description: "All GitHub work: create, read, edit, close issues and PRs, comment
 | 새 이슈 작성+등록 | `search-issues` → `get-output-path issue` → `create-issue` | `../references/issue-creation.md` |
 | 이슈 조회 · 여러 개 · 목록 · 검색 | `get-issue [--with-comments]` · `get-issues` · `list-issues` · `search-issues` | `references/issues.md` |
 | 이슈 수정 (제목·라벨·담당자·본문) | `update-issue` | `references/issues.md` |
-| 이슈 닫기 · 다시 열기 · 완료 처리 한 번에 | `close-issue [--reason completed\|not_planned]` · `reopen-issue` · `finish-issue` | 아래 §이슈 완료 처리 |
+| 이슈 완료 처리 (라벨 교체+닫기 한 번에) · 닫기 · 다시 열기 | `finish-issue` · `close-issue [--reason completed\|not_planned]` · `reopen-issue` | 아래 §이슈 완료 처리 |
 | 댓글 추가 · 목록 · 수정 · 삭제 | `add-comment` · `list-comments` · `edit-comment` · `delete-comment` | `references/issues.md` |
-| 라벨 목록 · 추가 · 하나 제거 · 전체 교체 | `list-labels` · `add-labels` · `remove-label` · `set-labels` | `references/issues.md` |
+| 라벨 목록 · 추가 · 하나 제거 · 전체 교체(**상태 외 라벨도 지운다**) | `list-labels` · `add-labels` · `remove-label` · `set-labels` | `references/issues.md` |
 | 담당자 추가 · 제거 | `add-assignees` · `remove-assignees` | `references/issues.md` |
 | 제목 정규화 · 브랜치명 · 커밋 템플릿 · 이슈 문서 경로 (API 없음) | `normalize-title` · `create-branch-name` · `get-commit-template` · `get-output-path issue` | `references/issues.md` |
 | 이미지 첨부 · 지우기 | `upload-image` · `delete-image` | `references/images.md` |
@@ -41,8 +41,8 @@ description: "All GitHub work: create, read, edit, close issues and PRs, comment
 | PR 댓글 · 닫기 · 다시 열기 · 머지 | `add-pr-comment` · `close-pr` · `reopen-pr` · `merge-pr` | `references/prs.md` |
 | 릴리스 PR 본문에 릴리스 노트 채우기 (CodeRabbit 폴백) | `update-pr` | `references/prs.md` |
 | Actions 실패 진단 | `actions show-run\|joblog\|list-failed\|resolve-pr\|resolve-branch` | 아래 라우팅 + `references/actions.md` |
-| 워크플로우 실행 · 재실행 · 끝날 때까지 기다리기 · run 목록 | `actions dispatch\|rerun\|wait\|runs` | `references/actions.md` |
-| 전용 명령이 없는 REST 호출 (**curl·PAT 직접 읽기 대신**) | `api GET\|POST\|PUT\|PATCH\|DELETE {owner} {repo} /repos/{owner}/{repo}/...` | `references/actions.md` |
+| 워크플로우 실행 · 재실행 · 기다리기(여러 run) · 취소 · run 목록 | `actions dispatch\|rerun\|wait\|cancel\|runs` | `references/actions.md` |
+| 전용 명령이 없는 REST 호출 (**curl·PAT 직접 읽기 대신**) | `api GET\|POST\|PUT\|PATCH\|DELETE {owner} {repo} <경로> [--out 파일]` (상대 경로 `actions/runs` 는 레포 접두가 붙는다) | `references/actions.md` |
 | 레포 목록 · 상세 · README · 언어 · 커밋 | `explore list-repos\|repo-detail\|readme\|languages\|commits` | `references/explore.md` |
 | Actions Secret 목록 · 등록/갱신 | `secrets list\|set` | `references/secrets.md` |
 
@@ -50,6 +50,7 @@ description: "All GitHub work: create, read, edit, close issues and PRs, comment
 
 > **고정 진입점이 있으면 아래 탐색을 건너뛴다** (#942): `~/.projectops/bin/projectops_cli.py` 는 한 번이라도 CLI 를 실행하면 생기고, 부를 때마다 설치된 가장 새 스크립트를 찾아 인자를 그대로 넘긴다. 세션 도중 플러그인이 업데이트돼도 옛 경로에 묶이지 않는다.
 > `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py github <서브커맨드> ...` (없거나 `scripts_not_found` 면 아래 탐색). 응답에 `newer_installed` 가 오면 이 진입점으로 다시 부른다.
+> ⚠️ zsh 에서는 명령을 변수에 담아 부르지 않는다 (`P="python3 …"; $P` → 단어가 안 나뉘어 exit 127). 함수로 감싼다: `G(){ PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py github "$@"; }` 후 `G get-issue {owner} {repo} 12`.
 
 스크립트는 **하네스 설치 경로**에 있다 — 사용자 프로젝트에는 `skills/` 폴더가 없다(통합 시 제외). 로컬(이 저장소) 우선 → 설치 경로 폴백으로 한 번 찾는다 (`../references/common-rules.md` §"스크립트 탐색").
 **Bash 도구는 호출마다 상태가 초기화된다.** 출력된 실제 경로를 이후 블록의 `{PYTHON}` · `{SCRIPTS}` · `{PROJECT_ROOT}` 자리에 값으로 써넣는다.
@@ -96,15 +97,16 @@ git remote get-url origin
 
 작업이 끝나면 상태 라벨을 **교체**하고 닫는다. `pro-report`가 보고서를 올린 뒤 이 레시피를 따른다 (#819).
 
-한 번에: `finish-issue {owner} {repo} {번호} [--outcome done|cancelled|in-progress]` — 상태 라벨만 교체하고(다른 라벨 유지) 닫는다.
-어느 단계가 실패했는지 `steps`·`failed_steps` 로 알려 주니, 실패한 단계만 아래 명령으로 다시 한다. 단계를 나눠 직접 하려면:
+**기본은 `finish-issue` 한 번이다.** 상태 라벨만 바꾸고 `type:`·`area:` 같은 나머지 라벨은 지킨다.
 
 ```bash
-# 1) 상태 라벨 교체 — add-labels 가 아니라 set-labels (더하기만 하면 status: todo 가 남는다)
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py set-labels {owner} {repo} {이슈번호} "status: done"
-# 2) 완료로 닫기
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py close-issue {owner} {repo} {이슈번호} --reason completed
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py finish-issue {owner} {repo} {이슈번호}                       # 완료: status: done + 닫기
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py finish-issue {owner} {repo} {이슈번호} --outcome cancelled   # 취소: status: cancelled + 닫기
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py finish-issue {owner} {repo} {이슈번호} --outcome in-progress # 작업 시작·남은 일: 라벨만
 ```
+
+- 단계별 결과는 `steps`·`failed_steps`. 실패한 단계가 있으면 `finish-issue`를 다시 부른다 (멱등).
+- `--outcome done`이면 이슈에 보고서 댓글(`## 개요`+`## 변경 사항`)이 있는지 보고, 없으면 `warnings`에 남긴다. 닫기는 막지 않는다 — 경고가 오면 보고서를 빠뜨렸는지 확인한다.
 
 | 상황 | 라벨 (영문 표준 / 한글) | 닫기 |
 |------|------------------------|------|
@@ -112,8 +114,18 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py close-issue {owner} {rep
 | 남은 작업 있음 | `status: in progress` / `작업중` | 닫지 않는다 |
 | 취소 | `status: cancelled` / `취소` | `--reason not_planned` |
 
+**대체 경로 (finish-issue를 쓸 수 없을 때만):** `set-labels`는 이슈의 **라벨 전체**를 바꾼다. 상태 라벨 하나만 넘기면 `type:`·`area:`·`priority:` 라벨이 모두 지워진다. 먼저 `get-issue`의 `labels`를 읽고, 상태 라벨만 바꾼 전체 csv를 넘긴다. 응답의 `removed`·`warning`으로 지워진 라벨을 확인한다.
+
+```bash
+# 1) 현재 라벨 읽기 → 상태 라벨만 바꾼 전체 목록 만들기
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py get-issue {owner} {repo} {이슈번호} --field labels
+# 2) 전체 목록으로 교체 (예: 기존 type: bug 유지)
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py set-labels {owner} {repo} {이슈번호} "type: bug,status: done"
+# 3) 완료로 닫기
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py close-issue {owner} {repo} {이슈번호} --reason completed
+```
+
 - 레포에 한글 라벨만 있어도 영문 표준 이름으로 넘기면 CLI가 레포에 있는 표기로 바꿔 붙인다 (#776).
-- 상태 외 라벨(`priority: urgent`, `documentation` 등)을 지키려면 먼저 `get-issue`로 라벨을 읽고, 상태 라벨만 바꾼 csv를 `set-labels`에 넘긴다.
 - 닫을 때 `update-issue --state closed`를 쓰지 않는다. 열린 상태 라벨을 붙인 채로 닫는 조합은 만들지 않는다.
 - 남의 이슈를 닫거나 다시 여는 것은 사용자가 요청할 때만 한다 (`../references/common-rules.md` §이슈 상태 처리 규칙).
 - 레포 `CLAUDE.md`가 다른 규칙(예: 닫지 않고 라벨만)을 정했으면 그쪽을 따른다.
@@ -137,7 +149,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py close-issue {owner} {rep
 | `.../actions` · 빈 입력 · "빌드 실패했어" | 없음 | `actions list-failed {owner} {repo}` |
 | `.../actions/workflows/{file}.yaml` | 없음 | `actions list-failed {owner} {repo}` (결과에서 해당 워크플로명 필터) |
 
-흐름: 실패 run 찾기 → `show-run`(실패 job·step) → `joblog`(에러 라인, `--grep` · `--tail`) → 원인 진단. 상세는 `references/actions.md`.
+흐름: 실패 run 찾기 → `show-run`(실패 job·step) → `joblog`(기본은 `##[error]` 줄과 그 앞 출력, `--grep` · `--tail` · `--out`) → 원인 진단. 상세는 `references/actions.md`.
+동작 이름은 언제나 `actions` 바로 뒤다 (`actions show-run {owner} {repo} {run_id}`). 순서가 틀리면 `bad_args` 의 `next` 가 올바른 명령을 준다.
 
 ## 실패 code → 다음 행동
 
@@ -149,6 +162,10 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py close-issue {owner} {rep
 | `github_api_404` | 이슈/PR/레포/README 없음 | 해당 항목 "없음"으로 표시, 나머지 진행 |
 | `github_api_422` | 이미 PR 존재 등 | API 오류 메시지 그대로 안내 |
 | `label_not_present` | 제거하려던 라벨이 원래 없음 | 변경 없음으로 보고 |
+| `set-labels` `warning` | 상태 외 라벨(`removed`)까지 지워짐 | 의도가 아니면 `next` 의 `add-labels` 로 되돌린다 |
+| `release_asset_limit` | 증적 릴리스가 이월분까지 모두 자산 한도(1000개) | `next` 대로 오래된 증적을 지우거나 새 `--tag` |
+| `run_id_given` | `joblog` 에 run id 를 넣음 | `next` 의 `show-run` 으로 job id 를 받는다 |
+| `argument_order` | `create-pr` head/base 에 공백 (제목이 브랜치 자리에) | `--head`·`--base` 플래그로 다시 부른다 |
 | `label_warning` · `assignee_warning` | 레포에 없는 라벨 · 반영 안 된 담당자 | 작업은 성공. 경고만 자연어로 전달 |
 | `pynacl_missing` | Secret 암호화 모듈 설치 실패 | `pip install PyNaCl --user` 안내 (`references/secrets.md`) |
 | `get-pr` `computing` | mergeable_state 계산 전 | 잠시 후 재조회 |

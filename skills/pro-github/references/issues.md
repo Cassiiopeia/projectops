@@ -14,7 +14,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py get-issue {owner} {repo}
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py get-issue {owner} {repo} {이슈번호} --with-comments
 ```
 
-출력 JSON: `{"ok":true,"issue":{number,title,url,state,body,labels,assignees,created_at,updated_at,comments_count},"comments":...,"summary","next":null}`.
+출력 JSON: `{"ok":true,"issue":{number,title,url,state,body,labels,assignees,created_at,updated_at,comments_count},"comments":...,"number","title","url","state","labels","assignees","body","summary","next":null}`. 라벨은 최상위 `labels`로 바로 읽는다 (`--field labels`).
 
 여러 이슈를 한 번에 조회:
 
@@ -46,10 +46,14 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py search-issues {owner} {r
 생성 워크플로우의 등록 단계에서 쓴다:
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-issue {owner} {repo} "{제목}" "{본문 .md 절대경로}" "{라벨 csv}" --assignees "{담당자}"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-issue {owner} {repo} "{제목}" "{본문 .md 절대경로}" "{라벨 csv}" --assignees "{담당자}" --rename-body-file
+# 라벨은 위치 인자 대신 --labels "{라벨 csv}" 로 줘도 된다
 ```
 
-출력 JSON: `{"number":...,"url":...,"title":...,"assignees":[...]}`. 존재하지 않는 라벨은 자동 필터링된다. `assignee_warning`이 있으면 이슈는 정상 생성된 것이므로 그 경고만 자연어로 전달한다.
+출력 JSON: `{"number","url","title","assignees":[...],"branch","commit_template","next","body_file_renamed_to"}`. 존재하지 않는 라벨은 자동 필터링된다(`label_warning`). `assignee_warning`이 있으면 이슈는 정상 생성된 것이므로 그 경고만 자연어로 전달한다.
+
+- `--rename-body-file`: 본문 파일 이름이 `YYYYMMDD_NNN_제목` 형식이면 `NNN`을 실제 이슈 번호로 바꾼다 (`20260710_001_제목.md` → `20260710_245_제목.md`, 같은 폴더). 바뀐 경로는 `body_file_renamed_to`. 형식이 다르거나 같은 이름이 있으면 바꾸지 않고 `rename_warning`. 손으로 `mv` 하지 않는다.
+- `branch`·`commit_template`은 `create-branch-name`·`get-commit-template`과 같은 값이다 — 따로 부르지 않는다. `next`는 브랜치 생성 > `finish-issue --outcome in-progress`(작업중 전환).
 
 ## 이슈 상태 변경 (닫기 / 다시 열기)
 
@@ -72,7 +76,9 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py update-issue {owner} {re
 # --body-file "{본문 파일 경로}" 로 본문 교체, --state open|closed
 ```
 
-> 닫을 때는 `update-issue --state closed` 대신 SKILL.md §이슈 완료 처리 레시피(`set-labels` → `close-issue --reason`)를 쓴다. 열린 상태 라벨을 붙인 채로 닫는 조합은 만들지 않는다.
+본문 파일은 `--body-file` 대신 번호 뒤 위치 인자로 줘도 된다 (`update-issue {owner} {repo} {번호} "{본문 파일}"`).
+
+> 닫을 때는 `update-issue --state closed` 대신 SKILL.md §이슈 완료 처리(`finish-issue`)를 쓴다. 열린 상태 라벨을 붙인 채로 닫는 조합은 만들지 않는다.
 
 ## 댓글 추가 / 목록 / 수정 / 삭제
 
@@ -80,6 +86,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py update-issue {owner} {re
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py add-comment {owner} {repo} {이슈번호} "{댓글 본문 파일 경로}"
+# --body-file "{댓글 본문 파일 경로}" 로 줘도 된다 (update-issue 와 같은 모양)
 ```
 
 댓글 수정·삭제는 이슈 번호가 아니라 **댓글 ID(comment_id)** 로 지정한다 (이슈·PR 공용). 댓글 ID는 `list-comments`나 이전 `add-comment` 응답의 `id`에서 얻는다.
@@ -93,7 +100,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py edit-comment {owner} {re
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py delete-comment {owner} {repo} {comment_id}
 ```
 
-`list-comments`는 `{count,comments:[{author,body,created_at}]}`를 반환한다(현재 API 응답에 id가 필요하면 `add-comment`/`edit-comment` 응답의 `id`를 재사용). `edit-comment`는 `{id,url}`, `delete-comment`는 `{comment_id,status:"deleted"}`.
+`list-comments`는 `{count,comments:[{id,url,author,body,created_at}]}`를 반환한다 — `id`를 그대로 `edit-comment`·`delete-comment`에 넘긴다. `edit-comment`는 `{id,url}`, `delete-comment`는 `{comment_id,status:"deleted"}`.
 
 ## 라벨 (추가 / 제거 / 전체 교체)
 
@@ -106,9 +113,11 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py list-labels {owner} {rep
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py add-labels {owner} {repo} {이슈번호} "priority: urgent"
 # 라벨 하나만 제거 (나머지 유지, 없으면 멱등 처리)
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py remove-label {owner} {repo} {이슈번호} "status: todo"
-# 라벨 전체 교체 (빈 문자열이면 전부 제거) — 상태 라벨을 바꿀 때는 이것을 쓴다
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py set-labels {owner} {repo} {이슈번호} "status: in progress"
+# 라벨 전체 교체 (빈 문자열이면 전부 제거) — 넘긴 목록 밖의 라벨은 type:·area: 까지 전부 지워진다
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py set-labels {owner} {repo} {이슈번호} "type: bug,status: in progress"
 ```
+
+> 상태 라벨만 바꿀 때는 `set-labels`가 아니라 `finish-issue --outcome done|cancelled|in-progress`를 쓴다 (상태 외 라벨 유지). `set-labels` 응답의 `removed`는 지워진 라벨, `warning`은 상태 외 라벨이 지워졌다는 뜻이다 — 의도가 아니면 `next`의 `add-labels`로 되돌린다.
 
 상태 라벨은 영문 표준과 한글을 둘 다 쓴다: `status: todo`(`작업전`) · `status: in progress`(`작업중`) · `status: needs review`(`담당자확인`) · `status: feedback`(`피드백`) · `status: done`(`작업완료`) · `status: on hold`(`보류`) · `status: cancelled`(`취소`), 그 밖에 `priority: urgent`(`긴급`) · `documentation`(`문서`). 어느 표기로 넘겨도 CLI가 레포에 있는 쪽으로 바꿔 붙인다 (#776).
 
@@ -133,9 +142,9 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py remove-assignees {owner}
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py normalize-title "❗[버그] 한글 제목!"
-# → {"normalized":"버그_한글_제목", ...}
+# → {"normalized":"버그_한글_제목", ...}   하이픈은 _ 로 바뀐다 (pro-launch → pro_launch)
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-branch-name "이슈 제목" 235 --date 20260710
-# → {"branch":"20260710_#235_이슈_제목", ...}
+# → {"branch":"20260710_#235_이슈_제목","issue_number":235, ...}   다른 명령처럼 {owner} {repo} "이슈 제목" 235 로 불러도 된다
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py get-commit-template "❗[Bug][Skills] 이슈 제목" "https://github.com/o/r/issues/235" --repo-root "{PROJECT_ROOT}"
 # → {"template":"...{description}...","source":"...","warnings":[]}   형식은 팀·개인 설정을 따른다 (예: 팀 형식이면 "이슈 제목 : fix : {description} https://..."). 타입은 제목 태그에서 추론 (버그→fix, 기능→feat)
 #   --repo-root 로 형식을 찾을 레포를 항상 명시한다 (생략하면 cwd 의 git 루트). --scope S 는 {scope} 자리표시자 값. warnings 가 있으면 사용자에게 알린다

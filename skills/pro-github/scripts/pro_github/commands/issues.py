@@ -5,6 +5,7 @@ from pathlib import Path
 
 from common.emit import emit
 from common.gh_client import GitHubAPIError
+from pro_github.issue_followup import build_work_start_hints, rename_body_file_to_issue_number
 from pro_github.registry import Command
 from pro_github.responses import api_error, missing_pat, split_csv
 
@@ -25,6 +26,9 @@ def cmd_get_issue(args, api) -> int:
             "url": issue["url"],
             "html_url": issue["url"],
             "state": issue["state"],
+            # 라벨 교체 전에 issue.labels 를 짐작하지 않게 최상위에도 둔다
+            "labels": issue.get("labels", []),
+            "assignees": issue.get("assignees", []),
             "body": issue.get("body", ""),
         })
     except GitHubAPIError as e:
@@ -78,23 +82,41 @@ def cmd_create_issue(args, api) -> int:
     if not pat:
         return missing_pat()
     body = body_path.read_text(encoding="utf-8")
-    labels = split_csv(args.labels) if args.labels else []
+    # 위치 인자와 --labels 를 둘 다 받는다 (다른 명령이 --labels 라 그대로 부르면 실패했다)
+    labels = split_csv(",".join(filter(None, (args.labels, args.labels_option))))
     assignees = split_csv(args.assignees) if args.assignees else []
     try:
         result = api.create_issue(args.owner, args.repo, args.title, body, labels, pat, assignees)
-        applied = result.get("assignees", [])
-        missing = [a for a in assignees if a not in applied]
-        out = {**result, "summary": f"이슈 #{result.get('number')} 생성 완료", "body_length": len(body)}
-        skipped_labels = out.pop("skipped_labels", [])
-        if skipped_labels:
-            out["label_warning"] = f"레포에 없어 무시된 라벨: {', '.join(skipped_labels)}"
-        if missing:
-            out["assignee_warning"] = (
-                f"담당자 지정 일부 실패: {', '.join(missing)} (레포 협업자/권한 확인 필요). 이슈는 정상 생성됨."
-            )
-        return emit(out)
     except GitHubAPIError as e:
         return api_error(e)
+    applied = result.get("assignees", [])
+    missing = [a for a in assignees if a not in applied]
+    out = {**result, "summary": f"이슈 #{result.get('number')} 생성 완료", "body_length": len(body)}
+    skipped_labels = out.pop("skipped_labels", [])
+    if skipped_labels:
+        out["label_warning"] = f"레포에 없어 무시된 라벨: {', '.join(skipped_labels)}"
+    if missing:
+        out["assignee_warning"] = (
+            f"담당자 지정 일부 실패: {', '.join(missing)} (레포 협업자/권한 확인 필요). 이슈는 정상 생성됨."
+        )
+    _add_created_issue_followups(out, args, body_path)
+    return emit(out)
+
+
+def _add_created_issue_followups(out: dict, args, body_path: Path) -> None:
+    """생성 직후 할 일: 로컬 문서 번호 맞추기(--rename-body-file) > 브랜치명·커밋 틀 > next"""
+    if args.rename_body_file:
+        renamed, warning = rename_body_file_to_issue_number(body_path, out["number"])
+        out["body_file_renamed_to"] = str(renamed) if renamed else None
+        if warning:
+            out["rename_warning"] = warning
+    try:
+        out.update(build_work_start_hints(out.get("title") or args.title, out["number"], out["url"]))
+    except Exception as error:  # 이슈는 이미 생성됨: 보조 정보 실패로 생성 응답을 잃지 않는다
+        out.update({"branch": None, "commit_template": None, "hints_warning": f"{type(error).__name__}: {error}"})
+    # 작업중 전환은 상태 라벨만 바꾸는 finish-issue (set-labels 는 type·area 라벨까지 지운다)
+    out["next"] = (f"브랜치 {out['branch'] or '(create-branch-name 으로 생성)'} 생성 > "
+                   f"finish-issue {args.owner} {args.repo} {out['number']} --outcome in-progress")
 
 
 def cmd_list_issues(args, api) -> int:
@@ -116,13 +138,14 @@ def cmd_list_issues(args, api) -> int:
 def cmd_update_issue(args, api) -> int:
     # 입력 먼저, 자격증명 나중 (cmd_create_issue 와 같은 이유).
     body = None
-    if args.body_file:
-        body_path = Path(args.body_file)
+    body_file = args.body_file or args.body_file_positional
+    if body_file:
+        body_path = Path(body_file)
         if not body_path.exists():
             return emit({
                 "ok": False,
                 "code": "body_file_not_found",
-                "error": f"수정용 본문 파일이 존재하지 않습니다: {args.body_file}",
+                "error": f"수정용 본문 파일이 존재하지 않습니다: {body_file}",
                 "path_attempted": str(body_path.resolve())
             })
         body = body_path.read_text(encoding="utf-8")
@@ -214,7 +237,10 @@ def _configure_create_issue(parser) -> None:
     parser.add_argument("body_file")
     # 라벨을 생략해도 된다 (템플릿 기본 라벨만 붙는다): 필수 위치 인자라 빠뜨리면 bad_args 가 났다 (#940)
     parser.add_argument("labels", nargs="?", default="", help="csv")
+    parser.add_argument("--labels", dest="labels_option", default="", help="csv (위치 인자 labels 와 같다)")
     parser.add_argument("--assignees", help="담당자 csv")
+    parser.add_argument("--rename-body-file", dest="rename_body_file", action="store_true",
+                        help="본문 파일 YYYYMMDD_NNN_제목 의 NNN 을 실제 이슈 번호로 바꾼다")
 
 
 def _configure_list_issues(parser) -> None:
@@ -229,9 +255,11 @@ def _configure_update_issue(parser) -> None:
     parser.add_argument("owner")
     parser.add_argument("repo")
     parser.add_argument("number", type=int)
+    # 본문 파일은 위치 인자로도 받는다 (add-comment 와 같은 모양)
+    parser.add_argument("body_file_positional", nargs="?", metavar="body_file", help="본문 파일 경로")
     parser.add_argument("--title")
     parser.add_argument("--state", choices=["open", "closed"])
-    parser.add_argument("--labels", help="csv")
+    parser.add_argument("--labels", help="csv (전체 교체)")
     parser.add_argument("--assignees", help="csv")
     parser.add_argument("--body-file", help="본문 파일 경로")
 

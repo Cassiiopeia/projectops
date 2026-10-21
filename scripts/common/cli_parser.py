@@ -68,17 +68,22 @@ def _make_hint(parser: argparse.ArgumentParser) -> str:
     return f"{parser.prog} --help"
 
 
+# 값 하나를 받는 전역 출력 옵션: --field a.b / --fields a,b (CLI 마다 표기가 달라 둘 다 받는다)
+_FIELD_OPTIONS = ("--field", "--fields")
+
+
 def _extract_output_options(argv: list) -> tuple:
-    """argv 에서 전역 출력 옵션(--brief, --field X)을 꺼낸다. (남은 argv, brief, field)"""
+    """argv 에서 전역 출력 옵션(--brief, --field(s) X)을 꺼낸다. (남은 argv, brief, field)"""
     rest, brief, field, skip_next = [], False, None, False
     for position, token in enumerate(argv):
+        option_name = token.split("=", 1)[0]
         if skip_next:
             skip_next = False
         elif token == "--brief":
             brief = True
-        elif token == "--field" and position + 1 < len(argv):
+        elif token in _FIELD_OPTIONS and position + 1 < len(argv):
             field, skip_next = argv[position + 1], True
-        elif token.startswith("--field="):
+        elif option_name in _FIELD_OPTIONS and "=" in token:
             field = token.split("=", 1)[1]
         else:
             rest.append(token)

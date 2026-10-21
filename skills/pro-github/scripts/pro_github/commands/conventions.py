@@ -31,10 +31,26 @@ def cmd_normalize_title(args, api) -> int:
     return emit({"normalized": result, "summary": result})
 
 
+def read_branch_name_values(values: list[str]) -> tuple:
+    """[제목, 번호] · [번호, 제목] · [owner, repo, 제목, 번호] > (제목, 번호) | None (다른 명령처럼 owner repo 를 앞에 둬도 받는다)"""
+    if len(values) == 4 and values[3].isdigit():
+        return values[2], int(values[3])
+    if len(values) == 2 and values[1].isdigit():
+        return values[0], int(values[1])
+    if len(values) == 2 and values[0].isdigit():
+        return values[1], int(values[0])
+    return None
+
+
 def cmd_create_branch_name(args, api) -> int:
     from common.gh_branch import create_branch_name
-    name = create_branch_name(args.issue_title, args.issue_number, args.date)
-    return emit({"branch": name, "summary": name})
+    parsed = read_branch_name_values(args.values)
+    if parsed is None:
+        return emit({"ok": False, "code": "bad_args", "error": f"제목과 이슈 번호를 읽지 못했다: {args.values}",
+                     "usage": "create-branch-name <제목> <번호> (또는 <owner> <repo> <제목> <번호>)"})
+    issue_title, issue_number = parsed
+    name = create_branch_name(issue_title, issue_number, args.date)
+    return emit({"branch": name, "issue_number": issue_number, "summary": name})
 
 
 def cmd_get_commit_template(args, api) -> int:
@@ -62,8 +78,8 @@ def _configure_normalize_title(parser) -> None:
 
 
 def _configure_create_branch_name(parser) -> None:
-    parser.add_argument("issue_title")
-    parser.add_argument("issue_number", type=int)
+    parser.add_argument("values", nargs="+", metavar="value",
+                        help="<제목> <번호> 또는 <owner> <repo> <제목> <번호>")
     parser.add_argument("--date", type=_date_arg, help="YYYYMMDD")
 
 

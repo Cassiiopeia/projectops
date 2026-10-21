@@ -10,12 +10,16 @@ from pro_github.responses import api_error, missing_pat
 
 
 def cmd_add_comment(args, api) -> int:
+    body_file = args.body_file or args.body_file_option
+    if not body_file:
+        return emit({"ok": False, "code": "missing_argument", "error": "본문 파일 필요",
+                     "usage": "add-comment <owner> <repo> <number> <body_file> (또는 --body-file <파일>)"})
     pat = api.get_github_pat(args.owner, args.repo)
     if not pat:
         return missing_pat()
-    body_path = Path(args.body_file)
+    body_path = Path(body_file)
     if not body_path.exists():
-        return emit({"ok": False, "code": "body_file_not_found", "error": f"{args.body_file} 없음"})
+        return emit({"ok": False, "code": "body_file_not_found", "error": f"{body_file} 없음"})
     body = body_path.read_text(encoding="utf-8")
     try:
         result = api.add_comment(args.owner, args.repo, args.number, body, pat)
@@ -71,7 +75,9 @@ def _configure_add_comment(parser) -> None:
     parser.add_argument("owner")
     parser.add_argument("repo")
     parser.add_argument("number", type=int)
-    parser.add_argument("body_file")
+    # 위치 인자와 --body-file 둘 다 받는다 (update-issue 와 같은 모양)
+    parser.add_argument("body_file", nargs="?")
+    parser.add_argument("--body-file", dest="body_file_option", default=None, help="본문 파일 경로")
 
 
 def _configure_list_comments(parser) -> None:

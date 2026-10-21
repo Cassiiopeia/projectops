@@ -49,6 +49,9 @@ def get_repo_detail(owner: str, repo: str, pat: str) -> dict:
         "updated_at": data.get("updated_at"),
         "topics": data.get("topics", []),
         "url": data.get("html_url"),
+        # 공개 여부: 증적 이미지 렌더링·오픈소스 점검 판단에 쓴다
+        "private": data.get("private", False),
+        "visibility": data.get("visibility"),
     }
 
 

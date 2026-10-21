@@ -1,14 +1,16 @@
 """finish-issue: 상태 라벨 교체 + 닫기를 한 명령으로. 중간에 실패해도 어디까지 됐는지 알려 준다 (#941)."""
 from __future__ import annotations
 
+import urllib.error
+
 from common.emit import emit
-from common.gh_client import GitHubAPIError
-from common.github_rest.labels import LABEL_ALIAS_GROUPS
+from common.gh_client import STATUS_LABEL_NAMES, GitHubAPIError
 from pro_github.registry import Command
 from pro_github.responses import missing_pat
 
-# 상태 라벨 이름 전부 (한글·영문): 교체할 때 이것만 걷어 내고 나머지 라벨은 지킨다
-_STATUS_LABEL_NAMES = {name for group in LABEL_ALIAS_GROUPS[:7] for name in group}
+# pro-report 보고서 댓글 판별: 명시 표식이 없어 출력 틀의 고정 제목 2개로 본다 (휴리스틱)
+REPORT_COMMENT_MARKER = "<!-- projectops:report -->"
+_REPORT_TEMPLATE_HEADINGS = ("## 개요", "## 변경 사항")
 
 # 결과별: (붙일 상태 라벨, 닫을 때 사유 | None=닫지 않음)
 _OUTCOMES = {
@@ -30,7 +32,7 @@ def cmd_finish_issue(args, api) -> int:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e), "steps": steps})
 
     # 상태 라벨 교체 (상태 외 라벨은 유지)
-    wanted = [label for label in current if label not in _STATUS_LABEL_NAMES] + [status_label]
+    wanted = [label for label in current if label not in STATUS_LABEL_NAMES] + [status_label]
     try:
         replaced = api.set_issue_labels(args.owner, args.repo, args.number, wanted, pat)
         if replaced.get("unchanged"):
@@ -50,14 +52,36 @@ def cmd_finish_issue(args, api) -> int:
             steps.append({"step": "close", "ok": False, "code": f"github_api_{e.status_code}", "detail": str(e)})
 
     failed = [step["step"] for step in steps if not step["ok"]]
+    # 보고서 없이 닫는 일이 반복됐다 (40개 일괄 종료) — 막지는 않고 알린다
+    warnings = _report_warnings(args, api, pat) if args.outcome == "done" else []
     return emit({
         "ok": not failed,
         "code": "finished" if not failed else "finished_partial",
         "steps": steps,
         "failed_steps": failed,
+        "warnings": warnings,
         "summary": (f"#{args.number} 완료 처리: " + " > ".join(f"{s['step']} {'ok' if s['ok'] else '실패'}" for s in steps)),
-        "next": None if not failed else f"실패한 단계만 다시: {', '.join(failed)} (set-labels / close-issue)",
+        "next": (f"실패한 단계만 다시: {', '.join(failed)} (finish-issue 재실행 또는 close-issue)" if failed
+                 else "보고서가 빠졌다면 pro-report 로 작성해 이 이슈에 댓글로 남긴다" if warnings else None),
     })
+
+
+def is_report_comment(body: str) -> bool:
+    """pro-report 보고서 댓글인지: 표식 또는 출력 틀 제목(## 개요 · ## 변경 사항)이 모두 있음"""
+    body = body or ""
+    return REPORT_COMMENT_MARKER in body or all(heading in body for heading in _REPORT_TEMPLATE_HEADINGS)
+
+
+def _report_warnings(args, api, pat: str) -> list[str]:
+    """보고서 댓글이 없으면 경고 1줄. 댓글 조회 실패도 경고로 남긴다 (완료 처리는 그대로)"""
+    try:
+        comments = api.get_issue_comments(args.owner, args.repo, args.number, pat)
+    except (GitHubAPIError, urllib.error.URLError, TimeoutError, ConnectionError) as error:
+        return [f"보고서 댓글 확인 실패: {error}"]
+    if any(is_report_comment(comment.get("body", "")) for comment in comments):
+        return []
+    return [f"#{args.number} 에 보고서 댓글이 없다 (판별: '## 개요'+'## 변경 사항' 제목, 휴리스틱). "
+            f"pro-report 로 보고서를 남겼는지 확인한다"]
 
 
 def _configure_finish_issue(parser) -> None:

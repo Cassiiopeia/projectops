@@ -36,7 +36,25 @@ def _preflight_head_branch(args, api, pat) -> int | None:
     return None
 
 
+def _resolve_head_and_base(args) -> int | None:
+    """위치 인자·--head/--base 를 하나로 > args.head·args.base. 문제 있으면 응답 코드, 없으면 None"""
+    args.head = args.head_option or args.head_positional
+    args.base = args.base_option or args.base_positional
+    usage = "create-pr <owner> <repo> <title> <body_file> --head <브랜치> --base <브랜치>"
+    if not args.head or not args.base:
+        return emit({"ok": False, "code": "missing_argument", "error": "head·base 브랜치 필요", "usage": usage})
+    # 브랜치명에는 공백이 없다: 공백이 있으면 제목이 head 자리에 들어간 순서 오류
+    if any(character.isspace() for character in args.head + args.base):
+        return emit({"ok": False, "code": "argument_order",
+                     "error": f"head/base 에 공백이 있다 — 인자 순서가 틀렸다 (head={args.head!r}, base={args.base!r})",
+                     "usage": usage, "next": "제목은 셋째, 본문 파일은 넷째 자리. 브랜치는 --head·--base 로 준다"})
+    return None
+
+
 def cmd_create_pr(args, api) -> int:
+    invalid = _resolve_head_and_base(args)
+    if invalid is not None:
+        return invalid
     pat = api.get_github_pat(args.owner, args.repo)
     if not pat:
         return missing_pat()
@@ -203,8 +221,11 @@ def _configure_create_pr(parser) -> None:
     parser.add_argument("repo")
     parser.add_argument("title")
     parser.add_argument("body_file")
-    parser.add_argument("head")
-    parser.add_argument("base")
+    # 위치 인자 6개 순서가 자주 틀려 플래그로도 받는다 (플래그가 우선)
+    parser.add_argument("head_positional", nargs="?", metavar="head")
+    parser.add_argument("base_positional", nargs="?", metavar="base")
+    parser.add_argument("--head", dest="head_option", default=None, metavar="BRANCH", help="head 브랜치 (포크면 owner:branch)")
+    parser.add_argument("--base", dest="base_option", default=None, metavar="BRANCH", help="base 브랜치")
 
 
 def _configure_list_prs(parser) -> None:

@@ -79,6 +79,7 @@ def test_add_labels_warns_unknown(monkeypatch):
 
 def test_set_labels_all_unknown_fails_without_clearing(monkeypatch):
     rc, out = _run(monkeypatch, ["set-labels", "o", "r", "5", "작업중"],
+                   get_issue_labels=lambda *a: ["작업전"],
                    set_issue_labels=lambda o, r, n, labels, pat: {
                        "labels": ["작업전"], "skipped": ["작업중"], "unchanged": True})
     assert rc == 1
@@ -88,10 +89,21 @@ def test_set_labels_all_unknown_fails_without_clearing(monkeypatch):
 
 def test_set_labels_partial_unknown_warns(monkeypatch):
     rc, out = _run(monkeypatch, ["set-labels", "o", "r", "5", "작업중,헛것"],
+                   get_issue_labels=lambda *a: ["작업전"],
                    set_issue_labels=lambda o, r, n, labels, pat: {
                        "labels": ["작업중"], "skipped": ["헛것"], "unchanged": False})
     assert rc == 0
     assert "헛것" in out["label_warning"]
+
+
+def test_set_labels_reports_removed_and_warns_on_non_status_loss(monkeypatch):
+    """완료 처리를 set-labels 로 하다 type:·area: 라벨이 지워지던 사고 (#969 A1)."""
+    rc, out = _run(monkeypatch, ["set-labels", "o", "r", "5", "작업완료"],
+                   get_issue_labels=lambda *a: ["작업중", "type: bug"],
+                   set_issue_labels=lambda o, r, n, labels, pat: {
+                       "labels": ["작업완료"], "skipped": [], "unchanged": False})
+    assert rc == 0 and out["removed"] == ["작업중", "type: bug"]
+    assert "type: bug" in out["warning"] and "add-labels" in out["next"]
 
 
 def test_create_issue_warns_dropped_labels(monkeypatch, tmp_path):
@@ -103,6 +115,46 @@ def test_create_issue_warns_dropped_labels(monkeypatch, tmp_path):
                        "skipped_labels": ["헛것"]})
     assert rc == 0
     assert "헛것" in out["label_warning"]
+
+
+def test_create_issue_renames_draft_body_file_and_returns_work_start_hints(monkeypatch, tmp_path):
+    """다른 스킬이 기대는 계약 (#969 A13·A14): --labels 별칭, 본문 파일 번호 교체, branch·commit_template·next."""
+    body = tmp_path / "20261021_001_로그인_버그.md"
+    body.write_text("본문", encoding="utf-8")
+    seen = {}
+    rc, out = _run(monkeypatch, ["create-issue", "o", "r", "로그인 버그", str(body), "--labels", "bug",
+                                 "--rename-body-file"],
+                   create_issue=lambda o, r, title, text, labels, pat, assignees: seen.update(labels=labels) or {
+                       "number": 245, "url": "https://github.com/o/r/issues/245", "title": title, "assignees": []})
+    renamed = tmp_path / "20261021_245_로그인_버그.md"
+    assert rc == 0 and seen["labels"] == ["bug"]
+    assert out["body_file_renamed_to"] == str(renamed) and renamed.exists() and not body.exists()
+    assert "_#245_" in out["branch"] and "issues/245" in out["commit_template"] and out["next"]
+
+
+def test_argument_order_mistakes_are_reported_with_the_right_order(monkeypatch):
+    """create-pr 제목이 head 자리에 · create-branch-name 에 owner repo 를 앞에 (#969 A15·A16)."""
+    rc, out = _run(monkeypatch, ["create-pr", "o", "r", "body.md", "feature/x", "새 기능 추가", "main"])
+    assert rc == 1 and out["code"] == "argument_order"
+    rc, out = _run(monkeypatch, ["create-branch-name", "elum", "repo", "로그인 버그", "12", "--date", "20261021"])
+    assert rc == 0 and out["branch"] == "20261021_#12_로그인_버그"
+
+
+def test_upload_rolls_over_to_next_evidence_release_on_asset_limit(monkeypatch, tmp_path):
+    """릴리스 자산 1000개 한도 422 로 막히던 업로드 (#969 A3): 다음 태그 릴리스로 이월."""
+    from common import gh_client
+    image = tmp_path / "shot.png"
+    image.write_bytes(b"\x89PNG")
+    monkeypatch.setattr(gh_client, "ensure_evidence_release",
+                        lambda o, r, pat, tag: {"upload_url": f"https://uploads/{tag}/assets{{?name}}"})
+
+    def upload(url, data, content_type, pat):
+        if "/qa-evidence/" in url:
+            raise GitHubAPIError(422, "Validation Failed (ReleaseAsset/file_count/custom/limited to 1000 assets)")
+        return {"browser_download_url": "https://dl/shot.png", "id": 9}
+    monkeypatch.setattr(gh_client, "_upload_request", upload)
+    result = gh_client.upload_evidence_image("o", "r", str(image), "pat")
+    assert result["tag"] == "qa-evidence-2" and result["url"] == "https://dl/shot.png"
 
 
 # --- PR merge: verdict 분기 ---

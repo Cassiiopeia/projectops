@@ -208,7 +208,7 @@ def get_issue(owner: str, repo: str, issue_number: int, pat: str) -> dict:
 
 
 def get_issue_comments(owner: str, repo: str, issue_number: int, pat: str) -> list[dict]:
-    """이슈 댓글 목록을 agent가 바로 읽기 쉬운 형태로 반환한다."""
+    """이슈 댓글 목록을 agent가 바로 읽기 쉬운 형태로 반환한다 (id·url: edit-comment·delete-comment 대상)."""
     items = client._request(
         "GET",
         f"{_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}/comments?per_page=100",
@@ -217,6 +217,8 @@ def get_issue_comments(owner: str, repo: str, issue_number: int, pat: str) -> li
     )
     return [
         {
+            "id": item.get("id"),
+            "url": item.get("html_url"),
             "author": (item.get("user") or {}).get("login"),
             "body": item.get("body", ""),
             "created_at": item.get("created_at"),
