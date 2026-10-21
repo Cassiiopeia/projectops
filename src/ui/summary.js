@@ -241,11 +241,20 @@ export function printSummary(ctx, targetRoot = ".", write = null) {
   err("     → Secret Name: _GITHUB_PAT_TOKEN / Scopes: repo, workflow");
   err("");
   // Do not re-instruct a task the wizard already did.
-  if (deployBranchReady) {
+  const branchResult = ctx?.developmentBranchResult ?? null; // #715 --create-development-branch outcome
+  if (branchResult?.status === "created") {
+    err(`  2️⃣  ✅ ${t("done.todo.branchCreated", { branch: deployBranchName, base: branchResult.base || "HEAD" })}`);
+  } else if (branchResult?.status === "skipped") {
+    err(`  2️⃣  ✅ ${t("done.todo.branchExists", { branch: deployBranchName })}`);
+  } else if (branchResult?.status === "failed") {
+    err(`  2️⃣  ${t("done.todo.branchFailed", { branch: deployBranchName, reason: branchResult.reason })}`);
+    err(`     → ${branchResult.manualCommand}`);
+  } else if (deployBranchReady) {
     err(`  2️⃣  ✅ ${t("done.todo.branchReady", { branch: deployBranchName })}`);
   } else {
     err(`  2️⃣  ${t("done.todo.branch", { branch: deployBranchName })}`);
     err(`     → git checkout -b ${deployBranchName} && git push -u origin ${deployBranchName}`);
+    if (ctx?.shouldSuggestCreateBranchFlag === true) err(`     💡 ${t("done.todo.branchFlagHint")}`);
   }
   err("");
   // Only explain what the user selected: instructions for a disabled feature blur what to do.

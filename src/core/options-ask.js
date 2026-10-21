@@ -21,35 +21,37 @@ import { DEPLOY_TARGETS, PUBLISH_TARGETS, CHANGELOG_PROVIDERS, DEFAULT_CODE_REVI
 //   true  = 브랜치가 이미 있거나 이번 실행에서 생성함 → 요약에서 생성 안내 불필요
 //   false = 없는데 사용자가 거절/생성 실패 → 안내 유지
 //   null  = 확인 자체를 못 함(비레포·질문 불가) → 안내 유지(보수적)
+// 반환 state (#715 — 비대화형 결과 기록용): not-checked · not-a-repo · exists-local · exists-remote ·
+//   declined · create-failed · push-declined · pushed · push-failed
 export async function ensureDeployBranch({ targetRoot = ".", deployBranch = "", defaultBranch = "", io = {}, say = () => {} }) {
-  if (!deployBranch || typeof io.confirm !== "function") return { created: false, pushed: false, ready: null };
+  if (!deployBranch || typeof io.confirm !== "function") return { created: false, pushed: false, ready: null, state: "not-checked" };
   const st = branchStatus(targetRoot, deployBranch);
-  if (!st.isRepo) return { created: false, pushed: false, ready: null };
-  if (st.local) return { created: false, pushed: false, ready: true };
+  if (!st.isRepo) return { created: false, pushed: false, ready: null, state: "not-a-repo" };
+  if (st.local) return { created: false, pushed: false, ready: true, state: "exists-local" };
   if (st.remote === true) {
     say(msg("options.branch.remoteOnly", { branch: deployBranch }));
-    return { created: false, pushed: false, ready: true };
+    return { created: false, pushed: false, ready: true, state: "exists-remote" };
   }
   say(msg("options.branch.missing", { branch: deployBranch, base: defaultBranch || msg("options.branch.baseFallback") }));
   const mk = await io.confirm({ message: msg("options.branch.createPrompt", { base: defaultBranch || msg("options.branch.currentFallback"), branch: deployBranch }), initialValue: true });
   if (mk !== true) {
     say(msg("options.branch.skipped", { branch: deployBranch }));
-    return { created: false, pushed: false, ready: false };
+    return { created: false, pushed: false, ready: false, state: "declined" };
   }
   if (!createBranch(targetRoot, deployBranch, defaultBranch)) {
     say(msg("options.branch.createFailed", { branch: deployBranch, from: defaultBranch ? ` ${defaultBranch}` : "" }));
-    return { created: false, pushed: false, ready: false };
+    return { created: false, pushed: false, ready: false, state: "create-failed" };
   }
   say(msg("options.branch.created", { branch: deployBranch }));
   // #481 — push 질문에 브랜치명 명시 ("어느 브랜치를 push하는지" 불명확 방지)
   const up = await io.confirm({ message: msg("options.branch.pushPrompt", { branch: deployBranch }), initialValue: true });
-  if (up !== true) return { created: true, pushed: false, ready: true };
+  if (up !== true) return { created: true, pushed: false, ready: true, state: "push-declined" };
   if (pushBranch(targetRoot, deployBranch)) {
     say(msg("options.branch.pushed", { branch: deployBranch }));
-    return { created: true, pushed: true, ready: true };
+    return { created: true, pushed: true, ready: true, state: "pushed" };
   }
   say(msg("options.branch.pushFailed", { branch: deployBranch }));
-  return { created: true, pushed: false, ready: true };
+  return { created: true, pushed: false, ready: true, state: "push-failed" };
 }
 
 // 재노출 — 파서 본체는 version-yml.js에 있다 (순환 import 방지: options-ask → version-yml 방향만 허용)

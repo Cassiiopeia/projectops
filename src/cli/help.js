@@ -50,6 +50,9 @@ Options
       --publish CSV        library registries: nexus,npm,github-packages. omitted: none
       --deploy-branch NAME the DEVELOPMENT branch (head of the release PR), default develop. It is NOT the branch that deploys;
                            that is the repository default branch. This flag does not create the branch
+      --create-development-branch   create the development branch from the default branch and push it to origin when it
+                           is missing. Does nothing if it exists. A failed push does not fail the run; the summary prints
+                           the command to run yourself. omitted: off (pushing to the remote is never done without asking)
       --secret-backup / --no-secret-backup   upload GitHub Secrets to your server over SSH (needs SERVER_* secrets). omitted: excluded
       --ai-summary / --no-ai-summary         AI change summary comment on work PRs. Works with no extra setup. omitted: included
       --coderabbit / --no-coderabbit         install .coderabbit.yaml (only --mode full). Needs the CodeRabbit GitHub app. An existing
@@ -129,6 +132,9 @@ AI agent 나 CI 는 항상 이렇게 실행한다:      npx projectops --mode <�
       --publish CSV        라이브러리 레지스트리: nexus,npm,github-packages. 생략: 없음
       --deploy-branch NAME **개발** 브랜치(릴리스 PR 의 head), 기본 develop. 배포가 도는 브랜치가 아니다 —
                            그것은 레포 기본 브랜치다. 이 플래그는 브랜치를 만들지 않는다
+      --create-development-branch   개발 브랜치가 없으면 기본 브랜치에서 만들고 origin 에 push 한다. 이미 있으면
+                           아무것도 하지 않는다. push 가 실패해도 실행은 실패하지 않고 직접 실행할 명령을 요약에 남긴다.
+                           생략: 꺼짐 (묻지 않고 원격에 push 하지 않는다)
       --secret-backup / --no-secret-backup   GitHub Secret 을 SSH 로 서버에 올린다 (SERVER_* secret 필요). 생략: 제외
       --ai-summary / --no-ai-summary         작업 PR 에 AI 변경 요약 댓글. 추가 설정 없이 동작. 생략: 포함
       --coderabbit / --no-coderabbit         .coderabbit.yaml 설치 (--mode full 에서만). CodeRabbit GitHub 앱이 필요하다.

@@ -20,6 +20,7 @@ import { createRunTrace, MIGRATION_DIR } from "./core/run-trace.js";
 import { appendGuideEntry } from "./core/migration-guide.js";
 import { resolveProjectPaths, markerForType } from "./core/paths-resolve.js";
 import { resolveOptions } from "./core/resolve-options.js";
+import { runDevelopmentBranchStep } from "./core/development-branch.js";
 import { printBannerCompact } from "./ui/banner.js";
 import { printSummary } from "./ui/summary.js";
 import { runFull } from "./commands/full.js";
@@ -304,6 +305,14 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
         // 알 수 없는 모드 → 복사 0건, 에러 아님
         break;
     }
+    // 개발 브랜치 생성 (#715) — --create-development-branch 일 때만. 실패해도 실행은 계속(수동 명령 안내)
+    const developmentBranchResult = await runDevelopmentBranchStep({
+      isRequested: opts.createDevelopmentBranch === true, targetRoot: cwd,
+      branch: context.deployBranch || "develop", defaultBranch: branch, trace,
+      say: (line) => console.error(line),
+    });
+    const isDevelopmentBranchReady = developmentBranchResult ? developmentBranchResult.status !== "failed" : null;
+
     // 마이그레이션 기록 (#493/#494) — Layer 2/3 트레이스 파일 + Layer 1 가이드 엔트리
     let migrationGuidePath = null;
     // 기록 파일 경로는 먼저 계산하고(가이드가 참조), 실제 쓰기는 완료 화면 출력 뒤로 미룬다 —
@@ -316,7 +325,8 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
         now, mode: opts.mode, types, repoName,
         templateFrom: existing?.templateVersion || "", templateTo: context.templateVersion,
         options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto , appRelease: context.appRelease, language: context.language, labelStyle: context.labelStyle, closeOnRelease: context.closeOnRelease, projectsSync: context.projectsSync, excludedWorkflows: context.excludedWorkflows, storeLocales: context.storeLocales, storeLocalesIos: context.storeLocalesIos, storeLocalesPlay: context.storeLocalesPlay },
-        branches: { defaultBranch: branch, deployBranch: context.deployBranch || "develop", ready: null, created: null },
+        branches: { defaultBranch: branch, deployBranch: context.deployBranch || "develop", ready: isDevelopmentBranchReady,
+          created: developmentBranchResult ? developmentBranchResult.status === "created" : null, result: developmentBranchResult },
         breaking: breakingReport, migrations: migrationsResult, orphans: { cleaned: [], pending: orphanPending },
         events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },
         traceFile: files?.traceFile ?? "", logFile: files?.logFile ?? "",
@@ -326,6 +336,8 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     // 완료 요약 (CLI 모드에서도 출력)
     printSummary({
       mode: opts.mode, types, version, deployBranch: context.deployBranch, migrationGuidePath,
+      developmentBranchResult,                                        // #715 생성 결과 (플래그 없으면 null)
+      shouldSuggestCreateBranchFlag: !developmentBranchResult,        // #715 플래그 없이 돌았으면 다음엔 쓰라고 안내
       counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },
       skippedConflicts: result?.workflows?.skippedConflicts ?? [],   // #654 병합 안내
       replacedBak: result?.workflows?.replacedBak ?? [],             // #673 기준점 없이 교체한 파일 안내

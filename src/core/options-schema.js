@@ -48,6 +48,8 @@ export const FLAGS = [
     description: "Registries a library is published to. Several allowed.", versionYml: "metadata.template.options.publish" },
   { flag: "--deploy-branch", value: "NAME", default: "develop",
     description: "Development branch: the head of the release PR. Not the repository default branch.", versionYml: "metadata.development_branch" },
+  { flag: "--create-development-branch", default: "off",
+    description: "Non-interactive runs: create the development branch from the default branch and push it to origin when it does not exist." },
   { flag: "--language", value: "LANG", values: [...REPO_LANGUAGES], default: "en for new installs, ko for existing installs",
     description: "Language of issue/PR templates and bot messages written into the repo.", versionYml: "metadata.template.options.language" },
   { flag: "--label-style", value: "STYLE", values: [...LABEL_STYLES], default: "en for new installs, ko for existing installs",
@@ -183,10 +185,17 @@ export const FLAG_DETAILS = {
   },
   "--deploy-branch": {
     when: "Only if your development branch is not named develop.",
-    effect: "Writes metadata.development_branch (and the old deploy_branch with the same value) and rewrites the branch name inside the installed workflows (release PR head, CI triggers, PR summary base). The branch is NOT created by this flag.",
+    effect: "Writes metadata.development_branch (and the old deploy_branch with the same value) and rewrites the branch name inside the installed workflows (release PR head, CI triggers, PR summary base). The branch is NOT created by this flag (use --create-development-branch).",
     omitted: "develop.",
     example: "npx projectops --mode full --force --deploy-branch dev",
     caution: "Despite the name this is the development branch (head of the release PR), not the branch that deploys. The deploying branch is the repository default branch.",
+  },
+  "--create-development-branch": {
+    when: "Agents and CI integrating a repo that has no development branch yet. Interactive runs ask instead.",
+    effect: "After the install, checks the development branch (--deploy-branch, default develop). Exists locally or on origin: nothing is done. Missing: creates it from the repository default branch (no checkout) and pushes it with git push -u origin <branch>. The result (created, skipped or failed) is printed in the completion summary and recorded in .github/.projectops/logs/ and the migration guide checklist.",
+    omitted: "The branch is never created or pushed; the completion summary lists it as a manual step with the command to run.",
+    example: "npx projectops --mode full --force --create-development-branch",
+    caution: "It pushes to the remote. A failed push (credentials, network, no origin) does not fail the run: the exit code stays 0 and the summary prints the command to run yourself.",
   },
   "--language": {
     when: "Set it only to change the language of an existing repo or to start a new repo in Korean.",
@@ -294,6 +303,7 @@ export const RECIPES = [
   { goal: "Never install a template workflow again", command: "Add its file name to metadata.template.options.excluded_workflows in version.yml", note: "Delete the installed file too; the update will not bring it back." },
   { goal: "Stop retired workflows from running next to their replacements", command: "npx projectops --mode workflows --force --remove-legacy", note: "Run only after the new workflow is working." },
   { goal: "Keep every release a patch bump", command: "Set metadata.template.options.semver_auto: false in version.yml" },
+  { goal: "Install everything and create the development branch (develop) in one run", command: "npx projectops --mode full --force --create-development-branch", note: "Pushes the new branch to origin. Does nothing if it already exists." },
   { goal: "Install a library publish workflow", command: "npx projectops --mode workflows --force --type node --publish npm", note: "Needs the NPM_TOKEN secret." },
 ];
 

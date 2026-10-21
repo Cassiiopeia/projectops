@@ -37,6 +37,7 @@ One-shot install followed by a read-only `doctor` check:
 | `--deploy TARGET` | docker-ssh (default), vercel, none |
 | `--publish CSV` | nexus, npm, github-packages (default: none) |
 | `--deploy-branch NAME` | Release PR head branch (default: develop) |
+| `--create-development-branch` | Non-interactive runs: create the development branch from the default branch and push it to origin when it is missing. Does nothing if it exists; a failed push does not fail the run and the summary prints the command to run yourself (default: off) |
 | `--secret-backup` / `--no-secret-backup` | Include or exclude the secret backup workflow |
 | `--ai-summary` / `--no-ai-summary` | Include or exclude the PR summary workflow |
 | `--coderabbit` / `--no-coderabbit` | Install the CodeRabbit PR code review config (`.coderabbit.yaml`), `--mode full` only. Needs the CodeRabbit GitHub app; an existing file is overwritten and saved as `.bak`. Off when omitted (kept on if `version.yml` already stores on). Unrelated to release notes |

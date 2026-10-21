@@ -75,7 +75,7 @@ export function deriveEnvApplied(events = []) {
 // 실행 엔트리 렌더링. report:
 //   { now, mode, types, repoName, templateFrom, templateTo,
 //     options: {deploy, publish, secretBackup, coderabbit, changelogProvider, intent},
-//     branches: {defaultBranch, deployBranch, ready, created},
+//     branches: {defaultBranch, deployBranch, ready, created, result},  // result: #715 비대화형 생성 결과 | null
 //     breaking: {current, target, critical:[], warnings:[]} | null,
 //     migrations: {applied:[], confirmPending:[], askPending:[]} | null,
 //     orphans: {cleaned:[], pending:[]} | null,
@@ -130,7 +130,15 @@ export function renderGuideEntry(report) {
       for (const [k, v] of kv) checklist.push(`  - ${t} \`${k}\` = \`${v}\``);
     }
   }
-  if (r.branches?.created === true) {
+  const devBranch = r.branches?.deployBranch ?? "develop";
+  const devBranchResult = r.branches?.result ?? null; // #715 --create-development-branch 결과
+  if (devBranchResult?.status === "created") {
+    checklist.push(`- [x] Development (release source) branch \`${devBranch}\`: created from \`${devBranchResult.base || "HEAD"}\` and pushed (--create-development-branch)`);
+  } else if (devBranchResult?.status === "skipped") {
+    checklist.push(`- [x] Development (release source) branch \`${devBranch}\`: already exists, nothing changed (--create-development-branch)`);
+  } else if (devBranchResult?.status === "failed") {
+    checklist.push(`- [ ] **Create the development (release source) branch \`${devBranch}\`**: automatic creation failed (${devBranchResult.reason}). Run: \`${devBranchResult.manualCommand}\``);
+  } else if (r.branches?.created === true) {
     checklist.push(`- [x] Development (release source) branch \`${r.branches?.deployBranch ?? "develop"}\`: created and verified by the wizard`);
   } else if (r.branches?.ready === false) {
     checklist.push(`- [ ] Create the development (release source) branch \`${r.branches?.deployBranch ?? "develop"}\` (required for the release PR to work)`);
@@ -165,7 +173,7 @@ export function renderGuideEntry(report) {
   L.push(`mode: ${r.mode || "full"}`);
   L.push(`types: ${ylist(r.types)}`);
   L.push(`options: { deploy: ${yq(r.options?.deploy ?? "")}, publish: ${ylist(r.options?.publish)}, secret_backup: ${r.options?.secretBackup === true}, coderabbit: ${r.options?.coderabbit === true}, changelog_provider: ${yq(r.options?.changelogProvider ?? "")}, intent: ${yq(r.options?.intent ?? "")}, semver_auto: ${r.options?.semverAuto === true}, language: ${yq(r.options?.language ?? "")}, label_style: ${yq(r.options?.labelStyle ?? "")}, close_on_release: ${r.options?.closeOnRelease === true}, app_release: ${r.options?.appRelease === true} }`);
-  L.push(`branches: { default: ${yq(r.branches?.defaultBranch ?? "main")}, deploy: ${yq(r.branches?.deployBranch ?? "develop")}, deploy_branch_created: ${r.branches?.created === true} }`);
+  L.push(`branches: { default: ${yq(r.branches?.defaultBranch ?? "main")}, deploy: ${yq(r.branches?.deployBranch ?? "develop")}, deploy_branch_created: ${r.branches?.created === true}, create_result: ${devBranchResult ? yq(devBranchResult.status) : "null"} }`);
   L.push("workflows:");
   L.push(`  added: ${ylist(wf.added)}`);
   L.push(`  replaced_bak: ${ylist(wf.replacedBak)}`);

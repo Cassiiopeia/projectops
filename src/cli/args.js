@@ -37,6 +37,7 @@ export function parseArgs(argv) {
     projectsSync: null,  // #716 — Projects 보드 동기화 워크플로우 포함 여부 (null=미지정)
     json: false,         // --json: 기계가 읽는 출력 (--mode options)
     removeLegacy: false, // #809 — 구세대 배포 워크플로우(confirm 티어)도 .bak 으로 치운다
+    createDevelopmentBranch: false, // #715 — 비대화형에서 개발 브랜치 생성·push (원격에 쓰므로 명시할 때만)
     pathsCsv: "",            // "flutter=app,react=client" 원문 (정규화는 resolve 단계)
     force: false,
     lang: null,              // --lang en|ko (null = decided by src/i18n resolveLang)
@@ -177,6 +178,7 @@ export function parseArgs(argv) {
       case "--projects-sync": result.projectsSync = true; break;
       case "--no-projects-sync": result.projectsSync = false; break;
       case "--remove-legacy": result.removeLegacy = true; break;
+      case "--create-development-branch": result.createDevelopmentBranch = true; break;
       case "--json": result.json = true; break;
       case "--npm-publish":
         process.stderr.write(t("args.npmPublishDeprecated") + "\n");
