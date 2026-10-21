@@ -505,19 +505,11 @@ jobs:
           EOF
           echo "✅ key.properties created"
 
-      # google-services.json 생성 (선택적)
+      # Secret 이 있을 때만 쓴다 — 없으면 커밋된 파일을 그대로 두고, 필요한데 없으면 원인을 ::error 로 (#785)
       - name: Create google-services.json
-        shell: bash
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-        run: |
-          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
-            mkdir -p android/app
-            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
-            echo "✅ google-services.json created"
-          else
-            echo "ℹ️ GOOGLE_SERVICES_JSON secret not provided, skipping"
-          fi
+        run: python3 "$GITHUB_WORKSPACE/.github/scripts/firebase_config_files.py" restore --platform android --app-root .
 
       # Flutter 설정
       - name: Set up Flutter
