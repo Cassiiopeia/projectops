@@ -130,7 +130,8 @@ function renderCicdStep() {
     const isWithFiles = isUsingFirebaseFiles();
     const rows = [
         ...ANDROID_WORKFLOWS.map((name) => [name, isWithFiles ? translate('cicd.rowAndroidSecret') : translate('cicd.rowNoChange')]),
-        ...Object.entries(IOS_JOB_BY_WORKFLOW).map(([name, job]) => [name, isWithFiles ? translate('cicd.rowIosStep', { job }) : translate('cicd.rowNoChange')]),
+        ...IOS_WORKFLOWS.map((name) => [name, isWithFiles ? translate('cicd.rowIosSecret') : translate('cicd.rowNoChange')]),
+        ['PROJECT-FLUTTER-CI', isWithFiles ? translate('cicd.rowFlutterCiSecret') : translate('cicd.rowNoChange')],
         ['PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER', translate('cicd.rowTrigger')],
     ];
     setElementHtml('cicdTableBody', rows.map(([name, change]) => `
@@ -138,10 +139,9 @@ function renderCicdStep() {
             <td class="py-2 px-2 font-mono">${escapeHtml(name)}.yaml</td>
             <td class="py-2 px-2">${change}</td>
         </tr>`).join(''));
-    setPreText('iosStepPlacement', buildIosStepPlacementSnippet());
-    setPreText('iosGoogleServiceInfoStep', buildIosGoogleServiceInfoStep());
-    setPreText('iosGoogleServiceInfoHeredocStep', buildIosGoogleServiceInfoHeredocStep());
-    setPreText('androidGoogleServicesStep', buildAndroidGoogleServicesReferenceStep());
+    setPreText('builtInRestoreSteps', buildBuiltInRestoreStepsReference());
+    setPreText('templateCheckCommand', buildTemplateCheckCommand(state.operatingSystem));
+    setPreText('fallbackIosRestoreStep', buildFallbackIosRestoreStep());
 }
 
 function renderGitignoreStep() {
@@ -190,7 +190,7 @@ function buildChecklistItems() {
     }
     if (isUsingFirebaseFiles()) {
         items.push(['secretsRegistered', translate('checklist.secretsRegistered')]);
-        items.push(['iosStepAdded', translate('checklist.iosStepAdded')]);
+        items.push(['templateUpToDate', translate('checklist.templateUpToDate')]);
         items.push(['xcodeTarget', translate('checklist.xcodeTarget')]);
     }
     items.push(['setupApplied', translate('checklist.setupApplied')]);
@@ -217,7 +217,7 @@ function renderSummaryStep() {
     rows.push(['lib/ (Dart)', yes, translate('summary.builtAsIs')]);
     if (isUsingFirebaseFiles()) {
         rows.push(['android/app/google-services.json', no, `${SECRET_NAME_GOOGLE_SERVICES_JSON} → ${translate('summary.existingStep')}`]);
-        rows.push(['ios/Runner/GoogleService-Info.plist', no, `${SECRET_NAME_GOOGLE_SERVICE_INFO_PLIST} → ${translate('summary.newStep')}`]);
+        rows.push(['ios/Runner/GoogleService-Info.plist', no, `${SECRET_NAME_GOOGLE_SERVICE_INFO_PLIST} → ${translate('summary.existingStep')}`]);
     }
     rows.push([`${OAUTH_EXPORT_FILE_PREFIX_SECRETS}* / ${OAUTH_EXPORT_FILE_PREFIX_SETUP}*`, no, translate('summary.never')]);
     setElementHtml('summaryFilesBody', rows.map(([file, inGit, inCi]) => `

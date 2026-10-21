@@ -199,57 +199,50 @@ function buildGoogleDartSnippet(serverClientId) {
 // CI/CD (GitHub Actions)
 // ============================================
 
-/** iOS 빌드 job 에 넣을 스텝 — Secret 값으로 GoogleService-Info.plist 통째 생성 */
-function buildIosGoogleServiceInfoStep() {
+/** 템플릿이 이미 돌리는 복원 스텝 (#785 firebase_config_files.py) — 참고용, 다시 넣지 않는다 */
+function buildBuiltInRestoreStepsReference() {
     return [
-        '      # OAuth wizard: recreate GoogleService-Info.plist from the GitHub Secret (whole file)',
+        '      # Android workflows and Flutter CI',
+        '      - name: Create Google-services.json',
+        '        env:',
+        '          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}',
+        '        run: python3 "$GITHUB_WORKSPACE/.github/scripts/firebase_config_files.py" restore --platform android --app-root .',
+        '',
+        '      # iOS TestFlight workflows (after "Ensure .env file exists") and Flutter CI',
+        '      - name: Create GoogleService-Info.plist',
+        '        env:',
+        '          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}',
+        '        run: python3 "$GITHUB_WORKSPACE/.github/scripts/firebase_config_files.py" restore --platform ios --app-root .',
+    ].join('\n');
+}
+
+/** 스크립트가 있는지 확인 > 없으면 템플릿 업데이트 (OS별) */
+function buildTemplateCheckCommand(operatingSystem) {
+    const check = operatingSystem === 'windows'
+        ? 'Test-Path .github\\scripts\\firebase_config_files.py'
+        : 'ls .github/scripts/firebase_config_files.py';
+    return [
+        `${check}    # found: the templates restore both files`,
+        'npx projectops    # not found: update the templates',
+    ].join('\n');
+}
+
+/** 구 템플릿용 수동 스텝 — 스크립트처럼 Secret 이 비면 건너뛴다 (plist 원문만) */
+function buildFallbackIosRestoreStep() {
+    return [
+        '      # Fallback for templates without .github/scripts/firebase_config_files.py.',
+        '      # Prefer updating with npx projectops; remove this step after updating.',
         '      - name: Create GoogleService-Info.plist',
         '        env:',
         '          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}',
         '        run: |',
         '          if [ -z "$GOOGLE_SERVICE_INFO_PLIST" ]; then',
-        '            echo "::error title=Missing secret::GOOGLE_SERVICE_INFO_PLIST is empty. Register it (OAuth wizard, Secrets step)."',
-        '            exit 1',
+        '            echo "GOOGLE_SERVICE_INFO_PLIST not set, skipping"',
+        '            exit 0',
         '          fi',
         '          mkdir -p ios/Runner',
         "          printf '%s\\n' \"$GOOGLE_SERVICE_INFO_PLIST\" > ios/Runner/GoogleService-Info.plist",
-        '          echo "✅ ios/Runner/GoogleService-Info.plist created ($(wc -c < ios/Runner/GoogleService-Info.plist) bytes)"',
-    ].join('\n');
-}
-
-/** 같은 결과를 cat << 'EOF' 로 쓰는 형태 (따옴표 EOF — 셸이 $ 를 풀지 않는다) */
-function buildIosGoogleServiceInfoHeredocStep() {
-    return [
-        '      - name: Create GoogleService-Info.plist',
-        '        run: |',
-        '          mkdir -p ios/Runner',
-        "          cat > ios/Runner/GoogleService-Info.plist << 'EOF'",
-        '          ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}',
-        '          EOF',
-    ].join('\n');
-}
-
-/** 스텝을 넣을 자리 (앞뒤 기존 스텝 이름) */
-function buildIosStepPlacementSnippet() {
-    return [
-        '      - name: Ensure .env file exists        # existing step',
-        '        ...',
-        '',
-        '      # ⬇ paste the "Create GoogleService-Info.plist" step here',
-        '',
-        '      - name: Set up Flutter                 # existing step',
-    ].join('\n');
-}
-
-/** Android 워크플로우 4종에 이미 있는 스텝 (참고용 — 추가하지 않는다) */
-function buildAndroidGoogleServicesReferenceStep() {
-    return [
-        '      # Already in ANDROID-TEST-APK, ANDROID-PLAYSTORE-CICD, ANDROID-FIREBASE-CICD, ANDROID-SELFHOSTED-CICD',
-        '      - name: Create Google-services.json',
-        '        env:',
-        '          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}',
-        '        run: |',
-        "          printf '%s\\n' \"$GOOGLE_SERVICES_JSON\" > android/app/google-services.json",
+        '          echo "ios/Runner/GoogleService-Info.plist created"',
     ].join('\n');
 }
 

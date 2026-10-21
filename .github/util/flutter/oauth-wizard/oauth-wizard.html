@@ -7,10 +7,19 @@
     <script type="application/json" id="versionJson">
 {
   "name": "OAuth Login Setup Wizard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Setup wizard for Kakao and Google login in a Flutter app, from console setup to CI/CD",
   "lastUpdated": "2026-10-22",
   "changelog": [
+    {
+      "version": "1.0.1",
+      "date": "2026-10-22",
+      "changes": [
+        "CI/CD step: the templates now restore google-services.json and GoogleService-Info.plist with .github/scripts/firebase_config_files.py (projectops#785), so you only register the two secrets",
+        "Older installs are told to update the templates with npx projectops; a manual iOS step remains only as a fallback and skips when the secret is empty",
+        "Removed the outdated note that Android workflows overwrite google-services.json when the secret is empty"
+      ]
+    },
     {
       "version": "1.0.0",
       "date": "2026-10-22",
@@ -520,28 +529,24 @@
 
             <div class="hidden" data-show-if="firebase-files">
                 <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-4">
-                    <p class="text-sm font-medium text-oauth-accent mb-2" data-i18n="cicd.iosStepTitle">iOS: add this step to two workflows</p>
-                    <ul class="text-xs text-slate-300 list-disc list-inside space-y-1 mb-2">
-                        <li data-i18n="cicd.iosWhere1"><code>.github/workflows/PROJECT-FLUTTER-IOS-TESTFLIGHT.yaml</code> → job <code>build-upload-ios</code></li>
-                        <li data-i18n="cicd.iosWhere2"><code>.github/workflows/PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT.yaml</code> → job <code>build-upload-ios-test</code></li>
-                    </ul>
-                    <p class="snippet-label" data-i18n="cicd.placementLabel">Where: right after "Ensure .env file exists", before "Set up Flutter" (the job already runs inside your Flutter folder)</p>
-                    <div class="code-block"><pre id="iosStepPlacement"></pre></div>
-                    <p class="snippet-label" data-i18n="cicd.stepLabel">The step (indentation matches the other steps)</p>
-                    <div class="code-block"><pre id="iosGoogleServiceInfoStep"></pre></div>
-                    <button class="copy-btn-small mt-2" onclick="copyCode('iosGoogleServiceInfoStep', this)" data-i18n="action.copy">Copy</button>
-                    <details class="mt-3 text-xs text-slate-400">
-                        <summary class="cursor-pointer" data-i18n="cicd.heredocSummary">Prefer <code>cat &lt;&lt; EOF</code>? Equivalent form</summary>
-                        <p class="mt-2" data-i18n="cicd.heredocBody">Both write the whole file from the secret. The step above is recommended: the value goes through an environment variable, so no character in the file (<code>$</code>, backticks, a line that reads <code>EOF</code>) can change the script. In the heredoc form the quoted <code>'EOF'</code> stops the shell from expanding <code>$</code>; it breaks only if the file contains a line <code>EOF</code>.</p>
-                        <div class="code-block mt-2"><pre id="iosGoogleServiceInfoHeredocStep"></pre></div>
-                        <button class="copy-btn-small mt-2" onclick="copyCode('iosGoogleServiceInfoHeredocStep', this)" data-i18n="action.copy">Copy</button>
-                    </details>
-                    <p class="text-xs text-slate-400 mt-3" data-i18n="cicd.xcodeTarget">The plist must also be part of the Runner target once: in Xcode drag <code>GoogleService-Info.plist</code> into <strong>Runner</strong> (target Runner checked) and commit <code>project.pbxproj</code>. The file itself stays out of Git.</p>
+                    <p class="text-sm font-medium text-green-400 mb-2" data-i18n="cicd.builtInTitle">✅ Nothing to add — the templates restore both files from the secrets</p>
+                    <p class="text-xs text-slate-300 mb-2" data-i18n="cicd.builtInBody">The four Android workflows, both iOS TestFlight workflows and Flutter CI run <code>.github/scripts/firebase_config_files.py</code> (iOS: right after "Ensure .env file exists"). It writes <code>android/app/google-services.json</code> from <code>GOOGLE_SERVICES_JSON</code> and <code>ios/Runner/GoogleService-Info.plist</code> from <code>GOOGLE_SERVICE_INFO_PLIST</code> (raw text or base64) <strong>only when the secret is set</strong>. With no secret it leaves a committed file alone, and if the Gradle plugin or the Xcode project needs a missing file it prints an <code>::error</code> naming the secret.</p>
+                    <p class="text-xs text-slate-300" data-i18n="cicd.builtInAction">So for CI you only <strong>register the two secrets</strong> (Secrets step). If you commit the files instead, leave the secrets unset; when both exist, the secret wins.</p>
+                    <p class="snippet-label" data-i18n="cicd.builtInReferenceLabel">What the templates already run (for reference — do not add it again)</p>
+                    <div class="code-block"><pre id="builtInRestoreSteps"></pre></div>
                 </div>
                 <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-4">
-                    <p class="text-sm font-medium text-oauth-accent mb-2" data-i18n="cicd.androidTitle">Android: nothing to add — the step already exists</p>
-                    <div class="code-block"><pre id="androidGoogleServicesStep"></pre></div>
-                    <p class="text-xs text-yellow-300 mt-2" data-i18n="cicd.androidWarning">⚠️ ANDROID-PLAYSTORE-CICD, ANDROID-FIREBASE-CICD and ANDROID-SELFHOSTED-CICD write this file on every build, even when the secret is empty. Register <code>GOOGLE_SERVICES_JSON</code> even if you commit the file, or the build overwrites it with an empty one.</p>
+                    <p class="text-sm font-medium text-oauth-accent mb-2" data-i18n="cicd.olderTitle">Installed projectops before this script existed?</p>
+                    <p class="text-xs text-slate-300 mb-2" data-i18n="cicd.olderBody">Check that your repository has the script. If it doesn't, update the templates with <code>npx projectops</code> instead of editing workflows by hand — the update adds the script and the restore steps.</p>
+                    <div class="code-block"><pre id="templateCheckCommand"></pre></div>
+                    <button class="copy-btn-small mt-2" onclick="copyCode('templateCheckCommand', this)" data-i18n="action.copy">Copy</button>
+                    <details class="mt-3 text-xs text-slate-400">
+                        <summary class="cursor-pointer" data-i18n="cicd.fallbackSummary">Can't update right now? Manual fallback for the iOS workflows</summary>
+                        <p class="mt-2" data-i18n="cicd.fallbackBody">Paste into job <code>build-upload-ios</code> (IOS-TESTFLIGHT) and <code>build-upload-ios-test</code> (IOS-TEST-TESTFLIGHT), right after "Ensure .env file exists". Like the script, it skips when the secret is empty; unlike the script, it takes raw plist text only. Remove it after updating the templates, or the file is written twice.</p>
+                        <div class="code-block mt-2"><pre id="fallbackIosRestoreStep"></pre></div>
+                        <button class="copy-btn-small mt-2" onclick="copyCode('fallbackIosRestoreStep', this)" data-i18n="action.copy">Copy</button>
+                    </details>
+                    <p class="text-xs text-slate-400 mt-3" data-i18n="cicd.xcodeTarget">The plist must also be part of the Runner target once: in Xcode drag <code>GoogleService-Info.plist</code> into <strong>Runner</strong> (target Runner checked) and commit <code>project.pbxproj</code>. The file itself stays out of Git.</p>
                 </div>
             </div>
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-4 hidden" data-show-if="no-firebase-files">
@@ -550,7 +555,7 @@
             </div>
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-4">
                 <p class="text-sm font-medium text-oauth-accent mb-2" data-i18n="cicd.triggerTitle">Comment-triggered builds (<code>@projectops build app</code> / <code>apk build</code> / <code>ios build</code>)</p>
-                <p class="text-xs text-slate-300" data-i18n="cicd.triggerBody">PROJECTOPS-APP-BUILD-TRIGGER only dispatches ANDROID-TEST-APK and IOS-TEST-TESTFLIGHT, so it needs no change. But dispatched workflows run the definition on the <strong>default branch</strong>: merge the iOS step to <code>main</code> before testing it with <code>@projectops ios build</code>, or the old definition runs.</p>
+                <p class="text-xs text-slate-300" data-i18n="cicd.triggerBody">PROJECTOPS-APP-BUILD-TRIGGER only dispatches ANDROID-TEST-APK and IOS-TEST-TESTFLIGHT, so it needs no change. But dispatched workflows run the definition on the <strong>default branch</strong>: after a template update, merge it to <code>main</code> before testing with <code>@projectops ios build</code>, or the old definition runs.</p>
             </div>
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
                 <p class="text-sm font-medium text-oauth-accent mb-2" data-i18n="cicd.keysTitle">Signing keys used by CI (register their fingerprints)</p>

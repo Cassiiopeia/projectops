@@ -43,7 +43,7 @@ function collectSnippetFiles() {
         files['dart/google_login.dart'] = buildGoogleDartSnippet(state.googleServerClientId);
     }
     if (isUsingFirebaseFiles()) {
-        files['ci/ios-create-google-service-info-plist.yml'] = buildIosGoogleServiceInfoStep();
+        files['ci/fallback-ios-create-google-service-info-plist.yml'] = buildFallbackIosRestoreStep();
     }
     files['gitignore-lines.txt'] = buildGitignoreSnippet(isUsingFirebaseFiles());
     files['commands.txt'] = [

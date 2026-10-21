@@ -94,45 +94,57 @@ Secrets are needed only for the `firebase-sdk` route:
 
 | Secret | Value | Used by |
 |--------|-------|---------|
-| `GOOGLE_SERVICES_JSON` | Raw text of `google-services.json` (existing secret name) | The four Android workflows — they already restore the file |
-| `GOOGLE_SERVICE_INFO_PLIST` | Raw text of `GoogleService-Info.plist` | The step you add to the two iOS workflows |
+| `GOOGLE_SERVICES_JSON` | Raw text of `google-services.json` | The four Android workflows and Flutter CI |
+| `GOOGLE_SERVICE_INFO_PLIST` | Raw text (or base64) of `GoogleService-Info.plist` | Both iOS TestFlight workflows and Flutter CI |
 
-Raw text, not base64: CI writes the value back byte for byte, so the JSON/plist format cannot break. Binary files added as extra secrets are converted to base64 automatically.
+Paste the files as raw text: CI writes the value back byte for byte, so the JSON/plist format cannot break. Binary files added as extra secrets are converted to base64 automatically.
 
-> ⚠️ `ANDROID-PLAYSTORE-CICD`, `ANDROID-FIREBASE-CICD` and `ANDROID-SELFHOSTED-CICD` write `android/app/google-services.json` on every build, even when the secret is empty. Register `GOOGLE_SERVICES_JSON` even if you commit the file.
+Committing the files instead is also fine: leave the secrets unset and CI uses the committed file. When both exist, the secret wins.
 
 ---
 
 ## CI/CD changes
 
+**Nothing to add.** The templates restore both files with `.github/scripts/firebase_config_files.py` (#785):
+
+- `android/app/google-services.json` from `GOOGLE_SERVICES_JSON`, `ios/Runner/GoogleService-Info.plist` from `GOOGLE_SERVICE_INFO_PLIST` (raw text or base64)
+- only when the secret is set — an empty secret never overwrites a committed file
+- when the Gradle plugin (`com.google.gms.google-services`) or the Xcode project needs a file that is missing, it prints an `::error` naming the secret
+
 | Workflow | `firebase-sdk` route | Other routes |
 |----------|----------------------|--------------|
-| `PROJECT-FLUTTER-ANDROID-TEST-APK` · `-PLAYSTORE-CICD` · `-FIREBASE-CICD` · `-SELFHOSTED-CICD` | No change, register `GOOGLE_SERVICES_JSON` | No change |
-| `PROJECT-FLUTTER-IOS-TESTFLIGHT` (job `build-upload-ios`) | Add the step below | No change |
-| `PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT` (job `build-upload-ios-test`) | Add the step below | No change |
+| `PROJECT-FLUTTER-ANDROID-TEST-APK` · `-PLAYSTORE-CICD` · `-FIREBASE-CICD` · `-SELFHOSTED-CICD` | No change — register `GOOGLE_SERVICES_JSON` | No change |
+| `PROJECT-FLUTTER-IOS-TESTFLIGHT` · `-IOS-TEST-TESTFLIGHT` | No change — register `GOOGLE_SERVICE_INFO_PLIST` (restored right after `Ensure .env file exists`) | No change |
+| `PROJECT-FLUTTER-CI` | No change — restores both when set | No change |
 | `PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER` | No change (it only dispatches the two test-build workflows) | No change |
 
-Paste right after `Ensure .env file exists` and before `Set up Flutter`:
+The plist must also be in the Runner target once (drag it into **Runner** in Xcode and commit `project.pbxproj`); the file itself can stay out of Git.
+
+### Older installs
+
+If `.github/scripts/firebase_config_files.py` is missing, your templates predate the restore script. Update them instead of editing workflows by hand:
+
+```bash
+ls .github/scripts/firebase_config_files.py   # missing?
+npx projectops                                # update the templates
+```
+
+> ⚠️ `repository_dispatch` runs the workflow definition on the default branch. After updating, merge to `main` before testing with `@projectops ios build`.
+
+Only if you cannot update yet, the wizard shows a manual fallback step for the two iOS jobs (`build-upload-ios`, `build-upload-ios-test`, right after `Ensure .env file exists`). Like the script it skips when the secret is empty, but it takes raw plist text only. Remove it after updating, or the file is written twice.
 
 ```yaml
-      # OAuth wizard: recreate GoogleService-Info.plist from the GitHub Secret (whole file)
       - name: Create GoogleService-Info.plist
         env:
           GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
         run: |
           if [ -z "$GOOGLE_SERVICE_INFO_PLIST" ]; then
-            echo "::error title=Missing secret::GOOGLE_SERVICE_INFO_PLIST is empty. Register it (OAuth wizard, Secrets step)."
-            exit 1
+            echo "GOOGLE_SERVICE_INFO_PLIST not set, skipping"
+            exit 0
           fi
           mkdir -p ios/Runner
           printf '%s\n' "$GOOGLE_SERVICE_INFO_PLIST" > ios/Runner/GoogleService-Info.plist
 ```
-
-The secret goes through an environment variable, the same pattern the Android workflows use for `GOOGLE_SERVICES_JSON`, so no character in the file can change the script. The wizard also shows the equivalent `cat > file << 'EOF'` form.
-
-The plist must also be in the Runner target once (drag it into **Runner** in Xcode and commit `project.pbxproj`); the file itself stays out of Git.
-
-> ⚠️ `repository_dispatch` runs the workflow definition on the default branch. Merge the iOS step to `main` before testing it with `@projectops ios build`.
 
 ---
 
@@ -180,8 +192,8 @@ python3 .github/util/flutter/oauth-wizard/oauth-wizard.py setup --project-path .
 | Kakao login works with `flutter run` but not from a CI build | The CI build is signed with the upload key (or Play App Signing key) whose key hash is not registered | Add that key hash in Kakao Developers |
 | Google Sign-In fails on Android only | SHA-1 or package name missing on the Google side | Add the SHA-1 (Firebase fingerprint or one Android OAuth client per SHA-1) |
 | iOS crashes or does nothing on Google Sign-In | `GIDClientID` or the reversed client ID URL scheme is missing | Run `setup` with `--google-ios-client-id` |
-| iOS build fails: `GoogleService-Info.plist` not found | The plist is in the Xcode project but not restored in CI | Add the CI step and the `GOOGLE_SERVICE_INFO_PLIST` secret |
-| Android release build fails in the Google Services Gradle task | `GOOGLE_SERVICES_JSON` empty; the workflow wrote an empty file | Register the secret |
+| iOS build fails: `GoogleService-Info.plist` not found (CI log has an `::error` naming `GOOGLE_SERVICE_INFO_PLIST`) | The plist is in the Xcode project but neither committed nor in a secret | Register `GOOGLE_SERVICE_INFO_PLIST`; on old templates run `npx projectops` |
+| Android build fails in the Google Services Gradle task (`::error` naming `GOOGLE_SERVICES_JSON`) | The Gradle plugin needs `google-services.json`, but it is neither committed nor in a secret | Register `GOOGLE_SERVICES_JSON` |
 
 ---
 

@@ -1,9 +1,18 @@
 {
   "name": "OAuth Login Setup Wizard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Setup wizard for Kakao and Google login in a Flutter app, from console setup to CI/CD",
   "lastUpdated": "2026-10-22",
   "changelog": [
+    {
+      "version": "1.0.1",
+      "date": "2026-10-22",
+      "changes": [
+        "CI/CD step: the templates now restore google-services.json and GoogleService-Info.plist with .github/scripts/firebase_config_files.py (projectops#785), so you only register the two secrets",
+        "Older installs are told to update the templates with npx projectops; a manual iOS step remains only as a fallback and skips when the secret is empty",
+        "Removed the outdated note that Android workflows overwrite google-services.json when the secret is empty"
+      ]
+    },
     {
       "version": "1.0.0",
       "date": "2026-10-22",

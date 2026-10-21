@@ -25,15 +25,12 @@ const OAUTH_WIZARD_CLI_PATH = '.github/util/flutter/oauth-wizard/oauth-wizard.py
 // 마법사 내보내기 파일 이름 — oauth-wizard.py GITIGNORE_EXPORT_PATTERNS 와 함께 바꾼다
 const OAUTH_EXPORT_FILE_PREFIX_SECRETS = 'oauth-secrets-';
 const OAUTH_EXPORT_FILE_PREFIX_SETUP = 'oauth-setup-';
-// Secret 이름 — Android 는 기존 워크플로우 4종이 이미 쓰는 이름
+// Secret 이름 — .github/scripts/firebase_config_files.py PLATFORMS 와 같다 (#785)
 const SECRET_NAME_GOOGLE_SERVICES_JSON = 'GOOGLE_SERVICES_JSON';
 const SECRET_NAME_GOOGLE_SERVICE_INFO_PLIST = 'GOOGLE_SERVICE_INFO_PLIST';
+// 위 스크립트로 Firebase 설정 파일을 복원하는 템플릿 워크플로우 (Flutter CI 는 두 파일 모두)
 const ANDROID_WORKFLOWS = ['PROJECT-FLUTTER-ANDROID-TEST-APK', 'PROJECT-FLUTTER-ANDROID-PLAYSTORE-CICD', 'PROJECT-FLUTTER-ANDROID-FIREBASE-CICD', 'PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD'];
-// iOS 워크플로우 > 스텝을 넣을 job
-const IOS_JOB_BY_WORKFLOW = {
-    'PROJECT-FLUTTER-IOS-TESTFLIGHT': 'build-upload-ios',
-    'PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT': 'build-upload-ios-test',
-};
+const IOS_WORKFLOWS = ['PROJECT-FLUTTER-IOS-TESTFLIGHT', 'PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT'];
 
 // ============================================
 // 상태
@@ -363,11 +360,11 @@ function buildSecretsList() {
     if (isUsingFirebaseFiles()) {
         secrets.push({
             key: SECRET_NAME_GOOGLE_SERVICES_JSON, value: state.googleServicesJson, type: 'text',
-            source: state.googleServicesFileName || 'google-services.json', usedBy: 'Android (4 workflows)',
+            source: state.googleServicesFileName || 'google-services.json', usedBy: 'Android workflows + Flutter CI',
         });
         secrets.push({
             key: SECRET_NAME_GOOGLE_SERVICE_INFO_PLIST, value: state.googleServiceInfoPlist, type: 'text',
-            source: state.googleServiceInfoFileName || 'GoogleService-Info.plist', usedBy: 'iOS (2 workflows)',
+            source: state.googleServiceInfoFileName || 'GoogleService-Info.plist', usedBy: 'iOS TestFlight workflows + Flutter CI',
         });
     }
     getCustomSecretsForExport().forEach((secret) => {
