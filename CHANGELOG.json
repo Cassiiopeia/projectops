@@ -1,14 +1,43 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-21T12:24:52Z",
-    "currentVersion": "4.70.0",
+    "lastUpdated": "2026-10-21T15:37:40Z",
+    "currentVersion": "4.70.1",
     "projectType": "basic",
-    "totalReleases": 341,
+    "totalReleases": 342,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.70.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-21",
+      "pr_number": 978,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **버그 수정**\n  * 영어 화면에서 배포 환경값 설명이 한국어로 나오던 문제 해결\n\n* **문서**\n  * 문서 사이트 기본 언어를 영어로 바꾸고 한국어는 /ko/ 로 분리\n  * 예전 문서 주소로 들어와도 새 주소로 자동 이동\n  * 한국어로만 있던 안내 11편을 영어로 제공\n  * README 데모 영상을 읽는 언어에 맞춰 영어·한국어로 제공\n  * 각 언어 README가 같은 언어의 문서로 연결",
+      "parsed_changes": {
+        "버그_수정": {
+          "title": "버그 수정",
+          "items": [
+            "영어 화면에서 배포 환경값 설명이 한국어로 나오던 문제 해결"
+          ]
+        },
+        "문서": {
+          "title": "문서",
+          "items": [
+            "문서 사이트 기본 언어를 영어로 바꾸고 한국어는 /ko/ 로 분리",
+            "예전 문서 주소로 들어와도 새 주소로 자동 이동",
+            "한국어로만 있던 안내 11편을 영어로 제공",
+            "README 데모 영상을 읽는 언어에 맞춰 영어·한국어로 제공",
+            "각 언어 README가 같은 언어의 문서로 연결"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.70.0",
       "project_type": "basic",
