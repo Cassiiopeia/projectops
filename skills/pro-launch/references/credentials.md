@@ -1,100 +1,100 @@
-# 자격증명 · 이 맥 sudo · 원격 ssh
+# Credentials · sudo on this Mac · remote ssh
 
-> 언제 읽나: 서버·DB·레지스트리·로그인 화면을 만지기 전, 사용자가 새 접속 정보를 줬을 때, 이 맥에서 `sudo` 가 필요할 때.
+> When to read: before touching a server, DB, registry or login screen; when the user gives new connection details; when you need `sudo` on this Mac.
 
-한 번 저장하면 다음 실행에서 다시 묻지 않는다.
-`pro-ssh` · `pro-github` 가 `~/.projectops/config/config.json` 에 서버·PAT 를 두고 쓰는 것과 같은 방식이다.
-`launch.credentials` 에 **이름 붙여** 값까지 저장하고(파일은 600), 목록·조회에서는 값이 `<저장됨>` 으로 가려진다.
+Once saved, the next run does not ask again.
+This works the same way `pro-ssh` and `pro-github` keep servers and PATs in `~/.projectops/config/config.json`.
+Values are saved **under a name** in `launch.credentials` (the file is mode 600). In list and show output, values are masked as `<저장됨>` ("saved").
 
 ```bash
-{PYTHON} {SCRIPTS}/launch_cli.py cred list                     # 작업 시작 때 한 번 — 무엇을 쓸 수 있나
-{PYTHON} {SCRIPTS}/launch_cli.py cred show --name synology     # 값은 가려서 보여 준다 (--reveal 은 꼭 필요할 때만)
-{PYTHON} {SCRIPTS}/launch_cli.py cred show synology            # 이름을 위치 인자로 줘도 된다 (show·set·unset)
+{PYTHON} {SCRIPTS}/launch_cli.py cred list                     # once at the start of a task — what can you use
+{PYTHON} {SCRIPTS}/launch_cli.py cred show --name synology     # values are masked (use --reveal only when truly needed)
+{PYTHON} {SCRIPTS}/launch_cli.py cred show synology            # the name can also be a positional argument (show · set · unset)
 {PYTHON} {SCRIPTS}/launch_cli.py cred set --name synology --json '{"kind":"ssh","host":"h","port":22,"user":"u",
-  "use_when":"서버 배포 QA","scope":"test-only","notes":"운영 컨테이너가 있으니 pops-qa- 접두사만"}'
+  "use_when":"server deploy QA","scope":"test-only","notes":"production containers run here, so use only the pops-qa- prefix"}'
 {PYTHON} {SCRIPTS}/launch_cli.py cred unset --name synology
-{PYTHON} {SCRIPTS}/launch_cli.py cred policy get --name google-dev                 # 로그인 중간 화면 정책 (계정 > 전체 > ask)
+{PYTHON} {SCRIPTS}/launch_cli.py cred policy get --name google-dev                 # interstitial login screen policy (account > global > ask)
 {PYTHON} {SCRIPTS}/launch_cli.py cred policy set --name google-dev --key trust_device --value always
-{PYTHON} {SCRIPTS}/launch_cli.py cred policy set --key skip_nags --value always    # --name 없으면 모든 사이트 기본값
-{PYTHON} {SCRIPTS}/launch_cli.py ssh --cred synology --sudo --command 'SUDO docker ps'   # 비밀번호 sudo 도 된다
+{PYTHON} {SCRIPTS}/launch_cli.py cred policy set --key skip_nags --value always    # without --name, the default for all sites
+{PYTHON} {SCRIPTS}/launch_cli.py ssh --cred synology --sudo --command 'SUDO docker ps'   # password sudo works too
 {PYTHON} {SCRIPTS}/launch_cli.py logs --cred synology --command 'sshpass -e ssh -p $CRED_PORT $CRED_USER@$CRED_HOST "docker logs --tail 100 app"'
-{PYTHON} {SCRIPTS}/launch_cli.py db --cred pg --sql "select 1"   # host·user·password 를 채운다
-{PYTHON} {SCRIPTS}/launch_cli.py http --cred api --url /me        # token 이면 Authorization: Bearer
+{PYTHON} {SCRIPTS}/launch_cli.py db --cred pg --sql "select 1"   # fills in host · user · password
+{PYTHON} {SCRIPTS}/launch_cli.py http --cred api --url /me        # a token becomes Authorization: Bearer
 ```
 
-`cred set` 은 기존 항목에 합친다. 통째로 바꾸려면 `--replace`. `--replace` 도 저장된 `login_policy` 는 남긴다. `--json` 에 `login_policy` 를 넣으면 `use_cred_policy` 로 거절된다 — 정책은 `cred policy set|unset` 으로만 바꾼다.
+`cred set` merges into the existing entry. To replace it entirely, use `--replace`. Even `--replace` keeps the saved `login_policy`. Putting `login_policy` in `--json` is rejected with `use_cred_policy`; change the policy only with `cred policy set|unset`.
 
-| 항목 | 의미 |
+| Field | Meaning |
 |---|---|
 | `kind` | `ssh` · `dockerhub` · `db` · `http` · `github-org` · `login` · `local` · `other` |
-| `ssh_server` | (폐기, 호환용) 옛 `ssh` 섹션의 서버 이름. 새로 쓰지 않는다 — `cred import-ssh` 로 값을 cred 로 옮긴다. 서버 정보와 비밀번호는 **cred 한 곳에만** 둔다 |
-| `use_when` | 이 자격증명을 **언제 써도 되는지**(근거). 사용자가 허용한 범위를 그대로 적는다 |
-| 로그인 계정 | `kind: login` + `provider`(google · apple · naver · kakao · custom) · `surface` · `app` · `account` · `password` · `two_factor` — 소셜·앱 로그인과 개발자 콘솔 로그인. 화면에는 `web type --cred` · `app type --cred` 로 넣는다. 필드 상세는 `web.md` 의 "로그인 정보를 저장할 때" |
-| `login_policy` | 로그인 계정의 중간 화면 정책(`trust_device` · `keep_signed_in` · `skip_nags` = `ask`·`always`·`never`). **`cred policy set|unset` 으로만** 바꾼다 — 처리 규칙은 `web.md` 의 "로그인 중간 화면" |
-| 이 맥 sudo | `kind: local` + `sudo_password` — **이 맥**에서 관리자 권한(`sudo installer -pkg …` 등)이 필요할 때. `local sudo --cred 이름 -- <명령>` 으로 쓴다 (아래) |
-| `scope` | `test-only` · `test-ok` · `readonly` … 허용 범위 |
-| `notes` | 지켜야 할 이름 규칙·포트 범위·서버에 있는 운영 서비스 등 알아둘 것 |
+| `ssh_server` | (deprecated, for compatibility) A server name from the old `ssh` section. Do not use it for new entries; move the values into cred with `cred import-ssh`. Keep server details and passwords **in cred only** |
+| `use_when` | **When this credential may be used** (the justification). Write the scope the user allowed, word for word |
+| Login account | `kind: login` + `provider` (google · apple · naver · kakao · custom) · `surface` · `app` · `account` · `password` · `two_factor` — social and app logins and developer console logins. Enter them on screen with `web type --cred` · `app type --cred`. Field details: "Saving login details" in `web.md` |
+| `login_policy` | The interstitial screen policy for a login account (`trust_device` · `keep_signed_in` · `skip_nags` = `ask` · `always` · `never`). Change it **only with `cred policy set|unset`**. Handling rules: "Interstitial login screens" in `web.md` |
+| sudo on this Mac | `kind: local` + `sudo_password` — when you need admin rights **on this Mac** (`sudo installer -pkg …`, etc.). Use it with `local sudo --cred <name> -- <command>` (below) |
+| `scope` | Allowed scope: `test-only` · `test-ok` · `readonly` … |
+| `notes` | What to keep in mind: naming rules, port ranges, production services on the server, etc. |
 
-## agent 판단 규칙
+## Agent decision rules
 
-- 서버·DB·레지스트리를 만지기 전에 `cred list` 를 보고 **`use_when` 이 지금 하려는 일에 맞는 것만** 쓴다.
-  맞는 것이 없으면 추측해서 다른 것을 쓰지 말고 사용자에게 묻는다.
-- **"로그인이 필요해서 사용자가 직접 해야 한다"고 말하기 전에 `cred list` 를 먼저 본다.** 개발자 콘솔(Apple
-  Developer 등)·소셜 로그인 계정이 `kind: login` 으로 저장돼 있을 수 있다. `use_when` 이 맞으면 "할 수 없다"가 아니라
-  "저장된 계정으로 시도하겠다"고 제안한다. 인증서·프로필·Secret 처럼 **외부 상태를 바꾸는 실행은 무엇이 바뀌는지
-  말하고 승인받은 뒤** 한다. 2FA 처럼 사람만 할 수 있는 지점만 따로 떼어 요청한다.
-- `scope` · `notes` 를 읽고 그 안에서만 움직인다(예: 테스트 이름 접두사, 지우는 것은 내가 만든 것만).
-- 사용자가 새 접속 정보를 주면 **저장해도 되는지 한 번 묻고**, 허락하면 `cred set` 으로 저장해 `use_when` · `scope` · `notes` 를
-  사용자 말 그대로 채운다. 다음에 다시 묻지 않는 것이 목적이다. 거절하면 그 실행에만 쓰고 저장하지 않는다.
-  (사용자가 "알아서 저장해 둬" 처럼 미리 허락한 범위 안에서는 묻지 않고 저장한다.)
-- 저장된 정보가 **틀렸거나 바뀌어 보이면**(로그인 실패·접속 거부) 다시 시도하거나 덮어쓰기 전에 사용자에게 먼저 묻는다. 로그인은 자동 재시도하지 않는다.
-- 접속·로그인이 **통과한 방식**(어느 브라우저 모드, 어느 순서)은 `learn` 으로 남긴다 — 값은 적지 않는다. 다음 `recall` 이 꺼내 준다 (`memory.md`).
-- 결과·보고·이슈·커밋에 값을 옮기지 않는다. `cred show --reveal` 은 정말 필요할 때만.
-- 명령 문자열에는 비밀을 적지 않고 `$CRED_HOST` · `$CRED_USER` · `$CRED_PASSWORD` · `$CRED_TOKEN` · `$SSHPASS` 환경변수를 쓴다.
-  출력에 값이 섞이면 `***` 로 가려진다.
-- `access.json` 에는 비밀을 적지 않는다(값을 적으면 `secret_in_value` 로 거절한다). `access` 에는 `{"cred":"이름"}` 만 적는다 (`server.md`).
+- Before touching a server, DB or registry, check `cred list` and use **only entries whose `use_when` fits what you are about to do**.
+  If none fits, do not guess and use another one; ask the user.
+- **Before saying "this needs a login, so the user has to do it", check `cred list` first.** Developer console (Apple
+  Developer, etc.) and social login accounts may be saved as `kind: login`. If `use_when` fits, do not say "I can't"; offer
+  "I'll try with the saved account". For actions that **change external state**, such as certificates, profiles or Secrets, **say what will change
+  and get approval first**. Ask separately only for the steps only a person can do, such as 2FA.
+- Read `scope` and `notes` and stay inside them (for example: a test name prefix; delete only what you created).
+- When the user gives new connection details, **ask once whether you may save them**. If allowed, save them with `cred set` and fill `use_when` · `scope` · `notes`
+  with the user's own words. The goal is not to ask again next time. If refused, use them for this run only and do not save them.
+  (Within a scope the user approved in advance, such as "just save it", save without asking.)
+- If saved details **look wrong or changed** (login failure · connection refused), ask the user before retrying or overwriting. Never auto-retry logins.
+- Record the **approach that worked** for connecting or logging in (which browser mode, which order) with `learn`, without the values. The next `recall` brings it back (`memory.md`).
+- Never copy values into results, reports, issues or commits. Use `cred show --reveal` only when truly needed.
+- Do not write secrets in command strings; use the `$CRED_HOST` · `$CRED_USER` · `$CRED_PASSWORD` · `$CRED_TOKEN` · `$SSHPASS` environment variables.
+  If a value appears in the output, it is masked as `***`.
+- Do not write secrets in `access.json` (a value there is rejected with `secret_in_value`). In `access`, write only `{"cred":"<name>"}` (`server.md`).
 
-## 원격 ssh
+## Remote ssh
 
-- 서버에는 `ssh --cred 이름 [--sudo] --command '…'`(저장된 서버)로, 또는 **저장 없이** `ssh --host H --port P --user U --password-env 변수|--key-path 키 --command '…'` 로 들어간다. 직접 준 값은 저장된 값보다 우선하고 저장하지 않는다. `--sudo` 를 주면 원격 명령 안에서 `SUDO <명령>` 을 쓸 수 있다.
-- 비밀번호는 명령줄이 아니라 표준입력·환경변수로만 가고, 서버가 되풀이해 찍어도 출력에서 `***` 로 가려진다.
-- 비밀번호 접속에는 `sshpass` 가 필요하다(없으면 `sshpass_missing`). 출력은 `--max-output` 자에서 자른다.
-- **서버 기억 (#841)**: `ssh` 응답의 `memory` 에는 그 서버(`server.<자격증명 이름>.*`) 기억만 실린다. 처음 접속에 성공하면
-  CLI 가 OS(`uname -s`)와 시놀로지 docker 절대경로를 확인해 이 컴퓨터 범위에 남긴다(Windows 는 건너뜀).
-  컨테이너 이름·로그 위치처럼 직접 알아낸 것은 `learn --area server --scope machine --key server.<서버>.<주제>` 로 남긴다(계정·비밀 금지).
-- **서버 정보는 cred 한 곳에 둔다.** 옛 `ssh` 섹션이 있으면 `cred import-ssh --dry-run` 으로 목록을 보고(비밀은 가려진다),
-  `--dry-run` 을 빼고 실행하면 host·user·password 값까지 가져온다. 접속이 되는지 확인한 뒤 `--prune` 을 붙여 다시 부르면
-  가져온 서버가 옛 섹션에서 지워진다(지우기 전에 `config.json.bak-ssh-prune` 으로 백업, 권한 600). 이름이 cred 형식(영문·숫자·`._-`)이
-  아닌 서버는 못 가져오니 `cred set` 으로 영문 이름을 붙여 직접 저장한다. `--ref` 는 참조만 만든다(비밀번호가 두 곳에 남는다).
+- Reach a server with `ssh --cred <name> [--sudo] --command '…'` (a saved server), or **without saving** with `ssh --host H --port P --user U --password-env <var>|--key-path <key> --command '…'`. Values given directly take precedence over saved values and are not saved. With `--sudo`, you can use `SUDO <command>` inside the remote command.
+- Passwords go only through stdin or environment variables, never the command line. Even if the server echoes them, they are masked as `***` in the output.
+- Password logins need `sshpass` (`sshpass_missing` if absent). Output is truncated at `--max-output` characters.
+- **Server memory (#841)**: the `memory` in an `ssh` response carries only that server's memory (`server.<credential name>.*`). After the first successful connection,
+  the CLI checks the OS (`uname -s`) and the absolute Synology docker path and saves them at this-computer scope (skipped on Windows).
+  Record what you find out yourself, such as container names or log locations, with `learn --area server --scope machine --key server.<server>.<topic>` (no accounts or secrets).
+- **Keep server details in cred only.** If an old `ssh` section exists, list it with `cred import-ssh --dry-run` (secrets are masked).
+  Running it without `--dry-run` imports the host · user · password values too. After you confirm the connection works, call it again with `--prune`
+  to delete the imported servers from the old section (backed up to `config.json.bak-ssh-prune` first, mode 600). Servers whose names do not fit the cred format (letters, digits, `._-`)
+  cannot be imported; save them yourself with `cred set` under an English name. `--ref` only creates a reference (the password stays in two places).
 
-## 이 맥의 sudo 비밀번호 (#784)
+## sudo password on this Mac (#784)
 
-로컬 맥에서 관리자 권한이 필요한 작업(예: `sudo installer -pkg … -target /`)을 만나면, **"비밀번호는 못 넣는다"며 멈추지 말고** 저장된 자격증명부터 찾는다.
+When a task on the local Mac needs admin rights (for example `sudo installer -pkg … -target /`), **do not stop with "I can't enter the password"**. Look for a saved credential first.
 
 ```bash
-{PYTHON} {SCRIPTS}/launch_cli.py cred list                      # kind 가 local 인 것이 있나
+{PYTHON} {SCRIPTS}/launch_cli.py cred list                      # is there one with kind local
 {PYTHON} {SCRIPTS}/launch_cli.py local sudo --cred mac -- installer -pkg /path/x.pkg -target /
 ```
 
-- **첫 등록은 사용자가 터미널에서 직접 한다.** 입력은 화면에 보이지 않고, 비밀번호가 채팅·세션 기록에 들어가지 않는다.
-  `! {PYTHON} {SCRIPTS}/launch_cli.py cred set --name mac --prompt` (Claude Code 에서는 `!` 접두사). `!` 로 TTY 를 못 받으면
-  별도 터미널 창에서 같은 명령을 친다. 파이프·채팅으로는 받지 않는다(`no_tty` 로 거절).
-- 비밀번호는 `sudo -S` 표준입력으로만 넘긴다. 명령줄·응답·로그에는 남지 않고 출력의 같은 문자열은 `***` 로 가려진다.
-- `kind: local` 만 쓴다. 서버 ssh 비밀번호로 이 맥에 sudo 를 시도하지 않는다(`cred_not_local`).
-- **시스템을 바꾸는 명령이다.** 실행 전에 무슨 명령인지 한 줄로 말한다. 한 번 저장했다고 아무 명령이나 돌리지 않고, `use_when` 범위 안에서 쓴다.
-- 저장은 로컬 파일(`config.json`, 권한 600) 평문이다. 로컬 전용이라는 사용자 방침을 따랐고, 맥 로그인 비밀번호라는 점이 서버 키보다 민감하다는 것은 사용자가 알고 있다.
-- ⚠️ **Claude Code 의 권한 분류기가 "저장된 비밀번호로 sudo" 호출을 거부할 수 있다.** 이 스킬로 우회할 수 없고 권한 설정을 바꾸지도 않는다.
-  거부되면 그 사실과 사용자가 직접 칠 명령 한 줄을 알려 준다.
+- **The user does the first registration directly in the terminal.** The input is not shown on screen, and the password never enters the chat or session records.
+  `! {PYTHON} {SCRIPTS}/launch_cli.py cred set --name mac --prompt` (the `!` prefix in Claude Code). If `!` cannot get a TTY,
+  type the same command in a separate terminal window. Pipes and chat are not accepted (rejected with `no_tty`).
+- The password goes only to `sudo -S` on stdin. It does not stay in the command line, responses or logs, and the same string in the output is masked as `***`.
+- Use only `kind: local`. Do not try sudo on this Mac with a server ssh password (`cred_not_local`).
+- **These commands change the system.** Before running one, say in one line what the command is. Saving once does not mean running any command; stay within `use_when`.
+- It is stored as plain text in a local file (`config.json`, mode 600). This follows the user's local-only policy, and the user knows that a Mac login password is more sensitive than a server key.
+- ⚠️ **Claude Code's permission classifier may refuse a "sudo with a saved password" call.** This skill cannot bypass that and does not change permission settings.
+  If refused, report that and give the user the one-line command to type themselves.
 
-## 실패 code → 다음 행동
+## Failure code → next action
 
-| code | 다음 행동 |
+| code | Next action |
 |---|---|
-| `cred_required` · `name_required` | `cred list` 로 이름을 고른다. 맞는 것이 없으면 사용자에게 묻는다 |
-| `cred_field_missing` | 그 자격증명에 필드가 없다. `cred show` 로 있는 필드를 본다 |
-| `cred_not_local` | `kind: local` 인 자격증명만 `local sudo` 에 쓴다 |
-| `no_tty` | 사용자가 `!` 접두사나 별도 터미널에서 `cred set --prompt` 를 직접 친다 |
-| `sudo_failed` · `auth_failed` | 다시 시도하지 말고 사용자에게 값이 바뀌었는지 묻는다 |
-| `sshpass_missing` | `brew install sshpass` 등 설치를 제안한다 |
-| `remote_exit_nonzero` | 연결·인증은 성공했고 원격 명령이 0 이 아니게 끝났다. grep 결과 없음처럼 정상일 수 있다 — 출력으로 판단하고 접속 정보를 의심하지 않는다 |
-| `connect_failed` · `host_key_unknown` · `host_key_changed` | 접속 자체 실패. `host_key_changed` 는 서버가 바뀐 것일 수 있으니 known_hosts 를 임의로 지우지 않고 사용자에게 알린다 |
+| `cred_required` · `name_required` | Pick a name with `cred list`. If none fits, ask the user |
+| `cred_field_missing` | That credential lacks the field. Check the existing fields with `cred show` |
+| `cred_not_local` | Only `kind: local` credentials work with `local sudo` |
+| `no_tty` | The user types `cred set --prompt` themselves, with the `!` prefix or in a separate terminal |
+| `sudo_failed` · `auth_failed` | Do not retry; ask the user whether the value changed |
+| `sshpass_missing` | Offer to install it, for example with `brew install sshpass` |
+| `remote_exit_nonzero` | Connection and authentication succeeded, and the remote command ended non-zero. That can be normal, such as grep finding nothing. Judge by the output and do not suspect the connection details |
+| `connect_failed` · `host_key_unknown` · `host_key_changed` | The connection itself failed. `host_key_changed` may mean the server changed, so do not delete known_hosts on your own; tell the user |

@@ -3,82 +3,86 @@ name: pro-launch
 description: "Capability skill that launches and drives apps, web and servers: emulator/simulator screenshots, browser navigation and capture, API mocking for empty/error states, HTTP/DB/log access. Used by pro-agent-test, pro-design-brief, pro-figma."
 ---
 
-# pro-launch — 띄우고, 조작하고, 찍는다
+# pro-launch — launch, drive, capture
 
 ## When to use
 
-- '에뮬레이터 띄워서 찍어줘', '시뮬레이터 스크린샷', '브라우저로 이 화면 캡처해줘', '모바일 폭으로 찍어줘'
-- '빈 목록 화면 찍어줘', '500 났을 때 화면 보여줘', '이 API 한 번 불러줘'
-- 무엇을 왜 찍을지는 정하지 않는다 — 그건 부르는 작업 스킬(pro-agent-test · pro-design-brief · pro-figma)의 일이다.
-- 버그를 찾으며 끝까지 밟는 QA 는 pro-agent-test 다. Google·Apple 로그인 화면은 자동화 표식을 가려 차단을 줄인다.
+- "Launch the emulator and take a screenshot", "simulator screenshot", "capture this screen in the browser", "capture it at mobile width"
+  (Korean triggers: '에뮬레이터 띄워서 찍어줘', '시뮬레이터 스크린샷', '브라우저로 이 화면 캡처해줘', '모바일 폭으로 찍어줘')
+- "Capture the empty list screen", "show the screen when it returns 500", "call this API once"
+  (Korean triggers: '빈 목록 화면 찍어줘', '500 났을 때 화면 보여줘', '이 API 한 번 불러줘')
+- This skill does not decide what to capture or why. That is the job of the calling task skill (pro-agent-test · pro-design-brief · pro-figma).
+- QA that walks a flow end to end while hunting bugs is pro-agent-test. On Google and Apple login screens, this skill hides automation markers to reduce blocking.
 
-**능력 스킬이다.** 무엇을 부르면 무엇이 나오는지만 적는다. 무엇을 왜 찍을지는 부르는 작업 스킬
-(pro-agent-test · pro-design-brief · pro-figma · pro-report)이 정하고, 이 스크립트를 **Skill 호출이 아니라 스크립트로** 부른다(같은 층의 능력 스킬: pro-github · pro-ssh).
-판단은 agent, 스크립트는 실행과 기록만 한다 — 라우트·화면 목록을 스캔해 프로젝트 구조를 알아맞히지 않는다.
+**This is a capability skill.** It documents only what each call does and returns. The calling task skill
+(pro-agent-test · pro-design-brief · pro-figma · pro-report) decides what to capture and why, and calls this **as a script, not as a Skill call** (capability skills on the same layer: pro-github · pro-ssh).
+The agent decides; the script only executes and records. It does not scan routes or screen lists to guess the project structure.
 
-`../references/common-rules.md` 의 **절대 규칙** 적용 (Git 커밋 금지, 민감 정보 보호). 인자: $ARGUMENTS
+The **absolute rules** in `../references/common-rules.md` apply (no Git commits, protect sensitive data). Arguments: $ARGUMENTS
 
-## 무엇을 하려는가 → 명령 → 자세한 문서
+Reply to the user in their language (or the configured `language` preference).
 
-모든 명령은 `{PYTHON} {SCRIPTS}/launch_cli.py <명령>` 이다. **레포 밖(셸 작업 폴더가 바뀐 뒤)에서 부르면 `--root <프로젝트>`를 붙인다** —
-없으면 `$PROJECT_ROOT` > 작업 폴더(git) > 최근에 쓴 루트 순으로 찾고, 실패 응답에 `root_candidates`·`retry` 가 온다 (#885).
+## What you want to do → command → detailed doc
 
-| 하려는 것 | 명령 | 자세히 |
+Every command is `{PYTHON} {SCRIPTS}/launch_cli.py <command>`. **When you call it from outside the repo (after the shell's working directory changed), add `--root <project>`.**
+Without it, the root is resolved in this order: `$PROJECT_ROOT` > working directory (git) > most recently used root. A failed lookup returns `root_candidates` and `retry` (#885).
+
+| Goal | Command | Details |
 |---|---|---|
-| 도구(adb · simctl · Chromium · Pillow · cwebp · ffmpeg) · 무엇을 띄울 수 있나(app · web · server, 패키지명 · 번들 ID) · 붙은 기기 · 부팅된 시뮬레이터 · AVD | `doctor` · `detect --path .` · `devices` | — |
-| 호스트 메모리 압박(ok·high·critical) · 큰 프로세스 · 켜진 기기를 묶은 레포 — **가상 기기를 더 띄우기 전에** | `doctor --resources` | 아래 공통 규칙 |
-| **기기 빌리기 · 반납 — 모든 앱 작업의 시작과 끝** (조건으로 빈 기기를 받고, 끝나면 켠 것을 끈다) | `device acquire --platform ios\|android [--form tablet] [--purpose "#이슈"] [--wait 90]` · `device release --device $DEV` · `device shutdown` | `references/app.md` |
-| 공들인 상태(로그인 · 테스트 데이터 · 권한) 기록 — 정리·초기화에서 보호되고 다음에 `--need` 로 그 기기를 받는다 · 기기 기록 보기 | `device mark\|unmark --kind login --name kakao` · `device adopt` · `device records` | `references/app.md` |
-| 새 기기가 꼭 필요할 때(두 대 동시 · 완전 새 폰 · 다른 폼팩터) — **raw simctl create/avdmanager 대신** · 로그인된 기기 복제 · 초기화 · 삭제 | `device acquire --fresh\|--count 2` · `device create\|clone --reason "..."` · `device erase\|delete` | `references/app.md` |
-| 쌓인 기기 정리 — 기한 지난 임시 기기 삭제 · 버려진 켜진 기기 끄기 (기본은 보고만) | `device gc [--apply] [--sizes]` | `references/app.md` |
-| **이 컴퓨터가 기기를 몇 대까지 감당하나 재서 설정에 넣기** — 처음 쓰는 컴퓨터 · 여러 세션이 켜다 멈출 때 | `device benchmark [--platform ios\|android] [--full]` | `references/app.md` |
-| 역할을 기기에 묶기(참가자가 둘 이상) · 소유자 보기 · 특정 기기 쥐기 | `device list\|bind\|unbind\|show\|claim` | `references/app.md` |
-| 에뮬레이터·시뮬레이터 띄우기(기본 창 없음, 창이 필요하면 작게) · 재부팅 · 언어 · 다크 모드 — **raw simctl/emulator 대신** | `device boot\|reboot [--cold]\|locale\|appearance\|text-size` · `app install --path` | `references/app.md` |
-| 앱 띄우기 · 찍기 | `app launch` · `app shot [--clean-status]` | `references/app.md` |
-| 앱 화면 구조 · 누르기 · 밀기 · 뒤로가기 · 화면 안정 대기 | `app tree` · `app tap` · `app swipe` · `app back` · `app wait --settle` | `references/app.md` |
-| 앱 여러 단계 한 번에 (iOS 는 Maestro 1회) | `app run --steps steps.json` | `references/app.md` |
-| 복잡한 제스처(밀고 곧바로 탭 · 요소에서 밀기) — 프로젝트 Maestro flow 실행 + 캡처 | `app flow --file x.yaml` | `references/app.md` 제스처 플레이북 |
-| iOS 를 여러 번 보고 누를 때 — 상주 세션 (호출당 20초 > 1초) | `app session start\|stop\|status` | `references/app.md` |
-| 앱에 글자 넣기(저장된 로그인, iOS 는 Maestro) | `app type --cred 이름` | `references/app.md` |
-| 화면이 바뀔 때까지(사라질 때까지) 기다리기 · 화면 녹화 · 동작 직후 연속 캡처 | `app wait [--gone]` · `app record start\|stop` · `--burst` | `references/app.md` |
-| 앱 끄기 · 다시 띄우기 · 위치 · 권한 · 푸시(iOS) · 딥링크 — **raw simctl/adb 대신** | `app terminate\|relaunch\|location\|permission\|push\|openurl` | `references/app.md` |
-| 브라우저 열기 · **화면 읽기 · 누를 것 고르기** · 확인하며 클릭 · 입력 · 캡처 | `web setup\|open\|goto\|text\|find\|click\|type\|shot\|assert\|console\|close` | `references/web.md` |
-| 로그인된 브라우저 프로필을 레포를 넘어 다시 쓰기 · 로그인 기록 (다시 로그인 · 2단계 인증을 안 하게) | `web open --profile <이름>\|--need login:google` · `web profile list\|use\|mark\|unmark` | `references/web.md` |
-| 폭 바꾸기 · 응답 바꿔치기(빈 목록 · 500 · 지연) | `web viewport` · `web route` | `references/web.md` |
-| **폼 읽기**(입력·버튼·체크·선택 + 값·비활성·ref) · 줄만 골라 읽기 · 고르기 · 체크 · 키 · 올리기 · 대화상자 · 내려받기 — **raw CDP 스크립트 대신** | `web inspect` · `web text --grep` · `web select\|check\|press\|hover\|dialog\|download` | `references/web.md` |
-| 조건 기다리기(승인·토스트·주소) · 안쪽 상자 스크롤·조각 캡처 · 파일 올리기 · iframe 안 조작 · **고정 동작에 없는 일** | `web wait\|scroll\|upload` · `web shot --container` · `--frame` · `web script` | `references/web.md` |
-| 저장이 갔는지 요청으로 확인 · 입력칸·복사 버튼의 비밀값을 출력 없이 저장 · 키를 하나씩 입력 · 남은 브라우저 정리 | `--capture-requests` · `web value\|clipboard --save-env` · `web type --keys` · `web close --stale` | `references/web.md` |
-| 코드로 상태를 그려 찍기 | `render snapshot` → `render run` | `references/render.md` |
-| 단건 HTTP · 붙는 법 기록 · SQL · 로그 | `http` · `access show\|set\|unset` · `db` · `logs` | `references/server.md` |
-| 자격증명 저장 · 원격 명령 · 이 맥 sudo | `cred list\|show\|set\|unset\|import-ssh` · `ssh` · `local sudo` | `references/credentials.md` |
-| 로그인 중간 화면(기기 신뢰 · 로그인 유지 · 권유) 정책 | `cred policy get\|set\|unset` | `references/web.md` "로그인 중간 화면" |
-| 이슈 첨부용 축소 | `shrink` | `references/memory.md` |
-| 이 컴퓨터에서 먹힌 방식 꺼내기 · 남기기 · 지우기 · 정리 | `recall [--match 낱말]` · `learn [--detail]` · `forget` · `tidy` (흩어진 기억) · `tidy --buckets` (용량·가짜 버킷, `--apply` 때만 삭제) | `references/memory.md` |
-| 작업을 마칠 때 — 막혔다 풀렸는데 learn 안 한 영역 | `session-check` | `references/memory.md` |
-| 공식 트러블슈팅 찾기 · 보기 · 목록 · 내 기억에서 공식 항목 초안 | `kb search\|show\|list\|propose` | `references/troubleshooting.md` · `references/memory.md` |
-| 했던 작업을 자유롭게 적어 두고 다음에 다시 읽기 (작업 일지) | `journal [--add "..."] [--title] [--site]` | `references/memory.md` |
-| 이번 실행 자리 + `env.sh` | `get-output-path` | 아래 |
-| 새 플랫폼 · 새 동작 추가(기여자) | — | `references/extending.md` |
+| Tools (adb · simctl · Chromium · Pillow · cwebp · ffmpeg) · what can be launched (app · web · server, package name · bundle ID) · attached devices · booted simulators · AVDs | `doctor` · `detect --path .` · `devices` | — |
+| Host memory pressure (ok · high · critical) · large processes · repos holding running devices — **before booting more virtual devices** | `doctor --resources` | Common rules below |
+| **Borrow and return a device — the start and end of every app task** (get a free device that matches conditions; when done, shut down what you booted) | `device acquire --platform ios\|android [--form tablet] [--purpose "#issue"] [--wait 90]` · `device release --device $DEV` · `device shutdown` | `references/app.md` |
+| Record prepared state (login · test data · permissions) — protected from cleanup and reset; next time `--need` gets you that device · view device records | `device mark\|unmark --kind login --name kakao` · `device adopt` · `device records` | `references/app.md` |
+| When you really need a new device (two at once · a completely fresh phone · a different form factor) — **instead of raw simctl create/avdmanager** · clone a logged-in device · erase · delete | `device acquire --fresh\|--count 2` · `device create\|clone --reason "..."` · `device erase\|delete` | `references/app.md` |
+| Clean up accumulated devices — delete expired temporary devices · shut down abandoned running devices (report only by default) | `device gc [--apply] [--sizes]` | `references/app.md` |
+| **Measure how many devices this computer can handle and save it to config** — on a new computer · when several sessions stall while booting | `device benchmark [--platform ios\|android] [--full]` | `references/app.md` |
+| Bind roles to devices (two or more participants) · show the owner · claim a specific device | `device list\|bind\|unbind\|show\|claim` | `references/app.md` |
+| Boot an emulator/simulator (no window by default; small window if you need one) · reboot · locale · dark mode — **instead of raw simctl/emulator** | `device boot\|reboot [--cold]\|locale\|appearance\|text-size` · `app install --path` | `references/app.md` |
+| Launch an app · capture | `app launch` · `app shot [--clean-status]` | `references/app.md` |
+| App screen structure · tap · swipe · back · wait for the screen to settle | `app tree` · `app tap` · `app swipe` · `app back` · `app wait --settle` | `references/app.md` |
+| Several app steps at once (one Maestro run on iOS) | `app run --steps steps.json` | `references/app.md` |
+| Complex gestures (swipe then tap immediately · swipe from an element) — run the project's Maestro flow and capture | `app flow --file x.yaml` | `references/app.md` gesture playbook |
+| When you look and tap on iOS many times — resident session (20 s → 1 s per call) | `app session start\|stop\|status` | `references/app.md` |
+| Type text into the app (saved login; Maestro on iOS) | `app type --cred <name>` | `references/app.md` |
+| Wait until the screen changes (or something disappears) · screen recording · burst capture right after an action | `app wait [--gone]` · `app record start\|stop` · `--burst` | `references/app.md` |
+| Terminate · relaunch · location · permissions · push (iOS) · deep links — **instead of raw simctl/adb** | `app terminate\|relaunch\|location\|permission\|push\|openurl` | `references/app.md` |
+| Open a browser · **read the screen · pick what to press** · click with verification · type · capture | `web setup\|open\|goto\|text\|find\|click\|type\|shot\|assert\|console\|close` | `references/web.md` |
+| Reuse a logged-in browser profile across repos · record logins (so you do not log in or pass 2FA again) | `web open --profile <name>\|--need login:google` · `web profile list\|use\|mark\|unmark` | `references/web.md` |
+| Change width · replace responses (empty list · 500 · delay) | `web viewport` · `web route` | `references/web.md` |
+| **Read a form** (inputs · buttons · checkboxes · selects + values · disabled state · ref) · read only matching lines · select · check · keys · hover · dialogs · downloads — **instead of raw CDP scripts** | `web inspect` · `web text --grep` · `web select\|check\|press\|hover\|dialog\|download` | `references/web.md` |
+| Wait for a condition (approval · toast · URL) · scroll an inner box and capture a piece · upload files · act inside an iframe · **anything the fixed actions do not cover** | `web wait\|scroll\|upload` · `web shot --container` · `--frame` · `web script` | `references/web.md` |
+| Confirm a save went through by its request · save a secret from an input or copy button without printing it · type key by key · clean up leftover browsers | `--capture-requests` · `web value\|clipboard --save-env` · `web type --keys` · `web close --stale` | `references/web.md` |
+| Render a state in code and capture it | `render snapshot` → `render run` | `references/render.md` |
+| Single HTTP request · record how to connect · SQL · logs | `http` · `access show\|set\|unset` · `db` · `logs` | `references/server.md` |
+| Store credentials · remote commands · sudo on this Mac | `cred list\|show\|set\|unset\|import-ssh` · `ssh` · `local sudo` | `references/credentials.md` |
+| Policy for interstitial login screens (trust this device · stay signed in · upsells) | `cred policy get\|set\|unset` | `references/web.md` "Interstitial login screens" |
+| Shrink for issue attachments | `shrink` | `references/memory.md` |
+| Recall · save · delete · tidy what worked on this computer | `recall [--match <word>]` · `learn [--detail]` · `forget` · `tidy` (scattered memory) · `tidy --buckets` (size and bogus buckets; deletes only with `--apply`) | `references/memory.md` |
+| When you finish a task — areas where you got stuck, got unstuck, and did not `learn` | `session-check` | `references/memory.md` |
+| Search · show · list official troubleshooting · draft an official entry from your memory | `kb search\|show\|list\|propose` | `references/troubleshooting.md` · `references/memory.md` |
+| Write free-form notes about work you did and read them next time (work journal) | `journal [--add "..."] [--title] [--site]` | `references/memory.md` |
+| Output location for this run + `env.sh` | `get-output-path` | Below |
+| Add a new platform · new action (contributors) | — | `references/extending.md` |
 
-## 스크립트 찾기
+## Find the scripts
 
-**Bash 도구는 호출마다 상태가 초기화된다.** 한 번 찾은 뒤 **실제 경로를 이후 블록에 값으로 직접 써넣는다.**
-다른 스킬에서 부를 때도 `SKILL=pro-launch` 그대로 쓴다.
+**The Bash tool resets its state on every call.** After you find the path once, **write the actual path as a literal value in later blocks.**
+When another skill calls this one, keep `SKILL=pro-launch` as is.
 
-**고정 진입점이 있으면 그것을 쓴다** (#897) — 버전 폴더(`.../projectops/4.xx.x/...`)를 박아 쓰면 세션 중 문서와
-스크립트 버전이 어긋난다. `~/.projectops/bin/launch_cli.py` 는 한 번이라도 실행하면 생기고, 부를 때마다 가장
-새 설치본(체크아웃 > 플러그인 캐시 최고 버전 > Cursor)을 찾아 인자를 그대로 넘긴다. 특정 폴더를 강제하려면 `PROJECTOPS_LAUNCH_SCRIPTS`.
+**Use the fixed entry point if it exists** (#897). Hard-coding a version folder (`.../projectops/4.xx.x/...`) lets the docs and
+the scripts drift apart during a session. `~/.projectops/bin/launch_cli.py` appears after the first run. On every call it finds the
+newest install (checkout > highest plugin-cache version > Cursor) and passes the arguments through. To force a specific folder, set `PROJECTOPS_LAUNCH_SCRIPTS`.
 
 ```bash
-E="${PROJECTOPS_HOME:-$HOME/.projectops}/bin/launch_cli.py"; [ -f "$E" ] && echo "SCRIPTS 대신: {PYTHON} $E <명령>"
+E="${PROJECTOPS_HOME:-$HOME/.projectops}/bin/launch_cli.py"; [ -f "$E" ] && echo "Instead of SCRIPTS: {PYTHON} $E <command>"
 ```
 
-- **zsh 에서 `L="python3 …/launch_cli.py"; $L web …` 처럼 명령을 변수에 담지 않는다** — 한 단어로 취급돼 `no such file` 이 난다. 고정 진입점은 실행 권한이 있어 `"$E" <명령>` 으로 바로 부르거나,
-  `launch() { python3 "$HOME/.projectops/bin/launch_cli.py" "$@"; }` 함수로 감싼다. 버전이 박힌 캐시 경로를 붙여 넣지 않는다.
-- 응답에 **`newer_installed`** 가 있으면 더 새 버전이 깔려 있다(JSON 안에 있고 성공 응답에도 온다) — 안내된 `use` 명령으로 바꿔 부른다.
-  `doctor` 의 `docs_dir` 이 지금 읽는 SKILL.md 폴더와 다르면 문서가 옛 버전이다.
+- **In zsh, do not store the command in a variable like `L="python3 …/launch_cli.py"; $L web …`.** zsh treats it as one word and fails with `no such file`. The fixed entry point is executable, so call it directly as `"$E" <command>`,
+  or wrap it in a function: `launch() { python3 "$HOME/.projectops/bin/launch_cli.py" "$@"; }`. Do not paste a cache path with a version in it.
+- If a response contains **`newer_installed`**, a newer version is installed (it is in the JSON and also comes with success responses). Switch to the `use` command it suggests.
+  If `docs_dir` from `doctor` differs from the folder of the SKILL.md you are reading, your docs are an old version.
 
-없으면(첫 실행) 아래로 찾는다.
+If it does not exist (first run), find the scripts as below.
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -94,187 +98,187 @@ SCRIPTS="$ROOT/skills/$SKILL/scripts"
 echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS PROJECT_ROOT=$PROJECT_ROOT"
 ```
 
-## 산출물 자리 — 먼저 받는다. 경로를 지어내지 않는다 ⚠️
+## Output location — get it first. Never invent a path ⚠️
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title "{무엇을 찍는지}"
-#   --skill design-brief   # 부르는 작업 스킬이 자기 폴더에 받고 싶을 때 (증거 스킬만 — 아니면 not_evidence_skill)
-#   --package {패키지명}   # env.sh 에 PKG 로 넣는다
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title "{what you are capturing}"
+#   --skill design-brief   # when the calling task skill wants the output in its own folder (evidence skills only — otherwise not_evidence_skill)
+#   --package {package}    # written to env.sh as PKG
 ```
 
-돌려준 `env_file` 을 **이후 블록 첫 줄에서 source 한다.** `LAUNCH_RUN`(스킬별 `{스킬}_RUN`) · `$RUN_DIR` · `$SHOT_DIR` ·
-`$DEV`(역할을 묶었으면 `DEVn` · `ROLEn`, 다른 세션이 쓰지 않는 기기가 한 대일 때만 채운다 — 비면 `device acquire`) · `$PKG` 가 들어온다. `--skill` 은 `scripts/common/paths.py` 의 `EVIDENCE_SKILLS` 만
-받는다 — 문서 스킬 폴더에 캡처를 쌓으면 추적 제외가 없어 커밋된다.
+**Source the returned `env_file` on the first line of every later block.** It provides `LAUNCH_RUN` (per skill: `{SKILL}_RUN`) · `$RUN_DIR` · `$SHOT_DIR` ·
+`$DEV` (with bound roles: `DEVn` · `ROLEn`; filled only when exactly one device is free of other sessions — if empty, use `device acquire`) · `$PKG`. `--skill` accepts only
+`EVIDENCE_SKILLS` from `scripts/common/paths.py`. Captures stored in a document skill's folder have no git exclusion and get committed.
 
-## 공통 규칙
+## Common rules
 
-- **기기는 이름을 골라 쓰지 않고 빌린다 (#953).** 앱 작업의 처음은 `device acquire --platform <ios|android> --purpose "#이슈"`,
-  받은 `device` 를 `$DEV` 로 쓰고, 끝은 **반드시** `device release --device "$DEV"` (이 빌림이 켠 기기면 끈다).
-  여러 세션이 한 컴퓨터의 기기를 나눠 쓴다 — 새 시뮬레이터·AVD 를 `simctl create`·`avdmanager` 로 만들지 않는다.
-  `verdict` 별 행동: `reuse`·`reclaim` 진행 · `wait`(`device_busy`) 는 `--wait 90` 으로 다시 부르거나 다른 일을 먼저 ·
-  `ask`(`needs_user`) 는 `reasons` 를 그대로 사용자에게 보여 주고 묻는다 · `no_match` 는 `devices` 로 보고 조건을 넓힌다.
-  **메모리 위험**(`needs_user` 의 `is_memory_risk` · `host_memory_pressure` · `device_budget_exceeded`)은 사용자 답을 받은 뒤에만
-  `--user-approved` 를 붙여 다시 부른다(`acquire`·`boot`). `--yes` 는 이 게이트를 넘지 않는다 — 사용자에게 묻지 않고 붙이지 않는다.
-  켜져 있지만 원장 기록이 없는 기기(사람이 쓰는 것일 수 있다)는 받지 않는다 — 꼭 그 기기여야 하면 사용자에게 묻고 `--device`.
-- **사람이 로그인·2단계 인증·데이터 준비를 마치면 바로 `device mark --device "$DEV" --kind login --name <공급자>`** (#954).
-  다음 세션은 `device acquire --need login:<공급자>` 로 그 기기를 받는다 — 새 기기를 만들면 그 상태가 없다.
-  mark 가 있는 기기는 `erase`·`delete` 가 `--yes` 없이 거부한다. 새 기기는 `acquire` 가 필요할 때 만들고(이유·기한 기록), 한도(켜진 기기 수 · 디스크 · 메모리)에 걸리면 만들지 않는다.
-  Claude Code 에서는 Bash 의 raw `simctl create|delete|erase`·`avdmanager create|delete`·`-wipe-data`·`emu kill` 이 훅으로 막힌다.
-- **조작 명령의 기기는 `--device` 로 준다.** 없으면 `$DEV` → 붙은 기기가 한 대뿐이면 그것. 여러 대인데 안 고르면 `no_device` 로 멈춘다.
-- **JSON 하나를 돌려준다.** `ok` 로 성패, `code` 로 갈래(문구가 아니라 code 로 판단), `next` 를 다음 명령 후보로 읽는다.
-  요소를 못 찾으면 `candidates`(화면에 실제로 있는 값)와 `locale` 이 온다 — **추측을 반복하지 말고 거기서 고른다.**
-- **실패 응답에 `known_fix` 가 오면 그 해결부터 시도한다** — 검증된 공식 지식의 요약(최대 2건)이다. 전체 증상·원인은
-  `kb show <id>`, 응답에 없을 때 직접 찾기는 `kb search "<오류 문구>" --code <code>`.
-- **결과를 `head`·`cut`·python 으로 자르지 않는다** — `next`·`memory`·`known_fix` 가 같이 잘려 나간다.
-  짧게 받으려면 어느 명령에든 `--brief`(ok·code·summary·next·error·known_fix·memory·learn_hint 만, 실패면 `reasons`·`output_tail` 도),
-  특정 키만 원하면 `--fields file,url` 을 붙인다(`path` 는 `file` 의 별칭). 둘 다 그 안내 키들은 항상 남긴다. 키 순서는 언제나
-  `ok`·`code`·`summary`·`next` → `known_fix`·`memory` → 나머지다.
-- **`bad_args` 면 `unknown`·`did_you_mean`·`valid_options`·`example` 을 읽고 고친다** — 짐작으로 다시 부르지 않는다.
-  `empty_values` 가 오면 그 옵션 값이 비었다(`$VAR` 미설정). `device <동작>` 에 그 동작이 읽지 않는 옵션을 주면
-  조용히 무시하지 않고 `bad_args`(`unused_options` · `valid_options`)로 돌려보낸다.
-- **`pressure: critical`(doctor --resources · devices 의 `resources`)이면 가상 기기를 새로 띄우기 전에 사용자에게 묻는다.**
-  다른 세션의 에뮬레이터·시뮬레이터·프로세스는 끄지 않는다 — `owners` 로 누가 쓰는지 보고만 한다. `acquire` 는 이 경우 새로 켜지 않고 `ask` 를 낸다.
-  압박이 풀리기를 `doctor --resources` 로 폴링하며 기다리지 않는다 — `non_device_consumers` 를 보여 주고 무엇을 끌지 사용자에게 묻는다.
-- **기기 켜기는 메모리 예산 안에서, 이 컴퓨터 전체에서 한 번에 하나씩** (#964). 예산·기기당 비용은 `device benchmark` 가 재서 설정에 넣는다.
-  `doctor --resources` 가 `device benchmark` 를 권하면(잰 적 없음 · 30일 지남 · RAM 바뀜) 다른 세션이 없을 때 한 번 잰다.
-- 캡처는 기본 긴 변 1200px WebP. 픽셀 대조처럼 원본이 필요할 때만 `--keep-format`. **찍은 것은 Read 로 열어 본다.**
-  텍스트로 확인되면(`web assert` · `app tree` · 로그) 이미지를 읽지 않는다 — 가장 비싼 것이 이미지다.
-- **호스트 마우스로 좌표를 누르지 않는다**(`cliclick` · AppleScript · CGEvent) — 사용자 커서를 빼앗는다. 앱은 `app tap`, 웹은 `web find` → `web click --ref`.
-- **자격증명을 평문으로 다루지 않는다.** 명령줄 `--text` 대신 `--cred`(저장된 것) · `--text-env`(일회용),
-  명령 문자열에는 `$CRED_*` 환경변수. 결과·보고·이슈·커밋에 값을 옮기지 않는다. `access` 에는 비밀을 적지 않는다.
-- 바꾸는 조작(제출 · 삭제 · 결제 · 발송)은 **로컬만 그냥** 한다. 그 밖은 멈추고 묻는다 (`references/web.md` 안전 계약).
-- 캡처를 위해 AI 생성 API 를 부르지 않는다. 상태 관리 방식·프로젝트 구조를 추측하지 않는다.
-- **막히면 직접 만들기 전에 이 순서로 간다** (#934): 해당 동작의 `--help` > `kb search` > `web script`(웹) · `app flow`(앱).
-  raw Playwright·CDP 스크립트, `adb`·`simctl`·`maestro` 직접 호출, 대기 루프를 새로 짜지 않는다 — 같은 연결·시간 상한·비밀값 가림을 거치지 않는다.
-  **사용자 계정에 쓰는 우회**(Apps Script 같은 스크립트 프로젝트 만들기, API 직접 호출)는 먼저 묻는다.
-- **자격증명을 config 파일에서 직접 읽지 않는다** — 저장된 값은 `--cred` 로만 쓴다. 다른 에이전트에게 일을 맡길 때 raw Maestro·simctl·adb 를 쓰라고 지시하지 않고, 이 스킬을 쓰게 한다.
-- 인증 코드(OTP)를 기다리는 동안 **로그인 폼을 다시 제출하지 않는다** — 새 코드가 나가 앞 코드가 무효가 된다.
-- `--timeout` 은 **초** 단위다(최대 300). 3000 을 넣으면 `timeout_too_large` 로 거절한다.
-- 막혔다 우회로 풀었으면 끝내기 전에 `learn` 으로 남긴다 — 다음 세션이 같은 우회를 다시 만들지 않게.
+- **Borrow devices; do not pick them by name (#953).** Start every app task with `device acquire --platform <ios|android> --purpose "#issue"`,
+  use the returned `device` as `$DEV`, and **always** finish with `device release --device "$DEV"` (it shuts the device down if this borrow booted it).
+  Several sessions share the devices on one computer. Do not create new simulators or AVDs with `simctl create` or `avdmanager`.
+  Action per `verdict`: `reuse` · `reclaim` → proceed · `wait` (`device_busy`) → call again with `--wait 90` or do other work first ·
+  `ask` (`needs_user`) → show the `reasons` to the user as is and ask · `no_match` → check `devices` and widen the conditions.
+  **Memory risk** (`is_memory_risk` in `needs_user` · `host_memory_pressure` · `device_budget_exceeded`): call again with
+  `--user-approved` only after the user answers (`acquire` · `boot`). `--yes` does not pass this gate. Never add it without asking the user.
+  Do not take a running device that has no ledger record (a person may be using it). If it must be that device, ask the user and pass `--device`.
+- **As soon as a person finishes login, 2FA or data setup, run `device mark --device "$DEV" --kind login --name <provider>`** (#954).
+  The next session gets that device with `device acquire --need login:<provider>`. A new device would not have that state.
+  On a marked device, `erase` and `delete` refuse without `--yes`. `acquire` creates new devices only when needed (recording the reason and expiry), and does not create one when a limit (running device count · disk · memory) is hit.
+  In Claude Code, a hook blocks raw `simctl create|delete|erase` · `avdmanager create|delete` · `-wipe-data` · `emu kill` in Bash.
+- **Pass the device for control commands with `--device`.** Without it: `$DEV` → the only attached device. With several devices and no choice, the command stops with `no_device`.
+- **Each command returns one JSON object.** `ok` is success or failure, `code` is the branch (decide by code, not by message text), and `next` lists candidate next commands.
+  When an element is not found, you get `candidates` (values actually on screen) and `locale`. **Pick from them; do not keep guessing.**
+- **If a failure response has `known_fix`, try that fix first.** It summarizes verified official knowledge (up to 2 entries). For the full symptom and cause use
+  `kb show <id>`; to search when the response has none, use `kb search "<error text>" --code <code>`.
+- **Do not trim results with `head`, `cut` or python.** You would cut off `next`, `memory` and `known_fix` too.
+  For a short response, add `--brief` to any command (only ok · code · summary · next · error · known_fix · memory · learn_hint; on failure also `reasons` · `output_tail`).
+  For specific keys only, add `--fields file,url` (`path` is an alias of `file`). Both always keep those guidance keys. Key order is always
+  `ok` · `code` · `summary` · `next` → `known_fix` · `memory` → the rest.
+- **On `bad_args`, read `unknown` · `did_you_mean` · `valid_options` · `example` and fix the call.** Do not retry by guessing.
+  `empty_values` means that option's value was empty (`$VAR` unset). If you give `device <action>` an option that action does not read,
+  it is not silently ignored; it comes back as `bad_args` (`unused_options` · `valid_options`).
+- **If `pressure: critical` (from `doctor --resources` or the `resources` in `devices`), ask the user before booting a new virtual device.**
+  Do not shut down another session's emulators, simulators or processes. Only look at `owners` to see who uses them. In this case `acquire` does not boot anything and returns `ask`.
+  Do not poll `doctor --resources` waiting for the pressure to drop. Show `non_device_consumers` and ask the user what to close.
+- **Boot devices within the memory budget, one at a time across this whole computer** (#964). `device benchmark` measures the budget and per-device cost and saves them to config.
+  When `doctor --resources` recommends `device benchmark` (never measured · older than 30 days · RAM changed), run it once while no other session is active.
+- Captures default to WebP with a 1200 px long edge. Use `--keep-format` only when you need the original, such as for pixel comparison. **Open what you captured with Read.**
+  If text is enough to confirm (`web assert` · `app tree` · logs), do not read the image. Images are the most expensive thing to read.
+- **Do not click coordinates with the host mouse** (`cliclick` · AppleScript · CGEvent). It steals the user's cursor. Use `app tap` for apps and `web find` → `web click --ref` for the web.
+- **Never handle credentials as plain text.** Instead of `--text` on the command line, use `--cred` (saved) · `--text-env` (one-off),
+  and `$CRED_*` environment variables in command strings. Never copy values into results, reports, issues or commits. Do not write secrets into `access`.
+- Mutating actions (submit · delete · pay · send) run without asking **only locally**. Anywhere else, stop and ask (`references/web.md` safety contract).
+- Do not call AI generation APIs to produce captures. Do not guess the state management approach or the project structure.
+- **When stuck, go in this order before building something yourself** (#934): the action's `--help` > `kb search` > `web script` (web) · `app flow` (app).
+  Do not write new raw Playwright or CDP scripts, direct `adb` · `simctl` · `maestro` calls, or wait loops. They bypass the shared connection, time limits and secret masking.
+  **Ask first before workarounds that write to the user's account** (creating script projects such as Apps Script, calling APIs directly).
+- **Do not read credentials straight from config files.** Use saved values only through `--cred`. When you delegate work to another agent, do not tell it to use raw Maestro, simctl or adb; tell it to use this skill.
+- While waiting for a one-time code (OTP), **do not submit the login form again**. A new code is sent and the previous one becomes invalid.
+- `--timeout` is in **seconds** (max 300). A value of 3000 is rejected with `timeout_too_large`.
+- If you got stuck and solved it with a workaround, record it with `learn` before you finish, so the next session does not rebuild the same workaround.
 
-## 앱 — 이럴 땐 이것
+## App — use this when
 
 ```bash
-source "{env_file 값}"
+source "{env_file value}"
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app launch --device "$DEV" --pkg "$PKG"
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app shot   --device "$DEV" --out 01_로그인 --clean-status
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app shot   --device "$DEV" --out 01_login --clean-status
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app tree   --device "$DEV"
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app tap    --device "$DEV" --text "로그인" --shot after_login
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app tap    --device "$DEV" --text "Log in" --shot after_login
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app swipe  --device "$DEV" --dir up --shot list_scrolled
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app relaunch   --device "$DEV" --pkg "$PKG"     # terminate 도 같은 모양
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app relaunch   --device "$DEV" --pkg "$PKG"     # terminate takes the same form
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app location   --device "$DEV" --lat 37.5665 --lon 126.978
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app permission --device "$DEV" --pkg "$PKG" --service location --grant
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app push       --device "$DEV" --pkg "$PKG" --payload push.json
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app openurl    --device "$DEV" --url "myapp://home"
 ```
 
-- 누를 대상은 **요소로** 찾는다: `--text`(화면 언어 그대로) · `--id`(resource-id · accessibilityIdentifier) · `--desc`(접근성 설명),
-  여러 개면 `--index N`(0부터). 문구를 모르면 `app tree` 의 `elements` · `locale` 을 먼저 본다.
-- 캔버스·지도처럼 요소가 없을 때만 `--at 0.5,0.8` **비율(0~1)** 좌표. 픽셀은 거절한다(`bad_ratio`).
-- 밀기는 `--dir up|down|left|right`, 정확한 궤적이면 `--from 0.5,0.8 --to 0.5,0.2 --ms 300`.
-- **두 단계 이상은 `app run --steps steps.json`** 으로 묶는다 — iOS 는 Maestro 를 한 번만 띄운다(단계 모양은 `references/app.md`).
-- `--shot 이름` 을 붙이면 화면이 멈춘 뒤 찍어 준다. `screen_changed: false` 면 반응이 없었다 — 다른 요소를 고른다.
-- iOS 는 `app tap`·`app swipe` 뿐 아니라 **`app tree` 도 Maestro 를 쓴다**(호출당 10~40초). 긴 시나리오는 프로젝트의 E2E flow 로 한 번에 돌린다.
-- **iOS 에서 보고 → 판단 → 누르기를 여러 번 하면 `app session start --device $DEV` 를 먼저** 한다(시작 8초, 이후 tree 0.6초 · tap 1초 실측).
-  결과의 `transport: session` 이면 탔고, `session_fallback` 이면 호출마다 띄우는 길로 내려간 사유다. 끝나면 `app session stop`(안 해도 20분 유휴면 스스로 끝난다).
-  `app type` 은 비밀 값이라 세션을 타지 않는다(`session_fallback: secret_input_per_call`).
-- 화면 전환·로딩 직후 `not_found` 면 `app shot` 으로 지금 화면을 확인한 뒤 `--shot` 을 붙여 **1회만** 다시 누른다. 또 실패하면 `candidates` 에서 고른다.
-- iOS 번들 ID(시스템 앱 포함)는 `references/app.md` 의 iOS 절.
-- 앱 끄기·위치·권한·푸시·딥링크에 `xcrun simctl`·`adb shell am|pm` 를 직접 치지 않는다 — 위 `app` 동작이 기기 고르기·실패 code 를 맞춰 준다.
+- Find what to tap **by element**: `--text` (exactly as shown, in the screen's language) · `--id` (resource-id · accessibilityIdentifier) · `--desc` (accessibility description);
+  if several match, `--index N` (from 0). If you do not know the text, check `elements` and `locale` from `app tree` first.
+- Use `--at 0.5,0.8` **ratio (0–1)** coordinates only when there is no element, such as a canvas or map. Pixels are rejected (`bad_ratio`).
+- Swipe with `--dir up|down|left|right`; for an exact path, `--from 0.5,0.8 --to 0.5,0.2 --ms 300`.
+- **Bundle two or more steps with `app run --steps steps.json`.** On iOS this launches Maestro only once (step format in `references/app.md`).
+- With `--shot <name>`, it captures after the screen settles. `screen_changed: false` means nothing reacted; pick a different element.
+- On iOS, **`app tree` also uses Maestro**, not only `app tap` and `app swipe` (10–40 s per call). Run long scenarios at once as the project's E2E flow.
+- **On iOS, if you look → decide → tap many times, run `app session start --device $DEV` first** (8 s to start, then tree 0.6 s · tap 1 s measured).
+  `transport: session` in the result means it used the session; `session_fallback` gives the reason it fell back to launching per call. When done, `app session stop` (it also ends itself after 20 minutes idle).
+  `app type` handles secret values, so it does not use the session (`session_fallback: secret_input_per_call`).
+- If you get `not_found` right after a screen transition or loading, check the current screen with `app shot`, then tap again **once** with `--shot`. If it fails again, pick from `candidates`.
+- iOS bundle IDs (including system apps): the iOS section of `references/app.md`.
+- Do not type `xcrun simctl` or `adb shell am|pm` directly to terminate apps or set location, permissions, push or deep links. The `app` actions above handle device selection and failure codes.
 
-| code | 다음 행동 |
+| code | Next action |
 |---|---|
-| `no_device` | `devices` 로 보고 `--device` 를 준다 |
-| `device_shutdown` | 고른 시뮬레이터·AVD 가 꺼져 있다. `next` 의 `device boot --device <id>` 로 켠 뒤 다시 (빌려 쓰려면 `device acquire`) |
-| `not_found` | `candidates` 에서 고른다 |
-| `ui_dump_failed` | 화면 구조를 못 읽었다(전환 중·보안 화면). 응답의 `foreground_package` 가 내 앱이 아니면 다른 앱이 덮은 것이다. 잠시 뒤 다시, 계속이면 `--at` 비율 좌표 |
-| `not_foreground` · `app_exited` | launch·relaunch 는 보냈지만 앱이 앞에 없다 / 곧바로 죽었다. `blocking_activity`·`crash_report`·`exception_line` 을 읽는다. 남의 기기면 먼저 묻는다 |
-| `device_unresponsive` | 기기가 응답하지 않는다(호스트 메모리 포함 `resources`). `device reboot --cold` 를 사용자에게 묻고 한다 |
-| `typed_text_mismatch` | 입력칸 글자가 넣은 값과 다르다(조합형 키보드). `app type --ime ascii` |
-| `device_owned_by_other` | 다른 세션이 빌린 기기다. 바꾸는 조작(tap·type·install 등)은 거부되고, 읽기(shot·tree·wait)는 경고 필드만 붙는다. `device acquire` 로 다른 기기를 받거나, 꼭 그 기기여야 하면 사용자에게 묻고 `--yes` |
-| `device_busy` · `needs_user` · `no_matching_device` | `device acquire` 의 wait · ask · no_match — 위 공통 규칙의 verdict 별 행동 |
-| `device_budget_exceeded` · `host_memory_pressure` | 새로 켜면 이 컴퓨터의 기기 메모리 예산을 넘는다 / 호스트 메모리가 위험 수준이다(`reasons` · `non_device_consumers`). 안 쓰는 기기를 반납·종료하거나, 사용자에게 보여 주고 답을 받은 뒤 `--user-approved` — 예산을 잰 적이 없으면 `device benchmark` |
-| `devices_in_use` · `benchmark_no_room` | 측정 중 다른 세션이 멈출 수 있어 시작하지 않았다 / 여유가 없어 실험 기기를 하나도 못 켰다(설정은 그대로) |
-| `ledger_busy` | 기기 원장 잠금을 10초 안에 못 얻었다. 잠시 뒤 다시 부른다 |
-| `device_protected` · `device_in_use_unrecorded` | 지우거나 초기화하려는 기기에 공들인 상태가 있다 / 사람이 쓰는 기기일 수 있다. `marks` 를 사용자에게 보여 주고 묻는다 — 그렇다면 `--yes` |
-| `no_matching_profile` | `--need` 상태가 기록된 브라우저 프로필이 없다. 사람이 로그인한 뒤 `web profile mark` |
-| `emulator_no_acceleration` | 에뮬레이터가 하드웨어 가속을 못 얻어 멈췄다(호스트 메모리·스왑 부족). 기다려도 끝나지 않는다 — 이미 껐다. 사용자에게 메모리 확보를 묻는다 |
-| `source_booted` | 켜진 기기는 복제할 수 없다. 원본이 꺼진 뒤 다시 |
-| `resources_low` · `create_failed` | 새 기기를 만들 여유가 없다(메모리 · 디스크) / 만들지 못했다. 먼저 `device acquire` 로 있는 기기를 쓴다 |
-| `no_focused_window` | 초점 창이 없다(화면 꺼짐·잠금·전환 중). 깨우고 세 번까지 다시 읽은 뒤다. `app shot` 으로 화면을 본다 |
-| `android_system_not_ready` · `ui_automation_unavailable` · `ui_dump_timeout` | 기기 쪽 문제다(시스템 재시작 중 · UiAutomation 연결 실패 · 시간 초과). `app shot` 으로 보고, 계속이면 사용자에게 에뮬레이터 cold boot 를 묻는다 |
-| `session_start_failed` · `session_tools_missing` | 세션 없이 그대로 쓴다(호출마다 Maestro). `reason` 을 본다 |
-| `tree_unsupported` | 이 기기는 화면 구조를 못 읽는다. `app shot` 으로 보고 `--text` 또는 `--at` 비율 좌표 |
-| `ios_tool_missing` · `android_tool_missing` · `adb_missing` | 결과의 설치 안내를 사용자에게 제안한다 |
-| `non_ascii_unsupported` · `ios_text_unsupported` | `app type` 이 못 넣는다. 영문 대체 또는 사용자에게 맡긴다 |
-| `unsupported_on_platform` | 이 플랫폼·기기에서 안 되는 동작(Android push · 실기기 Android location 등). `next` 의 대안을 쓴다 |
-| `build_mismatch` | 기기마다 설치된 빌드가 다르다. 멈추고 양쪽을 맞춘다 |
+| `no_device` | Check `devices` and pass `--device` |
+| `device_shutdown` | The chosen simulator/AVD is off. Boot it with `device boot --device <id>` from `next`, then retry (to borrow one, use `device acquire`) |
+| `not_found` | Pick from `candidates` |
+| `ui_dump_failed` | Could not read the screen structure (mid-transition · secure screen). If `foreground_package` in the response is not your app, another app is covering it. Retry shortly; if it persists, use `--at` ratio coordinates |
+| `not_foreground` · `app_exited` | launch/relaunch was sent but the app is not in front / it died immediately. Read `blocking_activity` · `crash_report` · `exception_line`. If it is someone else's device, ask first |
+| `device_unresponsive` | The device does not respond (`resources` includes host memory). Ask the user, then run `device reboot --cold` |
+| `typed_text_mismatch` | The input text differs from what was typed (composing keyboard). Use `app type --ime ascii` |
+| `device_owned_by_other` | Another session borrowed this device. Mutating actions (tap · type · install, etc.) are refused; reads (shot · tree · wait) only get a warning field. Get another device with `device acquire`, or, if it must be that device, ask the user and pass `--yes` |
+| `device_busy` · `needs_user` · `no_matching_device` | `device acquire`'s wait · ask · no_match — see the per-verdict actions in the common rules above |
+| `device_budget_exceeded` · `host_memory_pressure` | Booting another device would exceed this computer's device memory budget / host memory is at a risky level (`reasons` · `non_device_consumers`). Return or shut down unused devices, or show this to the user and pass `--user-approved` after they answer. If the budget was never measured, run `device benchmark` |
+| `devices_in_use` · `benchmark_no_room` | Not started because measuring could stall other sessions / no room to boot even one test device (config unchanged) |
+| `ledger_busy` | Could not get the device ledger lock within 10 s. Call again shortly |
+| `device_protected` · `device_in_use_unrecorded` | The device you want to erase or reset holds prepared state / a person may be using it. Show `marks` to the user and ask; if they agree, pass `--yes` |
+| `no_matching_profile` | No browser profile has the `--need` state recorded. After a person logs in, run `web profile mark` |
+| `emulator_no_acceleration` | The emulator stopped because it could not get hardware acceleration (host memory or swap is short). Waiting will not help, and it is already shut down. Ask the user to free memory |
+| `source_booted` | A running device cannot be cloned. Retry after the source is shut down |
+| `resources_low` · `create_failed` | Not enough room to create a new device (memory · disk) / creation failed. Use an existing device with `device acquire` first |
+| `no_focused_window` | No focused window (screen off · locked · mid-transition). This comes after waking it and reading up to three times. Look at the screen with `app shot` |
+| `android_system_not_ready` · `ui_automation_unavailable` · `ui_dump_timeout` | A device-side problem (system restarting · UiAutomation connection failed · timeout). Look with `app shot`; if it persists, ask the user about an emulator cold boot |
+| `session_start_failed` · `session_tools_missing` | Continue without a session (Maestro per call). Read `reason` |
+| `tree_unsupported` | This device cannot read the screen structure. Look with `app shot` and use `--text` or `--at` ratio coordinates |
+| `ios_tool_missing` · `android_tool_missing` · `adb_missing` | Offer the user the install instructions from the result |
+| `non_ascii_unsupported` · `ios_text_unsupported` | `app type` cannot enter this text. Use an English substitute or leave it to the user |
+| `unsupported_on_platform` | The action does not work on this platform or device (Android push · location on a real Android device, etc.). Use the alternative in `next` |
+| `build_mismatch` | Devices have different builds installed. Stop and make them match |
 
-## 웹 — 이럴 땐 이것
+## Web — use this when
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web open --url {주소}              # 떠 있으면 다시 붙는다(reused)
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web text                           # 화면 글자를 읽는다 — 스크린샷보다 싸다
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web find --text "로그인"            # 후보를 ref · 링크 주소와 함께
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web click --ref 1 --expect-url /home   # 고른 것만, 결과까지 확인
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web open --url {url}                 # reattaches if already running (reused)
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web text                           # read the screen text — cheaper than a screenshot
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web find --text "Log in"            # candidates with ref · link URL
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web click --ref 1 --expect-url /home   # only what you picked, verified through to the result
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web viewport --preset mobile
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web route --match "**/api/items*" --status 200 --body "[]"
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web goto --url {그 화면}            # 규칙은 이동할 때 걸린다
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web shot --out 02_빈목록
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web goto --url {that screen}         # rules apply when you navigate
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web shot --out 02_empty_list
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web route --clear
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web wait --url-contains /home --timeout 180   # 2단계 승인·저장 토스트 — 이동하지 말고 기다린다
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web scroll --to "결제 내역"           # 또는 --ref N · --by 600 [--container "#list"]
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web upload --files a.png,b.png       # 숨은 input[type=file] · 드롭존은 --click-ref N
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web type --frame login --selector "#account_name_text_field" --cred apple --cred-field account   # iframe 안
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web script --file snippet.py          # 고정 동작에 없는 일 — page · context 로 Playwright 조각
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web tab new --name edit --url {주소}  # 긴 작업은 자기 탭에서 — 이후 LAUNCH_TAB=edit 를 앞에 붙인다
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web login --cred {이름} --user-selector "#email" --password-selector "#pw" --submit-selector "#go" --until-url /home --handoff-seconds 120   # 2단계 인증은 사용자에게 넘기고 기다린다
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web wait --url-contains /home --timeout 180   # 2-step approval · save toast — wait, do not navigate
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web scroll --to "Payment history"     # or --ref N · --by 600 [--container "#list"]
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web upload --files a.png,b.png       # hidden input[type=file] · for a drop zone, --click-ref N
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web type --frame login --selector "#account_name_text_field" --cred apple --cred-field account   # inside an iframe
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web script --file snippet.py          # anything the fixed actions do not cover — a Playwright snippet with page · context
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web tab new --name edit --url {url}  # long work goes in your own tab — then prefix LAUNCH_TAB=edit
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web login --cred {name} --user-selector "#email" --password-selector "#pw" --submit-selector "#go" --until-url /home --handoff-seconds 120   # hands 2FA to the user and waits
 ```
 
-- **`type`·`click` 전에 `find`/`inspect` 를 먼저 부른다** — 선택자가 직전 `find`·`inspect` 결과에서 온 것이 아니면. 빗나간 추측은 4초 뒤 `candidates`(ref 포함)와 함께 실패한다.
-- **읽고 → 번호로 고르고 → 확인하며 누른다.** 선택자를 짐작하지 않는다. `click` 은 무엇을 눌렀고(`clicked`) 주소·제목이
-  바뀌었는지(`changed`) 돌려준다. `changed: false` 면 엉뚱한 것을 누른 것이다 — `find` 로 다시 고른다. 정보는 `web text` 로 읽고 `shot` 은 모양을 볼 때만.
-- **관리 콘솔(Play Console · App Store Connect · 결제·관리자)은 `web open --readonly`.** 삭제·출시·제출 같은 **버튼**은
-  `mutating_blocked` 로 막힌다(링크·탭·표 행은 이동이라 열린다). 승인받은 경우에만 `--confirm-mutating`.
-- 빈 목록 · 실패 · 로딩은 **서버를 건드리지 않고** `route` 로 연출한다(`--status 500` · `--delay 5000`). 끝나면 `--clear`.
-- Google·Apple 로그인이 막히면 먼저 `web open --headed`. 사이트가 이상하면 `--no-stealth` 로 비교한다.
-- **사람이 브라우저에서 로그인을 마치면 바로 `web profile mark --kind login --name <공급자>`** (#956). 다른 레포에서는 `web open --need login:<공급자>` 로 그 프로필을 연다.
-  끝나면 `web close` — 이 세션이 띄운 브라우저는 세션 종료 훅도 닫는다(다른 세션 탭이 있으면 둔다). 닫아도 로그인(쿠키)은 프로필에 남는다.
-- `playwright_missing` 이면 사용자에게 묻고 `web setup`. `browser_not_open` · `browser_gone` 이면 `web open` 을 다시.
-- 폼은 `web inspect --role input --near "이메일"` 로 읽고 받은 `ref` 로 `type` · `check` · `select` 한다. 비활성이면 기다리지 않고 `element_disabled`.
-- **자주 쓰고 위험한 일은 고정 동작, 그 밖의 긴 꼬리는 `web script`.** 직접 CDP 에 붙는 스크립트를 새로 짜지 않는다 — `script` 는 같은 연결·재설치·시간 상한·비밀값 가림을 거친다.
-- 로그인 폼이 iframe 안이면(`find` 가 `nothing_found` + `frames`) `--frame <이름|iframe 선택자|주소 일부>` 를 `find` · `type` · `click` · `assert` · `text` · `inspect` 에 붙인다.
-- **브라우저는 같은 레포의 세션들이 함께 쓴다.** 저장 안 한 긴 입력은 `web tab new --name <이름>` 으로 만든 자기 탭에서 하고(`LAUNCH_TAB=<이름>`), 단계마다 저장한다.
-  다른 세션이 내 탭을 옮겼으면 결과에 `tab_warning`(`page_changed_by_other_session`)이 붙는다.
-- `web open` 은 멈춘 브라우저·남은 프로필 잠금을 스스로 치우고 `recovered` 로 알린다. 손으로 잠금을 지우지 않는다.
-- 옵션은 동작마다 다르다 — `web <동작> --help`. 그 동작이 안 받는 옵션은 `bad_args` 로 거절된다(쓸 수 있는 옵션이 error 에 실린다).
+- **Call `find`/`inspect` before `type` or `click`** whenever the selector did not come from the latest `find` or `inspect` result. A wrong guess fails after 4 s with `candidates` (including refs).
+- **Read → pick by number → press with verification.** Do not guess selectors. `click` returns what it pressed (`clicked`) and whether the URL or title
+  changed (`changed`). `changed: false` means you pressed the wrong thing; pick again with `find`. Read information with `web text`; use `shot` only to see the layout.
+- **For admin consoles (Play Console · App Store Connect · billing · admin), use `web open --readonly`.** **Buttons** such as delete, release or submit
+  are blocked with `mutating_blocked` (links, tabs and table rows are navigation and stay open). Use `--confirm-mutating` only when approved.
+- Stage empty lists, failures and loading with `route` **without touching the server** (`--status 500` · `--delay 5000`). Run `--clear` when done.
+- If a Google or Apple login is blocked, try `web open --headed` first. If a site behaves oddly, compare with `--no-stealth`.
+- **As soon as a person finishes logging in in the browser, run `web profile mark --kind login --name <provider>`** (#956). In other repos, open that profile with `web open --need login:<provider>`.
+  When done, run `web close`. The session-end hook also closes browsers this session started (it leaves them if other sessions have tabs). Closing keeps the login (cookies) in the profile.
+- On `playwright_missing`, ask the user and run `web setup`. On `browser_not_open` · `browser_gone`, run `web open` again.
+- Read forms with `web inspect --role input --near "Email"` and use the returned `ref` for `type` · `check` · `select`. A disabled element returns `element_disabled` immediately instead of waiting.
+- **Frequent, risky work uses fixed actions; the long tail uses `web script`.** Do not write new scripts that attach to CDP directly. `script` goes through the shared connection, reinstall, time limits and secret masking.
+- If the login form is inside an iframe (`find` returns `nothing_found` + `frames`), add `--frame <name|iframe selector|part of URL>` to `find` · `type` · `click` · `assert` · `text` · `inspect`.
+- **Sessions in the same repo share one browser.** Do long, unsaved input in your own tab created with `web tab new --name <name>` (`LAUNCH_TAB=<name>`), and save after each step.
+  If another session moved your tab, the result carries `tab_warning` (`page_changed_by_other_session`).
+- `web open` clears a hung browser and leftover profile locks by itself and reports `recovered`. Do not delete locks by hand.
+- Options differ per action: `web <action> --help`. Options the action does not accept are rejected with `bad_args` (the usable options are in the error).
 
-| code | 다음 행동 |
+| code | Next action |
 |---|---|
-| `nothing_found` · `selector_not_found` | 결과의 `candidates` 에서 골라 `next` 대로 `--ref` 로 다시. 후보가 없으면 `web text` 로 화면 글자를 읽고 `find` |
-| `element_not_actionable` | 요소는 있지만 숨김·가려짐이라 4초 안에 못 눌렀다. `covered_by` 가 있으면 고정 머리글·오버레이가 덮은 것 — `next` 대로 `--dom-click`. 아니면 `candidates` 에서 다시 고른다 |
-| `frame_not_found` | `frames` 의 name · url 일부를 `--frame` 에 넣는다 |
-| `wait_timeout` | 조건이 안 맞았다. `url` · `title` 로 판단한다. 승인 대기면 이동하지 말고 다시 `wait` |
-| `script_failed` · `script_timeout` | 조각의 첫 오류 줄을 보고 고친다 · `--timeout` 을 늘리거나 기다림을 줄인다 |
-| `ref_stale` | 화면이 바뀌었다. `find` 를 다시 |
-| `expect_not_met` | 기대한 결과가 안 왔다. `web text` 로 지금 화면을 보고 다른 후보를 고른다 |
-| `mutating_blocked` | 읽기 전용 세션이 위험 버튼을 막았다. 무엇이 바뀌는지 사용자에게 말하고 승인받는다 |
-| `needs_user` | 로그인 남은 단계(2단계 인증·기기 승인)를 사용자에게 넘긴다. `ask_user` 로 묻고, 마쳤다고 하면 `next` 의 `web login --resume ...` |
-| `tab_gone` | `LAUNCH_TAB` 탭이 닫혔다. `web tab new --name <같은 이름>` |
-| `browser_start_failed` | 자가 복구 뒤에도 실패. `stderr_tail` · `causes` 를 보고 판단한다 |
-- **처음 웹을 몰기 전에 `references/web.md` 의 안전 계약을 읽는다.**
+| `nothing_found` · `selector_not_found` | Pick from `candidates` in the result and retry with `--ref` as `next` says. If there are no candidates, read the screen text with `web text` and then `find` |
+| `element_not_actionable` | The element exists but is hidden or covered, so it could not be pressed within 4 s. If `covered_by` is present, a fixed header or overlay covers it — use `--dom-click` as `next` says. Otherwise pick again from `candidates` |
+| `frame_not_found` | Put a name or part of a URL from `frames` into `--frame` |
+| `wait_timeout` | The condition was not met. Decide from `url` · `title`. If you are waiting for approval, do not navigate; `wait` again |
+| `script_failed` · `script_timeout` | Read the snippet's first error line and fix it · raise `--timeout` or wait less |
+| `ref_stale` | The screen changed. Run `find` again |
+| `expect_not_met` | The expected result did not come. Look at the current screen with `web text` and pick another candidate |
+| `mutating_blocked` | The read-only session blocked a risky button. Tell the user what would change and get approval |
+| `needs_user` | Hand the remaining login steps (2FA · device approval) to the user. Ask with `ask_user`; when they say they are done, run `web login --resume ...` from `next` |
+| `tab_gone` | The `LAUNCH_TAB` tab was closed. Run `web tab new --name <same name>` |
+| `browser_start_failed` | Still failing after self-recovery. Read `stderr_tail` · `causes` and decide |
+- **Before you drive the web for the first time, read the safety contract in `references/web.md`.**
 
-## render · 서버 · 자격증명 · 기억 — 이럴 땐 이것
+## render · server · credentials · memory — use this when
 
-- 실기기로 만들기 어려운 상태(빈 목록 · 긴 글자 · 권한 거부)는 `render snapshot` → 임시 렌더 코드 → `render run`.
-  `render_failed` 는 `first_error` 부터 보고(없으면 `output_tail`) 고치고, `residue` 는 **네가 만든 것만** 지운다(`references/render.md`).
-- 서버에 붙는 법은 코드를 읽어 정하고 `access set` 에 적는다. `http --url /경로` · `db --profile db --sql …` · `logs --tail 100`.
-- 서버·DB·로그인 화면을 만지기 전, "사용자가 직접 로그인해야 한다"고 말하기 전에 **`cred list` 를 먼저 본다.**
-  `use_when` 이 맞는 것만 쓰고, 새 정보는 저장해도 되는지 묻고 `cred set`. 원격은 `ssh --cred 이름 --command '…'`(저장 없이는 `ssh --host … --user … --password-env|--key-path …`),
-  이 맥 관리자 권한은 `local sudo --cred 이름 -- <명령>`(첫 등록은 사용자가 `cred set --prompt` 로 직접). 상세는 `references/credentials.md`.
-- **응답에 `memory` 가 오면 먼저 읽고 그 방식부터 쓴다**(자동으로 실린다 — recall 을 따로 부를 필요 없다). 썼으면 `learn --key <그 key> --result ok|fail`,
-  `learn_hint` 가 오면 막혔다 풀린 방식을 `learn` 으로 남긴다. 레포와 무관한 방법은 `--scope machine`.
-  비밀값과 호스트 마우스 방식은 저장되지 않는다. 캡처는 이슈에 붙이기 전에 `shrink`. 상세는 `references/memory.md`.
+- For states that are hard to reach on a real device (empty list · long text · permission denied): `render snapshot` → temporary render code → `render run`.
+  On `render_failed`, read `first_error` first (or `output_tail` if absent) and fix it. In `residue`, delete **only what you created** (`references/render.md`).
+- Decide how to connect to the server by reading the code, and write it down with `access set`. `http --url /path` · `db --profile db --sql …` · `logs --tail 100`.
+- Before touching a server, a DB or a login screen, and before saying "the user has to log in themselves", **check `cred list` first.**
+  Use only entries whose `use_when` matches. For new information, ask whether you may save it, then `cred set`. Remote: `ssh --cred <name> --command '…'` (without saving: `ssh --host … --user … --password-env|--key-path …`).
+  Admin rights on this Mac: `local sudo --cred <name> -- <command>` (the user does the first registration with `cred set --prompt`). Details: `references/credentials.md`.
+- **If a response contains `memory`, read it first and try that approach first** (it is attached automatically — no separate recall needed). After using it, run `learn --key <that key> --result ok|fail`.
+  If `learn_hint` arrives, record the approach that got you unstuck with `learn`. For methods unrelated to the repo, use `--scope machine`.
+  Secrets and host-mouse methods are never stored. Run `shrink` on captures before attaching them to an issue. Details: `references/memory.md`.
 
 ## Customize
 
