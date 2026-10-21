@@ -184,6 +184,7 @@ export function printSummary(ctx, targetRoot = ".", write = null) {
     err("     • iOS TestFlight: .github/util/flutter/testflight-wizard/testflight-wizard.html");
     err("     • Android Play Store: .github/util/flutter/playstore-wizard/playstore-wizard.html");
     err("     • Firebase App Distribution: .github/util/flutter/firebase-wizard/firebase-wizard.html");
+    err("     • Kakao / Google login (OAuth): .github/util/flutter/oauth-wizard/oauth-wizard.html");
     err(`     • ${t("done.flutter.open")}`);
     err("");
   }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Flutter 마법사 3종 CLI 계약 테스트.
+"""Flutter 마법사 CLI 계약 테스트 (testflight·playstore·firebase·oauth).
 
 무엇을 지키려는 테스트인가
 --------------------------
@@ -28,6 +28,7 @@ FLUTTER_DIR = Path(__file__).resolve().parent.parent
 TF = FLUTTER_DIR / "testflight-wizard" / "testflight-wizard.py"
 PS = FLUTTER_DIR / "playstore-wizard" / "playstore-wizard.py"
 FB = FLUTTER_DIR / "firebase-wizard" / "firebase-wizard.py"
+OA = FLUTTER_DIR / "oauth-wizard" / "oauth-wizard.py"
 
 TF_ORDER = ("project-path", "bundle-id", "team-id", "profile-name", "uses-encryption")
 PS_ORDER = ("project-path", "application-id", "key-alias", "store-password", "key-password",
@@ -258,14 +259,201 @@ def test_playstore_invalid_deploy_values_fail_before_any_side_effect():
             assert rc != 0, f"{bad} 가 통과했다"
             assert _snapshot(pa) == before, f"{bad}: 실패했는데 파일이 만들어졌다"
 
-# ── 4. 3종 CLI 표면 동일성 ────────────────────────────────────────
+# ── 4. 마법사 CLI 표면 동일성 ─────────────────────────────────────
 
-def test_all_three_accept_common_flags():
-    """3종 모두 --dry-run / --non-interactive / --no-backup 을 인식해야 한다"""
-    for script in (TF, PS, FB):
+def test_all_wizards_accept_common_flags():
+    """모든 마법사가 --dry-run / --non-interactive / --no-backup 을 인식해야 한다"""
+    for script in (TF, PS, FB, OA):
         text = script.read_text(encoding="utf-8")
         for flag in ("--dry-run", "--non-interactive", "--no-backup"):
             assert flag in text, f"{script.name}: {flag} 미지원"
+
+
+# ── 5. oauth: 네이티브 설정 패치 (#156) ──────────────────────────────
+
+KAKAO_KEY = "0123456789abcdef0123456789abcdef"
+OTHER_KAKAO_KEY = "fedcba9876543210fedcba9876543210"
+IOS_CLIENT_ID = "1234-abc.apps.googleusercontent.com"
+WEB_CLIENT_ID = "1234-web.apps.googleusercontent.com"
+OA_ALL = ["--kakao-native-app-key", KAKAO_KEY, "--google-ios-client-id", IOS_CLIENT_ID,
+          "--google-server-client-id", WEB_CLIENT_ID, "--update-gitignore", "--firebase-files",
+          "--non-interactive"]
+
+FLUTTER_MANIFEST = """<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:label="demo">
+        <activity android:name=".MainActivity" android:exported="true">
+        </activity>
+    </application>
+</manifest>
+"""
+FLUTTER_INFO_PLIST = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Demo</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>myapp</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
+"""
+
+
+def _flutter_oauth_project(root: Path) -> None:
+    (root / "pubspec.yaml").write_text("name: demo\n", encoding="utf-8")
+    manifest = root / "android" / "app" / "src" / "main"
+    manifest.mkdir(parents=True)
+    (manifest / "AndroidManifest.xml").write_text(FLUTTER_MANIFEST, encoding="utf-8")
+    (root / "android" / "app" / "build.gradle.kts").write_text(
+        'android {\n    defaultConfig {\n        applicationId = "com.demo.app"\n    }\n}\n', encoding="utf-8")
+    runner = root / "ios" / "Runner"
+    runner.mkdir(parents=True)
+    (runner / "Info.plist").write_text(FLUTTER_INFO_PLIST, encoding="utf-8")
+    xcode = root / "ios" / "Runner.xcodeproj"
+    xcode.mkdir(parents=True)
+    (xcode / "project.pbxproj").write_text(
+        "PRODUCT_BUNDLE_IDENTIFIER = com.demo.app;\nPRODUCT_BUNDLE_IDENTIFIER = com.demo.app.RunnerTests;\n",
+        encoding="utf-8")
+    (root / ".gitignore").write_text("build/\n", encoding="utf-8")
+
+
+def _run_oauth(command: str, args: list[str]):
+    r = subprocess.run([sys.executable, str(OA), command, *args], capture_output=True, text=True)
+    return r.returncode, r.stdout + r.stderr
+
+
+def _read_plist(root: Path) -> dict:
+    import plistlib
+    return plistlib.loads((root / "ios" / "Runner" / "Info.plist").read_bytes())
+
+
+def _url_schemes(plist: dict) -> list[str]:
+    return [s for t in plist.get("CFBundleURLTypes", []) for s in t.get("CFBundleURLSchemes", [])]
+
+
+def _change_plan(output: str, root: Path) -> list[str]:
+    return [line.replace(str(root), "") for line in output.splitlines()
+            if line.startswith(("[changed]", "[unchanged]"))]
+
+
+def test_oauth_fresh_patch_adds_kakao_and_google_entries():
+    with tempfile.TemporaryDirectory() as a:
+        pa = Path(a)
+        _flutter_oauth_project(pa)
+        rc, out = _run_oauth("setup", ["--project-path", str(pa), *OA_ALL])
+        assert rc == 0, out
+        manifest = (pa / "android/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+        assert "com.kakao.sdk.flutter.auth.AuthCodeHandlerActivity" in manifest
+        assert f'android:scheme="kakao{KAKAO_KEY}" android:host="oauth"' in manifest
+        assert manifest.index("AuthCodeHandlerActivity") < manifest.index("</application>")
+        plist = _read_plist(pa)
+        # 기존 URL scheme(myapp)은 남기고 kakao·google scheme 을 더한다
+        assert _url_schemes(plist) == ["myapp", f"kakao{KAKAO_KEY}", "com.googleusercontent.apps.1234-abc"]
+        assert plist["LSApplicationQueriesSchemes"] == ["kakaokompassauth", "kakaolink"]
+        assert plist["GIDClientID"] == IOS_CLIENT_ID and plist["GIDServerClientID"] == WEB_CLIENT_ID
+        gitignore = (pa / ".gitignore").read_text(encoding="utf-8")
+        assert gitignore.startswith("build/\n")
+        assert "android/app/google-services.json" in gitignore and "oauth-secrets-*.json" in gitignore
+
+
+def test_oauth_rerun_is_idempotent():
+    with tempfile.TemporaryDirectory() as a:
+        pa = Path(a)
+        _flutter_oauth_project(pa)
+        _run_oauth("setup", ["--project-path", str(pa), *OA_ALL, "--no-backup"])
+        after_first = _snapshot(pa)
+        rc, out = _run_oauth("setup", ["--project-path", str(pa), *OA_ALL])
+        assert rc == 0, out
+        assert _snapshot(pa) == after_first, "두 번째 실행이 파일을 바꿨거나 백업을 만들었다"
+        assert "Nothing to change" in out
+
+
+def test_oauth_dry_run_writes_nothing_and_matches_real_run():
+    with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
+        pa, pb = Path(a), Path(b)
+        _flutter_oauth_project(pa)
+        _flutter_oauth_project(pb)
+        before = _snapshot(pa)
+        rc_dry, out_dry = _run_oauth("setup", ["--project-path", str(pa), *OA_ALL, "--dry-run"])
+        rc_real, out_real = _run_oauth("setup", ["--project-path", str(pb), *OA_ALL])
+        assert _snapshot(pa) == before, "dry-run이 파일을 변경했습니다"
+        assert rc_dry == rc_real == 0
+        # 같은 변경 계획을 출력한다 (경로만 다름)
+        assert _change_plan(out_dry, pa) and _change_plan(out_dry, pa) == _change_plan(out_real, pb)
+
+
+def test_oauth_no_backup_skips_bak_files():
+    with tempfile.TemporaryDirectory() as a:
+        pa = Path(a)
+        _flutter_oauth_project(pa)
+        _run_oauth("setup", ["--project-path", str(pa), *OA_ALL, "--no-backup"])
+        assert not list(pa.rglob("*.bak"))
+
+
+def test_oauth_updates_changed_kakao_key_instead_of_duplicating():
+    with tempfile.TemporaryDirectory() as a:
+        pa = Path(a)
+        _flutter_oauth_project(pa)
+        _run_oauth("setup", ["--project-path", str(pa), "--kakao-native-app-key", OTHER_KAKAO_KEY, "--non-interactive"])
+        rc, out = _run_oauth("setup", ["--project-path", str(pa), "--kakao-native-app-key", KAKAO_KEY,
+                                       "--non-interactive", "--no-backup"])
+        assert rc == 0, out
+        manifest = (pa / "android/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+        assert manifest.count("AuthCodeHandlerActivity") == 1
+        assert OTHER_KAKAO_KEY not in manifest and KAKAO_KEY in manifest
+        assert _url_schemes(_read_plist(pa)) == ["myapp", f"kakao{KAKAO_KEY}"]
+
+
+def test_oauth_invalid_input_changes_nothing():
+    """REST API 키처럼 잘못된 값이면 파일을 건드리기 전에 멈춘다"""
+    for bad in (["--kakao-native-app-key", "not-a-key"], ["--google-ios-client-id", "1234.apps.example.com"],
+                ["--google-server-client-id", WEB_CLIENT_ID]):
+        with tempfile.TemporaryDirectory() as a:
+            pa = Path(a)
+            _flutter_oauth_project(pa)
+            before = _snapshot(pa)
+            rc, _ = _run_oauth("setup", ["--project-path", str(pa), *bad, "--non-interactive"])
+            assert rc != 0, f"{bad} 가 통과했다"
+            assert _snapshot(pa) == before, f"{bad}: 실패했는데 파일이 바뀌었다"
+
+
+def test_oauth_missing_info_plist_changes_nothing():
+    """한 파일이라도 없으면 다른 파일도 바꾸지 않는다 (계획 먼저, 쓰기는 나중)"""
+    with tempfile.TemporaryDirectory() as a:
+        pa = Path(a)
+        _flutter_oauth_project(pa)
+        (pa / "ios" / "Runner" / "Info.plist").unlink()
+        before = _snapshot(pa)
+        rc, out = _run_oauth("setup", ["--project-path", str(pa), *OA_ALL])
+        assert rc == 1 and "Info.plist not found" in out
+        assert _snapshot(pa) == before
+
+
+def test_oauth_detect_reads_app_ids_without_writing():
+    with tempfile.TemporaryDirectory() as a:
+        pa = Path(a)
+        _flutter_oauth_project(pa)
+        before = _snapshot(pa)
+        rc, out = _run_oauth("detect", ["--project-path", str(pa)])
+        assert rc == 0
+        data = json.loads(out)
+        assert data["applicationId"]["value"] == "com.demo.app"
+        assert data["bundleId"]["value"] == "com.demo.app"
+        assert _snapshot(pa) == before
+
+
+def test_oauth_key_hash_matches_openssl_formula():
+    """SHA-1(16진) > base64 — sha1("") 의 알려진 값으로 확인"""
+    rc, out = _run_oauth("key-hash", ["--sha1", "DA:39:A3:EE:5E:6B:4B:0D:32:55:BF:EF:95:60:18:90:AF:D8:07:09"])
+    assert rc == 0
+    assert json.loads(out)["kakaoKeyHash"] == "2jmj7l5rSw0yVb/vlWAYkK/YBwk="
 
 
 def _main() -> int:

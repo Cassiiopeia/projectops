@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """HTML 마법사 언어 전환 검증 (#769) — check-consistency.py 가 함께 실행한다.
 
-대상: Flutter 마법사 3종 + common 마법사 2종 (I18N_PAGES)
+대상: Flutter 마법사 4종 + common 마법사 2종 (I18N_PAGES)
 검사 5개: 엔진 로드 순서, 사전 JSON 형식, 키 누락(en·ko), 안 쓰는 키, HTML 본문 한글 잔존
 
 en 원본 2곳
@@ -30,6 +30,7 @@ I18N_PAGES = (
     ("testflight", UTIL_DIR / "flutter/testflight-wizard/testflight-wizard.html", "testflight-wizard", "../_shared/wizard-i18n.js", True),
     ("playstore", UTIL_DIR / "flutter/playstore-wizard/playstore-wizard.html", "playstore-wizard", "../_shared/wizard-i18n.js", True),
     ("firebase", UTIL_DIR / "flutter/firebase-wizard/firebase-wizard.html", "firebase-wizard", "../_shared/wizard-i18n.js", True),
+    ("oauth", UTIL_DIR / "flutter/oauth-wizard/oauth-wizard.html", "oauth-wizard", "../_shared/wizard-i18n.js", True),
     ("projects-sync", UTIL_DIR / "common/projects-sync-wizard/projects-sync-wizard.html", "projects-sync-wizard", "../../flutter/_shared/wizard-i18n.js", False),
     ("secrets-converter", UTIL_DIR / "common/github-secrets-converter/secrets-converter.html", "secrets-converter", "../../flutter/_shared/wizard-i18n.js", False),
 )

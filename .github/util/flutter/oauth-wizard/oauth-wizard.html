@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="page.title">OAuth Login Setup Wizard (Kakao · Google)</title>
+    <script type="application/json" id="versionJson">
+{
+  "name": "OAuth Login Setup Wizard",
+  "version": "1.0.0",
+  "description": "Setup wizard for Kakao and Google login in a Flutter app, from console setup to CI/CD",
+  "lastUpdated": "2026-10-22",
+  "changelog": [
+    {
+      "version": "1.0.0",
+      "date": "2026-10-22",
+      "changes": [
+        "First release (projectops#156): Kakao and Google, pick one or both; only the steps you need are shown",
+        "Signing-key step: which key signs which build, keytool commands per OS, Kakao key hash computed in the browser from the SHA-1",
+        "Kakao step: Native App Key, Android key hashes, iOS bundle ID, Kakao Login and consent items",
+        "Google step: Firebase or Google Cloud route; reads client IDs from google-services.json / GoogleService-Info.plist and checks package, bundle ID and registered SHA-1s",
+        "Secrets, CI/CD and .gitignore steps reuse the existing GOOGLE_SERVICES_JSON secret and add GOOGLE_SERVICE_INFO_PLIST for the two iOS workflows",
+        "oauth-wizard.py patches AndroidManifest.xml and Info.plist idempotently (detect, fingerprints, key-hash, setup with --dry-run)",
+        "English by default with a Korean toggle; generated files and commands are identical in both languages"
+      ]
+    }
+  ],
+  "compatibility": {
+    "flutter": ">=3.38.0",
+    "kakao_flutter_sdk_user": ">=2.0.0",
+    "google_sign_in": ">=7.0.0"
+  },
+  "repository": "https://github.com/Cassiiopeia/projectops"
+}
+
+    </script>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <!-- 공통 자산 (마법사 공유) — _shared/check-consistency.py 가 정합성을 검증한다 -->
+    <link rel="stylesheet" href="../_shared/wizard.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Pretendard Variable', 'Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'Roboto', 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'sans-serif']
+                    },
+                    colors: {
+                        oauth: { primary: '#6366F1', accent: '#A5B4FC', dark: '#4F46E5' },
+                        kakao: { yellow: '#FEE500', brown: '#3C1E1E' },
+                        google: { blue: '#4285F4' }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- OAuth 마법사 고유 스타일 — 공통 컴포넌트는 ../_shared/wizard.css -->
+    <!-- .goal-box: 단계 목표 안내 / .provider-card: 1단계 제공자 선택 / .snippet-label: 코드 블록 제목 -->
+    <style>
+        body { background: #0f172a; color: #e2e8f0; font-family: 'Pretendard Variable', sans-serif; }
+        .goal-box { background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.5rem; color: #c7d2fe; font-size: 0.875rem; }
+        .provider-card { display: flex; gap: 0.75rem; align-items: flex-start; padding: 1rem; border: 2px solid #334155; border-radius: 0.75rem; cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+        .provider-card:hover { border-color: #6366F1; }
+        .provider-card.selected { border-color: #6366F1; background: rgba(99, 102, 241, 0.08); }
+        .snippet-label { font-size: 0.75rem; color: #94a3b8; margin: 0.75rem 0 0.25rem; }
+        .step-number-badge { display: inline-flex; width: 2rem; height: 2rem; border-radius: 0.5rem; background: #6366F1; align-items: center; justify-content: center; font-size: 0.875rem; margin-right: 0.5rem; }
+        .step-number-badge:empty { display: none; }
+        .file-upload:hover { border-color: #6366F1; background: rgba(99, 102, 241, 0.05); }
+        .file-upload.dragover { border-color: #6366F1; background: rgba(99, 102, 241, 0.1); }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+    <!-- 보안 경고 — 입력값이 이 브라우저에만 남는다는 점을 알린다 -->
+    <div id="securityWarning" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-yellow-900/90 border border-yellow-700 text-yellow-200 px-6 py-3 rounded-lg shadow-xl z-50 max-w-2xl hidden">
+        <div class="flex items-center gap-3">
+            <div class="flex-1">
+                <p class="text-sm font-medium" data-i18n="security.warning">Everything stays in this browser (localStorage). Nothing is uploaded. Clear it with "Start over" when you are done.</p>
+            </div>
+            <button onclick="closeSecurityWarning()" class="text-yellow-400 hover:text-yellow-200" aria-label="Close">✕</button>
+        </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto">
+        <!-- 헤더 -->
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold mb-3">
+                🔐 <span class="bg-gradient-to-r from-oauth-primary to-oauth-accent bg-clip-text text-transparent" data-i18n="header.title">OAuth Login Setup Wizard</span>
+            </h1>
+            <p class="text-slate-400 mb-3" data-i18n="header.subtitle">Kakao and Google login for a Flutter app — from console setup to a CI/CD build that just works</p>
+            <p class="text-zinc-400 text-sm flex items-center justify-center gap-3">
+                <a href="https://github.com/Cassiiopeia/projectops" target="_blank" rel="noopener" class="text-xs text-slate-500 hover:text-slate-300">projectops GitHub →</a>
+                <span class="text-slate-600">|</span>
+                <button onclick="openChangelogModal()" class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-oauth-primary/20 hover:bg-oauth-primary/30 border border-oauth-primary/30 rounded-full text-xs text-oauth-accent transition cursor-pointer">
+                    <span id="versionBadge">v1.0.0</span>
+                </button>
+                <span class="text-slate-600">|</span>
+                <button type="button" class="lang-toggle hidden" data-lang-toggle onclick="toggleWizardLanguage()">한국어</button>
+            </p>
+        </header>
+
+        <!-- 첫 사용자 안내 — 규모·준비물·산출물 -->
+        <div class="wizard-meta">
+            <span data-i18n="meta.duration">⏱️ Estimated time <strong>20–40 min</strong></span>
+            <span class="text-slate-600">·</span>
+            <span data-i18n="meta.stepCount">📑 <strong>7–10 steps</strong> (depends on what you pick)</span>
+            <span class="text-slate-600">·</span>
+            <span data-i18n="meta.requirements">🎒 You need <strong>a Flutter project · a Kakao Developers and/or Google (Firebase) account · Python 3</strong></span>
+        </div>
+        <div class="wizard-meta" style="margin-top:-0.5rem">
+            <span data-i18n="meta.outputs">🎁 When done, you get <strong>native config applied by one command, Dart login code, the GitHub Secrets to register and the exact CI/CD steps</strong></span>
+            <span class="text-slate-600">·</span>
+            <a href="../../../../docs/FLUTTER-OAUTH-WIZARD.md" target="_blank" rel="noopener" class="text-oauth-accent hover:underline" data-i18n="meta.docsLink">📖 Read the full guide →</a>
+        </div>
+        <p class="resume-hint" data-i18n="meta.resumeHint">Your progress is saved in this browser automatically. Close the window and reopen it to pick up where you left off.</p>
+
+        <!-- 단계 표시 — 선택한 제공자에 따라 JS 가 그린다 (항목은 .step-indicator) -->
+        <div id="stepIndicatorList" class="flex justify-between mb-8 px-2 overflow-x-auto"></div>
+
+        <!-- ========================================== -->
+        <!-- 단계: 제공자 선택 -->
+        <!-- ========================================== -->
+        <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="providers">
+            <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="providers.title">Which login do you want?</span></h2>
+            <div class="goal-box" data-i18n="providers.goal">
+                🎯 <strong>Goal of this step:</strong> pick the providers. The wizard then shows only the steps you need. You can come back and change this later.
+            </div>
+            <div class="grid md:grid-cols-2 gap-4 mb-6">
+                <label class="provider-card" id="providerCardKakao">
+                    <input type="checkbox" id="providerKakao" class="mt-1 accent-yellow-400" onchange="onProviderToggle('kakao', this.checked)">
+                    <div>
+                        <div class="font-bold text-kakao-yellow">Kakao</div>
+                        <p class="text-xs text-slate-400 mt-1" data-i18n="providers.kakaoDescription">KakaoTalk app login with Kakao Account fallback (package <code>kakao_flutter_sdk_user</code>)</p>
+                    </div>
+                </label>
+                <label class="provider-card" id="providerCardGoogle">
+                    <input type="checkbox" id="providerGoogle" class="mt-1 accent-blue-500" onchange="onProviderToggle('google', this.checked)">
+                    <div>
+                        <div class="font-bold text-google-blue">Google</div>
+                        <p class="text-xs text-slate-400 mt-1" data-i18n="providers.googleDescription">Google Sign-In on Android and iOS (package <code>google_sign_in</code>)</p>
+                    </div>
+                </label>
+            </div>
+            <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 text-xs text-slate-300">
+                <p class="font-medium text-oauth-accent mb-2" data-i18n="providers.flowTitle">How this wizard works</p>
+                <ol class="list-decimal list-inside space-y-1">
+                    <li data-i18n="providers.flow1">Collect your app IDs and signing-key fingerprints (both providers need them)</li>
+                    <li data-i18n="providers.flow2">Register the app in each provider's console, following the steps line by line</li>
+                    <li data-i18n="providers.flow3">Get the GitHub Secrets, the CI/CD steps and the .gitignore lines</li>
+                    <li data-i18n="providers.flow4">Run one command that patches <code>AndroidManifest.xml</code> and <code>Info.plist</code> for you</li>
+                </ol>
+            </div>
+            <div class="flex justify-end mt-8">
+                <button class="px-6 py-2.5 bg-gradient-to-r from-oauth-primary to-oauth-dark rounded-lg font-medium transition hover:opacity-90" onclick="nextStep()" data-i18n="action.next">Next →</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 단계: 앱 식별자 -->
+        <!-- ========================================== -->
+        <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="identity">
+            <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="identity.title">Your app IDs</span></h2>
+            <div class="goal-box" data-i18n="identity.goal">
+                🎯 <strong>Goal of this step:</strong> find the Android <code>applicationId</code> and the iOS bundle ID. Both consoles ask for them, and they must match exactly.
+            </div>
+
+            <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-4">
+                <p class="text-sm font-medium text-oauth-accent mb-2" data-i18n="identity.autoTitle">Option A — detect them automatically</p>
+                <p class="text-xs text-slate-400 mb-2" data-i18n="identity.autoBody">Run this from the repository root. It only reads files and prints JSON (<code>applicationId.value</code>, <code>bundleId.value</code>).</p>
+                <div class="code-block"><pre id="detectCommand"></pre></div>
+                <button class="copy-btn-small mt-2" onclick="copyCode('detectCommand', this)" data-i18n="action.copy">Copy</button>
+            </div>
+
+            <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
+                <p class="text-sm font-medium text-oauth-accent mb-2" data-i18n="identity.manualTitle">Option B — find them by hand</p>
+                <ul class="text-xs text-slate-300 list-disc list-inside space-y-1">
+                    <li data-i18n="identity.manualAndroid">Android: <code>applicationId</code> in <code>android/app/build.gradle.kts</code> (or <code>build.gradle</code>) under <code>defaultConfig</code></li>
+                    <li data-i18n="identity.manualIos">iOS: Xcode → <strong>Runner</strong> target → General → <strong>Bundle Identifier</strong> (or <code>PRODUCT_BUNDLE_IDENTIFIER</code> in <code>ios/Runner.xcodeproj/project.pbxproj</code>, not the <code>RunnerTests</code> one)</li>
+                </ul>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="identity.applicationIdLabel">Android applicationId (package name)</label>
+                    <input type="text" id="applicationIdInput" placeholder="com.example.myapp" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm font-mono focus:border-oauth-primary outline-none" oninput="onTextInput('applicationId', this.value)">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="identity.bundleIdLabel">iOS bundle ID</label>
+                    <input type="text" id="bundleIdInput" placeholder="com.example.myapp" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm font-mono focus:border-oauth-primary outline-none" oninput="onTextInput('bundleId', this.value)">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="identity.projectPathLabel">Flutter project path, relative to the repository root</label>
+                    <input type="text" id="projectPathInput" placeholder="." class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm font-mono focus:border-oauth-primary outline-none" oninput="onTextInput('projectPath', this.value)">
+                    <p class="text-xs text-slate-500 mt-1" data-i18n="identity.projectPathHint"><code>.</code> when <code>pubspec.yaml</code> is at the repository root; <code>app</code> for a monorepo subfolder.</p>
+                </div>
+            </div>
+            <div class="flex justify-between mt-8">
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="action.back">← Back</button>
+                <button class="px-6 py-2.5 bg-gradient-to-r from-oauth-primary to-oauth-dark rounded-lg font-medium transition hover:opacity-90" onclick="nextStep()" data-i18n="action.next">Next →</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 단계: 서명 키 지문 -->
+        <!-- ========================================== -->
+        <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="fingerprints">
+            <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="fingerprints.title">Android signing-key fingerprints</span></h2>
+            <div class="goal-box" data-i18n="fingerprints.goal">
+                🎯 <strong>Goal of this step:</strong> collect the SHA-1 of every key that signs your Android builds. Google needs the SHA-1, Kakao needs a "key hash" made from it. A build signed with an unregistered key fails to log in — this is the most common OAuth breakage.
+            </div>
+
+            <p class="text-sm font-medium text-oauth-accent mb-2" data-i18n="fingerprints.whichKeyTitle">Which key signs which build</p>
+            <div class="overflow-x-auto mb-6">
+                <table class="w-full text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400">
+                            <th class="text-left py-2 px-2" data-i18n="fingerprints.columnBuild">Build</th>
+                            <th class="text-left py-2 px-2" data-i18n="fingerprints.columnKey">Signed with</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-slate-300">
+                        <tr class="border-b border-slate-700/50">
+                            <td class="py-2 px-2" data-i18n="fingerprints.rowLocalBuild"><code>flutter run</code> on your computer</td>
+                            <td class="py-2 px-2" data-i18n="fingerprints.rowLocalKey">Debug key <code>~/.android/debug.keystore</code> (different on every computer)</td>
+                        </tr>
+                        <tr class="border-b border-slate-700/50">
+                            <td class="py-2 px-2" data-i18n="fingerprints.rowTestBuild">Test APK (<code>@projectops apk build</code> → ANDROID-TEST-APK) and Firebase App Distribution (ANDROID-FIREBASE-CICD)</td>
+                            <td class="py-2 px-2" data-i18n="fingerprints.rowTestKey">Upload key from the <code>RELEASE_KEYSTORE_BASE64</code> secret</td>
+                        </tr>
+                        <tr class="border-b border-slate-700/50">
+                            <td class="py-2 px-2" data-i18n="fingerprints.rowPlayBuild">App installed from Google Play (ANDROID-PLAYSTORE-CICD)</td>
+                            <td class="py-2 px-2" data-i18n="fingerprints.rowPlayKey">Play App Signing key — Google re-signs the app, so this SHA-1 is different from your upload key</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 px-2" data-i18n="fingerprints.rowSelfHostedBuild">Self-hosted APK (ANDROID-SELFHOSTED-CICD)</td>
+                            <td class="py-2 px-2" data-i18n="fingerprints.rowSelfHostedKey">The <code>DEBUG_KEYSTORE</code> secret, unless the repository variable <code>ANDROID_SELFHOSTED_RELEASE_SIGNING=true</code> switches it to the upload key</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-4">
+                <p class="text-sm font-medium text-oauth-accent mb-2" data-i18n="fingerprints.commandsTitle">Get the SHA-1 (copy the line that starts with <code>SHA1:</code>)</p>
+                <div class="flex gap-2 mb-3">
+                    <button id="fingerprintOsTabMac" class="px-4 py-1.5 rounded text-xs font-medium bg-slate-900 border border-slate-600" onclick="selectOperatingSystem('mac')">macOS / Linux</button>
+                    <button id="fingerprintOsTabWindows" class="px-4 py-1.5 rounded text-xs font-medium bg-slate-900 border border-slate-600" onclick="selectOperatingSystem('windows')">Windows (PowerShell)</button>
+                </div>
+                <p class="snippet-label" data-i18n="fingerprints.debugCommandLabel">1) Debug key (no password needed)</p>
+                <div class="code-block"><pre id="keytoolDebugCommand"></pre></div>
+                <button class="copy-btn-small mt-2" onclick="copyCode('keytoolDebugCommand', this)" data-i18n="action.copy">Copy</button>
+                <p class="snippet-label" data-i18n="fingerprints.uploadCommandLabel">2) Upload (release) key — asks for the keystore password. Replace <code>YOUR_KEY_ALIAS</code>; the Play Store wizard puts the keystore at <code>android/app/keystore/key.jks</code></p>
+                <div class="code-block"><pre id="keytoolUploadCommand"></pre></div>
+                <button class="copy-btn-small mt-2" onclick="copyCode('keytoolUploadCommand', this)" data-i18n="action.copy">Copy</button>
+                <p class="snippet-label" data-i18n="fingerprints.cliLabel">Or let the wizard CLI print SHA-1, SHA-256 and the Kakao key hash at once (debug key by default)</p>
+                <div class="code-block"><pre id="fingerprintCliCommand"></pre></div>
+                <button class="copy-btn-small mt-2" onclick="copyCode('fingerprintCliCommand', this)" data-i18n="action.copy">Copy</button>
+                <p class="text-xs text-slate-500 mt-3" data-i18n="fingerprints.keytoolHint"><code>keytool</code> not found? It ships with Android Studio: <code>/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/keytool</code> (macOS) or <code>C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe</code> (Windows).</p>
+                <p class="text-xs text-slate-500 mt-1" data-i18n="fingerprints.playHint">3) Play App Signing key: Google Play Console → your app → the <strong>App signing</strong> page (under App integrity) → "App signing key certificate" → SHA-1. Only exists after the app is set up in Play Console.</p>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="fingerprints.debugLabel">Debug key SHA-1</label>
+                    <input type="text" id="debugSha1Input" placeholder="AA:BB:CC:..." class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm font-mono focus:border-oauth-primary outline-none" oninput="onFingerprintInput('debugSha1', this.value)">
+                    <p class="text-xs text-slate-500 mt-1" id="debugSha1Hash"></p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="fingerprints.uploadLabel">Upload (release) key SHA-1</label>
+                    <input type="text" id="uploadSha1Input" placeholder="AA:BB:CC:..." class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm font-mono focus:border-oauth-primary outline-none" oninput="onFingerprintInput('uploadSha1', this.value)">
+                    <p class="text-xs text-slate-500 mt-1" id="uploadSha1Hash"></p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="fingerprints.playLabel">Play App Signing key SHA-1 (optional until you ship on Google Play)</label>
+                    <input type="text" id="playSigningSha1Input" placeholder="AA:BB:CC:..." class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm font-mono focus:border-oauth-primary outline-none" oninput="onFingerprintInput('playSigningSha1', this.value)">
+                    <p class="text-xs text-slate-500 mt-1" id="playSigningSha1Hash"></p>
+                </div>
+            </div>
+            <p class="text-xs text-slate-500 mt-3" data-i18n="fingerprints.browserOnly">The Kakao key hash under each field is computed in this browser from the SHA-1 (same result as <code>keytool -exportcert … | openssl sha1 -binary | openssl base64</code>).</p>
+            <div class="flex justify-between mt-8">
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="action.back">← Back</button>
+                <button class="px-6 py-2.5 bg-gradient-to-r from-oauth-primary to-oauth-dark rounded-lg font-medium transition hover:opacity-90" onclick="nextStep()" data-i18n="action.next">Next →</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 단계: Kakao -->
+        <!-- ========================================== -->
+        <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="kakao">
+            <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="kakao.title">Kakao Developers setup</span></h2>
+            <div class="goal-box" data-i18n="kakao.goal">
+                🎯 <strong>Goal of this step:</strong> create the Kakao app, register Android and iOS, turn on Kakao Login, and copy the <strong>Native App Key</strong>.
+            </div>
+            <div class="mb-4">
+                <a href="https://developers.kakao.com/console/app" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-4 py-2 bg-kakao-yellow text-kakao-brown rounded-lg text-sm font-medium">
+                    <span data-i18n="kakao.openConsole">Open Kakao Developers console</span>
+                </a>
+            </div>
+            <div class="space-y-4">
+                <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
+                    <p class="text-sm font-medium text-kakao-yellow mb-2" data-i18n="kakao.appTitle">1) Create the app and copy the Native App Key</p>
+                    <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
+                        <li data-i18n="kakao.app1">Add an application (or open an existing one)</li>
+                        <li data-i18n="kakao.app2">Go to <strong>App → Platform Key</strong> and copy the <strong>Native App Key</strong> (32 characters)</li>
+                        <li data-i18n="kakao.app3">⚠️ Not the REST API key, JavaScript key or Admin key. Never put the REST API or Admin key in the app.</li>
+                    </ol>
+                    <input type="text" id="kakaoNativeAppKeyInput" placeholder="0123456789abcdef0123456789abcdef" class="mt-3 w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm font-mono focus:border-oauth-primary outline-none" oninput="onTextInput('kakaoNativeAppKey', this.value)">
+                    <p class="text-xs mt-1" id="kakaoKeyStatus"></p>
+                </div>
+                <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
+                    <p class="text-sm font-medium text-kakao-yellow mb-2" data-i18n="kakao.androidTitle">2) Register the Android platform</p>
+                    <p class="text-xs text-slate-300 mb-2" data-i18n="kakao.androidBody">Under the Native App Key's Android settings, enter the package name and <strong>every</strong> key hash below (one per line). A key hash that is missing blocks login for builds signed with that key.</p>
+                    <div class="result-item"><span class="key" data-i18n="kakao.packageName">Package name</span><span class="value font-mono" id="kakaoPackageName"></span></div>
+                    <div class="code-block mt-2"><pre id="kakaoKeyHashList"></pre></div>
+                    <button class="copy-btn-small mt-2" onclick="copyCode('kakaoKeyHashList', this)" data-i18n="action.copy">Copy</button>
+                </div>
+                <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
+                    <p class="text-sm font-medium text-kakao-yellow mb-2" data-i18n="kakao.iosTitle">3) Register the iOS platform</p>
+                    <p class="text-xs text-slate-300 mb-2" data-i18n="kakao.iosBody">Enter the bundle ID exactly as in Xcode.</p>
+                    <div class="result-item"><span class="key">Bundle ID</span><span class="value font-mono" id="kakaoBundleId"></span></div>
+                </div>
+                <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
+                    <p class="text-sm font-medium text-kakao-yellow mb-2" data-i18n="kakao.loginTitle">4) Turn on Kakao Login</p>
+                    <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
+                        <li data-i18n="kakao.login1">Turn on <strong>Kakao Login</strong> for the app</li>
+                        <li data-i18n="kakao.login2">Set the consent items you need (nickname, profile image, email…)</li>
+                        <li data-i18n="kakao.login3">A Redirect URI is only for web services — native apps don't need one</li>
+                    </ol>
+                </div>
+                <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
+                    <p class="text-sm font-medium text-kakao-yellow mb-2" data-i18n="kakao.previewTitle">5) What goes into your project (the Apply step adds it for you)</p>
+                    <p class="text-xs text-slate-400" data-i18n="kakao.requirements">kakao_flutter_sdk_user 2.x needs Flutter 3.38+, Dart 3.9+, Android API 21+ and iOS 13+.</p>
+                    <p class="snippet-label">AndroidManifest.xml</p>
+                    <div class="code-block"><pre id="kakaoManifestSnippet"></pre></div>
+                    <button class="copy-btn-small mt-2" onclick="copyCode('kakaoManifestSnippet', this)" data-i18n="action.copy">Copy</button>
+                    <p class="snippet-label">Info.plist</p>
+                    <div class="code-block"><pre id="kakaoPlistSnippet"></pre></div>
+                    <button class="copy-btn-small mt-2" onclick="copyCode('kakaoPlistSnippet', this)" data-i18n="action.copy">Copy</button>
+                    <p class="snippet-label">Dart (lib/main.dart)</p>
+                    <div class="code-block"><pre id="kakaoDartSnippet"></pre></div>
+                    <button class="copy-btn-small mt-2" onclick="copyCode('kakaoDartSnippet', this)" data-i18n="action.copy">Copy</button>
+                </div>
+            </div>
+            <div class="flex justify-between mt-8">
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="action.back">← Back</button>
+                <button class="px-6 py-2.5 bg-gradient-to-r from-oauth-primary to-oauth-dark rounded-lg font-medium transition hover:opacity-90" onclick="nextStep()" data-i18n="action.next">Next →</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 단계: Google -->
+        <!-- ========================================== -->
+        <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="google">
+            <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="google.title">Google Sign-In setup</span></h2>
+            <div class="goal-box" data-i18n="google.goal">
+                🎯 <strong>Goal of this step:</strong> create the OAuth clients (Android, iOS, Web) and copy the <strong>iOS client ID</strong> and the <strong>Web client ID</strong> (used as <code>serverClientId</code>).
+            </div>
+
+            <p class="text-sm font-medium text-google-blue mb-2" data-i18n="google.routeTitle">Where do you set it up?</p>
+            <div class="space-y-2 mb-6 text-sm">
+                <label class="flex items-start gap-2"><input type="radio" name="googleSetup" value="firebase-sdk" class="mt-1" onchange="onGoogleSetupChange(this.value)"> <span data-i18n="google.routeFirebaseSdk"><strong>Firebase, and the app uses Firebase SDKs</strong> (<code>firebase_core</code>, <code>firebase_auth</code>…) — the app ships <code>google-services.json</code> and <code>GoogleService-Info.plist</code>, restored in CI from secrets</span></label>
+                <label class="flex items-start gap-2"><input type="radio" name="googleSetup" value="firebase-ids" class="mt-1" onchange="onGoogleSetupChange(this.value)"> <span data-i18n="google.routeFirebaseIds"><strong>Firebase console, but no Firebase SDKs in the app</strong> — Firebase creates the OAuth clients; the app only needs the client IDs</span></label>
+                <label class="flex items-start gap-2"><input type="radio" name="googleSetup" value="cloud" class="mt-1" onchange="onGoogleSetupChange(this.value)"> <span data-i18n="google.routeCloud"><strong>Google Cloud console only</strong> — you create the OAuth clients yourself; the app only needs the client IDs</span></label>
+            </div>
+
+            <div class="space-y-4">
+                <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 hidden" data-show-if="google-firebase">
+                    <a href="https://console.firebase.google.com" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-4 py-2 bg-google-blue rounded-lg text-sm font-medium mb-3"><span data-i18n="google.openFirebase">Open Firebase console</span></a>
+                    <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
+                        <li data-i18n="google.firebase1">Project settings → Your apps → add an <strong>Android</strong> app with the package name below</li>
+                        <li data-i18n="google.firebase2">On that Android app, <strong>Add fingerprint</strong> for every SHA-1 below (SHA-256 is optional)</li>
+                        <li data-i18n="google.firebase3">Add an <strong>iOS</strong> app with the bundle ID below</li>
+                        <li data-i18n="google.firebase4">Authentication → Sign-in method → enable <strong>Google</strong>. This creates the Web client (usually named "Web client (auto created by Google Service)")</li>
+                        <li data-i18n="google.firebase5">Download <code>google-services.json</code> and <code>GoogleService-Info.plist</code> again <strong>after</strong> adding fingerprints, and drop them below — the wizard reads the client IDs from them</li>
+                    </ol>
+                </div>
+                <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 hidden" data-show-if="google-cloud">
+                    <a href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-4 py-2 bg-google-blue rounded-lg text-sm font-medium mb-3"><span data-i18n="google.openCloud">Open Google Cloud → OAuth clients</span></a>
+                    <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
+                        <li data-i18n="google.cloud1">Configure the consent screen (Google Auth Platform → Branding) if asked</li>
+                        <li data-i18n="google.cloud2">Create client → <strong>Android</strong>: package name + one SHA-1. Create <strong>one Android client per SHA-1</strong> below</li>
+                        <li data-i18n="google.cloud3">Create client → <strong>iOS</strong>: bundle ID below → copy its client ID</li>
+                        <li data-i18n="google.cloud4">Create client → <strong>Web application</strong> → copy its client ID (this is the <code>serverClientId</code>)</li>
+                        <li data-i18n="google.cloud5">Changes can take from five minutes to a few hours to apply</li>
+                    </ol>
+                </div>
+
+                <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
+                    <p class="text-sm font-medium text-google-blue mb-2" data-i18n="google.registerTitle">Values to enter in the console</p>
+                    <div class="result-item"><span class="key" data-i18n="google.packageName">Android package name</span><span class="value font-mono" id="googlePackageName"></span></div>
+                    <div class="result-item"><span class="key">Bundle ID</span><span class="value font-mono" id="googleBundleId"></span></div>
+                    <p class="snippet-label">SHA-1</p>
+                    <div class="code-block"><pre id="googleSha1List"></pre></div>
+                    <button class="copy-btn-small mt-2" onclick="copyCode('googleSha1List', this)" data-i18n="action.copy">Copy</button>
+                </div>
+
+                <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 hidden" data-show-if="google-firebase">
+                    <p class="text-sm font-medium text-google-blue mb-2" data-i18n="google.filesTitle">Firebase config files (read only in this browser)</p>
+                    <div class="grid md:grid-cols-2 gap-3">
+                        <div class="file-upload" id="googleServicesDropZone" onclick="document.getElementById('googleServicesFileInput').click()">
+                            <div class="icon">🤖</div>
+                            <div class="text-slate-300 text-sm">google-services.json</div>
+                            <div class="text-xs text-slate-500 mt-1" id="googleServicesStatus"></div>
+                            <input type="file" id="googleServicesFileInput" accept=".json" class="hidden" onchange="handleGoogleServicesFile(this.files[0])">
+                        </div>
+                        <div class="file-upload" id="googleServiceInfoDropZone" onclick="document.getElementById('googleServiceInfoFileInput').click()">
+                            <div class="icon">🍎</div>
+                            <div class="text-slate-300 text-sm">GoogleService-Info.plist</div>
+                            <div class="text-xs text-slate-500 mt-1" id="googleServiceInfoStatus"></div>
+                            <input type="file" id="googleServiceInfoFileInput" accept=".plist" class="hidden" onchange="handleGoogleServiceInfoFile(this.files[0])">
+                        </div>
+                    </div>
+                    <div class="text-xs mt-3 space-y-1" id="googleFileChecks"></div>
+                </div>
+
+                <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="google.iosClientIdLabel">iOS client ID (<code>CLIENT_ID</code> in GoogleService-Info.plist)</label>
+                        <input type="text" id="googleIosClientIdInput" placeholder="1234567890-abc123.apps.googleusercontent.com" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm font-mono focus:border-oauth-primary outline-none" oninput="onTextInput('googleIosClientId', this.value)">
+                    </div>
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="google.serverClientIdLabel">Web client ID (<code>serverClientId</code>)</label>
+                        <input type="text" id="googleServerClientIdInput" placeholder="1234567890-xyz789.apps.googleusercontent.com" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm font-mono focus:border-oauth-primary outline-none" oninput="onTextInput('googleServerClientId', this.value)">
+                        <p class="text-xs text-slate-500 mt-1" data-i18n="google.serverClientIdHint">Android needs it unless google-services.json has a web client entry. Your backend verifies ID tokens against it.</p>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-3" data-i18n="google.publicIds">Client IDs are public identifiers (they end up inside the app), so they are not GitHub Secrets. Never put a <strong>client secret</strong> in the app.</p>
+                </div>
+
+                <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
+                    <p class="text-sm font-medium text-google-blue mb-2" data-i18n="google.previewTitle">What goes into your project (the Apply step adds it for you)</p>
+                    <p class="snippet-label">Info.plist</p>
+                    <div class="code-block"><pre id="googlePlistSnippet"></pre></div>
+                    <button class="copy-btn-small mt-2" onclick="copyCode('googlePlistSnippet', this)" data-i18n="action.copy">Copy</button>
+                    <p class="snippet-label">Dart</p>
+                    <div class="code-block"><pre id="googleDartSnippet"></pre></div>
+                    <button class="copy-btn-small mt-2" onclick="copyCode('googleDartSnippet', this)" data-i18n="action.copy">Copy</button>
+                    <p class="text-xs text-slate-500 mt-2" data-i18n="google.androidNoFile">Android needs no file change for Google Sign-In. <code>GoogleService-Info.plist</code> is not needed for sign-in alone — only Firebase SDKs read it.</p>
+                </div>
+            </div>
+            <div class="flex justify-between mt-8">
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="action.back">← Back</button>
+                <button class="px-6 py-2.5 bg-gradient-to-r from-oauth-primary to-oauth-dark rounded-lg font-medium transition hover:opacity-90" onclick="nextStep()" data-i18n="action.next">Next →</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 단계: GitHub Secrets -->
+        <!-- ========================================== -->
+        <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="secrets">
+            <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="secrets.title">GitHub Secrets</span></h2>
+            <div class="goal-box" data-i18n="secrets.goal">
+                🎯 <strong>Goal of this step:</strong> register the files that must not be committed as GitHub Secrets, so CI can recreate them. Values never leave this browser — copy them one by one.
+            </div>
+            <div class="grid grid-cols-2 gap-3 mb-2">
+                <input type="text" id="repoOwnerInput" placeholder="GitHub owner" data-i18n-placeholder="secrets.ownerPlaceholder" class="bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-sm font-mono" oninput="onTextInput('repoOwner', this.value)">
+                <input type="text" id="repoNameInput" placeholder="Repository name" data-i18n-placeholder="secrets.repoPlaceholder" class="bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-sm font-mono" oninput="onTextInput('repoName', this.value)">
+            </div>
+            <a id="secretsPageLink" href="https://github.com" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium mb-1"><span data-i18n="secrets.openPage">🔐 Open the repository's Actions secrets page</span></a>
+            <p class="text-xs text-slate-500 mb-6" data-i18n="secrets.openPageHint">Settings → Secrets and variables → Actions → New repository secret. Name = the left column, Secret = the copied value.</p>
+
+            <div class="overflow-x-auto mb-4">
+                <table class="w-full text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400">
+                            <th class="text-left py-2 px-2" data-i18n="secrets.columnName">Secret name</th>
+                            <th class="text-left py-2 px-2" data-i18n="secrets.columnSource">Value</th>
+                            <th class="text-left py-2 px-2" data-i18n="secrets.columnUsedBy">Used by</th>
+                            <th class="text-right py-2 px-2" data-i18n="secrets.columnAction">Copy</th>
+                        </tr>
+                    </thead>
+                    <tbody id="secretsTableBody"></tbody>
+                </table>
+            </div>
+            <p class="text-xs text-slate-400 mb-6" data-i18n="secrets.whyRawText">JSON and plist files are stored as <strong>raw text</strong> (not base64), the same way the existing <code>GOOGLE_SERVICES_JSON</code> secret works: CI writes the value back byte for byte, so the format cannot break. Use base64 only for binary files (the extra secrets below convert them automatically).</p>
+
+            <div class="custom-secrets-section mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-semibold text-slate-200" data-i18n="secrets.customTitle">➕ Extra secrets (optional)</h3>
+                    <button class="add-secret-btn" onclick="addCustomSecret()" data-i18n="secrets.addItem">+ Add item</button>
+                </div>
+                <p class="text-xs text-slate-500 mb-3" data-i18n="secrets.customHint">Any other file your build needs. Text files stay as they are; binary files become base64.</p>
+                <div id="customSecretsList"></div>
+            </div>
+
+            <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
+                <p class="text-sm font-medium text-blue-400 mb-3" data-i18n="secrets.downloadTitle">📥 Keep a copy (delete it after registering — it contains secret values)</p>
+                <div class="flex flex-wrap gap-2">
+                    <button class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-xs" onclick="downloadAsJson()">📋 JSON</button>
+                    <button class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-xs" onclick="downloadAsTxt()">📝 TXT</button>
+                    <button class="px-4 py-2 bg-oauth-primary hover:bg-oauth-dark rounded text-xs font-bold" onclick="downloadAsZip()" data-i18n="secrets.downloadZip">📦 ZIP (secrets + every snippet + README)</button>
+                </div>
+            </div>
+            <div class="flex justify-between mt-8">
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="action.back">← Back</button>
+                <button class="px-6 py-2.5 bg-gradient-to-r from-oauth-primary to-oauth-dark rounded-lg font-medium transition hover:opacity-90" onclick="nextStep()" data-i18n="action.next">Next →</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 단계: CI/CD -->
+        <!-- ========================================== -->
+        <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="cicd">
+            <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="cicd.title">CI/CD workflows</span></h2>
+            <div class="goal-box" data-i18n="cicd.goal">
+                🎯 <strong>Goal of this step:</strong> make every build — release, test build and comment-triggered build — produce an app that can log in.
+            </div>
+
+            <p class="text-sm font-medium text-oauth-accent mb-2" data-i18n="cicd.tableTitle">What each workflow needs</p>
+            <div class="overflow-x-auto mb-6">
+                <table class="w-full text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400">
+                            <th class="text-left py-2 px-2" data-i18n="cicd.columnWorkflow">Workflow</th>
+                            <th class="text-left py-2 px-2" data-i18n="cicd.columnChange">Change</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cicdTableBody" class="text-slate-300"></tbody>
+                </table>
+            </div>
+
+            <div class="hidden" data-show-if="firebase-files">
+                <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-4">
+                    <p class="text-sm font-medium text-oauth-accent mb-2" data-i18n="cicd.iosStepTitle">iOS: add this step to two workflows</p>
+                    <ul class="text-xs text-slate-300 list-disc list-inside space-y-1 mb-2">
+                        <li data-i18n="cicd.iosWhere1"><code>.github/workflows/PROJECT-FLUTTER-IOS-TESTFLIGHT.yaml</code> → job <code>build-upload-ios</code></li>
+                        <li data-i18n="cicd.iosWhere2"><code>.github/workflows/PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT.yaml</code> → job <code>build-upload-ios-test</code></li>
+                    </ul>
+                    <p class="snippet-label" data-i18n="cicd.placementLabel">Where: right after "Ensure .env file exists", before "Set up Flutter" (the job already runs inside your Flutter folder)</p>
+                    <div class="code-block"><pre id="iosStepPlacement"></pre></div>
+                    <p class="snippet-label" data-i18n="cicd.stepLabel">The step (indentation matches the other steps)</p>
+                    <div class="code-block"><pre id="iosGoogleServiceInfoStep"></pre></div>
+                    <button class="copy-btn-small mt-2" onclick="copyCode('iosGoogleServiceInfoStep', this)" data-i18n="action.copy">Copy</button>
+                    <details class="mt-3 text-xs text-slate-400">
+                        <summary class="cursor-pointer" data-i18n="cicd.heredocSummary">Prefer <code>cat &lt;&lt; EOF</code>? Equivalent form</summary>
+                        <p class="mt-2" data-i18n="cicd.heredocBody">Both write the whole file from the secret. The step above is recommended: the value goes through an environment variable, so no character in the file (<code>$</code>, backticks, a line that reads <code>EOF</code>) can change the script. In the heredoc form the quoted <code>'EOF'</code> stops the shell from expanding <code>$</code>; it breaks only if the file contains a line <code>EOF</code>.</p>
+                        <div class="code-block mt-2"><pre id="iosGoogleServiceInfoHeredocStep"></pre></div>
+                        <button class="copy-btn-small mt-2" onclick="copyCode('iosGoogleServiceInfoHeredocStep', this)" data-i18n="action.copy">Copy</button>
+                    </details>
+                    <p class="text-xs text-slate-400 mt-3" data-i18n="cicd.xcodeTarget">The plist must also be part of the Runner target once: in Xcode drag <code>GoogleService-Info.plist</code> into <strong>Runner</strong> (target Runner checked) and commit <code>project.pbxproj</code>. The file itself stays out of Git.</p>
+                </div>
+                <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-4">
+                    <p class="text-sm font-medium text-oauth-accent mb-2" data-i18n="cicd.androidTitle">Android: nothing to add — the step already exists</p>
+                    <div class="code-block"><pre id="androidGoogleServicesStep"></pre></div>
+                    <p class="text-xs text-yellow-300 mt-2" data-i18n="cicd.androidWarning">⚠️ ANDROID-PLAYSTORE-CICD, ANDROID-FIREBASE-CICD and ANDROID-SELFHOSTED-CICD write this file on every build, even when the secret is empty. Register <code>GOOGLE_SERVICES_JSON</code> even if you commit the file, or the build overwrites it with an empty one.</p>
+                </div>
+            </div>
+            <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-4 hidden" data-show-if="no-firebase-files">
+                <p class="text-sm font-medium text-green-400 mb-1" data-i18n="cicd.noChangeTitle">✅ No workflow file needs a change</p>
+                <p class="text-xs text-slate-300" data-i18n="cicd.noChangeBody">Your OAuth values live in committed files (<code>AndroidManifest.xml</code>, <code>Info.plist</code>, Dart code), so every workflow builds them as is. What can still break a CI build is a missing key fingerprint — see below.</p>
+            </div>
+            <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-4">
+                <p class="text-sm font-medium text-oauth-accent mb-2" data-i18n="cicd.triggerTitle">Comment-triggered builds (<code>@projectops build app</code> / <code>apk build</code> / <code>ios build</code>)</p>
+                <p class="text-xs text-slate-300" data-i18n="cicd.triggerBody">PROJECTOPS-APP-BUILD-TRIGGER only dispatches ANDROID-TEST-APK and IOS-TEST-TESTFLIGHT, so it needs no change. But dispatched workflows run the definition on the <strong>default branch</strong>: merge the iOS step to <code>main</code> before testing it with <code>@projectops ios build</code>, or the old definition runs.</p>
+            </div>
+            <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
+                <p class="text-sm font-medium text-oauth-accent mb-2" data-i18n="cicd.keysTitle">Signing keys used by CI (register their fingerprints)</p>
+                <ul class="text-xs text-slate-300 list-disc list-inside space-y-1">
+                    <li data-i18n="cicd.keys1">ANDROID-TEST-APK and ANDROID-FIREBASE-CICD sign with the upload key → upload key SHA-1 / key hash</li>
+                    <li data-i18n="cicd.keys2">Builds installed from Google Play are re-signed → Play App Signing SHA-1 / key hash</li>
+                    <li data-i18n="cicd.keys3">ANDROID-SELFHOSTED-CICD signs with the <code>DEBUG_KEYSTORE</code> secret by default → run the fingerprint command on that keystore too</li>
+                    <li data-i18n="cicd.keys4">iOS needs no fingerprint: Kakao and Google match the bundle ID</li>
+                </ul>
+            </div>
+            <div class="flex justify-between mt-8">
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="action.back">← Back</button>
+                <button class="px-6 py-2.5 bg-gradient-to-r from-oauth-primary to-oauth-dark rounded-lg font-medium transition hover:opacity-90" onclick="nextStep()" data-i18n="action.next">Next →</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 단계: .gitignore -->
+        <!-- ========================================== -->
+        <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="gitignore">
+            <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="gitignore.title">.gitignore</span></h2>
+            <div class="goal-box" data-i18n="gitignore.goal">
+                🎯 <strong>Goal of this step:</strong> keep files with secret values out of Git. Files that CI recreates from secrets, and this wizard's downloads, are ignored.
+            </div>
+            <div class="code-block"><pre id="gitignoreSnippet"></pre></div>
+            <button class="copy-btn-small mt-2" onclick="copyCode('gitignoreSnippet', this)" data-i18n="action.copy">Copy</button>
+            <label class="flex items-center gap-2 text-sm mt-4">
+                <input type="checkbox" id="updateGitignoreInput" onchange="onUpdateGitignoreToggle(this.checked)">
+                <span data-i18n="gitignore.letCliAdd">Let the Apply command add these lines (it skips lines that already exist)</span>
+            </label>
+            <div class="mt-4 hidden" data-show-if="firebase-files">
+                <p class="text-xs text-slate-400 mb-2" data-i18n="gitignore.untrackBody">Already committed those files? <code>.gitignore</code> does not remove tracked files. Stop tracking them (your local copies stay):</p>
+                <div class="code-block"><pre id="untrackCommand"></pre></div>
+                <button class="copy-btn-small mt-2" onclick="copyCode('untrackCommand', this)" data-i18n="action.copy">Copy</button>
+            </div>
+            <p class="text-xs text-slate-500 mt-4" data-i18n="gitignore.commitThese">Commit these: <code>AndroidManifest.xml</code>, <code>Info.plist</code>, <code>project.pbxproj</code> and your Dart code. They hold only public IDs.</p>
+            <div class="flex justify-between mt-8">
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="action.back">← Back</button>
+                <button class="px-6 py-2.5 bg-gradient-to-r from-oauth-primary to-oauth-dark rounded-lg font-medium transition hover:opacity-90" onclick="nextStep()" data-i18n="action.next">Next →</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 단계: 프로젝트에 적용 -->
+        <!-- ========================================== -->
+        <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="apply">
+            <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="apply.title">Apply to your project</span></h2>
+            <div class="goal-box" data-i18n="apply.goal">
+                🎯 <strong>Goal of this step:</strong> patch <code>AndroidManifest.xml</code> and <code>Info.plist</code> with one command, then add the packages and the Dart code. Running it twice changes nothing.
+            </div>
+            <div class="flex gap-2 mb-3">
+                <button id="applyOsTabMac" class="px-4 py-1.5 rounded text-xs font-medium bg-slate-900 border border-slate-600" onclick="selectOperatingSystem('mac')">macOS / Linux</button>
+                <button id="applyOsTabWindows" class="px-4 py-1.5 rounded text-xs font-medium bg-slate-900 border border-slate-600" onclick="selectOperatingSystem('windows')">Windows (PowerShell)</button>
+            </div>
+            <ol class="text-sm text-slate-300 list-decimal list-inside space-y-4">
+                <li>
+                    <span data-i18n="apply.step1">Preview — prints every change and writes nothing:</span>
+                    <div class="code-block mt-2"><pre id="setupDryRunCommand"></pre></div>
+                    <button class="copy-btn-small mt-2" onclick="copyCode('setupDryRunCommand', this)" data-i18n="action.copy">Copy</button>
+                </li>
+                <li>
+                    <span data-i18n="apply.step2">Apply — keeps a <code>.bak</code> of each changed file:</span>
+                    <div class="code-block mt-2"><pre id="setupCommand"></pre></div>
+                    <button class="copy-btn-small mt-2" onclick="copyCode('setupCommand', this)" data-i18n="action.copy">Copy</button>
+                </li>
+                <li>
+                    <span data-i18n="apply.step3">Add the packages (run inside the Flutter project):</span>
+                    <div class="code-block mt-2"><pre id="pubAddCommand"></pre></div>
+                    <button class="copy-btn-small mt-2" onclick="copyCode('pubAddCommand', this)" data-i18n="action.copy">Copy</button>
+                </li>
+                <li><span data-i18n="apply.step4">Paste the Dart code from the provider steps (init in <code>main()</code>, then call the sign-in function from your button)</span></li>
+                <li><span data-i18n="apply.step5">Check the diff (<code>git diff</code>), delete the <code>.bak</code> files, run the app on a device and log in once with each provider</span></li>
+            </ol>
+            <p class="text-xs text-slate-500 mt-4" data-i18n="apply.manualHint">Prefer to edit by hand? The snippets in the provider steps are exactly what the command adds. If <code>CFBundleURLTypes</code> already exists in Info.plist, add the new <code>&lt;dict&gt;</code> inside the existing array.</p>
+            <div class="flex justify-between mt-8">
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="action.back">← Back</button>
+                <button class="px-6 py-2.5 bg-gradient-to-r from-oauth-primary to-oauth-dark rounded-lg font-medium transition hover:opacity-90" onclick="nextStep()" data-i18n="action.next">Next →</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 단계: 최종 점검 -->
+        <!-- ========================================== -->
+        <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="summary">
+            <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="summary.title">Final checklist</span></h2>
+            <div class="goal-box" data-i18n="summary.goal">
+                🎯 <strong>Goal of this step:</strong> tick everything off. When every box is checked, a release build and a test build can both log in.
+            </div>
+            <div id="summaryChecklist" class="space-y-2 text-sm mb-6"></div>
+            <p class="text-sm font-medium text-oauth-accent mb-2" data-i18n="summary.filesTitle">Where every file goes</p>
+            <div class="overflow-x-auto mb-4">
+                <table class="w-full text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400">
+                            <th class="text-left py-2 px-2" data-i18n="summary.columnFile">File</th>
+                            <th class="text-left py-2 px-2" data-i18n="summary.columnGit">In Git?</th>
+                            <th class="text-left py-2 px-2" data-i18n="summary.columnCi">In CI</th>
+                        </tr>
+                    </thead>
+                    <tbody id="summaryFilesBody" class="text-slate-300"></tbody>
+                </table>
+            </div>
+            <div class="flex justify-between mt-8">
+                <button class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition" onclick="prevStep()" data-i18n="action.back">← Back</button>
+                <button class="px-6 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-medium transition" onclick="resetWizard()" data-i18n="action.startOver">Start over (clears saved values)</button>
+            </div>
+        </div>
+
+        <footer class="text-center text-xs text-slate-500 mt-8">
+            projectops OAuth wizard | <a href="https://github.com/Cassiiopeia/projectops" target="_blank" rel="noopener" class="hover:text-slate-300">View on GitHub →</a>
+        </footer>
+    </div>
+
+    <!-- 변경 이력 모달 — 껍데기는 여기 소유, 내용은 공통 openChangelogModal() 이 채운다 -->
+    <div id="changelogModal" class="modal-backdrop hidden" onclick="closeChangelogModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 500px;">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h3 class="text-lg font-bold text-white">Changelog</h3>
+                    <p class="text-xs text-slate-400">OAuth Login Setup Wizard</p>
+                </div>
+                <button class="text-slate-400 hover:text-slate-200 p-2 rounded-lg transition" onclick="closeChangelogModal()" aria-label="Close">✕</button>
+            </div>
+            <div id="changelogContent" class="space-y-4"></div>
+            <div class="mt-6 pt-4 border-t border-slate-700 flex justify-between items-center text-xs text-slate-500">
+                <span id="changelogLastUpdated"></span>
+                <a href="https://github.com/Cassiiopeia/projectops" target="_blank" rel="noopener" class="text-oauth-accent hover:opacity-80 transition">View on GitHub →</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="../_shared/wizard-i18n.js"></script>
+    <script src="../_shared/wizard-common.js"></script>
+    <script src="oauth-wizard-i18n.js"></script>
+    <script src="oauth-wizard.js"></script>
+    <script src="oauth-wizard-steps.js"></script>
+    <script src="oauth-wizard-snippets.js"></script>
+    <script src="oauth-wizard-export.js"></script>
+</body>
+</html>

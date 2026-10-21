@@ -9,7 +9,7 @@
 #
 # 사용법: ./version-sync.sh
 #
-# ⚠️ 이 파일은 3종 마법사(testflight/playstore/firebase)가 공유하는 정본이다.
+# ⚠️ 이 파일은 Flutter 마법사(testflight/playstore/firebase/oauth)가 공유하는 정본이다.
 #    한 곳을 고치면 _shared/check-consistency.py가 나머지 불일치를 잡아낸다.
 # ===================================================================
 set -e

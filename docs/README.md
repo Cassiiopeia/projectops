@@ -44,6 +44,7 @@
 | [TestFlight 마법사](FLUTTER-TESTFLIGHT-WIZARD.md) | iOS 배포 설정 자동 생성 |
 | [Play Store 마법사](FLUTTER-PLAYSTORE-WIZARD.md) | Android Play Store 배포 설정 자동 생성 |
 | [Firebase App Distribution 마법사](FLUTTER-FIREBASE-WIZARD.md) | Firebase 테스터 배포 설정 자동 생성 |
+| [OAuth 로그인 마법사](FLUTTER-OAUTH-WIZARD.md) | Kakao·Google 로그인 설정 — 콘솔 등록, 네이티브 설정 적용, Secret·CI/CD·.gitignore |
 | [테스트 빌드 트리거](FLUTTER-TEST-BUILD-TRIGGER.md) | PR/이슈 댓글로 APK·TestFlight 테스트 빌드 |
 
 ---

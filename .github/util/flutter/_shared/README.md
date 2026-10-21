@@ -1,6 +1,6 @@
 # Flutter 마법사 공통 자산 (`_shared/`)
 
-`testflight-wizard` · `playstore-wizard` · `firebase-wizard` 세 마법사가 **공유하는 정본**입니다.
+`testflight-wizard` · `playstore-wizard` · `firebase-wizard` · `oauth-wizard`(#156) 마법사가 **공유하는 정본**입니다.
 
 ---
 
@@ -32,7 +32,7 @@
 | `wizard.css` | 3종 공통 컴포넌트 스타일 (툴팁·코드블록·모달·토스트·업로드·커스텀 Secret 등) |
 | `wizard-i18n.js` | 언어 전환 엔진 (en 기본·ko 전환, 선택 저장) + 공통 문구 사전. common 마법사도 이 파일을 로드한다 (#769) |
 | `wizard-common.js` | 3종 공통 유틸 (이스케이프·클립보드·파일 변환·OS 감지·상태 저장·변경 이력 모달) + testflight·playstore에 같던 흐름 기본 구현(`showStep`·`prevStep`·`saveState`·`clearState`·커스텀 Secret) |
-| `check-consistency.py` | 3종이 다시 갈라지면 검출하는 정합성 검증기 |
+| `check-consistency.py` | 마법사들이 다시 갈라지면 검출하는 정합성 검증기 |
 | `check_i18n.py` | 사전 키 누락(en·ko)·안 쓰는 키·HTML 한글 잔존 검사 (check-consistency.py 가 함께 실행) |
 | `test_wizard_cli.py` | Python CLI 계약과 `--dry-run` 안전성 회귀 테스트 |
 
@@ -110,12 +110,13 @@ python3 testflight-wizard.py setup --project-path . --bundle-id com.x.y ... --dr
 ```
 
 구 위치인자 호출도 계속 받습니다 — 마법사 HTML이 이미 배포한 명령어가 그 형식이기 때문입니다.
-공통 옵션 `--dry-run` / `--no-backup` / `--non-interactive` 는 3종 모두 지원해야 합니다.
+공통 옵션 `--dry-run` / `--no-backup` / `--non-interactive` 는 모든 마법사가 지원해야 합니다.
 
 ### 7. `.py` 공통 블록은 글자 단위로 같게 둔다
 
 testflight·playstore `.py`의 `# >>> 공통 블록: 쓰기 게이트`·`# >>> 공통 블록: 인자 계약` 구간은
-두 파일이 같아야 하고, 검증기가 비교한다. 공용 모듈로 빼지 않는 이유: `.py`는 단일 파일로
+두 파일이 같아야 하고, 검증기가 비교한다. oauth `.py`도 `쓰기 게이트` 블록을 같은 글자로 둔다
+(위치인자 호출 이력이 없어 argparse라 `인자 계약` 블록은 없다). 공용 모듈로 빼지 않는 이유: `.py`는 단일 파일로
 실행·배포된다(firebase ZIP은 `.py` 하나만 담는다). 인코딩·개행 처리는 블록 밖
 `_READ_KWARGS`·`_WRITE_KWARGS`로 마법사마다 둔다. firebase는 위치인자 호출 이력이 없어
 argparse로 같은 플래그를 받고, dry-run은 함수 인자로 전달한다.
@@ -129,7 +130,7 @@ argparse로 같은 플래그를 받고, dry-run은 함수 인자로 전달한다
 ## 검증
 
 ```bash
-# 3종 정합성 (CSS·JS·링크·버전 동기화·CLI 계약·.py 공통 블록·첫 사용자 안내)
+# 마법사 정합성 (CSS·JS·링크·버전 동기화·CLI 계약·.py 공통 블록·첫 사용자 안내)
 python3 .github/util/flutter/_shared/check-consistency.py
 
 # CLI 계약 + dry-run 안전성 회귀 테스트

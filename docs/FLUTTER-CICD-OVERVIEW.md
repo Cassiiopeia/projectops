@@ -110,6 +110,7 @@ projectops의 Flutter CI/CD 시스템은 **마법사 도구**와 **GitHub Action
 | **TestFlight 마법사** | iOS 배포 설정 자동 생성 | [FLUTTER-TESTFLIGHT-WIZARD.md](FLUTTER-TESTFLIGHT-WIZARD.md) |
 | **Play Store 마법사** | Android Play Store 배포 설정 자동 생성 | [FLUTTER-PLAYSTORE-WIZARD.md](FLUTTER-PLAYSTORE-WIZARD.md) |
 | **Firebase 마법사** | Firebase App Distribution 배포 설정 자동 생성 | [FLUTTER-FIREBASE-WIZARD.md](FLUTTER-FIREBASE-WIZARD.md) |
+| **OAuth 마법사** | Kakao·Google 로그인 설정 (네이티브 설정 적용, Secret·CI/CD 안내) | [FLUTTER-OAUTH-WIZARD.md](FLUTTER-OAUTH-WIZARD.md) |
 
 ---
 
@@ -245,6 +246,9 @@ open .github/util/flutter/playstore-wizard/playstore-wizard.html
 
 # Firebase App Distribution 설정
 open .github/util/flutter/firebase-wizard/firebase-wizard.html
+
+# Kakao·Google 로그인 설정
+open .github/util/flutter/oauth-wizard/oauth-wizard.html
 ```
 
 ### 2단계: GitHub Secrets 설정
@@ -350,10 +354,15 @@ Play Store와 동일한 `RELEASE_*` 서명 Secret을 쓰고, 업로드 자격만
 │   │       ├── Fastfile.playstore.template
 │   │       └── build.gradle.kts.signing.template
 │   │
-│   └── firebase-wizard/             # Firebase App Distribution 마법사
-│       ├── firebase-wizard.html
-│       ├── firebase-wizard.js
-│       └── firebase-wizard.py
+│   ├── firebase-wizard/             # Firebase App Distribution 마법사
+│   │   ├── firebase-wizard.html
+│   │   ├── firebase-wizard.js
+│   │   └── firebase-wizard.py
+│   │
+│   └── oauth-wizard/                # Kakao·Google 로그인 마법사
+│       ├── oauth-wizard.html
+│       ├── oauth-wizard.js
+│       └── oauth-wizard.py
 │
 └── workflows/project-types/flutter/
     ├── PROJECT-FLUTTER-CI.yaml
@@ -373,4 +382,5 @@ Play Store와 동일한 `RELEASE_*` 서명 Secret을 쓰고, 업로드 자격만
 - [iOS TestFlight 마법사 상세](FLUTTER-TESTFLIGHT-WIZARD.md)
 - [Android Play Store 마법사 상세](FLUTTER-PLAYSTORE-WIZARD.md)
 - [Firebase App Distribution 마법사 상세](FLUTTER-FIREBASE-WIZARD.md)
+- [OAuth 로그인 마법사 상세](FLUTTER-OAUTH-WIZARD.md)
 - [테스트 빌드 트리거 상세](FLUTTER-TEST-BUILD-TRIGGER.md)

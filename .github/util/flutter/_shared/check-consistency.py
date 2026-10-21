@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""projectops Flutter 마법사 3종 정합성 검증.
+"""projectops Flutter 마법사 4종 정합성 검증 (testflight·playstore·firebase·oauth).
 
 왜 필요한가
 -----------
@@ -9,14 +9,14 @@
 
 검사 항목
 ---------
-1. 공통 자산 로드      — 3종 HTML이 _shared/wizard.css, wizard-common.js를 참조하는가
+1. 공통 자산 로드      — 마법사 HTML이 _shared/wizard.css, wizard-common.js를 참조하는가
 2. 공통 함수 재정의    — 마법사 JS가 공통 유틸을 다시 정의해 덮어쓰고 있지 않은가
-3. 필수 기능 균일성    — 3종이 같은 이름의 핵심 기능을 모두 제공하는가
+3. 필수 기능 균일성    — 마법사들이 같은 이름의 핵심 기능을 모두 제공하는가
 4. 미정의 CSS 클래스   — HTML이 쓰는 프로젝트 클래스가 어딘가에 정의돼 있는가
 5. 버전 동기화         — version.json 과 HTML 인라인 versionJson 이 일치하는가
 6. 낡은 링크           — 구 레포명·존재하지 않는 경로를 가리키고 있지 않은가
-7. 첫 사용자 안내      — 준비물/소요시간/문서링크/재개안내가 3종에 모두 있는가
-8. Python 공통 블록    — testflight·playstore .py의 쓰기 게이트·인자 계약 블록이 글자 단위로 같은가
+7. 첫 사용자 안내      — 준비물/소요시간/문서링크/재개안내가 마법사마다 모두 있는가
+8. Python 공통 블록    — .py의 쓰기 게이트(testflight·playstore·oauth)·인자 계약(testflight·playstore) 블록이 글자 단위로 같은가
 9. 언어 전환(i18n)     — 엔진 로드 순서·en/ko 사전 키 누락·HTML 한글 잔존 (check_i18n.py, common 마법사 포함)
 
 사용법
@@ -37,7 +37,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check_i18n  # noqa: E402  같은 폴더 모듈 (파일명에 하이픈이 있어 이 파일은 import 불가)
 
-WIZARDS = ("testflight", "playstore", "firebase")
+WIZARDS = ("testflight", "playstore", "firebase", "oauth")
 SHARED_DIR = Path(__file__).resolve().parent
 FLUTTER_DIR = SHARED_DIR.parent
 REPO_SLUG = "Cassiiopeia/projectops"
@@ -51,12 +51,15 @@ INTENTIONAL_OVERRIDES = {
     "firebase": {"showStep", "prevStep", "addCustomSecret", "updateCustomSecretKey", "renderCustomSecrets"},
 }
 
-# testflight·playstore .py에 글자 단위로 같아야 하는 블록 (# >>> 공통 블록: 이름 ... # <<< 공통 블록: 이름)
+# .py에 글자 단위로 같아야 하는 블록 (# >>> 공통 블록: 이름 ... # <<< 공통 블록: 이름) > 그 블록을 가진 마법사
 # 공용 모듈로 빼지 않는 이유: .py는 단일 파일로 실행·배포된다 (firebase ZIP은 .py 하나만 담음)
-PY_SHARED_BLOCKS = ("쓰기 게이트", "인자 계약")
-PY_BLOCK_WIZARDS = ("testflight", "playstore")
+# oauth 는 위치인자 호출 이력이 없어(argparse) 인자 계약 블록은 두지 않고 쓰기 게이트만 공유한다
+PY_BLOCK_WIZARDS_BY_BLOCK = {
+    "쓰기 게이트": ("testflight", "playstore", "oauth"),
+    "인자 계약": ("testflight", "playstore"),
+}
 
-# 3종이 모두 제공해야 하는 기능 (이름 통일 대상)
+# 마법사가 모두 제공해야 하는 기능 (이름 통일 대상)
 REQUIRED_FUNCS = (
     "showStep",
     "goToStep",
@@ -74,7 +77,7 @@ REQUIRED_FUNCS = (
     "renderCustomSecrets",
 )
 
-# 3종 HTML에 모두 있어야 하는 첫 사용자 안내 요소 (id 또는 클래스)
+# 마법사 HTML에 모두 있어야 하는 첫 사용자 안내 요소 (id 또는 클래스)
 REQUIRED_MARKERS = (
     ("securityWarning", 'id="securityWarning"'),
     ("changelogModal", 'id="changelogModal"'),
@@ -210,16 +213,16 @@ def check() -> list[str]:
             if marker not in html:
                 problems.append(f"{tag} 첫 사용자 안내 누락: {label}")
 
-    # version-sync.sh 3종이 파일명만 빼고 동일한지
+    # version-sync.sh 가 마법사마다 파일명만 빼고 동일한지
     norm = []
     for name in WIZARDS:
         s = read(wizard_paths(name)["sync"]).replace(f"{name}-wizard.html", "<HTML>")
         norm.append((name, s))
     if len({s for _, s in norm}) > 1:
-        problems.append("[공통] version-sync.sh 3종이 서로 다릅니다 (파일명 외 차이 없어야 함)")
+        problems.append("[공통] version-sync.sh 가 마법사마다 다릅니다 (파일명 외 차이 없어야 함)")
 
     # ── Python CLI 계약 ────────────────────────────────────────────
-    # 3종은 같은 방식으로 호출돼야 한다: 명명 플래그 정본 + 공통 부울 플래그.
+    # 마법사는 같은 방식으로 호출돼야 한다: 명명 플래그 정본 + 공통 부울 플래그.
     # 과거 testflight는 위치인자만, firebase는 플래그만 받아 사용법이 갈렸다.
     for name in WIZARDS:
         py = read(wizard_paths(name)["py"])
@@ -251,22 +254,22 @@ def extract_python_block(source: str, block_name: str) -> str | None:
 def check_python_shared_blocks() -> list[str]:
     """공통 블록 존재 > 마법사 간 동일성 비교"""
     problems: list[str] = []
-    for block_name in PY_SHARED_BLOCKS:
+    for block_name, block_wizards in PY_BLOCK_WIZARDS_BY_BLOCK.items():
         bodies = {}
-        for name in PY_BLOCK_WIZARDS:
+        for name in block_wizards:
             body = extract_python_block(read(wizard_paths(name)["py"]), block_name)
             if body is None:
                 problems.append(f"[{name}] .py에 '{block_name}' 공통 블록 표시가 없습니다")
             else:
                 bodies[name] = body
-        if len(bodies) == len(PY_BLOCK_WIZARDS) and len(set(bodies.values())) > 1:
-            names = " ↔ ".join(PY_BLOCK_WIZARDS)
+        if len(bodies) == len(block_wizards) and len(set(bodies.values())) > 1:
+            names = " ↔ ".join(block_wizards)
             problems.append(f"[공통] .py '{block_name}' 블록이 서로 다릅니다 ({names}) — 한쪽을 고쳤으면 다른 쪽도 같게")
     return problems
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Flutter 마법사 3종 정합성 검증")
+    ap = argparse.ArgumentParser(description="Flutter 마법사 정합성 검증")
     ap.add_argument("--json", action="store_true", help="JSON으로 출력")
     args = ap.parse_args()
 
@@ -281,7 +284,7 @@ def main() -> int:
             print(f"  - {p}")
         print("\n수정 후 다시 실행하세요.")
     else:
-        print("✅ 마법사 3종 정합성 통과")
+        print(f"✅ 마법사 {len(WIZARDS)}종 정합성 통과")
 
     return 1 if problems else 0
 

@@ -1,0 +1,27 @@
+{
+  "name": "OAuth Login Setup Wizard",
+  "version": "1.0.0",
+  "description": "Setup wizard for Kakao and Google login in a Flutter app, from console setup to CI/CD",
+  "lastUpdated": "2026-10-22",
+  "changelog": [
+    {
+      "version": "1.0.0",
+      "date": "2026-10-22",
+      "changes": [
+        "First release (projectops#156): Kakao and Google, pick one or both; only the steps you need are shown",
+        "Signing-key step: which key signs which build, keytool commands per OS, Kakao key hash computed in the browser from the SHA-1",
+        "Kakao step: Native App Key, Android key hashes, iOS bundle ID, Kakao Login and consent items",
+        "Google step: Firebase or Google Cloud route; reads client IDs from google-services.json / GoogleService-Info.plist and checks package, bundle ID and registered SHA-1s",
+        "Secrets, CI/CD and .gitignore steps reuse the existing GOOGLE_SERVICES_JSON secret and add GOOGLE_SERVICE_INFO_PLIST for the two iOS workflows",
+        "oauth-wizard.py patches AndroidManifest.xml and Info.plist idempotently (detect, fingerprints, key-hash, setup with --dry-run)",
+        "English by default with a Korean toggle; generated files and commands are identical in both languages"
+      ]
+    }
+  ],
+  "compatibility": {
+    "flutter": ">=3.38.0",
+    "kakao_flutter_sdk_user": ">=2.0.0",
+    "google_sign_in": ">=7.0.0"
+  },
+  "repository": "https://github.com/Cassiiopeia/projectops"
+}
