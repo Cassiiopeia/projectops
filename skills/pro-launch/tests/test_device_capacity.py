@@ -43,6 +43,7 @@ def test_live_memory_shortage_blocks_even_within_budget(settings):
 
 def test_benchmark_refuses_while_other_sessions_use_devices(monkeypatch, capsys, settings):
     monkeypatch.setattr(benchmark, "_others_using_devices", lambda: [{"device": "X", "session": "other", "purpose": "#1"}])
+    monkeypatch.setattr(benchmark.device_benchmark, "measure_running_devices", lambda: {})
     benchmark.run_benchmark(argparse.Namespace(platform=None, full=False, yes=False))
     data = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert data["code"] == "devices_in_use" and settings["launch"]["devices"] == {}
@@ -98,3 +99,15 @@ def test_running_device_is_measured_without_booting_anything(monkeypatch):
     monkeypatch.setattr(device_benchmark.procs, "process_memory_mb", lambda pids: 5589)
     measured = device_benchmark.measure_running_devices()
     assert measured["android"]["method"] == "running" and measured["android"]["cost_mb"] == int(5589 * 1.15)
+
+
+def test_ios_device_processes_include_everything_under_its_launchd_sim(monkeypatch):
+    """안쪽 프로세스(SpringBoard 등)는 명령줄에 UDID 가 없다 — UDID 로만 찾으면 82MB 로 잘못 쟀다 (실측)."""
+    from pro_launch.runtime import device_benchmark
+    rows = [{"pid": 10, "ppid": 1, "command": "launchd_sim /Devices/UDID-1/data/var/run/launchd_bootstrap.plist"},
+            {"pid": 11, "ppid": 10, "command": "/Library/.../SpringBoard"},
+            {"pid": 12, "ppid": 11, "command": "/Library/.../child"},
+            {"pid": 20, "ppid": 1, "command": "launchd_sim /Devices/UDID-2/data/..."},
+            {"pid": 21, "ppid": 20, "command": "/Library/.../SpringBoard"}]
+    monkeypatch.setattr(device_benchmark.procs, "process_table", lambda: rows)
+    assert device_benchmark.device_process_ids("ios", "UDID-1") == [10, 11, 12]

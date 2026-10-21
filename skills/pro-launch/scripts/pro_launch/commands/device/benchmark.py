@@ -32,19 +32,21 @@ def _summary(budget_mb: int, costs: dict[str, int]) -> str:
 
 
 def run_benchmark(args) -> int:
-    others = _others_using_devices()
-    if others and not args.yes:
-        return out({"ok": False, "code": "devices_in_use", "others": others,
-                    "error": "다른 세션이 기기를 쓰는 중이다 — 측정이 그 세션을 멈추게 할 수 있다",
-                    "next": "그 세션들이 끝난 뒤 다시 하거나, 사용자에게 묻고 --yes"})
     platforms = [args.platform] if args.platform in PLATFORMS else list(PLATFORMS)
+    # 켜진 기기가 있는 종류는 그 실제 사용량으로 잰다 (새로 켜지 않는다) · --full 이면 늘려 가며 잰다
+    running = device_benchmark.measure_running_devices()
+    to_boot = [platform for platform in platforms if args.full or platform not in running]
+    others = _others_using_devices()
+    # 새로 켜는 측정만 다른 세션을 멈추게 할 수 있다 — 켜진 기기만 재는 측정은 그대로 한다
+    if others and to_boot and not args.yes:
+        return out({"ok": False, "code": "devices_in_use", "others": others, "would_boot": to_boot,
+                    "error": "다른 세션이 기기를 쓰는 중이다 — 실험 기기를 켜면 그 세션을 멈추게 할 수 있다",
+                    "next": "그 세션들이 끝난 뒤 다시 하거나, 사용자에게 묻고 --yes"})
     baseline = host_resources.read_memory()
     booted_at_start = device_pool_facts.booted_virtual_counts()
     consumers = device_benchmark.non_device_consumers()
-    # 켜진 기기가 있는 종류는 그 실제 사용량으로 잰다 (새로 켜지 않는다) · --full 이면 늘려 가며 잰다
-    running = device_benchmark.measure_running_devices()
-    results = [running[platform] if platform in running and not args.full
-               else device_benchmark.measure_platform(platform, bool(args.full)) for platform in platforms]
+    results = [device_benchmark.measure_platform(platform, bool(args.full)) if platform in to_boot else running[platform]
+               for platform in platforms]
     measured = {r["platform"]: r["cost_mb"] for r in results if r.get("cost_mb")}
     if not measured:
         return out({"ok": False, "code": "benchmark_no_room", "results": results, "baseline": baseline,

@@ -22,6 +22,9 @@ FULL_MAXIMUM_DEVICES = 6
 MINIMUM_SWAP_FREE_MB = 1024
 SLOW_BOOT_FACTOR = 2.5
 SLOW_SHOT_FACTOR = 3.0
+# 실험 기기를 켤 때 비용 말고 더 남아 있어야 하는 메모리 (MB) — acquire 의 여유분보다 작다:
+# 측정은 한 대씩 켜고 신호를 보며 멈추므로, acquire 기준을 쓰면 바쁜 컴퓨터에서는 영영 못 잰다
+BENCHMARK_MINIMUM_FREE_MB = 1024
 # 측정한 비용에 더하는 안전 여유 (비율)
 COST_MARGIN_RATIO = 0.15
 # 실험 기기 원장 기한 (일, 1시간) — 비정상 종료로 남으면 gc 가 지운다
@@ -39,8 +42,8 @@ def stop_signal(memory: dict, cost_mb: int) -> str | None:
             and (memory.get("available_mb") or 0) < cost_mb * 2:
         return f"스왑 여유가 {swap_total - swap_used}MB 뿐이다"
     available = memory.get("available_mb")
-    if available is not None and available < cost_mb + device_capacity.memory_reserve_mb():
-        return f"남은 메모리 {available}MB 가 기기 하나({cost_mb}MB) + 여유분보다 적다"
+    if available is not None and available < cost_mb + BENCHMARK_MINIMUM_FREE_MB:
+        return f"남은 메모리 {available}MB 가 기기 하나({cost_mb}MB) + {BENCHMARK_MINIMUM_FREE_MB}MB 보다 적다"
     return None
 
 
@@ -51,9 +54,17 @@ def non_device_consumers(count: int = 5) -> list[dict]:
 
 
 def device_process_ids(platform: str, key: str) -> list[int]:
-    if platform == "ios":
-        return procs.process_ids_with_text(key)
-    return procs.process_ids_with_arguments("-avd", key)
+    """그 기기가 쓰는 프로세스들. iOS 는 그 UDID 의 launchd_sim 과 그 아래 전부 — 안쪽 프로세스(SpringBoard 등)는
+    명령줄에 UDID 가 없어 UDID 로만 찾으면 대부분 빠진다 (실측: 82MB 로 잘못 잼)."""
+    if platform != "ios":
+        return procs.process_ids_with_arguments("-avd", key)
+    rows = procs.process_table() or []
+    roots = {row["pid"] for row in rows if key in (row.get("command") or "") and "launchd_sim" in (row.get("command") or "")}
+    found, frontier = set(roots), set(roots)
+    while frontier:
+        frontier = {row["pid"] for row in rows if row.get("ppid") in frontier} - found
+        found |= frontier
+    return sorted(found)
 
 
 def screenshot_seconds(platform: str, instance: str) -> float | None:
