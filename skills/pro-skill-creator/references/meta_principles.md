@@ -1,80 +1,80 @@
-# 메타 원칙 · 신규 skill의 Python 호출 표준
+# Meta principles · Python call standard for new skills
 
-> 언제 읽나: SKILL.md 본문을 쓰거나 고칠 때(CREATE Phase 3 · IMPROVE Phase 2), 그리고 새 skill에 Python CLI가 필요할 때.
+> When to read: when writing or changing a SKILL.md body (CREATE Phase 3 · IMPROVE Phase 2), and when a new skill needs a Python CLI.
 
-## 1. 메타 원칙
+## 1. Meta principles
 
 ### 1.1 Explain the why — not ALL CAPS
 
-agent에게 "절대 하지 마라"는 ALL CAPS보다, **"왜 그게 중요한가"** 를 한 문장으로 붙이는 편이 낫다. 모델은 똑똑하므로 이유를 알면 경계 케이스에서도 올바르게 판단한다. 규칙을 쓸 때는 항상 한 줄의 `(이유: ~)` 를 붙이는 습관.
+Rather than an ALL CAPS "NEVER do this", give the agent one sentence on **"why it matters"**. Models are smart; once they know the reason, they decide correctly in edge cases too. When you write a rule, make a habit of adding one line `(reason: ~)`.
 
-### 1.2 Multiple choice를 우선 (객관식 > 주관식)
+### 1.2 Prefer multiple choice (multiple choice > open-ended)
 
-사용자에게 질문할 때는 가능한 한 **선택지를 제시**한다. 주관식은 사용자가 매번 생각을 짜내야 하고, 답도 제각각이라 agent가 다시 해석해야 한다. 객관식이면 사용자는 고르기만 하면 되고 agent도 분기하기 쉽다.
+When asking the user, **offer options** whenever possible. Open-ended questions make users dig for an answer every time, and the answers vary so the agent must interpret them again. With multiple choice, the user only picks, and the agent branches easily.
 
 ```
-❌ "인증 방식은 뭘 쓸까요?"
-✅ "인증 방식은 뭘 쓸까요?
-   1) Personal Access Token (추천)
-   2) ID/비밀번호
-   3) 기타 직접 입력"
+❌ "Which authentication method should we use?"
+✅ "Which authentication method should we use?
+   1) Personal Access Token (recommended)
+   2) ID/password
+   3) Other (enter it directly)"
 ```
 
-단, 사용자가 오히려 답변 폭을 좁히고 싶지 않은 경우(창의적 설계·이름 짓기 등)엔 주관식이 낫다. 상황 판단.
+But when the user would rather not narrow the answer (creative design, naming, etc.), open-ended is better. Use judgment.
 
-### 1.3 복잡도에 맞춰 분량 조절 (Scale to complexity)
+### 1.3 Scale to complexity
 
-skill의 모든 섹션을 같은 깊이로 쓸 필요 없다. **간단한 동작은 한 줄**, 복잡하면 200~300단어. 모든 action을 장황하게 문서화하면 사용자가 읽을 때 신호가 흐려진다.
+Not every section of a skill needs the same depth. **A simple action gets one line**; a complex one gets 200~300 words. Documenting every action at length drowns the signal for the reader.
 
-예:
-- `config-show`: "현재 설정 확인 (토큰/비번은 마스킹)" — 한 줄이면 충분
-- `mr-create-from-branch`: 브랜치명 파싱 로직·타겟 자동 결정·충돌 확인 규칙 — 여러 단락 필요
+Examples:
+- `config-show`: "show the current settings (tokens/passwords masked)" — one line is enough
+- `mr-create-from-branch`: branch-name parsing logic, automatic target selection, conflict-check rules — needs several paragraphs
 
-### 1.4 Incremental validation — 섹션별 확인
+### 1.4 Incremental validation — confirm section by section
 
-긴 설계를 한 번에 몰아서 사용자에게 던지지 않는다. 섹션 하나 끝날 때마다 "여기까지 맞나요?" 확인. 중간에 오해가 있었다면 그 섹션만 고치면 되지, 설계 전체를 뒤엎지 않아도 된다.
+Do not throw a long design at the user all at once. After each section, confirm "Is this right so far?". If there was a misunderstanding, you fix only that section instead of overturning the whole design.
 
-Phase 0의 Step 단위 진행도 이 원칙의 적용이다.
+Going step by step through Phase 0 is an application of this principle.
 
-### 1.5 필요하면 뒤로 돌아가기 (Be flexible)
+### 1.5 Go back when needed (be flexible)
 
-Phase 번호는 선형이지만 **고집스러운 절차는 아니다**. Phase 3 작성 중에 Phase 0의 scope가 잘못됐다고 판단되면 Phase 0로 돌아가 재합의한다. "이미 여기까지 왔으니 밀어붙이자"는 유혹을 이긴다.
+Phase numbers are linear, but **the procedure is not rigid**. If you realize during Phase 3 that the Phase 0 scope was wrong, go back to Phase 0 and agree again. Resist the temptation of "we came this far, let's push through".
 
-돌아갈 때는 사용자에게 알린다: "Phase 3 중에 경계가 모호한 걸 발견해서 Phase 0으로 잠시 돌아가 재확인합니다."
+When going back, tell the user: "I found an unclear boundary during Phase 3, so I am briefly going back to Phase 0 to confirm."
 
-SKILL.md가 짧고 Phase 중심인 것도 이 습관의 결과다. 상세는 references/에 두고, 본문에서는 **"어느 Phase인지"** 와 **"종료 조건이 충족되었는가"** 두 질문만 agent가 계속 자신에게 묻게 한다.
+SKILL.md being short and phase-centered is a result of this habit. Details live in references/, and the body keeps the agent asking itself just two questions: **"which phase am I in?"** and **"is the exit condition met?"**
 
-## 2. 신규 skill에 Python 호출이 필요한 경우 (3-layer 표준)
+## 2. When a new skill needs Python calls (the 3-layer standard)
 
-신규 skill이 GitHub API·외부 시스템·서브커맨드 호출이 필요하면 **반드시 3-layer 표준을 따른다**:
+If a new skill needs the GitHub API, external systems or subcommand calls, it **must follow the 3-layer standard**:
 
-1. **공유 도메인 로직 점검**: 필요한 함수가 `scripts/common/`에 이미 있나? (`gh_client`, `config`, `paths`, `title` 등). 있으면 import 재사용. 새로 작성하지 않는다.
-2. **skill 전용 cli 작성**: `templates/python_cli_script.py` 골격을 복사.
+1. **Check shared domain logic**: is the needed function already in `scripts/common/`? (`gh_client`, `config`, `paths`, `title`, etc.) If so, import and reuse it. Do not write it again.
+2. **Write a skill-specific CLI**: copy the `templates/python_cli_script.py` skeleton.
    ```bash
    cp skills/pro-skill-creator/templates/python_cli_script.py skills/pro-<new>/scripts/<scope>_cli.py
    ```
-3. **prog + 서브커맨드 교체**: 골격의 `<scope>_cli` 부분과 `cmd_example`을 실제 도메인으로 교체.
-4. **공유 로직은 import**: `from common.<module> import ...` 형태. Layer 1 재작성 금지.
-5. **SKILL.md 호출**: 표준 self-contained 5줄 패턴 (`../../references/common-rules.md` §"skill별 py 분산 호출" 참조). 스크립트 찾기 블록은 SKILL.md에 **한 번만** 두고, 이후 블록은 `{PYTHON} {SCRIPTS}/<scope>_cli.py` 처럼 찾은 값을 재사용한다 (모범: `pro-launch/SKILL.md`).
-6. **공유 로직이 부족하면 Layer 1에 추가**: 단일 skill 전용 로직만 cli에 두고, 2개 이상 skill이 쓸 가능성이 있으면 `scripts/common/<new>.py`로 분리.
+3. **Replace prog + subcommands**: replace the skeleton's `<scope>_cli` parts and `cmd_example` with the real domain.
+4. **Import shared logic**: in the form `from common.<module> import ...`. Do not rewrite Layer 1.
+5. **Calls in SKILL.md**: the standard self-contained 5-line pattern (see `../../references/common-rules.md` §"skill별 py 분산 호출" (per-skill py calls)). Put the script-finding block in SKILL.md **only once**, and later blocks reuse the found values, as in `{PYTHON} {SCRIPTS}/<scope>_cli.py` (model: `pro-launch/SKILL.md`).
+6. **If shared logic is missing, add it to Layer 1**: keep only single-skill logic in the CLI; if 2 or more skills may use it, move it to `scripts/common/<new>.py`.
 
-### 골격이 제공하는 것
+### What the skeleton provides
 
-- cwd 무관 동작 (`__file__` 기준 sys.path 자동 조작)
-- argparse 자동 `--help`
-- `common.emit.emit()` 헬퍼로 MCP-style JSON 4필드 자동 보장 (ok/code/summary/next)
-- Windows Git Bash + macOS/WSL 양쪽 동작 (실측 검증)
+- Works regardless of cwd (sys.path is set from `__file__`)
+- Automatic argparse `--help`
+- The `common.emit.emit()` helper guarantees the 4 MCP-style JSON fields (ok/code/summary/next)
+- Works on both Windows Git Bash and macOS/WSL (verified)
 
-### 검증
+### Verification
 
-- 신규 skill cli 작성 후 dry-run: `cd skills/pro-<new>/scripts && python <scope>_cli.py --help` → argparse usage 출력 확인
-- 한 개 서브커맨드 실측 호출 → JSON 4필드 확인
+- After writing the new skill CLI, dry-run it: `cd skills/pro-<new>/scripts && python <scope>_cli.py --help` → check the argparse usage output
+- Call one subcommand for real → check the 4 JSON fields
 
-CREATE Phase 6 보고 표준은 이 표준에 종속된다 — 신규 skill 생성 시 py 호출 항목은 위 절차로 자동 수행한다.
+The CREATE Phase 6 report standard depends on this standard: when creating a new skill, the Python call items are done with the procedure above.
 
-## 3. 스킬에 공식 트러블슈팅 지식을 붙이는 법 (#889)
+## 3. Attaching official troubleshooting knowledge to a skill (#889)
 
-- `skills/<skill>/troubleshooting/<area>/<id>.json` 에 항목을 둔다 (스키마·작성 규칙: `skills/references/memory-principles.md` §6).
-- `python3 scripts/build_troubleshooting.py skills/<skill>` 로 색인·`references/troubleshooting.md` 를 만든다 — 손으로 고치지 않는다.
-- CLI 의 실패 출력 한 곳에서 `common.troubleshoot.find_known_fixes(<스킬 폴더>, code, 오류문구)` 결과를 `known_fix` 로 싣는다 (예외는 삼킨다 — 보조다). 예: `pro-launch` 의 `runtime/output.py` `attach_known_fix`.
-- 테스트에 `--check`(생성물 최신)와 "항목의 `match.codes` 가 CLI 가 실제로 내는 code 인가" 검사를 넣는다 (`match.codes` 검사 예: `skills/pro-launch/tests/test_troubleshooting_kb.py`).
+- Put entries in `skills/<skill>/troubleshooting/<area>/<id>.json` (schema and writing rules: `skills/references/memory-principles.md` §6).
+- Build the index and `references/troubleshooting.md` with `python3 scripts/build_troubleshooting.py skills/<skill>` — do not edit them by hand.
+- In one place in the CLI's failure output, attach the result of `common.troubleshoot.find_known_fixes(<skill folder>, code, error text)` as `known_fix` (swallow exceptions — it is auxiliary). Example: `attach_known_fix` in `pro-launch`'s `runtime/output.py`.
+- Add tests for `--check` (generated files are current) and "is each entry's `match.codes` a code the CLI really emits" (example of the `match.codes` check: `skills/pro-launch/tests/test_troubleshooting_kb.py`).

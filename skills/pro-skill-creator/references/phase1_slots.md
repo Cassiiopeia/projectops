@@ -1,59 +1,59 @@
-# Phase 1 — 6개 슬롯 정의와 자동 추론 규칙
+# Phase 1 — The 6 slots and automatic inference rules
 
-CREATE 모드 Phase 1에서 사용. 사용자가 이미 준 정보를 추출해 아래 6개 슬롯을 가능한 한 많이 채운다.
+Used in CREATE mode Phase 1. Extract the information the user already gave and fill as many of the 6 slots below as you can.
 
-## 슬롯 정의
+## Slot definitions
 
-| 슬롯 | 무엇을 담나 | 추론 단서 | 비어 있어도 되는가 |
+| Slot | What it holds | Inference clues | May it be empty? |
 |------|------------|-----------|-------------------|
-| `purpose` | skill의 한 줄 목적 | 사용자 발화의 동사+명사 | ❌ 반드시 필요 |
-| `triggers` | 어떤 사용자 발화에서 호출되는가 | "~할 때 써줘", 유사 작업 예시 | ❌ 반드시 필요 |
-| `inputs` | 사용자가 제공해야 하는 정보 (파일·값·환경) | 사용자가 준 자료 전체 | ⭕ inputs 없는 skill도 있음 |
-| `outputs` | 결과물 형태 | "파일 생성", "명령 실행", "리포트" | ❌ 반드시 필요 |
-| `auto_extract` | inputs 중 자동 추출 가능한 것 | 첨부 자료에서 직접 읽히는 값 | ⭕ |
-| `pain_points` | 수동으로 했을 때 헷갈렸던 부분 | "전에는 ~가 어려웠어" | ⭕ 없어도 OK |
+| `purpose` | The skill's one-line purpose | Verb + noun in the user's words | ❌ required |
+| `triggers` | Which user utterances invoke it | "use this when ~", examples of similar tasks | ❌ required |
+| `inputs` | Information the user must provide (files, values, environment) | Everything the user provided | ⭕ some skills have no inputs |
+| `outputs` | Shape of the result | "create a file", "run a command", "a report" | ❌ required |
+| `auto_extract` | Inputs that can be extracted automatically | Values readable directly from attached material | ⭕ |
+| `pain_points` | What was confusing when done by hand | "before, ~ was hard" | ⭕ OK to be empty |
 
-> 종료 조건: 필수 3슬롯(purpose/triggers/outputs)이 값을 가지고, 선택 3슬롯은 "값 있음 / 없어도 OK" 둘 중 하나로 확정되면 Phase 1 종료.
+> Exit condition: Phase 1 ends when the 3 required slots (purpose/triggers/outputs) have values and each of the 3 optional slots is settled as either "has value" or "OK to be empty".
 
-## 자동 추론 규칙 (H2 강제)
+## Automatic inference rules (enforces H2)
 
-사용자가 이미 준 정보를 다시 묻지 않는다. 다음 단서에서 자동 추출:
+Never ask again for information the user already gave. Extract automatically from these clues:
 
-| 사용자가 준 것 | 자동 추출되는 값 |
+| What the user gave | Automatically extracted values |
 |----------------|------------------|
-| `docker-compose.yml` 내용 | `service_name`, `ports`, `volumes`, `environment`, `image` |
-| URL (`https://...`) | 도메인, 포트, 프로토콜, 경로 구조 |
-| 스크린샷 | UI 화면 이름·메뉴 경로·버튼 위치 |
-| 에러 로그 | 실패 API·에러 코드·원인 힌트 |
-| 파일 경로 (`C:/.../foo.json`) | 운영체제, 파일 형식, 프로젝트 구조 |
-| "포트는 3000" 같은 자연어 | 해당 슬롯 즉시 채움 |
-| Git/레포 URL | 프로젝트명, 호스팅 서비스(GitHub/GitLab/Bitbucket) |
+| `docker-compose.yml` content | `service_name`, `ports`, `volumes`, `environment`, `image` |
+| URL (`https://...`) | domain, port, protocol, path structure |
+| Screenshot | UI screen name, menu path, button position |
+| Error log | failing API, error code, cause hints |
+| File path (`C:/.../foo.json`) | operating system, file format, project structure |
+| Natural language like "the port is 3000" | fill that slot immediately |
+| Git/repo URL | project name, hosting service (GitHub/GitLab/Bitbucket) |
 
-## 사용자와의 대화 방식
+## How to talk with the user
 
-슬롯 표를 통째로 보여주지 말 것 — 정보가 너무 많아 사용자가 압도된다. 대신:
+Do not show the whole slot table — it is too much information and overwhelms the user. Instead:
 
-1. **한 줄 의도 요약만** 제시: "정리하면 '{purpose}' 를 하는 skill, '{triggers 중 대표 1개}' 같은 상황에서 호출되고, 결과는 '{outputs}' 을 내는 skill인가요?"
-2. 사용자 "응"/"맞아" → Phase 1 종료
-3. 사용자가 "아니, X는 Y야" 정정 → 해당 슬롯만 업데이트 후 재확인
+1. Present **only a one-line summary of the intent**: "So this is a skill that does '{purpose}', is invoked in situations like '{one representative trigger}', and produces '{outputs}' — right?"
+2. User says "yes" / "right" → Phase 1 ends
+3. User corrects "no, X is Y" → update only that slot and confirm again
 
-## 예시
+## Example
 
-**사용자 발화:**
-> "GitLab에 접근해서 MR 정보 가져오는 skill 만들어줘. 우리 사내 gitlab.example.com이고, 이런 레포들 있어: platform/git-cm, pf/api-server. 내가 MR URL 주면 변경 파일 뽑아주고, 브랜치명 주면 MR도 자동 생성해줘야 해."
+**User utterance:**
+> "Make a skill that accesses GitLab and fetches MR info. Ours is the in-house gitlab.example.com, with repos like platform/git-cm and pf/api-server. When I give an MR URL, extract the changed files; when I give a branch name, it should also create the MR automatically."
 
-**자동 추출된 슬롯:**
+**Automatically extracted slots:**
 
-| 슬롯 | 값 |
+| Slot | Value |
 |------|-----|
-| purpose | 사내 GitLab에서 MR·브랜치 정보 조회 및 MR 생성 |
-| triggers | "MR 변경파일 알려줘", "이 브랜치로 MR 올려줘", gitlab.example.com URL 붙여넣기 |
-| inputs | 레포 alias, MR URL 또는 iid, source 브랜치명 |
-| outputs | JSON(변경파일 리스트), MR 생성 응답 |
-| auto_extract | MR URL → project+iid, 브랜치명 → 제목/타겟/Redmine 이슈번호 |
-| pain_points | (사용자가 언급 안 함 — 질문하지 말고 스킵) |
+| purpose | Look up MR and branch info and create MRs on the in-house GitLab |
+| triggers | "show me the MR changed files", "open an MR from this branch", pasting a gitlab.example.com URL |
+| inputs | repo alias, MR URL or iid, source branch name |
+| outputs | JSON (changed file list), MR creation response |
+| auto_extract | MR URL → project+iid, branch name → title/target/Redmine issue number |
+| pain_points | (the user did not mention any — do not ask, skip) |
 
-**사용자에게 제시할 한 줄 요약:**
-> "정리하면 'gitlab.example.com에서 MR·브랜치 정보 조회 + MR 자동 생성' 을 하는 skill이고, 'MR URL 붙여넣기' 나 '레포에 브랜치 뭐 있어?' 같은 말에서 호출되는 거 맞나요?"
+**One-line summary to show the user:**
+> "So this is a skill that does 'MR and branch lookups + automatic MR creation on gitlab.example.com', invoked by things like 'pasting an MR URL' or 'what branches does the repo have?' — right?"
 
-여기서 "응"이면 Phase 1 종료 → Phase 3으로 직행 (빈 슬롯 0개).
+If the answer is "yes", Phase 1 ends → go straight to Phase 3 (0 empty slots).

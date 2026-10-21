@@ -1,128 +1,128 @@
-# 시작 전 — PAT · 자동 승인 · 앱 심사 · 브랜치/provider 판정과 config 기록
+# Before you start — PAT · auto approval · app review · branch/provider resolution and config records
 
-> 언제 읽나: [시작 전] §2~§5 값을 처음 정할 때, 사용자에게 브랜치(version.yml 없는 레포만)·앱 심사 여부를 물어 config에 기록해야 할 때, `detect-release-context`가 `conflict`를 냈을 때, "배포 브랜치 바꿔줘"/"릴리스 노트 방식 바꿔줘"/"확인받게 해줘" 같은 재설정 발화를 받았을 때.
+> When to read: when you first resolve the values in [Before you start] §2~§5; when you must ask the user about branches (only for repos without version.yml) or app review and record the answer in the config; when `detect-release-context` reports a `conflict`; when the user asks to reconfigure ("change the deploy branch" / "change how release notes are made" / "ask me first" — Korean: "배포 브랜치 바꿔줘" / "릴리스 노트 방식 바꿔줘" / "확인받게 해줘").
 
-**Config 파일 위치**: `~/.projectops/config/config.json` (글로벌 단일 파일). 상세 경로 규칙은 `../../references/config-rules.md §2~3`.
+**Config file location**: `~/.projectops/config/config.json` (one global file). Path rules in detail: `../../references/config-rules.md §2~3`.
 
-**config 갱신은 언제나** `../../references/config-rules.md §4` 규칙대로 전체 파일을 Read로 먼저 읽고 다른 섹션을 보존한 채 해당 키만 추가/수정해 Write한다. PAT · 다른 repos 항목 · 기존 `auto_approve`/`app_release`/브랜치 값을 절대 날리지 않는다. 항목에 `changelog_deploy` 객체가 없으면 새로 만든다.
+**To update the config, always** follow `../../references/config-rules.md §4`: Read the whole file first, keep the other sections, add or change only the target key, and Write it back. Never drop the PAT, other repos entries, or existing `auto_approve`/`app_release`/branch values. If an entry has no `changelog_deploy` object, create one.
 
-**사용자에게 노출하는 안내는 자연어로만 한다.** "auto_approve", "config.json", "changelog_deploy 섹션" 같은 키 이름·파일 경로를 사용자 메시지에 절대 쓰지 않는다. 사용자는 "자동으로 진행" / "매번 확인" 같은 자연어로 의사 표시하며 agent가 config를 직접 갱신한다.
+**Talk to the user in plain language only, in the user's language.** Never put key names or file paths such as "auto_approve", "config.json" or "the changelog_deploy section" in a user message. The user states intent in plain words such as "go ahead automatically" / "ask me every time", and the agent updates the config itself.
 
-## §2 PAT 추출 — agent가 `Read` 도구로 직접 읽는다 (bash Python 추출 금지)
+## §2 PAT extraction — the agent reads it directly with the `Read` tool (no bash Python extraction)
 
-> Windows Git Bash의 `$HOME`은 `/c/Users/...` (POSIX 경로)라 네이티브 Windows Python `open()`이 파일을 못 연다 → PAT 추출 실패(NO_PAT). 실측 검증된 버그다. 그래서 **agent가 `Read` 도구로 config 파일을 직접 읽어** PAT를 얻는다 — OS·셸 보간 무관하게 항상 동작한다.
+> In Windows Git Bash, `$HOME` is `/c/Users/...` (a POSIX path), so native Windows Python `open()` cannot open the file → PAT extraction fails (NO_PAT). This is a verified bug. So **the agent reads the config file directly with the `Read` tool** to get the PAT; this works regardless of OS or shell interpolation.
 
-1. `Read` 도구로 config 파일을 읽는다. **이 고정 경로 한 곳만 본다 — `ls`·glob으로 탐색하거나 플러그인 캐시(`~/.claude/plugins/cache/...`, 스크립트 전용)를 뒤지지 마라. config는 캐시 안에 없다.**
-   - Windows: `C:\Users\<사용자>\.projectops\config\config.json`
+1. Read the config file with the `Read` tool. **Look only at this one fixed path. Do not search with `ls` or glob, and do not dig through the plugin cache (`~/.claude/plugins/cache/...`, scripts only). The config is not in the cache.**
+   - Windows: `C:\Users\<user>\.projectops\config\config.json`
    - macOS/Linux: `~/.projectops/config/config.json`
-   - 파일이 없으면 → "❌ PAT 없음. `/pro-github`로 config(PAT)를 먼저 등록하세요." 안내 후 종료.
-2. `github` 섹션에서 PAT 선택:
-   - `repos[]` 중 `repo == REPO` 이고 `pat`이 non-null이면 그 값
-   - 아니면 `global_pat`
-   - 둘 다 없으면 → 위와 동일 안내 후 종료.
-3. PAT 값을 **기억**한다. (PAT는 `ghp_`+영숫자라 따옴표 이스케이프 불필요.)
+   - If the file does not exist → tell the user "❌ No PAT. Register the config (PAT) with `/pro-github` first." and stop.
+2. Pick the PAT from the `github` section:
+   - the entry in `repos[]` with `repo == REPO` and a non-null `pat`
+   - otherwise `global_pat`
+   - if neither exists → same message as above, and stop.
+3. **Remember** the PAT value. (A PAT is `ghp_` + alphanumerics, so no quote escaping is needed.)
 
-## §3 자동 승인 모드 — `changelog_deploy.auto_approve`
+## §3 Auto approval mode — `changelog_deploy.auto_approve`
 
-§2에서 읽은 같은 내용에서 결정한다. 먼저 발견되는 값 채택:
+Decide from the same content read in §2. Take the first value found:
 
-1. `github.repos[]` 중 `owner == OWNER && repo == REPO`인 항목의 `changelog_deploy.auto_approve`
-2. `github.changelog_deploy.auto_approve` (글로벌 기본값)
-3. 어디에도 없으면 `false` (안전 default — 수동 승인)
+1. `changelog_deploy.auto_approve` of the `github.repos[]` entry with `owner == OWNER && repo == REPO`
+2. `github.changelog_deploy.auto_approve` (global default)
+3. If neither exists, `false` (safe default — manual approval)
 
-> **이전 키 `auto_approve_release_notes`는 명시적 break**. 더 이상 인식하지 않으며 config에 남아 있어도 무시한다. 자동 모드를 원하면 1회 토글 발화로 `auto_approve: true`를 새로 저장한다.
+> **The old key `auto_approve_release_notes` is an explicit break.** It is no longer recognized and is ignored even if it remains in the config. To get auto mode, store a new `auto_approve: true` through a one-time toggle request.
 
-기억할 값: `AUTO_APPROVE`(boolean), `CONFIG_HAS_KEY`(1 또는 2에서 키 발견이면 `true`, 아니면 첫 실행 `false`). `CONFIG_HAS_KEY=false`는 deploy 5.5단계 / fix 4.5단계의 **첫 실행 자동화 제안(C)** 트리거다.
+Values to remember: `AUTO_APPROVE` (boolean), `CONFIG_HAS_KEY` (`true` if the key was found in 1 or 2, otherwise `false` for a first run). `CONFIG_HAS_KEY=false` triggers the **first-run automation offer (C)** in deploy step 5.5 / fix step 4.5.
 
-**토글 발화 처리**
-- 자동 모드 안내를 본 사용자가 "확인받게 해줘", "수동으로 바꿔줘", "다음부턴 확인받아줘"라고 하면 PR 생성 **전에** 갱신한다: 우선순위 1(레포별)에 키가 있었다면 그 값을 `false`로, 없었다면 우선순위 2(글로벌)를 `false`로. 갱신 후 본문은 그대로 두고 다시 사용자 승인을 받는다(수동 분기로 전환).
-- 첫 실행 자동화 제안(C) 응답: **1** → `github.repos[]` 현 OWNER/REPO 항목에 `changelog_deploy.auto_approve: true` / **2** → `github.changelog_deploy.auto_approve: true`(객체가 없으면 생성) / **3** → `github.changelog_deploy.auto_approve: false`(다음 실행부터 묻지 않도록 키 자체는 남긴다).
+**Handling toggle requests**
+- If a user who saw the auto-mode notice says "ask me first", "switch to manual", "ask me next time" (Korean: "확인받게 해줘", "수동으로 바꿔줘", "다음부턴 확인받아줘"), update the config **before** creating the PR: if the key existed at priority 1 (per repo), set that value to `false`; otherwise set priority 2 (global) to `false`. After the update, keep the body as is and get the user's approval again (switch to the manual branch).
+- Answer to the first-run automation offer (C): **1** → `changelog_deploy.auto_approve: true` on the current OWNER/REPO entry in `github.repos[]` / **2** → `github.changelog_deploy.auto_approve: true` (create the object if missing) / **3** → `github.changelog_deploy.auto_approve: false` (keep the key itself so the next run does not ask).
 
-## §4 앱 심사 인지 — `changelog_deploy.app_release`
+## §4 App review awareness — `changelog_deploy.app_release`
 
-§2에서 읽은 같은 내용에서 현 OWNER/REPO 항목의 값을 결정한다:
+Decide the value for the current OWNER/REPO entry from the same content read in §2:
 
-1. `github.repos[]` 중 `owner == OWNER && repo == REPO`인 항목의 `changelog_deploy.app_release`
-2. 어디에도 없으면 **키 없음** (첫 실행 — 1.5단계에서 감지 후 한 번 확인)
+1. `changelog_deploy.app_release` of the `github.repos[]` entry with `owner == OWNER && repo == REPO`
+2. If it does not exist anywhere, **no key** (first run — detect in step 1.5 and confirm once)
 
-기억할 값: `APP_RELEASE` — `true` / `false` / `unset`. 1.5단계와 5.5단계 심사 경고 배너에서 쓴다.
+Value to remember: `APP_RELEASE` — `true` / `false` / `unset`. Used in step 1.5 and by the review warning banner in step 5.5.
 
-> 글로벌 기본값(`github.changelog_deploy.app_release`)은 두지 않는다 — 앱 심사 여부는 레포마다 다르므로 **레포별로만** 기억한다.
+> There is no global default (`github.changelog_deploy.app_release`). Whether a repo goes to app review differs per repo, so it is remembered **per repo only**.
 
-1.5단계 확인 응답: **1(앱 심사 맞음)** → 현 OWNER/REPO 항목 `changelog_deploy`에 `app_release: true`, 이번 배포부터 심사 경고 배너 적용 / **2(일반 배포)** → `app_release: false`, 경고 없이 진행하고 다음부터 묻지 않음.
+Answer to the step 1.5 confirmation: **1 (yes, app review)** → `app_release: true` in `changelog_deploy` of the current OWNER/REPO entry, and the review warning banner applies from this deploy on / **2 (regular deploy)** → `app_release: false`, continue without a warning and do not ask again.
 
-## §5 릴리스 브랜치 · provider 판정
+## §5 Release branch · provider resolution
 
-**정본은 `detect-release-context`(version.yml)다 (#842).** 워크플로우(RELEASE-CHANGELOG)도 version.yml을 읽으므로, 스킬이 같은 곳을 봐야 판단이 갈리지 않는다. config는 version.yml이 **없는** 레포의 레포별 기록일 뿐이다.
+**The source of truth is `detect-release-context` (version.yml) (#842).** The workflow (RELEASE-CHANGELOG) also reads version.yml, so the skill must look at the same place or the decisions diverge. The config is only a per-repo record for repos **without** version.yml.
 
-**우선순위:**
+**Priority:**
 
-| 순위 | 출처 | 언제 | `branches_source` |
+| Rank | Source | When | `branches_source` |
 |---|---|---|---|
-| 1 | version.yml (`development_branch`(구 `deploy_branch`)·`default_branch`·`changelog.provider`, 폴백 포함) | version.yml이 있으면 **항상** | `version.yml` |
-| 2 | `github.repos[]` 현 OWNER/REPO 항목의 `changelog_deploy.{head_branch, base_branch, provider}` | version.yml이 **없을 때만** | `config` |
-| 3 | 폴백 `develop` → `main`, provider 3단 규칙 | 1·2 모두 없을 때 → 최초 판정 후 2에 기록 | `fallback` |
+| 1 | version.yml (`development_branch` (old `deploy_branch`), `default_branch`, `changelog.provider`, with fallbacks) | **always** when version.yml exists | `version.yml` |
+| 2 | `changelog_deploy.{head_branch, base_branch, provider}` of the current OWNER/REPO entry in `github.repos[]` | **only without** version.yml | `config` |
+| 3 | Fallback `develop` → `main`, provider three-step rule | when neither 1 nor 2 exists → record in 2 after the first-time resolution | `fallback` |
 
-> **전역 `github.changelog_deploy.{head_branch, base_branch, provider}`는 읽지 않는다.** 레포 지식을 컴퓨터 전체에 두면 다른 레포의 version.yml을 덮어쓴다(#842 실사고 — 전역 `develop/main/commit`이 레포마다 다른 설정을 무시). 남아 있으면 CLI가 `config.ignored_global_keys`로 알려줄 뿐 값은 쓰지 않는다. **새로 쓰지도 않는다.** 같은 객체의 `auto_approve`는 그대로 전역 기본값으로 쓴다(§3).
+> **The global `github.changelog_deploy.{head_branch, base_branch, provider}` is not read.** Keeping repo knowledge machine-wide overrides other repos' version.yml (#842, a real incident — a global `develop/main/commit` ignored settings that differed per repo). If those keys remain, the CLI only reports them in `config.ignored_global_keys` and does not use the values. **Do not write them either.** `auto_approve` in the same object still works as the global default (§3).
 
-판정은 CLI가 한다 — agent가 config의 브랜치 키를 따로 읽어 우선순위를 다시 계산하지 않는다. CLI는 PAT 자동 로드와 같은 방식으로 config를 **읽기만** 한다 (`../../references/config-rules.md §3`).
+The CLI does the resolution. The agent does not read the branch keys from the config separately and recompute the priority. The CLI **only reads** the config, the same way it auto-loads the PAT (`../../references/config-rules.md §3`).
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/changelog_cli.py detect-release-context --project-root "{PROJECT_ROOT}"
-# owner/repo는 origin URL에서, config는 고정 경로에서 자동으로 찾는다. 필요하면 --owner · --repo · --config 로 지정.
+# owner/repo come from the origin URL and the config from its fixed path. Override with --owner · --repo · --config if needed.
 ```
 
-출력에서 기억할 값:
+Values to remember from the output:
 
 - `HEAD_BRANCH` = `branches.head`, `BASE_BRANCH` = `branches.base`, `PROVIDER` = `branches.provider`
-  (`commit`|`copilot`|`openai`|`gemini`|`claude`|`groq`|`mistral`|`ollama`|`coderabbit`. `github-ai`는 CLI가 `commit`으로 돌려준다)
+  (`commit`|`copilot`|`openai`|`gemini`|`claude`|`groq`|`mistral`|`ollama`|`coderabbit`. The CLI returns `github-ai` as `commit`)
 - `BRANCH_SOURCE` = `branches_source` (`version.yml` | `config` | `fallback`)
-- `conflict` — version.yml 값과 레포별 config 값이 다른 키 목록 (`key`·`version_yml`·`config`·`version_yml_explicit`)
+- `conflict` — the list of keys where version.yml and the per-repo config differ (`key`·`version_yml`·`config`·`version_yml_explicit`)
 
-### `conflict`가 비어 있지 않을 때
+### When `conflict` is not empty
 
-**version.yml 값으로 진행한다.** 레포별 config 값은 version.yml이 생기기 전·바뀌기 전의 낡은 기록이다. 사용자에게 자연어로 한 줄만 알린다 (키·경로 노출 금지):
+**Go with the version.yml value.** The per-repo config value is a stale record from before version.yml existed or changed. Tell the user in one plain-language line (no keys or paths):
 
 ```
-ℹ️ 예전에 기억해 둔 릴리스 방식({config 값})과 저장소 설정({version.yml 값})이 달라 저장소 설정을 따릅니다.
+ℹ️ The release setup I remembered before ({config value}) differs from the repository settings ({version.yml value}), so I am following the repository settings.
 ```
 
-- `version_yml_explicit == false`면 version.yml에 그 키가 적혀 있지 않아 폴백값과 비교한 것이다. 이때는 위 안내 끝에 "저장소 설정에 값을 적어 두면 헷갈리지 않습니다"를 덧붙인다.
-- config를 자동으로 고치지 않는다. 사용자가 정리를 원하면 그 레포 항목의 해당 키만 지운다(§4 config 갱신 규칙).
+- If `version_yml_explicit == false`, version.yml does not contain that key and the comparison was against the fallback value. In that case add at the end of the message: "Writing the value into the repository settings avoids this confusion."
+- Do not fix the config automatically. If the user wants it cleaned up, delete only that key in that repo entry (the config update rules in §4).
 
-### 최초 판정 (`BRANCH_SOURCE == fallback`이고 version.yml이 없을 때만)
+### First-time resolution (only when `BRANCH_SOURCE == fallback` and there is no version.yml)
 
-version.yml이 있으면(폴백값이어도) 여기로 오지 않는다 — 정본이 있으므로 묻지도 기록하지도 않는다.
+If version.yml exists (even with fallback values), you never get here. There is a source of truth, so do not ask and do not record.
 
-**브랜치 확정:**
-- 실제 원격에 `develop`이 있고 default가 `main`이면 → 표준 구조로 조용히 확정.
-- 그 외(develop 없음/default가 main 아님 등 애매) → 자연어로 묻고 응답에서 head/base를 확정:
+**Resolve the branches:**
+- If `develop` exists on the remote and the default is `main` → settle on the standard layout silently.
+- Otherwise (no develop, default is not main, or anything unclear) → ask in plain language and resolve head/base from the answer:
   ```
-  이 저장소의 릴리스는 어느 브랜치에서 어느 브랜치로 진행하나요?
-  (예: 개발 브랜치에서 배포 브랜치로)
-  1. develop → main (표준)
-  2. 직접 알려주기 (예: "release 브랜치에서 production 브랜치로")
+  Which branch does this repository release from, and into which branch?
+  (e.g. from the development branch into the deploy branch)
+  1. develop → main (standard)
+  2. Tell me directly (e.g. "from the release branch into the production branch")
   ```
 
-**provider 확정 (묻지 않는다):**
-- `branches.provider`를 그대로 확정한다. CLI가 이미 3단 규칙을 적용했다: ① version.yml `changelog.provider` 명시 → 그 값 ② 미설정 + 레포 루트 `.coderabbit.yaml` 존재 → `coderabbit` (CodeRabbit 사용 레포의 기존 동작 보존) ③ 둘 다 없음 → `commit`.
-- 워크플로우도 같은 규칙으로 판정하므로 스킬과 워크플로우의 판단이 갈리지 않는다. 규칙을 바꾸면 두 곳(`changelog_cli.py` `_normalize_provider`, 워크플로우 "버전 정보 확인" 스텝)을 함께 고친다.
+**Resolve the provider (do not ask):**
+- Use `branches.provider` as is. The CLI already applied the three-step rule: ① explicit `changelog.provider` in version.yml → that value ② unset + `.coderabbit.yaml` at the repo root → `coderabbit` (keeps the existing behavior of repos that use CodeRabbit) ③ neither → `commit`.
+- The workflow uses the same rule, so the skill and the workflow never disagree. If you change the rule, change both places together (`changelog_cli.py` `_normalize_provider`, and the workflow step "버전 정보 확인" (version info check)).
 
-**config 기록:** 확정한 `head_branch`/`base_branch`/`provider`를 `github.repos[]`의 현 OWNER/REPO 항목 `changelog_deploy`에 Write한다. 항목이 없으면 항목을 새로 만든다(`owner`·`repo`·`name`, `pat: null`). **전역 `github.changelog_deploy`에는 쓰지 않는다.**
+**Record in the config:** Write the resolved `head_branch`/`base_branch`/`provider` into `changelog_deploy` of the current OWNER/REPO entry in `github.repos[]`. If there is no entry, create one (`owner`·`repo`·`name`, `pat: null`). **Do not write to the global `github.changelog_deploy`.**
 
-기록 후 자연어로만 안내(키·경로 노출 금지):
+After recording, tell the user in plain language only (no keys or paths):
 ```
-✅ 이 저장소 릴리스 방식을 기억했습니다 ({HEAD_BRANCH} → {BASE_BRANCH}, {provider 자연어}).
-   바꾸고 싶으면 "배포 브랜치 바꿔줘" 또는 "릴리스 노트 방식 바꿔줘"라고 말씀해주세요.
+✅ I will remember how this repository releases ({HEAD_BRANCH} → {BASE_BRANCH}, {provider in plain words}).
+   To change it, say "change the deploy branch" or "change how release notes are made".
 ```
-(provider 자연어: commit→"커밋 분석(AI 키가 있으면 AI)", copilot→"Copilot 생성", openai/gemini/claude/groq/mistral/ollama→"AI 생성", coderabbit→"CodeRabbit 요약 존중, 없으면 커밋 분석")
+(Provider in plain words: commit → "commit analysis (AI if an AI key exists)", copilot → "generated by Copilot", openai/gemini/claude/groq/mistral/ollama → "generated by AI", coderabbit → "respects the CodeRabbit summary, otherwise commit analysis")
 
-> **재설정 발화 처리**: "배포 브랜치 바꿔줘"/"릴리스 노트 방식 바꿔줘"라고 하면
-> - version.yml이 있는 레포 → config에 쓰지 않는다. 저장소 설정(version.yml `development_branch`·`default_branch`·`changelog.provider`)을 바꿔야 워크플로우도 같이 바뀐다고 자연어로 안내하고, 원하면 그 파일을 고친다.
-> - version.yml이 없는 레포 → 위 질문을 다시 하고 레포별 config의 해당 키를 갱신한다.
+> **Handling reconfigure requests**: when the user says "change the deploy branch" / "change how release notes are made" (Korean: "배포 브랜치 바꿔줘" / "릴리스 노트 방식 바꿔줘"):
+> - Repo with version.yml → do not write to the config. Explain in plain language that the repository settings (version.yml `development_branch`·`default_branch`·`changelog.provider`) must change so the workflow changes with them, and edit that file if the user wants.
+> - Repo without version.yml → ask the question above again and update that key in the per-repo config.
 
-### provider 값 참고
+### Provider values for reference
 
-- 값: `commit`(기본) / `copilot` / `openai`·`gemini`·`claude`·`groq`·`mistral`·`ollama` / `coderabbit`.
-- `github-ai`는 **서비스 종료(2026-07-30)** — 저장값이 남아 있어도 CLI가 `commit`으로 돌려준다(업데이트 시 `commit`으로 이전).
-- 워크플로우 사다리: ① PR 본문에 릴리스 노트가 있으면 그대로 → ② 지정 provider(또는 AI 키가 있으면 AI) → ③ commit(항상 완주). `coderabbit`은 기다리지 않고 ①에서 존중될 뿐이다.
+- Values: `commit` (default) / `copilot` / `openai`·`gemini`·`claude`·`groq`·`mistral`·`ollama` / `coderabbit`.
+- `github-ai` is **shut down (2026-07-30)**. Even if a stored value remains, the CLI returns `commit` (an update migrates it to `commit`).
+- Workflow ladder: ① if the PR body has release notes, use them as is → ② the configured provider (or AI if an AI key exists) → ③ commit (always completes). `coderabbit` is not waited on; it is only respected at ①.

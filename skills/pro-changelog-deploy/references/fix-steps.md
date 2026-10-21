@@ -1,94 +1,94 @@
-# fix 모드 — 단계별 명령과 문구
+# fix mode — commands and messages per step
 
-> 언제 읽나: automerge가 실패해 기존 deploy PR을 닫고 새로 열어 재트리거할 때 ("머지 안 됐어", "changelogfix", "다시 해줘", "PR 재시도"). 단계 순서와 안전 규칙은 SKILL.md에 있다.
+> When to read: when automerge failed and you close the existing deploy PR and open a new one to re-trigger ("it did not merge", "changelogfix", "do it again", "retry the PR"; Korean: "머지 안 됐어", "changelogfix", "다시 해줘", "PR 재시도"). The step order and safety rules are in SKILL.md. Show the messages below in the user's language (or the configured `language` preference).
 
-**Bash는 stateless다.** `{PAT}` · `{OWNER}` · `{REPO}` · `{PYTHON}` · `{SCRIPTS}` · `{HEAD_BRANCH}` · `{BASE_BRANCH}`는 [시작 전]에서 구한 **실제 값으로 써넣는다** (브랜치는 [시작 전 §5] 확정값, 폴백 develop/main).
+**Bash is stateless.** Write the **real values** obtained in [Before you start] into `{PAT}` · `{OWNER}` · `{REPO}` · `{PYTHON}` · `{SCRIPTS}` · `{HEAD_BRANCH}` · `{BASE_BRANCH}` (branches are the values resolved in [Before you start §5], fallback develop/main).
 
-## fix 1단계: 현재 deploy PR 상태 확인 (deploy-status)
+## fix step 1: Check the current deploy PR state (deploy-status)
 
-curl 즉석 파싱 대신 `deploy-status`로 종합 조회한다. `--pr` 없이 부르면 open deploy PR을 자동 탐색한다.
+Instead of ad-hoc curl parsing, query everything with `deploy-status`. Without `--pr` it finds the open deploy PR on its own.
 
 ```bash
 GITHUB_PAT="{PAT}" PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/changelog_cli.py \
   deploy-status "{OWNER}" "{REPO}" --base "{BASE_BRANCH}"
 ```
 
-`verdict`로 분기한다:
+Branch on `verdict`:
 
-- `no_pr` → open PR 없음. fix 3단계(새 PR 생성 준비)로 이동
-- `merged` → 이미 머지됨. 재시도 불필요, 안내 후 `next`대로 포함 이슈별 보고서·완료 처리
-- `waiting_for_workflow` → 워크플로우가 대기열에 있거나 도는 중. **닫지 않는다** — `next`의 `--wait`로 기다린다
-- 그 외(`waiting_for_automerge`/`missing_coderabbit_summary`/`workflow_failed`/`conflict`) → `pr.number`를 `EXISTING_PR`로 기억하고 fix 2단계로
+- `no_pr` → no open PR. Go to fix step 3 (prepare a new PR)
+- `merged` → already merged. No retry needed; report, then follow `next` for the per-issue report and completion
+- `waiting_for_workflow` → the workflow is queued or running. **Do not close it**; wait with `--wait` from `next`
+- anything else (`waiting_for_automerge`/`missing_coderabbit_summary`/`workflow_failed`/`conflict`) → remember `pr.number` as `EXISTING_PR` and go to fix step 2
 
-## fix 2단계: 기존 PR 닫기 (사용자 확인 후)
+## fix step 2: Close the existing PR (after user confirmation)
 
 ```
-현재 open된 deploy PR #NNN이 있습니다.
-이 PR을 닫고 새로 열어서 워크플로우를 재트리거할까요?
+There is an open deploy PR #NNN.
+Close it and open a new one to re-trigger the workflow?
 
-1. 네, 닫고 새로 생성합니다
-2. 취소
+1. Yes, close it and create a new one
+2. Cancel
 ```
 
-확인 후 실행:
+After confirmation, run:
 
 ```bash
 GITHUB_PAT="{PAT}" PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/changelog_cli.py \
   update-pr "{OWNER}" "{REPO}" "{EXISTING_PR}" "-" --state closed
 ```
 
-## fix 3단계: 커밋 분석
+## fix step 3: Commit analysis
 
-> fix 모드로 곧장 진입해 `APP_RELEASE == unset`이면, 이 단계 **전에** deploy 1.5단계(`deploy-steps.md`)의 신호 수집·확인 절차를 한 번 수행해 값을 정한다.
+> If you entered fix mode directly and `APP_RELEASE == unset`, run the signal collection and confirmation of deploy step 1.5 (`deploy-steps.md`) once **before** this step to set the value.
 
 ```bash
 git fetch origin "{BASE_BRANCH}" "{HEAD_BRANCH}" 2>/dev/null || true
-# 분석 base는 origin/{HEAD_BRANCH} (deploy 4단계와 동일 이유 — HEAD가 origin/{HEAD_BRANCH}보다 뒤일 수 있음).
+# The analysis base is origin/{HEAD_BRANCH} (same reason as deploy step 4 — HEAD may be behind origin/{HEAD_BRANCH}).
 git log "origin/{BASE_BRANCH}..origin/{HEAD_BRANCH}" --pretty=format:"%s" | grep -v "\[skip ci\]" | head -60
 ```
 
-deploy 4·5단계와 **완전히 동일한 기준**으로 분류·재작성한다 (`release-notes.md`). 앱스토어 업데이트 노트처럼 — 파일명·기술 prefix·구현 방식·이슈 번호·URL 모두 금지, 사용자가 직접 느끼는 변화만 40자 이내로.
+Classify and rewrite with **exactly the same rules** as deploy steps 4 and 5 (`release-notes.md`). Like app store update notes: no file names, technical prefixes, implementation details, issue numbers or URLs; only changes the user feels directly, 40 characters or fewer.
 
-## fix 4단계: 릴리스 노트 작성
+## fix step 4: Write the release notes
 
-deploy 5단계와 **같은 위치·파일명 규칙·고정 구조**(`Summary by CodeRabbit` 포함)로 Write한다 — `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md`, tmp 폴더 없으면 먼저 생성 (`release-notes.md`).
+Write with **the same location, file name rule and fixed structure** as deploy step 5 (including `Summary by CodeRabbit`): `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md`; create the tmp folder first if it does not exist (`release-notes.md`).
 
-> **⚠️ AGENT 필독: 노트 파일을 만든 뒤 fix 5단계(PR 생성)로 곧바로 가지 않고 fix 4.5단계(승인 게이트)부터 거친다.**
+> **⚠️ AGENT MUST READ: after creating the notes file, do not jump straight to fix step 5 (PR creation); go through fix step 4.5 (approval gate) first.**
 
-## fix 4.5단계: 사용자 승인 게이트
+## fix step 4.5: User approval gate
 
-deploy 5.5단계와 **동일한 로직·문구**를 쓴다 ([시작 전 §3]의 `AUTO_APPROVE` / `CONFIG_HAS_KEY` 그대로).
+Use **the same logic and messages** as deploy step 5.5 (`AUTO_APPROVE` / `CONFIG_HAS_KEY` from [Before you start §3] as is).
 
-- `APP_RELEASE == true`면 본문 위에 심사 경고 배너를 먼저 출력하고 **`AUTO_APPROVE`와 무관하게 수동 승인**을 받는다. fix 모드는 보통 1.5단계를 이미 거친 재시도이므로 값이 정해져 있다.
-- 자동 모드(`AUTO_APPROVE == true` 이고 `APP_RELEASE != true`): 본문 표시만 하고 즉시 fix 5단계. "수동으로 바꿔줘"라고 하면 config 갱신 후 수동 분기로 전환
-- 수동 모드(`AUTO_APPROVE == false` 또는 `APP_RELEASE == true`): 본문 표시 + 승인/수정 분기. 수정 요청 시 fix 4단계로 돌아가 재작성 후 fix 4.5단계 재진입
-- 첫 실행(`CONFIG_HAS_KEY == false`, `APP_RELEASE != true`): 수동 모드 승인 직후 한 번만 자동화 제안(이 레포만 / 모든 레포 / 매번 확인) → 응답에 따라 config 갱신
+- If `APP_RELEASE == true`, print the review warning banner above the body first and get **manual approval regardless of `AUTO_APPROVE`**. Fix mode is usually a retry that already went through step 1.5, so the value is already set.
+- Auto mode (`AUTO_APPROVE == true` and `APP_RELEASE != true`): only show the body and go straight to fix step 5. If the user says "switch to manual" ("수동으로 바꿔줘"), update the config and switch to the manual branch
+- Manual mode (`AUTO_APPROVE == false` or `APP_RELEASE == true`): show the body + approve/edit branch. On an edit request, go back to fix step 4, rewrite, and re-enter fix step 4.5
+- First run (`CONFIG_HAS_KEY == false`, `APP_RELEASE != true`): right after manual-mode approval, offer automation once (this repo only / all repos / confirm every time) → update the config per the answer
 
-## fix 5단계: 새 deploy PR 생성 (릴리스 노트 본문 포함)
+## fix step 5: Create the new deploy PR (with the release notes in the body)
 
-PR이 처음부터 `Summary by CodeRabbit`을 담고 태어나야 워크플로우가 본문을 초기화하지 않는다.
+The PR must be born with `Summary by CodeRabbit`, or the workflow resets the body.
 
 ```bash
-# 릴리스 노트 임시 파일 — fix 4단계에서 Write한 그 절대경로와 동일해야 한다.
+# Release notes temp file — must be the same absolute path written in fix step 4.
 NOTES_FILE="$HOME/.projectops/tmp/{OWNER}__{REPO}__release_notes.md"
-# commit provider "맡기기"로 노트 파일이 없으면 빈 문자열 → 빈 본문 PR (워크플로우가 채움).
+# If commit provider "leave it" left no notes file, use an empty string → empty-body PR (the workflow fills it).
 [ -f "$NOTES_FILE" ] || NOTES_FILE=""
 
-# create-pr의 body_file에 릴리스 노트 절대경로를 넘겨 본문 포함 PR 생성 (deploy 6-2b와 동일 패턴).
+# Pass the absolute notes path as create-pr's body_file to create the PR with a body (same pattern as deploy 6-2b).
 GITHUB_PAT="{PAT}" PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/changelog_cli.py" \
   create-pr "{OWNER}" "{REPO}" "🚀 Deploy $(date '+%Y%m%d') (재시도)" "$NOTES_FILE" "{HEAD_BRANCH}" "{BASE_BRANCH}" \
   --project-root "{PROJECT_ROOT}" && rm -f "$NOTES_FILE"
-# 앱 심사 레포는 승인을 받은 뒤에만 --user-approved 를 붙인다 (needs_user_approval). 거절되면 노트 파일이 남는다
+# For an app review repo, add --user-approved only after approval (needs_user_approval). On a rejection the notes file stays
 ```
 
-출력 JSON의 `number`를 새 PR 번호로 읽는다. 없으면 "❌ PR 생성 실패"와 응답 JSON을 보여주고 멈춘다.
-있으면 deploy 7단계처럼 `deploy-status --pr {number}`로 검증한다.
+Read `number` from the output JSON as the new PR number. If it is missing, show "❌ PR creation failed" with the response JSON and stop.
+If it is there, verify with `deploy-status --pr {number}` as in deploy step 7.
 
-## fix 6단계: 결과 안내
+## fix step 6: Report the result
 
 ```
-✅ 새 deploy PR #NNN 생성 완료!
+✅ New deploy PR #NNN created!
 
-워크플로우가 본문의 릴리스 노트를 그대로 사용해 automerge를 진행합니다.
-진행 상황: https://github.com/{owner}/{repo}/actions
+The workflow uses the release notes in the body as is and proceeds with automerge.
+Progress: https://github.com/{owner}/{repo}/actions
 ```

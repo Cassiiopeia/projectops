@@ -1,166 +1,166 @@
-# Phase 0 — 브레인스토밍 (무엇을·왜 만들까)
+# Phase 0 — Brainstorming (what to build and why)
 
-CREATE 모드에서 **Phase 1 슬롯 추출 이전에** 들어가는 짧은 설계 대화. 사용자가 "skill 만들어줘"라고 했을 때 바로 슬롯 채우기로 가지 말고, "정말 이 skill이 필요한가 / 어떤 모양이 가장 좋은가"를 한 번 같이 고민한다.
+A short design conversation in CREATE mode that comes **before Phase 1 slot extraction**. When the user says "make a skill", do not jump straight to filling slots. Think through "is this skill really needed / what shape works best" together once.
 
-## 왜 이 Phase가 필요한가
+## Why this phase exists
 
-skill은 한 번 만들어지면 **수십·수백 번** 호출된다. 초기에 5분 설계를 건너뛰면 잘못된 scope·잘못된 경계를 가진 skill이 매번 호출될 때마다 사용자 시간을 낭비한다.
+Once built, a skill is called **tens or hundreds of times**. Skip five minutes of design up front and a skill with the wrong scope and wrong boundaries wastes the user's time on every call.
 
-brainstorming skill의 가르침을 빌리면: **"이 skill은 간단해서 설계가 필요 없다"는 anti-pattern**이다. 간단해 보이는 skill도 1~2분의 scope 대화를 거쳐야 한다. 길 필요는 없지만, 건너뛰지는 말 것.
+To borrow from the brainstorming skill: **"this skill is simple, so it needs no design" is an anti-pattern.** Even a skill that looks simple should go through a 1~2 minute scope conversation. It does not need to be long, but do not skip it.
 
-## HARD GATE — Phase 0 합의 전에는 파일 쓰기 금지
+## HARD GATE — no file writes before Phase 0 agreement
 
-Phase 0의 4가지 종료 조건(scope·접근법·경계·중복)이 **모두 합의되기 전에는** Phase 3(SKILL.md·스크립트·config 작성)으로 진입할 수 없다. 어떤 경우에도 예외 없다.
+Until all 4 Phase 0 exit conditions (scope, approach, boundaries, overlap) are **agreed**, you may not enter Phase 3 (writing SKILL.md, scripts, config). No exceptions.
 
-> **왜 이게 gate인가**: 파일을 쓰기 시작하면 매몰비용이 생긴다. agent는 "이미 반쯤 썼으니 이대로 가자" 하고, 사용자는 "지워야 하나 아깝네" 한다. 결국 잘못된 scope로 skill이 완성된다. 디스크에 아무것도 쓰지 않은 상태가 **가장 싼 수정 시점**이다.
+> **Why this is a gate**: once you start writing files, sunk cost appears. The agent thinks "it is half written, let's keep going", and the user thinks "deleting it feels wasteful". The skill ends up finished with the wrong scope. Nothing written to disk is **the cheapest moment to change course**.
 
-애매할 땐 사용자에게 한 번 더 확인: "여기서 파일 쓰기 시작해도 될까요?"
+When unsure, confirm once more with the user: "May I start writing files now?"
 
-## 종료 조건
+## Exit conditions
 
-아래 4가지가 사용자와 합의되면 Phase 0 종료 → Phase 1(슬롯 추출)로 진입:
+When the user agrees on the 4 items below, Phase 0 ends → enter Phase 1 (slot extraction):
 
-1. **Scope 적절함** — 너무 크지도(decompose 필요), 너무 작지도(skill 만들 필요가 있나?) 않다
-2. **접근법 1개 선택됨** — 2~3개 대안 중 사용자가 하나를 골랐음
-3. **경계 명확함** — "이 skill은 X는 하지만 Y는 안 한다"가 한 줄로 말해짐
-4. **기존 skill과의 관계 정리됨** — 비슷한 skill이 있는지 찾아봤고, 겹치면 어떻게 할지 정해짐
+1. **Scope is right** — neither too big (needs decomposing) nor too small (does it even need a skill?)
+2. **1 approach chosen** — the user picked one of 2~3 alternatives
+3. **Boundaries are clear** — "this skill does X but not Y" can be said in one line
+4. **Relation to existing skills is settled** — you looked for similar skills, and decided what to do about any overlap
 
-## 절차
+## Procedure
 
-### Step A — 프로젝트 문맥 탐색 (Explore)
+### Step A — Explore the project context
 
-질문 던지기 전에 agent가 먼저 확인한다:
+Before asking anything, the agent checks first:
 
-- 현재 어떤 skill 디렉터리가 이미 있는가? (`ls ~/.claude/skills`, `ls <plugin>/skills`)
-- 사용자가 최근 대화에서 언급한 도구·워크플로우는 무엇인가?
-- 만들려는 skill과 이름·기능이 비슷한 기존 skill이 있는가?
+- Which skill directories already exist? (`ls ~/.claude/skills`, `ls <plugin>/skills`)
+- Which tools and workflows did the user mention in the recent conversation?
+- Is there an existing skill with a similar name or function?
 
-찾은 내용은 짧게 사용자에게 공유한다. 예:
-> "기존에 `jenkins`, `pg-query`, `ssh-remote-execute` skill이 이미 있네요. 이번에 만들려는 건 이것들과 어떤 관계인가요?"
+Share what you found briefly with the user. Example:
+> "There are already `jenkins`, `pg-query` and `ssh-remote-execute` skills. How does the one we are building relate to them?"
 
-### Step B — Scope Check
+### Step B — Scope check
 
-요청된 skill이 아래 중 어느 쪽인지 판정:
+Decide which of these the requested skill is:
 
-| 판정 | 예시 | 조치 |
+| Verdict | Example | Action |
 |------|------|------|
-| ✅ **적절** | "사내 GitLab에서 MR·브랜치·변경파일 조회·MR 생성" | Step C로 |
-| 🚫 **너무 큼** | "GitLab + Jenkins + Redmine + 배포 파이프라인 통합 관리" | "여러 skill로 쪼개야 할 것 같은데, 어떤 순서로 만들까요?" — decompose 먼저 |
-| ⚠️ **너무 작음** | "curl 한 번 치면 되는 걸 skill로 감싸기" | "이건 한 줄 bash 명령인데, skill로 만들 이유가 있나요? (재사용 빈도? 팀원 공유?)" — 왜 skill이 필요한지 재확인 |
+| ✅ **Right** | "Look up MRs, branches and changed files on the in-house GitLab, and create MRs" | Go to Step C |
+| 🚫 **Too big** | "Integrated management of GitLab + Jenkins + Redmine + the deploy pipeline" | "This looks like it should be split into several skills. In what order should we build them?" — decompose first |
+| ⚠️ **Too small** | "Wrap a single curl call in a skill" | "This is a one-line bash command. Is there a reason to make it a skill? (reuse frequency? sharing with the team?)" — reconfirm why a skill is needed |
 
-### Step C — 2~3개 접근법 제시
+### Step C — Present 2~3 approaches
 
-bad: 사용자가 말한 그대로 단일 설계를 바로 SKILL.md로 쓴다.
+bad: write the user's exact words into SKILL.md as a single design right away.
 
-good: 같은 요구를 **다른 모양으로 풀 수 있는 방법 2~3개**를 추천과 함께 제시한다.
+good: present **2~3 ways to solve the same need in different shapes**, with a recommendation.
 
-예 (GitLab skill 요청 시):
-
-```
-이 skill을 설계하는 방법은 몇 가지가 있는데, 제 추천부터 말씀드리면:
-
-추천) 범용 CLI 스크립트 + alias 매핑
-  — gitlab_api.py 에 모든 동작(branches/mr-info/mr-create/...) 몰고,
-    config.json 에 레포 alias 둔다.
-  — 장점: 한 곳에서 관리, 테스트 쉬움
-  — 단점: 스크립트가 길어질 수 있음
-
-2) 기능별 분리 (gitlab-mr, gitlab-branch, gitlab-file 등)
-  — skill을 여러 개로 쪼갠다
-  — 장점: 각 skill이 작고 트리거가 명확함
-  — 단점: config·공통 로직 중복
-
-3) 기존 git CLI 래퍼 + GitLab API 하이브리드
-  — 로컬 git 명령 + API 호출 섞어서
-  — 장점: 이미 checkout 된 경우 빠름
-  — 단점: 로컬 clone 필요
-
-어느 쪽으로 갈까요? (1이 보통 제일 깔끔)
-```
-
-**규칙:**
-- 추천안을 **첫 번째**에 두고 "왜 추천인지" 한 줄.
-- 대안마다 장점·단점 1줄씩.
-- 전문 용어는 풀어서 설명 (H5).
-- 한 메시지로 선택지 제시. 사용자 응답 받고 Step D로.
-
-### Step D — 경계 명확화 (What it does / does NOT do)
-
-사용자가 접근법을 골랐으면, **"이 skill은 X는 하지만 Y는 안 한다"** 를 한 줄로 합의한다. YAGNI(You Aren't Gonna Need It) 원칙 — 당장 필요 없는 기능은 빼고, 나중에 필요하면 추가.
-
-예:
-> "이 skill은 **GitLab 조회·MR 생성까지만** 하고, **머지·파이프라인 실행은 안 한다**. 괜찮은가요?"
-
-이 한 줄이 나중에 scope creep(기능 팽창)을 막는 방파제가 된다.
-
-### Step E — 중복 확인
-
-기존 skill 중 비슷한 게 있으면 어떻게 할지 정한다:
-
-- **확장**: 기존 skill을 고쳐서 기능 추가 (IMPROVE 모드로 전환할 수도)
-- **분리**: 새 skill을 따로 만들되 역할 분담을 명확히
-- **대체**: 기존 skill을 지우고 새것으로
-
-**이 결정을 미루면 중복된 trigger로 agent가 어느 skill을 쓸지 헷갈린다.**
-
-### Step F — 단위 분리(action) 밑그림
-
-skill 안의 각 action(CLI 하위 명령)은 **하나의 명확한 목적**을 가져야 한다. 이 Step에서는 action을 전부 설계하는 게 아니라 **대략적인 목록 + 각 action이 한 줄로 뭘 하는지** 만 정한다. 상세 인자·에러 처리는 Phase 3 영역.
-
-판정 질문:
-
-- 이 action 이름만 보고 "뭘 하는지" 알 수 있는가? (예: `mr-changes` ✅ / `process` ❌)
-- 각 action은 **한 가지 일**만 하는가? 여러 일을 묶은 action은 쪼갤 것 (예: `sync-all` ❌ → `fetch` + `upload` 분리)
-- action 간 의존이 명확한가? (예: `branches` → `mr-create-from-branch` → `mr-info` 흐름)
-
-한 줄씩 적고 끝. 예:
+Example (for a GitLab skill request):
 
 ```
-branches <project>        — origin 브랜치 목록
-mr-create <project> ...   — MR 생성 (수동)
-mr-create-from-branch     — 브랜치명 파싱 후 자동 생성
-mr-info <project> <iid>   — MR 상세
-mr-changes <project> <iid>— MR 변경파일만 요약
-file-raw <project> ...    — 특정 브랜치의 파일 원본
+There are a few ways to design this skill. My recommendation first:
+
+Recommended) General-purpose CLI script + alias mapping
+  — put every action (branches/mr-info/mr-create/...) in gitlab_api.py,
+    and keep repo aliases in config.json.
+  — Pros: managed in one place, easy to test
+  — Cons: the script can get long
+
+2) Split by function (gitlab-mr, gitlab-branch, gitlab-file, etc.)
+  — split it into several skills
+  — Pros: each skill is small with clear triggers
+  — Cons: duplicated config and shared logic
+
+3) Hybrid of an existing git CLI wrapper + the GitLab API
+  — mix local git commands and API calls
+  — Pros: fast when the repo is already checked out
+  — Cons: needs a local clone
+
+Which way should we go? (1 is usually the cleanest)
 ```
 
-> **왜 이 Step이 여기 있나**: Phase 1(슬롯)과 Phase 3(작성) 사이에서 "어떤 action으로 쪼갤까"가 빠지면 agent가 모든 걸 한 action에 몰아넣거나(거대 `do-everything`), 반대로 너무 쪼개서(`get-mr`, `get-mr-changes`, `get-mr-commits` ...) 중복투성이로 만든다. Phase 0에서 대략의 action 경계를 잡아두면 Phase 3에서 혼란이 없다.
+**Rules:**
+- Put the recommended option **first**, with one line on why.
+- One line each of pros and cons per alternative.
+- Explain technical terms in plain words (H5).
+- Present the options in one message. After the user answers, go to Step D.
 
-## Phase 0에서 묻지 말 것 (Phase 1에서 묻는다)
+### Step D — Clarify boundaries (what it does / does NOT do)
 
-Phase 0의 목적은 **무엇을·왜 만들까** 합의. **어떻게 만들까**(상세 입력/출력/UI 경로 등)는 Phase 1~2 영역. 섞이지 않게:
+Once the user picks an approach, agree in one line on **"this skill does X but not Y"**. YAGNI (You Aren't Gonna Need It): leave out what is not needed now, and add it later if needed.
 
-| Phase 0 | Phase 1~2 |
+Example:
+> "This skill **only looks things up on GitLab and creates MRs**; it **does not merge or run pipelines**. Is that OK?"
+
+This one line becomes the breakwater against scope creep (feature bloat) later.
+
+### Step E — Check for overlap
+
+If a similar skill exists, decide what to do:
+
+- **Extend**: change the existing skill to add the capability (you may switch to IMPROVE mode)
+- **Separate**: build a new skill, with a clear division of roles
+- **Replace**: delete the existing skill and use the new one
+
+**If this decision is postponed, overlapping triggers confuse the agent about which skill to use.**
+
+### Step F — Sketch the action units
+
+Each action (CLI subcommand) in the skill should have **one clear purpose**. This step does not design every action; it only decides **a rough list + one line on what each action does**. Detailed arguments and error handling belong to Phase 3.
+
+Questions to decide:
+
+- Can you tell "what it does" from the action name alone? (e.g. `mr-changes` ✅ / `process` ❌)
+- Does each action do **one thing**? Split actions that bundle several (e.g. `sync-all` ❌ → split into `fetch` + `upload`)
+- Are the dependencies between actions clear? (e.g. the flow `branches` → `mr-create-from-branch` → `mr-info`)
+
+Write one line each and stop. Example:
+
+```
+branches <project>        — list origin branches
+mr-create <project> ...   — create an MR (manual)
+mr-create-from-branch     — parse the branch name and create automatically
+mr-info <project> <iid>   — MR details
+mr-changes <project> <iid>— summarize only the MR's changed files
+file-raw <project> ...    — raw file from a given branch
+```
+
+> **Why this step is here**: if "how should we split into actions" is missing between Phase 1 (slots) and Phase 3 (writing), the agent either crams everything into one action (a giant `do-everything`) or splits too finely (`get-mr`, `get-mr-changes`, `get-mr-commits` ...) and creates duplication everywhere. Setting rough action boundaries in Phase 0 avoids confusion in Phase 3.
+
+## Do not ask in Phase 0 (ask in Phase 1)
+
+The purpose of Phase 0 is to agree on **what to build and why**. **How to build it** (detailed inputs/outputs, UI paths, etc.) belongs to Phases 1~2. Keep them apart:
+
+| Phase 0 | Phases 1~2 |
 |---------|----------|
-| 이 skill이 필요한가? | 어떤 인증 방식을 쓸까? |
-| 어떤 접근법이 좋을까? | config 파일을 어디에 둘까? |
-| 기존 skill과 관계는? | 어떤 CLI action을 제공할까? |
-| YAGNI — 뺄 기능? | 에러 발생 시 어떤 메시지? |
+| Is this skill needed? | Which authentication method? |
+| Which approach is best? | Where does the config file go? |
+| Relation to existing skills? | Which CLI actions to provide? |
+| YAGNI — what to leave out? | What message on error? |
 
-## 예시: 실제 대화 흐름
+## Example: a real conversation flow
 
-**사용자:** "사내 GitLab에 접근해서 MR 변경 파일 보는 skill 만들어줘"
+**User:** "Make a skill that accesses the in-house GitLab and shows MR changed files"
 
 **Step A — Explore:**
-> "기존 skills/ 를 훑어보니 jenkins, pg-query, ssh-remote-execute 가 있네요. GitLab 관련 skill은 없고, 이게 첫 번째인 듯합니다."
+> "Looking through skills/, there are jenkins, pg-query and ssh-remote-execute. There is no GitLab skill, so this looks like the first one."
 
-**Step B — Scope check:** "적절" 판정 (너무 크지도 작지도 않음) → Step C로.
+**Step B — Scope check:** verdict "right" (neither too big nor too small) → Step C.
 
-**Step C — 접근법 제시:** 위 예시 그대로. 사용자가 1번 선택.
+**Step C — Present approaches:** as in the example above. The user picks option 1.
 
-**Step D — 경계:**
-> "이 skill은 **GitLab 조회 + MR 생성**까지만 하고, 머지·파이프라인·webhook은 안 합니다. 나중에 필요하면 그때 확장. 동의?"
+**Step D — Boundaries:**
+> "This skill **only does GitLab lookups + MR creation**; no merges, pipelines or webhooks. We can extend it later if needed. Agreed?"
 
-사용자: "동의"
+User: "Agreed"
 
-**Step E — 중복 확인:**
-> "기존 skill과 겹치는 건 없어서 새로 만들면 됩니다."
+**Step E — Overlap check:**
+> "Nothing overlaps with existing skills, so we can create a new one."
 
-→ Phase 0 종료, Phase 1(슬롯 추출)로 진입.
+→ Phase 0 ends, enter Phase 1 (slot extraction).
 
-## 언제 Phase 0를 건너뛸 수 있나
+## When you may skip Phase 0
 
-- 사용자가 **이미 기존 skill과의 관계·scope·접근법을 명확히 제시**한 경우. 예: "기존 gitlab skill 고치는 게 아니라 새로 만들고 싶고, 다른 접근법은 고려 안 함"
-- IMPROVE/REVIEW 모드 (Phase 0는 CREATE 전용)
+- The user **already clearly stated the relation to existing skills, the scope and the approach**. Example: "I want a new one, not a fix to the existing gitlab skill, and I am not considering other approaches"
+- IMPROVE/REVIEW mode (Phase 0 is CREATE only)
 
-건너뛸 때도 agent는 **"Phase 0를 스킵했습니다 — 다음 이유: ~"** 를 한 줄로 사용자에게 알리고 Phase 1로 진입. 묵묵히 건너뛰지 말 것.
+Even when skipping, the agent tells the user in one line **"Skipped Phase 0 for this reason: ~"** and enters Phase 1. Do not skip silently.

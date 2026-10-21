@@ -7,60 +7,63 @@ description: "Release flow: push develop, open the deploy PR to main with releas
 
 ## When to use
 
-- 'deploy해줘', '배포해줘', 'deploy PR 올려줘', 'changelogfix', 'deploy 머지 안 됐어', 'PR 다시 열어줘'
-- 앱스토어/플레이스토어 심사로 직결되는 레포(앱 심사 인지)는 릴리스 노트에 심사 경고 배너를 띄우고 정제를 더 엄격히 적용한다.
+- 'deploy', 'deploy it', 'open the deploy PR', 'changelogfix', 'the deploy PR did not merge', 'reopen the PR'
+- Korean triggers: 'deploy해줘', '배포해줘', 'deploy PR 올려줘', 'changelogfix', 'deploy 머지 안 됐어', 'PR 다시 열어줘'
+- For a repo whose release goes straight into App Store / Play Store review (app review aware), show a review warning banner on the release notes and apply stricter cleanup.
 
-> **⚠️ 모델 권고**: 이 스킬은 릴리스 노트 작성이 주 작업이다. **lite(haiku) 모델로 실행을 권장**한다. 커밋 분석과 자연어 재작성만 하면 되므로 강력한 모델이 불필요하다.
+> **⚠️ Model recommendation**: the main job of this skill is writing release notes. **Run it on a lite (haiku) model.** It only analyzes commits and rewrites them in plain language, so a strong model is not needed.
 
-projectops 전용 스킬. `PROJECT-COMMON-RELEASE-CHANGELOG` 워크플로우와 연동한다 — 릴리스 PR 감지 → 본문에 릴리스 노트가 있으면 그대로 사용, 없으면 provider 사다리(키 있으면 AI → 커밋 분석)로 생성 → 버전 확정 → CHANGELOG 업데이트 → automerge. CodeRabbit을 기다리지 않는다 (#566).
+A projectops-only skill. It works with the `PROJECT-COMMON-RELEASE-CHANGELOG` workflow: detect the release PR → if the body already has release notes, use them as is; otherwise generate them through the provider ladder (AI if a key exists → commit analysis) → finalize the version → update CHANGELOG → automerge. It does not wait for CodeRabbit (#566).
 
-이 스킬은 head push → 릴리스 노트 작성 → **노트를 본문에 담아** base로 릴리스 PR 생성 → automerge 확인까지 한다. 실패하면 fix 모드로 기존 PR을 닫고 새 PR로 재트리거한다. 노트는 `Summary by CodeRabbit` 형식으로 담는다 — 형식 이름만 CodeRabbit일 뿐 봇이 필요하지 않다. 워크플로우가 그 본문을 존중해 곧바로 파싱·automerge한다.
+This skill does: push head → write release notes → open the release PR to base **with the notes in the body** → confirm automerge. On failure, fix mode closes the existing PR and re-triggers with a new PR. The notes use the `Summary by CodeRabbit` format. Only the format name says CodeRabbit; no bot is needed. The workflow respects that body and parses it and automerges right away.
 
-인자: $ARGUMENTS
+Arguments: $ARGUMENTS
 
-## 이때는 쓰지 마라
+**Talk to the user in their language** (or the configured `language` preference). The message templates in this skill and its references give the meaning; say them in that language.
 
-- 배포가 아닌 일반 커밋/PR 작업
-- 릴리스 head 브랜치([시작 전 §5]에서 확정한 개발 브랜치, 표준 `develop`)가 원격에 없는 프로젝트 — head → base 릴리스 PR 구조 전용이다. 브랜치 이름 자체는 고정이 아니다. **예외**: `detect-release-context`가 `release_shape: deploy_branch`(개발 브랜치 없이 `main` → `deploy`)를 주면 그 `release_branches`·`release_steps`로 진행한다 — 없는 `develop`을 head로 쓰지 않는다
-- `PROJECT-COMMON-RELEASE-CHANGELOG` 워크플로우가 설정되지 않은 저장소
+## Do not use when
 
-## 핵심 원칙 (안전 규칙 — 의미를 바꾸지 않는다)
+- Ordinary commit or PR work that is not a deploy
+- The project has no release head branch on the remote (the development branch fixed in [Before you start §5], standard `develop`). This skill only handles a head → base release PR. The branch name itself is not fixed. **Exception**: if `detect-release-context` returns `release_shape: deploy_branch` (no development branch, `main` → `deploy`), follow its `release_branches` and `release_steps`. Do not use a missing `develop` as head
+- The repository has no `PROJECT-COMMON-RELEASE-CHANGELOG` workflow
 
-- `git push --force`는 절대 실행하지 않는다
-- **사용자 확인 없이 PR을 닫거나 열지 않는다** (fix 모드)
-- **릴리스 노트 본문은 PR 생성 전 사용자에게 보여준다** (deploy 5.5 / fix 4.5). 자동 모드로 명시 설정된 경우만 표시 후 즉시 진행
-- **앱 심사 레포(`APP_RELEASE == true`)는 자동 모드여도 매번 승인을 받는다** — 스토어 심사 제출로 직결되므로 포괄 위임이 적용되지 않는다 (#821)
-- **릴리스 PR 전에 base → head 역방향 차이를 먼저 병합한다** (deploy 1-1). 릴리스 워크플로우가 버전 커밋을 base에만 남기므로 생략하면 다음 배포에서 버전 파일이 충돌한다
-- **PR 생성은 릴리스 노트 작성 뒤 맨 마지막이다** (아래 레이스 방지)
-- **사용자에게 config 키 이름·파일 경로를 노출하지 않는다**. 자동/수동 토글은 자연어 응답을 받아 agent가 직접 갱신한다
-- **브랜치를 하드코딩하지 않는다 (#456)**. head/base 브랜치와 provider의 정본은 **`detect-release-context`(version.yml)** 다 (#842). config는 version.yml이 없는 레포의 레포별 기록일 뿐이고, 전역 config의 브랜치·provider 키는 읽지 않는다. `develop`/`main`/`commit`은 값을 못 읽었을 때의 폴백일 뿐이다. 아래 절차의 `develop`/`main`은 확정값으로 치환한다
-- **사용자는 config를 직접 수정하지 않는다**. 판정 가능하면 묻지 않고, 애매할 때만 자연어로 묻고 기록하며, 한 번 기록하면 재질문하지 않는다
+## Core principles (safety rules — do not change their meaning)
 
-## 무엇을 하려는가 → 명령 → 자세한 문서
+- Never run `git push --force`
+- **Never close or open a PR without user confirmation** (fix mode)
+- **Show the release-note body to the user before creating the PR** (deploy 5.5 / fix 4.5). Only when auto mode is explicitly configured: show it and proceed at once
+- **App review repos (`APP_RELEASE == true`) need approval every time, even in auto mode.** The release goes straight into store review, so a blanket delegation does not apply (#821)
+- **Before the release PR, merge the reverse difference base → head first** (deploy 1-1). The release workflow leaves the version commit only on base. Skip this and the next deploy hits a version-file conflict
+- **Creating the PR is the last step, after the release notes are written** (see the race note below)
+- **Never show config key names or file paths to the user.** For the auto/manual toggle, take a plain-language answer and let the agent update the config
+- **Do not hard-code branches (#456).** The source of truth for head/base branches and the provider is **`detect-release-context` (version.yml)** (#842). The config is only a per-repo record for repos without version.yml; branch and provider keys in the global config are not read. `develop`/`main`/`commit` are only fallbacks when no value can be read. Replace `develop`/`main` in the steps below with the resolved values
+- **The user never edits the config by hand.** If you can decide, do not ask. Ask in plain language only when it is unclear, record the answer, and never ask again once recorded
 
-모든 명령은 `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/changelog_cli.py <명령>` 이다.
+## What you want → command → details
 
-| 하려는 것 | 명령 | 자세히 |
+Every command is `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/changelog_cli.py <command>`.
+
+| Goal | Command | Details |
 |---|---|---|
-| 릴리스 브랜치·provider·앱 심사 신호 읽기 (PAT 불필요) | `detect-release-context --project-root {PROJECT_ROOT}` | `references/config.md` |
-| deploy PR 상태 종합 판정 (머지·본문·워크플로우·HEAD) | `deploy-status {OWNER} {REPO} [--pr N] --base B [--head H]` | 아래 verdict 표 |
-| 노트를 본문에 담아 릴리스 PR 생성 | `create-pr {OWNER} {REPO} "{제목}" "{노트 파일}" {HEAD} {BASE} --project-root {PROJECT_ROOT} [--user-approved]` | 아래 6단계 · `references/deploy-steps.md` |
-| 기존 PR 본문 갱신 · 닫기 | `update-pr {OWNER} {REPO} {N} "{노트 파일}"` · `update-pr ... "-" --state closed` | `references/deploy-steps.md` · `references/fix-steps.md` |
-| PR 목록 | `list-prs {OWNER} {REPO} --state open` | — |
-| 워크플로우 실패 로그 | `actions show-run\|joblog\|list-failed\|resolve-pr\|resolve-branch {OWNER} {REPO} [arg]` | `../pro-github/references/actions.md` |
-| PAT · 자동 승인 · 앱 심사 · 브랜치 판정과 config 기록 | — (Read/Write 도구) | `references/config.md` |
-| 노트 작성 원칙 · 고정 구조 · 승인 문구 | — | `references/release-notes.md` |
+| Read release branches, provider, app review signals (no PAT needed) | `detect-release-context --project-root {PROJECT_ROOT}` | `references/config.md` |
+| Overall verdict on the deploy PR (merge, body, workflow, HEAD) | `deploy-status {OWNER} {REPO} [--pr N] --base B [--head H]` | verdict table below |
+| Create the release PR with the notes in the body | `create-pr {OWNER} {REPO} "{title}" "{notes file}" {HEAD} {BASE} --project-root {PROJECT_ROOT} [--user-approved]` | step 6 below · `references/deploy-steps.md` |
+| Update or close an existing PR body | `update-pr {OWNER} {REPO} {N} "{notes file}"` · `update-pr ... "-" --state closed` | `references/deploy-steps.md` · `references/fix-steps.md` |
+| List PRs | `list-prs {OWNER} {REPO} --state open` | — |
+| Workflow failure logs | `actions show-run\|joblog\|list-failed\|resolve-pr\|resolve-branch {OWNER} {REPO} [arg]` | `../pro-github/references/actions.md` |
+| PAT, auto approval, app review, branch resolution and config records | — (Read/Write tools) | `references/config.md` |
+| Note-writing rules, fixed structure, approval messages | — | `references/release-notes.md` |
 
-## 시작 전
+## Before you start
 
-### 1) 스크립트 · OWNER · REPO · PYTHON · PROJECT_ROOT (한 번)
+### 1) Scripts · OWNER · REPO · PYTHON · PROJECT_ROOT (once)
 
-> **고정 진입점이 있으면 아래 탐색을 건너뛴다** (#942): `~/.projectops/bin/projectops_cli.py` 는 한 번이라도 CLI 를 실행하면 생기고, 부를 때마다 설치된 가장 새 스크립트를 찾아 인자를 그대로 넘긴다. 세션 도중 플러그인이 업데이트돼도 옛 경로에 묶이지 않는다.
-> `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py changelog-deploy <서브커맨드> ...` (없거나 `scripts_not_found` 면 아래 탐색). 응답에 `newer_installed` 가 오면 이 진입점으로 다시 부른다.
+> **If the fixed entry point exists, skip the search below** (#942): `~/.projectops/bin/projectops_cli.py` appears after the CLI runs at least once. On every call it finds the newest installed script and passes the arguments through. A plugin update during the session does not pin you to an old path.
+> `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py changelog-deploy <subcommand> ...` (if it is missing or returns `scripts_not_found`, use the search below). If the response has `newer_installed`, call again through this entry point.
 
-> **⚠️ 명령을 변수에 담아 부르지 않는다 (zsh).** `P="python3 …/changelog_cli.py"; $P deploy-status …` 는 zsh 에서 단어 분리가 안 돼 명령 전체가 파일 이름 하나로 해석되고 `exit 127`(command not found)로 끝난다. 줄일 거면 함수로 감싼다: `cl() { PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" "$@"; }; cl deploy-status …`
+> **⚠️ Do not store the command in a variable and call it (zsh).** `P="python3 …/changelog_cli.py"; $P deploy-status …` does not word-split in zsh. The whole command is read as one file name and ends with `exit 127` (command not found). To shorten it, wrap it in a function: `cl() { PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" "$@"; }; cl deploy-status …`
 
-**Bash는 stateless다** — 변수·`export`가 호출 간 유지되지 않는다. 아래에서 나온 값을 **기억해 두고 이후 모든 블록에 실제 값으로 써넣는다**(`{PYTHON}` 자리 등, 또는 블록 첫 줄에 `OWNER="..."; ...`로 재선언). 이전 호출의 변수가 살아 있다고 가정하지 않는다.
+**Bash is stateless.** Variables and `export` do not survive between calls. **Remember the values printed below and write the real values into every later block** (in the `{PYTHON}` slots and so on, or redeclare them on the first line of the block, like `OWNER="..."; ...`). Never assume a variable from an earlier call is still alive.
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -80,73 +83,75 @@ echo "PROJECT_ROOT=$PROJECT_ROOT PYTHON=$PYTHON SCRIPTS=$SCRIPTS OWNER=$OWNER RE
 PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-context --project-root "$PROJECT_ROOT"
 ```
 
-`detect-release-context` 출력의 `branches`(브랜치·provider)·`branches_source`·`conflict`와 `signals`·`hint`(앱 심사 신호), `release_shape`를 기억한다. `release_shape == deploy_branch`(origin에 개발 브랜치가 없고 `deploy`가 있음)면 `HEAD_BRANCH`/`BASE_BRANCH`를 `branches` 대신 `release_branches`(보통 `main` → `deploy`)로 정하고 `release_steps`대로 진행한다 — 이 쌍이 맞는지 사용자에게 한 번 확인한다. `standard`면 지금까지와 같다. owner/repo는 origin URL에서, config는 고정 경로에서 CLI가 알아서 읽는다(읽기 전용). 다른 레포를 볼 때만 `detect-release-context --project-root {PROJECT_ROOT} --owner {OWNER} --repo {REPO}`처럼 지정한다.
+From the `detect-release-context` output, remember `branches` (branches and provider), `branches_source`, `conflict`, `signals` and `hint` (app review signals), and `release_shape`. If `release_shape == deploy_branch` (origin has no development branch but has `deploy`), set `HEAD_BRANCH`/`BASE_BRANCH` from `release_branches` (usually `main` → `deploy`) instead of `branches`, and follow `release_steps`. Confirm this pair with the user once. If it is `standard`, nothing changes. The CLI reads owner/repo from the origin URL and the config from its fixed path on its own (read-only). Only when you look at another repo, pass them explicitly: `detect-release-context --project-root {PROJECT_ROOT} --owner {OWNER} --repo {REPO}`.
 
-### 2)~5) config에서 값 정하기 — 상세 `references/config.md`
+### 2)~5) Resolve values from the config — details in `references/config.md`
 
-| § | 값 | 규칙 |
+| § | Value | Rule |
 |---|---|---|
-| 2 | `PAT` | **PAT 를 읽거나 기억하지 않는다** — CLI 가 자동 로드한다 (Read 로 config 를 열면 PAT 가 세션 기록에 남는다). `missing_pat` 이 나오면 "`/pro-github`로 PAT 먼저 등록" 안내 후 종료. 자동 승인 등 다른 설정을 읽어야 할 때도 고정 경로 `~/.projectops/config/config.json` 만, 값을 옮겨 적지 않는다 |
-| 3 | `AUTO_APPROVE`, `CONFIG_HAS_KEY` | `changelog_deploy.auto_approve`: 레포별 → 글로벌 → 없으면 `false`(수동). 옛 키 `auto_approve_release_notes`는 무시 |
-| 4 | `APP_RELEASE` | `changelog_deploy.app_release`: **레포별만** → 없으면 `unset` |
-| 5 | `HEAD_BRANCH`, `BASE_BRANCH`, `PROVIDER`, `BRANCH_SOURCE` | **`detect-release-context`의 `branches`를 그대로 쓴다.** CLI 판정 순서: version.yml(있으면 항상) → 레포별 config(version.yml 없을 때만) → 폴백. 전역 키는 읽지 않는다. `conflict`가 있으면 version.yml로 진행하고 한 줄 안내. `branches_source == fallback`이고 version.yml이 없을 때만 최초 판정(애매하면 질문 → 레포별 config 기록) |
+| 2 | `PAT` | **Do not read or remember the PAT.** The CLI loads it on its own (opening the config with Read leaves the PAT in the session log). If you get `missing_pat`, tell the user "register the PAT with `/pro-github` first" and stop. When you must read other settings such as auto approval, use only the fixed path `~/.projectops/config/config.json`, and do not copy values out |
+| 3 | `AUTO_APPROVE`, `CONFIG_HAS_KEY` | `changelog_deploy.auto_approve`: per repo → global → otherwise `false` (manual). The old key `auto_approve_release_notes` is ignored |
+| 4 | `APP_RELEASE` | `changelog_deploy.app_release`: **per repo only** → otherwise `unset` |
+| 5 | `HEAD_BRANCH`, `BASE_BRANCH`, `PROVIDER`, `BRANCH_SOURCE` | **Use `branches` from `detect-release-context` as is.** CLI resolution order: version.yml (always, if present) → per-repo config (only without version.yml) → fallback. Global keys are not read. If there is a `conflict`, go with version.yml and say one line about it. Only when `branches_source == fallback` and there is no version.yml, do the first-time resolution (ask if unclear → record in the per-repo config) |
 
-**provider 3단 규칙 (#821)** — `branches.provider`는 CLI가 이미 적용한 값이다: ① version.yml `changelog.provider` 명시값 → ② 미설정 + 레포 루트 `.coderabbit.yaml` → `coderabbit` → ③ 둘 다 없음 → `commit`. 워크플로우도 같은 규칙이라 판단이 갈리지 않는다. `github-ai`(서비스 종료)는 CLI가 `commit`으로 돌려준다. provider는 묻지 않는다.
+**Provider three-step rule (#821)**: `branches.provider` is the value the CLI already resolved. ① explicit `changelog.provider` in version.yml → ② unset + `.coderabbit.yaml` at the repo root → `coderabbit` → ③ neither → `commit`. The workflow uses the same rule, so the decisions never diverge. `github-ai` (service shut down) comes back from the CLI as `commit`. Never ask about the provider.
 
-## 모드 판별
+## Choosing the mode
 
-- **deploy 모드**: "deploy해줘", "배포해줘", "PR 올려줘" → 1단계부터
-- **fix 모드**: "머지 안 됐어", "changelogfix", "다시 해줘", "PR 재시도" → fix 1단계부터
+- **deploy mode**: "deploy it", "open the deploy PR" (Korean: "deploy해줘", "배포해줘", "PR 올려줘") → start at step 1
+- **fix mode**: "it did not merge", "changelogfix", "do it again", "retry the PR" (Korean: "머지 안 됐어", "changelogfix", "다시 해줘", "PR 재시도") → start at fix step 1
 
-## deploy 모드 — 단계와 판단 (명령·문구는 `references/deploy-steps.md`)
+## deploy mode — steps and decisions (commands and messages in `references/deploy-steps.md`)
 
-릴리스 노트 머리말은 preferences의 `template`이 있으면 그것을 쓴다.
+If the preferences have a `template`, use it as the release-note lead-in.
 
-**1단계 커밋 상태 확인** — `git status --short` · `git fetch origin` · 현재 브랜치 · `git log origin/{BASE}..HEAD` · `git log origin/{HEAD}..HEAD`를 **각각 따로** 실행한다.
-- 미커밋 변경이 **내 것**(이번 작업에서 만든 것)이면 멈추고 먼저 커밋한다.
-- **의도를 모르는 남의 변경**(다른 세션)이면 건드리지 말고 목록을 알린 뒤 진행한다 — 배포는 커밋만 push한다. 단 1-1 merge가 그 파일과 겹쳐 실패하면 멈추고 사용자에게 넘긴다.
-- 현재 브랜치가 `HEAD_BRANCH`가 아니면 **멈추고** 안내한다. 브랜치를 임의로 바꾸지 않는다 (다른 세션이 옮긴 것일 수 있다).
-- 두 log가 **모두 비었을 때만** "deploy할 커밋이 없습니다" 후 종료. 하나라도 있으면 1-1로.
+**Step 1 Check commit state** — run `git status --short`, `git fetch origin`, the current branch, `git log origin/{BASE}..HEAD` and `git log origin/{HEAD}..HEAD` **each separately**.
+- If the uncommitted changes are **yours** (made in this task), stop and commit them first.
+- If they are **someone else's changes whose intent you do not know** (another session), leave them alone, list them for the user and continue. A deploy only pushes commits. But if the 1-1 merge overlaps those files and fails, stop and hand it to the user.
+- If the current branch is not `HEAD_BRANCH`, **stop** and tell the user. Do not switch branches on your own (another session may have moved it).
+- Only when **both** logs are empty, say "nothing to deploy" and stop. If either has commits, go to 1-1.
 
-**1-1단계 base 최신화 (생략 금지)** — 순서가 계약이다:
-1. `git pull --rebase origin {HEAD}` 로 head를 원격과 먼저 맞춘다 (merge 커밋을 만든 뒤 pull --rebase 하면 merge가 풀린다).
-   작업트리에 **남의 미커밋 변경**이 있어 pull --rebase 가 거부되면 stash 하지 않고 `git fetch origin` → `git merge --ff-only origin/{HEAD}` 로 맞춘다(겹치는 파일이 없으면 더러운 트리에서도 된다). ff 가 안 되면(내 로컬 커밋과 갈라짐) 멈추고 묻는다.
-2~3. `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/changelog_cli.py sync-base --head {HEAD} --base {BASE} --project-root {PROJECT_ROOT}` — fetch > 역방향 차이 확인 > 있으면 병합까지 한 번에 한다.
-   `in_sync`(차이 없음)·`merged`면 다음 단계로. `merge_conflict` 면 **멈추고** 사용자와 해소 방향을 정한다 — `merge --abort`·`reset`·한쪽 버리기를 임의로 하지 않는다. `wrong_branch` 면 브랜치를 바꾸지 않고 알린다.
-   - 시작 전 `detect-release-context` 의 `branches_check` 를 본다: `warning` 이 있으면(브랜치 없음, 앞선 커밋 0개) 설정된 head/base 쌍이 이 레포의 실제 릴리스 흐름과 다른 것일 수 있으니 사용자에게 확인한다.
+**Step 1-1 Bring base up to date (never skip)** — the order is the contract:
+1. `git pull --rebase origin {HEAD}` first, to align head with the remote (if you pull --rebase after making a merge commit, the merge gets undone).
+   If the working tree has **someone else's uncommitted changes** and pull --rebase is refused, do not stash. Align with `git fetch origin` → `git merge --ff-only origin/{HEAD}` (this works on a dirty tree when no files overlap). If it cannot fast-forward (it diverged from your local commits), stop and ask.
+2~3. `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/changelog_cli.py sync-base --head {HEAD} --base {BASE} --project-root {PROJECT_ROOT}` — fetch > check the reverse difference > merge it if there is one, all in one call.
+   On `in_sync` (no difference) or `merged`, go to the next step. On `merge_conflict`, **stop** and agree on the resolution with the user. Do not run `merge --abort`, `reset` or drop one side on your own. On `wrong_branch`, tell the user without switching branches.
+   - Before starting, look at `branches_check` from `detect-release-context`: if it has a `warning` (branch missing, 0 commits ahead), the configured head/base pair may differ from this repo's real release flow. Confirm with the user.
 
-**1.5단계 릴리스 컨텍스트 인지** — `hint` × `APP_RELEASE`:
+**Step 1.5 Release context awareness** — `hint` × `APP_RELEASE`:
 
-| 상황 | 동작 |
+| Situation | Action |
 |------|------|
-| `hint == backend_only` | **조용히 통과.** 경고·질문 없이, config도 건드리지 않는다 |
-| 앱 심사 감지(`strong_app`/`app_release_likely`/`unknown`) **AND** `APP_RELEASE == unset` | 확인 메시지를 **한 번** 띄우고 답을 config에 저장 (`config.md` §4) |
-| `APP_RELEASE == true` | 묻지 않는다. 5·5.5단계에서 심사 경고 배너·엄격 정제 적용 |
-| `APP_RELEASE == false` | 묻지 않고 경고 없이 진행 |
+| `hint == backend_only` | **Pass silently.** No warning, no question, and do not touch the config |
+| App review detected (`strong_app`/`app_release_likely`/`unknown`) **AND** `APP_RELEASE == unset` | Show the confirmation message **once** and save the answer in the config (`config.md` §4) |
+| `APP_RELEASE == true` | Do not ask. Apply the review warning banner and strict cleanup in steps 5 and 5.5 |
+| `APP_RELEASE == false` | Do not ask; continue without a warning |
 
-**2단계 push 전 확인** — push할 커밋 목록을 보여주고 승인받는다.
-**3단계 push** — `git push origin {HEAD}`. 여기서 pull --rebase를 다시 하지 않는다(1-1 merge가 풀린다). non-fast-forward면 **강제 푸시 금지**, `git pull --rebase=merges origin {HEAD}` 후 다시 push (남의 미커밋 때문에 거부되면 멈추고 묻는다 — stash 금지). 버전은 여기서 오르지 않는다(릴리스 PR에서 확정).
+**Step 2 Confirm before push** — show the list of commits to push and get approval.
+**Step 3 Push** — `git push origin {HEAD}`. Do not pull --rebase again here (it undoes the 1-1 merge). On non-fast-forward, **never force push**: run `git pull --rebase=merges origin {HEAD}` and push again (if someone else's uncommitted changes block it, stop and ask — no stash). The version does not change here (the release PR finalizes it).
 
-> **⚠️ 단계 순서 (레이스컨디션 방지 — 반드시 지킨다)**
-> RELEASE-CHANGELOG는 deploy PR `opened` 시점에 본문을 확인해 `Summary by CodeRabbit`이 **없으면 본문을 초기화**한다. 빈 본문으로 PR을 먼저 만들면 워크플로우가 끼어들어 노트가 사라진다. 그래서 **커밋 분석(4) → 노트 작성(5) → 승인(5.5) → 노트를 본문에 담아 PR 생성(6)** 순서로 PR 생성을 맨 마지막에 둔다. (워크플로우 로직은 수정하지 않는다.)
+> **⚠️ Step order (prevents a race condition — always follow it)**
+> RELEASE-CHANGELOG checks the body when the deploy PR is `opened`. If there is **no** `Summary by CodeRabbit`, it **resets the body**. If you create the PR with an empty body first, the workflow cuts in and the notes disappear. So the order is **commit analysis (4) → write notes (5) → approval (5.5) → create the PR with the notes in the body (6)**, with PR creation last. (Do not change the workflow logic.)
 
-**4단계 커밋 분석** — `git log origin/{BASE}..origin/{HEAD}` (HEAD가 아니라 `origin/{HEAD}` 기준 — README 버전 워크플로우 등이 원격을 앞서게 할 수 있다). 분류·재작성 기준은 `references/release-notes.md`.
+**Step 4 Commit analysis** — `git log origin/{BASE}..origin/{HEAD}` (based on `origin/{HEAD}`, not HEAD — workflows such as the README version update can put the remote ahead). Classification and rewrite rules: `references/release-notes.md`.
 
-**5단계 릴리스 노트 작성** — `PROVIDER`로 분기:
+**Step 5 Write the release notes** — branch on `PROVIDER`:
 
-| PROVIDER | 이 단계 | 5.5단계 |
+| PROVIDER | This step | Step 5.5 |
 |----------|---------|---------|
-| `copilot`·`openai`·`gemini`·`claude`·`groq`·`mistral`·`ollama`·`coderabbit` | skill이 노트를 **선제 작성**. 워크플로우는 본문을 존중하므로 생성기를 부르지 않는다 | 진입 |
-| `commit` (기본) | **한 번 묻는다**: "릴리스 노트를 제가 다듬어 드릴까요, 아니면 커밋 내역 자동 생성에 맡길까요?" → **다듬기**면 선제 작성, **맡기기**면 노트 파일 없이 6단계(빈 본문 PR — 워크플로우 fallback job이 커밋 분석으로 채움) | 다듬기=진입 / 맡기기=건너뜀 |
+| `copilot`·`openai`·`gemini`·`claude`·`groq`·`mistral`·`ollama`·`coderabbit` | The skill **writes the notes up front**. The workflow respects the body, so it does not call a generator | enter |
+| `commit` (default) | **Ask once**: "Should I polish the release notes, or leave them to automatic generation from the commit history?" → **polish**: write them up front; **leave it**: go to step 6 without a notes file (empty-body PR — the workflow fallback job fills it from commit analysis) | polish = enter / leave it = skip |
 
-선제 작성이 provider와 무관하게 안전한 이유: 워크플로우는 skill이 미리 넣은 `Summary by CodeRabbit`을(`already_found`) provider 무관하게 그대로 존중한다. 유일한 예외가 `commit` "맡기기"다.
-노트는 `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md`에 아래 뼈대로 Write한다 (tmp 폴더가 없으면 먼저 만든다). 표식 주석·`## Summary by CodeRabbit` 머리는 `create-pr`/`update-pr`가 없으면 씌우므로 적지 않아도 된다. 카테고리명은 이 다섯 개만, 빈 카테고리는 지운다. 좋은 예·나쁜 예와 승인 문구가 필요할 때만 `references/release-notes.md`를 연다.
+Writing up front is safe whatever the provider: the workflow respects a `Summary by CodeRabbit` that the skill put in first (`already_found`), regardless of provider. The only exception is `commit` "leave it".
+Write the notes to `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md` with the skeleton below (create the tmp folder first if it does not exist). You may omit the marker comments and the `## Summary by CodeRabbit` header; `create-pr`/`update-pr` add them when missing. Use only these five category names and delete empty categories. Open `references/release-notes.md` only when you need good/bad examples or the approval messages.
+
+The headings below are the `ko` names from the release-note catalog (`.github/scripts/i18n/ko.json`), which the release workflow also uses. If the repo's `version.yml` sets `options.language: en`, use the `en` names instead: `Release notes` / `New features` / `Bug fixes` / `Improvements` / `Documentation` / `Other`.
 
 ```
 ## 릴리스 노트
 
 * **새 기능**
-  * (feat — 사용자가 느끼는 변화, 한 줄 40자 이내)
+  * (feat — a change the user can feel, one line, 40 characters or fewer)
 
 * **버그 수정**
   * (fix)
@@ -158,67 +163,67 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
   * (docs)
 
 * **기타**
-  * (나머지)
+  * (the rest)
 ```
 
-재작성 규칙: 커밋 메시지를 옮기지 않는다 — 파일·클래스·함수명, `feat:` 같은 prefix, 이슈 번호·URL, 라이브러리·API 같은 내부 구현을 빼고 사용자 관점 한 줄로 쓴다. `APP_RELEASE == true`면 내부·CICD·테스트·빌드 성격 항목은 통째로 뺀다(노트가 곧 스토어 출시노트).
-**5단계 후속 — 스토어 언어별 번역 초안** — 노트 파일을 쓴 직후 `version.yml`의 `metadata.template.options.store_locales`를 Read로 확인한다. **언어가 둘 이상이면** `references/store-translations.md`를 읽고 번역 초안을 노트 파일 끝에 덧붙인다(외부 AI 호출 없이 직접 번역). 키가 없거나 하나면 이 단계는 없는 것과 같다.
-> **⚠️ AGENT 필독: 노트 파일을 만든 뒤 반드시 6단계(PR 생성)까지 실행한다. 단, 곧바로 가지 않고 5.5단계부터 거친다.**
+Rewrite rules: do not copy commit messages. Drop file, class and function names, prefixes like `feat:`, issue numbers and URLs, and internal details such as libraries and APIs. Write one line from the user's point of view. If `APP_RELEASE == true`, drop internal, CI/CD, test and build items entirely (the notes become the store release notes).
+**After step 5 — per-language store translation drafts** — right after writing the notes file, Read `metadata.template.options.store_locales` in `version.yml`. **If there are two or more languages**, read `references/store-translations.md` and append translation drafts to the end of the notes file (translate them yourself, without calling an external AI). If the key is missing or has one language, this step does not exist.
+> **⚠️ AGENT MUST READ: after creating the notes file, always run through step 6 (PR creation). But do not jump there directly; go through step 5.5 first.**
 
-**5.5단계 승인 게이트** (문구는 `references/release-notes.md`):
-- **🔒 `APP_RELEASE == true`면 `AUTO_APPROVE`와 무관하게 B(수동)**, 본문 위에 **심사 경고 배너**를 먼저 출력하고 C는 띄우지 않는다. "맡기기"여도 6단계 직전에 "자동 생성에 맡기고 앱 심사로 이어지는 배포 PR을 만들까요?"를 묻는다.
-- commit "맡기기"(앱 심사 아님) → 5.5를 건너뛰고 6단계.
-- **A. 자동** (`AUTO_APPROVE == true` AND `APP_RELEASE != true`) — 노트를 표시만 하고 즉시 6단계. 사용자가 "확인받게 해줘"라고 하면 6단계 **전에** config를 갱신하고 B로 전환.
-- **B. 수동** (`AUTO_APPROVE == false` OR `APP_RELEASE == true`) — 노트 표시 + 승인. 수정 지시면 노트를 다시 쓰고 5.5 처음으로 (승인될 때까지 루프).
-- **C. 첫 실행 자동화 제안** — B에서 승인 + `CONFIG_HAS_KEY == false` + `APP_RELEASE != true`일 때만, 6단계 직전에 한 번.
+**Step 5.5 Approval gate** (messages in `references/release-notes.md`):
+- **🔒 If `APP_RELEASE == true`, use B (manual) regardless of `AUTO_APPROVE`.** Print the **review warning banner** above the body first and do not show C. Even for "leave it", ask right before step 6: "Leave the notes to automatic generation and create a deploy PR that leads into app review?"
+- commit "leave it" (not app review) → skip 5.5 and go to step 6.
+- **A. Auto** (`AUTO_APPROVE == true` AND `APP_RELEASE != true`) — only show the notes and go straight to step 6. If the user says "ask me first" ("확인받게 해줘"), update the config **before** step 6 and switch to B.
+- **B. Manual** (`AUTO_APPROVE == false` OR `APP_RELEASE == true`) — show the notes and get approval. On an edit request, rewrite the notes and go back to the start of 5.5 (loop until approved).
+- **C. First-run automation offer** — only when B was approved + `CONFIG_HAS_KEY == false` + `APP_RELEASE != true`, once, right before step 6.
 
-**6단계 deploy PR 생성** — `deploy-status --head`로 open deploy PR을 먼저 찾는다. **있으면 닫지 않고 재사용**해 `update-pr`로 본문만 갱신하고(새로 열면 워크플로우가 재트리거돼 본문 초기화 위험), 없으면 `create-pr`에 노트 파일 절대경로를 body로 넘긴다(맡기기면 빈 문자열). 끝나면 노트 파일을 지운다.
-`create-pr`에는 항상 `--project-root {PROJECT_ROOT}`를 준다. 거절 code별 행동:
+**Step 6 Create the deploy PR** — first look for an open deploy PR with `deploy-status --head`. **If one exists, do not close it; reuse it** and update only the body with `update-pr` (opening a new one re-triggers the workflow and risks a body reset). If none exists, pass the absolute path of the notes file to `create-pr` as the body (an empty string for "leave it"). Delete the notes file when done.
+Always pass `--project-root {PROJECT_ROOT}` to `create-pr`. Action per rejection code:
 
-| code | 뜻 | 행동 |
+| code | Meaning | Action |
 |---|---|---|
-| `needs_user_approval` | 앱 심사 신호가 있고 앱 심사 기록이 "일반 배포"가 아니다 | 심사 경고 배너 + 노트 본문을 보여주고 승인을 받는다. **사용자가 이번 대화에서 실제로 승인했을 때만** 같은 명령에 `--user-approved`를 붙여 다시 실행한다 — 승인 없이 붙이거나 "승인받았다"고 보고하지 않는다 |
-| `pr_exists` | 같은 head → base로 열린 PR이 이미 있다 (`number`·`url`) | 새로 만들지 않는다. 노트를 바꿀 거면 `update-pr {N}`, 아니면 `next`(`deploy-status --pr N`)로 진행 |
-| `nothing_to_deploy` | base보다 앞선 커밋이 없다 | PR을 만들지 않고 알린다. push 여부·브랜치 쌍(`branches_check`)을 확인 |
-| `body_file_not_found` | 노트 파일 경로가 틀렸다 | 5단계에서 Write한 절대경로로 다시 |
+| `needs_user_approval` | There are app review signals and the app review record is not "regular deploy" | Show the review warning banner + the notes body and get approval. **Only when the user actually approved in this conversation**, rerun the same command with `--user-approved`. Never add it without approval or report "approved" when it was not |
+| `pr_exists` | An open PR for the same head → base already exists (`number`·`url`) | Do not create a new one. To change the notes, `update-pr {N}`; otherwise follow `next` (`deploy-status --pr N`) |
+| `nothing_to_deploy` | No commits ahead of base | Do not create the PR; tell the user. Check whether it was pushed and the branch pair (`branches_check`) |
+| `body_file_not_found` | The notes file path is wrong | Retry with the absolute path written in step 5 |
 
-**7단계 automerge 검증** — `deploy-status --pr {N} --base {BASE}` 한 번으로 판정한다 (`/tmp` 즉석 Python 금지). 아래 verdict 표.
+**Step 7 Verify automerge** — decide with a single `deploy-status --pr {N} --base {BASE}` (no ad-hoc Python in `/tmp`). See the verdict table below.
 
-**8단계 결과 안내** — push 대상·PR 번호·노트 작성 여부·Actions 링크.
+**Step 8 Report the result** — push target, PR number, whether notes were written, Actions link.
 
-## deploy-status verdict → 다음 행동
+## deploy-status verdict → next action
 
-| verdict | 의미 | 행동 |
+| verdict | Meaning | Action |
 |---------|------|------|
-| `merged` | automerge 완료 | 결과 안내 후 **마무리**: 릴리스에 포함된 이슈마다(PR 커밋 메시지의 이슈 URL) `pro-report`로 보고서 댓글 → `pro-github finish-issue`로 완료 처리. 이 단계를 건너뛰고 종료하지 않는다 |
-| `waiting_for_workflow` | RELEASE-CHANGELOG run 이 queued·in_progress 이거나, PR 생성 직후·레포 대기열 지연으로 아직 시작 전 | **PR 을 닫거나 다시 열지 않는다** (대기열 지연은 재오픈으로 안 풀리고 run 만 하나 더 쌓인다). `next`대로 `deploy-status --pr N --wait 540` 으로 기다린다. 이 verdict 는 `stuck` 이 되지 않는다 |
-| `waiting_for_automerge` | 워크플로우는 끝났고 automerge 대기 | **sleep 금지.** `deploy-status --pr N --wait 540` 으로 도구 안에서 기다린다(끝나면 바로 돌아온다, `waited_seconds`). 그래도 이 verdict 면 ScheduleWakeup 으로 다시. 10분이 넘으면 도구가 스스로 `stuck` 으로 바꾼다 |
-| `stuck` | 10분 넘게 automerge 안 됨 (`stuck_reason`: `no_workflow_on_head` = head 브랜치 어디에도 이 PR 의 RELEASE run 이 없고 대기열도 비었음 · `workflow_done_not_merged` = 워크플로우는 끝났는데 머지 안 됨) | 더 기다리지 않는다. 사용자에게 알리고 **확인받은 뒤** fix 모드로 PR 을 닫고 다시 만든다 |
-| `missing_coderabbit_summary` | 워크플로우는 끝났는데 본문에 `Summary by CodeRabbit`이 없음 | **즉시 fix 모드로 가지 않고 즉시 `update-pr`도 하지 않는다.** 60초 후 `deploy-status`로 한 번 더 확인하고, **두 번 연속 같은 verdict일 때만** fix 모드 안내. 한 번이면 race를 우선 가정한다 (#331 — 워크플로우 PATCH와 겹쳐 본문 사라짐이 반복된 실사고) |
-| `workflow_failed` | 이 PR 의 최신 RELEASE run 이 실패 (`workflow.is_current_head == false` 면 push 전 옛 head SHA 의 run) | `workflow.run_url` 안내 + fix 모드로 재실행 |
-| `conflict` | 병합 충돌(dirty) | 충돌 상태 안내, 수동 확인 요청 |
-| `behind` | base 보다 뒤처짐 | `sync-base` 로 base 를 head 에 병합하고 push |
-| `blocked` | 머지가 막힘 (필수 검사·리뷰·보호 규칙 대기) | 무엇이 막는지 PR 화면에서 확인해 사용자에게 알린다 |
-| `no_pr` | open deploy PR 없음 | `deploy_branch.head_sha`로 이미 머지됐는지 확인 후 안내 |
+| `merged` | automerge done | Report the result, then **wrap up**: for each issue in the release (issue URLs in the PR commit messages), post a report comment with `pro-report` → mark it done with `pro-github finish-issue`. Do not end without this step |
+| `waiting_for_workflow` | The RELEASE-CHANGELOG run is queued or in_progress, or it has not started yet (right after PR creation, or the repo queue is delayed) | **Do not close or reopen the PR** (reopening does not clear a queue delay; it only stacks another run). Wait as `next` says with `deploy-status --pr N --wait 540`. This verdict never turns into `stuck` |
+| `waiting_for_automerge` | The workflow finished and automerge is pending | **No sleep.** Wait inside the tool with `deploy-status --pr N --wait 540` (it returns as soon as it is done, `waited_seconds`). If the verdict is still this, use ScheduleWakeup and check again. After 10 minutes the tool switches to `stuck` on its own |
+| `stuck` | No automerge for over 10 minutes (`stuck_reason`: `no_workflow_on_head` = no RELEASE run for this PR on the head branch and the queue is empty · `workflow_done_not_merged` = the workflow finished but nothing merged) | Stop waiting. Tell the user, and **after confirmation**, close and recreate the PR in fix mode |
+| `missing_coderabbit_summary` | The workflow finished but the body has no `Summary by CodeRabbit` | **Do not go to fix mode right away and do not run `update-pr` right away.** Check again with `deploy-status` after 60 seconds, and suggest fix mode **only when the same verdict comes twice in a row**. After one occurrence, assume a race first (#331 — a real, repeated incident where the body vanished when it overlapped the workflow's PATCH) |
+| `workflow_failed` | The latest RELEASE run for this PR failed (if `workflow.is_current_head == false`, it is a run for an old head SHA from before the push) | Share `workflow.run_url` + rerun through fix mode |
+| `conflict` | Merge conflict (dirty) | Explain the conflict and ask for a manual check |
+| `behind` | Behind base | Merge base into head with `sync-base` and push |
+| `blocked` | The merge is blocked (waiting on required checks, reviews or protection rules) | Check on the PR page what blocks it and tell the user |
+| `no_pr` | No open deploy PR | Check with `deploy_branch.head_sha` whether it already merged, then report |
 
-## fix 모드 — 단계와 판단 (명령·문구는 `references/fix-steps.md`)
+## fix mode — steps and decisions (commands and messages in `references/fix-steps.md`)
 
-1. **상태 확인** — `deploy-status --base {BASE}`(`--pr` 없이 open deploy PR 자동 탐색). `no_pr` → 3단계로 / `merged` → 안내 후 종료 / 그 외 → `pr.number`를 `EXISTING_PR`로 기억하고 2단계로.
-2. **기존 PR 닫기** — **사용자에게 확인받은 뒤에만** `update-pr ... "-" --state closed`.
-3. **커밋 분석** — deploy 4단계와 같다. 곧장 fix로 들어와 `APP_RELEASE == unset`이면 이 단계 전에 deploy 1.5단계를 한 번 수행한다.
-4. **노트 작성** — deploy 5단계와 같은 위치·구조(스토어 언어별 번역 초안 포함 — `references/store-translations.md`). 곧바로 5단계로 가지 않는다.
-4.5. **승인 게이트** — deploy 5.5단계와 **완전히 같은** 분기(A/B/C, 앱 심사면 배너 + 수동 승인).
-5. **새 PR 생성** — 노트를 본문에 담아 `create-pr`(제목 `🚀 Deploy {YYYYMMDD} (재시도)`). fix도 **PR 생성이 맨 마지막**이다.
-6. **결과 안내** 후 `deploy-status --pr`로 검증한다.
+1. **Check state** — `deploy-status --base {BASE}` (without `--pr` it finds the open deploy PR on its own). `no_pr` → go to step 3 / `merged` → report and stop / otherwise → remember `pr.number` as `EXISTING_PR` and go to step 2.
+2. **Close the existing PR** — **only after the user confirms**, `update-pr ... "-" --state closed`.
+3. **Commit analysis** — same as deploy step 4. If you entered fix mode directly and `APP_RELEASE == unset`, run deploy step 1.5 once before this step.
+4. **Write the notes** — same location and structure as deploy step 5 (including per-language store translation drafts — `references/store-translations.md`). Do not jump straight to step 5.
+4.5. **Approval gate** — **exactly the same** branches as deploy step 5.5 (A/B/C; for app review, banner + manual approval).
+5. **Create the new PR** — `create-pr` with the notes in the body (title `🚀 Deploy {YYYYMMDD} (재시도)`, where `재시도` means "retry"). In fix mode too, **creating the PR is the last step**.
+6. **Report the result**, then verify with `deploy-status --pr`.
 
-## 주의사항
+## Notes
 
-- **PR 생성/재시도 후 반드시 `deploy-status`로 검증한다.** 상태 확인용 Python을 `/tmp`에 즉석 생성하지 않는다.
-- **PR은 노트를 본문에 담아 생성한다.** 빈 본문으로 먼저 만든 뒤 채우면 레이스컨디션으로 노트가 사라진다.
-- **승인 게이트를 건너뛰지 않는다.** 자동 모드로 명시 설정된 경우만 표시 후 진행하고, 앱 심사 레포는 자동 모드여도 승인을 받는다. 안내는 자연어로만, config 키·경로를 표면화하지 않는다.
-- fix 모드로 넘어가는 기준은 위 verdict 표 하나다(`missing_coderabbit_summary` 2회 연속 · `workflow_failed` · `waiting_for_automerge` 10분 초과 = `stuck`). `waiting_for_workflow`(대기열 지연)는 기준이 아니다 — 닫고 다시 열지 않는다.
-- deploy PR이 이미 있으면 닫지 않고 재사용한다.
-- **Windows 내부망에서 curl exit 35 (SSL 오류)**: curl 호출에 `--ssl-no-revoke` 추가 (`../references/common-rules.md` Windows 내부망 환경 섹션).
+- **Always verify with `deploy-status` after creating or retrying a PR.** Do not write ad-hoc status-check Python into `/tmp`.
+- **Create the PR with the notes in the body.** If you create it empty and fill it later, the race condition wipes the notes.
+- **Do not skip the approval gate.** Only when auto mode is explicitly configured, show and proceed; app review repos need approval even in auto mode. Speak in plain language only and never surface config keys or paths.
+- The only criteria for moving to fix mode are in the verdict table above (`missing_coderabbit_summary` twice in a row · `workflow_failed` · `waiting_for_automerge` over 10 minutes = `stuck`). `waiting_for_workflow` (queue delay) is not one of them — do not close and reopen.
+- If a deploy PR already exists, reuse it instead of closing it.
+- **curl exit 35 (SSL error) on a Windows internal network**: add `--ssl-no-revoke` to curl calls (`../references/common-rules.md`, Windows internal network section).
 
 ## Customize
 

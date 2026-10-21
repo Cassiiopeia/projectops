@@ -1,39 +1,39 @@
-# Phase 4 — 8대 원칙 self-review 체크표
+# Phase 4 — 8-principle self-review checklist
 
-CREATE 모드의 Phase 4, REVIEW 모드의 Phase 2에서 공통 사용.
+Shared by CREATE mode Phase 4 and REVIEW mode Phase 2.
 
-**강제 절차**: 방금 쓴 파일을 **반드시 `Read` 도구로 다시 읽고** 아래 8개 검사를 한 줄씩 채운다. "내가 방금 썼으니 안 봐도 안다"는 금지.
+**Mandatory procedure**: **always re-read the file you just wrote with the `Read` tool** and fill in the 8 checks below one line each. "I just wrote it, so I know without looking" is not allowed.
 
-## 체크표
+## Checklist
 
-| # | 원칙 | PASS 조건 | 위반 시 조치 | 근거(어디서 확인) |
+| # | Principle | PASS condition | Fix on violation | Evidence (where to check) |
 |---|------|----------|-------------|-----------------|
-| 1 | 한 번에 하나씩 | Phase 0/Phase 2 섹션에서 한 메시지에 질문 2개 이상 들어간 곳이 없는가? | 질문 분리 | SKILL.md 본문 질문 예시 |
-| 2 | 자동 추론 우선 | 사용자 입력에서 추론 가능한 값(URL→도메인, compose→포트 등)을 또 묻고 있지 않은가? | 자동 추출 로직으로 변경 | 스크립트 + SKILL.md 지시 |
-| 3 | 전문 용어 설명 | 처음 등장하는 약어/고유 명사에 한 줄 설명이 있는가? | 설명 한 줄 추가 | 본문 전체 훑기 |
-| 4 | UI 경로 구체화 | UI 안내가 "메뉴 → 탭 → 필드명" 수준인가? "거기서 확인하세요" 류 금지 | 경로 보강 | "확인", "설정" 같은 모호한 단어 검색 |
-| 5 | 하드코딩 금지 | 실제 도메인/IP/이메일/사번이 본문에 박혀 있지 않은가? | `{placeholder}`로 치환 | `grep`으로 `.com`, `@`, IP 패턴 훑기 |
-| 6 | 설정 파일 분리 | 사용자별로 다른 값이 config 파일로 빠져 있는가? | config 파일 정의 추가 | config.json.example 존재 확인 |
-| 7 | 실경험 반영 | "일반론"으로 적은 경고가 사용자 경험으로 검증되었는가? 미검증 경고는 오히려 혼란 | 삭제 또는 `(미검증)` 표시 | 함정 섹션 훑기 |
-| 8 | 유연한 입력 | 사용자가 정보를 한 번에 통째로 줘도 받아들일 수 있는 분기가 있는가? | 자동 추출 분기 추가 | 스크립트의 인자 파싱 로직 |
+| 1 | One at a time | No place in the Phase 0/Phase 2 sections puts 2 or more questions in one message? | Split the questions | Question examples in the SKILL.md body |
+| 2 | Automatic inference first | Not asking again for values inferable from user input (URL → domain, compose → port, etc.)? | Change to automatic extraction | Scripts + SKILL.md instructions |
+| 3 | Explain technical terms | Each abbreviation/proper noun has a one-line explanation where it first appears? | Add a one-line explanation | Skim the whole body |
+| 4 | Concrete UI paths | UI directions are at the "menu → tab → field name" level? No "check it there" | Add path detail | Search for vague words like "check", "settings" |
+| 5 | No hard-coding | No real domain/IP/email/employee ID baked into the body? | Replace with `{placeholder}` | `grep` for `.com`, `@`, IP patterns |
+| 6 | Separate config file | Values that differ per user moved into a config file? | Add a config file definition | Check that config.json.example exists |
+| 7 | Reflects real experience | Warnings written as "general advice" were verified by user experience? Unverified warnings only confuse | Delete or mark `(unverified)` | Skim the pitfalls section |
+| 8 | Flexible input | Is there a branch that accepts it when the user gives all the information at once? | Add an automatic extraction branch | Argument parsing logic in scripts |
 
-## 공식 skill-creator 모범사례 추가 체크 (REVIEW 모드 전용)
+## Extra checks from the official skill-creator best practices (REVIEW mode only)
 
-8대 원칙 위에 덧붙여서, REVIEW 모드에서는 아래 4개도 검사한다.
+On top of the 8 principles, REVIEW mode also checks the 4 items below.
 
-| # | 기준 | PASS 조건 | 위반 시 조치 |
+| # | Criterion | PASS condition | Fix on violation |
 |---|------|-----------|-------------|
-| a | Lean prompt | 빼도 결과에 영향 없는 장식 문장·중복 MUST가 있는가? | 삭제 |
-| b | Explain the why | "하지 말 것" 규칙에 이유가 붙어 있는가? | `(이유: ~)` 한 줄 부착 |
-| c | Progressive disclosure | SKILL.md ≤ 500줄? 초과하면 references/로 분할되었는가? | 분할 |
-| d | Repeated work 번들화 | 반복 로직이 scripts/로 분리되어 있는가? | 스크립트로 추출 |
+| a | Lean prompt | Are there decorative sentences or duplicate MUSTs that could go without changing results? | Delete |
+| b | Explain the why | Do "do not" rules come with a reason? | Attach one line `(reason: ~)` |
+| c | Progressive disclosure | SKILL.md ≤ 500 lines? If over, is it split into references/? | Split |
+| d | Bundle repeated work | Is repeated logic moved into scripts/? | Extract into a script |
 
-## 한 항목이라도 FAIL이면
+## If even one item FAILs
 
-즉시 SKILL.md를 수정하고 다시 검사. 위반 0건이 될 때까지 반복. 사용자에게 "대충 괜찮다" 선언 금지.
+Fix SKILL.md immediately and check again. Repeat until there are 0 violations. Never declare "roughly fine" to the user.
 
-## 특이 케이스
+## Special cases
 
-- **skill이 네트워크 제한 환경에서 동작** → 원칙 2(자동 추론)의 "자동 추출"은 "외부 API 호출 없이 가능해야 한다"로 해석.
-- **skill이 단독 명령 1개만 감싸는 경우** → Phase 분할(Phase 0/1/2) 생략 가능. 단, 여전히 8원칙은 적용.
-- **description이 한국어만 / 영어만** → 사내 혼합 사용자 환경이면 양쪽 키워드 다 포함. 단일 언어 팀이면 한쪽만도 OK.
+- **The skill runs in a network-restricted environment** → read the "automatic extraction" of principle 2 (automatic inference) as "must work without external API calls".
+- **The skill wraps a single command** → the phase split (Phase 0/1/2) may be omitted. The 8 principles still apply.
+- **Description language** → write the `description` in English by default. If the users speak another language (for example a mixed Korean/English team), also include trigger keywords in that language. A single-language team may use only one.

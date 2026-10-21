@@ -1,51 +1,53 @@
-# 릴리스 노트 작성 · 승인 게이트 문구
+# Writing release notes · approval gate messages
 
-> 언제 읽나: 노트 뼈대·재작성 규칙은 SKILL.md 5단계에 있다. 여기는 좋은 예·나쁜 예와 승인 게이트 문구(deploy 5.5 / fix 4.5)가 필요할 때만 연다.
+> When to read: the note skeleton and rewrite rules are in SKILL.md step 5. Open this only when you need good/bad examples or the approval gate messages (deploy 5.5 / fix 4.5).
 
-## 커밋 분류
+Show every message below to the user in the user's language (or the configured `language` preference). The text here gives the meaning.
 
-| prefix | 분류 |
+## Commit classification
+
+| prefix | Category (`ko` catalog / `en` catalog) |
 |--------|------|
-| `feat` | 새 기능 |
-| `fix` | 버그 수정 |
-| `refactor` / `perf` / `style` | 개선 |
-| `docs` | 문서 |
-| 나머지 | 기타 |
+| `feat` | 새 기능 / New features |
+| `fix` | 버그 수정 / Bug fixes |
+| `refactor` / `perf` / `style` | 개선 / Improvements |
+| `docs` | 문서 / Documentation |
+| the rest | 기타 / Other |
 
-**커밋 메시지를 그대로 쓰지 않는다.** 이슈 제목, URL, 타입 prefix, 파일명, 기술 용어를 모두 제거하고 **클라이언트(사용자)가 이해할 수 있는 기능/변경 관점**으로 재작성한다.
+**Never copy commit messages as is.** Remove issue titles, URLs, type prefixes, file names and technical terms, and rewrite each item **from the point of view of a client (user) who should understand the feature or change**.
 
-## 작성 원칙 — 앱스토어 업데이트 노트처럼 쓴다
+## Writing principles — write like app store update notes
 
-일반 사용자가 "이번 업데이트에서 뭐가 바뀌었지?" 를 읽는다고 생각하고 작성한다.
+Write as if an ordinary user is reading "what changed in this update?".
 
-- 파일명, 클래스명, 함수명, 변수명 **절대 언급 금지**
-- `fix:`, `feat:`, `refactor:`, `chore:` 등 기술 prefix **절대 금지**
-- API 호출, DB 쿼리, 알고리즘, 라이브러리명 등 내부 구현 **절대 금지**
-- 이슈 번호, GitHub URL **절대 금지**
-- **사용자가 직접 느끼는 변화**로만 서술
-- 항목 하나당 한 줄, 40자 이내, 간결하게
-- **앱 심사 레포(`APP_RELEASE == true`)면 정제 기준을 한 단계 더 엄격히 적용한다.** 조금이라도 내부·CICD·테스트·빌드 성격이면 출시노트에서 **제외**한다 (이 노트가 곧 실제 심사 제출물이므로)
+- **Never mention** file, class, function or variable names
+- **Never use** technical prefixes such as `fix:`, `feat:`, `refactor:`, `chore:`
+- **Never mention** internals such as API calls, DB queries, algorithms or library names
+- **Never include** issue numbers or GitHub URLs
+- Describe **only changes the user can feel directly**
+- One line per item, 40 characters or fewer, concise
+- **For app review repos (`APP_RELEASE == true`), apply the cleanup one level stricter.** If an item has even a hint of internal, CI/CD, test or build nature, **exclude** it from the release notes (these notes are the actual review submission)
 
-**좋은 예 vs 나쁜 예**:
+**Good vs bad examples** (write the real notes in the repo's language):
 ```
-❌ PYTHONPATH 환경변수 패턴으로 크로스플랫폼 호환성 수정
-✅ Windows와 macOS에서 실행 오류가 발생하던 문제 해결
+❌ Fix cross-platform compatibility with the PYTHONPATH env var pattern
+✅ Fixed a launch error on Windows and macOS
 
-❌ config-rules.md §7 Skill별 Config 스키마 인라인화
-✅ 설정 초기화 과정이 더 간단해졌습니다
+❌ Inline the per-skill config schema in config-rules.md §7
+✅ Setting up is now simpler
 
-❌ Node.js 20 → 24 Dockerfile 업그레이드 (npm ci lock 파일 불일치 해결)
-✅ 빌드 시 패키지 설치 오류가 발생하던 문제 해결
+❌ Upgrade Dockerfile Node.js 20 → 24 (fix npm ci lock file mismatch)
+✅ Fixed a package install error during builds
 
-❌ .projectops/ 폴더 삭제 및 .gitignore 정리
-✅ 앱 설치 용량이 소폭 감소했습니다
+❌ Delete the .projectops/ folder and clean up .gitignore
+✅ The app install size is slightly smaller
 ```
 
-## 파일 위치와 고정 구조
+## File location and fixed structure
 
-**Write tool로 `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md`에 저장한다** (레포 내부가 아닌 홈 디렉토리 — config와 같은 위치라 레포 오염이 없고, `{OWNER}__{REPO}` prefix로 여러 레포·에이전트가 동시에 deploy해도 충돌하지 않는다). Windows는 `C:\Users\<사용자>\.projectops\tmp\{OWNER}__{REPO}__release_notes.md`, macOS/Linux는 `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md`. **tmp 폴더가 없으면 Write 전에 생성**한다. 이후 CLI에는 이 **절대경로**(`NOTES_FILE`)를 그대로 넘긴다.
+**Save with the Write tool to `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md`** (the home directory, not inside the repo. It sits next to the config, so the repo stays clean, and the `{OWNER}__{REPO}` prefix keeps several repos or agents deploying at once from colliding). Windows: `C:\Users\<user>\.projectops\tmp\{OWNER}__{REPO}__release_notes.md`; macOS/Linux: `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md`. **If the tmp folder does not exist, create it before the Write.** Then pass this **absolute path** (`NOTES_FILE`) to the CLI as is.
 
-워크플로우가 파싱하는 형식과 **100% 동일한 구조**로 쓴다. 카테고리명은 아래 고정값만 쓰고, 항목이 없는 카테고리는 생략한다.
+Use a structure **100% identical** to the format the workflow parses. Use only the fixed category names below and omit categories with no items. The headings below are the `ko` catalog names (`.github/scripts/i18n/ko.json`); for a repo with `options.language: en` in `version.yml`, use the `en` names: `Release notes` / `New features` / `Bug fixes` / `Improvements` / `Documentation` / `Other`.
 
 ```
 <!-- This is an auto-generated comment: release notes by coderabbit.ai -->
@@ -55,89 +57,89 @@
 ## 릴리스 노트
 
 * **새 기능**
-  * (항목)
+  * (item)
 
 * **버그 수정**
-  * (항목)
+  * (item)
 
 * **개선**
-  * (항목)
+  * (item)
 
 * **문서**
-  * (항목)
+  * (item)
 
 * **기타**
-  * (항목)
+  * (item)
 
 <!-- end of auto-generated comment: release notes by coderabbit.ai -->
 ```
 
-> 스토어 언어별 번역(`store_locales`가 둘 이상일 때)은 이 구조 **뒤**에 별도 블록으로 덧붙인다 — 형식과 규칙은 `store-translations.md`. 한국어 구조 자체는 바꾸지 않는다.
+> Per-language store translations (when `store_locales` has two or more entries) are appended as a separate block **after** this structure. Format and rules: `store-translations.md`. Do not change the base-language structure itself.
 
-## 승인 게이트 문구 (deploy 5.5 / fix 4.5)
+## Approval gate messages (deploy 5.5 / fix 4.5)
 
-분기 조건은 SKILL.md "승인 게이트"에 있다. 여기는 화면에 띄울 문구다.
+The branch conditions are in SKILL.md "approval gate". These are the messages to show.
 
-### 심사 경고 배너 (`APP_RELEASE == true`일 때만, A/B 어느 분기든 본문 위에 먼저)
-
-```
-⚠️ 이 배포는 실제 앱스토어/플레이스토어 심사에 들어갑니다.
-   아래 릴리스 노트가 그대로 스토어 "이번 업데이트" 출시노트가 됩니다.
-   CICD·내부 개선·테스트 항목은 빼고, 사용자가 직접 느끼는 변경만 담겼는지 확인하세요.
-```
-
-### commit "맡기기" + 앱 심사 레포 확인
+### Review warning banner (only when `APP_RELEASE == true`; first, above the body, in either A or B)
 
 ```
-릴리스 노트를 자동 생성에 맡기고 앱 심사로 이어지는 배포 PR을 만들까요?
+⚠️ This deploy goes into real App Store / Play Store review.
+   The release notes below become the store's "What's New" text as is.
+   Check that CI/CD, internal improvements and test items are out, and only changes users feel directly are in.
 ```
 
-### A. 자동 모드 (표시만 하고 즉시 진행)
+### commit "leave it" + app review repo confirmation
 
 ```
-🤖 이 레포는 확인 없이 바로 배포되도록 설정돼 있어 릴리스 노트만 안내드리고 PR을 만듭니다.
-   (다시 매번 확인받고 싶으시면 "확인받게 해줘"라고 말씀해주세요.)
-
-📋 릴리스 노트:
-{_release_notes.md 본문 그대로}
-
-PR을 생성합니다.
+Leave the release notes to automatic generation and create a deploy PR that leads into app review?
 ```
 
-### B. 수동 모드 (승인 받을 때까지 루프)
+### A. Auto mode (show only, then proceed at once)
 
 ```
-📋 릴리스 노트 본문:
+🤖 This repo is set to deploy without confirmation, so I am only showing the release notes and creating the PR.
+   (To be asked every time again, say "ask me first".)
 
-{_release_notes.md 본문 그대로}
+📋 Release notes:
+{_release_notes.md body as is}
 
-이대로 PR을 만들까요?
-1. 네, 만들어주세요
-2. 수정해주세요 (어떻게 수정할지 말씀해주세요)
+Creating the PR.
 ```
 
-- **1** → PR 생성 단계로. 단 `CONFIG_HAS_KEY == false`이고 `APP_RELEASE != true`면 그 **직전**에 C를 한 번 실행
-- **2 / 수정 지시** → 지시를 반영해 노트 파일을 재작성한 뒤 승인 게이트 처음으로 돌아온다
-
-### C. 첫 실행 자동화 제안 (한 번만)
-
-사용자가 처음 보는 화면이므로 **무엇을** 자동화하는지 분명히 안내한다.
+### B. Manual mode (loop until approved)
 
 ```
-💡 다음 배포부터 어떻게 진행할까요?
+📋 Release notes body:
 
-매번 배포 직전에 릴리스 노트를 보여드리고 확인받는 방식이 기본입니다.
-원하시면 이 확인 단계를 건너뛰고 곧바로 배포 PR이 만들어지도록 바꿀 수 있습니다.
+{_release_notes.md body as is}
 
-1. 이 레포 배포는 앞으로 확인 없이 바로 진행해주세요
-2. 모든 레포 배포를 앞으로 확인 없이 바로 진행해주세요
-3. 지금처럼 매번 릴리스 노트 확인받겠습니다
-
-(언제든 "다시 확인받게 해줘" / "자동으로 바꿔줘"라고 말씀하시면 바꿀 수 있습니다)
+Create the PR with this?
+1. Yes, create it
+2. Edit it (tell me how)
 ```
 
-응답별 config 갱신은 `config.md` §3. 갱신 후 안내:
+- **1** → go to PR creation. But if `CONFIG_HAS_KEY == false` and `APP_RELEASE != true`, run C once **right before** it
+- **2 / an edit request** → apply the request, rewrite the notes file, and return to the start of the approval gate
 
-- 1: "✅ 이 레포는 다음 배포부터 확인 없이 바로 진행합니다."
-- 2: "✅ 모든 레포에서 다음 배포부터 확인 없이 바로 진행합니다."
-- 3: "✅ 앞으로도 매번 릴리스 노트 확인받습니다."
+### C. First-run automation offer (once only)
+
+The user sees this screen for the first time, so say clearly **what** gets automated.
+
+```
+💡 How should the next deploys go?
+
+By default, I show you the release notes right before each deploy and ask for confirmation.
+If you want, I can skip this confirmation step and create the deploy PR right away.
+
+1. Deploy this repo without confirmation from now on
+2. Deploy all repos without confirmation from now on
+3. Keep asking me to confirm the release notes every time
+
+(You can change this any time by saying "ask me again" / "switch to automatic")
+```
+
+Config updates per answer: `config.md` §3. After the update, say:
+
+- 1: "✅ From the next deploy, this repo proceeds without confirmation."
+- 2: "✅ From the next deploy, all repos proceed without confirmation."
+- 3: "✅ I will keep asking you to confirm the release notes every time."

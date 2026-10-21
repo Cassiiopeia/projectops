@@ -1,42 +1,42 @@
-# 스토어 언어별 릴리스 노트 번역 초안 (#829)
+# Per-language store release note translation drafts (#829)
 
-> 언제 읽나: deploy 5단계 / fix 4단계에서 한국어 노트를 다 쓴 직후, `version.yml`에 `store_locales`가 **둘 이상** 있을 때만.
-> 없거나 하나뿐이면 이 문서를 읽을 필요가 없다 — 지금까지와 똑같이 진행한다.
+> When to read: in deploy step 5 / fix step 4, right after you finish the base-language notes (Korean by default), and only when `version.yml` has **two or more** `store_locales`.
+> If there are none or only one, you do not need this document. Proceed exactly as before.
 
-## 왜 하나
+## Why
 
-스토어는 언어마다 "이번 업데이트" 칸이 따로 있다. 한 문구를 모든 언어에 올리면 영어·일본어·중국어 사용자에게 한국어가 보인다. 그렇다고 번역이 없는 언어를 비워 둘 수도 없다 — App Store Connect는 What's New가 빈 언어가 하나라도 있으면 심사 제출을 거부한다. 그래서 **번역 초안을 만들어 사용자 승인을 받고**, 번역이 없는 언어는 배포 단계가 기본 언어 문구로 채운다.
+Stores have a separate "What's New" field per language. If you upload one text to every language, English, Japanese and Chinese users see Korean. But you cannot leave untranslated languages empty either: App Store Connect rejects a review submission if even one language has an empty What's New. So **make translation drafts and get user approval**; for languages without a translation, the deploy step fills in the base-language text.
 
-외부 AI 서비스를 부르지 않는다. 이 스킬을 실행하는 에이전트가 직접 번역한다.
+Do not call an external AI service. The agent running this skill translates directly.
 
-## 대상 언어 정하기
+## Choosing target languages
 
-`version.yml`의 `metadata.template.options`에서 아래 키를 Read로 읽는다. 예: `store_locales: ["ko-KR", "en-US", "ja-JP", "zh-CN"]`.
+Read the keys below from `metadata.template.options` in `version.yml` with Read. Example: `store_locales: ["ko-KR", "en-US", "ja-JP", "zh-CN"]`.
 
-| 키 | 뜻 |
+| Key | Meaning |
 |---|---|
-| `store_locales` | 두 스토어 공통 언어 목록 |
-| `store_locales_ios` | (선택) App Store만 다를 때 — 있으면 App Store는 이 목록 |
-| `store_locales_play` | (선택) Play만 다를 때 — 있으면 Play는 이 목록 |
+| `store_locales` | Language list shared by both stores |
+| `store_locales_ios` | (optional) only when the App Store differs — if present, the App Store uses this list |
+| `store_locales_play` | (optional) only when Play differs — if present, Play uses this list |
 
-- **첫 항목이 기본 언어**다. 방금 쓴 노트가 이 언어다. 번역하지 않는다. 스토어별 목록도 첫 항목을 같은 기본 언어로 둔다.
-- 번역 대상은 **세 키에 나온 언어를 모두 합친 것에서 기본 언어를 뺀 것**이다. 한 스토어에만 있는 언어도 그 스토어가 쓰므로 번역한다. 예: 공통 `[ko-KR, en-US]`, play `[ko-KR, en-US, ja-JP]`이면 `en-US`, `ja-JP`.
-- 모든 키가 없거나 합쳐서 기본 언어뿐이면 번역 단계를 **건너뛴다.**
-- 승인 화면에는 번역마다 어느 스토어에서 쓰이는지(`App Store`/`Play`/`둘 다`) 한 줄로 밝힌다.
-- 기본 언어가 한국어가 아닌 레포면 방금 쓴 노트(한국어)가 기본 언어가 아닐 수 있다. 이때는 멈추고 사용자에게 기본 언어 노트를 어느 언어로 쓸지 묻는다.
+- **The first entry is the base language.** The notes you just wrote are in this language. Do not translate it. Per-store lists also keep the same base language as their first entry.
+- The translation targets are **all languages across the three keys combined, minus the base language**. A language that only one store has is still translated, because that store uses it. Example: shared `[ko-KR, en-US]`, play `[ko-KR, en-US, ja-JP]` → `en-US`, `ja-JP`.
+- If all keys are missing or together contain only the base language, **skip** the translation step.
+- On the approval screen, state in one line for each translation which store uses it (`App Store`/`Play`/`both`).
+- In a repo whose base language is not Korean, the notes you just wrote (in Korean) may not be in the base language. In that case stop and ask the user which language to write the base-language notes in.
 
-## 번역 규칙
+## Translation rules
 
-- **승인된 한국어 노트가 원문이다.** 커밋 로그를 다시 번역하지 않는다.
-- 항목 수와 순서를 유지한다. 스토어 칸이 좁으니 카테고리 제목은 옮기지 않고 `- ` 항목만 쓴다.
-- 직역보다 그 언어 사용자가 이해하는 앱 업데이트 문구로. 파일명·기술 용어·이슈 번호는 한국어 노트와 마찬가지로 넣지 않는다.
-- **길이를 지킨다.** Play 한도 500자, 배포 단계가 480자에서 자르므로 **언어당 400자 이내**로 쓴다. 넘으면 뒤가 잘려 문장이 끊긴다.
-- 앱 심사 레포(`APP_RELEASE == true`)는 심사자가 읽는 문구다. 한국어 노트에서 뺀 내부 성격 항목을 번역에서 되살리지 않는다.
-- 확신이 없는 표현은 지어내지 말고 단순하게 옮기고 승인 화면에서 짚는다.
+- **The approved base-language notes are the source.** Do not translate the commit log again.
+- Keep the number and order of items. Store fields are small, so do not carry over category titles; write only `- ` items.
+- Prefer app-update wording that speakers of that language understand over literal translation. As in the base-language notes, leave out file names, technical terms and issue numbers.
+- **Respect the length.** Play allows 500 characters and the deploy step cuts at 480, so write **400 characters or fewer per language**. Anything longer gets cut off mid-sentence.
+- For app review repos (`APP_RELEASE == true`), reviewers read this text. Do not bring back internal items that were removed from the base-language notes.
+- If you are unsure of a phrase, do not invent one. Translate it simply and point it out on the approval screen.
 
-## 노트 파일에 붙이는 형식 (정확히 이 모양)
+## Format to append to the notes file (exactly this shape)
 
-5단계에서 Write한 `NOTES_FILE`의 **맨 끝**, 한국어 노트 뒤에 덧붙인다. 마커 두 줄과 `**언어코드**` 제목 줄은 파서가 읽으므로 글자 그대로 쓴다.
+Append to the **very end** of the `NOTES_FILE` written in step 5, after the base-language notes. The parser reads the two marker lines and the `**locale-code**` title lines, so write them character for character.
 
 ```
 <!-- projectops:store-notes -->
@@ -58,28 +58,28 @@
 <!-- /projectops:store-notes -->
 ```
 
-- 언어 코드는 `store_locales`에 적힌 그대로 쓴다(`en-US`, `ja-JP`, `zh-CN`). 기본 언어는 넣지 않는다.
-- `**언어코드**` 줄은 언어 제목 전용이다. 번역 안에 굵은 글씨만 있는 줄을 만들지 않는다(언어 제목으로 오인될 수 있다). 항목은 `- `로 시작하는 줄로만 쓴다.
-- 이 블록은 PR 본문에 접힌 상태로 들어가고, 머지되면 릴리스 워크플로우가 떼어 내 `CHANGELOG.json`의 `store_notes`에 저장한다. 한국어 변경 이력(`CHANGELOG.md`)에는 섞이지 않는다.
+- Write the locale codes exactly as they appear in `store_locales` (`en-US`, `ja-JP`, `zh-CN`). Do not include the base language.
+- A `**locale-code**` line is only for language titles. Do not create a line that is only bold text inside a translation (it can be mistaken for a language title). Write items only as lines that start with `- `.
+- This block goes into the PR body collapsed. After the merge, the release workflow pulls it out and saves it to `store_notes` in `CHANGELOG.json`. It does not mix into the base-language change history (`CHANGELOG.md`).
 
-## 승인 게이트에서 보여줄 것 (5.5 / 4.5)
+## What to show at the approval gate (5.5 / 4.5)
 
-한국어 노트와 번역을 **함께** 보여준다. 노트 파일 전체를 그대로 출력하면 된다. B(수동) 분기 문구 바로 아래에 한 줄을 더한다.
+Show the base-language notes and the translations **together**. Printing the whole notes file as is works. Add one line right below the B (manual) branch message:
 
 ```
-🌐 번역 초안이 함께 들어 있습니다 (en-US, ja-JP, zh-CN). 어색한 표현이 있으면 말씀해 주세요.
-   번역이 없는 언어는 배포할 때 기본 언어 문구로 채워집니다.
+🌐 Translation drafts are included (en-US, ja-JP, zh-CN). Tell me if any wording sounds off.
+   Languages without a translation get the base-language text when deployed.
 ```
 
-- 수정 지시가 한국어 노트에 관한 것이면 한국어를 고친 뒤 **번역도 다시 만든다.** 한국어만 고치면 번역이 낡은 채로 스토어에 올라간다.
-- 번역만 고치라는 지시면 그 언어만 고친다.
-- A(자동) 분기에서도 번역은 표시만 하고 진행한다. 앱 심사 레포는 자동 모드여도 수동 승인이라 번역까지 확인받는다.
+- If an edit request is about the base-language notes, fix them and **regenerate the translations too.** If you fix only the base language, stale translations go to the store.
+- If the request is to fix only a translation, fix only that language.
+- In the A (auto) branch, translations are also only shown before proceeding. App review repos need manual approval even in auto mode, so the translations get confirmed too.
 
-## 번역을 만들지 않는 경우
+## When not to create translations
 
-- `commit` provider에서 "맡기기"를 고른 경우(노트 파일 없이 빈 본문 PR) — 번역도 없다. 번역이 없는 언어는 기본 언어 문구로 올라가므로 배포는 멈추지 않는다. 안내 한 줄만 남긴다: "번역 없이 진행합니다. 다른 언어 스토어에는 기본 언어 문구가 올라갑니다."
-- 사용자가 "번역은 빼줘"라고 하면 블록을 붙이지 않는다.
+- When "leave it" was chosen with the `commit` provider (empty-body PR without a notes file) — no translations either. Languages without a translation go up with the base-language text, so the deploy does not stop. Leave just one line: "Proceeding without translations. Other-language stores get the base-language text."
+- If the user says "skip the translations" ("번역은 빼줘"), do not append the block.
 
-## fix 모드
+## fix mode
 
-기존 PR을 닫고 새 PR을 열 때도 노트 파일에 같은 블록이 있어야 한다. fix 4단계에서 노트를 다시 쓰면 번역도 다시 붙인다. 이전 PR 본문에서 블록을 복사해 쓰지 않는다 — 한국어가 바뀌었을 수 있다.
+When you close the existing PR and open a new one, the notes file must have the same block. If you rewrite the notes in fix step 4, append the translations again. Do not copy the block from the previous PR body — the base-language notes may have changed.

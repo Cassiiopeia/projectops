@@ -1,69 +1,69 @@
-# Phase 6 — 사용자 보고 표준 포맷
+# Phase 6 — Standard report format for the user
 
-CREATE 모드 Phase 6, IMPROVE 모드 Phase 4에서 공통 사용.
+Shared by CREATE mode Phase 6 and IMPROVE mode Phase 4. Write the report in the user's language; the templates below give the structure.
 
-## CREATE 모드 보고 포맷
+## CREATE mode report format
 
 ```
-## 생성 완료: {skill-name}
+## Created: {skill-name}
 
-**위치:** {파일 경로}
-**버전:** {frontmatter.version}
+**Location:** {file path}
+**Version:** {frontmatter.version}
 
-### 8대 원칙 적용 결과
-| # | 원칙 | 결과 | 한 줄 근거 |
+### 8-principle results
+| # | Principle | Result | One-line evidence |
 |---|------|------|-----------|
-| 1 | 한 번에 하나씩 | ✅ | Phase 0에서 질문 1개씩 강제 |
-| 2 | 자동 추론 우선 | ✅ | {어떤 값을 어떻게 추출했는지} |
-| 3 | 전문 용어 설명 | ✅ | {어떤 용어를 설명했는지} |
-| 4 | UI 경로 구체화 | ✅ | {구체화된 경로 예시} |
-| 5 | 하드코딩 금지 | ✅ | {플레이스홀더로 치환된 값} |
-| 6 | 설정 파일 분리 | ✅ | {config 파일 위치} |
-| 7 | 실경험 반영 | ✅ | {함정 섹션 출처} |
-| 8 | 유연한 입력 | ✅ | {한 번에 받을 수 있는 입력} |
+| 1 | One at a time | ✅ | One question at a time enforced in Phase 0 |
+| 2 | Automatic inference first | ✅ | {which values were extracted and how} |
+| 3 | Explain technical terms | ✅ | {which terms were explained} |
+| 4 | Concrete UI paths | ✅ | {example of a concrete path} |
+| 5 | No hard-coding | ✅ | {values replaced with placeholders} |
+| 6 | Separate config file | ✅ | {config file location} |
+| 7 | Reflects real experience | ✅ | {source of the pitfalls section} |
+| 8 | Flexible input | ✅ | {input accepted all at once} |
 
-### 트리거 발화 검증 (Phase 5 결과)
-Should-trigger 예시 3개 — 모두 PASS  
-Should-not-trigger 예시 2개 — 모두 PASS
+### Trigger utterance check (Phase 5 result)
+3 should-trigger examples — all PASS  
+2 should-not-trigger examples — all PASS
 
-### 사용자 검증 필요 (미검증 가정)
-- {가정 1}
-- {가정 2}
+### Needs user verification (unverified assumptions)
+- {assumption 1}
+- {assumption 2}
 
-### 다음 단계
-1. 지금 한 번 호출해서 동작 확인해볼까요? (Phase 7)
-2. 문제 있으면 어디를 고쳐야 하는지 알려주세요.
+### Next steps
+1. Shall we invoke it once now to check how it behaves? (Phase 7)
+2. If something is wrong, tell me where to fix it.
 ```
 
-## IMPROVE 모드 보고 포맷
+## IMPROVE mode report format
 
 ```
-## 개선 완료: {skill-name}
+## Improved: {skill-name}
 
-**버전:** {이전} → {신규}
+**Version:** {previous} → {new}
 
-### 적용된 패치
-| # | 항목 | 파일 | 변경 요약 |
+### Applied patches
+| # | Item | File | Change summary |
 |---|------|------|----------|
 | 1 | ... | ... | ... |
 
-### 원칙 재평가
-| # | 원칙 | 이전 | 이후 |
+### Principle re-evaluation
+| # | Principle | Before | After |
 |---|------|------|------|
-| 1 | 한 번에 하나씩 | ✅ | ✅ |
-| 2 | 자동 추론 우선 | ⚠️ | ⭐ 개선됨 ({어떻게}) |
+| 1 | One at a time | ✅ | ✅ |
+| 2 | Automatic inference first | ⚠️ | ⭐ improved ({how}) |
 | ... | ... | ... | ... |
 
-### 남은 개선 여지 (이번에 반영 안 한 것)
-- {항목 1} — {왜 미루었는지}
+### Remaining room for improvement (not applied this time)
+- {item 1} — {why it was postponed}
 
-### 동작 확인 결과
-- {실행한 명령} → {결과}
-- 실행 불가한 부분: {왜}
+### Behavior check results
+- {command run} → {result}
+- Parts that could not be run: {why}
 ```
 
-## 규칙
+## Rules
 
-- 8원칙 결과표의 모든 항목이 ✅이 아니면 Phase 4(self-review)로 돌아간다. ⚠️/❌가 남은 채 사용자에게 보고하지 않는다.
-- 사용자가 "오케이", "좋아", "머지해" 같은 **명시적 승인**을 주기 전까지 작업 완료 선언 금지.
-- 보고는 **대화에 직접 출력**. 별도 파일 생성하지 않는다 (지시 없는 한).
+- If any row of the 8-principle table is not ✅, go back to Phase 4 (self-review). Never report to the user with ⚠️/❌ remaining.
+- Do not declare the work done until the user gives **explicit approval** such as "OK", "good", "merge it".
+- **Print the report directly in the conversation.** Do not create a separate file (unless told to).

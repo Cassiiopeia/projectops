@@ -1,62 +1,62 @@
-# Anti-patterns — 이렇게 하면 실패다
+# Anti-patterns — doing this means failure
 
-agent가 막혔거나 유혹을 받을 때 참고. 반복적으로 마주치는 실패 패턴과 올바른 대안.
+Refer to this when the agent is stuck or tempted. Failure patterns that come up again and again, with the right alternative.
 
-## 절차 관련
+## Procedure
 
-| ❌ 잘못된 접근 | ✅ 올바른 접근 |
+| ❌ Wrong approach | ✅ Right approach |
 |--------------|--------------|
-| "이 skill은 간단하니까 설계 없이 바로 작성" | Phase 0 브레인스토밍은 짧아도 건너뛰지 않는다 — 간단해 보이는 skill일수록 unexamined assumption 위험 |
-| Phase 0에서 단일 안 하나만 제시 | 2~3개 접근법 + 추천 이유로 사용자가 대안 보고 선택 |
-| "일단 만들고 필요하면 추가하자" (scope 무방비 확장) | Phase 0 Step D에서 "X는 하지만 Y는 안 한다" 한 줄로 경계 고정 (YAGNI) |
-| 비슷한 기존 skill 무시하고 새로 만들기 | Phase 0 Step E에서 기존 skill 탐색 → 확장/분리/대체 결정 |
-| Phase 0 합의 전에 SKILL.md 파일부터 쓰기 시작 | HARD GATE — 디스크 쓰기는 Phase 3부터. 매몰비용 생기면 잘못된 scope로 굳어짐 |
-| 한 action에 모든 걸 몰아넣기 (`do-all`) 또는 과도 분리 (`get-a`, `get-a-b`, `get-a-b-c`) | Phase 0 Step F에서 action 단위 대략 설계 — 하나의 명확한 목적 |
-| 주관식 질문으로 사용자가 답 짜내게 하기 | 가능한 한 객관식(선택지 제시) — 주관식은 창의적 설계일 때만 |
-| 긴 설계를 한 번에 몰아서 제시 | 섹션별로 "여기까지 맞나요?" 확인 (incremental validation) |
-| IMPROVE 중 범위 밖 문제 즉흥 수정 | "관련 문제 발견" 으로 기록 → 현재 패치 끝난 후 별건으로 사용자에게 제안 |
-| 8대 원칙 체크리스트를 머리로만 통과시키기 | Phase 4에서 SKILL.md를 `Read`로 다시 읽고 체크표 채우기 |
-| 사용자가 준 정보를 다시 묻기 | Phase 1에서 추출 → 의도 요약 한 줄로만 확인 |
-| 한 메시지에 "도메인이랑 포트랑 이메일" 묻기 | 한 메시지 = 한 슬롯 |
-| Phase를 건너뛰지 못한다고 가정 | Phase 1에서 정보가 다 차면 Phase 2 스킵 OK |
-| 사용자가 "오케이"하기 전에 작업 끝났다고 선언 | Phase 6 종료 조건 = 사용자 명시적 승인 |
-| 리뷰 요청을 CREATE 모드로 처리 | §1 모드 판정에서 REVIEW로 분기 |
+| "This skill is simple, so write it right away without design" | Never skip Phase 0 brainstorming, even if short — the simpler a skill looks, the higher the risk of unexamined assumptions |
+| Presenting a single option in Phase 0 | 2~3 approaches + why one is recommended, so the user sees alternatives and chooses |
+| "Build it first and add things as needed" (scope grows unchecked) | Fix the boundary in one line in Phase 0 Step D: "does X but not Y" (YAGNI) |
+| Ignoring a similar existing skill and building a new one | Search existing skills in Phase 0 Step E → decide extend/separate/replace |
+| Starting to write SKILL.md before the Phase 0 agreement | HARD GATE — disk writes start in Phase 3. Once sunk cost appears, the wrong scope sets in |
+| Cramming everything into one action (`do-all`) or over-splitting (`get-a`, `get-a-b`, `get-a-b-c`) | Rough action design in Phase 0 Step F — one clear purpose each |
+| Open-ended questions that make the user dig for answers | Multiple choice (offer options) whenever possible — open-ended only for creative design |
+| Presenting a long design all at once | Confirm per section: "Is this right so far?" (incremental validation) |
+| Fixing out-of-scope problems on the fly during IMPROVE | Record as "related problem found" → suggest it to the user separately after the current patch |
+| Passing the 8-principle checklist in your head only | In Phase 4, re-read SKILL.md with `Read` and fill in the checklist |
+| Asking again for information the user gave | Extract in Phase 1 → confirm with only a one-line intent summary |
+| Asking "domain and port and email" in one message | One message = one slot |
+| Assuming no phase can be skipped | If Phase 1 fills everything, skipping Phase 2 is OK |
+| Declaring the work done before the user says "OK" | Phase 6 exit condition = explicit user approval |
+| Handling a review request in CREATE mode | Branch to REVIEW in §1 mode detection |
 
-## 작성 관련
-
-| ❌ | ✅ |
-|---|---|
-| 실제 도메인/IP/사번 박기 (예: `username@회사도메인`) | `{user_email}` 같은 플레이스홀더 |
-| 사용자별 PEM 경로를 SKILL.md 본문에 | `config.json.example` 으로 분리 |
-| `MUST`, `NEVER`, `ALWAYS` 만으로 규칙 강제 | 규칙 옆에 `(이유: ~)` 한 줄 — 왜 그런지 붙이기 |
-| SKILL.md 600줄 단일 파일 | 300줄 본문 + references/ 분할 |
-| "확인해보세요" 같은 모호한 UI 안내 | "DSM → 제어판 → 외부 액세스 → DDNS 탭 → 호스트이름 컬럼" |
-| 일반론 경고를 함정 섹션에 잔뜩 | 실제 겪은 문제만 간결히 (미검증은 차라리 빼기) |
-
-## 스크립트 관련
+## Writing
 
 | ❌ | ✅ |
 |---|---|
-| 매번 skill 호출마다 agent가 파이썬 스크립트를 새로 짜게 함 | 공통 로직은 `scripts/` 에 번들링 |
-| `requests`, `httpx` 등 외부 의존성 강제 | `urllib` 같은 stdlib만 사용 (네트워크 제한 환경 대비) |
-| Windows 콘솔 한글 깨짐 방치 | `sys.stdout.reconfigure(encoding="utf-8")` 상단 삽입 |
-| HTTP 에러를 raw 응답으로만 던지기 | 구조화된 에러 dict로 파싱 + 다음 액션 안내 |
-| 사내 자체 서명 SSL 인증서 에러에서 하드 실패 | `verify_ssl` 설정 옵션으로 opt-out 가능하게 |
+| Baking in a real domain/IP/employee ID (e.g. `username@company-domain`) | A placeholder like `{user_email}` |
+| A per-user PEM path in the SKILL.md body | Move it into `config.json.example` |
+| Enforcing rules with only `MUST`, `NEVER`, `ALWAYS` | Add a one-line `(reason: ~)` next to the rule — say why |
+| A single 600-line SKILL.md | A 300-line body + split into references/ |
+| Vague UI directions like "check it" | "DSM → Control Panel → External Access → DDNS tab → Hostname column" |
+| A pitfalls section full of generic warnings | Only problems actually encountered, briefly (better to drop unverified ones) |
 
-## 대화 관련
-
-| ❌ | ✅ |
-|---|---|
-| 사용자가 "master로 올려줘"하면 그대로 실행 (브랜치명은 R인데) | 타입 불일치 감지 → "확실히 master 맞나요?" 재확인 |
-| 액션 성공 후 "완료"만 찍고 끝 | 다음 자연스러운 후속 액션 2~3개 선택지로 제시 |
-| 질문을 AskUserQuestion 없이 평문으로만 | 가능하면 AskUserQuestion 도구로 선택지 UI 제공 |
-| 사용자가 한 번 허락한 파괴적 명령을 반복 허락 없이 재실행 | 매번 재확인 (force push, reset --hard 등) |
-
-## 모드 판정 관련 (REVIEW/IMPROVE 추가)
+## Scripts
 
 | ❌ | ✅ |
 |---|---|
-| "리뷰해줘" 들었는데 새 skill을 CREATE 하기 시작 | §1 모드 판정 → REVIEW로 진입 |
-| 리뷰 이슈를 중요도 구분 없이 나열 | 🟥/🟨/🟩 으로 분류해 우선순위 명시 |
-| 리뷰 결과를 사용자 합의 없이 바로 적용 | Phase 4에서 "어디까지 반영할까요?" 묻기 |
-| 개선 적용 후 동작 확인 없이 "완료" | IMPROVE Phase 3에서 실제 호출 테스트 (가능한 한) |
+| Making the agent write a new Python script on every skill call | Bundle shared logic in `scripts/` |
+| Requiring external dependencies like `requests`, `httpx` | Use only the stdlib, such as `urllib` (for network-restricted environments) |
+| Leaving non-ASCII text (e.g. Korean) garbled in the Windows console | Insert `sys.stdout.reconfigure(encoding="utf-8")` at the top |
+| Throwing HTTP errors only as raw responses | Parse into a structured error dict + suggest the next action |
+| Failing hard on an in-house self-signed SSL certificate | Allow opt-out through a `verify_ssl` setting |
+
+## Conversation
+
+| ❌ | ✅ |
+|---|---|
+| User says "push to master" and you just run it (but the branch is R) | Detect the mismatch → reconfirm "Are you sure it is master?" |
+| After an action succeeds, print only "done" and stop | Offer 2~3 natural follow-up actions as options |
+| Asking questions only as plain text without AskUserQuestion | Use the AskUserQuestion tool for an options UI when possible |
+| Re-running a destructive command the user allowed once, without asking again | Reconfirm every time (force push, reset --hard, etc.) |
+
+## Mode detection (REVIEW/IMPROVE additions)
+
+| ❌ | ✅ |
+|---|---|
+| Hearing "review it" and starting to CREATE a new skill | §1 mode detection → enter REVIEW |
+| Listing review issues without severity | Classify as 🟥/🟨/🟩 to show priority |
+| Applying review results without user agreement | Ask "How much should I apply?" in Phase 4 |
+| Saying "done" after an improvement without checking behavior | Call it for real in IMPROVE Phase 3 (when possible) |

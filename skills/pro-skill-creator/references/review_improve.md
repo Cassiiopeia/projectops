@@ -1,94 +1,94 @@
-# REVIEW · IMPROVE 모드 상세
+# REVIEW · IMPROVE mode details
 
-> 언제 읽나: 모드가 REVIEW(기존 skill 리뷰) 또는 IMPROVE(리뷰 결과 반영)로 판정됐을 때.
+> When to read: when the mode was determined to be REVIEW (review an existing skill) or IMPROVE (apply review results).
 
-## 모드 REVIEW — 기존 skill 리뷰
+## REVIEW mode — review an existing skill
 
-### Task 등록
+### Register tasks
 
 ```
-[review] Phase 1: 타겟 skill 파일 읽기
-[review] Phase 2: 8대 원칙 + 공식 모범사례 대조
-[review] Phase 3: 우선순위별 이슈 리포트 생성
-[review] Phase 4: 사용자 합의 (개선 범위 결정)
+[review] Phase 1: Read the target skill files
+[review] Phase 2: Compare against the 8 principles + official best practices
+[review] Phase 3: Produce an issue report by priority
+[review] Phase 4: User agreement (decide the scope of improvements)
 ```
 
-### Phase 1 — 타겟 skill 파일 읽기
+### Phase 1 — Read the target skill files
 
-타겟 경로를 사용자에게서 받거나 대화 문맥에서 추론한다. SKILL.md, 관련 스크립트, config 예시를 모두 `Read`로 확인. **절대 메모리로만 판단 금지**.
+Get the target path from the user or infer it from the conversation. Check SKILL.md, related scripts and config examples, all with `Read`. **Never judge from memory alone.**
 
-### Phase 2 — 대조 체크
+### Phase 2 — Comparison check
 
-아래 8개 + 공식 skill-creator의 4개 모범사례를 교차 적용한다.
+Apply the 8 below plus the 4 best practices of the official skill-creator together.
 
-**8대 원칙 (CREATE Phase 4 체크리스트 재사용)**: `phase4_checklist.md` (같은 폴더).
+**8 principles (reuses the CREATE Phase 4 checklist)**: `phase4_checklist.md` (same folder).
 
-**공식 skill-creator 모범사례**:
+**Official skill-creator best practices**:
 
-| # | 기준 | 체크 질문 |
+| # | Criterion | Check question |
 |---|------|----------|
-| a | Lean prompt | 빼도 결과에 영향 없는 문장·MUST·ALWAYS가 있는가? |
-| b | Explain the why | "하지 말 것" 규칙에 이유가 붙어 있는가? 없으면 agent가 경계 케이스에서 잘못 판단. |
-| c | Progressive disclosure | SKILL.md ≤ 500줄? 초과하면 references/로 분할되었는가? |
-| d | Repeated work 번들화 | 여러 호출에서 반복될 로직이 scripts/로 분리되어 있는가? 아니면 매번 agent가 다시 짠다. |
+| a | Lean prompt | Are there sentences, MUSTs or ALWAYSes that could go without changing results? |
+| b | Explain the why | Do "do not" rules come with a reason? Without one, the agent misjudges edge cases. |
+| c | Progressive disclosure | SKILL.md ≤ 500 lines? If over, is it split into references/? |
+| d | Bundle repeated work | Is logic repeated across calls moved into scripts/? Otherwise the agent rewrites it every time. |
 
-### Phase 3 — 우선순위별 이슈 리포트
+### Phase 3 — Issue report by priority
 
-각 이슈를 🟥(버그급, 즉시 수정)/🟨(UX 저하, 권장)/🟩(니스 투 해브)로 분류하고 표로 정리. 각 이슈마다:
+Classify each issue as 🟥 (bug-level, fix now) / 🟨 (degrades UX, recommended) / 🟩 (nice to have) and organize them in a table. For each issue:
 
-- **무엇이 문제인가** (근거: 파일·라인 인용)
-- **어떻게 고치면 되는가** (구체적 패치 아이디어)
-- **왜 그게 중요한가** (원칙·실제 부작용)
+- **What the problem is** (evidence: quote the file and line)
+- **How to fix it** (a concrete patch idea)
+- **Why it matters** (the principle, the real side effect)
 
-리포트는 기존 대화에 바로 출력. 별도 파일 만들지 않는다 (지시 없는 한).
+Print the report directly in the existing conversation. Do not create a separate file (unless told to).
 
-### Phase 4 — 사용자 합의
+### Phase 4 — User agreement
 
-사용자에게 "어디까지 반영할까요?" 묻는다. 선택지는:
-- "1~2번만 (핵심만)"
-- "전체 반영"
-- "리뷰만 보고 끝"
+Ask the user "How much should I apply?". Options:
+- "Only 1~2 (the essentials)"
+- "Apply everything"
+- "Just the review, stop here"
 
-**리뷰만 보고 끝** 이면 여기서 종료. 아니면 IMPROVE 모드로 넘어간다.
+If **just the review**, stop here. Otherwise, move to IMPROVE mode.
 
 ---
 
-## 모드 IMPROVE — 기존 skill 개선 적용
+## IMPROVE mode — apply improvements to an existing skill
 
-### Task 등록
+### Register tasks
 
 ```
-[improve] Phase 1: 적용할 패치 목록 확정
-[improve] Phase 2: 파일별로 Edit/Write 적용
-[improve] Phase 3: 변경 사항 동작 확인 (가능한 한 실행)
-[improve] Phase 4: 변경 요약 보고 + frontmatter version 증가
+[improve] Phase 1: Finalize the list of patches to apply
+[improve] Phase 2: Apply Edit/Write per file
+[improve] Phase 3: Check the changes work (run them when possible)
+[improve] Phase 4: Report a change summary + bump the frontmatter version
 ```
 
-### Phase 1 — 적용할 패치 목록 확정
+### Phase 1 — Finalize the list of patches to apply
 
-리뷰 리포트에서 사용자가 승인한 항목만 골라 "패치 N건" 형태의 목록을 만든다. 각 패치마다 target 파일·변경 요약·risk 레벨 표시.
+From the review report, take only the items the user approved and make a list of "N patches". Mark the target file, change summary and risk level for each patch.
 
-**범위 제한 (targeted improvements only)**: 패치 작업 중 원래 범위 밖의 문제를 발견해도 **즉흥적으로 손대지 않는다**. 대신 리포트에 "관련 문제 발견: ~" 로 기록해두고, 현재 패치 끝난 후 사용자에게 "이것도 고칠까요?"를 묻는다.
+**Scope limit (targeted improvements only)**: if you find a problem outside the original scope while patching, **do not touch it on the fly**. Record it in the report as "related problem found: ~", and after the current patch, ask the user "Should I fix this too?".
 
-> **이유**: "이왕 건드리는 김에..." 로 시작하는 리팩토링은 리뷰 범위를 흐려서 패치 본문에 뭐가 들어있는지 사용자가 추적 못 하게 한다. 작업 중인 코드의 문제는 고치되, 무관한 리팩토링은 별건으로.
+> **Reason**: refactoring that starts with "since I am touching it anyway..." blurs the review scope, so the user cannot track what the patch contains. Fix problems in the code you are working on, but handle unrelated refactoring as a separate item.
 
-### Phase 2 — 파일별 Edit/Write 적용
+### Phase 2 — Apply Edit/Write per file
 
-- 기존 파일 수정 → `Edit` 우선 사용 (diff 최소화)
-- 새 파일 생성 → `Write`
-- 여러 파일에 동일 변경 → 한 번에 하지 말고 파일 단위로 확인
+- Changing an existing file → prefer `Edit` (minimal diff)
+- Creating a new file → `Write`
+- The same change in several files → do not do them all at once; confirm file by file
 
-### Phase 3 — 동작 확인
+### Phase 3 — Check behavior
 
-변경한 부분이 실행 가능한 코드·설정이면 가능한 한 **직접 호출해서 결과를 본다** (네트워크 제한으로 막히면 파싱 테스트라도). "코드가 맞을 것이다"로 넘기지 않는다.
+If the changed part is runnable code or configuration, **call it directly and look at the result** whenever possible (if the network blocks it, at least a parse test). Do not pass it with "the code should be right".
 
-### Phase 4 — 변경 요약 보고
+### Phase 4 — Change summary report
 
-| 항목 | 내용 |
+| Item | Content |
 |------|------|
-| 적용된 패치 | 번호 · 대상 파일 · 요약 |
-| 원칙 재평가 | 8대 원칙 표 업데이트 (개선된 ⭐ 표시) |
-| 남은 개선 여지 | 이번에 반영 안 한 항목 / 후속 제안 |
-| 버전 | frontmatter `version` 증가 (예: 1.0 → 1.1) |
+| Applied patches | number · target file · summary |
+| Principle re-evaluation | Update the 8-principle table (mark improvements with ⭐) |
+| Remaining room for improvement | Items not applied this time / follow-up suggestions |
+| Version | Bump the frontmatter `version` (e.g. 1.0 → 1.1) |
 
-보고 형식은 `phase6_report_format.md` (같은 폴더)와 공통이다.
+The report format is shared with `phase6_report_format.md` (same folder).

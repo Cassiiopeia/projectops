@@ -1,57 +1,57 @@
-# Phase 2 — 한 번에 하나씩 질문 포맷
+# Phase 2 — One-question-at-a-time format
 
-Phase 1에서 빈 슬롯이 남았을 때만 사용. 한 메시지 = 한 슬롯.
+Use only when empty slots remain after Phase 1. One message = one slot. Ask in the user's language.
 
-## 표준 포맷
+## Standard format
 
 ```
-[질문] {슬롯 이름을 사용자 친화적 표현으로}
+[Question] {slot name in user-friendly words}
 
-후보:
-  1) {옵션 A} — {언제 적합한지 한 줄}
-  2) {옵션 B} — {언제 적합한지 한 줄}
-  3) 직접 입력
+Options:
+  1) {option A} — {one line on when it fits}
+  2) {option B} — {one line on when it fits}
+  3) Enter it directly
 
-추천: {기본값} ({왜 이게 기본값인지})
+Recommended: {default} ({why this is the default})
 ```
 
-## 규칙
+## Rules
 
-- **한 메시지 = 한 슬롯**. 절대 2개 이상의 슬롯을 한 메시지에 묻지 않는다.
-- 전문 용어가 들어가면 **한 줄 설명**을 같이 붙인다 (H5).
-- 응답을 받으면 슬롯에 채우고 **다음 빈 슬롯으로**.
-- 사용자가 한 번에 여러 슬롯의 답을 함께 주면 모두 받아들이고 빈 슬롯만 다시 확인 (H2).
-- AskUserQuestion 도구를 쓰면 UI 선택지로 예쁘게 보임 — 실제 가능한 환경이면 선호.
+- **One message = one slot.** Never ask about 2 or more slots in one message.
+- If a technical term appears, add a **one-line explanation** with it (H5).
+- When you get an answer, fill the slot and move **to the next empty slot**.
+- If the user answers several slots at once, accept them all and re-check only the empty slots (H2).
+- The AskUserQuestion tool shows options as a nice UI — prefer it when the environment supports it.
 
-## Good / Bad 예시
+## Good / Bad examples
 
-**Bad (한 메시지에 3개 질문):**
-> "도메인, DNS 관리 서비스, 이메일을 알려주세요."
+**Bad (3 questions in one message):**
+> "Tell me the domain, the DNS service and your email."
 
-→ 사용자는 보통 1~2개만 답하거나 "에이 복잡해" 하고 대충 답한다. 놓친 정보로 agent가 추측을 시작하면 산으로 간다.
+→ Users usually answer only 1~2, or think "ugh, complicated" and answer carelessly. Once the agent starts guessing the missing information, things go off the rails.
 
-**Good (한 메시지 = 한 슬롯):**
-> "사용할 도메인이 무엇인가요? (예: `example.com`)"
-> (응답 받은 후)
-> "감사합니다. DNS는 어디서 관리하시나요?
+**Good (one message = one slot):**
+> "Which domain will you use? (e.g. `example.com`)"
+> (after the answer)
+> "Thanks. Where is your DNS managed?
 >   1) Cloudflare
 >   2) AWS Route53
->   3) 기타 (직접 입력)
+>   3) Other (enter it directly)
 >
-> 추천: Cloudflare (회사 기본값)"
+> Recommended: Cloudflare (company default)"
 
 ---
 
-**Bad (전문 용어 설명 없음):**
-> "Let's Encrypt 이메일을 입력하세요."
+**Bad (no explanation of a technical term):**
+> "Enter your Let's Encrypt email."
 
 **Good:**
-> "Let's Encrypt 인증서 만료 알림을 받을 이메일을 알려주세요. (별도 회원가입은 필요 없고, 만료 임박 시에만 알림이 옵니다.)"
+> "Which email should receive Let's Encrypt certificate expiry notices? (No sign-up is needed; you only get a notice when expiry is near.)"
 
 ---
 
-**Bad (사용자가 이미 준 정보 재질문):**
-> 사용자: "docker-compose에 포트 3000으로 돼 있어"
-> Agent: "사용할 포트가 뭔가요?"
+**Bad (asking again for information the user already gave):**
+> User: "docker-compose has the port set to 3000"
+> Agent: "Which port will you use?"
 
-**Good:** 침묵하고 다음 빈 슬롯으로. (이미 `port=3000` 추출됨)
+**Good:** stay silent and move to the next empty slot. (`port=3000` is already extracted)

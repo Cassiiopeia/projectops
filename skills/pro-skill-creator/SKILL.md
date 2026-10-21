@@ -8,143 +8,145 @@ version: 2.3
 
 ## When to use
 
-- "skill 만들어줘", "skill 추가해줘", "이거 skill로 만들자"
-- "이 skill 리뷰해줘", "skill 검증해줘"
-- "skill 개선해줘", "skill 고쳐줘"
+- "make a skill", "add a skill", "turn this into a skill" (Korean: "skill 만들어줘", "skill 추가해줘", "이거 skill로 만들자")
+- "review this skill", "validate this skill" (Korean: "이 skill 리뷰해줘", "skill 검증해줘")
+- "improve this skill", "fix this skill" (Korean: "skill 개선해줘", "skill 고쳐줘")
 - "create a skill", "review this skill"
-- 호출 즉시 사용자 의도를 create/review/improve 셋 중 하나로 분류한 뒤 모드별 Phase를 실행한다. 한 번에 한 질문·자동 추론 우선·하드코딩 금지·설정 분리 등 8대 원칙을 강제한다.
+- On invocation, classify the user's intent as one of create/review/improve, then run that mode's phases. Enforces 8 principles, including one question at a time, automatic inference first, no hard-coding, and separate config.
 
-이 문서는 **글이 아니라 의사결정 절차**다. 위에서 아래로 실행하고, 각 Phase의 "종료 조건"이 충족될 때까지 다음 Phase로 넘어가지 않는다.
+This document is **a decision procedure, not an essay**. Run it top to bottom, and do not move to the next phase until the current phase's "exit condition" is met.
 
-> **호출 즉시**: 아래 §1에서 **모드를 판정** → `TaskCreate` 등록 → 해당 모드 Phase 1부터. 분석/설명 글을 먼저 쓰지 않는다.
-> **판단 원칙**: 애매하면 억지 추론 금지 — 즉시 질문. 한 메시지 = 한 질문. 이미 준 정보는 다시 묻지 않음. 위험한 작업은 실행 전 확인.
+> **On invocation**: **determine the mode** in §1 below → register with `TaskCreate` → start at that mode's Phase 1. Do not write analysis or explanation first.
+> **Decision rules**: if unclear, do not force an inference — ask right away. One message = one question. Never ask again for information already given. Confirm risky work before running it.
+> **Language**: talk to the user in the user's language (or the configured `language` preference).
 
-## 어디를 읽나
+## Where to read
 
-| 지금 하는 것 | 자세히 |
+| What you are doing | Details |
 |---|---|
-| CREATE Phase 0 — Scope·접근법·경계 합의 | `references/phase0_brainstorming.md` |
-| CREATE Phase 1 — 6개 슬롯 정의·자동 추론 | `references/phase1_slots.md` |
-| CREATE Phase 2 — 한 번에 하나씩 질문 포맷 | `references/phase2_question_format.md` |
-| CREATE Phase 3 · IMPROVE Phase 2 — 본문 쓰기 메타 원칙, 신규 skill Python CLI 3-layer 표준 | `references/meta_principles.md` |
-| 스킬에 공식 트러블슈팅 지식(`troubleshooting/`, 실패 응답의 `known_fix`) 붙이기 | `references/meta_principles.md` §3 |
-| CREATE Phase 4 · REVIEW Phase 2 — 8대 원칙 체크표 | `references/phase4_checklist.md` |
-| CREATE Phase 5 고급 — 공식 `run_loop.py` 정량 최적화 | `references/trigger_optimization.md` |
-| CREATE Phase 6 · IMPROVE Phase 4 — 보고 표준 포맷 | `references/phase6_report_format.md` |
-| REVIEW · IMPROVE 모드 전체 절차 | `references/review_improve.md` |
-| 막혔을 때 — 실패 패턴 모음 | `references/anti_patterns.md` |
-| config / Python CLI 뼈대 | `templates/config.json.example` · `templates/python_cli_script.py` |
+| CREATE Phase 0 — agree on scope, approach, boundaries | `references/phase0_brainstorming.md` |
+| CREATE Phase 1 — define the 6 slots, automatic inference | `references/phase1_slots.md` |
+| CREATE Phase 2 — one-question-at-a-time format | `references/phase2_question_format.md` |
+| CREATE Phase 3 · IMPROVE Phase 2 — meta principles for writing the body, the Python CLI 3-layer standard for new skills | `references/meta_principles.md` |
+| Attaching official troubleshooting knowledge to a skill (`troubleshooting/`, `known_fix` in failure responses) | `references/meta_principles.md` §3 |
+| CREATE Phase 4 · REVIEW Phase 2 — 8-principle checklist | `references/phase4_checklist.md` |
+| CREATE Phase 5 advanced — quantitative optimization with the official `run_loop.py` | `references/trigger_optimization.md` |
+| CREATE Phase 6 · IMPROVE Phase 4 — standard report format | `references/phase6_report_format.md` |
+| Full REVIEW · IMPROVE procedure | `references/review_improve.md` |
+| When stuck — failure patterns | `references/anti_patterns.md` |
+| config / Python CLI skeleton | `templates/config.json.example` · `templates/python_cli_script.py` |
 
-## 0. 절대 규칙 (Hard Constraints)
+## 0. Hard constraints
 
-어느 Phase·모드에서도 위반 금지. 위반 감지 시 즉시 멈추고 알린다.
+Never violate these in any phase or mode. If you detect a violation, stop and say so.
 
-| ID | 규칙 | 왜 중요한가 |
+| ID | Rule | Why it matters |
 |----|------|-----------|
-| H1 | 한 메시지에 질문은 **최대 1개** | 여러 개를 던지면 사용자는 한두 개만 답하고, agent는 나머지를 "답변 거부"로 오해해 잘못된 추측으로 진행한다. |
-| H2 | 사용자가 이미 준 정보는 다시 묻지 않는다 | "방금 말했는데 또 묻나" — 신뢰를 잃는다. 추출하지 못한 agent의 실패다. |
-| H3 | 실제 도메인/IP/이메일/사번/회사명을 SKILL.md 본문에 박지 않는다 | skill이 다른 프로젝트로 가면 남의 계정·회사 정보가 박혀 쓸 수 없다. 플레이스홀더 사용. |
-| H4 | 사용자별로 다른 값은 SKILL.md가 아니라 별도 config에 둔다 | 팀원마다 PEM 키·PAT·계정이 다르다. 공유 문서에 개인 값이 들어가면 충돌한다. |
-| H5 | 전문 용어는 처음 등장 시 한 줄 설명 | 용어에서 막히면 skill을 아예 안 쓴다. |
-| H6 | UI 안내는 메뉴 경로 + 필드명까지 구체화 | "거기서 찾으세요"는 UI가 바뀌면 무용지물. "제어판 → 외부 액세스 → DDNS 탭 → 호스트이름 컬럼"처럼 쪼개면 근처를 찾을 수 있다. |
+| H1 | **At most 1 question** per message | With several questions, the user answers only one or two, and the agent reads the rest as "declined" and proceeds on wrong guesses. |
+| H2 | Never ask again for information the user already gave | "I just told you" — trust is lost. It is the agent's failure to extract it. |
+| H3 | Do not put real domains, IPs, emails, employee IDs or company names in the SKILL.md body | When the skill moves to another project, someone else's account and company details are baked in and it becomes unusable. Use placeholders. |
+| H4 | Values that differ per user go in a separate config, not in SKILL.md | PEM keys, PATs and accounts differ per teammate. Personal values in a shared document collide. |
+| H5 | Explain a technical term in one line the first time it appears | If users get stuck on a term, they stop using the skill. |
+| H6 | Give UI directions down to the menu path and field name | "Find it there" is useless once the UI changes. Breaking it down like "Control Panel → External Access → DDNS tab → Hostname column" lets users find the area even then. |
 
-나머지 2개 원칙(자동 추론 우선·유연한 입력)은 Phase 1 절차로 강제된다.
+The remaining 2 principles (automatic inference first, flexible input) are enforced by the Phase 1 procedure.
 
-## 1. 모드 판정
+## 1. Determine the mode
 
-| 모드 | 트리거 예시 발화 | 진입 |
+| Mode | Example trigger utterances | Go to |
 |------|----------------|-----------|
-| **CREATE** | "skill 만들어줘", "이 작업 skill로 만들자", "~에 대한 skill 추가" | §2 |
-| **REVIEW** | "이 skill 리뷰해줘", "어디 고칠 거 있어?", "평가해줘", "점검해줘" | `references/review_improve.md` |
-| **IMPROVE** | "리뷰 결과 반영해줘", "1~4번만 고쳐줘", "skill 개선해줘 + 기존 skill 지정" | `references/review_improve.md` |
+| **CREATE** | "make a skill", "turn this task into a skill", "add a skill for ~" (Korean: "skill 만들어줘", "이 작업 skill로 만들자", "~에 대한 skill 추가") | §2 |
+| **REVIEW** | "review this skill", "anything to fix?", "evaluate it", "check it" (Korean: "이 skill 리뷰해줘", "어디 고칠 거 있어?", "평가해줘", "점검해줘") | `references/review_improve.md` |
+| **IMPROVE** | "apply the review results", "fix only items 1~4", "improve the skill + an existing skill named" (Korean: "리뷰 결과 반영해줘", "1~4번만 고쳐줘", "skill 개선해줘 + 기존 skill 지정") | `references/review_improve.md` |
 
-**판정 우선순위**:
-1. 특정 **기존 skill 경로** + "리뷰"/"점검" → REVIEW
-2. 특정 **기존 skill 경로** + "개선"/"고쳐" → IMPROVE
-3. 둘 다 아니면서 새 기능 제안 → CREATE
-4. 애매하면 한 번만 묻는다: "새로 만들까요, 기존 skill을 리뷰/개선할까요?"
+**Priority**:
+1. A specific **existing skill path** + "review"/"check" → REVIEW
+2. A specific **existing skill path** + "improve"/"fix" → IMPROVE
+3. Neither, and a new capability is proposed → CREATE
+4. If unclear, ask once: "Should I create a new one, or review/improve an existing skill?"
 
-판정 후 모드별 task 목록을 `TaskCreate`로 등록한다 (CREATE는 아래, REVIEW/IMPROVE는 references에 있다).
+After deciding, register the mode's task list with `TaskCreate` (CREATE below; REVIEW/IMPROVE in references).
 
-## 2. 모드 CREATE — 새 skill 생성
+## 2. CREATE mode — create a new skill
 
 ```
-[create] Phase 0: 브레인스토밍 (무엇을·왜 만들까)
-[create] Phase 1: 의도 흡수 + 자동 추출
-[create] Phase 2: 부족한 정보만 한 번에 하나씩 질문
-[create] Phase 3: SKILL.md 작성 (+ config/scripts 템플릿)
-[create] Phase 4: 8대 원칙 self-review
-[create] Phase 5: 트리거 발화 검증 (샘플 5개)
-[create] Phase 6: 사용자 보고 + 합의
-[create] Phase 7: 실제 호출 동작 확인
+[create] Phase 0: Brainstorming (what to build and why)
+[create] Phase 1: Absorb intent + automatic extraction
+[create] Phase 2: Ask only for missing information, one at a time
+[create] Phase 3: Write SKILL.md (+ config/scripts templates)
+[create] Phase 4: 8-principle self-review
+[create] Phase 5: Trigger utterance check (5 samples)
+[create] Phase 6: Report to the user + agreement
+[create] Phase 7: Check real invocation behavior
 ```
 
-### Phase 0 — 브레인스토밍
+### Phase 0 — Brainstorming
 
-- 목표: Scope·접근법·경계·기존 skill과의 관계를 합의. 출력: "무엇을 만들지" 한 줄 합의 + 선택된 접근법.
-- 종료 조건: Scope 적절 / 접근법 1개 선택 / 경계 명확 / 중복 정리 (4개 모두) → Phase 1.
-- 짧아도 되지만 **건너뛰지 말 것** — 5분 설계가 수백 번 호출의 품질을 좌우한다. "너무 간단해서 설계 필요 없다"는 anti-pattern.
-- 절차·2~3개 접근법 제시 포맷·scope 판정 기준: `references/phase0_brainstorming.md`.
-- **건너뛸 수 있는 조건**: 사용자가 scope·접근법·기존 skill과의 관계를 이미 명시. 이때도 "Phase 0 스킵 이유: ~"를 한 줄 알린다.
+- Goal: agree on scope, approach, boundaries and the relation to existing skills. Output: a one-line agreement on "what to build" + the chosen approach.
+- Exit condition: scope is right / 1 approach chosen / boundaries clear / overlap resolved (all 4) → Phase 1.
+- It can be short, but **do not skip it** — five minutes of design decides the quality of hundreds of calls. "Too simple to need design" is an anti-pattern.
+- Procedure, the format for presenting 2~3 approaches, and scope criteria: `references/phase0_brainstorming.md`.
+- **When you may skip it**: the user already stated scope, approach and the relation to existing skills. Even then, say in one line "Skipping Phase 0 because: ~".
 
-### Phase 1 — 의도 흡수 + 자동 추출
+### Phase 1 — Absorb intent + automatic extraction
 
-- 6개 슬롯 `purpose`, `triggers`, `inputs`, `outputs`, `auto_extract`, `pain_points` 상태표를 **메모리에만** 유지한다 (정의·추론 규칙: `references/phase1_slots.md`).
-- 종료 조건: 6개 모두 "값 있음" 또는 "추론 가능". 빈 슬롯 0개 → Phase 3 / 1개 이상 → Phase 2.
-- 사용자에게는 **한 줄 의도 요약만** 보여주고 "이 이해가 맞나요?"로 확인 — 슬롯 표를 통째로 보여주면 압도된다.
+- Keep a status table of the 6 slots `purpose`, `triggers`, `inputs`, `outputs`, `auto_extract`, `pain_points` **in memory only** (definitions and inference rules: `references/phase1_slots.md`).
+- Exit condition: all 6 are "has value" or "inferable". 0 empty slots → Phase 3 / 1 or more → Phase 2.
+- Show the user **only a one-line summary of the intent** and confirm with "Did I understand this right?" — showing the whole slot table overwhelms them.
 
-### Phase 2 — 부족한 정보만 하나씩 질문
+### Phase 2 — Ask only for missing information, one at a time
 
-한 메시지 = 한 슬롯 (`references/phase2_question_format.md`). 사용자가 여러 슬롯의 답을 함께 주면 모두 받고 빈 슬롯만 다시 확인. 빈 슬롯이 없으면 생략.
+One message = one slot (`references/phase2_question_format.md`). If the user answers several slots at once, take them all and re-check only the empty slots. If no slot is empty, skip this phase.
 
-### Phase 3 — SKILL.md 작성 (+ config/scripts)
+### Phase 3 — Write SKILL.md (+ config/scripts)
 
-- 출력: SKILL.md (필수) + config.json.example (선택) + scripts/ (선택). 종료 조건: 파일 존재 + 필수 섹션 포함.
-- Frontmatter: `name`, `description` 필수, `version` 권장.
-- 본문 골격:
+- Output: SKILL.md (required) + config.json.example (optional) + scripts/ (optional). Exit condition: the files exist + the required sections are present.
+- Frontmatter: `name` and `description` required, `version` recommended.
+- **Write the new skill's prose in English by default** (frontmatter `description`, headings and body). If the skill's users speak another language, add their trigger phrases next to the English ones in `description` and "When to use", and tell the skill to reply in the user's language. Use another language for the prose only when the user asks for it.
+- Body skeleton:
 
 ```markdown
 # {Skill Name}
 
-## 언제 사용하는가
-- 트리거 시나리오 1
-- 트리거 시나리오 2
-- (반대로 "이때는 쓰지 마라"도 1줄 명시 권장)
+## When to use
+- Trigger scenario 1
+- Trigger scenario 2
+- (Also recommended: one line on when NOT to use it)
 
-## 사용 전 준비 (config 파일이 필요한 skill에만)
+## Setup (only for skills that need a config file)
 
-## 작업 흐름
-### Phase 0 — 정보 수집
-### Phase 1 — 실행
-### Phase 2 — 검증/보고
+## Workflow
+### Phase 0 — Gather information
+### Phase 1 — Run
+### Phase 2 — Verify / report
 
-## 자주 묻는 함정 (실경험 기반)
+## Common pitfalls (from real experience)
 ```
 
-- 스크립트/config가 필요하면 `templates/config.json.example`(계정/URL 분리 설정 표준), `templates/python_cli_script.py`(stdlib CLI 뼈대 — UTF-8 콘솔, SSL opt-out, 구조화 에러)를 복사한다. Python 호출은 **3-layer 표준**과 "스크립트 찾기 1회 + `{PYTHON} {SCRIPTS}/x_cli.py` 재사용" 라우터 형식을 따른다 → `references/meta_principles.md` §2.
-- 쓰는 법(이유 붙이기·객관식 우선·복잡도에 맞는 분량·섹션별 확인·뒤로 돌아가기): `references/meta_principles.md` §1.
+- If you need scripts or a config, copy `templates/config.json.example` (the standard for separating accounts and URLs into settings) and `templates/python_cli_script.py` (stdlib CLI skeleton — UTF-8 console, SSL opt-out, structured errors). Python calls follow the **3-layer standard** and the router form "find the scripts once + reuse `{PYTHON} {SCRIPTS}/x_cli.py`" → `references/meta_principles.md` §2.
+- How to write (give reasons, prefer multiple choice, length matched to complexity, confirm section by section, go back when needed): `references/meta_principles.md` §1.
 
-### Phase 4 — 8대 원칙 self-review
+### Phase 4 — 8-principle self-review
 
-방금 쓴 파일을 **반드시 `Read`로 다시 읽고** 8개 검사를 한 줄씩 채운다 ("방금 썼으니 안다" 금지). 검사 표·조치: `references/phase4_checklist.md`. FAIL이 하나라도 있으면 수정 후 재검사 — 위반 0건까지.
+**Always re-read the file you just wrote with `Read`** and fill in the 8 checks one line each ("I just wrote it, so I know" is not allowed). Checklist and fixes: `references/phase4_checklist.md`. If anything FAILs, fix it and check again until there are 0 violations.
 
-### Phase 5 — 트리거 발화 검증
+### Phase 5 — Trigger utterance check
 
-별도 CLI 없이 agent가 시뮬레이션한다.
+The agent simulates this without a separate CLI.
 
-1. **should-trigger 3개** — 실제로 할 법한 발화, skill 이름을 직접 부르지 않는 표현.
-2. **should-not-trigger 2개** — 근처 주제지만 호출되면 안 되는 경우.
-3. 각각 "description만 보고 이 skill을 호출할까?" 자문. 5/5면 통과, 하나라도 틀리면 description을 고쳐 다시.
+1. **3 should-trigger** — utterances a user would really say, phrased without naming the skill directly.
+2. **2 should-not-trigger** — nearby topics that must not invoke the skill.
+3. For each, ask yourself "Would I call this skill from the description alone?" 5/5 passes; if any is wrong, fix the description and try again.
 
-정량 최적화(공식 `run_loop.py`)는 선택 — `references/trigger_optimization.md`.
+Quantitative optimization (the official `run_loop.py`) is optional — `references/trigger_optimization.md`.
 
-### Phase 6 — 사용자 보고 + 합의
+### Phase 6 — Report to the user + agreement
 
-`references/phase6_report_format.md` 형식. 8개 원칙 결과표가 전부 ✅일 때만 보고하고, ⚠️/❌가 있으면 Phase 4로 돌아간다.
+Use the format in `references/phase6_report_format.md`. Report only when every row of the 8-principle table is ✅; if there is any ⚠️/❌, go back to Phase 4.
 
-### Phase 7 — 실제 호출 동작 확인 (강권)
+### Phase 7 — Check real invocation behavior (strongly recommended)
 
-"지금 한 번 호출해서 테스트해볼까요?"를 제안한다 — 써보면 description 누락·스크립트 에러·설정 불일치가 바로 드러난다. "나중에"면 스킵.
+Offer "Shall we invoke it once now to test it?" — using it immediately exposes missing description triggers, script errors and config mismatches. If the user says "later", skip it.
 
 ## Customize
 
