@@ -45,17 +45,34 @@ def _version_key(version: str) -> tuple[int, ...]:
     return tuple(int(part) for part in version.split("."))
 
 
-def list_installed(applications_dir: str) -> dict[str, str]:
-    """설치된 Xcode > {버전: 앱 경로} (정식·beta 모두)"""
-    installed: dict[str, str] = {}
+def _scan_apps(applications_dir: str) -> tuple[dict[str, str], dict[str, str]]:
+    """Xcode_*.app 스캔 > (실제 앱 {버전: 경로}, 별칭 링크 {버전: 실제 앱 경로})"""
+    real: dict[str, str] = {}
+    aliases: dict[str, str] = {}
     base = Path(applications_dir)
     if not base.is_dir():
-        return installed
+        return real, aliases
     for entry in base.iterdir():
         match = _APP_NAME_RE.match(entry.name)
-        if match:
-            installed[match.group("version")] = str(entry)
-    return installed
+        if not match:
+            continue
+        version = match.group("version")
+        target = entry.resolve()
+        # 러너 이미지의 Xcode_26.6.0.app -> Xcode_26.6.app 같은 링크는 같은 Xcode 라 목록·최신 판정에서 뺀다
+        if entry.is_symlink() and target.parent == base.resolve() and _APP_NAME_RE.match(target.name):
+            aliases[version] = str(target)
+        else:
+            real[version] = str(entry)
+    # 링크 대상이 목록에 없으면(다른 위치를 가리킴) 별칭이 아니라 설치본으로 취급
+    for version, target in list(aliases.items()):
+        if target not in real.values():
+            real[version] = aliases.pop(version)
+    return real, aliases
+
+
+def list_installed(applications_dir: str) -> dict[str, str]:
+    """설치된 Xcode > {버전: 앱 경로} (정식·beta 모두, 별칭 링크 제외)"""
+    return _scan_apps(applications_dir)[0]
 
 
 def sorted_stable_versions(installed: dict[str, str]) -> list[str]:
@@ -64,14 +81,18 @@ def sorted_stable_versions(installed: dict[str, str]) -> list[str]:
     return sorted(stable, key=_version_key)
 
 
-def choose_xcode(installed: dict[str, str], pinned: str) -> dict:
-    """고정값 있으면 그 버전, 없으면 최신 정식 버전 > 선택 결과 (실패 시 ok False + 사유)"""
+def choose_xcode(installed: dict[str, str], pinned: str, aliases: dict[str, str] | None = None) -> dict:
+    """고정값 있으면 그 버전, 없으면 최신 정식 버전 > 선택 결과 (실패 시 ok False + 사유)
+    aliases: 별칭 링크 이름으로 고정한 경우(XCODE_VERSION=26.6.0)도 받아 주기 위한 {버전: 실제 앱 경로}"""
+    aliases = aliases or {}
     stable = sorted_stable_versions(installed)
     latest = stable[-1] if stable else ""
     all_versions = sorted(installed, key=lambda v: (_version_key(v) if _STABLE_VERSION_RE.match(v) else (), v))
     base = {"pinned": pinned, "latest_installed": latest, "installed": all_versions}
 
     if pinned:
+        if pinned not in installed and pinned in aliases:
+            installed = {**installed, pinned: aliases[pinned]}
         if pinned not in installed:
             return {**base, "ok": False, "reason": "pinned_not_installed",
                     "summary": f"Xcode {pinned} (XCODE_VERSION) is not installed on this runner. "
@@ -101,7 +122,8 @@ def _append(path_env: str, lines: list[str]) -> None:
 
 def command_select(args: argparse.Namespace) -> int:
     pinned = (args.pinned if args.pinned is not None else os.environ.get("XCODE_VERSION", "")).strip()
-    result = choose_xcode(list_installed(args.applications_dir), pinned)
+    real, aliases = _scan_apps(args.applications_dir)
+    result = choose_xcode(real, pinned, aliases)
     if not result["ok"]:
         print(f"::error title=Xcode selection failed::{result['summary']}")
         print(json.dumps(result, ensure_ascii=False))

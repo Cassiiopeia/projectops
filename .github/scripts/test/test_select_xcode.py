@@ -169,3 +169,22 @@ def test_ios_build_failure_runs_the_hint(name):
             hint = next(s for s in steps if s.get("name") == "Diagnose iOS build failure")
             assert f"steps.{build['id']}.outcome == 'failure'" in hint["if"]
             assert "select_xcode.py hint" in hint["run"]
+
+
+def test_runner_alias_links_are_not_listed_twice(tmp_path, github_files, capsys):
+    """macos-26 러너: Xcode_26.6.0.app -> Xcode_26.6.app 링크. 같은 Xcode 라 한 번만 보이고 실제 이름으로 고른다"""
+    (tmp_path / "Xcode_26.0.app").mkdir()
+    (tmp_path / "Xcode_26.6.app").mkdir()
+    (tmp_path / "Xcode_26.6.0.app").symlink_to(tmp_path / "Xcode_26.6.app")
+    assert sx.main(["select", "--applications-dir", str(tmp_path), "--pinned", ""]) == 0
+    result = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert result["version"] == "26.6"
+    assert result["installed"] == ["26.0", "26.6"]
+
+
+def test_pin_by_alias_name_still_works(tmp_path, github_files, capsys):
+    (tmp_path / "Xcode_26.6.app").mkdir()
+    (tmp_path / "Xcode_26.6.0.app").symlink_to(tmp_path / "Xcode_26.6.app")
+    assert sx.main(["select", "--applications-dir", str(tmp_path), "--pinned", "26.6.0"]) == 0
+    result = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert result["app_path"].endswith("Xcode_26.6.app")
