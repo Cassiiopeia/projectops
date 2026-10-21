@@ -1,37 +1,38 @@
-# 막혔을 때의 행동 원칙 (상세)
+# What to do when you are blocked (detail)
 
-`common-rules.md` §"필요한 것이 없을 때"(안 된다고 말하기 전에 포함)의 상세다. 도구가 없거나
-"사용자가 직접 해야 할 것 같다"고 판단하기 직전에 읽는다.
+This is the detail behind `common-rules.md` §"When something you need is missing" (including "before you say it
+cannot be done"). Read it right before you decide a tool is missing or that "the user has to do this themselves".
 
-## 필요한 것이 없을 때 — 안내만 하고 멈추지 않는다
+## When something you need is missing — do not just give instructions and stop
 
-스킬이 도구(패키지·브라우저·CLI)를 필요로 하는데 없을 수 있다. 이때 지켜야 할 순서가 있다.
+A skill may need a tool (a package, a browser, a CLI) that is not installed. Follow this order.
 
-1. **무엇이 왜 필요한지, 얼마나 받는지 말한다** — "웹을 밟으려면 브라우저(약 100MB)가 필요합니다"
-2. **물어본다** — 사용자 환경을 바꾸는 일이라 승인이 필요하다
-3. **승인받으면 스킬이 직접 깐다** — 명령어만 알려주고 끝내지 않는다
+1. **Say what is needed, why, and how big the download is** — "To drive the web, I need a browser (about 100MB)."
+2. **Ask** — this changes the user's environment, so it needs approval.
+3. **Once approved, the skill installs it itself** — do not stop after printing a command.
 
-> "`pip install X` 하세요"라고 안내만 하면 사용자는 거기서 멈춘다. 실제로 macOS의 Homebrew
-> 파이썬은 PEP 668로 `pip install`을 막아 두어 **그 안내대로 해도 실패한다.** 그 벽을 사용자에게
-> 떠넘기지 않는 것까지가 스킬의 역할이다.
+> If you only say "run `pip install X`", the user stops there. On macOS, Homebrew Python blocks `pip install`
+> under PEP 668, so **following that advice fails anyway.** Handling that wall for the user, instead of
+> handing it over, is part of the skill's job.
 
-**시스템 환경은 최소로 건드린다.** 전용 가상환경·격리된 경로에 깔 수 있으면 그렇게 한다.
-설치는 **멱등**이어야 한다 — 이미 있으면 조용히 통과하고, 다시 불러도 망가지지 않는다.
+**Touch the system environment as little as possible.** If you can install into a dedicated virtual
+environment or an isolated path, do that. Installation must be **idempotent**: if the tool is already there,
+pass silently, and calling it again must not break anything.
 
-## 안 된다고 말하기 전에 — 자동화 경로부터 확인한다
+## Before you say it cannot be done — check for an automated path first
 
-"사용자가 직접 콘솔·화면에서 해야 한다"고 판단하기 전에, 그 작업이 이미 레포에 있는
-CLI·자동화 수단(fastlane match/cert/sigh, GitHub API, SSH 스크립트 등)이나 저장된
-자격증명(`launch_cli.py cred list` 의 `kind: login` 등)으로 가능한지 먼저 **조회**한다.
-확인 없이 "저는 할 수 없습니다"로 끝내지 않는다.
+Before you decide "the user must do this in a console or UI", **look up** whether a CLI or automation already
+in the repo (fastlane match/cert/sigh, the GitHub API, SSH scripts, and so on) or a saved credential
+(for example `kind: login` in `launch_cli.py cred list`) can do it. Do not end with "I can't do that" without checking.
 
-- **조회·확인은 바로, 바꾸는 실행은 승인 후.** 파일 읽기·`cred list`·`--readonly` 확인은
-  묻지 않고 한다. 인증서 재발급, Secret 교체, 외부 계정·저장소 변경처럼 **되돌리기 어렵거나
-  외부 상태를 바꾸는 실행**은 무엇이 바뀌는지 말하고 승인받은 뒤에 한다 — "먼저 시도"는
-  "승인 없이 실행"이 아니다. 저장된 자격증명도 그 `use_when` · `scope` 안에서만 쓴다.
-- **진짜 막히는 지점**(2FA 코드 입력, 계정 소유자 승인 등)과 **직접 할 수 있는
-  부분**을 분리해서 제안한다. "전부 못 한다"로 뭉뚱그리지 않는다.
-- 예: "인증서 재발급은 fastlane match로 제가 시도할 수 있는데, Apple 2FA 코드만
-  입력해 주시면 됩니다. 진행할까요?"
-- 사용자가 "로그인해서 할 수 있잖아" 같은 반응을 보이면, 거부가 아니라
-  **무엇을 시도했고 어디서 막혔는지 구체적으로 답한다** — "안 된다"만 반복하지 않는다.
+- **Look things up right away; run changes only after approval.** Reading files, `cred list`, and `--readonly`
+  checks need no question. Runs that are **hard to undo or change outside state** (reissuing a certificate,
+  rotating a Secret, changing an external account or repository) need you to say what will change and get
+  approval first. "Try first" does not mean "run without approval". Use a saved credential only within its
+  `use_when` and `scope`.
+- **Separate the point where you are truly blocked** (entering a 2FA code, approval from the account owner, and
+  so on) **from the part you can do yourself**, and propose them separately. Do not lump it all into "I can't do any of it".
+- Example: "I can try to reissue the certificate with fastlane match. I only need you to enter the Apple 2FA
+  code. Shall I go ahead?"
+- If the user pushes back with something like "but you can log in and do it", do not refuse again.
+  **Say exactly what you tried and where it stopped.** Do not just repeat "it doesn't work".

@@ -1,79 +1,81 @@
-# 상태를 다 세는 법 — 시안이 그린 것과 빠진 것
+# Counting every state — what the design drew and what it left out
 
-**디자이너는 보통 기본 화면만 그린다.** 목록이 있을 때만 그리고, 비었을 때·실패했을 때·
-글자가 길 때는 빠진다. 구현자도 대개 **기본 상태 하나만 보고 만든다.** 그래서 두 스킬이
-같은 일을 한다 (#630).
+**Designers usually draw only the default screen.** They draw the list when it has items, and leave out empty,
+failed, and long-text cases. Implementers also usually **build from that one default state.** So two skills do
+the same job (#630).
 
-| 스킬 | 이 규칙으로 하는 일 |
+| Skill | What it does with this rule |
 |---|---|
-| `pro-figma` | 시안에 그려진 상태를 **전부** 옮겼는지 센다 |
-| `pro-design-brief` | 코드에 있는 상태 중 **시안에 없는 것**을 디자이너에게 요청한다 |
+| `pro-figma` | Counts whether **every** state drawn in the design was implemented |
+| `pro-design-brief` | Asks the designer for states that exist in the code but are **missing from the design** |
 
-Figma 를 읽는 법 자체는 `figma-mcp.md`.
+How to read Figma itself: `figma-mcp.md`.
 
-## 1. 시안이 그린 상태를 다 센다 ⚠️
+## 1. Count every state the design drew ⚠️
 
-**시안은 한 컴포넌트를 여러 상태로 그려 둔다** — `enable`/`disable`, 비어 있을 때/채웠을 때,
-진행 중/완료. 실측으로 `Property 1=disable` 같은 변형이 한 파일에 479개였다 (`figma-mcp.md` ⑭).
+**A design draws one component in several states** — `enable`/`disable`, empty/filled,
+in progress/done. In one measured file there were 479 variants such as `Property 1=disable` (`figma-mcp.md` ⑭).
 
-`coverage` 에 노드 하나만 넘기면 **나머지 상태는 영영 안 세어진다.** 상태별로 노드가 따로
-있으면 **각각 돌린다.**
+If you pass only one node to `coverage`, **the other states are never counted.** When each state has its own
+node, **run it for each one.**
 
-| 흔히 빠지는 상태 |
+| Commonly missed states |
 |---|
-| 눌리지 않는 상태 (disabled) · 눌린 상태 |
-| 값이 비어 있을 때 · 글자가 길 때 |
-| 진행 중 · 완료 · 실패 |
-| 목록이 0건일 때 |
+| Not pressable (disabled) · pressed |
+| Empty value · long text |
+| In progress · done · failed |
+| List with 0 items |
 
-> 실제로 어떤 체크 컴포넌트를 한 화면에서만 고치고 **다른 화면은 그대로 둔** 일이 있었다.
-> 상태가 둘인데 한쪽만 본 것이다.
+> In one real case, a check component was fixed on one screen only and **left as is on the other screens.**
+> It had two states and only one was looked at.
 
-## 2. 시안은 한 가지 내용으로만 그려져 있다
+## 2. A design is drawn with one set of content only
 
-시안의 문구 길이에 맞춰 만들면 **긴 문구에서 깨진다.** 설명이 두 줄이 되면 카드 아래가
-잘리고, 버튼이 키보드에 가려지는 식이다. 실측으로 시안 텍스트 575개의 길이 중앙값 4자·최대
-35자였다 (`figma-mcp.md` ⑮). 실제 데이터는 이보다 길다.
+If you build to the text length in the design, **it breaks with long text.** A description wraps to two lines and
+the bottom of the card is cut off, or a button ends up hidden behind the keyboard. In one measurement, 575 design
+text items had a median length of 4 characters and a maximum of 35 (`figma-mcp.md` ⑮). Real data is longer.
 
-**시안에 없는 내용으로도 한 번 그려 본다** — 가장 긴 문구, 빈 값, 목록 0건. 그리는 법은
-`pro-launch` 의 상태 연출(`web route`·`render run`), 밟으며 확인하는 것은 `pro-agent-test`
-의 축 1(상태 조합)이다.
+**Also render it once with content the design does not have** — the longest text, empty values, a list with 0 items.
+To render it, use `pro-launch` state staging (`web route`, `render run`); to walk through and check it, use
+axis 1 (state combinations) of `pro-agent-test`.
 
-## 3. 코드가 가진 상태를 뽑는다 — 5축
+## 3. Pull the states the code has — 5 axes
 
-시안이 **무엇을 안 그렸는지** 알려면 코드가 가진 상태 목록이 있어야 한다. 아래 다섯 축에서
-뽑는다. **스크립트가 분기를 스캔하지 않는다 — agent 가 코드를 읽고 적는다.** 구조를
-알아맞히는 스캔은 틀렸을 때 "없다"고 답해 오해를 만든다.
+To know **what the design did not draw**, you need the list of states the code has. Pull them from the five axes
+below. **No script scans the branches — the agent reads the code and writes them down.** A scan that guesses the
+structure answers "none" when it is wrong, and that misleads.
 
-| 축 | 뽑는 곳 | 예 |
+| Axis | Where to pull from | Examples |
 |---|---|---|
-| **데이터** | 비동기 분기 · 빈 값 검사 · 예외 처리 · 에러 코드 목록 | 0건 · 1건 · 많음 · 로딩 · 실패 · 부분 실패 |
-| **입력** | 검증 · 최대 길이 | 빈 칸 · 너무 긴 이름 · 금지 문자 |
-| **환경** | 권한 요청 · 네트워크 처리 | 권한 거부 · 오프라인 · 타임아웃 |
-| **사람** | 역할 · 첫 사용 여부 | 역할별 화면 · 처음 · 재방문 |
-| **표시** | 글자 크기 · 테마 · 폭 | 글자 200% · 다크 · 작은 폰 · 태블릿 · 데스크톱 |
+| **Data** | Async branches · empty checks · exception handling · error code lists | 0 items · 1 item · many · loading · failure · partial failure |
+| **Input** | Validation · max length | Empty field · name too long · forbidden characters |
+| **Environment** | Permission requests · network handling | Permission denied · offline · timeout |
+| **People** | Roles · first use or not | Screen per role · first time · returning |
+| **Display** | Font size · theme · width | Text 200% · dark · small phone · tablet · desktop |
 
-- 상태마다 **구현됨 / 코드는 있는데 화면이 임시 / 미구현** 을 적는다.
-- **그 화면에 실제로 해당하는 축만** 넣는다. 억지로 채우지 않는다 (버전 표시에 "0건"은 없다).
-- **지금 흐름에서 도달할 수 있는지** 적는다 — 그 상태를 만드는 입력 경로(고르는 UI, 저장되는 값)가 지금도
-  있는지 코드로 본다. 스펙·주석의 "임시"는 쓴 시점의 이야기다. 예전 데이터에만 나오는 상태를 요청하면
-  디자이너가 나오지도 않는 화면을 그린다 (실측, #636).
-- **서버가 내려주는 문구**(공지 팝업 · 약관 · 서버 오류 문구)도 상태다. 코드 검색에 안 걸리므로 운영 API·
-  관리 화면에서 모은다.
+- For each state, note **implemented / code exists but the screen is a placeholder / not implemented**.
+- Include **only the axes that really apply to that screen.** Do not force them (a version label has no "0 items").
+- Note **whether the state is reachable in the current flow** — check in the code whether the input path that
+  creates the state (a UI that picks it, a value that gets saved) still exists. "Temporary" in a spec or comment
+  describes the time it was written. Requesting a state that only appears in old data makes the designer draw a
+  screen that never shows up (measured, #636).
+- **Text sent by the server** (announcement popups, terms, server error messages) is also a state. Code search
+  does not find it, so collect it from the production API or the admin screens.
 
-> **상태를 연출해 찍은 캡처(렌더)는 "지금 앱은 이렇다"의 근거가 아니다.** 모달 가림막 · 오프라인 우선 경로 ·
-> 자동 재시도 · 기기 폭 · 운영 설정값이 렌더에서 빠져 실측과 7건이 달랐다. 사실은 실기기·운영 API 로 확인한다.
+> **A capture rendered by staging a state is not evidence of "this is how the app is now".** Modal overlays,
+> offline-first paths, automatic retries, device width, and production settings were missing from the render,
+> and it differed from the real thing in 7 places. Confirm facts on a real device or the production API.
 
-## 4. 빈틈 표
+## 4. Gap table
 
-코드의 상태(§3)와 시안이 그린 상태(§1)를 맞대면 빈틈이 나온다.
+Putting the code's states (§3) next to the states the design drew (§1) shows the gaps.
 
-| 상태 | 코드 | 시안 | 할 일 |
+| State | Code | Design | Action |
 |---|---|---|---|
-| 목록 있음 | 구현됨 | ✅ 그려짐 | 대조 (`pro-figma`) |
-| 0건 | 구현됨 (임시 문구) | ❌ 없음 | **디자이너에게 요청** (`pro-design-brief`) |
-| 실패 | 미구현 | ❌ 없음 | 요청 + 개발 이슈 |
-| 로딩 | 구현됨 | ⚠️ 프레임끼리 문구가 다름 | **고치지 않고 질문으로 올린다** |
+| List has items | Implemented | ✅ Drawn | Compare (`pro-figma`) |
+| 0 items | Implemented (placeholder text) | ❌ Missing | **Ask the designer** (`pro-design-brief`) |
+| Failure | Not implemented | ❌ Missing | Request + development issue |
+| Loading | Implemented | ⚠️ Text differs between frames | **Do not fix it; raise it as a question** |
 
-> 시안끼리 어긋난 곳(같은 상태가 프레임마다 다르게 그려진 것)은 **고치지 않는다.**
-> 어느 쪽이 맞는지는 디자이너가 정한다 — 질문으로 올린다.
+> **Do not fix** places where designs disagree with each other (the same state drawn differently in different frames).
+> The designer decides which is right — raise it as a question.

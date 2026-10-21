@@ -1,154 +1,170 @@
-# 승인 게이트 · 핵심 질문 표준
+# Approval gate and key questions standard
 
-산출물(md 파일)을 만들어내는 skill이 **저장 전에 사용자 확인을 받는 방법**과, **시작 전에 물어야 할 것**의 단일 기준이다.
+The single standard for how a skill that produces an artifact (an md file) **gets user confirmation before
+saving**, and **what it must ask before starting**.
 
-적용 대상: `report` · `review` · `testcase` · `oss-consult`
+Applies to: `report` · `review` · `testcase` · `oss-consult`
 
-> 커밋(`commit`)·배포(`changelog-deploy`)·이슈 생성(`github`)은 이미 같은 패턴을 쓰고 있다. 이 문서는 그 검증된 방식을 산출물 skill로 넓힌 것이다 (#526). 새 방식을 만들지 않는다.
+> Commit (`commit`), deploy (`changelog-deploy`), and issue creation (`github`) already use the same pattern.
+> This document extends that proven approach to artifact skills (#526). Do not invent a new one.
 
----
-
-## 1. 왜 필요한가
-
-확인 없이 곧바로 저장하면 방향이 다를 때 파일을 지우고 처음부터 다시 해야 했다. 범위를 묻지 않고 시작해
-특정 모듈을 원했는데 저장소 전체를 분석한 일도 있었다. skill마다 묻고 안 묻고가 다른 것 자체도 일관성 문제다.
+Show every message template below in the user's language (or the configured `language` preference). The
+English text is the reference wording, not a fixed string.
 
 ---
 
-## 2. 시작 전 — 대화 맥락 우선
+## 1. Why it is needed
 
-**조사하기 전에 대화에 이미 답이 있는지 본다.** 같은 대화에서 작업을 진행했다면 무엇을 왜 했는지가 이미 다 있다. 그것을 다시 조사하면 같은 정보를 두 번 확보하는 셈이라 토큰만 더 든다.
+Saving without confirmation meant that when the direction was wrong, the file had to be deleted and the work
+redone from scratch. Starting without asking about scope once led to analyzing the whole repository when the
+user wanted one module. Skills that ask or do not ask inconsistently is itself a consistency problem.
+
+---
+
+## 2. Before starting — the conversation comes first
+
+**Before investigating, check whether the conversation already has the answer.** If the work was done in the
+same conversation, what was done and why is already there. Investigating again gathers the same information
+twice and only spends more tokens.
 
 ```
-대화에 이미 있는 것   → 그대로 사용 (재조사 금지)
-대화에 없는 것        → 그것만 조사
-대화 없이 호출된 경우  → 기존대로 처음부터 조사
+Already in the conversation   → use it as is (do not investigate again)
+Not in the conversation       → investigate only that
+Called without a conversation → investigate from scratch, as before
 ```
 
-특히 **"왜 그렇게 했는지"와 "겪은 함정"은 파일이나 diff에서 복원되지 않는다.** 대화에만 존재하므로, 있을 때 반드시 살려 쓴다. 이것을 놓치면 산출물이 "무엇을 했다"만 남은 껍데기가 된다.
+In particular, **"why it was done that way" and "the traps hit along the way" cannot be recovered from files
+or the diff.** They exist only in the conversation, so when they are there, use them. If you miss them, the
+artifact becomes an empty shell that only says "what was done".
 
 ---
 
-## 3. 시작 전 — 핵심 질문
+## 3. Before starting — key questions
 
-**모든 것을 묻지 않는다.** 답이 이미 명확하면 묻지 말고 진행한다. 아래는 *답에 따라 결과물이 크게 달라지는* 항목만 모은 것이다.
+**Do not ask about everything.** If the answer is already clear, do not ask; proceed. The list below holds
+only items where *the answer changes the result a lot*.
 
-### 질문 여부 판단
+### Deciding whether to ask
 
-| 상황 | 행동 |
+| Situation | Action |
 |------|------|
-| 사용자 입력에 이미 답이 있다 | **묻지 않는다** (예: "결제 모듈만 분석해줘" → 범위 확정됨) |
-| 저장소 구조상 답이 하나뿐이다 | **묻지 않는다** (예: 단일 모듈 프로젝트의 분석 범위) |
-| 답에 따라 결과물을 통째로 다시 만들어야 한다 | **묻는다** |
-| 되돌리기 쉬운 사소한 선택 | 묻지 않고 합리적 기본값으로 진행하되, 결과에 무엇을 골랐는지 밝힌다 |
+| The user's input already has the answer | **Do not ask** (for example "analyze only the payment module" → scope is fixed) |
+| The repository structure allows only one answer | **Do not ask** (for example the analysis scope of a single-module project) |
+| Depending on the answer, the whole artifact would have to be redone | **Ask** |
+| A minor choice that is easy to undo | Do not ask; proceed with a sensible default and state what you chose in the result |
 
-**한 번에 한 질문.** 여러 개를 몰아서 묻지 않는다.
+**One question at a time.** Do not bundle several questions together.
 
-### skill별 핵심 질문
+### Key questions per skill
 
-| skill | 물어야 할 것 | 묻지 않아도 되는 경우 |
+| skill | What to ask | When you do not need to ask |
 |---|---|---|
-| `review` | 이번에 집중할 관점, 보고할 심각도 하한 | 입력에 명시, 또는 diff가 작아 전체를 봐도 무방 |
-| `testcase` | 목표 수준, 기존 테스트 프레임워크 | 프레임워크가 저장소에서 명확히 감지됨 |
-| `report` | 읽는 사람 (팀 내부 / 클라이언트) | 입력에 명시 |
-| `oss-consult` | 레포 주인의 목표 (스타·포트폴리오·실사용자·기여자 모집), 일괄 점검이면 대상 범위(타 조직·비공개 포함 여부) | 입력에 명시, 또는 목표가 점수에 영향이 없는 사실 수집 단계 |
+| `review` | Which angle to focus on this time, the lowest severity to report | Stated in the input, or the diff is small enough to review entirely |
+| `testcase` | Target level, existing test framework | The framework is clearly detected in the repository |
+| `report` | Who will read it (internal team / client) | Stated in the input |
+| `oss-consult` | The repo owner's goal (stars, portfolio, real users, recruiting contributors); for a batch audit, the target scope (include other orgs / private repos?) | Stated in the input, or the step only collects facts and the goal does not affect the score |
 
-질문은 선택지 형태로 제시하고, 권장안을 1번에 둔다.
+Offer the question as choices, with the recommended option as number 1.
 
 ```
-분석 범위를 어떻게 잡을까요?
+How should I scope the analysis?
 
-1. 저장소 전체 (권장 — 처음 보는 코드베이스일 때)
-2. 특정 폴더·모듈만 (경로를 알려주세요)
+1. The whole repository (recommended — for a codebase you have not seen before)
+2. A specific folder or module only (tell me the path)
 ```
 
 ---
 
-## 4. 저장 전 — 승인 게이트
+## 4. Before saving — the approval gate
 
-산출물을 **파일로 저장하기 직전**에 적용한다. `commit`·`changelog-deploy`와 동일한 A/B/C 3분기다.
+Apply this **right before saving the artifact to a file**. It is the same three-way A/B/C split used by
+`commit` and `changelog-deploy`.
 
-### 설정 판정 (시작 시 1회)
+### Reading the setting (once at start)
 
-`config-rules.md` §2~3 절차로 config를 읽고 `auto_approve`를 결정한다.
+Read the config with the procedure in `config-rules.md` §2~3 and determine `auto_approve`.
 
-해석 우선순위 (먼저 발견되는 값 채택):
+Resolution order (take the first value found):
 
-1. `github.repos[]` 중 현 OWNER/REPO 항목의 `<skill_id>.auto_approve`
-2. `output.auto_approve` (산출물 skill 공통 기본값)
-3. 없으면 `false` (안전 기본값 — 수동 승인)
+1. `<skill_id>.auto_approve` in the `github.repos[]` entry for the current OWNER/REPO
+2. `output.auto_approve` (the shared default for artifact skills)
+3. If neither exists, `false` (safe default — manual approval)
 
-두 값으로 기억한다:
+Remember two values:
 
 - `AUTO_APPROVE` — boolean
-- `CONFIG_HAS_KEY` — 위 1·2에서 키를 찾았으면 `true`, 못 찾았으면 `false`(첫 실행)
+- `CONFIG_HAS_KEY` — `true` if the key was found in 1 or 2 above, `false` if not (first run)
 
-> **⚠️ 자동 승인은 산출물(md) 저장에만 적용된다.** `oss-consult`처럼 남의 레포를 바꾸는 skill에서 레포 변경 조치(API 수정·파일 커밋)의 승인은 `AUTO_APPROVE` 값과 무관하게 **항상 레포마다 개별 승인**이다. "전부 적용", "알아서 해줘" 같은 포괄 위임으로도 대체되지 않는다.
+> **⚠️ Auto-approval applies only to saving the artifact (md).** In a skill that changes someone else's repo,
+> such as `oss-consult`, approval for repo-changing actions (API edits, file commits) is **always per repo**,
+> regardless of `AUTO_APPROVE`. A blanket delegation like "apply everything" or "just handle it" does not replace it.
 
-### A. 자동 모드 (`AUTO_APPROVE == true`)
+### A. Automatic mode (`AUTO_APPROVE == true`)
 
-요약만 보여주고 즉시 저장한다. 응답을 기다리지 않는다.
-
-```
-🤖 이 저장소는 확인 없이 바로 저장되도록 설정돼 있어 요약만 안내드리고 저장합니다.
-   (다시 매번 확인받고 싶으시면 "확인받게 해줘"라고 말씀해주세요.)
-
-📄 {제목}
-   {핵심 내용 3~5줄 요약}
-   저장 위치: {경로}
-
-저장합니다.
-```
-
-> 사용자가 "확인받게 해줘" 같은 자연어로 응답하면 저장 **전에** config를 갱신하고 B 분기로 전환한다.
-
-### B. 수동 모드 (`AUTO_APPROVE == false`)
+Show only a summary and save immediately. Do not wait for a reply.
 
 ```
-📄 {제목}
+🤖 This repository is set to save without confirmation, so here is a summary before saving.
+   (If you want to confirm every time again, just say "ask me first".)
 
-{산출물 요약 또는 핵심 섹션}
+📄 {title}
+   {3–5 line summary of the key content}
+   Location: {path}
 
-저장 위치: {경로}
-
-이대로 저장할까요?
-1. 네, 저장해주세요
-2. 수정할 부분을 알려드릴게요
-3. 저장하지 않고 내용만 볼게요
+Saving now.
 ```
 
-- **1** → 저장. 단 `CONFIG_HAS_KEY == false`면 저장 **직전** [C]를 한 번만 실행
-- **2** → 지시를 반영해 재작성 후 이 단계 처음으로 (승인까지 반복)
-- **3** → 저장하지 않고 종료
+> If the user replies in natural language such as "ask me first", update the config **before** saving and switch to branch B.
 
-### C. 첫 실행 자동화 제안 (B에서 1 선택 + `CONFIG_HAS_KEY == false`, 1회만)
+### B. Manual mode (`AUTO_APPROVE == false`)
 
 ```
-💡 다음부터 어떻게 진행할까요?
+📄 {title}
 
-매번 저장 직전에 내용을 보여드리고 확인받는 방식이 기본입니다.
-원하시면 이 확인 단계를 건너뛰고 바로 저장되도록 바꿀 수 있습니다.
+{artifact summary or key sections}
 
-1. 이 저장소는 앞으로 확인 없이 바로 저장해주세요
-2. 모든 저장소에서 확인 없이 바로 저장해주세요
-3. 지금처럼 매번 확인받겠습니다
+Location: {path}
 
-(언제든 "다시 확인받게 해줘" / "자동으로 바꿔줘"라고 말씀하시면 바꿀 수 있습니다)
+Save it as is?
+1. Yes, save it
+2. I'll tell you what to change
+3. Don't save; I just want to see the content
 ```
 
-응답에 따라 Read/Write로 config를 갱신한다:
+- **1** → Save. If `CONFIG_HAS_KEY == false`, run [C] once, **right before** saving
+- **2** → Apply the instructions, rewrite, and return to the start of this step (repeat until approved)
+- **3** → End without saving
 
-- **1** → `github.repos[]`의 현 OWNER/REPO 항목에 `<skill_id>.auto_approve: true`
+### C. First-run automation offer (chose 1 in B + `CONFIG_HAS_KEY == false`, once only)
+
+```
+💡 How should I proceed next time?
+
+By default I show you the content and ask for confirmation right before every save.
+If you like, I can skip this step and save right away.
+
+1. Save without confirmation from now on, in this repository
+2. Save without confirmation in all repositories
+3. Keep asking me every time
+
+(You can change this any time by saying "ask me first again" or "switch to automatic".)
+```
+
+Update the config with Read/Write based on the reply:
+
+- **1** → `<skill_id>.auto_approve: true` in the `github.repos[]` entry for the current OWNER/REPO
 - **2** → `output.auto_approve: true`
-- **3** → `output.auto_approve: false` (다음부터 묻지 않도록 키 자체는 남긴다)
+- **3** → `output.auto_approve: false` (keep the key itself so you do not ask again)
 
-갱신은 `config-rules.md` §4 규칙을 따른다 — 전체를 Read한 뒤 해당 키만 바꿔 Write한다. PAT·다른 항목을 절대 날리지 않는다.
+Updates follow the rules in `config-rules.md` §4: Read the whole file, change only that key, then Write. Never drop the PAT or any other entry.
 
 ---
 
-## 5. 절대 규칙
+## 5. Absolute rules
 
-- **사용자에게 설정 키 이름·파일 경로를 노출하지 않는다.** `auto_approve`, `config.json` 같은 단어를 사용자 메시지에 쓰지 않는다. 사용자는 "자동으로 진행해줘" 같은 자연어로 의사를 밝히고, 그 해석과 저장은 agent가 한다.
-- **자동 모드라도 무엇을 저장하는지는 보여준다.** 조용히 저장하지 않는다.
-- **질문은 결과를 바꿀 때만 한다.** 형식적으로 묻는 질문은 마찰만 늘린다.
-- **경로는 직접 조립하지 않는다.** 저장 위치는 각 skill CLI의 `get-output-path`로 받는다 (`doc-output-path.md`).
+- **Never show setting key names or file paths to the user.** Do not use words like `auto_approve` or
+  `config.json` in messages to the user. The user states intent in natural language, such as "just go ahead
+  automatically"; the agent interprets and stores it.
+- **Even in automatic mode, show what is being saved.** Do not save silently.
+- **Ask only when the answer changes the result.** Questions asked for form's sake only add friction.
+- **Do not build paths yourself.** Get the save location from each skill CLI's `get-output-path` (`doc-output-path.md`).

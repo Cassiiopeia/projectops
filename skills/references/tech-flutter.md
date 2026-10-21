@@ -1,72 +1,72 @@
-# Flutter 기술 가이드
+# Flutter tech guide
 
-## Widget 설계 체크리스트
+## Widget design checklist
 
-- [ ] StatelessWidget vs StatefulWidget 적절성
-- [ ] Widget 트리 깊이 (성능)
-- [ ] const 생성자 사용 (rebuild 최적화)
-- [ ] BuildContext 올바른 사용
-- [ ] Key 사용 여부
+- [ ] StatelessWidget vs StatefulWidget is appropriate
+- [ ] Widget tree depth (performance)
+- [ ] const constructors used (rebuild optimization)
+- [ ] BuildContext used correctly
+- [ ] Whether Keys are used
 
-## 상태 관리
+## State management
 
-- [ ] State 관리 패턴 일관성 (Provider/Riverpod/Bloc)
-- [ ] 상태 범위 적절성 (전역 vs 로컬)
-- [ ] dispose 처리 (메모리 누수)
-- [ ] 불필요한 rebuild
+- [ ] Consistent state management pattern (Provider/Riverpod/Bloc)
+- [ ] Appropriate state scope (global vs local)
+- [ ] dispose handled (memory leaks)
+- [ ] Unnecessary rebuilds
 
-## 성능
+## Performance
 
-- [ ] ListView.builder 사용 (대량 데이터)
-- [ ] 이미지 캐싱 (cached_network_image)
-- [ ] 불필요한 setState 호출
-- [ ] Heavy computation을 isolate로
+- [ ] ListView.builder used (large data)
+- [ ] Image caching (cached_network_image)
+- [ ] Unnecessary setState calls
+- [ ] Heavy computation moved to an isolate
 
-## 코드 스타일
+## Code style
 
-- [ ] Dart 네이밍 규칙 (lowerCamelCase, UpperCamelCase)
-- [ ] 파일명 snake_case
-- [ ] analysis_options.yaml 린트 룰 준수
+- [ ] Dart naming rules (lowerCamelCase, UpperCamelCase)
+- [ ] File names in snake_case
+- [ ] Follows analysis_options.yaml lint rules
 
-## 레이아웃
+## Layout
 
-- [ ] Flexible / Expanded 적절한 사용
-- [ ] Padding / Margin 일관성
-- [ ] SafeArea 처리
-- [ ] MediaQuery 반응형 처리
+- [ ] Flexible / Expanded used appropriately
+- [ ] Consistent padding / margin
+- [ ] SafeArea handled
+- [ ] Responsive handling with MediaQuery
 
-## 테스트 패턴
+## Test patterns
 
-| 테스트 유형 | 함수 | 용도 |
+| Test type | Function | Use |
 |------------|------|------|
-| 단위 테스트 | `test()` | 로직 검증 |
-| Widget 테스트 | `testWidgets()` | UI 렌더링 |
-| 통합 테스트 | `integration_test` | 전체 플로우 |
+| Unit test | `test()` | Logic verification |
+| Widget test | `testWidgets()` | UI rendering |
+| Integration test | `integration_test` | Full flow |
 
-## 리팩토링 포인트
+## Refactoring points
 
-- **큰 Widget** → private Widget 클래스로 분리 (`_ProfileHeader`)
-- **긴 생성자** → Named parameters + copyWith
-- **인라인 스타일** → Theme/Extension으로 추출
+- **Large widget** → split into private Widget classes (`_ProfileHeader`)
+- **Long constructor** → named parameters + copyWith
+- **Inline styles** → extract into Theme/Extension
 
-## 프로젝트 구조 (Clean Architecture)
+## Project structure (Clean Architecture)
 
 ```
 lib/
-├── core/           # 상수, 테마, 유틸
-├── data/           # 모델, 리포지토리 구현, 데이터소스
-├── domain/         # 엔티티, 리포지토리 인터페이스, 유스케이스
-├── presentation/   # 화면, 위젯, 프로바이더
+├── core/           # constants, theme, utilities
+├── data/           # models, repository implementations, data sources
+├── domain/         # entities, repository interfaces, use cases
+├── presentation/   # screens, widgets, providers
 └── main.dart
 ```
 
-## 반응형 크기 변환 (Figma → Flutter)
+## Responsive size conversion (Figma → Flutter)
 
 ```dart
-// 디자인 기준
+// Design baseline
 const double DESIGN_WIDTH = 375.0;
 
-// Extension 패턴
+// Extension pattern
 extension ResponsiveSize on num {
   double get w => (SizeConfig.screenWidth / DESIGN_WIDTH) * this;
   double get h => (SizeConfig.screenHeight / DESIGN_HEIGHT) * this;

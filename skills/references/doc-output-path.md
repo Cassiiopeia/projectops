@@ -1,36 +1,36 @@
-# 산출물 경로 규칙
+# Artifact path rules
 
-이 reference는 `report`, `review`, `issue`(pro-github) skill이 md 산출물을 저장할 때 반드시 따르는 규칙이다.
+The `report`, `review`, and `issue` (pro-github) skills must follow this reference when saving md artifacts.
 
-## 저장 전 경로 계산
+## Computing the path before saving
 
-산출물 md 저장 전 반드시 해당 skill의 `_cli.py` 의 `get-output-path` 서브커맨드를 호출해 경로를 받아라.
-표준은 `common-rules.md` §"skill별 py 분산 호출" 참조.
+Before saving an md artifact, always call the `get-output-path` subcommand of that skill's `_cli.py` and use the path it returns.
+For the standard, see `common-rules.md` §"Distributed per-skill Python calls".
 
-skill별 호출 위치 매핑 — **산출물 스킬 전부 자기 CLI를 갖는다** (#525):
+Where each skill calls it — **every artifact skill has its own CLI** (#525):
 
-| skill_id | 호출 cwd | cli 파일 |
+| skill_id | Call cwd | CLI file |
 |---|---|---|
 | review | `skills/pro-review/scripts/` | `review_cli.py` |
 | report | `skills/pro-report/scripts/` | `report_cli.py` |
-| issue | `skills/pro-github/scripts/` | `github_cli.py get-output-path issue --title "{제목}"` (프로젝트 루트에서 호출. 등록 전이라 이슈 번호 대신 그날 일련번호가 붙고, 이슈 브랜치 위에서도 그 번호를 빌리지 않는다 — #822) |
-| agent-test | `skills/pro-launch/scripts/` | `launch_cli.py get-output-path --skill agent-test` (**md 가 아니라 실행 폴더**를 돌려준다 — 아래 참조. 실행·캡처가 pro-launch 로 옮겨 가며 자리를 여는 것도 그쪽이 한다, #631) |
-| launch | `skills/pro-launch/scripts/` | `launch_cli.py get-output-path` (실행 폴더 — 다른 증거 스킬은 `--skill <id>`) |
+| issue | `skills/pro-github/scripts/` | `github_cli.py get-output-path issue --title "{title}"` (call from the project root. Because it runs before filing, it gets the day's sequence number instead of an issue number, and it does not borrow the number even on an issue branch — #822) |
+| agent-test | `skills/pro-launch/scripts/` | `launch_cli.py get-output-path --skill agent-test` (returns **a run folder, not an md file** — see below. Since running and capturing moved to pro-launch, pro-launch also opens the slot, #631) |
+| launch | `skills/pro-launch/scripts/` | `launch_cli.py get-output-path` (run folder — other evidence skills pass `--skill <id>`) |
 
-> **agent-test 만 산출물이 md 가 아니다 (#611).** 밟은 증거(스크린샷·녹화)가 나오므로
-> `get-output-path` 는 파일이 아니라 **실행 폴더**(`<우산>/agent-test/{날짜}_{번호}_{제목}/`)를
-> 만들어 돌려주고, 그 안에 `screenshots/` 와 하네스 `env.sh` 를 둔다. 파일명 규칙 자체는
-> 같은 `common/paths.py` 를 쓰므로 자리는 갈라지지 않는다.
+> **Only agent-test's artifact is not an md file (#611).** It produces evidence of the walk-through
+> (screenshots, recordings), so `get-output-path` creates and returns a **run folder**
+> (`<umbrella>/agent-test/{date}_{number}_{title}/`) instead of a file, with `screenshots/` and the harness
+> `env.sh` inside. The file name rule itself uses the same `common/paths.py`, so locations do not diverge.
 >
-> **이 폴더는 추적하지 않는다.** 증거의 정본은 GitHub 이슈에 올라간 이미지이고 로컬본은
-> 중간 산출물이라, 레포에 수 MB 씩 쌓일 이유가 없다 (#561 의 실행 기록과 같은 논리).
-> `<우산>/agent-test/.gitignore`(`*` + `!.gitignore`)를 폴더가 **스스로 들고 다녀** 루트
-> `.gitignore` 를 건드리지 않는다 — 남의 저장소에 설치되는 스킬이므로 공용 파일을 고치면
-> 사용자 변경과 충돌한다.
+> **This folder is not tracked.** The source of truth for evidence is the images uploaded to the GitHub issue;
+> the local copy is an intermediate product, so there is no reason to pile up several MB in the repo (the same
+> reasoning as the run logs in #561). The folder **carries its own** `<umbrella>/agent-test/.gitignore`
+> (`*` + `!.gitignore`) so the root `.gitignore` is not touched — the skill is installed into other people's
+> repositories, and editing a shared file would conflict with the user's changes.
 
-> **agent가 경로를 직접 계산하지 않는다.** 과거에는 일부 스킬에 CLI가 없어 "직접 계산하거나 다른 스킬 것을 빌려 쓰라"는 상태였고, 그래서 스킬마다 파일명 규칙이 갈라져도 아무도 알아채지 못했다. 이제 규칙은 `scripts/common/paths.py`의 `resolve_output_path()` **한 곳**에만 있고 각 CLI가 모두 그것을 호출한다.
+> **The agent does not compute paths itself.** In the past some skills had no CLI and were told to "compute it yourself or borrow another skill's", so file name rules split between skills and no one noticed. Now the rule lives in **one place only**, `resolve_output_path()` in `scripts/common/paths.py`, and every CLI calls it.
 
-예시 (review):
+Example (review):
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -43,30 +43,30 @@ SKILL=pro-review; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 done
 SCRIPTS="$ROOT/skills/$SKILL/scripts"
 [ -d "$SCRIPTS" ] || { echo "projectops 스킬 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
-PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/review_cli.py" get-output-path review --title "{제목}"
-# 프로젝트 밖이면: --root <프로젝트 경로>, 이슈 번호를 직접 주려면 --issue N
+PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/review_cli.py" get-output-path review --title "{title}"
+# Outside the project: --root <project path>; to pass the issue number directly: --issue N
 ```
 
-출력 JSON의 `path` 필드를 추출해 사용한다.
+Take the `path` field from the output JSON and use it.
 
-반환값 예시:
-- `docs/projectops/report/20260418_427_드롭다운_디자인_변경.md`
-- `docs/projectops/review/20260418_001_초기_리뷰.md`
+Example return values:
+- `docs/projectops/report/20260418_427_dropdown_design_change.md`
+- `docs/projectops/review/20260418_001_initial_review.md`
 
-## 산출물 경로 우산 (기본 `docs/projectops/`)
+## The artifact path umbrella (default `docs/projectops/`)
 
-모든 산출물은 하나의 우산 아래에 둔다. harness(`harness/WORKFLOW.md` §"산출물 경로 단일 규칙")와 skill이 동일한 위치를 공유한다.
+All artifacts live under one umbrella. The harness (`harness/WORKFLOW.md` §"Single rule for artifact paths") and the skills share the same location.
 
-| 종류 | 경로 | 비고 |
+| Kind | Path | Notes |
 |------|------|------|
-| skill 최종 산출물 | `<우산>/<skill>/` | report·review·issue 등 |
-| 작업중 지식 그래프 | `<우산>/hypercortex/` | harness SDLC의 TODO·REQUIREMENT·DESIGN·QUALITY 등 |
-| 코드 작업 격리 | `<우산>/workspace/` | harness Phase 4 코드 산출물 격리 |
+| Final skill artifacts | `<umbrella>/<skill>/` | report, review, issue, and so on |
+| Work-in-progress knowledge graph | `<umbrella>/hypercortex/` | Harness SDLC TODO, REQUIREMENT, DESIGN, QUALITY, and so on |
+| Isolated code work | `<umbrella>/workspace/` | Isolates harness Phase 4 code output |
 
-### 우산 위치는 사용자가 바꿀 수 있다 (#525)
+### Users can move the umbrella (#525)
 
-기본값은 `docs/projectops/`이고, **설정을 건드리지 않으면 그대로 유지**된다.
-팀 규약상 다른 위치를 써야 하거나 저장소에 문서를 남기고 싶지 않으면 config로 바꾼다.
+The default is `docs/projectops/`, and it **stays that way unless the setting is changed**.
+If team conventions require another location, or you do not want docs left in the repository, change it in config.
 
 ```json
 {
@@ -74,35 +74,35 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/review_cli.py" get-output-path review
 }
 ```
 
-| 값 | 결과 |
+| Value | Result |
 |---|---|
-| 미설정 | `<repo>/docs/projectops/` — 기존과 동일 |
-| 상대경로 (`docs/dev`) | `<repo>/docs/dev/` |
-| 절대경로 (`/Users/me/notes`) | 그 경로 그대로 (저장소 밖에 모을 때) |
+| Not set | `<repo>/docs/projectops/` — same as before |
+| Relative path (`docs/dev`) | `<repo>/docs/dev/` |
+| Absolute path (`/Users/me/notes`) | That path as is (to collect outside the repository) |
 
-해석은 `scripts/common/paths.py`의 `resolve_output_root()`가 담당한다.
-**skill이 경로 문자열을 직접 조립하지 않는다** — 반드시 `get-output-path`를 거친다.
-사용자에게 안내할 때는 설정 키 이름이나 파일 경로를 노출하지 말고 자연어로만 말한다.
+`resolve_output_root()` in `scripts/common/paths.py` resolves it.
+**Skills do not build path strings themselves** — always go through `get-output-path`.
+When telling the user, do not expose setting key names or file paths; speak in natural language only.
 
-## 실패 시 대응
+## Handling failures
 
-| 상황 | 대응 |
+| Situation | Response |
 |------|------|
-| `[WARN] title_not_found` (exit 0) | AI가 작업 컨텍스트로 제목 생성 후 `--title "제목"` 옵션으로 재호출 |
-| `[WARN] issue_number_not_found` (exit 0) | fallback 경로 그대로 사용, 사용자에게 "이슈번호 없어서 순번 사용" 안내 |
-| `[WARN] issue_number_mismatch` (exit 0) | fallback 경로 그대로 사용, 사용자에게 불일치 안내 |
-| `[ERROR] git_not_found` (exit 1) | 사용자에게 "git 저장소가 아닙니다" 알리고 중단 |
+| `[WARN] title_not_found` (exit 0) | The AI makes a title from the work context and calls again with `--title "title"` |
+| `[WARN] issue_number_not_found` (exit 0) | Use the fallback path as is and tell the user "no issue number, so a sequence number is used" |
+| `[WARN] issue_number_mismatch` (exit 0) | Use the fallback path as is and tell the user about the mismatch |
+| `[ERROR] git_not_found` (exit 1) | Tell the user "this is not a git repository" and stop |
 
-## 디렉토리 자동 생성
+## Creating the directory automatically
 
-경로를 받은 뒤 파일 쓰기 전 디렉토리를 생성한다:
+After getting the path, create the directory before writing the file:
 
 **Mac/Linux:**
 ```bash
-mkdir -p "$(dirname "<받은 경로>")"
+mkdir -p "$(dirname "<returned path>")"
 ```
 
 **Windows (PowerShell):**
 ```powershell
-New-Item -ItemType Directory -Force -Path (Split-Path "<받은 경로>")
+New-Item -ItemType Directory -Force -Path (Split-Path "<returned path>")
 ```

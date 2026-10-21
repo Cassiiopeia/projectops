@@ -1,132 +1,131 @@
-# Figma MCP 를 읽는 법 — 공용 규칙
+# How to read the Figma MCP — shared rules
 
-**Figma 링크를 받는 스킬은 전부 이 규칙으로 읽는다** (#630). 지금 쓰는 곳:
+**Every skill that receives a Figma link reads it by these rules** (#630). Current users:
 
-| 스킬 | 무엇을 얻나 |
+| Skill | What it gets |
 |---|---|
-| `pro-figma` | 값을 빠짐없이 세어 작업 목록으로 삼고, 옮긴 뒤 대조한다 |
-| `pro-design-brief` | 시안에 **그려진 상태와 빠진 상태**를 가려 디자이너에게 요청할 목록을 만든다 |
+| `pro-figma` | Counts every value as a worklist, then compares after implementation |
+| `pro-design-brief` | Separates **states drawn in the design from states left out** and builds the list to request from the designer |
 
-예전에는 이 규칙이 `pro-figma` 안에만 있어 다른 스킬이 복사해야 했다. 복사본은
-한쪽만 고쳐져 어긋난다. 규칙은 여기 한 곳에 둔다. 상태를 세는 법은 `design-states.md`.
+These rules used to live only inside `pro-figma`, so other skills had to copy them. Copies drift when only one side
+is fixed. The rules live here, in one place. How to count states: `design-states.md`.
 
-이 문서의 수치는 **실제 응답을 세어 얻은 것**이다. 지어낸 예시로만 도구를 만들었다가
-실제 응답에 통째로 못 쓴 적이 있어, 이후로는 실측만 적는다.
-
----
-
-## 0. 읽는 순서 — 요약
-
-1. **링크에서 인자를 뽑는다** — `fileKey` 와 `nodeId`(하이픈 → 콜론)
-2. **두 번에 나눠 받는다** — ① `depth: 2` 로 화면 목록 → ② 고른 화면 하나를 `depth` 없이
-3. **공통 컴포넌트를 화면보다 먼저 본다** — 하나가 어긋나면 그것을 쓰는 화면이 전부 어긋난다
-4. **응답을 파일로 두고 스크립트로 센다** — 스타일이 참조로만 오고, 그림자가 한 문자열에 뭉쳐 온다.
-   손으로 읽으면 반드시 빠진다 (아래 §4 호출 예)
-5. **상태를 다 센다** — 한 컴포넌트가 여러 상태로 그려져 있다 (`design-states.md`)
-
-### 공통 컴포넌트를 화면보다 먼저 본다 ⚠️
-
-버튼·체크·아이콘·뒤로가기처럼 **여러 화면이 함께 쓰는 것**을 먼저 본다. 하나가 어긋나면
-**그것을 쓰는 모든 화면이 함께 어긋나기** 때문이다. 화면부터 보면 같은 원인을 화면 수만큼
-따로 적게 된다.
-
-> 실제로 뒤로가기 아이콘 하나의 칠 값이 틀려 **다섯 화면이 동시에** 어긋난 적이 있다.
-> 화면별로 보고했다면 결함 다섯 건이 됐겠지만 고칠 곳은 파일 하나였다.
-
-컴포넌트 원본은 화면이 아니라 **정의**(`COMPONENT`·`COMPONENT_SET` 노드, 대개 컴포넌트 섹션)에 있다.
-화면 안의 인스턴스만 보면 상태 변형이 안 보인다.
-
-노드 id 를 모르면 사용자에게 묻는다 — 추측하면 엉뚱한 시안과 맞대게 되고, 그러면 전부
-다르게 나와 **정작 봐야 할 어긋남이 묻힌다.**
+The numbers in this document **come from counting real responses**. A tool was once built only from invented
+examples and could not be used at all on a real response, so since then only measured values are written down.
 
 ---
 
-## 1. 두 도구
+## 0. Reading order — summary
 
-### `mcp__figma__get_figma_data` — 값을 읽는다
+1. **Pull the arguments from the link** — `fileKey` and `nodeId` (hyphen → colon)
+2. **Fetch in two passes** — ① the screen list with `depth: 2` → ② one chosen screen without `depth`
+3. **Look at shared components before screens** — if one is off, every screen that uses it is off
+4. **Keep the response in a file and count it with a script** — styles arrive only as references, and shadows
+   arrive bundled in one string. Reading by hand always misses something (call examples in §4 below)
+5. **Count every state** — one component is drawn in several states (`design-states.md`)
 
-| 인자 | 필수 | 비고 |
+### Look at shared components before screens ⚠️
+
+First look at things **several screens share**, such as buttons, checks, icons, and the back button. If one is off,
+**every screen that uses it is off together.** Starting from screens means writing up the same cause once per screen.
+
+> In one real case, a single wrong fill value on a back icon put **five screens off at once.**
+> Reported per screen it would have been five defects, but the fix was one file.
+
+The component source is not a screen but the **definition** (`COMPONENT` and `COMPONENT_SET` nodes, usually in a
+components section). Looking only at instances inside screens hides the state variants.
+
+If you do not know the node id, ask the user — a guess compares against the wrong design, everything comes out
+different, and **the differences you actually need to see get buried.**
+
+---
+
+## 1. Two tools
+
+### `mcp__figma__get_figma_data` — reads values
+
+| Argument | Required | Notes |
 |---|:-:|---|
-| `fileKey` | ✅ | 링크의 `figma.com/design/<fileKey>/...` |
-| `nodeId` | | 링크의 `?node-id=238-1846` → **`238:1846`** |
-| `depth` | | **쓰지 마라.** 사용자가 명시적으로 요구할 때만 |
+| `fileKey` | ✅ | `figma.com/design/<fileKey>/...` in the link |
+| `nodeId` | | `?node-id=238-1846` in the link → **`238:1846`** |
+| `depth` | | **Do not use it.** Only when the user explicitly asks |
 
 ```
 https://www.figma.com/design/VSmGuv1iuOpLZmp6QeBHWr/이룸?node-id=238-1846
                              └──── fileKey ────┘          └ nodeId → 238:1846
 ```
 
-#### 두 번에 나눠 받는다 ⚠️
+#### Fetch in two passes ⚠️
 
-**링크의 `node-id` 가 화면이라는 보장이 없다.** 실측: 링크가 가리킨 것이 `SECTION`
-('이게 진짜 디자인')이었고, `nodeId` 를 주고도 **1,083,214자**가 와서 도구가 응답을
-파일로 떨궜다. 파일 전체를 받은 것과 다를 바 없었다.
+**There is no guarantee that the link's `node-id` is a screen.** Measured: the link pointed to a `SECTION`
+(named '이게 진짜 디자인', "this is the real design"), and even with `nodeId` the response was **1,083,214
+characters**, so the tool dropped it to a file. It was no different from fetching the whole file.
 
-| 순서 | 호출 | 결과 (실측) |
+| Order | Call | Result (measured) |
 |---|---|---|
-| ① **화면 목록** | `depth: 2` 를 줘서 받는다 | **12KB** — 화면 54개의 id·이름이 한눈에 |
-| ② **화면 하나** | ①에서 고른 FRAME id 로 다시 받는다 | **15KB** — 분류할 수 있는 양 |
+| ① **Screen list** | Fetch with `depth: 2` | **12KB** — ids and names of 54 screens at a glance |
+| ② **One screen** | Fetch again with the FRAME id chosen in ① | **15KB** — an amount you can classify |
 
 ```
 238:1846  SECTION  이게 진짜 디자인
   238:3022  SECTION  온보딩_보호자
-    238:1808  FRAME  로그인_iOS      ← 이게 화면이다
+    238:1808  FRAME  로그인_iOS      ← this is a screen
     204:991   FRAME  이름
     ...
 ```
 
-화면은 대개 **`FRAME` 이고 layout 이 기기 논리 크기**(393×852 등)로 풀린다.
-같은 자리에 섞여 있는 `IMAGE-SVG`·`RECTANGLE`·`ELLIPSE`·라벨용 `TEXT` 는 화면이 아니다.
+A screen is usually a **`FRAME` whose layout resolves to the device's logical size** (393×852 and so on).
+`IMAGE-SVG`, `RECTANGLE`, `ELLIPSE`, and label `TEXT` nodes mixed in at the same level are not screens.
 
-> **`depth` 를 분류에 쓰지 마라.** 트리를 자르는데 **잘렸다는 표시가 없어서**,
-> 얕게 받아 놓고 "이 화면엔 요소가 몇 개뿐이네"라고 결론 내면 그대로 틀린다.
-> **화면 목록을 찾을 때만** 쓰고, ②에서는 절대 주지 않는다.
+> **Do not use `depth` for classification.** It cuts the tree **without marking that it was cut**, so if you fetch
+> shallow and conclude "this screen has only a few elements", you are simply wrong.
+> Use it **only to find the screen list**, and never pass it in ②.
 
-#### 응답이 크면 파일로 떨어진다
+#### Large responses are dropped to a file
 
-도구가 컨텍스트 한도를 넘는 응답을 파일로 저장하고 경로를 알려준다.
-**그 경로를 그대로 `--dump` 에 넘기면 된다** — 따로 옮겨 적을 필요가 없다.
-작아서 그대로 온 경우에만 직접 파일로 저장한다.
-- 인스턴스 안의 노드는 `I204:993;510:1641;1503:15324` 처럼 세미콜론으로 이어진다.
-  실측 2,617개 중 **1,440개**가 이 형태다. 그대로 써야 하고, 잘라 쓰면 다른 노드가 된다.
+When a response exceeds the context limit, the tool saves it to a file and tells you the path.
+**Pass that path straight to `--dump`** — no need to copy it anywhere.
+Save it to a file yourself only when it is small and arrives inline.
+- Nodes inside instances are chained with semicolons, like `I204:993;510:1641;1503:15324`.
+  Of 2,617 measured nodes, **1,440** have this form. Use them as is; trimming them gives a different node.
 
-### `mcp__figma__download_figma_images` — 그림을 받는다
+### `mcp__figma__download_figma_images` — fetches images
 
-| 인자 | 필수 | 비고 |
+| Argument | Required | Notes |
 |---|:-:|---|
 | `fileKey` | ✅ | |
-| `localPath` | ✅ | **프로젝트 안의 절대경로.** 없으면 만들어진다 |
-| `nodes[]` | ✅ | `{nodeId, fileName}` + 상황에 따라 `imageRef` 등 |
-| `pngScale` | | 기본 2. PNG 에만 적용 |
+| `localPath` | ✅ | **An absolute path inside the project.** Created if missing |
+| `nodes[]` | ✅ | `{nodeId, fileName}` + `imageRef` and so on, depending on the case |
+| `pngScale` | | Default 2. Applies to PNG only |
 
-> **프로젝트 밖 경로는 거부된다.** 실측으로 `/private/tmp/...` 를 주니
-> `Invalid path specified. Directory traversal is not allowed.` 가 돌아왔다.
-> 임시로 받아 보려 해도 **프로젝트 안**에 받아야 한다.
+> **Paths outside the project are rejected.** Measured: passing `/private/tmp/...` returned
+> `Invalid path specified. Directory traversal is not allowed.`
+> Even for a temporary look, download **inside the project**.
 
-`nodes[]` 항목:
+`nodes[]` entries:
 
-| 키 | 언제 |
+| Key | When |
 |---|---|
-| `nodeId` | 항상 |
-| `fileName` | 항상 — **`^[a-zA-Z0-9_.-]+\.(png\|svg)$` 만 통과** |
-| `imageRef` | 노드가 `imageRef` 칠을 가질 때 **필수**. 벡터는 비운다 |
-| `needsCropping` · `cropTransform` · `filenameSuffix` | 잘라 쓰는 이미지일 때 |
-| `requiresImageDimensions` | CSS 변수로 크기가 필요할 때 |
+| `nodeId` | Always |
+| `fileName` | Always — **only `^[a-zA-Z0-9_.-]+\.(png\|svg)$` passes** |
+| `imageRef` | **Required** when the node has an `imageRef` fill. Leave it empty for vectors |
+| `needsCropping` · `cropTransform` · `filenameSuffix` | For cropped images |
+| `requiresImageDimensions` | When size is needed as a CSS variable |
 
 ---
 
-## 2. 허점 — 그리고 그 정보로 정교함을 만드는 법
+## 2. Gaps — and how to turn that information into precision
 
-### ① 응답은 JSON 이 아니라 **YAML** 이다
+### ① The response is **YAML**, not JSON
 
-`json.loads` 로 받으면 그대로 실패한다. 실제로 이 스킬의 도구가 처음 실제 응답을 만났을 때
-`dump_unreadable` 로 죽었다. → `figma_cli.py` 가 JSON·YAML 둘 다 받는다.
+`json.loads` simply fails on it. When this skill's tool first met a real response, it actually died with
+`dump_unreadable`. → `figma_cli.py` accepts both JSON and YAML.
 
-### ② 노드는 스타일을 **참조로만** 갖는다
+### ② Nodes hold styles **only by reference**
 
 ```yaml
 - id: '1:200'
-  fills: fill_5PQ06X          # 값이 아니라 이름표
+  fills: fill_5PQ06X          # a name tag, not a value
   effects: effect_ZI8QJT
 globalVars:
   styles:
@@ -134,10 +133,10 @@ globalVars:
     effect_ZI8QJT: {boxShadow: '...'}
 ```
 
-`globalVars.styles` 로 이어 붙이지 않으면 **값을 하나도 모른 채** 분류한 셈이 된다.
-실측 스타일 정의 942개. → `coverage` 의 `styles_resolved` 가 몇 개를 풀었는지 알려준다.
+If you do not join them through `globalVars.styles`, you have classified **without knowing a single value.**
+942 style definitions measured. → `styles_resolved` in `coverage` tells you how many were resolved.
 
-### ③ 한 문자열 안에 그림자가 **여러 줄** 들어 있다
+### ③ One string holds **several** shadow layers
 
 ```yaml
 effect_ZI8QJT:
@@ -147,20 +146,20 @@ effect_ZI8QJT:
               inset 0px 0px 10px 2px rgba(255,255,255,1)'
 ```
 
-**이게 실제 사고의 그 값이다.** 네 줄 중 안쪽 세 줄이 빠진 채 배포됐다.
-한 줄로 세면 세 줄이 빠져도 개수가 안 변해 드러나지 않는다.
+**This is the very value from a real incident.** Of the four layers, the three inner ones were missing when it shipped.
+Counted as one item, losing three layers does not change the count, so it never shows.
 
-실측: 정의 12개 → 실제 그림자 **16줄**. 효과 항목 153 → **171**.
-→ 도구가 괄호 깊이를 세어 쪼갠다 (`rgba(...)` 안의 쉼표는 건드리지 않는다).
+Measured: 12 definitions → **16** actual shadow layers. Effect items 153 → **171**.
+→ The tool splits by counting parenthesis depth (commas inside `rgba(...)` are left alone).
 
-### ④ 크기조차 **참조 뒤**에 있다
+### ④ Even sizes are **behind a reference**
 
-`dimensions` 는 노드가 아니라 `layout_XXXX` 스타일 안에 있다. 안 풀면 크기가 `None` 이
-되고, 크기가 없으면 아이콘을 구분할 근거가 사라진다.
+`dimensions` is not on the node but inside a `layout_XXXX` style. If not resolved, the size becomes `None`,
+and without a size there is nothing to tell icons apart by.
 
-### ⑤ **아이콘의 모양 정보가 없다** ← 가장 중요
+### ⑤ **There is no shape information for icons** ← most important
 
-덤프에 담긴 아이콘 노드는 이게 전부다.
+This is all an icon node in the dump contains.
 
 ```yaml
 - id: I204:993;510:1641;1503:15321
@@ -170,71 +169,71 @@ effect_ZI8QJT:
   fills: fill_5PQ06X
 ```
 
-**경로도, 점도, 모양도 없다.** 따라서 덤프만으로는 두 아이콘이 같은 그림인지
-알 수 없다. Figma 가 벡터에 붙이는 기본 이름은 `Vector` 라서 —
+**No path, no points, no shape.** So the dump alone cannot tell whether two icons are the same picture.
+Figma's default name for vectors is `Vector`, so —
 
-> 실측: `Vector` 라는 이름의 노드 **71개**, 그중 실제로 서로 다른 그림 **48종**.
+> Measured: **71** nodes named `Vector`, of which **48** were actually different pictures.
 
-이름으로 묶으면 아이콘 하나를 48곳에 잘못 쓴다. 조용히 틀리고, 화면을 봐야 알아챈다.
+Grouping by name uses one icon wrongly in 48 places. It fails silently and you only notice by looking at the screen.
 
-**정교함을 만드는 법**: 증거가 있는 것만 묶는다.
+**How to make it precise**: group only what has evidence.
 
-| 근거 | 판정 |
+| Evidence | Verdict |
 |---|---|
-| `componentId` 가 같다 | 같은 그림이 **확실하다** (`certain: true`) |
-| 노드 내용 전체가 같다 | 같을 **가능성이 높다** — 받은 뒤 눈으로 확인 |
-| 이름만 같다 | **묶지 않는다** |
+| Same `componentId` | **Certainly** the same picture (`certain: true`) |
+| The whole node content is the same | **Likely** the same — check by eye after downloading |
+| Only the name is the same | **Do not group** |
 
-### ⑥ 에셋은 값이 아니라 **따로 받아야 하는 파일**이다
+### ⑥ Assets are **separate files to download**, not values
 
-실측 노드 2,617개 중 `IMAGE-SVG` 가 **609개**. 값을 아무리 잘 옮겨도 이걸 안 받으면
-화면에 아이콘이 없다. `get_figma_data` 는 그림을 주지 않는다.
+Of 2,617 measured nodes, **609** were `IMAGE-SVG`. However well you port the values, without downloading these
+the screen has no icons. `get_figma_data` does not give you images.
 
-### ⑦ `fileName` 패턴이 좁아 **레이어 이름을 그대로 쓰면 거부된다**
+### ⑦ The `fileName` pattern is narrow, so **layer names used as is get rejected**
 
-`^[a-zA-Z0-9_.-]+\.(png|svg)$` — 한글·공백·`/` 가 전부 불가.
+`^[a-zA-Z0-9_.-]+\.(png|svg)$` — Korean (non-ASCII) characters, spaces, and `/` are all disallowed.
 
-> 실측: 에셋 609개 중 **281개(46%)** 가 `뒤로가기`·`Icon / Mobile Signal`·`채크_라운드`
-> 처럼 통과하지 못하는 이름이었다.
+> Measured: of 609 assets, **281 (46%)** had names that do not pass, such as `뒤로가기` ("back"),
+> `Icon / Mobile Signal`, and `채크_라운드` ("check_round").
 
-### ⑧ 이름이 **서로 덮어쓴다**
+### ⑧ Names **overwrite each other**
 
-> 실측: 609개 중 **592개**가 45종의 이름에 몰려 있었다. `Wifi-path` 144개, `Vector` 71개.
+> Measured: of 609, **592** were concentrated in 45 names. `Wifi-path` 144, `Vector` 71.
 
-이름으로 파일을 만들면 마지막 것만 남는다.
+Making files from names leaves only the last one.
 
-### ⑨ `imageRef` 를 빠뜨리면 **엉뚱한 그림**이 온다
+### ⑨ Leave out `imageRef` and you get **the wrong picture**
 
-사진 계열(`imageRef` 칠을 가진 노드)은 이 인자가 없으면 노드의 렌더가 아니라 다른 것이 온다.
+For photo-type nodes (nodes with an `imageRef` fill), without this argument you get something other than the node's render.
 
-### ⑩ 받은 그림이 **덤프가 말한 크기보다 크다**
+### ⑩ The downloaded image is **larger than the size the dump states**
 
-효과가 붙은 노드는 **번짐이 그림 안에 SVG 필터로 박혀** 온다.
+For nodes with effects, **the blur arrives baked into the image as an SVG filter**.
 
-> 실측: `layout` 이 **36×34** 인 글로우 도형(`boxShadow: 0px 0px 30px`)을 받으니
-> **96×94** 였다. 사방으로 30px 씩 늘어난 것이다.
+> Measured: a glow shape whose `layout` is **36×34** (`boxShadow: 0px 0px 30px`) came back as
+> **96×94**. It grew by 30px on every side.
 
 ```svg
 <svg width="96" height="94" viewBox="0 0 96 94">
-  <g filter="url(#filter0_d_726_4744)">   <!-- 글로우가 여기 들어 있다 -->
+  <g filter="url(#filter0_d_726_4744)">   <!-- the glow is in here -->
     <path d="M48 64C38.05 64 30 56.39 ..." fill="#9AFFE9"/>
   </g>
 ```
 
-모르고 지나가면 둘 중 하나가 된다.
+If you miss this, one of two things happens.
 
-| 잘못 | 결과 |
+| Mistake | Result |
 |---|---|
-| 레이아웃 크기(36×34)로 우겨 넣는다 | 글로우까지 줄어들어 **도형이 쪼그라든다** |
-| 효과를 코드로 또 넣는다 | **두 번 적용**돼 두 배로 번진다 |
+| Squeeze it into the layout size (36×34) | The glow shrinks too, and **the shape shrivels** |
+| Add the effect again in code | **Applied twice**, so it blurs twice as much |
 
-→ `assets` 가 `baked_effect` 로 **미리 짚어 준다.** 그 항목은 코드에서 효과를 빼고,
-크기는 받은 그림 그대로 두되 **도형 중심**을 기준으로 배치한다.
+→ `assets` **flags it in advance** with `baked_effect`. For that entry, remove the effect from the code, keep the
+downloaded image's size as is, and place it by the **center of the shape**.
 
-### ⑪ `imageRef` 도 **참조 뒤**에 있다
+### ⑪ `imageRef` is also **behind a reference**
 
-노드에는 `fills: fill_JJ816G` 만 있고 실제 값은 globalVars 안이다.
-참조를 안 풀면 **사진 에셋을 통째로 놓친다.** 게다가 그 값이 필요한 인자까지 알려준다.
+The node only has `fills: fill_JJ816G`; the real value is inside globalVars.
+Without resolving the reference, **you miss photo assets entirely.** That value also tells you the arguments you need.
 
 ```yaml
 fill_JJ816G:
@@ -245,67 +244,66 @@ fill_JJ816G:
       requiresImageDimensions: false
 ```
 
-**추측하지 말고 이 값을 그대로 쓴다.**
+**Do not guess; use these values as is.**
 
-### ⑫ 스타일 키가 **사람이 붙인 이름**일 수 있다
+### ⑫ Style keys may be **names people gave them**
 
-`fill_5PQ06X` 같은 자동 이름만 오는 게 아니다. 실측으로
-`Label Color/Light/Primary`·`Callout / Bold`·`System Background/Dark Base/Primary`
-처럼 슬래시·공백이 든 이름이 섞여 온다. 접두사(`fill_`·`effect_`)로 참조를 판별하면
-이것들을 **못 풀고 지나간다.** 키를 표에 넣고 **값이 표에 있는지**로 판별한다.
+You do not only get automatic names like `fill_5PQ06X`. Measured: names with slashes and spaces such as
+`Label Color/Light/Primary`, `Callout / Bold`, and `System Background/Dark Base/Primary` are mixed in.
+Detecting references by prefix (`fill_`, `effect_`) **passes over these unresolved.** Put the keys in a table and
+detect by **whether the value is in the table**.
 
-### ⑬ 화면 요소가 아닌 것이 섞여 있다
+### ⑬ Things that are not screen elements are mixed in
 
-| 섞이는 것 | 정체 |
+| What gets mixed in | What it is |
 |---|---|
-| `metadata.components` 의 항목들 | 컴포넌트 **카탈로그**. 화면에 그려지는 노드가 아니다 |
-| `type: VARIANT` (`Dark Mode=False` 등) | 컴포넌트 **속성 선언** |
-| `visible: false` 노드 | 꺼 둔 레이어. 자식까지 안 보인다 |
+| Entries in `metadata.components` | The component **catalog**. Not nodes drawn on screen |
+| `type: VARIANT` (`Dark Mode=False` and so on) | Component **property declarations** |
+| `visible: false` nodes | Hidden layers. Their children are not visible either |
 
-세면 부풀려진다. 실측으로 요소 41 → 실제 28.
+Counting them inflates the numbers. Measured: 41 elements → really 28.
 
-### ⑭ 한 컴포넌트의 **여러 상태**가 다 들어 있다
+### ⑭ **Every state** of a component is included
 
-`Property 1=disable` 같은 변형이 실측 479개. 화면에는 한 상태만 보이는데, 구현자는
-대개 기본 상태 하나만 만든다.
+Measured: 479 variants like `Property 1=disable`. The screen shows only one state, and implementers usually
+build only the default one.
 
-### ⑮ 텍스트는 **시안에 적힌 한 벌**뿐이다
+### ⑮ Text is **only the one set written in the design**
 
-실측 텍스트 575개의 길이 중앙값 4자·최대 35자. 실제 데이터는 이보다 길다.
-시안 길이에 맞춰 만들면 긴 문구에서 깨진다.
+Measured: 575 text items with a median length of 4 characters and a maximum of 35. Real data is longer.
+Building to the design's lengths breaks with long text.
 
 ---
 
-## 3. 받은 뒤 반드시 확인할 것
+## 3. Always check after downloading
 
-| 확인 | 왜 |
+| Check | Why |
 |---|---|
-| 파일 **개수**가 요청한 만큼인가 | 응답은 성공인데 일부가 안 온 적이 있다 |
-| **0 바이트** 파일이 없는가 | 빈 파일이 조용히 생긴다 |
-| SVG 안에 `<path>` 가 있는가 | 껍데기만 오는 경우 |
-| 칠 값이 토큰과 맞는가 | 모양이 같아도 색이 다를 수 있다 |
-| 크기가 덤프와 다른가 | 다르면 **효과가 박혀 온 것**이다 (⑩). 코드에서 그 효과를 빼라 |
+| Is the file **count** what you requested | The response has succeeded while some files never arrived |
+| Are there no **0-byte** files | Empty files appear silently |
+| Does the SVG contain a `<path>` | Sometimes only a shell arrives |
+| Do the fill values match the tokens | The shape can match while the color differs |
+| Does the size differ from the dump | If so, **an effect is baked in** (⑩). Remove that effect from the code |
 
 ---
 
-## 4. 다른 스킬에서 세는 도구를 부르는 법
+## 4. Calling the counting tools from other skills
 
-세는 도구는 `pro-figma` 의 스크립트에 있다. **스킬을 부르지 않고 스크립트로 부른다**
-(스크립트 찾는 블록은 `common-rules.md` §"표준 호출 패턴"을 `SKILL=pro-figma` 로).
+The counting tools are in `pro-figma`'s scripts. **Call the script, not the skill**
+(use the script lookup block from `common-rules.md` §"Standard call pattern" with `SKILL=pro-figma`).
 
 ```bash
-# 덤프(②의 응답 파일)의 요소·효과·스타일을 빠짐없이 나열한다 — 참조를 풀고 그림자 줄을 쪼갠다
-PYTHONIOENCODING=utf-8 {PYTHON} {FIGMA_SCRIPTS}/figma_cli.py coverage --dump {덤프 파일} --node {노드 id}
+# List every element, effect, and style in the dump (the response file from ②) — resolves references and splits shadow layers
+PYTHONIOENCODING=utf-8 {PYTHON} {FIGMA_SCRIPTS}/figma_cli.py coverage --dump {dump file} --node {node id}
 
-# 내려받을 에셋을 묶어 download_figma_images 에 그대로 넘길 nodes[] 를 만든다
-PYTHONIOENCODING=utf-8 {PYTHON} {FIGMA_SCRIPTS}/figma_cli.py assets --dump {덤프 파일} --node {노드 id}
+# Group the assets to download and build the nodes[] to pass straight to download_figma_images
+PYTHONIOENCODING=utf-8 {PYTHON} {FIGMA_SCRIPTS}/figma_cli.py assets --dump {dump file} --node {node id}
 ```
 
-| 부르는 쪽 | 무엇에 쓰나 |
+| Caller | What it uses it for |
 |---|---|
-| 요청서(`pro-design-brief`) | `coverage` 를 **상태 노드마다** 돌려 그려진 상태를 세고, 코드의 상태 목록과 맞대 빈틈 표를 만든다. 토큰(색·글꼴·모서리)을 대안 목업에 쓴다 |
-| 대조(`pro-figma`) | 항목을 구현·근사·생략으로 하나도 남기지 않고 분류한다 |
+| Design request (`pro-design-brief`) | Runs `coverage` **for each state node** to count drawn states and builds the gap table against the code's state list. Uses the tokens (color, font, radius) in alternative mockups |
+| Comparison (`pro-figma`) | Classifies every item as implemented, approximated, or omitted, leaving none out |
 
-> **덤프를 넘길 때 `--node` 를 빼지 않는다.** 파일 전체를 넘기면 수천 개가 나온다 — 실측으로
-> 한 보드에 요소 3,851개 · 스타일 항목 5,931개였다.
-
+> **Do not drop `--node` when passing a dump.** Passing the whole file yields thousands — measured: one board had
+> 3,851 elements and 5,931 style entries.

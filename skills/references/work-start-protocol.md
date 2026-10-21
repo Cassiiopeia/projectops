@@ -1,89 +1,91 @@
-# 작업 시작 · Git 컨텍스트 확인 프로토콜 (상세)
+# Work start and Git context check protocol (detail)
 
-`common-rules.md` §"작업 시작 프로토콜"·§"Git 컨텍스트 확인 프로토콜"의 상세다. 코드 수정이 수반되는
-작업(구현, 버그 수정, 리팩토링 등) 시작 전에 수행한다.
+The detail behind `common-rules.md` §"Work start protocol" and §"Git context check protocol". Do this before
+starting work that changes code (implementation, bug fixes, refactoring, and so on).
 
-## 1단계: 현재 브랜치 확인
+Ask the questions below in the user's language (or the configured `language` preference). The English text is the reference wording.
+
+## Step 1: Check the current branch
 
 ```bash
 git branch --show-current
 ```
 
-- **main**(프로덕션·default branch, 레포에 따라 master 등) → **즉시 멈추고** 사용자에게 확인한다. main은
-  릴리스(develop→main PR)로만 갱신되어야 하는 배포 브랜치다.
-- **개발 브랜치**(`version.yml`의 `metadata.development_branch`(구 이름 `deploy_branch`), 없으면 `develop`) → 레포 규칙을 먼저 본다.
-  - 레포 `CLAUDE.md`·`AGENTS.md`가 개발 브랜치 직행을 기본으로 선언했으면(예: "develop에서 직접 작업",
-    "develop 직행") **멈추지 않고 통과**한다. 이슈 번호는 사용자 메시지에 있으면 그것을 쓰고, 없으면
-    커밋 시점에 묻는다.
-  - 선언이 없으면 3단계의 develop 질문으로 확인한다.
-- **feature 브랜치** → 2단계로.
+- **main** (production / default branch; master or similar in some repos) → **stop immediately** and confirm with the user. main is
+  the deploy branch and must be updated only by releases (develop→main PR).
+- **Development branch** (`metadata.development_branch` in `version.yml` (old name `deploy_branch`), or `develop` if absent) → check the repo's rules first.
+  - If the repo's `CLAUDE.md` or `AGENTS.md` declares working directly on the development branch as the default (for example "work directly on develop",
+    "commit straight to develop"), **pass without stopping**. Use the issue number from the user's message if there is one; otherwise
+    ask at commit time.
+  - If there is no such declaration, confirm with the develop question in step 3.
+- **Feature branch** → step 2.
 
-## 2단계: 이슈 번호 확인
+## Step 2: Check the issue number
 
-브랜치명이 `YYYYMMDD_#번호_제목` 형식인지 본다.
+Check whether the branch name has the form `YYYYMMDD_#number_title`.
 
-- **번호 있음** → 그 이슈를 조회해 제목·상태 출력 후 작업 진행
-- **번호 없음** → 3단계로 사용자에게 확인
+- **Has a number** → look up that issue, print its title and state, and proceed with the work
+- **No number** → confirm with the user in step 3
 
-## 3단계: 사용자 확인 메시지
+## Step 3: Confirmation message to the user
 
-브랜치가 main·develop이거나 이슈 번호가 없을 때 **반드시** 아래 형식으로 묻는다 (develop 직행을 선언한
-레포의 develop은 1단계에서 이미 통과했으므로 묻지 않는다). 한 번에 한 질문.
+When the branch is main or develop, or there is no issue number, **always** ask in the format below (in a repo that
+declares direct work on develop, develop already passed in step 1, so do not ask). One question at a time.
 
-**main 브랜치인 경우 (⚠️ main은 프로덕션 — 직접 커밋·push 금지):**
+**On the main branch (⚠️ main is production — no direct commits or pushes):**
 ```
-현재 main(프로덕션) 브랜치에서 작업하려고 합니다. main은 직접 커밋·push 대상이 아니며, develop→main 릴리스 PR로만 갱신되어야 합니다.
-이 작업에 연결된 이슈가 있나요?
+You are about to work on the main (production) branch. main is not a target for direct commits or pushes; it must be updated only through develop→main release PRs.
+Is there an issue linked to this work?
 
-1. 이슈 번호 알려주세요 → 브랜치명 자동 계산 후 안내
-2. 이슈 없음 → 새로 생성할까요? (`/pro-github`의 이슈 생성 워크플로우로 이동)
-3. 그래도 main에서 바로 작업 (hotfix 등 예외 상황 — 신중히 확인 후 진행)
-```
-
-**develop 브랜치인 경우 (기본 개발 브랜치):**
-```
-현재 develop 브랜치에서 작업하려고 합니다.
-이 작업에 연결된 이슈가 있나요?
-
-1. 이슈 번호 알려주세요 → 브랜치명 자동 계산 후 안내
-2. 이슈 없음 → 새로 생성할까요? (`/pro-github`의 이슈 생성 워크플로우로 이동)
-3. 이슈 없이 develop에서 바로 작업 (경미한 수정 등)
+1. Tell me the issue number → I'll compute the branch name and guide you
+2. No issue → shall I create one? (go to the issue creation workflow in `/pro-github`)
+3. Work directly on main anyway (exceptions such as a hotfix — confirm carefully before proceeding)
 ```
 
-**feature 브랜치이지만 이슈 번호가 없는 경우:**
+**On the develop branch (the default development branch):**
 ```
-현재 브랜치 [{브랜치명}]에 이슈 번호가 없습니다.
-연결된 이슈가 있나요?
+You are about to work on the develop branch.
+Is there an issue linked to this work?
 
-1. 이슈 번호 알려주세요
-2. 이슈 없이 현재 브랜치에서 바로 작업
+1. Tell me the issue number → I'll compute the branch name and guide you
+2. No issue → shall I create one? (go to the issue creation workflow in `/pro-github`)
+3. Work directly on develop without an issue (minor fixes and so on)
 ```
 
-## 4단계: 사용자 선택에 따른 처리
+**On a feature branch without an issue number:**
+```
+The current branch [{branch name}] has no issue number.
+Is there a linked issue?
 
-| 선택 | 처리 |
+1. Tell me the issue number
+2. Work directly on the current branch without an issue
+```
+
+## Step 4: Handling the user's choice
+
+| Choice | Action |
 |------|------|
-| 이슈 번호 제공 | 이슈 조회 → 브랜치명 계산(`YYYYMMDD_#번호_제목`) → worktree 여부 확인 → 작업 진행 |
-| 이슈 새로 생성 | `/pro-github`의 이슈 생성 워크플로우로 이동 (생성 후 돌아와서 작업) |
-| main에서 바로 작업 | 사용자가 명시적으로 선택한 것이므로 허용 — 커밋은 자유 형식 |
-| 현재 브랜치에서 바로 작업 | 허용 — 진행 |
+| Issue number given | Look up the issue → compute the branch name (`YYYYMMDD_#number_title`) → ask about a worktree → proceed |
+| Create a new issue | Go to the issue creation workflow in `/pro-github` (come back after creating it and do the work) |
+| Work directly on main | Allowed because the user explicitly chose it — commits may use a free format |
+| Work directly on the current branch | Allowed — proceed |
 
-## worktree 여부 확인
+## Asking about a worktree
 
-이슈 번호가 확정되어 새 브랜치가 필요하면 반드시 묻는다.
+When the issue number is confirmed and a new branch is needed, always ask.
 
 ```
-worktree로 격리된 환경에서 작업할까요, 아니면 현재 디렉토리에서 브랜치만 생성할까요?
+Should I work in an isolated worktree, or just create the branch in the current directory?
 
-1. worktree 생성 (/pro-init-worktree 실행)
-2. 현재 디렉토리에서 브랜치만 생성
+1. Create a worktree (run /pro-init-worktree)
+2. Create the branch only, in the current directory
 ```
 
-## 이슈 등록 순서 (이슈 기반 작업 시)
+## Issue filing order (for issue-based work)
 
-1. 이슈 파일 로컬 저장 (`get-output-path issue`가 준 `YYYYMMDD_001_제목.md`)
-2. 사용자에게 내용 확인 요청
-3. 승인 후 GitHub 등록
-4. 반환된 실제 이슈 번호 확인
-5. 등록할 때 `create-issue ... --rename-body-file`을 붙이면 파일명이 실제 번호(`YYYYMMDD_245_제목.md`)로 바뀐다
-6. 이슈 번호가 확정된 후에만 커밋 가능
+1. Save the issue file locally (`YYYYMMDD_001_title.md` from `get-output-path issue`)
+2. Ask the user to review the content
+3. File it on GitHub after approval
+4. Check the real issue number returned
+5. Adding `--rename-body-file` to `create-issue ...` when filing renames the file to the real number (`YYYYMMDD_245_title.md`)
+6. Commits are allowed only after the issue number is confirmed

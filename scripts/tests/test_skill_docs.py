@@ -117,7 +117,7 @@ def test_common_rules_documents_3layer_architecture():
                 "review_cli.py", "changelog_cli.py"]:
         assert cli in text, f"{cli} 매핑이 common-rules.md에 없음"
     # 3-layer 핵심 키워드
-    for keyword in ["scripts/common/", "skills/<skill>/scripts/", "self-contained 5줄"]:
+    for keyword in ["scripts/common/", "skills/<skill>/scripts/", "self-contained 5-line"]:
         assert keyword in text, f"\"{keyword}\" 키워드 누락"
 
 

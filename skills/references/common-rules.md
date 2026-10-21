@@ -1,135 +1,138 @@
-# 공통 규칙
+# Common rules
 
-모든 skill이 시작할 때 읽는 절대 규칙이다. 특정 상황의 상세는 각 절의 링크 문서에 있다 — 필요할 때만 읽는다.
-스킬 문서를 쓰거나 고칠 때(참조 경로 `../references/` 규칙 등)는 `skill-authoring.md`.
-"다음에도 쓸 지식"을 저장·회수하는 기능을 만들거나 고칠 때는 `memory-principles.md`.
+The absolute rules every skill reads when it starts. Details for specific situations live in the documents linked
+from each section — read them only when needed.
+When writing or editing skill docs (the `../references/` path rule and so on), see `skill-authoring.md`.
+When building or changing a feature that stores and recalls "knowledge for next time", see `memory-principles.md`.
 
-## 절대 규칙
+## Absolute rules
 
-1. **Git 커밋은 이슈 컨텍스트 + 사용자 승인 없이 실행하지 않는다** — 이슈 기반 작업은 이슈 번호 확정 후에만 커밋. 이슈와 무관한 hotfix·설정 변경은 자유 형식 허용. 서브에이전트에게도 동일하게 지시한다. 번호는 브랜치명(`YYYYMMDD_#번호_제목`) 또는 사용자에게 받고, 확인하지 못하면 **즉시 멈추고** 선택지를 제시한다 (`commit-convention.md` §이슈 기반 커밋 원칙).
-2. **코드 스타일 100% 준수** — 기존 프로젝트 패턴을 감지하고 동일하게 따른다. 새로운 "더 나은" 방식을 임의로 제안하지 않는다.
-3. **프로젝트 타입 감지 필수** — 작업 시작 전 반드시 프로젝트 타입을 자동 감지한다.
-4. **민감 정보 보호** — 산출물·댓글에 실제 비밀값을 넣지 않는다 (아래 §민감 정보 보호).
-5. 레포 `CLAUDE.md`·`AGENTS.md`가 다른 규칙을 정했으면 그쪽이 우선한다.
+1. **Never run a Git commit without issue context and user approval** — for issue-based work, commit only after the issue number is confirmed. Hotfixes and config changes unrelated to an issue may use a free format. Give subagents the same instruction. Get the number from the branch name (`YYYYMMDD_#number_title`) or from the user; if you cannot confirm it, **stop immediately** and offer choices (`commit-convention.md` §Issue-based commit principle).
+2. **Follow the code style 100%** — detect the existing project patterns and follow them exactly. Do not propose a new "better" way on your own.
+3. **Project type detection is mandatory** — always detect the project type automatically before starting work.
+4. **Protect sensitive information** — never put real secret values in artifacts or comments (see §Protecting sensitive information below).
+5. If the repo's `CLAUDE.md` or `AGENTS.md` sets different rules, those win.
 
-## AI 행동 강제 원칙
+## Enforced AI behavior
 
-아래 원칙은 **스킬 내용보다 우선**한다.
+These principles **take precedence over skill content**.
 
-### 확인 없이 절대 하지 않는 것
+### Never do these without confirmation
 
-| 행동 | 이유 |
+| Action | Why |
 |------|------|
-| 커밋 실행 | 메시지 제안 → 사용자 승인 → 실행 순서 필수 |
-| GitHub 이슈/PR 생성 | 내용 확인 → 사용자 승인 → 생성 순서 필수 |
-| **이슈 상태·라벨 변경** | 아래 §이슈 상태 처리 규칙의 **파이프라인 단계는 확인 없이 해도 된다** (작업 시작 → `status: in progress`, 작업 완료 → `status: done` 교체 후 close, 둘 다 `finish-issue`). 그 밖의 임의 변경(다른 사람 이슈 닫기, 상관없는 라벨 바꾸기)은 사용자 요청이 있을 때만 |
-| 파일 삭제 | 삭제 전 반드시 사용자 허락 |
-| push | 대상/내용 명시 후 사용자 승인 필수 |
-| **외부 계정·인증서·Secret을 바꾸는 실행** | 인증서 재발급, 프로비저닝 프로필 갱신, Actions Secret 교체, 외부 저장소 push. 무엇이 바뀌는지 말하고 승인받은 뒤 실행한다 (조회·읽기 전용 확인은 승인 불필요) |
-| **사용자 환경을 바꾸는 설치** | 패키지·런타임·브라우저·CLI를 까는 일은 **무엇을 왜 얼마나 받는지 말하고 물어본 뒤** 실행한다. 스킬이 돌아가려면 필요하다는 것은 이유가 되지만 승인은 아니다 |
+| Running a commit | Must go: propose the message → user approval → run |
+| Creating a GitHub issue/PR | Must go: confirm content → user approval → create |
+| **Changing issue state or labels** | **Pipeline steps** in §Issue state rules below may be done without confirmation (work start → `status: in progress`, work done → swap to `status: done` then close, both via `finish-issue`). Any other change (closing someone else's issue, changing unrelated labels) only when the user asks |
+| Deleting files | Always get the user's permission before deleting |
+| push | State the target and content, then get user approval |
+| **Runs that change external accounts, certificates, or Secrets** | Reissuing certificates, renewing provisioning profiles, rotating Actions Secrets, pushing to external repos. Say what changes, get approval, then run (lookups and read-only checks need no approval) |
+| **Installs that change the user's environment** | Installing a package, runtime, browser, or CLI: **say what, why, and how big, ask, then run**. "The skill needs it to work" is a reason, not approval |
 
-### 이슈 상태 처리 규칙
+### Issue state rules
 
-상태 라벨은 영문 표준과 한글 표기를 둘 다 쓴다 (#776). 스킬 CLI가 두 표기를 서로 바꿔 인식하므로
-레포에 있는 쪽으로 자동 치환된다. 문서·예시는 영문을 먼저 쓰고 한글을 병기한다.
+Status labels exist in both an English standard and a Korean form (#776). The skill CLIs treat the two forms as
+equivalent and substitute whichever one the repo has. Docs and examples write the English one first and the
+Korean one next to it.
 
-| 시점 | 처리 | 명령 |
+| When | Action | Command |
 |------|------|------|
-| 작업 시작 | 상태 라벨을 `status: in progress`(`작업중`)로 교체 | `github_cli.py finish-issue {owner} {repo} {번호} --outcome in-progress` |
-| 작업 완료 | 상태 라벨을 `status: done`(`작업완료`)로 교체 후 close | `github_cli.py finish-issue {owner} {repo} {번호}` (기본 `--outcome done`) |
-| 남은 작업 있음 | 닫지 않고 `status: in progress` 유지 | — |
-| 작업 취소 | 상태 라벨을 `status: cancelled`(`취소`)로 교체 후 close | `github_cli.py finish-issue {owner} {repo} {번호} --outcome cancelled` |
+| Work starts | Swap the status label to `status: in progress` (`작업중`) | `github_cli.py finish-issue {owner} {repo} {number} --outcome in-progress` |
+| Work done | Swap the status label to `status: done` (`작업완료`), then close | `github_cli.py finish-issue {owner} {repo} {number}` (default `--outcome done`) |
+| Work remains | Do not close; keep `status: in progress` | — |
+| Work cancelled | Swap the status label to `status: cancelled` (`취소`), then close | `github_cli.py finish-issue {owner} {repo} {number} --outcome cancelled` |
 
-- **상태 전환은 `finish-issue`로 한다** — 상태 라벨만 바꾸고 `type:`·`area:`·`priority:` 같은 다른 라벨은 그대로 둔다.
-  `set-labels`는 넘긴 목록으로 **라벨 전체를 교체**하므로 `set-labels ... "status: done"`만 넘기면 다른 라벨이 전부 지워진다.
-  `add-labels`는 더하기만 해서 `status: todo`가 남아 상태가 두 개가 된다.
-- `finish-issue`가 일부 단계만 실패하면 `failed_steps`에 적힌 단계만 다시 한다 (`set-labels`는 `get-issue`로 읽은 기존 라벨에서 상태 라벨만 바꾼 전체 목록을 넘길 때만 쓴다).
-- 완료 처리 레시피는 `pro-github/SKILL.md` §"이슈 완료 처리"에 있다. `pro-report`가 보고서를 올린 뒤 이 레시피를 따른다.
-- 릴리스 워크플로우(`close_on_release`)도 완료 라벨 이슈를 닫지만, 이미 닫힌 이슈는 건너뛰므로 먼저 닫아도 충돌하지 않는다.
-- **취소 이슈는 `close_on_release`가 닫지 않는다**(완료 라벨만 대상). 그래서 취소는 agent가 직접 `finish-issue --outcome cancelled`로 닫는다.
+- **Change state with `finish-issue`** — it swaps only the status label and leaves other labels such as `type:`, `area:`, and `priority:` alone.
+  `set-labels` **replaces all labels** with the list you pass, so passing only `set-labels ... "status: done"` deletes every other label.
+  `add-labels` only adds, so `status: todo` stays and the issue ends up with two states.
+- If `finish-issue` fails only some steps, redo only the steps listed in `failed_steps` (use `set-labels` only when you pass the full list read with `get-issue`, with just the status label swapped).
+- The completion recipe is in `pro-github/SKILL.md` §"Completing an issue". `pro-report` follows it after posting the report.
+- The release workflow (`close_on_release`) also closes issues with the done label, but it skips issues that are already closed, so closing first does not conflict.
+- **`close_on_release` does not close cancelled issues** (it only targets the done label). So the agent closes cancelled issues itself with `finish-issue --outcome cancelled`.
 
-### 필요한 것이 없을 때
+### When something you need is missing
 
-도구가 없으면 ① 무엇이 왜 필요한지·얼마나 받는지 말하고 ② 물어본 뒤 ③ 승인받으면 **스킬이 직접 깐다**
-(명령만 알려주고 멈추지 않는다). 격리된 경로에 멱등으로 설치한다.
-**안 된다고 말하기 전에** 레포의 CLI·자동화 수단과 저장된 자격증명(`launch_cli.py cred list`)으로 되는지 먼저 **조회**한다.
-조회는 바로, 바꾸는 실행은 승인 후. 막히는 지점과 할 수 있는 부분을 나눠 제안한다. 상세: `agent-conduct.md`.
+If a tool is missing: ① say what is needed, why, and how big the download is, ② ask, ③ once approved, **the skill installs it itself**
+(do not stop after printing a command). Install idempotently into an isolated path.
+**Before you say it cannot be done**, **look up** whether the repo's CLIs, automation, or saved credentials (`launch_cli.py cred list`) can do it.
+Look things up right away; run changes only after approval. Propose the blocked point and the part you can do separately. Detail: `agent-conduct.md`.
 
-### 전용 스킬 경유 강제 (우회 금지)
+### Route through the dedicated skill (no bypassing)
 
-`curl`·GitHub API로 직접 처리하면 템플릿 규격·중복검사·로컬 저장 등 스킬이 보장하는 절차를 우회하게 된다.
+Handling things directly with `curl` or the GitHub API skips the procedures a skill guarantees: template format, duplicate checks, local saving, and so on.
 
-| 작업 | 반드시 경유할 스킬 |
+| Task | Skill you must go through |
 |------|------------------|
-| GitHub 이슈 **생성** | `pro-github` (`issue-creation.md` 워크플로우) |
-| GitHub PR 생성, 이슈 조회/수정/댓글/라벨/닫기, Actions Secret | `pro-github` |
-| 구현 보고서 작성·PR 댓글 | `pro-report` |
+| **Creating** a GitHub issue | `pro-github` (the `issue-creation.md` workflow) |
+| Creating a GitHub PR; reading, editing, commenting on, labeling, closing issues; Actions Secrets | `pro-github` |
+| Writing an implementation report, PR comment | `pro-report` |
 
-한 번에 여러 작업을 요청받아도 각 단계의 전용 스킬을 순서대로 호출한다. **예외**: 이미 생성된 이슈의 제목·본문 **보정**, 스킬이 명시적으로 위임한 호출.
+Even when asked to do several things at once, call each step's dedicated skill in order. **Exceptions**: **correcting** the title or body of an already created issue, and calls a skill explicitly delegates.
 
-### 이슈 작성 컨벤션 (반드시 준수)
+### Issue writing convention (mandatory)
 
-제목 형식 `[이모지+태그][카테고리] 제목`. 허용 태그는 아래뿐이다. 대상 레포 템플릿의 언어를 따르고, 템플릿이
-없으면 영문을 쓴다. 두 언어의 태그는 같은 커밋 타입으로 매핑된다 (대소문자 무시).
+Title format `[emoji+tag][category] title`. Only the tags below are allowed. Follow the language of the target
+repo's templates; if there are no templates, use English. Tags in both languages map to the same commit type
+(case-insensitive).
 
-| 영문 (기본) | 한글 | 용도 |
+| English (default) | Korean | Use |
 |-------------|------|------|
-| `❗[Bug]` | `❗[버그]` | 버그 리포트 |
-| `🎨[Design]` | `🎨[디자인]` | 디자인/UI 요청 |
-| `🔧[Feature Request]` | `🔧[기능요청]` | 기능 요청 |
-| `⚙️[Feature]` | `⚙️[기능추가]` | 새 기능 추가 |
-| `🚀[Improvement]` | `🚀[기능개선]` | 기존 기능 개선 |
-| `🔍[QA]` | `🔍[시험요청]` | QA/테스트 요청 |
-| `📄[Docs]` | `📄[문서]` | 문서 관련 |
-| `🔥[Urgent]` | `🔥[긴급]` | 긴급 (사용자가 명시할 때만) |
+| `❗[Bug]` | `❗[버그]` | Bug report |
+| `🎨[Design]` | `🎨[디자인]` | Design/UI request |
+| `🔧[Feature Request]` | `🔧[기능요청]` | Feature request |
+| `⚙️[Feature]` | `⚙️[기능추가]` | New feature |
+| `🚀[Improvement]` | `🚀[기능개선]` | Improvement to an existing feature |
+| `🔍[QA]` | `🔍[시험요청]` | QA/test request |
+| `📄[Docs]` | `📄[문서]` | Documentation |
+| `🔥[Urgent]` | `🔥[긴급]` | Urgent (only when the user says so) |
 
-- 이모지와 `[` 사이 공백 없음: `⚙️[Feature]` (O), `⚙️ [Feature]` (X). 템플릿 주석의 복사용 예시(`❗ [Bug]`)에 공백이 있어도 **제목에는 붙여 쓴다** — 실제 등록된 이슈 제목이 전부 붙여 쓴 형태다
-- `·` 등 구분자 이모지, 허용 목록 외 이모지 사용 금지. 이슈 파일은 `github_cli.py get-output-path issue --title "{제목}"`이 돌려준 `path`에 저장한다 (직접 조립 금지, `.issue/` 폴더 금지)
+- No space between the emoji and `[`: `⚙️[Feature]` (O), `⚙️ [Feature]` (X). Even if the copy-paste example in a template comment (`❗ [Bug]`) has a space, **write it without the space in the title** — every issue title actually filed is written that way
+- Do not use separator emoji such as `·` or any emoji outside the allowed list. Save the issue file to the `path` returned by `github_cli.py get-output-path issue --title "{title}"` (do not build it yourself; do not use an `.issue/` folder)
 
-### 이슈 MD 파일명 규칙
+### Issue MD file name rule
 
-등록 전 `YYYYMMDD_001_제목.md`(`get-output-path issue`가 그날 일련번호·태그 뺀 제목으로 만든다) → 등록 후 실제 번호로
-`YYYYMMDD_245_제목.md`로 바꾼다 (`create-issue --rename-body-file`이 바꾼다, 손으로 `mv` 하지 않는다). 파일명에 이모지·`TMP` 접두사 금지. 등록 순서: `work-start-protocol.md` §이슈 등록 순서.
+Before filing: `YYYYMMDD_001_title.md` (`get-output-path issue` builds it from the day's sequence number and the title without tags) → after filing, rename to the real number,
+`YYYYMMDD_245_title.md` (`create-issue --rename-body-file` renames it; do not `mv` it by hand). No emoji or `TMP` prefix in file names. Filing order: `work-start-protocol.md` §Issue filing order.
 
-## 작업 시작 프로토콜
+## Work start protocol
 
-모든 코드 관련 skill은 다음 순서로 시작한다.
+Every code-related skill starts in this order.
 
-1. `project-detection.md`로 프로젝트 타입 감지
-2. `code-style-detection.md`로 코드 스타일 감지 (기존 코드 3-5개 샘플링)
-3. 기술 가이드: Spring Boot → `tech-spring.md` · React / React Native / Expo / Next.js → `tech-react.md` · Flutter → `tech-flutter.md` · Node.js / Python → 가이드 없음, 코드베이스 직접 분석
-4. **Git 컨텍스트 확인** (코드 수정이 수반될 때) — 아래 §Git 컨텍스트 확인 프로토콜
-5. **개인 설정 로드** — 산출물(메시지·보고서·이슈·댓글)을 쓰는 skill은 시작 시 `preferences.md`의 locate 스니펫(`prefs_cli.py resolve --skill <id>`)으로 개인 설정을 읽고 `preferences.md` 규칙대로 적용한다
-6. 본 skill의 작업 수행
+1. Detect the project type with `project-detection.md`
+2. Detect the code style with `code-style-detection.md` (sample 3–5 existing files)
+3. Tech guide: Spring Boot → `tech-spring.md` · React / React Native / Expo / Next.js → `tech-react.md` · Flutter → `tech-flutter.md` · Node.js / Python → no guide; analyze the codebase directly
+4. **Check the Git context** (when the work changes code) — §Git context check protocol below
+5. **Load personal preferences** — a skill that writes artifacts (messages, reports, issues, comments) reads personal preferences at start with the locate snippet in `preferences.md` (`prefs_cli.py resolve --skill <id>`) and applies them by the rules in `preferences.md`
+6. Do the skill's own work
 
-설계·계획·구현 흐름은 `superpowers:brainstorming` → `writing-plans` → `executing-plans` → `/pro-review`.
+The design → plan → implement flow is `superpowers:brainstorming` → `writing-plans` → `executing-plans` → `/pro-review`.
 
-## Git 컨텍스트 확인 프로토콜
+## Git context check protocol
 
-코드 수정 작업 전에 수행한다. 질문 문구·선택지별 처리: `work-start-protocol.md`.
+Do this before changing code. Question wording and handling of each choice: `work-start-protocol.md`.
 
-- **main**(프로덕션) → 즉시 멈추고 사용자에게 확인. main은 릴리스 PR로만 갱신된다.
-- **개발 브랜치**(`version.yml` `metadata.development_branch`(구 이름 `deploy_branch`), 없으면 `develop`) → 레포 `CLAUDE.md`·`AGENTS.md`가 직행을 선언했으면 통과, 아니면 이슈 연결 여부를 묻는다.
-- **feature 브랜치** → `YYYYMMDD_#번호_제목`에서 번호를 뽑아 이슈 조회, 없으면 묻는다. 새 브랜치가 필요하면 worktree(`/pro-init-worktree`) 여부를 묻는다.
+- **main** (production) → stop immediately and confirm with the user. main is updated only through release PRs.
+- **Development branch** (`version.yml` `metadata.development_branch` (old name `deploy_branch`), or `develop` if absent) → if the repo's `CLAUDE.md` or `AGENTS.md` declares direct work on it, pass; otherwise ask whether to link an issue.
+- **Feature branch** → take the number from `YYYYMMDD_#number_title` and look up the issue; if there is none, ask. If a new branch is needed, ask whether to use a worktree (`/pro-init-worktree`).
 
-## skill별 py 분산 호출
+## Distributed per-skill Python calls
 
-각 skill이 `skills/<skill>/scripts/<scope>_cli.py`를 보유하고(argparse 서브커맨드), 공유 로직은 `scripts/common/`에
-있다. SKILL.md는 아래 표준 블록으로 Python을 호출한다 (self-contained 5줄 원칙 — 어느 블록부터 시작해도 동작).
-config는 CLI가 아니라 agent가 Read/Write로 직접 다룬다 (`config-rules.md`).
+Each skill owns `skills/<skill>/scripts/<scope>_cli.py` (argparse subcommands), and shared logic lives in `scripts/common/`.
+SKILL.md calls Python with the standard block below (the self-contained 5-line principle — it works no matter which block you start from).
+Config is handled by the agent with Read/Write, not by the CLI (`config-rules.md`).
 
-예: `pro-github/scripts/github_cli.py` · `pro-report/scripts/report_cli.py` ·
-`pro-review/scripts/review_cli.py` · `pro-changelog-deploy/scripts/changelog_cli.py` (다른 스킬도 같은 규칙).
-3-layer 구조·JSON 출력(`ok`/`code`/`summary`/`next`)·GitHub API 에러 대응·OS 호환성: `script-invocation.md`.
+Examples: `pro-github/scripts/github_cli.py` · `pro-report/scripts/report_cli.py` ·
+`pro-review/scripts/review_cli.py` · `pro-changelog-deploy/scripts/changelog_cli.py` (other skills follow the same rule).
+3-layer structure, JSON output (`ok`/`code`/`summary`/`next`), GitHub API error handling, OS compatibility: `script-invocation.md`.
 
-**GitHub 작업**도 이 서브커맨드로만 한다. `gh` CLI 금지, 스킬 문서에 curl 레시피·Python heredoc·임시 Python 파일을 넣지 않는다.
-PAT는 CLI가 자동 로드한다.
+**GitHub work** goes only through these subcommands too. No `gh` CLI; do not put curl recipes, Python heredocs, or temporary Python files in skill docs.
+The CLI loads the PAT automatically.
 
-### 표준 호출 패턴
+### Standard call pattern
 
-**Bash 도구는 호출마다 상태가 초기화된다.** 스크립트는 스킬 실행당 **한 번** 찾고, 출력된 실제 경로를 이후 블록에
-값으로 써넣는다 — `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/<scope>_cli.py <subcommand> [args]` (모범: `pro-launch/SKILL.md`).
-다른 스킬의 스크립트를 부를 때도 `SKILL=` 값만 그 스킬로 바꾼다.
+**The Bash tool resets its state on every call.** Find the scripts **once** per skill run, then write the printed
+real paths into later blocks as values — `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/<scope>_cli.py <subcommand> [args]` (model: `pro-launch/SKILL.md`).
+To call another skill's script, change only the `SKILL=` value to that skill.
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -145,72 +148,72 @@ SCRIPTS="$ROOT/skills/$SKILL/scripts"
 echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS PROJECT_ROOT=$PROJECT_ROOT"
 ```
 
-한 블록에서 찾기와 호출을 함께 하려면(self-contained) `echo` 줄 대신
-`PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/<scope>_cli.py" <subcommand> [args]`를 둔다.
-**스크립트 폴더로 `cd` 하지 않는다** — 프로젝트 폴더를 떠나면 git 루트와 이슈 번호를 못 찾는다 (#943). 프로젝트 밖에서 부르면 `--root <프로젝트>` 또는 `$PROJECT_ROOT`.
+To find and call in one block (self-contained), put
+`PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/<scope>_cli.py" <subcommand> [args]` in place of the `echo` line.
+**Do not `cd` into the scripts folder** — once you leave the project folder, the git root and issue number can no longer be found (#943). When calling from outside the project, pass `--root <project>` or `$PROJECT_ROOT`.
 
-### 스크립트 탐색
+### Finding the scripts
 
-**먼저 고정 진입점** (#942): `~/.projectops/bin/projectops_cli.py <skill> <서브커맨드> ...` 는 설치된 가장 새 스크립트를 찾아 인자를 그대로 넘긴다
+**Fixed entry point first** (#942): `~/.projectops/bin/projectops_cli.py <skill> <subcommand> ...` finds the newest installed script and passes the arguments through
 (skill: github · commit · report · review · testcase · changelog-deploy · init-worktree · figma · agent-test · design-brief · oss-consult · launch).
-아래 탐색 블록은 이 파일이 아직 없을 때(첫 실행)나 `scripts_not_found` 일 때의 대체 경로다. 응답의 `newer_installed` 는 옛 버전에서 돌고 있다는 뜻이다.
+The lookup block above is the fallback when this file does not exist yet (first run) or on `scripts_not_found`. `newer_installed` in the response means an old version is running.
 
-**zsh에서 명령을 변수에 담지 않는다** — `P="python3 …/projectops_cli.py github"; $P get-issue …` 는 zsh가 변수를 한 단어로 다뤄 `exit 127`(command not found)이 난다.
-줄이려면 함수로 감싼다:
+**In zsh, do not store a command in a variable** — with `P="python3 …/projectops_cli.py github"; $P get-issue …`, zsh treats the variable as one word and fails with `exit 127` (command not found).
+To shorten it, wrap it in a function:
 
 ```bash
 G(){ PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py github "$@"; }
-G get-issue {owner} {repo} {번호}
+G get-issue {owner} {repo} {number}
 ```
 
-위 블록은 **로컬(projectops 레포의 `skills/`) → 하네스 설치 경로(Claude Code·Codex·Gemini·pi)** 순으로 플러그인 루트를 찾는다.
-**형태를 바꾸지 않는다** — 하네스를 `for`로 하나씩 `find`하는 것(zsh `no matches found` 회피, #542)과 마지막 `[ -d "$SCRIPTS" ]`
-가드는 실사고로 생긴 것이다. 근거: `script-invocation.md` §스크립트 탐색.
+The block above finds the plugin root in this order: **local (`skills/` in the projectops repo) → harness install paths (Claude Code, Codex, Gemini, pi)**.
+**Do not change its shape** — running `find` for each harness in a `for` loop (to avoid zsh `no matches found`, #542) and the final `[ -d "$SCRIPTS" ]`
+guard both came from real incidents. Rationale: `script-invocation.md` §Finding the scripts.
 
-### PYTHON 변수 설정 (크로스 플랫폼 필수)
+### Setting the PYTHON variable (required for cross-platform)
 
-위 블록의 `PYTHON=` 줄을 그대로 쓴다. `python3 -c` 직접 호출 금지(Windows Store stub → `Exit code 49`), 한글이 흐르는 호출은
-`PYTHONIOENCODING=utf-8` 필수. 근거: `script-invocation.md` §PYTHON 변수 설정.
+Use the `PYTHON=` line from the block above as is. Do not call `python3 -c` directly (Windows Store stub → `Exit code 49`); calls that carry Korean or other non-ASCII text
+must set `PYTHONIOENCODING=utf-8`. Rationale: `script-invocation.md` §Setting the PYTHON variable.
 
-### Windows 내부망 환경
+### Windows corporate network
 
-curl `exit 35`(SSL) → `--ssl-no-revoke` 추가 후 재시도. 상세: `script-invocation.md` §Windows 내부망 환경.
+curl `exit 35` (SSL) → add `--ssl-no-revoke` and retry. Detail: `script-invocation.md` §Windows corporate network.
 
-## 출력 경로
+## Output paths
 
-산출물 저장 위치는 각 스킬 CLI의 `get-output-path`가 돌려준 `path`를 그대로 쓴다. 경로를 직접 조립하지 않는다
-(산출물 루트는 설정 `output.root`로 바뀐다). 상세: `doc-output-path.md`.
+Use the `path` returned by each skill CLI's `get-output-path` as the artifact location. Do not build paths yourself
+(the artifact root changes with the `output.root` setting). Detail: `doc-output-path.md`.
 
-## Git Push 실행 시 동작 규칙
+## Rules when running git push
 
-1. **main(기본·배포 브랜치)이면 push하지 않는다** — main은 릴리스 PR(`/pro-changelog-deploy`)로만 갱신된다
-2. 순서: **커밋 → `git fetch origin` → `git pull --rebase origin {현재 브랜치}` → push** (릴리스 때 버전 확정 커밋이 개발 브랜치에도 추가되어 로컬이 뒤처지기 쉽다).
-   push 전 동기화는 내 변경을 커밋한 **뒤에** 한다 — 내 미커밋 변경이 남아 있으면 rebase가 거부된다
-3. `pull --rebase`가 다른 세션의 미커밋 변경 때문에 거부되면 `git merge --ff-only origin/{현재 브랜치}`로 대신한다
-   (`pro-changelog-deploy/SKILL.md` §1-1단계와 같은 방식). ff가 안 되면(갈라졌으면) 멈추고 사용자에게 묻는다. stash·reset으로 치우지 않는다
-4. **단계는 `&&`로 잇는다** — `;`로 이으면 동기화가 실패해도 push까지 진행된다:
-   `git fetch origin && git pull --rebase origin {브랜치} && git push origin {브랜치}`
-5. non-fast-forward면 다시 2~3으로 통합 (강제 push 금지). 사용자에게는 결과만 안내
+1. **Do not push to main (the default/deploy branch)** — main is updated only through release PRs (`/pro-changelog-deploy`)
+2. Order: **commit → `git fetch origin` → `git pull --rebase origin {current branch}` → push** (on release, a version-finalizing commit is also added to the development branch, so local easily falls behind).
+   Sync before push **after** committing your changes — if your uncommitted changes remain, rebase refuses to run
+3. If `pull --rebase` is refused because of another session's uncommitted changes, use `git merge --ff-only origin/{current branch}` instead
+   (the same approach as `pro-changelog-deploy/SKILL.md` §Step 1-1). If fast-forward is not possible (history has diverged), stop and ask the user. Do not clear things away with stash or reset
+4. **Chain the steps with `&&`** — with `;`, push runs even if the sync fails:
+   `git fetch origin && git pull --rebase origin {branch} && git push origin {branch}`
+5. On non-fast-forward, integrate again with steps 2–3 (no force push). Tell the user only the result
 
-## 커밋 메시지 컨벤션
+## Commit message convention
 
-형식은 팀·개인 설정을 따른다 (팀 `version.yml` 형식 > 개인 설정 — `preferences.md`). 이슈제목은 이모지·태그를 뺀 순수 내용,
-타입(`feat`/`fix`/`refactor`/`docs`/`chore`/`style`/`test`)은 **이번 커밋의 변경 내용**으로 정한다. 템플릿은
-`github_cli.py get-commit-template ... --repo-root "{PROJECT_ROOT}"`의 `template`을 그대로 쓴다. `semver_auto` 레포에서는 타입이 릴리스 버전을 정한다
-(`feat!` major · `feat` minor · 나머지 patch — `!`는 호환성이 깨질 때만). 이슈와 무관한 커밋은 자유 형식.
-상세·예시: `commit-convention.md`.
+The format follows team and personal settings (team `version.yml` format > personal preference — `preferences.md`). The issue title is the plain content without emoji or tags,
+and the type (`feat`/`fix`/`refactor`/`docs`/`chore`/`style`/`test`) is decided by **what this commit changes**. Use the `template` from
+`github_cli.py get-commit-template ... --repo-root "{PROJECT_ROOT}"` as is. In a `semver_auto` repo, the type decides the release version
+(`feat!` major · `feat` minor · everything else patch — `!` only when compatibility breaks). Commits unrelated to an issue may use a free format.
+Detail and examples: `commit-convention.md`.
 
-## 민감 정보 보호
+## Protecting sensitive information
 
-`docs/projectops/` 산출물은 Git에 공개 커밋된다. PAT·API Key·Secret·Token·Password 실제 값, 서버 IP·내부 도메인·SSH 정보,
-개인정보, `.env`·DB 접속 정보를 넣지 않는다.
+Artifacts under `docs/projectops/` are committed publicly to Git. Do not include real values of PATs, API keys, Secrets, tokens, or passwords; server IPs, internal domains, or SSH details;
+personal data; or `.env` and DB connection details.
 
-### 마스킹 규칙
+### Masking rules
 
-실제 값 대신 명명된 플레이스홀더(`{PAT}`, `{API_KEY}`, `{PASSWORD}`, `{DB_USERNAME}`, `{SERVER_HOST}`, `{EMAIL}` 등)를 쓴다.
-`***` 같은 익명 별표는 금지. 표: `sensitive-info.md` §마스킹 규칙.
+Use named placeholders (`{PAT}`, `{API_KEY}`, `{PASSWORD}`, `{DB_USERNAME}`, `{SERVER_HOST}`, `{EMAIL}`, and so on) instead of real values.
+Anonymous asterisks like `***` are not allowed. Table: `sensitive-info.md` §Masking rules.
 
-### 파일 저장 직전 자체검토 프로토콜
+### Self-review right before saving a file
 
-산출물을 저장하기 **직전** 내용 전체를 검토해 위험 값을 플레이스홀더로 바꾸고, 바꾼 것이 있으면 저장 후 사용자에게 알린다.
-체크리스트·판단 기준·고지 형식: `sensitive-info.md` §파일 저장 직전 자체검토 프로토콜.
+**Right before** saving an artifact, review its entire content, replace risky values with placeholders, and if you replaced anything, tell the user after saving.
+Checklist, criteria, and notice format: `sensitive-info.md` §Self-review right before saving a file.

@@ -7,8 +7,8 @@ RULES = (ROOT / "skills/references/common-rules.md").read_text(encoding="utf-8")
 
 
 def test_템플릿의_언어와_절_제목을_따르라고_안내한다():
-    assert "대상 레포의 `.github/ISSUE_TEMPLATE/`" in CREATION
-    assert "템플릿이 없으면 영문" in CREATION
+    assert "the target repo's `.github/ISSUE_TEMPLATE/`" in CREATION
+    assert "If there is no template, write in English" in CREATION
 
 
 def test_태그_표에_영문_태그가_있다():

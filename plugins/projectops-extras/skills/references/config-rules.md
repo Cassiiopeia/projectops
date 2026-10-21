@@ -1,131 +1,131 @@
 # Config Rules
 
-모든 skill의 config 파일 읽기/쓰기는 이 파일의 규칙을 따른다.
+Every skill reads and writes its config file by the rules in this file.
 
 ---
 
-## 1. Config 파일 경로 구조
+## 1. Config file path
 
-config 파일은 **글로벌 단일 파일**로만 관리한다. 스킬이 추가되어도 파일을 새로 만들지 않는다.
+Config is kept in **one global file only**. Adding a skill never creates a new file.
 
 ```
 {HOME}/.projectops/config/config.json
 ```
 
-`{HOME}`은 OS별로 다르다. 아래 §2에서 확인하는 방법을 따른다.
+`{HOME}` differs by OS. Follow §2 below to find it.
 
 ---
 
-## 2. 홈 디렉토리 확인 (OS별)
+## 2. Finding the home directory (per OS)
 
-config를 읽거나 쓰기 전에 `echo "$HOME"`으로 홈 디렉토리를 확인한다. 비어 있으면 `echo "$USERPROFILE"`로 재시도.
+Before reading or writing config, check the home directory with `echo "$HOME"`. If it is empty, retry with `echo "$USERPROFILE"`.
 
-| 반환 형태 | OS |
+| Returned form | OS |
 |-----------|----|
 | `/Users/username` | macOS |
 | `/home/username` | Linux |
 | `/c/Users/username` | Windows (Git Bash) |
-| `C:\Users\username` | Windows (PowerShell — `$HOME` 대신 `$env:USERPROFILE`) |
+| `C:\Users\username` | Windows (PowerShell — use `$env:USERPROFILE` instead of `$HOME`) |
 
 ---
 
-## 3. Config 읽기
+## 3. Reading config
 
-> ⚠️ **config.json은 절대 탐색하지 않는다.** 경로는 `{HOME}/.projectops/config/config.json` **한 곳으로 고정**이다. Read tool로 이 경로를 **바로** 읽는다. `ls`·`find`·glob으로 찾지 마라.
+> ⚠️ **Never search for config.json.** The path is **fixed to one place**: `{HOME}/.projectops/config/config.json`. Read this path **directly** with the Read tool. Do not look for it with `ls`, `find`, or glob.
 >
-> **특히 하네스 설치 경로(`~/.claude/...`, `~/.codex/...`, `~/.gemini/...`, `~/.pi/...`)를 뒤지지 마라.** 스킬이 *스크립트*(`*_cli.py`)를 찾을 때 이 경로들을 `find`로 조회하지만 그건 **스크립트 전용**이고 config.json은 그 안에 **없다.** 그 패턴을 config 찾기에 전이시키면 엉뚱한 파일을 잡거나 "config 없음"으로 오판해 이미 등록된 PAT를 다시 묻게 된다 (실제 발생한 사고). **스크립트는 설치 경로에서 find로, config는 홈의 고정 경로에서 Read로 — 두 경로를 섞지 않는다.**
+> **In particular, do not dig through harness install paths (`~/.claude/...`, `~/.codex/...`, `~/.gemini/...`, `~/.pi/...`).** Skills `find` in these paths to locate *scripts* (`*_cli.py`), but that is **for scripts only**; config.json is **not** there. Carrying that pattern over to finding config picks up the wrong file, or wrongly concludes "no config" and asks again for a PAT that is already registered (a real incident). **Scripts: `find` in install paths. Config: Read the fixed path in home. Never mix the two.**
 
-파일이 없으면 → §5 대화형 수집으로 진행한다.
+If the file does not exist → continue with §5 interactive collection.
 
-각 스킬은 자신의 `skill_id`에 해당하는 섹션만 읽는다:
+Each skill reads only the section for its own `skill_id`:
 
 ```
-github 스킬    → config["github"]
+github skill    → config["github"]
 synology-expose → config["synology-expose"]
-ssh 스킬       → config["launch"]["credentials"]  (서버도 pro-launch 자격증명 한 곳에 둔다 — §7 `launch` 섹션)
-launch 스킬    → config["launch"]  (이름 붙은 자격증명 — §7 `launch` 섹션)
+ssh skill       → config["launch"]["credentials"]  (servers also live in the one pro-launch credential store — §7 `launch` section)
+launch skill    → config["launch"]  (named credentials — §7 `launch` section)
 ```
 
-**github 스킬의 레포 자동 매칭 (읽기 후 즉시 수행):**
+**Automatic repo matching for the github skill (do right after reading):**
 
 ```bash
 git remote get-url origin 2>/dev/null
 ```
 
-반환값에서 `owner/repo`를 추출하여 `repos` 배열과 비교한다:
-- `https://github.com/owner/repo` → `owner`, `repo` 추출
-- `git@github.com:owner/repo.git` → `owner`, `repo` 추출
+Extract `owner/repo` from the result and compare it with the `repos` array:
+- `https://github.com/owner/repo` → extract `owner`, `repo`
+- `git@github.com:owner/repo.git` → extract `owner`, `repo`
 
-**레포 선택 우선순위:**
-1. git remote URL 매칭 → `repos` 배열 중 `owner`+`repo` 모두 일치하는 항목
-2. 매칭 실패 시 → `default: true`인 항목
-3. 위 둘 다 없으면 → 번호를 매겨 사용자에게 선택
+**Repo selection order:**
+1. git remote URL match → the `repos` entry where both `owner` and `repo` match
+2. If no match → the entry with `default: true`
+3. If neither exists → number the entries and let the user choose
 
-config에 해당 레포가 없는 경우 → 새 레포 추가 여부를 사용자에게 묻고 §4 절차로 추가한다.
+If the repo is not in the config → ask the user whether to add it, and add it with the §4 procedure.
 
-**PAT 우선순위**: repo 항목의 `pat`(non-null) → 없으면 `global_pat` (§7 PAT 결정 로직).
+**PAT priority**: the repo entry's `pat` (non-null) → otherwise `global_pat` (§7 PAT resolution logic).
 
-**PAT는 직접 추출하지 않는다 (중요).** 과거 agent가 인라인 Python으로 PAT를 꺼내다 `["github"]` 네임스페이스를
-빠뜨려 `KeyError`/`missing_pat`이 반복 발생했다. 아래 두 경로 중 하나만 쓴다.
+**Do not extract the PAT yourself (important).** In the past, agents pulled the PAT out with inline Python, left out the
+`["github"]` namespace, and hit `KeyError`/`missing_pat` again and again. Use only one of the two paths below.
 
-- **`<scope>_cli.py` 서브커맨드 호출 시** → PAT를 신경 쓰지 않는다. CLI가 `GITHUB_PAT` 환경변수 → `config.json`
-  순으로 **자동 로드**한다 (`scripts/common/config.py:get_github_pat`).
-- **curl로 직접 호출 시 (긴급용)** → `common.config.get_github_pat` 함수를 사용한다.
+- **When calling a `<scope>_cli.py` subcommand** → do not worry about the PAT. The CLI **loads it automatically** from the
+  `GITHUB_PAT` environment variable, then `config.json` (`scripts/common/config.py:get_github_pat`).
+- **When calling curl directly (emergency only)** → use the `common.config.get_github_pat` function.
 
   ```bash
   PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
   PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
   PAT=$(PYTHONIOENCODING=utf-8 "$PYTHON" -c "import sys; sys.path.insert(0, '$PROJECT_ROOT/scripts'); from common.config import get_github_pat; print(get_github_pat('{owner}', '{repo}') or '')")
-  # PAT가 빈 문자열이면 config 없음 → 이 문서 §2~5 절차로 대화형 등록 안내
+  # Empty PAT means no config → guide interactive registration with §2~5 of this document
   ```
 
 ---
 
-## 4. Config 저장 (쓰기)
+## 4. Saving config (writing)
 
-Write tool로 `{HOME}/.projectops/config/config.json`에 저장한다. **반드시 전체 파일을 Read로 읽은 뒤** 해당
-`skill_id` 섹션(또는 키)만 바꿔 덮어쓴다 — 다른 섹션·PAT를 날리지 않는다.
-
----
-
-## 5. Config 없을 때 — 대화형 수집
-
-스킬에 필요한 섹션만 **하나씩** 수집한 뒤(한 번에 여러 개를 묻지 않는다) §4 절차로 저장한다.
+Save to `{HOME}/.projectops/config/config.json` with the Write tool. **Always Read the whole file first**, then change
+only that `skill_id` section (or key) and overwrite. Never drop other sections or the PAT.
 
 ---
 
-## 6. Agent 판단 원칙
+## 5. When there is no config — interactive collection
 
-- **애매하면 억지 추론 금지** — 즉시 사용자에게 질문 (한 메시지 = 한 질문)
-- **이미 준 정보는 다시 묻지 않는다**
-- **위험한 작업 실행 전 반드시 확인** — config 덮어쓰기 포함
-- PAT, 토큰 등 민감 정보는 `common-rules.md` §마스킹 규칙 적용
+Collect only the sections the skill needs, **one at a time** (do not ask several at once), then save with the §4 procedure.
 
 ---
 
-## 7. Skill별 Config 스키마
+## 6. Agent judgment principles
 
-모든 스킬의 설정은 단일 `config.json` 안에서 `skill_id`를 키로 구분한다.
-전체 구조 예시는 `skills/config.json.example` 참조.
+- **When unclear, do not force a guess** — ask the user right away (one message = one question)
+- **Do not ask again for information already given**
+- **Always confirm before risky actions** — including overwriting config
+- Apply `common-rules.md` §Masking rules to sensitive data such as PATs and tokens
 
-### `preferences` · `skills` 섹션 (#864)
+---
 
-모든 스킬이 공유하는 개인 표현 설정이다. 병합 순서(뒤가 이김)는 `preferences` → `skills.<스킬>` →
-`github.repos[].preferences` → `github.repos[].skills.<스킬>`. 키 의미와 적용 규칙은 `preferences.md`.
-허용 키는 `language`·`tone`·`rules`(공통)와 `template`·`preset`·`examples`·`sections`(스킬별)뿐이고,
-`auto_approve` 같은 안전 설정은 여기서 읽지 않는다.
+## 7. Config schema per skill
+
+All skill settings live in the single `config.json`, keyed by `skill_id`.
+For a full example, see `skills/config.json.example`.
+
+### `preferences` · `skills` sections (#864)
+
+Personal expression settings shared by every skill. Merge order (later wins): `preferences` → `skills.<skill>` →
+`github.repos[].preferences` → `github.repos[].skills.<skill>`. Key meanings and how they apply: `preferences.md`.
+The only allowed keys are `language`, `tone`, `rules` (shared) and `template`, `preset`, `examples`, `sections` (per skill).
+Safety settings such as `auto_approve` are never read from here.
 
 ```json
 {
   "preferences": {
     "language": "ko",
-    "tone": "간결하게, ~한다 체",
-    "rules": ["표보다 문장", "이모지 쓰지 않기"]
+    "tone": "concise, plain statements",
+    "rules": ["prose over tables", "no emoji"]
   },
   "skills": {
     "pro-commit": { "template": "{type}({scope}): {description}", "examples": ["fix(auth): refresh token before expiry"] },
-    "pro-report": { "sections": ["요약", "변경", "검증"], "tone": "보고서체" },
-    "pro-review": { "rules": ["보안 지적은 항상 맨 위"] }
+    "pro-report": { "sections": ["Summary", "Changes", "Verification"], "tone": "report style" },
+    "pro-review": { "rules": ["security findings always on top"] }
   },
   "github": {
     "repos": [
@@ -139,23 +139,23 @@ Write tool로 `{HOME}/.projectops/config/config.json`에 저장한다. **반드�
 }
 ```
 
-### `github` 섹션
+### `github` section
 
-`issue`, `commit`, `changelog-deploy`, `github`, `report` 스킬이 공유한다.
+Shared by the `issue`, `commit`, `changelog-deploy`, `github`, and `report` skills.
 
 ```json
 {
   "github": {
-    "default_assignee": "GitHub_사용자명",
+    "default_assignee": "github_username",
     "global_pat": "ghp_xxxxxxxxxxxxxxxxxxxx",
     "commit":            { "auto_approve": false },
     "issue":             { "auto_approve": false },
     "changelog_deploy":  { "auto_approve": false },
     "repos": [
       {
-        "name": "프로젝트 이름",
-        "owner": "GitHub_사용자명_또는_조직명",
-        "repo": "저장소명",
+        "name": "Project name",
+        "owner": "github_username_or_org",
+        "repo": "repository_name",
         "pat": null,
         "default": true,
         "commit":            { "auto_approve": true },
@@ -167,54 +167,54 @@ Write tool로 `{HOME}/.projectops/config/config.json`에 저장한다. **반드�
 }
 ```
 
-| 필드 | 필수 | 설명 |
+| Field | Required | Description |
 |------|------|------|
-| `default_assignee` | ✅ | 이슈 기본 담당자 GitHub 사용자명 (글로벌). `pro-github`가 이슈 생성 시 자동 적용한다. 빈 문자열이면 담당자 없이 생성. 누락 시 첫 이슈에서 1회 질문 후 저장 |
-| `global_pat` | ✅ | 전체 공용 GitHub PAT (repo + workflow 권한) |
-| `commit.auto_approve` | — | commit 스킬의 커밋 메시지 사용자 승인 게이트 자동 통과 여부 (글로벌 기본값). `true`면 제안 메시지 표시 후 즉시 커밋. 누락 시 `false`(수동 승인) |
-| `issue.auto_approve` | — | `pro-github` 이슈 생성의 이슈 등록 사용자 승인 게이트 자동 통과 여부 (글로벌 기본값). `true`면 제목·라벨·로컬 파일 경로 표시 후 즉시 GitHub 등록. **중복 검사(2-1, 4-1단계)는 항상 실행** — 자동 모드라도 open 동일 이슈 발견 시 중단. 누락 시 `false`. (키 이름은 하위 호환을 위해 `issue.*` 유지 — pro-issue 통합 후에도 동일 키) |
-| `changelog_deploy.auto_approve` | — | changelog-deploy 스킬의 릴리스 노트 사용자 승인 게이트 자동 통과 여부 (글로벌 기본값). `true`면 본문 표시만 하고 즉시 PR 생성. 누락 시 `false` |
-| `repos` | ✅ | 사용할 저장소 목록 |
-| `repos[].name` | ✅ | 프로젝트 식별 이름 |
-| `repos[].owner` | ✅ | GitHub 사용자명 또는 조직명 |
-| `repos[].repo` | ✅ | 저장소명 |
-| `repos[].pat` | — | 레포별 개별 PAT. `null`이면 `global_pat` 사용 |
-| `repos[].default` | — | `true`인 항목이 기본 선택 repo |
-| `repos[].{commit,issue,changelog_deploy}.auto_approve` | — | 해당 레포에 한정한 자동 승인 오버라이드. 글로벌 값보다 우선 |
-| `repos[].issue.assignee` | — | 이 레포만 다른 이슈 담당자. `default_assignee`(글로벌)보다 우선. 누락 시 글로벌 사용. 사용자가 "이 레포 담당자는 OOO으로" 하면 agent가 저장 |
-| `repos[].changelog_deploy.app_release` | — | 이 레포가 앱스토어/플레이스토어 심사로 직결되는 배포인지(앱 심사 인지). `true`면 changelog-deploy 스킬이 릴리스 노트 승인 게이트에 심사 경고 배너를 띄우고 정제를 더 엄격히 적용. **레포별로만** 저장(글로벌 기본값 없음). 누락 시 스킬이 1.5단계에서 자동 감지 후 한 번 확인해 저장. agent가 자연어 응답을 받아 갱신하며 사용자가 직접 편집하지 않는다 |
-| `repos[].changelog_deploy.{head_branch,base_branch,provider}` | — | **version.yml 이 없는 레포에서만** 쓰는 릴리스 브랜치·provider. 정본은 version.yml(`development_branch`(구 `deploy_branch`), `default_branch`, `options.changelog.provider`)이고 `changelog_cli.py detect-release-context` 가 판정한다. version.yml 이 있는데 이 값이 다르면 CLI 가 `conflict` 로 알리고 version.yml 을 따른다 (#842) |
+| `default_assignee` | ✅ | Default issue assignee GitHub username (global). `pro-github` applies it automatically when creating issues. An empty string creates issues without an assignee. If missing, ask once on the first issue and save it |
+| `global_pat` | ✅ | Shared GitHub PAT for everything (repo + workflow scopes) |
+| `commit.auto_approve` | — | Whether the commit skill auto-passes the commit message approval gate (global default). If `true`, show the proposed message and commit immediately. Missing → `false` (manual approval) |
+| `issue.auto_approve` | — | Whether `pro-github` issue creation auto-passes the filing approval gate (global default). If `true`, show the title, labels, and local file path, then file on GitHub immediately. **Duplicate checks (steps 2-1 and 4-1) always run** — even in automatic mode, stop if a matching open issue is found. Missing → `false`. (The key name stays `issue.*` for backward compatibility — same key after the pro-issue merge) |
+| `changelog_deploy.auto_approve` | — | Whether the changelog-deploy skill auto-passes the release notes approval gate (global default). If `true`, only show the body and create the PR immediately. Missing → `false` |
+| `repos` | ✅ | List of repositories to use |
+| `repos[].name` | ✅ | Project display name |
+| `repos[].owner` | ✅ | GitHub username or organization |
+| `repos[].repo` | ✅ | Repository name |
+| `repos[].pat` | — | Per-repo PAT. `null` means use `global_pat` |
+| `repos[].default` | — | The entry with `true` is the default repo |
+| `repos[].{commit,issue,changelog_deploy}.auto_approve` | — | Auto-approval override for this repo only. Takes precedence over the global value |
+| `repos[].issue.assignee` | — | A different issue assignee for this repo only. Takes precedence over `default_assignee` (global). Missing → use the global one. When the user says "the assignee for this repo is X", the agent saves it |
+| `repos[].changelog_deploy.app_release` | — | Whether this repo's deploy leads straight to App Store / Play Store review (app review awareness). If `true`, the changelog-deploy skill shows a review warning banner at the release notes approval gate and applies stricter cleanup. Stored **per repo only** (no global default). If missing, the skill auto-detects it at step 1.5, confirms once, and saves. The agent updates it from natural-language replies; the user does not edit it directly |
+| `repos[].changelog_deploy.{head_branch,base_branch,provider}` | — | Release branches and provider used **only in repos without version.yml**. The source of truth is version.yml (`development_branch` (old `deploy_branch`), `default_branch`, `options.changelog.provider`), decided by `changelog_cli.py detect-release-context`. If version.yml exists and these values differ, the CLI reports a `conflict` and follows version.yml (#842) |
 
-> 전역 `github.changelog_deploy.{head_branch,base_branch,provider}` 는 **더 이상 읽지도 쓰지도 않는다** (#842). 한 레포에서 판정한 값이 다른 모든 레포의 version.yml 을 덮어쓰던 캐시였다. 남아 있어도 무시되며 `detect-release-context` 가 `config.ignored_global_keys` 로 알려 준다.
+> The global `github.changelog_deploy.{head_branch,base_branch,provider}` keys are **no longer read or written** (#842). They were a cache in which a value decided for one repo overwrote every other repo's version.yml. If they remain, they are ignored, and `detect-release-context` reports them in `config.ignored_global_keys`.
 
-**PAT 결정 로직:**
+**PAT resolution logic:**
 ```
 effective_pat = repo.pat if repo.pat else config["github"].global_pat
 ```
 
-**자동 승인 결정 로직 (3 스킬 공통, 해석 우선순위):**
+**Auto-approval resolution logic (shared by the 3 skills, in priority order):**
 ```
-1. repos[i].{skill_id}.auto_approve   (현 owner/repo 매칭 결과)
-2. github.{skill_id}.auto_approve     (글로벌 기본값)
-3. false                              (안전 default — 수동 승인)
+1. repos[i].{skill_id}.auto_approve   (result of matching the current owner/repo)
+2. github.{skill_id}.auto_approve     (global default)
+3. false                              (safe default — manual approval)
 ```
 
 `{skill_id}` = `commit` / `issue` / `changelog_deploy`
 
-> **운영 원칙**: `commit`·`issue`·`changelog_deploy` 옵션은 사용자가 직접 편집하기보다 각 스킬이 자연어 응답("다음부턴 자동으로 진행해주세요" 등)을 받아 자동 갱신하도록 설계됐다. SKILL이 사용자에게 키 이름·파일 경로를 노출하지 않는다.
+> **Operating principle**: the `commit`, `issue`, and `changelog_deploy` options are designed to be updated automatically by each skill from natural-language replies (such as "proceed automatically from now on"), rather than edited by hand. A skill never shows key names or file paths to the user.
 
-> **마이그레이션 — 명시적 break**: 이전 키 `changelog_deploy.auto_approve_release_notes`는 더 이상 인식하지 않는다. config에 남아 있어도 무시되며, 자동 모드를 다시 켜려면 1회 토글 발화로 `changelog_deploy.auto_approve: true`를 새로 저장한다.
+> **Migration — explicit break**: the old key `changelog_deploy.auto_approve_release_notes` is no longer recognized. If it remains in config it is ignored; to turn automatic mode back on, toggle once in conversation so that `changelog_deploy.auto_approve: true` is saved anew.
 
-### `synology-expose` 섹션
+### `synology-expose` section
 
-`synology-expose` 스킬이 사용한다.
+Used by the `synology-expose` skill.
 
 ```json
 {
   "synology-expose": {
     "instances": [
       {
-        "name": "NAS 이름 (예: 집 NAS)",
+        "name": "NAS name (e.g. home NAS)",
         "ddns": "your-nas.synology.me",
         "domains": ["example.com"],
         "email": "your@email.com",
@@ -226,27 +226,27 @@ effective_pat = repo.pat if repo.pat else config["github"].global_pat
 }
 ```
 
-| 필드 | 필수 | 설명 |
+| Field | Required | Description |
 |------|------|------|
-| `name` | ✅ | NAS 식별 이름 |
-| `ddns` | ✅ | Synology DDNS 주소 |
-| `domains` | ✅ | 외부 노출에 사용할 도메인 목록 |
-| `email` | ✅ | SSL 인증서 발급용 이메일 |
-| `dns_provider` | ✅ | DNS 공급자 (예: `cloudflare`, `route53`) |
-| `default` | — | 여러 인스턴스 중 기본 선택 여부 |
+| `name` | ✅ | NAS display name |
+| `ddns` | ✅ | Synology DDNS address |
+| `domains` | ✅ | Domains used for external exposure |
+| `email` | ✅ | Email for SSL certificate issuance |
+| `dns_provider` | ✅ | DNS provider (e.g. `cloudflare`, `route53`) |
+| `default` | — | Whether this is the default among several instances |
 
-### `ssh` 섹션 (폐기 — 호환용으로만 읽는다)
+### `ssh` section (retired — read only for compatibility)
 
-서버 접속 정보는 **`launch.credentials`(`kind: "ssh"`) 한 곳**에 둔다(#841). 옛 `ssh` 섹션
-(`{"instances": [...]}` 또는 서버 목록)은 더 이상 쓰지 않는다. 이미 있다면 `launch_cli.py cred import-ssh`
-(`--dry-run` 으로 미리 보기, `--prune` 으로 가져온 서버를 옛 섹션에서 지움)로 옮긴다. 코드는 옛 섹션의
-`ssh_server` 참조만 읽고, 새로 쓰지 않는다.
+Server connection details live in **one place: `launch.credentials` (`kind: "ssh"`)** (#841). The old `ssh` section
+(`{"instances": [...]}` or a server list) is no longer used. If you have one, move it with `launch_cli.py cred import-ssh`
+(`--dry-run` to preview, `--prune` to remove imported servers from the old section). The code only reads the old section's
+`ssh_server` references and never writes new ones.
 
-### `launch` 섹션 (pro-launch 자격증명)
+### `launch` section (pro-launch credentials)
 
-`pro-launch` 가 서버·레지스트리·조직에 **다시 묻지 않고** 붙기 위한 이름 붙은 자격증명이다.
-서버(SSH)도 여기에 둔다 — host·port·user·password(또는 `key_path`)를 직접 적고, 비밀번호는 이 파일 한 곳에만 있다.
-저장은 `launch_cli.py cred set` 이 하고(다른 섹션은 건드리지 않는다, 파일 권한 600), 조회에서는 비밀 값이 가려진다.
+Named credentials that let `pro-launch` connect to servers, registries, and organizations **without asking again**.
+Servers (SSH) live here too — write host, port, user, and password (or `key_path`) directly; the password exists only in this one file.
+`launch_cli.py cred set` saves them (it does not touch other sections; file mode 600), and lookups mask secret values.
 
 ```json
 {
@@ -259,8 +259,8 @@ effective_pat = repo.pat if repo.pat else config["github"].global_pat
         "user": "username",
         "password": "...",
         "scope": "test-only",
-        "use_when": "서버 배포 QA 에서만 쓴다",
-        "notes": "운영 컨테이너가 있으니 pops-qa- 접두사만 만들고 지운다"
+        "use_when": "only for server deploy QA",
+        "notes": "production containers run here; only create and delete pops-qa- prefixed ones"
       },
       "dockerhub": { "kind": "dockerhub", "username": "...", "token": "...", "scope": "test-only", "use_when": "..." }
     }
@@ -268,31 +268,31 @@ effective_pat = repo.pat if repo.pat else config["github"].global_pat
 }
 ```
 
-| 필드 | 설명 |
+| Field | Description |
 |------|------|
 | `kind` | `ssh` · `dockerhub` · `db` · `http` · `github-org` · `other` |
-| `ssh_server` | (폐기, 호환용) 옛 `ssh` 섹션의 서버 `name` 참조. 새로 쓰지 않는다 — `import-ssh` 로 값을 옮긴다 |
-| `use_when` · `scope` · `notes` | agent 가 **언제 써도 되는지** 판단하는 근거·허용 범위·주의점 |
-| `login_policy` | (`kind: login`) 이 계정의 로그인 중간 화면 정책 — 아래 표. 전체 기본값보다 우선 |
-| 그 밖 | `host` · `port` · `user` · `username` · `password` · `token` · `db` … 자유 |
+| `ssh_server` | (retired, compatibility) Reference to a server `name` in the old `ssh` section. Do not write new ones — move the values with `import-ssh` |
+| `use_when` · `scope` · `notes` | What the agent uses to decide **when it may use the credential**: rationale, allowed scope, cautions |
+| `login_policy` | (`kind: login`) Policy for this account's intermediate login screens — table below. Takes precedence over the global default |
+| Anything else | `host` · `port` · `user` · `username` · `password` · `token` · `db` … free-form |
 
-**로그인 중간 화면 정책 (#905)** — `launch.login_policy`(전체 기본값)와 `launch.credentials.<이름>.login_policy`(계정별).
-판정은 키마다 계정 > 전체 > `ask`. 저장·변경은 `launch_cli.py cred policy set|unset` 으로만 한다
-(`cred set --json` 은 얕게 합쳐 객체를 통째로 덮는다).
+**Intermediate login screen policy (#905)** — `launch.login_policy` (global default) and `launch.credentials.<name>.login_policy` (per account).
+Each key resolves as account > global > `ask`. Save and change it only with `launch_cli.py cred policy set|unset`
+(`cred set --json` merges shallowly and overwrites the whole object).
 
-| 키 | 화면 종류 | 값 |
+| Key | Screen type | Values |
 |---|---|---|
-| `trust_device` | 이 기기 신뢰 · 다시 묻지 않기 · 자주 쓰는 기기 등록 | `ask` · `always` · `never` |
-| `keep_signed_in` | 로그인 상태 유지 | 〃 |
-| `skip_nags` | 패스키 만들기 · 연락처 추가 같은 권유 | 〃 (`always` = 건너뛰기) |
+| `trust_device` | Trust this device · don't ask again · remember this device | `ask` · `always` · `never` |
+| `keep_signed_in` | Stay signed in | same |
+| `skip_nags` | Prompts such as create a passkey or add contact info | same (`always` = skip) |
 
 ```json
 { "launch": { "login_policy": { "trust_device": "always", "skip_nags": "always" } } }
 ```
 
-### `output` 섹션 (#525)
+### `output` section (#525)
 
-산출물 md를 저장하는 스킬(`report`·`review` 등)이 공유한다.
+Shared by skills that save md artifacts (`report`, `review`, and so on).
 
 ```json
 {
@@ -300,16 +300,16 @@ effective_pat = repo.pat if repo.pat else config["github"].global_pat
 }
 ```
 
-| 필드 | 필수 | 설명 |
+| Field | Required | Description |
 |------|------|------|
-| `root` | — | 산출물 저장 루트. **생략하면 `docs/projectops`** (기존 동작 유지). 상대경로는 저장소 루트 기준, 절대경로도 가능 |
+| `root` | — | Artifact root. **If omitted, `docs/projectops`** (keeps the existing behavior). Relative paths are from the repository root; absolute paths also work |
 
-해석은 `scripts/common/paths.py`의 `resolve_output_root()`가 단일 담당한다.
-스킬이 경로 문자열을 직접 조립하지 않고 각 스킬 CLI의 `get-output-path`를 거친다 — 상세는 `doc-output-path.md`.
+`resolve_output_root()` in `scripts/common/paths.py` is the single place that resolves it.
+Skills do not build path strings themselves; they go through each skill CLI's `get-output-path` — detail in `doc-output-path.md`.
 
-### `design_brief` 섹션 (#634)
+### `design_brief` section (#634)
 
-`pro-design-brief` 가 쓴다. **`github` 아래에 두지 않는다** — GitHub 을 쓰지 않는 레포도 요청서를 받는다.
+Used by `pro-design-brief`. **Do not put it under `github`** — repos that do not use GitHub also get design requests.
 
 ```json
 {
@@ -318,31 +318,31 @@ effective_pat = repo.pat if repo.pat else config["github"].global_pat
     "auto_approve": false,
     "projects": [
       { "match": "acme-org/myapp", "destination": "issue", "designer": "designer-id", "auto_approve": true },
-      { "match": "/Users/me/work/landing", "destination": "html", "designer": "김디자인" }
+      { "match": "/Users/me/work/landing", "destination": "html", "designer": "Jane Designer" }
     ]
   }
 }
 ```
 
-| 필드 | 필수 | 설명 |
+| Field | Required | Description |
 |------|------|------|
-| `destination` | — | `issue`(디자인 이슈) · `html`(HTML 한 장) · `markdown`(md + PNG 폴더). 없으면 첫 실행 때 판정 |
-| `designer` | — | 디자이너 GitHub 아이디 또는 이름 (이슈 담당자) |
-| `auto_approve` | — | 게시 전 확인 생략. **기본 `false`** |
-| `projects[].match` | ✅ | GitHub `owner/repo` 또는 레포 **절대경로**(GitHub 이 아닐 때) |
+| `destination` | — | `issue` (design issue) · `html` (one HTML page) · `markdown` (md + PNG folder). If missing, decided on the first run |
+| `designer` | — | Designer's GitHub ID or name (issue assignee) |
+| `auto_approve` | — | Skip confirmation before posting. **Default `false`** |
+| `projects[].match` | ✅ | GitHub `owner/repo`, or the repo's **absolute path** (when not on GitHub) |
 
-해석 우선순위: `projects[]` 일치 항목 → 섹션 기본값 → 첫 실행 판정. 해석·저장은
-`design_brief_cli.py config show|set` 이 한다 — 전체를 읽고 해당 키만 바꿔 쓴다.
+Resolution order: matching `projects[]` entry → section default → first-run decision. `design_brief_cli.py config show|set`
+resolves and saves it — it reads the whole file and changes only that key.
 
 ---
 
-## 8. 새 스킬에 Config 추가하는 방법
+## 8. Adding config for a new skill
 
-새 스킬이 config가 필요한 경우:
+When a new skill needs config:
 
-1. `skill_id`(스킬 폴더명)를 키로 `config.json`에 섹션 추가
-2. 이 파일(§7)에 스키마 문서화
-3. `skills/config.json.example`에 예시 추가
-4. SKILL.md에 `../references/config-rules.md` §2~3 참조 명시
+1. Add a section to `config.json` keyed by `skill_id` (the skill folder name)
+2. Document the schema in this file (§7)
+3. Add an example to `skills/config.json.example`
+4. In SKILL.md, point to `../references/config-rules.md` §2~3
 
-**절대 별도 config 파일(`skill-name.config.json` 등)을 새로 만들지 않는다.**
+**Never create a separate config file (such as `skill-name.config.json`).**

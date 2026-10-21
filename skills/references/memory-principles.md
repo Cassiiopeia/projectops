@@ -1,51 +1,50 @@
-# 에이전트 기억 원칙 (모든 스킬 공통)
+# Agent memory principles (shared by all skills)
 
-> 언제 읽나: 스킬에 "다음에도 쓸 지식"을 저장·회수하는 기능을 만들거나 고칠 때.
-> 배경과 근거: `docs/superpowers/specs/2026-10-10-agent-memory-design.md` (#833)
+> When to read: when building or changing a skill feature that stores and recalls "knowledge for next time".
+> Background and rationale: `docs/superpowers/specs/2026-10-10-agent-memory-design.md` (#833)
 
-projectops 에는 기억 기능이 둘 있다 — `pro-launch` knowledge(이 컴퓨터에서 먹힌 방식),
-`pro-agent-test` note(앱 화면·함정). 모두 아래 원칙을 따른다.
-(사례·사실을 문서로 남기던 `pro-note` 는 쌓인 기록이 없어 #853 에서 삭제됐다.)
+projectops has two memory features — `pro-launch` knowledge (approaches that worked on this computer) and
+`pro-agent-test` notes (app screens and pitfalls). Both follow the principles below.
+(`pro-note`, which recorded cases and facts as documents, was removed in #853 because no records had accumulated.)
 
-## 1. 읽기는 agent 호출에 맡기지 않는다
-agent 는 "모른다는 것을 모른다." 필요한 기억이 있는지 모르면 꺼내 볼 생각을 못 한다.
-실측: `pro-launch` 기억 14건이 전부 한 번 쓰이고 다시 읽히지 않았다.
-- **도구의 응답에 관련 기억을 싣는다** (예: `launch_cli` 의 `memory` 필드). 하네스(Claude Code·Cursor·Codex)와 무관하게 보인다.
-- 싣는 양에 상한을 둔다 — 하루·영역당 한 번, 3건, 항목당 200자. 틀린 것이 앞서는 기억은 싣지 않는다.
+## 1. Do not leave reading up to the agent to call
+An agent "does not know what it does not know." If it does not know a relevant memory exists, it never thinks to look.
+Measured: all 14 `pro-launch` memories were used once and never read again.
+- **Put relevant memories in the tool's response** (for example the `memory` field of `launch_cli`). It shows regardless of the harness (Claude Code, Cursor, Codex).
+- Cap how much is included — once per day per area, 3 items, 200 characters per item. Do not include memories where failures outnumber successes.
 
-## 2. 쓰기는 검증된 것만, 알맞은 순간에
-- **도구가 확인한 성공은 도구가 직접 기록한다.** agent 의 기억력에 기대지 않는다.
-- **판단이 필요한 교훈은 agent 가 쓰되, 쓸 순간을 도구가 알려 준다** — 막혔다 풀린 직후(`learn_hint`).
-- **남기지 않는 것**: 미설치·미인증 같은 환경 의존 실패, 부정 단정("X 는 안 된다"), 해결 안 된 시행착오,
-  일회성 이야기, 비밀값, 금지된 방법. 안 남기는 것이 정당한 답이다.
+## 2. Write only what is verified, at the right moment
+- **The tool records successes it has confirmed itself.** Do not rely on the agent's memory.
+- **Lessons that need judgment are written by the agent, but the tool says when to write them** — right after being stuck and getting unstuck (`learn_hint`).
+- **What not to record**: environment-dependent failures such as not installed or not authenticated, negative claims ("X does not work"), unresolved trial and error,
+  one-off stories, secret values, forbidden methods. Not recording is a valid answer.
 
-## 3. 중복은 쓰기 전에 찾는다
-- 쓰기 전에 모든 범위에서 비슷한 기억을 찾는다. **확실한 것(같은 키, 고유어 60% 이상)만 자동으로 합치고**,
-  애매한 것은 후보(`related`)로 보여 주고 agent 가 판단한다. 도구가 애매한 것을 멋대로 합치면 다른 지식이 섞인다.
-- 레포와 무관한 지식은 이 컴퓨터 범위 한 곳에 둔다. 여러 레포에 같은 것이 생기면 올린다.
+## 3. Find duplicates before writing
+- Before writing, search every scope for similar memories. **Merge automatically only what is certain (same key, 60%+ distinctive words)**;
+  show ambiguous ones as candidates (`related`) and let the agent decide. A tool that merges ambiguous ones on its own mixes up different knowledge.
+- Knowledge unrelated to a repo lives in one place, the scope of this computer. If the same thing appears in several repos, promote it.
 
-## 4. 강화와 낡음
-- 성공 ok+1, 실패 fail+1 로 순서를 정한다. 같은 날 반복 기록으로 부풀리지 않는다.
-- 오래되거나 실패가 앞서면 지우지 말고 `verify` 로 표시해 뒤로 민다. 지우는 것은 agent 나 사람의 명시적 판단으로만.
+## 4. Reinforcement and staleness
+- Order by ok+1 on success and fail+1 on failure. Do not inflate counts with repeated records on the same day.
+- If an item is old or failures outnumber successes, do not delete it; mark it `verify` and push it back. Deletion only by an explicit decision of the agent or a person.
 
-## 5. 저장 위치
-- 로컬 홈(`~/.projectops/...`) — 남의 레포에 커밋되지 않고, 사람·컴퓨터마다 다른 환경을 섞지 않는다.
-- 사람이 함께 봐야 하는 지식(팀 공용 사례)은 레포의 문서(`CLAUDE.md`·`AGENTS.md`·`docs/`)에 직접 적는다 — 기억 기능이 레포에 쓰지 않는다.
+## 5. Storage location
+- Local home (`~/.projectops/...`) — not committed to other people's repos, and environments that differ by person and computer are not mixed.
+- Knowledge people need to see together (shared team cases) is written directly in the repo's docs (`CLAUDE.md`, `AGENTS.md`, `docs/`) — memory features do not write to the repo.
 
-## 6. 공식 지식 층 (스킬 내장 트러블슈팅, #889)
-위 1~5 는 사용자 기억(이 컴퓨터만)이다. **검증된 해결은 스킬 안에 공식 지식으로 두고 모두에게 배포한다.**
-- 위치: `skills/<skill>/troubleshooting/<area>/<id>.json` — 한 항목 = 한 파일. area 는 web · android · ios · server · ssh · general.
-- 스키마·찾기·검증은 `scripts/common/troubleshoot.py` 한 곳. 색인(`troubleshooting/index.json`)과 사람용 문서
-  (`skills/<skill>/references/troubleshooting.md`)는 `python3 scripts/build_troubleshooting.py skills/<skill>` 의 생성물 — 손으로 고치지 않는다.
-- 읽기는 1절과 같다: 실패 응답에 `known_fix`(최대 2건, 요약만)를 싣는다. 전체는 `kb show <id>`.
-- 사용자 기억 → 공식 승격은 사람 검토로만: `kb propose` 초안 → 이슈·PR → 관리자 검토.
+## 6. Official knowledge layer (built-in skill troubleshooting, #889)
+Sections 1–5 above are user memory (this computer only). **Verified fixes live inside the skill as official knowledge and ship to everyone.**
+- Location: `skills/<skill>/troubleshooting/<area>/<id>.json` — one entry = one file. area is web · android · ios · server · ssh · general.
+- Schema, lookup, and validation are in one place: `scripts/common/troubleshoot.py`. The index (`troubleshooting/index.json`) and the human-readable doc
+  (`skills/<skill>/references/troubleshooting.md`) are generated by `python3 scripts/build_troubleshooting.py skills/<skill>` — do not edit them by hand.
+- Reading works as in section 1: failure responses carry `known_fix` (up to 2 items, summaries only). For the full entry, `kb show <id>`.
+- Promoting user memory to official knowledge happens only through human review: `kb propose` draft → issue/PR → maintainer review.
 
-**항목 작성 규칙**
-- 필수: `id`(파일명과 같은 kebab) · `area`(폴더와 같음) · `title`(80자 이내) · `match`(`codes` 실패 code 목록, `keywords` 핵심어) ·
-  `symptom` · `cause` · `fix`(1~8개, 실행할 명령이나 짧은 단계, 각 200자 이내) · `refs`(근거 이슈 번호) · `verified_at`(YYYY-MM-DD). 선택: `applies_to` · `see_also`.
-- **코드로 확인한 사실만** 적는다. 코드로 고칠 수 있는 것은 고치고, 환경·외부 사정이라 못 고치는 것을 남긴다.
-- `match.codes` 는 CLI 가 실제로 내는 code 여야 하고, `fix` 의 `launch_cli.py <명령> <동작> --옵션` 은 실제 파서에 있어야 한다 — 테스트가 막는다.
-- `keywords` 는 그 문제에만 나오는 말로(`SingletonLock`). 흔한 말(`maestro` 처럼 다른 실패 문구에도 나오는 말)은 엉뚱한 실패에 실린다 — code 가 정확하면 비워 둔다.
-- 설치·되돌릴 수 없는 조작은 `fix` 에 "사용자에게 먼저 묻는다"를 적는다. 비밀값 금지(검증이 거절한다).
-- 추가·수정 뒤 생성 스크립트를 돌리고 함께 커밋한다(`--check` 를 테스트가 돈다).
-
+**Entry writing rules**
+- Required: `id` (kebab-case, same as the file name) · `area` (same as the folder) · `title` (80 characters or fewer) · `match` (`codes`: list of failure codes, `keywords`: key terms) ·
+  `symptom` · `cause` · `fix` (1–8 items, commands to run or short steps, 200 characters or fewer each) · `refs` (supporting issue numbers) · `verified_at` (YYYY-MM-DD). Optional: `applies_to` · `see_also`.
+- Write **only facts confirmed in code**. Fix in code what can be fixed in code; record what cannot be fixed because it depends on the environment or outside circumstances.
+- `match.codes` must be codes the CLI actually emits, and `launch_cli.py <command> <action> --option` in `fix` must exist in the real parser — tests block it otherwise.
+- `keywords` should be words that appear only for that problem (`SingletonLock`). Common words (like `maestro`, which also appears in other failure messages) get attached to unrelated failures — if the code is precise, leave it empty.
+- For installs and irreversible operations, write "ask the user first" in `fix`. No secret values (validation rejects them).
+- After adding or changing an entry, run the generator script and commit the result together (tests run `--check`).

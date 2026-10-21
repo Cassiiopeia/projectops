@@ -1,84 +1,84 @@
-# 코드 스타일 자동 감지
+# Automatic code style detection
 
-기존 코드 3-5개를 샘플링하여 프로젝트의 스타일 패턴을 파악한다.
-감지된 스타일을 100% 준수하며, 새로운 "더 나은" 방식을 제안하지 않는다.
+Sample 3–5 existing files to learn the project's style patterns.
+Follow the detected style 100%, and do not propose a new "better" way.
 
 ## Spring Boot
 
-| 항목 | 확인 사항 |
+| Item | What to check |
 |------|----------|
-| **네이밍** | `UserDto` vs `UserDTO` vs `UserRequest`/`UserResponse` |
-| **서비스** | 인터페이스+구현체 vs 클래스만 |
+| **Naming** | `UserDto` vs `UserDTO` vs `UserRequest`/`UserResponse` |
+| **Services** | Interface + implementation vs class only |
 | **DI** | `@Autowired` vs `@RequiredArgsConstructor` |
-| **Lombok** | `@Data` vs 개별 `@Getter/@Setter` |
-| **메서드명** | `getUser` vs `findUser` vs `retrieveUser` |
-| **패키지** | 레이어별 (`controller/service`) vs 기능별 (`user/order`) |
-| **반환 타입** | `ResponseEntity` vs 직접 반환 |
-| **예외 처리** | `@ControllerAdvice` + 커스텀 예외 패턴 |
-| **빌더** | Builder 패턴 사용 여부 |
+| **Lombok** | `@Data` vs individual `@Getter/@Setter` |
+| **Method names** | `getUser` vs `findUser` vs `retrieveUser` |
+| **Packages** | By layer (`controller/service`) vs by feature (`user/order`) |
+| **Return type** | `ResponseEntity` vs direct return |
+| **Exception handling** | `@ControllerAdvice` + custom exception pattern |
+| **Builder** | Whether the Builder pattern is used |
 
 ## React / React Native
 
-| 항목 | 확인 사항 |
+| Item | What to check |
 |------|----------|
-| **컴포넌트** | `function Component()` vs `const Component = () => {}` |
-| **Props 타입** | `interface` vs `type` |
+| **Components** | `function Component()` vs `const Component = () => {}` |
+| **Props types** | `interface` vs `type` |
 | **Export** | `export default` vs named export |
-| **파일명** | `PascalCase.tsx` vs `kebab-case.tsx` |
-| **Import 순서** | 그룹화 패턴 |
-| **Hook 네이밍** | `use-` prefix 규칙 |
-| **스타일링** | CSS Modules / Styled Components / Tailwind / Emotion |
-| **State 관리** | Context / Redux / Zustand / Recoil |
-| **린터** | `.eslintrc`, `.prettierrc` 룰 |
+| **File names** | `PascalCase.tsx` vs `kebab-case.tsx` |
+| **Import order** | Grouping pattern |
+| **Hook naming** | `use-` prefix rule |
+| **Styling** | CSS Modules / Styled Components / Tailwind / Emotion |
+| **State management** | Context / Redux / Zustand / Recoil |
+| **Linter** | `.eslintrc`, `.prettierrc` rules |
 
-### React Native 추가
+### React Native additions
 
-| 항목 | 확인 사항 |
+| Item | What to check |
 |------|----------|
-| **StyleSheet** | `StyleSheet.create` 사용 패턴 |
-| **Platform** | Platform-specific 코드 분기 방식 |
-| **FlatList** | keyExtractor, getItemLayout 패턴 |
+| **StyleSheet** | `StyleSheet.create` usage pattern |
+| **Platform** | How platform-specific code is branched |
+| **FlatList** | keyExtractor, getItemLayout patterns |
 
-### React Native Expo 추가
+### React Native Expo additions
 
-| 항목 | 확인 사항 |
+| Item | What to check |
 |------|----------|
-| **라우팅** | `expo-router` vs `react-navigation` |
-| **설정** | `app.json` / `app.config.js` 패턴 |
-| **SDK** | Expo SDK 버전별 API 사용 패턴 |
+| **Routing** | `expo-router` vs `react-navigation` |
+| **Config** | `app.json` / `app.config.js` pattern |
+| **SDK** | API usage patterns per Expo SDK version |
 
 ## Flutter
 
-| 항목 | 확인 사항 |
+| Item | What to check |
 |------|----------|
-| **파일명** | snake_case 확인 |
-| **Widget** | StatelessWidget vs StatefulWidget 패턴 |
-| **State 관리** | Provider / Riverpod / Bloc / GetX |
-| **const** | const 생성자 사용 여부 |
-| **구조** | feature-first vs layer-first |
-| **린트** | `analysis_options.yaml` 룰 |
+| **File names** | Confirm snake_case |
+| **Widget** | StatelessWidget vs StatefulWidget pattern |
+| **State management** | Provider / Riverpod / Bloc / GetX |
+| **const** | Whether const constructors are used |
+| **Structure** | feature-first vs layer-first |
+| **Lint** | `analysis_options.yaml` rules |
 
 ## Next.js
 
-위 **React / React Native** 섹션의 모든 항목 포함 + 추가:
+Everything in the **React / React Native** section above, plus:
 
-| 항목 | 확인 사항 |
+| Item | What to check |
 |------|----------|
-| **라우팅** | App Router vs Pages Router |
-| **데이터 패칭** | Server Component / `getServerSideProps` / `fetch` 캐시 |
-| **레이아웃** | `layout.tsx` 중첩 패턴 |
+| **Routing** | App Router vs Pages Router |
+| **Data fetching** | Server Component / `getServerSideProps` / `fetch` cache |
+| **Layout** | `layout.tsx` nesting pattern |
 
 ## Node.js / Python
 
-| 항목 | 확인 사항 |
+| Item | What to check |
 |------|----------|
-| **프로젝트 구조** | 레이어별 vs 기능별 |
-| **네이밍** | camelCase(Node) / snake_case(Python) |
-| **에러 처리** | 미들웨어 / Exception handler 패턴 |
-| **린터** | ESLint(Node) / ruff, black(Python) |
+| **Project structure** | By layer vs by feature |
+| **Naming** | camelCase (Node) / snake_case (Python) |
+| **Error handling** | Middleware / exception handler pattern |
+| **Linter** | ESLint (Node) / ruff, black (Python) |
 
-## 스타일 적용 원칙
+## Style principles
 
-1. **일관성 > 베스트 프랙티스** — 팀 컨벤션이 최우선
-2. **감지된 패턴 100% 준수** — 변수명, 메서드명, import 순서까지 동일하게
-3. **새 방식 제안 금지** — 명시적 요청 시에만 대안 제시
+1. **Consistency > best practice** — the team convention comes first
+2. **Follow detected patterns 100%** — down to variable names, method names, and import order
+3. **Do not propose new approaches** — offer alternatives only when explicitly asked
