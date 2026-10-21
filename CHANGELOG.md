@@ -1,7 +1,21 @@
 # Changelog
 
-**Current version:** 4.70.1  
-**Last updated:** 2026-10-21T15:37:40Z  
+**Current version:** 4.71.0  
+**Last updated:** 2026-10-21T15:46:53Z  
+
+---
+
+## [4.71.0] - 2026-10-21
+
+**PR:** #979  
+
+**New features**
+- Release notes are now written in the repo's language, the same one the release workflow uses
+- The deploy skill shows your store languages and any fixed "What's New" text before you approve
+- Commit messages follow the repo's language when you haven't set your own
+
+**Improvements**
+- Cleaner code comments and clearer names in the GitHub, deploy and worktree tools
 
 ---
 
