@@ -39,7 +39,7 @@ def _unresponsive(action: str, serial: str, ready: dict, **extra) -> int:
 
 
 def _android_started(action: str, avd: str, launched: dict, mode: str, scale, **extra) -> int:
-    """에뮬레이터를 띄운 뒤: adb 에 나타남 > 준비 완료 대기 > 응답."""
+    """에뮬레이터를 띄운 뒤: adb 에 나타남(가속 실패 징후면 끄고 끝) > 준비 완료 대기 > 응답."""
     serial = launched["serial"]
     appeared = device_boot.wait_for_emulator(serial, launched["log"])
     if not appeared["is_ok"]:

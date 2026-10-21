@@ -31,7 +31,7 @@ def add_response_fields(fields: dict) -> None:
 
 
 def out(payload: dict) -> int:
-    """emit 에 이전 결과를 덧붙인다. 옮긴 것이 있으면 사용자가 알아야 한다."""
+    """emit 에 이전 결과 · 대기 중인 응답 필드(게이트 경고 등)를 덧붙인다. 옮긴 것이 있으면 사용자가 알아야 한다."""
     for key, value in PENDING_RESPONSE_FIELDS.items():
         payload.setdefault(key, value)
     moved = [m for r in MIGRATION.values() for m in r.get("moved", [])]

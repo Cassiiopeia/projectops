@@ -1,10 +1,7 @@
-"""빌릴 기기 판정 (순수 함수): 조건 · 기기 사실 · 소유 · 호스트 자원 > verdict + 이유 (#953 · #954).
+"""빌릴 기기 판정 (순수 함수): 조건 · 기기 사실 · 소유 · 자원 > verdict + 이유 (#953 · #954 · #964).
 
-판정 단계는 DECISION_STEPS 순서대로, 처음 결과를 낸 단계가 이긴다. 새 판단은 단계 함수 하나를 끼운다.
-플랫폼 이름으로 가르지 않는다 — 기기마다 capabilities 만 본다.
-
-verdict 6개: reuse(빈 기기) · reclaim(죽은 소유를 넘겨받음) · create(임시 기기를 만든다) · wait(남이 쓰는 중)
-            · ask(사용자 판단 필요) · no_match(조건에 맞는 기기 없음)
+단계(DECISION_STEPS) 순서대로 처음 결과를 낸 단계가 이긴다. 플랫폼 이름이 아니라 capabilities 만 본다.
+verdict 6개: reuse · reclaim · create · wait · ask · no_match
 """
 from __future__ import annotations
 
