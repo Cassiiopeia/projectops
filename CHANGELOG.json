@@ -1,14 +1,42 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-20T15:58:58Z",
-    "currentVersion": "4.68.0",
+    "lastUpdated": "2026-10-21T10:16:33Z",
+    "currentVersion": "4.69.0",
     "projectType": "basic",
-    "totalReleases": 336,
+    "totalReleases": 337,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.69.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-21",
+      "pr_number": 965,
+      "raw_summary": "## Summary by CodeRabbit\n## 릴리스 노트\n* **새 기능**\n  * 컴퓨터가 시뮬레이터·에뮬레이터를 몇 대까지 감당하는지 재서 설정에 자동 반영\n  * 메모리 여유를 보고 기기를 켜서 여러 작업이 함께 멈추는 일을 줄임\n  * 여러 작업이 동시에 기기를 켜지 않게 한 번에 하나씩 켬\n  * Windows 에서도 메모리 상태를 읽어 판단\n* **기타**\n  * 테스트를 핵심만 남겨 정리",
+      "parsed_changes": {
+        "새_기능": {
+          "title": "새 기능",
+          "items": [
+            "컴퓨터가 시뮬레이터·에뮬레이터를 몇 대까지 감당하는지 재서 설정에 자동 반영",
+            "메모리 여유를 보고 기기를 켜서 여러 작업이 함께 멈추는 일을 줄임",
+            "여러 작업이 동시에 기기를 켜지 않게 한 번에 하나씩 켬",
+            "Windows 에서도 메모리 상태를 읽어 판단"
+          ]
+        },
+        "기타": {
+          "title": "기타",
+          "items": [
+            "테스트를 핵심만 남겨 정리"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.68.0",
       "project_type": "basic",
