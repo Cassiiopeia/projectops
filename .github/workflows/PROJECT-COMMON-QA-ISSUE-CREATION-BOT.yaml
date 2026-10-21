@@ -65,7 +65,7 @@ jobs:
       contents: read
 
     steps:
-      - name: 댓글에 👀 리액션 추가
+      - name: Add 👀 reaction to the comment
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -79,11 +79,11 @@ jobs:
               content: 'eyes'
             });
             
-            console.log('👀 댓글에 확인 리액션 추가 완료');
+            console.log('👀 Added reaction to the comment');
 
       # 게시 문구는 .github/scripts/qa_bot_messages.py 가 version.yml 의 언어(options.language)로 만든다 (#787).
       # 필요한 파일만 받는다. 기본 브랜치의 설정을 읽으므로 PR 이 언어를 바꿔 끼울 수 없다.
-      - name: 메시지 모듈 체크아웃
+      - name: Check out the message module
         uses: actions/checkout@v5
         with:
           sparse-checkout: |
@@ -91,7 +91,7 @@ jobs:
             version.yml
           sparse-checkout-cone-mode: false
 
-      - name: QA 이슈 생성
+      - name: Create QA issue
         uses: actions/github-script@v7
         env:
           DEFAULT_QA_ASSIGNEE: ${{ env.DEFAULT_QA_ASSIGNEE }}
@@ -104,12 +104,12 @@ jobs:
             // 담당자 결정: 'default'면 댓글 작성자, 그 외에는 지정된 GitHub ID
             const defaultAssignee = process.env.DEFAULT_QA_ASSIGNEE || 'default';
             const assignee = (defaultAssignee === 'default') ? commenter : defaultAssignee;
-            console.log(`👤 담당자 설정: ${assignee} (설정값: ${defaultAssignee})`);
+            console.log(`👤 Assignee: ${assignee} (setting: ${defaultAssignee})`);
             const issueOrPrNumber = issue.number;
             const isPullRequest = !!issue.pull_request;
             
-            console.log(`📌 타입: ${isPullRequest ? 'Pull Request' : 'Issue'}`);
-            console.log(`📌 번호: #${issueOrPrNumber}`);
+            console.log(`📌 Type: ${isPullRequest ? 'Pull Request' : 'Issue'}`);
+            console.log(`📌 Number: #${issueOrPrNumber}`);
             
             let originalIssueNumber = issueOrPrNumber;
             let title = issue.title;
@@ -123,13 +123,13 @@ jobs:
               });
             
               const branchName = pr.head.ref;
-              console.log(`🌿 브랜치명: ${branchName}`);
+              console.log(`🌿 Branch: ${branchName}`);
             
               // 브랜치명에서 #31 형태의 이슈 번호 추출
               const issueMatch = branchName.match(/#(\d+)/);
               if (issueMatch) {
                 originalIssueNumber = parseInt(issueMatch[1]);
-                console.log(`🔍 추출된 이슈 번호: #${originalIssueNumber}`);
+                console.log(`🔍 Extracted issue number: #${originalIssueNumber}`);
             
                 // 원본 이슈 정보 가져오기
                 try {
@@ -139,14 +139,14 @@ jobs:
                     issue_number: originalIssueNumber
                   });
                   title = originalIssue.title;
-                  console.log(`📋 원본 이슈 제목: ${title}`);
+                  console.log(`📋 Original issue title: ${title}`);
                 } catch (error) {
-                  console.log(`⚠️ 이슈 #${originalIssueNumber}를 찾을 수 없어 PR 제목 사용`);
+                  console.log(`⚠️ Issue #${originalIssueNumber} not found, using the PR title`);
                 }
               }
             }
             
-            console.log('📝 원본 제목:', title);
+            console.log('📝 Original title:', title);
             
             // 1. 이모지 제거
             title = title.replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
@@ -159,7 +159,7 @@ jobs:
             
             // 3. 공백 정리
             title = title.replace(/^\s+/, '').trim();
-            console.log('✨ 정제된 제목:', title);
+            console.log('✨ Cleaned title:', title);
             
             // 4. QA 이슈 제목과 본문 — 언어에 맞는 문구는 파이썬 모듈이 만든다 (#787)
             const { execFileSync } = require('child_process');
@@ -170,7 +170,7 @@ jobs:
               ...(isPullRequest ? ['--pr', String(issueOrPrNumber)] : []), '--requester', issue.user.login);
             const qaTitle = issueMsg.title;
             const qaBody = issueMsg.body;
-            console.log('🎯 QA 이슈 제목:', qaTitle);
+            console.log('🎯 QA issue title:', qaTitle);
 
             try {
               // QA 이슈 생성
@@ -183,7 +183,7 @@ jobs:
                 assignees: [assignee]
               });
             
-              console.log(`✅ QA 이슈 생성 완료: #${qaIssue.number}`);
+              console.log(`✅ Created QA issue: #${qaIssue.number}`);
             
               // 원본 이슈/PR에 댓글
               const commentBody = messages('comment', '--qa', String(qaIssue.number),
@@ -196,17 +196,17 @@ jobs:
                 body: commentBody
               });
             
-              console.log('💬 원본에 댓글 작성 완료');
+              console.log('💬 Commented on the original');
               console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-              console.log('🎉 QA 이슈 생성 프로세스 완료!');
+              console.log('🎉 QA issue creation done');
               console.log(`  • ${isPullRequest ? 'PR' : 'Issue'}: #${issueOrPrNumber}`);
-              console.log(`  • 원본 Issue: #${originalIssueNumber}`);
+              console.log(`  • Original issue: #${originalIssueNumber}`);
               console.log(`  • QA Issue: #${qaIssue.number}`);
-              console.log(`  • 담당자: @${assignee}`);
+              console.log(`  • Assignee: @${assignee}`);
               console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             
             } catch (error) {
-              console.error('❌ 에러 발생:', error);
+              console.error('❌ Error:', error);
             
               // 에러 발생 시 댓글
               await github.rest.issues.createComment({

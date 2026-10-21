@@ -63,6 +63,7 @@ permissions:
 jobs:
   # Job 1: CodeRabbit Summary 감지 및 파싱
   detect-and-parse:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: CodeRabbit Summary 감지 및 파싱
     # head 가드: main이 default라 feature PR의 base가 main으로 잘못 열릴 수 있다.
     # develop발 릴리스 PR만 automerge 파이프라인을 탄다. (후속 job은 needs 조건으로 연쇄 스킵)
@@ -76,7 +77,7 @@ jobs:
       changelog_provider: ${{ steps.get_version.outputs.changelog_provider }}
       changelog_base_url: ${{ steps.get_version.outputs.changelog_base_url }}
     steps:
-      - name: PR 본문 초기화
+      - name: Reset PR body
         id: clear_body
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
@@ -92,40 +93,40 @@ jobs:
               echo "[try $attempt] body length=$(echo -n "$CURRENT_BODY" | wc -c)"
               break
             fi
-            echo "[try $attempt] body 비어 있음 — replication lag 가능, 재시도"
+            echo "[try $attempt] body is empty (possible replication lag), retrying"
             sleep 2
           done
 
           if echo "$CURRENT_BODY" | grep -q "Summary by CodeRabbit"; then
-            echo "✅ 이미 'Summary by CodeRabbit' 감지 — 본문 초기화 건너뜀"
+            echo "✅ Found 'Summary by CodeRabbit', keeping the body"
             echo "$CURRENT_BODY" > pr_body.md
             echo "already_found=true" >> $GITHUB_OUTPUT
           else
-            echo "🗑️ PR #$PR_NUMBER 본문 초기화 중..."
+            echo "🗑️ Resetting the body of PR #$PR_NUMBER..."
             curl -s -H "Authorization: token ${{ secrets._GITHUB_PAT_TOKEN || secrets.GITHUB_TOKEN }}" \
                  -H "Content-Type: application/json" \
                  -X PATCH \
                  -d '{"body": ""}' \
                  "https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}"
-            echo "✅ PR 본문 초기화 완료"
+            echo "✅ PR body reset"
             echo "already_found=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: 저장소 체크아웃
+      - name: Check out repository
         uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: 버전 스크립트 권한 설정
+      - name: Make version script executable
         run: |
           if [ -f ".github/scripts/version_manager.sh" ]; then
             chmod +x .github/scripts/version_manager.sh
-            echo "✅ 버전 스크립트 권한 설정 완료"
+            echo "✅ Version script is executable"
           fi
 
-      - name: 버전 정보 확인
+      - name: Read version info
         id: get_version
         run: |
           VERSION="1.0.0"
@@ -191,9 +192,9 @@ jobs:
           echo "project_types=$PROJECT_TYPES" >> $GITHUB_OUTPUT
           echo "changelog_provider=$CHANGELOG_PROVIDER" >> $GITHUB_OUTPUT
           echo "changelog_base_url=$CHANGELOG_BASE_URL" >> $GITHUB_OUTPUT
-          echo "✅ 버전: $VERSION, 프로젝트 타입: $PROJECT_TYPE (배열: $PROJECT_TYPES), changelog: $CHANGELOG_PROVIDER"
+          echo "✅ Version: $VERSION, project type: $PROJECT_TYPE (all: $PROJECT_TYPES), changelog: $CHANGELOG_PROVIDER"
 
-      - name: PR 제목 즉시 변경
+      - name: Rename PR title
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
           VERSION="${{ steps.get_version.outputs.version }}"
@@ -206,30 +207,30 @@ jobs:
                -d "{\"title\": \"${NEW_TITLE}\"}" \
                "https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}"
 
-          echo "✅ PR 제목 변경 완료: $NEW_TITLE"
+          echo "✅ PR title changed: $NEW_TITLE"
 
       # 기다리지 않는다 (#566). 종전에는 @coderabbitai summary를 보내고 최대 10분을 폴링했다.
       # 응답이 없으면 그 10분을 통째로 날렸고, 무응답이 rate limit 때문인지 판별할 방법도 없었다.
       # 이제 "이미 본문에 있으면 존중, 없으면 곧장 생성"만 한다 — 판정할 것이 없으므로 애매함도 없다.
       # CodeRabbit이 요약을 달아두었다면 아래 already_found 경로에서 그대로 쓰인다.
-      - name: 기존 Summary 확인
+      - name: Check existing summary
         id: detect_summary
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
 
           if [ "${{ steps.clear_body.outputs.already_found }}" = "true" ]; then
-            echo "✅ 본문에 이미 릴리스 노트가 있습니다 — 그대로 사용합니다"
+            echo "✅ The body already has release notes, using them as they are"
             # clear_body가 만든 pr_body.md는 직후 체크아웃에서 사라지므로 여기서 다시 받아 저장한다
             curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                  "https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}" | \
                  jq -r '.body // ""' > pr_body.md
             echo "summary_found=true" >> $GITHUB_OUTPUT
           else
-            echo "ℹ️ 본문에 릴리스 노트가 없습니다 — 생성 사다리로 위임합니다"
+            echo "ℹ️ No release notes in the body, handing over to the generation ladder"
             echo "summary_found=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Summary 파일 업로드
+      - name: Upload summary file
         if: steps.detect_summary.outputs.summary_found == 'true'
         uses: actions/upload-artifact@v4
         with:
@@ -243,6 +244,7 @@ jobs:
   #   동작(API 키 불필요). commit은 AI·네트워크 무의존이라 항상 완주하는 최후 보루라
   #   "릴리스 노트가 비는" 상황이 생기지 않는다.
   fallback-summary:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: 릴리스 노트 생성 (provider 사다리)
     runs-on: ubuntu-latest
     needs: detect-and-parse
@@ -255,7 +257,7 @@ jobs:
     outputs:
       summary_found: ${{ steps.generate.outputs.summary_found }}
     steps:
-      - name: 저장소 체크아웃
+      - name: Check out repository
         uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -263,11 +265,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
 
       # copilot provider가 쓰는 CLI. 설치에 실패해도 사다리가 다음 단으로 내려가므로 막지 않는다.
-      - name: Copilot CLI 설치
+      - name: Install Copilot CLI
         continue-on-error: true
         run: npm install -g @github/copilot
 
-      - name: provider 사다리로 릴리스 노트 생성
+      - name: Generate release notes with the provider ladder
         id: generate
         env:
           CHANGELOG_PROVIDER: ${{ needs.detect-and-parse.outputs.changelog_provider }}
@@ -286,11 +288,11 @@ jobs:
           # main(프로덕션) 대비 커밋을 분석하도록 origin/main 확보 — HEAD는 develop 체크아웃
           git fetch origin "${{ github.event.pull_request.base.ref }}" 2>/dev/null || true
 
-          echo "🪜 changelog provider 사다리 실행 (provider=$CHANGELOG_PROVIDER)"
+          echo "🪜 Running the changelog provider ladder (provider=$CHANGELOG_PROVIDER)"
           python3 .github/scripts/changelog_providers/ladder.py
 
           if [ ! -f pr_body.md ]; then
-            echo "❌ provider 사다리 완주 실패 — pr_body.md 없음"
+            echo "❌ Provider ladder did not finish (no pr_body.md)"
             echo "summary_found=false" >> $GITHUB_OUTPUT
             exit 1
           fi
@@ -303,13 +305,13 @@ jobs:
                -d "{\"body\": $ESCAPED}" \
                "https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}"
 
-          echo "✅ 릴리스 노트 생성·PR 본문 업데이트 완료 ($(jq -r '.provider // "?"' provider_result.json 2>/dev/null))"
+          echo "✅ Release notes generated and PR body updated ($(jq -r '.provider // "?"' provider_result.json 2>/dev/null))"
           echo "summary_found=true" >> $GITHUB_OUTPUT
 
       # 어떤 경로로 만들어졌는지 Job Summary에 남기고, AI를 하나도 쓰지 못했을 때만
       # PR에 안내 댓글을 단다 (#566). 댓글은 마커로 갱신하므로 이메일은 처음 한 번만 간다.
       # 안내가 실패해도 릴리스를 막지 않는다 (스크립트가 항상 0으로 끝난다).
-      - name: 생성 결과 안내
+      - name: Report generation result
         if: always()
         env:
           GITHUB_TOKEN: ${{ secrets._GITHUB_PAT_TOKEN || secrets.GITHUB_TOKEN }}
@@ -319,7 +321,7 @@ jobs:
             --pr "${{ github.event.pull_request.number }}" \
             --result provider_result.json
 
-      - name: 폴백 Summary 파일 업로드
+      - name: Upload fallback summary file
         if: steps.generate.outputs.summary_found == 'true'
         uses: actions/upload-artifact@v4
         with:
@@ -329,6 +331,7 @@ jobs:
 
   # Job 2: CHANGELOG 업데이트
   update-changelog:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: CHANGELOG 업데이트
     runs-on: ubuntu-latest
     outputs:
@@ -339,14 +342,14 @@ jobs:
       (needs.detect-and-parse.outputs.summary_found == 'true' ||
        needs.fallback-summary.outputs.summary_found == 'true')
     steps:
-      - name: 저장소 체크아웃
+      - name: Check out repository
         uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: Git 설정
+      - name: Configure Git
         env:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
@@ -357,7 +360,7 @@ jobs:
 
       # 워킹트리 루트에 풀면 아래 "변경사항 커밋 및 푸시"의 git add -A에 딸려가 저장소가
       # 오염된다 (#564 — v4.4.1부터 매 릴리스마다 pr_body.md가 커밋되고 있었다).
-      - name: Summary 파일 다운로드
+      - name: Download summary file
         uses: actions/download-artifact@v4
         with:
           name: pr-content
@@ -365,23 +368,23 @@ jobs:
 
       # semver 자동 승격 옵션 (이슈 #546)
       # 키가 없으면 true — 신규·기존 레포 모두 커밋 제목으로 승격한다. 끄려면 semver_auto: false 를 명시한다.
-      - name: semver 자동 승격 옵션 확인
+      - name: Read semver auto bump option
         id: semver_options
         run: |
           SEMVER_AUTO=$(python3 .github/scripts/version_manager.py get-option semver_auto true 2>/dev/null || echo "true")
           echo "semver_auto=$SEMVER_AUTO" >> $GITHUB_OUTPUT
-          echo "ℹ️ semver 자동 승격: $SEMVER_AUTO"
+          echo "ℹ️ semver auto bump: $SEMVER_AUTO"
 
       # 릴리스 구간 커밋 수집 — 워킹트리가 아닌 RUNNER_TEMP에 둔다.
       # 아래 "변경사항 커밋 및 푸시" step이 git add -A를 하므로 워킹트리에 두면 릴리스 커밋에 딸려간다.
-      - name: 릴리스 구간 커밋 수집
+      - name: Collect release range commits
         if: steps.semver_options.outputs.semver_auto == 'true'
         run: |
           git fetch origin main
           git log --pretty=%s "origin/main..HEAD" > "$RUNNER_TEMP/commits.txt"
-          echo "ℹ️ 수집된 커밋: $(wc -l < "$RUNNER_TEMP/commits.txt")줄"
+          echo "ℹ️ Collected commits: $(wc -l < "$RUNNER_TEMP/commits.txt") lines"
 
-      - name: 릴리스 버전 확정
+      - name: Finalize release version
         id: bump_version
         run: |
           chmod +x .github/scripts/version_manager.sh
@@ -392,17 +395,17 @@ jobs:
           else
             BUMP="patch"
           fi
-          echo "ℹ️ 승격 폭: $BUMP"
+          echo "ℹ️ Bump level: $BUMP"
 
           NEW_VERSION=$(./.github/scripts/version_manager.sh increment --bump "$BUMP" | tail -n 1)
           if [ -z "$NEW_VERSION" ]; then
-            echo "❌ 버전 증가 실패"
+            echo "❌ Version bump failed"
             exit 1
           fi
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "✅ 릴리스 버전 확정: $NEW_VERSION"
+          echo "✅ Release version finalized: $NEW_VERSION"
 
-      - name: PR 제목 확정 버전으로 갱신
+      - name: Update PR title to the final version
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
           VERSION="${{ steps.bump_version.outputs.new_version }}"
@@ -415,9 +418,9 @@ jobs:
                -d "{\"title\": \"${NEW_TITLE}\"}" \
                "https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}"
 
-          echo "✅ PR 제목 확정 버전으로 갱신: $NEW_TITLE"
+          echo "✅ PR title updated to the final version: $NEW_TITLE"
 
-      - name: CHANGELOG 업데이트
+      - name: Update CHANGELOG
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
           VERSION="${{ steps.bump_version.outputs.new_version }}"
@@ -426,14 +429,14 @@ jobs:
           TODAY=$(date '+%Y-%m-%d')
           TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%SZ')
 
-          echo "📝 CHANGELOG 업데이트 시작..."
-          echo "📋 프로젝트: $PROJECT_TYPE v$VERSION"
+          echo "📝 Updating CHANGELOG..."
+          echo "📋 Project: $PROJECT_TYPE v$VERSION"
 
           # Python 스크립트 실행 권한 설정
           if [ -f ".github/scripts/changelog_manager.py" ]; then
             chmod +x .github/scripts/changelog_manager.py
           else
-            echo "❌ changelog_manager.py를 찾을 수 없습니다"
+            echo "❌ changelog_manager.py not found"
             exit 1
           fi
 
@@ -449,10 +452,10 @@ jobs:
 
           python3 .github/scripts/changelog_manager.py update-from-summary
 
-          echo "📄 CHANGELOG.md 재생성 중..."
+          echo "📄 Regenerating CHANGELOG.md..."
           python3 .github/scripts/changelog_manager.py generate-md
 
-      - name: 변경사항 커밋 및 푸시
+      - name: Commit and push changes
         env:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
@@ -462,7 +465,7 @@ jobs:
           git add -A
 
           if git diff --staged --quiet; then
-            echo "📝 변경사항이 없습니다"
+            echo "📝 No changes"
           else
             REPO_NAME=$(basename "${{ github.repository }}")
             VERSION="${{ steps.bump_version.outputs.new_version }}"
@@ -485,18 +488,18 @@ jobs:
 
             while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
               RETRY_COUNT=$((RETRY_COUNT + 1))
-              echo "🔄 Push 시도 $RETRY_COUNT/$MAX_RETRIES..."
+              echo "🔄 Push attempt $RETRY_COUNT/$MAX_RETRIES..."
 
               if git push origin HEAD:$HEAD_BRANCH; then
                 PUSH_SUCCESS=true
-                echo "✅ 변경사항 커밋 완료"
+                echo "✅ Changes committed"
                 break
               else
-                echo "⚠️ Push 실패, remote 변경사항 동기화 중..."
+                echo "⚠️ Push failed, syncing remote changes..."
                 if git pull --rebase origin $HEAD_BRANCH; then
-                  echo "✅ Rebase 성공, 다시 push 시도..."
+                  echo "✅ Rebase succeeded, retrying push..."
                 else
-                  echo "❌ Rebase 실패, 충돌 해결 필요"
+                  echo "❌ Rebase failed, resolve the conflict"
                   git rebase --abort 2>/dev/null || true
                   exit 1
                 fi
@@ -504,23 +507,23 @@ jobs:
             done
 
             if [ "$PUSH_SUCCESS" = false ]; then
-              echo "❌ $MAX_RETRIES회 시도 후에도 push 실패"
+              echo "❌ Push failed after $MAX_RETRIES attempts"
               exit 1
             fi
           fi
 
-      - name: 저장소 체크아웃
+      - name: Check out repository
         uses: actions/checkout@v5
         with:
           token: ${{ secrets._GITHUB_PAT_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Git 설정
+      - name: Configure Git
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-      - name: PR 브랜치 최신화
+      - name: Merge PR branch into base
         env:
           GH_TOKEN: ${{ secrets._GITHUB_PAT_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
@@ -528,59 +531,59 @@ jobs:
           PR_BASE=$(gh pr view ${{ github.event.pull_request.number }} --json baseRefName -q .baseRefName)
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📋 PR 정보:"
-          echo "  • HEAD 브랜치: $PR_HEAD"
-          echo "  • BASE 브랜치: $PR_BASE"
-          echo "  • 목표: $PR_BASE 브랜치에 $PR_HEAD의 변경사항을 머지"
+          echo "📋 PR info:"
+          echo "  • HEAD branch: $PR_HEAD"
+          echo "  • BASE branch: $PR_BASE"
+          echo "  • Goal: merge $PR_HEAD into $PR_BASE"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
           # 원격 브랜치 최신화
-          echo "🔄 원격 브랜치 최신화 중..."
+          echo "🔄 Fetching remote branches..."
           git fetch origin $PR_HEAD
           git fetch origin $PR_BASE
 
           # BASE 브랜치(main)로 체크아웃
-          echo "📦 $PR_BASE 브랜치로 체크아웃 중..."
+          echo "📦 Checking out $PR_BASE..."
           git checkout $PR_BASE
           git pull origin $PR_BASE
 
           # HEAD 브랜치(develop)의 최신 변경사항 다시 가져오기 (race condition 방지)
-          echo "🔄 $PR_HEAD 브랜치의 최신 변경사항 가져오는 중..."
+          echo "🔄 Fetching the latest $PR_HEAD..."
           git fetch origin $PR_HEAD
 
           # HEAD 브랜치(develop)의 변경사항을 BASE(main)에 머지
-          echo "🔀 $PR_HEAD의 변경사항을 $PR_BASE에 머지 중..."
+          echo "🔀 Merging $PR_HEAD into $PR_BASE..."
           if git merge --no-edit origin/$PR_HEAD; then
-            echo "✅ 머지 성공"
+            echo "✅ Merge succeeded"
           else
-            echo "⚠️ 머지 충돌 발생"
-            echo "충돌 파일:"
+            echo "⚠️ Merge conflict"
+            echo "Conflicting files:"
             git diff --name-only --diff-filter=U || true
-            echo "❌ 머지 충돌로 인해 실패했습니다. 수동으로 해결 후 다시 시도하세요."
+            echo "❌ Failed because of a merge conflict. Resolve it manually and try again."
             exit 1
           fi
 
           # main 브랜치에 푸시 (다른 워크플로우 트리거)
           # Race Condition 방지: pull-rebase 후 push (최대 3회 재시도)
-          echo "🚀 $PR_BASE 브랜치에 푸시 중..."
+          echo "🚀 Pushing to $PR_BASE..."
           MAX_RETRIES=3
           RETRY_COUNT=0
           PUSH_SUCCESS=false
 
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
             RETRY_COUNT=$((RETRY_COUNT + 1))
-            echo "🔄 Push 시도 $RETRY_COUNT/$MAX_RETRIES..."
+            echo "🔄 Push attempt $RETRY_COUNT/$MAX_RETRIES..."
 
             if git push origin $PR_BASE; then
               PUSH_SUCCESS=true
-              echo "✅ $PR_BASE 브랜치에 푸시 완료 (배포 워크플로우 트리거됨)"
+              echo "✅ Pushed to $PR_BASE (deploy workflows triggered)"
               break
             else
-              echo "⚠️ Push 실패, remote 변경사항 동기화 중..."
+              echo "⚠️ Push failed, syncing remote changes..."
               if git pull --rebase origin $PR_BASE; then
-                echo "✅ Rebase 성공, 다시 push 시도..."
+                echo "✅ Rebase succeeded, retrying push..."
               else
-                echo "❌ Rebase 실패, 충돌 해결 필요"
+                echo "❌ Rebase failed, resolve the conflict"
                 git rebase --abort 2>/dev/null || true
                 exit 1
               fi
@@ -588,11 +591,11 @@ jobs:
           done
 
           if [ "$PUSH_SUCCESS" = false ]; then
-            echo "❌ $MAX_RETRIES회 시도 후에도 push 실패"
+            echo "❌ Push failed after $MAX_RETRIES attempts"
             exit 1
           fi
 
-      - name: 자동 PR Merge
+      - name: Auto merge PR
         id: merge_pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -616,27 +619,30 @@ jobs:
           PR_MERGEABLE=$(echo "$PR_STATE" | cut -d',' -f2)
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📋 PR 상태 확인:"
-          echo "  • 상태: $PR_STATE_VALUE"
-          echo "  • 병합 가능: $PR_MERGEABLE"
-          echo "  • PAT 토큰 사용 가능: $PAT_AVAILABLE"
+          echo "📋 PR status:"
+          echo "  • State: $PR_STATE_VALUE"
+          echo "  • Mergeable: $PR_MERGEABLE"
+          echo "  • PAT available: $PAT_AVAILABLE"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
           if [ "$PR_STATE_VALUE" = "CLOSED" ] || [ "$PR_STATE_VALUE" = "MERGED" ]; then
-            echo "✅ PR이 이미 닫혔거나 병합되었습니다"
+            echo "✅ The PR is already closed or merged"
             exit 0
           fi
 
           if [ "$PR_MERGEABLE" != "true" ]; then
-            echo "⚠️ PR을 GitHub API로 병합할 수 없습니다"
-            echo "💡 이미 'PR 브랜치 최신화' 단계에서 변경사항이 ${{ github.event.pull_request.base.ref }} 브랜치에 적용되었습니다"
-            echo "📝 PR 상태를 업데이트합니다..."
+            echo "⚠️ The PR cannot be merged through the GitHub API"
+            echo "💡 The 'Merge PR branch into base' step already applied the changes to ${{ github.event.pull_request.base.ref }}"
+            echo "📝 Updating the PR..."
             
-            # PR에 댓글 추가
+            # PR에 댓글 추가 — 문구는 version.yml 의 언어(options.language)를 따른다 (#769).
+            # 카탈로그가 없는 오래된 설치는 기존 한국어 문구로 대체한다.
             export GH_TOKEN=${{ secrets.GITHUB_TOKEN }}
-            gh pr comment $PR_NUMBER --body "✅ 변경사항이 자동으로 ${{ github.event.pull_request.base.ref }} 브랜치에 적용되었습니다. PR을 수동으로 닫아주세요."
+            APPLIED_COMMENT=$(python3 .github/scripts/i18n/messages.py get release.comment.applied_to_base --var base="${{ github.event.pull_request.base.ref }}" 2>/dev/null) \
+              || APPLIED_COMMENT="✅ 변경사항이 자동으로 ${{ github.event.pull_request.base.ref }} 브랜치에 적용되었습니다. PR을 수동으로 닫아주세요."
+            gh pr comment $PR_NUMBER --body "$APPLIED_COMMENT"
             
-            echo "✅ PR 상태 업데이트 완료"
+            echo "✅ PR updated"
             exit 0
           fi
 
@@ -645,23 +651,23 @@ jobs:
 
           # 1차 시도: GITHUB_TOKEN으로 머지 시도 (--admin 없이)
           echo ""
-          echo "🔀 1차 시도: GITHUB_TOKEN으로 PR 병합 중..."
+          echo "🔀 Attempt 1: merging the PR with GITHUB_TOKEN..."
           export GH_TOKEN=${{ secrets.GITHUB_TOKEN }}
           
           MERGE_OUTPUT=$(gh pr merge $PR_NUMBER --merge --delete-branch=false 2>&1)
           MERGE_EXIT_CODE=$?
           
           if [ $MERGE_EXIT_CODE -eq 0 ] && echo "$MERGE_OUTPUT" | grep -q "merged\|Merged"; then
-            echo "✅ GITHUB_TOKEN으로 PR 병합 성공"
+            echo "✅ Merged the PR with GITHUB_TOKEN"
             MERGE_SUCCESS="true"
           else
-            echo "⚠️ GITHUB_TOKEN으로 병합 실패"
-            echo "   출력: $MERGE_OUTPUT"
+            echo "⚠️ Merge with GITHUB_TOKEN failed"
+            echo "   Output: $MERGE_OUTPUT"
             
             # PR 상태 재확인 (다른 프로세스가 머지했을 수 있음)
             PR_STATE_CHECK=$(gh pr view $PR_NUMBER --json state -q .state)
             if [ "$PR_STATE_CHECK" = "MERGED" ]; then
-              echo "✅ PR이 이미 머지되었습니다"
+              echo "✅ The PR is already merged"
               MERGE_SUCCESS="true"
             fi
           fi
@@ -669,25 +675,25 @@ jobs:
           # 2차 시도: PAT 토큰으로 재시도 (--admin 플래그 사용)
           if [ "$MERGE_SUCCESS" = "false" ] && [ "$PAT_AVAILABLE" = "true" ]; then
             echo ""
-            echo "🔀 2차 시도: PAT 토큰으로 PR 병합 중 (--admin 플래그 사용)..."
+            echo "🔀 Attempt 2: merging the PR with the PAT (--admin)..."
             export GH_TOKEN=${{ secrets._GITHUB_PAT_TOKEN }}
             
             MERGE_OUTPUT=$(gh pr merge $PR_NUMBER --merge --admin --delete-branch=false 2>&1)
             MERGE_EXIT_CODE=$?
             
             if [ $MERGE_EXIT_CODE -eq 0 ] && echo "$MERGE_OUTPUT" | grep -q "merged\|Merged"; then
-              echo "✅ PAT 토큰으로 PR 병합 성공"
+              echo "✅ Merged the PR with the PAT"
               MERGE_SUCCESS="true"
               # PAT push는 후속 워크플로우를 정상 트리거한다 → 명시 dispatch 불필요 (#551)
               echo "merged_with_pat=true" >> $GITHUB_OUTPUT
             else
-              echo "❌ PAT 토큰으로도 병합 실패"
-              echo "   출력: $MERGE_OUTPUT"
+              echo "❌ Merge with the PAT failed too"
+              echo "   Output: $MERGE_OUTPUT"
               
               # PR 상태 재확인
               PR_STATE_CHECK=$(gh pr view $PR_NUMBER --json state -q .state)
               if [ "$PR_STATE_CHECK" = "MERGED" ]; then
-                echo "✅ PR이 이미 머지되었습니다"
+                echo "✅ The PR is already merged"
                 MERGE_SUCCESS="true"
               fi
             fi
@@ -697,48 +703,50 @@ jobs:
           if [ "$MERGE_SUCCESS" = "false" ]; then
             echo ""
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "❌ PR 자동 병합 실패"
+            echo "❌ PR auto merge failed"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             
             if [ "$PAT_AVAILABLE" = "false" ]; then
               echo ""
-              echo "⚠️ PAT 토큰이 설정되어 있지 않습니다."
+              echo "⚠️ No PAT is configured."
               echo ""
-              echo "📋 해결 방법:"
-              echo "1. GitHub에서 Personal Access Token 생성"
+              echo "📋 How to fix:"
+              echo "1. Create a Personal Access Token on GitHub"
               echo "   - https://github.com/settings/tokens"
-              echo "   - 권한: repo (전체 권한)"
+              echo "   - Scope: repo (full)"
               echo ""
-              echo "2. Repository Secrets에 등록"
+              echo "2. Add it to Repository Secrets"
               echo "   - Settings > Secrets and variables > Actions"
               echo "   - New repository secret"
               echo "   - Name: _GITHUB_PAT_TOKEN"
-              echo "   - Value: 생성한 토큰"
+              echo "   - Value: the token you created"
               echo ""
-              echo "또는"
+              echo "or"
               echo ""
-              echo "3. Branch Protection Rules 조정"
+              echo "3. Adjust Branch Protection Rules"
               echo "   - Settings > Branches > Branch protection rules"
               echo "   - 'Allow specified actors to bypass required pull requests'"
-              echo "   - GitHub Actions bot을 예외로 추가"
+              echo "   - Add the GitHub Actions bot as an exception"
               echo ""
             else
               echo ""
-              echo "⚠️ GITHUB_TOKEN과 PAT 토큰 모두로 병합에 실패했습니다."
+              echo "⚠️ Merge failed with both GITHUB_TOKEN and the PAT."
               echo ""
-              echo "📋 가능한 원인:"
-              echo "1. Branch Protection Rules가 너무 엄격함"
-              echo "2. PR에 충돌이 있음"
-              echo "3. 필수 상태 체크가 통과하지 않음"
-              echo "4. 필수 리뷰 승인이 없음"
+              echo "📋 Possible causes:"
+              echo "1. Branch Protection Rules are too strict"
+              echo "2. The PR has conflicts"
+              echo "3. Required status checks have not passed"
+              echo "4. Required review approval is missing"
               echo ""
             fi
             
-            # PR에 댓글 추가
+            # PR에 댓글 추가 — 언어별 문구, 카탈로그가 없으면 기존 한국어 문구 (#769)
             export GH_TOKEN=${{ secrets.GITHUB_TOKEN }}
-            ERROR_COMMENT="❌ 자동 병합 실패. 수동으로 병합해주세요."
+            ERROR_COMMENT=$(python3 .github/scripts/i18n/messages.py get release.comment.merge_failed 2>/dev/null) \
+              || ERROR_COMMENT="❌ 자동 병합 실패. 수동으로 병합해주세요."
             if [ "$PAT_AVAILABLE" = "false" ]; then
-              ERROR_COMMENT="❌ 자동 병합 실패: PAT 토큰이 설정되어 있지 않습니다. Settings > Secrets에 \`_GITHUB_PAT_TOKEN\`을 등록하거나 Branch Protection Rules에서 GitHub Actions bot을 예외로 추가해주세요."
+              ERROR_COMMENT=$(python3 .github/scripts/i18n/messages.py get release.comment.merge_failed_no_pat 2>/dev/null) \
+                || ERROR_COMMENT="❌ 자동 병합 실패: PAT 토큰이 설정되어 있지 않습니다. Settings > Secrets에 \`_GITHUB_PAT_TOKEN\`을 등록하거나 Branch Protection Rules에서 GitHub Actions bot을 예외로 추가해주세요."
             fi
             gh pr comment $PR_NUMBER --body "$ERROR_COMMENT"
             
@@ -746,9 +754,9 @@ jobs:
           fi
           
           echo ""
-          echo "✅ PR 자동 병합 완료"
+          echo "✅ PR auto merge done"
 
-      - name: 후속 워크플로우 트리거 (PAT 없이 머지한 경우)
+      - name: Trigger follow-up workflows (merged without PAT)
         # GITHUB_TOKEN이 만든 push로는 워크플로우가 재트리거되지 않는다(무한 루프 방지).
         # workflow_dispatch는 GITHUB_TOKEN으로도 트리거되므로 그 경로로 직접 깨운다 (#551).
         # PAT가 등록된 저장소는 push가 PAT 신원으로 나가 후속이 이미 트리거된다 → 건너뛴다 (#555).
@@ -762,7 +770,7 @@ jobs:
             --repo "${{ github.repository }}" \
             --branch "${{ github.event.pull_request.base.ref }}"
 
-      - name: 릴리스 태그 생성
+      - name: Create release tag
         run: |
           # ⚠️ 이 스텝은 update-changelog 잡 **안에** 있다. 자기 잡을 needs 로 읽으면
           # 언제나 빈 문자열이 되어 태그가 "v" 로 만들어진다 — 실제로 v4.8.0 부터
@@ -774,12 +782,12 @@ jobs:
           # "릴리스 태그 생성: v" 로 **성공 보고**된다. 릴리스가 조용히 누락되는
           # 경로라 여기서 세운다 (#545 — "누락되면 실패로 표시된다").
           if [ -z "$NEW_VERSION" ]; then
-            echo "::error::릴리스 버전이 비어 있습니다 — 태그를 만들지 않고 중단합니다."
-            echo "update-changelog 잡의 버전 확정 단계를 확인하세요."
+            echo "::error::Release version is empty, stopping without creating a tag."
+            echo "Check the version finalize step of the update-changelog job."
             exit 1
           fi
           if ! printf '%s' "$NEW_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
-            echo "::error::릴리스 버전이 semver 모양이 아닙니다: '$NEW_VERSION'"
+            echo "::error::Release version is not semver: '$NEW_VERSION'"
             exit 1
           fi
 
@@ -791,26 +799,26 @@ jobs:
           git pull origin $BASE_BRANCH
 
           if git tag -l | grep -q "^$TAG_NAME$"; then
-            echo "⚠️ 태그 $TAG_NAME 이미 존재 — 건너뜀"
+            echo "⚠️ Tag $TAG_NAME already exists, skipping"
           else
             git tag "$TAG_NAME"
             git push origin "$TAG_NAME"
-            echo "✅ 릴리스 태그 생성: $TAG_NAME"
+            echo "✅ Created release tag: $TAG_NAME"
           fi
 
           # 밀어 넣은 것이 실제로 원격에 있는지 본다. push 가 조용히 실패하면
           # 여기까지 전부 초록불인데 태그만 없는 상태가 된다.
           if ! git ls-remote --tags origin "refs/tags/$TAG_NAME" | grep -q "$TAG_NAME"; then
-            echo "::error::태그 $TAG_NAME 가 원격에 없습니다 — 릴리스가 누락됐습니다."
+            echo "::error::Tag $TAG_NAME is not on the remote, the release is missing."
             exit 1
           fi
 
-      - name: 배포 완료 알림
+      - name: Report release completion
         run: |
-          echo "🎉 체인지로그 업데이트 및 배포 트리거 완료!"
+          echo "🎉 Changelog updated and deploy triggered"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📋 배포 정보:"
-          echo "  • 버전: ${{ steps.bump_version.outputs.new_version }}"
-          echo "  • 프로젝트: ${{ needs.detect-and-parse.outputs.project_type }}"
+          echo "📋 Release info:"
+          echo "  • Version: ${{ steps.bump_version.outputs.new_version }}"
+          echo "  • Project: ${{ needs.detect-and-parse.outputs.project_type }}"
           echo "  • PR: #${{ github.event.pull_request.number }}"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

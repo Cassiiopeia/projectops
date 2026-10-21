@@ -51,5 +51,16 @@
   "release_notes.heading": "Release notes",
   "release_notes.empty": "Could not generate a change summary",
   "release_notes.prompt.copilot": "Summarize the commits below as release notes.\n\nRules:\n- One line per item, 40 characters or fewer\n- End each item with a noun phrase\n- No file names, function names, prefixes, issue numbers or URLs\n- Write only changes that users can notice\n- Leave out internal refactoring, tests and docs\n- Merge similar items into one\n- At most 4 items per category\n- Output only the format below, with no explanation or preamble\n\nFormat:\n**New features**\n* Add settings diagnostics\n\n**Bug fixes**\n* Fix logs being cut off\n\n**Improvements**\n* Add a hint for the run history location\n\nCommits:\n{commits}",
-  "release_notes.prompt.openai": "Turn the following commits into user-facing release notes in English. No file names, prefixes, issue numbers or URLs. Group them under 'New features', 'Bug fixes' and 'Improvements':\n{commits}"
+  "release_notes.prompt.openai": "Turn the following commits into user-facing release notes in English. No file names, prefixes, issue numbers or URLs. Group them under 'New features', 'Bug fixes' and 'Improvements':\n{commits}",
+  "release.comment.applied_to_base": "✅ The changes were applied to the {base} branch automatically. Please close this PR manually.",
+  "release.comment.merge_failed": "❌ Auto merge failed. Please merge manually.",
+  "release.comment.merge_failed_no_pat": "❌ Auto merge failed: no PAT is configured. Add `_GITHUB_PAT_TOKEN` under Settings > Secrets, or add the GitHub Actions bot as an exception in Branch Protection Rules.",
+  "dispatch.comment.title": "⚠️ **Could not run the follow-up workflows of this release automatically**",
+  "dispatch.comment.intro": "This repository has no PAT (`_GITHUB_PAT_TOKEN`), so after the release merge the follow-up\nworkflows are started directly. Every one of those calls failed.",
+  "dispatch.comment.col_workflow": "Workflow",
+  "dispatch.comment.col_reason": "Reason",
+  "dispatch.comment.check_heading": "**What to check**",
+  "dispatch.comment.check_permissions": "- Repository Settings > Actions > General > Workflow permissions is set to `Read and write permissions`",
+  "dispatch.comment.check_manual_run": "- Running the workflows above manually from the Actions tab (Run workflow) applies this release",
+  "readme.version_heading": "Latest version"
 }

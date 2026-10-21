@@ -21,7 +21,7 @@ PREVIEW = ["spring/server-deploy/PROJECT-SPRING-PR-PREVIEW.yaml", "python/server
 
 def _readme_step_script(base):
     d = yaml.safe_load((base / "PROJECT-COMMON-README-VERSION-UPDATE.yaml").read_text(encoding="utf-8"))
-    steps = [s for j in d["jobs"].values() for s in j["steps"] if "README.md 파일 버전 정보 업데이트" in s.get("name", "")]
+    steps = [s for j in d["jobs"].values() for s in j["steps"] if "Update version info in README.md" in s.get("name", "")]
     assert len(steps) == 1
     return steps[0]["run"]
 
@@ -36,7 +36,7 @@ def test_readme_없으면_안내만_남기고_성공으로_건너뛴다(base, tm
                .replace("${{ env.SHOW_DATE }}", "false")
     r = subprocess.run(["bash", "-c", head + "\necho REACHED_END"], cwd=tmp_path, capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
-    assert "::notice::README.md" in r.stdout
+    assert "::notice::No README.md" in r.stdout
     assert "REACHED_END" not in r.stdout  # 가드에서 exit 0 으로 끝나야 한다
 
 
@@ -44,7 +44,7 @@ def test_readme_없으면_안내만_남기고_성공으로_건너뛴다(base, tm
 def test_readme_없어도_커밋_step_이_pathspec_오류로_죽지_않는다(base, tmp_path):
     """가드 step 이 통과해도 다음 step 의 git add README.md 가 128 로 죽던 실제 사고(#726)."""
     d = yaml.safe_load((base / "PROJECT-COMMON-README-VERSION-UPDATE.yaml").read_text(encoding="utf-8"))
-    run = [s["run"] for j in d["jobs"].values() for s in j["steps"] if s.get("name") == "변경사항 커밋 및 푸시"][0]
+    run = [s["run"] for j in d["jobs"].values() for s in j["steps"] if s.get("name") == "Commit and push changes"][0]
     head = run.split("if git diff --staged --quiet")[0]
     head = head.replace("${{ github.event.repository.default_branch || 'main' }}", "main")
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)

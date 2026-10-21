@@ -48,6 +48,7 @@ concurrency:
 
 jobs:
   ai-pr-summary:
+    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: PR 변경 요약 댓글
     # fork PR 제외 + 릴리스 PR(head=develop) 제외
     if: >-
@@ -55,13 +56,13 @@ jobs:
       github.event.pull_request.head.ref != 'develop'
     runs-on: ubuntu-latest
     steps:
-      - name: 저장소 체크아웃
+      - name: Check out repository
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: 옵션 확인
+      - name: Read options
         id: options
         run: |
           # 설정 파일 존재로 CodeRabbit 사용 여부를 추측하지 않는다 (#566).
@@ -90,11 +91,11 @@ jobs:
           echo "ℹ️ provider=$PROVIDER / app_release=$APP_RELEASE"
 
       # copilot provider가 쓰는 CLI. 설치 실패해도 사다리가 다음 단으로 내려가므로 막지 않는다.
-      - name: Copilot CLI 설치
+      - name: Install Copilot CLI
         continue-on-error: true
         run: npm install -g @github/copilot
 
-      - name: 변경 요약 생성
+      - name: Generate change summary
         id: summary
         if: steps.options.outputs.skip != 'true'
         continue-on-error: true
@@ -113,7 +114,7 @@ jobs:
           git fetch origin "$BASE_REF"
           # 세 점(...)은 공통 조상 기준 — base에 새로 들어온 커밋을 요약에 섞지 않는다
           export COMMIT_RANGE="origin/${BASE_REF}...HEAD"
-          echo "ℹ️ 요약 범위: $COMMIT_RANGE"
+          echo "ℹ️ Summary range: $COMMIT_RANGE"
 
           python3 .github/scripts/changelog_providers/ladder.py
           if [ -f pr_body.md ]; then
@@ -122,7 +123,7 @@ jobs:
             echo "generated=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: 요약 댓글 작성 또는 갱신
+      - name: Create or update summary comment
         if: steps.options.outputs.skip != 'true' && steps.summary.outputs.generated == 'true'
         continue-on-error: true
         env:

@@ -51,18 +51,18 @@ permissions:
 
 jobs:
   version-bump:
-    name: 버전 자동 증가
+    name: Auto bump version
     runs-on: ubuntu-latest
 
     steps:
-      - name: 저장소 체크아웃
+      - name: Check out repository
         uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: ${{ github.event.repository.default_branch || 'main' }}
 
-      - name: 릴리스 머지 여부 확인 (안전망 가드)
+      - name: Detect release merge (safety guard)
         id: release_guard
         run: |
           BEFORE="${{ github.event.before }}"
@@ -84,38 +84,38 @@ jobs:
             if [ -z "$OLD_V" ] || [ "$OLD_V" != "$NEW_V" ]; then
               RELEASE_MERGE=true
             else
-              echo "ℹ️ version.yml 이 바뀌었지만 version 값은 그대로 (${NEW_V}) — 설정 변경으로 보고 버전을 올립니다"
+              echo "ℹ️ version.yml changed but the version value did not (${NEW_V}), treating it as a settings change and bumping"
             fi
           fi
           echo "range=$RANGE" >> $GITHUB_OUTPUT
           if [ "$RELEASE_MERGE" = "true" ]; then
             echo "is_release_merge=true" >> $GITHUB_OUTPUT
-            echo "✅ 릴리스 머지 감지 (version 값 변경 포함) — 버전 증가 건너뜀"
+            echo "✅ Release merge detected (version value changed), skipping the bump"
           else
             echo "is_release_merge=false" >> $GITHUB_OUTPUT
-            echo "⚠️ main 직접 push 감지 — 안전망 버전 증가 실행"
+            echo "⚠️ Direct push to main detected, running the safety-net bump"
           fi
 
-      - name: 버전 관리 스크립트 권한 설정
+      - name: Make version scripts executable
         if: steps.release_guard.outputs.is_release_merge != 'true'
         run: |
           chmod +x .github/scripts/version_manager.sh
-          echo "버전 관리 스크립트 권한 설정 완료"
+          echo "Version scripts are executable"
 
-      - name: 현재 버전 확인 및 동기화
+      - name: Read and sync current version
         id: current_version
         if: steps.release_guard.outputs.is_release_merge != 'true'
         run: |
-          echo "🔍 현재 버전 확인 및 동기화 중..."
+          echo "🔍 Reading and syncing the current version..."
           CURRENT_VERSION=$(./.github/scripts/version_manager.sh get | tail -n 1)
           if [ -z "$CURRENT_VERSION" ]; then
-            echo "❌ 버전 확인 실패"
+            echo "❌ Failed to read the version"
             exit 1
           fi
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          echo "✅ 현재 버전: $CURRENT_VERSION"
+          echo "✅ Current version: $CURRENT_VERSION"
 
-      - name: 승격 폭 결정
+      - name: Decide bump level
         id: bump
         if: steps.release_guard.outputs.is_release_merge != 'true'
         env:
@@ -124,32 +124,32 @@ jobs:
           BUMP=patch
           SEMVER_AUTO=$(python3 .github/scripts/version_manager.py get-option semver_auto true 2>/dev/null || echo "true")
           if [ "$SEMVER_AUTO" != "true" ]; then
-            echo "ℹ️ semver_auto 꺼짐 — patch"
+            echo "ℹ️ semver_auto is off, using patch"
           else
             # 개발 브랜치 유무와 상관없이 push 구간 커밋 제목으로 판정한다 (RELEASE-CHANGELOG 와 같은 규칙).
             git log --pretty=%s $RANGE > "$RUNNER_TEMP/commits.txt"
             BUMP=$(python3 .github/scripts/changelog_manager.py classify-bump --commits-file "$RUNNER_TEMP/commits.txt" | tail -n 1)
-            echo "ℹ️ semver_auto — push 구간 커밋 $(wc -l < "$RUNNER_TEMP/commits.txt")줄로 판정"
+            echo "ℹ️ semver_auto: deciding from $(wc -l < "$RUNNER_TEMP/commits.txt") push range commit lines"
           fi
-          case "$BUMP" in major|minor|patch) ;; *) echo "⚠️ 판정값 '$BUMP' 이상 — patch로 대체"; BUMP=patch ;; esac
+          case "$BUMP" in major|minor|patch) ;; *) echo "⚠️ Unexpected bump '$BUMP', using patch"; BUMP=patch ;; esac
           echo "bump=$BUMP" >> $GITHUB_OUTPUT
-          echo "✅ 승격 폭: $BUMP"
+          echo "✅ Bump level: $BUMP"
 
-      - name: 새 버전 계산 및 업데이트
+      - name: Compute and write new version
         id: version
         if: steps.release_guard.outputs.is_release_merge != 'true'
         run: |
           BUMP="${{ steps.bump.outputs.bump }}"
-          echo "⬆️ 버전 증가 중 ($BUMP)..."
+          echo "⬆️ Bumping version ($BUMP)..."
           NEW_VERSION=$(./.github/scripts/version_manager.sh increment --bump "${BUMP:-patch}" | tail -n 1)
           if [ -z "$NEW_VERSION" ]; then
-            echo "❌ 버전 업데이트 실패"
+            echo "❌ Version update failed"
             exit 1
           fi
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "✅ 새 버전: $NEW_VERSION"
+          echo "✅ New version: $NEW_VERSION"
 
-      - name: 프로젝트 타입 확인
+      - name: Read project type
         id: project_info
         if: steps.release_guard.outputs.is_release_merge != 'true'
         run: |
@@ -162,17 +162,17 @@ jobs:
             [ -z "$PROJECT_TYPES" ] && PROJECT_TYPES="$PROJECT_TYPE"
             echo "project_type=$PROJECT_TYPE" >> $GITHUB_OUTPUT
             echo "project_types=$PROJECT_TYPES" >> $GITHUB_OUTPUT
-            echo "프로젝트 타입: $PROJECT_TYPE (배열: $PROJECT_TYPES)"
+            echo "Project type: $PROJECT_TYPE (all: $PROJECT_TYPES)"
           else
             echo "project_type=unknown" >> $GITHUB_OUTPUT
             echo "project_types=unknown" >> $GITHUB_OUTPUT
-            echo "⚠️ version.yml 파일을 찾을 수 없습니다."
+            echo "⚠️ version.yml not found."
           fi
 
-      - name: 변경사항 확인 및 커밋
+      - name: Check and commit changes
         if: steps.release_guard.outputs.is_release_merge != 'true'
         run: |
-          echo "📝 Git 설정 및 변경사항 확인 중..."
+          echo "📝 Configuring Git and checking changes..."
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
@@ -181,9 +181,9 @@ jobs:
 
           # 변경사항이 있는지 확인
           if git diff --staged --quiet; then
-            echo "ℹ️ 변경사항이 없습니다. (이미 동기화됨)"
+            echo "ℹ️ No changes (already in sync)."
           else
-            echo "📤 변경사항 커밋 중..."
+            echo "📤 Committing changes..."
             REPO_NAME=$(basename "${{ github.repository }}")
             NEW_VERSION="${{ steps.version.outputs.new_version }}"
             # 커밋 메시지는 version.yml 의 언어로 만든다 (#787). 카탈로그가 없으면 기존 한국어 문구.
@@ -199,20 +199,20 @@ jobs:
 
               while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
                 RETRY_COUNT=$((RETRY_COUNT + 1))
-                echo "🔄 Push 시도 $RETRY_COUNT/$MAX_RETRIES..."
+                echo "🔄 Push attempt $RETRY_COUNT/$MAX_RETRIES..."
 
                 if git push; then
                   PUSH_SUCCESS=true
-                  echo "✅ 버전 업데이트 커밋 완료"
+                  echo "✅ Version update committed"
                   break
                 else
-                  echo "⚠️ Push 실패, remote 변경사항 동기화 중..."
+                  echo "⚠️ Push failed, syncing remote changes..."
 
                   # remote에서 최신 변경사항 가져와서 rebase
                   if git pull --rebase origin ${{ github.event.repository.default_branch || 'main' }}; then
-                    echo "✅ Rebase 성공, 다시 push 시도..."
+                    echo "✅ Rebase succeeded, retrying push..."
                   else
-                    echo "❌ Rebase 실패, 충돌 해결 필요"
+                    echo "❌ Rebase failed, resolve the conflict"
                     git rebase --abort 2>/dev/null || true
                     exit 1
                   fi
@@ -220,42 +220,42 @@ jobs:
               done
 
               if [ "$PUSH_SUCCESS" = false ]; then
-                echo "❌ $MAX_RETRIES회 시도 후에도 push 실패"
+                echo "❌ Push failed after $MAX_RETRIES attempts"
                 exit 1
               fi
             else
-              echo "❌ 커밋 실패"
+              echo "❌ Commit failed"
               exit 1
             fi
           fi
 
-      - name: Git 태그 생성
+      - name: Create Git tag
         if: steps.release_guard.outputs.is_release_merge != 'true'
         run: |
           NEW_VERSION="${{ steps.version.outputs.new_version }}"
 
           # 버전이 비면 이름이 "v" 뿐인 태그가 올라가고 성공으로 보고된다 (#545).
           if [ -z "$NEW_VERSION" ]; then
-            echo "::error::릴리스 버전이 비어 있습니다 — 태그를 만들지 않고 중단합니다."
+            echo "::error::Release version is empty, stopping without creating a tag."
             exit 1
           fi
           if ! printf '%s' "$NEW_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
-            echo "::error::릴리스 버전이 semver 모양이 아닙니다: '$NEW_VERSION'"
+            echo "::error::Release version is not semver: '$NEW_VERSION'"
             exit 1
           fi
 
           TAG_NAME="v$NEW_VERSION"
 
-          echo "🏷️ Git 태그 생성 중: $TAG_NAME"
+          echo "🏷️ Creating Git tag: $TAG_NAME"
 
           # 기존 태그 확인
           if git tag -l | grep -q "^$TAG_NAME$"; then
-            echo "⚠️ 태그 $TAG_NAME이 이미 존재합니다. 건너뛰기."
+            echo "⚠️ Tag $TAG_NAME already exists, skipping."
           else
             if git tag "$TAG_NAME" && git push origin "$TAG_NAME"; then
-              echo "✅ Git 태그 생성 완료: $TAG_NAME"
+              echo "✅ Created Git tag: $TAG_NAME"
             else
-              echo "❌ 태그 생성 실패: $TAG_NAME"
+              echo "❌ Failed to create tag: $TAG_NAME"
               exit 1
             fi
           fi
@@ -263,30 +263,30 @@ jobs:
           # 실제로 원격에 올라갔는지 본다 — push 가 조용히 실패하면
           # 전부 초록불인데 태그만 없는 상태가 된다 (#545 의 실사고).
           if ! git ls-remote --tags origin "refs/tags/$TAG_NAME" | grep -q "$TAG_NAME"; then
-            echo "::error::태그 $TAG_NAME 가 원격에 없습니다 — 릴리스가 누락됐습니다."
+            echo "::error::Tag $TAG_NAME is not on the remote, the release is missing."
             exit 1
           fi
 
-      - name: 버전 업데이트 완료 요약
+      - name: Version update summary
         if: always()
         run: |
           echo ""
-          echo "🎉 버전 업데이트 워크플로우 완료!"
+          echo "🎉 Version update workflow done"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📊 업데이트 요약:"
-          echo "  📦 프로젝트 타입: ${{ steps.project_info.outputs.project_type }}"
-          echo "  📌 이전 버전: ${{ steps.current_version.outputs.current_version }}"
-          echo "  🆙 새 버전: ${{ steps.version.outputs.new_version }}"
-          echo "  🔖 Git 태그: v${{ steps.version.outputs.new_version }}"
-          echo "  📝 커밋: ${{ github.sha }}"
-          echo "  🌿 브랜치: $GITHUB_REF_NAME"
-          echo "  🕐 시간: $(date '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "📊 Summary:"
+          echo "  📦 Project type: ${{ steps.project_info.outputs.project_type }}"
+          echo "  📌 Previous version: ${{ steps.current_version.outputs.current_version }}"
+          echo "  🆙 New version: ${{ steps.version.outputs.new_version }}"
+          echo "  🔖 Git tag: v${{ steps.version.outputs.new_version }}"
+          echo "  📝 Commit: ${{ github.sha }}"
+          echo "  🌿 Branch: $GITHUB_REF_NAME"
+          echo "  🕐 Time: $(date '+%Y-%m-%d %H:%M:%S UTC')"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           
           # 실패한 경우에만 에러 표시
           if [ "${{ job.status }}" != "success" ]; then
-            echo "❌ 일부 단계에서 오류가 발생했습니다. 로그를 확인해주세요."
+            echo "❌ Some steps failed. Check the log."
           else
-            echo "✅ 모든 단계가 성공적으로 완료되었습니다."
+            echo "✅ All steps succeeded."
           fi

@@ -40,19 +40,19 @@ env:
 
 jobs:
   deploy-production:
-    name: Vercel 프로덕션 배포
+    name: Vercel production deploy
     runs-on: ubuntu-latest
 
     steps:
-      - name: 코드 체크아웃
+      - name: Check out code
         uses: actions/checkout@v5
 
-      - name: Node.js 설정
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: 의존성 설치
+      - name: Install dependencies
         working-directory: ${{ env.PROJECT_PATH }}
         run: |
           if [ -f package-lock.json ]; then
@@ -61,14 +61,14 @@ jobs:
             npm install
           fi
 
-      - name: 프로젝트 빌드
+      - name: Build project
         working-directory: ${{ env.PROJECT_PATH }}
         run: npm run build
 
-      - name: Vercel CLI 설치
+      - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
-      - name: Vercel 프로덕션 배포
+      - name: Deploy to Vercel production
         id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -77,17 +77,17 @@ jobs:
           URL=$(vercel deploy --prod --yes --token="$VERCEL_TOKEN" 2>&1 | grep -oE "https://[^[:space:]]*\.vercel\.app" | tail -1)
           echo "deployment_url=${URL}" >> $GITHUB_OUTPUT
 
-      - name: 배포 결과 요약
+      - name: Deployment summary
         if: always()
         run: |
-          echo "## 🚀 Vercel 배포 결과" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Vercel deployment result" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ job.status }}" == "success" ]; then
-            echo "✅ **배포 성공**" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Deployed**" >> $GITHUB_STEP_SUMMARY
             echo "- 🌐 **URL**: ${{ steps.deploy.outputs.deployment_url }}" >> $GITHUB_STEP_SUMMARY
-            echo "- 📅 **시간**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+            echo "- 📅 **Time**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **빌드 또는 배포 실패**" >> $GITHUB_STEP_SUMMARY
-            echo "- 커밋: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- 브랜치: \`$GITHUB_REF_NAME\`" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Build or deployment failed**" >> $GITHUB_STEP_SUMMARY
+            echo "- Commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Branch: \`$GITHUB_REF_NAME\`" >> $GITHUB_STEP_SUMMARY
           fi

@@ -35,6 +35,7 @@ import urllib.error
 from pathlib import Path
 
 import github_api
+from i18n.messages import t as message
 
 WORKFLOWS_DIR = Path(".github/workflows")
 
@@ -113,7 +114,7 @@ def scan(branch: str, workflows_dir: Path = WORKFLOWS_DIR) -> dict:
                 info = parse_triggers(path.read_text(encoding="utf-8"), branch)
             except Exception as e:
                 # 판정 불가 — 깨우지 않되 결과에 남겨 수동 확인 대상으로 드러낸다
-                sys.stderr.write(f"  ⚠️ 트리거를 읽지 못함: {path.name} ({type(e).__name__}: {e})\n")
+                sys.stderr.write(f"  ⚠️ Could not read triggers: {path.name} ({type(e).__name__}: {e})\n")
                 unreachable.append(path.name)
                 continue
             if not info["on_push_branch"]:
@@ -141,49 +142,52 @@ def _notify_pr(repo: str, pr: str, token: str, out: dict) -> None:
     """
     if not (repo and pr and token):
         return
+    try:
+        github_api.request("POST", f"{github_api.API_ROOT}/repos/{repo}/issues/{pr}/comments",
+                           token, {"body": render_failure_comment(out)}, user_agent=USER_AGENT)
+        sys.stderr.write("  ℹ️ Reported the failure on the release PR\n")
+    except Exception as e:  # 알림 실패가 릴리스를 막아선 안 된다
+        sys.stderr.write(f"  ⚠️ Could not comment on the PR: {type(e).__name__}\n")
+
+
+def render_failure_comment(out: dict, lang: str | None = None) -> str:
+    """전량 실패 알림 본문: 제목 > 안내 > 실패 표 > 확인할 것. 언어는 version.yml options.language (#769)"""
     lines = [
-        "⚠️ **릴리스 후속 워크플로우를 자동 실행하지 못했습니다**",
+        message("dispatch.comment.title", lang),
         "",
-        "이 저장소에는 PAT(`_GITHUB_PAT_TOKEN`)가 등록되어 있지 않아, 릴리스 머지 후 후속",
-        "워크플로우를 직접 깨우는 경로를 사용합니다. 그 호출이 전부 실패했습니다.",
+        message("dispatch.comment.intro", lang),
         "",
-        "| 워크플로우 | 사유 |",
+        f"| {message('dispatch.comment.col_workflow', lang)} | {message('dispatch.comment.col_reason', lang)} |",
         "|---|---|",
     ]
     for item in out.get("failed", []):
         lines.append(f"| `{item['workflow']}` | {item['detail']} |")
     lines += [
         "",
-        "**확인할 것**",
-        "- 저장소 Settings > Actions > General > Workflow permissions가 "
-        "`Read and write permissions`인지",
-        "- 위 워크플로우들을 Actions 탭에서 수동 실행(Run workflow)하면 이번 릴리스분이 반영됩니다",
+        message("dispatch.comment.check_heading", lang),
+        message("dispatch.comment.check_permissions", lang),
+        message("dispatch.comment.check_manual_run", lang),
     ]
-    try:
-        github_api.request("POST", f"{github_api.API_ROOT}/repos/{repo}/issues/{pr}/comments",
-                           token, {"body": "\n".join(lines)}, user_agent=USER_AGENT)
-        sys.stderr.write("  ℹ️ 실패 사실을 릴리스 PR에 알렸습니다\n")
-    except Exception as e:  # 알림 실패가 릴리스를 막아선 안 된다
-        sys.stderr.write(f"  ⚠️ PR 알림 실패: {type(e).__name__}\n")
+    return "\n".join(lines)
 
 
 def _log(out: dict) -> None:
     """Actions 로그에서 바로 읽히도록 결과를 사람 말로 풀어 stderr에 쓴다."""
     w = sys.stderr.write
     for item in out.get("dispatched", []):
-        w(f"  ✅ 트리거: {item['workflow']}\n")
+        w(f"  ✅ Triggered: {item['workflow']}\n")
     for item in out.get("failed", []):
-        w(f"  ⚠️ 트리거 실패: {item['workflow']} ({item['detail']})\n")
+        w(f"  ⚠️ Trigger failed: {item['workflow']} ({item['detail']})\n")
     for name in out.get("unreachable", []):
-        w(f"  ⚠️ 깨울 수 없음(workflow_dispatch 미지원 또는 트리거 판독 실패): {name}\n")
-        w("     이 워크플로우는 PAT 없이는 릴리스 후 자동 실행되지 않습니다.\n")
+        w(f"  ⚠️ Cannot trigger (no workflow_dispatch, or triggers unreadable): {name}\n")
+        w("     Without a PAT this workflow does not run automatically after a release.\n")
     w(f"{out.get('summary', '')}\n")
 
 
 def cmd_scan(args) -> int:
     result = scan(args.branch)
     result["ok"] = True
-    result["summary"] = f"깨울 대상 {len(result['targets'])}개 / 깨울 수 없음 {len(result['unreachable'])}개"
+    result["summary"] = f"{len(result['targets'])} to trigger / {len(result['unreachable'])} cannot be triggered"
     result["next"] = "dispatch" if result["targets"] else None
     print(json.dumps(result, ensure_ascii=False))
     return 0
@@ -197,7 +201,7 @@ def cmd_dispatch(args) -> int:
     if not token:
         out = {"ok": False, "code": "missing_token", "dispatched": [], "failed": [],
                "unreachable": found["unreachable"],
-               "summary": "GITHUB_TOKEN이 없어 후속 워크플로우를 깨우지 못했습니다", "next": None}
+               "summary": "No GITHUB_TOKEN, follow-up workflows were not triggered", "next": None}
         _log(out)
         print(json.dumps(out, ensure_ascii=False))
         return 0  # 릴리스는 이미 끝났다 — 여기서 실패로 파이프라인을 막지 않는다
@@ -211,7 +215,7 @@ def cmd_dispatch(args) -> int:
         "dispatched": dispatched,
         "failed": failed,
         "unreachable": found["unreachable"],
-        "summary": f"{len(dispatched)}개 트리거 / 실패 {len(failed)}개 / 깨울 수 없음 {len(found['unreachable'])}개",
+        "summary": f"{len(dispatched)} triggered / {len(failed)} failed / {len(found['unreachable'])} cannot be triggered",
         "next": None,
     }
     # 사람이 읽을 로그는 stderr로 — stdout은 JSON 한 줄이라는 계약을 지킨다.

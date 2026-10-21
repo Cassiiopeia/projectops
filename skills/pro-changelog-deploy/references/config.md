@@ -106,7 +106,7 @@ If version.yml exists (even with fallback values), you never get here. There is 
 
 **Resolve the provider (do not ask):**
 - Use `branches.provider` as is. The CLI already applied the three-step rule: ① explicit `changelog.provider` in version.yml → that value ② unset + `.coderabbit.yaml` at the repo root → `coderabbit` (keeps the existing behavior of repos that use CodeRabbit) ③ neither → `commit`.
-- The workflow uses the same rule, so the skill and the workflow never disagree. If you change the rule, change both places together (`changelog_cli.py` `_normalize_provider`, and the workflow step "버전 정보 확인" (version info check)).
+- The workflow uses the same rule, so the skill and the workflow never disagree. If you change the rule, change both places together (`changelog_cli.py` `_normalize_provider`, and the workflow step "Read version info").
 
 **Record in the config:** Write the resolved `head_branch`/`base_branch`/`provider` into `changelog_deploy` of the current OWNER/REPO entry in `github.repos[]`. If there is no entry, create one (`owner`·`repo`·`name`, `pat: null`). **Do not write to the global `github.changelog_deploy`.**
 

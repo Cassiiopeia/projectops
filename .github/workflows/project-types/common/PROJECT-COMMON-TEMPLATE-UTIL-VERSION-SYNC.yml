@@ -58,17 +58,17 @@ jobs:
 
     - name: Find and Execute All version-sync.sh Scripts
       run: |
-        echo "🔍 .github/util/ 하위의 version-sync.sh 스크립트 탐색 중..."
+        echo "🔍 Looking for version-sync.sh scripts under .github/util/..."
 
         # version-sync.sh 스크립트 목록 찾기
         SYNC_SCRIPTS=$(find .github/util -name "version-sync.sh" -type f 2>/dev/null || true)
 
         if [ -z "$SYNC_SCRIPTS" ]; then
-          echo "⚠️ version-sync.sh 스크립트를 찾을 수 없습니다."
+          echo "⚠️ No version-sync.sh script found."
           exit 0
         fi
 
-        echo "📋 발견된 스크립트:"
+        echo "📋 Found scripts:"
         echo "$SYNC_SCRIPTS"
         echo ""
 
@@ -82,8 +82,8 @@ jobs:
           SCRIPT_NAME=$(basename "$SCRIPT_DIR")
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📦 [$SCRIPT_COUNT] $SCRIPT_NAME 동기화 실행"
-          echo "   경로: $SCRIPT"
+          echo "📦 [$SCRIPT_COUNT] Syncing $SCRIPT_NAME"
+          echo "   Path: $SCRIPT"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
           # 스크립트에 실행 권한 부여
@@ -91,17 +91,17 @@ jobs:
 
           # 스크립트 실행
           if bash "$SCRIPT"; then
-            echo "✅ $SCRIPT_NAME 동기화 성공"
+            echo "✅ $SCRIPT_NAME synced"
             SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
           else
-            echo "❌ $SCRIPT_NAME 동기화 실패 (계속 진행)"
+            echo "❌ $SCRIPT_NAME sync failed (continuing)"
           fi
 
           echo ""
         done
 
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "📊 실행 결과: $SUCCESS_COUNT / $SCRIPT_COUNT 성공"
+        echo "📊 Result: $SUCCESS_COUNT / $SCRIPT_COUNT succeeded"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
     - name: Check for Changes
@@ -125,19 +125,19 @@ jobs:
 
         while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
           RETRY_COUNT=$((RETRY_COUNT + 1))
-          echo "🔄 Push 시도 $RETRY_COUNT/$MAX_RETRIES..."
+          echo "🔄 Push attempt $RETRY_COUNT/$MAX_RETRIES..."
 
           if git push; then
             PUSH_SUCCESS=true
-            echo "✅ 변경사항이 커밋되었습니다."
+            echo "✅ Changes committed."
             break
           else
-            echo "⚠️ Push 실패, remote 변경사항 동기화 중..."
+            echo "⚠️ Push failed, syncing remote changes..."
 
             if git pull --rebase origin "$GITHUB_REF_NAME"; then
-              echo "✅ Rebase 성공, 다시 push 시도..."
+              echo "✅ Rebase succeeded, retrying push..."
             else
-              echo "❌ Rebase 실패, 충돌 해결 필요"
+              echo "❌ Rebase failed, resolve the conflict"
               git rebase --abort 2>/dev/null || true
               exit 1
             fi
@@ -145,23 +145,23 @@ jobs:
         done
 
         if [ "$PUSH_SUCCESS" = false ]; then
-          echo "❌ $MAX_RETRIES회 시도 후에도 push 실패"
+          echo "❌ Push failed after $MAX_RETRIES attempts"
           exit 1
         fi
 
     - name: No Changes
       if: steps.changes.outputs.has_changes != 'true'
       run: |
-        echo "ℹ️ 동기화할 변경사항이 없습니다. (이미 동기화됨)"
+        echo "ℹ️ Nothing to sync (already in sync)."
 
     - name: Summary
       if: always()
       run: |
         echo ""
-        echo "🎉 버전 동기화 워크플로우 완료!"
+        echo "🎉 Version sync workflow done"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "📝 트리거: ${{ github.event_name }}"
-        echo "🌿 브랜치: $GITHUB_REF_NAME"
-        echo "📌 커밋: ${{ github.sha }}"
-        echo "🕐 시간: $(date '+%Y-%m-%d %H:%M:%S UTC')"
+        echo "📝 Trigger: ${{ github.event_name }}"
+        echo "🌿 Branch: $GITHUB_REF_NAME"
+        echo "📌 Commit: ${{ github.sha }}"
+        echo "🕐 Time: $(date '+%Y-%m-%d %H:%M:%S UTC')"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

@@ -61,7 +61,7 @@ def _run_guard(tmp_path, before_yml, after_yml, extra_file=True):
     _git(repo, "commit", "-qm", "push")
 
     script = _step(WF / "PROJECT-COMMON-VERSION-CONTROL.yaml", "version-bump",
-                   "릴리스 머지 여부 확인 (안전망 가드)")["run"]
+                   "Detect release merge (safety guard)")["run"]
     script = script.replace("${{ github.event.before }}", before)
     out = tmp_path / "out.txt"
     subprocess.run(["bash", "-e", "-c", script], cwd=repo, check=True,
@@ -101,7 +101,7 @@ def test_readme_retry_survives_unstaged_changes():
     """재시도의 pull 이 스테이징 안 된 변경(chmod +x)에 막히면 안 된다 (#807)."""
     for path in (WF / "PROJECT-COMMON-README-VERSION-UPDATE.yaml",
                  COMMON / "PROJECT-COMMON-README-VERSION-UPDATE.yaml"):
-        run = _step(path, "update-readme", "변경사항 커밋 및 푸시")["run"]
+        run = _step(path, "update-readme", "Commit and push changes")["run"]
         pulls = re.findall(r"git pull --rebase[^\n]*", run)
         assert pulls, f"{path}: 재시도 pull 을 못 찾았다"
         assert all("--autostash" in p for p in pulls), pulls
@@ -146,7 +146,7 @@ def _run_bump(tmp_path, semver, with_dev_branch, subjects):
         _git(repo, "add", "-A")
         _git(repo, "commit", "-qm", s)
 
-    script = _step(WF / "PROJECT-COMMON-VERSION-CONTROL.yaml", "version-bump", "승격 폭 결정")["run"]
+    script = _step(WF / "PROJECT-COMMON-VERSION-CONTROL.yaml", "version-bump", "Decide bump level")["run"]
     script = script.replace("${{ github.event.repository.default_branch || 'main' }}", "main")
     script = script.replace(".github/scripts/version_manager.py",
                             str(ROOT / ".github" / "scripts" / "version_manager.py"))

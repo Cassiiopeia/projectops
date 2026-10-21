@@ -122,7 +122,7 @@ def release_messages(repo: str, before: str, after: str, token: str) -> list[str
         if found is not None:
             return found
     except Exception as e:  # 조회 실패가 릴리스를 막으면 안 된다
-        print(f"Release PR lookup failed ({type(e).__name__}) — using the tag range instead")
+        print(f"Release PR lookup failed ({type(e).__name__}), using the tag range instead")
     return commit_messages(before, after)
 
 
@@ -155,7 +155,7 @@ def main(argv=None) -> int:
         try:
             issue = _request("GET", f"{API}/repos/{a.repo}/issues/{n}", token)
         except urllib.error.HTTPError as e:
-            print(f"#{n}: lookup failed ({e.code}) — skipped")
+            print(f"#{n}: lookup failed ({e.code}), skipped")
             continue
         if not should_close(issue):
             print(f"#{n}: skipped (not an open issue, or no done label)")

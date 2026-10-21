@@ -51,5 +51,16 @@
   "release_notes.heading": "릴리스 노트",
   "release_notes.empty": "변경 사항 요약을 생성하지 못했습니다",
   "release_notes.prompt.copilot": "아래 커밋들을 릴리스 노트로 요약하라.\n\n규칙:\n- 항목당 한 줄, 25자 이내\n- 명사형으로 끝낸다\n- 파일명·함수명·prefix·이슈번호·URL 금지\n- 사용자가 체감하는 변화만 쓴다\n- 내부 리팩터링·테스트·문서는 제외\n- 비슷한 항목은 하나로 합친다\n- 분류당 최대 4개\n- 설명·머리말 없이 아래 형식만 출력한다\n\n형식:\n**새 기능**\n* 설정 진단 기능 추가\n\n**버그 수정**\n* 로그가 끊기던 문제 해결\n\n**개선**\n* 실행 기록 위치 안내 추가\n\n커밋:\n{commits}",
-  "release_notes.prompt.openai": "다음 커밋들을 사용자용 릴리스 노트로 만들어라. 파일명·prefix·이슈번호·URL 금지. '새 기능'/'버그 수정'/'개선'으로 분류:\n{commits}"
+  "release_notes.prompt.openai": "다음 커밋들을 사용자용 릴리스 노트로 만들어라. 파일명·prefix·이슈번호·URL 금지. '새 기능'/'버그 수정'/'개선'으로 분류:\n{commits}",
+  "release.comment.applied_to_base": "✅ 변경사항이 자동으로 {base} 브랜치에 적용되었습니다. PR을 수동으로 닫아주세요.",
+  "release.comment.merge_failed": "❌ 자동 병합 실패. 수동으로 병합해주세요.",
+  "release.comment.merge_failed_no_pat": "❌ 자동 병합 실패: PAT 토큰이 설정되어 있지 않습니다. Settings > Secrets에 `_GITHUB_PAT_TOKEN`을 등록하거나 Branch Protection Rules에서 GitHub Actions bot을 예외로 추가해주세요.",
+  "dispatch.comment.title": "⚠️ **릴리스 후속 워크플로우를 자동 실행하지 못했습니다**",
+  "dispatch.comment.intro": "이 저장소에는 PAT(`_GITHUB_PAT_TOKEN`)가 등록되어 있지 않아, 릴리스 머지 후 후속\n워크플로우를 직접 깨우는 경로를 사용합니다. 그 호출이 전부 실패했습니다.",
+  "dispatch.comment.col_workflow": "워크플로우",
+  "dispatch.comment.col_reason": "사유",
+  "dispatch.comment.check_heading": "**확인할 것**",
+  "dispatch.comment.check_permissions": "- 저장소 Settings > Actions > General > Workflow permissions가 `Read and write permissions`인지",
+  "dispatch.comment.check_manual_run": "- 위 워크플로우들을 Actions 탭에서 수동 실행(Run workflow)하면 이번 릴리스분이 반영됩니다",
+  "readme.version_heading": "최신 버전"
 }

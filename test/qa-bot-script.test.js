@@ -9,9 +9,9 @@ const ROOT = join(import.meta.dirname, "..");
 const YAML = readFileSync(join(ROOT, ".github/workflows/PROJECT-COMMON-QA-ISSUE-CREATION-BOT.yaml"), "utf8");
 const GOLD = JSON.parse(readFileSync(join(ROOT, ".github/scripts/test/golden/qa_bot_ko.json"), "utf8"));
 
-// "QA 이슈 생성" 스텝의 script 본문을 꺼내 들여쓰기를 걷는다
+// "Create QA issue" 스텝의 script 본문을 꺼내 들여쓰기를 걷는다
 function stepScript() {
-  const i = YAML.indexOf("      - name: QA 이슈 생성");
+  const i = YAML.indexOf("      - name: Create QA issue");
   const k = YAML.indexOf("script: |", i) + "script: |\n".length;
   const rest = YAML.slice(k);
   const end = rest.search(/\n {6}- name:/);

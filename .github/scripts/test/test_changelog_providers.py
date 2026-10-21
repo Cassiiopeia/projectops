@@ -235,7 +235,7 @@ WORKFLOW_COPIES = [
 def _provider_lines(path):
     import yaml
     steps = yaml.safe_load(path.read_text(encoding="utf-8"))["jobs"]["detect-and-parse"]["steps"]
-    run = next(s["run"] for s in steps if s.get("name") == "버전 정보 확인")
+    run = next(s["run"] for s in steps if s.get("name") == "Read version info")
     lines = run.splitlines()
     # 추출 줄부터 base_url 읽기 직전까지가 provider 판정 블록이다 (if 블록 포함)
     start = next(i for i, ln in enumerate(lines) if ln.strip().startswith("CHANGELOG_PROVIDER=$("))

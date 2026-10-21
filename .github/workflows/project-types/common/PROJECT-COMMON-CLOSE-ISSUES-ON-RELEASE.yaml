@@ -46,7 +46,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: 완료된 이슈 닫기
+      - name: Close completed issues
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
