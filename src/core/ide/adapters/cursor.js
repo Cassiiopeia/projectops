@@ -1,19 +1,20 @@
 // Cursor 어댑터 (skills 복사·메타 기록·제거).
-// 마켓플레이스 없음 → ~/.cursor/skills/ 에 skills/ 폴더를 복사하고 meta.json으로 버전 추적.
+// 마켓플레이스 없음 → ~/.cursor/skills/ 에 skills/ 폴더, ~/.cursor/scripts/ 에 공용 파이썬을 복사하고 meta.json으로 버전 추적.
 import { join } from "node:path";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { migrateConfigRoot, isLegacyVersion } from "../legacy.js";
 import { t } from "../../../i18n/index.js";
-import {
-  resolveSkillsSrc, readSkillsMeta, copySkillsTree, ownedEntries, removeOwnedEntries, writeSkillsMeta,
-} from "../skills-copy.js";
+import { readSkillsMeta, ownedEntries } from "../skills-copy.js";
+import { applyHomeSkills, removeHomeSkills } from "../home-skills.js";
 
 const LEGACY_NAMES = ["cassiiopeia", "suh-devops-template"];
 const LEGACY_MAX_VERSION = "4.2.4";
 const META_FILE_NAME = "cursor-skills-meta.json";
+const MESSAGE_PREFIX = "ide.cursor";
 
 function skillsDir(io) { return join(io.home(), ".cursor/skills"); }
 function metaPath(io) { return join(skillsDir(io), META_FILE_NAME); }
+function homeSkillsOptions(io) { return { skillsDest: skillsDir(io), metaFileName: META_FILE_NAME, messagePrefix: MESSAGE_PREFIX }; }
 
 function detect(io) {
   const { installed, version } = readSkillsMeta(metaPath(io));
@@ -23,30 +24,12 @@ function detect(io) {
 function apply(io, ctx = {}) {
   migrateLegacy(io, ctx);   // 옛 이름/버전 감지 시 projectops 소유 항목 선별 삭제
   migrateConfigRoot(io);    // 공용 config 루트 이관
-  const src = resolveSkillsSrc(ctx);
-  if (!src) { io.log(t("ide.cursor.noSource")); return false; }
-  const dest = skillsDir(io);
-  io.log(t("ide.cursor.copying"));
-  try {
-    for (const name of copySkillsTree(src, dest, META_FILE_NAME)) io.log(t("ide.skillsCopy.obsolete", { name }));
-    writeSkillsMeta(dest, META_FILE_NAME, ctx.templateVersion);
-    io.log(t("ide.cursor.installed", { dest, version: ctx.templateVersion || "unknown" }));
-    return true;
-  } catch {
-    io.log(t("ide.cursor.copyFailed"));
-    return false;
-  }
+  return applyHomeSkills(io, ctx, homeSkillsOptions(io));
 }
 
+// 타 스킬(somansa-tools 등) 남으면 폴더 유지
 function remove(io, ctx = {}) {
-  const dir = skillsDir(io);
-  if (!existsSync(metaPath(io))) { io.log(t("ide.cursor.removeNone")); return true; }
-  try {
-    // 타 스킬(somansa-tools 등) 남으면 폴더 유지
-    removeOwnedEntries(dir, ctx, META_FILE_NAME);
-    io.log(t("ide.cursor.removed", { dir }));
-    return true;
-  } catch { io.log(t("ide.cursor.removeFailed", { dir })); return false; }
+  return removeHomeSkills(io, ctx, homeSkillsOptions(io));
 }
 
 // 옛 이름/버전 meta면 projectops 소유 항목만 선별 삭제 → apply가 신규 재설치.

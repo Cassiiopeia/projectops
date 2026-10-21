@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 # 고정 진입점 내용 번호: 깔린 번호보다 높을 때만 덮어씀 (이 파일을 고치면 +1)
-RESOLVER_REVISION = 1
+RESOLVER_REVISION = 2
 STABLE_ENTRYPOINT_NAME = "projectops_cli.py"
 STABLE_ENTRYPOINT_MODE = 0o755
 SKILLS_ROOT_ENV = "PROJECTOPS_SKILLS_ROOT"
@@ -44,7 +44,7 @@ SKILL_CLIS = {
 }
 
 _VERSIONED_CACHE_GLOBS = (".claude*/plugins/cache", ".codex/plugins/cache")
-_UNVERSIONED_BASES = (".cursor/skills", ".gemini/extensions", ".pi/agent/git")
+_UNVERSIONED_BASES = (".cursor/skills", ".copilot/skills", ".gemini/extensions", ".pi/agent/git")
 _UNVERSIONED_WALK_MAX_DEPTH = 6
 _SEMVER_PATTERN = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)")
 _REVISION_PATTERN = re.compile(r"^RESOLVER_REVISION = (\d+)", re.MULTILINE)

@@ -73,3 +73,11 @@ def test_고정_진입점은_번호가_높을_때만_덮는다(tmp_path):
 def test_모르는_스킬은_JSON_으로_알린다(capsys):
     assert resolver.main(["nope"]) == 1
     assert '"code": "bad_args"' in capsys.readouterr().out
+
+
+def test_홈에_복사한_설치본도_찾는다_Cursor_Copilot(tmp_path):
+    # npx projectops 가 복사한 설치본: ~/.cursor/skills · ~/.copilot/skills (#200)
+    copilot = tmp_path / ".copilot" / "skills" / "pro-github" / "scripts"
+    copilot.mkdir(parents=True)
+    (copilot / "github_cli.py").write_text("# stub\n", encoding="utf-8")
+    assert resolver.resolve_scripts_dir("github", cwd=tmp_path, home=tmp_path, environment={}) == copilot

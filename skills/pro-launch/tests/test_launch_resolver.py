@@ -69,3 +69,12 @@ def test_claude_config_dir_and_alternate_config_folders_are_scanned(tmp_path):
     _make_scripts_dir(home / ".codex/plugins/cache/m/projectops/4.59.0/skills/pro-launch/scripts")
     chosen = launch_resolver.resolve_scripts_dir(cwd=_outside_cwd(tmp_path), home=home, environment=same)
     assert ".claude-b" in chosen.parts
+
+
+def test_home_copied_installs_are_found_cursor_and_copilot(tmp_path):
+    # npx projectops 가 복사한 설치본: ~/.cursor/skills · ~/.copilot/skills (#200)
+    home = tmp_path / "home"
+    copilot = _make_scripts_dir(home / ".copilot/skills/pro-launch/scripts")
+    assert launch_resolver.resolve_scripts_dir(cwd=_outside_cwd(tmp_path), home=home, environment={}) == copilot
+    cursor = _make_scripts_dir(home / ".cursor/skills/pro-launch/scripts")
+    assert launch_resolver.resolve_scripts_dir(cwd=_outside_cwd(tmp_path), home=home, environment={}) == cursor

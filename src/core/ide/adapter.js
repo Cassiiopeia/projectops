@@ -19,7 +19,7 @@
 //   remove(io, ctx): boolean                  제거(미설치면 no-op, true)
 //   manualHint(io): string                    CLI 없을 때 보여줄 수동 설치 명령(선택)
 //
-// io = runner.defaultIo() 또는 테스트 stub: { which, run, home, log }
+// io = runner.defaultIo() 또는 테스트 stub: { which, run, home, log, projectopsHome?(없으면 home/.projectops) }
 // ctx = { templateVersion, sourceSkillsDir } — 버전 표기·Cursor 복사 소스 등 공용 컨텍스트
 //
 // 규칙:

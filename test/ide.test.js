@@ -171,6 +171,46 @@ test("copilot: copilot CLI 또는 VS Code Copilot 확장이 있으면 설치 후
   } finally { rmSync(home, { recursive: true, force: true }); }
 });
 
+// IntelliJ·Android Studio 에만 Copilot 이 있는 사람: OS별 플러그인 위치로 감지
+test("copilot: JetBrains Copilot 플러그인이 있으면 설치 후보 (macOS·Windows·Linux 위치)", () => {
+  const pluginPaths = [
+    "Library/Application Support/JetBrains/IntelliJIdea2025.2/plugins/github-copilot-intellij",
+    "AppData/Roaming/JetBrains/IntelliJIdea2025.2/plugins/github-copilot-intellij",
+    ".local/share/JetBrains/IntelliJIdea2025.2/github-copilot-intellij",
+    "Library/Application Support/Google/AndroidStudio2025.1/plugins/github-copilot-intellij",
+  ];
+  for (const pluginPath of pluginPaths) {
+    const home = mkdtempSync(join(tmpdir(), "cpj-"));
+    try {
+      mkdirSync(join(home, pluginPath), { recursive: true });
+      assert.equal(adapterById("copilot").detect(stubIo({ home })).cliMissing, false, pluginPath);
+    } finally { rmSync(home, { recursive: true, force: true }); }
+  }
+  // 다른 플러그인만 있으면 감지하지 않는다
+  const home = mkdtempSync(join(tmpdir(), "cpj-"));
+  try {
+    mkdirSync(join(home, "Library/Application Support/JetBrains/IntelliJIdea2025.2/plugins/some-other-plugin"), { recursive: true });
+    assert.equal(adapterById("copilot").detect(stubIo({ home })).cliMissing, true);
+  } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
+// ~/.copilot/intellij-skills 는 JetBrains 플러그인이 관리하는 내장 스킬 폴더 — 설치·제거가 건드리면 안 된다
+test("copilot: JetBrains 관리 폴더 intellij-skills 는 그대로 둔다", () => {
+  const home = mkdtempSync(join(tmpdir(), "cph-"));
+  const src = mkdtempSync(join(tmpdir(), "cps-"));
+  try {
+    const managedSkill = join(home, ".copilot/intellij-skills/debug/SKILL.md");
+    mkdirSync(join(home, ".copilot/intellij-skills/debug"), { recursive: true });
+    writeFileSync(managedSkill, "managed");
+    mkdirSync(join(src, "pro-thing"), { recursive: true });
+    writeFileSync(join(src, "pro-thing/SKILL.md"), "x");
+    const io = stubIo({ home });
+    assert.equal(adapterById("copilot").apply(io, { sourceSkillsDir: src, templateVersion: "9.9.9" }), true);
+    assert.equal(adapterById("copilot").remove(io, { sourceSkillsDir: src }), true);
+    assert.equal(readFileSync(managedSkill, "utf8"), "managed");
+  } finally { rmSync(home, { recursive: true, force: true }); rmSync(src, { recursive: true, force: true }); }
+});
+
 test("copilot: skills/ 복사 + meta 기록 + 폐기 스킬 정리 + 남의 스킬 보존한 제거", () => {
   const home = mkdtempSync(join(tmpdir(), "cph-"));
   const src = mkdtempSync(join(tmpdir(), "cps-"));

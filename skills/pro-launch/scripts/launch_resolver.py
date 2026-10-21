@@ -8,7 +8,7 @@
   1. PROJECTOPS_LAUNCH_SCRIPTS (직접 지정)
   2. 현재 폴더가 projectops 체크아웃 안이면 그 체크아웃
   3. 플러그인 캐시(Claude · Codex, CLAUDE_CONFIG_DIR · ~/.claude* 포함) 중 가장 높은 버전 폴더
-  4. 버전 없는 설치본 (Cursor · Gemini · pi)
+  4. 버전 없는 설치본 (Cursor · GitHub Copilot · Gemini · pi)
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 # 고정 진입점 내용 번호: 깔린 번호보다 높을 때만 덮어씀 (이 파일을 고치면 +1 — 안 올리면 퍼지지 않음)
-RESOLVER_REVISION = 2
+RESOLVER_REVISION = 3
 STABLE_ENTRYPOINT_NAME = "launch_cli.py"
 SCRIPTS_OVERRIDE_ENV = "PROJECTOPS_LAUNCH_SCRIPTS"
 # Claude Code 설정 폴더 바꾸기 (예: ~/.claude-b) — 그 아래 plugins/cache 에도 설치본이 있다 (#920)
@@ -32,7 +32,7 @@ STABLE_ENTRYPOINT_MODE = 0o755
 # ~/.claude* glob 은 ~/.claude 자신과 ~/.claude-b 같은 설정 폴더를 함께 잡는다
 _VERSIONED_CACHE_GLOBS = (".claude*/plugins/cache", ".codex/plugins/cache")
 # 버전 폴더가 없는 설치본 (best effort — 폴더 모양이 설치 도구마다 다름)
-_UNVERSIONED_BASES = (".cursor/skills", ".gemini/extensions", ".pi/agent/git")
+_UNVERSIONED_BASES = (".cursor/skills", ".copilot/skills", ".gemini/extensions", ".pi/agent/git")
 _SKILL_SCRIPTS_PARTS = ("skills", "pro-launch", "scripts")
 _UNVERSIONED_WALK_MAX_DEPTH = 6
 _SEMVER_PATTERN = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)")

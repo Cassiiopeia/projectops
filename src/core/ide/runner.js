@@ -54,6 +54,8 @@ export function defaultIo() {
     which,
     run,
     home: () => homedir(),
+    // 파이썬 stable_entry 와 같은 규칙: PROJECTOPS_HOME > ~/.projectops
+    projectopsHome: () => process.env.PROJECTOPS_HOME || join(homedir(), ".projectops"),
     log: (msg) => console.error(msg), // 안내는 stderr로 (stdout 파이프 오염 방지)
   };
 }

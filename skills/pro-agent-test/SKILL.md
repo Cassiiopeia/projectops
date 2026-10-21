@@ -70,6 +70,8 @@ for SKILL in pro-agent-test pro-launch; do
     H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
     [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
   done
+  # 홈 복사 설치본: npx projectops 의 GitHub Copilot·Cursor (#200)
+  [ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.copilot ~/.cursor; do [ -d "$B/skills/$SKILL/scripts" ] && { ROOT="$B"; break; }; done
   [ -d "$ROOT/skills/$SKILL/scripts" ] || { echo "$SKILL 스크립트를 찾지 못했습니다. 플러그인 설치를 확인하세요."; exit 1; }
   echo "$SKILL=$ROOT/skills/$SKILL/scripts"
 done

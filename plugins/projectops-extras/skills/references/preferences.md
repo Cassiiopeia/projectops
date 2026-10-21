@@ -43,6 +43,8 @@ PREFS="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/scripts/prefs_cli.py"
   H=$(find "$B" -maxdepth 8 -type f -path "*/projectops/*scripts/prefs_cli.py" 2>/dev/null | sort -V | tail -1)
   [ -n "$H" ] && { PREFS="$H"; break; }
 done
+# 홈 복사 설치본: npx projectops 의 GitHub Copilot·Cursor (#200)
+[ -f "$PREFS" ] || for B in ~/.copilot ~/.cursor; do [ -f "$B/scripts/prefs_cli.py" ] && { PREFS="$B/scripts/prefs_cli.py"; break; }; done
 [ -f "$PREFS" ] || { echo "prefs_cli.py not found; skip preferences and use defaults"; exit 0; }
 PYTHONIOENCODING=utf-8 "$PYTHON" "$PREFS" resolve --skill "$SKILL_ID"
 ```
@@ -51,9 +53,9 @@ The repo is detected from `origin`; pass `--repo owner/repo` to force one. The J
 `sources` (which layer each value came from) and `ignored`. If `code` is `config_unreadable`, the config file exists
 but is not valid JSON: tell the user in one line and continue with defaults.
 
-`prefs_cli.py` ships with the core plugin (Claude Code, Codex, Gemini, pi). Installs that copy only the skill folders
-(Cursor via `npx projectops`) and extras-only installs have no `prefs_cli.py`; the snippet then prints the "not found"
-line and the skill runs with defaults.
+`prefs_cli.py` ships with the core plugin (Claude Code, Codex, Gemini, pi) and with the `npx projectops` home copies
+(GitHub Copilot `~/.copilot/scripts/`, Cursor `~/.cursor/scripts/`). Extras-only installs have no `prefs_cli.py`;
+the snippet then prints the "not found" line and the skill runs with defaults.
 
 ## How to apply them
 
