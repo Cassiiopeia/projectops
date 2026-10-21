@@ -9,6 +9,7 @@
   board           board 명령 (board_html · board_capture · board_markdown 조합)
   copy_lint       copy-lint
   ascii_wire      ascii
+  image_links     rewrite-images
 """
 from __future__ import annotations
 

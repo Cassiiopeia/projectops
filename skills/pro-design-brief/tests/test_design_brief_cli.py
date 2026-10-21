@@ -364,3 +364,27 @@ def test_copy_lint_rejects_non_object_rows(tmp_path):
     rc, out, err = _raw("copy-lint", "--file", str(f), home=tmp_path)
     d = json.loads(out.strip().splitlines()[-1])
     assert d["code"] == "bad_data" and "Traceback" not in err, (out, err)
+
+
+def test_rewrite_images_swaps_local_paths_and_refuses_partial(tmp_path):
+    """업로드 결과로 본문 그림 경로 치환 (#974). 하나라도 못 찾으면 쓰지 않는다 — 깨진 그림 게시 방지."""
+    md = tmp_path / "brief.md"
+    md.write_text("![상태](board/states.png)\n<img src=\"board/alt.png\" width=\"300\">\n"
+                  "![이미 원격](https://x/y.png)\n", encoding="utf-8")
+    uploads = tmp_path / "uploads.json"
+    uploads.write_text(json.dumps({"ok": True, "images": [
+        {"name": "brief_20261021_states.png", "url": "https://u/states.png",
+         "markdown": "![states](https://u/states.png)"}]}), encoding="utf-8")
+    refused = run_cli("rewrite-images", "--md", str(md), "--uploads", str(uploads), home=tmp_path)
+    assert refused["code"] == "unmatched_images" and refused["unmatched"] == ["board/alt.png"]
+    assert not (tmp_path / "brief.issue.md").exists()
+
+    mapping = tmp_path / "more.json"
+    mapping.write_text(json.dumps({"board/alt.png": "https://u/alt.png"}), encoding="utf-8")
+    done = run_cli("rewrite-images", "--md", str(md), "--uploads", str(uploads), "--uploads", str(mapping),
+                   home=tmp_path)
+    assert done["ok"] is True and done["replaced"] == 2
+    assert (tmp_path / "brief.issue.md").read_text(encoding="utf-8") == (
+        "![상태](https://u/states.png)\n<img src=\"https://u/alt.png\" width=\"300\">\n"
+        "![이미 원격](https://x/y.png)\n")
+    assert "board/states.png" in md.read_text(encoding="utf-8")  # 원본 md 는 그대로

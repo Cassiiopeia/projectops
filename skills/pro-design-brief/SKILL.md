@@ -39,7 +39,7 @@ description: "Build a design request for a designer from a screen you already bu
 | 렌더할 수 없는 상태 · 아직 없는 안 | `design_brief_cli.py ascii --spec` | `references/states-and-capture.md` |
 | 대안 · 문구 · UI 요소 · 꼭 지킬 것 | `design_brief_cli.py copy-lint` | `references/content.md` |
 | 보드 조립(HTML → 주제별 PNG · md) | `design_brief_cli.py get-output-path` → `board` | `references/publishing.md` |
-| 게시(이슈 · HTML · md) | `github_cli.py upload-image` → `create-issue` | `references/publishing.md` |
+| 게시(이슈 · HTML · md) | `github_cli.py upload-image` → `design_brief_cli.py rewrite-images` → `create-issue` | `references/publishing.md` |
 
 ## 스크립트 찾기 — 한 번만
 
@@ -60,7 +60,7 @@ for SKILL in pro-design-brief pro-launch pro-github pro-figma; do
 done
 ```
 
-자리표시: `{SCRIPTS}` = pro-design-brief(config · get-output-path · board · copy-lint · ascii), `{LAUNCH}` = pro-launch(캡처 · 렌더 · 상태 연출),
+자리표시: `{SCRIPTS}` = pro-design-brief(config · get-output-path · board · copy-lint · ascii · rewrite-images), `{LAUNCH}` = pro-launch(캡처 · 렌더 · 상태 연출),
 `{GITHUB}` = pro-github(이미지 · 이슈), `{FIGMA}` = pro-figma(Figma 덤프 세기 — 링크가 있을 때).
 
 ## 공통 규칙
@@ -154,8 +154,9 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py board --data {run_
 `issue` 면 **그림 먼저**(본문을 먼저 올리면 그림 없는 글이 게시된다):
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {GITHUB}/github_cli.py upload-image {owner} {repo} {run_dir}/board/*.png --prefix brief
-PYTHONIOENCODING=utf-8 {PYTHON} {GITHUB}/github_cli.py create-issue {owner} {repo} "{제목}" "{본문 .md 경로}" "{라벨}" --assignees "{디자이너}"
+PYTHONIOENCODING=utf-8 {PYTHON} {GITHUB}/github_cli.py upload-image {owner} {repo} {run_dir}/board/*.png --prefix brief > {run_dir}/uploads.json
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py rewrite-images --md "{본문 .md 경로}" --uploads {run_dir}/uploads.json   # → <본문>.issue.md
+PYTHONIOENCODING=utf-8 {PYTHON} {GITHUB}/github_cli.py create-issue {owner} {repo} "{제목}" "{<본문>.issue.md 경로}" "{라벨}" --assignees "{디자이너}"
 PYTHONIOENCODING=utf-8 {PYTHON} {GITHUB}/github_cli.py add-comment {owner} {repo} {구현 이슈} "{링크 댓글 .md}"   # 구현 이슈와 서로 링크
 ```
 
@@ -173,6 +174,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {GITHUB}/github_cli.py add-comment {owner} {repo
 | `bad_destination` · `nothing_to_set` | `--destination issue\|html\|markdown`, 바꿀 값을 하나 이상 준다 |
 | 렌더 실패 | 그 상태만 ASCII 로 대체하고 `render_failed: true` |
 | 업로드 실패 · `private_warning` | 로컬 산출물 경로를 알린다. private 이면 `html` 로 바꿀지 묻는다 |
+| `unmatched_images` (rewrite-images) | `unmatched` 그림을 `upload-image` 로 올리고 그 출력도 `--uploads` 에 더해 다시. 인라인 파이썬으로 경로를 바꾸지 않는다 |
 | Figma 읽기 실패 · 디자이너 모름 | 없이 진행하고 요약에 적는다(담당자 없이 등록 → 다음에 묻는다) |
 | 대상 레포에 흔적(`residue`) | 그대로 보고하고 지우지 않는다(네가 만든 것만 지운다) |
 | 실기기로 확인할 수 없다(기기·계정·비용) | 그 사실은 `facts` 에서 빼거나 근거 없음으로 두고 "확인 못 함"으로 적는다. 렌더로 대신 단정하지 않는다 |

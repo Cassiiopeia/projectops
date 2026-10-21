@@ -28,6 +28,18 @@
 
 **둘 다 주지 않는다** — 어느 쪽을 볼지 헷갈린다.
 
+### 이슈 본문의 그림 경로 — `rewrite-images` 로만 바꾼다
+
+본문 md 는 로컬 경로(`board/states.png`)로 쓰고, 올린 뒤 CLI 로 URL 을 끼운다. 인라인 파이썬으로 치환하지 않는다.
+
+1. `upload-image ... > {run_dir}/uploads.json` — 출력 JSON 을 그대로 파일로 남긴다
+2. `design_brief_cli.py rewrite-images --md {본문} --uploads {run_dir}/uploads.json` → `<본문>.issue.md` (원본 md 는 그대로)
+3. `create-issue` 에는 `.issue.md` 를 넘긴다
+
+- 짝 찾기: upload-image 출력이면 파일 이름(stem), `{"board/a.png": "https://…"}` 대응표면 md 기준 경로·이름. 같은 이름이 둘이면 대응표로 준다.
+- 못 찾은 그림이 하나라도 있으면 `unmatched_images` 로 **쓰지 않는다** — 깨진 그림이 디자이너 알림으로 나가지 않게.
+  빠진 것만 다시 올리고 `--uploads` 를 하나 더 붙여 부른다(여러 번 줄 수 있다).
+
 ### 이슈 본문 뼈대 — 보드와 같은 이름·같은 순서로
 
 레포의 디자인 요청 템플릿 섹션에 맞춘다. 제목은 레포 이슈 제목 규칙을 따른다.

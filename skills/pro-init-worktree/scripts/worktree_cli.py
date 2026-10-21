@@ -294,7 +294,7 @@ def cmd_copy(args) -> int:
 
 
 def cmd_remove(args) -> int:
-    return worktree_ops.cmd_remove(args, _toplevel)
+    return worktree_ops.cmd_remove(args, _toplevel, memory_file, _load)
 
 
 # ── argparse ────────────────────────────────────────────────────────────

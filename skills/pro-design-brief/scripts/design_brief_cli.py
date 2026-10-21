@@ -11,6 +11,7 @@
     board             데이터 JSON → 보드 HTML (+ --png 면 주제별 PNG)
     copy-lint         문구 후보의 기계적 검사 (em dash · 가운뎃점 · 금지어 · 번역투)
     ascii             박스 문자 와이어 (한글 폭 보정)
+    rewrite-images    업로드 결과로 md 의 로컬 그림 경로 > URL (이슈 본문용)
 
 출력: MCP-style JSON (ok/code/summary/next 4필드 보장).
 """
@@ -34,6 +35,7 @@ from pro_design_brief.ascii_wire import cmd_ascii  # noqa: E402
 from pro_design_brief.board import cmd_board  # noqa: E402
 from pro_design_brief.config import cmd_config  # noqa: E402
 from pro_design_brief.copy_lint import cmd_copy_lint  # noqa: E402
+from pro_design_brief.image_links import cmd_rewrite_images  # noqa: E402
 from pro_design_brief.output_path import cmd_output_path  # noqa: E402
 from pro_design_brief.settings import DESTINATIONS  # noqa: E402
 
@@ -89,6 +91,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--spec", required=True, help="와이어 JSON 파일 또는 JSON 문자열")
     p.add_argument("--out", default=None, help="저장할 파일")
     p.set_defaults(func=cmd_ascii)
+
+    p = sub.add_parser("rewrite-images", help="업로드 결과로 md 의 로컬 그림 경로를 URL 로 바꾼다")
+    p.add_argument("--md", required=True, help="그림 경로를 바꿀 md (예: board/brief.md)")
+    p.add_argument("--uploads", required=True, action="append",
+                   help="upload-image 출력 JSON 파일 또는 {로컬경로: url} JSON — 여러 번 가능")
+    p.add_argument("--out", default=None, help="쓸 파일 (기본: <md 이름>.issue.md, 원본 md 는 그대로)")
+    p.set_defaults(func=cmd_rewrite_images)
     return parser
 
 

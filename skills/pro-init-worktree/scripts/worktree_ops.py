@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import filecmp
 import os
 import shutil
 import subprocess
@@ -87,8 +88,35 @@ def cmd_copy(args, toplevel, split, clean, memory_file, load) -> int:
                  "next": f"새로 판단한 파일이 있으면 record --root {root} --copied ... 로 기록"})
 
 
-def cmd_remove(args, toplevel) -> int:
-    """worktree 제거: 미커밋 변경이 있으면 거절(dirty), --force 는 사용자가 정한 뒤에만."""
+def _is_untouched_local_copy(rel: str, root: Path, target: Path, copied: list[str]) -> bool:
+    """미추적 파일이 기억한 복사 세트(파일·`폴더/`) 안에 있고 원본과 내용이 같은가"""
+    in_copied_set = any(rel == c.rstrip("/") or (c.endswith("/") and rel.startswith(c)) for c in copied)
+    source, copy = root / rel, target / rel
+    return in_copied_set and source.is_file() and copy.is_file() and filecmp.cmp(source, copy, shallow=False)
+
+
+def _split_dirty(root: Path, target: Path, copied: list[str]) -> tuple[list[str], list[str]]:
+    """status > (진짜 변경, 원본과 같은 복사본). 복사본은 copy 가 깐 것이라 지워도 잃는 것이 없다"""
+    # -z: 한글 경로가 따옴표·8진수로 바뀌지 않게, untracked=all: 폴더 대신 파일 단위로 비교
+    status = _git(target, "status", "--porcelain", "-z", "--untracked-files=all").stdout
+    changes, local_copies = [], []
+    entries = iter(e for e in status.split("\0") if e.strip())
+    for entry in entries:
+        code, rel = entry[:2], entry[3:]
+        if code[0] in "RC":
+            next(entries, None)  # -z 의 rename·copy 는 원래 경로가 다음 칸에 따로 온다
+        if code == "??" and _is_untouched_local_copy(rel, root, target, copied):
+            local_copies.append(rel)
+        else:
+            changes.append(entry)
+    return changes, local_copies
+
+
+def cmd_remove(args, toplevel, memory_file, load) -> int:
+    """worktree 제거: 미커밋 변경이 있으면 거절(dirty), --force 는 사용자가 정한 뒤에만.
+
+    기억한 복사 세트 중 원본과 같은 미추적 파일은 변경으로 세지 않는다 (#974).
+    """
     root = toplevel(args.root)
     path = args.path or (_worktree_path_of(root, args.branch) if args.branch else None)
     if not path:
@@ -97,17 +125,22 @@ def cmd_remove(args, toplevel) -> int:
     target = Path(path).resolve()
     if target == root.resolve():
         return emit({"ok": False, "code": "is_main_worktree", "error": "원본 레포는 제거하지 않는다", "next": None})
-    status = _git(target, "status", "--porcelain")
-    dirty = [ln for ln in status.stdout.splitlines() if ln.strip()]
+    copied = [p for p in (load(memory_file(root)) or {}).get("copied", []) if isinstance(p, str)]
+    dirty, local_copies = _split_dirty(root, target, copied)
     if dirty and not args.force:
         return emit({"ok": False, "code": "dirty", "path": str(target), "changes": dirty[:30],
+                     "ignored_local_copies": local_copies,
                      "error": f"미커밋 변경 {len(dirty)}개가 있다",
                      "next": "필요한 변경을 보존한 뒤, 버려도 된다고 사용자가 정하면 --force 로 다시"})
-    args_git = ["worktree", "remove", *(["--force"] if args.force else []), str(target)]
+    # 남은 미추적이 원본과 같은 복사본뿐이면 git 이 거절하지 않게 --force (잃는 것 없음)
+    should_force_git = bool(args.force or local_copies)
+    args_git = ["worktree", "remove", *(["--force"] if should_force_git else []), str(target)]
     res = _git(root, *args_git)
     if res.returncode != 0:
         return emit({"ok": False, "code": "remove_failed", "path": str(target),
                      "error": (res.stderr or res.stdout).strip()[:300], "next": None})
     return emit({"ok": True, "code": "ok", "removed": str(target), "forced": bool(args.force),
-                 "summary": f"worktree 제거: {target}",
+                 "ignored_local_copies": local_copies,
+                 "summary": f"worktree 제거: {target}"
+                            + (f" (원본과 같은 로컬 복사본 {len(local_copies)}개 함께 정리)" if local_copies else ""),
                  "next": "브랜치와 커밋은 그대로 남아 있다 (이슈가 닫혔는지 먼저 확인했는지 점검)"})

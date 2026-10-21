@@ -77,3 +77,19 @@ def test_remove_refuses_dirty_then_force(tmp_path, repo):
     done = _run(tmp_path, "remove", "--root", str(repo), "--path", str(wt), "--force")
     assert done["ok"] is True and not wt.exists()
     assert BRANCH in _git(repo, "branch", "--list", BRANCH)  # 브랜치는 남는다
+
+
+def test_remove_ignores_untouched_recorded_copy_only(tmp_path, repo):
+    """copy 가 깐 미추적 파일 때문에 --force 가 강제되던 회귀 (#974). 고친 복사본은 여전히 dirty."""
+    (repo / "local.yml").write_text("k: 1\n", encoding="utf-8")  # 미추적 · 무시 안 됨
+    _run(tmp_path, "record", "--root", str(repo), "--copied", "local.yml")
+    made = _run(tmp_path, "create", "--root", str(repo), "--branch", BRANCH, "--base", "origin/develop")
+    wt = Path(made["worktree"])
+    _run(tmp_path, "copy", "--root", str(repo), "--to", str(wt), "--files", "local.yml")
+    (wt / "local.yml").write_text("k: 2\n", encoding="utf-8")
+    refused = _run(tmp_path, "remove", "--root", str(repo), "--path", str(wt))
+    assert refused["code"] == "dirty" and wt.exists()
+    (wt / "local.yml").write_text("k: 1\n", encoding="utf-8")
+    done = _run(tmp_path, "remove", "--root", str(repo), "--path", str(wt))
+    assert done["ok"] is True and done["ignored_local_copies"] == ["local.yml"] and not wt.exists()
+    assert (repo / "local.yml").exists()  # 원본은 건드리지 않는다

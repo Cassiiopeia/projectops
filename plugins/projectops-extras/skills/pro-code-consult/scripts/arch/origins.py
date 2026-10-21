@@ -5,22 +5,26 @@
 - test: 테스트 코드 (따로 센다 — 운영 수치를 부풀리지 않게)
 - tooling: CI·에이전트 도구 설치물 (.github/, .claude/ 등 — 원본 레포에서 고칠 일)
   예외: 그 안에 자체 테스트가 있는 .github/ 는 이 레포가 원본 (owned_tooling 에 근거)
+  남의 레포 통째 사본(마법사 임시 다운로드, 자체 .git 을 가진 하위 폴더)은 예외 없이 tooling
 - generated: 생성물 (머리 표식, gen-l10n 출력)
 - vendored: 외부 라이브러리 사본 (vendor/, 버전 머리가 있는 큰 정적 JS, shadcn ui)
 """
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 
-from .source_files import (NOT_ANALYZED_LANGUAGE_BY_EXTENSION, is_generated_file, language_of, walk_files,
-                           MAXIMUM_SOURCE_BYTES)
+from .source_files import (NOT_ANALYZED_LANGUAGE_BY_EXTENSION, SKIPPED_DIRECTORY_NAMES, is_generated_file,
+                           language_of, walk_files, MAXIMUM_SOURCE_BYTES)
 
 OWNED_ORIGINS = ("production", "test")
 TOOLING_DIRECTORY_NAMES = {".github", ".cursor", ".claude", ".agents", ".codex", ".gemini", ".pi", ".husky"}
 # 자체 테스트가 있으면 원본으로 보는 도구 폴더 (설치본에는 테스트가 따라오지 않는다)
 SELF_TESTED_TOOLING_DIRECTORY_NAMES = {".github"}
+# 남의 레포 통째 사본 폴더 (projectops 마법사 임시 다운로드 — 안의 .github/ 테스트 때문에 원본으로 오판된다)
+FOREIGN_TREE_DIRECTORY_NAMES = {".template_download_temp"}
 VENDORED_DIRECTORY_NAMES = {"vendor", "vendors", "third_party", "thirdparty", "bower_components"}
 # 정적 자원 폴더 (여기 있는 JS는 외부 라이브러리 사본일 가능성이 높다)
 STATIC_DIRECTORY_NAMES = {"static", "public", "assets", "wwwroot"}
@@ -53,6 +57,8 @@ class SourceInventory:
         self.excluded = {}             # 출처 > {count, reasons, examples}
         self.not_analyzed_languages = {}  # CLI가 못 읽는 언어 > 파일 수 (도구·외부 폴더 제외)
         self.owned_tooling = {}        # 원본으로 본 도구 폴더 접두사 > 근거 (자체 테스트)
+        self.foreign_trees = {}        # 남의 레포 사본 접두사 > 근거 (임시 다운로드 · 중첩 git 레포)
+        self._collect_foreign_trees()
         self._collect_markers()
         self._collect_files()
 
@@ -63,9 +69,29 @@ class SourceInventory:
         return {origin: {"count": e["count"], "reasons": e["reasons"], "examples": e["examples"]}
                 for origin, e in self.excluded.items()}
 
-    # 표식 수집 (shadcn components.json, Flutter l10n.yaml)
+    def _collect_foreign_trees(self):
+        """하위 폴더 중 남의 레포 사본 > 접두사 기록 (그 아래로는 더 내려가지 않음)"""
+        for directory, subdirectories, _ in os.walk(self.root):
+            descend = []
+            for name in sorted(d for d in subdirectories if d not in SKIPPED_DIRECTORY_NAMES):
+                absolute = Path(directory) / name
+                prefix = absolute.relative_to(self.root).as_posix() + "/"
+                if name in FOREIGN_TREE_DIRECTORY_NAMES:
+                    self.foreign_trees[prefix] = prefix
+                elif (absolute / ".git").exists():  # 폴더(clone)·파일(worktree·submodule) 둘 다
+                    self.foreign_trees[prefix] = f"{prefix} (중첩 git 레포)"
+                else:
+                    descend.append(name)
+            subdirectories[:] = descend
+
+    def _foreign_tree_reason(self, relative: str) -> str | None:
+        return next((reason for prefix, reason in self.foreign_trees.items() if relative.startswith(prefix)), None)
+
+    # 표식 수집 (shadcn components.json, Flutter l10n.yaml) — 남의 레포 사본 안 표식은 무시
     def _collect_markers(self):
         for relative, absolute in walk_files(self.root):
+            if self._foreign_tree_reason(relative):
+                continue
             name = absolute.name
             module = Path(relative).parent.as_posix()
             module_prefix = "" if module == "." else module + "/"
@@ -123,13 +149,17 @@ class SourceInventory:
     def _count_not_analyzed(self, relative: str):
         name = NOT_ANALYZED_LANGUAGE_BY_EXTENSION.get(Path(relative).suffix.lower())
         directories = set(relative.split("/")[:-1])
-        is_tooling = bool(TOOLING_DIRECTORY_NAMES & directories) and not self._is_owned_tooling(relative)
+        is_tooling = ((bool(TOOLING_DIRECTORY_NAMES & directories) and not self._is_owned_tooling(relative))
+                      or bool(self._foreign_tree_reason(relative)))
         if name and not is_tooling and not VENDORED_DIRECTORY_NAMES & directories and not is_generated_file(relative):
             self.not_analyzed_languages[name] = self.not_analyzed_languages.get(name, 0) + 1
 
     def _origin_of(self, relative: str, language: str, text: str):
         directories = relative.split("/")[:-1]
         name = relative.rsplit("/", 1)[-1]
+        foreign_tree_reason = self._foreign_tree_reason(relative)
+        if foreign_tree_reason:
+            return "tooling", foreign_tree_reason
         if TOOLING_DIRECTORY_NAMES & set(directories) and not self._is_owned_tooling(relative):
             return "tooling", next(d for d in directories if d in TOOLING_DIRECTORY_NAMES) + "/"
         if is_generated_file(relative):

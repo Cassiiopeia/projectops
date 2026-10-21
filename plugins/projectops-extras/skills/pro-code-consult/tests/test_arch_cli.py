@@ -285,6 +285,16 @@ def test_template_repo_self_audit(tmp_path):
     assert everything["counts"]["boolean_names"] == 2 and "boolean_names" not in everything["test_counts"]
     assert "boolean_names" in everything["review_order"][-1]["categories"]
 
+    # 남의 레포 사본(마법사 임시 다운로드 · 자체 .git 하위 폴더)은 안에 .github/ 테스트가 있어도 tooling (#974)
+    write(root, ".template_download_temp/.github/scripts/release.py", "def run_job(flag: bool):\n    pass\n")
+    write(root, ".template_download_temp/.github/scripts/test/test_release.py", "def test_x():\n    pass\n")
+    write(root, "other-repo/.git/HEAD", "ref: refs/heads/main\n")
+    write(root, "other-repo/app.py", "def run_other(flag: bool):\n    pass\n")
+    shutil.rmtree(root / ".claude")
+    foreign = run_cli("scan", root)[0]
+    assert foreign["excluded"]["tooling"]["count"] == 3 and list(foreign["owned_tooling"]) == [".github/"]
+    assert foreign["counts"]["boolean_names"] == 1
+
 
 def test_check_diff(project):
     target = write(project, "ai/app/pricing.py",
