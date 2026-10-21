@@ -3,51 +3,84 @@
 # 형식 2 (신규 블록): KEY 아래 label/help/example 들여쓰기 2칸
 # 형식 3 (타입 오버라이드): "{type}.KEY" 키로 타입별 문구 분리
 # 조회 우선순위: {type}.KEY -> KEY -> 구형 -> 폴백(KEY명)
+# 언어 (#976): label/help/example = 영어 원문, label_ko/help_ko/example_ko = 한국어 (CLI --lang 따라 선택)
 # 기본값/resolver는 여기 두지 않는다(@wizard 마커 소관).
 
 PROJECT_NAME:
-  label: "서비스 식별자 (영문 슬러그)"
-  help: "Docker 컨테이너명·이미지명·배포 도메인 prefix에 그대로 사용됩니다. 소문자-하이픈 권장."
+  label: "Service identifier (lowercase slug)"
+  help: "Used as-is for the Docker container name, image name and deploy domain prefix. Lowercase with hyphens is recommended."
   example: "my-service"
+  label_ko: "서비스 식별자 (영문 슬러그)"
+  help_ko: "Docker 컨테이너명·이미지명·배포 도메인 prefix에 그대로 사용됩니다. 소문자-하이픈 권장."
 
 flutter.APP_ARTIFACT_NAME:
-  label: "앱 산출물 이름 (영문)"
-  help: "빌드된 APK 파일명·아티팩트명·빌드 히스토리 파일명에 사용됩니다."
+  label: "App artifact name (English)"
+  help: "Used for the built APK file name, the artifact name and the build history file name."
   example: "my-app"
+  label_ko: "앱 산출물 이름 (영문)"
+  help_ko: "빌드된 APK 파일명·아티팩트명·빌드 히스토리 파일명에 사용됩니다."
 
 SERVICE_DOMAIN:
-  label: "서비스 도메인"
-  help: "배포 후 외부에서 접속할 운영 도메인입니다. 실제 보유한 도메인으로 바꿔야 합니다."
+  label: "Service domain"
+  help: "The production domain users reach after deployment. Replace it with a domain you own."
   example: "api.example.com"
+  label_ko: "서비스 도메인"
+  help_ko: "배포 후 외부에서 접속할 운영 도메인입니다. 실제 보유한 도메인으로 바꿔야 합니다."
 
 JAVA_VERSION:
-  label: "빌드 JDK 버전"
-  help: "GitHub Actions 빌드 러너의 JDK 버전입니다. Spring은 보통 21, Flutter Android는 17."
+  label: "Build JDK version"
+  help: "JDK version on the GitHub Actions build runner. Usually 21 for Spring and 17 for Flutter Android."
   example: "21"
+  label_ko: "빌드 JDK 버전"
+  help_ko: "GitHub Actions 빌드 러너의 JDK 버전입니다. Spring은 보통 21, Flutter Android는 17."
 
 DEPLOY_PORT:
-  label: "외부 노출 포트"
-  help: "호스트(서버)에서 컨테이너로 연결할 포트입니다. 다른 서비스와 겹치지 않게 정하세요."
+  label: "Exposed port"
+  help: "Port on the host (server) that forwards to the container. Pick one that no other service uses."
   example: "8080"
+  label_ko: "외부 노출 포트"
+  help_ko: "호스트(서버)에서 컨테이너로 연결할 포트입니다. 다른 서비스와 겹치지 않게 정하세요."
 
 VOLUME_HOST_PATH:
-  label: "호스트(NAS) 볼륨 경로"
-  help: "서버에 데이터를 영구 저장할 실제 디렉토리 경로입니다."
+  label: "Host (NAS) volume path"
+  help: "Real directory on the server where data is stored permanently."
   example: "/volume1/projects/my-service"
+  label_ko: "호스트(NAS) 볼륨 경로"
+  help_ko: "서버에 데이터를 영구 저장할 실제 디렉토리 경로입니다."
 
 VOLUME_CONTAINER_PATH:
-  label: "컨테이너 내부 마운트 경로"
-  help: "컨테이너 안에서 위 볼륨이 보일 위치입니다."
+  label: "Mount path inside the container"
+  help: "Where the volume above appears inside the container."
   example: "/mnt/my-service"
+  label_ko: "컨테이너 내부 마운트 경로"
+  help_ko: "컨테이너 안에서 위 볼륨이 보일 위치입니다."
 
 SSH_AUTH_METHOD:
-  label: "SSH 인증 방식"
-  help: "배포 서버 접속 방식입니다. 둘 중 하나를 그대로 입력하세요."
-  example: "password 또는 key"
+  label: "SSH authentication method"
+  help: "How the deploy server is accessed. Enter one of the two exactly."
+  example: "password or key"
+  label_ko: "SSH 인증 방식"
+  help_ko: "배포 서버 접속 방식입니다. 둘 중 하나를 그대로 입력하세요."
+  example_ko: "password 또는 key"
 
 # workflow filename (partial match) -> human readable short name
 # wizard uses this to build "[usage]" in env questions.
 _workflow_names:
+  NONSTOP-NGINX: "Zero-downtime deploy (Nginx)"
+  NONSTOP-TRAEFIK: "Zero-downtime deploy (Traefik)"
+  PR-PREVIEW: "PR preview"
+  SIMPLE-CICD: "Single server deploy"
+  REACT-CICD: "Frontend deploy"
+  REACT-CI: "Frontend build"
+  NEXT-CICD: "Frontend deploy"
+  NEXT-CI: "Frontend build"
+  PYTHON-CI: "Build check"
+  FLUTTER-ANDROID-SELFHOSTED: "Android self-hosted deploy"
+  FLUTTER-ANDROID-PLAYSTORE: "Play Store deploy"
+  FLUTTER-ANDROID-FIREBASE: "Firebase deploy"
+
+# 한국어 표시 이름 (키는 위와 동일)
+_workflow_names_ko:
   NONSTOP-NGINX: "무중단배포(Nginx)"
   NONSTOP-TRAEFIK: "무중단배포(Traefik)"
   PR-PREVIEW: "PR 프리뷰"

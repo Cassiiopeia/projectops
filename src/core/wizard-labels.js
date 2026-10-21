@@ -3,6 +3,7 @@
 import { join } from "node:path";
 import * as nodeFs from "node:fs";
 import { PATHS } from "./paths.js";
+import { getLang } from "../i18n/index.js";
 
 // wizard-prompts.yml 위치 (레포 루트 기준 상대경로)
 export const LABELS_FILE = ".github/config/wizard-prompts.yml";
@@ -15,14 +16,17 @@ function unquote(s) {
 }
 
 // wizard-prompts.yml 텍스트 → 파싱 객체 (순수 함수 — 테스트 직접 사용 가능).
-// 반환: { fields: Map<조회키, {label?,help?,example?}>, workflowNames: [{key,value}] }
+// 반환: { fields: Map<조회키, {label?,help?,example?,label_ko?...}>, workflowNames: [{key,value}],
+//         workflowNamesByLang: Map<언어, [{key,value}]> }
 //  - 조회키: "PROJECT_NAME" 또는 "flutter.APP_ARTIFACT_NAME" (dotted 타입 오버라이드)
+//  - 언어별 문구 (#976): label/help/example = 영어 원문, label_ko 등 = 번역. _workflow_names_ko = 번역 블록
 //  - 구형 1줄(KEY: "라벨")은 fields의 label로 흡수 (label만 의미)
 export function parseWizardPrompts(text) {
   const fields = new Map();
   const workflowNames = [];
+  const workflowNamesByLang = new Map();
   let current = null;       // 현재 블록의 fields 엔트리 (들여쓰기 라인 소속처)
-  let inWfNames = false;    // _workflow_names 블록 내부 여부
+  let currentWfNames = null; // _workflow_names(_언어) 블록 내부면 그 목록
 
   for (const raw of String(text).split(/\r?\n/)) {
     const line = raw.replace(/\r$/, "");
@@ -30,12 +34,21 @@ export function parseWizardPrompts(text) {
 
     if (!/^\s/.test(line)) {
       // 최상위 키 라인 — 이전 블록 종료
-      current = null; inWfNames = false;
+      current = null; currentWfNames = null;
       const m = line.match(/^([A-Za-z_][A-Za-z0-9_.\-]*):(.*)$/);
       if (!m) continue;
       const key = m[1];
       const rest = m[2].trim();
-      if (key === "_workflow_names") { inWfNames = true; continue; }
+      const wfNamesBlock = key.match(/^_workflow_names(?:_([a-z]{2}(?:-[A-Z]{2})?))?$/);
+      if (wfNamesBlock) {
+        const lang = wfNamesBlock[1];
+        if (!lang) currentWfNames = workflowNames;
+        else {
+          if (!workflowNamesByLang.has(lang)) workflowNamesByLang.set(lang, []);
+          currentWfNames = workflowNamesByLang.get(lang);
+        }
+        continue;
+      }
       const entry = fields.get(key) || {};
       if (rest) {
         // 구형 1줄: KEY: "라벨" (label로만 사용)
@@ -50,18 +63,19 @@ export function parseWizardPrompts(text) {
     // 들여쓰기 라인 — 현재 블록 소속
     const m = line.match(/^\s+([A-Za-z_][A-Za-z0-9_.\-]*):\s*(.*)$/);
     if (!m) continue;
-    if (inWfNames) {
+    if (currentWfNames) {
       // "  KEY: "값"" 형식만 인정
       const q = m[2].match(/^"(.*)"\s*$/);
-      if (q) workflowNames.push({ key: m[1], value: q[1] });
+      if (q) currentWfNames.push({ key: m[1], value: q[1] });
       continue;
     }
-    if (current && (m[1] === "label" || m[1] === "help" || m[1] === "example")) {
+    // 필드명: label | help | example, 번역은 _언어 접미사 (label_ko)
+    if (current && /^(label|help|example)(_[a-z]{2}(-[A-Z]{2})?)?$/.test(m[1])) {
       // 블록 내 첫 등장만 채택
       if (current[m[1]] == null) current[m[1]] = unquote(m[2]);
     }
   }
-  return { fields, workflowNames };
+  return { fields, workflowNames, workflowNamesByLang };
 }
 
 // wizard-prompts.yml을 찾아 읽고 파싱.
@@ -78,13 +92,17 @@ export function loadWizardPrompts(targetRoot = ".", tempDir = "", fs = nodeFs) {
   return null;
 }
 
-// 필드 조회. field: "label" | "help" | "example".
+// 필드 조회. field: "label" | "help" | "example", lang: 화면 언어 (기본 현재 CLI 언어)
 // 우선순위: "{type}.KEY" 블록 → "KEY" 블록(구형 1줄 포함) → 폴백(label이면 KEY명, 아니면 "").
-export function wfField(prompts, type, key, field) {
+// 블록마다 번역(label_ko) 먼저, 없으면 영어 원문(label)
+export function wfField(prompts, type, key, field, lang = getLang()) {
   if (prompts && prompts.fields) {
     for (const q of [`${type}.${key}`, key]) {
-      const v = prompts.fields.get(q)?.[field];
-      if (v != null && v !== "") return v;
+      const entry = prompts.fields.get(q);
+      for (const name of [`${field}_${lang}`, field]) {
+        const v = entry?.[name];
+        if (v != null && v !== "") return v;
+      }
     }
   }
   return field === "label" ? key : "";
@@ -92,12 +110,13 @@ export function wfField(prompts, type, key, field) {
 
 // 워크플로우 파일명 → 사람이 읽는 짧은 이름.
 // _workflow_names에서 "키가 파일명에 포함되면" 그 값 사용 — 최장 키 우선(REACT-CI vs REACT-CICD 구분).
-// 미매칭이면 .yaml/.yml 확장자만 제거해 반환.
-export function workflowDisplayName(prompts, filename) {
+// 미매칭이면 .yaml/.yml 확장자만 제거해 반환. 언어 번역 블록(_workflow_names_ko)에 키가 있으면 그 값
+export function workflowDisplayName(prompts, filename, lang = getLang()) {
   const base = String(filename).split("/").pop().split("\\").pop(); // 경로 제거
+  const translated = new Map((prompts?.workflowNamesByLang?.get(lang) ?? []).map(({ key, value }) => [key, value]));
   let best = null; let bestLen = 0;
   for (const { key, value } of prompts?.workflowNames ?? []) {
-    if (base.includes(key) && key.length > bestLen) { best = value; bestLen = key.length; }
+    if (base.includes(key) && key.length > bestLen) { best = translated.get(key) ?? value; bestLen = key.length; }
   }
   if (best != null) return best;
   return base.replace(/\.ya?ml$/, "");
