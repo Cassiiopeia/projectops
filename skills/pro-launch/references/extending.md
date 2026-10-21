@@ -165,5 +165,5 @@ python3 -m pytest skills/pro-launch/tests -q
 python3 -m pytest scripts/tests -q        # 문서 · 서브커맨드 정합성
 ```
 
-테스트 코드는 사용자에게 복사되지 않는다(`src/core/ide/adapters/cursor.js` 의 `SKIP_IN_COPY`). 스킬에 보조 파일을
+테스트 코드는 사용자에게 복사되지 않는다(`src/core/ide/skills-copy.js` 의 `SKIP_IN_COPY`). 스킬에 보조 파일을
 새로 넣을 때는 "이게 스킬을 쓰는 사람에게 필요한가"를 먼저 묻는다.

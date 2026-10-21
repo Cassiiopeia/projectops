@@ -33,7 +33,7 @@ FOREIGN_NAMES = [
 #   .github/workflows/ · .github/util/ — 통합 시 사용자 레포로 복사된다
 SHIPPED_DIRS = ["skills", "scripts", ".github/workflows", ".github/util"]
 
-# 테스트·픽스처는 사용자에게 복사되지 않는다(cursor 어댑터의 SKIP_IN_COPY).
+# 테스트·픽스처는 사용자에게 복사되지 않는다(src/core/ide/skills-copy.js 의 SKIP_IN_COPY).
 # 실제 이름을 픽스처로 쓰는 것이 오히려 자연스러우므로 제외한다.
 SKIP_PARTS = {"test", "tests", "fixtures"}
 TEXT_SUFFIXES = {".py", ".md", ".yaml", ".yml", ".json", ".toml", ".sh",

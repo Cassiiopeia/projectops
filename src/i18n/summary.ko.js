@@ -10,7 +10,7 @@ export default {
   "done.feat.coderabbit": "CodeRabbit AI 리뷰 설정",
   "done.feat.gitignore": ".gitignore 필수 항목",
   "done.feat.guide": "템플릿 설정 가이드 (PROJECTOPS-SETUP-GUIDE.md)",
-  "done.feat.skills": "Agent Skill 설치 (Claude, Cursor, Gemini, Codex, PI)",
+  "done.feat.skills": "Agent Skill 설치 (Claude, Cursor, Gemini, Codex, Copilot, PI)",
   "done.addedFiles": "추가된 파일:",
   "done.versionYml": "version.yml (버전: {version}, 타입: {types})",
   "done.readmeAdded": "README.md (버전 섹션 추가)",

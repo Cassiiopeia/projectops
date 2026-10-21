@@ -10,7 +10,7 @@ export default {
   "done.feat.coderabbit": "CodeRabbit AI review settings",
   "done.feat.gitignore": "Required .gitignore entries",
   "done.feat.guide": "Setup guide (PROJECTOPS-SETUP-GUIDE.md)",
-  "done.feat.skills": "Agent skills (Claude, Cursor, Gemini, Codex, PI)",
+  "done.feat.skills": "Agent skills (Claude, Cursor, Gemini, Codex, Copilot, PI)",
   "done.addedFiles": "Added files:",
   "done.versionYml": "version.yml (version: {version}, types: {types})",
   "done.readmeAdded": "README.md (version section added)",

@@ -9,6 +9,7 @@ import { claudeAdapter } from "./adapters/claude.js";
 import { cursorAdapter } from "./adapters/cursor.js";
 import { geminiAdapter } from "./adapters/gemini.js";
 import { codexAdapter } from "./adapters/codex.js";
+import { copilotAdapter } from "./adapters/copilot.js";
 import { piAdapter } from "./adapters/pi.js";
 import { piHarnessAdapter } from "./adapters/pi-harness.js";
 
@@ -18,6 +19,7 @@ export const ADAPTERS = [
   cursorAdapter,
   geminiAdapter,
   codexAdapter,
+  copilotAdapter,
   piAdapter,
   piHarnessAdapter,
 ].map(assertAdapter).sort((a, b) => (a.order ?? 100) - (b.order ?? 100));

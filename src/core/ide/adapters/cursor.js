@@ -1,30 +1,23 @@
 // Cursor 어댑터 (skills 복사·메타 기록·제거).
 // 마켓플레이스 없음 → ~/.cursor/skills/ 에 skills/ 폴더를 복사하고 meta.json으로 버전 추적.
 import { join } from "node:path";
-import { existsSync, readFileSync, mkdirSync, cpSync, rmSync, writeFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { migrateConfigRoot, isLegacyVersion } from "../legacy.js";
 import { t } from "../../../i18n/index.js";
-import { TEMPLATE_REPO_WEB_URL } from "../../paths.js";
+import {
+  resolveSkillsSrc, readSkillsMeta, copySkillsTree, ownedEntries, removeOwnedEntries, writeSkillsMeta,
+} from "../skills-copy.js";
 
 const LEGACY_NAMES = ["cassiiopeia", "suh-devops-template"];
 const LEGACY_MAX_VERSION = "4.2.4";
+const META_FILE_NAME = "cursor-skills-meta.json";
 
-// 스킬을 쓰는 사람에게 필요 없는 것. projectops 자신을 검사하는 테스트다.
-// skills/ 는 통째로 복사되므로 여기서 걸러내지 않으면 사용자 홈에 그대로 쌓인다.
-const SKIP_IN_COPY = new Set(["conftest.py", "pytest.ini"]);
-const TEST_PATH = /(^|[\\/])(tests?|__pycache__)([\\/]|$)/;
-
-function metaPath(io) { return join(io.home(), ".cursor/skills/cursor-skills-meta.json"); }
+function skillsDir(io) { return join(io.home(), ".cursor/skills"); }
+function metaPath(io) { return join(skillsDir(io), META_FILE_NAME); }
 
 function detect(io) {
-  const mp = metaPath(io);
-  if (!existsSync(mp)) return { installed: false, version: null, cliMissing: false };
-  let version = null;
-  try {
-    const m = JSON.parse(readFileSync(mp, "utf8"));
-    version = m.version || null;
-  } catch { /* meta 손상 → 설치는 됐다고 봄 */ }
-  return { installed: true, version, cliMissing: false };
+  const { installed, version } = readSkillsMeta(metaPath(io));
+  return { installed, version, cliMissing: false };
 }
 
 function apply(io, ctx = {}) {
@@ -32,31 +25,11 @@ function apply(io, ctx = {}) {
   migrateConfigRoot(io);    // 공용 config 루트 이관
   const src = resolveSkillsSrc(ctx);
   if (!src) { io.log(t("ide.cursor.noSource")); return false; }
-  const dest = join(io.home(), ".cursor/skills");
+  const dest = skillsDir(io);
   io.log(t("ide.cursor.copying"));
   try {
-    mkdirSync(dest, { recursive: true });
-    for (const e of readdirSync(src, { withFileTypes: true })) {
-      if (SKIP_IN_COPY.has(e.name)) continue;
-      cpSync(join(src, e.name), join(dest, e.name), {
-        recursive: true,
-        // 이 저장소 자기 코드를 검사하는 테스트는 남의 컴퓨터로 나갈 이유가 없다 (#591).
-        filter: (p) => !TEST_PATH.test(p),
-      });
-    }
-    // 소스에서 사라진 우리 스킬을 지운다. 복사는 overlay 라 덮어쓰기만 하면
-    // **폐기한 스킬이 남의 컴퓨터에 영영 남아** 계속 잡힌다 — util 복사가 같은
-    // 함정에 빠졌던 자리다 (#500). 남의 스킬은 접두사로 걸러 건드리지 않는다.
-    const srcNames = new Set(readdirSync(src));
-    for (const name of readdirSync(dest)) {
-      if (srcNames.has(name) || name === "cursor-skills-meta.json") continue;
-      if (!/^(pro|suh)-/.test(name)) continue;
-      try {
-        rmSync(join(dest, name), { recursive: true, force: true });
-        io.log(t("ide.cursor.obsolete", { name }));
-      } catch { /* 무시 — 지우지 못해도 설치는 계속한다 */ }
-    }
-    writeMeta(io, dest, ctx.templateVersion);
+    for (const name of copySkillsTree(src, dest, META_FILE_NAME)) io.log(t("ide.skillsCopy.obsolete", { name }));
+    writeSkillsMeta(dest, META_FILE_NAME, ctx.templateVersion);
     io.log(t("ide.cursor.installed", { dest, version: ctx.templateVersion || "unknown" }));
     return true;
   } catch {
@@ -66,30 +39,14 @@ function apply(io, ctx = {}) {
 }
 
 function remove(io, ctx = {}) {
-  const dir = join(io.home(), ".cursor/skills");
-  if (!existsSync(join(dir, "cursor-skills-meta.json"))) { io.log(t("ide.cursor.removeNone")); return true; }
+  const dir = skillsDir(io);
+  if (!existsSync(metaPath(io))) { io.log(t("ide.cursor.removeNone")); return true; }
   try {
-    for (const name of ownedEntries(io, ctx)) rmSync(join(dir, name), { recursive: true, force: true });
-    // 폴더가 비면 폴더 자체 제거, 타 스킬(somansa-tools 등) 남으면 유지
-    if (existsSync(dir) && readdirSync(dir).length === 0) rmSync(dir, { recursive: true, force: true });
+    // 타 스킬(somansa-tools 등) 남으면 폴더 유지
+    removeOwnedEntries(dir, ctx, META_FILE_NAME);
     io.log(t("ide.cursor.removed", { dir }));
     return true;
   } catch { io.log(t("ide.cursor.removeFailed", { dir })); return false; }
-}
-
-// projectops가 이 폴더에 설치했다고 볼 항목만 골라낸다.
-// 소스 skills/ 폴더명(pro-*, references, config.json.example) ∪ /^suh-/ ∪ meta 파일.
-// 접두어 없는 폴더(analyze·gitlab 등 somansa-tools)는 제외 → 보존.
-function ownedEntries(io, ctx) {
-  const dir = join(io.home(), ".cursor/skills");
-  if (!existsSync(dir)) return [];
-  let srcNames = new Set();
-  const src = resolveSkillsSrc(ctx);
-  if (src && existsSync(src)) srcNames = new Set(readdirSync(src));
-  const EXTRA = new Set(["cursor-skills-meta.json"]);
-  // suh- 는 옛 접두사, pro- 는 현행 접두사다. 둘 다 우리 것으로 친다 —
-  // 폐기한 스킬은 소스에 없으므로 srcNames 로는 잡히지 않는다 (#619).
-  return readdirSync(dir).filter((name) => srcNames.has(name) || /^(pro|suh)-/.test(name) || EXTRA.has(name));
 }
 
 // 옛 이름/버전 meta면 projectops 소유 항목만 선별 삭제 → apply가 신규 재설치.
@@ -101,37 +58,14 @@ function migrateLegacy(io, ctx) {
   const oldName = meta.name && LEGACY_NAMES.includes(String(meta.name).toLowerCase());
   const oldVer = isLegacyVersion(meta.version, LEGACY_MAX_VERSION);
   if (!(oldName || oldVer)) return;
-  for (const name of ownedEntries(io, ctx)) {
-    try { rmSync(join(io.home(), ".cursor/skills", name), { recursive: true, force: true }); } catch { /* 무시 */ }
+  for (const name of ownedEntries(skillsDir(io), ctx, META_FILE_NAME)) {
+    try { rmSync(join(skillsDir(io), name), { recursive: true, force: true }); } catch { /* 무시 */ }
   }
   io.log(t("ide.cursor.legacy", { name: meta.name, version: meta.version }));
 }
 
 function manualHint() {
   return t("ide.cursor.manual");
-}
-
-// ── 헬퍼 ──
-// 스킬 소스: 다운로드된 템플릿(TEMP)/skills 우선, 없으면 로컬 skills/.
-function resolveSkillsSrc(ctx) {
-  const cands = [ctx.sourceSkillsDir, ctx.tempDir && join(ctx.tempDir, "skills"), "skills"].filter(Boolean);
-  for (const c of cands) if (existsSync(c)) return c;
-  return "";
-}
-
-function writeMeta(io, destDir, templateVersion) {
-  const version = templateVersion || "unknown";
-  const now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
-  const file = join(destDir, "cursor-skills-meta.json");
-  let installedAt = now;
-  if (existsSync(file)) { try { installedAt = JSON.parse(readFileSync(file, "utf8")).installedAt || now; } catch { /* 무해 */ } }
-  const meta = {
-    name: "projectops", version, scope: "user",
-    source: TEMPLATE_REPO_WEB_URL,
-    installPath: destDir, installedAt, lastUpdated: now,
-  };
-  mkdirSync(destDir, { recursive: true });
-  writeFileSync(file, JSON.stringify(meta, null, 2) + "\n");
 }
 
 export const cursorAdapter = {

@@ -30,7 +30,7 @@
 | 6 | 개발(릴리스 소스) 브랜치 | 개발을 모아 기본 브랜치로 올리는 브랜치(기본 `develop`). 없으면 만들고 원격 push까지 제안합니다 |
 | 7 | Secret 서버 백업 워크플로우 | 포함 여부 |
 | 8 | 배포 환경 값 | 서비스 이름, 도메인, JDK 버전 등. "기본값 그대로 전부 설치"를 고를 수 있습니다 |
-| 9 | AI 에이전트 스킬 | Claude Code, Cursor, Gemini CLI, Codex CLI, PI에 함께 설치할지 |
+| 9 | AI 에이전트 스킬 | Claude Code, Cursor, Gemini CLI, Codex CLI, GitHub Copilot, PI에 함께 설치할지 |
 
 선택한 값은 전부 `version.yml`의 `metadata.template.options.*`에 저장되어, 다음 실행(업데이트) 때 다시 묻지 않습니다.
 

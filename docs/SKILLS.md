@@ -35,6 +35,18 @@ npx projectops --mode skills
 
 대화형 메뉴에서 `Agent Skill 설치`를 선택한 뒤 Cursor scope를 고르면 됩니다.
 
+### GitHub Copilot
+
+GitHub Copilot(VS Code 채팅·Copilot CLI)은 개인 Agent Skill을 `~/.copilot/skills/<이름>/SKILL.md`에서 읽습니다.
+`npx projectops --mode skills`에서 `GitHub Copilot`을 고르면 `skills/`가 이 경로로 복사됩니다.
+copilot CLI, `~/.copilot` 폴더, VS Code Copilot 확장 중 하나가 있어야 설치 대상으로 나타납니다.
+
+```bash
+npx projectops --mode skills
+```
+
+설치 후 Copilot 채팅에서 `/pro-`를 입력하면 Skill 목록이 나옵니다.
+
 ### Gemini CLI
 
 Gemini CLI는 extension으로 설치합니다.

@@ -31,7 +31,7 @@ export default {
   "mode.version": "Versioning only (automation system)",
   "mode.workflows": "Workflows only (GitHub Actions build and deploy)",
   "mode.issues": "Issue/PR templates only",
-  "mode.skills": "AI skills only (Claude, Cursor, Gemini, Codex, PI)",
+  "mode.skills": "AI skills only (Claude, Cursor, Gemini, Codex, Copilot, PI)",
 
   // confirm and edit menus
   "confirm.prompt": "Continue with these settings?",
@@ -113,7 +113,7 @@ export default {
   "flow.askBranch": "Default branch",
   "flow.badVersion": "Invalid version format (use x.y.z). Keeping the current value.",
   "flow.badVersionTitle": "Version",
-  "flow.askSkills": "Also install or update AI agent skills (Claude, Cursor, Gemini, Codex, PI)?",
+  "flow.askSkills": "Also install or update AI agent skills (Claude, Cursor, Gemini, Codex, Copilot, PI)?",
   "flow.done": "Done. Installed in {mode} mode.",
   "flow.updateScope": "Update ({scope} scope)",
   "flow.conflictsTitle": "{count} workflows changed in the new template",

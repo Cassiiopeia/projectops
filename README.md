@@ -230,7 +230,7 @@ flowchart TD
 </details>
 
 <details>
-<summary>Install Agent Skills only (Claude Code, Gemini CLI, Codex CLI, Cursor)</summary>
+<summary>Install Agent Skills only (Claude Code, Gemini CLI, Codex CLI, Cursor, GitHub Copilot)</summary>
 
 ```bash
 # Claude Code
@@ -253,7 +253,7 @@ The `--mode skills` wizard registers the Codex marketplace and also prepares the
 Where the Codex plugin marketplace is unavailable, use the fallback install described in the [Skills guide](docs/en/skills.md).
 
 ```bash
-# Cursor / the full Agent Skills install menu (recommended: npx)
+# Cursor / GitHub Copilot (~/.copilot/skills) / the full Agent Skills install menu (recommended: npx)
 npx projectops --mode skills
 ```
 

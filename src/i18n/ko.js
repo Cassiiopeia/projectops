@@ -29,7 +29,7 @@ export default {
   "mode.version": "버전 관리 전용 (자동화 시스템)",
   "mode.workflows": "워크플로우 전용 (GitHub Actions 빌드, 배포)",
   "mode.issues": "이슈/PR 템플릿 전용",
-  "mode.skills": "AI 스킬 전용 (Claude, Cursor, Gemini, Codex, PI)",
+  "mode.skills": "AI 스킬 전용 (Claude, Cursor, Gemini, Codex, Copilot, PI)",
 
   "confirm.prompt": "이 정보로 진행할까요?",
   "confirm.continue": "예, 계속 진행",
@@ -106,7 +106,7 @@ export default {
   "flow.askBranch": "기본 브랜치",
   "flow.badVersion": "버전 형식이 올바르지 않습니다 (x.y.z 형태). 기존 값을 유지합니다.",
   "flow.badVersionTitle": "버전",
-  "flow.askSkills": "AI 에이전트 스킬(Claude, Cursor, Gemini, Codex, PI)도 설치/업데이트할까요?",
+  "flow.askSkills": "AI 에이전트 스킬(Claude, Cursor, Gemini, Codex, Copilot, PI)도 설치/업데이트할까요?",
   "flow.done": "통합 완료. {mode} 모드로 설치했습니다.",
   "flow.updateScope": "업데이트 ({scope} 범위)",
   "flow.conflictsTitle": "템플릿이 갱신된 워크플로우 {count}개",

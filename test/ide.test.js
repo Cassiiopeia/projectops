@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { ADAPTERS, adapterById } from "../src/core/ide/registry.js";
 import { assertAdapter } from "../src/core/ide/adapter.js";
 import { collectStatuses, formatStatuses, runSkills } from "../src/commands/skills.js";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -143,6 +143,102 @@ test("cursor: 테스트 코드는 복사하지 않는다", () => {
     assert.equal(existsSync(at("pro-thing/tests/test_thing.py")), false);
     assert.equal(existsSync(at("conftest.py")), false);
   } finally { rmSync(home, { recursive: true, force: true }); rmSync(src, { recursive: true, force: true }); }
+});
+
+// ── copilot 어댑터 (실제 복사, ~/.copilot/skills/<이름>/SKILL.md — #200) ──
+test("copilot: 사용 흔적이 없으면 cliMissing, apply 는 아무것도 만들지 않는다", () => {
+  const home = mkdtempSync(join(tmpdir(), "cph-"));
+  const src = mkdtempSync(join(tmpdir(), "cps-"));
+  try {
+    mkdirSync(join(src, "pro-thing"), { recursive: true });
+    writeFileSync(join(src, "pro-thing/SKILL.md"), "x");
+    const io = stubIo({ home });
+    assert.equal(adapterById("copilot").detect(io).cliMissing, true);
+    assert.equal(adapterById("copilot").apply(io, { sourceSkillsDir: src, templateVersion: "9.9.9" }), false);
+    // 쓰지 않는 사람 홈에 ~/.copilot 을 만들면 안 된다
+    assert.equal(existsSync(join(home, ".copilot")), false);
+  } finally { rmSync(home, { recursive: true, force: true }); rmSync(src, { recursive: true, force: true }); }
+});
+
+test("copilot: copilot CLI 또는 VS Code Copilot 확장이 있으면 설치 후보", () => {
+  const home = mkdtempSync(join(tmpdir(), "cph-"));
+  try {
+    assert.equal(adapterById("copilot").detect(stubIo({ home, present: { copilot: 1 } })).cliMissing, false);
+    mkdirSync(join(home, ".vscode/extensions/github.copilot-chat-0.30.0"), { recursive: true });
+    const status = adapterById("copilot").detect(stubIo({ home }));
+    assert.equal(status.cliMissing, false);
+    assert.equal(status.installed, false);
+  } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
+test("copilot: skills/ 복사 + meta 기록 + 폐기 스킬 정리 + 남의 스킬 보존한 제거", () => {
+  const home = mkdtempSync(join(tmpdir(), "cph-"));
+  const src = mkdtempSync(join(tmpdir(), "cps-"));
+  try {
+    const dest = join(home, ".copilot/skills");
+    // 이미 깔린 상태: 폐기된 우리 스킬 + 사용자가 직접 넣은 스킬
+    mkdirSync(join(dest, "pro-old"), { recursive: true });
+    writeFileSync(join(dest, "pro-old/SKILL.md"), "x");
+    mkdirSync(join(dest, "my-own-skill"), { recursive: true });
+    writeFileSync(join(dest, "my-own-skill/SKILL.md"), "x");
+    mkdirSync(join(src, "pro-new"), { recursive: true });
+    writeFileSync(join(src, "pro-new/SKILL.md"), "x");
+    mkdirSync(join(src, "references"), { recursive: true });
+    writeFileSync(join(src, "references/common-rules.md"), "x");
+
+    const io = stubIo({ home });   // ~/.copilot 폴더가 흔적이 된다
+    assert.equal(adapterById("copilot").apply(io, { sourceSkillsDir: src, templateVersion: "9.9.9" }), true);
+    // Copilot 이 읽는 모양: ~/.copilot/skills/<이름>/SKILL.md, 스킬이 참조하는 references/ 도 옆에
+    assert.ok(existsSync(join(dest, "pro-new/SKILL.md")));
+    assert.ok(existsSync(join(dest, "references/common-rules.md")));
+    assert.equal(existsSync(join(dest, "pro-old")), false, "폐기된 pro- 스킬이 남았다");
+    const meta = JSON.parse(readFileSync(join(dest, "copilot-skills-meta.json"), "utf8"));
+    assert.equal(meta.version, "9.9.9");
+    const status = adapterById("copilot").detect(io);
+    assert.equal(status.installed, true);
+    assert.equal(status.version, "9.9.9");
+
+    // 제거: 우리 것만 지우고 사용자 스킬과 폴더는 남긴다
+    assert.equal(adapterById("copilot").remove(io, { sourceSkillsDir: src }), true);
+    assert.equal(existsSync(join(dest, "pro-new")), false);
+    assert.equal(existsSync(join(dest, "references")), false);
+    assert.equal(existsSync(join(dest, "copilot-skills-meta.json")), false);
+    assert.ok(existsSync(join(dest, "my-own-skill/SKILL.md")), "사용자 스킬을 지웠다");
+  } finally { rmSync(home, { recursive: true, force: true }); rmSync(src, { recursive: true, force: true }); }
+});
+
+test("copilot: 테스트 코드는 복사하지 않는다", () => {
+  const home = mkdtempSync(join(tmpdir(), "cph-"));
+  const src = mkdtempSync(join(tmpdir(), "cps-"));
+  try {
+    mkdirSync(join(src, "pro-thing/tests"), { recursive: true });
+    mkdirSync(join(src, "pro-thing/scripts"), { recursive: true });
+    writeFileSync(join(src, "pro-thing/SKILL.md"), "x");
+    writeFileSync(join(src, "pro-thing/scripts/thing_cli.py"), "x");
+    writeFileSync(join(src, "pro-thing/tests/test_thing.py"), "x");
+    writeFileSync(join(src, "conftest.py"), "x");
+
+    const io = stubIo({ home, present: { copilot: 1 } });
+    assert.equal(adapterById("copilot").apply(io, { sourceSkillsDir: src, templateVersion: "9.9.9" }), true);
+
+    const at = (r) => join(home, ".copilot/skills", r);
+    assert.ok(existsSync(at("pro-thing/SKILL.md")));
+    assert.ok(existsSync(at("pro-thing/scripts/thing_cli.py")));
+    assert.equal(existsSync(at("pro-thing/tests")), false);
+    assert.equal(existsSync(at("conftest.py")), false);
+  } finally { rmSync(home, { recursive: true, force: true }); rmSync(src, { recursive: true, force: true }); }
+});
+
+// Copilot 은 frontmatter name 이 폴더명과 다르면 스킬을 조용히 무시한다 — 실제 skills/ 로 지킨다
+test("copilot: 실제 스킬은 frontmatter name 이 폴더명과 같다", () => {
+  const skillsRoot = join(process.cwd(), "skills");
+  for (const name of readdirSync(skillsRoot)) {
+    const skillFile = join(skillsRoot, name, "SKILL.md");
+    if (!existsSync(skillFile)) continue;
+    const frontmatterName = /^name:\s*["']?([^"'\s]+)/m.exec(readFileSync(skillFile, "utf8"))?.[1];
+    assert.equal(frontmatterName, name, `${name}/SKILL.md 의 name 이 폴더명과 다르다`);
+    assert.match(name, /^[a-z0-9-]{1,64}$/, `${name}: Copilot 스킬 이름 규칙(소문자·숫자·하이픈, 64자) 위반`);
+  }
 });
 
 // ── gemini/codex ──
