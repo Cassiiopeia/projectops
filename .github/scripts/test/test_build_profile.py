@@ -121,7 +121,7 @@ def test_release_fails_when_profile_itself_turns_a_dev_key_on(tmp_path, envf):
     })
     r = run("release", envf, config=cfg)
     assert r.returncode == 1
-    assert "개발 키가 켜져 있습니다" in r.stderr
+    assert "development key is on" in r.stderr
     assert "APP_SHOW_DEV_TOOLS" in r.stderr
 
 
@@ -133,7 +133,7 @@ def test_release_fails_when_a_qa_token_survives(tmp_path, envf):
     })
     r = run("release", envf, config=cfg)
     assert r.returncode == 1
-    assert "비밀값이 남아 있습니다" in r.stderr
+    assert "secret is left" in r.stderr
 
 
 def test_release_fails_when_a_test_only_flag_leaks_in(tmp_path, envf):
@@ -146,7 +146,7 @@ def test_release_fails_when_a_test_only_flag_leaks_in(tmp_path, envf):
     })
     r = run("release", envf, config=cfg)
     assert r.returncode == 1
-    assert "테스트 전용 플래그" in r.stderr
+    assert "test-only flag" in r.stderr
 
 
 def test_release_allows_its_own_dart_define(tmp_path, envf):
@@ -166,7 +166,7 @@ def test_release_allows_its_own_dart_define(tmp_path, envf):
 def test_unknown_profile_is_refused(tmp_path, cfg, envf):
     r = run("스테이징", envf, config=cfg)
     assert r.returncode == 1
-    assert "알 수 없는 프로파일" in r.stderr
+    assert "Unknown profile" in r.stderr
     assert "test" in r.stderr and "release" in r.stderr   # 뭐가 있는지 알려준다
 
 
@@ -175,13 +175,13 @@ def test_broken_config_is_refused_not_ignored(tmp_path, envf):
     bad.write_text("{ 이건 json이 아니다", encoding="utf-8")
     r = run("test", envf, config=bad)
     assert r.returncode == 1
-    assert "읽을 수 없습니다" in r.stderr
+    assert "Cannot read" in r.stderr
 
 
 def test_missing_env_file_is_refused(tmp_path, cfg):
     r = run("test", tmp_path / "없는.env", config=cfg)
     assert r.returncode == 1
-    assert ".env 파일이 없습니다" in r.stderr
+    assert "No .env file" in r.stderr
 
 
 # ── 로그 위생 ────────────────────────────────────────────────────────
@@ -197,7 +197,7 @@ def test_token_values_never_reach_the_log(tmp_path, envf):
     assert r.returncode == 0
     assert "s3cr3t-value" not in r.stderr
     assert "s3cr3t-value" not in r.stdout
-    assert "(설정됨)" in r.stderr
+    assert "(set)" in r.stderr
 
 
 def test_keys_are_not_written_twice(tmp_path, cfg, envf):
@@ -255,7 +255,7 @@ def test_release_fails_on_variant_secret_forms(tmp_path, line):
     envf.write_text(line + "\n", encoding="utf-8")
     r = run("release", envf, config=cfg)
     assert r.returncode == 1
-    assert "개발용 비밀값" in r.stderr
+    assert "development secret" in r.stderr
 
 
 def test_test_profile_does_not_duplicate_variant_key(tmp_path):

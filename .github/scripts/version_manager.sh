@@ -25,8 +25,8 @@ for _py in python3 python; do
 done
 
 if [ -z "$PYTHON_BIN" ]; then
-    echo "❌ Python(3.x)이 필요합니다. version_manager는 v4.2부터 Python으로 동작합니다." >&2
-    echo "   설치: https://www.python.org/downloads/ (GitHub Actions ubuntu-latest에는 기본 설치)" >&2
+    echo "❌ Python (3.x) is required. version_manager runs on Python since v4.2." >&2
+    echo "   Install: https://www.python.org/downloads/ (preinstalled on GitHub Actions ubuntu-latest)" >&2
     exit 1
 fi
 

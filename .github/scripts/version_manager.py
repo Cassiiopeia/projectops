@@ -48,7 +48,7 @@ def read_text(path: Path) -> str:
     try:
         return path.read_bytes().decode("utf-8")
     except (OSError, UnicodeDecodeError) as e:
-        raise VersionError(f"{path.as_posix()}을(를) 읽지 못했습니다: {e}")
+        raise VersionError(f"Could not read {path.as_posix()}: {e}")
 
 
 def write_text(path: Path, content: str) -> bool:
@@ -59,7 +59,7 @@ def write_text(path: Path, content: str) -> bool:
             return False
         path.write_bytes(data)
     except OSError as e:
-        raise VersionError(f"{path.as_posix()}을(를) 쓰지 못했습니다: {e} (파일 권한을 확인하세요)")
+        raise VersionError(f"Could not write {path.as_posix()}: {e} (check file permissions)")
     return True
 
 
@@ -115,10 +115,10 @@ def parse_project_types() -> list:
         if rest.startswith("["):
             inline = re.match(r"^\[([^\]]*)\][ \t]*(#.*)?$", rest)
             if not inline:
-                raise VersionError("version.yml의 project_types는 한 줄 배열([\"a\", \"b\"]) 또는 블록 리스트(- a)만 지원합니다.")
+                raise VersionError("version.yml project_types supports only a one-line array ([\"a\", \"b\"]) or a block list (- a).")
             return [_unquote(t) for t in inline.group(1).split(",") if t.strip()]
         if rest and not rest.startswith("#"):
-            raise VersionError(f"version.yml의 project_types 형식은 지원하지 않는 표기입니다: '{rest}' (배열 또는 블록 리스트로 쓰세요)")
+            raise VersionError(f"Unsupported version.yml project_types notation: '{rest}' (use an array or a block list)")
         # 값이 비어 있으면 다음 줄들의 블록 리스트를 읽는다
         types = []
         for nxt in lines[idx + 1:]:
@@ -150,13 +150,13 @@ def _ensure_inside_repo(path_str: str, t: str) -> str:
     """project_paths 값이 저장소 밖을 가리키면 거부한다 — 버전 파일 쓰기가 레포 밖 파일을 건드리면 안 된다 (#673)."""
     p = Path(path_str)
     if p.is_absolute() or ".." in p.parts:
-        raise VersionError(f"version.yml의 project_paths.{t} 는 저장소 안의 상대경로여야 합니다: '{path_str}'")
+        raise VersionError(f"version.yml project_paths.{t} must be a relative path inside the repository: '{path_str}'")
     root = Path.cwd().resolve()
     try:
         # 심볼릭 링크로 레포 밖을 가리키는 경우까지 잡기 위해 resolve 후 비교
         (root / p).resolve().relative_to(root)
     except ValueError:
-        raise VersionError(f"version.yml의 project_paths.{t} 가 저장소 밖을 가리킵니다: '{path_str}'")
+        raise VersionError(f"version.yml project_paths.{t} points outside the repository: '{path_str}'")
     return path_str
 
 
@@ -170,7 +170,7 @@ def get_type_path(t: str) -> str:
         if pm:
             rest = pm.group(1)
             if rest and not rest.startswith("#"):
-                raise VersionError(f"version.yml의 project_paths 형식은 지원하지 않는 표기입니다: '{rest}' (블록 맵 '타입: 경로'로 쓰세요)")
+                raise VersionError(f"Unsupported version.yml project_paths notation: '{rest}' (use a block map 'type: path')")
             in_paths = True
             continue
         if in_paths:
@@ -178,7 +178,7 @@ def get_type_path(t: str) -> str:
                 break
             m = re.match(r"^\s+([A-Za-z0-9_-]+):[ \t]*(\"[^\"]*\"|'[^']*'|[^#\s]*)[ \t]*(#.*)?$", line)
             if not m:
-                raise VersionError(f"version.yml의 project_paths 항목을 읽지 못했습니다: '{line.strip()}' (타입: 경로 형식으로 쓰세요)")
+                raise VersionError(f"Could not read version.yml project_paths entry: '{line.strip()}' (use the type: path form)")
             if m.group(1) == t:
                 return _ensure_inside_repo(_unquote(m.group(2)) or ".", t)
     return "."
@@ -217,22 +217,22 @@ def set_yml_field(pattern: str, new_line_fn):
 class Config:
     def __init__(self, require_version=True):
         if not VERSION_YML.is_file():
-            log_error("version.yml 파일을 찾을 수 없습니다!")
+            log_error("version.yml not found!")
             sys.exit(1)
 
-        log_debug("version.yml 파싱 시작 (stdlib 사용)")
+        log_debug("Parsing version.yml (stdlib)")
 
         self.types = parse_project_types()
         legacy = parse_legacy_single_type()
 
         if self.types:
             if legacy:
-                log_warning("project_type 단수 키는 v4.1.0부터 무시됩니다 — version.yml에서 해당 라인을 제거하세요 (project_types 배열이 유일한 소스)")
+                log_warning("The singular project_type key is ignored since v4.1.0 — remove that line from version.yml (the project_types array is the only source)")
             self.primary = self.types[0]
         elif legacy:
-            log_error("version.yml이 v4.1.0 이전 형식입니다 (project_type 단수 키만 존재).")
-            log_error("전환 절차: project_type 라인을 삭제하고 project_types 배열로 교체하세요.")
-            log_error(f'  예) project_type: "{legacy}"  →  project_types: ["{legacy}"]')
+            log_error("version.yml uses the pre-v4.1.0 format (only the singular project_type key exists).")
+            log_error("To migrate: delete the project_type line and replace it with a project_types array.")
+            log_error(f'  e.g. project_type: "{legacy}"  →  project_types: ["{legacy}"]')
             sys.exit(1)
         else:
             self.primary = "basic"
@@ -240,18 +240,18 @@ class Config:
         current = get_yml_version()
         if current is None:
             if require_version:
-                log_error('version.yml에서 version 값을 읽지 못했습니다. `version: "x.y.z"` 줄이 있어야 합니다.')
+                log_error('Could not read the version value from version.yml. A `version: "x.y.z"` line is required.')
                 sys.exit(1)
             current = "0.0.0"  # version_code만 다루는 명령에서는 쓰이지 않는 자리표시값
         self.current_version = current
         self.version_file = self._resolve_version_file()
 
-        log_info("프로젝트 설정:")
+        log_info("Project settings:")
         if self.types:
-            log_info(f"  타입(배열): {','.join(self.types)}")
-        log_info(f"  타입(primary): {self.primary}")
-        log_info(f"  버전 파일(primary): {self.version_file}")
-        log_info(f"  현재 버전: {self.current_version}")
+            log_info(f"  Types (array): {','.join(self.types)}")
+        log_info(f"  Type (primary): {self.primary}")
+        log_info(f"  Version file (primary): {self.version_file}")
+        log_info(f"  Current version: {self.current_version}")
 
     def _resolve_version_file(self) -> str:
         p = get_type_path(self.primary)
@@ -283,7 +283,7 @@ class Config:
 def validate_version(version: str) -> bool:
     if VERSION_RE.match(version or ""):
         return True
-    log_error(f"잘못된 버전 형식: '{version}' (x.y.z 형식이어야 함)")
+    log_error(f"Invalid version format: '{version}' (must be x.y.z)")
     return False
 
 
@@ -311,17 +311,17 @@ def higher_version(v1: str, v2: str) -> str:
 # ── version_code ─────────────────────────────────────────────────────
 def get_version_code() -> int:
     if not VERSION_YML.is_file():
-        log_warning("version.yml 파일이 없습니다. 기본값 1 반환")
+        log_warning("version.yml not found. Returning default 1")
         return 1
     for line in yml_lines():
         if line.lstrip().startswith("#"):
             continue
         m = re.match(r"^version_code:\s*([0-9]+)", line)
         if m:
-            log_debug(f"현재 version_code: {m.group(1)}")
+            log_debug(f"Current version_code: {m.group(1)}")
             return int(m.group(1))
     # 필드 없음 → version 라인 다음에 추가 (초기값 1)
-    log_warning("version_code 필드가 없습니다. 자동으로 추가합니다 (초기값: 1)")
+    log_warning("No version_code field. Adding it automatically (initial value: 1)")
     text = read_text(VERSION_YML)
     bom = "\ufeff" if text.startswith("\ufeff") else ""
     body_text = text[len(bom):]
@@ -339,7 +339,7 @@ def get_version_code() -> int:
             pieces[-1] += eol
         pieces.append(new_line)
     write_text(VERSION_YML, bom + "".join(pieces))
-    log_success("version_code 필드 추가 완료: 1")
+    log_success("Added version_code field: 1")
     return 1
 
 
@@ -356,9 +356,9 @@ def set_version_code(new_code: int):
 def increment_version_code() -> int:
     current = get_version_code()
     new_code = current + 1
-    log_info(f"VERSION_CODE 증가: {current} → {new_code}")
+    log_info(f"VERSION_CODE increment: {current} → {new_code}")
     set_version_code(new_code)
-    log_success(f"VERSION_CODE 업데이트 완료: {new_code}")
+    log_success(f"VERSION_CODE updated: {new_code}")
     return new_code
 
 
@@ -369,9 +369,9 @@ def read_json(path: Path):
     try:
         obj = json.loads(text.lstrip("\ufeff"))
     except ValueError as e:
-        raise VersionError(f"{path.as_posix()}을(를) 읽지 못했습니다: {e} (JSON 문법·머지 충돌 마커를 확인하세요)")
+        raise VersionError(f"Could not read {path.as_posix()}: {e} (check the JSON syntax and merge conflict markers)")
     if not isinstance(obj, dict):
-        raise VersionError(f"{path.as_posix()}을(를) 읽지 못했습니다: 최상위가 JSON 객체가 아닙니다")
+        raise VersionError(f"Could not read {path.as_posix()}: the top level is not a JSON object")
     return obj
 
 
@@ -477,7 +477,7 @@ def set_json_version(path: Path, keys: list, new_version: str) -> bool:
         for key in keys[:-1]:
             node = node.setdefault(key, {})
             if not isinstance(node, dict):
-                raise VersionError(f"{path.as_posix()}의 '{key}'가 객체가 아니라 version을 쓸 수 없습니다")
+                raise VersionError(f"Cannot write version: '{key}' in {path.as_posix()} is not an object")
         node[keys[-1]] = new_version
         new_text = json_rebuild(text, obj)
     return write_text(path, new_text)
@@ -569,26 +569,26 @@ def sync_build_number(cfg: Config, code: int):
     if ios_dir.is_dir():
         plists = find_info_plists(ios_dir)
         if not plists:
-            log_warning(f"react-native: {p}/ios에서 Info.plist를 찾지 못했습니다 — iOS 빌드 번호 동기화 안 됨")
+            log_warning(f"react-native: no Info.plist found under {p}/ios — iOS build number not synced")
         for plist in plists:
             status = plist_set_build(plist, code)
             if status == CHANGED:
-                log_success(f"빌드 번호 업데이트: {plist.as_posix()} (CFBundleVersion {code})")
+                log_success(f"Build number updated: {plist.as_posix()} (CFBundleVersion {code})")
             elif status == VARIABLE:
-                log_warning(f"{plist.as_posix()}의 CFBundleVersion이 Xcode 변수라 동기화하지 않았습니다 — Xcode 프로젝트에서 직접 관리하세요")
+                log_warning(f"CFBundleVersion in {plist.as_posix()} is an Xcode variable, so it was not synced — manage it in the Xcode project")
             elif status == NO_MATCH:
-                log_warning(f"{plist.as_posix()}에 CFBundleVersion이 없어 빌드 번호를 동기화하지 못했습니다")
+                log_warning(f"No CFBundleVersion in {plist.as_posix()}, so the build number could not be synced")
     else:
-        log_warning(f"react-native: {p}/ios 디렉토리 없음 — 빌드 번호 건너뜀")
+        log_warning(f"react-native: no {p}/ios directory — skipping build number")
     gradle = base / "android" / "app" / "build.gradle"
     if gradle.is_file():
         status = sub_file(gradle, _GRADLE_BUILD_RE.pattern, lambda m: f"{m.group(1)}{code}")
         if status == CHANGED:
-            log_success(f"빌드 번호 업데이트: {gradle.as_posix()} (versionCode {code})")
+            log_success(f"Build number updated: {gradle.as_posix()} (versionCode {code})")
         elif status == NO_MATCH:
-            log_warning(f"{gradle.as_posix()}에서 숫자 리터럴 versionCode를 찾지 못했습니다 — 빌드 번호 동기화 안 됨")
+            log_warning(f"No numeric literal versionCode found in {gradle.as_posix()} — build number not synced")
     else:
-        log_warning(f"react-native: {p}/android/app/build.gradle 없음 — 빌드 번호 건너뜀")
+        log_warning(f"react-native: no {p}/android/app/build.gradle — skipping build number")
 
 
 # pyproject.toml: version 키는 [project](PEP 621) 또는 [tool.poetry] 테이블 안의 것만 프로젝트 버전이다.
@@ -660,7 +660,7 @@ def get_project_file_version(cfg: Config) -> str:
                 m = re.search(r"CFBundleShortVersionString</key>\s*<string>([^<]*)</string>", read_text(vf))
                 v = m.group(1) if m else ""
                 if v.startswith("$("):  # Xcode 변수(MARKETING_VERSION)는 읽을 수 있는 버전이 아니다
-                    log_warning(f"{vf.as_posix()}의 버전이 Xcode 변수({v})라 읽지 못했습니다 — version.yml 값을 사용")
+                    log_warning(f"The version in {vf.as_posix()} is an Xcode variable ({v}) and cannot be read — using the version.yml value")
                     v = ""
             else:
                 m = re.search(r'versionName\s*"([^"]+)"', read_text(vf))
@@ -672,19 +672,19 @@ def get_project_file_version(cfg: Config) -> str:
         else:
             v = cfg.current_version
     except (OSError, ValueError, VersionError) as e:
-        log_warning(f"프로젝트 파일 읽기 실패({vf}): {e}")
+        log_warning(f"Failed to read project file ({vf}): {e}")
         v = ""
 
     if not v:
         v = cfg.current_version
-    log_debug(f"프로젝트 파일 버전: '{v}'")
+    log_debug(f"Project file version: '{v}'")
     return v
 
 
 # ── 타입별 sync (.sh sync_for_type 등가) ─────────────────────────────
 def sync_for_type(t: str, new_version: str):
     p = get_type_path(t)
-    log_info(f"타입별 sync: {t} → {new_version} (경로: {p})")
+    log_info(f"Sync by type: {t} → {new_version} (path: {p})")
     base = Path(p)
 
     if t == "spring":
@@ -695,7 +695,7 @@ def sync_for_type(t: str, new_version: str):
                 | set(base.glob("build.gradle.kts")) | set(base.glob("*/build.gradle.kts"))
             )
             if not candidates:
-                log_warning(f"spring: {p}에 build.gradle(.kts) 없음 — 건너뜀")
+                log_warning(f"spring: no build.gradle(.kts) in {p} — skipping")
             for gradle in candidates:
                 # 줄 시작의 `version = '...'`(프로젝트 버전 대입)만 고친다. 앵커가 없으면
                 # ext.kotlin_version = '1.9.0' 같은 다른 대입이나 주석까지 덮어써 빌드가 깨진다 (#680).
@@ -704,11 +704,11 @@ def sync_for_type(t: str, new_version: str):
                     sub_file(gradle, r'^([ \t]*version[ \t]*=[ \t]*)"[^"]*"', lambda m: f'{m.group(1)}"{new_version}"'),
                 }
                 if CHANGED in results:
-                    log_success(f"업데이트: {gradle.as_posix()}")
+                    log_success(f"Updated: {gradle.as_posix()}")
                 elif results == {NO_MATCH}:
-                    log_warning(f"spring: {gradle.as_posix()}에서 version 대입을 찾지 못했습니다 — 동기화하지 못함")
+                    log_warning(f"spring: no version assignment found in {gradle.as_posix()} — not synced")
         else:
-            log_warning(f"spring: {p} 디렉토리 없음 — 건너뜀")
+            log_warning(f"spring: no {p} directory — skipping")
     elif t == "flutter":
         pubspec = base / "pubspec.yaml"
         if pubspec.is_file():
@@ -718,62 +718,62 @@ def sync_for_type(t: str, new_version: str):
                 pubspec, r"^(version:[ \t]*)[^\s#]*([ \t]*#[^\r\n]*)?",
                 lambda m: f"{m.group(1)}{new_version}+{code}{m.group(2) or ''}", count=1)
             if status == CHANGED:
-                log_success(f"업데이트: {pubspec.as_posix()}")
+                log_success(f"Updated: {pubspec.as_posix()}")
         else:
-            log_warning(f"flutter: {p}/pubspec.yaml 없음 — 건너뜀")
+            log_warning(f"flutter: no {p}/pubspec.yaml — skipping")
     elif t in ("react", "node"):
         pkg = base / "package.json"
         if pkg.is_file():
             if set_json_version(pkg, ["version"], new_version):
-                log_success(f"업데이트: {pkg.as_posix()}")
+                log_success(f"Updated: {pkg.as_posix()}")
         else:
-            log_warning(f"{t}: {p}/package.json 없음 — 건너뜀")
+            log_warning(f"{t}: no {p}/package.json — skipping")
     elif t == "python":
         toml = base / "pyproject.toml"
         if toml.is_file():
             status = toml_set_version(toml, new_version)
             if status == CHANGED:
-                log_success(f"업데이트: {toml.as_posix()}")
+                log_success(f"Updated: {toml.as_posix()}")
             elif status == NO_MATCH:
-                log_warning(f"python: {toml.as_posix()}의 [project]/[tool.poetry]에서 version을 찾지 못했습니다 — 동기화하지 못함")
+                log_warning(f"python: no version found in [project]/[tool.poetry] of {toml.as_posix()} — not synced")
         else:
-            log_warning(f"python: {p}/pyproject.toml 없음 — 건너뜀")
+            log_warning(f"python: no {p}/pyproject.toml — skipping")
     elif t == "react-native":
         ios_dir = base / "ios"
         if ios_dir.is_dir():
             plists = find_info_plists(ios_dir)
             if not plists:
-                log_warning(f"react-native: {p}/ios에서 CFBundleShortVersionString이 있는 Info.plist를 찾지 못했습니다 — iOS 버전 동기화 안 됨")
+                log_warning(f"react-native: no Info.plist with CFBundleShortVersionString found under {p}/ios — iOS version not synced")
             for plist in plists:
                 status = plist_set_version(plist, new_version)
                 if status == CHANGED:
-                    log_success(f"업데이트: {plist.as_posix()}")
+                    log_success(f"Updated: {plist.as_posix()}")
                 elif status == VARIABLE:
-                    log_warning(f"{plist.as_posix()}의 버전이 Xcode 변수(MARKETING_VERSION)라 동기화하지 않았습니다 — Xcode 프로젝트에서 직접 관리하세요")
+                    log_warning(f"The version in {plist.as_posix()} is an Xcode variable (MARKETING_VERSION), so it was not synced — manage it in the Xcode project")
         else:
-            log_warning(f"react-native: {p}/ios 디렉토리 없음 — 건너뜀")
+            log_warning(f"react-native: no {p}/ios directory — skipping")
         gradle = base / "android" / "app" / "build.gradle"
         if gradle.is_file():
             if sub_file(gradle, r'versionName "[^"]*"', f'versionName "{new_version}"') == CHANGED:
-                log_success(f"업데이트: {gradle.as_posix()}")
+                log_success(f"Updated: {gradle.as_posix()}")
         else:
-            log_warning(f"react-native: {p}/android/app/build.gradle 없음 — 건너뜀")
+            log_warning(f"react-native: no {p}/android/app/build.gradle — skipping")
     elif t == "react-native-expo":
         app_json = base / "app.json"
         if app_json.is_file():
             if set_json_version(app_json, ["expo", "version"], new_version):
-                log_success(f"업데이트: {app_json.as_posix()}")
+                log_success(f"Updated: {app_json.as_posix()}")
         else:
-            log_warning(f"react-native-expo: {p}/app.json 없음 — 건너뜀")
+            log_warning(f"react-native-expo: no {p}/app.json — skipping")
     elif t == "basic":
         pass
     else:
-        log_warning(f"알 수 없는 타입: {t} — 건너뜀")
+        log_warning(f"Unknown type: {t} — skipping")
 
 
 def sync_all_project_files(cfg: Config, new_version: str):
     if cfg.types:
-        log_info(f"멀티타입 sync 시작: {','.join(cfg.types)}")
+        log_info(f"Starting multi-type sync: {','.join(cfg.types)}")
         for t in cfg.types:
             sync_for_type(t, new_version)
     else:
@@ -790,10 +790,10 @@ def update_version_yml(cfg: Config, new_version: str):
 
     if get_yml_version() == new_version:
         # 이미 같은 버전이면 타임스탬프까지 포함해 파일을 건드리지 않는다 (멱등)
-        log_info(f"version.yml은 이미 {new_version} — 변경 없음")
+        log_info(f"version.yml is already {new_version} — no change")
         cfg.current_version = new_version
         return
-    log_debug(f"version.yml 업데이트: {new_version}")
+    log_debug(f"Updating version.yml: {new_version}")
     # 값은 따옴표 유무·v 접두사·프리릴리스 접미사 무엇이든 통째로 교체하고 줄 끝 주석만 보존한다.
     replaced = set_yml_field(
         r"^version:[ \t]*(?:\"[^\"]*\"|'[^']*'|[^#\s]*)([ \t]*#.*)?[ \t]*$",
@@ -801,13 +801,13 @@ def update_version_yml(cfg: Config, new_version: str):
     )
     if not replaced:
         # 성공 로그와 새 버전을 내보내면 릴리스는 새 번호로 나가는데 version.yml은 그대로 남는다
-        raise VersionError("version.yml의 version 줄을 갱신하지 못했습니다. `version: \"x.y.z\"` 형식으로 고친 뒤 다시 실행하세요.")
+        raise VersionError("Could not update the version line in version.yml. Fix it to the `version: \"x.y.z\"` form and run again.")
     # metadata 필드는 존재할 때만 갱신 (.sh yq -e 가드 등가)
     set_yml_field(r"^(\s+last_updated:\s*).*$", lambda m: f'{m.group(1)}"{timestamp}"')
     set_yml_field(r"^(\s+last_updated_by:\s*).*$", lambda m: f'{m.group(1)}"{user}"')
 
     cfg.current_version = new_version
-    log_success(f"version.yml 업데이트 완료: {new_version}")
+    log_success(f"version.yml updated: {new_version}")
 
 
 # ── sync (.sh sync_versions 등가) ────────────────────────────────────
@@ -815,27 +815,27 @@ def sync_versions(cfg: Config) -> str:
     yml_version = cfg.current_version
     project_version = get_project_file_version(cfg)
 
-    log_info("버전 동기화 검사")
+    log_info("Checking version sync")
     log_info(f"  version.yml: {yml_version}")
-    log_info(f"  프로젝트 파일: {project_version}")
+    log_info(f"  Project file: {project_version}")
 
     if yml_version != project_version:
         if VERSION_RE.match(yml_version) and VERSION_RE.match(project_version):
             higher = higher_version(yml_version, project_version)
-            log_info(f"버전 불일치 감지, 높은 버전으로 동기화: {higher}")
+            log_info(f"Version mismatch detected, syncing to the higher version: {higher}")
             if higher != yml_version:
                 update_version_yml(cfg, higher)
             if higher != project_version:
                 sync_all_project_files(cfg, higher)
             return higher
-        log_warning("버전 형식 오류로 동기화 불가")
+        log_warning("Cannot sync because of a version format error")
         return yml_version
 
     # primary는 일치 — 멀티타입이면 비-primary 파일 정합화
     if cfg.types:
-        log_info(f"멀티타입 — 전 타입 파일을 version.yml 버전으로 정합화: {yml_version}")
+        log_info(f"Multi-type — aligning every type's files to the version.yml version: {yml_version}")
         sync_all_project_files(cfg, yml_version)
-    log_success(f"버전이 이미 동기화되어 있음: {yml_version}")
+    log_success(f"Versions already in sync: {yml_version}")
     return yml_version
 
 
@@ -851,24 +851,24 @@ def preflight_json_files(cfg: Config):
 
 
 def update_all_versions(cfg: Config, new_version: str):
-    log_info(f"모든 버전 파일 업데이트: {new_version}")
+    log_info(f"Updating all version files: {new_version}")
     preflight_json_files(cfg)
     update_version_yml(cfg, new_version)
     sync_all_project_files(cfg, new_version)
-    log_success(f"모든 버전 파일 업데이트 완료: {new_version}")
+    log_success(f"All version files updated: {new_version}")
 
 
-USAGE = """사용법: version_manager.py {get|get-code|get-option|get-types|increment|increment-code|set|sync|validate} [version]
+USAGE = """Usage: version_manager.py {get|get-code|get-option|get-types|increment|increment-code|set|sync|validate} [version]
 
 Commands:
-  get            - 현재 버전 가져오기 (동기화 포함)
-  get-code       - 현재 VERSION_CODE 가져오기
-  increment      - 버전 증가 + VERSION_CODE 증가
-                   [--bump major|minor|patch] (기본 patch — 미지정 시 기존 동작)
-  increment-code - VERSION_CODE만 증가
-  set            - 특정 버전으로 설정
-  sync           - 버전 파일 간 동기화
-  validate       - 버전 형식 검증
+  get            - Get the current version (with sync)
+  get-code       - Get the current VERSION_CODE
+  increment      - Bump the version + bump VERSION_CODE
+                   [--bump major|minor|patch] (default patch — previous behavior when omitted)
+  increment-code - Bump VERSION_CODE only
+  set            - Set a specific version
+  sync           - Sync version files
+  validate       - Validate the version format
 """
 
 
@@ -956,7 +956,7 @@ def _main(argv):
     if command == "get-option":
         # get-option KEY [DEFAULT] — 키가 없으면 DEFAULT(없으면 빈 문자열)를 출력한다
         if len(argv) < 3:
-            log_error("키를 지정해주세요: version_manager.py get-option semver_auto [기본값]")
+            log_error("Specify a key: version_manager.py get-option semver_auto [default]")
             return 1
         value = get_option(argv[2])
         print(value if value is not None else (argv[3] if len(argv) > 3 else ""))
@@ -967,11 +967,11 @@ def _main(argv):
         return 0
     if command == "get":
         version = sync_versions(cfg)
-        log_success(f"현재 버전: {version}")
+        log_success(f"Current version: {version}")
         print(version)
     elif command == "get-code":
         code = get_version_code()
-        log_success(f"현재 VERSION_CODE: {code}")
+        log_success(f"Current VERSION_CODE: {code}")
         print(code)
     elif command == "increment-code":
         new_code = increment_version_code()
@@ -980,40 +980,40 @@ def _main(argv):
     elif command == "increment":
         bump = parse_bump_flag(argv)
         if bump is None:
-            log_error("--bump 값은 major|minor|patch 중 하나여야 합니다")
+            log_error("--bump must be one of major|minor|patch")
             return 1
-        log_info("버전 동기화 확인")
+        log_info("Checking version sync")
         current = sync_versions(cfg)
         if not validate_version(current):
             return 1
         new_version = increment_version(current, bump)
-        log_info(f"버전 업데이트({bump}): {current} → {new_version}")
+        log_info(f"Version update ({bump}): {current} → {new_version}")
         update_all_versions(cfg, new_version)
         sync_build_number(cfg, increment_version_code())
-        log_success(f"버전 업데이트 완료: {new_version}")
+        log_success(f"Version updated: {new_version}")
         print(new_version)
     elif command == "set":
         new_version = argv[2] if len(argv) > 2 else ""
         if not new_version:
-            log_error("새 버전을 지정해주세요: version_manager.py set 1.2.3")
+            log_error("Specify the new version: version_manager.py set 1.2.3")
             return 1
         if not validate_version(new_version):
             return 1
-        log_info(f"버전 설정: {new_version}")
+        log_info(f"Setting version: {new_version}")
         update_all_versions(cfg, new_version)
         sync_build_number(cfg, get_version_code())  # set 은 코드를 올리지 않지만 현재 값과 파일을 맞춘다
-        log_success(f"버전 설정 완료: {new_version}")
+        log_success(f"Version set: {new_version}")
         print(new_version)
     elif command == "sync":
         synced = sync_versions(cfg)
-        log_success(f"버전 동기화 완료: {synced}")
+        log_success(f"Versions synced: {synced}")
         print(synced)
     elif command == "validate":
         version = argv[2] if len(argv) > 2 else cfg.current_version
         if not version:
             version = get_project_file_version(cfg)
         if validate_version(version):
-            log_success(f"유효한 버전 형식: {version}")
+            log_success(f"Valid version format: {version}")
             print(version)
             return 0
         return 1

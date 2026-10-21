@@ -209,12 +209,12 @@ def cmd_write(args) -> dict:
 
     if args.platform == "play":
         if not args.version_code:
-            return {"enabled": True, "ok": False, "error": "play 는 --version-code 가 필요합니다"}
+            return {"enabled": True, "ok": False, "error": "play needs --version-code"}
         # 앱이 하위 폴더에 있는 모노레포는 version.yml(레포 루트)과 android/(앱 루트)가 다르다
         base = Path(args.app_root or args.workspace) / "android" / "fastlane" / "metadata" / "android"
     else:
         if not args.out_dir:
-            return {"enabled": True, "ok": False, "error": "ios 는 --out-dir 가 필요합니다"}
+            return {"enabled": True, "ok": False, "error": "ios needs --out-dir"}
         base = Path(args.out_dir)
 
     written, unsupported = [], []
@@ -223,7 +223,7 @@ def cmd_write(args) -> dict:
         if code is None:
             # 이 스토어에 없는 언어 코드. 넘기면 deliver 는 앱에 언어를 새로 활성화하려 하고 supply 는 거부한다.
             unsupported.append(loc)
-            print(f"⚠️ store_notes: '{loc}' 는 {args.platform} 스토어 언어 코드가 아니라 건너뜁니다", file=sys.stderr)
+            print(f"⚠️ store_notes: '{loc}' is not a {args.platform} store language code, skipping", file=sys.stderr)
             continue
         # 기본 언어는 항상 기본 문구. 그 외는 번역이 있으면 번역
         text, source = (default_text, "default") if i == 0 else locale_text(release, loc, default_text)
@@ -260,7 +260,7 @@ def cmd_write(args) -> dict:
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(description="스토어 릴리스 노트를 언어별로 준비한다 (#829)")
+    p = argparse.ArgumentParser(description="Prepare store release notes per language (#829)")
     sub = p.add_subparsers(dest="cmd", required=True)
     for name in ("write", "locales"):
         s = sub.add_parser(name)
@@ -270,9 +270,9 @@ def main(argv=None) -> int:
     w.add_argument("--version", required=True)
     w.add_argument("--version-code", default="")
     w.add_argument("--default-file", default="")
-    w.add_argument("--override", default="", help="기본 언어 문구를 이 값으로 고정 (STORE_WHATS_NEW_OVERRIDE)")
+    w.add_argument("--override", default="", help="Pin the default-language text to this value (STORE_WHATS_NEW_OVERRIDE)")
     w.add_argument("--out-dir", default="")
-    w.add_argument("--app-root", default="", help="android/ 가 있는 앱 폴더 (기본: --workspace)")
+    w.add_argument("--app-root", default="", help="App folder that contains android/ (default: --workspace)")
     args = p.parse_args(argv)
     result = cmd_write(args) if args.cmd == "write" else cmd_locales(args)
     sys.stdout.write(json.dumps(result, ensure_ascii=False) + "\n")

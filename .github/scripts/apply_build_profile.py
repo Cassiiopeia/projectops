@@ -87,15 +87,15 @@ def load_config(path: Path):
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
         # 깨진 설정을 조용히 무시하면 "왜 안 먹지"로 몇 시간이 간다
-        fail(f"빌드 프로파일 설정을 읽을 수 없습니다: {path} ({e})")
+        fail(f"Cannot read the build profile config: {path} ({e})")
     if not isinstance(data, dict):
-        fail(f"빌드 프로파일 설정이 객체가 아닙니다: {path}")
+        fail(f"The build profile config is not an object: {path}")
     return data
 
 
 def read_env_lines(env_file: Path):
     if not env_file.is_file():
-        fail(f".env 파일이 없습니다: {env_file}")
+        fail(f"No .env file: {env_file}")
     # 값에 비ASCII가 섞여도 죽지 않게 — 러너 로캘에 기대지 않는다.
     # replace 로 읽고 다시 쓰면 원본 바이트가 U+FFFD 로 영구 치환되므로
     # surrogateescape 로 읽어 쓸 때 같은 바이트로 되돌린다(#693).
@@ -152,10 +152,10 @@ def env_value(lines, key):
 def mask(key, value):
     """토큰·비밀번호류는 값을 찍지 않는다 — 빌드 로그는 누구나 본다."""
     if value is None or value == "":
-        return "(없음)"
+        return "(none)"
     upper = key.upper()
     if any(w in upper for w in ("TOKEN", "SECRET", "PASSWORD", "KEY_JSON", "CREDENTIAL")):
-        return "(설정됨)"
+        return "(set)"
     return value
 
 
@@ -168,9 +168,9 @@ def to_text(where, key, value):
         return str(value)
     if isinstance(value, str):
         if "\n" in value or "\r" in value:
-            fail(f"빌드 프로파일 값에 줄바꿈이 있습니다: {where}.{key}")
+            fail(f"Build profile value contains a newline: {where}.{key}")
         return value
-    fail(f"빌드 프로파일 값은 문자열·숫자·불리언이어야 합니다: {where}.{key} ({type(value).__name__})")
+    fail(f"Build profile values must be a string, number or boolean: {where}.{key} ({type(value).__name__})")
 
 
 def as_map(where, value):
@@ -178,7 +178,7 @@ def as_map(where, value):
     if value is None:
         return {}
     if not isinstance(value, dict):
-        fail(f"빌드 프로파일 설정 구조 오류: {where} 는 객체여야 합니다")
+        fail(f"Build profile config structure error: {where} must be an object")
     return {str(k): to_text(where, k, v) for k, v in value.items()}
 
 
@@ -186,7 +186,7 @@ def as_key_list(where, value):
     if value is None:
         return []
     if not isinstance(value, list) or not all(isinstance(k, str) for k in value):
-        fail(f"빌드 프로파일 설정 구조 오류: {where} 는 문자열 목록이어야 합니다")
+        fail(f"Build profile config structure error: {where} must be a list of strings")
     return list(value)
 
 
@@ -213,47 +213,47 @@ def verify_release(lines, dev_keys, secret_keys, flags, test_defines):
     for k in dev_keys:
         v = env_value(lines, k)
         if v is not None and v.strip().lower() == "true":
-            fail(f"배포 빌드에 개발 키가 켜져 있습니다: {k}")
+            fail(f"A development key is on in a release build: {k}")
     for k in secret_keys:
         v = env_value(lines, k)
         if v is not None and v.strip() != "":
-            fail(f"배포 빌드에 개발용 비밀값이 남아 있습니다: {k}")
+            fail(f"A development secret is left in a release build: {k}")
     # 컴파일타임 쪽도 본다. 여기가 뚫리면 .env가 아무리 깨끗해도 개발 빌드가 나간다.
     for k, v in test_defines.items():
         if f"--dart-define={k}={v}" in shlex.split(flags):
-            fail(f"배포 빌드에 테스트 전용 플래그가 들어갔습니다: {k}={v}")
-    log("✅ 런타임·컴파일타임 양쪽 모두 꺼진 것을 확인했습니다")
+            fail(f"A test-only flag got into a release build: {k}={v}")
+    log("✅ Confirmed both runtime and compile-time layers are off")
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        description="빌드 프로파일을 .env와 dart-define 양쪽에 함께 적용한다")
-    ap.add_argument("profile", help="프로파일 이름 (예: test · release)")
-    ap.add_argument("env_file", help=".env 경로")
+        description="Apply a build profile to both .env and dart-define")
+    ap.add_argument("profile", help="Profile name (e.g. test, release)")
+    ap.add_argument("env_file", help=".env path")
     ap.add_argument("--config", default=str(DEFAULT_CONFIG),
-                    help=f"설정 파일 (기본: {DEFAULT_CONFIG})")
+                    help=f"Config file (default: {DEFAULT_CONFIG})")
     args = ap.parse_args(argv)
 
     cfg = load_config(Path(args.config))
 
     # ── 설정이 없다 → 아무것도 하지 않는다 (기존 저장소 무영향) ──
     if cfg is None:
-        log(f"ℹ️  빌드 프로파일 설정이 없습니다 ({args.config}) — 건너뜁니다")
+        log(f"ℹ️  No build profile config ({args.config}) — skipping")
         emit_output("")
         return 0
 
     profiles = cfg.get("profiles") or {}
     if not isinstance(profiles, dict):
-        fail("빌드 프로파일 설정 구조 오류: profiles 는 객체여야 합니다")
+        fail("Build profile config structure error: profiles must be an object")
     if args.profile not in profiles:
-        available = ", ".join(sorted(profiles)) or "(없음)"
-        fail(f"알 수 없는 프로파일: {args.profile} — 설정에 있는 것: {available}")
+        available = ", ".join(sorted(profiles)) or "(none)"
+        fail(f"Unknown profile: {args.profile} — available in config: {available}")
 
     profile = profiles[args.profile]
     if profile is None:
         profile = {}
     if not isinstance(profile, dict):
-        fail(f"빌드 프로파일 설정 구조 오류: profiles.{args.profile} 는 객체여야 합니다")
+        fail(f"Build profile config structure error: profiles.{args.profile} must be an object")
     dev_keys = as_key_list("dev_keys", cfg.get("dev_keys"))
     secret_keys = as_key_list("secret_keys", cfg.get("secret_keys"))
     want_env = as_map(f"{args.profile}.env", profile.get("env"))
@@ -277,16 +277,16 @@ def main(argv=None):
 
     # ── 결과 — 두 층을 함께 보여준다 ──
     # 한 층만 찍으면 "적용 완료"가 거짓말이 된다. 그게 이 스크립트가 생긴 이유다.
-    log(f"✅ 빌드 프로파일 적용: {args.profile}")
-    log("── 런타임 스위치 (.env) ──")
+    log(f"✅ Build profile applied: {args.profile}")
+    log("── Runtime switches (.env) ──")
     shown = list(dict.fromkeys(list(want_env) + dev_keys + secret_keys))
     if shown:
         for k in shown:
             log(f"  {k:<28} {mask(k, env_value(lines, k))}")
     else:
-        log("  (정의된 키 없음)")
-    log("── 컴파일타임 플래그 (dart-define) ──")
-    log(f"  {flags}" if flags else "  (없음)")
+        log("  (no keys defined)")
+    log("── Compile-time flags (dart-define) ──")
+    log(f"  {flags}" if flags else "  (none)")
 
     if args.profile == GUARDED_PROFILE:
         test_defines = {}
@@ -294,7 +294,7 @@ def main(argv=None):
             if name != GUARDED_PROFILE:
                 p = {} if p is None else p
                 if not isinstance(p, dict):
-                    fail(f"빌드 프로파일 설정 구조 오류: profiles.{name} 는 객체여야 합니다")
+                    fail(f"Build profile config structure error: profiles.{name} must be an object")
                 test_defines.update(as_map(f"{name}.dart_define", p.get("dart_define")))
         # 배포 프로파일이 같은 키를 **다른 값으로** 덮어썼다면 위반이 아니다
         # (예: test 는 APP_FLAVOR=dev, release 는 APP_FLAVOR=prod).

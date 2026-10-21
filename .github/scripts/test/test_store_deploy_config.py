@@ -67,7 +67,7 @@ def test_main은_GITHUB_ENV에_쓰고_잘못된_설정은_종료코드_1(tmp_pat
 def test_push_에서는_심사_단계를_store_only_로_낮춘다(platform, mode):
     override, note = c.push_policy(None, platform, "push", mode)
     assert override == {"DEPLOY_MODE": "store_only"}
-    assert "수동 실행" in note and "auto_submit_on_push" in note
+    assert "manually" in note and "auto_submit_on_push" in note
 
 
 def test_수동_실행에서는_고른_모드를_그대로_둔다():

@@ -54,47 +54,47 @@ def get_template_version() -> str:
 
 def validate_version(v: str):
     if not VERSION_RE.match(v):
-        print_error(f"잘못된 버전 형식: {v}")
-        print_error("올바른 형식: x.y.z (예: 1.0.0, 2.1.3)")
+        print_error(f"Invalid version format: {v}")
+        print_error("Expected format: x.y.z (e.g. 1.0.0, 2.1.3)")
         sys.exit(1)
 
 
 def validate_project_type(t: str):
     if t not in VALID_TYPES:
-        print_error(f"지원하지 않는 프로젝트 타입: {t}")
-        print_error(f"지원 타입: {' '.join(VALID_TYPES)}")
+        print_error(f"Unsupported project type: {t}")
+        print_error(f"Supported types: {' '.join(VALID_TYPES)}")
         sys.exit(1)
 
 
 def detect_default_branch() -> str:
-    print_step("Default branch 자동 감지 중...")
+    print_step("Detecting the default branch...")
     if shutil.which("gh"):
         d = run(["gh", "repo", "view", "--json", "defaultBranchRef", "-q", ".defaultBranchRef.name"])
         if d:
-            print_info(f"gh CLI로 감지: {d}")
+            print_info(f"Detected with gh CLI: {d}")
             return d
     d = run(["git", "symbolic-ref", "refs/remotes/origin/HEAD"])
     if d:
         d = d.replace("refs/remotes/origin/", "")
-        print_info(f"git symbolic-ref로 감지: {d}")
+        print_info(f"Detected with git symbolic-ref: {d}")
         return d
     show = run(["git", "remote", "show", "origin"])
     for line in show.split("\n"):
         if "HEAD branch" in line:
             d = line.split(":")[-1].strip()
             if d:
-                print_info(f"git remote show로 감지: {d}")
+                print_info(f"Detected with git remote show: {d}")
                 return d
-    print_warning("자동 감지 실패, 기본값 사용: main")
+    print_warning("Auto-detection failed, using the default: main")
     return "main"
 
 
 def create_version_yml(version, ptype, branch, user, template_version):
-    print_step("version.yml 파일 생성 중...")
-    print_info(f"버전: {version}")
-    print_info(f"타입: {ptype}")
-    print_info(f"브랜치: {branch}")
-    print_info(f"사용자: {user}")
+    print_step("Creating version.yml...")
+    print_info(f"Version: {version}")
+    print_info(f"Type: {ptype}")
+    print_info(f"Branch: {branch}")
+    print_info(f"User: {user}")
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -155,22 +155,22 @@ metadata:
       label_style: en
 """
     Path("version.yml").write_text(content, encoding="utf-8", newline="\n")
-    print_success("version.yml 파일이 생성되었습니다.")
+    print_success("version.yml created.")
 
 
 def update_workflow_triggers(branch):
     if branch == "main":
-        print_info("브랜치가 main이므로 워크플로우 변경 불필요")
-        print_info("모든 워크플로우는 기본적으로 main 브랜치를 트리거로 사용합니다")
+        print_info("The branch is main, so no workflow changes are needed")
+        print_info("All workflows use the main branch as their trigger by default")
         return
 
-    print_step(f"워크플로우 트리거 브랜치 변경 중: main → {branch}")
+    print_step(f"Changing workflow trigger branch: main → {branch}")
     main_branch_workflows = ["PROJECT-VERSION-CONTROL.yaml"]
     updated = 0
     for wf in main_branch_workflows:
         f = Path(".github/workflows") / wf
         if not f.is_file():
-            print_warning(f"{wf} 파일이 존재하지 않습니다")
+            print_warning(f"{wf} does not exist")
             continue
         text = f.read_text(encoding="utf-8")
         if 'branches: ["main"]' in text:
@@ -178,63 +178,63 @@ def update_workflow_triggers(branch):
         elif "branches: ['main']" in text:
             f.write_text(text.replace("branches: ['main']", f"branches: ['{branch}']"), encoding="utf-8", newline="\n")
         else:
-            print_warning(f"{wf} 파일에서 main 브랜치 트리거를 찾을 수 없습니다")
+            print_warning(f"No main branch trigger found in {wf}")
             continue
         print(f"  ✓ {wf}", file=sys.stderr)
         updated += 1
     if updated > 0:
-        print_success(f"{updated} 개 워크플로우 파일 업데이트 완료")
+        print_success(f"Updated {updated} workflow file(s)")
     else:
-        print_warning("업데이트할 워크플로우 파일이 없습니다")
+        print_warning("No workflow files to update")
 
 
 # 삭제 대상 — (경로, 사람이 읽는 라벨). 파일/폴더 자동 판별.
 # ⚠️ 루트에 마켓플레이스/템플릿 전용 파일을 추가하면 여기에도 등록해야 한다 (CLAUDE.md 규칙).
 CLEANUP_TARGETS = [
-    ("CHANGELOG.md", "CHANGELOG.md 삭제"),
-    ("CHANGELOG.json", "CHANGELOG.json 삭제"),
-    ("plugins", "plugins 폴더 삭제 (마켓플레이스 전용 extras 플러그인)"),
-    ("hooks", "hooks 폴더 삭제 (Claude Code 플러그인 훅)"),
-    ("LICENSE", "LICENSE 삭제"),
-    ("CONTRIBUTING.md", "CONTRIBUTING.md 삭제"),
-    ("SECURITY.md", "SECURITY.md 삭제"),
-    ("CODE_OF_CONDUCT.md", "CODE_OF_CONDUCT.md 삭제 (이 저장소 전용 신고 연락처)"),
-    ("ARCHITECTURE.md", "ARCHITECTURE.md 삭제"),
-    (".github/CODEOWNERS", "CODEOWNERS 삭제 (이 저장소 소유자 지정)"),
-    (".github/i18n", "i18n 오버레이 폴더 삭제 (한국어 템플릿, 이 저장소 전용)"),
-    (".github/ISSUE_TEMPLATE/projectops-installer-bug.yml", "projectops 설치기 버그 양식 삭제 (이 저장소 전용)"),
-    ("CLAUDE.md", "CLAUDE.md 삭제"),
-    ("AGENTS.md", "AGENTS.md 삭제"),
-    ("GEMINI.md", "GEMINI.md 삭제"),
-    ("llms.txt", "llms.txt 삭제 (이 저장소 전용)"),
-    ("gemini-extension.json", "gemini-extension.json 삭제"),
-    (".github/scripts/test", ".github/scripts/test 폴더 삭제"),
-    (".github/workflows/PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC.yaml", "PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC.yaml 삭제 (마켓플레이스 전용)"),
-    (".github/workflows/PROJECT-TEMPLATE-NPM-PUBLISH.yaml", "PROJECT-TEMPLATE-NPM-PUBLISH.yaml 삭제 (마켓플레이스 전용)"),
-    (".github/workflows/PROJECT-TEMPLATE-DOCS-DEPLOY.yaml", "PROJECT-TEMPLATE-DOCS-DEPLOY.yaml 삭제 (마켓플레이스 전용)"),
-    (".github/workflows/PROJECT-TEMPLATE-SYNC-COMMUNITY-LABELS.yaml", "PROJECT-TEMPLATE-SYNC-COMMUNITY-LABELS.yaml 삭제 (이 저장소 전용)"),
-    (".github/config/community-labels.yml", "community-labels.yml 삭제 (이 저장소 전용 커뮤니티 라벨)"),
-    ("site", "site 폴더 삭제 (문서 사이트 설정 — 이 저장소 전용)"),
-    (".github/workflows/PROJECT-TEMPLATE-CI.yaml", "PROJECT-TEMPLATE-CI.yaml 삭제 (마켓플레이스 전용)"),
-    ("docs", "docs 폴더 삭제"),
-    (".claude-plugin", ".claude-plugin 폴더 삭제 (플러그인 매니페스트)"),
-    (".codex-plugin", ".codex-plugin 폴더 삭제 (플러그인 매니페스트)"),
-    (".agents", ".agents 폴더 삭제 (Codex 마켓플레이스 메타데이터)"),
-    (".cursor", ".cursor 폴더 삭제 (IDE 스킬 복사본)"),
-    ("skills", "skills 폴더 삭제 (마켓플레이스 전용 스킬)"),
-    ("scripts", "scripts 폴더 삭제 (마켓플레이스 전용 스크립트)"),
-    ("package.json", "package.json 삭제 (pi 패키지 매니페스트)"),
-    ("bin", "bin 폴더 삭제 (projectops CLI)"),
-    ("src", "src 폴더 삭제 (projectops CLI)"),
-    ("harness", "harness 폴더 삭제 (pi Persona Harness)"),
-    (".suh-template.example", ".suh-template.example 폴더 삭제 (템플릿 전용)"),
+    ("CHANGELOG.md", "Remove CHANGELOG.md"),
+    ("CHANGELOG.json", "Remove CHANGELOG.json"),
+    ("plugins", "Remove plugins folder (marketplace-only extras plugin)"),
+    ("hooks", "Remove hooks folder (Claude Code plugin hooks)"),
+    ("LICENSE", "Remove LICENSE"),
+    ("CONTRIBUTING.md", "Remove CONTRIBUTING.md"),
+    ("SECURITY.md", "Remove SECURITY.md"),
+    ("CODE_OF_CONDUCT.md", "Remove CODE_OF_CONDUCT.md (this repository's own report contact)"),
+    ("ARCHITECTURE.md", "Remove ARCHITECTURE.md"),
+    (".github/CODEOWNERS", "Remove CODEOWNERS (owners of this repository)"),
+    (".github/i18n", "Remove i18n overlay folder (Korean templates, this repository only)"),
+    (".github/ISSUE_TEMPLATE/projectops-installer-bug.yml", "Remove projectops installer bug form (this repository only)"),
+    ("CLAUDE.md", "Remove CLAUDE.md"),
+    ("AGENTS.md", "Remove AGENTS.md"),
+    ("GEMINI.md", "Remove GEMINI.md"),
+    ("llms.txt", "Remove llms.txt (this repository only)"),
+    ("gemini-extension.json", "Remove gemini-extension.json"),
+    (".github/scripts/test", "Remove .github/scripts/test folder"),
+    (".github/workflows/PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC.yaml", "Remove PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC.yaml (marketplace only)"),
+    (".github/workflows/PROJECT-TEMPLATE-NPM-PUBLISH.yaml", "Remove PROJECT-TEMPLATE-NPM-PUBLISH.yaml (marketplace only)"),
+    (".github/workflows/PROJECT-TEMPLATE-DOCS-DEPLOY.yaml", "Remove PROJECT-TEMPLATE-DOCS-DEPLOY.yaml (marketplace only)"),
+    (".github/workflows/PROJECT-TEMPLATE-SYNC-COMMUNITY-LABELS.yaml", "Remove PROJECT-TEMPLATE-SYNC-COMMUNITY-LABELS.yaml (this repository only)"),
+    (".github/config/community-labels.yml", "Remove community-labels.yml (this repository's community labels)"),
+    ("site", "Remove site folder (docs site settings — this repository only)"),
+    (".github/workflows/PROJECT-TEMPLATE-CI.yaml", "Remove PROJECT-TEMPLATE-CI.yaml (marketplace only)"),
+    ("docs", "Remove docs folder"),
+    (".claude-plugin", "Remove .claude-plugin folder (plugin manifest)"),
+    (".codex-plugin", "Remove .codex-plugin folder (plugin manifest)"),
+    (".agents", "Remove .agents folder (Codex marketplace metadata)"),
+    (".cursor", "Remove .cursor folder (IDE skill copies)"),
+    ("skills", "Remove skills folder (marketplace-only skills)"),
+    ("scripts", "Remove scripts folder (marketplace-only scripts)"),
+    ("package.json", "Remove package.json (pi package manifest)"),
+    ("bin", "Remove bin folder (projectops CLI)"),
+    ("src", "Remove src folder (projectops CLI)"),
+    ("harness", "Remove harness folder (pi Persona Harness)"),
+    (".suh-template.example", "Remove .suh-template.example folder (template only)"),
     # 릴리스마다 changelog-deploy가 재생성하는 템플릿 레포 전용 산출물
-    ("pr_body.md", "pr_body.md 삭제 (템플릿 레포 릴리스 작업 산출물)"),
+    ("pr_body.md", "Remove pr_body.md (template repo release artifact)"),
 ]
 
 
 def cleanup_template_files():
-    print_step("템플릿 관련 파일 삭제 중...")
+    print_step("Removing template-only files...")
     # 주의: PROJECTOPS-SETUP-GUIDE.md는 보존한다.
     for rel, label in CLEANUP_TARGETS:
         p = Path(rel)
@@ -244,28 +244,28 @@ def cleanup_template_files():
         elif p.is_file():
             p.unlink(missing_ok=True)
             print(f"  ✓ {label}", file=sys.stderr)
-    print_success("템플릿 관련 파일 삭제 완료")
+    print_success("Template-only files removed")
 
 
 def ensure_gitignore():
-    print_step(".gitignore 파일 확인 및 업데이트 중...")
+    print_step("Checking and updating .gitignore...")
     required = ["/.idea", "/.claude/settings.local.json"]
     gi = Path(".gitignore")
     if not gi.is_file():
-        print_info(".gitignore 파일이 없습니다. 생성합니다.")
+        print_info("No .gitignore found. Creating it.")
         gi.write_text("# IDE Settings\n/.idea\n\n# Claude AI Settings\n/.claude/settings.local.json\n", encoding="utf-8", newline="\n")
-        print_success(".gitignore 파일 생성 완료")
+        print_success(".gitignore created")
         return
 
-    print_info("기존 .gitignore 파일 발견. 필수 항목 확인 중...")
+    print_info("Existing .gitignore found. Checking required entries...")
     existing = gi.read_text(encoding="utf-8")
     lines = set(existing.split("\n"))
     to_add = [e for e in required if e not in lines and e.lstrip("/") not in lines]
     if not to_add:
-        print_info("필수 항목이 이미 모두 존재합니다. 건너뜁니다.")
+        print_info("All required entries already exist. Skipping.")
         return
 
-    print_info(f"{len(to_add)} 개 항목 추가 중...")
+    print_info(f"Adding {len(to_add)} entries...")
     suffix = ""
     if existing and not existing.endswith("\n"):
         suffix += "\n"
@@ -276,11 +276,11 @@ def ensure_gitignore():
         suffix += e + "\n"
         print_info(f"  ✓ {e}")
     gi.write_text(existing + suffix, encoding="utf-8", newline="\n")
-    print_success(f".gitignore 업데이트 완료 ({len(to_add)} 개 항목 추가)")
+    print_success(f".gitignore updated ({len(to_add)} entries added)")
 
 
 def initialize_readme(project_name, version):
-    print_step("README.md 파일 초기화 중...")
+    print_step("Initializing README.md...")
     # KST(=UTC+9) 타임스탬프 — tzdata 의존 없이 고정 오프셋
     from datetime import timedelta
     kst = datetime.now(timezone.utc) + timedelta(hours=9)
@@ -297,11 +297,11 @@ def initialize_readme(project_name, version):
 <!-- Template initialized: {stamp} -->
 """
     Path("README.md").write_text(content, encoding="utf-8", newline="\n")
-    print_success("README.md 파일이 초기화되었습니다.")
+    print_success("README.md initialized.")
 
 
 def update_issue_templates(repo_owner):
-    print_step("이슈 템플릿 assignee 업데이트 중...")
+    print_step("Updating issue template assignees...")
     templates = ["bug_report.md", "design_request.md", "feature_request.md", "qa_request.md"]
     updated = 0
     for t in templates:
@@ -315,13 +315,13 @@ def update_issue_templates(repo_owner):
         print(f"  ✓ {t}", file=sys.stderr)
         updated += 1
     if updated == 0:
-        print_warning("업데이트할 이슈 템플릿이 없습니다.")
+        print_warning("No issue templates to update.")
     else:
-        print_success(f"이슈 템플릿 {updated} 개 업데이트 완료")
+        print_success(f"Updated {updated} issue template(s)")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="GitHub 템플릿 초기화")
+    parser = argparse.ArgumentParser(description="Initialize the GitHub template")
     parser.add_argument("-v", "--version", default="0.0.0")
     parser.add_argument("-t", "--type", default="basic", dest="ptype")
     args = parser.parse_args()
@@ -334,7 +334,7 @@ def main():
     template_version = get_template_version()
 
     print("", file=sys.stderr)
-    print("GitHub 템플릿 초기화 스크립트", file=sys.stderr)
+    print("GitHub template initializer", file=sys.stderr)
     print("", file=sys.stderr)
 
     validate_version(version)
@@ -346,9 +346,9 @@ def main():
         toplevel = run(["git", "rev-parse", "--show-toplevel"])
         project_name = Path(toplevel or os.getcwd()).name
 
-    print(f"프로젝트명: {project_name}", file=sys.stderr)
-    print(f"설정된 버전: {version}", file=sys.stderr)
-    print(f"설정된 타입: {ptype}", file=sys.stderr)
+    print(f"Project name: {project_name}", file=sys.stderr)
+    print(f"Version: {version}", file=sys.stderr)
+    print(f"Type: {ptype}", file=sys.stderr)
 
     detected_branch = detect_default_branch()
 
@@ -360,9 +360,9 @@ def main():
     update_issue_templates(repo_owner)
 
     print("", file=sys.stderr)
-    print("\U0001f389 템플릿 초기화 완료!", file=sys.stderr)
-    print(f"  버전: {version} / 타입: {ptype} / 브랜치: {detected_branch}", file=sys.stderr)
-    print("  다음: README.md 수정 → git commit → git push", file=sys.stderr)
+    print("\U0001f389 Template initialized!", file=sys.stderr)
+    print(f"  Version: {version} / Type: {ptype} / Branch: {detected_branch}", file=sys.stderr)
+    print("  Next: edit README.md → git commit → git push", file=sys.stderr)
     return 0
 
 

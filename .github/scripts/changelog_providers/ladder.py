@@ -63,8 +63,8 @@ def detect_key():
         if legacy.startswith(prefix):
             return name, "MODEL_API_KEY"
     # 접두사를 모르면 gemini로 시도한다 — 무료 등급이라 가장 흔하다.
-    print("ℹ️ MODEL_API_KEY의 서비스를 알 수 없어 Gemini로 시도합니다. "
-          "GEMINI_API_KEY 같은 전용 이름을 쓰면 정확합니다.", file=sys.stderr)
+    print("ℹ️ Cannot tell which service MODEL_API_KEY is for, trying Gemini. "
+          "A dedicated name such as GEMINI_API_KEY is exact.", file=sys.stderr)
     return "gemini", "MODEL_API_KEY"
 
 
@@ -140,19 +140,19 @@ def main():
     provider = os.environ.get("CHANGELOG_PROVIDER") or "commit"
     if provider == "github-ai":
         # 종료된 서비스 — 저장값이 남은 기존 저장소를 위해 조용히 흡수한다 (#566).
-        print("ℹ️ github-ai는 서비스가 종료되어 건너뜁니다 (GitHub Models, 2026-07-30)", file=sys.stderr)
+        print("ℹ️ Skipping github-ai because the service was shut down (GitHub Models, 2026-07-30)", file=sys.stderr)
         provider = "commit"
     rungs = build_rungs(provider)
     attempted, failed, winner = [], [], None
 
     for label, script, extra_env in rungs:
         attempted.append(label)
-        print(f"🪜 provider 시도: {label}")
+        print(f"🪜 Trying provider: {label}")
         if run_rung(script, extra_env):
             winner = label
             break
         failed.append(label)
-        print(f"↩️ {label} 실패 — 다음 단계로 폴백", file=sys.stderr)
+        print(f"↩️ {label} failed — falling back to the next step", file=sys.stderr)
 
     notice = None
     if winner and failed:
@@ -165,7 +165,7 @@ def main():
         )
 
     if not winner:
-        print("❌ 사다리 전 단계 실패 — pr_body.md 생성 불가", file=sys.stderr)
+        print("❌ Every ladder step failed — cannot create pr_body.md", file=sys.stderr)
         sys.exit(1)
     print(f"PROVIDER={winner}")
 

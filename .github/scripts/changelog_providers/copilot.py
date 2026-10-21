@@ -32,13 +32,13 @@ def build_prompt(commits, lang=None):
 
 def main():
     if not shutil.which("copilot"):
-        fail("copilot: CLI 미설치 (npm install -g @github/copilot) — 폴백")
+        fail("copilot: CLI not installed (npm install -g @github/copilot) — falling back")
     if not os.environ.get("GITHUB_TOKEN"):
-        fail("copilot: GITHUB_TOKEN 없음 (permissions: copilot-requests: write 필요) — 폴백")
+        fail("copilot: no GITHUB_TOKEN (needs permissions: copilot-requests: write) — falling back")
 
     commits = collect_commits(os.environ.get("COMMIT_RANGE", "origin/main..HEAD"))
     if not commits:
-        fail("copilot: 요약할 커밋 없음 — 폴백")
+        fail("copilot: no commits to summarize — falling back")
 
     # --no-ask-user: 자동화에는 되묻는 사람이 없다. 이것이 없으면 입력 대기로 멈춘다.
     try:
@@ -47,18 +47,18 @@ def main():
             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180,
         )
     except subprocess.TimeoutExpired:
-        fail("copilot: 응답 시간 초과 — 폴백")
+        fail("copilot: response timed out — falling back")
     except OSError as e:
-        fail(f"copilot: 실행 실패 ({e}) — 폴백")
+        fail(f"copilot: run failed ({e}) — falling back")
 
     if proc.returncode != 0:
         # 크레딧 소진·권한 부족 등. 사유는 stderr에 남기고 다음 단으로 넘긴다.
         detail = (proc.stderr or "").strip().splitlines()
-        fail(f"copilot: 실행 실패 (exit {proc.returncode}) {detail[-1] if detail else ''} — 폴백")
+        fail(f"copilot: run failed (exit {proc.returncode}) {detail[-1] if detail else ''} — falling back")
 
     content = (proc.stdout or "").strip()
     if not content or "*" not in content:
-        fail("copilot: 응답이 비었거나 형식 불일치 — 폴백")
+        fail("copilot: empty response or unexpected format — falling back")
 
     write_pr_body(content)
     print("PROVIDER=copilot")

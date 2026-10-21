@@ -74,11 +74,11 @@ def _emit(payload: dict) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="앱 빌드 번호 규칙")
+    p = argparse.ArgumentParser(description="App build number rule")
     sub = p.add_subparsers(dest="cmd", required=True)
-    n = sub.add_parser("next", help="다음 빌드 번호 계산")
-    n.add_argument("--floor", type=int, action="append", default=[], help="번호 하한 (여러 번 가능)")
-    d = sub.add_parser("describe", help="번호를 UTC 시각으로 되돌림")
+    n = sub.add_parser("next", help="Compute the next build number")
+    n.add_argument("--floor", type=int, action="append", default=[], help="Lower bound for the number (repeatable)")
+    d = sub.add_parser("describe", help="Convert a number back to UTC time")
     d.add_argument("number", type=int)
     args = p.parse_args(argv)
 
@@ -87,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
         _write_github_output({"build_number": r["build_number"]})
         _emit({
             "ok": True, **r,
-            "summary": f"빌드 번호 {r['build_number']} ({r['source']}, {r['built_at_utc']})",
+            "summary": f"Build number {r['build_number']} ({r['source']}, {r['built_at_utc']})",
             "next": None,
         })
         return 0

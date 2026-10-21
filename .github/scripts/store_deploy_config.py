@@ -64,9 +64,9 @@ def load(path: str) -> dict | None:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
     except (OSError, ValueError) as e:
-        raise ConfigError(f"{path} 를 읽을 수 없습니다: {e}")
+        raise ConfigError(f"Cannot read {path}: {e}")
     if not isinstance(data, dict):
-        raise ConfigError(f"{path} 의 최상위는 객체여야 합니다")
+        raise ConfigError(f"The top level of {path} must be an object")
     return data
 
 
@@ -76,7 +76,7 @@ def resolve(data: dict | None, platform: str, input_deploy_mode: str = "") -> di
         return {}
     section = data.get(platform) or {}
     if not isinstance(section, dict):
-        raise ConfigError(f"'{platform}' 는 객체여야 합니다")
+        raise ConfigError(f"'{platform}' must be an object")
     out: dict = {}
 
     mode = section.get("deploy_mode")
@@ -84,8 +84,8 @@ def resolve(data: dict | None, platform: str, input_deploy_mode: str = "") -> di
         mode = str(mode).strip()
         if mode not in DEPLOY_MODES:
             raise ConfigError(
-                f"{platform}.deploy_mode 값 '{mode}' 이 올바르지 않습니다. "
-                f"{' | '.join(sorted(DEPLOY_MODES - {'testflight_only', 'appstore_prepare', 'appstore_submit'}))} 중 하나여야 합니다")
+                f"Invalid {platform}.deploy_mode value '{mode}'. "
+                f"Must be one of {' | '.join(sorted(DEPLOY_MODES - {'testflight_only', 'appstore_prepare', 'appstore_submit'}))}")
         # 수동 실행 입력이 있으면 그 실행만 우선한다
         if not (input_deploy_mode or "").strip():
             out["DEPLOY_MODE"] = mode
@@ -93,29 +93,29 @@ def resolve(data: dict | None, platform: str, input_deploy_mode: str = "") -> di
     rollout = section.get("production_rollout")
     if rollout is not None:
         if platform != "android":
-            raise ConfigError("production_rollout 은 android 에서만 쓴다")
+            raise ConfigError("production_rollout is for android only")
         try:
             value = float(str(rollout).strip())
         except ValueError:
             value = None
         if value is None or not (0 < value <= 1):
-            raise ConfigError(f"android.production_rollout 값 '{rollout}' 은 0 초과 1.0 이하의 숫자여야 합니다 (예: 1.0, 0.1)")
+            raise ConfigError(f"android.production_rollout value '{rollout}' must be a number greater than 0 and at most 1.0 (e.g. 1.0, 0.1)")
         out["PRODUCTION_ROLLOUT"] = str(rollout).strip()
 
     for key in ("auto_submit_on_push", "promote_closed_testing"):
         v = section.get(key)
         if v is not None and not isinstance(v, bool):
-            raise ConfigError(f"{platform}.{key} 는 true 또는 false 여야 합니다 (받은 값: {v!r})")
+            raise ConfigError(f"{platform}.{key} must be true or false (got: {v!r})")
     if section.get("promote_closed_testing") is not None:
         if platform != "android":
-            raise ConfigError("promote_closed_testing 은 android 에서만 쓴다")
+            raise ConfigError("promote_closed_testing is for android only")
         out["PROMOTE_TO_CLOSED_TESTING"] = "true" if section["promote_closed_testing"] else "false"
     hours = section.get("review_cooldown_hours")
     if hours is not None:
         if platform != "android":
-            raise ConfigError("review_cooldown_hours 는 android 에서만 쓴다")
+            raise ConfigError("review_cooldown_hours is for android only")
         if not isinstance(hours, (int, float)) or isinstance(hours, bool) or hours < 0:
-            raise ConfigError(f"android.review_cooldown_hours 는 0 이상의 숫자여야 합니다 (받은 값: {hours!r})")
+            raise ConfigError(f"android.review_cooldown_hours must be a number of 0 or more (got: {hours!r})")
     return out
 
 
@@ -128,13 +128,13 @@ def push_policy(data: dict | None, platform: str, event: str, effective_mode: st
         return {}, None
     section = ((data or {}).get(platform) or {}) if isinstance((data or {}).get(platform), dict) else {}
     if section.get("auto_submit_on_push") is True:
-        return {}, f"auto_submit_on_push: true — push 에서도 {mode} 로 진행합니다"
-    what = "프로덕션 승급" if platform == "android" else "App Store 심사 준비·제출"
+        return {}, f"auto_submit_on_push: true — proceeding with {mode} on push too"
+    what = "production promotion" if platform == "android" else "App Store review preparation and submission"
     return {"DEPLOY_MODE": "store_only"}, (
-        f"push 배포라 {what}({mode})을 건너뛰고 store_only 로 진행합니다. "
-        f"{what}은 Actions 에서 이 워크플로를 수동 실행(deploy_mode)해 올립니다. "
-        "push 마다 자동으로 하려면 .github/config/store-deploy.json 에 "
-        f'"{platform}": {{"auto_submit_on_push": true}} 를 적습니다 — 심사 중에 다음 배포가 오면 그 심사가 다시 시작됩니다.')
+        f"This is a push deploy, so {what} ({mode}) is skipped and store_only is used. "
+        f"Run this workflow manually in Actions (deploy_mode) for {what}. "
+        "To do it automatically on every push, set "
+        f'"{platform}": {{"auto_submit_on_push": true}} in .github/config/store-deploy.json — a deploy that arrives during review restarts that review.')
 
 
 def recent_production_submit(runs: list[dict], now_ts: float, hours: float) -> dict | None:
@@ -168,14 +168,14 @@ def review_guard(a) -> int:
     실패해도 배포를 막지 않는다 — 확인을 못 하면 경고만 남기고 설정대로 진행한다.
     """
     if os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch":
-        print("수동 실행 — 비공개·공개 승급은 고른 값대로 진행합니다.")
+        print("Manual run — closed/open testing promotion follows the chosen values.")
         return 0
     if os.environ.get("PROMOTE_TO_CLOSED_TESTING", "false") != "true" and os.environ.get("PROMOTE_TO_OPEN_TESTING", "false") != "true":
         return 0
     try:
         data = load(a.file)
     except ConfigError as e:
-        print(f"::error title=store-deploy.json 설정 오류::{e}")
+        print(f"::error title=store-deploy.json config error::{e}")
         return 1
     hours = ((data or {}).get("android") or {}).get("review_cooldown_hours", DEFAULT_REVIEW_COOLDOWN_HOURS)
     if not hours:
@@ -189,16 +189,16 @@ def review_guard(a) -> int:
         runs = (github_api.request("GET", url, token, user_agent="projectops-store-deploy",
                                    timeout_seconds=20) or {}).get("workflow_runs", [])
     except Exception as e:  # noqa: BLE001 — 확인 실패는 배포를 막지 않는다
-        print(f"::warning title=프로덕션 심사 확인 실패::최근 수동 프로덕션 제출을 확인하지 못해 설정대로 진행합니다 ({e})")
+        print(f"::warning title=Production review check failed::Could not check recent manual production submissions, proceeding as configured ({e})")
         return 0
     hit = recent_production_submit(runs, _time.time(), float(hours))
     if not hit:
-        print(f"최근 {hours}시간 안에 수동 프로덕션 제출이 없습니다 — 비공개·공개 승급을 진행합니다.")
+        print(f"No manual production submission in the last {hours} hours — proceeding with closed/open testing promotion.")
         return 0
     _write_env({"PROMOTE_TO_CLOSED_TESTING": "false", "PROMOTE_TO_OPEN_TESTING": "false"})
-    print(f"::warning title=비공개·공개 승급을 건너뜀::{hit.get('updated_at')} 에 수동 프로덕션 제출이 있었습니다. "
-          f"그 심사가 도는 동안 승급하면 프로덕션 심사가 다시 시작되므로 {hours}시간 동안은 내부 테스트에만 올립니다 "
-          f"({hit.get('html_url')}). 바로 올리려면 수동 실행에서 promote_to_closed_testing 을 켭니다.")
+    print(f"::warning title=Skipped closed/open testing promotion::A manual production submission ran at {hit.get('updated_at')}. "
+          f"Promoting while that review runs restarts the production review, so for {hours} hours builds go to internal testing only "
+          f"({hit.get('html_url')}). To promote now, turn on promote_to_closed_testing in a manual run.")
     return 0
 
 
@@ -208,7 +208,7 @@ def main(argv=None) -> int:
     r = sub.add_parser("resolve")
     r.add_argument("--platform", required=True, choices=PLATFORMS)
     r.add_argument("--file", default=DEFAULT_PATH)
-    g = sub.add_parser("review-guard", help="push 의 중간 트랙 승급이 진행 중인 프로덕션 심사를 건드리지 않게 한다")
+    g = sub.add_parser("review-guard", help="Keep push-time intermediate track promotion from disturbing a production review in progress")
     g.add_argument("--file", default=DEFAULT_PATH)
     a = ap.parse_args(argv)
     if a.cmd == "review-guard":
@@ -218,7 +218,7 @@ def main(argv=None) -> int:
         data = load(a.file)
         values = resolve(data, a.platform, os.environ.get("INPUT_DEPLOY_MODE", ""))
     except ConfigError as e:
-        print(f"::error title=store-deploy.json 설정 오류::{e}")
+        print(f"::error title=store-deploy.json config error::{e}")
         print(f"❌ {e}", file=sys.stderr)
         return 1
 
@@ -227,14 +227,14 @@ def main(argv=None) -> int:
                  or os.environ.get("DEPLOY_MODE", "store_only"))
     override, note = push_policy(data, a.platform, os.environ.get("GITHUB_EVENT_NAME", ""), effective)
     if note:
-        print(f"::notice title=심사 단계는 수동 실행에서::{note}" if override else f"ℹ️ {note}")
+        print(f"::notice title=Review steps run from a manual run::{note}" if override else f"ℹ️ {note}")
     values.update(override)
 
     if not values:
-        print("store-deploy.json 에서 적용할 값이 없습니다 (파일이 없거나 수동 입력이 우선) — 레포 변수와 기본값을 따릅니다.")
+        print("Nothing to apply from store-deploy.json (no file, or the manual input wins) — using repository variables and defaults.")
         return 0
     for k, v in values.items():
-        print(f"📄 적용 → {k}={v}")
+        print(f"📄 Applied → {k}={v}")
     _write_env(values)
     return 0
 

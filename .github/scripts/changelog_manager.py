@@ -155,19 +155,19 @@ def _parse_summary_markdown(md_content: str) -> dict:
     # 1단계: 정밀 파싱
     detected = _parse_markdown_precise(md_content)
     if detected:
-        print("  → 정밀 파서 성공")
+        print("  → Strict parser succeeded")
         return detected
 
     # 2단계: 관대한 파싱
     detected = _parse_markdown_lenient(md_content)
     if detected:
-        print("  → 관대한 파서 성공")
+        print("  → Lenient parser succeeded")
         return detected
 
     # 3단계: 휴리스틱 파싱
     detected = _parse_markdown_heuristic(md_content)
     if detected:
-        print("  → 휴리스틱 파서 성공")
+        print("  → Heuristic parser succeeded")
     return detected
 
 
@@ -295,7 +295,7 @@ def cmd_update_from_summary() -> int:
         project_types = [project_type]
     # VERSION 없이 기록하면 version: null 릴리스가 남아 이후 모든 판정이 오염된다
     if not version:
-        print("❌ VERSION 환경변수가 필요합니다", file=sys.stderr)
+        print("❌ The VERSION environment variable is required", file=sys.stderr)
         return 1
     today = os.environ.get('TODAY')
     pr_number_raw = os.environ.get('PR_NUMBER')
@@ -319,30 +319,30 @@ def cmd_update_from_summary() -> int:
     input_file = next((f for f in candidates if os.path.isfile(f)), None)
 
     if not input_file:
-        print(f"❌ 입력 파일을 찾을 수 없습니다 (확인한 경로: {', '.join(candidates)})")
+        print(f"❌ Input file not found (paths checked: {', '.join(candidates)})")
         return 1
 
     try:
         with open(input_file, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        print(f"📄 입력 파일: {input_file}")
-        print(f"📝 파일 크기: {len(content)} bytes")
+        print(f"📄 Input file: {input_file}")
+        print(f"📝 File size: {len(content)} bytes")
 
         # 언어별 노트 블록은 한국어 파서가 보기 전에 떼어낸다 (#829)
         content, store_notes = extract_store_notes(content)
         if store_notes:
-            print(f"🌐 스토어 언어별 노트: {', '.join(store_notes)}")
+            print(f"🌐 Store notes by language: {', '.join(store_notes)}")
 
         # Markdown 파싱 (통합)
-        print("\n🔍 Markdown 파싱 시작...")
+        print("\n🔍 Parsing Markdown...")
         categories = _parse_summary_markdown(content)
 
         parse_method = 'markdown' if categories else 'markdown_failed'
         if categories:
-            print(f"✅ 파싱 성공: {len(categories)}개 카테고리")
+            print(f"✅ Parsed: {len(categories)} categories")
         else:
-            print("⚠️ 파싱 실패, raw_summary만 저장")
+            print("⚠️ Parsing failed, saving raw_summary only")
 
         # raw_summary 생성 (노이즈 제거)
         raw_summary = _clean_summary_noise(content)
@@ -363,14 +363,14 @@ def cmd_update_from_summary() -> int:
             new_release["store_notes"] = store_notes
 
         # 파싱 결과 출력
-        print("\n📊 파싱 결과:")
-        print(f"  - 파싱 방식: {parse_method}")
-        print(f"  - raw_summary 길이: {len(raw_summary)} 문자")
-        print(f"  - 파싱된 카테고리: {len(categories)}개")
+        print("\n📊 Parse result:")
+        print(f"  - Parse method: {parse_method}")
+        print(f"  - raw_summary length: {len(raw_summary)} characters")
+        print(f"  - Parsed categories: {len(categories)}")
         for key, value in categories.items():
             title = value.get('title', key)
             items_count = len(value.get('items', []))
-            print(f"    • {title}: {items_count}개 항목")
+            print(f"    • {title}: {items_count} items")
 
         # CHANGELOG.json 업데이트
         try:
@@ -378,7 +378,7 @@ def cmd_update_from_summary() -> int:
                 changelog_data = json.load(f)
         except json.JSONDecodeError as e:
             # 깨진 파일을 빈 구조로 덮어쓰면 기존 이력이 사라진다 — 사람이 고치도록 중단
-            print(f"❌ CHANGELOG.json이 손상되어 갱신하지 않습니다 (직접 복구 필요): {e}", file=sys.stderr)
+            print(f"❌ CHANGELOG.json is corrupted, not updating it (repair it manually): {e}", file=sys.stderr)
             return 1
         except FileNotFoundError:
             changelog_data = {
@@ -393,7 +393,7 @@ def cmd_update_from_summary() -> int:
             }
 
         if not isinstance(changelog_data.get("metadata"), dict) or not isinstance(changelog_data.get("releases", []), list):
-            print("❌ CHANGELOG.json 구조가 올바르지 않아 갱신하지 않습니다", file=sys.stderr)
+            print("❌ CHANGELOG.json has an invalid structure, not updating it", file=sys.stderr)
             return 1
 
         changelog_data["metadata"]["lastUpdated"] = timestamp
@@ -410,11 +410,11 @@ def cmd_update_from_summary() -> int:
         with open('CHANGELOG.json', 'w', encoding='utf-8') as f:
             json.dump(changelog_data, f, indent=2, ensure_ascii=False)
 
-        print("\n✅ CHANGELOG.json 업데이트 완료!")
+        print("\n✅ CHANGELOG.json updated!")
         return 0
 
     except Exception as e:
-        print(f"❌ update-from-summary 실패: {e}")
+        print(f"❌ update-from-summary failed: {e}")
         traceback.print_exc()
         return 1
 
@@ -483,11 +483,11 @@ def cmd_generate_md() -> int:
             with open('CHANGELOG.md', 'w', encoding='utf-8') as out:
                 out.write(f.getvalue())
 
-        print("✅ CHANGELOG.md 재생성 완료!")
+        print("✅ CHANGELOG.md regenerated!")
         return 0
 
     except Exception as e:
-        print(f"❌ CHANGELOG.md 생성 실패: {e}")
+        print(f"❌ Failed to generate CHANGELOG.md: {e}")
         traceback.print_exc()
         return 1
 
@@ -520,7 +520,7 @@ def cmd_export_release_notes(version: str, output_path: str | None) -> int:
                 notes_text = (header + (body or "")).strip()
     except Exception as e:
         # 삼키면 폴백 사유를 알 수 없다 — 사유만 stderr에 남기고 다음 경로로 간다
-        print(f"[warn] CHANGELOG.json에서 노트를 만들지 못해 폴백합니다: {e}", file=sys.stderr)
+        print(f"[warn] Could not build notes from CHANGELOG.json, falling back: {e}", file=sys.stderr)
 
     # 2) CHANGELOG.md 폴백
     if not notes_text and os.path.isfile('CHANGELOG.md'):
@@ -538,7 +538,7 @@ def cmd_export_release_notes(version: str, output_path: str | None) -> int:
                 body = re.sub(r'\n*-{3,}\s*$', '', body).strip()
                 notes_text = (f"버전 {version} 업데이트\n\n" + body).strip()
         except Exception as e:
-            print(f"[warn] CHANGELOG.md에서 노트를 만들지 못해 폴백합니다: {e}", file=sys.stderr)
+            print(f"[warn] Could not build notes from CHANGELOG.md, falling back: {e}", file=sys.stderr)
 
     # 3) 최종 폴백
     if not notes_text:
@@ -614,7 +614,7 @@ def cmd_classify_bump(commits_file: str) -> int:
         with open(commits_file, 'r', encoding='utf-8') as f:
             commit_lines = [line.rstrip('\n').rstrip('\r') for line in f]
     except Exception as e:
-        print(f"[warn] 커밋 목록을 읽지 못했습니다 ({e}) — patch로 처리합니다", file=sys.stderr)
+        print(f"[warn] Could not read the commit list ({e}) — treating it as patch", file=sys.stderr)
         commit_lines = []
 
     print(classify_bump_level(commit_lines))
@@ -626,22 +626,22 @@ def cmd_classify_bump(commits_file: str) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog='changelog_manager',
-        description='통합 체인지로그 매니저',
+        description='Unified changelog manager',
         add_help=True
     )
     sub = parser.add_subparsers(dest='command', required=True)
 
-    sub.add_parser('update-from-summary', help='PR body에서 CHANGELOG.json 갱신')
-    sub.add_parser('generate-md', help='CHANGELOG.json → CHANGELOG.md 생성')
+    sub.add_parser('update-from-summary', help='Update CHANGELOG.json from the PR body')
+    sub.add_parser('generate-md', help='Generate CHANGELOG.md from CHANGELOG.json')
 
-    p_export = sub.add_parser('export', help='특정 버전 릴리즈 노트 추출')
-    p_export.add_argument('--version', required=True, help='버전 번호')
-    p_export.add_argument('--output', help='출력 파일 경로 (없으면 stdout)')
+    p_export = sub.add_parser('export', help='Export release notes for a specific version')
+    p_export.add_argument('--version', required=True, help='Version number')
+    p_export.add_argument('--output', help='Output file path (stdout if omitted)')
 
     p_classify_bump = sub.add_parser(
-        'classify-bump', help='커밋 목록으로 semver 승격 폭(major/minor/patch) 판단')
+        'classify-bump', help='Decide the semver bump (major/minor/patch) from a commit list')
     p_classify_bump.add_argument(
-        '--commits-file', required=True, help='커밋 제목 목록 파일 (한 줄당 1개)')
+        '--commits-file', required=True, help='File of commit subjects (one per line)')
 
     args = parser.parse_args(argv)
 

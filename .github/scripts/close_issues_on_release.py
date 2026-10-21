@@ -122,7 +122,7 @@ def release_messages(repo: str, before: str, after: str, token: str) -> list[str
         if found is not None:
             return found
     except Exception as e:  # 조회 실패가 릴리스를 막으면 안 된다
-        print(f"릴리스 PR 조회 실패({type(e).__name__}) — 태그 구간으로 대체합니다")
+        print(f"Release PR lookup failed ({type(e).__name__}) — using the tag range instead")
     return commit_messages(before, after)
 
 
@@ -140,37 +140,37 @@ def main(argv=None) -> int:
     except OSError:
         text = ""
     if not close_on_release_enabled(text):
-        print("close_on_release 가 켜져 있지 않아 건너뜁니다.")
+        print("close_on_release is not on, skipping.")
         return 0
 
     token = os.environ.get("GITHUB_TOKEN", "")
     if not token:
-        print("GITHUB_TOKEN 이 없어 건너뜁니다.")
+        print("No GITHUB_TOKEN, skipping.")
         return 0
 
     numbers = issue_numbers_from_commits(release_messages(a.repo, a.before, a.after, token), a.repo)
-    print(f"릴리스 구간이 참조한 이슈: {numbers}")
+    print(f"Issues referenced in the release range: {numbers}")
     closed = []
     for n in numbers:
         try:
             issue = _request("GET", f"{API}/repos/{a.repo}/issues/{n}", token)
         except urllib.error.HTTPError as e:
-            print(f"#{n}: 조회 실패 ({e.code}) — 건너뜀")
+            print(f"#{n}: lookup failed ({e.code}) — skipped")
             continue
         if not should_close(issue):
-            print(f"#{n}: 건너뜀 (열린 이슈가 아니거나 완료 라벨 없음)")
+            print(f"#{n}: skipped (not an open issue, or no done label)")
             continue
         if a.dry_run:
-            print(f"#{n}: [dry-run] 닫을 대상")
+            print(f"#{n}: [dry-run] would close")
             continue
         try:
             _request("PATCH", f"{API}/repos/{a.repo}/issues/{n}", token,
                      {"state": "closed", "state_reason": "completed"})
             closed.append(n)
-            print(f"#{n}: 닫음")
+            print(f"#{n}: closed")
         except urllib.error.HTTPError as e:
-            print(f"#{n}: 닫기 실패 ({e.code})")
-    print(f"닫은 이슈: {closed}")
+            print(f"#{n}: close failed ({e.code})")
+    print(f"Closed issues: {closed}")
     return 0
 
 

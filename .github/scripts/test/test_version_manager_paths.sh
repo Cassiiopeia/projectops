@@ -67,7 +67,7 @@ printf 'name: demo\nversion: 0.0.1+1\n' > pubspec.yaml
 OUT=$(bash "$SCRIPT" sync 2>&1)
 chk "exit 0" "$?" "0"
 chk "배열 기준으로 pubspec 동기화 (단수 spring 무시)" "$(pubspec_version pubspec.yaml)" "0.0.2+5"
-echo "$OUT" | grep -q "무시" && chk "단수 키 무시 경고 출력" "1" "1" || chk "단수 키 무시 경고 출력" "0" "1"
+echo "$OUT" | grep -q "ignored" && chk "단수 키 무시 경고 출력" "1" "1" || chk "단수 키 무시 경고 출력" "0" "1"
 
 echo "=== (2) 모노레포: project_paths 있는 멀티타입 sync ==="
 new_workdir
@@ -115,7 +115,7 @@ project_paths:
 EOF
 OUT=$(bash "$SCRIPT" sync 2>&1)
 chk "exit 0" "$?" "0"
-echo "$OUT" | grep -q "없음" && chk "경고 출력" "1" "1" || chk "경고 출력" "0" "1"
+echo "$OUT" | grep -q "skipping" && chk "경고 출력" "1" "1" || chk "경고 출력" "0" "1"
 
 echo "=== (5) increment: 경로 따라 patch 증가 ==="
 new_workdir
@@ -159,7 +159,7 @@ EOF
 OUT=$(bash "$SCRIPT" increment 2>&1)
 RC=$?
 chk "exit 0" "$RC" "0"
-echo "$OUT" | grep -q "없음" && chk "경고 출력" "1" "1" || chk "경고 출력" "0" "1"
+echo "$OUT" | grep -q "skipping" && chk "경고 출력" "1" "1" || chk "경고 출력" "0" "1"
 chk "version.yml 증가" "$(yml_version version.yml)" "0.0.10"
 
 echo "=== (7) set: 지정 버전 반영 + get 동기화 유지 ==="

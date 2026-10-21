@@ -65,7 +65,7 @@ def write_out(path, content):
             f.write(content)
         return True
     except OSError as e:
-        print(f"⚠️ truncate_release_notes: 출력 파일을 쓰지 못함 ({path}): {e}. 건너뜀.")
+        print(f"⚠️ truncate_release_notes: could not write the output file ({path}): {e}. Skipped.")
         return False
 
 
@@ -77,17 +77,17 @@ def main(argv):
 
     # --- 입력 검증 (실패해도 배포를 막지 않도록 exit 0) ---
     if not input_file or not max_raw:
-        print("⚠️ truncate_release_notes: 인자 부족 (사용법: <입력파일> <최대길이> <모드> [출력파일]). 건너뜀.")
+        print("⚠️ truncate_release_notes: missing arguments (usage: <input-file> <max-length> <mode> [output-file]). Skipped.")
         return 0
 
     try:
         max_len = int(max_raw)
     except ValueError:
-        print("⚠️ truncate_release_notes: 최대길이가 정수가 아님. 건너뜀.")
+        print("⚠️ truncate_release_notes: max length is not an integer. Skipped.")
         return 0
 
     if mode not in ("char", "byte"):
-        print(f"⚠️ truncate_release_notes: 알 수 없는 모드 '{mode}' → char 모드로 동작.")
+        print(f"⚠️ truncate_release_notes: unknown mode '{mode}' → using char mode.")
         mode = "char"
 
     try:
@@ -95,7 +95,7 @@ def main(argv):
         with open(input_file, "r", encoding="utf-8", errors="replace") as f:
             text = f.read()
     except OSError:
-        print(f"⚠️ truncate_release_notes: 입력 파일 없음 ({input_file}). 건너뜀.")
+        print(f"⚠️ truncate_release_notes: input file not found ({input_file}). Skipped.")
         return 0
 
     # 줄바꿈 정규화: CRLF/CR → LF. (Windows에서 생성된 입력의 \r가 길이 계산에서
@@ -112,7 +112,7 @@ def main(argv):
         # 한도 이내 — 변경 없음
         if output_file != input_file:
             write_out(output_file, text)
-        print(f"✅ truncate_release_notes: 한도 이내 ({orig_len}/{max_len} {mode}). 변경 없음.")
+        print(f"✅ truncate_release_notes: within the limit ({orig_len}/{max_len} {mode}). No change.")
         return 0
 
     # 말줄임표 공간을 뺀 유효 한도
@@ -153,7 +153,7 @@ def main(argv):
     if not write_out(output_file, result):
         return 0
 
-    print(f"✂️ truncate_release_notes: {orig_len} → {measure(result)} {mode} (한도 {max_len}). 절단 완료.")
+    print(f"✂️ truncate_release_notes: {orig_len} → {measure(result)} {mode} (limit {max_len}). Truncated.")
     return 0
 
 

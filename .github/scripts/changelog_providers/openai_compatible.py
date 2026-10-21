@@ -55,7 +55,7 @@ def request_completion(base_url, model, api_key, prompt):
 def main():
     name = os.environ.get("PROVIDER_NAME", "openai")
     if name not in PRESETS:
-        fail(f"openai-compatible: 알 수 없는 provider '{name}' — 폴백")
+        fail(f"openai-compatible: unknown provider '{name}' — falling back")
     base_url, default_model = PRESETS[name]
     if name == "ollama":
         base_url = os.environ.get("CHANGELOG_BASE_URL") or None
@@ -66,15 +66,15 @@ def main():
         content = test_response
     else:
         if not base_url:
-            fail("openai-compatible: base_url 없음 (ollama는 CHANGELOG_BASE_URL 필요) — 폴백")
+            fail("openai-compatible: no base_url (ollama needs CHANGELOG_BASE_URL) — falling back")
         commits = collect_commits(os.environ.get("COMMIT_RANGE", "origin/main..HEAD"), limit=40)
         prompt = build_prompt("\n".join(commits))
         try:
             content = request_completion(base_url, model, os.environ.get("MODEL_API_KEY", ""), prompt)
         except Exception as e:  # 네트워크·인증·파싱 실패 전부 폴백 사유
-            fail(f"openai-compatible: API 호출 실패 ({e}) — 폴백")
+            fail(f"openai-compatible: API call failed ({e}) — falling back")
         if not content or not content.strip():
-            fail("openai-compatible: 응답 비어있음 — 폴백")
+            fail("openai-compatible: empty response — falling back")
 
     write_pr_body(content.strip())
     print(f"PROVIDER=openai:{name}")

@@ -22,8 +22,8 @@ for _py in python3 python; do
 done
 
 if [ -z "$PYTHON_BIN" ]; then
-    echo "❌ Python(3.x)이 필요합니다. template_initializer는 v4.2부터 Python으로 동작합니다." >&2
-    echo "   GitHub Actions ubuntu-latest에는 기본 설치되어 있습니다." >&2
+    echo "❌ Python (3.x) is required. template_initializer runs on Python since v4.2." >&2
+    echo "   It is preinstalled on GitHub Actions ubuntu-latest." >&2
     exit 1
 fi
 

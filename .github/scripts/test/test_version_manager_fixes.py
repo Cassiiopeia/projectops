@@ -109,8 +109,8 @@ def test_increment_fails_when_version_line_not_updatable(tmp_path):
     rc, out, err = run_vm(tmp_path, "increment")
     assert rc == 1
     assert out.strip() == ""                      # 새 버전을 stdout으로 내보내면 릴리스가 잘못 나간다
-    assert "갱신하지 못했습니다" in err
-    assert "업데이트 완료" not in err
+    assert "Could not update the version line" in err
+    assert "updated:" not in err
     # version_code도 올라가면 안 된다 (버전 파일과 어긋남)
     assert (tmp_path / "version.yml").read_bytes() == original.encode()
 
@@ -121,7 +121,7 @@ def test_set_fails_when_version_line_not_updatable(tmp_path):
     rc, out, err = run_vm(tmp_path, "set", "2.0.0")
     assert rc == 1
     assert out.strip() == ""
-    assert "설정 완료" not in err
+    assert "Version set" not in err
 
 
 @pytest.mark.parametrize("cmd", [("get",), ("increment", "--bump", "major"), ("set", "2.0.0"), ("sync",)])
@@ -180,7 +180,7 @@ def test_project_paths_quote_variants(tmp_path, path_line):
     rc, out, err = run_vm(tmp_path, "increment")
     assert rc == 0, err
     assert '"version": "1.0.1"' in (tmp_path / "web" / "package.json").read_text(encoding="utf-8")
-    assert "건너뜀" not in err
+    assert "skipping" not in err
 
 
 def test_unsupported_project_types_form_is_an_error(tmp_path):
@@ -188,7 +188,7 @@ def test_unsupported_project_types_form_is_an_error(tmp_path):
     write(tmp_path / "version.yml", original)
     rc, out, err = run_vm(tmp_path, "increment")
     assert rc == 1
-    assert "project_types" in err and "지원하지 않는" in err
+    assert "project_types" in err and "Unsupported" in err
     assert (tmp_path / "version.yml").read_bytes() == original.encode()
 
 
@@ -196,7 +196,7 @@ def test_unsupported_project_paths_form_is_an_error(tmp_path):
     write(tmp_path / "version.yml", 'version: "1.0.0"\nproject_types: ["node"]\nproject_paths: {node: web}\n')
     rc, out, err = run_vm(tmp_path, "get")
     assert rc == 1
-    assert "project_paths" in err and "지원하지 않는" in err
+    assert "project_paths" in err and "Unsupported" in err
 
 
 # ── #683: package.json BOM·깨진 JSON에서 트레이스백 금지 ─────────────────
@@ -224,7 +224,7 @@ def test_broken_json_reports_clean_error(tmp_path, cmd):
     rc, out, err = run_vm(tmp_path, *cmd)
     assert rc == 1
     assert "Traceback" not in err
-    assert "package.json" in err and "읽지 못했습니다" in err
+    assert "package.json" in err and "Could not read" in err
 
 
 def test_broken_json_does_not_leave_half_updated_state(tmp_path):
@@ -456,7 +456,7 @@ def test_gradle_without_version_assignment_warns(tmp_path):
     write(tmp_path / "build.gradle", "plugins {}\n")
     rc, out, err = run_vm(tmp_path, "set", "2.0.0")
     assert rc == 0
-    assert "build.gradle" in err and "version 대입을 찾지 못했습니다" in err
+    assert "build.gradle" in err and "no version assignment found" in err
     assert (tmp_path / "build.gradle").read_text(encoding="utf-8") == "plugins {}\n"
 
 
@@ -464,7 +464,7 @@ def test_spring_without_any_gradle_file_warns(tmp_path):
     write(tmp_path / "version.yml", YML_SPRING)
     rc, out, err = run_vm(tmp_path, "set", "2.0.0")
     assert rc == 0
-    assert "build.gradle" in err and "건너뜀" in err
+    assert "build.gradle" in err and "skipping" in err
 
 
 # ── #681: pyproject.toml은 [project]/[tool.poetry] 테이블의 version만 다룬다 ──
@@ -518,7 +518,7 @@ def test_pyproject_without_project_version_warns_and_keeps_file(tmp_path):
     write(tmp_path / "pyproject.toml", original)
     rc, out, err = run_vm(tmp_path, "set", "1.3.0")
     assert rc == 0
-    assert "pyproject.toml" in err and "version을 찾지 못했습니다" in err
+    assert "pyproject.toml" in err and "no version found" in err
     assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == original
 
 
@@ -594,4 +594,4 @@ def test_rn_no_plist_with_version_key_warns(tmp_path):
     write(tmp_path / "ios/Sample/Info.plist", "<dict>\n</dict>\n")
     rc, out, err = run_vm(tmp_path, "set", "2.0.0")
     assert rc == 0
-    assert "CFBundleShortVersionString" in err and "찾지 못했습니다" in err
+    assert "CFBundleShortVersionString" in err and "not synced" in err
