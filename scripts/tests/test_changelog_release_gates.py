@@ -64,6 +64,7 @@ def test_앱_심사_레포는_승인_없이_PR_을_만들지_않는다(monkeypat
 
 
 def test_기존_PR_은_pr_exists_커밋_없음은_nothing_to_deploy(monkeypatch, tmp_path):
+    (tmp_path / ".github" / "workflows").mkdir(parents=True)  # 앱 신호 없는 일반 레포
     argv = ["create-pr", "o", "r", "t", "", "develop", "main", "--project-root", str(tmp_path)]
     _patch_github(monkeypatch, existing_pr={"number": 5, "url": "pu"})
     out = _run(monkeypatch, argv)[1]

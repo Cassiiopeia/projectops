@@ -53,6 +53,17 @@ def _resolve_body_file(body_file: str | None) -> Path | None:
     return None
 
 
+def _git_root_or_cwd() -> Path:
+    """cwd 가 하위 폴더여도 레포 루트에서 앱 신호를 읽는다"""
+    import subprocess
+    try:
+        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True,
+                             timeout=10).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        top = ""
+    return Path(top) if top else Path.cwd()
+
+
 def _needs_app_release_approval(args) -> dict | None:
     """앱 심사 레포인데 --user-approved 가 없으면 거절 응답, 아니면 None (#970)
 
@@ -60,10 +71,12 @@ def _needs_app_release_approval(args) -> dict | None:
     """
     if args.user_approved:
         return None
-    project_root = Path(args.project_root).resolve() if args.project_root else Path.cwd()
+    project_root = Path(args.project_root).resolve() if args.project_root else _git_root_or_cwd()
     signals, hint = collect_app_signals(project_root)
     app_release = read_app_release(load_config(None), args.owner, args.repo)
-    is_app_release = app_release is True or (hint in APP_SIGNAL_HINTS and app_release is not False)
+    # unknown(version.yml·workflows 둘 다 못 읽음) = 루트를 잘못 짚은 것 — 기록이 없으면 막는 쪽으로 (fail-closed)
+    is_app_release = app_release is True or (
+        (hint in APP_SIGNAL_HINTS or hint == "unknown") and app_release is not False)
     if not is_app_release:
         return None
     return {
