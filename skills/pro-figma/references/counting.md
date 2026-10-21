@@ -1,122 +1,122 @@
-# 세기 — 산출물 자리 · 덤프 읽기 · 빠짐없는 분류
+# Counting: output locations · reading the dump · classifying without gaps
 
-> 언제 읽나: Phase 0 · 1 — 산출물 자리를 받은 직후, `coverage` 결과를 분류하기 전. 처음 쓰는 Figma 파일이면 `../../references/figma-mcp.md` 를 먼저.
+> When to read: Phases 0 · 1, right after getting the output locations and before classifying the `coverage` result. For a Figma file you have not used before, read `../../references/figma-mcp.md` first.
 
-## 왜 세는가
+## Why count
 
-**눈으로는 못 잡는다.** 어떤 버튼에서 효과 네 줄 중 안쪽 세 줄이 통째로 빠진 채
-배포된 일이 있었다. 전체 화면 골든을 만들어 놓고도 지나갔다 — 361×68 안의 10px
-안쪽 그림자는 그 크기에서 몇 픽셀이라 있으나 없으나 비슷해 보인다. 디자이너가
-배포 **후에** 채팅으로 알려줬다.
+**You cannot catch it by eye.** A button once shipped with the inner three of its four effect lines missing.
+It got past even though a full-screen golden existed: a 10px inner shadow inside 361×68
+is only a few pixels at that size, so it looks about the same with or without it. The designer
+told us in chat **after** release.
 
-값 단언(`expect(shadow.blur, 10)`)도 절반만 막는다. **단언하기로 생각한 것만**
-지킨다. 빠뜨린 줄은 애초에 단언도 안 썼으니 아무도 세지 않는다.
+Value assertions (`expect(shadow.blur, 10)`) block only half of it. They guard **only what someone thought
+to assert.** Nobody wrote an assertion for the missing lines in the first place, so nobody counts them.
 
-**옮기는 일과 세는 일은 한 스킬이다.** 나눠 두면 옮기는 쪽이 무엇을 옮겨야 하는지
-모르는 채로 그림만 보고 만들게 된다 — 실제로 오래 그 상태였고, 그래서 효과 네 줄 중
-세 줄이 빠진 채 배포됐다. **빠뜨림은 옮길 때 생기고 대조는 사후 확인일 뿐이다.**
+**Translating and counting are one skill.** If they are split, the translating side builds from the picture without knowing
+what it has to translate. That really was the state for a long time, and that is how three of the four effect lines
+shipped missing. **Omissions happen while translating; comparison is only an after-the-fact check.**
 
-## Phase 0 — 산출물 자리
+## Phase 0: output locations
 
-**어디에 둘지 스스로 정하지 마라.** 정해 주지 않으면 매번 다른 곳에 쌓이고, 실제로
-다른 스킬에서 8MB 스크린샷이 추적되는 채로 엉뚱한 폴더에 쌓인 적이 있다 (#611).
+**Do not decide where to put things yourself.** Without a fixed location they pile up somewhere different every time; in another skill,
+8MB of screenshots once piled up in the wrong folder while being tracked (#611).
 
-돌려주는 자리는 **두 종류로 갈라져 있고, 섞으면 한쪽이 반드시 틀린다.**
+The locations returned are **split into two kinds, and mixing them always makes one side wrong.**
 
-| 무엇 | 어디에 | 추적 |
+| What | Where | Tracked |
 |---|---|:-:|
-| 덤프·시안 export·앱 렌더·차이 그림 | `run_dir` 아래 `dump`·`design`·`render`·`diff` | ❌ 폴더가 `.gitignore` 를 스스로 들고 있다 |
-| **실제 에셋** (앱이 쓸 아이콘·이미지) | `asset_dir_candidates` 중 하나 (`assets/images` 등) | ✅ **앱이 쓰는 파일이라 커밋돼야 한다** |
+| Dumps · design exports · app renders · diff images | `dump` · `design` · `render` · `diff` under `run_dir` | ❌ the folder carries its own `.gitignore` |
+| **Real assets** (icons and images the app uses) | One of `asset_dir_candidates` (`assets/images` etc.) | ✅ **the app uses these files, so they must be committed** |
 
-> **에셋을 증거 폴더에 받지 마라.** 추적에서 빠져 있어 커밋되지 않고, 다른 사람이
-> 받았을 때 아이콘이 통째로 없는 앱이 된다. 후보가 비어 있으면 사용자에게 묻는다.
+> **Do not download assets into the evidence folder.** It is excluded from tracking, so they are not committed, and when someone else
+> checks out the repo the app has no icons at all. If there are no candidates, ask the user.
 
-## Phase 0 — Figma 를 읽는다 (요지)
+## Phase 0: read Figma (summary)
 
-**읽는 법은 `../../references/figma-mcp.md` 에 있다.** 다른 스킬(`pro-design-brief`)도 같은 규칙으로
-읽으므로 여기에 복사해 두지 않는다.
+**How to read it is in `../../references/figma-mcp.md`.** Another skill (`pro-design-brief`) reads with the same rules,
+so it is not copied here.
 
-| 순서 | 무엇을 | 왜 |
+| Order | What | Why |
 |---|---|---|
-| ① | **공통 컴포넌트를 화면보다 먼저** 맞댄다 | 하나가 어긋나면 그것을 쓰는 화면이 전부 어긋난다 — 실제로 아이콘 하나가 다섯 화면을 틀리게 했다 |
-| ② | 링크에서 `fileKey` · `nodeId` 를 뽑는다 (`238-1846` → `238:1846`) | |
-| ③ | **두 번에 나눠 받는다** — `depth: 2` 로 화면 목록 → 고른 화면 하나를 `depth` 없이 | 링크의 node-id 가 화면이라는 보장이 없다 (실측 SECTION, 108만 자) |
-| ④ | 응답을 **파일로 두고** `coverage` 에 넘긴다 (JSON·YAML 둘 다 받는다) | 스타일이 참조로만 오고, 그림자가 한 문자열에 여러 줄 뭉쳐 온다 |
+| ① | Compare **shared components before screens** | If one is off, every screen that uses it is off. One icon really did make five screens wrong |
+| ② | Extract `fileKey` · `nodeId` from the link (`238-1846` → `238:1846`) | |
+| ③ | **Fetch in two passes**: the screen list at `depth: 2` → the chosen screen without `depth` | There is no guarantee the link's node-id is a screen (measured: a SECTION, 1.08 million characters) |
+| ④ | **Save the response as a file** and pass it to `coverage` (it accepts JSON and YAML) | Styles arrive only as references, and several shadows arrive packed into one string |
 
-> **고른 화면을 받을 때는 `depth` 를 절대 주지 마라.** 트리를 자르는데 잘렸다는 표시가 없다.
+> **Never pass `depth` when fetching the chosen screen.** It cuts the tree with no sign that it was cut.
 
-시안 노드 id 와 그에 대응하는(또는 만들) 화면을 짝짓는다. 노드 id 를 모르면 사용자에게 묻는다.
+Pair each design node id with the screen that corresponds to it (or will be built). If you do not know the node id, ask the user.
 
-> **화면 하나씩 본다.** 파일 전체를 넘기면 수천 개가 나온다 — 실측으로 한 보드에
-> 요소 3,851개 · 스타일 항목 5,931개였다. `--node` 로 화면 하나를 집으면 수십 개로
-> 줄어 사람이 실제로 분류할 수 있다.
+> **One screen at a time.** Passing the whole file returns thousands of items. Measured: one board had
+> 3,851 elements and 5,931 style items. Picking one screen with `--node` brings that down to dozens,
+> which a person can actually classify.
 
-> **노드는 스타일을 참조로만 갖는다.** 실제 값은 `globalVars.styles` 에 따로 있고
-> 스크립트가 이어 붙인다. 이어 붙이지 않으면 `fills: "fill_B16QZY"` 가 값이 되어
-> 분류할 수 없고, 무엇보다 **여러 줄짜리 효과가 참조 한 줄로 뭉개져** 한 줄이 빠져도
-> 드러나지 않는다. 출력의 `styles_resolved` 가 몇 개를 이어 붙였는지 알려준다.
+> **Nodes hold styles only as references.** The real values are separately in `globalVars.styles`, and
+> the script resolves them. Without resolving, `fills: "fill_B16QZY"` becomes the value and
+> cannot be classified. Worse, **a multi-line effect collapses into one reference line**, so a missing line
+> does not show. The output's `styles_resolved` tells you how many were resolved.
 
-## Phase 1 — 덤프를 빠짐없이 분류한다 ⚠️
+## Phase 1: classify the dump without gaps ⚠️
 
-**세 층으로 본다.** `coverage` 는 셋 다 돌려준다.
+**Look at three layers.** `coverage` returns all three.
 
-| 층 | 묻는 것 | 놓치면 |
+| Layer | Question | If you miss it |
 |---|---|---|
-| **요소** (`elements`) | 이것이 화면에 **있는가** | *"시안에 있는데 화면이 없다"* — 스타일만 세면 안 보인다 |
-| **효과** (`effects`) | 그림자·블러가 **한 줄도 안 빠졌는가** | 이번 사고 — 네 줄 중 세 줄이 빠졌다 |
-| **스타일 항목** (`items`) | 나머지 값이 **다 왔는가** | 색·간격·굵기가 조용히 달라진다 |
+| **Elements** (`elements`) | Is this **on the screen**? | *"It is in the design but not on screen"*. Counting styles alone does not show this |
+| **Effects** (`effects`) | Is **not a single line** of shadow or blur missing? | The incident above: three of four lines were missing |
+| **Style items** (`items`) | Did **all** the other values arrive? | Colors, spacing and weights quietly drift |
 
-### 효과를 가장 먼저, 따로 본다 ⚠️
+### Look at effects first, and separately ⚠️
 
-**효과는 layout 수십 줄 사이에 묻히면 아무도 안 본다.** 실측으로 한 화면이
-`layout 3,294 · fills 1,849 · effects 171` 이었다 — 효과는 3%다. 그런데 **빠뜨리는 것은
-거의 항상 이쪽**이다. 작고 은은해서 빠져도 눈에 안 띄기 때문이다.
+**Buried among dozens of layout lines, effects get looked at by nobody.** Measured: one screen had
+`layout 3,294 · fills 1,849 · effects 171`, so effects are 3%. Yet **what gets missed is
+almost always here**, because they are small and subtle and nobody notices when they are gone.
 
-그래서 `coverage` 는 효과를 **따로 꺼내고 종류에 이름을 붙인다.**
+So `coverage` **pulls effects out separately and names each kind.** The kind names below are the literal values the CLI emits (Korean).
 
-| 종류 | 무엇 | 빠지면 |
+| Kind (CLI value) | What | If missing |
 |---|---|---|
-| `그림자` | 치우친 바깥 그림자 | 떠 있는 느낌이 사라진다 |
-| `안쪽 그림자` | `inset ...` | **가장 자주 빠진다** — 프레임워크가 지원 안 할 때가 많다 |
-| `글로우` | 치우침 0, 번짐만 (`0px 0px 30px`) | "빛나는" 느낌이 통째로 사라진다 |
-| `블러` | `filter: blur()` — 자기와 자식이 흐려진다 | |
-| `배경 블러` | `backdropFilter: blur()` — **뒤가** 흐려진다 | 유리 느낌이 사라진다 |
+| `그림자` (shadow) | Offset outer shadow | The floating feel disappears |
+| `안쪽 그림자` (inner shadow) | `inset ...` | **Missed most often**; frameworks often do not support it |
+| `글로우` (glow) | Zero offset, spread only (`0px 0px 30px`) | The "glowing" feel disappears entirely |
+| `블러` (blur) | `filter: blur()`: the layer itself and its children blur | |
+| `배경 블러` (background blur) | `backdropFilter: blur()`: what is **behind** blurs | The glass feel disappears |
 
-> **블러와 배경 블러를 섞으면 결과가 전혀 다르다.** 이름이 비슷해 자주 바뀐다.
+> **Mixing up blur and background blur gives a completely different result.** The names are similar, so they get swapped often.
 
-`effect_counts` 로 종류별 개수를 먼저 확인하고, `effects` 를 **한 줄씩** 대조한다.
+Check the count per kind in `effect_counts` first, then compare `effects` **line by line**.
 
-> **한 문자열 안에 그림자가 여러 줄 들어 있다.** 실측 정의 12개 → 실제 16줄.
-> 스크립트가 쪼개므로 `boxShadow[0]`·`[1]`… 로 나온다. **번호가 있으면 그 개수만큼
-> 코드에도 있어야 한다.**
+> **One string holds several shadow lines.** Measured: 12 definitions → 16 actual lines.
+> The script splits them, so they come out as `boxShadow[0]` · `[1]` …. **If there are indexes, the code
+> must have that many too.**
 
-### 상태를 다 세었는가 ⚠️
+### Did you count every state? ⚠️
 
-**시안은 한 컴포넌트를 여러 상태로 그려 둔다**(disabled · 빈 값 · 진행 중 · 0건). 구현자는 대개
-기본 상태 하나만 보고 만든다. `coverage` 에 노드 하나만 넘기면 나머지 상태는 영영 안 세어진다 —
-**상태별 노드마다 돌린다.** 시안이 한 가지 내용(짧은 문구)으로만 그려져 있다는 것도 함께 본다.
+**A design draws one component in several states** (disabled · empty value · in progress · zero items). Implementers usually
+build from the default state alone. If you pass only one node to `coverage`, the other states are never counted.
+**Run it for every state node.** Also note whether the design is drawn with only one kind of content (short text).
 
-세는 법·흔히 빠지는 상태·코드의 5축 상태 목록은 **`../../references/design-states.md`**.
-시안에 **없는** 상태를 찾았으면 대조 대상이 아니라 디자이너에게 요청할 것이다 (`pro-design-brief`).
+How to count, commonly missed states, and the 5-axis state list for code are in **`../../references/design-states.md`**.
+If you find a state the design **does not have**, it is not something to compare; it is something to request from the designer (`pro-design-brief`).
 
-### 셋 중 하나로 분류한다
+### Classify into one of three
 
-`coverage` 가 준 항목을 **하나도 남기지 않고** 분류한다.
+Classify the items `coverage` gave you **without leaving any out**.
 
-| 분류 | 뜻 | 사유 |
+| Class | Meaning | Reason |
 |---|---|---|
-| **구현** | 시안 값 그대로 들어갔다 | 불필요 |
-| **근사** | 값이 조금 다르다 | **필수** — 왜 그대로 못 넣었나 |
-| **생략** | 안 넣었다 | **필수** — 왜 빼기로 했나 |
+| **Implemented** | The design value went in as is | Not needed |
+| **Approximated** | The value is slightly different | **Required**: why could it not go in as is? |
+| **Omitted** | Not put in | **Required**: why was it left out? |
 
-**값을 못 옮긴 것과 안 옮기기로 한 것을 구분하는 것이 이 단계의 전부다.**
-사유를 적지 않으면 나중에 둘을 구분할 수 없고, 구분할 수 없으면 검토할 수 없다.
+**Telling "could not translate" apart from "chose not to translate" is the whole point of this step.**
+Without a written reason, you cannot tell them apart later, and if you cannot tell them apart, you cannot review them.
 
-> 실제 사고에서 *"이 프레임워크는 안쪽 그림자를 지원하지 않으니 근사하자"* 고 판단한
-> 순간이 있었는데, **코드 주석에도 보고서에도 그 말이 없었다.** 생략이 기록되지 않으면
-> 아무도 되짚지 못한다.
+> In the real incident there was a moment of deciding *"this framework does not support inner shadows, so let's approximate"*,
+> but **that sentence was in neither the code comments nor the report.** When an omission is not recorded,
+> nobody can trace it back.
 
-배열은 **원소마다 한 줄**로 나온다 (`effects[0]` `effects[1]` …). 네 줄짜리 효과에서
-한 줄이 빠지면 여기서 미분류로 드러난다 — 통째로 한 줄이면 티가 안 난다.
+Arrays come out **one line per element** (`effects[0]` `effects[1]` …). If one line of a four-line effect
+is missing, it shows up here as unclassified. As a single combined line, it would not show.
 
-프레임워크가 시안 값을 그대로 못 받는 자리는 `framework-gaps.md`. 옮기는 법은 `conversion.md`.
+Spots where the framework cannot take a design value as is are in `framework-gaps.md`. How to translate is in `conversion.md`.

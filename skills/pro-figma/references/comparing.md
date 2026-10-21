@@ -1,24 +1,22 @@
-# 대조 — 속성(conform) · 픽셀(diff) · 컴포넌트 3배 · 보고 · 함정
+# Comparison: properties (conform) · pixels (diff) · components at 3x · report · pitfalls
 
-> 언제 읽나: Phase 4 ~ 7 — 옮긴 뒤 `conform` · `diff` 결과를 읽을 때, "각졌다" · 덩어리 여럿이 나왔을 때, 보고를 쓸 때.
+> When to read: Phases 4–7, when reading `conform` · `diff` results after translating, when a corner comes out "square" (`각졌다`) or there are several blobs, and when writing the report.
 
-> **픽셀 100% 일치를 요구하지 않는다.** Figma 와 앱은 글자 래스터라이저(글꼴을
-> 실제 픽셀로 그려내는 부분)가 달라 절대 0 이 되지 않는다. 목적은 **덩어리가 글자 자리인지 도형 자리인지**를 사람이
-> 판단하게 하는 것이다.
+> **Do not demand a 100% pixel match.** Figma and the app use different text rasterizers (the part that draws
+> glyphs into actual pixels), so it never reaches 0. The goal is to let a person decide **whether a blob sits on text or on a shape**.
 >
-> **CI 게이트로 걸지 않는다(기본).** 임계를 잘못 잡으면 매번 빨개져 아무도 안 본다.
-> 구현 직후 보조 도구로 쓰고, 안정된 뒤에 게이트를 논한다.
+> **Do not use it as a CI gate (by default).** With a badly chosen threshold it goes red every time and nobody looks.
+> Use it as an aid right after implementing, and discuss a gate once it is stable.
 
-## Phase 4 — 속성으로 대조한다 ⚠️ (픽셀보다 먼저)
+## Phase 4: compare by property ⚠️ (before pixels)
 
-**픽셀 퍼센트는 어디가 다른지만 말하고 무엇이 어떻게 다른지를 말하지 않는다.**
+**A pixel percentage says only where it differs, not what differs or how.**
 
-> 실제 사고: 바텀시트 상단 모서리가 각져 있었다. 픽셀 도구는 이미 돌고 있었고 그 자리를
-> `476~519 / 0~785 / 평균차 77` 로 **리포트까지 했다.** 그런데 그 한 줄이 "모서리가
-> 각졌다"는 뜻인지 읽어낼 방법이 없었다. 전체 5.5% 다름에 덩어리 22개 —
-> **진짜 결함이 잡음에 묻혔다.** 사람은 22줄짜리 좌표표를 읽지 않는다.
+> Real incident: the top corners of a bottom sheet were square. The pixel tool was already running, and it even **reported**
+> that spot as `476~519 / 0~785 / mean diff 77`. But there was no way to read from that line that it meant "the corners
+> are square". 5.5% different overall with 22 blobs: **the real defect was buried in noise.** People do not read a 22-line coordinate table.
 
-속성은 단정적이다. `좌상 r=20 인데 렌더가 각졌다`. 출력 예:
+Properties are definite: "top-left r=20, but the render is square". Sample output (the CLI currently prints Korean):
 
 ```
 사각형 31개 · corners·fills·shadows 검사 (배율 3) — high 2 · medium 1
@@ -27,161 +25,164 @@
    [medium] 시트 393x420 @0,432 그림자가 안 보인다 — 시안은 0,8 blur 12 인데 …
 ```
 
-정상 화면에서는 `이상 없음` 한 줄로 끝난다. **퍼센트 22줄이 못 한 일이다.**
+(In English: 31 rectangles, checks corners · fills · shadows at scale 3, high 2 · medium 1. Card top-left r=16 → render is square. Badge: opacity is missing, the design has alpha=0.4 but the render uses the solid color. Sheet: shadow is not visible, the design has 0,8 blur 12.)
 
-| 검사 | 잡는 것 | 심각도 |
+On a correct screen it ends with one line, `이상 없음` (no issues). **That is what the 22 percentage lines could not do.**
+
+| Check | What it catches | Severity |
 |---|---|---|
-| `corners` | 시안이 둥글라 했는데 **각졌다** (기하로 판정) | high |
-| `fills` | 색이 다르다 · **투명도가 빠졌다** · **그라디언트를 단색으로 깔았다** | high |
-| `shadows` | 바깥 그림자가 **통째로 없다** | medium |
+| `corners` | The design says rounded, but it is **square** (judged geometrically) | high |
+| `fills` | Different color · **opacity missing** · **a gradient laid down as a solid color** | high |
+| `shadows` | An outer shadow is **missing entirely** | medium |
 
-셋 다 화면에서는 "비슷해" 보인다 — 눈으로도 픽셀 퍼센트로도 안 잡히고, **값을 알고 그 자리를 찍어야** 잡힌다.
+All three "look similar" on screen. Neither the eye nor a pixel percentage catches them; they are caught only **when you know the value and probe that spot**.
 
-`--check corners,fills` 로 좁힐 수 있다. **사진(`imageRef`) 칠은 건드리지 않는다** — 시안의 이미지 참조와 렌더 픽셀은
-애초에 비교 대상이 아니라, 잡기 시작하면 오탐이 쏟아진다. `--scale`(기본 자동) · `--tolerance`(기본 12)로 배율·허용 오차를 조정한다.
+You can narrow with `--check corners,fills`. **Photo (`imageRef`) fills are not checked**: the design's image reference and the rendered pixels
+are not comparable in the first place, and checking them floods you with false positives. Adjust scale and tolerance with `--scale` (default auto) · `--tolerance` (default 12).
 
-### CI 게이트
+### CI gate
 
-`conform … --fail-on high` — 그 심각도 이상이 하나라도 있으면 **종료코드 1**(`conformance_failed`).
-기본값은 `none`(끊지 않음)이다 — 임계를 잘못 잡으면 매번 빨개져 아무도 안 본다.
+`conform … --fail-on high`: if there is even one item at that severity or above, **exit code 1** (`conformance_failed`).
+The default is `none` (does not fail): with a badly chosen threshold it goes red every time and nobody looks.
 
-### 각졌다고 나오면 먼저 이걸 의심한다 ⚠️
+### When it says "square", suspect this first ⚠️
 
-**대개 라운드를 안 준 것이 아니라, 준 라운드를 자식이 덮은 것이다.**
+**Usually the radius was not left out; a child covered the radius you set.**
 
-부모가 배경만 둥글게 칠하고 **자식을 자르지 않으면**(클리핑이 꺼져 있으면) 자식이 깐
-배경색이 둥근 자리를 메운다. 부모의 반지름 값은 코드에 멀쩡히 있으므로 코드만 읽어서는
-안 보인다 — 그려 봐야 보인다.
+If the parent paints only its background with rounded corners and **does not clip its children** (clipping is off), the background color a child lays down
+fills the rounded spot. The parent's radius value is right there in the code, so you cannot see the problem by reading code;
+you have to render it.
 
-| 프레임워크 | 자르는 스위치 |
+| Framework | The clipping switch |
 |---|---|
-| Flutter | `Container` 는 `decoration.borderRadius` 로 배경만 칠한다. `clipBehavior` 기본값이 `none` — `Clip.antiAlias` 로 켠다 |
-| React (CSS) | 부모에 `overflow: hidden` |
-| React Native | 부모에 `overflow: 'hidden'` — 단 그림자와 같이 주면 그림자가 잘린다 (`framework-gaps.md`) |
+| Flutter | `Container` paints only the background with `decoration.borderRadius`. `clipBehavior` defaults to `none`; turn it on with `Clip.antiAlias` |
+| React (CSS) | `overflow: hidden` on the parent |
+| React Native | `overflow: 'hidden'` on the parent, but combined with a shadow it clips the shadow (`framework-gaps.md`) |
 
-### 다른 속성도 같은 방식으로 본다
+### Look at other properties the same way
 
-`conform` 은 **렌더에서 재어 판정할 수 있는 것**을 자동화한 것이다. 나머지는 `coverage` 가
-나열한 값을 코드와 눈으로 대조한다 — 특히 아래가 자주 어긋난다.
+`conform` automates **what can be measured and judged from the render**. For the rest, compare the values `coverage`
+listed against the code and by eye. The following often drift.
 
-| 항목 | 자주 빠지는 것 |
+| Item | What often gets missed |
 |---|---|
-| 색 | hex 는 맞는데 **투명도**가 빠진다 (`conform` 이 잡는다) |
-| 선 | `strokeWeight` 는 맞는데 `strokeAlign`(안/가운데/밖)이 다르다 |
-| 타이포 | `lineHeight` · `letterSpacing` 이 기본값으로 남는다 |
-| 그라디언트 | 각도와 **스톱 위치**가 다르다. 단색으로 깔린 것은 `conform` 이 잡는다 |
-| 효과 | `framework-gaps.md` 의 표 — 안쪽 그림자·글로우 |
-| 상태 | 변형(variant)을 하나만 그린다 (Phase 1) |
+| Color | The hex is right but the **opacity** is missing (`conform` catches it) |
+| Stroke | `strokeWeight` is right but `strokeAlign` (inside / center / outside) differs |
+| Typography | `lineHeight` · `letterSpacing` left at defaults |
+| Gradient | Angle and **stop positions** differ. A gradient laid down as a solid color is caught by `conform` |
+| Effects | The table in `framework-gaps.md`: inner shadow, glow |
+| States | Only one variant is built (Phase 1) |
 
-> **컴포넌트 원본은 화면 프레임이 아니라 컴포넌트 정의에 있다.** 화면 안의 `INSTANCE` 는
-> 참조만 하는 경우가 있다 — 실측으로 474개 중 **81개(17%)** 가 `componentId` 만 갖고
-> 스타일 키가 아예 없었다. 그런 노드는 화면만 읽어서는 반지름·색·상태를 알 수 없다.
-> `componentId` 를 따라 **컴포넌트 쪽 노드를 따로 받아** 값을 확인한다.
+> **A component's source is in the component definition, not the screen frame.** An `INSTANCE` in a screen sometimes
+> only references it. Measured: **81 of 474 (17%)** had only a `componentId` and no style keys at all.
+> For such nodes you cannot tell the radius, color or state by reading the screen alone.
+> Follow the `componentId` and **fetch the component's node separately** to check the values.
 
-## Phase 5 — 픽셀로 맞댄다 (보조)
+## Phase 5: compare by pixels (secondary)
 
-**속성으로 못 잡는 것만 본다** — 그림 자체가 다른 경우, 요소가 통째로 빠진 경우.
-퍼센트와 덩어리 수를 **결함 수로 읽지 않는다.**
+**Look only for what properties cannot catch**: the image itself differs, or an element is missing entirely.
+**Do not read** percentages and blob counts **as defect counts.**
 
-시안 노드를 이미지로 받고, 앱을 **같은 논리 크기·같은 안전영역**으로 렌더해 맞댄다.
-렌더를 시안과 같게 맞추는 방법은 `rendering.md` — **안 맞추면 본문이 통째로 떠서 전부 어긋난 것으로 나온다.**
-대조용이므로 **원본 PNG** 를 받는다(`--keep-format`) — pro-launch 기본값(긴 변 1200 WebP)으로 줄이면 픽셀이 뭉개진다.
+Export the design node as an image, render the app at **the same logical size and the same safe area**, and compare.
+How to make the render match the design is in `rendering.md`. **If you do not match them, the whole body floats and everything comes out as off.**
+This is for comparison, so get **original PNGs** (`--keep-format`). The pro-launch default (WebP, 1200 on the long side) blurs the pixels.
 
-### 시안 export(기준 이미지) 받기
+### Getting the design export (the reference image)
 
-화면 **프레임 노드**를 `mcp__figma__download_figma_images` 로 PNG 로 받는다. 저장 자리는 `run_dir` 의 `design/`(추적 제외).
-`pngScale` 은 **앱을 찍은 기기 배율**에 맞춘다(3배 기기면 `3`, 2배면 `2`) — 배율이 다르면 크기부터 어긋나 전부 덩어리로 나온다.
-컴포넌트 하나만 볼 때(Phase 6)도 같은 배율로 그 노드만 받는다.
+Download the screen's **frame node** as a PNG with `mcp__figma__download_figma_images`. Save it in `design/` under `run_dir` (not tracked).
+Match `pngScale` to **the scale of the device you captured the app on** (`3` for a 3x device, `2` for 2x). If the scale differs, the sizes are off from the start and everything comes out as blobs.
+When looking at one component only (Phase 6), fetch just that node at the same scale.
 
-### 덩어리가 여럿이면 먼저 "통째로 밀렸나"를 본다 ⚠️
+### With several blobs, first check "did it shift as a whole?" ⚠️
 
-`diff` 는 렌더를 조금씩(`--probe-shift`, 기본 40px) 옮겨 보고 **한 번에 맞아떨어지는 자리가 있는지** 알려준다
-(`shift_probe`). 있으면 낱낱이 어긋난 것이 아니라 **컨테이너 하나가 밀린 것**이다.
+`diff` moves the render a little (`--probe-shift`, default 40px) and tells you **whether there is a position where it lines up at once**
+(`shift_probe`). If there is, it is not many separate misalignments but **one container that shifted**.
 
 ```json
 {"shift_probe": {"dy": -35, "dx": 0, "before": 31.88, "after": 0.0,
                  "looks_shifted": true}}
 ```
 
-이때 고칠 곳은 안의 요소가 아니라 **그것을 담은 것**이다 — 컨테이너 높이·여백·안전영역.
+Then the place to fix is not the elements inside but **what contains them**: container height, spacing, safe area.
 
-> 실제로 시트 윗변이 35px 아래에 뜨자 안의 단계·보상·버튼이 **전부 두 겹**으로 보였다.
-> 덩어리가 열 개 나왔지만 틀린 것은 하나였다. 덩어리만 세면 "열 군데가 어긋났다"로
-> 읽혀 엉뚱한 데를 고치게 된다.
+> In one real case the sheet's top edge sat 35px too low, and the steps, rewards and button inside **all looked doubled**.
+> Ten blobs came out, but only one thing was wrong. Counting blobs alone reads as "ten places are off"
+> and leads you to fix the wrong places.
 
-**퍼센트가 아니라 덩어리 위치를 본다.**
+**Look at where the blobs are, not the percentage.**
 
-| 덩어리가 있는 곳 | 대개 |
+| Where the blob is | Usually |
 |---|---|
-| 글자 자리 | 래스터라이저 차이 — 무해 |
-| 도형·여백·배경 자리 | **실제로 틀린 것** |
+| On text | Rasterizer difference: harmless |
+| On shapes, spacing or backgrounds | **Actually wrong** |
 
-> 배경색은 기본값 `auto` 로 시안 모서리에서 읽는다. 앱 렌더는 바깥 발광이 반투명으로
-> 남고 시안은 배경이 합성된 채로 오므로, 같은 배경 위에 올려놓지 않으면 **발광 전체가
-> '다름'으로 잡혀** 결과가 의미를 잃는다. 시안 모서리가 투명하면 `--bg RRGGBB` 로 준다.
+> The background color defaults to `auto`, read from the design's corners. The app render keeps outer glows semi-transparent,
+> while the design arrives with the background composited in, so unless both sit on the same background, **the entire glow
+> is flagged as "different"** and the result loses its meaning. If the design's corners are transparent, pass `--bg RRGGBB`.
 
-> 상태바·홈 인디케이터는 앱이 안 그리는 영역이라 늘 다르게 나온다. `--mask-top` · `--mask-bottom` 으로 가린다.
-> 잡음이 많으면 `--threshold`(기본 24) · `--min-area`(기본 200)를 조정한다.
+> The status bar and home indicator are areas the app does not draw, so they always come out different. Mask them with `--mask-top` · `--mask-bottom`.
+> If there is a lot of noise, adjust `--threshold` (default 24) · `--min-area` (default 200).
 
-## Phase 6 — 컴포넌트를 따로 본다 ⚠️
+## Phase 6: check components separately ⚠️
 
-**그림자·발광·1px 테두리는 전체 화면에서 사라진다.** 화면 전체 1배로만 보면 이번 사고와
-똑같이 지나간다.
+**Shadows, glows and 1px borders vanish on a full screen.** Looking only at the full screen at 1x lets it slip through
+exactly as in the incident.
 
-문제로 지목된 컴포넌트 하나만 시안 export 와 **같은 배율**(보통 3배)로 찍어 다시 맞댄다.
-배율을 맞추는 방법은 `rendering.md` — Flutter 는 `RepaintBoundary` 로 감싼 위젯 테스트를,
-웹은 `deviceScaleFactor: 3` Playwright 스크립트를 임시로 짜 `render run` 으로 돌린다
-(pro-launch 브라우저는 1배로 고정이라 3배를 직접 못 찍는다).
+Capture only the component in question at **the same scale** as the design export (usually 3x) and compare again.
+How to match the scale is in `rendering.md`: for Flutter, a widget test wrapped in `RepaintBoundary`;
+for the web, a temporary Playwright script with `deviceScaleFactor: 3`, run with `render run`
+(the pro-launch browser is fixed at 1x and cannot capture 3x directly).
 
-## Phase 7 — 보고
+## Phase 7: report
 
-**생략·근사를 맨 위에 모은다.** 픽셀 결과보다 먼저다 — 그게 검토받아야 할 판단이다.
+**Collect omissions and approximations at the top.** They come before pixel results, because those are the decisions that need review.
+Write the report in the user's language (or the configured `language` preference). Example structure:
 
 ```
-## 분류하지 못한 것 / 생략·근사
-  931:4010/effects[1]  안쪽 하이라이트   생략 — 프레임워크가 inset 을 지원하지 않음
+## Not classified / omitted · approximated
+  931:4010/effects[1]  inner highlight   omitted — the framework does not support inset
   ...
 
-## 속성 대조
-  [high] 시트 393x420 좌상 r=20 → 렌더가 각졌다
+## Property comparison
+  [high] sheet 393x420 top-left r=20 → render is square
 
-## 픽셀 대조
-  전체 화면  다른 픽셀 2.9%  덩어리 3개
-    y120~168 x24~369   글자 자리 — 래스터라이즈 차이로 판단
-    y430~498 x16~377   도형 자리 — 확인 필요
-  버튼 3배   평균 채널차 3.0
+## Pixel comparison
+  full screen  2.9% pixels differ  3 blobs
+    y120~168 x24~369   on text — judged a rasterization difference
+    y430~498 x16~377   on a shape — needs checking
+  button at 3x   mean channel difference 3.0
 ```
 
-값은 **다시 셀 수 있게** 적는다 (좌표·크기·평균차). "비슷해 보인다"는 근거가 아니다.
-무엇과 맞댔는지(노드 id)를 테스트·주석에 남긴다.
+Write values **so they can be recounted** (coordinates, size, mean difference). "Looks similar" is not evidence.
+Record what you compared against (node id) in tests and comments.
 
-## 자주 묻는 함정
+## Common pitfalls
 
-| 함정 | 대응 |
+| Pitfall | What to do |
 |---|---|
-| **전체 화면만 보고 통과** | 그림자·발광·1px 테두리는 그 크기에서 몇 픽셀이다. 컴포넌트를 따로 3배로 본다 |
-| **골든을 구현자가 만든다** | 효과가 빠진 채로 찍어도 그게 기준이 된다. 기준은 **시안 export** 여야 한다 |
-| **PNG 만 보고 토큰을 고른다** | 그림에서 굵기·색 코드는 안 읽힌다. **덤프의 값**을 읽는다 |
-| **모양이 같아 기존 에셋 재사용** | 모양이 같아도 색이 다를 수 있다. 재사용도 분류 대상이다 |
-| **시안과 다른 내용으로 렌더** | 목록 개수·문구가 다르면 diff 가 통째로 붉어져 정작 봐야 할 어긋남이 묻힌다 |
-| **안전영역을 안 맞춤** | 본문이 상태바 높이만큼 떠서 전부 어긋난 것으로 나온다 |
-| **덩어리 없이 픽셀 단위 보고** | 안티에일리어싱 노이즈에 묻혀 못 읽는다 (스크립트가 묶어 준다) |
-| **덩어리 수를 결함 수로 읽는다** | 컨테이너 하나가 밀리면 안의 줄이 전부 잡힌다. `shift_probe` 를 먼저 본다 |
-| **화면부터 본다** | 공통 컴포넌트가 어긋나 있으면 같은 원인을 화면 수만큼 적게 된다 |
-| **에셋을 넣었으니 맞겠지** | 모양이 같아도 **칠 값**이 다를 수 있다. 토큰에 없는 색이 쓰였는지 전수로 훑는다 |
-| **골든을 기준으로 삼는다** | 골든은 **구현자가 만든다.** 틀린 것을 고정해 두고 거기서 벗어나는 것만 잡는다 — 기준은 시안 export 다 |
-| **무엇과 맞댔는지 안 남긴다** | 다음 사람이 어느 노드와 비교할지 몰라 처음부터 다시 찾는다. 노드 id 를 테스트·주석에 남긴다 |
-| **효과를 스타일 목록에 섞어 본다** | 수천 줄 중 3%라 묻힌다. `effects` 를 **따로** 먼저 본다 |
-| **`boxShadow` 를 한 줄로 센다** | 한 문자열에 네 줄이 들어 있다. 번호(`[0]`·`[1]`…)만큼 코드에도 있어야 한다 |
-| **블러와 배경 블러를 바꿔 쓴다** | 자기가 흐려지는 것과 뒤가 흐려지는 것은 전혀 다르다 |
-| **에셋을 안 받고 값만 옮긴다** | 덤프에 그림이 없다. 화면에 아이콘이 통째로 없다 |
-| **이름이 같으니 같은 아이콘이겠지** | `Vector` 71개가 48종이었다. `certain` 이 false 면 눈으로 확인한다 |
-| **`nodeId` 없이 파일 전체를 받는다** | 스타일 항목 5,949개가 와서 분류가 불가능해진다 |
-| **`depth` 로 얕게 받아 분류한다** | 잘렸다는 표시가 없어 "요소가 몇 개뿐"이라고 잘못 결론 낸다. `depth` 는 화면 목록 찾을 때만 |
-| **링크의 node-id 를 화면이라 믿는다** | SECTION 이면 1MB 가 온다. `depth 2` 로 화면 목록을 먼저 본다 |
-| **받은 에셋을 레이아웃 크기로 넣는다** | 효과가 박혀 크게 온다. 도형이 쪼그라든다 |
-| **에셋에 박힌 효과를 코드로 또 넣는다** | 두 번 적용돼 두 배로 번진다 |
-| **퍼센트만 보고 통과를 판단한다** | 어디가 다른지만 알고 무엇이 틀렸는지는 모른다. `conform` 을 먼저 돌린다 |
-| **각졌길래 반지름을 다시 준다** | 값은 이미 있다. **자식이 덮은 것**이라 클리핑을 켜야 한다 |
-| **화면 노드만 읽고 컴포넌트 값을 판단한다** | INSTANCE 17%가 스타일을 아예 안 갖는다. `componentId` 를 따라간다 |
-| **투명도를 빼고 색만 맞춘다** | hex 가 같아도 화면이 다르다 |
+| **Pass on the full screen alone** | Shadows, glows and 1px borders are a few pixels at that size. Check components separately at 3x |
+| **The implementer makes the golden** | Captured with effects missing, that still becomes the reference. The reference must be **the design export** |
+| **Pick tokens from the PNG alone** | Weights and color codes cannot be read from an image. Read **the values in the dump** |
+| **Reuse an existing asset because the shape matches** | The shape can match while the color differs. Reuse is also something to classify |
+| **Render with content different from the design** | If list counts or text differ, the whole diff turns red and the misalignment you need to see gets buried |
+| **Safe area not matched** | The body floats by the status bar height and everything comes out as off |
+| **Report per pixel without blobs** | Buried in anti-aliasing noise, unreadable (the script groups them) |
+| **Read blob count as defect count** | If one container shifts, every line inside is flagged. Check `shift_probe` first |
+| **Start with screens** | If a shared component is off, you write the same cause once per screen |
+| **"I put the asset in, so it must be right"** | The shape can match while the **fill value** differs. Sweep for colors not in the tokens |
+| **Use the golden as the reference** | Goldens are **made by the implementer.** It locks in what is wrong and catches only departures from that. The reference is the design export |
+| **Not recording what you compared against** | The next person does not know which node to compare with and starts over. Record the node id in tests and comments |
+| **Look at effects mixed into the style list** | At 3% of thousands of lines they get buried. Look at `effects` **separately**, first |
+| **Count `boxShadow` as one line** | One string holds four lines. The code needs as many as the indexes (`[0]` · `[1]` …) |
+| **Swap blur and background blur** | The layer blurring itself and what is behind it blurring are completely different |
+| **Translate values without downloading assets** | The dump has no images. The screen has no icons at all |
+| **"Same name, so same icon"** | 71 `Vector` nodes were 48 different images. If `certain` is false, check by eye |
+| **Fetch the whole file without `nodeId`** | 5,949 style items arrive and classification becomes impossible |
+| **Classify from a shallow `depth` fetch** | There is no sign that it was cut, so you wrongly conclude "there are only a few elements". Use `depth` only to find the screen list |
+| **Trust that the link's node-id is a screen** | If it is a SECTION, 1MB arrives. Look at the screen list with `depth 2` first |
+| **Place a downloaded asset at layout size** | Effects are baked in and it arrives larger. The shape shrinks |
+| **Add an effect baked into the asset again in code** | Applied twice, it spreads twice as far |
+| **Decide pass/fail from the percentage alone** | You learn only where it differs, not what is wrong. Run `conform` first |
+| **Set the radius again because it is square** | The value is already there. **A child is covering it**; turn on clipping |
+| **Judge component values from screen nodes alone** | 17% of INSTANCEs have no style at all. Follow the `componentId` |
+| **Match the color but drop the opacity** | Same hex, different screen |

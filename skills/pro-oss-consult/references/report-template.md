@@ -1,40 +1,42 @@
-> 언제 읽나: 4단계에서 보고서(md)를 쓸 때. 레포별 보고서 구성과 batch 점수판 규칙.
+> When to read: at step 4, when writing the report (md). Per-repo report structure and batch scoreboard rules.
 
-# 보고서 구성
+# Report structure
+
+Write the report in the user's language (or the configured `language` preference). The headings below are the structure; translate them into that language.
 
 ```markdown
-# {OWNER/REPO} 오픈소스 컨설팅 (YYYY-MM-DD)
+# {OWNER/REPO} open-source consulting (YYYY-MM-DD)
 
-## 한 줄 진단
-{성격}, {단계}단계. 가장 먼저 할 일: {1순위}
+## One-line diagnosis
+{type}, stage {N}. Do this first: {top priority}
 
-## 점수
-| 축 | 점수 | 한 줄 |
+## Scores
+| Axis | Score | One line |
 |---|---|---|
-| A 첫인상 | 00 | |
-| B 가치 증명 | 00 | |
-| C 커뮤니티 준비 | 00 | |
-| D 코드 확장성 | 00 | (코드 미확인이면 "미확인") |
-| E 법적 안전 | 00 | |
-| F 장기 운영 | 00 | |
+| A First impression | 00 | |
+| B Proof of value | 00 | |
+| C Community readiness | 00 | |
+| D Code extensibility | 00 | ("unverified" if the code was not checked) |
+| E Legal safety | 00 | |
+| F Long-term operation | 00 | |
 
-## 결함 (반드시 고칠 것)
-## 처음 온 기여자의 후기
-(contributor.md 7단계를 실제로 걸어본 결과를 기여자 1인칭으로. 코드를 못 봤으면 볼 수 있었던 단계까지만.
-review·batch에서 코드를 못 봤으면 "코드 미확인"이라고만 쓰고 지어내지 않는다)
-- 막힌 곳: "README대로 `npm test`를 돌렸는데 .env가 없어서 실패했다. 어떤 값이 필요한지 어디에도 없다"
-- 애매해서 망설인 곳: "타입을 추가하려는데 가이드에 적힌 파일 말고도 README와 테스트 fixture를 고쳐야 했다. 빠뜨린 게 더 있을까 불안했다"
-- 있었으면 좋았을 것: "기존 타입 추가 PR 하나를 예시로 링크해 줬다면 따라 하면 됐다"
-- 좋았던 것: "이슈 폼이 버전과 로그 위치를 물어서 제보가 쉬웠다"
-## 성숙도: 현재 N단계 → N+1단계 선행 조건
-## 개선안 (영향 큰 순)
-| 순위 | 조치 | 축 | 등급 | 예상 효과 |
-## 잘 되어 있는 것
-## 확인하지 못한 것
-(`errors`·`truncated`·`unsupported_manifests`·코드 미확인 등, 근거를 못 본 항목과 이유)
+## Defects (must fix)
+## Notes from a first-time contributor
+(The result of actually walking the 7 steps in contributor.md, in the contributor's first person. If you could not see the code, only up to the steps you could check.
+If review or batch could not see the code, write only "code unverified"; do not make things up)
+- Where I got stuck: "I ran `npm test` as the README says, and it failed because there is no .env. Nothing says which values it needs"
+- Where I hesitated: "To add a type I had to edit the README and test fixtures besides the files the guide lists. I worried I had missed more"
+- What would have helped: "A link to one past PR that added a type would have let me just follow it"
+- What worked: "The issue form asked for the version and the log location, so reporting was easy"
+## Maturity: currently stage N → prerequisites for stage N+1
+## Improvements (by impact)
+| Rank | Action | Axis | Grade | Expected effect |
+## What works well
+## What we could not check
+(`errors` · `truncated` · `unsupported_manifests` · code unverified and so on: items whose evidence you could not see, and why)
 ```
 
-batch 모드는 레포별 보고서 대신 **점수판 하나**를 만든다: 레포·성격·단계·6축 점수(못 본 축은 "미확인")·1순위 조치.
-`study` 성격은 한 줄로 묶고 "보관 제안"만 적는다. **대표 레포 선정 기준**: 최근 90일 안에 push가 있고 `study`가 아니며
-점수가 낮은 순으로 최대 3개. 사용자가 고른 레포가 있으면 그것이 우선이다. 성격별로 같은 기준표를 고정해 앞 레포와 뒤 레포의
-근거가 흔들리지 않게 하고, 레포마다 점수 근거를 한 줄씩 남긴다.
+In batch mode, build **one scoreboard** instead of per-repo reports: repo, type, stage, the six axis scores ("unverified" for axes you could not see), and the top action.
+Group `study` repos on one line with only "suggest archiving". **How to pick representative repos**: pushed within the last 90 days, not `study`,
+lowest scores first, up to 3. A repo the user picked takes priority. Keep one fixed criteria table per type so the evidence does not drift
+between earlier and later repos, and leave one line of score reasoning per repo.

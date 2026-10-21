@@ -1,79 +1,79 @@
-# 시안의 무엇이 그대로 안 옮겨지는가
+# What in the design does not translate as is
 
-> 언제 읽나: 분류 중 "근사"·"생략" 판단이 필요할 때 — 프레임워크가 시안 값을 그대로 못 받는 자리 (React · Flutter · React Native).
+> When to read: during classification, when you need to decide "approximate" or "omit": spots where the framework cannot take a design value as is (React · Flutter · React Native).
 
-**"옮기다 조용히 빠지는" 자리**를 적어 둔다. 프레임워크가 시안의 어떤 표현을 그대로
-받지 못하면, 구현자는 근사하거나 생략하는 판단을 하게 된다. **그 판단 자체는 정상이다.
-문제는 기록되지 않는 것이다.**
+This lists **the spots that "silently drop out while translating"**. When a framework cannot take some expression in the design
+as is, the implementer decides to approximate or omit it. **That decision itself is normal.
+The problem is that it is not recorded.**
 
-이 문서는 "어디서 그 판단이 일어나기 쉬운가"를 미리 알려 주는 용도다.
+This document tells you in advance "where that decision tends to happen".
 
-## 왜 이게 사고가 되나
+## Why this becomes an incident
 
-값을 못 옮기는 자리는 대개 **작고 은은한 효과**다. 안쪽 그림자·발광·1px 테두리 같은
-것들이라 전체 화면에서 보면 있으나 없으나 비슷해 보인다. 그래서
+The values that cannot be translated are usually **small, subtle effects**: inner shadows, glows, 1px borders and the like.
+On a full screen they look about the same with or without them. So:
 
-1. 구현자가 "이건 못 넣으니 근사하자"고 판단하고
-2. 코드에도 보고서에도 그 말을 안 남기고
-3. 전체 화면 골든으로 확인해 "같다"고 보고하고
-4. **디자이너가 배포 후에 발견한다**
+1. The implementer decides "this cannot go in, let's approximate"
+2. Leaves no word of it in the code or the report
+3. Checks with a full-screen golden and reports "it matches"
+4. **The designer finds it after release**
 
-3번에서 못 잡는 이유는 `rendering.md` 의 "회귀용 골든과 분리한다" 절에 있다.
+Why step 3 does not catch it is in the "Keep comparison renders separate from regression goldens" section of `rendering.md`.
 
 ---
 
 ## Flutter
 
-| 시안의 표현 | 실제 | 대응 |
+| Expression in the design | Reality | What to do |
 |---|---|---|
-| **안쪽 그림자 (inset)** | `BoxDecoration` 이 **지원하지 않는다** | 겹친 위젯·`ShaderMask`·커스텀 페인터로 근사하거나, 생략하고 **반드시 기록** |
-| **그라데이션 테두리** | `Border` 가 그라데이션을 **받지 못한다** | 두 겹 상자로 우회 |
+| **Inner shadow (inset)** | `BoxDecoration` **does not support it** | Approximate with overlapping widgets, `ShaderMask` or a custom painter, or omit it and **always record it** |
+| **Gradient border** | `Border` **cannot take a gradient** | Work around it with two nested boxes |
 
-> 안쪽 그림자는 이번 사고의 **직접 원인**이다. 효과 네 줄 중 안쪽 세 줄이 빠졌고,
-> 마지막 줄이 그 버튼을 "빛나는" 것으로 보이게 하는 주인공이었다.
+> The inner shadow was **the direct cause** of the incident. The inner three of four effect lines were missing,
+> and the last one was what made that button look "glowing".
 
 ---
 
-## React (웹 · CSS)
+## React (web · CSS)
 
-CSS 는 Figma 와 표현이 가장 가깝다. **그래서 오히려 "되겠지" 하고 넘겼다가 빠진다.**
+CSS is the closest to Figma in expression. **That is exactly why things get dropped after assuming "this will work".**
 
-| 시안의 표현 | 실제 | 대응 |
+| Expression in the design | Reality | What to do |
 |---|---|---|
-| **안쪽 그림자 (inset)** | `box-shadow: inset` 으로 **그대로 된다** | 못 한다고 생각해 빼지 마라 |
-| **그림자 여러 줄** | 쉼표로 이어 **그대로 된다** | Figma 값을 그대로 붙여 넣는 것이 가장 정확하다 |
-| **그라데이션 테두리** | `border` 가 그라데이션을 **못 받는다** | `border-image` 또는 배경 두 겹 + `background-clip` |
-| **배경 블러** | `backdrop-filter` — Safari 는 `-webkit-` 접두사 | 구형 안드로이드 WebView 에는 없다 |
-| **레이어 블러** | `filter: blur()` — **자식까지 흐려진다** | Figma 의 레이어 블러와 같은 동작이다 |
+| **Inner shadow (inset)** | Works **as is** with `box-shadow: inset` | Do not drop it thinking it is not possible |
+| **Multiple shadow lines** | Works **as is**, joined with commas | Pasting the Figma value as is is the most accurate |
+| **Gradient border** | `border` **cannot take a gradient** | `border-image`, or two background layers + `background-clip` |
+| **Background blur** | `backdrop-filter`; Safari needs the `-webkit-` prefix | Not available in old Android WebViews |
+| **Layer blur** | `filter: blur()`: **children blur too** | Same behavior as Figma's layer blur |
 
-> 배경 블러와 레이어 블러를 섞어 쓰면 결과가 전혀 다르다. `coverage` 가 둘을
-> **다른 이름으로** 내주므로 그대로 옮긴다.
+> Mixing up background blur and layer blur gives a completely different result. `coverage` emits them
+> **under different names**, so translate them as they are.
 
 ---
 
 ## React Native
 
-**여기가 가장 많이 빠진다.** CSS 처럼 보이는 이름을 쓰는데 동작이 다르기 때문이다.
+**This is where the most gets dropped.** It uses names that look like CSS, but they behave differently.
 
-| 시안의 표현 | 실제 | 대응 |
+| Expression in the design | Reality | What to do |
 |---|---|---|
-| **안쪽 그림자 (inset)** | 없다 | 겹친 뷰로 근사하거나 생략하고 **기록** |
-| **그림자 여러 줄** | 구버전은 **한 줄만** 받는다 | RN 0.76+ 의 `boxShadow` 를 쓰거나, 가장 눈에 띄는 한 줄만 남기고 **나머지를 기록** |
-| **그림자 색·치우침 (Android)** | `shadow*` 는 **iOS 전용**. 안드로이드는 `elevation` 뿐이라 색도 방향도 못 정한다 | RN 0.76+ `boxShadow`, 아니면 `react-native-shadow-2` 류 |
-| **그라데이션** | 없다 | `react-native-linear-gradient` |
-| **배경 블러** | 없다 | `@react-native-community/blur` 의 `BlurView` |
-| **그라데이션 테두리** | 없다 | 두 겹으로 우회 |
+| **Inner shadow (inset)** | None | Approximate with overlapping views, or omit and **record it** |
+| **Multiple shadow lines** | Older versions take **only one** | Use `boxShadow` on RN 0.76+, or keep only the most visible line and **record the rest** |
+| **Shadow color and offset (Android)** | `shadow*` is **iOS only**. Android has only `elevation`, which sets neither color nor direction | RN 0.76+ `boxShadow`, otherwise something like `react-native-shadow-2` |
+| **Gradient** | None | `react-native-linear-gradient` |
+| **Background blur** | None | `BlurView` from `@react-native-community/blur` |
+| **Gradient border** | None | Work around it with two layers |
 
-> `overflow: 'hidden'` 과 그림자를 한 뷰에 같이 주면 **그림자가 잘려 사라진다.**
-> 바깥 뷰에 그림자, 안쪽 뷰에 `overflow` 로 나눈다.
+> Putting `overflow: 'hidden'` and a shadow on the same view **clips the shadow away.**
+> Split it: shadow on the outer view, `overflow` on the inner view.
 
 ---
 
-## 그 밖의 프레임워크
+## Other frameworks
 
-쓰는 프레임워크에서 **시안의 무엇이 그대로 안 옮겨지는지** 알아내 여기에 절을 추가한다.
+Find out **what in the design does not translate as is** in the framework you use, and add a section here.
 
-찾는 방법은 간단하다 — `coverage` 가 나열한 항목 중 **근사·생략으로 분류한 것**이
-모두 후보다. 같은 이유로 반복해서 근사하게 되는 자리가 있으면 그게 이 표에 들어갈 것이다.
+Finding it is simple: every item in the `coverage` list that you classified **as approximated or omitted**
+is a candidate. If you keep approximating at the same spot for the same reason, that belongs in this table.
 
-표를 채울수록 다음 사람이 같은 자리에서 조용히 빠뜨리지 않는다.
+The more of this table is filled in, the less the next person silently drops things at the same spot.

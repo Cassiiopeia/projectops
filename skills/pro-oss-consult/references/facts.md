@@ -1,48 +1,48 @@
-> 언제 읽나: `collect` · `list-repos` · `local-facts` 결과 JSON 을 해석할 때. 각 필드가 무엇을 뜻하고, 무엇이 "없음"이 아니라 "못 봄"인지 여기 있다.
+> When to read: when interpreting the JSON from `collect` · `list-repos` · `local-facts`. What each field means, and which ones mean "could not see" rather than "missing".
 
-# 사실 수집 결과 읽는 법
+# Reading the collected facts
 
 ## collect
 
-메타데이터(설명·topics·homepage·라이선스·`is_template`·Discussions), 건강 파일(루트·`.github`·`docs`를 직접 확인 —
-community profile API는 yml 이슈 폼을 못 알아본다. 이름은 대소문자·하이픈·확장자 변형을 허용한다), 라벨 이름,
-README 첫 화면 원문(`readme.top`)·제목 목록·미디어 링크, 릴리스(`prerelease` 구분), 이슈 표본(번호·날짜·PR 여부)을
-JSON으로 준다. CONTRIBUTING·SECURITY는 앞 15줄(`head`)과 줄 수(`lines`)를 준다 — 빈 문서 판별용이다.
+Returns JSON with: metadata (description, topics, homepage, license, `is_template`, Discussions); health files (checked directly in the root, `.github` and `docs`,
+because the community profile API does not recognize yml issue forms; names allow case, hyphen and extension variants); label names;
+the README first screen as source text (`readme.top`), the heading list and media links; releases (with `prerelease` marked); and an issue sample (number, date, whether it is a PR).
+For CONTRIBUTING and SECURITY it returns the first 15 lines (`head`) and the line count (`lines`), for spotting empty documents.
 
-- **판정은 들어 있지 않다.** "비교 절이 있나", "라벨 체계가 좋은가", "데모가 설득력 있나"는 원문을 읽고 당신이 판단한다.
-- **`errors`가 있으면 그 항목은 "확인 못 함"이다.** 이슈 기능이 꺼진 레포(410)나 권한 부족(403)으로 일부만 모였을 수 있다.
-  없는 것(`null`)과 못 본 것(`errors`)을 구분해서 쓴다. 일부만 실패하면 최상위 `code`가 `partial`이고 `ok`는 `true`다.
-  `truncated`가 **비어 있지 않거나** `capped`가 `true`이면 일부만 본 것이다. `sanitized`가 있으면 너무 긴 문자열을 잘랐거나
-  방향 전환 같은 제어문자를 지운 것이다 — 원문이 필요하면 해당 레포에서 직접 본다.
-- `unsupported_manifests`·`files.privacy_searched`처럼 "어디를 봤는지"를 알려주는 필드가 있으면 본 범위 밖은 직접 연다.
+- **No verdicts are included.** You judge "is there a comparison section", "is the label scheme good" or "is the demo convincing" by reading the source.
+- **If `errors` is present, those items are "could not check".** Only part may have been collected because issues are disabled (410) or permission is missing (403).
+  Keep what is missing (`null`) apart from what you could not see (`errors`). When only part fails, the top-level `code` is `partial` and `ok` is `true`.
+  If `truncated` is **not empty** or `capped` is `true`, you saw only part. If `sanitized` is present, an overlong string was cut or
+  control characters such as direction overrides were removed. If you need the original, look at the repo directly.
+- When a field tells you "where it looked", such as `unsupported_manifests` or `files.privacy_searched`, open anything outside that range yourself.
 
 ## list-repos (batch)
 
-- 계정명 조회에 타 조직 레포가 섞여 나오면 `other_owners`로 알려준다. **기본은 제외한다.** 팀 레포라면 사용자에게 포함 여부를 묻는다.
-- **대상이 20개를 넘으면** 먼저 사용자에게 범위를 확인한다. `collect`는 레포당 API를 10회 안팎 쓴다.
-  `rate_limited`가 나오면 안내된 시각까지 멈춘다. 재시도 폭주로 계정을 막지 않는다.
-- 일괄 점검에서 `--include-all`(비공개 포함)은 사용자가 요청했을 때만 쓰고, 비공개 레포 내용은 공개 대상에 쓰지 않는다.
+- When looking up an account returns repos owned by other organizations, they are reported in `other_owners`. **They are excluded by default.** If they are team repos, ask the user whether to include them.
+- **If there are more than 20 targets**, confirm the scope with the user first. `collect` uses about 10 API calls per repo.
+  If you get `rate_limited`, stop until the time given. Do not get the account blocked with a burst of retries.
+- In batch audits, use `--include-all` (includes private repos) only when the user asks, and never write private repo content into anything public.
 
-## local-facts (C·D·E축)
+## local-facts (axes C·D·E)
 
-`collect`는 GitHub API만 본다. 기여하기 쉬운지, 코드가 확장 가능한지, 의존성 라이선스가 안전한지는
-**레포를 직접 읽고 걸어봐야** 안다. 로컬 clone 경로가 있으면 그 경로를 쓴다. 없으면:
+`collect` only looks at the GitHub API. Whether it is easy to contribute, whether the code is extensible, and whether dependency licenses are safe
+can only be known **by reading the repo and walking through it**. If you have a local clone path, use it. If not:
 
-- 작은 도구 review에서는 묻지 않고 **"D 미확인"으로 두는 것이 기본값**이다 (clone을 요구하면 마찰이 크다).
-- 사용자가 코드까지 보기를 원하거나 audit이면 clone 여부를 묻는다. 모르는 레포는 clone하지 않고 API만 쓰는 편이 안전하다
-  (악성 설정 위험 — `local-facts`가 위험한 git 설정을 끄고 돌지만, clone 자체도 신뢰하지 않는다).
-- batch에서는 건너뛰고 "코드 미확인"으로 표시한다.
+- In a small-tool review, do not ask; **leaving it as "D unverified" is the default** (asking for a clone adds a lot of friction).
+- If the user wants the code reviewed too, or it is an audit, ask whether to clone. For an unknown repo, using only the API and not cloning is safer
+  (risk of malicious config; `local-facts` runs with dangerous git settings disabled, but the clone itself is not trusted either).
+- In batch, skip it and mark "code unverified".
 
-`co_change`(함께 바뀐 파일 쌍, **커밋 단위 근사** — 버전 동기화·생성 파일 후보와 대형 커밋은 제외하고 `excluded`로 알린다.
-남은 쌍이 의도된 사본인지는 PR·이슈로 확인), `natural_language_strings`(한글·CJK 문자열 리터럴이 많은 파일, 테스트·주석 제외)·
-`string_catalog_dirs`, `dependency_manifests`(선언된 의존성 이름)와 `unsupported_manifests`(읽지 못한 매니페스트 —
-빈 `{}`와 다르다. **직접 열어서 본다**. `manifests_seen`에는 있는데 `dependency_manifests`에 없는 파일도 "못 읽음"이다 —
-깨졌거나 너무 커서 건너뛴 것이므로 "매니페스트 없음"으로 판단하지 않는다), `committed_secret_paths`(추적 중인 비밀 후보 경로, 내용은 읽지 않음)를 준다.
-**판정은 하지 않는다** — 값을 보고 판단한다. 특히:
+It returns: `co_change` (pairs of files that changed together, **approximated per commit**; version-sync and generated-file candidates and large commits are excluded and reported in `excluded`.
+Check through PRs and issues whether a remaining pair is an intended copy); `natural_language_strings` (files with many Korean or other CJK string literals, excluding tests and comments) and
+`string_catalog_dirs`; `dependency_manifests` (declared dependency names) and `unsupported_manifests` (manifests it could not read,
+which is different from an empty `{}`. **Open them and look yourself**. A file that is in `manifests_seen` but not in `dependency_manifests` is also "could not read":
+it was broken or too large and skipped, so do not conclude "no manifest"); and `committed_secret_paths` (tracked paths that may be secrets; contents are not read).
+**It makes no verdicts.** Look at the values and decide. In particular:
 
-- 공통 규칙(브랜치·커밋·스타일·테스트·받는 범위)이 한 곳에서 짧게 보이나, 도구로 강제되나
-- 기능 하나 추가에 몇 파일을 건드리나 — **커밋이 아니라 PR·이슈 단위로** 센다. 의도된 사본·생성 파일은 빼고
-- 사용자 노출 문구가 카탈로그로 분리됐나
-- 의존성 라이선스 — **배포물에 실제로 들어가는 것** 기준으로
-- `.env`·키 파일·토큰이 커밋돼 있나 — 있으면 **다른 모든 것보다 먼저** 알린다. 이미 커밋된 비밀은 이력에서 지워도 유출된 것이므로
-  **폐기(rotate)가 먼저**다. 비밀 값이나 경로를 공개 이슈·댓글·보고서 본문에 그대로 쓰지 않고 마스킹한다
+- Are the shared rules (branches, commits, style, tests, what is accepted) visible in one place and short, and are they enforced by tools?
+- How many files does adding one feature touch? Count **per PR or issue, not per commit**, and leave out intended copies and generated files
+- Are user-facing strings separated into a catalog?
+- Dependency licenses: judge by **what actually ends up in the distributed artifact**
+- Are `.env` files, key files or tokens committed? If so, report it **before anything else**. A committed secret has leaked even if you remove it from history,
+  so **revoke (rotate) it first**. Do not write secret values or paths verbatim in public issues, comments or the report body; mask them

@@ -1,44 +1,44 @@
-# 성숙도 5단계
+# Five maturity stages
 
-점수와 별개로 "지금 몇 단계이고, 다음 단계로 가려면 무엇부터"를 말한다.
-**현재 단계의 빈칸을 먼저 채우고, 다음 단계의 선행 조건으로 넘어간다.** 단계를 건너뛰어
-거버넌스부터 만드는 것은 안티패턴이다.
+Separately from the scores, state "which stage it is at now, and what comes first to reach the next one".
+**Fill the gaps in the current stage first, then move on to the next stage's prerequisites.** Skipping stages
+to build governance first is an anti-pattern.
 
-근거: Mattermost, Kubernetes, Rust, React, Django, Grafana, Supabase, Terraform, VS Code, ripgrep, bat (조사 시점 2026-09-30).
+Basis: Mattermost, Kubernetes, Rust, React, Django, Grafana, Supabase, Terraform, VS Code, ripgrep, bat (as of research on 2026-09-30).
 
-## 단계 표
+## Stage table
 
-"갖출 것"의 **M 열은 `rubric.md`의 항목 번호**다. 그 항목이 해당 성격에서 M일 때만 단계 판정에 쓴다
-(성격별 M/S는 rubric의 표가 정본이다). S 열은 권장이라 판정에 쓰지 않고 선행 조건·개선안에 쓴다.
+The **M column** under "What to have" lists **item numbers from `rubric.md`**. Use an item for the stage verdict only when it is M for that repo type
+(the rubric tables are the source of truth for M/S by type). The S column is recommended, so it is not used for the verdict; use it for prerequisites and improvements.
 
-| 단계 | 갖출 것 — M (rubric 항목) | 갖출 것 — S | 다음 단계로 가기 전에 (선행 조건) |
+| Stage | What to have: M (rubric items) | What to have: S | Before moving to the next stage (prerequisites) |
 |---|---|---|---|
-| **0 개인** | 공개 레포라면 **E1 라이선스 결정**, **E5 비밀값 없음**. (비공개 개인 레포는 해당 없음) | 명령 한 줄로 빌드·테스트, 기본 CI (D6) | **라이선스를 먼저 정한다.** 외부 기여가 쌓인 뒤 바꾸면 Terraform→OpenTofu처럼 포크가 난다 |
-| **1 공개 가능** | **A1·A2·A5** README(가치 제안·대상 언어·설치·사용), **A6** About 설명·topics, **E2** 인식되는 LICENSE 파일, **F1** 릴리스(`app`·`cli`·`tool`·`ai`·`template`만) | F2 CHANGELOG·릴리스 노트, E6 SECURITY.md(신고 채널 포함) | 릴리스 절차를 문서로 남긴다. 질문을 이슈 밖(Discussions)으로 뺀다(C7). 의존성 봇을 켠다(F3) |
-| **2 기여 가능** | **C1** 실용적인 CONTRIBUTING, **C2** yml 이슈 폼(`app`·`product`만 M), **D6** 테스트·CI, **C10** 에이전트 안내(`ai`·`template`만), **C9** AI 기여 정책(`ai`만) | C3·C4·C5, D1 ARCHITECTURE.md, D2 확장 가이드 | 두 번째 메인테이너(한 사람 의존 해소, F5), **C8 CODE_OF_CONDUCT**, 첫 응답 시간 측정 |
-| **3 커뮤니티** | rubric에 대응 항목이 없다. 아래 "3·4단계" 참고 | 포럼·채팅, 공개 로드맵, 가벼운 RFC 절차, 트리아지 봇, 보안 지원 범위 명시, 문서 사이트 | 역할 사다리와 결정 규칙, LTS·폐기 정책, 상표·인프라 소유 주체 |
-| **4 거버넌스** | rubric에 대응 항목이 없다 | GOVERNANCE.md, OWNERS 기반 권한, 정식 RFC(KEP·DEP), 재단·후원, 특정 회사 비중 제한 | |
+| **0 Personal** | For a public repo, **E1 license chosen** and **E5 no secrets**. (Not applicable to private personal repos) | One-line build and test, basic CI (D6) | **Choose the license first.** Changing it after outside contributions pile up leads to forks, as with Terraform → OpenTofu |
+| **1 Ready to publish** | **A1 · A2 · A5** README (value proposition, audience language, install, usage), **A6** About description and topics, **E2** a recognized LICENSE file, **F1** releases (only `app` · `cli` · `tool` · `ai` · `template`) | F2 CHANGELOG or release notes, E6 SECURITY.md (with a reporting channel) | Document the release procedure. Move questions out of issues (Discussions) (C7). Turn on a dependency bot (F3) |
+| **2 Ready for contributions** | **C1** a practical CONTRIBUTING, **C2** yml issue forms (M only for `app` · `product`), **D6** tests and CI, **C10** agent guidance (only `ai` · `template`), **C9** AI contribution policy (only `ai`) | C3 · C4 · C5, D1 ARCHITECTURE.md, D2 extension guide | A second maintainer (removes single-person dependency, F5), **C8 CODE_OF_CONDUCT**, measure time to first response |
+| **3 Community** | No matching rubric items. See "Stages 3 and 4" below | Forum or chat, public roadmap, lightweight RFC process, triage bot, stated security support scope, documentation site | Role ladder and decision rules, LTS and deprecation policy, who owns the trademark and infrastructure |
+| **4 Governance** | No matching rubric items | GOVERNANCE.md, OWNERS-based permissions, formal RFCs (KEP · DEP), foundation or sponsorship, limits on any single company's share | |
 
-## 판정 규칙
+## Verdict rules
 
-- 단계 N은 **단계 N의 "M 열" 항목이 전부** 충족일 때 인정한다. 하나라도 비면 N-1이다. "부분"은 충족이 아니다.
-- **라이선스는 두 곳에 걸치되 모순이 아니다.** E1(라이선스를 정했나)은 **0단계** M이고, E2(GitHub가 인식하는 파일 형태)는
-  1단계 M이다. **공개 레포에 라이선스가 없으면 0단계도 통과하지 못한다** — 사용 허락이 없는 채로 공개된 상태이므로
-  단계 대신 "0단계 미통과"로 적고 결함 1순위로 올린다.
-- **3·4단계는 rubric에 M 항목이 없다.** 이 단계는 실제 외부 기여자가 생긴 뒤의 이야기라, 해당 증거(로드맵·RFC·
-  GOVERNANCE 등)가 있는지 에이전트가 근거와 함께 "있음/없음"으로 적는다. 증거 없이 3단계 이상을 매기지 않는다.
-- 사용자의 레포 대부분은 0~1단계다. 대표 레포의 현실적 목표는 2단계다. 3단계 이상은 실제 외부
-  기여자가 생긴 뒤에 제안한다.
-- `study` 성격은 단계를 매기지 않는다.
-- **CODE_OF_CONDUCT는 2단계를 모두 채운 뒤(2→3 선행 조건)에만 권한다.** 기여자가 없는 레포에 먼저 만들지 않는다.
+- Stage N counts only when **every item in stage N's "M column"** is met. If even one is missing, it is N-1. "Partial" is not met.
+- **The license spans two stages without contradiction.** E1 (has a license been chosen) is M at **stage 0**, and E2 (a file form GitHub recognizes) is
+  M at stage 1. **A public repo with no license does not even pass stage 0.** It is public with no permission to use it, so
+  write "did not pass stage 0" instead of a stage, and make it the top defect.
+- **Stages 3 and 4 have no M items in the rubric.** These stages only matter once real outside contributors exist, so the agent records
+  whether the evidence (roadmap, RFCs, GOVERNANCE and so on) is "present/absent", with reasons. Do not assign stage 3 or higher without evidence.
+- Most of the user's repos are at stage 0–1. A realistic goal for a representative repo is stage 2. Suggest stage 3 and above only after
+  real outside contributors appear.
+- Do not assign a stage to `study` repos.
+- **Recommend CODE_OF_CONDUCT only after stage 2 is complete (as the 2→3 prerequisite).** Do not create it first in a repo with no contributors.
 
-## 안티패턴 (보이면 지적한다. 다른 문서는 이 목록을 참조한다)
+## Anti-patterns (point them out when you see them; other documents refer to this list)
 
-- 기여자도 없는데 GOVERNANCE·RFC부터 만든다
-- 봇 없이 라벨만 수십 개로 늘린다
-- 건강 점수를 올리려고 빈 템플릿을 채운다
-- `good first issue`를 붙여놓고 방치한다
-- 규칙 공지 없이 stale 이슈를 일괄로 닫는다
-- 외부 기여가 쌓인 뒤 라이선스를 바꾼다
-- 이슈 트래커를 고객센터로 쓴다
-- AI 생성 PR에 대한 방침이 없다
+- Building GOVERNANCE or RFCs when there are no contributors
+- Growing labels to dozens with no bot
+- Filling empty templates to raise the health score
+- Labeling `good first issue` and then leaving it unattended
+- Bulk-closing stale issues without announcing the rule
+- Changing the license after outside contributions pile up
+- Using the issue tracker as a customer support desk
+- Having no policy on AI-generated PRs

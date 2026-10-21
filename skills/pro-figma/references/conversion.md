@@ -1,67 +1,67 @@
-# 시안 값을 코드로 옮긴다
+# Translating design values to code
 
-> 언제 읽나: Phase 3 — 분류표대로 값을 코드로 옮길 때 (단위 환산 · 토큰 재사용 · 근사·생략 주석).
+> When to read: Phase 3, when translating values to code following the classification table (unit conversion · token reuse · comments for approximations and omissions).
 
-**분류표가 곧 작업 목록이다.** `coverage` 가 나열한 항목을 하나씩 처리하면서 이 문서의
-규칙을 적용한다. 나열을 건너뛰고 그림만 보고 옮기면 작고 은은한 것이 그냥 빠진다.
+**The classification table is the worklist.** Handle the items `coverage` listed one by one, applying the rules
+in this document. If you skip the list and work from the picture alone, the small and subtle things simply get dropped.
 
-## 시작 전 — 이 프로젝트가 무엇을 쓰는지 본다
+## Before you start: see what this project uses
 
-값을 옮기기 전에 **받을 그릇**을 먼저 확인한다. 프로젝트가 이미 쓰는 것을 무시하고
-새 방식을 들이면 화면마다 스타일이 갈라진다.
+Before translating values, check **the container that will receive them**. If you ignore what the project already uses
+and bring in a new approach, styles split from screen to screen.
 
-| 무엇 | 어디를 보나 |
+| What | Where to look |
 |---|---|
-| 스타일링 방식 | 설정 파일 · 기존 화면 한두 개 |
-| 디자인 토큰 | 간격 · 글자 · 색 · 모서리 · breakpoint 정의 자리 |
-| 화면 크기 기준 | 시안 캔버스 폭과 코드의 기준 폭이 같은가 |
+| Styling approach | Config files · one or two existing screens |
+| Design tokens | Where spacing · type · color · corner radius · breakpoints are defined |
+| Screen size baseline | Is the design canvas width the same as the code's baseline width? |
 
-## 핵심 원칙
+## Core principles
 
-- **px 를 그대로 박지 않는다** — 기기가 달라지면 그만큼 어긋난다
-- **시안 캔버스 대비 비율**로 계산한다
-- **이미 있는 토큰을 쓴다** — 새 값을 만들면 그 화면만 달라진다
-- **프로젝트의 기존 패턴을 따른다**
+- **Do not hard-code px.** It drifts by that much on a different device
+- Calculate **as a ratio of the design canvas**
+- **Use existing tokens.** A new value makes only that screen different
+- **Follow the project's existing patterns**
 
-## 무엇을 어떤 단위로
+## What, in which unit
 
-| 시안의 값 | 옮길 때 |
+| Value in the design | When translating |
 |---|---|
-| 전체 너비에 가까운 폭 (90%+) | 100% + 부모 여백 |
-| 아이콘·버튼처럼 고정 크기 | 상대 단위 또는 고정값 |
-| 중간 크기 | 비율 또는 `clamp(최소, 기준, 최대)` |
-| 디자인 시스템에 있는 간격 | **토큰** (새 값 만들지 않기) |
-| 화면에 비례하는 여백 | 화면 폭 단위 또는 `clamp()` |
-| 글자 크기 | 상대 단위. 반응형이면 `clamp()` |
-| 모서리 | 상대 단위 또는 프레임워크 토큰 |
+| Width close to full width (90%+) | 100% + parent padding |
+| Fixed size such as icons and buttons | Relative unit or fixed value |
+| Medium size | Ratio or `clamp(min, preferred, max)` |
+| Spacing that exists in the design system | **Token** (do not create a new value) |
+| Spacing proportional to the screen | Screen-width unit or `clamp()` |
+| Font size | Relative unit. `clamp()` if responsive |
+| Corner radius | Relative unit or framework token |
 
-## 프레임워크별
+## By framework
 
-기준 폭을 정하고 **그 비율로** 환산한다. 이름은 다르지만 하는 일은 같다.
+Set a baseline width and convert **by that ratio**. The names differ, but the job is the same.
 
-| 프레임워크 | 환산 | 여백 |
+| Framework | Conversion | Spacing |
 |---|---|---|
-| CSS 유틸리티 (Tailwind 등) | 토큰 계열에 맞춰 반올림 | 부모 padding |
-| CSS-in-JS | px→화면폭 단위 헬퍼 · `clamp()` | theme 간격 |
-| React Native | `화면폭 ÷ 시안폭 × 값`, 최소·최대로 묶기 | `StyleSheet` |
-| Flutter | `MediaQuery` 기반 확장(`.w`·`.h`·`.sp`) | `EdgeInsets` |
+| CSS utilities (Tailwind etc.) | Round to the token scale | Parent padding |
+| CSS-in-JS | px → screen-width unit helper · `clamp()` | Theme spacing |
+| React Native | `screen width ÷ design width × value`, bounded by min and max | `StyleSheet` |
+| Flutter | `MediaQuery`-based extensions (`.w` · `.h` · `.sp`) | `EdgeInsets` |
 
-> ⚠️ **크기 확장(`.w` 등)은 대개 글자 크기를 안 건드린다.** 글자까지 비례시키려면
-> 글자용 단위(`.sp`)를 따로 써야 한다 — 섞어 쓰면 한 기기에서만 맞는다.
+> ⚠️ **Size extensions (`.w` etc.) usually do not touch font size.** To scale text too,
+> use the text unit (`.sp`) separately. Mixing them makes it right on only one device.
 
-## 근사·생략은 코드에 사유를 남긴다 ⚠️
+## Leave the reason for approximations and omissions in the code ⚠️
 
-프레임워크가 시안 값을 그대로 못 받는 자리가 있다 (`framework-gaps.md`).
-그럴 때 근사하거나 빼는 **판단 자체는 정상이다. 기록하지 않는 것이 문제다.**
+Some design values cannot be taken as is by the framework (`framework-gaps.md`).
+**Deciding to approximate or drop them is normal. Not recording it is the problem.**
 
 ```
-// 시안: inset 0px 0px 10px 2px #FFFFFF (안쪽 흰 테두리)
-// 이 프레임워크는 안쪽 그림자를 지원하지 않아 겹친 테두리로 근사함
+// Design: inset 0px 0px 10px 2px #FFFFFF (inner white border)
+// This framework has no inner shadow, so approximated with an overlapping border
 ```
 
-주석이 없으면 다음 사람이 **못 옮긴 것인지 안 옮기기로 한 것인지** 구분하지 못한다.
+Without the comment, the next person cannot tell **whether it could not be translated or was deliberately left out**.
 
-## 옮긴 뒤
+## After translating
 
-값만 맞췄다고 끝이 아니다. **픽셀로 맞대 본다** (SKILL.md 의 대조 단계).
-그림자·발광·1px 테두리는 값이 맞아도 그리는 쪽에서 조용히 빠질 수 있다.
+Matching the values is not the end. **Compare by pixels** (the comparison phases in SKILL.md).
+Shadows, glows and 1px borders can silently drop out at render time even when the values are right.

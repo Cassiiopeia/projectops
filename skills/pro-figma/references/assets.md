@@ -1,60 +1,60 @@
-# 에셋 받기 — 묶기 · 이름 · 박힌 효과 · 칠 값
+# Downloading assets: grouping · names · baked effects · fill values
 
-> 언제 읽나: Phase 2 — `assets` 결과를 `download_figma_images` 에 넘기기 전과 받은 직후.
+> When to read: Phase 2, before passing the `assets` result to `download_figma_images` and right after downloading.
 
-**`get_figma_data` 는 그림을 주지 않는다.** 아이콘은 덤프 안에 `IMAGE-SVG` 노드로만
-있고 **모양 정보가 아예 없다.** 값을 아무리 잘 옮겨도 파일을 따로 받지 않으면
-화면에 아이콘이 없다.
+**`get_figma_data` does not give you images.** Icons exist in the dump only as `IMAGE-SVG` nodes,
+with **no shape data at all.** However well you translate the values, the screen has no icons
+unless you download the files separately.
 
-`assets` 가 돌려주는 `nodes` 를 **그대로** `mcp__figma__download_figma_images` 의 `nodes` 인자로
-넘기고, `localPath` 에 **Phase 0 의 `asset_dir_candidates` 중 고른 절대경로**를 준다.
+Pass the `nodes` returned by `assets` **as is** as the `nodes` argument of `mcp__figma__download_figma_images`,
+and give `localPath` **the absolute path you chose from Phase 0's `asset_dir_candidates`**.
 
-> - 프로젝트 밖은 거부된다 — `Invalid path specified. Directory traversal is not allowed.`
-> - **증거 폴더(`run_dir`)에 받지 마라.** 추적에서 빠져 커밋되지 않는다.
+> - Paths outside the project are rejected: `Invalid path specified. Directory traversal is not allowed.`
+> - **Do not download into the evidence folder (`run_dir`).** It is excluded from tracking and will not be committed.
 
-## 순진하게 훑으면 이렇게 망가진다
+## What breaks when you sweep naively
 
-| 함정 | 실측 | 도구가 하는 일 |
+| Pitfall | Measured | What the tool does |
 |---|---|---|
-| 노드마다 한 번씩 받는다 | 609번 받아 실제론 135개 | 증거로 묶어 준다 |
-| 레이어 이름을 파일명으로 | **46%가 거부된다** (한글·공백·`/`) | 통과하는 이름을 만든다 |
-| 이름이 같으면 같은 그림이겠지 | `Vector` 71개 = **서로 다른 48종** | 이름만 같으면 **안 묶는다** |
-| 이름으로 저장 | 609개 중 592개가 45종에 몰려 **덮어쓴다** | 겹치면 번호를 붙인다 |
-| 사진에 `imageRef` 누락 | 엉뚱한 그림이 온다 | 인자에 넣어 준다 |
+| Download once per node | 609 downloads for what were really 135 assets | Groups them by evidence |
+| Use layer names as file names | **46% are rejected** (Korean, spaces, `/`) | Builds names that pass |
+| Same name means same image | 71 `Vector` nodes = **48 different images** | **Does not group** on name alone |
+| Save by name | 592 of 609 piled into 45 names and **overwrote each other** | Adds a number on collision |
+| `imageRef` missing for photos | The wrong image arrives | Puts it in the arguments for you |
 
-## 효과가 붙은 에셋은 **더 크게 온다** ⚠️
+## Assets with effects **come in larger** ⚠️
 
-`baked_effect` 가 붙은 항목은 번짐이 **그림 안에 SVG 필터로 박혀** 온다.
+Items tagged `baked_effect` arrive with the spread **baked into the image as an SVG filter**.
 
-> 실측: `layout` 36×34 인 글로우 도형이 **96×94** 로 왔다. 사방 30px 씩 늘어난 것이다.
+> Measured: a glow shape with a `layout` of 36×34 arrived as **96×94**, 30px larger on every side.
 
-| 잘못 | 결과 |
+| Mistake | Result |
 |---|---|
-| 레이아웃 크기(36×34)로 우겨 넣는다 | 글로우까지 줄어 **도형이 쪼그라든다** |
-| 효과를 코드로 또 넣는다 | **두 번 적용**돼 두 배로 번진다 |
+| Squeeze it into the layout size (36×34) | The glow shrinks too and **the shape gets smaller** |
+| Add the effect in code as well | **Applied twice**, so it spreads twice as far |
 
-→ 그 항목은 **코드에서 효과를 빼고**, 크기는 받은 그림 그대로 두되 **도형 중심**으로
-배치한다. `coverage` 에서 그 효과 항목은 "구현(에셋에 포함)"으로 분류한다.
+→ For those items, **remove the effect from the code**, keep the downloaded image size as is, and position it by **the shape's center**.
+In `coverage`, classify that effect item as "implemented (included in the asset)".
 
-## 받은 뒤 반드시 확인한다
+## Always check after downloading
 
-- `rename_me: true` — 원래 이름이 한글이라 **뜻을 잃었다.** `name` 을 보고 의미 있는
-  이름으로 고쳐서 넘긴다. `asset-976-4627.svg` 로 두면 다음 사람이 못 알아본다.
-- `certain: false` — `componentId` 가 없어 **내용이 같다는 것만 보고 묶었다.**
-  받은 뒤 눈으로 확인한다.
-- **파일 개수·0 바이트**를 센다. 받았다고 응답해 놓고 안 받아진 적이 있다.
-- **크기가 덤프와 다르면 효과가 박혀 온 것**이다. 위 절대로 처리한다.
+- `rename_me: true`: the original name was Korean, so **its meaning was lost.** Look at `name` and rename it
+  to something meaningful. Left as `asset-976-4627.svg`, the next person cannot tell what it is.
+- `certain: false`: there was no `componentId`, so it was **grouped only because the content matched.**
+  Check it by eye after downloading.
+- **Count the files and check for 0-byte files.** Downloads have been reported as done without actually happening.
+- **If the size differs from the dump, an effect was baked in.** Handle it as in the section above.
 
-## 넣은 뒤 칠 값을 전수로 훑는다
+## After placing them, sweep every fill value
 
-**"시안에서 받은 파일을 넣었으니 맞겠지"가 자주 틀린다.** 모양은 같은데 칠 값만 다른
-경우가 있다 — 다른 상태의 것을 받았거나 손으로 만들며 값이 섞인 것이다.
+**"I put in the file from the design, so it must be right" is often wrong.** Sometimes the shape is the same
+and only the fill differs: you downloaded another state's version, or values got mixed while editing by hand.
 
 ```
 fill="#      fill:#      stroke="#      stroke:#
 ```
 
-로 전부 뽑아 **디자인 토큰에 없는 값**을 찾는다. 그것이 후보다.
+Extract all of these and look for **values that are not in the design tokens**. Those are the candidates.
 
-> 실제로 아이콘 열일곱 개 중 둘이 토큰에 없는 값을 쓰고 있었다. 하나만 보면 알아채기
-> 어렵고 **같은 역할의 다른 아이콘과 나란히 놓았을 때** 비로소 보였다.
+> In one real case, two of seventeen icons used values that were not in the tokens. Looking at one alone, it was hard
+> to notice; it only showed up **when placed next to other icons with the same role**.
