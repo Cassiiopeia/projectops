@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-21T10:30:34Z",
-    "currentVersion": "4.69.2",
+    "lastUpdated": "2026-10-21T11:11:21Z",
+    "currentVersion": "4.69.3",
     "projectType": "basic",
-    "totalReleases": 339,
+    "totalReleases": 340,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.69.3",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-21",
+      "pr_number": 968,
+      "raw_summary": "## Summary by CodeRabbit\n## 릴리스 노트\n* **기타**\n  * 기기 관리 코드의 설명 주석 정리",
+      "parsed_changes": {
+        "기타": {
+          "title": "기타",
+          "items": [
+            "기기 관리 코드의 설명 주석 정리"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.69.2",
       "project_type": "basic",
