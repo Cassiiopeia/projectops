@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -15,7 +16,23 @@ _NOTES_OPEN = "<!-- This is an auto-generated comment: release notes by coderabb
 _NOTES_CLOSE = "<!-- end of auto-generated comment: release notes by coderabbit.ai -->"
 
 
-def wrap_release_notes(body: str) -> tuple[str, bool]:
+# 레포 언어별 릴리스 노트 제목 (.github/scripts/i18n 의 release_notes.heading 과 같은 값)
+_NOTES_HEADING = {"en": "Release notes", "ko": "릴리스 노트"}
+_LANGUAGE_RE = re.compile(r"^\s*language\s*:\s*[\"']?(en|ko)\b", re.MULTILINE)
+
+
+def read_repo_language(project_root: Path) -> str:
+    """version.yml options.language > en|ko (키 없음 ko, 파일 없음 en — .github/scripts/messages.py 와 같은 규칙)"""
+    version_yml = project_root / "version.yml"
+    try:
+        text = version_yml.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return "en"
+    match = _LANGUAGE_RE.search(text)
+    return match.group(1) if match else "ko"
+
+
+def wrap_release_notes(body: str, language: str = "ko") -> tuple[str, bool]:
     """(본문, 포장했는지). 본문이 비었거나 이미 표식이 있으면 그대로 둔다.
 
     워크플로우는 표식 블록 구조에 의존한다. 사람이 손으로 쓰다 틀리면 본문이 지워지거나
@@ -25,7 +42,7 @@ def wrap_release_notes(body: str) -> tuple[str, bool]:
         return body, False
     inner = body.strip()
     if not inner.startswith("##"):
-        inner = "## 릴리스 노트\n\n" + inner
+        inner = f"## {_NOTES_HEADING.get(language, _NOTES_HEADING['ko'])}\n\n" + inner
     return f"{_NOTES_OPEN}\n\n## {NOTES_MARKER}\n\n{inner}\n\n{_NOTES_CLOSE}\n", True
 
 

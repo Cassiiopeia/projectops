@@ -21,7 +21,7 @@ from common.gh_client import (  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from release_context import APP_SIGNAL_HINTS, collect_app_signals, load_config, read_app_release  # noqa: E402
-from release_tools import wrap_release_notes  # noqa: E402
+from release_tools import read_repo_language, wrap_release_notes  # noqa: E402
 
 # 422 원문 > 의미 있는 code (#970)
 _NO_COMMITS_MESSAGE = "No commits between"
@@ -152,7 +152,8 @@ def cmd_create_pr(args) -> int:
     if ahead_by == 0 and not args.allow_empty:
         return emit(_nothing_to_deploy_response(args))
     # 표식 블록은 도구가 씌운다 — 손으로 쓰면 틀려 본문이 지워진다
-    body, wrapped = wrap_release_notes(body)
+    project_root = Path(args.project_root).resolve() if args.project_root else _git_root_or_cwd()
+    body, wrapped = wrap_release_notes(body, read_repo_language(project_root))
     try:
         result = create_pull_request(args.owner, args.repo, args.title, body, args.head, args.base, pat)
     except GitHubAPIError as e:

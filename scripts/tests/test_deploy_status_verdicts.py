@@ -136,6 +136,18 @@ def test_릴리스_노트_표식_블록을_도구가_씌운다():
     assert tools.wrap_release_notes(already) == (already, False)
 
 
+def test_릴리스_노트_제목은_레포_언어를_따른다(tmp_path):
+    tools = _release_tools()
+    assert "## Release notes" in tools.wrap_release_notes("* item", "en")[0]
+    assert "## 릴리스 노트" in tools.wrap_release_notes("* item", "ko")[0]
+    # version.yml: 키 있으면 그 값, 키 없으면 ko(기존 설치), 파일 없으면 en(신규)
+    assert tools.read_repo_language(tmp_path) == "en"
+    (tmp_path / "version.yml").write_text("version: 1.0.0\n", encoding="utf-8")
+    assert tools.read_repo_language(tmp_path) == "ko"
+    (tmp_path / "version.yml").write_text("metadata:\n  template:\n    options:\n      language: en\n", encoding="utf-8")
+    assert tools.read_repo_language(tmp_path) == "en"
+
+
 def test_sync_base_와_branches_check(tmp_path, monkeypatch):
     import subprocess
     # CI 러너에는 git 작성자 설정이 없다 — 병합 커밋을 만들 수 있게 환경으로 준다
