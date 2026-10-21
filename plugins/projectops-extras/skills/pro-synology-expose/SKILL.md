@@ -3,58 +3,62 @@ name: pro-synology-expose
 description: "Guide to expose a new web service from a Synology NAS on an external domain: DNS record, DSM reverse proxy, Let's Encrypt certificate. Use for 'expose service', 'connect domain', 'add reverse proxy'."
 ---
 
-# Synology Expose - 웹 서비스 외부 노출 가이드
+# Synology Expose - guide to exposing a web service externally
 
 ## When to use
 
-- '서비스 외부 노출', '도메인 연결', '역방향 프록시 추가', '서브도메인 설정'
-- 'HTTPS 설정', '인증서 발급', '시놀로지에 새 서비스 붙이기', '웹소켓 프록시'
+- "Expose a service", "connect a domain", "add a reverse proxy", "set up a subdomain"
+  (Korean: '서비스 외부 노출', '도메인 연결', '역방향 프록시 추가', '서브도메인 설정')
+- "Set up HTTPS", "issue a certificate", "attach a new service to Synology", "WebSocket proxy"
+  (Korean: 'HTTPS 설정', '인증서 발급', '시놀로지에 새 서비스 붙이기', '웹소켓 프록시')
 
-시놀로지 NAS에서 Docker 등으로 실행 중인 웹 서비스를 커스텀 도메인으로 외부에 HTTPS로 노출하는 절차를 안내한다.
+This skill walks the user through exposing a web service that runs on a Synology NAS (in Docker or similar) to the outside over HTTPS on a custom domain.
 
-## 무엇을 하려는가 → 자세한 문서
+Reply to the user in the user's language (or the configured `language` preference).
 
-| 단계 | 하는 일 | 자세히 |
+## What you want → detailed document
+
+| Stage | What it does | Details |
 |---|---|---|
-| 준비 | config(NAS 인스턴스) 확인 · 서비스 정보 수집 | 아래 |
-| Step 1 | DNS 레코드 추가 (Cloudflare · Route53 · 기타) | `references/dns.md` |
-| Step 2 | DSM 역방향 프록시 2개 (443→로컬포트, 80→443) + 웹소켓이면 헤더 9개·고급 설정 | `references/reverse-proxy.md` |
-| Step 3 | Let's Encrypt 발급 → 서비스에 연결 → 최종 확인 체크리스트 | `references/certificate.md` |
+| Prepare | Check the config (NAS instances) · collect service info | below |
+| Step 1 | Add a DNS record (Cloudflare · Route53 · others) | `references/dns.md` |
+| Step 2 | Two DSM reverse proxy rules (443→local port, 80→443) + 9 headers and advanced settings for WebSocket | `references/reverse-proxy.md` |
+| Step 3 | Issue Let's Encrypt → attach it to the service → final checklist | `references/certificate.md` |
 
-**순서 고정: DNS → 프록시 → 인증서.** 인증서는 DNS 전파 후에야 발급된다(실패 시 잠시 기다렸다가 재시도).
+**Fixed order: DNS → proxy → certificate.** The certificate can be issued only after DNS has propagated (if it fails, wait a moment and retry).
 
 ---
 
-## 설정 파일 확인
+## Check the config file
 
-`../references/config-rules.md` §2~5 절차를 따른다 (`skill_id = synology-expose`).
+Follow `../references/config-rules.md` §2–5 (`skill_id = synology-expose`).
 
-> ⚠️ **config는 탐색 금지.** config.json은 고정 경로 `{HOME}/.projectops/config/config.json` 한 곳뿐 — Read tool로 바로 읽는다. `ls`·glob으로 찾거나 플러그인 캐시를 뒤지지 마라.
+> ⚠️ **Do not search for the config.** config.json lives at one fixed path, `{HOME}/.projectops/config/config.json` — read it directly with the Read tool. Do not look for it with `ls` or glob, and do not dig through the plugin cache.
 
-- 파일이 존재하면 → `instances` 배열 파싱.
-  - instances가 1개면 그대로 사용.
-  - instances가 여러 개면 번호를 매겨 선택하게 한다:
+- If the file exists → parse the `instances` array.
+  - One instance: use it.
+  - Several instances: number them and let the user choose:
     ```
-    등록된 NAS 인스턴스가 여러 개입니다. 어떤 것을 사용하시겠습니까?
-    1. 집 NAS (my-nas.synology.me)
-    2. 사무실 NAS (office-nas.synology.me)
+    Several NAS instances are registered. Which one should I use?
+    1. Home NAS (my-nas.synology.me)
+    2. Office NAS (office-nas.synology.me)
     ```
-- 파일이 없으면 → 아래 항목을 하나씩 수집 후 저장:
-  - NAS 이름 (예: 집 NAS)
-  - 시놀로지 DDNS 주소 (예: my-nas.synology.me)
-  - 사용하는 도메인 목록
-  - Let's Encrypt 이메일
-  - DNS 제공자 (cloudflare, route53, gabia 등)
+- If the file does not exist → collect these items one by one, then save:
+  - NAS name (e.g. Home NAS)
+  - Synology DDNS address (e.g. my-nas.synology.me)
+  - List of domains in use
+  - Let's Encrypt email
+  - DNS provider (cloudflare, route53, gabia, etc.)
 
-  저장 형식:
+  Save format:
   ```json
   {
     "instances": [
       {
-        "name": "{NAS 이름}",
-        "ddns": "{ddns 주소}",
-        "domains": ["{도메인}"],
-        "email": "{이메일}",
+        "name": "{NAS name}",
+        "ddns": "{ddns address}",
+        "domains": ["{domain}"],
+        "email": "{email}",
         "dns_provider": "{cloudflare|route53|gabia}",
         "default": true
       }
@@ -64,49 +68,51 @@ description: "Guide to expose a new web service from a Synology NAS on an extern
 
 ---
 
-## 서비스 정보 수집
+## Collect service info
 
-설정 파일이 준비되면 서비스 노출에 필요한 정보를 수집한다. 사용자가 한번에 많은 정보를 줄 수 있으므로 **제공된 정보에서 최대한 자동 추론**하고, 부족한 것만 추가로 물어본다.
+Once the config file is ready, collect what is needed to expose the service. Users often give a lot at once, so **infer as much as possible from what they provided** and ask only for what is missing.
 
-### 필요한 정보
+### Required info
 
-| 항목 | 추론 방법 |
+| Item | How to infer |
 |------|-----------|
-| **서비스명** | 사용자가 언급한 서비스명이나 docker-compose의 서비스명에서 추론 |
-| **서브도메인** | 사용자가 직접 지정하거나, 서비스명에서 추론. 애매하면 물어본다 |
-| **로컬포트** | 사용자가 제공한 정보에서 추출. 없으면 물어본다 |
-| **웹소켓 사용 여부** | 서비스 특성에서 판단 (채팅, 스트리밍 등은 웹소켓 가능성 높음). 애매하면 물어본다 |
-| **타임아웃** | 기본 60초. 사용자가 별도로 언급한 경우에만 변경 |
+| **Service name** | From the service name the user mentions or the service name in docker-compose |
+| **Subdomain** | The user specifies it, or infer it from the service name. Ask if unclear |
+| **Local port** | Extract it from what the user provided. Ask if missing |
+| **Uses WebSocket** | Judge from the kind of service (chat, streaming, etc. likely use WebSocket). Ask if unclear |
+| **Timeout** | Default 60 seconds. Change only when the user mentions it |
 
-### 추론 원칙
+### Inference principles
 
-- 사용자가 제공한 정보(설명, 설정 파일, 포트 번호 등)에서 최대한 추론한다
-- 사용자가 한 문장으로 여러 정보를 줄 수 있다 (예: "grafana 3000번 포트 올려줘")
-- 확실히 판단 가능한 건 물어보지 않는다. 애매한 것만 물어본다
-- 서브도메인이 확실하지 않으면 추천하고 확인을 받는다
+- Infer as much as possible from what the user provided (description, config files, port numbers, etc.)
+- One sentence can carry several items (e.g. "put grafana on port 3000 online")
+- Do not ask about what you can determine with certainty. Ask only about what is unclear
+- If the subdomain is not certain, recommend one and get confirmation
 
-
----
-
-## 결정 규칙
-
-- **DNS 제공자**는 config 의 `dns_provider` 로 분기한다 (cloudflare · route53 · 그 외).
-- 서브도메인에 점(.)이 있으면(예: `test.api.{도메인}`) Cloudflare **Proxied 불가 — DNS only**.
-- **웹소켓 서비스일 때만** 항목 1(HTTPS 프록시)에 헤더 9개 + 고급 설정을 더한다. 일반 서비스는 건너뛴다.
-- 타임아웃은 기본 60초. 사용자가 따로 말했을 때만 바꾼다.
-
-## 접속이 안 되면
-
-1. DNS 레코드 정상 등록 (`nslookup {서브도메인}.{도메인}`)
-2. 시놀로지 방화벽 80 · 443 열림
-3. Docker 컨테이너 실행 중
-4. 인증서가 서비스에 올바르게 연결됨
 
 ---
 
-## 안내 형식
+## Decision rules
 
-사용자에게 안내할 때는 각 단계를 순서대로 보여주되, **설정 파일의 값과 사용자가 입력한 서비스 정보로 모든 플레이스홀더를 채운 상태**로 제공한다. 사용자가 복사해서 그대로 입력할 수 있도록 구체적인 값을 모두 표시한다.
+- Branch on the config's `dns_provider` for the **DNS provider** (cloudflare · route53 · other).
+- If the subdomain contains a dot (e.g. `test.api.{domain}`), Cloudflare **cannot proxy it — DNS only**.
+- **Only for WebSocket services**, add the 9 headers + advanced settings to rule 1 (the HTTPS proxy). Skip it for regular services.
+- Timeout defaults to 60 seconds. Change it only when the user says so.
+
+## If it is not reachable
+
+1. The DNS record is registered correctly (`nslookup {subdomain}.{domain}`)
+2. Ports 80 and 443 are open in the Synology firewall
+3. The Docker container is running
+4. The certificate is attached to the service correctly
+
+---
+
+## Guide format
+
+Show each step in order, with **every placeholder filled in from the config values and the service info the user gave**. Show all concrete values so the user can copy them and enter them as is.
+
+DSM screen names in the reference documents follow the English DSM UI. If the user's DSM is in another language, use the matching labels of that UI.
 
 ## Customize
 

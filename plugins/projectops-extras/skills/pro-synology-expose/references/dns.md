@@ -1,52 +1,52 @@
-> 언제 읽나: Step 1(DNS 레코드 추가) 안내를 만들 때. DNS 제공자별 입력 위치·필드 표와 출력 예시.
+> When to read: when you build the Step 1 (add a DNS record) guide. Where to enter it and the field table per DNS provider, plus an output example.
 
-## Step 1: DNS 레코드 추가
+## Step 1: Add a DNS record
 
-설정 파일의 `dnsProvider`에 따라 안내 방식을 다르게 한다.
+Vary the guide by the config file's `dnsProvider`.
 
 ### Cloudflare
 
-**위치**: Cloudflare Dashboard > DNS > Records > "Add record"
+**Location**: Cloudflare Dashboard > DNS > Records > "Add record"
 
-| 필드 | 값 |
+| Field | Value |
 |------|-----|
 | Type | `{dnsRecordType}` |
-| Name | `{서브도메인}` |
+| Name | `{subdomain}` |
 | Target(Content) | `{ddnsAddress}` |
 | Proxy status | `{dnsProxyStatus}` |
 | TTL | `Auto` |
 
-> 서브도메인에 점(.)이 포함된 경우 (예: `test.api.{도메인}`) Proxied 사용 불가 — DNS only만 가능.
+> If the subdomain contains a dot (e.g. `test.api.{domain}`), Proxied cannot be used — only DNS only.
 
 ### Route53
 
-**위치**: AWS Console > Route 53 > Hosted zones > {도메인} > "Create record"
+**Location**: AWS Console > Route 53 > Hosted zones > {domain} > "Create record"
 
-| 필드 | 값 |
+| Field | Value |
 |------|-----|
-| Record name | `{서브도메인}` |
+| Record name | `{subdomain}` |
 | Record type | `{dnsRecordType}` |
 | Value | `{ddnsAddress}` |
 | TTL | `300` |
 | Routing policy | `Simple routing` |
 
-### 기타 DNS 제공자 (gabia, 직접관리 등)
+### Other DNS providers (gabia, self-managed, etc.)
 
-DNS 관리 페이지에서 아래 레코드를 추가한다:
+Add the record below on the DNS management page:
 
-| 필드 | 값 |
+| Field | Value |
 |------|-----|
-| 타입 | `{dnsRecordType}` |
-| 호스트/이름 | `{서브도메인}` |
-| 값/대상 | `{ddnsAddress}` |
-| TTL | 기본값 |
+| Type | `{dnsRecordType}` |
+| Host/Name | `{subdomain}` |
+| Value/Target | `{ddnsAddress}` |
+| TTL | default |
 
-### 출력 예시
+### Output example
 
 ```
-[Step 1] DNS 레코드 추가 ({dnsProvider})
+[Step 1] Add DNS record ({dnsProvider})
   Type: {dnsRecordType}
-  Name: {서브도메인}
+  Name: {subdomain}
   Target: {ddnsAddress}
-  (Cloudflare인 경우) Proxy status: {dnsProxyStatus}
+  (Cloudflare only) Proxy status: {dnsProxyStatus}
 ```

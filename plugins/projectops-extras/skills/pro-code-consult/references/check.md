@@ -1,34 +1,34 @@
-# check — 방금 바뀐 코드만 검사
+# check — inspect only the code that just changed
 
-> 언제 읽나: "방금 짠 거 괜찮아?", "커밋 전에 봐줘", "주석 이상한 거 없나", AI 작업 하나가 끝났을 때.
+> When to read: "is what I just wrote OK?", "look before I commit", "any odd comments?", or when one AI task has finished.
 
-목표: 바이브코딩 한 번이 남긴 냄새를 **생기는 순간** 잡는다. 전체를 보지 않는다.
+Goal: catch the smells one round of vibe coding left behind **the moment they appear**. Do not look at everything.
 
-## 1. 수집
+## 1. Collect
 
 ```
-diff PATH                 # 커밋 안 한 변경 (기본 --base HEAD)
-diff PATH --base develop  # 브랜치 전체
+diff PATH                 # uncommitted changes (default --base HEAD)
+diff PATH --base develop  # the whole branch
 ```
 
-## 2. 항목별 판단
+## 2. Judge each item
 
-| 출력 | 무엇을 보나 | 처리 |
+| Output | What to look at | Action |
 |---|---|---|
-| `stale_comment_suspects` | 코드가 바뀌었는데 위 주석·감싼 함수 문서 주석은 그대로 | 주석이 **지금 동작**을 설명하는지 읽고, 아니면 고친다 (가장 중요) |
-| `added_comment_problems` | 새 주석의 경위 문구·배너·문장체·긴 블록 | 한 줄 요약·단계 머리글로 줄인다. 경위는 커밋 메시지로 |
-| `rewritten_existing_comments` | 코드는 그대로인데 주석만 고쳐 씀 | 되돌린다 (건드리지 않은 코드의 주석은 고치지 않는다) |
-| `new_definitions[].similar_existing` | 새로 만든 함수·클래스와 이름이 비슷한 기존 정의 | 기존 것을 열어 보고, 같은 일이면 재사용으로 바꾼다 |
-| `new_boolean_names`·`new_naming_problems` | 접두사 없는 boolean, 약어, 뜻 없는 이름 | 이름을 고친다 |
-| `ledger_new_violations` | 동결된 규칙의 새 위반 | 코드를 고친다. **동결 목록에 줄을 더하지 않는다** |
+| `stale_comment_suspects` | Code changed, but the comment above it or the enclosing function's doc comment did not | Read whether the comment describes **the current behavior**; if not, fix it (most important) |
+| `added_comment_problems` | History wording, banners, full-sentence endings, long blocks in new comments | Shrink to a one-line summary or a step header. History goes in the commit message |
+| `rewritten_existing_comments` | Only the comment was rewritten; the code is unchanged | Revert it (do not fix comments on code you did not touch) |
+| `new_definitions[].similar_existing` | Existing definitions whose names resemble a new function or class | Open the existing one; if it does the same job, switch to reusing it |
+| `new_boolean_names` · `new_naming_problems` | Booleans without a prefix, abbreviations, meaningless names | Rename |
+| `ledger_new_violations` | New violations of a frozen rule | Fix the code. **Do not add lines to the frozen list** |
 
-`similar_existing`은 이름 단어가 겹치는 후보일 뿐이다. 하는 일이 다르면 그대로 둔다.
+`similar_existing` is only a candidate based on shared name words. If it does a different job, leave it.
 
-## 3. 보여 주고 고치기
+## 3. Show, then fix
 
-고칠 목록을 `file:line`과 함께 짧게 보여 주고 승인받은 것만 고친다. 사용자가 "다 고쳐"라고 미리 말했으면 바로 고친다.
-고친 뒤 기존 테스트와 `ledger PATH check`를 돌린다.
+Show the fix list briefly with `file:line` and fix only what is approved. If the user already said "fix everything", fix right away.
+After fixing, run the existing tests and `ledger PATH check`.
 
-## 4. 반복되면
+## 4. If it keeps repeating
 
-같은 냄새가 check마다 나오면 그 패턴을 규칙으로 만들자고 제안한다 (`references/refactor.md` 5단계와 같은 방식).
+If the same smell shows up in every check, propose turning that pattern into a rule (the same way as `references/refactor.md` step 5).

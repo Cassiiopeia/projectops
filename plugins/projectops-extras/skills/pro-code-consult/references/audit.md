@@ -1,20 +1,20 @@
-# audit — 전체 점검
+# audit — full review
 
-> 언제 읽나: "전체적으로 봐줘", "점검", "엉망인 것 같은데", 동결 목록이 없는 상태의 "정리해줘".
+> When to read: "look over the whole thing", "audit", "feels like a mess", or "tidy things up" when there is no frozen list yet.
 
-목표: 문제를 근거와 함께 찾고, **지금 있는 위반을 동결해 더 늘지 않게** 만든다. 보고서로 끝내지 않는다.
+Goal: find problems with evidence, and **freeze the current violations so they do not grow.** Do not stop at a report.
 
-## 1. 이어받을 것부터
+## 1. Start with what to carry over
 
-`detect PATH`로 시작한다.
+Start with `detect PATH`.
 
-- `prior_audits`가 있으면 **읽고 항목마다 지금도 그런지 다시 판정한다** (고쳐짐 / 그대로 / 악화). 처음부터 다시 쓰지 않는다.
-- `allowlists`·`rule_tests`가 있으면 그 레포가 이미 쓰는 강제 장치다. 같은 규칙을 `docs/architecture/rules/`에 중복으로 만들지 않고, 그 장치를 확장하는 쪽을 먼저 제안한다.
-- `has_architecture_folder`가 참이면(이 스킬의 `rules/`·`CONVENTIONS.md`가 있음) `ledger PATH check`·`conventions PATH check`로 현재 상태를 본다.
-- 기존 감사가 md뿐이고 수치가 없으면 보고서 "지난 감사" 칸은 "수치 없음"으로 두고, 그 문서의 항목마다 지금 상태만 표로 이어받는다.
-- `stacks`의 `flutter_host_of`(Flutter 앱의 `android/`)는 별도 스택으로 감사하지 않는다.
+- If `prior_audits` exists, **read it and re-judge each item against the current state** (fixed / unchanged / worse). Do not rewrite from scratch.
+- If `allowlists` or `rule_tests` exist, they are enforcement the repo already uses. Do not create the same rule again in `docs/architecture/rules/`; first propose extending that mechanism.
+- If `has_architecture_folder` is true (this skill's `rules/` or `CONVENTIONS.md` exists), check the current state with `ledger PATH check` and `conventions PATH check`.
+- If the earlier audit is only an md file with no numbers, put "no numbers" in the report's "previous audit" column, and carry over only the current state of each of that document's items as a table.
+- Do not audit `flutter_host_of` in `stacks` (the `android/` of a Flutter app) as a separate stack.
 
-## 2. 사실 수집
+## 2. Collect facts
 
 ```
 scan PATH --limit 50
@@ -23,40 +23,40 @@ deps PATH
 rule-docs PATH
 ```
 
-출력 해석은 `references/facts.md`. 수치는 후보일 뿐이다 — 원문을 열어 확인한 것만 문제로 쓴다.
+How to read the output: `references/facts.md`. Numbers are only candidates — report as a problem only what you confirmed in the source.
 
-- **감사 범위는 레포가 소유한 코드다.** scan·deps는 설치물·생성물·외부 라이브러리를 이미 뺐다(`excluded`). 보고서에 무엇을 뺐는지 한 줄 적는다.
-- **`review_order` 순서로 표본을 연다.** 범주마다 앞에서 최대 10개를 열어 진짜/오탐을 가르고, 오탐 비율이 높은 범주는 보고서에서 수치를 쓰지 않는다.
-- **`facts.md`의 "scan이 보지 못하는 것"은 직접 확인한다.** 실측에서 가장 위험한 문제(롤백 뒤 계속 진행하는 catch, 운영에 열린 테스트 API, 토큰 처리 3곳)는 CLI 밖이나 판단 단서 쪽에서 나왔다.
+- **The audit scope is code the repo owns.** scan and deps already excluded installed, generated and external library code (`excluded`). Add one line to the report saying what was excluded.
+- **Open samples in `review_order` order.** For each category, open up to 10 from the top to separate real hits from false positives. Do not report numbers for a category with a high false-positive rate.
+- **Check "What scan cannot see" in `facts.md` yourself.** In real runs, the most dangerous problems (a catch that keeps going after rollback, a test API open in production, token handling in 3 places) came from outside the CLI or from its judgment hints.
 
-## 3. 스택별 감사 (병렬)
+## 3. Per-stack audit (parallel)
 
-스택(또는 모노레포 폴더)마다 읽기 전용 하위 에이전트를 하나씩 띄운다. 프롬프트에 반드시 넣는 것:
+Start one read-only subagent per stack (or per monorepo folder). The prompt must include:
 
-- 그 폴더의 `CLAUDE.md`·`AGENTS.md`·`.claude/rules`를 **먼저** 읽는다. 규칙 문서도 감사 대상이다 (코드와 모순, 없는 파일 참조)
-- `references/conventions.md` 기준, `references/stacks/<스택>.md`의 "자주 나오는 AI 냄새"
-- 그 폴더 사실만: `scan PATH --only <폴더> --limit 30` (전체 JSON을 넘기지 않는다 — 수십 KB라 에이전트가 앞부분만 본다)
-- 요구: `file:line` 근거, 추측 금지, 심각도(high/med/low), "확인 못 한 것" 목록, 우선순위 top 10, 700단어 이내
-- 잘한 것도 적게 한다 — 다른 폴더로 옮길 수 있는 패턴이다
+- Read that folder's `CLAUDE.md`, `AGENTS.md` and `.claude/rules` **first**. Rule documents are also audit targets (contradictions with code, references to missing files)
+- The `references/conventions.md` criteria and the "Common AI smells" in `references/stacks/<stack>.md`
+- Only that folder's facts: `scan PATH --only <folder> --limit 30` (do not pass the full JSON — it is tens of KB and the agent reads only the start)
+- Requirements: `file:line` evidence, no guessing, severity (high/med/low), a "could not verify" list, top 10 priorities, under 700 words
+- Also ask for what is done well — those are patterns to move to other folders
 
-스택을 넘는 것(자산 사본, 토큰 값 드리프트, 서버 enum ↔ 클라이언트 문자열, API 타입 손복사)은 감사 에이전트 하나를 따로 둔다.
+Assign one separate audit agent to cross-stack issues (asset copies, drift in token values, server enum ↔ client strings, hand-copied API types).
 
-## 4. 판정 기준
+## 4. Judgment criteria
 
-- **깐깐하게.** "AI 치고 괜찮다"가 기준이 아니다. 사람이 1년 유지보수할 코드인지 본다.
-- 판정은 레포가 아니라 **구간** 단위다. 사람이 짠 레포에도 바이브코딩 구간이 섞인다.
-- 같은 문제가 여러 곳이면 **원인 한 줄**로 묶는다 (예: "공통 로딩 컴포넌트가 문서에 없어서 12곳이 각자 만듦").
-- 규칙 문서가 문제를 **유도**하면 그것이 근본 원인이다 (`rule-docs`의 `prose_comment_inducing`).
-- **레포 규칙과 스킬 기준이 다르면 레포가 이긴다.** 레포 CLAUDE.md가 명시적으로 정한 것(예 "엔티티를 그대로 응답", "같은 기능 안 presentation → data 허용")은 위반으로 쓰지 않고, 바꿀 가치가 있으면 "팀 결정 필요"로 따로 적는다. 기존 예외 목록이 허용한 간선도 같다.
-- 바꾸면 계약이 깨지는 이름(`contract` 태그)은 고칠 목록이 아니라 "이관 계획" 항목으로 분리한다.
+- **Be strict.** "Not bad for AI" is not the bar. Ask whether a person could maintain this code for a year.
+- Judge by **section**, not by repo. Even a repo written by people has vibe-coded sections mixed in.
+- When the same problem appears in many places, group it into **one cause line** (for example: "the common loading component is not documented, so 12 places each built their own").
+- When a rule document **invites** a problem, that is the root cause (`prose_comment_inducing` in `rule-docs`).
+- **When the repo's rules differ from the skill's criteria, the repo wins.** Do not report as violations what the repo's CLAUDE.md explicitly decided (for example "return entities as is", "presentation → data is allowed inside one feature"); if it is worth changing, list it separately as "team decision needed". The same applies to edges an existing exception list allows.
+- Names that would break a contract if changed (`contract` tag) go into a separate "migration plan" item, not the fix list.
 
-## 5. 보고서 · 동결 제안
+## 5. Report · freeze proposal
 
-1. `get-output-path PATH --title "<제목>"` → `references/report-template.md` 형식으로 쓴다 (경로만 준다 — 폴더는 보고서를 쓸 때 생긴다. `previous_audits`가 있으면 이어받는다)
-2. 반복 패턴마다 **동결할 규칙 후보**(`.rule` 초안)를 보고서 끝에 붙인다 — `references/stacks/<스택>.md`의 "첫 규칙 후보"에서 출발하되, **이 레포의 실제 반복 문제**(`bypassed_components`·감사 Top 10)로 패턴과 `paths`를 맞춘다. 초안마다 `ledger` 판정으로 현재 위반 수를 확인하고, 0건이면 막을 것이 없는 규칙이라 빼거나 경로를 고친다
-3. 사용자에게 보고서 요약 + 동결 후보 목록을 보여 주고 **승인받은 규칙만** 만든다
-4. 규칙마다 `ledger PATH freeze --rule <id>` → `ledger PATH check`가 pass인지 확인
-5. 규칙 테스트가 아직 없으면 `install-tests`를 제안한다 (`references/init.md` 5단계)
-6. `scan PATH --record`로 기준선 수치를 남긴다
+1. `get-output-path PATH --title "<title>"` → write in the `references/report-template.md` format (it only returns the path — the folder is created when you write the report. If `previous_audits` exists, carry it over)
+2. For each repeated pattern, append a **candidate rule to freeze** (a `.rule` draft) at the end of the report. Start from "First rule candidates" in `references/stacks/<stack>.md`, but fit the pattern and `paths` to **this repo's real repeated problems** (`bypassed_components`, the audit Top 10). Check each draft's current violation count with a `ledger` verdict; if it is 0, the rule blocks nothing, so drop it or fix the path
+3. Show the user the report summary and the candidate list, and create **only the approved rules**
+4. For each rule, run `ledger PATH freeze --rule <id>` → confirm `ledger PATH check` passes
+5. If there are no rule tests yet, propose `install-tests` (`references/init.md` step 5)
+6. Record baseline numbers with `scan PATH --record`
 
-다음 행동은 사용자에게 고르게 한다: "top 10 중 무엇부터 refactor할까요?"
+Let the user choose the next action: "Which of the top 10 should I refactor first?"

@@ -1,53 +1,55 @@
-> 언제 읽나: Step 3(Let's Encrypt 발급·서비스 연결) 안내와 최종 확인 체크리스트를 만들 때.
+> When to read: when you build the Step 3 (issue Let's Encrypt and attach it to the service) guide and the final checklist.
 
-## Step 3: 인증서 발급 및 서비스 연결
+## Step 3: Issue the certificate and attach it to the service
 
-### 3-1. Let's Encrypt 인증서 발급
+### 3-1. Issue a Let's Encrypt certificate
 
-**위치**: DSM > 제어판 > 보안 > 인증서 탭 > "추가"
+**Location**: DSM > Control Panel > Security > Certificate tab > "Add"
+(Korean DSM: 제어판 > 보안 > 인증서 > "추가")
 
-| 단계 | 선택/입력 |
+| Step | Choose / enter |
 |------|-----------|
-| 작업 선택 | "새 인증서 추가" → 다음 |
-| 인증서 생성 방식 | "Let's Encrypt에서 인증서 얻기" 선택 |
-| 기본 인증서로 설정 | 체크 안 함 |
-| 설명 | (비워두기 또는 서브도메인 입력) |
-| 도메인 이름 | `{서브도메인}.{도메인}` |
-| 이메일 | `{email}` |
-| 주체 대체 이름(SAN) | (비워두기) |
+| Choose action | "Add a new certificate" → Next |
+| How to create the certificate | Select "Get a certificate from Let's Encrypt" |
+| Set as default certificate | unchecked |
+| Description | (leave empty or enter the subdomain) |
+| Domain name | `{subdomain}.{domain}` |
+| Email | `{email}` |
+| Subject Alternative Name (SAN) | (leave empty) |
 
-> DNS 레코드가 전파되기까지 몇 분 걸릴 수 있다. 인증서 발급 실패 시 잠시 기다렸다가 재시도한다.
+> DNS records can take a few minutes to propagate. If issuing the certificate fails, wait a moment and retry.
 
-### 3-2. 인증서를 서비스에 연결
+### 3-2. Attach the certificate to the service
 
-**위치**: DSM > 제어판 > 보안 > 인증서 탭 > "설정" 버튼
+**Location**: DSM > Control Panel > Security > Certificate tab > "Settings" button
+(Korean DSM: 제어판 > 보안 > 인증서 > "설정")
 
-설정 팝업의 서비스 목록에서 `{서브도메인}.{도메인}` 항목을 찾아, 인증서 드롭다운을 방금 발급한 `{서브도메인}.{도메인}` 인증서로 변경 → "확인" 클릭.
+In the service list of the settings pop-up, find the `{subdomain}.{domain}` entry, change its certificate drop-down to the `{subdomain}.{domain}` certificate you just issued → click "OK".
 
-### 출력 예시
+### Output example
 
 ```
-[Step 3] 인증서 발급 및 연결
+[Step 3] Issue and attach the certificate
 
-[3-1] 인증서 발급
-  제어판 > 보안 > 인증서 > 추가
-  방식: Let's Encrypt에서 인증서 얻기
-  도메인: {서브도메인}.{도메인}
-  이메일: {email}
+[3-1] Issue the certificate
+  Control Panel > Security > Certificate > Add
+  Method: Get a certificate from Let's Encrypt
+  Domain: {subdomain}.{domain}
+  Email: {email}
 
-[3-2] 인증서 서비스 연결
-  제어판 > 보안 > 인증서 > 설정
-  서비스: {서브도메인}.{도메인} → 인증서: {서브도메인}.{도메인}
+[3-2] Attach the certificate to the service
+  Control Panel > Security > Certificate > Settings
+  Service: {subdomain}.{domain} → Certificate: {subdomain}.{domain}
 ```
 
 ---
 
-## 최종 확인
+## Final check
 
-모든 설정이 완료되면 브라우저에서 `https://{서브도메인}.{도메인}` 접속하여 정상 동작 확인을 안내한다.
+When everything is set up, tell the user to open `https://{subdomain}.{domain}` in a browser and confirm it works.
 
-접속 안 되는 경우 체크리스트:
-1. DNS 레코드가 정상 등록되었는지 확인 (`nslookup {서브도메인}.{도메인}`)
-2. 시놀로지 방화벽에서 80, 443 포트가 열려있는지 확인
-3. Docker 컨테이너가 정상 실행 중인지 확인
-4. 인증서가 서비스에 올바르게 연결되었는지 확인
+Checklist if it is not reachable:
+1. Confirm the DNS record is registered correctly (`nslookup {subdomain}.{domain}`)
+2. Confirm ports 80 and 443 are open in the Synology firewall
+3. Confirm the Docker container is running
+4. Confirm the certificate is attached to the service correctly

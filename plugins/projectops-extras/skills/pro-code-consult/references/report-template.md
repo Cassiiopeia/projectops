@@ -1,42 +1,42 @@
-# 감사 보고서 형식
+# Audit report format
 
-> 언제 읽나: audit 5단계. 경로는 `get-output-path PATH --title "<제목>"`으로 받는다.
+> When to read: audit step 5. Get the path with `get-output-path PATH --title "<title>"`.
 
 ```markdown
-# 아키텍처 감사: <레포> (<날짜>)
+# Architecture audit: <repo> (<date>)
 
-## 한 줄 결론
-<가장 큰 원인 하나 — 예: 공통 지점은 있는데 강제 장치가 없어 우회가 쌓였다>
+## One-line conclusion
+<the single biggest cause — e.g. common points exist but nothing enforces them, so bypasses piled up>
 
-## 수치 (scan · assets · deps · rule-docs)
-| 항목 | 값 | 지난 감사 |
+## Numbers (scan · assets · deps · rule-docs)
+| Item | Value | Previous audit |
 |---|---|---|
 
 ## Top 10
-| # | 심각도 | 문제 | 근거 | 원인 |
+| # | Severity | Problem | Evidence | Cause |
 |---|---|---|---|---|
 
-## 스택별
-### <스택>
-- [high] <문제> — `path:line`
+## By stack
+### <stack>
+- [high] <problem> — `path:line`
 
-## 이전 감사 대비 (이어받은 경우)
-| 이전 항목 | 지금 (고쳐짐 / 그대로 / 악화) |
+## Compared with the previous audit (when carried over)
+| Previous item | Now (fixed / unchanged / worse) |
 |---|---|
 
-## 규칙 문서
-- 코드와 모순 · 없는 경로 참조 · 줄글 주석 유도
+## Rule documents
+- Contradictions with code · references to missing paths · phrases that invite prose comments
 
-## 잘 되어 있는 것
-- <다른 폴더·레포로 옮길 수 있는 패턴>
+## What is done well
+- <patterns that can move to other folders or repos>
 
-## 확인 못 한 것
+## Could not verify
 
-## 동결 후보 규칙
-| id | 금지하는 것 | 현재 위반 수 |
+## Candidate rules to freeze
+| id | What it forbids | Current violations |
 |---|---|---|
 ```
 
-- 지난 감사 칸은 `docs/architecture/metrics.jsonl` 이전 줄로 채운다
-- 심각도: high = 사용자에게 보이거나 장애·보안으로 이어짐, 또는 같은 문제가 계속 새로 생기는 구조 / med = 유지보수 비용 / low = 이름·형식
-- 근거 없는 문장은 쓰지 않는다. 느낌이 들면 이유를 찾아 적는다
+- Fill the "previous audit" column from earlier lines of `docs/architecture/metrics.jsonl`
+- Severity: high = visible to users or leads to outages or security issues, or a structure that keeps producing the same problem / med = maintenance cost / low = names and formatting
+- Do not write sentences without evidence. If something feels off, find the reason and write it down

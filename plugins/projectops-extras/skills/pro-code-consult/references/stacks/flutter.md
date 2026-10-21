@@ -1,63 +1,63 @@
-# Flutter 스택 규칙
+# Flutter stack rules
 
-> 언제 읽나: 대상에 `pubspec.yaml`(flutter)이 있을 때. audit·refactor·init 공통.
+> When to read: when the target has a `pubspec.yaml` (flutter). Shared by audit, refactor and init.
 
-## 계층 지도
+## Layer map
 
-| 계층 | 폴더 | 들어가는 것 |
+| Layer | Folder | What goes in |
 |---|---|---|
-| 표현 | `features/<기능>/presentation/{pages,widgets,providers}` | 화면, 기능 전용 위젯, Riverpod 상태 |
-| 응용 | `features/<기능>/application` 또는 `domain/usecases` | 유스케이스, 화면 밖 업무 규칙 |
-| 도메인 | `features/<기능>/domain/models` | 순수 모델 (Flutter·dio import 없음) |
-| 인프라 | `features/<기능>/data/{repositories,sources}`, `core/network` | dio, 저장소, 로컬 DB |
-| 공통 | `core/` (설정·에러·포맷), `design/` 또는 `presentation/design/` (토큰·컴포넌트) | |
+| Presentation | `features/<feature>/presentation/{pages,widgets,providers}` | Screens, feature-only widgets, Riverpod state |
+| Application | `features/<feature>/application` or `domain/usecases` | Use cases, business rules outside screens |
+| Domain | `features/<feature>/domain/models` | Pure models (no Flutter or dio imports) |
+| Infrastructure | `features/<feature>/data/{repositories,sources}`, `core/network` | dio, repositories, local DB |
+| Common | `core/` (config, errors, formatting), `design/` or `presentation/design/` (tokens, components) | |
 
-**계층 우선 구조**(`lib/presentation/{pages,widgets,providers}`, `lib/domain`, `lib/data`, `lib/core`)도 흔하다. 계층은 같고 폴더 순서만 다르다 — 규칙의 `paths`를 `lib/presentation/pages/,lib/presentation/widgets/`처럼 실제 폴더로 맞춘다 (`lib/features/`로 두면 0건 동결).
-provider·notifier가 `data/`를 import하는 것(`deps`의 `from_role: "state"`)은 Riverpod 관례상 허용하는 팀이 많다. 레포 규칙에 없으면 위반이 아니라 "팀 결정 필요"로 적는다.
+A **layer-first structure** (`lib/presentation/{pages,widgets,providers}`, `lib/domain`, `lib/data`, `lib/core`) is also common. The layers are the same and only the folder order differs — set a rule's `paths` to the real folders, such as `lib/presentation/pages/,lib/presentation/widgets/` (with `lib/features/` it freezes 0 hits).
+Many teams allow a provider or notifier to import `data/` (`from_role: "state"` in `deps`) as a Riverpod convention. If the repo's rules do not mention it, list it as "team decision needed", not as a violation.
 
-의존 방향: 표현 → 응용 → 도메인 ← 인프라. **화면이 `data/`·`core/network`를 직접 import하면 위반.**
-`core/`·`shared/`가 `features/`를 import하는 것도 위반 (공통이 기능에 묶인다).
+Dependency direction: presentation → application → domain ← infrastructure. **A screen importing `data/` or `core/network` directly is a violation.**
+`core/` or `shared/` importing `features/` is also a violation (the common code gets tied to a feature).
 
-## 자주 나오는 AI 냄새
+## Common AI smells
 
-- 같은 기능 안에서 presentation → data 직접 import (`ref.watch(xxxRepositoryProvider)`를 화면에서 바로)
-- 공통 컴포넌트 있는데 `CircularProgressIndicator(`·`CupertinoActivityIndicator(`·`showDialog(`·`SnackBar(` 직접 사용
-- `Color(0x`·`Colors.xxx`·숫자 `EdgeInsets`·`fontSize:` 직접 사용 (토큰 우회)
-- `Image.asset('...')` 경로 직접 (자산 상수·컴포넌트 우회)
-- `bool loading`·`bool selected` (접두사 없음), 파일명 ≠ 클래스명
-- 화면 파일 500줄+ (상태·위젯·업무 규칙이 한 파일)
+- Direct presentation → data imports inside one feature (`ref.watch(xxxRepositoryProvider)` right in a screen)
+- Direct use of `CircularProgressIndicator(`, `CupertinoActivityIndicator(`, `showDialog(`, `SnackBar(` while a common component exists
+- Direct `Color(0x`, `Colors.xxx`, numeric `EdgeInsets`, `fontSize:` (bypassing tokens)
+- Direct paths in `Image.asset('...')` (bypassing asset constants and components)
+- `bool loading`, `bool selected` (no prefix), file name ≠ class name
+- Screen files of 500+ lines (state, widgets and business rules in one file)
 
-## 첫 규칙 후보 (`docs/architecture/rules/`)
+## First rule candidates (`docs/architecture/rules/`)
 
 ```
 # no-direct-progress-indicator.rule
-description=화면 코드에서 로딩 인디케이터 직접 사용 금지 (공통 로딩 컴포넌트 사용)
+description=No direct loading indicators in screen code (use the common loading component)
 paths=lib/features/
 extensions=.dart
 pattern=\b(?:CircularProgressIndicator|CupertinoActivityIndicator)\(
 
 # no-color-literal-in-features.rule
-description=화면 코드에서 색 값 직접 사용 금지 (토큰 사용)
+description=No color literals in screen code (use tokens)
 paths=lib/features/
 extensions=.dart
 pattern=\bColor\(0x|\bColors\.(?!transparent\b)[a-z]
 
 # presentation-must-not-import-data.rule
-description=표현 계층이 데이터 계층을 직접 import 금지 (provider·usecase 경유)
+description=Presentation layer must not import the data layer directly (go through providers or use cases)
 paths=lib/features/
 extensions=.dart
 pattern=^import .*/data/
 ```
 
-마지막 규칙은 `paths`를 `presentation` 폴더로 좁힌다 (`lib/features/<기능>/presentation/`을 기능마다 쉼표로).
-모노레포면 `paths` 앞에 앱 폴더를 붙인다 (`app/lib/features/`).
+Narrow the last rule's `paths` to the `presentation` folders (`lib/features/<feature>/presentation/` for each feature, comma-separated).
+In a monorepo, prefix `paths` with the app folder (`app/lib/features/`).
 
-## 규칙 테스트
+## Rule tests
 
-`install-tests PATH --stack flutter --module <앱 폴더>` → `test/architecture/architecture_rules_test.dart`.
-`flutter test test/architecture`로 돈다. 순수 Dart 패키지면 import를 `package:test/test.dart`로 바꾼다.
+`install-tests PATH --stack flutter --module <app folder>` → `test/architecture/architecture_rules_test.dart`.
+Run with `flutter test test/architecture`. For a pure Dart package, change the import to `package:test/test.dart`.
 
-## 모범 파일 지정
+## Choosing model files
 
-init에서 계층마다 하나씩 고른다: 상태 관리가 깔끔한 화면 1개, 토큰만 쓰는 위젯 1개, 저장소 1개.
-`docs/architecture/stacks/flutter.md` 맨 아래 "모범 파일" 절에 경로와 한 줄 이유를 적는다.
+During init, pick one per layer: 1 screen with clean state management, 1 widget that uses only tokens, 1 repository.
+Write the path and a one-line reason in the "Model files" section at the bottom of `docs/architecture/stacks/flutter.md`.

@@ -1,54 +1,54 @@
-# JavaScript 스택 규칙 (TypeScript · React · Next · Node 포함)
+# JavaScript stack rules (including TypeScript · React · Next · Node)
 
-> 언제 읽나: 대상에 `package.json`이 있을 때. audit·refactor·init 공통.
+> When to read: when the target has a `package.json`. Shared by audit, refactor and init.
 
-## 계층 지도
+## Layer map
 
-| 계층 | 위치 (React/Next 기준) | 들어가는 것 |
+| Layer | Location (React/Next) | What goes in |
 |---|---|---|
-| 표현 | `app/`·`pages/`·`components/` | 화면, 컴포넌트, 화면 상태 |
-| 응용 | `hooks/`·`services/`·`store/` | 화면 밖 흐름, 서버 상태 |
-| 도메인 | `types/`·`models/`·`domain/` | 타입, 순수 규칙 |
-| 인프라 | `api/`·`clients/`·`lib/http` | fetch·axios 클라이언트, 인증 헤더 |
-| 공통 | `styles/tokens`·`tailwind.config`·`components/ui` | 토큰, 공통 컴포넌트 |
+| Presentation | `app/`, `pages/`, `components/` | Screens, components, screen state |
+| Application | `hooks/`, `services/`, `store/` | Flows outside screens, server state |
+| Domain | `types/`, `models/`, `domain/` | Types, pure rules |
+| Infrastructure | `api/`, `clients/`, `lib/http` | fetch and axios clients, auth headers |
+| Common | `styles/tokens`, `tailwind.config`, `components/ui` | Tokens, common components |
 
-Node CLI·라이브러리는 `src/cli`(진입점·인자) → `src/core`(로직) 단방향으로 본다. 진입점에 기본값·로직이 다시 생기면 위반.
+Treat a Node CLI or library as one-way `src/cli` (entry point, arguments) → `src/core` (logic). Defaults or logic reappearing in the entry point is a violation.
 
-## 자주 나오는 AI 냄새
+## Common AI smells
 
-- 서버 API 타입을 손으로 복사 (`types/api/*`가 서버 클래스를 흉내) — OpenAPI 생성으로 바꾼다
-- 서버 enum·에러 코드를 문자열 리터럴로 비교
-- 운영 base URL 하드코딩, 인증 헤더를 인터셉터와 유틸 두 곳에서 붙임
-- `#4F46E5` 같은 색 값·`[#hex]` Tailwind 임의값·`style={{` 인라인 스타일 (토큰 우회)
-- 같은 이름 다른 구현 (검색바·페이지네이션 2~3종), 아무도 import하지 않는 사본
-- `loading`·`open`·`disabled` state (접두사 없음), `any` 타입으로 막기
-- `/* eslint-disable */` 파일 머리, 린트 설정 없음
+- Server API types copied by hand (`types/api/*` mimicking server classes) — switch to OpenAPI generation
+- Server enums and error codes compared as string literals
+- Hard-coded production base URL; auth headers attached in two places, an interceptor and a util
+- Color values like `#4F46E5`, Tailwind arbitrary values `[#hex]`, inline `style={{` (bypassing tokens)
+- Same name, different implementations (2–3 kinds of search bar or pagination), copies nobody imports
+- `loading`, `open`, `disabled` state (no prefix), papering over with the `any` type
+- `/* eslint-disable */` at the file head, no lint config
 
-## 첫 규칙 후보
+## First rule candidates
 
 ```
 # no-hex-color-in-components.rule
-description=컴포넌트에서 색 값 직접 사용 금지 (토큰·Tailwind 테마 사용)
+description=No color literals in components (use tokens or the Tailwind theme)
 paths=src/components/,src/app/
 extensions=.tsx,.jsx
 pattern=["'`]#[0-9a-fA-F]{6}\b|-\[#[0-9a-fA-F]{3,8}\]
 
 # components-must-not-import-api-client.rule
-description=컴포넌트가 HTTP 클라이언트를 직접 import 금지 (hooks·services 경유)
+description=Components must not import the HTTP client directly (go through hooks or services)
 paths=src/components/
 extensions=.ts,.tsx,.js,.jsx
 pattern=from\s+['"](?:@/|\.\.?/)[^'"]*\bapis?/[^'"]*['"]
 ```
 
-패턴은 이 레포의 실제 클라이언트 폴더(`deps`의 인프라 간선, `bypassed_components`의 `wrappers`)에 맞춰 고친다. `ledger` 판정이 0건이면 경로가 틀린 것이다.
+Adjust the pattern to this repo's real client folder (the infrastructure edges in `deps`, the `wrappers` in `bypassed_components`). If the `ledger` verdict finds 0 hits, the path is wrong.
 
-계층 import는 dependency-cruiser·eslint-plugin-boundaries가 더 정확하다 — 새 의존성이라 **제안만** 한다.
+dependency-cruiser and eslint-plugin-boundaries are more precise for layer imports — they are new dependencies, so **only propose** them.
 
-## 규칙 테스트
+## Rule tests
 
-`install-tests PATH --stack javascript --module <패키지 폴더>` → `test/architecture/architecture.rules.test.mjs`.
-`node --test test/architecture`로 돈다 (Node 18+, 추가 의존성 없음). vitest·jest 프로젝트면 `npm test` 스크립트에 이 명령을 덧붙인다.
+`install-tests PATH --stack javascript --module <package folder>` → `test/architecture/architecture.rules.test.mjs`.
+Run with `node --test test/architecture` (Node 18+, no extra dependencies). In a vitest or jest project, append this command to the `npm test` script.
 
-## 모범 파일 지정
+## Choosing model files
 
-컴포넌트 1개(토큰만 씀), hook 1개(서버 상태가 한 곳), API 모듈 1개(생성된 타입 사용).
+1 component (uses only tokens), 1 hook (server state in one place), 1 API module (uses generated types).

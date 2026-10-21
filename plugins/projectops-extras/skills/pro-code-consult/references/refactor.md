@@ -1,50 +1,50 @@
-# refactor — 항목 하나씩 안전하게 고치기
+# refactor — fix one item at a time, safely
 
-> 언제 읽나: "그거 고쳐줘", "아까 3번", "로고 따로 노는 거 정리해" 처럼 대상이 있는 정리 요청.
+> When to read: a cleanup request with a target, such as "fix that", "item 3 from before", "clean up the logos that drifted apart".
 
-원칙: **동작은 그대로, 구조만 바꾼다.** 한 번에 항목 하나, 한 번에 냄새 하나.
+Principle: **same behavior, new structure only.** One item at a time, one smell at a time.
 
-## 1. 설계안 → 승인
+## 1. Proposal → approval
 
-`references/proposal-template.md` 8단계로 보여 주고 **멈춘다.** 승인 전에는 파일을 고치지 않는다.
+Show the 8 steps of `references/proposal-template.md` and **stop.** Do not change files before approval.
 
-- 1단계(반복 패턴)는 `scan`·`deps`·`assets` 결과와 원문 `file:line`으로 채운다. 몇 곳인지, 어떻게 다른지 센다
-- 3번째 사본이 아니면(2곳 이하) 공통화를 제안하지 않는다 — 단, 브랜드 자산·설정값·법적 문구는 2곳이어도 단일 원본
-- 이름 표는 `references/conventions.md` §2 기준. 약어·`is` 없는 boolean·뜻 없는 이름을 같이 고친다
+- Fill step 1 (repeated pattern) from `scan`, `deps` and `assets` results plus `file:line` in the source. Count how many places and how they differ
+- If it is not the 3rd copy (2 places or fewer), do not propose extracting it — except brand assets, config values and legal text, which get a single source even at 2 places
+- The name table follows `references/conventions.md` §2. Fix abbreviations, booleans without `is`, and meaningless names together
 
-## 2. 동작 고정 (고치기 전)
+## 2. Pin the behavior (before fixing)
 
-- 기존 테스트를 돌려 **지금 통과하는지** 확인한다. 실패 중이면 리팩터링하지 않고 먼저 알린다
-- 화면·API 응답이 바뀔 수 있는 범위면 **기준선을 찍는다**:
-  - 화면: `pro-launch`로 해당 화면 캡처 (라이트·다크, 필요하면 빈·에러 상태)
-  - 흐름: `pro-agent-test`로 해당 시나리오 실행
-  - API: `pro-launch`의 `http`로 응답 저장
-- 테스트도 기준선도 없으면 **현재 동작을 고정하는 테스트를 먼저 쓴다** (가장 좁은 것)
+- Run the existing tests and confirm **they pass now**. If they are failing, do not refactor; report it first
+- If screens or API responses may change, **take a baseline**:
+  - Screens: capture the screen with `pro-launch` (light and dark, plus empty and error states if needed)
+  - Flows: run the scenario with `pro-agent-test`
+  - API: save the response with `pro-launch`'s `http`
+- If there are neither tests nor a baseline, **first write a test that pins the current behavior** (the narrowest one)
 
-## 3. 냄새 하나씩
+## 3. One smell at a time
 
-순서: 죽은 코드 삭제 → 중복 제거·공통화 → 이름·에러 처리 → 테스트 보강.
-각 단계 끝에 기존 테스트를 돌린다. 실패하면 그 단계만 되돌린다. 관련 없는 정리를 끼워 넣지 않는다.
+Order: delete dead code → remove duplication and extract common code → names and error handling → strengthen tests.
+Run the existing tests at the end of each step. If they fail, revert only that step. Do not slip in unrelated cleanup.
 
-- 삭제 우선: 새 추상화보다 지우는 것이 먼저다
-- 새 의존성 추가 금지 (사용자가 요청한 경우만)
-- 바꾼 코드에 딸린 주석만 고친다. 위 주석이 옛 동작을 설명하면 고치고, 건드리지 않은 코드의 주석은 그대로 둔다
+- Deletion first: deleting comes before new abstractions
+- No new dependencies (unless the user asks)
+- Fix only comments attached to code you changed. If a comment above describes old behavior, fix it; leave comments on untouched code as they are
 
-## 4. 대조 (고친 후)
+## 4. Compare (after fixing)
 
-2단계와 **같은 조건**으로 다시 찍는다. 화면·응답이 다르면 의도된 차이인지 사용자에게 보여 주고, 아니면 되돌린다.
-"테스트 통과"만으로 완료라고 하지 않는다.
+Capture again under **the same conditions** as step 2. If a screen or response differs, show the user whether it is an intended difference; if not, revert.
+Do not call it done just because the tests pass.
 
-## 5. 봉인
+## 5. Seal
 
-- 공통 지점을 만들었으면 **우회를 막는 규칙**을 `docs/architecture/rules/<id>.rule`로 추가한다
-  - 이번에 전부 고쳤으면 `.allow` 없이 (예외 0)
-  - 일부만 고쳤으면 `ledger PATH freeze --rule <id>`로 남은 것을 동결
-- 기존 규칙의 위반을 고쳤으면 `ledger PATH tighten` → `ledger PATH check` pass 확인
+- If you created a common point, add a **rule that blocks bypassing it** as `docs/architecture/rules/<id>.rule`
+  - If you fixed every place this time, no `.allow` (zero exceptions)
+  - If you fixed only some, freeze the rest with `ledger PATH freeze --rule <id>`
+- If you fixed violations of an existing rule, run `ledger PATH tighten` → confirm `ledger PATH check` passes
 - `scan PATH --record`
 
-## 6. 검토 · 커밋
+## 6. Review · commit
 
-- **고친 쪽과 검토하는 쪽을 나눈다.** `pro-review`(또는 별도 하위 에이전트)에 diff와 설계안을 주고 동작 변화·남은 중복·약한 테스트를 보게 한다
-- check 모드를 이번 변경에 한 번 돌린다 (`diff PATH`) — 리팩터링이 새 냄새를 만들지 않았는지
-- 커밋은 `/pro-commit`. 커밋 타입은 `refactor`
+- **Separate the fixer from the reviewer.** Give the diff and the proposal to `pro-review` (or a separate subagent) to look for behavior changes, remaining duplication and weak tests
+- Run check mode once on this change (`diff PATH`) — to confirm the refactor did not create new smells
+- Commit with `/pro-commit`. The commit type is `refactor`

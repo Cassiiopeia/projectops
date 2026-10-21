@@ -1,42 +1,42 @@
-# 리팩터링 설계안 형식 (8단계)
+# Refactoring proposal format (8 steps)
 
-> 언제 읽나: refactor 1단계. 이 형식으로 보여 주고 승인을 기다린다.
+> When to read: refactor step 1. Show the proposal in this format and wait for approval.
 
 ```markdown
-## 설계안: <한 줄 제목>
+## Proposal: <one-line title>
 
-### 1. 반복 패턴
-- 무엇이 몇 곳에서: `<패턴>` N곳 (근거 `path:line` 3~5개)
-- 어떻게 다른가: <크기 3종, 오류 처리 2종 등>
-- 원인 한 줄: <왜 각자 만들었나 — 공통 지점이 없음 / 문서에 없음 / 규칙 문서가 유도>
+### 1. Repeated pattern
+- What, in how many places: `<pattern>` in N places (evidence: 3–5 `path:line`)
+- How they differ: <3 sizes, 2 kinds of error handling, etc.>
+- Cause in one line: <why each place built its own — no common point / not documented / a rule document invites it>
 
-### 2. 계층 · 위치
-- 공통 코드 자리: `<폴더>` (conventions §3.1 계층표 기준)
+### 2. Layer · location
+- Where the common code goes: `<folder>` (per the layer table in conventions §3.1)
 
-### 3. 새 공통 컴포넌트
-| 이름 | 한 번에 처리하는 것 |
+### 3. New common components
+| Name | What it handles in one place |
 |---|---|
 
-### 4. 이름 표
-| 지금 | 바꿀 이름 | 이름만 보고 알 수 있는 것 |
+### 4. Name table
+| Now | New name | What the name alone tells you |
 |---|---|---|
 
-### 5. 적용 범위
-- 동작은 그대로, 구조만. 고정 수단: <기존 테스트 / 새 고정 테스트 / pro-agent-test 시나리오 / 캡처>
-- 바뀌는 파일 N개
+### 5. Scope
+- Same behavior, structure only. How it is pinned: <existing tests / new pinning test / pro-agent-test scenario / captures>
+- N files change
 
-### 6. 규칙 테스트
-- 금지: `<패턴>` (`paths=...`)
-- 예외: <없음 / 동결 N개 — 이유>
+### 6. Rule test
+- Forbids: `<pattern>` (`paths=...`)
+- Exceptions: <none / N frozen — reason>
 
-### 7. 문서
-- `docs/architecture/stacks/<스택>.md`에 <공통 컴포넌트 · 모범 파일> 추가
+### 7. Documents
+- Add <common components · model files> to `docs/architecture/stacks/<stack>.md`
 
-### 8. 하지 않는 것
-- <이번 범위 밖 · 과한 도구 · 다음으로 미룰 것>
+### 8. Not doing
+- <out of scope this time · excessive tooling · deferred to later>
 ```
 
-규칙:
-- 1단계 수치는 CLI 결과가 아니라 **원문으로 확인한 것**만 쓴다
-- 4단계 이름은 conventions §2 (boolean `is/has/can/should`, 약어 금지, 파일명 = 타입명)
-- 8단계를 비우지 않는다. 범위를 말하지 않으면 리팩터링이 기능 추가로 번진다
+Rules:
+- Step 1 numbers are only what you **confirmed in the source**, not raw CLI results
+- Step 4 names follow conventions §2 (boolean `is/has/can/should`, no abbreviations, file name = type name)
+- Never leave step 8 empty. If you do not state the scope, the refactor grows into feature work
