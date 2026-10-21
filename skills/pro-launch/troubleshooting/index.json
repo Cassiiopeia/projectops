@@ -160,17 +160,11 @@
     "bulk": [
       "web-script-browser-memory-exceeded"
     ],
-    "by": [
-      "android-no-focused-window"
-    ],
     "cache": [
       "general-plugin-cache-version-drift"
     ],
     "call": [
       "ios-maestro-stale-driver-or-overload"
-    ],
-    "can": [
-      "android-system-restart-loop"
     ],
     "chcp": [
       "ssh-windows-cmd-encoding"
@@ -213,9 +207,6 @@
     "device_unreachable": [
       "ios-maestro-session-reconnect"
     ],
-    "did": [
-      "android-maestro-driver-start-timeout"
-    ],
     "directory": [
       "general-zsh-variable-command"
     ],
@@ -240,9 +231,6 @@
     "find": [
       "android-system-restart-loop"
     ],
-    "for": [
-      "web-selector-guess-timeout"
-    ],
     "full-page": [
       "web-scroll-container-capture"
     ],
@@ -258,19 +246,11 @@
     "ime": [
       "android-korean-ime-jamo"
     ],
-    "in": [
-      "android-maestro-driver-start-timeout",
-      "general-login-interstitial-policy",
-      "ios-maestro-driver-port-conflict"
-    ],
     "inputtextcommand": [
       "ios-maestro-log-keeps-input-text"
     ],
     "invalid": [
       "general-otp-no-resubmit"
-    ],
-    "is": [
-      "android-system-restart-loop"
     ],
     "jamo": [
       "android-korean-ime-jamo"
@@ -300,24 +280,14 @@
     "mcurrentfocus": [
       "android-app-not-foreground"
     ],
-    "me": [
-      "general-login-interstitial-policy"
-    ],
     "methodchannel": [
       "general-render-failed-first-error"
     ],
     "minutemaidactivity": [
       "android-app-not-foreground"
     ],
-    "no": [
-      "general-zsh-variable-command"
-    ],
     "node": [
       "android-no-focused-window"
-    ],
-    "not": [
-      "android-maestro-driver-start-timeout",
-      "android-system-restart-loop"
     ],
     "null": [
       "android-no-focused-window"
@@ -327,9 +297,6 @@
     ],
     "offline": [
       "android-emulator-unresponsive-host-swap"
-    ],
-    "or": [
-      "general-zsh-variable-command"
     ],
     "otp": [
       "general-otp-no-resubmit"
@@ -444,9 +411,6 @@
     ],
     "tab_warning": [
       "web-page-changed-by-other-session"
-    ],
-    "this": [
-      "general-login-interstitial-policy"
     ],
     "time": [
       "android-maestro-driver-start-timeout"
@@ -658,7 +622,7 @@
         "app flow already force-stops the driver apps and retries once before returning this code. Do not repeat the same command right away",
         "Check whether heavy work such as a build (gradle · xcodebuild) is running, and retry after it ends"
       ],
-      "keyword_count": 6,
+      "keyword_count": 3,
       "path": "android/android-maestro-driver-start-timeout.json"
     },
     "android-maps-locale": {
@@ -678,7 +642,7 @@
         "The CLI already wakes the screen (WAKEUP · unlock) and reads up to three times before returning this code. Call app tree once more after a few seconds",
         "Look at the current screen with app shot. If it is a password lock screen, ask the user to unlock it"
       ],
-      "keyword_count": 6,
+      "keyword_count": 5,
       "path": "android/android-no-focused-window.json"
     },
     "android-non-ascii-text": {
@@ -698,7 +662,7 @@
         "adb -s <serial> shell getprop init.svc.bootanim — if running, the system is not up yet",
         "After the user confirms, adb -s <serial> reboot (soft reboot, keeps data). Measured: boot finished in 52 s and app run worked"
       ],
-      "keyword_count": 12,
+      "keyword_count": 9,
       "path": "android/android-system-restart-loop.json"
     },
     "browser-start-stale-process-or-lock": {
@@ -768,7 +732,7 @@
         "launch_cli.py cred policy get --name <name>",
         "launch_cli.py cred policy set --name <name> --key trust_device --value always"
       ],
-      "keyword_count": 19,
+      "keyword_count": 16,
       "path": "general/general-login-interstitial-policy.json"
     },
     "general-otp-no-resubmit": {
@@ -828,7 +792,7 @@
         "Call the fixed entry point directly: python3 ~/.projectops/bin/launch_cli.py doctor",
         "To repeat it, wrap it in a function: launch() { python3 \"$HOME/.projectops/bin/launch_cli.py\" \"$@\"; }"
       ],
-      "keyword_count": 7,
+      "keyword_count": 5,
       "path": "general/general-zsh-variable-command.json"
     },
     "ios-app-vanishes-after-launch": {
@@ -858,7 +822,7 @@
         "Find the process holding the port with lsof -nP -iTCP:22087 -sTCP:LISTEN, and check which UDID's driver it is with ps -p <PID> -o command=",
         "If another session's driver holds it, do not kill it — wait for that work to finish or ask the user (Maestro drives one simulator at a time)"
       ],
-      "keyword_count": 6,
+      "keyword_count": 5,
       "path": "ios/ios-maestro-driver-port-conflict.json"
     },
     "ios-maestro-log-keeps-input-text": {
@@ -1098,7 +1062,7 @@
         "Pick the right one from candidates in the failure result and call again with --ref as next says (earlier entries are closer to the guessed selector)",
         "launch_cli.py web click --ref <number> --expect-url <part of the new URL>"
       ],
-      "keyword_count": 4,
+      "keyword_count": 3,
       "path": "web/web-selector-guess-timeout.json"
     },
     "web-viewport-width-height": {

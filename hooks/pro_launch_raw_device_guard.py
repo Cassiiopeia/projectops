@@ -51,9 +51,9 @@ def blocked_pattern(command: str):
 
 
 def deny_response(command: str, pattern) -> dict:
-    reason = (f"pro-launch: 가상 기기를 raw 명령으로 만들거나 지우지 않는다 — 여러 세션이 한 컴퓨터의 기기를 나눠 쓴다. "
-              f"대신: {pattern.instead}  (빌리기는 device acquire). "
-              f"사용자가 직접 원하면 명령 앞에 {BYPASS_MARKER} 를 붙인다.")
+    reason = (f"pro-launch: do not create or delete virtual devices with raw commands; several sessions share "
+              f"the devices on this machine. Instead: {pattern.instead}  (to borrow one, use device acquire). "
+              f"If the user explicitly wants the raw command, prefix it with {BYPASS_MARKER}.")
     return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                    "permissionDecisionReason": reason}}
 

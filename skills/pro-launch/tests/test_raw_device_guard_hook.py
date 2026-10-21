@@ -35,3 +35,11 @@ def test_device_lifecycle_commands_are_denied(command, capsys):
 ])
 def test_other_commands_pass(command, capsys):
     assert decision_of(command, capsys) is None
+
+
+def test_deny_reason_names_the_replacement_and_the_bypass(capsys):
+    """거부 사유: 대신 쓸 launch_cli 명령과 우회 표시를 영어로 담는다."""
+    guard.main(json.dumps({"tool_name": "Bash", "tool_input": {"command": "xcrun simctl delete ABC"}}))
+    reason = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["permissionDecisionReason"]
+    assert reason.startswith("pro-launch: do not create or delete virtual devices with raw commands")
+    assert "launch_cli.py device delete" in reason and guard.BYPASS_MARKER in reason

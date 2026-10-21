@@ -1,5 +1,5 @@
 {
-  "description": "projectops: pro-launch 기기 — 세션이 끝나면 빌린 기기를 반납하고(#953), raw 기기 생성·삭제 명령을 막는다(#954)",
+  "description": "projectops: pro-launch devices: release borrowed devices and close browsers when a session ends (#953, #956), and block raw device create/delete commands (#954)",
   "hooks": {
     "SessionEnd": [
       {

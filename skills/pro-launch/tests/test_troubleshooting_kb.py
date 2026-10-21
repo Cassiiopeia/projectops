@@ -89,6 +89,30 @@ def _entries() -> list[dict]:
     return [entry for _, entry in rows]
 
 
+# ── 영어 기능어 (실제 색인) ───────────────────────────────────────────────
+
+def _found_ids(text: str, code: str | None = None) -> list[str]:
+    return [hit["id"] for hit in troubleshoot.find_known_fixes(SKILL_DIR, code=code, text=text, limit=10)]
+
+
+def test_english_stopwords_alone_do_not_pull_an_unrelated_entry():
+    """'did not'·'in' 만 겹친 영어 오류문이 maestro 드라이버 항목을 끌어오지 않는다."""
+    assert _found_ids("Request did not finish in time") == []
+    assert "android-maestro-driver-start-timeout" not in _found_ids("Browser did not start")
+    assert "android-maestro-driver-start-timeout" not in _found_ids("maestro did not respond (90s)")
+
+
+def test_korean_and_english_lookups_still_find_their_entries():
+    assert {"ios-maestro-slow-cold-start", "ios-maestro-stale-driver-or-overload"} <= set(
+        _found_ids("maestro did not respond (90s)"))
+    assert _found_ids("Browser did not start", code="browser_start_failed")[0] == "browser-start-stale-process-or-lock"
+    assert "android-maestro-driver-start-timeout" in _found_ids("Maestro driver did not start up in time")
+    assert "ios-maestro-driver-port-conflict" in _found_ids("bind failed: Address already in use")
+    # 한국어 핵심어 (옛 출력 문구)
+    assert "ios-maestro-stale-driver-or-overload" in _found_ids("maestro 응답 없음")
+    assert "browser-start-stale-process-or-lock" in _found_ids("브라우저가 뜨지 않았습니다")
+
+
 def test_every_match_code_is_emitted_by_the_cli():
     patterns = _emitted_code_patterns()
     missing = [(e["id"], code) for e in _entries() for code in e["match"]["codes"]

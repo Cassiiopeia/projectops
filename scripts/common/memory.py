@@ -23,10 +23,15 @@ RELATED = 0.25           # 이 이상이면 '비슷한 기억'으로 보여 주�
 STALE_DAYS = 90
 HIDE_FAILS_OVER = 2      # fail >= ok + 이 값이면 자동으로 싣지 않는다
 
+# 영어 기능어 — CLI 출력이 영어라 'did not' 두 단어만으로 엉뚱한 트러블슈팅 항목이 걸린다.
+# 오류를 가리키는 말(failed·timeout·out·start 등)은 넣지 않는다 — 실제 매칭 근거라서
+_ENGLISH_STOPWORDS = {"a", "an", "the", "is", "are", "was", "were", "be", "been", "to", "of", "in",
+                      "on", "at", "by", "for", "from", "with", "and", "or", "not", "no", "did", "does",
+                      "do", "can", "could", "this", "that", "it", "me"}
 # 어느 지식에나 나오는 말 — 이것끼리 겹쳐서 같은 지식으로 오판했다(실측: Google 팝업 ↔ Apple iframe)
 _GENERIC = {"web", "ios", "android", "server", "open", "goto", "type", "input", "click", "로그인",
             "입력", "통과", "있다", "있다.", "앞에", "폼은", "launch_cli", "--headed", "headed", "이메일",
-            "비밀번호", "cdp", "app", "tap"}
+            "비밀번호", "cdp", "app", "tap"} | _ENGLISH_STOPWORDS
 _WORD = re.compile(r"[0-9A-Za-z가-힣_.#-]{2,}")
 
 
