@@ -138,6 +138,25 @@ test("addVersionSectionToReadme 없으면 append", () => {
   } finally { rmSync(tgt, { recursive: true, force: true }); }
 });
 
+test("addVersionSectionToReadme 언어별 제목 (en: Latest version, ko: 최신 버전)", () => {
+  const tgt = fresh("rm-lang-");
+  try {
+    writeText(join(tgt, "README.md"), "# My Project\n");
+    assert.equal(addVersionSectionToReadme("1.2.3", tgt, "en"), "added");
+    const c = readText(join(tgt, "README.md"));
+    assert.ok(c.includes("## Latest version : v1.2.3"));
+    assert.ok(c.includes("[View the full version history](CHANGELOG.md)"));
+  } finally { rmSync(tgt, { recursive: true, force: true }); }
+});
+
+test("addVersionSectionToReadme 마커 없는 영문 버전 줄도 기존 섹션으로 인식 (중복 append 방지)", () => {
+  const tgt = fresh("rm-en-line-");
+  try {
+    writeText(join(tgt, "README.md"), "# X\n## Latest version : v2.0.0\n");
+    assert.equal(addVersionSectionToReadme("2.0.1", tgt, "en"), "skip-version-line");
+  } finally { rmSync(tgt, { recursive: true, force: true }); }
+});
+
 test("copyIssueTemplates: projectops- 로 시작하는 이 저장소 전용 양식은 사용자 레포로 복사하지 않는다 (#797)", () => {
   const tmp = fresh("ci-tmp-"); const tgt = fresh("ci-tgt-");
   try {

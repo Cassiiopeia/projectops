@@ -37,7 +37,7 @@ export function runVersion(context, tempDir, targetRoot = ".") {
       // 호출부가 recordMode로 기존 값을 넘긴다 (full이 우세 — 업데이트 재실행 범위 축소 방지).
       templateOptions: toTemplateOptions(context, { mode: recordMode, optionsDate: today }),
     }));
-  addVersionSectionToReadme(version, targetRoot);
+  addVersionSectionToReadme(version, targetRoot, context.language);
   copyScripts(tempDir, targetRoot);
   copyConfigFolder(tempDir, targetRoot);
   applyLabelStyle(targetRoot, labelStyle); // #776

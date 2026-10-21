@@ -627,7 +627,7 @@ python3 .github/scripts/changelog_manager.py classify-bump --commits-file commit
 | `github-ai` | **서비스 종료(2026-07-30)** — 호출하지 않고 조용히 흡수, 업데이트 시 `commit`으로 이전 |
 | `coderabbit` | 기다리지 않는다. 본문에 요약이 있으면 ①에서 존중될 뿐 |
 
-> 미설정 판정(명시값 → `.coderabbit.yaml` → `commit`)은 워크플로우 "버전 정보 확인" 스텝과 `changelog_cli.py` `_read_release_branches` **두 곳이 같은 규칙**이어야 한다. 회귀 방지: `.github/scripts/test/test_changelog_providers.py`, `test_changelog_deploy_provider.py`.
+> 미설정 판정(명시값 → `.coderabbit.yaml` → `commit`)은 워크플로우 "Read version info" 스텝과 `changelog_cli.py` `_read_release_branches` **두 곳이 같은 규칙**이어야 한다. 회귀 방지: `.github/scripts/test/test_changelog_providers.py`, `test_changelog_deploy_provider.py`.
 
 > **⚠️ 모델명에 버전을 박지 말 것 (#566).** `gemini-1.5-flash`가 404로 죽어 있었다. `openai_compatible.py`의 preset은 `-latest` 별칭을 쓴다. gemini는 **`gemini-flash-lite-latest`** 가 기본인데, 무료 등급에서 상위 Flash는 RPD 20인 반면 Lite는 500이라 자동화에 쓸 수 있는 쪽이 Lite뿐이기 때문이다(실측).
 >

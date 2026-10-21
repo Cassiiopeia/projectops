@@ -58,7 +58,7 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
     })), { version, versionCode });
 
   // 2. README 버전 섹션
-  step("update-readme", () => addVersionSectionToReadme(version, targetRoot), { version });
+  step("update-readme", () => addVersionSectionToReadme(version, targetRoot, language), { version });
 
   // 5. scripts / config
   //    워크플로우 밖 영역도 기록한다 (#561) — "내 스크립트가 갱신됐나"를 로그만 보고 알 수 있게.
