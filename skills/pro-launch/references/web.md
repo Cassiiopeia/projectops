@@ -316,7 +316,7 @@ rows = page.locator("table tr")
 - 다른 동작과 같은 연결·재설치(콘솔 훅 · stealth · 뷰포트 · 응답 바꿔치기)를 거친다. 결과는 `result`(JSON 으로 못 바꾸면 문자열), `print` 는 `stdout`.
 - 예외는 `script_failed` + 첫 오류 줄, 상한(`--timeout`, 기본 60초)을 넘으면 실행을 멈추고 `script_timeout`. 브라우저는 그대로 쓸 수 있다.
 - 저장된 자격증명의 비밀 값은 결과 · 오류 · stdout 에서 `***` 로 가린다. 읽기 전용 세션에서는 `--confirm-mutating` 없이 돌리지 않는다.
-- 실행 중 브라우저(렌더러 포함) 메모리를 2초마다 잰다. 상한(기본 8192MB, `--memory-limit-mb` 또는
+- 실행 중 브라우저(렌더러 포함) 메모리를 2초마다 잰다. 상한(기본 32768MB, `--memory-limit-mb` 또는
   `PRO_LAUNCH_BROWSER_MEMORY_LIMIT_MB`)을 넘으면 조각을 멈추고 **브라우저를 끈 뒤** `browser_memory_exceeded`
   (`rss_megabytes` · `limit_megabytes` · `browser_closed`). 다시 쓰려면 `web open`(같은 프로필이라 로그인은 남는다).
   `ps` 가 없는 곳(Windows)은 재지 않고 시간 상한만 본다.

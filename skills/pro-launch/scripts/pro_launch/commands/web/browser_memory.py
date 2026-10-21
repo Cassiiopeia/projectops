@@ -13,7 +13,8 @@ import time
 from typing import Callable
 
 # 브라우저 프로세스 묶음 RSS 상한 기본값 (MB) — 조각 하나가 컴퓨터를 멈추지 않을 선
-DEFAULT_BROWSER_MEMORY_LIMIT_MEGABYTES = 8192
+# RSS 합은 렌더러끼리 공유 메모리를 겹쳐 세므로 넉넉히 둔다 (실사고 275GB 는 잡고 평소 다탭 세션은 끄지 않게)
+DEFAULT_BROWSER_MEMORY_LIMIT_MEGABYTES = 32768
 # 상한을 바꾸는 환경변수 (MB) — --memory-limit-mb 가 있으면 그것이 이긴다
 BROWSER_MEMORY_LIMIT_ENV = "PRO_LAUNCH_BROWSER_MEMORY_LIMIT_MB"
 # 메모리를 다시 재는 간격 (초)

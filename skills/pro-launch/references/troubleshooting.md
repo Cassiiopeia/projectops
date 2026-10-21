@@ -181,7 +181,7 @@
   1. 로그인만 브라우저로 하고, web script 로 context.cookies() 를 실행 폴더의 파일에 쓴다 (결과로 출력하지 않는다 — 기록에 남는다)
   2. 수집은 그 쿠키를 Cookie 헤더로 실어 HTTP(urllib · requests)로 한다. 목록 API 가 있으면 화면 대신 API 를 부른다
   3. 브라우저 안에서 돌아야 하면 페이지를 수십 개 묶음으로 나눠 web script 를 여러 번 부르고, 연 탭은 page.close() 로 닫는다
-  4. 상한은 web script --memory-limit-mb 또는 PRO_LAUNCH_BROWSER_MEMORY_LIMIT_MB (기본 8192). 넘으면 브라우저를 끄므로 web open 으로 다시 띄운다
+  4. 상한은 web script --memory-limit-mb 또는 PRO_LAUNCH_BROWSER_MEMORY_LIMIT_MB (기본 32768). 넘으면 브라우저를 끄므로 web open 으로 다시 띄운다
 - 근거: #973 · 확인 2026-10-21
 - 함께 볼 것: `web-orphan-headless-chrome`
 
