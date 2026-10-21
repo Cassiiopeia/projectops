@@ -1,7 +1,7 @@
 """rewrite-images: 업로드 결과(로컬 그림 > URL)로 md 의 그림 경로를 바꾼다 (#974)
 
 입력 2종 (--uploads 여러 번 가능):
-- upload-image 출력 JSON 그대로: `images[].markdown` 의 `![원래 파일 stem](url)` 로 짝을 찾는다
+- upload-image 출력 JSON 그대로: `images[].file`(로컬 경로)로 먼저, 없으면 `images[].markdown` 의 `![원래 파일 stem](url)` 로 짝을 찾는다
 - 직접 만든 대응표: {"board/states.png": "https://..."} (md 기준 상대경로 · 절대경로 · 파일 이름)
 """
 from __future__ import annotations
@@ -30,6 +30,9 @@ def _load_uploads(upload_files: list[str]) -> tuple[dict, dict, list]:
                 matched = UPLOADED_MARKDOWN_PATTERN.match(str(image.get("markdown", "")))
                 if matched:
                     url_by_stem.setdefault(matched.group(1), set()).add(matched.group(2))
+                # upload-image 가 로컬 경로(file)를 주면 이름 대신 경로로 짝을 맞춘다
+                if image.get("file") and image.get("url"):
+                    url_by_path[str(Path(image["file"]).expanduser().resolve())] = str(image["url"])
             failed += [f.get("file") for f in loaded.get("failed") or [] if isinstance(f, dict)]
         elif isinstance(loaded, dict):
             url_by_path.update({str(k): str(v) for k, v in loaded.items()})
