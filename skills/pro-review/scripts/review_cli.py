@@ -29,7 +29,7 @@ def build_parser() -> JSONArgumentParser:
     parser = JSONArgumentParser(prog="review_cli", description="review skill CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_gop = sub.add_parser("get-output-path", help="리뷰 결과 출력 경로")
+    p_gop = sub.add_parser("get-output-path", help="Output path for the review result")
     p_gop.add_argument("skill_id", nargs="?", default="review")
     p_gop.add_argument("--title")
     from common.paths import add_root_and_issue_args

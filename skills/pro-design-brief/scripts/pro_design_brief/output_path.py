@@ -18,7 +18,7 @@ def cmd_output_path(args) -> int:
         from common.paths import resolve_output_path
     except ImportError:
         return emit({"ok": False, "code": "common_not_found",
-                     "error": "scripts/common/paths.py 를 찾지 못했습니다"})
+                     "error": "scripts/common/paths.py not found"})
     r = resolve_output_path(SKILL_ID, args.title)
     if r.get("ok") is False:
         return emit(r)
@@ -28,6 +28,6 @@ def cmd_output_path(args) -> int:
     return emit({"run_dir": str(run_dir), "board_dir": str(run_dir / "board"),
                  "brief_md": str(run_dir / "brief.md"), "gitignore": r.get("gitignore"),
                  "output_root": r.get("output_root"),
-                 "summary": f"요청서 자리 {run_dir} (추적 제외 {r.get('gitignore')})",
-                 "next": ("캡처는 pro-launch 로 받는다: launch_cli.py get-output-path --skill design-brief "
-                          "(같은 제목) → 받은 env.sh 를 source 하면 $SHOT_DIR 가 이 우산 아래다")})
+                 "summary": f"Request location {run_dir} (git-ignored: {r.get('gitignore')})",
+                 "next": ("Take captures with pro-launch: launch_cli.py get-output-path --skill design-brief "
+                          "(same title), then source the returned env.sh and $SHOT_DIR is under this folder")})

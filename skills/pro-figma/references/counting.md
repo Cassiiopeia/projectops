@@ -72,15 +72,15 @@ Pair each design node id with the screen that corresponds to it (or will be buil
 `layout 3,294 · fills 1,849 · effects 171`, so effects are 3%. Yet **what gets missed is
 almost always here**, because they are small and subtle and nobody notices when they are gone.
 
-So `coverage` **pulls effects out separately and names each kind.** The kind names below are the literal values the CLI emits (Korean).
+So `coverage` **pulls effects out separately and names each kind.** The kind names below are the literal values the CLI emits.
 
 | Kind (CLI value) | What | If missing |
 |---|---|---|
-| `그림자` (shadow) | Offset outer shadow | The floating feel disappears |
-| `안쪽 그림자` (inner shadow) | `inset ...` | **Missed most often**; frameworks often do not support it |
-| `글로우` (glow) | Zero offset, spread only (`0px 0px 30px`) | The "glowing" feel disappears entirely |
-| `블러` (blur) | `filter: blur()`: the layer itself and its children blur | |
-| `배경 블러` (background blur) | `backdropFilter: blur()`: what is **behind** blurs | The glass feel disappears |
+| `shadow` | Offset outer shadow | The floating feel disappears |
+| `inner shadow` | `inset ...` | **Missed most often**; frameworks often do not support it |
+| `glow` | Zero offset, spread only (`0px 0px 30px`) | The "glowing" feel disappears entirely |
+| `blur` | `filter: blur()`: the layer itself and its children blur | |
+| `background blur` | `backdropFilter: blur()`: what is **behind** blurs | The glass feel disappears |
 
 > **Mixing up blur and background blur gives a completely different result.** The names are similar, so they get swapped often.
 

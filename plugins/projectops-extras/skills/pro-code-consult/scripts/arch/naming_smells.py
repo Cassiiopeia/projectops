@@ -81,7 +81,7 @@ def contract_reason(relative_path: str, text: str) -> str | None:
     if annotation:
         return annotation.group(0)
     if CONTRACT_PATH_PATTERN.search(relative_path):
-        return "dto·설정·모델 경로"
+        return "dto/config/model path"
     return None
 
 

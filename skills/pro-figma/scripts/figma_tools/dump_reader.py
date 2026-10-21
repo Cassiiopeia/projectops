@@ -53,15 +53,15 @@ _NO_OFFSET = re.compile(r"^(inset\s+)?0(px)?\s+0(px)?\s")
 def _effect_kind(prop: str, value: str) -> str:
     v = str(value).strip()
     if prop == "backdropFilter":
-        return "배경 블러"
+        return "background blur"
     if prop == "filter":
-        return "블러" if "blur" in v else "필터"
+        return "blur" if "blur" in v else "filter"
     if v.startswith("inset"):
-        return "안쪽 그림자"
+        return "inner shadow"
     if _NO_OFFSET.match(v):
         # 치우침 없이 번지기만 하는 것 — 흔히 "글로우"라 부른다
-        return "글로우"
-    return "그림자"
+        return "glow"
+    return "shadow"
 
 
 def _describe(value) -> str:
@@ -260,7 +260,7 @@ def _load_dump(path: Path):
         import yaml
     except ImportError:
         return None, ("yaml_missing",
-                      "덤프가 JSON 이 아닙니다. YAML 로 읽으려면 PyYAML 이 필요합니다",
+                      "The dump is not JSON. Reading it as YAML needs PyYAML",
                       "python3 -m pip install pyyaml")
     try:
         return yaml.safe_load(text), None

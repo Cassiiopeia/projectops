@@ -59,8 +59,8 @@ def install_documents(root: Path, stacks: list[str], is_force: bool) -> dict:
         target.write_text(f"<!-- pro-code-consult:installed sha256={_hash(body)} -->\n\n{body}", encoding="utf-8")
         written.append(str(target.relative_to(root)))
     return {"written": written, "skipped": skipped,
-            "summary": f"설치 {len(written)}, 건너뜀 {len(skipped)}",
-            "next": "CLAUDE.md·AGENTS.md 에 docs/architecture/CONVENTIONS.md 연결 문단을 넣는다 (references/init.md)"}
+            "summary": f"installed {len(written)}, skipped {len(skipped)}",
+            "next": "Add the paragraph linking docs/architecture/CONVENTIONS.md to CLAUDE.md and AGENTS.md (references/init.md)"}
 
 
 def install_rule_test(root: Path, stack: str, module: str, is_force: bool) -> dict:
@@ -72,13 +72,13 @@ def install_rule_test(root: Path, stack: str, module: str, is_force: bool) -> di
     if not readme.exists():
         shutil.copyfile(RULE_TEST_TEMPLATES_DIRECTORY / "rules-README.md", readme)
     if target.exists() and not is_force:
-        return {"ok": False, "code": "exists", "summary": f"이미 있음: {target.relative_to(root)}",
-                "next": "내용을 비교해 직접 합친다. 덮어쓰기는 사용자가 요청할 때만 --force"}
+        return {"ok": False, "code": "exists", "summary": f"Already exists: {target.relative_to(root)}",
+                "next": "Compare the contents and merge by hand. Use --force to overwrite only when the user asks"}
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(RULE_TEST_TEMPLATES_DIRECTORY / stack / template_name, target)
     return {"installed": str(target.relative_to(root)), "rules_directory": str(rules.relative_to(root)),
-            "summary": f"{stack} 규칙 테스트 설치: {target.relative_to(root)}",
-            "next": "규칙을 docs/architecture/rules/<id>.rule 로 추가하고 `ledger PATH freeze --rule <id>`"}
+            "summary": f"{stack} rule test installed: {target.relative_to(root)}",
+            "next": "Add rules as docs/architecture/rules/<id>.rule, then run `ledger PATH freeze --rule <id>`"}
 
 
 def audit_output_path(root: Path, title: str) -> dict:

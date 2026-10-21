@@ -79,7 +79,7 @@ def check_rules(root: Path) -> dict:
     results, failing = [], 0
     for rule in load_rules(root):
         if not rule["pattern"]:
-            results.append({"id": rule["id"], "error": "pattern 키가 없다"})
+            results.append({"id": rule["id"], "error": "missing pattern key"})
             failing += 1
             continue
         violations = find_violations(root, rule)
@@ -98,18 +98,18 @@ def freeze_rule(root: Path, rule_id: str) -> dict:
     """최초 동결: 현재 위반을 허용 목록으로 (목록이 이미 있으면 거부 — 줄을 더하는 경로는 없다)"""
     rule_path = rules_directory(root) / f"{rule_id}{RULE_SUFFIX}"
     if not rule_path.exists():
-        return {"ok": False, "code": "rule_not_found", "summary": f"규칙 파일 없음: {rule_path}"}
+        return {"ok": False, "code": "rule_not_found", "summary": f"Rule file not found: {rule_path}"}
     allow_path = _allow_path(root, rule_id)
     if allow_path.exists():
         return {"ok": False, "code": "allow_exists",
-                "summary": "동결 목록이 이미 있다. 동결 목록에는 줄을 더할 수 없다 (지우기만 가능)",
-                "next": "새 위반은 코드를 고친다. 고쳐진 항목은 `ledger PATH tighten`"}
+                "summary": "The freeze list already exists. Lines cannot be added to a freeze list (only removed)",
+                "next": "Fix the code for new violations. Remove fixed entries with `ledger PATH tighten`"}
     violations = sorted(find_violations(root, parse_rule_file(rule_path)))
-    header = [f"# {rule_id} 동결 목록: 줄을 지울 수만 있고 더할 수 없다",
-              "# 고친 파일은 이 목록에서 지운다 (규칙 테스트가 남은 줄을 잡는다)"]
+    header = [f"# {rule_id} freeze list: lines can only be removed, never added",
+              "# Remove a file from this list once it is fixed (the rule test flags leftover lines)"]
     allow_path.write_text("\n".join(header + violations) + "\n", encoding="utf-8")
     return {"ok": True, "rule": rule_id, "frozen": len(violations), "allow_file": str(allow_path),
-            "summary": f"{rule_id}: 현재 위반 {len(violations)}개 동결"}
+            "summary": f"{rule_id}: froze {len(violations)} current violations"}
 
 
 def tighten_rules(root: Path) -> dict:
@@ -130,7 +130,7 @@ def tighten_rules(root: Path) -> dict:
         if dropped:
             allow_path.write_text("\n".join(kept) + "\n", encoding="utf-8")
             removed[rule["id"]] = dropped
-    return {"removed": removed, "summary": f"{sum(len(v) for v in removed.values())}줄 삭제"}
+    return {"removed": removed, "summary": f"removed {sum(len(v) for v in removed.values())} lines"}
 
 
 def _allow_path(root: Path, rule_id: str) -> Path:

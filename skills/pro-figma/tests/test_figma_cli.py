@@ -109,8 +109,8 @@ def test_classification_is_demanded_in_next(tmp_path):
     """분류를 시키지 않으면 나열은 장식이다."""
     _, o, _ = run("coverage", "--dump", str(_dump(tmp_path)))
     nxt = out(o)["next"]
-    assert "구현" in nxt and "근사" in nxt and "생략" in nxt
-    assert "사유" in nxt
+    assert "implemented" in nxt and "approximated" in nxt and "omitted" in nxt
+    assert "reason" in nxt
 
 
 # ── diff ─────────────────────────────────────────────────────────────────
@@ -166,7 +166,7 @@ def test_background_is_read_from_the_design_not_hardcoded(tmp_path):
     """배경색을 코드에 박으면 남의 프로젝트에서 틀린다 (#614 와 같은 실수)."""
     design = _pill(tmp_path / "d.png", True)
     _, o, _ = run("diff", "--render", str(design), "--design", str(design))
-    assert "시안" in out(o)["background"]
+    assert "design" in out(o)["background"]
     _, o2, _ = run("diff", "--render", str(design), "--design", str(design),
                    "--bg", "F7F2EF")
     assert out(o2)["background"] == "#F7F2EF"
@@ -230,8 +230,8 @@ def test_whole_block_shift_is_named_as_such(tmp_path):
     assert sp["looks_shifted"] is True, sp
     assert sp["dy"] == -35, sp
     assert sp["after"] < sp["before"] / 2
-    assert "통째로 밀린" in d["next"]
-    assert "컨테이너" in d["next"]
+    assert "shifted as a whole" in d["next"]
+    assert "container" in d["next"]
 
 
 def test_one_real_difference_is_not_called_a_shift(tmp_path):
@@ -241,7 +241,7 @@ def test_one_real_difference_is_not_called_a_shift(tmp_path):
     _, o, _ = run("diff", "--render", str(render), "--design", str(design))
     d = out(o)
     assert d["shift_probe"]["looks_shifted"] is False, d["shift_probe"]
-    assert "통째로 밀린" not in d["next"]
+    assert "shifted as a whole" not in d["next"]
 
 
 def test_shift_probe_can_be_turned_off(tmp_path):
@@ -270,7 +270,7 @@ def test_hidden_layers_are_skipped_with_their_children(tmp_path):
 
     assert d["total"] == 4, d["items"]          # layout 1 + fills 1 + effects 2
     assert set(d["hidden_skipped"]) == {"1:3", "1:4"}
-    assert "꺼 둔 레이어 2개 제외" in d["summary"]
+    assert "2 hidden layers skipped" in d["summary"]
     # 꺼 둔 노드의 항목이 하나도 섞이지 않아야 한다
     assert not any(i["ref"].startswith(("1:3", "1:4")) for i in d["items"])
 
@@ -303,9 +303,9 @@ def test_elements_are_listed_alongside_styles(tmp_path):
     assert refs == {"1:1", "1:2", "1:3"}, refs
     assert d["element_count"] == 3
     assert {e["type"] for e in d["elements"]} == {"FRAME", "COMPONENT", "TEXT"}
-    assert "요소 3개" in d["summary"]
+    assert "3 elements" in d["summary"]
     # 두 층을 다 보라고 말해야 한다
-    assert "요소" in d["next"] and "스타일" in d["next"]
+    assert "element" in d["next"] and "style" in d["next"]
 
 
 def test_hidden_elements_are_not_listed_either(tmp_path):
@@ -526,13 +526,13 @@ def test_effect_kinds_are_named(tmp_path):
     _, o, _ = run("coverage", "--dump", str(_assets_dump(tmp_path)))
     d = out(o)
     kind = {i["ref"]: i["effect"] for i in d["items"] if i["kind"] == "effects"}
-    assert kind["2:10/effects.boxShadow[0]"] == "그림자"
-    assert kind["2:10/effects.boxShadow[1]"] == "안쪽 그림자"
+    assert kind["2:10/effects.boxShadow[0]"] == "shadow"
+    assert kind["2:10/effects.boxShadow[1]"] == "inner shadow"
     # 치우침 0 에 번짐만 있는 것 — 그림자로 뭉뚱그리면 눈에 안 띈다
-    assert kind["2:11/effects.boxShadow"] == "글로우"
-    assert kind["2:11/effects.filter"] == "블러"
-    assert kind["2:11/effects.backdropFilter"] == "배경 블러"
-    assert d["effect_counts"]["안쪽 그림자"] == 3
+    assert kind["2:11/effects.boxShadow"] == "glow"
+    assert kind["2:11/effects.filter"] == "blur"
+    assert kind["2:11/effects.backdropFilter"] == "background blur"
+    assert d["effect_counts"]["inner shadow"] == 3
 
 
 def test_same_name_different_shape_is_not_merged(tmp_path):
@@ -612,7 +612,7 @@ def test_coverage_surfaces_assets_and_effects_separately(tmp_path):
     d = out(o)
     assert d["asset_count"] == 6
     assert len(d["effects"]) == 7        # 그림자 4 + 글로우·블러·배경블러
-    assert "안쪽 그림자 3" in d["summary"]
+    assert "inner shadow 3" in d["summary"]
 
 
 def test_asset_with_effect_is_flagged_because_the_file_comes_bigger(tmp_path):
@@ -643,7 +643,7 @@ def test_asset_with_effect_is_flagged_because_the_file_comes_bigger(tmp_path):
     assert d["with_baked_effect"] == 1
     back = [a for a in d["assets"] if a["name"] == "뒤로가기"][0]
     assert "blur(200px)" in back["baked_effect"]
-    assert "효과가 그림에 박혀 오는 것 1개" in d["summary"]
+    assert "1 come with the effect baked into the image" in d["summary"]
 
 
 def test_human_named_style_keys_are_resolved(tmp_path):
@@ -826,7 +826,7 @@ def test_square_corner_is_caught_and_round_one_is_not(tmp_path):
     names = {f["says"].split()[0] for f in d["findings"]}
     assert names == {"각진"}, d["findings"]          # '각진 상자'만
     assert len(d["findings"]) == 4, d["findings"]    # 네 귀 전부
-    assert "r=20 → 렌더가 각졌다" in d["findings"][0]["says"]
+    assert "r=20 → the render is square" in d["findings"][0]["says"]
 
 
 def test_scale_comes_from_the_reference_node_not_the_rect_list(tmp_path):
@@ -839,7 +839,7 @@ def test_scale_comes_from_the_reference_node_not_the_rect_list(tmp_path):
     _, o, _ = run("conform", "--dump", str(dp), "--render", str(rp), "--node", "1:1")
     d = out(o)
     assert d["scale"] == 3, d["scale_from"]
-    assert "÷ 기준 200" in d["scale_from"]
+    assert "/ origin 200" in d["scale_from"]
     assert len(d["findings"]) == 4, d["findings"]    # 3배에서도 결과가 같다
 
 
@@ -863,7 +863,7 @@ def test_positions_it_cannot_compute_are_skipped_and_counted(tmp_path):
     d = out(o)
     assert d["checked"] == 0
     assert d["skipped_unknown_position"] == 1
-    assert "건너뜀 1개" in d["summary"], d["summary"]
+    assert "1 skipped (position unknown)" in d["summary"], d["summary"]
 
 
 def test_clean_screen_says_so_plainly(tmp_path):
@@ -887,7 +887,7 @@ def test_clean_screen_says_so_plainly(tmp_path):
     _, o, _ = run("conform", "--dump", str(dp), "--render", str(rp), "--node", "3:1")
     d = out(o)
     assert d["findings"] == [], d["findings"]
-    assert "이상 없음" in d["summary"]
+    assert "no issues" in d["summary"]
 
 
 # =========================================================================
@@ -973,11 +973,11 @@ def test_conform_catches_colour_alpha_gradient_and_shadow(tmp_path):
     _, o, _ = run("conform", "--dump", str(dp), "--render", str(rp), "--node", "1:1")
     d = out(o)
     says = " | ".join(f["says"] for f in d["findings"])
-    assert "렌더가 각졌다" in says, says
-    assert "칠이 다르다" in says, says
-    assert "투명도가 빠졌다" in says, says
-    assert "그라디언트가 단색으로 깔렸다" in says, says
-    assert "그림자가 안 보인다" in says, says
+    assert "the render is square" in says, says
+    assert "fill differs" in says, says
+    assert "transparency is missing" in says, says
+    assert "gradient is painted as a solid color" in says, says
+    assert "shadow is not visible" in says, says
     # 심각도가 갈려야 CI 가 쓸 수 있다
     assert d["by_severity"]["high"] >= 4 and d["by_severity"]["medium"] >= 1, d["by_severity"]
     # 사진 자리는 색이 전혀 다른데도 **건드리면 안 된다** — 시안의 imageRef 와
@@ -992,7 +992,7 @@ def test_conform_is_quiet_when_everything_matches(tmp_path):
     _, o, _ = run("conform", "--dump", str(dp), "--render", str(rp), "--node", "1:1")
     d = out(o)
     assert d["findings"] == [], d["findings"]
-    assert "이상 없음" in d["summary"]
+    assert "no issues" in d["summary"]
 
 
 def test_fail_on_gives_ci_a_non_zero_exit(tmp_path):

@@ -182,7 +182,7 @@ def test_judgment_aids_from_dogfood(project):
     assert bypassed["wrappers"] == ["app/lib/core/widgets/app_spinner.dart"] and bypassed["files"] == 1
     catch = next(f for f in findings["unhandled_catch"] if f["path"].endswith("MemberService.java"))
     assert (catch["kind"], catch["is_catch_all"], catch["has_log"]) == ("no_rethrow", True, True)
-    assert scanned["review_order"][0]["group"] == "동작 위험"
+    assert scanned["review_order"][0]["group"] == "behavior risk"
 
     # deps: 줄 번호(앞 빈 줄), 모듈 간 저장소 직접 사용
     dependencies = run_cli("deps", project)[0]

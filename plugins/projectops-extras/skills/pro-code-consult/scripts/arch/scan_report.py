@@ -9,12 +9,12 @@ from itertools import zip_longest
 
 # 읽는 순서 = 위험도 순 (동작 위험 > 공통화·단일 원본 > 구조 > 주석 > 이름·토큰)
 REVIEW_ORDER = (
-    ("동작 위험", ("unhandled_catch", "test_code_in_production", "swallowed_catch", "hardcoded_urls", "lint_disabled_files")),
-    ("공통화·단일 원본", ("bypassed_components", "common_call_candidates", "duplicate_constants")),
-    ("구조", ("long_files", "long_functions", "file_type_mismatch")),
-    ("주석", ("history_comments", "commented_out_code", "long_comment_blocks", "comment_heavy_files",
+    ("behavior risk", ("unhandled_catch", "test_code_in_production", "swallowed_catch", "hardcoded_urls", "lint_disabled_files")),
+    ("common code and single source", ("bypassed_components", "common_call_candidates", "duplicate_constants")),
+    ("structure", ("long_files", "long_functions", "file_type_mismatch")),
+    ("comments", ("history_comments", "commented_out_code", "long_comment_blocks", "comment_heavy_files",
              "banner_comments", "prose_ending_comments")),
-    ("이름·토큰", ("boolean_functions", "boolean_names", "abbreviations", "meaningless_names", "hardcoded_tokens")),
+    ("names and tokens", ("boolean_functions", "boolean_names", "abbreviations", "meaningless_names", "hardcoded_tokens")),
 )
 CROSS_FILE_CATEGORIES = ("bypassed_components", "common_call_candidates", "duplicate_constants")
 PER_FILE_CATEGORIES = tuple(c for _, group in REVIEW_ORDER for c in group if c not in CROSS_FILE_CATEGORIES)
@@ -68,18 +68,18 @@ def build_report(findings: dict, cross_file: dict, limit: int, categories: list 
 
 def summary_text(files_by_origin: dict, counts: dict, test_counts: dict, excluded: dict,
                  not_analyzed_languages: dict | None = None) -> str:
-    excluded_text = ", ".join(f"{origin} {entry['count']}" for origin, entry in excluded.items()) or "없음"
+    excluded_text = ", ".join(f"{origin} {entry['count']}" for origin, entry in excluded.items()) or "none"
     groups = []
     for group, members in REVIEW_ORDER:
         present = [f"{c} {counts[c]}" for c in members if counts.get(c)]
         if present:
             groups.append(f"[{group}] " + ", ".join(present))
-    parts = [f"운영 {files_by_origin.get('production', 0)}·테스트 {files_by_origin.get('test', 0)}개 파일 (제외: {excluded_text})"]
+    parts = [f"{files_by_origin.get('production', 0)} production, {files_by_origin.get('test', 0)} test files (excluded: {excluded_text})"]
     parts += [" | ".join(groups)] if groups else []
     if test_counts:
-        parts.append(f"테스트 쪽 후보 {sum(test_counts.values())}건은 test_counts")
+        parts.append(f"{sum(test_counts.values())} test-side candidates are in test_counts")
     if not_analyzed_languages:
-        parts.append("CLI가 못 읽은 언어(직접 표본 확인): " + ", ".join(f"{n} {c}" for n, c in not_analyzed_languages.items()))
+        parts.append("languages the CLI cannot read (sample them by hand): " + ", ".join(f"{n} {c}" for n, c in not_analyzed_languages.items()))
     return " | ".join(parts)
 
 

@@ -18,7 +18,7 @@ def cmd_conform(args) -> int:
     path = Path(args.dump)
     if not path.is_file():
         return emit({"ok": False, "code": "dump_not_found",
-                     "error": f"덤프 파일이 없습니다: {args.dump}"})
+                     "error": f"Dump file not found: {args.dump}"})
     data, derr = _load_dump(path)
     if derr:
         code, msg, hint = derr
@@ -29,42 +29,42 @@ def cmd_conform(args) -> int:
     render = Path(args.render)
     if not render.is_file():
         return emit({"ok": False, "code": "render_not_found",
-                     "error": f"렌더 이미지가 없습니다: {args.render}"})
+                     "error": f"Render image not found: {args.render}"})
 
     try:
         img = Image.open(render).convert("RGB")
     except Exception as e:   # 이미지가 아닌 파일 (#710)
         return emit({"ok": False, "code": "image_unreadable",
-                     "error": f"렌더 이미지를 열 수 없습니다: {render} ({type(e).__name__})",
-                     "next": "png·jpg 같은 이미지 파일인지 확인한다"})
+                     "error": f"Cannot open the render image: {render} ({type(e).__name__})",
+                     "next": "Check that it is an image file such as png or jpg"})
     # 없는 노드·모르는 검사가 "0건 통과"로 끝나면 대조를 안 한 것과 같다 (#710)
     checks = [c.strip() for c in args.check.split(",") if c.strip()] if args.check \
         else list(_ALL_CHECKS)
     bad = [c for c in checks if c not in _ALL_CHECKS]
     if bad or (args.check and not checks):
         return emit({"ok": False, "code": "unknown_check",
-                     "error": f"모르는 검사: {bad or args.check!r}",
-                     "hint": f"쓸 수 있는 것: {', '.join(_ALL_CHECKS)}"})
+                     "error": f"Unknown check: {bad or args.check!r}",
+                     "hint": f"Available: {', '.join(_ALL_CHECKS)}"})
     if args.node and not _has_node(data, args.node):
         return emit({"ok": False, "code": "node_not_found",
-                     "error": f"덤프에 노드 {args.node} 가 없습니다",
-                     "hint": "노드 id 는 덤프의 id 와 정확히 같아야 합니다 (예: 1:100). coverage 로 id 를 먼저 확인하세요"})
+                     "error": f"Node {args.node} is not in the dump",
+                     "hint": "The node id must match the id in the dump exactly (e.g. 1:100). Check the id with coverage first"})
 
     styles = _style_table(data)
     rects, skipped = _rects(data, styles, args.node)
     if not rects and not skipped:
         return emit({"ok": True, "checked": 0, "findings": [],
-                     "summary": "둥근 모서리를 가진 사각형이 없습니다",
-                     "next": "borderRadius 가 있는 노드를 포함하는지 --node 를 확인하세요"})
+                     "summary": "No rectangles with rounded corners",
+                     "next": "Check that --node includes nodes with borderRadius"})
 
-    scale, scale_from = args.scale, "지정"
+    scale, scale_from = args.scale, "given"
     if scale <= 0:
         # 렌더 폭 ÷ 기준 노드 폭. 3배로 찍은 화면을 논리 좌표로 재면 다 어긋난다.
         base = _node_width(data.get("nodes", data), styles, args.node)
         if base:
-            scale, scale_from = img.size[0] / base, f"렌더 {img.size[0]}px ÷ 기준 {base:g}"
+            scale, scale_from = img.size[0] / base, f"render {img.size[0]}px / origin {base:g}"
         else:
-            scale, scale_from = 1.0, "기준 노드 폭을 못 찾아 1배로 가정"
+            scale, scale_from = 1.0, "origin node width not found, assuming 1x"
 
     W, H = img.size
 
@@ -102,14 +102,14 @@ def cmd_conform(args) -> int:
         "scale": round(scale, 4), "scale_from": scale_from,
         "render_size": list(img.size),
         "findings": findings, "by_severity": by_sev,
-        "summary": (f"사각형 {len(rects)}개 · {'·'.join(checks)} 검사 (배율 {scale:g}) — "
+        "summary": (f"{len(rects)} rectangles · {'·'.join(checks)} checks (scale {scale:g}) — "
                     + (" · ".join(f"{k} {v}" for k, v in sorted(by_sev.items()))
-                       if findings else "이상 없음")
-                    + (f" · 위치를 몰라 건너뜀 {len(skipped)}개" if skipped else "")),
-        "next": ("각 `says` 가 고칠 자리를 그대로 말해 줍니다. 모서리가 각졌다면 "
-                 "**라운드를 안 준 것이 아니라 준 라운드를 자식이 덮은 경우**가 흔합니다 — "
-                 "부모가 배경만 둥글게 칠하고 자식을 자르지 않으면(클리핑 꺼짐) "
-                 "자식이 깐 배경색이 둥근 자리를 메웁니다"
+                       if findings else "no issues")
+                    + (f" · {len(skipped)} skipped (position unknown)" if skipped else "")),
+        "next": ("Each `says` names the exact spot to fix. When a corner is square, it is "
+                 "usually **not a missing radius but a child covering the radius** — if the "
+                 "parent only paints a rounded background and does not clip its children "
+                 "(clipping off), the child's background fills the rounded area"
                  if findings else
-                 "기하·색·그림자는 맞습니다. 나머지 속성은 coverage 로 대조하세요"),
+                 "Geometry, colors and shadows match. Compare the remaining properties with coverage"),
     })

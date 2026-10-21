@@ -39,8 +39,8 @@ REUSE_CANDIDATE_LIMIT = 3
 def review_diff(root: Path, base: str, limit: int) -> dict:
     changed = _changed_files(root, base)
     if changed is None:
-        return {"ok": False, "code": "git_failed", "summary": f"git diff 실패 (base={base})",
-                "next": "git 레포인지, --base 가 있는 커밋인지 확인한다"}
+        return {"ok": False, "code": "git_failed", "summary": f"git diff failed (base={base})",
+                "next": "Check that this is a git repo and that --base is an existing commit"}
     report = {key: [] for key in ("stale_comment_suspects", "added_comment_problems", "rewritten_existing_comments",
                                   "new_definitions", "new_boolean_names", "new_naming_problems")}
     definition_index = None
@@ -83,9 +83,9 @@ def review_diff(root: Path, base: str, limit: int) -> dict:
     counts = {key: len(items) for key, items in report.items()}
     return {"base": base, "files_changed": len(changed), "counts": counts,
             **{key: items[:limit] for key, items in report.items()},
-            "summary": f"변경 파일 {len(changed)}: 낡은 주석 의심 {counts['stale_comment_suspects']}, "
-                       f"새 주석 문제 {counts['added_comment_problems']}, 기존 주석 고쳐 씀 {counts['rewritten_existing_comments']}, "
-                       f"새 정의 {counts['new_definitions']}"}
+            "summary": f"changed files {len(changed)}: stale comment suspects {counts['stale_comment_suspects']}, "
+                       f"new comment problems {counts['added_comment_problems']}, rewritten existing comments {counts['rewritten_existing_comments']}, "
+                       f"new definitions {counts['new_definitions']}"}
 
 
 def _changed_files(root: Path, base: str):

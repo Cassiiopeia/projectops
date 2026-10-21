@@ -59,7 +59,7 @@ def cmd_scan(args, root):
         result["recorded"] = str(scan.record_metrics(root, result["counts"], rule_counts))
     summary_text = result.pop("summary_text")
     return {**result, "summary": summary_text,
-            "next": f"review_order 순서로 원문 확인 (references/facts.md) · assets {root} · deps {root} · rule-docs {root}"}
+            "next": f"Open the source in review_order order (references/facts.md) · assets {root} · deps {root} · rule-docs {root}"}
 
 
 def cmd_assets(args, root):
@@ -68,7 +68,7 @@ def cmd_assets(args, root):
 
 def cmd_deps(args, root):
     return {**deps.analyze_dependencies(root, args.limit, args.all),
-            "next": f"layer_edges 로 전체 그림 확인 후 위반 원문 확인 (references/facts.md) · rule-docs {root}"}
+            "next": f"Check the overall picture with layer_edges, then open the violating source (references/facts.md) · rule-docs {root}"}
 
 
 def cmd_diff(args, root):
@@ -78,22 +78,22 @@ def cmd_diff(args, root):
     if ledger.load_rules(root):
         check = ledger.check_rules(root)
         result["ledger_new_violations"] = [{"rule": r["id"], **n} for r in check["rules"] for n in r.get("new", [])]
-    return {**result, "next": "고칠 목록을 사용자에게 보여 주고 승인 뒤 수정 (references/check.md)"}
+    return {**result, "next": "Show the fix list to the user and fix after approval (references/check.md)"}
 
 
 def cmd_rule_docs(args, root):
-    return {**rule_documents.inspect_rule_documents(root), "next": "모순은 원문을 읽고 판단한다 (references/audit.md)"}
+    return {**rule_documents.inspect_rule_documents(root), "next": "Judge contradictions by reading the source documents (references/audit.md)"}
 
 
 def cmd_ledger(args, root):
     if args.action == "check":
         result = ledger.check_rules(root)
         verdict = "fail" if result["failing_rules"] else "pass"
-        return {**result, "verdict": verdict, "summary": f"규칙 {len(result['rules'])}개, 실패 {result['failing_rules']}",
-                "next": f"ledger {root} tighten (고쳐진 항목 정리)" if verdict == "fail" else None}
+        return {**result, "verdict": verdict, "summary": f"{len(result['rules'])} rules, {result['failing_rules']} failing",
+                "next": f"ledger {root} tighten (clean up fixed entries)" if verdict == "fail" else None}
     if args.action == "freeze":
         if not args.rule:
-            return {"ok": False, "code": "bad_args", "summary": "freeze 는 --rule ID 가 필요하다",
+            return {"ok": False, "code": "bad_args", "summary": "freeze needs --rule ID",
                     "next": f"ledger {root} freeze --rule <id>"}
         return ledger.freeze_rule(root, args.rule)
     return {**ledger.tighten_rules(root), "next": f"ledger {root} check"}
@@ -111,46 +111,46 @@ def cmd_install_tests(args, root):
 
 
 def cmd_get_output_path(args, root):
-    return {**installer.audit_output_path(root, args.title), "next": "보고서 형식: references/report-template.md"}
+    return {**installer.audit_output_path(root, args.title), "next": "Report format: references/report-template.md"}
 
 
 def build_parser() -> JsonArgumentParser:
-    parser = JsonArgumentParser(prog="arch_cli", description="pro-code-consult 사실 수집 CLI")
+    parser = JsonArgumentParser(prog="arch_cli", description="pro-code-consult fact-gathering CLI")
     sub = parser.add_subparsers(dest="command", parser_class=JsonArgumentParser)
 
     def add(name, handler, help_text, has_limit=False):
         command = sub.add_parser(name, help=help_text)
-        command.add_argument("path", help="대상 프로젝트 루트")
+        command.add_argument("path", help="Target project root")
         if has_limit:
-            command.add_argument("--limit", type=int, default=DEFAULT_LIST_LIMIT, help="범주별 목록 최대 개수")
+            command.add_argument("--limit", type=int, default=DEFAULT_LIST_LIMIT, help="Maximum list size per category")
         command.set_defaults(handler=handler)
         return command
 
-    add("detect", cmd_detect, "스택·규칙 문서·이어받을 자료")
-    scan_command = add("scan", cmd_scan, "레포가 소유한 코드의 냄새 사실", has_limit=True)
-    scan_command.add_argument("--record", action="store_true", help="docs/architecture/metrics.jsonl 에 요약 1줄 추가")
-    scan_command.add_argument("--all", action="store_true", help="도구 설치물·생성물·외부 라이브러리도 포함 (origin 태그)")
-    scan_command.add_argument("--only", action="append", metavar="PREFIX", help="이 경로 아래만 (여러 번) — 하위 에이전트용")
+    add("detect", cmd_detect, "Stacks, rule documents and prior material to pick up")
+    scan_command = add("scan", cmd_scan, "Smell facts for code the repo owns", has_limit=True)
+    scan_command.add_argument("--record", action="store_true", help="Append a one-line summary to docs/architecture/metrics.jsonl")
+    scan_command.add_argument("--all", action="store_true", help="Also include tool installs, generated files and third-party libraries (origin tag)")
+    scan_command.add_argument("--only", action="append", metavar="PREFIX", help="Only under this path (repeatable), for sub-agents")
     scan_command.add_argument("--category", action="append", choices=scan.PER_FILE_CATEGORIES + scan.CROSS_FILE_CATEGORIES,
-                              help="이 범주만 출력 (여러 번)")
-    add("assets", cmd_assets, "이미지·폰트 사본과 같은 이름·다른 내용", has_limit=True)
-    add("deps", cmd_deps, "계층 역방향 import · 모듈 간 저장소 직접 사용 · Gradle 모듈 순환", has_limit=True).add_argument(
-        "--all", action="store_true", help="도구 설치물·생성물·외부 라이브러리도 포함")
-    add("diff", cmd_diff, "변경분만 검사", has_limit=True).add_argument(
-        "--base", default="HEAD", help="비교 기준 커밋 (기본 HEAD — 아직 커밋 안 한 변경)")
-    add("rule-docs", cmd_rule_docs, "규칙 문서의 없는 경로·줄글 주석 유도 문구")
-    ledger_command = add("ledger", cmd_ledger, "동결 목록 판정·최초 동결·정리")
+                              help="Output only this category (repeatable)")
+    add("assets", cmd_assets, "Image and font copies, and same name with different content", has_limit=True)
+    add("deps", cmd_deps, "Reverse layer imports, direct cross-module repository use, Gradle module cycles", has_limit=True).add_argument(
+        "--all", action="store_true", help="Also include tool installs, generated files and third-party libraries")
+    add("diff", cmd_diff, "Check only the diff", has_limit=True).add_argument(
+        "--base", default="HEAD", help="Base commit to compare against (default HEAD: uncommitted changes)")
+    add("rule-docs", cmd_rule_docs, "Missing paths and prose-comment inducing text in rule documents")
+    ledger_command = add("ledger", cmd_ledger, "Freeze list check, first freeze and cleanup")
     ledger_command.add_argument("action", choices=["check", "freeze", "tighten"])
-    ledger_command.add_argument("--rule", help="freeze 대상 규칙 id")
-    conventions_command = add("conventions", cmd_conventions, "규칙 정본 설치·상태 확인")
+    ledger_command.add_argument("--rule", help="Rule id to freeze")
+    conventions_command = add("conventions", cmd_conventions, "Install the canonical conventions or check their status")
     conventions_command.add_argument("action", choices=["install", "check"])
-    conventions_command.add_argument("--stack", action="append", choices=installer.STACKS, help="스택 문서도 (여러 번)")
-    conventions_command.add_argument("--force", action="store_true", help="기존 설치본 덮어쓰기 (사용자 요청 시만)")
-    tests_command = add("install-tests", cmd_install_tests, "규칙 테스트 템플릿 설치")
+    conventions_command.add_argument("--stack", action="append", choices=installer.STACKS, help="Also the stack document (repeatable)")
+    conventions_command.add_argument("--force", action="store_true", help="Overwrite the existing install (only when the user asks)")
+    tests_command = add("install-tests", cmd_install_tests, "Install the rule test template")
     tests_command.add_argument("--stack", required=True, choices=installer.STACKS)
-    tests_command.add_argument("--module", default=".", help="레포 루트 기준 모듈 폴더 (예: app)")
-    tests_command.add_argument("--force", action="store_true", help="기존 파일 덮어쓰기 (사용자 요청 시만)")
-    add("get-output-path", cmd_get_output_path, "감사 보고서 경로").add_argument("--title", required=True)
+    tests_command.add_argument("--module", default=".", help="Module folder relative to the repo root (e.g. app)")
+    tests_command.add_argument("--force", action="store_true", help="Overwrite the existing file (only when the user asks)")
+    add("get-output-path", cmd_get_output_path, "Audit report path").add_argument("--title", required=True)
     return parser
 
 
@@ -160,18 +160,18 @@ def main(argv=None) -> int:
         args = parser.parse_args(argv)
     except _BadArgumentsExit as error:
         return emit({"ok": False, "code": "bad_args", "summary": error.message, "error": error.message,
-                     "next": f"`{error.parser.prog} --help` 로 인자를 확인한다"})
+                     "next": f"Check the arguments with `{error.parser.prog} --help`"})
     if not getattr(args, "handler", None):
-        return emit({"ok": False, "code": "bad_args", "summary": "서브커맨드가 없다", "next": "`arch_cli.py --help`"})
+        return emit({"ok": False, "code": "bad_args", "summary": "No subcommand given", "next": "`arch_cli.py --help`"})
     root = _project_root(args.path)
     if root is None:
-        return emit({"ok": False, "code": "path_not_found", "summary": f"폴더가 아니다: {args.path}",
-                     "next": "대상 프로젝트 루트 경로를 넘긴다"})
+        return emit({"ok": False, "code": "path_not_found", "summary": f"Not a directory: {args.path}",
+                     "next": "Pass the target project root path"})
     try:
         return emit(args.handler(args, root))
     except Exception as error:  # noqa: BLE001 — 어떤 실패도 JSON 으로
         return emit({"ok": False, "code": "handler_error", "summary": f"{type(error).__name__}: {error}",
-                     "next": "입력을 확인하고 다시 실행한다. 계속되면 오류를 사용자에게 보고한다"})
+                     "next": "Check the input and run again. If it keeps failing, report the error to the user"})
 
 
 if __name__ == "__main__":

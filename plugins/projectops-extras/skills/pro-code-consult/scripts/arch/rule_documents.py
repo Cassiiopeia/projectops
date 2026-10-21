@@ -54,8 +54,8 @@ def inspect_rule_documents(root: Path) -> dict:
     ignored_total = sum(len(r["ignored_references"]) for r in results)
     inducing_total = sum(len(r["prose_comment_inducing"]) for r in results)
     return {"documents": results, "duplicate_documents": duplicates,
-            "summary": f"규칙 문서 {len(results)}: 없는 경로 참조 {missing_total}, gitignore 경로 참조 {ignored_total}, "
-                       f"줄글 주석 유도 {inducing_total}, 같은 내용 사본 {len(duplicates)}묶음"}
+            "summary": f"rule documents {len(results)}: missing path references {missing_total}, gitignored path references {ignored_total}, "
+                       f"prose-comment inducing {inducing_total}, identical copies {len(duplicates)} groups"}
 
 
 class _PathIndex:

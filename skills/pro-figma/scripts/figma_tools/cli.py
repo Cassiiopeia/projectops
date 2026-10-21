@@ -13,58 +13,58 @@ from figma_tools.conform_probes import _ALL_CHECKS
 def build_parser() -> JSONArgumentParser:
     # 인자 오류도 JSON(bad_args)으로 — 에이전트는 stdout JSON 만 읽는다 (#708)
     p = JSONArgumentParser(prog="figma_cli",
-                           description="시안과 구현 화면을 대조한다")
+                           description="Compare a Figma design with the implemented screen")
     sub = p.add_subparsers(dest="command")
 
-    c = sub.add_parser("coverage", help="덤프의 스타일 항목을 빠짐없이 나열한다")
-    c.add_argument("--dump", required=True, help="Figma 덤프를 저장한 JSON 파일")
+    c = sub.add_parser("coverage", help="List every style entry in the dump")
+    c.add_argument("--dump", required=True, help="JSON file holding the saved Figma dump")
     c.add_argument("--node", default=None,
-                   help="이 노드 아래만 본다 (생략하면 덤프 전체)")
+                   help="Only look under this node (omit for the whole dump)")
     c.set_defaults(func=cmd_coverage)
 
-    o = sub.add_parser("get-output-path", help="이번 대조의 산출물 자리를 만든다")
-    o.add_argument("--title", required=True, help="이번 대조를 부를 이름 (화면 이름 등)")
-    o.add_argument("--root", default=".", help="프로젝트 루트 (기본 현재 위치)")
+    o = sub.add_parser("get-output-path", help="Create the output folder for this comparison")
+    o.add_argument("--title", required=True, help="Name for this comparison (screen name, etc.)")
+    o.add_argument("--root", default=".", help="Project root (default: current directory)")
     o.set_defaults(func=cmd_output_path)
 
-    a_ = sub.add_parser("assets", help="내려받아야 할 에셋을 묶어 목록으로 낸다")
-    a_.add_argument("--dump", required=True, help="Figma MCP 덤프 파일")
-    a_.add_argument("--node", help="이 노드 아래만 (없으면 전체)")
+    a_ = sub.add_parser("assets", help="Group the assets to download into a list")
+    a_.add_argument("--dump", required=True, help="Figma MCP dump file")
+    a_.add_argument("--node", help="Only under this node (omit for everything)")
     a_.set_defaults(func=cmd_assets)
 
-    c_ = sub.add_parser("conform", help="시안 값대로 그려졌는지 속성으로 대조한다")
-    c_.add_argument("--dump", required=True, help="Figma MCP 덤프 파일")
-    c_.add_argument("--render", required=True, help="앱 렌더 png")
-    c_.add_argument("--node", help="이 노드를 원점으로 (보통 화면 프레임)")
+    c_ = sub.add_parser("conform", help="Check property by property that the render matches the design values")
+    c_.add_argument("--dump", required=True, help="Figma MCP dump file")
+    c_.add_argument("--render", required=True, help="App render PNG")
+    c_.add_argument("--node", help="Use this node as the origin (usually the screen frame)")
     c_.add_argument("--check", default="",
-                    help=f"쉼표로 고른다 (기본 전부): {','.join(_ALL_CHECKS)}")
+                    help=f"Comma-separated checks (default: all): {','.join(_ALL_CHECKS)}")
     c_.add_argument("--fail-on", dest="fail_on", default="none",
                     choices=["none", "low", "medium", "high"],
-                    help="이 심각도 이상이면 종료코드 1 — CI 게이트용")
+                    help="Exit code 1 at or above this severity (for CI gates)")
     c_.add_argument("--scale", type=float, default=0,
-                    help="렌더 배율 (0이면 렌더 폭 ÷ 기준 노드 폭으로 추정)")
+                    help="Render scale (0 = estimate as render width / origin node width)")
     c_.add_argument("--tolerance", type=int, default=12,
-                    help="같은 색으로 볼 채널 차 (안티에일리어싱 여유)")
+                    help="Per-channel difference still treated as the same color (anti-aliasing slack)")
     c_.set_defaults(func=cmd_conform)
 
-    d = sub.add_parser("diff", help="시안 export 와 앱 렌더를 픽셀로 맞댄다")
-    d.add_argument("--render", required=True, help="앱이 그린 PNG")
+    d = sub.add_parser("diff", help="Compare the design export and the app render pixel by pixel")
+    d.add_argument("--render", required=True, help="PNG rendered by the app")
     d.add_argument("--design", required=True, help="Figma export PNG")
-    d.add_argument("--out", default=None, help="차이를 칠한 PNG 저장 경로")
+    d.add_argument("--out", default=None, help="Path to save a PNG with the differences painted")
     d.add_argument("--strict-size", dest="strict_size", action="store_true",
-                   help="렌더와 디자인 크기가 다르면 조용히 맞추지 말고 size_mismatch 로 멈춘다")
+                   help="Stop with size_mismatch instead of silently resizing when render and design sizes differ")
     d.add_argument("--bg", default="auto",
-                   help="합성 배경색 RRGGBB. 기본 auto = 시안 모서리에서 읽는다")
+                   help="Background color RRGGBB for compositing. Default auto = read from the design corner")
     d.add_argument("--threshold", type=int, default=24,
-                   help="채널당 이 값을 넘어야 '다르다'로 본다 (기본 24)")
+                   help="A pixel counts as different only when a channel differs by more than this (default 24)")
     d.add_argument("--mask-top", type=int, default=0,
-                   help="위에서 이만큼 제외 (상태바 — 앱이 안 그린다)")
+                   help="Exclude this many pixels from the top (status bar, not drawn by the app)")
     d.add_argument("--mask-bottom", type=int, default=0,
-                   help="아래에서 이만큼 제외 (홈 인디케이터)")
+                   help="Exclude this many pixels from the bottom (home indicator)")
     d.add_argument("--min-area", type=int, default=200,
-                   help="이 넓이 미만 덩어리는 보고하지 않는다")
+                   help="Do not report clusters smaller than this area")
     d.add_argument("--probe-shift", type=int, default=40,
-                   help="렌더를 ±이 픽셀만큼 옮겨 보며 '통째로 밀림'인지 가린다 (0=끄기)")
+                   help="Shift the render by ± this many pixels to tell whether the whole area is offset (0 = off)")
     d.set_defaults(func=cmd_diff)
     return p
 

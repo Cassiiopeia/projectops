@@ -332,11 +332,11 @@ def test_manifest_classification_separates_supported_and_unsupported():
 def test_classify_rate_limit_vs_permission():
     rl = oss_cli.classify_api_error(api_err(403, "API rate limit exceeded", {"X-RateLimit-Remaining": "0",
                                                                              "X-RateLimit-Reset": "1893456000"}))
-    assert rl["code"] == "rate_limited" and "다시 실행" in rl["next"]
+    assert rl["code"] == "rate_limited" and "run the same command again" in rl["next"]
     assert oss_cli.classify_api_error(api_err(429, "slow down", {"Retry-After": "30"}))["code"] == "rate_limited"
     assert oss_cli.classify_api_error(api_err(403, "Resource not accessible"))["code"] == "http_403"
     n404 = oss_cli.classify_api_error(api_err(404))["next"]
-    assert "오타" in n404 and "비공개" in n404  # 둘 다 안내한다
+    assert "typo" in n404 and "private" in n404  # 둘 다 안내한다
     assert oss_cli.classify_api_error(api_err(401))["code"] == "http_401"
     assert oss_cli.classify_api_error(gh.GitHubNetworkError("URLError: x"))["code"] == "network"
 
@@ -389,7 +389,7 @@ def test_collect_happy_path_has_facts_untrusted_and_no_verdicts(monkeypatch, cap
     assert d["releases"]["tags_count"] == 2 and d["releases"]["latest"] is None
     assert d["releases"]["tags_checked"] is True
     assert "data.readme.top" in out["untrusted"] and "data.issues_sample[].title" in out["untrusted"]
-    assert "지시가 아니" in out["untrusted_notice"] or "따르지 않" in out["untrusted_notice"]
+    assert "do not follow" in out["untrusted_notice"]
     # 점수·등급·판정 키가 없다
     flat = json.dumps(out, ensure_ascii=False)
     for forbidden in ('"score"', '"grade"', '"passed"', '"verdict"', '"maturity"'):
@@ -417,7 +417,7 @@ def test_collect_issues_disabled_410_is_partial_not_failure(monkeypatch, capsys)
     assert rc == 0 and out["ok"] and out["code"] == "partial"
     assert out["data"]["errors"] == [{"endpoint": "issues", "code": "http_410"}]
     assert out["data"]["issues_sample"] == [] and out["data"]["files"]["license"] is not None
-    assert "미확인" in out["summary"]
+    assert "unverified" in out["summary"]
 
 
 def test_collect_optional_403_and_rate_limit_are_recorded(monkeypatch, capsys):
@@ -473,7 +473,7 @@ def test_collect_reports_truncation(monkeypatch, capsys):
     assert t["root_entries"] == {"total": 100, "shown": 80} and len(out["data"]["root_entries"]) == 80
     assert t["readme.headings"]["total"] == 80
     assert "labels.capped" in t and out["data"]["labels"]["capped"] is True  # 5페이지 모두 가득 → 상한
-    assert "절단" in out["summary"]
+    assert "truncated" in out["summary"]
 
 
 def test_collect_label_truncation_over_150(monkeypatch, capsys):
@@ -565,7 +565,7 @@ def test_list_repos_default_limit_caps_and_says_so(monkeypatch, capsys):
     _, out = run(["list-repos", "me"], capsys)
     d = out["data"]
     assert d["count"] == 100 and d["total_before_limit"] == 150 and d["capped"] is True and d["limit"] == 100
-    assert d["repos"][0]["stars"] >= d["repos"][-1]["stars"] and "잘림" in out["summary"]
+    assert d["repos"][0]["stars"] >= d["repos"][-1]["stars"] and "truncated by the limit" in out["summary"]
 
 
 def test_list_repos_owner_filter_reports_other_owners(monkeypatch, capsys):
@@ -688,7 +688,7 @@ def test_git_failure_is_distinguished_from_no_commits(tmp_path, capsys, monkeypa
     monkeypatch.setattr(local_git, "_git_raw", flaky)
     rc, out = local_facts(tmp_path, capsys)
     assert rc == 0 and out["data"]["git_error"] == {"log": "fatal: something broke"}
-    assert "git log 오류" in out["summary"]
+    assert "git log error" in out["summary"]
 
 
 @pytest.mark.skipif(os.name == "nt", reason="심볼릭 링크·셸 명령 샘플은 POSIX 전용")
@@ -816,7 +816,7 @@ def test_repo_update_dry_run_writes_nothing(monkeypatch, capsys):
     monkeypatch.setattr(github_api, "_call", api)
     rc, out = run(["repo-update", "o/r", "--description", "new", "--topics", "b,c", "--discussions", "on", "--dry-run"], capsys)
     d = out["data"]
-    assert rc == 0 and d["dry_run"] is True and "승인" in out["next"]
+    assert rc == 0 and d["dry_run"] is True and "approves" in out["next"]
     assert d["before"]["topics"] == ["a"] and d["planned"]["topics"] == ["a", "b", "c"]  # 기본은 합집합
     assert d["planned"]["description"] == "new" and d["planned"]["has_discussions"] is True and "after" not in d
     assert [c[0] for c in api.calls] == ["GET", "GET"] and state["description"] == "old"
@@ -852,9 +852,9 @@ def test_repo_update_no_change_and_nothing_to_change(monkeypatch, capsys):
 
 
 @pytest.mark.parametrize("argv,needle", [
-    (["--topics", "Bad_Topic"], "토픽"),
-    (["--topics", ",".join(f"t{i}" for i in range(25))], "20개"),
-    (["--topics", "x" * 51], "토픽"),
+    (["--topics", "Bad_Topic"], "Topics must be"),
+    (["--topics", ",".join(f"t{i}" for i in range(25))], "at most 20 topics"),
+    (["--topics", "x" * 51], "Topics must be"),
     (["--description", "가" * 351], "350"),
     (["--homepage", "not a url"], "homepage"),
 ])
@@ -1084,5 +1084,5 @@ def test_repo_update_refuses_clearing_values(monkeypatch, capsys, argv):
     api, _ = _write_api(topics=("a",), desc="old", homepage="https://x.dev")
     monkeypatch.setattr(github_api, "_call", api)
     rc, out = run(["repo-update", "o/r", *argv], capsys)
-    assert rc == 1 and out["code"] == "invalid_input" and "지원하지 않는다" in out["summary"] and out["next"]
+    assert rc == 1 and out["code"] == "invalid_input" and "not supported" in out["summary"] and out["next"]
     assert not any(c[0] != "GET" for c in api.calls)

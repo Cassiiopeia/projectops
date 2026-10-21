@@ -136,11 +136,11 @@ def cmd_collect(args) -> int:
     }
     notes = []
     if errors:
-        notes.append(f"일부 실패 {len(errors)}건({', '.join(e['endpoint'] for e in errors)}) — 해당 사실은 '미확인'으로 다룬다")
+        notes.append(f"{len(errors)} partial failure(s) ({', '.join(e['endpoint'] for e in errors)}) — treat those facts as 'unverified'")
     if truncated:
-        notes.append(f"일부 절단({', '.join(truncated)})")
+        notes.append(f"partly truncated ({', '.join(truncated)})")
     return _out({"data": data,
                  "code": "partial" if errors else "ok",
-                 "summary": f"{owner}/{repo} 사실 수집 완료" + ("; " + "; ".join(notes) if notes else ""),
+                 "summary": f"Collected facts for {owner}/{repo}" + ("; " + "; ".join(notes) if notes else ""),
                  "untrusted": _COLLECT_UNTRUSTED, "untrusted_notice": _UNTRUSTED_NOTICE,
-                 "next": "references/rubric.md 로 성격 판별과 축별 채점을 한다"}, pat)
+                 "next": "Use references/rubric.md to detect the repo type and score each axis"}, pat)

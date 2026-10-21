@@ -13,11 +13,11 @@ from common.emit import emit
 # =========================================================================
 
 _TRANSLATIONESE = [
-    (r"하실 수 있습니다", "번역투 — '~할 수 있어요' 처럼 짧게"),
-    (r"되었습니다", "피동·딱딱함 — '~했어요'"),
-    (r"에 대한", "번역투 '에 대한' — 빼도 뜻이 통하는지"),
-    (r"을 통해|를 통해", "번역투 '~을 통해'"),
-    (r"것입니다", "딱딱함 — 해요체면 '~예요'"),
+    (r"하실 수 있습니다", "translationese: shorten it, like '~할 수 있어요'"),
+    (r"되었습니다", "passive, stiff: try '~했어요'"),
+    (r"에 대한", "translationese '에 대한': check whether it reads fine without it"),
+    (r"을 통해|를 통해", "translationese '~을 통해'"),
+    (r"것입니다", "stiff: in 해요체 use '~예요'"),
 ]
 _HYPE = ["혁신적", "완벽한", "완벽하게", "최고의", "놀라운", "획기적", "압도적"]
 
@@ -25,18 +25,18 @@ _HYPE = ["혁신적", "완벽한", "완벽하게", "최고의", "놀라운", "�
 def lint_text(text: str, banned: list[str]) -> list[str]:
     found = []
     if "—" in text or "–" in text:
-        found.append("em dash — AI 가 쓴 티가 난다. 쉼표나 문장 나누기로")
+        found.append("em dash: reads as AI-written; use a comma or split the sentence")
     if text.count("·") >= 2:
-        found.append("가운뎃점(·) 남발")
+        found.append("too many middle dots (·)")
     for pat, why in _TRANSLATIONESE:
         if re.search(pat, text):
             found.append(why)
     for w in _HYPE:
         if w in text:
-            found.append(f"과장 '{w}'")
+            found.append(f"overstated '{w}'")
     for w in banned:
         if w and _banned_hit(w, text):
-            found.append(f"레포에서 쓰지 않기로 한 말 '{w}'")
+            found.append(f"word the repo decided not to use '{w}'")
     return found
 
 
@@ -68,8 +68,8 @@ def cmd_copy_lint(args) -> int:
         rows = rows.get("copy") or []
     if not isinstance(rows, list) or not all(isinstance(r, dict) for r in rows):
         return emit({"ok": False, "code": "bad_data",
-                     "error": "문구표는 객체 배열이거나 copy 배열을 가진 객체여야 합니다",
-                     "next": '예: [{"where":"버튼","current":"확인","candidates":["저장"]}]'})
+                     "error": "The copy table must be an array of objects or an object with a copy array",
+                     "next": 'e.g. [{"where":"button","current":"OK","candidates":["Save"]}]'})
     banned = []
     if args.banned:
         bf = Path(args.banned)
@@ -90,7 +90,7 @@ def cmd_copy_lint(args) -> int:
     cand_issues = [i for i in issues if i["kind"] == "candidate"]
     return emit({"ok": not cand_issues, "code": "ok" if not cand_issues else "candidate_issues",
                  "checked": checked, "issues": issues,
-                 "summary": f"{checked}개 문장 중 {len(issues)}개에 짚을 것"
-                            + (f" (후보 {len(cand_issues)}개)" if cand_issues else ""),
-                 "next": ("후보에 걸린 것은 고쳐서 다시 돌린다. 현재 문구에 걸린 것은 '이유' 칸의 재료다"
+                 "summary": f"{len(issues)} of {checked} sentence(s) flagged"
+                            + (f" ({len(cand_issues)} candidate(s))" if cand_issues else ""),
+                 "next": ("Fix the flagged candidates and run again. Flags on the current copy are material for the 'reason' column"
                           if issues else None)})

@@ -15,21 +15,21 @@ from oss_consult.output import _LOCAL_UNTRUSTED, _UNTRUSTED_NOTICE, _fail, _out
 def cmd_local_facts(args) -> int:
     given = Path(args.path).expanduser()
     if not given.is_dir():
-        return _fail("not_a_git_repo", f"디렉터리가 아닙니다: {given}", "clone 한 경로를 넘기세요")
+        return _fail("not_a_git_repo", f"Not a directory: {given}", "Pass the path of a clone")
     rc, top, err = local_git._git_raw(given.resolve(), "rev-parse", "--show-toplevel")
     if rc != 0:
         if "not a git repository" in err.lower():
-            return _fail("not_a_git_repo", f"git 저장소가 아닙니다: {given.resolve()}", "clone 한 경로를 넘기세요")
-        return _fail("git_error", f"git 을 실행하지 못했습니다: {err.strip()[:200]}",
-                     "git 설치·저장소 소유권(dubious ownership)을 확인한다. 안전을 위해 전역 git 설정은 무시한다")
+            return _fail("not_a_git_repo", f"Not a git repository: {given.resolve()}", "Pass the path of a clone")
+        return _fail("git_error", f"Could not run git: {err.strip()[:200]}",
+                     "Check the git install and repository ownership (dubious ownership). Global git config is ignored for safety")
     root = Path(top.strip()).resolve()
     ok, gitfile = _gitfile_target(root)
     if not ok:
-        return _fail("unsafe_gitfile", ".git 파일이 실재하는 git 디렉터리를 가리키지 않는다",
-                     "신뢰할 수 있는 clone 인지 확인하고 다시 넘긴다")
+        return _fail("unsafe_gitfile", "The .git file does not point at an existing git directory",
+                     "Make sure it is a trusted clone and pass it again")
     rc, out, err = local_git._git_raw(root, "ls-files", "-z")
     if rc != 0:
-        return _fail("git_error", f"추적 파일 목록을 읽지 못했습니다: {err.strip()[:200]}", "저장소 상태를 확인하고 다시 실행한다")
+        return _fail("git_error", f"Could not read the tracked file list: {err.strip()[:200]}", "Check the repository state and run again")
     tracked = [t for t in out.split("\0") if t]
 
     # 커밋별 변경 파일 (최근 N개). 커밋 사이는 %x01 로, 파일은 줄바꿈으로 자른다 (quotepath=false 라 한글 경로 그대로)
@@ -79,11 +79,11 @@ def cmd_local_facts(args) -> int:
         "capped": {"bytes": budget.capped_bytes, "files": budget.capped_files},
         "git_error": git_error,
     }
-    warn = " — 비밀일 수 있는 파일이 추적 중입니다. 다른 항목보다 먼저 알리세요" if data["committed_secret_paths"] else ""
+    warn = " — files that may be secrets are tracked. Report this before anything else" if data["committed_secret_paths"] else ""
     if budget.capped_bytes or budget.capped_files:
-        warn += " — 읽기 상한에 닿아 일부 파일을 건너뜀(capped)"
+        warn += " — hit the read limit and skipped some files (capped)"
     if git_error:
-        warn += " — git log 오류로 커밋 측정은 비어 있음"
-    return _out({"data": data, "summary": f"추적 파일 {len(tracked)}개, 최근 커밋 {data['co_change']['commits']}개 분석{warn}",
+        warn += " — commit measurements are empty because of a git log error"
+    return _out({"data": data, "summary": f"Analyzed {len(tracked)} tracked file(s) and {data['co_change']['commits']} recent commit(s){warn}",
                  "untrusted": _LOCAL_UNTRUSTED, "untrusted_notice": _UNTRUSTED_NOTICE,
-                 "next": "references/contributor.md 로 변경 증폭·의존성 라이선스를 판단한다 (판정은 에이전트)"})
+                 "next": "Use references/contributor.md to judge change amplification and dependency licenses (the agent decides)"})

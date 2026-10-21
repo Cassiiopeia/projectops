@@ -76,8 +76,8 @@ def detect_project(root: Path) -> dict:
         # 이 스킬이 설치한 것이 있을 때만 참 (빈 audits 폴더만으로는 이어받을 것이 없다)
         "has_architecture_folder": (root / "docs" / "architecture" / "rules").is_dir()
                                    or (root / "docs" / "architecture" / "CONVENTIONS.md").is_file(),
-        "summary": f"스택 {sorted({s['stack'] for s in stacks})}, 규칙 문서 {len(rule_documents)}, "
-                   f"기존 감사 {len(prior_audits)}, 예외 목록 {len(allowlists)}, 규칙 테스트 흔적 {len(rule_tests)}",
+        "summary": f"stacks {sorted({s['stack'] for s in stacks})}, rule documents {len(rule_documents)}, "
+                   f"prior audits {len(prior_audits)}, allowlists {len(allowlists)}, rule test traces {len(rule_tests)}",
     }
 
 

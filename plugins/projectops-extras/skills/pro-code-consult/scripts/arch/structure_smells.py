@@ -39,7 +39,7 @@ DIRECT_CALL_PATTERNS = (
     ({"javascript", "typescript"}, "window.confirm/alert(", re.compile(r"(?<![\w.])(?:window\.)?(?:confirm|alert)\(")),
     ({"java", "kotlin"}, "new RestTemplate/WebClient", re.compile(r"\bnew\s+RestTemplate\(|\bWebClient\.(?:create|builder)\(")),
     ({"java", "kotlin"}, "new ObjectMapper(", re.compile(r"\bnew\s+ObjectMapper\(|\bObjectMapper\(\)")),
-    ({"python"}, "requests/httpx 직접 호출", re.compile(r"\b(?:requests|httpx)\.(?:get|post|put|patch|delete|request)\(")),
+    ({"python"}, "direct requests/httpx call", re.compile(r"\b(?:requests|httpx)\.(?:get|post|put|patch|delete|request)\(")),
 )
 # 공통 지점이 없을 때 이 파일 수 이상이면 공통화 후보 (세 번째 원칙 — conventions §1)
 RULE_OF_THREE_FILES = 3

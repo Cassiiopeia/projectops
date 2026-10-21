@@ -23,6 +23,7 @@
     PYTHONIOENCODING=utf-8 "$PYTHON" <scope>_cli.py <subcommand> [args]
 
 출력: 모든 서브커맨드는 stdout으로 MCP-style JSON 출력 (4필드 강제: ok/code/summary/next).
+출력 문자열(summary·error·next·argparse help)은 영어로 작성 — 주석·docstring은 한국어 (#769).
 """
 from __future__ import annotations
 
@@ -58,7 +59,7 @@ def cmd_example(args) -> int:
     """
     return emit({
         "input": args.text,
-        "summary": f"입력: {args.text}",
+        "summary": f"Input: {args.text}",
         # 필요 시 next 힌트 추가:
         # "next": f"another-cmd {args.text}",
     })
@@ -76,12 +77,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_ex = sub.add_parser("example", help="예시 서브커맨드")
+    p_ex = sub.add_parser("example", help="Example subcommand")
     p_ex.add_argument("text")
     p_ex.set_defaults(func=cmd_example)
 
     # 신규 서브커맨드 추가 패턴:
-    # p_new = sub.add_parser("new-cmd", help="설명")
+    # p_new = sub.add_parser("new-cmd", help="What the subcommand does")
     # p_new.add_argument("owner")
     # p_new.add_argument("repo")
     # p_new.add_argument("--state", choices=["open", "closed"], default="open")

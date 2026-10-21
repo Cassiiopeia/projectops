@@ -45,8 +45,8 @@ def cmd_output_path(args) -> int:
         from common.paths import resolve_output_path
     except ImportError:
         return emit({"ok": False, "code": "common_not_found",
-                     "error": "scripts/common/paths.py 를 찾지 못했습니다",
-                     "hint": "projectops 설치가 온전한지 확인하세요"})
+                     "error": "scripts/common/paths.py not found",
+                     "hint": "Check that the projectops installation is intact"})
 
     r = resolve_output_path("figma", args.title)
     if r.get("ok") is False:
@@ -73,12 +73,12 @@ def cmd_output_path(args) -> int:
         "gitignore": r.get("gitignore"),   # 공통(common/paths)이 심는다
         "asset_dir_candidates": candidates,
         "output_root": r.get("output_root"),
-        "summary": (f"대조 자리 {run_dir} (추적 안 함)"
-                    + (f" · 에셋은 {candidates[0]} 후보" if candidates else "")),
-        "next": ("**두 곳을 구분하세요.** 덤프·시안 export·앱 렌더·차이 그림은 위 "
-                 "run_dir 안에 둡니다 — 증거라서 추적하지 않습니다. "
-                 "**실제 에셋(앱이 쓸 아이콘·이미지)은 여기 두면 안 됩니다.** "
-                 "asset_dir_candidates 중 이 프로젝트의 관례에 맞는 곳을 골라 "
-                 "download_figma_images 의 localPath 로 주세요 — 앱이 쓰는 파일이라 "
-                 "커밋되어야 합니다. 후보가 비었으면 사용자에게 물어보세요"),
+        "summary": (f"Comparison folder {run_dir} (not tracked)"
+                    + (f" · asset folder candidate {candidates[0]}" if candidates else "")),
+        "next": ("**Keep two places apart.** Dumps, design exports, app renders and diff "
+                 "images go inside run_dir above — they are evidence, so they are not tracked. "
+                 "**Real assets (icons and images the app uses) must not go there.** Pick the "
+                 "folder in asset_dir_candidates that fits this project's conventions and pass "
+                 "it as localPath to download_figma_images — the app uses those files, so they "
+                 "must be committed. If there are no candidates, ask the user"),
     })

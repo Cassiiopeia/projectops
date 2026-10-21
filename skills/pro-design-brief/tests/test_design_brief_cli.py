@@ -148,10 +148,10 @@ def test_board_html_has_only_sections_with_data(tmp_path):
     doc, topics = db.render_html(json.loads(_data(tmp_path).read_text(encoding="utf-8")), tmp_path)
     assert topics == ["summary", "current", "states", "alternatives", "copy"], "데이터 없는 주제를 만들었다"
     assert "{{" not in doc and "<!--SECTIONS-->" not in doc and "<!--NAV-->" not in doc
-    assert "정답이 아니라 생각할 재료" in doc
-    assert "법적 문구 — 바꾸면 안 됨" in doc and doc.count("문구 필요") >= 2
-    assert "<th>시안</th>" in doc, "design 값이 있으면 시안 칸이 생겨야 한다"
-    assert "개발 쪽 추천" in doc
+    assert "material to think with, not the answer" in doc
+    assert "Legal copy: do not change" in doc and doc.count("Copy needed") >= 2
+    assert "<th>Design</th>" in doc, "design 값이 있으면 시안 칸이 생겨야 한다"
+    assert "Dev recommendation" in doc
 
 
 def test_board_embeds_each_image_once(tmp_path):
@@ -171,7 +171,7 @@ def test_board_cli_writes_html_and_markdown(tmp_path):
     d = run_cli("board", "--data", str(f), "--out", str(tmp_path / "board"), "--md", home=tmp_path)
     assert d["ok"] and Path(d["html"]).is_file() and Path(d["md"]).is_file()
     md = Path(d["md"]).read_text(encoding="utf-8")
-    assert "## 꼭 지킬 것" in md and "**문구 필요**" in md
+    assert "## Must keep" in md and "**Copy needed**" in md
 
 
 def test_board_rejects_broken_data(tmp_path):
@@ -213,8 +213,8 @@ def test_copy_lint_flags_mechanical_tells(tmp_path):
     assert d["code"] == "candidate_issues"
     texts = {i["text"]: i["problems"] for i in d["issues"]}
     assert any("em dash" in p for p in texts["혁신적인 저장 — 끝"])
-    assert any("과장" in p for p in texts["혁신적인 저장 — 끝"])
-    assert any("피동" in p for p in texts["저장되었습니다"])
+    assert any("overstated" in p for p in texts["혁신적인 저장 — 끝"])
+    assert any("passive" in p for p in texts["저장되었습니다"])
     assert any("아이" in p for p in texts["우리 아이 기록"])
     assert "저장했어요" not in texts and "이룸이 기록" not in texts
     assert not any("수집" in t for t in texts), "법적 문구는 검사하지 않는다"
@@ -276,17 +276,17 @@ def test_preflight_flags_missing_labels_and_render_only_facts(tmp_path):
                    {"claim": "근거 없는 말"},
                    {"claim": "위치 없는 근거", "basis": "device"}]
     w = "\n".join(db.preflight(d))
-    assert "현재 구현[0]" in w and "출처" in w
-    assert "reachable" in w and "예전 데이터에만" in w
-    assert "대안 A" in w
-    assert "렌더(가짜 데이터)는 근거가 아니다" in w and "근거가 없다" in w and "ref" in w
+    assert "Current implementation[0]" in w and "capture source missing" in w
+    assert "reachable" in w and "appears only with old data" in w
+    assert "Alternative A" in w
+    assert "a render (fake data) is not evidence" in w and ": no evidence;" in w and "ref" in w
 
 
 def test_board_shows_source_reachability_and_facts(tmp_path):
     doc, _ = db.render_html(_clean_data(tmp_path), tmp_path)
-    assert "렌더 · 가짜 데이터" in doc and "실기기" in doc
-    assert "지금 나온다" in doc
-    assert "지금 앱에 대한 사실과 근거" in doc and "운영 API·설정" in doc
+    assert "Render · fake data" in doc and "Real device" in doc
+    assert "Reachable now" in doc
+    assert "Facts about the current app and their evidence" in doc and "Production API/config" in doc
 
 
 def test_board_strict_stops_on_preflight(tmp_path):
@@ -302,8 +302,8 @@ def test_board_strict_stops_on_preflight(tmp_path):
 
 def test_markdown_carries_facts_and_reachability(tmp_path):
     md = db.render_markdown(_clean_data(tmp_path), [], tmp_path)
-    assert "## 지금 앱에 대한 사실과 근거" in md and "| 주간 지급량은 50개다 | 운영 API·설정 |" in md
-    assert "| 지금 나온다 |" in md
+    assert "## Facts about the current app and their evidence" in md and "| 주간 지급량은 50개다 | Production API/config |" in md
+    assert "| Reachable now |" in md
 
 
 @pytest.mark.parametrize("text,hit", [

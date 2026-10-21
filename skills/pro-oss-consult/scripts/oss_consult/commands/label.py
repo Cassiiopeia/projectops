@@ -28,23 +28,23 @@ def cmd_label(args) -> int:
     owner, repo = target
     action, name = args.action, (args.name or "").strip()
     if not name:
-        return _fail("invalid_input", "--name 이 필요하다", "--name 으로 대상 라벨을 준다")
+        return _fail("invalid_input", "--name is required", "Pass the target label with --name")
     color = (args.color or "").lstrip("#").lower() or None
     if color and not _COLOR_RE.match(color):
-        return _fail("invalid_input", f"--color 는 6자리 16진수여야 한다: {args.color}", "예: --color ededed")
+        return _fail("invalid_input", f"--color must be a 6-digit hex value: {args.color}", "Example: --color ededed")
     if args.description is not None and len(args.description) > MAX_LABEL_DESCRIPTION:
-        return _fail("invalid_input", f"라벨 설명은 {MAX_LABEL_DESCRIPTION}자 이하여야 한다", "설명을 줄여 다시 실행한다")
+        return _fail("invalid_input", f"Label description must be {MAX_LABEL_DESCRIPTION} characters or fewer", "Shorten the description and run again")
     new_name = (args.new_name or "").strip() or None
     if action == "rename" and not new_name:
-        return _fail("invalid_input", "rename 은 --new-name 이 필요하다", "--new-name 으로 새 이름을 준다")
+        return _fail("invalid_input", "rename requires --new-name", "Pass the new name with --new-name")
     if action == "recolor" and not color:
-        return _fail("invalid_input", "recolor 는 --color 가 필요하다", "--color 로 새 색을 준다")
+        return _fail("invalid_input", "recolor requires --color", "Pass the new color with --color")
     if action in ("rename", "recolor") and name in PROTECTED_LABELS:
-        return _fail("protected_label", f"'{name}' 은 projectops 상태 라벨이라 바꾸지 않는다",
-                     "Projects 보드 동기화가 이 이름에 묶여 있다. 다른 라벨을 고르거나 사용자가 직접 바꾼다")
+        return _fail("protected_label", f"'{name}' is a projectops status label, so it is not changed",
+                     "Projects board sync is tied to this name. Pick another label or let the user change it by hand")
     if action == "rename" and new_name in PROTECTED_LABELS:
-        return _fail("protected_label", f"'{new_name}' 은 projectops 상태 라벨 이름이라 이 이름으로 바꾸지 않는다",
-                     "다른 새 이름을 고른다")
+        return _fail("protected_label", f"'{new_name}' is a projectops status label name, so no label is renamed to it",
+                     "Pick a different new name")
     pat = github_api._pat(owner, repo)
     if not pat:
         return _no_pat()
@@ -56,20 +56,20 @@ def cmd_label(args) -> int:
     old = by_lower.get(name.lower())
     if action == "create":
         if old:
-            return _fail("label_exists", f"이미 있는 라벨이다: {old['name']}", "다른 이름을 쓰거나 rename·recolor 로 고친다", pat, before=old)
+            return _fail("label_exists", f"Label already exists: {old['name']}", "Use another name, or change it with rename or recolor", pat, before=old)
         body = {"name": name, "color": color or "ededed"}
         if args.description is not None:
             body["description"] = args.description
         method, path = "POST", f"/repos/{owner}/{repo}/labels"
     else:
         if not old:
-            return _fail("label_not_found", f"없는 라벨이다: {name}", "라벨 이름을 확인한다 (collect 의 labels.names)", pat)
+            return _fail("label_not_found", f"Label not found: {name}", "Check the label name (labels.names in collect)", pat)
         if action == "rename":
             clash = by_lower.get(new_name.lower())
             # 대소문자만 바꾸는 이름 변경은 같은 라벨이므로 허용한다
             if clash and clash["name"].lower() != old["name"].lower():
-                return _fail("label_exists", f"바꾸려는 이름이 이미 있다: {clash['name']}",
-                             "다른 이름을 쓴다. 합치려면 사용자가 이슈 라벨을 옮긴 뒤 직접 정리한다", pat, before=old)
+                return _fail("label_exists", f"The new name already exists: {clash['name']}",
+                             "Use another name. To merge, the user moves the issue labels and cleans up by hand", pat, before=old)
             body = {"new_name": new_name}
             if color:
                 body["color"] = color
@@ -81,13 +81,13 @@ def cmd_label(args) -> int:
     if args.dry_run:
         return _out({"data": {"repo": f"{owner}/{repo}", "dry_run": True, "action": action, "before": old,
                               "planned": {"method": method, "path": path, "body": body}},
-                     "summary": "계획만 출력(--dry-run). 적용하지 않았다",
-                     "next": "사용자 승인을 받은 뒤 --dry-run 없이 같은 명령을 실행한다"}, pat)
+                     "summary": "Plan only (--dry-run). Nothing was applied",
+                     "next": "After the user approves, run the same command without --dry-run"}, pat)
     try:
         after = github_api._call(method, path, pat, body)
     except (gh_client.GitHubAPIError, gh_client.GitHubNetworkError) as e:
         return _api_fail(e, pat, before=old)
     return _out({"data": {"repo": f"{owner}/{repo}", "dry_run": False, "action": action, "before": old,
                           "after": {k: after.get(k) for k in ("name", "color", "description")}},
-                 "summary": f"라벨 {action} 완료: {name}",
-                 "next": "되돌리려면 before 값으로 같은 서브커맨드를 다시 실행한다 (기존 이슈의 라벨은 유지된다)"}, pat)
+                 "summary": f"Label {action} done: {name}",
+                 "next": "To undo, run the same subcommand again with the before values (labels on existing issues are kept)"}, pat)

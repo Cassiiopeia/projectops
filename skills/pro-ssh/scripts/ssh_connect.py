@@ -44,8 +44,8 @@ def _require_paramiko():
     try:
         import paramiko as _paramiko
     except ImportError:
-        print("[ERROR] paramiko 모듈이 없습니다.")
-        print("설치 명령: pip install paramiko   (또는 pip3 install paramiko)")
+        print("[ERROR] The paramiko module is missing.")
+        print("Install: pip install paramiko   (or pip3 install paramiko)")
         sys.exit(1)
     paramiko = _paramiko
 
@@ -82,7 +82,7 @@ def _connect_key(host, port, user, key_path, timeout=15):
     """PEM 키 인증으로 SSH 클라이언트를 연결하고 반환한다."""
     key_path = _expand_path(key_path)
     if not os.path.isfile(key_path):
-        print("[ERROR] PEM 키 파일을 찾을 수 없습니다: " + key_path)
+        print("[ERROR] PEM key file not found: " + key_path)
         sys.exit(1)
 
     client = paramiko.SSHClient()
@@ -116,38 +116,38 @@ def run_command(client, command):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="paramiko 기반 SSH 명령 실행기 (크로스플랫폼)",
+        description="paramiko-based SSH command runner (cross-platform)",
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    parser.add_argument("--host", required=True, help="SSH 호스트명 또는 IP")
-    parser.add_argument("--port", type=int, default=22, help="SSH 포트 (기본: 22)")
-    parser.add_argument("--user", required=True, help="SSH 사용자명")
+    parser.add_argument("--host", required=True, help="SSH host name or IP")
+    parser.add_argument("--port", type=int, default=22, help="SSH port (default: 22)")
+    parser.add_argument("--user", required=True, help="SSH user name")
     parser.add_argument(
         "--auth",
         required=True,
         choices=["password", "key"],
-        help="인증 방식: password 또는 key",
+        help="Auth method: password or key",
     )
     parser.add_argument("--password", default=None,
-                        help="SSH 비밀번호 (권장하지 않음 — argv 로 보인다. 환경변수 SSH_PASSWORD 를 쓴다)")
-    parser.add_argument("--key-path", default=None, help="PEM 키 경로 (auth=key 시 필수)")
-    parser.add_argument("--command", required=True, help="원격에서 실행할 명령")
+                        help="SSH password (not recommended — visible in argv; use the SSH_PASSWORD env var)")
+    parser.add_argument("--key-path", default=None, help="PEM key path (required with auth=key)")
+    parser.add_argument("--command", required=True, help="Command to run on the remote host")
     parser.add_argument(
-        "--timeout", type=int, default=15, help="접속 타임아웃 (초, 기본: 15)"
+        "--timeout", type=int, default=15, help="Connect timeout (seconds, default: 15)"
     )
 
     args = parser.parse_args()
     # 비밀번호는 환경변수가 우선 — argv 에 남기지 않는 경로
     if args.password is None:
         args.password = os.environ.get("SSH_PASSWORD") or None
-    print("[안내] ssh_connect.py 는 호환용이다. launch_cli.py ssh --cred <서버> 를 쓴다.", file=sys.stderr)
+    print("[NOTICE] ssh_connect.py is kept for compatibility. Use launch_cli.py ssh --cred <server>.", file=sys.stderr)
 
     # ── 인자 검증 ──────────────────────────────────
     if args.auth == "password" and not args.password:
-        print("[ERROR] --auth password 사용 시 --password 가 필요합니다.")
+        print("[ERROR] --auth password requires --password.")
         sys.exit(1)
     if args.auth == "key" and not args.key_path:
-        print("[ERROR] --auth key 사용 시 --key-path 가 필요합니다.")
+        print("[ERROR] --auth key requires --key-path.")
         sys.exit(1)
 
     # ── 접속 ───────────────────────────────────────
@@ -163,19 +163,19 @@ def main():
                 args.host, args.port, args.user, args.key_path, args.timeout
             )
     except paramiko.AuthenticationException:
-        print("[ERROR] 인증 실패: 사용자명/비밀번호/키를 확인하세요.")
+        print("[ERROR] Authentication failed: check the user name, password or key.")
         sys.exit(1)
     except paramiko.SSHException as e:
-        print("[ERROR] SSH 프로토콜 오류: " + str(e))
+        print("[ERROR] SSH protocol error: " + str(e))
         sys.exit(1)
     except socket.timeout:
-        print("[ERROR] 접속 타임아웃 ({0}초): 호스트/포트를 확인하세요.".format(args.timeout))
+        print("[ERROR] Connect timeout ({0}s): check the host and port.".format(args.timeout))
         sys.exit(1)
     except socket.error as e:
-        print("[ERROR] 소켓 오류 (포트/방화벽 확인): " + str(e))
+        print("[ERROR] Socket error (check the port and firewall): " + str(e))
         sys.exit(1)
     except Exception as e:
-        print("[ERROR] 예상치 못한 접속 오류: " + str(e))
+        print("[ERROR] Unexpected connection error: " + str(e))
         traceback.print_exc()
         sys.exit(1)
 
@@ -183,7 +183,7 @@ def main():
     try:
         out, err, exit_code = run_command(client, args.command)
     except Exception as e:
-        print("[ERROR] 명령 실행 중 오류: " + str(e))
+        print("[ERROR] Error while running the command: " + str(e))
         traceback.print_exc()
         sys.exit(1)
     finally:

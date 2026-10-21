@@ -41,10 +41,10 @@ def _ascii_width(spec: dict) -> int:
         return 30
     if isinstance(raw, bool) or not isinstance(raw, (int, str)) \
             or (isinstance(raw, str) and not re.fullmatch(r"\s*-?\d+\s*", raw)):
-        raise ValueError(f"width 는 1 이상 정수여야 합니다 ({raw!r})")
+        raise ValueError(f"width must be an integer >= 1 ({raw!r})")
     n = int(raw)
     if n < 1:
-        raise ValueError(f"width 는 1 이상 정수여야 합니다 ({raw!r})")
+        raise ValueError(f"width must be an integer >= 1 ({raw!r})")
     return n
 
 
@@ -79,13 +79,13 @@ def cmd_ascii(args) -> int:
         spec = json.loads(spec_f.read_text(encoding="utf-8")) if is_file else json.loads(args.spec)
     except (OSError, json.JSONDecodeError) as e:
         return emit({"ok": False, "code": "bad_spec", "error": str(e),
-                     "next": "SKILL.md 의 ascii 스펙 {title, rows, width, caption} 형식으로 다시 준다"})
+                     "next": "Pass it again in the SKILL.md ascii spec format {title, rows, width, caption}"})
     if not isinstance(spec, dict):
         return emit({"ok": False, "code": "bad_spec",
-                     "error": f"스펙은 JSON 객체여야 합니다 ({type(spec).__name__})",
-                     "next": '예: {"width":24,"rows":["로그인"]}'})
+                     "error": f"The spec must be a JSON object ({type(spec).__name__})",
+                     "next": 'e.g. {"width":24,"rows":["Sign in"]}'})
     if not isinstance(spec.get("rows") or [], list):
-        return emit({"ok": False, "code": "bad_spec", "error": "rows 는 배열이어야 합니다"})
+        return emit({"ok": False, "code": "bad_spec", "error": "rows must be an array"})
     try:
         width = _ascii_width(spec)
     except ValueError as e:
@@ -94,11 +94,11 @@ def cmd_ascii(args) -> int:
     body = text.split("\n")
     widths = {text_width(l) for l in body[:-1 if spec.get("caption") else None]}
     out = {"ascii": text, "width": width + 2, "aligned": len(widths) == 1,
-           "summary": f"{len(body)}줄 와이어"}
+           "summary": f"{len(body)}-line wireframe"}
     unknown = sorted(k for k in spec if k not in _ASCII_KEYS)
     if unknown:
         # 모르는 키는 조용히 무시되어 빈 박스만 나온다 — 알려 준다
-        out["warnings"] = [f"모르는 키 {unknown} 는 무시했습니다 (쓸 수 있는 키: {', '.join(_ASCII_KEYS)})"]
+        out["warnings"] = [f"Ignored unknown keys {unknown} (allowed keys: {', '.join(_ASCII_KEYS)})"]
     if args.out:
         try:
             out_f = Path(args.out)

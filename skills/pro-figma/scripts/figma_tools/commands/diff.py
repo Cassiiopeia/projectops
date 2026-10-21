@@ -22,12 +22,12 @@ def _parse_bg(text, design_img):
     if text and text != "auto":
         v = text.lstrip("#")
         if len(v) != 6:
-            raise ValueError(f"--bg 는 RRGGBB 형식이어야 합니다: {text}")
+            raise ValueError(f"--bg must be in RRGGBB format: {text}")
         return tuple(int(v[i:i + 2], 16) for i in (0, 2, 4)), f"#{v.upper()}"
     corner = design_img.getpixel((0, 0))
     if len(corner) == 4 and corner[3] == 255:
-        return corner[:3], "시안 좌상단 픽셀"
-    return (255, 255, 255), "흰색 (시안 모서리가 투명)"
+        return corner[:3], "design top-left pixel"
+    return (255, 255, 255), "white (design corner is transparent)"
 
 
 def _clusters(mask, min_area):
@@ -98,8 +98,9 @@ def _size_mismatch_report(render_size, design_size) -> dict:
         "design": f"{design_size[0]}x{design_size[1]}",
         "scale_x": round(design_size[0] / render_size[0], 3),
         "aspect_changed": abs(render_ratio - design_ratio) / design_ratio > 0.01,
-        "warning": ("렌더를 디자인 크기로 맞춰 비교했다. 기기 폭이 다르면(예: 440 대 393) 글자·간격 차이가 "
-                    "가짜로 나오니 같은 폭으로 다시 렌더하는 것이 정확하다"),
+        "warning": ("The render was resized to the design size before comparing. When device widths differ "
+                    "(e.g. 440 vs 393) text and spacing differences show up falsely, so re-rendering "
+                    "at the same width is accurate"),
     }
 
 
@@ -113,21 +114,21 @@ def cmd_diff(args) -> int:
     for label, p in (("render", args.render), ("design", args.design)):
         if not Path(p).is_file():
             return emit({"ok": False, "code": "image_not_found",
-                         "error": f"{label} 이미지가 없습니다: {p}"})
+                         "error": f"{label} image not found: {p}"})
 
     try:
         design_img = Image.open(args.design).convert("RGBA")
         render_img = Image.open(args.render).convert("RGBA")
     except Exception as e:   # 이미지가 아닌 파일은 트레이스백 대신 JSON 으로 (#710)
         return emit({"ok": False, "code": "image_unreadable",
-                     "error": f"이미지를 열 수 없습니다: {type(e).__name__}: {e}",
-                     "next": "--render · --design 이 png·jpg 같은 이미지 파일인지 확인한다"})
+                     "error": f"Cannot open the image: {type(e).__name__}: {e}",
+                     "next": "Check that --render and --design are image files such as png or jpg"})
     if args.mask_top < 0 or args.mask_bottom < 0 \
             or args.mask_top + args.mask_bottom >= design_img.size[1]:
         return emit({"ok": False, "code": "bad_mask",
-                     "error": (f"--mask-top({args.mask_top}) + --mask-bottom({args.mask_bottom}) 는 "
-                               f"이미지 높이({design_img.size[1]}px) 보다 작은 0 이상 값이어야 합니다"),
-                     "next": "상태바·홈 인디케이터 높이만큼만 제외한다"})
+                     "error": (f"--mask-top({args.mask_top}) + --mask-bottom({args.mask_bottom}) must be "
+                               f"non-negative and smaller than the image height ({design_img.size[1]}px)"),
+                     "next": "Exclude only the status bar and home indicator heights"})
     try:
         bg, bg_src = _parse_bg(args.bg, design_img)
     except ValueError as e:
@@ -143,8 +144,8 @@ def cmd_diff(args) -> int:
         size_mismatch = _size_mismatch_report(render_img.size, design_img.size)
         if args.strict_size:
             return emit({"ok": False, "code": "size_mismatch", **size_mismatch,
-                         "error": "렌더와 디자인 크기가 다릅니다 (--strict-size)",
-                         "next": "같은 기기 폭·배율로 다시 렌더하거나 디자인 프레임 크기에 맞춘다"})
+                         "error": "Render and design sizes differ (--strict-size)",
+                         "next": "Re-render at the same device width and scale, or match the design frame size"})
         render_img = render_img.resize(design_img.size, Image.LANCZOS)
     render = flatten(render_img)
 
@@ -197,16 +198,16 @@ def cmd_diff(args) -> int:
         "clusters": found,
         "shift_probe": shift,
         "diff_image": out_path,
-        "summary": (f"다른 픽셀 {pct:.2f}% · 덩어리 {len(found)}개 "
-                    f"(최대 채널차 {int(delta.max())})"),
+        "summary": (f"different pixels {pct:.2f}% · {len(found)} clusters "
+                    f"(max channel delta {int(delta.max())})"),
         "next": (
-            (f"덩어리가 {len(found)}개지만 렌더를 "
-             f"({shift['dx']:+d}, {shift['dy']:+d}) 옮기면 "
-             f"{shift['before']}% → {shift['after']}% 로 떨어집니다. "
-             "**낱낱이 어긋난 것이 아니라 통째로 밀린 것**입니다 — 안의 요소가 아니라 "
-             "그것을 담은 컨테이너(높이·여백·안전영역)를 먼저 보세요."
+            (f"There are {len(found)} clusters, but shifting the render by "
+             f"({shift['dx']:+d}, {shift['dy']:+d}) drops the difference from "
+             f"{shift['before']}% → {shift['after']}%. "
+             "**It is not many separate mismatches but one block shifted as a whole** — look "
+             "first at the container holding it (height, padding, safe area), not the elements inside."
              if (shift or {}).get("looks_shifted") else
-             "퍼센트가 아니라 **덩어리 위치**를 보세요. 글자 자리면 래스터라이즈 "
-             "차이라 대개 무해하고, 도형·여백 자리면 실제로 틀린 것입니다. "
-             "그림자·발광·1px 테두리는 전체 화면에서 사라지므로 component 로 다시 봅니다")),
+             "Look at **cluster positions**, not the percentage. Clusters on text are rasterization "
+             "differences and usually harmless; clusters on shapes or spacing are real mistakes. "
+             "Shadows, glows and 1px borders vanish on a full-screen diff, so check them again per component")),
     })

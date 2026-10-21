@@ -82,9 +82,9 @@ def resolve_config(root: Path, config: dict | None = None) -> dict:
             for r in repos if isinstance(r, dict))
         suggest["destination"] = "issue" if (ident["github"] and known) else \
                                  ("issue" if ident["github"] else "html")
-        suggest["destination_why"] = ("GitHub 레포이고 등록돼 있다" if known else
-                                      "GitHub 레포다 (등록은 안 돼 있다)" if ident["github"] else
-                                      "GitHub 레포가 아니다")
+        suggest["destination_why"] = ("GitHub repo, registered in config" if known else
+                                      "GitHub repo (not registered in config)" if ident["github"] else
+                                      "not a GitHub repo")
     if resolved["designer"] is None:
         suggest["designer_candidates"] = _designer_from_templates(Path(ident["path"]))
     missing = [k for k in ("destination", "designer") if resolved[k] is None]
@@ -122,19 +122,19 @@ def cmd_config(args) -> int:
     if args.action == "show":
         r = resolve_config(root)
         return emit({**r, "config_file": str(_config_path()),
-                     "summary": (f"출력 {r['resolved']['destination'] or '미정'} · "
-                                 f"디자이너 {r['resolved']['designer'] or '미정'} · "
-                                 f"게시 전 확인 {'생략' if r['resolved']['auto_approve'] else '받음'}"),
+                     "summary": (f"Output {r['resolved']['destination'] or 'not set'} · "
+                                 f"designer {r['resolved']['designer'] or 'not set'} · "
+                                 f"confirm before posting {'skipped' if r['resolved']['auto_approve'] else 'yes'}"),
                      "next": (None if not r["missing"] else
-                              f"정해지지 않은 것: {', '.join(r['missing'])} — 사용자에게 한 번에 하나씩 묻고 "
-                              "config set 으로 저장한다 (키 이름은 사용자에게 보이지 않는다)")})
+                              f"Not set yet: {', '.join(r['missing'])}. Ask the user one at a time and "
+                              "save with config set (do not show key names to the user)")})
 
     # set — 전체를 읽고 해당 키만 바꿔 쓴다 (config-rules.md §4). 다른 섹션을 날리지 않는다.
     changes = {}
     if args.destination is not None:
         if args.destination not in DESTINATIONS:
             return emit({"ok": False, "code": "bad_destination",
-                         "error": f"destination 은 {' · '.join(DESTINATIONS)} 중 하나"})
+                         "error": f"destination must be one of {' · '.join(DESTINATIONS)}"})
         changes["destination"] = args.destination
     if args.designer is not None:
         changes["designer"] = args.designer
@@ -142,7 +142,7 @@ def cmd_config(args) -> int:
         changes["auto_approve"] = args.auto_approve == "true"
     if not changes:
         return emit({"ok": False, "code": "nothing_to_set",
-                     "error": "--destination · --designer · --auto-approve 중 하나는 있어야 합니다"})
+                     "error": "Pass at least one of --destination, --designer, --auto-approve"})
 
     config = _load_config()
     section = config.setdefault("design_brief", {})
@@ -164,4 +164,4 @@ def cmd_config(args) -> int:
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return emit({"saved": changes, "scope": target, "resolved": resolve_config(root, config)["resolved"],
-                 "summary": f"저장했다 ({target})"})
+                 "summary": f"Saved ({target})"})

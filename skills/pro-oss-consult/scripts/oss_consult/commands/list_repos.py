@@ -69,13 +69,13 @@ def cmd_list_repos(args) -> int:
     by_owner = dict(Counter(r["owner"] for r in rows))
     note = []
     if capped:
-        note.append(f"상한으로 잘림(전체 {total}개 중 {len(rows)}개; --limit 0 이면 전체)")
+        note.append(f"truncated by the limit ({len(rows)} of {total}; --limit 0 for all)")
     if other_count and not include_other:
-        note.append(f"타 소유자 레포 {other_count}개 제외({', '.join(other_owners)}; --include-other-owners 로 포함)")
+        note.append(f"excluded {other_count} repo(s) of other owners ({', '.join(other_owners)}; include with --include-other-owners)")
     return _out({"data": {"count": len(rows), "total_before_limit": total, "limit": limit, "capped": capped,
                           "pages_capped": pages_capped, "by_owner": by_owner,
                           "other_owner_count": other_count, "other_owners": other_owners, "repos": rows},
-                 "summary": f"레포 {len(rows)}개" + ("; " + "; ".join(note) if note else ""),
+                 "summary": f"{len(rows)} repo(s)" + ("; " + "; ".join(note) if note else ""),
                  "untrusted": ["data.repos[].repo", "data.repos[].language"],
                  "untrusted_notice": _UNTRUSTED_NOTICE,
-                 "next": "대상마다 collect OWNER/REPO 를 부른다 (레포당 API 약 10회 — 한 번에 20개 안팎으로 나눈다)"}, pat)
+                 "next": "Call collect OWNER/REPO for each target (about 10 API calls per repo — split into batches of about 20)"}, pat)

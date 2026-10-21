@@ -25,7 +25,7 @@ from figma_tools.dump_reader import _is_hidden, _split_shadows
 _CORNER_PROBE = 0.15
 _CORNER_LIMIT = 1.0 - 1.0 / (2 ** 0.5)      # 0.2929… — 이 값 이상은 의미가 없다
 
-_CORNER_NAMES = ("좌상", "우상", "우하", "좌하")
+_CORNER_NAMES = ("top-left", "top-right", "bottom-right", "bottom-left")
 
 
 def _parse_radius(value) -> list[float]:
@@ -232,7 +232,7 @@ def _probe_corners(img, rect: dict, scale: float, tol: int) -> list[dict]:
                 "says": (f"{rect['name'] or rect['ref']} "
                          f"{rect['width']:.0f}x{rect['height']:.0f} "
                          f"@{rect['x']:.0f},{rect['y']:.0f} "
-                         f"{_CORNER_NAMES[i]} r={r_logical:g} → 렌더가 각졌다"),
+                         f"{_CORNER_NAMES[i]} r={r_logical:g} → the render is square"),
             })
     return findings
 
@@ -262,13 +262,13 @@ def _check_fills(sample, rect, tol) -> list[dict]:
         gap = max(abs(a - b) for a, b in zip(mid, want))
         if kind == "solid" and gap > tol:
             out.append({"check": "fills", "severity": "high", "ref": rect["ref"],
-                        "says": (f"{_label(rect)} 칠이 다르다 — 시안 "
-                                 f"rgb{want}, 렌더 rgb{tuple(mid)}")})
+                        "says": (f"{_label(rect)} fill differs — design "
+                                 f"rgb{want}, render rgb{tuple(mid)}")})
         elif kind == "translucent" and gap <= tol:
             # 반투명인데 원색 그대로 = 투명도를 안 준 것이다
             out.append({"check": "fills", "severity": "high", "ref": rect["ref"],
-                        "says": (f"{_label(rect)} 투명도가 빠졌다 — 시안 "
-                                 f"alpha={alpha:g} 인데 렌더가 원색 rgb{want} 그대로다")})
+                        "says": (f"{_label(rect)} transparency is missing — design "
+                                 f"alpha={alpha:g} but the render is the solid rgb{want}")})
     elif kind == "gradient":
         # 축을 몰라도 된다 — 세로·가로 양쪽 끝을 재서 **어느 쪽도 안 변하면** 단색이다
         pad = 0.12
@@ -282,8 +282,8 @@ def _check_fills(sample, rect, tol) -> list[dict]:
                          for p1 in pts for p2 in pts)
             if spread <= tol:
                 out.append({"check": "fills", "severity": "high", "ref": rect["ref"],
-                            "says": (f"{_label(rect)} 그라디언트가 단색으로 깔렸다 — "
-                                     f"면 전체가 rgb{tuple(pts[0])} 한 색이다")})
+                            "says": (f"{_label(rect)} gradient is painted as a solid color — "
+                                     f"the whole area is the single color rgb{tuple(pts[0])}")})
     return out
 
 
@@ -312,9 +312,9 @@ def _check_shadows(sample, rect, tol) -> list[dict]:
             continue
         if max(abs(a - b) for a, b in zip(near, far)) <= tol:
             out.append({"check": "shadows", "severity": "medium", "ref": rect["ref"],
-                        "says": (f"{_label(rect)} 그림자가 안 보인다 — 시안은 "
-                                 f"{dx:g},{dy:g} blur {blur:g} 인데 가장자리 바깥이 "
-                                 f"먼 배경과 같다")})
+                        "says": (f"{_label(rect)} shadow is not visible — design has "
+                                 f"{dx:g},{dy:g} blur {blur:g} but just outside the edge "
+                                 f"matches the far background")})
     return out
 
 

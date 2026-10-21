@@ -38,16 +38,16 @@ if ($LASTEXITCODE -ne 0) { & $PYTHON -m pip install paramiko }
 
 ## Common pitfalls
 
-`ssh_connect.py` prints its errors in Korean; the symptom column shows the literal message with an English gloss.
+The symptom column shows the literal message `ssh_connect.py` prints.
 
 | Symptom | Cause | Fix |
 |------|------|------|
-| `[ERROR] paramiko 모듈이 없습니다.` (paramiko module missing) | paramiko not installed | `pip install paramiko` or `pip3 install paramiko` |
+| `[ERROR] The paramiko module is missing.` | paramiko not installed | `pip install paramiko` or `pip3 install paramiko` |
 | `[ERROR] Python is not installed.` | Python not installed | Install from python.org (on Windows, adding it to PATH is required) |
 | `sshpass_missing` (launch_cli) | No sshpass for password auth | `brew install hudochenkov/sshpass/sshpass`, key auth, or `ssh_connect.py` |
-| `[ERROR] 인증 실패` (authentication failed) | Wrong password or key | Check the `password` / `key_path` values in the config |
-| `[ERROR] 소켓 오류` (socket error) | Wrong port or firewall | Check the config `port` and the server firewall rules |
-| `[ERROR] PEM 키 파일을 찾을 수 없습니다` (PEM key file not found) | Wrong key_path | Enter an absolute path, `~` allowed (e.g. `~/.ssh/my-key.pem`) |
+| `[ERROR] Authentication failed` | Wrong password or key | Check the `password` / `key_path` values in the config |
+| `[ERROR] Socket error` | Wrong port or firewall | Check the config `port` and the server firewall rules |
+| `[ERROR] PEM key file not found` | Wrong key_path | Enter an absolute path, `~` allowed (e.g. `~/.ssh/my-key.pem`) |
 | `command not found` | Binary not on PATH | Run it by absolute path (find it first with `which`) |
 | `sudo: a terminal is required` | sudo not possible in non-interactive SSH | Use the `echo '{password}' \| sudo -S {command}` pattern |
 | `WARNING: UNPROTECTED PRIVATE KEY FILE` | PEM key permission problem | Run `chmod 400 {key_path}` and retry |

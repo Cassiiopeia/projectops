@@ -25,8 +25,8 @@ def _reset_when(reset: str | None) -> str | None:
 def classify_api_error(e: Exception) -> dict:
     """GitHub 오류를 code/summary/next 로 풀어 준다. rate limit 과 권한 오류를 구분한다."""
     if isinstance(e, gh_client.GitHubNetworkError):
-        return {"code": "network", "summary": f"네트워크 오류: {e}",
-                "next": "네트워크 연결을 확인하고 같은 명령을 다시 실행한다"}
+        return {"code": "network", "summary": f"Network error: {e}",
+                "next": "Check the network connection and run the same command again"}
     status = getattr(e, "status_code", 0)
     h = getattr(e, "headers", None) or {}
     msg = str(getattr(e, "message", e))
@@ -34,15 +34,15 @@ def classify_api_error(e: Exception) -> dict:
                                  or "rate limit" in msg.lower() or status == 429):
         when = _reset_when(h.get("x-ratelimit-reset"))
         wait = h.get("retry-after")
-        hint = f"{when} 이후" if when else (f"{wait}초 뒤" if wait else "잠시 뒤")
-        return {"code": "rate_limited", "summary": f"GitHub API 호출 한도 초과: {msg}",
-                "next": f"{hint} 같은 명령을 다시 실행한다. 대상 레포를 나눠 호출 수를 줄인다"}
+        hint = f"After {when}," if when else (f"In {wait} seconds," if wait else "In a moment,")
+        return {"code": "rate_limited", "summary": f"GitHub API rate limit exceeded: {msg}",
+                "next": f"{hint} run the same command again. Split the target repos to make fewer calls"}
     nxt = {
-        401: "PAT 가 만료되었거나 잘못됐다. /pro-github 로 PAT 를 다시 등록한다",
-        403: "PAT 에 이 레포를 읽을 권한(repo 범위)이 없다. 권한을 확인한다",
-        404: "레포 이름에 오타가 있거나, 비공개 레포인데 PAT 에 접근 권한이 없다. 둘 다 확인한다",
-        410: "이 기능이 꺼진 레포다 (예: 이슈 비활성). 해당 사실은 '없음'이 아니라 '꺼져 있음'으로 다룬다",
-    }.get(status, "오류 메시지를 확인하고 입력을 고쳐 다시 실행한다")
+        401: "The PAT has expired or is wrong. Register the PAT again with /pro-github",
+        403: "The PAT has no permission to read this repo (repo scope). Check the permissions",
+        404: "The repo name has a typo, or the repo is private and the PAT has no access. Check both",
+        410: "This feature is turned off for the repo (for example, issues disabled). Treat the fact as 'turned off', not 'missing'",
+    }.get(status, "Read the error message, fix the input and run again")
     return {"code": f"http_{status}", "summary": f"{msg}", "next": nxt}
 
 

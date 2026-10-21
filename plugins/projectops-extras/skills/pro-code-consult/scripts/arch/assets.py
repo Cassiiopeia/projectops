@@ -79,7 +79,7 @@ def scan_assets(root: Path, limit: int) -> dict:
         "format_variants": {"count": len(format_variants), "examples": format_variants[:10]},
         "truncated": {k: n for k, n in (("identical_copies", len(copies)),
                                         ("same_name_different_content", len(drift))) if n > limit},
-        "summary": f"사본 묶음 {len(copies)} (생성 결과·참고 사본 {sum(1 for g in copies if g.get('is_generated_icon_set') or g.get('is_reference_copy'))} 포함), 같은 이름·다른 내용 {len(drift)}, 형식만 다른 같은 이름 {len(format_variants)}",
+        "summary": f"copy groups {len(copies)} (incl. {sum(1 for g in copies if g.get('is_generated_icon_set') or g.get('is_reference_copy'))} generated/reference copies), same name different content {len(drift)}, same name different format {len(format_variants)}",
     }
 
 

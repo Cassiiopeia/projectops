@@ -79,7 +79,7 @@ class SourceInventory:
                 if name in FOREIGN_TREE_DIRECTORY_NAMES:
                     self.foreign_trees[prefix] = prefix
                 elif (absolute / ".git").exists():  # 폴더(clone)·파일(worktree·submodule) 둘 다
-                    self.foreign_trees[prefix] = f"{prefix} (중첩 git 레포)"
+                    self.foreign_trees[prefix] = f"{prefix} (nested git repo)"
                 else:
                     descend.append(name)
             subdirectories[:] = descend
@@ -117,7 +117,7 @@ class SourceInventory:
         for depth, directory in enumerate(parts[:-1]):
             if directory in SELF_TESTED_TOOLING_DIRECTORY_NAMES:
                 prefix = "/".join(parts[:depth + 1]) + "/"
-                entry = self.owned_tooling.setdefault(prefix, {"reason": "폴더 안 자체 테스트", "test_files": 0, "examples": []})
+                entry = self.owned_tooling.setdefault(prefix, {"reason": "own tests inside the folder", "test_files": 0, "examples": []})
                 entry["test_files"] += 1
                 if len(entry["examples"]) < 3:
                     entry["examples"].append(relative)
@@ -134,7 +134,7 @@ class SourceInventory:
                 continue
             try:
                 if absolute.stat().st_size > MAXIMUM_SOURCE_BYTES:
-                    self._exclude("vendored", relative, "2MB 초과")
+                    self._exclude("vendored", relative, "over 2MB")
                     continue
                 text = absolute.read_text(encoding="utf-8", errors="replace")
             except OSError:
@@ -163,21 +163,21 @@ class SourceInventory:
         if TOOLING_DIRECTORY_NAMES & set(directories) and not self._is_owned_tooling(relative):
             return "tooling", next(d for d in directories if d in TOOLING_DIRECTORY_NAMES) + "/"
         if is_generated_file(relative):
-            return "generated", "생성 파일 확장자"
+            return "generated", "generated file extension"
         for prefix, stem, reason in self.generated_prefixes:
             if relative.startswith(prefix) and name.startswith(stem):
                 return "generated", reason
         if GENERATED_HEADER_PATTERN.search(text[:600]):
-            return "generated", "생성 머리 표식"
+            return "generated", "generated file header marker"
         if VENDORED_DIRECTORY_NAMES & set(directories):
-            return "vendored", "vendor 폴더"
+            return "vendored", "vendor folder"
         for prefix, reason in self.vendored_prefixes:
             if relative.startswith(prefix):
                 return "vendored", reason
         if any(relative.startswith(m) for m in self.shadcn_modules) and SHADCN_DIRECTORY_NAMES & set(directories):
-            return "vendored", "shadcn 폴더"
+            return "vendored", "shadcn folder"
         if language in ("javascript", "typescript") and _looks_like_library_copy(directories, text):
-            return "vendored", "외부 라이브러리 머리"
+            return "vendored", "third-party library header"
         return ("test", "") if is_test_path(relative) else ("production", "")
 
     def _exclude(self, origin: str, relative: str, reason: str):

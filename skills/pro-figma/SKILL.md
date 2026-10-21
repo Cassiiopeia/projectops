@@ -121,7 +121,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py conform --dump {dump} --r
 #   --check corners,fills,shadows   narrow down     --fail-on high   exit code 1 at that level or above (default none)
 ```
 
-Findings come out as definite statements, such as `[high] … 좌상 r=16 → 렌더가 각졌다` (the CLI prints Korean: "top-left r=16 → the render is square").
+Findings come out as definite statements, such as `[high] … top-left r=16 → the render is square`.
 **When a corner comes out square, do not set the radius again; check whether a child covers it**
 (Flutter `clipBehavior: Clip.antiAlias` · CSS/RN `overflow: hidden`). If an `INSTANCE` has only a `componentId` and no style,
 fetch the component node separately.

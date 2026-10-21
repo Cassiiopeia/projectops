@@ -67,7 +67,7 @@ def cmd_assets(args) -> int:
     path = Path(args.dump)
     if not path.is_file():
         return emit({"ok": False, "code": "dump_not_found",
-                     "error": f"덤프 파일이 없습니다: {args.dump}"})
+                     "error": f"Dump file not found: {args.dump}"})
     data, err = _load_dump(path)
     if err:
         code, msg, hint = err
@@ -81,9 +81,9 @@ def cmd_assets(args) -> int:
           styles=_style_table(data), assets=assets)
     if not assets:
         return emit({"ok": True, "total": 0, "unique": 0, "assets": [], "nodes": [],
-                     "summary": "내려받을 에셋 노드가 없습니다",
-                     "next": "아이콘이 도형(RECTANGLE·ELLIPSE)으로 그려져 있을 수 있습니다. "
-                             "coverage 의 요소 목록에서 직접 확인하세요"})
+                     "summary": "No asset nodes to download",
+                     "next": "Icons may be drawn as shapes (RECTANGLE, ELLIPSE). "
+                             "Check the element list from coverage directly"})
 
     plan = _download_plan(assets)
     renames = [a for a in plan["unique"] if a.get("rename_me")]
@@ -95,19 +95,21 @@ def cmd_assets(args) -> int:
         "needs_naming": len(renames),
         "merged_by_guess": len(guessed),
         "with_baked_effect": len(baked),
-        "summary": (f"에셋 노드 {len(assets)}개 → 실제로 받을 것 {len(plan['unique'])}개"
-                    + (f" (이름이 ASCII 로 안 남아 자동 이름이 붙은 것 {len(renames)}개)"
+        "summary": (f"{len(assets)} asset nodes → {len(plan['unique'])} to actually download"
+                    + (f" ({len(renames)} got an automatic name because the name did not survive as ASCII)"
                        if renames else "")
-                    + (f" · 효과가 그림에 박혀 오는 것 {len(baked)}개" if baked else "")),
-        "warning": ("덤프에는 아이콘의 **모양 정보가 없습니다**. componentId 가 같은 것은 "
-                    "같은 그림이 확실하지만(certain=true), 나머지는 노드 내용이 같다는 "
-                    "것만 보고 묶었습니다 — 받은 뒤 눈으로 확인하세요. "
-                    "baked_effect 가 있는 것은 그 효과가 **그림 안에 필터로 박혀** 오므로 "
-                    "받은 그림이 width/height 보다 큽니다. 레이아웃 크기로 우겨 넣으면 "
-                    "도형이 쪼그라들고, 효과를 코드로 또 넣으면 두 번 적용됩니다"),
-        "next": ("`nodes` 를 그대로 mcp__figma__download_figma_images 의 nodes 인자로 "
-                 "넘기고 localPath 에 **절대경로**를 줍니다. rename_me 가 true 인 것은 "
-                 "원래 이름이 한글 등이라 뜻을 잃었으니, name 을 보고 의미 있는 영문 "
-                 "이름으로 고쳐서 넘기세요. 받은 뒤 파일 개수와 크기 0 바이트 여부를 "
-                 "반드시 확인합니다 — 받았다고 응답해 놓고 안 받아진 적이 있습니다"),
+                    + (f" · {len(baked)} come with the effect baked into the image" if baked else "")),
+        "warning": ("The dump has **no shape information** for icons. Nodes with the same "
+                    "componentId are certainly the same image (certain=true); the rest were "
+                    "grouped only because their node contents match — check them by eye after "
+                    "downloading. Assets with baked_effect come with that effect **baked into "
+                    "the image as a filter**, so the downloaded image is larger than "
+                    "width/height. Squeezing it into the layout size shrinks the shape, and "
+                    "adding the effect again in code applies it twice"),
+        "next": ("Pass `nodes` as-is to the nodes argument of mcp__figma__download_figma_images "
+                 "and give localPath an **absolute path**. Entries with rename_me true lost "
+                 "their meaning because the original name was Korean or similar, so look at "
+                 "name and pass a meaningful English name instead. After downloading, always "
+                 "check the file count and that no file is 0 bytes — downloads have been "
+                 "reported as done when nothing was saved"),
     })

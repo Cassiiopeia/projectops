@@ -1,6 +1,6 @@
 # Comparison: properties (conform) · pixels (diff) · components at 3x · report · pitfalls
 
-> When to read: Phases 4–7, when reading `conform` · `diff` results after translating, when a corner comes out "square" (`각졌다`) or there are several blobs, and when writing the report.
+> When to read: Phases 4–7, when reading `conform` · `diff` results after translating, when a corner comes out "square" (`the render is square`) or there are several blobs, and when writing the report.
 
 > **Do not demand a 100% pixel match.** Figma and the app use different text rasterizers (the part that draws
 > glyphs into actual pixels), so it never reaches 0. The goal is to let a person decide **whether a blob sits on text or on a shape**.
@@ -16,18 +16,18 @@
 > that spot as `476~519 / 0~785 / mean diff 77`. But there was no way to read from that line that it meant "the corners
 > are square". 5.5% different overall with 22 blobs: **the real defect was buried in noise.** People do not read a 22-line coordinate table.
 
-Properties are definite: "top-left r=20, but the render is square". Sample output (the CLI currently prints Korean):
+Properties are definite: "top-left r=20, but the render is square". Sample output:
 
 ```
-사각형 31개 · corners·fills·shadows 검사 (배율 3) — high 2 · medium 1
-   [high  ] 카드 40x68 @16,390 좌상 r=16 → 렌더가 각졌다
-   [high  ] 배지 24x24 @300,120 투명도가 빠졌다 — 시안 alpha=0.4 인데 렌더가 원색 그대로다
-   [medium] 시트 393x420 @0,432 그림자가 안 보인다 — 시안은 0,8 blur 12 인데 …
+31 rectangles · corners·fills·shadows checks (scale 3) — high 2 · medium 1
+   [high  ] Card 40x68 @16,390 top-left r=16 → the render is square
+   [high  ] Badge 24x24 @300,120 transparency is missing — design alpha=0.4 but the render is the solid rgb(...)
+   [medium] Sheet 393x420 @0,432 shadow is not visible — design has 0,8 blur 12 but …
 ```
 
-(In English: 31 rectangles, checks corners · fills · shadows at scale 3, high 2 · medium 1. Card top-left r=16 → render is square. Badge: opacity is missing, the design has alpha=0.4 but the render uses the solid color. Sheet: shadow is not visible, the design has 0,8 blur 12.)
+The `corner` field uses `top-left` · `top-right` · `bottom-right` · `bottom-left`; the corner finding's `verdict` value stays `각짐` (a contract value).
 
-On a correct screen it ends with one line, `이상 없음` (no issues). **That is what the 22 percentage lines could not do.**
+On a correct screen it ends with one line, `no issues`. **That is what the 22 percentage lines could not do.**
 
 | Check | What it catches | Severity |
 |---|---|---|

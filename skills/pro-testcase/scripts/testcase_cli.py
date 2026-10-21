@@ -32,7 +32,7 @@ def build_parser() -> JSONArgumentParser:
     parser = JSONArgumentParser(prog="testcase_cli", description="testcase skill CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_gop = sub.add_parser("get-output-path", help="QA 테스트케이스 문서 출력 경로")
+    p_gop = sub.add_parser("get-output-path", help="Output path for the QA test case document")
     p_gop.add_argument("skill_id", nargs="?", default="testcase")
     p_gop.add_argument("--title")
     from common.paths import add_root_and_issue_args

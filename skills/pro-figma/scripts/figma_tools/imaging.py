@@ -11,7 +11,7 @@ def _require_imaging():
     except ImportError:
         return emit({
             "ok": False, "code": "imaging_missing",
-            "error": "Pillow 와 numpy 가 필요합니다",
+            "error": "Pillow and numpy are required",
             "hint": "python3 -m pip install pillow numpy",
         })
     return None

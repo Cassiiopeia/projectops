@@ -139,9 +139,9 @@ def analyze_dependencies(root: Path, limit: int, is_including_all: bool = False)
         "gradle_modules": modules,
         "excluded": inventory.excluded_summary(),
         "truncated": truncated,
-        "summary": f"계층 역방향 {len(violations)} (테스트 {test_violation_count} 별도), "
-                   f"모듈 간 저장소 직접 사용 {boundary_count} (공통 모듈 대상·조합 모듈 출발 {len(cross_module) - boundary_count} 별도), "
-                   f"Gradle 모듈 {len(modules['edges'])}개 간선·순환 {len(modules['cycles'])}",
+        "summary": f"reverse layer imports {len(violations)} (plus {test_violation_count} in tests), "
+                   f"direct cross-module repository use {boundary_count} (plus {len(cross_module) - boundary_count} into common or from composition modules), "
+                   f"Gradle modules {len(modules['edges'])} edges, {len(modules['cycles'])} cycles",
     }
 
 

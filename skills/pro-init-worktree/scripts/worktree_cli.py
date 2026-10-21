@@ -190,8 +190,8 @@ def cmd_recall(args) -> int:
             "memory_file": str(mem_path), "last": None,
             "candidates": candidates, "new_candidates": candidates,
             "copy_now": [], "gone": [],
-            "summary": f"기억 없음 — 후보 {len(candidates)}개를 references/local-files.md 기준으로 전부 판단한다",
-            "next": "후보를 판단·복사한 뒤 record --root <레포> --copied <a,b> --skipped <c>",
+            "summary": f"No memory — judge all {len(candidates)} candidates against references/local-files.md",
+            "next": "Judge and copy the candidates, then record --root <repo> --copied <a,b> --skipped <c>",
         })
 
     copied = [p for p in mem.get("copied", []) if isinstance(p, str)]
@@ -209,9 +209,9 @@ def cmd_recall(args) -> int:
         pass
 
     verdict = "changed" if new else "same"
-    summary = (f"지난 세트 그대로 복사 {len(copy_now)}개"
-               + (f", 새 후보 {len(new)}개만 판단" if new else ", 새 후보 없음")
-               + (f", 원본에서 사라진 {len(gone)}개" if gone else ""))
+    summary = (f"Copy last set as-is: {len(copy_now)}"
+               + (f", judge only {len(new)} new candidates" if new else ", no new candidates")
+               + (f", {len(gone)} gone from the source" if gone else ""))
     return emit({
         "ok": True, "verdict": verdict, "root": str(root),
         "memory_file": str(mem_path),
@@ -220,8 +220,8 @@ def cmd_recall(args) -> int:
         "candidates": candidates, "new_candidates": new,
         "copy_now": copy_now, "gone": gone,
         "summary": summary,
-        "next": "copy_now 를 복사하고 new_candidates 만 판단한 뒤 "
-                "record --root <레포> --copied <이번에 복사한 전부> --skipped <새로 건너뛴 것>",
+        "next": "Copy copy_now, judge only new_candidates, then "
+                "record --root <repo> --copied <everything copied this time> --skipped <newly skipped>",
     })
 
 
@@ -241,13 +241,13 @@ def cmd_record(args) -> int:
     if rejected:
         return emit({
             "ok": False, "code": "bad_path",
-            "error": "레포 루트 기준 상대 경로만 받는다 (절대경로·`..`·`=`·줄바꿈 거부)",
+            "error": "Only paths relative to the repo root are accepted (absolute paths, `..`, `=` and newlines are rejected)",
             "rejected": rejected,
-            "next": "상대 경로로 고쳐 다시 record 한다 — 파일 내용·값은 넘기지 않는다",
+            "next": "Fix them to relative paths and record again — never pass file contents or values",
         })
     if not copied and not skipped:
         return emit({"ok": False, "code": "empty",
-                     "error": "--copied 또는 --skipped 중 하나는 있어야 한다",
+                     "error": "Either --copied or --skipped is required",
                      "next": None})
 
     mem_path = memory_file(root)
@@ -280,7 +280,7 @@ def cmd_record(args) -> int:
     return emit({
         "ok": True, "memory_file": str(mem_path),
         "copied": data["copied"], "skipped": data["skipped"], "date": data["date"],
-        "summary": f"복사 세트 기록: 복사 {len(data['copied'])}개 · 건너뜀 {len(data['skipped'])}개",
+        "summary": f"Recorded copy set: copied {len(data['copied'])} · skipped {len(data['skipped'])}",
         "next": None,
     })
 
@@ -300,37 +300,37 @@ def cmd_remove(args) -> int:
 # ── argparse ────────────────────────────────────────────────────────────
 
 def build_parser() -> JSONArgumentParser:
-    parser = JSONArgumentParser(prog="worktree_cli", description="pro-init-worktree 복사 세트 기억")
+    parser = JSONArgumentParser(prog="worktree_cli", description="pro-init-worktree copy-set memory")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p = sub.add_parser("recall", help="지난 복사 세트와 지금 후보의 차이")
-    p.add_argument("--root", default=".", help="원본 레포 경로 (기본: 현재 폴더)")
+    p = sub.add_parser("recall", help="Diff between the last copy set and the current candidates")
+    p.add_argument("--root", default=".", help="Source repo path (default: current folder)")
     p.set_defaults(func=cmd_recall)
 
-    p = sub.add_parser("record", help="복사 직후 세트 기록 (경로만)")
-    p.add_argument("--root", default=".", help="원본 레포 경로 (기본: 현재 폴더)")
-    p.add_argument("--copied", default="", help="복사한 상대 경로, 쉼표 구분")
-    p.add_argument("--skipped", default="", help="건너뛴 상대 경로, 쉼표 구분")
+    p = sub.add_parser("record", help="Record the set right after copying (paths only)")
+    p.add_argument("--root", default=".", help="Source repo path (default: current folder)")
+    p.add_argument("--copied", default="", help="Copied relative paths, comma-separated")
+    p.add_argument("--skipped", default="", help="Skipped relative paths, comma-separated")
     p.set_defaults(func=cmd_record)
 
-    p = sub.add_parser("create", help="브랜치명으로 worktree 생성 (없으면 --base 에서 분기)")
-    p.add_argument("--root", default=".", help="원본 레포 경로 (기본: 현재 폴더)")
-    p.add_argument("--branch", required=True, help="브랜치명 (한글·# 그대로)")
-    p.add_argument("--base", default=None, help="새 브랜치를 딸 ref (예: origin/develop). 생략하면 현재 HEAD")
+    p = sub.add_parser("create", help="Create a worktree from a branch name (branches off --base if missing)")
+    p.add_argument("--root", default=".", help="Source repo path (default: current folder)")
+    p.add_argument("--branch", required=True, help="Branch name (Korean and # kept as-is)")
+    p.add_argument("--base", default=None, help="Ref to branch the new branch from (e.g. origin/develop). Defaults to current HEAD")
     p.set_defaults(func=cmd_create)
 
-    p = sub.add_parser("copy", help="기억한 복사 세트(또는 --files)를 worktree 로 복사")
-    p.add_argument("--root", default=".", help="원본 레포 경로 (기본: 현재 폴더)")
-    p.add_argument("--to", required=True, help="대상 worktree 경로")
-    p.add_argument("--files", default="", help="복사할 상대 경로, 쉼표 구분 (생략하면 기억한 세트)")
-    p.add_argument("--overwrite", action="store_true", help="대상에 이미 있는 파일도 덮어쓴다")
+    p = sub.add_parser("copy", help="Copy the remembered copy set (or --files) into the worktree")
+    p.add_argument("--root", default=".", help="Source repo path (default: current folder)")
+    p.add_argument("--to", required=True, help="Target worktree path")
+    p.add_argument("--files", default="", help="Relative paths to copy, comma-separated (defaults to the remembered set)")
+    p.add_argument("--overwrite", action="store_true", help="Overwrite files that already exist in the target")
     p.set_defaults(func=cmd_copy)
 
-    p = sub.add_parser("remove", help="worktree 제거 (미커밋 변경이 있으면 거절)")
-    p.add_argument("--root", default=".", help="원본 레포 경로 (기본: 현재 폴더)")
-    p.add_argument("--path", default=None, help="제거할 worktree 경로")
-    p.add_argument("--branch", default=None, help="체크아웃된 브랜치명 (경로 대신)")
-    p.add_argument("--force", action="store_true", help="미커밋 변경을 버리고 제거 (사용자가 정한 뒤에만)")
+    p = sub.add_parser("remove", help="Remove a worktree (refused if there are uncommitted changes)")
+    p.add_argument("--root", default=".", help="Source repo path (default: current folder)")
+    p.add_argument("--path", default=None, help="Worktree path to remove")
+    p.add_argument("--branch", default=None, help="Checked-out branch name (instead of a path)")
+    p.add_argument("--force", action="store_true", help="Discard uncommitted changes and remove (only after the user decides)")
     p.set_defaults(func=cmd_remove)
     return parser
 

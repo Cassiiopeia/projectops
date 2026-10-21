@@ -14,14 +14,14 @@ def cmd_get_output_path(args) -> int:
     cwd = getattr(args, "cwd", None)
     if cwd:
         if not Path(cwd).is_dir():
-            return _fail("bad_args", f"--cwd 가 디렉터리가 아닙니다: {cwd}", "보고서를 둘 레포의 경로를 넘긴다")
+            return _fail("bad_args", f"--cwd is not a directory: {cwd}", "Pass the path of the repo that will hold the report")
         # 경로 계산은 cwd 의 git 루트 기준이다 — 스크립트 폴더가 아니라 작업 레포를 가리키게 한다
         os.chdir(cwd)
     res = resolve_output_path(args.skill_id, args.title)
     if not res.get("ok", True):
         res.setdefault("summary", res.get("error"))
         if not res.get("next"):
-            res["next"] = "보고서를 둘 git 저장소 안에서 실행하거나 --cwd 로 그 저장소를 지정한다"
+            res["next"] = "Run inside the git repository that will hold the report, or point at it with --cwd"
     elif not res.get("next"):
-        res["next"] = "이 경로에 보고서를 저장한다 (저장 전 요약을 보여주고 승인받는다)"
+        res["next"] = "Save the report at this path (show a summary and get approval before saving)"
     return _out(res)
