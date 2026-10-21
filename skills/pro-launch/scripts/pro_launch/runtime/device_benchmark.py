@@ -1,6 +1,6 @@
-"""기기 수용량 측정: 실험용 기기를 켜서 기기당 메모리 · 부팅 · 캡처 시간을 잰다 (#964).
+"""기기 수용량 측정: 기기당 메모리 · 부팅 · 캡처 시간을 잰다 (#964).
 
-빠른 측정: 종류마다 한 대. 전체 측정(full): 멈춤 신호가 보일 때까지 한 대씩 늘린다 (최대 FULL_MAXIMUM_DEVICES).
+이미 켜진 기기가 있으면 그 사용량을 잰다(새로 켜지 않는다). 없으면 실험 기기를 켠다 — 빠른 측정: 종류마다 한 대. 전체 측정(full): 멈춤 신호가 보일 때까지 한 대씩 늘린다 (최대 FULL_MAXIMUM_DEVICES).
 실험 기기는 끝나면 언제나 끄고 지운다. 중간에 죽어도 남지 않게 1시간짜리 임시 기기로 원장에 올려 둔다(gc 가 줍는다).
 """
 from __future__ import annotations
@@ -102,6 +102,21 @@ def _is_slowed(sample: dict, first: dict) -> str | None:
             and sample["shot_seconds"] > first["shot_seconds"] * SLOW_SHOT_FACTOR:
         return f"캡처가 처음({first['shot_seconds']}초)보다 크게 느려졌다 ({sample['shot_seconds']}초)"
     return None
+
+
+def measure_running_devices() -> dict[str, dict]:
+    """이미 켜진 가상 기기의 실제 사용량 > {플랫폼: {samples, cost_mb, method: running}} — 새로 켜지 않는 측정."""
+    measured: dict[str, list[dict]] = {}
+    for facts in device_backends.all_device_facts():
+        if not facts.is_booted or device_backends.backend_named(facts.backend).capabilities.is_physical:
+            continue
+        footprint = procs.process_memory_mb(device_process_ids(facts.platform, facts.key))
+        if footprint:
+            measured.setdefault(facts.platform, []).append({"key": facts.key, "name": facts.name,
+                                                            "footprint_mb": footprint, "cost_mb": footprint})
+    return {platform: {"platform": platform, "samples": samples, "method": "running",
+                       "cost_mb": int(max(s["cost_mb"] for s in samples) * (1 + COST_MARGIN_RATIO))}
+            for platform, samples in measured.items()}
 
 
 def measure_platform(platform: str, is_full: bool) -> dict:

@@ -53,6 +53,7 @@ def test_benchmark_saves_budget_and_keeps_other_config(monkeypatch, capsys, sett
     monkeypatch.setattr(benchmark.host_resources, "read_memory", lambda: ROOMY)
     monkeypatch.setattr(benchmark.device_pool_facts, "booted_virtual_counts", lambda: {"android": 1})
     monkeypatch.setattr(benchmark.device_benchmark, "non_device_consumers", lambda: [])
+    monkeypatch.setattr(benchmark.device_benchmark, "measure_running_devices", lambda: {})
     monkeypatch.setattr(benchmark.device_benchmark, "measure_platform",
                         lambda platform, is_full: {"platform": platform, "cost_mb": 1200 if platform == "ios" else 6400})
     benchmark.run_benchmark(argparse.Namespace(platform=None, full=False, yes=False))
@@ -75,3 +76,25 @@ def test_boot_turn_is_one_at_a_time(monkeypatch):
 def test_top_size_notation_is_parsed():
     assert procs._size_to_mb("5611M") == 5611 and procs._size_to_mb("1.5G") == 1536
     assert procs._size_to_mb("2048K") == 2 and procs._size_to_mb("812M+") == 812
+
+
+def test_macos_swap_ratio_does_not_escalate_to_critical():
+    """macOS 는 스왑을 쓰는 만큼 늘려 늘 90% 가깝다 — OS 판정(경고)이 있으면 그것을 믿는다 (실측 #964)."""
+    from pro_launch.runtime import host_resources
+    memory = {"total_mb": 18432, "available_mb": 3300, "swap_total_mb": 13312, "swap_used_mb": 12055}
+    assert host_resources.pressure_level({**memory, "os_pressure": "high"}) == "high"
+    assert host_resources.pressure_level({**memory, "os_pressure": None}) == "critical"   # OS 판정이 없으면(Linux) 스왑을 본다
+
+
+def test_running_device_is_measured_without_booting_anything(monkeypatch):
+    from pro_launch.runtime import device_benchmark
+    from pro_launch.runtime.device_backends.base import Capabilities, DeviceFacts
+    facts = DeviceFacts(key="Medium_Phone", platform="android", backend="android_emulator", name="Medium_Phone",
+                        form="phone", os_version="36", is_booted=True, instance="emulator-5554")
+    monkeypatch.setattr(device_benchmark.device_backends, "all_device_facts", lambda platform=None: [facts])
+    monkeypatch.setattr(device_benchmark.device_backends, "backend_named",
+                        lambda name: type("B", (), {"capabilities": Capabilities(can_boot=True)})())
+    monkeypatch.setattr(device_benchmark, "device_process_ids", lambda platform, key: [4242])
+    monkeypatch.setattr(device_benchmark.procs, "process_memory_mb", lambda pids: 5589)
+    measured = device_benchmark.measure_running_devices()
+    assert measured["android"]["method"] == "running" and measured["android"]["cost_mb"] == int(5589 * 1.15)

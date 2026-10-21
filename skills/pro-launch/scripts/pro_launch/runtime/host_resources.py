@@ -99,7 +99,10 @@ def _percent(part: int | None, whole: int | None) -> int | None:
 def pressure_level(memory: dict) -> str:
     """수치 판정과 OS 판정(macOS) 중 더 나쁜 쪽 > ok | high | critical | unknown."""
     available_percent = _percent(memory.get("available_mb"), memory.get("total_mb"))
-    swap_used_percent = _percent(memory.get("swap_used_mb"), memory.get("swap_total_mb"))
+    # OS 가 압박 단계를 직접 알려 주면(macOS) 스왑 비율은 보지 않는다 — macOS 는 스왑을 쓰는 만큼 늘려 늘 90% 가깝다
+    # (실측 #964: 스왑 91% · OS 판정 경고인데 critical 로 올라 모든 부팅이 막혔다)
+    is_swap_judged = memory.get("os_pressure") is None
+    swap_used_percent = _percent(memory.get("swap_used_mb"), memory.get("swap_total_mb")) if is_swap_judged else None
     level = "unknown" if available_percent is None else "ok"
     if available_percent is not None:
         is_swap_nearly_full = (swap_used_percent or 0) >= CRITICAL_SWAP_USED_PERCENT

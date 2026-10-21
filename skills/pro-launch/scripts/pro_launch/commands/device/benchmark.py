@@ -41,7 +41,10 @@ def run_benchmark(args) -> int:
     baseline = host_resources.read_memory()
     booted_at_start = device_pool_facts.booted_virtual_counts()
     consumers = device_benchmark.non_device_consumers()
-    results = [device_benchmark.measure_platform(platform, bool(args.full)) for platform in platforms]
+    # 켜진 기기가 있는 종류는 그 실제 사용량으로 잰다 (새로 켜지 않는다) · --full 이면 늘려 가며 잰다
+    running = device_benchmark.measure_running_devices()
+    results = [running[platform] if platform in running and not args.full
+               else device_benchmark.measure_platform(platform, bool(args.full)) for platform in platforms]
     measured = {r["platform"]: r["cost_mb"] for r in results if r.get("cost_mb")}
     if not measured:
         return out({"ok": False, "code": "benchmark_no_room", "results": results, "baseline": baseline,
