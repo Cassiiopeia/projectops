@@ -70,7 +70,7 @@ SCRIPTS="$ROOT/plugins/projectops-extras/skills/pro-code-consult/scripts"
   H=$(find "$B" -maxdepth 8 -type d -path "*/projectops-extras/*skills/pro-code-consult/scripts" 2>/dev/null | sort -V | tail -1)
   [ -n "$H" ] && { SCRIPTS="$H"; break; }
 done
-[ -d "$SCRIPTS" ] || { echo "pro-code-consult 스크립트를 찾지 못했습니다. projectops-extras 설치를 확인하세요."; exit 1; }
+[ -d "$SCRIPTS" ] || { echo "pro-code-consult scripts not found. Check the projectops-extras installation."; exit 1; }
 echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS"
 ```
 

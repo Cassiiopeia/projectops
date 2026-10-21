@@ -57,7 +57,7 @@ for SKILL in pro-design-brief pro-launch pro-github pro-figma; do
     H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
     [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
   done
-  # 홈 복사 설치본: npx projectops 의 GitHub Copilot·Cursor (#200)
+  # Home-copied installs from npx projectops: GitHub Copilot and Cursor (#200)
   [ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.copilot ~/.cursor; do [ -d "$B/skills/$SKILL/scripts" ] && { ROOT="$B"; break; }; done
   [ -d "$ROOT/skills/$SKILL/scripts" ] || { echo "$SKILL scripts not found"; exit 1; }
   echo "$SKILL=$ROOT/skills/$SKILL/scripts"

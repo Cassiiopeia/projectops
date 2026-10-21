@@ -43,7 +43,7 @@ PREFS="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/scripts/prefs_cli.py"
   H=$(find "$B" -maxdepth 8 -type f -path "*/projectops/*scripts/prefs_cli.py" 2>/dev/null | sort -V | tail -1)
   [ -n "$H" ] && { PREFS="$H"; break; }
 done
-# 홈 복사 설치본: npx projectops 의 GitHub Copilot·Cursor (#200)
+# Home-copied installs from npx projectops: GitHub Copilot and Cursor (#200)
 [ -f "$PREFS" ] || for B in ~/.copilot ~/.cursor; do [ -f "$B/scripts/prefs_cli.py" ] && { PREFS="$B/scripts/prefs_cli.py"; break; }; done
 [ -f "$PREFS" ] || { echo "prefs_cli.py not found; skip preferences and use defaults"; exit 0; }
 PYTHONIOENCODING=utf-8 "$PYTHON" "$PREFS" resolve --skill "$SKILL_ID"
