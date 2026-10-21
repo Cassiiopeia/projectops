@@ -90,6 +90,11 @@ def test_api_는_이_레포_경로만_받고_쓰기는_플래그가_필요하다
     assert len(calls) == 1
     done = _run(monkeypatch, ["api", "POST", "o", "r", "/repos/o/r/issues/1/labels", "--write"], _request=fake)
     assert done["method"] == "POST" and len(calls) == 2
+    # 안전장치: --write 가 있어도 레포 공개 전환·삭제·비밀 쓰기는 막는다
+    for method, path in (("PATCH", ""), ("DELETE", "/repos/o/r"), ("PUT", "actions/secrets/X")):
+        blocked = _run(monkeypatch, ["api", method, "o", "r", path, "--write"], _request=fake)
+        assert blocked["code"] == "repo_admin_blocked", (method, path)
+    assert len(calls) == 2
 
 
 def test_secrets_set_value_file_은_여러_줄을_그대로_읽는다(monkeypatch, tmp_path):
