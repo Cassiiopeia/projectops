@@ -499,12 +499,12 @@
 
                 <div id="osCmdBash" class="hidden">
                     <pre class="bg-slate-900 rounded p-3 text-xs font-mono text-green-400 overflow-x-auto" id="cmdBashCode">python3 .github/util/flutter/firebase-wizard/firebase-wizard.py setup --project-path . --app-id "" --tester-group ""</pre>
-                    <button class="mt-2 px-3 py-1 bg-firebase-primary text-slate-900 rounded text-xs hover:opacity-90" onclick="copyCode(this)" data-i18n="step3.copyBash">Copy</button>
+                    <button class="mt-2 px-3 py-1 bg-firebase-primary text-slate-900 rounded text-xs hover:opacity-90" onclick="copyCode('cmdBashCode', this)" data-i18n="step3.copyBash">Copy</button>
                 </div>
 
                 <div id="osCmdPs" class="hidden">
                     <pre class="bg-slate-900 rounded p-3 text-xs font-mono text-green-400 overflow-x-auto" id="cmdPsCode">python .github\util\flutter\firebase-wizard\firebase-wizard.py setup --project-path . --app-id "" --tester-group ""</pre>
-                    <button class="mt-2 px-3 py-1 bg-firebase-primary text-slate-900 rounded text-xs hover:opacity-90" onclick="copyCode(this)" data-i18n="step3.copyPowerShell">Copy</button>
+                    <button class="mt-2 px-3 py-1 bg-firebase-primary text-slate-900 rounded text-xs hover:opacity-90" onclick="copyCode('cmdPsCode', this)" data-i18n="step3.copyPowerShell">Copy</button>
                 </div>
             </div>
 

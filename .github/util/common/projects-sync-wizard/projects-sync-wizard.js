@@ -1221,10 +1221,6 @@ function copyToClipboard(text) {
     });
 }
 
-function copyCommand(command) {
-    copyToClipboard(command);
-}
-
 function showToast(message, type = 'success') {
     const toast = document.getElementById('toast');
     const toastMessage = document.getElementById('toastMessage');
