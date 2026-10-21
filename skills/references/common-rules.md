@@ -22,7 +22,7 @@
 |------|------|
 | 커밋 실행 | 메시지 제안 → 사용자 승인 → 실행 순서 필수 |
 | GitHub 이슈/PR 생성 | 내용 확인 → 사용자 승인 → 생성 순서 필수 |
-| **이슈 상태·라벨 변경** | 아래 §이슈 상태 처리 규칙의 **파이프라인 단계는 확인 없이 해도 된다** (작업 시작 → `status: in progress`, 작업 완료 → `status: done` 교체 후 close). 그 밖의 임의 변경(다른 사람 이슈 닫기, 상관없는 라벨 바꾸기)은 사용자 요청이 있을 때만 |
+| **이슈 상태·라벨 변경** | 아래 §이슈 상태 처리 규칙의 **파이프라인 단계는 확인 없이 해도 된다** (작업 시작 → `status: in progress`, 작업 완료 → `status: done` 교체 후 close, 둘 다 `finish-issue`). 그 밖의 임의 변경(다른 사람 이슈 닫기, 상관없는 라벨 바꾸기)은 사용자 요청이 있을 때만 |
 | 파일 삭제 | 삭제 전 반드시 사용자 허락 |
 | push | 대상/내용 명시 후 사용자 승인 필수 |
 | **외부 계정·인증서·Secret을 바꾸는 실행** | 인증서 재발급, 프로비저닝 프로필 갱신, Actions Secret 교체, 외부 저장소 push. 무엇이 바뀌는지 말하고 승인받은 뒤 실행한다 (조회·읽기 전용 확인은 승인 불필요) |
@@ -35,16 +35,18 @@
 
 | 시점 | 처리 | 명령 |
 |------|------|------|
-| 작업 시작 | 라벨을 `status: in progress`(`작업중`)로 교체 | `github_cli.py set-labels {owner} {repo} {번호} "status: in progress"` |
-| 작업 완료 | 라벨을 `status: done`(`작업완료`)로 **교체** 후 close | `set-labels ... "status: done"` → `close-issue ... --reason completed` |
+| 작업 시작 | 상태 라벨을 `status: in progress`(`작업중`)로 교체 | `github_cli.py finish-issue {owner} {repo} {번호} --outcome in-progress` |
+| 작업 완료 | 상태 라벨을 `status: done`(`작업완료`)로 교체 후 close | `github_cli.py finish-issue {owner} {repo} {번호}` (기본 `--outcome done`) |
 | 남은 작업 있음 | 닫지 않고 `status: in progress` 유지 | — |
-| 작업 취소 | 라벨을 `status: cancelled`(`취소`)로 교체 후 close | `set-labels ... "status: cancelled"` → `close-issue ... --reason not_planned` |
+| 작업 취소 | 상태 라벨을 `status: cancelled`(`취소`)로 교체 후 close | `github_cli.py finish-issue {owner} {repo} {번호} --outcome cancelled` |
 
-- **`add-labels`가 아니라 `set-labels`로 교체한다** — 더하기만 하면 `status: todo`가 남아 상태가 두 개가 된다.
-  상태 외 라벨(`priority: urgent` 등)을 지키려면 `get-issue`로 기존 라벨을 읽어 상태 라벨만 바꾼 목록을 넘긴다.
+- **상태 전환은 `finish-issue`로 한다** — 상태 라벨만 바꾸고 `type:`·`area:`·`priority:` 같은 다른 라벨은 그대로 둔다.
+  `set-labels`는 넘긴 목록으로 **라벨 전체를 교체**하므로 `set-labels ... "status: done"`만 넘기면 다른 라벨이 전부 지워진다.
+  `add-labels`는 더하기만 해서 `status: todo`가 남아 상태가 두 개가 된다.
+- `finish-issue`가 일부 단계만 실패하면 `failed_steps`에 적힌 단계만 다시 한다 (`set-labels`는 `get-issue`로 읽은 기존 라벨에서 상태 라벨만 바꾼 전체 목록을 넘길 때만 쓴다).
 - 완료 처리 레시피는 `pro-github/SKILL.md` §"이슈 완료 처리"에 있다. `pro-report`가 보고서를 올린 뒤 이 레시피를 따른다.
 - 릴리스 워크플로우(`close_on_release`)도 완료 라벨 이슈를 닫지만, 이미 닫힌 이슈는 건너뛰므로 먼저 닫아도 충돌하지 않는다.
-- **취소 이슈는 `close_on_release`가 닫지 않는다**(완료 라벨만 대상). 그래서 취소는 agent가 직접 `close-issue --reason not_planned` 까지 한다.
+- **취소 이슈는 `close_on_release`가 닫지 않는다**(완료 라벨만 대상). 그래서 취소는 agent가 직접 `finish-issue --outcome cancelled`로 닫는다.
 
 ### 필요한 것이 없을 때
 
@@ -87,7 +89,7 @@
 ### 이슈 MD 파일명 규칙
 
 등록 전 `YYYYMMDD_001_제목.md`(`get-output-path issue`가 그날 일련번호·태그 뺀 제목으로 만든다) → 등록 후 실제 번호로
-rename `YYYYMMDD_245_제목.md`(권장). 파일명에 이모지·`TMP` 접두사 금지. 등록 순서: `work-start-protocol.md` §이슈 등록 순서.
+`YYYYMMDD_245_제목.md`로 바꾼다 (`create-issue --rename-body-file`이 바꾼다, 손으로 `mv` 하지 않는다). 파일명에 이모지·`TMP` 접두사 금지. 등록 순서: `work-start-protocol.md` §이슈 등록 순서.
 
 ## 작업 시작 프로토콜
 
@@ -153,6 +155,14 @@ echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS PROJECT_ROOT=$PROJECT_ROOT"
 (skill: github · commit · report · review · testcase · changelog-deploy · init-worktree · figma · agent-test · design-brief · oss-consult · launch).
 아래 탐색 블록은 이 파일이 아직 없을 때(첫 실행)나 `scripts_not_found` 일 때의 대체 경로다. 응답의 `newer_installed` 는 옛 버전에서 돌고 있다는 뜻이다.
 
+**zsh에서 명령을 변수에 담지 않는다** — `P="python3 …/projectops_cli.py github"; $P get-issue …` 는 zsh가 변수를 한 단어로 다뤄 `exit 127`(command not found)이 난다.
+줄이려면 함수로 감싼다:
+
+```bash
+G(){ PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py github "$@"; }
+G get-issue {owner} {repo} {번호}
+```
+
 위 블록은 **로컬(projectops 레포의 `skills/`) → 하네스 설치 경로(Claude Code·Codex·Gemini·pi)** 순으로 플러그인 루트를 찾는다.
 **형태를 바꾸지 않는다** — 하네스를 `for`로 하나씩 `find`하는 것(zsh `no matches found` 회피, #542)과 마지막 `[ -d "$SCRIPTS" ]`
 가드는 실사고로 생긴 것이다. 근거: `script-invocation.md` §스크립트 탐색.
@@ -174,8 +184,13 @@ curl `exit 35`(SSL) → `--ssl-no-revoke` 추가 후 재시도. 상세: `script-
 ## Git Push 실행 시 동작 규칙
 
 1. **main(기본·배포 브랜치)이면 push하지 않는다** — main은 릴리스 PR(`/pro-changelog-deploy`)로만 갱신된다
-2. `git pull --rebase origin {현재 브랜치}` 먼저 (릴리스 때 버전 확정 커밋이 개발 브랜치에도 추가되어 로컬이 뒤처지기 쉽다)
-3. `git push origin {현재 브랜치}`. non-fast-forward면 다시 rebase로 통합 (강제 push 금지). 사용자에게는 결과만 안내
+2. 순서: **커밋 → `git fetch origin` → `git pull --rebase origin {현재 브랜치}` → push** (릴리스 때 버전 확정 커밋이 개발 브랜치에도 추가되어 로컬이 뒤처지기 쉽다).
+   push 전 동기화는 내 변경을 커밋한 **뒤에** 한다 — 내 미커밋 변경이 남아 있으면 rebase가 거부된다
+3. `pull --rebase`가 다른 세션의 미커밋 변경 때문에 거부되면 `git merge --ff-only origin/{현재 브랜치}`로 대신한다
+   (`pro-changelog-deploy/SKILL.md` §1-1단계와 같은 방식). ff가 안 되면(갈라졌으면) 멈추고 사용자에게 묻는다. stash·reset으로 치우지 않는다
+4. **단계는 `&&`로 잇는다** — `;`로 이으면 동기화가 실패해도 push까지 진행된다:
+   `git fetch origin && git pull --rebase origin {브랜치} && git push origin {브랜치}`
+5. non-fast-forward면 다시 2~3으로 통합 (강제 push 금지). 사용자에게는 결과만 안내
 
 ## 커밋 메시지 컨벤션
 

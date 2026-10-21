@@ -1,13 +1,16 @@
 """산출물 md 파일 경로를 계산한다."""
 
 import os
+import re
 from pathlib import Path
 from typing import Optional, Union
 
 
-def get_next_seq(skill_dir: Path, today: str, strict: bool = False) -> str:
+def get_next_seq(skill_dir: Path, today: str, strict: bool = False,
+                 title: Optional[str] = None) -> str:
     """
     skill_dir 내에서 오늘 날짜(today)로 시작하는 파일 개수 + 1을 3자리로 반환한다.
+    title을 주면 오늘 같은 제목 산출물(파일·폴더)의 번호를 재사용한다 (호출마다 001·002 폴더가 늘던 문제, #971).
 
     strict=True이면 skill_dir이 존재하지 않을 때 FileNotFoundError를 던진다.
     CLI 레이어가 잘못된 skill_id를 명시적으로 거부할 때 사용한다.
@@ -16,8 +19,30 @@ def get_next_seq(skill_dir: Path, today: str, strict: bool = False) -> str:
         if strict:
             raise FileNotFoundError(f"skill_dir does not exist: {skill_dir}")
         return "001"
-    count = sum(1 for f in skill_dir.iterdir() if f.name.startswith(today))
-    return f"{count + 1:03d}"
+    today_names = [f.name for f in skill_dir.iterdir() if f.name.startswith(today)]
+    reused = _find_same_title_seq(today_names, today, title) if title else None
+    return reused or f"{len(today_names) + 1:03d}"
+
+
+def _find_same_title_seq(today_names: list, today: str, title: str) -> Optional[str]:
+    """오늘 같은 제목 산출물 > 그 일련번호 (`{날짜}_{NNN}_{제목}` 폴더 또는 `.md`)
+
+    일련번호 범위(오늘 항목 수 이하)만 재사용 — 등록 후 실제 이슈 번호로 바꾼 문서(`_245_`)는 덮지 않는다.
+    """
+    pattern = re.compile(rf"^{today}_(\d{{3}})_{re.escape(title)}(?:\.md)?$")
+    for name in sorted(today_names):
+        matched = pattern.match(name)
+        if matched and int(matched.group(1)) <= len(today_names):
+            return matched.group(1)
+    return None
+
+
+def _drop_repeated_issue_number(title: str, issue_number: Optional[str]) -> str:
+    """제목 앞의 같은 이슈 번호 제거: `574_제목`·`20261021_574_제목` + 574 > `제목` (경로 `574_574_` 방지)"""
+    if not issue_number:
+        return title
+    stripped = re.sub(rf"^(?:\d{{8}}_)?{re.escape(issue_number)}_", "", title)
+    return stripped or title
 
 
 def build_output_path(
@@ -189,6 +214,7 @@ def resolve_output_path(skill_id: str, forced_title: Optional[str] = None,
         extract_from_path as in_extract_from_path,
         extract_from_branch, get_current_branch, resolve,
     )
+    from common.gh_branch import strip_issue_decorations
     from common.title import normalize, extract_from_path as title_extract_from_path
 
     try:
@@ -220,13 +246,16 @@ def resolve_output_path(skill_id: str, forced_title: Optional[str] = None,
     configured_root, config_warning = read_configured_output_root()
     output_base = _join_output_root(root_str, configured_root)
     skill_dir = output_base / skill_id
-    number = issue_num if issue_num else get_next_seq(skill_dir, today)
-
+    # 제목 정리 (이모지·[태그] 제거 > 파일명 정규화 > 앞의 같은 이슈 번호 제거)
     if forced_title:
-        final_title = normalize(forced_title)
+        final_title = normalize(strip_issue_decorations(forced_title))
     else:
         raw = title_extract_from_path(cwd)
         final_title = normalize(raw) if raw else "untitled"
+    final_title = _drop_repeated_issue_number(final_title, issue_num)
+
+    # 번호: 이슈 번호 > 오늘 같은 제목의 일련번호 재사용 > 새 일련번호
+    number = issue_num if issue_num else get_next_seq(skill_dir, today, title=final_title)
 
     path = build_output_path(output_base, skill_id, today, number, final_title)
     out = {

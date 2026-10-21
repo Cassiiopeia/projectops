@@ -88,3 +88,24 @@ def test_team_commit_type_map_applies(tmp_path):
         "issue_helper:\n  commit_type_map:\n    정리: chore\n", encoding="utf-8")
     p = _run(["get-commit-template", "[정리] 로그", URL, "--repo-root", str(repo)], home, repo)
     assert p["template"] == f"로그 : chore : {{description}} {URL}"
+
+
+def test_commit_paths_skips_already_staged_deletion(tmp_path):
+    # 실사고: git rm 으로 스테이징된 삭제 경로를 --paths 에 넣으면 pathspec 오류로 stage_failed (#971)
+    home = _home(tmp_path, {})
+    env = {**_env(home), "GIT_AUTHOR_NAME": "a", "GIT_AUTHOR_EMAIL": "a@a",
+           "GIT_COMMITTER_NAME": "a", "GIT_COMMITTER_EMAIL": "a@a"}
+    repo = tmp_path / "r"; repo.mkdir()
+    git = ["git", "-C", str(repo)]
+    subprocess.run([*git, "init", "-q"], check=True, env=env)
+    (repo / "old.txt").write_text("x", encoding="utf-8")
+    subprocess.run([*git, "add", "old.txt"], check=True, env=env)
+    subprocess.run([*git, "commit", "-q", "-m", "init"], check=True, env=env)
+    subprocess.run([*git, "rm", "-q", "old.txt"], check=True, env=env)
+    (repo / "new.txt").write_text("y", encoding="utf-8")
+    # 줄바꿈으로 이어진 경로 하나도 함께 재현
+    out = subprocess.run([sys.executable, str(CLI), "commit", "--message", "m", "--root", str(repo),
+                          "--paths", "old.txt\nnew.txt"], capture_output=True, text=True, cwd=repo, env=env)
+    assert json.loads(out.stdout).get("commit"), out.stdout
+    tracked = subprocess.run([*git, "ls-files"], capture_output=True, text=True, env=env).stdout.split()
+    assert tracked == ["new.txt"]

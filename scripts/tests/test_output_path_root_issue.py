@@ -54,3 +54,9 @@ def test_issue_argument_overrides_branch_number(outside, project):
 
 def test_missing_root_is_reported(outside):
     assert resolve_output_path("report", "제목", root="/no/such/dir")["code"] == "root_not_found"
+
+
+def test_title_tags_and_repeated_issue_number_are_dropped(outside, project):
+    # 실사고: 파일명에 태그가 남고(`버그클라홈_…`) 번호가 두 번 들어감(`574_574_`) (#971)
+    out = resolve_output_path("report", "❗[버그][클라홈] #574 홈 화면 수정", root=str(project), issue=574)
+    assert Path(out["path"]).name.endswith("_574_홈_화면_수정.md")

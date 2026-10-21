@@ -44,6 +44,7 @@ description: "Create the commit with a message built from the issue number in th
 
 > **고정 진입점이 있으면 아래 탐색을 건너뛴다** (#942): `~/.projectops/bin/projectops_cli.py` 는 한 번이라도 CLI 를 실행하면 생기고, 부를 때마다 설치된 가장 새 스크립트를 찾아 인자를 그대로 넘긴다. 세션 도중 플러그인이 업데이트돼도 옛 경로에 묶이지 않는다.
 > `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py commit <서브커맨드> ...` (없거나 `scripts_not_found` 면 아래 탐색). 응답에 `newer_installed` 가 오면 이 진입점으로 다시 부른다.
+> zsh 에서 명령을 변수에 담지 않는다 (`P="python3 …"; $P` 는 exit 127). 줄이려면 함수로 감싼다: `G(){ PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py commit "$@"; }` → `G get-issue-number`.
 
 **Bash 도구는 호출마다 상태가 초기화된다.** 한 번 찾은 뒤 **실제 경로를 이후 블록에 값으로 직접 써넣는다.**
 

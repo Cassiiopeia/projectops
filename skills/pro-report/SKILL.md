@@ -22,11 +22,11 @@ description: "Generate an implementation report from the git diff and issue anal
 
 | 하려는 것 | 명령 | 자세히 |
 |---|---|---|
-| 보고서 저장 경로 받기 | `get-output-path report --title "{제목}"` | `../references/doc-output-path.md` |
+| 보고서 저장 경로 받기 | `get-output-path report --title "{제목}" [--issue {번호}]` | `../references/doc-output-path.md` |
 | 이슈 댓글로 올리기 | `add-comment {owner} {repo} {번호} "{.md 절대경로}"` | `references/posting.md` |
 | 본문 틀 · mermaid 규칙 | — | `references/output-template.md` |
 | 스크린샷 첨부 | pro-github `upload-image` | `references/posting.md` |
-| 이슈 완료 처리 | pro-github `set-labels` · `close-issue` | 아래 7단계 |
+| 이슈 완료 처리 | pro-github `finish-issue` | 아래 7단계 |
 
 ## 승인 게이트 · 시작 전 질문 (필수)
 
@@ -42,6 +42,7 @@ md 산출물을 만드므로 **`../references/approval-and-questions.md`를 반�
 
 > **고정 진입점이 있으면 아래 탐색을 건너뛴다** (#942): `~/.projectops/bin/projectops_cli.py` 는 한 번이라도 CLI 를 실행하면 생기고, 부를 때마다 설치된 가장 새 스크립트를 찾아 인자를 그대로 넘긴다. 세션 도중 플러그인이 업데이트돼도 옛 경로에 묶이지 않는다.
 > `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py report <서브커맨드> ...` (없거나 `scripts_not_found` 면 아래 탐색). 응답에 `newer_installed` 가 오면 이 진입점으로 다시 부른다.
+> zsh 에서 명령을 변수에 담지 않는다 (`P="python3 …"; $P` 는 exit 127). 줄이려면 함수로 감싼다: `G(){ PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py report "$@"; }` → `G get-output-path report --title "{제목}"`.
 
 **Bash 도구는 호출마다 상태가 초기화된다.** 한 번 찾은 뒤 **실제 경로를 이후 블록에 값으로 직접 써넣는다.**
 
@@ -61,6 +62,8 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/report_cli.py" get-output-path report
 ```
 
 **경로를 직접 조립하지 않는다.** 돌려준 `path` 를 그대로 쓴다 (#525). 형식(참고): `{산출물 루트}/report/YYYYMMDD_{이슈번호}_{정규화된제목}.md`.
+**개발 브랜치(`develop` 등)에서 작업했으면 `--issue {번호}` 를 함께 넘긴다** — 브랜치명에 번호가 없어 `_001_` 일련번호가 붙는다.
+제목은 이슈 제목을 그대로 넘겨도 된다 (이모지·`[태그]`·앞의 같은 이슈 번호는 CLI가 뺀다).
 산출물 루트는 팀 설정으로 바뀔 수 있으므로 `docs/projectops` 를 박아 쓰지 않는다.
 
 ## 핵심 원칙
@@ -131,7 +134,8 @@ PAT는 report_cli가 config.json에서 자동 로드한다(환경변수 우선).
 
 보고서 댓글이 올라갔으면 이슈를 완료 처리한다. 절차는 `pro-github` SKILL.md의 §"이슈 완료 처리" 레시피를 그대로 따른다 — 여기서 따로 정하지 않는다.
 
-- **작업이 끝났으면**: `set-labels`로 상태 라벨을 `status: done`(`작업완료`)으로 **교체**한 뒤 `close-issue --reason completed`
+- **작업이 끝났으면**: pro-github `finish-issue {owner} {repo} {번호}` — 상태 라벨만 `status: done`(`작업완료`)으로 바꾸고 닫는다 (`type:`·`area:` 등 다른 라벨은 유지).
+  `set-labels {…} "status: done"` 으로 대신하지 않는다 — `set-labels` 는 라벨 **전체를 교체**해 다른 라벨이 전부 지워진다
 - **남은 작업이 있으면**(후속 커밋·배포 후 검증 대기·사용자가 "아직"이라고 한 경우): 이 단계를 **생략**하고 `status: in progress`로 둔다. 무엇이 남았는지 완료 메시지에 적는다
 - 레포 `CLAUDE.md`가 다른 규칙을 정했으면 그쪽을 따른다
 - PAT가 없어 댓글을 못 올렸으면 이 단계도 건너뛴다

@@ -127,6 +127,21 @@ def _strip_trailing_mentions(raw: str) -> tuple:
     return cleaned, raw.rstrip() != cleaned
 
 
+def _paths_to_add(git, root: str, paths: list) -> list:
+    """--paths > git add 대상: 줄바꿈으로 이어진 값 분리, 이미 스테이징된 삭제 경로 제외
+
+    스테이징된 삭제(`git rm`·`git mv` 의 옛 경로)를 다시 add 하면 pathspec 오류로 커밋 전체가 멈춘다 (#971)
+    """
+    split_paths = [line.strip() for value in paths for line in value.splitlines() if line.strip()]
+    missing = {path for path in split_paths if not (Path(root) / path).exists()}
+    if not missing:
+        return split_paths
+    # 레포 루트 기준 상대경로 · 한글 경로 원문 그대로 (quotePath 끔)
+    listed = git("-c", "core.quotePath=false", "diff", "--cached", "--name-only", "--relative", "-z").stdout
+    already_staged = set(filter(None, listed.split("\0")))
+    return [path for path in split_paths if path not in missing or path not in already_staged]
+
+
 def cmd_commit(args) -> int:
     """커밋 한 번에: 메시지 정리 > 내가 지정한 경로만 스테이징 > 커밋. push 는 하지 않는다 (#940)."""
     import subprocess
@@ -147,11 +162,14 @@ def cmd_commit(args) -> int:
         return subprocess.run(["git", "-C", root, *git_args], capture_output=True, text=True,
                               encoding="utf-8", errors="replace")
 
-    if args.paths:
-        staged = git("add", "--", *args.paths)  # git add -A 는 쓰지 않는다: 다른 세션의 변경이 섞인다
+    to_add = _paths_to_add(git, root, args.paths)
+    if to_add:
+        staged = git("add", "--", *to_add)  # git add -A 는 쓰지 않는다: 다른 세션의 변경이 섞인다
         if staged.returncode != 0:
             return emit({"ok": False, "code": "stage_failed", "error": staged.stderr.strip()[:300],
-                         "next": "경로 철자를 확인한다"})
+                         "paths": to_add,
+                         "next": ("경로는 레포 루트 기준. 철자·대소문자를 확인하고, 디스크에도 인덱스에도 없는 "
+                                  "경로(이미 커밋된 삭제 등)는 --paths 에서 뺀다")})
     if not git("diff", "--cached", "--name-only").stdout.strip():
         return emit({"ok": False, "code": "nothing_staged", "error": "스테이징된 변경이 없다",
                      "next": "--paths 로 이번 작업에서 건드린 경로를 준다"})

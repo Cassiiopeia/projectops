@@ -61,11 +61,12 @@
 **이 프로젝트는 이슈가 완료되면 완료 라벨을 붙이고 이슈를 닫는다(close).** (2026-10-10 소유자 결정으로 변경 — 이전엔 닫지 않고 라벨만 바꿨다.)
 
 - 작업이 끝나면 이슈 상태 라벨을 **`status: done`**(기존 한글 레포는 `작업완료`)으로 바꾼 뒤 **이슈를 닫는다.**
-  라벨은 `set-labels`(전체 교체)로 바꾼다 — `add-labels`만 쓰면 이전 상태 라벨이 남아 상태가 두 개가 된다.
+  `finish-issue {owner} {repo} {번호} [--outcome done|cancelled|in-progress]`로 한다 — 상태 라벨만 바꾸고(`type:`·`area:` 등 다른 라벨 유지) 닫는다.
+  `set-labels`는 라벨 **전체를 교체**하므로 `set-labels ... "status: done"`만 넘기면 다른 라벨이 전부 지워진다. `add-labels`만 쓰면 이전 상태 라벨이 남아 상태가 두 개가 된다.
 - **완료 기준을 지킨다** — 구현이 main(또는 개발 브랜치)에 반영되고, 검증과 보고서(`/pro-report`)까지 끝난 것만 닫는다.
   사용자가 특정 이슈를 **명시적으로 완료 처리하라고 하면** 이 기준을 다시 따지지 않고 처리한다.
   남은 하위 작업이 있으면 닫지 않고 `status: in progress`로 둔다. 취소된 작업은 `status: cancelled`와 함께 닫는다.
-- 라벨 변경과 close는 `/pro-github`(`github_cli.py set-labels` / `close-issue`)로 처리한다.
+- 라벨 변경과 close는 `/pro-github`(`github_cli.py finish-issue`)로 처리한다. 일부 단계만 실패하면 `failed_steps`의 단계만 `set-labels`(기존 라벨에서 상태만 바꾼 전체 목록) / `close-issue`로 다시 한다.
 - **릴리스 워크플로우도 닫는다 (#771, `close_on_release`).** 완료 라벨이 붙은 이슈 중 릴리스 구간 커밋이 URL로 참조한 것을 닫는다. 에이전트가 먼저 닫아도 충돌하지 않는다(이미 닫힌 이슈는 건너뛴다). 이 저장소는 `version.yml`에서 켜져 있다.
 - **업데이트는 사용자가 지운·제외한 워크플로우를 되살리지 않는다 (#810).** baseline에 있는데 없는 파일, `options.excluded_workflows`에 적힌 파일, 개발 브랜치가 원격에 없는데 `develop`에서만 도는 파일은 건너뛰고 `incoming/`에 사본을 남긴다. 새 조건부 설치 경로를 추가하면 `copy/workflows.js`의 `skipNew` 게이트를 거치게 한다. 회귀 방지: `test/skip-new-workflows.test.js`.
 - **상태 라벨은 영문 표준(`status: todo` 등)과 기존 한글(`작업전` 등)을 둘 다 쓴다 (#776).** `label_style`이 표기를 정하고(신규 `en`, 기존 `ko` 유지), 스킬 공통 라벨 함수와 Projects 동기화는 두 표기를 서로 바꿔 인식한다.

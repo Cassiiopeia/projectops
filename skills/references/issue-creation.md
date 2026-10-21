@@ -119,6 +119,13 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py search-issues {owner} {r
 1. `.github/ISSUE_TEMPLATE/` 해당 템플릿을 Read로 읽어 형식 파악
 2. 관련 코드를 탐색하여 연관 파일 경로 포함
 3. 템플릿 형식에 맞춰 본문 작성 (preferences의 `template`이 있으면 추가 섹션으로 덧붙이고, `examples`는 문체 참고용으로만 본다)
+4. **이미지 첨부 (필수)** — 대화에 이 이슈와 관련된 이미지·시안·스크린샷이 붙어 있으면 빠뜨리지 않고 올린다.
+   `upload-image`로 올리고 출력의 `markdown`을 본문의 해당 섹션에 그대로 넣는다 (명령·주의사항: `../pro-github/references/images.md`).
+   ```bash
+   PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py upload-image {owner} {repo} {이미지 파일...} --prefix issue
+   ```
+   - 이미지의 로컬 파일 경로를 모르면(채팅에 붙여넣기만 됨) 사용자에게 경로를 묻는다. 이미지 없이 조용히 진행하지 않는다
+   - `private_warning`이 오면 private 레포라 렌더링되지 않는다고 사용자에게 알린다
 
 ### 4단계: 로컬 파일 먼저 저장
 
@@ -222,20 +229,21 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py search-issues {owner} {r
 이슈 본문에는 **제목 헤딩(`# ...`)과 라벨/담당자 메타 블록을 넣지 않는다.** 템플릿 섹션(📝현재 문제점, 🛠️해결 방안 등)만 쓴다. 로컬 `.md` 파일을 `body_file`로 넘기고, `--assignees`에는 [시작 전 §4]의 `ASSIGNEE`를 넘긴다 (미설정이면 생략).
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-issue {owner} {repo} "{제목}" "{이슈 본문 .md 절대경로}" "{라벨 csv}" --assignees "{ASSIGNEE}"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-issue {owner} {repo} "{제목}" "{이슈 본문 .md 절대경로}" "{라벨 csv}" --assignees "{ASSIGNEE}" --rename-body-file
 ```
 
-출력 JSON: `{"number":...,"url":...,"title":...,"assignees":[...]}`. 존재하지 않는 라벨은 자동 필터링되어 422가 나지 않는다. 담당자가 반영되지 않으면 `assignee_warning`이 오며, 이슈는 정상 생성된 것이므로 중단하지 않고 경고만 자연어로 전달한다.
+출력 JSON: `number`·`url`·`title`·`assignees`에 더해 `body_file_renamed_to`·`branch`·`commit_template`·`next`. 존재하지 않는 라벨은 자동 필터링되어 422가 나지 않는다. 담당자가 반영되지 않으면 `assignee_warning`이 오며, 이슈는 정상 생성된 것이므로 중단하지 않고 경고만 자연어로 전달한다.
 
-반환된 실제 번호로 로컬 파일명의 일련번호를 rename한다 (예: `20260710_001_제목.md` → `20260710_245_제목.md`).
+`--rename-body-file`이 로컬 파일명의 일련번호를 실제 번호로 바꾸고(예: `20260710_001_제목.md` → `20260710_245_제목.md`) 새 경로를 `body_file_renamed_to`로 돌려준다. **손으로 `mv` 하지 않는다.**
 
-### 6단계: 브랜치명 즉시 계산
+### 6단계: 브랜치명
 
-`create-branch-name "{이슈 제목}" {번호}`를 쓰거나 직접 계산한다. 형식 `YYYYMMDD_#{이슈번호}_{정규화된제목}` (예: `20260710_#235_기능추가_github_스킬_통합`).
+`create-issue` 응답의 `branch`를 그대로 쓴다. 응답에 없을 때만(옛 버전) `create-branch-name "{이슈 제목}" {번호}`를 부른다. 형식 `YYYYMMDD_#{이슈번호}_{정규화된제목}` (예: `20260710_#235_기능추가_github_스킬_통합`).
 
-### 7단계: 커밋 템플릿 계산
+### 7단계: 커밋 템플릿
 
-`get-commit-template "{이슈 제목}" "{이슈URL}" --repo-root "{PROJECT_ROOT}"`을 부르고 출력의 `template`을 **그대로** 쓴다. 직접 조립하지 않는다.
+`create-issue` 응답의 `commit_template`을 **그대로** 쓴다. 직접 조립하지 않는다.
+응답에 없을 때만(옛 버전) `get-commit-template "{이슈 제목}" "{이슈URL}" --repo-root "{PROJECT_ROOT}"`의 `template`을 쓴다.
 - 형식은 팀·개인 설정을 따른다 (팀 `version.yml` 형식이 있으면 그것, 없으면 개인 설정 — `preferences.md`). 여기서 형식을 가정하지 않는다
 - `{타입}`은 제목 태그에서 추론된다 — 버그면 `fix`, 기능이면 `feat`, 문서면 `docs`. `feat`로 고쳐 쓰지 않는다 (`semver_auto` 레포에서 버그 수정이 minor로 오른다)
 
@@ -247,7 +255,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-issue {owner} {re
 이슈 URL: {url}
 
 📝 커밋 메시지 템플릿:
-{get-commit-template 의 template 그대로}
+{create-issue 의 commit_template 그대로}
 (작업 완료 후 위 형식을 참고해 커밋하세요 — 메시지 형식은 사용자·레포 규칙을 따릅니다)
 
 다음 작업을 선택하세요:
