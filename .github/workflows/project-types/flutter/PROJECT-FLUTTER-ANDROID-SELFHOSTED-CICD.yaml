@@ -42,7 +42,6 @@ env:
   # SMB 서버 설정 (자체 서버 — Synology NAS·Linux 등)
   SMB_PORT: "44445" # 기본 445
   SMB_SHARE: "web"
-  SMB_PATH_IOS: "/your-project/ios/download" # SMB 경로: /{APP_ARTIFACT_NAME}/ios/download 형식으로 사용
   # Android 업로드 하위 경로. 빈 값이면 /{APP_ARTIFACT_NAME} 바로 아래에 올린다 (기존 동작).
   # 필요하면 "/android" 처럼 하위 경로를 넣는다. 값을 바꾸면 업로드 위치가 바뀌니 주의.
   SMB_PATH_ANDROID: ""
@@ -51,11 +50,58 @@ env:
   # FLUTTER_ROOT는 Flutter SDK 경로용 공식 변수라 충돌 — APP_ROOT로 분리
   APP_ROOT: "."  # @wizard auto:flutter-root
 jobs:
+  # 미설정 감지 (#662)
+  # Flutter 레포에는 이 파일이 항상 설치된다. 자체 서버를 쓰지 않는 레포에서 main 푸시마다
+  # 실패 런이 쌓이지 않도록, 자동 실행(push)일 때만 미설정이면 성공으로 건너뛴다.
+  # 미설정 조건 2개: 마법사 치환 토큰이 남은 값, SMB Secret 3개가 모두 없음
+  # 수동 실행은 그대로 진행 (main 이면 아래 사전 점검이 누락 항목을 오류로 알림)
+  check-config:
+    name: Check self-hosted deploy settings
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - name: Detect unconfigured template
+        id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+        run: |
+          if [ "$EVENT_NAME" != "push" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          reasons=""
+          for name in APP_ARTIFACT_NAME JAVA_VERSION SMB_PORT SMB_SHARE; do
+            case "${!name}" in
+              __*__) reasons="$reasons env.$name is still a template value (${!name});" ;;
+            esac
+          done
+          # 3개 중 일부만 있으면 설정 중인 레포로 보고 진행 (사전 점검이 누락을 오류로 알림)
+          if [ -z "$SERVER_HOST" ] && [ -z "$SERVER_USER" ] && [ -z "$SERVER_PASSWORD" ]; then
+            reasons="$reasons secrets SERVER_HOST, SERVER_USER and SERVER_PASSWORD are not set;"
+          fi
+          if [ -z "$reasons" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "configured=false" >> "$GITHUB_OUTPUT"
+          msg="Self-hosted (SMB) deploy is not configured, so this push run was skipped:${reasons} Set the values to enable it, or delete this workflow if you do not deploy to your own server."
+          echo "::notice title=Self-hosted deploy skipped::${msg}"
+          {
+            echo "### Self-hosted deploy skipped"
+            echo ""
+            echo "${msg}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
-    # CHANGELOG 워크플로우가 성공한 경우에만 실행
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
+    needs: check-config
+    # 설정된 레포에서만, CHANGELOG 워크플로우가 성공한 경우에만 실행
+    if: ${{ needs.check-config.outputs.configured == 'true' && (github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run') }}
 
     defaults:
       run:

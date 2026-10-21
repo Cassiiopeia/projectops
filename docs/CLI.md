@@ -96,6 +96,7 @@ npx projectops --intent library
 
 - 이 폴더에 템플릿이 설치돼 있는지, 설치된 워크플로우가 몇 개인지
 - 치환되지 않은 값(`__APPLICATION_YML_DIR__` 같은 자리)이 남아 배포 때 실패할 곳은 없는지
+- 자동으로 실행되는(push, 라벨 등) 워크플로우에 예시 값(`your-...`, `example.com`)이 남아 실행될 때마다 실패할 곳은 없는지
 - 설치된 워크플로우가 요구하는 Secret 목록
 - 워크플로우 `permissions` 선언 여부
 

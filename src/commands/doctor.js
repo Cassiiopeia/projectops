@@ -20,6 +20,7 @@ import { verifyInstall } from "../core/verify.js";
 import { readBaseline } from "../core/baseline.js";
 import { detectRepoName } from "../core/detect-fs.js";
 import { detectMigrations } from "../core/migrations/index.js";
+import { scanPlaceholderTriggers } from "../core/placeholder-triggers.js";
 import { t } from "../i18n/index.js";
 
 // 언어 전환(withLang 등) 시점에 평가되도록 함수로 둔다
@@ -94,6 +95,22 @@ export function localChecks(cwd = ".") {
       ...(v.unresolved.length > 8 ? [t("doctor.unres.more", { n: v.unresolved.length - 8 })] : []),
       t("doctor.unres.outro"),
     ],
+  });
+
+  // 자동 트리거 + 예시 값 (#662) — 미치환 토큰 검사에 안 걸리는 your-project 류 값이 실패 런을 계속 만든다
+  const autoPlaceholders = scanPlaceholderTriggers(wfDir);
+  add({
+    name: t("doctor.ph.name"), purpose: t("doctor.ph.purpose"),
+    status: autoPlaceholders.length ? "WARN" : "OK",
+    value: autoPlaceholders.length ? t("doctor.count", { n: autoPlaceholders.length }) : t("doctor.none"),
+    detail: autoPlaceholders.length ? [
+      t("doctor.ph.l1"),
+      ...autoPlaceholders.flatMap((w) => [
+        `  ${w.file}  (${w.triggers.join(", ")})`,
+        ...w.values.map((p) => `    ${w.file}:${p.line}  ${p.key}: "${p.value}"`),
+      ]),
+      t("doctor.ph.fix"),
+    ] : null,
   });
 
   const secretNames = [...v.secrets.keys()];
