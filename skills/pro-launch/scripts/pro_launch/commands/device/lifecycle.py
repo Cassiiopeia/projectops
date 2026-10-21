@@ -44,7 +44,13 @@ def _resource_refusal(action: str, args) -> int | None:
     return None
 
 
+def creation_reason(args) -> str | None:
+    """--reason, 없으면 --purpose (acquire 와 헷갈려 쓴다, #972)."""
+    return args.reason or getattr(args, "purpose", None)
+
+
 def run_create(args) -> int:
+    args.reason = creation_reason(args)
     if args.platform not in ("ios", "android") or not args.reason:
         return out({"ok": False, "code": "args_required", "error": "--platform 과 --reason(왜 새 기기가 필요한가)이 필요하다",
                     "next": "device create --platform ios --reason '#954 두 대 동시 로그인 테스트'"})
@@ -91,6 +97,7 @@ def run_clone(args) -> int:
     facts, backend, err = _resolve_any(args)
     if err is not None:
         return err
+    args.reason = creation_reason(args)
     if not args.reason:
         return out({"ok": False, "code": "args_required", "error": "--reason(왜 복제가 필요한가)이 필요하다",
                     "next": "device clone --device <원본> --reason '#955 로그인된 기기 두 대'"})

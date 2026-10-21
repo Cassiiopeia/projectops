@@ -11,7 +11,7 @@ from pro_launch.runtime import android_device, boot_turn, device_boot, device_ca
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.device_claims import touch_device
 from pro_launch.runtime.devices import list_devices
-from pro_launch.runtime.host_resources import critical_pressure_failure
+from pro_launch.runtime.host_resources import MEMORY_RISK_NEXT, critical_pressure_failure, memory_risk_fields
 from pro_launch.runtime.output import out
 
 # adb reboot 뒤 기기가 내려가기를 기다리는 시간 (초) — 바로 ready 를 보면 내려가기 전 상태를 읽는다
@@ -80,8 +80,8 @@ def run_boot(args) -> int:
     mode, scale, err = _window_options(args)
     if err is not None:
         return err
-    # 새 기기를 띄우기 전 호스트 메모리 — critical 이면 사용자 확인 (#883)
-    if not args.yes and (failure := critical_pressure_failure("device boot")):
+    # 새 기기를 띄우기 전 호스트 메모리 — critical 이면 사용자 승인(--user-approved)만 넘는다 (#883 · #972)
+    if not is_user_approved(args) and (failure := critical_pressure_failure("device boot", is_user_approvable=True)):
         return out(failure)
     simulators = device_boot.find_ios_simulators(args.device)
     if len(simulators) > 1:
@@ -114,16 +114,22 @@ def run_boot(args) -> int:
         return _android_started("boot", args.device, launched, mode, scale, already_booted=False)
 
 
+def is_user_approved(args) -> bool:
+    """사용자가 메모리 위험을 보고 진행하라고 답했다 — 위험 게이트를 넘는 유일한 표시 (--yes 는 넘지 않는다)."""
+    return bool(getattr(args, "user_approved", False))
+
+
 def _budget_refusal(platform: str, args) -> int | None:
-    """새로 켜기 전 메모리 예산 (#964) — 넘으면 --yes 없이 멈춘다."""
-    if args.yes:
+    """새로 켜기 전 메모리 예산 (#964) — 넘으면 --user-approved 없이 멈춘다."""
+    if is_user_approved(args):
         return None
     reason = device_capacity.boot_block_reason(platform, device_pool_facts.booted_virtual_counts())
     if reason is None:
         return None
-    return out({"ok": False, "code": "device_budget_exceeded", "error": reason,
+    return out({"ok": False, "code": "device_budget_exceeded", "error": reason, "reasons": [reason],
                 "capacity": device_capacity.capacity_view(), **android_device.host_pressure_fields(),
-                "next": "켜져 있는 기기 중 안 쓰는 것을 반납·종료하거나(device records), 사용자에게 묻고 --yes"})
+                **memory_risk_fields(),
+                "next": f"켜져 있는 기기 중 안 쓰는 것을 반납·종료하거나(device records), {MEMORY_RISK_NEXT}"})
 
 
 def run_reboot(args) -> int:

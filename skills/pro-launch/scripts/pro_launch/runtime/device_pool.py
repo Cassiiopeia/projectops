@@ -27,6 +27,8 @@ class AcquireRequest:
     purpose: str | None = None
     needs: tuple[str, ...] = ()
     is_fresh_required: bool = False
+    # 사용자가 메모리 위험을 보고 켜도 된다고 답했다 (--user-approved) — 메모리 게이트만 넘는다, 디스크·남의 소유는 그대로
+    is_memory_risk_user_approved: bool = False
 
 
 @dataclass(frozen=True)
@@ -67,6 +69,8 @@ class Decision:
     is_boot_needed: bool = False
     reclaimed_from: dict | None = None
     busy_owners: tuple[dict, ...] = field(default_factory=tuple)
+    # ask 가 메모리 위험 때문이다 — 사용자 답을 받은 뒤 --user-approved 로 넘을 수 있다
+    is_memory_risk: bool = False
 
 
 @dataclass
@@ -78,6 +82,16 @@ class _Working:
     reasons: list[str] = field(default_factory=list)
     # 임시 기기를 못 만드는 이유 (자원 한도) — 있으면 마지막에 ask
     create_block: str | None = None
+    is_create_block_memory: bool = False
+
+
+def _memory_block(request: AcquireRequest, context: PoolContext) -> str | None:
+    """새로 켜면 안 되는 메모리 이유 (critical > 예산 초과). 사용자가 승인했으면 None."""
+    if request.is_memory_risk_user_approved:
+        return None
+    if context.pressure == "critical":
+        return "호스트 메모리가 위험 수준이라 새로 켜기 전에 사용자 확인이 필요하다"
+    return context.boot_block
 
 
 def _owner_phrase(lease: dict) -> str:
@@ -142,10 +156,9 @@ def _choose_free(request: AcquireRequest, candidates: list[Candidate], working: 
     chosen = sorted(free, key=lambda c: (c.facts.is_booted, c.last_used or 0), reverse=True)[0]
     is_boot_needed = not chosen.facts.is_booted
     reasons = [*working.reasons, f"{chosen.facts.name}: 비어 있다" + (" (꺼져 있어 켠다)" if is_boot_needed else " (켜져 있다)")]
-    if is_boot_needed and context.pressure == "critical":
-        return Decision("ask", reasons=tuple(reasons + ["호스트 메모리가 위험 수준이라 새로 켜기 전에 사용자 확인이 필요하다"]))
-    if is_boot_needed and context.boot_block:
-        return Decision("ask", reasons=tuple(reasons + [context.boot_block]))
+    memory_block = _memory_block(request, context) if is_boot_needed else None
+    if memory_block:
+        return Decision("ask", reasons=tuple(reasons + [memory_block]), is_memory_risk=True)
     if chosen.dead_other_leases:
         dead = max(chosen.dead_other_leases, key=lambda lease: lease.get("last_used") or 0)
         reasons.append(f"{chosen.facts.name}: {_owner_phrase(dead)} 의 소유는 끝났다(호스트 종료 또는 유휴) — 넘겨받는다")
@@ -161,12 +174,13 @@ def _create_if_allowed(request: AcquireRequest, candidates: list[Candidate], wor
     """
     if request.device or request.needs or not context.can_create:
         return None
-    if context.pressure == "critical":
-        working.create_block = "호스트 메모리가 위험 수준이라 새 기기를 만들어 켜지 않는다"
+    memory_block = _memory_block(request, context)
+    if memory_block and context.pressure == "critical":
+        working.create_block, working.is_create_block_memory = "호스트 메모리가 위험 수준이라 새 기기를 만들어 켜지 않는다", True
     elif context.is_disk_low:
         working.create_block = "디스크 여유가 부족해 새 기기를 만들지 않는다 (device gc 로 정리할 것이 있는지 본다)"
-    elif context.boot_block:
-        working.create_block = context.boot_block
+    elif memory_block:
+        working.create_block, working.is_create_block_memory = memory_block, True
     if working.create_block:
         return None
     return Decision("create", reasons=tuple([*working.reasons, "조건에 맞는 빈 기기가 없어 임시 기기를 만들어 켠다"]),
@@ -180,7 +194,8 @@ def _wait_or_ask(request: AcquireRequest, candidates: list[Candidate], working: 
                    for c in working.eligible for lease in c.live_other_leases)
     if not owners:
         if working.create_block:
-            return Decision("ask", reasons=tuple([*working.reasons, working.create_block]))
+            return Decision("ask", reasons=tuple([*working.reasons, working.create_block]),
+                            is_memory_risk=working.is_create_block_memory)
         return Decision("no_match", reasons=tuple(working.reasons) or ("빌릴 수 있는 기기가 없다",))
     reasons = [*working.reasons, *(f"{o['device']}: {_owner_phrase(o)} 사용 중" for o in owners),
                *([working.create_block] if working.create_block else [])]

@@ -44,3 +44,34 @@ def test_brief_keeps_core_and_error_only():
     shaped = rt_output.shape_payload(_sample_failure())
     assert set(shaped) == {"ok", "code", "summary", "next", "error", "known_fix", "memory", "learn_hint",
                            "plugin_version"}
+
+
+# ── #972 실패 응답 · --brief · --fields 별칭 · learn_hint ──────────────
+
+def test_failure_summary_never_says_done():
+    assert rt_output.default_summary({"ok": False, "action": "acquire", "code": "needs_user",
+                                      "reasons": ["메모리 위험"]}) == "메모리 위험"
+    summary = rt_output.default_summary({"ok": False, "action": "boot", "code": "boot_failed"})
+    assert "완료" not in summary and "boot_failed" in summary
+
+
+def test_brief_keeps_failure_evidence_that_next_points_to():
+    OUTPUT_CTX.update(is_brief=True)
+    shaped = rt_output.shape_payload({"ok": False, "code": "needs_user", "reasons": ["r"], "output_tail": "t",
+                                      "limits": {}})
+    assert "reasons" in shaped and "output_tail" in shaped and "limits" not in shaped
+    assert "reasons" not in rt_output.shape_payload({"ok": True, "reasons": ["r"]})
+
+
+def test_fields_path_is_an_alias_of_file():
+    OUTPUT_CTX.update(field_names=["path"])
+    shaped = rt_output.shape_payload({"ok": True, "file": "/shot.webp", "url": "u"})
+    assert shaped["file"] == "/shot.webp" and "unknown_fields" not in shaped and "url" not in shaped
+
+
+def test_intended_failure_then_success_gives_no_learn_hint(tmp_path):
+    attempts = tmp_path / "attempts.json"
+    assert rt_output._track_attempt(attempts, "android", {"ok": False, "code": "wait_timeout"}) is None
+    assert rt_output._track_attempt(attempts, "android", {"ok": True}) is None
+    rt_output._track_attempt(attempts, "android", {"ok": False, "code": "boot_failed"})
+    assert rt_output._track_attempt(attempts, "android", {"ok": True}) is not None

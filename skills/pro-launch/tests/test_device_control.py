@@ -74,3 +74,31 @@ def test_claim_is_refused_without_yes_when_another_session_holds_the_device(monk
     assert result_of(capsys)["code"] == "device_owned_by_other"
     claims.run_claim(make_args(tmp_path, yes=True))
     assert result_of(capsys)["owner"]["session"] == "session-b"
+
+
+# env.sh 의 DEV 가 다른 세션 기기로 채워졌다 (#972) — 남이 쥔 기기는 빼고, 내가 쥔 기기가 먼저다
+def test_sole_device_skips_other_sessions_device(monkeypatch, no_waiting):
+    monkeypatch.setenv("LAUNCH_SESSION", "session-a")
+    device_claims.claim_device("emulator-5554", "/work/a")
+    assert rt_devices.sole_device() == "emulator-5554"
+    monkeypatch.setenv("LAUNCH_SESSION", "session-b")
+    assert rt_devices.sole_device() == IOS_UDID
+    assert rt_devices.sole_device(platform="android") is None
+
+
+def test_claim_on_shutdown_simulator_says_boot_it(monkeypatch, tmp_path, capsys, no_waiting):
+    from pro_launch.runtime import device_boot
+    shutdown = [{"udid": "SHUT-UDID", "name": "iPhone 15", "state": "Shutdown", "runtime": "ios-18"}]
+    monkeypatch.setattr(device_boot, "find_ios_simulators", lambda value: shutdown)
+    claims.run_claim(make_args(tmp_path, device="iPhone 15"))
+    result = result_of(capsys)
+    assert result["code"] == "device_shutdown" and "device boot --device SHUT-UDID" in result["next"]
+
+
+# acquire 가 --yes 를 조용히 무시했다 (#972) — 동작이 안 읽는 옵션은 bad_args, 위험 게이트는 --user-approved 만
+def test_device_action_rejects_options_it_does_not_read(capsys):
+    import launch_cli
+    launch_cli.main(["device", "acquire", "--platform", "ios", "--yes"])
+    result = result_of(capsys)
+    assert result["code"] == "bad_args" and result["unused_options"] == ["--yes"]
+    assert "--user-approved" in result["valid_options"] and "--user-approved" in result["next"]

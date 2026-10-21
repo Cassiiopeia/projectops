@@ -176,6 +176,15 @@ def test_find_respects_limit_and_clips_summary(tmp_path):
     assert set(rows[0]) == {"id", "title", "fix"}
 
 
+# iOS 실패에 android 해결이 실렸다 (#972) — 영역을 주면 그 영역 + general 만
+def test_areas_filter_keeps_only_matching_and_general(tmp_path):
+    skill_dir = tmp_path / "s"
+    for entry_id, area in (("on-android", "android"), ("on-ios", "ios"), ("on-general", "general")):
+        _write(skill_dir, _entry(entry_id, area=area, codes=("boot_failed",)))
+    rows = troubleshoot.find_known_fixes(_built(skill_dir), "boot_failed", "", limit=5, areas=("ios",))
+    assert {r["id"] for r in rows} == {"on-ios", "on-general"}
+
+
 def test_unknown_code_returns_nothing(skill):
     assert troubleshoot.find_known_fixes(_built(skill), "nothing_here", "") == []
 

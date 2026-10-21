@@ -193,15 +193,36 @@ def pressure_advice(level: str) -> str | None:
     return None
 
 
-def critical_pressure_failure(action: str) -> dict | None:
+# 메모리 위험 게이트(critical · 기기 예산)를 넘는 유일한 플래그 — --yes 로는 넘지 않는다 (#972)
+USER_APPROVED_FLAG = "--user-approved"
+# 위험 게이트에 걸렸을 때의 다음 행동 (acquire · boot 공용 문구)
+MEMORY_RISK_NEXT = (f"사용자에게 reasons(와 non_device_consumers)를 보여 주고 답을 받은 뒤 {USER_APPROVED_FLAG} 를 붙여 "
+                    "다시 부른다. 압박이 풀리기를 doctor --resources 로 폴링하며 기다리지 않는다")
+# 부를 플래그가 없는 동작(기기 없음 안내 등)의 다음 행동
+MEMORY_RISK_ASK_NEXT = ("사용자에게 reasons(와 non_device_consumers)를 보여 주고 무엇을 끌지 묻는다 — 다른 세션의 기기·빌드는 "
+                        "사용자가 정한다. 압박이 풀리기를 doctor --resources 로 폴링하며 기다리지 않는다")
+
+
+def memory_risk_fields() -> dict:
+    """위험 게이트 응답에 싣는 기기 밖 큰 메모리 소비자 — 사용자가 끌 것을 고르게 (#964 · #972)."""
+    from pro_launch.runtime.device_benchmark import non_device_consumers
+    try:
+        return {"non_device_consumers": non_device_consumers()}
+    except Exception:   # noqa: BLE001 — 소비자 목록은 보조다
+        return {}
+
+
+def critical_pressure_failure(action: str, is_user_approvable: bool = False) -> dict | None:
     """가상 기기를 새로 띄우는 동작 앞에서 부른다. critical 이면 중간에 죽기 전에 멈추는 실패 결과 (#883).
 
-    부르는 쪽: `if (failure := critical_pressure_failure("app launch")): return out(failure)`.
+    is_user_approvable: 그 동작이 --user-approved 를 받는다 (next 에 그 플래그를 안내).
+    부르는 쪽: `if (failure := critical_pressure_failure("device boot", True)): return out(failure)`.
     """
     summary = memory_summary()
     if summary["pressure"] != "critical":
         return None
+    error = (f"호스트 메모리가 위험 수준이다 (남은 {summary['available_percent']}%, "
+             f"스왑 {summary['swap_used_percent']}% 사용)")
     return {"ok": False, "code": "host_memory_pressure", "action": action, "resources": summary,
-            "error": (f"호스트 메모리가 위험 수준이다 (남은 {summary['available_percent']}%, "
-                      f"스왑 {summary['swap_used_percent']}% 사용)"),
-            "next": "사용자에게 먼저 묻는다 — 다른 세션의 기기·빌드를 끌지는 사용자가 정한다. doctor --resources 로 누가 쓰는지 본다"}
+            "error": error, "reasons": [error], **memory_risk_fields(),
+            "next": MEMORY_RISK_NEXT if is_user_approvable else MEMORY_RISK_ASK_NEXT}

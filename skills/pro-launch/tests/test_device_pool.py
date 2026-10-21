@@ -54,3 +54,12 @@ def test_need_without_any_marked_device_never_creates():
     assert any("새로 만들어도 그 상태는 없다" in reason for reason in decision.reasons)
 
 
+# 메모리 위험은 사용자 승인(--user-approved)으로만 넘는다 — 디스크 부족은 승인으로 넘지 않는다 (#972)
+def test_memory_risk_asks_until_user_approves():
+    critical = PoolContext(pressure="critical")
+    decision = decide(ios(), [cand("A")], critical)
+    assert decision.verdict == "ask" and decision.is_memory_risk
+    assert decide(ios(is_memory_risk_user_approved=True), [cand("A")], critical).verdict == "reuse"
+    disk_low = PoolContext(can_create=True, is_disk_low=True)
+    decision = decide(ios(is_memory_risk_user_approved=True), [], disk_low)
+    assert decision.verdict == "ask" and not decision.is_memory_risk

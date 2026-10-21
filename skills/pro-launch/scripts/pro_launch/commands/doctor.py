@@ -92,7 +92,11 @@ def _attach_resources(payload: dict) -> None:
     payload["capacity"] = capacity
     payload["summary"] += f" · 메모리 압박 {report['pressure']} · 기기 예산 {capacity['memory_budget_mb']}MB"
     advice = host_resources.pressure_advice(report["pressure"])
-    if advice:
+    if report["pressure"] == "critical":
+        # 압박이 풀리기를 폴링하며 기다리지 않게 — 기기 밖 소비자를 보여 주고 사용자에게 묻는다 (#972)
+        payload.update(host_resources.memory_risk_fields())
+        payload["next"] = f"{advice} {host_resources.MEMORY_RISK_ASK_NEXT}"
+    elif advice:
         payload["next"] = advice
     elif capacity["should_benchmark"]:
         payload["next"] = "device benchmark  # 이 컴퓨터가 기기를 몇 대까지 감당하나 재서 설정에 넣는다"

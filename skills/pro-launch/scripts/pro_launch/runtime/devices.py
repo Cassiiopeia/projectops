@@ -43,13 +43,27 @@ def ios_udids(dev: dict) -> list[str]:
             for s in dev.get("ios_booted", []) if re.search(r"\[([\w-]{36})\]$", s)]
 
 
-def sole_device() -> str | None:
-    """붙어 있는 안드로이드 기기가 정확히 하나면 그 시리얼. 아니면 None."""
+def sole_device(platform: str | None = None) -> str | None:
+    """env.sh 기본 DEV 후보: 다른 세션이 쥔 기기를 뺀 붙은 기기(플랫폼을 주면 그 플랫폼만)가 정확히 하나면 그 id.
+
+    이 세션이 쥔 기기가 하나면 그것이 먼저다. 정해지지 않으면 None — 남의 기기를 DEV 로 채우지 않는다 (#972).
+    """
+    from pro_launch.runtime import device_claims
     try:
-        found = list_devices()["android"]
-    except Exception:
+        dev = list_devices()
+        found = [("android", serial) for serial in dev["android"]] + [("ios", udid) for udid in ios_udids(dev)]
+        found = [dev_id for kind, dev_id in found if platform in (None, kind)]
+        free = [dev_id for dev_id in found if device_claims.check_device_owner(dev_id) is None]
+        owned = [dev_id for dev_id in free if _is_live_own(device_claims.device_owner(dev_id), device_claims)]
+    except Exception:   # noqa: BLE001 — 기본값 고르기는 보조다. 못 고르면 비워 둔다
         return None
-    return found[0] if len(found) == 1 else None
+    if len(owned) == 1:
+        return owned[0]
+    return free[0] if len(free) == 1 else None
+
+
+def _is_live_own(owner: dict | None, device_claims) -> bool:
+    return bool(owner and owner.get("is_live") and owner.get("session") == device_claims.session_identity())
 
 
 # ── 역할 ↔ 기기 (#583) ─────────────────────────────────────────────────
@@ -169,7 +183,29 @@ def pick_device(want: str | None) -> tuple[str | None, str | None, dict]:
     return None, cand, dev
 
 
+def shutdown_device_fields(target: str | None, dev: dict) -> dict | None:
+    """찾는 기기가 꺼진 시뮬레이터·AVD 면 device_shutdown 응답 필드. 아니면 None (#972)."""
+    if not target:
+        return None
+    from pro_launch.runtime import device_boot
+    simulators = [s for s in device_boot.find_ios_simulators(target) if s.get("state") != "Booted"]
+    if len(simulators) == 1:
+        simulator = simulators[0]
+        return {"ok": False, "code": "device_shutdown", "platform": "ios", "device": simulator["udid"],
+                "name": simulator["name"], "state": simulator["state"],
+                "error": f"'{target}' 시뮬레이터가 꺼져 있다 ({simulator['state']})",
+                "next": f"device boot --device {simulator['udid']}  # 켠 뒤 다시 부른다 (빌려 쓰려면 device acquire --platform ios)"}
+    if target in dev.get("android_avds", []) and target not in device_boot.running_emulators().values():
+        return {"ok": False, "code": "device_shutdown", "platform": "android", "device": target,
+                "error": f"'{target}' AVD 가 꺼져 있다",
+                "next": f"device boot --device {target}  # 켠 뒤 나온 시리얼(emulator-NNNN)로 다시 부른다"}
+    return None
+
+
 def no_device_response(dev: dict, want: str | None) -> int:
+    shutdown = shutdown_device_fields(want or os.environ.get("DEV"), dev)
+    if shutdown is not None:
+        return out(shutdown)
     is_boot_suggested = not (dev["android"] or dev["ios_booted"])
     # 새 기기 부팅을 권하기 전에 호스트 메모리 확인 — critical 이면 부팅 대신 사용자 확인 (#883)
     if is_boot_suggested:

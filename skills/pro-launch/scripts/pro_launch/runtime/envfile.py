@@ -70,11 +70,12 @@ def write_env_sh(run_dir: Path, package: str | None,
         lines += ["", "# 역할을 쓰지 않는 명령의 기본 기기", 'export DEV="$DEV1"']
     else:
         # DEV 는 **반드시 정의한다.** 비어 있으면 `adb -s ` 가 되어 사용법 오류로 죽는다.
+        # 다른 세션이 쥔 기기는 후보에서 뺀다 — 정해지지 않으면 비워 두고 acquire 를 안내한다 (#972)
         one = sole_device()
-        lines += ["", "# 붙어 있는 기기가 한 대뿐이라 그것을 기본으로 둔다"
+        lines += ["", "# 다른 세션이 쓰지 않는 기기가 한 대뿐이라 그것을 기본으로 둔다"
                       if one else
-                      "# 기기를 고르지 않았다. device bind 로 역할을 잡으세요 —"
-                      "\n# 비워 두면 adb 가 어느 기기로 갈지 정해지지 않는다",
+                      "# 기기를 정하지 않았다 (다른 세션 기기는 넣지 않는다). device acquire --platform ios|android 로"
+                      "\n# 빌린 뒤 DEV=<받은 id> 로 쓰거나, device bind 로 역할을 잡으세요",
                   "export DEV=%s" % _sh_quote(one or "")]
     lines.append("")
     env.write_text("\n".join(lines), encoding="utf-8")

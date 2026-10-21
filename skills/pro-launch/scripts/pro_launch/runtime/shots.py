@@ -9,35 +9,62 @@ from pathlib import Path
 from common.image import SHOT_MAX_SIDE, WEBP_QUALITY, to_webp
 
 from pro_launch.runtime.context import state_home
+from pro_launch.runtime.output import add_response_fields
+from pro_launch.runtime.session_identity import session_identity
 
-# get-output-path 가 남기는 이번 실행 폴더 기록: <상태 폴더>/last_run.json {"run_dir", "screenshots", "at"} (#931)
+# get-output-path 가 남기는 실행 폴더 기록: <상태 폴더>/last_run.json {"sessions": {세션: {run_dir, screenshots, at}}} (#931)
+# 세션별로 둔다 — 레포 하나에 기록 하나면 다른 세션의 실행 폴더에 캡처가 섞였다 (#972)
 LAST_RUN_FILE = "last_run.json"
 # 이 시간 안의 기록만 쓴다 — 며칠 전 실행 폴더에 오늘 캡처가 섞이지 않게 (12시간)
 LAST_RUN_VALID_SECONDS = 12 * 60 * 60
-# 캡처 자리의 출처 3개: env(SHOT_DIR) · last_run(최근 get-output-path) · state(상태 폴더 shots)
+# 캡처 자리의 출처 3개: env(SHOT_DIR) · last_run(이 세션의 최근 get-output-path) · state(상태 폴더 shots)
 SHOT_DIR_SOURCES = ("env", "last_run", "state")
 
 
+def _read_last_runs(root: Path) -> dict:
+    """{세션: 기록}. 세션 키가 없는 옛 모양(한 건)은 누구 것인지 몰라 버린다."""
+    try:
+        data = json.loads((state_home(root) / LAST_RUN_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    sessions = data.get("sessions") if isinstance(data, dict) else None
+    return {k: v for k, v in sessions.items() if isinstance(v, dict)} if isinstance(sessions, dict) else {}
+
+
 def record_last_run(root: Path, run_dir: Path, screenshots: Path) -> None:
-    """get-output-path 가 부른다. 기록 실패는 명령을 막지 않는다."""
+    """get-output-path 가 부른다 — 이 세션 칸만 바꾼다. 기록 실패는 명령을 막지 않는다."""
     target = state_home(root) / LAST_RUN_FILE
+    sessions = _read_last_runs(root)
+    now = time.time()
+    sessions = {k: v for k, v in sessions.items() if now - float(v.get("at") or 0) < LAST_RUN_VALID_SECONDS}
+    sessions[session_identity()] = {"run_dir": str(run_dir), "screenshots": str(screenshots), "at": now}
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps({"run_dir": str(run_dir), "screenshots": str(screenshots),
-                                      "at": time.time()}), encoding="utf-8")
+        target.write_text(json.dumps({"sessions": sessions}), encoding="utf-8")
     except OSError:
         pass
 
 
-def _last_run_screenshots(root: Path) -> Path | None:
-    """유효한(12시간 안 · 실행 폴더가 남아 있는) 최근 실행의 screenshots 폴더."""
+def _fresh_run(row: dict) -> Path | None:
+    """유효한(12시간 안 · 실행 폴더가 남아 있는) 기록의 screenshots 폴더."""
     try:
-        data = json.loads((state_home(root) / LAST_RUN_FILE).read_text(encoding="utf-8"))
-        is_fresh = time.time() - float(data.get("at") or 0) < LAST_RUN_VALID_SECONDS
-        run_dir, screenshots = Path(data["run_dir"]), Path(data["screenshots"])
-    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        is_fresh = time.time() - float(row.get("at") or 0) < LAST_RUN_VALID_SECONDS
+        run_dir, screenshots = Path(row["run_dir"]), Path(row["screenshots"])
+    except (ValueError, TypeError, KeyError):
         return None
     return screenshots if is_fresh and run_dir.is_dir() else None
+
+
+def _last_run_screenshots(root: Path) -> Path | None:
+    """이 세션의 최근 실행 screenshots 폴더. 다른 세션 것만 있으면 쓰지 않고 응답에 경고를 싣는다."""
+    sessions = _read_last_runs(root)
+    own = sessions.get(session_identity())
+    if own is not None and (folder := _fresh_run(own)) is not None:
+        return folder
+    if any(_fresh_run(row) is not None for name, row in sessions.items() if name != session_identity()):
+        add_response_fields({"shot_dir_note": "최근 get-output-path 는 다른 세션의 실행이라 그 폴더에 쓰지 않았다 — "
+                                              "이 세션에서 get-output-path 를 부르고 source env.sh 한다"})
+    return None
 
 
 def resolve_shot_folder(root: Path) -> tuple[Path, str]:
@@ -67,6 +94,9 @@ def shot_target(root: Path, name: str | None, ext: str = ".png") -> tuple[Path, 
     """(저장 경로, 경로를 직접 줬는가). 이름만 주면 SHOT_DIR 아래에 둔다."""
     if name and (os.sep in name or "/" in name):
         p = Path(name)
+        # 확장자가 없으면 붙인다 — 브라우저 캡처가 unsupported mime type 으로 실패한다 (#972)
+        if not p.suffix:
+            p = p.with_name(p.name + ext)
         p.parent.mkdir(parents=True, exist_ok=True)
         return p, True
     stem = Path(name).stem if name else time.strftime("%Y%m%d-%H%M%S")

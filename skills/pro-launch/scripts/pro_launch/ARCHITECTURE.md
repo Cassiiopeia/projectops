@@ -58,6 +58,7 @@ scripts/
     commands/               위층 — 서브커맨드
       doctor.py detect.py output_path.py
       device/               __init__ 디스패치 · bindings.py(list·bind) · claims.py(claim·release) · boot.py(boot·reboot) · settings.py(locale·appearance)
+                            action_options.py 동작별 받는 옵션 표 (안 읽는 옵션은 bad_args, #972) — 동작이 새 옵션을 읽으면 표에도 넣는다
       http.py access.py db.py logs.py ssh.py cred.py local.py render.py shrink.py memory.py kb.py session_check.py
       app/                  __init__ 디스패치 · gestures.py(조작) · app_control.py(기기·패키지·도구 실행) · steps.py(app run 단계 파일) · android_ime.py(Android 입력기 전환·입력 대조) · burst.py(연속 캡처) · launch_check.py(띄운 뒤 앞 화면 확인) · actions/ (동작 하나 = 모듈 하나)
       web/                  __init__ 디스패치 · options.py 공통 옵션 표 · session.py · targets.py · element.py 대상 고르기 · watchdog.py 시간 상한 · request_capture.py 요청 기록 · saved_values.py 비밀값 저장 · candidates.py 실패 때 후보 · actions/

@@ -35,7 +35,7 @@ description: "Capability skill that launches and drives apps, web and servers: e
 | 역할을 기기에 묶기(참가자가 둘 이상) · 소유자 보기 · 특정 기기 쥐기 | `device list\|bind\|unbind\|show\|claim` | `references/app.md` |
 | 에뮬레이터·시뮬레이터 띄우기(기본 창 없음, 창이 필요하면 작게) · 재부팅 · 언어 · 다크 모드 — **raw simctl/emulator 대신** | `device boot\|reboot [--cold]\|locale\|appearance\|text-size` · `app install --path` | `references/app.md` |
 | 앱 띄우기 · 찍기 | `app launch` · `app shot [--clean-status]` | `references/app.md` |
-| 앱 화면 구조 · 누르기 · 밀기 | `app tree` · `app tap` · `app swipe` | `references/app.md` |
+| 앱 화면 구조 · 누르기 · 밀기 · 뒤로가기 · 화면 안정 대기 | `app tree` · `app tap` · `app swipe` · `app back` · `app wait --settle` | `references/app.md` |
 | 앱 여러 단계 한 번에 (iOS 는 Maestro 1회) | `app run --steps steps.json` | `references/app.md` |
 | 복잡한 제스처(밀고 곧바로 탭 · 요소에서 밀기) — 프로젝트 Maestro flow 실행 + 캡처 | `app flow --file x.yaml` | `references/app.md` 제스처 플레이북 |
 | iOS 를 여러 번 보고 누를 때 — 상주 세션 (호출당 20초 > 1초) | `app session start\|stop\|status` | `references/app.md` |
@@ -103,7 +103,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
 ```
 
 돌려준 `env_file` 을 **이후 블록 첫 줄에서 source 한다.** `LAUNCH_RUN`(스킬별 `{스킬}_RUN`) · `$RUN_DIR` · `$SHOT_DIR` ·
-`$DEV`(역할을 묶었으면 `DEVn` · `ROLEn`) · `$PKG` 가 들어온다. `--skill` 은 `scripts/common/paths.py` 의 `EVIDENCE_SKILLS` 만
+`$DEV`(역할을 묶었으면 `DEVn` · `ROLEn`, 다른 세션이 쓰지 않는 기기가 한 대일 때만 채운다 — 비면 `device acquire`) · `$PKG` 가 들어온다. `--skill` 은 `scripts/common/paths.py` 의 `EVIDENCE_SKILLS` 만
 받는다 — 문서 스킬 폴더에 캡처를 쌓으면 추적 제외가 없어 커밋된다.
 
 ## 공통 규칙
@@ -113,6 +113,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
   여러 세션이 한 컴퓨터의 기기를 나눠 쓴다 — 새 시뮬레이터·AVD 를 `simctl create`·`avdmanager` 로 만들지 않는다.
   `verdict` 별 행동: `reuse`·`reclaim` 진행 · `wait`(`device_busy`) 는 `--wait 90` 으로 다시 부르거나 다른 일을 먼저 ·
   `ask`(`needs_user`) 는 `reasons` 를 그대로 사용자에게 보여 주고 묻는다 · `no_match` 는 `devices` 로 보고 조건을 넓힌다.
+  **메모리 위험**(`needs_user` 의 `is_memory_risk` · `host_memory_pressure` · `device_budget_exceeded`)은 사용자 답을 받은 뒤에만
+  `--user-approved` 를 붙여 다시 부른다(`acquire`·`boot`). `--yes` 는 이 게이트를 넘지 않는다 — 사용자에게 묻지 않고 붙이지 않는다.
   켜져 있지만 원장 기록이 없는 기기(사람이 쓰는 것일 수 있다)는 받지 않는다 — 꼭 그 기기여야 하면 사용자에게 묻고 `--device`.
 - **사람이 로그인·2단계 인증·데이터 준비를 마치면 바로 `device mark --device "$DEV" --kind login --name <공급자>`** (#954).
   다음 세션은 `device acquire --need login:<공급자>` 로 그 기기를 받는다 — 새 기기를 만들면 그 상태가 없다.
@@ -124,13 +126,15 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
 - **실패 응답에 `known_fix` 가 오면 그 해결부터 시도한다** — 검증된 공식 지식의 요약(최대 2건)이다. 전체 증상·원인은
   `kb show <id>`, 응답에 없을 때 직접 찾기는 `kb search "<오류 문구>" --code <code>`.
 - **결과를 `head`·`cut`·python 으로 자르지 않는다** — `next`·`memory`·`known_fix` 가 같이 잘려 나간다.
-  짧게 받으려면 어느 명령에든 `--brief`(ok·code·summary·next·error·known_fix·memory·learn_hint 만),
-  특정 키만 원하면 `--fields path,url` 을 붙인다. 둘 다 그 안내 키들은 항상 남긴다. 키 순서는 언제나
+  짧게 받으려면 어느 명령에든 `--brief`(ok·code·summary·next·error·known_fix·memory·learn_hint 만, 실패면 `reasons`·`output_tail` 도),
+  특정 키만 원하면 `--fields file,url` 을 붙인다(`path` 는 `file` 의 별칭). 둘 다 그 안내 키들은 항상 남긴다. 키 순서는 언제나
   `ok`·`code`·`summary`·`next` → `known_fix`·`memory` → 나머지다.
 - **`bad_args` 면 `unknown`·`did_you_mean`·`valid_options`·`example` 을 읽고 고친다** — 짐작으로 다시 부르지 않는다.
-  `empty_values` 가 오면 그 옵션 값이 비었다(`$VAR` 미설정).
+  `empty_values` 가 오면 그 옵션 값이 비었다(`$VAR` 미설정). `device <동작>` 에 그 동작이 읽지 않는 옵션을 주면
+  조용히 무시하지 않고 `bad_args`(`unused_options` · `valid_options`)로 돌려보낸다.
 - **`pressure: critical`(doctor --resources · devices 의 `resources`)이면 가상 기기를 새로 띄우기 전에 사용자에게 묻는다.**
   다른 세션의 에뮬레이터·시뮬레이터·프로세스는 끄지 않는다 — `owners` 로 누가 쓰는지 보고만 한다. `acquire` 는 이 경우 새로 켜지 않고 `ask` 를 낸다.
+  압박이 풀리기를 `doctor --resources` 로 폴링하며 기다리지 않는다 — `non_device_consumers` 를 보여 주고 무엇을 끌지 사용자에게 묻는다.
 - **기기 켜기는 메모리 예산 안에서, 이 컴퓨터 전체에서 한 번에 하나씩** (#964). 예산·기기당 비용은 `device benchmark` 가 재서 설정에 넣는다.
   `doctor --resources` 가 `device benchmark` 를 권하면(잰 적 없음 · 30일 지남 · RAM 바뀜) 다른 세션이 없을 때 한 번 잰다.
 - 캡처는 기본 긴 변 1200px WebP. 픽셀 대조처럼 원본이 필요할 때만 `--keep-format`. **찍은 것은 Read 로 열어 본다.**
@@ -181,6 +185,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app openurl    --device 
 | code | 다음 행동 |
 |---|---|
 | `no_device` | `devices` 로 보고 `--device` 를 준다 |
+| `device_shutdown` | 고른 시뮬레이터·AVD 가 꺼져 있다. `next` 의 `device boot --device <id>` 로 켠 뒤 다시 (빌려 쓰려면 `device acquire`) |
 | `not_found` | `candidates` 에서 고른다 |
 | `ui_dump_failed` | 화면 구조를 못 읽었다(전환 중·보안 화면). 응답의 `foreground_package` 가 내 앱이 아니면 다른 앱이 덮은 것이다. 잠시 뒤 다시, 계속이면 `--at` 비율 좌표 |
 | `not_foreground` · `app_exited` | launch·relaunch 는 보냈지만 앱이 앞에 없다 / 곧바로 죽었다. `blocking_activity`·`crash_report`·`exception_line` 을 읽는다. 남의 기기면 먼저 묻는다 |
@@ -188,7 +193,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app openurl    --device 
 | `typed_text_mismatch` | 입력칸 글자가 넣은 값과 다르다(조합형 키보드). `app type --ime ascii` |
 | `device_owned_by_other` | 다른 세션이 빌린 기기다. 바꾸는 조작(tap·type·install 등)은 거부되고, 읽기(shot·tree·wait)는 경고 필드만 붙는다. `device acquire` 로 다른 기기를 받거나, 꼭 그 기기여야 하면 사용자에게 묻고 `--yes` |
 | `device_busy` · `needs_user` · `no_matching_device` | `device acquire` 의 wait · ask · no_match — 위 공통 규칙의 verdict 별 행동 |
-| `device_budget_exceeded` | 새로 켜면 이 컴퓨터의 기기 메모리 예산을 넘는다(`reasons` · `non_device_consumers`). 안 쓰는 기기를 반납·종료하거나 사용자에게 묻는다 — 예산을 잰 적이 없으면 `device benchmark` |
+| `device_budget_exceeded` · `host_memory_pressure` | 새로 켜면 이 컴퓨터의 기기 메모리 예산을 넘는다 / 호스트 메모리가 위험 수준이다(`reasons` · `non_device_consumers`). 안 쓰는 기기를 반납·종료하거나, 사용자에게 보여 주고 답을 받은 뒤 `--user-approved` — 예산을 잰 적이 없으면 `device benchmark` |
 | `devices_in_use` · `benchmark_no_room` | 측정 중 다른 세션이 멈출 수 있어 시작하지 않았다 / 여유가 없어 실험 기기를 하나도 못 켰다(설정은 그대로) |
 | `ledger_busy` | 기기 원장 잠금을 10초 안에 못 얻었다. 잠시 뒤 다시 부른다 |
 | `device_protected` · `device_in_use_unrecorded` | 지우거나 초기화하려는 기기에 공들인 상태가 있다 / 사람이 쓰는 기기일 수 있다. `marks` 를 사용자에게 보여 주고 묻는다 — 그렇다면 `--yes` |

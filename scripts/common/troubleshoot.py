@@ -235,9 +235,10 @@ def _summary(entry_id: str, info: dict) -> dict:
 
 
 def find_known_fixes(skill_dir: Path, code: str | None = None, text: str | None = None,
-                     limit: int = DEFAULT_FIND_LIMIT) -> list[dict]:
+                     limit: int = DEFAULT_FIND_LIMIT, areas=None) -> list[dict]:
     """실패 코드·문구에 맞는 항목 요약 (최대 limit 건). 코드 정확 일치 > 핵심어 겹침 순.
 
+    areas: 이 영역들 + general 만 (iOS 실패에 android 항목이 실리지 않게). None 이면 거르지 않는다.
     어떤 오류도 밖으로 내지 않는다 — 공식 지식은 보조다.
     """
     try:
@@ -256,6 +257,9 @@ def find_known_fixes(skill_dir: Path, code: str | None = None, text: str | None 
             return keyword_hits.get(entry_id, 0) >= max(need, 1)
 
         candidates = code_hits | {i for i in keyword_hits if is_keyword_match(i)}
+        if areas:
+            allowed_areas = {*areas, "general"}
+            candidates = {i for i in candidates if (entries.get(i) or {}).get("area") in allowed_areas}
         ranked = sorted((i for i in candidates if i in entries),
                         key=lambda i: (i not in code_hits, -keyword_hits.get(i, 0), i))
         return [_summary(i, entries[i]) for i in ranked[:max(limit, 0)]]

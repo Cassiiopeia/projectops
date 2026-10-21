@@ -15,6 +15,7 @@ from pro_launch.runtime.context import project_root
 from pro_launch.runtime.device_backends.base import default_device_name
 from pro_launch.runtime.device_boot import resolve_window
 from pro_launch.runtime.device_pool import AcquireRequest, Candidate, decide
+from pro_launch.runtime.host_resources import MEMORY_RISK_NEXT
 from pro_launch.runtime.output import out
 from pro_launch.runtime.session_identity import session_identity
 
@@ -157,11 +158,13 @@ def _acquire_attempts(request: AcquireRequest, args, wait_seconds: float) -> dic
                     "owners": list(decision.busy_owners),
                     "next": identity_next("device acquire 를 --wait 90 으로 다시 부르거나 다른 일을 먼저 한다")}
         if decision.verdict == "ask":
+            # 메모리 위험이면 --user-approved 로만 넘는다 (--yes 는 넘지 않는다, #972)
             return {"ok": False, "code": "needs_user", **base, "owners": list(decision.busy_owners),
-                    **android_device.host_pressure_fields(),
+                    "is_memory_risk": decision.is_memory_risk, **android_device.host_pressure_fields(),
                     # 메모리 때문에 멈췄으면 기기 밖 큰 소비자를 함께 보여 준다 (#964)
                     "non_device_consumers": device_benchmark.non_device_consumers(),
-                    "next": "reasons 를 사용자에게 그대로 보여 주고 어떻게 할지 묻는다"}
+                    "next": (MEMORY_RISK_NEXT if decision.is_memory_risk
+                             else "reasons 를 사용자에게 그대로 보여 주고 어떻게 할지 묻는다")}
         next_step = ("그 상태를 사람이 기기에 만든 뒤 device mark 로 기록한다" if request.needs
                      else "devices 로 목록을 확인하고 조건(--form · --os · --device)을 넓힌다")
         return {"ok": False, "code": "no_matching_device", **base, "next": next_step}
@@ -191,9 +194,12 @@ def run_acquire(args) -> int:
     if args.platform not in ("ios", "android"):
         return out({"ok": False, "code": "args_required", "error": "--platform ios 또는 android 가 필요하다",
                     "next": "device acquire --platform ios --purpose '#이슈'"})
+    # --reason 은 --purpose 의 별칭 (create 와 헷갈려 쓴다, #972)
     request = AcquireRequest(platform=args.platform, form=args.form or "phone", os_minimum=args.os,
-                             device=args.device, purpose=args.purpose, needs=tuple(getattr(args, "need", None) or ()),
-                             is_fresh_required=bool(getattr(args, "fresh", False)))
+                             device=args.device, purpose=args.purpose or getattr(args, "reason", None),
+                             needs=tuple(getattr(args, "need", None) or ()),
+                             is_fresh_required=bool(getattr(args, "fresh", False)),
+                             is_memory_risk_user_approved=bool(getattr(args, "user_approved", False)))
     count = max(1, min(int(getattr(args, "count", 1) or 1), ACQUIRE_COUNT_MAXIMUM))
     if count == 1:
         return out(acquire_once(request, args))

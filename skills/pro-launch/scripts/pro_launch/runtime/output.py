@@ -42,14 +42,24 @@ def out(payload: dict) -> int:
         payload["migration_warnings"] = warns
     # summary 는 언제나 문자열이다 (#825) — None 이 섞이면 부르는 쪽 파싱이 깨진다(실측).
     if not payload.get("summary"):
-        act = payload.get("action")
-        payload["summary"] = payload.get("error") or (f"{act} 완료" if act else "완료")
+        payload["summary"] = default_summary(payload)
     _root_warning(payload)
     _empty_value_warning(payload)
     _grade_access(payload)
     attach_known_fix(payload)
     _memory_hooks(payload)
     return emit_shaped(payload)
+
+
+def default_summary(payload: dict) -> str:
+    """summary 가 없을 때: 실패면 error > 첫 reason > code (실패를 "완료"로 적지 않는다, #972) · 성공이면 "<action> 완료"."""
+    act = payload.get("action")
+    if payload.get("ok", True) is False:
+        reasons = payload.get("reasons") if isinstance(payload.get("reasons"), list) else []
+        cause = payload.get("error") or (reasons[0] if reasons else None)
+        label = f"{act} 실패" if act else "실패"
+        return str(cause) if cause else f"{label}: {payload.get('code') or 'error'}"
+    return payload.get("error") or (f"{act} 완료" if act else "완료")
 
 
 # 맨 앞 4필드 — 잘라 읽어도 다음 행동이 남게 언제나 먼저 · 언제나 남긴다
@@ -62,6 +72,10 @@ GUIDANCE_KEYS = ("known_fix", "known_fix_note", "memory", "memory_note", "learn_
 VERSION_KEYS = ("plugin_version", "newer_installed")
 # --brief 가 남기는 키: 머리 + error + 원인 + 안내 + 버전
 BRIEF_KEYS = (*HEAD_KEYS, "error", *CAUSE_KEYS, *GUIDANCE_KEYS, *VERSION_KEYS)
+# 실패면 --brief 에도 남기는 키 — next 가 읽으라고 가리키는 근거 (#972)
+FAILURE_BRIEF_KEYS = ("reasons", "output_tail", "non_device_consumers", "unused_options", "valid_options")
+# --fields 별칭: 요청 이름 > 같은 뜻의 실제 키 (캡처 경로는 file 로 낸다, #972)
+FIELD_ALIASES = {"path": "file", "file": "path"}
 
 
 def shape_payload(payload: dict) -> dict:
@@ -83,30 +97,39 @@ def shape_payload(payload: dict) -> dict:
     leading = [k for k in (*HEAD_KEYS, *CAUSE_KEYS, *GUIDANCE_KEYS, *VERSION_KEYS) if k in payload]
     ordered = {k: payload[k] for k in leading}
     ordered.update((k, v) for k, v in payload.items() if k not in ordered)
-    kept_names = _kept_key_names()
+    field_names = _resolve_field_aliases(OUTPUT_CTX.get("field_names"), ordered)
+    kept_names = _kept_key_names(field_names, is_failed=ordered["ok"] is False)
     if kept_names is None:
         return ordered
-    return {**{k: v for k, v in ordered.items() if k in kept_names}, **_unknown_field_report(ordered)}
+    return {**{k: v for k, v in ordered.items() if k in kept_names}, **_unknown_field_report(field_names, ordered)}
 
 
-def _unknown_field_report(ordered: dict) -> dict:
+def _resolve_field_aliases(field_names: list[str] | None, ordered: dict) -> list[str] | None:
+    """요청한 키가 없고 별칭 키가 있으면 별칭으로 바꾼다 (--fields path > file)."""
+    if not field_names:
+        return field_names
+    return [FIELD_ALIASES[name] if name not in ordered and FIELD_ALIASES.get(name) in ordered else name
+            for name in field_names]
+
+
+def _unknown_field_report(field_names: list[str] | None, ordered: dict) -> dict:
     """--fields 에 없는 키가 있으면 {unknown_fields, available_fields} — 조용히 빈 결과를 내지 않는다 (#931)."""
-    field_names = OUTPUT_CTX.get("field_names") or []
-    unknown = [name for name in field_names if name not in ordered]
+    unknown = [name for name in field_names or [] if name not in ordered]
     if not unknown:
         return {}
     return {"unknown_fields": unknown, "available_fields": list(ordered)}
 
 
-def _kept_key_names() -> set[str] | None:
+def _kept_key_names(field_names: list[str] | None, is_failed: bool) -> set[str] | None:
     """--brief · --fields 로 남길 키 이름. 둘 다 없으면 None (전부 남김), 둘 다면 합집합."""
     is_brief = bool(OUTPUT_CTX.get("is_brief"))
-    field_names = OUTPUT_CTX.get("field_names")
     if not is_brief and not field_names:
         return None
     kept_names = {*HEAD_KEYS, *GUIDANCE_KEYS, *VERSION_KEYS}
     if is_brief:
         kept_names.update(BRIEF_KEYS)
+        if is_failed:
+            kept_names.update(FAILURE_BRIEF_KEYS)
     if field_names:
         kept_names.update(field_names)
     return kept_names
@@ -128,12 +151,18 @@ def attach_known_fix(payload: dict) -> None:
     try:
         causes = payload.get("causes") if isinstance(payload.get("causes"), list) else []
         text = " ".join(str(v) for v in (payload.get("error"), payload.get("hint"), *causes) if v)
-        fixes = troubleshoot.find_known_fixes(SKILL_DIR, payload.get("code"), text)
+        fixes = troubleshoot.find_known_fixes(SKILL_DIR, payload.get("code"), text, areas=_failure_areas(payload))
         if fixes:
             payload["known_fix"] = fixes
             payload["known_fix_note"] = "검증된 공식 해결이다. 먼저 시도하고, 전체는 kb show <id>"
     except Exception:   # noqa: BLE001 — 공식 지식은 보조다
         pass
+
+
+def _failure_areas(payload: dict) -> tuple[str, ...] | None:
+    """이 실패의 영역 (응답 platform > 동작이 정한 기억 영역). 모르면 None (거르지 않음) — iOS 실패에 android 해결이 실리지 않게 (#972)."""
+    area = payload.get("platform") if payload.get("platform") in troubleshoot.AREAS else MEMORY_CTX.get("area")
+    return (area,) if area in troubleshoot.AREAS else None
 
 
 def _empty_value_warning(payload: dict) -> None:
@@ -297,6 +326,11 @@ def _journal_hooks(payload: dict, area: str, root: Path, unknown: bool, seen_dir
 # 실패 > 성공 연쇄 기록 (#863) — session-check 가 "막혔다 풀렸는데 learn 안 한 영역"을 짚는다
 RESOLVED_FILE = "resolved.json"
 RESOLVED_KEEP = 20
+# learn_hint 연쇄에서 빼는 실패 code — 조건 확인용 대기·판정·잘못 부름은 새로 배울 방식이 아니다
+INTENDED_FAILURE_CODES = frozenset({"wait_timeout", "expect_not_met", "unexpected_status", "not_found",
+                                    "index_out_of_range", "bad_args", "args_required", "args_invalid",
+                                    "missing_argument", "unexpected_argument", "text_required", "value_required",
+                                    "target_required"})
 
 
 def _track_attempt(f: Path, area: str, payload: dict) -> str | None:
@@ -306,6 +340,9 @@ def _track_attempt(f: Path, area: str, payload: dict) -> str | None:
     실패 횟수를 세어 두고, 풀리면 resolved.json 에 연쇄(영역·횟수·마지막 실패 code)를 남긴다.
     """
     ok = payload.get("ok", True) is not False and payload.get("code") in (None, "ok")
+    # 의도된 실패(대기 시간 초과·인자 오류·없는 대상)는 막힌 것이 아니다 — 연쇄에 넣지 않는다 (#972)
+    if not ok and payload.get("code") in INTENDED_FAILURE_CODES:
+        return None
     try:
         last = json.loads(f.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):

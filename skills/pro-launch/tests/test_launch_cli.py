@@ -309,3 +309,26 @@ def test_web_close_does_not_hang_on_unresponsive_browser(tmp_path, monkeypatch):
     finally:
         if proc.poll() is None:
             proc.kill()
+
+
+# ── 캡처 자리 (#972) ─────────────────────────────────────────────────────
+
+# 다른 세션의 get-output-path 폴더에 캡처가 저장됐다 — last_run 은 세션별이고 남의 것은 쓰지 않는다
+def test_last_run_folder_is_never_another_sessions(tmp_path, monkeypatch):
+    from pro_launch.runtime import shots
+    monkeypatch.delenv("SHOT_DIR", raising=False)
+    proj = _repo(tmp_path)
+    run_dir = tmp_path / "run-a"
+    run_dir.mkdir()
+    monkeypatch.setenv("LAUNCH_SESSION", "session-a")
+    shots.record_last_run(proj, run_dir, run_dir / "screenshots")
+    assert shots.resolve_shot_folder(proj) == (run_dir / "screenshots", "last_run")
+    monkeypatch.setenv("LAUNCH_SESSION", "session-b")
+    assert shots.resolve_shot_folder(proj)[1] == "state"
+
+
+# web shot --out <확장자 없는 경로> 가 unsupported mime type 으로 실패했다
+def test_explicit_shot_path_without_extension_gets_one(tmp_path):
+    from pro_launch.runtime import shots
+    path, is_explicit = shots.shot_target(tmp_path, str(tmp_path / "out" / "02_empty"))
+    assert is_explicit and path.name == "02_empty.png"
