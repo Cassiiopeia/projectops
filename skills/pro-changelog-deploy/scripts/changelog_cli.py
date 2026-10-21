@@ -34,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from deploy_status import cmd_deploy_status  # noqa: E402,F401
 from release_tools import branches_check, cmd_sync_base, detect_release_shape, wrap_release_notes  # noqa: E402,F401
 from release_context import collect_app_signals, load_config as _load_config  # noqa: E402
+from release_language import collect_release_language  # noqa: E402
 from release_pr import cmd_create_pr, _resolve_body_file  # noqa: E402,F401
 
 
@@ -309,6 +310,8 @@ def cmd_detect_release_context(args) -> int:
             "ignored_global_keys": view["ignored_global_keys"],
         },
         "hint": hint,
+        # 노트 언어·제목·스토어 언어·고정 스토어 문구 (#977) — 노트를 쓰기 전에 본다
+        "release_language": collect_release_language(project_root),
         "branches_check": check,
         **shape,
         "next": next_hint,

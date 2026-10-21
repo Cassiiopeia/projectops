@@ -45,34 +45,40 @@
 
 **Write tool로 `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md`에 저장한다** (레포 내부가 아닌 홈 디렉토리 — config와 같은 위치라 레포 오염이 없고, `{OWNER}__{REPO}` prefix로 여러 레포·에이전트가 동시에 deploy해도 충돌하지 않는다). Windows는 `C:\Users\<사용자>\.projectops\tmp\{OWNER}__{REPO}__release_notes.md`, macOS/Linux는 `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md`. **tmp 폴더가 없으면 Write 전에 생성**한다. 이후 CLI에는 이 **절대경로**(`NOTES_FILE`)를 그대로 넘긴다.
 
-워크플로우가 파싱하는 형식과 **100% 동일한 구조**로 쓴다. 카테고리명은 아래 고정값만 쓰고, 항목이 없는 카테고리는 생략한다.
+워크플로우가 파싱하는 형식과 **100% 동일한 구조**로 쓴다. 제목·카테고리명은 `detect-release-context` 의 `release_language.headings` 값만 쓰고(#977), 항목이 없는 카테고리는 생략한다. 노트 문장도 `release_language.notes_language` 로 쓴다.
+
+| 칸 | `ko` | `en` |
+|---|---|---|
+| `heading` | 릴리스 노트 | Release notes |
+| `feat` · `fix` · `improve` | 새 기능 · 버그 수정 · 개선 | New features · Bug fixes · Improvements |
+| `docs` · `etc` | 문서 · 기타 | Documentation · Other |
 
 ```
 <!-- This is an auto-generated comment: release notes by coderabbit.ai -->
 
 ## Summary by CodeRabbit
 
-## 릴리스 노트
+## {headings.heading}
 
-* **새 기능**
+* **{headings.feat}**
   * (항목)
 
-* **버그 수정**
+* **{headings.fix}**
   * (항목)
 
-* **개선**
+* **{headings.improve}**
   * (항목)
 
-* **문서**
+* **{headings.docs}**
   * (항목)
 
-* **기타**
+* **{headings.etc}**
   * (항목)
 
 <!-- end of auto-generated comment: release notes by coderabbit.ai -->
 ```
 
-> 스토어 언어별 번역(`store_locales`가 둘 이상일 때)은 이 구조 **뒤**에 별도 블록으로 덧붙인다 — 형식과 규칙은 `store-translations.md`. 한국어 구조 자체는 바꾸지 않는다.
+> 스토어 언어별 번역(`release_language.store.translation_targets` 가 있을 때)은 이 구조 **뒤**에 별도 블록으로 덧붙인다 — 형식과 규칙은 `store-translations.md`. 위 구조 자체는 바꾸지 않는다.
 
 ## 승인 게이트 문구 (deploy 5.5 / fix 4.5)
 

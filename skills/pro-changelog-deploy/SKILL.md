@@ -80,7 +80,7 @@ echo "PROJECT_ROOT=$PROJECT_ROOT PYTHON=$PYTHON SCRIPTS=$SCRIPTS OWNER=$OWNER RE
 PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-context --project-root "$PROJECT_ROOT"
 ```
 
-`detect-release-context` 출력의 `branches`(브랜치·provider)·`branches_source`·`conflict`와 `signals`·`hint`(앱 심사 신호), `release_shape`를 기억한다. `release_shape == deploy_branch`(origin에 개발 브랜치가 없고 `deploy`가 있음)면 `HEAD_BRANCH`/`BASE_BRANCH`를 `branches` 대신 `release_branches`(보통 `main` → `deploy`)로 정하고 `release_steps`대로 진행한다 — 이 쌍이 맞는지 사용자에게 한 번 확인한다. `standard`면 지금까지와 같다. owner/repo는 origin URL에서, config는 고정 경로에서 CLI가 알아서 읽는다(읽기 전용). 다른 레포를 볼 때만 `detect-release-context --project-root {PROJECT_ROOT} --owner {OWNER} --repo {REPO}`처럼 지정한다.
+`detect-release-context` 출력의 `branches`(브랜치·provider)·`branches_source`·`conflict`와 `signals`·`hint`(앱 심사 신호), `release_shape`, `release_language`(노트 언어·제목·스토어 언어 — 5단계)를 기억한다. `release_shape == deploy_branch`(origin에 개발 브랜치가 없고 `deploy`가 있음)면 `HEAD_BRANCH`/`BASE_BRANCH`를 `branches` 대신 `release_branches`(보통 `main` → `deploy`)로 정하고 `release_steps`대로 진행한다 — 이 쌍이 맞는지 사용자에게 한 번 확인한다. `standard`면 지금까지와 같다. owner/repo는 origin URL에서, config는 고정 경로에서 CLI가 알아서 읽는다(읽기 전용). 다른 레포를 볼 때만 `detect-release-context --project-root {PROJECT_ROOT} --owner {OWNER} --repo {REPO}`처럼 지정한다.
 
 ### 2)~5) config에서 값 정하기 — 상세 `references/config.md`
 
@@ -142,27 +142,29 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 선제 작성이 provider와 무관하게 안전한 이유: 워크플로우는 skill이 미리 넣은 `Summary by CodeRabbit`을(`already_found`) provider 무관하게 그대로 존중한다. 유일한 예외가 `commit` "맡기기"다.
 노트는 `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md`에 아래 뼈대로 Write한다 (tmp 폴더가 없으면 먼저 만든다). 표식 주석·`## Summary by CodeRabbit` 머리는 `create-pr`/`update-pr`가 없으면 씌우므로 적지 않아도 된다. 카테고리명은 이 다섯 개만, 빈 카테고리는 지운다. 좋은 예·나쁜 예와 승인 문구가 필요할 때만 `references/release-notes.md`를 연다.
 
-```
-## 릴리스 노트
+**노트 언어는 `release_language.notes_language`, 제목은 `release_language.headings`의 값을 글자 그대로 쓴다** (#977). 워크플로우 자동 생성기와 같은 규칙(`version.yml` `language`)이라 한 `CHANGELOG.md`에 두 언어가 섞이지 않는다. 사용자가 "이번엔 영어로"처럼 이번 배포만 다른 언어를 요청하면 그 말을 따른다.
 
-* **새 기능**
+```
+## {headings.heading}
+
+* **{headings.feat}**
   * (feat — 사용자가 느끼는 변화, 한 줄 40자 이내)
 
-* **버그 수정**
+* **{headings.fix}**
   * (fix)
 
-* **개선**
+* **{headings.improve}**
   * (refactor·perf·style)
 
-* **문서**
+* **{headings.docs}**
   * (docs)
 
-* **기타**
+* **{headings.etc}**
   * (나머지)
 ```
 
 재작성 규칙: 커밋 메시지를 옮기지 않는다 — 파일·클래스·함수명, `feat:` 같은 prefix, 이슈 번호·URL, 라이브러리·API 같은 내부 구현을 빼고 사용자 관점 한 줄로 쓴다. `APP_RELEASE == true`면 내부·CICD·테스트·빌드 성격 항목은 통째로 뺀다(노트가 곧 스토어 출시노트).
-**5단계 후속 — 스토어 언어별 번역 초안** — 노트 파일을 쓴 직후 `version.yml`의 `metadata.template.options.store_locales`를 Read로 확인한다. **언어가 둘 이상이면** `references/store-translations.md`를 읽고 번역 초안을 노트 파일 끝에 덧붙인다(외부 AI 호출 없이 직접 번역). 키가 없거나 하나면 이 단계는 없는 것과 같다.
+**5단계 후속 — 스토어 언어별 번역 초안** — `release_language.store.translation_targets`가 **비어 있지 않으면** `references/store-translations.md`를 읽고 번역 초안을 노트 파일 끝에 덧붙인다(외부 AI 호출 없이 직접 번역). 비어 있으면 이 단계는 없는 것과 같다. `release_language.store.fixed_whats_new`가 있으면 그 워크플로우는 노트 대신 고정 문구를 스토어에 올린다 — 승인 화면에 한 줄로 알린다.
 > **⚠️ AGENT 필독: 노트 파일을 만든 뒤 반드시 6단계(PR 생성)까지 실행한다. 단, 곧바로 가지 않고 5.5단계부터 거친다.**
 
 **5.5단계 승인 게이트** (문구는 `references/release-notes.md`):
@@ -223,5 +225,6 @@ PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-cont
 ## Customize
 
 Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start: run the snippet in `../references/preferences.md` with `SKILL_ID=pro-changelog-deploy`.
-Keys for this skill: `template` (release-note lead-in) plus the common `language`, `tone`, `rules`.
+Keys for this skill: `template` (release-note lead-in) plus the common `tone`, `rules`.
+The personal `language` preference does not change the release notes: they land in the team `CHANGELOG.md`, so their language is the repo's `version.yml` `language` (the key the workflow reads). Set that key to change it for the team; for one release, just ask.
 Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

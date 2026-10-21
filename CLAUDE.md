@@ -948,7 +948,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | commit | `skills/pro-commit/scripts/commit_cli.py` | get-issue-number, get-issue, normalize-title, sanitize-message, get-commit-template, resolve-style |
 | report | `skills/pro-report/scripts/report_cli.py` | get-output-path, add-comment |
 | review | `skills/pro-review/scripts/review_cli.py` | get-output-path |
-| changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` | actions, deploy-status, list-prs, update-pr, create-pr, detect-release-context |
+| changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` | actions, deploy-status, list-prs, update-pr, create-pr, detect-release-context (`release_language`: 노트 언어는 `version.yml` `language` — 워크플로우와 같은 규칙, 스토어 언어·고정 문구 — #977) |
 | testcase | `skills/pro-testcase/scripts/testcase_cli.py` | get-output-path (#525·#623) |
 | init-worktree | `skills/pro-init-worktree/scripts/worktree_cli.py` | recall, record (지난번 복사한 로컬 파일 세트를 기억 — #839) |
 | figma | `skills/pro-figma/scripts/figma_cli.py` | get-output-path, coverage, assets, conform, diff |

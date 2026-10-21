@@ -117,3 +117,13 @@ def test_commit_paths_skips_already_staged_deletion(tmp_path):
                           "--paths", ".gitignore", "docs/spec.md"], capture_output=True, text=True, cwd=repo, env=env)
     result = json.loads(out.stdout)
     assert result["code"] == "path_ignored" and result["paths"] == ["docs/spec.md"], out.stdout
+
+
+def test_language_falls_back_to_team_language(tmp_path):
+    """개인 language 가 없으면 팀 version.yml language, 있으면 개인 값 (#977)."""
+    repo = tmp_path / "r"; repo.mkdir()
+    (repo / "version.yml").write_text("metadata:\n  template:\n    options:\n      language: en\n", encoding="utf-8")
+    team = _run(["resolve-style", "--repo-root", str(repo)], _home(tmp_path / "a", {}), repo)
+    assert (team["language"], team["language_source"]) == ("en", "version.yml")
+    own = _run(["resolve-style", "--repo-root", str(repo)], _home(tmp_path / "b", {"preferences": {"language": "ko"}}), repo)
+    assert (own["language"], own["language_source"]) == ("ko", "preferences")

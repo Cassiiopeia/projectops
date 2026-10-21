@@ -139,7 +139,7 @@ PYTHONIOENCODING=utf-8 "{PYTHON}" "{SCRIPTS}/commit_cli.py" get-issue {owner} {r
 
 1. `resolve-style --repo-root "{PROJECT_ROOT}"` 로 `template`·`source`·`preset`·`language`·`tone`·`rules`·`examples`·`warnings` 를 받는다. `warnings`·`ignored` 가 비어 있지 않으면 사용자에게 한 줄로 알린다.
 2. `get-commit-template "<제목>" "<URL>" [--type T] [--scope S] --repo-root "{PROJECT_ROOT}"` 로 틀을 받는다. 틀에는 `{description}` 만 남아 있다. `--repo-root` 를 빼면 cwd 의 git 루트를 쓰지만, 하위 폴더·다른 레포에서 불릴 수 있으므로 항상 명시한다.
-3. `{description}` 을 staged diff 로 채운다. `language`·`tone`·`rules` 를 따르고, `examples` 는 문체·길이 참고만 하며 그대로 베끼지 않는다. 비어 있으면 기본 동작이다.
+3. `{description}` 을 staged diff 로 채운다. `language`(개인 설정이 없으면 팀 `version.yml` `language` — `language_source`, #977)·`tone`·`rules` 를 따르고, `examples` 는 문체·길이 참고만 하며 그대로 베끼지 않는다. 비어 있으면 기본 동작이다.
 
 - 이슈 제목 정제와 URL 은 CLI 결과를 그대로 쓴다 (요약·재작성 금지).
 - 타입은 staged diff 로 추천한다 (feat/fix/refactor/docs/chore/test/style — 표는 `references/message-rules.md`). `--type` 을 생략하면 제목 태그에서 유도한다.
@@ -195,7 +195,7 @@ Keys for this skill (set under `skills.pro-commit` in `~/.projectops/config/conf
 | `preset` | `conventional` (default for new users), `projectops`, `gitmoji`, or `custom` |
 | `template` | your own format; beats a `preset` set in the same layer (the preset then becomes `custom`); placeholders `{issue_title}` `{issue_url}` `{issue_number}` `{type}` `{emoji}` `{scope}` `{description}`. Legacy `${issueTitle}`-style placeholders are accepted too |
 | `examples` | sample messages to match in voice and length; never copied verbatim |
-| `language` / `tone` / `rules` | how `{description}` is written |
+| `language` / `tone` / `rules` | how `{description}` is written (no personal `language` → the repo's `version.yml` `language`) |
 
 ```json
 {"skills": {"pro-commit": {"preset": "conventional", "language": "en", "tone": "imperative",
