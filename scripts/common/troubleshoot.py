@@ -82,55 +82,55 @@ def _validate_match(match: dict) -> list[str]:
     for field in MATCH_FIELDS:
         values = match.get(field, [])
         if not isinstance(values, list) or not all(isinstance(v, str) and v.strip() for v in values):
-            problems.append(f"match.{field} 는 비어 있지 않은 문자열 목록")
+            problems.append(f"match.{field} must be a list of non-empty strings")
     codes = match.get("codes") if isinstance(match.get("codes"), list) else []
     keywords = match.get("keywords") if isinstance(match.get("keywords"), list) else []
     bad_codes = [c for c in codes if isinstance(c, str) and not CODE_PATTERN.match(c)]
     if bad_codes:
-        problems.append(f"match.codes 형식(소문자_밑줄) 아님: {bad_codes}")
+        problems.append(f"match.codes not in lower_snake form: {bad_codes}")
     if not codes and not keyword_tokens(keywords):
-        problems.append("match 에 codes 나 keywords 가 하나는 있어야 찾힌다")
+        problems.append("match needs at least one of codes or keywords to be found")
     return problems
 
 
 def validate_entry(entry: dict) -> list[str]:
     """항목 하나의 스키마 문제 목록 (없으면 빈 목록). 파일 위치·중복은 validate_entries 가 본다."""
     if not isinstance(entry, dict):
-        return ["항목은 JSON 객체"]
+        return ["an entry must be a JSON object"]
     problems = []
     # 필드 존재·타입
     for field, kind in REQUIRED_FIELDS.items():
         if field not in entry:
-            problems.append(f"필수 필드 없음: {field}")
+            problems.append(f"missing required field: {field}")
         elif not isinstance(entry[field], kind):
-            problems.append(f"{field} 타입은 {kind.__name__}")
+            problems.append(f"{field} must be of type {kind.__name__}")
     for field, kind in OPTIONAL_FIELDS.items():
         if field in entry and not isinstance(entry[field], kind):
-            problems.append(f"{field} 타입이 맞지 않음")
+            problems.append(f"{field} has the wrong type")
     unknown = set(entry) - set(REQUIRED_FIELDS) - set(OPTIONAL_FIELDS)
     if unknown:
-        problems.append(f"모르는 필드: {sorted(unknown)}")
+        problems.append(f"unknown fields: {sorted(unknown)}")
     if problems:
         return problems
     # 값 규칙 (id·area·제목·날짜·해결·이슈 번호)
     if not ID_PATTERN.match(entry["id"]):
-        problems.append("id 는 kebab-case (소문자·숫자·하이픈)")
+        problems.append("id must be kebab-case (lowercase letters, digits, hyphens)")
     if entry["area"] not in AREAS:
-        problems.append(f"area 는 {'/'.join(AREAS)} 중 하나")
+        problems.append(f"area must be one of {'/'.join(AREAS)}")
     for field in ("title", "symptom", "cause"):
         if not entry[field].strip():
-            problems.append(f"{field} 가 비어 있다")
+            problems.append(f"{field} is empty")
     if len(entry["title"]) > MAX_TITLE_CHARS:
-        problems.append(f"title 은 {MAX_TITLE_CHARS}자 이내")
+        problems.append(f"title must be at most {MAX_TITLE_CHARS} characters")
     if not _is_valid_date(entry["verified_at"]):
-        problems.append("verified_at 은 YYYY-MM-DD")
+        problems.append("verified_at must be YYYY-MM-DD")
     fix = entry["fix"]
     if not fix or len(fix) > MAX_FIX_ITEMS:
-        problems.append(f"fix 는 1~{MAX_FIX_ITEMS}개")
+        problems.append(f"fix must have 1 to {MAX_FIX_ITEMS} items")
     if not all(isinstance(f, str) and f.strip() and len(f) <= MAX_FIX_ITEM_CHARS for f in fix):
-        problems.append(f"fix 항목은 비어 있지 않은 {MAX_FIX_ITEM_CHARS}자 이내 문자열")
+        problems.append(f"each fix item must be a non-empty string of at most {MAX_FIX_ITEM_CHARS} characters")
     if not all(isinstance(r, int) and not isinstance(r, bool) and r > 0 for r in entry["refs"]):
-        problems.append("refs 는 이슈 번호(양의 정수) 목록")
+        problems.append("refs must be a list of issue numbers (positive integers)")
     problems += _validate_match(entry["match"])
     return problems
 
@@ -142,7 +142,7 @@ def read_entries(skill_dir: Path) -> tuple[list[tuple[Path, dict]], list[str]]:
         try:
             rows.append((path, json.loads(path.read_text(encoding="utf-8"))))
         except (OSError, json.JSONDecodeError) as error:
-            problems.append(f"{path.name}: JSON 을 읽지 못함 ({error})")
+            problems.append(f"{path.name}: could not read JSON ({error})")
     return rows, problems
 
 
@@ -159,15 +159,15 @@ def validate_entries(skill_dir: Path) -> list[str]:
         if found:
             continue
         if entry["id"] != path.stem:
-            problems.append(f"{label}: id({entry['id']}) 와 파일명이 다르다")
+            problems.append(f"{label}: id ({entry['id']}) does not match the file name")
         if entry["area"] != path.parent.name:
-            problems.append(f"{label}: area({entry['area']}) 와 폴더가 다르다")
+            problems.append(f"{label}: area ({entry['area']}) does not match the folder")
         if entry["id"] in seen_ids:
-            problems.append(f"{label}: id 중복 ({seen_ids[entry['id']]})")
+            problems.append(f"{label}: duplicate id ({seen_ids[entry['id']]})")
         seen_ids[entry["id"]] = label
         secrets = find_secrets(json.dumps(entry, ensure_ascii=False))
         if secrets:
-            problems.append(f"{label}: 비밀값으로 보이는 것 {secrets}")
+            problems.append(f"{label}: looks like a secret {secrets}")
     return problems
 
 

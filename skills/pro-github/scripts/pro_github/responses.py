@@ -5,7 +5,7 @@ from common.emit import emit
 
 
 def missing_pat() -> int:
-    return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
+    return emit({"ok": False, "code": "missing_pat", "error": "no PAT configured"})
 
 
 def api_error(error) -> int:

@@ -36,7 +36,7 @@ def _load_nacl_public():
             from nacl import encoding, public
             return encoding, public
         except Exception as e:
-            raise PyNaClMissingError("PyNaCl을 사용할 수 없습니다. 수동 설치: pip install PyNaCl") from e
+            raise PyNaClMissingError("PyNaCl is not available. Install it manually: pip install PyNaCl") from e
 
 
 def _encrypt_secret(public_key: str, value: str) -> str:

@@ -47,9 +47,9 @@ def positive_int(value: str) -> int:
     try:
         n = int(value)
     except (TypeError, ValueError):
-        raise argparse.ArgumentTypeError(f"정수가 필요합니다: {value!r}")
+        raise argparse.ArgumentTypeError(f"an integer is required: {value!r}")
     if n < 1:
-        raise argparse.ArgumentTypeError(f"1 이상이어야 합니다: {n}")
+        raise argparse.ArgumentTypeError(f"must be 1 or greater: {n}")
     return n
 
 
@@ -64,7 +64,7 @@ def _list_subcommands(parser: argparse.ArgumentParser) -> list:
 def _make_hint(parser: argparse.ArgumentParser) -> str:
     subs = _list_subcommands(parser)
     if subs:
-        return f"{parser.prog} <subcommand> — available: {', '.join(subs)}. 사용법은 `{parser.prog} <subcommand> --help`로 확인."
+        return f"{parser.prog} <subcommand> — available: {', '.join(subs)}. See `{parser.prog} <subcommand> --help` for usage."
     return f"{parser.prog} --help"
 
 
@@ -118,16 +118,16 @@ def run_cli(parser: JSONArgumentParser, argv: Optional[Sequence[str]] = None) ->
             "did_you_mean": _did_you_mean(e.message, e.parser),
             "hint": _make_hint(e.parser),
             "available_subcommands": _list_subcommands(e.parser),
-            "next": f"`{e.parser.prog} --help` 로 인자를 확인하고 고쳐 다시 실행한다",
+            "next": f"check the arguments with `{e.parser.prog} --help`, fix them and run again",
         })
     if not hasattr(args, "func"):
         return emit({
             "ok": False,
             "code": "bad_args",
-            "error": "서브커맨드가 지정되지 않았습니다.",
+            "error": "no subcommand given.",
             "hint": _make_hint(parser),
             "available_subcommands": _list_subcommands(parser),
-            "next": f"`{parser.prog} --help` 로 서브커맨드를 확인한다",
+            "next": f"list the subcommands with `{parser.prog} --help`",
         })
     try:
         return args.func(args)
@@ -136,5 +136,5 @@ def run_cli(parser: JSONArgumentParser, argv: Optional[Sequence[str]] = None) ->
             "ok": False,
             "code": "handler_error",
             "error": f"{type(e).__name__}: {e}",
-            "next": "입력(경로·값)을 확인하고 다시 실행한다",
+            "next": "check the inputs (paths, values) and run again",
         })

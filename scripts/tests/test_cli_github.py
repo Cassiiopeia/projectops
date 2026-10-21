@@ -332,7 +332,7 @@ def test_get_issues_partial_failure_reports_count(monkeypatch):
     rc, out = _run(monkeypatch, ["get-issues", "o", "r", "1", "2"], get_issue=_get)
     assert rc == 0
     assert out["failed_count"] == 1
-    assert "1개 조회 실패" in out["summary"]
+    assert "1 of 2 lookups failed" in out["summary"]
 
 
 def test_update_issue_nothing_to_update(monkeypatch):

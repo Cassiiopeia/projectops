@@ -16,7 +16,7 @@ def cmd_list_labels(args, api) -> int:
         return emit({
             "count": len(labels),
             "labels": labels,
-            "summary": f"{args.owner}/{args.repo} 라벨 {len(labels)}개",
+            "summary": f"{args.owner}/{args.repo}: {len(labels)} label(s)",
         })
     except GitHubAPIError as e:
         return api_error(e)
@@ -30,9 +30,9 @@ def cmd_add_labels(args, api) -> int:
     try:
         applied = api.add_issue_labels(args.owner, args.repo, args.number, labels, pat)
         missing = [l for l in labels if l not in applied]
-        out = {"labels": applied, "summary": f"#{args.number} 라벨 추가 (현재 {len(applied)}개)"}
+        out = {"labels": applied, "summary": f"#{args.number}: added labels (now {len(applied)})"}
         if missing:
-            out["label_warning"] = f"레포에 없어 무시된 라벨: {', '.join(missing)}"
+            out["label_warning"] = f"labels ignored because the repo does not have them: {', '.join(missing)}"
         return emit(out)
     except GitHubAPIError as e:
         return api_error(e)
@@ -44,14 +44,14 @@ def cmd_remove_label(args, api) -> int:
         return missing_pat()
     try:
         result = api.remove_issue_label(args.owner, args.repo, args.number, args.label, pat)
-        return emit({**result, "summary": f"#{args.number}에서 라벨 '{args.label}' 제거"})
+        return emit({**result, "summary": f"removed label '{args.label}' from #{args.number}"})
     except GitHubAPIError as e:
         # 이슈에 그 라벨이 원래 없으면 404 — 멱등 처리 (이미 없는 상태)
         if e.status_code == 404:
             return emit({
                 "labels": None,
                 "code": "label_not_present",
-                "summary": f"#{args.number}에 라벨 '{args.label}'이(가) 이미 없음 (변경 없음)",
+                "summary": f"#{args.number} already has no label '{args.label}' (no change)",
             })
         return api_error(e)
 
@@ -71,23 +71,23 @@ def cmd_set_labels(args, api) -> int:
             return emit({
                 "ok": False,
                 "code": "no_valid_labels",
-                "error": f"레포에 없는 라벨뿐이라 교체하지 않았습니다 (기존 라벨 유지): {', '.join(skipped)}",
+                "error": f"not replaced: none of the labels exist in the repo (existing labels kept): {', '.join(skipped)}",
                 "labels": result["labels"],
-                "label_warning": f"레포에 없어 무시된 라벨: {', '.join(skipped)}",
+                "label_warning": f"labels ignored because the repo does not have them: {', '.join(skipped)}",
                 "next": f"list-labels {args.owner} {args.repo}",
             })
         removed = [label for label in before if label not in result["labels"]]
         out = {"labels": result["labels"], "removed": removed,
-               "summary": f"#{args.number} 라벨 전체 교체 (현재 {len(result['labels'])}개, 제거 {len(removed)}개)"}
+               "summary": f"#{args.number}: replaced all labels (now {len(result['labels'])}, removed {len(removed)})"}
         if skipped:
-            out["label_warning"] = f"레포에 없어 무시된 라벨: {', '.join(skipped)}"
+            out["label_warning"] = f"labels ignored because the repo does not have them: {', '.join(skipped)}"
         # 상태 라벨만 바꾸려다 type:·area: 라벨까지 지우는 사고가 반복됐다
         removed_non_status = [label for label in removed if label not in STATUS_LABEL_NAMES]
         if removed_non_status:
-            out["warning"] = f"상태 라벨이 아닌 라벨도 지워졌다: {', '.join(removed_non_status)}"
-            out["next"] = (f"의도한 게 아니면 add-labels {args.owner} {args.repo} {args.number} "
-                           f"\"{','.join(removed_non_status)}\" 로 되돌린다. "
-                           f"상태만 바꿀 때는 finish-issue --outcome done|cancelled|in-progress")
+            out["warning"] = f"non-status labels were removed too: {', '.join(removed_non_status)}"
+            out["next"] = (f"if that was not intended, restore them with add-labels {args.owner} {args.repo} {args.number} "
+                           f"\"{','.join(removed_non_status)}\". "
+                           f"To change only the status, use finish-issue --outcome done|cancelled|in-progress")
         return emit(out)
     except GitHubAPIError as e:
         return api_error(e)
@@ -118,16 +118,16 @@ def _configure_set_labels(parser) -> None:
     parser.add_argument("owner")
     parser.add_argument("repo")
     parser.add_argument("number", type=int)
-    parser.add_argument("labels", help="csv (빈 값이면 전부 제거)", nargs="?", default="")
+    parser.add_argument("labels", help="csv (empty removes all)", nargs="?", default="")
 
 
 COMMANDS = [
-    Command(name="list-labels", help="레포 라벨 목록", run=cmd_list_labels,
+    Command(name="list-labels", help="list repo labels", run=cmd_list_labels,
             configure=_configure_list_labels),
-    Command(name="add-labels", help="이슈에 라벨 추가 (기존 유지)", run=cmd_add_labels,
+    Command(name="add-labels", help="add labels to an issue (keeps existing ones)", run=cmd_add_labels,
             configure=_configure_add_labels),
-    Command(name="remove-label", help="이슈에서 라벨 하나 제거", run=cmd_remove_label,
+    Command(name="remove-label", help="remove one label from an issue", run=cmd_remove_label,
             configure=_configure_remove_label),
-    Command(name="set-labels", help="이슈 라벨 전체 교체 (상태 외 라벨도 지운다 — 완료 처리는 finish-issue)", run=cmd_set_labels,
+    Command(name="set-labels", help="replace all issue labels (also removes non-status labels; to finish an issue use finish-issue)", run=cmd_set_labels,
             configure=_configure_set_labels),
 ]

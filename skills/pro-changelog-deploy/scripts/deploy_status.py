@@ -45,7 +45,7 @@ def cmd_deploy_status(args) -> int:
     import time
     pat = get_github_pat(args.owner, args.repo)
     if not pat:
-        return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
+        return emit({"ok": False, "code": "missing_pat", "error": "no PAT configured"})
     wait_seconds = min(max(args.wait or 0, 0), WAIT_MAX_SECONDS)
     started = time.monotonic()
     try:
@@ -117,7 +117,7 @@ def _deploy_status_once(args, pat) -> dict:
             "workflow": None,
             "deploy_branch": deploy_branch,
             "verdict": "no_pr",
-            "summary": f"base={args.base}로 들어오는 open PR 없음",
+            "summary": f"no open PR into base={args.base}",
         }
 
     workflow = _find_release_workflow(args.owner, args.repo, pr["number"], pat)
@@ -160,47 +160,47 @@ def _deploy_status_once(args, pat) -> dict:
     next_hint = f"deploy-status {args.owner} {args.repo} --pr {pr['number']}"
     # 대기열 지연은 PR 닫기·재오픈으로 풀리지 않는다 — 다시 열면 run 만 하나 더 쌓인다 (#970)
     wait_hint = (f"deploy-status {args.owner} {args.repo} --pr {pr['number']} --wait {WAIT_MAX_SECONDS} "
-                 "(PR 을 닫거나 다시 열지 않는다)")
+                 "(do not close or reopen the PR)")
     if pr["merged"]:
-        verdict, summary = "merged", f"PR #{pr['number']} automerge 완료"
+        verdict, summary = "merged", f"PR #{pr['number']} automerged"
         # 머지 뒤 마무리 누락 방지 (#970)
-        next_hint = (f"릴리스에 포함된 이슈마다(PR #{pr['number']} 커밋 메시지의 이슈 URL): "
-                     "pro-report 로 보고서 댓글 > pro-github finish-issue 로 완료 처리")
+        next_hint = (f"for each issue in the release (issue URLs in the PR #{pr['number']} commit messages): "
+                     "post a report comment with pro-report > finish it with pro-github finish-issue")
     elif pr["mergeable_state"] == "dirty":
         verdict = "conflict"
-        summary = f"PR #{pr['number']} 병합 충돌(dirty)"
+        summary = f"PR #{pr['number']} has merge conflicts (dirty)"
     elif pr["mergeable_state"] == "behind":
         verdict = "behind"
-        summary = f"PR #{pr['number']} base 보다 뒤처짐(behind) — base 를 head 에 병합해야 한다"
-        next_hint = "git fetch origin && git merge origin/<base> 후 push (충돌 없이 뒤처진 것뿐)"
+        summary = f"PR #{pr['number']} is behind base; merge base into head"
+        next_hint = "git fetch origin && git merge origin/<base>, then push (it is only behind, no conflict)"
     elif pr["mergeable_state"] == "blocked":
         verdict = "blocked"
-        summary = f"PR #{pr['number']} 머지가 막힘(blocked) — 필수 검사·리뷰·보호 규칙 대기일 수 있다"
+        summary = f"PR #{pr['number']} merge is blocked; it may be waiting on required checks, reviews or protection rules"
     elif workflow and workflow_conclusion == "failure":
         # 최신 RELEASE run 이 실패 (옛 head SHA 의 run 이어도 더 새 run 이 없으면 실패로 본다)
         verdict = "workflow_failed"
-        sha_note = "" if workflow.get("is_current_head") else " (이전 head SHA 의 run)"
-        summary = f"RELEASE-CHANGELOG 워크플로우 실패{sha_note}: {workflow.get('run_url')}"
-        next_hint = "workflow.run_url 의 실패 원인 확인 > fix 모드로 재실행"
+        sha_note = "" if workflow.get("is_current_head") else " (run of an earlier head SHA)"
+        summary = f"RELEASE-CHANGELOG workflow failed{sha_note}: {workflow.get('run_url')}"
+        next_hint = "check the failure at workflow.run_url > rerun in fix mode"
     elif workflow_running:
         # 워크플로우 대기·진행 중이면 body·has_summary가 일시적으로 비어 보여도 정상 대기로 본다 (race 가드)
         verdict = "waiting_for_workflow"
-        summary = f"PR #{pr['number']} RELEASE-CHANGELOG {workflow_status} — 워크플로우 대기"
+        summary = f"PR #{pr['number']} RELEASE-CHANGELOG {workflow_status}; waiting for the workflow"
         next_hint = wait_hint
     elif workflow is None and (pr_young or repo_queued_count):
         # 매칭 run 없음: PR 생성 직후(API 반영 지연) 또는 레포 대기열에 run 이 밀려 있음
         verdict = "waiting_for_workflow"
-        reason = (f"생성 직후({int(pr_age_sec)}s)" if pr_young
-                  else f"레포 대기열에 run {repo_queued_count}개")
-        summary = f"PR #{pr['number']} {reason}, 워크플로우 시작 대기"
+        reason = (f"just created ({int(pr_age_sec)}s)" if pr_young
+                  else f"{repo_queued_count} run(s) queued in the repo")
+        summary = f"PR #{pr['number']} {reason}; waiting for the workflow to start"
         next_hint = wait_hint
     elif not has_summary:
         # 워크플로우가 진행 중이 아니고 PR도 갓 생성된 게 아니면 진짜 body 초기화 사고로 판정
         verdict = "missing_coderabbit_summary"
-        summary = f"PR #{pr['number']} 본문에 'Summary by CodeRabbit' 없음 — fix 모드로 재작성"
+        summary = f"PR #{pr['number']} body has no 'Summary by CodeRabbit'; rewrite it in fix mode"
     else:
         verdict = "waiting_for_automerge"
-        summary = f"PR #{pr['number']} open·{pr['mergeable_state']}, automerge 대기"
+        summary = f"PR #{pr['number']} open, {pr['mergeable_state']}; waiting for automerge"
 
     # 대기가 임계값을 넘으면 무한 대기 대신 막힘으로 알린다 (#945)
     pr_out["age_seconds"] = int(pr_age_sec) if pr_age_sec is not None else None
@@ -208,9 +208,9 @@ def _deploy_status_once(args, pat) -> dict:
         if verdict == "waiting_for_automerge" else None
     if stuck:
         verdict = "stuck"
-        summary = f"PR #{pr['number']} {int(pr_age_sec)}초째 automerge 안 됨 ({stuck})"
-        next_hint = ("fix 모드: 기존 PR 을 닫고 새 PR 로 워크플로우를 다시 트리거한다 "
-                     "(수정 push 가 opened 트리거를 다시 일으키지 못한 경우)")
+        summary = f"PR #{pr['number']} not automerged after {int(pr_age_sec)}s ({stuck})"
+        next_hint = ("fix mode: close the existing PR and re-trigger the workflow with a new PR "
+                     "(a fix push does not fire the opened trigger again)")
 
     return {
         "pr": pr_out,

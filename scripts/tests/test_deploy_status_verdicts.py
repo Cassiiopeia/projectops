@@ -44,7 +44,7 @@ def test_대기열_지연은_waiting_for_workflow_이고_PR_닫기를_권하지_
         _patch(monkeypatch, _pr(4000), runs, repo_queue)
         out = deploy_status._deploy_status_once(_args(), "pat")
         assert out["verdict"] == "waiting_for_workflow"
-        assert "--wait" in out["next"] and "닫거나 다시 열지 않는다" in out["next"]
+        assert "--wait" in out["next"] and "do not close or reopen the PR" in out["next"]
 
 
 def test_옛_head_SHA_의_실패한_RELEASE_run_은_workflow_failed(monkeypatch):
@@ -156,7 +156,7 @@ def test_sync_base_와_branches_check(tmp_path, monkeypatch):
     g("checkout", "-q", "-b", "develop")
     g("push", "-q", "origin", "develop")
     # 아직 차이가 없으면 경고
-    assert "릴리스할 것이 없거나" in tools.branches_check(repo, "develop", "main")["warning"]
+    assert "nothing to release" in tools.branches_check(repo, "develop", "main")["warning"]
     g("commit", "-q", "--allow-empty", "-m", "dev work")
     g("push", "-q", "origin", "develop")
     assert tools.branches_check(repo, "develop", "main")["ahead_count"] == 1

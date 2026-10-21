@@ -80,7 +80,7 @@ def _suggest_paths(payload: dict, wanted: str) -> list:
 def _default_summary(payload: dict) -> str:
     """summary 가 비었을 때: 실패면 원인(error) 또는 code, 성공이면 '완료'"""
     if payload["ok"]:
-        return "완료"
+        return "done"
     return str(payload.get("error") or payload["code"])
 
 
@@ -116,8 +116,8 @@ def _emit_fields(payload: dict, field: str) -> int:
         try:
             values[path] = _lookup(payload, path)
         except (KeyError, IndexError, ValueError):
-            _write({"ok": False, "code": "field_not_found", "summary": f"응답에 '{path}' 가 없다",
-                    "next": "did_you_mean 의 경로로 다시 부른다", "error": f"응답에 '{path}' 가 없다",
+            _write({"ok": False, "code": "field_not_found", "summary": f"the response has no '{path}'",
+                    "next": "call again with a path from did_you_mean", "error": f"the response has no '{path}'",
                     "did_you_mean": _suggest_paths(payload, path), "available_keys": list(payload)})
             return 1
     _write(values[paths[0]] if len(paths) == 1 else values)

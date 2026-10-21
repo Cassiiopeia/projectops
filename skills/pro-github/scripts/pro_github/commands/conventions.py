@@ -46,8 +46,8 @@ def cmd_create_branch_name(args, api) -> int:
     from common.gh_branch import create_branch_name
     parsed = read_branch_name_values(args.values)
     if parsed is None:
-        return emit({"ok": False, "code": "bad_args", "error": f"제목과 이슈 번호를 읽지 못했다: {args.values}",
-                     "usage": "create-branch-name <제목> <번호> (또는 <owner> <repo> <제목> <번호>)"})
+        return emit({"ok": False, "code": "bad_args", "error": f"could not read a title and issue number: {args.values}",
+                     "usage": "create-branch-name <title> <number> (or <owner> <repo> <title> <number>)"})
     issue_title, issue_number = parsed
     name = create_branch_name(issue_title, issue_number, args.date)
     return emit({"branch": name, "issue_number": issue_number, "summary": name})
@@ -68,7 +68,7 @@ def cmd_get_commit_template(args, api) -> int:
 
 def _configure_get_output_path(parser) -> None:
     parser.add_argument("skill_id", nargs="?", default="issue", choices=["issue"])
-    parser.add_argument("--title", help="이슈 제목 (이모지·태그 포함 가능, 정규화된다)")
+    parser.add_argument("--title", help="issue title (emoji and tags allowed; it is normalized)")
     from common.paths import add_root_and_issue_args
     add_root_and_issue_args(parser, with_issue=False)
 
@@ -79,7 +79,7 @@ def _configure_normalize_title(parser) -> None:
 
 def _configure_create_branch_name(parser) -> None:
     parser.add_argument("values", nargs="+", metavar="value",
-                        help="<제목> <번호> 또는 <owner> <repo> <제목> <번호>")
+                        help="<title> <number> or <owner> <repo> <title> <number>")
     parser.add_argument("--date", type=_date_arg, help="YYYYMMDD")
 
 
@@ -89,19 +89,19 @@ def _configure_get_commit_template(parser) -> None:
     # 생략하면 제목 태그에서 유도한다. 이슈는 기능인데 실제 작업이 버그 수정인
     # 경우처럼 태그와 내용이 다를 때만 직접 지정한다.
     parser.add_argument("--type", dest="commit_type", default=None, type=_commit_type_arg,
-                       help="커밋 타입 (fix·docs·chore 등). 생략하면 제목 태그에서 유도")
-    parser.add_argument("--scope", default=None, help="{scope} 자리표시자에 넣을 값")
+                       help="commit type (fix, docs, chore, ...). Default: inferred from the title tag")
+    parser.add_argument("--scope", default=None, help="value for the {scope} placeholder")
     parser.add_argument("--repo-root", dest="repo_root", default=None,
-                       help="형식을 찾을 레포 루트 (생략하면 cwd 의 git 루트, git 이 아니면 cwd)")
+                       help="repo root to read the format from (default: git root of the cwd, or the cwd outside git)")
 
 
 COMMANDS = [
-    Command(name="get-output-path", help="이슈 문서 저장 경로 (등록 전 일련번호)", run=cmd_get_output_path,
+    Command(name="get-output-path", help="where to save the issue document (sequence number before the issue exists)", run=cmd_get_output_path,
             configure=_configure_get_output_path),
-    Command(name="normalize-title", help="제목 정규화", run=cmd_normalize_title,
+    Command(name="normalize-title", help="normalize a title", run=cmd_normalize_title,
             configure=_configure_normalize_title),
-    Command(name="create-branch-name", help="브랜치명 생성", run=cmd_create_branch_name,
+    Command(name="create-branch-name", help="build a branch name", run=cmd_create_branch_name,
             configure=_configure_create_branch_name),
-    Command(name="get-commit-template", help="커밋 메시지 템플릿", run=cmd_get_commit_template,
+    Command(name="get-commit-template", help="commit message template", run=cmd_get_commit_template,
             configure=_configure_get_commit_template),
 ]

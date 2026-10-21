@@ -40,18 +40,18 @@ from release_pr import cmd_create_pr, _resolve_body_file  # noqa: E402,F401
 def cmd_actions(args) -> int:
     pat = get_github_pat(args.owner, args.repo)
     if not pat:
-        return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
+        return emit({"ok": False, "code": "missing_pat", "error": "no PAT configured"})
     try:
         if args.sub == "show-run":
             if args.arg is None:
-                return emit({"ok": False, "code": "missing_argument", "error": "RUN_ID 필요"})
+                return emit({"ok": False, "code": "missing_argument", "error": "RUN_ID is required"})
             data = get_run(args.owner, args.repo, int(args.arg), pat)
             if data.get("failed_job_ids"):
                 data["next"] = f"actions joblog {args.owner} {args.repo} {data['failed_job_ids'][0]}"
             return emit(data)
         if args.sub == "joblog":
             if args.arg is None:
-                return emit({"ok": False, "code": "missing_argument", "error": "JOB_ID 필요"})
+                return emit({"ok": False, "code": "missing_argument", "error": "JOB_ID is required"})
             data = get_job_log(args.owner, args.repo, int(args.arg), pat, grep=args.grep, tail=args.tail)
             return emit(data)
         if args.sub == "list-failed":
@@ -60,19 +60,19 @@ def cmd_actions(args) -> int:
             return emit({"count": len(runs), "runs": runs, "next": nxt})
         if args.sub == "resolve-pr":
             if args.arg is None:
-                return emit({"ok": False, "code": "missing_argument", "error": "PR_NUM 필요"})
+                return emit({"ok": False, "code": "missing_argument", "error": "PR_NUM is required"})
             data = resolve_pr_runs(args.owner, args.repo, int(args.arg), pat)
             failed = [r for r in data["runs"] if r["conclusion"] == "failure"]
             data["next"] = f"actions show-run {args.owner} {args.repo} {failed[0]['run_id']}" if failed else None
             return emit(data)
         if args.sub == "resolve-branch":
             if args.arg is None:
-                return emit({"ok": False, "code": "missing_argument", "error": "BRANCH 필요"})
+                return emit({"ok": False, "code": "missing_argument", "error": "BRANCH is required"})
             runs = resolve_branch_runs(args.owner, args.repo, args.arg, pat, limit=args.limit)
             failed = [r for r in runs if r["conclusion"] == "failure"]
             nxt = f"actions show-run {args.owner} {args.repo} {failed[0]['run_id']}" if failed else None
             return emit({"branch": args.arg, "count": len(runs), "runs": runs, "next": nxt})
-        return emit({"ok": False, "code": "unknown_subcommand", "error": f"알 수 없음: {args.sub}"})
+        return emit({"ok": False, "code": "unknown_subcommand", "error": f"unknown: {args.sub}"})
     except GitHubAPIError as e:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
     except ValueError as e:
@@ -82,13 +82,13 @@ def cmd_actions(args) -> int:
 def cmd_list_prs(args) -> int:
     pat = get_github_pat(args.owner, args.repo)
     if not pat:
-        return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
+        return emit({"ok": False, "code": "missing_pat", "error": "no PAT configured"})
     try:
         result = list_pulls(args.owner, args.repo, pat, args.state)
         return emit({
             "count": len(result),
             "prs": result,
-            "summary": f"{args.owner}/{args.repo} PR {len(result)}개 ({args.state})",
+            "summary": f"{args.owner}/{args.repo}: {len(result)} PR(s) ({args.state})",
         })
     except GitHubAPIError as e:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
@@ -97,7 +97,7 @@ def cmd_list_prs(args) -> int:
 def cmd_update_pr(args) -> int:
     pat = get_github_pat(args.owner, args.repo)
     if not pat:
-        return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
+        return emit({"ok": False, "code": "missing_pat", "error": "no PAT configured"})
     body = None
     if args.body_file:
         body_path = _resolve_body_file(args.body_file)
@@ -107,14 +107,14 @@ def cmd_update_pr(args) -> int:
         return emit({
             "ok": False,
             "code": "nothing_to_update",
-            "error": "바꿀 값이 없습니다 (--title/--body-file/--state 중 하나 필요)",
+            "error": "nothing to change (need one of --title/--body-file/--state)",
         })
     try:
         result = update_pull_request(
             args.owner, args.repo, args.number, pat,
             title=args.title, body=body, state=args.state,
         )
-        return emit({**result, "summary": f"PR #{args.number} 수정 완료"})
+        return emit({**result, "summary": f"updated PR #{args.number}"})
     except GitHubAPIError as e:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
 
@@ -230,15 +230,15 @@ def cmd_detect_release_context(args) -> int:
     if not project_root.is_dir():
         # 없는 경로를 빈 신호로 성공 처리하면 "앱 심사 레포 아님" 으로 오판한다 (#713)
         return emit({"ok": False, "code": "not_found",
-                     "summary": "--project-root 경로가 없습니다",
-                     "error": f"--project-root 경로가 없습니다: {project_root}"})
+                     "summary": "the --project-root path does not exist",
+                     "error": f"the --project-root path does not exist: {project_root}"})
 
     signals, hint = collect_app_signals(project_root)
 
     next_hint = (
-        "agent: app_release 기록 없으면 사용자에게 한 번 확인 후 config에 저장"
+        "agent: if app_release is not recorded, confirm once with the user and save it to config"
         if hint in ("strong_app", "app_release_likely", "unknown")
-        else "agent: backend_only — 조용히 통과, 경고·질문 없음"
+        else "agent: backend_only; pass quietly, no warnings or questions"
     )
 
     # 릴리스 브랜치·provider (#456) — 스킬이 develop/main 하드코딩 대신 이 값을 쓴다.
@@ -275,26 +275,26 @@ def cmd_detect_release_context(args) -> int:
         source = "fallback"
 
     if conflict:
-        next_hint = ("agent: version.yml 값으로 진행하고 차이를 사용자에게 한 줄로 알린다. "
-                     "레포별 config 의 해당 키는 낡은 기록이다. " + next_hint)
+        next_hint = ("agent: go ahead with the version.yml values and tell the user about the difference in one line. "
+                     "That key in the per-repo config is a stale record. " + next_hint)
     elif source == "fallback" and not has_version_yml:
-        next_hint = ("agent: version.yml 없음 — 브랜치를 확정(애매하면 질문)해 레포별 config 에 기록한다. "
+        next_hint = ("agent: no version.yml; settle the branches (ask if unclear) and record them in the per-repo config. "
                      + next_hint)
 
     check = branches_check(project_root, branches["head"], branches["base"])
     # 개발 브랜치 없이 main > deploy 로 릴리스하는 레포 (#970)
     shape = detect_release_shape(project_root, branches, check)
     if shape["release_shape"] == "deploy_branch":
-        next_hint = ("agent: deploy 브랜치형 레포 — branches 대신 release_branches 의 head/base 로 "
-                     "release_steps 를 따른다. 이 쌍이 맞는지 사용자에게 한 번 확인. " + next_hint)
+        next_hint = ("agent: deploy-branch repo; follow release_steps with the head/base of release_branches "
+                     "instead of branches. Confirm the pair once with the user. " + next_hint)
 
     return emit({
         "ok": True,
         # 항상 문자열 (#970)
-        "summary": (f"릴리스 {branches['head']} > {branches['base']} ({source}), 앱 심사 hint={hint}"
+        "summary": (f"release {branches['head']} > {branches['base']} ({source}), app review hint={hint}"
                     if shape["release_shape"] == "standard" else
-                    f"deploy 브랜치형: {shape['release_branches']['head']} > "
-                    f"{shape['release_branches']['base']}, 앱 심사 hint={hint}"),
+                    f"deploy-branch repo: {shape['release_branches']['head']} > "
+                    f"{shape['release_branches']['base']}, app review hint={hint}"),
         "project_root": str(project_root),
         "signals": signals,
         "branches": branches,   # {head, base, provider} — head→base로 릴리스 PR 생성
@@ -319,7 +319,7 @@ def build_parser() -> JSONArgumentParser:
     parser = JSONArgumentParser(prog="changelog_cli", description="changelog-deploy skill CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_a = sub.add_parser("actions", help="GitHub Actions run/job/log 조회")
+    p_a = sub.add_parser("actions", help="look up GitHub Actions runs, jobs and logs")
     p_a.add_argument("sub", choices=["show-run", "joblog", "list-failed", "resolve-pr", "resolve-branch"])
     p_a.add_argument("owner")
     p_a.add_argument("repo")
@@ -329,23 +329,23 @@ def build_parser() -> JSONArgumentParser:
     p_a.add_argument("--tail", type=int, default=30)
     p_a.set_defaults(func=cmd_actions)
 
-    p_ds = sub.add_parser("deploy-status", help="deploy PR 상태 종합 판정")
+    p_ds = sub.add_parser("deploy-status", help="overall verdict on the deploy PR state")
     p_ds.add_argument("owner")
     p_ds.add_argument("repo")
     p_ds.add_argument("--pr", type=int)
     p_ds.add_argument("--base", default="main")
     p_ds.add_argument("--wait", type=int, default=0, metavar="SECONDS",
-                      help="automerge 대기 중이면 최대 이 초만큼 도구 안에서 폴링 (최대 540). sleep 대신 쓴다")
-    p_ds.add_argument("--head", default=None, help="릴리스 PR의 head 브랜치 (없으면 의존성 봇 PR만 제외)")
+                      help="while automerge is pending, poll inside the tool for up to this many seconds (max 540). Use instead of sleep")
+    p_ds.add_argument("--head", default=None, help="head branch of the release PR (without it, only dependency bot PRs are excluded)")
     p_ds.set_defaults(func=cmd_deploy_status)
 
-    p_lp = sub.add_parser("list-prs", help="PR 목록")
+    p_lp = sub.add_parser("list-prs", help="list PRs")
     p_lp.add_argument("owner")
     p_lp.add_argument("repo")
     p_lp.add_argument("--state", choices=["open", "closed", "all"], default="open")
     p_lp.set_defaults(func=cmd_list_prs)
 
-    p_up = sub.add_parser("update-pr", help="PR 본문/상태 수정")
+    p_up = sub.add_parser("update-pr", help="update a PR body or state")
     p_up.add_argument("owner")
     p_up.add_argument("repo")
     p_up.add_argument("number", type=int)
@@ -354,7 +354,7 @@ def build_parser() -> JSONArgumentParser:
     p_up.add_argument("--state", choices=["open", "closed"])
     p_up.set_defaults(func=cmd_update_pr)
 
-    p_cp = sub.add_parser("create-pr", help="deploy PR 재트리거용 생성")
+    p_cp = sub.add_parser("create-pr", help="create the deploy PR (also used to re-trigger)")
     p_cp.add_argument("owner")
     p_cp.add_argument("repo")
     p_cp.add_argument("title")
@@ -362,26 +362,26 @@ def build_parser() -> JSONArgumentParser:
     p_cp.add_argument("head")
     p_cp.add_argument("base")
     p_cp.add_argument("--allow-empty", action="store_true",
-                      help="head 가 base 보다 앞선 커밋이 없어도 PR 을 만든다 (기본은 nothing_to_deploy 로 거절)")
+                      help="create the PR even if head has no commits ahead of base (default: refuse with nothing_to_deploy)")
     # 앱 심사 승인 게이트 (#970): 앱 신호 판정 위치와 사용자 승인 표시
-    p_cp.add_argument("--project-root", help="앱 심사 신호를 볼 레포 루트 (생략 시 cwd)")
+    p_cp.add_argument("--project-root", help="repo root to check for app review signals (default: cwd)")
     p_cp.add_argument("--user-approved", action="store_true",
-                      help="앱 심사 레포에서 사용자가 릴리스 노트를 보고 승인했을 때만 붙인다 (없으면 needs_user_approval)")
+                      help="add only when the user reviewed and approved the release notes in an app review repo (otherwise needs_user_approval)")
     p_cp.set_defaults(func=cmd_create_pr)
 
-    p_sb = sub.add_parser("sync-base", help="배포 전 base 를 head 에 병합 (fetch > 차이 확인 > merge, 충돌은 멈춤)")
-    p_sb.add_argument("--head", required=True, help="릴리스 head 브랜치 (현재 체크아웃돼 있어야 한다)")
-    p_sb.add_argument("--base", required=True, help="릴리스 base 브랜치")
-    p_sb.add_argument("--project-root", help="레포 루트 (생략 시 cwd)")
+    p_sb = sub.add_parser("sync-base", help="merge base into head before deploying (fetch > check the difference > merge; stops on conflict)")
+    p_sb.add_argument("--head", required=True, help="release head branch (must be checked out)")
+    p_sb.add_argument("--base", required=True, help="release base branch")
+    p_sb.add_argument("--project-root", help="repo root (default: cwd)")
     p_sb.set_defaults(func=cmd_sync_base)
 
     # 앱 스토어 심사 연관 레포인지 '신호'를 수집한다 (판단·확인은 agent). PAT 불필요 — 로컬 파일만 스캔.
-    p_drc = sub.add_parser("detect-release-context", help="앱 심사 연관 레포 신호 수집 (signals/hint JSON)")
-    p_drc.add_argument("--project-root", help="레포 루트 절대경로 (생략 시 cwd)")
+    p_drc = sub.add_parser("detect-release-context", help="collect signals that the repo feeds app store review (signals/hint JSON)")
+    p_drc.add_argument("--project-root", help="absolute repo root path (default: cwd)")
     # config 대조용 (#842) — 생략하면 origin URL·고정 config 경로를 쓴다. config는 읽기만 한다.
-    p_drc.add_argument("--owner", help="레포 owner (생략 시 origin URL에서 추출)")
-    p_drc.add_argument("--repo", help="레포 이름 (생략 시 origin URL에서 추출)")
-    p_drc.add_argument("--config", help="config.json 경로 (생략 시 ~/.projectops/config/config.json)")
+    p_drc.add_argument("--owner", help="repo owner (default: taken from the origin URL)")
+    p_drc.add_argument("--repo", help="repo name (default: taken from the origin URL)")
+    p_drc.add_argument("--config", help="config.json path (default: ~/.projectops/config/config.json)")
     p_drc.set_defaults(func=cmd_detect_release_context)
 
     return parser

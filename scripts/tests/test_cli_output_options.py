@@ -80,7 +80,7 @@ def test_fields_표기도_받고_없으면_중첩_경로를_제안하며_summary
     assert out["code"] == "field_not_found" and "issue.labels" in out["did_you_mean"]
     buf = _capture(monkeypatch)
     run_cli(parser, ["list-runs"])
-    assert json.loads(buf.getvalue())["summary"] == "완료"
+    assert json.loads(buf.getvalue())["summary"] == "done"
 
 
 def test_오류_응답에는_field_를_적용하지_않는다(monkeypatch):

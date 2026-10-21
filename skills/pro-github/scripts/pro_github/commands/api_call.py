@@ -94,20 +94,20 @@ def cmd_api(args, api) -> int:
     prefix = f"/repos/{args.owner}/{args.repo}/"
     path = resolve_api_path(args.owner, args.repo, args.path)
     if method not in READ_METHODS + WRITE_METHODS:
-        return emit({"ok": False, "code": "bad_argument", "error": f"지원하지 않는 메서드: {method}"})
+        return emit({"ok": False, "code": "bad_argument", "error": f"unsupported method: {method}"})
     if is_repo_admin_write(method, path, prefix):
         return emit({"ok": False, "code": "repo_admin_blocked",
-                     "error": f"레포 설정·삭제·이전·비밀·권한 쓰기는 이 통과 경로로 하지 않는다: {method} {path}",
-                     "next": "Secret 은 secrets set 을 쓰고, 레포 설정 변경은 사용자가 GitHub 화면에서 직접 한다"})
+                     "error": f"repo settings, deletion, transfer, secrets and permission writes do not go through this pass-through: {method} {path}",
+                     "next": "use secrets set for secrets; the user changes repo settings in the GitHub UI"})
     # 대상 레포 밖 경로(다른 레포·사용자·조직)는 거절 — 통과 경로가 범용 토큰 사용기가 되지 않게
     if not is_path_in_scope(method, path, prefix):
         return emit({"ok": False, "code": "path_out_of_scope",
-                     "error": f"경로는 {prefix} 로 시작해야 한다 (읽기 전용 예외: GET /rate_limit): {args.path}",
-                     "next": f"api GET {args.owner} {args.repo} issues/1 처럼 이 레포 아래 상대 경로를 쓴다"})
+                     "error": f"the path must start with {prefix} (read-only exception: GET /rate_limit): {args.path}",
+                     "next": f"use a path relative to this repo, e.g. api GET {args.owner} {args.repo} issues/1"})
     if method in WRITE_METHODS and not args.write:
         return emit({"ok": False, "code": "write_requires_flag",
-                     "error": f"{method} 는 상태를 바꾼다. 사용자가 요청한 작업일 때만 --write 를 붙인다",
-                     "next": "전용 서브커맨드가 있으면 그것을 쓴다 (list-prs, actions dispatch 등)"})
+                     "error": f"{method} changes state. Add --write only when the user asked for this change",
+                     "next": "use a dedicated subcommand when one exists (list-prs, actions dispatch, ...)"})
     payload = None
     if args.body_file:
         try:
@@ -123,7 +123,7 @@ def cmd_api(args, api) -> int:
 
 def _emit_api_result(args, method: str, path: str, data) -> int:
     """전체 저장(--out) > 한도 맞춤 > 잘렸으면 per_page·--out 안내"""
-    out = {"method": method, "path": path, "summary": f"{method} {path} 완료"}
+    out = {"method": method, "path": path, "summary": f"{method} {path} done"}
     if args.out:
         Path(args.out).write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         out["saved_to"] = str(Path(args.out).resolve())
@@ -133,10 +133,10 @@ def _emit_api_result(args, method: str, path: str, data) -> int:
     if dropped_count:
         out["truncated_items"] = dropped_count
     if out["truncated"] and not args.out:
-        out["summary"] += (f" (응답이 커서 뒤 {dropped_count}개 항목을 뺐다)" if dropped_count
-                           else " (응답이 커서 data 를 싣지 않았다)")
-        out["next"] = (f"경로에 ?per_page=10 처럼 개수를 줄이거나 "
-                       f"api {method} {args.owner} {args.repo} {args.path} --out <파일> 로 전체를 받는다")
+        out["summary"] += (f" (response too large; dropped the last {dropped_count} item(s))" if dropped_count
+                           else " (response too large; data left out)")
+        out["next"] = (f"ask for fewer items with ?per_page=10 on the path, or get everything with "
+                       f"api {method} {args.owner} {args.repo} {args.path} --out <file>")
     return emit(out)
 
 
@@ -144,14 +144,14 @@ def _configure_api(parser) -> None:
     parser.add_argument("method", help="GET · POST · PUT · PATCH · DELETE")
     parser.add_argument("owner")
     parser.add_argument("repo")
-    parser.add_argument("path", help="REST 경로. 상대 경로(actions/runs)는 /repos/{owner}/{repo}/ 가 붙는다. "
-                                     "읽기 전용 예외: GET /rate_limit")
-    parser.add_argument("--body-file", dest="body_file", default=None, help="JSON 본문 파일")
-    parser.add_argument("--out", default=None, help="응답 전체 JSON 을 이 파일에 저장 (응답 data 는 한도 안으로 줄임)")
-    parser.add_argument("--write", action="store_true", help="POST·PUT·PATCH·DELETE 허용 (사용자가 요청한 작업일 때만)")
+    parser.add_argument("path", help="REST path. A relative path (actions/runs) gets /repos/{owner}/{repo}/ prepended. "
+                                     "Read-only exception: GET /rate_limit")
+    parser.add_argument("--body-file", dest="body_file", default=None, help="JSON body file")
+    parser.add_argument("--out", default=None, help="save the full JSON response to this file (the data in the reply is trimmed to the size limit)")
+    parser.add_argument("--write", action="store_true", help="allow POST, PUT, PATCH, DELETE (only when the user asked for the change)")
 
 
 COMMANDS = [
-    Command(name="api", help="전용 명령이 없는 REST 호출 통과 (이 레포 경로만, 쓰기는 --write)",
+    Command(name="api", help="pass-through for REST calls with no dedicated command (this repo only; writes need --write)",
             run=cmd_api, configure=_configure_api),
 ]

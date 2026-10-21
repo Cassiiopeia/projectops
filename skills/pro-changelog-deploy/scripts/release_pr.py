@@ -81,11 +81,11 @@ def _needs_app_release_approval(args) -> dict | None:
         return None
     return {
         "ok": False, "code": "needs_user_approval",
-        "summary": "앱 심사로 이어지는 배포 — 사용자 승인 없이 PR 을 만들지 않는다",
-        "error": "앱 심사 레포는 자동 모드여도 매번 사용자 승인이 필요하다 (스토어 심사 제출로 직결)",
+        "summary": "this deploy leads to app store review; no PR without user approval",
+        "error": "an app review repo needs user approval every time, even in auto mode (it goes straight to store review)",
         "hint": hint, "app_release": app_release, "signals": signals,
-        "next": ("심사 경고 배너와 릴리스 노트 본문을 사용자에게 보여주고 승인을 받는다 > "
-                 "승인하면 같은 create-pr 명령에 --user-approved 를 붙여 다시 실행"),
+        "next": ("show the user the review warning banner and the release notes and get approval > "
+                 "once approved, run the same create-pr command again with --user-approved"),
     }
 
 
@@ -93,8 +93,8 @@ def _pr_exists_response(args, pr_number, pr_url) -> dict:
     """같은 head > base 로 열린 PR 이 이미 있을 때의 응답 (#970)"""
     return {
         "ok": False, "code": "pr_exists", "number": pr_number, "url": pr_url,
-        "summary": f"{args.head} > {args.base} 로 열린 PR #{pr_number} 이 이미 있다",
-        "hint": "닫지 않고 재사용한다 — 노트를 바꾸려면 update-pr 로 본문만 갱신",
+        "summary": f"PR #{pr_number} is already open for {args.head} > {args.base}",
+        "hint": "reuse it without closing; to change the notes, update only the body with update-pr",
         "next": f"deploy-status {args.owner} {args.repo} --pr {pr_number}",
     }
 
@@ -103,9 +103,9 @@ def _nothing_to_deploy_response(args) -> dict:
     """릴리스할 커밋이 없을 때의 응답"""
     return {
         "ok": False, "code": "nothing_to_deploy",
-        "summary": f"{args.head} 에 {args.base} 보다 앞선 커밋이 없어 배포할 것이 없다",
-        "error": f"{args.head} 에 {args.base} 보다 앞선 커밋이 없다",
-        "next": "push 가 됐는지, 브랜치 쌍이 맞는지 detect-release-context 의 branches_check 로 확인",
+        "summary": f"nothing to deploy: {args.head} has no commits ahead of {args.base}",
+        "error": f"{args.head} has no commits ahead of {args.base}",
+        "next": "check that the push went through and the branch pair is right with branches_check from detect-release-context",
     }
 
 
@@ -121,15 +121,15 @@ def cmd_create_pr(args) -> int:
     """deploy PR 생성: 검증 > 승인 게이트 > 기존 PR·커밋 차이 확인 > 생성 > 본문 재주입 가드"""
     pat = get_github_pat(args.owner, args.repo)
     if not pat:
-        return emit({"ok": False, "code": "missing_pat", "summary": "PAT 없음", "error": "PAT 없음"})
+        return emit({"ok": False, "code": "missing_pat", "summary": "no PAT configured", "error": "no PAT configured"})
     body_path = _resolve_body_file(args.body_file)
     if args.body_file and not body_path:
         return emit({
             "ok": False, "code": "body_file_not_found",
-            "summary": "본문 파일을 찾을 수 없습니다",
+            "summary": "body file not found",
             "error": (
-                f"본문 파일을 찾을 수 없습니다: {args.body_file} "
-                f"(탐색: 절대경로 | ~/.projectops/tmp/ | {_PROJECT_ROOT / 'scripts'} | cwd={Path.cwd()})"
+                f"body file not found: {args.body_file} "
+                f"(searched: absolute path | ~/.projectops/tmp/ | {_PROJECT_ROOT / 'scripts'} | cwd={Path.cwd()})"
             ),
         })
     body = body_path.read_text(encoding="utf-8") if body_path else ""
@@ -164,13 +164,13 @@ def cmd_create_pr(args) -> int:
             if existing_pr:
                 return emit(_pr_exists_response(args, existing_pr["number"], existing_pr.get("url")))
         return emit({"ok": False, "code": f"github_api_{e.status_code}",
-                     "summary": f"PR 생성 실패 (HTTP {e.status_code})", "error": str(e)})
+                     "summary": f"PR creation failed (HTTP {e.status_code})", "error": str(e)})
 
     pr_number = result.get("number")
     guard_summary = _reinject_body_if_cleared(args, pat, pr_number, body)
     out = {
         **result,
-        "summary": f"PR #{pr_number} 생성 완료" + (f" / {guard_summary}" if guard_summary else ""),
+        "summary": f"created PR #{pr_number}" + (f" / {guard_summary}" if guard_summary else ""),
         "next": f"deploy-status {args.owner} {args.repo} --pr {pr_number}",
     }
     if wrapped:
@@ -194,7 +194,7 @@ def _reinject_body_if_cleared(args, pat, pr_number, body) -> str | None:
         detail = get_pull_detail(args.owner, args.repo, pr_number, pat)
         if "Summary by CodeRabbit" not in (detail.get("body") or ""):
             update_pull_request(args.owner, args.repo, pr_number, pat, body=body)
-            return "본문 재주입 (워크플로우 step 2 race 회복)"
-        return "본문 보존 확인 — 재주입 불필요"
+            return "body re-injected (recovered from the workflow step 2 race)"
+        return "body intact; no re-injection needed"
     except GitHubAPIError:
-        return "본문 재확인 실패 — 무시하고 진행"
+        return "could not re-check the body; continuing"

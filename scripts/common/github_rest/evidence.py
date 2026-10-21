@@ -67,9 +67,9 @@ def ensure_evidence_release(owner: str, repo: str, pat: str, tag: str = EVIDENCE
         "POST", f"{_API_BASE}/repos/{owner}/{repo}/releases",
         {
             "tag_name": tag,
-            "name": "QA 증적 저장소",
-            "body": ("테스트·QA 증적 이미지를 담는 전용 릴리스입니다. 코드 릴리스가 아닙니다.\n"
-                     "이슈·PR 본문과 댓글에서 이미지로 참조됩니다."),
+            "name": "QA evidence store",
+            "body": ("A release that only holds test and QA evidence images. It is not a code release.\n"
+                     "Issue and PR bodies and comments reference these images."),
             "draft": False,
             "prerelease": True,
         },
@@ -99,7 +99,7 @@ def upload_evidence_image(
     """이미지 파일 하나를 증적 릴리스에 올리고 마크다운까지 만들어 돌려준다."""
     src = pathlib.Path(file_path).expanduser()
     if not src.is_file():
-        raise FileNotFoundError(f"파일이 없습니다: {src}")
+        raise FileNotFoundError(f"file not found: {src}")
 
     data = src.read_bytes()
     ctype = mimetypes.guess_type(src.name)[0] or "application/octet-stream"
@@ -135,7 +135,7 @@ def _upload_with_rollover(owner, repo, pat, tag, name, data, ctype) -> tuple[str
         except GitHubAPIError as error:
             if not is_asset_limit_error(error):
                 raise
-    raise ReleaseAssetLimitError(f"증적 릴리스 {len(tried)}개가 모두 자산 한도(1000개)에 찼다", tried)
+    raise ReleaseAssetLimitError(f"all {len(tried)} evidence releases are at the asset limit (1000)", tried)
 
 
 def delete_release_asset(owner: str, repo: str, asset_id: int, pat: str) -> None:

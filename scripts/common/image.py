@@ -122,7 +122,7 @@ def resize_tool() -> str | None:
     if has_pillow():
         return "pillow"
     if vpy and venv_has_pillow(vpy):
-        return "pillow (전용 venv)"
+        return "pillow (dedicated venv)"
     if shutil.which("cwebp"):
         return "cwebp"
     if shutil.which("ffmpeg"):
@@ -139,15 +139,15 @@ def shrink(paths: list[Path], max_side: int = SHOT_MAX_SIDE,
     """
     missing = [str(p) for p in paths if not p.exists()]
     if missing:
-        return {"ok": False, "code": "file_not_found", "error": f"없는 파일: {missing}"}
+        return {"ok": False, "code": "file_not_found", "error": f"files not found: {missing}"}
     # 디렉터리·음수 크기는 도구에 넘기기 전에 거절한다 — 트레이스백 대신 JSON 오류 (#705)
     not_files = [str(p) for p in paths if not p.is_file()]
     if not_files:
-        return {"ok": False, "code": "not_a_file", "error": f"파일이 아닙니다: {not_files}",
-                "next": "이미지 파일 경로를 직접 넘긴다"}
+        return {"ok": False, "code": "not_a_file", "error": f"not a file: {not_files}",
+                "next": "pass image file paths directly"}
     if max_side < 0:
-        return {"ok": False, "code": "bad_args", "error": f"--max-side 는 0 이상이어야 합니다 ({max_side})",
-                "next": "0 이면 원본 크기를 유지한다"}
+        return {"ok": False, "code": "bad_args", "error": f"--max-side must be 0 or greater ({max_side})",
+                "next": "0 keeps the original size"}
 
     done, method = [], None
     if has_pillow():
@@ -162,8 +162,8 @@ def shrink(paths: list[Path], max_side: int = SHOT_MAX_SIDE,
                     im.save(f)
             except Exception as e:   # 이미지가 아닌 파일 (UnidentifiedImageError 등)
                 return {"ok": False, "code": "image_unreadable",
-                        "error": f"이미지를 열 수 없습니다: {f} ({type(e).__name__})",
-                        "files": done, "next": "이미지 파일(png·jpg·webp)인지 확인한다"}
+                        "error": f"cannot open the image: {f} ({type(e).__name__})",
+                        "files": done, "next": "check that it is an image file (png, jpg, webp)"}
             done.append(str(f))
     elif shutil.which("sips"):
         method = "sips"
@@ -182,8 +182,8 @@ def shrink(paths: list[Path], max_side: int = SHOT_MAX_SIDE,
                 done.append(str(f))
     else:
         return {"ok": False, "code": "no_resize_tool",
-                "error": "이미지를 줄일 수단이 없습니다",
-                "hint": "pip install pillow (권장) 또는 ffmpeg 설치"}
+                "error": "no tool available to shrink images",
+                "hint": "pip install pillow (recommended) or install ffmpeg"}
 
     # 축소만으로는 PNG 가 여전히 무겁다. 첨부·전송이 목적이므로 WebP 로 내보낸다.
     converted, failed_convert = [], False
@@ -198,10 +198,10 @@ def shrink(paths: list[Path], max_side: int = SHOT_MAX_SIDE,
         done = converted
 
     out = {"files": done, "method": method,
-           "summary": f"{len(done)}장 축소 ({method}, 긴 변 {max_side}px)"}
+           "summary": f"shrank {len(done)} image(s) ({method}, long side {max_side}px)"}
     if not keep_format:
-        out["format"] = "png(변환 수단 없음)" if failed_convert else "webp"
-        out["summary"] += " · WebP" if not failed_convert else " · PNG 유지(변환 수단 없음)"
+        out["format"] = "png (no converter available)" if failed_convert else "webp"
+        out["summary"] += " · WebP" if not failed_convert else " · kept PNG (no converter available)"
         if failed_convert:
-            out["hint"] = "pip install pillow 또는 cwebp·ffmpeg 를 설치하면 크게 줄어듭니다"
+            out["hint"] = "install pillow (pip install pillow), cwebp or ffmpeg to make files much smaller"
     return out

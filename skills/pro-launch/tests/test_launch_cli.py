@@ -132,7 +132,7 @@ def test_migration_does_not_move_a_browser_in_use(tmp_path, monkeypatch):
 
     r = common_state.migrate_launch(proj)
     assert "browser.json" not in r["moved"] and ".browser-profile" not in r["moved"]
-    assert any("브라우저" in w for w in r["warnings"])
+    assert any("the browser is open" in w for w in r["warnings"])
     # 옛 자리를 계속 읽는다 — 기능이 멈추지 않는다
     assert common_state.launch_file(proj, "browser.json") == old / "browser.json"
 

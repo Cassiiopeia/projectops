@@ -120,7 +120,7 @@ def resolve_style(prefs_values: dict, repo_root: str, *, legacy_user: bool = Fal
     team, installed, semver = team_cfg["template"], team_cfg["installed"], team_cfg["semver_auto"]
     preset = prefs_values.get("preset") or "conventional"
     if preset not in PRESETS and preset != "custom":
-        warnings.append(f"알 수 없는 preset '{preset}' — conventional 을 쓴다")
+        warnings.append(f"unknown preset '{preset}'; using conventional")
         preset = "conventional"
 
     if team:
@@ -130,7 +130,7 @@ def resolve_style(prefs_values: dict, repo_root: str, *, legacy_user: bool = Fal
     elif prefs_values.get("template"):
         template, source, preset = normalize_placeholders(prefs_values["template"]), "preferences", "custom"
     elif preset == "custom":
-        warnings.append("preset 이 custom 인데 template 이 없다 — conventional 을 쓴다")
+        warnings.append("preset is custom but no template is set; using conventional")
         template, source, preset = PRESETS["conventional"], "default", "conventional"
     elif not prefs_values.get("preset") and legacy_user:
         template, source, preset = PRESETS["projectops"], "legacy-default", "projectops"
@@ -139,7 +139,7 @@ def resolve_style(prefs_values: dict, repo_root: str, *, legacy_user: bool = Fal
         source = "preferences" if prefs_values.get("preset") else "default"
 
     if semver and "{type}" not in template:
-        warnings.append("semver_auto 가 켜진 레포인데 형식에 {type} 이 없다 — 릴리스가 항상 patch 로 판정된다")
+        warnings.append("semver_auto is on in this repo but the format has no {type}; every release will be judged a patch")
     return {"template": template, "source": source, "preset": preset, "warnings": warnings,
             "commit_type_map": team_cfg["commit_type_map"]}
 
@@ -214,7 +214,7 @@ def resolve_for_repo(repo_root: str | None = None) -> tuple:
     style = resolve_style(prefs["values"], root, legacy_user=is_legacy_commit_user(data))
     if status == "unreadable":
         prefs["config_status"] = status
-        style["warnings"].append("config.json 을 읽지 못해 개인 설정 없이 기본값을 쓴다")
+        style["warnings"].append("could not read config.json; using defaults without personal settings")
     return prefs, style
 
 

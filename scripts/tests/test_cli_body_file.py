@@ -28,7 +28,7 @@ def test_create_issue_body_file_not_found(capsys):
     out = json.loads(capsys.readouterr().out.strip())
     assert out["ok"] is False
     assert out["code"] == "body_file_not_found"
-    assert "존재하지 않습니다" in out["error"]
+    assert "body file not found" in out["error"]
     assert out["path_attempted"] == str(Path("nonexistent_body.md").resolve())
 
 
@@ -79,7 +79,7 @@ def test_github_cli_update_issue_body_file_not_found(capsys):
     out = json.loads(capsys.readouterr().out.strip())
     assert out["ok"] is False
     assert out["code"] == "body_file_not_found"
-    assert "수정용 본문 파일" in out["error"]
+    assert "body file for the update not found" in out["error"]
 
 
 def test_github_cli_update_issue_success_includes_body(capsys, tmp_path, monkeypatch):

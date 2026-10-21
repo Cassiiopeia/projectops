@@ -125,7 +125,7 @@ def test_finish_issue_는_상태_라벨만_바꾸고_닫는다(monkeypatch):
 def test_finish_issue_는_보고서_댓글이_없으면_경고한다(monkeypatch):
     """보고서 없이 40개를 일괄로 닫은 일 (#969 A24): 막지 않고 warnings 로 알린다."""
     out, _ = _finish(monkeypatch, {"labels": ["status: done"]}, comments=({"id": 2, "body": "확인했습니다"},))
-    assert out["ok"] is True and len(out["warnings"]) == 1 and "보고서" in out["warnings"][0]
+    assert out["ok"] is True and len(out["warnings"]) == 1 and "no report comment" in out["warnings"][0]
 
 
 def test_finish_issue_라벨_실패여도_닫고_부분_성공을_알린다(monkeypatch):

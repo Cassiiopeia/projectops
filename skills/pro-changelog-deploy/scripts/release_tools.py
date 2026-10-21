@@ -50,13 +50,13 @@ def branches_check(project_root: Path, head: str, base: str) -> dict:
            "ahead_count": None, "behind_count": None, "warning": None}
     if not (out["head_exists"] and out["base_exists"]):
         missing = [r for r, ok in ((head_ref, out["head_exists"]), (base_ref, out["base_exists"])) if not ok]
-        out["warning"] = f"{', '.join(missing)} 가 없다. version.yml 의 development/default 브랜치를 확인하거나 git fetch 후 다시"
+        out["warning"] = f"{', '.join(missing)} not found. Check the development/default branches in version.yml, or git fetch and try again"
         return out
     out["ahead_count"] = _commit_count(project_root, base_ref, head_ref)
     out["behind_count"] = _commit_count(project_root, head_ref, base_ref)
     if out["ahead_count"] == 0:
-        out["warning"] = (f"{head_ref} 가 {base_ref} 보다 앞선 커밋이 없다 — 릴리스할 것이 없거나 "
-                          "브랜치 쌍이 틀렸을 수 있다 (이 레포의 실제 릴리스 흐름을 사용자에게 확인)")
+        out["warning"] = (f"{head_ref} has no commits ahead of {base_ref}; there may be nothing to release, or "
+                          "the branch pair may be wrong (confirm this repo's real release flow with the user)")
     return out
 
 
@@ -80,12 +80,12 @@ def detect_release_shape(project_root: Path, branches: dict, check: dict) -> dic
         "release_shape": "deploy_branch",
         "release_branches": {"head": head, "base": DEPLOY_BRANCH_NAME},
         "release_steps": [
-            f"HEAD_BRANCH={head}, BASE_BRANCH={DEPLOY_BRANCH_NAME} 로 deploy 모드 절차를 그대로 따른다 "
-            f"(없는 {branches['head']} 를 head 로 쓰지 않는다)",
-            f"1-1단계: sync-base --head {head} --base {DEPLOY_BRANCH_NAME}",
-            f"6단계: create-pr ... {head} {DEPLOY_BRANCH_NAME} (본문에 릴리스 노트)",
-            f"7단계: deploy-status --pr N --base {DEPLOY_BRANCH_NAME}",
-            "이 쌍이 맞는지 사용자에게 한 번 확인한다 (version.yml 이 없으면 레포별 config 에 기록)",
+            f"follow the deploy mode steps as written with HEAD_BRANCH={head}, BASE_BRANCH={DEPLOY_BRANCH_NAME} "
+            f"(do not use the missing {branches['head']} as head)",
+            f"Step 1-1: sync-base --head {head} --base {DEPLOY_BRANCH_NAME}",
+            f"Step 6: create-pr ... {head} {DEPLOY_BRANCH_NAME} (release notes in the body)",
+            f"Step 7: deploy-status --pr N --base {DEPLOY_BRANCH_NAME}",
+            "confirm the pair once with the user (without version.yml, record it in the per-repo config)",
         ],
     }
 
@@ -96,24 +96,24 @@ def cmd_sync_base(args) -> int:
     current = _git(root, "branch", "--show-current").stdout.strip()
     if current != args.head:
         return emit({"ok": False, "code": "wrong_branch", "current": current, "expected": args.head,
-                     "error": "현재 브랜치가 릴리스 head 가 아니다 (다른 세션이 옮겼을 수 있다)",
-                     "next": "브랜치를 임의로 바꾸지 말고 사용자에게 알린다"})
+                     "error": "the current branch is not the release head (another session may have switched it)",
+                     "next": "do not switch branches on your own; tell the user"})
     fetched = _git(root, "fetch", "origin")
     if fetched.returncode != 0:
         return emit({"ok": False, "code": "fetch_failed", "error": fetched.stderr.strip()[:300], "next": None})
     behind = _git(root, "log", "--oneline", f"origin/{args.head}..origin/{args.base}").stdout.strip().splitlines()
     if not behind:
-        return emit({"ok": True, "code": "in_sync", "behind": [], "summary": f"origin/{args.base} 가 이미 포함돼 있다",
-                     "next": "deploy 절차 계속"})
+        return emit({"ok": True, "code": "in_sync", "behind": [], "summary": f"origin/{args.base} is already included",
+                     "next": "continue the deploy steps"})
     merged = _git(root, "merge", "--no-edit", f"origin/{args.base}")
     if merged.returncode == 0:
         return emit({"ok": True, "code": "merged", "behind": behind[:20],
-                     "summary": f"origin/{args.base} 커밋 {len(behind)}개를 병합했다", "next": "push 후 deploy 절차 계속"})
+                     "summary": f"merged {len(behind)} commit(s) from origin/{args.base}", "next": "push, then continue the deploy steps"})
     conflicted = _git(root, "diff", "--name-only", "--diff-filter=U").stdout.split()
     if not conflicted:
         # 충돌 파일이 없는데 실패했다면 충돌이 아니라 다른 원인(커밋 작성자 미설정, 훅, 더러운 작업트리 등)이다
         return emit({"ok": False, "code": "merge_failed", "behind": behind[:20],
                      "error": (merged.stderr or merged.stdout).strip()[:400],
-                     "next": "원인을 읽고 고친다 (git config user.name/email, 겹치는 미커밋 변경 등). 충돌이 아니니 abort 할 것이 없다"})
+                     "next": "read the cause and fix it (git config user.name/email, overlapping uncommitted changes, ...). It is not a conflict, so there is nothing to abort"})
     return emit({"ok": False, "code": "merge_conflict", "conflicted_files": conflicted[:30], "behind": behind[:20],
-                 "error": "병합 충돌", "next": "충돌을 양쪽 의도를 살려 해소하거나 사용자와 정한다 (merge --abort·reset 을 임의로 하지 않는다)"})
+                 "error": "merge conflict", "next": "resolve the conflict keeping both sides' intent, or decide with the user (do not merge --abort or reset on your own)"})

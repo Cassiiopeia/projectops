@@ -40,14 +40,14 @@ def cmd_get_issue_number(_args) -> int:
     return emit({
         "number": number,
         "mismatch": mismatch,
-        "summary": str(number) if number else "이슈 번호 없음",
+        "summary": str(number) if number else "no issue number",
     })
 
 
 def cmd_get_issue(args) -> int:
     pat = get_github_pat(args.owner, args.repo)
     if not pat:
-        return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
+        return emit({"ok": False, "code": "missing_pat", "error": "no PAT configured"})
     try:
         issue = get_issue(args.owner, args.repo, args.number, pat)
         return emit({
@@ -116,7 +116,7 @@ def cmd_sanitize_message(args) -> int:
     return emit({
         "message": cleaned,
         "removed": removed,
-        "summary": "mention trailer 제거됨" if removed else "제거할 mention 없음",
+        "summary": "removed the mention trailer" if removed else "no mention to remove",
     })
 
 
@@ -155,8 +155,8 @@ def cmd_commit(args) -> int:
         raw = args.message or ""
     message, removed = _strip_trailing_mentions(raw)
     if not message.strip():
-        return emit({"ok": False, "code": "empty_message", "error": "정리한 커밋 메시지가 비었다",
-                     "next": "--message-file 또는 --message 로 메시지를 준다"})
+        return emit({"ok": False, "code": "empty_message", "error": "the cleaned commit message is empty",
+                     "next": "pass the message with --message-file or --message"})
 
     def git(*git_args):
         return subprocess.run(["git", "-C", root, *git_args], capture_output=True, text=True,
@@ -166,71 +166,71 @@ def cmd_commit(args) -> int:
     # .gitignore 대상 경로 (예: docs/superpowers/) — add 가 "ignored" 로 전체를 멈추므로 원인을 짚어 준다
     ignored = [line for line in git("check-ignore", "--", *to_add).stdout.splitlines() if line] if to_add else []
     if ignored:
-        return emit({"ok": False, "code": "path_ignored", "error": "이 레포가 추적하지 않는 경로(.gitignore)",
-                     "paths": ignored, "next": "이 경로들을 --paths 에서 빼고 다시 부른다"})
+        return emit({"ok": False, "code": "path_ignored", "error": "paths this repo does not track (.gitignore)",
+                     "paths": ignored, "next": "remove these paths from --paths and call again"})
     if to_add:
         staged = git("add", "--", *to_add)  # git add -A 는 쓰지 않는다: 다른 세션의 변경이 섞인다
         if staged.returncode != 0:
             return emit({"ok": False, "code": "stage_failed", "error": staged.stderr.strip()[:300],
                          "paths": to_add,
-                         "next": ("경로는 레포 루트 기준. 철자·대소문자를 확인하고, 디스크에도 인덱스에도 없는 "
-                                  "경로(이미 커밋된 삭제 등)는 --paths 에서 뺀다")})
+                         "next": ("paths are relative to the repo root. Check spelling and case, and drop paths that are "
+                                  "neither on disk nor in the index (such as already committed deletions) from --paths")})
     if not git("diff", "--cached", "--name-only").stdout.strip():
-        return emit({"ok": False, "code": "nothing_staged", "error": "스테이징된 변경이 없다",
-                     "next": "--paths 로 이번 작업에서 건드린 경로를 준다"})
+        return emit({"ok": False, "code": "nothing_staged", "error": "no staged changes",
+                     "next": "pass the paths you touched in this task with --paths"})
     done = git("commit", "-m", message)
     if done.returncode != 0:
         return emit({"ok": False, "code": "commit_failed", "error": (done.stderr or done.stdout).strip()[:400],
-                     "next": "훅이나 git 설정 오류를 읽고 고친다 (--no-verify 로 우회하지 않는다)"})
+                     "next": "read the hook or git config error and fix it (do not bypass it with --no-verify)"})
     sha = git("rev-parse", "--short", "HEAD").stdout.strip()
     return emit({"commit": sha, "message": message, "mention_removed": removed,
-                 "summary": f"커밋 {sha}", "next": "push 는 사용자가 요청할 때만"})
+                 "summary": f"committed {sha}", "next": "push only when the user asks"})
 
 
 def build_parser() -> JSONArgumentParser:
     parser = JSONArgumentParser(prog="commit_cli", description="commit skill CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_gin = sub.add_parser("get-issue-number", help="cwd 기준 현재 이슈 번호 추출")
+    p_gin = sub.add_parser("get-issue-number", help="extract the current issue number from the cwd")
     p_gin.set_defaults(func=cmd_get_issue_number)
 
-    p_gi = sub.add_parser("get-issue", help="이슈 조회")
+    p_gi = sub.add_parser("get-issue", help="get an issue")
     p_gi.add_argument("owner")
     p_gi.add_argument("repo")
     p_gi.add_argument("number", type=int)
     p_gi.set_defaults(func=cmd_get_issue)
 
-    p_nt = sub.add_parser("normalize-title", help="제목 정규화")
+    p_nt = sub.add_parser("normalize-title", help="normalize a title")
     p_nt.add_argument("title", nargs="+")
     p_nt.set_defaults(func=cmd_normalize_title)
 
-    p_sm = sub.add_parser("sanitize-message", help="커밋 메시지 끝의 @mention trailer 제거")
+    p_sm = sub.add_parser("sanitize-message", help="remove the @mention trailer at the end of a commit message")
     p_sm.add_argument("message")
-    p_sm.add_argument("--raw", action="store_true", help="JSON 대신 정리된 메시지 글자만 출력")
+    p_sm.add_argument("--raw", action="store_true", help="print only the cleaned message text instead of JSON")
     p_sm.set_defaults(func=cmd_sanitize_message)
 
-    p_cm = sub.add_parser("commit", help="메시지 정리 + 지정한 경로만 스테이징 + 커밋 (push 안 함)")
-    p_cm.add_argument("--message-file", dest="message_file", default=None, help="커밋 메시지 파일")
-    p_cm.add_argument("--message", default=None, help="커밋 메시지 (파일 대신)")
-    p_cm.add_argument("--paths", nargs="*", default=[], help="이번 작업에서 건드린 경로 (이미 스테이징돼 있으면 생략)")
-    p_cm.add_argument("--root", default=None, help="레포 루트 (생략하면 cwd)")
+    p_cm = sub.add_parser("commit", help="clean the message, stage only the given paths and commit (no push)")
+    p_cm.add_argument("--message-file", dest="message_file", default=None, help="commit message file")
+    p_cm.add_argument("--message", default=None, help="commit message (instead of a file)")
+    p_cm.add_argument("--paths", nargs="*", default=[], help="paths touched in this task (omit if already staged)")
+    p_cm.add_argument("--root", default=None, help="repo root (default: cwd)")
     p_cm.set_defaults(func=cmd_commit)
 
-    p_gct = sub.add_parser("get-commit-template", help="커밋 메시지 템플릿")
+    p_gct = sub.add_parser("get-commit-template", help="commit message template")
     p_gct.add_argument("issue_title")
     p_gct.add_argument("issue_url")
     # 생략하면 제목 태그에서 유도한다. 이슈는 기능인데 실제 작업이 버그 수정인
     # 경우처럼 태그와 내용이 다를 때만 직접 지정한다.
     p_gct.add_argument("--type", dest="commit_type", default=None, type=_commit_type_arg,
-                       help="커밋 타입 (fix·docs·chore 등). 생략하면 제목 태그에서 유도")
-    p_gct.add_argument("--scope", default=None, help="{scope} 자리표시자에 넣을 값")
+                       help="commit type (fix, docs, chore, ...). Default: inferred from the title tag")
+    p_gct.add_argument("--scope", default=None, help="value for the {scope} placeholder")
     p_gct.add_argument("--repo-root", dest="repo_root", default=None,
-                       help="형식을 찾을 레포 루트 (생략하면 cwd 의 git 루트, git 이 아니면 cwd)")
+                       help="repo root to read the format from (default: git root of the cwd, or the cwd outside git)")
     p_gct.set_defaults(func=cmd_get_commit_template)
 
-    p_rs = sub.add_parser("resolve-style", help="커밋 형식·말투 (팀 > 개인) 조회")
+    p_rs = sub.add_parser("resolve-style", help="show the commit format and tone (team > personal)")
     p_rs.add_argument("--repo-root", dest="repo_root", default=None,
-                      help="형식을 찾을 레포 루트 (생략하면 cwd 의 git 루트, git 이 아니면 cwd)")
+                      help="repo root to read the format from (default: git root of the cwd, or the cwd outside git)")
     p_rs.set_defaults(func=cmd_resolve_style)
 
     return parser

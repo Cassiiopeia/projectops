@@ -126,7 +126,7 @@ def state_dir(kind: str, root: Path) -> Path:
     git·마커 없는 임시 폴더는 경로 해시 버킷(`_scratch/<이름>-<해시>`)을 쓴다 (#932).
     """
     if kind not in KINDS:
-        raise ValueError(f"알 수 없는 kind: {kind}")
+        raise ValueError(f"unknown kind: {kind}")
     if repo_unknown(root):
         return base_dir() / kind / MACHINE_BUCKET
     if is_scratch_root(root):
@@ -161,14 +161,14 @@ def migrate_launch(root: Path) -> dict:
         if not src.exists() or dst.exists():
             continue
         if browser_busy and name in _BROWSER_FILES:
-            warnings.append(f"{name}: 브라우저가 떠 있어 옮기지 않았습니다 — web close 뒤 다시 옮겨집니다")
+            warnings.append(f"{name}: not moved because the browser is open; it moves after web close")
             continue
         try:
             new.mkdir(parents=True, exist_ok=True)
             shutil.move(str(src), str(dst))
             moved.append(name)
         except OSError as e:
-            warnings.append(f"{name}: 옮기지 못했습니다 ({e}) — 옛 자리를 계속 씁니다")
+            warnings.append(f"{name}: could not move ({e}); still using the old location")
 
     # 상태 파일이 옛 프로필 경로를 들고 있으면 새 자리로 고친다
     nbj = new / "browser.json"

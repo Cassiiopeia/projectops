@@ -18,7 +18,7 @@ def _release_tag(value: str) -> str:
     """
     if not value or re.search(r"[\s\x00-\x1f\x7f~^:?*\[\\]", value) or value.startswith(("-", "/")):
         raise argparse.ArgumentTypeError(
-            f"태그 형식이 올바르지 않습니다: {value!r} (공백·제어문자·~^:?*[ 사용 불가)")
+            f"invalid tag: {value!r} (no spaces, control characters or ~^:?*[)")
     return value
 
 
@@ -38,8 +38,8 @@ def cmd_upload_image(args, api) -> int:
     if len(missing) == len(args.files):
         return emit({
             "ok": False, "code": "no_image_uploaded",
-            "error": "올릴 파일이 없습니다",
-            "failed": [{"file": f, "error": "파일이 없습니다"} for f in missing],
+            "error": "no files to upload",
+            "failed": [{"file": f, "error": "file not found"} for f in missing],
         })
 
     try:
@@ -47,8 +47,8 @@ def cmd_upload_image(args, api) -> int:
         # 올리고 나서 알면 이미 이슈에 깨진 이미지가 박힌 뒤다.
         warning = None
         if api.is_repo_private(args.owner, args.repo, pat):
-            warning = ("private 레포라 이미지가 렌더링되지 않습니다(익명 접근 차단). "
-                       "URL은 발급되지만 이슈에서는 깨져 보입니다.")
+            warning = ("images do not render in a private repo (anonymous access is blocked). "
+                       "The URL is issued, but the image shows as broken in issues.")
 
         images, failed = [], []
         # 한도로 이월된 태그를 다음 파일에도 쓴다 (매 파일 꽉 찬 릴리스부터 다시 두드리지 않게)
@@ -73,7 +73,7 @@ def cmd_upload_image(args, api) -> int:
             return _asset_limit_response(args, limit_error)
         if not images:
             return emit({"ok": False, "code": "no_image_uploaded",
-                         "error": "올린 이미지가 없습니다", "failed": failed})
+                         "error": "no images were uploaded", "failed": failed})
 
         out = {
             "count": len(images),
@@ -83,8 +83,8 @@ def cmd_upload_image(args, api) -> int:
             "tag": current_tag,
             "failed": failed or None,
             "private_warning": warning,
-            "summary": f"이미지 {len(images)}개 업로드 완료 (릴리스 {current_tag})",
-            "next": f"add-comment {args.owner} {args.repo} <이슈번호> <본문파일>",
+            "summary": f"uploaded {len(images)} image(s) (release {current_tag})",
+            "next": f"add-comment {args.owner} {args.repo} <issue_number> <body_file>",
         }
         # 1개면 images.0.url 을 짐작하지 않게 최상위에 둔다
         if len(images) == 1:
@@ -97,8 +97,8 @@ def cmd_upload_image(args, api) -> int:
 def _asset_limit_response(args, error) -> int:
     """이어 쓸 증적 릴리스까지 모두 찬 경우: 시도한 태그와 다음 행동"""
     return emit({"ok": False, "code": "release_asset_limit", "error": str(error), "tried_tags": error.tried_tags,
-                 "next": (f"delete-image {args.owner} {args.repo} <asset_id> 로 오래된 증적을 지우거나 "
-                          f"upload-image {args.owner} {args.repo} <파일> --tag <새 태그> 로 다시 올린다")})
+                 "next": (f"delete old evidence with delete-image {args.owner} {args.repo} <asset_id>, or upload again with "
+                          f"upload-image {args.owner} {args.repo} <file> --tag <new tag>")})
 
 
 def cmd_delete_image(args, api) -> int:
@@ -109,7 +109,7 @@ def cmd_delete_image(args, api) -> int:
     try:
         api.delete_release_asset(args.owner, args.repo, args.asset_id, pat)
         return emit({"asset_id": args.asset_id, "status": "deleted",
-                     "summary": f"증적 {args.asset_id} 삭제 완료"})
+                     "summary": f"deleted evidence asset {args.asset_id}"})
     except GitHubAPIError as e:
         return api_error(e)
 
@@ -119,20 +119,20 @@ def cmd_delete_image(args, api) -> int:
 def _configure_upload_image(parser) -> None:
     parser.add_argument("owner")
     parser.add_argument("repo")
-    parser.add_argument("files", nargs="+", help="이미지 파일 경로 (여러 개 가능)")
-    parser.add_argument("--tag", type=_release_tag, default=EVIDENCE_TAG, help=f"증적 릴리스 태그 (기본 {EVIDENCE_TAG})")
-    parser.add_argument("--prefix", default=None, help="자산 이름 앞에 붙일 말 (예: issue585)")
+    parser.add_argument("files", nargs="+", help="image file paths (one or more)")
+    parser.add_argument("--tag", type=_release_tag, default=EVIDENCE_TAG, help=f"evidence release tag (default {EVIDENCE_TAG})")
+    parser.add_argument("--prefix", default=None, help="prefix for the asset name (e.g. issue585)")
 
 
 def _configure_delete_image(parser) -> None:
     parser.add_argument("owner")
     parser.add_argument("repo")
-    parser.add_argument("asset_id", type=int, help="증적 자산 ID (정수)")
+    parser.add_argument("asset_id", type=int, help="evidence asset ID (integer)")
 
 
 COMMANDS = [
-    Command(name="upload-image", help="이미지를 증적 릴리스에 올려 마크다운을 받는다", run=cmd_upload_image,
+    Command(name="upload-image", help="upload images to the evidence release and get markdown", run=cmd_upload_image,
             configure=_configure_upload_image),
-    Command(name="delete-image", help="올린 증적 이미지를 지운다", run=cmd_delete_image,
+    Command(name="delete-image", help="delete an uploaded evidence image", run=cmd_delete_image,
             configure=_configure_delete_image),
 ]

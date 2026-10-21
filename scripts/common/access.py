@@ -27,21 +27,21 @@ _SECRET_WORD = (r"(?:secret|client[_-]?secret|api[_-]?key|private[_-]?key|token|
                 r"(?:access|refresh|auth|id|bearer)[_-]?token)")
 
 SECRET_PATTERNS = [
-    (r'[\w.+-]+@[\w-]+\.[\w.]{2,}', "이메일 주소"),
-    (r'01[016-9][-\s]?\d{3,4}[-\s]?\d{4}', "전화번호"),
-    (r'eyJ[\w-]{10,}\.[\w-]{10,}', "JWT 토큰"),
+    (r'[\w.+-]+@[\w-]+\.[\w.]{2,}', "email address"),
+    (r'01[016-9][-\s]?\d{3,4}[-\s]?\d{4}', "phone number"),
+    (r'eyJ[\w-]{10,}\.[\w-]{10,}', "JWT token"),
     # key=value · key: value · JSON {"password": "x"} (#589)
     (r'(?i)["\']?\b' + _PASSWORD_WORD + r'\b["\']?\s*[:=]\s*["\']?(?P<value>' + _NOT_VALUE_START
-     + r'[^\s"\',;]{4,})', "비밀번호"),
+     + r'[^\s"\',;]{4,})', "password"),
     # 구분자 없이 바로 값이 붙은 경우(password hunter2) — 값은 글자와 숫자가 섞인 것만 (설명 문장은 통과)
     (r'(?i)\b' + _PASSWORD_WORD + r'\s+(?P<value>(?=\S*\d)(?=\S*[a-z])[a-z0-9!@$%^&*_+-]{6,})(?!\S)',
-     "비밀번호"),
+     "password"),
     (r'(?i)["\']?\b' + _SECRET_WORD + r'\b["\']?\s*[:=]\s*["\']?(?P<value>' + _NOT_VALUE_START
-     + r'[^\s"\',;]{8,})', "비밀 값"),
+     + r'[^\s"\',;]{8,})', "secret value"),
     # 서비스가 정한 모양의 키 (낱말 없이 값만 있어도 잡는다)
     (r'\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|sk-[A-Za-z0-9_-]{20,}|'
-     r'AKIA[0-9A-Z]{16}|xox[abprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35})', "API 키"),
-    (r'-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----', "개인키"),
+     r'AKIA[0-9A-Z]{16}|xox[abprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35})', "API key"),
+    (r'-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----', "private key"),
 ]
 
 

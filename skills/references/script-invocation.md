@@ -77,7 +77,7 @@ Every `<scope>_cli.py` subcommand's output = JSON on stdout. `emit()` in `script
 |---|---|---|
 | `ok` | Success or not | `true` / `false` |
 | `code` | Identifier (for debugging on error) | `ok`, `missing_pat`, `github_api_404` |
-| `summary` | One-line human-friendly summary | `"PR #123 생성 완료"` (literal output, "PR #123 created") |
+| `summary` | One-line human-friendly summary | `"created PR #123"` |
 | `next` | Next-action hint | `"deploy-status owner repo --pr 123"` or null |
 
 For designing a new subcommand, see `mcp-subcommand-rules.md`.

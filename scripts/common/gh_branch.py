@@ -86,7 +86,7 @@ def commit_type_arg(value: str) -> str:
     base = value[:-1] if value.endswith("!") else value
     if base not in VALID_COMMIT_TYPES:
         raise argparse.ArgumentTypeError(
-            f"알 수 없는 커밋 타입: {value!r} (가능: {', '.join(sorted(VALID_COMMIT_TYPES))})")
+            f"unknown commit type: {value!r} (allowed: {', '.join(sorted(VALID_COMMIT_TYPES))})")
     return value
 
 
@@ -99,7 +99,7 @@ def date_arg(value: str) -> str:
             raise ValueError
         datetime.strptime(value, "%Y%m%d")
     except ValueError:
-        raise argparse.ArgumentTypeError(f"YYYYMMDD 형식의 실제 날짜여야 합니다: {value!r}")
+        raise argparse.ArgumentTypeError(f"must be a real date in YYYYMMDD form: {value!r}")
     return value
 
 

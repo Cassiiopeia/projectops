@@ -12,18 +12,18 @@ from pro_github.responses import api_error, missing_pat
 def cmd_add_comment(args, api) -> int:
     body_file = args.body_file or args.body_file_option
     if not body_file:
-        return emit({"ok": False, "code": "missing_argument", "error": "본문 파일 필요",
-                     "usage": "add-comment <owner> <repo> <number> <body_file> (또는 --body-file <파일>)"})
+        return emit({"ok": False, "code": "missing_argument", "error": "a body file is required",
+                     "usage": "add-comment <owner> <repo> <number> <body_file> (or --body-file <file>)"})
     pat = api.get_github_pat(args.owner, args.repo)
     if not pat:
         return missing_pat()
     body_path = Path(body_file)
     if not body_path.exists():
-        return emit({"ok": False, "code": "body_file_not_found", "error": f"{body_file} 없음"})
+        return emit({"ok": False, "code": "body_file_not_found", "error": f"{body_file} not found"})
     body = body_path.read_text(encoding="utf-8")
     try:
         result = api.add_comment(args.owner, args.repo, args.number, body, pat)
-        return emit({**result, "summary": f"#{args.number}에 댓글 추가 완료"})
+        return emit({**result, "summary": f"added a comment to #{args.number}"})
     except GitHubAPIError as e:
         return api_error(e)
 
@@ -37,7 +37,7 @@ def cmd_list_comments(args, api) -> int:
         return emit({
             "count": len(comments),
             "comments": comments,
-            "summary": f"#{args.number} 댓글 {len(comments)}개",
+            "summary": f"#{args.number}: {len(comments)} comment(s)",
         })
     except GitHubAPIError as e:
         return api_error(e)
@@ -49,11 +49,11 @@ def cmd_edit_comment(args, api) -> int:
         return missing_pat()
     body_path = Path(args.body_file)
     if not body_path.exists():
-        return emit({"ok": False, "code": "body_file_not_found", "error": f"{args.body_file} 없음"})
+        return emit({"ok": False, "code": "body_file_not_found", "error": f"{args.body_file} not found"})
     body = body_path.read_text(encoding="utf-8")
     try:
         result = api.update_comment(args.owner, args.repo, args.comment_id, body, pat)
-        return emit({**result, "summary": f"댓글 {args.comment_id} 수정 완료"})
+        return emit({**result, "summary": f"edited comment {args.comment_id}"})
     except GitHubAPIError as e:
         return api_error(e)
 
@@ -64,7 +64,7 @@ def cmd_delete_comment(args, api) -> int:
         return missing_pat()
     try:
         result = api.delete_comment(args.owner, args.repo, args.comment_id, pat)
-        return emit({**result, "summary": f"댓글 {args.comment_id} 삭제 완료"})
+        return emit({**result, "summary": f"deleted comment {args.comment_id}"})
     except GitHubAPIError as e:
         return api_error(e)
 
@@ -77,7 +77,7 @@ def _configure_add_comment(parser) -> None:
     parser.add_argument("number", type=int)
     # 위치 인자와 --body-file 둘 다 받는다 (update-issue 와 같은 모양)
     parser.add_argument("body_file", nargs="?")
-    parser.add_argument("--body-file", dest="body_file_option", default=None, help="본문 파일 경로")
+    parser.add_argument("--body-file", dest="body_file_option", default=None, help="body file path")
 
 
 def _configure_list_comments(parser) -> None:
@@ -100,12 +100,12 @@ def _configure_delete_comment(parser) -> None:
 
 
 COMMANDS = [
-    Command(name="add-comment", help="이슈 댓글 추가", run=cmd_add_comment,
+    Command(name="add-comment", help="add an issue comment", run=cmd_add_comment,
             configure=_configure_add_comment),
-    Command(name="list-comments", help="이슈/PR 댓글 목록", run=cmd_list_comments,
+    Command(name="list-comments", help="list issue/PR comments", run=cmd_list_comments,
             configure=_configure_list_comments),
-    Command(name="edit-comment", help="댓글 수정", run=cmd_edit_comment,
+    Command(name="edit-comment", help="edit a comment", run=cmd_edit_comment,
             configure=_configure_edit_comment),
-    Command(name="delete-comment", help="댓글 삭제", run=cmd_delete_comment,
+    Command(name="delete-comment", help="delete a comment", run=cmd_delete_comment,
             configure=_configure_delete_comment),
 ]

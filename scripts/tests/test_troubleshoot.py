@@ -64,7 +64,7 @@ def test_valid_entry_has_no_problems():
     ({"fix": []}, "fix"),
     ({"match": {"codes": [], "keywords": []}}, "match"),
     ({"match": {"codes": ["Browser Failed"], "keywords": []}}, "match.codes"),
-    ({"extra_field": 1}, "모르는 필드"),
+    ({"extra_field": 1}, "unknown fields"),
     ({"title": "x" * 200}, "title"),
 ])
 def test_schema_rejects_bad_values(change, expected):
@@ -75,7 +75,7 @@ def test_schema_rejects_bad_values(change, expected):
 def test_missing_required_field_is_reported():
     entry = _entry()
     entry.pop("cause")
-    assert "필수 필드 없음: cause" in troubleshoot.validate_entry(entry)
+    assert "missing required field: cause" in troubleshoot.validate_entry(entry)
 
 
 def test_validate_entries_checks_filename_folder_duplicates_and_secrets(tmp_path):
@@ -86,10 +86,10 @@ def test_validate_entries_checks_filename_folder_duplicates_and_secrets(tmp_path
     _write(skill_dir, _entry("dup", "ios"), area="ios")
     _write(skill_dir, _entry("leak", fix=["password: hunter2-real"]))
     problems = "\n".join(troubleshoot.validate_entries(skill_dir))
-    assert "파일명이 다르다" in problems
-    assert "폴더가 다르다" in problems
-    assert "id 중복" in problems
-    assert "비밀값" in problems
+    assert "does not match the file name" in problems
+    assert "does not match the folder" in problems
+    assert "duplicate id" in problems
+    assert "looks like a secret" in problems
 
 
 def test_broken_json_file_is_a_problem_not_a_crash(tmp_path):

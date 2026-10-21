@@ -44,14 +44,14 @@ def cmd_get_output_path(args) -> int:
 def cmd_add_comment(args) -> int:
     pat = get_github_pat(args.owner, args.repo)
     if not pat:
-        return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
+        return emit({"ok": False, "code": "missing_pat", "error": "no PAT configured"})
     body_path = Path(args.body_file)
     if not body_path.exists():
-        return emit({"ok": False, "code": "body_file_not_found", "error": f"{args.body_file} 없음"})
+        return emit({"ok": False, "code": "body_file_not_found", "error": f"{args.body_file} not found"})
     body = body_path.read_text(encoding="utf-8")
     try:
         result = add_comment(args.owner, args.repo, args.number, body, pat)
-        return emit({**result, "summary": f"#{args.number}에 댓글 추가"})
+        return emit({**result, "summary": f"added a comment to #{args.number}"})
     except GitHubAPIError as e:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e)})
 
@@ -60,14 +60,14 @@ def build_parser() -> JSONArgumentParser:
     parser = JSONArgumentParser(prog="report_cli", description="report skill CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_gop = sub.add_parser("get-output-path", help="보고서 출력 경로")
+    p_gop = sub.add_parser("get-output-path", help="report output path")
     p_gop.add_argument("skill_id", nargs="?", default="report")
     p_gop.add_argument("--title")
     from common.paths import add_root_and_issue_args
     add_root_and_issue_args(p_gop)
     p_gop.set_defaults(func=cmd_get_output_path)
 
-    p_ac = sub.add_parser("add-comment", help="이슈 댓글 추가 (보고서 포스팅)")
+    p_ac = sub.add_parser("add-comment", help="add an issue comment (posts the report)")
     p_ac.add_argument("owner")
     p_ac.add_argument("repo")
     p_ac.add_argument("number", type=int)

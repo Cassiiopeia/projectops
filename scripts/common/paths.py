@@ -85,10 +85,10 @@ def read_configured_output_root() -> tuple[str, Optional[str]]:
         data, status = load_with_status()
         location = config_path()
     except OSError as error:   # 옛 경로 이주 복사 실패 등
-        return "", f"config.json 을 열지 못해 output.root 를 무시하고 기본 위치({DEFAULT_OUTPUT_ROOT})를 씁니다: {error}"
+        return "", f"could not open config.json; ignoring output.root and using the default location ({DEFAULT_OUTPUT_ROOT}): {error}"
     if status == "unreadable":
-        return "", (f"config.json 이 깨져(JSON 문법·인코딩) output.root 를 무시하고 "
-                    f"기본 위치({DEFAULT_OUTPUT_ROOT})를 씁니다: {location}")
+        return "", (f"config.json is broken (JSON syntax or encoding); ignoring output.root and "
+                    f"using the default location ({DEFAULT_OUTPUT_ROOT}): {location}")
     if not isinstance(data, dict):
         return "", None
     output = data.get("output")
@@ -96,7 +96,7 @@ def read_configured_output_root() -> tuple[str, Optional[str]]:
         return "", None
     configured = output.get("root") if isinstance(output, dict) else None
     if not isinstance(output, dict) or not isinstance(configured, (str, type(None))):
-        return "", f"config.json 의 output.root 형식이 문자열이 아니라 기본 위치({DEFAULT_OUTPUT_ROOT})를 씁니다"
+        return "", f"output.root in config.json is not a string; using the default location ({DEFAULT_OUTPUT_ROOT})"
     return (configured or "").strip(), None
 
 
@@ -168,10 +168,10 @@ def ensure_untracked(dir_path: Union[str, Path], skill_id: str) -> str:
 def add_root_and_issue_args(parser, with_issue: bool = True) -> None:
     """get-output-path 공통 인자: --root(프로젝트), --issue(이슈 번호 직접 지정) (#943)"""
     parser.add_argument("--root", default=None,
-                        help="프로젝트 루트 (생략하면 $PROJECT_ROOT > 현재 폴더의 git 루트)")
+                        help="project root (default: $PROJECT_ROOT, then the git root of the current folder)")
     if with_issue:
         parser.add_argument("--issue", type=int, default=None,
-                            help="이슈 번호를 직접 지정 (생략하면 worktree 경로 > 브랜치명에서 찾는다)")
+                            help="issue number to use (default: found from the worktree path, then the branch name)")
 
 
 def _project_dir(root: Optional[str]) -> Optional[str]:
@@ -205,9 +205,9 @@ def resolve_output_path(skill_id: str, forced_title: Optional[str] = None,
         return {
             "ok": False,
             "code": "unknown_skill_id",
-            "error": f"등록되지 않은 skill_id: {skill_id!r}",
+            "error": f"unregistered skill_id: {skill_id!r}",
             "known": sorted(EVIDENCE_SKILLS | DOCUMENT_SKILLS),
-            "hint": "새 산출물 스킬이면 scripts/common/paths.py 의 EVIDENCE_SKILLS/DOCUMENT_SKILLS 에 등록",
+            "hint": "for a new output skill, register it in EVIDENCE_SKILLS/DOCUMENT_SKILLS in scripts/common/paths.py",
         }
 
     from common.issue_number import (
@@ -220,8 +220,8 @@ def resolve_output_path(skill_id: str, forced_title: Optional[str] = None,
     try:
         project_dir = _project_dir(root)
     except ValueError as bad:
-        return {"ok": False, "code": "root_not_found", "error": f"프로젝트 폴더가 없습니다: {bad}",
-                "next": "--root 에 실제 프로젝트 경로를 준다"}
+        return {"ok": False, "code": "root_not_found", "error": f"project folder not found: {bad}",
+                "next": "pass a real project path to --root"}
     cwd = project_dir or os.getcwd()
     today = date.today().strftime("%Y%m%d")
 
@@ -240,8 +240,8 @@ def resolve_output_path(skill_id: str, forced_title: Optional[str] = None,
             cwd=project_dir, capture_output=True, text=True, check=True,
         ).stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
-        return {"ok": False, "code": "git_not_found", "error": "git 저장소가 아닙니다",
-                "next": "프로젝트 폴더에서 부르거나 --root <프로젝트 경로> 를 준다 ($PROJECT_ROOT 도 된다)"}
+        return {"ok": False, "code": "git_not_found", "error": "not a git repository",
+                "next": "run it from the project folder or pass --root <project path> ($PROJECT_ROOT also works)"}
 
     configured_root, config_warning = read_configured_output_root()
     output_base = _join_output_root(root_str, configured_root)

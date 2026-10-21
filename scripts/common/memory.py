@@ -128,7 +128,7 @@ def bump(e: dict, result: str, now: str | None = None) -> bool:
     verify 표시는 성공이 실패를 앞서면 내린다 — 다시 확인된 기억이다.
     """
     if result not in ("ok", "fail"):
-        raise ValueError("result 는 ok 또는 fail")
+        raise ValueError("result must be ok or fail")
     d = today(now)
     ok, fail, _ = stats(e)
     e["ok"], e["fail"] = ok, fail

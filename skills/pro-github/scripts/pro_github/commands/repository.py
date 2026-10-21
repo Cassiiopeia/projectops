@@ -20,36 +20,36 @@ def cmd_explore(args, api) -> int:
                 "owner_type": owner_type,
                 "count": len(repos),
                 "repos": repos,
-                "summary": f"{args.owner} {owner_type} 레포 {len(repos)}개",
+                "summary": f"{args.owner} ({owner_type}): {len(repos)} repo(s)",
                 "next": f"explore repo-detail {args.owner} {repos[0]['name']}" if repos else None,
             })
         if not args.repo:
-            return emit({"ok": False, "code": "missing_argument", "error": f"explore {args.sub}는 repo 인자 필요"})
+            return emit({"ok": False, "code": "missing_argument", "error": f"explore {args.sub} needs a repo argument"})
         if args.sub == "repo-detail":
             detail = api.get_repo_detail(args.owner, args.repo, pat)
             return emit({
                 "repo": detail,
-                "summary": f"{args.owner}/{args.repo} 상세",
+                "summary": f"{args.owner}/{args.repo} details",
                 "next": f"explore readme {args.owner} {args.repo}",
             })
         if args.sub == "readme":
             readme = api.get_readme(args.owner, args.repo, pat)
             return emit({
                 "readme": readme,
-                "summary": "README 조회",
+                "summary": "fetched README",
                 "next": f"explore languages {args.owner} {args.repo}",
             })
         if args.sub == "languages":
             langs = api.get_languages(args.owner, args.repo, pat)
-            return emit({"languages": langs, "summary": f"언어 {len(langs)}개"})
+            return emit({"languages": langs, "summary": f"{len(langs)} language(s)"})
         if args.sub == "commits":
             commits = api.list_commits(args.owner, args.repo, pat, limit=args.limit)
             return emit({
                 "count": len(commits),
                 "commits": commits,
-                "summary": f"최근 커밋 {len(commits)}개",
+                "summary": f"{len(commits)} recent commit(s)",
             })
-        return emit({"ok": False, "code": "unknown_subcommand", "error": f"알 수 없음: {args.sub}"})
+        return emit({"ok": False, "code": "unknown_subcommand", "error": f"unknown: {args.sub}"})
     except GitHubAPIError as e:
         return api_error(e)
 
@@ -65,6 +65,6 @@ def _configure_explore(parser) -> None:
 
 
 COMMANDS = [
-    Command(name="explore", help="레포 탐색 (list-repos|repo-detail|readme|languages|commits)", run=cmd_explore,
+    Command(name="explore", help="explore repos (list-repos|repo-detail|readme|languages|commits)", run=cmd_explore,
             configure=_configure_explore),
 ]

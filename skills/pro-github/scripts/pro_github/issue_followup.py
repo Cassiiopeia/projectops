@@ -15,10 +15,10 @@ def rename_body_file_to_issue_number(body_path: Path, issue_number: int) -> tupl
     """
     matched = _DRAFT_BODY_FILE_NAME.match(body_path.name)
     if not matched:
-        return None, f"본문 파일 이름이 YYYYMMDD_NNN_ 형식이 아니라 바꾸지 않았다: {body_path.name}"
+        return None, f"not renamed: the body file name is not in YYYYMMDD_NNN_ form: {body_path.name}"
     target = body_path.with_name(f"{matched.group(1)}_{issue_number}_{matched.group(2)}")
     if target.exists():
-        return None, f"같은 이름 파일이 이미 있어 바꾸지 않았다: {target}"
+        return None, f"not renamed: a file with that name already exists: {target}"
     body_path.rename(target)
     return target, None
 

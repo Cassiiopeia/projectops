@@ -37,7 +37,7 @@ def cmd_finish_issue(args, api) -> int:
         replaced = api.set_issue_labels(args.owner, args.repo, args.number, wanted, pat)
         if replaced.get("unchanged"):
             steps.append({"step": "labels", "ok": False, "code": "no_valid_labels",
-                          "detail": f"레포에 상태 라벨이 없어 교체하지 못했다: {status_label}"})
+                          "detail": f"could not replace labels: the repo has no status label {status_label}"})
         else:
             steps.append({"step": "labels", "ok": True, "labels": replaced.get("labels")})
     except GitHubAPIError as e:
@@ -60,9 +60,9 @@ def cmd_finish_issue(args, api) -> int:
         "steps": steps,
         "failed_steps": failed,
         "warnings": warnings,
-        "summary": (f"#{args.number} 완료 처리: " + " > ".join(f"{s['step']} {'ok' if s['ok'] else '실패'}" for s in steps)),
-        "next": (f"실패한 단계만 다시: {', '.join(failed)} (finish-issue 재실행 또는 close-issue)" if failed
-                 else "보고서가 빠졌다면 pro-report 로 작성해 이 이슈에 댓글로 남긴다" if warnings else None),
+        "summary": (f"#{args.number} finish: " + " > ".join(f"{s['step']} {'ok' if s['ok'] else 'failed'}" for s in steps)),
+        "next": (f"retry only the failed steps: {', '.join(failed)} (run finish-issue again or close-issue)" if failed
+                 else "if the report is missing, write it with pro-report and post it as a comment on this issue" if warnings else None),
     })
 
 
@@ -77,11 +77,11 @@ def _report_warnings(args, api, pat: str) -> list[str]:
     try:
         comments = api.get_issue_comments(args.owner, args.repo, args.number, pat)
     except (GitHubAPIError, urllib.error.URLError, TimeoutError, ConnectionError) as error:
-        return [f"보고서 댓글 확인 실패: {error}"]
+        return [f"could not check for a report comment: {error}"]
     if any(is_report_comment(comment.get("body", "")) for comment in comments):
         return []
-    return [f"#{args.number} 에 보고서 댓글이 없다 (판별: '## 개요'+'## 변경 사항' 제목, 휴리스틱). "
-            f"pro-report 로 보고서를 남겼는지 확인한다"]
+    return [f"#{args.number} has no report comment (heuristic: the report marker or the '## 개요' + '## 변경 사항' headings). "
+            f"Check that a report was posted with pro-report"]
 
 
 def _configure_finish_issue(parser) -> None:
@@ -89,10 +89,10 @@ def _configure_finish_issue(parser) -> None:
     parser.add_argument("repo")
     parser.add_argument("number", type=int)
     parser.add_argument("--outcome", choices=sorted(_OUTCOMES), default="done",
-                        help="done: status: done + 닫기 / cancelled: status: cancelled + 닫기 / in-progress: 라벨만")
+                        help="done: status: done + close / cancelled: status: cancelled + close / in-progress: label only")
 
 
 COMMANDS = [
-    Command(name="finish-issue", help="상태 라벨 교체 + 닫기를 한 번에 (부분 성공을 단계별로 보고)",
+    Command(name="finish-issue", help="replace the status label and close in one step (reports partial success per step)",
             run=cmd_finish_issue, configure=_configure_finish_issue),
 ]

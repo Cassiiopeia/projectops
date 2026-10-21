@@ -30,7 +30,7 @@ def load_commands() -> list[Command]:
     for module in _MODULES:
         for command in module.COMMANDS:
             if command.name in found:
-                raise ValueError(f"서브커맨드 이름이 겹친다: {command.name}")
+                raise ValueError(f"duplicate subcommand name: {command.name}")
             found[command.name] = command
     first = [found[name] for name in HELP_ORDER if name in found]
     rest = [found[name] for name in sorted(found) if name not in HELP_ORDER]
@@ -41,7 +41,7 @@ def build_parser(api) -> JSONArgumentParser:
     """api: 핸들러가 GitHub 호출·PAT 조회에 쓰는 의존 창구 (registry.Dependencies)"""
     parser = JSONArgumentParser(
         prog="github_cli",
-        description="github skill 전용 GitHub API CLI",
+        description="GitHub API CLI for the pro-github skill",
     )
     sub = parser.add_subparsers(dest="command", required=True)
     for command in load_commands():

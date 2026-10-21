@@ -67,7 +67,7 @@ from common.config import get_github_pat
 
 pat = get_github_pat(args.owner, args.repo)
 if not pat:
-    return emit({"ok": False, "code": "missing_pat", "error": "PAT 없음"})
+    return emit({"ok": False, "code": "missing_pat", "error": "no PAT configured"})
 ```
 
 It loads automatically from the `GITHUB_PAT` environment variable, then `config.json` (per-repo `pat` → `global_pat`). Do not open the config file directly inside a subcommand.

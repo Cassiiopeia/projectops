@@ -44,7 +44,7 @@ def cmd_get_issues(args, api) -> int:
         try:
             number = int(raw)
         except ValueError:
-            issues.append({"number": raw, "error": "정수 아님", "code": "invalid_argument"})
+            issues.append({"number": raw, "error": "not an integer", "code": "invalid_argument"})
             continue
         try:
             issues.append(api.get_issue(args.owner, args.repo, number, pat))
@@ -56,13 +56,13 @@ def cmd_get_issues(args, api) -> int:
         return emit({
             "ok": False,
             "code": "all_failed",
-            "error": f"{len(issues)}개 이슈 조회가 모두 실패했습니다",
+            "error": f"all {len(issues)} issue lookups failed",
             "count": len(issues),
             "issues": issues,
         })
-    summary = f"{len(issues)}개 이슈 조회 완료"
+    summary = f"fetched {len(issues)} issue(s)"
     if failed:
-        summary = f"{len(issues)}개 중 {len(failed)}개 조회 실패 (성공 {len(issues) - len(failed)}개)"
+        summary = f"{len(failed)} of {len(issues)} lookups failed ({len(issues) - len(failed)} succeeded)"
     return emit({"count": len(issues), "issues": issues, "summary": summary,
                  **({"failed_count": len(failed)} if failed else {})})
 
@@ -75,7 +75,7 @@ def cmd_create_issue(args, api) -> int:
         return emit({
             "ok": False,
             "code": "body_file_not_found",
-            "error": f"본문 파일이 존재하지 않습니다: {args.body_file}",
+            "error": f"body file not found: {args.body_file}",
             "path_attempted": str(body_path.resolve()),
         })
     pat = api.get_github_pat(args.owner, args.repo)
@@ -91,13 +91,13 @@ def cmd_create_issue(args, api) -> int:
         return api_error(e)
     applied = result.get("assignees", [])
     missing = [a for a in assignees if a not in applied]
-    out = {**result, "summary": f"이슈 #{result.get('number')} 생성 완료", "body_length": len(body)}
+    out = {**result, "summary": f"created issue #{result.get('number')}", "body_length": len(body)}
     skipped_labels = out.pop("skipped_labels", [])
     if skipped_labels:
-        out["label_warning"] = f"레포에 없어 무시된 라벨: {', '.join(skipped_labels)}"
+        out["label_warning"] = f"labels ignored because the repo does not have them: {', '.join(skipped_labels)}"
     if missing:
         out["assignee_warning"] = (
-            f"담당자 지정 일부 실패: {', '.join(missing)} (레포 협업자/권한 확인 필요). 이슈는 정상 생성됨."
+            f"some assignees could not be set: {', '.join(missing)} (check repo collaborators and permissions). The issue was created."
         )
     _add_created_issue_followups(out, args, body_path)
     return emit(out)
@@ -115,7 +115,7 @@ def _add_created_issue_followups(out: dict, args, body_path: Path) -> None:
     except Exception as error:  # 이슈는 이미 생성됨: 보조 정보 실패로 생성 응답을 잃지 않는다
         out.update({"branch": None, "commit_template": None, "hints_warning": f"{type(error).__name__}: {error}"})
     # 작업중 전환은 상태 라벨만 바꾸는 finish-issue (set-labels 는 type·area 라벨까지 지운다)
-    out["next"] = (f"브랜치 {out['branch'] or '(create-branch-name 으로 생성)'} 생성 > "
+    out["next"] = (f"create branch {out['branch'] or '(build it with create-branch-name)'} > "
                    f"finish-issue {args.owner} {args.repo} {out['number']} --outcome in-progress")
 
 
@@ -129,7 +129,7 @@ def cmd_list_issues(args, api) -> int:
         return emit({
             "count": len(issues),
             "issues": issues,
-            "summary": f"{args.owner}/{args.repo} 이슈 {len(issues)}개 ({args.state})",
+            "summary": f"{args.owner}/{args.repo}: {len(issues)} issue(s) ({args.state})",
         })
     except GitHubAPIError as e:
         return api_error(e)
@@ -145,7 +145,7 @@ def cmd_update_issue(args, api) -> int:
             return emit({
                 "ok": False,
                 "code": "body_file_not_found",
-                "error": f"수정용 본문 파일이 존재하지 않습니다: {body_file}",
+                "error": f"body file for the update not found: {body_file}",
                 "path_attempted": str(body_path.resolve())
             })
         body = body_path.read_text(encoding="utf-8")
@@ -161,7 +161,7 @@ def cmd_update_issue(args, api) -> int:
         return emit({
             "ok": False,
             "code": "nothing_to_update",
-            "error": "바꿀 값이 없습니다 (--title/--body-file/--state/--labels/--assignees 중 하나 필요)",
+            "error": "nothing to change (need one of --title/--body-file/--state/--labels/--assignees)",
         })
 
     try:
@@ -169,7 +169,7 @@ def cmd_update_issue(args, api) -> int:
             args.owner, args.repo, args.number, pat,
             title=args.title, body=body, state=args.state, labels=labels, assignees=assignees,
         )
-        return emit({**result, "summary": f"#{args.number} 수정 완료"})
+        return emit({**result, "summary": f"updated #{args.number}"})
     except GitHubAPIError as e:
         return api_error(e)
 
@@ -183,7 +183,7 @@ def cmd_close_issue(args, api) -> int:
         result = api.update_issue(args.owner, args.repo, args.number, pat,
                               state="closed", state_reason=args.reason)
         return emit({**result, "state_reason": args.reason,
-                     "summary": f"#{args.number} 닫음 ({args.reason})"})
+                     "summary": f"closed #{args.number} ({args.reason})"})
     except GitHubAPIError as e:
         return api_error(e)
 
@@ -194,7 +194,7 @@ def cmd_reopen_issue(args, api) -> int:
         return missing_pat()
     try:
         result = api.update_issue(args.owner, args.repo, args.number, pat, state="open")
-        return emit({**result, "summary": f"#{args.number} 다시 열음"})
+        return emit({**result, "summary": f"reopened #{args.number}"})
     except GitHubAPIError as e:
         return api_error(e)
 
@@ -209,7 +209,7 @@ def cmd_search_issues(args, api) -> int:
         return emit({
             "count": len(result),
             "items": result,
-            "summary": f"\"{keyword}\" 검색 {len(result)}건",
+            "summary": f"search \"{keyword}\": {len(result)} result(s)",
         })
     except GitHubAPIError as e:
         return api_error(e)
@@ -237,18 +237,18 @@ def _configure_create_issue(parser) -> None:
     parser.add_argument("body_file")
     # 라벨을 생략해도 된다 (템플릿 기본 라벨만 붙는다): 필수 위치 인자라 빠뜨리면 bad_args 가 났다 (#940)
     parser.add_argument("labels", nargs="?", default="", help="csv")
-    parser.add_argument("--labels", dest="labels_option", default="", help="csv (위치 인자 labels 와 같다)")
-    parser.add_argument("--assignees", help="담당자 csv")
+    parser.add_argument("--labels", dest="labels_option", default="", help="csv (same as the labels positional argument)")
+    parser.add_argument("--assignees", help="assignees csv")
     parser.add_argument("--rename-body-file", dest="rename_body_file", action="store_true",
-                        help="본문 파일 YYYYMMDD_NNN_제목 의 NNN 을 실제 이슈 번호로 바꾼다")
+                        help="rename the body file YYYYMMDD_NNN_title so NNN becomes the real issue number")
 
 
 def _configure_list_issues(parser) -> None:
     parser.add_argument("owner")
     parser.add_argument("repo")
     parser.add_argument("--state", choices=["open", "closed", "all"], default="open")
-    parser.add_argument("--labels", default="", help="csv, 모두 가진 이슈만")
-    parser.add_argument("--limit", type=int, default=50, help="최대 개수 (0이면 전부)")
+    parser.add_argument("--labels", default="", help="csv; only issues that have all of them")
+    parser.add_argument("--limit", type=int, default=50, help="max count (0 for all)")
 
 
 def _configure_update_issue(parser) -> None:
@@ -256,12 +256,12 @@ def _configure_update_issue(parser) -> None:
     parser.add_argument("repo")
     parser.add_argument("number", type=int)
     # 본문 파일은 위치 인자로도 받는다 (add-comment 와 같은 모양)
-    parser.add_argument("body_file_positional", nargs="?", metavar="body_file", help="본문 파일 경로")
+    parser.add_argument("body_file_positional", nargs="?", metavar="body_file", help="body file path")
     parser.add_argument("--title")
     parser.add_argument("--state", choices=["open", "closed"])
-    parser.add_argument("--labels", help="csv (전체 교체)")
+    parser.add_argument("--labels", help="csv (replaces all)")
     parser.add_argument("--assignees", help="csv")
-    parser.add_argument("--body-file", help="본문 파일 경로")
+    parser.add_argument("--body-file", help="body file path")
 
 
 def _configure_close_issue(parser) -> None:
@@ -269,7 +269,7 @@ def _configure_close_issue(parser) -> None:
     parser.add_argument("repo")
     parser.add_argument("number", type=int)
     parser.add_argument("--reason", choices=["completed", "not_planned"], default="completed",
-                       help="완료=completed(기본), 취소=not_planned")
+                       help="done=completed (default), cancelled=not_planned")
 
 
 def _configure_reopen_issue(parser) -> None:
@@ -285,20 +285,20 @@ def _configure_search_issues(parser) -> None:
 
 
 COMMANDS = [
-    Command(name="get-issue", help="이슈 조회", run=cmd_get_issue,
+    Command(name="get-issue", help="get an issue", run=cmd_get_issue,
             configure=_configure_get_issue),
-    Command(name="get-issues", help="여러 이슈 한 번에 조회", run=cmd_get_issues,
+    Command(name="get-issues", help="get several issues at once", run=cmd_get_issues,
             configure=_configure_get_issues),
-    Command(name="create-issue", help="이슈 생성", run=cmd_create_issue,
+    Command(name="create-issue", help="create an issue", run=cmd_create_issue,
             configure=_configure_create_issue),
-    Command(name="list-issues", help="이슈 목록", run=cmd_list_issues,
+    Command(name="list-issues", help="list issues", run=cmd_list_issues,
             configure=_configure_list_issues),
-    Command(name="update-issue", help="이슈 수정", run=cmd_update_issue,
+    Command(name="update-issue", help="update an issue", run=cmd_update_issue,
             configure=_configure_update_issue),
-    Command(name="close-issue", help="이슈 닫기", run=cmd_close_issue,
+    Command(name="close-issue", help="close an issue", run=cmd_close_issue,
             configure=_configure_close_issue),
-    Command(name="reopen-issue", help="이슈 다시 열기", run=cmd_reopen_issue,
+    Command(name="reopen-issue", help="reopen an issue", run=cmd_reopen_issue,
             configure=_configure_reopen_issue),
-    Command(name="search-issues", help="이슈 검색", run=cmd_search_issues,
+    Command(name="search-issues", help="search issues", run=cmd_search_issues,
             configure=_configure_search_issues),
 ]
