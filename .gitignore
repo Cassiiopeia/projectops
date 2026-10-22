@@ -1,6 +1,9 @@
 /.idea
 /.claude/settings.local.json
 
+# macOS Finder metadata
+.DS_Store
+
 # Node.js (projectops CLI 개발용 — 배포는 npm이 의존성 자동 설치)
 node_modules/
 *.tgz
