@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-22T14:54:58Z",
-    "currentVersion": "4.74.0",
+    "lastUpdated": "2026-10-22T15:28:47Z",
+    "currentVersion": "4.74.1",
     "projectType": "basic",
-    "totalReleases": 349,
+    "totalReleases": 350,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.74.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-22",
+      "pr_number": 990,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Other**\n  * The language wiring test accepts Windows line endings, so the release CI passes on Windows again",
+      "parsed_changes": {
+        "other": {
+          "title": "Other",
+          "items": [
+            "The language wiring test accepts Windows line endings, so the release CI passes on Windows again"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.74.0",
       "project_type": "basic",

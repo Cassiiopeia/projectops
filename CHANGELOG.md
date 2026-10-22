@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.74.0  
-**Last updated:** 2026-10-22T14:54:58Z  
+**Current version:** 4.74.1  
+**Last updated:** 2026-10-22T15:28:47Z  
+
+---
+
+## [4.74.1] - 2026-10-22
+
+**PR:** #990  
+
+**Other**
+- The language wiring test accepts Windows line endings, so the release CI passes on Windows again
 
 ---
 
