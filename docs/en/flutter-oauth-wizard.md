@@ -103,6 +103,8 @@ Committing the files instead is also fine: leave the secrets unset and CI uses t
 
 ---
 
+<a id="cicd-changes"></a>
+
 ## CI/CD changes
 
 **Nothing to add.** The templates restore both files with `.github/scripts/firebase_config_files.py` (#785):

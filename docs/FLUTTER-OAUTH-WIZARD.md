@@ -103,6 +103,8 @@ Secret은 `firebase-sdk` 경로에서만 필요합니다.
 
 ---
 
+<a id="cicd-변경"></a>
+
 ## CI/CD 변경
 
 **추가할 것이 없습니다.** 템플릿이 `.github/scripts/firebase_config_files.py`로 두 파일을 복원합니다 (#785).
