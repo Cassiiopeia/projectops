@@ -1,14 +1,57 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-22T13:58:08Z",
-    "currentVersion": "4.73.0",
+    "lastUpdated": "2026-10-22T14:54:58Z",
+    "currentVersion": "4.74.0",
     "projectType": "basic",
-    "totalReleases": 348,
+    "totalReleases": 349,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.74.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-22",
+      "pr_number": 989,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * Desktop control now works on macOS as well as Windows\n  * macOS notifications and system dialogs can be read and answered\n  * Apple Account sign-in codes can be approved and entered with your OK\n  * Breaking-change notices now show in English by default, Korean on request\n\n* **Bug fixes**\n  * Self-hosted deploys can be switched on or off with one repo variable\n  * Creating the development branch no longer hangs on a login prompt\n  * Copilot and Cursor home installs no longer copy maintainer-only files\n\n* **Documentation**\n  * Remaining guides and discussion templates are now in English\n  * Deprecated deploy notice now points to the SSH + Docker guide\n\n* **Other**\n  * macOS system files are no longer tracked",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "Desktop control now works on macOS as well as Windows",
+            "macOS notifications and system dialogs can be read and answered",
+            "Apple Account sign-in codes can be approved and entered with your OK",
+            "Breaking-change notices now show in English by default, Korean on request"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Self-hosted deploys can be switched on or off with one repo variable",
+            "Creating the development branch no longer hangs on a login prompt",
+            "Copilot and Cursor home installs no longer copy maintainer-only files"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Remaining guides and discussion templates are now in English",
+            "Deprecated deploy notice now points to the SSH + Docker guide"
+          ]
+        },
+        "other": {
+          "title": "Other",
+          "items": [
+            "macOS system files are no longer tracked"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.73.0",
       "project_type": "basic",

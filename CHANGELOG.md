@@ -1,7 +1,31 @@
 # Changelog
 
-**Current version:** 4.73.0  
-**Last updated:** 2026-10-22T13:58:08Z  
+**Current version:** 4.74.0  
+**Last updated:** 2026-10-22T14:54:58Z  
+
+---
+
+## [4.74.0] - 2026-10-22
+
+**PR:** #989  
+
+**New features**
+- Desktop control now works on macOS as well as Windows
+- macOS notifications and system dialogs can be read and answered
+- Apple Account sign-in codes can be approved and entered with your OK
+- Breaking-change notices now show in English by default, Korean on request
+
+**Bug fixes**
+- Self-hosted deploys can be switched on or off with one repo variable
+- Creating the development branch no longer hangs on a login prompt
+- Copilot and Cursor home installs no longer copy maintainer-only files
+
+**Documentation**
+- Remaining guides and discussion templates are now in English
+- Deprecated deploy notice now points to the SSH + Docker guide
+
+**Other**
+- macOS system files are no longer tracked
 
 ---
 
