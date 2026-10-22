@@ -1,7 +1,24 @@
 # Changelog
 
-**Current version:** 4.72.0  
-**Last updated:** 2026-10-22T05:47:28Z  
+**Current version:** 4.73.0  
+**Last updated:** 2026-10-22T13:58:08Z  
+
+---
+
+## [4.73.0] - 2026-10-22
+
+**PR:** #986  
+
+**New features**
+- New `pro-desktop-control` skill: the agent can drive installer wizards, OS dialogs and desktop apps on your screen (Windows for now)
+- `pro-launch` gains `desktop` commands: list windows, read buttons and fields by number, press, type, send keys, capture and wait
+- Buttons are pressed through the OS accessibility layer, so your mouse cursor usually stays where it is
+- Only one session at a time can use your keyboard and mouse, and work pauses if you move the mouse
+- Install, agree, delete and save buttons, risky key combos and blind clicks wait for your approval
+- Password fields accept only saved credentials or environment variables, never plain text
+
+**Other**
+- Optional end-to-end test for the desktop commands that runs on a Windows PC when you opt in
 
 ---
 

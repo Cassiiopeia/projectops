@@ -1,14 +1,44 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-22T05:47:28Z",
-    "currentVersion": "4.72.0",
+    "lastUpdated": "2026-10-22T13:58:08Z",
+    "currentVersion": "4.73.0",
     "projectType": "basic",
-    "totalReleases": 347,
+    "totalReleases": 348,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.73.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-22",
+      "pr_number": 986,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * New `pro-desktop-control` skill: the agent can drive installer wizards, OS dialogs and desktop apps on your screen (Windows for now)\n  * `pro-launch` gains `desktop` commands: list windows, read buttons and fields by number, press, type, send keys, capture and wait\n  * Buttons are pressed through the OS accessibility layer, so your mouse cursor usually stays where it is\n  * Only one session at a time can use your keyboard and mouse, and work pauses if you move the mouse\n  * Install, agree, delete and save buttons, risky key combos and blind clicks wait for your approval\n  * Password fields accept only saved credentials or environment variables, never plain text\n\n* **Other**\n  * Optional end-to-end test for the desktop commands that runs on a Windows PC when you opt in",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "New `pro-desktop-control` skill: the agent can drive installer wizards, OS dialogs and desktop apps on your screen (Windows for now)",
+            "`pro-launch` gains `desktop` commands: list windows, read buttons and fields by number, press, type, send keys, capture and wait",
+            "Buttons are pressed through the OS accessibility layer, so your mouse cursor usually stays where it is",
+            "Only one session at a time can use your keyboard and mouse, and work pauses if you move the mouse",
+            "Install, agree, delete and save buttons, risky key combos and blind clicks wait for your approval",
+            "Password fields accept only saved credentials or environment variables, never plain text"
+          ]
+        },
+        "other": {
+          "title": "Other",
+          "items": [
+            "Optional end-to-end test for the desktop commands that runs on a Windows PC when you opt in"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.72.0",
       "project_type": "basic",
