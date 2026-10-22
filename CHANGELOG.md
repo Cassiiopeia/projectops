@@ -1,7 +1,39 @@
 # Changelog
 
-**Current version:** 4.71.3  
-**Last updated:** 2026-10-22T00:11:05Z  
+**Current version:** 4.72.0  
+**Last updated:** 2026-10-22T05:47:28Z  
+
+---
+
+## [4.72.0] - 2026-10-22
+
+**PR:** #984  
+
+**New features**
+- GitHub Copilot support: skills install to `~/.copilot/skills` for VS Code, the Copilot CLI and JetBrains, and the skill CLIs run from the installed copy
+- `--create-development-branch` creates and pushes the development branch in non-interactive `--force` runs
+- OAuth login wizard for Flutter (Kakao and Google): native config, secrets and CI/CD guidance
+- HTML wizards open in English with a Korean toggle
+- iOS workflows use the newest Xcode on the runner by default, with a hint when the SDK is too old
+- Flutter CI warns when the Flutter or Java version differs from the repository
+- Firebase config files are restored from secrets in the Android and iOS workflows
+
+**Bug fixes**
+- Signing passwords are no longer printed to the Play Store and Firebase workflow logs
+- The self-hosted deploy no longer runs on push until it is configured; doctor flags auto-triggered workflows that still have example values
+- Android workflows no longer overwrite `google-services.json` with an empty file
+- Clear error messages when `ExportOptions.plist` or the iOS Fastfile is missing
+- Firebase wizard copy buttons work again
+
+**Improvements**
+- Skills, skill tool output, workflow logs and script output are English by default
+- Workflow PR and issue comments follow the repository language (`language` in `version.yml`)
+- The README version section and deploy PR release notes follow the repository language
+- A CI check keeps Korean from creeping back into English surfaces
+
+**Documentation**
+- OAuth wizard guide in English and Korean
+- Guides use the new English workflow step names
 
 ---
 

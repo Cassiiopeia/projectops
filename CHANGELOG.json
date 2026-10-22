@@ -1,14 +1,65 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-22T00:11:05Z",
-    "currentVersion": "4.71.3",
+    "lastUpdated": "2026-10-22T05:47:28Z",
+    "currentVersion": "4.72.0",
     "projectType": "basic",
-    "totalReleases": 346,
+    "totalReleases": 347,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.72.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-22",
+      "pr_number": 984,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * GitHub Copilot support: skills install to `~/.copilot/skills` for VS Code, the Copilot CLI and JetBrains, and the skill CLIs run from the installed copy\n  * `--create-development-branch` creates and pushes the development branch in non-interactive `--force` runs\n  * OAuth login wizard for Flutter (Kakao and Google): native config, secrets and CI/CD guidance\n  * HTML wizards open in English with a Korean toggle\n  * iOS workflows use the newest Xcode on the runner by default, with a hint when the SDK is too old\n  * Flutter CI warns when the Flutter or Java version differs from the repository\n  * Firebase config files are restored from secrets in the Android and iOS workflows\n\n* **Bug fixes**\n  * Signing passwords are no longer printed to the Play Store and Firebase workflow logs\n  * The self-hosted deploy no longer runs on push until it is configured; doctor flags auto-triggered workflows that still have example values\n  * Android workflows no longer overwrite `google-services.json` with an empty file\n  * Clear error messages when `ExportOptions.plist` or the iOS Fastfile is missing\n  * Firebase wizard copy buttons work again\n\n* **Improvements**\n  * Skills, skill tool output, workflow logs and script output are English by default\n  * Workflow PR and issue comments follow the repository language (`language` in `version.yml`)\n  * The README version section and deploy PR release notes follow the repository language\n  * A CI check keeps Korean from creeping back into English surfaces\n\n* **Documentation**\n  * OAuth wizard guide in English and Korean\n  * Guides use the new English workflow step names",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "GitHub Copilot support: skills install to `~/.copilot/skills` for VS Code, the Copilot CLI and JetBrains, and the skill CLIs run from the installed copy",
+            "`--create-development-branch` creates and pushes the development branch in non-interactive `--force` runs",
+            "OAuth login wizard for Flutter (Kakao and Google): native config, secrets and CI/CD guidance",
+            "HTML wizards open in English with a Korean toggle",
+            "iOS workflows use the newest Xcode on the runner by default, with a hint when the SDK is too old",
+            "Flutter CI warns when the Flutter or Java version differs from the repository",
+            "Firebase config files are restored from secrets in the Android and iOS workflows"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Signing passwords are no longer printed to the Play Store and Firebase workflow logs",
+            "The self-hosted deploy no longer runs on push until it is configured; doctor flags auto-triggered workflows that still have example values",
+            "Android workflows no longer overwrite `google-services.json` with an empty file",
+            "Clear error messages when `ExportOptions.plist` or the iOS Fastfile is missing",
+            "Firebase wizard copy buttons work again"
+          ]
+        },
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "Skills, skill tool output, workflow logs and script output are English by default",
+            "Workflow PR and issue comments follow the repository language (`language` in `version.yml`)",
+            "The README version section and deploy PR release notes follow the repository language",
+            "A CI check keeps Korean from creeping back into English surfaces"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "OAuth wizard guide in English and Korean",
+            "Guides use the new English workflow step names"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.71.3",
       "project_type": "basic",
