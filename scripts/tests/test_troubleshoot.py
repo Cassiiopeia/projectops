@@ -58,7 +58,7 @@ def test_valid_entry_has_no_problems():
 
 @pytest.mark.parametrize("change, expected", [
     ({"id": "Bad_ID"}, "kebab"),
-    ({"area": "desktop"}, "area"),
+    ({"area": "mainframe"}, "area"),
     ({"verified_at": "2026/10/17"}, "verified_at"),
     ({"refs": ["#712"]}, "refs"),
     ({"fix": []}, "fix"),
