@@ -1,6 +1,9 @@
 // github-script 본문을 가짜 github/context/core 로 실행 > 게시 호출·출력을 JSON 으로 (#769 댓글 회귀 검사용)
 // 입력(stdin): [{script, env, apiFail}, ...] 한 번에 여러 개 (node 를 스텝마다 띄우면 느리다)
 // 시각 고정, API 응답은 어떤 속성 접근도 받아 주는 값 > 기존 스크립트와 새 스크립트가 같은 경로를 탄다
+// node --test 가 test/ 아래 .cjs 를 테스트 파일로 실행함 > stdin 대기로 CI 가 멈춤. 테스트 실행기 안이면 바로 종료
+if (process.env.NODE_TEST_CONTEXT) process.exit(0);
+
 const fs = require('fs');
 
 const FIXED_NOW = 1700000000000;
