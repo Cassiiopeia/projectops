@@ -26,6 +26,9 @@ that ignore a direct value.
 Refs come from the last `tree` or `find` **of this session**, stored per session. A CLI call is a new process, so the element is found again by
 its path in the window's tree and checked by kind and name before it is pressed. If they differ, the result is `ref_stale` instead of a wrong press.
 
+**Every `find` or `tree` renumbers.** A ref you kept from an earlier `find` now points at whatever the latest `find` numbered —
+if you looked something else up in between (for example, reading a status label), `find` the button again right before you press it.
+
 ## The input session
 
 | Rule | Why |

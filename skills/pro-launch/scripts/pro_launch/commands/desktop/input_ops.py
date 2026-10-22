@@ -41,8 +41,8 @@ def resolve_ref(be, ref: int) -> tuple[dict | None, dict | None, dict | None]:
     return window, node, None
 
 
-def mutating_refusal(node: dict, confirmed: bool) -> dict | None:
-    if node.get("mutating") and not confirmed:
+def mutating_refusal(node: dict, is_confirmed: bool) -> dict | None:
+    if node.get("mutating") and not is_confirmed:
         return {"ok": False, "code": "mutating_blocked", "element": desktop_input.public_node(node),
                 "error": f"'{node.get('text')}' changes something that is hard to undo",
                 "ask_user": f"Pressing '{node.get('text')}' will make a change. Shall I press it?",
@@ -53,7 +53,7 @@ def mutating_refusal(node: dict, confirmed: bool) -> dict | None:
     return None
 
 
-def guarded_mouse_click(be, x: int, y: int, double: bool = False) -> tuple[bool, str, dict | None]:
+def guarded_mouse_click(be, x: int, y: int, is_double: bool = False) -> tuple[bool, str, dict | None]:
     """사용자가 마우스를 쓰고 있으면 누르지 않고 세션을 멈춘다. (성공, 이유, 실패 결과)"""
     session = desktop_state.my_session() or {}
     if desktop_input.cursor_moved_by_user(session.get("last_cursor"), be.cursor()):
@@ -62,7 +62,7 @@ def guarded_mouse_click(be, x: int, y: int, double: bool = False) -> tuple[bool,
             "ok": False, "code": "user_interrupted", "error": "The user moved the mouse, so I did not click",
             "ask_user": "You moved the mouse while I was working. May I continue?",
             "next": "desktop session resume  # only after the user agrees"}
-    ok, detail = be.mouse_click(x, y, double=double)
+    ok, detail = be.mouse_click(x, y, is_double=is_double)
     desktop_state.touch_session(last_cursor=[x, y])
     return ok, detail, None
 

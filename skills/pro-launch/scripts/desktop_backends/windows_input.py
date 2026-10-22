@@ -84,17 +84,17 @@ def cursor() -> tuple[int, int] | None:
     return (pt.x, pt.y) if user32.GetCursorPos(ctypes.byref(pt)) else None
 
 
-def click(x: int, y: int, button: str = "left", double: bool = False) -> tuple[bool, str]:
+def click(x: int, y: int, button: str = "left", is_double: bool = False) -> tuple[bool, str]:
     down, up = MOUSE_BUTTON_FLAGS.get(button, MOUSE_BUTTON_FLAGS["left"])
     ax, ay = absolute_coords(x, y, virtual_screen())
     move = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK
     if not _send(_mouse(move, ax, ay)):
         return False, f"SendInput refused the mouse move (error {ctypes.get_last_error()})"
-    for _ in range(2 if double else 1):
+    for _ in range(2 if is_double else 1):
         time.sleep(PRESS_GAP_SECONDS)
         if not _send(_mouse(down), _mouse(up)):
             return False, f"SendInput refused the click (error {ctypes.get_last_error()})"
-    return True, f"{'double ' if double else ''}{button} click at {x},{y}"
+    return True, f"{'double ' if is_double else ''}{button} click at {x},{y}"
 
 
 def type_text(text: str) -> tuple[bool, str]:

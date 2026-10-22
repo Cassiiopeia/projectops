@@ -37,13 +37,13 @@ def test_unknown_action_names_are_dropped():
 ])
 def test_desktop_blocks_install_and_agree_but_not_next(label, blocked):
     # 깨지면: 설치 버튼이 승인 없이 눌리거나, 마법사의 "다음"까지 막혀 아무것도 못 한다
-    assert is_mutating_label(label, desktop=True) is blocked
+    assert is_mutating_label(label, is_desktop=True) is blocked
 
 
 def test_web_rule_is_unchanged_by_desktop_words():
     # 깨지면: web 읽기 전용 세션이 "설치"류 링크·버튼까지 막는다 (web 동작이 바뀐다)
-    assert is_mutating_label("Install", desktop=False) is False
-    assert is_mutating_label("Delete", desktop=False) is True
+    assert is_mutating_label("Install", is_desktop=False) is False
+    assert is_mutating_label("Delete", is_desktop=False) is True
 
 
 def test_listed_nodes_marks_only_clickable_mutating():
@@ -55,10 +55,10 @@ def test_listed_nodes_marks_only_clickable_mutating():
 def test_mutating_and_disabled_refusals():
     node = {**listed_nodes([_node(text="Install")])[0], "ref": 3}
     # 깨지면: 승인 없이 설치가 진행된다
-    assert mutating_refusal(node, confirmed=False)["code"] == "mutating_blocked"
-    assert mutating_refusal(node, confirmed=True) is None
+    assert mutating_refusal(node, is_confirmed=False)["code"] == "mutating_blocked"
+    assert mutating_refusal(node, is_confirmed=True) is None
     disabled = {**listed_nodes([_node(enabled=False)])[0], "ref": 1}
-    assert mutating_refusal(disabled, confirmed=False)["code"] == "element_disabled"
+    assert mutating_refusal(disabled, is_confirmed=False)["code"] == "element_disabled"
 
 
 def test_locator_compares_role_and_name_not_position():

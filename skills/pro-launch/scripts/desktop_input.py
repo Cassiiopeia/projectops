@@ -147,7 +147,7 @@ class DesktopBackend:
     def cursor(self) -> tuple[int, int] | None:
         raise NotImplementedError
 
-    def mouse_click(self, x: int, y: int, button: str = "left", double: bool = False) -> tuple[bool, str]:
+    def mouse_click(self, x: int, y: int, button: str = "left", is_double: bool = False) -> tuple[bool, str]:
         raise NotImplementedError
 
     def type_text(self, text: str) -> tuple[bool, str]:

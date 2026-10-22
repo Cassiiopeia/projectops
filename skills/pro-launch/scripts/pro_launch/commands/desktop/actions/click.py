@@ -31,7 +31,7 @@ def _click_at(be, args) -> int:
     region = window["bounds"]
     before = before_digest(be, region)
     x, y = desktop_input.ratio_point(region, *at)
-    ok, detail, failure = guarded_mouse_click(be, x, y, double=args.double)
+    ok, detail, failure = guarded_mouse_click(be, x, y, is_double=args.double)
     if failure:
         return out(failure)
     payload = {"ok": ok, "code": "ok" if ok else "click_failed", "transport": "mouse", "detail": detail,

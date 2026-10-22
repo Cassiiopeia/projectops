@@ -26,9 +26,9 @@ DESKTOP_MUTATING_RE = re.compile(
 NAV_ROLES = {"link", "tab", "row", "menuitem", "treeitem", "option"}
 
 
-def is_mutating_label(label: str, *, desktop: bool = False) -> bool:
-    """버튼 문구가 되돌리기 어려운 동작인가. desktop=True 면 설치·동의 계열도 막는다."""
+def is_mutating_label(label: str, *, is_desktop: bool = False) -> bool:
+    """버튼 문구가 되돌리기 어려운 동작인가. is_desktop=True 면 설치·동의 계열도 막는다."""
     text = label or ""
     if MUTATING_RE.search(text):
         return True
-    return desktop and bool(DESKTOP_MUTATING_RE.search(text))
+    return is_desktop and bool(DESKTOP_MUTATING_RE.search(text))

@@ -1,7 +1,6 @@
 """Windows 백엔드 — UI Automation(comtypes) 으로 읽고, 패턴으로 마우스 없이 누른다 (#985).
 
-구조는 CacheRequest 로 한 번에 읽는다. 요소마다 COM 을 왕복하는 방식(pywinauto 의 children 순회)보다
-Chrome 창 85개 요소 기준 0.19초 → 0.03초로 빨랐다 (2026-10-22 실측).
+구조는 CacheRequest 로 한 번에 읽는다 — 요소마다 COM 을 왕복하면 수 배 느리다.
 """
 from __future__ import annotations
 
@@ -160,8 +159,8 @@ class WindowsBackend(desktop_input.DesktopBackend):
     def cursor(self) -> tuple[int, int] | None:
         return windows_input.cursor()
 
-    def mouse_click(self, x: int, y: int, button: str = "left", double: bool = False) -> tuple[bool, str]:
-        return windows_input.click(x, y, button, double)
+    def mouse_click(self, x: int, y: int, button: str = "left", is_double: bool = False) -> tuple[bool, str]:
+        return windows_input.click(x, y, button, is_double)
 
     def type_text(self, text: str) -> tuple[bool, str]:
         return windows_input.type_text(text)

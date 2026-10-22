@@ -83,7 +83,7 @@ def listed_nodes(nodes: list[dict]) -> list[dict]:
     """보여 줄 노드만 골라 위험 버튼 표시를 붙인다 (desktop 은 설치·동의 계열도 막는다)."""
     shown = [n for n in nodes if desktop_input.is_worth_listing(n)]
     for n in shown:
-        n["mutating"] = n["clickable"] and is_mutating_label(f"{n['text']} {n['desc']}", desktop=True)
+        n["mutating"] = n["clickable"] and is_mutating_label(f"{n['text']} {n['desc']}", is_desktop=True)
     return shown
 
 
