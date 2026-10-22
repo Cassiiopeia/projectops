@@ -23,9 +23,10 @@ import { DEPLOY_TARGETS, PUBLISH_TARGETS, CHANGELOG_PROVIDERS, DEFAULT_CODE_REVI
 //   null  = 확인 자체를 못 함(비레포·질문 불가) → 안내 유지(보수적)
 // 반환 state (#715 — 비대화형 결과 기록용): not-checked · not-a-repo · exists-local · exists-remote ·
 //   declined · create-failed · push-declined · pushed · push-failed
-export async function ensureDeployBranch({ targetRoot = ".", deployBranch = "", defaultBranch = "", io = {}, say = () => {} }) {
+// isNonInteractive: 원격 조회·push 에서 자격 증명 질문 차단 (#988 — 대화형은 기존 그대로)
+export async function ensureDeployBranch({ targetRoot = ".", deployBranch = "", defaultBranch = "", io = {}, say = () => {}, isNonInteractive = false }) {
   if (!deployBranch || typeof io.confirm !== "function") return { created: false, pushed: false, ready: null, state: "not-checked" };
-  const st = branchStatus(targetRoot, deployBranch);
+  const st = branchStatus(targetRoot, deployBranch, { isNonInteractive });
   if (!st.isRepo) return { created: false, pushed: false, ready: null, state: "not-a-repo" };
   if (st.local) return { created: false, pushed: false, ready: true, state: "exists-local" };
   if (st.remote === true) {
@@ -46,7 +47,7 @@ export async function ensureDeployBranch({ targetRoot = ".", deployBranch = "", 
   // #481 — push 질문에 브랜치명 명시 ("어느 브랜치를 push하는지" 불명확 방지)
   const up = await io.confirm({ message: msg("options.branch.pushPrompt", { branch: deployBranch }), initialValue: true });
   if (up !== true) return { created: true, pushed: false, ready: true, state: "push-declined" };
-  if (pushBranch(targetRoot, deployBranch)) {
+  if (pushBranch(targetRoot, deployBranch, { isNonInteractive })) {
     say(msg("options.branch.pushed", { branch: deployBranch }));
     return { created: true, pushed: true, ready: true, state: "pushed" };
   }

@@ -72,7 +72,7 @@ npx projectops --intent library
 | `--deploy TARGET` | 배포 방식 택1: `docker-ssh`(기본) `vercel` `none` |
 | `--publish CSV` | publish 대상: `nexus,npm,github-packages` (기본 없음) |
 | `--deploy-branch NAME` | 릴리스 PR의 head 브랜치(기본 `develop`). 기본(배포) 브랜치와는 별개입니다 |
-| `--create-development-branch` | 비대화형 실행에서 개발 브랜치가 없으면 기본 브랜치에서 만들고 origin에 push. 이미 있으면 아무것도 하지 않고, push가 실패해도 실행은 계속되며 직접 실행할 명령을 안내합니다 (기본 꺼짐) |
+| `--create-development-branch` | 비대화형 실행에서 개발 브랜치가 없으면 기본 브랜치에서 만들고 origin에 push. 이미 있으면 아무것도 하지 않고, push 때 자격 증명을 묻지 않아 로그인이 필요한 원격이면 기다리지 않고 바로 실패하며, push가 실패해도 실행은 계속되고 직접 실행할 명령을 안내합니다 (기본 꺼짐) |
 | `--secret-backup` / `--no-secret-backup` | Secret 백업 워크플로우 포함 / 제외 |
 | `--ai-summary` / `--no-ai-summary` | PR 변경 요약 워크플로우 포함 / 제외 |
 | `--coderabbit` / `--no-coderabbit` | CodeRabbit PR 코드 리뷰 설정(`.coderabbit.yaml`) 설치 (`--mode full` 에서만). CodeRabbit GitHub 앱이 따로 필요하고, 이미 있는 파일은 `.bak` 으로 백업하고 덮어쓴다. 생략하면 꺼짐(`version.yml` 에 켜짐이 저장돼 있으면 유지). 릴리스 노트와는 무관 |

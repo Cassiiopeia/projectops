@@ -195,7 +195,7 @@ export const FLAG_DETAILS = {
     effect: "After the install, checks the development branch (--deploy-branch, default develop). Exists locally or on origin: nothing is done. Missing: creates it from the repository default branch (no checkout) and pushes it with git push -u origin <branch>. The result (created, skipped or failed) is printed in the completion summary and recorded in .github/.projectops/logs/ and the migration guide checklist.",
     omitted: "The branch is never created or pushed; the completion summary lists it as a manual step with the command to run.",
     example: "npx projectops --mode full --force --create-development-branch",
-    caution: "It pushes to the remote. A failed push (credentials, network, no origin) does not fail the run: the exit code stays 0 and the summary prints the command to run yourself.",
+    caution: "It pushes to the remote and never asks for credentials (terminal, askpass and ssh password prompts are turned off for that push), so a remote that needs a login fails at once instead of waiting. A failed push (credentials, network, no origin) does not fail the run: the exit code stays 0 and the summary prints the command to run yourself.",
   },
   "--language": {
     when: "Set it only to change the language of an existing repo or to start a new repo in Korean.",

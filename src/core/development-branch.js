@@ -27,7 +27,8 @@ function manualCommandFor(state, branch, base) {
  */
 export async function createDevelopmentBranchUnattended({ targetRoot = ".", branch = "develop", defaultBranch = "", say = () => {} }) {
   const answerYes = { confirm: async () => true };
-  const outcome = await ensureDeployBranch({ targetRoot, deployBranch: branch, defaultBranch, io: answerYes, say });
+  // 무인 실행: 자격 증명을 묻지 않고 실패시켜 failed 경로(수동 명령)로 보낸다 (#988)
+  const outcome = await ensureDeployBranch({ targetRoot, deployBranch: branch, defaultBranch, io: answerYes, say, isNonInteractive: true });
   const status = STATUS_BY_STATE[outcome.state] ?? "failed";
   return {
     status,

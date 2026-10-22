@@ -73,7 +73,7 @@ The `--mode` value decides what to install. Without it, the CLI runs interactive
 | `--deploy TARGET` | Deployment, pick one: `docker-ssh` (default) `vercel` `none` |
 | `--publish CSV` | Publish targets: `nexus,npm,github-packages` (default: none) |
 | `--deploy-branch NAME` | Head branch of the release PR (default `develop`). It is separate from the default (deployment) branch |
-| `--create-development-branch` | Non-interactive runs: create the development branch from the default branch and push it to origin when it is missing. Does nothing if it exists; a failed push does not fail the run and the summary prints the command to run yourself (default: off) |
+| `--create-development-branch` | Non-interactive runs: create the development branch from the default branch and push it to origin when it is missing. Does nothing if it exists. The push never asks for credentials, so a remote that needs a login fails at once instead of waiting; a failed push does not fail the run and the summary prints the command to run yourself (default: off) |
 | `--secret-backup` / `--no-secret-backup` | Include or exclude the Secret backup workflow |
 | `--ai-summary` / `--no-ai-summary` | Include or exclude the PR change summary workflow |
 | `--coderabbit` / `--no-coderabbit` | Install the CodeRabbit PR code review config (`.coderabbit.yaml`), `--mode full` only. Needs the CodeRabbit GitHub app; an existing file is backed up as `.bak` and overwritten. Off when omitted (kept on if `version.yml` already stores on). Unrelated to release notes |
