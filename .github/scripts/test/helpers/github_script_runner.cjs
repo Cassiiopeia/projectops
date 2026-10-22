@@ -12,6 +12,12 @@ class FixedDate extends RealDate {
   constructor(...args) { if (args.length) super(...args); else super(FIXED_NOW); }
   static now() { return FIXED_NOW; }
 }
+// 로케일 날짜 문구는 Node·ICU 버전마다 다름 (오전 <-> AM) > 호출 인자를 담은 고정 문구로
+for (const method of ['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString']) {
+  FixedDate.prototype[method] = function (locales, options) {
+    return `[${method} ${JSON.stringify(locales ?? null)} ${JSON.stringify(options ?? null)}]`;
+  };
+}
 global.Date = FixedDate;
 
 // 어떤 속성·호출·문자열 변환도 받아 주는 값

@@ -389,15 +389,15 @@
  },
  "spring/publish/nexus/PROJECT-SPRING-NEXUS-CI.yml": {
   "build-check#0": [
-   "4af6329ec3b8e8cc",
-   "971267be94931dc8",
-   "cfdd1ba99c01a809",
+   "5b8c85272b0b6cb7",
+   "a5b2c8b6dec6139c",
+   "9fdd5bdc0f14ae29",
    "e421323f0c3081dd"
   ],
   "build-check#1": [
-   "baa024b86eba66b8",
-   "9e3dc230692a0c37",
-   "c7f25652ddd749dc",
+   "bb144f66bd2482a1",
+   "20852944ea420586",
+   "49ce95c49aefdf3a",
    "e421323f0c3081dd"
   ],
   "build-check#2": [
