@@ -162,9 +162,9 @@ feature/20240101_#123_기능명
    (@projectops build app / apk build / ios build)
        ↓
 2. BUILD-TRIGGER 워크플로우 실행
-   - 👀 리액션 추가
-   - 빌드 타입 판별 (app/apk/ios)
-   - PR/이슈 정보 추출
+   - Add 👀 reaction to the comment (👀 리액션 추가)
+   - Detect build type (빌드 타입 판별: app/apk/ios)
+   - Read PR/issue information (PR/이슈 정보 추출)
        ↓
 3. repository_dispatch 이벤트 발생 (빌드 타입에 따라)
    - build app: Android + iOS 모두 트리거
@@ -172,22 +172,22 @@ feature/20240101_#123_기능명
    - ios build: iOS만 트리거
        ↓
 4. 선택된 워크플로우 실행
-   ┌─────────────────────────────────┐
-   │ ANDROID-TEST-APK               │
-   │ - 빌드 번호 결정 (시각 기반)    │
-   │ - Flutter 빌드                  │
-   │ - APK 생성                      │
-   │ - 아티팩트 업로드               │
-   │ - 결과 댓글 작성                │
-   └─────────────────────────────────┘
-   ┌─────────────────────────────────┐
-   │ IOS-TEST-TESTFLIGHT            │
-   │ - 버전 사전 점검 (닫힌 버전)    │
-   │ - Flutter 빌드                  │
-   │ - 번호 결정, IPA 생성           │
-   │ - TestFlight 업로드 (재시도)    │
-   │ - 결과 댓글 작성                │
-   └─────────────────────────────────┘
+   ┌───────────────────────────────────────┐
+   │ ANDROID-TEST-APK                      │
+   │ - Decide the build number (시각 기반) │
+   │ - Flutter 빌드                        │
+   │ - APK 생성                            │
+   │ - 아티팩트 업로드                     │
+   │ - 결과 댓글 작성                      │
+   └───────────────────────────────────────┘
+   ┌───────────────────────────────────────┐
+   │ IOS-TEST-TESTFLIGHT                   │
+   │ - 버전 사전 점검 (닫힌 버전)          │
+   │ - Flutter 빌드                        │
+   │ - 번호 결정, IPA 생성                 │
+   │ - Upload to TestFlight (재시도)       │
+   │ - 결과 댓글 작성                      │
+   └───────────────────────────────────────┘
        ↓
 5. 빌드 결과 댓글 자동 작성
 ```

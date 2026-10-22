@@ -164,9 +164,9 @@ A build that was already uploaded is not uploaded again. Before a retry, the wor
    (@projectops build app / apk build / ios build)
        ↓
 2. BUILD-TRIGGER workflow runs
-   - adds a 👀 reaction
-   - detects the build type (app/apk/ios)
-   - extracts PR/issue information
+   - Add 👀 reaction to the comment
+   - Detect build type (app/apk/ios)
+   - Read PR/issue information
        ↓
 3. repository_dispatch event fires (by build type)
    - build app: triggers Android + iOS
@@ -174,22 +174,22 @@ A build that was already uploaded is not uploaded again. Before a retry, the wor
    - ios build: triggers iOS only
        ↓
 4. Selected workflows run
-   ┌─────────────────────────────────┐
-   │ ANDROID-TEST-APK               │
-   │ - decide build number (time)   │
-   │ - Flutter build                │
-   │ - create APK                   │
-   │ - upload artifact              │
-   │ - post result comment          │
-   └─────────────────────────────────┘
-   ┌─────────────────────────────────┐
-   │ IOS-TEST-TESTFLIGHT            │
-   │ - version pre-check (closed)   │
-   │ - Flutter build                │
-   │ - decide number, create IPA    │
-   │ - TestFlight upload (retries)  │
-   │ - post result comment          │
-   └─────────────────────────────────┘
+   ┌──────────────────────────────────┐
+   │ ANDROID-TEST-APK                 │
+   │ - Decide the build number (time) │
+   │ - Flutter build                  │
+   │ - create APK                     │
+   │ - upload artifact                │
+   │ - post result comment            │
+   └──────────────────────────────────┘
+   ┌──────────────────────────────────┐
+   │ IOS-TEST-TESTFLIGHT              │
+   │ - version pre-check (closed)     │
+   │ - Flutter build                  │
+   │ - decide number, create IPA      │
+   │ - Upload to TestFlight (retries) │
+   │ - post result comment            │
+   └──────────────────────────────────┘
        ↓
 5. Build result comment is posted automatically
 ```
