@@ -4,9 +4,11 @@ from __future__ import annotations
 import desktop_input
 from app_input import parse_ratio
 
-from pro_launch.commands.desktop.common import pick_window, public_window
-from pro_launch.commands.desktop.input_ops import (before_digest, ensure_front, finish, guarded_mouse_click,
-                                                   mutating_refusal, press_node, resolve_ref)
+from pro_launch.commands.desktop.common import compare_region, pick_window, public_window
+from pro_launch.commands.desktop.input_ops import (STALE_REASONS, before_digest, ensure_front, finish,
+                                                   guarded_mouse_click, mutating_refusal, named_action_refusal,
+                                                   press_node, resolve_ref, stale_failure)
+from pro_launch.runtime import desktop_state
 from pro_launch.registry import Action
 from pro_launch.runtime.output import out
 
@@ -49,17 +51,29 @@ def execute(args) -> int:
         return out({"ok": False, "code": "target_required", "error": "Needs --ref <n> (from find/tree) or --at x,y",
                     "next": "desktop find --text \"<text>\""})
     window, node, failure = resolve_ref(be, args.ref)
-    failure = failure or mutating_refusal(node, args.confirm_mutating) or ensure_front(be, window)
     if failure:
         return out(failure)
-    region = window["bounds"]
+    refusal = (named_action_refusal(node, args.named_action, args.confirm_mutating) if args.named_action
+               else mutating_refusal(node, args.confirm_mutating))
+    failure = refusal or ensure_front(be, window)
+    if failure:
+        return out(failure)
+    region = compare_region(window, node)
     before = before_digest(be, region)
-    ok, detail, transport, failure = press_node(be, window, node)
-    if failure:
-        return out(failure)
+    if args.named_action:
+        ok, detail = be.perform(window, node, f"named:{args.named_action}")
+        if detail in STALE_REASONS:
+            return out(stale_failure(detail))
+        transport = "invoke"
+        if ok:
+            desktop_state.touch_session()
+    else:
+        ok, detail, transport, failure = press_node(be, window, node)
+        if failure:
+            return out(failure)
     payload = {"ok": ok, "code": "ok" if ok else "click_failed", "transport": transport, "detail": detail,
                "element": desktop_input.public_node(node), "window": public_window(window),
-               "summary": f"Pressed '{node.get('text')}' ({transport})" if ok else detail,
+               "summary": f"Pressed '{args.named_action or node.get('text')}' ({transport})" if ok else detail,
                "next": "desktop tree  # read the new screen"}
     return out(finish(be, args, region, before, payload) if ok else payload)
 
@@ -68,6 +82,9 @@ def configure(p) -> None:
     p.add_argument("--ref", type=int, default=None, help="number from the last find/tree")
     p.add_argument("--at", default=None, help="0-1 ratio inside the window, only when there is no element")
     p.add_argument("--double", action="store_true", help="--at: double click")
+    # dest 를 바꾼다 — args.action 은 desktop 의 동작 이름(click)이라 덮으면 동작을 못 찾는다
+    p.add_argument("--action", dest="named_action", default=None,
+                   help="press a named hidden button of the element (named_actions, e.g. a notification's Close)")
 
 
 ACTION = Action(name="click", needs="nothing", run=execute, configure=configure,

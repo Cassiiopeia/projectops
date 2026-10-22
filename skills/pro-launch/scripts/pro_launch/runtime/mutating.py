@@ -15,10 +15,11 @@ MUTATING_RE = re.compile(
     re.IGNORECASE)
 
 # 데스크톱에서만 더 막는 문구 — 설치 마법사·약관 동의는 브라우저보다 데스크톱에서 흔하다.
+# 허용·신뢰: Apple 계정 로그인 승인(2FA)·권한 팝업·인증서 신뢰 — 남의 로그인까지 승인할 수 있다.
 # "다음·Next"는 넣지 않는다. 마법사를 넘기는 버튼이라 막으면 아무것도 못 한다.
 DESKTOP_MUTATING_RE = re.compile(
-    r"(설치|동의|마침|완료|포맷|초기화|"
-    r"\b(install|agree|accept|finish|format|reset|uninstall)\b)",
+    r"(설치|동의|마침|완료|포맷|초기화|허용|신뢰|"
+    r"\b(install|agree|accept|finish|format|reset|uninstall|allow|trust)\b)",
     re.IGNORECASE)
 
 # 화면 이동으로 보는 요소 — 문구에 "제출·게시"가 있어도 막지 않는다.

@@ -702,7 +702,61 @@
 
 | id | Title | Codes |
 |---|---|---|
+| `desktop-apple-2fa-code-window` | Apple Account 2FA on this Mac: allow the alert, read the code window | `mutating_blocked` · `window_not_found` |
+| `desktop-browser-page-not-in-tree` | desktop tree of Chrome or an Electron app shows only the toolbar, not the page | `not_found` |
+| `desktop-macos-permission-terminal` | macOS desktop returns permission_missing although Python was allowed | `permission_missing` |
+| `desktop-notification-banner-expires` | A macOS notification banner disappears before it is pressed | `wait_timeout` · `ref_stale` · `window_not_found` |
 | `desktop-window-listed-but-content-elsewhere` | A listed dialog shows almost no elements, or click returns ref_stale | `ref_stale` · `tree_unavailable` · `window_not_found` |
+
+### `desktop-apple-2fa-code-window` — Apple Account 2FA on this Mac: allow the alert, read the code window
+
+- Codes: `mutating_blocked` · `window_not_found`
+- Keywords: Apple 계정, Apple Account, 허용함, Allow, FollowUpUI, 확인 코드, verification code
+- Symptom: A web or app sign-in asks for a code sent to this Mac; the notification 'Apple Account signed in' must be allowed and the code read from a system window
+- Cause: macOS shows the request as a Notification Center alert with hidden actions (Allow, Don't Allow) and the code in a floating FollowUpUI window (CoreFollowUp, layer 25) that also holds keyboard focus
+- Fix:
+  1. Ask the user first: Allow approves a sign-in to their Apple Account. Only for the sign-in this session just started
+  2. launch_cli.py desktop wait --window overlay --text "Apple" --timeout 60, then click --ref <ref> --action "<Allow name from named_actions>" --confirm-mutating after the user agrees
+  3. launch_cli.py desktop tree --window overlay  # the code is a static text with spaces, e.g. '4 1 9   2 0 1'; remove the spaces
+  4. Press the code window's Done button with --confirm-mutating so it returns keyboard focus, then type the code with desktop type --ref <first box> --text <code> --keys or web type
+  5. A wrong or partial entry invalidates the code; resend once from the page and do not retry in a loop (the account can be locked)
+- Refs: #985 · verified 2026-10-22
+
+### `desktop-browser-page-not-in-tree` — desktop tree of Chrome or an Electron app shows only the toolbar, not the page
+
+- Codes: `not_found`
+- Keywords: webarea, AXEnhancedUserInterface, AXManualAccessibility, 주소창
+- Symptom: desktop find inside Chrome finds only the address bar; typed keys land in the address bar instead of a page field
+- Cause: Chrome and Electron build the page accessibility tree only when an assistive client asks. desktop now turns it on (AXEnhancedUserInterface / AXManualAccessibility) when the web area is empty
+- Fix:
+  1. launch_cli.py desktop find --window "<title>" --role textfield --max-nodes 1500 --depth 60  # pages are deep
+  2. Prefer web find / web type when the page belongs to a pro-launch web session
+  3. Type into page fields with desktop type --ref <n> --text <value> --keys (focus is set without the mouse)
+- Refs: #985 · verified 2026-10-22
+
+### `desktop-macos-permission-terminal` — macOS desktop returns permission_missing although Python was allowed
+
+- Codes: `permission_missing`
+- Keywords: Accessibility, Screen Recording, 손쉬운 사용, 화면 기록
+- Symptom: desktop doctor or click returns permission_missing (accessibility or screen_recording) on macOS
+- Cause: macOS grants Accessibility and Screen Recording to the app that started the command (Terminal, iTerm, VS Code, Orca), not to python3
+- Fix:
+  1. System Settings > Privacy & Security > Accessibility: turn on the terminal app that runs the agent
+  2. System Settings > Privacy & Security > Screen & System Audio Recording: turn on the same app
+  3. Quit and reopen that terminal app, then launch_cli.py desktop doctor
+- Refs: #985 · verified 2026-10-22
+
+### `desktop-notification-banner-expires` — A macOS notification banner disappears before it is pressed
+
+- Codes: `wait_timeout` · `ref_stale` · `window_not_found`
+- Keywords: Notification Center, notification, 알림 센터
+- Symptom: desktop wait or find sees the banner, but the next click returns ref_stale or the banner is gone
+- Cause: Banners leave the screen after about 5 seconds; a find between wait and click costs one more process start
+- Fix:
+  1. launch_cli.py desktop wait --window overlay --text "<banner text>"  # returns matches with ref, no find needed
+  2. launch_cli.py desktop click --ref <ref> --action "<name from named_actions>"  # hidden buttons (Close, Allow) need no hover
+  3. If it was missed, do the step that sends the notification again
+- Refs: #985 · verified 2026-10-22
 
 ### `desktop-window-listed-but-content-elsewhere` — A listed dialog shows almost no elements, or click returns ref_stale
 

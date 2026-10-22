@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pro_launch.commands.desktop.common import pick_window
-from pro_launch.commands.desktop.input_ops import before_digest, ensure_front, finish
+from pro_launch.commands.desktop.input_ops import before_digest, ensure_front, finish, keys_target_refusal
 from pro_launch.registry import Action
 from pro_launch.runtime import desktop_state
 from pro_launch.runtime.output import out
@@ -23,7 +23,7 @@ def execute(args) -> int:
     window, failure = pick_window(be, args.window)
     if failure:
         return out(failure)
-    failure = ensure_front(be, window)
+    failure = ensure_front(be, window) or keys_target_refusal(be, window)
     if failure:
         return out(failure)
     region = window["bounds"]

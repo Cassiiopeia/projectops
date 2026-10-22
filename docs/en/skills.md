@@ -220,7 +220,7 @@ A **capability Skill** that starts, operates, and captures apps, web, and server
 ### `/pro-desktop-control`
 
 **What does it do?**
-It drives **programs on this computer's screen** that are neither web pages nor emulators. It presses "Next" in installer wizards, answers OS dialogs (file open, permission prompts), and changes settings in desktop apps. It reads the screen's elements to pick one, and presses without moving the mouse where it can. It asks before pressing a button that changes something (an install, agreeing to terms), and hands security prompts such as administrator rights (UAC) to the user. It is a procedure Skill on top of `/pro-launch`'s `desktop` command group. Windows for now (macOS planned, issue #985).
+It drives **programs on this computer's screen** that are neither web pages nor emulators. It presses "Next" in installer wizards, answers OS dialogs (file open, permission prompts), and changes settings in desktop apps. It reads the screen's elements to pick one, and presses without moving the mouse where it can. It asks before pressing a button that changes something (an install, agreeing to terms), and hands security prompts such as administrator rights (UAC) to the user. It is a procedure Skill on top of `/pro-launch`'s `desktop` command group. Works on Windows and macOS. On macOS it also answers notifications and system dialogs, such as the Apple Account sign-in alert and its code window, always asking before it approves a sign-in.
 
 **Modifies**: no code. The state of programs on screen (installs, settings) changes only through the buttons the user approved
 **Returns**: the names of the buttons pressed + what is on screen now + anything left for the user (a capture only when the result is visual)

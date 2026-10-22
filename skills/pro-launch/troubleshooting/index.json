@@ -66,6 +66,7 @@
       "android-maestro-driver-start-timeout"
     ],
     "mutating_blocked": [
+      "desktop-apple-2fa-code-window",
       "web-readonly-mutating-blocked"
     ],
     "no_device": [
@@ -82,6 +83,7 @@
     ],
     "not_found": [
       "android-flutter-doubled-desc",
+      "desktop-browser-page-not-in-tree",
       "ios-label-in-desc-doubled"
     ],
     "nothing_found": [
@@ -90,10 +92,14 @@
     "page_changed_by_other_session": [
       "web-page-changed-by-other-session"
     ],
+    "permission_missing": [
+      "desktop-macos-permission-terminal"
+    ],
     "playwright_missing": [
       "web-playwright-or-browser-missing"
     ],
     "ref_stale": [
+      "desktop-notification-banner-expires",
       "desktop-window-listed-but-content-elsewhere"
     ],
     "render_failed": [
@@ -131,7 +137,12 @@
     "ui_dump_timeout": [
       "android-system-restart-loop"
     ],
+    "wait_timeout": [
+      "desktop-notification-banner-expires"
+    ],
     "window_not_found": [
+      "desktop-apple-2fa-code-window",
+      "desktop-notification-banner-expires",
       "desktop-window-listed-but-content-elsewhere"
     ]
   },
@@ -148,17 +159,35 @@
     "90초": [
       "ios-maestro-slow-cold-start"
     ],
+    "accessibility": [
+      "desktop-macos-permission-terminal"
+    ],
+    "account": [
+      "desktop-apple-2fa-code-window"
+    ],
     "address": [
       "ios-maestro-driver-port-conflict"
     ],
     "again": [
       "general-login-interstitial-policy"
     ],
+    "allow": [
+      "desktop-apple-2fa-code-window"
+    ],
     "already": [
       "ios-maestro-driver-port-conflict"
     ],
+    "apple": [
+      "desktop-apple-2fa-code-window"
+    ],
     "ask": [
       "general-login-interstitial-policy"
+    ],
+    "axenhanceduserinterface": [
+      "desktop-browser-page-not-in-tree"
+    ],
+    "axmanualaccessibility": [
+      "desktop-browser-page-not-in-tree"
     ],
     "bar": [
       "ios-status-bar-custom-time"
@@ -175,6 +204,9 @@
     "call": [
       "ios-maestro-stale-driver-or-overload"
     ],
+    "center": [
+      "desktop-notification-banner-expires"
+    ],
     "chcp": [
       "ssh-windows-cmd-encoding"
     ],
@@ -185,6 +217,7 @@
       "web-secret-in-input"
     ],
     "code": [
+      "desktop-apple-2fa-code-window",
       "general-otp-no-resubmit"
     ],
     "config.json": [
@@ -242,6 +275,9 @@
     ],
     "find": [
       "android-system-restart-loop"
+    ],
+    "followupui": [
+      "desktop-apple-2fa-code-window"
     ],
     "full-page": [
       "web-scroll-container-capture"
@@ -304,6 +340,9 @@
     "node": [
       "android-no-focused-window"
     ],
+    "notification": [
+      "desktop-notification-banner-expires"
+    ],
     "null": [
       "android-no-focused-window"
     ],
@@ -347,6 +386,9 @@
     "python3": [
       "general-zsh-variable-command"
     ],
+    "recording": [
+      "desktop-macos-permission-terminal"
+    ],
     "recovered": [
       "browser-start-stale-process-or-lock"
     ],
@@ -370,6 +412,9 @@
     ],
     "scraping": [
       "web-script-browser-memory-exceeded"
+    ],
+    "screen": [
+      "desktop-macos-permission-terminal"
     ],
     "secret": [
       "web-secret-in-input"
@@ -471,10 +516,14 @@
       "ios-maestro-driver-port-conflict"
     ],
     "verification": [
+      "desktop-apple-2fa-code-window",
       "general-otp-no-resubmit"
     ],
     "waiting": [
       "web-selector-guess-timeout"
+    ],
+    "webarea": [
+      "desktop-browser-page-not-in-tree"
     ],
     "while": [
       "android-system-restart-loop"
@@ -488,8 +537,14 @@
     "값이": [
       "general-cred-field-missing"
     ],
+    "계정": [
+      "desktop-apple-2fa-code-window"
+    ],
     "기기": [
       "general-login-interstitial-policy"
+    ],
+    "기록": [
+      "desktop-macos-permission-terminal"
     ],
     "다시": [
       "general-login-interstitial-policy"
@@ -521,6 +576,9 @@
     "비어": [
       "general-env-not-set"
     ],
+    "사용": [
+      "desktop-macos-permission-terminal"
+    ],
     "상태": [
       "general-login-interstitial-policy"
     ],
@@ -529,6 +587,12 @@
     ],
     "선택": [
       "desktop-window-listed-but-content-elsewhere"
+    ],
+    "센터": [
+      "desktop-notification-banner-expires"
+    ],
+    "손쉬운": [
+      "desktop-macos-permission-terminal"
     ],
     "수집": [
       "web-script-browser-memory-exceeded"
@@ -547,6 +611,9 @@
     ],
     "않았습니다": [
       "browser-start-stale-process-or-lock"
+    ],
+    "알림": [
+      "desktop-notification-banner-expires"
     ],
     "없습니다": [
       "general-cred-field-missing"
@@ -575,11 +642,24 @@
     "저장": [
       "web-save-by-network"
     ],
+    "주소창": [
+      "desktop-browser-page-not-in-tree"
+    ],
     "코드": [
+      "desktop-apple-2fa-code-window",
       "general-otp-no-resubmit"
     ],
     "패스키": [
       "general-login-interstitial-policy"
+    ],
+    "허용함": [
+      "desktop-apple-2fa-code-window"
+    ],
+    "화면": [
+      "desktop-macos-permission-terminal"
+    ],
+    "확인": [
+      "desktop-apple-2fa-code-window"
     ],
     "환경변수": [
       "general-env-not-set"
@@ -695,6 +775,46 @@
       ],
       "keyword_count": 8,
       "path": "web/browser-start-stale-process-or-lock.json"
+    },
+    "desktop-apple-2fa-code-window": {
+      "area": "desktop",
+      "title": "Apple Account 2FA on this Mac: allow the alert, read the code window",
+      "fix_short": [
+        "Ask the user first: Allow approves a sign-in to their Apple Account. Only for the sign-in this session just started",
+        "launch_cli.py desktop wait --window overlay --text \"Apple\" --timeout 60, then click --ref <ref> --action \"<Allow name from named_actions>\" --confirm-mutating a…"
+      ],
+      "keyword_count": 10,
+      "path": "desktop/desktop-apple-2fa-code-window.json"
+    },
+    "desktop-browser-page-not-in-tree": {
+      "area": "desktop",
+      "title": "desktop tree of Chrome or an Electron app shows only the toolbar, not the page",
+      "fix_short": [
+        "launch_cli.py desktop find --window \"<title>\" --role textfield --max-nodes 1500 --depth 60 # pages are deep",
+        "Prefer web find / web type when the page belongs to a pro-launch web session"
+      ],
+      "keyword_count": 4,
+      "path": "desktop/desktop-browser-page-not-in-tree.json"
+    },
+    "desktop-macos-permission-terminal": {
+      "area": "desktop",
+      "title": "macOS desktop returns permission_missing although Python was allowed",
+      "fix_short": [
+        "System Settings > Privacy & Security > Accessibility: turn on the terminal app that runs the agent",
+        "System Settings > Privacy & Security > Screen & System Audio Recording: turn on the same app"
+      ],
+      "keyword_count": 7,
+      "path": "desktop/desktop-macos-permission-terminal.json"
+    },
+    "desktop-notification-banner-expires": {
+      "area": "desktop",
+      "title": "A macOS notification banner disappears before it is pressed",
+      "fix_short": [
+        "launch_cli.py desktop wait --window overlay --text \"<banner text>\" # returns matches with ref, no find needed",
+        "launch_cli.py desktop click --ref <ref> --action \"<name from named_actions>\" # hidden buttons (Close, Allow) need no hover"
+      ],
+      "keyword_count": 4,
+      "path": "desktop/desktop-notification-banner-expires.json"
     },
     "desktop-window-listed-but-content-elsewhere": {
       "area": "desktop",

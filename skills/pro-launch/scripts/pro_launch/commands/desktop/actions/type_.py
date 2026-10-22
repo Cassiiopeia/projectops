@@ -4,8 +4,8 @@ from __future__ import annotations
 import desktop_input
 
 from pro_launch.commands.desktop.common import masked, public_window, secret_text
-from pro_launch.commands.desktop.input_ops import (STALE_REASONS, before_digest, ensure_front, finish, press_node,
-                                                   resolve_ref, stale_failure)
+from pro_launch.commands.desktop.input_ops import (STALE_REASONS, before_digest, ensure_front, finish,
+                                                   keys_target_refusal, press_node, resolve_ref, stale_failure)
 from pro_launch.registry import Action
 from pro_launch.runtime.output import out
 
@@ -35,13 +35,24 @@ def execute(args) -> int:
     else:
         ok = False
     if not ok:
-        # 값 패턴이 없거나 거부됐다 — 칸을 눌러 초점을 주고 글자를 보낸다
-        ok, detail, transport, failure = press_node(be, window, node)
+        # 값 패턴이 없거나 거부됐다 — 초점을 주고 글자를 보낸다. 마우스 없이 초점을 줄 수 있으면 그쪽이 먼저다
+        # (다른 창이 칸을 덮고 있으면 클릭이 덮은 창에 떨어지고 키가 엉뚱한 칸으로 간다 — 실측)
+        ok, detail = be.perform(window, node, "focus")
+        transport, failure = "invoke", None
+        if detail in STALE_REASONS:
+            return out(stale_failure(detail))
+        if not ok:
+            ok, detail, transport, failure = press_node(be, window, node)
+        failure = failure or (keys_target_refusal(be, window) if ok else None)
         if failure:
             return out(failure)
         if ok:
             ok, detail = be.type_text(value)
             transport = "keys"
+    if ok and args.submit and transport != "keys":
+        refusal = keys_target_refusal(be, window)
+        if refusal:
+            return out(refusal)
     if ok and args.submit:
         ok, detail = be.press("enter", [])
     payload = {"ok": ok, "code": "ok" if ok else "type_failed", "transport": transport,

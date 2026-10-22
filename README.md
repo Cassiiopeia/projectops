@@ -168,7 +168,7 @@ What it changed: descriptions were cut to short English triggers, a shared contr
 |------|------|
 | `/pro-figma` | Move a Figma design into code, then compare the result with the design pixel by pixel |
 | `/pro-launch` | Launch, drive, and capture apps, web, and servers: fixed status bar, width changes, response mocking (empty list, failures), render from code |
-| `/pro-desktop-control` | Drive programs on this computer's screen that are not web pages or emulators (installer wizards, OS dialogs, desktop apps): reads elements, presses without moving the mouse, asks before installs, hands security prompts to the user. Windows for now (macOS planned, issue #985) |
+| `/pro-desktop-control` | Drive programs on this computer's screen that are not web pages or emulators (installer wizards, OS dialogs, desktop apps): reads elements, presses without moving the mouse, asks before installs, hands security prompts to the user. Windows and macOS (macOS also answers notifications and system dialogs, such as the Apple Account sign-in code) |
 | `/pro-design-brief` | A design request for a screen you built before the mockup exists: state captures, alternatives, copy candidates, and must-keep rules as a board for the designer |
 | `/pro-oss-consult` | Diagnose a GitHub repo as an open-source project: type detection, 6-axis scoring, maturity stage, and edits to About, topics, labels, and files only after approval. One repo or a whole account |
 

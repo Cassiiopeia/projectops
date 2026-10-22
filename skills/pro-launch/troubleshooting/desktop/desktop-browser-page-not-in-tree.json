@@ -1,0 +1,27 @@
+{
+  "id": "desktop-browser-page-not-in-tree",
+  "area": "desktop",
+  "title": "desktop tree of Chrome or an Electron app shows only the toolbar, not the page",
+  "match": {
+    "codes": [
+      "not_found"
+    ],
+    "keywords": [
+      "webarea",
+      "AXEnhancedUserInterface",
+      "AXManualAccessibility",
+      "주소창"
+    ]
+  },
+  "symptom": "desktop find inside Chrome finds only the address bar; typed keys land in the address bar instead of a page field",
+  "cause": "Chrome and Electron build the page accessibility tree only when an assistive client asks. desktop now turns it on (AXEnhancedUserInterface / AXManualAccessibility) when the web area is empty",
+  "fix": [
+    "launch_cli.py desktop find --window \"<title>\" --role textfield --max-nodes 1500 --depth 60  # pages are deep",
+    "Prefer web find / web type when the page belongs to a pro-launch web session",
+    "Type into page fields with desktop type --ref <n> --text <value> --keys (focus is set without the mouse)"
+  ],
+  "refs": [
+    985
+  ],
+  "verified_at": "2026-10-22"
+}

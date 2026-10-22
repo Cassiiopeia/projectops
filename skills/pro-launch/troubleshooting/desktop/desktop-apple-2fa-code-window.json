@@ -1,0 +1,33 @@
+{
+  "id": "desktop-apple-2fa-code-window",
+  "area": "desktop",
+  "title": "Apple Account 2FA on this Mac: allow the alert, read the code window",
+  "match": {
+    "codes": [
+      "mutating_blocked",
+      "window_not_found"
+    ],
+    "keywords": [
+      "Apple 계정",
+      "Apple Account",
+      "허용함",
+      "Allow",
+      "FollowUpUI",
+      "확인 코드",
+      "verification code"
+    ]
+  },
+  "symptom": "A web or app sign-in asks for a code sent to this Mac; the notification 'Apple Account signed in' must be allowed and the code read from a system window",
+  "cause": "macOS shows the request as a Notification Center alert with hidden actions (Allow, Don't Allow) and the code in a floating FollowUpUI window (CoreFollowUp, layer 25) that also holds keyboard focus",
+  "fix": [
+    "Ask the user first: Allow approves a sign-in to their Apple Account. Only for the sign-in this session just started",
+    "launch_cli.py desktop wait --window overlay --text \"Apple\" --timeout 60, then click --ref <ref> --action \"<Allow name from named_actions>\" --confirm-mutating after the user agrees",
+    "launch_cli.py desktop tree --window overlay  # the code is a static text with spaces, e.g. '4 1 9   2 0 1'; remove the spaces",
+    "Press the code window's Done button with --confirm-mutating so it returns keyboard focus, then type the code with desktop type --ref <first box> --text <code> --keys or web type",
+    "A wrong or partial entry invalidates the code; resend once from the page and do not retry in a loop (the account can be locked)"
+  ],
+  "refs": [
+    985
+  ],
+  "verified_at": "2026-10-22"
+}

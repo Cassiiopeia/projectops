@@ -8,7 +8,8 @@ from pro_launch.runtime.shots import add_shot_args
 
 def _window(p) -> None:
     p.add_argument("--window", default=None,
-                   help="Window to use: part of the title, pid or handle (default: the window in front)")
+                   help="Window to use: part of the title, pid, handle, or 'overlay' for a system dialog / "
+                        "notification (default: the window in front)")
 
 
 def _root(p) -> None:

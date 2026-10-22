@@ -1,0 +1,28 @@
+{
+  "id": "desktop-notification-banner-expires",
+  "area": "desktop",
+  "title": "A macOS notification banner disappears before it is pressed",
+  "match": {
+    "codes": [
+      "wait_timeout",
+      "ref_stale",
+      "window_not_found"
+    ],
+    "keywords": [
+      "Notification Center",
+      "notification",
+      "알림 센터"
+    ]
+  },
+  "symptom": "desktop wait or find sees the banner, but the next click returns ref_stale or the banner is gone",
+  "cause": "Banners leave the screen after about 5 seconds; a find between wait and click costs one more process start",
+  "fix": [
+    "launch_cli.py desktop wait --window overlay --text \"<banner text>\"  # returns matches with ref, no find needed",
+    "launch_cli.py desktop click --ref <ref> --action \"<name from named_actions>\"  # hidden buttons (Close, Allow) need no hover",
+    "If it was missed, do the step that sends the notification again"
+  ],
+  "refs": [
+    985
+  ],
+  "verified_at": "2026-10-22"
+}

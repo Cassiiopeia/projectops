@@ -1,0 +1,27 @@
+{
+  "id": "desktop-macos-permission-terminal",
+  "area": "desktop",
+  "title": "macOS desktop returns permission_missing although Python was allowed",
+  "match": {
+    "codes": [
+      "permission_missing"
+    ],
+    "keywords": [
+      "Accessibility",
+      "Screen Recording",
+      "손쉬운 사용",
+      "화면 기록"
+    ]
+  },
+  "symptom": "desktop doctor or click returns permission_missing (accessibility or screen_recording) on macOS",
+  "cause": "macOS grants Accessibility and Screen Recording to the app that started the command (Terminal, iTerm, VS Code, Orca), not to python3",
+  "fix": [
+    "System Settings > Privacy & Security > Accessibility: turn on the terminal app that runs the agent",
+    "System Settings > Privacy & Security > Screen & System Audio Recording: turn on the same app",
+    "Quit and reopen that terminal app, then launch_cli.py desktop doctor"
+  ],
+  "refs": [
+    985
+  ],
+  "verified_at": "2026-10-22"
+}

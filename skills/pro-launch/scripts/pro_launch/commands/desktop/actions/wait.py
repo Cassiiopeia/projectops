@@ -5,16 +5,31 @@ import time
 
 import node_match
 
-from pro_launch.commands.desktop.common import listed_nodes, pick_window, screen_digest, settle
+from pro_launch.commands.desktop.actions.tree import remember
+from pro_launch.commands.desktop.common import listed_nodes, pick_window, screen_digest, settle, windows_to_search
 from pro_launch.registry import Action
 from pro_launch.runtime.output import out
 
 POLL_SECONDS = 0.5
 
 
-def _present(be, args, window) -> bool:
+# 결과에 싣는 일치 노드 수
+MAX_MATCHES = 10
+
+
+def _matches(be, args, window) -> list[dict]:
     nodes = be.nodes(window, args.max_nodes, args.depth) or []
-    return bool(node_match.find_nodes(listed_nodes(nodes), "text", args.text)[0])
+    return node_match.find_nodes(listed_nodes(nodes), "text", args.text)[0]
+
+
+def _first_with_text(be, args) -> tuple[dict | None, list[dict]]:
+    """(글자가 있는 창, 일치 노드). 없으면 첫 창과 빈 목록 — 창이 하나도 없으면 (None, [])."""
+    windows, _ = windows_to_search(be, args.window)
+    for window in windows:
+        found = _matches(be, args, window)
+        if found:
+            return window, found
+    return (windows[0] if windows else None), []
 
 
 def execute(args) -> int:
@@ -31,11 +46,17 @@ def execute(args) -> int:
                     "summary": "Screen settled", "next": "desktop tree"})
     while time.monotonic() - started < args.timeout:
         # 창이 새로 뜨거나 닫힐 수 있어 매번 다시 고른다 (설치 마법사의 다음 단계 창)
-        window, _ = pick_window(be, args.window)
-        if window is not None and _present(be, args, window) != args.gone:
-            return out({"ok": True, "code": "ok", "waited_seconds": round(time.monotonic() - started, 2),
-                        "window": window["title"],
-                        "summary": f"{args.text!r} {'is gone' if args.gone else 'appeared'}", "next": "desktop find"})
+        window, found = _first_with_text(be, args)
+        # 창 자체가 닫혔으면 글자도 사라진 것이다 (닫힌 배너 · 설치 창)
+        if (window is not None or args.gone) and bool(found) != args.gone:
+            payload = {"ok": True, "code": "ok", "waited_seconds": round(time.monotonic() - started, 2),
+                       "window": window["title"] if window else None,
+                       "summary": f"{args.text!r} {'is gone' if args.gone else 'appeared'}", "next": "desktop find"}
+            if found:
+                # ref 를 바로 남긴다 — 알림 배너는 약 5초면 사라져 find 를 한 번 더 부를 틈이 없다
+                payload["matches"] = remember(window, found)[:MAX_MATCHES]
+                payload["next"] = "desktop click --ref <n>  # refs are ready, no find needed"
+            return out(payload)
         time.sleep(POLL_SECONDS)
     return out({"ok": False, "code": "wait_timeout", "error": f"{args.text!r} did not {'go away' if args.gone else 'appear'} "
                 f"within {args.timeout}s", "next": "desktop windows  # see what is on screen now"})

@@ -12,6 +12,7 @@ import desktop_input
 
 from pro_launch.commands.desktop.common import save_shot, screen_digest, settle
 from pro_launch.runtime import desktop_state
+from pro_launch.runtime.mutating import is_mutating_label
 
 # 누르기에 쓰는 패턴 우선순위 (입력값을 넣는 set_value 는 type 이 쓴다)
 PRESS_ACTIONS = ("invoke", "toggle", "select", "expand")
@@ -53,6 +54,21 @@ def mutating_refusal(node: dict, is_confirmed: bool) -> dict | None:
     return None
 
 
+def named_action_refusal(node: dict, name: str, is_confirmed: bool) -> dict | None:
+    """`click --action` — 노드 문구가 아니라 동작 이름으로 판정한다 (배너 본문은 버튼이 아니다)."""
+    names = node.get("named_actions") or []
+    if name not in names:
+        return {"ok": False, "code": "action_not_found", "candidates": names, "element": desktop_input.public_node(node),
+                "error": f"'{node.get('text')}' has no action named {name!r}",
+                "next": f"desktop click --ref {node.get('ref')} --action \"<one of candidates>\""}
+    if is_mutating_label(name, is_desktop=True) and not is_confirmed:
+        return {"ok": False, "code": "mutating_blocked", "element": desktop_input.public_node(node), "action": name,
+                "error": f"'{name}' on '{node.get('text')}' changes something that is hard to undo",
+                "ask_user": f"Pressing '{name}' on '{node.get('text')}' will make a change. Shall I press it?",
+                "next": f"desktop click --ref {node.get('ref')} --action \"{name}\" --confirm-mutating  # only after the user agrees"}
+    return None
+
+
 def guarded_mouse_click(be, x: int, y: int, is_double: bool = False) -> tuple[bool, str, dict | None]:
     """사용자가 마우스를 쓰고 있으면 누르지 않고 세션을 멈춘다. (성공, 이유, 실패 결과)"""
     session = desktop_state.my_session() or {}
@@ -79,6 +95,18 @@ def press_node(be, window: dict, node: dict) -> tuple[bool, str, str, dict | Non
         # 이 패턴이 실패했다 — 다음 패턴, 그다음 마우스
     ok, detail, failure = guarded_mouse_click(be, *node["center"])
     return ok, detail, "mouse", failure
+
+
+def keys_target_refusal(be, window: dict) -> dict | None:
+    """키를 보내기 전 — 시스템 창(배너·팝업)이 정말 앞에 왔는지. 아니면 키가 사용자가 쓰던 앱으로 간다."""
+    if not window.get("overlay"):
+        return None
+    now = next((w for w in be.windows() if w["handle"] == window["handle"]), None)
+    if now and now.get("foreground"):
+        return None
+    return {"ok": False, "code": "focus_failed", "window": window.get("title"),
+            "error": "This system window cannot take keyboard focus, so keys would go to another app",
+            "next": "desktop find --window overlay --text \"<button>\"  # press its buttons instead"}
 
 
 def ensure_front(be, window: dict) -> dict | None:

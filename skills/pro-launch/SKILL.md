@@ -274,7 +274,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web login --cred {name} 
 
 ## Desktop — use this when
 
-A program window that is neither a web page nor an emulator: an installer wizard, an OS dialog, a desktop app's settings. **Windows only for now** (macOS: #985).
+A program window that is neither a web page nor an emulator: an installer wizard, an OS dialog, a desktop app's settings, a macOS notification. **Windows and macOS.**
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop doctor                      # packages · security prompt · input session
@@ -284,6 +284,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop find --window "S
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop click --ref 3 --shot after_next      # transport: invoke (no mouse) or mouse
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop type --ref 2 --cred <name>           # password fields only via --cred / --text-env
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop wait --text "Completed" --timeout 120
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop wait --window overlay --text "Apple" --timeout 60   # macOS notification / system dialog → matches with ref
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop click --ref 1 --action "<name>"      # a banner's hidden button, name from named_actions (UI language)
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop session stop                # always, when done
 ```
 
@@ -293,7 +295,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop session stop    
 
 | code | Next action |
 |---|---|
-| `desktop_deps_missing` | Ask the user, then `desktop setup` (mss · comtypes into the shared venv) |
+| `desktop_deps_missing` | Ask the user, then `desktop setup` (Windows: mss · comtypes, macOS: mss · pyobjc — into the shared venv) |
+| `permission_missing` (macOS) | The terminal app needs Accessibility and Screen Recording — relay `grant`, then reopen that app |
 | `desktop_session_required` · `desktop_busy` | `desktop session start` · another session holds the keyboard and mouse — wait or ask |
 | `user_interrupted` | The user moved the mouse. Stop, ask, and `desktop session resume` only after they agree |
 | `needs_user` · `screen_locked` · `elevated_window` | UAC / sign-in prompt · locked screen · an administrator window. Only a person can answer — relay `ask_user` |

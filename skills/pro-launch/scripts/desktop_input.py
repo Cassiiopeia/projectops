@@ -23,7 +23,7 @@ import sys
 
 # 노드 하나에 남기는 필드 — 결과 JSON 의 elements 항목 모양
 NODE_FIELDS = ("ref", "text", "id", "desc", "role", "clickable", "enabled", "secret",
-               "actions", "bounds", "center", "window", "mutating")
+               "actions", "named_actions", "bounds", "center", "window", "mutating")
 # 누를 수 있다고 보는 종류 (UIA ControlType · AX role 을 소문자 짧은 이름으로 맞춘 값)
 CLICKABLE_ROLES = {"button", "checkbox", "radiobutton", "menuitem", "hyperlink", "link", "tabitem",
                    "listitem", "treeitem", "combobox", "splitbutton", "edit", "textfield", "cell"}
@@ -39,18 +39,23 @@ DEFAULT_MAX_DEPTH = 25
 # ── 공통 순수 함수 (OS 없이 테스트된다) ─────────────────────────────────
 
 def make_desktop_node(*, text: str, id_: str, desc: str, role: str, enabled: bool, secret: bool,
-                      actions: list[str], bounds: tuple[int, int, int, int] | None, window: str) -> dict | None:
-    """원시 값 → 노드. 크기가 0 이거나 화면 밖이면 None (보이지 않는 요소는 누를 수 없다)."""
+                      actions: list[str], bounds: tuple[int, int, int, int] | None, window: str,
+                      named_actions: list[str] | None = None) -> dict | None:
+    """원시 값 → 노드. 크기가 0 이거나 화면 밖이면 None (보이지 않는 요소는 누를 수 없다).
+
+    named_actions: 이름으로만 부르는 숨은 버튼 (macOS 알림 배너의 닫기·보기 등). `click --action` 이 쓴다.
+    """
     if not bounds:
         return None
     x1, y1, x2, y2 = (int(v) for v in bounds)
     if x2 <= x1 or y2 <= y1:
         return None
     role = (role or "").lower()
-    clickable = bool(actions) or role in CLICKABLE_ROLES
+    clickable = bool(actions) or bool(named_actions) or role in CLICKABLE_ROLES
     return {"text": (text or "").strip(), "id": id_ or "", "desc": (desc or "").strip(), "role": role,
             "clickable": clickable, "enabled": bool(enabled), "secret": bool(secret),
-            "actions": [a for a in actions if a in ACTION_NAMES], "bounds": [x1, y1, x2, y2],
+            "actions": [a for a in actions if a in ACTION_NAMES], "named_actions": list(named_actions or []),
+            "bounds": [x1, y1, x2, y2],
             "center": [(x1 + x2) // 2, (y1 + y2) // 2], "window": window or ""}
 
 
@@ -162,9 +167,9 @@ class DesktopBackend:
 
 
 # 이름 → "모듈:클래스". 백엔드 모듈은 OS 전용 라이브러리를 가져오므로 쓸 때만 불러온다.
-# macOS(AX API) 백엔드는 아직 없다 — #985 4단계. 그 전까지 macOS 는 unsupported_on_platform 이다.
 BACKENDS = {
     "windows": "desktop_backends.windows_uia:WindowsBackend",
+    "macos": "desktop_backends.macos_ax:MacBackend",
 }
 
 

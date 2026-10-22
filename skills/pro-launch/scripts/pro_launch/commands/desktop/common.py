@@ -16,6 +16,11 @@ from pro_launch.runtime.creds import cred_field
 from pro_launch.runtime.mutating import is_mutating_label
 from pro_launch.runtime.shots import finish_shot, shot_target
 
+# --window 예약어: 앞 창이 아닌 시스템 대화상자·알림 배너 (macOS)
+OVERLAY_QUERY = "overlay"
+OVERLAY_ORDER = ("dialog", "notification")
+# 위험 판정에서 빼는 종류 — 알림 배너는 열기만 한다
+DESKTOP_NAV_ROLES = {"notification"}
 # 화면이 멈췄다고 보는 간격 (초) · 최대 대기 (초)
 SETTLE_INTERVAL_SECONDS = 0.25
 SETTLE_MAX_SECONDS = 3.0
@@ -49,10 +54,12 @@ def deps_missing(key: str, missing: list[str], be=None) -> dict:
 
 
 def pick_window(be, query: str | None) -> tuple[dict | None, dict | None]:
-    """--window(제목 일부 · pid · 핸들) 또는 앞에 있는 창. (창, 실패 결과)"""
+    """--window(제목 일부 · pid · 핸들 · overlay) 또는 앞에 있는 창. (창, 실패 결과)"""
     wins = be.windows()
     if not wins:
         return None, {"ok": False, "code": "window_not_found", "error": "No visible windows"}
+    if query == OVERLAY_QUERY:
+        return _pick_overlay(wins)
     if not query:
         front = next((w for w in wins if w["foreground"]), None)
         if front:
@@ -74,17 +81,48 @@ def pick_window(be, query: str | None) -> tuple[dict | None, dict | None]:
                   "next": "desktop windows  # pick a title from candidates"}
 
 
+def ordered_overlays(wins: list[dict]) -> list[dict]:
+    """시스템 대화상자(2FA·권한 팝업) > 알림 배너 순. 소유 프로세스를 몰라도 고를 수 있게 한다."""
+    return [w for kind in OVERLAY_ORDER for w in wins if w.get("overlay") and w.get("overlay_kind") == kind]
+
+
+def _pick_overlay(wins: list[dict]) -> tuple[dict | None, dict | None]:
+    found = ordered_overlays(wins)
+    if found:
+        return found[0], None
+    return None, {"ok": False, "code": "window_not_found", "error": "No system dialog or notification is on screen",
+                  "next": "desktop windows"}
+
+
+def windows_to_search(be, query: str | None) -> tuple[list[dict], dict | None]:
+    """글자로 찾는 동작(find · wait)이 훑을 창. overlay 는 전부 — 대화상자가 떠 있어도 배너를 찾게."""
+    if query == OVERLAY_QUERY:
+        found = ordered_overlays(be.windows())
+        return (found, None) if found else ([], _pick_overlay([])[1])
+    window, failure = pick_window(be, query)
+    return ([window] if window else []), failure
+
+
 def public_window(w: dict) -> dict:
-    return {k: w[k] for k in ("handle", "pid", "app", "title", "bounds", "foreground", "minimized", "elevated")
-            if k in w}
+    return {k: w[k] for k in ("handle", "pid", "app", "title", "bounds", "foreground", "minimized", "elevated",
+                              "overlay", "overlay_kind") if k in w}
 
 
 def listed_nodes(nodes: list[dict]) -> list[dict]:
-    """보여 줄 노드만 골라 위험 버튼 표시를 붙인다 (desktop 은 설치·동의 계열도 막는다)."""
+    """보여 줄 노드만 골라 위험 버튼 표시 (desktop 은 설치·동의·허용 계열도 막음)
+    알림 배너는 제외 — text 가 본문이고 누르면 열 뿐. 숨은 버튼은 `click --action` 이 이름으로 판정"""
     shown = [n for n in nodes if desktop_input.is_worth_listing(n)]
     for n in shown:
-        n["mutating"] = n["clickable"] and is_mutating_label(f"{n['text']} {n['desc']}", is_desktop=True)
+        n["mutating"] = (n["clickable"] and n["role"] not in DESKTOP_NAV_ROLES
+                         and is_mutating_label(f"{n['text']} {n['desc']}", is_desktop=True))
     return shown
+
+
+def compare_region(window: dict, node: dict) -> list[int]:
+    """누른 뒤 화면 변화를 볼 영역. 알림 센터 창은 화면 전체라 배너 자리만 본다 (다른 앱 변화를 섞지 않게)."""
+    if window.get("overlay_kind") == "notification" and node.get("bounds"):
+        return node["bounds"]
+    return window["bounds"]
 
 
 def screen_digest(be, region: list[int] | None) -> str | None:
