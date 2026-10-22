@@ -136,7 +136,7 @@ The number is not written back to `version.yml`. The trigger workflow still send
 
 If the `version.yml` version was already released on the App Store and is closed, TestFlight rejects the upload. The iOS test build checks this in advance and builds the **next patch after the highest closed version**.
 
-- The prepare step reads the App Store Connect version list to decide. If the version changed, the progress comment gets a `버전 조정: ...` ("version adjusted") line with the reason after preparation finishes.
+- The prepare step reads the App Store Connect version list to decide. If the version changed, the progress comment gets an `ℹ️ Version adjusted: ...` line with the reason after preparation finishes.
 - If the list cannot be read (no key, missing permission, network), the build only logs a warning and continues with the `version.yml` version. If the upload is still rejected because the version is closed, it reads the closed version from the rejection message and archives again with the next patch.
 - `version.yml` is not modified.
 - An iOS release never changes the version behind your back. If the version is closed, it fails before the build, so bump the `version.yml` version and run it again.
@@ -198,7 +198,7 @@ A build that was already uploaded is not uploaded again. Before a retry, the wor
 
 ## Build result comments
 
-The workflows post these comments in Korean. The examples below are translated.
+Comments follow the repository language (`language` in `version.yml`). The examples below are the English (`en`) text; Korean repositories get the same comments in Korean.
 
 ### Build progress
 
@@ -232,7 +232,7 @@ After a build is triggered, a **progress comment** is created for each platform 
 
 When the build finishes, the comment is updated with the final result.
 
-If the build is canceled (a new build started on the same branch, or someone canceled it by hand), the progress comment changes to `취소됨` ("canceled").
+If the build is canceled (a new build started on the same branch, or someone canceled it by hand), the progress comment changes to `⏸️ Cancelled`.
 
 ### Android build success comment
 
@@ -281,7 +281,7 @@ Check the latest build in the TestFlight app.
 [GitHub Actions workflow log](link)
 ```
 
-When an iOS build fails, the comment also shows a `**사유**: ...` ("reason") line (for example: rejected because the version is closed, retry limit exceeded, bundle number mismatch).
+When an iOS build fails, the comment also shows a `**Reason**: ...` line (for example: rejected because the version is closed, retry limit exceeded, bundle number mismatch).
 
 ---
 
