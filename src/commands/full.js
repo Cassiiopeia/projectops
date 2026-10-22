@@ -71,6 +71,8 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
   // 7. issue / discussion 템플릿
   step("copy-templates", () => {
     copyIssueTemplates(tempDir, targetRoot);
+    // Discussion 템플릿도 오버레이 대상 (#988) — 오버레이보다 먼저 복사해야 한국어판이 덮인다
+    copyDiscussionTemplates(tempDir, targetRoot);
     // 템플릿 언어(#769) — 원본은 영문이라 한국어 레포는 복사 직후 오버레이로 덮는다.
     // 라벨 표기 변환(apply-label-style)보다 반드시 먼저여야 한다.
     const { changed: overlaid, failed: overlayFailed } = applyRepoLanguage(tempDir, targetRoot, language);
@@ -79,7 +81,6 @@ export function runFull(context, tempDir, targetRoot = ".", hooks = {}) {
     // 담당자 고정값 제거(#782) — 오버레이가 다시 넣으므로 그 뒤에 한다.
     hooks.trace?.event("copy", "strip-assignees", "", { files: stripIssueTemplateAssignees(targetRoot).length });
     if (overlayFailed.length) console.error(t("language.overlayFailed", { n: overlayFailed.length, files: overlayFailed.map((f) => f.file).join(", ") }));
-    copyDiscussionTemplates(tempDir, targetRoot);
   });
 
   // 8. coderabbit / gitignore / setup guide

@@ -61,3 +61,19 @@ test("오버레이 폴더는 초기화 때 지워지고, 설치 시 제외 목�
   assert.match(read(".github/scripts/template_initializer.py"), /"\.github\/i18n"/);
   assert.doesNotMatch(read("src/core/exclusions.js"), /^\s+"\.github\/i18n",/m);
 });
+
+// Discussion 템플릿 (#988): 영문 원본 <-> 한국어 오버레이, 파일 목록·id·라벨이 같고 원본엔 한글 없음
+test("Discussion 템플릿: 오버레이와 파일·id·labels 가 같고 영문 원본에는 한글이 없다", () => {
+  const listYaml = (dir) => readdirSync(join(ROOT, dir)).filter((f) => /\.ya?ml$/.test(f)).sort();
+  const names = listYaml(".github/DISCUSSION_TEMPLATE");
+  assert.deepEqual(listYaml(".github/i18n/ko/DISCUSSION_TEMPLATE"), names);
+  const ids = (text) => [...text.matchAll(/^\s+id:\s*(\S+)/gm)].map((m) => m[1]);
+  const labels = (text) => text.match(/^labels:\n((?:\s+-.*\n)+)/m)?.[1];
+  for (const name of names) {
+    const en = read(`.github/DISCUSSION_TEMPLATE/${name}`);
+    const ko = read(`.github/i18n/ko/DISCUSSION_TEMPLATE/${name}`);
+    assert.deepEqual(ids(en), ids(ko), `${name} ids`);
+    assert.equal(labels(en), labels(ko), `${name} labels`);
+    assert.ok(!/[가-힣]/.test(en), `${name} 영문 원본에 한글이 남았다`);
+  }
+});

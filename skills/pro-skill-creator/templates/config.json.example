@@ -1,7 +1,7 @@
 {
-  "_comment": "표준 Somansa skill config 템플릿. 사용자별로 다른 값(계정/토큰/경로)은 이 파일에 두고, SKILL.md 본문에 직접 박지 말 것.",
+  "_comment": "Standard skill config template. Keep per-user values (accounts, tokens, paths) in this file; do not hard-code them in the SKILL.md body.",
   "service": {
-    "url": "https://example.somansa.com",
+    "url": "https://service.example.com",
     "token": "",
     "user": "",
     "password": "",
@@ -15,7 +15,7 @@
   "projects": {
     "project-key": {
       "path": "namespace/repo-name",
-      "aliases": ["short-name", "한글별칭"]
+      "aliases": ["short-name", "korean-alias"]
     }
   }
 }

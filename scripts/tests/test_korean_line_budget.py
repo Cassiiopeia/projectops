@@ -24,6 +24,7 @@ HANGUL_RE = re.compile(r"[가-힣ㄱ-ㆎ]")
 SCOPE_PREFIXES = (
     "skills/", "plugins/", "scripts/", "src/", "bin/", "hooks/",
     ".github/workflows/", ".github/scripts/", ".github/util/", ".github/ISSUE_TEMPLATE/",
+    ".github/DISCUSSION_TEMPLATE/", ".github/config/",
     ".claude-plugin/",
 )
 SCOPE_FILES = (
@@ -36,6 +37,7 @@ EXCLUDED_PATTERNS = (
     (r"(^|/)[^/]+\.ko\.[^/]+$", "한국어 사본 (*.ko.*)"),
     (r"^src/i18n/[^/]*ko[^/]*$", "CLI 한국어 사전"),
     (r"^\.github/scripts/i18n/ko\.json$", "워크플로 스크립트 한국어 사전"),
+    (r"^\.github/config/wizard-prompts\.yml$", "마법사 질문 2개 언어 사전 (*_ko 가 한국어, 영어 원문은 test/wizard-labels.test.js 가 검사)"),
     (r"^\.github/util/.+/[^/]+-i18n\.js$(?<!/wizard-i18n\.js)", "마법사 ko 사전 (en 원문은 check_i18n.py 가 검사, 엔진 wizard-i18n.js 는 셈)"),
     (r"^docs/", "문서 사이트 — /ko/ 를 따로 둠 (#976)"),
     (r"(^|/)CHANGELOG\.[^/]+$", "릴리스 기록 원문"),
@@ -379,6 +381,10 @@ def test_exclusions_keep_engine_but_drop_dictionaries():
     assert is_excluded("src/i18n/core.ko.js") and not is_excluded("src/i18n/core.en.js")
     assert is_excluded("skills/pro-launch/tests/test_app.py")
     assert not is_excluded("plugins/projectops-extras/skills/pro-code-consult/templates/rule-tests/python/test_architecture_rules.py.tmpl")
+    assert is_excluded(".github/config/wizard-prompts.yml")
+    assert is_in_scope(".github/config/issue-labels.yml") and not is_excluded(".github/config/issue-labels.yml")
+    assert is_in_scope(".github/DISCUSSION_TEMPLATE/documents.yaml")
+    assert is_excluded(".github/i18n/ko/DISCUSSION_TEMPLATE/documents.yaml")
 
 
 def update_ledger(allow_increase: bool) -> None:

@@ -1,0 +1,81 @@
+title: "📄 [문서] {제목을 작성해주세요}"
+labels:
+  - "documentation"
+body:
+  # 안내 문구(마크다운)
+  - type: markdown
+    attributes:
+      value: |
+        <!-- 
+        📚 GitHub 이슈(또는 디스커션) 작성 템플릿 
+        필요한 제목 태그를 복사 붙여넣기하여 사용해주세요!
+
+        🔧 [기능요청][카테고리] 어떤 부분의 기능 요청
+        ⚙️ [기능추가][카테고리] 어떤 부분의 기능 추가
+        🚀 [기능개선][카테고리] 어떤 부분의 기능 개선
+        🔥 [긴급]
+        📄 [문서]
+        ⌛ [~월/일]
+
+        아래 항목을 순서대로 작성해주세요.
+        -->
+
+  # 현재 문제점(필수 작성)
+  - type: textarea
+    id: current_issues
+    attributes:
+      label: "📝 현재 문제점"
+      description: "특정 기능이 부족하거나, 개선이 필요한 이유를 작성해주세요."
+      placeholder: |
+        - 현재 어떤 문제가 있나요?
+        - 왜 개선이 필요하다고 생각하시나요?
+    validations:
+      required: true
+
+  # 해결 방안 / 제안 기능 (필수 작성)
+  - type: textarea
+    id: suggested_solution
+    attributes:
+      label: "🛠️ 해결 방안 / 제안 기능"
+      description: |
+        문제를 해결하기 위한 구체적인 방안을 작성해주세요.  
+        새로운 기능 또는 개선 사항에 대한 아이디어를 구체적으로 작성해주세요.
+      placeholder: |
+        - 예: A 기능에 B 옵션 추가
+        - 예: UI/UX 개선
+        - ...
+    validations:
+      required: true
+
+  # 필요하면 주석을 풀고 작성하는 추가 작업 내용 (선택)
+  - type: markdown
+    attributes:
+      value: |
+        <!-- 
+        ⚙️ 작업 내용 (예: 기능추가, 기능개선 시)
+        ---
+        - 구현에 필요한 항목을 체크리스트로 작성합니다.
+        - 예: API 설계, 프론트엔드 화면 구성, UI 디자인 등
+
+        예시:
+        - [ ] 로그인 API 수정
+        - [ ] 회원가입 폼 디자인 개선
+        - [ ] ...
+        -->
+
+  # 담당자 지정(선택)
+  - type: textarea
+    id: assignees
+    attributes:
+      label: "🙋‍♂️ 담당자"
+      description: |
+        담당자가 정해져 있다면 입력해주세요.
+        - 백엔드: 이름
+        - 프론트엔드: 이름
+        - 디자인: 이름
+      placeholder: |
+        - 백엔드:
+        - 프론트엔드:
+        - 디자인:
+    validations:
+      required: false

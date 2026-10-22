@@ -1,16 +1,16 @@
 {
   "preferences": {
     "language": "ko",
-    "tone": "{간결하게, ~한다 체}",
-    "rules": ["{표보다 문장}", "{이모지 쓰지 않기}"]
+    "tone": "{concise, plain statements}",
+    "rules": ["{sentences over tables}", "{no emoji}"]
   },
   "skills": {
     "pro-commit": { "template": "{type}({scope}): {description}", "examples": ["{fix(auth): refresh token before expiry}"] },
-    "pro-report": { "sections": ["{요약}", "{변경}", "{검증}"], "tone": "{보고서체}" },
-    "pro-review": { "rules": ["{보안 지적은 항상 맨 위}"] }
+    "pro-report": { "sections": ["{Summary}", "{Changes}", "{Verification}"], "tone": "{report style}" },
+    "pro-review": { "rules": ["{security findings always first}"] }
   },
   "github": {
-    "default_assignee": "{GitHub_사용자명}",
+    "default_assignee": "{GitHub_username}",
     "global_pat": "{ghp_xxxxxxxxxxxxxxxxxxxx}",
     "commit": {
       "auto_approve": false
@@ -23,17 +23,17 @@
     },
     "repos": [
       {
-        "name": "{프로젝트 이름}",
-        "owner": "{GitHub_사용자명_또는_조직명}",
-        "repo": "{저장소명}",
+        "name": "{project name}",
+        "owner": "{GitHub_username_or_org}",
+        "repo": "{repository_name}",
         "pat": null,
         "default": true
       },
       {
-        "name": "{다른 프로젝트}",
-        "owner": "{GitHub_사용자명_또는_조직명}",
-        "repo": "{저장소명}",
-        "pat": "{ghp_별도PAT_있으면_입력}",
+        "name": "{another project}",
+        "owner": "{GitHub_username_or_org}",
+        "repo": "{repository_name}",
+        "pat": "{ghp_separate_PAT_if_any}",
         "default": false,
         "preferences": { "language": "en" },
         "skills": { "pro-commit": { "preset": "conventional" } },
@@ -42,7 +42,7 @@
         },
         "issue": {
           "auto_approve": true,
-          "assignee": "{이 레포만 다른 담당자 GitHub 사용자명}"
+          "assignee": "{GitHub username of a different assignee for this repo only}"
         },
         "changelog_deploy": {
           "auto_approve": true,
@@ -52,13 +52,13 @@
     ]
   },
   "output": {
-    "_주석": "산출물(md) 저장 루트. 생략하면 docs/projectops 를 쓴다. 상대경로는 저장소 루트 기준, 절대경로도 가능.",
+    "_comment": "Root folder for outputs (md). Defaults to docs/projectops when omitted. A relative path is from the repository root; an absolute path also works.",
     "root": "docs/projectops"
   },
   "synology-expose": {
     "instances": [
       {
-        "name": "{NAS 식별 이름}",
+        "name": "{NAS display name}",
         "ddns": "{your-nas.synology.me}",
         "domains": [
           "{example.com}"
@@ -81,17 +81,17 @@
         "host": "{your-server.example.com}",
         "port": 22,
         "user": "{username}",
-        "password": "{비밀번호 — 키 접속이면 \"key_path\": \"~/.ssh/id_ed25519\" 로}",
+        "password": "{password — for key login use \"key_path\": \"~/.ssh/id_ed25519\" instead}",
         "scope": "test-only",
-        "use_when": "{언제 써도 되는지 — 사용자가 허용한 범위 그대로}",
-        "notes": "{지켜야 할 이름 규칙 · 포트 범위 · 서버에 있는 운영 서비스}"
+        "use_when": "{when it may be used — exactly the scope the user allowed}",
+        "notes": "{naming rules to follow · port range · production services on the server}"
       },
       "my-registry": {
         "kind": "dockerhub",
         "username": "{username}",
         "token": "{access token}",
         "scope": "test-only",
-        "use_when": "{예: 배포 워크플로 테스트에서 Secret 으로 등록할 때}"
+        "use_when": "{e.g. when registering it as a Secret while testing a deploy workflow}"
       },
       "my-google": {
         "kind": "login",
@@ -99,8 +99,8 @@
         "surface": "web",
         "app": "{console.cloud.google.com}",
         "account": "{me@example.com}",
-        "password": "{비밀번호}",
-        "use_when": "{구글 개발자 콘솔 점검}",
+        "password": "{password}",
+        "use_when": "{checking the Google developer console}",
         "login_policy": { "trust_device": "never" }
       }
     }

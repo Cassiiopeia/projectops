@@ -15,6 +15,9 @@ function fixture() {
     '- name: "status: todo"\n  from_name: 작업전\n  description: Not started documentation\n\n- name: documentation\n  from_name: 문서\n');
   writeFileSync(join(gh, "ISSUE_TEMPLATE", "bug_report.md"), '---\nname: bug\nlabels: ["status: todo"]\n---\nbody status: todo\n');
   writeFileSync(join(gh, "workflows", "PROJECT-COMMON-QA-ISSUE-CREATION-BOT.yaml"), "labels: ['status: todo'],\n");
+  mkdirSync(join(gh, "DISCUSSION_TEMPLATE"), { recursive: true });
+  writeFileSync(join(gh, "DISCUSSION_TEMPLATE", "documents.yaml"),
+    'title: "x"\nlabels:\n  - "documentation"\nbody:\n  - type: textarea\n    attributes:\n      placeholder: |\n        - documentation\n');
   return root;
 }
 
@@ -35,7 +38,7 @@ test("applyLabelStyle: en 은 아무것도 바꾸지 않는다", () => {
 test("applyLabelStyle: ko 는 name 줄·템플릿 labels·QA 봇만 한글로 되돌린다", () => {
   const root = fixture();
   const changed = applyLabelStyle(root, "ko");
-  assert.equal(changed.length, 3);
+  assert.equal(changed.length, 4);
   const yml = readFileSync(join(root, ".github/config/issue-labels.yml"), "utf8");
   assert.match(yml, /^- name: 작업전$/m);
   assert.match(yml, /^- name: 문서$/m);
@@ -45,6 +48,9 @@ test("applyLabelStyle: ko 는 name 줄·템플릿 labels·QA 봇만 한글로 �
   assert.match(tpl, /^labels: \[작업전\]$/m);
   assert.ok(tpl.includes("body status: todo"), "본문은 건드리지 않는다");
   assert.match(readFileSync(join(root, ".github/workflows/PROJECT-COMMON-QA-ISSUE-CREATION-BOT.yaml"), "utf8"), /\['작업전'\]/);
+  const discussion = readFileSync(join(root, ".github/DISCUSSION_TEMPLATE/documents.yaml"), "utf8");
+  assert.match(discussion, /^labels:\n  - "문서"$/m, "Discussion 기본 라벨도 한글로 (#988)");
+  assert.ok(discussion.includes("        - documentation\n"), "labels 목록 밖 본문은 건드리지 않는다");
 });
 
 test("applyLabelStyle: 두 번 적용해도 같다(멱등)", () => {

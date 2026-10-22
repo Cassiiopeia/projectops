@@ -1,141 +1,142 @@
-# Flutter 마법사 공통 자산 (`_shared/`)
+# Flutter wizard shared assets (`_shared/`)
 
-`testflight-wizard` · `playstore-wizard` · `firebase-wizard` · `oauth-wizard`(#156) 마법사가 **공유하는 정본**입니다.
-
----
-
-## 왜 공유하나
-
-세 마법사는 원래 각자 복사본을 들고 있었습니다. 그 결과:
-
-- 컴포넌트 CSS **377줄이 두 마법사에 글자 단위로 동일하게** 중복돼 있었고,
-- firebase는 그 중 20종을 아예 갖지 못해 툴팁·모달·검증 표시가 없었으며,
-- `.step-indicator` 클래스가 마법사마다 **정반대 의미**로 쓰였고,
-- iOS 마법사에만 개선이 쌓이고 나머지 둘로 전파되지 않았습니다.
-
-전부 "복사본이 각자 늙어간" 결과입니다. 그래서 공유로 바꿨습니다.
-
-### 폴더만 떼어가면요?
-
-마법사 폴더는 **원래도 폴더 단위로만 동작**합니다 (`<script src="xxx-wizard.js">`가 외부 파일).
-`_shared/`는 같은 `flutter/` 트리 안이라 복사 엔진이 통째로 함께 옮깁니다.
-
-폴더 하나만 떼어가면 공통 CSS가 빠지지만, 레이아웃은 Tailwind CDN이 담당하므로
-**페이지는 그대로 읽히고 마감만 덜 다듬어집니다.** 조용히 망가지지 않습니다.
+The **single source** shared by the `testflight-wizard` · `playstore-wizard` · `firebase-wizard` · `oauth-wizard` (#156) wizards.
 
 ---
 
-## 파일
+## Why share
 
-| 파일 | 역할 |
+Each of the three wizards used to carry its own copy. The result:
+
+- **377 lines of component CSS were duplicated character for character** in two wizards,
+- firebase lacked 20 of those components entirely, so it had no tooltips, modals or validation marks,
+- the `.step-indicator` class meant **opposite things** in different wizards,
+- improvements piled up in the iOS wizard only and never reached the other two.
+
+All of that came from "each copy aging on its own". So we switched to sharing.
+
+### What if someone takes just one folder?
+
+A wizard folder **only ever worked as a whole folder** (`<script src="xxx-wizard.js">` is an external file).
+`_shared/` sits in the same `flutter/` tree, so the copy engine moves it along with the rest.
+
+If you take a single folder on its own, the shared CSS is missing, but Tailwind CDN handles the layout,
+so **the page still reads fine and only the finish is rougher.** It does not break silently.
+
+---
+
+## Files
+
+| File | Role |
 |------|------|
-| `wizard.css` | 3종 공통 컴포넌트 스타일 (툴팁·코드블록·모달·토스트·업로드·커스텀 Secret 등) |
-| `wizard-i18n.js` | 언어 전환 엔진 (en 기본·ko 전환, 선택 저장) + 공통 문구 사전. common 마법사도 이 파일을 로드한다 (#769) |
-| `wizard-common.js` | 3종 공통 유틸 (이스케이프·클립보드·파일 변환·OS 감지·상태 저장·변경 이력 모달) + testflight·playstore에 같던 흐름 기본 구현(`showStep`·`prevStep`·`saveState`·`clearState`·커스텀 Secret) |
-| `check-consistency.py` | 마법사들이 다시 갈라지면 검출하는 정합성 검증기 |
-| `check_i18n.py` | 사전 키 누락(en·ko)·안 쓰는 키·HTML 한글 잔존 검사 (check-consistency.py 가 함께 실행) |
-| `test_wizard_cli.py` | Python CLI 계약과 `--dry-run` 안전성 회귀 테스트 |
+| `wizard.css` | Component styles shared by all three (tooltips · code blocks · modals · toasts · uploads · custom secrets, and so on) |
+| `wizard-i18n.js` | Language switching engine (English by default, switch to Korean, choice remembered) + shared phrase dictionary. The common wizards load this file too (#769) |
+| `wizard-common.js` | Utilities shared by all three (escaping · clipboard · file conversion · OS detection · state saving · change-history modal) + the default flow that testflight and playstore had identically (`showStep` · `prevStep` · `saveState` · `clearState` · custom secrets) |
+| `check-consistency.py` | Consistency checker that catches the wizards drifting apart again |
+| `check_i18n.py` | Checks for missing dictionary keys (en · ko), unused keys and Korean left in the HTML (run by check-consistency.py) |
+| `test_wizard_cli.py` | Regression tests for the Python CLI contract and `--dry-run` safety |
 
 ---
 
-## 규칙
+## Rules
 
-### 1. 로드 순서를 지킨다
+### 1. Keep the load order
 
 ```html
 <link rel="stylesheet" href="../_shared/wizard.css">
 ...
-<script src="../_shared/wizard-i18n.js"></script>     <!-- 언어 엔진: 공통 유틸보다 먼저 -->
+<script src="../_shared/wizard-i18n.js"></script>     <!-- language engine: before the shared utilities -->
 <script src="../_shared/wizard-common.js"></script>
-<script src="testflight-wizard-i18n.js"></script>     <!-- 마법사 문구 사전 -->
-<script src="testflight-wizard.js"></script>          <!-- 공통보다 뒤 -->
-<script src="testflight-wizard-export.js"></script>   <!-- 단계별 분할 파일: 본 파일 뒤 -->
+<script src="testflight-wizard-i18n.js"></script>     <!-- wizard phrase dictionary -->
+<script src="testflight-wizard.js"></script>          <!-- after the shared files -->
+<script src="testflight-wizard-export.js"></script>   <!-- per-step split file: after the main file -->
 ```
 
-마법사 JS는 `<name>-wizard*.js` 여러 개로 나눌 수 있다. 분할 파일에는 **함수 선언만** 둔다
-(상태·초기화 코드는 본 파일). 검증기가 폴더의 `<name>-wizard*.js`를 전부 읽고, HTML이 각각을
-공통 JS 뒤에 로드하는지 확인한다.
+A wizard's JS can be split into several `<name>-wizard*.js` files. Split files hold **function declarations only**
+(state and initialization code stay in the main file). The checker reads every `<name>-wizard*.js` in the folder and confirms
+the HTML loads each one after the shared JS.
 
-공통이 먼저 로드돼야 마법사 JS가 필요 시 의도적으로 덮어쓸 수 있습니다.
-순서가 뒤바뀌면 공통이 마법사 구현을 덮어써 조용히 동작이 바뀝니다.
+The shared files must load first so a wizard's JS can deliberately override them when needed.
+If the order flips, the shared code overwrites the wizard's implementation and behavior changes silently.
 
-### 2. 공통 유틸을 마법사 JS에서 재정의하지 않는다
+### 2. Do not redefine shared utilities in a wizard's JS
 
-같은 이름으로 다시 정의하면 정본이 무력화됩니다.
-`check-consistency.py`가 중복 정의를 잡아냅니다.
-흐름이 달라 덮어써야 하면 `INTENTIONAL_OVERRIDES`에 이유와 함께 등록합니다
-(현재 firebase: `showStep`·`prevStep`·`addCustomSecret`·`updateCustomSecretKey`·`renderCustomSecrets`).
-공통 흐름 함수는 마법사 JS의 전역 `state`·`STORAGE_KEY`·`updateProgress`·`initializeStep`·`saveCurrentStepData`를 부릅니다.
+Defining the same name again disables the single source.
+`check-consistency.py` catches duplicate definitions.
+If the flow differs and you must override, register it in `INTENTIONAL_OVERRIDES` with the reason
+(currently firebase: `showStep` · `prevStep` · `addCustomSecret` · `updateCustomSecretKey` · `renderCustomSecrets`).
+The shared flow functions call the wizard JS globals `state` · `STORAGE_KEY` · `updateProgress` · `initializeStep` · `saveCurrentStepData`.
 
-### 3. 무엇을 공통에 두고 무엇을 각자 두나
+### 3. What goes in the shared files and what stays in each wizard
 
-| 공통 (`_shared/`) | 각 마법사 |
+| Shared (`_shared/`) | Each wizard |
 |---|---|
-| 마법사 흐름과 무관한 순수 유틸 | 갈라진 단계 이동(`goToStep`/`nextStep`)·상태 복원(`loadState`) |
-| testflight·playstore에 글자 단위로 같던 흐름 함수 | `initializeStep`·`saveCurrentStepData` 등 단계 내용 |
-| 3종이 똑같이 쓰는 컴포넌트 스타일 | 마법사 고유 색상·브랜드 스타일 |
-| 변경 이력 모달·보안 경고 같은 공통 UI 동작 | 산출물 생성(`generateXxx`)·단계별 검증 |
+| Pure utilities unrelated to the wizard flow | Step navigation that differs (`goToStep`/`nextStep`) · state restore (`loadState`) |
+| Flow functions that were character-for-character identical in testflight and playstore | Step contents such as `initializeStep` · `saveCurrentStepData` |
+| Component styles all three use the same way | Each wizard's own colors and brand styles |
+| Shared UI behavior such as the change-history modal and security warnings | Output generation (`generateXxx`) · per-step validation |
 
-단계 수도 흐름도 다르므로 **흐름 관련 코드는 각자 둡니다.** 억지로 합치지 마세요.
+The step count and flow differ, so **flow code stays in each wizard.** Do not force it together.
 
-### 4. `.step-indicator` 는 "개별 단계 항목"이다
+### 4. `.step-indicator` is "one step item"
 
-전체 컨테이너가 아닙니다. 과거 firebase가 컨테이너 의미로 써서 충돌했습니다.
+It is not the whole container. firebase once used it to mean the container, and that collided.
 
 ```html
-<div class="flex justify-between ...">            <!-- 컨테이너: Tailwind -->
-  <div class="step-indicator ..." data-step="1">  <!-- 항목 -->
+<div class="flex justify-between ...">            <!-- container: Tailwind -->
+  <div class="step-indicator ..." data-step="1">  <!-- item -->
     <div class="step-circle ...">1</div>
-    <span>시작</span>
+    <span>Start</span>
   </div>
 </div>
 ```
 
-### 5. 화면 문구는 영문이 기본이고 한국어는 사전에 둔다 (#769)
+### 5. Screen text is English by default; Korean lives in the dictionary (#769)
 
-- **정적 마크업**: HTML 본문은 영문으로 쓰고 `data-i18n="키"`를 단다. 한국어는 `<name>-wizard-i18n.js`의 `ko`에 둔다.
-  placeholder·title은 `data-i18n-placeholder`·`data-i18n-title`.
-- **JS 문구**(토스트·동적 렌더): `translate('키', {값})` — 사전 `en`·`ko` 둘 다 둔다.
-- **복사해 쓰는 산출물**(명령어·yaml·Fastfile·Secret 이름·JSON 키)은 번역하지 않는다. 두 언어에서 바이트 단위로 같다.
-- `data-i18n`은 글자·인라인 태그만 든 요소에 단다. 입력칸·버튼·JS가 고쳐 쓰는 요소를 감싸면 언어 전환 때 지워진다.
-- 키는 문자열 그대로 쓴다(조립 금지) — 검증기가 안 쓰는 키를 잡는다.
-- 사전은 JSON 형식이다(`check_i18n.py`가 파싱). 블록 안 주석·후행 쉼표 금지.
-- 언어 결정: 주소 `?lang=` > 저장된 선택 > 브라우저 언어가 `ko*`면 한국어 > 영문.
-  바꾸면 `wizardlanguagechange` 이벤트가 나가고, 동적 영역은 각 마법사가 다시 그린다.
+- **Static markup**: write the HTML body in English and add `data-i18n="key"`. Korean goes in `ko` of `<name>-wizard-i18n.js`.
+  For placeholder and title use `data-i18n-placeholder` · `data-i18n-title`.
+- **JS text** (toasts, dynamic rendering): `translate('key', {values})` — put both `en` and `ko` in the dictionary.
+- **Outputs people copy** (commands · yaml · Fastfile · secret names · JSON keys) are not translated. They are byte-identical in both languages.
+- Put `data-i18n` only on elements that hold text and inline tags. If it wraps inputs, buttons or elements the JS rewrites, they are wiped on a language switch.
+- Write keys as literal strings (no assembling) — the checker catches unused keys.
+- The dictionary is JSON-shaped (`check_i18n.py` parses it). No comments inside the block and no trailing commas.
+- Language choice: the `?lang=` URL parameter > the saved choice > Korean if the browser language is `ko*` > English.
+  Switching fires a `wizardlanguagechange` event, and each wizard redraws its dynamic areas.
 
-### 6. Python CLI는 명명 플래그가 정본이다
+### 6. Named flags are the canonical Python CLI
 
 ```bash
 python3 testflight-wizard.py setup --project-path . --bundle-id com.x.y ... --dry-run
 ```
 
-구 위치인자 호출도 계속 받습니다 — 마법사 HTML이 이미 배포한 명령어가 그 형식이기 때문입니다.
-공통 옵션 `--dry-run` / `--no-backup` / `--non-interactive` 는 모든 마법사가 지원해야 합니다.
+Old positional-argument calls are still accepted — the commands the wizard HTML already handed out use that form.
+Every wizard must support the common options `--dry-run` / `--no-backup` / `--non-interactive`.
 
-### 7. `.py` 공통 블록은 글자 단위로 같게 둔다
+### 7. Keep the `.py` shared blocks character for character identical
 
-testflight·playstore `.py`의 `# >>> 공통 블록: 쓰기 게이트`·`# >>> 공통 블록: 인자 계약` 구간은
-두 파일이 같아야 하고, 검증기가 비교한다. oauth `.py`도 `쓰기 게이트` 블록을 같은 글자로 둔다
-(위치인자 호출 이력이 없어 argparse라 `인자 계약` 블록은 없다). 공용 모듈로 빼지 않는 이유: `.py`는 단일 파일로
-실행·배포된다(firebase ZIP은 `.py` 하나만 담는다). 인코딩·개행 처리는 블록 밖
-`_READ_KWARGS`·`_WRITE_KWARGS`로 마법사마다 둔다. firebase는 위치인자 호출 이력이 없어
-argparse로 같은 플래그를 받고, dry-run은 함수 인자로 전달한다.
+The `# >>> 공통 블록: 쓰기 게이트` ("shared block: write gate") and `# >>> 공통 블록: 인자 계약` ("shared block: argument contract")
+sections of the testflight and playstore `.py` files must be the same in both files, and the checker compares them. These marker
+lines are data the checker matches, so they stay in Korean. The oauth `.py` keeps the same `쓰기 게이트` (write gate) block, character for character
+(it has no history of positional calls, so it uses argparse and has no `인자 계약` (argument contract) block). Why it is not a shared module: each `.py`
+runs and ships as a single file (the firebase ZIP contains only the `.py`). Encoding and newline handling stay outside the block,
+in `_READ_KWARGS` · `_WRITE_KWARGS`, per wizard. firebase has no history of positional calls, so it takes the same flags
+through argparse and passes dry-run as a function argument.
 
-`--dry-run`은 **선언만 하면 안 됩니다.** 파일을 바꾸는 모든 원시 동작
-(쓰기·복사·이동·삭제·디렉터리 생성·keytool)은 게이트 함수를 거쳐야 하고,
-"쓰고 다시 읽어 검증"하는 단계를 위해 메모리 오버레이로 실제 실행과 같은 경로를 타야 합니다.
+`--dry-run` **must not be declared and then ignored.** Every primitive that changes files
+(write · copy · move · delete · directory creation · keytool) must go through the gate function,
+and for the "write, then read back to verify" steps it must take the same path as a real run through an in-memory overlay.
 
 ---
 
-## 검증
+## Checks
 
 ```bash
-# 마법사 정합성 (CSS·JS·링크·버전 동기화·CLI 계약·.py 공통 블록·첫 사용자 안내)
+# wizard consistency (CSS · JS · links · version sync · CLI contract · .py shared blocks · first-user notes)
 python3 .github/util/flutter/_shared/check-consistency.py
 
-# CLI 계약 + dry-run 안전성 회귀 테스트
+# CLI contract + dry-run safety regression tests
 python3 -m pytest .github/util/flutter/_shared/test_wizard_cli.py -q
 ```
 
-마법사를 수정했다면 **둘 다 통과시킨 뒤 커밋하세요.**
-`version.json`을 고쳤다면 해당 마법사의 `./version-sync.sh`도 실행해야 화면에 반영됩니다.
+If you changed a wizard, **get both passing before you commit.**
+If you edited `version.json`, also run that wizard's `./version-sync.sh` so the change shows on screen.

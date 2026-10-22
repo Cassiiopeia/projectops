@@ -1,101 +1,101 @@
 # Version Manager Documentation
 
-## 개요
-이 스크립트는 다양한 프로젝트 타입에서 버전을 중앙 관리하는 도구입니다.
-GitHub Actions와 연동되어 자동으로 버전을 관리하고 동기화합니다.
+## Overview
+This script manages the version centrally across many project types.
+It works with GitHub Actions to manage and sync versions automatically.
 
-## 프로젝트 타입별 동기화 파일
+## Synced files by project type
 
 ### Spring (`spring`)
-- **동기화 파일**: `build.gradle`
-- **버전 형식**: `version = "x.y.z"` 또는 `version = 'x.y.z'`
-- **설명**: 모든 하위 build.gradle 파일도 함께 업데이트됩니다
+- **Synced file**: `build.gradle`
+- **Version format**: `version = "x.y.z"` or `version = 'x.y.z'`
+- **Notes**: every nested build.gradle file is updated too
 
 ### Flutter (`flutter`)
-- **동기화 파일**: `pubspec.yaml`
-- **버전 형식**: `version: x.y.z`
-- **설명**: Flutter 프로젝트의 표준 버전 파일
+- **Synced file**: `pubspec.yaml`
+- **Version format**: `version: x.y.z`
+- **Notes**: the standard version file of a Flutter project
 
 ### React/Node.js (`react`, `node`)
-- **동기화 파일**: `package.json`
-- **버전 형식**: `"version": "x.y.z"`
-- **설명**: npm/yarn 패키지 버전과 동기화
+- **Synced file**: `package.json`
+- **Version format**: `"version": "x.y.z"`
+- **Notes**: kept in sync with the npm/yarn package version
 
 ### React Native (`react-native`)
-- **iOS 동기화 파일**: `ios/*/Info.plist`
-  - **버전 형식**: `<key>CFBundleShortVersionString</key><string>x.y.z</string>`
-- **Android 동기화 파일**: `android/app/build.gradle`
-  - **버전 형식**: `versionName "x.y.z"`
-- **설명**: iOS가 있으면 iOS 우선, 없으면 Android 파일 사용
+- **iOS synced file**: `ios/*/Info.plist`
+  - **Version format**: `<key>CFBundleShortVersionString</key><string>x.y.z</string>`
+- **Android synced file**: `android/app/build.gradle`
+  - **Version format**: `versionName "x.y.z"`
+- **Notes**: iOS wins when it exists; otherwise the Android file is used
 
 ### React Native Expo (`react-native-expo`)
-- **동기화 파일**: `app.json`
-- **버전 형식**: `"expo": { "version": "x.y.z" }`
-- **설명**: Expo 관리형 프로젝트의 버전 파일
+- **Synced file**: `app.json`
+- **Version format**: `"expo": { "version": "x.y.z" }`
+- **Notes**: the version file of an Expo managed project
 
 ### Python (`python`)
-- **동기화 파일**: `pyproject.toml`
-- **버전 형식**: `version = "x.y.z"`
-- **설명**: Python 프로젝트의 표준 버전 파일 (FastAPI, Django 등)
+- **Synced file**: `pyproject.toml`
+- **Version format**: `version = "x.y.z"`
+- **Notes**: the standard version file of a Python project (FastAPI, Django and so on)
 
-### Basic/기타 (`basic` 또는 기타)
-- **동기화 파일**: `version.yml`만 사용
-- **버전 형식**: `version: "x.y.z"`
-- **설명**: 특정 프로젝트 타입이 없는 경우 version.yml만 관리
+### Basic/other (`basic` or anything else)
+- **Synced file**: only `version.yml`
+- **Version format**: `version: "x.y.z"`
+- **Notes**: when there is no specific project type, only version.yml is managed
 
-## 동작 방식
+## How it works
 
-### 버전 동기화
-1. `version.yml`과 프로젝트 파일의 버전을 비교
-2. 더 높은 버전으로 자동 동기화
-3. 모든 관련 파일을 동시에 업데이트
+### Version sync
+1. Compare the version in `version.yml` with the project file
+2. Sync both to the higher version automatically
+3. Update every related file at once
 
-### 버전 증가
-`increment`는 `--bump`로 승격 폭을 받습니다. 생략하면 `patch`입니다(기존 동작).
+### Version increment
+`increment` takes the bump size with `--bump`. When omitted it is `patch` (the original behavior).
 
-- **Patch**: 세 번째 자리 증가 (x.y.Z -> x.y.Z+1) — `--bump patch` 또는 생략
-- **Minor**: 두 번째 자리 증가, patch는 0으로 (x.Y.z -> x.Y+1.0) — `--bump minor`
-- **Major**: 첫 번째 자리 증가, 나머지는 0으로 (X.y.z -> X+1.0.0) — `--bump major`
-- **version_code**: 승격 폭과 무관하게 항상 +1
+- **Patch**: bump the third number (x.y.Z -> x.y.Z+1) — `--bump patch` or omitted
+- **Minor**: bump the second number and reset patch to 0 (x.Y.z -> x.Y+1.0) — `--bump minor`
+- **Major**: bump the first number and reset the rest to 0 (X.y.z -> X+1.0.0) — `--bump major`
+- **version_code**: always +1, whatever the bump size
 
-릴리스 워크플로우는 `version.yml`의 `metadata.template.options.semver_auto`가 `true`일 때
-커밋 제목을 분류해(`changelog_manager.py classify-bump`) 이 값을 결정합니다.
-키가 없거나 `false`면 항상 `patch`입니다. 자세한 규칙은 `docs/VERSION-CONTROL.md` 참조.
+When `metadata.template.options.semver_auto` in `version.yml` is `true`, the release workflow
+classifies the commit titles (`changelog_manager.py classify-bump`) to pick this value.
+When the key is missing or `false`, it is always `patch`. See `docs/VERSION-CONTROL.md` for the full rules.
 
-## 사용 명령어
+## Commands
 
 ```bash
-# 현재 버전 확인 (동기화 포함)
+# show the current version (syncs too)
 ./version_manager.sh get
 
-# 버전 증가 (기본 patch)
+# increment the version (patch by default)
 ./version_manager.sh increment
 
-# 승격 폭 지정
+# choose the bump size
 ./version_manager.sh increment --bump minor   # 1.2.3 -> 1.3.0
 ./version_manager.sh increment --bump major   # 1.2.3 -> 2.0.0
 
-# 특정 버전으로 설정
+# set a specific version
 ./version_manager.sh set 1.2.3
 
-# 버전 동기화만 수행
+# sync only
 ./version_manager.sh sync
 
-# 버전 형식 검증
+# validate the version format
 ./version_manager.sh validate 1.2.3
 ```
 
-## GitHub Actions 워크플로우
+## GitHub Actions workflow
 
-워크플로우는 다음과 같이 동작합니다:
-1. main 브랜치에 푸시 시 자동 실행
-2. 현재 버전 확인 및 동기화
-3. Patch 버전 자동 증가
-4. 변경사항 커밋 및 태그 생성
+The workflow works like this:
+1. Runs automatically on a push to the main branch
+2. Checks and syncs the current version
+3. Increments the patch version automatically
+4. Commits the changes and creates a tag
 
-## 주의사항
+## Notes
 
-- `project_types`는 최초 설정 후 변경하지 마세요 (첫 항목이 primary)
-- 버전은 항상 `x.y.z` 형식을 유지해야 합니다
-- 프로젝트 파일과 version.yml 중 높은 버전이 우선됩니다
-- 커밋 메시지에 `[skip ci]`가 포함되면 워크플로우가 실행되지 않습니다
+- Do not change `project_types` after the first setup (the first entry is the primary type)
+- The version must always keep the `x.y.z` format
+- Between the project file and version.yml, the higher version wins
+- If the commit message contains `[skip ci]`, the workflow does not run

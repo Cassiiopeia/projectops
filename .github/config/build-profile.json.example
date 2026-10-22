@@ -1,9 +1,9 @@
 {
-  "_설명": "이 파일을 build-profile.json 으로 복사하면 빌드 프로파일이 켜집니다. 파일이 없으면 워크플로우는 아무 일도 하지 않습니다.",
-  "_키": {
-    "dev_keys": "개발 전용 런타임 키. 프로파일을 적용하기 전에 .env 에서 걷어냅니다 — Secret 에 남아 있던 값이 살아남지 못하게 합니다.",
-    "secret_keys": "값이 있기만 해도 배포 빌드를 세울 키 (QA 토큰 등).",
-    "profiles": "프로파일 이름 → 적용할 env / dart_define. 이름은 자유이며, release 라는 이름에는 '꺼져 있어야 한다'는 검증이 걸립니다."
+  "_description": "Copy this file to build-profile.json to turn build profiles on. Without the file the workflow does nothing.",
+  "_keys": {
+    "dev_keys": "Development-only runtime keys. They are stripped from .env before the profile is applied, so a value left over in a Secret cannot survive.",
+    "secret_keys": "Keys that stop a release build just by having a value (QA tokens and the like).",
+    "profiles": "Profile name → the env / dart_define to apply. Any name works; a profile named release is checked to make sure these switches are off."
   },
 
   "dev_keys": [

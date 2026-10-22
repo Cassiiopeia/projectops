@@ -19,6 +19,7 @@ const EXISTING = 'version: "1.0.0"\nversion_code: 1\nproject_types: ["node"]\nme
 const install = (dir, extra = []) =>
   run(["--force", "-t", "node", "-m", "full", "--lang", "en", ...extra], { cwd: dir, source: { type: "local", path: REPO } });
 const bug = (dir) => readFileSync(join(dir, ".github/ISSUE_TEMPLATE/bug_report.md"), "utf8");
+const discussion = (dir) => readFileSync(join(dir, ".github/DISCUSSION_TEMPLATE/documents.yaml"), "utf8");
 
 test("parseTemplateOptions: language 를 읽고, 없으면 null", () => {
   assert.equal(parseTemplateOptions("metadata:\n  template:\n    options:\n      language: ko\n").language, "ko");
@@ -35,6 +36,8 @@ test("신규 설치는 language: en, 템플릿은 영문", async () => {
   assert.equal(await install(dir), 0);
   assert.match(readFileSync(join(dir, "version.yml"), "utf8"), /language: en/);
   assert.match(bug(dir), /\[Bug\]/);
+  assert.match(discussion(dir), /^labels:\n  - "documentation"$/m);
+  assert.ok(!/[가-힣]/.test(discussion(dir)), "Discussion 템플릿도 영문 (#988)");
   assert.ok(!existsSync(join(dir, ".github/i18n")), "오버레이 폴더는 사용자 레포로 복사되지 않는다");
 });
 
@@ -44,6 +47,8 @@ test("키 없는 기존 설치는 ko 를 유지하고 라벨은 label_style 이 
   assert.match(readFileSync(join(dir, "version.yml"), "utf8"), /language: ko/);
   assert.match(bug(dir), /\[버그\]/);
   assert.match(bug(dir), /^labels: \[작업전\]$/m, "오버레이 뒤에 label_style ko 가 적용돼야 한다");
+  assert.match(discussion(dir), /문제 상황/, "Discussion 템플릿도 한국어 오버레이가 덮는다 (#988)");
+  assert.match(discussion(dir), /^labels:\n  - "문서"$/m);
 });
 
 test("기존 ko 레포를 --language en 으로 전환", async () => {
@@ -66,6 +71,7 @@ test("대화형 issues 모드: 키 없는 기존 한국어 레포는 한국어 �
   assert.equal(code, 0);
   assert.match(bug(dir), /\[버그\]/);
   assert.match(bug(dir), /^labels: \[작업전\]$/m);
+  assert.match(discussion(dir), /^labels:\n  - "문서"$/m, "issues 모드도 Discussion 을 오버레이·라벨 변환 전에 복사 (#988)");
 });
 
 test("대화형 issues 모드: 신규 레포는 영문 템플릿", async () => {

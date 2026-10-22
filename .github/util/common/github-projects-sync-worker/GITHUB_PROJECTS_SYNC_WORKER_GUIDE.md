@@ -1,225 +1,232 @@
-# GitHub Projects Sync Worker 가이드
+# GitHub Projects Sync Worker Guide
 
-GitHub Projects의 Status 변경을 감지하여 Issue Label을 자동으로 동기화하는 Cloudflare Worker입니다.
+A Cloudflare Worker that detects Status changes on GitHub Projects and keeps the issue labels in sync automatically.
 
 ---
 
-## 📌 개요
+## 📌 Overview
 
 ```
-Projects Board에서 카드 이동 (Status 변경)
+Move a card on the Projects board (Status change)
           │
           ▼
 GitHub Webhook (projects_v2_item)
           │
           ▼
-Cloudflare Worker (이 모듈)
+Cloudflare Worker (this module)
           │
           ▼
-Issue Label 자동 업데이트
+Issue label updated automatically
 ```
 
-**기능**: Projects Status가 변경되면 Issue의 Label도 자동으로 동기화
+**What it does**: when the Projects Status changes, the issue's label follows it.
 
 ---
 
-## 🚀 빠른 시작
+## 🚀 Quick start
 
-### 사전 요구사항
+### Prerequisites
 
-- Node.js (v18 이상 권장)
-- Cloudflare 계정 (무료)
-- GitHub Personal Access Token (repo, project 권한)
+- Node.js (v18 or later recommended)
+- A Cloudflare account (free)
+- A GitHub Personal Access Token (repo and project scopes)
 
-### 1단계: 의존성 설치
+### Step 1: Install dependencies
 
 ```bash
 cd .github/util/common/github-projects-sync-worker
 npm install
 ```
 
-> **SSL 에러 발생 시**:
+> **If you get an SSL error**:
 > ```bash
 > npm config set strict-ssl false
 > npm install
-> npm config set strict-ssl true  # 설치 후 다시 활성화
+> npm config set strict-ssl true  # turn it back on after installing
 > ```
 
-### 2단계: Cloudflare 로그인
+### Step 2: Log in to Cloudflare
 
 ```bash
-export NODE_TLS_REJECT_UNAUTHORIZED=0  # SSL 에러 방지
+export NODE_TLS_REJECT_UNAUTHORIZED=0  # avoids SSL errors
 npx wrangler login
 ```
 
-브라우저가 열리면 Cloudflare 계정으로 로그인하여 권한을 부여하세요.
+When the browser opens, log in with your Cloudflare account and grant access.
 
-### 3단계: Secret 설정
+### Step 3: Set the secrets
 
 ```bash
-# GitHub Personal Access Token 설정
+# GitHub Personal Access Token
 npx wrangler secret put GITHUB_TOKEN
-# 프롬프트에 토큰 입력
+# enter the token at the prompt
 
-# Webhook Secret 설정
+# Webhook secret
 npx wrangler secret put WEBHOOK_SECRET
-# 프롬프트에 비밀키 입력 (GitHub Webhook에 설정할 값과 동일하게)
+# enter the secret at the prompt (the same value you will set on the GitHub webhook)
 ```
 
-### 4단계: 배포
+### Step 4: Deploy
 
 ```bash
 npx wrangler deploy
 ```
 
-배포 완료 시 Worker URL이 표시됩니다:
+When the deploy finishes, the Worker URL is shown:
 ```
 https://github-projects-sync-worker.<your-subdomain>.workers.dev
 ```
 
-### 5단계: GitHub Webhook 설정
+### Step 5: Set up the GitHub webhook
 
-1. GitHub Organization Settings → Webhooks 접속
-2. **Add webhook** 클릭
-3. 설정:
-   - **Payload URL**: Worker URL 입력
+1. Open GitHub Organization Settings → Webhooks
+2. Click **Add webhook**
+3. Settings:
+   - **Payload URL**: the Worker URL
    - **Content type**: `application/json`
-   - **Secret**: Step 3에서 입력한 WEBHOOK_SECRET과 동일한 값
-   - **Events**: "Let me select individual events" → `Project v2 items` 체크
-4. **Add webhook** 클릭
+   - **Secret**: the same value as the WEBHOOK_SECRET from Step 3
+   - **Events**: "Let me select individual events" → check `Project v2 items`
+4. Click **Add webhook**
 
 ---
 
-## ⚙️ 설정 커스터마이징
+## ⚙️ Customizing the settings
 
-### wrangler.toml 설정
+### wrangler.toml
 
 ```toml
 [vars]
-# Projects 번호 (URL에서 확인: /orgs/ORG_NAME/projects/NUMBER)
+# Projects number (from the URL: /orgs/ORG_NAME/projects/NUMBER)
 PROJECT_NUMBER = "6"
 
-# Projects의 Status 필드명
+# Name of the Status field in Projects
 STATUS_FIELD = "Status"
 
-# 동기화할 Label 목록 (JSON 배열)
+# Labels to sync (JSON array)
 STATUS_LABELS = '["작업전","작업중","담당자확인","피드백","작업완료","보류","취소"]'
 
-# Organization 이름
+# Organization name
 ORG_NAME = "your-org"
 ```
 
-### 다른 프로젝트에 적용하기
+> `STATUS_LABELS` is data: it must match the label names and the Status column names exactly.
+> The default is the legacy Korean label set (todo, in progress, needs review, feedback, done,
+> on hold, cancelled). A repo that uses the English standard labels puts those names here instead
+> (`"status: todo"`, `"status: in progress"`, and so on).
 
-1. `wrangler.toml`의 `[vars]` 섹션 수정
-2. `name` 필드 변경 (다른 Worker 이름 사용 시)
-3. 재배포: `npx wrangler deploy`
+### Using it for another project
+
+1. Edit the `[vars]` section of `wrangler.toml`
+2. Change the `name` field (if you want a different Worker name)
+3. Redeploy: `npx wrangler deploy`
 
 ---
 
-## 🔧 주요 명령어
+## 🔧 Main commands
 
-| 명령어 | 설명 |
+| Command | Description |
 |--------|------|
-| `npm install` | 의존성 설치 |
-| `npx wrangler login` | Cloudflare 로그인 |
-| `npx wrangler deploy` | Worker 배포 |
-| `npx wrangler tail` | 실시간 로그 확인 |
-| `npx wrangler secret put <NAME>` | Secret 설정 |
-| `npx wrangler secret list` | Secret 목록 확인 |
-| `npx wrangler dev` | 로컬 개발 서버 실행 |
+| `npm install` | Install dependencies |
+| `npx wrangler login` | Log in to Cloudflare |
+| `npx wrangler deploy` | Deploy the Worker |
+| `npx wrangler tail` | Stream live logs |
+| `npx wrangler secret put <NAME>` | Set a secret |
+| `npx wrangler secret list` | List secrets |
+| `npx wrangler dev` | Run the local dev server |
 
 ---
 
-## 📁 파일 구조
+## 📁 File layout
 
 ```
 github-projects-sync-worker/
-├── .gitignore              # Git 제외 파일 목록
-├── package.json            # 의존성 정의
-├── package-lock.json       # 의존성 잠금
-├── tsconfig.json           # TypeScript 설정
-├── wrangler.toml           # Cloudflare Worker 설정
-├── GITHUB_PROJECTS_SYNC_WORKER_GUIDE.md  # 이 가이드
+├── .gitignore              # files Git ignores
+├── package.json            # dependencies
+├── package-lock.json       # dependency lock
+├── tsconfig.json           # TypeScript settings
+├── wrangler.toml           # Cloudflare Worker settings
+├── GITHUB_PROJECTS_SYNC_WORKER_GUIDE.md  # this guide
 └── src/
-    └── index.ts            # Worker 메인 코드
+    └── index.ts            # Worker main code
 ```
 
 ---
 
-## 🔐 필요한 권한
+## 🔐 Required permissions
 
 ### GitHub Personal Access Token
 
-다음 권한이 필요합니다:
-- `repo` - 리포지토리 접근
-- `project` - Projects 접근 (읽기/쓰기)
+These scopes are needed:
+- `repo` - repository access
+- `project` - Projects access (read/write)
 
-토큰 생성: https://github.com/settings/tokens
+Create a token: https://github.com/settings/tokens
 
 ### Cloudflare
 
-무료 계정으로 충분합니다. 이메일 인증이 필요합니다.
+A free account is enough. Email verification is required.
 
 ---
 
-## ⚠️ 트러블슈팅
+## ⚠️ Troubleshooting
 
-### SSL 인증서 오류
+### SSL certificate error
 
-**에러**: `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`
+**Error**: `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`
 
-**해결**:
+**Fix**:
 ```bash
-# npm 설치 시
+# when installing with npm
 npm config set strict-ssl false
 npm install
 npm config set strict-ssl true
 
-# wrangler 명령어 실행 시
+# when running wrangler commands
 export NODE_TLS_REJECT_UNAUTHORIZED=0
 npx wrangler <command>
 ```
 
-### Cloudflare 이메일 인증 필요
+### Cloudflare email verification required
 
-**에러**: `You need to verify your email address to use Workers. [code: 10034]`
+**Error**: `You need to verify your email address to use Workers. [code: 10034]`
 
-**해결**: https://dash.cloudflare.com 접속 → 이메일 인증 완료
+**Fix**: open https://dash.cloudflare.com → finish email verification
 
-### Webhook 401 에러
+### Webhook 401 error
 
-**원인**: WEBHOOK_SECRET이 일치하지 않음
+**Cause**: WEBHOOK_SECRET does not match
 
-**해결**:
-1. GitHub Webhook의 Secret 값 확인
-2. Worker의 WEBHOOK_SECRET과 동일한지 확인
-3. 다르면 재설정: `npx wrangler secret put WEBHOOK_SECRET`
+**Fix**:
+1. Check the Secret value on the GitHub webhook
+2. Check that it matches the Worker's WEBHOOK_SECRET
+3. If they differ, set it again: `npx wrangler secret put WEBHOOK_SECRET`
 
-### Worker가 동작하지 않음
+### The Worker does nothing
 
-1. **로그 확인**: `npx wrangler tail`
-2. **Webhook 배달 확인**: GitHub Webhook → Recent Deliveries
-3. **Content type 확인**: `application/json` 인지 확인
-4. **Event 확인**: `Project v2 items`가 체크되어 있는지 확인
+1. **Check the logs**: `npx wrangler tail`
+2. **Check webhook delivery**: GitHub Webhook → Recent Deliveries
+3. **Check the content type**: it must be `application/json`
+4. **Check the event**: `Project v2 items` must be checked
 
 ---
 
-## 🧪 테스트 방법
+## 🧪 How to test
 
-### 1. Webhook 연결 테스트
+### 1. Webhook connection test
 
-GitHub Webhook 생성 시 자동으로 `ping` 이벤트가 전송됩니다.
-Recent Deliveries에서 `200 OK` 응답 확인.
+When you create the GitHub webhook, a `ping` event is sent automatically.
+Check for a `200 OK` response under Recent Deliveries.
 
-### 2. 실제 동작 테스트
+### 2. Real behavior test
 
-1. `npx wrangler tail`로 로그 모니터링 시작
-2. Projects Board에서 Issue 카드를 다른 Status 컬럼으로 이동
-3. 로그에서 처리 과정 확인
-4. Issue 페이지에서 Label 변경 확인
+1. Start watching the logs with `npx wrangler tail`
+2. Move an issue card to another Status column on the Projects board
+3. Follow the processing in the logs
+4. Check the label change on the issue page
 
-### 예상 로그
+### Expected log
+
+The two label lines come from the Worker as they are: `제거됨` means "removed" and `추가됨` means "added".
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -242,36 +249,36 @@ Recent Deliveries에서 `200 OK` 응답 확인.
 
 ---
 
-## 📊 비용
+## 📊 Cost
 
-| 항목 | Cloudflare Free Tier |
+| Item | Cloudflare Free Tier |
 |------|---------------------|
-| 일일 요청 수 | 100,000건 |
-| 요청당 CPU 시간 | 10ms |
-| **월간 비용** | **무료** |
+| Requests per day | 100,000 |
+| CPU time per request | 10ms |
+| **Monthly cost** | **Free** |
 
-일반적인 사용량(하루 수십~수백 건)에서는 완전 무료입니다.
+At typical usage (tens to hundreds of requests a day) it is completely free.
 
 ---
 
-## 🔄 유지보수
+## 🔄 Maintenance
 
-### GitHub Token 갱신
+### Renewing the GitHub token
 
-토큰 만료 시:
+When the token expires:
 ```bash
 npx wrangler secret put GITHUB_TOKEN
-# 새 토큰 입력
+# enter the new token
 ```
 
-### Status Label 변경
+### Changing the status labels
 
-`wrangler.toml`의 `STATUS_LABELS` 수정 후:
+After editing `STATUS_LABELS` in `wrangler.toml`:
 ```bash
 npx wrangler deploy
 ```
 
-### 코드 수정 후 배포
+### Deploying after a code change
 
 ```bash
 npx wrangler deploy
@@ -279,36 +286,36 @@ npx wrangler deploy
 
 ---
 
-## 📚 관련 문서
+## 📚 Related docs
 
-- [Cloudflare Workers 문서](https://developers.cloudflare.com/workers/)
-- [Wrangler CLI 문서](https://developers.cloudflare.com/workers/wrangler/)
-- [GitHub Webhooks 문서](https://docs.github.com/en/webhooks)
+- [Cloudflare Workers docs](https://developers.cloudflare.com/workers/)
+- [Wrangler CLI docs](https://developers.cloudflare.com/workers/wrangler/)
+- [GitHub Webhooks docs](https://docs.github.com/en/webhooks)
 - [GitHub Projects API](https://docs.github.com/en/graphql/reference/objects#projectv2item)
 
 ---
 
-## 🏗️ 아키텍처
+## 🏗️ Architecture
 
-### 동작 원리
+### How it works
 
-1. **Webhook 수신**: GitHub에서 `projects_v2_item` 이벤트 발생 시 Worker로 POST 요청
-2. **보안 검증**: `X-Hub-Signature-256` 헤더로 HMAC-SHA256 서명 검증
-3. **이벤트 필터링**: `edited` 액션만 처리 (Status 변경)
-4. **GraphQL 조회**: Projects Item의 현재 Status와 Issue 정보 조회
-5. **Label 동기화**: 기존 Status Label 제거 → 새 Status Label 추가
-6. **무한 루프 방지**: 이미 동일한 Label이 있으면 스킵
+1. **Receive the webhook**: on a `projects_v2_item` event, GitHub sends a POST request to the Worker
+2. **Verify**: check the HMAC-SHA256 signature in the `X-Hub-Signature-256` header
+3. **Filter events**: handle only the `edited` action (Status change)
+4. **GraphQL lookup**: fetch the item's current Status and the issue details
+5. **Sync labels**: remove the old status label → add the new status label
+6. **Loop guard**: skip when the same label is already there
 
-### 보안
+### Security
 
-- **HMAC-SHA256**: Webhook 요청 진위 검증
-- **Timing-safe comparison**: 타이밍 공격 방지
-- **Secret 암호화**: Cloudflare에서 안전하게 저장
+- **HMAC-SHA256**: verifies that the webhook request is genuine
+- **Timing-safe comparison**: prevents timing attacks
+- **Encrypted secrets**: stored safely by Cloudflare
 
 ---
 
-## 📝 변경 이력
+## 📝 Change history
 
-| 날짜 | 버전 | 변경 내용 |
+| Date | Version | Change |
 |------|------|----------|
-| 2026-01-20 | 1.0.0 | 초기 버전 |
+| 2026-01-20 | 1.0.0 | Initial version |

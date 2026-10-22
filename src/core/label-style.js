@@ -69,6 +69,21 @@ export function applyLabelStyle(targetRoot, style) {
     }
   }
 
+  // Discussion 템플릿 기본 라벨 (#988): 맨 위 labels: 목록의 "- 이름" 줄만 대상
+  const discussionDir = join(gh, "DISCUSSION_TEMPLATE");
+  if (existsSync(discussionDir)) {
+    for (const name of readdirSync(discussionDir).filter((f) => /\.ya?ml$/.test(f))) {
+      const f = join(discussionDir, name);
+      if (rewrite(f, (txt) => txt.replace(/^labels:\s*\n((?:[ \t]+-[^\n]*\n)+)/m, (m, list) => {
+        let out = list;
+        for (const [en, ko] of LABEL_PAIRS) {
+          out = out.replace(new RegExp(`^([ \\t]+-[ \\t]*)["']?${quoted(en)}["']?[ \\t]*$`, "gm"), `$1"${ko}"`);
+        }
+        return `labels:\n${out}`;
+      }))) changed.push(`.github/DISCUSSION_TEMPLATE/${name}`);
+    }
+  }
+
   // QA 이슈 생성 봇이 붙이는 기본 라벨
   const bot = join(gh, "workflows", "PROJECT-COMMON-QA-ISSUE-CREATION-BOT.yaml");
   if (rewrite(bot, (txt) => txt.replace(/labels:\s*\['status: todo'\]/g, `labels: ['${EN_TO_KO.get("status: todo")}']`))) {
