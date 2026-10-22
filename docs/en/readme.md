@@ -44,6 +44,7 @@ For an overview of the whole project, read the [root README](../../README.md) fi
 | [TestFlight wizard](./flutter-testflight-wizard.md) | Generates iOS deployment settings |
 | [Play Store wizard](./flutter-playstore-wizard.md) | Generates Android Play Store deployment settings |
 | [Firebase App Distribution wizard](./flutter-firebase-wizard.md) | Generates Firebase tester distribution settings |
+| [OAuth login wizard](./flutter-oauth-wizard.md) | Kakao and Google login setup — console registration, native config, Secrets, CI/CD, .gitignore |
 | [Test build trigger](./flutter-test-build-trigger.md) | APK and TestFlight test builds from PR or issue comments |
 
 ---

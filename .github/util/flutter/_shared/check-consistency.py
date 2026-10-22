@@ -83,7 +83,8 @@ REQUIRED_MARKERS = (
     ("changelogModal", 'id="changelogModal"'),
     ("소요시간·준비물 배너", 'class="wizard-meta"'),
     ("재개 안내", 'class="resume-hint"'),
-    ("문서 링크", "docs/FLUTTER-"),
+    # 문서 링크: 한국어 docs/FLUTTER-*.md 또는 영어 docs/en/flutter-*.md (#976 사이트 규칙)
+    ("문서 링크", ("docs/FLUTTER-", "docs/en/flutter-")),
     ("언어 전환 버튼", "data-lang-toggle"),
 )
 
@@ -210,7 +211,9 @@ def check() -> list[str]:
 
         # 7. 첫 사용자 안내
         for label, marker in REQUIRED_MARKERS:
-            if marker not in html:
+            # 표식 후보 여러 개면 하나만 있어도 통과
+            marker_candidates = marker if isinstance(marker, tuple) else (marker,)
+            if not any(candidate in html for candidate in marker_candidates):
                 problems.append(f"{tag} 첫 사용자 안내 누락: {label}")
 
     # version-sync.sh 가 마법사마다 파일명만 빼고 동일한지

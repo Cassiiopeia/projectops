@@ -110,6 +110,7 @@ The projectops Flutter CI/CD system combines **wizard tools** with **GitHub Acti
 | **TestFlight wizard** | Generates iOS deployment settings | [flutter-testflight-wizard.md](./flutter-testflight-wizard.md) |
 | **Play Store wizard** | Generates Android Play Store deployment settings | [flutter-playstore-wizard.md](./flutter-playstore-wizard.md) |
 | **Firebase wizard** | Generates Firebase App Distribution deployment settings | [flutter-firebase-wizard.md](./flutter-firebase-wizard.md) |
+| **OAuth wizard** | Kakao and Google login setup (applies native config, guides Secrets and CI/CD) | [flutter-oauth-wizard.md](./flutter-oauth-wizard.md) |
 
 ---
 
@@ -351,10 +352,15 @@ It uses the same `RELEASE_*` signing Secrets as Play Store; only the upload cred
 │   │       ├── Fastfile.playstore.template
 │   │       └── build.gradle.kts.signing.template
 │   │
-│   └── firebase-wizard/             # Firebase App Distribution wizard
-│       ├── firebase-wizard.html
-│       ├── firebase-wizard.js
-│       └── firebase-wizard.py
+│   ├── firebase-wizard/             # Firebase App Distribution wizard
+│   │   ├── firebase-wizard.html
+│   │   ├── firebase-wizard.js
+│   │   └── firebase-wizard.py
+│   │
+│   └── oauth-wizard/                # Kakao and Google login wizard
+│       ├── oauth-wizard.html
+│       ├── oauth-wizard.js
+│       └── oauth-wizard.py
 │
 └── workflows/project-types/flutter/
     ├── PROJECT-FLUTTER-CI.yaml
@@ -374,4 +380,5 @@ It uses the same `RELEASE_*` signing Secrets as Play Store; only the upload cred
 - [iOS TestFlight wizard details](./flutter-testflight-wizard.md)
 - [Android Play Store wizard details](./flutter-playstore-wizard.md)
 - [Firebase App Distribution wizard details](./flutter-firebase-wizard.md)
+- [OAuth login wizard details](./flutter-oauth-wizard.md)
 - [Test build trigger details](./flutter-test-build-trigger.md)

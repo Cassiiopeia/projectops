@@ -95,7 +95,7 @@ registerWizardMessages(
     "meta.stepCount": "📑 <strong>7–10단계</strong> (선택에 따라 다름)",
     "meta.requirements": "🎒 준비물 <strong>Flutter 프로젝트 · Kakao Developers 및/또는 Google(Firebase) 계정 · Python 3</strong>",
     "meta.outputs": "🎁 끝나면 <strong>명령 하나로 적용되는 네이티브 설정, Dart 로그인 코드, 등록할 GitHub Secret, 정확한 CI/CD 스텝</strong>을 얻습니다",
-    "meta.docsLink": "📖 전체 가이드 보기 →",
+    "meta.docsLink": "<a href=\"../../../../docs/FLUTTER-OAUTH-WIZARD.md\" target=\"_blank\" rel=\"noopener\" class=\"text-oauth-accent hover:underline\">📖 전체 가이드 보기 →</a>",
     "meta.resumeHint": "진행 상황은 이 브라우저에 자동 저장됩니다. 창을 닫았다가 다시 열면 이어서 할 수 있습니다.",
     "providers.title": "어떤 로그인을 붙이나요?",
     "providers.goal": "🎯 <strong>이 단계의 목표:</strong> 제공자를 고릅니다. 마법사는 필요한 단계만 보여 줍니다. 나중에 돌아와 바꿀 수 있습니다.",
