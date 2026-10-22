@@ -38,7 +38,7 @@ In the interactive menu, choose `Agent Skill 설치` (install Agent Skill), then
 ### GitHub Copilot
 
 GitHub Copilot (VS Code chat, JetBrains IDEs and the Copilot CLI) reads personal agent skills from `~/.copilot/skills/<name>/SKILL.md`.
-Pick `GitHub Copilot` in `npx projectops --mode skills`: `skills/` is copied to `~/.copilot/skills/`, the shared Python the skill CLIs use (`scripts/`)
+Pick `GitHub Copilot` in `npx projectops --mode skills`: `skills/` is copied to `~/.copilot/skills/`, the shared Python the skill CLIs use (the runtime files of `scripts/`)
 to `~/.copilot/scripts/`, and the stable entry point `~/.projectops/bin/projectops_cli.py` is installed too.
 It shows up as an install target when the copilot CLI, a `~/.copilot` folder, the VS Code Copilot extension or the JetBrains Copilot plugin is present.
 In JetBrains IDEs, turn Skills on under `Settings > GitHub Copilot > Chat > Agent`. `~/.copilot/intellij-skills/` is managed by the plugin and is left alone.

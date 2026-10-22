@@ -216,6 +216,8 @@ def test_web_walks_real_browser():
 스킬 CLI 가 import 하는 `scripts/`(common 등)도 옆 `~/.cursor/scripts/`·`~/.copilot/scripts/` 로 함께 복사된다 — 빠지면 CLI 가 import 에서 죽는다.
 그래서 `skills/*/tests/`·`scripts/tests/`·`conftest.py`를 거르지 않으면 우리 테스트 900여 줄이 남의 컴퓨터에 쌓인다.
 두 어댑터가 함께 쓰는 `src/core/ide/skills-copy.js`의 `SKIP_IN_COPY`·`TEST_PATH`가 막는다.
+`scripts/` 의 관리자 전용 파일(`README.md`·`build_troubleshooting.py`·`sync_extras.py`)은 `SHARED_SCRIPTS_DEV_ONLY` 가 뺀다 (#988).
+**`scripts/` 최상위에 관리자 전용 파일을 새로 두면 이 목록에 넣는다.** 런타임이 쓰는 항목을 넣으면 `test/ide.test.js`·`test/ide-home-install-e2e.test.js` 가 잡는다.
 회귀 방지(설치본 CLI 실제 실행): `test/ide-home-install-e2e.test.js`.
 **스킬에 새 보조 파일을 추가할 때 "이게 스킬을 쓰는 사람에게 필요한가"를 자문한다.**
 회귀 방지: `test/ide.test.js`의 "테스트 코드는 복사하지 않는다".

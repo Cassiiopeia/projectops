@@ -8,11 +8,14 @@ import { mkdtempSync, rmSync, mkdirSync, existsSync, readFileSync } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { adapterById } from "../src/core/ide/registry.js";
+import { SHARED_SCRIPTS_DEV_ONLY } from "../src/core/ide/skills-copy.js";
 
 const REPO_ROOT = process.cwd();
 const ISSUE_TITLE = "⚙️[Feature][Copilot] Support GitHub Copilot";
 // 정규화 결과에 반드시 남는 본문 (태그 처리 규칙은 common/title.py 가 정한다)
 const TITLE_BODY = "Support_GitHub_Copilot";
+// 스킬이 런타임에 부르는 공용 파이썬 최상위 항목 (bootstrap import · 고정 진입점 · 개인 설정 · worktree 생성)
+const SHARED_SCRIPTS_RUNTIME_FILES = ["common/__init__.py", "git_worktree/__init__.py", "projectops_cli.py", "prefs_cli.py", "worktree_manager.py"];
 
 // 파이썬 실행 파일 (python3 > python). 없으면 null
 function findPython() {
@@ -82,6 +85,9 @@ for (const { adapterId, installRoot, prepareHome } of SCENARIOS) {
       assert.equal(existsSync(join(root, "scripts/tests")), false);
       assert.equal(existsSync(join(root, "skills/pro-commit/tests")), false);
       assert.equal(existsSync(join(root, "skills/conftest.py")), false);
+      // 공용 파이썬은 런타임 항목만 (#988) — 관리자용 생성기·문서는 빠진다
+      for (const name of SHARED_SCRIPTS_DEV_ONLY) assert.equal(existsSync(join(root, "scripts", name)), false, `${name} was installed`);
+      for (const name of SHARED_SCRIPTS_RUNTIME_FILES) assert.ok(existsSync(join(root, "scripts", name)), `${name} is missing`);
 
       // 설치본 CLI 직접 실행
       const direct = runPythonInHome(home, [join(root, "skills/pro-commit/scripts/commit_cli.py"), "normalize-title", ISSUE_TITLE]);
@@ -94,6 +100,13 @@ for (const { adapterId, installRoot, prepareHome } of SCENARIOS) {
       const viaEntrypoint = runPythonInHome(home, [entrypoint, "commit", "normalize-title", ISSUE_TITLE]);
       assert.equal(viaEntrypoint.ok, true);
       assert.equal(viaEntrypoint.normalized, direct.normalized);
+
+      // 개발 전용 항목을 뺀 설치본으로도 나머지 런타임 CLI 가 돈다 (launch doctor · 개인 설정 · worktree)
+      assert.equal(runPythonInHome(home, [join(root, "skills/pro-launch/scripts/launch_cli.py"), "doctor"]).ok, true);
+      assert.equal(runPythonInHome(home, [join(home, ".projectops/bin/launch_cli.py"), "doctor"]).ok, true);
+      assert.equal(runPythonInHome(home, [join(root, "scripts/prefs_cli.py"), "resolve", "--skill", "pro-report"]).ok, true);
+      const worktreeImport = "import json, sys; sys.path.insert(0, sys.argv[1]); import worktree_manager; print(json.dumps({'ok': True}))";
+      assert.equal(runPythonInHome(home, ["-c", worktreeImport, join(root, "scripts")]).ok, true);
 
       // 고정 진입점이 아직 없는 상황에서도 SKILL.md 찾기 블록이 홈 설치본을 고른다 (bash 있는 OS 만)
       if (existsSync(POSIX_BASH)) {

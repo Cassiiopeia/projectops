@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ADAPTERS, adapterById } from "../src/core/ide/registry.js";
 import { assertAdapter } from "../src/core/ide/adapter.js";
+import { SHARED_SCRIPTS_DEV_ONLY } from "../src/core/ide/skills-copy.js";
 import { collectStatuses, formatStatuses, runSkills } from "../src/commands/skills.js";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -143,6 +144,67 @@ test("cursor: 테스트 코드는 복사하지 않는다", () => {
     assert.equal(existsSync(at("pro-thing/tests/test_thing.py")), false);
     assert.equal(existsSync(at("conftest.py")), false);
   } finally { rmSync(home, { recursive: true, force: true }); rmSync(src, { recursive: true, force: true }); }
+});
+
+// 공용 파이썬은 런타임 항목만 (#988) — 관리자용 생성기·문서는 남의 홈에 갈 이유가 없다
+test("cursor: 공용 파이썬의 개발 전용 항목은 복사하지 않고, 예전 설치본에 있던 것도 지운다", () => {
+  const home = mkdtempSync(join(tmpdir(), "cuh-"));
+  const src = mkdtempSync(join(tmpdir(), "cus-"));
+  try {
+    const skillsSrc = join(src, "skills");
+    const scriptsSrc = join(src, "scripts");
+    mkdirSync(join(skillsSrc, "pro-thing"), { recursive: true });
+    writeFileSync(join(skillsSrc, "pro-thing/SKILL.md"), "x");
+    mkdirSync(join(scriptsSrc, "common"), { recursive: true });
+    mkdirSync(join(scriptsSrc, "tests"), { recursive: true });
+    writeFileSync(join(scriptsSrc, "common/__init__.py"), "");
+    writeFileSync(join(scriptsSrc, "prefs_cli.py"), "x");
+    writeFileSync(join(scriptsSrc, "tests/test_x.py"), "x");
+    for (const name of SHARED_SCRIPTS_DEV_ONLY) writeFileSync(join(scriptsSrc, name), "x");
+
+    // 예전 버전이 개발 전용 파일까지 깔아 둔 홈
+    const scriptsDest = join(home, ".cursor/scripts");
+    mkdirSync(join(home, ".cursor/skills"), { recursive: true });
+    mkdirSync(scriptsDest, { recursive: true });
+    writeFileSync(join(scriptsDest, "README.md"), "old");
+    writeFileSync(join(scriptsDest, "sync_extras.py"), "old");
+    writeFileSync(join(home, ".cursor/skills/cursor-skills-meta.json"), JSON.stringify({ version: "4.72.0", sharedScripts: ["README.md", "sync_extras.py"] }));
+
+    const io = stubIo({ home });
+    assert.equal(adapterById("cursor").apply(io, { sourceSkillsDir: skillsSrc, sourceScriptsDir: scriptsSrc, templateVersion: "9.9.9" }), true);
+
+    assert.ok(existsSync(join(scriptsDest, "common/__init__.py")));
+    assert.ok(existsSync(join(scriptsDest, "prefs_cli.py")));
+    assert.equal(existsSync(join(scriptsDest, "tests")), false);
+    for (const name of SHARED_SCRIPTS_DEV_ONLY) assert.equal(existsSync(join(scriptsDest, name)), false, name);
+    const meta = JSON.parse(readFileSync(join(home, ".cursor/skills/cursor-skills-meta.json"), "utf8"));
+    assert.deepEqual([...meta.sharedScripts].sort(), ["common", "prefs_cli.py"]);
+  } finally { rmSync(home, { recursive: true, force: true }); rmSync(src, { recursive: true, force: true }); }
+});
+
+// 제외 목록 정합성: 설치된 스킬 CLI 가 개발 전용 항목을 import·실행하면 홈 설치에서 죽는다
+test("개발 전용 공용 파이썬은 스킬 런타임 코드가 import·실행하지 않는다", () => {
+  const isTestPath = (path) => /(^|\/)(tests?|__pycache__)(\/|$)/.test(path) || path.endsWith("conftest.py");
+  const pythonFiles = (dir) => readdirSync(dir, { recursive: true })
+    .map((rel) => String(rel).split("\\").join("/"))
+    .filter((rel) => rel.endsWith(".py") && !isTestPath(rel))
+    .map((rel) => join(dir, rel));
+  const devOnlyPythonFiles = new Set([...SHARED_SCRIPTS_DEV_ONLY].map((name) => join(process.cwd(), "scripts", name)));
+  const runtimeFiles = ["skills", "plugins", "hooks", "scripts"]
+    .map((dir) => join(process.cwd(), dir))
+    .filter((dir) => existsSync(dir))
+    .flatMap(pythonFiles)
+    .filter((file) => !devOnlyPythonFiles.has(file));
+  assert.ok(runtimeFiles.length > 50, `runtime python files: ${runtimeFiles.length}`);
+  const offenders = [];
+  for (const name of SHARED_SCRIPTS_DEV_ONLY) {
+    if (!name.endsWith(".py")) continue;
+    const stem = name.slice(0, -3);
+    // import 문, 또는 경로 조립용 따옴표 리터럴 ("build_troubleshooting.py")
+    const usage = new RegExp(`^\\s*(from|import)\\s+${stem}\\b|["']${name.replace(".", "\\.")}["']`, "m");
+    for (const file of runtimeFiles) if (usage.test(readFileSync(file, "utf8"))) offenders.push(`${file} -> ${name}`);
+  }
+  assert.deepEqual(offenders, []);
 });
 
 // ── copilot 어댑터 (실제 복사, ~/.copilot/skills/<이름>/SKILL.md — #200) ──

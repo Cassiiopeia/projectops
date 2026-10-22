@@ -16,6 +16,10 @@ const OWNED_SKILL_NAME = /^(pro|suh)-/;
 const SHARED_SCRIPTS_MARKER = join("common", "__init__.py");
 const SHARED_SCRIPTS_DIR_NAME = "scripts";
 const PYTHON_CACHE_DIR_NAME = "__pycache__";
+// 공용 파이썬 중 저장소 관리자만 쓰는 최상위 항목 3개: 안내 문서, 트러블슈팅 색인 생성기, extras 사본 동기화 (#988)
+// 허용 목록이 아니라 제외 목록인 이유: 새 런타임 모듈을 빠뜨리면 스킬이 import 에서 죽지만,
+// 새 개발 파일을 빠뜨리면 파일 하나가 더 갈 뿐이다. 런타임이 쓰는 항목이 여기 들어오면 test/ide-home-install-e2e.test.js 가 잡는다
+export const SHARED_SCRIPTS_DEV_ONLY = new Set(["README.md", "build_troubleshooting.py", "sync_extras.py"]);
 
 // 스킬 소스: 다운로드된 템플릿(TEMP)/skills 우선, 없으면 로컬 skills/
 export function resolveSkillsSrc(ctx = {}) {
@@ -43,11 +47,12 @@ export function readSkillsMeta(metaFile) {
 
 // 소스 최상위 항목 복사 (테스트·conftest 제외). 필터는 소스 기준 상대경로로 본다 —
 // 절대경로로 보면 소스가 ~/test/... 아래에 있을 때 전부 걸러진다.
-function copyEntriesWithoutTests(src, dest) {
+// skipNames: 추가로 빼는 최상위 이름 (공용 파이썬의 개발 전용 항목)
+function copyEntriesWithoutTests(src, dest, skipNames = new Set()) {
   mkdirSync(dest, { recursive: true });
   const copiedNames = [];
   for (const e of readdirSync(src, { withFileTypes: true })) {
-    if (SKIP_IN_COPY.has(e.name) || TEST_PATH.test(e.name)) continue;
+    if (SKIP_IN_COPY.has(e.name) || TEST_PATH.test(e.name) || skipNames.has(e.name)) continue;
     cpSync(join(src, e.name), join(dest, e.name), {
       recursive: true,
       // 이 저장소 자기 코드를 검사하는 테스트는 남의 컴퓨터로 나갈 이유가 없다 (#591).
@@ -79,10 +84,10 @@ export function copySkillsTree(src, dest, metaFileName) {
   return obsoleteNames;
 }
 
-// 공용 파이썬 교체 복사: 지난 설치 항목 제거 > 소스 전체 복사 (폐기 모듈이 남지 않게). 복사한 항목 이름 반환
+// 공용 파이썬 교체 복사: 지난 설치 항목 제거 > 런타임 항목만 복사 (폐기 모듈·예전에 깔린 개발 파일이 남지 않게). 복사한 항목 이름 반환
 function replaceSharedScripts(scriptsSrc, scriptsDest, previousNames) {
   removeNamedEntries(scriptsDest, previousNames);
-  return copyEntriesWithoutTests(scriptsSrc, scriptsDest);
+  return copyEntriesWithoutTests(scriptsSrc, scriptsDest, SHARED_SCRIPTS_DEV_ONLY);
 }
 
 // 이름 목록 + 파이썬 실행이 만든 __pycache__ 삭제 > 폴더가 비면 폴더도 삭제

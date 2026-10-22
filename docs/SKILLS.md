@@ -38,7 +38,7 @@ npx projectops --mode skills
 ### GitHub Copilot
 
 GitHub Copilot(VS Code 채팅·JetBrains IDE·Copilot CLI)은 개인 Agent Skill을 `~/.copilot/skills/<이름>/SKILL.md`에서 읽습니다.
-`npx projectops --mode skills`에서 `GitHub Copilot`을 고르면 `skills/`는 `~/.copilot/skills/`로, 스킬 CLI가 쓰는 공용 파이썬(`scripts/`)은
+`npx projectops --mode skills`에서 `GitHub Copilot`을 고르면 `skills/`는 `~/.copilot/skills/`로, 스킬 CLI가 쓰는 공용 파이썬(`scripts/` 중 런타임 파일만)은
 `~/.copilot/scripts/`로 복사되고, 고정 진입점 `~/.projectops/bin/projectops_cli.py`도 함께 깔립니다.
 copilot CLI, `~/.copilot` 폴더, VS Code Copilot 확장, JetBrains Copilot 플러그인 중 하나가 있어야 설치 대상으로 나타납니다.
 JetBrains IDE는 `Settings > GitHub Copilot > Chat > Agent`에서 Skills를 켜야 합니다. `~/.copilot/intellij-skills/`는 플러그인이 관리하는 폴더라 건드리지 않습니다.
