@@ -69,7 +69,14 @@ def strip_issue_decorations(title: str) -> str:
         장식을 벗긴 제목. 벗기고 나면 빈 문자열이 되는 경우엔 원본을 돌려준다
         (제목이 통째로 사라지는 것이 더 나쁘다).
     """
-    stripped = _LEADING_TAGS.sub("", _LEADING_EMOJI.sub("", title)).strip()
+    # 이모지·태그가 번갈아 붙을 수 있어(📄[Docs]🚀[Improvement]) 더 안 바뀔 때까지 반복 (#982)
+    stripped = title
+    while True:
+        next_stripped = _LEADING_TAGS.sub("", _LEADING_EMOJI.sub("", stripped))
+        if next_stripped == stripped:
+            break
+        stripped = next_stripped
+    stripped = stripped.strip()
     return stripped or title.strip()
 
 

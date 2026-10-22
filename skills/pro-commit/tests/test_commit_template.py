@@ -38,6 +38,10 @@ URL = "https://github.com/o/r/issues/1"
     ("🔍 [시험요청][워크플로] 확인 요청", "확인 요청"),   # 이모지와 태그 사이 공백
     ("[문서] 태그만 있는 제목", "태그만 있는 제목"),       # 이모지 없음
     ("장식이 전혀 없는 제목", "장식이 전혀 없는 제목"),
+    # 이모지와 태그가 번갈아 붙은 제목 (#982)
+    ("📄[Docs]🚀[Improvement][Docs] Match README GIFs", "Match README GIFs"),
+    ("🔥[긴급]❗[버그] 로그인 실패", "로그인 실패"),
+    ("📄[문서] ⌛[~10/30] 🚀[기능개선] 안내 정리", "안내 정리"),
 ])
 def test_decorations_are_stripped(title, expected):
     assert strip_issue_decorations(title) == expected
