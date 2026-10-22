@@ -386,6 +386,13 @@ CLI 플래그와 `version.yml` 옵션의 이름·값·기본값은 **`src/core/o
 - **GIF는 손으로 찍지 않는다.** `docs/recording/`의 스크립트로 언어별로 다시 찍는다 (`README.md` 참고). 시스템 언어가 새지 않게 `PROJECTOPS_LANG`/`--language`를 명시하고, npm 배포본이 아니라 작업 트리 CLI·템플릿으로 찍는다.
 - 마법사 배포 환경값 문구(`.github/config/wizard-prompts.yml`)는 `label`=영어, `label_ko`=한국어다. 새 키는 두 언어를 함께 넣는다 (`test/wizard-labels.test.js`가 검사).
 
+### 영문 표면의 한글 줄은 줄기만 한다 (#769)
+
+- `scripts/tests/test_korean_line_budget.py`가 skills·src·워크플로·스크립트·마법사·README 등에서 **주석·docstring을 뺀 한글 줄 수**를 파일별로 세어 동결 장부 `scripts/tests/korean_line_budget.json`과 대조한다. 장부에 없는 파일은 0이어야 하고, 있는 파일은 장부 숫자를 넘으면 실패한다.
+- 한글을 걷어 내 숫자가 줄면 테스트가 "장부를 낮춰라"로 실패한다 → `python3 scripts/tests/test_korean_line_budget.py --update` (줄어든 숫자만 반영, 절대 올리지 않음).
+- 사용자에게 보이는 문구는 영어로 쓰고 한국어는 i18n ko 사전에 넣는다. 세는 파일에 한글을 새로 넣으려면 **코드가 대조하는 데이터**(한글 라벨 `작업전` 같은 것)처럼 강한 이유가 있어야 하고, 그때만 장부 숫자를 손으로 올리고 리뷰에서 이유를 밝힌다.
+- 제외 범위(ko 사전·`docs/`·테스트·pro-launch troubleshooting 등)와 사유는 테스트 파일의 `EXCLUDED_PATTERNS`가 정본이다.
+
 ### 실행 기록 3계층 (#493·#494·#561 — agent 필독)
 
 마법사(full/workflows)가 끝나면 **대상 레포**의 `.github/.projectops/logs/`에 실행 기록을 남긴다.
