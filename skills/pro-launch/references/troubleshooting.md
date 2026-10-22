@@ -697,3 +697,21 @@
   3. Do not store several arguments in one variable like 'web $a' (use bash -c if needed)
 - Refs: #920 · verified 2026-10-18
 - See also: `general-plugin-cache-version-drift`
+
+## desktop (`desktop`)
+
+| id | Title | Codes |
+|---|---|---|
+| `desktop-window-listed-but-content-elsewhere` | A listed dialog shows almost no elements, or click returns ref_stale | `ref_stale` · `tree_unavailable` · `window_not_found` |
+
+### `desktop-window-listed-but-content-elsewhere` — A listed dialog shows almost no elements, or click returns ref_stale
+
+- Codes: `ref_stale` · `tree_unavailable` · `window_not_found`
+- Keywords: element is gone, OpenWith, 앱 선택, Open With
+- Symptom: desktop windows lists a dialog (for example the Windows 'Open With' dialog), but desktop tree shows only the title bar and Close, and click --ref returns ref_stale (element is gone)
+- Cause: Some dialogs draw their content in a separate window, or close the visible part when they lose focus and leave a placeholder window behind. The ref was taken from a window that no longer holds that element
+- Fix:
+  1. launch_cli.py desktop windows  # list again; pick the window that holds the content (zero-size placeholders are no longer listed)
+  2. launch_cli.py desktop find --window "<that title>" --text "<button>"
+  3. If the dialog closed by itself, do the step that opened it again and press it right away
+- Refs: #985 · verified 2026-10-22

@@ -1,7 +1,7 @@
 """web 에서 요소를 고르고 읽기 전용 세션이 막을 것을 가르는 규칙 — find · inspect · 조작 동작이 함께 쓴다."""
 from __future__ import annotations
 
-import re
+from pro_launch.runtime.mutating import NAV_ROLES, is_mutating_label
 
 
 # ── agent 가 혼자 브라우저를 몰 수 있게 (#825) ───────────────────────────
@@ -18,29 +18,13 @@ import re
 REF_ATTR = "data-pops-ref"
 
 
-# 읽기 전용 세션에서 막는 버튼 문구. "취소·확인"은 대화상자를 닫는 데도 쓰여 넣지 않았다.
-_MUTATING_RE = re.compile(
-    r"(삭제|제거|출시|게시|제출|전송|보내기|저장|승인|결제|구매|업로드|배포|폐기|롤아웃|"
-    r"\b(delete|remove|publish|release|roll ?out|submit|send|save|approve|pay|purchase|upload|deploy|discard)\b)",
-    re.IGNORECASE)
-
-
-def _is_mutating(label: str) -> bool:
-    """버튼 문구가 되돌리기 어려운 동작인가. 읽기 전용 세션에서 클릭을 막는 기준이다."""
-    return bool(_MUTATING_RE.search(label or ""))
-
-
-# 화면 이동으로 보는 요소 — 문구에 "제출·게시"가 있어도 막지 않는다.
-# Play Console 의 "제출 활동"·"게시 개요"는 기록을 보는 링크인데, 문구만 보면 위험 버튼으로 걸렸다(실측).
-_NAV_ROLES = {"link", "tab", "row", "menuitem", "treeitem", "option"}
-
-
+# 막는 문구와 이동 요소 목록은 runtime/mutating.py 에 있다 — desktop 도 같은 기준을 쓴다 (#985).
 def is_mutating_target(info: dict) -> bool:
     """요소 종류까지 보고 판단한다. 링크·탭·행은 이동이라 허용하고, 버튼류만 문구로 검사한다."""
     tag, role = (info.get("tag") or ""), (info.get("role") or "")
-    if (tag == "a" and info.get("href")) or role in _NAV_ROLES:
+    if (tag == "a" and info.get("href")) or role in NAV_ROLES:
         return False
-    return _is_mutating(f"{info.get('text') or ''} {info.get('aria') or ''}")
+    return is_mutating_label(f"{info.get('text') or ''} {info.get('aria') or ''}")
 
 
 # 클릭할 수 있는 것으로 보는 요소. 표의 행(role=row)도 넣는다 — 콘솔은 행 전체가 링크인 경우가 많다.

@@ -46,7 +46,7 @@
 | 이슈 매번 형식 맞춰 작성 | `/pro-github` 한 번에 표준 템플릿 생성 + 등록 |
 | 커밋 메시지 이슈 URL 수동 복사 | `/pro-commit` 이슈 컨텍스트 기반으로 내 형식에 맞춰 자동 완성 |
 | PR 설명/보고서 직접 작성 | `/pro-report` git diff 분석 후 자동 생성 |
-| 코드 리뷰·분석 매번 프롬프트 입력 | 14종 Skills로 일관된 결과, 매번 재입력 불필요 |
+| 코드 리뷰·분석 매번 프롬프트 입력 | 15종 Skills로 일관된 결과, 매번 재입력 불필요 |
 
 ---
 
@@ -135,11 +135,11 @@ Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json
 | 구성 | 하는 일 | 문서 |
 |---|---|---|
 | **GitHub Actions** | main 푸시 한 번으로 버전 관리, 체인지로그, CI/CD 배포를 자동 처리합니다 | [버전 관리](https://cassiiopeia.github.io/projectops/ko/version-control) |
-| **Agent Skills** (14종) | `/pro-github`, `/pro-commit`, `/pro-report` 등으로 AI가 단계마다 이슈·내 스타일 커밋·보고서·릴리스 PR을 대신 진행합니다 | [Skills 가이드](https://cassiiopeia.github.io/projectops/ko/skills) |
+| **Agent Skills** (15종) | `/pro-github`, `/pro-commit`, `/pro-report` 등으로 AI가 단계마다 이슈·내 스타일 커밋·보고서·릴리스 PR을 대신 진행합니다 | [Skills 가이드](https://cassiiopeia.github.io/projectops/ko/skills) |
 | **npx CLI** | 기존 프로젝트에 워크플로우를 설치·업데이트하고 상태를 진단합니다 | [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/ko/cli) |
 
 <details>
-<summary>Agent Skills 14종 전체 보기</summary>
+<summary>Agent Skills 15종 전체 보기</summary>
 
 ### 🔄 개발 사이클 자동화
 
@@ -163,6 +163,7 @@ Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json
 |------|------|
 | `/pro-figma` | Figma 시안을 코드로 옮기고, 옮긴 것이 시안과 같은지 픽셀로 센다 |
 | `/pro-launch` | 앱·웹·서버를 띄우고 조작하고 찍는다 — 상태바 고정 캡처, 폭 바꾸기, 응답 바꿔치기(빈 목록·실패 연출), 코드 렌더 |
+| `/pro-desktop-control` | 웹 페이지도 에뮬레이터도 아닌 이 컴퓨터 화면의 프로그램(설치 마법사·OS 대화상자·데스크톱 앱)을 조작한다: 요소를 읽고, 마우스를 움직이지 않고 누르고, 설치 전에는 묻고, 보안 확인 창은 사용자에게 넘긴다. 지금은 Windows만 (macOS는 이슈 #985에서 예정) |
 | `/pro-design-brief` | 시안보다 먼저 만든 화면의 디자인 요청서 — 상태별 캡처·대안·문구 후보·꼭 지킬 것을 보드로 만들어 디자이너에게 |
 | `/pro-oss-consult` | GitHub 레포를 오픈소스로서 진단 — 성격 판별, 6축 채점, 성숙도 단계, 승인받은 것만 About·topics·라벨·파일 수정. 단일 레포·계정 전체 일괄 |
 

@@ -1,6 +1,6 @@
-"""Claude Code SessionEnd 훅: 끝난 세션이 빌린 기기를 반납하고(#953) 띄운 브라우저를 닫는다(#956).
+"""Claude Code SessionEnd 훅: 끝난 세션이 빌린 기기를 반납하고(#953) 띄운 브라우저를 닫고(#956) 데스크톱 입력 세션을 놓는다(#985).
 
-입력: stdin JSON 의 session_id. 그 세션 lease · 브라우저가 있을 때만 `device release --all` · `web close --session-end` 를 띄운다
+입력: stdin JSON 의 session_id. 그 세션 lease · 브라우저 · 입력 세션이 있을 때만 `device release --all` · `web close --session-end` · `desktop session stop` 을 띄운다
 (없으면 바로 끝 — 세션 종료를 늦추지 않게). 어떤 경우에도 종료 코드 0.
 """
 from __future__ import annotations
@@ -46,6 +46,17 @@ def session_has_browsers(session_id: str) -> bool:
     return any(read_state(path).get("opened_by_session") == session_id for path in all_web_state_files())
 
 
+def session_holds_desktop(session_id: str) -> bool:
+    """이 세션이 데스크톱 입력 세션(키보드·마우스)을 쥐고 있나 (#985)."""
+    _use_launch_modules()
+    try:
+        from pro_launch.runtime.desktop_state import current_holder
+    except ImportError:
+        return False
+    holder = current_holder()
+    return bool(holder) and holder.get("session") == session_id
+
+
 def main(stdin_text: str, environ: dict) -> int:
     try:
         session_id = (json.loads(stdin_text or "{}") or {}).get("session_id")
@@ -58,6 +69,8 @@ def main(stdin_text: str, environ: dict) -> int:
         commands.append(["device", "release", "--all"])
     if session_has_browsers(session_id):
         commands.append(["web", "close", "--session-end"])
+    if session_holds_desktop(session_id):
+        commands.append(["desktop", "session", "stop"])
     for command in commands:
         try:
             subprocess.run([sys.executable, str(LAUNCH_CLI), *command],

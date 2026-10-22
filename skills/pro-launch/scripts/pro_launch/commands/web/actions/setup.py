@@ -3,42 +3,26 @@ from __future__ import annotations
 
 import importlib.util
 import subprocess
-import sys
 
-from common.state import venv_dir, venv_python
+from common.state import venv_dir
 
 import browser_pick
 
 from pro_launch.registry import Action
 from pro_launch.runtime.browser import bundled_chromium_path
 from pro_launch.runtime.output import out
+from pro_launch.runtime.venv_install import ensure_venv, pip_install
 
 
 def _web_setup(force: bool = False) -> dict:
     """전용 가상환경 + Playwright + Pillow + Chromium. 약 100MB 라 부르는 쪽이 먼저 묻는다."""
     vd = venv_dir()
     steps = []
-    if not venv_python() or force:
-        r = subprocess.run([sys.executable, "-m", "venv", str(vd)],
-                           capture_output=True, text=True)
-        steps.append({"step": "create virtualenv", "ok": r.returncode == 0,
-                      "error": (r.stderr or "")[-300:] or None})
-        if r.returncode != 0:
-            return {"ok": False, "code": "venv_failed", "steps": steps,
-                    "error": "Could not create the virtualenv"}
-    vpy = venv_python()
-    if vpy is None:
-        return {"ok": False, "code": "venv_missing", "steps": steps,
-                "error": "Could not find the virtualenv Python"}
+    vpy, failure = ensure_venv(steps, force=force)
+    if failure:
+        return failure
     # Pillow 를 함께 깐다 — 캡처를 줄이는 수단을 시스템을 건드리지 않고 확보한다
-    try:
-        r = subprocess.run([str(vpy), "-m", "pip", "install", "-q", "playwright", "pillow"],
-                           capture_output=True, text=True, timeout=900)
-    except subprocess.TimeoutExpired:
-        r = None
-    pip_ok = r is not None and r.returncode == 0
-    steps.append({"step": "install playwright · pillow", "ok": pip_ok,
-                  "error": None if pip_ok else ((r.stderr or "")[-300:] if r else "timed out") or None})
+    pip_ok = pip_install(vpy, ["playwright", "pillow"], steps)
     if not pip_ok:
         # 내부망: 인덱스가 막혀도 시스템 파이썬에 Playwright 가 이미 있으면 그대로 간다 (#857)
         if importlib.util.find_spec("playwright") is None:

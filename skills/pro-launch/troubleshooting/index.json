@@ -93,6 +93,9 @@
     "playwright_missing": [
       "web-playwright-or-browser-missing"
     ],
+    "ref_stale": [
+      "desktop-window-listed-but-content-elsewhere"
+    ],
     "render_failed": [
       "general-render-failed-first-error"
     ],
@@ -112,6 +115,9 @@
     "timeout_too_large": [
       "general-timeout-unit-seconds"
     ],
+    "tree_unavailable": [
+      "desktop-window-listed-but-content-elsewhere"
+    ],
     "typed_text_mismatch": [
       "android-korean-ime-jamo"
     ],
@@ -124,6 +130,9 @@
     ],
     "ui_dump_timeout": [
       "android-system-restart-loop"
+    ],
+    "window_not_found": [
+      "desktop-window-listed-but-content-elsewhere"
     ]
   },
   "keywords": {
@@ -213,6 +222,9 @@
     "don": [
       "general-login-interstitial-policy"
     ],
+    "element": [
+      "desktop-window-listed-but-content-elsewhere"
+    ],
     "endpoint": [
       "android-system-restart-loop"
     ],
@@ -236,6 +248,9 @@
     ],
     "gboard": [
       "android-korean-ime-jamo"
+    ],
+    "gone": [
+      "desktop-window-listed-but-content-elsewhere"
     ],
     "headless": [
       "web-orphan-headless-chrome"
@@ -297,6 +312,9 @@
     ],
     "offline": [
       "android-emulator-unresponsive-host-swap"
+    ],
+    "openwith": [
+      "desktop-window-listed-but-content-elsewhere"
     ],
     "otp": [
       "general-otp-no-resubmit"
@@ -509,6 +527,9 @@
     "상태바": [
       "ios-status-bar-custom-time"
     ],
+    "선택": [
+      "desktop-window-listed-but-content-elsewhere"
+    ],
     "수집": [
       "web-script-browser-memory-exceeded"
     ],
@@ -674,6 +695,16 @@
       ],
       "keyword_count": 8,
       "path": "web/browser-start-stale-process-or-lock.json"
+    },
+    "desktop-window-listed-but-content-elsewhere": {
+      "area": "desktop",
+      "title": "A listed dialog shows almost no elements, or click returns ref_stale",
+      "fix_short": [
+        "launch_cli.py desktop windows # list again; pick the window that holds the content (zero-size placeholders are no longer listed)",
+        "launch_cli.py desktop find --window \"<that title>\" --text \"<button>\""
+      ],
+      "keyword_count": 4,
+      "path": "desktop/desktop-window-listed-but-content-elsewhere.json"
     },
     "general-app-no-device": {
       "area": "general",

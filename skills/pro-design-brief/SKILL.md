@@ -74,7 +74,7 @@ Placeholders: `{SCRIPTS}` = pro-design-brief (config · get-output-path · board
   Give each capture a `source`, and put factual statements in `facts[]` with a `basis`. Numbers come from production values, not fixtures.
 - **You read the code** and list the states. Each state gets a `status` (done · temp · none) and `reachable` (yes · old_data · unknown);
   check in the code whether the input path still exists. Text the server sends (notices, terms, errors) is also a state.
-- Navigate device screens **by element** (`app tap --text|--id|--desc`; if unsure, `app tree`). No guessing coordinates, no host mouse.
+- Navigate device screens **by element** (`app tap --text|--id|--desc`; if unsure, `app tree`). No guessing coordinates, no host mouse (host-screen programs only through `pro-launch desktop`).
 - Alternatives: **3 to 5 options on different axes**, always including a "current implementation" and a "minimal" option. Offer no candidates for legal text (`legal: true`).
 - Do not call AI generation APIs to make captures. Clean up only the `residue` you created. Do not decide for the designer.
 - **Do not show config key names or file paths to the user.**

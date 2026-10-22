@@ -28,7 +28,7 @@ from common.state import base_dir, state_dir
 
 FILE = "knowledge.json"
 SCHEMA = 1
-AREAS = ("ios", "android", "web", "server")
+AREAS = ("ios", "android", "web", "server", "desktop")
 SCOPES = ("repo", "machine")
 MAX_ENTRIES = 30        # 범위별 상한 — 넘으면 점수 낮은 것부터 지운다
 MAX_HOW = 200           # 한 항목 글자 수 상한 (recall 한 번이 수백 토큰에 머물게)

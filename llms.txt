@@ -8,7 +8,7 @@ Ask the tool instead of reading docs: `npx projectops --mode options --json` pri
 - [README](https://github.com/Cassiiopeia/projectops/blob/main/README.md): what it does and the 30-second start
 - [Agent instructions](https://github.com/Cassiiopeia/projectops/blob/main/AGENTS.md): rules for agents using or changing this repo, skill routing
 - [CLI reference](https://github.com/Cassiiopeia/projectops/blob/main/docs/en/cli.md): flags, modes and examples (English)
-- [Agent skills guide](https://github.com/Cassiiopeia/projectops/blob/main/docs/en/skills.md): 14 core skills (issues, worktrees, commits in your style, reports, reviews, QA, release PRs), per-user preferences, optional projectops-extras plugin
+- [Agent skills guide](https://github.com/Cassiiopeia/projectops/blob/main/docs/en/skills.md): 15 core skills (issues, worktrees, commits in your style, reports, reviews, QA, release PRs), per-user preferences, optional projectops-extras plugin
 - [Getting started](https://github.com/Cassiiopeia/projectops/blob/main/docs/en/getting-started.md)
 
 ## Reference (Korean, being translated)

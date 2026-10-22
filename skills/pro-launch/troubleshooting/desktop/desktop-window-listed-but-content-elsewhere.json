@@ -1,0 +1,29 @@
+{
+  "id": "desktop-window-listed-but-content-elsewhere",
+  "area": "desktop",
+  "title": "A listed dialog shows almost no elements, or click returns ref_stale",
+  "match": {
+    "codes": [
+      "ref_stale",
+      "tree_unavailable",
+      "window_not_found"
+    ],
+    "keywords": [
+      "element is gone",
+      "OpenWith",
+      "앱 선택",
+      "Open With"
+    ]
+  },
+  "symptom": "desktop windows lists a dialog (for example the Windows 'Open With' dialog), but desktop tree shows only the title bar and Close, and click --ref returns ref_stale (element is gone)",
+  "cause": "Some dialogs draw their content in a separate window, or close the visible part when they lose focus and leave a placeholder window behind. The ref was taken from a window that no longer holds that element",
+  "fix": [
+    "launch_cli.py desktop windows  # list again; pick the window that holds the content (zero-size placeholders are no longer listed)",
+    "launch_cli.py desktop find --window \"<that title>\" --text \"<button>\"",
+    "If the dialog closed by itself, do the step that opened it again and press it right away"
+  ],
+  "refs": [
+    985
+  ],
+  "verified_at": "2026-10-22"
+}

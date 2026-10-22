@@ -47,6 +47,7 @@ No slash-command UI is needed; read the file directly.
 | Review code | `pro-review` |
 | Run the app / server / browser and look for bugs end to end | `pro-agent-test` |
 | Launch an emulator, simulator, browser or server and capture it | `pro-launch` |
+| Drive an installer wizard, OS dialog or desktop app on this computer's screen (not a web page or emulator) | `pro-desktop-control` |
 | Compare an implementation with a Figma design | `pro-figma` |
 | Hand an already-built screen to a designer | `pro-design-brief` |
 | Diagnose a repository as an open source project | `pro-oss-consult` |

@@ -20,7 +20,7 @@ from common import memory
 TROUBLESHOOTING_DIR = "troubleshooting"
 INDEX_FILE = "index.json"
 INDEX_SCHEMA = 1
-AREAS = ("web", "android", "ios", "server", "ssh", "general")
+AREAS = ("web", "android", "ios", "server", "ssh", "general", "desktop")
 
 # 항목 필드: 이름 → 허용 타입
 REQUIRED_FIELDS = {"id": str, "area": str, "title": str, "match": dict, "symptom": str,

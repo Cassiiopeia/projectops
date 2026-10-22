@@ -67,8 +67,10 @@ Steps:
    check that the new backend has every contract member. Separately, add unit tests for that backend's parsing and failure paths.
 4. Write down how to connect and the pitfalls in `references/app.md`. What worked on this Mac belongs to `learn`, not the docs.
 
-**Forbidden**: implementations that tap coordinates with the host mouse (`cliclick` · AppleScript System Events · CGEvent). They steal the user's cursor,
+**Forbidden**: app backends that tap coordinates with the host mouse (`cliclick` · AppleScript System Events · CGEvent). They steal the user's cursor,
 and you cannot tell what was tapped. Only use methods that tap **inside the device**: accessibility tree, the device's built-in input, or E2E tools.
+Programs on the host screen itself are the `desktop` command's job (`scripts/desktop_input.py`, #985): it presses through OS accessibility first,
+uses the host mouse only as a fallback inside an input session, and checks that the user is not moving the mouse.
 
 ## New web action
 

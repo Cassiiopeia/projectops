@@ -15,7 +15,7 @@
         "source": "url",
         "url": "https://github.com/Cassiiopeia/projectops.git"
       },
-      "description": "Agent skills that drive the projectops automation cycle: issues, worktrees, commits in your own style, reports, reviews, QA and release PRs (14 skills)",
+      "description": "Agent skills that drive the projectops automation cycle: issues, worktrees, commits in your own style, reports, reviews, QA and release PRs (15 skills)",
       "version": "4.71.3",
       "category": "DevOps",
       "keywords": [

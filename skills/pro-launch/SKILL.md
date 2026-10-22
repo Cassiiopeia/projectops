@@ -1,6 +1,6 @@
 ---
 name: pro-launch
-description: "Capability skill that launches and drives apps, web and servers: emulator/simulator screenshots, browser navigation and capture, API mocking for empty/error states, HTTP/DB/log access. Used by pro-agent-test, pro-design-brief, pro-figma."
+description: "Capability skill that launches and drives apps, web, desktop windows and servers: emulator/simulator screenshots, browser navigation and capture, installer and OS dialogs, API mocking for empty/error states, HTTP/DB/log access. Used by pro-agent-test, pro-design-brief, pro-figma."
 ---
 
 # pro-launch — launch, drive, capture
@@ -52,6 +52,7 @@ Without it, the root is resolved in this order: `$PROJECT_ROOT` > working direct
 | **Read a form** (inputs · buttons · checkboxes · selects + values · disabled state · ref) · read only matching lines · select · check · keys · hover · dialogs · downloads — **instead of raw CDP scripts** | `web inspect` · `web text --grep` · `web select\|check\|press\|hover\|dialog\|download` | `references/web.md` |
 | Wait for a condition (approval · toast · URL) · scroll an inner box and capture a piece · upload files · act inside an iframe · **anything the fixed actions do not cover** | `web wait\|scroll\|upload` · `web shot --container` · `--frame` · `web script` | `references/web.md` |
 | Confirm a save went through by its request · save a secret from an input or copy button without printing it · type key by key · clean up leftover browsers | `--capture-requests` · `web value\|clipboard --save-env` · `web type --keys` · `web close --stale` | `references/web.md` |
+| **Programs on this computer's screen** (installer wizards · OS dialogs · desktop apps — not web pages, not emulators): list windows · read elements as refs · press without moving the mouse · type · keys · capture · wait | `desktop setup\|doctor\|session\|windows\|tree\|find\|click\|type\|press\|focus\|shot\|wait` | `references/desktop.md` |
 | Render a state in code and capture it | `render snapshot` → `render run` | `references/render.md` |
 | Single HTTP request · record how to connect · SQL · logs | `http` · `access show\|set\|unset` · `db` · `logs` | `references/server.md` |
 | Store credentials · remote commands · sudo on this Mac | `cred list\|show\|set\|unset\|import-ssh` · `ssh` · `local sudo` | `references/credentials.md` |
@@ -145,7 +146,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
   When `doctor --resources` recommends `device benchmark` (never measured · older than 30 days · RAM changed), run it once while no other session is active.
 - Captures default to WebP with a 1200 px long edge. Use `--keep-format` only when you need the original, such as for pixel comparison. **Open what you captured with Read.**
   If text is enough to confirm (`web assert` · `app tree` · logs), do not read the image. Images are the most expensive thing to read.
-- **Do not click coordinates with the host mouse** (`cliclick` · AppleScript · CGEvent). It steals the user's cursor. Use `app tap` for apps and `web find` → `web click --ref` for the web.
+- **Do not click coordinates with raw host-mouse tools** (`cliclick` · AppleScript · CGEvent called directly). They steal the user's cursor and you cannot tell what was pressed. Use `app tap` for apps, `web find` → `web click --ref` for the web,
+  and for other programs on the screen **only `desktop`**, inside a `desktop session start` (it presses through accessibility without moving the mouse whenever it can, and stops if the user moves the mouse).
 - **Never handle credentials as plain text.** Instead of `--text` on the command line, use `--cred` (saved) · `--text-env` (one-off),
   and `$CRED_*` environment variables in command strings. Never copy values into results, reports, issues or commits. Do not write secrets into `access`.
 - Mutating actions (submit · delete · pay · send) run without asking **only locally**. Anywhere else, stop and ask (`references/web.md` safety contract).
@@ -269,6 +271,38 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web login --cred {name} 
 | `tab_gone` | The `LAUNCH_TAB` tab was closed. Run `web tab new --name <same name>` |
 | `browser_start_failed` | Still failing after self-recovery. Read `stderr_tail` · `causes` and decide |
 - **Before you drive the web for the first time, read the safety contract in `references/web.md`.**
+
+## Desktop — use this when
+
+A program window that is neither a web page nor an emulator: an installer wizard, an OS dialog, a desktop app's settings. **Windows only for now** (macOS: #985).
+
+```bash
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop doctor                      # packages · security prompt · input session
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop session start --purpose "#985 installer"   # tell the user: keyboard and mouse in use
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop windows                     # titles for --window
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop find --window "Setup" --text "Next"   # candidates with ref · mutating
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop click --ref 3 --shot after_next      # transport: invoke (no mouse) or mouse
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop type --ref 2 --cred <name>           # password fields only via --cred / --text-env
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop wait --text "Completed" --timeout 120
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop session stop                # always, when done
+```
+
+- Reads (`windows` · `tree` · `find` · `shot` · `wait`) need no session. Anything that changes the screen needs **this session's** `desktop session start`. There is one input session per computer; it expires after 10 idle minutes and the session-end hook releases it.
+- **Buttons that install, agree, finish, delete or save are blocked** (`mutating_blocked`) — on by default, unlike `web`. Tell the user what it changes, then `--confirm-mutating` on that click. `--at` ratio clicks always need it (nothing tells what they press).
+- Prefer text (`find` · `tree` · `wait --text`) over `shot`. Read the image only when the window has no readable elements (`tree_unavailable`).
+
+| code | Next action |
+|---|---|
+| `desktop_deps_missing` | Ask the user, then `desktop setup` (mss · comtypes into the shared venv) |
+| `desktop_session_required` · `desktop_busy` | `desktop session start` · another session holds the keyboard and mouse — wait or ask |
+| `user_interrupted` | The user moved the mouse. Stop, ask, and `desktop session resume` only after they agree |
+| `needs_user` · `screen_locked` · `elevated_window` | UAC / sign-in prompt · locked screen · an administrator window. Only a person can answer — relay `ask_user` |
+| `mutating_blocked` | Relay `ask_user`; after approval, the `next` command |
+| `not_found` · `window_not_found` · `ref_stale` | Pick from `candidates` · the screen changed since `find` — `find` again |
+| `secret_requires_cred` | Password field: `--cred <name>` or `--text-env VAR` |
+| `tree_unavailable` | `desktop shot`, read it, `click --at x,y --confirm-mutating` after asking |
+
+Details: `references/desktop.md`.
 
 ## render · server · credentials · memory — use this when
 

@@ -1,7 +1,7 @@
 # Agent Skills guide
 
 > **This repository is an Agent Skill package you can use with Claude Code, Cursor, Gemini CLI, and Codex CLI.**
-> Along with the GitHub Actions automation template, it provides 14 development/DevOps Skills.
+> Along with the GitHub Actions automation template, it provides 15 development/DevOps Skills.
 
 ---
 
@@ -115,12 +115,12 @@ In Codex there is no slash command UI. You use Skills by having it read the rele
 
 ---
 
-## Full Skill list (14)
+## Full Skill list (15)
 
 By purpose, they fall into four groups:
 
 - **Analysis** (1) — Only read code and never modify it. Return plans, reviews, or diagnoses.
-- **Implementation** (5) — Actually modify or create files.
+- **Implementation** (6) — Actually modify or create files.
 - **Development cycle automation** (3) — Do commits, deploys, and GitHub work for you.
 - **Document/artifact generation** (5) — Do not touch code; generate `.md` files or reports.
 
@@ -148,7 +148,7 @@ It reviews code from **six angles: security, performance, bugs, quality, archite
 
 ---
 
-## 🔧 Implementation Skills (5)
+## 🔧 Implementation Skills (6)
 
 They actually modify files. Use them when you want the work to be carried out.
 
@@ -214,6 +214,23 @@ A **capability Skill** that starts, operates, and captures apps, web, and server
 - When another Skill (`pro-agent-test`, `pro-design-brief`, `pro-figma`) needs to capture a screen
 
 > QA that goes through the app end to end looking for bugs is `/pro-agent-test`. This Skill is "a tool for starting and capturing".
+
+---
+
+### `/pro-desktop-control`
+
+**What does it do?**
+It drives **programs on this computer's screen** that are neither web pages nor emulators. It presses "Next" in installer wizards, answers OS dialogs (file open, permission prompts), and changes settings in desktop apps. It reads the screen's elements to pick one, and presses without moving the mouse where it can. It asks before pressing a button that changes something (an install, agreeing to terms), and hands security prompts such as administrator rights (UAC) to the user. It is a procedure Skill on top of `/pro-launch`'s `desktop` command group. Windows for now (macOS planned, issue #985).
+
+**Modifies**: no code. The state of programs on screen (installs, settings) changes only through the buttons the user approved
+**Returns**: the names of the buttons pressed + what is on screen now + anything left for the user (a capture only when the result is visual)
+
+**When to use it**
+- "Press Next in the installer", "finish this setup wizard"
+- "Click OK in that dialog", "change this setting in the app"
+- When a web flow hands off to a downloaded program (a security module installer, a certificate tool)
+
+> Pages inside a browser belong to `/pro-launch`'s `web`, and emulator or simulator screens to `app`. Bug-hunting QA is `/pro-agent-test`.
 
 ---
 

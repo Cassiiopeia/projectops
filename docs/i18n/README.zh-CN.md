@@ -44,7 +44,7 @@
 | 每次按格式手写 Issue | `/pro-github` 一步按标准模板生成并提交 |
 | 手动把 Issue 链接复制到提交信息 | `/pro-commit` 根据 Issue 上下文，按你自己的格式自动补全 |
 | 手写 PR 说明和报告 | `/pro-report` 分析 git diff 后自动生成 |
-| 每次代码审查和分析都要重新输入提示词 | 14 个 Skills 提供一致的结果，无需重复输入 |
+| 每次代码审查和分析都要重新输入提示词 | 15 个 Skills 提供一致的结果，无需重复输入 |
 
 ---
 
@@ -133,11 +133,11 @@ Skill 会按你的风格输出。把偏好写进 `~/.projectops/config/config.js
 | 组成 | 作用 | 文档 |
 |---|---|---|
 | **GitHub Actions** | 推送一次 main，版本管理、更新日志、CI/CD 部署全部自动完成 | [版本管理](https://cassiiopeia.github.io/projectops/version-control)（英文） |
-| **Agent Skills**（14 个） | 通过 `/pro-github`、`/pro-commit`、`/pro-report` 等命令，由 AI 代你推进每一步：Issue、你风格的提交、报告、发布 PR | [Skills 指南](https://cassiiopeia.github.io/projectops/skills)（英文） |
+| **Agent Skills**（15 个） | 通过 `/pro-github`、`/pro-commit`、`/pro-report` 等命令，由 AI 代你推进每一步：Issue、你风格的提交、报告、发布 PR | [Skills 指南](https://cassiiopeia.github.io/projectops/skills)（英文） |
 | **npx CLI** | 向现有项目安装并更新工作流，并诊断其状态 | [CLI 参考](https://cassiiopeia.github.io/projectops/cli)（英文） |
 
 <details>
-<summary>查看全部 14 个 Agent Skills</summary>
+<summary>查看全部 15 个 Agent Skills</summary>
 
 ### 🔄 开发周期自动化
 
@@ -161,6 +161,7 @@ Skill 会按你的风格输出。把偏好写进 `~/.projectops/config/config.js
 |------|------|
 | `/pro-figma` | 把 Figma 设计稿转成代码，并逐像素对比成品与设计稿是否一致 |
 | `/pro-launch` | 启动、操作并截取应用、网页和服务器：固定状态栏、调整宽度、替换响应（空列表、失败场景）、用代码渲染 |
+| `/pro-desktop-control` | 操作这台电脑屏幕上既不是网页也不是模拟器的程序（安装向导、系统对话框、桌面应用）：读取界面元素，不移动鼠标直接按下，安装前先询问，安全提示交给用户处理。目前仅支持 Windows（macOS 计划中，Issue #985） |
 | `/pro-design-brief` | 设计稿出来之前，为已做好的页面生成设计需求：各状态截图、备选方案、文案候选、必须遵守的约束，整理成画板交给设计师 |
 | `/pro-oss-consult` | 以开源项目的标准诊断 GitHub 仓库：判别类型、6 个维度评分、成熟度阶段，仅在获得批准后修改 About、topics、标签和文件。支持单个仓库或整个账号 |
 

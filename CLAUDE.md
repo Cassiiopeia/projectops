@@ -806,7 +806,7 @@ claude plugin marketplace add Cassiiopeia/projectops
 claude plugin install projectops@projectops-marketplace --scope user
 ```
 
-> 설계·계획·구현은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 맡는다. 아래 표(코어 14종 + extras 2종)에는 분석·계획·구현 스킬이 없다.
+> 설계·계획·구현은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 맡는다. 아래 표(코어 15종 + extras 2종)에는 분석·계획·구현 스킬이 없다.
 
 | 명령어 | 용도 |
 |--------|------|
@@ -824,6 +824,7 @@ claude plugin install projectops@projectops-marketplace --scope user
 | `agent-test` | **앱·웹·서버를 실제로 실행해 밟는다** (E2E·증적) — 문서만 쓰는 `testcase`와 다르다 |
 | `figma` | **시안 → 코드 → 대조** 한 묶음. 덤프 항목을 세어 작업 목록으로 삼고, 옮긴 뒤 픽셀로 맞댄다 (#619에서 옮기기·대조를 `figma-verify`로 합쳤고, #854에서 이름을 `figma`로 되돌렸다) |
 | `launch` | **능력 스킬** — 앱·웹·서버를 띄우고 조작하고 찍는다. 다른 스킬이 `launch_cli.py` 를 스크립트로 부른다 (#629) |
+| `desktop-control` | **이 컴퓨터 화면의 프로그램 조작** (웹 페이지·에뮬레이터가 아닌 설치 마법사·OS 대화상자·데스크톱 앱). 요소를 읽고, 마우스를 움직이지 않고 누르고, 설치 전에는 묻고, 보안 확인 창은 사용자에게 넘긴다. `launch`의 `desktop` 명령 묶음 위에 얹은 절차 스킬이라 자체 CLI가 없다. 지금은 Windows만 (macOS는 #985) |
 | `design-brief` | **시안보다 먼저 만든 화면의 디자인 요청서** — 상태별 캡처 · 대안 · 문구 · 꼭 지킬 것을 보드로 조립해 이슈·HTML·md 로 넘긴다 (#634) |
 | `oss-consult` | **오픈소스 컨설팅** — 레포 성격을 판별하고 6축(첫인상·가치 증명·커뮤니티·코드 확장성·법적 안전·장기 운영)으로 깐깐하게 채점, 성숙도 단계와 선행 조건을 짚고 승인받은 것을 고친다. 단일 레포·전체 일괄 (#644) |
 
@@ -965,7 +966,8 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | init-worktree | `skills/pro-init-worktree/scripts/worktree_cli.py` | recall, record (지난번 복사한 로컬 파일 세트를 기억 — #839) |
 | figma | `skills/pro-figma/scripts/figma_cli.py` | get-output-path, coverage, assets, conform, diff |
 | agent-test | `skills/pro-agent-test/scripts/e2e_cli.py` | detect, scenario, note, api, other (실행·캡처 명령은 pro-launch 로 넘겨준다 — #631) |
-| launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, render, http, access, db, logs, cred, ssh, local (이 맥 sudo, #784), shrink, recall, learn, forget, kb (공식 트러블슈팅 search·show·list·propose, #889), get-output-path |
+| launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, desktop (PC 화면의 창, #985), render, http, access, db, logs, cred, ssh, local (이 맥 sudo, #784), shrink, recall, learn, forget, kb (공식 트러블슈팅 search·show·list·propose, #889), get-output-path |
+| desktop-control | (자체 CLI 없음) `skills/pro-launch/scripts/launch_cli.py` | `desktop` 그룹을 그대로 쓴다: doctor, setup, session, windows, tree, find, click, type, press, focus, wait, shot |
 | design-brief | `skills/pro-design-brief/scripts/design_brief_cli.py` | config, get-output-path, board, copy-lint, ascii, rewrite-images (업로드 결과로 본문 이미지 경로 치환 — #974) |
 | oss-consult | `skills/pro-oss-consult/scripts/oss_cli.py` | collect, local-facts, list-repos, get-output-path (**사실만 모은다 — 판단은 에이전트**, #644), repo-update, label (레포를 바꾸는 유일한 경로 — `--dry-run`·`before` 기록, **삭제·가시성 변경은 구현하지 않는다**, #660) |
 

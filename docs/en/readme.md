@@ -9,7 +9,7 @@ For an overview of the whole project, read the [root README](../../README.md) fi
 | Document | Contents |
 |------|------|
 | [NPX wizard guide](./npx-wizard.md) | Integrate or update the template in an existing project with `npx projectops`. Project kind (intent), the two deploy/publish axes, automatic legacy migration |
-| [Agent Skills guide](./skills.md) | The 14 Skills used in Claude Code / Cursor / Gemini CLI / Codex CLI |
+| [Agent Skills guide](./skills.md) | The 15 Skills used in Claude Code / Cursor / Gemini CLI / Codex CLI |
 | [Integration script guide](./template-integrator.md) | End of support and removal of the old `template_integrator.sh`/`.ps1` |
 
 ---

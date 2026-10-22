@@ -98,7 +98,7 @@ in the target repo (#611). This location is under the `docs/projectops/` umbrell
 
 - **Each command returns one JSON object.** `ok` tells success or failure, `code` tells the branch (judge by code, not by message text), and read `next` as the candidate next command.
 - **Tap apps by element.** Use `app tree` to see text, ids and `locale`, then `app tap --text|--id|--desc [--index N]`.
-  Only when there is no element, use **ratio** coordinates like `--at 0.5,0.8`. Do not compute pixel coordinates, use raw `adb shell input tap`, or use the host mouse (`cliclick`, AppleScript).
+  Only when there is no element, use **ratio** coordinates like `--at 0.5,0.8`. Do not compute pixel coordinates, use raw `adb shell input tap`, or use the host mouse (`cliclick`, AppleScript). A program window on the host screen (installer, OS dialog) goes through `pro-launch desktop` only.
 - **Tap with `--shot name`.** It captures after the screen changes and settles. `screen_changed: false` means there was no response.
 - **If text confirms it, do not read the image** (`app tree` · `web assert` · logs). Captures default to WebP at 1200px on the long side.
 - **Always `adb -s "$DEV"`.** With several devices, a command that leaves it out goes to the wrong device.

@@ -51,7 +51,7 @@ This project automates your development workflow on two axes.
 | Format every issue by hand | `/pro-github` writes and files an issue from the standard template in one step |
 | Copy the issue URL into commit messages | `/pro-commit` completes the message from the issue context, in your own style |
 | Write PR descriptions and reports by hand | `/pro-report` analyzes the git diff and generates one |
-| Re-type prompts for every code review or analysis | 14 skills give consistent results without re-typing |
+| Re-type prompts for every code review or analysis | 15 skills give consistent results without re-typing |
 
 ---
 
@@ -140,11 +140,11 @@ What it changed: descriptions were cut to short English triggers, a shared contr
 | Part | What it does | Docs |
 |---|---|---|
 | **GitHub Actions** | One push to main handles versioning, changelogs, and CI/CD deployment | [Versioning](https://cassiiopeia.github.io/projectops/version-control) |
-| **Agent Skills** (14) | `/pro-github`, `/pro-commit`, `/pro-report` and more let an AI agent drive each step: issues, commits in your style, reports, release PRs | [Skills guide](https://cassiiopeia.github.io/projectops/skills) |
+| **Agent Skills** (15) | `/pro-github`, `/pro-commit`, `/pro-report` and more let an AI agent drive each step: issues, commits in your style, reports, release PRs | [Skills guide](https://cassiiopeia.github.io/projectops/skills) |
 | **npx CLI** | Installs and updates workflows in an existing project, and diagnoses its state | [CLI reference](https://cassiiopeia.github.io/projectops/cli) |
 
 <details>
-<summary>See all 14 Agent Skills</summary>
+<summary>See all 15 Agent Skills</summary>
 
 ### 🔄 Development cycle automation
 
@@ -168,6 +168,7 @@ What it changed: descriptions were cut to short English triggers, a shared contr
 |------|------|
 | `/pro-figma` | Move a Figma design into code, then compare the result with the design pixel by pixel |
 | `/pro-launch` | Launch, drive, and capture apps, web, and servers: fixed status bar, width changes, response mocking (empty list, failures), render from code |
+| `/pro-desktop-control` | Drive programs on this computer's screen that are not web pages or emulators (installer wizards, OS dialogs, desktop apps): reads elements, presses without moving the mouse, asks before installs, hands security prompts to the user. Windows for now (macOS planned, issue #985) |
 | `/pro-design-brief` | A design request for a screen you built before the mockup exists: state captures, alternatives, copy candidates, and must-keep rules as a board for the designer |
 | `/pro-oss-consult` | Diagnose a GitHub repo as an open-source project: type detection, 6-axis scoring, maturity stage, and edits to About, topics, labels, and files only after approval. One repo or a whole account |
 
