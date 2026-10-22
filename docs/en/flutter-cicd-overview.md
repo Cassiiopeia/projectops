@@ -134,6 +134,8 @@ The projectops Flutter CI/CD system combines **wizard tools** with **GitHub Acti
 
 > Self-hosted APK signing: by default it uses the debug key and logs a warning. It signs with the release key (`RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`) only when you register the repository variable `ANDROID_SELFHOSTED_RELEASE_SIGNING=true`, and in that case the build fails if any of those secrets is empty. If the signing key changes, the update may not install over an app that is already installed, so be careful. Set the upload subpath with the workflow `env.SMB_PATH_ANDROID` (default: empty).
 
+> Self-hosted push switch: set it with the repository variable `SELFHOSTED_DEPLOY_ENABLED`. `false` skips push runs and leaves a notice; `true` runs without guessing from the secrets. Without the variable, push runs are skipped only when `SERVER_HOST`, `SERVER_USER` and `SERVER_PASSWORD` are all empty. In a monorepo where a Spring deploy already uses secrets with those names, set it to `false` so the SMB deploy does not run on every push. Manual runs proceed regardless of this value.
+
 ### How far a deployment goes (`DEPLOY_MODE`)
 
 **One value goes to different points on the two platforms.** The shared name makes this easy to confuse, so here is a table.

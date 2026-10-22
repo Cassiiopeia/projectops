@@ -18,6 +18,13 @@
 # SERVER_USER: SMB 사용자명
 # SERVER_PASSWORD: SMB 비밀번호
 # ===================================================================
+# 🔀 저장소 변수 SELFHOSTED_DEPLOY_ENABLED (선택, #988)
+# ===================================================================
+# false: push 자동 실행 건너뜀 (모노레포에서 Spring 배포가 SERVER_* Secret 을 이미 쓰는 경우)
+# true : Secret 유무 추정 없이 push 마다 실행
+# 없음 : Secret 3개가 모두 없을 때만 건너뜀 (기존 동작)
+# 수동 실행(workflow_dispatch)은 값과 무관하게 진행
+# ===================================================================
 
 name: PROJECT-Android-SelfHosted-CICD
 
@@ -55,6 +62,7 @@ jobs:
   # Flutter 레포에는 이 파일이 항상 설치된다. 자체 서버를 쓰지 않는 레포에서 main 푸시마다
   # 실패 런이 쌓이지 않도록, 자동 실행(push)일 때만 미설정이면 성공으로 건너뛴다.
   # 미설정 조건 2개: 마법사 치환 토큰이 남은 값, SMB Secret 3개가 모두 없음
+  # 저장소 변수 SELFHOSTED_DEPLOY_ENABLED: false 면 건너뜀, true 면 Secret 추정 생략 (#988)
   # 수동 실행은 그대로 진행 (main 이면 아래 사전 점검이 누락 항목을 오류로 알림)
   check-config:
     name: Check self-hosted deploy settings
@@ -66,12 +74,32 @@ jobs:
         id: check
         env:
           EVENT_NAME: ${{ github.event_name }}
+          DEPLOY_SWITCH: ${{ vars.SELFHOSTED_DEPLOY_ENABLED }}
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_USER: ${{ secrets.SERVER_USER }}
           SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
         run: |
           if [ "$EVENT_NAME" != "push" ]; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # 스위치 값: true/false (대소문자 무관), 그 외 값은 경고 후 없는 것으로 처리
+          switch=$(printf '%s' "$DEPLOY_SWITCH" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+          case "$switch" in
+            true|false|"") ;;
+            *)
+              echo "::warning title=Self-hosted deploy switch::Repository variable SELFHOSTED_DEPLOY_ENABLED='${DEPLOY_SWITCH}' is not true or false, so it is ignored."
+              switch="" ;;
+          esac
+          if [ "$switch" = "false" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            msg="Self-hosted (SMB) deploy is turned off by the repository variable SELFHOSTED_DEPLOY_ENABLED=false, so this push run was skipped. Set it to true, or delete the variable, to deploy on push again. Manual runs still deploy."
+            echo "::notice title=Self-hosted deploy skipped::${msg}"
+            {
+              echo "### Self-hosted deploy skipped"
+              echo ""
+              echo "${msg}"
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           reasons=""
@@ -81,7 +109,8 @@ jobs:
             esac
           done
           # 3개 중 일부만 있으면 설정 중인 레포로 보고 진행 (사전 점검이 누락을 오류로 알림)
-          if [ -z "$SERVER_HOST" ] && [ -z "$SERVER_USER" ] && [ -z "$SERVER_PASSWORD" ]; then
+          # 스위치 true 면 생략 — 다른 배포와 같은 Secret 을 쓰는 모노레포도 의도대로 실행
+          if [ "$switch" != "true" ] && [ -z "$SERVER_HOST" ] && [ -z "$SERVER_USER" ] && [ -z "$SERVER_PASSWORD" ]; then
             reasons="$reasons secrets SERVER_HOST, SERVER_USER and SERVER_PASSWORD are not set;"
           fi
           if [ -z "$reasons" ]; then
@@ -89,7 +118,7 @@ jobs:
             exit 0
           fi
           echo "configured=false" >> "$GITHUB_OUTPUT"
-          msg="Self-hosted (SMB) deploy is not configured, so this push run was skipped:${reasons} Set the values to enable it, or delete this workflow if you do not deploy to your own server."
+          msg="Self-hosted (SMB) deploy is not configured, so this push run was skipped:${reasons} Set the values to enable it, delete this workflow if you do not deploy to your own server, or set the repository variable SELFHOSTED_DEPLOY_ENABLED=false to turn push deploys off."
           echo "::notice title=Self-hosted deploy skipped::${msg}"
           {
             echo "### Self-hosted deploy skipped"

@@ -134,6 +134,8 @@ projectops의 Flutter CI/CD 시스템은 **마법사 도구**와 **GitHub Action
 
 > 셀프호스트 APK 서명: 기본은 디버그 키이며 경고를 남긴다. 저장소 변수 `ANDROID_SELFHOSTED_RELEASE_SIGNING=true` 를 등록해야만 `RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD` 로 릴리스 서명하며, 이때 시크릿이 하나라도 비면 빌드가 실패한다. 서명 키가 바뀌면 이미 설치된 앱 위에 업데이트 설치가 되지 않을 수 있으니 주의한다. 업로드 하위 경로는 워크플로 `env.SMB_PATH_ANDROID`(기본 빈 값)로 지정한다.
 
+> 셀프호스트 push 자동 실행 스위치: 저장소 변수 `SELFHOSTED_DEPLOY_ENABLED` 로 정한다. `false` 면 push 실행을 건너뛰고 안내만 남기며, `true` 면 Secret 유무를 추정하지 않고 실행한다. 변수가 없으면 `SERVER_HOST`·`SERVER_USER`·`SERVER_PASSWORD` 가 모두 비었을 때만 건너뛴다. 모노레포에서 Spring 배포가 같은 이름의 Secret 을 이미 쓰고 있다면 `false` 로 둬야 SMB 배포가 push 마다 돌지 않는다. 수동 실행은 이 값과 무관하게 진행된다.
+
 ### 배포 범위는 어디까지 가는가 (`DEPLOY_MODE`)
 
 **한 값이 두 플랫폼에서 서로 다른 지점까지 간다.** 같은 이름이라 헷갈리기 쉬워 표로 둔다.
