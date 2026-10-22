@@ -24,3 +24,13 @@ export function collectBreaking(json, current, target) {
   }
   return { critical, warnings };
 }
+
+// 항목 문구 > 화면 언어: ko면 title_ko/message_ko, 없거나 그 외 언어면 영어 원문(title/message)
+// 영어 키가 정본 — 구버전 CLI는 main의 이 파일에서 title/message만 읽음 (#988)
+export function localizeBreakingEntry(entry, lang) {
+  const pickField = (field) => {
+    const koreanText = lang === "ko" ? entry?.[`${field}_ko`] : null;
+    return koreanText || entry?.[field] || "";
+  };
+  return { title: pickField("title"), message: pickField("message") };
+}

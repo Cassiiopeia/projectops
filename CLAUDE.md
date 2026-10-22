@@ -1023,11 +1023,19 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 {
   "버전": {
     "severity": "critical | warning",
-    "title": "제목",
-    "message": "상세 설명 및 조치 방법"
+    "title": "English title",
+    "message": "English details and action steps",
+    "title_ko": "제목 (선택)",
+    "message_ko": "상세 설명 및 조치 방법 (선택)"
   }
 }
 ```
+
+> **`title`/`message`는 영어가 정본이고 필수다 (#988).** 구버전 CLI는 `main`의 이 파일을 받아 이 두 키만 읽으므로
+> 키 이름·형식을 바꾸지 않는다. 한국어는 선택 키 `title_ko`/`message_ko`에 넣고, CLI 화면 언어(`--lang`·`resolveLang`)가
+> `ko`일 때만 보인다. 없으면 영어로 폴백한다 (`src/core/breaking.js` `localizeBreakingEntry`).
+> 마이그레이션 가이드(실행 기록)에는 영어 원문이 남는다. 검사: `test/breaking.test.js`
+> (모든 항목에 영어 `title`/`message`), 한글 줄 감시는 `*_ko` 키 줄만 세지 않는다.
 
 ---
 

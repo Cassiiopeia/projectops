@@ -49,6 +49,11 @@ EXCLUDED_PATTERNS = (
 )
 EXCLUDED_REGEXES = tuple((re.compile(pattern), reason) for pattern, reason in EXCLUDED_PATTERNS)
 
+# 줄 단위 제외: 파일 안 "*_ko" JSON 키 줄만 안 셈 (같은 항목의 영어 원문 키는 계속 셈)
+# breaking-changes.json: title/message 영어 정본 + title_ko/message_ko 한국어 (#988, 영어 원문은 test/breaking.test.js 가 검사)
+KOREAN_SIBLING_KEY_RE = re.compile(r'^\s*"[A-Za-z0-9_]+_ko"\s*:')
+KOREAN_SIBLING_KEY_FILES = {".github/config/breaking-changes.json"}
+
 # 파일 종류 판정 (.template·.tmpl·.example 는 벗기고 안쪽 확장자로, Fastfile.ios 처럼 이름 앞부분도 봄)
 WRAPPER_SUFFIXES = (".template", ".tmpl", ".example")
 HASH_COMMENT_SUFFIXES = {".sh", ".bash", ".yaml", ".yml", ".toml", ".ps1", ".rb"}
@@ -292,6 +297,8 @@ def count_korean_code_lines(relative: str, text: str) -> int:
         code_lines = blank_html_comments(text).split("\n")
     else:
         code_lines = text.split("\n")
+    if relative in KOREAN_SIBLING_KEY_FILES:
+        code_lines = [line for line in code_lines if not KOREAN_SIBLING_KEY_RE.match(line)]
     return sum(1 for line in code_lines if HANGUL_RE.search(line))
 
 
@@ -385,6 +392,13 @@ def test_exclusions_keep_engine_but_drop_dictionaries():
     assert is_in_scope(".github/config/issue-labels.yml") and not is_excluded(".github/config/issue-labels.yml")
     assert is_in_scope(".github/DISCUSSION_TEMPLATE/documents.yaml")
     assert is_excluded(".github/i18n/ko/DISCUSSION_TEMPLATE/documents.yaml")
+
+
+def test_korean_sibling_keys_skip_only_ko_lines():
+    """breaking-changes.json: *_ko 키 줄만 제외, 영어 키에 섞인 한글은 셈 (#988)"""
+    registry_source = '{\n  "1.0.0": {\n    "title": "제목",\n    "title_ko": "제목",\n    "message_ko": "본문"\n  }\n}\n'
+    assert count_korean_code_lines(".github/config/breaking-changes.json", registry_source) == 1
+    assert count_korean_code_lines(".github/config/other.json", registry_source) == 3
 
 
 def update_ledger(allow_increase: bool) -> None:

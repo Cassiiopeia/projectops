@@ -2,9 +2,9 @@
 // collectBreaking(순수 비교)은 breaking.js — 이 모듈은 로드(원격→clone본 폴백)·표시·확인 게이트.
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { collectBreaking } from "./breaking.js";
+import { collectBreaking, localizeBreakingEntry } from "./breaking.js";
 import { parseExisting } from "./version-yml.js";
-import { t } from "../i18n/index.js";
+import { t, getLang } from "../i18n/index.js";
 
 const BC_URL = "https://raw.githubusercontent.com/Cassiiopeia/projectops/main/.github/config/breaking-changes.json";
 
@@ -46,11 +46,13 @@ export async function runBreakingCheck({ cwd, tempDir, templateVersion, askYesNo
   // 요약 리스트 표시 (#473 — 전문 통덤프는 벽글이 되어 정작 CRITICAL이 안 읽혔고,
   // 긴 본문 래핑이 ║ 박스 경계를 붕괴시켰다. 버전·제목만 한 줄씩, 전문은 선택 열람.)
   const e = (s = "") => process.stderr.write(s + "\n");
+  // 화면은 화면 언어 문구 (onItems 로 넘긴 가이드용 항목은 영어 원문 그대로 — 실행 기록은 영어)
+  const localized = (item) => localizeBreakingEntry(item, getLang());
   e("");
   e(t("breaking.title", { current, target: templateVersion, critical: critical.length, warnings: warnings.length }));
   e("");
-  for (const c of critical) e(`  ❗ [CRITICAL] ${c.version} - ${c.title || ""}`);
-  for (const w of warnings) e(`  ⚠️ [WARNING]  ${w.version} - ${w.title || ""}`);
+  for (const c of critical) e(`  ❗ [CRITICAL] ${c.version} - ${localized(c).title}`);
+  for (const w of warnings) e(`  ⚠️ [WARNING]  ${w.version} - ${localized(w).title}`);
   e("");
 
   if (askYesNo) {
@@ -59,8 +61,9 @@ export async function runBreakingCheck({ cwd, tempDir, templateVersion, askYesNo
     if (detail === true) {
       for (const it of [...critical, ...warnings]) {
         e("");
-        e(`■ ${it.version} - ${it.title || ""}`);
-        e(`  ${it.message || ""}`);
+        const { title, message } = localized(it);
+        e(`■ ${it.version} - ${title}`);
+        e(`  ${message}`);
       }
       e("");
     }
