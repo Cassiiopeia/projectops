@@ -47,34 +47,40 @@ Write as if an ordinary user is reading "what changed in this update?".
 
 **Save with the Write tool to `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md`** (the home directory, not inside the repo. It sits next to the config, so the repo stays clean, and the `{OWNER}__{REPO}` prefix keeps several repos or agents deploying at once from colliding). Windows: `C:\Users\<user>\.projectops\tmp\{OWNER}__{REPO}__release_notes.md`; macOS/Linux: `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md`. **If the tmp folder does not exist, create it before the Write.** Then pass this **absolute path** (`NOTES_FILE`) to the CLI as is.
 
-Use a structure **100% identical** to the format the workflow parses. Use only the fixed category names below and omit categories with no items. The headings below are the `ko` catalog names (`.github/scripts/i18n/ko.json`); for a repo with `options.language: en` in `version.yml`, use the `en` names: `Release notes` / `New features` / `Bug fixes` / `Improvements` / `Documentation` / `Other`.
+Use a structure **100% identical** to the format the workflow parses. Use only the `release_language.headings` values from `detect-release-context` for the heading and category names (#977), and omit categories with no items. Write the note lines in `release_language.notes_language` too.
+
+| Field | `ko` | `en` |
+|---|---|---|
+| `heading` | 릴리스 노트 | Release notes |
+| `feat` · `fix` · `improve` | 새 기능 · 버그 수정 · 개선 | New features · Bug fixes · Improvements |
+| `docs` · `etc` | 문서 · 기타 | Documentation · Other |
 
 ```
 <!-- This is an auto-generated comment: release notes by coderabbit.ai -->
 
 ## Summary by CodeRabbit
 
-## 릴리스 노트
+## {headings.heading}
 
-* **새 기능**
+* **{headings.feat}**
   * (item)
 
-* **버그 수정**
+* **{headings.fix}**
   * (item)
 
-* **개선**
+* **{headings.improve}**
   * (item)
 
-* **문서**
+* **{headings.docs}**
   * (item)
 
-* **기타**
+* **{headings.etc}**
   * (item)
 
 <!-- end of auto-generated comment: release notes by coderabbit.ai -->
 ```
 
-> Per-language store translations (when `store_locales` has two or more entries) are appended as a separate block **after** this structure. Format and rules: `store-translations.md`. Do not change the base-language structure itself.
+> Per-language store translations (when `release_language.store.translation_targets` is not empty) are appended as a separate block **after** this structure. Format and rules: `store-translations.md`. Do not change the structure above itself.
 
 ## Approval gate messages (deploy 5.5 / fix 4.5)
 

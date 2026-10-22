@@ -5,11 +5,11 @@ import urllib.error
 
 from common.emit import emit
 from common.gh_client import STATUS_LABEL_NAMES, GitHubAPIError
+from common.report_comment import REPORT_COMMENT_MARKER
 from pro_github.registry import Command
 from pro_github.responses import missing_pat
 
-# pro-report 보고서 댓글 판별: 명시 표식이 없어 출력 틀의 고정 제목 2개로 본다 (휴리스틱)
-REPORT_COMMENT_MARKER = "<!-- projectops:report -->"
+# 표식 없는 옛 보고서 댓글 판별: 출력 틀의 고정 제목 2개 (휴리스틱)
 _REPORT_TEMPLATE_HEADINGS = ("## 개요", "## 변경 사항")
 
 # 결과별: (붙일 상태 라벨, 닫을 때 사유 | None=닫지 않음)
@@ -80,7 +80,7 @@ def _report_warnings(args, api, pat: str) -> list[str]:
         return [f"could not check for a report comment: {error}"]
     if any(is_report_comment(comment.get("body", "")) for comment in comments):
         return []
-    return [f"#{args.number} has no report comment (heuristic: the report marker or the '## 개요' + '## 변경 사항' headings). "
+    return [f"#{args.number} has no report comment (heuristic: the marker {REPORT_COMMENT_MARKER} or the '## 개요' + '## 변경 사항' headings). "
             f"Check that a report was posted with pro-report"]
 
 

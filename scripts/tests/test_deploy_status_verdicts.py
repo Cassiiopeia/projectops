@@ -146,6 +146,9 @@ def test_릴리스_노트_제목은_레포_언어를_따른다(tmp_path):
     assert tools.read_repo_language(tmp_path) == "ko"
     (tmp_path / "version.yml").write_text("metadata:\n  template:\n    options:\n      language: en\n", encoding="utf-8")
     assert tools.read_repo_language(tmp_path) == "en"
+    # 모르는 언어는 en (워크플로우 i18n 정규화와 같은 규칙, #977)
+    (tmp_path / "version.yml").write_text("metadata:\n  template:\n    options:\n      language: ja\n", encoding="utf-8")
+    assert tools.read_repo_language(tmp_path) == "en"
 
 
 def test_sync_base_와_branches_check(tmp_path, monkeypatch):

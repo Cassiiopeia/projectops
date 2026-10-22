@@ -13,7 +13,7 @@ from pro_launch.runtime.output import add_response_fields
 from pro_launch.runtime.session_identity import session_identity
 
 # get-output-path 가 남기는 실행 폴더 기록: <상태 폴더>/last_run.json {"sessions": {세션: {run_dir, screenshots, at}}} (#931)
-# 세션별로 둔다 — 레포 하나에 기록 하나면 다른 세션의 실행 폴더에 캡처가 섞였다 (#972)
+# 세션별 기록 — 같은 레포를 쓰는 다른 세션의 실행 폴더에 캡처가 섞이지 않게 (#972)
 LAST_RUN_FILE = "last_run.json"
 # 이 시간 안의 기록만 쓴다 — 며칠 전 실행 폴더에 오늘 캡처가 섞이지 않게 (12시간)
 LAST_RUN_VALID_SECONDS = 12 * 60 * 60

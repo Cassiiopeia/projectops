@@ -107,9 +107,9 @@ The projectops Flutter CI/CD system combines **wizard tools** with **GitHub Acti
 
 | Wizard | Purpose | Detailed guide |
 |--------|---------|----------------|
-| **TestFlight wizard** | Generates iOS deployment settings | [FLUTTER-TESTFLIGHT-WIZARD.md](../FLUTTER-TESTFLIGHT-WIZARD.md) |
-| **Play Store wizard** | Generates Android Play Store deployment settings | [FLUTTER-PLAYSTORE-WIZARD.md](../FLUTTER-PLAYSTORE-WIZARD.md) |
-| **Firebase wizard** | Generates Firebase App Distribution deployment settings | [FLUTTER-FIREBASE-WIZARD.md](../FLUTTER-FIREBASE-WIZARD.md) |
+| **TestFlight wizard** | Generates iOS deployment settings | [flutter-testflight-wizard.md](./flutter-testflight-wizard.md) |
+| **Play Store wizard** | Generates Android Play Store deployment settings | [flutter-playstore-wizard.md](./flutter-playstore-wizard.md) |
+| **Firebase wizard** | Generates Firebase App Distribution deployment settings | [flutter-firebase-wizard.md](./flutter-firebase-wizard.md) |
 
 ---
 
@@ -217,7 +217,7 @@ so the existing value stayed. Confirmed by measurement.) Apps that have no share
 | `PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT.yaml` | iOS test build | repository_dispatch (`build-ios-app`) |
 | `PROJECT-FLUTTER-ANDROID-TEST-APK.yaml` | Android APK test build | repository_dispatch (`build-android-app`) |
 
-Detailed guide: [FLUTTER-TEST-BUILD-TRIGGER.md](../FLUTTER-TEST-BUILD-TRIGGER.md)
+Detailed guide: [flutter-test-build-trigger.md](./flutter-test-build-trigger.md)
 
 ### iOS build number and version (#643)
 
@@ -229,7 +229,7 @@ Detailed guide: [FLUTTER-TEST-BUILD-TRIGGER.md](../FLUTTER-TEST-BUILD-TRIGGER.md
 | Upload rejection | For a number that is too low, it retries up to 5 times with a new number at or above the required value (the Flutter build is not redone). For a closed-version rejection, only test builds retry with the next patch. A duplicate number means that number is already uploaded, so it fails without re-uploading, and running again uses a new number |
 | Failure reason | A test build shows a `사유` (reason) line in the failure comment; a release shows it in the run summary and `::error::` |
 
-`version_code` is not used for iOS or for test build numbers ([version-control.md](./version-control.md#managing-version_code)). For the detailed rules, see [FLUTTER-TEST-BUILD-TRIGGER.md](../FLUTTER-TEST-BUILD-TRIGGER.md#빌드-번호-규칙).
+`version_code` is not used for iOS or for test build numbers ([version-control.md](./version-control.md#managing-version_code)). For the detailed rules, see [flutter-test-build-trigger.md](./flutter-test-build-trigger.md#build-number-rules).
 
 ---
 
@@ -371,7 +371,7 @@ It uses the same `RELEASE_*` signing Secrets as Play Store; only the upload cred
 
 ## Related documents
 
-- [iOS TestFlight wizard details](../FLUTTER-TESTFLIGHT-WIZARD.md)
-- [Android Play Store wizard details](../FLUTTER-PLAYSTORE-WIZARD.md)
-- [Firebase App Distribution wizard details](../FLUTTER-FIREBASE-WIZARD.md)
-- [Test build trigger details](../FLUTTER-TEST-BUILD-TRIGGER.md)
+- [iOS TestFlight wizard details](./flutter-testflight-wizard.md)
+- [Android Play Store wizard details](./flutter-playstore-wizard.md)
+- [Firebase App Distribution wizard details](./flutter-firebase-wizard.md)
+- [Test build trigger details](./flutter-test-build-trigger.md)

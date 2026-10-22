@@ -246,7 +246,7 @@ docker rmi registry/project-pr-123:latest
 
 ## SSH + Docker deployment
 
-> The deployment engine is not tied to a specific vendor. It works the same on any server you can reach over SSH, such as a Synology NAS, AWS EC2, or a generic Linux host. See the [SSH+Docker deployment guide](../SSH-DOCKER-DEPLOYMENT-GUIDE.md) for details.
+> The deployment engine is not tied to a specific vendor. It works the same on any server you can reach over SSH, such as a Synology NAS, AWS EC2, or a generic Linux host. See the [SSH+Docker deployment guide](./ssh-docker-deployment-guide.md) for details.
 
 ### SSH connection fails
 

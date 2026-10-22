@@ -163,7 +163,7 @@ def cmd_actions(args, api) -> int:
             run_id, err = read_numeric_argument(args, "run_id")
             if err is not None:
                 return err
-            result = api.cancel_run(args.owner, args.repo, run_id, pat, force=args.force)
+            result = api.cancel_run(args.owner, args.repo, run_id, pat, is_force_cancel=args.force)
             return emit({**result, "summary": f"requested {'a forced ' if args.force else ''}cancel of Run {run_id}",
                          "next": f"actions wait {args.owner} {args.repo} {run_id}  # confirm the cancel took effect"})
         elif args.sub == "list-failed":

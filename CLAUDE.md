@@ -374,6 +374,18 @@ CLI 플래그와 `version.yml` 옵션의 이름·값·기본값은 **`src/core/o
 - 사용자 레포에는 `.github/.projectops/AGENT-GUIDE.md`가 설치된다(`src/core/agent-guide.js`). 옵션 값은 박지 않고 명령만 안내한다.
 - 이 레포의 `AGENTS.md`·`GEMINI.md`·`llms.txt`는 템플릿 전용이라 `exclusions.js`와 `template_initializer.py` 양쪽에서 제외된다.
 
+### 문서·데모 GIF는 읽는 언어를 따른다 — 기본은 영어 (#976)
+
+| 대상 | 영어 (기본) | 한국어 |
+|---|---|---|
+| 문서 사이트 URL | `/projectops/<slug>` ← `docs/en/<slug>.md` | `/projectops/ko/<slug>` ← `docs/<SLUG>.md` |
+| 데모 GIF | `docs/images/<이름>.gif` | `docs/images/<이름>.ko.gif` |
+| 쓰는 곳 | `README.md`, ja·zh-CN README, `docs/en/` | `docs/i18n/README.ko.md`, `docs/*.md` |
+
+- **파일은 옮기지 않고 URL만 바꾼다.** 규칙은 `site/.vitepress/locale-paths.mts` 한 곳(`rewrites`와 옛 URL 리다이렉트가 같이 쓴다). 두 언어 slug가 같아야 언어 전환이 같은 쪽으로 간다 — 한국어 문서를 추가하면 같은 slug의 영어 문서도 만든다.
+- **GIF는 손으로 찍지 않는다.** `docs/recording/`의 스크립트로 언어별로 다시 찍는다 (`README.md` 참고). 시스템 언어가 새지 않게 `PROJECTOPS_LANG`/`--language`를 명시하고, npm 배포본이 아니라 작업 트리 CLI·템플릿으로 찍는다.
+- 마법사 배포 환경값 문구(`.github/config/wizard-prompts.yml`)는 `label`=영어, `label_ko`=한국어다. 새 키는 두 언어를 함께 넣는다 (`test/wizard-labels.test.js`가 검사).
+
 ### 실행 기록 3계층 (#493·#494·#561 — agent 필독)
 
 마법사(full/workflows)가 끝나면 **대상 레포**의 `.github/.projectops/logs/`에 실행 기록을 남긴다.
@@ -941,7 +953,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | commit | `skills/pro-commit/scripts/commit_cli.py` | get-issue-number, get-issue, normalize-title, sanitize-message, get-commit-template, resolve-style |
 | report | `skills/pro-report/scripts/report_cli.py` | get-output-path, add-comment |
 | review | `skills/pro-review/scripts/review_cli.py` | get-output-path |
-| changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` | actions, deploy-status, list-prs, update-pr, create-pr, detect-release-context |
+| changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` | actions, deploy-status, list-prs, update-pr, create-pr, detect-release-context (`release_language`: 노트 언어는 `version.yml` `language` — 워크플로우와 같은 규칙, 스토어 언어·고정 문구 — #977) |
 | testcase | `skills/pro-testcase/scripts/testcase_cli.py` | get-output-path (#525·#623) |
 | init-worktree | `skills/pro-init-worktree/scripts/worktree_cli.py` | recall, record (지난번 복사한 로컬 파일 세트를 기억 — #839) |
 | figma | `skills/pro-figma/scripts/figma_cli.py` | get-output-path, coverage, assets, conform, diff |

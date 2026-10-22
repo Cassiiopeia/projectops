@@ -79,9 +79,15 @@ def _style(args) -> tuple:
 
 
 def cmd_resolve_style(args) -> int:
+    from common.commit_style import _toplevel
+    from common.repo_language import read_team_language
     prefs, style = _style(args)
     v = prefs["values"]
-    return emit({**style, "language": v.get("language"), "tone": v.get("tone"),
+    # 말 언어: 개인 설정 > 팀 version.yml language (#977) > 없음(기본 동작)
+    team_language = read_team_language(getattr(args, "repo_root", None) or _toplevel())
+    language = v.get("language") or team_language
+    language_source = "preferences" if v.get("language") else ("version.yml" if team_language else None)
+    return emit({**style, "language": language, "language_source": language_source, "tone": v.get("tone"),
                  "rules": v.get("rules", []), "examples": v.get("examples", []),
                  "ignored": prefs["ignored"], "summary": f"{style['preset']} ({style['source']})"})
 

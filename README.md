@@ -11,7 +11,7 @@
 **Status: actively maintained.** npm `latest` is exactly what is on the `main` branch; work in progress on `develop` is never published. Versions can still ship several times a day. To stay on a version you have tested, run `npx projectops@<version>` ([releases](https://github.com/Cassiiopeia/projectops/releases)).
 
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
-## Latest version : v4.69.3 (2026-10-21)
+## Latest version : v4.71.1 (2026-10-21)
 
 [View full version history](CHANGELOG.md)
 
@@ -32,7 +32,7 @@
 
 ![npx projectops interactive wizard](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
 
-> This is a **real run** on a sample Spring project (the wizard follows your system language, or use `--lang en|ko`). Version numbers shown were current when it was recorded. For non-interactive use and every option, see the [CLI reference](https://cassiiopeia.github.io/projectops/en/cli).
+> This is a **real run** on a sample Spring project (the wizard follows your system language, or use `--lang en|ko`). Version numbers shown were current when it was recorded. For non-interactive use and every option, see the [CLI reference](https://cassiiopeia.github.io/projectops/cli).
 
 ---
 
@@ -104,7 +104,6 @@ Open a PR from the development branch to `main` and it writes the release notes,
 
 **Drive it from your agent:** `/pro-changelog-deploy` pushes develop and opens the release PR for you.
 
-> The warning banner GitHub shows for Korean branch names is hidden in the recording. Everything else is the unedited screen.
 
 ---
 
@@ -140,9 +139,9 @@ What it changed: descriptions were cut to short English triggers, a shared contr
 
 | Part | What it does | Docs |
 |---|---|---|
-| **GitHub Actions** | One push to main handles versioning, changelogs, and CI/CD deployment | [Versioning](https://cassiiopeia.github.io/projectops/VERSION-CONTROL) (Korean) |
-| **Agent Skills** (14) | `/pro-github`, `/pro-commit`, `/pro-report` and more let an AI agent drive each step: issues, commits in your style, reports, release PRs | [Skills guide](https://cassiiopeia.github.io/projectops/SKILLS) (Korean) |
-| **npx CLI** | Installs and updates workflows in an existing project, and diagnoses its state | [CLI reference](https://cassiiopeia.github.io/projectops/en/cli) |
+| **GitHub Actions** | One push to main handles versioning, changelogs, and CI/CD deployment | [Versioning](https://cassiiopeia.github.io/projectops/version-control) |
+| **Agent Skills** (14) | `/pro-github`, `/pro-commit`, `/pro-report` and more let an AI agent drive each step: issues, commits in your style, reports, release PRs | [Skills guide](https://cassiiopeia.github.io/projectops/skills) |
+| **npx CLI** | Installs and updates workflows in an existing project, and diagnoses its state | [CLI reference](https://cassiiopeia.github.io/projectops/cli) |
 
 <details>
 <summary>See all 14 Agent Skills</summary>
@@ -292,7 +291,7 @@ Run automation by commenting on an issue or PR.
 | `@projectops ios build` | Build iOS only | Flutter |
 | `@projectops create qa` | Create a QA issue automatically | All projects |
 
-> Details: [PR Preview](docs/en/pr-preview.md) | [Flutter builds](docs/FLUTTER-TEST-BUILD-TRIGGER.md) | [Issue automation](docs/en/issue-automation.md)
+> Details: [PR Preview](docs/en/pr-preview.md) | [Flutter builds](docs/en/flutter-test-build-trigger.md) | [Issue automation](docs/en/issue-automation.md)
 
 ---
 
@@ -342,18 +341,18 @@ We would rather tell you up front when this is not a fit.
 
 ## Documentation
 
-Browse and search everything on the **[docs site](https://cassiiopeia.github.io/projectops/en/)**. The main guides are in English. A few wizard pages are still Korean only (translations are welcome, see [#799](https://github.com/Cassiiopeia/projectops/issues/799)).
+Browse and search everything on the **[docs site](https://cassiiopeia.github.io/projectops/)**. The guides are available in English and [Korean](https://cassiiopeia.github.io/projectops/ko/).
 
-- [Getting started](https://cassiiopeia.github.io/projectops/en/getting-started)
-- [CLI reference](https://cassiiopeia.github.io/projectops/en/cli)
-- [Agent Skills guide](https://cassiiopeia.github.io/projectops/en/skills)
-- [Versioning](https://cassiiopeia.github.io/projectops/en/version-control)
-- [Changelog automation](https://cassiiopeia.github.io/projectops/en/changelog-automation)
-- [PR Preview](https://cassiiopeia.github.io/projectops/en/pr-preview)
-- [Issue automation](https://cassiiopeia.github.io/projectops/en/issue-automation)
-- [SSH + Docker deploy](https://cassiiopeia.github.io/projectops/en/ssh-docker-deployment-guide)
-- [Flutter CI/CD](https://cassiiopeia.github.io/projectops/en/flutter-cicd-overview)
-- [Troubleshooting](https://cassiiopeia.github.io/projectops/en/troubleshooting)
+- [Getting started](https://cassiiopeia.github.io/projectops/getting-started)
+- [CLI reference](https://cassiiopeia.github.io/projectops/cli)
+- [Agent Skills guide](https://cassiiopeia.github.io/projectops/skills)
+- [Versioning](https://cassiiopeia.github.io/projectops/version-control)
+- [Changelog automation](https://cassiiopeia.github.io/projectops/changelog-automation)
+- [PR Preview](https://cassiiopeia.github.io/projectops/pr-preview)
+- [Issue automation](https://cassiiopeia.github.io/projectops/issue-automation)
+- [SSH + Docker deploy](https://cassiiopeia.github.io/projectops/ssh-docker-deployment-guide)
+- [Flutter CI/CD](https://cassiiopeia.github.io/projectops/flutter-cicd-overview)
+- [Troubleshooting](https://cassiiopeia.github.io/projectops/troubleshooting)
 
 ---
 

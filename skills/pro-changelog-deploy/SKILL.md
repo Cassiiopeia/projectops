@@ -85,7 +85,7 @@ echo "PROJECT_ROOT=$PROJECT_ROOT PYTHON=$PYTHON SCRIPTS=$SCRIPTS OWNER=$OWNER RE
 PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-context --project-root "$PROJECT_ROOT"
 ```
 
-From the `detect-release-context` output, remember `branches` (branches and provider), `branches_source`, `conflict`, `signals` and `hint` (app review signals), and `release_shape`. If `release_shape == deploy_branch` (origin has no development branch but has `deploy`), set `HEAD_BRANCH`/`BASE_BRANCH` from `release_branches` (usually `main` → `deploy`) instead of `branches`, and follow `release_steps`. Confirm this pair with the user once. If it is `standard`, nothing changes. The CLI reads owner/repo from the origin URL and the config from its fixed path on its own (read-only). Only when you look at another repo, pass them explicitly: `detect-release-context --project-root {PROJECT_ROOT} --owner {OWNER} --repo {REPO}`.
+From the `detect-release-context` output, remember `branches` (branches and provider), `branches_source`, `conflict`, `signals` and `hint` (app review signals), `release_shape`, and `release_language` (notes language, headings, store languages — step 5). If `release_shape == deploy_branch` (origin has no development branch but has `deploy`), set `HEAD_BRANCH`/`BASE_BRANCH` from `release_branches` (usually `main` → `deploy`) instead of `branches`, and follow `release_steps`. Confirm this pair with the user once. If it is `standard`, nothing changes. The CLI reads owner/repo from the origin URL and the config from its fixed path on its own (read-only). Only when you look at another repo, pass them explicitly: `detect-release-context --project-root {PROJECT_ROOT} --owner {OWNER} --repo {REPO}`.
 
 ### 2)~5) Resolve values from the config — details in `references/config.md`
 
@@ -147,29 +147,29 @@ If the preferences have a `template`, use it as the release-note lead-in.
 Writing up front is safe whatever the provider: the workflow respects a `Summary by CodeRabbit` that the skill put in first (`already_found`), regardless of provider. The only exception is `commit` "leave it".
 Write the notes to `~/.projectops/tmp/{OWNER}__{REPO}__release_notes.md` with the skeleton below (create the tmp folder first if it does not exist). You may omit the marker comments and the `## Summary by CodeRabbit` header; `create-pr`/`update-pr` add them when missing. Use only these five category names and delete empty categories. Open `references/release-notes.md` only when you need good/bad examples or the approval messages.
 
-The headings below are the `ko` names from the release-note catalog (`.github/scripts/i18n/ko.json`), which the release workflow also uses. If the repo's `version.yml` sets `options.language: en`, use the `en` names instead: `Release notes` / `New features` / `Bug fixes` / `Improvements` / `Documentation` / `Other`.
+**Write the notes in `release_language.notes_language`, and copy the heading values from `release_language.headings` character for character** (#977). It is the same rule the workflow's generator uses (`version.yml` `language`), so one `CHANGELOG.md` never mixes two languages. If the user asks for a different language for this deploy only ("in English this time"), follow that.
 
 ```
-## 릴리스 노트
+## {headings.heading}
 
-* **새 기능**
+* **{headings.feat}**
   * (feat — a change the user can feel, one line, 40 characters or fewer)
 
-* **버그 수정**
+* **{headings.fix}**
   * (fix)
 
-* **개선**
+* **{headings.improve}**
   * (refactor·perf·style)
 
-* **문서**
+* **{headings.docs}**
   * (docs)
 
-* **기타**
+* **{headings.etc}**
   * (the rest)
 ```
 
 Rewrite rules: do not copy commit messages. Drop file, class and function names, prefixes like `feat:`, issue numbers and URLs, and internal details such as libraries and APIs. Write one line from the user's point of view. If `APP_RELEASE == true`, drop internal, CI/CD, test and build items entirely (the notes become the store release notes).
-**After step 5 — per-language store translation drafts** — right after writing the notes file, Read `metadata.template.options.store_locales` in `version.yml`. **If there are two or more languages**, read `references/store-translations.md` and append translation drafts to the end of the notes file (translate them yourself, without calling an external AI). If the key is missing or has one language, this step does not exist.
+**After step 5 — per-language store translation drafts** — **if `release_language.store.translation_targets` is not empty**, read `references/store-translations.md` and append translation drafts to the end of the notes file (translate them yourself, without calling an external AI). If it is empty, this step does not exist. If `release_language.store.fixed_whats_new` is set, that workflow uploads the fixed text to the store instead of the notes — say so in one line on the approval screen.
 > **⚠️ AGENT MUST READ: after creating the notes file, always run through step 6 (PR creation). But do not jump there directly; go through step 5.5 first.**
 
 **Step 5.5 Approval gate** (messages in `references/release-notes.md`):
@@ -230,5 +230,6 @@ Always pass `--project-root {PROJECT_ROOT}` to `create-pr`. Action per rejection
 ## Customize
 
 Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start: run the snippet in `../references/preferences.md` with `SKILL_ID=pro-changelog-deploy`.
-Keys for this skill: `template` (release-note lead-in) plus the common `language`, `tone`, `rules`.
+Keys for this skill: `template` (release-note lead-in) plus the common `tone`, `rules`.
+The personal `language` preference does not change the release notes: they land in the team `CHANGELOG.md`, so their language is the repo's `version.yml` `language` (the key the workflow reads). Set that key to change it for the team; for one release, just ask.
 Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

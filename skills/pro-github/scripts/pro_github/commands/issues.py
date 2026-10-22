@@ -82,7 +82,7 @@ def cmd_create_issue(args, api) -> int:
     if not pat:
         return missing_pat()
     body = body_path.read_text(encoding="utf-8")
-    # 위치 인자와 --labels 를 둘 다 받는다 (다른 명령이 --labels 라 그대로 부르면 실패했다)
+    # 위치 인자와 --labels 둘 다 받음 (다른 명령과 같은 --labels 형식도 통하게)
     labels = split_csv(",".join(filter(None, (args.labels, args.labels_option))))
     assignees = split_csv(args.assignees) if args.assignees else []
     try:

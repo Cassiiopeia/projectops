@@ -1,0 +1,53 @@
+# 대화형 마법사 녹화: 샘플 Spring 프로젝트에 npx projectops 전체 설치 (record_cli.sh 가 {{...}} 치환)
+# 질문 11개 전부 기본값: 설치 범위 > 성격 > 배포 > PR 댓글 > 개발 브랜치 > develop 생성 > push > Secret 백업 > 확인 > 환경값 > 스킬
+# 첫 질문만 ◆ 대기, 이후 2.5초 간격 Enter (실측 질문 간격 2초 이내)
+# Wait+Screen 은 화면이 스크롤되면 위쪽 줄만 읽어 ◆ 를 놓친다 (vhs 0.12) > 고정 간격 사용
+
+Output "{{OUTPUT_DIR}}/cli-wizard{{SUFFIX}}.gif"
+Require node
+
+Set Shell bash
+Set Width 1200
+Set Height 820
+Set Padding 20
+{{FONT_FAMILY_LINE}}
+Set FontSize 14
+Set Theme "Catppuccin Mocha"
+Set TypingSpeed 60ms
+Set WaitTimeout 120s
+
+Hide
+Type `cd {{WORK_DIR}}/wizard/demo-app && export PROJECTOPS_LANG={{LANG}} PS1='$ ' && npx() { shift; node {{RUNNER}} {{WORK_DIR}}/template "$@"; } && clear`
+Enter
+Sleep 500ms
+Show
+
+Type "npx projectops"
+Sleep 400ms
+Enter
+
+Wait+Screen /◆/
+Sleep 1.5s
+Enter
+Sleep 2.5s
+Enter
+Sleep 2.5s
+Enter
+Sleep 2.5s
+Enter
+Sleep 2.5s
+Enter
+Sleep 2.5s
+Enter
+Sleep 2.5s
+Enter
+Sleep 2.5s
+Enter
+Sleep 2.5s
+Enter
+Sleep 2.5s
+Enter
+Sleep 2.5s
+Enter
+
+Sleep 8s

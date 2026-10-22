@@ -25,7 +25,7 @@
 
 ![npx projectops 交互式向导](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
 
-> 以上是在示例 Spring 项目上的**真实运行画面**（向导界面目前为韩文）。画面中的版本号以录制时为准。非交互式用法和全部选项请见 [CLI 参考](https://cassiiopeia.github.io/projectops/en/cli)（英文）。
+> 以上是在示例 Spring 项目上的**真实运行画面**（向导跟随系统语言，也可用 `--lang en|ko` 指定）。画面中的版本号以录制时为准。非交互式用法和全部选项请见 [CLI 参考](https://cassiiopeia.github.io/projectops/cli)（英文）。
 
 ---
 
@@ -97,7 +97,6 @@
 
 **用 Agent 推进：** `/pro-changelog-deploy` 代你推送 develop 并创建发布 PR。
 
-> GitHub 对韩文分支名显示的警告横幅在画面中已被隐藏，其余均为未经加工的真实画面。
 
 ---
 
@@ -133,9 +132,9 @@ Skill 会按你的风格输出。把偏好写进 `~/.projectops/config/config.js
 
 | 组成 | 作用 | 文档 |
 |---|---|---|
-| **GitHub Actions** | 推送一次 main，版本管理、更新日志、CI/CD 部署全部自动完成 | [版本管理](https://cassiiopeia.github.io/projectops/VERSION-CONTROL)（韩文） |
-| **Agent Skills**（14 个） | 通过 `/pro-github`、`/pro-commit`、`/pro-report` 等命令，由 AI 代你推进每一步：Issue、你风格的提交、报告、发布 PR | [Skills 指南](https://cassiiopeia.github.io/projectops/SKILLS)（韩文） |
-| **npx CLI** | 向现有项目安装并更新工作流，并诊断其状态 | [CLI 参考](https://cassiiopeia.github.io/projectops/en/cli)（英文） |
+| **GitHub Actions** | 推送一次 main，版本管理、更新日志、CI/CD 部署全部自动完成 | [版本管理](https://cassiiopeia.github.io/projectops/version-control)（英文） |
+| **Agent Skills**（14 个） | 通过 `/pro-github`、`/pro-commit`、`/pro-report` 等命令，由 AI 代你推进每一步：Issue、你风格的提交、报告、发布 PR | [Skills 指南](https://cassiiopeia.github.io/projectops/skills)（英文） |
+| **npx CLI** | 向现有项目安装并更新工作流，并诊断其状态 | [CLI 参考](https://cassiiopeia.github.io/projectops/cli)（英文） |
 
 <details>
 <summary>查看全部 14 个 Agent Skills</summary>
@@ -206,7 +205,7 @@ flowchart TD
     K --> L["/pro-changelog-deploy<br/>发布 PR + automerge"]
 ```
 
-> Skills 完整列表和用法：**[docs/SKILLS.md](../SKILLS.md)**（韩文）
+> Skills 完整列表和用法：**[docs/en/skills.md](../en/skills.md)**（英文）
 
 ### GitHub Actions 自动化流水线
 
@@ -243,14 +242,14 @@ codex plugin marketplace add Cassiiopeia/projectops
 
 `--mode skills` 向导会注册 Codex marketplace，并自动准备原生 skills 回退方案。`/plugins` 仅用于确认和管理安装。
 
-在无法使用 Codex plugin marketplace 的环境中，请使用 [Skills 指南](../SKILLS.md) 中的回退安装方式。
+在无法使用 Codex plugin marketplace 的环境中，请使用 [Skills 指南](../en/skills.md) 中的回退安装方式。
 
 ```bash
 # Cursor / 完整的 Agent Skills 安装菜单（推荐：npx）
 npx projectops --mode skills
 ```
 
-> Claude Code 优先使用 `/pro-` 自动补全，Gemini 优先使用 extension，Codex 优先使用 plugin marketplace。详见 [Skills 指南](../SKILLS.md)。
+> Claude Code 优先使用 `/pro-` 自动补全，Gemini 优先使用 extension，Codex 优先使用 plugin marketplace。详见 [Skills 指南](../en/skills.md)。
 
 </details>
 
@@ -285,7 +284,7 @@ npx projectops --mode skills
 | `@projectops ios build` | 仅构建 iOS | Flutter |
 | `@projectops create qa` | 自动创建 QA Issue | 所有项目 |
 
-> 详情：[PR Preview](../PR-PREVIEW.md) | [Flutter 构建](../FLUTTER-TEST-BUILD-TRIGGER.md) | [Issue 自动化](../ISSUE-AUTOMATION.md)
+> 详情：[PR Preview](../en/pr-preview.md) | [Flutter 构建](../en/flutter-test-build-trigger.md) | [Issue 自动化](../en/issue-automation.md)
 
 ---
 
@@ -335,18 +334,18 @@ Settings → Actions → General
 
 ## 文档
 
-可在**[文档站点](https://cassiiopeia.github.io/projectops/en/)** 中搜索浏览全部内容。大部分指南目前仅有韩文。
+可在**[文档站点](https://cassiiopeia.github.io/projectops/)** 中搜索浏览全部内容。指南提供英文和[韩文](https://cassiiopeia.github.io/projectops/ko/)版本。
 
-- [开始使用（英文）](https://cassiiopeia.github.io/projectops/en/getting-started)
-- [CLI 参考（英文）](https://cassiiopeia.github.io/projectops/en/cli)
-- [Agent Skills 指南（韩文）](https://cassiiopeia.github.io/projectops/SKILLS)
-- [版本管理（韩文）](https://cassiiopeia.github.io/projectops/VERSION-CONTROL)
-- [更新日志自动化（韩文）](https://cassiiopeia.github.io/projectops/CHANGELOG-AUTOMATION)
-- [PR Preview（韩文）](https://cassiiopeia.github.io/projectops/PR-PREVIEW)
-- [Issue 自动化（韩文）](https://cassiiopeia.github.io/projectops/ISSUE-AUTOMATION)
-- [SSH + Docker 部署（韩文）](https://cassiiopeia.github.io/projectops/SSH-DOCKER-DEPLOYMENT-GUIDE)
-- [Flutter CI/CD（韩文）](https://cassiiopeia.github.io/projectops/FLUTTER-CICD-OVERVIEW)
-- [故障排查（韩文）](https://cassiiopeia.github.io/projectops/TROUBLESHOOTING)
+- [开始使用（英文）](https://cassiiopeia.github.io/projectops/getting-started)
+- [CLI 参考（英文）](https://cassiiopeia.github.io/projectops/cli)
+- [Agent Skills 指南（英文）](https://cassiiopeia.github.io/projectops/skills)
+- [版本管理（英文）](https://cassiiopeia.github.io/projectops/version-control)
+- [更新日志自动化（英文）](https://cassiiopeia.github.io/projectops/changelog-automation)
+- [PR Preview（英文）](https://cassiiopeia.github.io/projectops/pr-preview)
+- [Issue 自动化（英文）](https://cassiiopeia.github.io/projectops/issue-automation)
+- [SSH + Docker 部署（英文）](https://cassiiopeia.github.io/projectops/ssh-docker-deployment-guide)
+- [Flutter CI/CD（英文）](https://cassiiopeia.github.io/projectops/flutter-cicd-overview)
+- [故障排查（英文）](https://cassiiopeia.github.io/projectops/troubleshooting)
 
 ---
 
@@ -354,7 +353,7 @@ Settings → Actions → General
 
 - [Issues](https://github.com/Cassiiopeia/projectops/issues)：缺陷报告、功能请求
   - 本仓库不会关闭已完成的 Issue，而是用 `작업완료`（已完成）标签标记。这就是未关闭 Issue 数量看起来很多的原因。
-- [CONTRIBUTING.md](../../CONTRIBUTING.md)：贡献指南（韩文）
+- [CONTRIBUTING.md](../../CONTRIBUTING.md)：贡献指南（英文）
 - [SECURITY.md](../../SECURITY.md)：请不要在公开 Issue 中报告安全漏洞，而是私下报告
 
 ---

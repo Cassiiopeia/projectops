@@ -54,5 +54,10 @@ python3 -m pytest .github/scripts/test/test_i18n_messages.py -q
 
 ## What is not translated yet
 
-Log lines in the Actions tab, the util wizards (HTML), the skills and most of `docs/` are still Korean or
-English only. They are tracked in issue #769.
+Log lines in the Actions tab, the util wizards (HTML) and the skills are still Korean or English only. They are
+tracked in issue #769.
+
+The docs site has every guide in English (`docs/en/`, served at the site root) and Korean (`docs/*.md`, served
+under `/ko/`). A new guide needs both files with the same slug, so the language switch lands on the same page.
+Demo GIFs follow the same rule (`name.gif` English, `name.ko.gif` Korean) and are recorded with the scripts in
+`docs/recording/`.

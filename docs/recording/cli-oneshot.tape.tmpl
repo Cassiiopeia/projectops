@@ -1,0 +1,44 @@
+# 한 줄 실행 녹화: 비대화형 설치 > 설치된 워크플로우 확인 > doctor 진단 (record_cli.sh 가 {{...}} 치환)
+
+Output "{{OUTPUT_DIR}}/cli-oneshot{{SUFFIX}}.gif"
+Require node
+
+Set Shell bash
+Set Width 1200
+Set Height 900
+Set Padding 20
+{{FONT_FAMILY_LINE}}
+Set FontSize 14
+Set Theme "Catppuccin Mocha"
+Set TypingSpeed 60ms
+Set WaitTimeout 120s
+
+Hide
+Type `cd {{WORK_DIR}}/oneshot/demo-app && export PROJECTOPS_LANG={{LANG}} PS1='$ ' && npx() { shift; node {{RUNNER}} {{WORK_DIR}}/template "$@"; } && clear`
+Enter
+Sleep 500ms
+Show
+
+Type "ls"
+Enter
+Sleep 1s
+
+Type "npx projectops --mode full --type spring --force"
+Sleep 400ms
+Enter
+Sleep 6s
+
+Type "ls .github/workflows"
+Enter
+Sleep 3s
+
+Hide
+Type "clear"
+Enter
+Sleep 300ms
+Show
+
+Type "npx projectops --mode doctor"
+Sleep 400ms
+Enter
+Sleep 7s

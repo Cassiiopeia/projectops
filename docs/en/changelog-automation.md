@@ -47,7 +47,7 @@ main push (release merge)
 > - `VERSION-CONTROL` **does not react to develop pushes.** It is a safety net that runs only on direct pushes to main (see [Version control](./version-control.md)).
 > - **No workflow creates the release PR automatically.** Pushing develop does not open a PR, so use the `/pro-changelog-deploy` skill or open the PR yourself.
 
-> Former name: this workflow was renamed from `PROJECT-COMMON-AUTO-CHANGELOG-CONTROL` to `PROJECT-COMMON-RELEASE-CHANGELOG` in v4.3.0. If the old file is still present, the `npx projectops` update neutralizes it automatically (see the [NPX wizard guide](../NPX-WIZARD.md)).
+> Former name: this workflow was renamed from `PROJECT-COMMON-AUTO-CHANGELOG-CONTROL` to `PROJECT-COMMON-RELEASE-CHANGELOG` in v4.3.0. If the old file is still present, the `npx projectops` update neutralizes it automatically (see the [NPX wizard guide](./npx-wizard.md)).
 
 ---
 

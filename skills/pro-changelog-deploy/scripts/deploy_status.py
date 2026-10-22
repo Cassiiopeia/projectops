@@ -94,7 +94,7 @@ def _find_release_workflow(owner: str, repo: str, pr_number: int, pat: str) -> d
     return None
 
 
-def _count_repo_queued_runs(owner: str, repo: str, pat: str) -> int:
+def _count_repository_queued_runs(owner: str, repo: str, pat: str) -> int:
     """레포 전체의 queued run 수 (러너 대기열 지연 판정용). 조회 실패면 0"""
     try:
         return len(list_runs(owner, repo, pat, status="queued", limit=20))
@@ -155,7 +155,7 @@ def _deploy_status_once(args, pat) -> dict:
     # 매칭 run 이 없으면 레포 대기열 확인 (러너 부족으로 run 이 아직 안 잡힌 경우, #970)
     repo_queued_count = 0
     if workflow is None and not pr_young:
-        repo_queued_count = _count_repo_queued_runs(args.owner, args.repo, pat)
+        repo_queued_count = _count_repository_queued_runs(args.owner, args.repo, pat)
 
     next_hint = f"deploy-status {args.owner} {args.repo} --pr {pr['number']}"
     # 대기열 지연은 PR 닫기·재오픈으로 풀리지 않는다 — 다시 열면 run 만 하나 더 쌓인다 (#970)

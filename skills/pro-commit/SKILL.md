@@ -144,7 +144,7 @@ The format comes from settings, not from hard-coded text. Do this in order.
 
 1. Run `resolve-style --repo-root "{PROJECT_ROOT}"` to get `template`, `source`, `preset`, `language`, `tone`, `rules`, `examples`, `warnings`. If `warnings` or `ignored` is not empty, tell the user in one line.
 2. Run `get-commit-template "<title>" "<URL>" [--type T] [--scope S] --repo-root "{PROJECT_ROOT}"` to get the frame. Only `{description}` remains in it. Without `--repo-root` it uses the git root of the cwd, but the skill may be called from a subfolder or another repo, so always pass it.
-3. Fill `{description}` from the staged diff. Follow `language`, `tone`, `rules`. Use `examples` only as a reference for voice and length; never copy them. If they are empty, use the default behavior.
+3. Fill `{description}` from the staged diff. Follow `language` (without a personal setting, the team `version.yml` `language` — see `language_source`, #977), `tone`, `rules`. Use `examples` only as a reference for voice and length; never copy them. If they are empty, use the default behavior.
 
 - Use the cleaned issue title and URL exactly as the CLI returns them (no summarizing or rewriting).
 - Suggest the type from the staged diff (feat/fix/refactor/docs/chore/test/style; table in `references/message-rules.md`). If you omit `--type`, it is derived from the title tag.
@@ -200,7 +200,7 @@ Keys for this skill (set under `skills.pro-commit` in `~/.projectops/config/conf
 | `preset` | `conventional` (default for new users), `projectops`, `gitmoji`, or `custom` |
 | `template` | your own format; beats a `preset` set in the same layer (the preset then becomes `custom`); placeholders `{issue_title}` `{issue_url}` `{issue_number}` `{type}` `{emoji}` `{scope}` `{description}`. Legacy `${issueTitle}`-style placeholders are accepted too |
 | `examples` | sample messages to match in voice and length; never copied verbatim |
-| `language` / `tone` / `rules` | how `{description}` is written |
+| `language` / `tone` / `rules` | how `{description}` is written (no personal `language` → the repo's `version.yml` `language`) |
 
 ```json
 {"skills": {"pro-commit": {"preset": "conventional", "language": "en", "tone": "imperative",

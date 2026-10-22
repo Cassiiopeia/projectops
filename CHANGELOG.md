@@ -1,7 +1,55 @@
 # Changelog
 
-**Current version:** 4.70.0  
-**Last updated:** 2026-10-21T12:24:52Z  
+**Current version:** 4.71.2  
+**Last updated:** 2026-10-21T22:10:03Z  
+
+---
+
+## [4.71.2] - 2026-10-21
+
+**PR:** #981  
+
+**문서**
+- 한국어 README와 문서의 데모 영상을 최신 화면으로 교체
+
+---
+
+## [4.71.1] - 2026-10-21
+
+**PR:** #980  
+
+**Bug fixes**
+- Closing an issue no longer warns that the report is missing after you post one
+
+---
+
+## [4.71.0] - 2026-10-21
+
+**PR:** #979  
+
+**New features**
+- Release notes are now written in the repo's language, the same one the release workflow uses
+- The deploy skill shows your store languages and any fixed "What's New" text before you approve
+- Commit messages follow the repo's language when you haven't set your own
+
+**Improvements**
+- Cleaner code comments and clearer names in the GitHub, deploy and worktree tools
+
+---
+
+## [4.70.1] - 2026-10-21
+
+**PR:** #978  
+
+**버그 수정**
+- 영어 화면에서 배포 환경값 설명이 한국어로 나오던 문제 해결
+
+**문서**
+- 문서 사이트 기본 언어를 영어로 바꾸고 한국어는 /ko/ 로 분리
+- 예전 문서 주소로 들어와도 새 주소로 자동 이동
+- 한국어로만 있던 안내 11편을 영어로 제공
+- README 데모 영상을 읽는 언어에 맞춰 영어·한국어로 제공
+- 각 언어 README가 같은 언어의 문서로 연결
 
 ---
 

@@ -47,7 +47,7 @@ def _patch_github(monkeypatch, existing_pr=None, create_error=None, app_release=
     return created
 
 
-def _app_repo(tmp_path):
+def _app_repository(tmp_path):
     (tmp_path / "version.yml").write_text('project_types: ["flutter"]\n', encoding="utf-8")
     return tmp_path
 
@@ -55,7 +55,7 @@ def _app_repo(tmp_path):
 def test_앱_심사_레포는_승인_없이_PR_을_만들지_않는다(monkeypatch, tmp_path):
     # 실사고 (#970): 앱 심사 레포에서 승인 없이 deploy PR 생성
     created = _patch_github(monkeypatch)
-    base_argv = ["create-pr", "o", "r", "t", "", "develop", "main", "--project-root", str(_app_repo(tmp_path))]
+    base_argv = ["create-pr", "o", "r", "t", "", "develop", "main", "--project-root", str(_app_repository(tmp_path))]
     return_code, out = _run(monkeypatch, base_argv)
     assert return_code == 1 and out["code"] == "needs_user_approval" and not created
     # 사용자가 일반 배포로 기록한 레포(app_release=false)는 막지 않는다
