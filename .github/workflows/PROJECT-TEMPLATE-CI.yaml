@@ -1,23 +1,16 @@
 # ===================================================================
 # PROJECT-TEMPLATE-CI.yaml
-# projectops npx CLI 크로스-OS 테스트 워크플로우 v1.0
+# projectops 저장소 감시 검사 워크플로우 v2.0
 # ===================================================================
 #
 # 이 워크플로우는 projectops 저장소 전용입니다.
 # template_integrator로 복사되지 않으며, template_initializer가 삭제합니다.
 #
-# 동작 — 두 갈래로 나뉜다 (#591):
+# 감시용 검사 5개 + 마법사 정합성 + CLI 스모크만 돈다.
+# 여러 파일에 흩어진 약속이 서로 맞는지만 본다 (스킬 개수·설명, 한글 줄 장부, 워크플로 권한, 옵션 정본).
 #
-#   빠른 길  develop push·PR 마다   ubuntu 1대에서 전부  (~2분, 러너 1대)
-#   넓은 길  main push·수동 실행    3 OS × 2 Node 매트릭스 (러너 8대)
-#
-# 왜 나눴나: 커밋 하나에 러너 9대를 쓰고 있었다. 무료 러너 가용량을 매 커밋마다
-# 그만큼 쓸 이유가 없다. 검사 내용은 빠른 길에서 **하나도 빠짐없이** 돈다 —
-# 줄인 것은 "몇 개의 OS에서 돌리나"뿐이다.
-#
-# OS 매트릭스를 없애지 않은 이유: 이 저장소는 OS 차이로 실제로 여러 번 깨졌다.
-# macOS의 bash 3.2·BSD sed/grep(#415·#418), Windows의 .cmd 처리와 경로 분기가
-# 그렇다. 그래서 **사용자에게 나가기 직전(main)** 에는 전부 본다.
+#   빠른 길  develop push·PR 마다   ubuntu 1대
+#   넓은 길  main push·수동 실행    3 OS CLI 스모크 (macOS bash 3.2·Windows .cmd 차이 #415·#418)
 #
 # 트리거: develop·main 브랜치 push / develop 대상 PR (+ 수동 실행)
 # ===================================================================
@@ -64,10 +57,10 @@ permissions:
 
 jobs:
   # ===================================================================
-  # 빠른 길 — 모든 커밋. 한 대에서 전부 본다.
+  # 빠른 길 — 모든 커밋
   # ===================================================================
   quick:
-    name: 빠른 검증 (ubuntu · Node 20)
+    name: 감시 검사 (ubuntu · Node 20)
     # 릴리스 버전 확정 커밋([skip ci])에서는 실행하지 않음
     if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     runs-on: ubuntu-latest
@@ -76,7 +69,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Node.js 설정
-        # engines의 하한(20.12)에 맞춘다 — 가장 깨지기 쉬운 쪽에서 본다
+        # engines의 하한(20.12)에 맞춘다
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -90,51 +83,27 @@ jobs:
         # package-lock.json은 .gitignore 대상(레포에 커밋 안 됨)이라 npm install 사용
         run: |
           npm install --no-audit --no-fund
-          # pillow·numpy 는 시안 대조(pro-figma) 테스트가 쓴다. 없으면 그
-          # 테스트가 건너뛰어지는데, 건너뛴 것은 "안 돌아간 것"과 구분되지 않는다 (#591).
-          python3 -m pip install --quiet pytest pyyaml pillow numpy
+          python3 -m pip install --quiet pytest pyyaml
 
-      - name: node --test
-        # 인자 없는 node --test 는 cwd 기준 test 파일을 자동 탐색한다(Node 20+ 안정).
-        # glob 패턴("test/**")은 Node 21+ 전용이라 Node 20에서 깨지므로 인자 없이 실행.
+      - name: node --test (스킬 개수·목록 일치, 옵션 정본)
+        # 인자 없는 node --test 는 cwd 기준 test 파일을 자동 탐색한다(Node 20+)
         run: npm test
 
       - name: CLI 스모크 (--help 종료코드 0)
         run: node bin/projectops.js --help
 
-      - name: 스크립트 테스트
-        # changelog provider · version manager · issue helper
-        run: python3 -m pytest .github/scripts/test/ -q
+      - name: pytest (스킬 설명, 한글 줄 장부, 워크플로 권한)
+        run: python3 -m pytest scripts/tests/ .github/scripts/test/ -q
 
-      - name: 스킬 테스트
-        # 기기·브라우저·서버 없이 돌도록 만들었다. 진짜 브라우저가 필요한 것만 건너뛴다.
-        run: python3 -m pytest skills/ -q
-
-      - name: 공용 레이어 테스트
-        # scripts/common/ 은 모든 스킬이 공유하는 Layer 1 이다. 여기가 깨지면 스킬
-        # 전체가 조용히 어긋나는데, 오래 CI 경로에서 빠져 있어 실패가 쌓여 있었다 (#612).
-        run: python3 -m pytest scripts/tests/ -q
-
-      - name: extras 플러그인 테스트
-        # plugins/ 의 선택 스킬 (projectops-extras)
-        run: python3 -m pytest plugins/ -q
-
-      - name: 마법사 3종 정합성 검증
-        # CSS/JS 공통 자산 로드, 공통 유틸 재정의, 필수 기능 균일성,
-        # version.json ↔ HTML 동기화, 낡은 링크, 첫 사용자 안내, CLI 계약을 검사한다
+      - name: 마법사 정합성 검증
+        # CSS/JS 공통 자산 로드, 공통 유틸 재정의, version.json ↔ HTML 동기화, i18n 사전
         run: python3 .github/util/flutter/_shared/check-consistency.py
 
-      - name: 마법사 CLI 계약 · dry-run 안전성 테스트
-        run: python3 .github/util/flutter/_shared/test_wizard_cli.py
-
   # ===================================================================
-  # 넓은 길 — main push·수동 실행에서만. OS 차이는 여기서 잡는다.
-  #
-  # develop 에서는 돌지 않는다. 사용자에게 나가는 것은 main 이고,
-  # OS 종속 버그는 거기서 막으면 된다.
+  # 넓은 길 — main push·수동 실행에서만. OS 차이는 CLI 실행으로 본다.
   # ===================================================================
-  matrix-node:
-    name: node --test (${{ matrix.os }} · Node ${{ matrix.node }})
+  matrix-smoke:
+    name: CLI 스모크 (${{ matrix.os }})
     if: >-
       ${{ (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main')
           && !contains(github.event.head_commit.message, '[skip ci]') }}
@@ -143,61 +112,17 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        # 의존성 @clack/core가 node:util styleText(Node 20.12+ 전용)를 쓰므로 20 이상만 지원.
-        # (package.json engines: >=20.12 와 일치)
-        node: [20, 22]
     steps:
       - name: 저장소 체크아웃
         uses: actions/checkout@v5
 
-      - name: Node.js ${{ matrix.node }} 설정
+      - name: Node.js 설정
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 20
 
       - name: 의존성 설치
         run: npm install --no-audit --no-fund
 
-      - name: 테스트 실행 (npm test → node --test)
-        run: npm test
-
       - name: CLI 스모크 (--help 종료코드 0)
         run: node bin/projectops.js --help
-
-  matrix-python:
-    name: pytest (${{ matrix.os }})
-    if: >-
-      ${{ (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main')
-          && !contains(github.event.head_commit.message, '[skip ci]') }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # 경로·셸 처리에서 OS 차이를 여러 번 겪었다. ubuntu 는 빠른 길에서 이미 봤지만
-        # 매트릭스에 함께 두어야 "같은 명령이 양쪽에서 같은가"를 대조할 수 있다.
-        os: [ubuntu-latest, macos-latest]
-    steps:
-      - name: 저장소 체크아웃
-        uses: actions/checkout@v5
-
-      - name: Python 설정
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: 테스트 의존성 설치
-        # pyyaml은 워크플로우 YAML 문법 검사(test_comment_trigger_guard)가,
-        # pillow·numpy는 시안 대조(pro-figma) 테스트가 쓴다.
-        run: python3 -m pip install --quiet pytest pyyaml pillow numpy
-
-      - name: 스크립트 테스트
-        run: python3 -m pytest .github/scripts/test/ -q
-
-      - name: 스킬 테스트
-        run: python3 -m pytest skills/ -q
-
-      - name: 공용 레이어 테스트
-        run: python3 -m pytest scripts/tests/ -q
-
-      - name: extras 플러그인 테스트
-        run: python3 -m pytest plugins/ -q

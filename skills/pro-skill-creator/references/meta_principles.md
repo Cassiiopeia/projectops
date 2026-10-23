@@ -77,4 +77,4 @@ The CREATE Phase 6 report standard depends on this standard: when creating a new
 - Put entries in `skills/<skill>/troubleshooting/<area>/<id>.json` (schema and writing rules: `skills/references/memory-principles.md` §6).
 - Build the index and `references/troubleshooting.md` with `python3 scripts/build_troubleshooting.py skills/<skill>` — do not edit them by hand.
 - In one place in the CLI's failure output, attach the result of `common.troubleshoot.find_known_fixes(<skill folder>, code, error text)` as `known_fix` (swallow exceptions — it is auxiliary). Example: `attach_known_fix` in `pro-launch`'s `runtime/output.py`.
-- Add tests for `--check` (generated files are current) and "is each entry's `match.codes` a code the CLI really emits" (example of the `match.codes` check: `skills/pro-launch/tests/test_troubleshooting_kb.py`).
+- Run `--check` (generated files are current) and confirm each entry's `match.codes` is a code the CLI really emits.

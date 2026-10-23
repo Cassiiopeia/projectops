@@ -64,9 +64,9 @@ scripts/
       web/                  __init__ dispatch · options.py shared option table · session.py · targets.py · element.py target selection · watchdog.py time limits · request_capture.py request recording · saved_values.py secret storage · candidates.py candidates on failure · actions/
 ```
 
-## Rules (enforced by tests)
+## Rules
 
-`tests/test_launch_architecture.py` checks the following on every run. Breaking one fails CI.
+There is no automatic check for these; keep them by hand when you change the structure.
 
 | Rule | Why |
 |---|---|

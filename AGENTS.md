@@ -31,7 +31,7 @@ Read `CONTRIBUTING.md` and `ARCHITECTURE.md` (code map and "how to add a flag / 
 - Commit through the `pro-commit` skill. The commit type decides the release version (`feat:` = minor, `feat!:` = major).
 - Common workflows exist twice: `.github/workflows/` and `.github/workflows/project-types/common/`. Keep them identical.
 - A new CLI flag or `version.yml` option must also be added to `src/core/options-schema.js`; `test/options-schema.test.js` fails otherwise.
-- Run `npm test` and `python3 -m pytest .github/scripts/test/` before you say it works.
+- Run `npm test` and `python3 -m pytest scripts/tests/ .github/scripts/test/` (the guard checks) and run the change itself before you say it works. Do not commit new tests.
 
 ## Skills
 

@@ -68,7 +68,7 @@
   남은 하위 작업이 있으면 닫지 않고 `status: in progress`로 둔다. 취소된 작업은 `status: cancelled`와 함께 닫는다.
 - 라벨 변경과 close는 `/pro-github`(`github_cli.py finish-issue`)로 처리한다. 일부 단계만 실패하면 `failed_steps`의 단계만 `set-labels`(기존 라벨에서 상태만 바꾼 전체 목록) / `close-issue`로 다시 한다.
 - **릴리스 워크플로우도 닫는다 (#771, `close_on_release`).** 완료 라벨이 붙은 이슈 중 릴리스 구간 커밋이 URL로 참조한 것을 닫는다. 에이전트가 먼저 닫아도 충돌하지 않는다(이미 닫힌 이슈는 건너뛴다). 이 저장소는 `version.yml`에서 켜져 있다.
-- **업데이트는 사용자가 지운·제외한 워크플로우를 되살리지 않는다 (#810).** baseline에 있는데 없는 파일, `options.excluded_workflows`에 적힌 파일, 개발 브랜치가 원격에 없는데 `develop`에서만 도는 파일은 건너뛰고 `incoming/`에 사본을 남긴다. 새 조건부 설치 경로를 추가하면 `copy/workflows.js`의 `skipNew` 게이트를 거치게 한다. 회귀 방지: `test/skip-new-workflows.test.js`.
+- **업데이트는 사용자가 지운·제외한 워크플로우를 되살리지 않는다 (#810).** baseline에 있는데 없는 파일, `options.excluded_workflows`에 적힌 파일, 개발 브랜치가 원격에 없는데 `develop`에서만 도는 파일은 건너뛰고 `incoming/`에 사본을 남긴다. 새 조건부 설치 경로를 추가하면 `copy/workflows.js`의 `skipNew` 게이트를 거치게 한다.
 - **상태 라벨은 영문 표준(`status: todo` 등)과 기존 한글(`작업전` 등)을 둘 다 쓴다 (#776).** `label_style`이 표기를 정하고(신규 `en`, 기존 `ko` 유지), 스킬 공통 라벨 함수와 Projects 동기화는 두 표기를 서로 바꿔 인식한다.
 
 ---
@@ -172,55 +172,32 @@ snake_case.sh / snake_case.py
 | `PROJECT-COMMON-PROJECTS-SYNC-MANAGER` | 이슈 라벨 변경 | Issue Label → Projects Status 동기화 (선택 — `common/projects-sync/`, `--projects-sync`, #716) |
 | `PROJECT-COMMON-AI-PR-SUMMARY` | 작업 PR 생성·갱신 | 변경 요약 댓글 (선택 — `common/pr-summary/`, #566) |
 
-### ⚠️ CI는 두 갈래다 — 무료 러너 가용량을 매 커밋에 쓰지 않는다 (#591 — agent 필독)
+### ⚠️ 테스트는 감시용 5개만 둔다 (agent 필독)
 
-`PROJECT-TEMPLATE-CI`는 **이 저장소 자신의 코드**를 검사한다. 사용자 프로젝트로 복사되지 않으므로,
-남의 레포가 아니라 우리 러너 가용량만 쓴다. 예전에는 **커밋 하나에 러너 9대**(3 OS × 2 Node + pytest 2 OS + 마법사)를 돌렸다.
+AI가 작업마다 쌓은 테스트(약 250개 파일, 3만 줄)를 걷어 내고, **여러 파일에 흩어진 약속이 서로 맞는지 보는 감시 검사만** 남겼다.
+사람이 눈으로 놓치는 것만 잡고, 작고 빠르다.
 
-| 갈래 | 언제 | 무엇을 | 러너 |
-|---|---|---|---|
-| **빠른 길** (`quick`) | develop 푸시·PR **매번** | node --test · pytest 전부 · 마법사 정합성 — **검사 항목은 하나도 안 뺀다** | ubuntu 1대 |
-| **넓은 길** (`matrix-*`) | **main 푸시**·수동 실행 | 위를 3 OS × 2 Node 로 다시 | 8대 |
-
-줄인 것은 "몇 개의 OS에서 돌리나"뿐이다. **OS 매트릭스를 지우지 마라** — 이 저장소는
-macOS bash 3.2·BSD sed/grep(#415·#418)과 Windows `.cmd` 처리로 실제로 여러 번 깨졌다.
-사용자에게 나가는 것은 main이므로 거기서 전부 본다.
-
-### ⚠️ 로컬은 전부 돌리고, CI는 실제 도구가 필요한 것을 건너뛴다 (#591)
-
-`skills/conftest.py`가 `local_only` 마커를 제공한다. 실제 브라우저·기기·서버가 있어야
-의미 있는 테스트에 붙인다.
-
-```python
-@pytest.mark.local_only
-def test_web_walks_real_browser():
-    ...
-```
-
-| 환경 | 동작 |
+| 파일 | 지키는 것 |
 |---|---|
-| 로컬 | 도구가 있으면 **돈다**. 없으면 그 테스트만 건너뛴다 |
-| CI (`CI=true`) | `local_only`는 **무조건** 건너뛴다 |
+| `test/rename-consistency.test.js` | 스킬 개수·목록이 폴더 ↔ 매니페스트 ↔ README·CLAUDE.md에서 같다 |
+| `test/options-schema.test.js` | CLI 플래그·`version.yml` 옵션이 정본(`src/core/options-schema.js`)과 같다 |
+| `scripts/tests/test_skill_docs.py` | 스킬 description이 짧고(300자) 영어다 |
+| `scripts/tests/test_korean_line_budget.py` | 영문 표면의 한글 줄이 늘지 않는다 (아래 절) |
+| `.github/scripts/test/test_workflow_permissions.py` | 모든 워크플로우가 `permissions:`를 선언한다 |
 
-> **환경에 따라 건너뛰어지는 테스트는 "안 돌아간 것"과 구분이 안 된다 (#591).**
-> `test_web_reports_missing_playwright_with_install_hint`가 그랬다 — Playwright가
-> **깔려 있으면 skip**되도록 짜여 있어서 개발 기계에서는 영영 안 돌았고, 옛 키(`install`)를
-> 보는 채로 CI에서만 터졌다. 초록불이 통과가 아니라 실행조차 안 된 것이었다.
->
-> **도구가 진짜로 필요한 것만** `local_only`로 둔다. 문구·계약처럼 **순수 값 검사**는
-> 없는 상태를 테스트가 직접 만들어(`playwright_hidden()`) 어디서나 항상 돌게 한다.
+- **새 테스트 파일을 커밋하지 않는다.** 구현 확인은 스크래치 폴더의 임시 테스트나 직접 실행으로 하고 지운다.
+- 감시 검사를 더 두려면 "여러 파일의 약속이 어긋나는 것을 사람이 놓친 실제 사고"가 있을 때만 사용자와 상의한다.
+- `PROJECT-TEMPLATE-CI`: develop은 ubuntu 1대에서 위 5개 + 마법사 정합성(`check-consistency.py`) + CLI 스모크, main은 3 OS에서 CLI 스모크(macOS bash 3.2·Windows `.cmd` 차이 #415·#418).
 
 ### ⚠️ 테스트 코드는 사용자에게 나가지 않는다 (#591)
 
 `skills/` 는 Cursor·GitHub Copilot 설치 소스라 **통째로 `~/.cursor/skills/`·`~/.copilot/skills/` 로 복사된다** (#200).
 스킬 CLI 가 import 하는 `scripts/`(common 등)도 옆 `~/.cursor/scripts/`·`~/.copilot/scripts/` 로 함께 복사된다 — 빠지면 CLI 가 import 에서 죽는다.
-그래서 `skills/*/tests/`·`scripts/tests/`·`conftest.py`를 거르지 않으면 우리 테스트 900여 줄이 남의 컴퓨터에 쌓인다.
+그래서 `skills/*/tests/`·`scripts/tests/`·`conftest.py`를 거르지 않으면 우리 테스트가 남의 컴퓨터에 쌓인다.
 두 어댑터가 함께 쓰는 `src/core/ide/skills-copy.js`의 `SKIP_IN_COPY`·`TEST_PATH`가 막는다.
 `scripts/` 의 관리자 전용 파일(`README.md`·`build_troubleshooting.py`·`sync_extras.py`)은 `SHARED_SCRIPTS_DEV_ONLY` 가 뺀다 (#988).
-**`scripts/` 최상위에 관리자 전용 파일을 새로 두면 이 목록에 넣는다.** 런타임이 쓰는 항목을 넣으면 `test/ide.test.js`·`test/ide-home-install-e2e.test.js` 가 잡는다.
-회귀 방지(설치본 CLI 실제 실행): `test/ide-home-install-e2e.test.js`.
+**`scripts/` 최상위에 관리자 전용 파일을 새로 두면 이 목록에 넣는다.** 런타임이 쓰는 항목을 넣으면 설치본 CLI가 import 에서 죽는다.
 **스킬에 새 보조 파일을 추가할 때 "이게 스킬을 쓰는 사람에게 필요한가"를 자문한다.**
-회귀 방지: `test/ide.test.js`의 "테스트 코드는 복사하지 않는다".
 
 ### ⚠️ Flutter 마법사 4종은 공통 자산을 공유한다 (#521 — agent 필독)
 
@@ -233,13 +210,11 @@ def test_web_walks_real_browser():
 | `_shared/wizard-common.js` | 공통 유틸 (이스케이프·클립보드·파일 변환·OS 감지·상태 저장·변경 이력 모달) |
 | `_shared/wizard-i18n.js` | 언어 전환 엔진 (영문 기본·한국어 전환, #769). common 마법사도 로드한다. 한국어는 `<name>-wizard-i18n.js` 사전에 |
 | `_shared/check-consistency.py` | 4종 정합성 검증 — **CI(`PROJECT-TEMPLATE-CI`)가 실행한다** (`check_i18n.py`로 사전 키 누락·한글 잔존도 검사) |
-| `_shared/test_wizard_cli.py` | CLI 계약 · `--dry-run` 안전성 회귀 테스트 |
 
 **마법사를 건드렸으면 반드시 통과시킬 것:**
 
 ```bash
 python3 .github/util/flutter/_shared/check-consistency.py
-python3 .github/util/flutter/_shared/test_wizard_cli.py
 ```
 
 - **공통 유틸을 마법사 JS에서 재정의하지 않는다** (정본이 무력화된다 — 검증기가 잡는다).
@@ -284,7 +259,6 @@ fi
 > 바뀌는 순간 테스트 빌드가 앱 심사에 올라간다 — 되돌릴 수 없는 종류의 사고다.
 > 테스트 경로는 `export DEPLOY_MODE="store_only"` 를 명시한다.
 
-회귀 방지: `.github/scripts/test/test_fastlane_lanes.py`
 
 ### ⚠️ 빌드 플래그는 두 층이 함께 가야 한다 (#603 — agent 필독)
 
@@ -325,7 +299,6 @@ fi
 
 적용된 워크플로우: `ANDROID-TEST-APK`·`IOS-TEST-TESTFLIGHT`(test) ·
 `ANDROID-PLAYSTORE-CICD`·`ANDROID-FIREBASE-CICD`·`ANDROID-SELFHOSTED-CICD`·`IOS-TESTFLIGHT`(release)
-회귀 방지: `.github/scripts/test/test_build_profile.py`
 
 ### ⚠️ 워크플로우는 `permissions:` 를 반드시 선언한다 (#595 — agent 필독)
 
@@ -372,7 +345,7 @@ CLI 플래그와 `version.yml` 옵션의 이름·값·기본값은 **`src/core/o
 - 새 플래그(`src/cli/args.js`)나 `version.yml` 옵션(`parseTemplateOptions`)을 추가하면 **정본에도 반드시 추가한다.**
   `test/options-schema.test.js`가 코드와 정본을 대조해 어긋나면 실패한다.
 - 문서에 옵션 표를 새로 복제하지 않는다 — 복제본은 낡는다. 문서는 정본을 가리킨다.
-- **옵션 값(플래그 > 저장값 > 기본값)은 `src/core/resolve-options.js` 한 곳에서 정한다 (#851).** `index.js`(비대화형)는 결과를 그대로 쓰고, `interactive.js`는 초기값으로 쓴 뒤 사용자가 답한 것만 덮어쓴다. 진입점에 기본값을 다시 적지 않는다 — 두 경로가 갈라져 대화형에서 PR 요약 선택이 버려진 적이 있다. 두 경로 결과 비교: `test/resolve-options.test.js`.
+- **옵션 값(플래그 > 저장값 > 기본값)은 `src/core/resolve-options.js` 한 곳에서 정한다 (#851).** `index.js`(비대화형)는 결과를 그대로 쓰고, `interactive.js`는 초기값으로 쓴 뒤 사용자가 답한 것만 덮어쓴다. 진입점에 기본값을 다시 적지 않는다 — 두 경로가 갈라져 대화형에서 PR 요약 선택이 버려진 적이 있다.
 - 사용자 레포에는 `.github/.projectops/AGENT-GUIDE.md`가 설치된다(`src/core/agent-guide.js`). 옵션 값은 박지 않고 명령만 안내한다.
 - 이 레포의 `AGENTS.md`·`GEMINI.md`·`llms.txt`는 템플릿 전용이라 `exclusions.js`와 `template_initializer.py` 양쪽에서 제외된다.
 
@@ -386,7 +359,7 @@ CLI 플래그와 `version.yml` 옵션의 이름·값·기본값은 **`src/core/o
 
 - **파일은 옮기지 않고 URL만 바꾼다.** 규칙은 `site/.vitepress/locale-paths.mts` 한 곳(`rewrites`와 옛 URL 리다이렉트가 같이 쓴다). 두 언어 slug가 같아야 언어 전환이 같은 쪽으로 간다 — 한국어 문서를 추가하면 같은 slug의 영어 문서도 만든다.
 - **GIF는 손으로 찍지 않는다.** `docs/recording/`의 스크립트로 언어별로 다시 찍는다 (`README.md` 참고). 시스템 언어가 새지 않게 `PROJECTOPS_LANG`/`--language`를 명시하고, npm 배포본이 아니라 작업 트리 CLI·템플릿으로 찍는다.
-- 마법사 배포 환경값 문구(`.github/config/wizard-prompts.yml`)는 `label`=영어, `label_ko`=한국어다. 새 키는 두 언어를 함께 넣는다 (`test/wizard-labels.test.js`가 검사).
+- 마법사 배포 환경값 문구(`.github/config/wizard-prompts.yml`)는 `label`=영어, `label_ko`=한국어다. 새 키는 두 언어를 함께 넣는다.
 
 ### 영문 표면의 한글 줄은 줄기만 한다 (#769)
 
@@ -415,7 +388,7 @@ CLI 플래그와 `version.yml` 옵션의 이름·값·기본값은 **`src/core/o
 - **`logs/`와 같은 패턴**: 폴더가 자체 `.gitignore`(`*` + `!.gitignore`)를 들고 다니므로 루트 `.gitignore`는 건드리지 않는다.
 - **`.github/workflows/`에는 절대 쓰지 않는다** — 거기 생긴 파일은 GitHub이 실제 워크플로로 실행한다.
 - **실패해도 마법사를 죽이지 않는다** — 저장·diff 실패는 `incoming-failed` 이벤트와 경고 한 줄로 흡수한다. 종료 코드는 그대로다.
-- 코드: `src/core/incoming.js`, 호출은 `copy/workflows.js`의 `applyDecision`. 회귀 방지: `test/incoming-merge-guide.test.js`.
+- 코드: `src/core/incoming.js`, 호출은 `copy/workflows.js`의 `applyDecision`.
 
 **추적 제외는 폴더가 스스로 들고 다닌다.** `logs/.gitignore`(`*` + `!.gitignore`)를 매 실행마다 보장하므로
 루트 `.gitignore`를 건드리지 않는다. 형제인 `.github/.projectops/baseline.json`(#557)은 팀원 공유
@@ -438,7 +411,6 @@ CLI 플래그와 `version.yml` 옵션의 이름·값·기본값은 **`src/core/o
   직후 돌기 때문에, 완료 화면을 try 밖에 두면 기록이 먼저 닫혀 **그 화면이 `.log`에서 통째로 빠진다.**
   실제로 사용자 실행 로그가 `step/done install-full`에서 끊겨 "로그에 아무 안내가 없다"는 신고로 돌아왔다.
   `finalize()`는 멱등이라 뒤늦게 다시 불러도 복구되지 않는다 — 순서가 곧 계약이다.
-  회귀 방지: `test/log-capture.test.js`.
 
 ### 타입별 워크플로우
 
@@ -489,7 +461,7 @@ deploy/publish 축은 **타입에 따라 적용 자체가 안 될 수 있다.** 
 - **저장값/CLI값이 적용 불가면 경고 없이 정리** — 구버전에서 flutter 단독에 `deploy: docker-ssh`가 저장된 레포도 업데이트 시 조용히 `none`/교집합으로 정리된다 (복사 결과 동일 — SSOT). 비대화형(`src/index.js`)도 동일 규칙.
 - 수정 메뉴(`editMenu`)도 적용 불가 축 항목("프로젝트 성격"·"배포 방식"·"publish 타겟")을 숨긴다. 타입을 바꾸면 다음 진입부터 다시 노출.
 - 서버형 타입(spring/react/node/python)은 현행 선택지 전체 유지 (동작 무변경 — 타입별 세분화는 후속 과제). 질문 선택지는 `applicable.*`로 필터링되므로 이후 선언만 좁히면 선택지가 자동 반영된다.
-- **새 타입을 추가하면 두 선언에 항목을 반드시 넣는다** — `test/options-ask.test.js`의 정합성 테스트가 `project-types` 폴더(`server-deploy/`·`publish/<target>/`)와의 모순을 자동 검증한다. 미선언 타입은 보수적으로 전체 허용(질문 유지).
+- **새 타입을 추가하면 두 선언에 항목을 반드시 넣는다** — `project-types` 폴더(`server-deploy/`·`publish/<target>/`)와 어긋나지 않게 맞춘다. 미선언 타입은 보수적으로 전체 허용(질문 유지).
 
 - **`basic` 단독 타입은 배포/publish 질문을 건너뛴다** — 서버·라이브러리 개념이 없는 범용 타입이라 물어보면 사용자가 당황한다. `deploy=none`·`publish=[]`로 조용히 확정하고 분석 카드에만 표시. 타입을 바꾸면(수정 메뉴 → 프로젝트 타입) 그때 질문이 등장한다. (구 js `isBasicOnly` 특례는 #498의 두-축-빈-타입 일반 판정 `noAxes`로 흡수됨 — `.sh`/`.ps1`은 #458 EOF)
 - 실타입 질문 앞에는 "**왜 묻는지**" 맥락 한 줄을 붙인다 (서버 올릴 계획 있으면 고르고 없으면 넘기라는 안내).
@@ -511,12 +483,12 @@ deploy/publish 축은 **타입에 따라 적용 자체가 안 될 수 있다.** 
 >
 > **확장 규칙(agent 필독)**: 새 "서버 배포" 워크플로우는 **그 타입의 `<type>/server-deploy/`** 에 파일만 넣는다(deploy≠docker-ssh면 자동 제외). 현재 `server-deploy/`를 가진 타입은 `spring`·`python` 두 개다. **타입 폴더 직하위에 두면 `--deploy none`에서도 복사되므로 절대 그렇게 두지 않는다** (실제로 python이 이 함정에 빠져 #521에서 교정됨). 새 publish 타겟은 `<type>/publish/<target>/`에 넣고 마법사 질문 목록에 값을 추가한다. 타입 비종속 배포 타겟(Vercel 등)은 `common/deploy/<target>/`에 넣는다.
 >
-> **⚠️ 워크플로우를 리네임/삭제할 때 (agent 필독, #470)**: 구 이름을 `src/core/migrations/registry.js`에 반드시 추가한다 — 마법사 업데이트가 기존 통합 레포의 구 파일을 자동 무해화(.bak)하는 유일한 경로다(레거시 마이그레이션은 전부 이 레지스트리 한 곳에서 관리). tier는 `safe`(순수 리네임 — 공존 시 중복 실행 실해) / `confirm`(배포 파이프라인일 수 있음 — 자동 조치 없이 안내만) 중 실해 기준으로 고른다. `test/migrations.test.js`가 레지스트리와 현행 배포 세트의 충돌(살아있는 워크플로우 오살)을 자동 검증한다. 구 파일에 사용자 커스텀 설정이 들어있을 수 있으면 registry 항목에 `settingsExtractor`를 지정해 무해화 직전 version.yml로 자동 이관한다 (`rules/settings-extractors.js`, #478 이슈 헬퍼가 모범 사례).
+> **⚠️ 워크플로우를 리네임/삭제할 때 (agent 필독, #470)**: 구 이름을 `src/core/migrations/registry.js`에 반드시 추가한다 — 마법사 업데이트가 기존 통합 레포의 구 파일을 자동 무해화(.bak)하는 유일한 경로다(레거시 마이그레이션은 전부 이 레지스트리 한 곳에서 관리). tier는 `safe`(순수 리네임 — 공존 시 중복 실행 실해) / `confirm`(배포 파이프라인일 수 있음 — 자동 조치 없이 안내만) 중 실해 기준으로 고른다. 레지스트리에 현행 배포 세트의 이름을 넣으면 살아 있는 워크플로우를 무해화하므로, 넣기 전에 현행 템플릿에 같은 이름이 없는지 확인한다. 구 파일에 사용자 커스텀 설정이 들어있을 수 있으면 registry 항목에 `settingsExtractor`를 지정해 무해화 직전 version.yml로 자동 이관한다 (`rules/settings-extractors.js`, #478 이슈 헬퍼가 모범 사례).
 > 참고: **타입 선택 해제로 남는 고아 워크플로우**는 registry가 아니라 `src/core/orphan-workflows.js`가 동적 감지한다(#487) — registry는 리네임·폐기 전용, 고아 정리는 템플릿 인벤토리 대조(정확한 파일명 일치) 방식이다. 대화형은 확인 후 .bak 무해화, 비대화형은 안내만 출력한다.
 >
-> **⚠️ `common/` 아래에 조건부 폴더를 새로 만들 때 (agent 필독, #567·#851)**: `src/core/workflow-groups.js`의 `commonOptionalGroups`에 한 줄을 넣는다. 복사 게이트(`copy/workflows.js`)와 고아 감지(`orphan-workflows.js`)가 **같은 표**를 읽는다. 예전에는 두 곳을 따로 고쳐야 했고, 켜는 쪽만 만들어 **끈 뒤에도 파일이 남아 계속 실행되는** 일이 `secret-backup`·`deploy/<target>`에서 실제로 있었다. 표에 빠진 폴더는 `test/workflow-groups.test.js`가 잡는다.
+> **⚠️ `common/` 아래에 조건부 폴더를 새로 만들 때 (agent 필독, #567·#851)**: `src/core/workflow-groups.js`의 `commonOptionalGroups`에 한 줄을 넣는다. 복사 게이트(`copy/workflows.js`)와 고아 감지(`orphan-workflows.js`)가 **같은 표**를 읽는다. 예전에는 두 곳을 따로 고쳐야 했고, 켜는 쪽만 만들어 **끈 뒤에도 파일이 남아 계속 실행되는** 일이 `secret-backup`·`deploy/<target>`에서 실제로 있었다.
 >
-> **`.github/util/` 모듈 안의 파일을 리네임/폐기할 때도 동일하다 (#500)**: registry에 `category: "util-file"`(tier safe, 정확 경로)로 구 파일을 등록한다 — util 복사(`src/core/copy/util.js`)는 overlay라 구 파일을 지우지 않으므로 registry가 유일한 정리 경로다. `test/migrations.test.js`의 util-file 충돌 테스트가 현행 템플릿 파일 오살을 자동 검증한다.
+> **`.github/util/` 모듈 안의 파일을 리네임/폐기할 때도 동일하다 (#500)**: registry에 `category: "util-file"`(tier safe, 정확 경로)로 구 파일을 등록한다 — util 복사(`src/core/copy/util.js`)는 overlay라 구 파일을 지우지 않으므로 registry가 유일한 정리 경로다. 현행 템플릿 파일과 같은 경로를 넣지 않는다.
 >
 > **⚠️ 브랜치 규칙(`YYYYMMDD_#번호_제목`)에 의존하는 워크플로우를 추가할 때 (agent 필독, #478)**:
 > `.github/scripts/issue_helper.py`의 `GUIDE_LINES`에 (파일명, 안내 문구)를 추가하고,
@@ -592,7 +564,7 @@ deploy/publish 축은 **타입에 따라 적용 자체가 안 될 수 있다.** 
   개발 브랜치 유무와 상관없이 push 구간 커밋 제목으로 major/minor/patch를 정하고, 명시적 `false`일 때만 patch다.
   (예전엔 이 경로가 항상 patch 고정이라 옵션이 조용히 무시됐다. "커밋 컨벤션을 신뢰할 수 없다"는 이전 이유는 소유자 결정으로 폐기.)
 - VERSION-CONTROL 가드는 `version.yml` **파일 이름이 아니라 `version:` 값 변경**으로 릴리스 머지를 판정한다 (#806).
-  설정만 바꾼 push는 릴리스가 아니므로 버전이 올라간다. 회귀 방지: `.github/scripts/test/test_main_push_guards.py`
+  설정만 바꾼 push는 릴리스가 아니므로 버전이 올라간다.
 
 ### 빌드 번호와 iOS 업로드 판단 (#643, agent 필독)
 
@@ -604,7 +576,7 @@ deploy/publish 축은 **타입에 따라 적용 자체가 안 될 수 있다.** 
 | Apple 업로드 오류 해석 | `.github/scripts/ios_release.py classify-error` | `duplicate` / `too_low` / `train_closed` / `other`로 분류. 재시도 여부도 이 분류로 정한다 |
 
 - `version_code`는 **Android 릴리스 전용**이다 (Play Store, Firebase CICD). iOS와 테스트 빌드 번호에 쓰지 않는다.
-- **새 Apple 오류 코드(ITMS-...)를 다루려면** `classify_upload_error`에 패턴을 넣고, `.github/scripts/test/test_ios_release.py`에 **실제 오류 문구 샘플**과 함께 케이스를 추가한다. 문구를 지어내지 않는다.
+- **새 Apple 오류 코드(ITMS-...)를 다루려면** `classify_upload_error`에 **실제 오류 문구**를 근거로 패턴을 넣는다. 문구를 지어내지 않는다.
 - iOS 릴리스는 닫힌 버전이면 버전 이름을 바꾸지 않고 실패한다. 테스트 빌드만 다음 패치로 전환한다.
 
 ### changelog_manager.py
@@ -653,7 +625,7 @@ python3 .github/scripts/changelog_manager.py classify-bump --commits-file commit
 | `github-ai` | **서비스 종료(2026-07-30)** — 호출하지 않고 조용히 흡수, 업데이트 시 `commit`으로 이전 |
 | `coderabbit` | 기다리지 않는다. 본문에 요약이 있으면 ①에서 존중될 뿐 |
 
-> 미설정 판정(명시값 → `.coderabbit.yaml` → `commit`)은 워크플로우 "Read version info" 스텝과 `changelog_cli.py` `_read_release_branches` **두 곳이 같은 규칙**이어야 한다. 회귀 방지: `.github/scripts/test/test_changelog_providers.py`, `test_changelog_deploy_provider.py`.
+> 미설정 판정(명시값 → `.coderabbit.yaml` → `commit`)은 워크플로우 "Read version info" 스텝과 `changelog_cli.py` `_read_release_branches` **두 곳이 같은 규칙**이어야 한다.
 
 > **⚠️ 모델명에 버전을 박지 말 것 (#566).** `gemini-1.5-flash`가 404로 죽어 있었다. `openai_compatible.py`의 preset은 `-latest` 별칭을 쓴다. gemini는 **`gemini-flash-lite-latest`** 가 기본인데, 무료 등급에서 상위 Flash는 RPD 20인 반면 Lite는 500이라 자동화에 쓸 수 있는 쪽이 Lite뿐이기 때문이다(실측).
 >
@@ -661,7 +633,7 @@ python3 .github/scripts/changelog_manager.py classify-bump --commits-file commit
 
 **생성 결과 안내** (`changelog_notice.py`): 어떤 경로로 만들어졌는지 Job Summary에 매번 남기고, **AI를 하나도 쓰지 못했을 때만** PR에 댓글로 대안을 안내한다. 댓글은 마커로 갱신하므로 이메일 알림은 처음 한 번만 간다 — 매 릴리스 알림은 소음이 되고, 소음이 되면 아무도 읽지 않는다.
 
-테스트: `python -m pytest .github/scripts/test/` (providers·commit 파싱·안내·입력 경로). npx 복사 엔진(`src/core/copy/simple.js`)이 provider .py들을 사용자 프로젝트에 복사한다 — **복사 목록과 실제 파일의 정합성은 `test/copy-simple.test.js`가 자동 검증**하므로 새 provider를 추가하면 목록에도 넣어야 테스트가 통과한다.
+npx 복사 엔진(`src/core/copy/simple.js`)이 provider .py들을 사용자 프로젝트에 복사한다 — **새 provider를 추가하면 복사 목록에도 넣는다** (빠지면 사용자 레포에서 import 실패).
 
 ### issue_helper.py (이슈 브랜치/커밋 댓글 — #478에서 내재화)
 이슈 생성/제목 수정 시 `PROJECT-COMMON-SUH-ISSUE-HELPER.yaml`이 실행. 외부 액션 의존 없음 (stdlib 전용).
@@ -669,7 +641,6 @@ python3 .github/scripts/changelog_manager.py classify-bump --commits-file commit
 브랜치 코어(`YYYYMMDD_#번호_제목`)와 댓글의 `### 브랜치` 코드블록은 불변 계약 — 소비자 목록은 `docs/BRANCH-CONVENTION.md`.
 서명 문구는 `guide_signature` 설정(기본 `Guide by ProjectOps`)이고, 구버전 소비자가 찾는 옛 문구 `Guide by SUH-LAB`는 숨김 주석으로 항상 남긴다 (#749).
 구 MODULE 워크플로우의 커스텀 설정은 마이그레이션이 자동 이관한다 (`rules/settings-extractors.js`).
-테스트: `python3 -m pytest .github/scripts/test/test_issue_helper.py`
 
 ### template_integrator.sh / .ps1 — 제거됨 (EOF #458 → 삭제 #800)
 **두 스크립트는 v4.3.0에서 안내용 shim으로 바뀌었고, #800에서 파일 자체를 지웠다.** 옛 `curl .../template_integrator.sh | bash`는 이제 404다. `src/` 주석에 지운 스크립트의 줄번호·함수명(`.sh L1234 등가`)을 적지 않는다 — 가리키는 파일이 없다. 이유는 현재형으로 적는다 (#916).
@@ -703,7 +674,7 @@ hooks/                         # Claude Code 플러그인 훅 (세션 종료 시
 
 > (구 `template_integrator.sh`/`.ps1`의 `plugin_items_to_remove` 배열은 #458 EOF로 사라졌다 — 이제 npx `exclusions.js`가 유일한 복사 제외 지점이다.)
 >
-> **체크 순서**: 새 루트 파일 추가 → "이게 사용자 프로젝트에도 필요한가?" 자문 → **아니오면 위 1·2를 모두 수정**. 버전을 `version.yml`과 맞춰야 하는 매니페스트면 3번도 추가. 수정 후 `python -m py_compile .github/scripts/template_initializer.py`와 `npm test`로 확인한다.
+> **체크 순서**: 새 루트 파일 추가 → "이게 사용자 프로젝트에도 필요한가?" 자문 → **아니오면 위 1·2를 모두 수정**. 버전을 `version.yml`과 맞춰야 하는 매니페스트면 3번도 추가. 수정 후 `python -m py_compile .github/scripts/template_initializer.py`와 `npm test`(감시 검사)로 확인한다.
 >
 > **반대로**, 추가한 게 사용자 프로젝트에도 같이 가야 하는 공통 자산(워크플로우·스크립트·설정)이라면 위 목록에 넣지 않는다 — 제외하면 통합 대상 프로젝트가 그 기능을 못 받는다.
 
@@ -873,7 +844,7 @@ skills/
 
 #### 1. 로직은 재사용 스크립트 파일에 둔다
 
-- **진입 파일은 얇게, 서브커맨드는 패키지로, 파일당 450줄.** 진입 `<scope>_cli.py`는 파서·등록만 두고 서브커맨드 구현은 옆 패키지에 둔다 (모범: `skills/pro-launch/scripts/pro_launch/`). 상한은 `scripts/tests/architecture/test_python_file_size.py`가 지킨다 — 넘는 기존 파일은 그 안의 동결 목록에만 둔다.
+- **진입 파일은 얇게, 서브커맨드는 패키지로, 파일당 450줄.** 진입 `<scope>_cli.py`는 파서·등록만 두고 서브커맨드 구현은 옆 패키지에 둔다 (모범: `skills/pro-launch/scripts/pro_launch/`).
 - `skills/{skill-name}/scripts/{name}.py` 에 행동 로직을 고정 파일로 저장한다.
 - SKILL.md는 **호출법만** 기술한다 (서브커맨드·인자·환경변수). 긴 Python 코드를 SKILL.md에 인라인하지 않는다.
 - 이유: SKILL.md는 LLM이 매번 재입력하는 문서다. redirect strip 같은 핵심 로직을 인라인하면 재입력 시 누락·오타 위험.
@@ -979,8 +950,8 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 > **⚠️ 산출물 경로를 SKILL.md에 박아 쓰지 않는다 (#623 — agent 필독).** 산출물 루트는
 > 설정(`output.root`)으로 바뀐다. `docs/projectops/<스킬>/...`를 직접 조립하면 루트를 옮긴
 > 팀에서 **조용히 틀린다** — 실제로 `testcase`는 엉뚱한 곳에 쓰고, 읽는 스킬은 빈 폴더를
-> 뒤져 "산출물 없음"으로 판단했다. 산출물 경로는 항상 CLI의 `get-output-path`로 받는다. 회귀 방지: `scripts/tests/test_output_tracking.py`가 **산문 언급이 아니라 실제
-> 호출 줄**을 요구하고, 문서가 부르는 서브커맨드가 CLI에 실재하는지까지 본다.
+> 뒤져 "산출물 없음"으로 판단했다. 산출물 경로는 항상 CLI의 `get-output-path`로 받는다.
+> 문서에는 산문 언급이 아니라 실제 호출 줄을 적고, 그 서브커맨드가 CLI에 실재하는지 확인한다.
 >
 > **증거물(스크린샷·덤프·렌더)과 문서(보고서·계획)는 다르다 (#621).** 어느 쪽인지는
 > `common/paths.py`의 `EVIDENCE_SKILLS`/`DOCUMENT_SKILLS`가 단독으로 알고, 증거 스킬이면
@@ -1035,7 +1006,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 > **`title`/`message`는 영어가 정본이고 필수다 (#988).** 구버전 CLI는 `main`의 이 파일을 받아 이 두 키만 읽으므로
 > 키 이름·형식을 바꾸지 않는다. 한국어는 선택 키 `title_ko`/`message_ko`에 넣고, CLI 화면 언어(`--lang`·`resolveLang`)가
 > `ko`일 때만 보인다. 없으면 영어로 폴백한다 (`src/core/breaking.js` `localizeBreakingEntry`).
-> 마이그레이션 가이드(실행 기록)에는 영어 원문이 남는다. 검사: `test/breaking.test.js`
+> 마이그레이션 가이드(실행 기록)에는 영어 원문이 남는다.
 > (모든 항목에 영어 `title`/`message`), 한글 줄 감시는 `*_ko` 키 줄만 세지 않는다.
 
 ---
@@ -1092,7 +1063,6 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 - 한 릴리스 구간에 섞이면 가장 높은 것이 이긴다 (major > minor > patch).
 - `[skip ci]` 포함 커밋과 `Merge`로 시작하는 커밋은 판정에서 제외된다.
 - 판정 로직: `.github/scripts/changelog_manager.py` `classify_bump_level()`.
-  테스트: `python3 -m pytest .github/scripts/test/test_classify_bump.py`
 
 ## 기능 구현 워크플로우
 

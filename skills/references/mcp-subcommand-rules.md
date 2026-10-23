@@ -95,23 +95,14 @@ For non-fatal partial failures (for example a failed workflow run lookup), **set
 
 ---
 
-## 6. Registration + tests
+## 6. Registration
 
 1. Register the command the way that CLI already does.
    - Single-file CLI: `sub.add_parser(...)` + `set_defaults(func=cmd_xxx)` in `build_parser()` (some old CLIs use a `_COMMANDS` dict).
    - CLI split into a package (`pro_github/` in `pro-github`, `pro_launch/` in `pro-launch`, and so on): put the handler and a `Command(name=..., ...)` declaration in `commands/<topic>.py`; the entry file's `build_parser()` only collects and assembles the declarations. You do not have to write every subcommand in one `build_parser()` body.
    - In a package CLI, if tests mock attributes of the entry file (`get_github_pat`, gh_client functions), handlers must look those names up on the entry module at call time (`pro_github.registry.Dependencies`).
-2. Add unit tests for the verdict/judgment logic in `scripts/tests/` (mock the gh_client functions, call in-process).
-3. Add urllib-mocked unit tests for new `gh_client.py` helpers.
+2. Run the new subcommand for real once and read its JSON. Do not commit new tests: this repository keeps only five guard tests (see `CLAUDE.md`). Check your change by running it, or with a throwaway test you delete afterwards.
 
-```python
-def _call_cmd(mock_data, argv, capsys):
-    import <scope>_cli
-    with patch.object(<scope>_cli, "get_github_pat", return_value="ghp_fake"), \
-         patch.object(<scope>_cli, "get_thing", return_value=mock_data):
-        <scope>_cli.run_cli(<scope>_cli.build_parser(), argv)
-    return _json.loads(capsys.readouterr().out.strip())
-```
 ---
 
 ## 7. Rules for writing SKILL.md
@@ -121,7 +112,6 @@ def _call_cmd(mock_data, argv, capsys):
 - Spell out the agent's action per `verdict` in a table (see the verdict table for `deploy-status`).
 - **Every subcommand defined in the CLI must have a call example in that skill's SKILL.md (or a document it explicitly references).** Without an example, the agent guesses the signature and fails (#329). If you cannot give an example, remove it from the CLI surface or move it into an internal function.
 - A call example contains ① a `bash` line with the exact argument order, ② one line of expected JSON output, and ③ one line on how to use the result.
-- `scripts/tests/test_cli_signatures_doc_sync.py` enforces this matching.
 
 ---
 

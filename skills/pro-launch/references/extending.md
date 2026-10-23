@@ -63,8 +63,7 @@ Steps:
    Move **anything that can be checked without a device** (such as screen-dump parsing) into module-level pure functions (`ui_nodes` · `maestro_nodes` · `match_nodes` · `parse_ratio` are examples).
 2. Register it in `BACKENDS`. `pro_launch/commands/app/` only picks a backend and calls it, so it **should not need changes.**
    If it does, the interface is leaking; move that part into the backend.
-3. Add tests (below). Registering alone makes `test_every_registered_backend_implements_the_contract` in `tests/test_launch_cli.py`
-   check that the new backend has every contract member. Separately, add unit tests for that backend's parsing and failure paths.
+3. Check that the new backend implements every member of the `Backend` contract, and run it on a real device once (below).
 4. Write down how to connect and the pitfalls in `references/app.md`. What worked on this Mac belongs to `learn`, not the docs.
 
 **Forbidden**: app backends that tap coordinates with the host mouse (`cliclick` · AppleScript System Events · CGEvent). They steal the user's cursor,
@@ -120,7 +119,7 @@ Steps:
 4. **Return results the agent can judge (#825).** An action that changes the screen returns the `url` · `title` before and after, plus what it targeted.
    A failure returns a `code` (not a message) and the next command to call (`next`). If it only says "succeeded", the agent taps the wrong thing and moves on
    (measured on Play Console). Let the target be passed as a `ref` (`data-pops-ref`) from `web find` instead of a guessed selector.
-5. Put unit tests in `tests/`. `tests/test_launch_architecture.py` checks the action's shape (`needs` and argument count) automatically.
+5. Check the action's shape by hand: `needs` must match the `run` argument count, or it only fails at runtime.
 
 ## New app action
 
@@ -147,25 +146,17 @@ COMMANDS = [Command(name="ping", help="check that a host responds", run=cmd_ping
 ```
 
 - Always emit results with `runtime.output.out()` — migration notices, root warnings, access-method scores, and memory attachments are added there for every command.
-- Do not import other command modules. Anything used by two or more goes down into `runtime/` (`test_launch_architecture.py` enforces this).
+- Do not import other command modules. Anything used by two or more goes down into `runtime/`.
 - Behavior that branches on `sys.platform` lives only in `runtime/procs.py`.
-- A new name **must appear as a call example in SKILL.md** (`scripts/tests/test_cli_signatures_doc_sync.py` reads the `Command(name=...)` declarations and enforces this).
+- A new name **must appear as a call example in SKILL.md**.
   Add one line to the router table and put the details in references.
 - Use only the path returned by `get-output-path` for outputs. Do not build paths yourself (#623).
 - The order shown in `--help` is `HELP_ORDER` in `pro_launch/cli.py`. A command missing from it is still registered and is appended in name order.
 
-## Test rules
+## Checking a change
 
-| What | Where · how |
-|---|---|
-| Unit tests — **required** | `skills/pro-launch/tests/` (app backends in `test_launch_cli.py`, structure rules in `test_launch_architecture.py`). They run without a device or browser. Replace external commands with fake executables (scripts placed first on PATH) or monkeypatch, and check `nodes` parsing, ratio math, failure codes, and JSON fields |
-| Needs a real device or browser | Mark with `@pytest.mark.local_only`. It runs locally when the tool is present and is skipped in CI (`CI=true`) |
-| Pure value checks | Do not mark `local_only`. The test creates the "tool missing" state itself so it runs anywhere (#591) |
-
-```bash
-python3 -m pytest skills/pro-launch/tests -q
-python3 -m pytest scripts/tests -q        # docs · subcommand consistency
-```
+Do not commit new tests: this repository keeps only five guard tests (see `CLAUDE.md`). Check your change by running it, or with a throwaway test you delete afterwards.
+Run the command you changed against a real device or browser once (headless for the web), and read its JSON.
 
 Test code is not copied to users (`SKIP_IN_COPY` in `src/core/ide/skills-copy.js`). Before adding a helper file
 to a skill, first ask: "Does someone using this skill need this?"

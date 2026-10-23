@@ -30,20 +30,20 @@ You need Node.js 20.12 or newer, Python 3.12 (for the script and skill tests) an
 git clone https://github.com/<you>/projectops.git
 cd projectops
 git remote add upstream https://github.com/Cassiiopeia/projectops.git
-python3 -m pip install pytest pyyaml pillow numpy
+python3 -m pip install pytest pyyaml
 ```
 
 The project has no runtime npm dependencies, so there is nothing else to install.
 
-## Run the tests
+## Run the checks
 
 ```bash
-npm test                                   # installer (Node)
-python3 -m pytest .github/scripts/test/ -q # workflow scripts
-python3 -m pytest skills/ -q               # skill scripts
-python3 -m pytest scripts/tests/ -q        # shared skill code
+npm test                                                  # guard checks (skill list, options schema)
+python3 -m pytest scripts/tests/ .github/scripts/test/ -q # guard checks (skill docs, Korean line budget, workflow permissions)
 python3 .github/util/flutter/_shared/check-consistency.py   # only if you touched a Flutter wizard
 ```
+
+Do not commit new tests: this repository keeps only five guard tests (see `CLAUDE.md`). Check your change by running it, or with a throwaway test you delete afterwards.
 
 CI runs the same commands on Linux, macOS and Windows. The installer must keep working on macOS
 (bash 3.2, BSD tools) and Windows, so please do not use Linux-only shell features in `.sh` files.

@@ -57,21 +57,21 @@ These are parsed by other code. Changing them silently breaks installed projects
 
 1. Add the type to the detection and marker tables (`src/core/detect.js`, `src/core/paths-resolve.js`).
 2. Create `.github/workflows/project-types/<type>/` with its CI/CD workflows. Server deployment workflows go under `<type>/server-deploy/` so they are skipped when `deploy` is not `docker-ssh`. Registry publishing goes under `<type>/publish/<target>/`.
-3. Declare which deploy and publish targets the type supports in `src/core/options-ask.js` (`TYPE_DEPLOY_TARGETS`, `TYPE_PUBLISH_TARGETS`). `test/options-ask.test.js` checks these against the folders.
+3. Declare which deploy and publish targets the type supports in `src/core/options-ask.js` (`TYPE_DEPLOY_TARGETS`, `TYPE_PUBLISH_TARGETS`). Keep them in line with the `server-deploy/` and `publish/<target>/` folders.
 4. Teach `version_manager` how to sync the version file for the type.
-5. Add tests under `test/` and run `npm test`.
+5. Run the wizard against a sample repo and `npm test` (guard checks). Do not commit new tests.
 
 ## How to add a CLI flag
 
 1. Parse it in `src/cli/args.js` (`parseArgs`) and validate the value there. Value lists that other files also need (deploy, publish, intent, label style, providers) live in `src/core/constants.js` — add to that list, not to a local array.
 2. Describe it in **`src/core/options-schema.js`** (`FLAGS`). `npx projectops --mode options --json` prints this table for AI agents, and `test/options-schema.test.js` fails if a flag exists in `args.js` but not here.
-3. Add it to `--help` in `src/cli/help.js` (English and Korean) and to the option tables in `docs/CLI.md` and `docs/en/cli.md`. `test/cli-docs-sync.test.js` fails if one of them forgets it.
+3. Add it to `--help` in `src/cli/help.js` (English and Korean) and to the option tables in `docs/CLI.md` and `docs/en/cli.md`.
 4. Resolve the value in **`src/core/resolve-options.js`** (`resolveOptions`: flag > stored value > default) and pass the flag in from `src/index.js`. Both paths use that result — `src/index.js` as is, `src/commands/interactive.js` as the starting answer — so do not write a default anywhere else.
 
 ## How to add a `version.yml` option
 
 1. Read it in `parseTemplateOptions` and write it in `buildVersionYml` (`src/core/version-yml.js`). `version.yml` is regenerated on every update, so a key that is only read, never written back, disappears on the next update. Add the comment text to both languages in `COMMENTS`.
-   If it is a key under `metadata.template.options`, add it to `OWNED_OPTION_KEYS` in the same file, or every update writes it twice (once by the generator, once kept as an unknown key). `test/version-yml-preserve.test.js` compares the list with the keys `buildVersionYml` writes.
+   If it is a key under `metadata.template.options`, add it to `OWNED_OPTION_KEYS` in the same file, or every update writes it twice (once by the generator, once kept as an unknown key).
 2. Add it to `VERSION_YML` in `src/core/options-schema.js` with its default.
 3. Decide its value in `resolveOptions` (`src/core/resolve-options.js`) and add its name to `TEMPLATE_OPTION_FIELDS` there. `full.js` and `version.js` write exactly those fields through `toTemplateOptions`, so they need no change. Declare it in `src/context.js` with `null`; `src/index.js` spreads the resolved values into the context, while `src/commands/interactive.js` lists each value when it builds the context, so add it there.
 4. If a workflow reads it, say what a **missing** key means and make the workflow and the wizard agree (`semver_auto` shipped with them disagreeing).
@@ -81,7 +81,7 @@ These are parsed by other code. Changing them silently breaks installed projects
 1. Implement it in `.github/scripts/changelog_providers/` and register it in `ladder.py` and `openai_compatible.py` (`PRESETS`) if it speaks the OpenAI API. Never put a version in the model name; use a `-latest` alias.
 2. Add the name to `CHANGELOG_PROVIDERS` in `src/core/constants.js`.
 3. Add the secret name to the AI key lists (`ladder.py`, `src/commands/doctor.js`, `src/ui/summary.js`, the workflow `env:` blocks). `test_ai_key_lists_agree` fails if they drift.
-4. List the new file in `src/core/copy/simple.js`; `test/copy-simple.test.js` checks the list against the folder.
+4. List the new file in `src/core/copy/simple.js`, or user repos will not get it.
 
 ## How to add a language
 
@@ -113,11 +113,12 @@ If it carries a version that must match `version.yml`, also add a step to `PROJE
 ## Testing
 
 ```bash
-npm test                              # wizard (node --test)
-python3 -m pytest .github/scripts/test/ skills/   # scripts and skills
+npm test                                                   # guard checks (skill list, options schema)
+python3 -m pytest scripts/tests/ .github/scripts/test/ -q  # guard checks (skill docs, Korean line budget, workflow permissions)
 ```
 
-CI runs a quick lane on every push and the full OS and Node matrix on `main`. Do not remove the OS matrix: this repo has broken on macOS bash 3.2 and Windows before.
+Do not commit new tests: this repository keeps only five guard tests (see `CLAUDE.md`). Check your change by running it, or with a throwaway test you delete afterwards.
+CI runs these guards on every push and a CLI smoke run on three OSes on `main`: this repo has broken on macOS bash 3.2 and Windows before.
 
 ## Known duplication
 

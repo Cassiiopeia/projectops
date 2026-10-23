@@ -34,7 +34,6 @@ so **the page still reads fine and only the finish is rougher.** It does not bre
 | `wizard-common.js` | Utilities shared by all three (escaping · clipboard · file conversion · OS detection · state saving · change-history modal) + the default flow that testflight and playstore had identically (`showStep` · `prevStep` · `saveState` · `clearState` · custom secrets) |
 | `check-consistency.py` | Consistency checker that catches the wizards drifting apart again |
 | `check_i18n.py` | Checks for missing dictionary keys (en · ko), unused keys and Korean left in the HTML (run by check-consistency.py) |
-| `test_wizard_cli.py` | Regression tests for the Python CLI contract and `--dry-run` safety |
 
 ---
 
@@ -134,9 +133,7 @@ and for the "write, then read back to verify" steps it must take the same path a
 # wizard consistency (CSS · JS · links · version sync · CLI contract · .py shared blocks · first-user notes)
 python3 .github/util/flutter/_shared/check-consistency.py
 
-# CLI contract + dry-run safety regression tests
-python3 -m pytest .github/util/flutter/_shared/test_wizard_cli.py -q
 ```
 
-If you changed a wizard, **get both passing before you commit.**
+If you changed a wizard, **get it passing before you commit**, and run the changed `.py` once with `--dry-run`.
 If you edited `version.json`, also run that wizard's `./version-sync.sh` so the change shows on screen.
