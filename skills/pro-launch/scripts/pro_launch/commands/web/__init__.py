@@ -24,7 +24,7 @@ from pro_launch.commands.web.options import ALWAYS_OPTIONS, SHARED_OPTIONS, time
 from pro_launch.commands.web.request_capture import RequestCapture
 from pro_launch.commands.web.saved_values import read_saved_values
 from pro_launch.commands.web.session import DIALOG_EVENT_KEY, web_connect
-from pro_launch.commands.web.tabs import drift_warning, mark_tab
+from pro_launch.commands.web.tabs import REPORTED_POPUPS_KEY, drift_warning, mark_tab, opened_tabs
 from pro_launch.commands.web.targets import SELECTOR_SYNTAX_HINT, is_selector_syntax_error
 from pro_launch.commands.web.watchdog import HUNG_MARK_KEY, Watchdog, deadline_seconds
 from pro_launch.registry import Command, action_usage_lines, add_action_parsers, discover_actions
@@ -166,6 +166,8 @@ def _dispatch(args, action, root, state_f, secret_value: str | None) -> int:
             payload = _action_failure(args, e, page, secret_value)
         if capture is not None and isinstance(payload, dict):
             payload["requests"] = capture.finish()
+        if isinstance(payload, dict):
+            _attach_opened_tabs(payload, page, state)
     finally:
         mark_tab(page, state)
         # 연결만 끊는다. browser.close()를 부르면 다음 호출이 붙을 곳이 없어진다.
@@ -199,12 +201,28 @@ def _action_failure(args, error: Exception, page, secret_value: str | None) -> d
     return payload
 
 
+def _attach_opened_tabs(payload: dict, page, state: dict) -> None:
+    """이 탭이 연 새 창(팝업)을 결과에 싣는다 — 'URL and title unchanged' 만 보고 아무 일 없다고 읽지 않게 (#987)"""
+    try:
+        new_tabs = opened_tabs(page, state)
+    except Exception:
+        return  # 탭 목록을 못 읽어도 동작 결과는 그대로 낸다
+    if not new_tabs:
+        return
+    first = new_tabs[0]
+    payload["new_tabs"] = new_tabs
+    payload["summary"] = f"{payload.get('summary') or ''} — this tab opened {len(new_tabs)} new window(s): {first['url']}".lstrip(" —")
+    payload["next"] = (f"web tab use --target {first['target_id']} --name popup  # then prefix commands with LAUNCH_TAB=popup "
+                       "to work in the new window")
+
+
 def _save_tab_mark(state_f, state: dict) -> None:
     """탭 기록만 지금 파일에 합쳐 쓴다 — 동작 도중 다른 세션이 쓴 값(새 탭 등)을 덮지 않게."""
     fresh = read_state(state_f) if state_f.is_file() else {}
     if not fresh.get("cdp"):
         return
     fresh["tab_marks"] = {**(fresh.get("tab_marks") or {}), **(state.get("tab_marks") or {})}
+    fresh[REPORTED_POPUPS_KEY] = {**(fresh.get(REPORTED_POPUPS_KEY) or {}), **(state.get(REPORTED_POPUPS_KEY) or {})}
     write_state(state_f, fresh)
 
 

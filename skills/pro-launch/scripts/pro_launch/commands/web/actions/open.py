@@ -80,9 +80,13 @@ def _reuse(args, prev: dict, state_f: Path, recovered: list[str]) -> int | None:
     prev["readonly"] = bool(args.readonly)
     prev["last_used"] = time.strftime("%Y-%m-%d %H:%M:%S")
     write_state(state_f, prev)
-    warn = None
+    warnings = []
     if bool(args.headed) != bool(prev.get("headed")):
-        warn = "headed only changes on a fresh launch — to change it, run web close, then open again"
+        warnings.append("headed only changes on a fresh launch — to change it, run web close, then open again")
+    if not prev.get(POPUP_BLOCKING_OFF_STATE_KEY):
+        warnings.append("This browser was started before popup blocking was turned off — a window opened after a server "
+                        "response can be blocked. Run web close, then web open again")
+    warn = " / ".join(warnings) or None
     return out({"action": "open", "reused": True, "pid": prev["pid"], "url": url, "title": title,
                 "browser": prev.get("browser"), "browser_source": prev.get("browser_source"),
                 "readonly": prev["readonly"], "opened_at": prev.get("opened_at"), "warning": warn,
@@ -127,9 +131,16 @@ def _start_failed(proc, profile: Path, stderr_log: Path, recovered: list[str]) -
                      "Read stderr_tail first; if that does not explain it, re-download the browser with web setup")}
 
 
+# 팝업 차단 끄기 플래그 · 그 플래그로 띄웠는지 상태 파일 키
+POPUP_BLOCKING_OFF_FLAG = "--disable-popup-blocking"
+POPUP_BLOCKING_OFF_STATE_KEY = "popup_blocking_off"
+
+
 def _launch_command(exe: str, port: int, profile: Path, args, use_stealth: bool) -> list[str]:
+    # --disable-popup-blocking: 서버 응답 뒤 window.open 이 null 로 막힌다 (Playwright launch 는 기본으로 넣는 플래그, #987)
     cmd = [exe, f"--remote-debugging-port={port}", f"--user-data-dir={profile}",
-           f"--window-size={args.width},{args.height}", "--no-first-run", "--no-default-browser-check"]
+           f"--window-size={args.width},{args.height}", "--no-first-run", "--no-default-browser-check",
+           POPUP_BLOCKING_OFF_FLAG]
     # Google·Apple 로그인은 자동화 브라우저를 막는다. 실행 인자는 연결을 끊은 뒤 뜨는 팝업에도 걸린다
     if use_stealth:
         cmd += stealth.launch_args(exe)
@@ -193,7 +204,7 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     cdp = f"http://127.0.0.1:{port}"
     now = time.strftime("%Y-%m-%d %H:%M:%S")
     state = {"cdp": cdp, "pid": proc.pid, "headed": bool(args.headed),
-             "stealth": use_stealth, "profile": str(profile), "opened_at": now,
+             "stealth": use_stealth, "profile": str(profile), "opened_at": now, POPUP_BLOCKING_OFF_STATE_KEY: True,
              "browser": pick["label"], "browser_source": pick["source"],
              "last_used": now, "readonly": bool(args.readonly),
              # 세션 종료 때 이 세션이 띄운 브라우저만 닫는다 (#956)

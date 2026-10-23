@@ -22,7 +22,8 @@ def _tab_list(ctx, state: dict) -> dict:
     rows = []
     for index, page in enumerate(tabs.usable_pages(ctx)):
         url, title = read_url_title(page, timeout=2)
-        rows.append({"index": index, "name": name_by_target_id.get(tabs.target_id(page)),
+        page_target_id = tabs.target_id(page)
+        rows.append({"index": index, "target_id": page_target_id, "name": name_by_target_id.get(page_target_id),
                      "url": url, "title": title})
     live_names = {row["name"] for row in rows if row["name"]}
     # 닫힌 탭의 이름은 지운다 — 같은 이름으로 다시 만들 수 있게
@@ -51,17 +52,30 @@ def _tab_new(ctx, args, state: dict) -> dict:
             "next": f"{tabs.TAB_ENV_VAR}={name} launch_cli.py web text  # prefix every web command in this session"}
 
 
+def _pick_existing_tab(ctx, args):
+    """--target(targetId, 붙을 때마다 안 바뀜) > --index(붙을 때마다 순서가 바뀔 수 있음) > (탭, 실패 결과)"""
+    if args.target:
+        page = tabs.find_page_by_target(ctx, args.target)
+        if page is None:
+            return None, {"ok": False, "code": "tab_not_found", "error": f"No tab with target id {args.target} (closed?)",
+                          "next": "web tab list"}
+        return page, None
+    pages = tabs.usable_pages(ctx)
+    if not 0 <= args.index < len(pages):
+        return None, {"ok": False, "code": "tab_not_found", "error": f"No tab at index {args.index}",
+                      "next": "web tab list"}
+    return pages[args.index], None
+
+
 def _tab_use(ctx, args, state: dict) -> dict:
-    """이름이 있으면 확인, --index 를 주면 이름 없는 기존 탭에 이름을 붙인다."""
-    if args.index is not None:
-        pages = tabs.usable_pages(ctx)
-        if not 0 <= args.index < len(pages):
-            return {"ok": False, "code": "tab_not_found", "error": f"No tab at index {args.index}",
-                    "next": "web tab list"}
-        page = pages[args.index]
+    """이름이 있으면 확인, --target · --index 를 주면 이름 없는 기존 탭에 이름을 붙인다."""
+    if args.target or args.index is not None:
+        page, failure = _pick_existing_tab(ctx, args)
+        if failure:
+            return failure
         owned = {e.get("target_id") for e in (state.get("tabs") or {}).values()}
         if tabs.target_id(page) in owned:
-            return {"ok": False, "code": "tab_owned", "error": f"Tab {args.index} already has another name",
+            return {"ok": False, "code": "tab_owned", "error": f"Tab {args.target or args.index} already has another name",
                     "next": "web tab list"}
         tabs.register_tab(state, args.name, page)
     elif tabs.named_tab_page(ctx, state, args.name) is None:
@@ -126,6 +140,8 @@ def configure(p) -> None:
     p.add_argument("tab_command", choices=TAB_COMMANDS, help="new create · list show · use check/name an existing tab · close close")
     p.add_argument("--name", default=None, help="Tab name (the value for LAUNCH_TAB)")
     p.add_argument("--index", type=int, default=None, help="use: index of an existing unnamed tab (index in web tab list)")
+    p.add_argument("--target", default=None,
+                   help="use: target id of an existing unnamed tab (from new_tabs or web tab list; stable across calls, unlike --index)")
 
 
 ACTION = Action(name="tab", needs="state_online", run=execute, configure=configure, options=("url", "timeout"),

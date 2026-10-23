@@ -480,7 +480,7 @@ Do not click by coordinates.
 | Change width · rewrite responses | ✅ | `viewport` · `route` |
 | Capture a single element | ✅ | `shot --selector` |
 | Collect console errors | ✅ | Including load-time errors · uncaught exceptions · rejected promises |
-| New tabs · popups | ⚠️ | Looks at the last tab |
+| New tabs · popups | ✅ | Reported as `new_tabs` (also windows that open seconds later, on the next command). Switch with `web tab use --target <id> --name popup` (#987) |
 | File download | ✅ | `download` |
 | File upload | ✅ | `upload` (hidden inputs · picker) |
 | Inside iframes | ✅ | `--frame` |
@@ -491,6 +491,9 @@ Do not click by coordinates.
 |---|---|
 | In tests, pointing HOME at a temp folder makes macOS Chrome hang while navigating | Keep the real HOME and pass a temp repo with no remote as `--root` so only the state folder is separate (observed) |
 | A persistent profile restores old tabs | It grabs the last tab. Already handled |
+| A popup appears and the next command reads the popup instead of your page | An unnamed session stays on the tab it used last; popups never take it over. Already handled (#987) |
+| `window.open` after a server round trip returns `null` | The browser is started with `--disable-popup-blocking`. A browser started before that warns on `web open` — close and reopen (#987) |
+| `web tab use --index N` picks the wrong tab | Tab order can change on every attach. Use `--target <target_id>` from `new_tabs` or `web tab list` |
 | Repeated `web open` piles up about:blank tabs | `web open` closes about:blank tabs other than the working tab. Already handled (#817) |
 | `close` returns `browser_still_alive` | The process did not die. End it with the suggested `kill`, then reopen |
 | Clicking a table row does nothing (`changed: false`) | The real target is a link inside the row (an arrow, etc.), not the row. Click the `a[href]` candidate from `find --text "{row text}"` (observed on Play Console) |

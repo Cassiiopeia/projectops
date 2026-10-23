@@ -254,6 +254,10 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web login --cred {name} 
 - If the login form is inside an iframe (`find` returns `nothing_found` + `frames`), add `--frame <name|iframe selector|part of URL>` to `find` · `type` · `click` · `assert` · `text` · `inspect`.
 - **Sessions in the same repo share one browser.** Do long, unsaved input in your own tab created with `web tab new --name <name>` (`LAUNCH_TAB=<name>`), and save after each step.
   If another session moved your tab, the result carries `tab_warning` (`page_changed_by_other_session`).
+- **New windows (popups) show up as `new_tabs`** in the result of the command that opened them — or of the next command, when the site opens the window a few seconds late.
+  To work in it, run `web tab use --target <target_id> --name popup` as `next` says, then prefix commands with `LAUNCH_TAB=popup`. Your own tab stays where it was.
+  `URL and title unchanged` with no `new_tabs` means no new window — the page may have opened an in-page layer instead: read it with `web text`.
+  Never conclude "popups are blocked" without testing `window.open` in `web script`; pro-launch starts the browser with popup blocking off. If `web open` warns the browser was started before that, run `web close` and `web open`.
 - `web open` clears a hung browser and leftover profile locks by itself and reports `recovered`. Do not delete locks by hand.
 - Options differ per action: `web <action> --help`. Options the action does not accept are rejected with `bad_args` (the usable options are in the error).
 

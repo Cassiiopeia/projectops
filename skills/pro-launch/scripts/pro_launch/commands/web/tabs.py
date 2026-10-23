@@ -40,16 +40,25 @@ def tab_of_mark_key(key: str) -> str:
     return key.rsplit("@", 1)[0]
 
 
-def target_id(page) -> str | None:
-    """탭의 CDP targetId. 못 읽으면 None (가짜 페이지 · CDP 아닌 연결)."""
+# 이 세션이 이미 알린 새 탭: {"<탭>@<세션>": [targetId, ...]}
+REPORTED_POPUPS_KEY = "reported_popups"
+
+
+def target_info(page) -> dict | None:
+    """탭의 CDP targetInfo (targetId · openerId · url). 못 읽으면 None (가짜 페이지 · CDP 아닌 연결)."""
     try:
         cdp = page.context.new_cdp_session(page)
         try:
-            return cdp.send("Target.getTargetInfo")["targetInfo"]["targetId"]
+            return cdp.send("Target.getTargetInfo")["targetInfo"]
         finally:
             cdp.detach()
     except Exception:
         return None
+
+
+def target_id(page) -> str | None:
+    info = target_info(page)
+    return info.get("targetId") if info else None
 
 
 def usable_pages(ctx) -> list:
@@ -69,6 +78,41 @@ def find_page_by_target(ctx, wanted_target_id: str | None):
 def named_tab_page(ctx, state: dict, name: str):
     entry = (state.get("tabs") or {}).get(name) or {}
     return find_page_by_target(ctx, entry.get("target_id"))
+
+
+def last_used_tab_page(ctx, state: dict):
+    """이 세션이 마지막으로 몬 탭 (다른 세션이 이름 붙여 가져갔으면 None).
+
+    탭 순서는 CDP 에 붙을 때마다 바뀐다 — 팝업이 생긴 뒤 "마지막 탭" 을 고르면 팝업과 원래 탭을 오간다 (#987).
+    """
+    mark = (state.get("tab_marks") or {}).get(mark_key()) or {}
+    owned_target_ids = {entry.get("target_id") for entry in (state.get("tabs") or {}).values()}
+    if not mark.get("target_id") or mark["target_id"] in owned_target_ids:
+        return None
+    return find_page_by_target(ctx, mark["target_id"])
+
+
+def opened_tabs(page, state: dict) -> list[dict]:
+    """이 탭이 연 새 탭(팝업) 중 이 세션이 아직 안 알린 것 > [{target_id, url, title}] (#987).
+
+    클릭 직후 바로 안 뜨고 몇 초 뒤 뜨는 창도 있다 — 매 명령 끝에 보므로 다음 명령에서 잡힌다.
+    openerId 로 가려 다른 세션이 연 탭은 섞지 않는다.
+    """
+    opener_target_id = target_id(page)
+    if not opener_target_id:
+        return []
+    reported = set((state.get(REPORTED_POPUPS_KEY) or {}).get(mark_key()) or [])
+    found = []
+    for candidate in usable_pages(page.context):
+        info = target_info(candidate) or {}
+        if info.get("openerId") != opener_target_id or info.get("targetId") in reported:
+            continue
+        found.append({"target_id": info["targetId"], "url": candidate.url,
+                      "title": (info.get("title") or "")[:120]})
+    if found:
+        reported |= {tab["target_id"] for tab in found}
+        state.setdefault(REPORTED_POPUPS_KEY, {})[mark_key()] = sorted(reported)
+    return found
 
 
 def default_tab_page(ctx, state: dict):

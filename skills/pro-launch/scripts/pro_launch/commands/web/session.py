@@ -172,6 +172,9 @@ def _session_page(ctx, state: dict, allow_missing_tab: bool):
             return None, {"ok": False, "code": "tab_gone",
                           "error": f"Tab {tabs.TAB_ENV_VAR}={name} does not exist (closed, or the browser restarted)",
                           "next": f"web tab new --name {name}  # create a new tab with the same name (or web tab list)"}
+    last_used = tabs.last_used_tab_page(ctx, state)
+    if last_used is not None:
+        return last_used, None
     if state.get("tabs"):
         return tabs.default_tab_page(ctx, state), None
     # 마지막 탭을 본다. 프로필이 영속이라 Chromium 이 옛 탭을 되살리는데,
