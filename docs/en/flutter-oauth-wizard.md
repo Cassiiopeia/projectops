@@ -193,6 +193,8 @@ python3 .github/util/flutter/oauth-wizard/oauth-wizard.py setup --project-path .
 |---------|-------|-----|
 | Kakao login works with `flutter run` but not from a CI build | The CI build is signed with the upload key (or Play App Signing key) whose key hash is not registered | Add that key hash in Kakao Developers |
 | Google Sign-In fails on Android only | SHA-1 or package name missing on the Google side | Add the SHA-1 (Firebase fingerprint or one Android OAuth client per SHA-1) |
+| Android Google Sign-In fails with `No credentials available` | No Google account on the device (Credential Manager needs one), or the Android OAuth client was created minutes ago and is not active yet | Add a Google account in the device settings; for a new client, wait a few minutes and retry |
+| Google shows `401 invalid_client` / "The OAuth client was not found" | The client ID in `GIDClientID` (iOS) or `serverClientId` does not exist in Google Cloud | Copy the client IDs again from Google Cloud and re-run `setup` |
 | iOS crashes or does nothing on Google Sign-In | `GIDClientID` or the reversed client ID URL scheme is missing | Run `setup` with `--google-ios-client-id` |
 | iOS build fails: `GoogleService-Info.plist` not found (CI log has an `::error` naming `GOOGLE_SERVICE_INFO_PLIST`) | The plist is in the Xcode project but neither committed nor in a secret | Register `GOOGLE_SERVICE_INFO_PLIST`; on old templates run `npx projectops` |
 | Android build fails in the Google Services Gradle task (`::error` naming `GOOGLE_SERVICES_JSON`) | The Gradle plugin needs `google-services.json`, but it is neither committed nor in a secret | Register `GOOGLE_SERVICES_JSON` |

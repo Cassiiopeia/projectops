@@ -193,6 +193,8 @@ python3 .github/util/flutter/oauth-wizard/oauth-wizard.py setup --project-path .
 |------|------|------|
 | `flutter run`에서는 Kakao 로그인이 되는데 CI 빌드에서는 안 됨 | CI 빌드가 업로드 키(또는 Play 앱 서명 키)로 서명되는데 그 키 해시가 등록되지 않음 | Kakao Developers에 그 키 해시 추가 |
 | Android에서만 Google 로그인 실패 | Google 쪽에 SHA-1 또는 패키지 이름 누락 | SHA-1 추가 (Firebase 지문, 또는 SHA-1마다 Android OAuth 클라이언트 하나씩) |
+| Android Google 로그인이 `No credentials available`로 실패 | 기기에 Google 계정이 없음(Credential Manager가 계정을 요구), 또는 Android OAuth 클라이언트를 만든 지 몇 분 안 됨 | 기기 설정에서 Google 계정 추가. 새 클라이언트면 몇 분 기다린 뒤 다시 시도 |
+| Google이 `401 invalid_client` / "The OAuth client was not found" 표시 | `GIDClientID`(iOS)나 `serverClientId`의 클라이언트 ID가 Google Cloud에 없음 | Google Cloud에서 클라이언트 ID를 다시 복사해 `setup` 재실행 |
 | iOS에서 Google 로그인 시 앱이 죽거나 아무 반응 없음 | `GIDClientID` 또는 역순 클라이언트 ID URL scheme 누락 | `--google-ios-client-id`로 `setup` 실행 |
 | iOS 빌드 실패: `GoogleService-Info.plist` 없음 (CI 로그에 `GOOGLE_SERVICE_INFO_PLIST`를 가리키는 `::error`) | plist가 Xcode 프로젝트에는 있지만 커밋되지도 Secret에 있지도 않음 | `GOOGLE_SERVICE_INFO_PLIST` 등록, 오래된 템플릿이면 `npx projectops` 실행 |
 | Android 빌드가 Google Services Gradle 태스크에서 실패 (`GOOGLE_SERVICES_JSON`을 가리키는 `::error`) | Gradle 플러그인에 `google-services.json`이 필요한데 커밋되지도 Secret에 있지도 않음 | `GOOGLE_SERVICES_JSON` 등록 |
