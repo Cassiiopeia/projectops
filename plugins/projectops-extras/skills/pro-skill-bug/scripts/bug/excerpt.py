@@ -9,7 +9,13 @@ from bug.redact import redact_text
 # projectops 명령으로 보는 표식 (스킬 CLI · 고정 진입점)
 PROJECTOPS_COMMAND_MARKERS = ("launch_cli.py", "projectops_cli.py", "_cli.py", "/.projectops/")
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".gif")
-IMAGE_PATH_RE = re.compile(r"(~?/[^\s\"'<>|;]+?\.(?:png|jpe?g|webp|gif))\b", re.IGNORECASE)
+# 왼쪽 경계: URL 조각(//host/…) · 단어 중간 경로 제외
+IMAGE_PATH_RE = re.compile(r"(?<![\w/:.])(~?/[^\s\"'<>|;]+?\.(?:png|jpe?g|webp|gif))\b", re.IGNORECASE)
+# 결과를 통째로 빼는 명령 (projectops 설정 = PAT · 서버 비밀번호)
+OMITTED_COMMAND_MARKERS = (".projectops/config",)
+OMITTED_RESULT = "<omitted: projectops config file>"
+# --around 창 뒤에 붙일 사용자 반응 수
+USER_REACTIONS_AFTER_WINDOW = 3
 
 
 def is_projectops_command(text: str) -> bool:
@@ -28,16 +34,31 @@ def _merge_counts(total: dict, counts: dict) -> None:
 
 
 def _image_paths(events: list[dict], start_index: int) -> list[dict]:
+    """명령 · 결과에 나온 이미지 경로 중 실제 있는 파일만 (캡처 경로는 결과 JSON 에 나온다)"""
     seen, images = set(), []
     for event in events:
-        if event["kind"] != "tool_use" or event["index"] < start_index:
+        if event["kind"] not in ("tool_use", "tool_result") or event["index"] < start_index:
             continue
         for raw in IMAGE_PATH_RE.findall(event["text"]):
-            if raw in seen:
+            if raw in seen or not Path(raw).expanduser().is_file():
                 continue
             seen.add(raw)
-            images.append({"index": event["index"], "path": raw, "exists": Path(raw).expanduser().is_file()})
+            images.append({"index": event["index"], "path": raw, "exists": True})
     return images
+
+
+def _user_messages(events: list[dict], start_index: int, end_index: int | None) -> list[dict]:
+    """창 안 사용자 말 + 창 뒤 반응 몇 건 (end_index 없으면 start 이후 전부)"""
+    picked, after_window = [], 0
+    for event in events:
+        if event["kind"] != "user" or event["index"] <= start_index:
+            continue
+        if end_index is not None and event["index"] > end_index:
+            if after_window >= USER_REACTIONS_AFTER_WINDOW:
+                break
+            after_window += 1
+        picked.append(event)
+    return picked
 
 
 def _select_calls(calls: list[dict], results_by_id: dict, last: int, around: str | None) -> tuple[list[dict], bool]:
@@ -57,7 +78,11 @@ def build_excerpt(events: list[dict], last: int = 40, max_chars: int = 4000, aro
     results_by_id = {e["tool_use_id"]: e["text"] for e in events if e["kind"] == "tool_result" and e["tool_use_id"]}
     calls = [e for e in events if e["kind"] == "tool_use" and e["tool_name"] != "Skill" and is_projectops_command(e["text"])]
     recent_calls, is_around_matched = _select_calls(calls, results_by_id, last, around)
-    end_index = recent_calls[-1]["index"] if recent_calls else -1
+    result_index_by_id = {e["tool_use_id"]: e["index"] for e in events if e["kind"] == "tool_result" and e["tool_use_id"]}
+    end_index = None
+    if is_around_matched:
+        last_call = recent_calls[-1]
+        end_index = result_index_by_id.get(last_call["tool_use_id"], last_call["index"])
     redactions: dict = {}
 
     # 명령 · 결과 짝
@@ -65,16 +90,18 @@ def build_excerpt(events: list[dict], last: int = 40, max_chars: int = 4000, aro
     for call in recent_calls:
         command, _, counts = _clip(call["text"], max_chars)
         _merge_counts(redactions, counts)
-        result, is_truncated, counts = _clip(results_by_id.get(call["tool_use_id"], ""), max_chars)
+        raw_result = results_by_id.get(call["tool_use_id"], "")
+        if any(marker in call["text"] for marker in OMITTED_COMMAND_MARKERS):
+            raw_result = OMITTED_RESULT
+        result, is_truncated, counts = _clip(raw_result, max_chars)
         _merge_counts(redactions, counts)
         steps.append({"index": call["index"], "command": command, "result": result, "truncated": is_truncated})
 
     # 첫 명령 이후 사용자 말 (도구 결과 제외)
     start_index = recent_calls[0]["index"] if recent_calls else 0
     user_messages = []
-    for event in events:
-        is_in_window = event["index"] > start_index and (not is_around_matched or event["index"] <= end_index + 2)
-        if event["kind"] == "user" and is_in_window and event["text"].strip():
+    for event in _user_messages(events, start_index, end_index):
+        if event["text"].strip():
             text, _, counts = _clip(event["text"], max_chars)
             _merge_counts(redactions, counts)
             user_messages.append({"index": event["index"], "text": text})
