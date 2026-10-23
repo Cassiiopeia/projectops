@@ -87,6 +87,7 @@
     "plugins/projectops-extras/skills/pro-code-consult/templates/rule-tests/javascript/architecture.rules.test.mjs": 3,
     "plugins/projectops-extras/skills/pro-code-consult/templates/rule-tests/python/test_architecture_rules.py.tmpl": 3,
     "plugins/projectops-extras/skills/pro-code-consult/templates/rule-tests/spring/ArchitectureRulesTest.java": 3,
+    "plugins/projectops-extras/skills/pro-skill-bug/SKILL.md": 1,
     "plugins/projectops-extras/skills/pro-synology-expose/SKILL.md": 2,
     "plugins/projectops-extras/skills/pro-synology-expose/references/certificate.md": 2,
     "plugins/projectops-extras/skills/pro-synology-expose/references/reverse-proxy.md": 1,

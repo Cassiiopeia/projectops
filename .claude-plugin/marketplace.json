@@ -27,7 +27,7 @@
     {
       "name": "projectops-extras",
       "source": "./plugins/projectops-extras",
-      "description": "Optional skills outside the core dev cycle: AI-written code consulting and refactoring, Synology NAS service exposure (2 skills)",
+      "description": "Optional skills outside the core dev cycle: AI-written code consulting and refactoring, Synology NAS service exposure, reporting projectops skill bugs from any session (3 skills)",
       "version": "4.74.0",
       "category": "DevOps"
     }

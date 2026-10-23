@@ -183,7 +183,7 @@ What it changed: descriptions were cut to short English triggers, a shared contr
 | `/pro-ssh` | Connect to a remote server over SSH and run commands (AWS EC2, Synology NAS, Linux, and more) |
 | `/pro-skill-creator` | Create, review, and improve a Skill (CREATE / REVIEW / IMPROVE modes) |
 
-**Extras** (optional plugin): `/pro-code-consult` (keep AI-written code maintainable: audit, refactor one item at a time, check each diff, freeze violations), `/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
+**Extras** (optional plugin): `/pro-code-consult` (keep AI-written code maintainable: audit, refactor one item at a time, check each diff, freeze violations), `/pro-synology-expose`, `/pro-skill-bug` (report a suspected projectops skill bug from any session) — `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 </details>
 

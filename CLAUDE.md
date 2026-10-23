@@ -808,7 +808,7 @@ claude plugin marketplace add Cassiiopeia/projectops
 claude plugin install projectops@projectops-marketplace --scope user
 ```
 
-> 설계·계획·구현은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 맡는다. 아래 표(코어 15종 + extras 2종)에는 분석·계획·구현 스킬이 없다.
+> 설계·계획·구현은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 맡는다. 아래 표(코어 15종 + extras 3종)에는 분석·계획·구현 스킬이 없다.
 
 | 명령어 | 용도 |
 |--------|------|
@@ -821,6 +821,7 @@ claude plugin install projectops@projectops-marketplace --scope user
 | `changelog-deploy` | develop push → main으로 릴리스 PR(deploy PR) → 버전 확정 + automerge / automerge 실패 시 재트리거 |
 | `synology-expose` | 시놀로지 서비스 외부 노출 가이드 (**extras 선택 플러그인** `projectops-extras` — `plugins/projectops-extras/`, 공유 문서 사본은 `scripts/sync_extras.py`로 동기화) |
 | `code-consult` | **AI가 짠 코드 관리** (**extras**) — 코딩 규칙 기준 점검·한 항목씩 리팩터링(전후 실행 대조)·변경분 검사(낡은 주석·중복)·위반 동결 목록(`docs/architecture/rules/`, 줄을 지울 수만 있음). CLI `arch_cli.py`는 extras가 자기 폴더만 설치되므로 `scripts/common`을 쓰지 않는다 (#867) |
+| `skill-bug` | **projectops 스킬 버그 보고** (**extras**) — 어느 레포 세션에서든 의심되면 불러, 세션 기록에서 명령·결과·흐름·로그·스크린샷을 모아 개인정보를 지우고 `Cassiiopeia/projectops`에 이슈(같은 이슈 있으면 댓글)로 묻지 않고 올린 뒤 하던 일로 돌아간다. 판정·수정은 하지 않는다 (CLI `bug_cli.py`) |
 | `ssh` | 원격 서버 SSH 접속 및 명령 실행 (AWS EC2, 시놀로지 NAS, Linux 서버 등) |
 | `skill-creator` | skill 생성/리뷰/개선 (CREATE·REVIEW·IMPROVE 3모드) |
 | `agent-test` | **앱·웹·서버를 실제로 실행해 밟는다** (E2E·증적) — 문서만 쓰는 `testcase`와 다르다 |
