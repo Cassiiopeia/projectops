@@ -1,7 +1,24 @@
 # Changelog
 
-**Current version:** 4.74.1  
-**Last updated:** 2026-10-22T15:28:47Z  
+**Current version:** 4.75.0  
+**Last updated:** 2026-10-23T02:51:54Z  
+
+---
+
+## [4.75.0] - 2026-10-23
+
+**PR:** #993  
+
+**New features**
+- New extras skill `pro-skill-bug`: when a projectops skill misbehaves in any repository, the agent reports it from that session. It gathers the commands, tool results, flow, logs and screenshots from the transcript, strips secrets and personal data, files an issue on Cassiiopeia/projectops (or comments on an open one about the same symptom) without asking, and goes back to the task.
+
+**Bug fixes**
+- pro-launch web: popups are no longer blocked when a site opens them after a server response (the browser now starts with popup blocking off; a browser started before this warns on `web open`).
+- pro-launch web: windows opened by your tab show up as `new_tabs` in the result, including ones that open a few seconds after a click (on the next command). Switch to one with `web tab use --target <id> --name popup`.
+- pro-launch web: a session without a tab name stays on the tab it used last instead of jumping to a popup.
+
+**Other**
+- The repository keeps only five guard checks (skill list, option schema, skill descriptions, Korean line budget, workflow permissions) instead of about 250 test files, and CI runs only those plus a CLI smoke run.
 
 ---
 

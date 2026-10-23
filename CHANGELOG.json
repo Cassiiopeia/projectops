@@ -1,14 +1,47 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-22T15:28:47Z",
-    "currentVersion": "4.74.1",
+    "lastUpdated": "2026-10-23T02:51:54Z",
+    "currentVersion": "4.75.0",
     "projectType": "basic",
-    "totalReleases": 350,
+    "totalReleases": 351,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.75.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-23",
+      "pr_number": 993,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * New extras skill `pro-skill-bug`: when a projectops skill misbehaves in any repository, the agent reports it from that session. It gathers the commands, tool results, flow, logs and screenshots from the transcript, strips secrets and personal data, files an issue on Cassiiopeia/projectops (or comments on an open one about the same symptom) without asking, and goes back to the task.\n\n* **Bug fixes**\n  * pro-launch web: popups are no longer blocked when a site opens them after a server response (the browser now starts with popup blocking off; a browser started before this warns on `web open`).\n  * pro-launch web: windows opened by your tab show up as `new_tabs` in the result, including ones that open a few seconds after a click (on the next command). Switch to one with `web tab use --target  --name popup`.\n  * pro-launch web: a session without a tab name stays on the tab it used last instead of jumping to a popup.\n\n* **Other**\n  * The repository keeps only five guard checks (skill list, option schema, skill descriptions, Korean line budget, workflow permissions) instead of about 250 test files, and CI runs only those plus a CLI smoke run.",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "New extras skill `pro-skill-bug`: when a projectops skill misbehaves in any repository, the agent reports it from that session. It gathers the commands, tool results, flow, logs and screenshots from the transcript, strips secrets and personal data, files an issue on Cassiiopeia/projectops (or comments on an open one about the same symptom) without asking, and goes back to the task."
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "pro-launch web: popups are no longer blocked when a site opens them after a server response (the browser now starts with popup blocking off; a browser started before this warns on `web open`).",
+            "pro-launch web: windows opened by your tab show up as `new_tabs` in the result, including ones that open a few seconds after a click (on the next command). Switch to one with `web tab use --target <id> --name popup`.",
+            "pro-launch web: a session without a tab name stays on the tab it used last instead of jumping to a popup."
+          ]
+        },
+        "other": {
+          "title": "Other",
+          "items": [
+            "The repository keeps only five guard checks (skill list, option schema, skill descriptions, Korean line budget, workflow permissions) instead of about 250 test files, and CI runs only those plus a CLI smoke run."
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.74.1",
       "project_type": "basic",
