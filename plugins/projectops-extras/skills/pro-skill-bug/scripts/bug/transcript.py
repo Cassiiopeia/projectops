@@ -83,9 +83,7 @@ def _is_user_words(text: str) -> bool:
 
 def iter_events(path: Path) -> Iterator[dict]:
     """기록 줄 > 정규화 이벤트 (user · assistant_text · tool_use · tool_result)
-
-    건너뜀: 깨진 줄, 대화 아닌 행, isMeta(스킬 본문 주입), 시스템 태그 메시지, 같은 id 의 사본
-    """
+    건너뜀 5종: 깨진 줄, 대화 아닌 행, isMeta(스킬 본문 주입), 시스템 태그 메시지, 같은 id 사본"""
     seen_block_ids: set[tuple[str, str]] = set()
     with path.open(encoding="utf-8", errors="replace") as handle:
         for index, line in enumerate(handle):

@@ -81,10 +81,8 @@ def named_tab_page(ctx, state: dict, name: str):
 
 
 def last_used_tab_page(ctx, state: dict):
-    """이 세션이 마지막으로 몬 탭 (다른 세션이 이름 붙여 가져갔으면 None).
-
-    탭 순서는 CDP 에 붙을 때마다 바뀐다 — 팝업이 생긴 뒤 "마지막 탭" 을 고르면 팝업과 원래 탭을 오간다 (#987).
-    """
+    """이 세션이 마지막으로 몬 탭 (다른 세션이 이름 붙여 가져갔으면 None)
+    탭 순서는 붙을 때마다 바뀜 > "마지막 탭" 으로 고르면 팝업과 원래 탭을 오감 (#987)"""
     mark = (state.get("tab_marks") or {}).get(mark_key()) or {}
     owned_target_ids = {entry.get("target_id") for entry in (state.get("tabs") or {}).values()}
     if not mark.get("target_id") or mark["target_id"] in owned_target_ids:
@@ -93,11 +91,8 @@ def last_used_tab_page(ctx, state: dict):
 
 
 def opened_tabs(page, state: dict) -> list[dict]:
-    """이 탭이 연 새 탭(팝업) 중 이 세션이 아직 안 알린 것 > [{target_id, url, title}] (#987).
-
-    클릭 직후 바로 안 뜨고 몇 초 뒤 뜨는 창도 있다 — 매 명령 끝에 보므로 다음 명령에서 잡힌다.
-    openerId 로 가려 다른 세션이 연 탭은 섞지 않는다.
-    """
+    """이 탭이 연 새 탭(openerId) 중 이 세션이 안 알린 것 > [{target_id, url, title}] (#987)
+    매 명령 끝에 봄 > 몇 초 늦게 뜬 창은 다음 명령에서 잡힘"""
     opener_target_id = target_id(page)
     if not opener_target_id:
         return []
