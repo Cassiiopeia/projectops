@@ -7,10 +7,20 @@
     <script type="application/json" id="versionJson">
 {
   "name": "OAuth Login Setup Wizard",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Setup wizard for Kakao and Google login in a Flutter app, from console setup to CI/CD",
-  "lastUpdated": "2026-10-22",
+  "lastUpdated": "2026-10-24",
   "changelog": [
+    {
+      "version": "1.0.2",
+      "date": "2026-10-24",
+      "changes": [
+        "Kakao step matches the 2026 Kakao Developers console, checked end to end with a real app and a real Kakao login on iOS (projectops#156)",
+        "Android and iOS are registered on the Native App Key's own page; key hashes go one per field with the + button, not one per line",
+        "Kakao Login is turned on under Kakao Login > General; an app that reads only the user ID needs no consent item",
+        "Business and individual developers: email as a required consent item needs a Biz app, and how each can get one"
+      ]
+    },
     {
       "version": "1.0.1",
       "date": "2026-10-22",
@@ -309,8 +319,8 @@
                 <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
                     <p class="text-sm font-medium text-kakao-yellow mb-2" data-i18n="kakao.appTitle">1) Create the app and copy the Native App Key</p>
                     <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
-                        <li data-i18n="kakao.app1">Add an application (or open an existing one)</li>
-                        <li data-i18n="kakao.app2">Go to <strong>App → Platform Key</strong> and copy the <strong>Native App Key</strong> (32 characters)</li>
+                        <li data-i18n="kakao.app1">Click <strong>Create app</strong> (or open an existing one). App name, company name and category are required; an individual developer can enter their own name as the company. Tick the operating policy box and save.</li>
+                        <li data-i18n="kakao.app2">Go to <strong>App → Platform Key</strong> and copy the <strong>Native App Key</strong> (32 characters). Click that key's card to open its settings — Android and iOS are registered there (steps 2 and 3), then press <strong>Save</strong>.</li>
                         <li data-i18n="kakao.app3">⚠️ Not the REST API key, JavaScript key or Admin key. Never put the REST API or Admin key in the app.</li>
                     </ol>
                     <input type="text" id="kakaoNativeAppKeyInput" placeholder="0123456789abcdef0123456789abcdef" class="mt-3 w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm font-mono focus:border-oauth-primary outline-none" oninput="onTextInput('kakaoNativeAppKey', this.value)">
@@ -318,22 +328,24 @@
                 </div>
                 <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
                     <p class="text-sm font-medium text-kakao-yellow mb-2" data-i18n="kakao.androidTitle">2) Register the Android platform</p>
-                    <p class="text-xs text-slate-300 mb-2" data-i18n="kakao.androidBody">Under the Native App Key's Android settings, enter the package name and <strong>every</strong> key hash below (one per line). A key hash that is missing blocks login for builds signed with that key.</p>
+                    <p class="text-xs text-slate-300 mb-2" data-i18n="kakao.androidBody">Under the Native App Key's Android settings, enter the package name and <strong>every</strong> key hash below (one per field — press <strong>+</strong> next to the field to add another). A key hash that is missing blocks login for builds signed with that key.</p>
                     <div class="result-item"><span class="key" data-i18n="kakao.packageName">Package name</span><span class="value font-mono" id="kakaoPackageName"></span></div>
                     <div class="code-block mt-2"><pre id="kakaoKeyHashList"></pre></div>
                     <button class="copy-btn-small mt-2" onclick="copyCode('kakaoKeyHashList', this)" data-i18n="action.copy">Copy</button>
                 </div>
                 <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
                     <p class="text-sm font-medium text-kakao-yellow mb-2" data-i18n="kakao.iosTitle">3) Register the iOS platform</p>
-                    <p class="text-xs text-slate-300 mb-2" data-i18n="kakao.iosBody">Enter the bundle ID exactly as in Xcode.</p>
+                    <p class="text-xs text-slate-300 mb-2" data-i18n="kakao.iosBody">On the same Native App Key page, enter the bundle ID exactly as in Xcode. The store URL is optional.</p>
                     <div class="result-item"><span class="key">Bundle ID</span><span class="value font-mono" id="kakaoBundleId"></span></div>
                 </div>
                 <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
                     <p class="text-sm font-medium text-kakao-yellow mb-2" data-i18n="kakao.loginTitle">4) Turn on Kakao Login</p>
                     <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
-                        <li data-i18n="kakao.login1">Turn on <strong>Kakao Login</strong> for the app</li>
-                        <li data-i18n="kakao.login2">Set the consent items you need (nickname, profile image, email…)</li>
+                        <li data-i18n="kakao.login1">Open <strong>Kakao Login → General</strong>, switch the status to <strong>ON</strong> and confirm <strong>Activate</strong></li>
+                        <li data-i18n="kakao.login2">Set the consent items you need (nickname, profile image, email…). If the app only needs the user ID, no consent item is required.</li>
                         <li data-i18n="kakao.login3">A Redirect URI is only for web services — native apps don't need one</li>
+                        <li data-i18n="kakao.login4">Email as a <strong>required</strong> consent item needs a Biz app. With a business registration, register it under <strong>App → General → Business information</strong>. An individual developer can switch to a Biz app after identity verification and agreeing to the Kakao Business terms; an app icon is required either way.</li>
+                        <li data-i18n="kakao.login5">Set an unlink webhook so you learn when a user disconnects your app outside of it</li>
                     </ol>
                 </div>
                 <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">

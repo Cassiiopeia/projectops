@@ -1,9 +1,19 @@
 {
   "name": "OAuth Login Setup Wizard",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Setup wizard for Kakao and Google login in a Flutter app, from console setup to CI/CD",
-  "lastUpdated": "2026-10-22",
+  "lastUpdated": "2026-10-24",
   "changelog": [
+    {
+      "version": "1.0.2",
+      "date": "2026-10-24",
+      "changes": [
+        "Kakao step matches the 2026 Kakao Developers console, checked end to end with a real app and a real Kakao login on iOS (projectops#156)",
+        "Android and iOS are registered on the Native App Key's own page; key hashes go one per field with the + button, not one per line",
+        "Kakao Login is turned on under Kakao Login > General; an app that reads only the user ID needs no consent item",
+        "Business and individual developers: email as a required consent item needs a Biz app, and how each can get one"
+      ]
+    },
     {
       "version": "1.0.1",
       "date": "2026-10-22",
