@@ -44,7 +44,7 @@ On Windows, double-click the file or drag it into a browser. You can jump to any
 
 ## Steps
 
-Step 1 picks the providers; Kakao and Google steps appear only when selected (7–10 steps in total).
+Step 1 picks the providers; Kakao and Google steps appear only when selected (9–10 steps in total).
 
 | Step | What you do | Result |
 |------|-------------|--------|
@@ -61,7 +61,7 @@ Step 1 picks the providers; Kakao and Google steps appear only when selected (7�
 
 ### Kakao console
 
-These are the actual screens of the Kakao Developers console as of October 2026, checked end to end with a real app and a real login on iOS.
+These are the screens of the Kakao Developers console as of October 2026. Steps 1–4 and the login itself were run with a real app and a real login on iOS. The **+** button for extra key hashes ("Add input field") and the Biz app rows below come from what the console shows and says, and were not run.
 
 1. **Create app**: app name, company name and category are required. An individual developer can enter their own name as the company. Tick the operating policy box and save.
 2. **App → Platform Key**: copy the **Native App Key**. The REST API, JavaScript and Admin keys are on the same page; never put the REST API or Admin key in the app.
@@ -209,6 +209,7 @@ python3 .github/util/flutter/oauth-wizard/oauth-wizard.py setup --project-path .
 |---------|-------|-----|
 | Kakao login works with `flutter run` but not from a CI build | The CI build is signed with the upload key (or Play App Signing key) whose key hash is not registered | Add that key hash in Kakao Developers |
 | Kakao login on a simulator or emulator stops at "2-step verification" and then says the login has expired | A Kakao account with 2-step verification sends a confirmation to KakaoTalk that is valid for 5 minutes | Press **Confirm** in KakaoTalk within 5 minutes, or choose email verification on that screen |
+| On an iOS simulator, a sheet says "'app' wants to use 'kakao.com' to sign in" | This is the system sign-in sheet for the Kakao Account page (a simulator has no KakaoTalk, so it falls back to the account login) | Tap **Continue**; it is not an error |
 | Google Sign-In fails on Android only | SHA-1 or package name missing on the Google side | Add the SHA-1 (Firebase fingerprint or one Android OAuth client per SHA-1) |
 | Android Google Sign-In fails with `No credentials available` | No Google account on the device (Credential Manager needs one), or the Android OAuth client was created minutes ago and is not active yet | Add a Google account in the device settings; for a new client, wait a few minutes and retry |
 | Google shows `401 invalid_client` / "The OAuth client was not found" | The client ID in `GIDClientID` (iOS) or `serverClientId` does not exist in Google Cloud | Copy the client IDs again from Google Cloud and re-run `setup` |

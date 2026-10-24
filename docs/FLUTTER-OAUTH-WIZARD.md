@@ -44,7 +44,7 @@ Windows에서는 파일을 더블클릭하거나 브라우저로 끌어다 놓�
 
 ## 단계
 
-1단계에서 제공자를 고르며, Kakao·Google 단계는 선택했을 때만 나타납니다 (전체 7–10단계).
+1단계에서 제공자를 고르며, Kakao·Google 단계는 선택했을 때만 나타납니다 (전체 9–10단계).
 
 | 단계 | 할 일 | 결과 |
 |------|-------|------|
@@ -61,7 +61,7 @@ Windows에서는 파일을 더블클릭하거나 브라우저로 끌어다 놓�
 
 ### Kakao 콘솔
 
-2026년 10월 기준 Kakao Developers 콘솔의 실제 화면입니다. 실제 앱을 만들고 iOS에서 실제 로그인까지 확인했습니다.
+2026년 10월 기준 Kakao Developers 콘솔 화면입니다. 1–4번과 로그인은 실제 앱과 iOS 실제 로그인으로 직접 확인했습니다. 키 해시 추가 **+** 버튼("입력 필드 추가")과 아래 비즈 앱 항목은 콘솔이 보여 주고 안내하는 내용을 옮긴 것이며, 직접 실행하지는 않았습니다.
 
 1. **앱 생성**: 앱 이름·회사명·카테고리가 필수입니다. 개인 개발자는 회사명에 본인 이름을 넣어도 됩니다. 운영정책 동의에 체크하고 저장합니다.
 2. **앱 → 플랫폼 키**: **네이티브 앱 키**를 복사합니다. REST API 키·JavaScript 키·Admin 키도 같은 화면에 있지만, REST API 키와 Admin 키는 절대 앱에 넣지 않습니다.
@@ -209,6 +209,7 @@ python3 .github/util/flutter/oauth-wizard/oauth-wizard.py setup --project-path .
 |------|------|------|
 | `flutter run`에서는 Kakao 로그인이 되는데 CI 빌드에서는 안 됨 | CI 빌드가 업로드 키(또는 Play 앱 서명 키)로 서명되는데 그 키 해시가 등록되지 않음 | Kakao Developers에 그 키 해시 추가 |
 | 시뮬레이터·에뮬레이터에서 Kakao 로그인이 "2단계 인증"에서 멈췄다가 로그인 유효 시간이 만료됐다고 나옴 | 2단계 인증을 켠 카카오계정은 카카오톡으로 5분짜리 확인 메시지를 보냄 | 5분 안에 카카오톡에서 **확인**을 누르거나, 그 화면에서 이메일 인증을 고름 |
+| iOS 시뮬레이터에서 "'앱'이(가) 'kakao.com'을(를) 사용하여 로그인하려고 합니다" 창이 뜸 | 카카오계정 로그인 페이지로 가는 시스템 로그인 창입니다 (시뮬레이터에는 카카오톡이 없어 계정 로그인으로 넘어감) | **계속**을 누릅니다. 오류가 아닙니다 |
 | Android에서만 Google 로그인 실패 | Google 쪽에 SHA-1 또는 패키지 이름 누락 | SHA-1 추가 (Firebase 지문, 또는 SHA-1마다 Android OAuth 클라이언트 하나씩) |
 | Android Google 로그인이 `No credentials available`로 실패 | 기기에 Google 계정이 없음(Credential Manager가 계정을 요구), 또는 Android OAuth 클라이언트를 만든 지 몇 분 안 됨 | 기기 설정에서 Google 계정 추가. 새 클라이언트면 몇 분 기다린 뒤 다시 시도 |
 | Google이 `401 invalid_client` / "The OAuth client was not found" 표시 | `GIDClientID`(iOS)나 `serverClientId`의 클라이언트 ID가 Google Cloud에 없음 | Google Cloud에서 클라이언트 ID를 다시 복사해 `setup` 재실행 |

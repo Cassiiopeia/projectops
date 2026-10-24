@@ -92,7 +92,7 @@ registerWizardMessages(
     "header.title": "OAuth 로그인 설정 마법사",
     "header.subtitle": "Flutter 앱의 Kakao·Google 로그인 — 콘솔 설정부터 CI/CD 빌드가 그대로 되는 것까지",
     "meta.duration": "⏱️ 예상 소요 <strong>20–40분</strong>",
-    "meta.stepCount": "📑 <strong>7–10단계</strong> (선택에 따라 다름)",
+    "meta.stepCount": "📑 <strong>9–10단계</strong> (선택에 따라 다름)",
     "meta.requirements": "🎒 준비물 <strong>Flutter 프로젝트 · Kakao Developers 및/또는 Google(Firebase) 계정 · Python 3</strong>",
     "meta.outputs": "🎁 끝나면 <strong>명령 하나로 적용되는 네이티브 설정, Dart 로그인 코드, 등록할 GitHub Secret, 정확한 CI/CD 스텝</strong>을 얻습니다",
     "meta.docsLink": "<a href=\"../../../../docs/FLUTTER-OAUTH-WIZARD.md\" target=\"_blank\" rel=\"noopener\" class=\"text-oauth-accent hover:underline\">📖 전체 가이드 보기 →</a>",
