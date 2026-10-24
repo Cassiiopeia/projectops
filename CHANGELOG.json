@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-23T02:51:54Z",
-    "currentVersion": "4.75.0",
+    "lastUpdated": "2026-10-24T00:17:27Z",
+    "currentVersion": "4.75.1",
     "projectType": "basic",
-    "totalReleases": 351,
+    "totalReleases": 352,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.75.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-24",
+      "pr_number": 995,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Documentation**\n  * OAuth login wizard (Kakao step) now matches the current Kakao Developers console, checked end to end with a real Kakao app and a real Kakao login on iOS:\n    * Android and iOS are registered on the Native App Key's own page, then saved.\n    * Key hashes go one per field (use the + button), not one per line.\n    * Kakao Login is turned on under Kakao Login > General; an app that reads only the user ID needs no consent item.\n    * Businesses and individual developers: what changes, and how each gets a Biz app when email must be a required consent item.\n  * The OAuth wizard guide (English and Korean) gains a Kakao console section and troubleshooting rows for Kakao 2-step verification timeouts on simulators and for two Google sign-in failures found in the real-key test (`No credentials available`, `401 invalid_client`).",
+      "parsed_changes": {
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "OAuth login wizard (Kakao step) now matches the current Kakao Developers console, checked end to end with a real Kakao app and a real Kakao login on iOS:"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.75.0",
       "project_type": "basic",

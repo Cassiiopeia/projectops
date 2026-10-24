@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.75.0  
-**Last updated:** 2026-10-23T02:51:54Z  
+**Current version:** 4.75.1  
+**Last updated:** 2026-10-24T00:17:27Z  
+
+---
+
+## [4.75.1] - 2026-10-24
+
+**PR:** #995  
+
+**Documentation**
+- OAuth login wizard (Kakao step) now matches the current Kakao Developers console, checked end to end with a real Kakao app and a real Kakao login on iOS:
 
 ---
 
