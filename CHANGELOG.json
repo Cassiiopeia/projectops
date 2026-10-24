@@ -1,14 +1,35 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-24T00:17:27Z",
-    "currentVersion": "4.75.1",
+    "lastUpdated": "2026-10-24T01:11:21Z",
+    "currentVersion": "4.75.2",
     "projectType": "basic",
-    "totalReleases": 352,
+    "totalReleases": 353,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.75.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-24",
+      "pr_number": 996,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Documentation**\n  * OAuth login wizard: the step count now reads 9–10 instead of 7–10, in the wizard page and in the English and Korean guides. Choosing one provider gives 9 steps and both give 10.\n  * OAuth wizard guide: says which Kakao console steps were run end to end and which come from the console's own notices, and explains the iOS simulator \"use kakao.com to sign in\" sheet.\n  * The wizard was walked step by step in English and Korean for Kakao only, Google only and both; the English screens contain no Korean text and the Korean screens are translated.",
+      "parsed_changes": {
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "OAuth login wizard: the step count now reads 9–10 instead of 7–10, in the wizard page and in the English and Korean guides. Choosing one provider gives 9 steps and both give 10.",
+            "OAuth wizard guide: says which Kakao console steps were run end to end and which come from the console's own notices, and explains the iOS simulator \"use kakao.com to sign in\" sheet.",
+            "The wizard was walked step by step in English and Korean for Kakao only, Google only and both; the English screens contain no Korean text and the Korean screens are translated."
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.75.1",
       "project_type": "basic",

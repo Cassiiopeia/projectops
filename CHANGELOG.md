@@ -1,7 +1,18 @@
 # Changelog
 
-**Current version:** 4.75.1  
-**Last updated:** 2026-10-24T00:17:27Z  
+**Current version:** 4.75.2  
+**Last updated:** 2026-10-24T01:11:21Z  
+
+---
+
+## [4.75.2] - 2026-10-24
+
+**PR:** #996  
+
+**Documentation**
+- OAuth login wizard: the step count now reads 9–10 instead of 7–10, in the wizard page and in the English and Korean guides. Choosing one provider gives 9 steps and both give 10.
+- OAuth wizard guide: says which Kakao console steps were run end to end and which come from the console's own notices, and explains the iOS simulator "use kakao.com to sign in" sheet.
+- The wizard was walked step by step in English and Korean for Kakao only, Google only and both; the English screens contain no Korean text and the Korean screens are translated.
 
 ---
 
