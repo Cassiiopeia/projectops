@@ -1,0 +1,30 @@
+{
+  "description": "projectops-extras: detect suspected projectops tool bugs and have the agent file them with pro-skill-bug, then show a notice (#997)",
+  "modules": ["./skill_bug_notice.ts"],
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/skill_bug_watch.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/skill_bug_watch.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

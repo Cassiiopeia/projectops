@@ -17,6 +17,20 @@ description: "Report a suspected projectops skill bug from this session: gather 
 - **Call it even when you are not sure.** Whether it really is a bug is decided later, not here.
 - Not this skill: a bug in the user's own app (that is their repo's issue), fixing the skill (a separate projectops session does that with superpowers).
 
+## Automatic entry (the watch hook)
+
+In Claude Code, the extras plugin's hook (`hooks/skill_bug_watch.py`) watches projectops commands and, on a suspected bug,
+tells the main agent to start this skill in a **background subagent** with a session id and a rule. Four rules:
+`workaround_after_failure` (a failure, then a raw `adb`/`xcrun`/CDP/`gh`/`curl api.github.com` command),
+`usage_error_repeated` (the same subcommand's argument error twice), `same_failure_repeated` (same subcommand and code three times),
+`cli_crash` (a traceback inside a projectops file). At most 3 per session. Off: `"skill-bug": {"auto_report": false}` in `config.json`.
+
+When you are that subagent:
+- Pass the given session id to every `B locate` / `B excerpt` (`--session-id`): the transcript is the parent's, not yours.
+- Use `--around` with words from the rule's tool or result to center the excerpt.
+- Put the rule on the first line of the body (`Detected automatically: <rule> on <tool>`) and the marker `<!-- projectops-auto-report -->` on the last line.
+- Run the same steps as below, without asking anyone. Your final message is one line: the issue link and whether it was new or a comment.
+
 ## What this skill does — and only this
 
 Collect facts → strip personal data → send to `Cassiiopeia/projectops` → return to the task you were doing.

@@ -55,6 +55,10 @@
     "_comment": "Root folder for outputs (md). Defaults to docs/projectops when omitted. A relative path is from the repository root; an absolute path also works.",
     "root": "docs/projectops"
   },
+  "skill-bug": {
+    "_comment": "extras watch hook: false stops automatic reports of suspected projectops bugs (default true).",
+    "auto_report": true
+  },
   "synology-expose": {
     "instances": [
       {

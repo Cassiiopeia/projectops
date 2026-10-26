@@ -235,6 +235,22 @@ Used by the `synology-expose` skill.
 | `dns_provider` | ✅ | DNS provider (e.g. `cloudflare`, `route53`) |
 | `default` | — | Whether this is the default among several instances |
 
+### `skill-bug` section (#997)
+
+Read by the extras watch hook (`plugins/projectops-extras/hooks/skill_bug_watch.py`). Without the section, automatic reports are on.
+
+```json
+{
+  "skill-bug": {
+    "auto_report": false
+  }
+}
+```
+
+| Field | Required | Description |
+|------|------|------|
+| `auto_report` | | `false` stops the hook from asking the agent to file suspected projectops bugs. Default `true` |
+
 ### `ssh` section (retired — read only for compatibility)
 
 Server connection details live in **one place: `launch.credentials` (`kind: "ssh"`)** (#841). The old `ssh` section
