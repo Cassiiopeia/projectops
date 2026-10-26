@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-24T01:11:21Z",
-    "currentVersion": "4.75.2",
+    "lastUpdated": "2026-10-26T02:16:19Z",
+    "currentVersion": "4.76.0",
     "projectType": "basic",
-    "totalReleases": 353,
+    "totalReleases": 354,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.76.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-26",
+      "pr_number": 998,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * projectops tool trouble is now reported automatically: when a projectops command fails and the agent works around it, repeats the same argument error, fails the same way three times, or a projectops script crashes, a background report files a GitHub issue with personal data removed and a short notice appears (at most 3 per session, can be turned off)",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "projectops tool trouble is now reported automatically: when a projectops command fails and the agent works around it, repeats the same argument error, fails the same way three times, or a projectops script crashes, a background report files a GitHub issue with personal data removed and a short notice appears (at most 3 per session, can be turned off)"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.75.2",
       "project_type": "basic",

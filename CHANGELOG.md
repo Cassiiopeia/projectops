@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.75.2  
-**Last updated:** 2026-10-24T01:11:21Z  
+**Current version:** 4.76.0  
+**Last updated:** 2026-10-26T02:16:19Z  
+
+---
+
+## [4.76.0] - 2026-10-26
+
+**PR:** #998  
+
+**New features**
+- projectops tool trouble is now reported automatically: when a projectops command fails and the agent works around it, repeats the same argument error, fails the same way three times, or a projectops script crashes, a background report files a GitHub issue with personal data removed and a short notice appears (at most 3 per session, can be turned off)
 
 ---
 
