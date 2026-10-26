@@ -1,7 +1,18 @@
 # Changelog
 
-**Current version:** 4.76.0  
-**Last updated:** 2026-10-26T02:16:19Z  
+**Current version:** 4.77.0  
+**Last updated:** 2026-10-26T06:40:18Z  
+
+---
+
+## [4.77.0] - 2026-10-26
+
+**PR:** #1001  
+
+**New features**
+- Automatic bug reports now watch every projectops skill, not just launch and GitHub
+- A tool answering that it lacks a feature is reported as a feature request
+- Reports include the full failed result, the steps around it and the environment, so they can be reproduced from the issue alone
 
 ---
 

@@ -1,14 +1,35 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-26T02:16:19Z",
-    "currentVersion": "4.76.0",
+    "lastUpdated": "2026-10-26T06:40:18Z",
+    "currentVersion": "4.77.0",
     "projectType": "basic",
-    "totalReleases": 354,
+    "totalReleases": 355,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.77.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-26",
+      "pr_number": 1001,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * Automatic bug reports now watch every projectops skill, not just launch and GitHub\n  * A tool answering that it lacks a feature is reported as a feature request\n  * Reports include the full failed result, the steps around it and the environment, so they can be reproduced from the issue alone",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "Automatic bug reports now watch every projectops skill, not just launch and GitHub",
+            "A tool answering that it lacks a feature is reported as a feature request",
+            "Reports include the full failed result, the steps around it and the environment, so they can be reproduced from the issue alone"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.76.0",
       "project_type": "basic",
