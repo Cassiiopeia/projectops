@@ -19,17 +19,76 @@ description: "Report a suspected projectops skill bug from this session: gather 
 
 ## Automatic entry (the watch hook)
 
-In Claude Code, the extras plugin's hook (`hooks/skill_bug_watch.py`) watches projectops commands and, on a suspected bug,
-tells the main agent to start this skill in a **background subagent** with a session id and a rule. Four rules:
-`workaround_after_failure` (a failure, then a raw `adb`/`xcrun`/CDP/`gh`/`curl api.github.com` command),
-`usage_error_repeated` (the same subcommand's argument error twice), `same_failure_repeated` (same subcommand and code three times),
-`cli_crash` (a traceback inside a projectops file). At most 3 per session. Off: `"skill-bug": {"auto_report": false}` in `config.json`.
+In Claude Code, the extras plugin's hook (`hooks/skill_bug_watch.py`) watches every projectops CLI and, on a suspected bug,
+tells the main agent to start this skill in a **background subagent** with a session id and an alarm number. Five rules:
 
-When you are that subagent:
-- Pass the given session id to every `B locate` / `B excerpt` (`--session-id`): the transcript is the parent's, not yours.
-- Use `--around` with words from the rule's tool or result to center the excerpt.
-- Put the rule on the first line of the body (`Detected automatically: <rule> on <tool>`) and the marker `<!-- projectops-auto-report -->` on the last line.
-- Run the same steps as below, without asking anyone. Your final message is one line: the issue link and whether it was new or a comment.
+| Rule | Fires when |
+|---|---|
+| `workaround_after_failure` | a projectops command failed, then within 7 calls the same job was done by hand: launch → `adb`/`xcrun`/`idb`/`maestro`/`osascript`/CDP; github, changelog-deploy, report, oss-consult → `gh`, `curl api.github.com`, code calling `api.github.com`; commit → `git commit`; init-worktree → `git worktree add`; figma → `api.figma.com` |
+| `missing_feature_reported` | the tool itself answered that it has no such feature (`not_supported`, `unsupported_*`, `unknown_*`), once |
+| `usage_error_repeated` | the same subcommand's argument error twice (an `invalid choice` here is kind `missing_feature`) |
+| `same_failure_repeated` | same subcommand and code three times |
+| `cli_crash` | a traceback inside a projectops file |
+
+Using another tool from the start, with no projectops failure before it, is not a bug and never fires.
+At most 3 per session. Off: `"skill-bug": {"auto_report": false}` in `config.json`.
+
+When you are that subagent, the reader of your issue is **an agent that will get only the issue** and must reproduce and fix it
+without asking anyone. Do not reproduce or analyze yourself; collect facts so they can. Run, in order:
+
+1. `B alarm --session-id ID [--alarm N]` → the rule, skill, subcommand, code, kind, failed call id, workaround and calls in between, failure count.
+   If it says `alarm_not_found`, use `B excerpt --session-id ID --around <word>` instead.
+2. `B excerpt --session-id ID --tool-use-id <alarm.tool_use_id>` → `anchor` (the failed call and its **full** result), `flow` (every tool call around it,
+   including the workaround and its result), `agent_notes` (what the agent said it was doing), `setup_commands` (earlier projectops commands that built the state).
+3. `B context --session-id ID` → OS, Python, the working folder at the time and whether it is a git repo, CLI path and version, installed versions, Claude Code version.
+4. Write the body with the **automatic report template** below, then do Steps 4–7 (images, redact, look for duplicates, send) without asking anyone.
+   Your final message is one line: the issue link and whether it was new or a comment.
+
+### Automatic report template
+
+Keep the bug report headings. Every item is required; write "none" rather than dropping one.
+
+~~~markdown
+Detected automatically: <rule> on <skill> <subcommand> (code: <code>, kind: <kind>)
+
+## Description
+<What the agent was trying to do (from agent_notes and the parent's one line) and what happened instead, 1-3 sentences.>
+
+## How to reproduce
+Preconditions: <setup_commands, or "no projectops command ran before it">; working folder <is / is not> a git repo<, branch>.
+1. `<exact command>`  ← one per line, copy-paste runnable, values already masked
+2. ...
+
+## References
+<details><summary>Raw result of the failed call</summary>
+
+```json
+<anchor.result, as is>
+```
+</details>
+
+| # | Tool | Command | Result (first line) |
+|---|---|---|---|
+| <flow rows in order; mark the failed call and the workaround> |
+
+Workaround: `<alarm.workaround>` → <its result from flow>
+Detection: rule <rule>, <calls_between> call(s) between failure and workaround, failure count <failure_count>.
+User's words: <quoted, or "none">
+
+## Expected behavior
+(Suspected) <what the tool should have done; never state a cause as fact>
+
+## Environment
+<every field of B context>
+
+Transcript (maintainer's machine only): session <id>, <path with ~>
+<!-- projectops-auto-report key=<alarm.key> -->
+~~~
+
+- Title: `❗[Bug][<skill>] <symptom>`; when kind is `missing_feature`, `⚙️[Feature][<skill>] <the missing capability>`.
+- Labels: `status: todo,needs triage,area: skills` plus `type: feature` when kind is `missing_feature`, else `type: bug`.
+- Duplicates: before `search-issues`, run `G list-issues Cassiiopeia projectops --labels "needs triage"` and look for the same `key=` marker
+  in an open issue's body (`G get-issue ...` if needed). Same key → `add-comment` with the new flow and environment, not a new issue.
 
 ## What this skill does — and only this
 
@@ -50,8 +109,11 @@ Use the absolute path of the folder this SKILL.md is in. Every `B` command print
 
 | Command | What it gives |
 |---|---|
+| `B alarm [--session-id ID] [--alarm N]` | The evidence the watch hook saved for an alarm (automatic reports) |
 | `B locate [--session-id ID]` | The transcript file of this session (or of the given session) |
 | `B excerpt [--session-id ID] [--last 40] [--around TEXT] [--max-chars 4000]` | projectops commands with their results, user messages after them, skills used, image paths — already masked |
+| `B excerpt ... --tool-use-id ID [--window 8]` | Adds the failed call with its full result, every tool call around it, the agent's notes and the setup commands |
+| `B context [--session-id ID] [--command TEXT]` | OS, Python, working folder and git state at the time, CLI path and version, installed versions |
 | `B draft-path` | Where to write the issue body (under `~/.projectops/cache/pro-skill-bug/`) |
 | `B redact --file PATH --in-place` | Masks tokens, passwords, Cookie/Authorization, emails, phones, resident and business registration numbers, values typed into forms, and turns your home folder into `~` |
 
@@ -89,7 +151,8 @@ Use the absolute path of the folder this SKILL.md is in. Every `B` command print
 6. **Look for the same issue.** `G search-issues Cassiiopeia projectops <skill> <symptom words in English>`, then once more with the user's own words.
 7. **Send.** Run `B redact --file <body> --in-place` once more right before sending, so anything you added or changed after step 5 is masked too.
    - An open issue about the same skill and the same symptom → `G add-comment Cassiiopeia projectops <number> --body-file <body>`
-   - Otherwise → `G create-issue Cassiiopeia projectops "❗ [Bug][<skill>] <symptom>" <body> --labels "status: todo"`
+   - Otherwise → `G create-issue Cassiiopeia projectops "❗[Bug][<skill>] <symptom>" <body> --labels "status: todo"`
+     (automatic report: the title and labels from the automatic report template)
 8. **Return.** Tell the user one line with the link, then continue the original task.
 
 ## Rules

@@ -10,7 +10,7 @@ Optional plugin from the projectops marketplace. It holds skills that are not pa
 
 ## Automatic bug reports (Claude Code)
 
-The plugin's hook (`hooks/skill_bug_watch.py`) watches projectops commands. When a command fails and the agent works around it with a raw command, when the same argument error repeats, when the same failure repeats three times, or when a projectops script crashes, it asks the agent to run `pro-skill-bug` in the background: personal data is stripped and the issue is filed without asking (at most 3 per session). A toast shows the issue number when it lands (`hooks/skill_bug_notice.ts`, on Claude Code builds with function hooks).
+The plugin's hook (`hooks/skill_bug_watch.py`) watches every projectops skill command. When a command fails and the agent then does the same job by hand (raw `adb`/`xcrun`, `gh` or the GitHub API, `git commit`, `git worktree add`, the Figma API), when the tool answers that it has no such feature, when the same argument error repeats, when the same failure repeats three times, or when a projectops script crashes, it asks the agent to run `pro-skill-bug` in the background: personal data is stripped and the issue is filed without asking (at most 3 per session). The issue carries the failed call's full result, every call around it, the commands that set up the state and the environment, so it can be reproduced from the issue alone. A toast shows the issue number when it lands (`hooks/skill_bug_notice.ts`, on Claude Code builds with function hooks).
 
 To turn it off, add `"skill-bug": {"auto_report": false}` to `~/.projectops/config/config.json`. Cursor and Copilot installs get the skill only.
 

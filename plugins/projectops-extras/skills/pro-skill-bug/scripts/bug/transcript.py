@@ -81,6 +81,18 @@ def _is_user_words(text: str) -> bool:
     return bool(stripped) and not stripped.startswith(SYSTEM_MESSAGE_PREFIXES)
 
 
+def iter_rows(path: Path) -> Iterator[dict]:
+    """기록 줄 > 원본 행 (깨진 줄 · 대화 아닌 행 건너뜀, cwd 등 행 메타가 필요할 때)"""
+    with path.open(encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(row, dict) and row.get("type") in CONVERSATION_ROW_TYPES:
+                yield row
+
+
 def iter_events(path: Path) -> Iterator[dict]:
     """기록 줄 > 정규화 이벤트 (user · assistant_text · tool_use · tool_result)
     건너뜀 5종: 깨진 줄, 대화 아닌 행, isMeta(스킬 본문 주입), 시스템 태그 메시지, 같은 id 사본"""

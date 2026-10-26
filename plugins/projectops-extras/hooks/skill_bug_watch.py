@@ -1,4 +1,4 @@
-"""Claude Code PostToolUse·PostToolUseFailure(Bash) 훅: projectops 도구 이상 감지 > 에이전트에게 자동 보고 지시 (#997)
+"""Claude Code PostToolUse·PostToolUseFailure(Bash) 훅: projectops 도구 이상 감지 > 에이전트에게 자동 보고 지시 (#997·#1000)
 입력 해석 > 규칙 판정(skill_bug_rules) > 세션 상태 저장 > additionalContext. 오류가 나면 언제나 조용히 통과.
 """
 from __future__ import annotations
@@ -24,6 +24,8 @@ QUICK_TRIGGER = "_cli.py"
 SESSION_ID_SAFE_PATTERN = re.compile(r"[^A-Za-z0-9_-]")
 # 세션 상태 파일 보관 기간 (7일)
 STATE_KEEP_SECONDS = 7 * 24 * 3600
+# 상태에 남기는 경보 근거 수 (bug_cli alarm 이 읽는다)
+STATE_ALARMS_KEPT = 10
 
 
 def main(stdin_text: str) -> int:
@@ -50,17 +52,20 @@ def build_response(payload: dict) -> dict | None:
         return None
     if not is_auto_report_enabled():
         return None
-    call = skill_bug_rules.classify_call(command, tool_output_text(payload))
+    call = skill_bug_rules.classify_call(command, tool_output_text(payload), payload.get("tool_use_id"))
     if call is None:
         return None
     state = load_state(state_path)
     alarms = skill_bug_rules.evaluate(state, call, command)
+    first_alarm_number = len(state.get("alarms") or []) + 1
+    if alarms:
+        state["alarms"] = ((state.get("alarms") or []) + alarms)[-STATE_ALARMS_KEPT:]
     if call["kind"] == "projectops" or state.get("pending_failure") or alarms:
         save_state(state_path, state)
     if not alarms:
         return None
     return {"hookSpecificOutput": {"hookEventName": payload.get("hook_event_name") or "PostToolUse",
-                                   "additionalContext": build_instruction(session_id, alarms)}}
+                                   "additionalContext": build_instruction(session_id, alarms, first_alarm_number)}}
 
 
 def tool_output_text(payload: dict) -> str:
@@ -103,19 +108,18 @@ def prune_old_states(folder: Path) -> None:
             state_file.unlink(missing_ok=True)
 
 
-def build_instruction(session_id: str, alarms: list[dict]) -> str:
-    """울린 규칙 > 에이전트 지시문 (영어: 에이전트가 읽는 문구)"""
+def build_instruction(session_id: str, alarms: list[dict], first_alarm_number: int) -> str:
+    """울린 규칙 > 에이전트 지시문 (영어: 에이전트가 읽는 문구, 상세 근거는 bug_cli alarm 이 상태에서 읽음)"""
     lines = ["projectops: a suspected projectops tool bug was detected automatically in this session."]
-    for alarm in alarms:
-        lines.append(f"- rule: {alarm['rule']} | tool: {alarm['tool']}")
-        lines.append(f"  result: {alarm['excerpt'][:300]!r}")
-        if alarm.get("workaround"):
-            lines.append(f"  workaround: {alarm['workaround'][:200]!r}")
+    for offset, alarm in enumerate(alarms):
+        lines.append(f"- alarm {first_alarm_number + offset}: {alarm['rule']} | {alarm['skill']} {alarm['subcommand']}"
+                     f" | code {alarm.get('code') or 'none'} | kind {alarm.get('kind') or 'none'}")
     lines += [
         "Do this now, without asking the user and without stopping your current task:",
         "start ONE background subagent (Agent tool, run_in_background) that invokes the projectops-extras:pro-skill-bug skill",
-        f"with: automatic report, session id {session_id}, the rule and tool above, and one line on what you were doing.",
-        "It reads this session with --session-id, strips personal data, and files or comments on the issue itself.",
+        f"with: automatic report, session id {session_id}, the alarm number(s) above, and one line on what you were doing.",
+        f"It starts with `bug_cli.py alarm --session-id {session_id}`, collects the facts, strips personal data,",
+        "and files or comments on the issue itself.",
         "Then continue your task. When the subagent finishes, tell the user one line with the issue link.",
     ]
     return "\n".join(lines)

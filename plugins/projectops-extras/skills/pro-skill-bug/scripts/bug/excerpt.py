@@ -16,6 +16,11 @@ OMITTED_COMMAND_MARKERS = (".projectops/config",)
 OMITTED_RESULT = "<omitted: projectops config file>"
 # --around 창 뒤에 붙일 사용자 반응 수
 USER_REACTIONS_AFTER_WINDOW = 3
+# 기준 호출(anchor) 창: 기준 결과 원문 상한, 흐름 결과 상한, 에이전트 말 상한, 앞쪽 상태 명령 수 (#1000)
+ANCHOR_RESULT_MAX_CHARS = 20000
+FLOW_RESULT_MAX_CHARS = 2000
+AGENT_NOTE_MAX_CHARS = 500
+SETUP_COMMANDS_KEPT = 10
 
 
 def is_projectops_command(text: str) -> bool:
@@ -73,8 +78,9 @@ def _select_calls(calls: list[dict], results_by_id: dict, last: int, around: str
     return calls[-last:], False
 
 
-def build_excerpt(events: list[dict], last: int = 40, max_chars: int = 4000, around: str | None = None) -> dict:
-    """projectops 호출 기준 발췌 (마지막 last 개, 또는 around 글이 나온 곳 중심). redactions 에 가린 종류별 개수"""
+def build_excerpt(events: list[dict], last: int = 40, max_chars: int = 4000, around: str | None = None,
+                  anchor_tool_use_id: str | None = None, window: int = 8) -> dict:
+    """projectops 호출 기준 발췌 (마지막 last 개, 또는 around 글이 나온 곳 중심) + 기준 호출 창(anchor_*). redactions 에 가린 종류별 개수"""
     results_by_id = {e["tool_use_id"]: e["text"] for e in events if e["kind"] == "tool_result" and e["tool_use_id"]}
     calls = [e for e in events if e["kind"] == "tool_use" and e["tool_name"] != "Skill" and is_projectops_command(e["text"])]
     recent_calls, is_around_matched = _select_calls(calls, results_by_id, last, around)
@@ -107,6 +113,54 @@ def build_excerpt(events: list[dict], last: int = 40, max_chars: int = 4000, aro
             user_messages.append({"index": event["index"], "text": text})
 
     skills_seen = list(dict.fromkeys(e["text"] for e in events if e["tool_name"] == "Skill" and e["text"]))
-    return {"steps": steps, "user_messages": user_messages[-last:] if last > 0 else [],
+    anchor_part = build_anchor_window(events, results_by_id, anchor_tool_use_id, window, redactions)
+    return {**anchor_part, "steps": steps, "user_messages": user_messages[-last:] if last > 0 else [],
             "skills_seen": skills_seen, "images": _image_paths(events, start_index),
             "total_projectops_calls": len(calls), "around_matched": is_around_matched, "redactions": redactions}
+
+
+def build_anchor_window(events: list[dict], results_by_id: dict, anchor_tool_use_id: str | None, window: int,
+                        redactions: dict) -> dict:
+    """기준 호출 > {anchor_matched, anchor(결과 원문), flow(앞뒤 모든 도구 호출), agent_notes, setup_commands}"""
+    tool_uses = [e for e in events if e["kind"] == "tool_use"]
+    position = next((i for i, e in enumerate(tool_uses) if anchor_tool_use_id and e["tool_use_id"] == anchor_tool_use_id), None)
+    if position is None:
+        return {"anchor_matched": False}
+
+    def clipped(text: str, limit: int) -> tuple[str, bool]:
+        value, is_truncated, counts = _clip(text, limit)
+        _merge_counts(redactions, counts)
+        return value, is_truncated
+
+    # 기준 호출 (결과는 원문 그대로, 상한만)
+    anchor_event = tool_uses[position]
+    command, _ = clipped(anchor_event["text"], ANCHOR_RESULT_MAX_CHARS)
+    result, is_truncated = clipped(results_by_id.get(anchor_event["tool_use_id"], ""), ANCHOR_RESULT_MAX_CHARS)
+    anchor = {"index": anchor_event["index"], "tool": anchor_event["tool_name"], "command": command,
+              "result": result, "truncated": is_truncated}
+
+    # 앞뒤 흐름 (projectops 여부 무관 · 우회 명령 포함)
+    flow = []
+    for event in tool_uses[max(0, position - window):position + window + 1]:
+        flow_command, _ = clipped(event["text"], FLOW_RESULT_MAX_CHARS)
+        flow_result, flow_truncated = clipped(results_by_id.get(event["tool_use_id"], ""), FLOW_RESULT_MAX_CHARS)
+        flow.append({"index": event["index"], "tool": event["tool_name"], "is_anchor": event is anchor_event,
+                     "command": flow_command, "result": flow_result, "truncated": flow_truncated})
+
+    # 같은 구간 에이전트 말 (무엇을 하려 했는지)
+    start_index, end_index = flow[0]["index"], flow[-1]["index"]
+    agent_notes = []
+    for event in events:
+        if event["kind"] == "assistant_text" and start_index <= event["index"] <= end_index and event["text"].strip():
+            note, _ = clipped(event["text"], AGENT_NOTE_MAX_CHARS)
+            agent_notes.append({"index": event["index"], "text": note})
+
+    # 기준 이전 projectops 명령 (상태를 만든 명령: web open · device 등)
+    setup_commands = []
+    for event in tool_uses[:position]:
+        if event["tool_name"] != "Skill" and is_projectops_command(event["text"]):
+            setup_command, _ = clipped(event["text"], FLOW_RESULT_MAX_CHARS)
+            setup_result, _ = clipped(results_by_id.get(event["tool_use_id"], ""), 300)
+            setup_commands.append({"index": event["index"], "command": setup_command, "result_head": setup_result})
+    return {"anchor_matched": True, "anchor": anchor, "flow": flow, "agent_notes": agent_notes,
+            "setup_commands": setup_commands[-SETUP_COMMANDS_KEPT:]}
