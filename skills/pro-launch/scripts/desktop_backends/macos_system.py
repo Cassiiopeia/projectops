@@ -9,6 +9,8 @@ from desktop_backends import macos_nodes
 # 창 목록에서 빼는 소유자 — Dock · 바탕화면 · 메뉴바 · 창 관리자 그림자
 EXCLUDED_OWNERS = {"Dock", "Window Server", "WindowManager", "Control Center", "SystemUIServer",
                    "Wallpaper"}
+# 알림 센터: 창이 없어도 AXFrontmost 가 항상 True 라 앞 앱 후보에서 뺀다
+NOTIFICATION_CENTER_BUNDLE_ID = "com.apple.notificationcenterui"
 # NSApplicationActivationPolicyRegular — Dock 에 뜨는 일반 앱. 그 외(에이전트·백그라운드)의 창은 overlay 후보다
 ACTIVATION_POLICY_REGULAR = 0
 # NSApplicationActivateIgnoringOtherApps
@@ -61,17 +63,45 @@ def app_info(pid: int) -> tuple[str, str, bool]:
 
 
 def frontmost_pid() -> int | None:
-    """앞에 있는 앱 pid — AX 시스템 요소로 본다.
+    """앞에 있는 앱 pid — AX 시스템 요소 > 실패 시 앱별 AXFrontmost.
 
     NSWorkspace.frontmostApplication 은 run loop 가 없는 CLI 에서 갱신되지 않아 옛 앱을 돌려준다 (실측).
     """
     from ApplicationServices import (AXUIElementCopyAttributeValue, AXUIElementCreateSystemWide,
                                      AXUIElementGetPid)
     err, app = AXUIElementCopyAttributeValue(AXUIElementCreateSystemWide(), "AXFocusedApplication", None)
-    if err != 0 or app is None:
-        return None
-    err, pid = AXUIElementGetPid(app, None)
-    return int(pid) if err == 0 else None
+    if err == 0 and app is not None:
+        err, pid = AXUIElementGetPid(app, None)
+        if err == 0:
+            return int(pid)
+    # macOS 27 은 시스템 요소 질의가 항상 -25204 (kAXErrorCannotComplete) — 앱별로 묻는다 (#1002)
+    return _frontmost_pid_by_app_attribute()
+
+
+def _frontmost_pid_by_app_attribute() -> int | None:
+    """화면 위 창을 가진 앱 중 AXFrontmost 가 True 인 앱 (앞 창 순서).
+
+    True 가 여럿이면 일반 앱 우선 > 알림 센터 제외한 에이전트 앱 (알림 센터는 항상 True, 실측)
+    """
+    from ApplicationServices import AXUIElementCopyAttributeValue, AXUIElementCreateApplication
+    checked_pids: list[int] = []
+    frontmost_pids: list[int] = []
+    for row in cg_windows():
+        pid = row["pid"]
+        if pid in checked_pids or row["owner"] in EXCLUDED_OWNERS:
+            continue
+        checked_pids.append(pid)
+        err, is_frontmost = AXUIElementCopyAttributeValue(AXUIElementCreateApplication(pid), "AXFrontmost", None)
+        if err == 0 and is_frontmost:
+            frontmost_pids.append(pid)
+    agent_pid = None
+    for pid in frontmost_pids:
+        _, bundle_id, is_regular = app_info(pid)
+        if is_regular:
+            return pid
+        if agent_pid is None and bundle_id != NOTIFICATION_CENTER_BUNDLE_ID:
+            agent_pid = pid
+    return agent_pid
 
 
 def activate(pid: int, app_element) -> bool:
