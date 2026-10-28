@@ -1,7 +1,24 @@
 # Changelog
 
-**Current version:** 4.77.1  
-**Last updated:** 2026-10-28T02:25:49Z  
+**Current version:** 4.77.2  
+**Last updated:** 2026-10-28T08:30:22Z  
+
+---
+
+## [4.77.2] - 2026-10-28
+
+**PR:** #1011  
+
+**Bug fixes**
+- App test builds now pick the same app version on Android and iOS for the same commit; the Android test build checks closed App Store versions the same way iOS does
+- The "version adjusted" reason now stays on the progress, success and failure comments (and the issue comment) instead of disappearing from the final comment
+
+**Improvements**
+- Test build comments warn when the branch's version is behind the default branch, with a suggestion to merge it
+- Android-only repos can use the App Store lookup too, with no extra key-restore step in the workflow
+
+**Documentation**
+- Test build trigger guide (English and Korean) describes the shared version decision and the stale branch warning
 
 ---
 

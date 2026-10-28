@@ -1,14 +1,47 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-28T02:25:49Z",
-    "currentVersion": "4.77.1",
+    "lastUpdated": "2026-10-28T08:30:22Z",
+    "currentVersion": "4.77.2",
     "projectType": "basic",
-    "totalReleases": 356,
+    "totalReleases": 357,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.77.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-28",
+      "pr_number": 1011,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * App test builds now pick the same app version on Android and iOS for the same commit; the Android test build checks closed App Store versions the same way iOS does\n  * The \"version adjusted\" reason now stays on the progress, success and failure comments (and the issue comment) instead of disappearing from the final comment\n\n* **Improvements**\n  * Test build comments warn when the branch's version is behind the default branch, with a suggestion to merge it\n  * Android-only repos can use the App Store lookup too, with no extra key-restore step in the workflow\n\n* **Documentation**\n  * Test build trigger guide (English and Korean) describes the shared version decision and the stale branch warning",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "App test builds now pick the same app version on Android and iOS for the same commit; the Android test build checks closed App Store versions the same way iOS does",
+            "The \"version adjusted\" reason now stays on the progress, success and failure comments (and the issue comment) instead of disappearing from the final comment"
+          ]
+        },
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "Test build comments warn when the branch's version is behind the default branch, with a suggestion to merge it",
+            "Android-only repos can use the App Store lookup too, with no extra key-restore step in the workflow"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Test build trigger guide (English and Korean) describes the shared version decision and the stale branch warning"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.77.1",
       "project_type": "basic",
