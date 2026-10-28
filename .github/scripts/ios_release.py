@@ -17,6 +17,7 @@ Apple 오류 해석의 유일한 위치다. 새 오류 코드는 여기 패턴�
 
 사용 예:
   python3 ios_release.py precheck-version --mode test --version 2.1.2 --bundle-id com.a.b
+  python3 ios_release.py precheck-version --mode test --version 2.1.2 --bundle-id com.a.b --base-version 2.4.0   # 오래된 브랜치 경고 (Android 테스트 빌드도 같은 명령, #1006)
   python3 ios_release.py classify-error --log build/upload_attempt_1.log
 """
 
@@ -115,6 +116,14 @@ def decide_version(current: str, closed: str | None, mode: str) -> dict:
             "reason": message("ios_release.reason.changed", why=why, next=nxt)}
 
 
+def stale_branch_reason(current: str, base: str | None) -> str | None:
+    """브랜치 버전이 기본 브랜치보다 낮으면 병합 권장 사유, 아니면 None (비교 불가면 조용히 None)."""
+    cur_t, base_t = parse_version(current), parse_version(base)
+    if cur_t is None or base_t is None or cur_t >= base_t:
+        return None
+    return message("ios_release.stale_branch", current=current, base=base)
+
+
 # ── 업로드 오류 분류 ──────────────────────────────────────────────────
 def _code(n: str) -> str:
     """Apple 오류 코드는 문맥이 있을 때만 일치시킨다 (#694).
@@ -201,30 +210,38 @@ def _emit(payload: dict) -> None:
     print(json.dumps(payload, ensure_ascii=False))
 
 
-def _precheck_fallback(version: str, why: str) -> int:
+def _stale_outputs(args: argparse.Namespace) -> dict:
+    """오래된 브랜치 경고 출력 (stale, stale_reason) — ASC 조회 성공 여부와 무관하게 항상 같이 낸다."""
+    reason = stale_branch_reason(args.version, args.base_version)
+    return {"stale": str(reason is not None).lower(), "stale_reason": reason or ""}
+
+
+def _precheck_fallback(args: argparse.Namespace, why: str) -> int:
     reason = message("ios_release.precheck.fallback", why=why)
+    stale = _stale_outputs(args)
     print(f"warning: {reason}", file=sys.stderr)
-    _write_github_output({"version": version, "changed": "false", "reason": reason})
-    _emit({"ok": True, "version": version, "changed": False, "closed_max": None,
-           "reason": reason, "fallback": True, "summary": reason, "next": None})
+    _write_github_output({"version": args.version, "changed": "false", "reason": reason, **stale})
+    _emit({"ok": True, "version": args.version, "changed": False, "closed_max": None,
+           "reason": reason, "fallback": True, "summary": reason, "next": None, **stale})
     return 0
 
 
 def cmd_precheck(args: argparse.Namespace) -> int:
     token = asc_client.token_from_env()
     if not token:
-        return _precheck_fallback(args.version, message("ios_release.asc.no_credentials"))
+        return _precheck_fallback(args, message("ios_release.asc.no_credentials"))
     try:
         app_id = asc_client.find_app_id(args.bundle_id, token)
         if not app_id:
-            return _precheck_fallback(args.version, message("ios_release.asc.app_not_found", bundle_id=args.bundle_id))
+            return _precheck_fallback(args, message("ios_release.asc.app_not_found", bundle_id=args.bundle_id))
         closed = closed_max(asc_client.list_app_store_versions(app_id, token))
     except asc_client.AscError as e:
-        return _precheck_fallback(args.version, str(e))
+        return _precheck_fallback(args, str(e))
 
     d = decide_version(args.version, closed, args.mode)
-    _write_github_output({"version": d["version"], "changed": str(d["changed"]).lower(), "reason": d["reason"]})
-    _emit({**d, "fallback": False, "summary": d["reason"],
+    stale = _stale_outputs(args)
+    _write_github_output({"version": d["version"], "changed": str(d["changed"]).lower(), "reason": d["reason"], **stale})
+    _emit({**d, **stale, "fallback": False, "summary": d["reason"],
            "next": None if d["ok"] else "bump the version in version.yml and run again"})
     if not d["ok"]:
         print(f"::error::{d['reason']}", file=sys.stderr)
@@ -637,6 +654,7 @@ def main(argv: list[str] | None = None) -> int:
     pc.add_argument("--mode", choices=["test", "release"], required=True)
     pc.add_argument("--version", required=True)
     pc.add_argument("--bundle-id", required=True)
+    pc.add_argument("--base-version", default="", help="default-branch version, to warn when this branch is behind it")
     ce = sub.add_parser("classify-error", help="classify an upload log")
     ce.add_argument("--log", required=True)
     st = sub.add_parser("asc-status", help="show app version states and the latest build number (read only)")

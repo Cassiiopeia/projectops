@@ -319,6 +319,8 @@ jobs:
       version: ${{ steps.test_version.outputs.version }}
       version_changed: ${{ steps.test_version.outputs.changed }}
       version_reason: ${{ steps.test_version.outputs.reason }}
+      version_stale: ${{ steps.test_version.outputs.stale }}
+      version_stale_reason: ${{ steps.test_version.outputs.stale_reason }}
       issue_url: ${{ steps.issue_info.outputs.issue_url }}
       issue_title: ${{ steps.issue_info.outputs.issue_title }}
       issue_number: ${{ steps.issue_info.outputs.issue_number }}
@@ -461,8 +463,10 @@ jobs:
 
           # 출시되어 닫힌 버전이면 다음 패치 버전으로 바꾼다 (version, changed, reason 을 출력).
           # 빌드 번호는 여기서 정하지 않고 아카이브 직전에 archive-upload 가 정한다.
+          # 오래된 브랜치 경고용 기본 브랜치 버전 — 메시지 카탈로그 체크아웃에 이미 있다 (없으면 빈 값 = 경고 생략)
+          BASE_VERSION=$(sed -n 's/^version:[[:space:]]*"\{0,1\}\([0-9][0-9.]*\)"\{0,1\}.*/\1/p' .projectops-messages/version.yml 2>/dev/null | head -n 1)
           python3 .github/scripts/ios_release.py precheck-version --mode test \
-            --version "$VERSION" --bundle-id "$APP_IDENTIFIER"
+            --version "$VERSION" --bundle-id "$APP_IDENTIFIER" --base-version "$BASE_VERSION"
 
       # 브랜치명에서 이슈 번호 추출 및 GitHub API로 이슈 정보 가져오기
       - name: Extract issue info from the branch name
@@ -745,7 +749,7 @@ jobs:
       - name: Load comment messages
         working-directory: ${{ github.workspace }}
         run: |
-          python3 .projectops-messages/.github/scripts/i18n/messages.py js test_testflight. comment. \
+          python3 .projectops-messages/.github/scripts/i18n/messages.py js test_testflight. comment. test_build. \
             --version-yml .projectops-messages/version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
             || { echo "::warning::Message catalog not found, comments show message keys"
                  echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
@@ -761,6 +765,8 @@ jobs:
           # 사유 문구는 따옴표나 백틱이 섞일 수 있어 스크립트 소스에 박지 않고 env 로 읽는다
           VERSION_CHANGED: ${{ needs.prepare-test-build.outputs.version_changed }}
           VERSION_REASON: ${{ needs.prepare-test-build.outputs.version_reason }}
+          VERSION_STALE: ${{ needs.prepare-test-build.outputs.version_stale }}
+          VERSION_STALE_REASON: ${{ needs.prepare-test-build.outputs.version_stale_reason }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -778,10 +784,11 @@ jobs:
             const seconds = elapsed % 60;
             const elapsedStr = elapsedText(minutes, seconds);
 
-            // 출시되어 닫힌 버전을 피해 version.yml 과 다른 버전으로 빌드하면 이유를 알린다
-            const versionNote = process.env.VERSION_CHANGED === 'true'
-              ? ['', t('test_testflight.version_note', { reason: process.env.VERSION_REASON })]
-              : [];
+            // 버전 조정·오래된 브랜치 안내 (닫힌 버전을 피해 version.yml 과 다른 버전으로 빌드하면 이유를 알린다)
+            const versionNotes = [
+              ...(process.env.VERSION_CHANGED === 'true' ? ['', t('test_build.version_note', { reason: process.env.VERSION_REASON })] : []),
+              ...(process.env.VERSION_STALE === 'true' ? ['', t('test_build.stale_note', { reason: process.env.VERSION_STALE_REASON })] : []),
+            ];
 
             const body = [
               t('test_testflight.heading.in_progress'),
@@ -797,7 +804,7 @@ jobs:
               t('test_testflight.row.app_version', { version }),
               t('test_testflight.row.build_number_pending'),
               t('test_testflight.row.branch', { branch: branchName }),
-              ...versionNote,
+              ...versionNotes,
               '',
               t('test_testflight.link.live_log', { url: runUrl }),
               '',
@@ -1017,6 +1024,10 @@ jobs:
         uses: actions/github-script@v7
         env:
           BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
+          VERSION_CHANGED: ${{ needs.prepare-test-build.outputs.version_changed }}
+          VERSION_REASON: ${{ needs.prepare-test-build.outputs.version_reason }}
+          VERSION_STALE: ${{ needs.prepare-test-build.outputs.version_stale }}
+          VERSION_STALE_REASON: ${{ needs.prepare-test-build.outputs.version_stale_reason }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -1027,6 +1038,11 @@ jobs:
             const branchName = process.env.BRANCH_NAME;
             const buildNumber = '${{ steps.build_phase.outputs.build_number }}';
             const version = '${{ steps.build_phase.outputs.version || needs.prepare-test-build.outputs.version }}';
+            // 버전 조정·오래된 브랜치 안내 (진행·성공·실패 댓글이 본문을 다시 쓰므로 매번 함께 남긴다)
+            const versionNotes = [
+              ...(process.env.VERSION_CHANGED === 'true' ? ['', t('test_build.version_note', { reason: process.env.VERSION_REASON })] : []),
+              ...(process.env.VERSION_STALE === 'true' ? ['', t('test_build.stale_note', { reason: process.env.VERSION_STALE_REASON })] : []),
+            ];
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
 
@@ -1051,6 +1067,7 @@ jobs:
               '|------|-----|',
               t('test_testflight.row.app_version', { version: `${version}(${buildNumber})` }),
               t('test_testflight.row.branch', { branch: branchName }),
+              ...versionNotes,
               '',
               t('test_testflight.link.live_log', { url: runUrl }),
               '',
@@ -1076,6 +1093,10 @@ jobs:
         uses: actions/github-script@v7
         env:
           BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
+          VERSION_CHANGED: ${{ needs.prepare-test-build.outputs.version_changed }}
+          VERSION_REASON: ${{ needs.prepare-test-build.outputs.version_reason }}
+          VERSION_STALE: ${{ needs.prepare-test-build.outputs.version_stale }}
+          VERSION_STALE_REASON: ${{ needs.prepare-test-build.outputs.version_stale_reason }}
           REASON_LINE: ${{ steps.build_phase.outputs.reason_line }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -1088,6 +1109,11 @@ jobs:
             const branchName = process.env.BRANCH_NAME;
             const buildNumber = '${{ steps.build_phase.outputs.build_number }}';
             const version = '${{ steps.build_phase.outputs.version || needs.prepare-test-build.outputs.version }}';
+            // 버전 조정·오래된 브랜치 안내 (진행·성공·실패 댓글이 본문을 다시 쓰므로 매번 함께 남긴다)
+            const versionNotes = [
+              ...(process.env.VERSION_CHANGED === 'true' ? ['', t('test_build.version_note', { reason: process.env.VERSION_REASON })] : []),
+              ...(process.env.VERSION_STALE === 'true' ? ['', t('test_build.stale_note', { reason: process.env.VERSION_STALE_REASON })] : []),
+            ];
             const commitHash = '${{ needs.prepare-test-build.outputs.commit_hash }}';
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
@@ -1121,6 +1147,7 @@ jobs:
               t('test_testflight.row.app_version', { version: appVersion }),
               t('test_testflight.row.branch', { branch: branchName }),
               t('test_testflight.row.commit', { commit: commitHash }),
+              ...versionNotes,
               '',
               t('test_testflight.failed.build_message'),
               ...(reason ? ['', t('test_testflight.reason', { reason })] : []),
@@ -1216,6 +1243,10 @@ jobs:
         uses: actions/github-script@v7
         env:
           BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
+          VERSION_CHANGED: ${{ needs.prepare-test-build.outputs.version_changed }}
+          VERSION_REASON: ${{ needs.prepare-test-build.outputs.version_reason }}
+          VERSION_STALE: ${{ needs.prepare-test-build.outputs.version_stale }}
+          VERSION_STALE_REASON: ${{ needs.prepare-test-build.outputs.version_stale_reason }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -1228,6 +1259,11 @@ jobs:
             const branchName = process.env.BRANCH_NAME;
             const buildNumber = '${{ steps.upload_phase.outputs.build_number || steps.build_phase.outputs.build_number }}';
             const version = '${{ steps.upload_phase.outputs.version || needs.prepare-test-build.outputs.version }}';
+            // 버전 조정·오래된 브랜치 안내 (진행·성공·실패 댓글이 본문을 다시 쓰므로 매번 함께 남긴다)
+            const versionNotes = [
+              ...(process.env.VERSION_CHANGED === 'true' ? ['', t('test_build.version_note', { reason: process.env.VERSION_REASON })] : []),
+              ...(process.env.VERSION_STALE === 'true' ? ['', t('test_build.stale_note', { reason: process.env.VERSION_STALE_REASON })] : []),
+            ];
             const commitHash = '${{ needs.prepare-test-build.outputs.commit_hash }}';
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
@@ -1261,6 +1297,7 @@ jobs:
               t('test_testflight.row.branch', { branch: branchName }),
               t('test_testflight.row.commit', { commit: commitHash }),
               t('test_testflight.row.total_elapsed', { elapsed: totalElapsed }),
+              ...versionNotes,
               '',
               t('test_testflight.deployed.message'),
               '',
@@ -1282,6 +1319,10 @@ jobs:
         uses: actions/github-script@v7
         env:
           BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
+          VERSION_CHANGED: ${{ needs.prepare-test-build.outputs.version_changed }}
+          VERSION_REASON: ${{ needs.prepare-test-build.outputs.version_reason }}
+          VERSION_STALE: ${{ needs.prepare-test-build.outputs.version_stale }}
+          VERSION_STALE_REASON: ${{ needs.prepare-test-build.outputs.version_stale_reason }}
           REASON_LINE: ${{ steps.upload_phase.outputs.reason_line || steps.build_phase.outputs.reason_line }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -1295,6 +1336,11 @@ jobs:
             const branchName = process.env.BRANCH_NAME;
             const buildNumber = '${{ steps.upload_phase.outputs.build_number || steps.build_phase.outputs.build_number }}';
             const version = '${{ steps.upload_phase.outputs.version || needs.prepare-test-build.outputs.version }}';
+            // 버전 조정·오래된 브랜치 안내 (진행·성공·실패 댓글이 본문을 다시 쓰므로 매번 함께 남긴다)
+            const versionNotes = [
+              ...(process.env.VERSION_CHANGED === 'true' ? ['', t('test_build.version_note', { reason: process.env.VERSION_REASON })] : []),
+              ...(process.env.VERSION_STALE === 'true' ? ['', t('test_build.stale_note', { reason: process.env.VERSION_STALE_REASON })] : []),
+            ];
             const commitHash = '${{ needs.prepare-test-build.outputs.commit_hash }}';
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
@@ -1325,6 +1371,7 @@ jobs:
               t('test_testflight.row.app_version', { version: `${version}(${buildNumber})` }),
               t('test_testflight.row.branch', { branch: branchName }),
               t('test_testflight.row.commit', { commit: commitHash }),
+              ...versionNotes,
               '',
               t('test_testflight.failed.deploy_message'),
               ...(reason ? ['', t('test_testflight.reason', { reason })] : []),

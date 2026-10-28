@@ -25,7 +25,7 @@ The test build trigger runs an Android APK build and an iOS TestFlight build aut
 - Works on both PRs and issues
 - **3 build options**: full build / Android only / iOS only
 - Build numbers are time-based, so builds from several issues at once never collide
-- An iOS test build on a version that was already released and closed switches to the next patch version automatically
+- A test build on a version that was already released and closed switches to the same next patch version on both Android and iOS automatically
 - Build results are posted as a comment automatically
 
 ---
@@ -132,14 +132,21 @@ The number is not written back to `version.yml`. The trigger workflow still send
 - Version: the version from `version.yml` (not a fixed test version).
 - Build number: the value decided by the rule above.
 
-### Automatic version switch after release (iOS test)
+### Automatic version switch after release (Android and iOS test)
 
-If the `version.yml` version was already released on the App Store and is closed, TestFlight rejects the upload. The iOS test build checks this in advance and builds the **next patch after the highest closed version**.
+If the `version.yml` version was already released on the App Store and is closed, TestFlight rejects the upload. The test build checks this in advance and builds the **next patch after the highest closed version**. So that one commit gets the same app version on Android and iOS, both platforms run the same decision script (`ios_release.py precheck-version`).
 
-- The prepare step reads the App Store Connect version list to decide. If the version changed, the progress comment gets an `ℹ️ Version adjusted: ...` line with the reason after preparation finishes.
-- If the list cannot be read (no key, missing permission, network), the build only logs a warning and continues with the `version.yml` version. If the upload is still rejected because the version is closed, it reads the closed version from the rejection message and archives again with the next patch.
+- The prepare step reads the App Store Connect version list to decide. If the version changed, a `ℹ️ Version adjusted: ...` line gives the reason, and it stays on the progress, success and failure comments (including the issue comment).
+- If the list cannot be read (no key, missing permission, network, no iOS bundle ID), the build only logs a warning and continues with the `version.yml` version. The same applies to Android-only repos. On iOS, if the upload is still rejected because the version is closed, it reads the closed version from the rejection message and archives again with the next patch.
+- The lookup uses the same secrets as iOS: `APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_BASE64` and `IOS_BUNDLE_ID` (secret or variable).
 - `version.yml` is not modified.
 - An iOS release never changes the version behind your back. If the version is closed, it fails before the build, so bump the `version.yml` version and run it again.
+
+### Stale branch warning
+
+If the branch's `version.yml` version is lower than the default branch's, the comments get a `⚠️ This branch is behind the default branch ...` warning. A stale branch is the most common reason for the version switch above, and merging the default branch usually clears it. It is only a warning and never blocks the build.
+
+> Repos that copied the older approach (the `asc_released_version.py` family, which fails the build on a closed version) are treated as modified workflows by the template update, so they are skipped instead of overwritten. The new version is saved in `.github/.projectops/incoming/`, so compare it and move the changes over.
 
 ### Automatic retry when the number is rejected (iOS)
 

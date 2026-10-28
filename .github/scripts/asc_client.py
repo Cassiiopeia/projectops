@@ -21,6 +21,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -95,15 +96,30 @@ def make_jwt(key_id: str, issuer_id: str, key_path: str, now: int | None = None,
     return signing_input.decode("ascii") + "." + _b64url(der_to_raw(proc.stdout))
 
 
+def _sign_with_base64_key(key_id: str, issuer: str, key_base64: str) -> str:
+    """base64 키(Secret 그대로)를 임시 파일로 풀어 서명하고 바로 지운다 — 워크플로가 키 파일을 따로 만들지 않게."""
+    with tempfile.TemporaryDirectory() as folder:
+        key_file = Path(folder) / "AuthKey.p8"
+        key_file.write_bytes(base64.b64decode(key_base64))
+        key_file.chmod(0o600)
+        return make_jwt(key_id, issuer, str(key_file))
+
+
 def token_from_env() -> str | None:
-    """환경변수로 토큰을 만든다. 하나라도 비었거나 서명에 실패하면 None (호출자가 폴백)."""
+    """환경변수로 토큰을 만든다. 하나라도 비었거나 서명에 실패하면 None (호출자가 폴백).
+
+    키는 ASC_KEY_PATH(파일) > ASC_KEY_BASE64(Secret 원문) 순으로 쓴다.
+    """
     key_id = os.environ.get("ASC_KEY_ID", "").strip()
     issuer = os.environ.get("ASC_ISSUER_ID", "").strip()
     key_path = os.environ.get("ASC_KEY_PATH", "").strip()
-    if not (key_id and issuer and key_path):
+    key_base64 = os.environ.get("ASC_KEY_BASE64", "").strip()
+    if not (key_id and issuer and (key_path or key_base64)):
         return None
     try:
-        return make_jwt(key_id, issuer, key_path)
+        if key_path:
+            return make_jwt(key_id, issuer, key_path)
+        return _sign_with_base64_key(key_id, issuer, key_base64)
     except Exception as e:  # openssl 없음, 키 파일 없음/손상 등 어떤 실패든 폴백
         _warn(f"could not create the App Store Connect token, continuing without App Store Connect lookups: {e}")
         return None
