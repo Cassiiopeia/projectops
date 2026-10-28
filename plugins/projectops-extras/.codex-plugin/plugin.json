@@ -1,6 +1,6 @@
 {
   "name": "projectops-extras",
-  "version": "4.77.1",
+  "version": "4.77.2",
   "description": "Optional projectops skills",
   "skills": "./skills/"
 }
