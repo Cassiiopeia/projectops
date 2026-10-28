@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.77.0  
-**Last updated:** 2026-10-26T06:40:18Z  
+**Current version:** 4.77.1  
+**Last updated:** 2026-10-28T02:25:49Z  
+
+---
+
+## [4.77.1] - 2026-10-28
+
+**PR:** #1004  
+
+**Bug fixes**
+- Desktop control on macOS 27 now finds the front app again, so clicks and key presses are no longer refused with "app is not in front"
 
 ---
 
