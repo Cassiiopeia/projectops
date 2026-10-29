@@ -2,8 +2,6 @@
 //
 // 충돌(기존 파일과 다름)의 처리 결정은 hooks.decisions(Map<파일명, 'skip'|'backup'|'template'>)로 받는다.
 //   - 실제 마법사(commands/interactive.js)는 listWorkflowConflicts 로 충돌 목록을 얻어 직접 Map 을 만든다.
-//   - copyWorkflowsInteractive 는 onConflict 콜백으로 같은 Map 을 만들어 주는 보조 API 다. 프로덕션 경로는 쓰지 않고
-//     테스트(copy-workflows-conflict.test.js)만 쓴다.
 import { join, basename } from "node:path";
 import { existsSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { PATHS } from "../paths.js";
@@ -346,7 +344,7 @@ function applyDecision(decision, srcDir, workflowsDir, filename, counters, trace
   });
 }
 
-// 대상 워크플로우 디렉토리에서 changed(충돌) 파일 목록만 뽑는다 — 마법사(commands/interactive.js)와 copyWorkflowsInteractive 가 쓴다.
+// 대상 워크플로우 디렉토리에서 changed(충돌) 파일 목록만 뽑는다 — 마법사(commands/interactive.js)가 쓴다.
 // copyWorkflows 본체와 동일한 classify 기준을 써야 결정 Map이 실제 처리 대상과 1:1로 맞는다.
 export function listWorkflowConflicts(context, tempDir, targetRoot = ".") {
   const { types = [], paths = new Map(), deployTarget = "docker-ssh", repoName = "", resolvers = {}, branch = "", deployBranch = "" } = context;
@@ -383,23 +381,6 @@ export function listWorkflowConflicts(context, tempDir, targetRoot = ".") {
   }
   return conflicts;
 }
-
-// 대화형 진입점 (async) — 충돌마다 onConflict(filename, type)를 await해 결정 Map을 만든 뒤
-// 동기 엔진에 위임한다. WHY 분리: copyWorkflows를 async로 바꾸면 await 없이 호출하는
-// 기존 호출부(runFull/runWorkflows)가 깨진다 — 시그니처 무변경 원칙.
-// onConflict 반환값: 'template' | 'skip' | 'backup' (그 외/미지정 → 'skip').
-export async function copyWorkflowsInteractive(context, tempDir, targetRoot = ".", { onConflict } = {}) {
-  const decisions = new Map();
-  if (typeof onConflict === "function") {
-    for (const { filename, type } of listWorkflowConflicts(context, tempDir, targetRoot)) {
-      if (decisions.has(filename)) continue; // 파일명은 PROJECT-{TYPE}- prefix로 타입 간 유일
-      decisions.set(filename, await onConflict(filename, type));
-    }
-  }
-  return copyWorkflows(context, tempDir, targetRoot, { decisions });
-}
-
-
 function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters) {
   const { deployTarget = "docker-ssh", publishTargets = [], force = false, paths = new Map(), repoName = "", resolvers = {}, envOptsFor, collectAsks = null, decisions = new Map(), trace = null, baseline = null } = ctx;
   const typeDir = join(projectTypesDir, type);
