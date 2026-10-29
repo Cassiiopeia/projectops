@@ -8,7 +8,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/skill_bug_watch.py\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run_python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/skill_bug_watch.py\"",
             "timeout": 10
           }
         ]
@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/skill_bug_watch.py\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run_python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/skill_bug_watch.py\"",
             "timeout": 10
           }
         ]

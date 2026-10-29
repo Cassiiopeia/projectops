@@ -41,13 +41,15 @@ def _unresponsive(action: str, serial: str, ready: dict, **extra) -> int:
 def _android_started(action: str, avd: str, launched: dict, mode: str, scale, **extra) -> int:
     """에뮬레이터를 띄운 뒤: adb 에 나타남(가속 실패 징후면 끄고 끝) > 준비 완료 대기 > 응답."""
     serial = launched["serial"]
-    appeared = device_boot.wait_for_emulator(serial, launched["log"])
+    appeared = device_boot.wait_for_emulator(serial, launched["log"], pid=launched.get("pid"))
     if not appeared["is_ok"]:
         if appeared["problem"]:
             device_boot.kill_emulator(serial, avd)
         return out({"ok": False, "code": "emulator_no_acceleration" if appeared["problem"] else "emulator_start_failed",
                     "action": action, "device": serial, "avd": avd, "log": launched["log"],
                     "error": appeared["problem"] or "The emulator did not appear in adb", **extra,
+                    # 로그 끝부분 · 프로세스 생존 — 로그 파일 따로 안 열고 원인 판단 (#987)
+                    "log_tail": appeared.get("log_tail", ""), "process_alive": appeared.get("process_alive"),
                     **android_device.host_pressure_fields(),
                     "next": f"Read the log: {launched['log']}"})
     ready = android_device.wait_until_ready(serial)

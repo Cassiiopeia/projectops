@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/pro_launch_session_end.py\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run_python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/pro_launch_session_end.py\"",
             "timeout": 30
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/pro_launch_raw_device_guard.py\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run_python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/pro_launch_raw_device_guard.py\"",
             "timeout": 10
           }
         ]

@@ -115,10 +115,34 @@ def cmd_api(args, api) -> int:
         except (OSError, ValueError) as error:
             return emit({"ok": False, "code": "body_file_invalid", "error": f"{args.body_file}: {error}"})
     try:
-        data = api._request(method, f"https://api.github.com{path}", payload, pat)
+        # --out 이면 바이트로 받음 — artifact zip·zipball 같은 비 JSON 응답도 저장 (#987)
+        data = api._request(method, f"https://api.github.com{path}", payload, pat, as_bytes=bool(args.out))
     except GitHubAPIError as e:
         return api_error(e)
+    if isinstance(data, bytes):
+        data, is_json = _parse_json_bytes(data)
+        if not is_json:
+            return _emit_binary_saved(args, method, path, data)
     return _emit_api_result(args, method, path, data)
+
+
+def _parse_json_bytes(content: bytes):
+    """응답 바이트 > (JSON 값, True) | (바이트 그대로, False). 빈 본문은 기존과 같이 {}"""
+    if not content:
+        return {}, True
+    try:
+        return json.loads(content.decode("utf-8")), True
+    except (UnicodeDecodeError, ValueError):
+        return content, False
+
+
+def _emit_binary_saved(args, method: str, path: str, content: bytes) -> int:
+    """비 JSON 응답 > 바이트 그대로 --out 에 저장, 본문은 응답에 싣지 않음"""
+    saved_path = Path(args.out)
+    saved_path.write_bytes(content)
+    return emit({"method": method, "path": path, "binary": True, "bytes": len(content),
+                 "saved_to": str(saved_path.resolve()), "truncated": False,
+                 "summary": f"{method} {path} done (binary response, {len(content)} bytes saved)"})
 
 
 def _emit_api_result(args, method: str, path: str, data) -> int:
@@ -147,7 +171,7 @@ def _configure_api(parser) -> None:
     parser.add_argument("path", help="REST path. A relative path (actions/runs) gets /repos/{owner}/{repo}/ prepended. "
                                      "Read-only exception: GET /rate_limit")
     parser.add_argument("--body-file", dest="body_file", default=None, help="JSON body file")
-    parser.add_argument("--out", default=None, help="save the full JSON response to this file (the data in the reply is trimmed to the size limit)")
+    parser.add_argument("--out", default=None, help="save the full response to this file: JSON as-is, non-JSON (zip, artifacts) as raw bytes with binary: true (the data in the reply is trimmed to the size limit)")
     parser.add_argument("--write", action="store_true", help="allow POST, PUT, PATCH, DELETE (only when the user asked for the change)")
 
 

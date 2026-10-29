@@ -44,7 +44,7 @@ The symptom column shows the literal message `ssh_connect.py` prints.
 |------|------|------|
 | `[ERROR] The paramiko module is missing.` | paramiko not installed | `pip install paramiko` or `pip3 install paramiko` |
 | `[ERROR] Python is not installed.` | Python not installed | Install from python.org (on Windows, adding it to PATH is required) |
-| `sshpass_missing` (launch_cli) | No sshpass for password auth | `brew install hudochenkov/sshpass/sshpass`, key auth, or `ssh_connect.py` |
+| `sshpass_missing` (launch_cli) | Plugin older than #987 (needed sshpass for password auth) | Update the plugin (OpenSSH `SSH_ASKPASS` path), key auth, or `ssh_connect.py` |
 | `[ERROR] Authentication failed` | Wrong password or key | Check the `password` / `key_path` values in the config |
 | `[ERROR] Socket error` | Wrong port or firewall | Check the config `port` and the server firewall rules |
 | `[ERROR] PEM key file not found` | Wrong key_path | Enter an absolute path, `~` allowed (e.g. `~/.ssh/my-key.pem`) |

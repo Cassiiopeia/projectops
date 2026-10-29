@@ -5,10 +5,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXTRAS = ROOT / "plugins" / "projectops-extras"
-# (정본, extras 안의 경로) — extras 스킬이 ../references 로 가리키는 것만
+# (정본, extras 안의 경로) — extras 스킬이 ../references 로 가리키는 것 + 훅 실행기 (#987)
 COPIES = [
     ("skills/references/config-rules.md", "skills/references/config-rules.md"),
     ("skills/references/preferences.md", "skills/references/preferences.md"),
+    ("hooks/run_python.sh", "hooks/run_python.sh"),
 ]
 
 if __name__ == "__main__":
@@ -16,4 +17,5 @@ if __name__ == "__main__":
         target = EXTRAS / dst
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / src, target)
+        shutil.copymode(ROOT / src, target)
         print(f"synced {dst}")

@@ -95,17 +95,19 @@ def is_transient_error(error: BaseException) -> bool:
     return isinstance(error, (urllib.error.URLError, TimeoutError, ConnectionError))
 
 
-def _request(method: str, url: str, data: dict | None, pat: str, raw: bool = False) -> Any:
+def _request(method: str, url: str, data: dict | None, pat: str, raw: bool = False,
+             as_bytes: bool = False) -> Any:
     """GitHub API 요청을 보내고 응답을 반환한다.
 
     raw=False: 응답 본문을 JSON으로 파싱해 반환.
     raw=True: 디코딩한 텍스트(str)를 그대로 반환 (로그 등 비 JSON 응답용).
+    as_bytes=True: 본문 바이트 그대로 반환 (zip 등 바이너리, raw 보다 우선, #987)
     """
     waits = _TRANSIENT_RETRY_WAITS_SECONDS if method in _IDEMPOTENT_METHODS else ()
     attempt = 0
     while True:
         try:
-            return _send_once(method, url, data, pat, raw)
+            return _send_once(method, url, data, pat, raw, as_bytes)
         except (GitHubAPIError, urllib.error.URLError, TimeoutError, ConnectionError) as error:
             if attempt >= len(waits) or not is_transient_error(error):
                 raise
@@ -113,7 +115,7 @@ def _request(method: str, url: str, data: dict | None, pat: str, raw: bool = Fal
             attempt += 1
 
 
-def _send_once(method: str, url: str, data: dict | None, pat: str, raw: bool) -> Any:
+def _send_once(method: str, url: str, data: dict | None, pat: str, raw: bool, as_bytes: bool = False) -> Any:
     body = json.dumps(data).encode() if data is not None else None
     req = urllib.request.Request(
         url,
@@ -130,6 +132,8 @@ def _send_once(method: str, url: str, data: dict | None, pat: str, raw: bool) ->
     try:
         with client._opener.open(req, timeout=client._DEFAULT_TIMEOUT) as resp:
             content = resp.read()
+            if as_bytes:
+                return content
             if not content:
                 return {} if not raw else ""
             if raw:

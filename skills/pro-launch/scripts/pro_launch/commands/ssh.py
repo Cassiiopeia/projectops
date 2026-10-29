@@ -1,8 +1,8 @@
 """`ssh` — 원격 명령을 실행한다."""
 from __future__ import annotations
 
+import contextlib
 import os
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -13,6 +13,7 @@ from pro_launch.registry import Command
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.creds import load_cred
 from pro_launch.runtime.output import out, set_area
+from pro_launch.runtime.ssh_askpass import SINGLE_PASSWORD_PROMPT_OPTIONS, password_transport
 from pro_launch.runtime.ssh_failure import classify_ssh_failure
 
 
@@ -46,7 +47,7 @@ def decode_remote_output(raw: bytes | None) -> tuple[str, str]:
     return raw.decode("utf-8", errors="replace"), _FALLBACK_ENCODING
 
 
-def _record_server_facts(name: str, base_cmd: list[str], env: dict) -> None:
+def _record_server_facts(name: str, base_cmd: list[str], env: dict, popen_options: dict) -> None:
     """처음 접속 성공 때 확인된 사실(OS · 시놀로지 docker 절대경로)만 이 컴퓨터 범위에 남긴다.
 
     이미 OS 를 알고 있으면 추가 접속을 하지 않는다. 호스트·계정·비밀은 how 에 쓰지 않는다.
@@ -59,7 +60,8 @@ def _record_server_facts(name: str, base_cmd: list[str], env: dict) -> None:
         if any(e["key"] == prefix + "os" for e in knowledge.load(knowledge.store_path("machine", Path(".")))
                if e["area"] == "server"):
             return
-        r = subprocess.run(base_cmd + [_PROBE], env=env, capture_output=True, text=True, errors="replace", timeout=15)
+        r = subprocess.run(base_cmd + [_PROBE], env=env, capture_output=True, text=True, errors="replace",
+                           timeout=15, **popen_options)
         lines = [ln.strip() for ln in r.stdout.splitlines() if ln.strip()]
         if r.returncode != 0 or not lines or lines[0] not in _KNOWN_OS:
             return
@@ -123,15 +125,9 @@ def cmd_ssh(args) -> int:
     env = dict(os.environ)
     if key_path:
         ssh += ["-i", os.path.expanduser(str(key_path)), "-o", "BatchMode=yes"]
-        argv_prefix = []
     elif password:
-        if not shutil.which("sshpass"):
-            return out({"ok": False, "code": "sshpass_missing", "error": "Password login needs sshpass",
-                        "install": "brew install hudochenkov/sshpass/sshpass  (or use a key via key_path)"})
-        env["SSHPASS"] = str(password)
-        argv_prefix = ["sshpass", "-e"]
-    else:
-        argv_prefix = []                              # 에이전트 키·기본 키에 맡긴다
+        ssh += SINGLE_PASSWORD_PROMPT_OPTIONS
+    # 그 외: 에이전트 키·기본 키에 맡김
 
     remote = args.command
     stdin = None
@@ -143,19 +139,22 @@ def cmd_ssh(args) -> int:
         remote = ('export PATH=$PATH:/usr/local/bin; IFS= read -r PW; '
                   'SUDO() { echo "$PW" | sudo -S -p "" "$@"; }; ' + args.command)
         stdin = str(password) + "\n"
-    try:
-        # 바이트로 받음 — 원격이 UTF-8 이 아닐 수 있음 (CP949 Windows cmd)
-        r = subprocess.run(argv_prefix + ssh + [dest, remote], input=stdin.encode("utf-8") if stdin else None,
-                           env=env, capture_output=True, timeout=args.timeout)
-    except subprocess.TimeoutExpired:
-        return out({"ok": False, "code": "ssh_timeout", "error": f"No response ({args.timeout}s)"})
+    # 비밀번호 전달 (sshpass > SSH_ASKPASS) — 키·기본 키 접속이면 아무것도 붙이지 않음 (#987)
+    with (password_transport(password, env) if password and not key_path
+          else contextlib.nullcontext(([], {}))) as (argv_prefix, popen_options):
+        try:
+            # 바이트로 받음 — 원격이 UTF-8 이 아닐 수 있음 (CP949 Windows cmd)
+            r = subprocess.run(argv_prefix + ssh + [dest, remote], input=stdin.encode("utf-8") if stdin else None,
+                               env=env, capture_output=True, timeout=args.timeout, **popen_options)
+        except subprocess.TimeoutExpired:
+            return out({"ok": False, "code": "ssh_timeout", "error": f"No response ({args.timeout}s)"})
+        ok = r.returncode == 0
+        if ok and args.cred and not adhoc:
+            _record_server_facts(args.cred, argv_prefix + ssh + [dest], env, popen_options)
     stdout_text, stdout_encoding = decode_remote_output(r.stdout)
     stderr_text, _stderr_encoding = decode_remote_output(r.stderr)
     stdout = credentials.mask(stdout_text, cred)
     stderr = credentials.mask(stderr_text, cred)
-    ok = r.returncode == 0
-    if ok and args.cred and not adhoc:
-        _record_server_facts(args.cred, argv_prefix + ssh + [dest], env)
     code, hint = ("ok", None) if ok else classify_ssh_failure(r.returncode, stderr_text)
     if ok and adhoc and not args.cred:
         hint = ("For a server you use often, save it with cred set --name <name> --json "

@@ -34,6 +34,12 @@ EMULATOR_APPEAR_TIMEOUT_SECONDS = 120
 EMULATOR_PORT_FIRST, EMULATOR_PORT_LAST = 5554, 5584
 # 에뮬레이터 로그의 "가속 없음" 징후 — 이 상태는 부팅이 끝나지 않는다
 EMULATOR_NO_ACCELERATION_MARKERS = ("hvf is not enabled", "qemu_mprotect__osdep: mprotect failed")
+# 호스트 CPU 가상화 자체가 꺼짐 (BIOS VT-x/AMD-V · Windows 하이퍼바이저 · Linux KVM) — 에뮬레이터가 바로 종료 (#987)
+EMULATOR_NO_VIRTUALIZATION_MARKERS = ("requires hardware acceleration", "kvm is required to run this avd",
+                                      "/dev/kvm is not found", "/dev/kvm device: permission denied")
+# 실패 응답에 붙일 로그 끝부분 (줄 수 · 최대 글자)
+EMULATOR_LOG_TAIL_LINES = 20
+EMULATOR_LOG_TAIL_MAX_CHARACTERS = 2000
 SIMULATOR_WINDOW_HINT = ("Shrink it with Simulator's Window menu > Physical Size / Fit Screen "
                          "(an already open Simulator.app may be used by another session, so it is not quit)")
 _UDID_PATTERN = re.compile(r"^[0-9A-Fa-f]{8}-(?:[0-9A-Fa-f]{4}-){3}[0-9A-Fa-f]{12}$")
@@ -226,7 +232,7 @@ def launch_emulator(avd: str, window: str, scale: float | None, is_cold: bool,
         return {"is_ok": False, "detail": "no free emulator port (5554-5584)"}
     command = emulator_command(emulator, avd, window, scale, is_cold, chosen_port)
     log = emulator_log_path(avd)
-    pid = procs.spawn_detached(command, str(Path(emulator).parent), log)
+    pid = procs.spawn_detached(command, str(Path(emulator).parent), log, is_stdout_logged=True)
     return {"is_ok": True, "serial": f"emulator-{chosen_port}", "pid": pid, "command": command, "log": str(log)}
 
 
@@ -240,15 +246,34 @@ def emulator_start_problem(log_path: str | Path | None) -> str | None:
         text = Path(log_path).read_text(encoding="utf-8", errors="replace") if log_path else ""
     except OSError:
         return None
+    lowered_text = text.lower()
+    if any(marker in lowered_text for marker in EMULATOR_NO_VIRTUALIZATION_MARKERS):
+        return ("the host has no CPU virtualization for the emulator — turn on VT-x / AMD-V (SVM) in the BIOS/UEFI, "
+                "and on Windows enable Windows Hypervisor Platform. Waiting will not help; ask the user")
     if any(marker in text for marker in EMULATOR_NO_ACCELERATION_MARKERS):
         return ("the emulator got no hardware acceleration (HVF) and stalled in software mode — this happens when host memory or swap runs low. "
                 "Run fewer virtual devices or free memory, then start it again")
     return None
 
 
+def emulator_log_tail(log_path: str | Path | None) -> str:
+    """에뮬레이터 로그 끝 몇 줄 (실패 원인을 로그 파일 열지 않고 보게, #987). 못 읽으면 빈 문자열"""
+    try:
+        text = Path(log_path).read_text(encoding="utf-8", errors="replace") if log_path else ""
+    except OSError:
+        return ""
+    return "\n".join(text.splitlines()[-EMULATOR_LOG_TAIL_LINES:])[-EMULATOR_LOG_TAIL_MAX_CHARACTERS:]
+
+
+def _failed_to_appear(problem: str | None, log_path, pid: int | None) -> dict:
+    """나타나지 않음 > {is_ok, problem, log_tail, process_alive}. pid 모르면 process_alive None"""
+    return {"is_ok": False, "problem": problem, "log_tail": emulator_log_tail(log_path),
+            "process_alive": procs.pid_alive(pid) if pid else None}
+
+
 def wait_for_emulator(serial: str, log_path: str | Path | None = None,
-                      timeout_seconds: float = EMULATOR_APPEAR_TIMEOUT_SECONDS) -> dict:
-    """adb 가 그 시리얼을 device 상태로 볼 때까지 > {is_ok, problem}. 로그에 멈춤 징후가 보이면 바로 끝낸다."""
+                      timeout_seconds: float = EMULATOR_APPEAR_TIMEOUT_SECONDS, pid: int | None = None) -> dict:
+    """adb 가 그 시리얼을 device 상태로 볼 때까지 > {is_ok, problem(, log_tail, process_alive)}. 로그에 멈춤 징후가 보이면 바로 끝낸다."""
     adb = sdk_tool("adb")
     deadline = time.monotonic() + timeout_seconds
     while adb and time.monotonic() < deadline:
@@ -256,9 +281,9 @@ def wait_for_emulator(serial: str, log_path: str | Path | None = None,
         if any(line.split()[:2] == [serial, "device"] for line in text.splitlines()[1:]):
             return {"is_ok": True, "problem": None}
         if (problem := emulator_start_problem(log_path)):
-            return {"is_ok": False, "problem": problem}
+            return _failed_to_appear(problem, log_path, pid)
         time.sleep(2)
-    return {"is_ok": False, "problem": emulator_start_problem(log_path)}
+    return _failed_to_appear(emulator_start_problem(log_path), log_path, pid)
 
 
 def kill_emulator(serial: str, avd: str) -> dict:

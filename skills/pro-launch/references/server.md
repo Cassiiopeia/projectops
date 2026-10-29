@@ -93,5 +93,5 @@ Logs can be anywhere: a container, a file, an admin screen or a log collector. F
 - Never write passwords or tokens into `access.json`, reports or commits. When the user gives you one, **save it with `cred set`** so you do not ask again
   (`launch.credentials` in `~/.projectops/config/config.json`, file mode 600).
 - Reach a server with `ssh --cred <name> [--sudo] --command '…'` (a saved server), or without saving with `ssh --host H --port P --user U --password-env <var>|--key-path <key> --command '…'`. Passwords go only through stdin or environment variables, never the command line,
-  and even if the server echoes them, they are masked as `***` in the output. Password logins need `sshpass`.
+  and even if the server echoes them, they are masked as `***` in the output. Password logins use `sshpass` when installed, otherwise OpenSSH `SSH_ASKPASS` (one password attempt).
 - Before calling a server, read `use_when` · `scope` · `notes` from `cred list` and stay inside them.

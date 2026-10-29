@@ -18,7 +18,7 @@ def run_devices(args) -> int:
     advice = host_resources.pressure_advice(resources["pressure"])
     return out({**dev, "resources": resources, "owners": owners_by_device(),
                 "summary": f"{n} devices available · memory pressure {resources['pressure']}",
-                "next": advice or (None if n else "Boot one with emulator -avd {AVD_NAME}")})
+                "next": advice or (None if n else "Boot one with device boot --device <AVD name|simulator name|UDID>")})
 
 
 def run_binding_action(args) -> int:

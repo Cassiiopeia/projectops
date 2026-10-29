@@ -218,6 +218,6 @@ def no_device_response(dev: dict, want: str | None) -> int:
                   else "Cannot tell which device to use (none attached, or several)"),
         "android": dev["android"], "ios_booted": dev["ios_booted"],
         "android_avds": dev["android_avds"],
-        "next": ("emulator -avd {AVD_NAME}  or  xcrun simctl boot {UDID}" if not
+        "next": ("device boot --device <AVD name|simulator name|UDID>" if not
                  (dev["android"] or dev["ios_booted"]) else "Pick one with --device"),
     })

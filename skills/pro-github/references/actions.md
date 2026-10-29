@@ -79,4 +79,5 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py actions cancel {owner} {
 - For REST calls the commands above do not cover, use `api`: `api GET {owner} {repo} releases/latest` (a relative path gets `/repos/{owner}/{repo}/` prepended; an absolute path `/repos/{owner}/{repo}/...` also works).
   It accepts only this repo's paths. The only exception outside the repo is the read-only `GET /rate_limit`. Add `--write` to state-changing methods (POST · PUT · PATCH · DELETE) only for work the user asked for.
   If the response exceeds 20,000 characters, trailing list items are dropped and you get **valid JSON** (`truncated: true`, `truncated_items`). If you need all of it, use `--out file` (`saved_to` in the response); otherwise shrink it with `?per_page=10`.
+  With `--out`, a non-JSON response (artifact zip `actions/artifacts/{id}/zip`, `zipball/{ref}`) is saved as raw bytes and the reply says `binary: true` with `bytes` — use this instead of `gh api` or curl.
 - For a multi-line secret value, pass it with `secrets set {owner} {repo} {name} --value-file file` (the `SECRET_VALUE` environment variable also works).

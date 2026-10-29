@@ -58,7 +58,7 @@ Values are saved **under a name** in `launch.credentials` (the file is mode 600)
 
 - Reach a server with `ssh --cred <name> [--sudo] --command '…'` (a saved server), or **without saving** with `ssh --host H --port P --user U --password-env <var>|--key-path <key> --command '…'`. Values given directly take precedence over saved values and are not saved. With `--sudo`, you can use `SUDO <command>` inside the remote command.
 - Passwords go only through stdin or environment variables, never the command line. Even if the server echoes them, they are masked as `***` in the output.
-- Password logins need `sshpass` (`sshpass_missing` if absent). Output is truncated at `--max-output` characters.
+- Password logins use `sshpass` when installed, otherwise OpenSSH `SSH_ASKPASS` (one password attempt). Output is truncated at `--max-output` characters.
 - **Server memory (#841)**: the `memory` in an `ssh` response carries only that server's memory (`server.<credential name>.*`). After the first successful connection,
   the CLI checks the OS (`uname -s`) and the absolute Synology docker path and saves them at this-computer scope (skipped on Windows).
   Record what you find out yourself, such as container names or log locations, with `learn --area server --scope machine --key server.<server>.<topic>` (no accounts or secrets).
@@ -95,6 +95,6 @@ When a task on the local Mac needs admin rights (for example `sudo installer -pk
 | `cred_not_local` | Only `kind: local` credentials work with `local sudo` |
 | `no_tty` | The user types `cred set --prompt` themselves, with the `!` prefix or in a separate terminal |
 | `sudo_failed` · `auth_failed` | Do not retry; ask the user whether the value changed |
-| `sshpass_missing` | Offer to install it, for example with `brew install sshpass` |
+| `sshpass_missing` | Plugin older than #987 — update it; password ssh now works without sshpass |
 | `remote_exit_nonzero` | Connection and authentication succeeded, and the remote command ended non-zero. That can be normal, such as grep finding nothing. Judge by the output and do not suspect the connection details |
 | `connect_failed` · `host_key_unknown` · `host_key_changed` | The connection itself failed. `host_key_changed` may mean the server changed, so do not delete known_hosts on your own; tell the user |

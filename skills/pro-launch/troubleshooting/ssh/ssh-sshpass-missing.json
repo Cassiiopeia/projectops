@@ -1,23 +1,24 @@
 {
   "id": "ssh-sshpass-missing",
   "area": "ssh",
-  "title": "Password ssh returns sshpass_missing — use a key or the fallback path",
+  "title": "Password ssh returns sshpass_missing — update the plugin (OpenSSH askpass path)",
   "match": {
     "codes": [
       "sshpass_missing"
     ],
     "keywords": []
   },
-  "symptom": "launch_cli.py ssh ends with sshpass_missing (password logins need sshpass)",
-  "cause": "The saved server uses password login, but sshpass is not installed. Key login (key_path) does not need sshpass",
+  "symptom": "launch_cli.py ssh ends with sshpass_missing (an older plugin required sshpass for password logins)",
+  "cause": "Plugins before #987 needed sshpass for passwords. Current versions fall back to OpenSSH SSH_ASKPASS (OpenSSH 8.4+) with a single password attempt",
   "fix": [
+    "Update the plugin, then rerun the same launch_cli.py ssh command",
     "With a key: launch_cli.py ssh --cred <server> --key-path <key file> --command '<command>'",
-    "Ask the user before installing sshpass: brew install hudochenkov/sshpass/sshpass",
-    "Where it cannot be installed (Windows, etc.), use pro-ssh's scripts/ssh_connect.py (paramiko) — skills/pro-ssh/SKILL.md"
+    "If ssh is older than OpenSSH 8.4 and still prompts or fails, use pro-ssh's scripts/ssh_connect.py (paramiko) — skills/pro-ssh/SKILL.md"
   ],
   "refs": [
     841,
-    889
+    889,
+    987
   ],
-  "verified_at": "2026-10-17"
+  "verified_at": "2026-10-29"
 }

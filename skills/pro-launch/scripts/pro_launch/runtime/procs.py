@@ -99,10 +99,14 @@ def manual_kill_command(pid: int) -> str:
     return f"taskkill /PID {pid} /T /F" if sys.platform == "win32" else f"kill -9 {pid}"
 
 
-def spawn_detached(command: list[str], working_folder: str, log_path) -> int:
-    """우리가 끝나도 살아 있는 백그라운드 프로세스를 띄운다 > pid. 표준오류는 log_path 로 (덮어쓴다)."""
+def spawn_detached(command: list[str], working_folder: str, log_path, is_stdout_logged: bool = False) -> int:
+    """우리가 끝나도 살아 있는 백그라운드 프로세스를 띄운다 > pid. 표준오류는 log_path 로 (덮어쓴다).
+
+    is_stdout_logged: 표준출력도 같은 로그로 (에뮬레이터는 오류까지 stdout 에 씀, #987)
+    """
     with open(log_path, "w", encoding="utf-8") as log_file:
-        process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+        process = subprocess.Popen(command, stdin=subprocess.DEVNULL,
+                                   stdout=log_file if is_stdout_logged else subprocess.DEVNULL,
                                    stderr=log_file, cwd=working_folder, **detach_options())
     return process.pid
 

@@ -62,7 +62,7 @@ If the user did not choose a command, the agent picks one that fits the goal and
 | Logs · DB | `logs --cred …` · `db --cred …` (`../pro-launch/references/server.md`) |
 
 - **Reading result codes**: `remote_exit_nonzero` means the connection worked and the remote command ended non-zero (no grep match, etc.; do not suspect the connection details). `auth_failed`, `connect_failed` and `host_key_*` are connection failures. On Windows (cmd) servers, commands joined with `&` keep only the last exit code, so call each step separately or wrap them in PowerShell.
-- Passwords that appear in the output are masked as `***`. Password connections need `sshpass` (`sshpass_missing` if absent); use key auth or the compatibility path below.
+- Passwords that appear in the output are masked as `***`. Password connections use `sshpass` when installed, otherwise OpenSSH `SSH_ASKPASS` (OpenSSH 8.4+, one password attempt so a wrong password cannot lock the account).
 - When connecting to a saved server, `memory` in the response carries facts learned about that server (OS, docker path, containers, log locations). Record new findings with
   `learn --area server --scope machine --key server.<server>.<topic> --how '…' --result ok` (no accounts or secrets). Connections without saving are not remembered.
 - Full credential rules: `../pro-launch/references/credentials.md`.
@@ -74,7 +74,7 @@ Summarize the results for the user. If there are errors, give the cause and the 
 ## What remains in this skill
 
 - `references/troubleshooting.md`: Synology docker absolute path, `wget`, Windows PowerShell, common pitfalls (per-server-type knowledge).
-- `scripts/ssh_connect.py`: paramiko-based compatibility path. Use it only where `launch_cli` cannot be used (Windows without sshpass). It also takes the password from the `SSH_PASSWORD` environment variable.
+- `scripts/ssh_connect.py`: paramiko-based compatibility path. Use it only where `launch_cli` cannot be used (ssh older than OpenSSH 8.4 with no sshpass). It also takes the password from the `SSH_PASSWORD` environment variable.
 
 ## Customize
 

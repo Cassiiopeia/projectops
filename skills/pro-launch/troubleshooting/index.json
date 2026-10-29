@@ -1048,10 +1048,10 @@
     },
     "ssh-sshpass-missing": {
       "area": "ssh",
-      "title": "Password ssh returns sshpass_missing — use a key or the fallback path",
+      "title": "Password ssh returns sshpass_missing — update the plugin (OpenSSH askpass path)",
       "fix_short": [
-        "With a key: launch_cli.py ssh --cred <server> --key-path <key file> --command '<command>'",
-        "Ask the user before installing sshpass: brew install hudochenkov/sshpass/sshpass"
+        "Update the plugin, then rerun the same launch_cli.py ssh command",
+        "With a key: launch_cli.py ssh --cred <server> --key-path <key file> --command '<command>'"
       ],
       "keyword_count": 0,
       "path": "ssh/ssh-sshpass-missing.json"

@@ -138,7 +138,7 @@ class AndroidEmulatorBackend:
         if not launched["is_ok"]:
             return {"is_ok": False, "instance": None, "already_booted": False, "detail": launched["detail"]}
         serial = launched["serial"]
-        appeared = device_boot.wait_for_emulator(serial, launched["log"])
+        appeared = device_boot.wait_for_emulator(serial, launched["log"], pid=launched.get("pid"))
         if not appeared["is_ok"]:
             if appeared["problem"]:
                 device_boot.kill_emulator(serial, key)

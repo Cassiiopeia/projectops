@@ -515,19 +515,19 @@
 
 | id | Title | Codes |
 |---|---|---|
-| `ssh-sshpass-missing` | Password ssh returns sshpass_missing — use a key or the fallback path | `sshpass_missing` |
+| `ssh-sshpass-missing` | Password ssh returns sshpass_missing — update the plugin (OpenSSH askpass path) | `sshpass_missing` |
 | `ssh-windows-cmd-encoding` | Output from a Windows cmd (CP949) host is garbled | — |
 
-### `ssh-sshpass-missing` — Password ssh returns sshpass_missing — use a key or the fallback path
+### `ssh-sshpass-missing` — Password ssh returns sshpass_missing — update the plugin (OpenSSH askpass path)
 
 - Codes: `sshpass_missing`
-- Symptom: launch_cli.py ssh ends with sshpass_missing (password logins need sshpass)
-- Cause: The saved server uses password login, but sshpass is not installed. Key login (key_path) does not need sshpass
+- Symptom: launch_cli.py ssh ends with sshpass_missing (an older plugin required sshpass for password logins)
+- Cause: Plugins before #987 needed sshpass for passwords. Current versions fall back to OpenSSH SSH_ASKPASS (OpenSSH 8.4+) with a single password attempt
 - Fix:
-  1. With a key: launch_cli.py ssh --cred <server> --key-path <key file> --command '<command>'
-  2. Ask the user before installing sshpass: brew install hudochenkov/sshpass/sshpass
-  3. Where it cannot be installed (Windows, etc.), use pro-ssh's scripts/ssh_connect.py (paramiko) — skills/pro-ssh/SKILL.md
-- Refs: #841, #889 · verified 2026-10-17
+  1. Update the plugin, then rerun the same launch_cli.py ssh command
+  2. With a key: launch_cli.py ssh --cred <server> --key-path <key file> --command '<command>'
+  3. If ssh is older than OpenSSH 8.4 and still prompts or fails, use pro-ssh's scripts/ssh_connect.py (paramiko) — skills/pro-ssh/SKILL.md
+- Refs: #841, #889, #987 · verified 2026-10-29
 
 ### `ssh-windows-cmd-encoding` — Output from a Windows cmd (CP949) host is garbled
 
