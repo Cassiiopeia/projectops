@@ -120,10 +120,12 @@ def cmd_actions(args, api) -> int:
                 "next": None if result.get("matched_count") else "no matches; pass --grep, or save the full log with --out and read it",
             })
         elif args.sub == "runs":
-            result = api.list_runs(args.owner, args.repo, pat, workflow=args.arg, branch=args.on_branch,
+            # 워크플로 파일: 위치 인자 또는 --workflow (#1009)
+            workflow_file = args.arg or args.workflow
+            result = api.list_runs(args.owner, args.repo, pat, workflow=workflow_file, branch=args.on_branch,
                                    status=args.status, limit=args.limit)
             return emit({"runs": result, "count": len(result),
-                         "summary": f"{len(result)} run(s)" + (f" ({args.arg})" if args.arg else ""),
+                         "summary": f"{len(result)} run(s)" + (f" ({workflow_file})" if workflow_file else ""),
                          "next": f"actions wait {args.owner} {args.repo} {result[0]['run_id']}" if result else None})
         elif args.sub == "dispatch":
             if not args.arg:
@@ -260,7 +262,7 @@ def _configure_actions(parser) -> None:
     parser.add_argument("--grep", default=None,
                         help="joblog search regex (case-insensitive). Default: ##[error] lines and the output lines before them (script source excluded)")
     parser.add_argument("--out", default=None, help="joblog: save the full log to this file")
-    parser.add_argument("--workflow", default=None, help="list-failed: only runs of this workflow file")
+    parser.add_argument("--workflow", default=None, help="runs · list-failed: only runs of this workflow file")
     parser.add_argument("--on-branch", "--branch", dest="on_branch", default=None, help="runs: only runs on this branch")
     parser.add_argument("--status", default=None, help="runs: queued · in_progress · completed · failure ...")
     parser.add_argument("--ref", default="develop", help="dispatch: branch or tag to run on")
