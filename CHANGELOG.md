@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.77.3  
-**Last updated:** 2026-10-29T04:07:19Z  
+**Current version:** 4.77.4  
+**Last updated:** 2026-10-29T04:13:48Z  
+
+---
+
+## [4.77.4] - 2026-10-29
+
+**PR:** #1013  
+
+**Bug fixes**
+- The iOS test build no longer stops in the prepare step when the default-branch version cannot be read, and the "branch is behind the default branch" warning now works on both Android and iOS test builds
 
 ---
 
