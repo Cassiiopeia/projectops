@@ -35,13 +35,28 @@ on:
           - store_only
           - store_prepare
           - store_submit
+      # default = 수동 실행에서도 store-deploy.json → 레포 변수 → 기본값을 따른다 (#1005)
       promote_to_closed_testing:
-        description: "Also upload to the closed testing (alpha) track, needed for production access on personal accounts (12 testers, 14 days)"
+        description: "Also upload to the closed testing (alpha) track, needed for production access on personal accounts (12 testers, 14 days). default = store-deploy.json, then repo variable ANDROID_PROMOTE_TO_CLOSED_TESTING, then true"
         required: false
-        default: true
-        type: boolean
+        default: "default"
+        type: choice
+        options:
+          - default
+          - "true"
+          - "false"
       promote_to_open_testing:
-        description: "Also upload to the open testing (beta) track"
+        description: "Also upload to the open testing (beta) track. default = repo variable ANDROID_PROMOTE_TO_OPEN_TESTING, then false"
+        required: false
+        default: "default"
+        type: choice
+        options:
+          - default
+          - "true"
+          - "false"
+      # 심사 중 보호(review-guard)를 이 실행만 끈다 — 승급은 진행 중인 프로덕션 심사를 다시 시작시킨다 (#1005)
+      force_promote_during_review:
+        description: "Promote to closed/open testing even if a manual production submission (store_submit) ran recently. This restarts a production review in progress"
         required: false
         default: false
         type: boolean
@@ -103,8 +118,11 @@ env:
   # 비공개 테스트는 기본으로 켠다 (#816) — push 마다 테스터가 최신판을 받는다. 끄려면 레포 변수
   # ANDROID_PROMOTE_TO_CLOSED_TESTING=false 또는 store-deploy.json "promote_closed_testing": false.
   # 수동 프로덕션 제출 뒤 review_cooldown_hours(기본 48) 동안은 push 의 승급을 건너뛴다 — 아래 review-guard 단계.
-  PROMOTE_TO_CLOSED_TESTING: ${{ github.event.inputs.promote_to_closed_testing || vars.ANDROID_PROMOTE_TO_CLOSED_TESTING || 'true' }}
-  PROMOTE_TO_OPEN_TESTING: ${{ github.event.inputs.promote_to_open_testing || vars.ANDROID_PROMOTE_TO_OPEN_TESTING || 'false' }}
+  # 수동 실행 입력이 default 면 레포 변수로 넘어간다 (push 는 입력이 비어 같은 경로) (#1005).
+  # 수동 실행도 심사 중이면 승급을 건너뛴다 — 강행은 force_promote_during_review 입력.
+  # 프로덕션 액세스를 받은 뒤에는 비공개 승급이 필요 없으니 끄는 것을 권한다 (매 승급이 심사 제출이다).
+  PROMOTE_TO_CLOSED_TESTING: ${{ (github.event.inputs.promote_to_closed_testing != 'default' && github.event.inputs.promote_to_closed_testing) || vars.ANDROID_PROMOTE_TO_CLOSED_TESTING || 'true' }}
+  PROMOTE_TO_OPEN_TESTING: ${{ (github.event.inputs.promote_to_open_testing != 'default' && github.event.inputs.promote_to_open_testing) || vars.ANDROID_PROMOTE_TO_OPEN_TESTING || 'false' }}
   # 트랙 이름은 콘솔에서 바꿀 수 있으므로 값으로 둔다 (박아두면 조용히 안 올라간다).
   CLOSED_TESTING_TRACK: ${{ vars.ANDROID_CLOSED_TESTING_TRACK || 'alpha' }}
   OPEN_TESTING_TRACK: ${{ vars.ANDROID_OPEN_TESTING_TRACK || 'beta' }}
@@ -687,13 +705,17 @@ jobs:
       - name: Resolve store deploy config
         env:
           INPUT_DEPLOY_MODE: ${{ github.event.inputs.deploy_mode }}
+          # true/false 를 고른 수동 실행만 파일보다 우선한다 (default·push 는 파일이 이긴다, #1005)
+          INPUT_PROMOTE_TO_CLOSED_TESTING: ${{ github.event.inputs.promote_to_closed_testing }}
         run: python3 .github/scripts/store_deploy_config.py resolve --platform android
 
-      # 수동으로 올린 프로덕션 심사가 도는 동안 push 의 비공개·공개 승급이 그 심사를 다시 시작시키지 않게 한다 (#816).
+      # 수동으로 올린 프로덕션 심사가 도는 동안 비공개·공개 승급이 그 심사를 다시 시작시키지 않게 한다 (#816).
+      # 수동 실행에도 적용한다 — force_promote_during_review 를 켠 실행만 건너뛴다 (#1005).
       # 확인에 실패하면 경고만 남기고 설정대로 진행한다 — 배포를 막지 않는다.
       - name: Guard production review in progress
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE_PROMOTE_DURING_REVIEW: ${{ github.event.inputs.force_promote_during_review }}
         run: python3 .github/scripts/store_deploy_config.py review-guard
 
       # Fastfile 복사 (Play Store 배포용)

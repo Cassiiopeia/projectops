@@ -191,11 +191,19 @@ so the existing value stayed. Confirmed by measurement.) Apps that have no share
 | `ANDROID_CLOSED_TESTING_TRACK` | Closed track name | `alpha` |
 | `ANDROID_OPEN_TESTING_TRACK` | Open track name | `beta` |
 
-> **After a manual production submission, pushes pause closed and open testing promotions (#816).** A closed testing
+> **After a manual production submission, closed and open testing promotions pause (pushes #816, manual runs #1005).** A closed testing
 > promotion is a review submission too, so sending one while the production review runs restarts that review. The Play API
 > does not expose review status, so for `review_cooldown_hours` (in `store-deploy.json`, default 48) after the last manual
-> `store_submit` run, pushes upload to internal testing only and leave a warning. To promote right away, run the workflow
-> manually with `promote_to_closed_testing` on.
+> `store_submit` run, both pushes and manual runs upload to internal testing only and leave a warning. To promote right away
+> anyway, run the workflow manually with `force_promote_during_review` on — the review in progress restarts.
+>
+> In a manual run, `promote_to_closed_testing` and `promote_to_open_testing` are `default` / `true` / `false`. `default` (the default)
+> follows the same order as a push (`store-deploy.json`, then the repository variable, then the built-in default), so the
+> repository variable `ANDROID_PROMOTE_TO_CLOSED_TESTING=false` applies to manual runs too.
+>
+> **Once you have production access, consider turning closed testing promotion off.** Closed testing is only a requirement for
+> personal accounts to get production access, and every promotion creates another review submission. Turn it off with
+> `"promote_closed_testing": false` in `store-deploy.json` or with the repository variable.
 
 | Track | Google review | Takes effect | Counts toward production access requirements |
 |---|---|---|---|

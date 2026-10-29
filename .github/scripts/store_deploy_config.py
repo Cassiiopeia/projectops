@@ -36,6 +36,8 @@ push 배포는 심사 단계를 타지 않는다 (#816):
   비공개 테스트 승급도 심사 제출이라, 수동으로 올린 프로덕션 심사가 도는 동안 push 가 비공개 승급을 하면
   프로덕션 심사가 다시 시작된다. Play API 에는 심사 상태가 없어서, 수동 store_submit 실행 뒤
   review_cooldown_hours(기본 48) 동안은 push 의 중간 트랙 승급을 건너뛴다 → review-guard 서브커맨드.
+  수동 실행도 같다 (#1005) — 수동 실행이 승급을 기본으로 켜고 있어 심사가 9번 연속 취소됐다(passQL 실측).
+  강행은 수동 실행 입력 force_promote_during_review(환경 FORCE_PROMOTE_DURING_REVIEW=true)만.
 """
 import argparse
 import json
@@ -70,7 +72,8 @@ def load(path: str) -> dict | None:
     return data
 
 
-def resolve(data: dict | None, platform: str, input_deploy_mode: str = "") -> dict:
+def resolve(data: dict | None, platform: str, input_deploy_mode: str = "",
+            input_promote_closed: str = "") -> dict:
     """파일에서 적용할 값을 정한다. 반환: {환경변수 이름: 값} (적용할 것이 없으면 빈 dict)."""
     if not data or platform not in PLATFORMS:
         return {}
@@ -109,7 +112,9 @@ def resolve(data: dict | None, platform: str, input_deploy_mode: str = "") -> di
     if section.get("promote_closed_testing") is not None:
         if platform != "android":
             raise ConfigError("promote_closed_testing is for android only")
-        out["PROMOTE_TO_CLOSED_TESTING"] = "true" if section["promote_closed_testing"] else "false"
+        # 수동 실행에서 true/false 를 고르면 그 실행만 우선 (default·빈 값은 파일이 이긴다, #1005)
+        if (input_promote_closed or "").strip() not in ("true", "false"):
+            out["PROMOTE_TO_CLOSED_TESTING"] = "true" if section["promote_closed_testing"] else "false"
     hours = section.get("review_cooldown_hours")
     if hours is not None:
         if platform != "android":
@@ -163,14 +168,16 @@ def _write_env(values: dict) -> None:
 
 
 def review_guard(a) -> int:
-    """push 의 중간 트랙 승급이 진행 중인 프로덕션 심사를 다시 시작시키지 않게 한다 (#816).
+    """중간 트랙 승급이 진행 중인 프로덕션 심사를 다시 시작시키지 않게 한다 (push #816, 수동 실행 #1005).
 
     실패해도 배포를 막지 않는다 — 확인을 못 하면 경고만 남기고 설정대로 진행한다.
     """
-    if os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch":
-        print("Manual run — closed/open testing promotion follows the chosen values.")
-        return 0
     if os.environ.get("PROMOTE_TO_CLOSED_TESTING", "false") != "true" and os.environ.get("PROMOTE_TO_OPEN_TESTING", "false") != "true":
+        return 0
+    is_manual_run = os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
+    if is_manual_run and os.environ.get("FORCE_PROMOTE_DURING_REVIEW", "").strip().lower() == "true":
+        print("::warning title=Production review guard skipped::force_promote_during_review is on — "
+              "closed/open testing promotion runs even if a production review is in progress, which restarts that review.")
         return 0
     try:
         data = load(a.file)
@@ -198,7 +205,7 @@ def review_guard(a) -> int:
     _write_env({"PROMOTE_TO_CLOSED_TESTING": "false", "PROMOTE_TO_OPEN_TESTING": "false"})
     print(f"::warning title=Skipped closed/open testing promotion::A manual production submission ran at {hit.get('updated_at')}. "
           f"Promoting while that review runs restarts the production review, so for {hours} hours builds go to internal testing only "
-          f"({hit.get('html_url')}). To promote now, turn on promote_to_closed_testing in a manual run.")
+          f"({hit.get('html_url')}). To promote now anyway, run this workflow manually with force_promote_during_review on.")
     return 0
 
 
@@ -216,7 +223,8 @@ def main(argv=None) -> int:
 
     try:
         data = load(a.file)
-        values = resolve(data, a.platform, os.environ.get("INPUT_DEPLOY_MODE", ""))
+        values = resolve(data, a.platform, os.environ.get("INPUT_DEPLOY_MODE", ""),
+                         os.environ.get("INPUT_PROMOTE_TO_CLOSED_TESTING", ""))
     except ConfigError as e:
         print(f"::error title=store-deploy.json config error::{e}")
         print(f"❌ {e}", file=sys.stderr)

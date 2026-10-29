@@ -191,10 +191,16 @@ App Store Connect 기존값을 그대로 둔다. (예전에는 빈 파일로 '�
 | `ANDROID_CLOSED_TESTING_TRACK` | 비공개 트랙 이름 | `alpha` |
 | `ANDROID_OPEN_TESTING_TRACK` | 공개 트랙 이름 | `beta` |
 
-> **수동 프로덕션 제출 뒤에는 push 의 비공개·공개 승급을 잠시 쉰다 (#816).** 비공개 승급도 심사 제출이라, 프로덕션
+> **수동 프로덕션 제출 뒤에는 비공개·공개 승급을 잠시 쉰다 (push #816, 수동 실행 #1005).** 비공개 승급도 심사 제출이라, 프로덕션
 > 심사가 도는 동안 올리면 그 심사가 다시 시작된다. Play API 에는 심사 상태가 없어서, 마지막 수동 `store_submit`
-> 실행 뒤 `review_cooldown_hours`(`store-deploy.json`, 기본 48시간) 동안은 내부 테스트에만 올리고 경고를 남긴다.
-> 바로 올려야 하면 수동 실행에서 `promote_to_closed_testing` 을 켠다.
+> 실행 뒤 `review_cooldown_hours`(`store-deploy.json`, 기본 48시간) 동안은 push 든 수동 실행이든 내부 테스트에만 올리고 경고를 남긴다.
+> 그래도 바로 올려야 하면 수동 실행에서 `force_promote_during_review` 를 켠다 — 진행 중인 심사가 다시 시작된다.
+>
+> 수동 실행의 `promote_to_closed_testing`·`promote_to_open_testing` 은 `default`/`true`/`false` 중에 고른다. `default`(기본)는
+> push 와 같은 순서(`store-deploy.json` → 레포 변수 → 기본값)를 따르므로, 레포 변수 `ANDROID_PROMOTE_TO_CLOSED_TESTING=false` 가 수동 실행에도 먹는다.
+>
+> **프로덕션 액세스를 받은 뒤에는 비공개 승급을 끄는 것을 권한다.** 비공개 테스트는 개인 계정이 액세스를 받기 위한 조건일 뿐이고,
+> 승급할 때마다 심사 제출이 하나씩 생긴다. `store-deploy.json` 의 `"promote_closed_testing": false` 또는 레포 변수로 끈다.
 
 | 트랙 | 구글 검토 | 반영 | 프로덕션 액세스 조건에 포함 |
 |---|---|---|---|
