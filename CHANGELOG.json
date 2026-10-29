@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-29T08:33:23Z",
-    "currentVersion": "4.78.0",
+    "lastUpdated": "2026-10-29T08:52:59Z",
+    "currentVersion": "4.78.1",
     "projectType": "basic",
-    "totalReleases": 360,
+    "totalReleases": 361,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.78.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-29",
+      "pr_number": 1015,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * Hooks on Windows now also fall back to the Python launcher when Store stubs come first in PATH",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Hooks on Windows now also fall back to the Python launcher when Store stubs come first in PATH"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.78.0",
       "project_type": "basic",

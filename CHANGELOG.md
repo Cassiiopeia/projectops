@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.78.0  
-**Last updated:** 2026-10-29T08:33:23Z  
+**Current version:** 4.78.1  
+**Last updated:** 2026-10-29T08:52:59Z  
+
+---
+
+## [4.78.1] - 2026-10-29
+
+**PR:** #1015  
+
+**Bug fixes**
+- Hooks on Windows now also fall back to the Python launcher when Store stubs come first in PATH
 
 ---
 
