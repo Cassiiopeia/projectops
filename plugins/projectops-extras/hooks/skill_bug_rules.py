@@ -158,9 +158,11 @@ def _check_projectops_call(state: dict, call: dict) -> list[dict]:
     if is_missing_feature_code(call["code"]):
         alarms.append(_alarm("missing_feature_reported", call, same_count))
     # 서브커맨드를 못 읽은 호출(셸 함수 래퍼 "$@" 등)은 서로 다른 호출이 한 키로 묶여 반복으로 오탐 > 세지 않음 (#1003)
-    if (call["is_usage_error"] and call["subcommand"]
-            and _increment(state, f"usage:{name}") >= USAGE_ERROR_REPEAT_COUNT):
-        alarms.append(_alarm("usage_error_repeated", call, same_count))
+    # 경보의 failure_count 는 이 규칙이 센 사용법 오류 횟수 (same_count 를 적으면 "1회인데 2회 규칙 발동"으로 읽힘, #1016)
+    if call["is_usage_error"] and call["subcommand"]:
+        usage_error_count = _increment(state, f"usage:{name}")
+        if usage_error_count >= USAGE_ERROR_REPEAT_COUNT:
+            alarms.append(_alarm("usage_error_repeated", call, usage_error_count))
     if same_count >= SAME_FAILURE_REPEAT_COUNT:
         alarms.append(_alarm("same_failure_repeated", call, same_count))
     # 우회 대기: 우회 그룹이 있는 스킬만
