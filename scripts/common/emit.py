@@ -14,6 +14,7 @@
 """
 import difflib
 import json
+import os
 import sys
 from typing import Any, Optional
 
@@ -104,8 +105,12 @@ def _to_brief(payload: dict) -> dict:
 
 
 def _write(payload: Any) -> None:
-    sys.stdout.write((payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)) + "\n")
-    sys.stdout.flush()
+    try:
+        sys.stdout.write((payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)) + "\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        # 읽는 쪽(head 등)이 먼저 종료 > 이후 출력·종료 시 flush 를 devnull 로 (재emit·종료 경고 traceback 방지, #1010)
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
 
 
 def _emit_fields(payload: dict, field: str) -> int:
