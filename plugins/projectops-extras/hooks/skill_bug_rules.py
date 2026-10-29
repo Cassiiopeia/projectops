@@ -22,6 +22,9 @@ FAILURE_PATTERN = re.compile(r'"ok":\s*false')
 USAGE_ERROR_PATTERN = re.compile(r"usage: \w+_cli|error: (argument|unrecognized arguments|the following arguments)"
                                  r"|invalid choice")
 CODE_PATTERN = re.compile(r'"code":\s*"([\w-]+)"')
+# 도움말 요청 (-h/--help): argparse 가 usage: 를 찍어도 오류 줄 없으면 정상 (#1003)
+HELP_FLAG_PATTERN = re.compile(r"(?:^|\s)(?:-h|--help)(?:\s|$)")
+ARGPARSE_ERROR_LINE_PATTERN = re.compile(r"^\S*: error: |\berror: ", re.MULTILINE)
 # projectops 파일 안에서 난 예외 (에이전트가 붙인 파이프 파서 <stdin>/<string> 은 제외)
 CLI_CRASH_PATTERN = re.compile(r'File "[^"]*(?:_cli\.py|/pro_[a-z_]+/|/scripts/common/|/git_worktree/|/figma_tools/|/oss_consult/)[^"]*", line')
 # 도구가 스스로 "없다"고 답한 code: 1회로 보고 / argparse 없는 서브커맨드: 분류만 (이름 오타가 많아 1회로는 안 울림)
@@ -77,7 +80,8 @@ def classify_call(command: str, output: str, tool_use_id: str | None = None) -> 
     head = output[:6000]
     code_match = CODE_PATTERN.search(head)
     code = code_match.group(1) if code_match else None
-    is_usage_error = bool(USAGE_ERROR_PATTERN.search(head))
+    is_help_request = bool(HELP_FLAG_PATTERN.search(command)) and not ARGPARSE_ERROR_LINE_PATTERN.search(head)
+    is_usage_error = bool(USAGE_ERROR_PATTERN.search(head)) and not is_help_request
     is_crash = bool(CLI_CRASH_PATTERN.search(head))
     is_failure = ((bool(FAILURE_PATTERN.search(head)) or is_usage_error or is_crash) and code not in BY_DESIGN_CODES
                   and not any(marker in head for marker in NOT_A_TOOL_FAILURE_MARKERS))
@@ -153,7 +157,9 @@ def _check_projectops_call(state: dict, call: dict) -> list[dict]:
         alarms.append(_alarm("cli_crash", call, same_count))
     if is_missing_feature_code(call["code"]):
         alarms.append(_alarm("missing_feature_reported", call, same_count))
-    if call["is_usage_error"] and _increment(state, f"usage:{name}") >= USAGE_ERROR_REPEAT_COUNT:
+    # 서브커맨드를 못 읽은 호출(셸 함수 래퍼 "$@" 등)은 서로 다른 호출이 한 키로 묶여 반복으로 오탐 > 세지 않음 (#1003)
+    if (call["is_usage_error"] and call["subcommand"]
+            and _increment(state, f"usage:{name}") >= USAGE_ERROR_REPEAT_COUNT):
         alarms.append(_alarm("usage_error_repeated", call, same_count))
     if same_count >= SAME_FAILURE_REPEAT_COUNT:
         alarms.append(_alarm("same_failure_repeated", call, same_count))
