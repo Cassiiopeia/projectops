@@ -34,3 +34,20 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py explore commits {owner} 
 ```
 
 If there is a `next` value, run it as is to continue the exploration.
+
+## Create a repository (create-repo)
+
+Creates a new repository only when the user asks for one. `owner` is the PAT user (`POST /user/repos`) or an organization (`POST /orgs/{owner}/repos`). The `api` command refuses these paths on purpose; use this command instead.
+
+```bash
+# Check first: returns repo_exists if the name is taken, otherwise the plan
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-repo {owner} {name} --private --dry-run
+# Create (public by default; --auto-init adds an initial README commit)
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-repo {owner} {name} --private --description "..." --auto-init
+```
+
+| code | Meaning | Next action |
+|---|---|---|
+| `repo_exists` | The name is already taken | Nothing was created. Ask for another name |
+| `github_api_403` / `github_api_404` | The PAT cannot create repos for this owner | Tell the user the PAT needs repo-creation rights for that owner |
+

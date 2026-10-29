@@ -1,4 +1,4 @@
-"""레포 탐색: owner 타입, 레포 목록·상세, README, 언어, 커밋, 공개 여부."""
+"""레포 탐색·생성: owner 타입, 레포 목록·상세, README, 언어, 커밋, 공개 여부, 새 레포."""
 
 from __future__ import annotations
 
@@ -107,3 +107,26 @@ def list_commits(owner: str, repo: str, pat: str, limit: int = 10) -> list[dict]
 def is_repo_private(owner: str, repo: str, pat: str) -> bool:
     """private 레포인지. private이면 익명 접근이 막혀 이미지가 렌더링되지 않는다."""
     return bool(client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}", None, pat).get("private"))
+
+
+def get_authenticated_login(pat: str) -> str:
+    """PAT 주인 login"""
+    return client._request("GET", f"{_API_BASE}/user", None, pat).get("login", "")
+
+
+def create_repo(owner: str, name: str, pat: str, *, is_private: bool, description: str | None,
+                should_auto_init: bool) -> dict:
+    """새 레포 생성: PAT 주인이면 /user/repos, 조직이면 /orgs/{owner}/repos (#1007)"""
+    body = {"name": name, "private": is_private, "auto_init": should_auto_init}
+    if description:
+        body["description"] = description
+    is_pat_user = owner.lower() == get_authenticated_login(pat).lower()
+    endpoint = f"{_API_BASE}/user/repos" if is_pat_user else f"{_API_BASE}/orgs/{owner}/repos"
+    data = client._request("POST", endpoint, body, pat)
+    return {
+        "full_name": data.get("full_name"),
+        "url": data.get("html_url"),
+        "private": data.get("private", is_private),
+        "default_branch": data.get("default_branch"),
+        "clone_url": data.get("clone_url"),
+    }

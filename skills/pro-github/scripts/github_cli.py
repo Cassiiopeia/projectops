@@ -43,7 +43,7 @@ from common.gh_client import (  # noqa: E402,F401  (핸들러 의존 — 테스�
     list_pulls, update_pull_request, create_pull_request,
     get_pull_detail, merge_pull_request, get_branch_head,
     search_issues,
-    get_user_type, list_repos, get_repo_detail, get_readme, get_languages, list_commits,
+    get_user_type, list_repos, get_repo_detail, get_readme, get_languages, list_commits, create_repo,
     upload_evidence_image, delete_release_asset, is_repo_private, EVIDENCE_TAG,
     list_secrets, set_secret,
     _request, get_run, get_job_log, list_failed_runs, resolve_pr_runs, resolve_branch_runs,

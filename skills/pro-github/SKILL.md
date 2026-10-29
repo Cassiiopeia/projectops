@@ -48,6 +48,7 @@ Every command is `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py <subco
 | Run · rerun · wait for (several runs) · cancel workflows · list runs | `actions dispatch\|rerun\|wait\|cancel\|runs` | `references/actions.md` |
 | REST call with no dedicated command (**instead of curl or reading the PAT yourself**) | `api GET\|POST\|PUT\|PATCH\|DELETE {owner} {repo} <path> [--out file]` (a relative path such as `actions/runs` gets the repo prefix) | `references/actions.md` |
 | Repo list · details · README · languages · commits | `explore list-repos\|repo-detail\|readme\|languages\|commits` | `references/explore.md` |
+| Create a repository (PAT user or org; `repo_exists` if taken) | `create-repo {owner} {name} [--private] [--description D] [--auto-init] [--dry-run]` | `references/explore.md` |
 | List · create/update Actions secrets | `secrets list\|set` | `references/secrets.md` |
 
 ## Find the scripts
