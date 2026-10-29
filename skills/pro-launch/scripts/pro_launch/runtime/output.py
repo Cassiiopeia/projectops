@@ -216,9 +216,19 @@ def _attach_root_candidates(payload: dict) -> None:
     if not candidates:
         return
     payload["root_candidates"] = candidates
-    payload["retry"] = retry_command_with_root(candidates[0]["path"])
+    # browser_not_open 은 브라우저가 살아 있는 루트로만 재시도 — 없는 곳으로 보내면 또 같은 오류 (#999)
+    if payload.get("code") == "browser_not_open":
+        live = [c for c in candidates if c.get("has_live_browser")]
+        if not live:
+            return
+        retry_root = live[0]["path"]
+    else:
+        retry_root = candidates[0]["path"]
+    payload["retry"] = retry_command_with_root(retry_root)
+    # browser_not_open 재시도 루트엔 브라우저가 있다 — 현재 루트의 web open 을 덧붙이면 두 루트가 섞인다 (#999)
+    then = payload.get("next") if payload.get("code") != "browser_not_open" else None
     payload["next"] = (f"May have been called outside the repo — retry: {payload['retry']}"
-                       + (f". Then: {payload['next']}" if payload.get("next") else ""))
+                       + (f". Then: {then}" if then else ""))
 
 
 def retry_command_with_root(root: str) -> str:
