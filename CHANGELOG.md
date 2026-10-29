@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.77.2  
-**Last updated:** 2026-10-28T08:30:22Z  
+**Current version:** 4.77.3  
+**Last updated:** 2026-10-29T04:07:19Z  
+
+---
+
+## [4.77.3] - 2026-10-29
+
+**PR:** #1012  
+
+**Bug fixes**
+- Test builds no longer fail in the prepare step on branches that have not merged the default branch yet; the version check now uses the default branch's scripts and falls back to the `version.yml` version if it still cannot run
 
 ---
 
