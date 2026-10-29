@@ -257,7 +257,7 @@ Use `python` · `py -3` or the real installed `python.exe` path.
 ... web click  --ref {N} --dom-click      # call the element's click() directly when a sticky header or overlay covers it
 ... web wait   --url-contains "{part of URL}" | --text "{text}" | --gone "{text}" | --selector "{css}" [--timeout 120]
 ... web scroll --to "{text}" | --ref {N} | --by 600 [--container "{css}"]
-... web upload --files a.png,b.png [--selector "{css}" | --ref {N} | --click-ref {dropzone N}]
+... web upload --files a.png,b.png [--selector "{css}" | --ref {N} | --click-ref {dropzone N}]   # over 50MB total goes through CDP (via: "cdp"); if that fails, file_too_large_for_transfer
 ... web script --file {snippet.py} [--timeout 60]   # or standard input
 ... web find|type|click|assert|text|inspect ... --frame {name|iframe selector|part of URL}
 ```

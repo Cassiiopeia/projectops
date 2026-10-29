@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import mimetypes
+import uuid
 from pathlib import Path
 
 from pro_launch.commands.web.element import is_timeout_error, locate_target, outcome_wait_seconds, target_wait_seconds
@@ -17,6 +18,11 @@ from pro_launch.runtime.shots import shot_folder
 # --selector · --ref 가 없을 때 고르는 파일 입력
 DEFAULT_FILE_INPUT_SELECTOR = "input[type=file]"
 FILE_LIST_DELIMITER = ","
+# Playwright 가 CDP 로 붙은 브라우저에 넘길 수 있는 합계 크기 (50MB, 넘으면 CDP 경로)
+PLAYWRIGHT_REMOTE_TRANSFER_LIMIT_BYTES = 50 * 1024 * 1024
+PLAYWRIGHT_TRANSFER_LIMIT_ERROR = "Cannot transfer files larger than"
+# CDP 로 대상 노드를 찾을 때 잠깐 붙이는 표시 속성
+CDP_UPLOAD_MARK_ATTRIBUTE = "data-pro-launch-upload"
 
 # 파일 입력의 accept · multiple · 지금 들어간 파일 이름
 FILE_INPUT_JS = """(e) => ({ is_file_input: e.tagName === 'INPUT' && (e.type || '').toLowerCase() === 'file',
@@ -99,9 +105,11 @@ def _upload_via_chooser(page, args, state: dict, paths: list[Path]) -> dict:
     failure = check_files_fit(paths, input_state["accept"], chooser.is_multiple())
     if failure:
         return failure | {"action": "upload"}
-    chooser.set_files([str(p) for p in paths])
+    via = _set_files(page, chooser.element, paths, chooser.set_files, "file_chooser")
+    if isinstance(via, dict):
+        return via | {"clicked": info}
     after = chooser.element.evaluate(FILE_INPUT_JS)
-    return _uploaded_payload(page, paths, after, info, via="file_chooser")
+    return _uploaded_payload(page, paths, after, info, via=via)
 
 
 def _upload_into_input(page, args, state: dict, paths: list[Path]) -> dict:
@@ -119,9 +127,59 @@ def _upload_into_input(page, args, state: dict, paths: list[Path]) -> dict:
     failure = check_files_fit(paths, input_state["accept"], input_state["multiple"])
     if failure:
         return failure | {"action": "upload"}
-    element.set_input_files([str(p) for p in paths], timeout=target_wait_seconds(args) * 1000)
+    timeout_milliseconds = target_wait_seconds(args) * 1000
+    via = _set_files(page, element, paths,
+                     lambda files: element.set_input_files(files, timeout=timeout_milliseconds), "input")
+    if isinstance(via, dict):
+        return via | {"target": info}
     after = element.evaluate(FILE_INPUT_JS)
-    return _uploaded_payload(page, paths, after, info, via="input")
+    return _uploaded_payload(page, paths, after, info, via=via)
+
+
+def _set_files(page, element, paths: list[Path], playwright_set_files, via: str) -> str | dict:
+    """파일 넣기: 50MB 이하 Playwright > 넘거나 전송 한도 오류면 CDP 직접 (#1008). 성공 시 경로 이름, 실패 시 결과"""
+    files = [str(p) for p in paths]
+    if sum(p.stat().st_size for p in paths) <= PLAYWRIGHT_REMOTE_TRANSFER_LIMIT_BYTES:
+        try:
+            playwright_set_files(files)
+            return via
+        except Exception as error:
+            if PLAYWRIGHT_TRANSFER_LIMIT_ERROR not in str(error):
+                raise
+    try:
+        _set_files_over_cdp(page, element, files)
+        return "cdp"
+    except Exception as error:  # noqa: BLE001 — 대체 경로 실패는 결과로 알린다
+        return {"ok": False, "code": "file_too_large_for_transfer", "action": "upload",
+                "bytes": sum(p.stat().st_size for p in paths),
+                "error": f"Files over 50MB could not be set over CDP: {str(error)[:200]}",
+                "next": "Upload a smaller file (50MB or less), or put the input in the top page (not a cross-origin frame) and call again"}
+
+
+def _set_files_over_cdp(page, element, files: list[str]) -> None:
+    """CDP DOM.setFileInputFiles 로 로컬 경로를 그대로 넣는다 (Playwright 50MB 전송 한도 우회, #1008)
+    대상 노드: 임시 표시 속성 > DOM.performSearch > nodeId (같은 프로세스 프레임까지)"""
+    mark = uuid.uuid4().hex
+    element.evaluate(f"(e, mark) => e.setAttribute('{CDP_UPLOAD_MARK_ATTRIBUTE}', mark)", mark)
+    session = page.context.new_cdp_session(page)
+    try:
+        session.send("DOM.getDocument", {"depth": -1, "pierce": True})
+        search = session.send("DOM.performSearch", {"query": f'[{CDP_UPLOAD_MARK_ATTRIBUTE}="{mark}"]'})
+        try:
+            if not search.get("resultCount"):
+                raise RuntimeError("file input not reachable from the page's CDP session")
+            node_ids = session.send("DOM.getSearchResults", {"searchId": search["searchId"],
+                                                             "fromIndex": 0, "toIndex": 1})["nodeIds"]
+        finally:
+            session.send("DOM.discardSearchResults", {"searchId": search["searchId"]})
+        session.send("DOM.setFileInputFiles", {"files": files, "nodeId": node_ids[0]})
+    finally:
+        # 표시 속성 정리 (성공·실패 공통)
+        try:
+            element.evaluate(f"(e) => e.removeAttribute('{CDP_UPLOAD_MARK_ATTRIBUTE}')")
+        except Exception:  # noqa: BLE001
+            pass
+        session.detach()
 
 
 def _uploaded_payload(page, paths: list[Path], after: dict, target: dict | None, via: str) -> dict:
