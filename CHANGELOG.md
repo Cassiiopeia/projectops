@@ -1,7 +1,26 @@
 # Changelog
 
-**Current version:** 4.77.4  
-**Last updated:** 2026-10-29T04:13:48Z  
+**Current version:** 4.78.0  
+**Last updated:** 2026-10-29T08:33:23Z  
+
+---
+
+## [4.78.0] - 2026-10-29
+
+**PR:** #1014  
+
+**New features**
+- pro-github can now create a new repository for you or your organization
+
+**Bug fixes**
+- Skills installed for Cursor and Copilot no longer fail on a missing shared module
+- Manual Play Store runs no longer restart an in-progress production review
+- Web uploads over 50MB now go through instead of failing
+- The "browser not open" hint no longer points to a folder with no browser
+- Hooks pick a Python that actually runs, which fixes Windows sessions
+- Password SSH works without sshpass installed
+- Emulator start failures now show the real cause and log tail
+- Downloading binary files (such as zip) through the API no longer crashes
 
 ---
 
