@@ -451,6 +451,10 @@ jobs:
           mkdir -p "$RUNNER_TEMP/ci-scripts"
           git archive "origin/$BASE_BRANCH" .github/scripts | tar -x -C "$RUNNER_TEMP/ci-scripts"
           echo "CI_SCRIPTS_DIR=$RUNNER_TEMP/ci-scripts/.github/scripts" >> "$GITHUB_ENV"
+          # Default-branch version for the stale-branch warning (empty = no warning). The catalog checkout is deleted by now.
+          BASE_VERSION=$(git show "origin/$BASE_BRANCH:version.yml" 2>/dev/null \
+            | sed -n 's/^version:[[:space:]]*"\{0,1\}\([0-9][0-9.]*\)"\{0,1\}.*/\1/p' | head -n 1) || true
+          echo "BASE_VERSION=$BASE_VERSION" >> "$GITHUB_ENV"
 
       - name: Set test build version
         id: test_version
@@ -476,14 +480,12 @@ jobs:
 
           # 출시되어 닫힌 버전이면 다음 패치 버전으로 바꾼다 (version, changed, reason 을 출력).
           # 빌드 번호는 여기서 정하지 않고 아카이브 직전에 archive-upload 가 정한다.
-          # 오래된 브랜치 경고용 기본 브랜치 버전 — 메시지 카탈로그 체크아웃에 이미 있다 (없으면 빈 값 = 경고 생략)
-          BASE_VERSION=$(sed -n 's/^version:[[:space:]]*"\{0,1\}\([0-9][0-9.]*\)"\{0,1\}.*/\1/p' .projectops-messages/version.yml 2>/dev/null | head -n 1)
           # Scripts: default branch copy (previous step), else the branch's own. A script that does not know
           # --base-version is run again without it; if that fails too, keep the version.yml version.
           SCRIPTS_DIR="${CI_SCRIPTS_DIR:-.github/scripts}"
           precheck() { python3 "$SCRIPTS_DIR/ios_release.py" precheck-version --mode test \
             --version "$VERSION" --bundle-id "$APP_IDENTIFIER" "$@"; }
-          precheck --base-version "$BASE_VERSION" || precheck || {
+          precheck --base-version "${BASE_VERSION:-}" || precheck || {
             echo "::warning::Version precheck failed, continuing with the version.yml version"
             echo "version=$VERSION" >> "$GITHUB_OUTPUT"; }
 
