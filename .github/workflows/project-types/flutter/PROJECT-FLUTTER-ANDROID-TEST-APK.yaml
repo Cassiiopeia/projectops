@@ -325,6 +325,19 @@ jobs:
         working-directory: ${{ github.workspace }}   # build_number.py는 레포 루트 자산
         run: python3 .github/scripts/build_number.py next
 
+      # Decision scripts come from the default branch (#1006): a branch that has not merged it yet carries
+      # an old ios_release.py that rejects new options, which broke or skipped the version check.
+      - name: Load default-branch scripts
+        continue-on-error: true
+        working-directory: ${{ github.workspace }}
+        env:
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          git fetch --depth=1 origin "$BASE_BRANCH"
+          mkdir -p "$RUNNER_TEMP/ci-scripts"
+          git archive "origin/$BASE_BRANCH" .github/scripts | tar -x -C "$RUNNER_TEMP/ci-scripts"
+          echo "CI_SCRIPTS_DIR=$RUNNER_TEMP/ci-scripts/.github/scripts" >> "$GITHUB_ENV"
+
       # 닫힌 버전·오래된 브랜치 판정은 iOS 테스트 빌드와 같은 ios_release.py 한 곳에서 한다 (같은 커밋이면 두 플랫폼 버전이 같다, #1006)
       # App Store Connect 조회가 안 되면(키·번들 ID 없음 등) version.yml 버전으로 진행한다
       - name: Decide the test build version
@@ -340,10 +353,14 @@ jobs:
           VERSION=$(./.github/scripts/version_manager.sh get | tail -n 1)
           # 기본 브랜치 version.yml 은 메시지 카탈로그 체크아웃에 이미 있다 (없으면 빈 값 = 경고 생략)
           BASE_VERSION=$(sed -n 's/^version:[[:space:]]*"\{0,1\}\([0-9][0-9.]*\)"\{0,1\}.*/\1/p' .projectops-messages/version.yml 2>/dev/null | head -n 1)
-          python3 .github/scripts/ios_release.py precheck-version --mode test \
-            --version "$VERSION" --bundle-id "$APP_IDENTIFIER" --base-version "$BASE_VERSION" \
-            || { echo "::warning::Version precheck failed, continuing with the version.yml version"
-                 echo "version=$VERSION" >> "$GITHUB_OUTPUT"; }
+          # Scripts: default branch copy (previous step), else the branch's own. A script that does not know
+          # --base-version is run again without it; if that fails too, keep the version.yml version.
+          SCRIPTS_DIR="${CI_SCRIPTS_DIR:-.github/scripts}"
+          precheck() { python3 "$SCRIPTS_DIR/ios_release.py" precheck-version --mode test \
+            --version "$VERSION" --bundle-id "$APP_IDENTIFIER" "$@"; }
+          precheck --base-version "$BASE_VERSION" || precheck || {
+            echo "::warning::Version precheck failed, continuing with the version.yml version"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"; }
 
       # 빌드 정보 생성
       - name: Collect build information
