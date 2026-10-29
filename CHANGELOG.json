@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-28T08:30:22Z",
-    "currentVersion": "4.77.2",
+    "lastUpdated": "2026-10-29T04:07:19Z",
+    "currentVersion": "4.77.3",
     "projectType": "basic",
-    "totalReleases": 357,
+    "totalReleases": 358,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.77.3",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-29",
+      "pr_number": 1012,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * Test builds no longer fail in the prepare step on branches that have not merged the default branch yet; the version check now uses the default branch's scripts and falls back to the `version.yml` version if it still cannot run",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Test builds no longer fail in the prepare step on branches that have not merged the default branch yet; the version check now uses the default branch's scripts and falls back to the `version.yml` version if it still cannot run"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.77.2",
       "project_type": "basic",
