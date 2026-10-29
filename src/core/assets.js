@@ -12,9 +12,10 @@ import { TEMPLATE_REPO } from "./paths.js";
 //   {type:'git', repo?}   → git clone --depth 1 (기본 repo=TEMPLATE_REPO)
 //   {type:'local', path}  → 로컬 트리 복사 (네트워크 없는 등가 검증용)
 // 이미 tempDir/.github 있으면 스킵(중복 호출 방지). 획득 후 applyExclusions 자동 호출.
-export function acquireTemplate({ tempDir, source = { type: "git" } }) {
+// keep: 제외 목록 중 남길 항목 (스킬 설치 경로: scripts/common 필요 > ["scripts"], #994)
+export function acquireTemplate({ tempDir, source = { type: "git" }, keep = [] }) {
   if (exists(join(tempDir, ".github"))) {
-    applyExclusions(tempDir);
+    applyExclusions(tempDir, { keep });
     return;
   }
   remove(tempDir);
@@ -27,13 +28,15 @@ export function acquireTemplate({ tempDir, source = { type: "git" } }) {
     mkdirSync(tempDir, { recursive: true });
     execFileSync("git", ["clone", "--depth", "1", "--quiet", repo, tempDir], { stdio: "ignore" });
   }
-  applyExclusions(tempDir);
+  applyExclusions(tempDir, { keep });
 }
 
-// DOCS_TO_REMOVE + PLUGIN_ITEMS_TO_REMOVE 삭제. skills/ 는 보존.
-export function applyExclusions(tempDir) {
+// DOCS_TO_REMOVE + PLUGIN_ITEMS_TO_REMOVE 삭제 (keep 항목 제외). skills/ 는 보존.
+// 통합 복사는 .github 등 명시 경로만 읽음 > tempDir 에 남긴 scripts/ 는 사용자 레포로 안 감
+export function applyExclusions(tempDir, { keep = [] } = {}) {
+  const keptItems = new Set(keep);
   for (const doc of DOCS_TO_REMOVE) remove(join(tempDir, doc));
-  for (const item of PLUGIN_ITEMS_TO_REMOVE) remove(join(tempDir, item));
+  for (const item of PLUGIN_ITEMS_TO_REMOVE) if (!keptItems.has(item)) remove(join(tempDir, item));
 }
 
 // tempDir/version.yml 의 ^version: 값. 없으면 DEFAULT_VERSION.

@@ -14,7 +14,7 @@ export const TEST_PATH = /(^|[\\/])(tests?|__pycache__)([\\/]|$)/;
 const OWNED_SKILL_NAME = /^(pro|suh)-/;
 // 공용 파이썬 패키지 표식: scripts/common/__init__.py
 const SHARED_SCRIPTS_MARKER = join("common", "__init__.py");
-const SHARED_SCRIPTS_DIR_NAME = "scripts";
+export const SHARED_SCRIPTS_DIR_NAME = "scripts";
 const PYTHON_CACHE_DIR_NAME = "__pycache__";
 // 공용 파이썬 중 저장소 관리자만 쓰는 최상위 항목 3개: 안내 문서, 트러블슈팅 색인 생성기, extras 사본 동기화 (#988)
 // 허용 목록이 아니라 제외 목록인 이유: 새 런타임 모듈을 빠뜨리면 스킬이 import 에서 죽지만,

@@ -11,6 +11,7 @@ import { createContext } from "./context.js";
 import { PATHS } from "./core/paths.js";
 import { remove } from "./core/fsutil.js";
 import { acquireTemplate, readTemplateVersion } from "./core/assets.js";
+import { SHARED_SCRIPTS_DIR_NAME } from "./core/ide/skills-copy.js";
 import { detectTypes, detectVersion, detectDefaultBranch, detectRepoName, makeResolvers } from "./core/detect-fs.js";
 import { parseExisting } from "./core/version-yml.js";
 import { runBreakingCheck } from "./core/breaking-check.js";
@@ -99,7 +100,8 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     const tempDir = join(cwd, PATHS.tempDir);
     const interactive = !opts.force && process.stdout.isTTY;
     try {
-      acquireTemplate({ tempDir, source });
+      // skills 모드: 스킬 CLI 가 import 하는 scripts/common 필요 > 제외 대상에서 유지 (#994)
+      acquireTemplate({ tempDir, source, keep: [SHARED_SCRIPTS_DIR_NAME] });
       const templateVersion = readTemplateVersion(tempDir);
       return await runSkills({ templateVersion, tempDir, interactive });
     } finally {

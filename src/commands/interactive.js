@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { PATHS } from "../core/paths.js";
 import { remove } from "../core/fsutil.js";
 import { acquireTemplate, readTemplateVersion } from "../core/assets.js";
+import { SHARED_SCRIPTS_DIR_NAME } from "../core/ide/skills-copy.js";
 import { detectTypes, detectVersion, detectDefaultBranch, detectRepoName, makeResolvers } from "../core/detect-fs.js";
 import { parseExisting } from "../core/version-yml.js";
 import { runBreakingCheck } from "../core/breaking-check.js";
@@ -54,7 +55,8 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
   if (io === prompts) trace.mirrorStart();
   try {
     // 템플릿 먼저 획득 — 배너에 실제 템플릿 버전을 표시
-    trace.step("acquire-template", () => acquireTemplate({ tempDir, source }), { source: source?.type || "git" });
+    // 대화형도 끝에 스킬 설치·업데이트 > scripts/common 유지 (#994)
+    trace.step("acquire-template", () => acquireTemplate({ tempDir, source, keep: [SHARED_SCRIPTS_DIR_NAME] }), { source: source?.type || "git" });
     const templateVersion = readTemplateVersion(tempDir);
     traceTo = templateVersion;
 
