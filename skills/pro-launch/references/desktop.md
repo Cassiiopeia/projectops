@@ -37,7 +37,13 @@ if you looked something else up in between (for example, reading a status label)
 | `click` · `type` · `press` · `focus` need **this session's** `desktop session start` | The user must know the keyboard and mouse are in use. Relay `tell_user` from the start result |
 | One input session per computer (`desktop_busy`) | Two agents on one mouse fight each other |
 | Expires after 10 minutes without input; the session-end hook runs `desktop session stop` | A session that left without stopping must not hold the mouse |
-| The user moved the mouse → `user_interrupted`, session paused | Never type into what the user is doing. Ask, then `desktop session resume` |
+| The user moved the mouse or typed → `user_interrupted` (`input_detected`: `mouse` · `keyboard` · `keyboard_or_mouse`), session paused | Never type into what the user is doing. Ask, then `desktop session resume` |
+| Keys typed into the terminal or app running this agent are not a takeover | Answering "yes" to an approval question must not pause the session |
+
+**How typing is detected.** Before every `click` · `type` · `press` · `focus`, the OS clock of the last user input is compared with this
+session's last input. Windows reads `GetLastInputInfo` (keyboard and mouse together); macOS reads
+`CGEventSourceSecondsSinceLastEventType` for key presses (no extra permission). If the OS cannot answer, input is not blocked and
+`desktop doctor` / `session start` report `keyboard_check.is_available: false` (only mouse movement is checked then).
 
 ## What is blocked until the user approves
 

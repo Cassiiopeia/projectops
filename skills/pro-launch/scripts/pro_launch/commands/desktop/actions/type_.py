@@ -7,6 +7,7 @@ from pro_launch.commands.desktop.common import masked, public_window, secret_tex
 from pro_launch.commands.desktop.input_ops import (STALE_REASONS, before_digest, ensure_front, finish,
                                                    keys_target_refusal, press_node, resolve_ref, stale_failure)
 from pro_launch.registry import Action
+from pro_launch.runtime import desktop_state
 from pro_launch.runtime.output import out
 
 
@@ -55,6 +56,9 @@ def execute(args) -> int:
             return out(refusal)
     if ok and args.submit:
         ok, detail = be.press("enter", [])
+    if transport == "keys" or args.submit:
+        # 보낸 키 뒤로 기준 시각을 옮긴다 — 안 하면 다음 동작이 우리 키를 사용자 입력으로 본다 (#985)
+        desktop_state.touch_session()
     payload = {"ok": ok, "code": "ok" if ok else "type_failed", "transport": transport,
                "detail": masked(detail, value if is_secret else None), "secret": is_secret,
                "element": desktop_input.public_node(node), "window": public_window(window),

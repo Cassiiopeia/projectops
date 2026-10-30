@@ -307,6 +307,14 @@ class MacBackend(desktop_input.DesktopBackend):
         px = macos_nodes.points_to_pixels((x, y, x, y), self.screens())
         return px[0], px[1]
 
+    user_input_kind = "keyboard"
+
+    def seconds_since_user_input(self) -> float | None:
+        return macos_system.seconds_since_key_input()
+
+    def parent_by_pid(self) -> dict[int, int]:
+        return macos_system.parent_by_pid()
+
     def mouse_click(self, x: int, y: int, button: str = "left", is_double: bool = False) -> tuple[bool, str]:
         px, py = macos_nodes.pixels_to_points(x, y, self.screens())
         return macos_input.click_points(px, py, button, is_double)

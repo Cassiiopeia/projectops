@@ -147,7 +147,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
 - Captures default to WebP with a 1200 px long edge. Use `--keep-format` only when you need the original, such as for pixel comparison. **Open what you captured with Read.**
   If text is enough to confirm (`web assert` · `app tree` · logs), do not read the image. Images are the most expensive thing to read.
 - **Do not click coordinates with raw host-mouse tools** (`cliclick` · AppleScript · CGEvent called directly). They steal the user's cursor and you cannot tell what was pressed. Use `app tap` for apps, `web find` → `web click --ref` for the web,
-  and for other programs on the screen **only `desktop`**, inside a `desktop session start` (it presses through accessibility without moving the mouse whenever it can, and stops if the user moves the mouse).
+  and for other programs on the screen **only `desktop`**, inside a `desktop session start` (it presses through accessibility without moving the mouse whenever it can, and stops if the user moves the mouse or types).
 - **Never handle credentials as plain text.** Instead of `--text` on the command line, use `--cred` (saved) · `--text-env` (one-off),
   and `$CRED_*` environment variables in command strings. Never copy values into results, reports, issues or commits. Do not write secrets into `access`.
 - Mutating actions (submit · delete · pay · send) run without asking **only locally**. Anywhere else, stop and ask (`references/web.md` safety contract).
@@ -302,7 +302,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop session stop    
 | `desktop_deps_missing` | Ask the user, then `desktop setup` (Windows: mss · comtypes, macOS: mss · pyobjc — into the shared venv) |
 | `permission_missing` (macOS) | The terminal app needs Accessibility and Screen Recording — relay `grant`, then reopen that app |
 | `desktop_session_required` · `desktop_busy` | `desktop session start` · another session holds the keyboard and mouse — wait or ask |
-| `user_interrupted` | The user moved the mouse. Stop, ask, and `desktop session resume` only after they agree |
+| `user_interrupted` | The user moved the mouse or typed (`input_detected`). Stop, ask, and `desktop session resume` only after they agree |
 | `needs_user` · `screen_locked` · `elevated_window` | UAC / sign-in prompt · locked screen · an administrator window. Only a person can answer — relay `ask_user` |
 | `mutating_blocked` | Relay `ask_user`; after approval, the `next` command |
 | `not_found` · `window_not_found` · `ref_stale` | Pick from `candidates` · the screen changed since `find` — `find` again |

@@ -4,12 +4,26 @@
 """
 from __future__ import annotations
 
+from pro_launch.commands.desktop.common import load_backend
+from pro_launch.commands.desktop.input_ops import user_input_check
 from pro_launch.registry import Action
 from pro_launch.runtime import desktop_state
 from pro_launch.runtime.output import out
 
 START_WARNING = ("This session will now use this computer's keyboard and mouse. "
-                 "Moving the mouse pauses it.")
+                 "Moving the mouse or typing pauses it.")
+# 키 입력 감지를 못 쓰는 환경 — 마우스만 본다고 알린다 (#985)
+START_WARNING_MOUSE_ONLY = ("This session will now use this computer's keyboard and mouse. "
+                            "Moving the mouse pauses it (typing is not detected here).")
+
+
+def keyboard_check() -> dict:
+    """세션 시작 결과에 싣는 감지 범위 — 못 읽으면 is_available False 로 알리고 막지는 않는다."""
+    be, failure = load_backend()
+    if failure:
+        return {"is_available": False, "kind": None}
+    _, is_available = user_input_check(be)
+    return {"is_available": is_available, "kind": be.user_input_kind if is_available else None}
 
 
 def execute(args) -> int:
@@ -21,8 +35,10 @@ def execute(args) -> int:
                             "purpose": record.get("purpose"),
                             "error": "Another session is using this computer's keyboard and mouse",
                             "next": "desktop session status  # wait, or ask the user"})
-            return out({"ok": True, "code": "ok", "session": record, "warning": START_WARNING,
-                        "tell_user": START_WARNING, "idle_expiry_minutes": desktop_state.SESSION_IDLE_SECONDS // 60,
+            check = keyboard_check()
+            warning = START_WARNING if check["is_available"] else START_WARNING_MOUSE_ONLY
+            return out({"ok": True, "code": "ok", "session": record, "warning": warning,
+                        "tell_user": warning, "keyboard_check": check, "idle_expiry_minutes": desktop_state.SESSION_IDLE_SECONDS // 60,
                         "summary": "Input session started", "next": "desktop find --text \"<button text>\""})
         if args.op == "stop":
             released = desktop_state.stop_session()
@@ -33,7 +49,7 @@ def execute(args) -> int:
             if not desktop_state.my_session():
                 return out({"ok": False, "code": "desktop_session_required",
                             "error": "This session holds no input session", "next": "desktop session start"})
-            desktop_state.touch_session(paused=False, last_cursor=None)
+            desktop_state.touch_session(paused=False, paused_by=None, last_cursor=None)
             return out({"ok": True, "code": "ok", "summary": "Input session resumed", "next": None})
         holder = desktop_state.current_holder()
         return out({"ok": True, "code": "ok", "held_by_me": bool(desktop_state.my_session()),

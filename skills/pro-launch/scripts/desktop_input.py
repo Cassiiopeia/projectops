@@ -31,6 +31,10 @@ CLICKABLE_ROLES = {"button", "checkbox", "radiobutton", "menuitem", "hyperlink",
 ACTION_NAMES = ("invoke", "toggle", "select", "expand", "set_value")
 # 사용자가 마우스를 이만큼(픽셀) 넘게 움직였으면 입력하지 않는다 — 트랙패드 떨림은 넘긴다
 CURSOR_DRIFT_PIXELS = 4
+# 우리 마지막 입력 뒤 이만큼(초) 지나 들어온 입력만 사용자 것으로 본다 — 합성 입력 반영 지연·시계 오차 흡수 (#985)
+USER_INPUT_GRACE_SECONDS = 0.5
+# Windows GetTickCount 는 32비트 ms — 약 49.7일마다 0 으로 돌아간다
+TICK_WRAP_MILLISECONDS = 1 << 32
 # tree 기본 노드 수 상한 — 큰 앱(IDE·브라우저) 전체를 다 읽으면 수 초가 걸린다
 DEFAULT_MAX_NODES = 300
 DEFAULT_MAX_DEPTH = 25
@@ -106,6 +110,31 @@ def cursor_moved_by_user(last: list[int] | None, now: tuple[int, int] | None,
     return abs(now[0] - last[0]) > threshold or abs(now[1] - last[1]) > threshold
 
 
+def tick_elapsed_seconds(now_milliseconds: int, last_milliseconds: int) -> float:
+    """32비트 틱 두 개 → 지난 초. 틱이 한 바퀴 돌아도 맞게 나머지로 뺀다 (GetLastInputInfo)."""
+    return ((now_milliseconds - last_milliseconds) % TICK_WRAP_MILLISECONDS) / 1000.0
+
+
+def user_input_after(baseline_at: float | None, idle_seconds: float | None, now: float,
+                     grace: float = USER_INPUT_GRACE_SECONDS) -> bool:
+    """우리 마지막 입력(baseline_at, epoch 초) 뒤에 사용자 입력이 있었는가.
+
+    마지막 시스템 입력 시각 = now - idle_seconds. 값이 없으면(감지 불가) 판단하지 않는다(False — fail open).
+    """
+    if baseline_at is None or idle_seconds is None or idle_seconds < 0:
+        return False
+    return now - idle_seconds > float(baseline_at) + grace
+
+
+def ancestor_pids(own_pid: int, parent_by_pid: dict[int, int], limit: int = 64) -> set[int]:
+    """이 프로세스의 조상 pid (터미널·IDE·Claude 앱). 순환·끊긴 사슬에서도 멈춘다."""
+    found, pid = set(), parent_by_pid.get(own_pid)
+    while pid and pid not in found and len(found) < limit:
+        found.add(pid)
+        pid = parent_by_pid.get(pid)
+    return found
+
+
 def platform_key(platform: str | None = None) -> str | None:
     """sys.platform → 백엔드 이름. 지원하지 않는 OS 는 None."""
     p = platform or sys.platform
@@ -151,6 +180,17 @@ class DesktopBackend:
 
     def cursor(self) -> tuple[int, int] | None:
         raise NotImplementedError
+
+    # 아래 값이 세는 입력 종류: "keyboard" · "keyboard_or_mouse". 빈 값이면 감지 불가
+    user_input_kind = ""
+
+    def seconds_since_user_input(self) -> float | None:
+        """마지막 사용자 키보드(·마우스) 입력 뒤 지난 초. 못 읽으면 None — 막지 않고 넘긴다 (#985)."""
+        return None
+
+    def parent_by_pid(self) -> dict[int, int]:
+        """pid → 부모 pid. 사용자가 agent 터미널에 답한 키를 개입으로 보지 않는 데 쓴다. 못 읽으면 빈 dict."""
+        return {}
 
     def mouse_click(self, x: int, y: int, button: str = "left", is_double: bool = False) -> tuple[bool, str]:
         raise NotImplementedError

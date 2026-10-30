@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import ctypes
 import ctypes.util
+import subprocess
 
 from desktop_backends import macos_nodes
 
@@ -17,6 +18,11 @@ ACTIVATION_POLICY_REGULAR = 0
 ACTIVATE_IGNORING_OTHER_APPS = 1 << 1
 # 앞으로 가져온 뒤 확인까지 기다리는 초
 ACTIVATE_SETTLE_SECONDS = 0.15
+# CGEventSourceStateID: 하드웨어(HID) 입력 기준 — 다른 앱의 합성 이벤트에 덜 흔들린다
+EVENT_SOURCE_HID_SYSTEM_STATE = 1
+# CGEventType 2개: keyDown 10, flagsChanged 12 (Shift·Cmd 만 누른 경우) — 마우스는 커서 비교가 따로 본다
+KEYBOARD_EVENT_TYPES = (10, 12)
+CORE_GRAPHICS_PATH = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics"
 
 
 def cg_windows() -> list[dict]:
@@ -130,6 +136,31 @@ def is_secure_input_on() -> bool:
     carbon = ctypes.cdll.LoadLibrary(path)
     carbon.IsSecureEventInputEnabled.restype = ctypes.c_bool
     return bool(carbon.IsSecureEventInputEnabled())
+
+
+def seconds_since_key_input() -> float | None:
+    """마지막 키보드 입력 뒤 지난 초 (CGEventSourceSecondsSinceLastEventType). 권한 불필요, 실패하면 None (#985)."""
+    try:
+        cg = ctypes.cdll.LoadLibrary(ctypes.util.find_library("CoreGraphics") or CORE_GRAPHICS_PATH)
+        since = cg.CGEventSourceSecondsSinceLastEventType
+        since.restype = ctypes.c_double
+        since.argtypes = (ctypes.c_int32, ctypes.c_uint32)
+        values = [float(since(EVENT_SOURCE_HID_SYSTEM_STATE, t)) for t in KEYBOARD_EVENT_TYPES]
+    except (OSError, AttributeError):
+        return None
+    values = [v for v in values if v >= 0]
+    return min(values) if values else None
+
+
+def parent_by_pid() -> dict[int, int]:
+    """pid → 부모 pid (ps). 실패하면 빈 dict."""
+    try:
+        output = subprocess.run(["ps", "-ax", "-o", "pid=,ppid="], capture_output=True, text=True,
+                                timeout=5, check=False).stdout
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    pairs = (line.split() for line in output.splitlines())
+    return {int(p[0]): int(p[1]) for p in pairs if len(p) == 2 and p[0].isdigit() and p[1].isdigit()}
 
 
 def readiness(rows: list[dict] | None = None) -> dict:

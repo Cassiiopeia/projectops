@@ -5,6 +5,7 @@
 안전 관문은 이 파일 한 곳에 있다 (동작 선언 `device_use`).
     read    의존성만 본다 — 창 목록 · 구조 · 캡처 · 대기
     mutate  + 보안 화면(UAC·잠금) 아님 + 이 세션이 입력 세션을 쥠 + 일시정지 아님
+            + 우리 마지막 입력 뒤 사용자 키 입력 없음 (Windows 는 마우스 포함)
     none    동작이 직접 판단한다 (setup · doctor · session)
 OS 차이는 전부 `scripts/desktop_input.py` 의 백엔드가 맡는다. 동작을 추가해도 이 파일은 고치지 않는다.
 """
@@ -14,6 +15,7 @@ import argparse
 
 from pro_launch.commands.desktop import actions as _actions
 from pro_launch.commands.desktop.common import load_backend
+from pro_launch.commands.desktop.input_ops import TAKEOVER_WORDS, keyboard_takeover_refusal
 from pro_launch.commands.desktop.options import ALWAYS_OPTIONS, MAX_TIMEOUT_SECONDS, SHARED_OPTIONS
 from pro_launch.registry import Command, action_usage_lines, add_action_parsers, discover_actions
 from pro_launch.runtime import desktop_state
@@ -58,11 +60,12 @@ def input_gate(be) -> dict | None:
                 "error": "Start an input session first — it tells the user this session will use the keyboard and mouse",
                 "next": "desktop session start --purpose \"<why>\""}
     if mine.get("paused"):
-        return {"ok": False, "code": "user_interrupted",
-                "error": "The input session is paused because the user moved the mouse",
-                "ask_user": "You moved the mouse while I was working. May I continue?",
+        words = TAKEOVER_WORDS.get(mine.get("paused_by") or "mouse", TAKEOVER_WORDS["keyboard_or_mouse"])
+        return {"ok": False, "code": "user_interrupted", "input_detected": mine.get("paused_by") or "mouse",
+                "error": f"The input session is paused because the user {words}",
+                "ask_user": f"You {words} while I was working. May I continue?",
                 "next": "desktop session resume  # only after the user agrees"}
-    return None
+    return keyboard_takeover_refusal(be, mine)
 
 
 def cmd_desktop(args) -> int:

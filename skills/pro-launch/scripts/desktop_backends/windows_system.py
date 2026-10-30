@@ -5,6 +5,8 @@ import ctypes
 import os
 from ctypes import wintypes
 
+import desktop_input
+
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
@@ -44,6 +46,8 @@ user32.CloseDesktop.argtypes = (wintypes.HANDLE,)
 user32.GetUserObjectInformationW.argtypes = (wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD,
                                              ctypes.POINTER(wintypes.DWORD))
 user32.GetWindowThreadProcessId.argtypes = (wintypes.HWND, ctypes.POINTER(wintypes.DWORD))
+user32.GetLastInputInfo.argtypes = (ctypes.c_void_p,)
+kernel32.GetTickCount.restype = wintypes.DWORD
 dwmapi.DwmGetWindowAttribute.argtypes = (wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD)
 
 
@@ -185,6 +189,54 @@ def readiness() -> dict:
             "locked": front_app in LOCK_SCREEN_APPS,
             "consent_prompt": front_app in CONSENT_APPS,
             "foreground_app": front_app, "self_elevated": self_elevated(), "permissions": {}}
+
+
+class LASTINPUTINFO(ctypes.Structure):
+    _fields_ = [("cbSize", wintypes.UINT), ("dwTime", wintypes.DWORD)]
+
+
+def seconds_since_last_input() -> float | None:
+    """마지막 키보드·마우스 입력 뒤 지난 초 (GetLastInputInfo, 이 세션 전체). 실패하면 None (#985)."""
+    info = LASTINPUTINFO()
+    info.cbSize = ctypes.sizeof(LASTINPUTINFO)
+    if not user32.GetLastInputInfo(ctypes.byref(info)):
+        return None
+    return desktop_input.tick_elapsed_seconds(int(kernel32.GetTickCount()), int(info.dwTime))
+
+
+TH32CS_SNAPPROCESS = 0x00000002
+INVALID_HANDLE_VALUE = wintypes.HANDLE(-1).value
+kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+kernel32.CreateToolhelp32Snapshot.argtypes = (wintypes.DWORD, wintypes.DWORD)
+
+
+class PROCESSENTRY32W(ctypes.Structure):
+    _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("th32ProcessID", wintypes.DWORD),
+                ("th32DefaultHeapID", ctypes.c_size_t), ("th32ModuleID", wintypes.DWORD),
+                ("cntThreads", wintypes.DWORD), ("th32ParentProcessID", wintypes.DWORD),
+                ("pcPriClassBase", ctypes.c_long), ("dwFlags", wintypes.DWORD), ("szExeFile", wintypes.WCHAR * 260)]
+
+
+kernel32.Process32FirstW.argtypes = (wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W))
+kernel32.Process32NextW.argtypes = (wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W))
+
+
+def parent_by_pid() -> dict[int, int]:
+    """pid → 부모 pid (Toolhelp 스냅샷). 실패하면 빈 dict."""
+    snapshot = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+    if not snapshot or snapshot == INVALID_HANDLE_VALUE:
+        return {}
+    parents: dict[int, int] = {}
+    try:
+        entry = PROCESSENTRY32W()
+        entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
+        more = kernel32.Process32FirstW(snapshot, ctypes.byref(entry))
+        while more:
+            parents[int(entry.th32ProcessID)] = int(entry.th32ParentProcessID)
+            more = kernel32.Process32NextW(snapshot, ctypes.byref(entry))
+    finally:
+        kernel32.CloseHandle(snapshot)
+    return parents
 
 
 def bring_to_front(hwnd: int) -> tuple[bool, str]:

@@ -8,6 +8,9 @@
 """
 from __future__ import annotations
 
+import os
+import time
+
 import desktop_input
 
 from pro_launch.commands.desktop.common import save_shot, screen_digest, settle
@@ -69,15 +72,58 @@ def named_action_refusal(node: dict, name: str, is_confirmed: bool) -> dict | No
     return None
 
 
+# 사용자 개입 감지 결과 input_detected 값 → 사람에게 하는 말
+TAKEOVER_WORDS = {"mouse": "moved the mouse", "keyboard": "typed on the keyboard",
+                  "keyboard_or_mouse": "used the keyboard or mouse"}
+
+
+def interrupted(input_detected: str, did_not: str, **extra) -> dict:
+    """세션을 멈추고 user_interrupted 결과를 만든다 (마우스·키보드 공통)."""
+    words = TAKEOVER_WORDS.get(input_detected, TAKEOVER_WORDS["keyboard_or_mouse"])
+    desktop_state.touch_session(paused=True, paused_by=input_detected)
+    return {"ok": False, "code": "user_interrupted", "input_detected": input_detected, **extra,
+            "error": f"The user {words}, so I did not {did_not}",
+            "ask_user": f"You {words} while I was working. May I continue?",
+            "next": "desktop session resume  # only after the user agrees"}
+
+
+def user_input_check(be) -> tuple[float | None, bool]:
+    """(마지막 사용자 입력 뒤 지난 초, 감지 가능한가). OS 가 못 읽으면 (None, False) — 막지 않는다."""
+    try:
+        idle = be.seconds_since_user_input()
+    except Exception:   # noqa: BLE001 — 감지는 보조 안전장치라 실패해도 입력을 막지 않는다 (#985)
+        idle = None
+    return idle, idle is not None
+
+
+def is_reply_to_agent(be) -> bool:
+    """앞 창이 이 CLI 를 띄운 터미널·IDE·Claude 앱인가 — 거기 친 키는 agent 에게 한 답이라 개입이 아니다."""
+    front = next((w for w in be.windows() if w.get("foreground")), None)
+    if not front or not front.get("pid"):
+        return False
+    return int(front["pid"]) in desktop_input.ancestor_pids(os.getpid(), be.parent_by_pid())
+
+
+def keyboard_takeover_refusal(be, session: dict) -> dict | None:
+    """우리 마지막 입력(last_used) 뒤 사용자가 키를 눌렀으면 세션을 멈춘다 (#985).
+
+    감지 불가면 None (fail open). agent 터미널에 친 답(승인 "yes" 등)은 넘긴다.
+    """
+    idle, is_available = user_input_check(be)
+    if not is_available:
+        return None
+    baseline = session.get("last_used") or session.get("started_at")
+    if not desktop_input.user_input_after(baseline, idle, time.time()) or is_reply_to_agent(be):
+        return None
+    return interrupted(be.user_input_kind or "keyboard_or_mouse", "continue",
+                       idle_seconds=round(idle, 2))
+
+
 def guarded_mouse_click(be, x: int, y: int, is_double: bool = False) -> tuple[bool, str, dict | None]:
     """사용자가 마우스를 쓰고 있으면 누르지 않고 세션을 멈춘다. (성공, 이유, 실패 결과)"""
     session = desktop_state.my_session() or {}
     if desktop_input.cursor_moved_by_user(session.get("last_cursor"), be.cursor()):
-        desktop_state.touch_session(paused=True)
-        return False, "user moved the mouse", {
-            "ok": False, "code": "user_interrupted", "error": "The user moved the mouse, so I did not click",
-            "ask_user": "You moved the mouse while I was working. May I continue?",
-            "next": "desktop session resume  # only after the user agrees"}
+        return False, "user moved the mouse", interrupted("mouse", "click")
     ok, detail = be.mouse_click(x, y, is_double=is_double)
     desktop_state.touch_session(last_cursor=[x, y])
     return ok, detail, None

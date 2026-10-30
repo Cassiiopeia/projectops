@@ -46,7 +46,7 @@ Call them as scripts, the same way `pro-launch` documents (`{PYTHON} {SCRIPTS}/l
 |---|---|
 | `mutating_blocked` | Tell the user in one line what pressing it changes (installs X, agrees to terms, deletes, saves). Press with `--confirm-mutating` only after they say yes, **for that one click** |
 | `needs_user` · `screen_locked` · `elevated_window` | Relay `ask_user`. Wait until the user says it is done. Do not try to get around it |
-| `user_interrupted` | Stop. Ask whether to continue. `desktop session resume` only after a yes |
+| `user_interrupted` | The user moved the mouse or typed. Stop. Ask whether to continue. `desktop session resume` only after a yes |
 | `secret_requires_cred` | The field is a password. Use a saved credential (`--cred`) or `--text-env`. Never ask the user to paste a password into the chat |
 
 Terms and licence agreements: read the agreement's title to the user and let them decide. Do not accept on their behalf.

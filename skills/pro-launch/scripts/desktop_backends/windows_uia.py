@@ -159,6 +159,15 @@ class WindowsBackend(desktop_input.DesktopBackend):
     def cursor(self) -> tuple[int, int] | None:
         return windows_input.cursor()
 
+    # GetLastInputInfo 는 키보드와 마우스를 함께 센다
+    user_input_kind = "keyboard_or_mouse"
+
+    def seconds_since_user_input(self) -> float | None:
+        return windows_system.seconds_since_last_input()
+
+    def parent_by_pid(self) -> dict[int, int]:
+        return windows_system.parent_by_pid()
+
     def mouse_click(self, x: int, y: int, button: str = "left", is_double: bool = False) -> tuple[bool, str]:
         return windows_input.click(x, y, button, is_double)
 
