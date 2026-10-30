@@ -1,0 +1,145 @@
+{
+  "schema": 1,
+  "about": "Store image specs, one source of truth for store-specs and store-check. Every value comes from the official page in source_url, read on checked_at. Do not add a value without a source.",
+  "layout": "{dir}/{store}/{locale}/{slot}/*.png|jpg|jpeg; slots with localized=false go in {dir}/{store}/_global/{slot}/",
+  "requirement_values": {
+    "required": "Every target locale needs this slot",
+    "one_of": "Every target locale needs at least one slot of the named group",
+    "when_present": "Needed in every target locale only when this store folder has this slot in some locale (the app supports that device)",
+    "optional": "Never required; checked only when present"
+  },
+  "stores": {
+    "ios": {
+      "name": "App Store",
+      "locale_codes": "App Store Connect locale codes (for example ko, en-US, ja). Folder names are not normalized.",
+      "fallback_to_base": null,
+      "fallback_note": "The source pages do not state that a locale without screenshots shows the primary language screenshots, so a missing slot in a non-base locale is reported as an issue.",
+      "source_url": "https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications",
+      "checked_at": "2026-10-30",
+      "groups": {
+        "iphone": {
+          "label": "iPhone screenshots",
+          "required": true,
+          "note": "Required size per the source: 'At least one screenshot for iPhone with Dynamic Island (medium display).' Each of the three sizes falls back to scaled screenshots of another: medium <- Face ID (large); Face ID (large) <- Dynamic Island (large); Dynamic Island (large) <- Face ID (large). So one of the three satisfies the requirement.",
+          "source_url": "https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications",
+          "checked_at": "2026-10-30"
+        }
+      },
+      "slots": {
+        "iphone-dynamic-island-large": {
+          "label": "iPhone with Dynamic Island (large display)",
+          "localized": true,
+          "requirement": "one_of",
+          "group": "iphone",
+          "formats": ["png", "jpeg"],
+          "alpha": "forbidden",
+          "min_count": 1,
+          "max_count": 10,
+          "size": {"exact": [[1260, 2736], [2736, 1260], [1290, 2796], [2796, 1290], [1320, 2868], [2868, 1320]]},
+          "source_quote": "If screenshots with the accepted sizes aren't provided, scaled screenshots for iPhone with Face ID (large display) are used.",
+          "source_url": "https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications",
+          "checked_at": "2026-10-30"
+        },
+        "iphone-face-id-large": {
+          "label": "iPhone with Face ID (large display)",
+          "localized": true,
+          "requirement": "one_of",
+          "group": "iphone",
+          "formats": ["png", "jpeg"],
+          "alpha": "forbidden",
+          "min_count": 1,
+          "max_count": 10,
+          "size": {"exact": [[1284, 2778], [2778, 1284], [1242, 2688], [2688, 1242]]},
+          "source_quote": "Required if app runs on iPhone and screenshots for iPhone with Dynamic Island (large display) aren't provided.",
+          "source_url": "https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications",
+          "checked_at": "2026-10-30"
+        },
+        "iphone-dynamic-island-medium": {
+          "label": "iPhone with Dynamic Island (medium display)",
+          "localized": true,
+          "requirement": "one_of",
+          "group": "iphone",
+          "formats": ["png", "jpeg"],
+          "alpha": "forbidden",
+          "min_count": 1,
+          "max_count": 10,
+          "size": {"exact": [[1179, 2556], [2556, 1179], [1206, 2622], [2622, 1206]]},
+          "source_quote": "To submit your app, you must provide screenshots for the following required display sizes: iPhone: At least one screenshot for iPhone with Dynamic Island (medium display).",
+          "source_url": "https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications",
+          "checked_at": "2026-10-30"
+        },
+        "ipad-13": {
+          "label": "iPad 13\" display",
+          "localized": true,
+          "requirement": "when_present",
+          "formats": ["png", "jpeg"],
+          "alpha": "forbidden",
+          "min_count": 1,
+          "max_count": 10,
+          "size": {"exact": [[2064, 2752], [2752, 2064], [2048, 2732], [2732, 2048]]},
+          "source_quote": "iPad (if your app supports iPadOS): At least one screenshot for iPad 13-inch display.",
+          "source_url": "https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications",
+          "checked_at": "2026-10-30"
+        }
+      }
+    },
+    "play": {
+      "name": "Google Play",
+      "locale_codes": "Google Play language codes (for example ko-KR, en-US, ja-JP). Folder names are not normalized.",
+      "fallback_to_base": null,
+      "fallback_note": "The source page does not state that a language without its own graphics shows the default language graphics, so a missing slot in a non-base locale is reported as an issue.",
+      "source_url": "https://support.google.com/googleplay/android-developer/answer/9866151",
+      "checked_at": "2026-10-30",
+      "groups": {},
+      "slots": {
+        "phone-screenshots": {
+          "label": "Phone screenshots",
+          "localized": true,
+          "requirement": "required",
+          "formats": ["png", "jpeg"],
+          "png_bit_depth": "24-bit (no alpha)",
+          "alpha": "forbidden",
+          "min_count": 2,
+          "max_count": 8,
+          "count_note": "Source: 'a minimum of two screenshots across different device types to publish'. Only phone screenshots are modeled, so the 2 is applied to this slot.",
+          "size": {"range": {"min_side": 320, "max_side": 3840, "max_aspect_ratio": 2}},
+          "recommended": {"min_count": 4, "min_side": 1080,
+                          "note": "To be eligible for recommendations in formats that use screenshots: at least four screenshots with minimum 1080px resolution (portrait 9:16, minimum 1080x1920px; landscape 16:9, minimum 1920x1080px)."},
+          "source_quote": "JPEG or 24-bit PNG (no alpha). Minimum dimension: 320px. Maximum dimension: 3840px. The maximum dimension of your screenshot can't be more than twice as long as the minimum dimension. You can add up to 8 screenshots for each supported device type.",
+          "source_url": "https://support.google.com/googleplay/android-developer/answer/9866151",
+          "checked_at": "2026-10-30"
+        },
+        "feature-graphic": {
+          "label": "Feature graphic",
+          "localized": true,
+          "requirement": "required",
+          "formats": ["png", "jpeg"],
+          "png_bit_depth": "24-bit (no alpha)",
+          "alpha": "forbidden",
+          "min_count": 1,
+          "max_count": 1,
+          "size": {"exact": [[1024, 500]]},
+          "source_quote": "You must provide a feature graphic to publish your store listing. JPEG or 24-bit PNG (no alpha). Dimensions: 1024px by 500px. Localize your graphic and branding text as appropriate for different markets and languages.",
+          "source_url": "https://support.google.com/googleplay/android-developer/answer/9866151",
+          "checked_at": "2026-10-30"
+        },
+        "app-icon": {
+          "label": "App icon",
+          "localized": false,
+          "localized_note": "The source page does not say the icon is set per language; it is checked once under _global.",
+          "requirement": "required",
+          "formats": ["png"],
+          "png_bit_depth": "32-bit (with alpha)",
+          "alpha": "allowed",
+          "min_count": 1,
+          "max_count": 1,
+          "max_bytes": 1048576,
+          "size": {"exact": [[512, 512]]},
+          "source_quote": "You must provide an app icon to publish your store listing. 32-bit PNG (with alpha). Dimensions: 512px by 512px. Maximum file size: 1024KB.",
+          "source_url": "https://support.google.com/googleplay/android-developer/answer/9866151",
+          "checked_at": "2026-10-30"
+        }
+      }
+    }
+  }
+}

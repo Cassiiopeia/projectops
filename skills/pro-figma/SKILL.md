@@ -11,6 +11,7 @@ description: "Turn a Figma design into code and verify it matches: enumerate eve
   (Korean: 'figma 디자인 구현해줘', '시안대로 만들어줘', 'figma 코드로 바꿔줘', 'figma 에셋 받아줘', '아이콘 다운로드')
 - 'check it matches the design', 'see if it follows the design', 'compare against Figma'
   (Korean: '시안이랑 같은지 확인해줘', '디자인대로 됐는지 봐줘', 'figma 대조해줘')
+- 'make the store screenshots', 'check the store images', 'are the screenshots the right size for every language'
 - 'is a shadow missing?', 'the corners look square', 'the rounding did not apply'
   (Korean: '그림자 빠진 거 없나', '모서리가 각진 것 같은데', '라운드 안 먹었어')
 - Driving the app to find behavior bugs is pro-agent-test. Works with React, Flutter and React Native alike.
@@ -41,6 +42,7 @@ The **absolute rules** in `../references/common-rules.md` apply. Arguments: $ARG
 | Compare by property (corners · fills · shadows) | `figma_cli.py conform` | `references/comparing.md` |
 | Compare by pixels (secondary) | `figma_cli.py diff` | `references/comparing.md` |
 | Report · pitfall table | — | `references/comparing.md` |
+| Store screenshots · feature graphic · icon: specs and per-locale check | `figma_cli.py store-specs` · `store-check --dir` | `references/store-assets.md` |
 
 ## Find the scripts once
 
@@ -158,6 +160,7 @@ and record the node id you compared against. Format and pitfall table: `referenc
 | `unknown_check` | `--check` accepts only `corners` · `fills` · `shadows` |
 | `bad_bg` · `bad_mask` | `--bg` must be `auto` or `RRGGBB` · `--mask-top`+`--mask-bottom` must be 0 or more and less than the design height |
 | `conformance_failed` | There are items at or above `--fail-on`. Fix the listed items, or record a reason for approximating or omitting them |
+| `dir_not_found` | `store-check --dir` does not exist. Export the images into `{store}/{locale}/{slot}/` first (`references/store-assets.md`) |
 | `mkdir_failed` | Could not create the output location. Check permissions and `--root` |
 | `bad_args` | Check the subcommand and required arguments (`--dump` · `--render` · `--design` · `--title`) |
 

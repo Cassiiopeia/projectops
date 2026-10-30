@@ -938,7 +938,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | changelog-deploy | `skills/pro-changelog-deploy/scripts/changelog_cli.py` | actions, deploy-status, list-prs, update-pr, create-pr, detect-release-context (`release_language`: 노트 언어는 `version.yml` `language` — 워크플로우와 같은 규칙, 스토어 언어·고정 문구 — #977) |
 | testcase | `skills/pro-testcase/scripts/testcase_cli.py` | get-output-path (#525·#623) |
 | init-worktree | `skills/pro-init-worktree/scripts/worktree_cli.py` | recall, record (지난번 복사한 로컬 파일 세트를 기억 — #839) |
-| figma | `skills/pro-figma/scripts/figma_cli.py` | get-output-path, coverage, assets, conform, diff |
+| figma | `skills/pro-figma/scripts/figma_cli.py` | get-output-path, coverage, assets, conform, diff, store-specs, store-check (스토어 이미지 규격 정본 `figma_tools/store_specs.json` · 언어별 판정, #884) |
 | agent-test | `skills/pro-agent-test/scripts/e2e_cli.py` | detect, scenario, note, api, other (실행·캡처 명령은 pro-launch 로 넘겨준다 — #631) |
 | launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, desktop (PC 화면의 창, #985), render, http, access, db, logs, cred, ssh, local (이 맥 sudo, #784), shrink, recall, learn, forget, kb (공식 트러블슈팅 search·show·list·propose, #889), get-output-path |
 | desktop-control | (자체 CLI 없음) `skills/pro-launch/scripts/launch_cli.py` | `desktop` 그룹을 그대로 쓴다: doctor, setup, session, windows, tree, find, click, type, press, focus, wait, shot |

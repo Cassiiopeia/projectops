@@ -7,6 +7,7 @@ from figma_tools.commands.conform import cmd_conform
 from figma_tools.commands.coverage import cmd_coverage
 from figma_tools.commands.diff import cmd_diff
 from figma_tools.commands.output_path import cmd_output_path
+from figma_tools.commands.store import STORE_IDS, cmd_store_check, cmd_store_specs
 from figma_tools.conform_probes import _ALL_CHECKS
 
 
@@ -66,6 +67,18 @@ def build_parser() -> JSONArgumentParser:
     d.add_argument("--probe-shift", type=int, default=40,
                    help="Shift the render by ± this many pixels to tell whether the whole area is offset (0 = off)")
     d.set_defaults(func=cmd_diff)
+
+    # 스토어 이미지 하네스 (#884): 규격 정본 출력 / 폴더 판정
+    ss = sub.add_parser("store-specs", help="Print the store image specs (sizes, counts, formats, sources)")
+    ss.add_argument("--store", choices=STORE_IDS, default=None, help="Only this store (omit for all)")
+    ss.set_defaults(func=cmd_store_specs)
+
+    sc = sub.add_parser("store-check", help="Check a folder of store images against the specs")
+    sc.add_argument("--dir", required=True, help="Folder laid out as {store}/{locale}/{slot}/*.png|jpg|jpeg")
+    sc.add_argument("--locales", default=None,
+                    help="Comma-separated target locales, first is the base (default: version.yml store_locales)")
+    sc.add_argument("--root", default=".", help="Project root holding version.yml (default: current directory)")
+    sc.set_defaults(func=cmd_store_check)
     return p
 
 
