@@ -59,7 +59,7 @@ Order: **code render → real device / browser → ASCII.** For staged states th
 
 | With what | Command | When |
 |---|---|---|
-| Code render | `render snapshot` → temporary render code → `render run` | Edge states and alternative mockups. Recipe: `../../pro-launch/references/render.md` |
+| Code render | `render snapshot` → `render scaffold` (Flutter; other stacks: write it by hand) → edit it → `render run` | Edge states and alternative mockups. Recipe: `../../pro-launch/references/render.md` |
 | Device | `app shot --clean-status` (navigate with `app tap --text` · `app swipe`) | The real screen as is |
 | Browser | `web viewport` · `web route` · `web shot` | Web: stage empty lists and failures without a server |
 | ASCII | `design_brief_cli.py ascii --spec '{...}'` | States that cannot be rendered, options with no code yet. Label it "render failed" |

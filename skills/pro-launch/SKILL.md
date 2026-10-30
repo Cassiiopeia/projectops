@@ -53,7 +53,7 @@ Without it, the root is resolved in this order: `$PROJECT_ROOT` > working direct
 | Wait for a condition (approval · toast · URL) · scroll an inner box and capture a piece · upload files · act inside an iframe · **anything the fixed actions do not cover** | `web wait\|scroll\|upload` · `web shot --container` · `--frame` · `web script` | `references/web.md` |
 | Confirm a save went through by its request · save a secret from an input or copy button without printing it · type key by key · clean up leftover browsers | `--capture-requests` · `web value\|clipboard --save-env` · `web type --keys` · `web close --stale` | `references/web.md` |
 | **Programs on this computer's screen** (installer wizards · OS dialogs · desktop apps — not web pages, not emulators): list windows · read elements as refs · press without moving the mouse · type · keys · capture · wait | `desktop setup\|doctor\|session\|windows\|tree\|find\|click\|type\|press\|focus\|shot\|wait` | `references/desktop.md` |
-| Render a state in code and capture it | `render snapshot` → `render run` | `references/render.md` |
+| Render a state in code and capture it | `render snapshot` → `render scaffold` (Flutter) → `render run` | `references/render.md` |
 | Single HTTP request · record how to connect · SQL · logs | `http` · `access show\|set\|unset` · `db` · `logs` | `references/server.md` |
 | Store credentials · remote commands · sudo on this Mac | `cred list\|show\|set\|unset\|import-ssh` · `ssh` · `local sudo` | `references/credentials.md` |
 | Policy for interstitial login screens (trust this device · stay signed in · upsells) | `cred policy get\|set\|unset` | `references/web.md` "Interstitial login screens" |

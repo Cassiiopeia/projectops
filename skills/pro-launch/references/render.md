@@ -19,6 +19,8 @@ Two principles:
 {PYTHON} {SCRIPTS}/launch_cli.py render snapshot --root {target repo}
 
 # ② Create the temporary render code (per-stack recipes below) — keep it in one dedicated folder
+#    Flutter: let the command create it (see "Flutter — scaffold" below)
+{PYTHON} {SCRIPTS}/launch_cli.py render scaffold --root {target repo}
 
 # ③ Run · collect · clean up · check for leftovers
 source "{env_file value}"      # collected images go to $SHOT_DIR
@@ -34,6 +36,9 @@ source "{env_file value}"      # collected images go to $SHOT_DIR
 | `render_failed` | The command failed — **nothing was collected, only cleanup ran** | **Look at `first_error` first** — the first compile-error line found in the full output (+2 lines of source and caret). If it is `null`, look at `output_tail` (the last 40 lines of output). Check the pitfalls table below first |
 | `residue` | After the run, the repo has **something that was not there at the start** | If you created it, delete it or add it to `--cleanup` and run again. **If you do not recognize the change, do not touch it** — it may be another session's work. The script does not delete it either |
 | `nothing_collected` | Succeeded but no images | Check that the `--collect` glob is relative to the repo root |
+| `unsupported_stack` (scaffold) | Not a Flutter app — scaffold is Flutter only | Write the render code by hand from this file's recipe for that stack |
+| `scaffold_exists` (scaffold) | The temporary folder is already there — **not overwritten** | `created_by_scaffold: true` means an earlier scaffold left it: run `render run --cmd true --cleanup {folder}` and scaffold again. Otherwise it is someone else's — leave it and ask |
+| `flutter_app_not_found` (scaffold) | No `pubspec.yaml` with `flutter:` | Pass `--app {folder}` (relative to `--root`) |
 
 > **`first_error` (#901)**: Added near the front of the response (after `summary`) on `render_failed`. It first looks for the Dart format
 > (`test/x_test.dart:12:9: Error: ...`), then for a generic `error:` line (javac · tsc, etc.).
@@ -54,6 +59,20 @@ source "{env_file value}"      # collected images go to $SHOT_DIR
 ## Flutter
 
 **Default capture**: widget-test render — `matchesGoldenFile` to a temporary path + `--update-goldens`.
+
+**Scaffold first (#948)**: `render scaffold --root {repo}` builds the harness instead of you writing it each time.
+
+- Finds the app: `--app` > `version.yml` `project_paths.flutter` > `pubspec.yaml` search.
+- Creates `{app}/test/_launch_render/` with `flutter_test_config.dart` (loads the app's `FontManifest.json` fonts **and** the SDK's
+  Roboto and `MaterialIcons`, so icons are not boxes), `render_test.dart` (a golden skeleton writing to `shots/`) and `shots/`.
+- **Refuses if the folder exists** (`scaffold_exists`) — it never overwrites. It takes the leftover baseline itself if you skipped
+  `snapshot`, and records what it created in a manifest outside the repo; `render run` drops the manifest once the folder is cleaned up
+  (`"scaffold": "cleaned"`, or `scaffold_warning` if the folder is still there).
+- Its `next` is the exact `render run` command (`--cwd`, `--cmd "flutter test test/_launch_render --update-goldens"`, `--collect`, `--cleanup`).
+  Edit `render_test.dart` (real screen widget, fake data, one `testWidgets` per state) and run that command.
+- Korean (CJK) text still needs a CJK font **declared in the app's `pubspec.yaml`** — the loader only has what the app bundles.
+
+The recipe below is what the skeleton contains, for when you write it by hand.
 
 ```dart
 // client/test/_launch_render/states_test.dart — deleted when render run finishes

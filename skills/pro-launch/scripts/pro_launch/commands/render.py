@@ -11,6 +11,7 @@ from pathlib import Path
 from pro_launch.registry import Command
 from pro_launch.runtime.context import project_root, state_home
 from pro_launch.runtime.output import out
+from pro_launch.runtime.render_scaffold import render_scaffold, settle_scaffold_after_run
 from pro_launch.runtime.shots import shot_folder
 
 
@@ -110,6 +111,8 @@ def cmd_render(args) -> int:
     root = project_root(args)
     if args.action == "snapshot":
         return _render_snapshot(root)
+    if args.action == "scaffold":
+        return out(render_scaffold(root, args.app, lambda: _take_baseline(root)))
     if not args.cmd:
         return out({"ok": False, "code": "cmd_required", "error": "--cmd is required"})
 
@@ -159,6 +162,8 @@ def cmd_render(args) -> int:
         residue = [line for line in after if line not in before]
     if baseline_from == "snapshot":
         base_f.unlink(missing_ok=True)   # 한 번 쓰면 끝이다 — 낡은 기준으로 다음 렌더를 재지 않는다
+    # scaffold 폴더를 치웠으면 manifest 도 정리 (#948)
+    scaffold_state = settle_scaffold_after_run(root)
 
     payload = {"exit_code": rc, "collected": collected, "removed": removed,
                "refused_cleanup": refused or None, "residue": residue,
@@ -188,9 +193,30 @@ def cmd_render(args) -> int:
         payload.update({"summary": f"Collected {len(collected)} image(s) · no leftovers"
                                    + ("" if before is not None else " (not a git repo, so leftovers were not checked)"),
                         "next": "Open them with Read. Shrink them with shrink before attaching to an issue"})
+    if scaffold_state:
+        payload.update(scaffold_state)
     if refused:
         payload["warning"] = f"Not deleted because outside the repo: {', '.join(refused)}"
     return out(payload)
+
+
+def _take_baseline(root: Path) -> dict:
+    """흔적 검사 기준선 저장. scaffold 는 이미 뜬 기준선(snapshot)을 그대로 쓴다"""
+    f = _baseline_path(root)
+    if f.is_file():
+        try:
+            if json.loads(f.read_text(encoding="utf-8")).get("root") == str(root):
+                return {"from": "snapshot", "path": str(f)}
+        except (OSError, json.JSONDecodeError):
+            pass
+    status = _git_status(root)
+    if status is None:
+        return {"from": "none", "note": "Not a git repo — leftovers will not be checked"}
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps({"root": str(root), "status": status,
+                             "at": time.strftime("%Y-%m-%d %H:%M:%S")}, ensure_ascii=False),
+                 encoding="utf-8")
+    return {"from": "scaffold", "path": str(f), "changed_now": len(status)}
 
 
 def _render_snapshot(root: Path) -> int:
@@ -205,12 +231,14 @@ def _render_snapshot(root: Path) -> int:
                  encoding="utf-8")
     return out({"baseline": str(f), "changed_now": len(status),
                 "summary": f"Baseline taken ({len(status)} path(s) already changed — these are not counted as leftovers)",
-                "next": "Now write the temporary render code and call render run"})
+                "next": "Flutter: render scaffold creates the temporary render folder. Other stacks: write the temporary render code, then call render run"})
 
 
 def configure_render(p) -> None:
-    p.add_argument("action", choices=["snapshot", "run"],
-                   help="snapshot: take the leftover-check baseline **before** creating temporary files · run: run and collect")
+    p.add_argument("action", choices=["snapshot", "scaffold", "run"],
+                   help="snapshot: take the leftover-check baseline **before** creating temporary files · "
+                        "scaffold: create the Flutter temporary render folder (fonts incl. icons, golden skeleton) · run: run and collect")
+    p.add_argument("--app", default=None, help="scaffold: Flutter app folder (relative to --root). Default: version.yml project_paths, then pubspec.yaml search")
     p.add_argument("--cmd", default=None, help="run: render command (runs the temporary test the agent wrote)")
     p.add_argument("--collect", action="append", default=None,
                    help="Glob of images to collect (relative to the repo root, repeatable). e.g. client/test/_launch_render/**/*.png")
