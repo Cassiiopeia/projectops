@@ -21,6 +21,7 @@ import { createRunTrace, MIGRATION_DIR } from "./core/run-trace.js";
 import { appendGuideEntry } from "./core/migration-guide.js";
 import { resolveProjectPaths, markerForType } from "./core/paths-resolve.js";
 import { resolveOptions } from "./core/resolve-options.js";
+import { detectStoreLocalesHint } from "./core/store-locales-hint.js";
 import { runDevelopmentBranchStep } from "./core/development-branch.js";
 import { printBannerCompact } from "./ui/banner.js";
 import { printSummary } from "./ui/summary.js";
@@ -203,6 +204,8 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
   });
   const { intent, deployTarget, publishTargets } = resolved;
   const { before: beforeCleanup, applicable } = sources;
+  // 다국어 스토어인데 store_locales 미설정이면 안내만 한다 (#843) — 복사 전 상태로 판정
+  const storeLocalesHint = detectStoreLocalesHint({ root: cwd, existing, paths, trace });
 
   // 축 확정 근거 (#561) — "왜 이 값인가"가 가장 헷갈리는 자리다.
   // CLI 플래그 / 저장값 / intent 유도 / 타입 적용성 정리 중 무엇이 이겼는지 남긴다.
@@ -327,6 +330,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
         now, mode: opts.mode, types, repoName,
         templateFrom: existing?.templateVersion || "", templateTo: context.templateVersion,
         options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto , appRelease: context.appRelease, language: context.language, labelStyle: context.labelStyle, closeOnRelease: context.closeOnRelease, projectsSync: context.projectsSync, excludedWorkflows: context.excludedWorkflows, storeLocales: context.storeLocales, storeLocalesIos: context.storeLocalesIos, storeLocalesPlay: context.storeLocalesPlay },
+        storeLocalesHint,                                              // #843 체크리스트 한 항목
         branches: { defaultBranch: branch, deployBranch: context.deployBranch || "develop", ready: isDevelopmentBranchReady,
           created: developmentBranchResult ? developmentBranchResult.status === "created" : null, result: developmentBranchResult },
         breaking: breakingReport, migrations: migrationsResult, orphans: { cleaned: [], pending: orphanPending },
@@ -346,6 +350,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       legacyLeftover: migrationsResult?.confirmPending ?? [],         // #809 신·구 세대 동시 실행 안내
       notInstalled: result?.workflows?.notInstalled ?? [],            // #810 깔지 않은 워크플로우 안내
       semverAutoNewlyOn: sources.semverAutoNewlyOn && context.semverAuto === true, // 업데이트가 켠 사실 안내
+      storeLocalesHint,                                               // #843 다국어 스토어 안내
       verification: result?.verification,   // #549 설치 후 검증 결과 (full/workflows 모드에서만 존재)
       // #569 — 고른 것만 안내하려면 선택값이 필요하다
       aiPrSummary: context.aiPrSummary, codeReviewCoderabbit: context.codeReviewCoderabbit,

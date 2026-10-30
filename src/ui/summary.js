@@ -128,6 +128,13 @@ export function printSummary(ctx, targetRoot = ".", write = null) {
     err(`     ${t("done.semverOff")}`);
   }
 
+  // Several store languages but no store_locales (#843): every language still gets the same text. Notice only.
+  if (ctx?.storeLocalesHint) {
+    err("");
+    err(`  ${CYAN}ℹ️  ${t("done.storeLocalesTitle", { locales: ctx.storeLocalesHint.locales.join(", ") })}${NC}`);
+    err(`     ${t("done.storeLocalesHint")}`);
+  }
+
   // Workflows left out on purpose (#810): deleted by the user, listed in excluded_workflows, or needing a branch this repo lacks.
   const skippedNew = ctx?.notInstalled ?? [];
   if (skippedNew.length > 0) {

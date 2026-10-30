@@ -3,6 +3,7 @@
 // 새 시각 층(banner/detectionLog/analysisCard/ideStatus/installKind/summary)과 저수준 엔진(engineIo)은
 // io의 "옵셔널 멤버" — 스텁이 생략하면 해당 층만 건너뛰고 실행 계약은 동일하다.
 import { resolveOptions } from "../core/resolve-options.js";
+import { detectStoreLocalesHint } from "../core/store-locales-hint.js";
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { PATHS } from "../core/paths.js";
@@ -290,6 +291,8 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     // @wizard env 계획 질문 (full/workflows만).
     // 업데이트 모드는 생략 — 신규 파일은 기본값, 교체 파일은 아래 carryover가 기존 실값을 이월한다.
     const resolvers = makeResolvers(cwd, repoName, paths);
+    // 다국어 스토어인데 store_locales 미설정이면 안내만 한다 (#843) — 복사 전 상태로 판정
+    const storeLocalesHint = detectStoreLocalesHint({ root: cwd, existing, paths, trace });
     let envValues = new Map(), envUseDefaults = true;
     if (showOptional && !updateRun) {
       const plan = await promptEnvPlan({
@@ -425,6 +428,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
         now, mode, types, repoName,
         templateFrom: existing?.templateVersion || "", templateTo: templateVersion,
         options: { deploy: deployTarget, publish: publishTargets, secretBackup: includeSecretBackup, coderabbit: codeReviewCoderabbit, changelogProvider, intent, semverAuto , appRelease, labelStyle, closeOnRelease, projectsSync, language, excludedWorkflows, storeLocales, storeLocalesIos, storeLocalesPlay },
+        storeLocalesHint,                        // #843 체크리스트 한 항목
         branches: { defaultBranch: branch, deployBranch, ready: deployBranchReady, created: deployBranchCreated },
         breaking: breakingReport, migrations: migrationsResult, orphans: orphanReport,
         events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },
@@ -441,6 +445,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       legacyLeftover: migrationsResult?.confirmPending ?? [],         // #809 신·구 세대 동시 실행 안내
       notInstalled: result?.workflows?.notInstalled ?? [],            // #810 깔지 않은 워크플로우 안내
       semverAutoNewlyOn,
+      storeLocalesHint,                        // #843 다국어 스토어 안내
       verification: result?.verification,      // #549 설치 검증 결과
       aiPrSummary, codeReviewCoderabbit,       // #569 — 고른 것만 안내
       logDir: files ? MIGRATION_DIR : null,    // #561 기록 위치 안내

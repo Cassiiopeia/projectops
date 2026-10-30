@@ -26,6 +26,8 @@ export default {
   "done.semverTitle": "이 레포의 자동 버전 승격(semver_auto)이 켜졌습니다",
   "done.semverBody": "다음 릴리스부터 커밋 제목으로 올리는 폭을 정합니다: 'feat:'는 minor, 'type!:'는 major, 그 외는 patch.",
   "done.semverOff": "patch만 올리고 싶으면 version.yml 의 metadata.template.options.semver_auto: false 로 두세요.",
+  "done.storeLocalesTitle": "스토어 언어가 여러 개({locales})인데 store_locales 가 없어 모든 언어에 같은 릴리스 노트가 올라갑니다",
+  "done.storeLocalesHint": "언어별 문구를 쓰려면 version.yml 에 metadata.template.options.store_locales: [\"ko-KR\", \"en-US\", ...] 를 넣으세요 (첫 항목이 기본 언어). 아무것도 바꾸지 않았습니다.",
   "done.notInstalledTitle": "템플릿 워크플로우 {count}개를 설치하지 않았습니다",
   "done.notInstalled.excluded": "excluded_workflows 에 적혀 있음",
   "done.notInstalled.deleted-by-user": "예전에 직접 지운 파일",

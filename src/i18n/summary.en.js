@@ -26,6 +26,8 @@ export default {
   "done.semverTitle": "Automatic version bump (semver_auto) is now ON for this repo",
   "done.semverBody": "The next release picks the bump from commit titles: 'feat:' raises the minor version, 'type!:' the major one, anything else the patch.",
   "done.semverOff": "To keep patch-only bumps, set metadata.template.options.semver_auto: false in version.yml.",
+  "done.storeLocalesTitle": "Several store languages found ({locales}) but store_locales is not set: every language gets the same release note",
+  "done.storeLocalesHint": "For per-language notes add metadata.template.options.store_locales: [\"ko-KR\", \"en-US\", ...] to version.yml (first = default). Nothing was changed.",
   "done.notInstalledTitle": "{count} template workflow(s) were not installed",
   "done.notInstalled.excluded": "listed in excluded_workflows",
   "done.notInstalled.deleted-by-user": "you deleted it earlier",

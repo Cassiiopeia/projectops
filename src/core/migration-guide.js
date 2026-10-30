@@ -130,6 +130,12 @@ export function renderGuideEntry(report) {
       for (const [k, v] of kv) checklist.push(`  - ${t} \`${k}\` = \`${v}\``);
     }
   }
+  // #843 — 다국어 스토어인데 store_locales 미설정. 안내만 (키는 쓰지 않는다)
+  const storeHint = r.storeLocalesHint ?? null;
+  if (storeHint) {
+    checklist.push(`- [ ] **Decide whether to turn on per-language store release notes**: ${storeHint.locales.length} store languages found (${storeHint.locales.map((l) => `\`${l}\``).join(", ")}) but \`store_locales\` is not set, so every language gets the same text. To use per-language text from \`store_notes\` in CHANGELOG.json, add \`metadata.template.options.store_locales: ["ko-KR", "en-US", ...]\` to version.yml (first = default language). Found in:`);
+    for (const s of storeHint.signals) checklist.push(`  - \`${s.path}\` (${s.source}: ${s.locales.join(", ")})`);
+  }
   const devBranch = r.branches?.deployBranch ?? "develop";
   const devBranchResult = r.branches?.result ?? null; // #715 --create-development-branch 결과
   if (devBranchResult?.status === "created") {
