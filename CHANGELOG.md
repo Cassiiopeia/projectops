@@ -1,7 +1,24 @@
 # Changelog
 
-**Current version:** 4.78.1  
-**Last updated:** 2026-10-29T08:52:59Z  
+**Current version:** 4.79.0  
+**Last updated:** 2026-10-30T00:20:54Z  
+
+---
+
+## [4.79.0] - 2026-10-30
+
+**PR:** #1019  
+
+**New features**
+- Desktop control now pauses when you start typing, not only when you move the mouse
+- pro-launch can scaffold a Flutter render harness with icon fonts already loaded
+- Updating warns when several store languages exist but store_locales is not set
+
+**Bug fixes**
+- Help output shown next to a successful command is no longer reported as a usage error
+
+**Improvements**
+- Removed an unused workflow-copy helper
 
 ---
 
