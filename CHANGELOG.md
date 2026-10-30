@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.79.0  
-**Last updated:** 2026-10-30T00:20:54Z  
+**Current version:** 4.80.0  
+**Last updated:** 2026-10-30T08:38:59Z  
+
+---
+
+## [4.80.0] - 2026-10-30
+
+**PR:** #1020  
+
+**New features**
+- pro-figma can now print the official App Store and Google Play image specs and check a folder of store screenshots, feature graphics and icons against them per language
 
 ---
 

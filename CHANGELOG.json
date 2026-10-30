@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-30T00:20:54Z",
-    "currentVersion": "4.79.0",
+    "lastUpdated": "2026-10-30T08:38:59Z",
+    "currentVersion": "4.80.0",
     "projectType": "basic",
-    "totalReleases": 362,
+    "totalReleases": 363,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.80.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-10-30",
+      "pr_number": 1020,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * pro-figma can now print the official App Store and Google Play image specs and check a folder of store screenshots, feature graphics and icons against them per language",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "pro-figma can now print the official App Store and Google Play image specs and check a folder of store screenshots, feature graphics and icons against them per language"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.79.0",
       "project_type": "basic",
