@@ -6,6 +6,9 @@ from figma_tools.commands.assets import cmd_assets
 from figma_tools.commands.conform import cmd_conform
 from figma_tools.commands.coverage import cmd_coverage
 from figma_tools.commands.diff import cmd_diff
+from figma_tools.commands.fresh import cmd_check_fresh
+from figma_tools.commands.ingest import cmd_ingest
+from figma_tools.commands.token import cmd_token
 from figma_tools.commands.output_path import cmd_output_path
 from figma_tools.commands.store import STORE_IDS, cmd_store_check, cmd_store_specs
 from figma_tools.conform_probes import _ALL_CHECKS
@@ -67,6 +70,25 @@ def build_parser() -> JSONArgumentParser:
     d.add_argument("--probe-shift", type=int, default=40,
                    help="Shift the render by ± this many pixels to tell whether the whole area is offset (0 = off)")
     d.set_defaults(func=cmd_diff)
+
+    # 시안 가져오기 · 변경 확인 (#1017)
+    ig = sub.add_parser("ingest", help="Save a get_figma_data result file as a dump and record its lastModified")
+    ig.add_argument("--source", required=True, help="File the harness saved the get_figma_data result to")
+    ig.add_argument("--file-key", dest="file_key", required=True, help="Figma file key from the link")
+    ig.add_argument("--node", default=None, help="Node id the dump was fetched for (238:1846)")
+    ig.add_argument("--dump-dir", dest="dump_dir", required=True,
+                    help="Folder to save into (the 'dump' path from get-output-path)")
+    ig.set_defaults(func=cmd_ingest)
+
+    cf = sub.add_parser("check-fresh", help="Check whether the design changed since the dump was ingested")
+    cf.add_argument("--dump", required=True, help="Dump file saved by ingest")
+    cf.set_defaults(func=cmd_check_fresh)
+
+    tk = sub.add_parser("token", help="Show whether a Figma token is saved, or save one (value is never printed)")
+    tk.add_argument("--prompt", action="store_true", help="Read the token typed in the terminal (hidden, needs a TTY)")
+    tk.add_argument("--from-env", dest="from_env", default=None, help="Read the token from this environment variable")
+    tk.add_argument("--name", default=None, help="Credential name to save as (default: the existing figma entry)")
+    tk.set_defaults(func=cmd_token)
 
     # 스토어 이미지 하네스 (#884): 규격 정본 출력 / 폴더 판정
     ss = sub.add_parser("store-specs", help="Print the store image specs (sizes, counts, formats, sources)")

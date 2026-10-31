@@ -35,7 +35,10 @@ from figma_tools.commands.assets import cmd_assets  # noqa: E402,F401
 from figma_tools.commands.conform import cmd_conform  # noqa: E402,F401
 from figma_tools.commands.coverage import cmd_coverage  # noqa: E402,F401
 from figma_tools.commands.diff import cmd_diff  # noqa: E402,F401
+from figma_tools.commands.fresh import cmd_check_fresh  # noqa: E402,F401
+from figma_tools.commands.ingest import cmd_ingest  # noqa: E402,F401
 from figma_tools.commands.output_path import cmd_output_path  # noqa: E402,F401
+from figma_tools.commands.token import cmd_token  # noqa: E402,F401
 from figma_tools.commands.store import cmd_store_check, cmd_store_specs  # noqa: E402,F401
 # 순수 값 검사 테스트가 진입 모듈에서 바로 읽는 이름
 from figma_tools.conform_probes import (  # noqa: E402,F401

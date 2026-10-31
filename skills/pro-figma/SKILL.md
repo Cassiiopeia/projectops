@@ -34,6 +34,9 @@ The **absolute rules** in `../references/common-rules.md` apply. Arguments: $ARG
 |---|---|---|
 | Output locations (evidence folder · asset candidates) | `figma_cli.py get-output-path --title` | `references/counting.md` |
 | Read Figma (screen list → one screen) | `mcp__figma__get_figma_data` | `../references/figma-mcp.md` |
+| Save the MCP result file as a dump (do not retype 30KB) | `figma_cli.py ingest --source --file-key --node --dump-dir` | Phase 0 |
+| Did the design change since the dump was saved? | `figma_cli.py check-fresh --dump` | Phase 0 · Phase 4 |
+| Save a Figma token (once) | `figma_cli.py token --prompt` · `token --from-env NAME` | Phase 0 |
 | List elements · effects · styles **without gaps** | `figma_cli.py coverage --dump --node` | `references/counting.md` |
 | Did you count every state (disabled · empty value · zero items)? | `coverage` per state node | `../references/design-states.md` |
 | Group the assets to download → download | `figma_cli.py assets` → `mcp__figma__download_figma_images` | `references/assets.md` |
@@ -94,6 +97,26 @@ Dumps, exports, renders and diff images go under `run_dir` (not tracked). Assets
 Get Figma at `depth: 2` for the screen list → fetch the chosen screen **without `depth`** and keep it **as a file** (cutting with `depth` gives no sign that it was cut).
 There is no guarantee that a link's node-id (`238-1846` → `238:1846`) is a screen. If you do not know the node id, ask.
 
+**Save the dump with `ingest`, not by retyping it.** When the harness saved the `get_figma_data` result to a file, pass that file:
+
+```bash
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py ingest --source {saved result file} --file-key {fileKey} --node {node id} --dump-dir {dump path from get-output-path}
+```
+
+It writes the dump and `<dump>.meta.json` (file key, node id, `lastModified`, `version`). Use the returned `path` for `coverage` and `next` as is.
+It knows JSON, text-block wrappers and YAML. Anything else comes back as `unknown_wrapper`; do not retype the dump, tell the user.
+
+**Check that the design has not changed** before you start building and again before comparing (Phase 4):
+
+```bash
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py check-fresh --dump {dump file}
+```
+
+`verdict: design_changed` → fetch and `ingest` again, then recount. `unknown` → say so in the report; do not call the design current.
+If it returns `figma_token_missing` (or `figma_token_rejected`), **ask the user** which of the returned `options` to take:
+register a token (`token --prompt` in their own terminal, or put it in an environment variable and use `--from-env NAME`), skip the check, or have them confirm the design is unchanged.
+Never paste, read or print a token yourself, and never ask for one in the chat. The token is stored once in the same place `pro-launch cred` uses (`provider: figma`).
+
 **Phase 1: classify everything.**
 
 ```bash
@@ -116,7 +139,7 @@ remove the effect from the code, keep the downloaded size, and center it on the 
 **Phase 3: translate.** The classification table is the worklist. Use existing tokens and components first (`references/conversion.md`).
 For spots the framework cannot take as is (inner shadow, glow etc.), see `references/framework-gaps.md`.
 
-**Phase 4: compare by property (before pixels).**
+**Phase 4: compare by property (before pixels).** Run `check-fresh` first; a changed design makes every finding below meaningless.
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py conform --dump {dump} --render {app render.png} --node {screen node id}
@@ -153,6 +176,12 @@ and record the node id you compared against. Format and pitfall table: `referenc
 | code | Next action |
 |---|---|
 | `dump_not_found` · `dump_unreadable` | Save the dump to a file again (JSON or YAML). Do not paste the MCP response in directly |
+| `source_not_found` · `source_unreadable` | Check the path of the file the harness saved the `get_figma_data` result to |
+| `unknown_wrapper` | `ingest` does not recognise the file shape and will not guess. Tell the user; do not retype the dump |
+| `meta_not_found` | The dump was not saved with `ingest`. Run `ingest` on the result file first |
+| `figma_token_missing` · `figma_token_rejected` | Ask the user which `options` to take (see Phase 0). Do not read or print the token |
+| `figma_file_not_found` | The file key is wrong, or the token's account cannot open the file |
+| `no_tty` · `env_empty` | `token --prompt` needs the user's own terminal; or the named environment variable is empty |
 | `node_not_found` | `--node` is not in the dump. Pick the screen node again from the `depth: 2` list, or fetch that node |
 | `no_style_found` | Zero style items. Check that the node id is right and that the dump includes styles (fetched without `depth`). Passing with zero items means no comparison was done |
 | `render_not_found` · `image_not_found` · `image_unreadable` | Check the render and design PNG paths. If they were shrunk to WebP, capture again with `--keep-format` |
