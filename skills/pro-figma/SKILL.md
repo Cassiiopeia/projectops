@@ -46,6 +46,7 @@ The **absolute rules** in `../references/common-rules.md` apply. Arguments: $ARG
 | Compare by pixels (secondary) | `figma_cli.py diff` | `references/comparing.md` |
 | Report · pitfall table | — | `references/comparing.md` |
 | Store screenshots · feature graphic · icon: specs and per-locale check | `figma_cli.py store-specs` · `store-check --dir` | `references/store-assets.md` |
+| Compose per-locale store images (caption + device frame, banner) from app captures | `figma_cli.py store-compose --run-dir` → render with `launch_cli.py web script` → `store-check` | `references/store-assets.md` §Composer |
 
 ## Find the scripts once
 
@@ -190,6 +191,7 @@ and record the node id you compared against. Format and pitfall table: `referenc
 | `bad_bg` · `bad_mask` | `--bg` must be `auto` or `RRGGBB` · `--mask-top`+`--mask-bottom` must be 0 or more and less than the design height |
 | `conformance_failed` | There are items at or above `--fail-on`. Fix the listed items, or record a reason for approximating or omitting them |
 | `dir_not_found` | `store-check --dir` does not exist. Export the images into `{store}/{locale}/{slot}/` first (`references/store-assets.md`) |
+| `run_dir_invalid` · `scenes_not_found` · `scenes_unreadable` · `scenes_invalid` | `store-compose`: `--run-dir` must be the `run_dir` from `get-output-path`; write `scenes.json` at `<run_dir>/store/` (`references/store-assets.md` §Composer) |
 | `mkdir_failed` | Could not create the output location. Check permissions and `--root` |
 | `bad_args` | Check the subcommand and required arguments (`--dump` · `--render` · `--design` · `--title`) |
 

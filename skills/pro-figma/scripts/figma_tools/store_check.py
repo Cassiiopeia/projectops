@@ -83,7 +83,7 @@ def check_image_file(path: Path, slot_spec: dict) -> tuple[dict, list, list]:
     if slot_spec.get("alpha") == "forbidden" and header["has_alpha"]:
         problems.append({"code": "alpha_not_allowed",
                          "message": "image has an alpha channel or transparency; export without alpha"})
-    problems.extend(_size_problems(header["width"], header["height"], slot_spec["size"]))
+    problems.extend(find_size_problems(header["width"], header["height"], slot_spec["size"]))
     max_bytes = slot_spec.get("max_bytes")
     if max_bytes and path.stat().st_size > max_bytes:
         problems.append({"code": "file_too_large",
@@ -95,7 +95,7 @@ def check_image_file(path: Path, slot_spec: dict) -> tuple[dict, list, list]:
     return header, problems, warnings
 
 
-def _size_problems(width: int, height: int, size_rule: dict) -> list:
+def find_size_problems(width: int, height: int, size_rule: dict) -> list:
     """크기 규칙 2종: exact(허용 목록) / range(변 길이 + 긴 변:짧은 변 비율)"""
     if "exact" in size_rule:
         if [width, height] in size_rule["exact"]:

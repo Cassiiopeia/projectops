@@ -6,7 +6,7 @@ The most common mistake is **the spec**: a size the store does not accept, too m
 a language with no images. You usually learn it only after uploading to the console. This recipe catches it before.
 
 The tools return **facts only**. Where the images come from (Figma frames, app captures from pro-launch) and what to fix is your call.
-They do not compose images, resize, upload or submit anything.
+`store-compose` (below) builds the images from app captures. Nothing here resizes, uploads or submits anything.
 
 ## The spec source
 
@@ -77,3 +77,44 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py store-check --dir {dir} -
 | `file_too_large` | Over the slot's `max_bytes` |
 | `too_few` · `too_many` | Image count outside `min_count`–`max_count` |
 | `missing_slot` | A needed slot (or `group:<id>`) has no images in that locale |
+
+## Composer: app captures → per-locale store images
+
+Use it when the images are an app capture with a caption (and a device frame) or a text banner. Everything it writes goes under
+`<run_dir>/store/` (`run_dir` from `get-output-path`); it never writes anywhere else. Nothing is committed (evidence folder).
+It has no third-party device art: the frame is plain CSS.
+
+1. `get-output-path --title <name>` → note `run_dir`. Take the app captures per locale with pro-launch (`app shot --keep-format`).
+2. Write `<run_dir>/store/scenes.json`:
+
+```json
+{
+  "theme": {"background": "#0b1d3a", "foreground": "#ffffff", "accent": "#4da3ff",
+            "font_family": "sans-serif", "font_files": [{"family": "Noto Sans KR", "path": "/abs/NotoSansKR.otf"}]},
+  "outputs": [
+    {"store": "ios",  "slot": "iphone-dynamic-island-large", "size": [1320, 2868], "scenes": ["home", "search"]},
+    {"store": "play", "slot": "feature-graphic", "scenes": ["feature"]}
+  ],
+  "scenes": [
+    {"id": "home", "layout": "caption-top", "screenshot": "/abs/captures/{locale}/home.png",
+     "text": {"en-US": {"title": "Practice SQL\nanywhere", "subtitle": "Short daily questions"},
+              "ko": {"title": "<Korean headline>"}}},
+    {"id": "feature", "layout": "banner", "icon": "/abs/icon.png", "text": {"en-US": {"title": "passQL"}}}
+  ]
+}
+```
+
+   - `layout`: `caption-top` · `caption-bottom` (portrait sizes, need `screenshot`; `{locale}` is replaced per locale) · `banner` (landscape, text only, optional `icon`).
+   - `size` must match the slot's spec (`store-specs`); it may be left out only when the slot has exactly one accepted size.
+   - Locale keys in `text` use **the store's own codes**, like the folders. Target locales: `--locales` → `version.yml` → the locales found in `text`.
+   - `font_files` is how CJK text renders the same on every machine; without it the system font is used.
+3. `store-compose --run-dir {run_dir} --root {PROJECT_ROOT} [--locales ...] [--store ios|play]` → `verdict` and `issues`
+   (`slot_unknown` · `size_not_allowed` · `size_required` · `layout_size_mismatch` · `text_missing` · `screenshot_missing` ·
+   `icon_missing` · `font_missing` · `theme_invalid` · `scene_unknown`). Fix `issues` in `scenes.json` and run again.
+4. Render with pro-launch **in your own tab**; the command is in `next`:
+   `LAUNCH_TAB=compose launch_cli.py web script --file {run_dir}/store/render.py`.
+   Do not use `web shot` for this: it saves a shrunk WebP. The script saves exact-size PNGs without alpha.
+   Read `result`: `text_overflow` lists the images whose caption does not fit (shorten the text), `failed` lists images that did not render.
+5. `store-check --dir {run_dir}/store/images` → `ready` means the images match the specs.
+   `app-icon` is not composed; put the icon in `play/_global/app-icon/` yourself.
+   `stale_image` warnings list files in `images/` that this run did not produce; they still count in `store-check`.

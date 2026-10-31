@@ -32,6 +32,7 @@ if str(_HERE.parent) not in sys.path:
 
 from figma_tools.cli import build_parser, main  # noqa: E402,F401
 from figma_tools.commands.assets import cmd_assets  # noqa: E402,F401
+from figma_tools.commands.compose import cmd_store_compose  # noqa: E402,F401
 from figma_tools.commands.conform import cmd_conform  # noqa: E402,F401
 from figma_tools.commands.coverage import cmd_coverage  # noqa: E402,F401
 from figma_tools.commands.diff import cmd_diff  # noqa: E402,F401

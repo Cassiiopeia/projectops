@@ -4,6 +4,7 @@ from __future__ import annotations
 from common.cli_parser import JSONArgumentParser, run_cli
 from figma_tools.commands.assets import cmd_assets
 from figma_tools.commands.conform import cmd_conform
+from figma_tools.commands.compose import cmd_store_compose
 from figma_tools.commands.coverage import cmd_coverage
 from figma_tools.commands.diff import cmd_diff
 from figma_tools.commands.fresh import cmd_check_fresh
@@ -101,6 +102,17 @@ def build_parser() -> JSONArgumentParser:
                     help="Comma-separated target locales, first is the base (default: version.yml store_locales)")
     sc.add_argument("--root", default=".", help="Project root holding version.yml (default: current directory)")
     sc.set_defaults(func=cmd_store_check)
+
+    # 스토어 이미지 합성 (#1021): 장면 파일 > 언어별 HTML + 렌더 스크립트
+    sp = sub.add_parser("store-compose", help="Build per-locale store image HTML and a render script from scenes.json")
+    sp.add_argument("--run-dir", dest="run_dir", required=True,
+                    help="run_dir printed by get-output-path (everything is written under <run_dir>/store)")
+    sp.add_argument("--scenes", default=None, help="Scenes file (default: <run_dir>/store/scenes.json)")
+    sp.add_argument("--locales", default=None,
+                    help="Comma-separated target locales, first is the base (default: version.yml store_locales, then the locales in scenes)")
+    sp.add_argument("--store", choices=STORE_IDS, default=None, help="Only this store (omit for all outputs)")
+    sp.add_argument("--root", default=".", help="Project root holding version.yml (default: current directory)")
+    sp.set_defaults(func=cmd_store_compose)
     return p
 
 
