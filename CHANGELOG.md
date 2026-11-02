@@ -1,7 +1,24 @@
 # Changelog
 
-**Current version:** 4.80.0  
-**Last updated:** 2026-10-30T08:38:59Z  
+**Current version:** 4.81.0  
+**Last updated:** 2026-11-02T08:04:34Z  
+
+---
+
+## [4.81.0] - 2026-11-02
+
+**PR:** #1025  
+
+**New features**
+- Harness folders: keep a guide and helper scripts per site or workflow, shown automatically when you open a matching site
+- Harness guides also appear for app and desktop commands, matched by app ID or window name
+- Figma store images: compose localized store screenshots at exact store sizes
+- Figma: save design data and tell when the design changed since the last capture
+
+**Bug fixes**
+- Short output no longer hides the work journal, so earlier notes for a site are not missed
+- A failed command no longer uses up the daily journal display
+- Finding a button now prefers the one inside an open dialog
 
 ---
 

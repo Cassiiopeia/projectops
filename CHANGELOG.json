@@ -1,14 +1,44 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-30T08:38:59Z",
-    "currentVersion": "4.80.0",
+    "lastUpdated": "2026-11-02T08:04:34Z",
+    "currentVersion": "4.81.0",
     "projectType": "basic",
-    "totalReleases": 363,
+    "totalReleases": 364,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.81.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-02",
+      "pr_number": 1025,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * Harness folders: keep a guide and helper scripts per site or workflow, shown automatically when you open a matching site\n  * Harness guides also appear for app and desktop commands, matched by app ID or window name\n  * Figma store images: compose localized store screenshots at exact store sizes\n  * Figma: save design data and tell when the design changed since the last capture\n\n* **Bug fixes**\n  * Short output no longer hides the work journal, so earlier notes for a site are not missed\n  * A failed command no longer uses up the daily journal display\n  * Finding a button now prefers the one inside an open dialog",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "Harness folders: keep a guide and helper scripts per site or workflow, shown automatically when you open a matching site",
+            "Harness guides also appear for app and desktop commands, matched by app ID or window name",
+            "Figma store images: compose localized store screenshots at exact store sizes",
+            "Figma: save design data and tell when the design changed since the last capture"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Short output no longer hides the work journal, so earlier notes for a site are not missed",
+            "A failed command no longer uses up the daily journal display",
+            "Finding a button now prefers the one inside an open dialog"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.80.0",
       "project_type": "basic",
