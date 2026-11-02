@@ -24,7 +24,7 @@ tells the main agent to start this skill in a **background subagent** with a ses
 
 | Rule | Fires when |
 |---|---|
-| `workaround_after_failure` | a projectops command failed, then within 7 calls the same job was done by hand: launch → `adb`/`xcrun`/`idb`/`maestro`/`osascript`/CDP; github, changelog-deploy, report, oss-consult → `gh`, `curl api.github.com`, code calling `api.github.com`; commit → `git commit`; init-worktree → `git worktree add`; figma → `api.figma.com` |
+| `workaround_after_failure` | a projectops command failed, then within 7 Bash calls (projectops calls count; the same command succeeding ends the wait) the same job was done by hand: launch → `adb`/`xcrun`/`idb`/`maestro`/`osascript`/CDP; github, changelog-deploy, report, oss-consult → `gh`, `curl api.github.com`, code calling `api.github.com`; commit → `git commit`; init-worktree → `git worktree add`; figma → `api.figma.com` |
 | `missing_feature_reported` | the tool itself answered that it has no such feature (`not_supported`, `unsupported_*`, `unknown_*`), once |
 | `usage_error_repeated` | the same subcommand's argument error twice (an `invalid choice` here is kind `missing_feature`) |
 | `same_failure_repeated` | same subcommand and code three times |

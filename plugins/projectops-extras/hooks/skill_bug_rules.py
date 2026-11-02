@@ -59,7 +59,7 @@ _SEGMENT_SEPARATOR_PATTERN = re.compile(r"&&|\|\||[;|\n()]")
 _ENV_ASSIGNMENT_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=\S*$")
 _COMMAND_PREFIX_WORDS = ("sudo", "env", "exec", "time", "timeout")
 
-# 문턱값: 실패 후 우회를 찾는 Bash 호출 수, 같은 사용법 오류 횟수, 같은 code 실패 횟수, 세션당 보고 상한
+# 문턱값: 실패 후 우회를 찾는 Bash 호출 수(projectops 호출 포함, #1022), 같은 사용법 오류 횟수, 같은 code 실패 횟수, 세션당 보고 상한
 WORKAROUND_WINDOW_CALLS = 7
 USAGE_ERROR_REPEAT_COUNT = 2
 SAME_FAILURE_REPEAT_COUNT = 3
@@ -142,6 +142,7 @@ def evaluate(state: dict, call: dict, command: str) -> list[dict]:
 def _check_projectops_call(state: dict, call: dict) -> list[dict]:
     """projectops 호출: 예외 · 기능 없음 · 사용법 오류 반복 · 같은 실패 반복 판정, 실패면 우회 대기 등록"""
     name = f"{call['skill']}:{call['subcommand']}"
+    _advance_workaround_window(state, call)
     if not call["is_failure"]:
         state["counts"].pop(f"same:{name}", None)
         return []
@@ -171,6 +172,18 @@ def _check_projectops_call(state: dict, call: dict) -> list[dict]:
                                     ("skill", "subcommand", "group", "code", "failure_kind", "tool_use_id", "excerpt")}
         state["pending_failure"].update({"failure_count": same_count, "calls_seen": 0})
     return alarms
+
+
+def _advance_workaround_window(state: dict, call: dict) -> None:
+    """projectops 호출도 우회 대기 창에 셈 (창 소진 또는 같은 명령 성공 > 대기 해제, #1022)"""
+    pending = state.get("pending_failure")
+    if not pending:
+        return
+    pending["calls_seen"] = pending.get("calls_seen", 0) + 1
+    is_same_command_recovered = (not call["is_failure"] and call["skill"] == pending.get("skill")
+                                 and call["subcommand"] == pending.get("subcommand"))
+    if is_same_command_recovered or pending["calls_seen"] >= WORKAROUND_WINDOW_CALLS:
+        state.pop("pending_failure", None)
 
 
 def _check_workaround(state: dict, command: str) -> list[dict]:

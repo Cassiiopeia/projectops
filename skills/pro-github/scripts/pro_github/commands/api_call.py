@@ -6,6 +6,7 @@ PAT 를 출력하지 않으며, 레포 범위 밖 경로와 의도하지 않은 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from common.emit import emit
@@ -21,6 +22,8 @@ MAX_RESPONSE_CHARS = 20000
 READ_ONLY_GLOBAL_PATHS = ("/rate_limit",)
 # 쓰기를 막는 레포 관리 경로 (공개 전환·삭제·이전·비밀·권한) — 통과 경로로 되돌리기 어려운 사고를 내지 않게
 REPOSITORY_ADMIN_SUBPATHS = ("transfer", "actions/secrets", "collaborators", "keys", "hooks")
+# 레포 생성 REST 경로: /orgs/{org}/repos · /user/repos (그룹 1: 조직, 사용자 경로면 None)
+REPOSITORY_CREATION_PATH_PATTERN = re.compile(r"^/(?:orgs/([^/]+)|user)/repos/?$")
 
 
 def resolve_api_path(owner: str, repo: str, path: str) -> str:
@@ -103,7 +106,7 @@ def cmd_api(args, api) -> int:
     if not is_path_in_scope(method, path, prefix):
         return emit({"ok": False, "code": "path_out_of_scope",
                      "error": f"the path must start with {prefix} (read-only exception: GET /rate_limit): {args.path}",
-                     "next": f"use a path relative to this repo, e.g. api GET {args.owner} {args.repo} issues/1"})
+                     "next": _out_of_scope_next(args, method, path)})
     if method in WRITE_METHODS and not args.write:
         return emit({"ok": False, "code": "write_requires_flag",
                      "error": f"{method} changes state. Add --write only when the user asked for this change",
@@ -124,6 +127,15 @@ def cmd_api(args, api) -> int:
         if not is_json:
             return _emit_binary_saved(args, method, path, data)
     return _emit_api_result(args, method, path, data)
+
+
+def _out_of_scope_next(args, method: str, path: str) -> str:
+    """범위 밖 경로 > 다음 명령 안내 (레포 생성 경로면 전용 명령 create-repo, #1022)"""
+    creation_match = REPOSITORY_CREATION_PATH_PATTERN.match(path.split("?", 1)[0])
+    if method == "POST" and creation_match:
+        repository_owner = creation_match.group(1) or args.owner
+        return f"create-repo {repository_owner} <name> [--private] [--description D] [--auto-init] [--dry-run]"
+    return f"use a path relative to this repo, e.g. api GET {args.owner} {args.repo} issues/1"
 
 
 def _parse_json_bytes(content: bytes):
@@ -176,6 +188,6 @@ def _configure_api(parser) -> None:
 
 
 COMMANDS = [
-    Command(name="api", help="pass-through for REST calls with no dedicated command (this repo only; writes need --write)",
+    Command(name="api", help="pass-through for REST calls with no dedicated command (this repo only; writes need --write; to create a repo use create-repo)",
             run=cmd_api, configure=_configure_api),
 ]
