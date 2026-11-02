@@ -38,10 +38,25 @@ def _web_find(page, args) -> dict:
             failure.update(frames_hint(page))
         return failure
     frame_flag = f" --frame '{args.frame}'" if args.frame else ""
-    return {"action": "find", "items": items, "frame": args.frame, "total": res.get("total"), "shown": len(items),
-            "fallback": res.get("fallback"), "url": page.url, "title": safe_title(page),
-            "summary": f"{len(items)} candidates (of {res.get('total')})",
-            "next": f"web click --ref <number>{frame_flag} --expect-url <part of the new URL>  # click only the chosen one"}
+    payload = {"action": "find", "items": items, "frame": args.frame, "total": res.get("total"), "shown": len(items),
+               "fallback": res.get("fallback"), "url": page.url, "title": safe_title(page),
+               "summary": f"{len(items)} candidates (of {res.get('total')})",
+               "next": f"web click --ref <number>{frame_flag} --expect-url <part of the new URL>  # click only the chosen one"}
+    _attach_modal(payload, res.get("modal"))
+    return payload
+
+
+def _attach_modal(payload: dict, modal: dict | None) -> None:
+    """열린 모달이 있으면 알린다 — 모달 안의 후보가 앞(in_modal: true)이고, 뒤의 것은 가려져 눌리지 않을 수 있다 (projectops#1023)."""
+    if not modal:
+        return
+    payload["modal"] = modal
+    inside = sum(1 for it in payload["items"] if it.get("in_modal"))
+    if inside:
+        payload["summary"] += f" — a {modal.get('kind') or 'modal'} is open; its {inside} candidate(s) come first (in_modal)"
+    else:
+        payload["summary"] += (f" — a {modal.get('kind') or 'modal'} is open but none of these are inside it; "
+                               "they may be covered. Read the modal with web text first")
 
 
 def configure(p) -> None:

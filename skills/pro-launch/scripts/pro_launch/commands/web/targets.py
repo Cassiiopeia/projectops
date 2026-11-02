@@ -33,6 +33,11 @@ CLICKABLE = ("a[href],button,[role=button],[role=link],[role=tab],[role=menuitem
               "input[type=button],input[type=checkbox],summary")
 
 
+# 모달 먼저 (projectops#1023) — 확인 모달의 `불러오기` 가 뒤 패널의 같은 글자 버튼 60개에 밀려 상한(20) 밖으로 빠졌다.
+#   모달: dialog[open] · role=dialog/alertdialog · aria-modal=true 중 가장 위 (z-index 큰 것 > 문서에서 나중 것)
+#   없으면 화면 가운데를 덮은 fixed 레이어(z-index > 0)를 모달로 본다. 페이지 전체를 감싼 fixed 틀을 모달로 오인하지 않게
+#   그 밖에도 보이는 클릭 대상이 있을 때만 인정한다
+#   정렬: 모달 안 > 요소 종류(rank) > 문서 순서. 모달 안의 후보에 in_modal: true, 결과에 modal 요약
 FIND_JS = """(o) => {
   const ATTR = o.attr;
   document.querySelectorAll('[' + ATTR + ']').forEach(e => e.removeAttribute(ATTR));
@@ -57,6 +62,25 @@ FIND_JS = """(o) => {
     if (!t && icons.length) t = icons.map(name => 'icon:' + name).join(' ');
     return { text: t.slice(0, 120), icons }; };
   const label = e => (textOf(e).text + ' ' + (nameOf(e) || '')).replace(/\\s+/g, ' ').trim();
+  // open modal first (see the note above FIND_JS)
+  const zOf = e => { let n = e, best = 0; while (n && n !== document.body) {
+    const z = parseInt(getComputedStyle(n).zIndex, 10); if (!isNaN(z) && z > best) best = z; n = n.parentElement; } return best; };
+  const topModal = () => {
+    const dialogs = [...document.querySelectorAll('dialog[open],[role=dialog],[role=alertdialog],[aria-modal=true]')]
+      .filter(e => visible(e) && e.getAttribute('aria-hidden') !== 'true');
+    if (dialogs.length) return { el: dialogs.map((e, i) => [e, zOf(e), i]).sort((a, b) => b[1] - a[1] || b[2] - a[2])[0][0], kind: 'dialog' };
+    const hit = document.elementFromPoint ? document.elementFromPoint(innerWidth / 2, innerHeight / 2) : null;
+    for (let n = hit; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
+      const s = getComputedStyle(n);
+      if (s.position === 'fixed' && parseInt(s.zIndex, 10) > 0) {
+        const outside = [...document.querySelectorAll(o.clickable)].some(e => !n.contains(e) && visible(e));
+        return outside ? { el: n, kind: 'overlay' } : null;
+      }
+    }
+    return null;
+  };
+  const modal = topModal();
+  const inModal = e => !!modal && modal.el.contains(e);
   let els;
   if (o.selector) els = [...document.querySelectorAll(o.selector)];
   else if (o.role === 'link') els = [...document.querySelectorAll('a[href],[role=link]')];
@@ -81,7 +105,8 @@ FIND_JS = """(o) => {
   // (Play Console 실측: 행이 먼저 나와 눌렀더니 아무 일도 없었고, 실제 링크는 행 안의 화살표였다)
   const rank = e => (e.matches('a[href]') ? 0 : e.matches('button,input[type=submit],input[type=button]') ? 1
     : e.matches('[role=link],[role=button],[role=tab],[role=menuitem]') ? 2 : e.matches('[role=row]') ? 4 : 3);
-  els = els.map((e, i) => [e, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]);
+  els = els.map((e, i) => [e, i, inModal(e) ? 0 : 1])
+    .sort((a, b) => a[2] - b[2] || rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]);
   const items = [];
   for (const e of els) {
     if (items.length >= o.limit) break;
@@ -94,9 +119,13 @@ FIND_JS = """(o) => {
       clickable: e.matches(o.clickable),
       disabled: !!e.disabled || e.getAttribute('aria-disabled') === 'true' };
     if (shown.icons.length) item.icons = shown.icons;
+    if (inModal(e)) item.in_modal = true;
     items.push(item);
   }
-  return { items, total: els.length, fallback };
+  const modalInfo = modal ? { kind: modal.kind, role: modal.el.getAttribute('role'),
+    label: (nameOf(modal.el) || (modal.el.innerText || '').replace(/\\s+/g, ' ').trim()).slice(0, 80),
+    candidates: els.filter(inModal).length } : null;
+  return { items, total: els.length, fallback, modal: modalInfo };
 }"""
 
 

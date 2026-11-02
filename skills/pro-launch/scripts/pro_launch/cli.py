@@ -13,13 +13,13 @@ import sys
 from pro_launch import registry
 from pro_launch.registry import Command
 from pro_launch.runtime.arg_diagnosis import diagnose, empty_value_options
-from pro_launch.runtime.context import ACCESS_CTX, INPUT_CTX, OUTPUT_CTX, ROOT_CTX
+from pro_launch.runtime.context import ACCESS_CTX, INPUT_CTX, OUTPUT_CTX, ROOT_CTX, TARGET_CTX
 from pro_launch.runtime.output import attach_known_fix, emit_shaped
 
 # 도움말에서 보이는 순서. 여기 없는 명령은 이름순으로 뒤에 붙는다 (등록 자체는 이 표와 무관하다)
 HELP_ORDER = ("doctor", "detect", "devices", "device", "app", "web", "render", "http", "access", "db",
               "logs", "cred", "local", "ssh", "shrink", "recall", "learn", "tidy", "forget", "session-check",
-              "kb", "get-output-path")
+              "kb", "journal", "harness", "get-output-path")
 
 
 def load_commands() -> list[Command]:
@@ -37,9 +37,9 @@ def build_parser() -> argparse.ArgumentParser:
                                      description="Launch, drive and capture apps, web and servers")
     # 출력 모양 옵션 (#898) — 실제로는 _pop_output_options 가 파서 전에 꺼낸다. 여기 둔 것은 도움말용
     parser.add_argument("--brief", action="store_true",
-                        help="Output only the core keys: ok·code·summary·next·error·known_fix·memory·learn_hint")
+                        help="Output only the core keys: ok·code·summary·next·error·known_fix·memory·learn_hint·journal·harness")
     parser.add_argument("--fields", metavar="a,b,c",
-                        help="Keep only these top-level keys (ok·code·summary·next·known_fix·memory·learn_hint are always kept)")
+                        help="Keep only these top-level keys (ok·code·summary·next·known_fix·memory·learn_hint·journal·harness are always kept)")
     sub = parser.add_subparsers(dest="command", required=True)
     for cmd in load_commands():
         p = sub.add_parser(cmd.name, help=cmd.help)
@@ -148,6 +148,7 @@ def main(argv: list[str] | None = None) -> int:
     # 한 프로세스에서 main 을 여러 번 부르는 경우(테스트) 이전 호출의 표시가 새지 않게 한다
     ROOT_CTX.clear()
     ACCESS_CTX.clear()
+    TARGET_CTX.clear()
     try:
         return args.func(args)
     except Exception as e:   # 예상 못 한 입력이 트레이스백으로 끝나지 않게 — 에이전트는 JSON 만 읽는다 (#705)

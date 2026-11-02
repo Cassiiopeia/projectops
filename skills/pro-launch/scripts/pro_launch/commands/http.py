@@ -12,7 +12,7 @@ from common.http import request as http_request
 from pro_launch.registry import Command
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.creds import load_cred
-from pro_launch.runtime.output import out, set_area, use_access
+from pro_launch.runtime.output import out, set_area, set_target, use_access
 
 
 def cmd_http(args) -> int:
@@ -30,6 +30,7 @@ def cmd_http(args) -> int:
                         "next": "access set --key base_url --json '{\"url\":\"http://...\"}'"})
         url = base.rstrip("/") + "/" + url.lstrip("/")
         use_access(root, "base_url")
+    set_target(url=url, root=root, area="server")
 
     headers = {"Accept": "application/json"}
     cred, err = load_cred(getattr(args, "cred", None))

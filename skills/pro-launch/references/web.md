@@ -276,6 +276,8 @@ Use `python` · `py -3` or the real installed `python.exe` path.
   If it is still covered: `element_not_actionable` + `covered_by` + `next: ... --dom-click`. `--dom-click` calls the element's `click()` without going through the cover. That can differ from a human click, so use it only explicitly.
 - When an overlay in the parent document covers an element inside an iframe, it is not visible from inside the iframe, so `covered_by` may be empty.
 - `find` fills `text: "icon:delete"` from ligature text in icon fonts (Material Icons and similar), and fills `aria` from aria-label · aria-labelledby · title · img alt in that order. If several share the same `icon:delete`, pick by `aria`.
+- **When a modal is open, `find` lists the candidates inside it first** and marks them `in_modal: true`; the result carries `modal` (`kind`: `dialog` for `dialog[open]` · `role=dialog|alertdialog` · `aria-modal=true`, the topmost one; `overlay` for a fixed layer with a z-index covering the screen center).
+  So a confirm button is not pushed past the limit by many same-text buttons behind the modal (projectops#1023). If `modal` is present but no item is `in_modal`, the matches are behind it and may be covered: read the modal with `web text`.
 
 ### Inside an iframe — `--frame` (#877)
 

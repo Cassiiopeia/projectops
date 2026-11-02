@@ -23,6 +23,7 @@ scripts/
   launch_cli.py             entry point (thin)
   credentials.py            credential storage · masking
   knowledge.py              memory of what worked on this computer
+  harness_store.py          harness folders (guide README + helpers) · matching by URL/host · README skeletons in harness_templates/ (projectops#1023)
   app_input.py              platform backends for app control (Android · iOS)
   maestro_session.py        resident iOS Maestro session — state file · client that calls the relay (#894)
   maestro_session_relay.py  the relay process (owns `maestro mcp` stdio · 127.0.0.1 TCP · idle shutdown)
@@ -59,7 +60,7 @@ scripts/
       doctor.py detect.py output_path.py
       device/               __init__ dispatch · bindings.py (list · bind) · claims.py (claim · release) · boot.py (boot · reboot) · settings.py (locale · appearance)
                             action_options.py table of options each action accepts (unread options are bad_args, #972) — when an action reads a new option, add it to the table too
-      http.py access.py db.py logs.py ssh.py cred.py local.py render.py shrink.py memory.py kb.py session_check.py
+      http.py access.py db.py logs.py ssh.py cred.py local.py render.py shrink.py memory.py kb.py session_check.py journal.py harness.py
       app/                  __init__ dispatch · gestures.py (control) · app_control.py (device · package · tool runs) · steps.py (app run step files) · android_ime.py (Android input method switching · input check) · burst.py (burst capture) · launch_check.py (foreground check after launch) · actions/ (one action = one module)
       web/                  __init__ dispatch · options.py shared option table · session.py · targets.py · element.py target selection · watchdog.py time limits · request_capture.py request recording · saved_values.py secret storage · candidates.py candidates on failure · actions/
 ```

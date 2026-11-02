@@ -7,6 +7,7 @@
   ~/.projectops/launch/<owner__repo>/journal.jsonl
 
 읽기는 agent 호출에 맡기지 않는다 — 같은 영역을 다시 열면 launch_cli 가 응답에 `journal` 로 싣는다.
+`--brief`·`--fields` 에도 남고, 실패한 응답에서는 소모되지 않는다 (projectops#1023).
 적힌 것은 **참고**일 뿐 자동 실행하지 않는다. 변경 작업은 사용자 확인을 거친다.
 """
 from __future__ import annotations
@@ -108,8 +109,12 @@ def forget(path: Path, title: str) -> int:
 
 
 def surface(path: Path, area: str, seen_file: Path, limit: int = SURFACE_LIMIT,
-            today: str | None = None) -> list[dict]:
-    """명령 응답에 실을 최근 일지. 레포·영역마다 하루 한 번만 돌려준다 (토큰 절약)."""
+            today: str | None = None, mark: bool = True) -> list[dict]:
+    """명령 응답에 실을 최근 일지. 레포·영역마다 하루 한 번만 돌려준다 (토큰 절약).
+
+    mark=False(실패한 명령)면 싣기만 하고 '오늘 보여 줌'으로 치지 않는다 — 다음 성공 응답에 다시 실린다.
+    실패 응답은 버려지기 쉬워 거기서 소모되면 그날 다시 안 보였다 (projectops#1023).
+    """
     now = today or dt.date.today().isoformat()
     if memory.seen_today(seen_file, area, now, mark=False):
         return []
@@ -117,7 +122,8 @@ def surface(path: Path, area: str, seen_file: Path, limit: int = SURFACE_LIMIT,
     if not rows:
         # 보여 준 것이 없으면 '오늘 보여 줌'으로 치지 않는다 — 같은 날 나중에 적은 기록이 가려진다
         return []
-    memory.seen_today(seen_file, area, now)
+    if mark:
+        memory.seen_today(seen_file, area, now)
     out = []
     for r in rows:
         t = r["text"] if len(r["text"]) <= SURFACE_CHARS else r["text"][:SURFACE_CHARS] + " …"

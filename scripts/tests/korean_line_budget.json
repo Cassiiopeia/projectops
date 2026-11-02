@@ -140,6 +140,7 @@
     "skills/pro-launch/SKILL.md": 2,
     "skills/pro-launch/references/troubleshooting.md": 21,
     "skills/pro-launch/references/web.md": 2,
+    "skills/pro-launch/scripts/harness_store.py": 1,
     "skills/pro-launch/scripts/pro_launch/commands/web/session.py": 2,
     "skills/pro-launch/scripts/pro_launch/commands/web/targets.py": 8,
     "skills/pro-launch/scripts/pro_launch/runtime/mutating.py": 2,

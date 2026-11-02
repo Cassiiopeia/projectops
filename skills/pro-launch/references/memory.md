@@ -93,6 +93,7 @@ what you based decisions on, how it turned out, what will be confusing next time
 - If the user says "record this" first, write it right away without asking.
 
 **When it is read**: When you open the same area (web·app·server) again, the response carries `journal` (latest 2 entries, once a day).
+It survives `--brief` and `--fields`, and a failed response (`ok: false`) shows it without counting it as seen, so the next successful response carries it again (projectops#1023).
 **Use it for reference only** — follow its order and decision criteria, but actions that change things (exclude · delete · submit, etc.) need user confirmation.
 If what is written is outdated or the screen has changed, do not follow it blindly; append what changed with `--add`.
 
@@ -105,6 +106,8 @@ If what is written is outdated or the screen has changed, do not follow it blind
 - Pass long text or line breaks with `--add-file` (a UTF-8 file). Up to 1,500 characters per entry and 40 entries per repo.
 - **Passwords and tokens are refused.** Keep accounts in `cred`.
 - Location: `~/.projectops/launch/<owner__repo>/journal.jsonl`.
+- **When the same workflow keeps coming back, give it a harness** (a README guide + helper scripts in one folder, shown automatically for matching URLs and hosts): `harness new <name> --url "<pattern>"`.
+  The journal keeps the context of each run; the harness keeps the steps to follow. Details: [`harness.md`](harness.md).
 
 ## Save tokens
 
@@ -124,6 +127,7 @@ If what is written is outdated or the screen has changed, do not follow it blind
 | `~/.projectops/launch/<owner__repo>/` | devices.json · browser.json · access.json (**no secrets**) · access_status.json (access-method scores) · knowledge.json · `.browser-profile/` · `shots/` |
 | `~/.projectops/config/config.json` → `launch.credentials` | **Credentials** (with values, file mode 600). The same file as `pro-ssh`·`pro-github` |
 | `~/.projectops/launch/_machine/` | knowledge.json — methods that apply to the whole computer. State is also kept here when the repo cannot be determined (below) |
+| `~/.projectops/launch/_machine/harness/<name>/` · `<owner__repo>/harness/<name>/` | Harness folders: README guide · `harness.json` · helper scripts (`harness.md`) |
 | `~/.projectops/launch/.venv` | Playwright · Pillow (uses the old `agent-test/.venv` if it exists) |
 
 If the `PROJECTOPS_HOME` environment variable is set, it is used instead of `~/.projectops` (for test isolation). The venv is an installation, so

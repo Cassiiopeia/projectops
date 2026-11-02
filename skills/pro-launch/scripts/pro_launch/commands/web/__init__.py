@@ -32,7 +32,7 @@ from pro_launch.runtime import browser_profiles
 from pro_launch.runtime.browser import read_state, write_state
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.creds import cred_field, with_login_policy
-from pro_launch.runtime.output import out, set_area
+from pro_launch.runtime.output import out, set_area, set_target
 
 ACTIONS = discover_actions(_actions)
 
@@ -91,6 +91,8 @@ def apply_profile_choice(args, root) -> dict | None:
 def cmd_web(args) -> int:
     """웹 화면을 조작한다. 한 번에 한 동작 — agent가 화면을 보고 다음을 정한다."""
     set_area("web", project_root(args))
+    # 이 주소에 맞는 하네스(안내서)를 응답에 싣는다 — 주소가 없는 동작은 지금 페이지 주소로 맞춘다 (projectops#1023)
+    set_target(url=getattr(args, "url", None), root=project_root(args), area="web")
     # 밀리초로 준 --timeout 이 공유 브라우저를 50분 붙잡는다 — 붙기 전에 거절 (#931)
     too_large = timeout_failure(args)
     if too_large:

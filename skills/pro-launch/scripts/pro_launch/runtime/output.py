@@ -11,12 +11,13 @@ from common.access import needs_verify, record_result
 from common.emit import emit
 from common.state import repo_unknown
 
+import harness_store
 import journal
 import knowledge
 
 from pro_launch.runtime.plugin_version import plugin_version, take_newer_installed
 from pro_launch.runtime.recent_roots import root_candidates
-from pro_launch.runtime.context import ACCESS_CTX, INPUT_CTX, MEMORY_CTX, MIGRATION, OUTPUT_CTX, ROOT_CTX
+from pro_launch.runtime.context import ACCESS_CTX, INPUT_CTX, MEMORY_CTX, MIGRATION, OUTPUT_CTX, ROOT_CTX, TARGET_CTX
 
 # skills/pro-launch — 공식 트러블슈팅(troubleshooting/)이 있는 곳
 SKILL_DIR = Path(__file__).resolve().parents[3]
@@ -48,6 +49,7 @@ def out(payload: dict) -> int:
     _grade_access(payload)
     attach_known_fix(payload)
     _memory_hooks(payload)
+    _harness_hooks(payload)
     return emit_shaped(payload)
 
 
@@ -66,8 +68,10 @@ def default_summary(payload: dict) -> str:
 HEAD_KEYS = ("ok", "code", "summary", "next")
 # 실패 원인 한 줄 (render 의 묻힌 첫 오류 등) — 머리 바로 뒤 · --brief 에도 남긴다
 CAUSE_KEYS = ("first_error", "unknown", "did_you_mean", "empty_values")
-# 이 실패·영역에 맞춘 해결과 기억 — 원인 뒤 · 줄여도 남긴다
-GUIDANCE_KEYS = ("known_fix", "known_fix_note", "memory", "memory_note", "learn_hint")
+# 이 실패·영역에 맞춘 해결과 기억 · 일지 · 하네스 — 원인 뒤 · 줄여도 남긴다
+# journal 이 빠져 있어 --brief 첫 호출이 일지를 버리고도 '오늘 보여 줌'으로 소모했다 (projectops#1023)
+GUIDANCE_KEYS = ("known_fix", "known_fix_note", "memory", "memory_note", "learn_hint",
+                 "journal", "journal_note", "journal_hint", "harness", "harness_note")
 # 실패 · doctor 에만 싣는 버전 + 옛 설치본 경고(성공 포함, 1회) — 보고에 남게 · 줄여도 남긴다
 VERSION_KEYS = ("plugin_version", "newer_installed")
 # --brief 가 남기는 키: 머리 + error + 원인 + 안내 + 버전
@@ -319,7 +323,8 @@ def _memory_hooks(payload: dict) -> None:
 def _journal_hooks(payload: dict, area: str, root: Path, unknown: bool, seen_dir: Path) -> None:
     """작업 일지 — 같은 영역에 돌아오면 최근 기록을 싣고, 작업을 마치면 적어 둘지 묻게 한다."""
     path = journal.store_path(root)
-    rows = journal.surface(path, area, seen_dir / "journal_seen.json")
+    # 실패 응답은 버려지기 쉽다 — 싣되 '오늘 보여 줌'으로 치지 않아 다음 성공 응답에 다시 실린다
+    rows = journal.surface(path, area, seen_dir / "journal_seen.json", mark=payload.get("ok", True) is not False)
     if rows:
         payload["journal"] = rows
         payload["journal_note"] = ("Earlier work records in this area. Reference only — when repeating the work, reuse "
@@ -330,7 +335,37 @@ def _journal_hooks(payload: dict, area: str, root: Path, unknown: bool, seen_dir
         payload["journal_hint"] = (
             "If this work is likely to be repeated, ask the user \"Shall I record this work?\" and, if they agree, write it with "
             f"journal --add \"<what and why · order · decision criteria · result · what will be confusing next time>\" --title <title> --area {area} "
-            "--site <part of the address>. If the user asked for a record first, write it without asking (never write secrets)")
+            "--site <part of the address>. If the user asked for a record first, write it without asking (never write secrets). "
+            "For a workflow that repeats, keep the guide and helper scripts in a harness folder: harness new <name> --url <pattern>")
+
+
+def set_target(url: str | None = None, host: str | None = None, root: Path | None = None,
+               area: str | None = None) -> None:
+    """이번 명령이 향하는 주소·호스트. out() 이 맞는 하네스를 응답에 싣는다 (projectops#1023)."""
+    TARGET_CTX.update({k: v for k, v in (("url", url), ("host", host), ("root", root), ("area", area)) if v})
+
+
+def _harness_hooks(payload: dict) -> None:
+    """이 주소·호스트에 맞는 하네스(안내서)를 싣는다. 하네스마다 하루 한 번, 실패 응답에서는 소모하지 않는다."""
+    area = TARGET_CTX.get("area") or MEMORY_CTX.get("area")
+    url = TARGET_CTX.get("url")
+    if not url and area == "web" and isinstance(payload.get("url"), str) and "://" in payload["url"]:
+        url = payload["url"]   # 이미 열린 브라우저의 조작(click · text …)은 지금 페이지 주소로 맞춘다
+    host = TARGET_CTX.get("host")
+    if not (url or host) or not knowledge.base_dir().is_absolute():
+        return
+    try:
+        root = TARGET_CTX.get("root") or MEMORY_CTX.get("root") or Path(".").resolve()
+        seen_dir = knowledge.store_path("machine" if repo_unknown(root) else "repo", root).parent
+        rows = harness_store.surface(root, seen_dir / harness_store.SEEN_FILE, url=url, host=host, area=area,
+                                     mark=payload.get("ok", True) is not False)
+        if rows:
+            payload["harness"] = rows
+            payload["harness_note"] = ("A guide for this site or workflow exists. Read its README before repeating the work and "
+                                       "follow its loop and human-check points; helper scripts are optional. "
+                                       "Full guide: harness show <name>. Update the README when the screen or steps changed")
+    except Exception:   # noqa: BLE001 — 안내서는 보조다. 실패해도 본 명령 결과는 그대로 낸다
+        pass
 
 
 # 실패 > 성공 연쇄 기록 (#863) — session-check 가 "막혔다 풀렸는데 learn 안 한 영역"을 짚는다

@@ -12,7 +12,7 @@ import knowledge
 from pro_launch.registry import Command
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.creds import load_cred
-from pro_launch.runtime.output import out, set_area
+from pro_launch.runtime.output import out, set_area, set_target
 from pro_launch.runtime.ssh_askpass import SINGLE_PASSWORD_PROMPT_OPTIONS, password_transport
 from pro_launch.runtime.ssh_failure import classify_ssh_failure
 
@@ -104,6 +104,9 @@ def cmd_ssh(args) -> int:
         if "key_path" in adhoc:
             base.pop("password", None)
         cred = {**base, **adhoc, "name": (cred or {}).get("name") or "(not saved)"}
+    if cred and cred.get("host"):
+        # 이 서버에 맞는 하네스(안내서)를 응답에 싣는다 — 저장 없이 넘긴 --host 도 (projectops#1023)
+        set_target(host=str(cred["host"]), root=project_root(args), area="server")
     if not cred:
         return out({"ok": False, "code": "cred_required",
                     "error": "A saved server (--cred) or connection details (--host --user …) are required",

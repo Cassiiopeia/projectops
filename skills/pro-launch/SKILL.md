@@ -62,6 +62,7 @@ Without it, the root is resolved in this order: `$PROJECT_ROOT` > working direct
 | When you finish a task — areas where you got stuck, got unstuck, and did not `learn` | `session-check` | `references/memory.md` |
 | Search · show · list official troubleshooting · draft an official entry from your memory | `kb search\|show\|list\|propose` | `references/troubleshooting.md` · `references/memory.md` |
 | Write free-form notes about work you did and read them next time (work journal) | `journal [--add "..."] [--title] [--site]` | `references/memory.md` |
+| **Guide for a site or workflow you repeat** (README to follow + optional helper scripts, one folder each) — read it before repeating site work · create one when a workflow repeats | `harness list\|show <name>\|match --url <url>\|new <name> --description "..." --url "<pattern>"` | `references/harness.md` |
 | Output location for this run + `env.sh` | `get-output-path` | Below |
 | Add a new platform · new action (contributors) | — | `references/extending.md` |
 
@@ -133,9 +134,9 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
 - **If a failure response has `known_fix`, try that fix first.** It summarizes verified official knowledge (up to 2 entries). For the full symptom and cause use
   `kb show <id>`; to search when the response has none, use `kb search "<error text>" --code <code>`.
 - **Do not trim results with `head`, `cut` or python.** You would cut off `next`, `memory` and `known_fix` too.
-  For a short response, add `--brief` to any command (only ok · code · summary · next · error · known_fix · memory · learn_hint; on failure also `reasons` · `output_tail`).
+  For a short response, add `--brief` to any command (only ok · code · summary · next · error · known_fix · memory · learn_hint · journal · harness; on failure also `reasons` · `output_tail`).
   For specific keys only, add `--fields file,url` (`path` is an alias of `file`). Both always keep those guidance keys. Key order is always
-  `ok` · `code` · `summary` · `next` → `known_fix` · `memory` → the rest.
+  `ok` · `code` · `summary` · `next` → `known_fix` · `memory` · `journal` · `harness` → the rest.
 - **On `bad_args`, read `unknown` · `did_you_mean` · `valid_options` · `example` and fix the call.** Do not retry by guessing.
   `empty_values` means that option's value was empty (`$VAR` unset). If you give `device <action>` an option that action does not read,
   it is not silently ignored; it comes back as `bad_args` (`unused_options` · `valid_options`).
@@ -322,6 +323,9 @@ Details: `references/desktop.md`.
 - **If a response contains `memory`, read it first and try that approach first** (it is attached automatically — no separate recall needed). After using it, run `learn --key <that key> --result ok|fail`.
   If `learn_hint` arrives, record the approach that got you unstuck with `learn`. For methods unrelated to the repo, use `--scope machine`.
   Secrets and host-mouse methods are never stored. Run `shrink` on captures before attaching them to an issue. Details: `references/memory.md`.
+- **If a response contains `harness`, open its `readme` before repeating work on that site** and follow its loop and human-check points (helper scripts are optional; check the screen when it differs).
+  Before site work you have done before, `harness match --url <url>` (or `harness list`) even when nothing came in a response. When a workflow repeats, create one with `harness new <name> --url "<pattern>"`
+  and put helper scripts in that folder, not in a random project folder. Roles: `journal` = context log of one task · `learn` = one-line conclusion · `harness` = the guide + helpers. Details: `references/harness.md`.
 
 ## Customize
 

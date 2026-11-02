@@ -43,6 +43,13 @@ ACCESS_CTX: dict = {}
 MEMORY_CTX: dict = {}
 
 
+# ── 이번 명령이 향하는 곳 (projectops#1023) ──────────────────────────────
+#
+# url · host · area · root. out() 이 이 주소·호스트에 맞는 하네스(harness_store)를 응답에 싣는다.
+# 영역 기억과 달리 저장 없이 넘긴 ssh --host 처럼 영역이 안 정해진 명령에도 쓴다.
+TARGET_CTX: dict = {}
+
+
 # ── 출력 모양 (#898) ──────────────────────────────────────────────────────
 #
 # 결과를 head·cut·python 으로 잘라 읽다가 next·memory·known_fix 가 버려졌다(실측 636+275회).
