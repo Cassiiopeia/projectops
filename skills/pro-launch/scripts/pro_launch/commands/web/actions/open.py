@@ -20,9 +20,9 @@ from pro_launch.commands.web.session import close_blank_tabs, read_url_title, se
 from pro_launch.commands.web.watchdog import HUNG_MARK_KEY
 from pro_launch.registry import Action
 from pro_launch.runtime import browser_profiles
-from pro_launch.runtime.browser import read_state, require_playwright, write_state
+from pro_launch.runtime.browser import find_stale_browsers, read_state, require_playwright, write_state
 from pro_launch.runtime.output import out
-from pro_launch.runtime.procs import detach_options, manual_kill_command
+from pro_launch.runtime.procs import detach_options, kill_browser, manual_kill_command
 from pro_launch.runtime.session_identity import session_identity
 
 # 새로 띄운 브라우저의 CDP 포트가 열리길 기다리는 횟수 · 간격 (약 15초)
@@ -57,7 +57,23 @@ def _pick_tab(ctx, page, state: dict, args):
     return page, name
 
 
-def _reuse(args, prev: dict, state_f: Path, recovered: list[str]) -> int | None:
+def _close_stale_browsers(pid_to_keep) -> list[dict]:
+    """방치 브라우저 자동 정리 > 끈 목록 (#1027). 지금 붙을 브라우저는 제외, 정리 실패로 open 을 막지 않음"""
+    closed = []
+    try:
+        for entry in find_stale_browsers()["stale"]:
+            if str(entry["pid"]) != str(pid_to_keep) and not kill_browser(int(entry["pid"]), grace=2.0):
+                closed.append({"pid": entry["pid"], "profile": entry["profile"], "reasons": entry["reasons"]})
+    except Exception:
+        return closed
+    return closed
+
+
+def _stale_closed_note(stale_closed: list[dict]) -> str:
+    return f" — closed {len(stale_closed)} abandoned browsers" if stale_closed else ""
+
+
+def _reuse(args, prev: dict, state_f: Path, recovered: list[str], stale_closed: list[dict]) -> int | None:
     """떠 있는 브라우저에 붙는다. 붙기에서 멈췄으면 None — 호출부가 끄고 새로 띄운다 (#921)"""
     conn, connect_error = web_connect(prev, allow_missing_tab=True)
     if connect_error:
@@ -90,8 +106,9 @@ def _reuse(args, prev: dict, state_f: Path, recovered: list[str]) -> int | None:
     return out({"action": "open", "reused": True, "pid": prev["pid"], "url": url, "title": title,
                 "browser": prev.get("browser"), "browser_source": prev.get("browser_source"),
                 "readonly": prev["readonly"], "opened_at": prev.get("opened_at"), "warning": warn,
-                "tabs": tab_summary, "recovered": recovered,
-                "summary": f"Attached to the running browser (since {prev.get('opened_at')}, {tab_summary['count']} tabs)",
+                "tabs": tab_summary, "recovered": recovered, "stale_closed": stale_closed,
+                "summary": f"Attached to the running browser (since {prev.get('opened_at')}, {tab_summary['count']} tabs)"
+                           + _stale_closed_note(stale_closed),
                 "next": "web text  # read the screen text first"})
 
 
@@ -158,12 +175,13 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     if err:
         return out(err)
     prev = read_state(state_f)
+    stale_closed = _close_stale_browsers(prev.get("pid"))
     # 레포 프로필 또는 고른 공용 프로필 (#956)
     profile = browser_profiles.profile_home(root) / browser_profiles.PROFILE_FOLDER_NAME
     decision, recovered = recover_recorded_browser(prev, profile)
     # 이미 떠 있으면 새로 띄우지 않고 붙는다 (#825). 새로 띄우면 프로필 잠금으로 실패한다
     if decision == "reuse":
-        reused = _reuse(args, prev, state_f, recovered)
+        reused = _reuse(args, prev, state_f, recovered, stale_closed)
         if reused is not None:
             return reused
         # CDP 는 답하는데 붙기가 멈췄다 — 끄고 같은 프로필로 새로 띄운다 (로그인 쿠키는 프로필에 남는다)
@@ -237,12 +255,13 @@ def _web_open(args, root: Path, state_f: Path) -> int:
                 "state_file": str(state_f), "console_hook": hooked,
                 "routes": len(state["routes"]), "viewport": state["viewport"],
                 "stealth": use_stealth, "readonly": bool(args.readonly), "reused": False,
-                "recovered": recovered, "tabs": tab_summary,
+                "recovered": recovered, "stale_closed": stale_closed, "tabs": tab_summary,
                 "browser": pick["label"], "browser_source": pick["source"], "browser_reason": pick["reason"],
                 "profile": browser_profiles.chosen_profile(root) or browser_profiles.REPO_PROFILE_NAME,
                 "summary": f"Opened the browser ({args.url or 'blank tab'})"
                            + (" — read-only" if args.readonly else "")
-                           + (f" — cleaned up: {', '.join(recovered)}" if recovered else ""),
+                           + (f" — cleaned up: {', '.join(recovered)}" if recovered else "")
+                           + _stale_closed_note(stale_closed),
                 "next": "web text  # read the screen text first (web shot only when you need to see the layout)"})
 
 

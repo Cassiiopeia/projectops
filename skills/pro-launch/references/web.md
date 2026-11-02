@@ -356,6 +356,8 @@ If it really must run in the browser, split it into batches of a few dozen acros
 {PYTHON} {SCRIPTS}/launch_cli.py web close --stale [--dry-run] [--idle-hours 12]   # only orphan browsers whose profile is gone or that no state file points to
 ```
 
+`web open` runs the same cleanup at its 12-hour default first, skips the browser it is about to attach to, and lists what it stopped in `stale_closed`.
+
 - Judge a save by **the POST/PUT status from `--capture-requests`**, not by on-screen text. The secret-value file (`saved-values.env`, 0600) is read by `web type --text-env NAME`.
 - `web find --role textbox|searchbox|input` finds real `<input>` elements. `--all` removes the count limit. `web viewport --width W --height H` is also accepted.
 - `type`·`click` return the element actually chosen (`target`) and `matches`. If a selector matches more than one, you get `warning: multiple_matches`; pick a `--ref` with `find`.

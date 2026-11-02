@@ -140,6 +140,14 @@ PROFILE_FOLDER_NAME = ".browser-profile"
 _USER_DATA_DIR_PATTERN = re.compile(r'--user-data-dir=("?)(.+?[\\/]\.browser-profile)\1(?=\s|$)')
 # 상태 루트가 임시 폴더여도(PROJECTOPS_HOME 을 돌린 테스트) 이 모양이면 우리 것
 _LAUNCH_PATH_MARKERS = ("/.projectops/launch/", "/.projectops/agent-test/")
+# 첫 인자 앞 실행 파일 이름: 알려진 브라우저만 정리 대상 (모르는 실행 파일은 끄지 않음)
+_BROWSER_EXECUTABLE_PATTERN = re.compile(
+    r"(?:^|[\\/ ])(?:chrome|chromium|chrome for testing|chrome-headless-shell|headless_shell|msedge|"
+    r"microsoft edge|brave|brave browser|vivaldi|opera)(?:\.exe)?$", re.IGNORECASE)
+# 첫 단어가 셸·인터프리터면 브라우저 아님 (명령 본문에 브라우저 인자가 글자로 들어 있을 뿐)
+_NON_BROWSER_FIRST_WORD_PATTERN = re.compile(
+    r'^"?(?:\S*[\\/])?(?:sh|bash|zsh|dash|fish|ksh|cmd|powershell|pwsh|python[\d.]*|node|ruby|perl|env|sudo)'
+    r'(?:\.exe)?"?(?:\s|$)', re.IGNORECASE)
 # 상태 파일이 가리키는데도 정리하는 방치 시간(시간)
 STALE_REAP_IDLE_HOURS = 12
 # 막 띄워 아직 상태 파일을 안 쓴 브라우저를 건드리지 않는 시간(초) — open 의 포트 대기는 최대 약 15초
@@ -158,12 +166,20 @@ def is_owned_profile(profile: str) -> bool:
     return normalized.startswith(_normalized_path(str(base_dir() / "launch")) + "/")
 
 
+def is_browser_executable_command(command: str) -> bool:
+    """명령줄의 실행 파일이 브라우저인가 (인자 글자만 담은 셸·에이전트 명령을 끄지 않게, #1027)"""
+    if _NON_BROWSER_FIRST_WORD_PATTERN.match(command):
+        return False
+    return bool(_BROWSER_EXECUTABLE_PATTERN.search(command.split(" --", 1)[0].strip().strip('"')))
+
+
 def owned_browser_processes(table: list[dict]) -> list[dict]:
     """프로세스 목록 > 우리 프로필로 뜬 브라우저 본 프로세스들 (렌더러 · GPU 같은 --type= 자식 제외)."""
     found = []
     for row in table:
         command = row.get("command") or ""
-        if "--remote-debugging-port=" not in command or "--type=" in command:
+        if ("--remote-debugging-port=" not in command or "--type=" in command
+                or not is_browser_executable_command(command)):
             continue
         match = _USER_DATA_DIR_PATTERN.search(command)
         if match and is_owned_profile(match.group(2)):
