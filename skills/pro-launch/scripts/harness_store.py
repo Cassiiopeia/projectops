@@ -5,8 +5,9 @@
 
 폴더 안:
   README.md      agent 가 읽고 판단하며 따라가는 안내서 (목적 · 루프 · 판단 지점 · 막혔을 때 …)
-  harness.json   선택. {"description", "match": {"hosts": [...], "urls": [...]}, "areas": [...]}
-                 있으면 그 주소·호스트로 향하는 명령의 응답에 `harness` 로 실린다. 없으면 목록·보기만 된다
+  harness.json   선택. {"description", "match": {"hosts": [...], "urls": [...], "apps": [...], "windows": [...]}, "areas": [...]}
+                 있으면 그 주소·호스트·앱·창으로 향하는 명령의 응답에 `harness` 로 실린다. 없으면 목록·보기만 된다
+                 (apps·windows: projectops#1024)
   그 밖          반복 클릭을 줄이는 도우미 스크립트 (선택). 스크립트는 안내서를 돕는 것이지 대신하지 않는다
 
 일지(journal)는 작업 한 건의 맥락, 기억(learn)은 한 줄 결론, 하네스는 안내서 + 도우미다.
@@ -42,6 +43,10 @@ FILES_LIMIT = 12          # 응답에 싣는 도우미 파일 이름 수
 SUMMARY_HEADINGS = ("요약", "summary", "tl;dr", "tldr")   # 요약 = 한국어 "요약"
 TEMPLATE_DIR = Path(__file__).resolve().parent / "harness_templates"
 LANGUAGES = ("ko", "en")
+MATCH_KEYS = ("hosts", "urls", "apps", "windows")
+# app 명령의 영역. 기억 영역(knowledge.AREAS)은 플랫폼별(ios·android)이라 areas 에서 서로 통하게 한다
+APP_AREA = "app"
+APP_PLATFORMS = ("ios", "android")
 
 
 def machine_dir() -> Path:
@@ -128,7 +133,7 @@ def describe(folder: Path, scope: str) -> dict:
              "readme": str(readme) if readme.is_file() else None,
              "description": str(meta.get("description") or "").strip()[:MAX_DESCRIPTION]
              or (_readme_title(readme) if readme.is_file() else ""),
-             "match": {"hosts": _string_list(match.get("hosts")), "urls": _string_list(match.get("urls"))},
+             "match": {key: _string_list(match.get(key)) for key in MATCH_KEYS},
              "areas": _string_list(meta.get("areas")),
              "has_meta": (folder / META_FILE).is_file(),
              "files": _helper_files(folder)}
@@ -162,6 +167,8 @@ def find(root: Path | None, name: str) -> dict | None:
 # hosts: 호스트 이름(대소문자 무시, * 와일드카드). `호스트:포트` 로 적으면 주소의 포트까지 본다
 # urls : 주소 패턴(* 와일드카드). 경로 없이 적으면 그 사이트 전체(`/*`)로 본다
 # 호스트만 아는 명령(ssh)은 urls 패턴의 호스트 부분과도 맞춘다 — 같은 서버의 웹 하네스가 보이게
+# apps   : Android 패키지명 · iOS 번들 ID (대소문자 무시, * 와일드카드) — app 명령 (projectops#1024)
+# windows: desktop 창 제목 · 프로그램 이름 (대소문자 무시, * 와일드카드). 프로그램 이름은 .exe 를 떼고도 맞춘다
 
 
 def _normalize_url(url: str) -> str:
@@ -203,8 +210,46 @@ def _host_matches(entry_host: str, host: str | None, port: int | None) -> bool:
     return want_port is None or port is None or want_port == port
 
 
-def match_reason(entry: dict, url: str | None = None, host: str | None = None) -> str | None:
-    """이 하네스가 url · host 에 맞으면 맞은 규칙("url:<패턴>" · "host:<호스트>"), 아니면 None."""
+def _names(value) -> list[str]:
+    """app · window 값(문자열 하나 또는 여럿) > 비교할 이름들. 빈 값은 뺀다."""
+    if isinstance(value, str):
+        value = [value]
+    return [str(v).strip() for v in (value or []) if v and str(v).strip()]
+
+
+def _window_names(window) -> list[str]:
+    names = _names(window)
+    stems = [n[:-4] for n in names if n.lower().endswith(".exe") and len(n) > 4]
+    return list(dict.fromkeys([*names, *stems]))
+
+
+def _name_reason(kind: str, patterns: list[str], names: list[str]) -> str | None:
+    for pattern in patterns:
+        if any(fnmatchcase(name.lower(), pattern.lower()) for name in names):
+            return f"{kind}:{pattern}"
+    return None
+
+
+def area_applies(entry_areas: list[str], area: str | None) -> bool:
+    """areas 를 적은 하네스는 그 영역에만. app 과 ios·android 는 서로 통한다 (area 를 모르면 거르지 않는다)."""
+    if not area or not entry_areas or area in entry_areas:
+        return True
+    if area in APP_PLATFORMS and APP_AREA in entry_areas:
+        return True
+    return area == APP_AREA and any(a in APP_PLATFORMS for a in entry_areas)
+
+
+def match_reason(entry: dict, url: str | None = None, host: str | None = None,
+                 app=None, window=None) -> str | None:
+    """이 하네스가 url · host · app · window 에 맞으면 맞은 규칙("url:<패턴>" · "host:<호스트>" ·
+    "app:<패턴>" · "window:<패턴>"), 아니면 None. app · window 는 문자열 하나 또는 여럿."""
+    match = entry["match"]
+    reason = _name_reason("app", match.get("apps") or [], _names(app))
+    if reason:
+        return reason
+    reason = _name_reason("window", match.get("windows") or [], _window_names(window))
+    if reason:
+        return reason
     parsed_host, port, normalized = None, None, None
     if url:
         try:
@@ -230,15 +275,15 @@ def match_reason(entry: dict, url: str | None = None, host: str | None = None) -
 
 
 def matching(root: Path | None, url: str | None = None, host: str | None = None,
-             area: str | None = None) -> list[dict]:
-    """url · host 에 맞는 하네스. areas 를 적은 하네스는 그 영역의 명령에만 맞는다 (area 를 모르면 거르지 않는다)."""
-    if not url and not host:
+             area: str | None = None, app=None, window=None) -> list[dict]:
+    """url · host · app · window 에 맞는 하네스. areas 를 적은 하네스는 그 영역의 명령에만 맞는다 (area_applies)."""
+    if not url and not host and not _names(app) and not _names(window):
         return []
     rows = []
     for entry in list_all(root):
-        if area and entry["areas"] and area not in entry["areas"]:
+        if not area_applies(entry["areas"], area):
             continue
-        reason = match_reason(entry, url=url, host=host)
+        reason = match_reason(entry, url=url, host=host, app=app, window=window)
         if reason:
             rows.append({**entry, "matched_by": reason})
     return rows
@@ -273,11 +318,12 @@ def excerpt(readme: str | Path | None, max_lines: int = EXCERPT_LINES, max_chars
 
 
 def surface(root: Path | None, seen_file: Path, url: str | None = None, host: str | None = None,
-            area: str | None = None, mark: bool = True, today: str | None = None) -> list[dict]:
+            area: str | None = None, mark: bool = True, today: str | None = None,
+            app=None, window=None) -> list[dict]:
     """명령 응답에 실을 하네스. 하네스마다 하루 한 번 — 실패한 명령(mark=False)은 '보여 줌'으로 치지 않는다."""
     now = today or dt.date.today().isoformat()
     rows = []
-    for entry in matching(root, url=url, host=host, area=area):
+    for entry in matching(root, url=url, host=host, area=area, app=app, window=window):
         if len(rows) >= SURFACE_LIMIT:
             break
         if memory.seen_today(seen_file, entry["name"], now, mark=False):
@@ -307,24 +353,25 @@ def resolve_language(lang: str | None, root: Path | None) -> str:
     return "ko" if system.startswith("ko") or "korean" in system else "en"
 
 
-def _readme_skeleton(name: str, description: str, hosts: list[str], urls: list[str], lang: str) -> str:
+def _readme_skeleton(name: str, description: str, targets_list: list[str], lang: str) -> str:
     template = (TEMPLATE_DIR / f"README.{lang}.md").read_text(encoding="utf-8")
-    targets = ", ".join(f"`{t}`" for t in [*urls, *hosts]) or "-"
+    targets = ", ".join(f"`{t}`" for t in targets_list) or "-"
     return (template.replace("{{name}}", name).replace("{{description}}", description or name)
             .replace("{{targets}}", targets))
 
 
 def create(root: Path | None, name: str, description: str = "", hosts: list[str] | None = None,
            urls: list[str] | None = None, areas: list[str] | None = None, scope: str = "machine",
-           lang: str | None = None) -> dict:
+           lang: str | None = None, apps: list[str] | None = None, windows: list[str] | None = None) -> dict:
     """하네스 폴더 + harness.json + README 뼈대. 실패하면 {"error": 코드, "message": ...}."""
     hosts, urls, areas = _string_list(hosts or []), _string_list(urls or []), _string_list(areas or [])
+    apps, windows = _string_list(apps or []), _string_list(windows or [])
     description = " ".join((description or "").split())
     if not NAME_PATTERN.match(name or ""):
         return {"error": "bad_name", "message": "Names must be letters, digits or ._- (max 40, starting with a letter or digit)"}
     if len(description) > MAX_DESCRIPTION:
         return {"error": "too_long", "message": f"description is {len(description)} characters (max {MAX_DESCRIPTION})"}
-    secrets = find_secrets(" ".join([description, *hosts, *urls]))
+    secrets = find_secrets(" ".join([description, *hosts, *urls, *apps, *windows]))
     if secrets:
         return {"error": "secret_detected",
                 "message": "Not saved: it contains what looks like a secret: " + ", ".join(secrets)}
@@ -340,8 +387,12 @@ def create(root: Path | None, name: str, description: str = "", hosts: list[str]
                 "entry": existing}
     folder = base / name
     language = resolve_language(lang, root)
-    meta = {"description": description, "match": {"hosts": hosts, "urls": urls}, "areas": areas}
+    match = {"hosts": hosts, "urls": urls}
+    # 앱·창 칸은 준 것만 적는다 — 웹 하네스의 harness.json 모양은 그대로 (projectops#1024)
+    match.update({k: v for k, v in (("apps", apps), ("windows", windows)) if v})
+    meta = {"description": description, "match": match, "areas": areas}
     folder.mkdir(parents=True, exist_ok=False)
     (folder / META_FILE).write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    (folder / README_FILE).write_text(_readme_skeleton(name, description, hosts, urls, language), encoding="utf-8")
+    (folder / README_FILE).write_text(_readme_skeleton(name, description, [*urls, *hosts, *apps, *windows], language),
+                                      encoding="utf-8")
     return {"entry": describe(folder, scope), "language": language}

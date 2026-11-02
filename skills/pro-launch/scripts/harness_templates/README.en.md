@@ -2,7 +2,7 @@
 
 {{description}}
 
-A **guide the agent follows while making its own decisions**. Helper scripts only cut repeated clicks. If the screen changed or a result looks wrong, do not insist on a script: check with `web text` · `web find` and continue.
+A **guide the agent follows while making its own decisions**. Helper scripts only cut repeated clicks. If the screen changed or a result looks wrong, do not insist on a script: check with `web text` · `web find` (apps: `app tree`, desktop windows: `desktop tree`) and continue.
 Never write passwords or tokens in this folder. Accounts go in `cred`.
 
 ## Summary
@@ -27,7 +27,7 @@ What this work is for and when it counts as done.
 
 ## Access
 
-- Address:
+- Address (apps: package name / bundle ID, desktop: window title):
 - Account: `--cred <name>`
 - Pitfalls such as certificates or session expiry:
 
@@ -48,4 +48,4 @@ Calls you can make instead of the screen, request and response shapes.
 | File | Role |
 |---|---|
 | `README.md` | This guide |
-| `harness.json` | Description and auto-surface rules (`match.hosts` · `match.urls` · `areas`) |
+| `harness.json` | Description and auto-surface rules (`match.hosts` · `match.urls` · `match.apps` · `match.windows` · `areas`) |

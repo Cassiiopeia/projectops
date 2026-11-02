@@ -5,12 +5,16 @@
 """
 from __future__ import annotations
 
+import os
 import time
+
+from harness_store import APP_AREA
 
 from pro_launch.commands.app import actions as _actions
 from pro_launch.registry import Command, discover_actions
 from pro_launch.runtime.context import MEMORY_CTX, project_root
 from pro_launch.runtime.device_gate import gate_device_use
+from pro_launch.runtime.output import set_target
 from pro_launch.runtime.shots import add_shot_args
 
 ACTIONS = discover_actions(_actions)
@@ -34,6 +38,9 @@ def configure(p) -> None:
 
 def cmd_app(args) -> int:
     MEMORY_CTX["root"] = project_root(args)
+    # 이 앱에 맞는 하네스(안내서)를 응답에 싣는다 — 여기서는 직접 준 --pkg · $PKG 만.
+    # device bind 패키지는 그 패키지를 실제로 쓰는 동작(resolve_target)만 넘긴다 (projectops#1024)
+    set_target(app=getattr(args, "pkg", None) or os.environ.get("PKG"), root=MEMORY_CTX["root"], area=APP_AREA)
     # 동작이 결과에 elapsed_seconds 를 붙이는 기준점 (기기 고르기·도구 실행 전부 포함)
     args.started_monotonic = time.monotonic()
     action = ACTIONS.get(args.action, ACTIONS["launch"])

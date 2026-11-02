@@ -106,7 +106,7 @@ If what is written is outdated or the screen has changed, do not follow it blind
 - Pass long text or line breaks with `--add-file` (a UTF-8 file). Up to 1,500 characters per entry and 40 entries per repo.
 - **Passwords and tokens are refused.** Keep accounts in `cred`.
 - Location: `~/.projectops/launch/<owner__repo>/journal.jsonl`.
-- **When the same workflow keeps coming back, give it a harness** (a README guide + helper scripts in one folder, shown automatically for matching URLs and hosts): `harness new <name> --url "<pattern>"`.
+- **When the same workflow keeps coming back, give it a harness** (a README guide + helper scripts in one folder, shown automatically for matching URLs, hosts, apps and windows): `harness new <name> --url "<pattern>"`.
   The journal keeps the context of each run; the harness keeps the steps to follow. Details: [`harness.md`](harness.md).
 
 ## Save tokens

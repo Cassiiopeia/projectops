@@ -13,7 +13,7 @@ import time
 
 import desktop_input
 
-from pro_launch.commands.desktop.common import save_shot, screen_digest, settle
+from pro_launch.commands.desktop.common import save_shot, screen_digest, settle, target_window
 from pro_launch.runtime import desktop_state
 from pro_launch.runtime.mutating import is_mutating_label
 
@@ -42,7 +42,7 @@ def resolve_ref(be, ref: int) -> tuple[dict | None, dict | None, dict | None]:
     if window is None:
         return None, None, {"ok": False, "code": "ref_stale", "error": "The window of that ref is gone",
                             "next": "desktop windows"}
-    return window, node, None
+    return target_window(window), node, None
 
 
 def mutating_refusal(node: dict, is_confirmed: bool) -> dict | None:

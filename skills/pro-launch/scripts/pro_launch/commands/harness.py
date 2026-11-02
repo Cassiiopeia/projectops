@@ -1,7 +1,8 @@
 """`harness` — 반복하는 사이트·작업의 안내서 폴더를 찾고·보고·맞추고·만든다 (projectops#1023).
 
 하네스는 폴더 하나다(`harness_store`). 새 사이트·작업을 더할 때 코드를 고치지 않는다 — `harness new` 나 손으로 폴더를 만든다.
-읽기는 맞는 주소·호스트로 향하는 명령의 응답에 `harness` 로 자동으로 실리고, 이 명령은 전체를 볼 때 쓴다.
+읽기는 맞는 주소·호스트·앱·창으로 향하는 명령의 응답에 `harness` 로 자동으로 실리고, 이 명령은 전체를 볼 때 쓴다.
+앱(패키지명·번들 ID)·창(제목·프로그램 이름) 맞추기는 projectops#1024.
 """
 from __future__ import annotations
 
@@ -60,10 +61,11 @@ def _show(args) -> int:
 
 
 def _match(args) -> int:
-    if not args.url and not args.host:
-        return out({"ok": False, "code": "target_required", "error": "Give --url or --host",
-                    "next": "harness match --url https://host:port/path"})
-    rows = harness_store.matching(project_root(args), url=args.url, host=args.host, area=args.area)
+    if not args.url and not args.host and not args.app and not args.window:
+        return out({"ok": False, "code": "target_required", "error": "Give --url, --host, --app or --window",
+                    "next": "harness match --url https://host:port/path  # or --app com.example.app · --window \"Setup\""})
+    rows = harness_store.matching(project_root(args), url=args.url, host=args.host, area=args.area,
+                                  app=args.app, window=args.window)
     if not rows:
         return out({"ok": True, "code": "empty", "matches": [],
                     "summary": "No harness matches", "next": None})
@@ -79,7 +81,7 @@ def _new(args) -> int:
                     "next": "harness new <name> --description \"...\" --url \"https://host/*\""})
     result = harness_store.create(project_root(args), args.name, description=args.description or "",
                                   hosts=args.host_list, urls=args.url_list, areas=args.area_list,
-                                  scope=args.scope, lang=args.lang)
+                                  scope=args.scope, lang=args.lang, apps=args.app_list, windows=args.window_list)
     if "error" in result:
         failure = {"ok": False, "code": result["error"], "error": result["message"],
                    "next": "Fix the value and call again"}
@@ -88,9 +90,10 @@ def _new(args) -> int:
             failure["next"] = f"harness show {args.name}  # edit that folder instead"
         return out(failure)
     entry = result["entry"]
-    no_match = not entry["match"]["hosts"] and not entry["match"]["urls"]
+    no_match = not any(entry["match"].values())
     return out({"ok": True, "code": "ok", "entry": _entry_brief(entry), "language": result["language"],
-                "summary": f"Created {entry['path']}" + (" (no --host/--url: listed only, never auto-shown)" if no_match else ""),
+                "summary": f"Created {entry['path']}" + (" (no --host/--url/--app/--window: listed only, never auto-shown)"
+                                                         if no_match else ""),
                 "next": (f"Fill in {entry['readme']} (goal · loop · human checks · when stuck) and put helper scripts beside it. "
                          "Never write secrets there — accounts go in cred")})
 
@@ -99,9 +102,11 @@ _HANDLERS = {"list": _list, "show": _show, "match": _match, "new": _new}
 
 
 def cmd_harness(args) -> int:
-    # match 는 --url · --host · --area 를 한 값(마지막 값)으로 쓴다. new 는 목록 그대로
+    # match 는 --url · --host · --app · --window · --area 를 한 값(마지막 값)으로 쓴다. new 는 목록 그대로
     args.url = (args.url_list or [None])[-1]
     args.host = (args.host_list or [None])[-1]
+    args.app = (args.app_list or [None])[-1]
+    args.window = (args.window_list or [None])[-1]
     args.area = (args.area_list or [None])[-1]
     return _HANDLERS[args.action](args)
 
@@ -116,7 +121,15 @@ def configure(p) -> None:
                    help="match: the URL to test · new: URL pattern to auto-surface on (* wildcard, repeatable)")
     p.add_argument("--host", dest="host_list", action="append", default=None,
                    help="match: the host to test · new: host to auto-surface on (host or host:port, * wildcard, repeatable)")
-    p.add_argument("--area", dest="area_list", action="append", choices=list(knowledge.AREAS), default=None,
+    p.add_argument("--app", dest="app_list", action="append", default=None,
+                   help="match: the package name / bundle ID to test · new: app id pattern to auto-surface on "
+                        "(Android package · iOS bundle ID, * wildcard, repeatable)")
+    p.add_argument("--window", dest="window_list", action="append", default=None,
+                   help="match: the window title or program name to test · new: desktop window title / program "
+                        "pattern to auto-surface on (* wildcard, repeatable)")
+    # app 명령의 영역 app 은 ios · android 와 통한다 (harness_store.area_applies)
+    p.add_argument("--area", dest="area_list", action="append", choices=[*knowledge.AREAS, harness_store.APP_AREA],
+                   default=None,
                    help="match: only harnesses for this area · new: areas it applies to (repeatable; none = all)")
     p.add_argument("--scope", choices=list(harness_store.SCOPES), default="machine",
                    help="new: machine (whole computer, default) or repo (this repo only)")
@@ -127,6 +140,6 @@ def configure(p) -> None:
 
 COMMANDS = [
     Command(name="harness",
-            help="Guides for repeated site work (README + optional helper scripts): list · show · match · new",
+            help="Guides for repeated site, app or desktop work (README + optional helper scripts): list · show · match · new",
             run=cmd_harness, configure=configure),
 ]

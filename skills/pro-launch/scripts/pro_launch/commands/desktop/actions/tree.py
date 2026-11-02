@@ -7,7 +7,7 @@ import desktop_input
 import node_match
 
 from pro_launch.commands.desktop.common import (OVERLAY_QUERY, listed_nodes, pick_window, public_window,
-                                                windows_to_search)
+                                                target_window, windows_to_search)
 from pro_launch.registry import Action
 from pro_launch.runtime import desktop_state
 from pro_launch.runtime.output import out
@@ -23,6 +23,8 @@ def read_nodes(args, window: dict | None = None) -> tuple[dict | None, list[dict
         window, failure = pick_window(be, args.window)
         if failure:
             return None, None, failure, 0.0
+    else:
+        target_window(window)
     started = time.monotonic()
     nodes = be.nodes(window, max(1, args.max_nodes), max(1, args.depth))
     elapsed = round(time.monotonic() - started, 3)

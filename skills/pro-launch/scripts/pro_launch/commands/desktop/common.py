@@ -14,6 +14,7 @@ import desktop_input
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.creds import cred_field
 from pro_launch.runtime.mutating import is_mutating_label
+from pro_launch.runtime.output import set_target
 from pro_launch.runtime.shots import finish_shot, shot_target
 
 # --window 예약어: 앞 창이 아닌 시스템 대화상자·알림 배너 (macOS)
@@ -53,8 +54,20 @@ def deps_missing(key: str, missing: list[str], be=None) -> dict:
             "next": "desktop setup  # installs into the shared venv (ask the user first)"}
 
 
+def target_window(window: dict | None) -> dict | None:
+    """이번 명령이 다루는 창 — 제목·프로그램 이름에 맞는 하네스(안내서)를 응답에 싣는다 (projectops#1024)."""
+    if window:
+        set_target(window=[window.get("title"), window.get("app")], area="desktop")
+    return window
+
+
 def pick_window(be, query: str | None) -> tuple[dict | None, dict | None]:
     """--window(제목 일부 · pid · 핸들 · overlay) 또는 앞에 있는 창. (창, 실패 결과)"""
+    window, failure = _pick_window(be, query)
+    return target_window(window), failure
+
+
+def _pick_window(be, query: str | None) -> tuple[dict | None, dict | None]:
     wins = be.windows()
     if not wins:
         return None, {"ok": False, "code": "window_not_found", "error": "No visible windows"}
@@ -98,6 +111,8 @@ def windows_to_search(be, query: str | None) -> tuple[list[dict], dict | None]:
     """글자로 찾는 동작(find · wait)이 훑을 창. overlay 는 전부 — 대화상자가 떠 있어도 배너를 찾게."""
     if query == OVERLAY_QUERY:
         found = ordered_overlays(be.windows())
+        if found:
+            target_window(found[0])
         return (found, None) if found else ([], _pick_overlay([])[1])
     window, failure = pick_window(be, query)
     return ([window] if window else []), failure

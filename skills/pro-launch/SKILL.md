@@ -62,7 +62,7 @@ Without it, the root is resolved in this order: `$PROJECT_ROOT` > working direct
 | When you finish a task — areas where you got stuck, got unstuck, and did not `learn` | `session-check` | `references/memory.md` |
 | Search · show · list official troubleshooting · draft an official entry from your memory | `kb search\|show\|list\|propose` | `references/troubleshooting.md` · `references/memory.md` |
 | Write free-form notes about work you did and read them next time (work journal) | `journal [--add "..."] [--title] [--site]` | `references/memory.md` |
-| **Guide for a site or workflow you repeat** (README to follow + optional helper scripts, one folder each) — read it before repeating site work · create one when a workflow repeats | `harness list\|show <name>\|match --url <url>\|new <name> --description "..." --url "<pattern>"` | `references/harness.md` |
+| **Guide for a site or workflow you repeat** (README to follow + optional helper scripts, one folder each) — read it before repeating site work · create one when a workflow repeats | `harness list\|show <name>\|match --url <url>\|new <name> --description "..." --url "<pattern>"` (apps · desktop: `--app` · `--window`) | `references/harness.md` |
 | Output location for this run + `env.sh` | `get-output-path` | Below |
 | Add a new platform · new action (contributors) | — | `references/extending.md` |
 
@@ -323,8 +323,8 @@ Details: `references/desktop.md`.
 - **If a response contains `memory`, read it first and try that approach first** (it is attached automatically — no separate recall needed). After using it, run `learn --key <that key> --result ok|fail`.
   If `learn_hint` arrives, record the approach that got you unstuck with `learn`. For methods unrelated to the repo, use `--scope machine`.
   Secrets and host-mouse methods are never stored. Run `shrink` on captures before attaching them to an issue. Details: `references/memory.md`.
-- **If a response contains `harness`, open its `readme` before repeating work on that site** and follow its loop and human-check points (helper scripts are optional; check the screen when it differs).
-  Before site work you have done before, `harness match --url <url>` (or `harness list`) even when nothing came in a response. When a workflow repeats, create one with `harness new <name> --url "<pattern>"`
+- **If a response contains `harness`, open its `readme` before repeating work on that site, app or window** and follow its loop and human-check points (helper scripts are optional; check the screen when it differs).
+  Before site work you have done before, `harness match --url <url>` (or `harness list`) even when nothing came in a response. When a workflow repeats, create one with `harness new <name> --url "<pattern>"` (apps: `--app <package/bundle ID>`, desktop: `--window "<title>"`)
   and put helper scripts in that folder, not in a random project folder. Roles: `journal` = context log of one task · `learn` = one-line conclusion · `harness` = the guide + helpers. Details: `references/harness.md`.
 
 ## Customize

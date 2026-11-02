@@ -23,7 +23,7 @@ scripts/
   launch_cli.py             entry point (thin)
   credentials.py            credential storage · masking
   knowledge.py              memory of what worked on this computer
-  harness_store.py          harness folders (guide README + helpers) · matching by URL/host · README skeletons in harness_templates/ (projectops#1023)
+  harness_store.py          harness folders (guide README + helpers) · matching by URL/host/app id/window · README skeletons in harness_templates/ (projectops#1023 · #1024)
   app_input.py              platform backends for app control (Android · iOS)
   maestro_session.py        resident iOS Maestro session — state file · client that calls the relay (#894)
   maestro_session_relay.py  the relay process (owns `maestro mcp` stdio · 127.0.0.1 TCP · idle shutdown)

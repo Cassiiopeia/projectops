@@ -11,7 +11,7 @@ from common.proc import sdk_tool
 
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.devices import load_devices, no_device_response, pick_device
-from pro_launch.runtime.output import out
+from pro_launch.runtime.output import out, set_target
 
 # 외부 도구 한 번의 최대 대기 (초)
 TOOL_TIMEOUT_SECONDS = 30
@@ -28,6 +28,9 @@ def resolve_target(args, is_package_required: bool = True):
         return platform, dev_id, None, out({
             "ok": False, "code": "package_required", "error": "No target app",
             "next": "--pkg <package name / bundle ID>  (use the value detect found)"})
+    if is_package_required:
+        # 이 동작은 그 패키지를 실제로 다룬다 — device bind 에서 온 값도 하네스 맞추기에 쓴다 (projectops#1024)
+        set_target(app=package)
     return platform, dev_id, package, None
 
 

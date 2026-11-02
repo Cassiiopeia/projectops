@@ -45,8 +45,9 @@ MEMORY_CTX: dict = {}
 
 # ── 이번 명령이 향하는 곳 (projectops#1023) ──────────────────────────────
 #
-# url · host · area · root. out() 이 이 주소·호스트에 맞는 하네스(harness_store)를 응답에 싣는다.
+# url · host · app · window · area · root. out() 이 이 주소·호스트·앱·창에 맞는 하네스(harness_store)를 응답에 싣는다.
 # 영역 기억과 달리 저장 없이 넘긴 ssh --host 처럼 영역이 안 정해진 명령에도 쓴다.
+# app: 패키지명·번들 ID (app 명령, area=app) · window: 창 제목·프로그램 이름 목록 (desktop 명령) — projectops#1024
 TARGET_CTX: dict = {}
 
 

@@ -340,25 +340,33 @@ def _journal_hooks(payload: dict, area: str, root: Path, unknown: bool, seen_dir
 
 
 def set_target(url: str | None = None, host: str | None = None, root: Path | None = None,
-               area: str | None = None) -> None:
-    """이번 명령이 향하는 주소·호스트. out() 이 맞는 하네스를 응답에 싣는다 (projectops#1023)."""
-    TARGET_CTX.update({k: v for k, v in (("url", url), ("host", host), ("root", root), ("area", area)) if v})
+               area: str | None = None, app: str | None = None, window=None) -> None:
+    """이번 명령이 향하는 주소·호스트·앱·창. out() 이 맞는 하네스를 응답에 싣는다 (projectops#1023 · #1024).
+    app: 패키지명·번들 ID · window: 창 제목·프로그램 이름 (문자열 하나 또는 여럿)."""
+    if isinstance(window, (list, tuple)):
+        window = [str(w) for w in window if w] or None
+    TARGET_CTX.update({k: v for k, v in (("url", url), ("host", host), ("root", root), ("area", area),
+                                         ("app", app), ("window", window)) if v})
 
 
 def _harness_hooks(payload: dict) -> None:
-    """이 주소·호스트에 맞는 하네스(안내서)를 싣는다. 하네스마다 하루 한 번, 실패 응답에서는 소모하지 않는다."""
+    """이 주소·호스트·앱·창에 맞는 하네스(안내서)를 싣는다. 하네스마다 하루 한 번, 실패 응답에서는 소모하지 않는다."""
     area = TARGET_CTX.get("area") or MEMORY_CTX.get("area")
+    if area == harness_store.APP_AREA and MEMORY_CTX.get("area") in harness_store.APP_PLATFORMS:
+        area = MEMORY_CTX["area"]   # 기기를 골랐으면 플랫폼(ios·android)으로 거른다 — areas: ["ios"] 가 Android 에 붙지 않게
     url = TARGET_CTX.get("url")
     if not url and area == "web" and isinstance(payload.get("url"), str) and "://" in payload["url"]:
         url = payload["url"]   # 이미 열린 브라우저의 조작(click · text …)은 지금 페이지 주소로 맞춘다
     host = TARGET_CTX.get("host")
-    if not (url or host) or not knowledge.base_dir().is_absolute():
+    app = TARGET_CTX.get("app")
+    window = TARGET_CTX.get("window")
+    if not (url or host or app or window) or not knowledge.base_dir().is_absolute():
         return
     try:
         root = TARGET_CTX.get("root") or MEMORY_CTX.get("root") or Path(".").resolve()
         seen_dir = knowledge.store_path("machine" if repo_unknown(root) else "repo", root).parent
         rows = harness_store.surface(root, seen_dir / harness_store.SEEN_FILE, url=url, host=host, area=area,
-                                     mark=payload.get("ok", True) is not False)
+                                     mark=payload.get("ok", True) is not False, app=app, window=window)
         if rows:
             payload["harness"] = rows
             payload["harness_note"] = ("A guide for this site or workflow exists. Read its README before repeating the work and "

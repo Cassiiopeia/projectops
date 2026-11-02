@@ -7,7 +7,7 @@ from pathlib import Path
 from pro_launch.commands.app.app_control import (control_result, resolve_target, run_tool,
                                                  unsupported_response)
 from pro_launch.registry import Action
-from pro_launch.runtime.output import out
+from pro_launch.runtime.output import out, set_target
 
 # payload 안에 대상 앱을 적는 simctl 표준 키 — 있으면 --pkg 없이도 된다
 PAYLOAD_BUNDLE_KEY = "Simulator Target Bundle"
@@ -38,6 +38,8 @@ def _app_push(args) -> int:
     platform, dev_id, package, err = resolve_target(args, is_package_required=is_package_required)
     if err is not None:
         return err
+    # 보낼 대상 앱 (--pkg · device bind · payload 의 번들 키) — 하네스 맞추기용 (projectops#1024)
+    set_target(app=package or str(payload.get(PAYLOAD_BUNDLE_KEY) or "") or None)
     if platform != "ios":
         return unsupported_response(platform, dev_id, "push",
                                     "Android has no official way to fake a push via adb (it goes through the FCM server)",
