@@ -136,7 +136,9 @@ Use the absolute path of the folder this SKILL.md is in. Every `B` command print
    - **Transcript**: session ID and the transcript path written with `~` for your home folder (so the maintainer can find it on their own machine)
 
    Follow the section headings of `.github/ISSUE_TEMPLATE/bug_report.md` (Description, How to reproduce, References, Expected behavior, Environment).
-   Write the prose in the language the user was using in this session.
+   **Write the title and all prose in English, whatever language the user speaks** (the readers of this repository are international).
+   Keep raw tool output and commands as they are. Quote the user's words in English with the original after it in parentheses.
+   This covers comments on an existing issue too.
 4. **Images.** Open every screenshot from `excerpt.images` (and any you took for this) **one by one and look at it.**
    Upload only those that show no personal data: `G upload-image Cassiiopeia projectops <files...>`, then put the returned markdown in the body.
    A screenshot that shows a name, address, birth date, account, ID number or document contents is left out — say in the body that it was left out and what it showed.

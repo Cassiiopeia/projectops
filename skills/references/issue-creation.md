@@ -32,7 +32,7 @@ Talk to the user in the user's language (or the configured `language` preference
 
 ## Allowed emoji + tag rules
 
-> **The language follows the target repo's templates.** Read the target repo's `.github/ISSUE_TEMPLATE/` and use that template's language, section headings, and allowed tags as they are. With a Korean template, use the Korean section headings and tags (`❗[버그]`); with an English template, use English (`❗[Bug]`). If there is no template, write in English (the defaults below). Tags in both languages map to commit types.
+> **The language follows the target repo's templates.** Read the target repo's `.github/ISSUE_TEMPLATE/` and use that template's language, section headings, and allowed tags as they are. With a Korean template, use the Korean section headings and tags (`❗[버그]`); with an English template, use English (`❗[Bug]`). If there is no template, write in English (the defaults below). With an English template, the title and all prose are in English too, even when the user is speaking another language. Tags in both languages map to commit types.
 
 **Main tags** (decide the type; exactly one):
 
