@@ -12,6 +12,10 @@ from figma_tools.commands.ingest import cmd_ingest
 from figma_tools.commands.token import cmd_token
 from figma_tools.commands.output_path import cmd_output_path
 from figma_tools.commands.store import STORE_IDS, cmd_store_check, cmd_store_specs
+from figma_tools.commands.store_pages import cmd_store_pages
+from figma_tools.commands.store_upload import (
+    UPLOAD_STATUSES, cmd_store_upload_mark, cmd_store_upload_plan, cmd_store_upload_status,
+)
 from figma_tools.conform_probes import _ALL_CHECKS
 
 
@@ -113,6 +117,33 @@ def build_parser() -> JSONArgumentParser:
     sp.add_argument("--store", choices=STORE_IDS, default=None, help="Only this store (omit for all outputs)")
     sp.add_argument("--root", default=".", help="Project root holding version.yml (default: current directory)")
     sp.set_defaults(func=cmd_store_compose)
+
+    # 언어별 랜딩 페이지 (#1021): pages.json > site/ (hreflang · sitemap)
+    pg = sub.add_parser("store-pages", help="Build per-locale landing pages with hreflang links and a sitemap")
+    pg.add_argument("--run-dir", dest="run_dir", required=True,
+                    help="run_dir printed by get-output-path (pages go to <run_dir>/store/site)")
+    pg.add_argument("--pages", default=None, help="Pages file (default: <run_dir>/store/pages.json)")
+    pg.add_argument("--root", default=".", help="Project root (default: current directory)")
+    pg.set_defaults(func=cmd_store_pages)
+
+    # 콘솔 업로드 체크리스트 (#1021): 업로드는 pro-launch web, 진행 기록만 여기서
+    up = sub.add_parser("store-upload-plan", help="Make the console upload checklist from a store-check ready folder")
+    up.add_argument("--dir", required=True, help="Store image folder that passes store-check")
+    up.add_argument("--locales", default=None, help="Comma-separated target locales (same as store-check)")
+    up.add_argument("--out", default=None, help="Checklist path (default: <dir>/../upload_checklist.json)")
+    up.add_argument("--root", default=".", help="Project root holding version.yml (default: current directory)")
+    up.set_defaults(func=cmd_store_upload_plan)
+
+    um = sub.add_parser("store-upload-mark", help="Record one checklist item's upload step")
+    um.add_argument("--checklist", required=True, help="upload_checklist.json from store-upload-plan")
+    um.add_argument("--key", required=True, help="Item key store/locale/slot (ios/en-US/iphone-dynamic-island-large)")
+    um.add_argument("--status", required=True, choices=UPLOAD_STATUSES, help="Step reached")
+    um.add_argument("--note", default=None, help="Short note (what the console showed)")
+    um.set_defaults(func=cmd_store_upload_mark)
+
+    us = sub.add_parser("store-upload-status", help="Show upload progress and the final per-locale, per-slot report")
+    us.add_argument("--checklist", required=True, help="upload_checklist.json from store-upload-plan")
+    us.set_defaults(func=cmd_store_upload_status)
     return p
 
 

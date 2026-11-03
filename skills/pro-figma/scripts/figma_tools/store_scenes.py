@@ -39,7 +39,7 @@ def load_scenes(path: Path) -> tuple[dict | None, list]:
 
 def resolve_theme(raw_theme: object) -> tuple[dict, list]:
     """테마 병합 + CSS 로 들어가는 값 검증 (색·글꼴 이름은 허용 문자만)"""
-    theme = dict(DEFAULT_THEME)
+    theme = dict(DEFAULT_THEME, font_files=[])
     issues: list = []
     if not isinstance(raw_theme, dict):
         return theme, issues

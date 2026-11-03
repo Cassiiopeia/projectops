@@ -96,18 +96,22 @@ def _locale_code_mismatches(store: str, targets: list[str], folder_locales: list
 # =========================================================================
 
 def cmd_store_check(args) -> int:
-    """폴더 훑기 > 스토어별 판정 > verdict"""
-    root = Path(args.dir).resolve()
+    return emit(check_store_folder(args.dir, args.locales, args.root))
+
+
+def check_store_folder(folder: str, cli_locales: str | None, project_root_arg: str) -> dict:
+    """폴더 훑기 > 스토어별 판정 > verdict 응답 (store-check · store-upload-plan 공용)"""
+    root = Path(folder).resolve()
     if not root.is_dir():
-        return emit({"ok": False, "code": "dir_not_found", "error": f"Folder not found: {args.dir}",
-                     "hint": f"Export images into the layout first: {LAYOUT_EXAMPLE}"})
+        return {"ok": False, "code": "dir_not_found", "error": f"Folder not found: {folder}",
+                "hint": f"Export images into the layout first: {LAYOUT_EXAMPLE}"}
     specs = load_store_specs()
     found, unknown = scan_store_folder(root, specs)
-    project_root = Path(args.root).resolve()
+    project_root = Path(project_root_arg).resolve()
 
     matrix, issues, warnings, locales_by_store = {}, [], [], {}
     for store, store_found in found.items():
-        store_report = _judge_store(store, specs["stores"][store], store_found, args.locales,
+        store_report = _judge_store(store, specs["stores"][store], store_found, cli_locales,
                                     project_root, root)
         matrix[store] = store_report["matrix"]
         issues.extend(store_report["issues"])
@@ -117,7 +121,7 @@ def cmd_store_check(args) -> int:
     image_count = sum(len(images) for store_found in found.values()
                       for slots in store_found.values() for images in slots.values())
     verdict = "empty" if image_count == 0 else ("issues" if issues else "ready")
-    return emit({
+    return {
         "verdict": verdict,
         "summary": _summary(verdict, image_count, issues, warnings, unknown),
         "next": _next_step(verdict),
@@ -128,7 +132,7 @@ def cmd_store_check(args) -> int:
         "warnings": warnings,
         "unknown": unknown,
         "matrix": matrix,
-    })
+    }
 
 
 def _judge_store(store: str, store_spec: dict, store_found: dict, cli_locales: str | None,
@@ -197,5 +201,5 @@ def _next_step(verdict: str) -> str:
     if verdict == "issues":
         return ("Fix each item in issues at its source (the Figma frame or export scale), export again "
                 "into the same folder, and run store-check again. Do not resize the exported files")
-    return ("Write the upload checklist from matrix (store x locale x slot) into the folder from "
-            "get-output-path; review warnings before uploading")
+    return ("Review warnings, then make the upload checklist with store-upload-plan --dir <this dir> "
+            "(same --locales)")

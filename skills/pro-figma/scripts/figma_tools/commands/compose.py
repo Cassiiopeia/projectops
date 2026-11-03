@@ -26,7 +26,7 @@ def _is_inside(child: Path, parent: Path) -> bool:
         return False
 
 
-def _resolve_store_dir(run_dir_arg: str, project_root: Path) -> tuple[Path | None, dict | None]:
+def resolve_store_dir(run_dir_arg: str, project_root: Path) -> tuple[Path | None, dict | None]:
     """run_dir 이 산출물 루트 안인지 확인 > run_dir/store. 밖이면 에러 응답"""
     try:
         from common.paths import resolve_output_root
@@ -54,7 +54,7 @@ def _stale_image_warnings(images_dir: Path, written: set) -> list:
 
 def cmd_store_compose(args) -> int:
     project_root = Path(args.root).resolve()
-    store_dir, error = _resolve_store_dir(args.run_dir, project_root)
+    store_dir, error = resolve_store_dir(args.run_dir, project_root)
     if error:
         return emit(error)
     scenes_path = Path(args.scenes).resolve() if args.scenes else store_dir / SCENES_FILE_NAME

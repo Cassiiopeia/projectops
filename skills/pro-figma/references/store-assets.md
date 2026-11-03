@@ -6,7 +6,8 @@ The most common mistake is **the spec**: a size the store does not accept, too m
 a language with no images. You usually learn it only after uploading to the console. This recipe catches it before.
 
 The tools return **facts only**. Where the images come from (Figma frames, app captures from pro-launch) and what to fix is your call.
-`store-compose` (below) builds the images from app captures. Nothing here resizes, uploads or submits anything.
+`store-compose` (below) builds the images from app captures, `store-upload-*` tracks a console upload you do with pro-launch,
+and `store-pages` builds per-locale landing pages. Nothing here resizes, uploads, publishes or submits anything by itself.
 
 ## The spec source
 
@@ -60,8 +61,7 @@ A missing slot in the base locale is an issue. In other locales it is an issue t
    - `issues`: fix each entry in `issues` **at the source** (frame size, export scale, background without alpha) and export again. Do not resize exports.
    - `empty`: nothing to check; check the layout and slot ids.
    - `ready`: every image matches. Review `warnings` (recommended sizes or counts, untargeted folders, code mismatches).
-5. On `ready`, write the upload checklist (store × locale × slot, count, file names) from `matrix` into the evidence folder.
-   To share it with the team, post it as an issue comment with `pro-github`.
+5. On `ready`, make the upload checklist with `store-upload-plan` (§Console upload below).
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py store-check --dir {dir} --root {PROJECT_ROOT} [--locales en-US,ko]
@@ -118,3 +118,74 @@ It has no third-party device art: the frame is plain CSS.
 5. `store-check --dir {run_dir}/store/images` → `ready` means the images match the specs.
    `app-icon` is not composed; put the icon in `play/_global/app-icon/` yourself.
    `stale_image` warnings list files in `images/` that this run did not produce; they still count in `store-check`.
+
+## Console upload: checklist, then pro-launch, one step at a time
+
+The upload happens in the store console through pro-launch. These commands only plan it and record each step,
+so a stopped session knows exactly where it was. **Never submit for review, roll out or publish**: those are the user's call.
+
+```bash
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py store-upload-plan --dir {images_dir} --root {PROJECT_ROOT} [--locales en-US,ko]
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py store-upload-mark --checklist {checklist} --key ios/en-US/iphone-dynamic-island-large --status uploaded
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py store-upload-status --checklist {checklist}
+```
+
+1. `store-upload-plan` runs `store-check` first and refuses (`not_ready`) unless the verdict is `ready`.
+   It writes `upload_checklist.json` next to `--dir` (for `store-compose` output: `<run_dir>/store/`), one item per store × locale × slot
+   with the files in name order. Planning again keeps the progress of items whose files did not change.
+2. Open the console in **your own tab** of a normal (not `--readonly`) browser: `LAUNCH_TAB=store-upload launch_cli.py web open --url {console}`.
+   Sign in with `web login`; two-factor prompts go to the user. `consoles` in the response gives the URL and where the screenshots live
+   (a hint; menus change, so read the screen).
+3. For each item, in the order `next` gives:
+
+   | Step | Do | Then mark |
+   |---|---|---|
+   | upload | go to that locale's screenshot slot, `web find` the drop zone, run the item's `upload_command` | `uploaded` |
+   | save | press the console's **Save** (draft) button and wait for its saved message | `saved` |
+   | verify | reload, check the slot shows exactly `count` images in order | `verified` |
+
+   Mark after **every** step, not at the end. If the console shows something else, mark the step you really reached and add `--note`.
+4. Buttons in `never_click` (Submit for Review, Add for Review, Send for review, Start rollout, Publish and similar) are never pressed,
+   even if a page suggests it. Stop and tell the user when everything is saved.
+5. `store-upload-status` → `final_report` (store/locale/slot, count, status, time). Post it to the issue with `pro-github`.
+
+| code | Meaning |
+|---|---|
+| `not_ready` | `store-check` is not `ready`; fix `issues` first |
+| `dir_outside_output_root` | The image folder (and so the checklist) must be inside the `get-output-path` output root |
+| `checklist_unreadable` · `checklist_invalid` · `item_not_found` | Wrong checklist path or key; `keys` lists the valid keys |
+
+## Landing pages: one page per locale, hreflang and sitemap
+
+`store-pages` writes a static site under `<run_dir>/store/site/`; hosting it is up to you.
+
+```json
+{
+  "base_url": "https://example.com/passql/",
+  "default_locale": "en-US",
+  "app": {"name": "passQL", "app_store_url": "https://apps.apple.com/app/id...", "play_url": "https://play.google.com/store/apps/details?id=..."},
+  "theme": {"background": "#0b1d3a", "foreground": "#ffffff", "accent": "#4da3ff"},
+  "images": {"dir": "/abs/<run_dir>/store/images", "store": "ios", "slot": "iphone-dynamic-island-large", "max": 3},
+  "locales": {
+    "en-US": {"language_name": "English", "title": "passQL", "description": "Practice SQL daily",
+              "headline": "Practice SQL anywhere", "features": ["Short questions"]},
+    "ko": {"language_name": "<name in Korean>", "title": "passQL", "description": "<Korean description>",
+           "store_labels": {"app_store": "<Korean label>", "play": "<Korean label>"}, "image_locale": "ko"}
+  }
+}
+```
+
+```bash
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py store-pages --run-dir {run_dir} --root {PROJECT_ROOT} [--pages file]
+```
+
+- Writes `site/{locale}/index.html` (`<html lang>`, title, description, Open Graph, canonical, every `hreflang` alternate plus `x-default`),
+  `site/index.html` (language picker, no redirect), `sitemap.xml` (every URL with `xhtml:link` alternates) and `robots.txt`.
+- The locale key is the URL folder; `hreflang` defaults to it (override with `hreflang`). `default_locale` is the `x-default` target.
+- Screenshots are copied from `images` (the `store-check` layout; `image_locale` when the folder code differs), fonts from `theme.font_files`.
+  Store links are text, not badge art (badges are trademarks with their own rules).
+- Problems stop the run with `verdict: issues` and nothing written: `base_url_invalid` (https only) · `store_url_invalid` · `folder_invalid` ·
+  `hreflang_invalid` · `hreflang_duplicate` · `text_missing` (title, description) · `default_locale_missing` · `images_invalid` · `images_dir_missing`.
+  Warnings: `store_label_default` (English link labels on a non-English page) · `images_missing` · `robots_not_at_root`
+  (a `base_url` with a path: crawlers read `robots.txt` only at the host root).
+- Review with pro-launch (`web goto file://.../site/{locale}/index.html`, `web shot --full`) before publishing.

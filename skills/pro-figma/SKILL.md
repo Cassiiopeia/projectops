@@ -47,6 +47,8 @@ The **absolute rules** in `../references/common-rules.md` apply. Arguments: $ARG
 | Report · pitfall table | — | `references/comparing.md` |
 | Store screenshots · feature graphic · icon: specs and per-locale check | `figma_cli.py store-specs` · `store-check --dir` | `references/store-assets.md` |
 | Compose per-locale store images (caption + device frame, banner) from app captures | `figma_cli.py store-compose --run-dir` → render with `launch_cli.py web script` → `store-check` | `references/store-assets.md` §Composer |
+| Upload store images to the console step by step (never submit for review) | `figma_cli.py store-upload-plan --dir` → `launch_cli.py web upload` → `store-upload-mark` → `store-upload-status` | `references/store-assets.md` §Console upload |
+| Per-locale landing pages with hreflang and a sitemap | `figma_cli.py store-pages --run-dir` | `references/store-assets.md` §Landing pages |
 
 ## Find the scripts once
 
@@ -192,6 +194,8 @@ and record the node id you compared against. Format and pitfall table: `referenc
 | `conformance_failed` | There are items at or above `--fail-on`. Fix the listed items, or record a reason for approximating or omitting them |
 | `dir_not_found` | `store-check --dir` does not exist. Export the images into `{store}/{locale}/{slot}/` first (`references/store-assets.md`) |
 | `run_dir_invalid` · `scenes_not_found` · `scenes_unreadable` · `scenes_invalid` | `store-compose`: `--run-dir` must be the `run_dir` from `get-output-path`; write `scenes.json` at `<run_dir>/store/` (`references/store-assets.md` §Composer) |
+| `not_ready` · `dir_outside_output_root` · `checklist_unreadable` · `item_not_found` | `store-upload-*`: pass `store-check` first; keep images inside the output root; use the checklist path and keys from `store-upload-plan` |
+| `pages_not_found` · `pages_unreadable` · `pages_invalid` | `store-pages`: write `pages.json` at `<run_dir>/store/` (`references/store-assets.md` §Landing pages) |
 | `mkdir_failed` | Could not create the output location. Check permissions and `--root` |
 | `bad_args` | Check the subcommand and required arguments (`--dump` · `--render` · `--design` · `--title`) |
 
