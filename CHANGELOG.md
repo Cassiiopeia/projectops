@@ -1,7 +1,25 @@
 # Changelog
 
-**Current version:** 4.81.0  
-**Last updated:** 2026-11-02T08:04:34Z  
+**Current version:** 4.82.0  
+**Last updated:** 2026-11-03T02:47:09Z  
+
+---
+
+## [4.82.0] - 2026-11-03
+
+**PR:** #1030  
+
+**New features**
+- Store image upload checklist that tracks each console step and never submits for review
+- Per-language landing pages with language links and a sitemap, built from store texts and screenshots
+- Opening a browser now closes abandoned browsers left by earlier sessions
+
+**Bug fixes**
+- Repository creation requests that the API refuses now point to the create-repo command
+- Automatic skill bug reports no longer flag an unrelated command long after a failure
+
+**Documentation**
+- Skill bug reports are always written in English
 
 ---
 
