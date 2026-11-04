@@ -1,14 +1,42 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-04T16:51:04Z",
-    "currentVersion": "4.86.0",
+    "lastUpdated": "2026-11-04T17:12:54Z",
+    "currentVersion": "4.87.0",
     "projectType": "basic",
-    "totalReleases": 369,
+    "totalReleases": 370,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.87.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-04",
+      "pr_number": 1062,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * The documentation site now has a page comparing projectops with release-please, semantic-release and changesets\n  * Documentation pages now show proper titles, descriptions and previews in search results and shared links\n\n* **Documentation**\n  * Explained who can run the preview and QA comment commands on public repositories\n  * Added Windows fixes to the troubleshooting guide\n  * Corrected a wrong date in the Korean, Japanese and Chinese READMEs",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "The documentation site now has a page comparing projectops with release-please, semantic-release and changesets",
+            "Documentation pages now show proper titles, descriptions and previews in search results and shared links"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Explained who can run the preview and QA comment commands on public repositories",
+            "Added Windows fixes to the troubleshooting guide",
+            "Corrected a wrong date in the Korean, Japanese and Chinese READMEs"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.86.0",
       "project_type": "basic",

@@ -1,7 +1,22 @@
 # Changelog
 
-**Current version:** 4.86.0  
-**Last updated:** 2026-11-04T16:51:04Z  
+**Current version:** 4.87.0  
+**Last updated:** 2026-11-04T17:12:54Z  
+
+---
+
+## [4.87.0] - 2026-11-04
+
+**PR:** #1062  
+
+**New features**
+- The documentation site now has a page comparing projectops with release-please, semantic-release and changesets
+- Documentation pages now show proper titles, descriptions and previews in search results and shared links
+
+**Documentation**
+- Explained who can run the preview and QA comment commands on public repositories
+- Added Windows fixes to the troubleshooting guide
+- Corrected a wrong date in the Korean, Japanese and Chinese READMEs
 
 ---
 
