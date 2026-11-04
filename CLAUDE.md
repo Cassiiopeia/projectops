@@ -172,6 +172,20 @@ snake_case.sh / snake_case.py
 | `PROJECT-COMMON-PROJECTS-SYNC-MANAGER` | 이슈 라벨 변경 | Issue Label → Projects Status 동기화 (선택 — `common/projects-sync/`, `--projects-sync`, #716) |
 | `PROJECT-COMMON-AI-PR-SUMMARY` | 작업 PR 생성·갱신 | 변경 요약 댓글 (선택 — `common/pr-summary/`, #566) |
 
+### ⚠️ Windows는 cp949와 비ASCII 경로까지 봐야 검증이다 (agent 필독)
+
+**영문 경로와 UTF-8 모드로 통과한 것은 Windows 검증이 아니다.** 일반 사용자 환경은 시스템 코드페이지가 cp949이고 폴더 이름에 한글과 공백이 있다.
+
+| 함정 | 증상 | 지키는 방법 |
+|---|---|---|
+| `fs.cpSync` + 비ASCII 경로 (Node 22 이상) | 메시지 없이 프로세스 종료, 임시 폴더 잔존 | `fsutil.copyPathSync`. 규칙 `no-fs-cpsync` |
+| `subprocess.run(text=True)`만 쓰기 | 한글 출력에서 `stdout`이 `None`, 다음 줄에서 크래시 | git은 `encoding="utf-8", errors="replace"`, 그 외 `errors="replace"`. 규칙 `no-subprocess-text-without-errors` |
+| Windows용 안내 명령에 `&&` | PowerShell 5.1 파싱 오류 | `;`로 잇는다 |
+
+- **`PYTHONUTF8=1`이 켜진 개발 PC에서는 위 결함이 전부 숨는다.** 확인할 때 `unset PYTHONUTF8 PYTHONIOENCODING`으로 재현한다.
+- 전역 git `core.longpaths`도 마찬가지다. 새 사용자처럼 빈 `HOME`으로 돌려 본다.
+- 스모크(`matrix-smoke`)는 3 OS, Node 20과 24에서 비ASCII 공백 경로 설치까지 돈다.
+
 ### ⚠️ 테스트는 감시용 5개만 둔다 (agent 필독)
 
 AI가 작업마다 쌓은 테스트(약 250개 파일, 3만 줄)를 걷어 내고, **여러 파일에 흩어진 약속이 서로 맞는지 보는 감시 검사만** 남겼다.
