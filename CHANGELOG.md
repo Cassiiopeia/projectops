@@ -1,7 +1,22 @@
 # Changelog
 
-**Current version:** 4.83.0  
-**Last updated:** 2026-11-04T00:51:44Z  
+**Current version:** 4.84.0  
+**Last updated:** 2026-11-04T01:29:15Z  
+
+---
+
+## [4.84.0] - 2026-11-04
+
+**PR:** #1045  
+
+**New features**
+- Figma: pixel comparison can list flat color areas that exist on one side only, which catches leftover or missing pieces hidden under text noise
+- Figma: pixel comparison can pair text rows by height and report shifted, extra or missing lines
+- Figma: property comparison checks each box's position first and skips the OS status bar, home indicator and keyboard automatically
+- Figma: check downloaded SVGs for parts the app renderer drops (filters, CSS styles, text, gradient transforms)
+
+**Documentation**
+- Figma: rules learned from a real app: copy absolute positions, draw shapes as assets, match every gradient stop, split tokens by use, keep a comparison ledger, check layers hidden in the export, and render under fixed conditions
 
 ---
 

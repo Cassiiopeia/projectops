@@ -1,14 +1,42 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-04T00:51:44Z",
-    "currentVersion": "4.83.0",
+    "lastUpdated": "2026-11-04T01:29:15Z",
+    "currentVersion": "4.84.0",
     "projectType": "basic",
-    "totalReleases": 366,
+    "totalReleases": 367,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.84.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-04",
+      "pr_number": 1045,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * Figma: pixel comparison can list flat color areas that exist on one side only, which catches leftover or missing pieces hidden under text noise\n  * Figma: pixel comparison can pair text rows by height and report shifted, extra or missing lines\n  * Figma: property comparison checks each box's position first and skips the OS status bar, home indicator and keyboard automatically\n  * Figma: check downloaded SVGs for parts the app renderer drops (filters, CSS styles, text, gradient transforms)\n\n* **Documentation**\n  * Figma: rules learned from a real app: copy absolute positions, draw shapes as assets, match every gradient stop, split tokens by use, keep a comparison ledger, check layers hidden in the export, and render under fixed conditions",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "Figma: pixel comparison can list flat color areas that exist on one side only, which catches leftover or missing pieces hidden under text noise",
+            "Figma: pixel comparison can pair text rows by height and report shifted, extra or missing lines",
+            "Figma: property comparison checks each box's position first and skips the OS status bar, home indicator and keyboard automatically",
+            "Figma: check downloaded SVGs for parts the app renderer drops (filters, CSS styles, text, gradient transforms)"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Figma: rules learned from a real app: copy absolute positions, draw shapes as assets, match every gradient stop, split tokens by use, keep a comparison ledger, check layers hidden in the export, and render under fixed conditions"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.83.0",
       "project_type": "basic",
