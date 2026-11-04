@@ -8,7 +8,7 @@
 
 [![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/)
 
-**Status: actively maintained.** npm `latest` is exactly what is on the `main` branch; work in progress on `develop` is never published. Versions can still ship several times a day. To stay on a version you have tested, run `npx projectops@<version>` ([releases](https://github.com/Cassiiopeia/projectops/releases)).
+**Status: actively maintained.** npm `latest` is exactly what is on the `main` branch; work in progress on `develop` is never published. Versions can still ship several times a day. Note that `npx projectops@<version>` pins the installer only (workflow templates always come from the current `main`) ([releases](https://github.com/Cassiiopeia/projectops/releases)).
 
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
 ## Latest version : v4.83.0 (2026-11-04)
@@ -28,7 +28,7 @@
 | Install Agent Skills only | `npx projectops --mode skills` |
 | Check the install state (read-only) | `npx projectops --mode doctor` |
 
-> You only need Node.js 20.12+. An interactive wizard runs with no separate install.
+> You need Node.js 20.12+ and Git (Agent Skills also need Python 3). An interactive wizard runs with no separate install.
 
 ![npx projectops interactive wizard](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
 
@@ -40,7 +40,7 @@
 
 This project automates your development workflow on two axes.
 
-**① GitHub Actions**: one push to main handles versioning, changelogs, and CI/CD deployment.
+**① GitHub Actions**: a develop-to-main release PR handles versioning and changelogs; merging it runs CI/CD deployment.
 **② Agent Skills**: commands such as `/pro-github`, `/pro-commit`, and `/pro-report` let an AI agent drive each step of that automation for you: issues, commits in your own style, reports, and release PRs.
 
 | The usual way | With Projectops |
@@ -64,15 +64,15 @@ If you only need one piece of this, a smaller tool may suit you better.
 | Version decided from | Commit titles (`feat` → minor, `feat!` → major) | Conventional Commits | Conventional Commits (configurable) | Changeset files written in each PR |
 | Review step before a release | A release PR (develop → main), merged automatically | A release PR you merge | None by default, releases on push | A "Version Packages" PR |
 | Changelog | Written in the release PR (commit analysis, or an AI summary) | Generated | Generated (plugin) | Assembled from changeset files |
-| CI/CD workflows for your project type | Yes (Spring, Flutter, React, Node, Python ...) | No | No | No |
+| CI/CD workflows for your project type | Yes (Spring, Flutter, React, Python; npm publish for Node) | No | No | No |
 | Agent skills that run the cycle (issues, worktrees, commits in your style, reports, release PRs, real-device QA) | Yes | No | No | No |
-| What it adds to your repo | About 50 files (below) | A workflow and a config file | A config file and a CI step | A `.changeset/` folder and a CI step |
+| What it adds to your repo | About 60 files (below) | A workflow and a config file | A config file and a CI step | A `.changeset/` folder and a CI step |
 
 - Want only versioning and a changelog? release-please or semantic-release is smaller.
 - Publishing npm packages from a monorepo where each PR should say what changed? changesets fits better.
 - Want the whole cycle (issue → branch → release PR → deploy) in one install, with agent skills on top? That is what projectops is for.
 
-**Footprint, measured.** With v4.36.2 on 2026-10-08, `npx projectops --mode full --type basic --force` in an empty repository added 52 files: 8 workflows, 26 helper scripts under `.github/scripts/`, issue, PR and discussion templates, `version.yml` and a setup guide. `--type spring` added 56 files (12 workflows).
+**Footprint, measured.** With v4.84.0 on 2026-11-05, `npx projectops --mode full --type basic --force` in an empty repository added 56 files: 8 workflows, 30 helper scripts under `.github/scripts/`, issue, PR and discussion templates, `version.yml` and a setup guide. `--type spring` added 60 files (12 workflows).
 
 ---
 
@@ -128,10 +128,9 @@ We ran `/pro-oss-consult` on this repo, then fixed what it found (measured 2026-
 |---|---|---|
 | Skill count stated in README and manifests | inconsistent (15 vs 20 stated, actual 15) | consistent: 14 core + 1 in the optional extras plugin |
 | Longest skill description | 1,183 chars; 6 over 1,000 | 237 chars; 0 over 300 |
-| Skills with no tests (all 15 skills) | 6 | 0 (56 contract test cases cover all 15 skills, 14 core + 1 extras) |
 | Commit format | hardcoded in `pro-commit` | configurable via preferences and `version.yml` |
 
-What it changed: descriptions were cut to short English triggers, a shared contract test now checks every skill, and `pro-commit` follows your team's `version.yml` commit template.
+What it changed: descriptions were cut to short English triggers, a guard test now checks every core skill's docs, and `pro-commit` follows your team's `version.yml` commit template.
 
 ---
 
@@ -139,7 +138,7 @@ What it changed: descriptions were cut to short English triggers, a shared contr
 
 | Part | What it does | Docs |
 |---|---|---|
-| **GitHub Actions** | One push to main handles versioning, changelogs, and CI/CD deployment | [Versioning](https://cassiiopeia.github.io/projectops/version-control) |
+| **GitHub Actions** | A develop-to-main release PR handles versioning and changelogs; merging it runs CI/CD deployment | [Versioning](https://cassiiopeia.github.io/projectops/version-control) |
 | **Agent Skills** (15) | `/pro-github`, `/pro-commit`, `/pro-report` and more let an AI agent drive each step: issues, commits in your style, reports, release PRs | [Skills guide](https://cassiiopeia.github.io/projectops/skills) |
 | **npx CLI** | Installs and updates workflows in an existing project, and diagnoses its state | [CLI reference](https://cassiiopeia.github.io/projectops/cli) |
 
@@ -270,7 +269,7 @@ npx projectops --mode skills
 | `spring` | build.gradle | SSH + Docker deploy, Nexus |
 | `flutter` | pubspec.yaml | TestFlight, Play Store |
 | `react` (including Next.js) | package.json | Docker |
-| `node` | package.json | Docker |
+| `node` | package.json | npm publish (`--publish npm`) |
 | `python` | pyproject.toml | SSH + Docker deploy |
 | `react-native` | Info.plist + build.gradle | — |
 | `react-native-expo` | app.json | — |
@@ -334,8 +333,8 @@ We would rather tell you up front when this is not a fit.
 - **GitHub only.** It assumes GitHub Actions and GitHub issues/PRs, so GitLab and others are not supported.
 - **Releases assume a develop branch → default branch PR flow.** Branch names can be changed in `version.yml`, but it does not suit a repo that does not use two branches.
 - **A personal access token is optional.** You need one only to merge past branch protection or to sync a Projects board. See [Setup](#setup).
-- **It adds about 50 files to your repository** (workflows, helper scripts, templates). See [the measurement](#compared-with-other-tools).
-- **New versions ship often.** `latest` follows every push to `main` with no delay. Pin a version you have tested with `npx projectops@<version>`.
+- **It adds about 60 files to your repository** (workflows, helper scripts, templates). See [the measurement](#compared-with-other-tools).
+- **New versions ship often.** `latest` follows every push to `main` with no delay. `npx projectops@<version>` pins the installer only; workflow templates always come from the current `main`.
 - **Server deploy workflows assume a Docker server reachable over SSH.**
 
 ---

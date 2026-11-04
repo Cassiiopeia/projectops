@@ -84,8 +84,6 @@ metadata:
 
 When a fallback happens, a **PR comment** records which provider took over. Because the commit provider always finishes, the release notes are never empty.
 
-Test: `python -m pytest .github/scripts/test/test_changelog_providers.py`
-
 ---
 
 ## Output files

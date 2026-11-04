@@ -24,16 +24,16 @@ Node.js 20.12 이상, Python 3.12(스크립트와 스킬 테스트용), Git이 �
 git clone https://github.com/<본인>/projectops.git
 cd projectops
 git remote add upstream https://github.com/Cassiiopeia/projectops.git
-python3 -m pip install pytest pyyaml pillow numpy
+python3 -m pip install pytest pyyaml
 ```
+
+Windows에서는 `python3` 대신 `python`을 쓰세요. `python3`가 Microsoft Store 스텁일 수 있습니다.
 
 ## 테스트
 
 ```bash
 npm test
-python3 -m pytest .github/scripts/test/ -q
-python3 -m pytest skills/ -q
-python3 -m pytest scripts/tests/ -q
+python3 -m pytest scripts/tests/ .github/scripts/test/ -q
 python3 .github/util/flutter/_shared/check-consistency.py   # Flutter 마법사를 고쳤을 때만
 ```
 
@@ -68,7 +68,7 @@ CI는 Linux, macOS, Windows에서 같은 명령을 돌립니다. 설치기는 ma
 ## PR 체크리스트
 
 - [ ] 변경을 설명하는 이슈가 있고 PR이 연결돼 있다
-- [ ] 로컬에서 테스트가 통과하고, 새 동작이나 고친 버그에 테스트를 추가했다
+- [ ] 로컬에서 검사가 통과하고 변경을 직접 실행해 봤다. 새 테스트는 커밋하지 않는다
 - [ ] 사용자에게 보이는 문구는 영문으로 쓰고 `src/i18n/`을 거친다. 한국어는 `ko` 카탈로그에 둔다. 워크플로우와 스크립트가 사용자 레포에 게시하는 문구는 `.github/scripts/i18n/`을 거친다 ([docs/TRANSLATING.md](../TRANSLATING.md) 참고)
 - [ ] 공통 워크플로우를 고쳤다면 `.github/workflows/`와 `.github/workflows/project-types/common/` 두 사본을 모두 고쳤다
 - [ ] 워크플로우에 `permissions:`가 있고, 새 워크플로우에는 `workflow_dispatch`와 `concurrency`가 있다

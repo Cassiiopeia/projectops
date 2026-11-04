@@ -80,7 +80,7 @@ These are parsed by other code. Changing them silently breaks installed projects
 
 1. Implement it in `.github/scripts/changelog_providers/` and register it in `ladder.py` and `openai_compatible.py` (`PRESETS`) if it speaks the OpenAI API. Never put a version in the model name; use a `-latest` alias.
 2. Add the name to `CHANGELOG_PROVIDERS` in `src/core/constants.js`.
-3. Add the secret name to the AI key lists (`ladder.py`, `src/commands/doctor.js`, `src/ui/summary.js`, the workflow `env:` blocks). `test_ai_key_lists_agree` fails if they drift.
+3. Add the secret name to the AI key lists (`ladder.py`, `src/commands/doctor.js`, `src/ui/summary.js`, the workflow `env:` blocks). Nothing checks this automatically, so compare them by hand.
 4. List the new file in `src/core/copy/simple.js`, or user repos will not get it.
 
 ## How to add a language

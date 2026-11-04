@@ -21,7 +21,7 @@
 | Agent Skills だけをインストールする | `npx projectops --mode skills` |
 | インストール状態を点検する（読み取り専用） | `npx projectops --mode doctor` |
 
-> Node.js 20.12 以上があれば、別途インストールなしで対話型ウィザードが起動します。
+> Node.js 20.12 以上と Git が必要です（Agent Skills には Python 3 も必要）。別途インストールなしで対話型ウィザードが起動します。
 
 ![npx projectops 対話型ウィザード](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
 
@@ -33,7 +33,7 @@
 
 このプロジェクトは 2 つの軸で開発ワークフローを自動化します。
 
-**① GitHub Actions**：main へ一度 push するだけで、バージョン管理、変更履歴、CI/CD デプロイまで自動で処理します。
+**① GitHub Actions**：develop から main へのリリース PR がバージョン管理と変更履歴を処理し、マージすると CI/CD デプロイが動きます。
 **② Agent Skills**：`/pro-github`、`/pro-commit`、`/pro-report` などのコマンドで、AI がその自動化の各ステップ（Issue、自分のスタイルのコミット、レポート、リリース PR）を代わりに進めます。
 
 | 従来の方法 | Projectops |
@@ -59,13 +59,13 @@
 | 変更履歴 | リリース PR で作成（コミット分析または AI 要約） | 自動生成 | 自動生成（プラグイン） | changeset ファイルから組み立て |
 | プロジェクトタイプ別の CI/CD ワークフロー | あり（Spring、Flutter、React、Node、Python ...） | なし | なし | なし |
 | サイクルを回す Agent Skills（Issue、worktree、自分のスタイルのコミット、レポート、リリース PR、実機 QA） | あり | なし | なし | なし |
-| リポジトリに追加されるもの | 約 50 ファイル（下記） | ワークフロー 1 つと設定ファイル | 設定ファイルと CI ステップ | `.changeset/` フォルダーと CI ステップ |
+| リポジトリに追加されるもの | 約 60 ファイル（下記） | ワークフロー 1 つと設定ファイル | 設定ファイルと CI ステップ | `.changeset/` フォルダーと CI ステップ |
 
 - バージョンと変更履歴だけが必要なら、release-please か semantic-release のほうが軽量です。
 - モノレポから npm パッケージを公開し、PR ごとに変更内容を書かせたいなら changesets が合います。
 - Issue → ブランチ → リリース PR → デプロイまでを一度に導入し、その上で Agent Skills も使いたいなら projectops です。
 
-**導入規模（実測）。** 2026-10-08 に v4.36.2 で、空のリポジトリに `npx projectops --mode full --type basic --force` を実行すると 52 ファイルが追加されました：ワークフロー 8 個、`.github/scripts/` 配下の補助スクリプト 26 個、Issue・PR・Discussion テンプレート、`version.yml`、設定ガイド。`--type spring` では 56 ファイル（ワークフロー 12 個）でした。
+**導入規模（実測）。** 2030-11-05 に v4.84.0 で、空のリポジトリに `npx projectops --mode full --type basic --force` を実行すると 56 ファイルが追加されました：ワークフロー 8 個、`.github/scripts/` 配下の補助スクリプト 26 個、Issue・PR・Discussion テンプレート、`version.yml`、設定ガイド。`--type spring` では 60 ファイル（ワークフロー 12 個）でした。
 
 ---
 
@@ -121,10 +121,9 @@ Skill は自分のスタイルで書きます。好みは `~/.projectops/config/
 |---|---|---|
 | README とマニフェストのスキル数表記 | 不一致（15 と 20 の表記、実際は 15） | 一致: コア 14 + 任意の extras プラグイン 1 |
 | 最長のスキル description | 1,183 文字、1,000 文字超が 6 件 | 237 文字、300 文字超は 0 件 |
-| テストのないスキル（全 15 種が対象） | 6 件 | 0 件（契約テスト 56 ケースが 15 種すべてを検査、コア 14 + extras 1） |
 | コミット形式 | `pro-commit` に固定 | 設定と `version.yml` で変更可能 |
 
-変更点: description を短い英語のトリガーに縮め、共通の契約テストで全スキルを検査し、`pro-commit` がチームの `version.yml` のコミットテンプレートに従うようにしました。
+変更点: description を短い英語のトリガーに縮め、ガードテストでコアスキルの文書を検査し、`pro-commit` がチームの `version.yml` のコミットテンプレートに従うようにしました。
 
 ---
 
@@ -132,7 +131,7 @@ Skill は自分のスタイルで書きます。好みは `~/.projectops/config/
 
 | 構成 | できること | ドキュメント |
 |---|---|---|
-| **GitHub Actions** | main へ一度 push するだけで、バージョン管理、変更履歴、CI/CD デプロイまで自動で処理 | [バージョン管理](https://cassiiopeia.github.io/projectops/version-control)（英語） |
+| **GitHub Actions** | develop から main へのリリース PR がバージョン管理と変更履歴を処理し、マージすると CI/CD デプロイが動きます | [バージョン管理](https://cassiiopeia.github.io/projectops/version-control)（英語） |
 | **Agent Skills**（15 種） | `/pro-github`、`/pro-commit`、`/pro-report` などで、AI が各ステップ（Issue、自分のスタイルのコミット、レポート、リリース PR）を代わりに進める | [Skills ガイド](https://cassiiopeia.github.io/projectops/skills)（英語） |
 | **npx CLI** | 既存プロジェクトにワークフローを導入・更新し、状態を診断 | [CLI リファレンス](https://cassiiopeia.github.io/projectops/cli)（英語） |
 
@@ -263,7 +262,7 @@ npx projectops --mode skills
 | `spring` | build.gradle | SSH+Docker デプロイ、Nexus |
 | `flutter` | pubspec.yaml | TestFlight、Play Store |
 | `react`（Next.js を含む） | package.json | Docker |
-| `node` | package.json | Docker |
+| `node` | package.json | npm 公開 (`--publish npm`) |
 | `python` | pyproject.toml | SSH+Docker デプロイ |
 | `react-native` | Info.plist + build.gradle | — |
 | `react-native-expo` | app.json | — |
@@ -327,7 +326,7 @@ Settings → Actions → General
 - **GitHub 専用です。** GitHub Actions と GitHub の Issue・PR を前提にしているため、GitLab などには対応していません。
 - **リリースは「開発ブランチ → デフォルトブランチ」の PR 構成を前提にしています。** ブランチ名は `version.yml` で変更できますが、2 つのブランチを分けて使わないリポジトリには合いません。
 - **個人アクセストークン（PAT）は任意です。** ブランチ保護を越えてマージするときと、Projects ボードを同期するときだけ必要です。[設定](#設定)を見てください。
-- **リポジトリに約 50 ファイルが追加されます**（ワークフロー、補助スクリプト、テンプレート）。[実測](#他のツールとの比較)を見てください。
+- **リポジトリに約 60 ファイルが追加されます**（ワークフロー、補助スクリプト、テンプレート）。[実測](#他のツールとの比較)を見てください。
 - **新しいバージョンが頻繁に出ます。** 検証したバージョンは `npx projectops@<バージョン>` で固定してください。
 - **サーバーデプロイのワークフローは、SSH で接続できる Docker サーバーを前提にしています。**
 

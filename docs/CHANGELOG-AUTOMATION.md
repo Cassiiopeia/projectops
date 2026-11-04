@@ -84,8 +84,6 @@ metadata:
 
 폴백이 발생하면 어떤 provider로 대체됐는지 **PR 댓글로 알림**이 남습니다. commit provider가 항상 완주하므로 릴리스 노트가 비는 일은 없습니다.
 
-테스트: `python -m pytest .github/scripts/test/test_changelog_providers.py`
-
 ---
 
 ## 출력 파일

@@ -38,7 +38,6 @@ Run the checks:
 
 ```bash
 npm test
-python3 -m pytest .github/scripts/test/test_i18n_messages.py -q
 ```
 
 ## Rules for messages

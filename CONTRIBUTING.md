@@ -9,7 +9,7 @@ This project follows the [Code of Conduct](CODE_OF_CONDUCT.md). By taking part y
 
 projectops is a template and installer (`npx projectops`) that adds GitHub Actions workflows, version management,
 issue/PR templates and agent skills to a repository. If you want to understand how it fits together, start with
-[docs/NPX-WIZARD.md](docs/NPX-WIZARD.md) and [docs/SKILLS.md](docs/SKILLS.md).
+[docs/en/npx-wizard.md](docs/en/npx-wizard.md) and [docs/en/skills.md](docs/en/skills.md).
 For the map of the code and step-by-step guides (add a project type, a CLI flag, a `version.yml` option, a workflow,
 a release-note provider, a language, a skill), read [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -33,6 +33,8 @@ git remote add upstream https://github.com/Cassiiopeia/projectops.git
 python3 -m pip install pytest pyyaml
 ```
 
+On Windows, use `python` instead of `python3`; `python3` can be the Microsoft Store stub.
+
 The project has no runtime npm dependencies, so there is nothing else to install.
 
 ## Run the checks
@@ -45,7 +47,7 @@ python3 .github/util/flutter/_shared/check-consistency.py   # only if you touche
 
 Do not commit new tests: this repository keeps only five guard tests (see `CLAUDE.md`). Check your change by running it, or with a throwaway test you delete afterwards.
 
-CI runs the same commands on Linux, macOS and Windows. The installer must keep working on macOS
+CI runs these on Linux for develop pushes and PRs. On main it also runs a CLI smoke test on Linux, macOS and Windows. The installer must keep working on macOS
 (bash 3.2, BSD tools) and Windows, so please do not use Linux-only shell features in `.sh` files.
 
 To try the installer on a scratch project:
@@ -92,7 +94,7 @@ automation (issue helper, version bump), not your pull request.
 Before you open a PR:
 
 - [ ] There is an issue that describes the change, and the PR links to it.
-- [ ] Tests pass locally, and you added a test for new behavior or a fixed bug.
+- [ ] Checks pass locally and you ran the change itself. Do not commit new tests.
 - [ ] User-facing text is in English and goes through `src/i18n/` (CLI) or the English-first docs. Korean goes in the `ko` catalog. Messages that workflows and scripts post into users' repositories go through `.github/scripts/i18n/` (see [docs/TRANSLATING.md](docs/TRANSLATING.md)).
 - [ ] If you changed a shared workflow, you changed both copies: `.github/workflows/` and `.github/workflows/project-types/common/`.
 - [ ] Workflows declare `permissions:`, and new ones have `workflow_dispatch` and `concurrency`.

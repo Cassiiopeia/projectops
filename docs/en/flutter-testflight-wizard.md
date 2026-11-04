@@ -298,8 +298,7 @@ base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
 ├── _shared/                        # assets shared by all three wizards
 │   ├── wizard.css                  #   shared component styles
 │   ├── wizard-common.js            #   shared utilities (escaping, clipboard, state saving, etc.)
-│   ├── check-consistency.py        #   consistency check across the three wizards
-│   └── test_wizard_cli.py          #   CLI contract and dry-run safety tests
+│   └── check-consistency.py        #   consistency check across the three wizards
 └── testflight-wizard/
     ├── testflight-wizard.html      # wizard web UI
     ├── testflight-wizard.js        # wizard logic
@@ -312,7 +311,7 @@ base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
         └── Gemfile
 ```
 
-> `_shared/` is the canonical source shared by the three wizards. If you changed a wizard, make sure `check-consistency.py` and `test_wizard_cli.py` pass before you commit. Details: [`_shared/README.md`](../../.github/util/flutter/_shared/README.md)
+> `_shared/` is the canonical source shared by the three wizards. If you changed a wizard, make sure `check-consistency.py` pass before you commit. Details: [`_shared/README.md`](../../.github/util/flutter/_shared/README.md)
 
 ---
 

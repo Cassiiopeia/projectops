@@ -4,7 +4,7 @@
 #  - 기본 브랜치(main)로 PR이 올라가면 머지 즉시 배포가 돈다. 반드시 개발 브랜치(develop)로 받는다.
 #  - 루트 .github/workflows/ 의 공통 워크플로우는 project-types/common/ 원본과 동일해야 한다.
 #    Dependabot 은 루트 사본만 바꾸므로, 액션 버전 PR 을 머지할 때는 원본도 같이 고쳐야 한다
-#    (어긋나면 test_common_workflow_copies.py 가 CI 에서 막는다).
+#    (이를 막는 자동 검사는 없다. 두 파일을 직접 대조한다).
 #  - 메이저 버전 업은 이 템플릿을 설치한 레포의 동작을 바꿀 수 있어 자동 PR 에서 제외한다.
 version: 2
 updates:

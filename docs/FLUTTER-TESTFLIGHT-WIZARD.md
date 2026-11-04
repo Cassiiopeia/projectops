@@ -298,8 +298,7 @@ base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
 ├── _shared/                        # 마법사 3종 공통 자산
 │   ├── wizard.css                  #   공통 컴포넌트 스타일
 │   ├── wizard-common.js            #   공통 유틸 (이스케이프·클립보드·상태 저장 등)
-│   ├── check-consistency.py        #   3종 정합성 검증
-│   └── test_wizard_cli.py          #   CLI 계약 · dry-run 안전성 테스트
+│   └── check-consistency.py        #   3종 정합성 검증
 └── testflight-wizard/
     ├── testflight-wizard.html      # 마법사 웹 UI
     ├── testflight-wizard.js        # 마법사 로직
@@ -312,7 +311,7 @@ base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
         └── Gemfile
 ```
 
-> `_shared/`는 3종이 함께 쓰는 정본입니다. 마법사를 수정했다면 `check-consistency.py`와 `test_wizard_cli.py`를 통과시킨 뒤 커밋하세요. 상세: [`_shared/README.md`](../.github/util/flutter/_shared/README.md)
+> `_shared/`는 3종이 함께 쓰는 정본입니다. 마법사를 수정했다면 `check-consistency.py`를 통과시킨 뒤 커밋하세요. 상세: [`_shared/README.md`](../.github/util/flutter/_shared/README.md)
 
 ---
 

@@ -21,7 +21,7 @@
 | 仅安装 Agent Skills | `npx projectops --mode skills` |
 | 检查安装状态（只读） | `npx projectops --mode doctor` |
 
-> 只需 Node.js 20.12+，无需单独安装即可运行交互式向导。
+> 需要 Node.js 20.12+ 和 Git（Agent Skills 还需要 Python 3），无需单独安装即可运行交互式向导。
 
 ![npx projectops 交互式向导](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
 
@@ -33,7 +33,7 @@
 
 本项目从两个方向自动化开发工作流。
 
-**① GitHub Actions**：推送一次 main，版本管理、更新日志、CI/CD 部署全部自动完成。
+**① GitHub Actions**：从 develop 到 main 的发布 PR 处理版本管理和更新日志，合并后运行 CI/CD 部署。
 **② Agent Skills**：通过 `/pro-github`、`/pro-commit`、`/pro-report` 等命令，由 AI 代你推进这套自动化的每一步：Issue、你自己风格的提交、报告和发布 PR。
 
 | 传统做法 | 使用 Projectops |
@@ -59,13 +59,13 @@
 | 更新日志 | 在发布 PR 中生成（提交分析或 AI 摘要） | 自动生成 | 自动生成（插件） | 由 changeset 文件汇总 |
 | 按项目类型的 CI/CD 工作流 | 有（Spring、Flutter、React、Node、Python ...） | 无 | 无 | 无 |
 | 驱动整个周期的 Agent Skills（Issue、worktree、你风格的提交、报告、发布 PR、真机 QA） | 有 | 无 | 无 | 无 |
-| 添加到仓库的内容 | 约 50 个文件（见下文） | 一个工作流和一个配置文件 | 一个配置文件和一个 CI 步骤 | `.changeset/` 文件夹和一个 CI 步骤 |
+| 添加到仓库的内容 | 约 60 个文件（见下文） | 一个工作流和一个配置文件 | 一个配置文件和一个 CI 步骤 | `.changeset/` 文件夹和一个 CI 步骤 |
 
 - 只需要版本管理和更新日志？release-please 或 semantic-release 更轻量。
 - 在 monorepo 中发布 npm 包，并希望每个 PR 说明改动？changesets 更合适。
 - 想一次安装就覆盖 Issue → 分支 → 发布 PR → 部署的完整流程，并加上 Agent Skills？这正是 projectops 的用途。
 
-**安装规模（实测）。** 2026-10-08 使用 v4.36.2，在空仓库中运行 `npx projectops --mode full --type basic --force`，新增 52 个文件：8 个工作流、`.github/scripts/` 下 26 个辅助脚本、Issue/PR/Discussion 模板、`version.yml` 和一份配置指南。`--type spring` 新增 56 个文件（12 个工作流）。
+**安装规模（实测）。** 2030-11-05 使用 v4.84.0，在空仓库中运行 `npx projectops --mode full --type basic --force`，新增 56 个文件：8 个工作流、`.github/scripts/` 下 26 个辅助脚本、Issue/PR/Discussion 模板、`version.yml` 和一份配置指南。`--type spring` 新增 60 个文件（12 个工作流）。
 
 ---
 
@@ -121,10 +121,9 @@ Skill 会按你的风格输出。把偏好写进 `~/.projectops/config/config.js
 |---|---|---|
 | README 与清单中的 Skills 数量 | 不一致（标注 15 与 20，实际 15） | 一致：核心 14 个 + 可选 extras 插件 1 个 |
 | 最长的 Skill description | 1,183 字符，6 个超过 1,000 | 237 字符，0 个超过 300 |
-| 没有测试的 Skills（共 15 个） | 6 个 | 0 个（56 个契约测试用例覆盖全部 15 个，核心 14 + extras 1） |
 | 提交格式 | 在 `pro-commit` 中写死 | 可通过偏好设置和 `version.yml` 配置 |
 
-改动：description 缩短为简短的英文触发语，通用契约测试检查每个 Skill，`pro-commit` 遵循团队 `version.yml` 的提交模板。
+改动：description 缩短为简短的英文触发语，守卫测试检查核心 Skill 的文档，`pro-commit` 遵循团队 `version.yml` 的提交模板。
 
 ---
 
@@ -132,7 +131,7 @@ Skill 会按你的风格输出。把偏好写进 `~/.projectops/config/config.js
 
 | 组成 | 作用 | 文档 |
 |---|---|---|
-| **GitHub Actions** | 推送一次 main，版本管理、更新日志、CI/CD 部署全部自动完成 | [版本管理](https://cassiiopeia.github.io/projectops/version-control)（英文） |
+| **GitHub Actions** | 从 develop 到 main 的发布 PR 处理版本管理和更新日志，合并后运行 CI/CD 部署 | [版本管理](https://cassiiopeia.github.io/projectops/version-control)（英文） |
 | **Agent Skills**（15 个） | 通过 `/pro-github`、`/pro-commit`、`/pro-report` 等命令，由 AI 代你推进每一步：Issue、你风格的提交、报告、发布 PR | [Skills 指南](https://cassiiopeia.github.io/projectops/skills)（英文） |
 | **npx CLI** | 向现有项目安装并更新工作流，并诊断其状态 | [CLI 参考](https://cassiiopeia.github.io/projectops/cli)（英文） |
 
@@ -263,7 +262,7 @@ npx projectops --mode skills
 | `spring` | build.gradle | SSH+Docker 部署、Nexus |
 | `flutter` | pubspec.yaml | TestFlight、Play Store |
 | `react`（含 Next.js） | package.json | Docker |
-| `node` | package.json | Docker |
+| `node` | package.json | npm 发布 (`--publish npm`) |
 | `python` | pyproject.toml | SSH+Docker 部署 |
 | `react-native` | Info.plist + build.gradle | — |
 | `react-native-expo` | app.json | — |
@@ -327,7 +326,7 @@ Settings → Actions → General
 - **仅支持 GitHub。** 以 GitHub Actions 和 GitHub Issue/PR 为前提，不支持 GitLab 等。
 - **发布以“开发分支 → 默认分支”的 PR 流程为前提。** 分支名可在 `version.yml` 中修改，但不适合不区分两个分支的仓库。
 - **个人访问令牌（PAT）是可选的。** 只有在越过分支保护合并或同步 Projects 看板时才需要。见[配置](#配置)。
-- **会向仓库添加约 50 个文件**（工作流、辅助脚本、模板）。见[实测](#与其他工具的比较)。
+- **会向仓库添加约 60 个文件**（工作流、辅助脚本、模板）。见[实测](#与其他工具的比较)。
 - **新版本发布频繁。** 用 `npx projectops@<版本>` 固定你验证过的版本。
 - **服务器部署工作流以可通过 SSH 连接的 Docker 服务器为前提。**
 

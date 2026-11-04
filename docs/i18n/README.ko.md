@@ -23,7 +23,7 @@
 | Agent Skills만 설치한다 | `npx projectops --mode skills` |
 | 설치 상태를 점검한다 (읽기 전용) | `npx projectops --mode doctor` |
 
-> Node.js 20.12 이상만 있으면 됩니다. 별도 설치 없이 대화형 마법사가 실행됩니다.
+> Node.js 20.12 이상과 Git이 필요합니다(Agent Skills는 Python 3도 필요). 별도 설치 없이 대화형 마법사가 실행됩니다.
 
 ![npx projectops 대화형 마법사 실행 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.ko.gif)
 
@@ -35,7 +35,7 @@
 
 이 프로젝트는 두 축으로 개발 워크플로우를 자동화합니다.
 
-**① GitHub Actions** — main 푸시 한 번으로 버전 관리, 체인지로그, CI/CD 배포까지 자동 처리  
+**① GitHub Actions** — develop에서 main으로 가는 릴리스 PR이 버전 관리와 체인지로그를 처리하고, 머지되면 CI/CD 배포가 돕니다  
 **② Agent Skills** — `/pro-github`, `/pro-commit`, `/pro-report` 등 AI가 그 자동화의 단계마다 이슈, 내 스타일의 커밋, 보고서, 릴리스 PR까지 대신 진행
 
 | 기존 방식 | Projectops |
@@ -59,15 +59,15 @@
 | 버전 결정 근거 | 커밋 제목 (`feat` → minor, `feat!` → major) | Conventional Commits | Conventional Commits (설정 가능) | PR마다 쓰는 changeset 파일 |
 | 릴리스 전 검토 단계 | 릴리스 PR(develop → main), 자동 머지 | 직접 머지하는 릴리스 PR | 기본은 없음, push 시 바로 릴리스 | "Version Packages" PR |
 | 체인지로그 | 릴리스 PR에서 작성 (커밋 분석 또는 AI 요약) | 자동 생성 | 자동 생성 (플러그인) | changeset 파일을 모아 작성 |
-| 프로젝트 타입별 CI/CD 워크플로우 | 있음 (Spring, Flutter, React, Node, Python ...) | 없음 | 없음 | 없음 |
+| 프로젝트 타입별 CI/CD 워크플로우 | 있음 (Spring, Flutter, React, Python, Node는 npm 배포) | 없음 | 없음 | 없음 |
 | 사이클을 직접 굴리는 에이전트 스킬 (이슈, worktree, 내 스타일 커밋, 보고서, 릴리스 PR, 실기기 QA) | 있음 | 없음 | 없음 | 없음 |
-| 저장소에 추가되는 것 | 약 50개 파일 (아래) | 워크플로우 1개와 설정 파일 | 설정 파일과 CI 단계 | `.changeset/` 폴더와 CI 단계 |
+| 저장소에 추가되는 것 | 약 60개 파일 (아래) | 워크플로우 1개와 설정 파일 | 설정 파일과 CI 단계 | `.changeset/` 폴더와 CI 단계 |
 
 - 버전과 체인지로그만 필요하다면 release-please나 semantic-release가 더 가볍습니다.
 - 모노레포에서 npm 패키지를 내고 PR마다 변경 내용을 적게 하고 싶다면 changesets가 맞습니다.
 - 이슈 → 브랜치 → 릴리스 PR → 배포까지 한 번에 설치하고 그 위에 에이전트 스킬까지 쓰고 싶다면 projectops입니다.
 
-**설치 규모 (실측).** v4.36.2로 2026-10-08에 빈 저장소에서 `npx projectops --mode full --type basic --force`를 실행하면 52개 파일이 추가됐습니다: 워크플로우 8개, `.github/scripts/` 아래 보조 스크립트 26개, 이슈·PR·Discussion 템플릿, `version.yml`, 설정 안내 문서. `--type spring`은 56개(워크플로우 12개)였습니다.
+**설치 규모 (실측).** v4.84.0으로 2030-11-05에 빈 저장소에서 `npx projectops --mode full --type basic --force`를 실행하면 56개 파일이 추가됐습니다: 워크플로우 8개, `.github/scripts/` 아래 보조 스크립트 26개, 이슈·PR·Discussion 템플릿, `version.yml`, 설정 안내 문서. `--type spring`은 60개(워크플로우 12개)였습니다.
 
 ---
 
@@ -123,10 +123,9 @@ Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json
 |---|---|---|
 | README·매니페스트의 스킬 수 표기 | 불일치 (15 vs 20 표기, 실제 15) | 일치: 코어 14 + 선택 extras 플러그인 1 |
 | 가장 긴 스킬 description | 1,183자, 1,000자 초과 6개 | 237자, 300자 초과 0개 |
-| 테스트 없는 스킬 (전체 15종 기준) | 6개 | 0개 (계약 테스트 56건이 15종 전부 검사, 코어 14 + extras 1) |
 | 커밋 형식 | `pro-commit`에 고정 | 선호 설정과 `version.yml`로 조정 가능 |
 
-바뀐 것: description을 짧은 영어 트리거로 줄이고, 공통 계약 테스트로 모든 스킬을 검사하며, `pro-commit`이 팀의 `version.yml` 커밋 템플릿을 따릅니다.
+바뀐 것: description을 짧은 영어 트리거로 줄이고, 가드 테스트로 코어 스킬 문서를 검사하며, `pro-commit`이 팀의 `version.yml` 커밋 템플릿을 따릅니다.
 
 ---
 
@@ -134,7 +133,7 @@ Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json
 
 | 구성 | 하는 일 | 문서 |
 |---|---|---|
-| **GitHub Actions** | main 푸시 한 번으로 버전 관리, 체인지로그, CI/CD 배포를 자동 처리합니다 | [버전 관리](https://cassiiopeia.github.io/projectops/ko/version-control) |
+| **GitHub Actions** | develop에서 main으로 가는 릴리스 PR이 버전 관리와 체인지로그를 처리하고, 머지되면 CI/CD 배포가 돕니다 | [버전 관리](https://cassiiopeia.github.io/projectops/ko/version-control) |
 | **Agent Skills** (15종) | `/pro-github`, `/pro-commit`, `/pro-report` 등으로 AI가 단계마다 이슈·내 스타일 커밋·보고서·릴리스 PR을 대신 진행합니다 | [Skills 가이드](https://cassiiopeia.github.io/projectops/ko/skills) |
 | **npx CLI** | 기존 프로젝트에 워크플로우를 설치·업데이트하고 상태를 진단합니다 | [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/ko/cli) |
 
@@ -267,7 +266,7 @@ npx projectops --mode skills
 | `spring` | build.gradle | SSH+Docker 배포, Nexus |
 | `flutter` | pubspec.yaml | TestFlight, Play Store |
 | `react` (Next.js 포함) | package.json | Docker |
-| `node` | package.json | Docker |
+| `node` | package.json | npm 배포 (`--publish npm`) |
 | `python` | pyproject.toml | SSH+Docker 배포 |
 | `react-native` | Info.plist + build.gradle | — |
 | `react-native-expo` | app.json | — |
@@ -331,7 +330,7 @@ Settings → Actions → General
 - **GitHub 전용입니다.** GitHub Actions와 GitHub 이슈·PR을 전제로 하므로 GitLab 등은 지원하지 않습니다.
 - **릴리스는 개발 브랜치 → 기본 브랜치 PR 구조를 전제로 합니다.** 브랜치 이름은 `version.yml`에서 바꿀 수 있지만, 두 브랜치를 나눠 쓰지 않는 저장소에는 맞지 않습니다.
 - **개인 액세스 토큰(PAT)은 선택입니다.** 브랜치 보호를 넘어 머지하거나 Projects 보드를 동기화할 때만 필요합니다. [설정](#설정)을 보세요.
-- **저장소에 약 50개 파일이 추가됩니다** (워크플로우, 보조 스크립트, 템플릿). [실측](#다른-도구와-비교)을 보세요.
+- **저장소에 약 60개 파일이 추가됩니다** (워크플로우, 보조 스크립트, 템플릿). [실측](#다른-도구와-비교)을 보세요.
 - **새 버전이 자주 나옵니다.** 검증한 버전은 `npx projectops@<버전>`으로 고정하세요.
 - **서버 배포 워크플로우는 SSH로 접속하는 Docker 서버를 전제로 합니다.**
 
@@ -357,9 +356,9 @@ Settings → Actions → General
 ## 지원
 
 - [Issues](https://github.com/Cassiiopeia/projectops/issues) — 버그 리포트, 기능 요청
-  - 이 레포는 완료된 이슈를 닫지 않고 `작업완료` 라벨로 표시합니다. 열린 이슈 수가 많아 보이는 이유입니다.
-- [CONTRIBUTING.md](CONTRIBUTING.md) — 기여 가이드
-- [SECURITY.md](SECURITY.md) — 보안 취약점은 공개 이슈가 아니라 비공개로 신고해 주세요
+  - 완료된 이슈는 `status: done` 라벨을 붙이고 닫습니다.
+- [CONTRIBUTING.ko.md](CONTRIBUTING.ko.md) — 기여 가이드
+- [SECURITY.ko.md](SECURITY.ko.md) — 보안 취약점은 공개 이슈가 아니라 비공개로 신고해 주세요
 
 ---
 

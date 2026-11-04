@@ -194,7 +194,7 @@ When you rename or retire a workflow, a root file, or a file inside `.github/uti
 2. **How to pick the tier**: choose by real harm.
    - `safe`: the new workflow fully replaces the same feature (a pure rename). Running both causes a double trigger, which does real harm
    - `confirm`: may be a deployment pipeline. Removing it by mistake breaks that repository's deployment, so no automatic action
-3. `test/migrations.test.js` checks automatically that registry entries **do not overlap the current deployment set** (so live workflows are not removed by mistake). After adding an entry, confirm with `npm test`.
+3. Check by hand that a registry entry **does not overlap the current deployment set**, so live workflows are not removed by mistake.
 
 ---
 

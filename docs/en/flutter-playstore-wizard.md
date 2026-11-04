@@ -337,8 +337,7 @@ Set `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64` to the **base64 encoded value** of
 ├── _shared/                            # assets shared by all three wizards
 │   ├── wizard.css                      #   shared component styles
 │   ├── wizard-common.js                #   shared utilities (escaping, clipboard, state saving, etc.)
-│   ├── check-consistency.py            #   consistency check across the three wizards
-│   └── test_wizard_cli.py              #   CLI contract and dry-run safety tests
+│   └── check-consistency.py            #   consistency check across the three wizards
 └── playstore-wizard/
     ├── playstore-wizard.html           # wizard web UI
     ├── playstore-wizard.js             # wizard logic
@@ -350,7 +349,7 @@ Set `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64` to the **base64 encoded value** of
         └── build.gradle.kts.signing.template   # signing config template
 ```
 
-> `_shared/` is the canonical source shared by the three wizards. If you changed a wizard, make sure `check-consistency.py` and `test_wizard_cli.py` pass before you commit. Details: [`_shared/README.md`](../../.github/util/flutter/_shared/README.md)
+> `_shared/` is the canonical source shared by the three wizards. If you changed a wizard, make sure `check-consistency.py` pass before you commit. Details: [`_shared/README.md`](../../.github/util/flutter/_shared/README.md)
 
 ---
 
