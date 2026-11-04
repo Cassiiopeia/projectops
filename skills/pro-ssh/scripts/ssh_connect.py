@@ -69,7 +69,7 @@ def _expand_path(path):
 def _connect_password(host, port, user, password, timeout=15):
     """비밀번호 인증으로 SSH 클라이언트를 연결하고 반환한다."""
     client = paramiko.SSHClient()
-    # 처음 접속하는 호스트의 키를 자동 수락 (StrictHostKeyChecking=no 동일 효과)
+    # known_hosts 를 읽지 않아 접속마다 어떤 호스트 키든 수락한다 (StrictHostKeyChecking=no 동일 효과)
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.connect(
         hostname=host,

@@ -26,6 +26,7 @@ export default {
   "ide.codex.marketError": "  Codex marketplace 관리 오류 — 수동: codex plugin marketplace add {market}",
   "ide.codex.skillsRemoved": "  Codex native skills 제거 완료 ({path})",
   "ide.codex.removeNone": "  제거할 Codex skills가 없어 건너뜁니다",
+  "ide.codex.removeFailed": "  {path} 삭제 실패: {error}",
   "ide.codex.unregisterManual": "  marketplace 등록 해제는 수동: codex plugin marketplace remove {plugin}",
   "ide.codex.legacy": "  레거시 Codex skills 정리: {name}",
   "ide.cursor.noSource": "  설치할 스킬 소스를 찾지 못했습니다 (skills/ 폴더 필요).",

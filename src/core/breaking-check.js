@@ -5,8 +5,9 @@ import { join } from "node:path";
 import { collectBreaking, localizeBreakingEntry } from "./breaking.js";
 import { parseExisting } from "./version-yml.js";
 import { t, getLang } from "../i18n/index.js";
+import { TEMPLATE_RAW_URL } from "./paths.js";
 
-const BC_URL = "https://raw.githubusercontent.com/Cassiiopeia/projectops/main/.github/config/breaking-changes.json";
+const BC_URL = `${TEMPLATE_RAW_URL}/.github/config/breaking-changes.json`;
 
 // 원격 우선(3초 타임아웃) → clone된 템플릿의 번들본 폴백 → 둘 다 실패 시 null(조용히 스킵)
 export async function loadBreakingJson(tempDir) {

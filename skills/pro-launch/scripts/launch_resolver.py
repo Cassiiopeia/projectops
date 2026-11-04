@@ -24,7 +24,8 @@ STABLE_ENTRYPOINT_NAME = "launch_cli.py"
 SCRIPTS_OVERRIDE_ENV = "PROJECTOPS_LAUNCH_SCRIPTS"
 # Claude Code 설정 폴더 바꾸기 (예: ~/.claude-b) — 그 아래 plugins/cache 에도 설치본이 있다 (#920)
 CLAUDE_CONFIG_DIR_ENV = "CLAUDE_CONFIG_DIR"
-STABLE_ENTRYPOINT_COMMAND = "python3 ~/.projectops/bin/launch_cli.py"
+# Windows 의 python3 는 Microsoft Store 스텁일 수 있다
+STABLE_ENTRYPOINT_COMMAND = f"{'python' if sys.platform == 'win32' else 'python3'} ~/.projectops/bin/launch_cli.py"
 # 고정 진입점 권한: 직접 실행 가능 (rwxr-xr-x)
 STABLE_ENTRYPOINT_MODE = 0o755
 

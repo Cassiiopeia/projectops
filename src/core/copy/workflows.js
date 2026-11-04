@@ -308,8 +308,9 @@ function recordBaseline(workflowsDir, targetRoot, counters, previous, templateVe
       entries,
       previous,
     });
-  } catch {
+  } catch (e) {
     // 기준점 기록 실패는 통합 실패가 아니다
+    trace?.event("baseline", "baseline-failed", "", { message: e?.message || String(e) });
   }
 }
 

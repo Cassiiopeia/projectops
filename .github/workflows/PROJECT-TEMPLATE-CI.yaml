@@ -99,6 +99,12 @@ jobs:
         # CSS/JS 공통 자산 로드, 공통 유틸 재정의, version.json ↔ HTML 동기화, i18n 사전
         run: python3 .github/util/flutter/_shared/check-consistency.py
 
+      - name: Architecture rules (frozen lists)
+        # ledger check 는 위반이 있어도 exit 0 이라 verdict 를 직접 본다
+        run: |
+          python3 plugins/projectops-extras/skills/pro-code-consult/scripts/arch_cli.py ledger . check > ledger.json
+          python3 -c "import json,sys; d=json.load(open('ledger.json')); print(d['summary']); sys.exit(d['verdict']!='pass')"
+
   # ===================================================================
   # 넓은 길 — main push·수동 실행에서만. OS 차이는 CLI 실행으로 본다.
   # ===================================================================

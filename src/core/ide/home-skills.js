@@ -23,8 +23,9 @@ export function applyHomeSkills(io, ctx, { skillsDest, metaFileName, messagePref
     // 공용 파이썬이 없으면 스킬 CLI 가 import 에 실패 → 알림만 (문서형 스킬은 동작)
     if (!hasSharedScripts) io.log(t("ide.skillsCopy.noScripts"));
     io.log(t(`${messagePrefix}.installed`, { dest: skillsDest, version: ctx.templateVersion || "unknown" }));
-  } catch {
+  } catch (e) {
     io.log(t(`${messagePrefix}.copyFailed`));
+    io.log(`  ${e?.message || e}`);
     return false;
   }
   installStableEntrypoints(io, skillsSrc, scriptsSrc);

@@ -249,8 +249,8 @@ if (keystorePropertiesFile.exists()) {
                 try:
                     write_text(gradle_file_path, read_text(backup_path))
                     print("✅ Restored from the backup")
-                except Exception:
-                    pass
+                except Exception as restore_error:
+                    print(f"⚠️ Could not restore from the backup: {restore_error}")
             return False
     else:
         print("ℹ️  No changes (already configured)")
@@ -1653,8 +1653,8 @@ def _detect_android_env_windows():
                 if not has_user_var:
                     winreg.SetValueEx(key, "ANDROID_HOME", 0, winreg.REG_SZ, android_home)
                     env_message = "Added ANDROID_HOME to your user environment variables. Reopen the terminal."
-        except OSError:
-            pass
+        except OSError as registry_error:
+            env_message = f"Could not save ANDROID_HOME: {registry_error}. Set it manually."
     else:
         env_status = "warning"
         env_message = "Android SDK not found. Open SDK Manager in Android Studio and install it."

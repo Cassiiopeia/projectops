@@ -26,6 +26,7 @@ export default {
   "ide.codex.marketError": "  Codex marketplace error. Manual: codex plugin marketplace add {market}",
   "ide.codex.skillsRemoved": "  Codex native skills removed ({path})",
   "ide.codex.removeNone": "  No Codex skills to remove, skipping",
+  "ide.codex.removeFailed": "  Could not remove {path}: {error}",
   "ide.codex.unregisterManual": "  To unregister the marketplace, run manually: codex plugin marketplace remove {plugin}",
   "ide.codex.legacy": "  Removed legacy Codex skills: {name}",
   "ide.cursor.noSource": "  Could not find the skills source (a skills/ folder is required).",

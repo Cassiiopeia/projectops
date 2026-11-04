@@ -25,7 +25,8 @@ STABLE_ENTRYPOINT_NAME = "projectops_cli.py"
 STABLE_ENTRYPOINT_MODE = 0o755
 SKILLS_ROOT_ENV = "PROJECTOPS_SKILLS_ROOT"
 CLAUDE_CONFIG_DIR_ENV = "CLAUDE_CONFIG_DIR"
-STABLE_ENTRYPOINT_COMMAND = "python3 ~/.projectops/bin/projectops_cli.py <skill>"
+# Windows 의 python3 는 Microsoft Store 스텁일 수 있다
+STABLE_ENTRYPOINT_COMMAND = f"{'python' if sys.platform == 'win32' else 'python3'} ~/.projectops/bin/projectops_cli.py <skill>"
 
 # 스킬 이름 > (스킬 폴더, CLI 파일)
 SKILL_CLIS = {

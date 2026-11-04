@@ -38,7 +38,7 @@ function remove(io) {
   const tgt = nativeTarget(io);
   let removed = false;
   if (existsSync(tgt) || isSymlink(tgt)) {
-    try { rmSync(tgt, { recursive: true, force: true }); io.log(t("ide.codex.skillsRemoved", { path: tgt })); removed = true; } catch { /* 무해 */ }
+    try { rmSync(tgt, { recursive: true, force: true }); io.log(t("ide.codex.skillsRemoved", { path: tgt })); removed = true; } catch (e) { removed = true; io.log(t("ide.codex.removeFailed", { path: tgt, error: e.message })); }
   }
   if (!removed) io.log(t("ide.codex.removeNone"));
   if (io.which("codex")) io.log(t("ide.codex.unregisterManual", { plugin: PLUGIN }));
