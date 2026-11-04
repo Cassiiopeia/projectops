@@ -28,20 +28,21 @@
 | #1051 | CI 공백 | 스모크를 Node 20과 24, 비ASCII 경로로 확장 |
 | #1052 | 워크플로 게이트 | 릴리스 자동 머지에 출처 레포 확인, 프리뷰와 QA 봇에 작성자 권한 검사, 규칙 `no-unguarded-release-target` |
 | #1053 | 숨은 실패 | 설치기와 마법사의 실패 원인 표시, doctor CRLF 오탐, ledger를 CI에서 판정 |
+| #1056 | 호스트 키, 배포 순서 | `ssh_connect.py`를 accept-new 방식으로, npm 배포를 CI job 전부 통과 뒤로 |
 
 **개발 PC가 결함을 가렸다.** 이 PC에는 `PYTHONUTF8=1`과 전역 `core.longpaths`가 켜져 있어, 그대로 돌리면 위 크래시가 재현되지 않는다. 검증 방법은 `CLAUDE.md`에 기록했다.
 
 ## 남은 것 (소유자 판단 필요)
 
-- **pro-ssh 호스트 키:** `ssh_connect.py`는 `AutoAddPolicy`로 어떤 호스트 키든 수락한다. pro-launch는 `accept-new`를 쓴다. 고치면 키가 바뀐 서버의 접속이 막힌다.
 - **긴 함수:** `runInteractive` 444줄, `runCore` 319줄, `printSummary` 308줄. 제안서를 먼저 쓸 대규모 작업이다.
 - **`kill_browser` 반환값:** 결과 객체로 바꾸는 편이 맞다.
 - **마이그레이션 이관 결과:** `obsolete-workflows.js`의 `carried`를 읽는 곳이 없어 이관 성공과 실패가 모두 안 보인다.
 - **스크립트 출력:** `.github/scripts`의 Actions 전용 스크립트는 이모지 출력을 그대로 둔다. Actions 러너가 UTF-8이라 실해가 없다.
 
+**템플릿 버전 고정은 하지 않기로 했다.** 고정하면 npx 캐시의 옛 버전 사용자가 보안 수정이 든 새 템플릿을 못 받는다. README에 범위를 적어 두는 것으로 처리했다.
+
 ## 동결 후보 규칙 (미적용)
 
-- `no-auto-add-host-key`: `AutoAddPolicy\(`. 현재 위반 2건이라 동결 목록이 필요하다.
 - `no-silent-catch-in-ide-adapters`: `src/core/ide/`의 이유 없는 catch, 10건.
 - `no-history-comment-variants` 패턴을 `(에서|으로|로) 옮겼다`로 확장, 5건.
 
