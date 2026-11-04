@@ -46,6 +46,54 @@ def find_data_regions(data: dict, node_id: str | None, kinds: tuple, image_width
     return {"boxes": boxes, "scale": scale, "skipped": skipped_data}
 
 
+def find_node_regions(data: dict, origin_id: str | None, node_ids: list[str], image_width: int) -> dict:
+    """지정한 노드들(디자이너의 사진 자리표시 등) > 이미지 픽셀 상자. 덤프에 없는 id 는 missing"""
+    styles = _style_table(data)
+    base_width = _node_width(data.get("nodes", data), styles, origin_id)
+    scale = image_width / base_width if base_width else 1.0
+    boxes, found = [], set()
+    for rect in _all_boxes(data, origin_id, styles):
+        if rect["ref"] in node_ids:
+            found.add(rect["ref"])
+            boxes.append({"kind": "node", "ref": rect["ref"], "name": rect["name"],
+                          "x0": int(rect["x"] * scale), "y0": int(rect["y"] * scale),
+                          "x1": int((rect["x"] + rect["width"]) * scale) + 1,
+                          "y1": int((rect["y"] + rect["height"]) * scale) + 1})
+    return {"boxes": boxes, "missing": [n for n in node_ids if n not in found]}
+
+
+def _all_boxes(data: dict, origin_id: str | None, styles: dict) -> list[dict]:
+    """칠 유무와 관계없이 위치를 아는 모든 노드 상자 (논리 좌표, origin 기준)"""
+    boxes: list[dict] = []
+
+    def walk(node, ox: float, oy: float, inside: bool) -> None:
+        if isinstance(node, list):
+            for child in node:
+                walk(child, ox, oy, inside)
+            return
+        if not isinstance(node, dict):
+            return
+        here = inside or origin_id is None or node.get("id") == origin_id
+        layout = node.get("layout")
+        layout = styles.get(layout) if isinstance(layout, str) else layout   # MCP 덤프는 참조
+        layout = layout if isinstance(layout, dict) else {}
+        loc = layout.get("locationRelativeToParent")
+        dims = layout.get("dimensions") or {}
+        x, y = ox, oy
+        if here and node.get("id") == origin_id:
+            x, y = 0.0, 0.0
+        elif here and isinstance(loc, dict):
+            x, y = ox + float(loc.get("x", 0)), oy + float(loc.get("y", 0))
+        if here and node.get("id") and dims.get("width") and dims.get("height"):
+            boxes.append({"ref": node["id"], "name": node.get("name"), "x": x, "y": y,
+                          "width": float(dims["width"]), "height": float(dims["height"])})
+        for child in node.get("children") or []:
+            walk(child, x, y, here)
+
+    walk(data.get("nodes", data), 0.0, 0.0, False)
+    return boxes
+
+
 def parse_data_kinds(text: str) -> tuple | None:
     """'text,image' > ('text', 'image'). 모르는 값이 있으면 None"""
     kinds = tuple(k.strip() for k in text.split(",") if k.strip())

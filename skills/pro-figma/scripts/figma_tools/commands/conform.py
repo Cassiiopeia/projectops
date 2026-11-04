@@ -53,6 +53,15 @@ def cmd_conform(args) -> int:
 
     styles = _style_table(data)
     rects, skipped = _rects(data, styles, args.node)
+    # 시스템이 그리는 띠(상태바 · 홈 인디케이터) 안 사각형은 앱이 안 그림 > 빼기 (논리 좌표)
+    frame_height = max((r["y"] + r["height"] for r in rects), default=0)
+    in_band = [r for r in rects
+               if r["y"] + r["height"] <= args.mask_top
+               or (args.mask_bottom and r["y"] >= frame_height - args.mask_bottom)]
+    rects = [r for r in rects if r not in in_band]
+    # 지정 노드 빼기 (디자이너의 사진 자리표시 등 데이터가 채우는 자리)
+    masked_nodes = [r for r in rects if r["ref"] in (args.mask_node or [])]
+    rects = [r for r in rects if r not in masked_nodes]
     if not rects and not skipped:
         return emit({"ok": True, "checked": 0, "findings": [],
                      "summary": "No rectangles with rounded corners",
@@ -102,6 +111,7 @@ def cmd_conform(args) -> int:
         "code": "conformance_failed" if failed else "ok",
         "checks": checks,
         "checked": len(rects), "skipped_unknown_position": len(skipped),
+        "skipped_system_bands": len(in_band), "skipped_masked_nodes": [r["ref"] for r in masked_nodes],
         "scale": round(scale, 4), "scale_from": scale_from,
         "render_size": list(img.size),
         "findings": findings, "by_severity": by_sev,

@@ -54,6 +54,12 @@ def build_parser() -> JSONArgumentParser:
                     help="Exit code 1 at or above this severity (for CI gates)")
     c_.add_argument("--scale", type=float, default=0,
                     help="Render scale (0 = estimate as render width / origin node width)")
+    c_.add_argument("--mask-top", dest="mask_top", type=int, default=0,
+                    help="Skip shapes inside this many logical px from the top (status bar, drawn by the OS)")
+    c_.add_argument("--mask-bottom", dest="mask_bottom", type=int, default=0,
+                    help="Skip shapes inside this many logical px from the bottom (home indicator)")
+    c_.add_argument("--mask-node", dest="mask_node", action="append", default=None,
+                    help="Skip this node (repeatable), e.g. a photo placeholder that data fills")
     c_.add_argument("--tolerance", type=int, default=12,
                     help="Per-channel difference still treated as the same color (anti-aliasing slack)")
     c_.set_defaults(func=cmd_conform)
@@ -74,7 +80,9 @@ def build_parser() -> JSONArgumentParser:
                    help="Exclude this many pixels from the bottom (home indicator)")
     d.add_argument("--mask-data", dest="mask_data", default=None,
                    help="Leave out data that mock data changes: text, image or text,image (needs --dump, --node)")
-    d.add_argument("--dump", default=None, help="Dump of the screen, for --mask-data")
+    d.add_argument("--mask-node", dest="mask_node", action="append", default=None,
+                   help="Also leave out this node's box (repeatable), e.g. a designer's gray photo placeholder")
+    d.add_argument("--dump", default=None, help="Dump of the screen, for --mask-data / --mask-node")
     d.add_argument("--node", default=None, help="Screen node id in the dump, for --mask-data")
     d.add_argument("--min-area", type=int, default=200,
                    help="Do not report clusters smaller than this area")

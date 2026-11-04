@@ -108,6 +108,14 @@ MediaQuery(
   font size alone.** Pass `MediaQuery(textScaler:)` as well to make the text 3x too
 - Without `RepaintBoundary`, **the whole screen is captured**. Wrap the component to capture only it
 
+### Widget-test renders draw no blur (measured)
+
+`flutter test` renders **every `BoxShadow` blur, glow and `ImageFilter.blur` as a hard-edged shape.** Measured: a
+`BoxShadow(blurRadius: 20)` came out as a crisp offset copy, so a correctly coded glow button looked broken next to the design.
+**Do not report shadow, glow or blur differences from a widget-test render.** Check them on a simulator or device
+capture (`app shot --keep-format`), and say in the report which ones were checked that way.
+Text, layout, colors, corners and sizes are fine to compare from widget-test renders.
+
 ### Golden files are not the comparison target
 
 Compare the PNG made by `matchesGoldenFile` **against the design export**. Comparing goldens with each other is

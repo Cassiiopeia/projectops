@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from common.emit import emit
-from figma_tools.data_regions import DATA_KINDS, find_data_regions, parse_data_kinds
+from figma_tools.data_regions import DATA_KINDS, find_data_regions, find_node_regions, parse_data_kinds
 from figma_tools.dump_reader import _load_dump
 from figma_tools.imaging import _require_imaging
 
@@ -107,21 +107,26 @@ def _size_mismatch_report(render_size, design_size) -> dict:
 
 
 def _data_regions(args, image_width: int):
-    """--mask-data 입력 검증 > (데이터 상자, None) 또는 (None, 오류 payload)"""
-    kinds = parse_data_kinds(args.mask_data)
+    """--mask-data · --mask-node 입력 검증 > (데이터 상자, None) 또는 (None, 오류 payload)"""
+    kinds = parse_data_kinds(args.mask_data) if args.mask_data else ()
     if kinds is None:
         return None, {"ok": False, "code": "bad_mask_data",
                       "error": f"--mask-data accepts {', '.join(DATA_KINDS)} (comma-separated): {args.mask_data!r}"}
     if not args.dump:
         return None, {"ok": False, "code": "dump_required",
-                      "error": "--mask-data needs --dump (and --node) to know where the data sits"}
+                      "error": "--mask-data and --mask-node need --dump (and --node) to know where the data sits"}
     dump_path = Path(args.dump)
     if not dump_path.is_file():
         return None, {"ok": False, "code": "dump_not_found", "error": f"Dump file not found: {args.dump}"}
     data, error = _load_dump(dump_path)
     if error:
         return None, {"ok": False, "code": error[0], "error": error[1]}
-    return find_data_regions(data, args.node, kinds, image_width), None
+    regions = find_data_regions(data, args.node, kinds, image_width) if kinds else {"boxes": [], "skipped": []}
+    if args.mask_node:
+        picked = find_node_regions(data, args.node, args.mask_node, image_width)
+        regions["boxes"] += picked["boxes"]
+        regions["missing_nodes"] = picked["missing"]
+    return regions, None
 
 
 def cmd_diff(args) -> int:
@@ -178,7 +183,7 @@ def cmd_diff(args) -> int:
 
     # 데이터 영역 빼기 (mock 데이터의 글자 길이·사진 차이는 결함이 아님)
     data_regions = None
-    if args.mask_data:
+    if args.mask_data or args.mask_node:
         data_regions, error = _data_regions(args, design.shape[1])
         if error:
             return emit(error)
@@ -221,7 +226,8 @@ def cmd_diff(args) -> int:
     return emit({
         # 크기가 달라 렌더를 디자인 크기로 늘이거나 줄인 채 비교했다 — 글자 크기·간격 차이가 가짜로 생길 수 있다 (#949)
         **({"size_mismatch": size_mismatch} if size_mismatch else {}),
-        **({"data_excluded": {"kinds": list(parse_data_kinds(args.mask_data)),
+        **({"data_excluded": {"kinds": list(parse_data_kinds(args.mask_data or "") or ()) + (["node"] if args.mask_node else []),
+                              "missing_nodes": data_regions.get("missing_nodes", []),
                               "box_count": len(data_regions["boxes"]),
                               "boxes": data_regions["boxes"],
                               "position_unknown": data_regions["skipped"],

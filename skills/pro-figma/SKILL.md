@@ -170,6 +170,7 @@ For spots the framework cannot take as is (inner shadow, glow etc.), see `refere
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py conform --dump {dump} --render {app render.png} --node {screen node id}
 #   --check corners,fills,shadows   narrow down     --fail-on high   exit code 1 at that level or above (default none)
+#   --mask-top 59 --mask-bottom 21  skip the OS-drawn status bar and home indicator     --mask-node {id}  skip a photo placeholder that data fills
 ```
 
 Findings come out as definite statements, such as `[high] … top-left r=16 → the render is square`.
@@ -191,7 +192,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py diff --render {app render
 **Screens that show data** (lists, names, photos): the design holds sample values.
 First put **the design's own texts and images into the mock data**, so everything can be compared exactly.
 Only what mock data cannot reproduce (photos from the API, real text lengths) is left out with
-`--mask-data text,image --dump {dump} --node {screen node id}`. Everything else (layout, colors, shapes, spacing) must still match.
+`--mask-data text,image --dump {dump} --node {screen node id}`. A designer's gray photo placeholder is a plain fill, so name it: `--mask-node {id}` (repeatable, `diff` and `conform`). Everything else (layout, colors, shapes, spacing) must still match.
 The response lists every box left out (`data_excluded`). Check text styles by value with `coverage`, and check long data separately (wrapping, ellipsis).
 Static screens (terms, onboarding) get no mask.
 
