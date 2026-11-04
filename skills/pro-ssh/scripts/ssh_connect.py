@@ -66,11 +66,24 @@ def _expand_path(path):
     return os.path.expandvars(os.path.expanduser(path))
 
 
+def _new_client():
+    """StrictHostKeyChecking=accept-new 와 같다: 처음 보는 키는 known_hosts 에 저장, 바뀐 키는 BadHostKeyException."""
+    known_hosts = os.path.join(os.path.expanduser("~"), ".ssh", "known_hosts")
+    client = paramiko.SSHClient()
+    try:
+        os.makedirs(os.path.dirname(known_hosts), exist_ok=True)
+        if not os.path.exists(known_hosts):
+            open(known_hosts, "a").close()
+        client.load_host_keys(known_hosts)
+    except (OSError, IOError) as e:
+        print("[WARN] Could not use known_hosts, the host key is not remembered: " + str(e), file=sys.stderr)
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    return client
+
+
 def _connect_password(host, port, user, password, timeout=15):
     """비밀번호 인증으로 SSH 클라이언트를 연결하고 반환한다."""
-    client = paramiko.SSHClient()
-    # known_hosts 를 읽지 않아 접속마다 어떤 호스트 키든 수락한다 (StrictHostKeyChecking=no 동일 효과)
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client = _new_client()
     client.connect(
         hostname=host,
         port=port,
@@ -90,8 +103,7 @@ def _connect_key(host, port, user, key_path, timeout=15):
         print("[ERROR] PEM key file not found: " + key_path)
         sys.exit(1)
 
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client = _new_client()
     client.connect(
         hostname=host,
         port=port,
@@ -169,6 +181,10 @@ def main():
             )
     except paramiko.AuthenticationException:
         print("[ERROR] Authentication failed: check the user name, password or key.")
+        sys.exit(1)
+    except paramiko.BadHostKeyException as e:
+        print("[ERROR] The host key of " + args.host + " changed since the last connection. "
+              "If the server was really replaced, remove its line from ~/.ssh/known_hosts and try again. " + str(e))
         sys.exit(1)
     except paramiko.SSHException as e:
         print("[ERROR] SSH protocol error: " + str(e))
