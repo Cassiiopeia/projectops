@@ -4,6 +4,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from common.emit import emit
+from figma_tools.data_regions import DATA_KINDS, find_data_regions, parse_data_kinds
+from figma_tools.dump_reader import _load_dump
 from figma_tools.imaging import _require_imaging
 
 
@@ -104,6 +106,24 @@ def _size_mismatch_report(render_size, design_size) -> dict:
     }
 
 
+def _data_regions(args, image_width: int):
+    """--mask-data 입력 검증 > (데이터 상자, None) 또는 (None, 오류 payload)"""
+    kinds = parse_data_kinds(args.mask_data)
+    if kinds is None:
+        return None, {"ok": False, "code": "bad_mask_data",
+                      "error": f"--mask-data accepts {', '.join(DATA_KINDS)} (comma-separated): {args.mask_data!r}"}
+    if not args.dump:
+        return None, {"ok": False, "code": "dump_required",
+                      "error": "--mask-data needs --dump (and --node) to know where the data sits"}
+    dump_path = Path(args.dump)
+    if not dump_path.is_file():
+        return None, {"ok": False, "code": "dump_not_found", "error": f"Dump file not found: {args.dump}"}
+    data, error = _load_dump(dump_path)
+    if error:
+        return None, {"ok": False, "code": error[0], "error": error[1]}
+    return find_data_regions(data, args.node, kinds, image_width), None
+
+
 def cmd_diff(args) -> int:
     missing = _require_imaging()
     if missing is not None:
@@ -150,13 +170,24 @@ def cmd_diff(args) -> int:
     render = flatten(render_img)
 
     delta = np.abs(design - render).max(axis=2)
+    excluded = np.zeros(delta.shape, dtype=bool)
     if args.mask_top:
-        delta[:args.mask_top] = 0
+        excluded[:args.mask_top] = True
     if args.mask_bottom:
-        delta[-args.mask_bottom:] = 0
+        excluded[-args.mask_bottom:] = True
+
+    # 데이터 영역 빼기 (mock 데이터의 글자 길이·사진 차이는 결함이 아님)
+    data_regions = None
+    if args.mask_data:
+        data_regions, error = _data_regions(args, design.shape[1])
+        if error:
+            return emit(error)
+        for box in data_regions["boxes"]:
+            excluded[max(box["y0"], 0):box["y1"], max(box["x0"], 0):box["x1"]] = True
+    delta[excluded] = 0
 
     mask = delta > args.threshold
-    compared = delta.size - (args.mask_top + args.mask_bottom) * delta.shape[1]
+    compared = delta.size - int(excluded.sum())
     pct = 100.0 * int(mask.sum()) / max(compared, 1)
 
     found = []
@@ -181,6 +212,8 @@ def cmd_diff(args) -> int:
         # 원본을 흐리게 깔고 다른 자리만 붉게 칠한다 — 어디가 틀렸는지 바로 보인다.
         canvas = (design * 0.35 + 255 * 0.65).astype(np.uint8)
         canvas[mask] = [255, 0, 0]
+        if data_regions:
+            canvas[excluded & ~mask] = [200, 200, 255]   # 뺀 데이터 영역은 연한 파랑
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)
         Image.fromarray(canvas).save(args.out)
         out_path = str(args.out)
@@ -188,6 +221,14 @@ def cmd_diff(args) -> int:
     return emit({
         # 크기가 달라 렌더를 디자인 크기로 늘이거나 줄인 채 비교했다 — 글자 크기·간격 차이가 가짜로 생길 수 있다 (#949)
         **({"size_mismatch": size_mismatch} if size_mismatch else {}),
+        **({"data_excluded": {"kinds": list(parse_data_kinds(args.mask_data)),
+                              "box_count": len(data_regions["boxes"]),
+                              "boxes": data_regions["boxes"],
+                              "position_unknown": data_regions["skipped"],
+                              "note": ("Text content and photos were not compared by pixels. Check text "
+                                       "styles (font, size, weight, color) by value with coverage, and that "
+                                       "long data still fits (wrapping, ellipsis) on its own")}}
+           if data_regions else {}),
         "size": f"{design.shape[1]}x{design.shape[0]}",
         "background": bg_src,
         "threshold": args.threshold,

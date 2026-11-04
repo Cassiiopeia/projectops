@@ -72,6 +72,10 @@ def build_parser() -> JSONArgumentParser:
                    help="Exclude this many pixels from the top (status bar, not drawn by the app)")
     d.add_argument("--mask-bottom", type=int, default=0,
                    help="Exclude this many pixels from the bottom (home indicator)")
+    d.add_argument("--mask-data", dest="mask_data", default=None,
+                   help="Leave out data that mock data changes: text, image or text,image (needs --dump, --node)")
+    d.add_argument("--dump", default=None, help="Dump of the screen, for --mask-data")
+    d.add_argument("--node", default=None, help="Screen node id in the dump, for --mask-data")
     d.add_argument("--min-area", type=int, default=200,
                    help="Do not report clusters smaller than this area")
     d.add_argument("--probe-shift", type=int, default=40,
@@ -102,6 +106,8 @@ def build_parser() -> JSONArgumentParser:
     fe.add_argument("--design-dir", dest="design_dir", default=None,
                     help="Also export the node as PNG into this folder (the 'design' path)")
     fe.add_argument("--scale", type=float, default=1, help="PNG export scale, match the device (default 1)")
+    fe.add_argument("--version", default=None,
+                    help="Fetch a past design from the file's version history (version id) instead of the current one")
     fe.set_defaults(func=cmd_fetch)
 
     cf = sub.add_parser("check-fresh", help="Check whether the design changed since the dump was ingested")

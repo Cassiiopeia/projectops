@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from urllib.parse import quote
 
 from common.emit import emit
 from figma_tools.commands.ingest import META_SUFFIX
-from figma_tools.figma_auth import TOKEN_MISSING_OPTIONS, fetch_file_state, find_token
+from figma_tools.figma_auth import TOKEN_MISSING_OPTIONS, fetch_file_state, fetch_json, find_token
+from figma_tools.rest_dump import node_fingerprint
 
 
 def _token_problem(code: str, error: str) -> dict:
@@ -54,6 +56,16 @@ def cmd_check_fresh(args) -> int:
     current = {"last_modified": state["lastModified"], "version": state["version"]}
     is_changed = (current["last_modified"] != recorded["last_modified"]
                   or (recorded["version"] and current["version"] and current["version"] != recorded["version"]))
+    if is_changed and meta.get("node_fingerprint") and meta.get("node_id"):
+        # 파일은 바뀜 > 이 화면만 다시 받아 지문 비교 (다른 화면 수정으로 다시 작업하지 않게)
+        response = fetch_json(f"/files/{meta['file_key']}/nodes?ids={quote(meta['node_id'])}", token, 120)
+        body = response.get("json") if response.get("ok") and response.get("status") == 200 else None
+        current_fingerprint = node_fingerprint(body, meta["node_id"]) if isinstance(body, dict) else None
+        if current_fingerprint == meta["node_fingerprint"]:
+            return emit({"verdict": "fresh", "file_changed": True, "recorded": recorded, "current": current,
+                         "summary": "The file changed elsewhere; this screen is the same as the saved dump",
+                         "next": "Continue"})
+        is_changed = current_fingerprint is not None or is_changed
     if is_changed:
         node_arg = f" --node {meta['node_id']}" if meta.get("node_id") else ""
         return emit({"verdict": "design_changed", "recorded": recorded, "current": current,

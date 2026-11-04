@@ -12,7 +12,7 @@ from common.emit import emit
 from common.http import request
 from figma_tools.commands.ingest import save_dump
 from figma_tools.figma_auth import TOKEN_MISSING_OPTIONS, fetch_json, find_token
-from figma_tools.rest_dump import rest_nodes_to_dump
+from figma_tools.rest_dump import node_fingerprint, rest_nodes_to_dump
 
 # 노드 응답·이미지 내보내기 대기 (큰 화면은 Figma 쪽 렌더가 느림)
 NODES_TIMEOUT_SECONDS = 120
@@ -43,11 +43,17 @@ def _rest_failure(response: dict, file_key: str) -> dict | None:
     return None
 
 
-def _export_png(file_key: str, node: str, token: str, scale: float, design_dir: Path) -> dict:
+def _version_query(version: str | None) -> str:
+    """과거 시안 조회용 (Figma 버전 기록의 id). 없으면 현재 시안"""
+    return f"&version={quote(version)}" if version else ""
+
+
+def _export_png(file_key: str, node: str, token: str, scale: float, design_dir: Path,
+                version: str | None = None) -> dict:
     """시안 PNG 내보내기: /images 로 주소 받기 > 받은 주소에서 내려받기 (주소에는 토큰 안 붙임)"""
     # use_absolute_bounds: 프레임 밖으로 넘친 내용·효과를 빼고 노드 크기 그대로 (앱 화면과 같은 틀)
     response = fetch_json(f"/images/{file_key}?ids={quote(node)}&format=png&scale={scale:g}"
-                          "&use_absolute_bounds=true",
+                          "&use_absolute_bounds=true" + _version_query(version),
                           token, EXPORT_TIMEOUT_SECONDS)
     failure = _rest_failure(response, file_key)
     if failure:
@@ -60,7 +66,8 @@ def _export_png(file_key: str, node: str, token: str, scale: float, design_dir: 
     if not download.get("ok") or download["status"] != 200 or not download.get("raw"):
         return {"ok": False, "code": "export_failed", "error": "Could not download the exported PNG"}
     design_dir.mkdir(parents=True, exist_ok=True)
-    target = design_dir / f"{node.replace(':', '-')}@{scale:g}x.png"
+    suffix = f"_v{version}" if version else ""
+    target = design_dir / f"{node.replace(':', '-')}{suffix}@{scale:g}x.png"
     target.write_bytes(download["raw"])
     return {"ok": True, "path": str(target), "bytes": len(download["raw"]), "scale": scale}
 
@@ -72,8 +79,8 @@ def cmd_fetch(args) -> int:
                                    "No Figma token found (FIGMA_TOKEN or a saved figma credential)"))
 
     # 노드 조회 (depth 없음: 잘린 덤프는 잘렸다는 표시가 없다)
-    response = fetch_json(f"/files/{args.file_key}/nodes?ids={quote(args.node)}", token,
-                          NODES_TIMEOUT_SECONDS)
+    response = fetch_json(f"/files/{args.file_key}/nodes?ids={quote(args.node)}"
+                          + _version_query(args.version), token, NODES_TIMEOUT_SECONDS)
     failure = _rest_failure(response, args.file_key)
     if failure:
         return emit(failure)
@@ -83,17 +90,20 @@ def cmd_fetch(args) -> int:
                      "error": f"Node {args.node} is not in file {args.file_key}",
                      "hint": "Link node-id 238-1846 is node 238:1846. Check the id, or ask the user"})
 
-    dump_dir = Path(args.dump_dir)
+    # 과거 버전은 폴더를 나눔 (현재 덤프를 덮어쓰지 않게)
+    dump_dir = Path(args.dump_dir) / f"v{args.version}" if args.version else Path(args.dump_dir)
     dump_dir.mkdir(parents=True, exist_ok=True)
     # 저장 전 MCP 덤프 모양으로 (coverage · assets · conform 이 같은 모양을 읽음)
     text = json.dumps(rest_nodes_to_dump(body, args.node), ensure_ascii=False, indent=1)
-    result = save_dump(text, "json", args.file_key, args.node, dump_dir, f"rest:{token_source}")
+    result = save_dump(text, "json", args.file_key, args.node, dump_dir, f"rest:{token_source}",
+                       node_fingerprint(body, args.node))
     if result.get("ok") is False:
         return emit(result)
 
     # 선택: 대조 기준 PNG (실패해도 덤프는 남긴다)
     if args.design_dir:
-        export = _export_png(args.file_key, args.node, token, args.scale, Path(args.design_dir))
+        export = _export_png(args.file_key, args.node, token, args.scale, Path(args.design_dir),
+                             args.version)
         result["design_export"] = export
         if not export.get("ok"):
             result["warnings"].append({"code": export.get("code", "export_failed"),

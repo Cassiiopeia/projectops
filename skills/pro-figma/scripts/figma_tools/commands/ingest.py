@@ -97,7 +97,7 @@ def _recorded_state(data: dict) -> tuple:
 
 
 def save_dump(text: str, ext: str, file_key: str, node: str | None, dump_dir: Path,
-              source_label: str) -> dict:
+              source_label: str, node_fingerprint: str | None = None) -> dict:
     """덤프 저장 > lastModified 확보(덤프 > REST) > 메타 저장 > 응답 (ingest · fetch 공용)"""
     node_slug = (node or "file").replace(":", "-")
     target = dump_dir / f"figma-{file_key}-{node_slug}.{ext}"
@@ -123,6 +123,7 @@ def save_dump(text: str, ext: str, file_key: str, node: str | None, dump_dir: Pa
     meta = {"file_key": file_key, "node_id": node, "last_modified": last_modified,
             "version": version, "last_modified_source": last_modified_source,
             "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(), "source": source_label,
+            "node_fingerprint": node_fingerprint,
             "ingested_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     meta_path = Path(str(target) + META_SUFFIX)
     meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -34,8 +34,8 @@ The **absolute rules** in `../references/common-rules.md` apply. Arguments: $ARG
 |---|---|---|
 | Output locations (evidence folder · asset candidates) | `figma_cli.py get-output-path --title` | `references/counting.md` |
 | Read Figma (screen list → one screen) | `mcp__figma__get_figma_data` | `../references/figma-mcp.md` |
-| What screens are in this link? (groups → screen names and ids) | `figma_cli.py screens --file-key [--node]` | Phase 0 |
-| Fetch one screen with the saved token (no MCP needed) · also export the design PNG | `figma_cli.py fetch --file-key --node --dump-dir [--design-dir --scale]` | Phase 0 |
+| What does this link point to (file, page, section, screen, element)? What screens are in it? | `figma_cli.py screens --file-key [--node]` | Phase 0 |
+| Fetch one screen with the saved token (no MCP needed) · also export the design PNG · a past version | `figma_cli.py fetch --file-key --node --dump-dir [--design-dir --scale --version]` | Phase 0 |
 | Save the MCP result file as a dump (do not retype 30KB) | `figma_cli.py ingest --source --file-key --node --dump-dir` | Phase 0 |
 | Did the design change since the dump was saved? | `figma_cli.py check-fresh --dump` | Phase 0 · Phase 4 |
 | Save a Figma token (once) | `figma_cli.py token --prompt` · `token --from-env NAME` | Phase 0 |
@@ -45,7 +45,7 @@ The **absolute rules** in `../references/common-rules.md` apply. Arguments: $ARG
 | Translate values to code · decide approximate or omit | — | `references/conversion.md` · `references/framework-gaps.md` |
 | Capture the render under the same conditions as the design | `launch_cli.py render run` · `app shot --keep-format` · `web shot --keep-format` | `references/rendering.md` |
 | Compare by property (corners · fills · shadows) | `figma_cli.py conform` | `references/comparing.md` |
-| Compare by pixels (secondary) | `figma_cli.py diff` | `references/comparing.md` |
+| Compare by pixels (secondary) · leave out mock-data text and photos | `figma_cli.py diff [--mask-data text,image --dump --node]` | Phase 5 |
 | Report · pitfall table | — | `references/comparing.md` |
 | Store screenshots · feature graphic · icon: specs and per-locale check | `figma_cli.py store-specs` · `store-check --dir` | `references/store-assets.md` |
 | Compose per-locale store images (caption + device frame, banner) from app captures | `figma_cli.py store-compose --run-dir` → render with `launch_cli.py web script` → `store-check` | `references/store-assets.md` §Composer |
@@ -102,8 +102,11 @@ Dumps, exports, renders and diff images go under `run_dir` (not tracked). Assets
 Get Figma at `depth: 2` for the screen list → fetch the chosen screen **without `depth`** and keep it **as a file** (cutting with `depth` gives no sign that it was cut).
 There is no guarantee that a link's node-id (`238-1846` → `238:1846`) is a screen. If you do not know the node id, ask.
 
-**When a Figma token is saved, list the screens first with `screens`** (link `node-id=238-1846` → `--node 238:1846`; omit for the whole file).
-Show the user the groups and screen names and let them pick; when they ask about one screen, work on that screen only:
+**The design comes first and is the reference.** The developer builds what the designer drew; this skill never edits Figma.
+
+**When a Figma token is saved, start every link with `screens`** (link `node-id=238-1846` → `--node 238:1846`; omit for the whole file).
+People link at different levels, so read `link_kind` and follow `next`:
+`file` · `page` · `section` → show the groups and screen names and let the user pick · `screen` → fetch it now, do not ask · `element` (a part inside a screen) → fetch that part; ask for the screen link only if the user meant the whole screen.
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py screens --file-key {fileKey} --node {node id}
@@ -133,7 +136,9 @@ It knows JSON, text-block wrappers and YAML. Anything else comes back as `unknow
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py check-fresh --dump {dump file}
 ```
 
-`verdict: design_changed` → `fetch` (or fetch and `ingest`) again, then recount. `unknown` → say so in the report; do not call the design current.
+`verdict: design_changed` → `fetch` (or fetch and `ingest`) again, then recount. A dump saved by `fetch` is checked per screen:
+when only other screens changed, the verdict is `fresh` with `file_changed: true`.
+To see what an earlier design looked like, `fetch --version {id}` (ids from the file's version history) saves it in its own folder. `unknown` → say so in the report; do not call the design current.
 If it returns `figma_token_missing` (or `figma_token_rejected`), **ask the user** which of the returned `options` to take:
 register a token (`token --prompt` in their own terminal, or put it in an environment variable and use `--from-env NAME`), skip the check, or have them confirm the design is unchanged.
 Never paste, read or print a token yourself, and never ask for one in the chat. The token is stored once in the same place `pro-launch cred` uses (`provider: figma`).
@@ -183,6 +188,13 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py diff --render {app render
   --mask-top {status bar height} --mask-bottom {home indicator height}
 ```
 
+**Screens that show data** (lists, names, photos): the design holds sample values.
+First put **the design's own texts and images into the mock data**, so everything can be compared exactly.
+Only what mock data cannot reproduce (photos from the API, real text lengths) is left out with
+`--mask-data text,image --dump {dump} --node {screen node id}`. Everything else (layout, colors, shapes, spacing) must still match.
+The response lists every box left out (`data_excluded`). Check text styles by value with `coverage`, and check long data separately (wrapping, ellipsis).
+Static screens (terms, onboarding) get no mask.
+
 If there are several blobs, **start with `shift_probe`**. If `looks_shifted: true`, one container has shifted. Blobs where text sits are usually harmless;
 blobs on shapes, spacing or backgrounds are real mistakes. If the design's corners are transparent, pass `--bg RRGGBB`.
 
@@ -209,6 +221,7 @@ and record the node id you compared against. Format and pitfall table: `referenc
 | `render_not_found` · `image_not_found` · `image_unreadable` | Check the render and design PNG paths. If they were shrunk to WebP, capture again with `--keep-format` |
 | `imaging_missing` | The image library (Pillow) is missing. Suggest installing it to the user |
 | `unknown_check` | `--check` accepts only `corners` · `fills` · `shadows` |
+| `bad_mask_data` · `dump_required` | `--mask-data` takes `text`, `image` or both, and needs `--dump` and `--node` |
 | `bad_bg` · `bad_mask` | `--bg` must be `auto` or `RRGGBB` · `--mask-top`+`--mask-bottom` must be 0 or more and less than the design height |
 | `conformance_failed` | There are items at or above `--fail-on`. Fix the listed items, or record a reason for approximating or omitting them |
 | `dir_not_found` | `store-check --dir` does not exist. Export the images into `{store}/{locale}/{slot}/` first (`references/store-assets.md`) |

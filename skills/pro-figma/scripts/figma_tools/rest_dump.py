@@ -179,6 +179,17 @@ def convert_node(node: dict, parent_box: dict | None = None) -> dict:
     return converted
 
 
+def node_fingerprint(body: dict, node_id: str) -> str | None:
+    """화면 1개 내용 지문 (변환 결과 sha256). 파일의 다른 곳이 바뀌어도 그대로"""
+    import hashlib
+    import json
+    document = ((body.get("nodes") or {}).get(node_id) or {}).get("document")
+    if not document:
+        return None
+    text = json.dumps(convert_node(document), sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def rest_nodes_to_dump(body: dict, node_id: str) -> dict:
     """REST /files/:key/nodes 응답 > MCP 덤프 모양 (metadata 에 lastModified·version 유지)"""
     document = ((body.get("nodes") or {}).get(node_id) or {}).get("document") or {}

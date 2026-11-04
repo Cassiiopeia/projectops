@@ -32,6 +32,32 @@ def _collect_screens(node: dict, path: list[str], screens: list[dict]) -> None:
             _collect_screens(child, path + [child.get("name") or child.get("id")], screens)
 
 
+# 링크 종류 > 에이전트가 이어서 할 일 (사람마다 파일 전체 · 페이지 · 섹션 · 화면 · 부품 링크를 줌)
+LINK_KIND_BY_TYPE = {"DOCUMENT": "file", "CANVAS": "page", "SECTION": "section"}
+
+
+def _link_kind(root: dict) -> str:
+    """file · page · section · screen · element (화면 안 부품: 인스턴스 안쪽 id 'I…' · 글자 · 도형 등)"""
+    root_type = root.get("type")
+    if root_type in LINK_KIND_BY_TYPE:
+        return LINK_KIND_BY_TYPE[root_type]
+    if root_type in SCREEN_TYPES and not str(root.get("id", "")).startswith("I"):
+        return "screen"
+    return "element"
+
+
+def _next_for(link_kind: str, file_key: str, node_id: str | None, screen_count: int) -> str:
+    fetch_hint = f"fetch --file-key {file_key} --node {{id}} --dump-dir <dump> --design-dir <design>"
+    if link_kind in ("screen", "element"):
+        target = "this screen" if link_kind == "screen" else "this element (part of a screen)"
+        return (f"The link points to {target}: do not ask which screen, fetch it now with "
+                + fetch_hint.format(id=node_id)
+                + (". If the user meant the whole screen, ask for the screen link" if link_kind == "element" else ""))
+    if screen_count == 0:
+        return "No screens here. Ask the user for another link (a page, section or screen)"
+    return ("Show the user the groups and screen names, let them pick one, then " + fetch_hint.format(id="<screen id>"))
+
+
 def _group_counts(screens: list[dict]) -> list[dict]:
     counts: dict[str, int] = {}
     for screen in screens:
@@ -63,17 +89,21 @@ def cmd_screens(args) -> int:
     else:
         root = body.get("document") or {}
 
+    # 링크 종류별: 화면·부품은 그 자체 1건, 묶음(파일·페이지·섹션)은 안쪽 화면 목록
+    link_kind = _link_kind(root)
     screens: list[dict] = []
-    if root.get("type") in SCREEN_TYPES:
-        _collect_screens({"children": [root]}, [], screens)
+    if link_kind in ("screen", "element"):
+        box = root.get("absoluteBoundingBox") or {}
+        screens.append({"id": root.get("id"), "name": root.get("name"), "type": root.get("type"),
+                        "group": "", "width": box.get("width"), "height": box.get("height"),
+                        "hidden": root.get("visible") is False})
     else:
         _collect_screens(root, [root.get("name") or ""] if args.node else [], screens)
     groups = _group_counts(screens)
     return emit({
         "file": body.get("name"), "file_key": args.file_key, "node_id": args.node,
-        "last_modified": body.get("lastModified"),
+        "link_kind": link_kind, "last_modified": body.get("lastModified"),
         "screen_count": len(screens), "groups": groups, "screens": screens,
-        "summary": f"{len(screens)} screen(s) in {len(groups)} group(s)",
-        "next": ("Show the user the groups and screen names, let them pick one, then "
-                 f"fetch --file-key {args.file_key} --node <screen id> --dump-dir <dump> --design-dir <design>"),
+        "summary": f"Link is a {link_kind}: {len(screens)} screen(s) in {len(groups)} group(s)",
+        "next": _next_for(link_kind, args.file_key, args.node, len(screens)),
     })
