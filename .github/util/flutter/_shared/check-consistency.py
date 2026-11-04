@@ -37,6 +37,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check_i18n  # noqa: E402  같은 폴더 모듈 (파일명에 하이픈이 있어 이 파일은 import 불가)
 
+# cp949 콘솔에서 이모지 출력으로 죽지 않게 한다
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 WIZARDS = ("testflight", "playstore", "firebase", "oauth")
 SHARED_DIR = Path(__file__).resolve().parent
 FLUTTER_DIR = SHARED_DIR.parent

@@ -30,6 +30,11 @@ import re
 import sys
 import traceback
 
+# cp949 콘솔에서 이모지 출력으로 죽지 않게 한다
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 # 릴리스 스텝에서 쓰이는 스크립트라, i18n 폴더가 없는 오래된 설치에서도 죽으면 안 된다 (#787).
 # 그 경우 기존 한국어 머리말 그대로 동작한다.
 try:

@@ -20,6 +20,11 @@ import sys
 from html.parser import HTMLParser
 from pathlib import Path
 
+# cp949 콘솔에서 이모지 출력으로 죽지 않게 한다
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 SHARED_DIR = Path(__file__).resolve().parent
 UTIL_DIR = SHARED_DIR.parent.parent
 I18N_ENGINE = SHARED_DIR / "wizard-i18n.js"
