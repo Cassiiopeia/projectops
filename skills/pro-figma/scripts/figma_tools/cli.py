@@ -10,6 +10,7 @@ from figma_tools.commands.diff import cmd_diff
 from figma_tools.commands.fetch import cmd_fetch
 from figma_tools.commands.fresh import cmd_check_fresh
 from figma_tools.commands.screens import DEFAULT_DEPTH, cmd_screens
+from figma_tools.commands.svg_check import cmd_svg_check
 from figma_tools.commands.ingest import cmd_ingest
 from figma_tools.commands.token import cmd_token
 from figma_tools.commands.output_path import cmd_output_path
@@ -84,6 +85,11 @@ def build_parser() -> JSONArgumentParser:
                    help="Also leave out this node's box (repeatable), e.g. a designer's gray photo placeholder")
     d.add_argument("--dump", default=None, help="Dump of the screen, for --mask-data / --mask-node")
     d.add_argument("--node", default=None, help="Screen node id in the dump, for --mask-data")
+    d.add_argument("--solids", action="store_true",
+                   help="Also list clusters where a flat color area exists on one side only (not text)")
+    d.add_argument("--rows", action="store_true",
+                   help="Also pair text rows by height and report shifts and unpaired rows (moving backgrounds)")
+    d.add_argument("--scale", type=float, default=1.0, help="Pixels per logical px, for --rows (default 1)")
     d.add_argument("--min-area", type=int, default=200,
                    help="Do not report clusters smaller than this area")
     d.add_argument("--probe-shift", type=int, default=40,
@@ -98,6 +104,10 @@ def build_parser() -> JSONArgumentParser:
     ig.add_argument("--dump-dir", dest="dump_dir", required=True,
                     help="Folder to save into (the 'dump' path from get-output-path)")
     ig.set_defaults(func=cmd_ingest)
+
+    sv = sub.add_parser("svg-check", help="Find SVG features renderers often drop (filter, style, text, gradientTransform)")
+    sv.add_argument("--dir", required=True, help="Folder holding the downloaded SVG assets")
+    sv.set_defaults(func=cmd_svg_check)
 
     sc = sub.add_parser("screens", help="List the screens under a node (or the whole file) with the saved token")
     sc.add_argument("--file-key", dest="file_key", required=True, help="Figma file key from the link")

@@ -7,6 +7,8 @@ from common.emit import emit
 from figma_tools.data_regions import DATA_KINDS, find_data_regions, find_node_regions, parse_data_kinds
 from figma_tools.dump_reader import _load_dump
 from figma_tools.imaging import _require_imaging
+from figma_tools.solid_blobs import find_solid_blobs
+from figma_tools.text_rows import compare_rows
 
 
 # =========================================================================
@@ -202,6 +204,13 @@ def cmd_diff(args) -> int:
         found.append({"x": x0, "y": y0, "w": x1 - x0 + 1, "h": y1 - y0 + 1,
                       "mean_delta": round(float(hot.mean()), 1)})
 
+    # 선택 검사: 한쪽에만 있는 색면 · 글줄 높이 (수치가 낮아도 결함을 꺼냄)
+    solids = find_solid_blobs(design, render, mask, args.min_area, args.threshold) if args.solids else None
+    rows = None
+    if args.rows:
+        scale = (args.scale or 1.0)
+        rows = compare_rows(design, render, args.mask_top, args.mask_bottom, scale)
+
     # 덩어리가 여럿일 때 "낱낱이 틀림"인지 "하나가 밀림"인지 가린다.
     shift = None
     if found and args.probe_shift > 0:
@@ -243,10 +252,15 @@ def cmd_diff(args) -> int:
         "different_percent": round(pct, 2),
         "max_delta": int(delta.max()),
         "clusters": found,
+        **({"solid_blobs": solids} if solids is not None else {}),
+        **({"text_rows": rows} if rows is not None else {}),
         "shift_probe": shift,
         "diff_image": out_path,
         "summary": (f"different pixels {pct:.2f}% · {len(found)} clusters "
-                    f"(max channel delta {int(delta.max())})"),
+                    f"(max channel delta {int(delta.max())})"
+                    + (f" · {len(solids)} solid blob(s) only on one side" if solids else "")
+                    + (f" · text rows: {rows['shifted_rows']} shifted, {rows['unpaired_rows']} unpaired"
+                       if rows else "")),
         "next": (
             (f"There are {len(found)} clusters, but shifting the render by "
              f"({shift['dx']:+d}, {shift['dy']:+d}) drops the difference from "

@@ -42,10 +42,11 @@ The **absolute rules** in `../references/common-rules.md` apply. Arguments: $ARG
 | List elements · effects · styles **without gaps** | `figma_cli.py coverage --dump --node` | `references/counting.md` |
 | Did you count every state (disabled · empty value · zero items)? | `coverage` per state node | `../references/design-states.md` |
 | Group the assets to download → download | `figma_cli.py assets` → `mcp__figma__download_figma_images` | `references/assets.md` |
+| Do downloaded SVGs use features the renderer drops (filter, style, text, gradientTransform)? | `figma_cli.py svg-check --dir` | Phase 2 |
 | Translate values to code · decide approximate or omit | — | `references/conversion.md` · `references/framework-gaps.md` |
 | Capture the render under the same conditions as the design | `launch_cli.py render run` · `app shot --keep-format` · `web shot --keep-format` | `references/rendering.md` |
-| Compare by property (corners · fills · shadows) | `figma_cli.py conform` | `references/comparing.md` |
-| Compare by pixels (secondary) · leave out mock-data text and photos | `figma_cli.py diff [--mask-data text,image --dump --node]` | Phase 5 |
+| Compare by property (placement · corners · fills · shadows) | `figma_cli.py conform` | `references/comparing.md` |
+| Compare by pixels (secondary) · leave out mock-data text and photos · flat areas on one side · text row heights | `figma_cli.py diff [--mask-data text,image --dump --node] [--solids] [--rows]` | Phase 5 |
 | Report · pitfall table | — | `references/comparing.md` |
 | Store screenshots · feature graphic · icon: specs and per-locale check | `figma_cli.py store-specs` · `store-check --dir` | `references/store-assets.md` |
 | Compose per-locale store images (caption + device frame, banner) from app captures | `figma_cli.py store-compose --run-dir` → render with `launch_cli.py web script` → `store-check` | `references/store-assets.md` §Composer |
@@ -159,7 +160,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py assets --dump {dump file}
 ```
 
 Pass the returned `nodes` **as is** to `download_figma_images`'s `nodes`, with `localPath` set to the absolute path of the chosen asset folder.
-After downloading, check `rename_me` · `certain: false` · 0-byte files · the count. Items marked `baked_effect` **come in larger**:
+After downloading, check `rename_me` · `certain: false` · 0-byte files · the count, and run `svg-check --dir {asset folder}`. Items marked `baked_effect` **come in larger**:
 remove the effect from the code, keep the downloaded size, and center it on the shape. After placing them, sweep every `fill`/`stroke` value to find colors not in the tokens.
 
 **Phase 3: translate.** The classification table is the worklist. Use existing tokens and components first (`references/conversion.md`).
@@ -174,6 +175,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py conform --dump {dump} --r
 ```
 
 Findings come out as definite statements, such as `[high] … top-left r=16 → the render is square`.
+Placement is checked first: when a box's edges are not on the design's lines, its corners are not judged (a shifted box makes corner probes lie).
+Nodes named like a status bar, home indicator or keyboard are skipped automatically (`skipped_system_nodes`).
 **When a corner comes out square, do not set the radius again; check whether a child covers it**
 (Flutter `clipBehavior: Clip.antiAlias` · CSS/RN `overflow: hidden`). If an `INSTANCE` has only a `componentId` and no style,
 fetch the component node separately.
@@ -195,6 +198,8 @@ Only what mock data cannot reproduce (photos from the API, real text lengths) is
 `--mask-data text,image --dump {dump} --node {screen node id}`. A designer's gray photo placeholder is a plain fill, so name it: `--mask-node {id}` (repeatable, `diff` and `conform`). Everything else (layout, colors, shapes, spacing) must still match.
 The response lists every box left out (`data_excluded`). Check text styles by value with `coverage`, and check long data separately (wrapping, ellipsis).
 Static screens (terms, onboarding) get no mask.
+A low percentage is not a pass: open every blob, and add `--solids` (flat color areas on one side only) and `--rows` (text rows paired by height).
+Also check the other direction (on screen but not in the design) and layers the dump lists but the export does not show (`references/comparing.md`).
 
 If there are several blobs, **start with `shift_probe`**. If `looks_shifted: true`, one container has shifted. Blobs where text sits are usually harmless;
 blobs on shapes, spacing or backgrounds are real mistakes. If the design's corners are transparent, pass `--bg RRGGBB`.
@@ -222,6 +227,7 @@ and record the node id you compared against. Format and pitfall table: `referenc
 | `render_not_found` · `image_not_found` · `image_unreadable` | Check the render and design PNG paths. If they were shrunk to WebP, capture again with `--keep-format` |
 | `imaging_missing` | The image library (Pillow) is missing. Suggest installing it to the user |
 | `unknown_check` | `--check` accepts only `corners` · `fills` · `shadows` |
+| `dir_not_found` (svg-check) | Pass the folder the assets were downloaded to |
 | `bad_mask_data` · `dump_required` | `--mask-data` takes `text`, `image` or both, and needs `--dump` and `--node` |
 | `bad_bg` · `bad_mask` | `--bg` must be `auto` or `RRGGBB` · `--mask-top`+`--mask-bottom` must be 0 or more and less than the design height |
 | `conformance_failed` | There are items at or above `--fail-on`. Fix the listed items, or record a reason for approximating or omitting them |

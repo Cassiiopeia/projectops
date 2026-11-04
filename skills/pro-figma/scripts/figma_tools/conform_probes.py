@@ -47,6 +47,15 @@ def _parse_radius(value) -> list[float]:
     return (nums + nums[-1:] * 4)[:4]
 
 
+def _stroke_width(strokes, styles: dict) -> float:
+    """테두리 두께 (논리 px). MCP 덤프·변환 덤프 모두 {strokeWeight: '2px'} 모양, 없으면 0"""
+    strokes = styles.get(strokes) if isinstance(strokes, str) else strokes
+    if not isinstance(strokes, dict):
+        return 0.0
+    numbers = re.findall(r"\d+(?:\.\d+)?", str(strokes.get("strokeWeight") or "0"))
+    return float(numbers[0]) if numbers else 0.0
+
+
 def _rects(node, styles: dict, want_id, ox=0.0, oy=0.0, inside=False, out=None,
            skipped=None):
     """절대 좌표를 가진 사각형을 모은다.
@@ -97,6 +106,7 @@ def _rects(node, styles: dict, want_id, ox=0.0, oy=0.0, inside=False, out=None,
                 "ref": node_id, "name": node.get("name"), "type": node.get("type"),
                 "x": x, "y": y, "width": float(w), "height": float(h),
                 "radii": radii, "fills": fills, "effects": fx,
+                "stroke_width": _stroke_width(node.get("strokes"), styles),
             })
 
     for k, v in node.items():
@@ -385,7 +395,7 @@ def _check_shadows(sample, rect, tol) -> list[dict]:
 
 
 _SEVERITY_ORDER = {"none": 0, "low": 1, "medium": 2, "high": 3}
-_ALL_CHECKS = ("corners", "fills", "shadows")
+_ALL_CHECKS = ("placement", "corners", "fills", "shadows")
 
 
 def _has_node(data, node_id: str) -> bool:

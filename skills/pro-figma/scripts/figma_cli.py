@@ -39,6 +39,7 @@ from figma_tools.commands.diff import cmd_diff  # noqa: E402,F401
 from figma_tools.commands.fetch import cmd_fetch  # noqa: E402,F401
 from figma_tools.commands.fresh import cmd_check_fresh  # noqa: E402,F401
 from figma_tools.commands.screens import cmd_screens  # noqa: E402,F401
+from figma_tools.commands.svg_check import cmd_svg_check  # noqa: E402,F401
 from figma_tools.commands.ingest import cmd_ingest  # noqa: E402,F401
 from figma_tools.commands.output_path import cmd_output_path  # noqa: E402,F401
 from figma_tools.commands.token import cmd_token  # noqa: E402,F401

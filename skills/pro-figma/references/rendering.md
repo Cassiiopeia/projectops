@@ -108,6 +108,18 @@ MediaQuery(
   font size alone.** Pass `MediaQuery(textScaler:)` as well to make the text 3x too
 - Without `RepaintBoundary`, **the whole screen is captured**. Wrap the component to capture only it
 
+### Render conditions that keep the comparison honest (measured)
+
+| Condition | Why |
+|---|---|
+| **Mock data = the design's own texts and images** | Different content turns the whole diff red and buries the real misalignment |
+| **Push the screen on top of a dummy first route** | Back buttons appear only when the route can pop. A single-route harness hides the design's back button |
+| **Freeze animation at a fixed time** (e.g. exactly two cycles) | Looping backgrounds and floating particles differ on every capture |
+| **Set states directly; do not tap to reach them** when tapping triggers randomness | A tap that fires confetti draws something different each run |
+| **Precache images before the capture** | Without it, eight stars were missing and the capture still "passed" |
+| **Check that the font weights you use are bundled** | Missing 700/800 files silently fall back to 600, and the test renderer cannot tell weights apart |
+| **Fetch the design export again right before comparing** | An old export showed a badge the design had already removed, and a working screen almost got "fixed" |
+
 ### Widget-test renders draw no blur (measured)
 
 `flutter test` renders **every `BoxShadow` blur, glow and `ImageFilter.blur` as a hard-edged shape.** Measured: a

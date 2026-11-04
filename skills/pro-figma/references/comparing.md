@@ -123,6 +123,46 @@ Then the place to fix is not the elements inside but **what contains them**: con
 > The status bar and home indicator are areas the app does not draw, so they always come out different. Mask them with `--mask-top` · `--mask-bottom`.
 > If there is a lot of noise, adjust `--threshold` (default 24) · `--min-area` (default 200).
 
+### Low numbers still need every blob opened ⚠️
+
+A small percentage is not a pass. **Open every blob**, and run the two extra checks that pull defects out of text noise:
+
+```bash
+figma_cli.py diff --render {render} --design {export} --solids          # flat color areas on one side only (not text)
+figma_cli.py diff --render {render} --design {export} --rows --scale 1  # text rows paired by height: shifts, extra or missing lines
+```
+
+> Measured: a login screen at 1.66% (already "text only") still had an app-only asset fragment poking 13px out below a button.
+> `--solids` found it. A screen written off as "the moving background" hid four real defects that `--rows` found.
+> A 12% screen accepted as "almost the same" had 11 places off.
+
+Faint effects (a 5% shadow, a 40% alpha star) barely move the number. Measure their color at the spot instead.
+
+### Layers in the dump that the export does not show ⚠️
+
+The dump lists every layer; the export shows only what ends up visible. **When coverage lists an element you cannot see in the export,
+do not drop it silently.** Check the layer order first:
+
+- hidden (`visible: false`), a different variant, or a leftover layer → leave it out and say so
+- **covered by another layer** → ask the designer whether the order is a mistake
+
+> Measured (elum #642): a transparent → background-color gradient behind a sheet's bottom button was in the dump,
+> but the list layer sat above it in the design, so the export showed nothing. It was left out of the app and found later.
+> The rule that came out of it: a big button over a list gets that fade, and the layer order went back to the designer.
+
+### Check the other direction too
+
+After checking that everything in the design is on screen, check that **nothing on screen is missing from the design**:
+an asset the designer later removed, a background a shared scaffold paints on every screen.
+
+> Measured: a shared scaffold painted the aurora background on a screen the design draws solid. Another screen still showed
+> part of a removed illustration (13px of a beak between two buttons).
+
+### Measure what is drawn, not the dump's box
+
+The dump's group box can be larger than what it draws, even without effects (measured: a 122×123 group drew 113×99;
+a 299 box drew 264×255). Place assets by overlaying the export and measuring, not by the box alone.
+
 ## Phase 6: check components separately ⚠️
 
 **Shadows, glows and 1px borders vanish on a full screen.** Looking only at the full screen at 1x lets it slip through
@@ -155,6 +195,23 @@ Write the report in the user's language (or the configured `language` preference
 
 Write values **so they can be recounted** (coordinates, size, mean difference). "Looks similar" is not evidence.
 Record what you compared against (node id) in tests and comments.
+
+Two more classes go in the report, next to omissions and approximations:
+
+| Class | When | What to do |
+|---|---|---|
+| **Designs disagree** | Two frames of the same screen differ (a particle, a gap, a word) | Do not pick one silently. Ask the designer; record which frame you followed |
+| **Intentional departure** | The product decided to differ (legal wording, accessibility) | Keep a table with the reason and the decision link, so the next comparison does not "fix" it |
+
+### Keep a comparison ledger
+
+Keep one list per project: screen node id → app screen → compared (yes / no, date, result).
+**The screens nobody compares are the ones that drift.** Put the uncompared screens in every report.
+
+> Measured: the screens in the ledger were fine; the off ones (a sheet in six places, a star screen at 21%) were all screens never added.
+> An Android-only design frame was never compared at all, and that is where the leftover asset was.
+
+Count platform variants like states: if the design has iOS and Android frames for one screen, compare both.
 
 ## Common pitfalls
 

@@ -7,6 +7,7 @@ from common.emit import emit
 from figma_tools.conform_probes import (_ALL_CHECKS, _SEVERITY_ORDER, _check_fills, _check_shadows,
                                         _has_node, _node_width, _probe_corners, _rects,
                                         layers_above, layers_below)
+from figma_tools.conform_placement import check_placement, system_node_ids
 from figma_tools.dump_reader import _load_dump, _style_table
 from figma_tools.imaging import _require_imaging
 
@@ -61,7 +62,10 @@ def cmd_conform(args) -> int:
     rects = [r for r in rects if r not in in_band]
     # 지정 노드 빼기 (디자이너의 사진 자리표시 등 데이터가 채우는 자리)
     masked_nodes = [r for r in rects if r["ref"] in (args.mask_node or [])]
-    rects = [r for r in rects if r not in masked_nodes]
+    # OS 가 그리는 노드 (이름: 상태바 · 홈 인디케이터 · 키보드) 자동 제외
+    system_ids = system_node_ids(data)
+    system_nodes = [r for r in rects if r["ref"] in system_ids]
+    rects = [r for r in rects if r not in masked_nodes and r not in system_nodes]
     if not rects and not skipped:
         return emit({"ok": True, "checked": 0, "findings": [],
                      "summary": "No rectangles with rounded corners",
@@ -87,7 +91,13 @@ def cmd_conform(args) -> int:
     findings = []
     for index, r in enumerate(rects):
         above = layers_above(rects, index)
-        if "corners" in checks:
+        # 자리 먼저: 밀린 상자는 모서리 탐침이 면 안쪽을 찍어 거짓 "각짐"이 됨 > 모서리 건너뜀
+        is_placed = None
+        if "placement" in checks:
+            placement_findings, is_placed = check_placement(sample, r, above, layers_below(rects, index),
+                                                            args.tolerance)
+            findings.extend(placement_findings)
+        if "corners" in checks and is_placed is not False:
             for f in _probe_corners(img, r, scale, args.tolerance, above,
                                     layers_below(rects, index)):
                 findings.append({"check": "corners", "severity": "high",
@@ -112,6 +122,7 @@ def cmd_conform(args) -> int:
         "checks": checks,
         "checked": len(rects), "skipped_unknown_position": len(skipped),
         "skipped_system_bands": len(in_band), "skipped_masked_nodes": [r["ref"] for r in masked_nodes],
+        "skipped_system_nodes": len(system_nodes),
         "scale": round(scale, 4), "scale_from": scale_from,
         "render_size": list(img.size),
         "findings": findings, "by_severity": by_sev,
