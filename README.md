@@ -11,7 +11,7 @@
 **Status: actively maintained.** npm `latest` is exactly what is on the `main` branch; work in progress on `develop` is never published. Versions can still ship several times a day. Note that `npx projectops@<version>` pins the installer only (workflow templates always come from the current `main`) ([releases](https://github.com/Cassiiopeia/projectops/releases)).
 
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
-## Latest version : v4.85.0 (2026-11-04)
+## Latest version : v4.86.0 (2026-11-04)
 
 [View full version history](CHANGELOG.md)
 
