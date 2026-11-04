@@ -126,7 +126,7 @@ registerWizardMessages(
     "step1.absolutePathTitle": "🔍 절대경로 확인하는 법",
     "step1.absolutePathWhy": "브라우저는 보안상 폴더의 절대경로를 알 수 없어 직접 입력해야 합니다.",
     "step1.macPathCommand": "cd 프로젝트폴더 && pwd",
-    "step1.windowsPathCommand": "cd 프로젝트폴더 && cd",
+    "step1.windowsPathCommand": "cd 프로젝트폴더; (pwd).Path",
     "step1.exampleOutput": "결과 예시:",
     "step1.macSeparator": "구분자 <span class=\"text-slate-400\">/</span> · <span class=\"text-slate-400\">/</span>로 시작",
     "step1.windowsSeparator": "구분자 <span class=\"text-slate-400\">\\</span> · <span class=\"text-slate-400\">드라이브문자:</span>로 시작",

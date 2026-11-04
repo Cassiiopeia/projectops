@@ -605,7 +605,9 @@ function generateInitCommand() {
         ? '.github\\util\\flutter\\testflight-wizard\\testflight-wizard.py'
         : '.github/util/flutter/testflight-wizard/testflight-wizard.py';
 
-    const cmd = `cd "${repoRoot}" && ${python} "${scriptPath}" setup "${projectPath}" "${bundleId}" "${teamId}" "${profileName}" "${usesNonExemptEncryption}"`;
+    // Windows 기본 터미널인 PowerShell 5.1 은 && 를 파싱하지 못한다
+    const separator = isWindows ? ';' : ' &&';
+    const cmd = `cd "${repoRoot}"${separator} ${python} "${scriptPath}" setup "${projectPath}" "${bundleId}" "${teamId}" "${profileName}" "${usesNonExemptEncryption}"`;
     setElementText('initCmd', cmd);
 }
 
