@@ -14,7 +14,7 @@
 #   Release 생성을 공통에 넣으면 이 템플릿을 설치한 모든 레포의 동작이 바뀐다.
 #
 # 채널 정책 (#796): npm `latest` 는 배포 브랜치(main)에 올린 것과 항상 같다.
-#   - main 에 push 하는 순간 곧바로 `latest` 로 나간다. 별도 승격 주기·대기 기간은 없다.
+#   - main 에 push 하고 CI 를 통과하면 `latest` 로 나간다. 별도 승격 주기·대기 기간은 없다.
 #   - develop(개발 브랜치)은 npm 에 올리지 않는다. 그래서 `latest` 를 받는 사용자는 사람이 main 에 올리기로
 #     결정한 버전만 받는다. "얼마나 자주 나가는가"는 main 에 올리는 빈도, 곧 메인테이너의 결정이다.
 #   - 이 정책이 깨지지 않도록 트리거를 main 으로만 두고 dist-tag 를 `latest` 로 명시한다.
@@ -43,8 +43,69 @@ permissions:
   id-token: write
 
 jobs:
+  # 3 OS 스모크를 통과한 커밋만 내보낸다. 게이트가 없으면 깨진 버전이 먼저 latest 로 나간다.
+  # GitHub API 는 run 이 완료·성공이어도 job 이 아직 대기 중일 때가 있어 job 까지 본다.
+  wait-for-ci:
+    name: Wait for CI on this commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      actions: read
+    outputs:
+      passed: ${{ steps.gate.outputs.passed }}
+    steps:
+      - id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            echo "Manual run: skipping the CI wait."
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          runs_url="repos/$GITHUB_REPOSITORY/actions/workflows/PROJECT-TEMPLATE-CI.yaml/runs?head_sha=$GITHUB_SHA&event=push"
+          # CI 는 paths 필터가 있어 문서만 바뀐 커밋에는 run 이 없다. 3분 안에 안 생기면 대상이 아니다
+          for attempt in $(seq 1 170); do
+            run_id=$(gh api "$runs_url" --jq '.workflow_runs[0].id // empty')
+            if [ -z "$run_id" ]; then
+              if [ "$attempt" -ge 6 ]; then
+                echo "No CI run for this commit (paths filter)."
+                echo "passed=true" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              sleep 30
+              continue
+            fi
+            total=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100" --jq '.jobs | length')
+            open=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100" --jq '[.jobs[] | select(.status != "completed")] | length')
+            run_status=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq '.status')
+            if [ "$total" -gt 0 ] && [ "$open" = "0" ] && [ "$run_status" = "completed" ]; then
+              cancelled=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100" --jq '[.jobs[] | select(.conclusion == "cancelled")] | length')
+              bad=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100" --jq '[.jobs[] | select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != "cancelled")] | length')
+              if [ "$bad" != "0" ]; then
+                echo "::error::CI failed for this commit, not publishing."
+                exit 1
+              fi
+              if [ "$cancelled" != "0" ]; then
+                # 새 push 가 이 run 을 취소했다. 그 push 의 배포가 이어받는다
+                echo "CI was replaced by a newer push, leaving the publish to that run."
+                echo "passed=false" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              echo "All $total CI jobs passed."
+              echo "passed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "::error::Timed out waiting for CI."
+          exit 1
+
   publish-npm:
     name: npm 패키지 배포
+    needs: wait-for-ci
+    if: needs.wait-for-ci.outputs.passed == 'true'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
