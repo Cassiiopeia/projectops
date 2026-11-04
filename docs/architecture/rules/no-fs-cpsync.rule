@@ -1,0 +1,5 @@
+# fs.cpSync 금지: Windows + Node 22 이상에서 경로에 한글이 있으면 메시지 없이 프로세스가 죽는다. Node 20 CI 로는 안 보인다
+description=fs.cpSync 금지 (Windows 한글 경로 크래시) — src/core/fsutil.js 의 copyPathSync 사용
+paths=src/,bin/
+extensions=.js
+pattern=\bcpSync\b(?! 는)

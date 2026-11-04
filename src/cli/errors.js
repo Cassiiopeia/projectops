@@ -14,6 +14,10 @@ export function describeError(err) {
   }
   // 템플릿 내려받기 실패 — execFileSync 가 "Command failed: git clone ..." 를 던진다
   if (/Command failed: git clone/.test(msg)) {
+    // Windows 경로 길이 한계 — 네트워크 탓으로 안내하면 엉뚱한 곳을 보게 된다
+    if (/Filename too long|cannot stat/i.test(msg)) {
+      return { message: t("errors.clone.pathTooLong.message"), hint: t("errors.clone.pathTooLong.hint") };
+    }
     return {
       message: t("errors.clone.message"),
       hint: t("errors.clone.hint"),

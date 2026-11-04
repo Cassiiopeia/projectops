@@ -21,6 +21,8 @@ export default {
   "errors.git.hint": "git 이 설치되어 있고 PATH 에 있는지 확인하세요.",
   "errors.clone.message": "템플릿을 내려받지 못했습니다.",
   "errors.clone.hint": "네트워크·프록시 설정과 GitHub 접근 가능 여부를 확인한 뒤 다시 실행하세요.",
+  "errors.clone.pathTooLong.message": "폴더 경로가 너무 길어 Windows에서 템플릿을 받을 수 없습니다.",
+  "errors.clone.pathTooLong.hint": "프로젝트를 더 짧은 경로(예: C:/dev/my-app)로 옮긴 뒤 다시 실행하세요.",
   "errors.write.message": "파일을 쓸 수 없습니다{where}.",
   "errors.write.hint": "프로젝트 폴더와 .github 폴더의 쓰기 권한(읽기 전용 여부)을 확인하세요.",
   "errors.disk.message": "디스크 공간이 부족합니다.",

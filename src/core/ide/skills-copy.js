@@ -3,7 +3,8 @@
 // 설치 모양은 플러그인 캐시와 같다: <설치 루트>/skills/pro-*/scripts/x_cli.py + <설치 루트>/scripts/common
 //   (스킬 CLI bootstrap 이 x_cli.py 기준 3단계 위의 scripts/ 를 import 경로로 쓴다)
 import { dirname, join, relative } from "node:path";
-import { existsSync, readFileSync, mkdirSync, cpSync, rmSync, writeFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, mkdirSync, rmSync, writeFileSync, readdirSync } from "node:fs";
+import { copyPathSync } from "../fsutil.js";
 import { TEMPLATE_REPO_WEB_URL } from "../paths.js";
 
 // 스킬을 쓰는 사람에게 필요 없는 것. projectops 자신을 검사하는 테스트다.
@@ -53,11 +54,8 @@ function copyEntriesWithoutTests(src, dest, skipNames = new Set()) {
   const copiedNames = [];
   for (const e of readdirSync(src, { withFileTypes: true })) {
     if (SKIP_IN_COPY.has(e.name) || TEST_PATH.test(e.name) || skipNames.has(e.name)) continue;
-    cpSync(join(src, e.name), join(dest, e.name), {
-      recursive: true,
-      // 이 저장소 자기 코드를 검사하는 테스트는 남의 컴퓨터로 나갈 이유가 없다 (#591).
-      filter: (p) => !TEST_PATH.test(relative(src, p)),
-    });
+    // 이 저장소 자기 코드를 검사하는 테스트는 남의 컴퓨터로 나갈 이유가 없다 (#591).
+    copyPathSync(join(src, e.name), join(dest, e.name), (p) => !TEST_PATH.test(relative(src, p)));
     copiedNames.push(e.name);
   }
   return copiedNames;

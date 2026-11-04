@@ -21,6 +21,8 @@ export default {
   "errors.git.hint": "Check that git is installed and on your PATH.",
   "errors.clone.message": "Could not download the template.",
   "errors.clone.hint": "Check your network, proxy settings and GitHub access, then run again.",
+  "errors.clone.pathTooLong.message": "This folder path is too long for Windows to hold the template.",
+  "errors.clone.pathTooLong.hint": "Move the project to a shorter path (for example C:/dev/my-app) and run again.",
   "errors.write.message": "Cannot write the file{where}.",
   "errors.write.hint": "Check write permission (and read-only status) of the project folder and the .github folder.",
   "errors.disk.message": "Not enough disk space.",

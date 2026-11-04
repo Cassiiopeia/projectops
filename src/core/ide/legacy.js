@@ -1,7 +1,8 @@
 // IDE 어댑터 공용 레거시 유틸 — 버전 판정 + config 루트 이관.
 // 리브랜딩(#459) 전 설치본(cassiiopeia/SUH-DEVOPS-TEMPLATE)을 신규(projectops)로 넘길 때 공용.
-import { join, dirname } from "node:path";
-import { existsSync, readFileSync, mkdirSync, cpSync } from "node:fs";
+import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { copyFileSync } from "../fsutil.js";
 import { compareCacheName } from "./util.js";
 
 // version <= maxLegacy 이면 레거시. null/빈문자열은 판정 불가 → false(안전).
@@ -31,8 +32,7 @@ export function migrateConfigRoot(io) {
   const src = sources.find(hasNonEmptyJson);
   if (!src) return { migrated: false, reason: "no-source" };
   try {
-    mkdirSync(dirname(target), { recursive: true });
-    cpSync(src, target);
+    copyFileSync(src, target);
     io.log(`  config 마이그레이션 완료: ${src} → ~/.projectops/config/config.json`);
     return { migrated: true, from: src };
   } catch (e) {

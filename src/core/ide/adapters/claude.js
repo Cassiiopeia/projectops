@@ -1,7 +1,7 @@
 // Claude Code 어댑터 (플러그인 설치·제거, 플러그인 데이터 정리).
 // 마켓플레이스 Cassiiopeia/projectops, 플러그인 projectops@projectops-marketplace.
 import { join } from "node:path";
-import { existsSync, readdirSync, mkdirSync, cpSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, mkdirSync, copyFileSync, rmSync } from "node:fs";
 import { compareCacheName } from "../util.js";
 import { migrateConfigRoot } from "../legacy.js";
 import { t } from "../../../i18n/index.js";
@@ -107,7 +107,7 @@ function migrateConfig(io, oldCache, newCache) {
   try {
     mkdirSync(newCfg, { recursive: true });
     let copied = 0;
-    for (const f of readdirSync(oldCfg)) if (f.endsWith(".json")) { cpSync(join(oldCfg, f), join(newCfg, f)); copied++; }
+    for (const f of readdirSync(oldCfg)) if (f.endsWith(".json")) { copyFileSync(join(oldCfg, f), join(newCfg, f)); copied++; }
     if (copied) io.log(t("ide.claude.configMigrated"));
   } catch { /* 무해 */ }
 }

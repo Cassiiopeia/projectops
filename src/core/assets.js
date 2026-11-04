@@ -26,7 +26,7 @@ export function acquireTemplate({ tempDir, source = { type: "git" }, keep = [] }
     // clone 은 stdio 를 버려 실패 원인이 사라진다 — 폴더가 읽기 전용이어도 "내려받지 못했다"로 오도되므로
     // 먼저 만들어 권한 오류(EACCES/EPERM/EROFS)를 그대로 올린다 (#720). 빈 폴더에는 clone 이 가능하다.
     mkdirSync(tempDir, { recursive: true });
-    execFileSync("git", ["clone", "--depth", "1", "--quiet", repo, tempDir], { stdio: "ignore" });
+    execFileSync("git", ["clone", "-c", "core.longpaths=true", "--depth", "1", "--quiet", repo, tempDir], { stdio: ["ignore", "ignore", "pipe"] });
   }
   applyExclusions(tempDir, { keep });
 }
