@@ -1,7 +1,22 @@
 # Changelog
 
-**Current version:** 4.85.0  
-**Last updated:** 2026-11-04T16:31:56Z  
+**Current version:** 4.86.0  
+**Last updated:** 2026-11-04T16:51:04Z  
+
+---
+
+## [4.86.0] - 2026-11-04
+
+**PR:** #1057  
+
+**New features**
+- Workflow run listings now show who started a run and whether it came from a fork, and can filter by trigger and date
+
+**Bug fixes**
+- The legacy SSH connector now remembers a server's host key and refuses a changed one instead of accepting any key
+
+**Other**
+- New npm versions are published only after checks pass on every OS
 
 ---
 

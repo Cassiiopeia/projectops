@@ -1,14 +1,45 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-04T16:31:56Z",
-    "currentVersion": "4.85.0",
+    "lastUpdated": "2026-11-04T16:51:04Z",
+    "currentVersion": "4.86.0",
     "projectType": "basic",
-    "totalReleases": 368,
+    "totalReleases": 369,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.86.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-04",
+      "pr_number": 1057,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * Workflow run listings now show who started a run and whether it came from a fork, and can filter by trigger and date\n\n* **Bug fixes**\n  * The legacy SSH connector now remembers a server's host key and refuses a changed one instead of accepting any key\n\n* **Other**\n  * New npm versions are published only after checks pass on every OS",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "Workflow run listings now show who started a run and whether it came from a fork, and can filter by trigger and date"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "The legacy SSH connector now remembers a server's host key and refuses a changed one instead of accepting any key"
+          ]
+        },
+        "other": {
+          "title": "Other",
+          "items": [
+            "New npm versions are published only after checks pass on every OS"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.85.0",
       "project_type": "basic",
