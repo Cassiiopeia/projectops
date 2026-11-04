@@ -66,8 +66,9 @@ jobs:
     # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: CodeRabbit Summary 감지 및 파싱
     # head 가드: main이 default라 feature PR의 base가 main으로 잘못 열릴 수 있다.
-    # develop발 릴리스 PR만 automerge 파이프라인을 탄다. (후속 job은 needs 조건으로 연쇄 스킵)
-    if: github.event.pull_request.head.ref == 'develop'
+    # 이 레포의 develop발 릴리스 PR만 automerge 파이프라인을 탄다. (후속 job은 needs 조건으로 연쇄 스킵)
+    # pull_request_target 은 포크 PR 에서도 돌고 브랜치 이름은 포크가 정한다. 출처 레포를 함께 본다.
+    if: github.event.pull_request.head.ref == 'develop' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     outputs:
       summary_found: ${{ steps.detect_summary.outputs.summary_found }}

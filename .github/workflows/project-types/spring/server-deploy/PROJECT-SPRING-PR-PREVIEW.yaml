@@ -105,7 +105,13 @@ jobs:
   check-command:
     # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
     name: 명령어 확인
-    if: github.event_name == 'issue_comment'
+    # 공개 레포에서 아무나 댓글로 서버 배포를 걸지 못하게 한다. 허용 목록은 PROJECTOPS_TRIGGER_ASSOCIATIONS 로 바꾼다
+    if: |
+      github.event_name == 'issue_comment' &&
+      (
+        github.event.repository.private == true ||
+        contains(fromJSON(vars.PROJECTOPS_TRIGGER_ASSOCIATIONS || '["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+      )
     runs-on: ubuntu-latest
     outputs:
       command: ${{ steps.parse.outputs.command }}

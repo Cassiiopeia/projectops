@@ -1,0 +1,5 @@
+# pull_request_target 은 포크 PR 에서도 돈다. 브랜치 이름만 보면 포크의 같은 이름 브랜치가 자동 머지를 탄다
+description=릴리스 워크플로의 head.ref 단독 판정 금지 (head.repo 를 함께 본다)
+paths=.github/workflows/
+extensions=.yaml,.yml
+pattern=if: github\.event\.pull_request\.head\.ref == 'develop'\s*$
