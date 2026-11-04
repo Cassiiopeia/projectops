@@ -85,19 +85,33 @@ def cmd_ingest(args) -> int:
                      "hint": "Not guessing the format. Save the get_figma_data result as a file and pass it, "
                              "or report the wrapper shape so it can be supported"})
 
-    node_slug = (args.node or "file").replace(":", "-")
-    target = dump_dir / f"figma-{args.file_key}-{node_slug}.{ext}"
+    return emit(save_dump(text, ext, args.file_key, args.node, dump_dir, str(source)))
+
+
+def _recorded_state(data: dict) -> tuple:
+    """덤프 안의 (lastModified, version): MCP 덤프는 metadata 아래, REST 응답은 최상위"""
+    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    last_modified = metadata.get("lastModified") or data.get("lastModified")
+    version = metadata.get("version") or data.get("version")
+    return last_modified, version
+
+
+def save_dump(text: str, ext: str, file_key: str, node: str | None, dump_dir: Path,
+              source_label: str) -> dict:
+    """덤프 저장 > lastModified 확보(덤프 > REST) > 메타 저장 > 응답 (ingest · fetch 공용)"""
+    node_slug = (node or "file").replace(":", "-")
+    target = dump_dir / f"figma-{file_key}-{node_slug}.{ext}"
     target.write_text(text, encoding="utf-8")
     data, err = _load_dump(target)
     if err:
-        return emit({"ok": False, "code": err[0], "error": err[1], "hint": err[2]})
+        return {"ok": False, "code": err[0], "error": err[1], "hint": err[2]}
 
-    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
-    last_modified, version, last_modified_source = metadata.get("lastModified"), metadata.get("version"), "dump"
+    last_modified, version = _recorded_state(data)
+    last_modified_source = "dump"
     warnings = []
     if not last_modified:
         token, _ = find_token()
-        state = fetch_file_state(args.file_key, token) if token else {"ok": False}
+        state = fetch_file_state(file_key, token) if token else {"ok": False}
         if state.get("ok"):
             last_modified, version, last_modified_source = state["lastModified"], state["version"], "rest"
         else:
@@ -106,16 +120,17 @@ def cmd_ingest(args) -> int:
                              "message": "The dump has no lastModified and Figma could not be asked; "
                                         "check-fresh will report unknown until a token is registered and ingest is re-run"})
 
-    meta = {"file_key": args.file_key, "node_id": args.node, "last_modified": last_modified,
+    meta = {"file_key": file_key, "node_id": node, "last_modified": last_modified,
             "version": version, "last_modified_source": last_modified_source,
-            "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(), "source": str(source),
+            "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(), "source": source_label,
             "ingested_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     meta_path = Path(str(target) + META_SUFFIX)
     meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    node_arg = f" --node {args.node}" if args.node else ""
-    return emit({"path": str(target), "meta_path": str(meta_path), "node_count": count_nodes(data),
-                 "file_key": args.file_key, "node_id": args.node, "last_modified": last_modified,
-                 "version": version, "last_modified_source": last_modified_source, "warnings": warnings,
-                 "summary": f"Saved the dump to {target} ({count_nodes(data)} nodes)",
-                 "next": f"coverage --dump {target}{node_arg}"})
+    node_arg = f" --node {node}" if node else ""
+    node_count = count_nodes(data)
+    return {"path": str(target), "meta_path": str(meta_path), "node_count": node_count,
+            "file_key": file_key, "node_id": node, "last_modified": last_modified,
+            "version": version, "last_modified_source": last_modified_source, "warnings": warnings,
+            "summary": f"Saved the dump to {target} ({node_count} nodes)",
+            "next": f"coverage --dump {target}{node_arg}"}

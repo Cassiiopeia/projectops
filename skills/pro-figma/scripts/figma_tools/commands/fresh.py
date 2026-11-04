@@ -58,7 +58,8 @@ def cmd_check_fresh(args) -> int:
         node_arg = f" --node {meta['node_id']}" if meta.get("node_id") else ""
         return emit({"verdict": "design_changed", "recorded": recorded, "current": current,
                      "summary": "The Figma file changed after the dump was saved",
-                     "next": f"Fetch get_figma_data again, ingest it again, then re-run coverage --dump <new dump>{node_arg}"})
+                     "next": (f"Fetch again (fetch --file-key {meta['file_key']}{node_arg} --dump-dir <dump dir>, "
+                              f"or get_figma_data + ingest), then re-run coverage --dump <new dump>{node_arg}")})
     return emit({"verdict": "fresh", "recorded": recorded, "current": current,
                  "summary": "The design has not changed since the dump was saved",
                  "next": "Continue"})

@@ -36,7 +36,9 @@ from figma_tools.commands.compose import cmd_store_compose  # noqa: E402,F401
 from figma_tools.commands.conform import cmd_conform  # noqa: E402,F401
 from figma_tools.commands.coverage import cmd_coverage  # noqa: E402,F401
 from figma_tools.commands.diff import cmd_diff  # noqa: E402,F401
+from figma_tools.commands.fetch import cmd_fetch  # noqa: E402,F401
 from figma_tools.commands.fresh import cmd_check_fresh  # noqa: E402,F401
+from figma_tools.commands.screens import cmd_screens  # noqa: E402,F401
 from figma_tools.commands.ingest import cmd_ingest  # noqa: E402,F401
 from figma_tools.commands.output_path import cmd_output_path  # noqa: E402,F401
 from figma_tools.commands.token import cmd_token  # noqa: E402,F401

@@ -147,7 +147,7 @@ def _fill_kind(value):
 
 
 def _shadow_offsets(effects):
-    """바깥 그림자들의 (dx, dy, blur). inset 은 뺀다 — 밖에서 안 보인다."""
+    """바깥 그림자들의 (dx, dy, blur, 색 alpha). inset 은 뺀다 — 밖에서 안 보인다."""
     out = []
     if not isinstance(effects, dict):
         return out
@@ -156,7 +156,8 @@ def _shadow_offsets(effects):
             continue
         nums = re.findall(r"(-?[\d.]+)px", line)
         if len(nums) >= 3:
-            out.append((float(nums[0]), float(nums[1]), float(nums[2])))
+            color = _as_color(line[line.find("rgb"):] if "rgb" in line else line.split()[-1])
+            out.append((float(nums[0]), float(nums[1]), float(nums[2]), color[1] if color else 1.0))
     return out
 
 
@@ -191,7 +192,7 @@ def _node_width(node, styles: dict, want_id):
     return None
 
 
-def _probe_corners(img, rect: dict, scale: float, tol: int) -> list[dict]:
+def _probe_corners(img, rect: dict, scale: float, tol: int, above=None, below=None) -> list[dict]:
     """모서리 네 곳을 찍어 각졌는지 본다.
 
     바깥이어야 할 자리가 **안쪽과 같은 색**이면 각진 것이다. 칠 값을 따로 알
@@ -199,6 +200,11 @@ def _probe_corners(img, rect: dict, scale: float, tol: int) -> list[dict]:
     """
     W, H = img.size
     findings = []
+    if _fill_kind(rect.get("fills"))[0] in ("unknown", "image"):
+        return findings                 # 칠 없음 · 사진 칠은 모서리 안팎 색으로 못 가림
+    own_color = _solid_rgb(rect)
+    # 같은 색 위 겹은 모양 차이를 가리지 않음 (다이내믹 아일랜드 위 카메라 점)
+    above = [q for q in above or [] if not own_color or _solid_rgb(q) != own_color]
     x0, y0 = rect["x"] * scale, rect["y"] * scale
     w, h = rect["width"] * scale, rect["height"] * scale
 
@@ -209,6 +215,8 @@ def _probe_corners(img, rect: dict, scale: float, tol: int) -> list[dict]:
         return img.getpixel((px, py))[:3]
 
     for i, r_logical in enumerate(rect["radii"]):
+        # 짧은 변 절반보다 큰 반경은 그 값으로 그려짐 (알약 모양 r=100 · 높이 37 > 18.5)
+        r_logical = min(r_logical, rect["width"] / 2, rect["height"] / 2)
         r = r_logical * scale
         if r <= 1:
             continue
@@ -218,6 +226,12 @@ def _probe_corners(img, rect: dict, scale: float, tol: int) -> list[dict]:
         vy = y0 if i in (0, 1) else y0 + h
         sx = 1 if i in (0, 3) else -1
         sy = 1 if i in (0, 1) else -1
+        if any(_is_covered((vx + sx * px) / scale, (vy + sy * px) / scale, above)
+               for px in (t, r * 1.6)):
+            continue                    # 찍을 자리를 위 겹이 덮음
+        under = _color_under((vx + sx * t) / scale, (vy + sy * t) / scale, below or [])
+        if own_color and under and max(abs(a - b) for a, b in zip(own_color, under)) <= tol:
+            continue                    # 아래 겹이 같은 색 > 둥글어도 안 보임
         outside = at(vx + sx * t, vy + sy * t)          # 둥글면 배경이어야 한다
         inside = at(vx + sx * r * 1.6, vy + sy * r * 1.6)   # 확실히 면 안쪽
         if outside is None or inside is None:
@@ -237,12 +251,57 @@ def _probe_corners(img, rect: dict, scale: float, tol: int) -> list[dict]:
     return findings
 
 
+# 칠이 획에만 있는 노드 (가운데 한 점은 배경)
+_GLYPH_TYPES = ("TEXT", "IMAGE-SVG", "VECTOR")
+# 칠 색을 찍어 볼 후보 점 (상자 비율): 가운데 > 상하좌우 안쪽
+_FILL_PROBE_POINTS = ((0.5, 0.5), (0.5, 0.15), (0.5, 0.85), (0.15, 0.5), (0.85, 0.5))
+
+
+def _is_covered(lx: float, ly: float, above: list[dict]) -> bool:
+    """논리 좌표 점을 위 겹(나중에 그려진 칠 있는 사각형) 중 하나가 덮나"""
+    return any(q["x"] <= lx <= q["x"] + q["width"] and q["y"] <= ly <= q["y"] + q["height"]
+               for q in above)
+
+
+def _free_point(rect: dict, above: list[dict]):
+    """위 겹이 덮지 않은 첫 후보 점 (논리 좌표). 다 덮이면 None"""
+    for fx, fy in _FILL_PROBE_POINTS:
+        point = (rect["x"] + rect["width"] * fx, rect["y"] + rect["height"] * fy)
+        if not _is_covered(*point, above):
+            return point
+    return None
+
+
+def _solid_rgb(rect: dict):
+    """맨 위 칠이 단색이면 (r, g, b), 아니면 None"""
+    kind, value = _fill_kind(rect.get("fills"))
+    return value[0] if kind == "solid" else None
+
+
+def _color_under(lx: float, ly: float, below: list[dict]):
+    """점 바로 아래 겹(먼저 그려진 단색 사각형 중 가장 위)의 색. 모르면 None"""
+    for q in reversed(below):
+        if q["x"] <= lx <= q["x"] + q["width"] and q["y"] <= ly <= q["y"] + q["height"]:
+            return _solid_rgb(q)
+    return None
+
+
+def layers_below(rects: list[dict], index: int) -> list[dict]:
+    """index 사각형보다 먼저 그려진(아래 겹) 사각형"""
+    return rects[:index]
+
+
+def layers_above(rects: list[dict], index: int) -> list[dict]:
+    """index 사각형보다 나중에 그려진(위 겹) 칠 있는 사각형 (목록 순서 = 그리는 순서)"""
+    return [q for q in rects[index + 1:] if _fill_kind(q.get("fills"))[0] != "unknown"]
+
+
 def _label(rect) -> str:
     return (f"{rect['name'] or rect['ref']} {rect['width']:.0f}x{rect['height']:.0f} "
             f"@{rect['x']:.0f},{rect['y']:.0f}")
 
 
-def _check_fills(sample, rect, tol) -> list[dict]:
+def _check_fills(sample, rect, tol, above=None) -> list[dict]:
     """칠이 시안대로 칠해졌는가.
 
     잡는 것: 색 자체가 다름 · **투명도가 빠짐**(hex 는 맞는데 그대로 불투명) ·
@@ -251,8 +310,13 @@ def _check_fills(sample, rect, tol) -> list[dict]:
     kind, value = _fill_kind(rect.get("fills"))
     if kind in ("unknown", "image"):
         return []                       # 사진은 색으로 판정할 수 없다
+    if rect.get("type") in _GLYPH_TYPES:
+        return []                       # 글자·아이콘 칠은 획에만 있어 한 점으로 못 잼
     w, h = rect["width"], rect["height"]
-    mid = sample(rect["x"] + w / 2, rect["y"] + h / 2)
+    point = _free_point(rect, above or [])
+    if point is None:
+        return []                       # 위 겹이 전부 덮음 > 이 칠은 화면에 안 보임
+    mid = sample(*point)
     if mid is None:
         return []
     out = []
@@ -295,10 +359,12 @@ def _check_shadows(sample, rect, tol) -> list[dict]:
     """
     offsets = _shadow_offsets(rect.get("effects"))
     out = []
-    for dx, dy, blur in offsets:
+    for dx, dy, blur, alpha in offsets:
         reach = max(abs(dx), abs(dy), blur / 2.0)
         if reach < 2:
             continue                     # 너무 얕아 픽셀로 가릴 수 없다
+        if alpha * 255 <= tol * 2:
+            continue                     # 너무 옅어 (예: 5%) 배경과 차이가 허용 오차 안
         w, h = rect["width"], rect["height"]
         cx, cy = rect["x"] + w / 2, rect["y"] + h / 2
         # 그림자가 지는 쪽 바로 바깥

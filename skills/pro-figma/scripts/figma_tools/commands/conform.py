@@ -5,7 +5,8 @@ from pathlib import Path
 
 from common.emit import emit
 from figma_tools.conform_probes import (_ALL_CHECKS, _SEVERITY_ORDER, _check_fills, _check_shadows,
-                                        _has_node, _node_width, _probe_corners, _rects)
+                                        _has_node, _node_width, _probe_corners, _rects,
+                                        layers_above, layers_below)
 from figma_tools.dump_reader import _load_dump, _style_table
 from figma_tools.imaging import _require_imaging
 
@@ -75,13 +76,15 @@ def cmd_conform(args) -> int:
         return img.getpixel((px, py))[:3]
 
     findings = []
-    for r in rects:
+    for index, r in enumerate(rects):
+        above = layers_above(rects, index)
         if "corners" in checks:
-            for f in _probe_corners(img, r, scale, args.tolerance):
+            for f in _probe_corners(img, r, scale, args.tolerance, above,
+                                    layers_below(rects, index)):
                 findings.append({"check": "corners", "severity": "high",
                                  "ref": r["ref"], **f})
         if "fills" in checks:
-            findings.extend(_check_fills(sample, r, args.tolerance))
+            findings.extend(_check_fills(sample, r, args.tolerance, above))
         if "shadows" in checks:
             findings.extend(_check_shadows(sample, r, args.tolerance))
 

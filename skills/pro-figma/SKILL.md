@@ -34,6 +34,8 @@ The **absolute rules** in `../references/common-rules.md` apply. Arguments: $ARG
 |---|---|---|
 | Output locations (evidence folder · asset candidates) | `figma_cli.py get-output-path --title` | `references/counting.md` |
 | Read Figma (screen list → one screen) | `mcp__figma__get_figma_data` | `../references/figma-mcp.md` |
+| What screens are in this link? (groups → screen names and ids) | `figma_cli.py screens --file-key [--node]` | Phase 0 |
+| Fetch one screen with the saved token (no MCP needed) · also export the design PNG | `figma_cli.py fetch --file-key --node --dump-dir [--design-dir --scale]` | Phase 0 |
 | Save the MCP result file as a dump (do not retype 30KB) | `figma_cli.py ingest --source --file-key --node --dump-dir` | Phase 0 |
 | Did the design change since the dump was saved? | `figma_cli.py check-fresh --dump` | Phase 0 · Phase 4 |
 | Save a Figma token (once) | `figma_cli.py token --prompt` · `token --from-env NAME` | Phase 0 |
@@ -100,7 +102,23 @@ Dumps, exports, renders and diff images go under `run_dir` (not tracked). Assets
 Get Figma at `depth: 2` for the screen list → fetch the chosen screen **without `depth`** and keep it **as a file** (cutting with `depth` gives no sign that it was cut).
 There is no guarantee that a link's node-id (`238-1846` → `238:1846`) is a screen. If you do not know the node id, ask.
 
-**Save the dump with `ingest`, not by retyping it.** When the harness saved the `get_figma_data` result to a file, pass that file:
+**When a Figma token is saved, list the screens first with `screens`** (link `node-id=238-1846` → `--node 238:1846`; omit for the whole file).
+Show the user the groups and screen names and let them pick; when they ask about one screen, work on that screen only:
+
+```bash
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py screens --file-key {fileKey} --node {node id}
+```
+
+**Then fetch the chosen screen with `fetch`.** It calls the Figma REST API directly, so the Figma MCP is not needed:
+
+```bash
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py fetch --file-key {fileKey} --node {node id} --dump-dir {dump path} --design-dir {design path} --scale {device scale}
+```
+
+It saves the dump and its meta like `ingest`, and with `--design-dir` also the design export PNG for `diff`. Use the returned `path` for `coverage`.
+`figma_token_missing` → ask the user as below.
+
+**Without a token, save the MCP result with `ingest`, not by retyping it.** When the harness saved the `get_figma_data` result to a file, pass that file:
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py ingest --source {saved result file} --file-key {fileKey} --node {node id} --dump-dir {dump path from get-output-path}
@@ -115,7 +133,7 @@ It knows JSON, text-block wrappers and YAML. Anything else comes back as `unknow
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/figma_cli.py check-fresh --dump {dump file}
 ```
 
-`verdict: design_changed` → fetch and `ingest` again, then recount. `unknown` → say so in the report; do not call the design current.
+`verdict: design_changed` → `fetch` (or fetch and `ingest`) again, then recount. `unknown` → say so in the report; do not call the design current.
 If it returns `figma_token_missing` (or `figma_token_rejected`), **ask the user** which of the returned `options` to take:
 register a token (`token --prompt` in their own terminal, or put it in an environment variable and use `--from-env NAME`), skip the check, or have them confirm the design is unchanged.
 Never paste, read or print a token yourself, and never ask for one in the chat. The token is stored once in the same place `pro-launch cred` uses (`provider: figma`).
@@ -184,6 +202,7 @@ and record the node id you compared against. Format and pitfall table: `referenc
 | `meta_not_found` | The dump was not saved with `ingest`. Run `ingest` on the result file first |
 | `figma_token_missing` · `figma_token_rejected` | Ask the user which `options` to take (see Phase 0). Do not read or print the token |
 | `figma_file_not_found` | The file key is wrong, or the token's account cannot open the file |
+| `export_failed` | `fetch` saved the dump but not the design PNG. Retry, or export the node another way |
 | `no_tty` · `env_empty` | `token --prompt` needs the user's own terminal; or the named environment variable is empty |
 | `node_not_found` | `--node` is not in the dump. Pick the screen node again from the `depth: 2` list, or fetch that node |
 | `no_style_found` | Zero style items. Check that the node id is right and that the dump includes styles (fetched without `depth`). Passing with zero items means no comparison was done |

@@ -7,7 +7,9 @@ from figma_tools.commands.conform import cmd_conform
 from figma_tools.commands.compose import cmd_store_compose
 from figma_tools.commands.coverage import cmd_coverage
 from figma_tools.commands.diff import cmd_diff
+from figma_tools.commands.fetch import cmd_fetch
 from figma_tools.commands.fresh import cmd_check_fresh
+from figma_tools.commands.screens import DEFAULT_DEPTH, cmd_screens
 from figma_tools.commands.ingest import cmd_ingest
 from figma_tools.commands.token import cmd_token
 from figma_tools.commands.output_path import cmd_output_path
@@ -84,6 +86,23 @@ def build_parser() -> JSONArgumentParser:
     ig.add_argument("--dump-dir", dest="dump_dir", required=True,
                     help="Folder to save into (the 'dump' path from get-output-path)")
     ig.set_defaults(func=cmd_ingest)
+
+    sc = sub.add_parser("screens", help="List the screens under a node (or the whole file) with the saved token")
+    sc.add_argument("--file-key", dest="file_key", required=True, help="Figma file key from the link")
+    sc.add_argument("--node", default=None, help="Node id from the link (238-1846 is 238:1846); omit for the whole file")
+    sc.add_argument("--depth", type=int, default=DEFAULT_DEPTH,
+                    help=f"How many levels of pages and sections to look into (default {DEFAULT_DEPTH})")
+    sc.set_defaults(func=cmd_screens)
+
+    fe = sub.add_parser("fetch", help="Fetch one node from Figma with the saved token and save it as a dump (no MCP)")
+    fe.add_argument("--file-key", dest="file_key", required=True, help="Figma file key from the link")
+    fe.add_argument("--node", required=True, help="Node id to fetch (link node-id 238-1846 is 238:1846)")
+    fe.add_argument("--dump-dir", dest="dump_dir", required=True,
+                    help="Folder to save into (the 'dump' path from get-output-path)")
+    fe.add_argument("--design-dir", dest="design_dir", default=None,
+                    help="Also export the node as PNG into this folder (the 'design' path)")
+    fe.add_argument("--scale", type=float, default=1, help="PNG export scale, match the device (default 1)")
+    fe.set_defaults(func=cmd_fetch)
 
     cf = sub.add_parser("check-fresh", help="Check whether the design changed since the dump was ingested")
     cf.add_argument("--dump", required=True, help="Dump file saved by ingest")
