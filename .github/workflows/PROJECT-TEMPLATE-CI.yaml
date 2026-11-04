@@ -103,7 +103,7 @@ jobs:
   # 넓은 길 — main push·수동 실행에서만. OS 차이는 CLI 실행으로 본다.
   # ===================================================================
   matrix-smoke:
-    name: CLI 스모크 (${{ matrix.os }})
+    name: CLI 스모크 (${{ matrix.os }}, Node ${{ matrix.node }})
     if: >-
       ${{ (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main')
           && !contains(github.event.head_commit.message, '[skip ci]') }}
@@ -112,6 +112,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        # engines 하한과 현행 LTS. fs.cpSync 처럼 Node 버전과 OS 가 겹쳐야 드러나는 결함이 있다
+        node: [20, 24]
     steps:
       - name: 저장소 체크아웃
         uses: actions/checkout@v5
@@ -119,10 +121,39 @@ jobs:
       - name: Node.js 설정
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: 의존성 설치
         run: npm install --no-audit --no-fund
 
       - name: CLI 스모크 (--help 종료코드 0)
         run: node bin/projectops.js --help
+
+      - name: Install into a non-ASCII path with spaces
+        # 사용자 폴더 이름에 한글과 공백이 흔하다. 영문 경로만 보면 복사 단계 크래시를 놓친다
+        shell: bash
+        run: |
+          target="$RUNNER_TEMP/"$'\xed\x95\x9c\xea\xb8\x80'" smoke"
+          mkdir -p "$target"
+          cd "$target"
+          git init -q -b main
+          echo '{"name":"smoke","version":"1.0.0"}' > package.json
+          node "$GITHUB_WORKSPACE/bin/projectops.js" --mode full --type node --force
+          test -f version.yml
+          test -d .github/workflows
+          test ! -d .template_download_temp
+
+      - name: Run skill CLIs from a non-ASCII path
+        # 시스템 기본 코드페이지 그대로 돌린다. git 출력은 UTF-8 이라 인코딩을 안 적으면 stdout 이 None 이 된다
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP/"$'\xed\x95\x9c\xea\xb8\x80'" smoke"
+          for cli in skills/pro-report/scripts/report_cli.py skills/pro-review/scripts/review_cli.py; do
+            python "$GITHUB_WORKSPACE/$cli" get-output-path > /dev/null
+          done
+          python "$GITHUB_WORKSPACE/skills/pro-launch/scripts/launch_cli.py" --help > /dev/null
