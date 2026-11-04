@@ -41,7 +41,7 @@ def run_restore_commands(setting: dict) -> dict:
     """기록된 되돌리기 명령을 차례로 실행 > {key, is_ok, failed_command, detail}. 하나가 실패하면 멈춘다."""
     for command in setting.get("restore_commands") or []:
         try:
-            r = subprocess.run(command, capture_output=True, text=True, timeout=RESTORE_COMMAND_TIMEOUT_SECONDS)
+            r = subprocess.run(command, capture_output=True, text=True, errors="replace", timeout=RESTORE_COMMAND_TIMEOUT_SECONDS)
         except (OSError, subprocess.SubprocessError) as error:
             return {"key": setting.get("key"), "is_ok": False, "failed_command": command, "detail": str(error)}
         if r.returncode != 0:

@@ -61,7 +61,7 @@ def is_valid_scale(scale: float | None) -> bool:
 
 def _run(command: list[str], timeout: int) -> tuple[bool, str]:
     try:
-        r = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+        r = subprocess.run(command, capture_output=True, text=True, errors="replace", timeout=timeout)
     except subprocess.TimeoutExpired:
         return False, f"no response ({timeout}s)"
     except OSError as error:

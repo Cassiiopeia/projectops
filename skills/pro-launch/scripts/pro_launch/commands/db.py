@@ -128,7 +128,7 @@ def cmd_db(args) -> int:
             argv = (["bash", "-lc", f"{args.command} {_shq(sql)}"] if args.append_sql
                     else ["bash", "-lc", args.command])
             stdin = None if args.append_sql else sql
-            r = subprocess.run(argv, input=stdin, capture_output=True, text=True,
+            r = subprocess.run(argv, input=stdin, capture_output=True, text=True, errors="replace",
                                timeout=args.timeout, env=dict(os.environ, **cred_env))
             return _proc_result(r, "command")
 
@@ -152,7 +152,7 @@ def cmd_db(args) -> int:
             ssh = ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new"]
             if args.ssh_port:
                 ssh += ["-p", str(args.ssh_port)]
-            r = subprocess.run(ssh + [dest, remote], capture_output=True, text=True,
+            r = subprocess.run(ssh + [dest, remote], capture_output=True, text=True, errors="replace",
                                timeout=args.timeout)
             return _proc_result(r, "ssh", engine)
 
@@ -164,7 +164,7 @@ def cmd_db(args) -> int:
                                     else "brew install mysql-client"),
                         "hint": "Run it on the server with --via ssh, or give the command directly with --command"})
         r = subprocess.run([exe] + argv[1:], env=dict(os.environ, **env),
-                           capture_output=True, text=True, timeout=args.timeout)
+                           capture_output=True, text=True, errors="replace", timeout=args.timeout)
         return _proc_result(r, "direct", engine)
     except subprocess.TimeoutExpired:
         return out({"ok": False, "code": "db_timeout", "error": f"No response ({args.timeout}s)"})

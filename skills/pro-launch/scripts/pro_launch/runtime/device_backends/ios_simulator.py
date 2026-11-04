@@ -59,7 +59,7 @@ class IosSimulatorBackend:
 
     def _simctl(self, *arguments: str) -> tuple[bool, str]:
         try:
-            result = subprocess.run(["xcrun", "simctl", *arguments], capture_output=True, text=True,
+            result = subprocess.run(["xcrun", "simctl", *arguments], capture_output=True, text=True, errors="replace",
                                     timeout=SIMCTL_TIMEOUT_SECONDS)
         except (OSError, subprocess.SubprocessError) as error:
             return False, str(error)

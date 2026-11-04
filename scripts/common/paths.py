@@ -237,7 +237,7 @@ def resolve_output_path(skill_id: str, forced_title: Optional[str] = None,
     try:
         root_str = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
-            cwd=project_dir, capture_output=True, text=True, check=True,
+            cwd=project_dir, capture_output=True, text=True, encoding="utf-8", errors="replace", check=True,
         ).stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         return {"ok": False, "code": "git_not_found", "error": "not a git repository",

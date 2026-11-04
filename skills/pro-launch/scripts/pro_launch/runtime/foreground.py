@@ -64,7 +64,7 @@ def read_android_foreground(serial: str) -> dict:
         return unreadable
     try:
         r = subprocess.run([adb, "-s", serial, "shell", ANDROID_FOREGROUND_COMMAND], capture_output=True,
-                           text=True, timeout=FOREGROUND_READ_TIMEOUT_SECONDS)
+                           text=True, errors="replace", timeout=FOREGROUND_READ_TIMEOUT_SECONDS)
     except (OSError, subprocess.SubprocessError):
         return unreadable
     return parse_android_foreground(((r.stdout or "") + (r.stderr or "")).replace("\r", ""))
@@ -110,7 +110,7 @@ def ios_app_is_running(udid: str, bundle_id: str) -> bool | None:
     """시뮬레이터 안 launchctl 목록에 앱(UIKitApplication:<번들>)이 있나. 목록을 못 읽으면 None."""
     try:
         r = subprocess.run(["xcrun", "simctl", "spawn", udid, "launchctl", "list"], capture_output=True,
-                           text=True, timeout=IOS_LIST_TIMEOUT_SECONDS)
+                           text=True, errors="replace", timeout=IOS_LIST_TIMEOUT_SECONDS)
     except (OSError, subprocess.SubprocessError):
         return None
     listing = r.stdout or ""

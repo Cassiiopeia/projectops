@@ -225,7 +225,7 @@ def _toplevel() -> str:
     cwd = os.getcwd()
     try:
         r = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=cwd,
-                           capture_output=True, text=True, timeout=5)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5)
     except (OSError, subprocess.SubprocessError):
         return cwd
     return r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else cwd

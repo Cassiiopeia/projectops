@@ -365,7 +365,7 @@ class IOSMaestroBackend(Backend):
 
     def locale(self, dev):
         r = subprocess.run(["xcrun", "simctl", "spawn", dev, "defaults", "read", "-g", "AppleLanguages"],
-                           capture_output=True, text=True, timeout=15)
+                           capture_output=True, text=True, errors="replace", timeout=15)
         m = re.search(r'"?([A-Za-z]{2}(?:-[A-Za-z]+)?)"?', r.stdout or "")
         return m.group(1) if m else None
 
@@ -376,7 +376,7 @@ class IOSMaestroBackend(Backend):
         if result is not None:
             self.session_report = {"transport": "per_call", "session_fallback": "session_inspect_failed"}
         try:
-            r = maestro_session.run_recorded(self._base(dev) + ["hierarchy"], capture_output=True, text=True,
+            r = maestro_session.run_recorded(self._base(dev) + ["hierarchy"], capture_output=True, text=True, errors="replace",
                                timeout=self.timeout)
         except subprocess.TimeoutExpired:
             return []
@@ -402,7 +402,7 @@ class IOSMaestroBackend(Backend):
             debug_output = ["--debug-output", str(Path(d) / "debug"), "--flatten-debug-output"] if env else []
             try:
                 r = maestro_session.run_recorded(self._base(dev) + ["test", *debug_output, str(f)], capture_output=True,
-                                   text=True, timeout=self.timeout,
+                                   text=True, errors="replace", timeout=self.timeout,
                                    env={**os.environ, **env} if env else None)
             except subprocess.TimeoutExpired:
                 return None, [f"maestro did not respond ({self.timeout}s)"]

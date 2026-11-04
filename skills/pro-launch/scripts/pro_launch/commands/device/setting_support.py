@@ -13,7 +13,7 @@ COMMAND_TIMEOUT_SECONDS = 60
 
 def run_command(command: list[str]) -> tuple[bool, str]:
     try:
-        r = subprocess.run(command, capture_output=True, text=True, timeout=COMMAND_TIMEOUT_SECONDS)
+        r = subprocess.run(command, capture_output=True, text=True, errors="replace", timeout=COMMAND_TIMEOUT_SECONDS)
     except subprocess.TimeoutExpired:
         return False, f"No response ({COMMAND_TIMEOUT_SECONDS}s)"
     except OSError as error:

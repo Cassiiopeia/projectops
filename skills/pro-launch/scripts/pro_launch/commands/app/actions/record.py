@@ -121,7 +121,7 @@ def _finish_android(dev_id: str, state: dict, target: Path) -> str | None:
         time.sleep(1.0)   # 기기가 mp4 를 닫는 시간
         target.parent.mkdir(parents=True, exist_ok=True)
         pulled = subprocess.run([adb, "-s", dev_id, "pull", ANDROID_REMOTE_FILE, str(target)],
-                                capture_output=True, text=True, timeout=120)
+                                capture_output=True, text=True, errors="replace", timeout=120)
         subprocess.run([adb, "-s", dev_id, "shell", "rm", "-f", ANDROID_REMOTE_FILE], capture_output=True, timeout=15)
     except (OSError, subprocess.SubprocessError) as e:
         return str(e)

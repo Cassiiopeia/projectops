@@ -73,7 +73,7 @@ def user_agent(chrome_exe: str) -> str:
     """같은 버전의 일반 Chrome UA. 브랜드 문구를 넣지 않는다 — 그것 자체가 식별자가 된다."""
     version = _FALLBACK_VERSION
     try:
-        out = subprocess.run([chrome_exe, "--version"], capture_output=True, text=True,
+        out = subprocess.run([chrome_exe, "--version"], capture_output=True, text=True, errors="replace",
                              timeout=5).stdout
         m = re.search(r"(\d+\.\d+\.\d+\.\d+)", out)
         if m:

@@ -48,7 +48,7 @@ def get_current_branch(cwd: Optional[str] = None) -> Optional[str]:
             ["git", "branch", "--show-current"],
             cwd=cwd,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             errors='replace',
             check=True,
         )

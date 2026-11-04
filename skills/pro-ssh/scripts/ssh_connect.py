@@ -32,6 +32,11 @@ import sys
 import os
 import argparse
 
+# cp949 콘솔에서 인코딩 못 하는 글자 하나로 도움말까지 죽지 않게 한다
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(errors="replace")
+
 # ──────────────────────────────────────────────
 # paramiko 는 실제 접속 직전에 불러온다 (--help·인자 오류는 paramiko 없이도 동작)
 # ──────────────────────────────────────────────

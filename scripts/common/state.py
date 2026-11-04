@@ -56,7 +56,7 @@ def base_dir() -> Path:
 def _origin_url(root: Path) -> str:
     try:
         return subprocess.run(["git", "-C", str(root), "remote", "get-url", "origin"],
-                              capture_output=True, text=True, timeout=10).stdout.strip()
+                              capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         return ""
 

@@ -15,7 +15,7 @@ def run(cmd: list[str], timeout: int = 15) -> str:
     """외부 명령 실행. 실패해도 예외를 올리지 않는다 —
     기기가 없거나 도구가 미설치인 상황이 정상 경로이기 때문이다."""
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        r = subprocess.run(cmd, capture_output=True, text=True, errors="replace", timeout=timeout)
         return r.stdout
     except (OSError, subprocess.SubprocessError):
         return ""

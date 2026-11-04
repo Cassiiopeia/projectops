@@ -52,7 +52,7 @@ def git_ignored_paths(root: Path, relatives: list) -> set | None:
         return set()
     try:
         completed = subprocess.run(["git", "-C", str(root), "check-ignore", "--stdin"], input="\n".join(relatives),
-                                   capture_output=True, text=True, timeout=60)
+                                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
         # 종료 코드: 0 하나 이상 무시, 1 없음, 128 git 레포 아님
         if completed.returncode in (0, 1):
             return {line.strip() for line in completed.stdout.splitlines() if line.strip()}

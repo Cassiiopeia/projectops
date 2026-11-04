@@ -138,7 +138,7 @@ def detect_repo(cwd: Optional[str] = None) -> tuple:
     """origin remote 에서 owner/repo 를 뽑는다. git 이 없거나 remote 가 없으면 (None, None)."""
     try:
         url = subprocess.run(["git", "remote", "get-url", "origin"], cwd=cwd,
-                             capture_output=True, text=True, timeout=5).stdout.strip()
+                             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         return None, None
     m = _REMOTE.search(url)

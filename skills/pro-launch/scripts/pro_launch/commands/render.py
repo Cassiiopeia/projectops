@@ -27,7 +27,7 @@ def _git_status(root: Path) -> list[str] | None:
     """추적 여부와 상관없이 바뀐 경로. git 레포가 아니면 None — 흔적 검사를 못 한다."""
     try:
         r = subprocess.run(["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all"],
-                           capture_output=True, text=True, timeout=30)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
     except (OSError, subprocess.SubprocessError):
         return None
     if r.returncode != 0:
@@ -136,7 +136,7 @@ def cmd_render(args) -> int:
                     "next": "--cwd is a path relative to the repo root (--root)"})
     try:
         r = subprocess.run(["bash", "-lc", args.cmd], cwd=str(cwd), capture_output=True,
-                           text=True, timeout=args.timeout, stdin=subprocess.DEVNULL)
+                           text=True, errors="replace", timeout=args.timeout, stdin=subprocess.DEVNULL)
         rc, output = r.returncode, (r.stdout or "") + (r.stderr or "")
     except subprocess.TimeoutExpired as e:
         rc = -1

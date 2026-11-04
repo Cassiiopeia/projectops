@@ -90,7 +90,7 @@ def _git(cwd: Path, *args: str) -> str | None:
 def _run(arguments: list[str]) -> str | None:
     """외부 명령 1줄 결과 (실패 · 시간 초과 · 미설치면 None)"""
     try:
-        completed = subprocess.run(arguments, capture_output=True, text=True, timeout=COMMAND_TIMEOUT_SECONDS)
+        completed = subprocess.run(arguments, capture_output=True, text=True, errors="replace", timeout=COMMAND_TIMEOUT_SECONDS)
     except (OSError, subprocess.SubprocessError):
         return None
     output = completed.stdout.strip()

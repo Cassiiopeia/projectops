@@ -238,7 +238,7 @@ def clone_tree(source: str, target: str) -> tuple[bool, str]:
             return False, str(error)
         return True, ""
     try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=600)
+        result = subprocess.run(command, capture_output=True, text=True, errors="replace", timeout=600)
     except (OSError, subprocess.SubprocessError) as error:
         return False, str(error)
     return result.returncode == 0, (result.stderr or "").strip()[-300:]
@@ -281,7 +281,7 @@ def process_memory_mb(pids: list[int]) -> int:
             r = subprocess.run(["powershell", "-NoProfile", "-Command",
                                 f"(Get-Process -Id {pid_list} -ErrorAction SilentlyContinue | "
                                 "Measure-Object WorkingSet64 -Sum).Sum"],
-                               capture_output=True, text=True, timeout=15)
+                               capture_output=True, text=True, errors="replace", timeout=15)
             total_bytes = int(float((r.stdout or "0").strip() or 0))
             return total_bytes // (1024 * 1024)
         if sys.platform == "darwin":
@@ -289,11 +289,11 @@ def process_memory_mb(pids: list[int]) -> int:
             command = ["top", "-l", "1", "-stats", "pid,mem"]
             for pid in pids:
                 command += ["-pid", str(pid)]
-            r = subprocess.run(command, capture_output=True, text=True, timeout=20)
+            r = subprocess.run(command, capture_output=True, text=True, errors="replace", timeout=20)
             return sum(_size_to_mb(fields[1]) for fields in (line.split() for line in (r.stdout or "").splitlines())
                        if len(fields) == 2 and fields[0].isdigit() and int(fields[0]) in pids)
         r = subprocess.run(["ps", "-o", "rss=", "-p", ",".join(str(pid) for pid in pids)],
-                           capture_output=True, text=True, timeout=10)
+                           capture_output=True, text=True, errors="replace", timeout=10)
     except (OSError, subprocess.SubprocessError, ValueError):
         return 0
     return sum(int(line) for line in (r.stdout or "").split() if line.isdigit()) // 1024
@@ -316,7 +316,7 @@ def top_memory_processes(count: int) -> list[dict]:
     try:
         if sys.platform == "darwin":
             r = subprocess.run(["top", "-l", "1", "-o", "mem", "-n", str(count), "-stats", "pid,mem,command"],
-                               capture_output=True, text=True, timeout=20)
+                               capture_output=True, text=True, errors="replace", timeout=20)
             rows = []
             for line in (r.stdout or "").splitlines():
                 fields = line.split(None, 2)
@@ -327,9 +327,9 @@ def top_memory_processes(count: int) -> list[dict]:
             r = subprocess.run(["powershell", "-NoProfile", "-Command",
                                 f"Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First {count} "
                                 "| ForEach-Object { \"$($_.Id) $([int]($_.WorkingSet64/1MB)) $($_.ProcessName)\" }"],
-                               capture_output=True, text=True, timeout=20)
+                               capture_output=True, text=True, errors="replace", timeout=20)
         else:
-            r = subprocess.run(["ps", "-axo", "pid=,rss=,comm=", "--sort=-rss"], capture_output=True, text=True, timeout=10)
+            r = subprocess.run(["ps", "-axo", "pid=,rss=,comm=", "--sort=-rss"], capture_output=True, text=True, errors="replace", timeout=10)
     except (OSError, subprocess.SubprocessError):
         return []
     rows = []

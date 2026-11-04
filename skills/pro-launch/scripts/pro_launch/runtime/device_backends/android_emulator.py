@@ -168,7 +168,7 @@ class AndroidEmulatorBackend:
         environment = {**os.environ, **({"ANDROID_SDK_ROOT": str(sdk_root), "ANDROID_HOME": str(sdk_root)} if sdk_root else {})}
         try:
             # 사용자 하드웨어 프로필을 만들지 묻는 질문에 no
-            result = subprocess.run([avdmanager, *arguments], input="no\n", capture_output=True, text=True,
+            result = subprocess.run([avdmanager, *arguments], input="no\n", capture_output=True, text=True, errors="replace",
                                     timeout=AVDMANAGER_TIMEOUT_SECONDS, env=environment)
         except (OSError, subprocess.SubprocessError) as error:
             return False, str(error)

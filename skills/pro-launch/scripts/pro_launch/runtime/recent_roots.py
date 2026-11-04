@@ -32,7 +32,7 @@ def is_git_work_tree(path: Path) -> bool:
     """path 가 git 작업 트리 안인가."""
     try:
         result = subprocess.run(["git", "-C", str(path), "rev-parse", "--is-inside-work-tree"],
-                                capture_output=True, text=True, timeout=10)
+                                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10)
     except (OSError, subprocess.SubprocessError):
         return False
     return result.returncode == 0 and result.stdout.strip() == "true"

@@ -38,7 +38,7 @@ def read_process_table() -> list[tuple[int, int, int]] | None:
     if not shutil.which("ps"):
         return None
     try:
-        completed = subprocess.run(["ps", "-axo", "pid=,ppid=,rss="], capture_output=True, text=True, timeout=5)
+        completed = subprocess.run(["ps", "-axo", "pid=,ppid=,rss="], capture_output=True, text=True, errors="replace", timeout=5)
     except (OSError, subprocess.SubprocessError):
         return None
     rows = []

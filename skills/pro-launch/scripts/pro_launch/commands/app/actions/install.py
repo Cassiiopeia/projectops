@@ -16,7 +16,7 @@ IOS_INSTALL_TIMEOUT_SECONDS = 300
 def _install_ios(udid: str, app_path: Path) -> dict:
     try:
         r = subprocess.run(["xcrun", "simctl", "install", udid, str(app_path)], capture_output=True,
-                           text=True, timeout=IOS_INSTALL_TIMEOUT_SECONDS)
+                           text=True, errors="replace", timeout=IOS_INSTALL_TIMEOUT_SECONDS)
     except subprocess.TimeoutExpired:
         return {"is_ok": False, "code": "device_unresponsive", "step": "install",
                 "detail": f"did not respond ({IOS_INSTALL_TIMEOUT_SECONDS}s)", **host_pressure_fields(),

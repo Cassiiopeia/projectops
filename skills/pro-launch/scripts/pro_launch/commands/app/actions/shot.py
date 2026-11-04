@@ -103,7 +103,7 @@ def _app_shot(args) -> int:
                 restore = lambda: run(["xcrun", "simctl", "status_bar", dev_id, "clear"])  # noqa: E731
                 time.sleep(0.6)
             r = subprocess.run(["xcrun", "simctl", "io", dev_id, "screenshot", str(raw)],
-                               capture_output=True, text=True, timeout=30)
+                               capture_output=True, text=True, errors="replace", timeout=30)
             if r.returncode != 0 or not raw.exists():
                 return out({"ok": False, "code": "capture_failed", "device": dev_id,
                             "error": (r.stderr or "").strip()[:300]})

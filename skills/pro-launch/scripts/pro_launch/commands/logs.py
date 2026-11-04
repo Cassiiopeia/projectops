@@ -39,7 +39,7 @@ def cmd_logs(args) -> int:
     # tail·grep 은 파이프로 잇지 않고 파이썬에서 건다 (#704). 파이프 끝 종료코드만 보면
     # 앞 명령의 실패(없는 명령·ssh 접속 거부)가 가려져 "로그 0줄 성공"으로 보고된다.
     try:
-        r = subprocess.run(["bash", "-lc", command], capture_output=True, text=True,
+        r = subprocess.run(["bash", "-lc", command], capture_output=True, text=True, errors="replace",
                            timeout=args.timeout, env=dict(os.environ, **cred_env))
     except subprocess.TimeoutExpired:
         return out({"ok": False, "code": "logs_timeout", "error": f"No response ({args.timeout}s)"})

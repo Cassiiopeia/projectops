@@ -38,7 +38,7 @@ def cmd_local(args) -> int:
         return out({"ok": False, "code": "sudo_missing", "error": "sudo not found"})
     try:
         r = subprocess.run(["sudo", "-S", "-p", "", *command], input=str(password) + "\n",
-                           capture_output=True, text=True, timeout=args.timeout)
+                           capture_output=True, text=True, errors="replace", timeout=args.timeout)
     except subprocess.TimeoutExpired:
         return out({"ok": False, "code": "sudo_timeout", "error": f"No response ({args.timeout}s)"})
     stdout = credentials.mask(r.stdout, cred)

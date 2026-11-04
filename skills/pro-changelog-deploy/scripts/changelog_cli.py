@@ -187,7 +187,7 @@ def _detect_owner_repo(project_root: Path) -> tuple[str | None, str | None]:
     try:
         url = subprocess.run(
             ["git", "-C", str(project_root), "remote", "get-url", "origin"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10,
         ).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         return None, None

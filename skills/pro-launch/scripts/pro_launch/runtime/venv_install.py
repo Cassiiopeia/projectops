@@ -15,7 +15,7 @@ def ensure_venv(steps: list, force: bool = False) -> tuple[Path | None, dict | N
     """가상환경이 없으면(또는 force) 만든다. (venv 파이썬, 실패 결과) — 실패면 앞이 None."""
     if not venv_python() or force:
         r = subprocess.run([sys.executable, "-m", "venv", str(venv_dir())],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, errors="replace")
         steps.append({"step": "create virtualenv", "ok": r.returncode == 0,
                       "error": (r.stderr or "")[-300:] or None})
         if r.returncode != 0:
@@ -32,7 +32,7 @@ def pip_install(vpy: Path, packages: list[str], steps: list, timeout: int = 900)
     """venv 에 패키지를 깐다. 결과를 steps 에 남기고 성공 여부를 돌려준다."""
     try:
         r = subprocess.run([str(vpy), "-m", "pip", "install", "-q", *packages],
-                           capture_output=True, text=True, timeout=timeout)
+                           capture_output=True, text=True, errors="replace", timeout=timeout)
     except subprocess.TimeoutExpired:
         r = None
     ok = r is not None and r.returncode == 0

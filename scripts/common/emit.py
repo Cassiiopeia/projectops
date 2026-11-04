@@ -18,6 +18,11 @@ import os
 import sys
 from typing import Any, Optional
 
+# cp949 콘솔에서 인코딩 못 하는 글자(— 등) 하나로 CLI 가 죽지 않게 한다. 깨끗한 UTF-8 은 PYTHONIOENCODING 으로 받는다
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(errors="replace")
+
 # 응답 맨 앞에 두는 키 — 잘라 읽어도 판단에 필요한 것이 남는다
 _HEAD_KEYS = ("ok", "code", "summary", "next")
 # --brief 에서도 남기는 안내 키

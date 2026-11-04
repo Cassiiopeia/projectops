@@ -63,7 +63,7 @@ def _toplevel(root: str) -> Path:
     p = Path(root).expanduser().resolve()
     try:
         out = subprocess.run(["git", "-C", str(p), "rev-parse", "--show-toplevel"],
-                             capture_output=True, text=True, timeout=10)
+                             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10)
         if out.returncode == 0 and out.stdout.strip():
             return Path(out.stdout.strip())
     except (OSError, subprocess.SubprocessError):

@@ -57,7 +57,7 @@ def _git_root_or_cwd() -> Path:
     """cwd 가 하위 폴더여도 레포 루트에서 앱 신호를 읽는다"""
     import subprocess
     try:
-        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True,
+        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, encoding="utf-8", errors="replace",
                              timeout=10).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         top = ""

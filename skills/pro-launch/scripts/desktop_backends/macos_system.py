@@ -155,7 +155,7 @@ def seconds_since_key_input() -> float | None:
 def parent_by_pid() -> dict[int, int]:
     """pid → 부모 pid (ps). 실패하면 빈 dict."""
     try:
-        output = subprocess.run(["ps", "-ax", "-o", "pid=,ppid="], capture_output=True, text=True,
+        output = subprocess.run(["ps", "-ax", "-o", "pid=,ppid="], capture_output=True, text=True, errors="replace",
                                 timeout=5, check=False).stdout
     except (OSError, subprocess.SubprocessError):
         return {}

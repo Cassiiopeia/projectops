@@ -330,7 +330,7 @@ def cmd_fingerprints(args):
         return 1
     command = [keytool_path, "-list", "-v", "-keystore", os.path.expanduser(args.keystore),
                "-alias", args.alias, "-storepass", store_password]
-    completed = subprocess.run(command, capture_output=True, text=True)
+    completed = subprocess.run(command, capture_output=True, text=True, errors="replace")
     fingerprints = parse_keytool_fingerprints(completed.stdout)
     if completed.returncode != 0 or "sha1" not in fingerprints:
         message = (completed.stderr or completed.stdout).strip().splitlines()

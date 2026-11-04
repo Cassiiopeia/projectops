@@ -46,7 +46,7 @@ def _web_setup(force: bool = False) -> dict:
     reachable = browser_pick.download_host_reachable(host)
     if reachable:
         r = subprocess.run([str(vpy), "-m", "playwright", "install", "chromium"],
-                           capture_output=True, text=True, timeout=1800)
+                           capture_output=True, text=True, errors="replace", timeout=1800)
         steps.append({"step": "download chromium", "ok": r.returncode == 0,
                       "error": (r.stderr or "")[-300:] or None})
         if r.returncode == 0:

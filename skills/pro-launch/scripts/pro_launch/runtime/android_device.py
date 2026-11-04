@@ -47,7 +47,7 @@ def adb(serial: str, *arguments: str, timeout: int) -> AdbResult:
     if not tool:
         return AdbResult(False, "adb not found (check adb_path in doctor)", False)
     try:
-        r = subprocess.run([tool, "-s", serial, *arguments], capture_output=True, text=True, timeout=timeout)
+        r = subprocess.run([tool, "-s", serial, *arguments], capture_output=True, text=True, errors="replace", timeout=timeout)
     except subprocess.TimeoutExpired:
         return AdbResult(False, f"no response ({timeout}s)", True)
     except OSError as error:

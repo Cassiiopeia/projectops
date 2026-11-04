@@ -45,7 +45,7 @@ def run_tool(command: list[str] | None) -> tuple[bool, str]:
     if not command:
         return False, "adb not found (check adb_path in doctor)"
     try:
-        r = subprocess.run(command, capture_output=True, text=True, timeout=TOOL_TIMEOUT_SECONDS)
+        r = subprocess.run(command, capture_output=True, text=True, errors="replace", timeout=TOOL_TIMEOUT_SECONDS)
     except subprocess.TimeoutExpired:
         return False, f"did not respond ({TOOL_TIMEOUT_SECONDS}s)"
     except OSError as e:
