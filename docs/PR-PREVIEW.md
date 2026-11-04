@@ -40,6 +40,10 @@ Issue나 PR에 댓글로 다음 명령어를 입력합니다.
 | `@projectops server destroy` | Preview 서버 삭제 |
 | `@projectops server status` | 현재 상태 확인 |
 
+### 누가 실행할 수 있나요
+
+공개 저장소에서는 `OWNER`, `MEMBER`, `COLLABORATOR`의 댓글만 Preview를 시작합니다. Preview가 서버에 배포되기 때문입니다. 다른 댓글은 무시합니다. 비공개 저장소는 검사하지 않습니다. 허용 목록은 저장소 변수 `PROJECTOPS_TRIGGER_ASSOCIATIONS`에 JSON 배열로 바꿀 수 있습니다. 예: `["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]`
+
 ### 사용 시나리오
 
 #### PR에서 사용

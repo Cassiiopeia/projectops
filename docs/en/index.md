@@ -1,5 +1,7 @@
 ---
 layout: home
+title: 'Projectops: GitHub release automation from issue to deploy'
+titleTemplate: false
 
 hero:
   name: Projectops

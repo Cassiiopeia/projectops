@@ -233,6 +233,7 @@ Four issue templates are installed automatically.
 
 **Check**:
 1. The comment contains exactly `@projectops create qa`
+1. On a public repository, the author is `OWNER`, `MEMBER` or `COLLABORATOR` (change the list with the `PROJECTOPS_TRIGGER_ASSOCIATIONS` repository variable)
 2. Workflow permissions (Issues write permission)
 
 ### Labels not syncing

@@ -8,9 +8,6 @@
 - name: "type: feature"
   color: "5319e7"
   description: New capability or improvement
-- name: "type: docs"
-  color: "5319e7"
-  description: Documentation only
 - name: "type: question"
   color: "5319e7"
   description: Usage question (Discussions is preferred)

@@ -1,13 +1,26 @@
 {
   "name": "projectops",
   "version": "4.86.0",
-  "description": "ProjectOps: installer CLI for a fully automated GitHub project management template (versioning, CI/CD, release notes, agent skills)",
+  "description": "One npx install for GitHub release automation: semantic versioning, changelogs, release PRs, CI/CD workflows and AI agent skills",
   "keywords": [
+    "github-actions",
+    "release-automation",
+    "semantic-versioning",
+    "semver",
+    "changelog",
+    "release-notes",
+    "ci-cd",
     "devops",
     "automation",
-    "github-actions",
+    "github-template",
     "template",
     "cli",
+    "flutter",
+    "spring-boot",
+    "react",
+    "python",
+    "agent-skills",
+    "claude-code",
     "pi-package"
   ],
   "license": "MIT",
@@ -15,7 +28,7 @@
     "name": "Cassiiopeia",
     "url": "https://github.com/Cassiiopeia"
   },
-  "homepage": "https://github.com/Cassiiopeia/projectops",
+  "homepage": "https://cassiiopeia.github.io/projectops/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Cassiiopeia/projectops.git"

@@ -369,6 +369,17 @@ Actions → 해당 워크플로우 → Run workflow
 
 ---
 
+## Windows
+
+**설치기가 메시지 없이 끝나거나, 한글 폴더에서 스킬이 실패합니다.**
+v4.85.0에서 고쳤습니다. `npx projectops@latest`로 설치기를, `npx projectops --mode skills`로 스킬을 업데이트하세요.
+
+**"폴더 경로가 너무 길어" 오류가 납니다.**
+프로젝트를 `C:/dev/my-app`처럼 짧은 경로로 옮기세요.
+
+**`python3` 명령이 "Python"만 출력합니다.**
+Microsoft Store 스텁입니다. `python`을 쓰거나 설정 > 앱 > 앱 실행 별칭에서 끄세요.
+
 ## 도움 요청
 
 문제가 해결되지 않으면:

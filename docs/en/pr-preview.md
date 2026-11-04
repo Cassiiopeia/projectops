@@ -40,6 +40,10 @@ Enter one of these commands as a comment on an Issue or PR.
 | `@projectops server destroy` | Delete the Preview server |
 | `@projectops server status` | Check the current status |
 
+### Who can run these commands
+
+On a public repository, a comment only starts a Preview from `OWNER`, `MEMBER` or `COLLABORATOR`, because the Preview deploys to your server. Other comments are ignored. Private repositories are not checked. To change the list, set the `PROJECTOPS_TRIGGER_ASSOCIATIONS` repository variable to a JSON array, for example `["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]`.
+
 ### Usage scenarios
 
 #### Using it on a PR

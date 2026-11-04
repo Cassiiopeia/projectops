@@ -369,6 +369,17 @@ Actions → the workflow → Run workflow
 
 ---
 
+## Windows
+
+**The installer exits with no message, or skills fail in a folder with non-English characters.**
+Fixed in v4.85.0. Update Node-side with `npx projectops@latest`, and update skills with `npx projectops --mode skills`.
+
+**"This folder path is too long for Windows".**
+Move the project to a shorter path such as `C:/dev/my-app`.
+
+**A `python3` command prints only "Python".**
+That is the Microsoft Store stub. Use `python`, or turn off the alias in Settings > Apps > App execution aliases.
+
 ## Getting help
 
 If the problem is not resolved:

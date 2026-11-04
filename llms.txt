@@ -5,6 +5,8 @@
 Ask the tool instead of reading docs: `npx projectops --mode options --json` prints every CLI flag and every version.yml option with allowed values and defaults. `npx projectops --mode doctor` diagnoses an existing install (read-only).
 
 ## Start here
+- [Documentation site](https://cassiiopeia.github.io/projectops/): English guides, Korean under /ko/
+- [Compared with other tools](https://cassiiopeia.github.io/projectops/compare): release-please, semantic-release, changesets and when each fits
 - [README](https://github.com/Cassiiopeia/projectops/blob/main/README.md): what it does and the 30-second start
 - [Agent instructions](https://github.com/Cassiiopeia/projectops/blob/main/AGENTS.md): rules for agents using or changing this repo, skill routing
 - [CLI reference](https://github.com/Cassiiopeia/projectops/blob/main/docs/en/cli.md): flags, modes and examples (English)

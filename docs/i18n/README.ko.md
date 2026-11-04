@@ -67,7 +67,7 @@
 - 모노레포에서 npm 패키지를 내고 PR마다 변경 내용을 적게 하고 싶다면 changesets가 맞습니다.
 - 이슈 → 브랜치 → 릴리스 PR → 배포까지 한 번에 설치하고 그 위에 에이전트 스킬까지 쓰고 싶다면 projectops입니다.
 
-**설치 규모 (실측).** v4.84.0으로 2030-11-05에 빈 저장소에서 `npx projectops --mode full --type basic --force`를 실행하면 56개 파일이 추가됐습니다: 워크플로우 8개, `.github/scripts/` 아래 보조 스크립트 26개, 이슈·PR·Discussion 템플릿, `version.yml`, 설정 안내 문서. `--type spring`은 60개(워크플로우 12개)였습니다.
+**설치 규모 (실측).** v4.84.0으로 2026-11-05에 빈 저장소에서 `npx projectops --mode full --type basic --force`를 실행하면 56개 파일이 추가됐습니다: 워크플로우 8개, `.github/scripts/` 아래 보조 스크립트 30개, 이슈·PR·Discussion 템플릿, `version.yml`, 설정 안내 문서. `--type spring`은 60개(워크플로우 12개)였습니다.
 
 ---
 

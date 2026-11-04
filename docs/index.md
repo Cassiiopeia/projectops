@@ -1,5 +1,7 @@
 ---
 layout: home
+title: 'Projectops: 이슈부터 배포까지 GitHub 릴리스 자동화'
+titleTemplate: false
 
 hero:
   name: Projectops

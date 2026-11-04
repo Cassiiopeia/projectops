@@ -65,7 +65,7 @@
 - モノレポから npm パッケージを公開し、PR ごとに変更内容を書かせたいなら changesets が合います。
 - Issue → ブランチ → リリース PR → デプロイまでを一度に導入し、その上で Agent Skills も使いたいなら projectops です。
 
-**導入規模（実測）。** 2030-11-05 に v4.84.0 で、空のリポジトリに `npx projectops --mode full --type basic --force` を実行すると 56 ファイルが追加されました：ワークフロー 8 個、`.github/scripts/` 配下の補助スクリプト 26 個、Issue・PR・Discussion テンプレート、`version.yml`、設定ガイド。`--type spring` では 60 ファイル（ワークフロー 12 個）でした。
+**導入規模（実測）。** 2026-11-05 に v4.84.0 で、空のリポジトリに `npx projectops --mode full --type basic --force` を実行すると 56 ファイルが追加されました：ワークフロー 8 個、`.github/scripts/` 配下の補助スクリプト 30 個、Issue・PR・Discussion テンプレート、`version.yml`、設定ガイド。`--type spring` では 60 ファイル（ワークフロー 12 個）でした。
 
 ---
 

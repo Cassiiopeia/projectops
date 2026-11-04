@@ -72,6 +72,8 @@ If you only need one piece of this, a smaller tool may suit you better.
 - Publishing npm packages from a monorepo where each PR should say what changed? changesets fits better.
 - Want the whole cycle (issue → branch → release PR → deploy) in one install, with agent skills on top? That is what projectops is for.
 
+More in [the full comparison](https://cassiiopeia.github.io/projectops/compare).
+
 **Footprint, measured.** With v4.84.0 on 2026-11-05, `npx projectops --mode full --type basic --force` in an empty repository added 56 files: 8 workflows, 30 helper scripts under `.github/scripts/`, issue, PR and discussion templates, `version.yml` and a setup guide. `--type spring` added 60 files (12 workflows).
 
 ---
@@ -359,6 +361,7 @@ Browse and search everything on the **[docs site](https://cassiiopeia.github.io/
 ## Support
 
 - [Issues](https://github.com/Cassiiopeia/projectops/issues): bug reports and feature requests
+- [Discussions](https://github.com/Cassiiopeia/projectops/discussions): questions and ideas
   - Finished issues are marked with the `status: done` label and closed automatically when a release is merged (`close_on_release`).
 - [CONTRIBUTING.md](CONTRIBUTING.md): contribution guide
 - [ARCHITECTURE.md](ARCHITECTURE.md): how the code fits together and how to add a flag, option, provider, language or skill

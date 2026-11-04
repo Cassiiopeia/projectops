@@ -233,6 +233,7 @@ on:
 
 **확인 사항**:
 1. 댓글에 정확히 `@projectops create qa` 입력했는지 확인
+1. 공개 저장소라면 작성자가 `OWNER`, `MEMBER`, `COLLABORATOR`인지 (목록은 저장소 변수 `PROJECTOPS_TRIGGER_ASSOCIATIONS`로 변경)
 2. 워크플로우 권한 확인 (Issues 쓰기 권한)
 
 ### 라벨 동기화 안됨

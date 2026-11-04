@@ -65,7 +65,7 @@
 - 在 monorepo 中发布 npm 包，并希望每个 PR 说明改动？changesets 更合适。
 - 想一次安装就覆盖 Issue → 分支 → 发布 PR → 部署的完整流程，并加上 Agent Skills？这正是 projectops 的用途。
 
-**安装规模（实测）。** 2030-11-05 使用 v4.84.0，在空仓库中运行 `npx projectops --mode full --type basic --force`，新增 56 个文件：8 个工作流、`.github/scripts/` 下 26 个辅助脚本、Issue/PR/Discussion 模板、`version.yml` 和一份配置指南。`--type spring` 新增 60 个文件（12 个工作流）。
+**安装规模（实测）。** 2026-11-05 使用 v4.84.0，在空仓库中运行 `npx projectops --mode full --type basic --force`，新增 56 个文件：8 个工作流、`.github/scripts/` 下 30 个辅助脚本、Issue/PR/Discussion 模板、`version.yml` 和一份配置指南。`--type spring` 新增 60 个文件（12 个工作流）。
 
 ---
 
