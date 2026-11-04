@@ -1,7 +1,34 @@
 # Changelog
 
-**Current version:** 4.84.0  
-**Last updated:** 2026-11-04T01:29:15Z  
+**Current version:** 4.85.0  
+**Last updated:** 2026-11-04T16:31:56Z  
+
+---
+
+## [4.85.0] - 2026-11-04
+
+**PR:** #1055  
+
+**New features**
+- Release checks now run on Node 20 and 24 and install into a folder with a non-English name on every OS
+
+**Bug fixes**
+- The installer no longer crashes on Windows when the project folder name has non-English characters
+- Skills no longer fail on Windows in a repository under a non-English folder
+- Opening several browsers at once on Windows no longer fails
+- The TestFlight wizard now gives a Windows command that runs in the default PowerShell
+- On public repositories, release automerge only accepts PRs from the same repository
+- On public repositories, preview deploys and QA issue commands now need a trusted commenter
+- Doctor no longer reports a false permission warning on Windows line endings
+
+**Improvements**
+- A path too long for Windows now shows the real cause instead of a network hint
+- The installer now shows why a skills copy or removal failed
+- The Play Store wizard now reports failed backup restores and failed environment settings
+
+**Documentation**
+- Corrected the README on version pinning, Node deployment, requirements, the release flow and install size
+- Updated the contributor guide and removed references to deleted tests
 
 ---
 

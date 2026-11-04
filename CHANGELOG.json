@@ -1,14 +1,60 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-04T01:29:15Z",
-    "currentVersion": "4.84.0",
+    "lastUpdated": "2026-11-04T16:31:56Z",
+    "currentVersion": "4.85.0",
     "projectType": "basic",
-    "totalReleases": 367,
+    "totalReleases": 368,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.85.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-04",
+      "pr_number": 1055,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * Release checks now run on Node 20 and 24 and install into a folder with a non-English name on every OS\n\n* **Bug fixes**\n  * The installer no longer crashes on Windows when the project folder name has non-English characters\n  * Skills no longer fail on Windows in a repository under a non-English folder\n  * Opening several browsers at once on Windows no longer fails\n  * The TestFlight wizard now gives a Windows command that runs in the default PowerShell\n  * On public repositories, release automerge only accepts PRs from the same repository\n  * On public repositories, preview deploys and QA issue commands now need a trusted commenter\n  * Doctor no longer reports a false permission warning on Windows line endings\n\n* **Improvements**\n  * A path too long for Windows now shows the real cause instead of a network hint\n  * The installer now shows why a skills copy or removal failed\n  * The Play Store wizard now reports failed backup restores and failed environment settings\n\n* **Documentation**\n  * Corrected the README on version pinning, Node deployment, requirements, the release flow and install size\n  * Updated the contributor guide and removed references to deleted tests",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "Release checks now run on Node 20 and 24 and install into a folder with a non-English name on every OS"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "The installer no longer crashes on Windows when the project folder name has non-English characters",
+            "Skills no longer fail on Windows in a repository under a non-English folder",
+            "Opening several browsers at once on Windows no longer fails",
+            "The TestFlight wizard now gives a Windows command that runs in the default PowerShell",
+            "On public repositories, release automerge only accepts PRs from the same repository",
+            "On public repositories, preview deploys and QA issue commands now need a trusted commenter",
+            "Doctor no longer reports a false permission warning on Windows line endings"
+          ]
+        },
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "A path too long for Windows now shows the real cause instead of a network hint",
+            "The installer now shows why a skills copy or removal failed",
+            "The Play Store wizard now reports failed backup restores and failed environment settings"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Corrected the README on version pinning, Node deployment, requirements, the release flow and install size",
+            "Updated the contributor guide and removed references to deleted tests"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.84.0",
       "project_type": "basic",
