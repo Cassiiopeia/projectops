@@ -12,6 +12,8 @@ from common.github_rest.transport import _API_BASE
 
 def _run_summary(run: dict) -> dict:
     """workflow run 객체에서 요약 필드만 추출한다."""
+    head_repository = (run.get("head_repository") or {}).get("full_name")
+    base_repository = (run.get("repository") or {}).get("full_name")
     return {
         "run_id": run["id"],
         "name": run.get("name"),
@@ -22,6 +24,11 @@ def _run_summary(run: dict) -> dict:
         "conclusion": run.get("conclusion"),
         "created_at": (run.get("created_at") or "")[:16],
         "url": run.get("html_url"),
+        "actor": (run.get("actor") or {}).get("login"),
+        "triggering_actor": (run.get("triggering_actor") or {}).get("login"),
+        "head_repository": head_repository,
+        "is_fork": bool(head_repository and base_repository and head_repository != base_repository),
+        "pull_requests": [pr.get("number") for pr in run.get("pull_requests") or []],
     }
 
 
@@ -216,7 +223,8 @@ _RUN_POLL_SECONDS = 10
 
 
 def list_runs(owner: str, repo: str, pat: str, workflow: str | None = None, branch: str | None = None,
-              status: str | None = None, limit: int = 10) -> list[dict]:
+              status: str | None = None, limit: int = 10, event: str | None = None,
+              created: str | None = None) -> list[dict]:
     """최근 run 목록. workflow 는 파일명(예: build.yaml) 또는 id, status 는 queued·in_progress·completed·failure 등"""
     base = (f"{_API_BASE}/repos/{owner}/{repo}/actions/workflows/{urllib.parse.quote(workflow, safe='')}/runs"
             if workflow else f"{_API_BASE}/repos/{owner}/{repo}/actions/runs")
@@ -225,6 +233,10 @@ def list_runs(owner: str, repo: str, pat: str, workflow: str | None = None, bran
         query.append(f"branch={urllib.parse.quote(branch, safe='')}")
     if status:
         query.append(f"status={urllib.parse.quote(status, safe='')}")
+    if event:
+        query.append(f"event={urllib.parse.quote(event, safe='')}")
+    if created:
+        query.append(f"created={urllib.parse.quote(created, safe='')}")
     data = client._request("GET", f"{base}?{'&'.join(query)}", None, pat)
     return [client._run_summary(r) for r in data.get("workflow_runs", [])]
 

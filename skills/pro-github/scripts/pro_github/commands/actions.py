@@ -123,7 +123,7 @@ def cmd_actions(args, api) -> int:
             # 워크플로 파일: 위치 인자 또는 --workflow (#1009)
             workflow_file = args.arg or args.workflow
             result = api.list_runs(args.owner, args.repo, pat, workflow=workflow_file, branch=args.on_branch,
-                                   status=args.status, limit=args.limit)
+                                   status=args.status, limit=args.limit, event=args.event, created=args.created)
             return emit({"runs": result, "count": len(result),
                          "summary": f"{len(result)} run(s)" + (f" ({workflow_file})" if workflow_file else ""),
                          "next": f"actions wait {args.owner} {args.repo} {result[0]['run_id']}" if result else None})
@@ -265,6 +265,8 @@ def _configure_actions(parser) -> None:
     parser.add_argument("--workflow", default=None, help="runs · list-failed: only runs of this workflow file")
     parser.add_argument("--on-branch", "--branch", dest="on_branch", default=None, help="runs: only runs on this branch")
     parser.add_argument("--status", default=None, help="runs: queued · in_progress · completed · failure ...")
+    parser.add_argument("--event", default=None, help="runs: only this trigger (pull_request_target, push ...)")
+    parser.add_argument("--created", default=None, help="runs: creation date filter (>=2026-11-03 or a range a..b)")
     parser.add_argument("--ref", default="develop", help="dispatch: branch or tag to run on")
     parser.add_argument("--input", action="append", default=None, metavar="KEY=VALUE", help="dispatch: workflow input (repeatable)")
     parser.add_argument("--failed-only", dest="failed_only", action="store_true", help="rerun: failed jobs only")

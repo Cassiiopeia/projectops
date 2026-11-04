@@ -76,6 +76,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py actions cancel {owner} {
 - `joblog --grep` is a regex (`'error|failed'`, case-insensitive). An invalid regex is searched as literal text. Check `regex` in the response to see how it was interpreted.
   If you need the full log, save it with `--out file` and read it yourself. Logs past the retention period return `log_expired`.
 - `list-failed --workflow build.yaml` keeps only failed runs of that workflow.
+- `runs` takes `--event` and `--created` (`>=2026-11-03`). Each run has `actor`, `triggering_actor`, `head_repository`, `is_fork` and `pull_requests`, so a fork run needs no direct REST call. Fields a command does not expose: use the `api` subcommand.
 - For REST calls the commands above do not cover, use `api`: `api GET {owner} {repo} releases/latest` (a relative path gets `/repos/{owner}/{repo}/` prepended; an absolute path `/repos/{owner}/{repo}/...` also works).
   It accepts only this repo's paths. The only exception outside the repo is the read-only `GET /rate_limit`. Add `--write` to state-changing methods (POST · PUT · PATCH · DELETE) only for work the user asked for.
   If the response exceeds 20,000 characters, trailing list items are dropped and you get **valid JSON** (`truncated: true`, `truncated_items`). If you need all of it, use `--out file` (`saved_to` in the response); otherwise shrink it with `?per_page=10`.
