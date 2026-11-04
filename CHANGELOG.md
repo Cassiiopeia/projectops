@@ -1,7 +1,27 @@
 # Changelog
 
-**Current version:** 4.82.0  
-**Last updated:** 2026-11-03T02:47:09Z  
+**Current version:** 4.83.0  
+**Last updated:** 2026-11-04T00:51:44Z  
+
+---
+
+## [4.83.0] - 2026-11-04
+
+**PR:** #1043  
+
+**New features**
+- Figma: read any link with just the saved Figma token, no Figma MCP needed. The link can be a file, page, section, screen or a part of a screen, and you get the matching next step
+- Figma: list the screens under a link, then fetch the chosen screen with its design image
+- Figma: fetch a past design from the file's version history
+- Figma: the design-change check now works per screen, so edits to other screens no longer ask you to redo work
+- Figma: compare screens that show data by leaving out only mock-data text, photos and named photo placeholders
+- Figma: property comparison can skip the OS-drawn status bar and home indicator
+
+**Bug fixes**
+- Figma: property comparison no longer reports false problems on text and icons, covered layers, shapes without a fill, pill-shaped corners or very faint shadows
+
+**Documentation**
+- Figma: notes that Flutter widget-test renders draw no shadow blur, so check glows and blurs on a simulator or device
 
 ---
 
