@@ -10,8 +10,10 @@
 """
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 from common.proc import run
@@ -39,6 +41,52 @@ PILLOW_SNIPPET = (
     "    im.thumbnail((side, side), Image.LANCZOS)\n"
     "im.save(dst, 'WEBP', quality=q, method=4)\n"
 )
+
+
+# 인자: src dst rects_json. 결과 JSON 한 줄 출력 (쓰기 전에 검사, 실패면 파일 안 만듦)
+PILLOW_MASK_SNIPPET = (
+    "import json, sys\n"
+    "from PIL import Image, ImageDraw\n"
+    "src, dst, rects = sys.argv[1], sys.argv[2], json.loads(sys.argv[3])\n"
+    "im = Image.open(src)\n"
+    "if getattr(im, 'is_animated', False):\n"
+    "    print(json.dumps({'error': 'animated_not_supported'})); sys.exit(0)\n"
+    "w, h = im.size\n"
+    "if any(x >= w or y >= h for x, y, _, _ in rects):\n"
+    "    print(json.dumps({'error': 'bad_rect', 'width': w, 'height': h})); sys.exit(0)\n"
+    "im = im.convert('RGB')\n"
+    "draw = ImageDraw.Draw(im)\n"
+    "for x, y, rw, rh in rects:\n"
+    "    draw.rectangle([x, y, x + rw - 1, y + rh - 1], fill=(0, 0, 0))\n"
+    "im.save(dst)\n"
+    "print(json.dumps({'width': w, 'height': h}))\n"
+)
+
+
+class ImageMaskError(Exception):
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+
+
+def mask_regions(src: Path, rects: list[list[int]], dst: Path) -> dict:
+    """이미지 영역을 검게 덮어 새 파일로 저장 > {width, height}. 흐림은 복원될 수 있어 쓰지 않음"""
+    interpreter = sys.executable if has_pillow() else None
+    if interpreter is None and (vpy := venv_python()) and venv_has_pillow(vpy):
+        interpreter = str(vpy)
+    if interpreter is None:
+        raise ImageMaskError("pillow_missing", "Pillow is required to mask images")
+    output = subprocess.run([interpreter, "-c", PILLOW_MASK_SNIPPET, str(src), str(dst), json.dumps(rects)],
+                            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+    try:
+        result = json.loads(output.stdout.strip().splitlines()[-1])
+    except (IndexError, ValueError):
+        raise ImageMaskError("mask_failed", output.stderr.strip()[-300:] or "Could not read this image") from None
+    if result.get("error") == "bad_rect":
+        raise ImageMaskError("bad_rect", f"A rectangle starts outside the image ({result['width']}x{result['height']})")
+    if result.get("error"):
+        raise ImageMaskError(result["error"], "Animated images cannot be masked; fix the source and record again")
+    return result
 
 
 def _pillow_webp(src: Path, dst: Path, quality: int, max_side: int | None) -> None:

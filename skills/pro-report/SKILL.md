@@ -78,6 +78,7 @@ The output root can change with team settings, so do not hard-code `docs/project
 - **Short and clear**: make the approach easy to understand
 - **Visualize the flow**: draw a mermaid flowchart when there are multiple steps, branches or state transitions (`references/output-template.md`)
 - **Sensitive data**: apply the masking rules in `../references/common-rules.md`
+- **Evidence by default**: attach captures, E2E results and key log lines without being asked, after checking them (`../references/evidence-attach.md`)
 
 **Never include**: meta information such as `**Author**:` / `**Date**:` / `## Author info` · wording like `Claude`, `AI`, `auto-generated` · unneeded reviewer or approver info.
 

@@ -121,12 +121,12 @@ Output JSON `{"count":N,"items":[{number,title,url,state,labels}]}`. Exclude `cl
 1. Read the matching template in `.github/ISSUE_TEMPLATE/` to learn its format
 2. Explore the related code and include the relevant file paths
 3. Write the body in the template's format (if the preferences have a `template`, append it as extra sections; use `examples` only as a style reference)
-4. **Attach images (mandatory)** — if images, mockups, or screenshots related to this issue are in the conversation, upload them without missing any.
+4. **Attach images without being asked (mandatory)** — every image, mockup or screenshot in the conversation that relates to this issue goes in, after the sensitive-content check in `evidence-attach.md`. The user should not have to say "include the image".
    Upload with `upload-image` and put the output's `markdown` into the matching section of the body as is (commands and cautions: `../pro-github/references/images.md`).
    ```bash
    PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py upload-image {owner} {repo} {image files...} --prefix issue
    ```
-   - If you do not know the image's local file path (it was only pasted into the chat), ask the user for the path. Do not silently continue without the image
+   - A pasted image's path appears in its message (`[Image: source: <path>]`). Only if it appears nowhere, ask for the path once. Do not silently continue without the image
    - If `private_warning` comes back, tell the user the image will not render because the repo is private
 
 ### Step 4: Save the local file first

@@ -20,6 +20,8 @@ Write the report in the user's language (or the configured `language` preference
 
 Do not mix them. If you mix consistency defects into functional defects, the report **reads as "this work failed".**
 
+> Attach captures, recordings and the log lines around each finding without being asked, after the sensitive-content check in `../../references/evidence-attach.md`.
+
 ## What a report must have
 
 If any one is missing, it is not a report.

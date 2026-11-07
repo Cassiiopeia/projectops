@@ -19,6 +19,7 @@
     db               SQL 실행 (붙는 법은 access 에 적어 둔 대로)
     logs             서버 로그 (보는 법도 access 에 적어 둔 대로)
     shrink           이슈 첨부용 축소 · WebP
+    mask · redact    이슈에 올리기 전 이미지 영역 덮기 · 비밀값, 개인정보 형식 가리기
     recall · learn · forget   이 컴퓨터에서 먹힌 조작 방식을 기억한다 (쓸수록 정확해진다)
     get-output-path  이번 실행 자리 + env.sh
 

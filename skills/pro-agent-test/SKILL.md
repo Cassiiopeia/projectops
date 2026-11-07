@@ -155,7 +155,7 @@ and better approaches that are not defects (proposals). Accumulate rules with `n
 
 **Phase 5 — Defect report.** Write functional defects, consistency defects, observability, improvement proposals, passes and on-hold items **separately**. For each defect: repro steps,
 expected vs actual, evidence, severity (Critical/High/Medium/Low/Observability), impact. Do not raise severity by guessing. For images,
-`shrink` → `upload-image` → body, in that order. Correct misjudgments immediately. `references/reporting.md`.
+check and `mask` (`../references/evidence-attach.md`) → `shrink` → `upload-image` → body, in that order. Correct misjudgments immediately. `references/reporting.md`.
 
 **Phase 6 — Reset.** `pm clear` + clean up server test accounts (query and show what will be deleted first). `references/stepping.md`.
 

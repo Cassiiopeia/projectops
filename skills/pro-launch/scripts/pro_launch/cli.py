@@ -18,7 +18,7 @@ from pro_launch.runtime.output import attach_known_fix, emit_shaped
 
 # 도움말에서 보이는 순서. 여기 없는 명령은 이름순으로 뒤에 붙는다 (등록 자체는 이 표와 무관하다)
 HELP_ORDER = ("doctor", "detect", "devices", "device", "app", "web", "render", "http", "access", "db",
-              "logs", "cred", "local", "ssh", "shrink", "recall", "learn", "tidy", "forget", "session-check",
+              "logs", "cred", "local", "ssh", "shrink", "mask", "redact", "recall", "learn", "tidy", "forget", "session-check",
               "kb", "journal", "harness", "get-output-path")
 
 

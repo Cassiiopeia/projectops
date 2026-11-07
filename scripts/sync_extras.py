@@ -10,6 +10,7 @@ COPIES = [
     ("skills/references/config-rules.md", "skills/references/config-rules.md"),
     ("skills/references/preferences.md", "skills/references/preferences.md"),
     ("hooks/run_python.sh", "hooks/run_python.sh"),
+    ("scripts/common/redact.py", "skills/pro-skill-bug/scripts/bug/redact.py"),   # 가리기 규칙 정본 (extras 는 common 을 못 씀)
 ]
 
 if __name__ == "__main__":

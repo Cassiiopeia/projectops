@@ -954,7 +954,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | init-worktree | `skills/pro-init-worktree/scripts/worktree_cli.py` | recall, record (지난번 복사한 로컬 파일 세트를 기억 — #839) |
 | figma | `skills/pro-figma/scripts/figma_cli.py` | get-output-path, coverage, assets, conform, diff, screens, fetch, ingest, check-fresh, token (링크 종류 판별·화면 목록 · 저장된 토큰으로 REST 직접 가져오기(MCP 불필요, 과거 버전 `--version`) · diff `--mask-data`·`--mask-node` 로 mock 데이터 영역 제외, `--solids`(한쪽에만 있는 색면)·`--rows`(글줄 높이), conform 자리 검사·시스템 노드 자동 제외, svg-check(렌더러가 버리는 SVG 요소) · MCP 결과 파일 저장 · 시안 변경 확인 · Figma 토큰 등록 — 토큰은 `launch.credentials`의 `provider: figma` 항목을 쓴다, #1017), store-specs, store-check (스토어 이미지 규격 정본 `figma_tools/store_specs.json` · 언어별 판정, #884), store-compose (앱 캡처+문구 > 언어별 스토어 이미지 HTML·렌더 스크립트, 산출물은 `get-output-path`의 run_dir/store 아래에만, #1021), store-upload-plan, store-upload-mark, store-upload-status (콘솔 업로드 체크리스트 · 단계별 기록, 업로드는 pro-launch web, 심사 제출 금지, #1021), store-pages (언어별 랜딩 페이지 + hreflang + sitemap, run_dir/store/site, #1021) |
 | agent-test | `skills/pro-agent-test/scripts/e2e_cli.py` | detect, scenario, note, api, other (실행·캡처 명령은 pro-launch 로 넘겨준다 — #631) |
-| launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, desktop (PC 화면의 창, #985), render, http, access, db, logs, cred, ssh, local (이 맥 sudo, #784), shrink, recall, learn, forget, kb (공식 트러블슈팅 search·show·list·propose, #889), journal, harness (사이트·작업별 안내서 폴더 list·show·match·new — 맞는 주소·호스트·앱 식별자·창 이름 응답에 자동 표시, #1023·#1024), get-output-path |
+| launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, desktop (PC 화면의 창, #985), render, http, access, db, logs, cred, ssh, local (이 맥 sudo, #784), shrink, mask, redact (올리기 전 이미지 덮기·글자 가리기, #1082), recall, learn, forget, kb (공식 트러블슈팅 search·show·list·propose, #889), journal, harness (사이트·작업별 안내서 폴더 list·show·match·new — 맞는 주소·호스트·앱 식별자·창 이름 응답에 자동 표시, #1023·#1024), get-output-path |
 | desktop-control | (자체 CLI 없음) `skills/pro-launch/scripts/launch_cli.py` | `desktop` 그룹을 그대로 쓴다: doctor, setup, session, windows, tree, find, click, type, press, focus, wait, shot |
 | ui-design | `skills/pro-ui-design/scripts/ui_design_cli.py` | start, status, stop, choices, tokens, check, capture, decide, decision (#1080), config (show·set·options), get-output-path, board, copy-lint, ascii, rewrite-images (업로드 결과로 본문 이미지 경로 치환 — #974) |
 | oss-consult | `skills/pro-oss-consult/scripts/oss_cli.py` | collect, local-facts, list-repos, get-output-path (**사실만 모은다 — 판단은 에이전트**, #644), repo-update, label (레포를 바꾸는 유일한 경로 — `--dry-run`·`before` 기록, **삭제·가시성 변경은 구현하지 않는다**, #660) |
@@ -980,6 +980,10 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 > 서브커맨드가 해석한다 (`changelog_cli.py`가 처음부터 그 방식이다).
 
 > GitHub API 호출은 각 skill의 `<scope>_cli.py` 서브커맨드 우선. 새 동작이 필요하면 `skills/references/mcp-subcommand-rules.md` 기준으로 `common/gh_client` 헬퍼 + cli 서브커맨드 + 테스트를 추가한다. 신규 skill에 py 필요하면 `skills/pro-skill-creator/templates/python_cli_script.py` 골격을 복사.
+
+### 이슈·완료 댓글의 증거 첨부 (#1082)
+
+이미지·캡처·E2E 결과·로그는 **묻지 않고 첨부하고, 올리기 전에 반드시 직접 본다.** 규칙 정본은 `skills/references/evidence-attach.md`. 가리기 규칙 정본은 `scripts/common/redact.py`이고 extras 사본은 `scripts/sync_extras.py`가 만든다.
 
 ### Agent 주의사항
 

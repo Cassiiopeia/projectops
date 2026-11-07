@@ -29,7 +29,7 @@
 
 > **Order**: the approval screen shows the "images to attach" list together with the body. After approval: `upload-image` → put the returned `markdown` into the body → `add-comment`. The approved body and the posted body differ only in the image links. On "view only", do not upload either.
 
-**If the report needs screens, post images with it.** For test results, failure reproduction and UI changes, a screen is better evidence than text.
+**Attach the evidence this work produced without being asked:** captures of the result, E2E results per scenario, and key log lines. Choose and check them first by `../../references/evidence-attach.md`; that includes reading every image and log for sensitive content.
 
 ```bash
 # Get the URLs from pro-github's upload-image first (before inserting them into the body)
@@ -42,4 +42,4 @@ Paste the `markdown` field of the output JSON into the report `.md`, then post i
 
 Detailed rules (format limits, private repo constraints, undo): `../../pro-github/references/images.md`.
 
-> If there are no images, add none. Meaningless screenshots only make the report longer.
+> A change with nothing to show gets no filler image. Say what was not verified instead.

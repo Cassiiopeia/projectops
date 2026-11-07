@@ -28,6 +28,7 @@ Write placeholders instead of real values.
 
 - If an error log contains a token or key, always mask it before including it
 - In reproduction steps, use placeholders such as `{SERVER_HOST}` instead of real server details
+- Screenshots and logs: follow `evidence-attach.md` (`mask`, `redact`, then look yourself)
 - When quoting screenshots or logs, replace sensitive values with placeholders (no anonymous asterisks like `***` — they hide what kind of value it was, so the meaning is lost)
 
 ## Self-review right before saving a file

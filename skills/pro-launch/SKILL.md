@@ -58,6 +58,7 @@ Without it, the root is resolved in this order: `$PROJECT_ROOT` > working direct
 | Store credentials · remote commands · sudo on this Mac | `cred list\|show\|set\|unset\|import-ssh` · `ssh` · `local sudo` | `references/credentials.md` |
 | Policy for interstitial login screens (trust this device · stay signed in · upsells) | `cred policy get\|set\|unset` | `references/web.md` "Interstitial login screens" |
 | Shrink for issue attachments | `shrink` | `references/memory.md` |
+| Hide sensitive content before posting: cover image areas · replace secrets in a log | `mask` · `redact` | `../references/evidence-attach.md` |
 | Recall · save · delete · tidy what worked on this computer | `recall [--match <word>]` · `learn [--detail]` · `forget` · `tidy` (scattered memory) · `tidy --buckets` (size and bogus buckets; deletes only with `--apply`) | `references/memory.md` |
 | When you finish a task — areas where you got stuck, got unstuck, and did not `learn` | `session-check` | `references/memory.md` |
 | Search · show · list official troubleshooting · draft an official entry from your memory | `kb search\|show\|list\|propose` | `references/troubleshooting.md` · `references/memory.md` |

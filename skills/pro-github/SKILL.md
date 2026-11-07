@@ -40,7 +40,7 @@ Every command is `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py <subco
 | List labels · add · remove one · replace all (**also removes non-status labels**) | `list-labels` · `add-labels` · `remove-label` · `set-labels` | `references/issues.md` |
 | Add · remove assignees | `add-assignees` · `remove-assignees` | `references/issues.md` |
 | Normalize title · branch name · commit template · issue doc path (no API) | `normalize-title` · `create-branch-name` · `get-commit-template` · `get-output-path issue` | `references/issues.md` |
-| Attach · delete images | `upload-image` · `delete-image` | `references/images.md` |
+| Attach · delete images (attach by default, check first) | `upload-image` · `delete-image` | `references/images.md` · `../references/evidence-attach.md` |
 | Create · list · read · edit a PR | `create-pr` · `list-prs` · `get-pr` · `update-pr` | `references/prs.md` |
 | PR comment · close · reopen · merge | `add-pr-comment` · `close-pr` · `reopen-pr` · `merge-pr` | `references/prs.md` |
 | Fill release notes into the release PR body (CodeRabbit fallback) | `update-pr` | `references/prs.md` |
