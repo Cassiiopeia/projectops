@@ -22,6 +22,19 @@ COVERING_ELEMENT_JS = """(e, shouldCenter) => {
 }"""
 
 
+# 같은 화면에서 무언가 바뀌었는지 보는 지문: 요소 수, 열린 대화상자 수, 보이는 글자 수 (#1048)
+PAGE_FINGERPRINT_JS = """() => [document.querySelectorAll('*').length,
+  document.querySelectorAll('dialog[open]').length, (document.body ? document.body.innerText : '').length].join(':')"""
+
+
+def read_page_fingerprint(page) -> str | None:
+    """못 읽으면 None (이동 중 등)"""
+    try:
+        return page.evaluate(PAGE_FINGERPRINT_JS)
+    except Exception:
+        return None
+
+
 def covering_element(element, should_center: bool) -> str | None:
     """요소를 덮은 것의 설명 (예: header#top.sticky "관리자"). 안 덮였거나 못 읽으면 None."""
     try:
@@ -43,6 +56,7 @@ def click_with_cover_recovery(page, element, args, info: dict) -> tuple[dict, di
     (복구 기록, 실패 결과). 덮인 채 시간이 다 되면 covered_by 와 --dom-click 안내를 실은 element_not_actionable.
     """
     recovery: dict = {}
+    url_before_click = page.url
     covered_by = covering_element(element, should_center=False)
     if covered_by:
         recovery = {"covered_by": covered_by, "scrolled_to_center": True}
@@ -58,6 +72,10 @@ def click_with_cover_recovery(page, element, args, info: dict) -> tuple[dict, di
     except Exception as error:
         if not is_timeout_error(error):
             raise
+        # 누른 뒤 페이지가 넘어가 요소가 사라지면 시간 초과처럼 보임: 이동했으면 성공 (#1074)
+        if page.url != url_before_click:
+            recovery["navigated_during_click"] = True
+            return recovery, None
         failure = not_actionable_failure(page, args, "click", info, error)
         cover = covered_by or ("intercepts pointer events" in str(error) and covering_element(element, True))
         if cover:
@@ -75,6 +93,7 @@ def _web_click(page, args, state: dict) -> dict:
     if failure:
         return failure
     before_url, before_title = page.url, safe_title(page)
+    before_fingerprint = read_page_fingerprint(page)
     recovery, failure = click_with_cover_recovery(page, el, args, info)
     if failure:
         return failure
@@ -104,16 +123,23 @@ def _web_click(page, args, state: dict) -> dict:
     settle(page, state, outcome_seconds)
     after_url, after_title = page.url, safe_title(page)
     changed = after_url != before_url or after_title != before_title
-    payload = {"action": "click", "clicked": info, "changed": changed,
+    after_fingerprint = read_page_fingerprint(page)
+    content_changed = before_fingerprint is None or after_fingerprint is None or before_fingerprint != after_fingerprint
+    outcome_text = ("URL or title changed" if changed else
+                    "URL and title unchanged, page content changed" if content_changed else
+                    "nothing visible changed")
+    payload = {"action": "click", "clicked": info, "changed": changed, "content_changed": content_changed,
                "before": {"url": before_url, "title": before_title},
                "url": after_url, "title": after_title,
                "summary": f"Clicked '{(info.get('text') or info.get('aria') or info.get('tag'))[:40]}' → "
-                          + ("URL or title changed" if changed else "URL and title unchanged")}
+                          + outcome_text}
     if recovery:
         payload["recovery"] = recovery
     if not changed and not (args.expect_url or args.expect_text):
         # 체크박스·펼치기처럼 제자리에서 바뀌는 것일 수도 있다 — 실패로 단정하지 않고 확인을 시킨다
-        payload["next"] = "Check with web text / web assert that it did what you intended. If not, pick again with web find"
+        payload["next"] = ("Check with web text / web assert that it did what you intended. If not, pick again with web find"
+                           if content_changed else
+                           "The click may not have reached the element: check with web text, then try --dom-click or web script")
     else:
         payload["next"] = "web text  # read the changed screen"
     return payload

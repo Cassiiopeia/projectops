@@ -1111,7 +1111,7 @@
       "title": "web open · goto navigation fails — check the URL, the server, the certificate",
       "fix_short": [
         "For a local server, first check it is up: launch_cli.py http --url <url>",
-        "Certificate error (test servers only): launch_cli.py web close"
+        "Certificate error (test servers only): launch_cli.py web open --ignore-cert-errors --url <url>"
       ],
       "keyword_count": 1,
       "path": "web/web-goto-failed.json"

@@ -14,8 +14,8 @@
   "cause": "The navigation itself failed: the server is not up or the URL is wrong (Timeout · CONNECTION_REFUSED), or a private or self-signed certificate blocked it (ERR_CERT · ERR_SSL). web goto treats 404 and 500 pages as successful navigation and reports them in status",
   "fix": [
     "For a local server, first check it is up: launch_cli.py http --url <url>",
-    "Certificate error (test servers only): launch_cli.py web close",
-    "launch_cli.py web open --ignore-cert-errors --url <url>  # applies only when a new browser starts"
+    "Certificate error (test servers only): launch_cli.py web open --ignore-cert-errors --url <url>",
+    "It applies only when a new browser starts: if one is already open, run launch_cli.py web close first"
   ],
   "refs": [
     711,

@@ -96,8 +96,8 @@
 - Cause: The navigation itself failed: the server is not up or the URL is wrong (Timeout · CONNECTION_REFUSED), or a private or self-signed certificate blocked it (ERR_CERT · ERR_SSL). web goto treats 404 and 500 pages as successful navigation and reports them in status
 - Fix:
   1. For a local server, first check it is up: launch_cli.py http --url <url>
-  2. Certificate error (test servers only): launch_cli.py web close
-  3. launch_cli.py web open --ignore-cert-errors --url <url>  # applies only when a new browser starts
+  2. Certificate error (test servers only): launch_cli.py web open --ignore-cert-errors --url <url>
+  3. It applies only when a new browser starts: if one is already open, run launch_cli.py web close first
 - Refs: #711, #889 · verified 2026-10-17
 
 ### `web-iframe-login-fields` — Cannot find login fields inside an iframe (App Store Connect, etc.)
