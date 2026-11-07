@@ -126,7 +126,7 @@ Output JSON `{"count":N,"items":[{number,title,url,state,labels}]}`. Exclude `cl
    ```bash
    PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py upload-image {owner} {repo} {image files...} --prefix issue
    ```
-   - A pasted image's path appears in its message (`[Image: source: <path>]`). Only if it appears nowhere, ask for the path once. Do not silently continue without the image
+   - A pasted image's path appears in its message (`[Image: source: <path>]`). It may be a temporary file, so upload it first. Only if the path appears nowhere or the file is gone, ask once. Do not silently continue without the image
    - If `private_warning` comes back, tell the user the image will not render because the repo is private
 
 ### Step 4: Save the local file first

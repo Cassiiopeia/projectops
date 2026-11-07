@@ -12,7 +12,7 @@ The reader should see what you saw without asking. **Attach without being told.*
 | Completion comment or report | Captures of the result (`pro-launch`, `pro-ui-design`), E2E results, key log lines, and what you could not verify |
 | QA or defect report | The capture or recording of each finding, plus the log lines around it |
 
-- **Where to find them:** a pasted image's path appears in its message (`[Image: source: <path>]`). Captures are in the paths your tool results returned. If a pasted image has no path anywhere, write the rest first, then ask for the path once.
+- **Where to find them:** a pasted image's path appears in its message (`[Image: source: <path>]`). Captures are in the paths your tool results returned. That file may be temporary and disappear later, so upload it early in the work. If it has no path anywhere, or the file is gone, write the rest first, then ask for it once.
 - **Choose:** one image per claim, final state only, no near-duplicates. Before and after beats ten screens. For motion or a flow, use a GIF. A change with nothing to show gets no filler image.
 - **E2E results:** one table row per scenario with the actual result, including failures and what was not run. Never only "tests passed".
 

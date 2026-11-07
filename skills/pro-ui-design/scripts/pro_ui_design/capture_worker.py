@@ -77,7 +77,7 @@ def capture_png(browser, job: dict) -> list[dict]:
         return [describe_file(path, job)]
     files = []
     for option_id in option_ids:
-        choice = json.dumps(str(option_id))
+        choice = json.dumps(str(option_id), ensure_ascii=False)   # CSS 선택자: 유니코드 이스케이프는 다른 뜻이라 한글 그대로
         card = page.locator(f".ui-option:has([data-choice={choice}]), .ui-option[data-choice={choice}]").first
         if card.count() == 0:
             raise CaptureFailure("option_not_found", error=f"No option {option_id} in this mockup")
