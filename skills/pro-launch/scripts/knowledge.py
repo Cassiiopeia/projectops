@@ -257,7 +257,7 @@ def area_summary(paths: dict[str, Path]) -> dict[str, dict]:
 # 같은 지식이 레포마다 키만 다르게 쌓였다(실측: ASC iframe 로그인 4곳). 레포에 상관없는
 # 지식은 이 컴퓨터 범위(_machine) 한 곳에 있어야 다른 레포에서도 바로 쓰인다.
 
-# 유사도·노출 상한 규칙은 pro-agent-test note 와 같아야 해서 common/memory.py 로 옮겼다 (#837).
+# 유사도·노출 상한 규칙은 pro-agent-test note 와 같아야 해서 common/memory.py 가 단일 원본 (#837).
 # 이 모듈의 공개 이름(SIMILAR·RELATED·overlap·similar …)은 그대로 둔다 — launch_cli·테스트가 쓴다.
 SIMILAR = memory.SIMILAR
 RELATED = memory.RELATED

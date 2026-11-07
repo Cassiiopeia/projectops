@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """e2e_cli — pro-agent-test 전용 CLI (projectops 3-layer 표준, Layer 2).
 
-**QA 절차만** 담는다. 앱·웹·서버를 띄우고 조작하고 찍는 능력은 pro-launch 로 옮겼다 (#629·#631).
+**QA 절차만** 담는다. 앱·웹·서버를 띄우고 조작하고 찍는 능력은 pro-launch 담당 (#629·#631).
 
 서브커맨드:
     detect    무엇을 밟을 수 있는지 — pro-launch detect 결과 + 확인해 적어 둔 타겟(note target)

@@ -25,7 +25,7 @@ def _repo_key(root: Path) -> str:
 def _home_dir(root: Path) -> Path:
     """쌓은 것(learned.json · 시나리오 · flows)을 두는 곳. 프로젝트 밖(홈)이라 워크트리를 만들어도 살아남는다.
 
-    기기·브라우저·접속 정보는 pro-launch 의 자리(~/.projectops/launch/)로 옮겼다 (#629).
+    기기·브라우저·접속 정보는 pro-launch 의 자리(~/.projectops/launch/)에 있음 (#629).
     """
     return state_dir("agent-test", root)
 
