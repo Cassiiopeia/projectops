@@ -50,6 +50,16 @@ export function applySafeMigrations(targetRoot, entries) {
 //   log      - 한 줄 출력 함수 (기본 console.log)
 //   removeLegacy - true면 confirm 티어(구세대 배포 워크플로우)도 .bak 무해화 (--remove-legacy, #809)
 // 반환: { applied: [결과], confirmPending: [entry], askPending: [entry] }
+// 폐기 워크플로에서 옮긴 설정 > 화면과 실행 기록용 줄 (사용자가 설정이 옮겨졌는지 확인, #1060)
+export function describeCarriedSettings(results) {
+  const lines = [];
+  for (const result of results) {
+    if (result.carried?.length) lines.push(t("migrate.safe.carried", { file: result.from, keys: result.carried.join(", ") }));
+    if (result.carryFailed) lines.push(t("migrate.safe.carryFailed", { file: result.from, error: result.carryFailed }));
+  }
+  return lines;
+}
+
 export async function runMigrations({ targetRoot = ".", askYesNo = null, log = console.log, removeLegacy = false } = {}) {
   const { safe, confirm, ask } = detectMigrations(targetRoot);
   if (safe.length === 0 && confirm.length === 0 && ask.length === 0) {
@@ -73,6 +83,7 @@ export async function runMigrations({ targetRoot = ".", askYesNo = null, log = c
       const failed = applied.filter((r) => r.action === "error");
       log(t("migrate.safe.done", { n: ok.length, failed: failed.length ? t("migrate.safe.failed", { n: failed.length }) : "" }));
       for (const f of failed) log(`   ⚠️ ${f.from}: ${f.error}`);
+      for (const line of describeCarriedSettings(ok)) log(line);
     } else {
       log(t("migrate.safe.skip"));
     }

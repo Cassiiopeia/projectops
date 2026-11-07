@@ -48,6 +48,8 @@ export default {
   "migrate.safe.ask": "위 {n}개를 정리할까요? (워크플로우는 .bak 무해화 — 복원 가능)",
   "migrate.safe.done": "✅ 레거시 정리 완료: {n}개{failed}",
   "migrate.safe.failed": " (실패 {n}개)",
+  "migrate.safe.carried": "   {file}의 설정을 version.yml로 옮겼습니다: {keys}",
+  "migrate.safe.carryFailed": "   ⚠️ {file}의 설정을 옮기지 못했습니다: {error}. version.yml에 직접 옮겨 주세요. 옛 파일은 .bak으로 남아 있습니다",
   "migrate.safe.skip": "→ 레거시 정리를 건너뜁니다 (다음 업데이트 때 다시 안내)",
   "migrate.dir.found": "📁 구명칭 산출물 폴더 {n}개 감지 — 사용자 문서가 들어 있어 확인 후 이동합니다:",
   "migrate.dir.ask": "위 폴더를 새 이름으로 이동할까요? (파일 손실 없음 — 충돌 시 원본 유지)",

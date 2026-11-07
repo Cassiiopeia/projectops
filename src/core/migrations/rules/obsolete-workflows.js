@@ -23,9 +23,10 @@ export function detect(targetRoot, entry) {
 export function apply(targetRoot, entry) {
   // 무해화 전 설정 이관 (실패해도 무해화는 진행 — 부분 실패 허용 원칙)
   let carried = [];
+  let carryFailed = null;
   if (entry.settingsExtractor && EXTRACTORS[entry.settingsExtractor]) {
     try { carried = EXTRACTORS[entry.settingsExtractor](targetRoot, entry).carried; }
-    catch { carried = []; }
+    catch (error) { carried = []; carryFailed = error?.message || String(error); }
   }
   const src = target(targetRoot, entry);
   const bak = `${src}.bak`;
@@ -33,5 +34,6 @@ export function apply(targetRoot, entry) {
   renameSync(src, bak);
   const result = { action: "bak", from: entry.file, to: `${entry.file}.bak` };
   if (carried.length > 0) result.carried = carried;
+  if (carryFailed) result.carryFailed = carryFailed;
   return result;
 }

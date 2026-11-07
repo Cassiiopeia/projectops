@@ -48,6 +48,8 @@ export default {
   "migrate.safe.ask": "Clean up the {n} file(s) above? (workflows are neutralized as .bak and can be restored)",
   "migrate.safe.done": "Legacy cleanup done: {n}{failed}",
   "migrate.safe.failed": " ({n} failed)",
+  "migrate.safe.carried": "   Settings moved to version.yml from {file}: {keys}",
+  "migrate.safe.carryFailed": "   ⚠️ Could not move settings from {file}: {error}. Copy them to version.yml by hand; the old file is kept as .bak",
   "migrate.safe.skip": "Skipping legacy cleanup (you will be asked again on the next update)",
   "migrate.dir.found": "Found {n} output folder(s) with an old name. They contain your documents, so they are moved only after confirmation:",
   "migrate.dir.ask": "Move the folders above to the new name? (no files are lost, the original is kept on conflict)",
