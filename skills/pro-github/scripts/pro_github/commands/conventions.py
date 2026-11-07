@@ -21,7 +21,12 @@ def cmd_get_output_path(args, api) -> int:
     from common.gh_branch import strip_issue_decorations
     from common.paths import resolve_output_path
     # 파일명에는 이모지·[태그]를 넣지 않는다 — 태그가 제목에 붙어 `BugSkills_...` 가 되는 것을 막는다
-    title = strip_issue_decorations(args.title) if args.title else None
+    # 위치 인자 허용: "issue <제목>", "<제목>" 모두 (제목을 위치로 넘겨 bad_args 나던 호출, #1063)
+    words = list(args.words)
+    if words and words[0] == "issue":
+        words = words[1:]
+    raw_title = args.title or " ".join(words)
+    title = strip_issue_decorations(raw_title) if raw_title else None
     return emit(resolve_output_path("issue", title, use_issue_number=False, root=args.root))
 
 
@@ -67,7 +72,7 @@ def cmd_get_commit_template(args, api) -> int:
 # ── 인자 ──
 
 def _configure_get_output_path(parser) -> None:
-    parser.add_argument("skill_id", nargs="?", default="issue", choices=["issue"])
+    parser.add_argument("words", nargs="*", metavar="[issue] [title]", help="optional: the word issue, then the title")
     parser.add_argument("--title", help="issue title (emoji and tags allowed; it is normalized)")
     from common.paths import add_root_and_issue_args
     add_root_and_issue_args(parser, with_issue=False)
