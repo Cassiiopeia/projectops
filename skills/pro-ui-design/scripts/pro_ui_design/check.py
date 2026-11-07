@@ -8,8 +8,8 @@ from pathlib import Path
 from common.emit import emit
 
 from pro_ui_design.session import find_session
+from pro_ui_design.settings import SESSION_TOKENS_FILE_NAME
 
-TOKENS_FILE_NAME = "tokens.css"
 HEX_COLOR_PATTERN = re.compile(r"(?<![&\w])#([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\b(?!\s*[{.:>+~\[,]\s*[^\s;}]*\s*\{)(?!\s*\{)")
 ANCHOR_PATTERN = re.compile(r"""(href|xlink:href)\s*=\s*["']#[^"']*["']|url\(\s*["']?#[^)]*\)""", re.IGNORECASE)
 HTML_COMMENT_PATTERN = re.compile(r"<!--.*?-->", re.DOTALL)
@@ -73,7 +73,7 @@ def _is_missing_local_path(reference: str, screens_dir: Path) -> bool:
 
 
 def check_screens(screens_dir: Path, screen_files: list[Path]) -> dict:
-    tokens_file = screens_dir / TOKENS_FILE_NAME
+    tokens_file = screens_dir / SESSION_TOKENS_FILE_NAME
     tokens_text = tokens_file.read_text(encoding="utf-8", errors="replace") if tokens_file.is_file() else ""
     known_colors = _find_colors(tokens_text)
     unknown_colors, unloaded_fonts, external_urls, broken_paths = set(), set(), set(), set()

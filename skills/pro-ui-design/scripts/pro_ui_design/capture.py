@@ -11,9 +11,9 @@ from common.state import venv_python
 
 from pro_ui_design.session import find_session, write_json_atomically
 from pro_ui_design.session_commands import read_server_state
+from pro_ui_design.settings import CAPTURES_FOLDER_NAME
 
 WORKER_SCRIPT = Path(__file__).resolve().parent / "capture_worker.py"
-CAPTURES_FOLDER_NAME = "captures"
 JOB_FILE_NAME = "capture-job.json"
 WORKER_BASE_TIMEOUT_SECONDS = 120
 GIF_SIZE_WARNING_BYTES = 10 * 1024 * 1024

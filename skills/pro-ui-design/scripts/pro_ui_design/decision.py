@@ -11,10 +11,9 @@ from common.emit import emit
 
 from pro_ui_design.session import Session, find_current_session, find_session, list_project_sessions, write_json_atomically
 from pro_ui_design.session_commands import read_events
+from pro_ui_design.settings import CAPTURES_FOLDER_NAME, SESSION_TOKENS_FILE_NAME
 
 DECISION_FILE_NAME = "decision.json"
-CAPTURES_FOLDER_NAME = "captures"
-TOKENS_FILE_NAME = "tokens.css"
 
 
 def _newest_screen(session: Session) -> str | None:
@@ -42,7 +41,7 @@ def cmd_decide(args) -> int:
                      "next": "ui_design_cli.py start --title <screen name>"})
     clicked = _find_clicked_event(session, args.choice)
     screen = args.screen or (clicked or {}).get("screen") or _newest_screen(session)
-    tokens_file = session.screens_dir / TOKENS_FILE_NAME
+    tokens_file = session.screens_dir / SESSION_TOKENS_FILE_NAME
     decision = {"title": session.title, "issue": args.issue or session.issue, "chosen": args.choice,
                 "chosen_name": (clicked or {}).get("text"), "reason": args.reason, "screen": screen,
                 "captures": _list_captures(session, screen), "tokens": str(tokens_file) if tokens_file.is_file() else None,

@@ -14,7 +14,7 @@ from common.paths import resolve_output_root
 from common.state import state_dir
 
 HARNESS_NAME = "ui-design"
-TOKENS_FILE_NAME = "tokens.json"
+PROFILE_HASHES_FILE_NAME = "tokens.json"
 README_FILE_NAME = "README.md"
 EXCERPT_MAX_CHARACTERS = 600
 MAX_CANDIDATES_PER_KIND = 20
@@ -124,7 +124,7 @@ def save_project_profile(root: Path, candidates: list[dict]) -> dict:
     folder = _harness_dir(root)
     folder.mkdir(parents=True, exist_ok=True)
     files = [{"path": item["path"], "sha256": _hash_file(root / item["path"])} for item in candidates]
-    (folder / TOKENS_FILE_NAME).write_text(json.dumps({"files": files}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (folder / PROFILE_HASHES_FILE_NAME).write_text(json.dumps({"files": files}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     readme = folder / README_FILE_NAME
     readme_created = not readme.exists()
     if readme_created:
@@ -146,7 +146,7 @@ def read_project_profile(root: Path) -> dict:
         return {"exists": False, "readme": None, "excerpt": "", "changed_files": []}
     changed = []
     try:
-        saved = json.loads((folder / TOKENS_FILE_NAME).read_text(encoding="utf-8")).get("files", [])
+        saved = json.loads((folder / PROFILE_HASHES_FILE_NAME).read_text(encoding="utf-8")).get("files", [])
     except (OSError, ValueError):
         saved = []
     for item in saved:
