@@ -21,6 +21,19 @@ def run_devices(args) -> int:
                 "next": advice or (None if n else "Boot one with device boot --device <AVD name|simulator name|UDID>")})
 
 
+def _describe_one_device(device_id: str, bindings: list[dict]) -> dict:
+    """기기 1대: 연결 여부, 플랫폼, 역할, 소유자 (#1073)"""
+    connected = list_devices()
+    is_android = device_id in connected["android"]
+    is_ios = device_id in ios_udids(connected)
+    role = next((binding.get("role") for binding in bindings if binding.get("serial") == device_id), None)
+    owner = owners_by_device().get(device_id)
+    return {"device": {"id": device_id, "found": is_android or is_ios,
+                       "platform": "android" if is_android else "ios" if is_ios else None, "role": role, "owner": owner},
+            "summary": f"{device_id}: " + ("connected" if is_android or is_ios else "not connected")
+                       + (", claimed" if owner else "")}
+
+
 def run_binding_action(args) -> int:
     """역할을 기기에 묶고, 무엇이 깔려 있는지 대조한다 (list · bind · unbind · show)."""
     root = project_root(args)
@@ -54,6 +67,8 @@ def run_binding_action(args) -> int:
                      "then call again to write env.sh"),
         })
 
+    if args.action == "show" and getattr(args, "device", None):
+        return out(_describe_one_device(args.device, bindings))
     if args.action == "show":
         return out({"bindings": bindings, "package": package,
                     "file": str(devices_path(root)), "summary": f"{len(bindings)} roles"})

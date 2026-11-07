@@ -16,7 +16,7 @@ OPTIONS_BY_ACTION: dict[str, frozenset[str]] = {
     "list": frozenset({"package", "run_dir"}),
     "bind": frozenset({"role", "serial", "note", "package", "run_dir"}),
     "unbind": frozenset({"role", "package", "run_dir"}),
-    "show": frozenset({"package"}),
+    "show": frozenset({"package", *_DEVICE_TARGET}),
     "claim": frozenset({*_DEVICE_TARGET, "yes"}),
     "acquire": frozenset({*_DEVICE_TARGET, "platform", "form", "os", "purpose", "reason", "wait", "need", "fresh",
                           "count", "name", "window", "scale", "user_approved"}),
