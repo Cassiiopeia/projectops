@@ -1,14 +1,39 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-07T11:51:57Z",
-    "currentVersion": "4.89.0",
+    "lastUpdated": "2026-11-07T12:17:20Z",
+    "currentVersion": "4.89.1",
     "projectType": "basic",
-    "totalReleases": 372,
+    "totalReleases": 373,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.89.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-07",
+      "pr_number": 1084,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * Mockup capture now finds options whose names are not in English\n\n* **Documentation**\n  * Pasted images may be temporary, so they are uploaded early",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Mockup capture now finds options whose names are not in English"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Pasted images may be temporary, so they are uploaded early"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.89.0",
       "project_type": "basic",

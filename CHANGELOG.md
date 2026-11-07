@@ -1,7 +1,19 @@
 # Changelog
 
-**Current version:** 4.89.0  
-**Last updated:** 2026-11-07T11:51:57Z  
+**Current version:** 4.89.1  
+**Last updated:** 2026-11-07T12:17:20Z  
+
+---
+
+## [4.89.1] - 2026-11-07
+
+**PR:** #1084  
+
+**Bug fixes**
+- Mockup capture now finds options whose names are not in English
+
+**Documentation**
+- Pasted images may be temporary, so they are uploaded early
 
 ---
 
