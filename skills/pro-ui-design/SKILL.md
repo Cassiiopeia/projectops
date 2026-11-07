@@ -41,7 +41,7 @@ Every command is `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cl
 | Stop the server (mockups stay) | `stop` · `stop --all` for every session here | |
 | Design request for a designer | board and friends | `references/design-request.md` (read only then) |
 
-If that entry point is missing or returns `scripts_not_found`, find the scripts as in `../references/common-rules.md` §"Script lookup" with `SKILL=pro-ui-design`, and call `ui_design_cli.py` directly.
+If that entry point is missing, or returns `scripts_not_found` or `bad_args` listing skills without `ui-design` (an older copy; a direct call updates it), find the scripts as in `../references/common-rules.md` §"Script lookup" with `SKILL=pro-ui-design`, and call `ui_design_cli.py` directly.
 
 ## The flow
 

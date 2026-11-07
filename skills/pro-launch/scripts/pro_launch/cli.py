@@ -102,6 +102,8 @@ def _pop_output_options(raw: list[str]) -> tuple[list[str], bool, list[str] | No
 
 
 def main(argv: list[str] | None = None) -> int:
+    from common.stable_entry import refresh_and_check
+    refresh_and_check(sys.argv[0])   # 다른 스킬 CLI 와 같이 고정 진입점 갱신 (실패해도 명령을 막지 않음)
     parser = build_parser()
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, is_brief, field_names, option_error = _pop_output_options(raw)

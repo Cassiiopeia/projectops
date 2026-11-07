@@ -34,6 +34,7 @@ if str(_HERE.parent) not in sys.path:
 
 import pro_ui_design  # noqa: E402,F401  (common import 경로를 맞춘다)
 from common.emit import emit  # noqa: E402
+from common.stable_entry import refresh_and_check  # noqa: E402
 
 from pro_ui_design.ascii_wire import cmd_ascii  # noqa: E402
 from pro_ui_design.board import cmd_board  # noqa: E402
@@ -180,6 +181,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    refresh_and_check(__file__)   # 옛 고정 진입점이 이 스킬 이름을 몰라도 직접 호출 한 번으로 복구
     parser = build_parser()
     err = io.StringIO()
     try:

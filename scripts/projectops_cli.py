@@ -19,8 +19,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-# 고정 진입점 내용 번호: 깔린 번호보다 높을 때만 덮어씀 (이 파일을 고치면 +1)
-RESOLVER_REVISION = 2
+# 고정 진입점 내용 번호: 깔린 번호보다 높을 때만 덮어씀 (이 파일이나 SKILL_CLIS 를 고치면 +1, 안 올리면 새 스킬이 bad_args)
+RESOLVER_REVISION = 3
 STABLE_ENTRYPOINT_NAME = "projectops_cli.py"
 STABLE_ENTRYPOINT_MODE = 0o755
 SKILLS_ROOT_ENV = "PROJECTOPS_SKILLS_ROOT"

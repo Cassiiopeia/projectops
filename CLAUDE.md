@@ -210,6 +210,7 @@ AI가 작업마다 쌓은 테스트(약 250개 파일, 3만 줄)를 걷어 내�
 그래서 `skills/*/tests/`·`scripts/tests/`·`conftest.py`를 거르지 않으면 우리 테스트가 남의 컴퓨터에 쌓인다.
 두 어댑터가 함께 쓰는 `src/core/ide/skills-copy.js`의 `SKIP_IN_COPY`·`TEST_PATH`가 막는다.
 `scripts/` 의 관리자 전용 파일(`README.md`·`build_troubleshooting.py`·`sync_extras.py`)은 `SHARED_SCRIPTS_DEV_ONLY` 가 뺀다 (#988).
+**스킬을 추가하거나 이름을 바꾸면 `scripts/projectops_cli.py`의 `SKILL_CLIS`와 `RESOLVER_REVISION`(+1)을 함께 고친다 (#1080 실사고: 번호를 안 올려 기존 사용자의 고정 진입점이 새 스킬을 `bad_args`로 거부).**
 **`scripts/` 최상위에 관리자 전용 파일을 새로 두면 이 목록에 넣는다.** 런타임이 쓰는 항목을 넣으면 설치본 CLI가 import 에서 죽는다.
 **스킬에 새 보조 파일을 추가할 때 "이게 스킬을 쓰는 사람에게 필요한가"를 자문한다.**
 
