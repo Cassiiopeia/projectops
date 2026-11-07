@@ -145,6 +145,7 @@ def cmd_render(args) -> int:
     tail = "\n".join(output.splitlines()[-40:])
 
     collected: list[str] = []
+    renamed: list[str] = []
     if rc == 0:
         shot_dir = shot_folder(root)
         for pattern in args.collect or []:
@@ -153,6 +154,8 @@ def cmd_render(args) -> int:
                     dst = _unique(shot_dir / f.name)
                     shutil.move(str(f), str(dst))
                     collected.append(str(dst))
+                    if dst.name != f.name:   # 같은 이름이 있으면 새 이름: 옛 파일을 새 결과로 오인하지 않게 알림 (#1078)
+                        renamed.append(dst.name)
 
     # 실패해도 청소는 한다 — 임시 테스트 파일이 남으면 그것이 곧 흔적이다
     removed, refused = _cleanup(root, args.cleanup)
@@ -165,7 +168,7 @@ def cmd_render(args) -> int:
     # scaffold 폴더를 치웠으면 manifest 도 정리 (#948)
     scaffold_state = settle_scaffold_after_run(root)
 
-    payload = {"exit_code": rc, "collected": collected, "removed": removed,
+    payload = {"exit_code": rc, "collected": collected, "saved_under_new_name": renamed or None, "removed": removed,
                "refused_cleanup": refused or None, "residue": residue,
                "git_checked": before is not None, "baseline": baseline_from}
     if rc != 0:
@@ -190,7 +193,8 @@ def cmd_render(args) -> int:
                         "summary": "The command succeeded but no images were collected",
                         "next": "Check that the --collect glob matches the render output paths (relative to the repo root)"})
     else:
-        payload.update({"summary": f"Collected {len(collected)} image(s) · no leftovers"
+        renamed_note = f" · saved under a new name because the old one exists: {', '.join(renamed)}" if renamed else ""
+        payload.update({"summary": f"Collected {len(collected)} image(s) · no leftovers{renamed_note}"
                                    + ("" if before is not None else " (not a git repo, so leftovers were not checked)"),
                         "next": "Open them with Read. Shrink them with shrink before attaching to an issue"})
     if scaffold_state:
