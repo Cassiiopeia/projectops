@@ -27,6 +27,8 @@ _STILL_WAITING_VERDICTS = ("waiting_for_automerge", "waiting_for_workflow")
 _RUNNING_STATUSES = ("in_progress", "queued", "waiting", "requested", "pending")
 # RELEASE-CHANGELOG 워크플로우 파일 (신·구 이름, #455 리네임)
 _RELEASE_WORKFLOW_PATHS = ("project-common-release-changelog.yaml", "project-common-auto-changelog-control.yaml")
+# deploy 브랜치형 릴리스 PR(기본 > deploy): RELEASE-CHANGELOG 트리거가 이 방향을 받지 않아 자동 머지 없음 (#1077)
+_BRANCH_WITHOUT_RELEASE_WORKFLOW = "deploy"
 
 
 def _stuck_reason(pr_age_sec, workflow, workflow_running, mergeable_state):
@@ -194,6 +196,12 @@ def _deploy_status_once(args, pat) -> dict:
                   else f"{repo_queued_count} run(s) queued in the repo")
         summary = f"PR #{pr['number']} {reason}; waiting for the workflow to start"
         next_hint = wait_hint
+    elif workflow_conclusion == "skipped" or (workflow is None and args.base == _BRANCH_WITHOUT_RELEASE_WORKFLOW):
+        # 기다려도 아무도 머지하지 않음: 시간 낭비 대신 바로 알림 (#1077)
+        verdict = "manual_merge_needed"
+        summary = f"PR #{pr['number']} will not automerge: no release workflow ran for {args.base}"
+        next_hint = (f"Confirm with the user, then: github_cli.py merge-pr {args.owner} {args.repo} {pr['number']}. "
+                     "Merging starts this repo's deploy workflow")
     elif not has_summary:
         # 워크플로우가 진행 중이 아니고 PR도 갓 생성된 게 아니면 진짜 body 초기화 사고로 판정
         verdict = "missing_coderabbit_summary"

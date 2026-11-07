@@ -91,7 +91,7 @@ def detect_release_shape(project_root: Path, branches: dict, check: dict) -> dic
             f"(do not use the missing {branches['head']} as head)",
             f"Step 1-1: sync-base --head {head} --base {DEPLOY_BRANCH_NAME}",
             f"Step 6: create-pr ... {head} {DEPLOY_BRANCH_NAME} (release notes in the body)",
-            f"Step 7: deploy-status --pr N --base {DEPLOY_BRANCH_NAME}",
+            f"Step 7: deploy-status --pr N --base {DEPLOY_BRANCH_NAME} (this shape has no automerge: manual_merge_needed tells you to merge)",
             "confirm the pair once with the user (without version.yml, record it in the per-repo config)",
         ],
     }
