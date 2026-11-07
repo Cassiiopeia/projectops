@@ -1,15 +1,5 @@
-"""pro-ui-design 구현 패키지 — 디자이너에게 넘길 요청서(보드) 조립.
-
-진입점은 `scripts/ui_design_cli.py` 다. 이 파일은 import 경로만 맞춘다
-(공용 층 `<repo>/scripts/common` 을 스크립트로 불리든 테스트가 import 하든 찾게 한다).
-
-  settings        스킬 id · 템플릿 위치 · PNG 폭 상한
-  config          config show|set (설정 해석 · 저장)
-  output_path     get-output-path
-  board           board 명령 (board_html · board_capture · board_markdown 조합)
-  copy_lint       copy-lint
-  ascii_wire      ascii
-  image_links     rewrite-images
+"""pro-ui-design 구현 패키지: 로컬 시안 세션 + 디자이너 요청서. 판단은 agent, 여기는 실행과 사실 수집만
+진입점 scripts/ui_design_cli.py. 이 파일은 공용 common import 경로만 맞춤
 """
 from __future__ import annotations
 

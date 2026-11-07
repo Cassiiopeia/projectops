@@ -34,7 +34,7 @@
 
   // 애니메이션: 시간 값에 속도 배율 적용, 처음부터 할 때 취소되도록 추적
   function animate(element, keyframes, timing) {
-    const scaled = { ...timing };
+    const scaled = typeof timing === "number" ? { duration: timing } : { ...timing };
     for (const key of ["duration", "delay", "endDelay"]) {
       if (typeof scaled[key] === "number") scaled[key] *= settings.speed;
     }
@@ -174,17 +174,17 @@
       panel.append(heading);
     }
     const list = document.createElement("ol");
-    const items = steps.map((text) => {
-      const item = document.createElement("li");
-      item.textContent = text;
-      list.append(item);
-      return item;
+    const stepElements = steps.map((text) => {
+      const stepElement = document.createElement("li");
+      stepElement.textContent = text;
+      list.append(stepElement);
+      return stepElement;
     });
     panel.append(list);
     into.append(panel);
     const controls = {
-      complete(index) { items[index]?.classList.add("ui-step-done"); },
-      reset() { items.forEach((item) => item.classList.remove("ui-step-done")); },
+      complete(index) { stepElements[index]?.classList.add("ui-step-done"); },
+      reset() { stepElements.forEach((stepElement) => stepElement.classList.remove("ui-step-done")); },
     };
     stepPanels.push(controls);
     return controls;
@@ -206,12 +206,12 @@
   function onLongPress(element, callback, { milliseconds = DEFAULT_LONG_PRESS_MILLISECONDS } = {}) {
     let timer = null;
     let start = null;
-    let didFire = false;
+    let hasFired = false;
     const cancel = () => { clearTimeout(timer); timer = null; };
     element.addEventListener("pointerdown", (event) => {
       start = { x: event.clientX, y: event.clientY };
-      didFire = false;
-      timer = setTimeout(() => { didFire = true; timer = null; callback(event); }, milliseconds);
+      hasFired = false;
+      timer = setTimeout(() => { hasFired = true; timer = null; callback(event); }, milliseconds);
     });
     element.addEventListener("pointermove", (event) => {
       if (timer && Math.hypot(event.clientX - start.x, event.clientY - start.y) > LONG_PRESS_MOVE_TOLERANCE_PIXELS) cancel();
@@ -221,7 +221,7 @@
     element.addEventListener("pointerleave", cancel);
     // 길게 누른 뒤 손을 뗄 때 일반 누름으로 처리되지 않게
     element.addEventListener("click", (event) => {
-      if (didFire) { event.stopPropagation(); event.preventDefault(); didFire = false; }
+      if (hasFired) { event.stopPropagation(); event.preventDefault(); hasFired = false; }
     }, true);
   }
 
@@ -239,13 +239,13 @@
     });
     element.addEventListener("pointermove", (event) => {
       if (!origin) return;
-      const info = describe(event);
-      if (!isDragging && info.distance >= DRAG_THRESHOLD_PIXELS) {
+      const dragPosition = describe(event);
+      if (!isDragging && dragPosition.distance >= DRAG_THRESHOLD_PIXELS) {
         isDragging = true;
         element.setPointerCapture?.(origin.pointerId);
-        start?.(info);
+        start?.(dragPosition);
       }
-      if (isDragging) move?.(info);
+      if (isDragging) move?.(dragPosition);
     });
     const finish = (event) => {
       if (origin && isDragging) end?.(describe(event));

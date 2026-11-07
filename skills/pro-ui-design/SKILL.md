@@ -30,6 +30,7 @@ Every command is `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cl
 |---|---|---|
 | Start or resume a session; get the URL, folders and project notes | `start --title "<screen>" [--issue N] [--open]` | Step 1 |
 | Find where after a lost context | `status` | |
+| Several screens or agents in one repo | Add `--title "<screen>"` to `status`, `check`, `choices`, `capture`, `decide`, `stop` | Without it they use the last session started in this project |
 | Find this project's design files · save them | `tokens` · `tokens --save` | `references/fidelity.md` · `references/project-profile.md` |
 | Check a mockup before showing it | `check [--screen F]` | `references/fidelity.md` |
 | Motion, press and drag, screens that affect each other | `UIDesign` in the mockup | `references/motion.md` |
@@ -37,7 +38,7 @@ Every command is `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cl
 | PNG (page or per option) · GIF of steps | `capture ...` | `references/sharing.md` |
 | Record the decision · read it later | `decide --choice b --reason "..."` · `decision` | Step 4 |
 | Settings | `config show\|set\|options` | `../references/config-rules.md` §7 |
-| Stop the server (mockups stay) | `stop` | |
+| Stop the server (mockups stay) | `stop` · `stop --all` for every session here | |
 | Design request for a designer | board and friends | `references/design-request.md` (read only then) |
 
 If that entry point is missing or returns `scripts_not_found`, find the scripts as in `../references/common-rules.md` §"Script lookup" with `SKILL=pro-ui-design`, and call `ui_design_cli.py` directly.
@@ -46,7 +47,7 @@ If that entry point is missing or returns `scripts_not_found`, find the scripts 
 
 ### 1. Start
 
-`start` returns `url`, `screens_dir` and `project_profile`. Read the notes if they exist. If they do not, or `changed_files` is not empty, follow `next`. Ask only what changes the mockup; a request with enough detail needs no questions.
+`start` returns `url`, `screens_dir`, `project_profile` and the configured `defaults`. The same title resumes the same mockups, even on a later day. Read the notes if they exist. If they do not, or `changed_files` is not empty, follow `next`. Ask only what changes the mockup; a request with enough detail needs no questions.
 
 ### 2. Make the mockup
 
@@ -74,7 +75,7 @@ When it is settled, run `decide`. Later skills read it, so nobody asks again. Ad
 | Post to an issue | `references/sharing.md`. **Get approval first** (`../references/approval-and-questions.md`) |
 | Cannot decide, or "ask the designer" | `references/design-request.md`. Mockups you showed become its alternatives |
 
-Then `stop` when nothing is left to show. The server also stops itself when idle.
+Then `stop` when nothing is left to show. Another session in this repo may belong to another agent: use `--all` only if you know it is yours. The server also stops itself when idle.
 
 ## What to tell the user
 

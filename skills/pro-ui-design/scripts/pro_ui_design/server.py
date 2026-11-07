@@ -14,7 +14,6 @@ import sys
 import threading
 import time
 import urllib.parse
-from http.cookies import SimpleCookie
 from pathlib import Path
 
 BIND_HOST = "127.0.0.1"
@@ -121,7 +120,7 @@ def render_screen_html(state: SessionState, screen_file: Path) -> str:
 
 def render_shell_html(state: SessionState) -> str:
     settings = {**state.viewer, "title": state.title}
-    embedded = json.dumps(settings, ensure_ascii=False).replace("</", "<\\/")
+    embedded = json.dumps(settings, ensure_ascii=False).replace("<", "\\u003c")   # 인라인 script 탈출 방지
     return (ASSETS_DIR / "shell.html").read_text(encoding="utf-8").replace("__UI_DESIGN_SETTINGS__", embedded)
 
 
@@ -163,18 +162,17 @@ class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
         return f"ui_design_key_{self.state.port}"
 
     def _is_key_match(self, candidate: str | None) -> bool:
-        return bool(candidate) and secrets.compare_digest(candidate, self.state.key)
+        return bool(candidate) and secrets.compare_digest(candidate.encode("utf-8"), self.state.key.encode("utf-8"))
 
     def _has_valid_key(self) -> bool:
         if self._is_key_match(self.headers.get(KEY_HEADER)):
             return True
-        cookies = SimpleCookie()
-        try:
-            cookies.load(self.headers.get("Cookie") or "")
-        except Exception:  # 깨진 쿠키는 인증 실패로 처리
-            return False
-        morsel = cookies.get(self._cookie_name())
-        return bool(morsel) and self._is_key_match(morsel.value)
+        # 직접 파싱: localhost 의 다른 앱 쿠키가 비표준이어도 이 쿠키는 읽혀야 함 (쿠키는 포트별로 안 나뉨)
+        for pair in (self.headers.get("Cookie") or "").split(";"):
+            name, _, value = pair.strip().partition("=")
+            if name == self._cookie_name():
+                return self._is_key_match(value)
+        return False
 
     def _is_same_origin(self) -> bool:
         origin = urllib.parse.urlparse(self.headers.get("Origin") or "")
@@ -186,7 +184,7 @@ class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         query_key = urllib.parse.parse_qs(parsed.query).get("key", [None])[0]
         if self._is_key_match(query_key):
-            cookie = f"{self._cookie_name()}={self.state.key}; HttpOnly; SameSite=Strict; Path=/"
+            cookie = f"{self._cookie_name()}={self.state.key}; HttpOnly; SameSite=Lax; Path=/"
             return self._respond(302, extra_headers={"Location": parsed.path or "/", "Set-Cookie": cookie})
         if not self._has_valid_key():
             return self._respond(403, b"Open the full URL printed by ui_design_cli.py status (it has the key).")
@@ -215,7 +213,9 @@ class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
         self._respond(200, (ASSETS_DIR / name).read_bytes(), content_type)
 
     def _serve_screen(self, name: str) -> None:
-        if "/" in name or not name.lower().endswith(".html"):
+        if not name.lower().endswith(".html"):   # 시안의 상대 경로 자원 (src="logo.png")
+            return self._serve_file(name)
+        if "/" in name:
             return self._respond(404, b"not found")
         screen_file = self.state.resolve_screen_file(name)
         if screen_file is None or not screen_file.is_file():

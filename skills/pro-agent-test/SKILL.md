@@ -116,7 +116,7 @@ For an app, borrow a device with `device acquire --platform <ios|android> --purp
 and check the build with `device list` — on `build_mismatch`, stop there (`references/devices.md`). When done, `device release`.
 
 **Phase 0.5 — Read the structure.** Read screens, routes, endpoints, auth and resource ownership **yourself with Grep and Read**, and record them with `note screen` · `access set`.
-If the work came from a mockup, `ui_design_cli.py decision` gives the chosen option and its mockup. Compare the built screen with it and report the differences.
+If the work came from a mockup, `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py ui-design decision` gives the chosen option and its mockup. Compare the built screen with it and report the differences.
 
 **Phase 1 — Fix the path.** `scenario list` → if none, user-specified → if neither, ask once. For each step write
 "what to tap → what appears → what should remain on the device/server". For paths you will walk again and for the `server` target,

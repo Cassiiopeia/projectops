@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 
 from common.emit import emit
+from common.paths import resolve_output_root
 from common.state import state_dir
 
 HARNESS_NAME = "ui-design"
@@ -66,21 +67,27 @@ README_TEMPLATE = """# ui-design: this project's design notes
 """
 
 
-def find_candidates(root: Path) -> list[dict]:
-    """레포 훑기: 무시 폴더 제외, 종류별 상한"""
-    candidates, per_kind, walked = [], {}, 0
+def find_candidates(root: Path) -> tuple[list[dict], bool]:
+    """레포 훑기 > (후보, 잘림 여부): 무시 폴더, 산출물 폴더(세션 자신의 tokens.css, 글꼴) 제외, 종류별 상한"""
+    candidates, per_kind, walked, is_truncated = [], {}, 0, False
+    output_root = Path(resolve_output_root(root)).resolve()
     for folder, subfolders, files in os.walk(root):
-        subfolders[:] = sorted(name for name in subfolders if name not in IGNORED_FOLDERS)
+        subfolders[:] = sorted(name for name in subfolders if name not in IGNORED_FOLDERS
+                               and (Path(folder) / name).resolve() != output_root)
         for name in sorted(files):
             walked += 1
             if walked > MAX_WALKED_FILES:
-                return candidates
+                return candidates, True
             relative = (Path(folder) / name).relative_to(root).as_posix()
             matched = _classify_file(root, relative)
-            if matched and per_kind.get(matched[0], 0) < MAX_CANDIDATES_PER_KIND:
-                per_kind[matched[0]] = per_kind.get(matched[0], 0) + 1
-                candidates.append({"kind": matched[0], "path": relative, "reason": matched[1]})
-    return candidates
+            if not matched:
+                continue
+            if per_kind.get(matched[0], 0) >= MAX_CANDIDATES_PER_KIND:
+                is_truncated = True
+                continue
+            per_kind[matched[0]] = per_kind.get(matched[0], 0) + 1
+            candidates.append({"kind": matched[0], "path": relative, "reason": matched[1]})
+    return candidates, is_truncated
 
 
 def _classify_file(root: Path, relative: str) -> tuple[str, str] | None:
@@ -150,8 +157,8 @@ def read_project_profile(root: Path) -> dict:
 
 def cmd_tokens(args) -> int:
     root = Path(args.root).resolve()
-    candidates = find_candidates(root)
-    payload = {"candidates": candidates, "summary": f"{len(candidates)} design file candidates"}
+    candidates, is_truncated = find_candidates(root)
+    payload = {"candidates": candidates, "is_truncated": is_truncated, "summary": f"{len(candidates)} design file candidates"}
     if args.save:
         payload["saved"] = save_project_profile(root, candidates)
         payload["next"] = (f"Fill in {payload['saved']['readme']} from what you read, so the next session does not search again. "

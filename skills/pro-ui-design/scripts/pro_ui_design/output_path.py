@@ -19,7 +19,7 @@ def cmd_output_path(args) -> int:
     except ImportError:
         return emit({"ok": False, "code": "common_not_found",
                      "error": "scripts/common/paths.py not found"})
-    r = resolve_output_path(SKILL_ID, args.title)
+    r = resolve_output_path(SKILL_ID, args.title, root=args.root)
     if r.get("ok") is False:
         return emit(r)
     md = Path(r["path"])

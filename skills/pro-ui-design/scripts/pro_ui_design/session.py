@@ -118,14 +118,38 @@ def create_or_reuse_session(root: Path, run_dir: Path, title: str, issue: int | 
     return session
 
 
+def _read_pointer(root: Path) -> dict:
+    try:
+        pointer = json.loads(_pointer_file(root).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return pointer if isinstance(pointer, dict) else {}
+
+
 def set_current_session(root: Path, session: Session) -> None:
-    write_json_atomically(_pointer_file(root), {"run_dir": session.run_dir})
+    """포인터: 현재 세션 + 제목별 세션 폴더 (제목으로 찾기, 다른 날 이어 하기)"""
+    pointer = _read_pointer(root)
+    sessions = pointer.get("sessions") if isinstance(pointer.get("sessions"), dict) else {}
+    sessions[session.title] = session.run_dir
+    write_json_atomically(_pointer_file(root), {"run_dir": session.run_dir, "sessions": sessions})
+
+
+def find_session_by_title(root: Path, title: str) -> Session | None:
+    run_dir = (_read_pointer(root).get("sessions") or {}).get(title)
+    return load_session(Path(run_dir)) if run_dir else None
+
+
+def find_session(root: Path, title: str | None = None) -> Session | None:
+    """제목을 주면 그 세션, 없으면 이 프로젝트에서 마지막으로 시작한 세션"""
+    return find_session_by_title(root, title) if title else find_current_session(root)
+
+
+def list_project_sessions(root: Path) -> list[Session]:
+    run_dirs = (_read_pointer(root).get("sessions") or {}).values()
+    return [session for session in (load_session(Path(run_dir)) for run_dir in run_dirs) if session is not None]
 
 
 def find_current_session(root: Path) -> Session | None:
     """대화가 압축되어도 복구: 레포 > 마지막 세션"""
-    try:
-        pointer = json.loads(_pointer_file(root).read_text(encoding="utf-8"))
-        return load_session(Path(pointer["run_dir"]))
-    except (OSError, ValueError, KeyError, TypeError):
-        return None
+    run_dir = _read_pointer(root).get("run_dir")
+    return load_session(Path(run_dir)) if run_dir else None

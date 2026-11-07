@@ -7,7 +7,7 @@ from pathlib import Path
 
 from common.emit import emit
 
-from pro_ui_design.session import find_current_session
+from pro_ui_design.session import find_session
 
 TOKENS_FILE_NAME = "tokens.css"
 HEX_COLOR_PATTERN = re.compile(r"(?<![&\w])#([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\b(?!\s*[{.:>+~\[,]\s*[^\s;}]*\s*\{)(?!\s*\{)")
@@ -94,7 +94,7 @@ def check_screens(screens_dir: Path, screen_files: list[Path]) -> dict:
 
 
 def cmd_check(args) -> int:
-    session = find_current_session(Path(args.root).resolve())
+    session = find_session(Path(args.root).resolve(), args.title)
     if session is None:
         return emit({"ok": False, "code": "no_session", "error": "No mockup session for this project",
                      "next": "ui_design_cli.py start --title <screen name>"})

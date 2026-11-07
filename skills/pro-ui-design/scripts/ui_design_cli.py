@@ -88,14 +88,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_start)
 
     p = sub.add_parser("status", help="Current session, URL and folders; recovers them after a lost context")
+    p.add_argument("--title", default=None, help="This session (default: the last one started in this project)")
     p.add_argument("--root", default=".")
     p.set_defaults(func=cmd_status)
 
-    p = sub.add_parser("stop", help="Stop the mockup server; the mockups are kept")
+    p = sub.add_parser("stop", help="Stop this session's server; the mockups are kept")
+    p.add_argument("--all", action="store_true", help="Every session of this project")
+    p.add_argument("--title", default=None, help="This session (default: the last one started in this project)")
     p.add_argument("--root", default=".")
     p.set_defaults(func=cmd_stop)
 
     p = sub.add_parser("choices", help="Clicks recorded in the browser")
+    p.add_argument("--title", default=None, help="This session (default: the last one started in this project)")
     p.add_argument("--screen", default=None, help="Only this mockup file")
     p.add_argument("--root", default=".")
     p.set_defaults(func=cmd_choices)
@@ -106,11 +110,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_tokens)
 
     p = sub.add_parser("check", help="Flag colors outside tokens.css, unloaded fonts, external URLs, broken paths")
+    p.add_argument("--title", default=None, help="This session (default: the last one started in this project)")
     p.add_argument("--screen", default=None, help="Only this mockup file")
     p.add_argument("--root", default=".")
     p.set_defaults(func=cmd_check)
 
     p = sub.add_parser("capture", help="Mockup > PNG (whole page or per option), or steps > GIF; no viewer toolbar")
+    p.add_argument("--title", default=None, help="This session (default: the last one started in this project)")
     p.add_argument("--screen", default=None, help="Mockup file name (default: the newest)")
     p.add_argument("--option", default=None, help="Only the card with this data-choice value")
     p.add_argument("--all-options", action="store_true", help="One PNG per option")
@@ -126,6 +132,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_capture)
 
     p = sub.add_parser("decide", help="Record the chosen option and why, for the skills that come next")
+    p.add_argument("--title", default=None, help="This session (default: the last one started in this project)")
     p.add_argument("--choice", required=True, help="The chosen option's id")
     p.add_argument("--reason", required=True, help="Why, in one line")
     p.add_argument("--screen", default=None, help="Mockup file (default: where it was clicked, or the newest)")
@@ -139,6 +146,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_decision)
 
     p = sub.add_parser("get-output-path", help="Output location for this request")
+    p.add_argument("--root", default=None)
     p.add_argument("--title", default=None)
     p.set_defaults(func=cmd_output_path)
 

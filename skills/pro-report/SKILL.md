@@ -96,7 +96,7 @@ If the implementation happened in the same conversation, **what changed and why 
 | Pitfalls hit · caveats | Use it (cannot be rebuilt) | Ask the user |
 
 **The "why" and the "pitfalls" cannot be recovered from the diff.** When they are in the conversation, always keep them. If you have everything, skip Steps 1 and 2.
-If the work came from a mockup, `ui_design_cli.py decision` gives the chosen option, why, and its captures. Include them.
+If the work came from a mockup, `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py ui-design decision` gives the chosen option, why, and its captures. Include them.
 If you have only part, investigate **only what is missing**. If the conversation has no context (for example, another session's work), start from Step 1.
 
 ### Step 1: Find the changes (only if not in the conversation)

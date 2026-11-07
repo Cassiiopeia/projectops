@@ -3,16 +3,16 @@
 """
 from __future__ import annotations
 
-import json
 import re
 import subprocess
 from pathlib import Path
 
-from common.config import config_path
+from common.config import config_path, load_with_status
 from common.emit import emit
 
 from pro_ui_design.options import (CONFIG_SECTION, LEGACY_CONFIG_SECTION, OPTION_DEFINITIONS, OPTIONS_BY_NAME,
                                    default_value, describe_options, is_valid_option_value, parse_option_value)
+from pro_ui_design.session import write_json_atomically
 from pro_ui_design.settings import DESTINATIONS
 
 # 옵션이 아닌 구조 키: 모르는 키 판정에서 제외
@@ -22,19 +22,14 @@ STRUCTURAL_PROJECT_KEYS = {"match"}
 ASK_ON_FIRST_RUN = ("destination", "designer")
 
 
-# =========================================================================
-# 읽기
-# =========================================================================
-
 def _load_config() -> dict:
-    config_file = config_path()
-    if not config_file.is_file():
-        return {}
-    try:
-        data = json.loads(config_file.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
+    data, _ = load_with_status()
     return data if isinstance(data, dict) else {}
+
+
+def _is_config_unreadable() -> bool:
+    data, status = load_with_status()
+    return status == "unreadable" or (data is not None and not isinstance(data, dict))
 
 
 def _git(root: Path, *args: str) -> str:
@@ -151,10 +146,6 @@ def _designer_from_templates(root: Path) -> list[str]:
     return found
 
 
-# =========================================================================
-# 명령
-# =========================================================================
-
 def cmd_config(args) -> int:
     if args.action == "options":
         return emit({"options": describe_options(), "section": CONFIG_SECTION,
@@ -207,6 +198,9 @@ def _save_config(args, root: Path) -> int:
     changes, failure = _collect_changes(args)
     if failure:
         return emit(failure)
+    if _is_config_unreadable():   # 깨진 파일을 덮어쓰면 PAT 등 다른 설정까지 사라짐
+        return emit({"ok": False, "code": "config_unreadable", "error": f"Could not read {config_path()}",
+                     "next": "Ask the user to fix that file. It was not changed"})
     config = _load_config()
     section = config.setdefault(CONFIG_SECTION, {})
     if args.scope == "default":
@@ -223,8 +217,6 @@ def _save_config(args, root: Path) -> int:
             projects.append(entry)
         entry.update(changes)
         target = key
-    config_file = config_path()
-    config_file.parent.mkdir(parents=True, exist_ok=True)
-    config_file.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_json_atomically(config_path(), config)
     return emit({"saved": changes, "scope": target, "resolved": resolve_config(root, config)["resolved"],
                  "summary": f"Saved ({target})"})

@@ -3,12 +3,13 @@
 """
 from __future__ import annotations
 
+import glob
 import json
 from pathlib import Path
 
 from common.emit import emit
 
-from pro_ui_design.session import Session, find_current_session, write_json_atomically
+from pro_ui_design.session import Session, find_current_session, find_session, list_project_sessions, write_json_atomically
 from pro_ui_design.session_commands import read_events
 
 DECISION_FILE_NAME = "decision.json"
@@ -30,11 +31,12 @@ def _list_captures(session: Session, screen: str | None) -> list[str]:
     if not screen:
         return []
     captures = Path(session.run_dir) / CAPTURES_FOLDER_NAME
-    return sorted(str(path) for path in captures.glob(f"{Path(screen).stem}*") if path.is_file())
+    stem = glob.escape(Path(screen).stem)   # layout 이 layout-v2 까지 잡지 않게 구분자로 한정
+    return sorted(str(path) for pattern in (f"{stem}.*", f"{stem}__*") for path in captures.glob(pattern) if path.is_file())
 
 
 def cmd_decide(args) -> int:
-    session = find_current_session(Path(args.root).resolve())
+    session = find_session(Path(args.root).resolve(), args.title)
     if session is None:
         return emit({"ok": False, "code": "no_session", "error": "No mockup session for this project",
                      "next": "ui_design_cli.py start --title <screen name>"})
@@ -51,23 +53,23 @@ def cmd_decide(args) -> int:
                           "pro-agent-test and pro-report read this with decision.")})
 
 
-def find_latest_decision(root: Path) -> dict | None:
-    """현재 세션 우선. 없으면 같은 산출물 폴더의 가장 최근 결정 (다른 제목으로 새 세션을 열어도 찾음)"""
-    session = find_current_session(root)
-    if session is None:
-        return None
-    run_dir = Path(session.run_dir)
-    current = run_dir / DECISION_FILE_NAME
-    candidates = [current] if current.is_file() else sorted(run_dir.parent.glob(f"*/{DECISION_FILE_NAME}"),
-                                                            key=lambda path: path.stat().st_mtime, reverse=True)
-    for candidate in candidates:
+def find_latest_decision(root: Path) -> tuple[dict | None, bool]:
+    """(결정, 현재 세션의 것인지). 현재 세션 우선, 없으면 이 프로젝트의 가장 최근 결정"""
+    current = find_current_session(root)
+    files = [Path(session.run_dir) / DECISION_FILE_NAME for session in list_project_sessions(root)]
+    files = sorted((path for path in files if path.is_file()), key=lambda path: path.stat().st_mtime, reverse=True)
+    if current:
+        current_file = Path(current.run_dir) / DECISION_FILE_NAME
+        files.sort(key=lambda path: path != current_file)
+    for path in files:
         try:
-            return json.loads(candidate.read_text(encoding="utf-8"))
+            return json.loads(path.read_text(encoding="utf-8")), bool(current) and path.parent == Path(current.run_dir)
         except (OSError, ValueError):
             continue
-    return None
+    return None, False
 
 
 def cmd_decision(args) -> int:
-    decision = find_latest_decision(Path(args.root).resolve())
-    return emit({"decision": decision, "summary": f"Chosen: {decision['chosen']}" if decision else "No decision recorded"})
+    decision, is_current_session = find_latest_decision(Path(args.root).resolve())
+    return emit({"decision": decision, "is_current_session": is_current_session,
+                 "summary": f"Chosen: {decision['chosen']}" if decision else "No decision recorded"})

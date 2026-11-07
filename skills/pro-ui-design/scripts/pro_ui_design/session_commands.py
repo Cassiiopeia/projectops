@@ -1,6 +1,7 @@
 """세션 명령: start, status, stop, choices"""
 from __future__ import annotations
 
+import http.client
 import json
 import subprocess
 import sys
@@ -15,9 +16,9 @@ from common.preferences import detect_repo, resolve as resolve_preferences
 
 from pro_ui_design.config import resolve_config
 from pro_ui_design.tokens import read_project_profile
-from pro_ui_design.session import (EVENTS_FILE_NAME, SERVER_INFO_FILE_NAME, SERVER_LOG_FILE_NAME, SESSION_FILE_NAME, Session,
-                                   create_or_reuse_session, find_current_session, load_session, resolve_run_dir,
-                                   save_session)
+from pro_ui_design.session import (EVENTS_FILE_NAME, SERVER_INFO_FILE_NAME, SERVER_LOG_FILE_NAME, Session,
+                                   create_or_reuse_session, find_session, find_session_by_title,
+                                   list_project_sessions, resolve_run_dir, save_session)
 
 SERVER_SCRIPT = Path(__file__).resolve().parent / "server.py"
 SERVER_START_TIMEOUT_SECONDS = 8
@@ -38,19 +39,17 @@ def _request_server(session: Session, method: str, path: str) -> dict | None:
         with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(
                 request, timeout=HEALTH_REQUEST_TIMEOUT_SECONDS) as response:
             body = response.read()
-    except (OSError, urllib.error.URLError):
+        parsed = json.loads(body) if body else {}
+    except (OSError, urllib.error.URLError, http.client.HTTPException, ValueError):   # 포트의 다른 서비스 포함
         return None
-    return json.loads(body) if body else {}
+    return parsed if isinstance(parsed, dict) else None
 
 
 def read_server_state(session: Session) -> dict | None:
     """살아 있고 이 세션의 서버일 때만 상태 반환 (같은 포트의 다른 프로세스 구분)"""
     if not session.port:
         return None
-    try:
-        state = _request_server(session, "GET", "/api/state")
-    except ValueError:
-        return None
+    state = _request_server(session, "GET", "/api/state")
     if state is None or state.get("server_token") != session.server_token:
         return None
     return state
@@ -109,11 +108,14 @@ def cmd_start(args) -> int:
     root = Path(args.root).resolve()
     if not root.is_dir():
         return emit({"ok": False, "code": "root_not_found", "error": f"Folder not found: {root}"})
-    run_dir, location = resolve_run_dir(root, args.title, args.issue)
+    # 같은 제목은 날짜가 바뀌어도 이어 하기 (시안, 키, 포트 유지)
+    existing = find_session_by_title(root, args.title)
+    run_dir, location = (Path(existing.run_dir), {}) if existing else resolve_run_dir(root, args.title, args.issue)
     if run_dir is None:
         return emit(location)
     resolved = resolve_config(root)["resolved"]
     session = create_or_reuse_session(root, run_dir, args.title, args.issue)
+    session.issue = args.issue or session.issue
     session.viewer = _build_viewer_settings(root, resolved)
     session.idle_seconds = args.idle_seconds or resolved["idle_timeout_minutes"] * 60
 
@@ -132,6 +134,7 @@ def cmd_start(args) -> int:
     profile = read_project_profile(root)
     return emit({**_describe_session(session), **location, "reused": reused, "port_changed": port_changed,
                  "project_profile": profile,
+                 "defaults": {"default_fidelity": resolved["default_fidelity"], "motion_format": resolved["motion_format"]},
                  "summary": f"Mockup server on port {session.port}" + (" (reused)" if reused else ""),
                  "next": _build_next_after_start(profile)})
 
@@ -146,7 +149,7 @@ def _build_next_after_start(profile: dict) -> str:
 
 def cmd_status(args) -> int:
     root = Path(args.root).resolve()
-    session = find_current_session(root)
+    session = find_session(root, args.title)
     if session is None:
         return emit({"running": False, "url": None, "summary": "No mockup session for this project",
                      "next": "ui_design_cli.py start --title <screen name>"})
@@ -162,10 +165,7 @@ def _stop_server(session: Session) -> bool:
     """HTTP 로만 종료: 저장된 PID 를 믿고 다른 프로세스를 죽이지 않음"""
     if read_server_state(session) is None:
         return False
-    try:
-        _request_server(session, "POST", "/api/stop")
-    except ValueError:
-        pass
+    _request_server(session, "POST", "/api/stop")
     deadline = time.monotonic() + SERVER_START_TIMEOUT_SECONDS
     while time.monotonic() < deadline and read_server_state(session) is not None:
         time.sleep(0.05)
@@ -173,13 +173,15 @@ def _stop_server(session: Session) -> bool:
 
 
 def cmd_stop(args) -> int:
-    """이 프로젝트의 세션 전부 종료 (같은 레포에서 제목별로 여러 세션이 뜰 수 있음)"""
-    session = find_current_session(Path(args.root).resolve())
-    if session is None:
-        return emit({"stopped": False, "stopped_sessions": 0, "summary": "No running mockup server"})
-    siblings = [load_session(path.parent) for path in Path(session.run_dir).parent.glob(f"*/{SESSION_FILE_NAME}")]
-    stopped_sessions = sum(_stop_server(sibling) for sibling in siblings if sibling is not None)
-    return emit({"stopped": stopped_sessions > 0, "stopped_sessions": stopped_sessions, "run_dir": session.run_dir,
+    """기본은 이 세션만: 같은 레포의 다른 에이전트 세션을 끄지 않음. --all 은 프로젝트 전체"""
+    root = Path(args.root).resolve()
+    if args.all:
+        targets = list_project_sessions(root)
+    else:
+        current = find_session(root, args.title)
+        targets = [current] if current else []
+    stopped_sessions = sum(_stop_server(target) for target in targets)
+    return emit({"stopped": stopped_sessions > 0, "stopped_sessions": stopped_sessions,
                  "summary": f"Stopped {stopped_sessions} mockup server(s); mockups are kept"})
 
 
@@ -200,7 +202,7 @@ def read_events(session: Session) -> list[dict]:
 
 
 def cmd_choices(args) -> int:
-    session = find_current_session(Path(args.root).resolve())
+    session = find_session(Path(args.root).resolve(), args.title)
     if session is None:
         return emit({"last_choice": None, "by_screen": {}, "summary": "No mockup session for this project"})
     chosen = [event for event in read_events(session) if event.get("choice")]

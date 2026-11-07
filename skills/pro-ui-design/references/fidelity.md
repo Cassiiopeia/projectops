@@ -42,7 +42,7 @@ Mockups use `var(--...)`, not literal colors. No external URLs: mockups must wor
 | `.ui-device` > `.ui-device-screen` | Device frame. Follows the toolbar, or pin with `data-device="tablet"` |
 | `.subtitle` · `h2` | Page question and hint. Always ask the question on the page |
 
-Show 2 to 4 options. Name files for what they show (`sheet-motion.html`) and never reuse a name: the viewer keeps every earlier file, and a new one appears by itself. Put images and fonts in subfolders freely and reference them as `/files/<path>`. Files starting with `_` are hidden from the list.
+Show 2 to 4 options. Name files for what they show (`sheet-motion.html`) and never reuse a name: the viewer keeps every earlier file, and a new one appears by itself. Put images and fonts in subfolders freely and reference them as `/files/<path>` or a plain relative path. Files starting with `_` are hidden from the list.
 
 ## Level 2: real code render
 

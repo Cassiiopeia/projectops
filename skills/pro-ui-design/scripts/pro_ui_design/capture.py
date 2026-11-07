@@ -9,7 +9,7 @@ from pathlib import Path
 from common.emit import emit
 from common.state import venv_python
 
-from pro_ui_design.session import find_current_session, write_json_atomically
+from pro_ui_design.session import find_session, write_json_atomically
 from pro_ui_design.session_commands import read_server_state
 
 WORKER_SCRIPT = Path(__file__).resolve().parent / "capture_worker.py"
@@ -68,7 +68,7 @@ def _run_worker(job_file: Path, timeout_seconds: float) -> dict:
 
 
 def cmd_capture(args) -> int:
-    session = find_current_session(Path(args.root).resolve())
+    session = find_session(Path(args.root).resolve(), args.title)
     if session is None:
         return emit({"ok": False, "code": "no_session", "error": "No mockup session for this project",
                      "next": "ui_design_cli.py start --title <screen name>"})

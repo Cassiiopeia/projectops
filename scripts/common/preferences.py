@@ -28,7 +28,7 @@ def _as_dict(x: object) -> dict:
 
 
 # 스킬 이름 > 옛 이름 (설정 키 skills.<옛 이름> 폴백 — 새 이름 키가 있으면 그쪽 우선)
-PREVIOUS_SKILL_IDS = {"pro-code-consult": ("pro-architecture-consult",)}
+PREVIOUS_SKILL_IDS = {"pro-code-consult": ("pro-architecture-consult",), "pro-ui-design": ("pro-design-brief",)}
 
 
 def _skill_layer(skills: object, skill_id: str) -> tuple:

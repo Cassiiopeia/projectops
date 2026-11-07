@@ -13,7 +13,6 @@ from pathlib import Path
 
 from browser_path import find_browser_executable
 
-KEY_HEADER = "X-UI-Design-Key"
 VIEWPORT_WIDTH = 1280
 VIEWPORT_HEIGHT = 900
 MAX_VIEWPORT_HEIGHT = 1600
@@ -42,8 +41,12 @@ def build_screen_url(job: dict) -> str:
 
 def open_screen(browser, job: dict, scale: int):
     context = browser.new_context(viewport={"width": job.get("width") or VIEWPORT_WIDTH, "height": VIEWPORT_HEIGHT},
-                                  device_scale_factor=scale, extra_http_headers={KEY_HEADER: job["key"]})
+                                  device_scale_factor=scale)
+    # 헤더 대신 쿠키: 시안이 외부 자원을 불러도 키가 다른 호스트로 안 나감
+    context.add_cookies([{"name": f"ui_design_key_{job['port']}", "value": job["key"], "url": f"http://127.0.0.1:{job['port']}"}])
     page = context.new_page()
+    # 녹화용 클릭을 사용자 선택으로 기록하지 않음
+    page.route("**/api/events", lambda route: route.fulfill(status=204))
     page.goto(build_screen_url(job), wait_until="load")
     page.evaluate("document.fonts.ready")
     page.wait_for_function("[...document.images].every(i => i.complete)", timeout=30000)
@@ -63,7 +66,7 @@ def describe_file(path: Path, job: dict) -> dict:
 def capture_png(browser, job: dict) -> list[dict]:
     page = open_screen(browser, job, PNG_SCALE)
     if job.get("all_options"):
-        option_ids = page.evaluate("[...new Set([...document.querySelectorAll('.ui-option [data-choice]')].map(e => e.dataset.choice))]")
+        option_ids = page.evaluate("[...new Set([...document.querySelectorAll('.ui-option[data-choice], .ui-option [data-choice]')].map(e => e.dataset.choice))]")
         if not option_ids:
             raise CaptureFailure("option_not_found", error="No .ui-option cards with data-choice in this mockup")
     elif job.get("option"):
@@ -74,7 +77,8 @@ def capture_png(browser, job: dict) -> list[dict]:
         return [describe_file(path, job)]
     files = []
     for option_id in option_ids:
-        card = page.locator(f".ui-option:has([data-choice={json.dumps(str(option_id))}])").first
+        choice = json.dumps(str(option_id))
+        card = page.locator(f".ui-option:has([data-choice={choice}]), .ui-option[data-choice={choice}]").first
         if card.count() == 0:
             raise CaptureFailure("option_not_found", error=f"No option {option_id} in this mockup")
         path = output_path(job, str(option_id), ".png")
@@ -150,7 +154,7 @@ def run_step(page, recorder: GifRecorder, step: dict) -> None:
             recorder.shoot()
         page.mouse.up()
     elif action == "play":
-        page.evaluate("id => UIDesign.play(id)", str(step["option"]))
+        page.evaluate("id => { UIDesign.play(id); }", str(step["option"]))
     elif action == "play-all":
         page.evaluate("UIDesign.playAll()")
     elif action == "reset":

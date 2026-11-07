@@ -9,6 +9,7 @@ capture --screen layout.html                    # the whole page
 capture --screen layout.html --option b         # one .ui-option card
 capture --screen layout.html --all-options      # one PNG per card
 capture --screen layout.html --theme dark --device tablet
+# add --title "<screen>" when this repo has several sessions
 capture --gif --screen sheet.html --steps steps.json [--max-width 900] [--max-frames 120]
 ```
 
