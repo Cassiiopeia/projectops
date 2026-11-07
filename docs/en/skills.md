@@ -211,7 +211,7 @@ A **capability Skill** that starts, operates, and captures apps, web, and server
 **When to use it**
 - "Start the emulator and capture it", "capture it at mobile width"
 - When you need state screens such as an empty list or a 500 error
-- When another Skill (`pro-agent-test`, `pro-design-brief`, `pro-figma`) needs to capture a screen
+- When another Skill (`pro-agent-test`, `pro-ui-design`, `pro-figma`) needs to capture a screen
 
 > QA that goes through the app end to end looking for bugs is `/pro-agent-test`. This Skill is "a tool for starting and capturing".
 
@@ -234,7 +234,7 @@ It drives **programs on this computer's screen** that are neither web pages nor 
 
 ---
 
-### `/pro-design-brief`
+### `/pro-ui-design`
 
 **What does it do?**
 It builds a **request document** to hand to a designer for a screen you built before the design exists. It captures the real screen by state (empty list, failure, long text, font size, small phone), assembles layout alternatives, copy candidates, and must-keep items (brand specs, agreed exceptions) into a board, and hands it off in whichever format fits the repo: an issue, a single HTML page, or an md folder. It gives material to think with, not the answer.

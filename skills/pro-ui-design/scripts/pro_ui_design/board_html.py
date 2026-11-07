@@ -7,7 +7,7 @@ import mimetypes
 import unicodedata
 from pathlib import Path
 
-from pro_design_brief.settings import _TEMPLATE
+from pro_ui_design.settings import _TEMPLATE
 
 
 # =========================================================================

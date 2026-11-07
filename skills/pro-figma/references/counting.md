@@ -33,7 +33,7 @@ The locations returned are **split into two kinds, and mixing them always makes 
 
 ## Phase 0: read Figma (summary)
 
-**How to read it is in `../../references/figma-mcp.md`.** Another skill (`pro-design-brief`) reads with the same rules,
+**How to read it is in `../../references/figma-mcp.md`.** Another skill (`pro-ui-design`) reads with the same rules,
 so it is not copied here.
 
 | Order | What | Why |
@@ -97,7 +97,7 @@ build from the default state alone. If you pass only one node to `coverage`, the
 **Run it for every state node.** Also note whether the design is drawn with only one kind of content (short text).
 
 How to count, commonly missed states, and the 5-axis state list for code are in **`../../references/design-states.md`**.
-If you find a state the design **does not have**, it is not something to compare; it is something to request from the designer (`pro-design-brief`).
+If you find a state the design **does not have**, it is not something to compare; it is something to request from the designer (`pro-ui-design`).
 
 ### Classify into one of three
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""design_brief_cli — pro-design-brief 전용 CLI (projectops 3-layer 표준, Layer 2, #634).
+"""ui_design_cli — pro-ui-design 전용 CLI (projectops 3-layer 표준, Layer 2, #634).
 
 디자이너에게 넘길 요청서(보드)를 조립한다. **판단은 agent, 스크립트는 실행과 기록만** 한다 —
 상태 목록·대안·문구 후보를 고르는 것은 agent 이고, 여기서는 설정을 풀고 보드를 조립하고
@@ -23,30 +23,30 @@ import io
 import sys
 from pathlib import Path
 
-# 구현은 같은 폴더의 pro_design_brief 패키지에 있다 (공용 common 경로는 패키지가 맞춘다)
+# 구현은 같은 폴더의 pro_ui_design 패키지에 있다 (공용 common 경로는 패키지가 맞춘다)
 _HERE = Path(__file__).resolve()
 if str(_HERE.parent) not in sys.path:
     sys.path.insert(0, str(_HERE.parent))
 
-import pro_design_brief  # noqa: E402,F401  (common import 경로를 맞춘다)
+import pro_ui_design  # noqa: E402,F401  (common import 경로를 맞춘다)
 from common.emit import emit  # noqa: E402
 
-from pro_design_brief.ascii_wire import cmd_ascii  # noqa: E402
-from pro_design_brief.board import cmd_board  # noqa: E402
-from pro_design_brief.config import cmd_config  # noqa: E402
-from pro_design_brief.copy_lint import cmd_copy_lint  # noqa: E402
-from pro_design_brief.image_links import cmd_rewrite_images  # noqa: E402
-from pro_design_brief.output_path import cmd_output_path  # noqa: E402
-from pro_design_brief.settings import DESTINATIONS  # noqa: E402
+from pro_ui_design.ascii_wire import cmd_ascii  # noqa: E402
+from pro_ui_design.board import cmd_board  # noqa: E402
+from pro_ui_design.config import cmd_config  # noqa: E402
+from pro_ui_design.copy_lint import cmd_copy_lint  # noqa: E402
+from pro_ui_design.image_links import cmd_rewrite_images  # noqa: E402
+from pro_ui_design.output_path import cmd_output_path  # noqa: E402
+from pro_ui_design.settings import DESTINATIONS  # noqa: E402
 
-# 테스트가 design_brief_cli.<이름> 으로 직접 쓰는 함수·값 재노출
-from pro_design_brief.ascii_wire import _fit, text_width  # noqa: E402,F401
-from pro_design_brief.board_capture import _png_width, _require_playwright  # noqa: E402,F401
-from pro_design_brief.board_html import render_html  # noqa: E402,F401
-from pro_design_brief.board_markdown import preflight, render_markdown  # noqa: E402,F401
-from pro_design_brief.config import _designer_from_templates, resolve_config  # noqa: E402,F401
-from pro_design_brief.copy_lint import _banned_hit  # noqa: E402,F401
-from pro_design_brief.settings import MAX_PNG_WIDTH  # noqa: E402,F401
+# 테스트가 ui_design_cli.<이름> 으로 직접 쓰는 함수·값 재노출
+from pro_ui_design.ascii_wire import _fit, text_width  # noqa: E402,F401
+from pro_ui_design.board_capture import _png_width, _require_playwright  # noqa: E402,F401
+from pro_ui_design.board_html import render_html  # noqa: E402,F401
+from pro_ui_design.board_markdown import preflight, render_markdown  # noqa: E402,F401
+from pro_ui_design.config import _designer_from_templates, resolve_config  # noqa: E402,F401
+from pro_ui_design.copy_lint import _banned_hit  # noqa: E402,F401
+from pro_ui_design.settings import MAX_PNG_WIDTH  # noqa: E402,F401
 
 
 # =========================================================================
@@ -54,7 +54,7 @@ from pro_design_brief.settings import MAX_PNG_WIDTH  # noqa: E402,F401
 # =========================================================================
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="design_brief_cli", description="Assemble a design request (brief) for a designer")
+    parser = argparse.ArgumentParser(prog="ui_design_cli", description="Assemble a design request (brief) for a designer")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("config", help="Resolve / save the design_brief settings")
@@ -114,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(err.getvalue())
         reason = err.getvalue().strip().splitlines()[-1] if err.getvalue().strip() else ""
         return emit({"ok": False, "code": "bad_args", "error": f"Invalid arguments: {reason}",
-                     "next": "design_brief_cli.py <subcommand> --help"})
+                     "next": "ui_design_cli.py <subcommand> --help"})
     return args.func(args)
 
 

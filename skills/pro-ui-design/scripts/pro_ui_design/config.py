@@ -8,7 +8,7 @@ from pathlib import Path
 
 from common.emit import emit
 
-from pro_design_brief.settings import DESTINATIONS
+from pro_ui_design.settings import DESTINATIONS
 
 
 # =========================================================================

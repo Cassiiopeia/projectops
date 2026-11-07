@@ -131,7 +131,7 @@ EVIDENCE_SKILLS = frozenset({
     # 스스로 .gitignore 를 들고 있어 커밋되지도 않는다. 그래서 읽기 폴백을 두지 않는다.
     "figma",
     "launch",         # 앱·웹 캡처 · http 응답 (#629)
-    "design-brief",   # 요청서 보드 · 상태별 캡처 (#634)
+    "ui-design",   # 요청서 보드 · 상태별 캡처 (#634)
 })
 
 # 사라진 스킬(note·analyze·plan·implement·design-analyze·refactor-analyze·ppt·troubleshoot·pr)은 뺐다 (#822).

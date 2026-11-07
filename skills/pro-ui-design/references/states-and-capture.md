@@ -62,14 +62,14 @@ Order: **code render → real device / browser → ASCII.** For staged states th
 | Code render | `render snapshot` → `render scaffold` (Flutter; other stacks: write it by hand) → edit it → `render run` | Edge states and alternative mockups. Recipe: `../../pro-launch/references/render.md` |
 | Device | `app shot --clean-status` (navigate with `app tap --text` · `app swipe`) | The real screen as is |
 | Browser | `web viewport` · `web route` · `web shot` | Web: stage empty lists and failures without a server |
-| ASCII | `design_brief_cli.py ascii --spec '{...}'` | States that cannot be rendered, options with no code yet. Label it "render failed" |
+| ASCII | `ui_design_cli.py ascii --spec '{...}'` | States that cannot be rendered, options with no code yet. Label it "render failed" |
 
 ```bash
 source "{env_file value}"          # $SHOT_DIR · $RUN_DIR · $DEV
 PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py app tap  --device "$DEV" --text "{text that leads to the screen}" --shot 02_list
 PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV" --out 03_empty_list --clean-status
 PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py web route --match "**/api/items*" --status 200 --body "[]"
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py ascii --spec '{"title":"Empty list","rows":["Nothing yet","---",{"text":"Add","align":"center"}],"width":24}'
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/ui_design_cli.py ascii --spec '{"title":"Empty list","rows":["Nothing yet","---",{"text":"Add","align":"center"}],"width":24}'
 ```
 
 - **Navigate by element** (`app tap --text|--id|--desc`). Do not guess coordinates; if you do not know the text, use `app tree`.

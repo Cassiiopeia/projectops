@@ -1,5 +1,5 @@
 ---
-name: pro-design-brief
+name: pro-ui-design
 description: "Build a design request for a designer from a screen you already built: capture real states, render layout alternatives, collect copy and must-keep rules, deliver as issue, HTML or md. Use for 'request a design', 'send to designer'."
 ---
 
@@ -34,14 +34,14 @@ exists only in the conversation, so always keep it. Arguments: $ARGUMENTS
 
 | Goal | Command | Details |
 |---|---|---|
-| Decide/save output mode · designer · confirm-before-posting | `design_brief_cli.py config show\|set` | Step 0 below |
+| Decide/save output mode · designer · confirm-before-posting | `ui_design_cli.py config show\|set` | Step 0 below |
 | Read Figma · image input, gap table | `mcp__figma__get_figma_data` · `figma_cli.py coverage` | `references/states-and-capture.md` |
 | State list (5 axes) | — (read the code) | `references/states-and-capture.md` · `../references/design-states.md` |
-| Capture slot · device/browser/render capture | `launch_cli.py get-output-path --skill design-brief` · `app shot` · `web route` · `render run` | `references/states-and-capture.md` |
-| States that cannot be rendered · options that do not exist yet | `design_brief_cli.py ascii --spec` | `references/states-and-capture.md` |
-| Alternatives · copy · UI elements · must-keep rules | `design_brief_cli.py copy-lint` | `references/content.md` |
-| Assemble the board (HTML → per-topic PNG · md) | `design_brief_cli.py get-output-path` → `board` | `references/publishing.md` |
-| Publish (issue · HTML · md) | `github_cli.py upload-image` → `design_brief_cli.py rewrite-images` → `create-issue` | `references/publishing.md` |
+| Capture slot · device/browser/render capture | `launch_cli.py get-output-path --skill ui-design` · `app shot` · `web route` · `render run` | `references/states-and-capture.md` |
+| States that cannot be rendered · options that do not exist yet | `ui_design_cli.py ascii --spec` | `references/states-and-capture.md` |
+| Alternatives · copy · UI elements · must-keep rules | `ui_design_cli.py copy-lint` | `references/content.md` |
+| Assemble the board (HTML → per-topic PNG · md) | `ui_design_cli.py get-output-path` → `board` | `references/publishing.md` |
+| Publish (issue · HTML · md) | `github_cli.py upload-image` → `ui_design_cli.py rewrite-images` → `create-issue` | `references/publishing.md` |
 
 ## Find the scripts: once
 
@@ -51,7 +51,7 @@ exists only in the conversation, so always keep it. Arguments: $ARGUMENTS
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
 [ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-for SKILL in pro-design-brief pro-launch pro-github pro-figma; do
+for SKILL in pro-ui-design pro-launch pro-github pro-figma; do
   ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
   [ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
     H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
@@ -64,7 +64,7 @@ for SKILL in pro-design-brief pro-launch pro-github pro-figma; do
 done
 ```
 
-Placeholders: `{SCRIPTS}` = pro-design-brief (config · get-output-path · board · copy-lint · ascii · rewrite-images), `{LAUNCH}` = pro-launch (capture · render · staging states),
+Placeholders: `{SCRIPTS}` = pro-ui-design (config · get-output-path · board · copy-lint · ascii · rewrite-images), `{LAUNCH}` = pro-launch (capture · render · staging states),
 `{GITHUB}` = pro-github (images · issues), `{FIGMA}` = pro-figma (counting the Figma dump, when there is a link).
 
 ## Common rules
@@ -82,7 +82,7 @@ Placeholders: `{SCRIPTS}` = pro-design-brief (config · get-output-path · board
 ## 0. Settings: decide once, automatic afterwards
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py config show --root {PROJECT_ROOT}
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/ui_design_cli.py config show --root {PROJECT_ROOT}
 ```
 
 `resolved` shows three items. Ask only about those in `missing`, **one at a time**, with the recommended option first.
@@ -94,7 +94,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py config show --root
 | Confirm before posting | Confirm by default | Approval gate branch C on the first post |
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py config set --root {PROJECT_ROOT} --destination issue --designer {id}
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/ui_design_cli.py config set --root {PROJECT_ROOT} --destination issue --designer {id}
 #   --scope default      : default for all repos ("from now on, everywhere")    --auto-approve true : "post without asking next time"
 ```
 
@@ -106,12 +106,12 @@ Decide whether it is implemented (implemented / partial / not yet), and if there
 From the 5 axes (data · input · environment · person · display), pick **only the states that apply to that screen**. Order: `references/states-and-capture.md`.
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py get-output-path --skill design-brief --title "{screen name}"
+PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py get-output-path --skill ui-design --title "{screen name}"
 source "{env_file value}"          # $SHOT_DIR · $RUN_DIR · $DEV
 PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py device acquire --platform ios --purpose "design request {screen}"   # borrow a device for an app · device release when done
 PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py app shot --device "$DEV" --out 01_current --clean-status
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py ascii --spec '{"title":"…","rows":["…","---"],"width":24}'
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py copy-lint --file {board data.json} --banned "kid,device,server"
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/ui_design_cli.py ascii --spec '{"title":"…","rows":["…","---"],"width":24}'
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/ui_design_cli.py copy-lint --file {board data.json} --banned "kid,device,server"
 ```
 
 Capture order is **code render → real device / browser → ASCII**. Alternatives, copy (`current → 2–3 candidates → reason`), UI elements (what the repo already has first) and
@@ -122,8 +122,8 @@ must-keep rules (brand specs, design principles, agreed exceptions in code comme
 Write everything you collected into one **data JSON** and assemble it (image paths relative to the data file).
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py get-output-path --title "{screen name}"   # same title as the captures
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py board --data {run_dir}/board_data.json --out {run_dir}/board --png
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/ui_design_cli.py get-output-path --title "{screen name}"   # same title as the captures
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/ui_design_cli.py board --data {run_dir}/board_data.json --out {run_dir}/board --png
 #   --md : also writes brief.md    --strict : stops with ok:false if preflight items remain (right before publishing)
 ```
 
@@ -159,7 +159,7 @@ For `issue`, **images first** (if you post the body first, a post without images
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {GITHUB}/github_cli.py upload-image {owner} {repo} {run_dir}/board/*.png --prefix brief > {run_dir}/uploads.json
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/design_brief_cli.py rewrite-images --md "{body .md path}" --uploads {run_dir}/uploads.json   # → <body>.issue.md
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/ui_design_cli.py rewrite-images --md "{body .md path}" --uploads {run_dir}/uploads.json   # → <body>.issue.md
 PYTHONIOENCODING=utf-8 {PYTHON} {GITHUB}/github_cli.py create-issue {owner} {repo} "{title}" "{<body>.issue.md path}" "{labels}" --assignees "{designer}"
 PYTHONIOENCODING=utf-8 {PYTHON} {GITHUB}/github_cli.py add-comment {owner} {repo} {implementation issue} "{link comment .md}"   # link it with the implementation issue both ways
 ```
@@ -185,6 +185,6 @@ names and order as the board. If something is wrong after publishing, edit the b
 
 ## Customize
 
-Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start: run the snippet in `../references/preferences.md` with `SKILL_ID=pro-design-brief`.
+Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start: run the snippet in `../references/preferences.md` with `SKILL_ID=pro-ui-design`.
 Keys for this skill: the common `language`, `tone`, `rules` only.
 Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.

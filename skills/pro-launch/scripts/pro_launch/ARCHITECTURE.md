@@ -103,7 +103,7 @@ There is no automatic check for these; keep them by hand when you change the str
 ## Good to know
 
 - **Output is always one JSON object.** Report a new failure with a new `code`. Do not change the meaning of an existing `code`:
-  `pro-agent-test` · `pro-design-brief` call this skill as a subprocess and rely on those values.
+  `pro-agent-test` · `pro-ui-design` call this skill as a subprocess and rely on those values.
 - **State uses module globals.** These are `ROOT_CTX` · `ACCESS_CTX` · `MEMORY_CTX` · `MIGRATION` in `runtime/context.py`,
   and `cli.main()` clears them on every call. Do not use them to pass values between commands behind the scenes.
 - **Tests patch the name where it is used.** To replace an `f` imported with `from x import f`, monkeypatch `f` in the importing module, not in `x`.

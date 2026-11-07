@@ -5,7 +5,7 @@ from pathlib import Path
 
 from common.emit import emit
 
-from pro_design_brief.settings import SKILL_ID
+from pro_ui_design.settings import SKILL_ID
 
 
 # =========================================================================
@@ -13,7 +13,7 @@ from pro_design_brief.settings import SKILL_ID
 # =========================================================================
 
 def cmd_output_path(args) -> int:
-    """이번 요청서 자리. 캡처는 pro-launch get-output-path --skill design-brief 로 같은 우산에 받는다."""
+    """이번 요청서 자리. 캡처는 pro-launch get-output-path --skill ui-design 로 같은 우산에 받는다."""
     try:
         from common.paths import resolve_output_path
     except ImportError:
@@ -29,5 +29,5 @@ def cmd_output_path(args) -> int:
                  "brief_md": str(run_dir / "brief.md"), "gitignore": r.get("gitignore"),
                  "output_root": r.get("output_root"),
                  "summary": f"Request location {run_dir} (git-ignored: {r.get('gitignore')})",
-                 "next": ("Take captures with pro-launch: launch_cli.py get-output-path --skill design-brief "
+                 "next": ("Take captures with pro-launch: launch_cli.py get-output-path --skill ui-design "
                           "(same title), then source the returned env.sh and $SHOT_DIR is under this folder")})

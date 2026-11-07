@@ -6,10 +6,10 @@ from pathlib import Path
 
 from common.emit import emit
 
-from pro_design_brief.board_capture import _png_width, shoot_topics
-from pro_design_brief.board_html import render_html
-from pro_design_brief.board_markdown import preflight, render_markdown
-from pro_design_brief.settings import MAX_PNG_WIDTH
+from pro_ui_design.board_capture import _png_width, shoot_topics
+from pro_ui_design.board_html import render_html
+from pro_ui_design.board_markdown import preflight, render_markdown
+from pro_ui_design.settings import MAX_PNG_WIDTH
 
 
 def cmd_board(args) -> int:

@@ -2,7 +2,7 @@
 """launch_cli — pro-launch 전용 CLI (projectops 3-layer 표준, Layer 2, #629).
 
 앱·웹·서버를 **띄우고, 조작하고, 찍는** 능력만 담는다. 무엇을 왜 찍을지는 부르는
-작업 스킬(pro-agent-test · pro-design-brief · pro-figma)이 정한다.
+작업 스킬(pro-agent-test · pro-ui-design · pro-figma)이 정한다.
 
 원칙: **판단은 agent, 스크립트는 실행과 기록.** 프로젝트 구조를 알아맞히지 않는다.
 

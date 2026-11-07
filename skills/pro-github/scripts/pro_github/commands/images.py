@@ -65,7 +65,7 @@ def cmd_upload_image(args, api) -> int:
                 limit_error = e
                 failed.extend({"file": rest, "error": "release_asset_limit"} for rest in args.files[position:])
                 break
-            # 로컬 경로 — design-brief rewrite-images 가 파일 이름 대신 경로로 짝을 맞춘다 (#974)
+            # 로컬 경로 — ui-design rewrite-images 가 파일 이름 대신 경로로 짝을 맞춘다 (#974)
             images.append({**image, "file": str(Path(f).expanduser().resolve())})
             current_tag = image.get("tag", current_tag)
 

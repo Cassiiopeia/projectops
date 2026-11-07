@@ -33,7 +33,7 @@ Show what goes where (issue title, assignee, number of attachments) and get appr
 Write the body md with local paths (`board/states.png`), and after uploading insert the URLs with the CLI. Do not substitute them with inline Python.
 
 1. `upload-image ... > {run_dir}/uploads.json`: keep the output JSON as a file as is
-2. `design_brief_cli.py rewrite-images --md {body} --uploads {run_dir}/uploads.json` → `<body>.issue.md` (the original md is untouched)
+2. `ui_design_cli.py rewrite-images --md {body} --uploads {run_dir}/uploads.json` → `<body>.issue.md` (the original md is untouched)
 3. Pass the `.issue.md` to `create-issue`
 
 - Matching: with upload-image output, by file name (stem); with a `{"board/a.png": "https://…"}` mapping, by path or name relative to the md. If two files share a name, give a mapping.

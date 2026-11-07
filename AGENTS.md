@@ -49,7 +49,7 @@ No slash-command UI is needed; read the file directly.
 | Launch an emulator, simulator, browser or server and capture it | `pro-launch` |
 | Drive an installer wizard, OS dialog or desktop app on this computer's screen (not a web page or emulator) | `pro-desktop-control` |
 | Compare an implementation with a Figma design | `pro-figma` |
-| Hand an already-built screen to a designer | `pro-design-brief` |
+| Hand an already-built screen to a designer | `pro-ui-design` |
 | Diagnose a repository as an open source project | `pro-oss-consult` |
 | Generate QA test cases | `pro-testcase` |
 | Create a git worktree for an issue | `pro-init-worktree` |

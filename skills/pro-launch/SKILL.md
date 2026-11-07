@@ -1,6 +1,6 @@
 ---
 name: pro-launch
-description: "Capability skill that launches and drives apps, web, desktop windows and servers: emulator/simulator screenshots, browser navigation and capture, installer and OS dialogs, API mocking for empty/error states, HTTP/DB/log access. Used by pro-agent-test, pro-design-brief, pro-figma."
+description: "Capability skill that launches and drives apps, web, desktop windows and servers: emulator/simulator screenshots, browser navigation and capture, installer and OS dialogs, API mocking for empty/error states, HTTP/DB/log access. Used by pro-agent-test, pro-ui-design, pro-figma."
 ---
 
 # pro-launch — launch, drive, capture
@@ -11,11 +11,11 @@ description: "Capability skill that launches and drives apps, web, desktop windo
   (Korean triggers: '에뮬레이터 띄워서 찍어줘', '시뮬레이터 스크린샷', '브라우저로 이 화면 캡처해줘', '모바일 폭으로 찍어줘')
 - "Capture the empty list screen", "show the screen when it returns 500", "call this API once"
   (Korean triggers: '빈 목록 화면 찍어줘', '500 났을 때 화면 보여줘', '이 API 한 번 불러줘')
-- This skill does not decide what to capture or why. That is the job of the calling task skill (pro-agent-test · pro-design-brief · pro-figma).
+- This skill does not decide what to capture or why. That is the job of the calling task skill (pro-agent-test · pro-ui-design · pro-figma).
 - QA that walks a flow end to end while hunting bugs is pro-agent-test. On Google and Apple login screens, this skill hides automation markers to reduce blocking.
 
 **This is a capability skill.** It documents only what each call does and returns. The calling task skill
-(pro-agent-test · pro-design-brief · pro-figma · pro-report) decides what to capture and why, and calls this **as a script, not as a Skill call** (capability skills on the same layer: pro-github · pro-ssh).
+(pro-agent-test · pro-ui-design · pro-figma · pro-report) decides what to capture and why, and calls this **as a script, not as a Skill call** (capability skills on the same layer: pro-github · pro-ssh).
 The agent decides; the script only executes and records. It does not scan routes or screen lists to guess the project structure.
 
 The **absolute rules** in `../references/common-rules.md` apply (no Git commits, protect sensitive data). Arguments: $ARGUMENTS
@@ -106,7 +106,7 @@ echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS PROJECT_ROOT=$PROJECT_ROOT"
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title "{what you are capturing}"
-#   --skill design-brief   # when the calling task skill wants the output in its own folder (evidence skills only — otherwise not_evidence_skill)
+#   --skill ui-design   # when the calling task skill wants the output in its own folder (evidence skills only — otherwise not_evidence_skill)
 #   --package {package}    # written to env.sh as PKG
 ```
 

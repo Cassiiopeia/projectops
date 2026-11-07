@@ -39,7 +39,7 @@ SKILL_CLIS = {
     "init-worktree": ("pro-init-worktree", "worktree_cli.py"),
     "figma": ("pro-figma", "figma_cli.py"),
     "agent-test": ("pro-agent-test", "e2e_cli.py"),
-    "design-brief": ("pro-design-brief", "design_brief_cli.py"),
+    "ui-design": ("pro-ui-design", "ui_design_cli.py"),
     "oss-consult": ("pro-oss-consult", "oss_cli.py"),
     "launch": ("pro-launch", "launch_cli.py"),
 }

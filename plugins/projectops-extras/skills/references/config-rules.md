@@ -325,7 +325,7 @@ Skills do not build path strings themselves; they go through each skill CLI's `g
 
 ### `design_brief` section (#634)
 
-Used by `pro-design-brief`. **Do not put it under `github`** — repos that do not use GitHub also get design requests.
+Used by `pro-ui-design`. **Do not put it under `github`** — repos that do not use GitHub also get design requests.
 
 ```json
 {
@@ -347,7 +347,7 @@ Used by `pro-design-brief`. **Do not put it under `github`** — repos that do n
 | `auto_approve` | — | Skip confirmation before posting. **Default `false`** |
 | `projects[].match` | ✅ | GitHub `owner/repo`, or the repo's **absolute path** (when not on GitHub) |
 
-Resolution order: matching `projects[]` entry → section default → first-run decision. `design_brief_cli.py config show|set`
+Resolution order: matching `projects[]` entry → section default → first-run decision. `ui_design_cli.py config show|set`
 resolves and saves it — it reads the whole file and changes only that key.
 
 ---

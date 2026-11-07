@@ -17,7 +17,7 @@ def cmd_output_path(args) -> int:
     """이번 실행의 산출물 자리를 만들고 알려준다.
 
     부르는 작업 스킬이 자기 폴더에 받고 싶으면 --skill 로 자기 id 를 넘긴다
-    (design-brief 는 --skill design-brief). **증거를 내는 스킬만 받는다** — 문서 스킬 폴더에
+    (ui-design 는 --skill ui-design). **증거를 내는 스킬만 받는다** — 문서 스킬 폴더에
     캡처를 쌓으면 추적 제외가 없어 저장소에 커밋된다.
     """
     try:

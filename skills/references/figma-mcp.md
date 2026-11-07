@@ -5,7 +5,7 @@
 | Skill | What it gets |
 |---|---|
 | `pro-figma` | Counts every value as a worklist, then compares after implementation |
-| `pro-design-brief` | Separates **states drawn in the design from states left out** and builds the list to request from the designer |
+| `pro-ui-design` | Separates **states drawn in the design from states left out** and builds the list to request from the designer |
 
 These rules used to live only inside `pro-figma`, so other skills had to copy them. Copies drift when only one side
 is fixed. The rules live here, in one place. How to count states: `design-states.md`.
@@ -302,7 +302,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {FIGMA_SCRIPTS}/figma_cli.py assets --dump {dump
 
 | Caller | What it uses it for |
 |---|---|
-| Design request (`pro-design-brief`) | Runs `coverage` **for each state node** to count drawn states and builds the gap table against the code's state list. Uses the tokens (color, font, radius) in alternative mockups |
+| Design request (`pro-ui-design`) | Runs `coverage` **for each state node** to count drawn states and builds the gap table against the code's state list. Uses the tokens (color, font, radius) in alternative mockups |
 | Comparison (`pro-figma`) | Classifies every item as implemented, approximated, or omitted, leaving none out |
 
 > **Do not drop `--node` when passing a dump.** Passing the whole file yields thousands — measured: one board had

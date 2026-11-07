@@ -157,7 +157,7 @@ To find and call in one block (self-contained), put
 ### Finding the scripts
 
 **Fixed entry point first** (#942): `~/.projectops/bin/projectops_cli.py <skill> <subcommand> ...` finds the newest installed script and passes the arguments through
-(skill: github · commit · report · review · testcase · changelog-deploy · init-worktree · figma · agent-test · design-brief · oss-consult · launch).
+(skill: github · commit · report · review · testcase · changelog-deploy · init-worktree · figma · agent-test · ui-design · oss-consult · launch).
 The lookup block above is the fallback when this file does not exist yet (first run) or on `scripts_not_found`. `newer_installed` in the response means an old version is running.
 
 **In zsh, do not store a command in a variable** — with `P="python3 …/projectops_cli.py github"; $P get-issue …`, zsh treats the variable as one word and fails with `exit 127` (command not found).

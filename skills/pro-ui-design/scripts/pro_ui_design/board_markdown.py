@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pro_design_brief.board_html import FACT_BASIS, REACHABLE_TAG, _STATUS_TAG
+from pro_ui_design.board_html import FACT_BASIS, REACHABLE_TAG, _STATUS_TAG
 
 
 def _c(v) -> str:

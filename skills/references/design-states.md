@@ -7,7 +7,7 @@ the same job (#630).
 | Skill | What it does with this rule |
 |---|---|
 | `pro-figma` | Counts whether **every** state drawn in the design was implemented |
-| `pro-design-brief` | Asks the designer for states that exist in the code but are **missing from the design** |
+| `pro-ui-design` | Asks the designer for states that exist in the code but are **missing from the design** |
 
 How to read Figma itself: `figma-mcp.md`.
 
@@ -73,7 +73,7 @@ Putting the code's states (§3) next to the states the design drew (§1) shows t
 | State | Code | Design | Action |
 |---|---|---|---|
 | List has items | Implemented | ✅ Drawn | Compare (`pro-figma`) |
-| 0 items | Implemented (placeholder text) | ❌ Missing | **Ask the designer** (`pro-design-brief`) |
+| 0 items | Implemented (placeholder text) | ❌ Missing | **Ask the designer** (`pro-ui-design`) |
 | Failure | Not implemented | ❌ Missing | Request + development issue |
 | Loading | Implemented | ⚠️ Text differs between frames | **Do not fix it; raise it as a question** |
 

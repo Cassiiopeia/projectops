@@ -9,7 +9,7 @@ import time
 # projectops CLI 호출: {도구}_cli.py {단어1} [{단어2}] [{단어3}]
 PROJECTOPS_CLI_PATTERN = re.compile(
     r"\b(launch_cli|projectops_cli|github_cli|commit_cli|changelog_cli|report_cli|e2e_cli|figma_cli|worktree_cli"
-    r"|design_brief_cli|oss_cli|review_cli|testcase_cli)\.py\s+([a-z][\w-]*)(?:\s+([a-z][\w-]*))?(?:\s+([a-z][\w-]*))?")
+    r"|ui_design_cli|oss_cli|review_cli|testcase_cli)\.py\s+([a-z][\w-]*)(?:\s+([a-z][\w-]*))?(?:\s+([a-z][\w-]*))?")
 # 보고 자체의 호출 (재귀 방지)
 REPORT_CALL_MARKERS = ("bug_cli.py", "Cassiiopeia projectops", "pro-skill-bug")
 # 설계상 정상인 실패 code (사용자 확인 대기 등)
@@ -35,7 +35,7 @@ INVALID_CHOICE_MARKER = "invalid choice"
 # 도구 > 스킬 이름 (제목 [<skill>] · 중복 key). projectops_cli 는 첫 단어가 스킬
 SKILL_BY_TOOL = {"launch_cli": "launch", "e2e_cli": "agent-test", "github_cli": "github",
                  "changelog_cli": "changelog-deploy", "commit_cli": "commit", "report_cli": "report",
-                 "figma_cli": "figma", "worktree_cli": "init-worktree", "design_brief_cli": "design-brief",
+                 "figma_cli": "figma", "worktree_cli": "init-worktree", "ui_design_cli": "ui-design",
                  "oss_cli": "oss-consult", "review_cli": "review", "testcase_cli": "testcase"}
 # 두 단어로 보는 서브커맨드 그룹 (launch web click · github actions joblog). 그 외 둘째 단어는 인자
 NESTED_SUBCOMMAND_GROUPS = {"web", "app", "device", "desktop", "db", "logs", "cred", "ssh", "local", "kb", "access",
