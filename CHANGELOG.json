@@ -1,14 +1,37 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-07T12:25:37Z",
-    "currentVersion": "4.89.2",
+    "lastUpdated": "2026-11-07T12:31:51Z",
+    "currentVersion": "4.89.3",
     "projectType": "basic",
-    "totalReleases": 374,
+    "totalReleases": 375,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.89.3",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-07",
+      "pr_number": 1087,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * `github get-output-path` accepts a title without `--title`\n  * `shrink`, `mask` and `redact` accept `--root`\n  * `render run` says when a capture was saved under a new name\n  * `doctor` no longer hangs on a blocked network\n  * The mockup list stays visible in a narrow window",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "`github get-output-path` accepts a title without `--title`",
+            "`shrink`, `mask` and `redact` accept `--root`",
+            "`render run` says when a capture was saved under a new name",
+            "`doctor` no longer hangs on a blocked network",
+            "The mockup list stays visible in a narrow window"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.89.2",
       "project_type": "basic",

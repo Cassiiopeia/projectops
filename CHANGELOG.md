@@ -1,7 +1,20 @@
 # Changelog
 
-**Current version:** 4.89.2  
-**Last updated:** 2026-11-07T12:25:37Z  
+**Current version:** 4.89.3  
+**Last updated:** 2026-11-07T12:31:51Z  
+
+---
+
+## [4.89.3] - 2026-11-07
+
+**PR:** #1087  
+
+**Bug fixes**
+- `github get-output-path` accepts a title without `--title`
+- `shrink`, `mask` and `redact` accept `--root`
+- `render run` says when a capture was saved under a new name
+- `doctor` no longer hangs on a blocked network
+- The mockup list stays visible in a narrow window
 
 ---
 
