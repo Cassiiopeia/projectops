@@ -6,6 +6,8 @@ from pathlib import Path
 
 from common.state import venv_site_packages
 
+from pro_ui_design.browser_path import find_browser_executable
+
 
 def _require_playwright():
     sp = venv_site_packages()
@@ -19,14 +21,14 @@ def _require_playwright():
 
 
 def shoot_topics(html_file: Path, out_dir: Path, topics: list[str], scale: int = 2) -> tuple[list[str], str | None]:
-    """주제(섹션)마다 PNG 한 장. pro-launch 가 받아 둔 Chromium 을 쓴다 — 따로 설치하지 않는다."""
+    """주제(섹션)마다 PNG 한 장. pro-launch 규칙으로 고른 브라우저를 쓴다 — 따로 설치하지 않는다."""
     sync_playwright = _require_playwright()
     if sync_playwright is None:
         return [], "browser_missing"
     files = []
     try:
         with sync_playwright() as pw:
-            browser = pw.chromium.launch()
+            browser = pw.chromium.launch(executable_path=find_browser_executable(pw))
             page = browser.new_page(viewport={"width": 1448, "height": 900}, device_scale_factor=scale)
             page.goto(html_file.resolve().as_uri())
             page.evaluate("document.fonts.ready")

@@ -33,6 +33,7 @@ from common.emit import emit  # noqa: E402
 
 from pro_ui_design.ascii_wire import cmd_ascii  # noqa: E402
 from pro_ui_design.board import cmd_board  # noqa: E402
+from pro_ui_design.capture import cmd_capture  # noqa: E402
 from pro_ui_design.check import cmd_check  # noqa: E402
 from pro_ui_design.config import cmd_config  # noqa: E402
 from pro_ui_design.copy_lint import cmd_copy_lint  # noqa: E402
@@ -103,6 +104,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--screen", default=None, help="Only this mockup file")
     p.add_argument("--root", default=".")
     p.set_defaults(func=cmd_check)
+
+    p = sub.add_parser("capture", help="Mockup > PNG (whole page or per option), or steps > GIF; no viewer toolbar")
+    p.add_argument("--screen", default=None, help="Mockup file name (default: the newest)")
+    p.add_argument("--option", default=None, help="Only the card with this data-choice value")
+    p.add_argument("--all-options", action="store_true", help="One PNG per option")
+    p.add_argument("--device", default=None, help="phone, tablet or desktop")
+    p.add_argument("--theme", default=None, help="light or dark")
+    p.add_argument("--speed", type=int, default=None, help="Motion speed multiplier")
+    p.add_argument("--gif", action="store_true", help="Run --steps and record them")
+    p.add_argument("--steps", default=None, help="Steps JSON file (format: references/sharing.md)")
+    p.add_argument("--max-frames", type=int, default=120)
+    p.add_argument("--max-width", type=int, default=900)
+    p.add_argument("--out", default=None, help="Output folder (default: {run_dir}/captures)")
+    p.add_argument("--root", default=".")
+    p.set_defaults(func=cmd_capture)
 
     p = sub.add_parser("get-output-path", help="Output location for this request")
     p.add_argument("--title", default=None)
