@@ -323,32 +323,34 @@ Shared by skills that save md artifacts (`report`, `review`, and so on).
 `resolve_output_root()` in `scripts/common/paths.py` is the single place that resolves it.
 Skills do not build path strings themselves; they go through each skill CLI's `get-output-path` — detail in `doc-output-path.md`.
 
-### `design_brief` section (#634)
+### `ui-design` section (#634, #1080)
 
-Used by `pro-ui-design`. **Do not put it under `github`** — repos that do not use GitHub also get design requests.
+Used by `pro-ui-design`. **Do not put it under `github`** — repos that do not use GitHub also get mockups and design requests.
+Style (language, tone, rules) stays in `preferences` · `skills.pro-ui-design`; project knowledge (token files, fonts) stays in the repo-scoped harness `ui-design`.
 
 ```json
 {
-  "design_brief": {
+  "ui-design": {
     "destination": "issue",
     "auto_approve": false,
+    "devices": ["phone", "tablet"],
     "projects": [
-      { "match": "acme-org/myapp", "destination": "issue", "designer": "designer-id", "auto_approve": true },
-      { "match": "/Users/me/work/landing", "destination": "html", "designer": "Jane Designer" }
+      { "match": "acme-org/myapp", "designer": "designer-id", "devices": ["phone"] },
+      { "match": "/Users/me/work/landing", "destination": "html", "devices": ["desktop"] }
     ]
   }
 }
 ```
 
+The option table (names, types, allowed values, defaults) has one source: `ui_design_cli.py config options`. Do not copy it here. Adding an option is one row in `pro_ui_design/options.py`.
+
 | Field | Required | Description |
 |------|------|------|
-| `destination` | — | `issue` (design issue) · `html` (one HTML page) · `markdown` (md + PNG folder). If missing, decided on the first run |
-| `designer` | — | Designer's GitHub ID or name (issue assignee) |
-| `auto_approve` | — | Skip confirmation before posting. **Default `false`** |
+| any option from `config options` | — | Section default, or per project inside `projects[]` |
 | `projects[].match` | ✅ | GitHub `owner/repo`, or the repo's **absolute path** (when not on GitHub) |
 
-Resolution order: matching `projects[]` entry → section default → first-run decision. `ui_design_cli.py config show|set`
-resolves and saves it — it reads the whole file and changes only that key.
+Resolution order: matching `projects[]` entry → section default → the old `design_brief` section (read only) → the table's default. `destination` and `designer` have no default and are asked on first use.
+`config show` reports each value's source, invalid stored values (`invalid`, falls back) and unknown keys (`ignored`, kept in the file). `config set` reads the whole file, changes only that key, and writes only to `ui-design`.
 
 ---
 

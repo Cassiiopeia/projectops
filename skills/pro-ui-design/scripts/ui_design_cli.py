@@ -6,7 +6,7 @@
 기계적으로 검사할 수 있는 것만 검사한다.
 
 서브커맨드:
-    config show|set   design_brief 설정 해석(일치 항목 · 출처) / 저장
+    config show|set|options   설정 해석(일치 항목 · 출처) / 저장 / 옵션 표
     get-output-path   이번 요청서의 산출물 자리
     board             데이터 JSON → 보드 HTML (+ --png 면 주제별 PNG)
     copy-lint         문구 후보의 기계적 검사 (em dash · 가운뎃점 · 금지어 · 번역투)
@@ -57,8 +57,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="ui_design_cli", description="Assemble a design request (brief) for a designer")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p = sub.add_parser("config", help="Resolve / save the design_brief settings")
-    p.add_argument("action", choices=["show", "set"])
+    p = sub.add_parser("config", help="Resolve / save the settings, or list every option")
+    p.add_argument("action", choices=["show", "set", "options"])
     p.add_argument("--root", default=".")
     p.add_argument("--scope", choices=["project", "default"], default="project",
                    help="set: this repo only (project) or the default for all repos (default)")
@@ -66,6 +66,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--designer", default=None, help="set: the designer's GitHub ID or name")
     p.add_argument("--auto-approve", choices=["true", "false"], default=None,
                    help="set: whether to skip the confirmation before posting")
+    p.add_argument("--key", default=None, help="set: any option name (config options lists them)")
+    p.add_argument("--value", default=None, help="set: value for --key (lists are comma-separated)")
     p.set_defaults(func=cmd_config)
 
     p = sub.add_parser("get-output-path", help="Output location for this request")

@@ -73,6 +73,15 @@
       }
     ]
   },
+  "ui-design": {
+    "destination": "issue",
+    "auto_approve": false,
+    "devices": ["phone", "tablet", "desktop"],
+    "themes": ["light", "dark"],
+    "projects": [
+      { "match": "{owner/repo or absolute path}", "designer": "{designer GitHub ID}", "devices": ["phone"] }
+    ]
+  },
   "launch": {
     "login_policy": {
       "trust_device": "always",
