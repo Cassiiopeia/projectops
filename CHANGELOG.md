@@ -1,7 +1,17 @@
 # Changelog
 
-**Current version:** 4.88.0  
-**Last updated:** 2026-11-07T11:43:12Z  
+**Current version:** 4.89.0  
+**Last updated:** 2026-11-07T11:51:57Z  
+
+---
+
+## [4.89.0] - 2026-11-07
+
+**PR:** #1083  
+
+**New features**
+- Issues and completion comments now include images, captures, E2E results and logs without being asked
+- New `pro-launch` commands `mask` and `redact` hide sensitive content before posting
 
 ---
 

@@ -1,14 +1,34 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-07T11:43:12Z",
-    "currentVersion": "4.88.0",
+    "lastUpdated": "2026-11-07T11:51:57Z",
+    "currentVersion": "4.89.0",
     "projectType": "basic",
-    "totalReleases": 371,
+    "totalReleases": 372,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.89.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-07",
+      "pr_number": 1083,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * Issues and completion comments now include images, captures, E2E results and logs without being asked\n  * New `pro-launch` commands `mask` and `redact` hide sensitive content before posting",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "Issues and completion comments now include images, captures, E2E results and logs without being asked",
+            "New `pro-launch` commands `mask` and `redact` hide sensitive content before posting"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.88.0",
       "project_type": "basic",
