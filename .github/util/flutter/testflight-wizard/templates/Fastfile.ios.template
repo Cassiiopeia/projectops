@@ -54,6 +54,24 @@ def resolve_review_notes(path)
 end
 # <<< store-text
 
+# 심사 대기·심사 중인 버전 > 그 버전 문자열. 조회 실패도 잠긴 것으로 본다 (모르면 건드리지 않음)
+# deliver 는 버전 표기와 메타데이터를 먼저 바꾼 뒤 빌드 선택에서 실패하므로 그 전에 막는다
+def find_version_locked_by_review(app_id)
+  review_locked_states = ["WAITING_FOR_REVIEW", "IN_REVIEW"]
+  app = Spaceship::ConnectAPI::App.find(app_id)
+  return nil if app.nil?
+  versions = app.get_app_store_versions(filter: { platform: "IOS" })
+  # 신형(appVersionState), 구형(appStoreState) 상태 필드 둘 다 확인
+  locked = versions.find do |version|
+    states = [:app_version_state, :app_store_state].filter_map { |field| version.respond_to?(field) ? version.public_send(field) : nil }
+    states.any? { |state| review_locked_states.include?(state) }
+  end
+  locked&.version_string
+rescue StandardError => e
+  UI.important("Could not read the App Store review state (#{e.class})")
+  "unknown"
+end
+
 platform :ios do
   desc "TestFlight 업로드 (+ DEPLOY_MODE=store_submit이면 App Store 심사 자동 제출)"
   lane :deploy do
@@ -86,8 +104,12 @@ platform :ios do
     )
     puts "✅ TESTFLIGHT 업로드 완료!"
 
+    locked_version = prepare_appstore ? find_version_locked_by_review(app_id) : nil
+
     # 2) App Store 버전 준비 (+ store_submit이면 심사 자동 제출)
-    if prepare_appstore
+    if locked_version
+      UI.important("Skipped the App Store step: version #{locked_version} is waiting for or in review. TestFlight upload is done. Deploy again after review.")
+    elsif prepare_appstore
       app_ver = ENV["APP_VERSION"]
       # '새로운 기능' 문구: 덮어쓰기 값이 있으면 그것, 없으면 CHANGELOG(RELEASE_NOTES).
       # 왜 덮어쓰나는 워크플로 env 주석 참고. TestFlight What to Test 는 위 pilot 이 항상 CHANGELOG 를 쓴다.
