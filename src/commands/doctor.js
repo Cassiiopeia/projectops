@@ -26,12 +26,15 @@ import { t } from "../i18n/index.js";
 // 언어 전환(withLang 등) 시점에 평가되도록 함수로 둔다
 const permPurpose = () => t("doctor.perm.purpose");
 
+const GITHUB_CHECK_TIMEOUT_MILLISECONDS = 5000;
+
 // GitHub REST 호출. 실패는 예외가 아니라 {ok:false}로 돌려 진단이 중단되지 않게 한다.
 async function gh(path, token) {
   try {
     const res = await fetch(`https://api.github.com${path}`, {
       headers: { Authorization: `token ${token}`, Accept: "application/vnd.github+json",
                  "User-Agent": "projectops-doctor" },
+      signal: AbortSignal.timeout(GITHUB_CHECK_TIMEOUT_MILLISECONDS),   // 막힌 네트워크에서 진단이 멈추지 않게
     });
     if (!res.ok) return { ok: false, status: res.status };
     return { ok: true, data: await res.json() };
