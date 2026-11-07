@@ -14,6 +14,7 @@ from common.emit import emit
 from common.preferences import detect_repo, resolve as resolve_preferences
 
 from pro_ui_design.config import resolve_config
+from pro_ui_design.tokens import read_project_profile
 from pro_ui_design.session import (EVENTS_FILE_NAME, SERVER_INFO_FILE_NAME, SERVER_LOG_FILE_NAME, Session,
                                    create_or_reuse_session, find_current_session, resolve_run_dir, save_session)
 
@@ -25,6 +26,8 @@ SKILL_FOLDER_NAME = "pro-ui-design"
 LOG_TAIL_CHARACTERS = 500
 NEXT_AFTER_START = ("Write mockup HTML into screens_dir as a new file, run check, then give the user the full url. "
                     "If the user cannot open localhost, use capture and show the image instead.")
+NEXT_WITHOUT_PROFILE = "First run tokens to find this project's design files. "
+NEXT_WITH_CHANGED_PROFILE = "Design files changed since the notes were saved: reread them, then run tokens --save. "
 
 
 def _request_server(session: Session, method: str, path: str) -> dict | None:
@@ -125,9 +128,19 @@ def cmd_start(args) -> int:
     port_changed = bool(previous_port) and previous_port != session.port
     if args.open:
         webbrowser.open(session.url)
+    profile = read_project_profile(root)
     return emit({**_describe_session(session), **location, "reused": reused, "port_changed": port_changed,
+                 "project_profile": profile,
                  "summary": f"Mockup server on port {session.port}" + (" (reused)" if reused else ""),
-                 "next": NEXT_AFTER_START})
+                 "next": _build_next_after_start(profile)})
+
+
+def _build_next_after_start(profile: dict) -> str:
+    if not profile["exists"]:
+        return NEXT_WITHOUT_PROFILE + NEXT_AFTER_START
+    if profile["changed_files"]:
+        return NEXT_WITH_CHANGED_PROFILE + NEXT_AFTER_START
+    return f"Read the project notes at {profile['readme']}. " + NEXT_AFTER_START
 
 
 def cmd_status(args) -> int:

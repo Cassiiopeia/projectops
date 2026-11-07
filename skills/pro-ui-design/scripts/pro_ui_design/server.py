@@ -194,6 +194,8 @@ class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
         if route == "/api/state":
             return self._respond_json(self.state.read_state())
         self.state.touch()
+        if route == "/favicon.ico":   # 브라우저 자동 요청: 콘솔 404 방지
+            return self._respond(204)
         if route == "/":
             return self._respond(200, render_shell_html(self.state).encode("utf-8"), CONTENT_TYPES[".html"])
         if route.startswith("/assets/"):

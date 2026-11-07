@@ -33,12 +33,14 @@ from common.emit import emit  # noqa: E402
 
 from pro_ui_design.ascii_wire import cmd_ascii  # noqa: E402
 from pro_ui_design.board import cmd_board  # noqa: E402
+from pro_ui_design.check import cmd_check  # noqa: E402
 from pro_ui_design.config import cmd_config  # noqa: E402
 from pro_ui_design.copy_lint import cmd_copy_lint  # noqa: E402
 from pro_ui_design.image_links import cmd_rewrite_images  # noqa: E402
 from pro_ui_design.output_path import cmd_output_path  # noqa: E402
 from pro_ui_design.session_commands import cmd_choices, cmd_start, cmd_status, cmd_stop  # noqa: E402
 from pro_ui_design.settings import DESTINATIONS  # noqa: E402
+from pro_ui_design.tokens import cmd_tokens  # noqa: E402
 
 # 테스트가 ui_design_cli.<이름> 으로 직접 쓰는 함수·값 재노출
 from pro_ui_design.ascii_wire import _fit, text_width  # noqa: E402,F401
@@ -91,6 +93,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--screen", default=None, help="Only this mockup file")
     p.add_argument("--root", default=".")
     p.set_defaults(func=cmd_choices)
+
+    p = sub.add_parser("tokens", help="Find this project's design files; --save keeps them in the project notes")
+    p.add_argument("--save", action="store_true", help="Save file hashes and create the notes if missing")
+    p.add_argument("--root", default=".")
+    p.set_defaults(func=cmd_tokens)
+
+    p = sub.add_parser("check", help="Flag colors outside tokens.css, unloaded fonts, external URLs, broken paths")
+    p.add_argument("--screen", default=None, help="Only this mockup file")
+    p.add_argument("--root", default=".")
+    p.set_defaults(func=cmd_check)
 
     p = sub.add_parser("get-output-path", help="Output location for this request")
     p.add_argument("--title", default=None)
