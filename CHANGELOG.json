@@ -1,14 +1,43 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-07T12:31:51Z",
-    "currentVersion": "4.89.3",
+    "lastUpdated": "2026-11-07T12:57:31Z",
+    "currentVersion": "4.90.0",
     "projectType": "basic",
-    "totalReleases": 375,
+    "totalReleases": 376,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.90.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-07",
+      "pr_number": 1088,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * `device show --device` shows one device with its owner\n  * Updates list the settings moved from retired workflows\n\n* **Bug fixes**\n  * iOS store submit no longer changes a version that is waiting for review\n  * `deploy-status` says when a release PR will not merge by itself\n  * `web click` no longer reports failure after a click that navigated, and says when nothing visibly changed\n  * The certificate error hint now points to `--ignore-cert-errors`",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "`device show --device` shows one device with its owner",
+            "Updates list the settings moved from retired workflows"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "iOS store submit no longer changes a version that is waiting for review",
+            "`deploy-status` says when a release PR will not merge by itself",
+            "`web click` no longer reports failure after a click that navigated, and says when nothing visibly changed",
+            "The certificate error hint now points to `--ignore-cert-errors`"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.89.3",
       "project_type": "basic",

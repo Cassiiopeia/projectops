@@ -1,7 +1,23 @@
 # Changelog
 
-**Current version:** 4.89.3  
-**Last updated:** 2026-11-07T12:31:51Z  
+**Current version:** 4.90.0  
+**Last updated:** 2026-11-07T12:57:31Z  
+
+---
+
+## [4.90.0] - 2026-11-07
+
+**PR:** #1088  
+
+**New features**
+- `device show --device` shows one device with its owner
+- Updates list the settings moved from retired workflows
+
+**Bug fixes**
+- iOS store submit no longer changes a version that is waiting for review
+- `deploy-status` says when a release PR will not merge by itself
+- `web click` no longer reports failure after a click that navigated, and says when nothing visibly changed
+- The certificate error hint now points to `--ignore-cert-errors`
 
 ---
 
