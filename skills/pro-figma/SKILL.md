@@ -24,7 +24,7 @@ Translating and counting are one skill (omissions happen while translating; comp
 
 Use it when: building a screen from a design (start by counting) · right after building, before release · pinning down what "this looks different" means ·
 reusing existing assets or components. **Do not use it for**: driving the app to find behavior bugs (`pro-agent-test`; the accessibility tree has no
-shadows, colors or font weights), or screens with no design (nothing to compare against; to request the missing states, use `pro-ui-design`).
+shadows, colors or font weights), or screens with no design (nothing to compare against; to explore options or request the missing states, use `pro-ui-design`). If `ui_design_cli.py decision` has a decision for this screen, read what was chosen and why before comparing.
 
 The **absolute rules** in `../references/common-rules.md` apply. Arguments: $ARGUMENTS
 

@@ -813,7 +813,7 @@ claude plugin install projectops@projectops-marketplace --scope user
 | `figma` | **시안 → 코드 → 대조** 한 묶음. 덤프 항목을 세어 작업 목록으로 삼고, 옮긴 뒤 픽셀로 맞댄다 (#619에서 옮기기·대조를 `figma-verify`로 합쳤고, #854에서 이름을 `figma`로 되돌렸다) |
 | `launch` | **능력 스킬** — 앱·웹·서버를 띄우고 조작하고 찍는다. 다른 스킬이 `launch_cli.py` 를 스크립트로 부른다 (#629) |
 | `desktop-control` | **이 컴퓨터 화면의 프로그램 조작** (웹 페이지·에뮬레이터가 아닌 설치 마법사·OS 대화상자·데스크톱 앱). 요소를 읽고, 마우스를 움직이지 않고 누르고, 설치 전에는 묻고, 보안 확인 창은 사용자에게 넘긴다. `launch`의 `desktop` 명령 묶음 위에 얹은 절차 스킬이라 자체 CLI가 없다. 지금은 Windows만 (macOS는 #985) |
-| `ui-design` | **시안보다 먼저 만든 화면의 디자인 요청서** — 상태별 캡처 · 대안 · 문구 · 꼭 지킬 것을 보드로 조립해 이슈·HTML·md 로 넘긴다 (#634) |
+| `ui-design` | **시안을 로컬 주소에 띄워 비교하고 고른다** (#1080) — 레포 토큰·글꼴 반영, 애니메이션 비교, 여러 화면 연결 프로토타입, PNG·GIF 이슈 공유, 안 되면 디자이너 요청서(#634). 판단과 시안 제작은 에이전트, `ui_design_cli.py`는 서버·사실 수집·캡처만. 설정 `ui-design` 섹션 + 옵션 표(`pro_ui_design/options.py`), 프로젝트 지식은 레포 범위 하네스 `ui-design`, 스킬 연결은 `decision.json` |
 | `oss-consult` | **오픈소스 컨설팅** — 레포 성격을 판별하고 6축(첫인상·가치 증명·커뮤니티·코드 확장성·법적 안전·장기 운영)으로 깐깐하게 채점, 성숙도 단계와 선행 조건을 짚고 승인받은 것을 고친다. 단일 레포·전체 일괄 (#644) |
 
 ---
@@ -956,7 +956,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | agent-test | `skills/pro-agent-test/scripts/e2e_cli.py` | detect, scenario, note, api, other (실행·캡처 명령은 pro-launch 로 넘겨준다 — #631) |
 | launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, desktop (PC 화면의 창, #985), render, http, access, db, logs, cred, ssh, local (이 맥 sudo, #784), shrink, recall, learn, forget, kb (공식 트러블슈팅 search·show·list·propose, #889), journal, harness (사이트·작업별 안내서 폴더 list·show·match·new — 맞는 주소·호스트·앱 식별자·창 이름 응답에 자동 표시, #1023·#1024), get-output-path |
 | desktop-control | (자체 CLI 없음) `skills/pro-launch/scripts/launch_cli.py` | `desktop` 그룹을 그대로 쓴다: doctor, setup, session, windows, tree, find, click, type, press, focus, wait, shot |
-| ui-design | `skills/pro-ui-design/scripts/ui_design_cli.py` | config, get-output-path, board, copy-lint, ascii, rewrite-images (업로드 결과로 본문 이미지 경로 치환 — #974) |
+| ui-design | `skills/pro-ui-design/scripts/ui_design_cli.py` | start, status, stop, choices, tokens, check, capture, decide, decision (#1080), config (show·set·options), get-output-path, board, copy-lint, ascii, rewrite-images (업로드 결과로 본문 이미지 경로 치환 — #974) |
 | oss-consult | `skills/pro-oss-consult/scripts/oss_cli.py` | collect, local-facts, list-repos, get-output-path (**사실만 모은다 — 판단은 에이전트**, #644), repo-update, label (레포를 바꾸는 유일한 경로 — `--dry-run`·`before` 기록, **삭제·가시성 변경은 구현하지 않는다**, #660) |
 
 공유 도메인 로직은 `scripts/common/`에 있다 (gh_client, config, paths, title, issue_number, gh_branch, manifest, emit, bootstrap).
@@ -1042,7 +1042,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | 원격 서버 SSH 접속, 로그/상태 확인 | `pro-ssh` |
 | **실제로 테스트해줘, 에뮬레이터·시뮬레이터·브라우저로 확인, E2E, 끝까지 밟아줘** | `pro-agent-test` |
 | **에뮬레이터 띄워서 찍어줘, 시뮬레이터 스크린샷, 브라우저로 캡처, 모바일 폭으로·빈 목록·500 화면 찍어줘** | `pro-launch` |
-| **디자인 요청해줘, 시안 요청 올려줘, 디자이너한테 보낼 거 만들어줘, 빈 화면·에러 화면도 그려 달라고 해줘** | `pro-ui-design` |
+| **시안 몇 개 보여줘, 애니메이션 시안 비교, 이 흐름 눌러 보게 해줘, 시안 이슈에 올려줘, 디자인 요청해줘, 디자이너한테 보낼 거 만들어줘, 빈 화면·에러 화면도 그려 달라고 해줘** | `pro-ui-design` |
 | **오픈소스 점검, 레포 컨설팅, trending 가려면, 오픈소스답게 만들어줘, 내 레포 전부 점검, README·라벨·라이선스 괜찮아?** | `pro-oss-consult` |
 | **figma 디자인 구현, 시안대로 만들어줘, 시안이랑 같은지 확인, 디자인대로 됐는지, 그림자 빠진 거 없나** | `pro-figma` |
 | **설계·기획 (무엇을 왜)** | **`superpowers:brainstorming`** |

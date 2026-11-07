@@ -58,6 +58,9 @@ def preflight(data: dict) -> list[str]:
     def need_source(where: str, item: dict, key: str = "image"):
         if item.get(key) and not item.get("source"):
             warns.append(f"{where}: capture source missing; set source to one of render, device, server, design")
+        # HTML 시안은 대안에서만 허용: "지금 앱이 이렇다"의 근거가 될 수 없음
+        if item.get(key) and item.get("source") == "mockup":
+            warns.append(f"{where}: a mockup is not the real screen; use it only in alternatives")
 
     for i, c in enumerate(data.get("current") or []):
         need_source(f"Current implementation[{i}] {c.get('label', '')}", c)
@@ -75,7 +78,7 @@ def preflight(data: dict) -> list[str]:
     for f in data.get("facts") or []:
         basis = f.get("basis")
         if basis not in FACT_BASIS:
-            why = "a render (fake data) is not evidence" if basis == "render" else "no evidence"
+            why = "a render or mockup (fake data) is not evidence" if basis in ("render", "mockup") else "no evidence"
             warns.append(f"Fact '{f.get('claim', '')}': {why}; confirm it on a real device, the production API or in code")
         elif not f.get("ref"):
             warns.append(f"Fact '{f.get('claim', '')}': evidence location (ref) missing; give a capture file, API path or code line")

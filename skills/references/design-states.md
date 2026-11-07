@@ -7,7 +7,7 @@ the same job (#630).
 | Skill | What it does with this rule |
 |---|---|
 | `pro-figma` | Counts whether **every** state drawn in the design was implemented |
-| `pro-ui-design` | Asks the designer for states that exist in the code but are **missing from the design** |
+| `pro-ui-design` | Shows mockups before a design exists, and asks the designer for states that exist in the code but are **missing from the design** |
 
 How to read Figma itself: `figma-mcp.md`.
 

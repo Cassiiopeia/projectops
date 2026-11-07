@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """ui_design_cli — pro-ui-design 전용 CLI (projectops 3-layer 표준, Layer 2, #634).
 
-디자이너에게 넘길 요청서(보드)를 조립한다. **판단은 agent, 스크립트는 실행과 기록만** 한다 —
-상태 목록·대안·문구 후보를 고르는 것은 agent 이고, 여기서는 설정을 풀고 보드를 조립하고
+시안을 로컬에 띄워 고르고, 안 되면 디자이너에게 넘긴다. **판단은 agent, 스크립트는 실행과 기록만** 한다 —
+시안 내용 · 상태 목록 · 대안 · 문구 후보를 만드는 것은 agent 이고, 여기서는 서버를 띄우고 사실을 모으고
 기계적으로 검사할 수 있는 것만 검사한다.
 
 서브커맨드:
-    config show|set|options   설정 해석(일치 항목 · 출처) / 저장 / 옵션 표
-    get-output-path   이번 요청서의 산출물 자리
-    board             데이터 JSON → 보드 HTML (+ --png 면 주제별 PNG)
-    copy-lint         문구 후보의 기계적 검사 (em dash · 가운뎃점 · 금지어 · 번역투)
-    ascii             박스 문자 와이어 (한글 폭 보정)
-    rewrite-images    업로드 결과로 md 의 로컬 그림 경로 > URL (이슈 본문용)
+    start · status · stop · choices   로컬 시안 세션과 서버, 클릭 기록
+    tokens · check                    디자인 후보 파일 찾기, 시안 검사
+    capture                           시안 > PNG, 단계 실행 > GIF
+    decide · decision                 결정 기록 저장과 조회
+    config show|set|options           설정 해석(일치 항목 · 출처) / 저장 / 옵션 표
+    get-output-path                   이번 요청서의 산출물 자리
+    board                             데이터 JSON > 보드 HTML (+ --png 면 주제별 PNG)
+    copy-lint                         문구 후보의 기계적 검사 (em dash · 가운뎃점 · 금지어 · 번역투)
+    ascii                             박스 문자 와이어 (한글 폭 보정)
+    rewrite-images                    업로드 결과로 md 의 로컬 그림 경로 > URL (이슈 본문용)
 
 출력: MCP-style JSON (ok/code/summary/next 4필드 보장).
 """
@@ -37,6 +41,7 @@ from pro_ui_design.capture import cmd_capture  # noqa: E402
 from pro_ui_design.check import cmd_check  # noqa: E402
 from pro_ui_design.config import cmd_config  # noqa: E402
 from pro_ui_design.copy_lint import cmd_copy_lint  # noqa: E402
+from pro_ui_design.decision import cmd_decide, cmd_decision  # noqa: E402
 from pro_ui_design.image_links import cmd_rewrite_images  # noqa: E402
 from pro_ui_design.output_path import cmd_output_path  # noqa: E402
 from pro_ui_design.session_commands import cmd_choices, cmd_start, cmd_status, cmd_stop  # noqa: E402
@@ -58,7 +63,7 @@ from pro_ui_design.settings import MAX_PNG_WIDTH  # noqa: E402,F401
 # =========================================================================
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="ui_design_cli", description="Assemble a design request (brief) for a designer")
+    parser = argparse.ArgumentParser(prog="ui_design_cli", description="See and pick UI mockups locally; assemble a design request for a designer")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("config", help="Resolve / save the settings, or list every option")
@@ -119,6 +124,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", default=None, help="Output folder (default: {run_dir}/captures)")
     p.add_argument("--root", default=".")
     p.set_defaults(func=cmd_capture)
+
+    p = sub.add_parser("decide", help="Record the chosen option and why, for the skills that come next")
+    p.add_argument("--choice", required=True, help="The chosen option's id")
+    p.add_argument("--reason", required=True, help="Why, in one line")
+    p.add_argument("--screen", default=None, help="Mockup file (default: where it was clicked, or the newest)")
+    p.add_argument("--issue", type=int, default=None, help="Related issue number")
+    p.add_argument("--comment-url", default=None, help="Issue comment that shows it, if posted")
+    p.add_argument("--root", default=".")
+    p.set_defaults(func=cmd_decide)
+
+    p = sub.add_parser("decision", help="Read the latest recorded decision (empty is fine)")
+    p.add_argument("--root", default=".")
+    p.set_defaults(func=cmd_decision)
 
     p = sub.add_parser("get-output-path", help="Output location for this request")
     p.add_argument("--title", default=None)

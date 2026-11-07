@@ -26,6 +26,7 @@ TOPICS = [
 # 렌더만 보고 쓴 주장 7건이 실기기와 달랐다(모달 가림막 · 오프라인 경로 · 자동 재시도 · 기기 폭 · 픽스처 값).
 SOURCE_TAG = {
     "render": ("Render · fake data", "src-render"),
+    "mockup": ("HTML mockup · not real", "src-render"),
     "device": ("Real device", "src-device"),
     "server": ("Production server", "src-server"),
     "design": ("Design", "src-design"),

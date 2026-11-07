@@ -237,16 +237,17 @@ It drives **programs on this computer's screen** that are neither web pages nor 
 ### `/pro-ui-design`
 
 **What does it do?**
-It builds a **request document** to hand to a designer for a screen you built before the design exists. It captures the real screen by state (empty list, failure, long text, font size, small phone), assembles layout alternatives, copy candidates, and must-keep items (brand specs, agreed exceptions) into a board, and hands it off in whichever format fits the repo: an issue, a single HTML page, or an md folder. It gives material to think with, not the answer.
+It shows UI mockups on a local URL so you can compare and pick. Mockups use your repo's real tokens and fonts, can be real code renders, and can really move: compare animations with slow motion, or press through a linked prototype where an action on one screen changes another. Then it builds the pick, posts a PNG or GIF to the issue, or hands it to a designer as a design request with per-state captures and copy candidates.
 
-**Modifies**: nothing
-**Returns**: a per-state capture board + a design request issue (or HTML/md)
+**Modifies**: nothing in Git (mockups live in an ignored folder)
+**Returns**: a local URL, your decision on record, and optionally an issue comment or a design request (issue, HTML or md)
 
 **When to use it**
+- "Show me a few mockups", "compare these animations", "let me press through this flow"
+- "Post the mockup to the issue"
 - "Request a design", "ask them to draw the empty and error screens too"
-- When requesting a design for a screen you built without one
 
-> Moving a design into code and comparing it is `/pro-figma`.
+> Moving an existing Figma design into code and comparing it is `/pro-figma`.
 
 ---
 
