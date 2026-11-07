@@ -10,12 +10,13 @@ from pro_launch.runtime.output import out
 
 
 def cmd_shrink(args) -> int:
-    return out(shrink([Path(p) for p in args.paths], max_side=args.max_side,
+    return out(shrink([Path(args.root) / p if args.root and not Path(p).is_absolute() else Path(p) for p in args.paths], max_side=args.max_side,
                       quality=args.quality, keep_format=args.keep_format))
 
 
 def configure_shrink(p) -> None:
     p.add_argument("paths", nargs="+")
+    p.add_argument("--root", default=None, help="Project root for relative paths")
     p.add_argument("--max-side", type=int, default=SHOT_MAX_SIDE,
                    help=f"Longest side cap (default {SHOT_MAX_SIDE}) — same as captures")
     p.add_argument("--quality", type=int, default=WEBP_QUALITY,

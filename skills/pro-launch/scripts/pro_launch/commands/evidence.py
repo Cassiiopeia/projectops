@@ -16,6 +16,12 @@ NEXT_AFTER_REDACT = ("This catches known formats only: read the result yourself 
                      "private details before quoting it")
 
 
+def _resolve_input(raw: str, root: str | None) -> Path:
+    """상대 경로는 --root 기준 (셸 폴더가 바뀐 뒤에도 같은 파일)"""
+    path = Path(raw).expanduser()
+    return Path(root).expanduser() / path if root and not path.is_absolute() else path
+
+
 def _derive_output_path(source: Path, tag: str) -> Path:
     return source.with_name(f"{source.stem}.{tag}{source.suffix}")
 
@@ -34,7 +40,7 @@ def _parse_rects(raw_rects: list[str]) -> list[list[int]] | None:
 
 
 def cmd_mask(args) -> int:
-    source = Path(args.image).expanduser()
+    source = _resolve_input(args.image, args.root)
     if not source.is_file():
         return out({"ok": False, "code": "file_not_found", "error": f"No such file: {source}"})
     rects = _parse_rects(args.rect)
@@ -53,7 +59,7 @@ def cmd_mask(args) -> int:
 
 
 def cmd_redact(args) -> int:
-    source = Path(args.path).expanduser()
+    source = _resolve_input(args.path, args.root)
     if not source.is_file():
         return out({"ok": False, "code": "file_not_found", "error": f"No such file: {source}"})
     text, counts = redact_text(source.read_bytes().decode("utf-8", errors="replace"))
@@ -67,11 +73,13 @@ def configure_mask(p) -> None:
     p.add_argument("image")
     p.add_argument("--rect", action="append", required=True, help="x,y,width,height in image pixels (repeatable)")
     p.add_argument("--out", default=None, help="Output file (default: <name>.masked<ext>)")
+    p.add_argument("--root", default=None, help="Project root for relative paths")
 
 
 def configure_redact(p) -> None:
     p.add_argument("path")
     p.add_argument("--out", default=None, help="Output file (default: <name>.redacted<ext>)")
+    p.add_argument("--root", default=None, help="Project root for relative paths")
 
 
 COMMANDS = [
