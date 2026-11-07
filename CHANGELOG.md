@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.89.1  
-**Last updated:** 2026-11-07T12:17:20Z  
+**Current version:** 4.89.2  
+**Last updated:** 2026-11-07T12:25:37Z  
+
+---
+
+## [4.89.2] - 2026-11-07
+
+**PR:** #1085  
+
+**Bug fixes**
+- `/pro-ui-design` no longer fails with `bad_args` on machines that already had projectops installed
 
 ---
 

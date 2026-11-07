@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-07T12:17:20Z",
-    "currentVersion": "4.89.1",
+    "lastUpdated": "2026-11-07T12:25:37Z",
+    "currentVersion": "4.89.2",
     "projectType": "basic",
-    "totalReleases": 373,
+    "totalReleases": 374,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.89.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-07",
+      "pr_number": 1085,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * `/pro-ui-design` no longer fails with `bad_args` on machines that already had projectops installed",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "`/pro-ui-design` no longer fails with `bad_args` on machines that already had projectops installed"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.89.1",
       "project_type": "basic",
