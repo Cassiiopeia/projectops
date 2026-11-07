@@ -1,14 +1,50 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-04T17:12:54Z",
-    "currentVersion": "4.87.0",
+    "lastUpdated": "2026-11-07T11:43:12Z",
+    "currentVersion": "4.88.0",
     "projectType": "basic",
-    "totalReleases": 370,
+    "totalReleases": 371,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.88.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-07",
+      "pr_number": 1081,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * `/pro-ui-design` shows UI mockups on a local URL to compare, press and pick\n  * Compare animations with replay and slow motion\n  * Press through linked prototypes where one screen updates another\n  * Mockups use your repo's real tokens and fonts\n  * Post mockups to an issue as PNG or GIF\n  * Your choice carries into later skills, and each project remembers its design notes\n\n* **Bug fixes**\n  * Design request board images now work with an installed Chrome\n\n* **Improvements**\n  * `/pro-ui-design` replaces `/pro-design-brief`; saved settings carry over",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "`/pro-ui-design` shows UI mockups on a local URL to compare, press and pick",
+            "Compare animations with replay and slow motion",
+            "Press through linked prototypes where one screen updates another",
+            "Mockups use your repo's real tokens and fonts",
+            "Post mockups to an issue as PNG or GIF",
+            "Your choice carries into later skills, and each project remembers its design notes"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Design request board images now work with an installed Chrome"
+          ]
+        },
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "`/pro-ui-design` replaces `/pro-design-brief`; saved settings carry over"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.87.0",
       "project_type": "basic",

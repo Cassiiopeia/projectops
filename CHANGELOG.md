@@ -1,7 +1,27 @@
 # Changelog
 
-**Current version:** 4.87.0  
-**Last updated:** 2026-11-04T17:12:54Z  
+**Current version:** 4.88.0  
+**Last updated:** 2026-11-07T11:43:12Z  
+
+---
+
+## [4.88.0] - 2026-11-07
+
+**PR:** #1081  
+
+**New features**
+- `/pro-ui-design` shows UI mockups on a local URL to compare, press and pick
+- Compare animations with replay and slow motion
+- Press through linked prototypes where one screen updates another
+- Mockups use your repo's real tokens and fonts
+- Post mockups to an issue as PNG or GIF
+- Your choice carries into later skills, and each project remembers its design notes
+
+**Bug fixes**
+- Design request board images now work with an installed Chrome
+
+**Improvements**
+- `/pro-ui-design` replaces `/pro-design-brief`; saved settings carry over
 
 ---
 
