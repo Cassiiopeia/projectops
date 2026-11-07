@@ -1,0 +1,48 @@
+/* pro-ui-design 시안 공통 스타일. tokens.css 가 뒤에 로드되어 --ui-* 값을 덮는다. */
+:root {
+  --ui-bg: #f4f4f6; --ui-surface: #ffffff; --ui-surface-2: #eeeef2; --ui-ink: #20222c; --ui-sub: #6d7080;
+  --ui-line: #e2e2e8; --ui-accent: #4f6bff; --ui-on-accent: #ffffff; --ui-radius: 14px; --ui-gap: 16px;
+  --ui-font: -apple-system, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --ui-device-frame: #000000;
+}
+html[data-theme="dark"] {
+  --ui-bg: #14151a; --ui-surface: #1d1f26; --ui-surface-2: #2a2d36; --ui-ink: #f0f1f5; --ui-sub: #a0a3b1;
+  --ui-line: #2f323c; --ui-accent: #8297ff; --ui-on-accent: #10121a;
+}
+* { box-sizing: border-box; }
+.ui-design-frame body { margin: 0; padding: 20px; background: var(--ui-bg); color: var(--ui-ink); font-family: var(--ui-font); }
+.ui-design-frame h2 { font-size: 20px; margin: 0 0 4px; }
+.ui-design-frame .subtitle { color: var(--ui-sub); font-size: 14px; margin: 0 0 16px; line-height: 1.5; }
+button { font: inherit; color: inherit; cursor: pointer; }
+
+/* 안 비교: .ui-options > .ui-option */
+.ui-options { display: flex; flex-wrap: wrap; gap: var(--ui-gap); align-items: flex-start; }
+.ui-option { background: var(--ui-surface); border: 2px solid var(--ui-line); border-radius: var(--ui-radius); padding: 14px; width: fit-content; max-width: 100%; }
+.ui-option.ui-picked { border-color: var(--ui-accent); }
+.ui-option h3 { margin: 0 0 3px; font-size: 15px; }
+.ui-option .note { font-size: 12px; color: var(--ui-sub); margin: 0 0 10px; line-height: 1.5; max-width: 300px; }
+.ui-option-actions { display: flex; gap: 8px; margin-top: 10px; }
+.ui-option-actions button { flex: 1; border: 1px solid var(--ui-line); background: none; border-radius: 10px; padding: 9px; font-size: 13px; }
+.ui-option-actions [data-choice] { font-weight: 700; }
+
+/* 기기 틀: 뷰어 전환을 따르거나 data-device 로 고정 */
+.ui-device { --ui-device-width: 300px; --ui-device-height: 600px; --ui-device-radius: 36px;
+  width: var(--ui-device-width); height: var(--ui-device-height); max-width: 100%; padding: 8px; margin: 0 auto;
+  background: var(--ui-device-frame); border-radius: var(--ui-device-radius); }
+html[data-device="tablet"] .ui-device:not([data-device]), .ui-device[data-device="tablet"] { --ui-device-width: 460px; --ui-device-height: 620px; --ui-device-radius: 24px; }
+html[data-device="desktop"] .ui-device:not([data-device]), .ui-device[data-device="desktop"] { --ui-device-width: 760px; --ui-device-height: 520px; --ui-device-radius: 12px; }
+.ui-device-screen { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--ui-bg); color: var(--ui-ink);
+  border-radius: calc(var(--ui-device-radius) - 8px); }
+
+/* 연결 프로토타입: 여러 화면 + 옆 안내 */
+.ui-screens { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; align-items: flex-start; }
+.ui-screen-label { text-align: center; font-size: 13px; font-weight: 700; color: var(--ui-sub); margin-bottom: 8px; }
+.ui-steps { background: var(--ui-surface); border-radius: var(--ui-radius); padding: 14px 16px; width: 280px; max-width: 100%; font-size: 13px; line-height: 1.6; }
+.ui-steps h4 { margin: 0 0 6px; font-size: 13px; }
+.ui-steps ol { margin: 0; padding-left: 18px; }
+.ui-steps li.ui-step-done { color: var(--ui-sub); text-decoration: line-through; }
+
+.ui-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); max-width: 80vw; padding: 9px 14px; border-radius: 10px;
+  background: var(--ui-ink); color: var(--ui-bg); font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 1000; }
+.ui-toast.ui-on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .ui-toast { transition: none; } }

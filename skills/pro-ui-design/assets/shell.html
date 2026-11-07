@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<!-- pro-ui-design 뷰어 셸: 시안 목록, 기기, 테마, 속도. 시안은 iframe 안에서 돈다 (캡처는 시안 주소를 직접 연다). -->
+<html lang="en" id="ui-design-shell">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockups</title>
+<style>
+  :root{--bg:#f4f4f6;--panel:#fff;--line:#e2e2e8;--ink:#20222c;--sub:#6d7080;--accent:#4f6bff}
+  html.dark{--bg:#14151a;--panel:#1d1f26;--line:#2f323c;--ink:#f0f1f5;--sub:#a0a3b1;--accent:#8297ff}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{display:flex;background:var(--bg);color:var(--ink);font:14px -apple-system,'Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif}
+  button{font:inherit;color:inherit;cursor:pointer}
+  aside{width:220px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:16px 10px;overflow:auto}
+  aside h1{font-size:14px;margin:0 8px 2px;overflow-wrap:anywhere}
+  aside p{font-size:12px;color:var(--sub);margin:0 8px 14px}
+  .screen-link{display:block;width:100%;text-align:left;background:none;border:0;border-radius:8px;padding:8px 10px;margin-bottom:2px;overflow-wrap:anywhere}
+  .screen-link small{display:block;color:var(--sub);font-size:11px;margin-top:2px}
+  .screen-link.on{background:var(--bg);font-weight:700}
+  main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .segment{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+  .segment[hidden]{display:none}
+  .segment button{border:0;background:none;padding:6px 12px;font-size:13px}
+  .segment button.on{background:var(--ink);color:var(--panel)}
+  .action{border:1px solid var(--line);background:none;border-radius:999px;padding:6px 12px;font-size:13px}
+  iframe{flex:1;width:100%;border:0;background:var(--bg)}
+  .waiting{flex:1;display:flex;align-items:center;justify-content:center;color:var(--sub);text-align:center;padding:24px}
+  .waiting[hidden],iframe[hidden]{display:none}
+  .status-bar{padding:9px 14px;background:var(--panel);border-top:1px solid var(--line);font-size:13px;color:var(--sub)}
+  .status-bar.picked{color:var(--ink);font-weight:600}
+  #stopped{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);color:#fff;font-size:16px;text-align:center;padding:24px}
+  #stopped.on{display:flex}
+  @media (max-width:720px){aside{display:none}}
+</style>
+</head>
+<body>
+<aside>
+  <h1 id="session-title"></h1>
+  <p data-i18n="Mockups in this session"></p>
+  <div id="screen-list"></div>
+</aside>
+<main>
+  <div class="toolbar">
+    <span class="segment" id="device-toggle"></span>
+    <span class="segment" id="theme-toggle"></span>
+    <span class="segment" id="speed-toggle"></span>
+    <button class="action" id="play-all" data-i18n="Play all"></button>
+    <button class="action" id="reset" data-i18n="Start over"></button>
+  </div>
+  <div class="waiting" id="waiting" data-i18n="Waiting for the first mockup..."></div>
+  <iframe id="screen" title="Mockup" hidden></iframe>
+  <div class="status-bar" id="status-bar" data-i18n="Look, press around, then reply in the terminal."></div>
+</main>
+<div id="stopped" data-i18n="The mockup server stopped. Ask the agent to start it again; this tab reconnects by itself."></div>
+<script>window.UI_DESIGN_SETTINGS = __UI_DESIGN_SETTINGS__;</script>
+<script src="/assets/shell.js"></script>
+</body>
+</html>

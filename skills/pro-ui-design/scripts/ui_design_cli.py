@@ -37,6 +37,7 @@ from pro_ui_design.config import cmd_config  # noqa: E402
 from pro_ui_design.copy_lint import cmd_copy_lint  # noqa: E402
 from pro_ui_design.image_links import cmd_rewrite_images  # noqa: E402
 from pro_ui_design.output_path import cmd_output_path  # noqa: E402
+from pro_ui_design.session_commands import cmd_choices, cmd_start, cmd_status, cmd_stop  # noqa: E402
 from pro_ui_design.settings import DESTINATIONS  # noqa: E402
 
 # 테스트가 ui_design_cli.<이름> 으로 직접 쓰는 함수·값 재노출
@@ -69,6 +70,27 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--key", default=None, help="set: any option name (config options lists them)")
     p.add_argument("--value", default=None, help="set: value for --key (lists are comma-separated)")
     p.set_defaults(func=cmd_config)
+
+    p = sub.add_parser("start", help="Create or resume a mockup session and run its local server")
+    p.add_argument("--title", required=True, help="Screen or topic name; the same title resumes the same session")
+    p.add_argument("--issue", type=int, default=None, help="Related issue number")
+    p.add_argument("--open", action="store_true", help="Open the URL in the default browser")
+    p.add_argument("--idle-seconds", type=int, default=None, help="Override the idle timeout for this run")
+    p.add_argument("--root", default=".")
+    p.set_defaults(func=cmd_start)
+
+    p = sub.add_parser("status", help="Current session, URL and folders; recovers them after a lost context")
+    p.add_argument("--root", default=".")
+    p.set_defaults(func=cmd_status)
+
+    p = sub.add_parser("stop", help="Stop the mockup server; the mockups are kept")
+    p.add_argument("--root", default=".")
+    p.set_defaults(func=cmd_stop)
+
+    p = sub.add_parser("choices", help="Clicks recorded in the browser")
+    p.add_argument("--screen", default=None, help="Only this mockup file")
+    p.add_argument("--root", default=".")
+    p.set_defaults(func=cmd_choices)
 
     p = sub.add_parser("get-output-path", help="Output location for this request")
     p.add_argument("--title", default=None)
