@@ -180,9 +180,10 @@ def _advance_workaround_window(state: dict, call: dict) -> None:
     if not pending:
         return
     pending["calls_seen"] = pending.get("calls_seen", 0) + 1
-    is_same_command_recovered = (not call["is_failure"] and call["skill"] == pending.get("skill")
-                                 and call["subcommand"] == pending.get("subcommand"))
-    if is_same_command_recovered or pending["calls_seen"] >= WORKAROUND_WINDOW_CALLS:
+    # commit 은 사용법 확인 뒤 다른 서브커맨드로 성공하는 흐름이 정상: 같은 스킬 성공이면 해결 (#1072)
+    is_same_skill_recovered = (not call["is_failure"] and call["skill"] == pending.get("skill")
+                               and (call["subcommand"] == pending.get("subcommand") or pending.get("group") == "commit"))
+    if is_same_skill_recovered or pending["calls_seen"] >= WORKAROUND_WINDOW_CALLS:
         state.pop("pending_failure", None)
 
 
@@ -214,7 +215,8 @@ def is_workaround_command(command: str, group: str) -> bool:
             continue
         if words[0].strip("\"'").rsplit("/", 1)[-1] in rules.get("tools", ()):
             return True
-        if words[0] == "git" and _is_git_subcommand(words, rules.get("git", ())):
+        # git commit --no-edit: merge 마무리라 pro-commit 이 대신할 수 없음 (#1072)
+        if words[0] == "git" and "--no-edit" not in words and _is_git_subcommand(words, rules.get("git", ())):
             return True
         segment_pattern = rules.get("segment_pattern")
         if segment_pattern and segment_pattern.search(" ".join(words)):
