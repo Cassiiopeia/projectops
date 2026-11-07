@@ -42,7 +42,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
-# 스토어가 인정하는 언어 코드 — fastlane 2.240.1 소스에서 그대로 옮겼다.
+# 스토어가 인정하는 언어 코드 — fastlane 2.240.1 소스와 동일.
 #   App Store : fastlane_core/lib/fastlane_core/languages.rb  ALL_LANGUAGES
 #   Google Play: supply/lib/supply/languages.rb              ALL_LANGUAGES (밑줄 → 하이픈)
 # 목록에 없는 코드를 넘기면 deliver 는 그 언어를 앱에 새로 활성화하려 하고, supply 는 거부한다.
