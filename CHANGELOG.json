@@ -1,14 +1,39 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-08T02:29:36Z",
-    "currentVersion": "4.90.1",
+    "lastUpdated": "2026-11-08T02:40:53Z",
+    "currentVersion": "4.90.2",
     "projectType": "basic",
-    "totalReleases": 377,
+    "totalReleases": 378,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.90.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-08",
+      "pr_number": 1090,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Documentation**\n  * README shows a live mockup demo and puts setup first\n\n* **Other**\n  * CI now runs the Python checks on Windows too",
+      "parsed_changes": {
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "README shows a live mockup demo and puts setup first"
+          ]
+        },
+        "other": {
+          "title": "Other",
+          "items": [
+            "CI now runs the Python checks on Windows too"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.90.1",
       "project_type": "basic",
