@@ -41,15 +41,20 @@ def _tab_new(ctx, args, state: dict) -> dict:
     if tabs.named_tab_page(ctx, state, name) is not None:
         return {"ok": False, "code": "tab_name_taken", "error": f"Tab '{name}' already exists",
                 "next": f"{tabs.TAB_ENV_VAR}={name} launch_cli.py web text  # use that tab or pick another name"}
-    page = ctx.new_page()
+    page = tabs.new_tab_page(ctx, is_front=args.front)
     tabs.register_tab(state, name, page)
     if args.url:
         page.goto(args.url, wait_until="domcontentloaded", timeout=args.timeout * 1000)
     url, title = read_url_title(page)
-    state.setdefault("tab_marks", {})[tabs.mark_key(name)] = {"target_id": tabs.target_id(page), "url": url}
-    return {"action": "tab", "tab_command": "new", "name": name, "url": url, "title": title,
-            "summary": f"Created tab '{name}'",
-            "next": f"{tabs.TAB_ENV_VAR}={name} launch_cli.py web text  # prefix every web command in this session"}
+    state.setdefault("tab_marks", {})[tabs.mark_key(name)] = tabs.tab_mark(page)
+    payload = {"action": "tab", "tab_command": "new", "name": name, "url": url, "title": title, "front": bool(args.front),
+               "summary": f"Created tab '{name}'" + ("" if args.front else " in the background"),
+               "next": f"{tabs.TAB_ENV_VAR}={name} launch_cli.py web text  # prefix every web command in this session"}
+    others = tabs.active_other_sessions(state)
+    if others:
+        payload["other_sessions"] = others
+        payload["summary"] += f" — {len(others)} other session tab(s) in this browser; stay in your own tab"
+    return payload
 
 
 def _pick_existing_tab(ctx, args):
@@ -139,6 +144,8 @@ def _save_tab_records(state_f: Path, state: dict, tab_names_before: set) -> None
 def configure(p) -> None:
     p.add_argument("tab_command", choices=TAB_COMMANDS, help="new create · list show · use check/name an existing tab · close close")
     p.add_argument("--name", default=None, help="Tab name (the value for LAUNCH_TAB)")
+    p.add_argument("--front", action="store_true",
+                   help="new: bring the new tab to the front (default: open it in the background so nobody's view changes)")
     p.add_argument("--index", type=int, default=None, help="use: index of an existing unnamed tab (index in web tab list)")
     p.add_argument("--target", default=None,
                    help="use: target id of an existing unnamed tab (from new_tabs or web tab list; stable across calls, unlike --index)")

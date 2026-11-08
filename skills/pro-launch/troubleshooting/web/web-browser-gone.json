@@ -9,7 +9,7 @@
     "keywords": []
   },
   "symptom": "web text · shot · click end with browser_gone (could not attach to the open browser)",
-  "cause": "It could not connect to the browser (CDP port) recorded in the state file — that browser was closed or does not respond. The CLI removes only the dead browser's info (cdp · pid) from the state file and keeps the viewport and route rules",
+  "cause": "It could not connect to the browser (CDP port) recorded in the state file — that browser was closed or does not respond. The result gives last_used, but not why it ended: a closed window, a crash and another session's web close look the same (the profile's exit_type stays Crashed even after a normal close). The CLI removes only the dead browser's info (cdp · pid) from the state file and keeps the viewport and route rules",
   "fix": [
     "launch_cli.py web open --url <url>",
     "If open fails with browser_start_failed: kb show browser-start-stale-process-or-lock",

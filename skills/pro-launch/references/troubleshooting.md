@@ -17,6 +17,7 @@
 | `web-iframe-login-fields` | Cannot find login fields inside an iframe (App Store Connect, etc.) | — |
 | `web-orphan-headless-chrome` | Double-clicking an HTML file does not open Chrome — orphan headless Chrome | `browser_hung` |
 | `web-page-changed-by-other-session` | Another session moves the same tab and your input is lost | `page_changed_by_other_session` · `tab_gone` |
+| `web-page-reloads-on-theme-flip` | Page reloads at every web command on a dark-mode PC (YouTube Studio) | `ref_stale` |
 | `web-playwright-or-browser-missing` | playwright_missing · browser_missing — web setup is needed | `playwright_missing` · `browser_missing` |
 | `web-readonly-mutating-blocked` | Save · submit buttons return mutating_blocked in a read-only session | `mutating_blocked` |
 | `web-save-by-network` | Judge whether a save worked by the request response, not on-screen text | — |
@@ -43,7 +44,7 @@
 
 - Codes: `browser_gone`
 - Symptom: web text · shot · click end with browser_gone (could not attach to the open browser)
-- Cause: It could not connect to the browser (CDP port) recorded in the state file — that browser was closed or does not respond. The CLI removes only the dead browser's info (cdp · pid) from the state file and keeps the viewport and route rules
+- Cause: It could not connect to the browser (CDP port) recorded in the state file — that browser was closed or does not respond. The result gives last_used, but not why it ended: a closed window, a crash and another session's web close look the same (the profile's exit_type stays Crashed even after a normal close). The CLI removes only the dead browser's info (cdp · pid) from the state file and keeps the viewport and route rules
 - Fix:
   1. launch_cli.py web open --url <url>
   2. If open fails with browser_start_failed: kb show browser-start-stale-process-or-lock
@@ -138,6 +139,18 @@
   3. On tab_gone, recreate it with web tab new --name <same name>
   4. Save long input after each step
 - Refs: #878 · verified 2026-10-17
+
+### `web-page-reloads-on-theme-flip` — Page reloads at every web command on a dark-mode PC (YouTube Studio)
+
+- Codes: `ref_stale`
+- Keywords: page_reloaded, reloads by itself, keeps refreshing, prefers-color-scheme
+- Symptom: A person watching the window sees the page reset at each web command. Results carry page_reloaded, and ref_stale or an emptied input follows. It happens on a dark-mode PC and not on a light-mode one
+- Cause: Playwright overrides prefers-color-scheme to light while attached (connect_over_cdp has no option to change this) and the override ends on disconnect. On a dark-mode OS the theme flips twice per command, and sites that reload on a theme change, such as YouTube Studio, reload each time. pro-launch now pins the browser to light at launch, but a browser started earlier does not have that setting
+- Fix:
+  1. If web open warns that the color scheme was not pinned: launch_cli.py web close, then web open with the same profile. Logins stay in the profile
+  2. Check web tab list first: closing the browser closes every session's tabs
+- Refs: #1094 · verified 2026-11-09
+- See also: `web-browser-gone`
 
 ### `web-playwright-or-browser-missing` — playwright_missing · browser_missing — web setup is needed
 

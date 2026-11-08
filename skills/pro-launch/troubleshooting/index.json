@@ -100,7 +100,8 @@
     ],
     "ref_stale": [
       "desktop-notification-banner-expires",
-      "desktop-window-listed-but-content-elsewhere"
+      "desktop-window-listed-but-content-elsewhere",
+      "web-page-reloads-on-theme-flip"
     ],
     "render_failed": [
       "general-render-failed-first-error"
@@ -303,11 +304,17 @@
     "invalid": [
       "general-otp-no-resubmit"
     ],
+    "itself": [
+      "web-page-reloads-on-theme-flip"
+    ],
     "jamo": [
       "android-korean-ime-jamo"
     ],
     "keep": [
       "general-login-interstitial-policy"
+    ],
+    "keeps": [
+      "web-page-reloads-on-theme-flip"
     ],
     "launch_tab": [
       "web-page-changed-by-other-session"
@@ -361,6 +368,9 @@
     "out": [
       "ios-maestro-stale-driver-or-overload"
     ],
+    "page_reloaded": [
+      "web-page-reloads-on-theme-flip"
+    ],
     "passkey": [
       "general-login-interstitial-policy"
     ],
@@ -377,6 +387,9 @@
     "post": [
       "web-save-by-network"
     ],
+    "prefers-color-scheme": [
+      "web-page-reloads-on-theme-flip"
+    ],
     "profile_locked": [
       "browser-start-stale-process-or-lock"
     ],
@@ -391,6 +404,12 @@
     ],
     "recovered": [
       "browser-start-stale-process-or-lock"
+    ],
+    "refreshing": [
+      "web-page-reloads-on-theme-flip"
+    ],
+    "reloads": [
+      "web-page-reloads-on-theme-flip"
     ],
     "respond": [
       "ios-maestro-stale-driver-or-overload"
@@ -1145,6 +1164,16 @@
       ],
       "keyword_count": 2,
       "path": "web/web-page-changed-by-other-session.json"
+    },
+    "web-page-reloads-on-theme-flip": {
+      "area": "web",
+      "title": "Page reloads at every web command on a dark-mode PC (YouTube Studio)",
+      "fix_short": [
+        "If web open warns that the color scheme was not pinned: launch_cli.py web close, then web open with the same profile. Logins stay in the profile",
+        "Check web tab list first: closing the browser closes every session's tabs"
+      ],
+      "keyword_count": 6,
+      "path": "web/web-page-reloads-on-theme-flip.json"
     },
     "web-playwright-or-browser-missing": {
       "area": "web",

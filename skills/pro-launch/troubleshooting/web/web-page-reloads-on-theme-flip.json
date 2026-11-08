@@ -1,0 +1,29 @@
+{
+  "id": "web-page-reloads-on-theme-flip",
+  "area": "web",
+  "title": "Page reloads at every web command on a dark-mode PC (YouTube Studio)",
+  "match": {
+    "codes": [
+      "ref_stale"
+    ],
+    "keywords": [
+      "page_reloaded",
+      "reloads by itself",
+      "keeps refreshing",
+      "prefers-color-scheme"
+    ]
+  },
+  "symptom": "A person watching the window sees the page reset at each web command. Results carry page_reloaded, and ref_stale or an emptied input follows. It happens on a dark-mode PC and not on a light-mode one",
+  "cause": "Playwright overrides prefers-color-scheme to light while attached (connect_over_cdp has no option to change this) and the override ends on disconnect. On a dark-mode OS the theme flips twice per command, and sites that reload on a theme change, such as YouTube Studio, reload each time. pro-launch now pins the browser to light at launch, but a browser started earlier does not have that setting",
+  "fix": [
+    "If web open warns that the color scheme was not pinned: launch_cli.py web close, then web open with the same profile. Logins stay in the profile",
+    "Check web tab list first: closing the browser closes every session's tabs"
+  ],
+  "refs": [
+    1094
+  ],
+  "verified_at": "2026-11-09",
+  "see_also": [
+    "web-browser-gone"
+  ]
+}

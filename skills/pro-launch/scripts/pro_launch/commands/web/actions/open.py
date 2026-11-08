@@ -44,17 +44,24 @@ def _goto_failed(error: Exception) -> dict:
 
 
 def _pick_tab(ctx, page, state: dict, args):
-    """이번 open 이 몰 탭 > (page, 탭 이름). --new-tab 이거나 이름 붙은 탭이 없으면 새 탭을 만들어 그 이름으로 기록한다."""
+    """이번 open 이 몰 탭 > (page, 탭 이름, 자동 분리 여부).
+
+    --new-tab 이거나 이름 붙은 탭이 없으면 새 탭을 만들어 그 이름으로 기록한다.
+    이름 없이 왔는데 고른 탭을 다른 세션이 쓰는 중이면 그 탭을 덮지 않고 이 세션 몫의 새 탭을 뒤에 연다 (#1094).
+    """
     name = args.tab_name or tabs.session_tab_name()
     if name:
         existing = tabs.named_tab_page(ctx, state, name)
         if existing is not None:
-            return existing, name
+            return existing, name, False
     if args.new_tab or name:
         name = name or f"tab-{time.strftime('%H%M%S')}"
-        page = ctx.new_page()
+        page = tabs.new_tab_page(ctx, is_front=args.front)
         tabs.register_tab(state, name, page)
-    return page, name
+        return page, name, False
+    if tabs.is_other_session_tab(page, state):
+        return tabs.new_tab_page(ctx, is_front=args.front), None, True
+    return page, name, False
 
 
 def _close_stale_browsers(pid_to_keep) -> list[dict]:
@@ -82,13 +89,14 @@ def _reuse(args, prev: dict, state_f: Path, recovered: list[str], stale_closed: 
         return out(connect_error)
     pw, _browser, page = conn
     try:
-        page, tab_name = _pick_tab(page.context, page, prev, args)
+        page, tab_name, is_isolated = _pick_tab(page.context, page, prev, args)
         if args.url:
             page.goto(args.url, wait_until="domcontentloaded", timeout=args.timeout * 1000)
             settle(page, prev, args.timeout)
         url, title = read_url_title(page)
         tab_summary = tabs.tabs_summary(page.context, page, prev, tab_name)
-        prev.setdefault("tab_marks", {})[tabs.mark_key(tab_name)] = {"target_id": tabs.target_id(page), "url": url}
+        prev.setdefault("tab_marks", {})[tabs.mark_key(tab_name)] = tabs.tab_mark(page)
+        other_sessions = tabs.active_other_sessions(prev)
     except Exception as e:
         pw.stop()
         return out(_goto_failed(e))
@@ -99,15 +107,15 @@ def _reuse(args, prev: dict, state_f: Path, recovered: list[str], stale_closed: 
     warnings = []
     if bool(args.headed) != bool(prev.get("headed")):
         warnings.append("headed only changes on a fresh launch — to change it, run web close, then open again")
-    if not prev.get(POPUP_BLOCKING_OFF_STATE_KEY):
-        warnings.append("This browser was started before popup blocking was turned off — a window opened after a server "
-                        "response can be blocked. Run web close, then web open again")
+    warnings += [setting["warning"] for setting in LAUNCH_ONLY_SETTINGS if not prev.get(setting["state_key"])]
     warn = " / ".join(warnings) or None
     return out({"action": "open", "reused": True, "pid": prev["pid"], "url": url, "title": title,
                 "browser": prev.get("browser"), "browser_source": prev.get("browser_source"),
                 "readonly": prev["readonly"], "opened_at": prev.get("opened_at"), "warning": warn,
                 "tabs": tab_summary, "recovered": recovered, "stale_closed": stale_closed,
+                "other_sessions": other_sessions, "isolated_from_other_session": is_isolated,
                 "summary": f"Attached to the running browser (since {prev.get('opened_at')}, {tab_summary['count']} tabs)"
+                           + (" — another session was using that tab, so this session got its own background tab" if is_isolated else "")
                            + _stale_closed_note(stale_closed),
                 "next": "web text  # read the screen text first"})
 
@@ -148,16 +156,26 @@ def _start_failed(proc, profile: Path, stderr_log: Path, recovered: list[str]) -
                      "Read stderr_tail first; if that does not explain it, re-download the browser with web setup")}
 
 
-# 팝업 차단 끄기 플래그 · 그 플래그로 띄웠는지 상태 파일 키
-POPUP_BLOCKING_OFF_FLAG = "--disable-popup-blocking"
-POPUP_BLOCKING_OFF_STATE_KEY = "popup_blocking_off"
+# 브라우저를 띄울 때만 먹는 설정. 이미 떠 있는 브라우저에는 적용되지 않는다.
+# 여기에 한 줄 더하면 실행 인자 · 상태 기록 · 재시작 경고가 함께 따라온다
+LAUNCH_ONLY_SETTINGS = (
+    # 서버 응답 뒤 window.open 이 null 로 막힌다 (Playwright launch 는 기본으로 넣는 플래그, #987)
+    {"flag": "--disable-popup-blocking", "state_key": "popup_blocking_off",
+     "warning": "This browser was started before popup blocking was turned off — a window opened after a server "
+                "response can be blocked. Run web close, then web open again"},
+    # Playwright 는 붙어 있는 동안 prefers-color-scheme 을 light 로 덮어쓰고(CDP 연결은 바꿀 옵션이 없다) 끊으면 되돌린다.
+    # 다크 모드 PC 에서는 명령마다 테마가 두 번 뒤집혀, 테마 변화에 새로고침하는 사이트(YouTube Studio)가 매번 다시 로드됐다 (#1094 실측).
+    # 브라우저의 실제 값을 light 로 고정하면 뒤집힐 일이 없다
+    {"flag": "--blink-settings=preferredColorScheme=1", "state_key": "light_color_scheme",
+     "warning": "This browser was started before the color scheme was pinned — on a dark-mode PC, sites that reload on a theme "
+                "change (YouTube Studio) reload at every command. Run web close, then web open again"},
+)
 
 
 def _launch_command(exe: str, port: int, profile: Path, args, use_stealth: bool) -> list[str]:
-    # --disable-popup-blocking: 서버 응답 뒤 window.open 이 null 로 막힌다 (Playwright launch 는 기본으로 넣는 플래그, #987)
     cmd = [exe, f"--remote-debugging-port={port}", f"--user-data-dir={profile}",
            f"--window-size={args.width},{args.height}", "--no-first-run", "--no-default-browser-check",
-           POPUP_BLOCKING_OFF_FLAG]
+           *(setting["flag"] for setting in LAUNCH_ONLY_SETTINGS)]
     # Google·Apple 로그인은 자동화 브라우저를 막는다. 실행 인자는 연결을 끊은 뒤 뜨는 팝업에도 걸린다
     if use_stealth:
         cmd += stealth.launch_args(exe)
@@ -222,7 +240,7 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     cdp = f"http://127.0.0.1:{port}"
     now = time.strftime("%Y-%m-%d %H:%M:%S")
     state = {"cdp": cdp, "pid": proc.pid, "headed": bool(args.headed),
-             "stealth": use_stealth, "profile": str(profile), "opened_at": now, POPUP_BLOCKING_OFF_STATE_KEY: True,
+             "stealth": use_stealth, "profile": str(profile), "opened_at": now, **{setting["state_key"]: True for setting in LAUNCH_ONLY_SETTINGS},
              "browser": pick["label"], "browser_source": pick["source"],
              "last_used": now, "readonly": bool(args.readonly),
              # 세션 종료 때 이 세션이 띄운 브라우저만 닫는다 (#956)
@@ -245,7 +263,7 @@ def _web_open(args, root: Path, state_f: Path) -> int:
                 page.goto(args.url, wait_until="domcontentloaded", timeout=args.timeout * 1000)
                 settle(page, state, args.timeout)
             tab_summary = tabs.tabs_summary(page.context, page, state, name)
-            state.setdefault("tab_marks", {})[tabs.mark_key(name)] = {"target_id": tabs.target_id(page), "url": page.url}
+            state.setdefault("tab_marks", {})[tabs.mark_key(name)] = tabs.tab_mark(page)
         except Exception as e:
             _pw.stop()
             return out(_goto_failed(e))
@@ -278,6 +296,8 @@ def configure(p) -> None:
                    help="open: read-only session — buttons like delete, release or submit are not pressed without --confirm-mutating")
     p.add_argument("--new-tab", dest="new_tab", action="store_true",
                    help="open: open in a new tab of the running browser — to keep tabs apart from other sessions")
+    p.add_argument("--front", action="store_true",
+                   help="open: bring a newly created tab to the front (default: new tabs open in the background)")
     p.add_argument("--tab-name", dest="tab_name", default=None,
                    help="open: name this tab. Then LAUNCH_TAB=<name> drives only this tab")
     p.add_argument("--profile", default=None,

@@ -255,7 +255,9 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web login --cred {name} 
 - **Frequent, risky work uses fixed actions; the long tail uses `web script`.** Do not write new scripts that attach to CDP directly. `script` goes through the shared connection, reinstall, time limits and secret masking.
 - If the login form is inside an iframe (`find` returns `nothing_found` + `frames`), add `--frame <name|iframe selector|part of URL>` to `find` · `type` · `click` · `assert` · `text` · `inspect`.
 - **Sessions in the same repo share one browser.** Do long, unsaved input in your own tab created with `web tab new --name <name>` (`LAUNCH_TAB=<name>`), and save after each step.
-  If another session moved your tab, the result carries `tab_warning` (`page_changed_by_other_session`).
+  If another session moved your tab, the result carries `tab_warning` (`page_changed_by_other_session`). New tabs open in the background (`--front` brings one forward).
+  `web open` with no tab name will not take a tab another session is using: it opens your own background tab and lists the others in `other_sessions`. `tab_used_by_other_session` means you are reading someone else's tab.
+- **`page_reloaded` in a result (also added to `summary`) means the page reloaded between your commands.** Refs and typed text are gone. If it keeps happening, do steps that depend on each other in one `web script`.
 - **New windows (popups) show up as `new_tabs`** in the result of the command that opened them — or of the next command, when the site opens the window a few seconds late.
   To work in it, run `web tab use --target <target_id> --name popup` as `next` says, then prefix commands with `LAUNCH_TAB=popup`. Your own tab stays where it was.
   `URL and title unchanged` with no `new_tabs` means no new window — the page may have opened an in-page layer instead: read it with `web text`.
@@ -270,7 +272,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web login --cred {name} 
 | `frame_not_found` | Put a name or part of a URL from `frames` into `--frame` |
 | `wait_timeout` | The condition was not met. Decide from `url` · `title`. If you are waiting for approval, do not navigate; `wait` again |
 | `script_failed` · `script_timeout` | Read the snippet's first error line and fix it · raise `--timeout` or wait less |
-| `ref_stale` | The screen changed. Run `find` again |
+| `ref_stale` | The screen changed. Run `find` again. A control that only exists on hover: `web hover` the row first, then `find` |
+| `typed_value_not_kept` | The box was emptied even after typing key by key, or it disappeared. `find` again, or do typing and the next step in one `web script` |
 | `expect_not_met` | The expected result did not come. Look at the current screen with `web text` and pick another candidate |
 | `mutating_blocked` | The read-only session blocked a risky button. Tell the user what would change and get approval |
 | `needs_user` | Hand the remaining login steps (2FA · device approval) to the user. Ask with `ask_user`; when they say they are done, run `web login --resume ...` from `next` |

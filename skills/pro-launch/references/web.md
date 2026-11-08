@@ -135,6 +135,8 @@ CODE="123456" launch_cli.py web login --otp-env CODE --otp-selector "input.otp" 
 When the user gives you an account, ask once: **"Save this on this computer? (config.json, I won't ask again)"**.
 Save only what the user allows. If they decline, use it for this run only (`--text-env`). Never save without permission.
 
+A password on the command line stays in the session record in plain text. If a person is there, have them run `cred set --prompt` instead.
+
 ```
 launch_cli.py cred set --name google-dev --json '{"kind":"login","provider":"google","surface":"web",
   "app":"console.cloud.google.com","account":"me@example.com","password":"...",
@@ -176,6 +178,12 @@ launch_cli.py web tab close --name edit-form                # closes only when y
 ```
 
 - An unnamed session does not grab a tab another session has named. If the `LAUNCH_TAB` tab was closed, you get `tab_gone`.
+- `web tab new` and `web open --new-tab` open the tab **in the background**, so the tab a person or another session is looking at does not change. `--front` brings it forward.
+- `web open` with no tab name will not navigate a tab another session used in the last 6 hours. It opens a background tab for this session (`isolated_from_other_session: true`) and lists the others in `other_sessions` (tab · URL · idle minutes).
+  Any other command from a session that has no tab yet carries `tab_warning: {code: tab_used_by_other_session}` when it lands on someone else's tab.
+- **Tabs share one browser.** Page content and input are per tab. Login cookies are shared, so signing out in one tab signs out all of them.
+- The browser always reports a **light** color scheme, even on a dark-mode PC. Playwright forces light while attached, so pinning it keeps the theme from flipping at every command, which made some sites reload. To check a dark layout, call `page.emulate_media(color_scheme="dark")` inside one `web script`.
+- Search boxes that build chips need real keys: `web type --keys "<text>"` and then `web press --key Enter`. Plain `web type` sets the value but those boxes do not react to it.
 - If the tab URL changed although this session did not navigate, the result carries `tab_warning: {code: page_changed_by_other_session}`.
   Sessions are told apart by `LAUNCH_SESSION` (falling back to `CLAUDE_CODE_SESSION_ID`). If neither is set, sessions share records and detection is weak.
 - The `tabs` field of the `web open` result gives the tab count (`count`) and the tab this command drove (`acting_on`).
@@ -373,7 +381,9 @@ If it really must run in the browser, split it into batches of a few dozen acros
 | `before` · `url` · `title` | Before and after the click |
 | `changed` | Whether the URL or title changed. **`false` may mean you clicked the wrong thing.** If it expands in place, check with `text` |
 | `code: expect_not_met` | You passed `--expect-*` and it did not arrive. It is a failure |
-| `code: ref_stale` | The screen changed and that number is gone. Run `find` again |
+| `code: ref_stale` | The screen changed and that number is gone. Run `find` again. For a control that only exists while its row is hovered, run `web hover` on the row first, then `find` |
+| `page_reloaded` | The page reloaded between commands, and this session did not ask for it (the site, a person or another session did). Refs, typed text and open menus are gone. Also added to `summary`, so `--brief` shows it. If it repeats at every command and `web open` warns about the color scheme, restart the browser (`kb show web-page-reloads-on-theme-flip`) |
+| `code: typed_value_not_kept` | `web type` checks that the value stayed. If a box empties a pasted value it retypes key by key (`mode: keys_fallback`). This code means it was emptied anyway, or the box disappeared |
 | `code: mutating_blocked` | A risky button was blocked in a read-only session |
 
 ### Admin consoles — `--readonly`

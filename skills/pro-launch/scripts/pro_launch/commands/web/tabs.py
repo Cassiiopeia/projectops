@@ -40,6 +40,12 @@ def tab_of_mark_key(key: str) -> str:
     return key.rsplit("@", 1)[0]
 
 
+# 이 시간 안에 움직인 다른 세션은 아직 쓰는 중으로 본다 (브라우저 방치 판정과 같은 6시간, #1094)
+OTHER_SESSION_ACTIVE_SECONDS = 6 * 3600
+# 새 탭이 Playwright 에 보일 때까지 기다리는 횟수 · 간격 (약 3초)
+BACKGROUND_TAB_WAIT_TRIES = 30
+BACKGROUND_TAB_WAIT_MILLISECONDS = 100
+
 # 이 세션이 이미 알린 새 탭: {"<탭>@<세션>": [targetId, ...]}
 REPORTED_POPUPS_KEY = "reported_popups"
 
@@ -119,6 +125,32 @@ def default_tab_page(ctx, state: dict):
     return candidates[-1] if candidates else ctx.new_page()
 
 
+def new_tab_page(ctx, is_front: bool = False):
+    """새 탭을 연다. 기본은 뒤에서 — 사람이나 다른 세션이 보던 탭이 바뀌면 안 된다 (#1094).
+
+    Playwright 의 new_page 는 탭을 맨 앞으로 가져온다. 못 쓰는 연결이면 new_page 로 대신한다.
+    """
+    if is_front:
+        page = ctx.new_page()
+        page.bring_to_front()
+        return page
+    try:
+        session = ctx.browser.new_browser_cdp_session()
+        try:
+            created_target_id = session.send("Target.createTarget", {"url": "about:blank", "background": True})["targetId"]
+        finally:
+            session.detach()
+    except Exception:
+        return ctx.new_page()
+    anchor = usable_pages(ctx)[0]
+    for _ in range(BACKGROUND_TAB_WAIT_TRIES):
+        page = find_page_by_target(ctx, created_target_id)
+        if page is not None:
+            return page
+        anchor.wait_for_timeout(BACKGROUND_TAB_WAIT_MILLISECONDS)
+    return ctx.new_page()
+
+
 def register_tab(state: dict, name: str, page) -> dict:
     entry = {"target_id": target_id(page), "created_at": time.strftime("%Y-%m-%d %H:%M:%S")}
     state.setdefault("tabs", {})[name] = entry
@@ -138,12 +170,80 @@ def _page_identity(url: str | None) -> tuple[str, str, str]:
     return parts.scheme, parts.netloc, parts.path.rstrip("/")
 
 
+def read_time_origin(page) -> float | None:
+    """문서가 만들어진 시각 — 다시 로드되면 바뀐다. 못 읽으면 None (이동 중)"""
+    try:
+        return page.evaluate("performance.timeOrigin")
+    except Exception:
+        return None
+
+
+def tab_mark(page) -> dict:
+    """이 탭의 지금 모습: 어느 탭 · 어느 화면 · 어느 문서 · 언제"""
+    return {"target_id": target_id(page), "url": page.url, "time_origin": read_time_origin(page), "at": int(time.time())}
+
+
+def active_other_sessions(state: dict) -> list[dict]:
+    """최근에 이 브라우저를 쓴 다른 세션의 탭 > [{tab, url, target_id, idle_minutes}]. 세션을 못 가르면 빈 목록.
+
+    옛 기록(at 없음)은 쓰는 중으로 본다 — 남의 탭을 덮는 쪽이 더 나쁘다.
+    """
+    me = session_identity()
+    if me == ANONYMOUS_SESSION:
+        return []
+    now, found = time.time(), []
+    for key, mark in (state.get("tab_marks") or {}).items():
+        last_seen = mark.get("at")
+        if key.endswith(f"@{me}") or (last_seen and now - last_seen > OTHER_SESSION_ACTIVE_SECONDS):
+            continue
+        found.append({"tab": tab_of_mark_key(key), "url": mark.get("url"), "target_id": mark.get("target_id"),
+                      "idle_minutes": round((now - last_seen) / 60) if last_seen else None})
+    return found
+
+
+def is_other_session_tab(page, state: dict) -> bool:
+    """이 세션이 몬 적 없는데 다른 세션이 쓰는 탭인가"""
+    if (state.get("tab_marks") or {}).get(mark_key()):
+        return False
+    current_target_id = target_id(page)
+    return any(entry["target_id"] == current_target_id for entry in active_other_sessions(state))
+
+
+def reload_notice(page, state: dict) -> dict | None:
+    """이 세션의 지난 명령 뒤에 같은 화면이 다시 로드됐나 (페이지가 스스로 · 사람이 · 다른 세션이) (#1094).
+
+    다시 로드되면 ref · 입력 중이던 글자 · 펼친 메뉴가 전부 사라진다 — ref_stale 만 보면 원인을 알 수 없었다.
+    """
+    mark = (state.get("tab_marks") or {}).get(mark_key()) or {}
+    previous_origin = mark.get("time_origin")
+    current_origin = read_time_origin(page)
+    if previous_origin is None or current_origin is None or current_origin == previous_origin:
+        return None
+    if _page_identity(mark.get("url")) != _page_identity(page.url):
+        return None  # 다른 화면이면 drift_warning 이 알린다
+    return {"code": "page_reloaded", "seconds_ago": round(time.time() - current_origin / 1000, 1),
+            "hint": "The page reloaded between commands, and this session did not ask for it. Refs, typed text and open menus "
+                    "are gone. Pick again with web find, and do steps that depend on each other in one web script"}
+
+
+def attach_reload_notice(payload: dict, notice: dict) -> None:
+    """명령 사이에 페이지가 다시 로드됐음을 결과에 싣는다. --brief 에도 남게 summary · error 문장에 붙인다"""
+    payload["page_reloaded"] = notice
+    sentence = f"The page reloaded by itself {notice['seconds_ago']:g}s ago, so earlier refs and typed text are gone"
+    key = "error" if payload.get("ok") is False and payload.get("error") else "summary"
+    payload[key] = f"{payload[key]} — {sentence}" if payload.get(key) else sentence
+
+
 def drift_warning(page, state: dict) -> dict | None:
     """이 세션의 마지막 명령 뒤에 탭이 바뀌었나 (다른 탭으로 바뀜 · 다른 화면으로 이동). 바뀌었으면 경고 dict."""
     key = mark_key()
     mark = (state.get("tab_marks") or {}).get(key)
     if not mark:
-        return None
+        if not is_other_session_tab(page, state):
+            return None
+        return {"code": "tab_used_by_other_session", "tab": tab_of_mark_key(key), "current_url": page.url,
+                "hint": ("Another session is working in this tab. Do not change it: "
+                         f"run web tab new --name <name> and prefix commands with {TAB_ENV_VAR}=<name>")}
     try:
         current_url = page.url
     except Exception:
@@ -162,10 +262,10 @@ def drift_warning(page, state: dict) -> dict | None:
 def mark_tab(page, state: dict) -> None:
     """명령이 끝난 뒤 이 세션 탭의 모습을 적는다 — 다음 명령에서 다른 세션의 이동을 가른다."""
     try:
-        url = page.url
+        mark = tab_mark(page)
     except Exception:
         return
-    state.setdefault("tab_marks", {})[mark_key()] = {"target_id": target_id(page), "url": url}
+    state.setdefault("tab_marks", {})[mark_key()] = mark
 
 
 def tabs_summary(ctx, page, state: dict, acting_name: str | None = None) -> dict:

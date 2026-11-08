@@ -14,9 +14,9 @@ from pathlib import Path
 
 import credentials
 
-from pro_launch.commands.web import browser_memory, script_runner
+from pro_launch.commands.web import browser_memory, script_runner, tabs
 from pro_launch.registry import Action
-from pro_launch.runtime.browser import write_state
+from pro_launch.runtime.browser import read_state, write_state
 from pro_launch.runtime.output import out
 from pro_launch.runtime.procs import kill_browser
 
@@ -116,7 +116,20 @@ def execute(args, state: dict, state_file) -> int:
                     "error": mask_secrets(error_lines[-1] if error_lines else "The child process exited without a reply", secrets)})
     if "code" in reply and not reply.get("ok", True):   # 붙지 못했다 (browser_gone 등) — 그대로 낸다
         return out(reply)
-    return out(build_payload(reply, secrets))
+    _remember_document(state_file, reply.get("time_origin"))
+    payload = build_payload(reply, secrets)
+    if reply.get("page_reloaded"):
+        tabs.attach_reload_notice(payload, reply["page_reloaded"])
+    return out(payload)
+
+
+def _remember_document(state_file, time_origin: float | None) -> None:
+    """이 세션 탭 기록의 문서 시각만 갱신한다 — 조각이 일으킨 새로고침을 다음 명령이 남의 일로 알리지 않게"""
+    fresh = read_state(state_file) if state_file.is_file() else {}
+    mark = (fresh.get("tab_marks") or {}).get(tabs.mark_key())
+    if mark and time_origin is not None:
+        mark["time_origin"] = time_origin
+        write_state(state_file, fresh)
 
 
 def _int_or_none(value) -> int | None:

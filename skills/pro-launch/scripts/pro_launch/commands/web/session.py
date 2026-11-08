@@ -8,7 +8,7 @@ import stealth
 from pro_launch.commands.web import tabs
 from pro_launch.commands.web.recovery import HUNG_PROBE_SECONDS, cdp_responds
 from pro_launch.commands.web.watchdog import connect_phase
-from pro_launch.runtime.browser import require_playwright
+from pro_launch.runtime.browser import idle_hours, require_playwright
 from pro_launch.runtime.procs import pid_alive
 
 # connect_over_cdp 자체의 시간 상한(초) — 감시의 붙기 상한(30초)보다 짧아 먼저 깔끔한 실패로 끝난다
@@ -131,8 +131,10 @@ def web_connect(state: dict, allow_missing_tab: bool = False):
             # 살아 있는데 시간 초과면 멈춤이다 — browser_gone 으로 내면 디스패처가 pid 를 지워 고아가 된다
             if is_process_alive and "timeout" in str(e).lower():
                 return None, _hung_failure(state, f"Could not attach to the browser within {CONNECT_TIMEOUT_SECONDS}s (connection hung)")
-            return None, {"ok": False, "code": "browser_gone",
-                          "error": f"Could not attach to the open browser: {e}",
+            # 왜 끝났는지는 알 수 없다 — 프로필의 exit_type 은 창을 정상적으로 닫아도 Crashed 로 남는다 (#1094 실측)
+            return None, {"ok": False, "code": "browser_gone", "last_used": state.get("last_used"), "idle_hours": idle_hours(state),
+                          "hint": "A closed window, a crash and another session's web close look the same from here",
+                          "error": f"The browser is gone (last used {state.get('last_used')}). Attach error: {e}",
                           "next": "web open  # open it again"}
         ctx = browser.contexts[0] if browser.contexts else browser.new_context()
         page, tab_error = _session_page(ctx, state, allow_missing_tab)

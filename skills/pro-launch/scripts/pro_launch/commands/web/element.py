@@ -75,6 +75,8 @@ def locate_target(page, args, state: dict, action: str, *, should_wait: bool = F
             return None, None, attach_candidates(
                 {"ok": False, "code": "ref_stale", "action": action, "url": page.url,
                  "error": f"ref {args.ref} is not on the screen (gone after navigation or re-render)",
+                 "hint": "Refs do not survive a reload or re-render. If the control only exists while its row is hovered, "
+                         "run web hover on the row first, then web find",
                  "next": "web find  # pick again from the current screen"}, scope, None, action)
         return None, None, attach_candidates(
             {"ok": False, "code": "selector_not_found", "action": action, "url": page.url,

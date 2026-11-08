@@ -24,7 +24,7 @@ from pro_launch.commands.web.options import ALWAYS_OPTIONS, SHARED_OPTIONS, time
 from pro_launch.commands.web.request_capture import RequestCapture
 from pro_launch.commands.web.saved_values import read_saved_values
 from pro_launch.commands.web.session import DIALOG_EVENT_KEY, web_connect
-from pro_launch.commands.web.tabs import REPORTED_POPUPS_KEY, drift_warning, mark_tab, opened_tabs
+from pro_launch.commands.web.tabs import REPORTED_POPUPS_KEY, attach_reload_notice, drift_warning, mark_tab, opened_tabs, reload_notice
 from pro_launch.commands.web.targets import SELECTOR_SYNTAX_HINT, is_selector_syntax_error
 from pro_launch.commands.web.watchdog import HUNG_MARK_KEY, Watchdog, deadline_seconds
 from pro_launch.registry import Command, action_usage_lines, add_action_parsers, discover_actions
@@ -155,6 +155,7 @@ def _dispatch(args, action, root, state_f, secret_value: str | None) -> int:
     pw, _browser, page = conn
     # 이 세션이 안 움직였는데 탭이 바뀌었으면 알린다 — 다른 세션과 같은 탭을 쓰는 중 (#878)
     tab_warning = drift_warning(page, state)
+    reloaded = reload_notice(page, state)
     # 마지막 사용 시각 — 오래 방치된 브라우저와 지금 쓰는 브라우저를 가른다 (#825)
     state["last_used"] = time.strftime("%Y-%m-%d %H:%M:%S")
     write_state(state_f, state)
@@ -179,6 +180,8 @@ def _dispatch(args, action, root, state_f, secret_value: str | None) -> int:
         attach_match_warning(payload)
     if tab_warning and isinstance(payload, dict):
         payload["tab_warning"] = tab_warning
+    if reloaded and isinstance(payload, dict):
+        attach_reload_notice(payload, reloaded)
     _attach_dialog_event(payload, state, state_f)
     # 로그인 입력이면 중간 화면 정책을 싣는다 (#905)
     if args.action == "type" and secret_value:

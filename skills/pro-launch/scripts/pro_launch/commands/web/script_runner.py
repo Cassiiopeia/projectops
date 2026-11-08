@@ -55,6 +55,8 @@ def main() -> int:
         print(json.dumps(failure, ensure_ascii=False))
         return 0
     playwright, _browser, page = connection
+    from pro_launch.commands.web.tabs import read_time_origin, reload_notice
+    reloaded = reload_notice(page, request["state"])
     captured = io.StringIO()
     # 조각이 일으킨 GET 이 아닌 요청 (--capture-requests, #930)
     from pro_launch.commands.web.request_capture import RequestCapture
@@ -72,10 +74,15 @@ def main() -> int:
     finally:
         if capture is not None:
             reply_requests = capture.finish()
+        # 조각이 스스로 이동·새로고침했을 수 있다 — 다음 명령이 그것을 "저절로" 로 알리지 않게 지금 문서를 돌려준다
+        time_origin = read_time_origin(page)
         playwright.stop()
     if capture is not None:
         reply["requests"] = reply_requests
     reply["stdout"] = captured.getvalue()
+    reply["time_origin"] = time_origin
+    if reloaded:
+        reply["page_reloaded"] = reloaded
     print(json.dumps(reply, ensure_ascii=False))
     return 0
 
