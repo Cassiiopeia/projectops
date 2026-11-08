@@ -1,6 +1,6 @@
 {
   "name": "projectops-extras",
-  "description": "Optional projectops skills outside the core dev cycle (AI-written code consulting and refactoring, Synology NAS service exposure, reporting projectops skill bugs from any session).",
+  "description": "Optional projectops skills outside the core dev cycle (AI-written code consulting and refactoring, Synology NAS service exposure, reporting projectops skill bugs from any session, safe disk-space clean-up on Mac and Windows).",
   "version": "4.90.2",
   "author": {
     "name": "Cassiiopeia",

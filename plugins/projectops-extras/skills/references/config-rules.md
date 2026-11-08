@@ -235,6 +235,26 @@ Used by the `synology-expose` skill.
 | `dns_provider` | ✅ | DNS provider (e.g. `cloudflare`, `route53`) |
 | `default` | — | Whether this is the default among several instances |
 
+### `disk-cleanup` section (#1091)
+
+Read by the extras skill `pro-disk-cleanup` (`disk_cli.py`). Every field is optional.
+
+```json
+{
+  "disk-cleanup": {
+    "roots": ["~/Desktop/Programming/project"],
+    "idle_hours": 2,
+    "backup_dir": "~/.projectops/backups/disk-cleanup"
+  }
+}
+```
+
+| Field | Required | Description |
+|------|------|------|
+| `roots` | | Folders searched (two levels deep) for repositories and their worktrees. Default: the folder that holds the current repository. `--roots` overrides |
+| `idle_hours` | | Anything touched within this many hours is kept. Default `2` |
+| `backup_dir` | | Where worktree backups go before removal (one dated folder per day). Default `~/.projectops/backups/disk-cleanup` |
+
 ### `skill-bug` section (#997)
 
 Read by the extras watch hook (`plugins/projectops-extras/hooks/skill_bug_watch.py`). Without the section, automatic reports are on.

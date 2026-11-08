@@ -55,6 +55,12 @@
     "_comment": "Root folder for outputs (md). Defaults to docs/projectops when omitted. A relative path is from the repository root; an absolute path also works.",
     "root": "docs/projectops"
   },
+  "disk-cleanup": {
+    "_comment": "extras pro-disk-cleanup: folders searched for repositories and worktrees, hours of recent activity to keep, backup folder.",
+    "roots": ["~/Desktop/Programming/project"],
+    "idle_hours": 2,
+    "backup_dir": "~/.projectops/backups/disk-cleanup"
+  },
   "skill-bug": {
     "_comment": "extras watch hook: false stops automatic reports of suspected projectops bugs (default true).",
     "auto_report": true
