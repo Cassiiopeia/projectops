@@ -1,7 +1,19 @@
 # Changelog
 
-**Current version:** 4.90.0  
-**Last updated:** 2026-11-07T12:57:31Z  
+**Current version:** 4.90.1  
+**Last updated:** 2026-11-08T02:29:36Z  
+
+---
+
+## [4.90.1] - 2026-11-08
+
+**PR:** #1089  
+
+**Documentation**
+- README shows a live mockup demo and puts setup first
+
+**Other**
+- CI now runs the Python checks on Windows too
 
 ---
 
