@@ -100,8 +100,7 @@
     ],
     "ref_stale": [
       "desktop-notification-banner-expires",
-      "desktop-window-listed-but-content-elsewhere",
-      "web-page-reloads-on-theme-flip"
+      "desktop-window-listed-but-content-elsewhere"
     ],
     "render_failed": [
       "general-render-failed-first-error"

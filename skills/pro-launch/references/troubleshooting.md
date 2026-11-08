@@ -17,7 +17,7 @@
 | `web-iframe-login-fields` | Cannot find login fields inside an iframe (App Store Connect, etc.) | — |
 | `web-orphan-headless-chrome` | Double-clicking an HTML file does not open Chrome — orphan headless Chrome | `browser_hung` |
 | `web-page-changed-by-other-session` | Another session moves the same tab and your input is lost | `page_changed_by_other_session` · `tab_gone` |
-| `web-page-reloads-on-theme-flip` | Page reloads at every web command on a dark-mode PC (YouTube Studio) | `ref_stale` |
+| `web-page-reloads-on-theme-flip` | Page reloads at every web command on a dark-mode PC (YouTube Studio) | — |
 | `web-playwright-or-browser-missing` | playwright_missing · browser_missing — web setup is needed | `playwright_missing` · `browser_missing` |
 | `web-readonly-mutating-blocked` | Save · submit buttons return mutating_blocked in a read-only session | `mutating_blocked` |
 | `web-save-by-network` | Judge whether a save worked by the request response, not on-screen text | — |
@@ -142,7 +142,6 @@
 
 ### `web-page-reloads-on-theme-flip` — Page reloads at every web command on a dark-mode PC (YouTube Studio)
 
-- Codes: `ref_stale`
 - Keywords: page_reloaded, reloads by itself, keeps refreshing, prefers-color-scheme
 - Symptom: A person watching the window sees the page reset at each web command. Results carry page_reloaded, and ref_stale or an emptied input follows. It happens on a dark-mode PC and not on a light-mode one
 - Cause: Playwright overrides prefers-color-scheme to light while attached (connect_over_cdp has no option to change this) and the override ends on disconnect. On a dark-mode OS the theme flips twice per command, and sites that reload on a theme change, such as YouTube Studio, reload each time. pro-launch now pins the browser to light at launch, but a browser started earlier does not have that setting

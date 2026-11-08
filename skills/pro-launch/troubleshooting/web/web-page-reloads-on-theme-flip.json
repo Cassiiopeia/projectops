@@ -3,9 +3,7 @@
   "area": "web",
   "title": "Page reloads at every web command on a dark-mode PC (YouTube Studio)",
   "match": {
-    "codes": [
-      "ref_stale"
-    ],
+    "codes": [],
     "keywords": [
       "page_reloaded",
       "reloads by itself",
