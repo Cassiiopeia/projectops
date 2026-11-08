@@ -1,14 +1,42 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-08T03:11:07Z",
-    "currentVersion": "4.90.3",
+    "lastUpdated": "2026-11-08T05:01:02Z",
+    "currentVersion": "4.91.0",
     "projectType": "basic",
-    "totalReleases": 379,
+    "totalReleases": 380,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.91.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-08",
+      "pr_number": 1093,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * New optional skill pro-disk-cleanup: finds and safely frees disk space on macOS, Windows and Linux\n  * Read-only scan first, then three tiers: safe items after one confirmation, costly items only when you name them\n  * Finished issue worktrees are checked on GitHub, backed up and removed with branches kept\n  * Covers build output, package and IDE caches, browser caches and Docker leftovers, plus big unknown folders\n\n* **Documentation**\n  * Recorded the cause of a first-run E2E error in the UI mockup checklist",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "New optional skill pro-disk-cleanup: finds and safely frees disk space on macOS, Windows and Linux",
+            "Read-only scan first, then three tiers: safe items after one confirmation, costly items only when you name them",
+            "Finished issue worktrees are checked on GitHub, backed up and removed with branches kept",
+            "Covers build output, package and IDE caches, browser caches and Docker leftovers, plus big unknown folders"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Recorded the cause of a first-run E2E error in the UI mockup checklist"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.90.3",
       "project_type": "basic",

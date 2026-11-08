@@ -1,7 +1,22 @@
 # Changelog
 
-**Current version:** 4.90.3  
-**Last updated:** 2026-11-08T03:11:07Z  
+**Current version:** 4.91.0  
+**Last updated:** 2026-11-08T05:01:02Z  
+
+---
+
+## [4.91.0] - 2026-11-08
+
+**PR:** #1093  
+
+**New features**
+- New optional skill pro-disk-cleanup: finds and safely frees disk space on macOS, Windows and Linux
+- Read-only scan first, then three tiers: safe items after one confirmation, costly items only when you name them
+- Finished issue worktrees are checked on GitHub, backed up and removed with branches kept
+- Covers build output, package and IDE caches, browser caches and Docker leftovers, plus big unknown folders
+
+**Documentation**
+- Recorded the cause of a first-run E2E error in the UI mockup checklist
 
 ---
 
