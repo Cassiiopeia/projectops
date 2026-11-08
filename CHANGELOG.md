@@ -1,7 +1,17 @@
 # Changelog
 
-**Current version:** 4.90.2  
-**Last updated:** 2026-11-08T02:40:53Z  
+**Current version:** 4.90.3  
+**Last updated:** 2026-11-08T03:11:07Z  
+
+---
+
+## [4.90.3] - 2026-11-08
+
+**PR:** #1092  
+
+**Bug Fixes**
+- When a browser tab ignores clicks, web click now says so clearly and suggests a fix, instead of reporting that nothing changed
+- The --dom-click option now also works when a tab ignores browser input
 
 ---
 
