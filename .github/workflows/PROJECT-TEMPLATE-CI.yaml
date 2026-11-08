@@ -106,6 +106,32 @@ jobs:
           python3 -c "import json,sys; d=json.load(open('ledger.json')); print(d['summary']); sys.exit(d['verdict']!='pass')"
 
   # ===================================================================
+  # Windows 파이썬 감시 검사 — main push·수동 실행에서만 (#1018: Windows 는 CLI 스모크만 돌던 빈틈)
+  # ===================================================================
+  python-windows:
+    name: Guard checks pytest (windows)
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main') && !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install --quiet pytest pyyaml
+
+      - name: pytest (skill docs, Korean line budget, workflow permissions)
+        # 일반 사용자 PC 와 같게 UTF-8 모드를 켜지 않는다
+        run: python -m pytest scripts/tests/ .github/scripts/test/ -q
+
+  # ===================================================================
   # 넓은 길 — main push·수동 실행에서만. OS 차이는 CLI 실행으로 본다.
   # ===================================================================
   matrix-smoke:
