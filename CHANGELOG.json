@@ -1,14 +1,43 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-08T05:01:02Z",
-    "currentVersion": "4.91.0",
+    "lastUpdated": "2026-11-08T17:37:19Z",
+    "currentVersion": "4.91.1",
     "projectType": "basic",
-    "totalReleases": 380,
+    "totalReleases": 381,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.91.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-08",
+      "pr_number": 1095,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * Pages no longer reload at every browser command on a dark-mode PC\n  * Text typed into a search box is now checked, and retyped if the box cleared it\n  * Shell commands on Windows no longer run inside WSL by mistake\n\n* **Improvements**\n  * New browser tabs open in the background, so the tab you are watching stays put\n  * A session gets its own tab instead of taking one another session is using\n  * Results now say when a page reloaded on its own between commands",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Pages no longer reload at every browser command on a dark-mode PC",
+            "Text typed into a search box is now checked, and retyped if the box cleared it",
+            "Shell commands on Windows no longer run inside WSL by mistake"
+          ]
+        },
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "New browser tabs open in the background, so the tab you are watching stays put",
+            "A session gets its own tab instead of taking one another session is using",
+            "Results now say when a page reloaded on its own between commands"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.91.0",
       "project_type": "basic",

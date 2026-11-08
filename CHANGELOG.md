@@ -1,7 +1,23 @@
 # Changelog
 
-**Current version:** 4.91.0  
-**Last updated:** 2026-11-08T05:01:02Z  
+**Current version:** 4.91.1  
+**Last updated:** 2026-11-08T17:37:19Z  
+
+---
+
+## [4.91.1] - 2026-11-08
+
+**PR:** #1095  
+
+**Bug fixes**
+- Pages no longer reload at every browser command on a dark-mode PC
+- Text typed into a search box is now checked, and retyped if the box cleared it
+- Shell commands on Windows no longer run inside WSL by mistake
+
+**Improvements**
+- New browser tabs open in the background, so the tab you are watching stays put
+- A session gets its own tab instead of taking one another session is using
+- Results now say when a page reloaded on its own between commands
 
 ---
 
