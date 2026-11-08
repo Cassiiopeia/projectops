@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """disk_cli: pro-disk-cleanup 사실 수집·삭제 게이트 CLI — 판단은 에이전트, 출력은 항상 JSON (ok·code·summary·next)
-
-extras 플러그인은 자기 폴더만 설치되므로 scripts/common 을 쓰지 않는다 (표준 라이브러리 전용).
-삭제 명령은 --yes 없으면 계획만 돌려준다.
+extras 는 자기 폴더만 설치되어 scripts/common 미사용 (표준 라이브러리 전용), 삭제 명령은 --yes 없으면 계획만
 """
 from __future__ import annotations
 
@@ -13,8 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from disk import (catalog, cleaners, docker_cleanup, generated, guard, removal, scan_report,  # noqa: E402
-                  settings, sizes, worktrees)
+from disk import (catalog, cleaners, discovery, docker_cleanup, generated, guard, removal,  # noqa: E402
+                  scan_report, settings, sizes, worktrees)
 from disk.processes import ProcessSnapshot  # noqa: E402
 
 
@@ -54,6 +52,14 @@ def cmd_scan(args) -> dict:
     return {**report, "roots_source": source}
 
 
+def cmd_largest(args) -> dict:
+    rows = discovery.find_largest(args.limit, args.max_seconds)
+    unclassified = [row for row in rows if row["relation"] == "unclassified" and not row["is_cloud_sync"]]
+    return {"largest": rows, "unclassified_count": len(unclassified),
+            "summary": f"{len(rows)} folders over 0.5 GB under home, {len(unclassified)} not in the known list",
+            "next": "judge each unclassified folder by name and contents; clear only what the user names"}
+
+
 def cmd_worktrees(args) -> dict:
     roots, source = settings.worktree_roots(args.roots)
     facts = [item for item in worktrees.collect(roots, settings.idle_hours(args.idle_hours), args.with_size)
@@ -71,7 +77,7 @@ def _generated_candidates(args) -> tuple[list[dict], list[dict]]:
     idle = settings.idle_hours(args.idle_hours)
     snapshot = ProcessSnapshot()
     candidates, skipped_worktrees = [], []
-    for item in worktrees.collect(roots, idle, with_size=False, snapshot=snapshot):
+    for item in worktrees.collect(roots, idle, should_measure_size=False, snapshot=snapshot):
         if (item["is_main"] and not args.include_main) or item.get("is_missing"):
             continue
         if item.get("is_in_use"):
@@ -171,6 +177,10 @@ def build_parser() -> JsonArgumentParser:
     scan.add_argument("--skip-worktrees", action="store_true")
     scan.add_argument("--max-seconds", type=int, default=sizes.FOLDER_MEASURE_SECONDS)
     scan.set_defaults(handler=cmd_scan)
+    largest = commands.add_parser("largest")
+    largest.add_argument("--limit", type=int, default=40)
+    largest.add_argument("--max-seconds", type=int, default=sizes.FOLDER_MEASURE_SECONDS)
+    largest.set_defaults(handler=cmd_largest)
     listing = with_roots(commands.add_parser("worktrees"))
     listing.add_argument("--with-size", action="store_true")
     listing.add_argument("--include-main", action="store_true")

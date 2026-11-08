@@ -8,8 +8,6 @@ from pathlib import Path
 from . import catalog, docker_cleanup, generated, sizes, worktrees
 from .processes import ProcessSnapshot
 
-# 동시 측정 개수
-MEASURE_WORKERS = 6
 # 위치 종류 > 정리 명령 힌트
 NEXT_BY_KIND = {
     "tool": "tool {key} --yes",
@@ -35,7 +33,7 @@ def _location_row(location: catalog.Location, max_seconds: int) -> dict:
 
 
 def _worktree_summary(roots: list[Path], idle_hours: float, snapshot: ProcessSnapshot) -> dict:
-    facts = worktrees.collect(roots, idle_hours, with_size=False, snapshot=snapshot)
+    facts = worktrees.collect(roots, idle_hours, should_measure_size=False, snapshot=snapshot)
     linked = [item for item in facts if not item["is_main"]]
     generated_bytes = 0
     for item in linked:
@@ -58,7 +56,7 @@ def build(roots: list[Path], idle_hours: float, is_worktree_skipped: bool, max_s
     started = time.monotonic()
     snapshot = ProcessSnapshot()
     # du 는 디스크 대기라 병렬로 (위치별 + worktree 요약 동시)
-    with ThreadPoolExecutor(max_workers=MEASURE_WORKERS) as pool:
+    with ThreadPoolExecutor(max_workers=sizes.MEASURE_WORKERS) as pool:
         worktree_future = None if is_worktree_skipped else pool.submit(_worktree_summary, roots, idle_hours, snapshot)
         rows = list(pool.map(lambda location: _location_row(location, max_seconds), catalog.locations()))
         worktree_summary = worktree_future.result() if worktree_future else None
@@ -66,7 +64,7 @@ def build(roots: list[Path], idle_hours: float, is_worktree_skipped: bool, max_s
     report = {"free_space": sizes.free_space(), "locations": rows, "worktrees": worktree_summary,
               "docker": docker_cleanup.facts(),
               "running_builds": snapshot.is_running("xcodebuild", "XCBBuildService", "GradleDaemon", "flutter_tools"),
-              "is_in_use_supported": snapshot.is_supported}
+              "in_use_method": snapshot.method}
     # 폴더 일부만 정리되는 위치는 합계에서 제외
     countable = [row for row in rows if row["is_whole_folder_reclaimable"]]
     safe_gb = sum(row["size_gb"] or 0 for row in countable if row["tier"] == catalog.TIER_SAFE)
@@ -76,5 +74,6 @@ def build(roots: list[Path], idle_hours: float, is_worktree_skipped: bool, max_s
     report["seconds"] = round(time.monotonic() - started, 1)
     report["summary"] = (f"{report['free_space']['free_gb']} GB free ({report['free_space']['used_percent']}% used). "
                          f"Safe-tier caches {round(safe_gb, 1)} GB, decide-tier {round(decide_gb, 1)} GB")
-    report["next"] = "show the user the three tiers; clear safe items after one confirmation, decide items only by name"
+    report["next"] = ["largest  # big folders outside the known list",
+                      "show the user the three tiers; clear safe items after one confirmation, decide items only by name"]
     return report

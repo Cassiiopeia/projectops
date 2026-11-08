@@ -9,6 +9,8 @@ from pathlib import Path
 from . import shell
 
 BYTES_PER_GIGABYTE = 1024 ** 3
+# 동시 측정 개수 (du 는 디스크 대기라 병렬이 빠름)
+MEASURE_WORKERS = 6
 # 폴더 1개 측정 시간 상한 (초) — 넘으면 그때까지 센 값 + is_partial
 FOLDER_MEASURE_SECONDS = 120
 
@@ -47,7 +49,7 @@ def folder_bytes(path: Path, max_seconds: int = FOLDER_MEASURE_SECONDS) -> tuple
             try:
                 return int(out.split()[0]) * 1024, code == 124
             except ValueError:
-                pass
+                pass  # du 출력 이상 > 직접 순회로
     return _walk_bytes(path, max_seconds)
 
 
@@ -74,16 +76,16 @@ def _walk_bytes(path: Path, max_seconds: int) -> tuple[int, bool]:
                         else:
                             total += info.st_size
                     except OSError:
-                        continue
+                        continue  # 권한 없음·사라진 파일
         except OSError:
-            continue
+            continue  # 읽을 수 없는 폴더는 세지 않음
     return total, False
 
 
-def newest_touch_seconds(path: Path, include_access: bool = True) -> float | None:
+def newest_touch_seconds(path: Path, should_include_access: bool = True) -> float | None:
     """폴더와 바로 아래 항목의 마지막 수정(·접근) 시각 중 가장 최근 (epoch 초). 크기 측정 전에 부를 것"""
     def touch_of(info) -> float:
-        return max(info.st_mtime, info.st_atime) if include_access else info.st_mtime
+        return max(info.st_mtime, info.st_atime) if should_include_access else info.st_mtime
     try:
         newest = touch_of(path.stat())
     except OSError:
@@ -94,9 +96,9 @@ def newest_touch_seconds(path: Path, include_access: bool = True) -> float | Non
                 try:
                     newest = max(newest, touch_of(entry.stat(follow_symlinks=False)))
                 except OSError:
-                    continue
+                    continue  # 사라진 항목
     except OSError:
-        pass
+        pass  # 목록을 못 읽으면 폴더 자체 시각만
     return newest
 
 

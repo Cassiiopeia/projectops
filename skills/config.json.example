@@ -57,7 +57,7 @@
   },
   "disk-cleanup": {
     "_comment": "extras pro-disk-cleanup: folders searched for repositories and worktrees, hours of recent activity to keep, backup folder.",
-    "roots": ["~/Desktop/Programming/project"],
+    "roots": ["~/projects", "~/work"],
     "idle_hours": 2,
     "backup_dir": "~/.projectops/backups/disk-cleanup"
   },

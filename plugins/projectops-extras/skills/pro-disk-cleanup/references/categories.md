@@ -15,23 +15,29 @@ issue is confirmed closed on GitHub; an open-issue or issue-less worktree is `de
 
 ## Locations
 
-| Key | macOS | Windows | Tier | Kind |
-|---|---|---|---|---|
-| `derived-data` | `~/Library/Developer/Xcode/DerivedData` | — | decide | aged |
-| `ios-device-support` | `~/Library/Developer/Xcode/iOS DeviceSupport` | — | decide | aged |
-| `xcode-archives` | `~/Library/Developer/Xcode/Archives` | — | decide | aged |
-| `simulators-unavailable` | `xcrun simctl delete unavailable` | — | safe | tool |
-| `simulator-caches` | `~/Library/Developer/CoreSimulator/Caches` | — | safe | aged |
-| `core-device-fs` | `~/Library/Developer/CoreDevice/DeviceFS` (device mount) | — | keep | info |
-| `npm` · `uv` · `pip` · `yarn` | tool clean-up | tool clean-up | safe | tool |
-| `cocoapods` · `homebrew` | tool clean-up | — | safe | tool |
-| `temp` | — | `%TEMP%` | safe | aged |
-| `pub-cache` | `~/.pub-cache` | `%LOCALAPPDATA%\Pub\Cache` | decide | info |
-| `trash` | `~/.Trash` | — | decide | info |
-| `gradle-caches` · `gradle-wrapper` | `~/.gradle/...` | `%USERPROFILE%\.gradle\...` | decide | aged |
-| `android-avd` | `~/.android/avd` | `%USERPROFILE%\.android\avd` | decide | info |
-| `projectops-browser` | `~/.projectops/launch` cache folders | same | safe | browser |
-| `projectops-backups` | `~/.projectops/backups/disk-cleanup` | same | keep | info |
+Paths differ per OS and per install; `scan` prints the resolved path for this machine. Tool caches follow the tool's
+own environment variables when set (`GOMODCACHE`, `GOCACHE`, `ANDROID_HOME`, `XDG_CACHE_HOME`, ...).
+OS cache folder below means `~/Library/Caches` (macOS), `%LOCALAPPDATA%` (Windows), `~/.cache` (Linux).
+
+| Group | Keys | Tier | Kind |
+|---|---|---|---|
+| JavaScript | `npm`, `pnpm`, `yarn`, `bun` | safe | tool |
+| Python | `pip`, `uv`, `conda` | safe | tool |
+| Go | `go-build` (safe), `go-modules` (decide) | — | tool |
+| JVM | `gradle-caches`, `gradle-wrapper`, `maven` | decide | aged |
+| Rust | `cargo-registry` | decide | aged |
+| Dart / Flutter | `pub-cache` | decide | info |
+| IDEs | `jetbrains-caches`, `vscode-cached-data`, `vscode-extension-downloads` | safe | aged |
+| Android | `android-system-images`, `android-avd` | decide | info |
+| Xcode (macOS) | `derived-data`, `ios-device-support`, `xcode-archives` (decide, aged); `xcode-previews`, `simulator-caches` (safe, aged); `simulators-unavailable` (safe, tool) | | |
+| macOS | `cocoapods`, `homebrew` (safe, tool); `trash` (decide); `core-device-fs`, `docker-desktop-disk` (keep) | | |
+| Windows | `temp`, `crash-dumps` (safe, aged); `docker-desktop-disk`, `store-app-data` (keep) | | |
+| Linux | `thumbnails` (safe, aged); `trash` (decide) | | |
+| projectops | `projectops-browser` (safe, browser); `projectops-backups` (keep) | | |
+
+Anything else large under home shows in `largest` with `relation: unclassified` and is decide tier. Cloud-sync folders
+(`is_cloud_sync`: iCloud, OneDrive, Dropbox, Google Drive) are keep tier: deleting there deletes on every device.
+To add a tool for everyone, add a `Location` to `scripts/disk/catalog.py` with paths for all three OSes.
 
 Kinds: `tool` runs the tool's own clean-up command, `aged` removes sub-folders whose newest change or access is older
 than `--older-than-days`, `browser` removes only cache folders inside profiles whose browser is not running, `info` is

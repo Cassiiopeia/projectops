@@ -242,7 +242,7 @@ Read by the extras skill `pro-disk-cleanup` (`disk_cli.py`). Every field is opti
 ```json
 {
   "disk-cleanup": {
-    "roots": ["~/Desktop/Programming/project"],
+    "roots": ["~/projects", "~/work"],
     "idle_hours": 2,
     "backup_dir": "~/.projectops/backups/disk-cleanup"
   }

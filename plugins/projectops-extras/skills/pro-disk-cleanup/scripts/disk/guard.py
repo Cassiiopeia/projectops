@@ -52,7 +52,7 @@ def _clear_readonly_and_retry(function, path, _error_info):
         os.chmod(path, stat.S_IWRITE)
         function(path)
     except OSError:
-        pass
+        pass  # 남은 항목은 remove_tree 가 partially_removed 로 보고
 
 
 def remove_tree(target: str, allowed_base: Path) -> dict:

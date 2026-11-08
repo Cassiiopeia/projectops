@@ -58,6 +58,9 @@ def remove(path: str, closed_issue: int | None, is_stale_approved: bool, idle_ho
     if not backup_result["ok"]:
         return {"ok": False, "code": "backup_failed", "backup": backup_result,
                 "summary": "Backup could not be verified; nothing removed"}
+    if not backup_result["is_private"]:
+        return {"ok": False, "code": "backup_not_private", "backup": backup_result,
+                "summary": "Backup folder could not be limited to your account (it may hold .env or keys); nothing removed"}
     if backup_result["untracked_skipped_large"] and not should_skip_large_untracked:
         return {"ok": False, "code": "large_untracked_files", "backup": backup_result,
                 "summary": "Large untracked files were not backed up; nothing removed",

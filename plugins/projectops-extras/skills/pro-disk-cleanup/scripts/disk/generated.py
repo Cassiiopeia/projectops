@@ -46,7 +46,7 @@ def find_generated_folders(worktree: Path) -> list[Path]:
                     elif depth + 1 < SEARCH_DEPTH:
                         pending.append((Path(entry.path), depth + 1))
         except OSError:
-            continue
+            continue  # 권한 없음·사라진 폴더
     return found
 
 
@@ -59,7 +59,7 @@ def is_tracked_by_git(worktree: Path, folder: Path) -> bool:
 def describe_folder(worktree: Path, folder: Path, idle_hours: float, users: list[str] | None) -> dict:
     """생성물 1개 > {path, size, skip_reason}. skip_reason 3개: tracked, recently_modified, in_use"""
     # 크기 측정이 접근 시각을 바꾸므로 시각을 먼저, 수정 시각만 봄
-    touched = sizes.newest_touch_seconds(folder, include_access=False)
+    touched = sizes.newest_touch_seconds(folder, should_include_access=False)
     byte_count, is_partial = sizes.folder_bytes(folder)
     skip_reason = None
     if is_tracked_by_git(worktree, folder):

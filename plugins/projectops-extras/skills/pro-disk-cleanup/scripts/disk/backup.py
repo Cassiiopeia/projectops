@@ -83,12 +83,13 @@ def backup_worktree(facts: dict, backup_base: Path) -> dict:
     branch = _safe_folder_name(facts.get("branch") or f"detached_{worktree.name}")
     destination = backup_base / repository / f"{branch}_{time.strftime('%H%M%S')}"
     destination.mkdir(parents=True, exist_ok=True)
-    # 비밀 파일이 섞일 수 있어 본인만 접근 (POSIX)
+    # 비밀 파일이 섞일 수 있어 본인만 접근 (POSIX). 실패하면 결과에 is_private False
+    is_private = True
     for folder in (backup_base, destination):
         try:
             os.chmod(folder, 0o700)
         except OSError:
-            pass
+            is_private = False
     try:
         staged_bytes = _write_patch(worktree, destination / "staged.patch", "--cached")
         unstaged_bytes = _write_patch(worktree, destination / "unstaged.patch")
@@ -104,5 +105,6 @@ def backup_worktree(facts: dict, backup_base: Path) -> dict:
     is_verified = (destination / "staged.patch").stat().st_size == staged_bytes \
         and (destination / "unstaged.patch").stat().st_size == unstaged_bytes \
         and all((destination / "untracked" / relative).is_file() for relative in copied)
-    return {"ok": is_verified, "backup_path": str(destination), "head": head, "untracked_copied": len(copied),
+    return {"ok": is_verified, "backup_path": str(destination), "is_private": is_private or shell.IS_WINDOWS,
+            "head": head, "untracked_copied": len(copied),
             "untracked_skipped_large": skipped_large, "patch_bytes": staged_bytes + unstaged_bytes}

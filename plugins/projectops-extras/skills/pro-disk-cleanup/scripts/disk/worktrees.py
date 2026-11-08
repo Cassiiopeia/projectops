@@ -39,7 +39,7 @@ def find_main_repositories(roots: list[Path]) -> list[Path]:
                                 if entry.is_dir(follow_symlinks=False) and not entry.name.startswith(".")
                                 and entry.name not in generated.GENERATED_FOLDER_NAMES]
             except OSError:
-                continue
+                continue  # 권한 없는 폴더
     return sorted(repositories.values())
 
 
@@ -103,17 +103,17 @@ def _last_activity_seconds(worktree: Path, real_changes: list[str]) -> float | N
         try:
             times.append(candidate.stat().st_mtime)
         except OSError:
-            pass
+            pass  # 없는 파일은 시각 후보에서 제외
     for line in real_changes:
         try:
             times.append((worktree / line[3:].split(" -> ")[-1].strip('"')).stat().st_mtime)
         except OSError:
-            continue
+            continue  # 삭제된 변경 파일
     return max(times) if times else None
 
 
 def describe_worktree(entry: dict, main_repository: Path, slug: str | None, snapshot: ProcessSnapshot,
-                      idle_hours: float, with_size: bool) -> dict:
+                      idle_hours: float, should_measure_size: bool) -> dict:
     path = Path(entry["path"])
     is_main = path.resolve() == main_repository
     branch = entry.get("branch")
@@ -137,19 +137,19 @@ def describe_worktree(entry: dict, main_repository: Path, slug: str | None, snap
         "generated_change_count": changes["generated_count"], "status_error": changes["status_error"],
         "in_use_by": users, "is_in_use": None if users is None else bool(users),
     })
-    if with_size:
+    if should_measure_size:
         byte_count, is_partial = sizes.folder_bytes(path)
         facts.update({"size_gb": sizes.to_gigabytes(byte_count), "is_partial_size": is_partial})
     return facts
 
 
-def collect(roots: list[Path], idle_hours: float, with_size: bool, snapshot: ProcessSnapshot | None = None) -> list[dict]:
+def collect(roots: list[Path], idle_hours: float, should_measure_size: bool, snapshot: ProcessSnapshot | None = None) -> list[dict]:
     snapshot = snapshot or ProcessSnapshot()
     results = []
     for main in find_main_repositories(roots):
         slug = repository_slug(main)
         for entry in list_worktrees(main):
-            results.append(describe_worktree(entry, main, slug, snapshot, idle_hours, with_size))
+            results.append(describe_worktree(entry, main, slug, snapshot, idle_hours, should_measure_size))
     return results
 
 

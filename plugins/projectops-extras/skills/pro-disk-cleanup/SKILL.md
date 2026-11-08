@@ -1,6 +1,6 @@
 ---
 name: pro-disk-cleanup
-description: "Find and clear reclaimable disk space on Mac or Windows safely: read-only scan first, three tiers (safe, decide, keep), closed-issue worktree checks with backup, build output, caches, Docker. Use for 'disk is full', 'free up space', 'clean up worktrees'."
+description: "Find and clear reclaimable disk space safely on any macOS, Windows or Linux machine and stack: read-only scan, three tiers (safe, decide, keep), closed-issue worktrees with backup, build output, caches, Docker. Use for 'disk is full', 'free up space'."
 ---
 
 # Disk Cleanup
@@ -42,7 +42,8 @@ Every command is `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/disk_cli.py <command
 | You want | Command |
 |---|---|
 | Free space only | `free` |
-| Full read-only report: free space, every location by size and tier, worktree summary, Docker, running builds | `scan [--roots DIR ...] [--skip-worktrees]` (1-4 minutes; run in the background) |
+| Full read-only report: free space, every known location by size and tier, worktree summary, Docker, running builds | `scan [--roots DIR ...] [--skip-worktrees]` (1-4 minutes; run in the background) |
+| Big folders under home that the known list does not cover (any tool, any stack) | `largest [--limit N]` (run next to `scan`) |
 | Every worktree: repo, branch, issue number, real vs generated changes, unpushed commits, in use, last activity | `worktrees [--roots DIR ...] [--with-size]` |
 | Build output inside worktrees (skips tracked, recent, in-use) | `generated` · then `clear-generated --yes` |
 | Remove one worktree (backup first, branch kept) | `remove-worktree PATH --closed-issue N` or `--approved-stale`, then add `--yes` |
@@ -56,8 +57,13 @@ Anything touched within `--idle-hours` (default 2, `disk-cleanup.idle_hours`) is
 
 ## Flow
 
-1. **Scan, read only.** Run `scan`. Show the user free space and the biggest items grouped by tier, with real sizes.
-   Do not delete anything in this step. A location marked `is_other_volume` (a device mount) uses no local disk; say so and skip it.
+1. **Scan, read only.** Run `scan` and `largest` (both in the background). Show the user free space and the biggest
+   items grouped by tier, with real sizes. Do not delete anything in this step. A location marked `is_other_volume`
+   (a device mount) uses no local disk; say so and skip it.
+   The known list covers common tools on every OS, but this machine may have others. For each `largest` row with
+   `relation: unclassified`, look at its name and a few entries inside and say what it probably is (a cache, a VM or
+   emulator disk, a project, personal files). Unclassified folders are decide tier: never clear one without the user
+   naming it, and never anything under `is_cloud_sync` (deleting a synced file deletes it on every device).
 2. **Safe tier: one confirmation.** List what `safe` would clear and ask once ("clear these N GB?").
    On yes run, in this order: `clear-generated --yes` → `browser --yes` → `tool <key> --yes` for each safe tool.
    A general "clean everything" counts as yes for the safe tier only.
@@ -97,8 +103,11 @@ Anything touched within `--idle-hours` (default 2, `disk-cleanup.idle_hours`) is
 | `issue_mismatch` | The branch points to another issue | Re-check which issue it belongs to |
 | `in_use` · `recently_active` | A process has it open, or it was touched within the idle window | Keep it; another session may be working there |
 | `main_worktree` · `locked` · `not_a_worktree` | Not a removable worktree | Leave it |
+| `backup_not_private` | The backup folder could not be made private to you | Fix the folder's permissions or pass `--backup-dir` |
 | `backup_failed` · `large_untracked_files` | Backup could not be verified, or files over 50 MB were not copied | Show the files; `--skip-large-untracked` only after the user agrees |
 | `tool_missing` · `docker_not_running` | The tool or engine is not available | Skip that item and say so |
 
-On Windows the CLI cannot see which process has a folder open (`is_in_use: null`). Ask the user to close editors and
-terminals in a worktree before removing it; `git worktree remove` itself fails on a locked folder.
+How "in use" is checked (`in_use_method`): macOS and Linux read every process's current folder (`lsof`, or `/proc` when
+`lsof` is missing) and command line. Windows renames the folder for an instant and back; Windows refuses while any
+program has a file or terminal open inside, so that counts as in use. If a result says `PROBE NOT RESTORED`, stop and
+tell the user the exact rename to undo.

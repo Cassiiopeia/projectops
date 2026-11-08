@@ -1,7 +1,5 @@
-"""Docker 정리: 사실 수집 > 순서 고정 삭제
-
-순서: 미사용 볼륨 목록을 먼저 찍음 > 그 목록만 삭제 > 이름을 댄 정지 컨테이너 삭제 > 미사용 이미지·빌드 캐시
-컨테이너 삭제로 새로 미사용이 된 볼륨은 지우지 않고 보고만 (그 컨테이너가 쓰던 데이터일 수 있음)
+"""Docker 정리: 미사용 볼륨 목록 고정 > 그 목록만 삭제 > 이름 댄 정지 컨테이너 > 미사용 이미지·빌드 캐시
+컨테이너 삭제로 새로 미사용이 된 볼륨은 보고만 (그 컨테이너가 쓰던 데이터일 수 있음)
 """
 from __future__ import annotations
 
@@ -22,7 +20,7 @@ def _json_lines(text: str) -> list[dict]:
         try:
             rows.append(json.loads(line))
         except ValueError:
-            continue
+            continue  # JSON 아닌 경고 줄
     return rows
 
 
