@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.91.1  
-**Last updated:** 2026-11-08T17:37:19Z  
+**Current version:** 4.91.2  
+**Last updated:** 2026-11-08T17:40:31Z  
+
+---
+
+## [4.91.2] - 2026-11-08
+
+**PR:** #1096  
+
+**Improvements**
+- Tidied internal notes in the browser tools; behaviour is unchanged
 
 ---
 
