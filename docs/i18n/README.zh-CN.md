@@ -98,6 +98,14 @@
 **用 Agent 推进：** `/pro-changelog-deploy` 代你推送 develop 并创建发布 PR。
 
 
+### 4. 打开 UI 设计稿，亲手操作并挑选
+
+![两个互相联动的设计稿画面](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-ui-design.gif)
+
+请求设计稿后会打开一个真正能动、能响应的本地页面。这里两个画面共享同一个状态：在左边下单，右边的厨房画面就会出现。设计稿使用仓库的令牌和字体，同一次运行还能把这样的 GIF 发到 Issue。
+
+**用 Agent 推进：** `/pro-ui-design` 展示方案，记录你的选择供后续技能使用，拿不定主意时交给设计师。
+
 ---
 
 ## 打造专属风格（Make it yours）

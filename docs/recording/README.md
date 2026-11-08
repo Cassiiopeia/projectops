@@ -28,3 +28,14 @@ uv run --with playwright --with pillow python record_github.py --lang en
 ```
 
 The script creates the public repository `git-sandboxes/pops-qa-demo-gif-<lang>`, installs projectops with `--language <lang>`, then really opens an issue, a work PR and a release PR. A logged-out browser captures the pages while the workflows run. Waiting is fast-forwarded, and the timer in the corner shows the real elapsed time. The repository is deleted at the end (`--keep-repo` keeps it).
+
+## Mockup GIF (`feature-ui-design`)
+
+Needs the browser that `pro-launch web setup` installs (Playwright and Pillow).
+
+```bash
+python3 docs/recording/ui_design_demo/record_ui_design.py --lang en
+python3 docs/recording/ui_design_demo/record_ui_design.py --lang ko
+```
+
+It starts a `pro-ui-design` session from this working tree in a temporary git repo, writes `linked.html` with the text for that language, and records the steps with `capture --gif`. Nothing is published.

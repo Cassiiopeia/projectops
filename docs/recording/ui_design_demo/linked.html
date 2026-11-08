@@ -1,0 +1,43 @@
+<h2>{{title}}</h2>
+<p class="subtitle">{{subtitle}}</p>
+<style>
+  .menu-item{display:flex;justify-content:space-between;align-items:center;background:var(--ui-surface);border-radius:14px;padding:14px;margin:0 14px 10px}
+  .menu-item b{display:block;font-size:15px}
+  .menu-item small{color:var(--ui-sub)}
+  .add{border:0;border-radius:999px;background:var(--ui-ink);color:var(--ui-bg);padding:8px 14px;font-weight:700}
+  .bar{position:absolute;left:14px;right:14px;bottom:18px}
+  .send{width:100%;border:0;border-radius:14px;background:var(--ui-accent);color:var(--ui-on-accent);padding:14px;font-weight:800;font-size:15px}
+  .send:disabled{opacity:.35}
+  .head{padding:40px 16px 12px;font-size:20px;font-weight:800}
+  .ticket{background:var(--ui-surface);border-radius:14px;padding:14px;margin:0 14px 10px;border-left:5px solid var(--ui-accent);animation:pop .35s ease-out}
+  .ticket small{color:var(--ui-sub)}
+  .empty{color:var(--ui-sub);text-align:center;padding:60px 20px}
+  @keyframes pop{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+</style>
+<div id="stage"></div>
+<script>
+  const TEXT = {{text}};
+  const store = UIDesign.createStore({ cart: [], orders: [] });
+  const steps = UIDesign.showSteps(TEXT.steps, { title: TEXT.stepsTitle });
+  UIDesign.setScreens([
+    { id: "customer", label: TEXT.customer, render(element, state) {
+      element.innerHTML = `<div class="head">${TEXT.menuTitle}</div>` + TEXT.menu.map((item, index) =>
+        `<div class="menu-item"><div><b>${item}</b><small>${TEXT.price}</small></div><button class="add" data-index="${index}">+</button></div>`).join("")
+        + `<div class="bar"><button class="send" ${state.cart.length ? "" : "disabled"}>${TEXT.send} (${state.cart.length})</button></div>`;
+      element.querySelectorAll(".add").forEach((button) => button.onclick = () => {
+        store.set((current) => ({ cart: [...current.cart, TEXT.menu[button.dataset.index]] }));
+        steps.complete(0);
+      });
+      element.querySelector(".send").onclick = () => {
+        store.set((current) => ({ orders: [...current.orders, current.cart.join(", ")], cart: [] }));
+        UIDesign.toast(TEXT.sent);
+        steps.complete(1);
+      };
+    } },
+    { id: "kitchen", label: TEXT.kitchen, render(element, state) {
+      element.innerHTML = `<div class="head">${TEXT.ordersTitle}</div>` + (state.orders.length
+        ? state.orders.map((order, index) => `<div class="ticket"><small>#${index + 1}</small><div>${order}</div></div>`).join("")
+        : `<div class="empty">${TEXT.empty}</div>`);
+    } },
+  ], store, document.getElementById("stage"));
+</script>

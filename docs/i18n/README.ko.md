@@ -8,8 +8,6 @@
 
 [![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/ko/)
 
-**상태: 활발히 유지보수 중.** 새 버전이 자주, 하루에 여러 번 나가기도 합니다. 검증한 버전에 머물려면 `npx projectops@<버전>`으로 실행하세요 ([릴리스 목록](https://github.com/Cassiiopeia/projectops/releases)).
-
 </div>
 
 ---
@@ -28,6 +26,8 @@
 ![npx projectops 대화형 마법사 실행 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.ko.gif)
 
 > 위 화면은 샘플 Spring 프로젝트에서 **실제로 실행한 화면**입니다. 화면에 보이는 버전 표기는 녹화 시점 기준입니다. 비대화형 실행과 옵션 전체는 [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/ko/cli)를 보세요.
+
+**상태: 활발히 유지보수 중.** 새 버전이 자주, 하루에 여러 번 나가기도 합니다. 검증한 버전에 머물려면 `npx projectops@<버전>`으로 실행하세요 ([릴리스 목록](https://github.com/Cassiiopeia/projectops/releases)).
 
 ---
 
@@ -99,6 +99,14 @@
 
 **에이전트로 진행하기:** `/pro-changelog-deploy`가 develop을 푸시하고 릴리스 PR을 대신 엽니다.
 
+
+### 4. UI 시안을 띄워 눌러 보고 고르기
+
+![서로 연결된 두 시안 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-ui-design.ko.gif)
+
+시안을 요청하면 실제로 움직이고 반응하는 로컬 페이지가 뜹니다. 여기서는 두 화면이 상태를 공유해, 왼쪽에서 주문하면 오른쪽 주방 화면에 나타납니다. 시안에는 레포의 토큰과 글꼴이 쓰이고, 같은 실행으로 이런 GIF를 이슈에 올릴 수 있습니다.
+
+**에이전트로 진행하기:** `/pro-ui-design`이 시안을 보여 주고, 고른 안을 다음 스킬이 이어받게 기록하며, 결정하기 어려우면 디자이너에게 넘깁니다.
 
 ---
 

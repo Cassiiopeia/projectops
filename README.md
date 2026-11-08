@@ -8,13 +8,6 @@
 
 [![npm](https://img.shields.io/npm/v/projectops?label=npm)](https://www.npmjs.com/package/projectops) [![Release](https://img.shields.io/github/v/release/Cassiiopeia/projectops?label=release)](https://github.com/Cassiiopeia/projectops/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Docs](https://img.shields.io/badge/docs-site-4f46e5)](https://cassiiopeia.github.io/projectops/)
 
-**Status: actively maintained.** npm `latest` is exactly what is on the `main` branch; work in progress on `develop` is never published. Versions can still ship several times a day. Note that `npx projectops@<version>` pins the installer only (workflow templates always come from the current `main`) ([releases](https://github.com/Cassiiopeia/projectops/releases)).
-
-<!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
-## Latest version : v4.89.3 (2026-11-07)
-
-[View full version history](CHANGELOG.md)
-
 </div>
 
 ---
@@ -33,6 +26,13 @@
 ![npx projectops interactive wizard](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
 
 > This is a **real run** on a sample Spring project (the wizard follows your system language, or use `--lang en|ko`). Version numbers shown were current when it was recorded. For non-interactive use and every option, see the [CLI reference](https://cassiiopeia.github.io/projectops/cli).
+
+**Status: actively maintained.** npm `latest` is exactly what is on the `main` branch; work in progress on `develop` is never published. Versions can still ship several times a day. Note that `npx projectops@<version>` pins the installer only (workflow templates always come from the current `main`) ([releases](https://github.com/Cassiiopeia/projectops/releases)).
+
+<!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
+## Latest version : v4.89.3 (2026-11-07)
+
+[View full version history](CHANGELOG.md)
 
 ---
 
@@ -106,6 +106,14 @@ Open a PR from the development branch to `main` and it writes the release notes,
 
 **Drive it from your agent:** `/pro-changelog-deploy` pushes develop and opens the release PR for you.
 
+
+### 4. See UI mockups, press through them, and pick one
+
+![Two linked mockup screens updating each other](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-ui-design.gif)
+
+Ask for mockups and get a local page where they really move and respond. Here two screens share one state: an order placed on the left appears in the kitchen on the right. Mockups use your repo's tokens and fonts, and the same run can post a GIF like this one to the issue.
+
+**Drive it from your agent:** `/pro-ui-design` shows the options, records your pick for the next skills, and hands it to a designer if you cannot decide.
 
 ---
 

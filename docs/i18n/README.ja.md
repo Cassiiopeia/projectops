@@ -98,6 +98,14 @@ Issue を開くと GitHub Actions が自動で動き、**ブランチ名とコ�
 **エージェントで進める：** `/pro-changelog-deploy` が develop を push してリリース PR を開きます。
 
 
+### 4. UI モックアップを表示して操作し、選ぶ
+
+![連動する 2 つのモックアップ画面](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-ui-design.gif)
+
+モックアップを頼むと、実際に動いて反応するローカルページが開きます。この例では 2 つの画面が状態を共有し、左で注文すると右のキッチン画面に表示されます。モックアップにはリポジトリのトークンとフォントが使われ、同じ実行でこのような GIF を Issue に投稿できます。
+
+**エージェントで進める：** `/pro-ui-design` が案を表示し、選んだ案を次のスキルが引き継げるよう記録し、決めきれないときはデザイナーに渡します。
+
 ---
 
 ## 自分好みにする（Make it yours）
