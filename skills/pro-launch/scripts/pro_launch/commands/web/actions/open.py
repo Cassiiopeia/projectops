@@ -45,10 +45,7 @@ def _goto_failed(error: Exception) -> dict:
 
 def _pick_tab(ctx, page, state: dict, args):
     """이번 open 이 몰 탭 > (page, 탭 이름, 자동 분리 여부).
-
-    --new-tab 이거나 이름 붙은 탭이 없으면 새 탭을 만들어 그 이름으로 기록한다.
-    이름 없이 왔는데 고른 탭을 다른 세션이 쓰는 중이면 그 탭을 덮지 않고 이 세션 몫의 새 탭을 뒤에 연다 (#1094).
-    """
+    이름 없이 왔는데 고른 탭을 다른 세션이 쓰는 중이면 덮지 않고 이 세션 몫의 새 탭을 뒤에 연다 (#1094)."""
     name = args.tab_name or tabs.session_tab_name()
     if name:
         existing = tabs.named_tab_page(ctx, state, name)

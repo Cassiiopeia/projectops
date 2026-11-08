@@ -58,11 +58,7 @@ _WINDOWS_GIT_BASH_PATHS = (r"C:\Program Files\Git\bin\bash.exe", r"C:\Program Fi
 
 
 def bash_executable() -> str:
-    """셸 명령을 돌릴 bash. POSIX 는 그냥 "bash".
-
-    Windows 의 CreateProcess 는 PATH 보다 System32 를 먼저 본다. 이름만 주면 WSL 이 있는 PC 에서 WSL 안에서 돈다
-    (경로·도구가 전부 달라 엉뚱한 실패가 된다). 그래서 그 폴더를 뺀 PATH 에서 찾아 전체 경로를 준다.
-    """
+    """셸 명령을 돌릴 bash. Windows 는 전체 경로를 준다 — CreateProcess 는 PATH 보다 System32(WSL 실행기)를 먼저 본다"""
     if sys.platform != "win32":
         return "bash"
     folders = [folder for folder in os.environ.get("PATH", "").split(os.pathsep)

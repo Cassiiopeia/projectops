@@ -126,10 +126,8 @@ def default_tab_page(ctx, state: dict):
 
 
 def new_tab_page(ctx, is_front: bool = False):
-    """새 탭을 연다. 기본은 뒤에서 — 사람이나 다른 세션이 보던 탭이 바뀌면 안 된다 (#1094).
-
-    Playwright 의 new_page 는 탭을 맨 앞으로 가져온다. 못 쓰는 연결이면 new_page 로 대신한다.
-    """
+    """새 탭을 연다. 기본은 뒤에서 — new_page 는 탭을 맨 앞으로 가져와 사람이 보던 탭이 바뀐다 (#1094).
+    뒤에서 못 여는 연결이면 new_page 로 대신한다."""
     if is_front:
         page = ctx.new_page()
         page.bring_to_front()
@@ -185,9 +183,7 @@ def tab_mark(page) -> dict:
 
 def active_other_sessions(state: dict) -> list[dict]:
     """최근에 이 브라우저를 쓴 다른 세션의 탭 > [{tab, url, target_id, idle_minutes}]. 세션을 못 가르면 빈 목록.
-
-    옛 기록(at 없음)은 쓰는 중으로 본다 — 남의 탭을 덮는 쪽이 더 나쁘다.
-    """
+    옛 기록(at 없음)은 쓰는 중으로 본다 — 남의 탭을 덮는 쪽이 더 나쁘다."""
     me = session_identity()
     if me == ANONYMOUS_SESSION:
         return []
@@ -210,10 +206,8 @@ def is_other_session_tab(page, state: dict) -> bool:
 
 
 def reload_notice(page, state: dict) -> dict | None:
-    """이 세션의 지난 명령 뒤에 같은 화면이 다시 로드됐나 (페이지가 스스로 · 사람이 · 다른 세션이) (#1094).
-
-    다시 로드되면 ref · 입력 중이던 글자 · 펼친 메뉴가 전부 사라진다 — ref_stale 만 보면 원인을 알 수 없었다.
-    """
+    """이 세션의 지난 명령 뒤에 같은 화면이 다시 로드됐나 (#1094).
+    다시 로드되면 ref · 입력 중이던 글자 · 펼친 메뉴가 사라진다 — ref_stale 만 보면 원인을 알 수 없다."""
     mark = (state.get("tab_marks") or {}).get(mark_key()) or {}
     previous_origin = mark.get("time_origin")
     current_origin = read_time_origin(page)
@@ -260,7 +254,7 @@ def drift_warning(page, state: dict) -> dict | None:
 
 
 def mark_tab(page, state: dict) -> None:
-    """명령이 끝난 뒤 이 세션 탭의 모습을 적는다 — 다음 명령에서 다른 세션의 이동을 가른다."""
+    """명령이 끝난 뒤 이 세션 탭의 모습을 적는다 — 다음 명령에서 다른 세션의 이동 · 페이지 재로드를 가른다."""
     try:
         mark = tab_mark(page)
     except Exception:
