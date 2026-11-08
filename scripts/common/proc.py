@@ -51,6 +51,29 @@ def sdk_tool(name: str) -> str | None:
     return None
 
 
+# Windows 의 PATH 에 있어도 쓰면 안 되는 bash — System32 는 WSL 실행기, WindowsApps 는 Store 안내 껍데기다
+_WINDOWS_FAKE_BASH_FOLDERS = ("\\windows\\system32", "\\windowsapps")
+# PATH 에 Git 이 없을 때 볼 표준 설치 위치
+_WINDOWS_GIT_BASH_PATHS = (r"C:\Program Files\Git\bin\bash.exe", r"C:\Program Files (x86)\Git\bin\bash.exe")
+
+
+def bash_executable() -> str:
+    """셸 명령을 돌릴 bash. POSIX 는 그냥 "bash".
+
+    Windows 의 CreateProcess 는 PATH 보다 System32 를 먼저 본다. 이름만 주면 WSL 이 있는 PC 에서 WSL 안에서 돈다
+    (경로·도구가 전부 달라 엉뚱한 실패가 된다). 그래서 그 폴더를 뺀 PATH 에서 찾아 전체 경로를 준다.
+    """
+    if sys.platform != "win32":
+        return "bash"
+    folders = [folder for folder in os.environ.get("PATH", "").split(os.pathsep)
+               if not any(fake in folder.lower().rstrip("\\") + "\\" or folder.lower().rstrip("\\").endswith(fake)
+                          for fake in _WINDOWS_FAKE_BASH_FOLDERS)]
+    found = shutil.which("bash", path=os.pathsep.join(folders))
+    if found:
+        return found
+    return next((path for path in _WINDOWS_GIT_BASH_PATHS if Path(path).is_file()), "bash")
+
+
 def pid_alive(pid) -> bool:
     """프로세스 생존 확인 (OS 분기 단일 지점). 우리 자식 좀비는 거둬들이고 죽은 것으로 판정"""
     try:

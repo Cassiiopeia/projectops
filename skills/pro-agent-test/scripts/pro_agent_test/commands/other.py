@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 from common.emit import emit
+from common.proc import bash_executable
 
 from pro_agent_test.scenario_rules import _EXPECT_KEYS, _validate, scenario_target
 from pro_agent_test.storage import _expand, _resolve_scenario, _scenario_dir
@@ -97,7 +98,7 @@ def _tail(text: str, n: int = 40) -> str:
 def _exec_once(command: str, cwd: Path, env: dict, timeout: int) -> dict:
     t0 = time.time()
     try:
-        r = subprocess.run(["bash", "-lc", command], cwd=str(cwd), env=env,
+        r = subprocess.run([bash_executable(), "-lc", command], cwd=str(cwd), env=env,
                            capture_output=True, text=True, errors="replace", timeout=timeout)
         return {"exit_code": r.returncode, "stdout": r.stdout or "", "stderr": r.stderr or "",
                 "elapsed_ms": int((time.time() - t0) * 1000), "timed_out": False}

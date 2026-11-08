@@ -9,6 +9,7 @@ from common.access import load_access
 
 import credentials
 
+from common.proc import bash_executable
 from pro_launch.registry import Command
 from pro_launch.runtime.context import project_root, state_home
 from pro_launch.runtime.creds import cred_name_for, load_cred
@@ -125,8 +126,8 @@ def cmd_db(args) -> int:
 
     try:
         if args.command:
-            argv = (["bash", "-lc", f"{args.command} {_shq(sql)}"] if args.append_sql
-                    else ["bash", "-lc", args.command])
+            argv = ([bash_executable(), "-lc", f"{args.command} {_shq(sql)}"] if args.append_sql
+                    else [bash_executable(), "-lc", args.command])
             stdin = None if args.append_sql else sql
             r = subprocess.run(argv, input=stdin, capture_output=True, text=True, errors="replace",
                                timeout=args.timeout, env=dict(os.environ, **cred_env))

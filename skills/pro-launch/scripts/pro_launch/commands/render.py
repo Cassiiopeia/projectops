@@ -8,6 +8,7 @@ import subprocess
 import time
 from pathlib import Path
 
+from common.proc import bash_executable
 from pro_launch.registry import Command
 from pro_launch.runtime.context import project_root, state_home
 from pro_launch.runtime.output import out
@@ -135,7 +136,7 @@ def cmd_render(args) -> int:
                     "error": f"--cwd folder does not exist: {cwd}",
                     "next": "--cwd is a path relative to the repo root (--root)"})
     try:
-        r = subprocess.run(["bash", "-lc", args.cmd], cwd=str(cwd), capture_output=True,
+        r = subprocess.run([bash_executable(), "-lc", args.cmd], cwd=str(cwd), capture_output=True,
                            text=True, errors="replace", timeout=args.timeout, stdin=subprocess.DEVNULL)
         rc, output = r.returncode, (r.stdout or "") + (r.stderr or "")
     except subprocess.TimeoutExpired as e:
