@@ -27,6 +27,56 @@ PAGE_FINGERPRINT_JS = """() => [document.querySelectorAll('*').length,
   document.querySelectorAll('dialog[open]').length, (document.body ? document.body.innerText : '').length].join(':')"""
 
 
+# 누름이 실제로 페이지에 닿았는지 세는 감시: 요소가 속한 창의 capture 단계 (#1048)
+# 오래 띄운 공유 브라우저에서 탭이 CDP 마우스·키 입력을 통째로 버리는 상태가 실측됨 > 조용히 "변화 없음"이 되지 않게
+INPUT_PROBE_EVENT_TYPES = "['pointerdown', 'mousedown', 'click']"
+# recovery 안의 내부 전달값: 닿은 이벤트 수 (응답에는 안 나감)
+DELIVERED_INPUT_COUNT_KEY = "_delivered_input_count"
+ARM_INPUT_PROBE_JS = """(e) => {
+  const w = e.ownerDocument.defaultView;
+  const count = () => { w.__projectopsInputCount = (w.__projectopsInputCount || 0) + 1; };
+  w.__projectopsInputCount = 0;
+  %s.forEach((t) => w.addEventListener(t, count, true));
+  w.__projectopsInputProbeOff = () => %s.forEach((t) => w.removeEventListener(t, count, true));
+}""" % (INPUT_PROBE_EVENT_TYPES, INPUT_PROBE_EVENT_TYPES)
+READ_INPUT_PROBE_JS = """(e) => {
+  const w = e.ownerDocument.defaultView;
+  const delivered = w.__projectopsInputCount;
+  if (w.__projectopsInputProbeOff) w.__projectopsInputProbeOff();
+  delete w.__projectopsInputCount; delete w.__projectopsInputProbeOff;
+  return typeof delivered === 'number' ? delivered : null;
+}"""
+
+
+def arm_input_probe(element) -> bool:
+    """감시 설치. 못 하면 False (이동 중 등) — 그때는 닿았는지 판정하지 않는다."""
+    try:
+        element.evaluate(ARM_INPUT_PROBE_JS)
+        return True
+    except Exception:
+        return False
+
+
+def read_delivered_input_count(element) -> int | None:
+    """닿은 입력 이벤트 수, 감시 해제 (성공·실패 공통). 이동·재생성으로 못 읽으면 None."""
+    try:
+        return element.evaluate(READ_INPUT_PROBE_JS)
+    except Exception:
+        return None
+
+
+def input_not_delivered_failure(page, args, info: dict) -> dict:
+    """누르기는 끝났는데 페이지에 이벤트가 하나도 안 닿음 > --dom-click 또는 브라우저 재시작 안내"""
+    return {"ok": False, "code": "input_not_delivered", "action": "click", "clicked": info, "url": page.url,
+            "error": "The click was sent, but no pointer or click event reached the page",
+            "hint": "This tab is dropping browser input (seen in a long-running shared browser), "
+                    "or the page cancels every pointer event before its own listeners and nothing changed. "
+                    "--dom-click calls the element's click() directly. "
+                    "Restarting the browser (web close, then web open) also clears it, but closes its other tabs: "
+                    "check web tab list first",
+            "next": f"{covered_retry_command(args)}  # click through the DOM instead of browser input"}
+
+
 def read_page_fingerprint(page) -> str | None:
     """못 읽으면 None (이동 중 등)"""
     try:
@@ -67,9 +117,12 @@ def click_with_cover_recovery(page, element, args, info: dict) -> tuple[dict, di
         element.evaluate("(e) => e.click()")
         recovery["dom_click"] = True
         return recovery, None
+    is_probe_armed = arm_input_probe(element)
     try:
         element.click(timeout=target_wait_seconds(args) * 1000)
     except Exception as error:
+        if is_probe_armed:
+            read_delivered_input_count(element)
         if not is_timeout_error(error):
             raise
         # 누른 뒤 페이지가 넘어가 요소가 사라지면 시간 초과처럼 보임: 이동했으면 성공 (#1074)
@@ -84,7 +137,23 @@ def click_with_cover_recovery(page, element, args, info: dict) -> tuple[dict, di
                                     "If it need not match a real user click, --dom-click calls the element's click() directly",
                             "next": f"{covered_retry_command(args)}  # click without going through the cover"})
         return recovery, failure
+    # 판정은 화면이 가라앉은 뒤 _web_click 이 한다 (이벤트를 삼키는 페이지에서 오판 방지)
+    if is_probe_armed and page.url == url_before_click:
+        recovery[DELIVERED_INPUT_COUNT_KEY] = read_delivered_input_count(element)
     return recovery, None
+
+
+def is_input_dropped(recovery: dict, changed: bool = False, content_changed: bool = False) -> bool:
+    """이벤트 0건이고 화면도 그대로일 때만 안 닿은 것 (못 읽은 None 은 판정 안 함)"""
+    return recovery.get(DELIVERED_INPUT_COUNT_KEY) == 0 and not changed and not content_changed
+
+
+def dom_click_if_input_dropped(element, args, recovery: dict) -> None:
+    """--dom-click 을 줬고 입력이 안 닿았으면 요소의 click() 으로 한 번 더 (명시했을 때만)"""
+    if args.dom_click and is_input_dropped(recovery):
+        element.evaluate("(e) => e.click()")
+        recovery.pop(DELIVERED_INPUT_COUNT_KEY, None)
+        recovery.update({"input_not_delivered": True, "dom_click": True})
 
 
 def _web_click(page, args, state: dict) -> dict:
@@ -97,6 +166,7 @@ def _web_click(page, args, state: dict) -> dict:
     recovery, failure = click_with_cover_recovery(page, el, args, info)
     if failure:
         return failure
+    dom_click_if_input_dropped(el, args, recovery)
     outcome_seconds = outcome_wait_seconds(args)
     waited = None
     try:
@@ -114,6 +184,8 @@ def _web_click(page, args, state: dict) -> dict:
                 pass  # 로드 신호가 늦어도 아래 짧은 대기로 넘어간다
             page.wait_for_timeout(800)
     except Exception:
+        if is_input_dropped(recovery):
+            return input_not_delivered_failure(page, args, info)
         return {"ok": False, "code": "expect_not_met", "action": "click", "clicked": info,
                 "expected": args.expect_url or args.expect_text,
                 "before": {"url": before_url, "title": before_title},
@@ -125,6 +197,9 @@ def _web_click(page, args, state: dict) -> dict:
     changed = after_url != before_url or after_title != before_title
     after_fingerprint = read_page_fingerprint(page)
     content_changed = before_fingerprint is None or after_fingerprint is None or before_fingerprint != after_fingerprint
+    if is_input_dropped(recovery, changed, content_changed):
+        return input_not_delivered_failure(page, args, info)
+    recovery.pop(DELIVERED_INPUT_COUNT_KEY, None)
     outcome_text = ("URL or title changed" if changed else
                     "URL and title unchanged, page content changed" if content_changed else
                     "nothing visible changed")
@@ -151,7 +226,8 @@ def configure(p) -> None:
     p.add_argument("--expect-text", dest="expect_text", default=None,
                    help="After clicking, wait until this text is visible. Fails otherwise")
     p.add_argument("--dom-click", dest="dom_click", action="store_true",
-                   help="If a sticky header or overlay covers it, call the element's click() directly (#879)")
+                   help="If a sticky header or overlay covers it, or the tab drops browser input, "
+                        "call the element's click() directly (#879, #1048)")
 
 
 ACTION = Action(name="click", run=_web_click, configure=configure,
