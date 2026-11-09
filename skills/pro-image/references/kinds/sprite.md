@@ -22,7 +22,9 @@ No background scenery, no floor, no cast shadow, no glow, no border, no text.
 
 ## Traps
 - A floor shadow or ground line sneaks in. Name it in "no".
-- Tools without transparency (Antigravity) get a flat key color background from the CLI; tell it the character
-  must not wear that color (pass `--key-color "#FF00FF"` for a green-clad character).
+- Tools without transparency (Antigravity) get a flat key color background from the CLI. The CLI picks green,
+  magenta or blue, whichever is farthest from the colors in the attached references, because the model paints the
+  background's bounce light onto the character and a close key turns those areas grey. Without references, pass
+  `--key-color` yourself (e.g. `"#0000FF"` for a yellow or green character).
 - Face drift across a set: attach only the approved sheet, not old scene images.
 - Fit mode for alpha images is `contain` (never crops the character); ask for "centered with margin".

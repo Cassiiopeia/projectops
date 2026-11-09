@@ -9,6 +9,8 @@ from collections import Counter, deque
 DEFAULT_TOLERANCE = 48
 # 반투명 처리 폭: tolerance ~ tolerance*SOFT_BAND_RATIO 구간은 거리 비례 알파
 SOFT_BAND_RATIO = 2.0
+# 키 컬러 후보 3개 (초록, 분홍, 파랑): 대상 색과 가장 먼 것을 고름
+KEY_COLOR_CANDIDATES = ("#00FF00", "#FF00FF", "#0000FF")
 # 키 컬러(채도 높은 배경)일 때 최소 허용 거리
 CHROMA_TOLERANCE = 110
 # 키 컬러 번짐 제거 범위: 투명 영역 바깥 몇 픽셀까지
@@ -71,11 +73,44 @@ def _alpha_for(color: tuple[int, int, int], keys: list[tuple[int, int, int]], to
 
 
 def _despill(rgba: bytearray, index: int, key: tuple[int, int, int]) -> None:
-    # 반투명 가장자리의 키 컬러 번짐 제거: 키의 가장 강한 채널을 나머지 두 채널 최대값으로 낮춤
+    # 키 컬러 번짐 제거: 키에서 강한 채널(초록 1개, 분홍 2개)을 약한 채널 최대값으로 낮춤
     offset = index * 4
-    strongest = max(range(3), key=lambda channel: key[channel])
-    others = [rgba[offset + channel] for channel in range(3) if channel != strongest]
-    rgba[offset + strongest] = min(rgba[offset + strongest], max(others))
+    strong = [channel for channel in range(3) if key[channel] >= 128]
+    weak = [channel for channel in range(3) if key[channel] < 128]
+    if not strong or not weak:
+        return
+    ceiling = max(rgba[offset + channel] for channel in weak)
+    for channel in strong:
+        rgba[offset + channel] = min(rgba[offset + channel], ceiling)
+
+
+def _unmix(rgba: bytearray, index: int, key: tuple[int, int, int], alpha: int) -> None:
+    # 반투명 픽셀 = 물체색 x a + 배경색 x (1-a) > 물체색 복원 (가장자리 배경색 비침 제거)
+    offset, share = index * 4, alpha / 255
+    for channel in range(3):
+        restored = (rgba[offset + channel] - key[channel] * (1 - share)) / share
+        rgba[offset + channel] = max(0, min(255, round(restored)))
+
+
+def pick_key_color(colors: list[tuple[int, int, int]]) -> str:
+    """대상에 쓰인 색들 > 그중 어느 색과도 가장 먼 키 컬러 (초록·분홍·파랑 중)"""
+    if not colors:
+        return KEY_COLOR_CANDIDATES[0]
+    def nearest_distance(candidate: str) -> float:
+        key = parse_hex_color(candidate)
+        return min(_distance(key, color) for color in colors)
+    return max(KEY_COLOR_CANDIDATES, key=nearest_distance)
+
+
+def dominant_colors(width: int, height: int, rgba: bytearray, limit: int = 8) -> list[tuple[int, int, int]]:
+    """불투명 픽셀의 대표색 (양자화 후 빈도순, 참조 그림에서 키 컬러 고를 때 사용)"""
+    buckets = Counter()
+    step = max(1, (width * height) // 40000)
+    for index in range(0, width * height, step):
+        if rgba[index * 4 + 3] < 200:
+            continue
+        buckets[tuple(channel // 32 * 32 + 16 for channel in _pixel(rgba, index))] += 1
+    return [color for color, _ in buckets.most_common(limit)]
 
 
 def _neighbors(index: int, width: int, height: int):
@@ -138,6 +173,8 @@ def remove(width: int, height: int, rgba: bytearray, keys: list[tuple[int, int, 
                     queue.append(neighbor)
     for index, alpha in alpha_by_index.items():
         rgba[index * 4 + 3] = min(rgba[index * 4 + 3], alpha)
+        if 0 < alpha < 255:
+            _unmix(rgba, index, keys[0], alpha)
     if is_chroma_key(keys):
         for index in _edge_ring(alpha_by_index, width, height):
             _despill(rgba, index, keys[0])

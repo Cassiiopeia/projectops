@@ -5,9 +5,10 @@ import shutil
 import time
 from pathlib import Path
 
-from . import codex_runner, harness, image_facts, postprocess, provider_runner, providers, settings
+from . import (background, codex_runner, converter, harness, image_facts, png_codec, postprocess, provider_runner,
+               providers, settings)
 
-# 투명 배경을 못 만드는 도구에 쓰는 기본 키 컬러
+# 투명 배경을 못 만드는 도구에 쓰는 기본 키 컬러 (참조 그림이 있으면 그 색과 먼 것을 자동 선택)
 DEFAULT_KEY_COLOR = "#00FF00"
 # 수거 대기: 도구가 끝난 뒤 새 그림이 생길 때까지 최대 대기 (초), 새 그림이 멈춘 뒤 안정화 대기 (초)
 HARVEST_WAIT_SECONDS = 300
@@ -90,6 +91,22 @@ def _prepare(run_dir: Path, references: list[Path], harness_dir: Path) -> list[P
     return copied
 
 
+def _choose_key_color(references: list[Path], run_dir: Path) -> str:
+    """참조 그림의 대표색 > 그 색들과 가장 먼 키 컬러 (참조 없으면 초록, 읽기 실패한 참조는 건너뜀)"""
+    colors = []
+    for reference in references:
+        try:
+            source = reference
+            if image_facts.read_facts(reference).get("format") != "png":
+                source = run_dir / f"key_probe_{reference.stem}.png"
+                converter.to_png(reference, source)
+            width, height, rgba = png_codec.read_rgba(source)
+        except (RuntimeError, OSError, ValueError):
+            continue
+        colors += background.dominant_colors(width, height, rgba)
+    return background.pick_key_color(colors) if colors else DEFAULT_KEY_COLOR
+
+
 def _harvest(definition: dict, started_at: float) -> Path | None:
     """도구 저장 폴더에서 실행 이후 생긴 그림 > 마지막 것 (도구가 스스로 다시 그리면 최종본)"""
     deadline, newest, last_change = time.time() + HARVEST_WAIT_SECONDS, None, time.time()
@@ -114,8 +131,8 @@ def generate(provider_name: str, name: str, prompt_text: str, references: list[P
     missing = [str(reference) for reference in references if not reference.is_file()]
     if missing:
         return {"ok": False, "code": "reference_missing", "missing": missing, "summary": "Reference image not found"}
-    file_name, key = f"{name}.png", key_color or DEFAULT_KEY_COLOR
     copied = _prepare(run_dir, references, harness_dir)
+    file_name, key = f"{name}.png", key_color or _choose_key_color(copied, run_dir)
     full_prompt = build_prompt(prompt_text, definition, file_name, size, is_alpha_required, key)
     (run_dir / "prompt.md").write_text(full_prompt, encoding="utf-8")
     command = provider_runner.build_command(providers.executable_of(definition), definition, run_dir,
