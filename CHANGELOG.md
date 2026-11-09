@@ -1,7 +1,22 @@
 # Changelog
 
-**Current version:** 4.93.0  
-**Last updated:** 2026-11-09T05:29:54Z  
+**Current version:** 4.94.0  
+**Last updated:** 2026-11-09T06:53:39Z  
+
+---
+
+## [4.94.0] - 2026-11-09
+
+**PR:** #1103  
+
+**New features**
+- New `/pro-image` skill: make backgrounds, characters, icons and illustrations in your project's own art style
+- Draws with Codex on your ChatGPT plan, Antigravity, or Claude as a fallback, in the order you choose once
+- Finished images come at the exact size you need, with real transparent backgrounds when asked
+- Compare a few art styles side by side on one board and pick the one that fits your app
+
+**Documentation**
+- Skill guides, READMEs and settings reference now cover the new image skill
 
 ---
 

@@ -1,14 +1,42 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-09T05:29:54Z",
-    "currentVersion": "4.93.0",
+    "lastUpdated": "2026-11-09T06:53:39Z",
+    "currentVersion": "4.94.0",
     "projectType": "basic",
-    "totalReleases": 384,
+    "totalReleases": 385,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.94.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-09",
+      "pr_number": 1103,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * New `/pro-image` skill: make backgrounds, characters, icons and illustrations in your project's own art style\n  * Draws with Codex on your ChatGPT plan, Antigravity, or Claude as a fallback, in the order you choose once\n  * Finished images come at the exact size you need, with real transparent backgrounds when asked\n  * Compare a few art styles side by side on one board and pick the one that fits your app\n\n* **Documentation**\n  * Skill guides, READMEs and settings reference now cover the new image skill",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "New `/pro-image` skill: make backgrounds, characters, icons and illustrations in your project's own art style",
+            "Draws with Codex on your ChatGPT plan, Antigravity, or Claude as a fallback, in the order you choose once",
+            "Finished images come at the exact size you need, with real transparent backgrounds when asked",
+            "Compare a few art styles side by side on one board and pick the one that fits your app"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Skill guides, READMEs and settings reference now cover the new image skill"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.93.0",
       "project_type": "basic",
