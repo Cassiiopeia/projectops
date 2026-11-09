@@ -1,7 +1,22 @@
 # Changelog
 
-**Current version:** 4.91.2  
-**Last updated:** 2026-11-08T17:40:31Z  
+**Current version:** 4.92.0  
+**Last updated:** 2026-11-09T01:50:26Z  
+
+---
+
+## [4.92.0] - 2026-11-09
+
+**PR:** #1098  
+
+**New features**
+- New pro-presentation skill: build a talk as an HTML deck, or import a PPT/PDF
+- Rehearse slide by slide with coaching that fits the script to the speaker and remembers their directions
+- Local practice page that refreshes on every edit and saves script edits back to the deck
+- Export versioned PDF and editable-text PPT, checked against the HTML
+
+**Documentation**
+- Skill guides, presentation settings, and skill lists updated in every README language
 
 ---
 

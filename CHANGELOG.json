@@ -1,14 +1,42 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-08T17:40:31Z",
-    "currentVersion": "4.91.2",
+    "lastUpdated": "2026-11-09T01:50:26Z",
+    "currentVersion": "4.92.0",
     "projectType": "basic",
-    "totalReleases": 382,
+    "totalReleases": 383,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.92.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-09",
+      "pr_number": 1098,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * New pro-presentation skill: build a talk as an HTML deck, or import a PPT/PDF\n  * Rehearse slide by slide with coaching that fits the script to the speaker and remembers their directions\n  * Local practice page that refreshes on every edit and saves script edits back to the deck\n  * Export versioned PDF and editable-text PPT, checked against the HTML\n\n* **Documentation**\n  * Skill guides, presentation settings, and skill lists updated in every README language",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "New pro-presentation skill: build a talk as an HTML deck, or import a PPT/PDF",
+            "Rehearse slide by slide with coaching that fits the script to the speaker and remembers their directions",
+            "Local practice page that refreshes on every edit and saves script edits back to the deck",
+            "Export versioned PDF and editable-text PPT, checked against the HTML"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Skill guides, presentation settings, and skill lists updated in every README language"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.91.2",
       "project_type": "basic",
