@@ -266,7 +266,7 @@ Read by `pro-image` (`image_cli.py`). Every field is optional. Without `priority
     "require_subscription": true,
     "harness_dir": "docs/image-harness",
     "providers": {
-      "codex": { "args": ["exec", "-s", "workspace-write", "--skip-git-repo-check", "--enable", "image_generation"], "timeout_seconds": 900 },
+      "codex": { "args": ["exec", "--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check", "--enable", "image_generation"], "timeout_seconds": 900 },
       "my-tool": {
         "kind": "command",
         "command": "my-image-cli",
@@ -282,7 +282,7 @@ Read by `pro-image` (`image_cli.py`). Every field is optional. Without `priority
 | Field | Required | Description |
 |------|------|------|
 | `priority` | | Image tools in the order to try. Built in: `codex` (ChatGPT subscription), `antigravity` (`agy`, free or Pro Google account), `claude-vector` (the agent draws SVG) |
-| `require_subscription` | | `true` (default) refuses Codex when it is signed in with an API key, and strips API key variables when running it |
+| `require_subscription` | | `true` (default) refuses Codex when it is signed in with an API key, and strips API key variables when running it. Built-in tools run without approval prompts (Codex `--dangerously-bypass-approvals-and-sandbox`, Antigravity `--dangerously-skip-permissions`) in a scratch run folder outside the repo; override `providers.<name>.args` to restrict them |
 | `harness_dir` | | The repo's art harness folder, relative to the repo root. Default `docs/image-harness` |
 | `providers.<name>` | | Overrides a built-in tool or adds one. `kind`: `codex` · `command` · `agent`. Placeholders: `{prompt_file}` `{prompt_text}` `{run_dir}` `{out_dir}` `{out_file}` `{size}` `{timeout_seconds}`, a lone `"{refs}"` = every reference path. `harvest_globs` collects files a tool saves elsewhere |
 

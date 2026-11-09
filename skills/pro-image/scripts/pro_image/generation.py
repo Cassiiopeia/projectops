@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 from . import (background, codex_runner, converter, harness, image_facts, png_codec, postprocess, provider_runner,
-               providers, settings)
+               providers, quota, settings)
 
 # 투명 배경을 못 만드는 도구에 쓰는 기본 키 컬러 (참조 그림이 있으면 그 색과 먼 것을 자동 선택)
 DEFAULT_KEY_COLOR = "#00FF00"
@@ -147,6 +147,9 @@ def generate(provider_name: str, name: str, prompt_text: str, references: list[P
             raw = run_dir / "out" / f"raw_{harvested.name}"
             shutil.copyfile(harvested, raw)
             result["harvested_from"] = str(harvested)
+    if not raw.is_file():
+        run_log_text = Path(result["log"]).read_text(encoding="utf-8", errors="replace")
+        result["quota"] = quota.diagnose(definition, run_log_text, started_at)
     return _judge(definition, name, run_dir, raw, size, is_alpha_required,
                   None if definition["supports_alpha"] else key, result)
 
@@ -160,9 +163,14 @@ def _judge(definition: dict, name: str, run_dir: Path, raw: Path, size: tuple[in
         if result["is_timed_out"]:
             return {**base, "ok": False, "code": "timeout", "summary": "The provider did not finish in time",
                     "next": "run again, or try the next provider in priority"}
+        if result.get("quota"):
+            reset_in = result["quota"]["reset_in"]
+            return {**base, "ok": False, "code": "quota_exhausted",
+                    "summary": "The provider's image quota is used up" + (f" (resets in {reset_in})" if reset_in else ""),
+                    "next": quota.next_hint(result["quota"])}
         if result["reported_unavailable"]:
             return {**base, "ok": False, "code": "image_unavailable", "summary": "The provider cannot generate images",
-                    "next": "free plans hit rate limits (429): retry once after 1-2 minutes, then the next provider"}
+                    "next": "try the next provider in priority"}
         return {**base, "ok": False, "code": "no_image", "summary": "No image came back",
                 "next": "read log_tail; fix the prompt or try the next provider"}
     final_path = run_dir / "out" / f"{name}.final.png"

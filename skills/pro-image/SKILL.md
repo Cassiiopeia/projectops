@@ -85,6 +85,7 @@ the size or the background is truly unknown. Use the full flow below when the im
 | `no_style` | No `STYLE.md` in this repo | Fill it or run the style explore |
 | `not_subscription` | Codex is signed in with an API key | Ask the user to `codex login` with ChatGPT, or use the next tool |
 | `provider_missing` · `image_unavailable` · `timeout` · `no_image` | The tool could not deliver | Next provider in priority (`references/providers.md`) |
+| `quota_exhausted` | The tool's image quota is used up (`quota.reset_in`) | Follow `next`: short wait → retry once, long → next provider now, and tell the user when it resets |
 | `agent_draws` | The chosen provider is claude-vector | Draw SVG yourself, render it, `check` |
 | `postprocess_failed` | Conversion or resizing failed | `raw_image` is kept; install Pillow (`pip install pillow`) or ImageMagick |
 

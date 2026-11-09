@@ -12,6 +12,10 @@
 
 Default order: `codex` > `antigravity` > `claude-vector`. `run` without `--provider` uses the first ready one.
 
+Both built-in tools run with approvals off (Codex `--dangerously-bypass-approvals-and-sandbox`, Antigravity
+`--dangerously-skip-permissions`): headless runs cannot answer a permission prompt and would stop without an image.
+They work in a scratch run folder outside the repo. To restrict them, override `image.providers.<name>.args`.
+
 ## First use: ask once
 
 When `providers` says `ask_priority`, ask the user once with AskUserQuestion which tools to use and in what order,
@@ -26,7 +30,8 @@ showing only the ready ones (`ready_in_order`). Save the answer in `~/.projectop
 | `code` | Do |
 |---|---|
 | `provider_missing` · `not_subscription` | Move to the next provider in the priority list with `--provider <next>`. Tell the user in one line which tool made the image |
-| `image_unavailable` | Free plans (Antigravity free) hit rate limits (429) after a few images in a row. Retry once after 1-2 minutes, then move to the next provider |
+| `quota_exhausted` | The tool's own log shows a 429 or quota error. `quota.reset_in` says when it resets: under an hour, retry once after 1-2 minutes; longer (the Antigravity free image quota is weekly, measured 166h), move to the next provider now and tell the user when it comes back |
+| `image_unavailable` | The tool said it cannot generate images, with no quota trace. Move to the next provider |
 | `timeout` · `no_image` | Run once more with the same provider (background), then move on |
 | `agent_draws` (claude-vector) | Write the SVG yourself, render it to PNG (`pro-launch render`, or a browser screenshot), then `check` |
 
