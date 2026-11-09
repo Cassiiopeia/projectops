@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-09T07:29:21Z",
-    "currentVersion": "4.94.3",
+    "lastUpdated": "2026-11-09T08:56:10Z",
+    "currentVersion": "4.95.0",
     "projectType": "basic",
-    "totalReleases": 388,
+    "totalReleases": 389,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.95.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-09",
+      "pr_number": 1108,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * `/pro-code-consult` is now a core skill: audit AI-written code, refactor one item at a time, check each diff, freeze violations — no extras plugin needed",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "`/pro-code-consult` is now a core skill: audit AI-written code, refactor one item at a time, check each diff, freeze violations — no extras plugin needed"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.94.3",
       "project_type": "basic",

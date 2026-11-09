@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.94.3  
-**Last updated:** 2026-11-09T07:29:21Z  
+**Current version:** 4.95.0  
+**Last updated:** 2026-11-09T08:56:10Z  
+
+---
+
+## [4.95.0] - 2026-11-09
+
+**PR:** #1108  
+
+**New features**
+- `/pro-code-consult` is now a core skill: audit AI-written code, refactor one item at a time, check each diff, freeze violations — no extras plugin needed
 
 ---
 
