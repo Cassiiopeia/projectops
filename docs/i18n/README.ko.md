@@ -142,11 +142,11 @@ Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json
 | 구성 | 하는 일 | 문서 |
 |---|---|---|
 | **GitHub Actions** | develop에서 main으로 가는 릴리스 PR이 버전 관리와 체인지로그를 처리하고, 머지되면 CI/CD 배포가 돕니다 | [버전 관리](https://cassiiopeia.github.io/projectops/ko/version-control) |
-| **Agent Skills** (17종) | `/pro-github`, `/pro-commit`, `/pro-report` 등으로 AI가 단계마다 이슈·내 스타일 커밋·보고서·릴리스 PR을 대신 진행합니다 | [Skills 가이드](https://cassiiopeia.github.io/projectops/ko/skills) |
+| **Agent Skills** (18종) | `/pro-github`, `/pro-commit`, `/pro-report` 등으로 AI가 단계마다 이슈·내 스타일 커밋·보고서·릴리스 PR을 대신 진행합니다 | [Skills 가이드](https://cassiiopeia.github.io/projectops/ko/skills) |
 | **npx CLI** | 기존 프로젝트에 워크플로우를 설치·업데이트하고 상태를 진단합니다 | [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/ko/cli) |
 
 <details>
-<summary>Agent Skills 17종 전체 보기</summary>
+<summary>Agent Skills 18종 전체 보기</summary>
 
 ### 🔄 개발 사이클 자동화
 
@@ -175,6 +175,7 @@ Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json
 | `/pro-image` | 프로젝트 화풍에 맞는 이미지 에셋(배경, 캐릭터, 아이콘, 일러스트, 아이템)을 만든다. 에이전트가 레포의 그림 하네스로 대충 한 요청을 빠짐없는 프롬프트로 바꾸고, Codex(ChatGPT 구독)나 Antigravity가 그린 뒤 CLI가 크기와 진짜 투명 배경까지 맞춘다. 화풍이 없으면 여러 화풍을 비교판으로 보여 주고 고르게 한다 |
 | `/pro-presentation` | 발표를 HTML 덱으로 짓거나 기존 PPT를 가져와, 한 장씩 말로 연습하며 대본을 내 입에 맞게 다듬는다. 말한 방향은 발표 메모리에 쌓여 모든 장에 반영되고, PDF와 글자를 고칠 수 있는 PPT로 내보낸 뒤 HTML과 대조해 검수한다 |
 | `/pro-oss-consult` | GitHub 레포를 오픈소스로서 진단 — 성격 판별, 6축 채점, 성숙도 단계, 승인받은 것만 About·topics·라벨·파일 수정. 단일 레포·계정 전체 일괄 |
+| `/pro-code-consult` | AI가 짠 코드를 내 코딩 규칙에 맞게 관리 — 점검, 승인한 항목만 한 번에 하나씩 리팩터링(전후 대조), 변경분의 낡은 주석·중복 검사, 기존 위반 동결(줄어들기만 함) |
 
 > 설계·계획·구현 흐름은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 담당합니다.
 
@@ -187,7 +188,7 @@ Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json
 | `/pro-ssh` | 원격 서버 SSH 접속·명령 실행 (AWS EC2, 시놀로지 NAS, Linux 등 범용) |
 | `/pro-skill-creator` | Skill 생성/리뷰/개선 (CREATE·REVIEW·IMPROVE 3모드) |
 
-**Extras** (선택 플러그인): `/pro-code-consult` (AI가 짠 코드 관리: 점검·한 항목씩 리팩터링·변경분 검사·위반 동결), `/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
+**Extras** (선택 플러그인): `/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 </details>
 

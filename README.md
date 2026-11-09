@@ -149,11 +149,11 @@ What it changed: descriptions were cut to short English triggers, a guard test n
 | Part | What it does | Docs |
 |---|---|---|
 | **GitHub Actions** | A develop-to-main release PR handles versioning and changelogs; merging it runs CI/CD deployment | [Versioning](https://cassiiopeia.github.io/projectops/version-control) |
-| **Agent Skills** (17) | `/pro-github`, `/pro-commit`, `/pro-report` and more let an AI agent drive each step: issues, commits in your style, reports, release PRs | [Skills guide](https://cassiiopeia.github.io/projectops/skills) |
+| **Agent Skills** (18) | `/pro-github`, `/pro-commit`, `/pro-report` and more let an AI agent drive each step: issues, commits in your style, reports, release PRs | [Skills guide](https://cassiiopeia.github.io/projectops/skills) |
 | **npx CLI** | Installs and updates workflows in an existing project, and diagnoses its state | [CLI reference](https://cassiiopeia.github.io/projectops/cli) |
 
 <details>
-<summary>See all 17 Agent Skills</summary>
+<summary>See all 18 Agent Skills</summary>
 
 ### 🔄 Development cycle automation
 
@@ -182,6 +182,7 @@ What it changed: descriptions were cut to short English triggers, a guard test n
 | `/pro-image` | Make image assets that fit your project's own style: backgrounds, characters, icons, illustrations, items. The agent turns a loose request into a full prompt from a per-repo art harness, Codex (ChatGPT subscription) or Antigravity draws it, and the CLI fixes size and real transparency. Compare styles on one board before locking one |
 | `/pro-presentation` | Build a talk as an HTML deck, rehearse it out loud slide by slide with coaching that remembers your directions, compare recorded takes per slide, then export PDF and an editable-text PPT that is checked against the HTML |
 | `/pro-oss-consult` | Diagnose a GitHub repo as an open-source project: type detection, 6-axis scoring, maturity stage, and edits to About, topics, labels, and files only after approval. One repo or a whole account |
+| `/pro-code-consult` | Keep AI-written code maintainable by your conventions: audit, refactor one approved item at a time with before/after checks, check each diff for stale comments and duplicates, freeze existing violations so they only shrink |
 
 > Design, planning, and implementation are handled by `superpowers` (brainstorming → writing-plans → executing-plans), not by this plugin.
 
@@ -194,7 +195,7 @@ What it changed: descriptions were cut to short English triggers, a guard test n
 | `/pro-ssh` | Connect to a remote server over SSH and run commands (AWS EC2, Synology NAS, Linux, and more) |
 | `/pro-skill-creator` | Create, review, and improve a Skill (CREATE / REVIEW / IMPROVE modes) |
 
-**Extras** (optional plugin): `/pro-code-consult` (keep AI-written code maintainable: audit, refactor one item at a time, check each diff, freeze violations), `/pro-synology-expose`, `/pro-skill-bug` (report a suspected projectops skill bug from any session), `/pro-disk-cleanup` (find and clear reclaimable disk space safely: worktrees, build output, caches, Docker) — `claude plugin install projectops-extras@projectops-marketplace --scope user`
+**Extras** (optional plugin): `/pro-synology-expose`, `/pro-skill-bug` (report a suspected projectops skill bug from any session), `/pro-disk-cleanup` (find and clear reclaimable disk space safely: worktrees, build output, caches, Docker) — `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 </details>
 

@@ -102,7 +102,7 @@ jobs:
       - name: Architecture rules (frozen lists)
         # ledger check 는 위반이 있어도 exit 0 이라 verdict 를 직접 본다
         run: |
-          python3 plugins/projectops-extras/skills/pro-code-consult/scripts/arch_cli.py ledger . check > ledger.json
+          python3 skills/pro-code-consult/scripts/arch_cli.py ledger . check > ledger.json
           python3 -c "import json,sys; d=json.load(open('ledger.json')); print(d['summary']); sys.exit(d['verdict']!='pass')"
 
   # ===================================================================

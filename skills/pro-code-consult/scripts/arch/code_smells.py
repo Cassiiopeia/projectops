@@ -13,7 +13,7 @@ from .naming_smells import (boolean_function_names_in_line, boolean_names_in_lin
 # 경위 주석 (작업 이력은 커밋·이슈에 남긴다 — conventions §7.6)
 # 명사형 끝맺음(추가함·삭제함)은 현재 동작 설명에도 쓰여(conventions §7 권장 형태) 넣지 않는다
 HISTORY_COMMENT_PATTERN = re.compile(
-    r"기존에는|예전에는|예전엔|원래는|이전에는|이제는|"
+    r"기존에는|예전(?:에는|엔)|원래는|이전에는|이제는|"
     r"리팩터링으로|리팩토링으로|이전\s*버그|문제가\s*있었|그대로\s*옮(?:겼|김)|통합\s*후|"
     r"기존\s*\S*\s*(?:방식|메서드|로직|버전)|기존\s*\S+\s*(?:→|->)|에서\s*(?:\S+\s*(?:으로|로)\s*)?전환|"
     r"(?:으로|로)\s*(?:변경|통합|교체)(?:했|함|되었|됐)|"

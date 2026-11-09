@@ -47,4 +47,4 @@ Do not call it done just because the tests pass.
 
 - **Separate the fixer from the reviewer.** Give the diff and the proposal to `pro-review` (or a separate subagent) to look for behavior changes, remaining duplication and weak tests
 - Run check mode once on this change (`diff PATH`) — to confirm the refactor did not create new smells
-- Commit with `/pro-commit`. The commit type is `refactor`
+- Commit the way this repo commits. The commit type is `refactor`

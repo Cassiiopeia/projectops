@@ -54,4 +54,4 @@ install-tests PATH --stack flutter --module app
 
 ## 6. Wrap up
 
-Record the first baseline with `scan PATH --record`, show the list of changed files, then `/pro-commit` (type `chore`).
+Record the first baseline with `scan PATH --record`, show the list of changed files, then commit it the way this repo commits (type `chore`).

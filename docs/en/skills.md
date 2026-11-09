@@ -1,7 +1,7 @@
 # Agent Skills guide
 
 > **This repository is an Agent Skill package you can use with Claude Code, Cursor, Gemini CLI, and Codex CLI.**
-> Along with the GitHub Actions automation template, it provides 17 development/DevOps Skills.
+> Along with the GitHub Actions automation template, it provides 18 development/DevOps Skills.
 
 ---
 
@@ -115,12 +115,12 @@ In Codex there is no slash command UI. You use Skills by having it read the rele
 
 ---
 
-## Full Skill list (17)
+## Full Skill list (18)
 
 By purpose, they fall into four groups:
 
 - **Analysis** (1) — Only read code and never modify it. Return plans, reviews, or diagnoses.
-- **Implementation** (7) — Actually modify or create files.
+- **Implementation** (8) — Actually modify or create files.
 - **Development cycle automation** (3) — Do commits, deploys, and GitHub work for you.
 - **Document/artifact generation** (5) — Do not touch code; generate `.md` files or reports.
 
@@ -148,7 +148,7 @@ It reviews code from **six angles: security, performance, bugs, quality, archite
 
 ---
 
-## 🔧 Implementation Skills (7)
+## 🔧 Implementation Skills (8)
 
 They actually modify files. Use them when you want the work to be carried out.
 
@@ -231,6 +231,21 @@ It drives **programs on this computer's screen** that are neither web pages nor 
 - When a web flow hands off to a downloaded program (a security module installer, a certificate tool)
 
 > Pages inside a browser belong to `/pro-launch`'s `web`, and emulator or simulator screens to `app`. Bug-hunting QA is `/pro-agent-test`.
+
+---
+
+### `/pro-code-consult`
+
+**What does it do?**
+Turns AI-written code into **code a person can maintain for a year**. It audits against your coding conventions (too many comments, stale comments, new code that reuses nothing, reversed layer dependencies, large files and abbreviations), refactors approved items one at a time while comparing before/after runs, checks just a diff, and freezes existing violations in a list (`docs/architecture/rules/`) that can only shrink. Scripts collect facts; the agent judges.
+
+**What it changes**: approved refactoring targets, frozen lists, rule tests (Flutter, Spring, Python, JavaScript)
+**What it returns**: an audit report grouped by cause + a refactoring proposal
+
+**When to use it?**
+- "This code feels like a mess, look over the whole thing"
+- Checking comments, names and duplicates in what you just wrote, before committing
+- Installing your coding conventions and rule tests in a new project
 
 ---
 
@@ -446,7 +461,7 @@ Skills write in your style. Put your preferences in `~/.projectops/config/config
 
 ## Extras (optional plugin)
 
-`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain) and `/pro-code-consult` (audit and refactor AI-written code against your coding conventions, check each diff for stale comments and duplicates, and freeze existing violations so they only shrink) are not in the core plugin. They live in the optional `projectops-extras` plugin.
+`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain), `/pro-skill-bug` (report a projectops skill bug) and `/pro-disk-cleanup` (free disk space safely) are not in the core plugin. They live in the optional `projectops-extras` plugin. (`/pro-code-consult` moved to the core plugin.)
 
 ```bash
 # Claude Code

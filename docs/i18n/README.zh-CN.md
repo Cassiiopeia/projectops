@@ -140,11 +140,11 @@ Skill 会按你的风格输出。把偏好写进 `~/.projectops/config/config.js
 | 组成 | 作用 | 文档 |
 |---|---|---|
 | **GitHub Actions** | 从 develop 到 main 的发布 PR 处理版本管理和更新日志，合并后运行 CI/CD 部署 | [版本管理](https://cassiiopeia.github.io/projectops/version-control)（英文） |
-| **Agent Skills**（17 个） | 通过 `/pro-github`、`/pro-commit`、`/pro-report` 等命令，由 AI 代你推进每一步：Issue、你风格的提交、报告、发布 PR | [Skills 指南](https://cassiiopeia.github.io/projectops/skills)（英文） |
+| **Agent Skills**（18 个） | 通过 `/pro-github`、`/pro-commit`、`/pro-report` 等命令，由 AI 代你推进每一步：Issue、你风格的提交、报告、发布 PR | [Skills 指南](https://cassiiopeia.github.io/projectops/skills)（英文） |
 | **npx CLI** | 向现有项目安装并更新工作流，并诊断其状态 | [CLI 参考](https://cassiiopeia.github.io/projectops/cli)（英文） |
 
 <details>
-<summary>查看全部 17 个 Agent Skills</summary>
+<summary>查看全部 18 个 Agent Skills</summary>
 
 ### 🔄 开发周期自动化
 
@@ -173,6 +173,7 @@ Skill 会按你的风格输出。把偏好写进 `~/.projectops/config/config.js
 | `/pro-image` | 制作符合项目画风的图片素材(背景、角色、图标、插画、道具)。代理根据仓库的美术 harness 把粗略的需求写成完整提示词，由 Codex(ChatGPT 订阅)或 Antigravity 绘制，CLI 负责精确尺寸和真正的透明背景。画风未定时先用对比板展示几种画风供选择 |
 | `/pro-presentation` | 用 HTML 制作演示文稿或导入现有 PPT，逐页出声练习，让讲稿贴合自己的说话方式。说过的要求记入演讲记忆并应用到所有页，再导出 PDF 和可编辑文字的 PPT，并与 HTML 对照检查 |
 | `/pro-oss-consult` | 以开源项目的标准诊断 GitHub 仓库：判别类型、6 个维度评分、成熟度阶段，仅在获得批准后修改 About、topics、标签和文件。支持单个仓库或整个账号 |
+| `/pro-code-consult` | 按你的编码规范维护 AI 编写的代码：审计、仅逐项重构已批准的条目（前后对比）、检查改动中的过时注释与重复、冻结既有违规（只减不增） |
 
 > 设计、规划和实现流程由 `superpowers`（brainstorming → writing-plans → executing-plans）负责，而非本插件。
 
@@ -185,7 +186,7 @@ Skill 会按你的风格输出。把偏好写进 `~/.projectops/config/config.js
 | `/pro-ssh` | 通过 SSH 连接远程服务器并执行命令（AWS EC2、Synology NAS、Linux 等通用） |
 | `/pro-skill-creator` | 创建/审查/改进 Skill（CREATE / REVIEW / IMPROVE 三种模式） |
 
-**Extras**（可选插件）：`/pro-code-consult`（维护 AI 编写的代码：审计、逐项重构、检查每次改动、冻结违规），`/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
+**Extras**（可选插件）：`/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 </details>
 

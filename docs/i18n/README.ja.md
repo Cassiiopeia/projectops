@@ -140,11 +140,11 @@ Skill は自分のスタイルで書きます。好みは `~/.projectops/config/
 | 構成 | できること | ドキュメント |
 |---|---|---|
 | **GitHub Actions** | develop から main へのリリース PR がバージョン管理と変更履歴を処理し、マージすると CI/CD デプロイが動きます | [バージョン管理](https://cassiiopeia.github.io/projectops/version-control)（英語） |
-| **Agent Skills**（17 種） | `/pro-github`、`/pro-commit`、`/pro-report` などで、AI が各ステップ（Issue、自分のスタイルのコミット、レポート、リリース PR）を代わりに進める | [Skills ガイド](https://cassiiopeia.github.io/projectops/skills)（英語） |
+| **Agent Skills**（18 種） | `/pro-github`、`/pro-commit`、`/pro-report` などで、AI が各ステップ（Issue、自分のスタイルのコミット、レポート、リリース PR）を代わりに進める | [Skills ガイド](https://cassiiopeia.github.io/projectops/skills)（英語） |
 | **npx CLI** | 既存プロジェクトにワークフローを導入・更新し、状態を診断 | [CLI リファレンス](https://cassiiopeia.github.io/projectops/cli)（英語） |
 
 <details>
-<summary>Agent Skills 17 種をすべて見る</summary>
+<summary>Agent Skills 18 種をすべて見る</summary>
 
 ### 🔄 開発サイクルの自動化
 
@@ -173,6 +173,7 @@ Skill は自分のスタイルで書きます。好みは `~/.projectops/config/
 | `/pro-image` | プロジェクトの画風に合う画像アセット(背景、キャラクター、アイコン、イラスト、アイテム)を作る。エージェントがリポジトリのアートハーネスから大まかな依頼を完全なプロンプトに書き直し、Codex(ChatGPT サブスクリプション)か Antigravity が描き、CLI がサイズと本物の透過背景を整える。画風が未定なら複数の画風を比較ボードで見せて選ばせる |
 | `/pro-presentation` | 発表を HTML デッキで作るか既存の PPT を取り込み、1 枚ずつ声に出して練習しながら台本を自分の口に合わせる。伝えた方針は発表メモリに残り全スライドに反映。PDF と文字を編集できる PPT に書き出し、HTML と照合して検収する |
 | `/pro-oss-consult` | GitHub リポジトリをオープンソースとして診断：性格の判別、6 軸の採点、成熟度ステージ、承認を得た内容だけ About・topics・ラベル・ファイルを修正。単一リポジトリもアカウント全体も対応 |
+| `/pro-code-consult` | AI が書いたコードを自分のコーディング規約で保守：監査、承認した項目だけ 1 つずつリファクタリング（前後比較）、差分の古いコメント・重複チェック、既存違反の凍結（減る一方） |
 
 > 設計・計画・実装の流れは `superpowers`（brainstorming → writing-plans → executing-plans）が担当します（このプラグインではありません）。
 
@@ -185,7 +186,7 @@ Skill は自分のスタイルで書きます。好みは `~/.projectops/config/
 | `/pro-ssh` | リモートサーバーへ SSH 接続してコマンドを実行（AWS EC2、Synology NAS、Linux など汎用） |
 | `/pro-skill-creator` | Skill の作成・レビュー・改善（CREATE・REVIEW・IMPROVE の 3 モード） |
 
-**Extras**（オプションのプラグイン）：`/pro-code-consult`（AI が書いたコードの保守：監査・1 項目ずつのリファクタリング・差分チェック・違反の凍結）、`/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
+**Extras**（オプションのプラグイン）：`/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 </details>
 

@@ -794,7 +794,7 @@ claude plugin marketplace add Cassiiopeia/projectops
 claude plugin install projectops@projectops-marketplace --scope user
 ```
 
-> 설계·계획·구현은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 맡는다. 아래 표(코어 17종 + extras 4종)에는 분석·계획·구현 스킬이 없다.
+> 설계·계획·구현은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 맡는다. 아래 표(코어 18종 + extras 3종)에는 분석·계획·구현 스킬이 없다.
 
 | 명령어 | 용도 |
 |--------|------|
@@ -806,7 +806,7 @@ claude plugin install projectops@projectops-marketplace --scope user
 | `report` | 구현 보고서 생성 |
 | `changelog-deploy` | develop push → main으로 릴리스 PR(deploy PR) → 버전 확정 + automerge / automerge 실패 시 재트리거 |
 | `synology-expose` | 시놀로지 서비스 외부 노출 가이드 (**extras 선택 플러그인** `projectops-extras` — `plugins/projectops-extras/`, 공유 문서 사본은 `scripts/sync_extras.py`로 동기화) |
-| `code-consult` | **AI가 짠 코드 관리** (**extras**) — 코딩 규칙 기준 점검·한 항목씩 리팩터링(전후 실행 대조)·변경분 검사(낡은 주석·중복)·위반 동결 목록(`docs/architecture/rules/`, 줄을 지울 수만 있음). CLI `arch_cli.py`는 extras가 자기 폴더만 설치되므로 `scripts/common`을 쓰지 않는다 (#867) |
+| `code-consult` | **AI가 짠 코드 관리** (#1107에서 extras → 코어) — 코딩 규칙 기준 점검·한 항목씩 리팩터링(전후 실행 대조)·변경분 검사(낡은 주석·중복)·위반 동결 목록(`docs/architecture/rules/`, 줄을 지울 수만 있음). CLI `arch_cli.py`는 표준 라이브러리 전용이고 `scripts/common`을 쓰지 않는다 (#867) |
 | `skill-bug` | **projectops 스킬 버그 보고** (**extras**) — 어느 레포 세션에서든 의심되면 불러, 세션 기록에서 명령·결과·흐름·로그·스크린샷을 모아 개인정보를 지우고 `Cassiiopeia/projectops`에 이슈(같은 이슈 있으면 댓글)로 묻지 않고 올린 뒤 하던 일로 돌아간다. 판정·수정은 하지 않는다 (CLI `bug_cli.py`). Claude Code에서는 extras 훅(`plugins/projectops-extras/hooks/skill_bug_watch.py`, 규칙 정본 `skill_bug_rules.py`)이 모든 pro- CLI의 실패 후 우회(스킬별 우회 표)·도구가 답한 기능 없음·같은 사용법 오류 2회·같은 실패 3회·CLI 내부 예외를 잡아 백그라운드 서브에이전트로 자동 보고시키고(세션당 3건, `skill-bug.auto_report: false`로 끔), `skill_bug_notice.ts`가 토스트를 띄운다 (#997). 자동 보고 본문은 이슈만 받은 에이전트가 재현·수정할 수 있게 `bug_cli.py alarm`·`excerpt --tool-use-id`·`context`가 모은 사실(원본 응답·앞뒤 흐름·환경)로 채운다 (#1000) |
 | `disk-cleanup` | **디스크 용량 정리** (**extras**, macOS·Windows·Linux, 스택 무관 — 알려진 위치표 + 홈 아래 큰 폴더를 크기로 찾는 `largest`) — 읽기 전용 `scan` 먼저, safe·decide·keep 3단계로 나눠 safe만 한 번 확인 후 정리, decide(열린 이슈 worktree·DerivedData·Gradle 캐시·에뮬레이터)는 사용자가 이름을 댈 때만. worktree 제거는 GitHub에서 닫힘 확인 > 사용 중·최근 활동 거절 > 백업(패치·무시된 .env 포함) > `git worktree remove`, 브랜치 유지. 모든 삭제는 `disk_cli.py` 게이트를 거치고 `--yes` 없으면 계획만 (#1091) |
 | `ssh` | 원격 서버 SSH 접속 및 명령 실행 (AWS EC2, 시놀로지 NAS, Linux 서버 등) |
@@ -962,6 +962,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, desktop (PC 화면의 창, #985), render, http, access, db, logs, cred, ssh, local (이 맥 sudo, #784), shrink, mask, redact (올리기 전 이미지 덮기·글자 가리기, #1082), recall, learn, forget, kb (공식 트러블슈팅 search·show·list·propose, #889), journal, harness (사이트·작업별 안내서 폴더 list·show·match·new — 맞는 주소·호스트·앱 식별자·창 이름 응답에 자동 표시, #1023·#1024), get-output-path |
 | desktop-control | (자체 CLI 없음) `skills/pro-launch/scripts/launch_cli.py` | `desktop` 그룹을 그대로 쓴다: doctor, setup, session, windows, tree, find, click, type, press, focus, wait, shot |
 | ui-design | `skills/pro-ui-design/scripts/ui_design_cli.py` | start, status, stop, choices, tokens, check, capture, decide, decision (#1080), config (show·set·options), get-output-path, board, copy-lint, ascii, rewrite-images (업로드 결과로 본문 이미지 경로 치환 — #974) |
+| code-consult | `skills/pro-code-consult/scripts/arch_cli.py` | detect, scan, assets, deps, diff, rule-docs, ledger (check·freeze·tighten), conventions (install·check), install-tests, get-output-path |
 | image | `skills/pro-image/scripts/image_cli.py` | providers, harness, kind, run, check, remove-bg, fit, render-svg, board, record, history (#1102) |
 | presentation | `skills/pro-presentation/scripts/presentation_cli.py` | start, status, stop, import, recording add, check, export (--pdf · --pptx, 검수 포함), get-output-path (#1097) |
 | oss-consult | `skills/pro-oss-consult/scripts/oss_cli.py` | collect, local-facts, list-repos, get-output-path (**사실만 모은다 — 판단은 에이전트**, #644), repo-update, label (레포를 바꾸는 유일한 경로 — `--dry-run`·`before` 기록, **삭제·가시성 변경은 구현하지 않는다**, #660) |
@@ -1054,6 +1055,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | **실제로 테스트해줘, 에뮬레이터·시뮬레이터·브라우저로 확인, E2E, 끝까지 밟아줘** | `pro-agent-test` |
 | **에뮬레이터 띄워서 찍어줘, 시뮬레이터 스크린샷, 브라우저로 캡처, 모바일 폭으로·빈 목록·500 화면 찍어줘** | `pro-launch` |
 | **시안 몇 개 보여줘, 애니메이션 시안 비교, 이 흐름 눌러 보게 해줘, 시안 이슈에 올려줘, 디자인 요청해줘, 디자이너한테 보낼 거 만들어줘, 빈 화면·에러 화면도 그려 달라고 해줘** | `pro-ui-design` |
+| **전체적으로 봐줘, 코드 엉망인 것 같은데, AI가 짠 코드 정리, 리팩터링, 커밋 전에 주석·이름 봐줘, 내 코딩 규칙 깔아줘** | `pro-code-consult` |
 | **이미지 만들어줘, 그림 그려줘, 배경·캐릭터·아이콘 만들어줘, 어떤 그림체가 어울려** | `pro-image` |
 | **발표 연습하자, 발표 자료 만들어줘, 대본 봐줘, 녹화 올렸어, PPT로 뽑아줘** | `pro-presentation` |
 | **오픈소스 점검, 레포 컨설팅, trending 가려면, 오픈소스답게 만들어줘, 내 레포 전부 점검, README·라벨·라이선스 괜찮아?** | `pro-oss-consult` |

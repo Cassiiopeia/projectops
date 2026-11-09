@@ -387,7 +387,7 @@ def test_exclusions_keep_engine_but_drop_dictionaries():
     assert not is_excluded(".github/util/flutter/_shared/wizard-i18n.js")
     assert is_excluded("src/i18n/core.ko.js") and not is_excluded("src/i18n/core.en.js")
     assert is_excluded("skills/pro-launch/tests/test_app.py")
-    assert not is_excluded("plugins/projectops-extras/skills/pro-code-consult/templates/rule-tests/python/test_architecture_rules.py.tmpl")
+    assert not is_excluded("skills/pro-code-consult/templates/rule-tests/python/test_architecture_rules.py.tmpl")
     assert is_excluded(".github/config/wizard-prompts.yml")
     assert is_in_scope(".github/config/issue-labels.yml") and not is_excluded(".github/config/issue-labels.yml")
     assert is_in_scope(".github/DISCUSSION_TEMPLATE/documents.yaml")

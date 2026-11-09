@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """arch_cli: pro-code-consult 사실 수집 CLI — 판단은 에이전트, 출력은 항상 JSON (ok·code·summary·next)
 
-extras 플러그인은 자기 폴더만 설치되므로 scripts/common 을 쓰지 않는다 (표준 라이브러리 전용).
+scripts/common 을 쓰지 않는다 (표준 라이브러리 전용, 스킬 폴더만으로 동작).
 """
 from __future__ import annotations
 
