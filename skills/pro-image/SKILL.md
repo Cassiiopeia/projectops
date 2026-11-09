@@ -7,9 +7,9 @@ description: "Make image assets (backgrounds, characters, icons, illustrations, 
 
 ## When to use
 
-- "Make a background / character / icon / illustration / item for this screen", "draw it", "regenerate the art"
-  (Korean: '이미지 만들어줘', '그림 그려줘', '배경 다시 만들어줘', '아이콘 만들어줘', '캐릭터 표정 여러 개')
-- "What style fits this project?", "show me a few styles" (Korean: '어떤 그림체가 어울려', '화풍 몇 개 보여줘')
+- "Make a background / character / icon / illustration / item for this screen", "draw it", "regenerate the art",
+  "several expressions of this character", in any language
+- "What style fits this project?", "show me a few styles"
 - Use it on your own whenever a task needs a new raster image (an empty state, a store graphic, a game scene).
   Do not draw such images with SVG or code unless every provider failed.
 
