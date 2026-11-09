@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-09T01:50:26Z",
-    "currentVersion": "4.92.0",
+    "lastUpdated": "2026-11-09T05:29:54Z",
+    "currentVersion": "4.93.0",
     "projectType": "basic",
-    "totalReleases": 383,
+    "totalReleases": 384,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.93.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-09",
+      "pr_number": 1101,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * Record a run-through from the practice page; each slide's time is measured automatically",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "Record a run-through from the practice page; each slide's time is measured automatically"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.92.0",
       "project_type": "basic",

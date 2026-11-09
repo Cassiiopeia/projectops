@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.92.0  
-**Last updated:** 2026-11-09T01:50:26Z  
+**Current version:** 4.93.0  
+**Last updated:** 2026-11-09T05:29:54Z  
+
+---
+
+## [4.93.0] - 2026-11-09
+
+**PR:** #1101  
+
+**New features**
+- Record a run-through from the practice page; each slide's time is measured automatically
 
 ---
 
