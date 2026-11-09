@@ -1,14 +1,34 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-09T08:56:10Z",
-    "currentVersion": "4.95.0",
+    "lastUpdated": "2026-11-09T09:08:14Z",
+    "currentVersion": "4.96.0",
     "projectType": "basic",
-    "totalReleases": 389,
+    "totalReleases": 390,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.96.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-09",
+      "pr_number": 1110,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * `/pro-code-consult` looks wide before a refactor: files that always change together, and every copy of a name, value or file across code, native, web, config and docs\n  * Refactors end with a built-in review for missed copies and edge cases (empty values, errors, limits, repeats, platforms)",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "`/pro-code-consult` looks wide before a refactor: files that always change together, and every copy of a name, value or file across code, native, web, config and docs",
+            "Refactors end with a built-in review for missed copies and edge cases (empty values, errors, limits, repeats, platforms)"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.95.0",
       "project_type": "basic",

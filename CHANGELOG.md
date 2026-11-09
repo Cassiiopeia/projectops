@@ -1,7 +1,17 @@
 # Changelog
 
-**Current version:** 4.95.0  
-**Last updated:** 2026-11-09T08:56:10Z  
+**Current version:** 4.96.0  
+**Last updated:** 2026-11-09T09:08:14Z  
+
+---
+
+## [4.96.0] - 2026-11-09
+
+**PR:** #1110  
+
+**New features**
+- `/pro-code-consult` looks wide before a refactor: files that always change together, and every copy of a name, value or file across code, native, web, config and docs
+- Refactors end with a built-in review for missed copies and edge cases (empty values, errors, limits, repeats, platforms)
 
 ---
 
