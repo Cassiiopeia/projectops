@@ -1,7 +1,17 @@
 # Changelog
 
-**Current version:** 4.94.2  
-**Last updated:** 2026-11-09T07:12:42Z  
+**Current version:** 4.94.3  
+**Last updated:** 2026-11-09T07:29:21Z  
+
+---
+
+## [4.94.3] - 2026-11-09
+
+**PR:** #1106  
+
+**Improvements**
+- The image skill runs Codex and Antigravity without stopping for permission prompts
+- When a free image quota runs out, the skill says when it resets and moves on to the next tool right away
 
 ---
 

@@ -1,14 +1,34 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-09T07:12:42Z",
-    "currentVersion": "4.94.2",
+    "lastUpdated": "2026-11-09T07:29:21Z",
+    "currentVersion": "4.94.3",
     "projectType": "basic",
-    "totalReleases": 387,
+    "totalReleases": 388,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.94.3",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-09",
+      "pr_number": 1106,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Improvements**\n  * The image skill runs Codex and Antigravity without stopping for permission prompts\n  * When a free image quota runs out, the skill says when it resets and moves on to the next tool right away",
+      "parsed_changes": {
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "The image skill runs Codex and Antigravity without stopping for permission prompts",
+            "When a free image quota runs out, the skill says when it resets and moves on to the next tool right away"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.94.2",
       "project_type": "basic",
