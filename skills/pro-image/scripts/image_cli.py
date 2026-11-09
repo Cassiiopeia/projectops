@@ -32,7 +32,9 @@ def emit(payload: dict) -> int:
     payload.setdefault("code", "ok" if payload["ok"] else "error")
     payload.setdefault("summary", None)
     payload.setdefault("next", None)
-    sys.stdout.write(json.dumps(payload, ensure_ascii=False, default=str) + "\n")
+    # UTF-8 아닌 콘솔(Windows cp949·cp1252): 한글 경로를 \uXXXX 로 (? 치환은 경로를 망가뜨림, JSON 은 그대로 복원)
+    is_utf8_stdout = (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") == "utf8"
+    sys.stdout.write(json.dumps(payload, ensure_ascii=not is_utf8_stdout, default=str) + "\n")
     sys.stdout.flush()
     return 0 if payload["ok"] else 1
 
