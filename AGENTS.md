@@ -50,6 +50,7 @@ No slash-command UI is needed; read the file directly.
 | Drive an installer wizard, OS dialog or desktop app on this computer's screen (not a web page or emulator) | `pro-desktop-control` |
 | Compare an implementation with a Figma design | `pro-figma` |
 | Show UI mockups to compare and pick, or request a design | `pro-ui-design` |
+| Make an image asset (background, character, icon, illustration, item) in the project's own style, or compare styles | `pro-image` |
 | Prepare a talk: build or import the deck as HTML, rehearse it slide by slide, export PDF and editable PPT | `pro-presentation` |
 | Diagnose a repository as an open source project | `pro-oss-consult` |
 | Generate QA test cases | `pro-testcase` |

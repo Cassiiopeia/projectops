@@ -1,7 +1,7 @@
 # Agent Skills guide
 
 > **This repository is an Agent Skill package you can use with Claude Code, Cursor, Gemini CLI, and Codex CLI.**
-> Along with the GitHub Actions automation template, it provides 16 development/DevOps Skills.
+> Along with the GitHub Actions automation template, it provides 17 development/DevOps Skills.
 
 ---
 
@@ -115,7 +115,7 @@ In Codex there is no slash command UI. You use Skills by having it read the rele
 
 ---
 
-## Full Skill list (16)
+## Full Skill list (17)
 
 By purpose, they fall into four groups:
 
@@ -231,6 +231,22 @@ It drives **programs on this computer's screen** that are neither web pages nor 
 - When a web flow hands off to a downloaded program (a security module installer, a certificate tool)
 
 > Pages inside a browser belong to `/pro-launch`'s `web`, and emulator or simulator screens to `app`. Bug-hunting QA is `/pro-agent-test`.
+
+---
+
+### `/pro-image`
+
+**What does it do?**
+It makes image assets that fit your project's own style: backgrounds, characters, icons, illustrations and items. The agent reads the repo's art harness (style, characters, reference images, past approvals) and turns a loose request into a complete prompt; Codex (ChatGPT subscription) or Antigravity draws it, and the CLI fixes the exact size and real transparency. When no style is set yet, it draws the same subject in a few looks on one numbered board so you can pick the one that fits.
+
+**Modifies**: only the approved image in your app folder, and the harness in `docs/image-harness/` (candidates stay outside Git in `~/.projectops/image/`)
+**Returns**: the finished image (requested size, transparent PNG when needed), a comparison board, a generation history
+
+**When to use it**
+- "Make a background for this screen", "draw a few expressions of this character", "make an app icon"
+- "Which art style fits our app?", "show me a few styles"
+
+> Comparing screen layouts is `/pro-ui-design`; moving a Figma design into code is `/pro-figma`.
 
 ---
 

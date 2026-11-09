@@ -255,6 +255,37 @@ Read by the extras skill `pro-disk-cleanup` (`disk_cli.py`). Every field is opti
 | `idle_hours` | | Anything touched within this many hours is kept. Default `2` |
 | `backup_dir` | | Where worktree backups go before removal (one dated folder per day). Default `~/.projectops/backups/disk-cleanup` |
 
+### `image` section
+
+Read by `pro-image` (`image_cli.py`). Every field is optional. Without `priority`, the skill asks the user once and saves it.
+
+```json
+{
+  "image": {
+    "priority": ["codex", "antigravity", "claude-vector"],
+    "require_subscription": true,
+    "harness_dir": "docs/image-harness",
+    "providers": {
+      "codex": { "args": ["exec", "-s", "workspace-write", "--skip-git-repo-check", "--enable", "image_generation"], "timeout_seconds": 900 },
+      "my-tool": {
+        "kind": "command",
+        "command": "my-image-cli",
+        "args": ["--prompt-file", "{prompt_file}", "--out", "{out_file}", "{refs}"],
+        "supports_alpha": false,
+        "attaches_references": true
+      }
+    }
+  }
+}
+```
+
+| Field | Required | Description |
+|------|------|------|
+| `priority` | | Image tools in the order to try. Built in: `codex` (ChatGPT subscription), `antigravity` (`agy`, free or Pro Google account), `claude-vector` (the agent draws SVG) |
+| `require_subscription` | | `true` (default) refuses Codex when it is signed in with an API key, and strips API key variables when running it |
+| `harness_dir` | | The repo's art harness folder, relative to the repo root. Default `docs/image-harness` |
+| `providers.<name>` | | Overrides a built-in tool or adds one. `kind`: `codex` · `command` · `agent`. Placeholders: `{prompt_file}` `{prompt_text}` `{run_dir}` `{out_dir}` `{out_file}` `{size}` `{timeout_seconds}`, a lone `"{refs}"` = every reference path. `harvest_globs` collects files a tool saves elsewhere |
+
 ### `skill-bug` section (#997)
 
 Read by the extras watch hook (`plugins/projectops-extras/hooks/skill_bug_watch.py`). Without the section, automatic reports are on.

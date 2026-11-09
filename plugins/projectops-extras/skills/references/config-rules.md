@@ -255,6 +255,37 @@ Read by the extras skill `pro-disk-cleanup` (`disk_cli.py`). Every field is opti
 | `idle_hours` | | Anything touched within this many hours is kept. Default `2` |
 | `backup_dir` | | Where worktree backups go before removal (one dated folder per day). Default `~/.projectops/backups/disk-cleanup` |
 
+### `image` section
+
+Read by `pro-image` (`image_cli.py`). Every field is optional. Without `priority`, the skill asks the user once and saves it.
+
+```json
+{
+  "image": {
+    "priority": ["codex", "antigravity", "claude-vector"],
+    "require_subscription": true,
+    "harness_dir": "docs/image-harness",
+    "providers": {
+      "codex": { "args": ["exec", "-s", "workspace-write", "--skip-git-repo-check", "--enable", "image_generation"], "timeout_seconds": 900 },
+      "my-tool": {
+        "kind": "command",
+        "command": "my-image-cli",
+        "args": ["--prompt-file", "{prompt_file}", "--out", "{out_file}", "{refs}"],
+        "supports_alpha": false,
+        "attaches_references": true
+      }
+    }
+  }
+}
+```
+
+| Field | Required | Description |
+|------|------|------|
+| `priority` | | Image tools in the order to try. Built in: `codex` (ChatGPT subscription), `antigravity` (`agy`, free or Pro Google account), `claude-vector` (the agent draws SVG) |
+| `require_subscription` | | `true` (default) refuses Codex when it is signed in with an API key, and strips API key variables when running it |
+| `harness_dir` | | The repo's art harness folder, relative to the repo root. Default `docs/image-harness` |
+| `providers.<name>` | | Overrides a built-in tool or adds one. `kind`: `codex` · `command` · `agent`. Placeholders: `{prompt_file}` `{prompt_text}` `{run_dir}` `{out_dir}` `{out_file}` `{size}` `{timeout_seconds}`, a lone `"{refs}"` = every reference path. `harvest_globs` collects files a tool saves elsewhere |
+
 ### `skill-bug` section (#997)
 
 Read by the extras watch hook (`plugins/projectops-extras/hooks/skill_bug_watch.py`). Without the section, automatic reports are on.
@@ -371,6 +402,28 @@ The option table (names, types, allowed values, defaults) has one source: `ui_de
 
 Resolution order: matching `projects[]` entry → section default → the old `design_brief` section (read only) → the table's default. `destination` and `designer` have no default and are asked on first use.
 `config show` reports each value's source, invalid stored values (`invalid`, falls back) and unknown keys (`ignored`, kept in the file). `config set` reads the whole file, changes only that key, and writes only to `ui-design`.
+
+### `presentation` section (#1097)
+
+Used by `pro-presentation`. Style (language, tone, rules) stays in `preferences`; how the user likes to speak lives in
+`~/.projectops/presentation/memory.md` (copied into each new deck's `memory.md`), not in config.
+
+```json
+{
+  "presentation": {
+    "language": "ko",
+    "time_limit_seconds": 600,
+    "export_formats": ["pdf", "pptx"],
+    "projects": [
+      { "match": "acme-org/pitch", "deck_root": "docs/talks", "time_limit_seconds": 300 }
+    ]
+  }
+}
+```
+
+The option table has one source: `presentation_cli.py config options` (`pro_presentation/options.py`). Do not copy it here.
+Resolution order: matching `projects[]` entry → section default → the table's default. `config set <name> <value> [--project P]`
+reads the whole file, changes only that key, and writes only to `presentation`.
 
 ---
 

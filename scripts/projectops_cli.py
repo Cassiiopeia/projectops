@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 # 고정 진입점 내용 번호: 깔린 번호보다 높을 때만 덮어씀 (이 파일이나 SKILL_CLIS 를 고치면 +1, 안 올리면 새 스킬이 bad_args)
-RESOLVER_REVISION = 4
+RESOLVER_REVISION = 5
 STABLE_ENTRYPOINT_NAME = "projectops_cli.py"
 STABLE_ENTRYPOINT_MODE = 0o755
 SKILLS_ROOT_ENV = "PROJECTOPS_SKILLS_ROOT"
@@ -43,6 +43,7 @@ SKILL_CLIS = {
     "presentation": ("pro-presentation", "presentation_cli.py"),
     "oss-consult": ("pro-oss-consult", "oss_cli.py"),
     "launch": ("pro-launch", "launch_cli.py"),
+    "image": ("pro-image", "image_cli.py"),
 }
 
 _VERSIONED_CACHE_GLOBS = (".claude*/plugins/cache", ".codex/plugins/cache")

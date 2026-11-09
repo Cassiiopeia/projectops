@@ -55,6 +55,13 @@
     "_comment": "Root folder for outputs (md). Defaults to docs/projectops when omitted. A relative path is from the repository root; an absolute path also works.",
     "root": "docs/projectops"
   },
+  "image": {
+    "_comment": "pro-image: image tools in priority order (codex = ChatGPT subscription, antigravity = agy CLI, claude-vector = agent SVG), repo art harness folder, extra tools.",
+    "priority": ["codex", "antigravity", "claude-vector"],
+    "require_subscription": true,
+    "harness_dir": "docs/image-harness",
+    "providers": {}
+  },
   "disk-cleanup": {
     "_comment": "extras pro-disk-cleanup: folders searched for repositories and worktrees, hours of recent activity to keep, backup folder.",
     "roots": ["~/projects", "~/work"],
