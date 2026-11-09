@@ -11,6 +11,8 @@ DEFAULT_TOLERANCE = 48
 SOFT_BAND_RATIO = 2.0
 # 키 컬러 후보 3개 (초록, 분홍, 파랑): 대상 색과 가장 먼 것을 고름
 KEY_COLOR_CANDIDATES = ("#00FF00", "#FF00FF", "#0000FF")
+# 가장자리 색 복원 분모 하한 (알파 비율, 0~1)
+UNMIX_MIN_SHARE = 0.6
 # 키 컬러(채도 높은 배경)일 때 최소 허용 거리
 CHROMA_TOLERANCE = 110
 # 키 컬러 번짐 제거 범위: 투명 영역 바깥 몇 픽셀까지
@@ -86,7 +88,8 @@ def _despill(rgba: bytearray, index: int, key: tuple[int, int, int]) -> None:
 
 def _unmix(rgba: bytearray, index: int, key: tuple[int, int, int], alpha: int) -> None:
     # 반투명 픽셀 = 물체색 x a + 배경색 x (1-a) > 물체색 복원 (가장자리 배경색 비침 제거)
-    offset, share = index * 4, alpha / 255
+    # 알파가 아주 낮으면 나눗셈이 잡음을 키워 다른 색 테두리가 생김 > 분모 하한 UNMIX_MIN_SHARE
+    offset, share = index * 4, max(alpha / 255, UNMIX_MIN_SHARE)
     for channel in range(3):
         restored = (rgba[offset + channel] - key[channel] * (1 - share)) / share
         rgba[offset + channel] = max(0, min(255, round(restored)))
