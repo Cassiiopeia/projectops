@@ -1,7 +1,17 @@
 # Changelog
 
-**Current version:** 4.94.1  
-**Last updated:** 2026-11-09T06:55:50Z  
+**Current version:** 4.94.2  
+**Last updated:** 2026-11-09T07:12:42Z  
+
+---
+
+## [4.94.2] - 2026-11-09
+
+**PR:** #1105  
+
+**Bug fixes**
+- The image skill works on Windows consoles that are not UTF-8, including folders with non-English names
+- Cut-out images from tools without transparency no longer get grey or pink edges; the background color is picked to stay away from the character's colors
 
 ---
 

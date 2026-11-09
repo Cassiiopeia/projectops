@@ -1,14 +1,34 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-09T06:55:50Z",
-    "currentVersion": "4.94.1",
+    "lastUpdated": "2026-11-09T07:12:42Z",
+    "currentVersion": "4.94.2",
     "projectType": "basic",
-    "totalReleases": 386,
+    "totalReleases": 387,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.94.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-09",
+      "pr_number": 1105,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * The image skill works on Windows consoles that are not UTF-8, including folders with non-English names\n  * Cut-out images from tools without transparency no longer get grey or pink edges; the background color is picked to stay away from the character's colors",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "The image skill works on Windows consoles that are not UTF-8, including folders with non-English names",
+            "Cut-out images from tools without transparency no longer get grey or pink edges; the background color is picked to stay away from the character's colors"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.94.1",
       "project_type": "basic",
