@@ -22,6 +22,7 @@ You fix the five illnesses of AI code: too many comments, stale comments, new co
 
 **The scripts only collect facts. You make the judgment.** Numbers are candidates. Report as a problem only what you confirmed by opening the source.
 The CLI also gives judgment hints: origin (`excluded`, `origin`), production/test split (`counts`, `test_counts`), reading order (`review_order`), grouping by cause (`hotspots`), and item tags (`contract`, `records_failure`, `kind`). What the tags mean, and what the CLI cannot see, is in `references/facts.md`.
+**Look wide before fixing narrow:** a refactor checks what always changes with the target (`cochange`) and every copy of it (`copies`), then a separate reviewer looks for missed copies and edge cases. The whole loop stays inside this skill.
 **Do not stop at a report.** Once you find a problem, go all the way: freeze (so it does not grow) → fix items one at a time → seal with a rule test.
 
 Reply to the user in the user's language. Reports and proposals use the `language` preference when one is set (see Customize).
@@ -49,6 +50,8 @@ How to interpret it: `references/facts.md`.
 | Smells in code the repo owns (catch, bypasses, duplicate constants, size, comments, names, tokens) | `scan PATH [--limit N] [--only DIR] [--category C] [--all] [--record]` |
 | Copies of images and fonts, same name with different content | `assets PATH` |
 | Reverse-direction layer imports, direct repository use across modules, Gradle module cycles | `deps PATH [--all]` |
+| Files that always change together (partners of a target, clusters, hidden coupling with no reference) | `cochange PATH [--target FILE]... [--commits N]` |
+| Every copy of a name, value or file across code, native, web, config, docs, assets (before fixing) | `copies PATH --name N \| --value V \| --file F ...` |
 | Only the diff (stale comments, new comments, reuse candidates, new names) | `diff PATH [--base REF]` |
 | Missing paths and prose-comment-inducing phrases in rule documents | `rule-docs PATH` |
 | Frozen-list verdict · first freeze · remove fixed lines | `ledger PATH check` · `ledger PATH freeze --rule ID` · `ledger PATH tighten` |

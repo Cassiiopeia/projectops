@@ -74,6 +74,19 @@ The CLI collects facts with regexes. There are no facts for the items below, so 
 - `same_name_different_content`: the same name and extension (same pixels for PNG) with different content per area — candidates for **a stale copy where only one side was updated**. Look at these first
 - `format_variants`: the same name in different formats, such as svg and png (web font format sets excluded) — one side may be an unused copy (search for references to confirm)
 
+## cochange
+
+- Reads the last `--commits` (300) non-merge commits. Skips `[skip ci]` release commits, commits touching more than 30 files (bulk moves, formatting), lock files and changelogs, and files no longer tracked (`excluded_rule`)
+- With `--target`: `partners` per target — `together` (times changed in the same commit), `ratio` (together / target's changes), `is_referenced` (either file names the other). `changes: 0` means no usable history
+- Without: `clusters` (groups linked by strong pairs: `ratio` ≥ 0.5 of the less-changed file, at least `--min-together`), `size` is the full count and `files` the 8 most changed; `hidden_coupling` (strong pairs that never name each other, test ↔ code pairs left out)
+- High numbers are candidates, not proof: ko/en documents, iOS and Android workflows and i18n dictionaries change together on purpose. Judge by reading
+
+## copies
+
+- `--name` matches the identifier on word boundaries; `--value` matches the exact text; `--file` finds the same content (sha256) and the same normalized name with other content (`relation`)
+- Searches every tracked text file except generated ones: `by_kind` counts `code`, `native`, `web`, `config`, `docs` (incl. store metadata), `asset`, `test`. `matches` picks samples round-robin across kinds so a big kind does not hide a small one; `truncated` is the rest
+- `--out` writes the full list only **outside the repo** (`out_inside_repo` otherwise). Nothing is cached or left behind
+
 ## rule-docs
 
 - `missing_references`: paths not found in the document's folder, any ancestor folder, or by matching the path tail. Look at missing paths that instructions point to (rules that cannot be followed) before old paths in "do not use" lists. `in_code_block` may be a tree diagram or an example

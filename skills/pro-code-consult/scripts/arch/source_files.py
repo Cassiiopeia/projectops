@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import fnmatch
+import json
 import os
 import re
 import subprocess
@@ -73,6 +74,19 @@ def _ignored_by_root_gitignore(root: Path, relatives: list) -> set:
         if any(fnmatch.fnmatch(c, p) or fnmatch.fnmatch(c, p + "/*") for p in patterns for c in (relative, name)):
             ignored.add(relative)
     return ignored
+
+
+def tracked_files(root: Path) -> list:
+    """git 추적 파일 상대경로 (git 레포가 아니면 제외 폴더를 뺀 전체 파일)"""
+    try:
+        completed = subprocess.run(["git", "-C", str(root), "ls-files", "-z"], capture_output=True, text=True,
+                                   encoding="utf-8", errors="replace", timeout=60)
+        if completed.returncode == 0:
+            return [r for r in completed.stdout.split("\0")
+                    if r and not (set(r.split("/")[:-1]) & SKIPPED_DIRECTORY_NAMES)]
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return [relative for relative, _ in walk_files(root)]
 
 
 def language_of(relative_path: str) -> str | None:
@@ -171,3 +185,14 @@ def split_identifier_words(name: str) -> list[str]:
     spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", name.strip("_$"))
     spaced = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", spaced)
     return [w.lower() for w in re.split(r"[\s_$]+", spaced) if w]
+
+
+def write_outside_repo(root: Path, out: str, payload: dict) -> dict:
+    """전체 결과 파일 쓰기 (레포 밖만 허용 — 레포에 부산물을 남기지 않는다)"""
+    target = Path(out).expanduser().resolve()
+    if target == root or root in target.parents:
+        return {"ok": False, "code": "out_inside_repo", "summary": f"--out must be outside the repo: {target}",
+                "next": "Use ~/.projectops/tmp/ or a scratch folder"}
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+    return {"path": str(target)}

@@ -12,6 +12,13 @@ Show the 8 steps of `references/proposal-template.md` and **stop.** Do not chang
 - If it is not the 3rd copy (2 places or fewer), do not propose extracting it — except brand assets, config values and legal text, which get a single source even at 2 places
 - The name table follows `references/conventions.md` §2. Fix abbreviations, booleans without `is`, and meaningless names together
 
+## 1.5 Look wide (before the proposal is final)
+
+Run once, before you show the proposal. Both return a short summary; do not ask for more than `--limit`.
+
+- `copies PATH --name <identifier> --value <literal> --file <asset>` for what you are about to change: every copy across code, native (`android/`, `ios/`), web, config, docs, store metadata and assets. Fill the "Copies" line of proposal step 1. A kind with hits that stays out of scope needs a reason
+- `cochange PATH --target <file>` for the main files you will touch: partners that usually change with them. A partner with a high `ratio` that this change does not touch goes into scope, or the proposal says why not. `is_referenced: false` means the two files never name each other: that coupling is invisible in the code, so check it by reading both
+
 ## 2. Pin the behavior (before fixing)
 
 - Run the existing tests and confirm **they pass now**. If they are failing, do not refactor; report it first
@@ -43,8 +50,25 @@ Do not call it done just because the tests pass.
 - If you fixed violations of an existing rule, run `ledger PATH tighten` → confirm `ledger PATH check` passes
 - `scan PATH --record`
 
-## 6. Review · commit
+## 6. Wide review (inside this skill) · commit
 
-- **Separate the fixer from the reviewer.** Give the diff and the proposal to `pro-review` (or a separate subagent) to look for behavior changes, remaining duplication and weak tests
-- Run check mode once on this change (`diff PATH`) — to confirm the refactor did not create new smells
+**Separate the fixer from the reviewer, but keep it in this skill.** Start one read-only reviewer subagent. Do not hand off to another review skill.
+Give it the diff, the proposal, and from step 1.5 only the short lists: `cochange` partners **not touched** by this change and `copies` **left** out of scope.
+
+The reviewer checks, for each changed code path:
+
+| Check | Question |
+|---|---|
+| Missed partner | A partner that always changed with this file was not changed: should it have been? |
+| Diverged copy | A remaining copy still has the old behavior: do the two now disagree? |
+| Empty · null | Empty list, empty string, null or missing key, first run with no saved state |
+| Error path | Exception, failed request, timeout, permission denied: same handling as before? |
+| Boundaries | 0, 1, maximum, last page, exactly at a limit |
+| Repeat · concurrency | Called twice, re-entered, double tap, two requests in flight |
+| Platform | iOS, Android, web, Windows path and encoding (cp949, non-ASCII paths) |
+
+- On a suspicion, **write the narrowest pinning test first** and run it on the code before the refactor too. Fails on both: an old bug, report it separately. Fails only after: the refactor broke it, fix or revert that step
+- Screens and flows that must be pressed to judge: suggest `pro-agent-test` to the user; this skill does not drive the app
+- Run check mode once on this change (`diff PATH`) to confirm the refactor did not create new smells
+- At the end, report **remaining copies** (conventions §9.5): the kinds and paths you left, with the reason
 - Commit the way this repo commits. The commit type is `refactor`

@@ -21,6 +21,7 @@ scan PATH --limit 50
 assets PATH
 deps PATH
 rule-docs PATH
+cochange PATH
 ```
 
 How to read the output: `references/facts.md`. Numbers are only candidates — report as a problem only what you confirmed in the source.
@@ -28,6 +29,8 @@ How to read the output: `references/facts.md`. Numbers are only candidates — r
 - **The audit scope is code the repo owns.** scan and deps already excluded installed, generated and external library code (`excluded`). Add one line to the report saying what was excluded.
 - **Open samples in `review_order` order.** For each category, open up to 10 from the top to separate real hits from false positives. Do not report numbers for a category with a high false-positive rate.
 - **Check "What scan cannot see" in `facts.md` yourself.** In real runs, the most dangerous problems (a catch that keeps going after rollback, a test API open in production, token handling in 3 places) came from outside the CLI or from its judgment hints.
+
+- `cochange` without `--target` gives `clusters` (files that change as a group) and `hidden_coupling` (pairs that change together but never name each other). Open the top 5 hidden pairs: twin widgets, a server enum and a client string, two platform workflows kept in step by hand. Report the real ones in one "Hidden coupling" section, each with the common point that would remove it
 
 ## 3. Per-stack audit (parallel)
 

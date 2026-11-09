@@ -9,6 +9,8 @@
 - What, in how many places: `<pattern>` in N places (evidence: 3–5 `path:line`)
 - How they differ: <3 sizes, 2 kinds of error handling, etc.>
 - Cause in one line: <why each place built its own — no common point / not documented / a rule document invites it>
+- Copies (`copies`): <count per kind: code N, native N, web N, config N, docs N, asset N> — kinds left out of scope and why
+- Changes with it (`cochange`): <partners that usually change with the target and are not in scope yet, or "none">
 
 ### 2. Layer · location
 - Where the common code goes: `<folder>` (per the layer table in conventions §3.1)

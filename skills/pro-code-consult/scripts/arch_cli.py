@@ -12,10 +12,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from arch import assets, deps, detect, diff_review, installer, ledger, rule_documents, scan  # noqa: E402
+from arch import (assets, cochange, copies, deps, detect, diff_review, installer, ledger, rule_documents,  # noqa: E402
+                  scan)
 
 # 범주별 목록 최대 개수 기본값 (전체 수는 truncated 에 남는다)
 DEFAULT_LIST_LIMIT = 50
+# 넓게 보기 명령(cochange·copies) 목록 기본값 (에이전트가 읽는 출력 4KB 안팎 목표)
+WIDE_VIEW_LIST_LIMIT = 10
 
 
 class _BadArgumentsExit(Exception):
@@ -36,7 +39,9 @@ def emit(payload: dict) -> int:
     payload.setdefault("code", "ok" if payload["ok"] else "error")
     payload.setdefault("summary", None)
     payload.setdefault("next", None)
-    sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    # UTF-8 아닌 콘솔(Windows cp1252 등) > \u 이스케이프 (비ASCII 경로 출력 중 크래시 방지)
+    is_utf8_stdout = (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") == "utf8"
+    sys.stdout.write(json.dumps(payload, ensure_ascii=not is_utf8_stdout) + "\n")
     sys.stdout.flush()
     return 0 if payload["ok"] else 1
 
@@ -79,6 +84,17 @@ def cmd_diff(args, root):
         check = ledger.check_rules(root)
         result["ledger_new_violations"] = [{"rule": r["id"], **n} for r in check["rules"] for n in r.get("new", [])]
     return {**result, "next": "Show the fix list to the user and fix after approval (references/check.md)"}
+
+
+def cmd_cochange(args, root):
+    return cochange.analyze_cochange(root, args.target or [], args.commits, args.min_together, args.limit, args.out)
+
+
+def cmd_copies(args, root):
+    if not (args.name or args.value or args.file):
+        return {"ok": False, "code": "bad_args", "summary": "copies needs --name, --value or --file",
+                "next": f"copies {root} --name <identifier>"}
+    return copies.find_copies(root, args.name or [], args.value or [], args.file or [], args.limit, args.out)
 
 
 def cmd_rule_docs(args, root):
@@ -138,6 +154,18 @@ def build_parser() -> JsonArgumentParser:
         "--all", action="store_true", help="Also include tool installs, generated files and third-party libraries")
     add("diff", cmd_diff, "Check only the diff", has_limit=True).add_argument(
         "--base", default="HEAD", help="Base commit to compare against (default HEAD: uncommitted changes)")
+    cochange_command = add("cochange", cmd_cochange, "Files that change together in git history (partners, clusters, hidden coupling)")
+    cochange_command.add_argument("--target", action="append", metavar="FILE", help="File to find partners for (repeatable)")
+    cochange_command.add_argument("--commits", type=int, default=cochange.DEFAULT_COMMIT_COUNT, help="Commits to read")
+    cochange_command.add_argument("--min-together", type=int, default=cochange.DEFAULT_MINIMUM_TOGETHER,
+                                  help="Minimum times changed together")
+    copies_command = add("copies", cmd_copies, "Every copy of a name, value or file across code, native, web, config, docs, assets")
+    copies_command.add_argument("--name", action="append", help="Identifier (word boundary, repeatable)")
+    copies_command.add_argument("--value", action="append", help="Exact string or number (repeatable)")
+    copies_command.add_argument("--file", action="append", help="File path relative to the root: same content or same name")
+    for command in (cochange_command, copies_command):
+        command.add_argument("--limit", type=int, default=WIDE_VIEW_LIST_LIMIT, help="Maximum list size")
+        command.add_argument("--out", help="Also write the full result here (outside the repo only)")
     add("rule-docs", cmd_rule_docs, "Missing paths and prose-comment inducing text in rule documents")
     ledger_command = add("ledger", cmd_ledger, "Freeze list check, first freeze and cleanup")
     ledger_command.add_argument("action", choices=["check", "freeze", "tighten"])

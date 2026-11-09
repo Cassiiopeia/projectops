@@ -48,7 +48,7 @@ def scan_assets(root: Path, limit: int) -> dict:
             size = absolute.stat().st_size
             if size > MAXIMUM_ASSET_BYTES:
                 continue
-            digest = hashlib.sha256(absolute.read_bytes()).hexdigest()
+            digest = file_sha256(absolute)
         except OSError:
             continue
         files_by_hash.setdefault(digest, []).append(relative)
@@ -81,6 +81,11 @@ def scan_assets(root: Path, limit: int) -> dict:
                                         ("same_name_different_content", len(drift))) if n > limit},
         "summary": f"copy groups {len(copies)} (incl. {sum(1 for g in copies if g.get('is_generated_icon_set') or g.get('is_reference_copy'))} generated/reference copies), same name different content {len(drift)}, same name different format {len(format_variants)}",
     }
+
+
+def file_sha256(path: Path) -> str:
+    """파일 내용 해시 (assets 사본 묶음과 copies --file 공통)"""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def platform_area(relative: str) -> str:
