@@ -1,6 +1,6 @@
 {
   "name": "projectops",
-  "description": "Agent skills that drive the projectops automation cycle: issues, worktrees, commits in your own style, reports, reviews, QA and release PRs (15 skills)",
+  "description": "Agent skills that drive the projectops automation cycle: issues, worktrees, commits in your own style, reports, reviews, QA and release PRs (16 skills)",
   "version": "4.91.2",
   "author": {
     "name": "Cassiiopeia",

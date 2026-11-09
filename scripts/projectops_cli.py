@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 # 고정 진입점 내용 번호: 깔린 번호보다 높을 때만 덮어씀 (이 파일이나 SKILL_CLIS 를 고치면 +1, 안 올리면 새 스킬이 bad_args)
-RESOLVER_REVISION = 3
+RESOLVER_REVISION = 4
 STABLE_ENTRYPOINT_NAME = "projectops_cli.py"
 STABLE_ENTRYPOINT_MODE = 0o755
 SKILLS_ROOT_ENV = "PROJECTOPS_SKILLS_ROOT"
@@ -40,6 +40,7 @@ SKILL_CLIS = {
     "figma": ("pro-figma", "figma_cli.py"),
     "agent-test": ("pro-agent-test", "e2e_cli.py"),
     "ui-design": ("pro-ui-design", "ui_design_cli.py"),
+    "presentation": ("pro-presentation", "presentation_cli.py"),
     "oss-consult": ("pro-oss-consult", "oss_cli.py"),
     "launch": ("pro-launch", "launch_cli.py"),
 }

@@ -1,0 +1,4 @@
+# This deck may hold field photos and personal data: nothing here is committed by default.
+# Delete these lines if you want to track the deck in git.
+*
+!.gitignore

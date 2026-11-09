@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Presentation practice</title>
+<link rel="stylesheet" href="/assets/practice.css">
+</head>
+<body>
+<header>
+  <h1 id="deck-title">Presentation practice</h1>
+  <span class="stat"><span data-text="estimate">Script estimate</span> <b id="total-estimate">-</b></span>
+  <span class="stat" id="recording-total"></span>
+  <span class="spacer"></span>
+  <span id="save-status" class="stat"></span>
+  <span id="timer">0:00</span>
+  <button id="timer-toggle" data-text="start">Start</button>
+  <button id="timer-reset" data-text="reset">Reset</button>
+  <button id="big-toggle" data-text="big">Big view</button>
+  <button id="fullscreen-toggle" data-text="fullscreen">Full screen (F)</button>
+  <button id="mode-toggle" data-text="presenter">Presenter view</button>
+  <button id="flow-toggle" data-text="flow">Flow</button>
+</header>
+
+<main>
+  <section class="stage">
+    <div class="slide-frame" id="slide-frame"></div>
+    <div class="nav">
+      <button id="previous" data-text="previous">Previous</button>
+      <span class="title" id="slide-title"></span>
+      <button id="next" class="primary" data-text="next">Next</button>
+    </div>
+    <ul id="problems" hidden></ul>
+    <div class="card script-card">
+      <h2><span data-text="script">Script</span> <span class="badge" id="estimate-badge"></span><span class="next-preview" id="next-title"></span></h2>
+      <div id="script" contenteditable="plaintext-only" spellcheck="false"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="card spoken" id="take-card">
+      <h2><span data-text="feedback">Feedback</span> <span class="badge" id="take-badge"></span></h2>
+      <ul id="take-feedback"></ul>
+      <details><summary data-text="take">What you said</summary><p id="take-text"></p></details>
+      <details id="older-takes"><summary data-text="older_takes">Earlier takes</summary><div id="older-takes-body"></div></details>
+    </div>
+    <div id="note-cards" class="panel"></div>
+    <details class="card fold recording" id="recording-card">
+      <summary><span data-text="recording">Said in the recording</span> <span class="badge warn" id="recording-badge"></span></summary>
+      <select id="recording-select"></select>
+      <div id="recording-lines"></div>
+    </details>
+    <details class="card fold memo" id="memo-card">
+      <summary data-text="memo">My memo</summary>
+      <textarea id="memo"></textarea>
+    </details>
+  </section>
+</main>
+
+<section id="flow" hidden>
+  <p class="help" data-text="flow_help">Drag a slide to change the order. Click one to open it.</p>
+  <div id="flow-grid"></div>
+</section>
+
+<nav id="thumbnails"></nav>
+<script src="/assets/practice.js"></script>
+</body>
+</html>

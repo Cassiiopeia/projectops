@@ -1,7 +1,7 @@
 # Agent Skills guide
 
 > **This repository is an Agent Skill package you can use with Claude Code, Cursor, Gemini CLI, and Codex CLI.**
-> Along with the GitHub Actions automation template, it provides 15 development/DevOps Skills.
+> Along with the GitHub Actions automation template, it provides 16 development/DevOps Skills.
 
 ---
 
@@ -115,12 +115,12 @@ In Codex there is no slash command UI. You use Skills by having it read the rele
 
 ---
 
-## Full Skill list (15)
+## Full Skill list (16)
 
 By purpose, they fall into four groups:
 
 - **Analysis** (1) — Only read code and never modify it. Return plans, reviews, or diagnoses.
-- **Implementation** (6) — Actually modify or create files.
+- **Implementation** (7) — Actually modify or create files.
 - **Development cycle automation** (3) — Do commits, deploys, and GitHub work for you.
 - **Document/artifact generation** (5) — Do not touch code; generate `.md` files or reports.
 
@@ -148,7 +148,7 @@ It reviews code from **six angles: security, performance, bugs, quality, archite
 
 ---
 
-## 🔧 Implementation Skills (6)
+## 🔧 Implementation Skills (7)
 
 They actually modify files. Use them when you want the work to be carried out.
 
@@ -248,6 +248,23 @@ It shows UI mockups on a local URL so you can compare and pick. Mockups use your
 - "Request a design", "ask them to draw the empty and error screens too"
 
 > Moving an existing Figma design into code and comparing it is `/pro-figma`.
+
+---
+
+### `/pro-presentation`
+
+**What does it do?**
+It builds a talk as an HTML deck and lets you rehearse it out loud, one slide at a time. The agent flags only what trips, using presentation style rules, keeps each spoken take with its feedback, and writes every direction you give into the deck's memory and applies it to all slides. The practice page refreshes as soon as a file changes. Give it a recording link and it splits captions per slide and compares timing with earlier takes. It exports PDF and an editable-text PPT, then checks the PPT against the HTML.
+
+**Modifies**: nothing in Git (the deck folder ignores itself)
+**Returns**: a deck folder, a local practice URL, per-slide timing across takes, PDF and PPT with a verify report
+
+**When to use it**
+- "Let's rehearse my talk", "make the slides", "rehearse with this PPT"
+- "I uploaded a recording, compare it"
+- "Export it to PPT", "give me a PDF"
+
+> Rubric scoring and Q&A drills come from pro-judge when it is installed.
 
 ---
 

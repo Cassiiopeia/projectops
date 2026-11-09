@@ -144,7 +144,7 @@ Skill は自分のスタイルで書きます。好みは `~/.projectops/config/
 | **npx CLI** | 既存プロジェクトにワークフローを導入・更新し、状態を診断 | [CLI リファレンス](https://cassiiopeia.github.io/projectops/cli)（英語） |
 
 <details>
-<summary>Agent Skills 15 種をすべて見る</summary>
+<summary>Agent Skills 16 種をすべて見る</summary>
 
 ### 🔄 開発サイクルの自動化
 
@@ -170,6 +170,7 @@ Skill は自分のスタイルで書きます。好みは `~/.projectops/config/
 | `/pro-launch` | アプリ・Web・サーバーを起動・操作・撮影：ステータスバー固定、幅の変更、レスポンスの差し替え（空リスト・失敗の再現）、コードによる描画 |
 | `/pro-desktop-control` | Web ページでもエミュレーターでもない、このコンピューター画面のプログラム（インストールウィザード・OS ダイアログ・デスクトップアプリ）を操作：要素を読み取り、マウスを動かさずに押し、インストール前に確認し、セキュリティ確認画面はユーザーに任せる。Windows と macOS に対応（macOS では通知・システムダイアログ、Apple アカウントのサインインコードにも対応） |
 | `/pro-ui-design` | ローカル URL で UI モックアップを確認：リポジトリの実際のトークンとフォントでレイアウトを比較し、アニメーションや複数画面の連動プロトタイプを実際に操作する。選んだ案を実装、PNG・GIF を Issue に投稿、または状態別キャプチャと文言候補を付けてデザイナーへ |
+| `/pro-presentation` | 発表を HTML デッキで作るか既存の PPT を取り込み、1 枚ずつ声に出して練習しながら台本を自分の口に合わせる。伝えた方針は発表メモリに残り全スライドに反映。PDF と文字を編集できる PPT に書き出し、HTML と照合して検収する |
 | `/pro-oss-consult` | GitHub リポジトリをオープンソースとして診断：性格の判別、6 軸の採点、成熟度ステージ、承認を得た内容だけ About・topics・ラベル・ファイルを修正。単一リポジトリもアカウント全体も対応 |
 
 > 設計・計画・実装の流れは `superpowers`（brainstorming → writing-plans → executing-plans）が担当します（このプラグインではありません）。

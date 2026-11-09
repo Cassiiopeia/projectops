@@ -88,6 +88,14 @@
       { "match": "{owner/repo or absolute path}", "designer": "{designer GitHub ID}", "devices": ["phone"] }
     ]
   },
+  "presentation": {
+    "language": "ko",
+    "time_limit_seconds": 600,
+    "export_formats": ["pdf", "pptx"],
+    "projects": [
+      { "match": "{owner/repo or absolute path}", "deck_root": "docs/talks" }
+    ]
+  },
   "launch": {
     "login_policy": {
       "trust_device": "always",

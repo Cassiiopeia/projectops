@@ -372,6 +372,28 @@ The option table (names, types, allowed values, defaults) has one source: `ui_de
 Resolution order: matching `projects[]` entry → section default → the old `design_brief` section (read only) → the table's default. `destination` and `designer` have no default and are asked on first use.
 `config show` reports each value's source, invalid stored values (`invalid`, falls back) and unknown keys (`ignored`, kept in the file). `config set` reads the whole file, changes only that key, and writes only to `ui-design`.
 
+### `presentation` section (#1097)
+
+Used by `pro-presentation`. Style (language, tone, rules) stays in `preferences`; how the user likes to speak lives in
+`~/.projectops/presentation/memory.md` (copied into each new deck's `memory.md`), not in config.
+
+```json
+{
+  "presentation": {
+    "language": "ko",
+    "time_limit_seconds": 600,
+    "export_formats": ["pdf", "pptx"],
+    "projects": [
+      { "match": "acme-org/pitch", "deck_root": "docs/talks", "time_limit_seconds": 300 }
+    ]
+  }
+}
+```
+
+The option table has one source: `presentation_cli.py config options` (`pro_presentation/options.py`). Do not copy it here.
+Resolution order: matching `projects[]` entry → section default → the table's default. `config set <name> <value> [--project P]`
+reads the whole file, changes only that key, and writes only to `presentation`.
+
 ---
 
 ## 8. Adding config for a new skill

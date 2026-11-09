@@ -1,0 +1,104 @@
+/* 연습 화면: 왼쪽 슬라이드, 오른쪽 카드, 아래 썸네일 */
+:root {
+  --background: #f4f2ee; --surface: #ffffff; --ink: #23252f; --muted: #6b6f7b; --line: #e3e0da;
+  --accent: #0bbfa3; --accent-soft: #d9f5ef; --warn: #e8a317; --warn-soft: #fdf1d6; --danger: #d9534f;
+  --take: #eef3ff; --take-line: #cfdaf7; --take-ink: #2c3e7a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Pretendard, -apple-system, "Apple SD Gothic Neo", "Segoe UI", sans-serif; background: var(--background); color: var(--ink); }
+header { display: flex; align-items: center; gap: 16px; height: 52px; padding: 0 20px; background: var(--ink); color: #fff; position: sticky; top: 0; z-index: 5; }
+header h1 { font-size: 15px; margin: 0; font-weight: 700; }
+header .stat { font-size: 13px; color: #c9ccd6; }
+header .stat b { color: #fff; }
+header .spacer { flex: 1; }
+button { font: inherit; font-size: 13px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+header button { background: #353846; color: #fff; border-color: #4a4e5e; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+#timer { font-variant-numeric: tabular-nums; font-size: 18px; font-weight: 700; min-width: 64px; text-align: right; }
+#timer.over { color: #ff8a80; }
+#save-status.error { color: #ff8a80; }
+
+/* 화면 높이 꽉: 왼쪽 슬라이드 + 바로 아래 대본, 오른쪽 피드백·주의 (각자 스크롤) */
+main { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px; padding: 16px 20px 0; height: calc(100vh - 52px - 96px); }
+.stage { display: flex; flex-direction: column; min-height: 0; overflow: auto; }
+.stage .slide-frame { flex: none; width: min(100%, calc((100vh - 52px - 96px - 200px) * 16 / 9)); margin: 0 auto; }
+.script-card { margin-top: 12px; flex: 1 0 auto; }
+.panel { overflow: auto; padding-bottom: 16px; }
+
+/* 슬라이드: 1920x1080 iframe 을 칸 너비에 맞춰 축소, 가져온 덱은 그림 */
+.slide-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #fff; border-radius: 12px; box-shadow: 0 2px 14px rgba(0,0,0,.08); overflow: hidden; cursor: zoom-in; }
+.slide-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.slide-frame iframe { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; pointer-events: none; }
+.slide-frame .slide-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--danger); font-weight: 700; }
+.stage .nav { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.stage .nav .title { flex: 1; font-weight: 700; }
+.next-preview { margin-left: auto; color: var(--muted); font-size: 12px; font-weight: 600; }
+#problems { margin: 12px 0 0; padding: 10px 10px 10px 28px; background: #fdecea; color: var(--danger); border-radius: 8px; font-size: 13px; }
+
+.panel { display: flex; flex-direction: column; gap: 12px; }
+.card { background: var(--surface); border-radius: 12px; padding: 14px 16px; border: 1px solid var(--line); }
+.card h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.card ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6; }
+.card p { margin: 0 0 6px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+.badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: #067a68; font-weight: 600; }
+.badge.warn { background: var(--warn-soft); color: #9a6a00; }
+#script { font-size: 20px; line-height: 1.75; outline: none; white-space: pre-wrap; min-height: 90px; border-radius: 8px; padding: 6px; margin: -6px; }
+#script:focus { background: #fafaf7; box-shadow: inset 0 0 0 1px var(--line); }
+.card.warn { background: var(--warn-soft); border-color: #f3dfaa; }
+.card.warn ul, .card.warn p { color: #7a5600; }
+.card.spoken { background: var(--take); border-color: var(--take-line); }
+#take-text { font-size: 15px; line-height: 1.7; margin-bottom: 12px; }
+#take-feedback { color: var(--take-ink); }
+details summary { cursor: pointer; font-size: 12px; color: var(--muted); margin-top: 10px; }
+.recording-line { font-size: 14px; line-height: 1.6; display: flex; gap: 8px; }
+.recording-line time { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.recording-line a { color: inherit; text-decoration: none; }
+.recording-line a:hover time { color: var(--accent); }
+#memo { width: 100%; min-height: 70px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; padding: 8px; resize: vertical; }
+select { font: inherit; font-size: 12px; border-radius: 6px; border: 1px solid var(--line); padding: 2px 6px; }
+.help { font-size: 12px; color: var(--muted); }
+
+#thumbnails { position: fixed; left: 0; right: 0; bottom: 0; height: 96px; display: flex; gap: 8px; overflow-x: auto; padding: 12px 20px; background: rgba(35,37,47,.94); }
+#thumbnails button { flex: none; width: 124px; aspect-ratio: 16 / 9; padding: 0; border: 2px solid transparent; background: #fff; position: relative; border-radius: 6px; overflow: hidden; font-size: 11px; color: var(--ink); }
+#thumbnails button.active { border-color: var(--accent); }
+#thumbnails img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#thumbnails .label { position: absolute; left: 4px; top: 3px; background: rgba(0,0,0,.6); color: #fff; padding: 0 5px; border-radius: 4px; }
+#thumbnails .label.has-memo::after { content: " \270E"; }
+#thumbnails .name { position: absolute; inset: 22px 6px 4px; overflow: hidden; text-align: left; line-height: 1.3; }
+
+/* 발표자 보기: 대본 크게 + 다음 장 이름 */
+body.presenter #script { font-size: 26px; }
+body.presenter .card.recording, body.presenter .card.memo, body.presenter #note-cards { display: none; }
+
+/* 크게 보기: 슬라이드가 화면 높이를 채우고 카드는 아래로 */
+body.big main { grid-template-columns: 1fr; }
+body.big .panel { display: none; }
+body.big .stage .slide-frame { width: min(100%, calc((100vh - 52px - 96px - 150px) * 16 / 9)); cursor: zoom-out; }
+
+/* 전체 화면 (F 키) */
+.stage:fullscreen { background: #000; display: flex; flex-direction: column; justify-content: center; }
+.stage:fullscreen .slide-frame { height: calc(100vh - 60px); width: auto; max-width: 100%; margin: 0 auto; border-radius: 0; cursor: default; }
+.stage:fullscreen .nav { color: #fff; padding: 0 16px; }
+.stage:fullscreen #problems { display: none; }
+
+/* 흐름 보기: 전체 장 격자, 끌어서 순서 바꾸기 */
+body.flow main { display: none; }
+#flow { padding: 18px 20px 120px; }
+#flow-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.flow-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; cursor: grab; display: flex; flex-direction: column; gap: 6px; }
+.flow-card.dragging { opacity: .4; }
+.flow-card.drop-target { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.flow-card .flow-thumb { aspect-ratio: 16 / 9; background: var(--background); border-radius: 8px; overflow: hidden; position: relative; }
+.flow-card .flow-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.flow-card .flow-thumb iframe { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; pointer-events: none; }
+.flow-card .flow-meta { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+.flow-card .flow-title { font-size: 14px; font-weight: 700; }
+.flow-card .flow-script { font-size: 12px; color: var(--muted); line-height: 1.5; max-height: 3em; overflow: hidden; }
+
+/* 접는 카드: 녹화 · 메모 · 말한 버전 */
+.card.fold { padding: 10px 16px; }
+.card.fold summary, .card details summary { cursor: pointer; font-size: 13px; color: var(--muted); font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.card.fold[open] summary { margin-bottom: 8px; }
+.card details { margin-top: 8px; }
+.card details p { margin-top: 6px; color: var(--take-ink); }
+#recording-select { margin-bottom: 6px; }

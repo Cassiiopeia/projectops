@@ -144,7 +144,7 @@ Skill 会按你的风格输出。把偏好写进 `~/.projectops/config/config.js
 | **npx CLI** | 向现有项目安装并更新工作流，并诊断其状态 | [CLI 参考](https://cassiiopeia.github.io/projectops/cli)（英文） |
 
 <details>
-<summary>查看全部 15 个 Agent Skills</summary>
+<summary>查看全部 16 个 Agent Skills</summary>
 
 ### 🔄 开发周期自动化
 
@@ -170,6 +170,7 @@ Skill 会按你的风格输出。把偏好写进 `~/.projectops/config/config.js
 | `/pro-launch` | 启动、操作并截取应用、网页和服务器：固定状态栏、调整宽度、替换响应（空列表、失败场景）、用代码渲染 |
 | `/pro-desktop-control` | 操作这台电脑屏幕上既不是网页也不是模拟器的程序（安装向导、系统对话框、桌面应用）：读取界面元素，不移动鼠标直接按下，安装前先询问，安全提示交给用户处理。支持 Windows 和 macOS（macOS 还能处理通知、系统对话框以及 Apple 账户登录验证码） |
 | `/pro-ui-design` | 在本地地址查看 UI 设计稿：用仓库真实的令牌和字体比较布局，亲手操作动画和多屏联动原型。然后实现选中的方案、把 PNG 或 GIF 发到 Issue，或附上各状态截图和文案候选交给设计师 |
+| `/pro-presentation` | 用 HTML 制作演示文稿或导入现有 PPT，逐页出声练习，让讲稿贴合自己的说话方式。说过的要求记入演讲记忆并应用到所有页，再导出 PDF 和可编辑文字的 PPT，并与 HTML 对照检查 |
 | `/pro-oss-consult` | 以开源项目的标准诊断 GitHub 仓库：判别类型、6 个维度评分、成熟度阶段，仅在获得批准后修改 About、topics、标签和文件。支持单个仓库或整个账号 |
 
 > 设计、规划和实现流程由 `superpowers`（brainstorming → writing-plans → executing-plans）负责，而非本插件。

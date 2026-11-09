@@ -794,7 +794,7 @@ claude plugin marketplace add Cassiiopeia/projectops
 claude plugin install projectops@projectops-marketplace --scope user
 ```
 
-> 설계·계획·구현은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 맡는다. 아래 표(코어 15종 + extras 4종)에는 분석·계획·구현 스킬이 없다.
+> 설계·계획·구현은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 맡는다. 아래 표(코어 16종 + extras 4종)에는 분석·계획·구현 스킬이 없다.
 
 | 명령어 | 용도 |
 |--------|------|
@@ -816,6 +816,7 @@ claude plugin install projectops@projectops-marketplace --scope user
 | `launch` | **능력 스킬** — 앱·웹·서버를 띄우고 조작하고 찍는다. 다른 스킬이 `launch_cli.py` 를 스크립트로 부른다 (#629) |
 | `desktop-control` | **이 컴퓨터 화면의 프로그램 조작** (웹 페이지·에뮬레이터가 아닌 설치 마법사·OS 대화상자·데스크톱 앱). 요소를 읽고, 마우스를 움직이지 않고 누르고, 설치 전에는 묻고, 보안 확인 창은 사용자에게 넘긴다. `launch`의 `desktop` 명령 묶음 위에 얹은 절차 스킬이라 자체 CLI가 없다. 지금은 Windows만 (macOS는 #985) |
 | `ui-design` | **시안을 로컬 주소에 띄워 비교하고 고른다** (#1080) — 레포 토큰·글꼴 반영, 애니메이션 비교, 여러 화면 연결 프로토타입, PNG·GIF 이슈 공유, 안 되면 디자이너 요청서(#634). 판단과 시안 제작은 에이전트, `ui_design_cli.py`는 서버·사실 수집·캡처만. 설정 `ui-design` 섹션 + 옵션 표(`pro_ui_design/options.py`), 프로젝트 지식은 레포 범위 하네스 `ui-design`, 스킬 연결은 `decision.json` |
+| `presentation` | **발표 덱을 HTML로 짓고 말로 연습한다** (#1097) — 덱 폴더(장마다 slide.html·script.md·notes.md·takes.md, 빌드 없음), 장별 말하기 코칭 하네스(`references/coaching.md`, 사용자 방향성은 덱 `memory.md` + `~/.projectops/presentation/memory.md`), 자동 새로고침 연습 화면, 녹화 자막으로 장별 시간 비교, PDF·글자 PPT 내보내기와 검수. 코칭·구간 판단은 에이전트, `presentation_cli.py`는 서버·가져오기·자막·검사·내보내기만 |
 | `oss-consult` | **오픈소스 컨설팅** — 레포 성격을 판별하고 6축(첫인상·가치 증명·커뮤니티·코드 확장성·법적 안전·장기 운영)으로 깐깐하게 채점, 성숙도 단계와 선행 조건을 짚고 승인받은 것을 고친다. 단일 레포·전체 일괄 (#644) |
 
 ---
@@ -931,6 +932,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | `commit`, `github`, `changelog-deploy`, `report` | `github` | PAT + repos 공유 (이슈 생성 승인/담당자 설정 `issue.*` 키 포함) |
 | `synology-expose` | `synology-expose` | NAS 인스턴스 정보 |
 | `ssh` | `ssh` | SSH 서버 접속 정보 |
+| `presentation` | `presentation` | 새 덱 기본값(언어·제한시간·덱 위치·내보내기 형식) + projects[] |
 
 ### 새 스킬에 config 추가하는 방법
 
@@ -959,6 +961,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | launch | `skills/pro-launch/scripts/launch_cli.py` | doctor, detect, devices, device, app, web, desktop (PC 화면의 창, #985), render, http, access, db, logs, cred, ssh, local (이 맥 sudo, #784), shrink, mask, redact (올리기 전 이미지 덮기·글자 가리기, #1082), recall, learn, forget, kb (공식 트러블슈팅 search·show·list·propose, #889), journal, harness (사이트·작업별 안내서 폴더 list·show·match·new — 맞는 주소·호스트·앱 식별자·창 이름 응답에 자동 표시, #1023·#1024), get-output-path |
 | desktop-control | (자체 CLI 없음) `skills/pro-launch/scripts/launch_cli.py` | `desktop` 그룹을 그대로 쓴다: doctor, setup, session, windows, tree, find, click, type, press, focus, wait, shot |
 | ui-design | `skills/pro-ui-design/scripts/ui_design_cli.py` | start, status, stop, choices, tokens, check, capture, decide, decision (#1080), config (show·set·options), get-output-path, board, copy-lint, ascii, rewrite-images (업로드 결과로 본문 이미지 경로 치환 — #974) |
+| presentation | `skills/pro-presentation/scripts/presentation_cli.py` | start, status, stop, import, recording add, check, export (--pdf · --pptx, 검수 포함), get-output-path (#1097) |
 | oss-consult | `skills/pro-oss-consult/scripts/oss_cli.py` | collect, local-facts, list-repos, get-output-path (**사실만 모은다 — 판단은 에이전트**, #644), repo-update, label (레포를 바꾸는 유일한 경로 — `--dry-run`·`before` 기록, **삭제·가시성 변경은 구현하지 않는다**, #660) |
 
 공유 도메인 로직은 `scripts/common/`에 있다 (gh_client, config, paths, title, issue_number, gh_branch, manifest, emit, bootstrap).
@@ -1049,6 +1052,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 | **실제로 테스트해줘, 에뮬레이터·시뮬레이터·브라우저로 확인, E2E, 끝까지 밟아줘** | `pro-agent-test` |
 | **에뮬레이터 띄워서 찍어줘, 시뮬레이터 스크린샷, 브라우저로 캡처, 모바일 폭으로·빈 목록·500 화면 찍어줘** | `pro-launch` |
 | **시안 몇 개 보여줘, 애니메이션 시안 비교, 이 흐름 눌러 보게 해줘, 시안 이슈에 올려줘, 디자인 요청해줘, 디자이너한테 보낼 거 만들어줘, 빈 화면·에러 화면도 그려 달라고 해줘** | `pro-ui-design` |
+| **발표 연습하자, 발표 자료 만들어줘, 대본 봐줘, 녹화 올렸어, PPT로 뽑아줘** | `pro-presentation` |
 | **오픈소스 점검, 레포 컨설팅, trending 가려면, 오픈소스답게 만들어줘, 내 레포 전부 점검, README·라벨·라이선스 괜찮아?** | `pro-oss-consult` |
 | **figma 디자인 구현, 시안대로 만들어줘, 시안이랑 같은지 확인, 디자인대로 됐는지, 그림자 빠진 거 없나** | `pro-figma` |
 | **설계·기획 (무엇을 왜)** | **`superpowers:brainstorming`** |

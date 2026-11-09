@@ -1,0 +1,82 @@
+/* Deck design tokens: every slide uses only these variables.
+   Change the look of the whole deck here. Pieces marked data-pp become native PPT objects on export. */
+:root {
+  --color-background: #ffffff;
+  --color-surface: #f5f6f8;
+  --color-ink: #16181d;
+  --color-muted: #5b6170;
+  --color-accent: #4f46e5;
+  --color-accent-soft: #eceafd;
+  --color-line: #e3e5ea;
+  --font-family: "Pretendard", "Inter", -apple-system, "Segoe UI", sans-serif;
+  --font-title: 72px;
+  --font-heading: 56px;
+  --font-body: 34px;
+  --font-small: 26px;
+  --font-number: 200px;
+  --radius: 28px;
+  --margin: 120px;
+}
+
+section.slide { background: var(--color-background); color: var(--color-ink); font-family: var(--font-family); }
+section.slide [data-pp] { position: absolute; margin: 0; }
+section.slide p, section.slide h1, section.slide h2 { line-height: 1.25; }
+
+/* Shared heading */
+.slide-title { left: var(--margin); top: 96px; width: 1680px; font-size: var(--font-heading); font-weight: 800; letter-spacing: -0.02em; }
+
+/* Cover and closing */
+.cover-band { left: 0; top: 0; width: 24px; height: 1080px; background: var(--color-accent); }
+.eyebrow { left: var(--margin); top: 300px; font-size: var(--font-small); font-weight: 700; color: var(--color-accent); letter-spacing: 0.04em; }
+.cover-title { left: var(--margin); top: 360px; width: 1680px; font-size: 120px; font-weight: 800; letter-spacing: -0.03em; }
+.cover-slogan { left: var(--margin); top: 540px; width: 1680px; font-size: 44px; color: var(--color-muted); }
+.cover-team { left: var(--margin); top: 900px; font-size: var(--font-small); color: var(--color-muted); }
+
+/* Agenda */
+.agenda-list { left: var(--margin); top: 260px; width: 1200px; font-size: 44px; line-height: 2; padding-left: 60px; }
+
+/* Problem with a big number */
+.number-card { left: var(--margin); top: 260px; width: 760px; height: 620px; background: var(--color-accent-soft); border-radius: var(--radius); }
+.big-number { left: 180px; top: 360px; font-size: var(--font-number); font-weight: 800; color: var(--color-accent); letter-spacing: -0.04em; }
+.big-number-caption { left: 180px; top: 640px; width: 640px; font-size: var(--font-body); color: var(--color-muted); }
+.side-points { left: 1000px; top: 320px; width: 800px; font-size: var(--font-body); line-height: 1.8; padding-left: 40px; }
+
+/* Comparison table */
+.compare { left: var(--margin); top: 260px; width: 1680px; border-collapse: collapse; font-size: var(--font-body); }
+.compare th, .compare td { padding: 28px 24px; border-bottom: 2px solid var(--color-line); text-align: left; }
+.compare th { color: var(--color-muted); font-size: var(--font-small); font-weight: 700; }
+.compare th:last-child, .compare td:last-child { color: var(--color-accent); font-weight: 800; }
+
+/* Screen walkthrough */
+.device { left: var(--margin); top: 230px; width: 440px; height: 800px; background: var(--color-ink); border-radius: 56px; }
+.device-screen { left: 140px; top: 250px; width: 400px; height: 760px; border-radius: 40px; object-fit: cover; }
+.callout { left: 680px; width: 1100px; font-size: 40px; font-weight: 700; }
+.callout-1 { top: 360px; }
+.callout-2 { top: 560px; }
+
+/* Timeline */
+.timeline-line { left: var(--margin); top: 540px; width: 1680px; height: 8px; background: var(--color-accent); border-radius: 4px; }
+.milestone { top: 590px; width: 380px; font-size: var(--font-body); font-weight: 700; }
+.m1 { left: var(--margin); }
+.m2 { left: 560px; }
+.m3 { left: 1000px; }
+.m4 { left: 1440px; }
+
+/* Feedback quote */
+.quote-card { left: var(--margin); top: 260px; width: 1680px; height: 360px; background: var(--color-surface); border-radius: var(--radius); }
+.quote { left: 200px; top: 330px; width: 1520px; font-size: 52px; font-weight: 700; }
+.quote-answer { left: var(--margin); top: 720px; width: 1680px; font-size: 44px; color: var(--color-accent); font-weight: 700; }
+
+/* Number cards */
+.stat-card { top: 300px; width: 520px; height: 520px; background: var(--color-surface); border-radius: var(--radius); }
+.s1 { left: var(--margin); }
+.s2 { left: 700px; }
+.s3 { left: 1280px; }
+.stat-value { top: 400px; width: 440px; font-size: 160px; font-weight: 800; color: var(--color-accent); }
+.v1 { left: 160px; }
+.v2 { left: 740px; }
+.v3 { left: 1320px; }
+.stat-label { top: 640px; width: 440px; font-size: var(--font-body); color: var(--color-muted); }
+.l1 { left: 160px; }
+.l2 { left: 740px; }
+.l3 { left: 1320px; }

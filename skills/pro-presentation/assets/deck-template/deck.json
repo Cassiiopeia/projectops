@@ -1,0 +1,44 @@
+{
+  "title": "Untitled talk",
+  "language": "en",
+  "time_limit_seconds": null,
+  "rubric": "",
+  "slides": [
+    {
+      "id": "01-cover",
+      "kind": "cover"
+    },
+    {
+      "id": "02-agenda",
+      "kind": "agenda"
+    },
+    {
+      "id": "03-problem",
+      "kind": "problem"
+    },
+    {
+      "id": "04-comparison",
+      "kind": "comparison"
+    },
+    {
+      "id": "05-screen",
+      "kind": "screen"
+    },
+    {
+      "id": "06-timeline",
+      "kind": "timeline"
+    },
+    {
+      "id": "07-quote",
+      "kind": "feedback"
+    },
+    {
+      "id": "08-numbers",
+      "kind": "numbers"
+    },
+    {
+      "id": "09-closing",
+      "kind": "closing"
+    }
+  ]
+}
