@@ -41,7 +41,7 @@ Every command is `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cl
 | Build or change slides | edit `slides/<id>/slide.html`, `theme.css`, `deck.json` | `references/building.md` · `references/deck-format.md` |
 | Mechanical check: missing files, glossary hits, time against the limit, per-take timing, picture parts | `check --deck D` | |
 | Export (never overwrites: `exports/v<n>/`) | `export --deck D [--pdf] [--pptx]` | `references/exporting.md` |
-| Add a recorded run-through (optional) | `recording add --deck D --file F \| --url U \| --transcript T` | `references/recording.md` |
+| Add a recorded run-through (optional) | **Record** on the practice page, then `recording add --deck D --label <take>`; or `recording add --deck D --file F \| --url U \| --transcript T` | `references/recording.md` |
 | Settings | `config show \| set <name> <value> [--project P] \| options` | `../references/config-rules.md` §7 |
 
 ## Step 1: start

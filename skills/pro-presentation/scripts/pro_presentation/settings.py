@@ -35,6 +35,9 @@ SAVABLE_FILES = {"script": SCRIPT_FILE_NAME, "memo": MEMO_FILE_NAME}
 RECORDING_META_FILE_NAME = "meta.json"
 TRANSCRIPT_FILE_NAME = "transcript.txt"
 RANGES_FILE_NAME = "ranges.json"
+# 연습 화면 녹음: audio.<webm|mp4|ogg> + 장 넘긴 시각
+RECORDING_AUDIO_STEM = "audio"
+MARKS_FILE_NAME = "marks.json"
 
 # 버전 계산에서 빼는 폴더 (서버 상태·내보내기 결과는 화면을 다시 그릴 이유가 아님)
 VERSION_SKIPPED_DIRS = {STATE_DIR_NAME, EXPORTS_DIR_NAME}

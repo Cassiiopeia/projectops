@@ -16,7 +16,10 @@ const ENGLISH_TEXT = {
   // 카드 제목에 이 말이 있으면 주의 카드 색 (| 로 구분, 언어 사전이 덧붙임)
   warn_card_words: "caution|warning|recording",
   flow: "Flow", flow_help: "Drag a slide to change the order. Click one to open it.", close_flow: "Back to practice",
-  help: "Arrow keys move between slides. Edit the script in place; it saves to the deck when you leave the box. Click a recording time to open the video there.",
+  record: "Record", stop_recording: "Stop", recording_saving: "Saving the recording...", recording_saved: "Recording saved",
+  recording_failed: "Recording was not saved", mic_denied: "Microphone access was blocked",
+  record_unsupported: "This browser cannot record audio",
+  help: "Arrow keys move between slides. Edit the script in place; it saves to the deck when you leave the box. Click a recording time to open the video there. Record captures the microphone and the moment each slide is shown.",
 };
 
 const elements = Object.fromEntries(
@@ -184,6 +187,20 @@ function showSlide(index) {
   elements.problems.hidden = deck.problems.length === 0;
   renderList(elements.problems, deck.problems);
   renderFlow();
+  refreshRecordingSelect();
+  window.dispatchEvent(new CustomEvent("slide-shown", { detail: slide.id }));
+}
+
+// 녹화 목록: 개수가 바뀌면 (연습 화면 녹음 · recording add) 다시 채우고 최신 녹화 선택
+function refreshRecordingSelect() {
+  if (elements.recordingSelect.options.length === deck.recordings.length) return;
+  selectedRecordingIndex = deck.recordings.length - 1;
+  elements.recordingSelect.replaceChildren(...deck.recordings.map((recording, index) => new Option(recording.label, index)));
+  elements.recordingSelect.value = selectedRecordingIndex;
+  elements.recordingCard.hidden = deck.recordings.length === 0;
+  renderRecording(deck.slides[currentIndex]);
+  renderEstimate(deck.slides[currentIndex]);
+  renderTotals();
 }
 
 async function fetchDeck() {
@@ -327,9 +344,6 @@ async function watchDeckVersion() {
   await fetchDeck();
   text = await loadText(deck.language);
   applyStaticText();
-  selectedRecordingIndex = deck.recordings.length - 1;
-  elements.recordingSelect.replaceChildren(...deck.recordings.map((recording, index) => new Option(recording.label, index)));
-  elements.recordingSelect.value = selectedRecordingIndex;
   elements.recordingCard.hidden = deck.recordings.length === 0;
   setBigMode(Boolean(localStorage.getItem(storageKey("big"))));
   showSlide(Number(localStorage.getItem(storageKey("index")) || 0));

@@ -16,6 +16,10 @@ header button { background: #353846; color: #fff; border-color: #4a4e5e; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 #timer { font-variant-numeric: tabular-nums; font-size: 18px; font-weight: 700; min-width: 64px; text-align: right; }
 #timer.over { color: #ff8a80; }
+#record-toggle { white-space: nowrap; }
+#record-toggle::before { content: "\25CF  "; color: #ff8a80; }
+#record-toggle.live { background: #b3261e; border-color: #b3261e; font-variant-numeric: tabular-nums; }
+#record-toggle.live::before { content: "\25A0  "; color: #fff; }
 #save-status.error { color: #ff8a80; }
 
 /* 화면 높이 꽉: 왼쪽 슬라이드 + 바로 아래 대본, 오른쪽 피드백·주의 (각자 스크롤) */

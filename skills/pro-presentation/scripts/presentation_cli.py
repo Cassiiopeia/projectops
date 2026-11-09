@@ -66,11 +66,12 @@ def build_parser() -> JSONArgumentParser:
     recording_sub = p.add_subparsers(dest="recording_command", required=True)
     p = recording_sub.add_parser("add", help="A take > recordings/<label>/transcript.txt (local file, video link, or captions)")
     p.add_argument("--deck", required=True)
-    take = p.add_mutually_exclusive_group(required=True)
+    take = p.add_mutually_exclusive_group()
     take.add_argument("--file", default=None, help="Audio or video recorded locally (mp4, m4a, mp3, wav, mov, webm)")
     take.add_argument("--url", default=None, help="Video link (captions first, else transcribed)")
     take.add_argument("--transcript", default=None, help="Existing captions or transcript (srt, vtt, txt)")
-    p.add_argument("--label", default=None, help="Folder name, e.g. take-2 (default: take-<n>-<date>)")
+    p.add_argument("--label", default=None,
+                   help="Folder name, e.g. take-2 (default: take-<n>-<date>). Alone: transcribe that take recorded on the practice page")
     p.add_argument("--language", default=None, help="Caption language (default: deck.json language)")
     p.set_defaults(func=_run("recording", "cmd_recording_add"))
 

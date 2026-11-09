@@ -1,6 +1,7 @@
 """recording add: 연습 녹화 하나 > recordings/<label>/transcript.txt ('[mm:ss] 문장')
-입력 3가지: 로컬 녹음·녹화 파일(whisper) · 영상 주소(자막 먼저, 없으면 whisper) · 자막·받아쓰기 파일(srt·vtt·txt)
-장별 구간(ranges.json)은 agent 가 받아쓰기를 읽고 쓴다
+입력 4가지: 로컬 녹음·녹화 파일(whisper) · 영상 주소(자막 먼저, 없으면 whisper) · 자막·받아쓰기 파일(srt·vtt·txt)
+· 연습 화면 녹음(--label 만, 폴더의 audio.* 를 whisper)
+장별 구간(ranges.json): 연습 화면 녹음은 장 넘긴 시각으로 이미 채워짐, 그 밖은 agent 가 받아쓰기를 읽고 씀
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from common.emit import emit
 
 from pro_presentation.config import option_value
 from pro_presentation.deck import read_deck_settings
+from pro_presentation.recording_marks import find_page_audio, next_take_label
 from pro_presentation.settings import (RANGES_FILE_NAME, RECORDING_META_FILE_NAME, RECORDINGS_DIR_NAME,
                                        TRANSCRIPT_FILE_NAME)
 
@@ -128,9 +130,20 @@ def _lines_from_url(url: str, language: str, model_name: str, work_dir: Path) ->
     return lines, "whisper", reason
 
 
-def _next_label(recordings_dir: Path) -> str:
-    count = len([path for path in recordings_dir.iterdir() if path.is_dir()]) if recordings_dir.is_dir() else 0
-    return f"take-{count + 1}-{time.strftime('%Y%m%d')}"
+def _read_json(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    except ValueError:
+        return {}
+
+
+def _next_after_add(label: str, has_measured_ranges: bool) -> str:
+    if has_measured_ranges:
+        return (f"Per-slide ranges were measured on the practice page ({RECORDINGS_DIR_NAME}/{label}/{RANGES_FILE_NAME}); "
+                "run check and review each slide (references/recording.md)")
+    return (f"Read the transcript, write {RECORDINGS_DIR_NAME}/{label}/{RANGES_FILE_NAME} as "
+            "{\"<slide id>\": [start_seconds, end_seconds]}, then run check and review each slide "
+            "(references/recording.md)")
 
 
 def cmd_recording_add(args) -> int:
@@ -140,14 +153,22 @@ def cmd_recording_add(args) -> int:
         return emit({"ok": False, "code": "no_deck", "error": problems[0], "next": "start --deck <folder>"})
     language = args.language or settings.get("language") or "en"
     model_name = option_value(deck_dir, "whisper_model")
+    page_audio = None
+    if not (args.file or args.url or args.transcript):
+        # 연습 화면 녹음: --label 폴더의 audio.* 를 받아쓰기
+        page_audio = find_page_audio(deck_dir / RECORDINGS_DIR_NAME / args.label) if args.label else None
+        if page_audio is None:
+            return emit({"ok": False, "code": "no_take_source",
+                         "error": "Give --file, --url or --transcript, or --label of a take recorded on the practice page",
+                         "next": "Use the label of a recordings/ folder that has audio.webm or audio.mp4"})
     with tempfile.TemporaryDirectory() as temporary:
         work_dir = Path(temporary)
         if args.transcript:
             source_file = Path(args.transcript).expanduser()
             lines, source, reason = (subtitle_to_lines(source_file), "transcript", "") if source_file.is_file() \
                 else (None, "", f"{source_file} does not exist")
-        elif args.file:
-            media = Path(args.file).expanduser()
+        elif args.file or page_audio:
+            media = page_audio or Path(args.file).expanduser()
             lines, reason = transcribe_media(media, language, model_name, work_dir) if media.is_file() \
                 else (None, f"{media} does not exist")
             source = "whisper"
@@ -158,17 +179,19 @@ def cmd_recording_add(args) -> int:
                      "next": "Install what the error names, or ask the user for captions or a transcript file "
                              "(--transcript accepts srt, vtt or '[mm:ss] text' lines)"})
     recordings_dir = deck_dir / RECORDINGS_DIR_NAME
-    label = args.label or _next_label(recordings_dir)
+    label = args.label or next_take_label(recordings_dir)
     folder = recordings_dir / label
     folder.mkdir(parents=True, exist_ok=True)
     (folder / TRANSCRIPT_FILE_NAME).write_text("\n".join(lines) + "\n", encoding="utf-8")
-    meta = {"label": label, "url": args.url or "", "file": args.file or args.transcript or "", "source": source,
-            "added_at": time.strftime("%Y-%m-%d")}
+    # 연습 화면 녹음이면 기존 meta 유지 (source: page > page+whisper)
+    meta = _read_json(folder / RECORDING_META_FILE_NAME) if page_audio else {}
+    meta.update({"label": label, "url": args.url or meta.get("url", ""),
+                 "file": args.file or args.transcript or meta.get("file", ""),
+                 "source": "page+whisper" if page_audio else source, "added_at": meta.get("added_at") or time.strftime("%Y-%m-%d")})
     (folder / RECORDING_META_FILE_NAME).write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
     if not (folder / RANGES_FILE_NAME).exists():
         (folder / RANGES_FILE_NAME).write_text("{}\n", encoding="utf-8")
+    has_measured_ranges = bool(_read_json(folder / RANGES_FILE_NAME))
     return emit({"summary": f"{len(lines)} lines from {source} into {folder.name}", "label": label, "source": source,
                  "transcript": str(folder / TRANSCRIPT_FILE_NAME), "line_count": len(lines), "last_line": lines[-1],
-                 "next": (f"Read the transcript, write {RECORDINGS_DIR_NAME}/{label}/{RANGES_FILE_NAME} as "
-                          "{\"<slide id>\": [start_seconds, end_seconds]}, then run check and review each slide "
-                          "(references/recording.md)")})
+                 "ranges_measured": has_measured_ranges, "next": _next_after_add(label, has_measured_ranges)})

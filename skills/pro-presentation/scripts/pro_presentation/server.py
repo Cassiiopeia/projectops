@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from pro_presentation.deck import deck_version, load_deck  # noqa: E402
+from pro_presentation.recording_marks import RECORDING_EXTENSIONS, parse_marks, save_page_recording  # noqa: E402
 from pro_presentation.settings import (DECK_FILE_NAME, PRACTICE_ASSETS_DIR, SAVABLE_FILES, SERVER_INFO_FILE_NAME,  # noqa: E402
                                        SLIDES_DIR_NAME, STATE_DIR_NAME, THEME_FILE_NAME)
 
@@ -29,7 +30,12 @@ KEY_COOKIE = "presentation_key"
 IDLE_SHUTDOWN_SECONDS = 2 * 60 * 60
 IDLE_CHECK_SECONDS = 60
 MAX_SAVE_BYTES = 512 * 1024
-PRACTICE_ASSETS = {"practice.js": "text/javascript; charset=utf-8", "practice.css": "text/css; charset=utf-8",
+# 연습 화면 녹음 최대 크기 (300MB, opus 기준 몇 시간) · 장 넘긴 시각을 담는 헤더 (encodeURIComponent JSON)
+MAX_RECORDING_BYTES = 300 * 1024 * 1024
+RECORDING_COPY_CHUNK_BYTES = 1024 * 1024
+MARKS_HEADER = "X-Recording-Marks"
+PRACTICE_ASSETS = {"practice.js": "text/javascript; charset=utf-8", "recorder.js": "text/javascript; charset=utf-8",
+                   "practice.css": "text/css; charset=utf-8",
                    "i18n.ko.json": "application/json; charset=utf-8"}
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8",
@@ -171,6 +177,8 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             return self._save_slide_file()
         if parsed.path == "/api/order":
             return self._save_slide_order()
+        if parsed.path == "/api/recording":
+            return self._save_recording(urllib.parse.parse_qs(parsed.query))
         if parsed.path == "/api/stop":
             self._respond_json({"stopped": True})
             threading.Thread(target=self.server.shutdown, daemon=True).start()
@@ -221,6 +229,36 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         settings["slides"] = [entries[slide_id] for slide_id in order]
         deck_file.write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         return self._respond_json({"code": "saved", "version": deck_version(self.server.deck_dir)})
+
+    def _save_recording(self, query: dict) -> None:
+        """연습 화면 녹음 > recordings/<label>/: 검증(형식·크기·장 시각) > 상태 폴더에 받기 > 녹음 폴더로 이동"""
+        extension = (query.get("ext") or [""])[0]
+        length = int(self.headers.get("Content-Length") or 0)
+        if extension not in RECORDING_EXTENSIONS:
+            return self._respond_json({"code": "bad_format"}, 400)
+        if length <= 0 or length > MAX_RECORDING_BYTES:
+            return self._respond_json({"code": "bad_size"}, 413)
+        try:
+            marks, duration_seconds = parse_marks(urllib.parse.unquote(self.headers.get(MARKS_HEADER) or ""))
+        except (ValueError, KeyError, TypeError):
+            return self._respond_json({"code": "bad_marks"}, 400)
+        # 받는 중 파일은 상태 폴더에 (버전 계산·화면 다시 그리기에서 빠짐)
+        state_dir = self.server.deck_dir / STATE_DIR_NAME
+        state_dir.mkdir(parents=True, exist_ok=True)
+        incoming = state_dir / f"incoming-{secrets.token_hex(4)}.{extension}"
+        try:
+            with incoming.open("wb") as audio_file:
+                remaining = length
+                while remaining > 0:
+                    chunk = self.rfile.read(min(RECORDING_COPY_CHUNK_BYTES, remaining))
+                    if not chunk:
+                        return self._respond_json({"code": "incomplete"}, 400)
+                    audio_file.write(chunk)
+                    remaining -= len(chunk)
+            saved = save_page_recording(self.server.deck_dir, extension, incoming, marks, duration_seconds)
+        finally:
+            incoming.unlink(missing_ok=True)  # (성공·실패 공통: 이동했으면 이미 없음)
+        return self._respond_json({"code": "saved", **saved, "version": deck_version(self.server.deck_dir)})
 
 
 def watch_idle(server: DeckServer) -> None:

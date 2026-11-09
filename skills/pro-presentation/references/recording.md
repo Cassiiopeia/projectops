@@ -7,6 +7,7 @@ ready and the user wants to check timing end to end. Do not ask for one earlier.
 
 | The user has | Run |
 |---|---|
+| Pressed **Record** on the practice page (microphone only; the page saved `recordings/<take>/audio.*`, `marks.json` and `ranges.json`) | `recording add --deck D --label <take>` (transcribes the saved audio locally) |
 | A file recorded on a phone or laptop (mp4, m4a, mp3, wav, mov, webm) | `recording add --deck D --file <path>` (faster-whisper + ffmpeg, local) |
 | A video link | `recording add --deck D --url <link>` (captions first, else transcribed) |
 | Captions or a transcript (srt, vtt, "[mm:ss] text") | `recording add --deck D --transcript <path>` |
@@ -14,6 +15,9 @@ ready and the user wants to check timing end to end. Do not ask for one earlier.
 On `no_transcript_source`, tell the user what is missing in one line and offer the next option.
 
 ## Split it per slide
+
+A take recorded on the practice page already has `ranges.json` from the moments each slide was shown (`ranges_measured: true`); skip this step.
+If the user revisited a slide, the longest visit counts. Edit the file only when the user says a range is wrong.
 
 Read `transcript.txt` and write `ranges.json` (`{"<slide id>": [start, end]}`, seconds, end exclusive).
 Cut where the content of the next slide starts; if a sentence spans two slides, give it to the slide whose content it carries.
