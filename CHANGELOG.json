@@ -1,14 +1,39 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-09T06:53:39Z",
-    "currentVersion": "4.94.0",
+    "lastUpdated": "2026-11-09T06:55:50Z",
+    "currentVersion": "4.94.1",
     "projectType": "basic",
-    "totalReleases": 385,
+    "totalReleases": 386,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.94.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-09",
+      "pr_number": 1104,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * New `/pro-image` skill is now published to npm: make backgrounds, characters, icons and illustrations in your project's own art style\n\n* **Bug fixes**\n  * The image skill guide passes the English-only check, so the release build completes",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "New `/pro-image` skill is now published to npm: make backgrounds, characters, icons and illustrations in your project's own art style"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "The image skill guide passes the English-only check, so the release build completes"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.94.0",
       "project_type": "basic",

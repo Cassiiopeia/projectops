@@ -1,7 +1,19 @@
 # Changelog
 
-**Current version:** 4.94.0  
-**Last updated:** 2026-11-09T06:53:39Z  
+**Current version:** 4.94.1  
+**Last updated:** 2026-11-09T06:55:50Z  
+
+---
+
+## [4.94.1] - 2026-11-09
+
+**PR:** #1104  
+
+**New features**
+- New `/pro-image` skill is now published to npm: make backgrounds, characters, icons and illustrations in your project's own art style
+
+**Bug fixes**
+- The image skill guide passes the English-only check, so the release build completes
 
 ---
 
