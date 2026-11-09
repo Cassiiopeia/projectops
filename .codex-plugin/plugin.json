@@ -1,6 +1,6 @@
 {
   "name": "projectops",
-  "version": "4.91.2",
+  "version": "4.92.0",
   "description": "Agent skills that drive the projectops automation cycle: issues, worktrees, commits in your own style, reports, reviews, QA and release PRs (16 skills)",
   "skills": "./skills/"
 }
