@@ -5,6 +5,7 @@ Optional plugin from the projectops marketplace. It holds skills that are not pa
 | Skill | Purpose |
 |-------|---------|
 | `pro-disk-cleanup` | Find and clear reclaimable disk space on any macOS, Windows or Linux machine, whatever the stack: a read-only scan first, then three tiers (safe after one confirmation, decide only when you name it, keep). Closed-issue worktrees are checked on GitHub, backed up and removed with branches kept; build output, tool caches, browser caches and Docker leftovers are cleared through one delete gate |
+| `pro-orca-tunnel` | Give a public Orca Web URL on request: reuse the live cloudflared quick tunnel or open a new one, and return the saved Orca pairing link pointed at it. No Cloudflare account needed. Orca facts live in a harness the agent updates when Orca changes (macOS, Windows, Linux) |
 | `pro-skill-bug` | Report a suspected projectops skill bug from the session where it happened: collect commands, tool results, flow, logs and screenshots from the transcript, strip personal data, file or update an issue on Cassiiopeia/projectops, then return to the task. It does not judge or fix |
 | `pro-synology-expose` | Guide for exposing a web service on a Synology NAS under your own domain (DNS, reverse proxy, certificate) |
 

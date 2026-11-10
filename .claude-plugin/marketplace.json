@@ -27,7 +27,7 @@
     {
       "name": "projectops-extras",
       "source": "./plugins/projectops-extras",
-      "description": "Optional skills outside the core dev cycle: Synology NAS service exposure, reporting projectops skill bugs from any session, safe disk-space clean-up (3 skills)",
+      "description": "Optional skills outside the core dev cycle: Synology NAS service exposure, reporting projectops skill bugs from any session, safe disk-space clean-up, a public Orca Web URL on request (4 skills)",
       "version": "4.97.4",
       "category": "DevOps"
     }

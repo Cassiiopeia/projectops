@@ -195,7 +195,7 @@ What it changed: descriptions were cut to short English triggers, a guard test n
 | `/pro-ssh` | Connect to a remote server over SSH and run commands (AWS EC2, Synology NAS, Linux, and more) |
 | `/pro-skill-creator` | Create, review, and improve a Skill (CREATE / REVIEW / IMPROVE modes) |
 
-**Extras** (optional plugin): `/pro-synology-expose`, `/pro-skill-bug` (report a suspected projectops skill bug from any session), `/pro-disk-cleanup` (find and clear reclaimable disk space safely: worktrees, build output, caches, Docker) — `claude plugin install projectops-extras@projectops-marketplace --scope user`
+**Extras** (optional plugin): `/pro-synology-expose`, `/pro-skill-bug` (report a suspected projectops skill bug from any session), `/pro-disk-cleanup` (find and clear reclaimable disk space safely: worktrees, build output, caches, Docker), `/pro-orca-tunnel` (a public Orca Web URL and pairing link on request) — `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 </details>
 

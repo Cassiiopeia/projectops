@@ -464,7 +464,7 @@ Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json
 
 ## Extras (선택 플러그인)
 
-`/pro-synology-expose`(시놀로지 NAS 서비스를 외부 도메인으로 노출하는 가이드), `/pro-skill-bug`(스킬 버그 보고), `/pro-disk-cleanup`(디스크 용량 정리)은 코어 플러그인에 없고 선택 플러그인 `projectops-extras`에 있습니다. (`/pro-code-consult`는 코어로 옮겨졌습니다.)
+`/pro-synology-expose`(시놀로지 NAS 서비스를 외부 도메인으로 노출하는 가이드), `/pro-skill-bug`(스킬 버그 보고), `/pro-disk-cleanup`(디스크 용량 정리), `/pro-orca-tunnel`(Orca Web 원격 주소)은 코어 플러그인에 없고 선택 플러그인 `projectops-extras`에 있습니다. (`/pro-code-consult`는 코어로 옮겨졌습니다.)
 
 ```bash
 # Claude Code
