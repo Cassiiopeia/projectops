@@ -70,7 +70,7 @@ the size or the background is truly unknown. Use the full flow below when the im
 6. **Judge.** Open `image.path` (the `.final.png`) with Read and check every brief line. `problems` lists spec
    failures. A transparent image can look like it has a dark glow when read directly; judge it on
    `board <img> --out <png>` (gray backdrop) instead. Retry a failed content line once with that line stronger; on provider failures follow `next`.
-7. **Show.** Show only the finished image (or one `board` for several). Ask for approval with AskUserQuestion when
+7. **Show.** Show only the finished image (or one `board` for several). Ask for approval with your agent's choice prompt (AskUserQuestion in Claude Code; a numbered list elsewhere) when
    there is a choice. If a `pro-ui-design` session is open, place the candidates there instead.
 8. **Place and remember.** Convert to the app's format and put it where the brief said; `record --status approved
    --placed-at <path>`. Turn any lasting feedback into a line in `STYLE.md` or `characters/<id>.md`.

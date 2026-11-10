@@ -73,7 +73,7 @@ Anything touched within `--idle-hours` (default 2, `disk-cleanup.idle_hours`) is
    in use, touched recently, locked, the main checkout, or whose branch points to another issue.
 4. **Decide tier: only by name.** Open-issue worktrees, worktrees without an issue number, emulator images,
    DerivedData, Gradle caches, pub cache and Trash are cleared **only when the user names them**, never on a general
-   "clean up everything". Ask with `AskUserQuestion` (multi-select), and for `aged` items ask for the age threshold
+   "clean up everything". Ask with your agent's choice prompt (`AskUserQuestion` multi-select in Claude Code; a numbered list elsewhere), and for `aged` items ask for the age threshold
    ("not used in 7 days?"). An open-issue worktree the user named goes with `--approved-stale`.
    A worktree with `real_change_count > 0` and no issue: show `real_change_sample` and ask before removing; the backup
    keeps it, but the user must know it existed.

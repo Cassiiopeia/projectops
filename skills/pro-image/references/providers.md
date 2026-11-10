@@ -18,7 +18,7 @@ They work in a scratch run folder outside the repo. To restrict them, override `
 
 ## First use: ask once
 
-When `providers` says `ask_priority`, ask the user once with AskUserQuestion which tools to use and in what order,
+When `providers` says `ask_priority`, ask the user once with your agent's choice prompt (AskUserQuestion in Claude Code; a numbered list elsewhere) which tools to use and in what order,
 showing only the ready ones (`ready_in_order`). Save the answer in `~/.projectops/config/config.json`:
 
 ```json

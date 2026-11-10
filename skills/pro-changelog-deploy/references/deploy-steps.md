@@ -167,9 +167,9 @@ GITHUB_PAT="{PAT}" PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/changelog_cli.py \
   deploy-status "{OWNER}" "{REPO}" --pr "{PR_NUMBER}" --base "{BASE_BRANCH}"
 ```
 
-> **Do not use sleep when re-checking.** Claude Code Bash blocks `sleep 120`. If you need to wait, set your own pace with `ScheduleWakeup`, and when you wake up, call the `deploy-status` command from the `next` hint again.
+> **Do not use sleep when re-checking.** Wait inside the tool with `deploy-status --wait`, then call the `deploy-status` command from the `next` hint again. (Claude Code Bash blocks `sleep 120`; there, pace longer waits with `ScheduleWakeup`.)
 >
-> **Re-check interval (measured)**: when the PR is created with the release notes in the body, there is no 10-minute CodeRabbit wait, so automerge **usually finishes within 60 seconds** (one cycle of VERSION-CONTROL → CHANGELOG → automerge; measured in #317 and #318, both merged within 60 seconds). So re-check with `ScheduleWakeup(delaySeconds=60)` and repeat every 60 seconds until `merged`. **The minimum `ScheduleWakeup` value is 60 seconds**, so 45 or 30 is clamped to 60 — 60 seconds is effectively the shortest interval. Do not use longer values like 90 seconds; they notice a finished deploy late and waste time. (60 seconds is within the 270-second cache window, so there is no cost penalty.)
+> **Re-check interval (measured)**: when the PR is created with the release notes in the body, there is no 10-minute CodeRabbit wait, so automerge **usually finishes within 60 seconds** (one cycle of VERSION-CONTROL → CHANGELOG → automerge; measured in #317 and #318, both merged within 60 seconds). So in Claude Code re-check with `ScheduleWakeup(delaySeconds=60)` and repeat every 60 seconds until `merged`. **The minimum `ScheduleWakeup` value is 60 seconds**, so 45 or 30 is clamped to 60 — 60 seconds is effectively the shortest interval. Do not use longer values like 90 seconds; they notice a finished deploy late and waste time. (60 seconds is within the 270-second cache window, so there is no cost penalty.)
 
 ## Step 8: Report the result
 

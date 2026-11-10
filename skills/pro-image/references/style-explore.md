@@ -18,7 +18,7 @@
 3. **Generate each look** with the same subject, same size, same provider, in the background, one by one
    (`run --name style_<n> ...`). Only the style lines differ between the prompts.
 4. **Show one board.** `board style_1.final.png style_2.final.png ... --out style_board.png`, open it with Read to
-   check it, show it to the user, and ask with AskUserQuestion: one option per number with a 3-6 word name of the
+   check it, show it to the user, and ask with your agent's choice prompt (AskUserQuestion in Claude Code; a numbered list elsewhere): one option per number with a 3-6 word name of the
    look, plus "mix: describe it". Do not show the four runs separately and do not describe the process.
 5. **Lock the pick.** Write `STYLE.md` from the chosen prompt's style lines (concrete: line, shading, palette with
    hex, light), copy the chosen image to `refs/`, `record --status approved`, and `record --status rejected` for the
