@@ -682,94 +682,114 @@ def get_project_file_version(cfg: Config) -> str:
 
 
 # ── 타입별 sync (.sh sync_for_type 등가) ─────────────────────────────
+def _sync_spring(type_name: str, base_dir: Path, type_path: str, new_version: str):
+    if not base_dir.is_dir():
+        log_warning(f"spring: no {type_path} directory — skipping")
+        return
+    # find -maxdepth 2 -name build.gradle 등가
+    candidates = sorted(
+        set(base_dir.glob("build.gradle")) | set(base_dir.glob("*/build.gradle"))
+        | set(base_dir.glob("build.gradle.kts")) | set(base_dir.glob("*/build.gradle.kts"))
+    )
+    if not candidates:
+        log_warning(f"spring: no build.gradle(.kts) in {type_path} — skipping")
+    for gradle in candidates:
+        # 줄 시작의 `version = '...'`(프로젝트 버전 대입)만 고친다. 앵커가 없으면
+        # ext.kotlin_version = '1.9.0' 같은 다른 대입이나 주석까지 덮어써 빌드가 깨진다 (#680).
+        results = {
+            sub_file(gradle, r"^([ \t]*version[ \t]*=[ \t]*)'[^']*'", lambda m: f"{m.group(1)}'{new_version}'"),
+            sub_file(gradle, r'^([ \t]*version[ \t]*=[ \t]*)"[^"]*"', lambda m: f'{m.group(1)}"{new_version}"'),
+        }
+        if CHANGED in results:
+            log_success(f"Updated: {gradle.as_posix()}")
+        elif results == {NO_MATCH}:
+            log_warning(f"spring: no version assignment found in {gradle.as_posix()} — not synced")
+
+
+def _sync_flutter(type_name: str, base_dir: Path, type_path: str, new_version: str):
+    pubspec = base_dir / "pubspec.yaml"
+    if not pubspec.is_file():
+        log_warning(f"flutter: no {type_path}/pubspec.yaml — skipping")
+        return
+    code = get_version_code()
+    # 값만 교체하고 줄 끝 주석(version: 1.2.3+7 # rel)은 보존한다
+    status = sub_file(
+        pubspec, r"^(version:[ \t]*)[^\s#]*([ \t]*#[^\r\n]*)?",
+        lambda m: f"{m.group(1)}{new_version}+{code}{m.group(2) or ''}", count=1)
+    if status == CHANGED:
+        log_success(f"Updated: {pubspec.as_posix()}")
+
+
+def _sync_package_json(type_name: str, base_dir: Path, type_path: str, new_version: str):
+    package_json = base_dir / "package.json"
+    if not package_json.is_file():
+        log_warning(f"{type_name}: no {type_path}/package.json — skipping")
+        return
+    if set_json_version(package_json, ["version"], new_version):
+        log_success(f"Updated: {package_json.as_posix()}")
+
+
+def _sync_python(type_name: str, base_dir: Path, type_path: str, new_version: str):
+    toml = base_dir / "pyproject.toml"
+    if not toml.is_file():
+        log_warning(f"python: no {type_path}/pyproject.toml — skipping")
+        return
+    status = toml_set_version(toml, new_version)
+    if status == CHANGED:
+        log_success(f"Updated: {toml.as_posix()}")
+    elif status == NO_MATCH:
+        log_warning(f"python: no version found in [project]/[tool.poetry] of {toml.as_posix()} — not synced")
+
+
+def _sync_react_native(type_name: str, base_dir: Path, type_path: str, new_version: str):
+    # iOS Info.plist (Xcode 변수는 건드리지 않음) > Android build.gradle versionName
+    ios_dir = base_dir / "ios"
+    if ios_dir.is_dir():
+        plists = find_info_plists(ios_dir)
+        if not plists:
+            log_warning(f"react-native: no Info.plist with CFBundleShortVersionString found under {type_path}/ios — iOS version not synced")
+        for plist in plists:
+            status = plist_set_version(plist, new_version)
+            if status == CHANGED:
+                log_success(f"Updated: {plist.as_posix()}")
+            elif status == VARIABLE:
+                log_warning(f"The version in {plist.as_posix()} is an Xcode variable (MARKETING_VERSION), so it was not synced — manage it in the Xcode project")
+    else:
+        log_warning(f"react-native: no {type_path}/ios directory — skipping")
+    gradle = base_dir / "android" / "app" / "build.gradle"
+    if gradle.is_file():
+        if sub_file(gradle, r'versionName "[^"]*"', f'versionName "{new_version}"') == CHANGED:
+            log_success(f"Updated: {gradle.as_posix()}")
+    else:
+        log_warning(f"react-native: no {type_path}/android/app/build.gradle — skipping")
+
+
+def _sync_expo(type_name: str, base_dir: Path, type_path: str, new_version: str):
+    app_json = base_dir / "app.json"
+    if not app_json.is_file():
+        log_warning(f"react-native-expo: no {type_path}/app.json — skipping")
+        return
+    if set_json_version(app_json, ["expo", "version"], new_version):
+        log_success(f"Updated: {app_json.as_posix()}")
+
+
+# 타입 > 그 타입의 버전 파일을 고치는 함수 (basic 은 version.yml 뿐이라 없음). 타입 추가 = 함수 하나 + 이 표 한 줄
+TYPE_SYNCERS = {
+    "spring": _sync_spring, "flutter": _sync_flutter, "react": _sync_package_json, "node": _sync_package_json,
+    "python": _sync_python, "react-native": _sync_react_native, "react-native-expo": _sync_expo,
+}
+
+
 def sync_for_type(t: str, new_version: str):
     p = get_type_path(t)
     log_info(f"Sync by type: {t} → {new_version} (path: {p})")
-    base = Path(p)
-
-    if t == "spring":
-        if base.is_dir():
-            # find -maxdepth 2 -name build.gradle 등가
-            candidates = sorted(
-                set(base.glob("build.gradle")) | set(base.glob("*/build.gradle"))
-                | set(base.glob("build.gradle.kts")) | set(base.glob("*/build.gradle.kts"))
-            )
-            if not candidates:
-                log_warning(f"spring: no build.gradle(.kts) in {p} — skipping")
-            for gradle in candidates:
-                # 줄 시작의 `version = '...'`(프로젝트 버전 대입)만 고친다. 앵커가 없으면
-                # ext.kotlin_version = '1.9.0' 같은 다른 대입이나 주석까지 덮어써 빌드가 깨진다 (#680).
-                results = {
-                    sub_file(gradle, r"^([ \t]*version[ \t]*=[ \t]*)'[^']*'", lambda m: f"{m.group(1)}'{new_version}'"),
-                    sub_file(gradle, r'^([ \t]*version[ \t]*=[ \t]*)"[^"]*"', lambda m: f'{m.group(1)}"{new_version}"'),
-                }
-                if CHANGED in results:
-                    log_success(f"Updated: {gradle.as_posix()}")
-                elif results == {NO_MATCH}:
-                    log_warning(f"spring: no version assignment found in {gradle.as_posix()} — not synced")
-        else:
-            log_warning(f"spring: no {p} directory — skipping")
-    elif t == "flutter":
-        pubspec = base / "pubspec.yaml"
-        if pubspec.is_file():
-            code = get_version_code()
-            # 값만 교체하고 줄 끝 주석(version: 1.2.3+7 # rel)은 보존한다
-            status = sub_file(
-                pubspec, r"^(version:[ \t]*)[^\s#]*([ \t]*#[^\r\n]*)?",
-                lambda m: f"{m.group(1)}{new_version}+{code}{m.group(2) or ''}", count=1)
-            if status == CHANGED:
-                log_success(f"Updated: {pubspec.as_posix()}")
-        else:
-            log_warning(f"flutter: no {p}/pubspec.yaml — skipping")
-    elif t in ("react", "node"):
-        pkg = base / "package.json"
-        if pkg.is_file():
-            if set_json_version(pkg, ["version"], new_version):
-                log_success(f"Updated: {pkg.as_posix()}")
-        else:
-            log_warning(f"{t}: no {p}/package.json — skipping")
-    elif t == "python":
-        toml = base / "pyproject.toml"
-        if toml.is_file():
-            status = toml_set_version(toml, new_version)
-            if status == CHANGED:
-                log_success(f"Updated: {toml.as_posix()}")
-            elif status == NO_MATCH:
-                log_warning(f"python: no version found in [project]/[tool.poetry] of {toml.as_posix()} — not synced")
-        else:
-            log_warning(f"python: no {p}/pyproject.toml — skipping")
-    elif t == "react-native":
-        ios_dir = base / "ios"
-        if ios_dir.is_dir():
-            plists = find_info_plists(ios_dir)
-            if not plists:
-                log_warning(f"react-native: no Info.plist with CFBundleShortVersionString found under {p}/ios — iOS version not synced")
-            for plist in plists:
-                status = plist_set_version(plist, new_version)
-                if status == CHANGED:
-                    log_success(f"Updated: {plist.as_posix()}")
-                elif status == VARIABLE:
-                    log_warning(f"The version in {plist.as_posix()} is an Xcode variable (MARKETING_VERSION), so it was not synced — manage it in the Xcode project")
-        else:
-            log_warning(f"react-native: no {p}/ios directory — skipping")
-        gradle = base / "android" / "app" / "build.gradle"
-        if gradle.is_file():
-            if sub_file(gradle, r'versionName "[^"]*"', f'versionName "{new_version}"') == CHANGED:
-                log_success(f"Updated: {gradle.as_posix()}")
-        else:
-            log_warning(f"react-native: no {p}/android/app/build.gradle — skipping")
-    elif t == "react-native-expo":
-        app_json = base / "app.json"
-        if app_json.is_file():
-            if set_json_version(app_json, ["expo", "version"], new_version):
-                log_success(f"Updated: {app_json.as_posix()}")
-        else:
-            log_warning(f"react-native-expo: no {p}/app.json — skipping")
-    elif t == "basic":
-        pass
-    else:
+    if t == "basic":
+        return
+    syncer = TYPE_SYNCERS.get(t)
+    if syncer is None:
         log_warning(f"Unknown type: {t} — skipping")
-
+        return
+    syncer(t, Path(p), p, new_version)
 
 def sync_all_project_files(cfg: Config, new_version: str):
     if cfg.types:
