@@ -1,5 +1,5 @@
 // 연습 화면 배치: 글자 크기(A- A+) · 경계 끌기(오른쪽 열 너비, 슬라이드 높이) > 덱에 저장 (.presentation/layout.json)
-// practice.js 의 전역(elements · fitSlideFrame)을 씀. 바뀌면 "layout-changed" 이벤트 (popout.js 가 다른 창에 전달)
+// practice.js 의 전역(elements)과 slides.js 의 fitSlideFrame 을 씀. 바뀌면 "layout-changed" 이벤트 (popout.js 가 다른 창에 전달)
 "use strict";
 
 // 글자 배율 한 번에 10%

@@ -22,6 +22,9 @@ KEY_HEADER = "X-UI-Design-Key"
 MAX_EVENT_BYTES = 64 * 1024
 MAX_EVENT_TEXT_LENGTH = 500
 IDLE_CHECK_MAX_SECONDS = 30
+# 쉬는 연결을 닫는 시간 (초) · 응답을 모아 한 번에 보내는 크기 (64KB)
+IDLE_CONNECTION_SECONDS = 120
+RESPONSE_BUFFER_BYTES = 64 * 1024
 TOKENS_FILE_NAME = "tokens.css"
 # skills/pro-ui-design/assets/ (이 파일: skills/pro-ui-design/scripts/pro_ui_design/)
 ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
@@ -127,6 +130,11 @@ def render_shell_html(state: SessionState) -> str:
 class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
     server_version = "ui-design"
     sys_version = ""
+    # 연결 재사용 + 응답을 모아 한 번에 보냄: 요청마다 새로 연결하면 수십 ms 씩 늦음 (Windows 에서 특히 큼, #1112)
+    protocol_version = "HTTP/1.1"
+    timeout = IDLE_CONNECTION_SECONDS
+    disable_nagle_algorithm = True
+    wbufsize = RESPONSE_BUFFER_BYTES
 
     @property
     def state(self) -> SessionState:
@@ -144,6 +152,10 @@ class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy", "frame-ancestors 'self'")
+        if status >= 400:
+            # 거부한 요청은 본문을 읽지 않았을 수 있음 > 연결을 닫아 남은 본문이 다음 요청으로 읽히지 않게
+            self.close_connection = True
+            self.send_header("Connection", "close")
         for name, value in (extra_headers or {}).items():
             self.send_header(name, value)
         self.end_headers()

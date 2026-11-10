@@ -50,10 +50,8 @@ IMAGE_BATCH_COUNT = 8
 IMAGE_BUILD_TIMEOUT_SECONDS = 600
 # Windows: 분리 실행된 서버가 자식 프로세스를 띄울 때 콘솔 창이 뜨지 않게 (CREATE_NO_WINDOW)
 NO_WINDOW_FLAGS = {"creationflags": 0x08000000} if sys.platform == "win32" else {}
-PRACTICE_ASSETS = {"practice.js": "text/javascript; charset=utf-8", "recorder.js": "text/javascript; charset=utf-8",
-                   "layout.js": "text/javascript; charset=utf-8", "popout.js": "text/javascript; charset=utf-8",
-                   "practice.css": "text/css; charset=utf-8",
-                   "i18n.ko.json": "application/json; charset=utf-8"}
+PRACTICE_ASSETS = {"practice.js", "slides.js", "flow.js", "recorder.js", "layout.js", "popout.js", "practice.css",
+                   "i18n.ko.json"}
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8",
     ".json": "application/json; charset=utf-8", ".md": "text/plain; charset=utf-8", ".txt": "text/plain; charset=utf-8",
