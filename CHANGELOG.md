@@ -1,7 +1,17 @@
 # Changelog
 
-**Current version:** 4.97.1  
-**Last updated:** 2026-11-10T13:39:31Z  
+**Current version:** 4.97.2  
+**Last updated:** 2026-11-10T14:18:24Z  
+
+---
+
+## [4.97.2] - 2026-11-10
+
+**PR:** #1118  
+
+**Improvements**
+- Skills read the same in Codex and other agents, not only Claude Code
+- The mockup viewer server is split into smaller parts
 
 ---
 

@@ -1,14 +1,34 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-10T13:39:31Z",
-    "currentVersion": "4.97.1",
+    "lastUpdated": "2026-11-10T14:18:24Z",
+    "currentVersion": "4.97.2",
     "projectType": "basic",
-    "totalReleases": 392,
+    "totalReleases": 393,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.97.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-10",
+      "pr_number": 1118,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Improvements**\n  * Skills read the same in Codex and other agents, not only Claude Code\n  * The mockup viewer server is split into smaller parts",
+      "parsed_changes": {
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "Skills read the same in Codex and other agents, not only Claude Code",
+            "The mockup viewer server is split into smaller parts"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.97.1",
       "project_type": "basic",
