@@ -32,6 +32,8 @@ OPTION_DEFINITIONS: tuple[OptionDefinition, ...] = (
                      "Folder for new decks (relative to the repo or absolute); unset = get-output-path"),
     OptionDefinition("export_formats", TYPE_LIST, ("pdf", "pptx"), ("pdf", "pptx"),
                      "What export makes when no format flag is given"),
+    OptionDefinition("pptx_converter", TYPE_TEXT, ("auto", "builtin", "dom-to-pptx"), "auto",
+                     "PPT converter: auto = dom-to-pptx only when a slide has styles the built-in one cannot map"),
     OptionDefinition("whisper_model", TYPE_TEXT, ("tiny", "base", "small", "medium"), "small",
                      "faster-whisper model when a recording has no captions"),
     OptionDefinition("seed_user_memory", TYPE_BOOL, (), True,

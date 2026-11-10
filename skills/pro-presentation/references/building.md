@@ -32,7 +32,8 @@ the slide count, the kind of each, and the one message each slide carries. Check
 | `shape` | rectangle, rounded rectangle or ellipse (from `border-radius`), with fill and border | cards, bands, lines |
 | `table` | table | comparisons |
 
-- Put pieces directly inside the section and position them absolutely (`theme.css` classes). An element without `data-pp` becomes a **picture** in the PPT; its child pieces stay real text. `check` lists every such picture part; aim for none.
+- Put pieces directly inside the section and position them absolutely (`theme.css` classes). With the built-in converter an element without `data-pp` becomes a **picture** in the PPT; its child pieces stay real text. `check` lists every such picture part; aim for none.
+- Gradients, shadows, mixed styles inside one paragraph and styled tables are fine: the export then switches to the dom-to-pptx converter by itself (`exporting.md`).
 - Text must be real text, never baked into an image, so the PPT stays editable and the words can be checked.
 - Images: keep them next to the slide and refer to them by file name.
 

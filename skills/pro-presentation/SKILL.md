@@ -40,7 +40,7 @@ Every command is `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cl
 | Bring in an existing PPT or PDF | `import --deck D --pptx F` or `--pdf F` | `references/building.md` |
 | Build or change slides | edit `slides/<id>/slide.html`, `theme.css`, `deck.json` | `references/building.md` · `references/deck-format.md` |
 | Mechanical check: missing files, glossary hits, time against the limit, per-take timing, picture parts | `check --deck D` | |
-| Export (never overwrites: `exports/v<n>/`) | `export --deck D [--pdf] [--pptx]` | `references/exporting.md` |
+| Export (never overwrites: `exports/v<n>/`) | `export --deck D [--pdf] [--pptx] [--converter C]` | `references/exporting.md` |
 | Add a recorded run-through (optional) | **Record** on the practice page, then `recording add --deck D --label <take>`; or `recording add --deck D --file F \| --url U \| --transcript T` | `references/recording.md` |
 | Settings | `config show \| set <name> <value> [--project P] \| options` | `../references/config-rules.md` §7 |
 

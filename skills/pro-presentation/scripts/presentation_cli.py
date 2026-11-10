@@ -83,6 +83,8 @@ def build_parser() -> JSONArgumentParser:
     p.add_argument("--deck", required=True)
     p.add_argument("--pdf", action="store_true")
     p.add_argument("--pptx", action="store_true")
+    p.add_argument("--converter", choices=("auto", "builtin", "dom-to-pptx"), default=None,
+                   help="PPT converter (default: the pptx_converter setting)")
     p.add_argument("--timeout", type=int, default=300, help="Seconds for the browser step")
     p.set_defaults(func=_run("export", "cmd_export"))
 

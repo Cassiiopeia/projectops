@@ -15,11 +15,11 @@ RENDER_WAIT_MILLISECONDS = 600
 # skills/pro-launch/scripts/browser_pick.py (이 파일: skills/pro-presentation/scripts/pro_presentation/)
 BROWSER_PICK_FILE = Path(__file__).resolve().parents[3] / "pro-launch" / "scripts" / "browser_pick.py"
 
-# 장 안 조각 값 읽기: data-pp 조각 · 조각 아닌 최상위 요소(그림으로 갈 부분)
+# 장 안 조각 값 읽기: data-pp 조각 · 조각 아닌 최상위 요소(그림으로 갈 부분) · 내장 변환기가 옮기지 못하는 모양(unmapped)
 COLLECT_PIECES_SCRIPT = """
 () => {
   const slide = document.querySelector("section.slide");
-  if (!slide) return { pieces: [], pictures: [] };
+  if (!slide) return { pieces: [], pictures: [], unmapped: [] };
   const origin = slide.getBoundingClientRect();
   const box = (element) => { const r = element.getBoundingClientRect(); return [r.left - origin.left, r.top - origin.top, r.width, r.height]; };
   const pieces = [...slide.querySelectorAll("[data-pp]")].map((element, index) => {
@@ -37,7 +37,26 @@ COLLECT_PIECES_SCRIPT = """
   });
   const pictures = [...slide.children].filter((element) => !element.dataset.pp && !["STYLE", "SCRIPT"].includes(element.tagName))
     .map((element, index) => { element.dataset.ppPicture = String(index); return { index, box: box(element) }; });
-  return { pieces, pictures };
+  const unmapped = new Set(pictures.length ? ["parts without data-pp"] : []);
+  for (const element of slide.querySelectorAll("[data-pp]")) {
+    const style = getComputedStyle(element);
+    const kind = element.dataset.pp;
+    if (style.backgroundImage !== "none") unmapped.add("gradient or image background");
+    if (style.boxShadow !== "none") unmapped.add("shadow");
+    if (/rgba\\(.*,\\s*0?\\.\\d+\\)/.test(style.backgroundColor)) unmapped.add("see-through fill");
+    if (["dashed", "dotted"].includes(style.borderTopStyle) && parseFloat(style.borderTopWidth) > 0) unmapped.add("dashed border");
+    if (kind === "table") unmapped.add("table style");
+    if (kind === "image" && parseFloat(style.borderTopLeftRadius) > 0) unmapped.add("rounded picture");
+    if (element.tagName === "OL") unmapped.add("numbered list");
+    if (kind === "text" || kind === "title") {
+      const hasMixedStyle = [...element.querySelectorAll("*")].some((child) => {
+        const inner = getComputedStyle(child);
+        return inner.color !== style.color || inner.fontWeight !== style.fontWeight || inner.fontStyle !== style.fontStyle;
+      });
+      if (hasMixedStyle) unmapped.add("mixed text styles");
+    }
+  }
+  return { pieces, pictures, unmapped: [...unmapped] };
 }
 """
 
