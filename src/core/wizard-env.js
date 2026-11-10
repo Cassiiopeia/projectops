@@ -134,7 +134,7 @@ export function isUnchanged(templateContent, installedContent, opts = {}) {
   // 재복사(.bak churn)되는 것을 막는다. opts.branches 미지정/표준값이면 no-op.
   const virtual = substituteBranches(
     substituteEnv(templateContent, { ...opts, useDefaults: true }),
-    opts.branches ?? null,
+    opts.branches ?? null, opts.filename ?? "",
   );
   return virtual === installedContent;
 }

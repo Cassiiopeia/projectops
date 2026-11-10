@@ -46,6 +46,7 @@
 |------|-----|-----------------|--------|
 | **기본(배포) 브랜치** | 레포 default·프로덕션. push되면 배포가 도는 곳 | `default_branch` | `main` |
 | **개발(릴리스 소스) 브랜치** | 개발을 모아 기본 브랜치로 올리는 릴리스 PR의 head | `development_branch` (구 `deploy_branch`) | `develop` |
+| 배포 트리거 브랜치 (선택) | 푸시되면 **배포 워크플로**가 도는 곳. 기본 브랜치와 나눌 때만 둔다 (develop > main > deploy) | `metadata.template.options.deploy_trigger_branch` | 없음 = 기본 브랜치 |
 | 이슈 브랜치 | 작업 단위 (`YYYYMMDD_#번호_제목`) | — | — |
 
 > ⚠️ **키 이름은 `development_branch`가 정본이다 (#915).** 구 이름 `deploy_branch`는 "배포 브랜치"로 오독되는 이름이라 정본에서 내렸고, 하위호환용으로만 남는다.

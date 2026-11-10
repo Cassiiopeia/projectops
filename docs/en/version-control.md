@@ -155,6 +155,20 @@ VERSION-CONTROL workflow
 
 ---
 
+## Separate deploy branch (optional)
+
+By default a push to the default branch (`main`) deploys. If you want develop → main → deploy, with the deploy workflows
+(app store, server, package publish, Vercel) running only from a `deploy` branch, set it once:
+
+```bash
+npx projectops --mode workflows --force --deploy-trigger-branch deploy
+```
+
+This writes `metadata.template.options.deploy_trigger_branch` into `version.yml` and rewrites `main` to `deploy` in the deploy
+workflows only (push trigger, checkout, `git pull`, branch check). Version bump, README version, release notes and issue
+closing keep following the default branch. Later updates keep the setting. Create the `deploy` branch first. Omit the flag
+and nothing changes.
+
 ## Version bump rules
 
 The size of the bump is decided by `metadata.template.options.semver_auto` in `version.yml`.

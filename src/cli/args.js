@@ -28,6 +28,7 @@ export function parseArgs(argv) {
     deployTarget: null,      // 배포 축 (#439): docker-ssh|vercel|none, null=미설정
     publishTargets: null,    // publish 축 (#439): 타겟 배열, null=미설정
     deployBranch: "",        // 릴리스 PR head 브랜치 (#456): --deploy-branch, 빈 값=미지정
+    deployTriggerBranch: "", // 배포 워크플로가 트리거되는 브랜치 (#1114): --deploy-trigger-branch, 빈 값=기본 브랜치
     language: null,          // 레포 문구 언어 (#769): --language en|ko (화면 언어 --lang 과 다르다)
     labelStyle: null,        // 상태 라벨 표기 (#776): --label-style en|ko
     intent: null,            // 프로젝트 성격 (#485): --intent app|library|both|none|manual, null=미설정(역추론)
@@ -129,6 +130,15 @@ export function parseArgs(argv) {
           throw new CliError(t("args.deployBranch", { v }));
         }
         if (v) result.deployBranch = v;
+        break;
+      }
+      case "--deploy-trigger-branch": {
+        // 푸시되면 배포가 도는 브랜치 (#1114). 기본 브랜치와 나눌 때만 쓴다. 워크플로 yaml에 그대로 들어가므로 --deploy-branch 와 같은 검사.
+        const v = (args.shift() ?? "").trim();
+        if (v && (!BRANCH_RE.test(v) || v.includes("..") || v.endsWith("/") || v.endsWith(".lock"))) {
+          throw new CliError(t("args.deployBranch", { v }));
+        }
+        if (v) result.deployTriggerBranch = v;
         break;
       }
       case "--intent": {

@@ -155,6 +155,19 @@ VERSION-CONTROL 워크플로우
 
 ---
 
+## 배포 브랜치 분리 (선택)
+
+기본은 기본 브랜치(`main`)에 푸시되면 배포가 돈다. develop → main → deploy 로 나눠서 배포 워크플로(앱스토어·서버·패키지 publish·Vercel)를
+`deploy` 브랜치에서만 돌리고 싶으면 한 번만 정한다.
+
+```bash
+npx projectops --mode workflows --force --deploy-trigger-branch deploy
+```
+
+`version.yml` 에 `metadata.template.options.deploy_trigger_branch` 가 기록되고, 배포 워크플로의 `main` 만 `deploy` 로 바뀐다
+(푸시 트리거, 체크아웃, `git pull`, 브랜치 조건). 버전 올림·README 버전·릴리스 노트·이슈 닫기는 기본 브랜치를 그대로 따른다.
+이후 업데이트도 이 설정을 유지한다. `deploy` 브랜치는 먼저 만들어 둔다. 플래그를 안 주면 아무것도 바뀌지 않는다.
+
 ## 버전 증가 규칙
 
 승격 폭은 `version.yml`의 `metadata.template.options.semver_auto`가 정합니다.

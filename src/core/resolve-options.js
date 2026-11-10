@@ -57,6 +57,8 @@ export function resolveOptions({ flags = {}, existing = null, types = [], cwd = 
     recordMode: existing?.templateMode === "full" ? "full" : "version",
     // #456 — 비어 있으면 version.yml 에 쓰지 않는다 (스킬이 develop 으로 폴백). 사용자가 고르거나 플래그로 준 것만 기록.
     deployBranch: flags.deployBranch || stored.deployBranch || "",
+    // #1114 — 비어 있으면 워크플로를 바꾸지 않고 version.yml 에도 쓰지 않는다 (기존 레포 무변화)
+    deployTriggerBranch: flags.deployTriggerBranch || stored.deployTriggerBranch || "",
     // #455 — null 이 흘러 provider:"null" 로 기록되던 버그 방지
     changelogProvider: migrateProvider(stored.changelogProvider) ?? "commit",
     changelogBaseUrl: stored.changelogBaseUrl ?? "",
@@ -96,6 +98,7 @@ const TEMPLATE_OPTION_FIELDS = [
   "intent", "deployTarget", "publishTargets", "includeSecretBackup", "aiPrSummary", "projectsSync",
   "changelogProvider", "changelogBaseUrl", "codeReviewCoderabbit", "semverAuto", "appRelease",
   "excludedWorkflows", "storeLocales", "storeLocalesIos", "storeLocalesPlay", "closeOnRelease", "language", "labelStyle",
+  "deployTriggerBranch",
 ];
 
 /** 실행 context(resolveOptions 값이 펼쳐진 것) > buildVersionYml templateOptions */

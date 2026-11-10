@@ -9,6 +9,7 @@ import { REPO_LANGUAGES } from "./repo-language.js";
 // (언어를 패턴에 박아 두면 새 언어를 저장한 뒤 다음 업데이트에서 못 읽고 ko 로 되돌아간다.)
 const alt = (values) => values.map((v) => v.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&")).join("|");
 const LANGUAGE_RE = new RegExp(`^\\s+language:\\s*["']?(${alt(REPO_LANGUAGES)})["']?`);
+const DEPLOY_TRIGGER_BRANCH_RE = /^\s+deploy_trigger_branch:\s*["']?([A-Za-z0-9._\/-]+)["']?/;
 const LABEL_STYLE_RE = new RegExp(`^\\s+label_style:\\s*["']?(${alt(LABEL_STYLES)})["']?`);
 
 const HEADER_EN = `# ===================================================================
@@ -112,6 +113,7 @@ const COMMENTS = {
     closeOnRelease: "close issues labelled done when a release is merged (false or missing means do not close)",
     language: "issue/PR template language (en | ko)",
     labelStyle: "status label style (en: status: todo / ko: Korean names)",
+    deployTriggerBranch: "branch whose push runs the deploy workflows (missing = the default branch)",
     appRelease: "whether releases go through App Store / Play Store review",
     deploy: "deploy settings remembered by the wizard (non-sensitive, safe to edit by hand)",
     excluded: "workflow files the update must never install (safe to edit by hand)",
@@ -130,6 +132,7 @@ const COMMENTS = {
     closeOnRelease: "릴리스 머지 때 완료 라벨 이슈를 닫는다 (false/미기재면 닫지 않음)",
     language: "이슈/PR 템플릿 언어 (en | ko)",
     labelStyle: "상태 라벨 표기 (en: status: todo / ko: 작업전)",
+    deployTriggerBranch: "branch whose push runs the deploy workflows (missing = the default branch)",
     appRelease: "앱스토어·플레이스토어 심사로 이어지는 배포인가",
     deploy: "마법사가 기억하는 배포 설정 (비민감 / 직접 수정 가능)",
     excluded: "업데이트가 절대 설치하지 않을 워크플로우 파일 (직접 수정 가능)",
@@ -164,7 +167,7 @@ export function resolveUpdatedBy(existingContent = "", cwd = ".") {
 export function parseTemplateOptions(content) {
   const out = { deploy: null, publish: null, secretBackup: null,
                 changelogProvider: null, changelogBaseUrl: null, codeReviewCoderabbit: null, aiPrSummary: null, projectsSync: null,
-                deployBranch: null, intent: null, semverAuto: null, appRelease: null, labelStyle: null, closeOnRelease: null, language: null, excludedWorkflows: null, storeLocales: null, storeLocalesIos: null, storeLocalesPlay: null };
+                deployBranch: null, deployTriggerBranch: null, intent: null, semverAuto: null, appRelease: null, labelStyle: null, closeOnRelease: null, language: null, excludedWorkflows: null, storeLocales: null, storeLocalesIos: null, storeLocalesPlay: null };
   // 개발 브랜치는 metadata 직속(#456) — template.options 밖이라 별도로 스캔한다.
   out.deployBranch = readDevelopmentBranch(content);
   let legacyNexus = null;
@@ -248,6 +251,12 @@ export function parseTemplateOptions(content) {
       m = line.match(LABEL_STYLE_RE);
       if (m) {
         out.labelStyle = m[1];
+        continue;
+      }
+      // 배포 트리거 브랜치(#1114) — 미기재면 기본 브랜치와 같다.
+      m = line.match(DEPLOY_TRIGGER_BRANCH_RE);
+      if (m) {
+        out.deployTriggerBranch = m[1];
         continue;
       }
       // Projects 보드 동기화(#716). null(미기재)이면 호출부가 "이미 설치돼 있으면 유지, 아니면 제외"로 해석한다.
@@ -438,7 +447,7 @@ const OWNED_TOP = new Set(["version", "version_code", "project_types", "project_
 // buildVersionYml 이 쓰는 6칸 키와 같아야 한다 — 빠지면 재실행마다 그 키가 두 번 쓰인다 (대조: test/version-yml-preserve.test.js).
 // nexus · npm_publish · synology 는 옛 키다 — 파서가 신형(publish · secret_backup)으로 바꿔 쓰므로 그대로 두면 이중 기록이 된다.
 export const OWNED_OPTION_KEYS = new Set(["intent", "deploy", "publish", "secret_backup", "semver_auto", "projects_sync", "close_on_release",
-  "language", "label_style", "app_release", "excluded_workflows", "store_locales", "store_locales_ios", "store_locales_play",
+  "language", "label_style", "deploy_trigger_branch", "app_release", "excluded_workflows", "store_locales", "store_locales_ios", "store_locales_play",
   "code_review", "changelog",
   "nexus", "npm_publish", "synology"]);
 
@@ -586,7 +595,7 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
   if (templateOptions) {
     const { templateVersion = "unknown", deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, optionsDate = today,
             changelogProvider = "commit", changelogBaseUrl = "", codeReviewCoderabbit = true, aiPrSummary = true, intent = null, mode = null,
-            semverAuto = true, appRelease = null, labelStyle = null, closeOnRelease = null, projectsSync = null, language = null, excludedWorkflows = null, storeLocales = null, storeLocalesIos = null, storeLocalesPlay = null } = templateOptions;
+            semverAuto = true, appRelease = null, labelStyle = null, deployTriggerBranch = "", closeOnRelease = null, projectsSync = null, language = null, excludedWorkflows = null, storeLocales = null, storeLocalesIos = null, storeLocalesPlay = null } = templateOptions;
     const publishJson = `[${publishTargets.map((t) => `"${t}"`).join(",")}]`;
     // intent(프로젝트 성격, #485) — 미지정이면 deploy/publish에서 역추론해 기록 (재통합 시 진입 질문 생략용)
     const intentVal = intent || inferIntent(deployTarget, publishTargets) || "manual";
@@ -618,6 +627,8 @@ export function buildVersionYml({ version, types = [], paths = new Map(), pathMa
     if (storeLocalesPlay && storeLocalesPlay.length) out += `      store_locales_play: [${storeLocalesPlay.map((l) => `"${l}"`).join(", ")}]   # Play: ${C.storeLocalesStore}\n`;
     if (language) out += `      language: ${language}   # ${C.language}\n`;
     if (labelStyle) out += `      label_style: ${labelStyle}   # ${C.labelStyle}\n`;
+    // 배포 트리거 브랜치(#1114) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).
+    if (deployTriggerBranch) out += `      deploy_trigger_branch: "${deployTriggerBranch}"   # ${C.deployTriggerBranch}\n`;
     // 앱 심사 배포 레포 여부(#553) — 미지정이면 키를 쓰지 않는다(기존 레포 무변화).
     if (appRelease !== null) {
       out += `      app_release: ${appRelease}   # ${C.appRelease}\n`;

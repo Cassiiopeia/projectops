@@ -26,6 +26,7 @@ export function createContext(overrides = {}) {
     changelogBaseUrl: null,  // ollama일 때만 값
     codeReviewCoderabbit: null,
     deployBranch: "",        // 릴리스 PR head 브랜치 (#456). 빈 값=metadata.development_branch 미출력
+    deployTriggerBranch: "", // 푸시되면 배포가 도는 브랜치 (#1114). 빈 값=기본 브랜치와 같음(워크플로 그대로)
     intent: null,            // 프로젝트 성격 (#485 — app/library/both/none/manual). null=미설정(역추론)
     semverAuto: null,        // semver 자동 승격 (#546). null=미설정 → 신규·기존 모두 true (#814). 명시적 false 만 끈다
     closeOnRelease: null,    // 릴리스 시 완료 이슈 닫기 (#771). null=미설정(신규 true / 기존 레포 키 없음)

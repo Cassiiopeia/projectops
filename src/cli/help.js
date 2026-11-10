@@ -42,6 +42,8 @@ Options
       --paths "t=p,..."    per-type project folders for monorepos, e.g. flutter=app,react=client. Folders must exist inside the repo
       --intent KIND        app | library | both | none | manual. Decides which deploy/publish questions exist.
                            omitted: inferred from --deploy/--publish
+      --deploy-trigger-branch NAME
+                           Branch whose push runs the deploy workflows, when it is not the default branch. Omitted: the default branch
       --label-style STYLE  en = 'status: todo' labels, ko = legacy Korean names. New installs en, existing installs keep ko
       --language LANG      en | ko. Language of issue/PR templates, bot comments and version.yml comments written into the repo
                            (not the CLI screen — that is --lang). New installs en, existing installs keep the stored value
@@ -124,6 +126,8 @@ AI agent 나 CI 는 항상 이렇게 실행한다:      npx projectops --mode <�
       --paths "t=p,..."    타입별 프로젝트 폴더(모노레포). 예: flutter=app,react=client. 폴더는 레포 안에 있어야 한다
       --intent KIND        app | library | both | none | manual. 배포·publish 질문을 어떻게 할지 정한다.
                            생략: --deploy/--publish 에서 추정
+      --deploy-trigger-branch NAME
+                           Branch whose push runs the deploy workflows, when it is not the default branch. Omitted: the default branch
       --label-style STYLE  en = 'status: todo' 라벨, ko = 기존 한글 이름. 신규 en, 기존 설치는 ko 유지
       --language LANG      en | ko. 레포에 쓰이는 이슈/PR 템플릿·봇 댓글·version.yml 주석의 언어
                            (CLI 화면 언어는 --lang 이다). 신규 en, 기존 설치는 저장값 유지
