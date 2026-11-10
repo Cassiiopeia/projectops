@@ -1,14 +1,34 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-10T14:18:24Z",
-    "currentVersion": "4.97.2",
+    "lastUpdated": "2026-11-10T16:26:16Z",
+    "currentVersion": "4.97.3",
     "projectType": "basic",
-    "totalReleases": 393,
+    "totalReleases": 394,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.97.3",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-10",
+      "pr_number": 1121,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Improvements**\n  * The npm package is published without a stored token (npm Trusted Publishing)\n  * Version sync is organised per project type, with no change in behaviour",
+      "parsed_changes": {
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "The npm package is published without a stored token (npm Trusted Publishing)",
+            "Version sync is organised per project type, with no change in behaviour"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.97.2",
       "project_type": "basic",

@@ -1,7 +1,17 @@
 # Changelog
 
-**Current version:** 4.97.2  
-**Last updated:** 2026-11-10T14:18:24Z  
+**Current version:** 4.97.3  
+**Last updated:** 2026-11-10T16:26:16Z  
+
+---
+
+## [4.97.3] - 2026-11-10
+
+**PR:** #1121  
+
+**Improvements**
+- The npm package is published without a stored token (npm Trusted Publishing)
+- Version sync is organised per project type, with no change in behaviour
 
 ---
 
