@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from pro_presentation.deck import deck_version, load_deck  # noqa: E402
+from pro_presentation.layout_state import read_layout, save_layout  # noqa: E402
 from pro_presentation.recording_marks import RECORDING_EXTENSIONS, parse_marks, save_page_recording  # noqa: E402
 from pro_presentation.settings import (DECK_FILE_NAME, PRACTICE_ASSETS_DIR, SAVABLE_FILES, SERVER_INFO_FILE_NAME,  # noqa: E402
                                        SLIDES_DIR_NAME, STATE_DIR_NAME, THEME_FILE_NAME)
@@ -35,6 +36,7 @@ MAX_RECORDING_BYTES = 300 * 1024 * 1024
 RECORDING_COPY_CHUNK_BYTES = 1024 * 1024
 MARKS_HEADER = "X-Recording-Marks"
 PRACTICE_ASSETS = {"practice.js": "text/javascript; charset=utf-8", "recorder.js": "text/javascript; charset=utf-8",
+                   "layout.js": "text/javascript; charset=utf-8", "popout.js": "text/javascript; charset=utf-8",
                    "practice.css": "text/css; charset=utf-8",
                    "i18n.ko.json": "application/json; charset=utf-8"}
 CONTENT_TYPES = {
@@ -134,6 +136,8 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             return self._respond_json({**load_deck(self.server.deck_dir), "version": deck_version(self.server.deck_dir)})
         if route == "/api/version":
             return self._respond_json({"version": deck_version(self.server.deck_dir)})
+        if route == "/api/layout":
+            return self._respond_json(read_layout(self.server.deck_dir))
         return self._respond(404, b"not found")
 
     def _serve_asset(self, name: str) -> None:
@@ -177,6 +181,9 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             return self._save_slide_file()
         if parsed.path == "/api/order":
             return self._save_slide_order()
+        if parsed.path == "/api/layout":
+            request = self._read_json_request()
+            return None if request is None else self._respond_json(save_layout(self.server.deck_dir, request))
         if parsed.path == "/api/recording":
             return self._save_recording(urllib.parse.parse_qs(parsed.query))
         if parsed.path == "/api/stop":
@@ -185,13 +192,27 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             return None
         return self._respond(404, b"not found")
 
-    def _save_slide_file(self) -> None:
-        """브라우저 고침 > 장 파일. 읽은 뒤 파일이 바뀌었으면 덮어쓰지 않음 (409)"""
+    def _read_json_request(self) -> dict | None:
+        """JSON 본문 읽기 (크기 · 형식 오류는 여기서 응답하고 None)"""
         length = int(self.headers.get("Content-Length") or 0)
         if length <= 0 or length > MAX_SAVE_BYTES:
-            return self._respond_json({"code": "bad_size"}, 413)
+            self._respond_json({"code": "bad_size"}, 413)
+            return None
         try:
             request = json.loads(self.rfile.read(length))
+        except ValueError:
+            request = None
+        if not isinstance(request, dict):
+            self._respond_json({"code": "bad_request"}, 400)
+            return None
+        return request
+
+    def _save_slide_file(self) -> None:
+        """브라우저 고침 > 장 파일. 읽은 뒤 파일이 바뀌었으면 덮어쓰지 않음 (409)"""
+        request = self._read_json_request()
+        if request is None:
+            return None
+        try:
             file_name = SAVABLE_FILES[request["file"]]
             base_version = int(request["base_version"])
             text = str(request["text"])
@@ -207,15 +228,13 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         target.write_text(text.rstrip() + "\n" if text.strip() else "", encoding="utf-8")
         return self._respond_json({"code": "saved", "version": deck_version(self.server.deck_dir)})
 
-
     def _save_slide_order(self) -> None:
         """흐름 보기에서 끈 순서 > deck.json slides (같은 장 집합일 때만, 종류 유지)"""
-        length = int(self.headers.get("Content-Length") or 0)
-        if length <= 0 or length > MAX_SAVE_BYTES:
-            return self._respond_json({"code": "bad_size"}, 413)
+        request = self._read_json_request()
+        if request is None:
+            return None
         deck_file = self.server.deck_dir / DECK_FILE_NAME
         try:
-            request = json.loads(self.rfile.read(length))
             order = [str(slide_id) for slide_id in request["order"]]
             base_version = int(request["base_version"])
             settings = json.loads(deck_file.read_text(encoding="utf-8"))

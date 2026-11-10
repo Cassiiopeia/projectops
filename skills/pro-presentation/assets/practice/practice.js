@@ -2,6 +2,8 @@
 "use strict";
 
 const VERSION_CHECK_MILLISECONDS = 2000;
+// 분리 창 주소 ?view=slide|script|notes (popout.js): 그 부분만 보이는 창, 크게 보기 없음
+const VIEW_NAME = new URLSearchParams(location.search).get("view");
 const SLIDE_WIDTH_PIXELS = 1920;
 // 에이전트용 카드 (화면에 안 보임): 장 제목 · 가져온 원본 글 · 다시 지을 표시
 const HIDDEN_NOTE_TITLES = new Set(["title", "original text", "rebuild"]);
@@ -19,6 +21,10 @@ const ENGLISH_TEXT = {
   record: "Record", stop_recording: "Stop", recording_saving: "Saving the recording...", recording_saved: "Recording saved",
   recording_failed: "Recording was not saved", mic_denied: "Microphone access was blocked",
   record_unsupported: "This browser cannot record audio",
+  text_smaller: "Smaller text", text_larger: "Larger text", text_reset: "Back to the default text size",
+  resize_hint: "Drag to resize, double-click to reset", pop_out: "Open in its own window (close it to bring this back)",
+  popup_blocked: "The browser blocked the new window",
+  out_hint: "Some parts are open in their own windows. Close a window to bring its part back here.", view_slide: "Slide", view_notes: "Feedback and notes",
   help: "Arrow keys move between slides. Edit the script in place; it saves to the deck when you leave the box. Click a recording time to open the video there. Record captures the microphone and the moment each slide is shown.",
 };
 
@@ -48,6 +54,7 @@ async function loadText(language) {
 
 function applyStaticText() {
   for (const element of document.querySelectorAll("[data-text]")) element.textContent = text[element.dataset.text] ?? element.textContent;
+  for (const element of document.querySelectorAll("[data-title]")) element.title = text[element.dataset.title] ?? "";
   document.documentElement.lang = deck.language;
   document.title = deck.title;
   elements.deckTitle.textContent = deck.title;
@@ -247,6 +254,7 @@ document.addEventListener("fullscreenchange", () => requestAnimationFrame(fitSli
 window.addEventListener("resize", fitSlideFrame);
 
 const setBigMode = (isBig) => {
+  if (VIEW_NAME) return;
   document.body.classList.toggle("big", isBig);
   elements.bigToggle.textContent = isBig ? text.small : text.big;
   localStorage.setItem(storageKey("big"), isBig ? "1" : "");

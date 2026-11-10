@@ -3,16 +3,24 @@
   --background: #f4f2ee; --surface: #ffffff; --ink: #23252f; --muted: #6b6f7b; --line: #e3e0da;
   --accent: #0bbfa3; --accent-soft: #d9f5ef; --warn: #e8a317; --warn-soft: #fdf1d6; --danger: #d9534f;
   --take: #eef3ff; --take-line: #cfdaf7; --take-ink: #2c3e7a;
+  /* 배치 (layout.js 가 덮어씀): 글자 배율 · 오른쪽 열 너비 · 슬라이드 높이 */
+  --script-scale: 1; --panel-scale: 1; --panel-width: clamp(260px, 34vw, 400px);
+  --slide-height: max(140px, calc(100vh - 52px - 96px - 200px));
 }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: Pretendard, -apple-system, "Apple SD Gothic Neo", "Segoe UI", sans-serif; background: var(--background); color: var(--ink); }
-header { display: flex; align-items: center; gap: 16px; height: 52px; padding: 0 20px; background: var(--ink); color: #fff; position: sticky; top: 0; z-index: 5; }
-header h1 { font-size: 15px; margin: 0; font-weight: 700; }
-header .stat { font-size: 13px; color: #c9ccd6; }
+/* 머리줄: 좁은 창에서도 단추 글자가 줄바꿈되지 않게 (제목이 먼저 줄고, 그다음 통계를 숨김) */
+header { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 14px; background: var(--ink); color: #fff; position: sticky; top: 0; z-index: 5; white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
+header::-webkit-scrollbar { display: none; }
+header h1 { font-size: 15px; margin: 0; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+header .stat { font-size: 13px; color: #c9ccd6; flex: none; }
 header .stat b { color: #fff; }
-header .spacer { flex: 1; }
+header .spacer { flex: 1 1 0; min-width: 0; }
+header button, #timer { flex: none; }
+@media (max-width: 960px) { #recording-total { display: none; } }
+@media (max-width: 820px) { header .stat:not(#save-status) { display: none; } }
 button { font: inherit; font-size: 13px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
-header button { background: #353846; color: #fff; border-color: #4a4e5e; }
+header button { background: #353846; color: #fff; border-color: #4a4e5e; padding: 6px 10px; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 #timer { font-variant-numeric: tabular-nums; font-size: 18px; font-weight: 700; min-width: 64px; text-align: right; }
 #timer.over { color: #ff8a80; }
@@ -23,10 +31,26 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 #save-status.error { color: #ff8a80; }
 
 /* 화면 높이 꽉: 왼쪽 슬라이드 + 바로 아래 대본, 오른쪽 피드백·주의 (각자 스크롤) */
-main { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px; padding: 16px 20px 0; height: calc(100vh - 52px - 96px); }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 10px min(var(--panel-width), 70vw); gap: 4px; padding: 16px 20px 0; height: calc(100vh - 52px - 96px); }
 .stage { display: flex; flex-direction: column; min-height: 0; overflow: auto; }
-.stage .slide-frame { flex: none; width: min(100%, calc((100vh - 52px - 96px - 200px) * 16 / 9)); margin: 0 auto; }
-.script-card { margin-top: 12px; flex: 1 0 auto; }
+.stage .slide-frame { flex: none; width: min(100%, calc(var(--slide-height) * 16 / 9)); margin: 0 auto; }
+.script-card { margin-top: 4px; flex: 1 0 auto; }
+
+/* 경계 손잡이: 끌어서 크기 조절, 두 번 눌러 기본값 */
+.splitter { flex: none; position: relative; touch-action: none; }
+.splitter::after { content: ""; position: absolute; inset: 0; margin: auto; background: var(--line); border-radius: 2px; }
+.splitter.column { cursor: col-resize; }
+.splitter.column::after { width: 4px; height: 48px; }
+.splitter.row { cursor: row-resize; height: 10px; margin-top: 4px; }
+.splitter.row::after { width: 48px; height: 4px; }
+.splitter:hover::after, .splitter.dragging::after { background: var(--accent); }
+
+/* 글자 크기 · 창 분리 단추 */
+.tools { display: inline-flex; align-items: center; gap: 4px; }
+.card h2 .tools { margin-left: 8px; }
+.panel-tools { display: flex; justify-content: flex-end; flex: none; }
+.tool { font-size: 12px; line-height: 1.5; padding: 1px 7px; border-radius: 6px; color: var(--muted); white-space: nowrap; }
+.tool.scale-value { min-width: 46px; font-variant-numeric: tabular-nums; }
 .panel { overflow: auto; padding-bottom: 16px; }
 
 /* 슬라이드: 1920x1080 iframe 을 칸 너비에 맞춰 축소, 가져온 덱은 그림 */
@@ -40,25 +64,27 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px; pa
 #problems { margin: 12px 0 0; padding: 10px 10px 10px 28px; background: #fdecea; color: var(--danger); border-radius: 8px; font-size: 13px; }
 
 .panel { display: flex; flex-direction: column; gap: 12px; }
-.card { background: var(--surface); border-radius: 12px; padding: 14px 16px; border: 1px solid var(--line); }
-.card h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 700; display: flex; align-items: center; gap: 8px; }
-.card ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6; }
-.card p { margin: 0 0 6px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+/* 카드 글자는 em: 오른쪽 열은 --panel-scale 로 함께 커지고 작아짐 */
+.card { background: var(--surface); border-radius: 12px; padding: 14px 16px; border: 1px solid var(--line); font-size: 14px; }
+#side-panel .card { font-size: calc(14px * var(--panel-scale)); }
+.card h2 { font-size: .93em; margin: 0 0 8px; color: var(--muted); font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.card ul { margin: 0; padding-left: 18px; font-size: 1em; line-height: 1.6; }
+.card p { margin: 0 0 6px; font-size: 1em; line-height: 1.6; white-space: pre-wrap; }
 .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: #067a68; font-weight: 600; }
 .badge.warn { background: var(--warn-soft); color: #9a6a00; }
-#script { font-size: 20px; line-height: 1.75; outline: none; white-space: pre-wrap; min-height: 90px; border-radius: 8px; padding: 6px; margin: -6px; }
+#script { font-size: calc(20px * var(--script-scale)); line-height: 1.75; outline: none; white-space: pre-wrap; min-height: 90px; border-radius: 8px; padding: 6px; margin: -6px; }
 #script:focus { background: #fafaf7; box-shadow: inset 0 0 0 1px var(--line); }
 .card.warn { background: var(--warn-soft); border-color: #f3dfaa; }
 .card.warn ul, .card.warn p { color: #7a5600; }
 .card.spoken { background: var(--take); border-color: var(--take-line); }
-#take-text { font-size: 15px; line-height: 1.7; margin-bottom: 12px; }
+#take-text { font-size: 1.07em; line-height: 1.7; margin-bottom: 12px; }
 #take-feedback { color: var(--take-ink); }
-details summary { cursor: pointer; font-size: 12px; color: var(--muted); margin-top: 10px; }
-.recording-line { font-size: 14px; line-height: 1.6; display: flex; gap: 8px; }
+details summary { cursor: pointer; font-size: .86em; color: var(--muted); margin-top: 10px; }
+.recording-line { font-size: 1em; line-height: 1.6; display: flex; gap: 8px; }
 .recording-line time { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
 .recording-line a { color: inherit; text-decoration: none; }
 .recording-line a:hover time { color: var(--accent); }
-#memo { width: 100%; min-height: 70px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; padding: 8px; resize: vertical; }
+#memo { width: 100%; min-height: 70px; font: inherit; font-size: 1em; border: 1px solid var(--line); border-radius: 8px; padding: 8px; resize: vertical; }
 select { font: inherit; font-size: 12px; border-radius: 6px; border: 1px solid var(--line); padding: 2px 6px; }
 .help { font-size: 12px; color: var(--muted); }
 
@@ -71,12 +97,12 @@ select { font: inherit; font-size: 12px; border-radius: 6px; border: 1px solid v
 #thumbnails .name { position: absolute; inset: 22px 6px 4px; overflow: hidden; text-align: left; line-height: 1.3; }
 
 /* 발표자 보기: 대본 크게 + 다음 장 이름 */
-body.presenter #script { font-size: 26px; }
+body.presenter #script { font-size: calc(26px * var(--script-scale)); }
 body.presenter .card.recording, body.presenter .card.memo, body.presenter #note-cards { display: none; }
 
 /* 크게 보기: 슬라이드가 화면 높이를 채우고 카드는 아래로 */
 body.big main { grid-template-columns: 1fr; }
-body.big .panel { display: none; }
+body.big .panel, body.big .splitter { display: none; }
 body.big .stage .slide-frame { width: min(100%, calc((100vh - 52px - 96px - 150px) * 16 / 9)); cursor: zoom-out; }
 
 /* 전체 화면 (F 키) */
@@ -101,8 +127,29 @@ body.flow main { display: none; }
 
 /* 접는 카드: 녹화 · 메모 · 말한 버전 */
 .card.fold { padding: 10px 16px; }
-.card.fold summary, .card details summary { cursor: pointer; font-size: 13px; color: var(--muted); font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.card.fold summary, .card details summary { cursor: pointer; font-size: .93em; color: var(--muted); font-weight: 700; display: flex; align-items: center; gap: 8px; }
 .card.fold[open] summary { margin-bottom: 8px; }
 .card details { margin-top: 8px; }
 .card details p { margin-top: 6px; color: var(--take-ink); }
 #recording-select { margin-bottom: 6px; }
+
+/* 분리 창 (?view=slide|script|notes): 그 부분만 창을 채움 */
+body.view header, body.view #thumbnails, body.view .splitter, body.view .pop-out { display: none; }
+body.view main { grid-template-columns: minmax(0, 1fr); height: 100vh; padding: 12px; }
+body.view-slide { background: #000; }
+body.view-slide main { padding: 0; }
+body.view-slide .stage { justify-content: center; overflow: hidden; }
+body.view-slide .stage > :not(.slide-frame), body.view-slide #side-panel { display: none; }
+body.view-slide .stage .slide-frame { width: min(100vw, calc(100vh * 16 / 9)); border-radius: 0; cursor: default; }
+body.view-script .slide-frame, body.view-script #side-panel { display: none; }
+body.view-script .stage .nav { margin-top: 0; margin-bottom: 8px; }
+body.view-notes .stage { display: none; }
+
+/* 본 창: 분리된 부분은 숨기고 남은 부분이 자리를 씀 (분리 창을 닫으면 돌아옴) */
+body.out-slide .stage .slide-frame, body.out-slide #row-splitter { display: none; }
+body.out-script .script-card, body.out-script #row-splitter { display: none; }
+body.out-script .stage .slide-frame { width: min(100%, calc((100vh - 52px - 96px - 80px) * 16 / 9)); }
+body.out-notes #side-panel, body.out-notes #column-splitter { display: none; }
+body.out-notes main { grid-template-columns: minmax(0, 1fr); }
+.out-hint { display: none; }
+body.out-slide .out-hint, body.out-script .out-hint, body.out-notes .out-hint { display: block; }

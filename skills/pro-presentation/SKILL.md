@@ -49,6 +49,7 @@ Every command is `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cl
 - No deck yet: `start --title "<talk>"` (or `--deck <folder>`). On `needs_init_questions`, ask the questions **one at a time** (skip what you already know), write the answers into `deck.json` and `memory.md`, then follow `building.md` "Where a deck starts".
 - A deck exists: `start --deck <folder>`, read `memory.md`, and continue where the takes stop.
 - Give the user the full `url`. It opens only on this computer. Arrow keys move slides, F is full screen.
+- When the slide, script and feedback do not fit one screen, tell the user the page can be arranged (the deck remembers it): **A− / A+** set the text size of the Script and of the right-hand cards, the **handles** between the parts drag to resize (double-click resets), and **↗** opens the slide, the Script or the feedback cards in its own window that follows the current slide (close it to bring the part back).
 
 ## Step 2: rehearse
 

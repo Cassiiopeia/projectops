@@ -37,5 +37,14 @@
   "recording_saved": "녹음 저장함",
   "recording_failed": "녹음을 저장하지 못했습니다",
   "mic_denied": "마이크 사용이 막혀 있습니다",
-  "record_unsupported": "이 브라우저는 녹음을 지원하지 않습니다"
+  "record_unsupported": "이 브라우저는 녹음을 지원하지 않습니다",
+  "text_smaller": "글자 작게",
+  "text_larger": "글자 크게",
+  "text_reset": "기본 글자 크기로",
+  "resize_hint": "끌어서 크기 조절 · 두 번 누르면 기본값",
+  "pop_out": "따로 창으로 열기 (그 창을 닫으면 여기로 돌아옴)",
+  "popup_blocked": "브라우저가 새 창을 막았습니다",
+  "view_slide": "슬라이드",
+  "view_notes": "피드백 · 카드",
+  "out_hint": "일부를 따로 창으로 열어 두었습니다. 그 창을 닫으면 여기로 돌아옵니다."
 }

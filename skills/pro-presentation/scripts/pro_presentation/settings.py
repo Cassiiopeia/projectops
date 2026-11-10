@@ -20,6 +20,8 @@ EXPORTS_DIR_NAME = "exports"
 STATE_DIR_NAME = ".presentation"
 SERVER_INFO_FILE_NAME = "server.json"
 SERVER_LOG_FILE_NAME = "server.log"
+# 연습 화면 배치 (글자 크기 · 패널 크기): 덱마다 기억
+LAYOUT_FILE_NAME = "layout.json"
 
 # 장 폴더 안 파일: 본체(html 또는 가져온 그림) · 대본 · 카드 · 말한 버전 · 메모
 SLIDE_HTML_FILE_NAME = "slide.html"

@@ -16,7 +16,7 @@ Every file is plain text you edit directly. There is no build step: the server r
 │   └── memo.md        the user's own memo (edited in the page)
 ├── recordings/<label>/   optional: meta.json, transcript.txt, ranges.json
 ├── exports/v<n>/      export results, one folder per run
-└── .presentation/     server state (pid, port, key); do not edit
+└── .presentation/     server state (pid, port, key) and the practice page layout (text size, panel sizes); do not edit
 ```
 
 ## deck.json

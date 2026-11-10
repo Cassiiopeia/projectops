@@ -29,16 +29,34 @@
     <div class="nav">
       <button id="previous" data-text="previous">Previous</button>
       <span class="title" id="slide-title"></span>
+      <button class="tool pop-out" data-pop-out="slide" data-title="pop_out">&#x2197;</button>
       <button id="next" class="primary" data-text="next">Next</button>
     </div>
+    <div class="splitter row" id="row-splitter" data-title="resize_hint"></div>
     <ul id="problems" hidden></ul>
     <div class="card script-card">
-      <h2><span data-text="script">Script</span> <span class="badge" id="estimate-badge"></span><span class="next-preview" id="next-title"></span></h2>
+      <h2><span data-text="script">Script</span> <span class="badge" id="estimate-badge"></span><span class="next-preview" id="next-title"></span>
+        <span class="tools" data-scale="script_scale">
+          <button class="tool" data-step="-1" data-title="text_smaller">A&minus;</button>
+          <button class="tool scale-value" data-step="0" data-title="text_reset">100%</button>
+          <button class="tool" data-step="1" data-title="text_larger">A+</button>
+          <button class="tool pop-out" data-pop-out="script" data-title="pop_out">&#x2197;</button>
+        </span>
+      </h2>
       <div id="script" contenteditable="plaintext-only" spellcheck="false"></div>
     </div>
+    <p class="help out-hint" data-text="out_hint">Some parts are open in their own windows. Close a window to bring its part back here.</p>
   </section>
 
-  <section class="panel">
+  <div class="splitter column" id="column-splitter" data-title="resize_hint"></div>
+
+  <section class="panel" id="side-panel">
+    <div class="tools panel-tools" data-scale="panel_scale">
+      <button class="tool" data-step="-1" data-title="text_smaller">A&minus;</button>
+      <button class="tool scale-value" data-step="0" data-title="text_reset">100%</button>
+      <button class="tool" data-step="1" data-title="text_larger">A+</button>
+      <button class="tool pop-out" data-pop-out="notes" data-title="pop_out">&#x2197;</button>
+    </div>
     <div class="card spoken" id="take-card">
       <h2><span data-text="feedback">Feedback</span> <span class="badge" id="take-badge"></span></h2>
       <ul id="take-feedback"></ul>
@@ -66,5 +84,7 @@
 <nav id="thumbnails"></nav>
 <script src="/assets/practice.js"></script>
 <script src="/assets/recorder.js"></script>
+<script src="/assets/layout.js"></script>
+<script src="/assets/popout.js"></script>
 </body>
 </html>
