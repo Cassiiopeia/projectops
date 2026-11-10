@@ -1,7 +1,7 @@
 # MCP-style subcommand design standard
 
 When you add a new subcommand that deals with an external system (GitHub API, SSH, and so on) to a skill's `<scope>_cli.py`, **you must follow this standard.**
-It is the concrete implementation reference for the "Python behavior script standard" in CLAUDE.md.
+It is the concrete implementation reference for the "Python behavior script standard" in `docs/architecture/agent/skills.md`.
 
 > **Model examples**: the `actions` and `deploy-status` subcommands (`skills/pro-changelog-deploy/scripts/changelog_cli.py`). Read these two before building a new command and give it the same shape.
 

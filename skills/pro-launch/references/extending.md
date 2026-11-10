@@ -5,7 +5,7 @@
 **The code map is `scripts/pro_launch/ARCHITECTURE.md`. It says where everything lives and which file to change for each kind of work.**
 This document only covers "how to add something new" on top of that.
 
-First read the **"Python behavior script standard"** section of the repo `CLAUDE.md` and `skills/references/mcp-subcommand-rules.md`.
+First read the **"Python behavior script standard"** section of the repo's `docs/architecture/agent/skills.md` and `skills/references/mcp-subcommand-rules.md`.
 The key points:
 
 - **Standard library first.** If an external package is truly needed, put install instructions in the result (Playwright goes into its own venv).

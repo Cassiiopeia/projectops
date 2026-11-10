@@ -189,7 +189,7 @@ def update_workflow_triggers(branch):
 
 
 # 삭제 대상 — (경로, 사람이 읽는 라벨). 파일/폴더 자동 판별.
-# ⚠️ 루트에 마켓플레이스/템플릿 전용 파일을 추가하면 여기에도 등록해야 한다 (CLAUDE.md 규칙).
+# ⚠️ 루트에 마켓플레이스/템플릿 전용 파일을 추가하면 여기에도 등록해야 한다 (docs/architecture/agent/scripts.md 규칙).
 CLEANUP_TARGETS = [
     ("CHANGELOG.md", "Remove CHANGELOG.md"),
     ("CHANGELOG.json", "Remove CHANGELOG.json"),

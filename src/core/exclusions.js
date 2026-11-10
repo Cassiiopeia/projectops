@@ -1,5 +1,5 @@
 // 템플릿 다운로드 후 제거하는 항목 (복사 제외 목록).
-// ⚠️ CLAUDE.md "템플릿 전용 파일 추가" 규칙의 동기화 지점:
+// ⚠️ "템플릿 전용 파일 추가" 규칙(docs/architecture/agent/scripts.md)의 동기화 지점:
 //    template_initializer.py(삭제) / 이 파일(복사 제외)
 //    (여기가 유일한 복사 제외 지점)
 export const DOCS_TO_REMOVE = [
