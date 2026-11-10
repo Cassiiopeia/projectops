@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-10T13:27:55Z",
-    "currentVersion": "4.97.0",
+    "lastUpdated": "2026-11-10T13:39:31Z",
+    "currentVersion": "4.97.1",
     "projectType": "basic",
-    "totalReleases": 391,
+    "totalReleases": 392,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.97.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-10",
+      "pr_number": 1116,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Documentation**\n  * README and docs index show the current number of skills (18)",
+      "parsed_changes": {
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "README and docs index show the current number of skills (18)"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.97.0",
       "project_type": "basic",

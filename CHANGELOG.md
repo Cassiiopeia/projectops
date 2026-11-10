@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.97.0  
-**Last updated:** 2026-11-10T13:27:55Z  
+**Current version:** 4.97.1  
+**Last updated:** 2026-11-10T13:39:31Z  
+
+---
+
+## [4.97.1] - 2026-11-10
+
+**PR:** #1116  
+
+**Documentation**
+- README and docs index show the current number of skills (18)
 
 ---
 
