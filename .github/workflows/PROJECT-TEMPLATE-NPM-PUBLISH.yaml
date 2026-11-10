@@ -24,7 +24,11 @@
 #  후속 워크플로우가 트리거되지 않으므로 main push를 트리거로 사용
 #  — PLUGIN-VERSION-SYNC와 동일 패턴)
 #
-# 필요 Secret: NPM_TOKEN (npm Granular Access Token, 2FA bypass 허용)
+# 인증: npm Trusted Publishing (OIDC). Secret 없음
+#   - npmjs.com 패키지 설정의 Trusted Publisher 에 이 레포와 이 워크플로 파일 이름이 등록되어 있다.
+#     파일 이름을 바꾸면 그 설정도 같이 바꿔야 한다 (안 바꾸면 publish 가 인증에서 실패)
+#   - npm 11.5.1 이상이 필요해 Node 24 를 쓴다. `id-token: write` 권한이 있어야 한다
+#   - 2FA 우회 토큰(NPM_TOKEN)은 2027-01 부터 직접 배포가 막혀 쓰지 않는다
 # ===================================================================
 
 name: PROJECT-TEMPLATE-NPM-PUBLISH
@@ -119,7 +123,7 @@ jobs:
       - name: Node.js 설정
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           registry-url: https://registry.npmjs.org
 
       - name: version.yml에서 버전 추출
@@ -152,15 +156,13 @@ jobs:
       - name: npm 배포
         if: steps.check.outputs.skip == 'false'
         run: npm publish --provenance --access public --tag latest
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: 배포 결과 요약
         if: steps.check.outputs.skip == 'false'
         run: echo "✅ projectops@${{ steps.version.outputs.version }} npm 배포 완료"
 
   # npm 배포와 분리한 이유: contents: write 를 이 job 에만 주어,
-  # NPM_TOKEN 을 쓰는 publish 단계가 쓰기 권한 토큰과 같은 job 에 있지 않게 한다.
+  # npm 에 올리는 publish 단계가 저장소 쓰기 권한 토큰과 같은 job 에 있지 않게 한다.
   github-release:
     name: GitHub Release 생성
     needs: publish-npm
