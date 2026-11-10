@@ -22,6 +22,8 @@ SERVER_INFO_FILE_NAME = "server.json"
 SERVER_LOG_FILE_NAME = "server.log"
 # 연습 화면 배치 (글자 크기 · 패널 크기): 덱마다 기억
 LAYOUT_FILE_NAME = "layout.json"
+# 큰 그림의 화면용 사본 (image_variants.py): .presentation/images/
+IMAGE_CACHE_DIR_NAME = "images"
 
 # 장 폴더 안 파일: 본체(html 또는 가져온 그림) · 대본 · 카드 · 말한 버전 · 메모
 SLIDE_HTML_FILE_NAME = "slide.html"
@@ -30,6 +32,11 @@ SCRIPT_FILE_NAME = "script.md"
 NOTES_FILE_NAME = "notes.md"
 TAKES_FILE_NAME = "takes.md"
 MEMO_FILE_NAME = "memo.md"
+# 글만 담는 파일: 바뀌어도 슬라이드 본체를 다시 그리지 않음
+SLIDE_TEXT_FILE_NAMES = {SCRIPT_FILE_NAME, NOTES_FILE_NAME, TAKES_FILE_NAME, MEMO_FILE_NAME}
+# 그림 확장자 · 썸네일 후보 (가져온 원본 그림 > 장 그림)
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
+THUMBNAIL_STEMS = ("original", "slide")
 # 브라우저가 저장할 수 있는 파일 (그 밖은 거부)
 SAVABLE_FILES = {"script": SCRIPT_FILE_NAME, "memo": MEMO_FILE_NAME}
 

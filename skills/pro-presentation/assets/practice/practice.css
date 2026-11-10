@@ -55,7 +55,10 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 10px min(var(--panel
 
 /* 슬라이드: 1920x1080 iframe 을 칸 너비에 맞춰 축소, 가져온 덱은 그림 */
 .slide-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #fff; border-radius: 12px; box-shadow: 0 2px 14px rgba(0,0,0,.08); overflow: hidden; cursor: zoom-in; }
-.slide-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.slide-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
+/* 미리 그려 둔 앞뒤 장: 지금 장 아래에 깔아 둠 (넘길 때 다시 그릴 것이 없게) */
+.slide-frame > * { z-index: 1; background: #fff; }
+.slide-frame > .ahead { z-index: 0; }
 .slide-frame iframe { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; pointer-events: none; }
 .slide-frame .slide-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--danger); font-weight: 700; }
 .stage .nav { display: flex; align-items: center; gap: 10px; margin-top: 10px; }

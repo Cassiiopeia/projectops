@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import http.client
+import importlib.util
 import json
 import shutil
 import subprocess
@@ -16,7 +17,7 @@ import webbrowser
 from pathlib import Path
 
 from common.emit import emit
-from common.state import base_dir
+from common.state import base_dir, venv_python
 
 from pro_presentation.config import option_value
 from pro_presentation.deck import load_deck
@@ -64,6 +65,16 @@ def server_url(info: dict, path: str = "/") -> str:
     return f"http://127.0.0.1:{info['port']}{path}?key={urllib.parse.quote(info['key'])}"
 
 
+def find_image_python() -> str | None:
+    """Pillow 가 있는 파이썬 (큰 그림의 화면용 사본을 만듦): 현재 > pro-launch 가상환경. 없으면 None (원본 그대로 보냄)"""
+    if importlib.util.find_spec("PIL") is not None:
+        return sys.executable
+    interpreter = venv_python()
+    if interpreter and subprocess.run([str(interpreter), "-c", "import PIL"], capture_output=True).returncode == 0:
+        return str(interpreter)
+    return None
+
+
 def _spawn_server(deck_dir: Path, idle_minutes: int) -> dict | None:
     """터미널을 닫아도 살아 있게 분리 실행 > server.json 대기"""
     state_dir = deck_dir / STATE_DIR_NAME
@@ -71,9 +82,12 @@ def _spawn_server(deck_dir: Path, idle_minutes: int) -> dict | None:
     (state_dir / SERVER_INFO_FILE_NAME).unlink(missing_ok=True)
     detach = ({"creationflags": 0x00000008 | 0x00000200} if sys.platform == "win32"   # DETACHED_PROCESS | NEW_GROUP
               else {"start_new_session": True})
+    command = [sys.executable, str(SERVER_SCRIPT), "--deck", str(deck_dir), "--idle-minutes", str(idle_minutes)]
+    image_python = find_image_python()
+    if image_python:
+        command += ["--image-python", image_python]
     with (state_dir / SERVER_LOG_FILE_NAME).open("a", encoding="utf-8") as log:
-        subprocess.Popen([sys.executable, str(SERVER_SCRIPT), "--deck", str(deck_dir), "--idle-minutes", str(idle_minutes)],
-                         stdin=subprocess.DEVNULL, stdout=log, stderr=log, close_fds=True, **detach)
+        subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=log, stderr=log, close_fds=True, **detach)
     deadline = time.monotonic() + SERVER_START_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
         info = read_server_info(deck_dir)
@@ -185,6 +199,11 @@ def cmd_start(args) -> int:
     result = {"summary": f"{'Created' if is_new else 'Opened'} deck '{deck['title']}' ({len(deck['slides'])} slides) at {url}",
               "deck_dir": str(deck_dir), "url": url, "created": is_new, "slide_count": len(deck["slides"]),
               "problems": deck["problems"], "next": NEXT_AFTER_CREATE if is_new else NEXT_AFTER_RESUME}
+    if find_image_python() is None:
+        # 화면용 그림 사본을 만들 수 없음: 큰 그림이 있는 덱은 느릴 수 있어 원인과 해결을 알림
+        result["image_copies"] = False
+        result["image_copies_hint"] = ("Large pictures are shown at full size because Pillow is not available. "
+                                       "Run launch_cli.py web setup once, then stop and start the deck")
     if is_new:
         result.update({"created_files": len(created), "needs_init_questions": True,
                        "questions": [dict(question) for question in INIT_QUESTIONS]})

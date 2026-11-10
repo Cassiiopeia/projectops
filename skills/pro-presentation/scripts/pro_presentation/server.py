@@ -8,6 +8,7 @@ import http.server
 import json
 import os
 import secrets
+import subprocess
 import sys
 import threading
 import time
@@ -18,9 +19,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from pro_presentation.deck import deck_version, load_deck  # noqa: E402
-from pro_presentation.layout_state import read_layout, save_layout  # noqa: E402
-from pro_presentation.recording_marks import RECORDING_EXTENSIONS, parse_marks, save_page_recording  # noqa: E402
-from pro_presentation.settings import (DECK_FILE_NAME, PRACTICE_ASSETS_DIR, SAVABLE_FILES, SERVER_INFO_FILE_NAME,  # noqa: E402
+from pro_presentation.image_variants import find_variant  # noqa: E402
+from pro_presentation.layout_state import read_layout  # noqa: E402
+from pro_presentation.server_saves import SaveHandlers  # noqa: E402
+from pro_presentation.settings import (IMAGE_SUFFIXES, PRACTICE_ASSETS_DIR, SERVER_INFO_FILE_NAME,  # noqa: E402
                                        SLIDES_DIR_NAME, STATE_DIR_NAME, THEME_FILE_NAME)
 
 BIND_HOST = "127.0.0.1"
@@ -30,11 +32,24 @@ KEY_COOKIE = "presentation_key"
 # 요청이 없으면 스스로 종료 (2시간)
 IDLE_SHUTDOWN_SECONDS = 2 * 60 * 60
 IDLE_CHECK_SECONDS = 60
-MAX_SAVE_BYTES = 512 * 1024
-# 연습 화면 녹음 최대 크기 (300MB, opus 기준 몇 시간) · 장 넘긴 시각을 담는 헤더 (encodeURIComponent JSON)
-MAX_RECORDING_BYTES = 300 * 1024 * 1024
-RECORDING_COPY_CHUNK_BYTES = 1024 * 1024
-MARKS_HEADER = "X-Recording-Marks"
+# 응답을 모았다가 한 번에 보냄 (64KB): 머리말과 본문을 따로 보내면 요청마다 지연 (Windows 에서 특히 큼)
+RESPONSE_BUFFER_BYTES = 64 * 1024
+# 연결 재사용 (HTTP/1.1): 요청마다 새로 연결하면 브라우저가 요청을 보내기까지 수십 ms 가 걸림 (실측 33ms)
+# 쉬는 연결은 이 시간(초) 뒤에 닫음
+KEEP_ALIVE_PROTOCOL = "HTTP/1.1"
+IDLE_CONNECTION_SECONDS = 120
+# 덱 버전 기억 시간 (초): 열린 창마다 2초에 한 번씩 묻는 것을 한 번의 폴더 읽기로
+VERSION_MEMO_SECONDS = 0.5
+# 캐시: 덱 파일은 계속 바뀜 > 기본은 저장 금지. 파일은 매번 확인(바뀌지 않았으면 304), 주소에 v= 가 있으면 오래 기억
+CACHE_NEVER = "no-store"
+CACHE_REVALIDATE = "no-cache"
+CACHE_VERSIONED = "private, max-age=31536000, immutable"
+# 그림 사본 만들기 (image_variants.py 단독 실행): 한 번에 만드는 개수 · 한 번의 시간 제한 (초)
+IMAGE_SCRIPT = Path(__file__).resolve().parent / "image_variants.py"
+IMAGE_BATCH_COUNT = 8
+IMAGE_BUILD_TIMEOUT_SECONDS = 600
+# Windows: 분리 실행된 서버가 자식 프로세스를 띄울 때 콘솔 창이 뜨지 않게 (CREATE_NO_WINDOW)
+NO_WINDOW_FLAGS = {"creationflags": 0x08000000} if sys.platform == "win32" else {}
 PRACTICE_ASSETS = {"practice.js": "text/javascript; charset=utf-8", "recorder.js": "text/javascript; charset=utf-8",
                    "layout.js": "text/javascript; charset=utf-8", "popout.js": "text/javascript; charset=utf-8",
                    "practice.css": "text/css; charset=utf-8",
@@ -50,28 +65,51 @@ CONTENT_TYPES = {
 class DeckServer(http.server.ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, deck_dir: Path, key: str, token: str):
+    def __init__(self, deck_dir: Path, key: str, token: str, image_python: str | None = None):
         super().__init__((BIND_HOST, 0), RequestHandler)
         self.deck_dir = deck_dir
         self.key = key
         self.token = token
         self.last_request_at = time.monotonic()
         self.idle_shutdown_seconds = IDLE_SHUTDOWN_SECONDS
+        # 그림 사본: Pillow 가 있는 파이썬 (없으면 원본 그대로) · 만들기 요청 · 만든 횟수 (화면이 새 사본을 받게)
+        self.image_python = image_python
+        self.images_wanted = threading.Event()
+        self.images_generation = 0
+        self._version_memo = (0.0, 0)
+        self._version_lock = threading.Lock()
+
+    def current_version(self, is_fresh: bool = False) -> int:
+        """덱 버전 (+ 그림 사본 세대). 저장 직후(is_fresh)가 아니면 잠깐 기억한 값"""
+        with self._version_lock:
+            read_at, version = self._version_memo
+            if is_fresh or time.monotonic() - read_at > VERSION_MEMO_SECONDS:
+                version = deck_version(self.deck_dir)
+                self._version_memo = (time.monotonic(), version)
+        return version + self.images_generation
 
 
-class RequestHandler(http.server.BaseHTTPRequestHandler):
+class RequestHandler(SaveHandlers, http.server.BaseHTTPRequestHandler):
     server: DeckServer
+    protocol_version = KEEP_ALIVE_PROTOCOL
+    timeout = IDLE_CONNECTION_SECONDS
+    disable_nagle_algorithm = True
+    wbufsize = RESPONSE_BUFFER_BYTES
 
     def log_message(self, format, *args):  # noqa: A002  (표준 라이브러리 서명)
         return
 
-    # 응답 (캐시 금지: 덱 파일은 계속 바뀜)
     def _respond(self, status: int, body: bytes = b"", content_type: str = "text/plain; charset=utf-8",
-                 headers: dict | None = None) -> None:
+                 headers: dict | None = None, cache_control: str = CACHE_NEVER) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
+        if status != 304:
+            self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", cache_control)
+        if status >= 400:
+            # 거부한 요청은 본문을 읽지 않았을 수 있음 > 연결을 닫아 남은 본문이 다음 요청으로 읽히지 않게
+            self.close_connection = True
+            self.send_header("Connection", "close")
         for name, value in (headers or {}).items():
             self.send_header(name, value)
         self.end_headers()
@@ -80,6 +118,16 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 
     def _respond_json(self, payload: dict, status: int = 200) -> None:
         self._respond(status, json.dumps(payload, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
+
+    def _respond_file(self, target: Path, query: dict) -> None:
+        """파일 응답: 브라우저가 가진 것과 같으면 304 (본문 없음)"""
+        stat = target.stat()
+        etag = f'"{stat.st_mtime_ns:x}-{stat.st_size:x}"'
+        content_type = CONTENT_TYPES.get(target.suffix.lower(), "application/octet-stream")
+        cache_control = CACHE_VERSIONED if query.get("v") else CACHE_REVALIDATE
+        if self.headers.get("If-None-Match") == etag:
+            return self._respond(304, b"", content_type, {"ETag": etag}, cache_control)
+        return self._respond(200, target.read_bytes(), content_type, {"ETag": etag}, cache_control)
 
     # 접근 검사 (Host · 키: 헤더 > 쿠키 > ?key=)
     def _is_allowed_host(self) -> bool:
@@ -127,24 +175,24 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         if route == "/":
             return self._respond(200, (PRACTICE_ASSETS_DIR / "index.html").read_bytes(), CONTENT_TYPES[".html"], cookie)
         if route.startswith("/render/"):
-            return self._serve_render(route[len("/render/"):], cookie)
+            return self._serve_render(route[len("/render/"):], cookie, query)
         if route.startswith("/assets/"):
-            return self._serve_asset(route[len("/assets/"):])
+            return self._serve_asset(route[len("/assets/"):], query)
         if route.startswith("/deck/"):
-            return self._serve_deck_file(route[len("/deck/"):])
+            return self._serve_deck_file(route[len("/deck/"):], query)
         if route == "/api/deck":
-            return self._respond_json({**load_deck(self.server.deck_dir), "version": deck_version(self.server.deck_dir)})
+            return self._respond_json({**load_deck(self.server.deck_dir), "version": self.server.current_version(),
+                                       "images_generation": self.server.images_generation})
         if route == "/api/version":
-            return self._respond_json({"version": deck_version(self.server.deck_dir)})
+            return self._respond_json({"version": self.server.current_version()})
         if route == "/api/layout":
             return self._respond_json(read_layout(self.server.deck_dir))
         return self._respond(404, b"not found")
 
-    def _serve_asset(self, name: str) -> None:
-        content_type = PRACTICE_ASSETS.get(name)
-        if content_type is None:
+    def _serve_asset(self, name: str, query: dict) -> None:
+        if name not in PRACTICE_ASSETS:
             return self._respond(404, b"not found")
-        return self._respond(200, (PRACTICE_ASSETS_DIR / name).read_bytes(), content_type)
+        return self._respond_file(PRACTICE_ASSETS_DIR / name, query)
 
     def _resolve_deck_file(self, relative_path: str) -> Path | None:
         """덱 폴더 안 파일만 (.. · 상태 폴더 차단)"""
@@ -156,13 +204,25 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             return None
         return candidate
 
-    def _serve_deck_file(self, relative_path: str) -> None:
+    def _serve_deck_file(self, relative_path: str, query: dict) -> None:
         target = self._resolve_deck_file(relative_path)
         if target is None:
             return self._respond(404, b"not found")
-        return self._respond(200, target.read_bytes(), CONTENT_TYPES.get(target.suffix.lower(), "application/octet-stream"))
+        if target.suffix.lower() in IMAGE_SUFFIXES:
+            target = self._display_image(target, is_thumbnail=bool(query.get("w")))
+        return self._respond_file(target, query)
 
-    def _serve_render(self, slide_id: str, cookie: dict) -> None:
+    def _display_image(self, source: Path, is_thumbnail: bool) -> Path:
+        """큰 그림 > 화면용 사본 (썸네일 사본이 아직 없으면 보기용). 사본이 없으면 만들기를 요청하고 원본"""
+        for kind in (("thumb", "view") if is_thumbnail else ("view",)):
+            variant, is_decided = find_variant(self.server.deck_dir, source, kind)
+            if not is_decided and self.server.image_python:
+                self.server.images_wanted.set()
+            if variant is not None:
+                return variant
+        return source
+
+    def _serve_render(self, slide_id: str, cookie: dict, query: dict) -> None:
         """한 장을 1920x1080 단독 페이지로 (연습 화면 iframe · 내보내기 캡처 공용)"""
         slide_file = self._resolve_deck_file(f"{SLIDES_DIR_NAME}/{slide_id}/slide.html")
         if slide_file is None:
@@ -171,113 +231,8 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         page = (template.replace("__THEME_URL__", f"/deck/{THEME_FILE_NAME}")
                 .replace("__BASE_URL__", f"/deck/{SLIDES_DIR_NAME}/{urllib.parse.quote(slide_id)}/")
                 .replace("__SLIDE_HTML__", slide_file.read_text(encoding="utf-8", errors="replace")))
-        return self._respond(200, page.encode("utf-8"), CONTENT_TYPES[".html"], cookie)
-
-    def do_POST(self):  # noqa: N802  (표준 라이브러리 서명)
-        parsed = urllib.parse.urlsplit(self.path)
-        if not self._check_access(urllib.parse.parse_qs(parsed.query)):
-            return None
-        if parsed.path == "/api/save":
-            return self._save_slide_file()
-        if parsed.path == "/api/order":
-            return self._save_slide_order()
-        if parsed.path == "/api/layout":
-            request = self._read_json_request()
-            return None if request is None else self._respond_json(save_layout(self.server.deck_dir, request))
-        if parsed.path == "/api/recording":
-            return self._save_recording(urllib.parse.parse_qs(parsed.query))
-        if parsed.path == "/api/stop":
-            self._respond_json({"stopped": True})
-            threading.Thread(target=self.server.shutdown, daemon=True).start()
-            return None
-        return self._respond(404, b"not found")
-
-    def _read_json_request(self) -> dict | None:
-        """JSON 본문 읽기 (크기 · 형식 오류는 여기서 응답하고 None)"""
-        length = int(self.headers.get("Content-Length") or 0)
-        if length <= 0 or length > MAX_SAVE_BYTES:
-            self._respond_json({"code": "bad_size"}, 413)
-            return None
-        try:
-            request = json.loads(self.rfile.read(length))
-        except ValueError:
-            request = None
-        if not isinstance(request, dict):
-            self._respond_json({"code": "bad_request"}, 400)
-            return None
-        return request
-
-    def _save_slide_file(self) -> None:
-        """브라우저 고침 > 장 파일. 읽은 뒤 파일이 바뀌었으면 덮어쓰지 않음 (409)"""
-        request = self._read_json_request()
-        if request is None:
-            return None
-        try:
-            file_name = SAVABLE_FILES[request["file"]]
-            base_version = int(request["base_version"])
-            text = str(request["text"])
-        except (ValueError, KeyError, TypeError):
-            return self._respond_json({"code": "bad_request"}, 400)
-        slides_root = (self.server.deck_dir / SLIDES_DIR_NAME).resolve()
-        folder = (slides_root / str(request.get("slide", ""))).resolve()
-        if folder.parent != slides_root or not folder.is_dir():
-            return self._respond_json({"code": "slide_not_found"}, 404)
-        target = folder / file_name
-        if target.is_file() and target.stat().st_mtime_ns > base_version:
-            return self._respond_json({"code": "changed_on_disk"}, 409)
-        target.write_text(text.rstrip() + "\n" if text.strip() else "", encoding="utf-8")
-        return self._respond_json({"code": "saved", "version": deck_version(self.server.deck_dir)})
-
-    def _save_slide_order(self) -> None:
-        """흐름 보기에서 끈 순서 > deck.json slides (같은 장 집합일 때만, 종류 유지)"""
-        request = self._read_json_request()
-        if request is None:
-            return None
-        deck_file = self.server.deck_dir / DECK_FILE_NAME
-        try:
-            order = [str(slide_id) for slide_id in request["order"]]
-            base_version = int(request["base_version"])
-            settings = json.loads(deck_file.read_text(encoding="utf-8"))
-        except (ValueError, KeyError, TypeError, OSError):
-            return self._respond_json({"code": "bad_request"}, 400)
-        if deck_file.stat().st_mtime_ns > base_version:
-            return self._respond_json({"code": "changed_on_disk"}, 409)
-        entries = {(entry if isinstance(entry, str) else entry.get("id")): entry for entry in settings.get("slides") or []}
-        if sorted(entries) != sorted(order):
-            return self._respond_json({"code": "slides_differ"}, 409)
-        settings["slides"] = [entries[slide_id] for slide_id in order]
-        deck_file.write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        return self._respond_json({"code": "saved", "version": deck_version(self.server.deck_dir)})
-
-    def _save_recording(self, query: dict) -> None:
-        """연습 화면 녹음 > recordings/<label>/: 검증(형식·크기·장 시각) > 상태 폴더에 받기 > 녹음 폴더로 이동"""
-        extension = (query.get("ext") or [""])[0]
-        length = int(self.headers.get("Content-Length") or 0)
-        if extension not in RECORDING_EXTENSIONS:
-            return self._respond_json({"code": "bad_format"}, 400)
-        if length <= 0 or length > MAX_RECORDING_BYTES:
-            return self._respond_json({"code": "bad_size"}, 413)
-        try:
-            marks, duration_seconds = parse_marks(urllib.parse.unquote(self.headers.get(MARKS_HEADER) or ""))
-        except (ValueError, KeyError, TypeError):
-            return self._respond_json({"code": "bad_marks"}, 400)
-        # 받는 중 파일은 상태 폴더에 (버전 계산·화면 다시 그리기에서 빠짐)
-        state_dir = self.server.deck_dir / STATE_DIR_NAME
-        state_dir.mkdir(parents=True, exist_ok=True)
-        incoming = state_dir / f"incoming-{secrets.token_hex(4)}.{extension}"
-        try:
-            with incoming.open("wb") as audio_file:
-                remaining = length
-                while remaining > 0:
-                    chunk = self.rfile.read(min(RECORDING_COPY_CHUNK_BYTES, remaining))
-                    if not chunk:
-                        return self._respond_json({"code": "incomplete"}, 400)
-                    audio_file.write(chunk)
-                    remaining -= len(chunk)
-            saved = save_page_recording(self.server.deck_dir, extension, incoming, marks, duration_seconds)
-        finally:
-            incoming.unlink(missing_ok=True)  # (성공·실패 공통: 이동했으면 이미 없음)
-        return self._respond_json({"code": "saved", **saved, "version": deck_version(self.server.deck_dir)})
+        return self._respond(200, page.encode("utf-8"), CONTENT_TYPES[".html"], cookie,
+                             CACHE_VERSIONED if query.get("v") else CACHE_NEVER)
 
 
 def watch_idle(server: DeckServer) -> None:
@@ -288,13 +243,35 @@ def watch_idle(server: DeckServer) -> None:
             return
 
 
+def build_images(server: DeckServer) -> None:
+    """그림 사본 만들기: 요청(시작할 때 · 사본 없는 그림을 보낼 때)마다 별도 프로세스로 몇 개씩 (서버 응답은 계속)
+    한 묶음이 끝날 때마다 세대를 올려 화면이 가벼운 사본으로 바꿔 받음. 만들 수 없으면 (Pillow 없음) 그만둠"""
+    while server.image_python:
+        server.images_wanted.wait()
+        server.images_wanted.clear()
+        try:
+            output = subprocess.run([server.image_python, str(IMAGE_SCRIPT), "--deck", str(server.deck_dir),
+                                     "--limit", str(IMAGE_BATCH_COUNT)], capture_output=True, encoding="utf-8",
+                                    errors="replace", timeout=IMAGE_BUILD_TIMEOUT_SECONDS, **NO_WINDOW_FLAGS)
+            result = json.loads(output.stdout.strip().splitlines()[-1])
+        except (OSError, subprocess.SubprocessError, ValueError, IndexError):
+            result = {}
+        if not result.get("ok"):
+            server.image_python = None
+        if result.get("built"):
+            server.images_generation += 1
+        if result.get("has_more"):
+            server.images_wanted.set()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--deck", required=True)
     parser.add_argument("--idle-minutes", type=int, default=IDLE_SHUTDOWN_SECONDS // 60)
+    parser.add_argument("--image-python", default=None, help="Python that has Pillow (builds display-sized image copies)")
     args = parser.parse_args()
     deck_dir = Path(args.deck).resolve()
-    server = DeckServer(deck_dir, secrets.token_urlsafe(18), secrets.token_hex(8))
+    server = DeckServer(deck_dir, secrets.token_urlsafe(18), secrets.token_hex(8), args.image_python)
     server.idle_shutdown_seconds = max(60, args.idle_minutes * 60)
     state_dir = deck_dir / STATE_DIR_NAME
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -302,6 +279,8 @@ def main() -> int:
             "started_at": time.strftime("%Y-%m-%dT%H:%M:%S")}
     (state_dir / SERVER_INFO_FILE_NAME).write_text(json.dumps(info), encoding="utf-8")
     threading.Thread(target=watch_idle, args=(server,), daemon=True).start()
+    server.images_wanted.set()
+    threading.Thread(target=build_images, args=(server,), daemon=True).start()
     try:
         server.serve_forever()
     finally:

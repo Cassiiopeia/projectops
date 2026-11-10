@@ -4,14 +4,16 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 
-from pro_presentation.settings import (DECK_FILE_NAME, DEFAULT_CHARACTERS_PER_SECOND, MEMO_FILE_NAME,
+from pro_presentation.settings import (DECK_FILE_NAME, DEFAULT_CHARACTERS_PER_SECOND, IMAGE_SUFFIXES, MEMO_FILE_NAME,
                                        MEMORY_FILE_NAME, NOTES_FILE_NAME, RANGES_FILE_NAME,
                                        RECORDING_META_FILE_NAME, RECORDINGS_DIR_NAME, SCRIPT_FILE_NAME,
-                                       SLIDE_HTML_FILE_NAME, SLIDE_IMAGE_NAMES, SLIDES_DIR_NAME,
-                                       TAKES_FILE_NAME, TRANSCRIPT_FILE_NAME, VERSION_SKIPPED_DIRS)
+                                       SLIDE_HTML_FILE_NAME, SLIDE_IMAGE_NAMES, SLIDE_TEXT_FILE_NAMES,
+                                       SLIDES_DIR_NAME, TAKES_FILE_NAME, THEME_FILE_NAME, THUMBNAIL_STEMS,
+                                       TRANSCRIPT_FILE_NAME, VERSION_SKIPPED_DIRS)
 
 SECTION_HEADING_PATTERN = re.compile(r"^##\s+(.*)$")
 TRANSCRIPT_LINE_PATTERN = re.compile(r"^\[(\d+):(\d+)\]\s*(.*)$")
@@ -21,9 +23,6 @@ NOT_SPOKEN_PATTERN = re.compile(r"[\s.,!?·'\"‘’“”~:;\-]")
 SPOKEN_LABEL = "spoken:"
 FEEDBACK_LABEL = "feedback:"
 SAFE_SLIDE_ID_PATTERN = re.compile(r"^[^/\\]+$")
-# 썸네일 후보: 가져온 원본 그림 > 장 그림
-THUMBNAIL_STEMS = ("original", "slide")
-IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
 
 
 def read_text(path: Path) -> str:
@@ -115,14 +114,29 @@ def slide_entries(settings: dict) -> list[dict]:
     return entries
 
 
+def slide_body_version(folder: Path) -> int:
+    """장 본체(slide.html · 그림 등)의 가장 늦은 수정 시각 + 파일 수. 대본 · 카드 · 메모 글은 뺌"""
+    latest = count = 0
+    try:
+        for entry in os.scandir(folder):
+            if entry.name not in SLIDE_TEXT_FILE_NAMES and entry.is_file():
+                latest = max(latest, entry.stat().st_mtime_ns)
+                count += 1
+    except OSError:
+        return 0
+    return latest + count
+
+
 def load_slide(deck_dir: Path, entry: dict, number: int, characters_per_second: float) -> dict:
     """장 폴더 하나 > SlideView (없거나 깨지면 error)"""
     slide = {"id": entry["id"], "number": number, "kind": entry["kind"], "title": entry["id"], "html": None,
-             "image": None, "script": "", "notes": [], "takes": [], "memo": "", "estimate_seconds": 0, "error": None}
+             "image": None, "script": "", "notes": [], "takes": [], "memo": "", "estimate_seconds": 0, "error": None,
+             "version": 0}
     folder = deck_dir / SLIDES_DIR_NAME / entry["id"]
     if not SAFE_SLIDE_ID_PATTERN.match(entry["id"]) or not folder.is_dir():
         slide["error"] = "missing_folder"
         return slide
+    slide["version"] = slide_body_version(folder)
     thumbnail = next((path.name for name in THUMBNAIL_STEMS for path in sorted(folder.glob(f"{name}.*"))
                       if path.suffix.lower() in IMAGE_SUFFIXES), None)
     slide["thumbnail"] = f"deck/{SLIDES_DIR_NAME}/{entry['id']}/{thumbnail}" if thumbnail else None
@@ -205,19 +219,36 @@ def load_deck(deck_dir: Path) -> dict:
     return {"title": settings.get("title") or deck_dir.name, "language": settings.get("language") or "en",
             "time_limit_seconds": int(time_limit) if isinstance(time_limit, (int, float)) and time_limit > 0 else None,
             "rubric": settings.get("rubric") or "", "characters_per_second": characters_per_second,
+            "theme_version": _modified_at(deck_dir / THEME_FILE_NAME),
             "glossary": memory["glossary"], "slides": slides, "recordings": recordings, "problems": problems}
 
 
+def _modified_at(path: Path) -> int:
+    try:
+        return path.stat().st_mtime_ns
+    except OSError:
+        return 0
+
+
 def deck_version(deck_dir: Path) -> int:
-    """덱 안 파일들의 가장 늦은 수정 시각(ns) + 파일 수. 지우기·추가도 잡는다"""
+    """덱 안 파일 · 폴더의 가장 늦은 수정 시각(ns) + 개수. 지우기·추가도 잡는다
+    scandir: 폴더를 읽을 때 받은 정보로 수정 시각을 알아 파일마다 다시 묻지 않음 (2초마다 도는 검사)"""
     latest = count = 0
-    for path in Path(deck_dir).rglob("*"):
-        relative_parts = path.relative_to(deck_dir).parts
-        if relative_parts and relative_parts[0] in VERSION_SKIPPED_DIRS:
-            continue
+    pending = [(str(deck_dir), True)]
+    while pending:
+        folder, is_deck_root = pending.pop()
         try:
-            latest = max(latest, path.stat().st_mtime_ns)
-            count += 1
+            entries = list(os.scandir(folder))
         except OSError:
             continue
+        for entry in entries:
+            if is_deck_root and entry.name in VERSION_SKIPPED_DIRS:
+                continue
+            try:
+                latest = max(latest, entry.stat().st_mtime_ns)
+                count += 1
+                if entry.is_dir(follow_symlinks=False):
+                    pending.append((entry.path, False))
+            except OSError:
+                continue
     return latest + count
