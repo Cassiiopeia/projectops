@@ -1,7 +1,7 @@
 {
   "name": "projectops-extras",
   "description": "Optional projectops skills outside the core dev cycle (Synology NAS service exposure, reporting projectops skill bugs from any session, safe disk-space clean-up on macOS, Windows and Linux).",
-  "version": "4.97.3",
+  "version": "4.97.4",
   "author": {
     "name": "Cassiiopeia",
     "url": "https://github.com/Cassiiopeia"
