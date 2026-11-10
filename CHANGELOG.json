@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-10T16:26:16Z",
-    "currentVersion": "4.97.3",
+    "lastUpdated": "2026-11-10T16:41:49Z",
+    "currentVersion": "4.97.4",
     "projectType": "basic",
-    "totalReleases": 394,
+    "totalReleases": 395,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.97.4",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-10",
+      "pr_number": 1123,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Documentation**\n  * Agent instructions are split into short per-area guides",
+      "parsed_changes": {
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Agent instructions are split into short per-area guides"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.97.3",
       "project_type": "basic",

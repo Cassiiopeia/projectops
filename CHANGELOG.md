@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.97.3  
-**Last updated:** 2026-11-10T16:26:16Z  
+**Current version:** 4.97.4  
+**Last updated:** 2026-11-10T16:41:49Z  
+
+---
+
+## [4.97.4] - 2026-11-10
+
+**PR:** #1123  
+
+**Documentation**
+- Agent instructions are split into short per-area guides
 
 ---
 
