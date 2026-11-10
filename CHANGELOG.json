@@ -1,14 +1,34 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-10T16:57:37Z",
-    "currentVersion": "4.98.0",
+    "lastUpdated": "2026-11-10T23:48:33Z",
+    "currentVersion": "4.99.0",
     "projectType": "basic",
-    "totalReleases": 396,
+    "totalReleases": 397,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.99.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-10",
+      "pr_number": 1127,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * New extras skill `pro-orca-tunnel`: ask for the Orca URL and get one link that opens Orca desktop from another device\n  * Reuses a live tunnel and cleans up stale ones, works on macOS, Windows and Linux, no Cloudflare account needed",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "New extras skill `pro-orca-tunnel`: ask for the Orca URL and get one link that opens Orca desktop from another device",
+            "Reuses a live tunnel and cleans up stale ones, works on macOS, Windows and Linux, no Cloudflare account needed"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.98.0",
       "project_type": "basic",

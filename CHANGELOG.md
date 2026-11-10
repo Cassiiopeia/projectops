@@ -1,7 +1,17 @@
 # Changelog
 
-**Current version:** 4.98.0  
-**Last updated:** 2026-11-10T16:57:37Z  
+**Current version:** 4.99.0  
+**Last updated:** 2026-11-10T23:48:33Z  
+
+---
+
+## [4.99.0] - 2026-11-10
+
+**PR:** #1127  
+
+**New features**
+- New extras skill `pro-orca-tunnel`: ask for the Orca URL and get one link that opens Orca desktop from another device
+- Reuses a live tunnel and cleans up stale ones, works on macOS, Windows and Linux, no Cloudflare account needed
 
 ---
 
