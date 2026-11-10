@@ -146,9 +146,15 @@ test("스킬 개수·목록이 폴더 ↔ 매니페스트 ↔ README·CLAUDE.md 
 
   // 문서의 개수 표기와 목록
   expectIn("README.md", [`**Agent Skills** (${core.length})`, `See all ${core.length} Agent Skills`,
-    ...[...core, ...extras].map((s) => `\`/${s}\``)]);
+    `${core.length} skills give consistent results`, ...[...core, ...extras].map((s) => `\`/${s}\``)]);
+  // 번역본의 같은 줄 (비교 표의 스킬 수)
+  expectIn("docs/i18n/README.ko.md", [`${core.length}종 Skills로`]);
+  expectIn("docs/i18n/README.zh-CN.md", [`${core.length} 个 Skills`]);
+  expectIn("docs/i18n/README.ja.md", [`${core.length} 種の Skills`]);
   expectIn("CLAUDE.md", [`코어 ${core.length}종 + extras ${extras.length}종`,
     ...[...core, ...extras].map((s) => `| \`${s.slice("pro-".length)}\` |`)]);
+  expectIn("docs/README.md", [`쓰는 ${core.length}종 Skill`]);
+  expectIn("docs/en/readme.md", [`The ${core.length} Skills used in`]);
   expectIn("docs/SKILLS.md", [`Skill 전체 목록 (${core.length}종)`, ...core.map((s) => `### \`/${s}\``)]);
   expectIn("plugins/projectops-extras/README.md", extras.map((s) => `| \`${s}\` |`));
 });

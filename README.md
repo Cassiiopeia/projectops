@@ -51,7 +51,7 @@ This project automates your development workflow on two axes.
 | Format every issue by hand | `/pro-github` writes and files an issue from the standard template in one step |
 | Copy the issue URL into commit messages | `/pro-commit` completes the message from the issue context, in your own style |
 | Write PR descriptions and reports by hand | `/pro-report` analyzes the git diff and generates one |
-| Re-type prompts for every code review or analysis | 15 skills give consistent results without re-typing |
+| Re-type prompts for every code review or analysis | 18 skills give consistent results without re-typing |
 
 ---
 
