@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-10T16:41:49Z",
-    "currentVersion": "4.97.4",
+    "lastUpdated": "2026-11-10T16:57:37Z",
+    "currentVersion": "4.98.0",
     "projectType": "basic",
-    "totalReleases": 395,
+    "totalReleases": 396,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.98.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-10",
+      "pr_number": 1124,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * Optional separate deploy branch: deploy workflows can run from a branch other than the default branch (`--deploy-trigger-branch`); without it nothing changes",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "Optional separate deploy branch: deploy workflows can run from a branch other than the default branch (`--deploy-trigger-branch`); without it nothing changes"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.97.4",
       "project_type": "basic",

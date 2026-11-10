@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.97.4  
-**Last updated:** 2026-11-10T16:41:49Z  
+**Current version:** 4.98.0  
+**Last updated:** 2026-11-10T16:57:37Z  
+
+---
+
+## [4.98.0] - 2026-11-10
+
+**PR:** #1124  
+
+**New features**
+- Optional separate deploy branch: deploy workflows can run from a branch other than the default branch (`--deploy-trigger-branch`); without it nothing changes
 
 ---
 
