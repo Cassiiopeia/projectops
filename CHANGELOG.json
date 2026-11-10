@@ -1,14 +1,52 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-09T09:08:14Z",
-    "currentVersion": "4.96.0",
+    "lastUpdated": "2026-11-10T13:27:55Z",
+    "currentVersion": "4.97.0",
     "projectType": "basic",
-    "totalReleases": 390,
+    "totalReleases": 391,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.97.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-10",
+      "pr_number": 1113,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * Presentation practice page: text size controls for the script and the feedback cards\n  * Drag the borders between the slide, the script and the cards to resize them\n  * Open the slide, the script or the feedback cards in their own window, in sync\n  * The practice page layout is remembered per deck\n  * PPT export keeps gradients, shadows, mixed text styles and styled tables\n\n* **Bug fixes**\n  * Practice page no longer lags with large imported decks or on slow connections\n  * Slide changes no longer download every picture again\n  * Header buttons no longer wrap on narrow windows\n\n* **Improvements**\n  * Large pictures are shown as lighter copies; originals and PPT export are unchanged\n  * The mockup viewer responds faster",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "Presentation practice page: text size controls for the script and the feedback cards",
+            "Drag the borders between the slide, the script and the cards to resize them",
+            "Open the slide, the script or the feedback cards in their own window, in sync",
+            "The practice page layout is remembered per deck",
+            "PPT export keeps gradients, shadows, mixed text styles and styled tables"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Practice page no longer lags with large imported decks or on slow connections",
+            "Slide changes no longer download every picture again",
+            "Header buttons no longer wrap on narrow windows"
+          ]
+        },
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "Large pictures are shown as lighter copies; originals and PPT export are unchanged",
+            "The mockup viewer responds faster"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.96.0",
       "project_type": "basic",

@@ -1,7 +1,29 @@
 # Changelog
 
-**Current version:** 4.96.0  
-**Last updated:** 2026-11-09T09:08:14Z  
+**Current version:** 4.97.0  
+**Last updated:** 2026-11-10T13:27:55Z  
+
+---
+
+## [4.97.0] - 2026-11-10
+
+**PR:** #1113  
+
+**New features**
+- Presentation practice page: text size controls for the script and the feedback cards
+- Drag the borders between the slide, the script and the cards to resize them
+- Open the slide, the script or the feedback cards in their own window, in sync
+- The practice page layout is remembered per deck
+- PPT export keeps gradients, shadows, mixed text styles and styled tables
+
+**Bug fixes**
+- Practice page no longer lags with large imported decks or on slow connections
+- Slide changes no longer download every picture again
+- Header buttons no longer wrap on narrow windows
+
+**Improvements**
+- Large pictures are shown as lighter copies; originals and PPT export are unchanged
+- The mockup viewer responds faster
 
 ---
 
