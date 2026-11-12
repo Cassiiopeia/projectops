@@ -1,14 +1,34 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-10T23:48:33Z",
-    "currentVersion": "4.99.0",
+    "lastUpdated": "2026-11-12T10:16:57Z",
+    "currentVersion": "4.99.1",
     "projectType": "basic",
-    "totalReleases": 397,
+    "totalReleases": 398,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.99.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-12",
+      "pr_number": 1129,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * The skill bug watcher no longer reports raw device commands as a workaround after you borrow a new device\n  * The Orca tunnel skill checks whether a tunnel is running without risking stopping it on Windows",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "The skill bug watcher no longer reports raw device commands as a workaround after you borrow a new device",
+            "The Orca tunnel skill checks whether a tunnel is running without risking stopping it on Windows"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.99.0",
       "project_type": "basic",

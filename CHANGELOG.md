@@ -1,7 +1,17 @@
 # Changelog
 
-**Current version:** 4.99.0  
-**Last updated:** 2026-11-10T23:48:33Z  
+**Current version:** 4.99.1  
+**Last updated:** 2026-11-12T10:16:57Z  
+
+---
+
+## [4.99.1] - 2026-11-12
+
+**PR:** #1129  
+
+**Bug fixes**
+- The skill bug watcher no longer reports raw device commands as a workaround after you borrow a new device
+- The Orca tunnel skill checks whether a tunnel is running without risking stopping it on Windows
 
 ---
 
