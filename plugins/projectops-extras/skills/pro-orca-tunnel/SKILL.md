@@ -7,7 +7,7 @@ description: "Give a public Orca Web URL on request: reuse the live cloudflared 
 
 ## When to use
 
-- "orca 주소 줘", "Orca URL 줘", "밖에서 Orca 열게", "Orca 링크 다시 만들어줘"
+- "Give me the Orca URL", "Orca address", "I want to open Orca from outside", "make the Orca link again"
 - The user is away from the Mac (Claude remote control, another account or device) and wants Orca desktop in a browser.
 - Not this skill: exposing a service on a domain for good is `pro-synology-expose`.
 - No Cloudflare account or login: quick tunnels (`*.trycloudflare.com`) work without one. Only `cloudflared` must be installed.
@@ -57,7 +57,7 @@ Every command is `PYTHONIOENCODING=utf-8 {PYTHON} {SKILL_DIR}/scripts/tunnel_cli
 | `link save --app orca` | Save the link in `TUNNEL_LINK` (owner-only file under `~/.projectops/tunnel/`) |
 | `link get --app orca --url URL` | The saved link with every tunnel host switched to URL |
 
-## Flow for "orca 주소 줘"
+## Flow for "give me the Orca URL"
 
 1. Read the harness. Check the port it names with `local`; if it is not Orca Web, use `ports` and the harness "not running" steps.
 2. `open --port <port> --path /web-index.html` → `url`. A reused tunnel is normal and fast.

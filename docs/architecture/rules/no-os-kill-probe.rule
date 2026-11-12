@@ -2,6 +2,6 @@
 description=os.kill(pid, 0) 생존 확인 금지 (Windows 에서 프로세스 종료) — scripts/common/proc.py 만 허용
 paths=scripts/,skills/,plugins/,.github/scripts/
 extensions=.py
-# proc.py: 이 금지를 지키는 OS 분기 단일 지점 · test_launch_architecture.py: 이 금지를 설명하는 docstring
-exclude=scripts/common/proc.py,skills/pro-launch/tests/test_launch_architecture.py
+# proc.py: 이 금지를 지키는 OS 분기 단일 지점 (+ extras 사본, sync_extras.py 로 생성) · test_launch_architecture.py: 이 금지를 설명하는 docstring
+exclude=scripts/common/proc.py,plugins/projectops-extras/skills/pro-orca-tunnel/scripts/tunnel/proc.py,skills/pro-launch/tests/test_launch_architecture.py
 pattern=os\.kill\([^\n]+?,\s*0\)

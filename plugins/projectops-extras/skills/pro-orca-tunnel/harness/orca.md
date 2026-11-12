@@ -34,7 +34,7 @@ Last checked: Orca 1.4.253 on macOS, 2026-11-11. Windows and Linux lines marked 
 
 ## Getting a fresh pairing link
 
-- In Orca desktop the user creates a link for a browser or phone (Orca 모바일 / web pairing in the sidebar).
+- In Orca desktop the user creates a link for a browser or phone (the mobile / web pairing entry in the sidebar).
   The user pastes it in chat. Save it with `link save --app orca` (the link goes in `TUNNEL_LINK`, never on the command line).
 - A saved link keeps working while that paired device is still listed in Orca. Paired device ids are in
   `orca-devices.json` in Orca's app data folder: macOS `~/Library/Application Support/orca/`,

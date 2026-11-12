@@ -11,6 +11,8 @@ import sys
 import time
 from pathlib import Path
 
+from . import proc
+
 IS_WINDOWS = sys.platform.startswith("win")
 # cloudflared 로그에 찍히는 빠른 터널 주소
 TUNNEL_URL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
@@ -68,15 +70,10 @@ def quick_tunnels() -> list[dict]:
 
 
 def is_alive(pid: int) -> bool:
+    # pid 0 이하는 프로세스 그룹 신호라 생존 판정 대상 아님
     if pid <= 0:
         return False
-    if IS_WINDOWS:
-        return str(pid) in _run(["tasklist", "/FI", f"PID eq {pid}", "/NH"])
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    return True
+    return proc.pid_alive(pid)
 
 
 def stop(pid: int) -> bool:
