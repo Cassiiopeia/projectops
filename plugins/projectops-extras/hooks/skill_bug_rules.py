@@ -55,7 +55,9 @@ WORKAROUND_RULES_BY_GROUP = {
     "figma": {"segment_pattern": re.compile(r"^curl\b.*api\.figma\.com"),
               "command_pattern": re.compile(r"(?s)(?=.*api\.figma\.com)(?=.*\b(?:urllib|requests)\b)")},
 }
-_SEGMENT_SEPARATOR_PATTERN = re.compile(r"&&|\|\||[;|\n()]")
+# 성공하면 같은 그룹의 우회 대기를 푸는 서브커맨드: 새 기기를 스킬로 빌림 > 이후 raw 도구는 그 기기용 (#1128)
+FRESH_START_SUBCOMMANDS_BY_GROUP = {"launch": ("device acquire",)}
+_SEGMENT_SEPARATOR_PATTERN =re.compile(r"&&|\|\||[;|\n()]")
 _ENV_ASSIGNMENT_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=\S*$")
 _COMMAND_PREFIX_WORDS = ("sudo", "env", "exec", "time", "timeout")
 
@@ -175,7 +177,7 @@ def _check_projectops_call(state: dict, call: dict) -> list[dict]:
 
 
 def _advance_workaround_window(state: dict, call: dict) -> None:
-    """projectops 호출도 우회 대기 창에 셈 (창 소진 또는 같은 명령 성공 > 대기 해제, #1022)"""
+    """projectops 호출도 우회 대기 창에 셈 (창 소진 · 같은 명령 성공 · 새 기기 빌림 성공 > 대기 해제, #1022·#1128)"""
     pending = state.get("pending_failure")
     if not pending:
         return
@@ -183,7 +185,9 @@ def _advance_workaround_window(state: dict, call: dict) -> None:
     # commit 은 사용법 확인 뒤 다른 서브커맨드로 성공하는 흐름이 정상: 같은 스킬 성공이면 해결 (#1072)
     is_same_skill_recovered = (not call["is_failure"] and call["skill"] == pending.get("skill")
                                and (call["subcommand"] == pending.get("subcommand") or pending.get("group") == "commit"))
-    if is_same_skill_recovered or pending["calls_seen"] >= WORKAROUND_WINDOW_CALLS:
+    is_fresh_start = (not call["is_failure"] and call["group"] == pending.get("group")
+                      and call["subcommand"] in FRESH_START_SUBCOMMANDS_BY_GROUP.get(call["group"], ()))
+    if is_same_skill_recovered or is_fresh_start or pending["calls_seen"] >= WORKAROUND_WINDOW_CALLS:
         state.pop("pending_failure", None)
 
 
