@@ -26,10 +26,10 @@ from pro_launch.commands.web.saved_values import read_saved_values
 from pro_launch.commands.web.session import DIALOG_EVENT_KEY, web_connect
 from pro_launch.commands.web.tabs import REPORTED_POPUPS_KEY, attach_reload_notice, drift_warning, mark_tab, opened_tabs, reload_notice
 from pro_launch.commands.web.targets import SELECTOR_SYNTAX_HINT, is_selector_syntax_error
-from pro_launch.commands.web.watchdog import HUNG_MARK_KEY, Watchdog, deadline_seconds
+from pro_launch.commands.web.watchdog import HUNG_MARK_KEY, Watchdog, deadline_seconds, set_watched_browser
 from pro_launch.registry import Command, action_usage_lines, add_action_parsers, discover_actions
 from pro_launch.runtime import browser_profiles
-from pro_launch.runtime.browser import read_state, write_state
+from pro_launch.runtime.browser import read_state, update_state_for_browser, write_state
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.creds import cred_field, with_login_policy
 from pro_launch.runtime.output import out, set_area, set_target
@@ -110,6 +110,9 @@ def cmd_web(args) -> int:
     # web open --profile · --need: 이 레포가 쓸 프로필을 먼저 정한다 (#956) — 상태 파일 자리가 프로필을 따른다
     if args.action == "open" and (choice_error := apply_profile_choice(args, root)):
         return out(choice_error)
+    if args.action == "open":
+        # This session keeps the profile it opened, whatever other sessions in the repo pick later (#1154)
+        browser_profiles.pin_session_profile(root)
     state_f = browser_profiles.web_state_path(root)
     # 명령 전체 시간 상한 — 붙기 · 조작이 멈추면 browser_hung 을 내고 끝낸다 (#921)
     watchdog = Watchdog(args.action, deadline_seconds(args, action.needs), state_f).start()
@@ -140,17 +143,17 @@ def _dispatch(args, action, root, state_f, secret_value: str | None) -> int:
     if action.needs == "state_online":
         return action.run(args, state, state_f)
 
+    set_watched_browser(state.get("pid"))
     conn, err = web_connect(state)
     if err:
+        # State writes below go to the fresh file and only if it still points to this browser —
+        # another session may have relaunched it meanwhile (#1154)
         if err.get("code") == "browser_gone":
             # 죽은 브라우저 정보만 지운다. 뷰포트·규칙은 사람이 정한 것이라 남긴다
-            for k in ("cdp", "pid"):
-                state.pop(k, None)
-            write_state(state_f, state)
+            update_state_for_browser(state_f, state.get("pid"), _forget_browser)
         elif err.get("code") == "browser_hung":
             # 다음 web open 이 다시 붙지 않고 끄고 새로 띄우게 표시한다
-            state[HUNG_MARK_KEY] = time.strftime("%Y-%m-%d %H:%M:%S")
-            write_state(state_f, state)
+            update_state_for_browser(state_f, state.get("pid"), _mark_hung)
         return out(err)
     pw, _browser, page = conn
     # 이 세션이 안 움직였는데 탭이 바뀌었으면 알린다 — 다른 세션과 같은 탭을 쓰는 중 (#878)
@@ -158,7 +161,7 @@ def _dispatch(args, action, root, state_f, secret_value: str | None) -> int:
     reloaded = reload_notice(page, state)
     # 마지막 사용 시각 — 오래 방치된 브라우저와 지금 쓰는 브라우저를 가른다 (#825)
     state["last_used"] = time.strftime("%Y-%m-%d %H:%M:%S")
-    write_state(state_f, state)
+    update_state_for_browser(state_f, state.get("pid"), lambda fresh: fresh.update(last_used=state["last_used"]))
 
     # 이 조작이 일으킨 요청 — 저장이 정말 서버로 갔는지 (#930)
     capture = RequestCapture().attach(page) if getattr(args, "capture_requests", False) else None
@@ -237,7 +240,18 @@ def _attach_dialog_event(payload: dict, state: dict, state_f) -> None:
     if not event:
         return
     payload["dialog"] = event
-    write_state(state_f, state)
+    if event.get("armed"):
+        # Only the used-up plan changes; rewriting the whole copy read before the action could undo others' writes
+        update_state_for_browser(state_f, state.get("pid"), lambda fresh: fresh.pop("dialog", None))
+
+
+def _forget_browser(state: dict) -> None:
+    for key in ("cdp", "pid"):
+        state.pop(key, None)
+
+
+def _mark_hung(state: dict) -> None:
+    state[HUNG_MARK_KEY] = time.strftime("%Y-%m-%d %H:%M:%S")
 
 
 COMMANDS = [Command(name="web", help="Drive the browser", run=cmd_web, configure=configure)]

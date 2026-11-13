@@ -76,6 +76,20 @@ def write_state(f: Path, state: dict) -> None:
     f.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
 
 
+def update_state_for_browser(f: Path, expected_pid, change) -> bool:
+    """Re-read the state file > apply change only if it still points to expected_pid > written or not.
+
+    A command reads the state, then spends seconds attaching or acting. Meanwhile another session can relaunch
+    the browser on the same profile; writing the old copy back wiped the new pid and orphaned it (#1154).
+    """
+    fresh = read_state(f) if f.is_file() else {}
+    if str(fresh.get("pid")) != str(expected_pid):
+        return False
+    change(fresh)
+    write_state(f, fresh)
+    return True
+
+
 def require_playwright() -> tuple[object | None, dict | None]:
     """Playwright를 불러온다. 전용 가상환경 → 시스템 순으로 본다.
 
@@ -199,13 +213,25 @@ def _stale_reasons(process: dict, maximum_idle_hours: float) -> tuple[list[str],
         return ["profile_gone"], info
     if str(state.get("pid")) != str(process["pid"]):
         # 막 띄운 것은 상태 파일을 아직 안 썼을 수 있다
-        return ([] if is_starting else ["state_not_pointing"]), info
+        if is_starting:
+            return [], info
+        # The state lost its pid but the profile is in recent use: the next web open on it reattaches (#1154)
+        if _is_adoptable_orphan(state, idle, maximum_idle_hours):
+            return [], {**info, "adoptable": True}
+        return ["state_not_pointing"], info
     # 부모 없음: POSIX 는 PPID 1 로 넘어가고, 윈도우는 죽은 부모 번호가 남는다
     parent_pid = process.get("ppid")
     is_orphan = not parent_pid or parent_pid == 1 or not pid_alive(int(parent_pid))
     if is_orphan and idle is not None and idle >= maximum_idle_hours:
         return ["idle"], info
     return [], info
+
+
+def _is_adoptable_orphan(state: dict, idle: float | None, maximum_idle_hours: float) -> bool:
+    """State file exists, its own pid is gone (nothing else holds the profile) and it was used recently."""
+    recorded_pid = state.get("pid")
+    is_recorded_alive = bool(recorded_pid) and pid_alive(int(recorded_pid))
+    return bool(state) and not is_recorded_alive and idle is not None and idle < maximum_idle_hours
 
 
 def find_stale_browsers(maximum_idle_hours: float = STALE_REAP_IDLE_HOURS) -> dict:
@@ -223,3 +249,21 @@ def find_stale_browsers(maximum_idle_hours: float = STALE_REAP_IDLE_HOURS) -> di
                  "elapsed_seconds": process.get("elapsed_seconds"), **info}
         (stale if reasons else kept).append({**entry, "reasons": reasons} if reasons else entry)
     return {"readable": True, "stale": stale, "kept": kept}
+
+
+# Debugging port on a browser command line
+_DEBUGGING_PORT_PATTERN = re.compile(r"--remote-debugging-port=(\d+)")
+
+
+def running_browser_on_profile(profile: Path) -> dict | None:
+    """Browser main process already running on this profile folder > {pid, cdp}. None when none or unreadable.
+
+    One profile folder holds one browser: if it runs but the state lost it, reattach instead of a launch
+    that dies on SingletonLock (#1154).
+    """
+    wanted = _normalized_path(str(profile))
+    for process in owned_browser_processes(process_table() or []):
+        port = _DEBUGGING_PORT_PATTERN.search(process.get("command") or "")
+        if port and _normalized_path(process["profile"]) == wanted:
+            return {"pid": process["pid"], "cdp": f"http://127.0.0.1:{port.group(1)}"}
+    return None

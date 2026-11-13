@@ -4,12 +4,14 @@
 공용 프로필({base}/launch/_machine/browser-profiles/<이름>/)을 쓴다. 고른 프로필은 레포마다 기억한다(web-profile.json).
 같은 프로필 폴더는 브라우저 하나만 열 수 있다 — 공용 프로필도 브라우저 하나를 여러 세션이 CDP 로 나눠 쓴다(탭 소유 #878).
 로그인 같은 공들인 상태는 기기와 같은 원장에 mark 로 남긴다 (키: browser-profile:<이름> · browser-profile:repo:<버킷>).
+Profile pick is also kept per session in the same file, so sessions in one repo do not swap browsers (#1154).
 """
 from __future__ import annotations
 
 import json
 import os
 import re
+import time
 from pathlib import Path
 
 from common.state import MACHINE_BUCKET, base_dir
@@ -17,12 +19,17 @@ from common.state import MACHINE_BUCKET, base_dir
 from pro_launch.runtime import device_ledger
 from pro_launch.runtime.browser import PROFILE_FOLDER_NAME, WEB_STATE_FILE_NAME, state_path
 from pro_launch.runtime.context import state_home
+from pro_launch.runtime.session_identity import session_identity
 
 # 공용 프로필을 직접 지정 (레포 기억보다 우선)
 PROFILE_ENV_VAR = "LAUNCH_WEB_PROFILE"
 # 레포 기억 파일 · 레포 프로필로 돌아가는 이름
 PROFILE_CHOICE_FILE = "web-profile.json"
 REPO_PROFILE_NAME = "repo"
+# web-profile.json: per-session picks {session: {name, at}} next to the repo default "name" (#1154)
+SESSION_CHOICES_KEY = "sessions"
+# Sessions remembered per repo (oldest dropped first)
+MAX_SESSION_CHOICES = 32
 _PROFILE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,40}$")
 MARK_KEY_PREFIX = "browser-profile:"
 
@@ -36,25 +43,62 @@ def is_valid_profile_name(name: str) -> bool:
 
 
 def chosen_profile(root: Path) -> str | None:
-    """이 레포가 쓰는 공용 프로필 이름 (환경변수 > 레포 기억). 레포 프로필이면 None."""
+    """Shared profile this session uses (env var > this session's pick > repo memory). None means the repo profile."""
     from_env = (os.environ.get(PROFILE_ENV_VAR) or "").strip()
     if from_env:
         return None if from_env == REPO_PROFILE_NAME else from_env
-    try:
-        name = json.loads((state_home(root) / PROFILE_CHOICE_FILE).read_text(encoding="utf-8")).get("name")
-    except (OSError, json.JSONDecodeError, AttributeError):
+    choice = _read_choice(root)
+    # Per-session pick first: another session's --profile must not move this session to its browser (#1154)
+    session_entry = (choice.get(SESSION_CHOICES_KEY) or {}).get(session_identity())
+    name = session_entry.get("name") if isinstance(session_entry, dict) else choice.get("name")
+    if name == REPO_PROFILE_NAME:
         return None
     return name if isinstance(name, str) and is_valid_profile_name(name) else None
 
 
 def choose_profile(root: Path, name: str | None) -> None:
-    """이 레포가 쓸 프로필을 기억한다 (None · repo 면 레포 프로필로)."""
-    choice_file = state_home(root) / PROFILE_CHOICE_FILE
+    """Remember the profile for this session and as the repo default for new sessions (None · repo = repo profile)."""
+    choice = _read_choice(root)
     if not name or name == REPO_PROFILE_NAME:
-        choice_file.unlink(missing_ok=True)
+        choice.pop("name", None)
+    else:
+        choice["name"] = name
+    _write_choice(root, _with_session_pin(choice, name or REPO_PROFILE_NAME))
+
+
+def pin_session_profile(root: Path) -> None:
+    """Pin this session to the profile it resolves to now, so a later repo-default change by another session does not move it."""
+    if (os.environ.get(PROFILE_ENV_VAR) or "").strip():
         return
+    choice = _read_choice(root)
+    _write_choice(root, _with_session_pin(choice, chosen_profile(root) or REPO_PROFILE_NAME))
+
+
+def _with_session_pin(choice: dict, name: str) -> dict:
+    """choice > same dict with this session's pick set, keeping only the most recent MAX_SESSION_CHOICES sessions."""
+    sessions = {key: value for key, value in (choice.get(SESSION_CHOICES_KEY) or {}).items() if isinstance(value, dict)}
+    sessions.pop(session_identity(), None)
+    sessions[session_identity()] = {"name": name, "at": time.strftime("%Y-%m-%d %H:%M:%S")}
+    # Dicts keep insertion order: the re-inserted entry is newest, the first ones are oldest
+    choice[SESSION_CHOICES_KEY] = dict(list(sessions.items())[-MAX_SESSION_CHOICES:])
+    return choice
+
+
+def _read_choice(root: Path) -> dict:
+    try:
+        data = json.loads((state_home(root) / PROFILE_CHOICE_FILE).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _write_choice(root: Path, choice: dict) -> None:
+    """Atomic write (temp file > replace): sessions write this file concurrently."""
+    choice_file = state_home(root) / PROFILE_CHOICE_FILE
     choice_file.parent.mkdir(parents=True, exist_ok=True)
-    choice_file.write_text(json.dumps({"name": name}, ensure_ascii=False) + "\n", encoding="utf-8")
+    temporary_file = choice_file.with_name(f"{choice_file.name}.{os.getpid()}.tmp")
+    temporary_file.write_text(json.dumps(choice, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(temporary_file, choice_file)
 
 
 def profile_home(root: Path) -> Path:

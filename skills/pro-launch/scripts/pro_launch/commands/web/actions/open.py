@@ -1,7 +1,7 @@
 """`web open` — 브라우저를 독립 프로세스로 띄우고 CDP 로 붙는다.
 
 기록된 브라우저 판정 (#887): 살아 있고 응답 > 다시 붙는다 · 멈춤 > 끄고 새로 · 죽음 > 남은 잠금 정리 후 새로.
-치운 것은 `recovered` 로 돌려준다. 탭 (#878): `--new-tab` · `--tab-name` · `LAUNCH_TAB` 으로 세션 전용 탭을 쓴다.
+치운 것은 `recovered` 로 돌려준다. State lost a browser still running on the profile > adopt it (#1154). 탭 (#878): `--new-tab` · `--tab-name` · `LAUNCH_TAB` 으로 세션 전용 탭을 쓴다.
 """
 from __future__ import annotations
 
@@ -15,14 +15,15 @@ import stealth
 
 from pro_launch.commands.web import tabs
 from pro_launch.commands.web.recovery import (
-    BROWSER_STDERR_FILE, has_profile_lock, recover_recorded_browser, stderr_tail)
+    BROWSER_STDERR_FILE, cdp_responds, has_profile_lock, recover_recorded_browser, stderr_tail)
 from pro_launch.commands.web.session import close_blank_tabs, read_url_title, settle, web_connect
-from pro_launch.commands.web.watchdog import HUNG_MARK_KEY
+from pro_launch.commands.web.watchdog import HUNG_MARK_KEY, set_watched_browser
 from pro_launch.registry import Action
 from pro_launch.runtime import browser_profiles
-from pro_launch.runtime.browser import find_stale_browsers, read_state, require_playwright, write_state
+from pro_launch.runtime.browser import (
+    find_stale_browsers, read_state, require_playwright, running_browser_on_profile, write_state)
 from pro_launch.runtime.output import out
-from pro_launch.runtime.procs import detach_options, kill_browser, manual_kill_command
+from pro_launch.runtime.procs import detach_options, kill_browser, manual_kill_command, pid_alive
 from pro_launch.runtime.session_identity import session_identity
 
 # 새로 띄운 브라우저의 CDP 포트가 열리길 기다리는 횟수 · 간격 (약 15초)
@@ -100,7 +101,7 @@ def _reuse(args, prev: dict, state_f: Path, recovered: list[str], stale_closed: 
     pw.stop()
     prev["readonly"] = bool(args.readonly)
     prev["last_used"] = time.strftime("%Y-%m-%d %H:%M:%S")
-    write_state(state_f, prev)
+    _merge_reuse_state(state_f, prev)
     warnings = []
     if bool(args.headed) != bool(prev.get("headed")):
         warnings.append("headed only changes on a fresh launch — to change it, run web close, then open again")
@@ -115,6 +116,36 @@ def _reuse(args, prev: dict, state_f: Path, recovered: list[str], stale_closed: 
                            + (" — another session was using that tab, so this session got its own background tab" if is_isolated else "")
                            + _stale_closed_note(stale_closed),
                 "next": "web text  # read the screen text first"})
+
+
+def _merge_reuse_state(state_f: Path, prev: dict) -> None:
+    """Write what this open changed onto the fresh file — other sessions' tab records written meanwhile stay (#1154)."""
+    fresh = read_state(state_f) if state_f.is_file() else {}
+    if str(fresh.get("pid")) != str(prev.get("pid")):
+        # Adopted browser or first write: the file has nothing newer for this browser
+        write_state(state_f, prev)
+        return
+    fresh.update(readonly=prev["readonly"], last_used=prev["last_used"])
+    for key in ("tabs", "tab_marks"):
+        fresh[key] = {**(fresh.get(key) or {}), **(prev.get(key) or {})}
+    write_state(state_f, fresh)
+
+
+def _adopt_running_browser(prev: dict, profile: Path, root: Path) -> dict | None:
+    """State lost its browser but one still runs on this profile > state pointing to it. Else None.
+
+    Launching again would die on the profile lock (browser_start_failed, #1154).
+    """
+    recorded_pid = prev.get("pid")
+    if recorded_pid and pid_alive(int(recorded_pid)):
+        return None
+    running = running_browser_on_profile(profile)
+    if running is None or not cdp_responds(running["cdp"]):
+        return None
+    adopted = {key: value for key, value in prev.items() if key != HUNG_MARK_KEY}
+    adopted.update(running, profile=str(profile), profile_name=browser_profiles.chosen_profile(root))
+    adopted.setdefault("opened_at", time.strftime("%Y-%m-%d %H:%M:%S"))
+    return adopted
 
 
 def _free_port() -> int:
@@ -190,10 +221,17 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     if err:
         return out(err)
     prev = read_state(state_f)
-    stale_closed = _close_stale_browsers(prev.get("pid"))
     # 레포 프로필 또는 고른 공용 프로필 (#956)
     profile = browser_profiles.profile_home(root) / browser_profiles.PROFILE_FOLDER_NAME
+    adopted = _adopt_running_browser(prev, profile, root)
+    if adopted is not None:
+        prev = adopted
+        write_state(state_f, prev)
+    stale_closed = _close_stale_browsers(prev.get("pid"))
+    set_watched_browser(prev.get("pid"))
     decision, recovered = recover_recorded_browser(prev, profile)
+    if adopted is not None:
+        recovered = ["adopted_running_browser", *recovered]
     # 이미 떠 있으면 새로 띄우지 않고 붙는다 (#825). 새로 띄우면 프로필 잠금으로 실패한다
     if decision == "reuse":
         reused = _reuse(args, prev, state_f, recovered, stale_closed)
@@ -244,6 +282,7 @@ def _web_open(args, root: Path, state_f: Path) -> int:
              "opened_by_session": session_identity(), "profile_name": browser_profiles.chosen_profile(root),
              "viewport": prev.get("viewport"), "routes": prev.get("routes") or []}
     write_state(state_f, state)
+    set_watched_browser(proc.pid)
 
     hooked, tab_summary = False, None
     conn, cerr = web_connect(state, allow_missing_tab=True)

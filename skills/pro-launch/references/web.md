@@ -108,7 +108,9 @@ Values are `ask` (default) · `always` · `never`. A per-account value overrides
 - One profile folder can be open in only one browser. Sessions using the same profile attach to that browser over CDP and share it by tab (`--new-tab` · `LAUNCH_TAB`).
 - `tidy --buckets --apply` does not delete profiles that have a login record.
 - `web close` first sends a normal shutdown to the main Chrome process. Killing the whole group at once lost freshly received cookies before they reached disk, so logins disappeared (observed). The session-end hook runs `web close --session-end`, which closes only browsers this session started and that have no other session's tabs.
-- Profile selection order: `LAUNCH_WEB_PROFILE` environment variable > repo memory (`web profile use`) > repo profile.
+- Profile selection order: `LAUNCH_WEB_PROFILE` environment variable > this session's pick > repo memory (`web profile use`) > repo profile.
+  Each session keeps the profile it opened (#1154): another session's `web open --profile X` in the same repo only changes the default for new sessions, not the browser you are driving.
+- If the profile's browser is still running but its record lost it, `web open` reattaches to it (`recovered: adopted_running_browser`) instead of failing on the profile lock.
 When talking to the user, use plain language, not key names or config file paths.
 
 **Out of scope**: changing account security settings · turning off two-factor · storing authenticator (TOTP) secrets. Only screens that appear inside the login flow are handled.
@@ -379,6 +381,7 @@ If it really must run in the browser, split it into batches of a few dozen acros
 ```
 
 `web open` runs the same cleanup at its 12-hour default first, skips the browser it is about to attach to, and lists what it stopped in `stale_closed`.
+A browser whose profile was used within that window is never stopped just because its record lost it (`adoptable: true` in `kept`) — the next `web open` on that profile reattaches to it (#1154).
 
 - Judge a save by **the POST/PUT status from `--capture-requests`**, not by on-screen text. The secret-value file (`saved-values.env`, 0600) is read by `web type --text-env NAME`.
 - `web find --role textbox|searchbox|input` finds real `<input>` elements. `--all` removes the count limit. `web viewport --width W --height H` is also accepted.
@@ -549,4 +552,5 @@ Do not click by coordinates.
 | `no_matching_profile` | No browser profile has the `--need` state recorded. After a person logs in, run `web profile mark` |
 | `tab_gone` | The `LAUNCH_TAB` tab was closed. Run `web tab new --name <same name>` |
 | `playwright_missing` · `browser_not_open` · `browser_gone` | Ask the user and run `web setup` · run `web open` again |
+| `browser_attach_failed` | The browser is running but this attach failed (often a redirect or closing tab). Its record is kept — retry the command, then `web open` |
 | `browser_start_failed` | Still failing after self-recovery. Read `stderr_tail` · `causes` and decide. `web open` already clears a hung browser and leftover profile locks by itself and reports `recovered` — do not delete locks by hand |

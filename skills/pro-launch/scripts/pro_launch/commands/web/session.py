@@ -131,6 +131,12 @@ def web_connect(state: dict, allow_missing_tab: bool = False):
             # 살아 있는데 시간 초과면 멈춤이다 — browser_gone 으로 내면 디스패처가 pid 를 지워 고아가 된다
             if is_process_alive and "timeout" in str(e).lower():
                 return None, _hung_failure(state, f"Could not attach to the browser within {CONNECT_TIMEOUT_SECONDS}s (connection hung)")
+            # Alive but attach failed: not gone. Reporting browser_gone made the caller drop a live pid (#1154)
+            if is_process_alive:
+                return None, {"ok": False, "code": "browser_attach_failed", "pid": state.get("pid"), "url": None,
+                              "error": f"The browser is running but attaching failed: {str(e)[:300]}",
+                              "hint": "Often transient (the page was redirecting or closing tabs). The browser and its state are kept",
+                              "next": "Retry the same command; if it keeps failing, web open"}
             # 왜 끝났는지는 알 수 없다 — 프로필의 exit_type 은 창을 정상적으로 닫아도 Crashed 로 남는다 (#1094 실측)
             return None, {"ok": False, "code": "browser_gone", "last_used": state.get("last_used"), "idle_hours": idle_hours(state),
                           "hint": "A closed window, a crash and another session's web close look the same from here",

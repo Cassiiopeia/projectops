@@ -97,7 +97,8 @@ def _resolve_root(raw: str) -> tuple[Path, dict]:
         if is_scratch_root(candidate):
             # git·마커 없는 명시 root (scratchpad 등) — 경로 해시 버킷, 최근 루트에 남기지 않는다 (#932)
             return candidate, {"scratch": True, "path": str(candidate)}
-        return _remembered(candidate), {}
+        # Explicit repo root: a failure here is not "called from the wrong folder" (#1154)
+        return _remembered(candidate), {"explicit": True}
     if env_root:
         return _remembered(Path(env_root).expanduser().resolve()), {}
     if is_git_work_tree(candidate) and not repo_unknown(candidate):

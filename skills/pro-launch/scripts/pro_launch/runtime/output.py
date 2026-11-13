@@ -222,6 +222,9 @@ def _attach_root_candidates(payload: dict) -> None:
     payload["root_candidates"] = candidates
     # browser_not_open 은 브라우저가 살아 있는 루트로만 재시도 — 없는 곳으로 보내면 또 같은 오류 (#999)
     if payload.get("code") == "browser_not_open":
+        # --root named this repo: sending the agent to another repo's live browser drives the wrong project (#1154)
+        if ROOT_CTX.get("explicit"):
+            return
         live = [c for c in candidates if c.get("has_live_browser")]
         if not live:
             return

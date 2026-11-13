@@ -65,6 +65,8 @@ class Watchdog:
         self.phase = "action"
         self.connect_started: float | None = None
         self.stop_event = threading.Event()
+        # Browser this command drives — the hung mark goes only on it, not on one another session relaunched since
+        self.watched_pid = None
 
     def start(self) -> "Watchdog":
         threading.Thread(target=self._watch, name="web-watchdog", daemon=True).start()
@@ -88,7 +90,8 @@ class Watchdog:
         """멈춤 결과를 내고 끝낸다 (상태 파일에 hung_at 표시 > JSON 하나 > os._exit)."""
         state = read_state(self.state_file) if self.state_file and self.state_file.is_file() else {}
         limit = CONNECT_DEADLINE_SECONDS if self.phase == "connect" else self.total_seconds
-        if state.get("pid"):
+        is_same_browser = self.watched_pid is None or str(state.get("pid")) == str(self.watched_pid)
+        if state.get("pid") and is_same_browser:
             state[HUNG_MARK_KEY] = time.strftime("%Y-%m-%d %H:%M:%S")
             with contextlib.suppress(OSError):
                 write_state(self.state_file, state)
@@ -109,6 +112,13 @@ class Watchdog:
         with contextlib.suppress(Exception):
             sys.stdout.flush()
         os._exit(exit_code if isinstance(exit_code, int) else 1)
+
+
+def set_watched_browser(pid) -> None:
+    """Tell the running watchdog which browser pid this command drives (no-op without a watchdog)."""
+    watchdog = _ACTIVE.get("watchdog")
+    if watchdog is not None:
+        watchdog.watched_pid = pid
 
 
 @contextlib.contextmanager
