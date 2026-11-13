@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.100.2  
-**Last updated:** 2026-11-13T12:02:11Z  
+**Current version:** 4.101.0  
+**Last updated:** 2026-11-13T12:05:16Z  
+
+---
+
+## [4.101.0] - 2026-11-13
+
+**PR:** #1139  
+
+**Other**
+- A structured form for reporting agent skill bugs in the projectops repository
 
 ---
 

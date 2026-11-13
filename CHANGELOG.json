@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-13T12:02:11Z",
-    "currentVersion": "4.100.2",
+    "lastUpdated": "2026-11-13T12:05:16Z",
+    "currentVersion": "4.101.0",
     "projectType": "basic",
-    "totalReleases": 401,
+    "totalReleases": 402,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.101.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-13",
+      "pr_number": 1139,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Other**\n  * A structured form for reporting agent skill bugs in the projectops repository",
+      "parsed_changes": {
+        "other": {
+          "title": "Other",
+          "items": [
+            "A structured form for reporting agent skill bugs in the projectops repository"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.100.2",
       "project_type": "basic",
