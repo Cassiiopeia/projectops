@@ -2,7 +2,7 @@
 
 > Generated file — do not edit by hand. Source: `troubleshooting/<area>/<id>.json`.
 > Rebuild: `python3 scripts/build_troubleshooting.py skills/<skill>` (from the repo root).
-> Writing rules: `skills/references/memory-principles.md` §6. The `known_fix` in failure responses summarizes these entries.
+> Writing rules: `../../references/memory-principles.md` §6. The `known_fix` in failure responses summarizes these entries.
 
 ## Contents
 

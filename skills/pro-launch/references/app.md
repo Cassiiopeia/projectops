@@ -332,9 +332,9 @@ QUERY='coffee' {PYTHON} {SCRIPTS}/launch_cli.py app type --device "$DEV" --text-
 - **iOS types with Maestro `inputText` (#895).** The value is passed only through a `MAESTRO_` environment variable, so it stays out of flow files and the command line.
   Without Maestro you get `ios_tool_missing` (install command in `next`); on failure, `app_type_failed` (values in the output are `***`). 10–40 seconds per call.
   type does not use the resident session even if one exists (`session_fallback: secret_input_per_call`, see "iOS resident session" above).
-- If no login info is stored, ask the user and **`cred set` only what they allowed** ("When storing login info" in `references/web.md`).
+- If no login info is stored, ask the user and **`cred set` only what they allowed** ("When storing login info" in `web.md`).
 - Handle in-app login interstitials (trust this device · stay signed in · upsell) with `login_policy` in the result — the rules are the same as for the web
-  ("Login interstitials" and "Two-factor authentication" in `references/web.md`). Read the screen with `app shot` · the tree, send the capture into the conversation,
+  ("Login interstitials" and "Two-factor authentication" in `web.md`). Read the screen with `app shot` · the tree, send the capture into the conversation,
   get the code from the conversation and type it with `app type --text-env`. For approval waits, re-read the screen to confirm it moved on.
 
 ### Observe

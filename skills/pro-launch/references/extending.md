@@ -5,7 +5,7 @@
 **The code map is `scripts/pro_launch/ARCHITECTURE.md`. It says where everything lives and which file to change for each kind of work.**
 This document only covers "how to add something new" on top of that.
 
-First read the **"Python behavior script standard"** section of the repo's `docs/architecture/agent/skills.md` and `skills/references/mcp-subcommand-rules.md`.
+First read the **"Python behavior script standard"** section of the repo's `docs/architecture/agent/skills.md` and `../../references/mcp-subcommand-rules.md`.
 The key points:
 
 - **Standard library first.** If an external package is truly needed, put install instructions in the result (Playwright goes into its own venv).
@@ -73,7 +73,7 @@ Steps:
 2. Register it in `BACKENDS`. `pro_launch/commands/app/` only picks a backend and calls it, so it **should not need changes.**
    If it does, the interface is leaking; move that part into the backend.
 3. Check that the new backend implements every member of the `Backend` contract, and run it on a real device once (below).
-4. Write down how to connect and the pitfalls in `references/app.md`. What worked on this Mac belongs to `learn`, not the docs.
+4. Write down how to connect and the pitfalls in `app.md`. What worked on this Mac belongs to `learn`, not the docs.
 
 **Forbidden**: app backends that tap coordinates with the host mouse (`cliclick` · AppleScript System Events · CGEvent). They steal the user's cursor,
 and you cannot tell what was tapped. Only use methods that tap **inside the device**: accessibility tree, the device's built-in input, or E2E tools.
@@ -123,7 +123,7 @@ Steps:
 2. **Anything that lives only while connected goes into the state file and is re-applied on every connect.** `web` connects over CDP (`connect_over_cdp`) on every call
    and then disconnects, so settings like console hooks, stealth, viewport, and response overrides disappear when the connection drops (#625, measured).
    Make new settings re-install in `web_connect` in `commands/web/session.py`. Do not start the browser with Playwright `launch()` — it dies with the driver.
-3. If you add an action that changes things, check that the safety contract in `references/web.md` (local only · ask for anything else) applies.
+3. If you add an action that changes things, check that the safety contract in `web.md` (local only · ask for anything else) applies.
    In a read-only session (`state["readonly"]`), filter with `is_mutating_target()` in `commands/web/targets.py` and return `mutating_blocked`.
 4. **Return results the agent can judge (#825).** An action that changes the screen returns the `url` · `title` before and after, plus what it targeted.
    A failure returns a `code` (not a message) and the next command to call (`next`). If it only says "succeeded", the agent taps the wrong thing and moves on
