@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-13T13:23:43Z",
-    "currentVersion": "4.101.2",
+    "lastUpdated": "2026-11-13T13:52:33Z",
+    "currentVersion": "4.102.0",
     "projectType": "basic",
-    "totalReleases": 404,
+    "totalReleases": 405,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.102.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-13",
+      "pr_number": 1156,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Other**\n  * Community issues are assigned automatically when a contributor comments /assign, and released after 7 days without a pull request",
+      "parsed_changes": {
+        "other": {
+          "title": "Other",
+          "items": [
+            "Community issues are assigned automatically when a contributor comments /assign, and released after 7 days without a pull request"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.101.2",
       "project_type": "basic",

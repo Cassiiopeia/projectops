@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.101.2  
-**Last updated:** 2026-11-13T13:23:43Z  
+**Current version:** 4.102.0  
+**Last updated:** 2026-11-13T13:52:33Z  
+
+---
+
+## [4.102.0] - 2026-11-13
+
+**PR:** #1156  
+
+**Other**
+- Community issues are assigned automatically when a contributor comments /assign, and released after 7 days without a pull request
 
 ---
 
