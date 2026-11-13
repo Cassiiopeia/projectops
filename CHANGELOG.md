@@ -1,7 +1,20 @@
 # Changelog
 
-**Current version:** 4.103.0  
-**Last updated:** 2026-11-13T13:56:32Z  
+**Current version:** 4.103.1  
+**Last updated:** 2026-11-13T14:13:01Z  
+
+---
+
+## [4.103.1] - 2026-11-13
+
+**PR:** #1172  
+
+**Bug fixes**
+- Two agent sessions in the same project no longer close or take over each other's browser
+- Reopening a shared browser profile reattaches to its running browser instead of failing on the profile lock
+
+**Documentation**
+- Contributing guide explains /assign and how maintainers merge pull requests opened against the wrong branch
 
 ---
 

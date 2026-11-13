@@ -1,14 +1,40 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-13T13:56:32Z",
-    "currentVersion": "4.103.0",
+    "lastUpdated": "2026-11-13T14:13:01Z",
+    "currentVersion": "4.103.1",
     "projectType": "basic",
-    "totalReleases": 406,
+    "totalReleases": 407,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.103.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-13",
+      "pr_number": 1172,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * Two agent sessions in the same project no longer close or take over each other's browser\n  * Reopening a shared browser profile reattaches to its running browser instead of failing on the profile lock\n\n* **Documentation**\n  * Contributing guide explains /assign and how maintainers merge pull requests opened against the wrong branch",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Two agent sessions in the same project no longer close or take over each other's browser",
+            "Reopening a shared browser profile reattaches to its running browser instead of failing on the profile lock"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Contributing guide explains /assign and how maintainers merge pull requests opened against the wrong branch"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.103.0",
       "project_type": "basic",
