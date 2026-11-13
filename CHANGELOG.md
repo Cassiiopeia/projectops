@@ -1,7 +1,20 @@
 # Changelog
 
-**Current version:** 4.101.0  
-**Last updated:** 2026-11-13T12:05:16Z  
+**Current version:** 4.101.1  
+**Last updated:** 2026-11-13T12:32:07Z  
+
+---
+
+## [4.101.1] - 2026-11-13
+
+**PR:** #1144  
+
+**Documentation**
+- The README first screen goes straight from what projectops does to how to start; the latest version moved further down
+- Contributor rules have an English summary, and adding a skill has a step-by-step checklist
+
+**Other**
+- CI warns when a README translation falls behind the English README
 
 ---
 

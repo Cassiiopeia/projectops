@@ -1,14 +1,40 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-13T12:05:16Z",
-    "currentVersion": "4.101.0",
+    "lastUpdated": "2026-11-13T12:32:07Z",
+    "currentVersion": "4.101.1",
     "projectType": "basic",
-    "totalReleases": 402,
+    "totalReleases": 403,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.101.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-13",
+      "pr_number": 1144,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Documentation**\n  * The README first screen goes straight from what projectops does to how to start; the latest version moved further down\n  * Contributor rules have an English summary, and adding a skill has a step-by-step checklist\n\n* **Other**\n  * CI warns when a README translation falls behind the English README",
+      "parsed_changes": {
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "The README first screen goes straight from what projectops does to how to start; the latest version moved further down",
+            "Contributor rules have an English summary, and adding a skill has a step-by-step checklist"
+          ]
+        },
+        "other": {
+          "title": "Other",
+          "items": [
+            "CI warns when a README translation falls behind the English README"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.101.0",
       "project_type": "basic",
