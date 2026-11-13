@@ -257,12 +257,12 @@ Use `python` · `py -3` or the real installed `python.exe` path.
 
 ```bash
 ... web open  --url {URL}              # --headed shows the window · --readonly for admin consoles
-... web goto  --url {URL}
+... web goto  {URL}                    # same as --url {URL} (open takes a bare URL too)
 ... web text  [--selector "{scope}"] [--max-chars 3000]     # visible text
 ... web find  --text "{text}" | --role link|button|row|tab | --selector "{css}"   # candidates + ref
 ... web click --ref {N} [--expect-url "{part of URL}" | --expect-text "{text}"]
 ... web type  --selector "{selector}" --text "{value}"
-... web shot  --out {name}              # --full whole page · --selector one element
+... web shot  --out {name}              # --full whole page · --selector one element; summary shows the captured URL
 ... web assert --url /home --text "Welcome"
 ... web console                        # console output collected since load
 ... web close

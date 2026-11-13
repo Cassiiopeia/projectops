@@ -56,6 +56,8 @@ class Action:
     options: tuple[str, ...] | None = None
     # 기기를 쓰는 명령(app)의 동작은 반드시 선언한다 (DEVICE_USES) — 테스트가 빠진 것을 잡는다
     device_use: str | None = None
+    # 옵션 이름 없이 값 하나로도 받는 옵션의 dest (예: "url" > `web goto http://…`). 동작당 하나만 (#622 · #1149)
+    positional: str | None = None
 
     def __post_init__(self) -> None:
         if self.needs not in NEEDS:
@@ -65,6 +67,10 @@ class Action:
         if self.options is not None and not isinstance(self.options, tuple):
             raise ValueError(f"options must be a tuple: {self.options!r}")
 
+
+# 위치 값을 담는 칸 · 그 값을 옮길 옵션 이름 칸 (apply_positional_value)
+POSITIONAL_VALUE_DEST = "positional_value"
+POSITIONAL_TARGET_DEST = "positional_target"
 
 # 모듈 이름 → 오류. 한 모듈이 깨져도 나머지 명령은 돈다
 LOAD_ERRORS: dict[str, str] = {}
@@ -170,6 +176,23 @@ def add_action_parsers(parser: argparse.ArgumentParser, actions: dict[str, Actio
             shared[option](p)
         if action.configure:
             action.configure(p)
+        if action.positional:
+            p.add_argument(POSITIONAL_VALUE_DEST, nargs="?", default=None, metavar=action.positional.upper(),
+                           help=f"same as --{action.positional.replace('_', '-')}")
+            p.set_defaults(**{POSITIONAL_TARGET_DEST: action.positional})
+
+
+def apply_positional_value(args: argparse.Namespace) -> str | None:
+    """위치 값 > 선언한 옵션으로 옮김. 둘 다 다른 값이면 오류 문구, 아니면 None"""
+    value = getattr(args, POSITIONAL_VALUE_DEST, None)
+    target = getattr(args, POSITIONAL_TARGET_DEST, None)
+    if value is None or not target:
+        return None
+    current = getattr(args, target, None)
+    if current and current != value:
+        return f"got both {value} and --{target.replace('_', '-')} {current}; pass one"
+    setattr(args, target, value)
+    return None
 
 
 def action_usage_lines(parser: argparse.ArgumentParser) -> list[str]:

@@ -303,6 +303,6 @@ def configure(p) -> None:
                    help="open: pick the profile marked with this state (kind:name, e.g. login:google) (web profile mark)")
 
 
-ACTION = Action(name="open", needs="launch", run=_web_open, configure=configure, options=("url", "timeout"),
+ACTION = Action(name="open", needs="launch", run=_web_open, configure=configure, options=("url", "timeout"), positional="url",
                 help="Launch the browser as a separate process (reattaches if running; cleans up by itself if hung or locked)",
                 example="web open --url http://localhost:3000 --headed")

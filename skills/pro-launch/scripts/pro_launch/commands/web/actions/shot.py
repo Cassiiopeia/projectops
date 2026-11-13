@@ -82,7 +82,8 @@ def execute(page, args, state: dict) -> dict:
     return {"action": "shot", "file": str(final), "url": page.url,
             "title": safe_title(page), "viewport": state.get("viewport"),
             "routes": len(state.get("routes") or []),
-            "summary": f"Captured the screen: {final.name}",
+            # 찍은 주소를 요약에 — 앞 goto 가 실패해도 요약만 읽는 에이전트가 엉뚱한 탭인 걸 알게 (#1149)
+            "summary": f"Captured the screen: {final.name} ({page.url})",
             "next": "Read the image and decide the next action"}
 
 

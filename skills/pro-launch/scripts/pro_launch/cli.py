@@ -124,6 +124,10 @@ def main(argv: list[str] | None = None) -> int:
             args = parser.parse_args(raw)
         if getattr(args, "_tail_dest", None):
             setattr(args, args._tail_dest, tail)
+        if positional_error := registry.apply_positional_value(args):
+            return emit_shaped({"ok": False, "code": "bad_args", "error": f"Invalid arguments: {positional_error}",
+                                "summary": f"Argument error: {positional_error}",
+                                "next": "launch_cli.py <subcommand> --help"})
     except SystemExit as e:
         if e.code in (0, None):
             raise

@@ -10,6 +10,11 @@ import difflib
 import re
 
 # 다른 CLI·스킬에서 넘어오는 옵션 이름 > 이 CLI 의 이름 (받는 명령에만 제안한다)
+# 에이전트가 먼저 떠올리는 동작 이름 > 실제 이름 (철자가 멀어 difflib 이 못 찾음, #1149)
+ACTION_ALIASES = {
+    "screenshot": "shot", "capture": "shot", "snap": "shot",
+    "navigate": "goto", "visit": "goto", "go": "goto",
+}
 OPTION_ALIASES = {
     "--project-root": "--root", "--project": "--root", "--repo-root": "--root", "--repo": "--root",
     "--cwd": "--root", "--dir": "--root", "--workdir": "--root",
@@ -83,7 +88,8 @@ def diagnose(parser: argparse.ArgumentParser, raw: list[str], reason: str) -> di
             break
         if head not in choices:
             found["unknown"] = [head]
-            suggestion = difflib.get_close_matches(head, list(choices), n=1, cutoff=SIMILARITY_CUTOFF)
+            suggestion = ([ACTION_ALIASES[head]] if ACTION_ALIASES.get(head) in choices
+                          else difflib.get_close_matches(head, list(choices), n=1, cutoff=SIMILARITY_CUTOFF))
             if suggestion:
                 found["did_you_mean"] = {head: suggestion[0]}
             found["commands" if target is parser else "actions"] = list(choices)
