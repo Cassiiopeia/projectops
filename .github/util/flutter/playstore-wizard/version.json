@@ -1,9 +1,17 @@
 {
   "name": "Android Play Store Setup Wizard",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Setup wizard for deploying a Flutter Android app to the Play Store",
-  "lastUpdated": "2026-10-22",
+  "lastUpdated": "2026-11-13",
   "changelog": [
+    {
+      "version": "1.8.0",
+      "date": "2026-11-13",
+      "changes": [
+        "Fastfile template reads STORE_RELEASE_MODE (auto | manual, default auto = current behaviour). With manual, store_submit promotes production as a draft so a person starts the rollout in Play Console (projectops#1125)",
+        "An unknown STORE_RELEASE_MODE value stops the lane instead of falling back to automatic release"
+      ]
+    },
     {
       "version": "1.7.0",
       "date": "2026-10-22",

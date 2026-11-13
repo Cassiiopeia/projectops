@@ -179,6 +179,7 @@ The Fastlane deployment automation script.
 - `APP_VERSION` / `BUILD_NUMBER`
 - `RELEASE_NOTES`: the default text is used if empty
 - `DEPLOY_MODE`: deployment mode such as `testflight_only` or review submission
+- `STORE_RELEASE_MODE`: `auto` (default, released as soon as approved) or `manual` (a person releases the approved version in App Store Connect). Set with the repository variable or the manual run input `store_release_mode`; see [Release mode in the CI/CD overview](flutter-cicd-overview.md#release-mode-store_release_mode)
 - `DELIVER_LOCALES`: locales for the review metadata
 
 ### 3. Gemfile

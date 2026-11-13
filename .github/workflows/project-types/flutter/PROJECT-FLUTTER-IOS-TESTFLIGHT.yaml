@@ -76,6 +76,16 @@ on:
           - store_only
           - store_prepare
           - store_submit
+      # 출시 방식을 이 실행만 바꾼다. default = 레포 변수 STORE_RELEASE_MODE → auto (#1125)
+      store_release_mode:
+        description: "Release after review (store_submit only): auto = goes live when approved / manual = a person releases the approved version in App Store Connect. default = repo variable STORE_RELEASE_MODE, then auto"
+        required: false
+        default: "default"
+        type: choice
+        options:
+          - default
+          - auto
+          - manual
       whats_new_override:
         description: "Use this App Store \"What's New\" text for this run only (empty = follow the STORE_WHATS_NEW_OVERRIDE env rule)"
         required: false
@@ -119,6 +129,15 @@ env:
   #    store_only 로 낮춘다. App Store 심사는 Actions 에서 수동 실행(deploy_mode)으로 올린다.
   #    push 마다 자동으로 하려면 .github/config/store-deploy.json 에 "ios": {"auto_submit_on_push": true}.
   DEPLOY_MODE: ${{ github.event.inputs.deploy_mode || vars.IOS_DEPLOY_MODE || 'store_only' }}
+
+  # ============================================
+  # 📝 출시 방식 (#1125) — store_submit 에서 심사 승인 뒤 출시를 누가 하나
+  # ============================================
+  #   auto   : 승인 즉시 자동 출시 (기본, 지금 동작 — deliver automatic_release: true)
+  #   manual : 승인 뒤 App Store Connect 에서 사람이 '이 버전 출시' (automatic_release: false)
+  # 우선순위: 수동 실행 입력 store_release_mode > 레포 변수 STORE_RELEASE_MODE > auto
+  # 레포 변수는 Android(PROJECT-FLUTTER-ANDROID-PLAYSTORE-CICD.yaml)와 같이 쓴다 — 두 스토어를 같은 순간에 열 때.
+  STORE_RELEASE_MODE: ${{ (github.event.inputs.store_release_mode != 'default' && github.event.inputs.store_release_mode) || vars.STORE_RELEASE_MODE || 'auto' }}
 
   # ============================================
   # 📝 스토어 '새로운 기능(What's New)' 문구 덮어쓰기
@@ -174,6 +193,14 @@ jobs:
               fail=1
             fi
           done
+          # 출시 방식 오타는 빌드 전에 멈춘다 — 조용히 auto 로 가면 원치 않는 자동 출시가 된다 (#1125)
+          case "$STORE_RELEASE_MODE" in
+            auto|manual) ;;
+            *)
+              echo "::error title=Deploy preflight check::STORE_RELEASE_MODE='${STORE_RELEASE_MODE}' is not valid. Use auto or manual (repo variable STORE_RELEASE_MODE or the store_release_mode input)."
+              fail=1
+              ;;
+          esac
           [ "$fail" = "0" ] || exit 1
           echo "✅ Preflight check passed"
 
@@ -502,6 +529,11 @@ jobs:
           if ! grep -qE '^[[:space:]]*lane[[:space:](]*:deploy([[:space:],)]|$)' ios/fastlane/Fastfile; then
             echo "::warning title=Fastfile has no deploy lane::${APP_ROOT}/ios/fastlane/Fastfile does not define 'lane :deploy', which this workflow calls. If upload fails with \"Could not find lane 'ios deploy'\", regenerate the Fastfile with the TestFlight wizard (.github/util/flutter/testflight-wizard/)."
           fi
+          # manual 인데 옛 Fastfile 이 값을 안 읽으면 승인 즉시 자동 출시된다 (되돌릴 수 없음) — 경고가 아니라 멈춘다 (#1125)
+          if [ "$STORE_RELEASE_MODE" = "manual" ] && ! grep -q "STORE_RELEASE_MODE" ios/fastlane/Fastfile; then
+            echo "::error title=Fastfile does not read STORE_RELEASE_MODE::Release mode is manual, but ${APP_ROOT}/ios/fastlane/Fastfile never reads STORE_RELEASE_MODE, so an approved version would still be released automatically. Regenerate the Fastfile with the TestFlight wizard (.github/util/flutter/testflight-wizard/), or set the release mode back to auto."
+            exit 1
+          fi
           echo "✅ Fastfile found: ${APP_ROOT}/ios/fastlane/Fastfile"
 
       - name: Install Fastlane
@@ -536,6 +568,27 @@ jobs:
         env:
           INPUT_DEPLOY_MODE: ${{ github.event.inputs.deploy_mode }}
         run: python3 .github/scripts/store_deploy_config.py resolve --platform ios
+
+      # 이번 실행의 출시 방식을 요약에 남긴다 — 실행 목록만 보고도 어떤 출시였는지 알 수 있게 (#1125)
+      - name: Summarize store release mode
+        working-directory: ${{ github.workspace }}
+        run: |
+          case "$DEPLOY_MODE" in
+            store_submit|appstore_submit)
+              if [ "$STORE_RELEASE_MODE" = "manual" ]; then
+                effect="Submits for review with manual release: after approval, a person releases the version in App Store Connect."
+              else
+                effect="Submits for review and releases automatically when approved."
+              fi ;;
+            *) effect="No effect on this run: deploy mode is ${DEPLOY_MODE}, and only store_submit uses the release mode." ;;
+          esac
+          {
+            echo "### Store release mode: \`${STORE_RELEASE_MODE}\`"
+            echo ""
+            echo "- Deploy mode: \`${DEPLOY_MODE}\`"
+            echo "- ${effect}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "🚦 Store release mode: ${STORE_RELEASE_MODE} / deploy mode: ${DEPLOY_MODE} — ${effect}"
 
       # TestFlight 업로드 (마법사 생성 Fastfile 의 deploy lane, DEPLOY_MODE 에 따라 심사 제출까지).
       # 번호가 거부되면 ios_release.py 가 새 번호로 아카이브부터 다시 한다 (최대 5회).
@@ -599,7 +652,7 @@ jobs:
             export STORE_NOTES_DIR="$NOTES_OUT"
           fi
 
-          echo "🔧 DEPLOY_MODE: $DEPLOY_MODE / APP_IDENTIFIER: $APP_IDENTIFIER"
+          echo "🔧 DEPLOY_MODE: $DEPLOY_MODE / STORE_RELEASE_MODE: $STORE_RELEASE_MODE / APP_IDENTIFIER: $APP_IDENTIFIER"
           # `bundle exec fastlane deploy` 는 아래 스크립트가 ios/ 에서 호출한다 (재시도 때마다 다시 부름).
           python3 "$GITHUB_WORKSPACE/.github/scripts/ios_release.py" archive-upload --phase upload
 

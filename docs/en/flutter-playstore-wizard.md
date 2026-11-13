@@ -164,9 +164,11 @@ You do not have to write the file by hand. Add `--deploy-mode store_prepare --pr
 
 **Production rollout fraction:** set it with the repository variable `ANDROID_PRODUCTION_ROLLOUT` (greater than 0, at most 1.0, default 1.0). 1.0 goes out to all users as soon as review passes and cannot be undone. Below 1.0 (for example 0.1), only that fraction is rolled out in stages, and **raising the fraction is not automated**; a person raises it in Play Console under Production > Release management. If something goes wrong, halt the release on the same screen.
 
+**Release mode (`STORE_RELEASE_MODE`, #1125):** choose `auto` (default, current behaviour) or `manual` with the repository variable or the manual run input `store_release_mode`. With `manual`, `store_submit` also promotes production as a draft and a person presses "Start rollout" in the console. See [Release mode in the CI/CD overview](flutter-cicd-overview.md#release-mode-store_release_mode) for details and the Android limit.
+
 **The first release is manual:** an app that has never been released to production cannot be promoted to production through the API. You have to release it once from the console. A build already on closed testing can be attached without rebuilding via Production > New release > "Add from library".
 
-**If you edited the Fastfile yourself:** values the workflow passes (`DEPLOY_MODE`, `PROMOTE_*`, `PRODUCTION_ROLLOUT`) are silently ignored if the Fastfile does not read them. The workflow detects this and leaves a warning in the CI log, but does not block. Running the wizard again rewrites this file from the template, so your manual edits are lost. Check with a diff before running it.
+**If you edited the Fastfile yourself:** values the workflow passes (`DEPLOY_MODE`, `PROMOTE_*`, `PRODUCTION_ROLLOUT`) are silently ignored if the Fastfile does not read them. The workflow detects this and leaves a warning in the CI log, but does not block. The exception is `STORE_RELEASE_MODE=manual`: if the Fastfile does not read it, the release would go live automatically, so the run stops before the build. Running the wizard again rewrites this file from the template, so your manual edits are lost. Check with a diff before running it.
 
 **Required environment variables:**
 - `AAB_PATH` - path to the AAB file

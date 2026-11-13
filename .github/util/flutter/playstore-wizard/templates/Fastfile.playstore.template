@@ -74,6 +74,7 @@ platform :android do
   #  CLOSED_TESTING_TRACK            alpha        비공개 트랙 이름 (콘솔에서 바꿨다면 그 이름)
   #  OPEN_TESTING_TRACK              beta         공개 트랙 이름
   #  PRODUCTION_ROLLOUT              1.0          프로덕션 출시 비율 (0 초과 1.0 이하, 아래 설명)
+  #  STORE_RELEASE_MODE              auto         store_submit 의 출시 방식 (auto | manual, 아래 설명, #1125)
   #
   # 이 파일을 직접 고쳐 위 값을 읽지 않게 만들면, 워크플로가 값을 넘겨도 **조용히 무시된다.**
   # 워크플로가 이를 감지해 CI 로그에 경고를 남기지만(Copy Fastfile 단계), 막지는 않는다.
@@ -127,6 +128,12 @@ platform :android do
   #   store_submit  : internal 업로드 + production completed 승급(Google 심사 자동 등록) — 완전 자동
   # (구 testflight_only/appstore_prepare/appstore_submit 별칭도 호환)
   #
+  # 출시 방식(STORE_RELEASE_MODE, #1125) — store_submit 의 프로덕션 상태만 바꾼다:
+  #   auto   (기본) : completed 승급 → 심사 → 통과 즉시 출시 (지금 동작)
+  #   manual        : draft 승급 → 사람이 콘솔에서 '출시 시작' (그때 심사 시작)
+  # Play API 에는 "심사만 보내고 출시는 보류" 상태가 없다 (draft·inProgress·halted·completed 뿐).
+  # 심사를 먼저 받아 두고 정한 순간에 열려면 콘솔 '관리형 게시'를 켜고 auto 를 쓴다.
+  #
   # ⚠️ 신규 앱(Draft App)은 release_status: 'completed' 및 프로덕션 자동 승급이 불가합니다.
   #   최초 정식 출시 1회는 Play Console에서 수동으로 하고, 그 이후부터 이 lane으로 자동화됩니다.
   # ============================================================
@@ -167,7 +174,17 @@ platform :android do
       UI.user_error!("PRODUCTION_ROLLOUT 은 0 초과 1.0 이하의 숫자여야 합니다 (받은 값: '#{production_rollout}'). 예: 1.0(전체), 0.1(10%)")
     end
 
+    # 출시 방식: lane 을 직접 불러도 지금 동작(auto)이 기본. 오타는 조용히 auto 로 넘기지 않고 멈춘다
+    release_mode = (ENV["STORE_RELEASE_MODE"] || "auto").strip
+    release_mode = "auto" if release_mode.empty?
+    unless ["auto", "manual"].include?(release_mode)
+      UI.user_error!("STORE_RELEASE_MODE must be auto or manual (got: '#{release_mode}')")
+    end
+    # manual 은 store_submit 도 draft 로 둔다 — 심사 등록·출시를 사람이 콘솔에서 시작
+    submit = false if release_mode == "manual"
+
     puts "📦 배포 정보: #{version_name} (#{version_code}) / 모드: #{deploy_mode} (프로덕션 승급: #{promote} / 심사 자동등록: #{submit})"
+    puts "🚦 Release mode: #{release_mode} (production status on promotion: #{promote ? (submit ? 'completed' : 'draft') : 'not promoted'})"
     puts "🛤️  트랙 승급: 비공개(#{closed_track})=#{promote_closed} / 공개(#{open_track})=#{promote_open}"
 
     # ── Step 1: 내부 테스트 트랙에 업로드 ──────────────────────
@@ -224,6 +241,7 @@ platform :android do
     # ── Step 3: 내부 테스트 → 프로덕션 승급 ──
     #   store_submit  : completed로 승급 → Google 심사 자동 등록 (완전 자동)
     #   store_prepare : draft로 승급 → Play Console에서 사람이 "출시 시작" 눌러야 심사 진행
+    #   store_submit + STORE_RELEASE_MODE=manual : store_prepare 와 같은 draft (submit 을 위에서 끔)
     promote_status = submit ? 'completed' : 'draft'
     puts ""
     puts "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

@@ -35,6 +35,16 @@ on:
           - store_only
           - store_prepare
           - store_submit
+      # 출시 방식을 이 실행만 바꾼다. default = 레포 변수 STORE_RELEASE_MODE → auto (#1125)
+      store_release_mode:
+        description: "Release after review (store_submit only): auto = goes live when approved / manual = production stays a draft and a person starts the rollout in Play Console. default = repo variable STORE_RELEASE_MODE, then auto"
+        required: false
+        default: "default"
+        type: choice
+        options:
+          - default
+          - auto
+          - manual
       # default = 수동 실행에서도 store-deploy.json → 레포 변수 → 기본값을 따른다 (#1005)
       promote_to_closed_testing:
         description: "Also upload to the closed testing (alpha) track, needed for production access on personal accounts (12 testers, 14 days). default = store-deploy.json, then repo variable ANDROID_PROMOTE_TO_CLOSED_TESTING, then true"
@@ -130,6 +140,11 @@ env:
   # 단계적 출시 후 비율을 올리는 일은 자동화되지 않는다 — Play Console 프로덕션 > 출시 관리에서 사람이 올리고,
   # 문제가 생기면 같은 화면에서 출시를 중단한다. 레포 변수 ANDROID_PRODUCTION_ROLLOUT 로 바꾼다.
   PRODUCTION_ROLLOUT: ${{ vars.ANDROID_PRODUCTION_ROLLOUT || '1.0' }}
+  # 출시 방식 (#1125) — store_submit 에서 심사 통과 뒤 출시를 누가 하나. 우선순위: 수동 실행 입력 > 레포 변수 > auto
+  #   auto   : 프로덕션 completed 승급 → 심사 통과 즉시 출시 (기본, 지금 동작)
+  #   manual : 프로덕션 draft 승급 → 사람이 콘솔에서 '출시 시작' (Play API 에 "심사만 보내고 보류" 상태가 없음)
+  # 레포 변수 STORE_RELEASE_MODE 는 iOS(PROJECT-FLUTTER-IOS-TESTFLIGHT.yaml)와 같이 쓴다.
+  STORE_RELEASE_MODE: ${{ (github.event.inputs.store_release_mode != 'default' && github.event.inputs.store_release_mode) || vars.STORE_RELEASE_MODE || 'auto' }}
 
 jobs:
   prepare-build:
@@ -163,6 +178,14 @@ jobs:
               fail=1
             fi
           done
+          # 출시 방식 오타는 빌드 전에 멈춘다 — 조용히 auto 로 가면 원치 않는 자동 출시가 된다 (#1125)
+          case "$STORE_RELEASE_MODE" in
+            auto|manual) ;;
+            *)
+              echo "::error title=Deploy preflight::STORE_RELEASE_MODE='${STORE_RELEASE_MODE}' is not valid. Use auto or manual (repo variable STORE_RELEASE_MODE or the store_release_mode input)."
+              fail=1
+              ;;
+          esac
           [ "$fail" = "0" ] || exit 1
           echo "✅ Preflight check passed"
 
@@ -180,6 +203,11 @@ jobs:
         run: |
           if [ ! -f android/fastlane/Fastfile.playstore ]; then
             echo "::error title=Deploy preflight::android/fastlane/Fastfile.playstore is missing. Run .github/util/flutter/playstore-wizard to create it, then commit it."
+            exit 1
+          fi
+          # manual 인데 옛 Fastfile 이 값을 안 읽으면 심사 통과 즉시 출시된다 (되돌릴 수 없음) — 경고가 아니라 멈춘다 (#1125)
+          if [ "$STORE_RELEASE_MODE" = "manual" ] && ! grep -q "STORE_RELEASE_MODE" android/fastlane/Fastfile.playstore; then
+            echo "::error title=Deploy preflight::Release mode is manual, but android/fastlane/Fastfile.playstore never reads STORE_RELEASE_MODE, so production would still go live when approved. Regenerate it with .github/util/flutter/playstore-wizard, or set the release mode back to auto."
             exit 1
           fi
 
@@ -717,6 +745,26 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FORCE_PROMOTE_DURING_REVIEW: ${{ github.event.inputs.force_promote_during_review }}
         run: python3 .github/scripts/store_deploy_config.py review-guard
+
+      # 이번 실행의 출시 방식을 요약에 남긴다 — 실행 목록만 보고도 어떤 출시였는지 알 수 있게 (#1125)
+      - name: Summarize store release mode
+        run: |
+          case "$DEPLOY_MODE" in
+            store_submit|appstore_submit)
+              if [ "$STORE_RELEASE_MODE" = "manual" ]; then
+                effect="Promotes production as a draft: start the rollout in Play Console (that also sends it for review)."
+              else
+                effect="Sends production for review; it goes live when approved (rollout ${PRODUCTION_ROLLOUT})."
+              fi ;;
+            *) effect="No effect on this run: deploy mode is ${DEPLOY_MODE}, and only store_submit uses the release mode." ;;
+          esac
+          {
+            echo "### Store release mode: \`${STORE_RELEASE_MODE}\`"
+            echo ""
+            echo "- Deploy mode: \`${DEPLOY_MODE}\`"
+            echo "- ${effect}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "🚦 Store release mode: ${STORE_RELEASE_MODE} / deploy mode: ${DEPLOY_MODE} — ${effect}"
 
       # Fastfile 복사 (Play Store 배포용)
       # android/fastlane/Fastfile.playstore를 사용하여 일관성 유지

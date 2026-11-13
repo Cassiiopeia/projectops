@@ -179,6 +179,7 @@ Fastlane 배포 자동화 스크립트입니다.
 - `APP_VERSION` / `BUILD_NUMBER`
 - `RELEASE_NOTES` — 비어 있으면 기본 문구 사용
 - `DEPLOY_MODE` — `testflight_only` / 심사 제출 등 배포 모드
+- `STORE_RELEASE_MODE` — `auto`(기본, 승인 즉시 출시) / `manual`(승인 뒤 App Store Connect에서 사람이 출시). 레포 변수 또는 수동 실행 입력 `store_release_mode`, [CI/CD 개요의 출시 방식](FLUTTER-CICD-OVERVIEW.md#출시-방식-store_release_mode) 참고
 - `DELIVER_LOCALES` — 심사 메타데이터 로케일
 
 ### 3. Gemfile

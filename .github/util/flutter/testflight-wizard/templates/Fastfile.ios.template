@@ -10,6 +10,10 @@
 #   store_prepare (= appstore_prepare)       : TestFlight + ASC 버전 생성·빌드 선택·What's New 채움(제출 직전)
 #   store_submit  (= appstore_submit)        : 위 전부 + 심사 자동 제출(submit_for_review)
 #
+# 출시 방식(STORE_RELEASE_MODE, #1125) — 심사 승인 뒤 출시를 누가 하나 (store_submit 에서만 의미):
+#   auto   (기본) : 승인 즉시 자동 출시 (automatic_release: true)
+#   manual        : 승인 뒤 App Store Connect 에서 사람이 '이 버전 출시' (automatic_release: false)
+#
 # ⚠️ 신규 앱은 최초 1회 App Store Connect에서 수동 제출이 필요합니다.
 #   그 이후 업데이트부터 store_submit으로 완전 자동 제출됩니다.
 #
@@ -87,7 +91,16 @@ platform :ios do
     deploy_mode = (ENV["DEPLOY_MODE"] || "testflight_only").strip
     prepare_appstore = ["appstore_prepare", "appstore_submit", "store_prepare", "store_submit"].include?(deploy_mode)
     submit_to_appstore = ["appstore_submit", "store_submit"].include?(deploy_mode)
+    # 출시 방식: 워크플로 없이 lane 을 직접 불러도 지금 동작(auto)이 기본. 오타는 조용히 auto 로 넘기지 않고 멈춘다
+    release_mode = (ENV["STORE_RELEASE_MODE"] || "auto").strip
+    release_mode = "auto" if release_mode.empty?
+    unless ["auto", "manual"].include?(release_mode)
+      UI.user_error!("STORE_RELEASE_MODE must be auto or manual (got: '#{release_mode}')")
+    end
+    # store_prepare 는 지금처럼 자동 출시를 켜지 않는다 (제출을 사람이 하므로)
+    automatic_release = submit_to_appstore && release_mode == "auto"
     UI.message("🎛️  배포 모드: #{deploy_mode} (ASC 버전 준비: #{prepare_appstore} / 심사 자동제출: #{submit_to_appstore})")
+    UI.message("🚦 Release mode: #{release_mode} (automatic release after approval: #{automatic_release})")
 
     # 1) TestFlight 업로드 (항상 수행). ASC 준비/제출 모드면 빌드 처리 완료까지 대기.
     #    ⚠️ Apple Processing(빌드 처리)은 보통 5~15분, 때때로 1시간+ (Apple 서버 사정, 통제 불가).
@@ -165,7 +178,7 @@ platform :ios do
         app_version: app_ver,
         build_number: ENV["BUILD_NUMBER"],
         submit_for_review: submit_to_appstore,
-        automatic_release: submit_to_appstore,
+        automatic_release: automatic_release,          # manual 이면 승인 뒤 사람이 출시
         force: true,
         run_precheck_before_submit: false,
         skip_binary_upload: true,
@@ -177,7 +190,9 @@ platform :ios do
           add_id_info_uses_idfa: false
         }
       )
-      if submit_to_appstore
+      if submit_to_appstore && !automatic_release
+        puts "✅ Submitted for App Store review. Release mode manual: after approval, release this version in App Store Connect."
+      elsif submit_to_appstore
         puts "✅ APP STORE 심사 자동 제출 완료!"
       else
         puts "✅ APP STORE 버전 준비 완료 (Prepare for Submission) — ASC에서 검토 후 'Add for Review'만 누르면 제출됩니다."

@@ -158,6 +158,27 @@ projectops의 Flutter CI/CD 시스템은 **마법사 도구**와 **GitHub Action
 > Fastfile 만 `store_submit` 이라, 워크플로를 거치지 않고 lane 을 직접 부르면 프로덕션
 > 심사에 올라갔다 (#618 에서 교정).
 
+### 출시 방식 (`STORE_RELEASE_MODE`)
+
+`DEPLOY_MODE` 가 **어디까지 갈지**를 정한다면, 이 값은 `store_submit` 에서 **심사 통과 뒤 출시를 누가 하는지**를 정한다 (#1125).
+기본은 지금 동작(`auto`) 그대로이고, 가끔 한 번만 수동 출시로 바꿀 때 쓴다 — 예: 유료 기능을 두 스토어에서 같은 순간에 열 때.
+
+| 값 | iOS | Android |
+|---|---|---|
+| `auto` (기본) | 심사 제출, 승인 즉시 자동 출시 | 프로덕션 심사 자동 등록, 통과 즉시 출시 |
+| `manual` | 심사 제출, 승인 뒤 App Store Connect 에서 사람이 "이 버전 출시" | 프로덕션 **draft** 승급, 사람이 콘솔에서 "출시 시작" |
+
+- **정하는 곳 (높은 것부터):** 수동 실행 입력 `store_release_mode`(`default`/`auto`/`manual`, 그 실행만) > 레포 변수 `STORE_RELEASE_MODE`(iOS·Android 공통) > `auto`.
+- `auto`/`manual` 이외의 값은 **빌드 전에 실패한다.** 오타가 조용히 자동 출시로 넘어가지 않게 하기 위해서다.
+- 실행 요약(Summary)에 이번 실행의 출시 방식과 효과가 남는다. `store_submit` 이 아니면 "영향 없음"으로 적힌다.
+  push 는 `store_only` 로 낮아지므로(위 #816) 이 값은 주로 수동 실행 `store_submit` 에서 쓰인다.
+- `manual` 인데 설치된 Fastfile 이 이 값을 읽지 않으면(마법사로 다시 만들기 전의 옛 파일) 승인 즉시 출시되므로 **빌드 전에 멈춘다.**
+- `store_prepare` 와 중간 트랙(비공개·공개 테스트) 승급에는 영향이 없다.
+
+> **Android 의 한계:** Play API 의 출시 상태는 `draft`·`inProgress`·`halted`·`completed` 뿐이라 **"심사만 보내고 출시는 보류"할 수 없다.**
+> 그래서 `manual` 은 draft 로 두고, 콘솔에서 "출시 시작"을 누를 때 심사가 시작된다. 심사를 미리 받아 두고 정한 순간에 열려면
+> Play Console 의 **관리형 게시(Managed publishing)** 를 켜고 `auto` 를 쓴다 — 통과한 변경이 "게시" 버튼을 누를 때까지 대기한다.
+
 ### 스토어 '새로운 기능' 문구 (`STORE_WHATS_NEW_OVERRIDE`)
 
 `store_prepare`/`store_submit` 때 스토어 '새로운 기능(What's New)' 칸(iOS '이 버전의 새로운 기능',
