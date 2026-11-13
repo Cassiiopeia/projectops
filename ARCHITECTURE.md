@@ -89,7 +89,22 @@ See [`docs/TRANSLATING.md`](docs/TRANSLATING.md). Three places hold the language
 
 ## How to add a skill
 
-Use the `pro-skill-creator` skill. Add the skill to the routing table in `AGENTS.md`; `test/options-schema.test.js` fails if a tracked skill is missing there.
+Use the `pro-skill-creator` skill to write the skill itself. Then register it everywhere below. This list comes from the commits that added `pro-image` and `pro-presentation`; the guard checks catch most misses, but only after they fail.
+
+| # | File | What to change | Caught by |
+|---|---|---|---|
+| 1 | `skills/pro-<name>/SKILL.md` (+ `references/`, `scripts/`) | The skill. Description in English, 300 characters or fewer, saying what it does and when to use it | `scripts/tests/test_skill_docs.py` |
+| 2 | `scripts/projectops_cli.py` | Add the skill to `SKILL_CLIS` **and** raise `RESOLVER_REVISION` by 1. Without the raise, installed entry points keep refusing the new skill with `bad_args` (#1080) | — |
+| 3 | `AGENTS.md` | One row in the skills routing table | `test/options-schema.test.js` |
+| 4 | `CLAUDE.md` | One row in the skills table and, if users ask for it in words, one row in "Skill routing" | `test/rename-consistency.test.js` |
+| 5 | `README.md` + `docs/i18n/README.{ko,ja,zh-CN}.md` | One row in the skills table of each, and the skill count wherever it appears | `test/rename-consistency.test.js` |
+| 6 | `docs/SKILLS.md` + `docs/en/skills.md`, `docs/README.md` + `docs/en/readme.md` | A `### /pro-<name>` section in both skill guides, and the skill count in both docs READMEs | `test/rename-consistency.test.js` (`docs/SKILLS.md` sections and the counts) |
+| 7 | `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json` | The skill count in the description | `test/rename-consistency.test.js` |
+| 8 | `scripts/common/paths.py` `DOCUMENT_SKILLS` | Only if the skill saves documents under the output folder | — |
+| 9 | `skills/config.json.example` + `skills/references/config-rules.md` | Only if the skill has settings | — |
+| 10 | `scripts/tests/korean_line_budget.json` | Only to lower counts. English skill text must not add Korean lines | `scripts/tests/test_korean_line_budget.py` |
+
+New files are counted by the guard checks only once git tracks them: run `git add -N <new files>` before `npm test` and `python3 -m pytest scripts/tests/`.
 
 ## How to add a new workflow
 
