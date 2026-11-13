@@ -75,7 +75,7 @@ def render_markdown(skill_dir: Path) -> str:
     lines = ["# Official troubleshooting", "",
              "> Generated file — do not edit by hand. Source: `troubleshooting/<area>/<id>.json`.",
              "> Rebuild: `python3 scripts/build_troubleshooting.py skills/<skill>` (from the repo root).",
-             "> Writing rules: `skills/references/memory-principles.md` §6. The `known_fix` in failure responses summarizes these entries.", ""]
+             "> Writing rules: `../../references/memory-principles.md` §6. The `known_fix` in failure responses summarizes these entries.", ""]
     if not entries:
         return "\n".join(lines + ["No entries yet.", ""])
     lines += _render_contents(entries)
