@@ -350,7 +350,7 @@ We would rather tell you up front when this is not a fit.
 ---
 
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
-## Latest version : v4.101.0 (2026-11-13)
+## Latest version : v4.101.1 (2026-11-13)
 
 [View full version history](CHANGELOG.md)
 

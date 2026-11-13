@@ -79,7 +79,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/e2e_cli.py note run --name social-sign
 `label=at:0.5,0.8` (0–1 ratio). **Pixels are rejected** (`pixels_rejected`) — `app tap` does not accept pixels, so they would be useless even if saved.
 If you also pass `--screen-size`, it tells you the ratio-converted value in `hint`.
 
-#### Tools bring the records back to you — memory principles (`skills/references/memory-principles.md`)
+#### Tools bring the records back to you — memory principles (`../../references/memory-principles.md`)
 
 - **Reading**: the `memory` in `detect` and `scenario show` responses carries up to 2 rules, 2 pitfalls and 1 this-computer pitfall that fit the context.
   The same area (target for detect, scenario name for scenario) is included only once a day. Memories where failures clearly outweigh successes are not included.
@@ -158,6 +158,6 @@ Where records are stored is reported by `knowledge_dir` in `detect`, or by `doct
 ### Judge evidence for upload separately
 
 Screenshots attached to an issue are uploaded with `upload-image` in `pro-github` (do not commit them to the repo —
-`references/reporting.md`). **This cannot be filtered automatically**, because it requires judging even the text inside the
+`reporting.md`). **This cannot be filtered automatically**, because it requires judging even the text inside the
 image. Social login screens **show the email address as is.** If it is truly needed to show the problem,
 crop or mask that part before uploading.

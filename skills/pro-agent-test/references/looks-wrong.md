@@ -178,7 +178,7 @@ Designs are usually drawn for **one iPhone model** (e.g. 393×852). Matching onl
 > "is it a bit high?" and passes.
 
 **Look on at least two devices.** The reference device and the device with the most different aspect ratio
-(`references/devices.md`).
+(`devices.md`).
 
 ```
 MediaQuery.of · padding.top · viewPadding · SafeArea · statusBarHeight
