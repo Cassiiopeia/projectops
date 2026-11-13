@@ -109,6 +109,6 @@ The CLI collects facts with regexes. There are no facts for the items below, so 
 
 ## diff · ledger · conventions
 
-- diff: see the table in `references/check.md`. New files are excluded from the stale-comment and rewritten-comment checks
+- diff: see the table in `check.md`. New files are excluded from the stale-comment and rewritten-comment checks
 - ledger `check`: per rule, `new` (new violations — fix the code), `fixed` (fixed — remove from the list with `tighten`), `verdict`. `freeze` refuses with `allow_exists` when an `.allow` exists (there is no command that adds lines to the list)
 - conventions: `same` · `outdated` (the source changed) · `locally_modified` (the project changed it — respect it as that project's rules) · `missing`
