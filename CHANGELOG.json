@@ -1,14 +1,54 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-12T10:16:57Z",
-    "currentVersion": "4.99.1",
+    "lastUpdated": "2026-11-13T11:45:55Z",
+    "currentVersion": "4.100.0",
     "projectType": "basic",
-    "totalReleases": 398,
+    "totalReleases": 399,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.100.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-13",
+      "pr_number": 1134,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * Flutter store deploys can switch one release to manual go-live (`STORE_RELEASE_MODE`), with automatic release kept as the default\n  * New `--ci-minutes-saver` option cuts Actions minutes for private repos (CI on PRs only, doc-only changes skipped, iOS build on demand)\n  * Release tooling recognizes a development > default > deploy three-branch setup\n  * Web sign-in guide for Google, Apple, Naver, Kakao and GitHub, with Apple two-factor on the same Mac\n\n* **Bug fixes**\n  * Screen recordings stopped before 3 minutes are now playable, and the reported length is the real video length\n  * Recording stop works from any working folder and no longer leaves the recorder running\n  * Skill commands no longer crash when the current folder cannot be read; they explain what to do instead\n  * A click inside a login iframe is no longer reported as \"nothing visible changed\"\n  * Release notes collect the right commits when the default branch is not `main`\n  * Deploy workflows written with multi-line branch lists are reached again\n  * Interactive update keeps the chosen deploy trigger branch\n\n* **Improvements**\n  * Desktop permission check names the app (Terminal, Paseo, Cursor…) that needs Accessibility and Screen Recording",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "Flutter store deploys can switch one release to manual go-live (`STORE_RELEASE_MODE`), with automatic release kept as the default",
+            "New `--ci-minutes-saver` option cuts Actions minutes for private repos (CI on PRs only, doc-only changes skipped, iOS build on demand)",
+            "Release tooling recognizes a development > default > deploy three-branch setup",
+            "Web sign-in guide for Google, Apple, Naver, Kakao and GitHub, with Apple two-factor on the same Mac"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Screen recordings stopped before 3 minutes are now playable, and the reported length is the real video length",
+            "Recording stop works from any working folder and no longer leaves the recorder running",
+            "Skill commands no longer crash when the current folder cannot be read; they explain what to do instead",
+            "A click inside a login iframe is no longer reported as \"nothing visible changed\"",
+            "Release notes collect the right commits when the default branch is not `main`",
+            "Deploy workflows written with multi-line branch lists are reached again",
+            "Interactive update keeps the chosen deploy trigger branch"
+          ]
+        },
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "Desktop permission check names the app (Terminal, Paseo, Cursor…) that needs Accessibility and Screen Recording"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.99.1",
       "project_type": "basic",

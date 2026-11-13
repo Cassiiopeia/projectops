@@ -1,7 +1,31 @@
 # Changelog
 
-**Current version:** 4.99.1  
-**Last updated:** 2026-11-12T10:16:57Z  
+**Current version:** 4.100.0  
+**Last updated:** 2026-11-13T11:45:55Z  
+
+---
+
+## [4.100.0] - 2026-11-13
+
+**PR:** #1134  
+
+**New features**
+- Flutter store deploys can switch one release to manual go-live (`STORE_RELEASE_MODE`), with automatic release kept as the default
+- New `--ci-minutes-saver` option cuts Actions minutes for private repos (CI on PRs only, doc-only changes skipped, iOS build on demand)
+- Release tooling recognizes a development > default > deploy three-branch setup
+- Web sign-in guide for Google, Apple, Naver, Kakao and GitHub, with Apple two-factor on the same Mac
+
+**Bug fixes**
+- Screen recordings stopped before 3 minutes are now playable, and the reported length is the real video length
+- Recording stop works from any working folder and no longer leaves the recorder running
+- Skill commands no longer crash when the current folder cannot be read; they explain what to do instead
+- A click inside a login iframe is no longer reported as "nothing visible changed"
+- Release notes collect the right commits when the default branch is not `main`
+- Deploy workflows written with multi-line branch lists are reached again
+- Interactive update keeps the chosen deploy trigger branch
+
+**Improvements**
+- Desktop permission check names the app (Terminal, Paseo, Cursor…) that needs Accessibility and Screen Recording
 
 ---
 
