@@ -42,7 +42,7 @@ Guide by ProjectOps
 
 ### 커밋 메시지
 ```
-feat : 로그인 기능 추가 https://github.com/user/repo/issues/145
+로그인 기능 추가 : feat : {변경 내용} https://github.com/user/repo/issues/145
 ```
 
 ### 명령어

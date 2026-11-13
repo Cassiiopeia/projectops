@@ -453,6 +453,6 @@ Start by copying the template for that type.
 
 ## 12. Related documents
 
-- [CLAUDE.md](../../CLAUDE.md) - Overall project guide
+- [CLAUDE.md](https://github.com/Cassiiopeia/projectops/blob/main/CLAUDE.md) - Overall project guide
 - [version-control.md](./version-control.md) - Version control system
 - [changelog-automation.md](./changelog-automation.md) - Changelog automation

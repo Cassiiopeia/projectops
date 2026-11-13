@@ -1,6 +1,6 @@
 # projectops 문서 인덱스
 
-프로젝트 전체 소개는 [루트 README](../README.md)를 먼저 보세요. 이 문서는 `docs/` 안의 문서를 목적별로 안내합니다.
+프로젝트 전체 소개는 [루트 README](https://github.com/Cassiiopeia/projectops/blob/main/README.md)를 먼저 보세요. 이 문서는 `docs/` 안의 문서를 목적별로 안내합니다.
 
 ---
 
@@ -55,8 +55,8 @@
 |------|------|
 | [워크플로우 주석 표준](WORKFLOW-COMMENT-GUIDELINES.md) | 워크플로우 주석 컨벤션, 타입 분류, **파일별 적용 현황 전수 목록** |
 | [브랜치 네이밍 규칙](BRANCH-CONVENTION.md) | 규칙 변경 시 깨지는 소비자 목록과 확장 절차 |
-| [CONTRIBUTING](../CONTRIBUTING.md) | 기여 절차 |
-| [CLAUDE.md](../CLAUDE.md) | agent용 프로젝트 규칙 (작업 브랜치·이슈 처리·확장 규칙) |
+| [CONTRIBUTING](https://github.com/Cassiiopeia/projectops/blob/main/CONTRIBUTING.md) | 기여 절차 |
+| [CLAUDE.md](https://github.com/Cassiiopeia/projectops/blob/main/CLAUDE.md) | agent용 프로젝트 규칙 (작업 브랜치·이슈 처리·확장 규칙) |
 
 ---
 

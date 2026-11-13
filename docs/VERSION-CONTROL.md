@@ -155,6 +155,20 @@ VERSION-CONTROL 워크플로우
 
 ---
 
+## 브랜치의 세 가지 뜻
+
+projectops에서 "브랜치"는 여러 뜻으로 쓰인다. `version.yml` 키 이름이 뜻과 어긋나는 곳이 있다.
+
+| 브랜치 | 뜻 | `version.yml` 키 | 보통 값 |
+|---|---|---|---|
+| 기본(배포) 브랜치 | 레포 기본·프로덕션 브랜치. 여기에 push되면 배포가 돈다 | `metadata.default_branch` | `main` |
+| 개발(릴리스 소스) 브랜치 | 작업이 모이는 곳. 기본 브랜치로 가는 릴리스 PR의 head | `metadata.development_branch` (구 이름 `deploy_branch`) | `develop` |
+| 배포 트리거 브랜치 (선택) | 여기에 push되면 배포 워크플로가 돈다. 배포를 기본 브랜치와 나눌 때만 둔다 (develop > main > deploy) | `metadata.template.options.deploy_trigger_branch` | 없음 = 기본 브랜치 |
+| 이슈 브랜치 | 이슈마다 하나. 예: `20261113_#123_제목` | - | - |
+
+- `--deploy-branch`는 **개발** 브랜치를 정한다. 배포 브랜치가 아니라 `development_branch`에 쓴다.
+- 정본 키는 `development_branch`다. 구 키 `deploy_branch`도 읽고, 마법사는 두 키를 같은 값으로 함께 쓴다.
+
 ## 배포 브랜치 분리 (선택)
 
 기본은 기본 브랜치(`main`)에 푸시되면 배포가 돈다. develop → main → deploy 로 나눠서 배포 워크플로(앱스토어·서버·패키지 publish·Vercel)를

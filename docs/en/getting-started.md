@@ -40,6 +40,55 @@ Settings → Actions → General
 └─ Read and write permissions
 ```
 
+## From install to your first release
+
+A short walk through the whole cycle. Each step links to the page with the details.
+
+**1. Check the requirements.** Node.js 20.12 or later and Git. Python 3 is needed only for Agent Skills.
+
+**2. Install.** Run this in the root of your repository and answer the questions.
+
+```bash
+npx projectops
+```
+
+**3. Look at the new files.** You get `version.yml`, workflows in `.github/workflows/PROJECT-*.yaml`,
+helper files in `.github/scripts/`, `.github/config/` and `.github/util/`, issue and PR templates,
+and `.github/.projectops/` (install record). Commit them. See [CLI reference](./cli.md).
+
+**4. Check the install.** This only reads. It lists missing secrets and values that still need to be filled in.
+
+```bash
+npx projectops --mode doctor
+```
+
+**5. Create the development branch.** Work collects on `develop`. Releases go from `develop` to `main`.
+
+```bash
+git checkout -b develop && git push -u origin develop
+```
+
+**6. Open an issue.** A bot comments with a branch name and a commit message for that issue.
+See [Issue automation](./issue-automation.md).
+
+**7. Commit.** Use the suggested message: `issue title : type : what changed https://.../issues/N`.
+The type decides the next version:
+
+| Commit type | Next version |
+|---|---|
+| `feat!` (breaking change) | major: 1.4.2 > 2.0.0 |
+| `feat` | minor: 1.4.2 > 1.5.0 |
+| anything else (`fix`, `docs`, `chore` ...) | patch: 1.4.2 > 1.4.3 |
+
+The highest one in the release wins. See [Version control](./version-control.md).
+
+**8. Push `develop`.** Merge your issue branches into `develop` and push it. Pushing does not release anything.
+
+**9. Open the release PR from `develop` to `main`.** Open it yourself or with the `/pro-changelog-deploy` skill.
+The workflow then writes release notes, sets the version, updates `CHANGELOG.md` and `CHANGELOG.json`,
+merges the PR and tags the release. Deploy workflows run on `main`.
+See [Changelog automation](./changelog-automation.md).
+
 ## If you only want Agent Skills
 
 ```bash
@@ -55,6 +104,25 @@ npx projectops --mode skills
 ```
 
 Install methods per tool and the list of Skills are in the [Agent Skills guide](./skills.md).
+
+## FAQ
+
+**Does it replace my existing workflows?**
+No. A workflow you changed is kept. The new template is saved in `.github/.projectops/incoming/` so you can compare.
+
+**Do I need an AI key?**
+No. Release notes fall back to commit analysis. It needs no key and no network.
+
+**I pushed `develop` but no release happened.**
+That is expected. A release starts only when a `develop` → `main` PR is opened.
+
+**The release PR was not merged automatically.**
+Turn on "Allow auto-merge" in the repository settings and check branch protection.
+See [Troubleshooting](./troubleshooting.md).
+
+**Can I try it without changing anything?**
+Yes. `npx projectops --mode options` and `npx projectops --mode doctor` only read.
+More questions: [Compared with other release tools](./compare.md).
 
 ## What to read next
 

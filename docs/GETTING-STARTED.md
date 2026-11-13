@@ -40,6 +40,55 @@ Settings → Actions → General
 └─ Read and write permissions
 ```
 
+## 설치부터 첫 릴리스까지
+
+전체 흐름을 짧게 따라갑니다. 단계마다 자세한 문서를 연결해 두었습니다.
+
+**1. 준비물을 확인합니다.** Node.js 20.12 이상과 Git이 필요합니다. Python 3는 Agent Skills를 쓸 때만 필요합니다.
+
+**2. 설치합니다.** 레포 루트에서 실행하고 질문에 답합니다.
+
+```bash
+npx projectops
+```
+
+**3. 생긴 파일을 확인합니다.** `version.yml`, `.github/workflows/PROJECT-*.yaml` 워크플로우,
+`.github/scripts/`·`.github/config/`·`.github/util/` 보조 파일, 이슈·PR 템플릿,
+`.github/.projectops/`(설치 기록)가 생깁니다. 모두 커밋합니다. [CLI 레퍼런스](./CLI.md)를 참고하세요.
+
+**4. 설치 상태를 점검합니다.** 읽기만 합니다. 빠진 Secret과 아직 채워야 할 값을 알려 줍니다.
+
+```bash
+npx projectops --mode doctor
+```
+
+**5. 개발 브랜치를 만듭니다.** 작업은 `develop`에 모입니다. 릴리스는 `develop`에서 `main`으로 갑니다.
+
+```bash
+git checkout -b develop && git push -u origin develop
+```
+
+**6. 이슈를 엽니다.** 봇이 그 이슈의 브랜치명과 커밋 메시지를 댓글로 달아 줍니다.
+[이슈 자동화](./ISSUE-AUTOMATION.md)를 참고하세요.
+
+**7. 커밋합니다.** 안내된 메시지를 씁니다: `이슈 제목 : 타입 : 바꾼 내용 https://.../issues/N`.
+타입이 다음 버전을 정합니다.
+
+| 커밋 타입 | 다음 버전 |
+|---|---|
+| `feat!` (호환이 깨지는 변경) | major: 1.4.2 > 2.0.0 |
+| `feat` | minor: 1.4.2 > 1.5.0 |
+| 그 외 (`fix`, `docs`, `chore` 등) | patch: 1.4.2 > 1.4.3 |
+
+한 릴리스 안에서는 가장 높은 것이 이깁니다. [버전 관리](./VERSION-CONTROL.md)를 참고하세요.
+
+**8. `develop`을 푸시합니다.** 이슈 브랜치를 `develop`에 합치고 푸시합니다. 푸시만으로는 릴리스되지 않습니다.
+
+**9. `develop` → `main` 릴리스 PR을 엽니다.** 직접 열거나 `/pro-changelog-deploy` 스킬로 엽니다.
+그러면 워크플로우가 릴리스 노트 작성, 버전 확정, `CHANGELOG.md`·`CHANGELOG.json` 갱신,
+PR 자동 머지, 태그 생성까지 합니다. 배포 워크플로우는 `main`에서 돕니다.
+[체인지로그 자동화](./CHANGELOG-AUTOMATION.md)를 참고하세요.
+
 ## Agent Skills만 쓰고 싶다면
 
 ```bash
@@ -55,6 +104,25 @@ npx projectops --mode skills
 ```
 
 도구별 설치 방식과 Skill 목록은 [Agent Skills 가이드](./SKILLS.md)에 있습니다.
+
+## 자주 묻는 질문
+
+**기존 워크플로우를 덮어쓰나요?**
+아니요. 직접 고친 워크플로우는 그대로 둡니다. 새 템플릿은 비교용으로 `.github/.projectops/incoming/`에 저장합니다.
+
+**AI 키가 필요한가요?**
+아니요. 릴리스 노트는 커밋 분석으로 만듭니다. 키도 네트워크도 필요 없습니다.
+
+**`develop`을 푸시했는데 릴리스가 안 됩니다.**
+정상입니다. 릴리스는 `develop` → `main` PR을 열어야 시작됩니다.
+
+**릴리스 PR이 자동 머지되지 않습니다.**
+저장소 설정에서 "Allow auto-merge"를 켜고 브랜치 보호 규칙을 확인하세요.
+[문제 해결](./TROUBLESHOOTING.md)을 참고하세요.
+
+**아무것도 바꾸지 않고 먼저 볼 수 있나요?**
+네. `npx projectops --mode options`와 `npx projectops --mode doctor`는 읽기만 합니다.
+더 많은 질문: [다른 릴리스 도구와 비교](./COMPARE.md).
 
 ## 다음에 볼 문서
 

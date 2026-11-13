@@ -350,7 +350,7 @@ base64 service-account.json               # Linux
         └── build.gradle.kts.signing.template   # 서명 설정 템플릿
 ```
 
-> `_shared/`는 3종이 함께 쓰는 정본입니다. 마법사를 수정했다면 `check-consistency.py`를 통과시킨 뒤 커밋하세요. 상세: [`_shared/README.md`](../.github/util/flutter/_shared/README.md)
+> `_shared/`는 3종이 함께 쓰는 정본입니다. 마법사를 수정했다면 `check-consistency.py`를 통과시킨 뒤 커밋하세요. 상세: [`_shared/README.md`](https://github.com/Cassiiopeia/projectops/blob/main/.github/util/flutter/_shared/README.md)
 
 ---
 

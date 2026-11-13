@@ -11,6 +11,7 @@ CLI 플래그와 `version.yml` 옵션의 이름·값·기본값은 **`src/core/o
 - 새 플래그(`src/cli/args.js`)나 `version.yml` 옵션(`parseTemplateOptions`)을 추가하면 **정본에도 반드시 추가한다.**
   `test/options-schema.test.js`가 코드와 정본을 대조해 어긋나면 실패한다.
 - 문서에 옵션 표를 새로 복제하지 않는다 — 복제본은 낡는다. 문서는 정본을 가리킨다.
+- `src/core/options-schema.js`를 고치면 `node scripts/build_options_reference.mjs`로 `docs/en/cli.md`·`docs/CLI.md`의 생성 표(`<!-- generated: options -->`)를 다시 만든다. `--check`는 쓰지 않고 최신인지만 본다.
 - **옵션 값(플래그 > 저장값 > 기본값)은 `src/core/resolve-options.js` 한 곳에서 정한다 (#851).** `index.js`(비대화형)는 결과를 그대로 쓰고, `interactive.js`는 초기값으로 쓴 뒤 사용자가 답한 것만 덮어쓴다. 진입점에 기본값을 다시 적지 않는다 — 두 경로가 갈라져 대화형에서 PR 요약 선택이 버려진 적이 있다.
 - 사용자 레포에는 `.github/.projectops/AGENT-GUIDE.md`가 설치된다(`src/core/agent-guide.js`). 옵션 값은 박지 않고 명령만 안내한다.
 - 이 레포의 `AGENTS.md`·`GEMINI.md`·`llms.txt`는 템플릿 전용이라 `exclusions.js`와 `template_initializer.py` 양쪽에서 제외된다.

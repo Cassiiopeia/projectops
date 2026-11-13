@@ -312,7 +312,7 @@ base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
         └── Gemfile
 ```
 
-> `_shared/`는 3종이 함께 쓰는 정본입니다. 마법사를 수정했다면 `check-consistency.py`를 통과시킨 뒤 커밋하세요. 상세: [`_shared/README.md`](../.github/util/flutter/_shared/README.md)
+> `_shared/`는 3종이 함께 쓰는 정본입니다. 마법사를 수정했다면 `check-consistency.py`를 통과시킨 뒤 커밋하세요. 상세: [`_shared/README.md`](https://github.com/Cassiiopeia/projectops/blob/main/.github/util/flutter/_shared/README.md)
 
 ---
 

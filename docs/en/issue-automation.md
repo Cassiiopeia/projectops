@@ -42,7 +42,7 @@ Guide by ProjectOps
 
 ### Commit message
 ```
-feat : add login feature https://github.com/user/repo/issues/145
+Add login feature : feat : {description of the change} https://github.com/user/repo/issues/145
 ```
 
 ### Command

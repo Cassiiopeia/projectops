@@ -36,4 +36,4 @@ npx projectops --help
 | `--secret-backup` | 동일 |
 | `--force` | 동일 |
 
-자세한 사용법은 [NPX 마법사 가이드](NPX-WIZARD.md), [README](../README.md), `npx projectops --help`를 참고하세요.
+자세한 사용법은 [NPX 마법사 가이드](NPX-WIZARD.md), [README](https://github.com/Cassiiopeia/projectops/blob/main/README.md), `npx projectops --help`를 참고하세요.

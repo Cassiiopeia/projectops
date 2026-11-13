@@ -155,6 +155,20 @@ VERSION-CONTROL workflow
 
 ---
 
+## Branches have three meanings
+
+"Branch" means different things in projectops. The `version.yml` key names do not always match the plain meaning.
+
+| Branch | What it is | `version.yml` key | Usual value |
+|---|---|---|---|
+| Default (deploy) branch | The repository default and production branch. A push here runs the deploys | `metadata.default_branch` | `main` |
+| Development (release source) branch | Where work collects. It is the head of the release PR into the default branch | `metadata.development_branch` (old name `deploy_branch`) | `develop` |
+| Deploy trigger branch (optional) | A push here runs the deploy workflows. Set it only to split deploys from the default branch (develop > main > deploy) | `metadata.template.options.deploy_trigger_branch` | not set = the default branch |
+| Issue branches | One branch per issue, e.g. `20261113_#123_title` | - | - |
+
+- `--deploy-branch` sets the **development** branch. It writes `development_branch`, not the deploy branch.
+- `development_branch` is the current key. The old key `deploy_branch` is still read, and the wizard writes both keys with the same value.
+
 ## Separate deploy branch (optional)
 
 By default a push to the default branch (`main`) deploys. If you want develop → main → deploy, with the deploy workflows

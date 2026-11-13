@@ -312,7 +312,7 @@ base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
         └── Gemfile
 ```
 
-> `_shared/` is the canonical source shared by the three wizards. If you changed a wizard, make sure `check-consistency.py` pass before you commit. Details: [`_shared/README.md`](../../.github/util/flutter/_shared/README.md)
+> `_shared/` is the canonical source shared by the three wizards. If you changed a wizard, make sure `check-consistency.py` pass before you commit. Details: [`_shared/README.md`](https://github.com/Cassiiopeia/projectops/blob/main/.github/util/flutter/_shared/README.md)
 
 ---
 

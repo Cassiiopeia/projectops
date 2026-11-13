@@ -36,4 +36,4 @@ npx projectops --help
 | `--secret-backup` | Same |
 | `--force` | Same |
 
-For details, see the [NPX wizard guide](./npx-wizard.md), the [README](../../README.md), and `npx projectops --help`.
+For details, see the [NPX wizard guide](./npx-wizard.md), the [README](https://github.com/Cassiiopeia/projectops/blob/main/README.md), and `npx projectops --help`.

@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
 import { createRequire } from 'node:module'
-import { dirname, join } from 'node:path'
+import { dirname, join, posix, relative, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { cpSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { toSitePath } from './locale-paths.mts'
 
@@ -20,6 +21,26 @@ const DESCRIPTION_MAX_LENGTH = 158
 const SITE_DESCRIPTION: Record<'en' | 'ko', string> = {
   en: 'Open-source GitHub automation. One npx install sets up semantic versioning, changelogs, release PRs, CI/CD and AI agent skills for Spring, Flutter, React and Python.',
   ko: '오픈소스 GitHub 자동화. npx 한 번으로 시맨틱 버전, 체인지로그, 릴리스 PR, CI/CD, AI 에이전트 스킬을 Spring, Flutter, React, Python 프로젝트에 설치합니다.',
+}
+
+// 문서 원본 폴더 (srcDir 과 같은 곳)
+const DOCS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'docs')
+
+/**
+ * 문서 사이 상대 .md 링크(원본 파일 기준) > 사이트 절대 경로 (rewrites 반영), 해당 없으면 null
+ * 예: docs/CLI.md 의 ./NPX-WIZARD.md > /ko/npx-wizard.md (그대로 두면 /ko/NPX-WIZARD 로 깨짐)
+ */
+function toSiteLinkHref(sourceRelativePath: string, href: string): string | null {
+  // 외부 주소·스킴·앵커·절대 경로는 그대로
+  if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('#') || href.startsWith('/')) return null
+  const hashIndex = href.indexOf('#')
+  const linkPath = hashIndex < 0 ? href : href.slice(0, hashIndex)
+  const hash = hashIndex < 0 ? '' : href.slice(hashIndex)
+  if (!linkPath.endsWith('.md')) return null
+  const resolvedPath = posix.normalize(posix.join(posix.dirname(sourceRelativePath), linkPath))
+  // docs/ 밖을 가리키는 링크는 손대지 않음 (dead link 검사가 잡도록)
+  if (resolvedPath.startsWith('../')) return null
+  return `/${toSitePath(resolvedPath)}${hash}`
 }
 
 // 문서 첫 문단 > 검색 결과 설명문 (frontmatter description 이 없을 때)
@@ -223,8 +244,25 @@ export default defineConfig({
     },
   },
   lastUpdated: false,
-  // 문서가 저장소 파일(.github/..., ../README.md)을 가리키는 링크는 사이트 안에 없다.
-  ignoreDeadLinks: true,
+  // 저장소 파일 링크는 문서에서 GitHub 절대 주소로 쓴다 > 상대 링크가 깨지면 빌드 실패
+  ignoreDeadLinks: false,
+  markdown: {
+    config(md) {
+      // 링크 렌더 전에 상대 .md 링크를 사이트 경로로 바꿈 (VitePress 가 base·cleanUrls·dead link 검사를 이어서 처리)
+      md.core.ruler.push('projectops-site-links', (state) => {
+        const realPath: string | undefined = state.env?.realPath ?? state.env?.path
+        if (!realPath) return
+        const sourceRelativePath = relative(DOCS_DIR, realPath).split(sep).join('/')
+        for (const blockToken of state.tokens) {
+          for (const inlineToken of blockToken.children ?? []) {
+            if (inlineToken.type !== 'link_open') continue
+            const siteHref = toSiteLinkHref(sourceRelativePath, inlineToken.attrGet('href') ?? '')
+            if (siteHref) inlineToken.attrSet('href', siteHref)
+          }
+        }
+      })
+    },
+  },
   head: [['link', { rel: 'icon', href: '/projectops/images/hero.webp' }]],
   themeConfig: {
     search: {

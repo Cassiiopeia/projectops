@@ -358,7 +358,7 @@ env:
 **File**: `PROJECT-SPRING-PR-PREVIEW.yaml`
 
 **Triggers**:
-- Enter `@projectops pr build/destroy/status` in a PR comment
+- Enter `@projectops server build/destroy/status` in a PR comment
 - Deleted automatically when the PR is closed
 
 ### Prerequisites
@@ -420,9 +420,9 @@ Enter these commands in a PR comment:
 
 | Command | Description |
 |--------|------|
-| `@projectops pr build` | Build and deploy the PR Preview |
-| `@projectops pr destroy` | Delete the Preview environment |
-| `@projectops pr status` | Check the current state |
+| `@projectops server build` | Build and deploy the PR Preview |
+| `@projectops server destroy` | Delete the Preview environment |
+| `@projectops server status` | Check the current state |
 
 ### Resource naming rules
 

@@ -1,6 +1,6 @@
 # projectops documentation index
 
-For an overview of the whole project, read the [root README](../../README.md) first. This page guides you through the documents in `docs/` by purpose.
+For an overview of the whole project, read the [root README](https://github.com/Cassiiopeia/projectops/blob/main/README.md) first. This page guides you through the documents in `docs/` by purpose.
 
 ---
 
@@ -55,8 +55,8 @@ For an overview of the whole project, read the [root README](../../README.md) fi
 |------|------|
 | [Workflow comment standard](./workflow-comment-guidelines.md) | Workflow comment conventions, type classification, **complete per-file status list** |
 | [Branch naming convention](./branch-convention.md) | Consumers that break when the convention changes, and the extension procedure |
-| [CONTRIBUTING](../../CONTRIBUTING.md) | How to contribute |
-| [CLAUDE.md](../../CLAUDE.md) | Project rules for agents (working branch, issue handling, extension rules) |
+| [CONTRIBUTING](https://github.com/Cassiiopeia/projectops/blob/main/CONTRIBUTING.md) | How to contribute |
+| [CLAUDE.md](https://github.com/Cassiiopeia/projectops/blob/main/CLAUDE.md) | Project rules for agents (working branch, issue handling, extension rules) |
 
 ---
 

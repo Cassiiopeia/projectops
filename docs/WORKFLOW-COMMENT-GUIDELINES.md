@@ -451,6 +451,6 @@ name: PROJECT-iOS-TestFlight-Deploy
 
 ## 12. 관련 문서
 
-- [CLAUDE.md](../CLAUDE.md) - 프로젝트 전체 가이드
+- [CLAUDE.md](https://github.com/Cassiiopeia/projectops/blob/main/CLAUDE.md) - 프로젝트 전체 가이드
 - [VERSION-CONTROL.md](./VERSION-CONTROL.md) - 버전 관리 시스템
 - [CHANGELOG-AUTOMATION.md](./CHANGELOG-AUTOMATION.md) - 체인지로그 자동화
