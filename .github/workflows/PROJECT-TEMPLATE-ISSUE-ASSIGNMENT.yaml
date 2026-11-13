@@ -4,8 +4,8 @@
 # ===================================================================
 #
 # For issues labeled "good first issue" or "help wanted":
-# - Claim: a comment such as "/assign" or "I'm on it" assigns the commenter
-#   (or says who already has it). The repository owner and bots are never assigned.
+# - Claim: a "/assign" comment assigns the commenter (or says who already has it), "/unassign" gives it back,
+#   and a free-form claim ("I'm on it") gets a hint to use /assign. The repository owner and bots are never assigned.
 # - Release: once a day, an assignment older than 7 days with no open pull request
 #   linked to the issue is removed, with a comment, so the issue is free again.
 # Logic lives in scripts/issue_assignment.cjs (template-only, never copied into user repositories).
