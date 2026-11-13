@@ -27,6 +27,7 @@ snake_case.sh / snake_case.py
 | `PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC` | main 푸시 | 플러그인 매니페스트 버전 동기화 (**이 레포 전용**) |
 | `PROJECT-TEMPLATE-CI` | develop·main 푸시/PR | 테스트 — 빠른 길/넓은 길 2갈래 (**이 레포 전용**, 아래 절) |
 | `PROJECT-TEMPLATE-NPM-PUBLISH` | main 푸시 | 같은 커밋의 CI job이 전부 통과한 뒤 `projectops` npm 패키지 배포 (**이 레포 전용**) |
+| `PROJECT-TEMPLATE-ISSUE-ASSIGNMENT` | 이슈 댓글 · 매일 · 수동 | `good first issue`·`help wanted` 이슈에 `/assign` 등 클레임 댓글 > 담당자 지정, 7일 지나도 연결 PR 없으면 해제 (**이 레포 전용**, #1155) |
 | `PROJECT-COMMON-VERSION-CONTROL` | main 직접 푸시(안전망) | 릴리스 머지 외 push 시 patch 증가 |
 | `PROJECT-COMMON-RELEASE-CHANGELOG` | main PR (develop→main) | 버전 확정(semver 승격 — #546) + AI 체인지로그 + automerge |
 | `PROJECT-COMMON-README-VERSION-UPDATE` | main 푸시 | README 버전 동기화 |

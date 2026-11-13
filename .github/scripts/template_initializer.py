@@ -214,6 +214,7 @@ CLEANUP_TARGETS = [
     (".github/workflows/PROJECT-TEMPLATE-NPM-PUBLISH.yaml", "Remove PROJECT-TEMPLATE-NPM-PUBLISH.yaml (marketplace only)"),
     (".github/workflows/PROJECT-TEMPLATE-DOCS-DEPLOY.yaml", "Remove PROJECT-TEMPLATE-DOCS-DEPLOY.yaml (marketplace only)"),
     (".github/workflows/PROJECT-TEMPLATE-SYNC-COMMUNITY-LABELS.yaml", "Remove PROJECT-TEMPLATE-SYNC-COMMUNITY-LABELS.yaml (this repository only)"),
+    (".github/workflows/PROJECT-TEMPLATE-ISSUE-ASSIGNMENT.yaml", "Remove PROJECT-TEMPLATE-ISSUE-ASSIGNMENT.yaml (this repository only)"),
     (".github/config/community-labels.yml", "Remove community-labels.yml (this repository's community labels)"),
     ("site", "Remove site folder (docs site settings — this repository only)"),
     (".github/workflows/PROJECT-TEMPLATE-CI.yaml", "Remove PROJECT-TEMPLATE-CI.yaml (marketplace only)"),

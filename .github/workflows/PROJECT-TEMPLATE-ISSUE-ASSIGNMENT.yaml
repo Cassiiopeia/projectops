@@ -1,0 +1,80 @@
+# ===================================================================
+# PROJECT-TEMPLATE-ISSUE-ASSIGNMENT.yaml
+# Community issue assignment (this repository only, #1155)
+# ===================================================================
+#
+# For issues labeled "good first issue" or "help wanted":
+# - Claim: a comment such as "/assign" or "I'm on it" assigns the commenter
+#   (or says who already has it). The repository owner and bots are never assigned.
+# - Release: once a day, an assignment older than 7 days with no open pull request
+#   linked to the issue is removed, with a comment, so the issue is free again.
+# Logic lives in scripts/issue_assignment.cjs (template-only, never copied into user repositories).
+#
+# Triggers:
+# - Issue comments (claim)
+# - Daily schedule (release)
+# - Manual run with a dry-run switch (release preview)
+# ===================================================================
+
+name: "PROJECT-TEMPLATE-ISSUE-ASSIGNMENT"
+
+on:
+  issue_comment:
+    types: [created]
+  schedule:
+    # Every day at 00:30 UTC
+    - cron: "30 0 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "List the assignments the daily pass would release, without changing anything"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  issues: write
+  contents: read
+
+# One pass per issue at a time, so two quick claims on the same issue are handled in order.
+concurrency:
+  group: issue-assignment-${{ github.event.issue.number || 'release' }}
+  cancel-in-progress: false
+
+jobs:
+  claim:
+    # Only community issues start a runner; the script checks the comment itself
+    if: >-
+      github.event_name == 'issue_comment' && !github.event.issue.pull_request &&
+      (contains(github.event.issue.labels.*.name, 'good first issue') || contains(github.event.issue.labels.*.name, 'help wanted'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: scripts/issue_assignment.cjs
+          sparse-checkout-cone-mode: false
+      - name: Assign on claim comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { handleClaimComment } = require(`${process.env.GITHUB_WORKSPACE}/scripts/issue_assignment.cjs`);
+            await handleClaimComment({ github, context, core });
+
+  release-stale:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: scripts/issue_assignment.cjs
+          sparse-checkout-cone-mode: false
+      - name: Release stale claims
+        uses: actions/github-script@v7
+        env:
+          # Scheduled runs act; manual runs follow the dry_run input (default: preview only)
+          IS_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        with:
+          script: |
+            const { releaseStaleClaims } = require(`${process.env.GITHUB_WORKSPACE}/scripts/issue_assignment.cjs`);
+            const released = await releaseStaleClaims({ github, context, core, isDryRun: process.env.IS_DRY_RUN === 'true' });
+            await core.summary.addHeading('Stale claims').addRaw(released.length ? released.join(', ') : 'none').write();
