@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-13T13:52:33Z",
-    "currentVersion": "4.102.0",
+    "lastUpdated": "2026-11-13T13:56:32Z",
+    "currentVersion": "4.103.0",
     "projectType": "basic",
-    "totalReleases": 405,
+    "totalReleases": 406,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.103.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-13",
+      "pr_number": 1161,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Other**\n  * Contributors claim an issue with /assign and release it with /unassign; other wording gets a hint instead of an assignment",
+      "parsed_changes": {
+        "other": {
+          "title": "Other",
+          "items": [
+            "Contributors claim an issue with /assign and release it with /unassign; other wording gets a hint instead of an assignment"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.102.0",
       "project_type": "basic",
