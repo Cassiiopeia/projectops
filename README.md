@@ -53,6 +53,8 @@ This project automates your development workflow on two axes.
 | Write PR descriptions and reports by hand | `/pro-report` analyzes the git diff and generates one |
 | Re-type prompts for every code review or analysis | 18 skills give consistent results without re-typing |
 
+**Measured on this repository.** The 29 release PRs opened from develop to main between 2026-11-07 and 2026-11-13 each went from opened to merged, with the version decided, CHANGELOG and README updated and the tag created, in a median of **30 seconds** (fastest 25, slowest 50). Nobody touched them after opening. To check it yourself, compare `created_at` and `merged_at` of the merged release PRs (`GET /repos/Cassiiopeia/projectops/pulls?state=closed&base=main`).
+
 ---
 
 ## Compared with other tools

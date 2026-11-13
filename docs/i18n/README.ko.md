@@ -48,6 +48,8 @@
 | PR 설명/보고서 직접 작성 | `/pro-report` git diff 분석 후 자동 생성 |
 | 코드 리뷰·분석 매번 프롬프트 입력 | 18종 Skills로 일관된 결과, 매번 재입력 불필요 |
 
+**이 레포에서 잰 값.** 2026-11-07부터 2026-11-13까지 develop에서 main으로 연 릴리스 PR 29개는 PR을 연 뒤 버전 결정, CHANGELOG·README 갱신, 태그 생성까지 끝나고 머지되는 데 중앙값 **30초**가 걸렸습니다(가장 빠른 것 25초, 가장 느린 것 50초). PR을 연 뒤 사람이 손댄 것은 없습니다. 머지된 릴리스 PR의 `created_at`과 `merged_at`을 비교하면 직접 확인할 수 있습니다(`GET /repos/Cassiiopeia/projectops/pulls?state=closed&base=main`).
+
 ---
 
 ## 다른 도구와 비교

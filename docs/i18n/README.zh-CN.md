@@ -46,6 +46,8 @@
 | 手写 PR 说明和报告 | `/pro-report` 分析 git diff 后自动生成 |
 | 每次代码审查和分析都要重新输入提示词 | 18 个 Skills 提供一致的结果，无需重复输入 |
 
+**在本仓库实测。** 2026-11-07 至 2026-11-13 期间从 develop 向 main 发起的 29 个发布 PR，从打开到确定版本、更新 CHANGELOG 和 README、创建标签并合并，中位数为 **30 秒**（最快 25 秒，最慢 50 秒）。打开 PR 之后无人操作。比较已合并发布 PR 的 `created_at` 与 `merged_at` 即可自行验证（`GET /repos/Cassiiopeia/projectops/pulls?state=closed&base=main`）。
+
 ---
 
 ## 与其他工具的比较

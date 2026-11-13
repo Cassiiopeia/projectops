@@ -46,6 +46,8 @@
 | PR の説明やレポートを手書き | `/pro-report` が git diff を分析して自動生成 |
 | コードレビューや分析のたびにプロンプトを入力 | 18 種の Skills で一貫した結果。毎回の再入力は不要 |
 
+**このリポジトリでの実測値。** 2026-11-07〜2026-11-13 に develop から main へ開いたリリース PR 29 件は、PR を開いてからバージョン決定、CHANGELOG・README の更新、タグ作成を終えてマージされるまで中央値 **30 秒**でした（最短 25 秒、最長 50 秒）。PR を開いた後、人の操作はありません。マージ済みリリース PR の `created_at` と `merged_at` を比べれば確認できます（`GET /repos/Cassiiopeia/projectops/pulls?state=closed&base=main`）。
+
 ---
 
 ## 他のツールとの比較
