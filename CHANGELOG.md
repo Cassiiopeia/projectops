@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.102.0  
-**Last updated:** 2026-11-13T13:52:33Z  
+**Current version:** 4.103.0  
+**Last updated:** 2026-11-13T13:56:32Z  
+
+---
+
+## [4.103.0] - 2026-11-13
+
+**PR:** #1161  
+
+**Other**
+- Contributors claim an issue with /assign and release it with /unassign; other wording gets a hint instead of an assignment
 
 ---
 
