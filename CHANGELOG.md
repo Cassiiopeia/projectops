@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.100.1  
-**Last updated:** 2026-11-13T11:58:16Z  
+**Current version:** 4.100.2  
+**Last updated:** 2026-11-13T12:02:11Z  
+
+---
+
+## [4.100.2] - 2026-11-13
+
+**PR:** #1137  
+
+**Documentation**
+- The README shows how long a release takes on this repository, with a way to check it yourself
 
 ---
 

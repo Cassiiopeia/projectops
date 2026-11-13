@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-13T11:58:16Z",
-    "currentVersion": "4.100.1",
+    "lastUpdated": "2026-11-13T12:02:11Z",
+    "currentVersion": "4.100.2",
     "projectType": "basic",
-    "totalReleases": 400,
+    "totalReleases": 401,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.100.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-13",
+      "pr_number": 1137,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Documentation**\n  * The README shows how long a release takes on this repository, with a way to check it yourself",
+      "parsed_changes": {
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "The README shows how long a release takes on this repository, with a way to check it yourself"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.100.1",
       "project_type": "basic",
