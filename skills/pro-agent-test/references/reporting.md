@@ -172,7 +172,7 @@ need different judgment, so a person must decide.
 
 ## Write evidence for "looks wrong" as values ⚠️
 
-"Works but looks wrong" (axes 4·5·6 of `references/looks-wrong.md`) **is judged differently by different people.**
+"Works but looks wrong" (axes 4·5·6 of `looks-wrong.md`) **is judged differently by different people.**
 If you do not pin the evidence to values, the report turns into an argument about taste.
 
 | Write it like this | Not like this |

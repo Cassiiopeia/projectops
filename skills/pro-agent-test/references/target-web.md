@@ -36,7 +36,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {LAUNCH}/launch_cli.py web setup
 **Read the current screen with `web text` before every action** — do not click from memory of the previous screen. Choose what to click by
 the number from `find`, and confirm the result with `--expect-url` · `--expect-text` (`changed: false` means you clicked the wrong thing).
 **At steps where appearance matters — defect evidence, layout, clipping — take a `shot` and open it with Read.** For judgment, follow
-the "Actions" section of `pro-launch`'s `references/web.md`.
+the "Actions" section of `pro-launch`'s `web.md`.
 
 ## Stage the edge paths — do not touch the server
 

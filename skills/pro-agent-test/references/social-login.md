@@ -47,7 +47,7 @@ Because of the risk of locking the account, **never auto-retry a password more t
 
 > **Check saved login info first.** If `pro-launch`'s `cred list` has an account for this app or provider with `kind: login`,
 > use it (`web type --cred` · `app type --cred`). If not, ask, and save **only what you are allowed to** — see
-> "When saving login info" in `pro-launch/references/web.md`. Keep the account in `cred` and the method that worked in `learn`.
+> "When saving login info" in `../../pro-launch/references/web.md`. Keep the account in `cred` and the method that worked in `learn`.
 
 ## First: check whether there is a way in without logging in
 
