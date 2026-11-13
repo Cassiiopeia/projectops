@@ -24,7 +24,7 @@ Talk to the user in the user's language (or the configured `language` preference
 
 ### Credentials — take them and enter them if the user wants
 
-**First check for a saved login.** If `cred list` has an entry with `kind: login` whose `provider` (google · apple · naver · app name) and
+**First check for a saved login.** If `cred list` has an entry with `kind: login` whose `provider` (google · apple · naver · kakao · github · app name) and
 `use_when` fit the current screen, **use it without asking** (stop only at a two-factor screen):
 
 ```
@@ -115,6 +115,7 @@ The method (phone approval · SMS code · authenticator code · security key) di
 ### `web login` — enter > hand off to the user > resume when the condition is met (#881)
 
 There is no per-provider (Google · Apple …) screen automation. Those screens change often and break it. Give input fields as **selectors** found with `web find` · `inspect`.
+Per-provider hints (where the inputs are, which two-factor screens appear) are in [`web-sign-in.md`](web-sign-in.md).
 
 ```
 launch_cli.py web login --cred staging-admin --user-selector "#email" --password-selector "#pw" \
@@ -147,7 +148,7 @@ launch_cli.py cred set --name google-dev --json '{"kind":"login","provider":"goo
 | Field | Meaning |
 |---|---|
 | `kind` | `login` |
-| `provider` | `google` · `apple` · `naver` · `kakao` · `custom` (the app's own login) |
+| `provider` | `google` · `apple` · `naver` · `kakao` · `github` · `custom` (the app's own login) |
 | `surface` | `web` · `android` · `ios` |
 | `app` | URL, or package name / bundle ID (the same provider can use different accounts per app) |
 | `account` · `password` | Values to enter (pick with `--cred-field account`) |
@@ -302,6 +303,7 @@ A `ref` from `find --frame X` belongs to that frame, so add the same `--frame`, 
 ```
 
 A raw Playwright selector (`"iframe >> internal:control=enter-frame >> #account_name_text_field"`) also works with `--selector`, but `--frame` is easier to read.
+If `frames` lists a frame with an empty `name` and `url` (a cross-origin frame read over a new connection), pass an iframe selector instead: `--frame "iframe"` or `--frame "iframe#id"`.
 
 ### Waiting · scrolling (#880)
 
@@ -380,6 +382,7 @@ If it really must run in the browser, split it into batches of a few dozen acros
 | `clicked` | The element actually clicked (tag · text · link URL) |
 | `before` · `url` · `title` | Before and after the click |
 | `changed` | Whether the URL or title changed. **`false` may mean you clicked the wrong thing.** If it expands in place, check with `text` |
+| `content_changed` · `frame_content_changed` | Whether the page content changed (element count, open dialogs, visible text length). `frame_content_changed` covers child iframes (up to 10), so a step change inside a login iframe is not reported as `nothing visible changed` (#1132) |
 | `code: expect_not_met` | You passed `--expect-*` and it did not arrive. It is a failure |
 | `code: ref_stale` | The screen changed and that number is gone. Run `find` again. For a control that only exists while its row is hovered, run `web hover` on the row first, then `find` |
 | `page_reloaded` | The page reloaded between commands, and this session did not ask for it (the site, a person or another session did). Refs, typed text and open menus are gone. Also added to `summary`, so `--brief` shows it. If it repeats at every command and `web open` warns about the color scheme, restart the browser (`kb show web-page-reloads-on-theme-flip`) |
@@ -443,6 +446,8 @@ Do not delete or break server data. **Rewrite the responses.**
 | Rules persist | They stay on until turned off. **Run `--clear` when done**, or the next person sees fake responses |
 
 ## Google · Apple login — stealth
+
+> The whole sign-in flow per provider (Google · Apple · Naver · Kakao · GitHub) is in [`web-sign-in.md`](web-sign-in.md). This section covers only bot detection.
 
 Login screens detect automated browsers and block them ("This browser or app may not be secure").
 `web open` hides automation markers by default (ported from gstack browse `stealth.ts` — `scripts/stealth.py`).

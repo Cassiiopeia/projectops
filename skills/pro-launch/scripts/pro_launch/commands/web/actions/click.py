@@ -3,6 +3,7 @@ from __future__ import annotations
 
 
 from pro_launch.commands.web.session import safe_title, settle
+from pro_launch.commands.web.frames import child_frames
 from pro_launch.commands.web.element import (is_timeout_error, locate_target, not_actionable_failure,
                                              outcome_wait_seconds, target_wait_seconds)
 from pro_launch.registry import Action
@@ -25,6 +26,12 @@ COVERING_ELEMENT_JS = """(e, shouldCenter) => {
 # 같은 화면에서 무언가 바뀌었는지 보는 지문: 요소 수, 열린 대화상자 수, 보이는 글자 수 (#1048)
 PAGE_FINGERPRINT_JS = """() => [document.querySelectorAll('*').length,
   document.querySelectorAll('dialog[open]').length, (document.body ? document.body.innerText : '').length].join(':')"""
+
+
+# 지문을 읽는 자식 프레임 수 상한 (광고 iframe 이 많은 페이지에서 느려지지 않게)
+MAXIMUM_FINGERPRINTED_FRAMES = 10
+# 못 읽은 프레임 자리 표시
+UNREADABLE_FRAME_MARK = "?"
 
 
 # 누름이 실제로 페이지에 닿았는지 세는 감시: 요소가 속한 창의 capture 단계 (#1048)
@@ -83,6 +90,14 @@ def read_page_fingerprint(page) -> str | None:
         return page.evaluate(PAGE_FINGERPRINT_JS)
     except Exception:
         return None
+
+
+def read_frames_fingerprint(page) -> str:
+    """자식 프레임별 주소 + 지문 (#1132)
+    교차 출처 로그인 iframe 안 단계 전환은 최상위 지문에 안 잡힘 > 프레임마다 같은 지문을 읽는다
+    """
+    return "|".join(f"{frame.url}={read_page_fingerprint(frame) or UNREADABLE_FRAME_MARK}"
+                    for frame in child_frames(page)[:MAXIMUM_FINGERPRINTED_FRAMES])
 
 
 def covering_element(element, should_center: bool) -> str | None:
@@ -163,6 +178,7 @@ def _web_click(page, args, state: dict) -> dict:
         return failure
     before_url, before_title = page.url, safe_title(page)
     before_fingerprint = read_page_fingerprint(page)
+    before_frames_fingerprint = read_frames_fingerprint(page)
     recovery, failure = click_with_cover_recovery(page, el, args, info)
     if failure:
         return failure
@@ -196,15 +212,19 @@ def _web_click(page, args, state: dict) -> dict:
     after_url, after_title = page.url, safe_title(page)
     changed = after_url != before_url or after_title != before_title
     after_fingerprint = read_page_fingerprint(page)
-    content_changed = before_fingerprint is None or after_fingerprint is None or before_fingerprint != after_fingerprint
+    frame_content_changed = read_frames_fingerprint(page) != before_frames_fingerprint
+    content_changed = (before_fingerprint is None or after_fingerprint is None or before_fingerprint != after_fingerprint
+                       or frame_content_changed)
     if is_input_dropped(recovery, changed, content_changed):
         return input_not_delivered_failure(page, args, info)
     recovery.pop(DELIVERED_INPUT_COUNT_KEY, None)
     outcome_text = ("URL or title changed" if changed else
+                    "URL and title unchanged, content inside an iframe changed"
+                    if frame_content_changed and before_fingerprint == after_fingerprint else
                     "URL and title unchanged, page content changed" if content_changed else
                     "nothing visible changed")
     payload = {"action": "click", "clicked": info, "changed": changed, "content_changed": content_changed,
-               "before": {"url": before_url, "title": before_title},
+               "frame_content_changed": frame_content_changed, "before": {"url": before_url, "title": before_title},
                "url": after_url, "title": after_title,
                "summary": f"Clicked '{(info.get('text') or info.get('aria') or info.get('tag'))[:40]}' → "
                           + outcome_text}

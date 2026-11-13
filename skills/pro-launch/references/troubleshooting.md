@@ -723,16 +723,18 @@
 ### `desktop-apple-2fa-code-window` — Apple Account 2FA on this Mac: allow the alert, read the code window
 
 - Codes: `mutating_blocked` · `window_not_found`
-- Keywords: Apple 계정, Apple Account, 허용함, Allow, FollowUpUI, 확인 코드, verification code
-- Symptom: A web or app sign-in asks for a code sent to this Mac; the notification 'Apple Account signed in' must be allowed and the code read from a system window
+- Keywords: Apple 계정, Apple Account, 허용함, Allow, FollowUpUI, 확인 코드, verification code, 로그인된 Apple 계정, Signed-in Apple Account, sign-in requested, 허용 안 함, Don't Allow, Done, 세부사항 보기, 닫기
+- Symptom: A web or app sign-in asks for a code sent to this Mac; a system alert must be allowed and the code read from a system window. Older macOS: 'Apple Account sign-in requested' (Allow · Don't Allow). macOS 27.x: 'Signed-in Apple Account' with Details · Don't Allow · Allow · Close. Korean UI labels (macOS 27.2) are in keywords
 - Cause: macOS shows the request as a Notification Center alert with hidden actions (Allow, Don't Allow) and the code in a floating FollowUpUI window (CoreFollowUp, layer 25) that also holds keyboard focus
 - Fix:
-  1. Ask the user first: Allow approves a sign-in to their Apple Account. Only for the sign-in this session just started
-  2. launch_cli.py desktop wait --window overlay --text "Apple" --timeout 60, then click --ref <ref> --action "<Allow name from named_actions>" --confirm-mutating after the user agrees
+  1. Ask the user first: Allow approves a sign-in to their Apple Account. Only for the sign-in this session just started (the alert appears within about a minute after the web 'Sign In' click)
+  2. launch_cli.py desktop wait --window overlay --text "Apple" --timeout 60, then click --ref <ref> --action "<Allow from named_actions>" --confirm-mutating after the user agrees
   3. launch_cli.py desktop tree --window overlay  # the code is a static text with spaces, e.g. '4 1 9   2 0 1'; remove the spaces
-  4. Press the code window's Done button with --confirm-mutating so it returns keyboard focus, then type the code with desktop type --ref <first box> --text <code> --keys or web type
-  5. A wrong or partial entry invalidates the code; resend once from the page and do not retry in a loop (the account can be locked)
-- Refs: #985 · verified 2026-10-22
+  4. Press the code window's Done button with --confirm-mutating so it returns keyboard focus
+  5. Six separate code boxes on the web page: web click --frame Widget --ref 1 (first box), then web type --frame Widget --keys <code> --delay-ms 120
+  6. A wrong or partial entry invalidates the code; resend once from the page and do not retry in a loop (the account can be locked)
+  7. Full recipe: references/web-sign-in.md (Apple)
+- Refs: #985, #1132 · verified 2026-11-13
 
 ### `desktop-browser-page-not-in-tree` — desktop tree of Chrome or an Electron app shows only the toolbar, not the page
 
@@ -749,14 +751,14 @@
 ### `desktop-macos-permission-terminal` — macOS desktop returns permission_missing although Python was allowed
 
 - Codes: `permission_missing`
-- Keywords: Accessibility, Screen Recording, 손쉬운 사용, 화면 기록
-- Symptom: desktop doctor or click returns permission_missing (accessibility or screen_recording) on macOS
-- Cause: macOS grants Accessibility and Screen Recording to the app that started the command (Terminal, iTerm, VS Code, Orca), not to python3
+- Keywords: Accessibility, Screen Recording, 손쉬운 사용, 화면 기록, host app, Paseo, Cursor, screen_recording
+- Symptom: desktop doctor or click returns permission_missing (accessibility or screen_recording) on macOS; with Accessibility only, desktop session start works but desktop click fails
+- Cause: macOS grants Accessibility and Screen Recording to the host app that started the command (Terminal, iTerm, Paseo, Cursor, VS Code, Orca), not to python3. click · type · press · focus need both (they compare the screen before and after)
 - Fix:
-  1. System Settings > Privacy & Security > Accessibility: turn on the terminal app that runs the agent
-  2. System Settings > Privacy & Security > Screen & System Audio Recording: turn on the same app
-  3. Quit and reopen that terminal app, then launch_cli.py desktop doctor
-- Refs: #985 · verified 2026-10-22
+  1. launch_cli.py desktop doctor  # host_app names the app; grant and open_settings show the panes
+  2. A person turns on that app in System Settings > Privacy & Security > Accessibility AND Screen & System Audio Recording; the agent cannot grant them to its own host
+  3. Quit and reopen that host app, then launch_cli.py desktop doctor
+- Refs: #985, #1132 · verified 2026-11-13
 
 ### `desktop-notification-banner-expires` — A macOS notification banner disappears before it is pressed
 

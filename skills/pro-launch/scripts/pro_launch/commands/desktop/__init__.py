@@ -15,6 +15,7 @@ import argparse
 
 from pro_launch.commands.desktop import actions as _actions
 from pro_launch.commands.desktop.common import load_backend
+from pro_launch.commands.desktop.host_app import host_app_label, find_host_app
 from pro_launch.commands.desktop.input_ops import TAKEOVER_WORDS, keyboard_takeover_refusal
 from pro_launch.commands.desktop.options import ALWAYS_OPTIONS, MAX_TIMEOUT_SECONDS, SHARED_OPTIONS
 from pro_launch.registry import Command, action_usage_lines, add_action_parsers, discover_actions
@@ -45,9 +46,11 @@ def input_gate(be) -> dict | None:
                 "ask_user": "Please unlock the screen, then tell me when it is done"}
     missing = [k for k, granted in (ready.get("permissions") or {}).items() if not granted]
     if missing:
+        # 클릭 · 입력은 전후 화면 비교라 화면 기록도 필요 — 손쉬운 사용만 켠 호스트가 여기서 막힌다 (#1132)
         return {"ok": False, "code": "permission_missing", "missing": missing,
-                "error": f"macOS has not granted {', '.join(missing)} to this terminal app",
-                "next": "desktop doctor  # shows where to grant it"}
+                "error": f"macOS has not granted {', '.join(missing)} to {host_app_label(find_host_app())}. "
+                         "click · type · press · focus need both Accessibility and Screen Recording",
+                "next": "desktop doctor  # names the host app and where a person turns it on"}
     holder = desktop_state.current_holder()
     mine = desktop_state.my_session()
     if mine is None:

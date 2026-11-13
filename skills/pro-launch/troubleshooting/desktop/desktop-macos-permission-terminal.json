@@ -10,18 +10,23 @@
       "Accessibility",
       "Screen Recording",
       "손쉬운 사용",
-      "화면 기록"
+      "화면 기록",
+      "host app",
+      "Paseo",
+      "Cursor",
+      "screen_recording"
     ]
   },
-  "symptom": "desktop doctor or click returns permission_missing (accessibility or screen_recording) on macOS",
-  "cause": "macOS grants Accessibility and Screen Recording to the app that started the command (Terminal, iTerm, VS Code, Orca), not to python3",
+  "symptom": "desktop doctor or click returns permission_missing (accessibility or screen_recording) on macOS; with Accessibility only, desktop session start works but desktop click fails",
+  "cause": "macOS grants Accessibility and Screen Recording to the host app that started the command (Terminal, iTerm, Paseo, Cursor, VS Code, Orca), not to python3. click · type · press · focus need both (they compare the screen before and after)",
   "fix": [
-    "System Settings > Privacy & Security > Accessibility: turn on the terminal app that runs the agent",
-    "System Settings > Privacy & Security > Screen & System Audio Recording: turn on the same app",
-    "Quit and reopen that terminal app, then launch_cli.py desktop doctor"
+    "launch_cli.py desktop doctor  # host_app names the app; grant and open_settings show the panes",
+    "A person turns on that app in System Settings > Privacy & Security > Accessibility AND Screen & System Audio Recording; the agent cannot grant them to its own host",
+    "Quit and reopen that host app, then launch_cli.py desktop doctor"
   ],
   "refs": [
-    985
+    985,
+    1132
   ],
-  "verified_at": "2026-10-22"
+  "verified_at": "2026-11-13"
 }

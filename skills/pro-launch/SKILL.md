@@ -57,6 +57,7 @@ Without it, the root is resolved in this order: `$PROJECT_ROOT` > working direct
 | Single HTTP request · record how to connect · SQL · logs | `http` · `access show\|set\|unset` · `db` · `logs` | `references/server.md` |
 | Store credentials · remote commands · sudo on this Mac | `cred list\|show\|set\|unset\|import-ssh` · `ssh` · `local sudo` | `references/credentials.md` |
 | Policy for interstitial login screens (trust this device · stay signed in · upsells) | `cred policy get\|set\|unset` | `references/web.md` "Interstitial login screens" |
+| **Sign in to Google · Apple · Naver · Kakao · GitHub on the web**, including Apple's code on this Mac (alert → Allow → code → web) | `web open --need login:<provider>` · `web inspect --frame` · `web type --cred` · `desktop wait --window overlay` | `references/web-sign-in.md` |
 | Shrink for issue attachments | `shrink` | `references/memory.md` |
 | Hide sensitive content before posting: cover image areas · replace secrets in a log | `mask` · `redact` | `../references/evidence-attach.md` |
 | Recall · save · delete · tidy what worked on this computer | `recall [--match <word>]` · `learn [--detail]` · `forget` · `tidy` (scattered memory) · `tidy --buckets` (size and bogus buckets; deletes only with `--apply`) | `references/memory.md` |
@@ -305,7 +306,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop session stop    
 | code | Next action |
 |---|---|
 | `desktop_deps_missing` | Ask the user, then `desktop setup` (Windows: mss · comtypes, macOS: mss · pyobjc — into the shared venv) |
-| `permission_missing` (macOS) | The terminal app needs Accessibility and Screen Recording — relay `grant`, then reopen that app |
+| `permission_missing` (macOS) | The host app (`host_app` in `desktop doctor`: Terminal, Paseo, Cursor…) needs **both** Accessibility and Screen Recording — `click` fails without Screen Recording. Only a person can grant it: relay `ask_user`, then reopen that app |
 | `desktop_session_required` · `desktop_busy` | `desktop session start` · another session holds the keyboard and mouse — wait or ask |
 | `user_interrupted` | The user moved the mouse or typed (`input_detected`). Stop, ask, and `desktop session resume` only after they agree |
 | `needs_user` · `screen_locked` · `elevated_window` | UAC / sign-in prompt · locked screen · an administrator window. Only a person can answer — relay `ask_user` |
@@ -314,7 +315,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop session stop    
 | `secret_requires_cred` | Password field: `--cred <name>` or `--text-env VAR` |
 | `tree_unavailable` | `desktop shot`, read it, `click --at x,y --confirm-mutating` after asking |
 
-Details: `references/desktop.md`.
+Details: `references/desktop.md`. Apple Account code on this Mac during a web sign-in: `references/web-sign-in.md` (Apple).
 
 ## render · server · credentials · memory — use this when
 

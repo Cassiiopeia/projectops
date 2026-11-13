@@ -24,7 +24,8 @@ Call them as scripts, the same way `pro-launch` documents (`{PYTHON} {SCRIPTS}/l
 ### Phase 0 — Check and tell
 
 1. `desktop doctor`. On `desktop_deps_missing`, ask the user, then `desktop setup`. On `unsupported_on_platform`, say that this computer's OS is not supported yet and stop.
-   On macOS `permission_missing`, relay `grant`: the terminal app needs Accessibility and Screen Recording, then a restart of that app.
+   On macOS `permission_missing`, relay `ask_user` and `grant`: the host app (`host_app`: Terminal, Paseo, Cursor…) needs both Accessibility and Screen Recording
+   (`click` fails without Screen Recording), then a restart of that app. Only a person can grant it; you cannot do it for your own host.
 2. `desktop session start --purpose "<issue or task>"`. **Relay `tell_user` to the user as is** — they need to know the keyboard and mouse are in use and that moving the mouse pauses the work.
    On `desktop_busy`, another session holds them: tell the user and wait.
 
@@ -54,7 +55,7 @@ Terms and licence agreements: read the agreement's title to the user and let the
 **Sign-in approvals (Allow · Trust, in any UI language)**: approving lets someone into the user's account. Ask every time, naming the sign-in it belongs to
 (the one this session just started, with the location the alert shows). Never approve a request this session did not cause.
 "Trust this browser" is the user's choice. A wrong code entry invalidates the code — resend once, never loop (the account can be locked).
-Full Apple Account recipe: `../pro-launch/references/desktop.md` (section "Apple Account two-factor on this Mac").
+Full Apple Account recipe (alert wording per macOS version, split code boxes, failure branches): `../pro-launch/references/web-sign-in.md` (section "Apple").
 
 ### Phase 3 — Finish and report
 

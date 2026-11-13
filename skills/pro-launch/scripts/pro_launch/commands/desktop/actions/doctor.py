@@ -2,17 +2,11 @@
 from __future__ import annotations
 
 from pro_launch.commands.desktop.common import load_backend
+from pro_launch.commands.desktop.host_app import permission_guidance
 from pro_launch.commands.desktop.input_ops import user_input_check
 from pro_launch.registry import Action
 from pro_launch.runtime import desktop_state
 from pro_launch.runtime.output import out
-
-# macOS 권한 이름 → 사용자가 켜는 곳 (메뉴 경로)
-PERMISSION_PATHS = {
-    "accessibility": "System Settings → Privacy & Security → Accessibility → turn on your terminal app",
-    "screen_recording": "System Settings → Privacy & Security → Screen & System Audio Recording → turn on your terminal app",
-}
-
 
 def execute(args) -> int:
     be, failure = load_backend()
@@ -32,8 +26,8 @@ def execute(args) -> int:
                "summary": f"{be.name}: {len(windows)} windows" + (f", missing {', '.join(missing)}" if missing else ""),
                "next": "desktop windows" if not missing else None}
     if missing:
-        payload["grant"] = {k: PERMISSION_PATHS.get(k, k) for k in missing}
-        payload["ask_user"] = "Please grant " + " and ".join(missing) + " to your terminal app, then restart it"
+        # 호스트 앱 이름 · 켤 곳 · 사람만 켤 수 있다는 것 (#1132)
+        payload.update(permission_guidance(missing))
     return out(payload)
 
 

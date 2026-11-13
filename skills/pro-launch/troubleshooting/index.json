@@ -238,6 +238,9 @@
     "crash": [
       "ios-app-vanishes-after-launch"
     ],
+    "cursor": [
+      "desktop-macos-permission-terminal"
+    ],
     "desc": [
       "android-flutter-doubled-desc",
       "ios-label-in-desc-doubled"
@@ -253,7 +256,11 @@
       "general-zsh-variable-command"
     ],
     "don": [
+      "desktop-apple-2fa-code-window",
       "general-login-interstitial-policy"
+    ],
+    "done": [
+      "desktop-apple-2fa-code-window"
     ],
     "element": [
       "desktop-window-listed-but-content-elsewhere"
@@ -290,6 +297,9 @@
     ],
     "headless": [
       "web-orphan-headless-chrome"
+    ],
+    "host": [
+      "desktop-macos-permission-terminal"
     ],
     "iframe": [
       "web-iframe-login-fields"
@@ -370,6 +380,9 @@
     "page_reloaded": [
       "web-page-reloads-on-theme-flip"
     ],
+    "paseo": [
+      "desktop-macos-permission-terminal"
+    ],
     "passkey": [
       "general-login-interstitial-policy"
     ],
@@ -410,6 +423,9 @@
     "reloads": [
       "web-page-reloads-on-theme-flip"
     ],
+    "requested": [
+      "desktop-apple-2fa-code-window"
+    ],
     "respond": [
       "ios-maestro-stale-driver-or-overload"
     ],
@@ -434,6 +450,9 @@
     "screen": [
       "desktop-macos-permission-terminal"
     ],
+    "screen_recording": [
+      "desktop-macos-permission-terminal"
+    ],
     "secret": [
       "web-secret-in-input"
     ],
@@ -456,8 +475,14 @@
     "sigabrt": [
       "ios-app-vanishes-after-launch"
     ],
+    "sign-in": [
+      "desktop-apple-2fa-code-window"
+    ],
     "signed": [
       "general-login-interstitial-policy"
+    ],
+    "signed-in": [
+      "desktop-apple-2fa-code-window"
     ],
     "singletonlock": [
       "browser-start-stale-process-or-lock"
@@ -567,6 +592,9 @@
     "다시": [
       "general-login-interstitial-policy"
     ],
+    "닫기": [
+      "desktop-apple-2fa-code-window"
+    ],
     "대량": [
       "web-script-browser-memory-exceeded"
     ],
@@ -576,6 +604,9 @@
     "렌더": [
       "general-render-failed-first-error"
     ],
+    "로그인된": [
+      "desktop-apple-2fa-code-window"
+    ],
     "명령": [
       "general-render-failed-first-error"
     ],
@@ -584,6 +615,9 @@
     ],
     "묻지": [
       "general-login-interstitial-policy"
+    ],
+    "보기": [
+      "desktop-apple-2fa-code-window"
     ],
     "뷰포트": [
       "web-viewport-width-height"
@@ -605,6 +639,9 @@
     ],
     "선택": [
       "desktop-window-listed-but-content-elsewhere"
+    ],
+    "세부사항": [
+      "desktop-apple-2fa-code-window"
     ],
     "센터": [
       "desktop-notification-banner-expires"
@@ -669,6 +706,9 @@
     ],
     "패스키": [
       "general-login-interstitial-policy"
+    ],
+    "허용": [
+      "desktop-apple-2fa-code-window"
     ],
     "허용함": [
       "desktop-apple-2fa-code-window"
@@ -798,10 +838,10 @@
       "area": "desktop",
       "title": "Apple Account 2FA on this Mac: allow the alert, read the code window",
       "fix_short": [
-        "Ask the user first: Allow approves a sign-in to their Apple Account. Only for the sign-in this session just started",
-        "launch_cli.py desktop wait --window overlay --text \"Apple\" --timeout 60, then click --ref <ref> --action \"<Allow name from named_actions>\" --confirm-mutating a…"
+        "Ask the user first: Allow approves a sign-in to their Apple Account. Only for the sign-in this session just started (the alert appears within about a minute af…",
+        "launch_cli.py desktop wait --window overlay --text \"Apple\" --timeout 60, then click --ref <ref> --action \"<Allow from named_actions>\" --confirm-mutating after …"
       ],
-      "keyword_count": 10,
+      "keyword_count": 20,
       "path": "desktop/desktop-apple-2fa-code-window.json"
     },
     "desktop-browser-page-not-in-tree": {
@@ -818,10 +858,10 @@
       "area": "desktop",
       "title": "macOS desktop returns permission_missing although Python was allowed",
       "fix_short": [
-        "System Settings > Privacy & Security > Accessibility: turn on the terminal app that runs the agent",
-        "System Settings > Privacy & Security > Screen & System Audio Recording: turn on the same app"
+        "launch_cli.py desktop doctor # host_app names the app; grant and open_settings show the panes",
+        "A person turns on that app in System Settings > Privacy & Security > Accessibility AND Screen & System Audio Recording; the agent cannot grant them to its own …"
       ],
-      "keyword_count": 7,
+      "keyword_count": 11,
       "path": "desktop/desktop-macos-permission-terminal.json"
     },
     "desktop-notification-banner-expires": {

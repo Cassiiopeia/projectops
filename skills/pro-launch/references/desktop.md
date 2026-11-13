@@ -87,8 +87,11 @@ because it throws work away.
 
 ## macOS
 
-**Permissions belong to the terminal app**, not to Python: System Settings → Privacy & Security → Accessibility and
-Screen & System Audio Recording → turn on the app that runs the agent (Terminal, iTerm, VS Code, Orca…), then reopen it. `desktop doctor` shows both.
+**Permissions belong to the host app** that runs the agent (Terminal, iTerm, Paseo, Cursor, VS Code, Orca…), not to Python:
+System Settings → Privacy & Security → Accessibility **and** Screen & System Audio Recording → turn it on, then quit and reopen it.
+`desktop doctor` names the host app (`host_app`) and the panes (`grant`, `open_settings`).
+- `click` · `type` · `press` · `focus` need **both**: with Accessibility only, `session start` works and `click` returns `permission_missing`.
+- **Only a person can grant them.** The agent cannot switch them on for its own host app; relay `ask_user` and wait.
 
 **System windows (`overlay`)**: notification banners and system dialogs belong to background processes, so they are never "the window in front".
 `desktop windows` lists them with `overlay: true` and `overlay_kind: "dialog" | "notification"`. Name them with `--window overlay`:
@@ -116,15 +119,8 @@ If the page belongs to a `pro-launch web` session, use `web` instead.
 
 ### Apple Account two-factor on this Mac
 
-1. Ask the user first: Allow approves a sign-in to their Apple Account. Only for the sign-in this session just started.
-2. `desktop session start --purpose "Apple sign-in code"`
-3. `desktop wait --window overlay --text "Apple" --timeout 60` → the alert; its `named_actions` include Allow (in the UI language)
-4. `desktop click --ref <ref> --action "<Allow name>" --confirm-mutating` (after the user agreed)
-5. `desktop tree --window overlay` → the code window (FollowUpUI) shows the code as `4 1 9   2 0 1`; drop the spaces
-6. Press its Done button with `--confirm-mutating` — the code window holds keyboard focus until it closes
-7. Type the code: `web type` for a `pro-launch web` page, otherwise `desktop type --ref <first box> --text <code> --keys`
-8. A wrong or split entry invalidates the code. Resend once from the page; never retry in a loop (the account can be locked).
-9. `desktop session stop`. Leave "Trust this browser" to the user.
+The full recipe (web sign-in, the alert in old and new wording, Allow, the code window, split code boxes, failure branches) is in
+[`web-sign-in.md` → Apple](web-sign-in.md#apple). Ask the user before Allow; approve only the sign-in this session just started.
 
 ## Common pitfalls
 

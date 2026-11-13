@@ -29,7 +29,7 @@ Values are saved **under a name** in `launch.credentials` (the file is mode 600)
 | `kind` | `ssh` · `dockerhub` · `db` · `http` · `github-org` · `login` · `local` · `other` |
 | `ssh_server` | (deprecated, for compatibility) A server name from the old `ssh` section. Do not use it for new entries; move the values into cred with `cred import-ssh`. Keep server details and passwords **in cred only** |
 | `use_when` | **When this credential may be used** (the justification). Write the scope the user allowed, word for word |
-| Login account | `kind: login` + `provider` (google · apple · naver · kakao · custom) · `surface` · `app` · `account` · `password` · `two_factor` — social and app logins and developer console logins. Enter them on screen with `web type --cred` · `app type --cred`. Field details: "Saving login details" in `web.md` |
+| Login account | `kind: login` + `provider` (google · apple · naver · kakao · github · custom) · `surface` · `app` · `account` · `password` · `two_factor` — social and app logins and developer console logins. Enter them on screen with `web type --cred` · `app type --cred`. Field details: "Saving login details" in `web.md` |
 | `login_policy` | The interstitial screen policy for a login account (`trust_device` · `keep_signed_in` · `skip_nags` = `ask` · `always` · `never`). Change it **only with `cred policy set|unset`**. Handling rules: "Interstitial login screens" in `web.md` |
 | sudo on this Mac | `kind: local` + `sudo_password` — when you need admin rights **on this Mac** (`sudo installer -pkg …`, etc.). Use it with `local sudo --cred <name> -- <command>` (below) |
 | `scope` | Allowed scope: `test-only` · `test-ok` · `readonly` … |
