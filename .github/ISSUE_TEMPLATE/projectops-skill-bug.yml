@@ -1,0 +1,98 @@
+name: 🧩 Agent skill bug (projectops)
+description: A pro-* skill or its CLI gave a wrong result, crashed, or sent your agent the wrong way
+labels: ["status: todo", "type: bug", "area: skills"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Skill bugs depend on the agent host and the exact JSON the CLI returned, so those fields are required.
+        Tip: in Claude Code, the `pro-skill-bug` skill (projectops-extras) gathers all of this from the session and files it for you.
+        For a bug while installing or updating projectops itself, use **Installer / CLI bug** instead.
+  - type: input
+    id: version
+    attributes:
+      label: projectops version
+      description: The `plugin_version` field in any CLI response, or the version folder of the installed plugin.
+      placeholder: "4.100.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: skill
+    attributes:
+      label: Skill
+      options:
+        - pro-agent-test
+        - pro-changelog-deploy
+        - pro-code-consult
+        - pro-commit
+        - pro-desktop-control
+        - pro-figma
+        - pro-github
+        - pro-image
+        - pro-init-worktree
+        - pro-launch
+        - pro-oss-consult
+        - pro-presentation
+        - pro-report
+        - pro-review
+        - pro-skill-creator
+        - pro-ssh
+        - pro-testcase
+        - pro-ui-design
+        - An extras skill (projectops-extras)
+    validations:
+      required: true
+  - type: dropdown
+    id: host
+    attributes:
+      label: Agent host
+      options:
+        - Claude Code
+        - Codex CLI
+        - Gemini CLI
+        - Cursor
+        - GitHub Copilot
+        - pi
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The exact CLI command the agent ran (for example `python3 ~/.projectops/bin/projectops_cli.py launch app shot ...`).
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: response
+    attributes:
+      label: CLI response
+      description: The JSON (or traceback) the command printed. Remove tokens, passwords and personal data first.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, what the agent did next, or a workaround you found.
+    validations:
+      required: false

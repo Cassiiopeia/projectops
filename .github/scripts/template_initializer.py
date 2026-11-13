@@ -203,6 +203,7 @@ CLEANUP_TARGETS = [
     (".github/CODEOWNERS", "Remove CODEOWNERS (owners of this repository)"),
     (".github/i18n", "Remove i18n overlay folder (Korean templates, this repository only)"),
     (".github/ISSUE_TEMPLATE/projectops-installer-bug.yml", "Remove projectops installer bug form (this repository only)"),
+    (".github/ISSUE_TEMPLATE/projectops-skill-bug.yml", "Remove projectops agent skill bug form (this repository only)"),
     ("CLAUDE.md", "Remove CLAUDE.md"),
     ("AGENTS.md", "Remove AGENTS.md"),
     ("GEMINI.md", "Remove GEMINI.md"),
