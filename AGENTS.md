@@ -33,6 +33,25 @@ Read `CONTRIBUTING.md` and `ARCHITECTURE.md` (code map and "how to add a flag / 
 - A new CLI flag or `version.yml` option must also be added to `src/core/options-schema.js`; `test/options-schema.test.js` fails otherwise.
 - Run `npm test` and `python3 -m pytest scripts/tests/ .github/scripts/test/` (the guard checks) and run the change itself before you say it works. Do not commit new tests.
 
+### Read before you touch (English summary of the per-area rules)
+
+The full rules are in Korean in `CLAUDE.md` and `docs/architecture/agent/`. This table gives the rule and the incident it prevents, so you know what to read and why.
+
+| You are changing | Read first | What went wrong when people skipped it |
+|---|---|---|
+| Workflow YAML (`.github/workflows/`, `project-types/`), deploy or publish axes, comment triggers, issue and PR templates | `docs/architecture/agent/workflows.md` | A missing `permissions:` block broke a comment step (#595). A workflow called a fastlane lane that did not exist (#601). A build flag was applied to one layer only (#603). After a rename the old workflow kept running (#470). The common original and its copy drifted apart |
+| Flutter wizards (`.github/util/flutter/`) | `docs/architecture/agent/wizards.md` | A shared utility was redefined and the original silently stopped working. The load order flipped. `check-consistency.py` was not run (#521) |
+| `.github/scripts/` (version, changelog, build number, issue helper), `.sh` files, template-only files at the repo root | `docs/architecture/agent/scripts.md` | A default path started costing money (#569). Scripts broke only on macOS bash 3.2 (#415, #418). A template-only file was registered in one of its two places. A model name with a pinned version returned 404 (#566) |
+| `src/` CLI and wizard (options, run log, breaking changes), docs and GIF language, the Korean line budget | `docs/architecture/agent/installer.md` | The options source of truth and the code disagreed (#851). A `trace.emit` typo dropped the whole run log (#561). The finish screen went missing from the log |
+| `skills/`, `scripts/common/`, `plugins/`, skill CLIs, config, output paths | `docs/architecture/agent/skills.md` | `SKILL_CLIS` and `RESOLVER_REVISION` were not updated (#1080). An output path was hard-coded (#623). A CLI took several optional positional arguments (#622). Test files were copied to users' computers (#591) |
+
+Rules that apply everywhere:
+
+- **Windows is verified only with code page 949 and a non-ASCII path.** Use `fsutil.copyPathSync`, never `fs.cpSync` (silent exit on non-ASCII paths in Node 22+). Give `subprocess.run(text=True)` an `encoding` or `errors="replace"` (Korean output turns `stdout` into `None`). Join commands in Windows instructions with `;`, not `&&` (PowerShell 5.1). Reproduce with `unset PYTHONUTF8 PYTHONIOENCODING`; `PYTHONUTF8=1` hides all of these.
+- **Only five guard checks are kept** (`test/rename-consistency.test.js`, `test/options-schema.test.js`, `scripts/tests/test_skill_docs.py`, `scripts/tests/test_korean_line_budget.py`, `.github/scripts/test/test_workflow_permissions.py`). Verify your change with a scratch test or by running it, then delete the scratch test.
+- **Branches have three meanings.** The default (deploy) branch is `default_branch` (`main`). The development (release source) branch is `development_branch` (`develop`; the old key `deploy_branch` is read for compatibility and written alongside). The optional deploy trigger branch is `metadata.template.options.deploy_trigger_branch`. Do not call the development branch "the deploy branch".
+- **Closing issues:** when work is done, set the status label to `status: done` and close the issue with `github_cli.py finish-issue`. `set-labels` replaces every label on the issue.
+
 ## Skills
 
 Skill bodies live at `skills/{name}/SKILL.md`. If one applies, read it and follow it before you act.
