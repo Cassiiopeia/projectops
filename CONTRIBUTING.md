@@ -19,6 +19,9 @@ a release-note provider, a language, a skill), read [ARCHITECTURE.md](ARCHITECTU
   OS, and the run log (see below) for installer problems.
 - **Ask a question**: use [Discussions](https://github.com/Cassiiopeia/projectops/discussions) rather than an issue.
 - **Fix something small**: look for issues labeled `good first issue` or `help wanted`.
+- **Claim an issue before you start**: leave a comment such as "I'm on it". A maintainer then assigns it to you
+  (GitHub lets us assign only people who have commented on the issue), so two people do not fix the same thing.
+  Open your pull request against `develop` and write `Fixes #<number>` in its description.
 - **Anything bigger** (new project type, new workflow, behavior change): open an issue first and wait for a maintainer
   to confirm the direction before you write code.
 

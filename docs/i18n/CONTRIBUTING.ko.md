@@ -14,6 +14,7 @@ projectops는 저장소에 GitHub Actions 워크플로우, 버전 관리, 이슈
 - **버그, 기능 요청**: 이슈를 열어 주세요. 이슈 폼을 쓰고, 설치기 문제는 projectops 버전, OS, 실행 로그를 함께 적어 주세요.
 - **질문**: 이슈 대신 [Discussions](https://github.com/Cassiiopeia/projectops/discussions)를 써 주세요.
 - **작은 수정**: `good first issue`, `help wanted` 라벨이 붙은 이슈를 찾아보세요.
+- **작업 전에 이슈 맡기**: 이슈에 "I'm on it" 같은 댓글을 남겨 주세요. 메인테이너가 담당자로 지정합니다(GitHub은 그 이슈에 댓글을 단 사람만 지정할 수 있습니다). 같은 일을 두 사람이 고치는 것을 막기 위해서입니다. PR은 `develop`을 대상으로 열고 본문에 `Fixes #<번호>`를 적어 주세요.
 - **큰 변경**(새 프로젝트 타입, 새 워크플로우, 동작 변경): 코드를 쓰기 전에 이슈를 열고 메인테이너의 방향 확인을 기다려 주세요.
 
 ## 개발 환경
