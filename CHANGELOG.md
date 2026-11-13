@@ -1,7 +1,20 @@
 # Changelog
 
-**Current version:** 4.103.1  
-**Last updated:** 2026-11-13T14:13:01Z  
+**Current version:** 4.103.2  
+**Last updated:** 2026-11-13T14:16:44Z  
+
+---
+
+## [4.103.2] - 2026-11-13
+
+**PR:** #1174  
+
+**Documentation**
+- The server preview guide now gives the comment commands that actually work (@projectops server build)
+- The commit message example matches the format the release version check reads
+- Links between Korean documentation pages work again
+- A full reference of CLI flags and version.yml options, generated from the source
+- Getting started walks from install to your first release, with a short FAQ
 
 ---
 

@@ -1,14 +1,37 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-13T14:13:01Z",
-    "currentVersion": "4.103.1",
+    "lastUpdated": "2026-11-13T14:16:44Z",
+    "currentVersion": "4.103.2",
     "projectType": "basic",
-    "totalReleases": 407,
+    "totalReleases": 408,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.103.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-13",
+      "pr_number": 1174,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Documentation**\n  * The server preview guide now gives the comment commands that actually work (@projectops server build)\n  * The commit message example matches the format the release version check reads\n  * Links between Korean documentation pages work again\n  * A full reference of CLI flags and version.yml options, generated from the source\n  * Getting started walks from install to your first release, with a short FAQ",
+      "parsed_changes": {
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "The server preview guide now gives the comment commands that actually work (@projectops server build)",
+            "The commit message example matches the format the release version check reads",
+            "Links between Korean documentation pages work again",
+            "A full reference of CLI flags and version.yml options, generated from the source",
+            "Getting started walks from install to your first release, with a short FAQ"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.103.1",
       "project_type": "basic",
