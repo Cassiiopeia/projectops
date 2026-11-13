@@ -101,6 +101,11 @@ If the result has a `cause` (for example `android_system_not_ready`), the **devi
 - `app wait` does not count an unreadable screen as "gone". In `app run` steps, use `{"gone": {...}}` or `{"wait": {...}, "gone": true}`.
 - `--burst` drops duplicates by byte hash (clock and animation changes count as changes). Max 150 frames · 30 seconds.
 - `app shot --shot <name>` is an alias for `--out`.
+- **Recording checks the file it returns (#1130).** `stop` sends SIGINT to the on-device `screenrecord`, waits for it to exit and for the file size to settle, then pulls.
+  It then checks that the mp4 has a `moov` box. A file without one cannot be played, so `stop` returns `ok:false` · `record_unplayable` (the file is kept) — record again.
+  `recorded_seconds` is the real video length (`duration_source`: `ffprobe`, else the mp4 header `mvhd`); `wall_clock_seconds` is the time between start and stop.
+- **Android records at most 180 seconds per take.** `screenrecord` stops by itself at the limit; anything after it is not recorded.
+  `stop` then reports `is_time_limit_reached: true` with a `warning`. For longer flows, stop and start a new take before 180 seconds (takes are not joined automatically). iOS has no such limit.
 
 ### Gesture playbook — capture mid-swipe · swipe from an element · tap right after a swipe (#862)
 
