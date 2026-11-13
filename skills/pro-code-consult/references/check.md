@@ -31,4 +31,4 @@ After fixing, run the existing tests and `ledger PATH check`.
 
 ## 4. If it keeps repeating
 
-If the same smell shows up in every check, propose turning that pattern into a rule (the same way as `references/refactor.md` step 5).
+If the same smell shows up in every check, propose turning that pattern into a rule (the same way as `refactor.md` step 5).

@@ -6,11 +6,11 @@ Principle: **same behavior, new structure only.** One item at a time, one smell 
 
 ## 1. Proposal → approval
 
-Show the 8 steps of `references/proposal-template.md` and **stop.** Do not change files before approval.
+Show the 8 steps of `proposal-template.md` and **stop.** Do not change files before approval.
 
 - Fill step 1 (repeated pattern) from `scan`, `deps` and `assets` results plus `file:line` in the source. Count how many places and how they differ
 - If it is not the 3rd copy (2 places or fewer), do not propose extracting it — except brand assets, config values and legal text, which get a single source even at 2 places
-- The name table follows `references/conventions.md` §2. Fix abbreviations, booleans without `is`, and meaningless names together
+- The name table follows `conventions.md` §2. Fix abbreviations, booleans without `is`, and meaningless names together
 
 ## 1.5 Look wide (before the proposal is final)
 

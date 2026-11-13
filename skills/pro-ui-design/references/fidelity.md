@@ -46,7 +46,7 @@ Show 2 to 4 options. Name files for what they show (`sheet-motion.html`) and nev
 
 ## Level 2: real code render
 
-Follow `pro-launch` `references/render.md` exactly: `render snapshot` → `render scaffold` (Flutter) → `render run`. It cleans up and checks for leftovers. Copy collected PNGs into `screens_dir` and show them in `.ui-option` cards. Delete only what you created.
+Follow `pro-launch` `render.md` exactly: `render snapshot` → `render scaffold` (Flutter) → `render run`. It cleans up and checks for leftovers. Copy collected PNGs into `screens_dir` and show them in `.ui-option` cards. Delete only what you created.
 
 ## Level 3: real capture
 
