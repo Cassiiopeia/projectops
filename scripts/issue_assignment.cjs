@@ -1,8 +1,5 @@
-// Issue assignment for this repository's community issues (#1155).
-// Called by .github/workflows/PROJECT-TEMPLATE-ISSUE-ASSIGNMENT.yaml through actions/github-script.
-//   handleClaimComment: /assign > assign the commenter, /unassign > release, free-form claim > hint
-//   releaseStaleClaims: daily > unassign claims older than 7 days with no open linked PR
-// Template-only: scripts/ is never copied into user repositories.
+// Community issue assignment (#1155): /assign · /unassign · free-form claim hint, daily release of 7-day-old claims
+// Called by PROJECT-TEMPLATE-ISSUE-ASSIGNMENT.yaml via actions/github-script (scripts/ is template-only)
 
 // Labels whose issues are open for outside contributors
 const CLAIMABLE_LABELS = ["good first issue", "help wanted"];
@@ -36,8 +33,8 @@ function isAssignableUser(user, ownerLogin) {
   return user.login.toLowerCase() !== ownerLogin.toLowerCase();
 }
 
-async function comment(github, repo, issueNumber, text) {
-  await github.rest.issues.createComment({ ...repo, issue_number: issueNumber, body: `${BOT_MARKER}\n${text}` });
+async function comment(github, repository, issueNumber, text) {
+  await github.rest.issues.createComment({ ...repository, issue_number: issueNumber, body: `${BOT_MARKER}\n${text}` });
 }
 
 function welcomeText(login, issueNumber) {
@@ -79,35 +76,35 @@ function releasedText(login, issueNumber) {
  */
 async function handleClaimComment({ github, context, core }) {
   const { issue, comment: claim } = context.payload;
-  const repo = context.repo;
+  const repository = context.repo;
   // Target check (issue, open, label, claim wording, assignable person)
   if (issue.pull_request || issue.state !== "open" || !hasClaimableLabel(issue)) return core.info("skip: not a claimable issue");
   const kind = classifyComment(claim.body);
   if (!kind) return core.info("skip: not a claim comment");
-  if (!isAssignableUser(claim.user, repo.owner)) return core.info(`skip: ${claim.user.login} is the owner or a bot`);
+  if (!isAssignableUser(claim.user, repository.owner)) return core.info(`skip: ${claim.user.login} is the owner or a bot`);
   const login = claim.user.login;
   const assignees = (issue.assignees || []).map((user) => user.login);
   const isMine = assignees.some((name) => name.toLowerCase() === login.toLowerCase());
   if (kind === "unassign") {
     if (!isMine) return core.info("skip: /unassign from someone not assigned");
-    await github.rest.issues.removeAssignees({ ...repo, issue_number: issue.number, assignees: [login] });
-    await comment(github, repo, issue.number, unassignedText(login));
+    await github.rest.issues.removeAssignees({ ...repository, issue_number: issue.number, assignees: [login] });
+    await comment(github, repository, issue.number, unassignedText(login));
     return core.info(`unassigned: #${issue.number} < ${login}`);
   }
   if (isMine) return core.info("skip: already assigned to the commenter");
   if (assignees.length > 0) {
-    await comment(github, repo, issue.number, takenText(login, assignees));
+    await comment(github, repository, issue.number, takenText(login, assignees));
     return core.info(`taken: #${issue.number} belongs to ${assignees.join(", ")}`);
   }
   if (kind === "hint") {
-    await comment(github, repo, issue.number, hintText(login));
+    await comment(github, repository, issue.number, hintText(login));
     return core.info(`hint: #${issue.number} > ${login}`);
   }
   // Assign (GitHub accepts only people who commented — confirm from the response)
-  const { data } = await github.rest.issues.addAssignees({ ...repo, issue_number: issue.number, assignees: [login] });
+  const { data } = await github.rest.issues.addAssignees({ ...repository, issue_number: issue.number, assignees: [login] });
   const isAssigned = (data.assignees || []).some((user) => user.login.toLowerCase() === login.toLowerCase());
   if (!isAssigned) return core.warning(`GitHub did not assign ${login} to #${issue.number}`);
-  await comment(github, repo, issue.number, welcomeText(login, issue.number));
+  await comment(github, repository, issue.number, welcomeText(login, issue.number));
   core.info(`assigned: #${issue.number} > ${login}`);
 }
 
@@ -129,25 +126,25 @@ function hasOpenLinkedPullRequest(timeline) {
  * Stale claims: labeled issues > assigned time per assignee > older than 7 days, no open linked PR > unassign + comment
  */
 async function releaseStaleClaims({ github, context, core, isDryRun = false, now = Date.now() }) {
-  const repo = context.repo;
+  const repository = context.repo;
   const released = [];
   for (const label of CLAIMABLE_LABELS) {
-    const issues = await github.paginate(github.rest.issues.listForRepo, { ...repo, state: "open", labels: label, per_page: 100 });
+    const issues = await github.paginate(github.rest.issues.listForRepo, { ...repository, state: "open", labels: label, per_page: 100 });
     for (const issue of issues) {
       if (issue.pull_request || !(issue.assignees || []).length) continue;
-      const timeline = await github.paginate(github.rest.issues.listEventsForTimeline, { ...repo, issue_number: issue.number, per_page: 100 });
+      const timeline = await github.paginate(github.rest.issues.listEventsForTimeline, { ...repository, issue_number: issue.number, per_page: 100 });
       if (hasOpenLinkedPullRequest(timeline)) continue;
       for (const user of issue.assignees) {
         // Never touch issues the owner took
-        if (!isAssignableUser(user, repo.owner)) continue;
+        if (!isAssignableUser(user, repository.owner)) continue;
         const assignedAt = lastAssignedAt(timeline, user.login);
         if (assignedAt === null || now - assignedAt < CLAIM_EXPIRY_DAYS * MILLISECONDS_PER_DAY) continue;
         const key = `#${issue.number}:${user.login}`;
         if (released.includes(key)) continue;
         released.push(key);
         if (isDryRun) continue;
-        await github.rest.issues.removeAssignees({ ...repo, issue_number: issue.number, assignees: [user.login] });
-        await comment(github, repo, issue.number, releasedText(user.login, issue.number));
+        await github.rest.issues.removeAssignees({ ...repository, issue_number: issue.number, assignees: [user.login] });
+        await comment(github, repository, issue.number, releasedText(user.login, issue.number));
       }
     }
   }

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-"""README 번역본 어긋남 점검: 번역본이 따라간 원본 커밋 이후 README.md 변경 목록
-
-번역본 맨 위 표식 `<!-- translated-from: README.md@<커밋> -->` > 그 커밋..HEAD 의 README.md 커밋 > 남은 것 보고
-경고만 낸다 (번역은 사람이 맞춤). `--strict` 일 때만 실패 종료
+"""README translation drift: README.md commits since the commit each translation follows (#1140)
+Marker `<!-- translated-from: README.md@<commit> -->` > commit..HEAD > report (warning only; --strict exits 1)
 """
 from __future__ import annotations
 
@@ -22,6 +20,8 @@ MARKER_PATTERN = re.compile(r"<!--\s*translated-from:\s*README\.md@([0-9a-f]{7,4
 MARKER_SEARCH_LINES = 10
 # 릴리스 봇의 README 버전 줄 갱신 — 번역할 내용이 아님
 IGNORED_SUBJECT_MARK = "[skip ci]"
+# 자동 버전 줄 (번역본에는 없는 줄 — 이 줄만 바꾼 커밋은 번역 대상 아님)
+VERSION_LINE_PATTERN = re.compile(r"^[+-]## Latest version :")
 
 
 def run_git(repo_root: Path, *arguments: str) -> tuple[int, str]:
@@ -49,7 +49,18 @@ def list_untranslated_commits(repo_root: Path, marker_commit: str) -> tuple[list
     code, output = run_git(repo_root, "log", "--format=%h %s", f"{marker_commit}..HEAD", "--", SOURCE_README)
     if code != 0:
         return None, "git log failed"
-    return [line for line in output.splitlines() if line and IGNORED_SUBJECT_MARK not in line], None
+    commits = [line for line in output.splitlines() if line and IGNORED_SUBJECT_MARK not in line]
+    return [line for line in commits if not is_version_line_only(repo_root, line.split(" ", 1)[0])], None
+
+
+def is_version_line_only(repo_root: Path, commit: str) -> bool:
+    """이 커밋의 README.md 변경이 자동 버전 줄뿐인가 (예: main 기준 PR 을 develop 으로 squash 할 때 딸려 온 줄)"""
+    code, output = run_git(repo_root, "show", "--format=", "-U0", commit, "--", SOURCE_README)
+    if code != 0:
+        return False
+    changed = [line for line in output.splitlines()
+               if line[:1] in "+-" and not line.startswith(("+++", "---"))]
+    return bool(changed) and all(VERSION_LINE_PATTERN.match(line) for line in changed)
 
 
 def check_translation(repo_root: Path, translation_file: Path) -> dict:

@@ -11,9 +11,9 @@ const PUSH_BLOCK_RE = /^ {2}push:[ \t]*\n((?: {4,}.*\n|[ \t]*\n)*)/m;
 
 // 같은 변경에 PR 과 push 로 두 번 도는 CI > push 제거 (PR 만)
 function dropPushTrigger(s) {
-  const m = s.match(PUSH_BLOCK_RE);
-  if (!m) return s;
-  const children = m[1].split("\n").filter((line) => line.trim() && !line.trim().startsWith("#"));
+  const pushBlock = s.match(PUSH_BLOCK_RE);
+  if (!pushBlock) return s;
+  const children = pushBlock[1].split("\n").filter((line) => line.trim() && !line.trim().startsWith("#"));
   const isBranchFilterOnly = children.every((line) => /^\s+(branches:|-\s)/.test(line));
   return isBranchFilterOnly ? s.replace(PUSH_BLOCK_RE, "") : s;
 }

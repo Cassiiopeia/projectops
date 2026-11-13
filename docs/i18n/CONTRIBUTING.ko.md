@@ -60,6 +60,8 @@ CI는 Linux, macOS, Windows에서 같은 명령을 돌립니다. 설치기는 ma
   - `type`은 `feat`, `fix`, `docs`, `chore`, `refactor`, `test` 중 하나입니다.
   - `feat`는 다음 릴리스를 minor, `feat!`는 major, 나머지는 patch로 올립니다. `!`는 기존 사용자의 설정이나 CLI 인자가 더 이상 동작하지 않을 때만 붙입니다.
 
+- `main`을 대상으로 열린 포크 PR을 머지할 때(메인테이너): 대상 브랜치를 `develop`으로 바꾼 뒤, squash 머지 전에 "Files changed" 목록을 확인합니다. `main`에서 딴 브랜치는 `main`에만 있는 릴리스 커밋(버전 줄, 플러그인 매니페스트, `package.json`)을 squash에 함께 싣습니다. 기여 내용 말고 다른 파일이 보이면 기여자에게 `develop` 기준으로 rebase를 부탁합니다.
+
 ## 릴리스
 
 - 릴리스는 `develop`에 완료된 작업이 모이는 대로 나갑니다. 하루에 여러 번 나가는 날도 많습니다. 업데이트를 덜 받고 싶은 사용자를 위한 안정 채널은 [#796](https://github.com/Cassiiopeia/projectops/issues/796)에서 다룹니다.

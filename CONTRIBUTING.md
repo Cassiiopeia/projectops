@@ -86,6 +86,10 @@ automation (issue helper, version bump), not your pull request.
   - `type` is one of `feat`, `fix`, `docs`, `chore`, `refactor`, `test`.
   - `feat` makes the next release a minor version, `feat!` a major one, everything else a patch.
     Use `!` only when existing users' settings or CLI arguments stop working.
+- Merging a fork PR that was opened against `main` (maintainers): change its base to `develop`, then check the
+  "Files changed" list before squash-merging. A branch cut from `main` carries main-only release commits (version line,
+  plugin manifests, `package.json`) into the squash. Ask the contributor to rebase onto `develop` if anything beyond
+  their change shows up.
 
 ## Releases
 
