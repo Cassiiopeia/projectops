@@ -22,7 +22,8 @@ skills/
 ├── {skill-name}/SKILL.md
 ├── config.json.example       # 전체 config 구조 예시 (모든 skill_id 섹션 포함)
 └── references/
-    ├── common-rules.md       # 절대 규칙, 커밋 컨벤션, 작업 시작 프로토콜
+    ├── common-rules.md       # 절대 규칙만 (확인 게이트·이슈 상태·push·민감정보). 상세는 주제별 문서 (#1133)
+    ├── script-invocation.md  # 고정 진입점 + fallback 탐색 블록 정본 (SKILL.md 에 블록 복사 금지, #1133)
     ├── personas.md           # 5 전문가 페르소나 + 6 마인드셋 (harness/PERSONA.md single source) — 로드하는 스킬 없음 (harness 사본)
     ├── approval-and-questions.md # 산출물 skill 8종의 승인 게이트 + 시작 전 핵심 질문 표준 (#526)
     ├── config-rules.md       # config 경로·스키마·읽기/쓰기 표준
@@ -41,7 +42,7 @@ skills/
 2. **config 경로·스키마는 `references/config-rules.md` 참조** — skill 내 직접 기술 금지
 3. **GitHub API는 각 skill의 `<scope>_cli.py` 서브커맨드로 호출** (`scripts/common/gh_client` 경유) — `gh` CLI 금지
 4. **OS 호환성**: Python 실행 시 `PYTHON=$(command -v python3 2>/dev/null || command -v python 2>/dev/null)` 패턴 사용
-5. **skill 시작 시 필독**: `references/common-rules.md` → (config 필요 시) `references/config-rules.md` → (기술별) `tech-*.md`
+5. **skill 시작 시 필독**: `references/common-rules.md`. 그 밖의 공유 문서는 각 SKILL.md 의 `## Shared references` 표가 "언제 읽나"와 함께 **직접** 링크한다 (참조는 SKILL.md 에서 한 단계 깊이, #1133)
 5.5. **산출물(md)을 만드는 skill이면** `references/approval-and-questions.md`를 따른다 — 시작 전 핵심 질문, 저장 전 승인 게이트, 첫 실행 1회 자동화 제안. 저장 경로는 각 skill CLI의 `get-output-path`로 받고 직접 조립하지 않는다 (#525·#526)
 6. **Python 행동 로직은 재사용 스크립트 파일 + MCP-style 표준** — 아래 "Python 행동 스크립트 표준" 절을 따른다. SKILL.md에 긴 Python heredoc 인라인 금지.
 
@@ -138,7 +139,7 @@ skill_id를 키로 각 스킬의 설정을 네임스페이스로 분리한다.
 
 ### skill별 CLI 커맨드 (3-layer 아키텍처)
 
-각 skill이 자체 `scripts/<scope>_cli.py`를 보유한다. 서브커맨드가 많은 CLI는 **진입 파일 + 같은 폴더의 패키지**로 나뉜다 — 진입 파일은 파서와 등록만, 서브커맨드 구현은 패키지(`pro_github/`·`pro_agent_test/`·`pro_ui_design/`·`figma_tools/`·`oss_consult/`·`pro_launch/`, 워크트리는 `scripts/git_worktree/`). 호출 패턴 = self-contained 5줄 (`skills/references/common-rules.md` §"skill별 py 분산 호출" 참조).
+각 skill이 자체 `scripts/<scope>_cli.py`를 보유한다. 서브커맨드가 많은 CLI는 **진입 파일 + 같은 폴더의 패키지**로 나뉜다 — 진입 파일은 파서와 등록만, 서브커맨드 구현은 패키지(`pro_github/`·`pro_agent_test/`·`pro_ui_design/`·`figma_tools/`·`oss_consult/`·`pro_launch/`, 워크트리는 `scripts/git_worktree/`). 호출 패턴 = 고정 진입점 `~/.projectops/bin/projectops_cli.py <skill>` + 없을 때 fallback 블록 (`skills/references/script-invocation.md`, #1133).
 
 | skill | cli 파일 | 주요 서브커맨드 |
 |---|---|---|

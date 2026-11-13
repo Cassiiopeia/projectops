@@ -2,6 +2,18 @@
 
 > When to read: the first time you do web work (always read the safety contract), when a login screen blocks you, or when state staging or selectors do not behave as expected.
 
+## Contents
+
+- [Safety contract](#safety-contract-️--read-this-first) — looking vs changing, credentials, interstitial login screens, profiles, 2FA, `web login`, other sessions' tabs
+- [Setup](#setup--offer-to-install-when-missing) — internal networks, certificates, Python on Windows
+- [Driving](#driving--read-pick-by-number-click-while-checking) — covered clicks, iframes, waiting, uploads, `web script`, save checks, `click` results, admin consoles
+- [State staging](#state-staging--dont-touch-the-server)
+- [Google · Apple login — stealth](#google--apple-login--stealth)
+- [Selectors](#selectors)
+- [What works · what doesn't](#what-works--what-doesnt)
+- [Pitfalls](#pitfalls)
+- [Failure code → next action](#failure-code--next-action)
+
 ## Safety contract ⚠️ — read this first
 
 **This is a real browser.** A click is a real click.
@@ -519,3 +531,22 @@ Do not click by coordinates.
 | Clicking cell text with `text=` does not open it | The text is not the click target. `find --text` gives the nearest clickable element containing that text |
 | `open` used to fail on a profile lock | Now it re-attaches if the browser is running (`reused`) and clears locks nobody uses |
 | A browser that is days old is still running | `doctor` reports `open_browser.stale`. If no other session is using it, `close` it or just attach and use it |
+
+## Failure code → next action
+
+| code | Next action |
+|---|---|
+| `nothing_found` · `selector_not_found` | Pick from `candidates` in the result and retry with `--ref` as `next` says. If there are no candidates, read the screen text with `web text` and then `find` |
+| `element_not_actionable` | The element exists but is hidden or covered, so it could not be pressed within 4 s. If `covered_by` is present, a fixed header or overlay covers it — use `--dom-click` as `next` says. Otherwise pick again from `candidates` |
+| `frame_not_found` | Put a name or part of a URL from `frames` into `--frame` |
+| `wait_timeout` | The condition was not met. Decide from `url` · `title`. If you are waiting for approval, do not navigate; `wait` again |
+| `script_failed` · `script_timeout` | Read the snippet's first error line and fix it · raise `--timeout` or wait less |
+| `ref_stale` | The screen changed. Run `find` again. A control that only exists on hover: `web hover` the row first, then `find` |
+| `typed_value_not_kept` | The box was emptied even after typing key by key, or it disappeared. `find` again, or do typing and the next step in one `web script` |
+| `expect_not_met` | The expected result did not come. Look at the current screen with `web text` and pick another candidate |
+| `mutating_blocked` | The read-only session blocked a risky button. Tell the user what would change and get approval |
+| `needs_user` | Hand the remaining login steps (2FA · device approval) to the user. Ask with `ask_user`; when they say they are done, run `web login --resume ...` from `next` |
+| `no_matching_profile` | No browser profile has the `--need` state recorded. After a person logs in, run `web profile mark` |
+| `tab_gone` | The `LAUNCH_TAB` tab was closed. Run `web tab new --name <same name>` |
+| `playwright_missing` · `browser_not_open` · `browser_gone` | Ask the user and run `web setup` · run `web open` again |
+| `browser_start_failed` | Still failing after self-recovery. Read `stderr_tail` · `causes` and decide. `web open` already clears a hung browser and leftover profile locks by itself and reports `recovered` — do not delete locks by hand |

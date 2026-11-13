@@ -2,6 +2,16 @@
 
 A short design conversation in CREATE mode that comes **before Phase 1 slot extraction**. When the user says "make a skill", do not jump straight to filling slots. Think through "is this skill really needed / what shape works best" together once.
 
+## Contents
+
+- [Why this phase exists](#why-this-phase-exists)
+- [HARD GATE — no file writes before Phase 0 agreement](#hard-gate--no-file-writes-before-phase-0-agreement)
+- [Exit conditions](#exit-conditions)
+- [Procedure](#procedure)
+- [Do not ask in Phase 0 (ask in Phase 1)](#do-not-ask-in-phase-0-ask-in-phase-1)
+- [Example: a real conversation flow](#example-a-real-conversation-flow)
+- [When you may skip Phase 0](#when-you-may-skip-phase-0)
+
 ## Why this phase exists
 
 Once built, a skill is called **tens or hundreds of times**. Skip five minutes of design up front and a skill with the wrong scope and wrong boundaries wastes the user's time on every call.

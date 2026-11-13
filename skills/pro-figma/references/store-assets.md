@@ -9,6 +9,17 @@ The tools return **facts only**. Where the images come from (Figma frames, app c
 `store-compose` (below) builds the images from app captures, `store-upload-*` tracks a console upload you do with pro-launch,
 and `store-pages` builds per-locale landing pages. Nothing here resizes, uploads, publishes or submits anything by itself.
 
+## Contents
+
+- [The spec source](#the-spec-source)
+- [Folder layout (the only contract)](#folder-layout-the-only-contract)
+- [Target locales](#target-locales)
+- [Recipe](#recipe)
+- [Issue codes](#issue-codes)
+- [Composer: app captures → per-locale store images](#composer-app-captures--per-locale-store-images)
+- [Console upload: checklist, then pro-launch, one step at a time](#console-upload-checklist-then-pro-launch-one-step-at-a-time)
+- [Landing pages: one page per locale, hreflang and sitemap](#landing-pages-one-page-per-locale-hreflang-and-sitemap)
+
 ## The spec source
 
 ```bash

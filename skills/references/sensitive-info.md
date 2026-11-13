@@ -1,6 +1,6 @@
 # Protecting sensitive information (detail)
 
-The detail behind `common-rules.md` §"Protecting sensitive information", §"Masking rules", and §"Self-review right before saving a file".
+The detail behind `common-rules.md` §"Protecting sensitive information": the masking table and the self-review checklist.
 Read it right before saving an artifact file (issue, report, plan, note, and so on) or posting to GitHub.
 
 The `docs/projectops/` folder is committed publicly to Git. Keep sensitive information out of every artifact.

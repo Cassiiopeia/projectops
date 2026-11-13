@@ -109,13 +109,13 @@ def test_github_skill_docs_use_suh_command_instead_of_direct_curl_recipes():
     assert failures == []
 
 
-def test_common_rules_documents_3layer_architecture():
-    """common-rules.md에 3-layer 아키텍처와 skill cli 매핑이 명시되어야 한다."""
-    text = (ROOT / "skills" / "references" / "common-rules.md").read_text(encoding="utf-8")
+def test_script_invocation_documents_3layer_architecture():
+    """script-invocation.md(호출 표준 정본, #1133)에 3-layer 아키텍처와 skill cli 매핑이 명시되어야 한다."""
+    text = (ROOT / "skills" / "references" / "script-invocation.md").read_text(encoding="utf-8")
     # issue_cli.py는 pro-issue 통합(#464)으로 삭제됨 — github_cli가 흡수. note_cli.py는 pro-note 삭제(#853)로 빠짐.
     for cli in ["github_cli.py", "report_cli.py",
                 "review_cli.py", "changelog_cli.py"]:
-        assert cli in text, f"{cli} 매핑이 common-rules.md에 없음"
+        assert cli in text, f"{cli} 매핑이 script-invocation.md에 없음"
     # 3-layer 핵심 키워드
     for keyword in ["scripts/common/", "skills/<skill>/scripts/", "self-contained 5-line"]:
         assert keyword in text, f"\"{keyword}\" 키워드 누락"

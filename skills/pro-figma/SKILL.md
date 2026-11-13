@@ -53,29 +53,11 @@ The **absolute rules** in `../references/common-rules.md` apply. Arguments: $ARG
 | Upload store images to the console step by step (never submit for review) | `figma_cli.py store-upload-plan --dir` → `launch_cli.py web upload` → `store-upload-mark` → `store-upload-status` | `references/store-assets.md` §Console upload |
 | Per-locale landing pages with hreflang and a sitemap | `figma_cli.py store-pages --run-dir` | `references/store-assets.md` §Landing pages |
 
-## Find the scripts once
+## Calling the CLIs
 
-**The Bash tool resets its state on every call.** Find them once, then **write the actual paths as values into later blocks.**
-
-```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
-[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-for SKILL in pro-figma pro-launch; do
-  ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-  [ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-    H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
-    [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
-  done
-  # Home-copied installs from npx projectops: GitHub Copilot and Cursor (#200)
-  [ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.copilot ~/.cursor; do [ -d "$B/skills/$SKILL/scripts" ] && { ROOT="$B"; break; }; done
-  [ -d "$ROOT/skills/$SKILL/scripts" ] || { echo "$SKILL scripts not found. Check the plugin installation."; exit 1; }
-  echo "$SKILL=$ROOT/skills/$SKILL/scripts"
-done
-echo "PYTHON=$PYTHON PROJECT_ROOT=$PROJECT_ROOT"
-```
-
-The `pro-figma=` value is `{SCRIPTS}` and the `pro-launch=` value is `{LAUNCH}`. **pro-launch does the capturing** (`../pro-launch/SKILL.md`).
+`{PYTHON} {SCRIPTS}/figma_cli.py` stands for the fixed entry point `python3 ~/.projectops/bin/projectops_cli.py figma`, and `{PYTHON} {LAUNCH}/launch_cli.py` for `python3 ~/.projectops/bin/projectops_cli.py launch` (Windows: `python`; keep `PYTHONIOENCODING=utf-8`).
+If the entry point is missing or answers `scripts_not_found`, run the fallback block in `../references/script-invocation.md` §Fallback lookup block once with `SKILL=pro-figma` and once with `SKILL=pro-launch`, and use the printed paths as `{SCRIPTS}` and `{LAUNCH}`. `{PROJECT_ROOT}` is the git root.
+**pro-launch does the capturing** (`../pro-launch/SKILL.md`).
 
 ## Common rules
 
@@ -237,6 +219,14 @@ and record the node id you compared against. Format and pitfall table: `referenc
 | `pages_not_found` · `pages_unreadable` · `pages_invalid` | `store-pages`: write `pages.json` at `<run_dir>/store/` (`references/store-assets.md` §Landing pages) |
 | `mkdir_failed` | Could not create the output location. Check permissions and `--root` |
 | `bad_args` | Check the subcommand and required arguments (`--dump` · `--render` · `--design` · `--title`) |
+
+## Shared references
+
+| Document | Read when |
+|---|---|
+| `../references/common-rules.md` | Always, at start: absolute rules, confirmation gates, issue state, push |
+| `../references/agent-conduct.md` | When a tool is missing or you are about to say it cannot be done |
+| `../references/sensitive-info.md` | Right before saving an artifact or posting to GitHub: masking table, self-review |
 
 ## Customize
 

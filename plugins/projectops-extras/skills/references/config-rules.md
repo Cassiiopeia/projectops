@@ -2,6 +2,17 @@
 
 Every skill reads and writes its config file by the rules in this file.
 
+## Contents
+
+- [1. Config file path](#1-config-file-path)
+- [2. Finding the home directory (per OS)](#2-finding-the-home-directory-per-os)
+- [3. Reading config](#3-reading-config)
+- [4. Saving config (writing)](#4-saving-config-writing)
+- [5. When there is no config — interactive collection](#5-when-there-is-no-config--interactive-collection)
+- [6. Agent judgment principles](#6-agent-judgment-principles)
+- [7. Config schema per skill](#7-config-schema-per-skill)
+- [8. Adding config for a new skill](#8-adding-config-for-a-new-skill)
+
 ---
 
 ## 1. Config file path
@@ -99,7 +110,7 @@ Collect only the sections the skill needs, **one at a time** (do not ask several
 - **When unclear, do not force a guess** — ask the user right away (one message = one question)
 - **Do not ask again for information already given**
 - **Always confirm before risky actions** — including overwriting config
-- Apply `common-rules.md` §Masking rules to sensitive data such as PATs and tokens
+- Apply `sensitive-info.md` §Masking rules to sensitive data such as PATs and tokens
 
 ---
 

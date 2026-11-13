@@ -148,6 +148,15 @@ Use the format in `references/phase6_report_format.md`. Report only when every r
 
 Offer "Shall we invoke it once now to test it?" — using it immediately exposes missing description triggers, script errors and config mismatches. If the user says "later", skip it.
 
+## Shared references
+
+| Document | Read when |
+|---|---|
+| `../references/common-rules.md` | Always, at start: absolute rules, confirmation gates, issue state, push |
+| `../references/skill-authoring.md` | When writing or editing skill docs: path rules, what goes where |
+| `../references/mcp-subcommand-rules.md` | When the skill needs a Python CLI subcommand |
+| `../references/memory-principles.md` | When the skill stores and recalls knowledge for next time (memory, troubleshooting entries) |
+
 ## Customize
 
 Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start: run the snippet in `../references/preferences.md` with `SKILL_ID=pro-skill-creator`.

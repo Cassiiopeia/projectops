@@ -6,6 +6,18 @@ After the worktree is created, **first survey the gitignored local-file candidat
 
 The goal is not to copy every file in `.gitignore` blindly. Spring, React, React Native, Flutter and other project types need different local config files, so build an inventory of candidates and record the reasons, to reduce misses that would recur.
 
+## Contents
+
+- [4-0. Recall last time's copy set (recall): always first](#4-0-recall-last-times-copy-set-recall-always-first)
+- [4-1. Fix the source and target paths](#4-1-fix-the-source-and-target-paths)
+- [4-2. Build the candidate inventory from .gitignore](#4-2-build-the-candidate-inventory-from-gitignore)
+- [4-3. Find files that really exist](#4-3-find-files-that-really-exist)
+- [4-4. Agent judgment criteria](#4-4-agent-judgment-criteria)
+- [4-5. Check references](#4-5-check-references)
+- [4-6. Compute paths and copy](#4-6-compute-paths-and-copy)
+- [4-6-1. Record the copy set (record): always right after copying](#4-6-1-record-the-copy-set-record-always-right-after-copying)
+- [4-7. Copy results and missing candidates](#4-7-copy-results-and-missing-candidates)
+
 ## 4-0. Recall last time's copy set (recall): always first
 
 The set to copy is almost the same every time for a repo. Remember the last set so you do not judge from scratch each time (#839,

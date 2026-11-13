@@ -4,7 +4,7 @@
 이 파일은 신규 skill 생성 시 복사하는 표준 골격이다.
 3-layer 아키텍처 Layer 2 (`skills/<skill>/scripts/<scope>_cli.py`).
 
-표준 (`skills/references/common-rules.md` §"skill별 py 분산 호출" 참조):
+표준 (`skills/references/script-invocation.md` 참조):
 - Layer 1 (`scripts/common/`): 공유 인프라 (gh_client, config, paths, title 등)
 - Layer 2 (이 파일): skill 1개 = py 1개 = argparse 서브커맨드
 - Layer 3 (SKILL.md): self-contained 5줄 Bash 호출

@@ -2,6 +2,14 @@
 
 > When to read: when you reach Step 5 of SKILL.md (approval after proposing the message), or when the user says "go ahead automatically" / "ask me first" (Korean: "자동으로 진행해줘" / "확인받게 해줘").
 
+## Contents
+
+- [Decide auto-approve mode: read the value from config with the Read tool](#decide-auto-approve-mode-read-the-value-from-config-with-the-read-tool)
+- [A. Auto mode (`AUTO_APPROVE == true`)](#a-auto-mode-auto_approve--true)
+- [B. Manual mode (`AUTO_APPROVE == false`)](#b-manual-mode-auto_approve--false)
+- [C. First-run automation offer (only when 1 was chosen in B and `CONFIG_HAS_KEY == false`, once)](#c-first-run-automation-offer-only-when-1-was-chosen-in-b-and-config_has_key--false-once)
+- [D. Format lock rule (every time you write the approval setting)](#d-format-lock-rule-every-time-you-write-the-approval-setting)
+
 ## Decide auto-approve mode: read the value from config with the Read tool
 
 Read the config file with the `Read` tool. **Look only at this one fixed path. Do not search with `ls` or globs, and do not dig through plugin caches (`~/.claude/plugins/cache/...`).**

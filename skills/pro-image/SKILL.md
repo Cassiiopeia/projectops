@@ -89,6 +89,14 @@ the size or the background is truly unknown. Use the full flow below when the im
 | `agent_draws` | The chosen provider is claude-vector | Draw SVG yourself, render it, `check` |
 | `postprocess_failed` | Conversion or resizing failed | `raw_image` is kept; install Pillow (`pip install pillow`) or ImageMagick |
 
+## Shared references
+
+| Document | Read when |
+|---|---|
+| `../references/common-rules.md` | Always, at start: absolute rules, confirmation gates, issue state, push |
+| `../references/agent-conduct.md` | When a tool is missing or you are about to say it cannot be done |
+| `../references/config-rules.md` | When reading or writing `~/.projectops/config/config.json` |
+
 ## Customize
 
 Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start with `SKILL_ID=pro-image`.

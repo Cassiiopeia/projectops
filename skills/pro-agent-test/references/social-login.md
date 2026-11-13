@@ -2,6 +2,17 @@
 
 > When to read: when you hit a login screen, and when you reach a screen a person must handle, such as 2-step verification, payment or a captcha (Phase 4).
 
+## Contents
+
+- [Points where a person must act — stop at once and tell the user](#points-where-a-person-must-act--stop-at-once-and-tell-the-user)
+- [First: check whether there is a way in without logging in](#first-check-whether-there-is-a-way-in-without-logging-in)
+- [Why social login rejects automation](#why-social-login-rejects-automation)
+- [What did not work — do not retry](#what-did-not-work--do-not-retry)
+- [Native Android Google login — the account picker](#native-android-google-login--the-account-picker)
+- [2-step verification — stop here](#2-step-verification--stop-here)
+- [Handling secrets ⚠️](#handling-secrets-)
+- [Not yet verified](#not-yet-verified)
+
 ## Points where a person must act — stop at once and tell the user
 
 Do not bypass or guess.

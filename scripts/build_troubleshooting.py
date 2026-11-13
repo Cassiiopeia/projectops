@@ -46,6 +46,27 @@ def _render_entry(entry: dict) -> list[str]:
     return lines + [""]
 
 
+def _area_heading(area: str) -> str:
+    return f"{AREA_TITLES.get(area, area)} (`{area}`)"
+
+
+def _heading_anchor(heading: str) -> str:
+    """제목 > GitHub 앵커 (소문자, 영숫자·공백·하이픈만, 공백 > 하이픈)"""
+    kept = "".join(ch for ch in heading.lower() if ch.isalnum() or ch in " -")
+    return kept.replace(" ", "-")
+
+
+def _render_contents(entries: list[dict]) -> list[str]:
+    """영역 목차: 영역별 링크 + 항목 수"""
+    lines = ["## Contents", ""]
+    for area in troubleshoot.AREAS:
+        count = sum(1 for e in entries if e["area"] == area)
+        if count:
+            heading = _area_heading(area)
+            lines.append(f"- [{heading}](#{_heading_anchor(heading)}) — {count} entries")
+    return lines + [""]
+
+
 def render_markdown(skill_dir: Path) -> str:
     """항목 > 사람용 문서 (영역별 표 + 항목 상세)."""
     rows, _ = troubleshoot.read_entries(skill_dir)
@@ -57,11 +78,12 @@ def render_markdown(skill_dir: Path) -> str:
              "> Writing rules: `skills/references/memory-principles.md` §6. The `known_fix` in failure responses summarizes these entries.", ""]
     if not entries:
         return "\n".join(lines + ["No entries yet.", ""])
+    lines += _render_contents(entries)
     for area in troubleshoot.AREAS:
         in_area = [e for e in entries if e["area"] == area]
         if not in_area:
             continue
-        lines += [f"## {AREA_TITLES.get(area, area)} (`{area}`)", "",
+        lines += [f"## {_area_heading(area)}", "",
                   "| id | Title | Codes |", "|---|---|---|"]
         lines += [f"| `{e['id']}` | {_cell(e['title'])} | "
                   f"{' · '.join(f'`{c}`' for c in e['match'].get('codes', [])) or '—'} |" for e in in_area]

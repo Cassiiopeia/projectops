@@ -1,6 +1,6 @@
 ---
 name: pro-desktop-control
-description: "Drive programs on this computer's screen that are not web pages or emulators: installer wizards, OS dialogs, desktop apps. Reads elements, presses without moving the mouse, asks before installs and sign-in approvals. Windows and macOS (incl. notifications)."
+description: "Drive programs on this computer's screen that are not web pages or emulators: installer wizards, OS dialogs, desktop apps, macOS notifications. Asks before installs and sign-in approvals. Use when asked to press through an installer, answer a dialog or change a desktop app setting."
 ---
 
 # pro-desktop-control — programs on this computer's screen
@@ -15,17 +15,20 @@ description: "Drive programs on this computer's screen that are not web pages or
 
 Reply to the user in their language (or the configured `language` preference).
 
-This skill is the procedure. The commands are `pro-launch`'s `desktop` group; their contract is in `../pro-launch/references/desktop.md`.
-Call them as scripts, the same way `pro-launch` documents (`{PYTHON} {SCRIPTS}/launch_cli.py desktop <action>`, with the fixed entry point
-`~/.projectops/bin/launch_cli.py` when it exists).
+This skill is the procedure. The commands are `pro-launch`'s `desktop` group, and **their contract (commands, what is blocked, what only a person can do,
+macOS permissions and overlays, failure codes, pitfalls) has one source: `../pro-launch/references/desktop.md`** — read it before the first `desktop` command.
+
+## Calling the CLI
+
+`PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py launch desktop <action> [args]` (Windows: `python`; `~/.projectops/bin/launch_cli.py desktop <action>` works too).
+If that file is missing or answers `scripts_not_found`, find the scripts with the fallback block in `../references/script-invocation.md` §Fallback lookup block (`SKILL=pro-launch`) and call `launch_cli.py` directly.
 
 ## Workflow
 
 ### Phase 0 — Check and tell
 
 1. `desktop doctor`. On `desktop_deps_missing`, ask the user, then `desktop setup`. On `unsupported_on_platform`, say that this computer's OS is not supported yet and stop.
-   On macOS `permission_missing`, relay `ask_user` and `grant`: the host app (`host_app`: Terminal, Paseo, Cursor…) needs both Accessibility and Screen Recording
-   (`click` fails without Screen Recording), then a restart of that app. Only a person can grant it; you cannot do it for your own host.
+   On macOS `permission_missing`, relay `ask_user` and `grant` (desktop.md, section macOS). Only a person can grant it; you cannot do it for your own host.
 2. `desktop session start --purpose "<issue or task>"`. **Relay `tell_user` to the user as is** — they need to know the keyboard and mouse are in use and that moving the mouse pauses the work.
    On `desktop_busy`, another session holds them: tell the user and wait.
 
@@ -63,11 +66,16 @@ Full Apple Account recipe (alert wording per macOS version, split code boxes, fa
 2. Report: what was pressed (names, not refs), what is now on screen, and anything left for the user (a restart, a prompt they must answer).
    Attach a `desktop shot` only when the result is visual.
 
-## Common pitfalls (from real use)
+## Common pitfalls
 
-- A dialog listed in `windows` can draw its content in another window or close when it loses focus (Windows "Open With"). Re-list windows rather than retrying the same ref.
-- An installer that asks for administrator rights shows a UAC prompt on the secure desktop. Nothing can read or press it — `needs_user` is expected, not a bug.
-- "Don't save" is blocked because it contains "save". That is intended: it throws work away.
+See `../pro-launch/references/desktop.md` sections "What is blocked until the user approves", "Failure code → next action" and "Common pitfalls" (content drawn in another window, UAC on the secure desktop, "Don't save" being blocked on purpose).
+
+## Shared references
+
+| Document | Read when |
+|---|---|
+| `../references/common-rules.md` | Always, at start: absolute rules, confirmation gates, issue state, push |
+| `../references/agent-conduct.md` | When a tool is missing or you are about to say it cannot be done |
 
 ## Customize
 

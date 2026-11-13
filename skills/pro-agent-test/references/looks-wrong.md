@@ -15,6 +15,17 @@ They are different in kind. If you only check that features run, everything belo
 
 **Nobody finds these unless told to look.** What was caught by luck will not be caught next time.
 
+## Contents
+
+- [When to do it](#when-to-do-it)
+- [How to write evidence ⚠️](#how-to-write-evidence-)
+- [Axis 4 — Do the same things look the same](#axis-4--do-the-same-things-look-the-same)
+- [Axis 5 — Does tapping make sense](#axis-5--does-tapping-make-sense)
+- [Axis 6 — Is the motion right (only if there is any)](#axis-6--is-the-motion-right-only-if-there-is-any)
+- [Axis 7 — Is this screen from a design (only if there is a design)](#axis-7--is-this-screen-from-a-design-only-if-there-is-a-design)
+- [The person who built it is the one judging ⚠️](#the-person-who-built-it-is-the-one-judging-)
+- [Report what comes out of here separately](#report-what-comes-out-of-here-separately)
+
 ## When to do it
 
 Once, right after walking, **while you still remember the screens.** Lay the captured screenshots (`$SHOT_DIR`)

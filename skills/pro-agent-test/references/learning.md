@@ -13,6 +13,12 @@
 This document expands **"Accumulating records"** in `SKILL.md`.
 It covers the commands for leaving notes and why, plus the rules for putting test outputs in the repo.
 
+## Contents
+
+- [Keep what you learn for the project (self-improvement)](#keep-what-you-learn-for-the-project-self-improvement)
+- [Do not put credentials in the records ⚠️](#do-not-put-credentials-in-the-records-)
+- [Judge evidence for upload separately](#judge-evidence-for-upload-separately)
+
 ### Keep what you learn for the project (self-improvement)
 
 As you walk, you learn things that hold only for this app — where a button sits on a screen,

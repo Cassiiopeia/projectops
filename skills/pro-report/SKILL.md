@@ -41,29 +41,13 @@ This skill produces a md file, so **follow `../references/approval-and-questions
 3. **Once, on first run**: ask whether to proceed without confirmation from now on, and remember the answer.
 4. Do not show config key names or file paths to the user.
 
-## Find the scripts · save path (once)
+## Calling the CLI · save path (once)
 
-> **Skip the search below if the fixed entry point exists** (#942): `~/.projectops/bin/projectops_cli.py` appears after any CLI has run once. Each call finds the newest installed script and passes the arguments through, so a plugin update mid-session does not pin you to an old path.
-> `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py report <subcommand> ...` (if it is missing or returns `scripts_not_found`, use the search below). If the response has `newer_installed`, call this entry point again.
-> In zsh, do not store the command in a variable (`P="python3 …"; $P` exits 127). To shorten it, wrap it in a function: `G(){ PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py report "$@"; }` → `G get-output-path report --title "{title}"`.
-
-**The Bash tool resets its state on every call.** Find the paths once, then **write the real paths as literal values in later blocks.**
+`PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py report <subcommand> [args]` (Windows: `python`). Later blocks write `{PYTHON} {SCRIPTS}/report_cli.py` for this entry point.
+If that file is missing or answers `scripts_not_found`, find the scripts with the fallback block in `../references/script-invocation.md` §Fallback lookup block (`SKILL=pro-report`) and call `report_cli.py` directly.
 
 ```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
-[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SKILL=pro-report; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
-  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
-done
-# Home-copied installs from npx projectops: GitHub Copilot and Cursor (#200)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.copilot ~/.cursor; do [ -d "$B/skills/$SKILL/scripts" ] && { ROOT="$B"; break; }; done
-SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops skill scripts not found. Check the plugin installation."; exit 1; }
-echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS"
-PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/report_cli.py" get-output-path report --title "{title}"
+PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py report get-output-path report --title "{title}"
 ```
 
 **Do not build the path yourself.** Use the returned `path` as is (#525). Shape (for reference): `{output root}/report/YYYYMMDD_{issue number}_{normalized title}.md`.
@@ -77,7 +61,7 @@ The output root can change with team settings, so do not hard-code `docs/project
 - **Efficient analysis · minimal git**: check changed file names with `git status` → pick only the files related to the issue and read them directly with Read
 - **Short and clear**: make the approach easy to understand
 - **Visualize the flow**: draw a mermaid flowchart when there are multiple steps, branches or state transitions (`references/output-template.md`)
-- **Sensitive data**: apply the masking rules in `../references/common-rules.md`
+- **Sensitive data**: apply the masking rules in `../references/sensitive-info.md`
 - **Evidence by default**: attach captures, E2E results and key log lines without being asked, after checking them (`../references/evidence-attach.md`)
 
 **Never include**: meta information such as `**Author**:` / `**Date**:` / `## Author info` · wording like `Claude`, `AI`, `auto-generated` · unneeded reviewer or approver info.
@@ -117,7 +101,7 @@ If preferences have `sections` or `template`, use them for the report's section 
 
 ### Step 5: Self-check for sensitive data right before saving → save
 
-Review the whole body with the **self-check protocol before saving files** in `../references/common-rules.md`. Mask anything found, then
+Review the whole body with the **self-review right before saving a file** in `../references/sensitive-info.md`. Mask anything found, then
 save to the `path` from `get-output-path` (`../references/doc-output-path.md`).
 
 ### Step 6: Post a GitHub comment (only when a PAT exists)
@@ -160,6 +144,15 @@ Without a PAT:
 Report saved: {path returned by get-output-path}
 (No GitHub PAT set; saved locally only)
 ```
+
+## Shared references
+
+| Document | Read when |
+|---|---|
+| `../references/common-rules.md` | Always, at start: absolute rules, confirmation gates, issue state, push |
+| `../references/sensitive-info.md` | Right before saving an artifact or posting to GitHub: masking table, self-review |
+| `../references/evidence-attach.md` | When attaching screenshots, logs or results to an issue or comment |
+| `../references/commit-convention.md` | When proposing a commit message or choosing its type |
 
 ## Customize
 

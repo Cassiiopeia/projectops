@@ -55,7 +55,7 @@ If a new skill needs the GitHub API, external systems or subcommand calls, it **
    ```
 3. **Replace prog + subcommands**: replace the skeleton's `<scope>_cli` parts and `cmd_example` with the real domain.
 4. **Import shared logic**: in the form `from common.<module> import ...`. Do not rewrite Layer 1.
-5. **Calls in SKILL.md**: the standard self-contained 5-line pattern (see `../../references/common-rules.md` §"skill별 py 분산 호출" (per-skill py calls)). Put the script-finding block in SKILL.md **only once**, and later blocks reuse the found values, as in `{PYTHON} {SCRIPTS}/<scope>_cli.py` (model: `pro-launch/SKILL.md`).
+5. **Calls in SKILL.md**: the fixed entry point `python3 ~/.projectops/bin/projectops_cli.py <skill> ...` plus a one-line link to the fallback block in `../../references/script-invocation.md` (do not copy the block into SKILL.md; model: `pro-review/SKILL.md`).
 6. **If shared logic is missing, add it to Layer 1**: keep only single-skill logic in the CLI; if 2 or more skills may use it, move it to `scripts/common/<new>.py`.
 
 ### What the skeleton provides

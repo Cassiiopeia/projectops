@@ -2,10 +2,17 @@
 
 The `report`, `review`, and `issue` (pro-github) skills must follow this reference when saving md artifacts.
 
+## Contents
+
+- [Computing the path before saving](#computing-the-path-before-saving)
+- [The artifact path umbrella (default `docs/projectops/`)](#the-artifact-path-umbrella-default-docsprojectops)
+- [Handling failures](#handling-failures)
+- [Creating the directory automatically](#creating-the-directory-automatically)
+
 ## Computing the path before saving
 
 Before saving an md artifact, always call the `get-output-path` subcommand of that skill's `_cli.py` and use the path it returns.
-For the standard, see `common-rules.md` §"Distributed per-skill Python calls".
+For the call standard, see `script-invocation.md`.
 
 Where each skill calls it — **every artifact skill has its own CLI** (#525):
 
@@ -33,21 +40,11 @@ Where each skill calls it — **every artifact skill has its own CLI** (#525):
 Example (review):
 
 ```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
-[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SKILL=pro-review; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
-  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
-done
-# Home-copied installs from npx projectops: GitHub Copilot and Cursor (#200)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.copilot ~/.cursor; do [ -d "$B/skills/$SKILL/scripts" ] && { ROOT="$B"; break; }; done
-SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops skill scripts not found. Check the plugin installation."; exit 1; }
-PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/review_cli.py" get-output-path review --title "{title}"
+PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py review get-output-path review --title "{title}"
 # Outside the project: --root <project path>; to pass the issue number directly: --issue N
 ```
+
+If the fixed entry point is missing, find the scripts with the fallback block in `script-invocation.md`.
 
 Take the `path` field from the output JSON and use it.
 

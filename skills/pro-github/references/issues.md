@@ -5,6 +5,17 @@
 Every command has the form `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py <subcommand> ...`. Replace `{PYTHON}` and `{SCRIPTS}` with the real paths from "Find the scripts" in SKILL.md.
 Creating a new issue (write + file) does not use this document; follow the `../../references/issue-creation.md` workflow.
 
+## Contents
+
+- [Read an issue](#read-an-issue)
+- [File an issue (create-issue)](#file-an-issue-create-issue)
+- [Change issue state (close / reopen)](#change-issue-state-close--reopen)
+- [Edit an issue](#edit-an-issue)
+- [Add / list / edit / delete comments](#add--list--edit--delete-comments)
+- [Labels (add / remove / replace all)](#labels-add--remove--replace-all)
+- [Assignees (add / remove)](#assignees-add--remove)
+- [Issue helpers (title normalization / branch name / commit template / doc path)](#issue-helpers-title-normalization--branch-name--commit-template--doc-path)
+
 ## Read an issue
 
 When the user names a number, as in `#number` or "check issue 427", read that issue. Add `--with-comments` when you need both the body and the comments.

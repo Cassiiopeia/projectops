@@ -8,6 +8,17 @@ This document is for when `pro-agent-test` **walks an API without a screen**. Yo
 Repos with only a backend are verified with this target too. This is different from **cross-checking** the server
 while walking an app or web — that is done with `expect_server` on any target.
 
+## Contents
+
+- [Walking](#walking)
+- [Scenario — the key is passing values along](#scenario--the-key-is-passing-values-along)
+- [What not to miss on a backend — in order](#what-not-to-miss-on-a-backend--in-order)
+- [Do not look at only one endpoint](#do-not-look-at-only-one-endpoint)
+- [Look at the life cycle — sign-up as an example](#look-at-the-life-cycle--sign-up-as-an-example)
+- [Create failures on purpose](#create-failures-on-purpose)
+- [You decide how to connect to the DB and logs](#you-decide-how-to-connect-to-the-db-and-logs)
+- [Good to know](#good-to-know)
+
 ## Walking
 
 ```bash

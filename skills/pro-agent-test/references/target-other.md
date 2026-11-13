@@ -5,6 +5,17 @@
 This document is for when `pro-agent-test` walks **CI workflows, CLI tools, libraries, templates, batch jobs and migration scripts**.
 You do not need it when walking an app (`target-app.md`), web (`target-web.md`) or server (`target-server.md`).
 
+## Contents
+
+- [Do not split into kinds](#do-not-split-into-kinds)
+- [Decide first — what is this project's output](#decide-first--what-is-this-projects-output)
+- [Walking](#walking)
+- [What the machine watches for you — the reason to use it](#what-the-machine-watches-for-you--the-reason-to-use-it)
+- [`expect_absent` — what must not appear](#expect_absent--what-must-not-appear)
+- [Walking a CI workflow](#walking-a-ci-workflow)
+- [What works and what does not](#what-works-and-what-does-not)
+- [What to check before walking](#what-to-check-before-walking)
+
 ## Do not split into kinds
 
 It is deliberately not split into `pipeline` · `cli` · `library`. **Once split, anything not on the list cannot be done again.**

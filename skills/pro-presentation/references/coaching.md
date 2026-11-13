@@ -7,6 +7,17 @@ It is not a written essay read aloud.
 Read the deck's `memory.md` before the first slide of every session. Read the style pack for the deck language
 (`style-pack.<language>.md` next to this file; fall back to `style-pack.en.md`).
 
+## Contents
+
+- [1. One turn of coaching](#1-one-turn-of-coaching)
+- [2. Make the script fit their mouth](#2-make-the-script-fit-their-mouth)
+- [3. Presentation memory: the user's directions](#3-presentation-memory-the-users-directions)
+- [4. Universal rules (any language)](#4-universal-rules-any-language)
+- [5. Slide kinds and their shape](#5-slide-kinds-and-their-shape)
+- [6. Weight and time](#6-weight-and-time)
+- [7. Recordings (optional)](#7-recordings-optional)
+- [8. What good coaching is not](#8-what-good-coaching-is-not)
+
 ## 1. One turn of coaching
 
 When the user speaks one slide:

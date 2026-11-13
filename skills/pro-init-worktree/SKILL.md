@@ -43,7 +43,8 @@ git config --global core.longpaths true
 
 ### Step 3: Create the worktree
 
-Do not write a temporary Python script. Pass the branch name (with `#` and non-ASCII text as is) to `--branch` (script lookup: `../references/common-rules.md` §Standard call pattern, `SKILL=pro-init-worktree`).
+Do not write a temporary Python script. Pass the branch name (with `#` and non-ASCII text as is) to `--branch`.
+`{PYTHON} {SCRIPTS}/worktree_cli.py` stands for the fixed entry point `python3 ~/.projectops/bin/projectops_cli.py init-worktree`; if it is missing or answers `scripts_not_found`, use the fallback block in `../references/script-invocation.md` §Fallback lookup block (`SKILL=pro-init-worktree`).
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/worktree_cli.py create --root {source_root} --branch "{branch name}" --base origin/develop
@@ -56,7 +57,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/worktree_cli.py create --root {source_
 
 **Read `references/local-files.md` and follow it as written.** The essentials:
 
-- **Recall first**: `{PYTHON} {SCRIPTS}/worktree_cli.py recall --root {source_root}` (script lookup: `../references/common-rules.md` §Standard call pattern, `SKILL=pro-init-worktree`).
+- **Recall first**: `{PYTHON} {SCRIPTS}/worktree_cli.py recall --root {source_root}`.
   If there is a set from last time, copy `copy_now` as is and **judge only `new_candidates`**. On the first run (`first_time`), judge everything.
 - **Do not `cp` the remembered set by hand**: `{PYTHON} {SCRIPTS}/worktree_cli.py copy --root {source_root} --to {worktree_path}` (files that already exist in the target are not touched without `--overwrite`; for newly judged files use `--files a,b`).
 - **Record right after copying**: `{PYTHON} {SCRIPTS}/worktree_cli.py record --root {source_root} --copied a,b --skipped c`.
@@ -98,6 +99,14 @@ If the issue cannot be read (no PAT and so on), leave out the template line.
 
 Look for `worktree_manager.py` in this order:
 1. `scripts/worktree_manager.py`
+
+## Shared references
+
+| Document | Read when |
+|---|---|
+| `../references/common-rules.md` | Always, at start: absolute rules, confirmation gates, issue state, push |
+| `../references/work-start-protocol.md` | Before changing code: branch and issue checks, worktree question |
+| `../references/sensitive-info.md` | Right before saving an artifact or posting to GitHub: masking table, self-review |
 
 ## Customize
 

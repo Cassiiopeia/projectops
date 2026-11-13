@@ -11,6 +11,14 @@ When you quote them in a report, add "(as of research on 2026-09-30)" or measure
 **Terms**: **defect** = an item that is M for this repo type and is not met. Defects go in the report's "Defects" section, separate from the scores.
 The score anchors (90+/70s/50s/30s/10 or below) are defined in SKILL.md, "The consultant's attitude". They are not repeated here.
 
+## Contents
+
+- [Principles of judgment](#principles-of-judgment)
+- [1. Detect the repo type](#1-detect-the-repo-type)
+- [2. The six axes](#2-the-six-axes)
+- [3. Scoring](#3-scoring)
+- [4. Pitfalls found during research](#4-pitfalls-found-during-research)
+
 ## Principles of judgment
 
 1. **Read the source.** Read `readme.top` (the first screen) and `readme.headings` yourself. Counts and ratios

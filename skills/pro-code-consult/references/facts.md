@@ -2,6 +2,19 @@
 
 > When to read: when you interpret the JSON returned by `arch_cli.py`. Numbers are candidates; **judge by reading the source.**
 
+## Contents
+
+- [Reading order (scan)](#reading-order-scan)
+- [scan categories](#scan-categories)
+- [Before trusting totals (check for false-positive clusters)](#before-trusting-totals-check-for-false-positive-clusters)
+- [What scan cannot see (the audit agent checks these directly)](#what-scan-cannot-see-the-audit-agent-checks-these-directly)
+- [deps](#deps)
+- [assets](#assets)
+- [cochange](#cochange)
+- [copies](#copies)
+- [rule-docs](#rule-docs)
+- [diff · ledger · conventions](#diff--ledger--conventions)
+
 ## Reading order (scan)
 
 1. **Look at `excluded` first.** Code the repo does not own is already left out: `tooling` (installed files such as `.github/` and `.claude/` — fix them in the upstream repo. Copies of other repos, such as `.template_download_temp/` or a subfolder with its own `.git`, also land here), `generated` (generated-file header markers, gen-l10n), `vendored` (`vendor/`, static JS with a version header, shadcn ui). A `.github/` with its own tests is owned by this repo and stays in the audit (evidence in `owned_tooling`: test count and examples). If something you should look at is mixed in, such as a hand-edited shadcn component, re-run with `scan PATH --all` (items get an `origin` tag and are added to `counts`).

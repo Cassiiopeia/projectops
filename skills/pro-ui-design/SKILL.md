@@ -40,8 +40,11 @@ Every command is `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cl
 | Settings | `config show\|set\|options` | `../references/config-rules.md` §7 |
 | Stop the server (mockups stay) | `stop` · `stop --all` for every session here | |
 | Design request for a designer | board and friends | `references/design-request.md` (read only then) |
+| Design request: list states, capture slots, states that cannot be rendered | `launch_cli.py get-output-path --skill ui-design` · `ascii --spec` | `references/states-and-capture.md` (read with design-request.md) |
+| Design request: alternatives, copy, UI elements, must-keep rules | `copy-lint` | `references/content.md` (read with design-request.md) |
+| Design request: assemble the board, publish to an issue | `board` · `rewrite-images` | `references/publishing.md` (read with design-request.md) |
 
-If that entry point is missing, or returns `scripts_not_found` or `bad_args` listing skills without `ui-design` (an older copy; a direct call updates it), find the scripts as in `../references/common-rules.md` §"Script lookup" with `SKILL=pro-ui-design`, and call `ui_design_cli.py` directly.
+If that entry point is missing, or returns `scripts_not_found` or `bad_args` listing skills without `ui-design` (an older copy; a direct call updates it), find the scripts with the fallback block in `../references/script-invocation.md` §Fallback lookup block (`SKILL=pro-ui-design`), and call `ui_design_cli.py` directly.
 
 ## The flow
 
@@ -95,6 +98,15 @@ Then `stop` when nothing is left to show. Another session in this repo may belon
 | `browser_missing` · `pillow_missing` | Ask, then `launch_cli.py web setup`. Otherwise describe the mockup and give the URL |
 | `step_failed` · `bad_steps` | Fix that step in the steps file (`references/sharing.md`) |
 | `bad_option_value` · `unknown_option` | `config options` lists names and values |
+
+## Shared references
+
+| Document | Read when |
+|---|---|
+| `../references/common-rules.md` | Always, at start: absolute rules, confirmation gates, issue state, push |
+| `../references/agent-conduct.md` | When a tool is missing or you are about to say it cannot be done |
+| `../references/sensitive-info.md` | Right before saving an artifact or posting to GitHub: masking table, self-review |
+| `../references/evidence-attach.md` | When attaching screenshots, logs or results to an issue or comment |
 
 ## Customize
 

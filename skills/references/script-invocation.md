@@ -1,7 +1,64 @@
-# Script call standard (detail)
+# Script call standard
 
-The rationale and detail behind `common-rules.md` §"Distributed per-skill Python calls" and §"Finding the scripts". The standard block itself is in
-`common-rules.md` §"Standard call pattern" — read this document only when you change its shape.
+How every skill calls its Python CLI, and the fallback when the fixed entry point is not there yet.
+Read when the fixed entry point is missing or answers `scripts_not_found`, or when you change the call shape.
+
+## Contents
+
+- [Fixed entry point](#fixed-entry-point)
+- [Fallback lookup block](#fallback-lookup-block)
+- [3-layer architecture](#3-layer-architecture)
+- [Finding the scripts: why the fallback block has this shape](#finding-the-scripts-why-the-fallback-block-has-this-shape)
+- [Setting the PYTHON variable — why this shape](#setting-the-python-variable--why-this-shape)
+- [OS compatibility (verified by measurement)](#os-compatibility-verified-by-measurement)
+- [MCP-style JSON output standard (4 fields enforced)](#mcp-style-json-output-standard-4-fields-enforced)
+- [GitHub work principles](#github-work-principles)
+- [Windows corporate network](#windows-corporate-network)
+
+## Fixed entry point
+
+Every skill calls its CLI through one fixed entry point (#942):
+
+```bash
+PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py <skill> <subcommand> [args]
+```
+
+On Windows use `python` instead of `python3`. `<skill>` is the skill name without `pro-`
+(github · commit · report · review · testcase · changelog-deploy · init-worktree · figma · agent-test · ui-design ·
+presentation · oss-consult · launch · image · code-consult). The entry point finds the newest installed script and passes the arguments through.
+`newer_installed` in the response means an old version is running.
+
+- **In zsh, do not store a command in a variable** — with `P="python3 …/projectops_cli.py github"; $P get-issue …`, zsh treats the variable as one word and fails with `exit 127`. Wrap it in a function instead:
+  `G(){ PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py github "$@"; }` then `G get-issue {owner} {repo} {number}`.
+- **Do not `cd` into the scripts folder** — once you leave the project folder, the git root and issue number can no longer be found (#943). When calling from outside the project, pass `--root <project>`.
+- Calls that carry Korean or other non-ASCII text must set `PYTHONIOENCODING=utf-8`.
+
+## Fallback lookup block
+
+Use this when `~/.projectops/bin/projectops_cli.py` does not exist yet (first run), answers `scripts_not_found`,
+or answers `bad_args` with a skill list that lacks your skill (an older copy; a direct call updates it).
+Set `SKILL=` to the skill folder (for example `pro-github`). **The Bash tool resets its state on every call**, so run it once
+per skill run and write the printed paths into later calls as values: `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/<scope>_cli.py <subcommand> [args]`.
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
+[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
+SKILL=<skill>; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
+  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
+  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
+done
+# Home-copied installs from npx projectops: GitHub Copilot and Cursor (#200)
+[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.copilot ~/.cursor; do [ -d "$B/skills/$SKILL/scripts" ] && { ROOT="$B"; break; }; done
+SCRIPTS="$ROOT/skills/$SKILL/scripts"
+[ -d "$SCRIPTS" ] || { echo "projectops skill scripts not found. Check the plugin installation."; exit 1; }
+echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS PROJECT_ROOT=$PROJECT_ROOT"
+```
+
+To find and call in one block (the self-contained 5-line principle), put
+`PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/<scope>_cli.py" <subcommand> [args]` in place of the `echo` line.
+To call another skill's script, change only the `SKILL=` value. **Do not change the block's shape** — the reasons are below.
 
 ## 3-layer architecture
 
@@ -13,12 +70,18 @@ and shared domain logic is imported from `scripts/common/`.
 - **Layer 2** `skills/<skill>/scripts/<scope>_cli.py`: 1 skill = 1 py = argparse subcommands
 - **Layer 3** `SKILL.md`: user conversation, writing documents, calling Python
 
+Examples: `pro-github/scripts/github_cli.py` · `pro-report/scripts/report_cli.py` ·
+`pro-review/scripts/review_cli.py` · `pro-changelog-deploy/scripts/changelog_cli.py` (other skills follow the same rule).
+Config is handled by the agent with Read/Write, not by the CLI (`config-rules.md`).
+
 `github_cli.py` absorbed issue create, read, edit, search, comments, labels, assignees, PRs, secrets, actions, and
 `normalize-title`, `create-branch-name`, `get-commit-template` (pro-issue merge, #464).
 
-## Finding the scripts: local → fallback to harness install paths (#524·#528·#542 — do not change this shape)
+## Finding the scripts: why the fallback block has this shape
 
-The standard block **resolves only the "plugin root"**, so no skill name is baked into a path. That way, in every
+Local → fallback to harness install paths (#524·#528·#542).
+
+The fallback block **resolves only the "plugin root"**, so no skill name is baked into a path. That way, in every
 skill only the `SKILL=` value differs and the rest is character-for-character identical. Even as harnesses are added,
 this is the only shape that needs changing.
 
@@ -92,8 +155,7 @@ Python heredocs, or temporary Python files to skill docs.
 - The `gh` CLI is not used because it needs a separate install and behaves differently across Windows and macOS.
 - Direct curl calls are temporarily allowed only for urgent investigation where no subcommand exists yet. If it gets used repeatedly, promote it to a subcommand right away.
 
-Typical call: after finding the scripts with the standard block and `SKILL=pro-github`,
-`PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py get-issue {owner} {repo} {number} --with-comments`.
+Typical call: `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py github get-issue {owner} {repo} {number} --with-comments`.
 
 ### Common GitHub API error handling
 

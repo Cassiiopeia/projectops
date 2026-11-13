@@ -1,11 +1,42 @@
 # Desktop — drive programs on this computer's screen
 
 > When to read: before the first `desktop` command in a session, and when a `desktop` result surprises you.
+> This is the single source for the `desktop` command contract. The step-by-step procedure (tell the user, approval gates, finish) is the `pro-desktop-control` skill.
 
 `desktop` covers windows that are **neither a web page nor an emulator**: installer wizards, OS dialogs (file open, permission prompts),
 desktop app settings. Pages inside a browser stay with `web` (it reads the DOM, which is more exact). Emulators and simulators stay with `app`.
 
 **Platforms**: Windows (UI Automation) and macOS (Accessibility API, `AXPress` · `AXValue`). Same commands and JSON on both; macOS specifics are in [macOS](#macos).
+
+## Contents
+
+- [Commands](#commands)
+- [How a press works](#how-a-press-works)
+- [The input session](#the-input-session)
+- [What is blocked until the user approves](#what-is-blocked-until-the-user-approves)
+- [What only a person can do](#what-only-a-person-can-do)
+- [Reading cheaply](#reading-cheaply)
+- [Setup](#setup)
+- [macOS](#macos) — permissions, system windows (`overlay`), hidden buttons, banners, keys, browsers
+- [Failure code → next action](#failure-code--next-action)
+- [Common pitfalls](#common-pitfalls)
+
+## Commands
+
+```bash
+{PYTHON} {SCRIPTS}/launch_cli.py desktop doctor                      # packages · security prompt · input session
+{PYTHON} {SCRIPTS}/launch_cli.py desktop session start --purpose "#985 installer"   # tell the user: keyboard and mouse in use
+{PYTHON} {SCRIPTS}/launch_cli.py desktop windows                     # titles for --window
+{PYTHON} {SCRIPTS}/launch_cli.py desktop find --window "Setup" --text "Next"   # candidates with ref · mutating
+{PYTHON} {SCRIPTS}/launch_cli.py desktop click --ref 3 --shot after_next      # transport: invoke (no mouse) or mouse
+{PYTHON} {SCRIPTS}/launch_cli.py desktop type --ref 2 --cred <name>           # password fields only via --cred / --text-env
+{PYTHON} {SCRIPTS}/launch_cli.py desktop wait --text "Completed" --timeout 120
+{PYTHON} {SCRIPTS}/launch_cli.py desktop wait --window overlay --text "Apple" --timeout 60   # macOS notification / system dialog → matches with ref
+{PYTHON} {SCRIPTS}/launch_cli.py desktop click --ref 1 --action "<name>"      # a banner's hidden button, name from named_actions (UI language)
+{PYTHON} {SCRIPTS}/launch_cli.py desktop session stop                # always, when done
+```
+
+Other actions: `setup` · `tree` · `press` · `focus` · `shot`. Options per action: `desktop <action> --help`.
 
 ## How a press works
 
@@ -52,7 +83,6 @@ session's last input. Windows reads `GetLastInputInfo` (keyboard and mouse toget
 | Buttons whose text installs, agrees, finishes, formats, resets, deletes, saves, sends, pays… | `mutating_blocked` + `ask_user` | `--confirm-mutating` on that click |
 | `--at` ratio clicks | `mutating_blocked` (`reason: unknown_target`) | `--confirm-mutating` |
 | `alt+f4` · `ctrl+w` · `ctrl+s` · `shift+delete` | `mutating_blocked` | `--confirm-mutating` |
-
 | Allow · Trust in either UI language (sign-in approvals, permission prompts, certificates) | `mutating_blocked` | `--confirm-mutating` — say what is being allowed (which sign-in, which app) |
 | A named hidden action (`click --action`) whose name is one of the above | `mutating_blocked` | `--confirm-mutating` |
 
@@ -122,6 +152,21 @@ If the page belongs to a `pro-launch web` session, use `web` instead.
 The full recipe (web sign-in, the alert in old and new wording, Allow, the code window, split code boxes, failure branches) is in
 [`web-sign-in.md` → Apple](web-sign-in.md#apple). Ask the user before Allow; approve only the sign-in this session just started.
 
+## Failure code → next action
+
+| code | Next action |
+|---|---|
+| `desktop_deps_missing` | Ask the user, then `desktop setup` (Windows: mss · comtypes, macOS: mss · pyobjc — into the shared venv) |
+| `permission_missing` (macOS) | The host app (`host_app` in `desktop doctor`: Terminal, Paseo, Cursor…) needs **both** Accessibility and Screen Recording — `click` fails without Screen Recording. Only a person can grant it: relay `ask_user`, then reopen that app |
+| `desktop_session_required` · `desktop_busy` | `desktop session start` · another session holds the keyboard and mouse — wait or ask |
+| `user_interrupted` | The user moved the mouse or typed (`input_detected`). Stop, ask, and `desktop session resume` only after they agree |
+| `needs_user` · `screen_locked` · `elevated_window` | UAC / sign-in prompt · locked screen · an administrator window. Only a person can answer — relay `ask_user` |
+| `mutating_blocked` | Relay `ask_user`; after approval, the `next` command |
+| `not_found` · `window_not_found` · `ref_stale` | Pick from `candidates` · the screen changed since `find` — `find` again |
+| `secret_requires_cred` | Password field: `--cred <name>` or `--text-env VAR` |
+| `tree_unavailable` | `desktop shot`, read it, `click --at x,y --confirm-mutating` after asking |
+| `focus_failed` | See [Common pitfalls](#common-pitfalls) |
+
 ## Common pitfalls
 
 | Symptom | Cause | Fix |
@@ -129,3 +174,4 @@ The full recipe (web sign-in, the alert in old and new wording, Allow, the code 
 | `windows` shows a title but `tree` finds almost nothing | Some dialogs (Open With, UWP flyouts) draw their content in another window, or close when they lose focus | `desktop windows` again and pick the window that holds the content |
 | `click` returns `screen_changed: false` | The press went to a container, or the app ignores the pattern | `find` again with `--role button`, or try the next candidate |
 | `focus_failed` | Windows refuses to let another process take the front | ask the user to click the window once |
+| A UAC prompt from an installer that asks for administrator rights | It is on the secure desktop; nothing can read or press it | `needs_user` is expected, not a bug — relay `ask_user` |

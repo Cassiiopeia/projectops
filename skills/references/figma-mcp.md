@@ -13,6 +13,14 @@ is fixed. The rules live here, in one place. How to count states: `design-states
 The numbers in this document **come from counting real responses**. A tool was once built only from invented
 examples and could not be used at all on a real response, so since then only measured values are written down.
 
+## Contents
+
+- [0. Reading order — summary](#0-reading-order--summary)
+- [1. Two tools](#1-two-tools)
+- [2. Gaps — and how to turn that information into precision](#2-gaps--and-how-to-turn-that-information-into-precision)
+- [3. Always check after downloading](#3-always-check-after-downloading)
+- [4. Calling the counting tools from other skills](#4-calling-the-counting-tools-from-other-skills)
+
 ---
 
 ## 0. Reading order — summary
@@ -290,7 +298,7 @@ Building to the design's lengths breaks with long text.
 ## 4. Calling the counting tools from other skills
 
 The counting tools are in `pro-figma`'s scripts. **Call the script, not the skill**
-(use the script lookup block from `common-rules.md` §"Standard call pattern" with `SKILL=pro-figma`).
+(through the fixed entry point, or the fallback block in `script-invocation.md` with `SKILL=pro-figma`).
 
 ```bash
 # List every element, effect, and style in the dump (the response file from ②) — resolves references and splits shadow layers

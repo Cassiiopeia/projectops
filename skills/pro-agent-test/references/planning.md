@@ -4,6 +4,14 @@
 
 This expands Phase 0 · 0.5 · 1 of `SKILL.md`.
 
+## Contents
+
+- [Phase 0 — Decide the target](#phase-0--decide-the-target)
+- [What works and what does not (measured on the Android emulator) — `app` target](#what-works-and-what-does-not-measured-on-the-android-emulator--app-target)
+- [Phase 0.5 — Read how this project is built first](#phase-05--read-how-this-project-is-built-first)
+- [Phase 1 — Fix the path to walk](#phase-1--fix-the-path-to-walk)
+- [Do not walk only the happy path — three axes ⚠️](#do-not-walk-only-the-happy-path--three-axes-)
+
 ## Phase 0 — Decide the target
 
 `detect` decides in this order: **① user-specified → ② what you confirmed and recorded → ③ project_types in version.yml → ④ marker files**.

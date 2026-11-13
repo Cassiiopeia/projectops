@@ -7,7 +7,16 @@ what one side creates is received by the other side.
 
 If you use only one device, you do not need this document. `$DEV` already points to that device.
 
-Borrow a device per role with `device acquire` — when the same session calls it twice, it gives different devices. When done, `device release` both.
+Borrow a device per role with `device acquire` and `device release` both when done; borrowing, booting and capacity are in `../../pro-launch/references/devices.md`.
+
+## Contents
+
+- [1. Bind roles to devices](#1-bind-roles-to-devices)
+- [2. Name the device in every command](#2-name-the-device-in-every-command)
+- [3. Check that both sides have the same build ⚠️](#3-check-that-both-sides-have-the-same-build-)
+- [4. Write who does what in the scenario](#4-write-who-does-what-in-the-scenario)
+- [5. Remember tap targets separately per device](#5-remember-tap-targets-separately-per-device)
+- [6. A test build flag is one unit together with reverting it ⚠️](#6-a-test-build-flag-is-one-unit-together-with-reverting-it-)
 
 ## 1. Bind roles to devices
 

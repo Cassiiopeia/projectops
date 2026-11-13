@@ -7,6 +7,20 @@
 
 Write the report in the user's language (or the configured `language` preference).
 
+## Contents
+
+- [Separate the categories](#separate-the-categories)
+- [What a report must have](#what-a-report-must-have)
+- [Recheck gate before posting (preventing false positives)](#recheck-gate-before-posting-preventing-false-positives)
+- [What one defect should contain](#what-one-defect-should-contain)
+- [Severity](#severity)
+- [Minimum report shape](#minimum-report-shape)
+- [Putting screenshots in an issue](#putting-screenshots-in-an-issue)
+- [Filing as an issue](#filing-as-an-issue)
+- [When you were wrong](#when-you-were-wrong)
+- [Handling UX problems too](#handling-ux-problems-too)
+- [Write evidence for "looks wrong" as values ⚠️](#write-evidence-for-looks-wrong-as-values-)
+
 ## Separate the categories
 
 | Category | What |

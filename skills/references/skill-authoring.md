@@ -37,4 +37,4 @@ no-heredoc rule.
 Every skill reads `common-rules.md` when it starts, so keep it short with **only the absolute rules that apply to every skill**.
 Move details needed only by specific skills or situations into topic docs (`commit-convention.md`, `sensitive-info.md`,
 `work-start-protocol.md`, `script-invocation.md`, `agent-conduct.md`) or that skill's `references/`,
-and leave a one-line pointer under the same heading in `common-rules.md` — other docs refer to it by section name.
+and link that document directly from each SKILL.md that needs it, with a "read when" line (references stay one level deep from SKILL.md).

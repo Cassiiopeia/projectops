@@ -11,6 +11,17 @@ Write the brief in the configured `language`; if none is set, match the repo's d
 
 Placeholders: `{SCRIPTS}` = pro-ui-design, `{LAUNCH}` = pro-launch (capture · render · staging states), `{GITHUB}` = pro-github (images · issues), `{FIGMA}` = pro-figma (counting the Figma dump, when there is a link).
 
+## Contents
+
+- [Reusing mockups you already showed](#reusing-mockups-you-already-showed)
+- [Goal → command → details](#goal--command--details)
+- [Common rules](#common-rules)
+- [0. Settings: decide once, automatic afterwards](#0-settings-decide-once-automatic-afterwards)
+- [1–4. Input · states · capture · material](#14-input--states--capture--material)
+- [5. Board: one HTML page → per-topic PNG](#5-board-one-html-page--per-topic-png)
+- [6. Publish: only one format for the designer](#6-publish-only-one-format-for-the-designer)
+- [Failure path → next action](#failure-path--next-action)
+
 ## Reusing mockups you already showed
 
 Read `decision`, then put what was shown into `alternatives` with `"source": "mockup"`. Use `capture --all-options` for images. A mockup is never evidence: it goes only in `alternatives`, never in `current`, `states` or `facts`. Keep the alternative rules below: if "current implementation" or "minimal" was not among the mockups, add only that option.

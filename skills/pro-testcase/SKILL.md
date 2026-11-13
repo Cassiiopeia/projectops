@@ -54,19 +54,10 @@ If preferences have `sections`, use them for the TC document's section layout.
 5. **Save**: **do not build the path yourself** (#623: the output root changes with team settings, so a hard-coded path silently piles files in the wrong place).
 
 ```bash
-PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
-[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SKILL=pro-testcase; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
-  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
-done
-# Home-copied installs from npx projectops: GitHub Copilot and Cursor (#200)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.copilot ~/.cursor; do [ -d "$B/skills/$SKILL/scripts" ] && { ROOT="$B"; break; }; done
-SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops skill scripts not found. Check the plugin installation."; exit 1; }
-PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/testcase_cli.py" get-output-path --title "{title}"
+PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py testcase get-output-path --title "{title}"
 ```
+
+If that entry point is missing or answers `scripts_not_found`, find the scripts with the fallback block in `../references/script-invocation.md` §Fallback lookup block (`SKILL=pro-testcase`) and call `testcase_cli.py` directly (Windows: `python`).
 
 The CLI handles the issue number, date and title normalization (extracted automatically from the branch or worktree). Create only the parent folder of the returned `path`, then save.
 
@@ -82,6 +73,17 @@ Test cases created
 File: {path returned by get-output-path}
 → To paste into a GitHub issue comment: open the file → copy all → paste into the comment box
 ```
+
+## Shared references
+
+| Document | Read when |
+|---|---|
+| `../references/common-rules.md` | Always, at start: absolute rules, confirmation gates, issue state, push |
+| `../references/project-detection.md` · `../references/code-style-detection.md` | At start of code work: detect the project type and code style |
+| `../references/tech-spring.md` · `../references/tech-react.md` · `../references/tech-flutter.md` | When the project is that stack |
+| `../references/sensitive-info.md` | Right before saving an artifact or posting to GitHub: masking table, self-review |
+| `../references/approval-and-questions.md` | Before writing an artifact: key questions, approval gate |
+| `../references/doc-output-path.md` | When saving an artifact: where `get-output-path` puts it |
 
 ## Customize
 

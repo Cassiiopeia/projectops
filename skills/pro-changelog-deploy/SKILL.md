@@ -58,31 +58,17 @@ Every command is `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/changelog_cli.py <co
 
 ### 1) Scripts · OWNER · REPO · PYTHON · PROJECT_ROOT (once)
 
-> **If the fixed entry point exists, skip the search below** (#942): `~/.projectops/bin/projectops_cli.py` appears after the CLI runs at least once. On every call it finds the newest installed script and passes the arguments through. A plugin update during the session does not pin you to an old path.
-> `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py changelog-deploy <subcommand> ...` (if it is missing or returns `scripts_not_found`, use the search below). If the response has `newer_installed`, call again through this entry point.
+`PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py changelog-deploy <subcommand> [args]` (Windows: `python`). Later blocks write `{PYTHON} {SCRIPTS}/changelog_cli.py` for this entry point. If the response has `newer_installed`, call again through this entry point.
+If that file is missing or answers `scripts_not_found`, find the scripts with the fallback block in `../references/script-invocation.md` §Fallback lookup block (`SKILL=pro-changelog-deploy`) and call `changelog_cli.py` directly.
 
-> **⚠️ Do not store the command in a variable and call it (zsh).** `P="python3 …/changelog_cli.py"; $P deploy-status …` does not word-split in zsh. The whole command is read as one file name and ends with `exit 127` (command not found). To shorten it, wrap it in a function: `cl() { PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" "$@"; }; cl deploy-status …`
+> **⚠️ Do not store the command in a variable and call it (zsh).** `P="python3 …/changelog_cli.py"; $P deploy-status …` does not word-split in zsh and ends with `exit 127`. Wrap it in a function instead: `cl() { PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py changelog-deploy "$@"; }; cl deploy-status …`
 
-**Bash is stateless.** Variables and `export` do not survive between calls. **Remember the values printed below and write the real values into every later block** (in the `{PYTHON}` slots and so on, or redeclare them on the first line of the block, like `OWNER="..."; ...`). Never assume a variable from an earlier call is still alive.
+**Bash is stateless.** Variables do not survive between calls. Write the real values into every later block.
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
-[ -z "$PYTHON" ] && { echo "❌ Python not found."; exit 1; }
-SKILL=pro-changelog-deploy; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
-  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
-done
-# Home-copied installs from npx projectops: GitHub Copilot and Cursor (#200)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.copilot ~/.cursor; do [ -d "$B/skills/$SKILL/scripts" ] && { ROOT="$B"; break; }; done
-SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops skill scripts not found. Check the plugin installation."; exit 1; }
-REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
-OWNER=$(echo "$REMOTE_URL" | sed -E 's|.*github\.com[:/]([^/]+)/.*|\1|')
-REPO=$(echo "$REMOTE_URL" | sed -E 's|.*github\.com[:/][^/]+/([^/.]+)(\.git)?$|\1|')
-echo "PROJECT_ROOT=$PROJECT_ROOT PYTHON=$PYTHON SCRIPTS=$SCRIPTS OWNER=$OWNER REPO=$REPO"
-PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/changelog_cli.py" detect-release-context --project-root "$PROJECT_ROOT"
+git remote get-url origin   # → OWNER / REPO
+PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py changelog-deploy detect-release-context --project-root "$PROJECT_ROOT"
 ```
 
 From the `detect-release-context` output, remember `branches` (branches and provider), `branches_source`, `conflict`, `signals` and `hint` (app review signals), `release_shape`, and `release_language` (notes language, headings, store languages — step 5). If `release_shape == deploy_branch` (origin has no development branch but has `deploy`), set `HEAD_BRANCH`/`BASE_BRANCH` from `release_branches` (usually `main` → `deploy`) instead of `branches`, and follow `release_steps`. Confirm this pair with the user once. If it is `three_tier` (development > default > deploy branch), the release PR uses `branches` as usual and does not deploy; after it merges, `promote_branches` (default → deploy branch) is a separate PR that you open and merge only when the user asks, per `release_steps`. If it is `standard`, nothing changes. The CLI reads owner/repo from the origin URL and the config from its fixed path on its own (read-only). Only when you look at another repo, pass them explicitly: `detect-release-context --project-root {PROJECT_ROOT} --owner {OWNER} --repo {REPO}`.
@@ -227,6 +213,15 @@ Always pass `--project-root {PROJECT_ROOT}` to `create-pr`. Action per rejection
 - The only criteria for moving to fix mode are in the verdict table above (`missing_coderabbit_summary` twice in a row · `workflow_failed` · `waiting_for_automerge` over 10 minutes = `stuck`). `waiting_for_workflow` (queue delay) is not one of them — do not close and reopen.
 - If a deploy PR already exists, reuse it instead of closing it.
 - **curl exit 35 (SSL error) on a Windows internal network**: add `--ssl-no-revoke` to curl calls (`../references/common-rules.md`, Windows internal network section).
+
+## Shared references
+
+| Document | Read when |
+|---|---|
+| `../references/common-rules.md` | Always, at start: absolute rules, confirmation gates, issue state, push |
+| `../references/script-invocation.md` | Only when the fixed entry point is missing: fallback lookup block |
+| `../references/commit-convention.md` | When reading commit titles to classify release-note items and the version bump |
+| `../references/sensitive-info.md` | Right before posting release notes: masking table, self-review |
 
 ## Customize
 

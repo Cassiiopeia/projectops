@@ -1,6 +1,6 @@
 ---
 name: pro-launch
-description: "Capability skill that launches and drives apps, web, desktop windows and servers: emulator/simulator screenshots, browser navigation and capture, installer and OS dialogs, API mocking for empty/error states, HTTP/DB/log access. Used by pro-agent-test, pro-ui-design, pro-figma."
+description: "Capability skill that launches and drives apps, web, desktop windows and servers: emulator/simulator and browser capture, OS dialogs, API mocking for empty/error states, HTTP/DB/log access. Use when asked to launch, screenshot or drive one; pro-agent-test, pro-ui-design and pro-figma call it."
 ---
 
 # pro-launch — launch, drive, capture
@@ -22,87 +22,17 @@ The **absolute rules** in `../references/common-rules.md` apply (no Git commits,
 
 Reply to the user in their language (or the configured `language` preference).
 
-## What you want to do → command → detailed doc
+## Calling the CLI
 
-Every command is `{PYTHON} {SCRIPTS}/launch_cli.py <command>`. **When you call it from outside the repo (after the shell's working directory changed), add `--root <project>`.**
-Without it, the root is resolved in this order: `$PROJECT_ROOT` > working directory (git) > most recently used root. A failed lookup returns `root_candidates` and `retry` (#885).
+`PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py launch <subcommand> [args]` (Windows: `python`).
+If that file is missing or answers `scripts_not_found`, find the scripts with the fallback block in `../references/script-invocation.md` §Fallback lookup block (`SKILL=pro-launch`) and call `launch_cli.py` directly.
 
-| Goal | Command | Details |
-|---|---|---|
-| Tools (adb · simctl · Chromium · Pillow · cwebp · ffmpeg) · what can be launched (app · web · server, package name · bundle ID) · attached devices · booted simulators · AVDs | `doctor` · `detect --path .` · `devices` | — |
-| Host memory pressure (ok · high · critical) · large processes · repos holding running devices — **before booting more virtual devices** | `doctor --resources` | Common rules below |
-| **Borrow and return a device — the start and end of every app task** (get a free device that matches conditions; when done, shut down what you booted) | `device acquire --platform ios\|android [--form tablet] [--purpose "#issue"] [--wait 90]` · `device release --device $DEV` · `device shutdown` | `references/app.md` |
-| Record prepared state (login · test data · permissions) — protected from cleanup and reset; next time `--need` gets you that device · view device records | `device mark\|unmark --kind login --name kakao` · `device adopt` · `device records` | `references/app.md` |
-| When you really need a new device (two at once · a completely fresh phone · a different form factor) — **instead of raw simctl create/avdmanager** · clone a logged-in device · erase · delete | `device acquire --fresh\|--count 2` · `device create\|clone --reason "..."` · `device erase\|delete` | `references/app.md` |
-| Clean up accumulated devices — delete expired temporary devices · shut down abandoned running devices (report only by default) | `device gc [--apply] [--sizes]` | `references/app.md` |
-| **Measure how many devices this computer can handle and save it to config** — on a new computer · when several sessions stall while booting | `device benchmark [--platform ios\|android] [--full]` | `references/app.md` |
-| Bind roles to devices (two or more participants) · show the owner · claim a specific device | `device list\|bind\|unbind\|show\|claim` | `references/app.md` |
-| Boot an emulator/simulator (no window by default; small window if you need one) · reboot · locale · dark mode — **instead of raw simctl/emulator** | `device boot\|reboot [--cold]\|locale\|appearance\|text-size` · `app install --path` | `references/app.md` |
-| Launch an app · capture | `app launch` · `app shot [--clean-status]` | `references/app.md` |
-| App screen structure · tap · swipe · back · wait for the screen to settle | `app tree` · `app tap` · `app swipe` · `app back` · `app wait --settle` | `references/app.md` |
-| Several app steps at once (one Maestro run on iOS) | `app run --steps steps.json` | `references/app.md` |
-| Complex gestures (swipe then tap immediately · swipe from an element) — run the project's Maestro flow and capture | `app flow --file x.yaml` | `references/app.md` gesture playbook |
-| When you look and tap on iOS many times — resident session (20 s → 1 s per call) | `app session start\|stop\|status` | `references/app.md` |
-| Type text into the app (saved login; Maestro on iOS) | `app type --cred <name>` | `references/app.md` |
-| Wait until the screen changes (or something disappears) · screen recording · burst capture right after an action | `app wait [--gone]` · `app record start\|stop` · `--burst` | `references/app.md` |
-| Terminate · relaunch · location · permissions · push (iOS) · deep links — **instead of raw simctl/adb** | `app terminate\|relaunch\|location\|permission\|push\|openurl` | `references/app.md` |
-| Open a browser · **read the screen · pick what to press** · click with verification · type · capture | `web setup\|open\|goto\|text\|find\|click\|type\|shot\|assert\|console\|close` | `references/web.md` |
-| Reuse a logged-in browser profile across repos · record logins (so you do not log in or pass 2FA again) | `web open --profile <name>\|--need login:google` · `web profile list\|use\|mark\|unmark` | `references/web.md` |
-| Change width · replace responses (empty list · 500 · delay) | `web viewport` · `web route` | `references/web.md` |
-| **Read a form** (inputs · buttons · checkboxes · selects + values · disabled state · ref) · read only matching lines · select · check · keys · hover · dialogs · downloads — **instead of raw CDP scripts** | `web inspect` · `web text --grep` · `web select\|check\|press\|hover\|dialog\|download` | `references/web.md` |
-| Wait for a condition (approval · toast · URL) · scroll an inner box and capture a piece · upload files · act inside an iframe · **anything the fixed actions do not cover** | `web wait\|scroll\|upload` · `web shot --container` · `--frame` · `web script` | `references/web.md` |
-| Confirm a save went through by its request · save a secret from an input or copy button without printing it · type key by key · clean up leftover browsers | `--capture-requests` · `web value\|clipboard --save-env` · `web type --keys` · `web close --stale` | `references/web.md` |
-| **Programs on this computer's screen** (installer wizards · OS dialogs · desktop apps — not web pages, not emulators): list windows · read elements as refs · press without moving the mouse · type · keys · capture · wait | `desktop setup\|doctor\|session\|windows\|tree\|find\|click\|type\|press\|focus\|shot\|wait` | `references/desktop.md` |
-| Render a state in code and capture it | `render snapshot` → `render scaffold` (Flutter) → `render run` | `references/render.md` |
-| Single HTTP request · record how to connect · SQL · logs | `http` · `access show\|set\|unset` · `db` · `logs` | `references/server.md` |
-| Store credentials · remote commands · sudo on this Mac | `cred list\|show\|set\|unset\|import-ssh` · `ssh` · `local sudo` | `references/credentials.md` |
-| Policy for interstitial login screens (trust this device · stay signed in · upsells) | `cred policy get\|set\|unset` | `references/web.md` "Interstitial login screens" |
-| **Sign in to Google · Apple · Naver · Kakao · GitHub on the web**, including Apple's code on this Mac (alert → Allow → code → web) | `web open --need login:<provider>` · `web inspect --frame` · `web type --cred` · `desktop wait --window overlay` | `references/web-sign-in.md` |
-| Shrink for issue attachments | `shrink` | `references/memory.md` |
-| Hide sensitive content before posting: cover image areas · replace secrets in a log | `mask` · `redact` | `../references/evidence-attach.md` |
-| Recall · save · delete · tidy what worked on this computer | `recall [--match <word>]` · `learn [--detail]` · `forget` · `tidy` (scattered memory) · `tidy --buckets` (size and bogus buckets; deletes only with `--apply`) | `references/memory.md` |
-| When you finish a task — areas where you got stuck, got unstuck, and did not `learn` | `session-check` | `references/memory.md` |
-| Search · show · list official troubleshooting · draft an official entry from your memory | `kb search\|show\|list\|propose` | `references/troubleshooting.md` · `references/memory.md` |
-| Write free-form notes about work you did and read them next time (work journal) | `journal [--add "..."] [--title] [--site]` | `references/memory.md` |
-| **Guide for a site or workflow you repeat** (README to follow + optional helper scripts, one folder each) — read it before repeating site work · create one when a workflow repeats | `harness list\|show <name>\|match --url <url>\|new <name> --description "..." --url "<pattern>"` (apps · desktop: `--app` · `--window`) | `references/harness.md` |
-| Output location for this run + `env.sh` | `get-output-path` | Below |
-| Add a new platform · new action (contributors) | — | `references/extending.md` |
-
-## Find the scripts
-
-**The Bash tool resets its state on every call.** After you find the path once, **write the actual path as a literal value in later blocks.**
-When another skill calls this one, keep `SKILL=pro-launch` as is.
-
-**Use the fixed entry point if it exists** (#897). Hard-coding a version folder (`.../projectops/4.xx.x/...`) lets the docs and
-the scripts drift apart during a session. `~/.projectops/bin/launch_cli.py` appears after the first run. On every call it finds the
-newest install (checkout > highest plugin-cache version > Cursor) and passes the arguments through. To force a specific folder, set `PROJECTOPS_LAUNCH_SCRIPTS`.
-
-```bash
-E="${PROJECTOPS_HOME:-$HOME/.projectops}/bin/launch_cli.py"; [ -f "$E" ] && echo "Instead of SCRIPTS: {PYTHON} $E <command>"
-```
-
-- **In zsh, do not store the command in a variable like `L="python3 …/launch_cli.py"; $L web …`.** zsh treats it as one word and fails with `no such file`. The fixed entry point is executable, so call it directly as `"$E" <command>`,
-  or wrap it in a function: `launch() { python3 "$HOME/.projectops/bin/launch_cli.py" "$@"; }`. Do not paste a cache path with a version in it.
-- If a response contains **`newer_installed`**, a newer version is installed (it is in the JSON and also comes with success responses). Switch to the `use` command it suggests.
-  If `docs_dir` from `doctor` differs from the folder of the SKILL.md you are reading, your docs are an old version.
-
-If it does not exist (first run), find the scripts as below.
-
-```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
-[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SKILL=pro-launch; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
-  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
-done
-# Home-copied installs from npx projectops: GitHub Copilot and Cursor (#200)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.copilot ~/.cursor; do [ -d "$B/skills/$SKILL/scripts" ] && { ROOT="$B"; break; }; done
-SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops skill scripts not found. Check the plugin installation."; exit 1; }
-echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS PROJECT_ROOT=$PROJECT_ROOT"
-```
+- pro-launch also has its own fixed entry point, `~/.projectops/bin/launch_cli.py` (#897; it appears after the first run). It finds the newest install
+  (checkout > highest plugin-cache version > Cursor) on every call. To force a specific folder, set `PROJECTOPS_LAUNCH_SCRIPTS`. Do not paste a cache path with a version in it.
+- In this skill's docs, `{PYTHON} {SCRIPTS}/launch_cli.py <command>` stands for either call above. **The Bash tool resets its state on every call**, so write the actual path as a literal value.
+- **In zsh, do not store the command in a variable** (`L="python3 …/launch_cli.py"; $L web …` fails with `no such file`). Call it directly or wrap it in a function: `launch() { python3 "$HOME/.projectops/bin/launch_cli.py" "$@"; }`.
+- If a response contains **`newer_installed`**, a newer version is installed; switch to the `use` command it suggests. If `docs_dir` from `doctor` differs from the folder of this SKILL.md, your docs are an old version.
+- **From outside the repo (after the shell's working directory changed), add `--root <project>`.** Without it the root is `$PROJECT_ROOT` > working directory (git) > most recently used root; a failed lookup returns `root_candidates` and `retry` (#885).
 
 ## Output location — get it first. Never invent a path ⚠️
 
@@ -116,6 +46,27 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
 `$DEV` (with bound roles: `DEVn` · `ROLEn`; filled only when exactly one device is free of other sessions — if empty, use `device acquire`) · `$PKG`. `--skill` accepts only
 `EVIDENCE_SKILLS` from `scripts/common/paths.py`. Captures stored in a document skill's folder have no git exclusion and get committed.
 
+## What you want to do → command → read when
+
+| Group | Commands | Read when |
+|---|---|---|
+| Tools · what can be launched · attached devices · host memory | `doctor [--resources]` · `detect --path .` · `devices` | Always fine to call; `--resources` before booting more virtual devices (rules below) |
+| **Devices** — borrow and return (start and end of every app task) · prepared state (`mark`) · create · clone · erase · clean up · capacity · roles · boot · reboot · locale · appearance · text size | `device acquire\|release\|shutdown\|claim\|mark\|unmark\|adopt\|records\|create\|clone\|erase\|delete\|gc\|benchmark\|list\|bind\|unbind\|show\|boot\|reboot\|locale\|appearance\|text-size` | [`references/devices.md`](references/devices.md) — before the first app task, when `acquire` answers `wait` · `ask` · `no_match`, before creating, erasing or cleaning up devices |
+| **App** — install · launch · capture · read the screen · tap · swipe · type · several steps · gestures · iOS resident session · wait · record · terminate · location · permissions · push · deep links | `app install\|launch\|shot\|tree\|tap\|swipe\|back\|type\|run\|flow\|session\|wait\|record\|terminate\|relaunch\|location\|permission\|push\|openurl` | [`references/app.md`](references/app.md) — before driving an app, on iOS, when a tap misses or a code is not in `next` |
+| **Web** — open · read · find · click with verification · type · capture · forms · width · response staging · wait · scroll · upload · iframes · tabs · profiles · `web script` | `web setup\|open\|goto\|text\|find\|inspect\|click\|type\|select\|check\|press\|hover\|dialog\|download\|shot\|assert\|console\|viewport\|route\|wait\|scroll\|upload\|value\|clipboard\|script\|tab\|profile\|login\|close` | [`references/web.md`](references/web.md) — **read its safety contract before the first web drive**; when a selector misses or a code is not in `next` |
+| **Web sign-in** — Google · Apple · Naver · Kakao · GitHub, including Apple's code on this Mac; interstitial screens | `web open --need login:<provider>` · `web type --cred` · `cred policy get\|set\|unset` | [`references/web-sign-in.md`](references/web-sign-in.md) — before any sign-in; interstitials: `references/web.md` "Interstitial login screens" |
+| **Desktop** — programs on this computer's screen (installer wizards · OS dialogs · desktop apps · macOS notifications; not web pages, not emulators) | `desktop setup\|doctor\|session\|windows\|tree\|find\|click\|type\|press\|focus\|shot\|wait` | [`references/desktop.md`](references/desktop.md) — the single source for the `desktop` contract; the procedure is the `pro-desktop-control` skill |
+| **Render** — draw a hard-to-reach state in code and capture it | `render snapshot` → `render scaffold` (Flutter) → `render run` | [`references/render.md`](references/render.md) — before writing temporary render code; on `render_failed` read `first_error` |
+| **Server** — one HTTP request · record how to connect · SQL · logs | `http` · `access show\|set\|unset` · `db` · `logs` | [`references/server.md`](references/server.md) — before touching a server or DB (read the code to decide how to connect, then `access set`) |
+| **Credentials** — store · remote commands · sudo on this Mac | `cred list\|show\|set\|unset\|import-ssh` · `ssh` · `local sudo` | [`references/credentials.md`](references/credentials.md) — before a server, DB or login screen, and before saying "the user has to log in themselves" |
+| **Evidence** — shrink captures · cover image areas · replace secrets in a log | `shrink` · `mask` · `redact` | [`references/evidence.md`](references/evidence.md) — before attaching captures or logs anywhere |
+| **Memory** — recall · save · delete · tidy what worked · stuck areas not learned · work journal · official troubleshooting | `recall` · `learn` · `forget` · `tidy [--buckets]` · `session-check` · `journal` · `kb search\|show\|list\|propose` | [`references/memory.md`](references/memory.md) — first use of these; [`references/troubleshooting.md`](references/troubleshooting.md) — the official entries `known_fix` summarizes |
+| **Harness** — a guide folder for a site, app or window you repeat | `harness list\|show\|match --url\|new <name> --description "..." --url "<pattern>"` (`--app` · `--window`) | [`references/harness.md`](references/harness.md) — when a response carries `harness`, or a workflow repeats |
+| Output location + `env.sh` | `get-output-path` | Above |
+| Add a new platform · new action (contributors) | — | [`references/extending.md`](references/extending.md) |
+
+Options per command: `<command> --help` (for `web` · `app` · `desktop`: `<group> <action> --help`).
+
 ## Common rules
 
 - **Borrow devices; do not pick them by name (#953).** Start every app task with `device acquire --platform <ios|android> --purpose "#issue"`,
@@ -126,15 +77,17 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
   **Memory risk** (`is_memory_risk` in `needs_user` · `host_memory_pressure` · `device_budget_exceeded`): call again with
   `--user-approved` only after the user answers (`acquire` · `boot`). `--yes` does not pass this gate. Never add it without asking the user.
   Do not take a running device that has no ledger record (a person may be using it). If it must be that device, ask the user and pass `--device`.
-- **As soon as a person finishes login, 2FA or data setup, run `device mark --device "$DEV" --kind login --name <provider>`** (#954).
-  The next session gets that device with `device acquire --need login:<provider>`. A new device would not have that state.
-  On a marked device, `erase` and `delete` refuse without `--yes`. `acquire` creates new devices only when needed (recording the reason and expiry), and does not create one when a limit (running device count · disk · memory) is hit.
-  In Claude Code, a hook blocks raw `simctl create|delete|erase` · `avdmanager create|delete` · `-wipe-data` · `emu kill` in Bash.
+- **As soon as a person finishes login, 2FA or data setup, run `device mark --device "$DEV" --kind login --name <provider>`** (#954) — or, in the browser,
+  `web profile mark --kind login --name <provider>` (#956). The next session gets that state with `--need login:<provider>`.
+  On a marked device, `erase` and `delete` refuse without `--yes`. In Claude Code, a hook blocks raw `simctl create|delete|erase` · `avdmanager create|delete` · `-wipe-data` · `emu kill` in Bash.
 - **Pass the device for control commands with `--device`.** Without it: `$DEV` → the only attached device. With several devices and no choice, the command stops with `no_device`.
 - **Each command returns one JSON object.** `ok` is success or failure, `code` is the branch (decide by code, not by message text), and `next` lists candidate next commands.
   When an element is not found, you get `candidates` (values actually on screen) and `locale`. **Pick from them; do not keep guessing.**
 - **If a failure response has `known_fix`, try that fix first.** It summarizes verified official knowledge (up to 2 entries). For the full symptom and cause use
   `kb show <id>`; to search when the response has none, use `kb search "<error text>" --code <code>`.
+- **If a response contains `memory`, read it first and try that approach first**; after using it, run `learn --key <that key> --result ok|fail`.
+  If `learn_hint` arrives, record the approach that got you unstuck with `learn` (`--scope machine` for methods unrelated to the repo). Secrets and host-mouse methods are never stored.
+  **If a response contains `harness`, open its `readme` before repeating work on that site, app or window.**
 - **Do not trim results with `head`, `cut` or python.** You would cut off `next`, `memory` and `known_fix` too.
   For a short response, add `--brief` to any command (only ok · code · summary · next · error · known_fix · memory · learn_hint · journal · harness; on failure also `reasons` · `output_tail`).
   For specific keys only, add `--fields file,url` (`path` is an alias of `file`). Both always keep those guidance keys. Key order is always
@@ -153,184 +106,30 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py get-output-path --title 
   and for other programs on the screen **only `desktop`**, inside a `desktop session start` (it presses through accessibility without moving the mouse whenever it can, and stops if the user moves the mouse or types).
 - **Never handle credentials as plain text.** Instead of `--text` on the command line, use `--cred` (saved) · `--text-env` (one-off),
   and `$CRED_*` environment variables in command strings. Never copy values into results, reports, issues or commits. Do not write secrets into `access`.
+  **Do not read credentials straight from config files.** Use saved values only through `--cred`.
 - Mutating actions (submit · delete · pay · send) run without asking **only locally**. Anywhere else, stop and ask (`references/web.md` safety contract).
+  **For admin consoles (Play Console · App Store Connect · billing · admin), use `web open --readonly`**; `--confirm-mutating` only when approved.
+  `desktop` blocks install · agree · finish · delete · save buttons by default (`mutating_blocked`) — tell the user what it changes, then `--confirm-mutating` on that one click.
 - Do not call AI generation APIs to produce captures. Do not guess the state management approach or the project structure.
 - **When stuck, go in this order before building something yourself** (#934): the action's `--help` > `kb search` > `web script` (web) · `app flow` (app).
   Do not write new raw Playwright or CDP scripts, direct `adb` · `simctl` · `maestro` calls, or wait loops. They bypass the shared connection, time limits and secret masking.
   **Ask first before workarounds that write to the user's account** (creating script projects such as Apps Script, calling APIs directly).
-- **Do not read credentials straight from config files.** Use saved values only through `--cred`. When you delegate work to another agent, do not tell it to use raw Maestro, simctl or adb; tell it to use this skill.
+  When you delegate work to another agent, do not tell it to use raw Maestro, simctl or adb; tell it to use this skill.
 - While waiting for a one-time code (OTP), **do not submit the login form again**. A new code is sent and the previous one becomes invalid.
 - `--timeout` is in **seconds** (max 300). A value of 3000 is rejected with `timeout_too_large`.
 - If you got stuck and solved it with a workaround, record it with `learn` before you finish, so the next session does not rebuild the same workaround.
+  Run `session-check` when you finish a task.
 
-## App — use this when
+Failure codes and their next action are in each group's reference (section "Failure code → next action").
 
-```bash
-source "{env_file value}"
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app launch --device "$DEV" --pkg "$PKG"
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app shot   --device "$DEV" --out 01_login --clean-status
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app tree   --device "$DEV"
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app tap    --device "$DEV" --text "Log in" --shot after_login
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app swipe  --device "$DEV" --dir up --shot list_scrolled
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app relaunch   --device "$DEV" --pkg "$PKG"     # terminate takes the same form
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app location   --device "$DEV" --lat 37.5665 --lon 126.978
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app permission --device "$DEV" --pkg "$PKG" --service location --grant
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app push       --device "$DEV" --pkg "$PKG" --payload push.json
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py app openurl    --device "$DEV" --url "myapp://home"
-```
+## Shared references
 
-- Find what to tap **by element**: `--text` (exactly as shown, in the screen's language) · `--id` (resource-id · accessibilityIdentifier) · `--desc` (accessibility description);
-  if several match, `--index N` (from 0). If you do not know the text, check `elements` and `locale` from `app tree` first.
-- Use `--at 0.5,0.8` **ratio (0–1)** coordinates only when there is no element, such as a canvas or map. Pixels are rejected (`bad_ratio`).
-- Swipe with `--dir up|down|left|right`; for an exact path, `--from 0.5,0.8 --to 0.5,0.2 --ms 300`.
-- **Bundle two or more steps with `app run --steps steps.json`.** On iOS this launches Maestro only once (step format in `references/app.md`).
-- With `--shot <name>`, it captures after the screen settles. `screen_changed: false` means nothing reacted; pick a different element.
-- On iOS, **`app tree` also uses Maestro**, not only `app tap` and `app swipe` (10–40 s per call). Run long scenarios at once as the project's E2E flow.
-- **On iOS, if you look → decide → tap many times, run `app session start --device $DEV` first** (8 s to start, then tree 0.6 s · tap 1 s measured).
-  `transport: session` in the result means it used the session; `session_fallback` gives the reason it fell back to launching per call. When done, `app session stop` (it also ends itself after 20 minutes idle).
-  `app type` handles secret values, so it does not use the session (`session_fallback: secret_input_per_call`).
-- If you get `not_found` right after a screen transition or loading, check the current screen with `app shot`, then tap again **once** with `--shot`. If it fails again, pick from `candidates`.
-- iOS bundle IDs (including system apps): the iOS section of `references/app.md`.
-- Do not type `xcrun simctl` or `adb shell am|pm` directly to terminate apps or set location, permissions, push or deep links. The `app` actions above handle device selection and failure codes.
-
-| code | Next action |
+| Document | Read when |
 |---|---|
-| `no_device` | Check `devices` and pass `--device` |
-| `device_shutdown` | The chosen simulator/AVD is off. Boot it with `device boot --device <id>` from `next`, then retry (to borrow one, use `device acquire`) |
-| `not_found` | Pick from `candidates` |
-| `ui_dump_failed` | Could not read the screen structure (mid-transition · secure screen). If `foreground_package` in the response is not your app, another app is covering it. Retry shortly; if it persists, use `--at` ratio coordinates |
-| `not_foreground` · `app_exited` | launch/relaunch was sent but the app is not in front / it died immediately. Read `blocking_activity` · `crash_report` · `exception_line`. If it is someone else's device, ask first |
-| `device_unresponsive` | The device does not respond (`resources` includes host memory). Ask the user, then run `device reboot --cold` |
-| `typed_text_mismatch` | The input text differs from what was typed (composing keyboard). Use `app type --ime ascii` |
-| `device_owned_by_other` | Another session borrowed this device. Mutating actions (tap · type · install, etc.) are refused; reads (shot · tree · wait) only get a warning field. Get another device with `device acquire`, or, if it must be that device, ask the user and pass `--yes` |
-| `device_busy` · `needs_user` · `no_matching_device` | `device acquire`'s wait · ask · no_match — see the per-verdict actions in the common rules above |
-| `device_budget_exceeded` · `host_memory_pressure` | Booting another device would exceed this computer's device memory budget / host memory is at a risky level (`reasons` · `non_device_consumers`). Return or shut down unused devices, or show this to the user and pass `--user-approved` after they answer. If the budget was never measured, run `device benchmark` |
-| `devices_in_use` · `benchmark_no_room` | Not started because measuring could stall other sessions / no room to boot even one test device (config unchanged) |
-| `ledger_busy` | Could not get the device ledger lock within 10 s. Call again shortly |
-| `device_protected` · `device_in_use_unrecorded` | The device you want to erase or reset holds prepared state / a person may be using it. Show `marks` to the user and ask; if they agree, pass `--yes` |
-| `no_matching_profile` | No browser profile has the `--need` state recorded. After a person logs in, run `web profile mark` |
-| `emulator_no_acceleration` | The emulator stopped because it could not get hardware acceleration (host memory or swap is short). Waiting will not help, and it is already shut down. Ask the user to free memory |
-| `source_booted` | A running device cannot be cloned. Retry after the source is shut down |
-| `resources_low` · `create_failed` | Not enough room to create a new device (memory · disk) / creation failed. Use an existing device with `device acquire` first |
-| `no_focused_window` | No focused window (screen off · locked · mid-transition). This comes after waking it and reading up to three times. Look at the screen with `app shot` |
-| `android_system_not_ready` · `ui_automation_unavailable` · `ui_dump_timeout` | A device-side problem (system restarting · UiAutomation connection failed · timeout). Look with `app shot`; if it persists, ask the user about an emulator cold boot |
-| `session_start_failed` · `session_tools_missing` | Continue without a session (Maestro per call). Read `reason` |
-| `tree_unsupported` | This device cannot read the screen structure. Look with `app shot` and use `--text` or `--at` ratio coordinates |
-| `ios_tool_missing` · `android_tool_missing` · `adb_missing` | Offer the user the install instructions from the result |
-| `non_ascii_unsupported` · `ios_text_unsupported` | `app type` cannot enter this text. Use an English substitute or leave it to the user |
-| `unsupported_on_platform` | The action does not work on this platform or device (Android push · location on a real Android device, etc.). Use the alternative in `next` |
-| `build_mismatch` | Devices have different builds installed. Stop and make them match |
-
-## Web — use this when
-
-```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web open --url {url}                 # reattaches if already running (reused)
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web text                           # read the screen text — cheaper than a screenshot
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web find --text "Log in"            # candidates with ref · link URL
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web click --ref 1 --expect-url /home   # only what you picked, verified through to the result
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web viewport --preset mobile
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web route --match "**/api/items*" --status 200 --body "[]"
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web goto --url {that screen}         # rules apply when you navigate
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web shot --out 02_empty_list
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web route --clear
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web wait --url-contains /home --timeout 180   # 2-step approval · save toast — wait, do not navigate
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web scroll --to "Payment history"     # or --ref N · --by 600 [--container "#list"]
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web upload --files a.png,b.png       # hidden input[type=file] · for a drop zone, --click-ref N
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web type --frame login --selector "#account_name_text_field" --cred apple --cred-field account   # inside an iframe
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web script --file snippet.py          # anything the fixed actions do not cover — a Playwright snippet with page · context
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web tab new --name edit --url {url}  # long work goes in your own tab — then prefix LAUNCH_TAB=edit
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py web login --cred {name} --user-selector "#email" --password-selector "#pw" --submit-selector "#go" --until-url /home --handoff-seconds 120   # hands 2FA to the user and waits
-```
-
-- **Call `find`/`inspect` before `type` or `click`** whenever the selector did not come from the latest `find` or `inspect` result. A wrong guess fails after 4 s with `candidates` (including refs).
-- **Read → pick by number → press with verification.** Do not guess selectors. `click` returns what it pressed (`clicked`) and whether the URL or title
-  changed (`changed`). `changed: false` means you pressed the wrong thing; pick again with `find`. Read information with `web text`; use `shot` only to see the layout.
-- **For admin consoles (Play Console · App Store Connect · billing · admin), use `web open --readonly`.** **Buttons** such as delete, release or submit
-  are blocked with `mutating_blocked` (links, tabs and table rows are navigation and stay open). Use `--confirm-mutating` only when approved.
-- Stage empty lists, failures and loading with `route` **without touching the server** (`--status 500` · `--delay 5000`). Run `--clear` when done.
-- If a Google or Apple login is blocked, try `web open --headed` first. If a site behaves oddly, compare with `--no-stealth`.
-- **As soon as a person finishes logging in in the browser, run `web profile mark --kind login --name <provider>`** (#956). In other repos, open that profile with `web open --need login:<provider>`.
-  When done, run `web close`. The session-end hook also closes browsers this session started (it leaves them if other sessions have tabs). Closing keeps the login (cookies) in the profile.
-- On `playwright_missing`, ask the user and run `web setup`. On `browser_not_open` · `browser_gone`, run `web open` again.
-- Read forms with `web inspect --role input --near "Email"` and use the returned `ref` for `type` · `check` · `select`. A disabled element returns `element_disabled` immediately instead of waiting.
-- **Frequent, risky work uses fixed actions; the long tail uses `web script`.** Do not write new scripts that attach to CDP directly. `script` goes through the shared connection, reinstall, time limits and secret masking.
-- If the login form is inside an iframe (`find` returns `nothing_found` + `frames`), add `--frame <name|iframe selector|part of URL>` to `find` · `type` · `click` · `assert` · `text` · `inspect`.
-- **Sessions in the same repo share one browser.** Do long, unsaved input in your own tab created with `web tab new --name <name>` (`LAUNCH_TAB=<name>`), and save after each step.
-  If another session moved your tab, the result carries `tab_warning` (`page_changed_by_other_session`). New tabs open in the background (`--front` brings one forward).
-  `web open` with no tab name will not take a tab another session is using: it opens your own background tab and lists the others in `other_sessions`. `tab_used_by_other_session` means you are reading someone else's tab.
-- **`page_reloaded` in a result (also added to `summary`) means the page reloaded between your commands.** Refs and typed text are gone. If it keeps happening, do steps that depend on each other in one `web script`.
-- **New windows (popups) show up as `new_tabs`** in the result of the command that opened them — or of the next command, when the site opens the window a few seconds late.
-  To work in it, run `web tab use --target <target_id> --name popup` as `next` says, then prefix commands with `LAUNCH_TAB=popup`. Your own tab stays where it was.
-  `URL and title unchanged` with no `new_tabs` means no new window — the page may have opened an in-page layer instead: read it with `web text`.
-  Never conclude "popups are blocked" without testing `window.open` in `web script`; pro-launch starts the browser with popup blocking off. If `web open` warns the browser was started before that, run `web close` and `web open`.
-- `web open` clears a hung browser and leftover profile locks by itself and reports `recovered`. Do not delete locks by hand.
-- Options differ per action: `web <action> --help`. Options the action does not accept are rejected with `bad_args` (the usable options are in the error).
-
-| code | Next action |
-|---|---|
-| `nothing_found` · `selector_not_found` | Pick from `candidates` in the result and retry with `--ref` as `next` says. If there are no candidates, read the screen text with `web text` and then `find` |
-| `element_not_actionable` | The element exists but is hidden or covered, so it could not be pressed within 4 s. If `covered_by` is present, a fixed header or overlay covers it — use `--dom-click` as `next` says. Otherwise pick again from `candidates` |
-| `frame_not_found` | Put a name or part of a URL from `frames` into `--frame` |
-| `wait_timeout` | The condition was not met. Decide from `url` · `title`. If you are waiting for approval, do not navigate; `wait` again |
-| `script_failed` · `script_timeout` | Read the snippet's first error line and fix it · raise `--timeout` or wait less |
-| `ref_stale` | The screen changed. Run `find` again. A control that only exists on hover: `web hover` the row first, then `find` |
-| `typed_value_not_kept` | The box was emptied even after typing key by key, or it disappeared. `find` again, or do typing and the next step in one `web script` |
-| `expect_not_met` | The expected result did not come. Look at the current screen with `web text` and pick another candidate |
-| `mutating_blocked` | The read-only session blocked a risky button. Tell the user what would change and get approval |
-| `needs_user` | Hand the remaining login steps (2FA · device approval) to the user. Ask with `ask_user`; when they say they are done, run `web login --resume ...` from `next` |
-| `tab_gone` | The `LAUNCH_TAB` tab was closed. Run `web tab new --name <same name>` |
-| `browser_start_failed` | Still failing after self-recovery. Read `stderr_tail` · `causes` and decide |
-- **Before you drive the web for the first time, read the safety contract in `references/web.md`.**
-
-## Desktop — use this when
-
-A program window that is neither a web page nor an emulator: an installer wizard, an OS dialog, a desktop app's settings, a macOS notification. **Windows and macOS.**
-
-```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop doctor                      # packages · security prompt · input session
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop session start --purpose "#985 installer"   # tell the user: keyboard and mouse in use
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop windows                     # titles for --window
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop find --window "Setup" --text "Next"   # candidates with ref · mutating
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop click --ref 3 --shot after_next      # transport: invoke (no mouse) or mouse
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop type --ref 2 --cred <name>           # password fields only via --cred / --text-env
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop wait --text "Completed" --timeout 120
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop wait --window overlay --text "Apple" --timeout 60   # macOS notification / system dialog → matches with ref
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop click --ref 1 --action "<name>"      # a banner's hidden button, name from named_actions (UI language)
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/launch_cli.py desktop session stop                # always, when done
-```
-
-- Reads (`windows` · `tree` · `find` · `shot` · `wait`) need no session. Anything that changes the screen needs **this session's** `desktop session start`. There is one input session per computer; it expires after 10 idle minutes and the session-end hook releases it.
-- **Buttons that install, agree, finish, delete or save are blocked** (`mutating_blocked`) — on by default, unlike `web`. Tell the user what it changes, then `--confirm-mutating` on that click. `--at` ratio clicks always need it (nothing tells what they press).
-- Prefer text (`find` · `tree` · `wait --text`) over `shot`. Read the image only when the window has no readable elements (`tree_unavailable`).
-
-| code | Next action |
-|---|---|
-| `desktop_deps_missing` | Ask the user, then `desktop setup` (Windows: mss · comtypes, macOS: mss · pyobjc — into the shared venv) |
-| `permission_missing` (macOS) | The host app (`host_app` in `desktop doctor`: Terminal, Paseo, Cursor…) needs **both** Accessibility and Screen Recording — `click` fails without Screen Recording. Only a person can grant it: relay `ask_user`, then reopen that app |
-| `desktop_session_required` · `desktop_busy` | `desktop session start` · another session holds the keyboard and mouse — wait or ask |
-| `user_interrupted` | The user moved the mouse or typed (`input_detected`). Stop, ask, and `desktop session resume` only after they agree |
-| `needs_user` · `screen_locked` · `elevated_window` | UAC / sign-in prompt · locked screen · an administrator window. Only a person can answer — relay `ask_user` |
-| `mutating_blocked` | Relay `ask_user`; after approval, the `next` command |
-| `not_found` · `window_not_found` · `ref_stale` | Pick from `candidates` · the screen changed since `find` — `find` again |
-| `secret_requires_cred` | Password field: `--cred <name>` or `--text-env VAR` |
-| `tree_unavailable` | `desktop shot`, read it, `click --at x,y --confirm-mutating` after asking |
-
-Details: `references/desktop.md`. Apple Account code on this Mac during a web sign-in: `references/web-sign-in.md` (Apple).
-
-## render · server · credentials · memory — use this when
-
-- For states that are hard to reach on a real device (empty list · long text · permission denied): `render snapshot` → temporary render code → `render run`.
-  On `render_failed`, read `first_error` first (or `output_tail` if absent) and fix it. In `residue`, delete **only what you created** (`references/render.md`).
-- Decide how to connect to the server by reading the code, and write it down with `access set`. `http --url /path` · `db --profile db --sql …` · `logs --tail 100`.
-- Before touching a server, a DB or a login screen, and before saying "the user has to log in themselves", **check `cred list` first.**
-  Use only entries whose `use_when` matches. For new information, ask whether you may save it, then `cred set`. Remote: `ssh --cred <name> --command '…'` (without saving: `ssh --host … --user … --password-env|--key-path …`).
-  Admin rights on this Mac: `local sudo --cred <name> -- <command>` (the user does the first registration with `cred set --prompt`). Details: `references/credentials.md`.
-- **If a response contains `memory`, read it first and try that approach first** (it is attached automatically — no separate recall needed). After using it, run `learn --key <that key> --result ok|fail`.
-  If `learn_hint` arrives, record the approach that got you unstuck with `learn`. For methods unrelated to the repo, use `--scope machine`.
-  Secrets and host-mouse methods are never stored. Run `shrink` on captures before attaching them to an issue. Details: `references/memory.md`.
-- **If a response contains `harness`, open its `readme` before repeating work on that site, app or window** and follow its loop and human-check points (helper scripts are optional; check the screen when it differs).
-  Before site work you have done before, `harness match --url <url>` (or `harness list`) even when nothing came in a response. When a workflow repeats, create one with `harness new <name> --url "<pattern>"` (apps: `--app <package/bundle ID>`, desktop: `--window "<title>"`)
-  and put helper scripts in that folder, not in a random project folder. Roles: `journal` = context log of one task · `learn` = one-line conclusion · `harness` = the guide + helpers. Details: `references/harness.md`.
+| `../references/common-rules.md` | Always, at start: absolute rules, confirmation gates, issue state, push |
+| `../references/agent-conduct.md` | When a tool is missing or you are about to say it cannot be done |
+| `../references/sensitive-info.md` | Right before saving an artifact or posting to GitHub: masking table, self-review |
+| `../references/evidence-attach.md` | When attaching screenshots, logs or results to an issue or comment |
 
 ## Customize
 

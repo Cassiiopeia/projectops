@@ -13,6 +13,15 @@ The key points:
 - **The agent interprets, the script executes.** The script does not guess the project structure.
 - Take arguments as argparse named flags or environment variables. Do not chain several optional positional arguments (#622).
 
+## Contents
+
+- [Output JSON contract](#output-json-contract)
+- [New app platform](#new-app-platform--one-backend-class--registry-entry--tests)
+- [New web action](#new-web-action)
+- [New app action](#new-app-action)
+- [New subcommand](#new-subcommand)
+- [Checking a change](#checking-a-change)
+
 ## Output JSON contract
 
 | Field | When | Meaning |

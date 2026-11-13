@@ -11,9 +11,21 @@ even when the implementation is right, and then nobody trusts the result.
 to compare against the design**.
 
 ```bash
-# Find the pro-launch scripts by running the standard block from common-rules.md with SKILL=pro-launch → {LAUNCH}
+# pro-launch CLI: python3 ~/.projectops/bin/projectops_cli.py launch (fallback: ../../references/script-invocation.md, SKILL=pro-launch) → {LAUNCH}
 {PYTHON} {LAUNCH}/launch_cli.py get-output-path --skill figma --title "{screen name}"
 ```
+
+## Contents
+
+- [Where captures differ from the pro-launch defaults, at a glance](#where-captures-differ-from-the-pro-launch-defaults-at-a-glance)
+- [The four things to match](#the-four-things-to-match)
+- [Safe area: the spot most often wrong](#safe-area-the-spot-most-often-wrong)
+- [Keep comparison renders separate from regression goldens](#keep-comparison-renders-separate-from-regression-goldens)
+- [Record what you compared against](#record-what-you-compared-against)
+- [Flutter](#flutter)
+- [React (web)](#react-web)
+- [React Native](#react-native)
+- [Other frameworks](#other-frameworks)
 
 ## Where captures differ from the pro-launch defaults, at a glance
 

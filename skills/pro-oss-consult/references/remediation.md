@@ -2,6 +2,17 @@
 
 After you find defects: what to **fix through the API**, what to **add as files**, what to take only **as far as a draft**, and what to **only suggest**.
 
+## Contents
+
+- [Common rules for every fix](#common-rules-for-every-fix)
+- [Grades](#grades)
+- [Things that are "drafts", not file additions: do not make anything up](#things-that-are-drafts-not-file-additions-do-not-make-anything-up)
+- [When adding `dependabot.yml`](#when-adding-dependabotyml)
+- [When changing labels](#when-changing-labels)
+- [Translating to English](#translating-to-english)
+- [Handling secrets and private information](#handling-secrets-and-private-information)
+- [Commit and push](#commit-and-push)
+
 ## Common rules for every fix
 
 - Every fix is applied **per repo**, after you show a plan and get approval. Organization repos are shared with teammates.

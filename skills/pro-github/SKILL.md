@@ -51,31 +51,11 @@ Every command is `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py <subco
 | Create a repository (PAT user or org; `repo_exists` if taken) | `create-repo {owner} {name} [--private] [--description D] [--auto-init] [--dry-run]` | `references/explore.md` |
 | List · create/update Actions secrets | `secrets list\|set` | `references/secrets.md` |
 
-## Find the scripts
+## Calling the CLI
 
-> **Skip the search below if the fixed entry point exists** (#942): `~/.projectops/bin/projectops_cli.py` appears after any CLI has run once. Each call finds the newest installed script and passes the arguments through, so a plugin update mid-session does not pin you to an old path.
-> `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py github <subcommand> ...` (if it is missing or returns `scripts_not_found`, use the search below). If the response has `newer_installed`, call this entry point again.
-> ⚠️ In zsh, do not store the command in a variable and call it (`P="python3 …"; $P` → words are not split, exit 127). Wrap it in a function: `G(){ PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py github "$@"; }`, then `G get-issue {owner} {repo} 12`.
-
-The scripts live in the **harness install path**. User projects have no `skills/` folder (it is excluded on install). Search once: local (this repo) first, then the install path (`../references/common-rules.md` §"Script lookup").
-**The Bash tool resets its state on every call.** Write the printed real paths as literal values in place of `{PYTHON}` · `{SCRIPTS}` · `{PROJECT_ROOT}` in later blocks.
-
-```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
-[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SKILL=pro-github; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
-  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
-done
-# Home-copied installs from npx projectops: GitHub Copilot and Cursor (#200)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.copilot ~/.cursor; do [ -d "$B/skills/$SKILL/scripts" ] && { ROOT="$B"; break; }; done
-SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops skill scripts not found. Check the plugin installation."; exit 1; }
-echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS PROJECT_ROOT=$PROJECT_ROOT"
-git remote get-url origin
-```
+`PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py github <subcommand> [args]` (Windows: `python`). Later blocks write `{PYTHON} {SCRIPTS}/github_cli.py` for this entry point.
+If that file is missing or answers `scripts_not_found`, find the scripts with the fallback block in `../references/script-invocation.md` §Fallback lookup block (`SKILL=pro-github`) and call `github_cli.py` directly.
+`{PROJECT_ROOT}` is the git root. Read owner/repo once with `git remote get-url origin`.
 
 ## Before you start
 
@@ -84,7 +64,7 @@ git remote get-url origin
 > ⚠️ **Do not search for the config.** `config.json` lives only at the fixed path `{HOME}/.projectops/config/config.json`; read it directly with the Read tool. Plugin cache searches are **for scripts only**, and the config is not in there. Digging through the cache leads to a false "no config" and asks for an already registered PAT again.
 > If the file does not exist, collect the PAT and repos interactively with §2–5 of `../references/config-rules.md` and save them (shared by all GitHub skills).
 
-**Pick the repo**: take owner/repo from `git remote get-url origin` in the block above (`https://github.com/{owner}/{repo}.git` or `git@github.com:{owner}/{repo}.git`) and match it against config `repos`.
+**Pick the repo**: take owner/repo from `git remote get-url origin` (`https://github.com/{owner}/{repo}.git` or `git@github.com:{owner}/{repo}.git`) and match it against config `repos`.
 
 - If it matches, use that repo. If not, list the config `repos` with numbers and let the user choose.
 - **If `$ARGUMENTS` names `owner/repo`**, skip remote detection and use that repo.
@@ -179,6 +159,17 @@ The action name always comes right after `actions` (`actions show-run {owner} {r
 | `merge-pr` `not_mergeable` · `sha_mismatch` · `method_not_allowed` | 405 conflict / failed checks / draft · 409 · 422 rebase not allowed | Tell the user the cause and wait for instructions |
 | API rate limit | `X-RateLimit-Remaining: 0` | Tell the user the limit was hit |
 | Network error | Connection failed | Check the exit code, retry once, report if it fails again |
+
+## Shared references
+
+| Document | Read when |
+|---|---|
+| `../references/common-rules.md` | Always, at start: absolute rules, confirmation gates, issue state, push |
+| `../references/work-start-protocol.md` | Before changing code: branch and issue checks, worktree question |
+| `../references/commit-convention.md` | When proposing a commit message or choosing its type |
+| `../references/sensitive-info.md` | Right before saving an artifact or posting to GitHub: masking table, self-review |
+| `../references/evidence-attach.md` | When attaching screenshots, logs or results to an issue or comment |
+| `../references/agent-conduct.md` | When a tool is missing or you are about to say it cannot be done |
 
 ## Customize
 

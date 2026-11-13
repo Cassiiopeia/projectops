@@ -43,25 +43,25 @@ If preferences have `sections`, use them for the review result's section layout.
 
 ## Save the output
 
-Do not build the save path yourself; get it from the CLI (`../references/doc-output-path.md`, standard self-contained 5-line call):
+Do not build the save path yourself; get it from the CLI (`../references/doc-output-path.md`):
 
 ```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
-[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-SKILL=pro-review; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
-  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
-done
-# Home-copied installs from npx projectops: GitHub Copilot and Cursor (#200)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.copilot ~/.cursor; do [ -d "$B/skills/$SKILL/scripts" ] && { ROOT="$B"; break; }; done
-SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops skill scripts not found. Check the plugin installation."; exit 1; }
-PYTHONIOENCODING=utf-8 "$PYTHON" "$SCRIPTS/review_cli.py" get-output-path review --title "{title}"
+PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py review get-output-path review --title "{title}"
 ```
 
+If that entry point is missing or answers `scripts_not_found`, find the scripts with the fallback block in `../references/script-invocation.md` §Fallback lookup block (`SKILL=pro-review`) and call `review_cli.py` directly (Windows: `python`).
+
 Save the file at the path in the `path` field of the output JSON. If `ok: false`, read `code` and `next` and stop. Do not make up a path.
+
+## Shared references
+
+| Document | Read when |
+|---|---|
+| `../references/common-rules.md` | Always, at start: absolute rules, confirmation gates, issue state, push |
+| `../references/project-detection.md` · `../references/code-style-detection.md` | At start of code work: detect the project type and code style |
+| `../references/tech-spring.md` · `../references/tech-react.md` · `../references/tech-flutter.md` | When the project is that stack |
+| `../references/work-start-protocol.md` | Before changing code: branch and issue checks, worktree question |
+| `../references/sensitive-info.md` | Right before saving an artifact or posting to GitHub: masking table, self-review |
 
 ## Customize
 

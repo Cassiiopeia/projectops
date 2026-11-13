@@ -76,6 +76,14 @@ Summarize the results for the user. If there are errors, give the cause and the 
 - `references/troubleshooting.md`: Synology docker absolute path, `wget`, Windows PowerShell, common pitfalls (per-server-type knowledge).
 - `scripts/ssh_connect.py`: paramiko-based compatibility path. Use it only where `launch_cli` cannot be used (ssh older than OpenSSH 8.4 with no sshpass). It also takes the password from the `SSH_PASSWORD` environment variable.
 
+## Shared references
+
+| Document | Read when |
+|---|---|
+| `../references/common-rules.md` | Always, at start: absolute rules, confirmation gates, issue state, push |
+| `../references/sensitive-info.md` | Right before saving an artifact or posting to GitHub: masking table, self-review |
+| `../references/config-rules.md` | When reading or writing `~/.projectops/config/config.json` |
+
 ## Customize
 
 Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start: run the snippet in `../references/preferences.md` with `SKILL_ID=pro-ssh`.

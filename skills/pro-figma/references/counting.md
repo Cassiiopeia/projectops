@@ -2,6 +2,13 @@
 
 > When to read: Phases 0 · 1, right after getting the output locations and before classifying the `coverage` result. For a Figma file you have not used before, read `../../references/figma-mcp.md` first.
 
+## Contents
+
+- [Why count](#why-count)
+- [Phase 0: output locations](#phase-0-output-locations)
+- [Phase 0: read Figma (summary)](#phase-0-read-figma-summary)
+- [Phase 1: classify the dump without gaps ⚠️](#phase-1-classify-the-dump-without-gaps-)
+
 ## Why count
 
 **You cannot catch it by eye.** A button once shipped with the inner three of its four effect lines missing.

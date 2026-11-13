@@ -4,6 +4,15 @@
 > Rebuild: `python3 scripts/build_troubleshooting.py skills/<skill>` (from the repo root).
 > Writing rules: `skills/references/memory-principles.md` §6. The `known_fix` in failure responses summarizes these entries.
 
+## Contents
+
+- [Web (`web`)](#web-web) — 18 entries
+- [Android (`android`)](#android-android) — 10 entries
+- [iOS (`ios`)](#ios-ios) — 10 entries
+- [SSH (`ssh`)](#ssh-ssh) — 2 entries
+- [General (`general`)](#general-general) — 12 entries
+- [desktop (`desktop`)](#desktop-desktop) — 5 entries
+
 ## Web (`web`)
 
 | id | Title | Codes |

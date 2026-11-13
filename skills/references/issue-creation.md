@@ -4,9 +4,16 @@ When the user asks to **create a new GitHub issue** (for example "make an issue"
 
 > Work "other than creation" (reading, editing, comments, labels, assignees, PRs) follows `pro-github/SKILL.md`. This document is **for the creation workflow only**.
 
-All commands take the form `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py <subcommand> ...`. Fill in `{PYTHON}`, `{SCRIPTS}`, and `{PROJECT_ROOT}` with the real paths you got by running "Finding the scripts" in `pro-github/SKILL.md` once (Bash resets its state on every call). The CLI loads the PAT automatically.
+All commands take the form `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py <subcommand> ...`. `{PYTHON} {SCRIPTS}/github_cli.py` stands for the fixed entry point `python3 ~/.projectops/bin/projectops_cli.py github` (or the paths printed by the fallback block in `script-invocation.md`); `{PROJECT_ROOT}` is the git root. The CLI loads the PAT automatically.
 
 Talk to the user in the user's language (or the configured `language` preference). The message templates below are reference wording in English.
+
+## Contents
+
+- [Before starting](#before-starting)
+- [Allowed emoji + tag rules](#allowed-emoji--tag-rules)
+- [Never](#never)
+- [Process](#process)
 
 ## Before starting
 
@@ -53,7 +60,7 @@ Talk to the user in the user's language (or the configured `language` preference
 | `📄[Docs]` | `📄[문서]` | When it is about documentation |
 | `⌛[~month/day]` | `⌛[~월/일]` | When there is a due date |
 
-**Rules**: no space between the emoji and `[`. No emoji outside the list above.
+**Rules**: no space between the emoji and `[`. No emoji outside the list above, and no separator emoji such as `·`.
 The copy-paste example in template comments has a space, like `❗ [Bug][Category]`, but **write it without the space in the title**. Every filed issue title is written that way, and the issue helper and commit template strip the tag the same way either way, so keep a single spelling.
 
 ## Never
@@ -138,10 +145,10 @@ cd "{PROJECT_ROOT}" && PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py g
 ```
 
 - Example `path`: `<artifact root>/issue/YYYYMMDD_001_title.md`
-- Because it runs before filing, it gets **the day's sequence number** (`001`, `002`…) instead of an issue number. Even on an issue branch, it does not borrow that branch's number. No `TMP` prefix (`common-rules.md` §Issue MD file name rule)
+- Because it runs before filing, it gets **the day's sequence number** (`001`, `002`…) instead of an issue number. Even on an issue branch, it does not borrow that branch's number. No `TMP` prefix, no emoji in file names
 - The emoji and `[tags]` in the title are dropped from the file name automatically
 
-**Right before saving**: review the whole body with the **self-review right before saving a file** protocol in `common-rules.md`. Mask any sensitive information found.
+**Right before saving**: review the whole body with the **self-review right before saving a file** protocol in `sensitive-info.md`. Mask any sensitive information found.
 
 After saving, branch on `AUTO_APPROVE` / `CONFIG_HAS_KEY` from [Before starting §3].
 

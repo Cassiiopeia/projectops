@@ -1,6 +1,6 @@
 ---
 name: pro-presentation
-description: "Prepare a talk: build or import the deck as HTML, rehearse it out loud slide by slide with coaching that fits the script to the speaker's mouth and remembers their directions, then export PDF and an editable PPT checked against the HTML."
+description: "Prepare a talk: build or import the deck as HTML, rehearse it aloud slide by slide with coaching that fits the script to the speaker and remembers their directions, export PDF and editable PPT. Use for 'let's rehearse', 'make slides', 'review my script', 'export to PPT'."
 ---
 
 # Presentation: build the deck, rehearse it, export it
@@ -70,6 +70,13 @@ Run `check` after structural edits and whenever time matters.
 - Do not invent numbers or facts for a slide. Ask, or leave a visible placeholder.
 - Do not put the deck in git unless the user removes the deck's `.gitignore` lines.
 - Do not overwrite an export; versions exist so an open PPT is never in the way.
+
+## Shared references
+
+| Document | Read when |
+|---|---|
+| `../references/common-rules.md` | Always, at start: absolute rules, confirmation gates, issue state, push |
+| `../references/agent-conduct.md` | When a tool is missing or you are about to say it cannot be done |
 
 ## Customize
 

@@ -7,6 +7,14 @@
 
 Create **2 rules** in total: one for HTTPS (443) and one for the HTTP→HTTPS redirect (80→443).
 
+### Contents
+
+- [Rule 1: HTTPS proxy (443 → local port)](#rule-1-https-proxy-443--local-port)
+- [Rule 2: HTTP → HTTPS redirect (80 → 443)](#rule-2-http--https-redirect-80--443)
+- [(Conditional) Extra settings for WebSocket services](#conditional-extra-settings-for-websocket-services)
+- [Output example (regular service)](#output-example-regular-service)
+- [Output example (WebSocket service)](#output-example-websocket-service)
+
 ### Rule 1: HTTPS proxy (443 → local port)
 
 **General tab:**

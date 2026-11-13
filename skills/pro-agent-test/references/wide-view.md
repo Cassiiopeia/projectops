@@ -4,6 +4,13 @@
 
 This expands Phase 4.5 · 4.6 · 4.7 · 4.8 of `SKILL.md`.
 
+## Contents
+
+- [Phase 4.5 — Other places of the same kind ⚠️](#phase-45--other-places-of-the-same-kind-)
+- [Phase 4.6 — The first run in someone else's environment ⚠️](#phase-46--the-first-run-in-someone-elses-environment-)
+- [Phase 4.7 — Count the ripple effects ⚠️](#phase-47--count-the-ripple-effects-)
+- [Phase 4.8 — Ask whether this is right](#phase-48--ask-whether-this-is-right)
+
 ## Phase 4.5 — Other places of the same kind ⚠️
 
 **One feature passing is not the end.** Check whether other places of the same kind behave the same.

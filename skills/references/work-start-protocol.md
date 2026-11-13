@@ -1,6 +1,6 @@
 # Work start and Git context check protocol (detail)
 
-The detail behind `common-rules.md` §"Work start protocol" and §"Git context check protocol". Do this before
+The detail behind step 4 (Git context) of `common-rules.md` §"Work start protocol". Do this before
 starting work that changes code (implementation, bug fixes, refactoring, and so on).
 
 Ask the questions below in the user's language (or the configured `language` preference). The English text is the reference wording.

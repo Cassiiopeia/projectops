@@ -12,6 +12,12 @@ Two principles:
 2. **`render run` only runs, collects, cleans up, and checks for leftovers.** The command enforces a `git status` check
    that the repo is the same as before.
 
+## Contents
+
+- [Order — this order is the contract](#order--this-order-is-the-contract)
+- Per stack: [Flutter](#flutter) · [React / Next](#react--next) · [React Native](#react-native) · [Spring server rendering](#spring-server-rendering-thymeleaf-etc) · [Pure API server](#pure-api-server--no-screen)
+- [When you cannot render — ASCII wireframe](#when-you-cannot-render--ascii-wireframe)
+
 ## Order — this order is the contract
 
 ```bash

@@ -5,6 +5,18 @@
 **The classification table is the worklist.** Handle the items `coverage` listed one by one, applying the rules
 in this document. If you skip the list and work from the picture alone, the small and subtle things simply get dropped.
 
+## Contents
+
+- [Before you start: see what this project uses](#before-you-start-see-what-this-project-uses)
+- [Core principles](#core-principles)
+- [What, in which unit](#what-in-which-unit)
+- [By framework](#by-framework)
+- [Position: copy the design's coordinates ⚠️](#position-copy-the-designs-coordinates-)
+- [Shapes and illustrations are assets, not code ⚠️](#shapes-and-illustrations-are-assets-not-code-)
+- [Split tokens by use, not by value](#split-tokens-by-use-not-by-value)
+- [Leave the reason for approximations and omissions in the code ⚠️](#leave-the-reason-for-approximations-and-omissions-in-the-code-)
+- [After translating](#after-translating)
+
 ## Before you start: see what this project uses
 
 Before translating values, check **the container that will receive them**. If you ignore what the project already uses

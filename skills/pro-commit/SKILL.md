@@ -11,7 +11,7 @@ description: "Create the commit with a message built from the issue number in th
 - Typical requests: "commit this", "write the commit message" (Korean: "커밋해줘", "커밋 메시지 만들어줘").
 
 Extract the issue number from the branch name, read the issue through the GitHub API, then **build a message that follows the commit convention and commit it**.
-Follow the commit convention in `../references/common-rules.md`. User input: $ARGUMENTS
+Apply the absolute rules in `../references/common-rules.md` and the commit convention in `../references/commit-convention.md`. User input: $ARGUMENTS
 
 Talk to the user in the user's language (or the configured `language` preference). The prompts below are written in English as templates; translate them when you show them.
 
@@ -43,30 +43,11 @@ Every command is `{PYTHON} {SCRIPTS}/commit_cli.py <command>`.
 Read only one file, `~/.projectops/config/config.json` (Windows: `C:\Users\<user>\.projectops\config\config.json`), with Read,
 and set `AUTO_APPROVE` and `CONFIG_HAS_KEY`. Precedence (per repo → global → default `false`) and how to update it: `references/approval-gate.md`.
 
-## Find the scripts (once)
+## Calling the CLI (once)
 
-> **Skip the search below if the fixed entry point exists** (#942): `~/.projectops/bin/projectops_cli.py` appears after any CLI has run once. Each call finds the newest installed script and passes the arguments through, so a plugin update mid-session does not pin you to an old path.
-> `PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py commit <subcommand> ...` (if it is missing or returns `scripts_not_found`, use the search below). If the response has `newer_installed`, call this entry point again.
-> In zsh, do not store the command in a variable (`P="python3 …"; $P` exits 127). To shorten it, wrap it in a function: `G(){ PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py commit "$@"; }` → `G get-issue-number`.
-
-**The Bash tool resets its state on every call.** Find the paths once, then **write the real paths as literal values in later blocks.**
-
-```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-PYTHON=$(for _py in python3 python; do _path=$(command -v "$_py" 2>/dev/null) || continue; "$_path" -c "import sys; sys.exit(0)" 2>/dev/null && echo "$_path" && break; done)
-[ -z "$PYTHON" ] && { echo "Python not found"; exit 1; }
-# When developing in this repo the local copy is newer than the cache, so prefer it (user projects use the installed copy)
-SKILL=pro-commit; ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.claude/plugins/cache ~/.codex/plugins/cache ~/.gemini/extensions ~/.pi/agent/git; do
-  H=$(find "$B" -maxdepth 8 -type d -path "*/projectops/*skills/$SKILL/scripts" 2>/dev/null | sort -V | tail -1)
-  [ -n "$H" ] && { ROOT="${H%/skills/$SKILL/scripts}"; break; }
-done
-# Home-copied installs from npx projectops: GitHub Copilot and Cursor (#200)
-[ -d "$ROOT/skills/$SKILL/scripts" ] || for B in ~/.copilot ~/.cursor; do [ -d "$B/skills/$SKILL/scripts" ] && { ROOT="$B"; break; }; done
-SCRIPTS="$ROOT/skills/$SKILL/scripts"
-[ -d "$SCRIPTS" ] || { echo "projectops skill scripts not found. Check the plugin installation."; exit 1; }
-echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS PROJECT_ROOT=$PROJECT_ROOT"
-```
+`PYTHONIOENCODING=utf-8 python3 ~/.projectops/bin/projectops_cli.py commit <subcommand> [args]` (Windows: `python`). Later blocks write `{PYTHON} {SCRIPTS}/commit_cli.py` for this entry point.
+If that file is missing or answers `scripts_not_found`, find the scripts with the fallback block in `../references/script-invocation.md` §Fallback lookup block (`SKILL=pro-commit`) and call `commit_cli.py` directly.
+`{PROJECT_ROOT}` is the git root (`git rev-parse --show-toplevel`).
 
 ## Process
 
@@ -187,6 +168,15 @@ Hash: {first 7 characters of the commit hash}
 To push, run it yourself:
 git push origin {current branch}
 ```
+
+## Shared references
+
+| Document | Read when |
+|---|---|
+| `../references/common-rules.md` | Always, at start: absolute rules, confirmation gates, issue state, push |
+| `../references/commit-convention.md` | When proposing a commit message or choosing its type |
+| `../references/work-start-protocol.md` | Before changing code: branch and issue checks, worktree question |
+| `../references/sensitive-info.md` | Right before saving an artifact or posting to GitHub: masking table, self-review |
 
 ## Customize
 

@@ -1,6 +1,6 @@
 # Commit message convention (detail)
 
-This is the detail behind `common-rules.md` §"Commit message convention". Skills that propose commit messages use it.
+Read when you propose or write a commit message. Skills that propose commit messages use it.
 The format itself is chosen by the person or team. The one thing to respect: if this repo uses `semver_auto`, the commit type decides the release version.
 
 ## Format (projectops team format as an example — the real format is what get-commit-template returns)

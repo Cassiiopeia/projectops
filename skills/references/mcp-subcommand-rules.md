@@ -5,6 +5,19 @@ It is the concrete implementation reference for the "Python behavior script stan
 
 > **Model examples**: the `actions` and `deploy-status` subcommands (`skills/pro-changelog-deploy/scripts/changelog_cli.py`). Read these two before building a new command and give it the same shape.
 
+## Contents
+
+- [Core principle](#core-principle)
+- [1. Input contract — the agent interprets, the .py executes](#1-input-contract--the-agent-interprets-the-py-executes)
+- [2. Output is always JSON — via `emit`](#2-output-is-always-json--via-emit)
+- [3. Reuse `get_github_pat` for the PAT](#3-reuse-get_github_pat-for-the-pat)
+- [4. Catch GitHubAPIError and turn it into JSON](#4-catch-githubapierror-and-turn-it-into-json)
+- [5. Standard library first; otherwise an external package with corporate-network handling](#5-standard-library-first-otherwise-an-external-package-with-corporate-network-handling)
+- [6. Registration](#6-registration)
+- [7. Rules for writing SKILL.md](#7-rules-for-writing-skillmd)
+- [8. argparse failures must be JSON too — `JSONArgumentParser` is mandatory](#8-argparse-failures-must-be-json-too--jsonargumentparser-is-mandatory)
+- [Checklist (when adding a new subcommand)](#checklist-when-adding-a-new-subcommand)
+
 ## Core principle
 
 The agent **passes exactly the right arguments and decides the next action from the returned JSON**. So a subcommand
@@ -107,7 +120,7 @@ For non-fatal partial failures (for example a failed workflow run lookup), **set
 
 ## 7. Rules for writing SKILL.md
 
-- SKILL.md describes **only how to call** (subcommands, arguments, environment variables + routing rules of the form "this input → this subcommand"). Calls take the form `{PYTHON} {SCRIPTS}/<scope>_cli.py`, found with `common-rules.md` §Standard call pattern.
+- SKILL.md describes **only how to call** (subcommands, arguments, environment variables + routing rules of the form "this input → this subcommand"). Calls take the form `{PYTHON} {SCRIPTS}/<scope>_cli.py`, found with `script-invocation.md` (fixed entry point, then the fallback block).
 - Do not inline long Python heredocs in SKILL.md. A `$PYTHON - <<'EOF'` block in SKILL.md violates the standard — move it into a subcommand.
 - Spell out the agent's action per `verdict` in a table (see the verdict table for `deploy-status`).
 - **Every subcommand defined in the CLI must have a call example in that skill's SKILL.md (or a document it explicitly references).** Without an example, the agent guesses the signature and fails (#329). If you cannot give an example, remove it from the CLI surface or move it into an internal function.

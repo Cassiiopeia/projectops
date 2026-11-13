@@ -11,6 +11,14 @@ Applies to: `report` · `review` · `testcase` · `oss-consult`
 Show every message template below in the user's language (or the configured `language` preference). The
 English text is the reference wording, not a fixed string.
 
+## Contents
+
+- [1. Why it is needed](#1-why-it-is-needed)
+- [2. Before starting — the conversation comes first](#2-before-starting--the-conversation-comes-first)
+- [3. Before starting — key questions](#3-before-starting--key-questions)
+- [4. Before saving — the approval gate](#4-before-saving--the-approval-gate)
+- [5. Absolute rules](#5-absolute-rules)
+
 ---
 
 ## 1. Why it is needed

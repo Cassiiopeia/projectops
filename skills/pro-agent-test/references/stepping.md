@@ -4,6 +4,14 @@
 
 This expands Phase 2 · 3 · 6 of `SKILL.md`. For the commands themselves (options, codes), `../../pro-launch/references/app.md` is the source of truth.
 
+## Contents
+
+- [Phase 2 — Secure observability ⚠️](#phase-2--secure-observability-)
+- [Phase 3 — Walking (core loop)](#phase-3--walking-core-loop)
+- [Phase 6 — Reset](#phase-6--reset)
+- [Limits of this approach — when to move to integration_test ⚠️](#limits-of-this-approach--when-to-move-to-integration_test-)
+- [Common pitfalls (from real use)](#common-pitfalls-from-real-use)
+
 ## Phase 2 — Secure observability ⚠️
 
 Before walking, first check **whether you can see the state**.

@@ -1,6 +1,14 @@
-# What worked on this computer · tokens · storage locations
+# What worked on this computer · work journal · storage locations
 
-> When to read: the first time you use `recall`·`learn`·`forget`, when you need to know where state files live, or when captures eat a lot of tokens.
+> When to read: the first time you use `recall`·`learn`·`forget`·`journal`·`kb`, or when you need to know where state files live.
+> Making captures cheaper and safe to post (`shrink` · `mask` · `redact`): [`evidence.md`](evidence.md).
+
+## Contents
+
+- [Remember what worked](#remember-what-worked-it-gets-more-accurate-with-use) — `recall` · `learn` · `forget` · `tidy` · `session-check`
+- [Official knowledge vs my memory](#official-knowledge-vs-my-memory-889) — `kb`
+- [Write down what you did (work journal)](#write-down-what-you-did-work-journal)
+- [Storage locations](#storage-locations) — root lookup order, unknown repo
 
 ## Remember what worked (it gets more accurate with use)
 
@@ -108,17 +116,6 @@ If what is written is outdated or the screen has changed, do not follow it blind
 - Location: `~/.projectops/launch/<owner__repo>/journal.jsonl`.
 - **When the same workflow keeps coming back, give it a harness** (a README guide + helper scripts in one folder, shown automatically for matching URLs, hosts, apps and windows): `harness new <name> --url "<pattern>"`.
   The journal keeps the context of each run; the harness keeps the steps to follow. Details: [`harness.md`](harness.md).
-
-## Save tokens
-
-- Reading screen images is the most expensive thing. **If text can confirm it (`assert` · logs · `app tree` · E2E assertVisible), do not read the screenshot.**
-- Once you build an E2E flow, save its path with `learn` so you do not write it again.
-- Use the default downscaled capture (1200px long side, WebP); use the original only when truly needed, such as for pixel comparison.
-- Shrink with `shrink` — WebP reduces file size and resolution reduces session tokens. You need both.
-
-```bash
-{PYTHON} {SCRIPTS}/launch_cli.py shrink "$SHOT_DIR"/*.png           # long side 1200 + WebP (--max-side · --quality · --keep-format)
-```
 
 ## Storage locations
 

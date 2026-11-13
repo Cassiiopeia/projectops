@@ -8,6 +8,14 @@
 > **Do not use it as a CI gate (by default).** With a badly chosen threshold it goes red every time and nobody looks.
 > Use it as an aid right after implementing, and discuss a gate once it is stable.
 
+## Contents
+
+- [Phase 4: compare by property ⚠️ (before pixels)](#phase-4-compare-by-property--before-pixels)
+- [Phase 5: compare by pixels (secondary)](#phase-5-compare-by-pixels-secondary)
+- [Phase 6: check components separately ⚠️](#phase-6-check-components-separately-)
+- [Phase 7: report](#phase-7-report)
+- [Common pitfalls](#common-pitfalls)
+
 ## Phase 4: compare by property ⚠️ (before pixels)
 
 **A pixel percentage says only where it differs, not what differs or how.**
