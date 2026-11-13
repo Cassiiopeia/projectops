@@ -1,7 +1,22 @@
 # Changelog
 
-**Current version:** 4.101.1  
-**Last updated:** 2026-11-13T12:32:07Z  
+**Current version:** 4.101.2  
+**Last updated:** 2026-11-13T13:23:43Z  
+
+---
+
+## [4.101.2] - 2026-11-13
+
+**PR:** #1150  
+
+**Bug fixes**
+- Browser navigation accepts the address directly (web goto https://…), not only with --url
+- Screenshot results show which page was captured, so a wrong tab is easy to spot
+- Common action names such as "screenshot" now point you to the right command
+
+**Documentation**
+- Reference links inside several skill guides now resolve correctly (thanks to our first community contributors)
+- The contributing guide explains how to claim an issue before starting
 
 ---
 

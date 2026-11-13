@@ -1,14 +1,42 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-13T12:32:07Z",
-    "currentVersion": "4.101.1",
+    "lastUpdated": "2026-11-13T13:23:43Z",
+    "currentVersion": "4.101.2",
     "projectType": "basic",
-    "totalReleases": 403,
+    "totalReleases": 404,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.101.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-13",
+      "pr_number": 1150,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * Browser navigation accepts the address directly (web goto https://…), not only with --url\n  * Screenshot results show which page was captured, so a wrong tab is easy to spot\n  * Common action names such as \"screenshot\" now point you to the right command\n\n* **Documentation**\n  * Reference links inside several skill guides now resolve correctly (thanks to our first community contributors)\n  * The contributing guide explains how to claim an issue before starting",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Browser navigation accepts the address directly (web goto https://…), not only with --url",
+            "Screenshot results show which page was captured, so a wrong tab is easy to spot",
+            "Common action names such as \"screenshot\" now point you to the right command"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Reference links inside several skill guides now resolve correctly (thanks to our first community contributors)",
+            "The contributing guide explains how to claim an issue before starting"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.101.1",
       "project_type": "basic",
