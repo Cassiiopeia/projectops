@@ -215,6 +215,8 @@ deploy/publish 축은 **타입에 따라 적용 자체가 안 될 수 있다.** 
 > **배포 워크플로우를 새로 추가하면 `src/core/branch-sub.js` 의 `DEPLOY_TRIGGER_WORKFLOWS` 에 파일 이름을 넣는다 (#1114).** 푸시되면 배포가 도는 워크플로(스토어·서버·패키지 publish·Vercel)만 해당한다.
 > `deploy_trigger_branch` 를 쓰는 레포에서 이 표에 없는 파일은 기본 브랜치에서 배포가 돌아, 배포 브랜치를 나눴는데도 배포가 엉뚱한 곳에서 도는 사고가 된다. 버전 올림·README 버전·릴리스 노트·이슈 닫기 같은 공통 워크플로는 넣지 않는다(기본 브랜치를 따른다).
 >
+> **CI 사용 시간 절약 옵션(`ci_minutes_saver`, #1114)은 `src/core/ci-minutes-sub.js` 의 파일 이름 표로 바꾼다.** 새 CI 워크플로를 추가하면 표에 넣을지 정한다. 변환은 패턴이 정확히 맞을 때만 걸리므로, 표에 있는 워크플로의 `on:` 블록이나 `ENABLE_IOS` 줄 모양을 바꾸면 표의 변환도 함께 맞춘다(안 맞추면 옵션이 조용히 아무것도 안 한다).
+>
 > 서버 배포 워크플로우(SIMPLE/NONSTOP-*/PR-PREVIEW)는 `server-deploy/`로 묶여 **`deploy=docker-ssh`일 때만 포함**된다(`vercel`/`none`이면 폴더째 제외). publish 워크플로우는 `<type>/publish/<target>/`에 있고 **선택된 publish 타겟 집합**으로 복사가 결정된다(타입은 파일 위치일 뿐 게이트 아님).
 >
 > **확장 규칙(agent 필독)**: 새 "서버 배포" 워크플로우는 **그 타입의 `<type>/server-deploy/`** 에 파일만 넣는다(deploy≠docker-ssh면 자동 제외). 현재 `server-deploy/`를 가진 타입은 `spring`·`python` 두 개다. **타입 폴더 직하위에 두면 `--deploy none`에서도 복사되므로 절대 그렇게 두지 않는다** (실제로 python이 이 함정에 빠져 #521에서 교정됨). 새 publish 타겟은 `<type>/publish/<target>/`에 넣고 마법사 질문 목록에 값을 추가한다. 타입 비종속 배포 타겟(Vercel 등)은 `common/deploy/<target>/`에 넣는다.

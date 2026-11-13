@@ -286,8 +286,10 @@ jobs:
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
 
-          # main(프로덕션) 대비 커밋을 분석하도록 origin/main 확보 — HEAD는 develop 체크아웃
+          # 릴리스 PR base 대비 커밋을 분석하도록 base 확보 — HEAD는 개발 브랜치 체크아웃
           git fetch origin "${{ github.event.pull_request.base.ref }}" 2>/dev/null || true
+          # base 가 main 이 아닌 레포에서도 범위가 비지 않게 넘긴다 (#1114)
+          export COMMIT_RANGE="origin/${{ github.event.pull_request.base.ref }}..HEAD"
 
           echo "🪜 Running the changelog provider ladder (provider=$CHANGELOG_PROVIDER)"
           python3 .github/scripts/changelog_providers/ladder.py
@@ -381,8 +383,10 @@ jobs:
       - name: Collect release range commits
         if: steps.semver_options.outputs.semver_auto == 'true'
         run: |
-          git fetch origin main
-          git log --pretty=%s "origin/main..HEAD" > "$RUNNER_TEMP/commits.txt"
+          # 릴리스 PR base 기준 (#1114) — main 고정이면 기본 브랜치가 다른 레포에서 커밋 0 > 항상 patch
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          git fetch origin "$BASE_REF"
+          git log --pretty=%s "origin/${BASE_REF}..HEAD" > "$RUNNER_TEMP/commits.txt"
           echo "ℹ️ Collected commits: $(wc -l < "$RUNNER_TEMP/commits.txt") lines"
 
       - name: Finalize release version

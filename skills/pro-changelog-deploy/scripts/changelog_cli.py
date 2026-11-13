@@ -288,12 +288,18 @@ def cmd_detect_release_context(args) -> int:
     if shape["release_shape"] == "deploy_branch":
         next_hint = ("agent: deploy-branch repo; follow release_steps with the head/base of release_branches "
                      "instead of branches. Confirm the pair once with the user. " + next_hint)
+    elif shape["release_shape"] == "three_tier":
+        next_hint = ("agent: development > default > deploy repo; the release PR uses branches as usual, then "
+                     "promote_branches carries it to the deploy branch. Follow release_steps. " + next_hint)
 
     return emit({
         "ok": True,
         # 항상 문자열 (#970)
         "summary": (f"release {branches['head']} > {branches['base']} ({source}), app review hint={hint}"
                     if shape["release_shape"] == "standard" else
+                    f"three-tier repo: release {branches['head']} > {branches['base']}, deploy "
+                    f"{shape['promote_branches']['head']} > {shape['promote_branches']['base']}, app review hint={hint}"
+                    if shape["release_shape"] == "three_tier" else
                     f"deploy-branch repo: {shape['release_branches']['head']} > "
                     f"{shape['release_branches']['base']}, app review hint={hint}"),
         "project_root": str(project_root),

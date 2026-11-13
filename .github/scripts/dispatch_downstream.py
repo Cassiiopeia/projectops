@@ -71,9 +71,11 @@ def parse_triggers(text: str, branch: str) -> dict:
 
     has_dispatch = any(re.match(r"^\s*workflow_dispatch:", l) for l in lines)
 
-    # on: 블록 안의 push: 하위 branches 목록을 찾는다.
+    # on: 블록 안의 push: 하위 branches 목록을 찾는다 (형식 3개: ["x"] · 줄바꿈 "- x" · 단일 값 x)
     in_on = False
     in_push = False
+    in_branch_list = False
+    has_branches_key = False
     push_branches: list[str] = []
     for line in lines:
         if re.match(r"^on:", line):
@@ -89,15 +91,36 @@ def parse_triggers(text: str, branch: str) -> dict:
             continue
         if in_push and re.match(r"^\s{2}[a-zA-Z_]+:", line):  # push와 같은 깊이의 다른 이벤트
             in_push = False
-        if in_push:
-            m = re.search(r"branches:\s*\[(.*?)\]", line)
-            if m:
-                push_branches += [b.strip().strip("\"'") for b in m.group(1).split(",") if b.strip()]
+        if not in_push:
+            in_branch_list = False
+            continue
+        # 줄바꿈 목록: branches: 다음 줄들의 "- x"
+        if in_branch_list:
+            item = re.match(r"^\s+-\s*[\"']?([^\"'\s#]+)", line)
+            if item:
+                push_branches.append(item.group(1))
+                continue
+            if line.strip():
+                in_branch_list = False
+        key = re.match(r"^\s+branches:\s*(.*?)\s*$", line)
+        if not key:
+            continue
+        has_branches_key = True
+        value = key.group(1)
+        inline = re.match(r"^\[(.*?)\]", value)
+        if inline:
+            push_branches += [b.strip().strip("\"'") for b in inline.group(1).split(",") if b.strip()]
+        elif value == "":
+            in_branch_list = True
+        else:
+            push_branches.append(value.strip("\"'"))
 
     return {
         "workflow_dispatch": has_dispatch,
         "push_branches": push_branches,
         "on_push_branch": branch in push_branches,
+        # branches: 는 있는데 값을 못 읽음 — 조용히 빠지지 않게 unreachable 로 보고한다
+        "branches_unreadable": has_branches_key and not push_branches,
     }
 
 
@@ -115,6 +138,10 @@ def scan(branch: str, workflows_dir: Path = WORKFLOWS_DIR) -> dict:
             except Exception as e:
                 # 판정 불가 — 깨우지 않되 결과에 남겨 수동 확인 대상으로 드러낸다
                 sys.stderr.write(f"  ⚠️ Could not read triggers: {path.name} ({type(e).__name__}: {e})\n")
+                unreachable.append(path.name)
+                continue
+            if info["branches_unreadable"]:
+                sys.stderr.write(f"  ⚠️ Could not read push.branches: {path.name}\n")
                 unreachable.append(path.name)
                 continue
             if not info["on_push_branch"]:

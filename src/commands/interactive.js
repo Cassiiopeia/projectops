@@ -143,7 +143,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     let deployBranchCreated = null; // #493 — 마법사가 직접 생성했는지 (가이드 기록용)
     let intent = init.intent; // #485 프로젝트 성격
     // 묻지 않는 값 — 저장값 보존 규칙은 resolve-options.js 에 있다
-    const { semverAuto, appRelease, closeOnRelease, excludedWorkflows, storeLocales, storeLocalesIos, storeLocalesPlay, projectsSync } = init;
+    const { semverAuto, appRelease, closeOnRelease, excludedWorkflows, storeLocales, storeLocalesIos, storeLocalesPlay, projectsSync, deployTriggerBranch, ciMinutesSaver } = init;
     const semverAutoNewlyOn = initSources.semverAutoNewlyOn;
     // 레포 문구 언어(#769)·라벨 표기(#776): 기존 레포에는 영문 전환을 한 번만 제안한다(아래).
     let language = init.language;
@@ -333,6 +333,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     const ctx = createContext({
       mode, force: true, types, version, versionCode, branch, paths, deployTarget, publishTargets, includeSecretBackup,
       aiPrSummary, codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync, language, excludedWorkflows, storeLocales, storeLocalesIos, storeLocalesPlay,
+      deployTriggerBranch, ciMinutesSaver,
       repoName, templateVersion, resolvers, envValues, envUseDefaults, now, today,
       // #502 — version 모드가 기존 full 기록을 강등하지 않도록 (full이 우세)
       recordMode: init.recordMode,

@@ -13,7 +13,7 @@ import sys
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import collect_commits, write_pr_body, fail, resolve_language, t  # noqa: E402
+from _common import collect_commits, release_commit_range, write_pr_body, fail, resolve_language, t  # noqa: E402
 
 # base_url + 기본 모델. 모델명은 **버전을 박지 않고 별칭을 쓴다** — 버전이 박힌 이름은
 # 1~2년이면 퇴역한다(실측: gemini-1.5-flash가 404로 죽어 있었다, #566).
@@ -67,7 +67,7 @@ def main():
     else:
         if not base_url:
             fail("openai-compatible: no base_url (ollama needs CHANGELOG_BASE_URL) — falling back")
-        commits = collect_commits(os.environ.get("COMMIT_RANGE", "origin/main..HEAD"), limit=40)
+        commits = collect_commits(release_commit_range(), limit=40)
         prompt = build_prompt("\n".join(commits))
         try:
             content = request_completion(base_url, model, os.environ.get("MODEL_API_KEY", ""), prompt)

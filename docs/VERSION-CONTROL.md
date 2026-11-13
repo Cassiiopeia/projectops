@@ -168,6 +168,30 @@ npx projectops --mode workflows --force --deploy-trigger-branch deploy
 (푸시 트리거, 체크아웃, `git pull`, 브랜치 조건). 버전 올림·README 버전·릴리스 노트·이슈 닫기는 기본 브랜치를 그대로 따른다.
 이후 업데이트도 이 설정을 유지한다. `deploy` 브랜치는 먼저 만들어 둔다. 플래그를 안 주면 아무것도 바뀌지 않는다.
 
+- 릴리스 PR(develop → main)은 지금처럼 버전 확정·릴리스 노트만 하고 배포하지 않는다. 배포는 main 을 `deploy` 로 올릴 때 돈다.
+  `pro-changelog-deploy` 의 `detect-release-context` 가 이 구조를 `release_shape: three_tier` 로 알려 준다.
+- 버전 올림·README 버전 커밋은 기본 브랜치에 남는다. `deploy` 는 main 을 받아 가므로 함께 간다.
+- `.coderabbit.yaml` 의 `auto_review.base_branches` 처럼 레포가 직접 관리하는 파일은 바뀌지 않는다. 필요하면 `deploy` 를 직접 더한다.
+
+## CI 사용 시간 절약 (선택)
+
+비공개 레포는 Actions 사용 시간이 과금된다. 한 번 켜 두면 CI 워크플로가 시간을 덜 쓰는 모양으로 설치된다.
+
+```bash
+npx projectops --mode workflows --force --ci-minutes-saver
+```
+
+| 워크플로 | 켜면 |
+|---|---|
+| `PROJECT-FLUTTER-CI` | PR 에서만 돈다(개발 브랜치 push 제거), 문서만 바뀐 PR 은 건너뛴다, iOS(macOS 러너) 빌드는 수동 실행의 `enable_ios` 로만 |
+| `PROJECT-PYTHON-CI` · `PROJECT-SPRING-NEXUS-CI` | PR 에서만 돈다, 문서만 바뀐 PR 은 건너뛴다 |
+| `PROJECT-REACT-CI` | 문서만 바뀐 push 는 건너뛴다 |
+| `PROJECT-COMMON-SECRET-FILE-UPLOAD` | 수동 실행만 |
+
+`version.yml` 에 `metadata.template.options.ci_minutes_saver: true` 가 기록되고 이후 업데이트도 유지한다. 끄려면 `--no-ci-minutes-saver`.
+개발 브랜치에 직접 push 한 커밋은 CI 가 돌지 않는다. CI 를 필수 상태 검사로 걸어 두었다면 문서만 바뀐 PR 이 그 검사를 계속 기다리므로 필수에서 빼야 한다.
+이미 설치된 `PROJECT-COMMON-SECRET-FILE-UPLOAD` 는 업데이트가 덮어쓰지 않으므로(서버 폴더 이름이 들어 있다) 기존 레포는 `push:` 트리거를 직접 지운다.
+
 ## 버전 증가 규칙
 
 승격 폭은 `version.yml`의 `metadata.template.options.semver_auto`가 정합니다.

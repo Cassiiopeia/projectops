@@ -59,6 +59,8 @@ export function resolveOptions({ flags = {}, existing = null, types = [], cwd = 
     deployBranch: flags.deployBranch || stored.deployBranch || "",
     // #1114 — 비어 있으면 워크플로를 바꾸지 않고 version.yml 에도 쓰지 않는다 (기존 레포 무변화)
     deployTriggerBranch: flags.deployTriggerBranch || stored.deployTriggerBranch || "",
+    // #1114 — 켤 때만 기록·치환. 꺼져 있으면 설치 결과가 바이트 동일
+    ciMinutesSaver: flags.ciMinutesSaver ?? stored.ciMinutesSaver ?? false,
     // #455 — null 이 흘러 provider:"null" 로 기록되던 버그 방지
     changelogProvider: migrateProvider(stored.changelogProvider) ?? "commit",
     changelogBaseUrl: stored.changelogBaseUrl ?? "",
@@ -98,7 +100,7 @@ const TEMPLATE_OPTION_FIELDS = [
   "intent", "deployTarget", "publishTargets", "includeSecretBackup", "aiPrSummary", "projectsSync",
   "changelogProvider", "changelogBaseUrl", "codeReviewCoderabbit", "semverAuto", "appRelease",
   "excludedWorkflows", "storeLocales", "storeLocalesIos", "storeLocalesPlay", "closeOnRelease", "language", "labelStyle",
-  "deployTriggerBranch",
+  "deployTriggerBranch", "ciMinutesSaver",
 ];
 
 /** 실행 context(resolveOptions 값이 펼쳐진 것) > buildVersionYml templateOptions */

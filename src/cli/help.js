@@ -62,6 +62,8 @@ Options
                                              This is PR code review only; release notes do not depend on it
       --projects-sync / --no-projects-sync   keep a GitHub Projects board's Status in step with issue labels. Needs the secret
                                              _GITHUB_PAT_TOKEN and variable PROJECT_URL. omitted: off for new installs, kept if installed
+      --ci-minutes-saver / --no-ci-minutes-saver   private repos: CI on PRs only, docs-only changes skipped,
+                                             iOS CI build and secret backup on manual dispatch only. omitted: off
       --remove-legacy      rename retired old-generation workflows to .bak so they stop running next to their replacements.
                            omitted: they stay and are only listed (an old deploy workflow may be your only live deployment)
       --nexus / --npm-publish  (deprecated: use --publish nexus / --publish npm)
@@ -146,6 +148,8 @@ AI agent 나 CI 는 항상 이렇게 실행한다:      npx projectops --mode <�
                                              PR 코드 리뷰 전용이며 릴리스 노트와 무관하다
       --projects-sync / --no-projects-sync   GitHub Projects 보드의 Status 를 이슈 라벨과 맞춘다. secret _GITHUB_PAT_TOKEN 과
                                              변수 PROJECT_URL 이 필요. 생략: 신규는 제외, 이미 설치돼 있으면 유지
+      --ci-minutes-saver / --no-ci-minutes-saver   private repos: CI on PRs only, docs-only changes skipped,
+                                             iOS CI build and secret backup on manual dispatch only. omitted: off
       --remove-legacy      은퇴한 구세대 워크플로우를 .bak 으로 바꿔 신형과 함께 돌지 않게 한다.
                            생략: 그대로 두고 목록만 안내한다 (옛 배포 워크플로우가 유일한 현역 배포일 수 있다)
       --nexus / --npm-publish  (deprecated — --publish nexus / --publish npm 사용)

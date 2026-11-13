@@ -52,6 +52,22 @@ def _strip_noise(text):
     return re.sub(r" {2,}", " ", s).strip()
 
 
+# 릴리스 PR base 를 모를 때의 마지막 기본값
+DEFAULT_RELEASE_BASE = "main"
+
+
+def release_commit_range():
+    """릴리스 노트 커밋 범위: COMMIT_RANGE > origin/<PR base>..HEAD > origin/main..HEAD (#1114)
+
+    GITHUB_BASE_REF 는 pull_request(_target) 이벤트에서 Actions 가 넣는다. base 가 main 이 아닌 레포에서 범위가 비지 않게 한다.
+    """
+    explicit = os.environ.get("COMMIT_RANGE", "").strip()
+    if explicit:
+        return explicit
+    base = os.environ.get("GITHUB_BASE_REF", "").strip() or DEFAULT_RELEASE_BASE
+    return f"origin/{base}..HEAD"
+
+
 def collect_commits(range_expr, limit=60, fallback_count=30):
     """지정 range의 커밋 제목 수집([skip ci] 제외). 비면 최근 커밋으로 폴백."""
     def _log(args):

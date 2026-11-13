@@ -92,7 +92,7 @@ function classify(srcDir, workflowsDir, envOpts, baseline = null) {
 // hooks: { decisions?: Map<filename, 'skip'|'backup'|'template'> } — 기존 파일(changed) 충돌 결정.
 // 반환: {copied, skipped, templateAdded, optionalCopied, copiedFiles[]} — copiedFiles는 실제 복사·교체된 파일명 (#473 요약용)
 export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
-  const { types = [], paths = new Map(), deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, aiPrSummary = true, projectsSync = true, repoName = "", resolvers = {}, envValues = new Map(), envUseDefaults = true, branch = "", deployBranch = "", deployTriggerBranch = "" } = context;
+  const { types = [], paths = new Map(), deployTarget = "docker-ssh", publishTargets = [], includeSecretBackup = false, aiPrSummary = true, projectsSync = true, repoName = "", resolvers = {}, envValues = new Map(), envUseDefaults = true, branch = "", deployBranch = "", deployTriggerBranch = "", ciMinutesSaver = false } = context;
   const decisions = hooks.decisions instanceof Map ? hooks.decisions : new Map();
   const trace = hooks.trace ?? null; // #494 — 실행 트레이스 (null-safe: 미주입이면 전 이벤트 no-op)
   const workflowsDir = join(targetRoot, PATHS.workflowsDir);
@@ -107,7 +107,7 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   const deployValues = new Map(); // Map<type, Map<key,value>> — deploy 블록용 ask 값
   counters.deployValues = deployValues;
   // 브랜치 전략 (#477) — 표준(main/develop)이면 치환·가상비교 모두 no-op
-  const branches = { defaultBranch: branch || "main", deployBranch: deployBranch || "develop", deployTriggerBranch: deployTriggerBranch || "" };
+  const branches = { defaultBranch: branch || "main", deployBranch: deployBranch || "develop", deployTriggerBranch: deployTriggerBranch || "", ciMinutesSaver: !!ciMinutesSaver };
   // values/useDefaults는 치환 경로에서만 의미 (isUnchanged는 내부에서 useDefaults:true 강제 — 가상 비교 무손상)
   const envOptsFor = (type) => ({ type, projectPath: paths.get(type) || ".", repoName, resolvers, values: envValues, useDefaults: envUseDefaults, branches });
 
@@ -265,9 +265,9 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
     }
   }
 
-  // (6) 브랜치 치환 post-pass (#477) — 표준과 다른 브랜치 전략일 때만 복사된 파일에 적용.
+  // (6) 브랜치 치환 post-pass (#477) — 표준과 다른 브랜치 전략이거나 CI 사용 시간 절약(#1114)일 때만 복사된 파일에 적용.
   // isUnchanged 가상 비교에도 같은 branches가 들어가므로 다음 업데이트에서 재복사 churn이 없다.
-  if (branches.defaultBranch !== "main" || branches.deployBranch !== "develop" || branches.deployTriggerBranch) {
+  if (branches.defaultBranch !== "main" || branches.deployBranch !== "develop" || branches.deployTriggerBranch || branches.ciMinutesSaver) {
     for (const f of counters.copiedFiles) {
       const p = join(workflowsDir, f);
       if (!existsSync(p)) continue;
@@ -275,7 +275,7 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
       const after = substituteBranches(before, branches, f);
       if (after !== before) {
         writeFileSync(p, after);
-        trace?.event("env", "branch-substituted", f, { defaultBranch: branches.defaultBranch, deployBranch: branches.deployBranch, deployTriggerBranch: branches.deployTriggerBranch });
+        trace?.event("env", "branch-substituted", f, { defaultBranch: branches.defaultBranch, deployBranch: branches.deployBranch, deployTriggerBranch: branches.deployTriggerBranch, ciMinutesSaver: branches.ciMinutesSaver });
       }
     }
   }
@@ -348,13 +348,13 @@ function applyDecision(decision, srcDir, workflowsDir, filename, counters, trace
 // 대상 워크플로우 디렉토리에서 changed(충돌) 파일 목록만 뽑는다 — 마법사(commands/interactive.js)가 쓴다.
 // copyWorkflows 본체와 동일한 classify 기준을 써야 결정 Map이 실제 처리 대상과 1:1로 맞는다.
 export function listWorkflowConflicts(context, tempDir, targetRoot = ".") {
-  const { types = [], paths = new Map(), deployTarget = "docker-ssh", repoName = "", resolvers = {}, branch = "", deployBranch = "", deployTriggerBranch = "" } = context;
+  const { types = [], paths = new Map(), deployTarget = "docker-ssh", repoName = "", resolvers = {}, branch = "", deployBranch = "", deployTriggerBranch = "", ciMinutesSaver = false } = context;
   const workflowsDir = join(targetRoot, PATHS.workflowsDir);
   // 설치 시점 기준점(#557) — 없으면 null이고 classify가 종전 2-way로 폴백한다.
   const baseline = readBaseline(targetRoot);
   const projectTypesDir = join(tempDir, PATHS.workflowsDir, PATHS.projectTypesDir);
   const conflicts = []; // [{ filename, type }] — 엔진 처리 순서와 동일 (common → 타입 순회 → server-deploy)
-  const branches = { defaultBranch: branch || "main", deployBranch: deployBranch || "develop", deployTriggerBranch: deployTriggerBranch || "" }; // #477 — 엔진과 동일 기준
+  const branches = { defaultBranch: branch || "main", deployBranch: deployBranch || "develop", deployTriggerBranch: deployTriggerBranch || "", ciMinutesSaver: !!ciMinutesSaver }; // #477 — 엔진과 동일 기준
 
   // common (#560) — 사용자가 손댄 것이 "확인된" 파일만 질문 대상이다.
   // 기준점이 없어 판정 불가인 파일은 엔진이 .bak을 남기고 덮어쓰므로 질문하지 않는다.

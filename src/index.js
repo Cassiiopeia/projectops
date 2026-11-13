@@ -197,7 +197,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     flags: {
       intent: opts.intent, deployTarget: opts.deployTarget, publishTargets: opts.publishTargets,
       includeSecretBackup: opts.includeSecretBackup, aiPrSummary: opts.aiPrSummary, projectsSync: opts.projectsSync,
-      deployBranch: opts.deployBranch, deployTriggerBranch: opts.deployTriggerBranch, codeReviewCoderabbit: opts.codeReviewCoderabbit,
+      deployBranch: opts.deployBranch, deployTriggerBranch: opts.deployTriggerBranch, ciMinutesSaver: opts.ciMinutesSaver, codeReviewCoderabbit: opts.codeReviewCoderabbit,
       language: opts.language, labelStyle: opts.labelStyle,
     },
     existing, types, cwd,

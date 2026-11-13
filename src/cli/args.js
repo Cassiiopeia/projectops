@@ -36,6 +36,7 @@ export function parseArgs(argv) {
     aiPrSummary: null,   // #566 — AI 변경 요약 워크플로우 포함 여부
     codeReviewCoderabbit: null, // --coderabbit: CodeRabbit 코드 리뷰 설정(.coderabbit.yaml) 설치 여부 (null=미지정 → 저장값, 없으면 꺼짐)
     projectsSync: null,  // #716 — Projects 보드 동기화 워크플로우 포함 여부 (null=미지정)
+    ciMinutesSaver: null, // #1114 — CI 사용 시간 절약 치환 (null=미지정 → 저장값, 없으면 꺼짐)
     json: false,         // --json: 기계가 읽는 출력 (--mode options)
     removeLegacy: false, // #809 — 구세대 배포 워크플로우(confirm 티어)도 .bak 으로 치운다
     createDevelopmentBranch: false, // #715 — 비대화형에서 개발 브랜치 생성·push (원격에 쓰므로 명시할 때만)
@@ -187,6 +188,8 @@ export function parseArgs(argv) {
       case "--no-ai-summary": result.aiPrSummary = false; break;
       case "--projects-sync": result.projectsSync = true; break;
       case "--no-projects-sync": result.projectsSync = false; break;
+      case "--ci-minutes-saver": result.ciMinutesSaver = true; break;
+      case "--no-ci-minutes-saver": result.ciMinutesSaver = false; break;
       case "--remove-legacy": result.removeLegacy = true; break;
       case "--create-development-branch": result.createDevelopmentBranch = true; break;
       case "--json": result.json = true; break;

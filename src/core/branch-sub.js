@@ -9,12 +9,17 @@
 //   3) 릴리스 가드:     == 'develop'  (RELEASE-CHANGELOG automerge head 가드)
 //   4) step 내부:       git fetch origin main  (RELEASE-CHANGELOG 커밋 분석)
 //   5) 배포 트리거(#1114): 배포 워크플로 파일만, main > deployTriggerBranch (아래 DEPLOY_TRIGGER_WORKFLOWS)
+//   6) 배포 스크립트 안 브랜치 검사(#1114): [ "$BRANCH" == "main" ] (REACT-CICD 허용 브랜치 검사)
+//   7) CI 사용 시간 절약(#1114): ciMinutesSaver 일 때 ci-minutes-sub.js (브랜치 치환보다 먼저, 템플릿 원문 기준)
+
+import { substituteCiMinutesSaver } from "./ci-minutes-sub.js";
 
 // main(기본 브랜치) 계열 치환
 function subDefault(s, db) {
   s = s.replace(/^(\s*branches:\s*\[\s*["']?)main(["']?\s*\])/gm, `$1${db}$2`);
   s = s.replace(/^(\s*-\s*)main(\s*(?:#.*)?)$/gm, `$1${db}$2`);
   s = s.replace(/\bgit fetch origin main\b/g, `git fetch origin ${db}`);
+  s = s.replace(/"\$BRANCH" == "main"/g, `"$BRANCH" == "${db}"`);
   return s;
 }
 
@@ -44,10 +49,11 @@ function subDeployTrigger(s, trigger) {
   s = s.replace(/^(\s*ref:\s*)main(\s*(?:#.*)?)$/gm, `$1${trigger}$2`);
   s = s.replace(/\bgit pull origin main\b/g, `git pull origin ${trigger}`);
   s = s.replace(/refs\/heads\/main\b/g, `refs/heads/${trigger}`);
+  s = s.replace(/"\$BRANCH" == "main"/g, `"$BRANCH" == "${trigger}"`);
   return s;
 }
 
-// content에 브랜치 설정을 적용한 결과를 반환. branches 미지정/표준값이면 원본 그대로.
+// content에 브랜치 설정(+ CI 사용 시간 절약)을 적용한 결과를 반환. branches 미지정/표준값이면 원본 그대로.
 // 플레이스홀더 2단 치환: 값 충돌 방지 (예: 기본 브랜치=develop인 레포에서 main→develop 치환 결과가
 // 곧이어 develop→X 치환에 다시 걸리는 연쇄 오염을 차단).
 // filename: 배포 트리거 치환(#1114)이 배포 워크플로 파일에만 걸리게 하는 기준. 없으면 배포 트리거 치환은 건너뛴다.
@@ -57,6 +63,7 @@ export function substituteBranches(content, branches = null, filename = "") {
   const dev = branches.deployBranch || "develop";
   const trigger = branches.deployTriggerBranch || "";
   let s = String(content);
+  if (branches.ciMinutesSaver) s = substituteCiMinutesSaver(s, filename);
   const T_DB = "__PJOPS_DEFAULT__";
   const T_DEV = "__PJOPS_DEPLOY__";
   const T_TRIGGER = "__PJOPS_TRIGGER__";

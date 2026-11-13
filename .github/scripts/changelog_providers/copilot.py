@@ -10,7 +10,7 @@ GitHub Models 종료 이후, **외부 API 키 없이** GitHub 안에서 릴리�
   steps:
     - run: npm install -g @github/copilot
 
-입력: COMMIT_RANGE (기본 origin/main..HEAD), GITHUB_TOKEN
+입력: COMMIT_RANGE (기본 origin/<PR base>..HEAD, _common.release_commit_range), GITHUB_TOKEN
 출력: 성공 시 pr_body.md + stdout `PROVIDER=copilot` + exit 0. 실패 시 exit 1 (폴백).
 
 주의 — 과금 단위가 토큰이 아니라 **요청 수(Premium Request)**다. 실측으로 릴리스 1회에
@@ -23,7 +23,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import collect_commits, write_pr_body, fail, resolve_language, t  # noqa: E402
+from _common import collect_commits, release_commit_range, write_pr_body, fail, resolve_language, t  # noqa: E402
 
 def build_prompt(commits, lang=None):
     """프롬프트 본문은 카탈로그에 있다 — 출력 언어와 분류 이름이 레포 언어를 따라야 한다 (#793)."""
@@ -36,7 +36,7 @@ def main():
     if not os.environ.get("GITHUB_TOKEN"):
         fail("copilot: no GITHUB_TOKEN (needs permissions: copilot-requests: write) — falling back")
 
-    commits = collect_commits(os.environ.get("COMMIT_RANGE", "origin/main..HEAD"))
+    commits = collect_commits(release_commit_range())
     if not commits:
         fail("copilot: no commits to summarize — falling back")
 

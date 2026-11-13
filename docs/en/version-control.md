@@ -169,6 +169,33 @@ workflows only (push trigger, checkout, `git pull`, branch check). Version bump,
 closing keep following the default branch. Later updates keep the setting. Create the `deploy` branch first. Omit the flag
 and nothing changes.
 
+- The release PR (develop → main) still finalizes the version and release notes and does not deploy. Deploys run when main
+  is carried to `deploy`. `detect-release-context` in `pro-changelog-deploy` reports this as `release_shape: three_tier`.
+- Version bump and README version commits stay on the default branch. `deploy` takes main, so they go along.
+- Files the repo manages itself, such as `auto_review.base_branches` in `.coderabbit.yaml`, are not changed. Add `deploy`
+  there yourself if you need it.
+
+## Save CI minutes (optional)
+
+Private repos pay for GitHub Actions minutes. Turn this on once and the CI workflows are installed in a form that uses fewer minutes.
+
+```bash
+npx projectops --mode workflows --force --ci-minutes-saver
+```
+
+| Workflow | When on |
+|---|---|
+| `PROJECT-FLUTTER-CI` | Runs on PRs only (no development branch push), skips PRs that change only docs, the iOS (macOS runner) build runs only on manual dispatch with `enable_ios` |
+| `PROJECT-PYTHON-CI` · `PROJECT-SPRING-NEXUS-CI` | Runs on PRs only, skips PRs that change only docs |
+| `PROJECT-REACT-CI` | Skips pushes that change only docs |
+| `PROJECT-COMMON-SECRET-FILE-UPLOAD` | Manual dispatch only |
+
+This writes `metadata.template.options.ci_minutes_saver: true` into `version.yml` and later updates keep it. Turn it off with
+`--no-ci-minutes-saver`. Commits pushed straight to the development branch no longer run CI. If a CI check is a required
+status check, a docs-only PR waits for it forever, so make it not required. An already installed
+`PROJECT-COMMON-SECRET-FILE-UPLOAD` is never rewritten by updates (it holds the repo's server folder), so on an existing repo
+delete its `push:` trigger by hand.
+
 ## Version bump rules
 
 The size of the bump is decided by `metadata.template.options.semver_auto` in `version.yml`.

@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -69,18 +70,40 @@ def branches_check(project_root: Path, head: str, base: str) -> dict:
 
 # deploy 브랜치형 레포의 배포 브랜치 이름 (개발은 기본 브랜치, 배포는 이 브랜치로 PR)
 DEPLOY_BRANCH_NAME = "deploy"
+_DEPLOY_TRIGGER_RE = re.compile(r"^\s+deploy_trigger_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)", re.MULTILINE)
+
+
+def read_deploy_trigger_branch(project_root: Path) -> str | None:
+    """version.yml options.deploy_trigger_branch (#1114). 없으면 None"""
+    try:
+        text = (project_root / "version.yml").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    m = _DEPLOY_TRIGGER_RE.search(text)
+    return m.group(1) if m else None
 
 
 def detect_release_shape(project_root: Path, branches: dict, check: dict) -> dict:
-    """릴리스 구조 판정: standard(개발 > 기본) | deploy_branch(기본 > deploy, #970)
+    """릴리스 구조 판정: standard(개발 > 기본) | deploy_branch(기본 > deploy, #970) | three_tier(개발 > 기본 > 배포, #1114)
 
-    개발 브랜치가 origin 에 없고 origin/deploy 가 있으면 deploy 브랜치형. 그 외는 standard 그대로
+    개발 브랜치가 origin 에 없고 origin/deploy 가 있으면 deploy 브랜치형.
+    개발 브랜치가 있고 배포 브랜치(deploy_trigger_branch, 없으면 deploy)도 origin 에 있으면 3단. 그 외는 standard
     """
     is_deploy_branch_shape = (not check.get("head_exists")
                               and branches["head"] != DEPLOY_BRANCH_NAME
                               and _ref_exists(project_root, f"origin/{DEPLOY_BRANCH_NAME}"))
-    if not is_deploy_branch_shape:
-        return {"release_shape": "standard"}
+    if is_deploy_branch_shape:
+        return _deploy_branch_shape(branches)
+    trigger = read_deploy_trigger_branch(project_root) or DEPLOY_BRANCH_NAME
+    is_three_tier_shape = (check.get("head_exists")
+                           and trigger not in (branches["head"], branches["base"])
+                           and _ref_exists(project_root, f"origin/{trigger}"))
+    if is_three_tier_shape:
+        return _three_tier_shape(branches, trigger)
+    return {"release_shape": "standard"}
+
+
+def _deploy_branch_shape(branches: dict) -> dict:
     # 개발은 기본 브랜치에서, 릴리스 PR 은 기본 브랜치 > deploy
     head = branches["base"] if branches["base"] != DEPLOY_BRANCH_NAME else "main"
     return {
@@ -93,6 +116,22 @@ def detect_release_shape(project_root: Path, branches: dict, check: dict) -> dic
             f"Step 6: create-pr ... {head} {DEPLOY_BRANCH_NAME} (release notes in the body)",
             f"Step 7: deploy-status --pr N --base {DEPLOY_BRANCH_NAME} (this shape has no automerge: manual_merge_needed tells you to merge)",
             "confirm the pair once with the user (without version.yml, record it in the per-repo config)",
+        ],
+    }
+
+
+def _three_tier_shape(branches: dict, trigger: str) -> dict:
+    # 릴리스 PR(버전 확정·노트)은 개발 > 기본 그대로, 배포는 기본 > 배포 브랜치 반영으로 따로 돈다
+    head, base = branches["head"], branches["base"]
+    return {
+        "release_shape": "three_tier",
+        "release_branches": {"head": head, "base": base},
+        "promote_branches": {"head": base, "base": trigger},
+        "release_steps": [
+            f"run the normal deploy steps with HEAD_BRANCH={head}, BASE_BRANCH={base}: this release PR finalizes the version and notes, it does not deploy",
+            f"after it merges, the deploy workflows run only when {base} reaches {trigger}: "
+            f"create-pr ... {base} {trigger} (no release workflow runs on it, so it never automerges: merge it after the user confirms)",
+            f"ask the user before promoting {base} > {trigger}; app store repos need an explicit deploy request",
         ],
     }
 
