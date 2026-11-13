@@ -29,11 +29,6 @@
 
 **Status: actively maintained.** npm `latest` is exactly what is on the `main` branch; work in progress on `develop` is never published. Versions can still ship several times a day. Note that `npx projectops@<version>` pins the installer only (workflow templates always come from the current `main`) ([releases](https://github.com/Cassiiopeia/projectops/releases)).
 
-<!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
-## Latest version : v4.101.0 (2026-11-13)
-
-[View full version history](CHANGELOG.md)
-
 ---
 
 ## Why this template?
@@ -351,6 +346,13 @@ We would rather tell you up front when this is not a fit.
 - **It adds about 60 files to your repository** (workflows, helper scripts, templates). See [the measurement](#compared-with-other-tools).
 - **New versions ship often.** `latest` follows every push to `main` with no delay. `npx projectops@<version>` pins the installer only; workflow templates always come from the current `main`.
 - **Server deploy workflows assume a Docker server reachable over SSH.**
+
+---
+
+<!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
+## Latest version : v4.101.0 (2026-11-13)
+
+[View full version history](CHANGELOG.md)
 
 ---
 
