@@ -1,7 +1,17 @@
 # Changelog
 
-**Current version:** 4.100.0  
-**Last updated:** 2026-11-13T11:45:55Z  
+**Current version:** 4.100.1  
+**Last updated:** 2026-11-13T11:58:16Z  
+
+---
+
+## [4.100.1] - 2026-11-13
+
+**PR:** #1135  
+
+**Documentation**
+- Skill instructions are reorganized so agents find the right guide in one step, with a contents list on long guides
+- The launch skill is a short routing table, with device and evidence guides split out
 
 ---
 

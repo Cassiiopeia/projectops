@@ -1,14 +1,34 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-13T11:45:55Z",
-    "currentVersion": "4.100.0",
+    "lastUpdated": "2026-11-13T11:58:16Z",
+    "currentVersion": "4.100.1",
     "projectType": "basic",
-    "totalReleases": 399,
+    "totalReleases": 400,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.100.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-13",
+      "pr_number": 1135,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Documentation**\n  * Skill instructions are reorganized so agents find the right guide in one step, with a contents list on long guides\n  * The launch skill is a short routing table, with device and evidence guides split out",
+      "parsed_changes": {
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Skill instructions are reorganized so agents find the right guide in one step, with a contents list on long guides",
+            "The launch skill is a short routing table, with device and evidence guides split out"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.100.0",
       "project_type": "basic",
