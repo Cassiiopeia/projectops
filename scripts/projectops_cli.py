@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 # 고정 진입점 내용 번호: 깔린 번호보다 높을 때만 덮어씀 (이 파일이나 SKILL_CLIS 를 고치면 +1, 안 올리면 새 스킬이 bad_args)
-RESOLVER_REVISION = 6
+RESOLVER_REVISION = 7
 STABLE_ENTRYPOINT_NAME = "projectops_cli.py"
 STABLE_ENTRYPOINT_MODE = 0o755
 SKILLS_ROOT_ENV = "PROJECTOPS_SKILLS_ROOT"
@@ -120,16 +120,33 @@ def _walk_unversioned(base: Path, skill: str):
     return None
 
 
+def readable_cwd(environment=None):
+    """현재 폴더 경로. getcwd 실패(macOS 보호 폴더 EPERM·지워진 폴더) 시 $PWD 로 재진입 후 재시도, 그래도 실패면 None (#1131)"""
+    try:
+        return Path.cwd()
+    except OSError:
+        pass
+    shell_folder = (os.environ if environment is None else environment).get("PWD", "")
+    if not os.path.isabs(shell_folder):
+        return None
+    try:
+        os.chdir(shell_folder)
+        return Path.cwd()
+    except OSError:
+        return None
+
+
 def resolve_scripts_dir(skill: str, cwd=None, home=None, environment=None):
     """찾는 순서(모듈 설명)의 처음 나온 스크립트 폴더. 못 찾으면 None"""
     environment = os.environ if environment is None else environment
-    cwd = Path.cwd() if cwd is None else cwd
+    cwd = readable_cwd(environment) if cwd is None else cwd
     home = Path.home() if home is None else home
     override = environment.get(SKILLS_ROOT_ENV)
     if override:
         candidate = Path(override).expanduser() / "skills" / SKILL_CLIS[skill][0] / "scripts"
         return candidate if is_scripts_dir(candidate, skill) else None
-    checkout = find_checkout_scripts(skill, cwd.resolve())
+    # 현재 폴더를 못 읽으면 체크아웃 찾기만 건너뜀
+    checkout = find_checkout_scripts(skill, cwd.resolve()) if cwd else None
     if checkout:
         return checkout
     versioned = find_versioned_scripts(skill, home, environment)
@@ -184,6 +201,12 @@ def main(arguments: list) -> int:
               '"available_skills": %s, "next": "첫 인자에 스킬 이름을 준다"}' % str(sorted(SKILL_CLIS)).replace("'", '"'))
         return 1
     skill = normalize_skill_name(arguments[0])
+    # 하위 CLI 도 상대 경로를 현재 폴더 기준으로 풀므로 traceback 대신 JSON 으로 멈춤
+    if readable_cwd() is None:
+        print('{"ok": false, "code": "cwd_unreadable", "summary": "cannot read the current folder (macOS privacy '
+              'protection or a deleted folder)", "next": "cd into the project folder again (or cd ~ and pass '
+              'absolute paths such as --root/--deck), then retry"}')
+        return 1
     scripts_dir = resolve_scripts_dir(skill)
     if scripts_dir is None:
         print('{"ok": false, "code": "scripts_not_found", "summary": "no installed pro-%s scripts found", '

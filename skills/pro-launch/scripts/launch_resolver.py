@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 # 고정 진입점 내용 번호: 깔린 번호보다 높을 때만 덮어씀 (이 파일을 고치면 +1 — 안 올리면 퍼지지 않음)
-RESOLVER_REVISION = 3
+RESOLVER_REVISION = 4
 STABLE_ENTRYPOINT_NAME = "launch_cli.py"
 SCRIPTS_OVERRIDE_ENV = "PROJECTOPS_LAUNCH_SCRIPTS"
 # Claude Code 설정 폴더 바꾸기 (예: ~/.claude-b) — 그 아래 plugins/cache 에도 설치본이 있다 (#920)
@@ -110,11 +110,27 @@ def find_newest_installed_version(home: Path, environment: dict | None = None) -
     return max(versions)[0] if versions else None
 
 
+def readable_cwd(environment: dict | None = None) -> Path | None:
+    """현재 폴더 경로. getcwd 실패(macOS 보호 폴더 EPERM·지워진 폴더) 시 $PWD 로 재진입 후 재시도, 그래도 실패면 None (#1131)"""
+    try:
+        return Path.cwd()
+    except OSError:
+        pass
+    shell_folder = (os.environ if environment is None else environment).get("PWD", "")
+    if not os.path.isabs(shell_folder):
+        return None
+    try:
+        os.chdir(shell_folder)
+        return Path.cwd()
+    except OSError:
+        return None
+
+
 def resolve_scripts_dir(cwd: Path | None = None, home: Path | None = None,
                         environment: dict | None = None) -> Path | None:
     """찾는 순서 4단계(모듈 설명) 중 처음 나온 것"""
     environment = os.environ if environment is None else environment
-    cwd = Path.cwd() if cwd is None else cwd
+    cwd = readable_cwd(environment) if cwd is None else cwd
     home = Path.home() if home is None else home
 
     # 1. 직접 지정 (틀린 경로면 조용히 넘어가지 않고 None — 호출자가 알림)
@@ -123,7 +139,7 @@ def resolve_scripts_dir(cwd: Path | None = None, home: Path | None = None,
         override_path = Path(override).expanduser()
         return override_path if is_launch_scripts_dir(override_path) else None
     # 2. 체크아웃 (기여자가 고친 코드가 바로 돌게)
-    checkout = find_repo_checkout_scripts(cwd.resolve())
+    checkout = find_repo_checkout_scripts(cwd.resolve()) if cwd else None
     if checkout:
         return checkout
     # 3. 캐시 최고 버전
@@ -192,6 +208,12 @@ def _ensure_executable(entrypoint: Path) -> None:
 
 def main(arguments: list[str]) -> int:
     """찾기 > 실행 (종료 코드 그대로). 못 찾으면 MCP-style JSON 으로 알림"""
+    # 하위 CLI 도 상대 경로를 현재 폴더 기준으로 풀므로 traceback 대신 JSON 으로 멈춤
+    if readable_cwd() is None:
+        print('{"ok": false, "code": "cwd_unreadable", "summary": "cannot read the current folder (macOS privacy '
+              'protection or a deleted folder)", "next": "cd into the project folder again (or cd ~ and pass '
+              'absolute paths), then retry"}')
+        return 2
     scripts_dir = resolve_scripts_dir()
     if scripts_dir is None:
         override = os.environ.get(SCRIPTS_OVERRIDE_ENV)
