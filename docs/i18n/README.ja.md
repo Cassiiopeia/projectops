@@ -1,3 +1,4 @@
+<!-- translated-from: README.md@ba95162a -->
 <div align="center">
 
 <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/hero-en.webp" alt="Projectops：Issue からリリースまで" width="100%">

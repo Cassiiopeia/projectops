@@ -60,3 +60,12 @@ The docs site has every guide in English (`docs/en/`, served at the site root) a
 under `/ko/`). A new guide needs both files with the same slug, so the language switch lands on the same page.
 Demo GIFs follow the same rule (`name.gif` English, `name.ko.gif` Korean) and are recorded with the scripts in
 `docs/recording/`.
+
+## README translations
+
+`docs/i18n/README.{ko,ja,zh-CN}.md` follow `README.md` by hand. The first line of each records the `README.md` commit it
+matches: `<!-- translated-from: README.md@<commit> -->`. CI (`scripts/check_readme_translations.py`) warns, without
+failing, when `README.md` has changed since that commit, and lists the commits to carry over. Release bot commits
+(`[skip ci]`, the version line) are ignored. After you carry the changes into a translation, set its marker to the newest
+`README.md` commit (`git log -1 --format=%h -- README.md`). Run the check locally with
+`python3 scripts/check_readme_translations.py` (add `--strict` to exit 1 when a translation is behind).
