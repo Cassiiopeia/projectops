@@ -318,6 +318,46 @@ DockerHub를 쓰는 워크플로우는 `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` 
 
 ---
 
+## 선택 워크플로우 설정 관련
+
+### 배포 트리거 브랜치를 정한 뒤 배포 워크플로우가 돌지 않음
+
+**증상**: `--deploy-trigger-branch deploy`(v4.98.0)로 설치한 뒤 `main`에 푸시해도 배포가 돌지 않고, 어디서도 배포가 되지 않습니다.
+
+**원인**: 배포 워크플로우(앱스토어·서버·패키지 publish·Vercel)가 이제 배포 브랜치에 푸시될 때만 돕니다. 원격에 그 브랜치가 없으면 푸시될 일이 없습니다.
+
+**해결**:
+```bash
+git push origin main:deploy     # main에서 deploy 브랜치 생성
+```
+이후에는 `main`을 `deploy`로 올려(머지 또는 푸시) 배포합니다. 릴리스 PR(develop → main)은 지금처럼 버전 확정과 릴리스 노트만 합니다. 자세히: [배포 브랜치 분리](VERSION-CONTROL.md#배포-브랜치-분리-선택)
+
+---
+
+### 문서만 바꾼 PR이 CI 체크를 끝없이 기다림 (CI 사용 시간 절약)
+
+**증상**: `--ci-minutes-saver`(v4.100.0)를 켠 뒤 문서(`**/*.md`, `docs/**`, `LICENSE`)만 바꾼 PR에서 필수 체크가 "Expected — Waiting for status to be reported"로 남고 머지할 수 없습니다.
+
+**원인**: CI 워크플로우가 문서만 바뀐 PR을 건너뛰어(`paths-ignore`) 체크 결과가 오지 않습니다. 돌지 않는 필수 상태 체크가 PR을 막습니다.
+
+**해결**: 브랜치 보호 규칙이나 ruleset에서 그 CI 체크를 필수에서 빼거나, CI 워크플로우에서 `paths-ignore` 줄을 지웁니다. 자세히: [CI 사용 시간 절약](VERSION-CONTROL.md#ci-사용-시간-절약-선택)
+
+---
+
+### `PROJECT-COMMON-SECRET-FILE-UPLOAD`가 여전히 푸시마다 돎 (CI 사용 시간 절약)
+
+**증상**: 기존 저장소에서 `--ci-minutes-saver`를 켰는데도 `PROJECT-COMMON-SECRET-FILE-UPLOAD`가 개발 브랜치 푸시마다 돕니다.
+
+**원인**: 이미 설치된 `PROJECT-COMMON-SECRET-FILE-UPLOAD`는 저장소의 서버 폴더 설정을 담고 있어 업데이트가 다시 쓰지 않습니다. 수동 실행 전용 형태는 새로 설치할 때만 들어갑니다.
+
+**해결**: `push:` 트리거를 직접 지우고 `workflow_dispatch:`는 남깁니다.
+```yaml
+on:
+  workflow_dispatch:
+```
+
+---
+
 ## Organization 설정 체크리스트
 
 Organization 저장소에서 자동화가 작동하지 않을 때:

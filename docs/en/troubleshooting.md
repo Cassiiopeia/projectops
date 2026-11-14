@@ -318,6 +318,46 @@ For workflows that use DockerHub, check the `DOCKERHUB_USERNAME` / `DOCKERHUB_TO
 
 ---
 
+## Optional workflow settings
+
+### Deploy workflows do not run after setting a deploy trigger branch
+
+**Symptom**: You installed with `--deploy-trigger-branch deploy` (v4.98.0). Pushing to `main` no longer deploys, and nothing deploys at all.
+
+**Cause**: The deploy workflows (app store, server, package publish, Vercel) now run only on a push to the deploy branch. If that branch does not exist on the remote, nothing ever pushes to it.
+
+**Fix**:
+```bash
+git push origin main:deploy     # create the deploy branch from main
+```
+After that, deploy by carrying `main` to `deploy` (merge or push). The release PR (develop → main) still only finalizes the version and release notes. See [Separate deploy branch](./version-control.md#separate-deploy-branch-optional).
+
+---
+
+### A docs-only PR waits forever for a CI check (CI minutes saver)
+
+**Symptom**: With `--ci-minutes-saver` (v4.100.0), a pull request that changes only docs (`**/*.md`, `docs/**`, `LICENSE`) shows a required check as "Expected — Waiting for status to be reported" and cannot be merged.
+
+**Cause**: The CI workflow skips docs-only PRs (`paths-ignore`), so the check never reports. A required status check that never runs blocks the PR.
+
+**Fix**: In the branch protection rule or ruleset, make that CI check not required, or remove the `paths-ignore` line from the CI workflow. See [Save CI minutes](./version-control.md#save-ci-minutes-optional).
+
+---
+
+### `PROJECT-COMMON-SECRET-FILE-UPLOAD` still runs on every push (CI minutes saver)
+
+**Symptom**: After turning on `--ci-minutes-saver` in an existing repository, `PROJECT-COMMON-SECRET-FILE-UPLOAD` still runs on pushes to the development branch.
+
+**Cause**: Updates never rewrite an already installed `PROJECT-COMMON-SECRET-FILE-UPLOAD`, because it holds your repository's server folder settings. Only new installs get the manual-only form.
+
+**Fix**: Delete its `push:` trigger by hand and keep `workflow_dispatch:`.
+```yaml
+on:
+  workflow_dispatch:
+```
+
+---
+
 ## Organization settings checklist
 
 When automation does not work in an Organization repository:
