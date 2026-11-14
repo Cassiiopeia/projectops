@@ -163,7 +163,7 @@ Supported types: `spring`, `flutter`, `react` (incl. Next.js), `node`, `python`,
 Everything is on the **[docs site](https://cassiiopeia.github.io/projectops/)**, in English and [Korean](https://cassiiopeia.github.io/projectops/ko/): [Getting started](https://cassiiopeia.github.io/projectops/getting-started) · [CLI](https://cassiiopeia.github.io/projectops/cli) · [Agent Skills](https://cassiiopeia.github.io/projectops/skills) · [Versioning](https://cassiiopeia.github.io/projectops/version-control) · [Changelog](https://cassiiopeia.github.io/projectops/changelog-automation) · [SSH + Docker deploy](https://cassiiopeia.github.io/projectops/ssh-docker-deployment-guide) · [Flutter CI/CD](https://cassiiopeia.github.io/projectops/flutter-cicd-overview) · [Troubleshooting](https://cassiiopeia.github.io/projectops/troubleshooting)
 
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
-## Latest version : v4.104.5 (2026-11-14)
+## Latest version : v4.104.6 (2026-11-14)
 
 [View full version history](CHANGELOG.md)
 
