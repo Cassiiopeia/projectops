@@ -1,7 +1,29 @@
 # Changelog
 
-**Current version:** 4.103.3  
-**Last updated:** 2026-11-14T04:49:34Z  
+**Current version:** 4.104.0  
+**Last updated:** 2026-11-14T05:30:34Z  
+
+---
+
+## [4.104.0] - 2026-11-14
+
+**PR:** #1193  
+
+**New features**
+- Run PowerShell and Python scripts on Windows servers over SSH without quoting or encoding problems
+- Device acquire warns when an Android emulator is almost out of storage
+- Dispatching a workflow refuses when the workflow would build a different branch than you asked for
+
+**Bug fixes**
+- App install says when the emulator is out of storage instead of a generic failure
+- Short (--brief) results keep the text, lines and output of read commands
+- Waiting for a URL no longer matches text inside the query string
+- Render cleanup accepts lists and removes Podfiles created during the render
+- Korean labels render correctly in Flutter render captures
+- PR details include the base and head branch
+- Release branch checks fetch first, so commit counts are current
+- Committing a list of paths from zsh works, and an empty --root is rejected
+- --brief works in the mockup and image tools, --fields always returns JSON, and repeated --ref keeps every reference
 
 ---
 
